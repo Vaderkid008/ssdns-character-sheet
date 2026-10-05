@@ -1,0 +1,701 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.1.0",
+  "id": "c_example_jolene",
+  "createdAt": "2026-09-29T23:00:00.000-05:00",
+  "updatedAt": "2026-09-30T04:57:32.586Z",
+  "shards": {
+    "white": 23,
+    "blue": 14,
+    "green": 2,
+    "yellow": 31,
+    "purple": 0
+  },
+  "character": {
+    "name": "Jolene \"Dusty\" Pike",
+    "player": "Example",
+    "lineage": "nomads",
+    "sublineage": "variant-human",
+    "calling": "hexslinger",
+    "level": 3,
+    "subclass": "chaos-wild-magic",
+    "background": "gunslinger-drifter",
+    "xp": 900,
+    "abilities": {
+      "STR": 10,
+      "DEX": 14,
+      "CON": 14,
+      "INT": 10,
+      "WIS": 12,
+      "CHA": 16
+    },
+    "saveProf": {
+      "STR": false,
+      "DEX": false,
+      "CON": true,
+      "INT": false,
+      "WIS": false,
+      "CHA": true
+    },
+    "skillProf": {
+      "Intimidation": 1,
+      "Perception": 1,
+      "Arcana": 1,
+      "Deception": 1
+    },
+    "partyInspiration": [
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "speed": 30,
+    "armor": "leather-jacket",
+    "hpMax": 20,
+    "hpCurrent": 17,
+    "hpTemp": "",
+    "hitDiceLeft": "3d6",
+    "guns": [
+      {
+        "weapon": "blacksnake",
+        "load": "buck",
+        "loaded": 6,
+        "proficient": true,
+        "jammed": false,
+        "tier": "medium",
+        "chamber": "medium|.357",
+        "chambers": [
+          "c",
+          "c",
+          "c",
+          "c",
+          "c",
+          "c"
+        ],
+        "mod": "",
+        "capacity": ""
+      },
+      {
+        "weapon": "pony-arms-chaosmaker-medium",
+        "load": "buck",
+        "loaded": 6,
+        "proficient": true,
+        "jammed": false,
+        "tier": "medium",
+        "chamber": "medium|.357",
+        "mod": "",
+        "capacity": "",
+        "chambers": []
+      },
+      {
+        "weapon": "double-barrel-coach-gun",
+        "load": "buck",
+        "loaded": 2,
+        "proficient": true,
+        "jammed": false,
+        "tier": "medium",
+        "chamber": "medium|12 ga",
+        "mod": "",
+        "capacity": "",
+        "chambers": []
+      },
+      {
+        "weapon": "",
+        "load": "buck",
+        "loaded": 0,
+        "proficient": true,
+        "jammed": false,
+        "tier": "",
+        "chamber": "",
+        "mod": "",
+        "capacity": "",
+        "chambers": []
+      }
+    ],
+    "ammo": [
+      {
+        "type": "cartridge",
+        "caliber": "",
+        "count": 17
+      },
+      {
+        "type": "buck",
+        "caliber": "12 ga",
+        "count": 8
+      },
+      {
+        "type": "slug",
+        "caliber": "12 ga",
+        "count": 4
+      }
+    ],
+    "holster": "mexican-loop",
+    "holsterActive": true,
+    "attackNotes": "Bowie knife tucked in the left boot.",
+    "proficienciesLanguages": "Languages: Common, Trail Sign\nTools: Gaming set (cards)",
+    "equipment": "• Trail pack (Backpack)\n• Bedroll / trail blankets (Bedroll)\n• Tinderbox / lucifers (Tinderbox)\n• Canteen, 10 days of jerky",
+    "personality": "Talks to her guns like old friends.",
+    "ideals": "Freedom. Nobody owns the open range.",
+    "bonds": "Owes a debt to the Whiskey Bend dealer who taught her cards.",
+    "flaws": "Can't walk past a card table.",
+    "feats": [
+      "pistolero"
+    ],
+    "features": "Hexslinger: spells channel through iron.\nChaos: sparks fly when the hex goes wrong.",
+    "age": "27",
+    "height": "5'6\"",
+    "weight": "130 lb",
+    "eyes": "Grey",
+    "skin": "Sun-browned",
+    "hair": "Dust-blond braid",
+    "appearance": "Long canvas duster, a green glint in the Python's cylinder.",
+    "gangName": "The Dry Creek Irregulars",
+    "allies": "Marshal Tom Reyes (owes her one).\nThe Whiskey Bend saloon crowd.",
+    "backstory": "Raised on a freight route, Jolene found out at fourteen that her grandmother's pistol would throw sparks when she was scared. She has been running from the Magistrate's hex-hunters ever since.",
+    "treasure": "A cracked Eldorite locket.",
+    "casterGun": "blacksnake",
+    "cantrips": [
+      "Powder Spark",
+      "Alkali Bite",
+      "Dust Mirage",
+      "Wire Whisper",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "spells": {
+      "1": [
+        {
+          "name": "Powder Fan",
+          "prepared": true
+        },
+        {
+          "name": "Iron Guard",
+          "prepared": true
+        },
+        {
+          "name": "Dust Run",
+          "prepared": true
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        }
+      ],
+      "2": [
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        }
+      ],
+      "3": [
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        }
+      ],
+      "4": [
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        }
+      ],
+      "5": [
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        }
+      ],
+      "6": [
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        }
+      ],
+      "7": [
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        }
+      ],
+      "8": [
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        }
+      ],
+      "9": [
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        },
+        {
+          "name": "",
+          "prepared": false
+        }
+      ]
+    },
+    "hexLead": {
+      "1": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "2": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "3": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "4": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "5": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "6": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "7": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "8": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "9": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    "overrides": {},
+    "shield": false,
+    "deathSaves": {
+      "success": [
+        false,
+        false,
+        false
+      ],
+      "fail": [
+        false,
+        false,
+        false
+      ]
+    },
+    "portrait": "",
+    "gangSymbol": "",
+    "additionalFeatures": "",
+    "addiction": {
+      "addicted": false,
+      "daysWithout": 0,
+      "uses": 0,
+      "penalty": 0
+    },
+    "hexRest": "",
+    "explosives": [],
+    "gunBelt": false,
+    "instrument": "",
+    "instrumentQuality": "cheap",
+    "instrumentStrings": "plain",
+    "instrumentCase": "none",
+    "instrumentWear": "ok"
+  },
+  "migrationNotes": [
+    "Caster gun python -> blacksnake",
+    "Gun python -> blacksnake (medium)",
+    "Gun chaosmaker-revolver -> pony-arms-chaosmaker-medium (medium)",
+    "Gun double-barrel-shotgun-12-ga -> double-barrel-coach-gun (medium)"
+  ]
+}

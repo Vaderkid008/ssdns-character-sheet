@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Whiskey Bend Roulette — Rock Machines · Dust Wheel</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="table">
+    <div class="top-bar">
+      <div>
+        <p class="location">Rock Machines · Whiskey Bend Saloon</p>
+        <h1 class="title">Dust Wheel</h1>
+        <p class="tagline">Whiskey Bend Roulette · Eldorite chips · Private table</p>
+      </div>
+      <button type="button" class="mute-btn" id="muteBtn" aria-pressed="false" title="Toggle sound">🔊 Sound on</button>
+    </div>
+
+    <div class="flavor-row" aria-label="Campaign note">
+      <div class="flavor-mark" aria-hidden="true">◆</div>
+      <div class="flavor-copy">
+        <strong>Private table</strong>
+        <span>Six-Shooters campaign mini-game — not a casino. Dealer’s call is final, whiskey optional.</span>
+      </div>
+    </div>
+
+    <div class="balance-bar">
+      <span>Eldorite chips</span>
+      <strong id="balance">0</strong>
+    </div>
+
+    <div class="buyin" aria-label="Manual chip buy-in">
+      <label for="chipInput">Player chips</label>
+      <input type="number" id="chipInput" min="0" step="1" inputmode="numeric" placeholder="Enter Eldorite…" />
+      <button type="button" class="chip-btn" id="setChipsBtn">Set</button>
+      <button type="button" class="chip-btn secondary" id="addChipsBtn">Add</button>
+    </div>
+
+    <div class="wheel-stage">
+      <div class="pointer" aria-hidden="true"></div>
+      <canvas id="wheel" width="340" height="340" aria-label="Roulette wheel"></canvas>
+      <div class="ball-track" aria-hidden="true"><div class="ball" id="ball"></div></div>
+      <div class="result-pip" id="resultPip" aria-live="polite"></div>
+    </div>
+
+    <p class="status" id="status">Set chips, pick a bet type &amp; stake, then spin the Dust Wheel.</p>
+
+    <div class="bet-section" aria-label="Betting">
+      <div class="bet-row">
+        <span class="bet-label">Stake</span>
+        <div class="bet-btns" id="stakeBtns"></div>
+      </div>
+      <div class="stake-custom">
+        <label for="customStake">Custom</label>
+        <input type="number" id="customStake" min="1" step="1" inputmode="numeric" placeholder="…" />
+        <span class="stake-display">On the felt: <strong id="stakeDisplay">5</strong></span>
+      </div>
+
+      <div class="bet-types" id="betTypes" role="group" aria-label="Bet type">
+        <button type="button" class="type-btn" data-type="red">Red <em>2×</em></button>
+        <button type="button" class="type-btn" data-type="black">Black <em>2×</em></button>
+        <button type="button" class="type-btn" data-type="odd">Odd <em>2×</em></button>
+        <button type="button" class="type-btn" data-type="even">Even <em>2×</em></button>
+        <button type="button" class="type-btn green" data-type="green">Green 0 <em>12×</em></button>
+        <button type="button" class="type-btn" data-type="straight">Straight <em>12×</em></button>
+      </div>
+
+      <div class="straight-picks" id="straightPicks" hidden>
+        <span class="bet-label">Number</span>
+        <div class="num-grid" id="numGrid"></div>
+      </div>
+    </div>
+
+    <button type="button" class="spin-btn" id="spinBtn" disabled>SPIN</button>
+
+    <section class="paytable" aria-label="Payout table">
+      <h2>Dust Wheel odds</h2>
+      <ul>
+        <li><span>Pockets</span><span class="gold">0–12</span> <em>13 pockets · 0 Eldorite green</em></li>
+        <li><span>Red / Black</span><span class="gold">2×</span> <em>even money (0 loses)</em></li>
+        <li><span>Odd / Even</span><span class="gold">2×</span> <em>0 loses</em></li>
+        <li><span>Green / Straight</span><span class="gold">12×</span> <em>stake returned inside payout</em></li>
+      </ul>
+      <p class="note">
+        Stake is deducted when you spin. Wins credit the full payout (stake × multiplier), so a 10 stake at 2× returns 20 to the stack.
+        One bet per spin. Manual Set/Add Eldorite for table play. SFX synthesized in-browser.
+      </p>
+    </section>
+  </main>
+
+  <script src="../../assets/js/ssdns-bridge.js"></script>
+  <script src="game.js"></script>
+  <script src="../ssdns-wallet.js"></script>
+</body>
+</html>

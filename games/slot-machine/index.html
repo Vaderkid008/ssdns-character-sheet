@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Oscar Slots — Rock Machines · Whiskey Bend</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="machine">
+    <div class="top-bar">
+      <div>
+        <p class="location">Rock Machines · Whiskey Bend Saloon</p>
+        <h1 class="title">Oscar Slots</h1>
+        <p class="tagline">Dust &amp; Shadows · Eldorite crystals · Outlaw WILD</p>
+      </div>
+      <button type="button" class="mute-btn" id="muteBtn" aria-pressed="false" title="Toggle sound">🔊 Sound on</button>
+    </div>
+
+    <div class="oscar-row" aria-label="Oscar Slots caricature placeholder">
+      <div class="oscar-sil" aria-hidden="true">
+        <div class="oscar-hat"></div>
+        <div class="oscar-head"></div>
+        <div class="oscar-shades"></div>
+        <div class="oscar-grin"></div>
+      </div>
+      <div class="oscar-copy">
+        <strong>Oscar Slots</strong>
+        <span>Caricature placeholder — not a real likeness. Private table gag only.</span>
+      </div>
+    </div>
+
+    <div class="balance-bar">
+      <span>Eldorite chips</span>
+      <strong id="balance">0</strong>
+    </div>
+
+    <div class="buyin" aria-label="Manual chip buy-in">
+      <label for="chipInput">Player chips</label>
+      <input type="number" id="chipInput" min="0" step="1" inputmode="numeric" placeholder="Enter Eldorite…" />
+      <button type="button" class="chip-btn" id="setChipsBtn">Set</button>
+      <button type="button" class="chip-btn secondary" id="addChipsBtn">Add</button>
+    </div>
+
+    <div class="bet-row" aria-label="Bet multiplier">
+      <span class="bet-label">Bet</span>
+      <div class="bet-btns" id="betBtns"></div>
+      <div class="bet-cost">Ante <strong id="anteDisplay">5</strong></div>
+    </div>
+
+    <div class="jackpot-banner" id="jackpotBanner" role="status">Jackpot!</div>
+
+    <div class="reels" id="reels" aria-label="Slot reels">
+      <div class="reel" id="reel0" aria-live="polite"></div>
+      <div class="reel" id="reel1" aria-live="polite"></div>
+      <div class="reel" id="reel2" aria-live="polite"></div>
+    </div>
+
+    <p class="status" id="status">Enter chips, pick a bet multiplier, then spin.</p>
+
+    <button type="button" class="spin-btn" id="spinBtn">SPIN</button>
+
+    <section class="paytable" aria-label="Payout table">
+      <h2>Rock Machines odds</h2>
+      <ul>
+        <li><span>Base ante</span><span class="gold">5</span> <em>× bet multiplier</em></li>
+        <li><span>2 matching crystals</span><span class="gold">2× ante</span></li>
+        <li><span>3 matching crystals</span><span class="gold">10× ante</span></li>
+        <li><span>Triple Crimson</span><span class="gold">10× + banner</span></li>
+        <li><span>Outlaw WILD</span><span class="gold">WILD</span> <em>substitutes any crystal</em></li>
+        <li><span>2 WILD</span><span class="gold">5× ante</span> <em>if best available</em></li>
+        <li><span>3 WILD</span><span class="gold">25× ante</span> <em>saloon jackpot</em></li>
+        <li><span>High bets</span><span class="gold">tougher</span> <em>milder wilds / top crystals</em></li>
+      </ul>
+      <div class="tier-key" id="tierKey"></div>
+      <p class="note">
+        Crystal tiers: Clear 1 · Amber 5 · Blue 20 · Green 50 · Violet 100 · Crimson 500.
+        Outlaw WILD (gunmetal badge) substitutes crystals; triple WILD is the saloon jackpot. Bets: 1×–75× + All In. Higher bets nudge volatility up slightly.
+        Manual chip Set/Add for table play. SFX synthesized in-browser.
+      </p>
+    </section>
+  </main>
+
+  <script src="../../assets/js/ssdns-bridge.js"></script>
+  <script src="game.js"></script>
+  <script src="../ssdns-wallet.js"></script>
+</body>
+</html>

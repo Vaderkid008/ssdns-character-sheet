@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Whiskey Bend Blackjack — Rock Machines · Whiskey Bend</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="table">
+    <div class="top-bar">
+      <div>
+        <p class="location">Rock Machines · Whiskey Bend Saloon</p>
+        <h1 class="title">Whiskey Bend Blackjack</h1>
+        <p class="tagline">Felt &amp; lantern light · Eldorite chips · Solo vs dealer</p>
+      </div>
+      <button type="button" class="mute-btn" id="muteBtn" aria-pressed="false" title="Toggle sound">🔊 Sound on</button>
+    </div>
+
+    <div class="flavor-row" aria-label="Campaign note">
+      <div class="flavor-mark" aria-hidden="true">♠</div>
+      <div class="flavor-copy">
+        <strong>Private felt</strong>
+        <span>Six-Shooters campaign mini-game — not a casino. Dealer stands on all 17s. Insurance skipped for v1.</span>
+      </div>
+    </div>
+
+    <div class="balance-bar">
+      <span>Eldorite chips</span>
+      <strong id="balance">0</strong>
+    </div>
+
+    <div class="buyin" aria-label="Manual chip buy-in">
+      <label for="chipInput">Player chips</label>
+      <input type="number" id="chipInput" min="0" step="1" inputmode="numeric" placeholder="Enter Eldorite…" />
+      <button type="button" class="chip-btn" id="setChipsBtn">Set</button>
+      <button type="button" class="chip-btn secondary" id="addChipsBtn">Add</button>
+    </div>
+
+    <div class="felt" aria-label="Blackjack table">
+      <div class="hand-block dealer-block">
+        <div class="hand-meta">
+          <span class="hand-label">Dealer</span>
+          <span class="hand-total" id="dealerTotal">—</span>
+        </div>
+        <div class="cards" id="dealerCards" aria-live="polite"></div>
+      </div>
+
+      <div class="felt-divider" aria-hidden="true"></div>
+
+      <div class="hand-block player-block">
+        <div class="hand-meta">
+          <span class="hand-label">You</span>
+          <span class="hand-total" id="playerTotal">—</span>
+        </div>
+        <div class="cards" id="playerCards" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <p class="status" id="status">Set chips, pick a stake, then Deal.</p>
+
+    <div class="bet-section" aria-label="Betting">
+      <div class="bet-row">
+        <span class="bet-label">Stake</span>
+        <div class="bet-btns" id="stakeBtns"></div>
+      </div>
+      <div class="stake-custom">
+        <label for="customStake">Custom</label>
+        <input type="number" id="customStake" min="1" step="1" inputmode="numeric" placeholder="…" />
+        <span class="stake-display">On the felt: <strong id="stakeDisplay">5</strong></span>
+      </div>
+    </div>
+
+    <div class="action-row" aria-label="Table actions">
+      <button type="button" class="deal-btn" id="dealBtn" disabled>DEAL</button>
+      <button type="button" class="action-btn" id="hitBtn" disabled>Hit</button>
+      <button type="button" class="action-btn" id="standBtn" disabled>Stand</button>
+      <button type="button" class="action-btn double" id="doubleBtn" disabled>Double</button>
+    </div>
+
+    <section class="paytable" aria-label="Payout table">
+      <h2>Blackjack odds</h2>
+      <ul>
+        <li><span>Natural blackjack</span><span class="gold">3:2</span> <em>two-card 21 pays 1.5× stake + stake back</em></li>
+        <li><span>Win</span><span class="gold">1:1</span> <em>stake returned + equal win</em></li>
+        <li><span>Push</span><span class="gold">stake back</span> <em>tie — chips returned</em></li>
+        <li><span>Bust / lose</span><span class="gold">stake lost</span></li>
+        <li><span>Double down</span><span class="gold">2× stake</span> <em>first two cards only, one hit then stand</em></li>
+      </ul>
+      <p class="note">
+        Standard 52-card deck; reshuffles when low. Dealer hits until hard/soft 17+, then stands on all 17s.
+        No insurance in v1. Manual Set/Add Eldorite for table play. SFX synthesized in-browser.
+      </p>
+    </section>
+  </main>
+
+  <script src="../../assets/js/ssdns-bridge.js"></script>
+  <script src="game.js"></script>
+  <script src="../ssdns-wallet.js"></script>
+</body>
+</html>
