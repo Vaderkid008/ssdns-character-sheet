@@ -136,13 +136,8 @@ async function initFirebase() {
         }
       }, reject);
     });
-    try {
-      await fb.get(fb.ref(state.db, ".info/connected"));
-    } catch (e) {
-      state.firebaseError = "RTDB probe failed: " + (e.message || e);
-      state.firebaseReady = false;
-      return false;
-    }
+    // Anonymous sign-in is the readiness check. ref(".info/connected") throws
+    // "Invalid token in path" in the modular SDK, which was forcing Demo mode.
     return true;
   } catch (e) {
     state.firebaseError = (e && e.message) || String(e);
@@ -722,6 +717,19 @@ function exportLedger(fmt) {
   toast("Exported " + fmt.toUpperCase());
 }
 
+async function wipeOwnedChildren() {
+  const fb = state._fb;
+  const paths = ["players", "ledger", "rolls", "messages", "handouts", "commands"];
+  for (let i = 0; i < paths.length; i++) {
+    const path = paths[i];
+    const snap = await fb.get(roomRef(path));
+    const val = snap.val();
+    if (!val || typeof val !== "object") continue;
+    const keys = Object.keys(val);
+    await Promise.all(keys.map((k) => fb.remove(roomRef(path + "/" + k))));
+  }
+}
+
 async function endSession(wipe) {
   const archive = {
     archivedAt: new Date().toISOString(),
@@ -742,13 +750,8 @@ async function endSession(wipe) {
     await state._fb.set(roomRef("archives/" + aid), archive);
     await state._fb.update(roomRef("meta"), { status: "ended", endedAt: new Date().toISOString() });
     if (wipe) {
-      // keep meta+archives; clear live feeds
-      await state._fb.remove(roomRef("players"));
-      await state._fb.remove(roomRef("ledger"));
-      await state._fb.remove(roomRef("rolls"));
-      await state._fb.remove(roomRef("messages"));
-      await state._fb.remove(roomRef("handouts"));
-      await state._fb.remove(roomRef("commands"));
+      // keep meta+archives. Parent remove() is denied; delete each child the DM can write.
+      await wipeOwnedChildren();
     }
     toast("Session ended · ledger archived" + (wipe ? " · live data wiped" : ""));
   } catch (e) {
