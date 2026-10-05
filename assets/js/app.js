@@ -107,7 +107,8 @@
       partyInspiration: new Array(10).fill(false),
       speed: "", armor: "", shield: false, hpMax: "", hpCurrent: "", hpTemp: "", hitDiceLeft: "",
       deathSaves: { success: [false, false, false], fail: [false, false, false] },
-      guns: [0, 1, 2, 3].map(function () { return { weapon: "", tier: "", chamber: "", mod: "", capacity: "", load: "buck", loaded: 0, chambers: [], proficient: true, jammed: false }; }),
+      guns: [0, 1, 2, 3].map(function () { return { weapon: "", tier: "", chamber: "", mod: "", capacity: "", load: "buck", loaded: 0, chambers: [], proficient: true, jammed: false, cracked: false, fouled: false, dirty: false }; }),
+      tableConditions: "",
       ammo: [], explosives: [], holster: "", holsterActive: false, gunBelt: false, attackNotes: "",
       instrument: "", instrumentQuality: "cheap", instrumentStrings: "plain", instrumentCase: "none", instrumentWear: "ok",
       proficienciesLanguages: "", equipment: "", personality: "", ideals: "", bonds: "", flaws: "", feats: [], features: "",
@@ -617,11 +618,15 @@
           el("div", { class: "g-btns" }, [
             el("span", { class: "g-count", "data-out": "left." + i }),
             el("button", { type: "button", class: "btn sm reload", "data-reload": i, title: "Reload: an action, fills the gun (slow guns: a full turn)" }, ["Reload"]),
+            el("button", { type: "button", class: "btn sm", "data-gunroll": i, title: "Roll to hit. Natural 1 jams. A cracked gun also rolls to explode." }, ["Roll"]),
             el("button", { type: "button", class: "btn sm tr", "data-tr": i, title: "Tactical Reload: bonus action, load one round from a gun belt or bandolier (TR ✓ guns only)" }, ["TR +1"]),
             el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Load one hex lead shell of this level (spends it from page 3)" }, ["+ Hex shell"])])
           ])]),
         el("div", { class: "g-mis", "data-label": "Misfire" }, [el("span", { "data-out": "mis." + i }),
-          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".jammed" }), " jammed"])]),
+          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".jammed" }), " jammed"]),
+          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".cracked" }), " cracked"]),
+          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".fouled" }), " fouled"]),
+          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".dirty" }), " dirty"])]),
         el("div", { class: "g-note fine", "data-out": "note." + i })
       ]));
     }
@@ -899,6 +904,8 @@
       var left = shells ? shells.filter(Boolean).length : num(g.loaded);
       out("left." + i, cap ? left + "/" + cap : "");
       $('[data-reload="' + i + '"]').hidden = !cap;
+      var rollBtn = $('[data-gunroll="' + i + '"]');
+      if (rollBtn) rollBtn.hidden = !s;
       $('[data-tr="' + i + '"]').hidden = !(cap && w.tr);
       $('[data-hexwrap="' + i + '"]').hidden = !(cap && w.hexShells);
     });
@@ -1300,6 +1307,7 @@
     var t = e.target.closest && e.target.closest("button, [data-img]");
     if (!t) return;
     var d = t.dataset;
+    if (d.gunroll !== undefined) { if (window.SSDNSGunRoll) window.SSDNSGunRoll(num(d.gunroll)); return; }
     if (d.fire !== undefined) return fire(num(d.fire), d.k !== undefined ? num(d.k) : undefined);
     if (d.reload !== undefined) return reload(num(d.reload));
     if (d.tr !== undefined) return tacticalReload(num(d.tr));

@@ -1,0 +1,10 @@
+{
+  "events": {
+    "attack": "attack.mp3",
+    "reload": "reload.mp3",
+    "spellcast": "spellcast.mp3",
+    "reward": "reward.mp3",
+    "jam": "jam.mp3",
+    "explode": "explode.mp3"
+  }
+}

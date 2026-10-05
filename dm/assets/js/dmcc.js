@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.1.0-draft";
+const VERSION = "0.2.0";
 const NOTES_KEY = "ssdns.dmcc.notes";
 const ROOM_KEY = "ssdns.dmcc.lastRoom";
 const WORDS = ["DUST", "IRON", "HEX", "RUST", "BONE", "COIL", "SAGE", "RAIL", "OXEN", "VELD", "ASH", "QUILL"];
@@ -78,6 +78,7 @@ const state = {
   messages: [],
   handouts: [],
   commands: [],
+  table: null,
   unsubs: [],
   db: null,
   auth: null,
@@ -212,7 +213,7 @@ async function createLiveRoom(name) {
     showRoom();
     renderAll();
     setStatus("live", "Live · Firebase · " + code);
-    try { localStorage.setItem(ROOM_KEY, JSON.stringify({ code, demo: false })); } catch (e) {}
+    try { localStorage.setItem(ROOM_KEY, JSON.stringify({ code, demo: false, uid: state.uid })); } catch (e) {}
   } catch (e) {
     console.warn(e);
     toast("Could not create live room (" + (e.message || e) + "). Falling back to Demo.");
@@ -251,6 +252,13 @@ function attachLiveListeners() {
     state.handouts = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
     renderHandouts();
   });
+  bind("table", (v) => {
+    state.table = v || null;
+    if (window.DMCCEnhance && window.DMCCEnhance.onTable) window.DMCCEnhance.onTable(v || {});
+  });
+  bind("chat", (v) => {
+    state.chat = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+  });
 }
 
 function objToArr(o) {
@@ -260,9 +268,24 @@ function objToArr(o) {
 }
 
 /* ---------- writes ---------- */
+function namesFor(pid) {
+  const p = pid && state.players[pid];
+  const s = (p && p.snapshot) || {};
+  return { playerName: s.player || "", characterName: s.name || "" };
+}
+function ledgerNames(e) {
+  const looked = namesFor(e.playerId);
+  const playerName = e.playerName || looked.playerName;
+  const characterName = e.characterName || looked.characterName;
+  const both = [playerName, characterName].filter(Boolean).join(" · ");
+  return both || e.who || "";
+}
 async function pushLedger(entry) {
   entry.id = entry.id || uid("led");
   entry.ts = entry.ts || new Date().toISOString();
+  const names = namesFor(entry.playerId);
+  if (!entry.playerName) entry.playerName = names.playerName;
+  if (!entry.characterName) entry.characterName = names.characterName;
   if (state.demo) {
     state.ledger.unshift(entry);
     renderLedger();
@@ -421,6 +444,7 @@ function renderAll() {
   renderMessages();
   renderHandouts();
   loadNotes();
+  if (window.DMCCEnhance && window.DMCCEnhance.afterRender) window.DMCCEnhance.afterRender();
 }
 
 function renderPlayers() {
@@ -433,24 +457,40 @@ function renderPlayers() {
   grid.innerHTML = list.map((p) => {
     const s = p.snapshot || {};
     const on = p.presence && p.presence.online;
+    const hpCur = Number(s.hpCurrent);
+    const downed = isFinite(hpCur) && hpCur <= 0;
+    const initials = String(s.name || "?").replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "?";
+    const portrait = s.portrait
+      ? `<img class="portrait" src="${esc(s.portrait)}" alt="">`
+      : `<span class="portrait initials" aria-hidden="true">${esc(initials)}</span>`;
+    const conds = String(s.conditions || "").split(",").map((c) => c.trim()).filter(Boolean);
+    const condHtml = conds.map((c) => `<span class="cond-chip">${esc(c)}</span>`).join("");
+    const ds = s.deathSaves || {};
+    const dsHtml = downed
+      ? `<div class="death-pips">Death saves ${((ds.success || []).filter(Boolean).length)} success / ${((ds.fail || []).filter(Boolean).length)} fail</div>`
+      : "";
     const guns = (s.guns || []).filter((g) => g && g.name).map((g) => {
-      const cls = g.jammed ? "jammed" : (g.condition === "worn" ? "worn" : "");
-      const cond = g.jammed ? "JAMMED" : (g.condition || "ok");
-      return `<div class="gun-chip ${cls}">${esc(g.name)} · ${g.loaded ?? "?"}/${g.capacity ?? "?"} · ${esc(cond)}</div>`;
+      const flags = [g.jammed ? "jammed" : "", g.cracked ? "cracked" : "", g.fouled ? "fouled" : "", g.dirty ? "dirty" : ""].filter(Boolean);
+      const cls = g.jammed ? "jammed" : (g.condition === "worn" || g.condition === "cracked" ? "worn" : "");
+      const cond = flags.length ? flags.join(", ") : (g.condition || "ok");
+      return `<div class="gun-chip ${cls}">${esc(g.name)} · ${g.loaded ?? "?"}/${g.capacity ?? "?"} rounds · ${esc(cond)}</div>`;
     }).join("") || '<div class="gun-chip">No guns listed</div>';
-    return `<button type="button" class="pcard ${on ? "" : "offline"}" data-pid="${esc(p.id)}">
+    return `<button type="button" class="pcard ${on ? "" : "offline"} ${downed ? "downed" : ""}" data-pid="${esc(p.id)}">
       <div class="pcard-head">
+        ${portrait}
         <div>
           <div class="pcard-name">${esc(s.name || "Unknown")}</div>
           <div class="pcard-sub">${esc(s.calling || "?")} · L${esc(s.level ?? "?")} · ${esc(s.player || "")}</div>
         </div>
-        <span class="badge ${on ? "eld" : ""}">${on ? "Online" : "Away"}</span>
+        <span class="badge ${downed ? "danger" : (on ? "eld" : "")}">${downed ? "Down" : (on ? "Online" : "Away")}</span>
       </div>
+      ${condHtml ? `<div class="cond-row">${condHtml}</div>` : ""}
       <div class="stat-row">
         <div class="stat"><b>${esc(s.hpCurrent ?? "—")}<small style="font-size:12px;color:var(--muted)">/${esc(s.hpMax ?? "—")}</small></b><span>HP</span></div>
         <div class="stat"><b>${esc(s.ac ?? "—")}</b><span>AC</span></div>
         <div class="stat"><b>${Number(s.es || 0).toLocaleString()}</b><span>ES</span></div>
       </div>
+      ${dsHtml}
       ${guns}
     </button>`;
   }).join("");
@@ -479,13 +519,17 @@ function openDetail(pid) {
     `${g.name} — ${g.loaded}/${g.capacity} ${g.load || ""} [${g.condition || "ok"}]${g.jammed ? " JAMMED" : ""}${g.note ? " · " + g.note : ""}`
   ).join("\n") || "—";
 
+  const initials = String(s.name || "?").replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "?";
+  const portrait = s.portrait
+    ? `<img class="portrait lg" src="${esc(s.portrait)}" alt="">`
+    : `<span class="portrait lg initials">${esc(initials)}</span>`;
   $("#detailBody").innerHTML = `
-    <div class="stat-row">
+    <div class="detail-id">${portrait}<div class="stat-row">
       <div class="stat"><b>${esc(s.hpCurrent)}/${esc(s.hpMax)}</b><span>HP</span></div>
       <div class="stat"><b>${esc(s.ac)}</b><span>AC</span></div>
       <div class="stat"><b>${Number(s.es || 0).toLocaleString()}</b><span>ES</span></div>
       <div class="stat"><b>${esc(s.hpTemp || 0)}</b><span>Temp</span></div>
-    </div>
+    </div></div>
     <div class="detail-section"><h3>Abilities</h3><div class="abil-grid">${abilHtml}</div></div>
     <div class="detail-section"><h3>Saves</h3><p>${saves}</p></div>
     <div class="detail-section"><h3>Skills</h3><p>${skills}</p></div>
@@ -494,8 +538,9 @@ function openDetail(pid) {
     <div class="detail-section"><h3>Features</h3><pre>${esc(s.features || "—")}</pre></div>
     <div class="detail-section"><h3>Spells</h3><pre>${esc(spellTxt)}</pre></div>
     <div class="detail-section"><h3>Personality</h3><p>${esc(s.personality || "—")}</p></div>
-    <p class="lede" style="margin-top:12px">Read-only snapshot · updated ${esc(fmtTime(s.updatedAt))}</p>
+    <p class="lede" style="margin-top:12px">Snapshot · updated ${esc(fmtTime(s.updatedAt))}</p>
   `;
+  if (window.DMCCEnhance && window.DMCCEnhance.decorateDetail) window.DMCCEnhance.decorateDetail(pid);
   $("#detailOverlay").hidden = false;
 }
 
@@ -509,7 +554,7 @@ function renderLedger() {
     const delta = (e.oldVal != null && e.newVal != null && typeof e.oldVal === "number" && typeof e.newVal === "number")
       ? `${e.oldVal} → ${e.newVal}` : (e.newVal != null ? String(e.newVal) : "");
     return `<div class="feed-item ${e.flag ? "flag" : ""}">
-      <div class="feed-meta"><span>${esc(fmtTime(e.ts))}</span><span>${esc(e.who)}</span><span class="badge">${esc(e.type)}</span>${e.flag ? '<span class="badge warn">Big jump</span>' : ""}</div>
+      <div class="feed-meta"><span>${esc(fmtTime(e.ts))}</span><span>${esc(ledgerNames(e))}</span><span class="badge">${esc(e.type)}</span>${e.flag ? '<span class="badge warn">Big jump</span>' : ""}</div>
       <div class="feed-what">${esc(e.what)}</div>
       ${delta ? `<div class="feed-delta">${esc(delta)}</div>` : ""}
     </div>`;
@@ -530,7 +575,7 @@ function renderRolls() {
       <div class="feed-meta">
         <span>${esc(fmtTime(r.ts))}</span>
         <span>${esc(r.who)}</span>
-        ${r.private ? '<span class="badge">Private</span>' : ""}
+        ${r.private ? '<span class="badge">Private</span>' : ""}${r.whisper ? '<span class="badge">Whisper</span>' : ""}
         ${nat ? '<span class="badge danger">Nat 1 · firearm</span>' : ""}
       </div>
       <div class="feed-what"><b>${esc(r.label || "Roll")}</b> · ${esc(r.formula)} = <b style="color:var(--eld)">${esc(r.result)}</b> <span style="color:var(--muted)">(${esc(r.detail)})</span></div>
@@ -623,6 +668,7 @@ async function doPushReward() {
       });
     }
     if (state.demo) renderPlayers();
+    if (window.SSDNSAudio) window.SSDNSAudio.play("reward");
     toast("ES reward pushed");
   } else {
     const text = ($("#rewText").value || "").trim();
@@ -719,7 +765,7 @@ function exportLedger(fmt) {
 
 async function wipeOwnedChildren() {
   const fb = state._fb;
-  const paths = ["players", "ledger", "rolls", "messages", "handouts", "commands"];
+  const paths = ["players", "ledger", "rolls", "messages", "handouts", "commands", "table", "chat"];
   for (let i = 0; i < paths.length; i++) {
     const path = paths[i];
     const snap = await fb.get(roomRef(path));
@@ -730,17 +776,54 @@ async function wipeOwnedChildren() {
   }
 }
 
+function buildRecap() {
+  const lines = [];
+  const code = (state.meta && state.meta.code) || state.roomCode || "room";
+  lines.push("SSDNS session recap");
+  lines.push("Room: " + code + (state.meta && state.meta.name ? " · " + state.meta.name : ""));
+  lines.push("Ended: " + new Date().toISOString());
+  lines.push("");
+  const by = {};
+  state.ledger.forEach((e) => {
+    const key = ledgerNames(e) || e.who || "Unknown";
+    if (!by[key]) by[key] = { es: 0, damage: 0, heal: 0, notes: [] };
+    const bucket = by[key];
+    if (typeof e.oldVal === "number" && typeof e.newVal === "number" && /es|dm_push|saloon|store/i.test(String(e.type) + String(e.what))) {
+      bucket.es += e.newVal - e.oldVal;
+    }
+    if (e.type === "damage") bucket.damage += Number(e.newVal != null && e.oldVal != null ? Math.abs(e.oldVal - e.newVal) : 0) || Number(String(e.what).match(/(\d+)/) ? String(e.what).match(/(\d+)/)[1] : 0);
+    if (e.type === "heal") bucket.heal += Number(String(e.what).match(/(\d+)/) ? String(e.what).match(/(\d+)/)[1] : 0);
+    if (/jam|explode|condition|rest|undo|store|note|Item/i.test(String(e.type) + " " + String(e.what))) bucket.notes.push(e.what);
+  });
+  lines.push("People");
+  Object.keys(by).forEach((name) => {
+    const b = by[name];
+    lines.push("- " + name + ": ES net " + (b.es >= 0 ? "+" : "") + b.es + ", damage " + b.damage + ", healing " + b.heal);
+    b.notes.slice(0, 8).forEach((n) => lines.push("  · " + n));
+  });
+  if (!Object.keys(by).length) lines.push("- No ledger lines.");
+  lines.push("");
+  lines.push("Notable events");
+  state.ledger.filter((e) => /jam|explode|rest|undo|store|condition|dm_push/i.test(String(e.type))).slice(0, 40).forEach((e) => {
+    lines.push("- " + fmtTime(e.ts) + " " + ledgerNames(e) + ": " + e.what);
+  });
+  return lines.join("\n");
+}
 async function endSession(wipe) {
+  const recap = buildRecap();
   const archive = {
     archivedAt: new Date().toISOString(),
     meta: state.meta,
     ledger: state.ledger,
     rolls: state.rolls.filter((r) => !r.private),
-    handouts: state.handouts
+    handouts: state.handouts,
+    recap: recap
   };
+  const codeName = state.roomCode || "demo";
   if (state.demo) {
-    download((state.roomCode || "demo") + "-archive.json", JSON.stringify(archive, null, 2));
-    toast("Demo session ended · archive downloaded" + (wipe ? " · wiped" : " · ledger kept in file"));
+    download(codeName + "-archive.json", JSON.stringify(archive, null, 2));
+    setTimeout(() => download(codeName + "-recap.txt", recap, "text/plain"), 400);
+    toast("Demo session ended · archive and recap downloaded" + (wipe ? " · wiped" : ""));
     if (wipe) { state.players = {}; state.ledger = []; state.rolls = []; state.messages = []; state.handouts = []; }
     hideRoom();
     return;
@@ -753,11 +836,14 @@ async function endSession(wipe) {
       // keep meta+archives. Parent remove() is denied; delete each child the DM can write.
       await wipeOwnedChildren();
     }
-    toast("Session ended · ledger archived" + (wipe ? " · live data wiped" : ""));
+    download(codeName + "-recap.txt", recap, "text/plain");
+    toast("Session ended · ledger archived and recap saved" + (wipe ? " · live data wiped" : ""));
   } catch (e) {
-    download((state.roomCode || "room") + "-archive.json", JSON.stringify(archive, null, 2));
-    toast("Archive downloaded locally (cloud write failed)");
+    download(codeName + "-archive.json", JSON.stringify(archive, null, 2));
+    download(codeName + "-recap.txt", recap, "text/plain");
+    toast("Archive and recap downloaded locally (cloud write failed)");
   }
+  try { localStorage.removeItem(ROOM_KEY); } catch (err) {}
   hideRoom();
 }
 
@@ -849,6 +935,61 @@ function wire() {
   });
 }
 
+async function tryResumeLive() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(ROOM_KEY) || "null"); } catch (e) {}
+  if (!saved || saved.demo || !saved.code || !saved.uid || saved.uid !== state.uid) return false;
+  try {
+    const snap = await state._fb.get(state._fb.ref(state.db, "rooms/" + saved.code + "/meta"));
+    if (!snap.exists()) return false;
+    const meta = snap.val();
+    if (!meta || meta.status === "ended" || meta.dmUid !== state.uid) return false;
+    state.demo = false;
+    state.roomCode = saved.code;
+    state.meta = meta;
+    state.players = {};
+    state.ledger = [];
+    state.rolls = [];
+    state.messages = [];
+    state.handouts = [];
+    state.commands = [];
+    attachLiveListeners();
+    showRoom();
+    renderAll();
+    setStatus("live", "Rejoined " + saved.code + " · players stay connected");
+    toast("Rejoined " + saved.code);
+    return true;
+  } catch (e) {
+    console.warn("[DMCC] resume", e);
+    return false;
+  }
+}
+
+window.DMCC = {
+  version: VERSION,
+  state: state,
+  $: $,
+  $$: $$,
+  esc: esc,
+  uid: uid,
+  toast: toast,
+  parseDice: parseDice,
+  deepClone: deepClone,
+  download: download,
+  fmtTime: fmtTime,
+  pushLedger: pushLedger,
+  pushRoll: pushRoll,
+  pushCommand: pushCommand,
+  pushMessage: pushMessage,
+  pushHandout: pushHandout,
+  renderPlayers: renderPlayers,
+  renderAll: renderAll,
+  renderLedger: renderLedger,
+  openDetail: openDetail,
+  roomRef: roomRef,
+  namesFor: namesFor
+};
+
 async function boot() {
   wire();
   state.demo = wantDemo();
@@ -870,9 +1011,12 @@ async function boot() {
       setStatus("demo", "Demo mode · Firebase unavailable");
       toast("Firebase unavailable — Demo mode on. See DM-SETUP.md");
     } else {
-      setStatus("live", "Live · Firebase connected · create a room");
-      $("#lobby").hidden = false;
-      $("#roomShell").hidden = true;
+      const resumed = await tryResumeLive();
+      if (!resumed) {
+        setStatus("live", "Live · Firebase connected · create a room");
+        $("#lobby").hidden = false;
+        $("#roomShell").hidden = true;
+      }
     }
   }
 }

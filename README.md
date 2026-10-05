@@ -24,6 +24,7 @@ The **DM Command Center** lives at [`/dm/`](./dm/) in this repo (GitHub Pages). 
 
 - **Demo mode** works fully offline (`/dm/?demo=1`) with fake players — no Firebase required.
 - **Live rooms** sync through the Firebase project `ssdns-dm-hub` (Realtime Database + Anonymous auth). Characters still stay on each device as `.ssdns` files; only table snapshots, ledger, rolls, handouts, and DM commands go through the cloud.
-- Players join from the sheet’s **Table** bar (room code like `DUST-4821`). See `DM-SETUP.md` for console steps and `PLAYER-JOIN-PATCH.md` for sheet wiring.
+- Players join from the sheet’s **Table** bar (room code like `DUST-4821`). See `DM-SETUP.md` for console steps, Stream Deck shortcuts, and `PLAYER-JOIN-PATCH.md` for sheet wiring.
+- DMCC v0.2 adds the fight tracker, store stock, handouts packs, music/SFX hooks, and a clearer HP box on the sheet. Sound and music files are not included — drop them in `assets/sfx/` and `assets/music/` (see those READMEs). Republish `database.rules.json` for table chat and private rolls.
 
 Config is shared in `assets/js/firebase-config.js`. Deploy `database.rules.json` to the Realtime Database before going live.

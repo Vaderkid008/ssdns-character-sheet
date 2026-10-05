@@ -3,8 +3,15 @@
 
   var BASE_ANTE = 5;
   var BET_MULTS = [1, 2, 5, 10, 20, 50, 75];
+  // Rebalanced so low bets are not +EV. Clear/amber pairs no longer pay.
+  // Enumerated RTP (return includes the stake, so 100 = break-even):
+  //   tier 0 (1×–2×) 88.91%   tier 1 (5×–10×) 92.49%
+  //   tier 2 (20×)   89.55%   tier 3 (50× / all-in) 89.55%
+  // Before this pass those tiers were 221.29 / 234.52 / 228.69 / 239.97.
   var PAYOUT_TWO_MULT = 2;
   var PAYOUT_THREE_MULT = 10;
+  var CHEAP_THREE_MULT = 5;
+  var CRIMSON_THREE_MULT = 12;
   var WILD_TWO_MULT = 5;
   var WILD_THREE_MULT = 25;
 
@@ -59,14 +66,15 @@
 
   function buildReelPool() {
     var tier = volatilityTier();
+    // One Outlaw wild per reel at every stake. Low stakes are mostly clear/amber dust.
     var weights = {
-      clear: 3 + tier,
-      amber: 3 + tier,
-      blue: 2,
-      green: Math.max(1, 2 - Math.floor(tier / 2)),
-      violet: Math.max(1, 2 - Math.floor(tier / 2)),
-      crimson: Math.max(1, 2 - tier),
-      bar: Math.max(1, 2 - Math.floor(tier / 2)),
+      clear: [8, 7, 6, 6][tier],
+      amber: [6, 5, 5, 5][tier],
+      blue: 3,
+      green: 2,
+      violet: tier >= 2 ? 2 : 1,
+      crimson: 1,
+      bar: 1,
     };
     var pool = [];
     var map = {};
@@ -330,12 +338,16 @@
         if (s.id === crystal.id || s.id === "bar") matches += 1;
       }
       if (matches === 3) {
-        var tripPay = cost * PAYOUT_THREE_MULT;
+        var tripMult = crystal.id === "crimson" ? CRIMSON_THREE_MULT
+          : (crystal.id === "clear" || crystal.id === "amber" ? CHEAP_THREE_MULT : PAYOUT_THREE_MULT);
+        var tripPay = cost * tripMult;
         var msg;
         if (crystal.id === "crimson" && barCount) {
           msg = "Wild + Crimson — CRIMSON JACKPOT! +" + tripPay + "!";
         } else if (barCount) {
           msg = "Outlaw WILD completes triple " + crystal.label + " — +" + tripPay + "!";
+        } else if (crystal.id === "clear" || crystal.id === "amber") {
+          msg = "Triple " + crystal.label + " — a small strike +" + tripPay + ".";
         } else {
           msg = "ELDORITE STRIKE! Triple " + crystal.label + " — +" + tripPay + "!";
         }
@@ -348,7 +360,7 @@
           rank: 300 + crystal.value,
           paidId: crystal.id,
         });
-      } else if (matches === 2) {
+      } else if (matches === 2 && crystal.id !== "clear" && crystal.id !== "amber") {
         var pairPay = cost * PAYOUT_TWO_MULT;
         candidates.push({
           payout: pairPay,

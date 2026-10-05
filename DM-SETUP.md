@@ -143,10 +143,43 @@ python3 -m http.server 8765
 | `rolls/{id}` | shared + DM private |
 | `messages/{id}` | DM → player |
 | `handouts/{id}` | name + image URL |
-| `commands/{id}` | rewards, force-open, handouts |
-| `archives/{id}` | End Session keep |
+| `commands/{id}` | rewards, force-open, handouts, HP, rest, conditions |
+| `table` | initiative, store stock, handout packs (DM write) |
+| `chat/{id}` | table chat anyone in the room can read |
+| `rolls/{id}` | DM can read all, including whispers. Players can write, not list |
+| `archives/{id}` | End Session keep, includes a text recap |
 
 ---
+
+## v0.2 — keyboard shortcuts (Stream Deck)
+
+On the DM Command Center, these keys work when focus is **not** in a text field, menu, or checkbox:
+
+| Key | Action |
+|-----|--------|
+| `N` | Next turn in the Fight tracker |
+| `R` | Push the reward currently filled in on the Rewards tab |
+| `S` | Play the attack sound on this browser and send that sound cue to the table |
+| `M` | Play or stop the track selected on the Music tab |
+
+Map those keys to Elgato Stream Deck hotkey buttons. `S` and `M` stay silent until you drop audio files in (see below).
+
+## v0.2 — sound and music files
+
+No audio ships in the repo. Missing files fail silently.
+
+- Sound effects: `assets/sfx/` — `attack.mp3`, `reload.mp3`, `spellcast.mp3`, `reward.mp3`, `jam.mp3`, `explode.mp3` (names are set in `assets/sfx/sfx.json`)
+- Music: `assets/music/` — `saloon.mp3`, `trail.mp3`, `gunfight.mp3`, `hex.mp3` (list is `assets/music/tracks.json`)
+
+Each folder has a README with how to add another file.
+
+## v0.2 — redeploy database rules
+
+This version adds `rooms/{code}/table` (initiative, store stock, handout packs) and `rooms/{code}/chat`, and limits `rolls` **reads** to the DM so whisper rolls stay private. Players can still write their own roll.
+
+**Publish `database.rules.json` again** (Realtime Database → Rules → paste → Publish, or `firebase deploy --only database`) or live table, chat, and private rolls will be denied.
+
+DM reload rejoins the same room (the code and the DM's anonymous uid are stored in this browser). Players do not have to rejoin when the DM refreshes. End Session clears that saved room.
 
 ## Troubleshooting
 

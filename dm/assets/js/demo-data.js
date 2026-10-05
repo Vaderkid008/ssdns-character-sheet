@@ -6,6 +6,10 @@
   "use strict";
   var NOW = Date.now();
   function ago(ms) { return new Date(NOW - ms).toISOString(); }
+  function portrait(letter, color) {
+    var svg = "<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><rect fill='" + color + "' width='96' height='96'/><text x='48' y='62' text-anchor='middle' font-size='42' fill='#efe2c2' font-family='serif'>" + letter + "</text></svg>";
+    return "data:image/svg+xml," + encodeURIComponent(svg);
+  }
   function id(p) { return p + "_" + Math.random().toString(36).slice(2, 8); }
 
   var players = {
@@ -25,6 +29,9 @@
         hpCurrent: 17,
         hpMax: 20,
         hpTemp: 0,
+        portrait: portrait("J", "#3a2a22"),
+        conditions: "Bleeding",
+        deathSaves: { success: [false, false, false], fail: [false, false, false] },
         ac: 13,
         es: 3453,
         shards: { white: 23, blue: 14, green: 2, yellow: 31, purple: 0 },
@@ -36,7 +43,7 @@
         features: "Hexslinger: spells channel through iron.\nChaos: sparks fly when the hex goes wrong.",
         personality: "Talks to her guns like old friends.",
         guns: [
-          { name: "Blacksnake", loaded: 6, capacity: 6, condition: "ok", load: "buck", jammed: false, note: "Caster gun" },
+          { name: "Blacksnake", loaded: 6, capacity: 6, atk: "+5", condition: "ok", load: "buck", jammed: false, cracked: false, fouled: false, dirty: false, note: "Caster gun" },
           { name: "Pony Arms Chaosmaker", loaded: 6, capacity: 6, condition: "ok", load: "buck", jammed: false },
           { name: "Double-Barrel Coach Gun", loaded: 2, capacity: 2, condition: "ok", load: "buck", jammed: false }
         ],
@@ -60,6 +67,9 @@
         hpCurrent: 32,
         hpMax: 36,
         hpTemp: 0,
+        portrait: portrait("C", "#243038"),
+        conditions: "",
+        deathSaves: { success: [false, false, false], fail: [false, false, false] },
         ac: 15,
         es: 890,
         shards: { white: 0, blue: 4, green: 1, yellow: 8, purple: 0 },
@@ -72,7 +82,7 @@
         personality: "Quiet until the shooting starts.",
         guns: [
           { name: "Peacemaker", loaded: 6, capacity: 6, condition: "ok", load: "cartridge", jammed: false },
-          { name: "Lever Rifle", loaded: 8, capacity: 10, condition: "worn", load: "cartridge", jammed: false, note: "Wear +1" }
+          { name: "Lever Rifle", loaded: 8, capacity: 10, atk: "+6", condition: "dirty", load: "cartridge", jammed: false, cracked: false, fouled: false, dirty: true, note: "Wear +1" }
         ],
         spells: { cantrips: [], prepared: [] },
         updatedAt: ago(15000)
@@ -91,9 +101,12 @@
         subclass: "Balladeer",
         background: "Entertainer",
         lineage: "Riverfolk · Half-Elf",
-        hpCurrent: 18,
+        hpCurrent: 0,
         hpMax: 21,
-        hpTemp: 4,
+        hpTemp: 0,
+        portrait: portrait("M", "#3a2430"),
+        conditions: "Prone",
+        deathSaves: { success: [true, false, false], fail: [true, false, false] },
         ac: 12,
         es: 210,
         shards: { white: 10, blue: 5, green: 3, yellow: 0, purple: 0 },
@@ -114,12 +127,12 @@
   };
 
   var ledger = [
-    { id: "led1", ts: ago(600000), who: "Alex", playerId: "p_jolene", type: "es_gain", what: "Saloon · Whiskey Bend Blackjack win", old: 3200, newVal: 3453, flag: false },
-    { id: "led2", ts: ago(480000), who: "Sam", playerId: "p_caleb", type: "es_spend", what: "Bought leather jacket + ammo", old: 1100, newVal: 890, flag: false },
-    { id: "led3", ts: ago(360000), who: "DM", playerId: "p_mira", type: "dm_push", what: "Reward: +4 temp HP after the dust devil fight", old: null, newVal: "+4 temp HP", flag: false },
-    { id: "led4", ts: ago(240000), who: "Jordan", playerId: "p_mira", type: "manual", what: "Manual ES edit (found purse)", old: 50, newVal: 210, flag: true },
-    { id: "led5", ts: ago(120000), who: "DM", playerId: "all", type: "dm_push", what: "Session reward note: Magistrate's warrant posted", old: null, newVal: "note", flag: false },
-    { id: "led6", ts: ago(60000), who: "Alex", playerId: "p_jolene", type: "es_spend", what: "Saloon · Slot machine", old: 3503, newVal: 3453, flag: false }
+    { id: "led1", ts: ago(600000), who: "Alex", playerName: "Alex", characterName: "Jolene \"Dusty\" Pike", playerId: "p_jolene", type: "es_gain", what: "Saloon · Whiskey Bend Blackjack win", oldVal: 3200, newVal: 3453, flag: false },
+    { id: "led2", ts: ago(480000), who: "Sam", playerName: "Sam", characterName: "Caleb \"Iron\" Marsh", playerId: "p_caleb", type: "es_spend", what: "Bought leather jacket + ammo", oldVal: 1100, newVal: 890, flag: false },
+    { id: "led3", ts: ago(360000), who: "DM", playerName: "Jordan", characterName: "Mira Quill", playerId: "p_mira", type: "dm_push", what: "Reward: +4 temp HP after the dust devil fight", oldVal: null, newVal: "+4 temp HP", flag: false },
+    { id: "led4", ts: ago(240000), who: "Jordan", playerName: "Jordan", characterName: "Mira Quill", playerId: "p_mira", type: "manual", what: "Manual ES edit (found purse)", oldVal: 50, newVal: 210, flag: true },
+    { id: "led5", ts: ago(120000), who: "DM", playerName: "Party", characterName: "Everyone", playerId: "all", type: "dm_push", what: "Session reward note: Magistrate's warrant posted", oldVal: null, newVal: "note", flag: false },
+    { id: "led6", ts: ago(60000), who: "Alex", playerName: "Alex", characterName: "Jolene \"Dusty\" Pike", playerId: "p_jolene", type: "es_spend", what: "Saloon · Slot machine", oldVal: 3503, newVal: 3453, flag: false }
   ];
 
   var rolls = [
