@@ -242,6 +242,63 @@ async function rest(kind) {
   DM.toast((kind === "long" ? "Long" : "Short") + " rest sent");
 }
 
+function parseCost(raw) {
+  const s = String(raw == null ? "" : raw).replace(/,/g, "").trim();
+  if (!s || !/\d/.test(s) || /tbd/i.test(s)) return null;
+  const n = parseInt(s, 10);
+  return isFinite(n) ? n : null;
+}
+function catalog() {
+  if (catalog.cache) return catalog.cache;
+  const R = window.SSDNS_RULES || {};
+  const items = [];
+  function add(name, cost, kind) {
+    const label = String(name || "").trim();
+    if (!label) return;
+    items.push({ name: label, price: parseCost(cost), kind: kind });
+  }
+  (R.armor || []).forEach((a) => add(a.name, a.cost, "armor"));
+  (R.firearms || []).forEach((g) => add(g.name, g.cost, "gun"));
+  (R.melee || []).forEach((g) => add(g.name, g.cost, "melee"));
+  (R.otherRanged || []).forEach((g) => add(g.name, g.cost, "ranged"));
+  (R.ammo || []).forEach((a) => add(a.name, a.cost, "ammo"));
+  (R.holsters || []).forEach((h) => add(h.name, h.cost, "holster"));
+  (R.gear || []).forEach((g) => add(g.name, g.cost, "gear"));
+  (R.frontierGear || []).forEach((g) => add(g.name, g.cost, "frontier"));
+  (R.packs || []).forEach((p) => add(p.name, p.cost, "pack"));
+  (R.mounts || []).forEach((m) => add(m.name, m.cost, "mount"));
+  (R.tools || []).forEach((t) => add(t.phb5e || t.name, null, "tool"));
+  ((R.gunsmithing && R.gunsmithing.mods) || []).forEach((m) => add(m.name, m.cost, "mod"));
+  ((R.explosives && R.explosives.items) || []).forEach((e) => add(e.name, e.cost, "explosive"));
+  const story = R.storytellerGear || {};
+  (story.instruments || []).forEach((g) => add(g.name + " (quality)", g.costQuality || g.cost, "instrument"));
+  (story.accessories || []).forEach((g) => add(g.name, g.cost, "focus"));
+  catalog.cache = items;
+  return items;
+}
+function vendorMatch(id, item) {
+  const n = item.name.toLowerCase();
+  if (id === "gunsmith") return /gun|ammo|holster|mod/.test(item.kind);
+  if (id === "eldorite") return /eldorite|hex|charm|focus|instrument/.test(n) || item.kind === "instrument" || item.kind === "focus";
+  if (id === "apothecary") return item.kind === "explosive" || /medic|tonic|poison|blessed|herb|vial|soap/.test(n);
+  if (id === "general") return /armor|gear|pack|mount|tool|holster|ammo|frontier|melee|ranged/.test(item.kind);
+  return true;
+}
+function renderCatalog() {
+  const box = $("#catalogList");
+  if (!box) return;
+  const q = ($("#catalogQ") && $("#catalogQ").value || "").trim().toLowerCase();
+  const rows = catalog().filter((item) => !q || item.name.toLowerCase().indexOf(q) >= 0).slice(0, 40);
+  if (!window.SSDNS_RULES) {
+    box.innerHTML = '<p class="lede">Rules data did not load, so the catalog is empty. You can still type an item below.</p>';
+    return;
+  }
+  box.innerHTML = rows.map((item, i) => {
+    const price = item.price == null ? "set price" : (item.price + " ES");
+    return `<div class="init-row"><b>${esc(item.name)}</b><span class="fine">${esc(item.kind)} · ${esc(price)}</span>
+      <button type="button" class="btn sm" data-cat-add="${i}" data-cat-name="${esc(item.name)}" data-cat-price="${item.price == null ? "" : item.price}">Add</button></div>`;
+  }).join("") || '<p class="lede">No gear matches that.</p>';
+}
 function renderStock() {
   const box = $("#storeList");
   if (!box) return;
@@ -250,28 +307,44 @@ function renderStock() {
     return;
   }
   box.innerHTML = fight.stock.map((item, i) =>
-    `<div class="init-row"><b>${esc(item.name)}</b><span>${esc(item.price)} ES</span>
+    `<div class="init-row"><b>${esc(item.name)}</b>
+      <input type="number" min="0" data-stock-price="${i}" value="${item.price === "" || item.price == null ? "" : esc(item.price)}" aria-label="Price for ${esc(item.name)}">
+      <span>ES</span>
       <button type="button" class="btn sm" data-stock-del="${i}">Remove</button></div>`
   ).join("");
+}
+async function addStockItem(name, price) {
+  if (!name) { DM.toast("Need an item name"); return; }
+  fight.stock.push({ name: name, price: price === "" || price == null || !isFinite(price) ? "" : price });
+  await saveRemoteTable();
+  renderStock();
 }
 async function addStock() {
   const name = ($("#stockName").value || "").trim();
   const price = parseInt($("#stockPrice").value, 10);
   if (!name || !isFinite(price)) { DM.toast("Need a name and an ES price"); return; }
-  fight.stock.push({ name: name, price: price });
   $("#stockName").value = "";
-  await saveRemoteTable();
-  renderStock();
+  await addStockItem(name, price);
   DM.toast("Stock saved");
 }
+async function loadVendor() {
+  const id = ($("#vendorPreset") && $("#vendorPreset").value) || "general";
+  const items = catalog().filter((item) => vendorMatch(id, item));
+  fight.stock = items.map((item) => ({ name: item.name, price: item.price == null ? "" : item.price }));
+  await saveRemoteTable();
+  renderStock();
+  DM.toast("Loaded " + fight.stock.length + " " + id + " items. Blank prices stay off the counter until you set them.");
+}
 async function forceStore() {
+  const priced = fight.stock.filter((item) => isFinite(parseInt(item.price, 10)));
+  const skipped = fight.stock.length - priced.length;
   await saveRemoteTable();
   await DM.pushCommand({
     type: "open_store", to: "all",
-    payload: { stock: fight.stock },
+    payload: { stock: priced.map((item) => ({ name: item.name, price: parseInt(item.price, 10) })) },
     from: DM.state.uid
   });
-  DM.toast("Store opened for the table");
+  DM.toast("Store opened" + (skipped ? " · " + skipped + " blank prices left off" : ""));
 }
 
 function renderPacks() {
@@ -335,36 +408,68 @@ function renderBestiary() {
 function lookup(q) {
   const box = $("#lookupResults");
   if (!box) return;
-  const query = String(q || "").trim().toLowerCase();
-  if (query.length < 2) { box.innerHTML = '<p class="lede">Type at least two letters.</p>'; return; }
-  const rules = window.SSDNS_RULES || {};
-  const hits = [];
-  (rules.firearms || []).forEach((g) => {
-    if (hits.length >= 12) return;
-    if (String(g.name || "").toLowerCase().indexOf(query) < 0) return;
-    const tier = g.tiers && (g.tiers.light || g.tiers.standard || Object.values(g.tiers)[0]) || {};
-    const line = [tier.damage, tier.range && ("range " + tier.range), g.properties].filter(Boolean).join(" · ");
-    hits.push(`<div class="feed-item"><b>${esc(g.name)}</b><div>${esc(line || "Firearm")}</div><div class="fine">${esc(g.src || "No page number in the rules data")}</div></div>`);
-  });
-  (rules.feats || []).forEach((f) => {
-    if (hits.length >= 12) return;
-    if (String(f.name || "").toLowerCase().indexOf(query) < 0) return;
-    hits.push(`<div class="feed-item"><b>${esc(f.name)}</b><div>${esc(f.gist || "")}</div><div class="fine">${esc(f.src || "No page number in the rules data")}</div></div>`);
-  });
-  const lists = rules.spellLists || {};
-  Object.keys(lists).forEach((key) => {
-    const list = lists[key];
-    const levels = (list && list.levels) || {};
-    Object.keys(levels).forEach((lvl) => {
-      (levels[lvl] || []).forEach((spell) => {
-        if (hits.length >= 12) return;
-        const name = String(spell).replace(/\.$/, "");
-        if (name.toLowerCase().indexOf(query) < 0) return;
-        hits.push(`<div class="feed-item"><b>${esc(name)}</b><div>${esc((list.title || key) + " · level " + lvl)}</div><div class="fine">spellLists in rules.js — the data has no printed PHB page</div></div>`);
+  try {
+    const rules = window.SSDNS_RULES;
+    if (!rules) {
+      box.innerHTML = '<p class="lede">Rules data did not load. This page expects assets/data/rules.js.</p>';
+      return;
+    }
+    const query = String(q || "").trim().toLowerCase();
+    if (query.length < 2) {
+      box.innerHTML = '<p class="lede">Type at least two letters. This searches guns, melee, spells (PHB name or frontier name), feats, armor, and the rules notes.</p>';
+      return;
+    }
+    const hits = [];
+    function push(title, line, src) {
+      if (hits.length >= 20) return;
+      hits.push(`<div class="feed-item"><b>${esc(title)}</b><div>${esc(line || "")}</div><div class="fine">${esc(src || "No printed page in the rules data")}</div></div>`);
+    }
+    function has(text) { return String(text || "").toLowerCase().indexOf(query) >= 0; }
+    ["firearms", "melee", "otherRanged"].forEach((key) => {
+      (rules[key] || []).forEach((g) => {
+        if (!has(g.name) && !has(g.properties) && !has(g.phb5e)) return;
+        const tier = g.tiers && typeof g.tiers === "object" ? (g.tiers.light || g.tiers.standard || Object.values(g.tiers)[0] || {}) : {};
+        const line = [tier.damage || g.damage, (tier.range || g.range) && ("range " + (tier.range || g.range)), g.properties].filter(Boolean).join(" · ");
+        push(g.name, line, g.src);
       });
     });
-  });
-  box.innerHTML = hits.join("") || '<p class="lede">No spell, gun, or feat by that name.</p>';
+    (rules.feats || []).forEach((f) => {
+      if (!has(f.name) && !has(f.phb5e) && !has(f.gist)) return;
+      push(f.name, f.gist || "", f.src);
+    });
+    (rules.armor || []).forEach((a) => {
+      if (!has(a.name) && !has(a.phb5e)) return;
+      push(a.name, [a.ac, a.cost && (a.cost + " ES")].filter(Boolean).join(" · "), a.src);
+    });
+    const lists = rules.spellLists || {};
+    Object.keys(lists).forEach((key) => {
+      const list = lists[key] || {};
+      const levels = list.levels || {};
+      Object.keys(levels).forEach((lvl) => {
+        const spells = levels[lvl];
+        if (!Array.isArray(spells)) return;
+        spells.forEach((spell) => {
+          const name = String(spell).replace(/\.$/, "");
+          if (!has(name)) return;
+          push(name, (list.title || key) + " · level " + lvl, "spellLists in rules.js");
+        });
+      });
+    });
+    (rules.spellAliases || []).forEach((a) => {
+      if (!has(a.phb) && !has(a.alias) && !has(a.sketch)) return;
+      push(a.phb + (a.alias && a.alias !== "—" ? " (" + a.alias + ")" : ""), a.sketch || "", "Level " + a.level);
+    });
+    const notes = rules.rulesText || {};
+    Object.keys(notes).forEach((key) => {
+      const text = String(notes[key] || "");
+      if (!has(key) && !has(text.slice(0, 400))) return;
+      push(key, text.slice(0, 220), "rulesText");
+    });
+    box.innerHTML = hits.join("") || '<p class="lede">Nothing in the rules data matches that.</p>';
+  } catch (err) {
+    box.innerHTML = '<p class="lede">Lookup failed: ' + esc(err && err.message) + "</p>";
+    console.error(err);
+  }
 }
 
 function renderTracks() {
@@ -440,6 +545,8 @@ function decorateDetail(pid) {
       <div class="toolbar">
         <select id="detailGun">${guns.map((g, i) => `<option value="${i}">${esc(g.name)} · ${esc(g.loaded ?? "?")}/${esc(g.capacity ?? "?")} rounds${g.atk ? " · " + esc(g.atk) : ""}</option>`).join("") || '<option value="">No guns</option>'}</select>
         <button type="button" class="btn sm" id="btnDetailAttack">Roll to hit</button>
+        <select id="detailSlot" aria-label="Shell level">${slotOptions(s)}</select>
+        <button type="button" class="btn sm" id="btnDetailSpell">Hex / spell</button>
       </div>
     </div>
     <div class="detail-section"><h3>Death saves</h3>
@@ -509,6 +616,21 @@ function decorateDetail(pid) {
     DM.toast(list.length ? "Conditions set" : "Conditions cleared");
   });
   $("#btnDetailAttack").addEventListener("click", () => rollGunAttack(pid));
+  const spellBtn = $("#btnDetailSpell");
+  if (spellBtn) spellBtn.addEventListener("click", () => rollSpell(pid));
+}
+
+function slotOptions(s) {
+  const slots = (s.spells && s.spells.slots) || {};
+  const spent = (s.spells && s.spells.spent) || {};
+  let html = '<option value="0">Cantrip</option>';
+  for (let lv = 1; lv <= 9; lv++) {
+    const total = Number(slots[lv] || 0);
+    if (!total) continue;
+    const left = Math.max(0, total - Number(spent[lv] || 0));
+    html += `<option value="${lv}">Level ${lv} · ${left}/${total}</option>`;
+  }
+  return html;
 }
 
 function atkNumber(text) {
@@ -522,6 +644,11 @@ async function rollGunAttack(pid) {
   const idx = parseInt($("#detailGun") && $("#detailGun").value, 10);
   const g = guns[idx];
   if (!g) { DM.toast("No gun"); return; }
+  if (g.jammed) { DM.toast(g.name + " is jammed"); return; }
+  if (g.fouled) { DM.toast(g.name + " is fouled"); return; }
+  const loaded = Number(g.loaded);
+  if (!isFinite(loaded) || loaded <= 0) { DM.toast(g.name + " is empty"); return; }
+  g.loaded = loaded - 1;
   const bonus = atkNumber(g.atk);
   const nat = 1 + Math.floor(Math.random() * 20);
   const total = nat + bonus;
@@ -544,7 +671,9 @@ async function rollGunAttack(pid) {
       what: g.name + " jammed (natural 1) · " + (names.characterName || ""),
       oldVal: null, newVal: "jammed", flag: true
     }, names));
-    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, jammed: true }, from: DM.state.uid });
+    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, jammed: true }, from: DM.state.uid });
+  } else {
+    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1 }, from: DM.state.uid });
   }
   if (g.cracked || g.condition === "cracked") {
     const ex = 1 + Math.floor(Math.random() * 20);
@@ -565,12 +694,43 @@ async function rollGunAttack(pid) {
     }
   }
   DM.renderPlayers();
-  DM.toast(g.name + " → " + total + (nat === 1 ? " JAM" : ""));
+  DM.toast(g.name + " → " + total + (nat === 1 ? " JAM" : "") + " · " + g.loaded + " left");
+}
+async function rollSpell(pid) {
+  const p = DM.state.players[pid];
+  const s = (p && p.snapshot) || {};
+  if (s.spellAtk == null || s.spellAtk === "") { DM.toast("No spell attack on this sheet"); return; }
+  const level = parseInt($("#detailSlot") && $("#detailSlot").value, 10) || 0;
+  s.spells = s.spells || {};
+  s.spells.slots = s.spells.slots || {};
+  s.spells.spent = s.spells.spent || {};
+  if (level) {
+    const total = Number(s.spells.slots[level] || 0);
+    const used = Number(s.spells.spent[level] || 0);
+    if (!total || used >= total) { DM.toast("No level-" + level + " shell left"); return; }
+    s.spells.spent[level] = used + 1;
+    await DM.pushCommand({ type: "hex_spend", to: pid, payload: { level: level }, from: DM.state.uid });
+  }
+  const bonus = atkNumber(s.spellAtk);
+  const nat = 1 + Math.floor(Math.random() * 20);
+  const total = nat + bonus;
+  const label = level ? ("Level " + level + " hex") : "Cantrip";
+  if (window.SSDNSAudio) window.SSDNSAudio.play("spellcast");
+  await DM.pushRoll({
+    who: (s.player || s.name || "Player"),
+    playerId: pid, uid: DM.state.uid,
+    label: label + " attack",
+    formula: "1d20" + (bonus ? (bonus >= 0 ? "+" : "") + bonus : ""),
+    result: total, detail: nat + (bonus ? (bonus >= 0 ? "+" : "") + bonus : ""),
+    nat1: nat === 1, isFirearm: false, private: false
+  });
+  DM.renderPlayers();
+  DM.toast(label + " → " + total);
 }
 
 function wireClicks() {
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down],[data-init-del],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll]");
+    const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down],[data-init-del],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add]");
     if (!t) return;
     if (t.hasAttribute("data-init-up") || t.hasAttribute("data-init-down") || t.hasAttribute("data-init-del")) {
       const i = parseInt(t.getAttribute("data-init-up") || t.getAttribute("data-init-down") || t.getAttribute("data-init-del"), 10);
@@ -590,6 +750,12 @@ function wireClicks() {
     if (t.hasAttribute("data-add-beast")) {
       const b = fight.bestiary.filter((x) => x.id === t.getAttribute("data-add-beast"))[0];
       if (b) addCombatant({ id: DM.uid("en"), name: b.name, kind: "enemy", ac: b.ac, hp: b.hp, example: true });
+    }
+    if (t.hasAttribute("data-cat-add")) {
+      const raw = t.getAttribute("data-cat-price");
+      const price = raw === "" || raw == null ? "" : parseInt(raw, 10);
+      addStockItem(t.getAttribute("data-cat-name"), price);
+      DM.toast("Added " + (t.getAttribute("data-cat-name") || "item"));
     }
     if (t.hasAttribute("data-stock-del")) {
       fight.stock.splice(parseInt(t.getAttribute("data-stock-del"), 10), 1);
@@ -684,10 +850,20 @@ async function bootV2() {
   $("#btnLongRest") && $("#btnLongRest").addEventListener("click", () => rest("long"));
   $("#btnUndo") && $("#btnUndo").addEventListener("click", undoLast);
   $("#btnAddStock") && $("#btnAddStock").addEventListener("click", addStock);
+  $("#btnLoadVendor") && $("#btnLoadVendor").addEventListener("click", loadVendor);
+  $("#btnSaveStock") && $("#btnSaveStock").addEventListener("click", async () => { await saveRemoteTable(); DM.toast("Stock saved"); });
+  $("#catalogQ") && $("#catalogQ").addEventListener("input", renderCatalog);
+  document.addEventListener("change", (e) => {
+    const t = e.target;
+    if (!t || !t.hasAttribute || !t.hasAttribute("data-stock-price")) return;
+    const i = parseInt(t.getAttribute("data-stock-price"), 10);
+    const n = parseInt(t.value, 10);
+    if (fight.stock[i]) fight.stock[i].price = isFinite(n) ? n : "";
+    saveRemoteTable();
+  });
+  renderCatalog();
   $("#btnOpenStoreNow") && $("#btnOpenStoreNow").addEventListener("click", forceStore);
   $("#btnSavePack") && $("#btnSavePack").addEventListener("click", savePack);
-  $("#btnLookup") && $("#btnLookup").addEventListener("click", () => lookup($("#lookupQ").value));
-  $("#lookupQ") && $("#lookupQ").addEventListener("keydown", (e) => { if (e.key === "Enter") lookup($("#lookupQ").value); });
   $("#btnMusicPlay") && $("#btnMusicPlay").addEventListener("click", playTrack);
   $("#btnMusicStop") && $("#btnMusicStop").addEventListener("click", stopTrack);
   wireClicks();
@@ -731,4 +907,17 @@ async function bootV2() {
   }
 }
 
+function wireLookupNow() {
+  const btn = document.getElementById("btnLookup");
+  const q = document.getElementById("lookupQ");
+  if (!btn || btn.dataset.wired) return;
+  btn.dataset.wired = "1";
+  const run = () => lookup(q ? q.value : "");
+  btn.addEventListener("click", run);
+  if (q) {
+    q.addEventListener("input", run);
+    q.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
+  }
+}
+wireLookupNow();
 bootV2();

@@ -47,7 +47,9 @@
           { name: "Pony Arms Chaosmaker", loaded: 6, capacity: 6, condition: "ok", load: "buck", jammed: false },
           { name: "Double-Barrel Coach Gun", loaded: 2, capacity: 2, condition: "ok", load: "buck", jammed: false }
         ],
-        spells: { cantrips: ["Powder Spark", "Alkali Bite", "Dust Mirage"], prepared: ["Powder Fan", "Iron Guard", "Dust Run"] },
+        spellAtk: "+5",
+        spellDC: 13,
+        spells: { cantrips: ["Powder Spark", "Alkali Bite", "Dust Mirage"], prepared: ["Powder Fan", "Iron Guard", "Dust Run"], slots: { 1: 4, 2: 2 }, spent: { 1: 1 } },
         updatedAt: ago(8000)
       }
     },
@@ -120,7 +122,9 @@
         guns: [
           { name: "Pocket Derringer", loaded: 2, capacity: 2, condition: "ok", load: "cartridge", jammed: false }
         ],
-        spells: { cantrips: ["Wire Whisper", "Dust Mirage"], prepared: ["Trail Hymn", "Crowd Charm"] },
+        spellAtk: "+5",
+        spellDC: 13,
+        spells: { cantrips: ["Wire Whisper", "Dust Mirage"], prepared: ["Trail Hymn", "Crowd Charm"], slots: { 1: 4, 2: 2 }, spent: {} },
         updatedAt: ago(200000)
       }
     }
@@ -154,6 +158,10 @@
   ];
 
   var commands = [];
+  var chat = [
+    { id: "c1", ts: ago(80000), from: "demo_jolene", fromName: "Alex", text: "I check under the bar.", to: "all" },
+    { id: "c2", ts: ago(20000), from: "demo_dm", fromName: "DM", text: "The green glint is a shard, not glass.", to: "p_jolene", toName: "Jolene" }
+  ];
 
   root.DMCC_DEMO = {
     roomCode: "DUST-4821",
@@ -171,6 +179,7 @@
     messages: messages,
     handouts: handouts,
     commands: commands,
+    chat: chat,
     freshId: id
   };
 })(typeof window !== "undefined" ? window : globalThis);

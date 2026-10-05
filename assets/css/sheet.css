@@ -91,7 +91,7 @@ input:focus, select:focus, textarea:focus { outline: none; background: var(--fil
 .box { border: 1px solid var(--line); background: var(--fill); padding: 8px 10px; position: relative; border-radius: 3px; }
 .box-title { display: block; text-align: center; font-weight: 600; margin-top: 4px; }
 .box-title.bottom { margin-top: 6px; }
-.box-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 2px solid var(--ochre); margin: -2px 0 8px; padding-bottom: 3px; }
+.box-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; border-bottom: 2px solid var(--ochre); margin: -2px 0 8px; padding-bottom: 3px; }
 .sub-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 .spot { height: 44px; width: auto; opacity: .9; }
 .chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 11px; }
@@ -114,6 +114,16 @@ input:focus, select:focus, textarea:focus { outline: none; background: var(--fil
 
 /* ---------------- top block */
 .topblock { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 14px; align-items: end; margin-bottom: 14px; }
+.eldorite-bar { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(280px, 1.1fr); gap: 12px; margin: 0 0 14px; align-items: start; }
+.eldorite-bar .shards { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.eldorite-bar .shards-title, .eldorite-bar .shard-total, .eldorite-bar .shard-actions { grid-column: 1 / -1; }
+.shard-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.shard-actions .es-total { font-family: var(--head); font-size: 26px; line-height: 1; min-width: 88px; }
+.shard-actions select { width: auto; min-width: 120px; }
+.hex-roll { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.hex-roll select { width: auto; min-width: 110px; }
+.hp-auto-note { margin: 4px 0 0; }
+.store-wallet { font-size: 15px; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--line); background: rgba(63,191,154,.08); }
 .namebox { border: 1px solid var(--line); background: var(--fill); padding: 8px 12px 4px; border-radius: 3px; }
 .namebox input, .namebox .mirror { font-family: var(--head); font-size: 26px; color: var(--red); border: 0; min-height: 40px; display: block; width: 100%; }
 .namebox label { display: block; }
@@ -221,7 +231,7 @@ input.big { font-family: var(--head); font-size: 28px !important; text-align: ce
 .firearms > textarea { min-height: 48px; }
 
 /* ---------------- equipment + shards */
-.equipment { display: grid; grid-template-columns: 140px 1fr; gap: 10px; }
+.equipment { display: block; }
 .shards { display: flex; flex-direction: column; gap: 5px; }
 .shards-title { font-family: var(--label); text-transform: uppercase; font-size: 10.5px; letter-spacing: .08em; font-weight: 600; text-align: center; color: var(--red); }
 .shard { display: grid; grid-template-columns: 18px 1fr; grid-template-rows: auto auto; column-gap: 6px; align-items: center; border: 1px solid var(--line); background: var(--fill-hi); border-radius: 12px; padding: 3px 8px 3px 6px; }
@@ -254,8 +264,8 @@ input.big { font-family: var(--head); font-size: 28px !important; text-align: ce
 
 /* ---------------- page 2 */
 .topgrid.g3 { grid-template-columns: repeat(3, 1fr); }
-.story-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "portrait allies" "backstory addl" "backstory treasure" "backstory addiction"; gap: 12px; align-items: start; }
-.portrait { grid-area: portrait; } .allies { grid-area: allies; } .backstory { grid-area: backstory; } .addl { grid-area: addl; } .treasure { grid-area: treasure; } .addiction { grid-area: addiction; }
+.story-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "portrait allies" "backstory addl" "backstory treasure"; gap: 12px; align-items: start; }
+.portrait { grid-area: portrait; } .allies { grid-area: allies; } .backstory { grid-area: backstory; } .addl { grid-area: addl; } .treasure { grid-area: treasure; }
 .backstory textarea { min-height: 560px; }
 .imgdrop { border: 1px dashed var(--line); background: rgba(255,255,255,.35); min-height: 220px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; }
 .imgdrop img { max-width: 100%; max-height: 320px; display: block; }
@@ -356,7 +366,7 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
   .tab { flex: 1; font-size: 14px; padding: 6px 4px; min-height: 46px; }
   main { padding: 0 0 80px; }
   .page { padding: 12px 10px 18px; box-shadow: none; }
-  .topblock, .hexhead { grid-template-columns: 1fr; }
+  .topblock, .hexhead, .eldorite-bar { grid-template-columns: 1fr; }
   .topgrid, .topgrid.g3, .hexinfo { grid-template-columns: 1fr 1fr; }
   .tf-calling { grid-column: 1 / -1; }
   .hex-art { display: none; }
@@ -385,7 +395,7 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
   .equipment { grid-template-columns: 1fr; }
   .shards { display: grid; grid-template-columns: 1fr 1fr; }
   .shards-title, .shard-total { grid-column: 1 / -1; }
-  .story-grid { grid-template-columns: 1fr; grid-template-areas: "portrait" "allies" "backstory" "addl" "treasure" "addiction"; }
+  .story-grid { grid-template-columns: 1fr; grid-template-areas: "portrait" "allies" "backstory" "addl" "treasure"; }
   .backstory textarea { min-height: 320px; }
   .spell-grid { columns: 1; }
   .sp-line input[type=text] { min-height: 40px; }
@@ -513,6 +523,47 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
 .log-filters .btn.on { background: var(--ochre, #c4953a); color: #1a120a; }
 .audio-ctl { display: inline-flex; align-items: center; gap: 4px; color: #d9f3ea; }
 html, body { overflow-x: hidden; }
+.sheet-dock {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 300px; z-index: 40;
+  display: flex; flex-direction: column;
+  background: #1c2420; color: #e8efe9; border-left: 1px solid #3a454c;
+}
+.sheet-dock .dock-head, .sheet-dock .dock-filters, .sheet-dock .dock-compose { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 8px; }
+.sheet-dock .dock-head { justify-content: space-between; border-bottom: 1px solid #3a454c; }
+.sheet-dock .dock-head b { font-family: var(--head); color: #3fbf9a; font-weight: 400; }
+.sheet-dock .dock-feed { flex: 1; overflow: auto; padding: 8px; }
+.sheet-dock .dock-item { border-bottom: 1px solid #3a454c; padding: 6px 2px; font-size: 14px; }
+.sheet-dock .dock-meta { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; opacity: .7; }
+.sheet-dock .dock-compose { border-top: 1px solid #3a454c; }
+.sheet-dock .dock-compose input { flex: 1; min-width: 0; min-height: 40px; }
+.sheet-dock .btn { color: #efe2c2; border-color: #3fbf9a; }
+.sheet-dock .btn.on { background: #2a8a6e; color: #efe2c2; }
+.dock-fab {
+  display: none; position: fixed; right: 12px; bottom: 12px; z-index: 41;
+  min-height: 44px; padding: 8px 14px; border-radius: 99px;
+  background: #1f5c4b; color: #efe2c2; border: 1px solid #3fbf9a; cursor: pointer;
+}
+@media (min-width: 801px) {
+  body:not(.sheet-dock-collapsed) .appbar,
+  body:not(.sheet-dock-collapsed) .savebar,
+  body:not(.sheet-dock-collapsed) .dm-join-bar,
+  body:not(.sheet-dock-collapsed) .tabs,
+  body:not(.sheet-dock-collapsed) main { margin-right: 300px; }
+  body.sheet-dock-collapsed .sheet-dock { width: 48px; }
+  body.sheet-dock-collapsed .dock-filters,
+  body.sheet-dock-collapsed .dock-feed,
+  body.sheet-dock-collapsed .dock-compose,
+  body.sheet-dock-collapsed .dock-head b { display: none; }
+}
+@media (max-width: 800px) {
+  .appbar, .savebar, .dm-join-bar, .tabs, main { margin-right: 0 !important; }
+  .dock-fab { display: inline-flex; align-items: center; gap: 6px; }
+  .sheet-dock {
+    top: auto; left: 0; right: 0; width: auto; height: min(68vh, 480px);
+    transform: translateY(110%); transition: transform .2s ease; border-left: 0; border-top: 1px solid #3fbf9a;
+  }
+  body.dock-open .sheet-dock { transform: none; }
+}
 @media screen and (max-width: 414px) {
   .tabs { flex-wrap: wrap; overflow-x: visible; }
   .tab { flex: 1 1 30%; min-height: 44px; }
