@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#121618">
+<title>SSDNS · DM Command Center</title>
+<link rel="stylesheet" href="assets/css/dmcc.css">
+</head>
+<body>
+<noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
+
+<header class="appbar" id="appbar">
+  <div class="brand">
+    <img src="assets/revolver.png" alt="" class="brand-gun" width="48" height="48">
+    <div>
+      <div class="brand-title">Six-Shooters &amp; Sorcery</div>
+      <div class="brand-sub">Dust and Shadows · <span class="dm-badge">DM Command Center</span></div>
+    </div>
+  </div>
+  <div class="bar-actions">
+    <button type="button" class="btn sm" id="btnCopyCode" hidden title="Copy room code">Copy code</button>
+    <button type="button" class="btn sm btn-danger" id="btnEndSession" hidden title="End session">End Session</button>
+  </div>
+</header>
+
+<div class="statusbar" id="statusBar" role="status">
+  <span class="status-dot demo" id="statusDot"></span>
+  <span id="statusText">Demo mode · offline</span>
+  <label class="toggle" title="Use fake players; no Firebase needed">
+    <input type="checkbox" id="chkDemo" checked>
+    Demo
+  </label>
+  <span id="statusExtra"></span>
+</div>
+
+<!-- Lobby (no room yet) -->
+<section class="lobby" id="lobby">
+  <h1>DM Command Center</h1>
+  <p>Create a table room. Players join from their character sheet with the code. Demo mode works fully offline.</p>
+  <div class="field">
+    <label for="inRoomName">Session name (optional)</label>
+    <input type="text" id="inRoomName" placeholder="Whiskey Bend One-Shot" autocomplete="off">
+  </div>
+  <div class="row-btns">
+    <button type="button" class="btn btn-primary" id="btnCreateRoom">Create room</button>
+    <button type="button" class="btn" id="btnLoadDemo">Load demo table</button>
+  </div>
+</section>
+
+<!-- Active room -->
+<div id="roomShell" hidden>
+  <div class="room-hero">
+    <div class="room-code-card">
+      <div class="room-code-label">Table code · share with players</div>
+      <div class="room-code" id="roomCodeDisplay">————</div>
+      <div class="room-meta" id="roomMeta"></div>
+      <div class="presence" id="presenceList"></div>
+    </div>
+  </div>
+
+  <nav class="tabs" role="tablist" aria-label="DMCC pages">
+    <button type="button" role="tab" class="tab" id="tab-table" aria-controls="panel-table" aria-selected="true">Table</button>
+    <button type="button" role="tab" class="tab" id="tab-rewards" aria-controls="panel-rewards" aria-selected="false">Rewards</button>
+    <button type="button" role="tab" class="tab" id="tab-ledger" aria-controls="panel-ledger" aria-selected="false">Ledger</button>
+    <button type="button" role="tab" class="tab" id="tab-rolls" aria-controls="panel-rolls" aria-selected="false">Rolls</button>
+    <button type="button" role="tab" class="tab" id="tab-handouts" aria-controls="panel-handouts" aria-selected="false">Handouts</button>
+    <button type="button" role="tab" class="tab" id="tab-notes" aria-controls="panel-notes" aria-selected="false">Notes</button>
+  </nav>
+
+  <main>
+    <!-- TABLE -->
+    <section class="panel" id="panel-table" role="tabpanel" aria-labelledby="tab-table">
+      <h2>Table</h2>
+      <p class="lede">Tap a card for the private read-only sheet (abilities, skills, gear, spells).</p>
+      <div class="toolbar">
+        <button type="button" class="btn sm" id="btnForceSaloon">Open Saloon (all)</button>
+        <button type="button" class="btn sm" id="btnForceStore">Open Store (all)</button>
+        <div class="field-inline">
+          <label for="selForcePlayer">Nudge</label>
+          <select id="selForcePlayer"></select>
+          <input type="text" id="inForceTab" placeholder="custom tab id" style="width:120px">
+          <button type="button" class="btn sm" id="btnForceCustom">Send</button>
+        </div>
+      </div>
+      <div class="player-grid" id="playerGrid"></div>
+    </section>
+
+    <!-- REWARDS -->
+    <section class="panel" id="panel-rewards" role="tabpanel" aria-labelledby="tab-rewards" hidden>
+      <h2>Rewards</h2>
+      <p class="lede">Push Eldorite shards, an item, or a note to one player or everyone.</p>
+      <div class="form-grid">
+        <div>
+          <label for="rewTarget">Target</label>
+          <select id="rewTarget"></select>
+        </div>
+        <div>
+          <label for="rewType">Type</label>
+          <select id="rewType">
+            <option value="es">ES (+/−)</option>
+            <option value="item">Item</option>
+            <option value="note">Reward note</option>
+          </select>
+        </div>
+        <div id="rewEsWrap">
+          <label for="rewEs">ES amount (negative to take)</label>
+          <input type="number" id="rewEs" value="50" step="1">
+        </div>
+        <div class="span-2" id="rewTextWrap" hidden>
+          <label for="rewText">Item or note</label>
+          <input type="text" id="rewText" placeholder="Silvered Bowie · or free-text note">
+        </div>
+      </div>
+      <div class="toolbar">
+        <button type="button" class="btn btn-primary" id="btnPushReward">Push reward</button>
+      </div>
+      <div class="toolbar" style="margin-top:20px;border-top:1px solid var(--line);padding-top:14px">
+        <h2 style="font-size:18px;margin:0;width:100%">Private message</h2>
+        <p class="lede" style="width:100%">DM → one player. Never broadcast.</p>
+        <div class="form-grid" style="width:100%">
+          <div>
+            <label for="msgTarget">Player</label>
+            <select id="msgTarget"></select>
+          </div>
+          <div class="span-2">
+            <label for="msgText">Message</label>
+            <textarea id="msgText" rows="2" placeholder="You notice…"></textarea>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ochre" id="btnSendMsg">Send private message</button>
+      </div>
+      <div class="feed" id="msgFeed" style="margin-top:12px"></div>
+    </section>
+
+    <!-- LEDGER -->
+    <section class="panel" id="panel-ledger" role="tabpanel" aria-labelledby="tab-ledger" hidden>
+      <h2>Ledger</h2>
+      <p class="lede">Live feed of ES changes, Saloon, DM pushes, and manual edits. Big jumps are flagged.</p>
+      <div class="toolbar">
+        <button type="button" class="btn sm" id="btnExportJson">Export JSON</button>
+        <button type="button" class="btn sm" id="btnExportCsv">Export CSV</button>
+      </div>
+      <div class="feed" id="ledgerFeed"></div>
+    </section>
+
+    <!-- ROLLS -->
+    <section class="panel" id="panel-rolls" role="tabpanel" aria-labelledby="tab-rolls" hidden>
+      <h2>Rolls</h2>
+      <p class="lede">Shared table log. DM private rolls stay dashed. Firearm nat 1s are marked.</p>
+      <div class="form-grid">
+        <div>
+          <label for="rollLabel">Label</label>
+          <input type="text" id="rollLabel" placeholder="Dust Devil Stealth">
+        </div>
+        <div>
+          <label for="rollFormula">Formula</label>
+          <input type="text" id="rollFormula" value="1d20" placeholder="1d20+4">
+        </div>
+        <div>
+          <label class="toggle" style="margin-top:22px">
+            <input type="checkbox" id="rollPrivate" checked>
+            Private (DM only)
+          </label>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button type="button" class="btn btn-primary" id="btnDmRoll">Roll</button>
+      </div>
+      <div class="feed" id="rollsFeed"></div>
+    </section>
+
+    <!-- HANDOUTS -->
+    <section class="panel" id="panel-handouts" role="tabpanel" aria-labelledby="tab-handouts" hidden>
+      <h2>Handouts</h2>
+      <p class="lede">Paste an image URL, name it, send to the table or one player.</p>
+      <div class="form-grid">
+        <div>
+          <label for="hoName">Name</label>
+          <input type="text" id="hoName" placeholder="Wanted poster">
+        </div>
+        <div class="span-2">
+          <label for="hoUrl">Image URL</label>
+          <input type="url" id="hoUrl" placeholder="https://…">
+        </div>
+        <div>
+          <label for="hoTarget">Send to</label>
+          <select id="hoTarget"></select>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button type="button" class="btn btn-primary" id="btnSendHandout">Send handout</button>
+        <button type="button" class="btn sm" id="btnSaveHandout">Save to list only</button>
+      </div>
+      <div class="handout-grid" id="handoutGrid" style="margin-top:14px"></div>
+    </section>
+
+    <!-- NOTES -->
+    <section class="panel" id="panel-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
+      <h2>Private DM notes</h2>
+      <p class="lede">Local only — never synced to Firebase or players.</p>
+      <textarea class="notes-area" id="dmNotes" placeholder="Session beats, NPC names, secrets…"></textarea>
+      <p class="notes-hint" id="notesSaved">Autosaved to this browser.</p>
+    </section>
+  </main>
+</div>
+
+<!-- Player detail drawer -->
+<div class="overlay" id="detailOverlay" hidden>
+  <div class="drawer" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <div class="drawer-head">
+      <div>
+        <h2 id="detailTitle">—</h2>
+        <div class="pcard-sub" id="detailSub"></div>
+      </div>
+      <button type="button" class="btn sm" id="btnCloseDetail">Close</button>
+    </div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- End session dialog -->
+<dialog id="dlgEnd" class="drawer" style="border:1px solid var(--eld-dim);background:var(--bg-2);color:var(--ink);max-width:420px;padding:18px">
+  <h2 style="font-family:var(--head);color:var(--eld);margin:0 0 8px;font-weight:400">End Session</h2>
+  <p style="color:var(--muted);font-size:14px">By default the ledger is kept (archived). Optional wipe deletes the live room data.</p>
+  <label class="toggle" style="margin:12px 0;display:flex">
+    <input type="checkbox" id="chkWipe">
+    Also wipe live room data
+  </label>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+    <button type="button" class="btn btn-danger" id="btnConfirmEnd">End session</button>
+    <button type="button" class="btn" id="btnCancelEnd">Cancel</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="../assets/js/firebase-config.js"></script>
+<script src="assets/js/demo-data.js"></script>
+<script type="module" src="assets/js/dmcc.js"></script>
+</body>
+</html>
