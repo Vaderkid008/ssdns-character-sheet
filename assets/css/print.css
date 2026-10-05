@@ -2,7 +2,8 @@
 @page { size: letter; margin: 9mm; }
 html, body { background: #fff !important; }
 body { font-size: 10.5pt; }
-.appbar, .savebar, .dm-join-bar, .tabs, .toast, .drop-overlay, .dlg, .btn, .roll, .reload, .quickadd, .imgbtns, .restbar .btn, #selFeatAdd, .chip-x, .ref, .wild summary + ol:empty, #btnAddAmmo, .hp-quick, .hp-btn, .cond-banner, .hp-notice, #page-store, #page-log { display: none !important; }
+.appbar, .savebar, .dm-join-bar, .tabs, .toast, .drop-overlay, .dlg, .btn, .roll, .reload, .quickadd, .imgbtns, .restbar .btn, #selFeatAdd, .chip-x, .ref, .wild summary + ol:empty, #btnAddAmmo, .hp-quick, .hp-btn, .cond-banner, .hp-notice, #page-store, #page-log, .sheet-dock, .dock-fab { display: none !important; }
+main, .appbar, .tabs { margin-right: 0 !important; }
 main { padding: 0 !important; }
 .page { display: block !important; max-width: none; box-shadow: none !important; padding: 0 !important; background: none !important; break-after: page; page-break-after: always; }
 .page:last-child { break-after: auto; page-break-after: auto; }
@@ -18,6 +19,8 @@ textarea { resize: none; overflow: visible; border-color: #999; }
 input::placeholder, textarea::placeholder { color: transparent; }
 .main-grid { grid-template-columns: 1.1fr 1fr 1fr; grid-template-areas: "c1 c2 c3" "c1 fire fire" "c1 equip feat"; gap: 6px; }
 .story-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+.eldorite-bar { grid-template-columns: 1fr 1fr; gap: 6px; }
+.shard-actions .btn, #btnHpAuto, .hex-roll { display: none !important; }
 .backstory textarea { min-height: 420px; }
 .spell-grid { columns: 3; }
 .gun-head, .gun { grid-template-columns: 2fr 44px 1.3fr .9fr 34px 1.8fr 56px; }

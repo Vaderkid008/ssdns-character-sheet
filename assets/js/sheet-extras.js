@@ -107,7 +107,42 @@
     renderLog();
   }
 
+  var dockFilter = "all";
+  function dockBucket(e) {
+    if (e.kind === "chat") return "chat";
+    if (e.kind === "es") return "money";
+    if (e.kind === "roll") return "rolls";
+    if (e.kind === "alert" || e.kind === "dm" || e.kind === "hp") return "alerts";
+    return "other";
+  }
+  function renderDock() {
+    var feed = $("#sheetDockFeed");
+    if (!feed) return;
+    var rows = log.filter(function (e) {
+      if (dockFilter === "all") return true;
+      return dockBucket(e) === dockFilter;
+    });
+    var stick = feed.dataset.stick !== "0";
+    var slice = rows.slice().reverse().slice(-80);
+    feed.innerHTML = slice.map(function (e) {
+      var when = "";
+      try { when = new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
+      return '<div class="dock-item"><div class="dock-meta">' + when + " · " + esc(dockBucket(e)) + '</div><div>' + esc(e.text || "") + "</div></div>";
+    }).join("") || '<p class="fine">Nothing in this filter yet. Rolls, shards, and chat land here.</p>';
+    if (stick) feed.scrollTop = feed.scrollHeight;
+    var badge = $("#sheetDockBadge");
+    var closed = document.body.classList.contains("sheet-dock-collapsed") || (window.matchMedia("(max-width: 800px)").matches && !document.body.classList.contains("dock-open"));
+    if (!closed) sheetDockSeen = log.length;
+    var unread = Math.max(0, log.length - sheetDockSeen);
+    if (badge) {
+      badge.hidden = unread < 1;
+      badge.textContent = String(unread);
+    }
+  }
+  var sheetDockSeen = 0;
+
   function renderLog() {
+    renderDock();
     var feed = $("#logFeed");
     if (!feed) return;
     if (!joined() && !log.length) {
@@ -131,6 +166,27 @@
     }).join("");
   }
 
+  function walletLine() {
+    var d = doc();
+    var Bridge = root.SSDNSBridge;
+    if (!d || !Bridge) return "Shards are not loaded yet.";
+    var shards = Bridge.cleanShards ? Bridge.cleanShards(d.shards) : (d.shards || {});
+    var labels = [
+      ["white", "White ×", 1],
+      ["blue", "Blue ×", 10],
+      ["green", "Green ×", 50],
+      ["yellow", "Yellow ×", 100],
+      ["purple", "Purple ×", 500]
+    ];
+    var bits = labels.map(function (row) {
+      return row[1] + (shards[row[0]] || 0) + " (" + row[2] + " ES)";
+    });
+    var es = Bridge.cpValue(shards);
+    var treasure = d.character && String(d.character.treasure || "").trim();
+    var extra = treasure ? " Other: " + treasure.replace(/\s+/g, " ").slice(0, 160) : "";
+    return es.toLocaleString() + " ES on hand. " + bits.join(" · ") + "." + extra;
+  }
+
   function renderStore() {
     var box = $("#storeStock");
     var lede = $("#storeLede");
@@ -141,7 +197,7 @@
       if (d && root.SSDNSBridge) es = root.SSDNSBridge.cpValue(d.shards);
     } catch (e) {}
     var esEl = $("#storeEs");
-    if (esEl) esEl.textContent = joined() ? ("Your shards: " + es + " ES") : "Not joined — buying stays off.";
+    if (esEl) esEl.textContent = walletLine();
     if (!joined()) {
       if (lede) lede.textContent = "Join a table with the room code. The DM sets tonight's stock and can open this tab for you. Nothing here changes your sheet until then.";
       box.innerHTML = "";
@@ -228,6 +284,8 @@
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
     var g = c.guns[i];
+    var spent = root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i) : null;
+    if (!spent || !spent.ok) { toast((spent && spent.reason) || "That gun can't fire."); return; }
     var atkEl = document.querySelector('[data-calc="gunAtk.' + i + '"]');
     var atk = parseInt(atkEl && String(atkEl.value).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(atk)) atk = 0;
@@ -253,8 +311,9 @@
         postGunLedger(name + " exploded (cracked gun, explode check 1)", "explode");
       }
     }
+    if (spent.left != null) bits.push(spent.left + " rounds left.");
     toast(bits.join(" "));
-    addLog({ kind: "dm", text: bits.join(" ") });
+    addLog({ kind: "roll", text: bits.join(" ") });
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         label: name + " attack",
@@ -301,6 +360,10 @@
     payload = payload || {};
     var i = findGun(payload.name);
     if (i < 0) return;
+    if (payload.spend && root.SSDNSApp && root.SSDNSApp.spendRound) {
+      var spent = root.SSDNSApp.spendRound(i);
+      if (!spent.ok) showNotice((payload.name || "Gun") + ": " + (spent.reason || "could not spend a round"));
+    }
     ["jammed", "cracked", "fouled", "dirty"].forEach(function (k) {
       if (payload[k] == null) return;
       var box = document.querySelector('[data-f="character.guns.' + i + '.' + k + '"]');
@@ -443,11 +506,42 @@
     if (c) { /* names go with the roll */ }
   }
 
-  function sendChat() {
-    var input = $("#logChatText");
+  function rollHex() {
+    var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+    if (v.spellAtk == null || v.spellAtk === "") { toast("This Calling has no spell attack."); return; }
+    var level = num($("#hexRollLevel") && $("#hexRollLevel").value);
+    if (level > 0) {
+      var ok = root.SSDNSApp.spendHexSlot && root.SSDNSApp.spendHexSlot(level);
+      if (!ok) { toast("No level-" + level + " shell left."); return; }
+    }
+    var atk = parseInt(String(v.spellAtk).replace(/[^\d-]/g, ""), 10);
+    if (!isFinite(atk)) atk = 0;
+    var nat = 1 + Math.floor(Math.random() * 20);
+    var total = nat + atk;
+    var label = level ? ("Level " + level + " hex") : "Cantrip";
+    var text = label + " " + (atk >= 0 ? "+" : "") + atk + ": " + nat + (atk ? (atk >= 0 ? "+" : "") + atk : "") + " = " + total;
+    if (root.SSDNSAudio) root.SSDNSAudio.play("spellcast");
+    toast(text);
+    addLog({ kind: "roll", text: text });
+    if (joined() && root.SSDNSDmJoin.postRoll) {
+      root.SSDNSDmJoin.postRoll({
+        label: label + " attack",
+        formula: "1d20" + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
+        result: total,
+        detail: String(nat) + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
+        nat1: nat === 1,
+        isFirearm: false,
+        private: false,
+        whisper: false
+      });
+    }
+  }
+
+  function sendChat(input) {
+    input = input || $("#logChatText");
     var text = (input && input.value || "").trim();
     if (!text) return;
-    if (!joined()) { toast("Join a table to chat"); return; }
+    if (!joined()) { toast("Join a table to chat. The sheet stays on this device until then."); return; }
     input.value = "";
     var c = ch();
     addLog({ kind: "chat", text: ((c && c.player) || "You") + ": " + text });
@@ -493,9 +587,49 @@
       else if (b.hasAttribute("data-hexload") || b.classList.contains("hex")) root.SSDNSAudio.play("spellcast");
       else if (b.hasAttribute("data-fire")) root.SSDNSAudio.play("attack");
     }, true);
-    document.addEventListener("change", function () { renderConds(); });
+    document.addEventListener("change", function () { renderConds(); renderStore(); });
     var chat = $("#logChat");
-    if (chat) chat.addEventListener("submit", function (e) { e.preventDefault(); sendChat(); });
+    if (chat) chat.addEventListener("submit", function (e) { e.preventDefault(); sendChat($("#logChatText")); });
+    var dockChat = $("#sheetDockChat");
+    if (dockChat) dockChat.addEventListener("submit", function (e) { e.preventDefault(); sendChat($("#sheetDockText")); });
+    var hexBtn = $("#btnHexRoll");
+    if (hexBtn) hexBtn.addEventListener("click", rollHex);
+    document.querySelectorAll("[data-sheet-filter]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        dockFilter = btn.getAttribute("data-sheet-filter") || "all";
+        document.querySelectorAll("[data-sheet-filter]").forEach(function (b) { b.classList.toggle("on", b === btn); });
+        renderDock();
+      });
+    });
+    var dockFeed = $("#sheetDockFeed");
+    if (dockFeed) dockFeed.addEventListener("scroll", function () {
+      var gap = dockFeed.scrollHeight - dockFeed.scrollTop - dockFeed.clientHeight;
+      dockFeed.dataset.stick = gap < 64 ? "1" : "0";
+    });
+    var collapse = $("#btnSheetDockCollapse");
+    if (collapse) collapse.addEventListener("click", function () {
+      if (window.matchMedia("(max-width: 800px)").matches) {
+        document.body.classList.remove("dock-open");
+        renderDock();
+        return;
+      }
+      document.body.classList.toggle("sheet-dock-collapsed");
+      collapse.textContent = document.body.classList.contains("sheet-dock-collapsed") ? "Show" : "Hide";
+      try { localStorage.setItem("ssdns.sheet.dock", document.body.classList.contains("sheet-dock-collapsed") ? "closed" : "open"); } catch (err) {}
+      renderDock();
+    });
+    var fab = $("#btnSheetDockFab");
+    if (fab) fab.addEventListener("click", function () {
+      document.body.classList.toggle("dock-open");
+      if (document.body.classList.contains("dock-open")) sheetDockSeen = log.length;
+      renderDock();
+    });
+    try {
+      if (localStorage.getItem("ssdns.sheet.dock") === "closed") {
+        document.body.classList.add("sheet-dock-collapsed");
+        if (collapse) collapse.textContent = "Show";
+      }
+    } catch (err) {}
     var wh = $("#btnWhisper");
     if (wh) wh.addEventListener("click", whisper);
     var hear = $("#btnTapHear");

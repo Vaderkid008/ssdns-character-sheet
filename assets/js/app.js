@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.2.3";
+  var APP_VERSION = "0.2.4"; // sheet-notes-v021
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -105,7 +105,7 @@
       name: "", player: "", lineage: "", sublineage: "", calling: "", level: 1, subclass: "", background: "", xp: "",
       abilities: abil, saveProf: saves, skillProf: {}, overrides: {},
       partyInspiration: new Array(10).fill(false),
-      speed: "", armor: "", shield: false, hpMax: "", hpCurrent: "", hpTemp: "", hitDiceLeft: "",
+      speed: "", armor: "", shield: false, hpAuto: true, hpMax: "", hpCurrent: "", hpTemp: "", hitDiceLeft: "",
       deathSaves: { success: [false, false, false], fail: [false, false, false] },
       guns: [0, 1, 2, 3].map(function () { return { weapon: "", tier: "", chamber: "", mod: "", capacity: "", load: "buck", loaded: 0, chambers: [], proficient: true, jammed: false, cracked: false, fouled: false, dirty: false }; }),
       tableConditions: "",
@@ -156,6 +156,8 @@
       id: raw.id || d.id, createdAt: raw.createdAt || d.createdAt, updatedAt: raw.updatedAt || d.updatedAt,
       shards: Bridge.cleanShards(raw.shards), character: fill(d.character, raw.character)
     };
+    var hadHp = raw.character && raw.character.hpMax !== "" && raw.character.hpMax != null;
+    if (hadHp && raw.character.hpAuto !== true) doc.character.hpAuto = false;
     Object.keys(raw).forEach(function (k) { if (!(k in doc)) doc[k] = raw[k]; });
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
@@ -644,7 +646,15 @@
       box.appendChild(el("div", { class: "shard-total", "data-out": "cpTotal" }));
     });
     var head = el("div", { class: "shards-title", text: "Eldorite Shards" });
+    var actions = el("div", { class: "shard-actions" }, [
+      el("output", { class: "es-total", "data-out": "esTotal", text: "0 ES" }),
+      el("select", { id: "consumeColor", "aria-label": "Shard to consume" }, SHARDS.map(function (s) {
+        return el("option", { value: s.id, text: s.color + " (" + s.equals + ")" });
+      })),
+      el("button", { type: "button", class: "btn sm", id: "btnConsume" }, ["Consume"])
+    ]);
     $("#shards").insertBefore(head, $("#shards").firstChild);
+    $("#shards").appendChild(actions);
   }
   function buildSpellGrid() {
     var g = $("#spellGrid"); g.innerHTML = "";
@@ -929,7 +939,8 @@
         : "Tactical Reload needs a gun belt or bandolier (tick the box, or pick Gun Belt / Bandolier). Tap to see the warning.";
     });
     var cp = v.cp;
-    out("cpTotal", "Worth " + cp.toLocaleString() + " " + UNIT + " (Eldorite Shards)");
+    out("cpTotal", "Worth " + cp.toLocaleString() + " " + UNIT);
+    out("esTotal", cp.toLocaleString() + " " + UNIT);
     var fc = $("#featChips"); fc.innerHTML = "";
     c.feats.forEach(function (id, idx) {
       var f = FEAT[id];
@@ -1121,12 +1132,14 @@
     // v0.2.1: picking Gun Belt / Bandolier ticks the TR feed box (picking something else leaves it alone)
     if (path === "character.holster" && HOL[v] && HOL[v].feedsTR) C().gunBelt = true;
     $$('[data-mirror="' + path + '"]').forEach(function (m) { m.textContent = v; });
+    if (path === "character.hpMax") C().hpAuto = false;
     if (e.type === "change") {
       if (path === "character.calling") onCallingPicked();
       else if (path === "character.lineage") onLineagePicked();
       else if (path === "character.sublineage") onSublineagePicked();
       else if (path === "character.background") onBackgroundPicked();
       else if (/^character\.guns\.\d+\.(weapon|load|chamber|capacity)$/.test(path)) onGunChanged(num(path.split(".")[2]), path.split(".")[3], old);
+      if (C().hpAuto !== false && (path === "character.calling" || path === "character.level" || path === "character.abilities.CON")) applyAutoHp();
     }
     if (path === "character.addiction.penalty" || path === "character.addiction.uses") clampPenalty();
     if (path.indexOf("shards.") === 0) {
@@ -1136,6 +1149,43 @@
     var structural = e.type === "change" && (t.tagName === "SELECT" || t.type === "checkbox" || /ammo\.|explosives\.|addiction\.|instrument/.test(path));
     if (structural) { renderFields(); changed({ noRender: true }); }
     else changed();
+  }
+  function dieMax(hitDie) {
+    var m = String(hitDie || "").match(/d(\d+)/i);
+    return m ? parseInt(m[1], 10) : 0;
+  }
+  /** Level 1: max hit die + Con. Each later level: average (round up) + Con. */
+  function suggestedHp(c) {
+    var cal = CAL[c.calling];
+    if (!cal) return null;
+    var die = dieMax(cal.hitDie);
+    if (!die) return null;
+    var con = mod(num(c.abilities.CON, 10));
+    var lv = Math.max(1, Math.min(20, num(c.level, 1)));
+    var hp = Math.max(1, die + con);
+    var per = Math.max(1, Math.floor(die / 2) + 1 + con);
+    for (var i = 1; i < lv; i++) hp += per;
+    return hp;
+  }
+  function applyAutoHp() {
+    var c = C();
+    if (c.hpAuto === false) return;
+    var hp = suggestedHp(c);
+    if (hp == null) return;
+    var oldMax = c.hpMax === "" || c.hpMax == null ? null : num(c.hpMax, 0);
+    var cur = c.hpCurrent === "" || c.hpCurrent == null ? null : num(c.hpCurrent, 0);
+    c.hpMax = hp;
+    if (cur == null || (oldMax != null && cur === oldMax)) c.hpCurrent = hp;
+    else if (oldMax != null) c.hpCurrent = Math.max(0, cur + (hp - oldMax));
+    else c.hpCurrent = hp;
+    if (!String(c.hitDiceLeft || "").trim()) {
+      var cal = currentCalling();
+      if (cal) c.hitDiceLeft = num(c.level, 1) + cal.hitDie;
+    }
+    var maxEl = $("#inHPMax"), curEl = $("#inHPCur"), hd = document.querySelector('[data-f="character.hitDiceLeft"]');
+    if (maxEl && document.activeElement !== maxEl) maxEl.value = c.hpMax;
+    if (curEl && document.activeElement !== curEl) curEl.value = c.hpCurrent;
+    if (hd && document.activeElement !== hd && !String(hd.value || "").trim()) hd.value = c.hitDiceLeft;
   }
   function onCallingPicked() {
     var c = C(), cal = CAL[c.calling];
@@ -1222,22 +1272,88 @@
     }
     if (what === "chamber" && w && w.tiers) g.tier = chamberOf(g, w).tier;
   }
-  function fire(i, k) {
-    var g = C().guns[i], w = WPN[g.weapon];
-    if (g.jammed) { toast("Jammed! Clear it first (see Misfires), then untick “jammed”."); return; }
+  function spendRound(i, k) {
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    if (!g || !g.weapon) return { ok: false, reason: "Pick a gun first." };
+    if (g.jammed) return { ok: false, reason: "Jammed. Clear it before it can fire." };
+    if (g.fouled) return { ok: false, reason: "Fouled. It can't fire until it's cleaned." };
     if (w && w.hexShells) {
       var a = normChambers(g, w);
-      if (k === undefined || !a[k]) { k = a.findIndex(Boolean); }
-      if (k < 0) { toast("Click. Empty. Hit Reload."); return; }
-      var was = a[k]; a[k] = ""; g.loaded = a.filter(Boolean).length;
+      if (k === undefined || !a[k]) k = a.findIndex(Boolean);
+      if (k < 0 || !a[k]) return { ok: false, reason: "Empty. Hit Reload." };
+      var was = a[k];
+      a[k] = "";
+      g.loaded = a.filter(Boolean).length;
       changed();
-      toast((was === "c" ? "Bang (plain round). " : "Hex lead shell (level " + was + ") fired: cast your spell. ") + g.loaded + " left.", "Undo", function () { normChambers(g, w)[k] = was; g.loaded += 1; changed(); });
+      return { ok: true, left: g.loaded, hex: was === "c" ? "" : was, chamber: k, was: was };
+    }
+    if (num(g.loaded) <= 0) return { ok: false, reason: "Empty. Hit Reload." };
+    g.loaded = num(g.loaded) - 1;
+    changed();
+    return { ok: true, left: g.loaded };
+  }
+  function fire(i, k) {
+    var before = C().guns[i] && C().guns[i].loaded;
+    var spent = spendRound(i, k);
+    if (!spent.ok) { toast(spent.reason); return; }
+    var g = C().guns[i], w = WPN[g.weapon];
+    if (spent.hex !== undefined && spent.was) {
+      toast((spent.was === "c" ? "Bang (plain round). " : "Hex lead shell (level " + spent.was + ") fired: cast your spell. ") + g.loaded + " left.", "Undo", function () {
+        normChambers(g, w)[spent.chamber] = spent.was; g.loaded = num(before); changed();
+      });
       return;
     }
-    if (g.loaded <= 0) { toast("Click. Empty. Hit Reload."); return; }
-    g.loaded -= 1;
+    toast("Bang. " + g.loaded + " left in the " + (w ? w.name : "gun") + ".", "Undo", function () { g.loaded = num(before); changed(); });
+  }
+  function spendHexSlot(level) {
+    var l = num(level, 1);
+    var a = C().hexLead[l];
+    if (!a) return false;
+    var n = hexBoxes(l), k = -1;
+    for (var i = 0; i < n; i++) if (!a[i]) { k = i; break; }
+    if (k < 0) return false;
+    a[k] = true;
+    var box = document.querySelector('[data-f="character.hexLead.' + l + '.' + k + '"]');
+    if (box) { box.checked = true; box.dispatchEvent(new Event("change", { bubbles: true })); }
+    else changed();
+    return true;
+  }
+  function consumeShard() {
+    var color = ($("#consumeColor") && $("#consumeColor").value) || "white";
+    var node = document.querySelector('#shards [data-f="shards.' + color + '"]');
+    var n = num(node && node.value, 0);
+    if (!node || n < 1) { toast("No " + color + " shards left."); return; }
+    var label = color;
+    SHARDS.forEach(function (s) { if (s.id === color) label = s.color; });
+    node.value = String(n - 1);
+    node.dispatchEvent(new Event("change", { bubbles: true }));
+    var a = C().addiction;
+    var first = !a.addicted;
+    a.addicted = true;
+    a.uses = num(a.uses) + 1;
+    a.daysWithout = 0;
+    if (first) { if (num(a.penalty) > 0) a.penalty = 0; }
+    else a.penalty = Math.min(0, num(a.penalty) + 1);
+    clampPenalty();
+    renderFields();
     changed();
-    toast("Bang. " + g.loaded + " left in the " + (w ? w.name : "gun") + ".", "Undo", function () { g.loaded += 1; changed(); });
+    var floor = -Math.floor(num(a.uses, 0) / 3);
+    var who = (C().player || "Player") + " · " + (C().name || "Unnamed");
+    var msg = who + " consumed 1 " + label + " shard. Chart: uses " + a.uses + ", floor " + floor + ", WIS/INT/CHA " + a.penalty + ".";
+    toast(msg);
+    if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: msg });
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.isJoined && window.SSDNSDmJoin.isJoined() && window.SSDNSDmJoin.postLedger) {
+      window.SSDNSDmJoin.postLedger({
+        type: "addiction",
+        what: msg,
+        oldVal: null,
+        newVal: a.penalty,
+        flag: false,
+        who: C().player || "Player",
+        playerName: C().player || "",
+        characterName: C().name || ""
+      });
+    }
   }
   function reload(i, max) {
     var g = C().guns[i], w = WPN[g.weapon];
@@ -1663,6 +1779,14 @@
       renderFields(); changed();
       toast("Fix taken. Use " + a.uses + (a.uses % 3 === 0 ? ": the floor drops to " + (-Math.floor(a.uses / 3)) + "." : "."));
     };
+    if ($("#btnConsume")) $("#btnConsume").onclick = consumeShard;
+    if ($("#btnHpAuto")) $("#btnHpAuto").onclick = function () {
+      C().hpAuto = true;
+      applyAutoHp();
+      renderFields();
+      changed();
+      toast("Hit points set from the Calling hit die and Constitution.");
+    };
     $("#btnShortRest").onclick = function () { rest("short"); };
     $("#btnLongRest").onclick = function () { rest("long"); };
     $("#btnAddSpell").onclick = openSpellPicker;
@@ -1704,6 +1828,7 @@
       try { S.doc = migrate(saved); } catch (e) { S.doc = blankDoc(); }
       S.hasContent = true; S.lastLocal = Date.now();
       snapshot("session start");
+      if (C().hpAuto !== false && (C().hpMax === "" || C().hpMax == null)) applyAutoHp();
       renderFields(); adoptWallet(); pushWallet();
       Store.getHandle(S.doc.id).then(function (h) {
         if (!h) return;
@@ -1720,7 +1845,13 @@
     // v0.2.1: keep the sticky tabs just under the (possibly wrapped) app bar on phones
     function syncBarH() { var ab = $("#appbar"); if (ab) document.documentElement.style.setProperty("--appbar-h", ab.offsetHeight + "px"); }
     window.addEventListener("resize", syncBarH); syncBarH(); setTimeout(syncBarH, 300);
-    window.SSDNSApp = { version: APP_VERSION, state: S, loadText: loadText, migrate: migrate, compute: compute, doc: function () { return S.doc; } };
+    window.SSDNSApp = {
+      version: APP_VERSION, state: S, loadText: loadText, migrate: migrate, compute: compute,
+      doc: function () { return S.doc; },
+      spendRound: spendRound,
+      spendHexSlot: spendHexSlot,
+      suggestedHp: function () { return suggestedHp(C()); }
+    };
   }
   boot();
 })();

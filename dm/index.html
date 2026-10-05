@@ -37,6 +37,7 @@
     <input type="checkbox" data-sfx-mute checked> Sound
   </label>
 </div>
+<div id="addictionAlert" class="addiction-alert" hidden></div>
 <details class="shortcut-help">
   <summary>Keyboard shortcuts (Stream Deck)</summary>
   <p><kbd>N</kbd> next turn · <kbd>R</kbd> push the reward that is filled in · <kbd>S</kbd> play the attack sound (and send it to the table) · <kbd>M</kbd> play or stop the selected track. Ignored while you are typing in a field.</p>
@@ -284,7 +285,18 @@
 
     <section class="panel" id="panel-store" role="tabpanel" aria-labelledby="tab-store" hidden>
       <h2>Eldorite Store</h2>
-      <p class="lede">Session stock only. Prices are ES. Opening the store forces the Store tab on joined sheets.</p>
+      <p class="lede">Browse the gear in the rules, or type a one-off. Vendor lists load into tonight's stock so you can edit prices, save, and push.</p>
+      <div class="toolbar">
+        <label>Vendor <select id="vendorPreset" aria-label="Vendor list">
+          <option value="general">General Store</option>
+          <option value="gunsmith">Gunsmith</option>
+          <option value="eldorite">Eldorite dealer</option>
+          <option value="apothecary">Apothecary</option>
+        </select></label>
+        <button type="button" class="btn sm" id="btnLoadVendor">Load list</button>
+        <input type="search" id="catalogQ" placeholder="Search gear" aria-label="Search catalog">
+      </div>
+      <div id="catalogList" class="catalog-table"></div>
       <div class="form-grid">
         <div>
           <label for="stockName">Item</label>
@@ -297,6 +309,7 @@
       </div>
       <div class="toolbar">
         <button type="button" class="btn sm" id="btnAddStock">Add to stock</button>
+        <button type="button" class="btn sm" id="btnSaveStock">Save stock</button>
         <button type="button" class="btn btn-primary" id="btnOpenStoreNow">Open store for the table</button>
       </div>
       <div id="storeList"></div>
@@ -366,6 +379,27 @@
 </dialog>
 
 <div class="toast" id="toast" hidden></div>
+
+<aside class="live-dock" id="liveDock" hidden aria-label="Live table feed">
+  <div class="dock-head">
+    <b>Table feed</b>
+    <button type="button" class="btn sm" id="btnDockCollapse" aria-label="Hide the feed">Hide</button>
+  </div>
+  <div class="dock-filters">
+    <button type="button" class="chip on" data-dock-filter="all">All</button>
+    <button type="button" class="chip" data-dock-filter="chat">Chat</button>
+    <button type="button" class="chip" data-dock-filter="money">Money</button>
+    <button type="button" class="chip" data-dock-filter="rolls">Rolls</button>
+    <button type="button" class="chip" data-dock-filter="alerts">Alerts</button>
+  </div>
+  <div class="dock-feed" id="dockFeed" data-stick="1"></div>
+  <form class="dock-compose" id="dockChat">
+    <select id="dockTo" aria-label="Who hears this"><option value="all">Whole table</option></select>
+    <input type="text" id="dockText" placeholder="Message the table" autocomplete="off" aria-label="Chat message">
+    <button type="submit" class="btn btn-primary">Send</button>
+  </form>
+</aside>
+<button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
 <script src="../assets/js/sfx.js"></script>
 <script src="../assets/data/rules.js"></script>

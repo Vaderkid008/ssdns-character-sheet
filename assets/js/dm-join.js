@@ -102,6 +102,17 @@
         if (sp && sp.name && sp.prepared) prepared.push(sp.name);
       });
     });
+    var slots = {};
+    var spent = {};
+    for (var lv = 1; lv <= 9; lv++) {
+      var total = v.hex ? (v.hex[lv] || 0) : 0;
+      if (c.overrides && c.overrides["hex." + lv] !== undefined && c.overrides["hex." + lv] !== "") total = parseInt(c.overrides["hex." + lv], 10) || 0;
+      if (total) slots[lv] = total;
+      var boxes = (c.hexLead && c.hexLead[lv]) || [];
+      var used = 0;
+      for (var bi = 0; bi < boxes.length && bi < total; bi++) if (boxes[bi]) used++;
+      if (used) spent[lv] = used;
+    }
 
     return {
       name: c.name || "(unnamed)",
@@ -128,9 +139,13 @@
       guns: guns,
       conditions: c.tableConditions || "",
       deathSaves: c.deathSaves || { success: [false, false, false], fail: [false, false, false] },
+      spellAtk: v.spellAtk || "",
+      spellDC: v.spellDC || "",
       spells: {
         cantrips: (c.cantrips || []).filter(Boolean),
-        prepared: prepared
+        prepared: prepared,
+        slots: slots,
+        spent: spent
       },
       updatedAt: new Date().toISOString()
     };
@@ -276,7 +291,7 @@
         var cmd = val[id];
         if (!cmd) return;
         if (cmd.to && cmd.to !== "all" && cmd.to !== state.uid) return;
-        if (skipExistingEs && /^(reward_es|reward_item|hp|rest|set_conditions|gun_event|death_save|undo_item)$/.test(cmd.type || "")) {
+        if (skipExistingEs && /^(reward_es|reward_item|hp|rest|set_conditions|gun_event|death_save|undo_item|hex_spend)$/.test(cmd.type || "")) {
           state.lastCmdSeen[id] = 1;
           return;
         }
@@ -331,6 +346,12 @@
         break;
       case "gun_event":
         if (root.SSDNSSheet) root.SSDNSSheet.applyGunEvent(payload);
+        break;
+      case "hex_spend":
+        if (root.SSDNSApp && root.SSDNSApp.spendHexSlot) {
+          if (!root.SSDNSApp.spendHexSlot(payload.level)) toast("No level-" + (payload.level || "?") + " shell left");
+          else if (root.SSDNSSheet) root.SSDNSSheet.showNotice("Spent a level-" + payload.level + " shell");
+        }
         break;
       case "death_save":
         if (root.SSDNSSheet) root.SSDNSSheet.setDeath(payload.side, payload.index, payload.on);
@@ -509,8 +530,11 @@
         state._chatSeen[id] = 1;
         var row = val[id];
         if (!row) return;
+        if (row.to && row.to !== "all" && row.to !== state.uid) return;
         if (chatPrimed && row.from === state.uid) return;
-        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "chat", text: (row.fromName || "Table") + ": " + (row.text || ""), ts: row.ts });
+        var who = row.fromName || "Table";
+        if (row.to && row.to !== "all") who += " (to you)";
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "chat", text: who + ": " + (row.text || ""), ts: row.ts });
       });
       chatPrimed = true;
     });

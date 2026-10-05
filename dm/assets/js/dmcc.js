@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.0";
+const VERSION = "0.2.1"; // dmcc-notes-v021
 const NOTES_KEY = "ssdns.dmcc.notes";
 const ROOM_KEY = "ssdns.dmcc.lastRoom";
 const WORDS = ["DUST", "IRON", "HEX", "RUST", "BONE", "COIL", "SAGE", "RAIL", "OXEN", "VELD", "ASH", "QUILL"];
@@ -79,6 +79,8 @@ const state = {
   handouts: [],
   commands: [],
   table: null,
+  chat: [],
+  dockFilter: "all",
   unsubs: [],
   db: null,
   auth: null,
@@ -175,6 +177,7 @@ function loadDemo(createNewCode) {
   state.messages = deepClone(D.messages);
   state.handouts = deepClone(D.handouts);
   state.commands = deepClone(D.commands || []);
+  state.chat = deepClone(D.chat || []);
   state.uid = "demo_dm";
   showRoom();
   renderAll();
@@ -207,6 +210,7 @@ async function createLiveRoom(name) {
   state.messages = [];
   state.handouts = [];
   state.commands = [];
+  state.chat = [];
   try {
     await state._fb.set(roomRef("meta"), state.meta);
     attachLiveListeners();
@@ -237,7 +241,9 @@ function attachLiveListeners() {
   bind("meta", (v) => { if (v) { state.meta = v; renderRoomHero(); } });
   bind("players", (v) => { state.players = v || {}; renderPlayers(); fillTargetSelects(); renderPresence(); });
   bind("ledger", (v) => {
-    state.ledger = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+    const next = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+    noteAddiction(next);
+    state.ledger = next;
     renderLedger();
   });
   bind("rolls", (v) => {
@@ -257,8 +263,27 @@ function attachLiveListeners() {
     if (window.DMCCEnhance && window.DMCCEnhance.onTable) window.DMCCEnhance.onTable(v || {});
   });
   bind("chat", (v) => {
-    state.chat = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+    state.chat = objToArr(v).sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+    renderLiveDock();
   });
+}
+
+const knownLedger = {};
+let ledgerReady = false;
+function noteAddiction(entries) {
+  (entries || []).forEach((e) => {
+    if (!e || !e.id || knownLedger[e.id]) return;
+    const fresh = e.ts && (Date.now() - Date.parse(e.ts) < 20000);
+    const isNew = ledgerReady || fresh;
+    knownLedger[e.id] = 1;
+    if (isNew && e.type === "addiction") {
+      const line = ledgerNames(e) + " — " + (e.what || "consumed a shard");
+      toast("Eldorite: " + line);
+      const bar = $("#addictionAlert");
+      if (bar) { bar.hidden = false; bar.textContent = line; }
+    }
+  });
+  ledgerReady = true;
 }
 
 function objToArr(o) {
@@ -367,6 +392,9 @@ function showRoom() {
   $("#roomShell").hidden = false;
   $("#btnCopyCode").hidden = false;
   $("#btnEndSession").hidden = false;
+  document.body.classList.add("in-room");
+  const dock = $("#liveDock");
+  if (dock) dock.hidden = false;
   renderRoomHero();
 }
 
@@ -375,6 +403,9 @@ function hideRoom() {
   $("#roomShell").hidden = true;
   $("#btnCopyCode").hidden = true;
   $("#btnEndSession").hidden = true;
+  document.body.classList.remove("in-room");
+  const dock = $("#liveDock");
+  if (dock) dock.hidden = true;
   clearUnsubs();
   state.roomCode = null;
 }
@@ -447,6 +478,18 @@ function renderAll() {
   if (window.DMCCEnhance && window.DMCCEnhance.afterRender) window.DMCCEnhance.afterRender();
 }
 
+function slotLine(s) {
+  const slots = (s.spells && s.spells.slots) || {};
+  const spent = (s.spells && s.spells.spent) || {};
+  const bits = [];
+  for (let lv = 1; lv <= 9; lv++) {
+    const total = Number(slots[lv] || 0);
+    if (!total) continue;
+    bits.push(lv + ": " + Math.max(0, total - Number(spent[lv] || 0)) + "/" + total);
+  }
+  return bits.length ? "Shells " + bits.join(" · ") : "";
+}
+
 function renderPlayers() {
   const grid = $("#playerGrid");
   const list = Object.values(state.players);
@@ -492,6 +535,7 @@ function renderPlayers() {
       </div>
       ${dsHtml}
       ${guns}
+      ${slotLine(s) ? `<div class="slot-line">${esc(slotLine(s))}</div>` : ""}
     </button>`;
   }).join("");
   $$(".pcard", grid).forEach((btn) => btn.addEventListener("click", () => openDetail(btn.dataset.pid)));
@@ -536,7 +580,7 @@ function openDetail(pid) {
     <div class="detail-section"><h3>Guns</h3><pre>${esc(guns)}</pre></div>
     <div class="detail-section"><h3>Equipment</h3><pre>${esc(s.equipment || "—")}</pre></div>
     <div class="detail-section"><h3>Features</h3><pre>${esc(s.features || "—")}</pre></div>
-    <div class="detail-section"><h3>Spells</h3><pre>${esc(spellTxt)}</pre></div>
+    <div class="detail-section"><h3>Spells</h3><p>${esc(slotLine(s) || "No shell slots")}${s.spellAtk ? " · attack " + esc(s.spellAtk) : ""}${s.spellDC ? " · DC " + esc(s.spellDC) : ""}</p><pre>${esc(spellTxt)}</pre></div>
     <div class="detail-section"><h3>Personality</h3><p>${esc(s.personality || "—")}</p></div>
     <p class="lede" style="margin-top:12px">Snapshot · updated ${esc(fmtTime(s.updatedAt))}</p>
   `;
@@ -548,6 +592,7 @@ function renderLedger() {
   const feed = $("#ledgerFeed");
   if (!state.ledger.length) {
     feed.innerHTML = '<div class="empty"><b>Ledger empty</b>ES changes and DM pushes show up here.</div>';
+    renderLiveDock();
     return;
   }
   feed.innerHTML = state.ledger.map((e) => {
@@ -559,6 +604,104 @@ function renderLedger() {
       ${delta ? `<div class="feed-delta">${esc(delta)}</div>` : ""}
     </div>`;
   }).join("");
+  renderLiveDock();
+}
+
+const MONEY_TYPES = /es|store|reward|shard/i;
+const ALERT_TYPES = /addiction|jam|explode|death|condition|alert|undo/i;
+let dockSeen = 0;
+
+function dockItems() {
+  const rows = [];
+  (state.chat || []).forEach((c) => rows.push({
+    ts: c.ts, kind: "chat",
+    who: (c.fromName || "Table") + (c.to && c.to !== "all" ? " → " + (c.toName || "one player") : ""),
+    text: c.text || ""
+  }));
+  (state.ledger || []).forEach((e) => {
+    const money = MONEY_TYPES.test(String(e.type || ""));
+    const alert = ALERT_TYPES.test(String(e.type || "")) || !!e.flag;
+    rows.push({
+      ts: e.ts,
+      kind: money ? "money" : (alert ? "alerts" : "ledger"),
+      who: ledgerNames(e) || e.who || "",
+      text: e.what || e.type || ""
+    });
+  });
+  (state.rolls || []).forEach((r) => rows.push({
+    ts: r.ts,
+    kind: (r.nat1 && r.isFirearm) ? "alerts" : "rolls",
+    who: r.who || "",
+    text: (r.label || "Roll") + " " + (r.formula || "") + " = " + (r.result ?? "")
+  }));
+  (state.messages || []).forEach((m) => rows.push({
+    ts: m.ts, kind: "alerts",
+    who: "DM → " + (m.toName || m.to || "player"),
+    text: m.text || ""
+  }));
+  rows.sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+  return rows;
+}
+function dockIsOpen() {
+  if (!document.body.classList.contains("in-room")) return false;
+  if (window.matchMedia("(max-width: 800px)").matches) return document.body.classList.contains("dock-open");
+  return !document.body.classList.contains("dock-collapsed");
+}
+function fillDockTargets() {
+  const sel = $("#dockTo");
+  if (!sel) return;
+  const keep = sel.value || "all";
+  const opts = '<option value="all">Whole table</option>' + Object.keys(state.players || {}).map((id) => {
+    const s = (state.players[id] && state.players[id].snapshot) || {};
+    const label = [s.player, s.name].filter(Boolean).join(" · ") || id;
+    return `<option value="${esc(id)}">${esc(label)}</option>`;
+  }).join("");
+  if (sel.dataset.sig === opts) { if (keep) sel.value = keep; return; }
+  sel.dataset.sig = opts;
+  sel.innerHTML = opts;
+  if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
+}
+function renderLiveDock() {
+  const feed = $("#dockFeed");
+  if (!feed) return;
+  fillDockTargets();
+  const filter = state.dockFilter || "all";
+  const all = dockItems();
+  const items = all.filter((row) => filter === "all" || row.kind === filter || (filter === "alerts" && row.kind === "alerts"));
+  const stick = feed.dataset.stick !== "0";
+  feed.innerHTML = items.slice(-80).map((row) =>
+    `<div class="dock-item dock-${esc(row.kind)}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${esc(row.who)}</div><div>${esc(row.text)}</div></div>`
+  ).join("") || '<p class="lede">Nothing in this filter yet.</p>';
+  if (stick) feed.scrollTop = feed.scrollHeight;
+  if (dockIsOpen()) dockSeen = all.length;
+  const unread = Math.max(0, all.length - dockSeen);
+  const badge = $("#dockBadge");
+  if (badge) { badge.hidden = unread < 1; badge.textContent = String(unread); }
+}
+async function sendDockChat(text, to) {
+  const row = {
+    id: uid("chat"),
+    ts: new Date().toISOString(),
+    from: state.uid || "demo_dm",
+    fromName: "DM",
+    text: text,
+    to: to || "all"
+  };
+  if (to && to !== "all") {
+    const names = namesFor(to);
+    row.toName = names.characterName || names.playerName || to;
+  }
+  if (state.demo || !state.db) {
+    state.chat = state.chat || [];
+    state.chat.push(row);
+    renderLiveDock();
+    toast(to && to !== "all" ? "Sent to " + (row.toName || "that player") : "Sent to the table");
+    return;
+  }
+  try {
+    await state._fb.set(roomRef("chat/" + row.id), row);
+    toast(to && to !== "all" ? "Sent to " + (row.toName || "that player") : "Sent to the table");
+  } catch (e) { toast("Chat failed"); console.warn(e); }
 }
 
 function renderRolls() {
@@ -567,6 +710,7 @@ function renderRolls() {
   // DM sees private rolls; in demo DM is us
   if (!visible.length) {
     feed.innerHTML = '<div class="empty"><b>No rolls yet</b></div>';
+    renderLiveDock();
     return;
   }
   feed.innerHTML = visible.map((r) => {
@@ -581,12 +725,14 @@ function renderRolls() {
       <div class="feed-what"><b>${esc(r.label || "Roll")}</b> · ${esc(r.formula)} = <b style="color:var(--eld)">${esc(r.result)}</b> <span style="color:var(--muted)">(${esc(r.detail)})</span></div>
     </div>`;
   }).join("");
+  renderLiveDock();
 }
 
 function renderMessages() {
   const feed = $("#msgFeed");
   if (!state.messages.length) {
     feed.innerHTML = '<div class="empty" style="padding:16px"><b>No private messages</b></div>';
+    renderLiveDock();
     return;
   }
   feed.innerHTML = state.messages.map((m) => `
@@ -594,6 +740,7 @@ function renderMessages() {
       <div class="feed-meta"><span>${esc(fmtTime(m.ts))}</span><span>DM → ${esc(m.toName || m.to)}</span>${m.read ? "" : '<span class="badge eld">Unread</span>'}</div>
       <div class="feed-what">${esc(m.text)}</div>
     </div>`).join("");
+  renderLiveDock();
 }
 
 function renderHandouts() {
@@ -933,6 +1080,50 @@ function wire() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") $("#detailOverlay").hidden = true;
   });
+  $$("[data-dock-filter]").forEach((btn) => btn.addEventListener("click", () => {
+    state.dockFilter = btn.getAttribute("data-dock-filter") || "all";
+    $$("[data-dock-filter]").forEach((b) => b.classList.toggle("on", b === btn));
+    renderLiveDock();
+  }));
+  const dockFeed = $("#dockFeed");
+  if (dockFeed) dockFeed.addEventListener("scroll", () => {
+    const gap = dockFeed.scrollHeight - dockFeed.scrollTop - dockFeed.clientHeight;
+    dockFeed.dataset.stick = gap < 64 ? "1" : "0";
+  });
+  const dockForm = $("#dockChat");
+  if (dockForm) dockForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = ($("#dockText").value || "").trim();
+    if (!text) return;
+    $("#dockText").value = "";
+    sendDockChat(text, $("#dockTo") && $("#dockTo").value);
+  });
+  const collapse = $("#btnDockCollapse");
+  if (collapse) collapse.addEventListener("click", () => {
+    if (window.matchMedia("(max-width: 800px)").matches) {
+      document.body.classList.remove("dock-open");
+      renderLiveDock();
+      return;
+    }
+    document.body.classList.toggle("dock-collapsed");
+    collapse.textContent = document.body.classList.contains("dock-collapsed") ? "Show" : "Hide";
+    try { localStorage.setItem("ssdns.dmcc.dock", document.body.classList.contains("dock-collapsed") ? "closed" : "open"); } catch (err) {}
+    renderLiveDock();
+  });
+  const fab = $("#btnDockFab");
+  if (fab) fab.addEventListener("click", () => {
+    document.body.classList.toggle("dock-open");
+    if (document.body.classList.contains("dock-open")) dockSeen = dockItems().length;
+    renderLiveDock();
+  });
+  const alertBar = $("#addictionAlert");
+  if (alertBar) alertBar.addEventListener("click", () => { alertBar.hidden = true; });
+  try {
+    if (localStorage.getItem("ssdns.dmcc.dock") === "closed") {
+      document.body.classList.add("dock-collapsed");
+      if (collapse) collapse.textContent = "Show";
+    }
+  } catch (err) {}
 }
 
 async function tryResumeLive() {

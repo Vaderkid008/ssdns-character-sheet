@@ -87,6 +87,29 @@
     </div>
   </div>
 
+  <div class="eldorite-bar">
+    <div class="box shards" id="shards"></div>
+    <div class="box addiction" id="addiction">
+      <div class="box-head"><h2>Eldorite Addiction</h2><span class="draft-tag" title="From the DM-only Eldorite Consumption draft, not the PHB">DM draft rule</span></div>
+      <div class="add-row">
+        <label class="chk big"><input type="checkbox" data-f="character.addiction.addicted"> Addicted</label>
+        <div class="num"><input type="number" min="0" data-f="character.addiction.daysWithout" id="inDays" inputmode="numeric"><label for="inDays">Days without a fix</label></div>
+      </div>
+      <div class="add-row">
+        <div class="num"><input type="number" min="0" data-f="character.addiction.uses" id="inUses" inputmode="numeric"><label for="inUses">Uses while addicted</label></div>
+        <div class="num"><output data-calc-out="addFloor" id="outFloor">0</output><label for="outFloor">Floor</label></div>
+        <div class="num"><input type="number" max="0" data-f="character.addiction.penalty" id="inPenalty" inputmode="numeric"><label for="inPenalty">WIS/INT/CHA penalty</label></div>
+      </div>
+      <div class="usecount" id="useTicks" aria-label="Use counter: every third use drops the floor"></div>
+      <div class="add-btns">
+        <button type="button" class="btn sm" id="btnMissDay">Missed a day (−1)</button>
+        <button type="button" class="btn sm" id="btnFix">Took a fix (+1 use)</button>
+      </div>
+      <div class="adjusted" id="adjusted"></div>
+      <p class="fine">Every 3rd use while addicted drops the floor by 1. A fix restores 1 point, once per day, never above the floor. Consume spends one shard and applies this chart.</p>
+    </div>
+  </div>
+
   <div class="main-grid">
     <!-- column 1 -->
     <div class="col col-1">
@@ -130,7 +153,8 @@
           <label class="chk"><input type="checkbox" data-f="character.shield"> Shield (+2)</label>
         </div>
         <div class="hp">
-          <div class="hp-max"><label for="inHPMax">Hit Point Maximum</label><input type="number" id="inHPMax" data-f="character.hpMax" inputmode="numeric"></div>
+          <div class="hp-max"><label for="inHPMax">Hit Point Maximum</label><input type="number" id="inHPMax" data-f="character.hpMax" inputmode="numeric"><button type="button" class="btn sm" id="btnHpAuto">Use calculated HP</button></div>
+          <p class="fine hp-auto-note">Level 1 HP is the Calling's hit die maximum plus Constitution. Later levels add the average (rounded up) plus Constitution. Ability mods, proficiency, saves, skills, initiative, passive Perception, and spell DC / attack fill in on their own. Type any calculated box to override it; double-click to clear.</p>
           <div class="hp-cur">
             <div class="hp-step">
               <button type="button" class="btn hp-btn" id="btnHpMinus" aria-label="Subtract 1 hit point">−</button>
@@ -176,7 +200,24 @@
 
     <!-- firearms: spans col 2-3 -->
     <div class="box firearms span-23">
-      <div class="box-head"><h2>Firearms</h2><img src="assets/images/gunslinger-spot.png" alt="" class="spot"></div>
+      <div class="box-head"><h2>Firearms</h2>
+        <div class="hex-roll">
+          <select id="hexRollLevel" aria-label="Shell level for the hex roll">
+            <option value="0">Cantrip</option>
+            <option value="1">1st slot</option>
+            <option value="2">2nd</option>
+            <option value="3">3rd</option>
+            <option value="4">4th</option>
+            <option value="5">5th</option>
+            <option value="6">6th</option>
+            <option value="7">7th</option>
+            <option value="8">8th</option>
+            <option value="9">9th</option>
+          </select>
+          <button type="button" class="btn sm" id="btnHexRoll">Hex / spell</button>
+        </div>
+        <img src="assets/images/gunslinger-spot.png" alt="" class="spot">
+      </div>
       <div class="guns" id="guns"></div>
       <div class="ammo-holster">
         <div class="ammo">
@@ -199,9 +240,8 @@
       <textarea data-f="character.attackNotes" rows="2" placeholder="Other attacks, blades, bows, thrown gear…" aria-label="Other attacks and notes"></textarea>
     </div>
 
-    <!-- equipment + shards -->
+    <!-- equipment -->
     <div class="box equipment span-2">
-      <div class="shards" id="shards"></div>
       <div class="equip-body">
         <div class="quickadd">
           <input type="text" id="gearAdd" list="gearList" placeholder="Add gear from the PHB list…" aria-label="Add gear">
@@ -305,25 +345,6 @@
     <div class="box backstory"><textarea data-f="character.backstory" rows="16" id="taBackstory"></textarea><label class="box-title bottom" for="taBackstory">Character Backstory</label></div>
     <div class="box addl"><textarea data-f="character.additionalFeatures" rows="10" id="taAddl"></textarea><label class="box-title bottom" for="taAddl">Additional Features &amp; Traits</label></div>
     <div class="box treasure"><textarea data-f="character.treasure" rows="5" id="taTreasure"></textarea><label class="box-title bottom" for="taTreasure">Treasure</label></div>
-    <div class="box addiction" id="addiction">
-      <div class="box-head"><h2>Eldorite Addiction</h2><span class="draft-tag" title="From the DM-only Eldorite Consumption draft (v6, 2026-09-29), not the PHB">DM draft rule</span></div>
-      <div class="add-row">
-        <label class="chk big"><input type="checkbox" data-f="character.addiction.addicted"> Addicted</label>
-        <div class="num"><input type="number" min="0" data-f="character.addiction.daysWithout" id="inDays" inputmode="numeric"><label for="inDays">Days without a fix</label></div>
-      </div>
-      <div class="add-row">
-        <div class="num"><input type="number" min="0" data-f="character.addiction.uses" id="inUses" inputmode="numeric"><label for="inUses">Uses while addicted</label></div>
-        <div class="num"><output data-calc-out="addFloor" id="outFloor">0</output><label for="outFloor">Floor</label></div>
-        <div class="num"><input type="number" max="0" data-f="character.addiction.penalty" id="inPenalty" inputmode="numeric"><label for="inPenalty">WIS/INT/CHA penalty</label></div>
-      </div>
-      <div class="usecount" id="useTicks" aria-label="Use counter: every third use drops the floor"></div>
-      <div class="add-btns">
-        <button type="button" class="btn sm" id="btnMissDay">Missed a day (−1)</button>
-        <button type="button" class="btn sm" id="btnFix">Took a fix (+1 use)</button>
-      </div>
-      <div class="adjusted" id="adjusted"></div>
-      <p class="fine">Every 3rd use while addicted drops the floor by 1. A fix restores 1 point, once per day, never above the floor.</p>
-    </div>
   </div>
 </section>
 
@@ -372,7 +393,7 @@
 <section class="page" id="page-store" role="tabpanel" aria-labelledby="tab-store" hidden>
   <h2 class="page-title">Eldorite Store</h2>
   <p class="fine" id="storeLede">Join a table and the DM opens the store with tonight's stock. Buying spends ES from this character.</p>
-  <p class="fine" id="storeEs"></p>
+  <p class="store-wallet" id="storeEs"></p>
   <div id="storeStock"></div>
 </section>
 
@@ -401,6 +422,26 @@
 
 <div class="drop-overlay" id="dropOverlay"><div>Drop a <b>.ssdns</b> file to open it</div></div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toastText"></span><button type="button" class="linkbtn" id="toastAction" hidden></button></div>
+
+<aside class="sheet-dock" id="sheetDock" aria-label="Table log">
+  <div class="dock-head">
+    <b>Table log</b>
+    <button type="button" class="btn sm" id="btnSheetDockCollapse" aria-label="Hide the log">Hide</button>
+  </div>
+  <div class="dock-filters">
+    <button type="button" class="btn sm on" data-sheet-filter="all">All</button>
+    <button type="button" class="btn sm" data-sheet-filter="chat">Chat</button>
+    <button type="button" class="btn sm" data-sheet-filter="money">Money</button>
+    <button type="button" class="btn sm" data-sheet-filter="rolls">Rolls</button>
+    <button type="button" class="btn sm" data-sheet-filter="alerts">Alerts</button>
+  </div>
+  <div class="dock-feed" id="sheetDockFeed" data-stick="1"></div>
+  <form class="dock-compose" id="sheetDockChat">
+    <input type="text" id="sheetDockText" placeholder="Message the table" autocomplete="off" aria-label="Chat message">
+    <button type="submit" class="btn">Send</button>
+  </form>
+</aside>
+<button type="button" class="dock-fab" id="btnSheetDockFab">Log <span id="sheetDockBadge" hidden>0</span></button>
 
 <dialog id="dlgRestore" class="dlg">
   <form method="dialog">

@@ -4,6 +4,8 @@ GitHub Pages hosts the static DMCC + character sheet. Firebase is **only** for l
 
 Demo mode works **fully offline** with no Firebase. Follow this when you want a real table.
 
+The table feed is the column on the right (a bottom sheet on a phone, with an unread count). Filters are All, Chat, Money, Rolls, and Alerts. The box at the bottom messages the whole table or one player. PHB lookup searches as you type. The store can load a General Store, Gunsmith, Eldorite dealer, or Apothecary list. This pass does not change `database.rules.json`.
+
 ---
 
 ## 0. What you already have
