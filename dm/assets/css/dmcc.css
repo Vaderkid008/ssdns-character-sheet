@@ -315,10 +315,55 @@ main { padding: 0 12px 80px; }
 .empty b { color: var(--parch); display: block; margin-bottom: 6px; font-family: var(--head); font-size: 18px; font-weight: 400; }
 
 /* ---- phone */
-@media (max-width: 400px) {
+html, body { overflow-x: hidden; max-width: 100%; }
+.tabs { flex-wrap: wrap; overflow-x: visible; }
+.pcard-head { align-items: center; }
+.portrait {
+  width: 48px; height: 48px; border-radius: 4px; object-fit: cover; flex: none;
+  border: 1px solid var(--line); background: var(--bg);
+}
+.portrait.lg { width: 72px; height: 72px; }
+.portrait.initials {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--head); color: var(--parch); background: #2c241c;
+}
+.detail-id { display: flex; gap: 12px; align-items: center; }
+.cond-row, .cond-picks { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.cond-chip {
+  font-family: var(--label); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  border: 1px solid var(--warn); color: var(--warn); border-radius: 99px; padding: 3px 8px;
+}
+.pcard.downed { animation: downed 1s steps(2, end) infinite; border-color: var(--danger); }
+@keyframes downed {
+  50% { box-shadow: 0 0 0 3px var(--danger); background: #3a2220; }
+}
+.death-pips { font-family: var(--label); font-size: 12px; color: #ffcfc7; letter-spacing: .06em; text-transform: uppercase; }
+.init-row, .store-row {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 8px 10px; margin: 6px 0;
+}
+.init-row.current { border-color: var(--eld); box-shadow: inset 3px 0 0 var(--eld); }
+.init-actions { display: flex; gap: 4px; }
+.bestiary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.bestiary-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
+.bestiary-card h3 { margin: 0 0 4px; font-family: var(--head); color: var(--parch); font-weight: 400; }
+.fold { margin: 12px 0; border-top: 1px solid var(--line); padding-top: 8px; }
+.fold summary { cursor: pointer; font-family: var(--head); color: var(--eld); font-size: 18px; min-height: 44px; display: flex; align-items: center; }
+.shortcut-help { max-width: var(--max); margin: 0 auto; padding: 6px 16px 0; color: var(--muted); }
+.shortcut-help summary { cursor: pointer; min-height: 44px; font-family: var(--label); letter-spacing: .06em; text-transform: uppercase; }
+kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; border-radius: 3px; color: var(--parch); }
+.detail-tools input, .detail-tools select { min-height: 40px; background: var(--bg); border: 1px solid var(--line); color: inherit; padding: 6px 8px; width: 100%; }
+.quick-rolls { gap: 6px; }
+
+@media (max-width: 414px) {
   .brand-title { font-size: 15px; }
   .brand-gun { width: 40px; }
-  .room-code { letter-spacing: .06em; }
+  .room-code { letter-spacing: .04em; font-size: 32px; }
   .abil-grid { grid-template-columns: repeat(3, 1fr); }
-  .tab { font-size: 14px; padding: 8px 12px; }
+  .tab { flex: 1 1 30%; font-size: 14px; padding: 8px 6px; min-height: 44px; }
+  .btn, .btn.sm, select, input[type="text"], input[type="number"], input[type="url"], input[type="search"] { min-height: 44px; }
+  .player-grid, .bestiary-grid, .handout-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .appbar, .statusbar { padding-left: 10px; padding-right: 10px; }
 }

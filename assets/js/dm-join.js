@@ -20,7 +20,9 @@
     unsubs: [],
     lastEs: null,
     lastCmdSeen: {},
-    publishing: false
+    publishing: false,
+    _chatSeen: {},
+    _ledSeen: {}
   };
 
   function $(s, r) { return (r || document).querySelector(s); }
@@ -70,13 +72,18 @@
       if (!g || !g.weapon) return null;
       var st = (v.guns || []).filter(function (x) { return x && x.w && x.w.id === g.weapon; })[0];
       var name = st && st.w ? st.w.name : g.weapon;
+      var cond = g.jammed ? "jammed" : (g.cracked ? "cracked" : (g.fouled ? "fouled" : (g.dirty ? "dirty" : "ok")));
       return {
         name: name,
         loaded: g.loaded,
         capacity: st ? st.capacity : (g.capacity || 0),
-        condition: g.jammed ? "jammed" : "ok",
+        atk: st && st.atk ? st.atk : "",
+        condition: cond,
         load: g.load,
         jammed: !!g.jammed,
+        cracked: !!g.cracked,
+        fouled: !!g.fouled,
+        dirty: !!g.dirty,
         note: st && st.note ? st.note : ""
       };
     }).filter(Boolean);
@@ -119,6 +126,8 @@
       features: c.features || "",
       personality: c.personality || "",
       guns: guns,
+      conditions: c.tableConditions || "",
+      deathSaves: c.deathSaves || { success: [false, false, false], fail: [false, false, false] },
       spells: {
         cantrips: (c.cantrips || []).filter(Boolean),
         prepared: prepared
@@ -159,12 +168,35 @@
     return "rooms/" + state.roomCode + (rest ? "/" + rest : "");
   }
 
+  function shrinkPortrait(src) {
+    return new Promise(function (resolve) {
+      if (!src || String(src).indexOf("data:") !== 0) { resolve(""); return; }
+      if (src.length < 12000) { resolve(src); return; }
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var canvas = document.createElement("canvas");
+          canvas.width = 96; canvas.height = 96;
+          var ctx = canvas.getContext("2d");
+          var scale = Math.max(96 / img.width, 96 / img.height);
+          var w = img.width * scale, h = img.height * scale;
+          ctx.drawImage(img, (96 - w) / 2, (96 - h) / 2, w, h);
+          var out = canvas.toDataURL("image/jpeg", 0.6);
+          resolve(out.length > 40000 ? "" : out);
+        } catch (e) { resolve(""); }
+      };
+      img.onerror = function () { resolve(""); };
+      img.src = src;
+    });
+  }
   async function publishSnapshot() {
     if (!state.joined || !state.db || state.publishing) return;
     var snap = buildSnapshot();
     if (!snap) return;
     state.publishing = true;
     try {
+      var c = doc() && doc().character;
+      snap.portrait = await shrinkPortrait(c && c.portrait);
       var fb = state._fb;
       var playerRef = fb.ref(state.db, roomPath("players/" + state.uid));
       await fb.set(playerRef, {
@@ -188,7 +220,10 @@
       var id = "led_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       entry.id = id;
       entry.ts = entry.ts || new Date().toISOString();
-      entry.who = entry.who || ((doc() && doc().character && doc().character.player) || "Player");
+      var c = doc() && doc().character;
+      entry.who = entry.who || ((c && c.player) || "Player");
+      entry.playerName = entry.playerName || ((c && c.player) || "");
+      entry.characterName = entry.characterName || ((c && c.name) || "");
       entry.playerId = state.uid;
       await fb.set(fb.ref(state.db, roomPath("ledger/" + id)), entry);
     } catch (e) { console.warn("[DM Join] ledger", e); }
@@ -241,7 +276,7 @@
         var cmd = val[id];
         if (!cmd) return;
         if (cmd.to && cmd.to !== "all" && cmd.to !== state.uid) return;
-        if (skipExistingEs && cmd.type === "reward_es") {
+        if (skipExistingEs && /^(reward_es|reward_item|hp|rest|set_conditions|gun_event|death_save|undo_item)$/.test(cmd.type || "")) {
           state.lastCmdSeen[id] = 1;
           return;
         }
@@ -262,14 +297,16 @@
         break;
       case "reward_item":
         appendEquipment(payload.text || "");
-        toast("DM sent item: " + (payload.text || ""));
-        break;
+    toast("DM sent item: " + (payload.text || ""));
+    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "item", text: "Item: " + (payload.text || "") });
+    break;
       case "reward_note":
         toast("DM note: " + (payload.text || ""));
         showPopup("DM note", payload.text || "");
         break;
       case "message":
         showPopup("Private message from DM", payload.text || "");
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "dm", text: "DM: " + (payload.text || "") });
         break;
       case "handout":
         showHandout(payload.name || "Handout", payload.url || "");
@@ -280,8 +317,32 @@
         toast("DM opened the Saloon");
         break;
       case "open_store":
-        toast("DM nudged: Open Store (no store UI yet — noted)");
-        showPopup("DM nudge", "Open the Store when ready.");
+        if (root.SSDNSSheet) root.SSDNSSheet.openStore(payload.stock);
+        else toast("DM opened the store");
+        break;
+      case "hp":
+        applyHpCommand(payload);
+        break;
+      case "set_conditions":
+        if (root.SSDNSSheet) root.SSDNSSheet.setConditions(payload.list || []);
+        break;
+      case "rest":
+        if (root.SSDNSSheet) root.SSDNSSheet.applyRest(payload.kind || "short");
+        break;
+      case "gun_event":
+        if (root.SSDNSSheet) root.SSDNSSheet.applyGunEvent(payload);
+        break;
+      case "death_save":
+        if (root.SSDNSSheet) root.SSDNSSheet.setDeath(payload.side, payload.index, payload.on);
+        break;
+      case "undo_item":
+        if (root.SSDNSSheet) root.SSDNSSheet.undoItem(payload.text || "");
+        break;
+      case "music":
+        applyMusic(payload);
+        break;
+      case "sfx":
+        if (root.SSDNSAudio && payload.event) root.SSDNSAudio.play(payload.event);
         break;
       case "open_tab":
         toast("DM nudge: open tab " + (payload.tab || ""));
@@ -340,6 +401,8 @@
         who: "DM"
       });
       toast("DM " + (delta >= 0 ? "granted +" : "took ") + Math.abs(delta) + " ES");
+      if (root.SSDNSAudio) root.SSDNSAudio.play("reward");
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "es", text: "DM " + (delta >= 0 ? "+" : "") + delta + " ES" });
       publishSnapshot();
     } finally {
       state.applyingReward = false;
@@ -392,6 +455,66 @@
     if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
   }
 
+  function applyHpCommand(payload) {
+    var delta = Number(payload.delta);
+    if (!delta) delta = (payload.kind === "heal" ? 1 : -1) * (Number(payload.amount) || 0);
+    if (!delta || !root.SSDNSSheet) return;
+    var kind = payload.kind || (delta < 0 ? "damage" : "heal");
+    var text = "DM " + kind + " " + Math.abs(delta) + (payload.formula ? " (" + payload.formula + ")" : "");
+    root.SSDNSSheet.applyDelta(delta, text);
+    root.SSDNSSheet.addLog({ kind: "hp", text: text });
+  }
+  function applyMusic(payload) {
+    if (!root.SSDNSAudio) return;
+    if (!payload || payload.action === "stop") {
+      root.SSDNSAudio.stopMusic();
+      return;
+    }
+    root.SSDNSAudio.playMusic({
+      file: payload.file,
+      loop: !!payload.loop,
+      onblocked: function () { if (root.SSDNSSheet) root.SSDNSSheet.showTapHear(); },
+      onmissing: function () {}
+    });
+  }
+  function postChat(entry) {
+    if (!state.joined || !state.db) return;
+    var fb = state._fb;
+    var id = "chat_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var c = doc() && doc().character;
+    var row = {
+      id: id,
+      ts: new Date().toISOString(),
+      from: state.uid,
+      fromName: (entry && entry.fromName) || (c && (c.player || c.name)) || "Player",
+      text: (entry && entry.text) || ""
+    };
+    fb.set(fb.ref(state.db, roomPath("chat/" + id)), row).catch(function (e) { console.warn("[DM Join] chat", e); });
+  }
+  function listenRoomFeeds() {
+    var fb = state._fb;
+    function bind(path, handler) {
+      var r = fb.ref(state.db, roomPath(path));
+      var cb = fb.onValue(r, function (snap) { handler(snap.val() || {}); }, function () {});
+      state.unsubs.push(function () { fb.off(r, "value", cb); });
+    }
+    bind("table", function (val) {
+      var stock = val.store || [];
+      if (root.SSDNSSheet) root.SSDNSSheet.setStock(Array.isArray(stock) ? stock : Object.keys(stock).map(function (k) { return stock[k]; }));
+    });
+    var chatPrimed = false;
+    bind("chat", function (val) {
+      Object.keys(val).forEach(function (id) {
+        if (state._chatSeen[id]) return;
+        state._chatSeen[id] = 1;
+        var row = val[id];
+        if (!row) return;
+        if (chatPrimed && row.from === state.uid) return;
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "chat", text: (row.fromName || "Table") + ": " + (row.text || ""), ts: row.ts });
+      });
+      chatPrimed = true;
+    });
+  }
   function watchEs() {
     // Poll ES while joined (catches Saloon wallet + manual shard edits)
     setInterval(function () {
@@ -408,6 +531,10 @@
           var w = Bridge.readWallet();
           if (w && w.updatedBy && w.updatedBy !== "sheet" && w.updatedBy !== "dm-reward") by = "saloon:" + w.updatedBy;
         } catch (e) {}
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({
+          kind: "es",
+          text: (by.indexOf("saloon") === 0 ? "Saloon · " + by.slice(7) : "ES change") + " (" + (delta >= 0 ? "+" : "") + delta + ")"
+        });
         postLedger({
           type: delta >= 0 ? "es_gain" : "es_spend",
           what: (by.indexOf("saloon") === 0 ? "Saloon · " + by.slice(7) : "ES change") + " (" + (delta >= 0 ? "+" : "") + delta + ")",
@@ -463,7 +590,17 @@
       setUiJoined(true, code);
       await publishSnapshot();
       listenCommands();
+      listenRoomFeeds();
       watchEs();
+      if (!state._sheetWatch) {
+        state._sheetWatch = true;
+        var pubTimer;
+        document.addEventListener("change", function () {
+          if (!state.joined) return;
+          clearTimeout(pubTimer);
+          pubTimer = setTimeout(publishSnapshot, 500);
+        });
+      }
       // heartbeat
       state._heartbeat = setInterval(function () {
         if (!state.joined) return;
@@ -504,6 +641,7 @@
       publishSnapshot: publishSnapshot,
       postLedger: postLedger,
       postRoll: postRoll,
+      postChat: postChat,
       join: join,
       leave: leave
     };

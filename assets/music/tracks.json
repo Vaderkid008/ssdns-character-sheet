@@ -1,0 +1,8 @@
+{
+  "tracks": [
+    { "id": "saloon", "title": "Saloon piano", "file": "saloon.mp3" },
+    { "id": "trail", "title": "Trail dusk", "file": "trail.mp3" },
+    { "id": "gunfight", "title": "Gunfight", "file": "gunfight.mp3" },
+    { "id": "hex", "title": "Hex wind", "file": "hex.mp3" }
+  ]
+}

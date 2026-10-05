@@ -25,7 +25,7 @@
           }
         },
         "rolls": {
-          ".read": "auth != null",
+          ".read": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
           "$rollId": {
             ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid || root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid)",
             ".validate": "newData.hasChildren(['ts', 'who', 'result'])"
@@ -50,6 +50,17 @@
           "$cmdId": {
             ".write": "auth != null && (root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid || (data.exists() && (data.child('to').val() === auth.uid || data.child('to').val() === 'all')))",
             ".validate": "newData.hasChildren(['ts', 'type'])"
+          }
+        },
+        "table": {
+          ".read": "auth != null",
+          ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+        },
+        "chat": {
+          ".read": "auth != null",
+          "$id": {
+            ".write": "auth != null && ((!data.exists() && newData.child('from').val() === auth.uid) || (data.exists() && !newData.exists() && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid))",
+            ".validate": "newData.hasChildren(['ts', 'from', 'text']) || !newData.exists()"
           }
         },
         "archives": {

@@ -33,7 +33,14 @@
     Demo
   </label>
   <span id="statusExtra"></span>
+  <label class="toggle" title="Mute sound effects and music on this browser">
+    <input type="checkbox" data-sfx-mute checked> Sound
+  </label>
 </div>
+<details class="shortcut-help">
+  <summary>Keyboard shortcuts (Stream Deck)</summary>
+  <p><kbd>N</kbd> next turn · <kbd>R</kbd> push the reward that is filled in · <kbd>S</kbd> play the attack sound (and send it to the table) · <kbd>M</kbd> play or stop the selected track. Ignored while you are typing in a field.</p>
+</details>
 
 <!-- Lobby (no room yet) -->
 <section class="lobby" id="lobby">
@@ -66,6 +73,10 @@
     <button type="button" role="tab" class="tab" id="tab-ledger" aria-controls="panel-ledger" aria-selected="false">Ledger</button>
     <button type="button" role="tab" class="tab" id="tab-rolls" aria-controls="panel-rolls" aria-selected="false">Rolls</button>
     <button type="button" role="tab" class="tab" id="tab-handouts" aria-controls="panel-handouts" aria-selected="false">Handouts</button>
+    <button type="button" role="tab" class="tab" id="tab-fight" aria-controls="panel-fight" aria-selected="false">Fight</button>
+    <button type="button" role="tab" class="tab" id="tab-store" aria-controls="panel-store" aria-selected="false">Store</button>
+    <button type="button" role="tab" class="tab" id="tab-lookup" aria-controls="panel-lookup" aria-selected="false">Lookup</button>
+    <button type="button" role="tab" class="tab" id="tab-music" aria-controls="panel-music" aria-selected="false">Music</button>
     <button type="button" role="tab" class="tab" id="tab-notes" aria-controls="panel-notes" aria-selected="false">Notes</button>
   </nav>
 
@@ -115,6 +126,7 @@
       </div>
       <div class="toolbar">
         <button type="button" class="btn btn-primary" id="btnPushReward">Push reward</button>
+        <button type="button" class="btn sm" id="btnUndo" disabled>Undo last push</button>
       </div>
       <div class="toolbar" style="margin-top:20px;border-top:1px solid var(--line);padding-top:14px">
         <h2 style="font-size:18px;margin:0;width:100%">Private message</h2>
@@ -165,6 +177,17 @@
           </label>
         </div>
       </div>
+      <div class="toolbar quick-rolls">
+        <button type="button" class="btn sm" data-quick-roll="1d20" data-quick-label="d20">d20</button>
+        <button type="button" class="btn sm" data-quick-roll="1d20" data-quick-label="Attack">Attack</button>
+        <button type="button" class="btn sm" data-quick-roll="1d8" data-quick-label="Damage">Damage</button>
+        <button type="button" class="btn sm" data-quick-roll="1d20" data-quick-label="Save">Save</button>
+        <button type="button" class="btn sm" data-quick-roll="1d6" data-quick-label="d6">d6</button>
+        <button type="button" class="btn sm" data-quick-roll="2d6" data-quick-label="2d6">2d6</button>
+        <button type="button" class="btn sm" data-quick-roll="1d4" data-quick-label="d4">d4</button>
+        <button type="button" class="btn sm" data-quick-roll="1d10" data-quick-label="d10">d10</button>
+        <button type="button" class="btn sm" data-quick-roll="1d12" data-quick-label="d12">d12</button>
+      </div>
       <div class="toolbar">
         <button type="button" class="btn btn-primary" id="btnDmRoll">Roll</button>
       </div>
@@ -194,6 +217,114 @@
         <button type="button" class="btn sm" id="btnSaveHandout">Save to list only</button>
       </div>
       <div class="handout-grid" id="handoutGrid" style="margin-top:14px"></div>
+      <details class="fold" open>
+        <summary>Handout packs</summary>
+        <p class="lede">A pack is a named set of links. One line each: <code>Name | https://…</code></p>
+        <div class="form-grid">
+          <div>
+            <label for="packName">Pack name</label>
+            <input type="text" id="packName" placeholder="Wanted set">
+          </div>
+          <div>
+            <label for="packTarget">Send packs to</label>
+            <select id="packTarget"></select>
+          </div>
+          <div class="span-2">
+            <label for="packLines">Links</label>
+            <textarea id="packLines" rows="4" placeholder="Wanted poster | https://…"></textarea>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="btn btn-primary" id="btnSavePack">Save pack</button>
+        </div>
+        <div id="packList"></div>
+      </details>
+    </section>
+
+    <section class="panel" id="panel-fight" role="tabpanel" aria-labelledby="tab-fight" hidden>
+      <h2>Fight</h2>
+      <p class="lede" id="initRound">Round 1</p>
+      <div class="toolbar">
+        <label for="initPlayer">Player</label>
+        <select id="initPlayer"></select>
+        <button type="button" class="btn sm" id="btnAddPlayer">Add player</button>
+        <label for="initEnemy">Enemy</label>
+        <select id="initEnemy"></select>
+        <button type="button" class="btn sm" id="btnAddEnemy">Add enemy</button>
+        <button type="button" class="btn btn-primary" id="btnNextTurn">Next turn</button>
+        <button type="button" class="btn sm" id="btnPrevTurn">Previous</button>
+      </div>
+      <div id="initList"></div>
+      <details class="fold" open>
+        <summary>Damage and healing</summary>
+        <p class="lede">Rolls the dice, subtracts from current HP (temp first) or adds healing up to max, and tells the player.</p>
+        <div class="form-grid">
+          <div>
+            <label for="dmgTarget">Player</label>
+            <select id="dmgTarget"></select>
+          </div>
+          <div>
+            <label for="dmgFormula">Dice</label>
+            <input type="text" id="dmgFormula" value="1d8">
+          </div>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="btn btn-danger" id="btnDmg">Roll damage</button>
+          <button type="button" class="btn btn-primary" id="btnHeal">Roll healing</button>
+          <button type="button" class="btn sm" id="btnShortRest">Short rest (party)</button>
+          <button type="button" class="btn sm" id="btnLongRest">Long rest (party)</button>
+        </div>
+      </details>
+      <details class="fold">
+        <summary>Bestiary (examples)</summary>
+        <p class="lede">Placeholder cards. Edit <code>dm/assets/data/bestiary.json</code> to add real ones.</p>
+        <div class="bestiary-grid" id="bestiaryList"></div>
+      </details>
+    </section>
+
+    <section class="panel" id="panel-store" role="tabpanel" aria-labelledby="tab-store" hidden>
+      <h2>Eldorite Store</h2>
+      <p class="lede">Session stock only. Prices are ES. Opening the store forces the Store tab on joined sheets.</p>
+      <div class="form-grid">
+        <div>
+          <label for="stockName">Item</label>
+          <input type="text" id="stockName" placeholder="Trail rations">
+        </div>
+        <div>
+          <label for="stockPrice">Price (ES)</label>
+          <input type="number" id="stockPrice" value="25" min="0">
+        </div>
+      </div>
+      <div class="toolbar">
+        <button type="button" class="btn sm" id="btnAddStock">Add to stock</button>
+        <button type="button" class="btn btn-primary" id="btnOpenStoreNow">Open store for the table</button>
+      </div>
+      <div id="storeList"></div>
+    </section>
+
+    <section class="panel" id="panel-lookup" role="tabpanel" aria-labelledby="tab-lookup" hidden>
+      <h2>PHB lookup</h2>
+      <p class="lede">One line plus the source locator already in the rules data. Printed page numbers are not in that file.</p>
+      <div class="toolbar">
+        <input type="search" id="lookupQ" placeholder="Spell, gun, or feat" aria-label="Search rules">
+        <button type="button" class="btn btn-primary" id="btnLookup">Search</button>
+      </div>
+      <div id="lookupResults"></div>
+    </section>
+
+    <section class="panel" id="panel-music" role="tabpanel" aria-labelledby="tab-music" hidden>
+      <h2>Music</h2>
+      <p class="lede">Tracks come from <code>assets/music/tracks.json</code>. Drop the audio files in later. Missing files stay quiet.</p>
+      <div class="toolbar">
+        <select id="musicTrack" aria-label="Track"></select>
+        <label class="toggle"><input type="checkbox" id="musicLoop"> Loop</label>
+        <label class="toggle"><input type="checkbox" id="musicTable"> Also play on players' devices</label>
+        <button type="button" class="btn btn-primary" id="btnMusicPlay">Play</button>
+        <button type="button" class="btn sm" id="btnMusicStop">Stop</button>
+      </div>
+      <p class="lede" id="musicStatus"></p>
+      <p class="lede">Sound on this browser: <label class="toggle"><input type="checkbox" data-sfx-mute checked> Sound on</label>
+        <label class="toggle">Volume <input type="range" data-sfx-volume min="0" max="100" value="80"></label></p>
     </section>
 
     <!-- NOTES -->
@@ -236,8 +367,11 @@
 
 <div class="toast" id="toast" hidden></div>
 
+<script src="../assets/js/sfx.js"></script>
+<script src="../assets/data/rules.js"></script>
 <script src="../assets/js/firebase-config.js"></script>
 <script src="assets/js/demo-data.js"></script>
 <script type="module" src="assets/js/dmcc.js"></script>
+<script type="module" src="assets/js/v2.js"></script>
 </body>
 </html>

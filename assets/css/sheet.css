@@ -493,3 +493,29 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
   .dm-join-bar { padding: 6px 10px; }
   .dm-join-bar input { width: 100px; }
 }
+
+/* v0.2 HP stepper, store, log, phone */
+.hp-step { display: flex; align-items: center; gap: 6px; }
+.hp-step input { flex: 1; min-width: 0; }
+.hp-btn { min-width: 44px; min-height: 44px; font-size: 22px; padding: 0; line-height: 1; }
+.hp-quick { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.hp-quick input { width: 88px; min-height: 44px; text-align: center; }
+.hp.hp-down { box-shadow: inset 0 0 0 2px #a3301f; }
+.cond-banner { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cond-chip { font-family: var(--label); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; border: 1px solid #a3301f; color: #a3301f; border-radius: 99px; padding: 4px 8px; }
+.hp-notice { margin-top: 6px; padding: 8px 10px; background: #2a2218; color: var(--parch, #efe2c2); border-radius: 4px; }
+.page-title { font-family: var(--head); font-weight: 400; margin: 0 0 8px; }
+.store-row, .log-item { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.log-item { flex-direction: column; align-items: flex-start; }
+.log-meta { font-size: 12px; opacity: .7; }
+.log-filters, .log-chat { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.log-chat input { flex: 1 1 140px; min-height: 44px; }
+.log-filters .btn.on { background: var(--ochre, #c4953a); color: #1a120a; }
+.audio-ctl { display: inline-flex; align-items: center; gap: 4px; color: #d9f3ea; }
+html, body { overflow-x: hidden; }
+@media screen and (max-width: 414px) {
+  .tabs { flex-wrap: wrap; overflow-x: visible; }
+  .tab { flex: 1 1 30%; min-height: 44px; }
+  .dm-join-bar input { min-height: 44px; }
+  .log-filters .btn, .store-row .btn, .hp-quick .btn { min-height: 44px; }
+}

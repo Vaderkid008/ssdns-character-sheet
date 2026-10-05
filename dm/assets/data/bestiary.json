@@ -1,0 +1,29 @@
+[
+  {
+    "id": "dust-devil",
+    "example": true,
+    "name": "Dust Devil (example)",
+    "ac": 13,
+    "hp": 22,
+    "attacks": "Claw +4 (1d6+2), Whirlwind +4 (2d6)",
+    "traits": "Example only — replace this file with your own stat cards. Whirlwind recharges on 5–6."
+  },
+  {
+    "id": "rail-agent",
+    "example": true,
+    "name": "Rail Company Agent (example)",
+    "ac": 15,
+    "hp": 32,
+    "attacks": "Revolver +5 (1d8+3), Sap +4 (1d4+2)",
+    "traits": "Example only. Pack tactics if an ally is adjacent."
+  },
+  {
+    "id": "hex-hound",
+    "example": true,
+    "name": "Hex Hound (example)",
+    "ac": 14,
+    "hp": 18,
+    "attacks": "Bite +4 (1d8+2)",
+    "traits": "Example only. First hit each round leaves the gun Cracked."
+  }
+]

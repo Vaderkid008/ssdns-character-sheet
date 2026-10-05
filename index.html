@@ -43,12 +43,17 @@
   <button type="button" class="btn sm" id="btnDmJoin">Join</button>
   <button type="button" class="btn sm" id="btnDmLeave" hidden>Leave</button>
   <span class="dm-join-status" id="dmJoinStatus">Not in a room</span>
+  <label class="toggle audio-ctl"><input type="checkbox" data-sfx-mute checked> Sound</label>
+  <label class="toggle audio-ctl">Vol <input type="range" data-sfx-volume min="0" max="100" value="80" aria-label="Sound volume"></label>
+  <button type="button" class="btn sm" id="btnTapHear" hidden>Tap to hear</button>
 </div>
 
 <nav class="tabs" role="tablist" aria-label="Sheet pages">
   <button type="button" role="tab" class="tab" id="tab-main" aria-controls="page-main" aria-selected="true">1 · Main</button>
   <button type="button" role="tab" class="tab" id="tab-story" aria-controls="page-story" aria-selected="false">2 · Backstory</button>
   <button type="button" role="tab" class="tab" id="tab-hex" aria-controls="page-hex" aria-selected="false">3 · Spells &amp; Hex Lead</button>
+  <button type="button" role="tab" class="tab" id="tab-store" aria-controls="page-store" aria-selected="false">Store</button>
+  <button type="button" role="tab" class="tab" id="tab-log" aria-controls="page-log" aria-selected="false">Log</button>
 </nav>
 
 <main id="sheet">
@@ -126,9 +131,24 @@
         </div>
         <div class="hp">
           <div class="hp-max"><label for="inHPMax">Hit Point Maximum</label><input type="number" id="inHPMax" data-f="character.hpMax" inputmode="numeric"></div>
-          <div class="hp-cur"><input type="number" data-f="character.hpCurrent" id="inHPCur" inputmode="numeric"><label for="inHPCur">Current Hit Points</label></div>
-          <div class="hp-tmp"><input type="number" data-f="character.hpTemp" id="inHPTemp" inputmode="numeric"><label for="inHPTemp">Temporary Hit Points</label></div>
+          <div class="hp-cur">
+            <div class="hp-step">
+              <button type="button" class="btn hp-btn" id="btnHpMinus" aria-label="Subtract 1 hit point">−</button>
+              <input type="number" data-f="character.hpCurrent" id="inHPCur" inputmode="numeric" aria-label="Current hit points">
+              <button type="button" class="btn hp-btn" id="btnHpPlus" aria-label="Add 1 hit point">+</button>
+            </div>
+            <label for="inHPCur">Current HP</label>
+          </div>
+          <div class="hp-tmp"><input type="number" data-f="character.hpTemp" id="inHPTemp" inputmode="numeric"><label for="inHPTemp">Temp HP</label></div>
+          <div class="hp-quick">
+            <input type="number" id="inHpAdjust" min="0" placeholder="Amt" inputmode="numeric" aria-label="Amount to damage or heal">
+            <button type="button" class="btn sm" id="btnHpHurt">Damage</button>
+            <button type="button" class="btn sm" id="btnHpHeal">Heal</button>
+          </div>
         </div>
+        <input type="hidden" id="inTableConditions" data-f="character.tableConditions">
+        <div class="cond-banner" id="condBanner" hidden></div>
+        <div class="hp-notice" id="hpNotice" hidden></div>
         <div class="duo">
           <div class="hd">
             <div class="mini"><span>Total</span><input data-calc="hitDiceTotal" class="calc"></div>
@@ -348,6 +368,35 @@
   <div class="spell-grid" id="spellGrid"></div>
   <details class="box wild"><summary>Wild spark (hex misfire) · d6</summary><ol id="wildList"></ol></details>
 </section>
+
+<section class="page" id="page-store" role="tabpanel" aria-labelledby="tab-store" hidden>
+  <h2 class="page-title">Eldorite Store</h2>
+  <p class="fine" id="storeLede">Join a table and the DM opens the store with tonight's stock. Buying spends ES from this character.</p>
+  <p class="fine" id="storeEs"></p>
+  <div id="storeStock"></div>
+</section>
+
+<section class="page" id="page-log" role="tabpanel" aria-labelledby="tab-log" hidden>
+  <h2 class="page-title">Table log</h2>
+  <p class="fine">Your ES, HP, items, DM messages, and chat. Filters stay on this device.</p>
+  <div class="log-filters">
+    <button type="button" class="btn sm on" data-log-filter="all">All</button>
+    <button type="button" class="btn sm" data-log-filter="es">ES</button>
+    <button type="button" class="btn sm" data-log-filter="hp">HP</button>
+    <button type="button" class="btn sm" data-log-filter="item">Items</button>
+    <button type="button" class="btn sm" data-log-filter="chat">Chat</button>
+    <button type="button" class="btn sm" data-log-filter="dm">DM</button>
+  </div>
+  <div id="logFeed" class="log-feed"></div>
+  <form id="logChat" class="log-chat">
+    <input type="text" id="logChatText" placeholder="Say something to the table" autocomplete="off" aria-label="Chat message">
+    <button type="submit" class="btn">Send</button>
+  </form>
+  <div class="log-chat">
+    <input type="text" id="whisperFormula" value="1d20" aria-label="Whisper roll formula">
+    <button type="button" class="btn" id="btnWhisper">Whisper roll to DM</button>
+  </div>
+</section>
 </main>
 
 <div class="drop-overlay" id="dropOverlay"><div>Drop a <b>.ssdns</b> file to open it</div></div>
@@ -378,7 +427,9 @@
 <script src="assets/js/ssdns-bridge.js"></script>
 <script src="assets/js/storage.js"></script>
 <script src="assets/js/firebase-config.js"></script>
+<script src="assets/js/sfx.js"></script>
 <script src="assets/js/app.js"></script>
+<script src="assets/js/sheet-extras.js"></script>
 <script src="assets/js/dm-join.js"></script>
 </body>
 </html>
