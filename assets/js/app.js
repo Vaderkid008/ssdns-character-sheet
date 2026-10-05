@@ -1,0 +1,1718 @@
+/* SSDNS Character Sheet · v0.2.3 (spellbook UI, current PHB: firearms v3, ES currency, hex lead shells)
+ * Static, no server. Rules data: window.SSDNS_RULES (assets/data/rules.js, generated from the PHB).
+ * Saving: SSDNSStore (storage.js). Shards bridge for Saloon games: SSDNSBridge (ssdns-bridge.js).
+ */
+(function () {
+  "use strict";
+  var APP_VERSION = "0.2.3";
+  var FORMAT = "ssdns-character";
+  var SCHEMA = 2;
+  var R = window.SSDNS_RULES;
+  var Store = window.SSDNSStore;
+  var Bridge = window.SSDNSBridge;
+
+  // ------------------------------------------------------------------ helpers
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  function el(tag, attrs, kids) {
+    var e = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === "class") e.className = v;
+      else if (k === "text") e.textContent = v;
+      else if (k === "html") e.innerHTML = v;
+      else if (k.slice(0, 2) === "on") e.addEventListener(k.slice(2), v);
+      else if (k === "value" && ("value" in e)) { e.value = v; e.setAttribute(k, v === true ? "" : v); }
+      else e.setAttribute(k, v === true ? "" : v);
+    });
+    (kids || []).forEach(function (c) { if (c != null) e.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return e;
+  }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function byId(arr) { var o = {}; (arr || []).forEach(function (x) { o[x.id] = x; }); return o; }
+  function sign(n) { return n >= 0 ? "+" + n : String(n); }
+  function num(v, d) { var n = parseInt(v, 10); return isFinite(n) ? n : (d === undefined ? 0 : d); }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function uid() { return "c_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function timeStr(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString([], { month: "short", day: "numeric" }) + ", " + d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+  function getPath(o, path) { return path.split(".").reduce(function (a, k) { return a == null ? undefined : a[k]; }, o); }
+  function setPath(o, path, v) {
+    var ks = path.split("."), last = ks.pop();
+    var t = ks.reduce(function (a, k) { if (a[k] == null || typeof a[k] !== "object") a[k] = {}; return a[k]; }, o);
+    t[last] = v;
+  }
+  function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
+  function levelNum(s) { return parseInt(String(s), 10) || 0; }
+
+  // ------------------------------------------------------------------ rules lookups
+  var AB = R.abilities.map(function (a) { return a.id; });
+  var LIN = byId(R.lineages), CAL = byId(R.callings), BG = byId(R.backgrounds), ARM = byId(R.armor), HOL = byId(R.holsters), FEAT = byId(R.feats);
+  var CASTER_GUNS = byId(R.casterGuns);
+  var WEAPON_LIST = [].concat(R.firearms, R.casterGuns, R.otherRanged, R.melee);
+  var WPN = byId(WEAPON_LIST);
+  var SHARDS = R.currency; // [{id:"white", color:"White", equals:"1 ES", es:1}, ...] (PHB Currency — Eldorite)
+  var SPELL_LINES = [8, 12, 13, 13, 13, 9, 9, 9, 7, 7]; // same number of lines as the 5e base sheet, page 3
+  var MAX_BOXES = 9;
+
+  // Ammo pools: type + caliber (the round a gun is chambered for). Labels follow the PHB Ammunition table.
+  var AMMO_TYPES = [
+    { id: "cartridge", label: "Cartridges" },
+    { id: "percussion", label: "Powder, ball & caps" },
+    { id: "buck", label: "Shells, buckshot" },
+    { id: "slug", label: "Shells, slugs" },
+    { id: "bigfifty", label: "Big Fifty .50-90" },
+    { id: "arrows", label: "Arrows" }
+  ];
+  var AMMO_LABEL = {}; AMMO_TYPES.forEach(function (t) { AMMO_LABEL[t.id] = t.label; });
+  var CALIBERS = [];
+  function addCal(c) { if (c && CALIBERS.indexOf(c) < 0) CALIBERS.push(c); }
+  [].concat(R.firearms, R.casterGuns).forEach(function (f) { Object.keys(f.rounds || {}).forEach(function (t) { (f.rounds[t] || []).forEach(addCal); }); });
+  (R.ammo || []).forEach(function (a) { addCal(a.caliber); });
+  var TIERS = ["light", "medium", "heavy"];
+  var TIER_LABEL = { light: "Light", medium: "Medium", heavy: "Heavy" };
+  var UNIT = (R.meta && R.meta.currencyUnit) || "ES";
+
+  // v0.1 (Sept 29 book) ids -> current PHB ids. Old saves keep loading.
+  var OLD_IDS = {
+    calling: { "sheriff-infantry": "lawman", "sheriff": "lawman", "gambler-burglar": "gambler" },
+    weapon: { "herringer-quad": ["herringer-light-pepperbox", "light"], "herringer-single": ["herringer-light-pocket-pistol", "light"], "herringer-double": ["herringer-light-double-derringer", "light"],
+      "navy-army-ball-n-cap": ["navy-army-ball-n-cap-revolver", "medium"], "chaosmaker-revolver": ["pony-arms-chaosmaker-medium", "medium"],
+      "single-barrel-shotgun-12-ga": ["single-barrel-farm-shotgun", "medium"], "double-barrel-shotgun-12-ga": ["double-barrel-coach-gun", "medium"], "lancaster-repeating-shotgun-16-ga": ["lancaster-lever-shotgun", "medium"],
+      "dulls-rifle": ["dulls-rolling-block-rifle", "medium"], "dullards-rifle": ["dullards-tube-rifle", "medium"],
+      "henrietta-repeating-rifle-44-rimfire": ["henrietta-repeating-rifle", "light"], "henrietta-repeating-rifle-357": ["henrietta-repeating-rifle", "medium"], "henrietta-repeating-rifle-45-long": ["henrietta-repeating-rifle", "heavy"],
+      "lancaster-repeating-rifle-44-rimfire": ["lancaster-repeating-rifle", "light"], "lancaster-repeating-rifle-357": ["lancaster-repeating-rifle", "medium"], "lancaster-repeating-rifle-45-long": ["lancaster-repeating-rifle", "heavy"],
+      "musket": ["dull-co-rifle-musket", "medium"], "bison-big-fifty-50-90": ["bison-big-fifty-buffalo-rifle", "medium"],
+      "standard-caster-gun": ["blacksnake", "medium"], "python": ["blacksnake", "medium"], "cobra": ["blacksnake", "medium"], "viper": ["blacksnake", "medium"], "boa": ["blacksnake", "medium"] },
+    holster: { "concealed-shoulder-vest-sleeve": "concealed-vest-sleeve" }
+  };
+
+  // ------------------------------------------------------------------ document model
+  function blankCharacter() {
+    var abil = {}, saves = {};
+    AB.forEach(function (a) { abil[a] = 10; saves[a] = false; });
+    var spells = {};
+    for (var l = 1; l <= 9; l++) {
+      spells[l] = [];
+      for (var i = 0; i < SPELL_LINES[l]; i++) spells[l].push({ name: "", prepared: false });
+    }
+    var hex = {};
+    for (var h = 1; h <= 9; h++) hex[h] = new Array(MAX_BOXES).fill(false);
+    return {
+      name: "", player: "", lineage: "", sublineage: "", calling: "", level: 1, subclass: "", background: "", xp: "",
+      abilities: abil, saveProf: saves, skillProf: {}, overrides: {},
+      partyInspiration: new Array(10).fill(false),
+      speed: "", armor: "", shield: false, hpMax: "", hpCurrent: "", hpTemp: "", hitDiceLeft: "",
+      deathSaves: { success: [false, false, false], fail: [false, false, false] },
+      guns: [0, 1, 2, 3].map(function () { return { weapon: "", tier: "", chamber: "", mod: "", capacity: "", load: "buck", loaded: 0, chambers: [], proficient: true, jammed: false }; }),
+      ammo: [], explosives: [], holster: "", holsterActive: false, gunBelt: false, attackNotes: "",
+      instrument: "", instrumentQuality: "cheap", instrumentStrings: "plain", instrumentCase: "none", instrumentWear: "ok",
+      proficienciesLanguages: "", equipment: "", personality: "", ideals: "", bonds: "", flaws: "", feats: [], features: "",
+      age: "", height: "", weight: "", eyes: "", skin: "", hair: "", portrait: "", appearance: "", gangName: "", gangSymbol: "",
+      allies: "", backstory: "", additionalFeatures: "", treasure: "",
+      addiction: { addicted: false, daysWithout: 0, uses: 0, penalty: 0 },
+      casterGun: "", hexRest: "", cantrips: new Array(8).fill(""), spells: spells, hexLead: hex
+    };
+  }
+  function blankDoc() {
+    var now = new Date().toISOString();
+    return { format: FORMAT, schemaVersion: SCHEMA, app: "SSDNS Character Sheet " + APP_VERSION, id: uid(), createdAt: now, updatedAt: now,
+      shards: { white: 0, blue: 0, green: 0, yellow: 0, purple: 0 }, character: blankCharacter() };
+  }
+  /** Fill anything missing with defaults, never dropping unknown keys (forward compatible). */
+  function fill(def, val) {
+    if (Array.isArray(def)) {
+      if (!Array.isArray(val)) return clone(def);
+      if (def.length && typeof def[0] === "object") {
+        var out = val.map(function (v, i) { return fill(def[i] || def[0], v); });
+        for (var i = out.length; i < def.length; i++) out.push(clone(def[i]));
+        return out;
+      }
+      var arr = val.slice();
+      for (var j = arr.length; j < def.length; j++) arr.push(def[j]);
+      return arr;
+    }
+    if (def && typeof def === "object") {
+      var o = (val && typeof val === "object" && !Array.isArray(val)) ? val : {};
+      Object.keys(def).forEach(function (k) { o[k] = fill(def[k], o[k]); });
+      return o;
+    }
+    return val === undefined || val === null ? def : val;
+  }
+  function migrate(raw) {
+    if (!raw || typeof raw !== "object") throw new Error("That file isn't a character (not JSON).");
+    if (raw.format !== FORMAT && !raw.character) throw new Error("That file isn't an SSDNS character.");
+    var v = num(raw.schemaVersion, 1);
+    if (v > SCHEMA) console.warn("File is from a newer sheet (schema " + v + "); loading what we understand.");
+    var notes = [];
+    if (v < 2 && raw.character) upgradeV1(raw.character, notes);
+    var d = blankDoc();
+    var doc = {
+      format: FORMAT, schemaVersion: Math.max(v, SCHEMA), app: raw.app || d.app,
+      id: raw.id || d.id, createdAt: raw.createdAt || d.createdAt, updatedAt: raw.updatedAt || d.updatedAt,
+      shards: Bridge.cleanShards(raw.shards), character: fill(d.character, raw.character)
+    };
+    Object.keys(raw).forEach(function (k) { if (!(k in doc)) doc[k] = raw[k]; });
+    if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
+    return doc;
+  }
+  /** g.chamber = "tier|round" (PHB Chambering: pick the round when you buy the gun). Falls back to g.tier / first tier. */
+  function chamberOf(g, w) {
+    var parts = String(g.chamber || "").split("|"), tier = parts[0], round = parts[1] || "";
+    if (!w || !w.tiers) return { tier: "", round: "" };
+    if (!w.tiers[tier]) tier = w.tiers[g.tier] ? g.tier : firstTier(w);
+    var list = (w.rounds && w.rounds[tier]) || [];
+    if (list.indexOf(round) < 0) round = list[0] || "";
+    return { tier: tier, round: round };
+  }
+  function chamberOptions(w) {
+    var o = [];
+    TIERS.forEach(function (t) {
+      if (!w.tiers || !w.tiers[t]) return;
+      var list = (w.rounds && w.rounds[t] && w.rounds[t].length) ? w.rounds[t] : [""];
+      list.forEach(function (r) { o.push([t + "|" + r, TIER_LABEL[t] + (r ? " · " + r : "")]); });
+    });
+    return o;
+  }
+  /** Gunsmithing › Capacity Upgrades rows that fit this gun -> list of capacities [base, step1, ...]. */
+  var SKIPW = /^(Light|Medium|Heavy|Repeating|Rifles?|Carbines?|Saddle|Shotgun|Lever)$/;
+  function capSteps(w) {
+    if (!w || !w.capacity || !R.gunsmithing) return [];
+    var hit = (R.gunsmithing.capacity || []).filter(function (r) {
+      if (!/\d/.test(r.steps || "")) return false;
+      var up = (r.upgrade || "").toLowerCase();
+      if (/caster/.test(up) !== (w.group === "caster")) return false;
+      if (/rifle/.test(up) && w.group !== "rifle") return false;
+      if (/carbine/.test(up) && w.group !== "carbine") return false;
+      if (/shotgun/.test(up) && w.group !== "shotgun") return false;
+      return String(r.guns || "").split(/;|,| and /).some(function (tok) {
+        var words = tok.replace(/\(.*?\)/g, "").trim().split(/\s+/).filter(function (x) { return x.length > 2 && /^[A-Z]/.test(x) && !SKIPW.test(x); });
+        return words.length && words.every(function (x) { return w.name.indexOf(x) >= 0; });
+      });
+    })[0];
+    if (!hit) return [];
+    var costs = String(hit.cost_per_step || "").split("/").map(function (x) { return x.trim(); });
+    return [{ cap: w.capacity, label: "Cap " + w.capacity + " (as built)" }].concat(String(hit.steps).split(",").map(function (x, i) {
+      return { cap: num(x), label: "Cap " + num(x) + " (" + hit.upgrade + (costs[i] ? ", +" + costs[i] + " " + UNIT : "") + ")" };
+    }));
+  }
+  function modsFor(w) {
+    if (!w || !w.tiers || !R.gunsmithing) return [];
+    return (R.gunsmithing.mods || []).filter(function (m) {
+      var f = String(m.fits || "").toLowerCase(), g = w.group;
+      if (/except the big fifty/.test(f) && g === "bigbore") return false;
+      if (/rugged/.test(f) && /rugged/i.test(w.properties)) return false;
+      if (/^any gun/.test(f)) return true;
+      return (g === "pistol" && /pistol|revolver/.test(f)) || (g === "rifle" && /rifle/.test(f)) || (g === "carbine" && /carbine/.test(f)) || (g === "shotgun" && /shotgun/.test(f)) || (g === "bigbore" && /big fifty/.test(f));
+    });
+  }
+  function firstTier(w) { if (!w || !w.tiers) return ""; for (var i = 0; i < TIERS.length; i++) if (w.tiers[TIERS[i]]) return TIERS[i]; return ""; }
+  /** Schema 1 (v0.1, Sept 29 book) -> schema 2: renamed Callings, guns, caster guns, holsters. Unknown ids are kept (shown as "not in the current PHB"). */
+  function upgradeV1(c, notes) {
+    if (OLD_IDS.calling[c.calling]) { notes.push("Calling " + c.calling + " -> " + OLD_IDS.calling[c.calling]); c.calling = OLD_IDS.calling[c.calling]; }
+    if (c.calling && CAL[c.calling] && c.subclass && !CAL[c.calling].subclasses.some(function (s) { return s.id === c.subclass; })) {
+      var stem = String(c.subclass).split("-").slice(0, 3).join("-");
+      var hit = CAL[c.calling].subclasses.filter(function (s) { return s.id.indexOf(stem) === 0 || (s.phb5e && c.subclass.indexOf(s.phb5e.toLowerCase().replace(/[^a-z0-9]+/g, "-")) >= 0); })[0];
+      if (hit) { notes.push("Subclass " + c.subclass + " -> " + hit.id); c.subclass = hit.id; }
+    }
+    if (OLD_IDS.holster[c.holster]) { notes.push("Holster " + c.holster + " -> " + OLD_IDS.holster[c.holster]); c.holster = OLD_IDS.holster[c.holster]; }
+    if (c.casterGun && OLD_IDS.weapon[c.casterGun]) { notes.push("Caster gun " + c.casterGun + " -> " + OLD_IDS.weapon[c.casterGun][0]); c.casterGun = OLD_IDS.weapon[c.casterGun][0]; }
+    (c.guns || []).forEach(function (g) {
+      var m = OLD_IDS.weapon[g.weapon];
+      if (m) { notes.push("Gun " + g.weapon + " -> " + m[0] + " (" + m[1] + ")"); g.weapon = m[0]; g.tier = m[1]; }
+      var w = WPN[g.weapon];
+      if (w && w.tiers && !w.tiers[g.tier]) g.tier = firstTier(w);
+      if (w && w.tiers) { var cc = chamberOf(g, w); g.chamber = cc.tier + "|" + cc.round; }
+      if (w && w.capacity) g.loaded = Math.min(num(g.loaded), w.capacity);
+      if (w && w.hexShells) { g.chambers = []; for (var k = 0; k < w.capacity; k++) g.chambers.push(k < num(g.loaded) ? "c" : ""); }
+    });
+    (c.ammo || []).forEach(function (a) { if (a.caliber === "12 gauge") a.caliber = "12 ga"; });
+  }
+
+  // ------------------------------------------------------------------ state
+  var S = {
+    doc: null, handle: null, fileName: "", fileDirty: false, hasFile: false,
+    lastLocal: null, lastFile: null, lastSnap: 0, writing: false, again: false, permNeeded: false, error: ""
+  };
+  var C = function () { return S.doc.character; };
+
+  // ------------------------------------------------------------------ calculations (standard 5e only)
+  function mod(score) { return Math.floor((num(score, 10) - 10) / 2); }
+  function profBonus(level) { return Math.ceil(Math.max(1, Math.min(20, num(level, 1))) / 4) + 1; }
+  function currentCalling() { return CAL[C().calling] || null; }
+  function currentSubclass() { var c = currentCalling(); return c ? c.subclasses.filter(function (s) { return s.id === C().subclass; })[0] || null : null; }
+  function casterInfo() {
+    var c = currentCalling(), sc = currentSubclass();
+    if (c && c.caster) return { type: c.caster, ability: c.spellAbility, rest: c.hexLeadRest, from: c.name };
+    if (sc && sc.caster) return { type: sc.caster, ability: sc.spellAbility, rest: "long", from: sc.name + " (" + c.name + ")" };
+    return null;
+  }
+  /** Known-list Callings vs prepared-list Callings (PHB / 5e twins). */
+  var PREPARED_CASTERS = { "frontier-preacher": 1, "nature-guide": 1, "lawman": 1, "scholar": 1 };
+  var ALIAS_BY_PHB = null;
+  function aliasIndex() {
+    if (ALIAS_BY_PHB) return ALIAS_BY_PHB;
+    ALIAS_BY_PHB = {};
+    (R.spellAliases || []).forEach(function (a) {
+      if (!a.phb) return;
+      var k = a.phb.toLowerCase();
+      ALIAS_BY_PHB[k] = a;
+      // also strip trailing " Shell" for Hexslinger list matching
+      ALIAS_BY_PHB[k.replace(/\s+shell$/, "")] = a;
+    });
+    return ALIAS_BY_PHB;
+  }
+  /** Parse a spell-list entry like "Blade Ward (Galvanized)" or "Acid Splash Shell". */
+  function parseSpellEntry(raw, level) {
+    var t = String(raw || "").replace(/\s+/g, " ").trim();
+    if (!t) return null;
+    var shell = /\s+Shell$/i.test(t);
+    var base = t.replace(/\s+Shell$/i, "").trim();
+    var m = base.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+    var phb = m ? m[1].trim() : base;
+    var alias = m ? m[2].trim() : "";
+    var ax = aliasIndex()[phb.toLowerCase()];
+    // PHB / aliases table uses "— (prints as 5e name)" when there is no frontier rename
+    function realAlias(a) {
+      a = String(a || "").trim();
+      if (!a || a === "—" || /^—/.test(a) || /^-+$/.test(a) || /prints as 5e name/i.test(a)) return "";
+      return a;
+    }
+    alias = realAlias(alias);
+    if (!alias && ax) alias = realAlias(ax.alias);
+    var label = alias ? phb + " (" + alias + ")" : phb;
+    if (shell && !/\bshell\b/i.test(label)) label += " Shell";
+    return { phb: phb, alias: alias, label: label, shell: shell, level: level, raw: t, key: (level + ":" + phb + (shell ? ":shell" : "")).toLowerCase() };
+  }
+  function callingSpellList(id) {
+    id = id || (C().calling || "");
+    return (R.spellLists && R.spellLists[id]) || null;
+  }
+  function callingCatalog(id) {
+    var sl = callingSpellList(id);
+    if (!sl || !sl.levels) return [];
+    var out = [];
+    Object.keys(sl.levels).forEach(function (lk) {
+      var level = num(lk, 0);
+      (sl.levels[lk] || []).forEach(function (raw) {
+        var sp = parseSpellEntry(raw, level);
+        if (sp) out.push(sp);
+      });
+    });
+    return out;
+  }
+  function prepareMode() {
+    var c = currentCalling(), sc = currentSubclass();
+    var id = c ? c.id : "";
+    if (PREPARED_CASTERS[id]) return "prepared";
+    if (sc && sc.caster) return "prepared"; // Magician etc.
+    if (c && c.caster) return "known";
+    return null;
+  }
+  /** Progression soft limits: cantrips + spells known (when the book lists them). */
+  function spellLimits() {
+    var c = currentCalling(), lv = Math.max(1, Math.min(20, num(C().level, 1)));
+    var out = { cantrips: null, known: null, mode: prepareMode(), row: null };
+    if (!c || !c.progression || !c.progression.columns) return out;
+    var cols = c.progression.columns.map(function (x) { return String(x).toLowerCase(); });
+    var row = null;
+    c.progression.rows.forEach(function (r) {
+      var n = parseInt(String(r[0]), 10);
+      if (n === lv) row = r;
+    });
+    if (!row) return out;
+    out.row = row;
+    cols.forEach(function (col, i) {
+      var v = String(row[i] || "").trim();
+      if (v === "—" || v === "-" || v === "") return;
+      if (col.indexOf("cantrip") === 0) out.cantrips = num(v);
+      if (col.indexOf("spells known") === 0 || col === "spells known") out.known = num(v);
+    });
+    return out;
+  }
+  function knownCantrips() {
+    return (C().cantrips || []).map(function (n, i) { return n ? { i: i, name: n, level: 0 } : null; }).filter(Boolean);
+  }
+  function knownSpellsAt(level) {
+    return ((C().spells && C().spells[level]) || []).map(function (s, i) {
+      return s && s.name ? { i: i, name: s.name, prepared: !!s.prepared, level: level } : null;
+    }).filter(Boolean);
+  }
+  function countKnown(level) {
+    return level === 0 ? knownCantrips().length : knownSpellsAt(level).length;
+  }
+  function totalKnownSpells() {
+    var n = 0;
+    for (var l = 1; l <= 9; l++) n += countKnown(l);
+    return n;
+  }
+  function spellAlreadyHave(labelOrPhb) {
+    var needle = String(labelOrPhb || "").toLowerCase().replace(/\s+shell$/, "");
+    function match(name, level) {
+      var p = parseSpellEntry(name, level);
+      if (!p) return false;
+      var phb = p.phb.toLowerCase().replace(/\s+shell$/, "");
+      return phb === needle || name.toLowerCase().indexOf(needle) >= 0;
+    }
+    if (knownCantrips().some(function (k) { return match(k.name, 0); })) return true;
+    for (var l = 1; l <= 9; l++) {
+      if (knownSpellsAt(l).some(function (k) { return match(k.name, l); })) return true;
+    }
+    return false;
+  }
+  function addKnownSpell(sp) {
+    if (!sp) return;
+    var label = sp.label;
+    if (sp.level === 0) {
+      var arr = C().cantrips;
+      var slot = arr.findIndex(function (x) { return !x; });
+      if (slot < 0) { arr.push(label); slot = arr.length - 1; }
+      else arr[slot] = label;
+    } else {
+      if (!C().spells[sp.level]) C().spells[sp.level] = [];
+      var list = C().spells[sp.level];
+      var slot2 = list.findIndex(function (x) { return !x || !x.name; });
+      var mode = prepareMode();
+      var row = { name: label, prepared: mode === "known" }; // known casters: treat as always "ready"
+      if (slot2 < 0) list.push(row); else list[slot2] = row;
+    }
+    warnSpellLimits();
+    changed();
+  }
+  function removeKnownSpell(level, index) {
+    if (level === 0) C().cantrips[index] = "";
+    else if (C().spells[level] && C().spells[level][index]) { C().spells[level][index].name = ""; C().spells[level][index].prepared = false; }
+    changed();
+  }
+  function warnSpellLimits() {
+    var lim = spellLimits(), msgs = [];
+    if (lim.cantrips != null && countKnown(0) > lim.cantrips) msgs.push("Cantrips " + countKnown(0) + "/" + lim.cantrips + " (over the progression table)");
+    if (lim.known != null && totalKnownSpells() > lim.known) msgs.push("Spells known " + totalKnownSpells() + "/" + lim.known + " (over the progression table)");
+    if (msgs.length) toast(msgs.join(". ") + ". The sheet warns but does not block — check with your DM.", null, null, 7000);
+  }
+
+  function hexTotals() {
+    var t = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], ci = casterInfo(), lv = Math.max(1, Math.min(20, num(C().level, 1)));
+    if (!ci) return t;
+    var row = R.slots5e[ci.type] && R.slots5e[ci.type][lv - 1];
+    if (!row) return t;
+    if (ci.type === "pact") { t[row[1]] = row[0]; }
+    else row.forEach(function (n, i) { t[i + 1] = n; });
+    return t;
+  }
+  function compute() {
+    var c = C(), v = {};
+    var hol = HOL[c.holster];
+    v.scores = {}; v.mods = {};
+    AB.forEach(function (a) { v.scores[a] = num(c.abilities[a], 10); });
+    // PHB Holsters (rig table): Init. bonus while the rig holds a pistol when combat starts; First shot bonus on the
+    // first pistol attack from the rig. Ticked = pistol in the rig. Bonuses don't stack (one rig counts).
+    v.holsterDex = 0;
+    v.holsterInit = hol && c.holsterActive ? num(hol.initBonus) : 0;
+    v.holsterFirst = hol && c.holsterActive ? num(hol.firstShot) : 0;
+    AB.forEach(function (a) { v.mods[a] = mod(v.scores[a]); });
+    v.prof = profBonus(c.level);
+    v.saves = {}; AB.forEach(function (a) { v.saves[a] = v.mods[a] + (c.saveProf[a] ? v.prof : 0); });
+    v.skills = {};
+    R.skills.forEach(function (s) { var p = num(c.skillProf[s.name], 0); v.skills[s.name] = v.mods[s.ability] + p * v.prof; });
+    v.passive = 10 + v.skills.Perception;
+    v.initiative = v.mods.DEX + v.holsterInit;
+    var arm = ARM[c.armor];
+    if (arm && arm.category !== "shield") v.ac = arm.base + Math.min(v.mods.DEX, arm.dexCap);
+    else v.ac = 10 + v.mods.DEX;
+    if (c.shield) v.ac += 2;
+    var cal = currentCalling();
+    v.hitDiceTotal = cal ? num(c.level, 1) + cal.hitDie : "";
+    var ci = casterInfo();
+    v.caster = ci;
+    v.spellMod = ci ? v.mods[ci.ability] : null;
+    v.spellDC = ci ? 8 + v.prof + v.spellMod : "";
+    v.spellAtk = ci ? sign(v.prof + v.spellMod) : "";
+    v.hex = hexTotals();
+    v.cp = Bridge.cpValue(S.doc.shards); // ES total (1 ES per white shard)
+    // addiction (DM draft rule): floor drops 1 per 3 uses while addicted
+    v.addFloor = -Math.floor(num(c.addiction.uses, 0) / 3);
+    v.guns = c.guns.map(function (g) { return gunStats(g, v); });
+    return v;
+  }
+  function gunStats(g, v) {
+    var w = WPN[g.weapon];
+    if (!w) return g.weapon ? { w: { id: g.weapon, name: g.weapon + " (not in the current PHB)", ammo: "" }, damage: "", range: "", capacity: 0, misfire: "", note: "This gun isn't in the current PHB. Pick its new name from the list.", atk: "", dmg: "", tier: "", rounds: [] } : null;
+    var steps = capSteps(w), capUp = steps.filter(function (x) { return x.cap === num(g.capacity); })[0];
+    var s = { w: w, capacity: capUp ? capUp.cap : (w.capacity || 0), note: "", tier: "", rounds: [] };
+    var mod = (R.gunsmithing && R.gunsmithing.mods || []).filter(function (m) { return m.name === g.mod; })[0];
+    s.mod = mod || null;
+    if (w.tiers) {
+      var ch = chamberOf(g, w), tier = ch.tier, t = w.tiers[tier] || {};
+      s.tier = tier; s.rounds = (w.rounds && w.rounds[tier]) || []; s.round = ch.round;
+      if (w.scatter) {
+        var ld = t[g.load === "slug" ? "slug" : "buck"] || t.buck || t.slug || {};
+        s.damage = ld.damage || ""; s.range = ld.range || ""; s.misfire = (t.slug && t.slug.misfire) || "";
+      } else { s.damage = t.damage || t.raw || ""; s.range = t.range || ""; s.misfire = t.misfire || ""; }
+      s.dmgType = w.scatter && g.load !== "slug" ? "piercing (cone)" : "piercing";
+    } else {
+      s.damage = w.damage; s.range = w.range; s.misfire = w.misfire; s.dmgType = String(w.dmgType || "").toLowerCase();
+    }
+    var notes = [];
+    if (w.action) notes.push(w.action + (w.load ? " · " + w.load : ""));
+    if (w.slow) notes.push("slow load: reload takes a full turn");
+    if (w.tr) notes.push("TR ✓");
+    if (w.scatter && g.load !== "slug") notes.push("buckshot: 15-ft cone");
+    var m;
+    if (w.ability === "SPELL") {
+      m = v.mods.CHA; // plain rounds: the Caster Gun uses your spellcasting ability (PHB: Caster Guns, Spellcasting (Cha))
+      s.atk = sign(m + (g.proficient ? v.prof : 0));
+      s.dmg = s.damage + (m ? " " + sign(m) : "") + " piercing";
+      notes.push("hex lead shells: spell attack " + (v.caster ? v.spellAtk : "—"));
+      s.note = notes.join(" · ");
+      return s;
+    }
+    m = w.ability === "STR/DEX" ? Math.max(v.mods.STR, v.mods.DEX) : (w.ability === "STR" ? v.mods.STR : v.mods.DEX);
+    var first = (v.holsterFirst && w.group === "pistol") ? v.holsterFirst : 0;
+    if (mod && /hair trigger/i.test(mod.name) && w.group === "pistol") first = Math.min(2, first + 1); // PHB: counts toward the rig's +2 first-shot cap
+    if (mod) notes.push("mod: " + mod.name);
+    s.atk = sign(m + (g.proficient ? v.prof : 0));
+    if (first) notes.push("first shot from the rig " + sign(m + (g.proficient ? v.prof : 0) + first));
+    s.dmg = s.damage ? s.damage + (m ? " " + sign(m) : "") + " " + (s.dmgType || "") : "";
+    s.note = notes.join(" · ");
+    return s;
+  }
+
+  // ------------------------------------------------------------------ static option lists
+  function opt(v, t, extra) { return el("option", Object.assign({ value: v, text: t }, extra || {})); }
+  function fillSelect(sel, items, blank) {
+    sel.innerHTML = "";
+    if (blank !== undefined) sel.appendChild(opt("", blank));
+    items.forEach(function (it) {
+      if (it.group) {
+        var g = el("optgroup", { label: it.group });
+        it.items.forEach(function (x) { g.appendChild(opt(x[0], x[1])); });
+        sel.appendChild(g);
+      } else sel.appendChild(opt(it[0], it[1]));
+    });
+  }
+  function buildStaticLists() {
+    fillSelect($("#selCalling"), R.callings.map(function (c) { return [c.id, c.name]; }), "Calling…");
+    fillSelect($("#selLineage"), R.lineages.map(function (l) { return [l.id, l.name]; }), "Lineage…");
+    fillSelect($("#selBackground"), R.backgrounds.map(function (b) { return [b.id, b.name]; }), "Background…");
+    var armGroups = ["light", "medium", "heavy"].map(function (cat) {
+      return { group: cat[0].toUpperCase() + cat.slice(1) + " armor", items: R.armor.filter(function (a) { return a.category === cat; }).map(function (a) { return [a.id, a.name + " (" + a.ac + ")"]; }) };
+    });
+    fillSelect($("#selArmor"), armGroups, "None (10 + Dex)");
+    fillSelect($("#selHolster"), [
+      { group: "Rigs", items: R.holsters.filter(function (h) { return h.isRig; }).map(function (h) { return [h.id, h.name + (h.initText && h.initText !== "—" ? " · Init " + h.initText : "") + (h.firstShotText && h.firstShotText !== "—" ? " · 1st shot " + h.firstShotText : "")]; }) },
+      { group: "Not a rig", items: R.holsters.filter(function (h) { return !h.isRig; }).map(function (h) { return [h.id, h.name]; }) }], "No holster");
+    var cg = R.casterGuns.map(function (g) { return [g.id, g.name]; });
+    cg.push(["borrowed-iron", "Borrowed Iron (Pact Seeker pact focus)"], ["ordinary-firearm", "Ordinary firearm (disadvantage)"], ["other", "Other / none"]);
+    fillSelect($("#selCasterGun"), cg, "Caster gun…");
+    fillSelect($("#selFeatAdd"), R.feats.map(function (f) { return [f.id, f.name + (f.prereq ? " *" : "")]; }), "+ Add a feat…");
+    var gl = $("#gearList");
+    var gear = [];
+    R.gear.forEach(function (g) { gear.push(g.name + " (" + g.phb5e + ")"); });
+    R.packs.forEach(function (p) { gear.push(p.name + " (" + p.phb5e + ")"); });
+    R.tools.forEach(function (t) { gear.push(t.phb5e + " (" + t.note + ")"); });
+    R.ammo.forEach(function (a) { gear.push(a.name); });
+    R.mounts.forEach(function (m) { gear.push(m.name + " (" + m.phb5e + ")"); });
+    (R.frontierGear || []).forEach(function (g) { gear.push(g.name + (g.cost ? " · " + g.cost + " ES" : "") + " (frontier)"); });
+    ((R.explosives && R.explosives.items) || []).forEach(function (g) { gear.push(g.name + " · " + (g.cost || "TBD") + " ES (explosive)"); });
+    ((R.storytellerGear && R.storytellerGear.accessories) || []).forEach(function (g) { gear.push(g.name + " · " + g.cost + " ES (Storyteller)"); });
+    ((R.storytellerGear && R.storytellerGear.instruments) || []).forEach(function (g) {
+      if (g.id === "voice" || g.id === "piano") gear.push(g.name + " (Storyteller Calling instrument)");
+      else gear.push(g.name + " · quality " + g.costQuality + " / cheap " + g.costCheap + " ES (Storyteller instrument)");
+    });
+    gear.forEach(function (g) { gl.appendChild(opt(g, "")); });
+    fillSelect($("#selInstrument"), ((R.storytellerGear && R.storytellerGear.instruments) || []).map(function (g) { return [g.id, g.name]; }), "Instrument…");
+    var kitSel = $("#selKitCrosswalk");
+    if (kitSel) {
+      kitSel.innerHTML = "";
+      kitSel.appendChild(opt("", "Starting kit crosswalk…"));
+      ((R.kitCrosswalk && R.kitCrosswalk.crosswalk) || []).forEach(function (k, i) {
+        kitSel.appendChild(opt(String(i), k.old + " → " + k.frontier));
+      });
+    }
+    var dl = el("datalist", { id: "spellAliases" });
+    R.spellAliases.forEach(function (s) { if (!s.alias || s.alias === "—") return; dl.appendChild(el("option", { value: s.alias, label: s.phb + (s.level === 0 ? " · cantrip" : "") })); });
+    document.body.appendChild(dl);
+    var cl = el("datalist", { id: "caliberList" });
+    CALIBERS.forEach(function (c) { cl.appendChild(opt(c, "")); });
+    document.body.appendChild(cl);
+    var wl = $("#wildList");
+    R.wildSpark.forEach(function (w) { wl.appendChild(el("li", { text: w.text })); });
+    $("#appVersion").textContent = "v" + APP_VERSION;
+  }
+  function gunOptions(sel) {
+    var groups = [
+      ["Pistols", R.firearms.filter(function (f) { return f.group === "pistol"; })],
+      ["Shotguns", R.firearms.filter(function (f) { return f.group === "shotgun"; })],
+      ["Carbines", R.firearms.filter(function (f) { return f.group === "carbine"; })],
+      ["Rifles", R.firearms.filter(function (f) { return f.group === "rifle"; })],
+      ["Big bore", R.firearms.filter(function (f) { return f.group === "bigbore"; })],
+      ["Caster guns (Hexslinger)", R.casterGuns],
+      ["Bows & thrown", R.otherRanged],
+      ["Melee", R.melee]
+    ].map(function (g) { return { group: g[0], items: g[1].map(function (w) { return [w.id, w.name + (w.cost && w.tiers ? " · " + w.cost + (/\d/.test(w.cost) ? " " + UNIT : "") : "")]; }) }; });
+    fillSelect(sel, groups, "Pick a gun…");
+  }
+
+  // ------------------------------------------------------------------ dynamic blocks (built once)
+  function chk(path, label, cls) {
+    var i = el("input", { type: "checkbox", "data-f": path, "aria-label": label, title: label });
+    return el("label", { class: "cb " + (cls || "") }, [i, el("span", { class: "cb-box" })]);
+  }
+  function buildAbilities() {
+    var box = $("#abilities");
+    R.abilities.forEach(function (a) {
+      box.appendChild(el("div", { class: "abil", "data-ab": a.id }, [
+        el("div", { class: "abil-name", text: a.name, title: a.frontier }),
+        el("div", { class: "abil-mod", "data-out": "mod." + a.id, text: "+0" }),
+        el("input", { type: "number", min: "1", max: "30", class: "abil-score", "data-f": "character.abilities." + a.id, "aria-label": a.name + " score", inputmode: "numeric" }),
+        el("div", { class: "abil-note", "data-out": "abnote." + a.id })
+      ]));
+    });
+  }
+  function buildSavesSkills() {
+    var sv = $("#saves");
+    R.abilities.forEach(function (a) {
+      sv.appendChild(el("div", { class: "row" }, [chk("character.saveProf." + a.id, a.name + " save proficiency"),
+        el("input", { class: "calc sm", "data-calc": "save." + a.id, "aria-label": a.name + " save" }), el("span", { class: "row-name", text: a.name })]));
+    });
+    var sk = $("#skills");
+    R.skills.forEach(function (s) {
+      sk.appendChild(el("div", { class: "row" }, [
+        el("button", { type: "button", class: "prof3", "data-skill": s.name, title: "Tap: proficient → expertise → none", "aria-label": s.name + " proficiency" }),
+        el("input", { class: "calc sm", "data-calc": "skill." + s.name, "aria-label": s.name }),
+        el("span", { class: "row-name", html: esc(s.name) + " <small>(" + s.ability.slice(0, 1) + s.ability.slice(1).toLowerCase() + ")</small>" })]));
+    });
+  }
+  function buildChecks() {
+    var ig = $("#inspGrid");
+    for (var i = 0; i < 10; i++) ig.appendChild(chk("character.partyInspiration." + i, "Party inspiration point " + (i + 1), "gem"));
+    for (var j = 0; j < 3; j++) {
+      $("#dsSuccess").appendChild(chk("character.deathSaves.success." + j, "Death save success " + (j + 1)));
+      $("#dsFail").appendChild(chk("character.deathSaves.fail." + j, "Death save failure " + (j + 1), "bad"));
+    }
+  }
+  function buildGuns() {
+    var box = $("#guns");
+    box.appendChild(el("div", { class: "gun-head" }, ["Gun (maker / model)", "Atk", "Damage", "Range", "Cap.", "Rounds in the gun", "Misfire"].map(function (h) { return el("span", { text: h }); })));
+    for (var i = 0; i < 4; i++) {
+      var sel = el("select", { "data-f": "character.guns." + i + ".weapon", "data-gun": i, "aria-label": "Gun " + (i + 1) });
+      gunOptions(sel);
+      var chamber = el("select", { "data-f": "character.guns." + i + ".chamber", class: "chamber-sel", "aria-label": "Chambered round (tier)", title: "Chambered round: the tier and round this gun fires (PHB: Chambering)" });
+      var load = el("select", { "data-f": "character.guns." + i + ".load", class: "load", "aria-label": "Shell load" }, [opt("buck", "Buckshot"), opt("slug", "Slug")]);
+      var modSel = el("select", { "data-f": "character.guns." + i + ".mod", class: "mod-sel", "aria-label": "Gunsmith modification", title: "Gunsmithing: one modification slot" });
+      var capSel = el("select", { "data-f": "character.guns." + i + ".capacity", class: "cap-sel", "aria-label": "Capacity upgrade", title: "Gunsmithing: capacity upgrades (one step at a time)" });
+      var hexSel = el("select", { class: "hex-lvl", "data-hexlvl": i, "aria-label": "Hex lead shell level" }, [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (l) { return opt(String(l), l + (l === 1 ? "st" : l === 2 ? "nd" : l === 3 ? "rd" : "th")); }));
+      box.appendChild(el("div", { class: "gun", "data-row": i }, [
+        el("div", { class: "g-name" }, [sel, el("div", { class: "g-sub" }, [chamber, load, modSel, capSel, el("span", { class: "g-cal", "data-out": "cal." + i }),
+          el("label", { class: "tiny" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".proficient" }), " prof."])])]),
+        el("div", { class: "g-atk", "data-label": "Atk" }, [el("input", { class: "calc", "data-calc": "gunAtk." + i, "aria-label": "Attack bonus" })]),
+        el("div", { class: "g-dmg", "data-label": "Damage" }, [el("input", { class: "calc", "data-calc": "gunDmg." + i, "aria-label": "Damage" })]),
+        el("div", { class: "g-rng", "data-label": "Range", "data-out": "rng." + i }),
+        el("div", { class: "g-cap", "data-label": "Cap.", "data-out": "cap." + i }),
+        el("div", { class: "g-load", "data-label": "Loaded" }, [el("div", { class: "chambers", "data-chambers": i }),
+          el("div", { class: "g-btns" }, [
+            el("span", { class: "g-count", "data-out": "left." + i }),
+            el("button", { type: "button", class: "btn sm reload", "data-reload": i, title: "Reload: an action, fills the gun (slow guns: a full turn)" }, ["Reload"]),
+            el("button", { type: "button", class: "btn sm tr", "data-tr": i, title: "Tactical Reload: bonus action, load one round from a gun belt or bandolier (TR ✓ guns only)" }, ["TR +1"]),
+            el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Load one hex lead shell of this level (spends it from page 3)" }, ["+ Hex shell"])])
+          ])]),
+        el("div", { class: "g-mis", "data-label": "Misfire" }, [el("span", { "data-out": "mis." + i }),
+          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".jammed" }), " jammed"])]),
+        el("div", { class: "g-note fine", "data-out": "note." + i })
+      ]));
+    }
+  }
+  function buildShards() {
+    [$("#shards"), $("#saloonShards")].forEach(function (box) {
+      SHARDS.forEach(function (s) {
+        box.appendChild(el("div", { class: "shard shard-" + s.id }, [
+          el("span", { class: "gem", "aria-hidden": "true" }),
+          el("span", { class: "shard-name", text: s.color }),
+          el("input", { type: "number", min: "0", "data-f": "shards." + s.id, "aria-label": s.color + " shards", inputmode: "numeric" }),
+          el("span", { class: "shard-val", text: "= " + s.equals })
+        ]));
+      });
+      box.appendChild(el("div", { class: "shard-total", "data-out": "cpTotal" }));
+    });
+    var head = el("div", { class: "shards-title", text: "Eldorite Shards" });
+    $("#shards").insertBefore(head, $("#shards").firstChild);
+  }
+  function buildSpellGrid() {
+    var g = $("#spellGrid"); g.innerHTML = "";
+    for (var l = 0; l <= 9; l++) {
+      var blk = el("div", { class: "sp-level" + (l === 0 ? " cantrips" : ""), "data-level": l });
+      var head = el("div", { class: "sp-head" }, [el("div", { class: "sp-num", text: String(l) })]);
+      if (l === 0) head.appendChild(el("div", { class: "sp-title" }, [el("b", { text: "Cantrips" }), el("small", { text: "at-will · empty chamber for Hexslingers" })]));
+      else head.appendChild(el("div", { class: "sp-slots" }, [
+        el("div", { class: "sp-total" }, [el("span", { text: "Slots / Hex Lead" }), el("input", { class: "calc sm", "data-calc": "hex." + l, "aria-label": "Level " + l + " slot or hex lead total" })]),
+        el("div", { class: "checkgrid hexgrid", "data-hex": l })]));
+      blk.appendChild(head);
+      blk.appendChild(el("div", { class: "sp-lines", "data-spell-lines": l }));
+      g.appendChild(blk);
+    }
+    for (var h = 1; h <= 9; h++) {
+      var hg = $('[data-hex="' + h + '"]');
+      for (var b = 0; b < MAX_BOXES; b++) hg.appendChild(chk("character.hexLead." + h + "." + b, "Level " + h + " slot/hex lead " + (b + 1) + " spent", "hexbox"));
+    }
+  }
+  var pickerLevel = "all";
+  function renderSpellbook() {
+    var ci = casterInfo();
+    var empty = $("#spellbookEmpty"), bar = $("#spellbookBar"), grid = $("#spellGrid"), picker = $("#spellPicker");
+    if (!ci) {
+      if (empty) empty.hidden = false;
+      if (bar) bar.hidden = true;
+      if (picker) picker.hidden = true;
+      if (grid) grid.hidden = true;
+      return;
+    }
+    if (empty) empty.hidden = true;
+    if (bar) bar.hidden = false;
+    if (grid) grid.hidden = false;
+    var lim = spellLimits(), mode = lim.mode;
+    var limEl = $("#spellLimits");
+    if (limEl) {
+      var bits = [];
+      bits.push(mode === "prepared" ? "Prepared caster (mark what you have ready today)" : "Spells known (from your Calling list)");
+      if (lim.cantrips != null) bits.push("Cantrips " + countKnown(0) + "/" + lim.cantrips);
+      if (lim.known != null) bits.push("Spells known " + totalKnownSpells() + "/" + lim.known);
+      else if (mode === "prepared") bits.push("Prepared: tick what you readied after the last long rest");
+      var over = (lim.cantrips != null && countKnown(0) > lim.cantrips) || (lim.known != null && totalKnownSpells() > lim.known);
+      limEl.textContent = bits.join(" · ");
+      limEl.classList.toggle("warn", !!over);
+    }
+    var q = (($("#spellSearch") && $("#spellSearch").value) || "").trim().toLowerCase();
+    for (var l = 0; l <= 9; l++) {
+      var box = $('[data-spell-lines="' + l + '"]');
+      if (!box) continue;
+      box.innerHTML = "";
+      var rows = l === 0 ? knownCantrips() : knownSpellsAt(l);
+      var shown = 0;
+      rows.forEach(function (row) {
+        var parsed = parseSpellEntry(row.name, l) || { phb: row.name, alias: "", label: row.name };
+        var hay = (parsed.label + " " + parsed.phb + " " + parsed.alias).toLowerCase();
+        if (q && hay.indexOf(q) < 0) return;
+        shown++;
+        var line = el("div", { class: "sp-line known" });
+        if (l > 0 && mode === "prepared") {
+          line.appendChild(chk("character.spells." + l + "." + row.i + ".prepared", "Prepared"));
+        } else if (l > 0 && mode === "known") {
+          line.appendChild(el("span", { class: "fine", text: "known" }));
+        }
+        var lab = el("div", { class: "sp-label" });
+        if (parsed.alias) {
+          lab.appendChild(el("div", { class: "sp-alias", text: parsed.alias }));
+          lab.appendChild(el("div", { class: "sp-phb", text: parsed.phb + (parsed.shell ? " · Shell" : "") }));
+        } else {
+          lab.appendChild(el("div", { class: "sp-alias", text: parsed.phb }));
+          if (parsed.shell) lab.appendChild(el("div", { class: "sp-phb", text: "Shell" }));
+        }
+        line.appendChild(lab);
+        // keep a hidden data-f so save still has the name if edited elsewhere
+        line.appendChild(el("input", { type: "hidden", "data-f": l === 0 ? ("character.cantrips." + row.i) : ("character.spells." + l + "." + row.i + ".name"), value: row.name }));
+        line.appendChild(el("button", { type: "button", class: "btn xs ghost", "data-spell-del": l + ":" + row.i, "aria-label": "Remove " + parsed.label, title: "Remove" }, ["×"]));
+        box.appendChild(line);
+        // sync checkbox prepared state
+        if (l > 0 && mode === "prepared") {
+          var cb = line.querySelector('input[type=checkbox]');
+          if (cb) cb.checked = !!row.prepared;
+        }
+      });
+      if (!shown) {
+        box.appendChild(el("p", { class: "fine", text: q ? "No matches in your known list." : (l === 0 ? "No cantrips yet — tap + Add from list." : "No level-" + l + " spells yet.") }));
+      }
+    }
+    if (picker && !picker.hidden) fillSpellPicker();
+  }
+  function fillSpellPicker() {
+    var list = $("#spellPickerList"), levels = $("#spellPickerLevels");
+    if (!list || !levels) return;
+    levels.innerHTML = ""; list.innerHTML = "";
+    var cat = callingCatalog();
+    var lim = spellLimits();
+    var haveLevels = {};
+    cat.forEach(function (sp) { haveLevels[sp.level] = true; });
+    var mk = function (lab, val) {
+      var b = el("button", { type: "button", class: "btn sm" + (String(pickerLevel) === String(val) ? " on" : ""), "data-pick-level": String(val) }, [lab]);
+      levels.appendChild(b);
+    };
+    mk("All", "all");
+    Object.keys(haveLevels).map(Number).sort(function (a, b) { return a - b; }).forEach(function (lv) {
+      mk(lv === 0 ? "Cantrips" : ("L" + lv), lv);
+    });
+    var q = (($("#spellSearch") && $("#spellSearch").value) || "").trim().toLowerCase();
+    var n = 0;
+    cat.forEach(function (sp) {
+      if (pickerLevel !== "all" && String(sp.level) !== String(pickerLevel)) return;
+      var hay = (sp.label + " " + sp.phb + " " + sp.alias).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return;
+      var have = spellAlreadyHave(sp.phb);
+      var btn = el("button", { type: "button", class: "spell-pick" + (have ? " have" : ""), "data-add-spell": sp.key, role: "option" });
+      btn._spell = sp;
+      btn.appendChild(el("span", { class: "sp-name", text: sp.alias ? (sp.alias + " · " + sp.phb) : sp.phb }));
+      btn.appendChild(el("span", { class: "sp-meta", text: (sp.level === 0 ? "Cantrip" : ("Level " + sp.level)) + (sp.shell ? " · Shell" : "") + (have ? " · already known" : "") }));
+      list.appendChild(btn);
+      n++;
+    });
+    if (!n) list.appendChild(el("p", { class: "fine", text: "No spells match. Try another filter." }));
+  }
+  function openSpellPicker() {
+    if (!casterInfo()) { toast("Pick a casting Calling first."); return; }
+    if (!callingSpellList()) { toast("No spell list in the rules data for this Calling."); return; }
+    pickerLevel = "all";
+    $("#spellPicker").hidden = false;
+    fillSpellPicker();
+  }
+
+  function buildGames() {
+
+    var games = [
+      { name: "Whiskey Bend Blackjack", path: "games/blackjack/index.html" },
+      { name: "Dust Wheel (roulette, 0–12)", path: "games/roulette/index.html" },
+      { name: "Oscar Slots", path: "games/slot-machine/index.html" }
+    ];
+    var box = $("#gameList");
+    games.forEach(function (g) {
+      box.appendChild(el("div", { class: "game" }, [
+        el("b", { text: g.name }),
+        el("span", { class: "fine", text: "Plays with this character's shards (1 chip = 1 ES)" }),
+        el("a", { class: "btn sm", href: g.path, target: "_blank", rel: "opener", title: "Opens in a new tab; wins and losses update your shards here" }, ["Open"])
+      ]));
+    });
+  }
+
+  // ------------------------------------------------------------------ dependent dropdowns
+  function refreshSubLists() {
+    var c = C();
+    var lin = LIN[c.lineage];
+    var subs = lin && lin.sublineages ? lin.sublineages : [];
+    var ss = $("#selSublineage");
+    fillSelect(ss, subs.map(function (s) { return [s.id, s.name]; }), subs.length ? "Sublineage…" : "—");
+    ss.disabled = !subs.length;
+    var cal = CAL[c.calling];
+    var sc = $("#selSubclass");
+    fillSelect(sc, cal ? cal.subclasses.map(function (s) { return [s.id, s.name + (s.phb5e ? " (" + s.phb5e + ")" : "") + (s.features && s.features.length ? "" : " (no PHB features yet)")]; }) : [], cal ? (cal.subclasses[0] && cal.subclasses[0].group ? cal.subclasses[0].group + "…" : "Subclass…") : "Pick a Calling first");
+    sc.disabled = !cal;
+  }
+
+  // ------------------------------------------------------------------ render
+  var suppress = false;
+  function setField(e, v) {
+    if (e.type === "checkbox") e.checked = !!v;
+    else if (e.tagName === "OUTPUT") e.textContent = v == null ? "" : v;
+    else { var s = v == null ? "" : String(v); if (e.value !== s) e.value = s; }
+  }
+  function renderFields() {
+    suppress = true;
+    refreshSubLists();
+    $$("[data-f]").forEach(function (e) { setField(e, getPath(S.doc, e.getAttribute("data-f"))); });
+    $$("[data-mirror]").forEach(function (e) { e.textContent = getPath(S.doc, e.getAttribute("data-mirror")) || ""; });
+    $$("[data-img]").forEach(function (box) {
+      var src = getPath(S.doc, box.getAttribute("data-img")), img = $("img", box);
+      if (src) { img.src = src; img.hidden = false; box.classList.add("has"); } else { img.removeAttribute("src"); img.hidden = true; box.classList.remove("has"); }
+    });
+    suppress = false;
+    renderCalc();
+  }
+  function out(key, text) { $$('[data-out="' + key + '"], [data-calc-out="' + key + '"]').forEach(function (e) { e.textContent = text; }); }
+  function calcValue(key, v) {
+    var p = key.split(".");
+    switch (p[0]) {
+      case "profBonus": return sign(v.prof);
+      case "passive": return v.passive;
+      case "ac": return v.ac;
+      case "initiative": return sign(v.initiative);
+      case "hitDiceTotal": return v.hitDiceTotal;
+      case "save": return sign(v.saves[p[1]]);
+      case "skill": return sign(v.skills[p.slice(1).join(".")]);
+      case "spellDC": return v.spellDC;
+      case "spellAtk": return v.spellAtk;
+      case "hex": return v.hex[num(p[1])] || "";
+      case "gunAtk": return v.guns[num(p[1])] ? v.guns[num(p[1])].atk : "";
+      case "gunDmg": return v.guns[num(p[1])] ? v.guns[num(p[1])].dmg : "";
+    }
+    return "";
+  }
+  function hasOv(c, k) { return Object.prototype.hasOwnProperty.call(c.overrides, k) && c.overrides[k] !== ""; }
+  function renderCalc() {
+    var c = C(), v = compute();
+    $$("[data-calc]").forEach(function (e) {
+      var k = e.getAttribute("data-calc"), auto = calcValue(k, v), has = hasOv(c, k);
+      e.classList.toggle("overridden", has);
+      e.title = has ? "Your value (auto: " + auto + "). Double-click to go back to auto." : "Calculated automatically. Type to override.";
+      e.placeholder = String(auto);
+      if (document.activeElement !== e) e.value = has ? c.overrides[k] : auto;
+    });
+    AB.forEach(function (a) {
+      out("mod." + a, sign(v.mods[a]));
+      var note = "";
+      if (a === "DEX" && v.holsterDex) note = "holster → " + v.scores.DEX;
+      if (c.addiction.addicted && num(c.addiction.penalty) < 0 && /INT|WIS|CHA/.test(a)) note = "addiction → " + (num(c.abilities[a], 10) + num(c.addiction.penalty));
+      out("abnote." + a, note);
+    });
+    $$("[data-skill]").forEach(function (b) {
+      var p = num(c.skillProf[b.getAttribute("data-skill")], 0);
+      b.className = "prof3 p" + p; b.setAttribute("aria-pressed", p ? "true" : "false");
+    });
+    c.guns.forEach(function (g, i) {
+      var s = v.guns[i], row = $('.gun[data-row="' + i + '"]'), w = s && s.w;
+      row.classList.toggle("empty", !s);
+      row.classList.toggle("is-shotgun", !!(w && w.scatter));
+      row.classList.toggle("is-caster", !!(w && w.hexShells));
+      row.classList.toggle("jammed", !!g.jammed);
+      if (hasGunBelt() || !(w && w.tr)) row.classList.remove("tr-warn");
+      var cs = row.querySelector(".chamber-sel");
+      if (cs.getAttribute("data-for") !== (g.weapon || "")) {
+        cs.setAttribute("data-for", g.weapon || "");
+        fillSelect(cs, w && w.tiers ? chamberOptions(w) : []);
+      }
+      cs.hidden = !(w && w.tiers);
+      var ms = row.querySelector(".mod-sel"), ps = row.querySelector(".cap-sel");
+      if (ms.getAttribute("data-for") !== (g.weapon || "")) {
+        ms.setAttribute("data-for", g.weapon || ""); ps.setAttribute("data-for", g.weapon || "");
+        fillSelect(ms, modsFor(w).map(function (m) { return [m.name, m.name + " (" + m.cost + " " + UNIT + ")"]; }), "No mod");
+        fillSelect(ps, capSteps(w).map(function (x, k) { return [k ? String(x.cap) : "", x.label]; }));
+      }
+      ms.hidden = !(w && modsFor(w).length); ps.hidden = !(w && capSteps(w).length);
+      ms.value = g.mod || ""; ps.value = g.capacity ? String(g.capacity) : "";
+      ms.title = s && s.mod ? s.mod.effect : "Gunsmithing: one modification slot";
+      if (w && w.tiers) { var cc = chamberOf(g, w); cs.value = cc.tier + "|" + cc.round; }
+      out("rng." + i, s ? s.range : "");
+      out("cap." + i, s && s.capacity ? s.capacity : (s ? "—" : ""));
+      out("mis." + i, s ? s.misfire : "");
+      out("cal." + i, s ? (w.hexShells ? "any cartridge + hex lead" : (w.ammo === "percussion" ? "powder & ball" : (w.tiers ? "" : (w.caliber || "")))) : "");
+      out("note." + i, s ? s.note : "");
+      var ch = $('[data-chambers="' + i + '"]');
+      ch.innerHTML = "";
+      var cap = s ? Math.min(s.capacity || 0, 15) : 0;
+      var shells = w && w.hexShells ? normChambers(g, w) : null;
+      for (var k = 0; k < cap; k++) {
+        var st = shells ? shells[k] : (k < g.loaded ? "c" : "");
+        var hex = st && st !== "c";
+        ch.appendChild(el("button", { type: "button", class: "chamber" + (st ? " loaded" : "") + (hex ? " hex" : ""), "data-fire": i, "data-k": k, text: hex ? st : "",
+          "aria-label": st ? (hex ? "Hex lead shell, level " + st : "Cartridge") + " in chamber " + (k + 1) + ": tap to fire" : "Empty chamber " + (k + 1), title: st ? (hex ? "Hex lead shell (level " + st + "): tap to fire" : "Tap to fire") : "Empty" }));
+      }
+      var left = shells ? shells.filter(Boolean).length : num(g.loaded);
+      out("left." + i, cap ? left + "/" + cap : "");
+      $('[data-reload="' + i + '"]').hidden = !cap;
+      $('[data-tr="' + i + '"]').hidden = !(cap && w.tr);
+      $('[data-hexwrap="' + i + '"]').hidden = !(cap && w.hexShells);
+    });
+    renderAmmo();
+    renderExplosives();
+    renderStorytellerKit();
+    var h = HOL[c.holster];
+    var holMsg;
+    if (h) {
+      holMsg = h.name + ": holds " + h.holds + ". Init. " + (h.initText || "—") + ", first shot " + (h.firstShotText || "—") + ". " + h.perk + " ";
+      if (h.isRig) holMsg += c.holsterActive ? "(Applied: pistol in the rig.) " : "(Tick when a pistol rides in it to apply.) ";
+      else if (h.feedsTR) holMsg += "(Feeds Tactical Reload.) ";
+      holMsg += R.rulesText.holster;
+    } else {
+      holMsg = "No holster: no initiative or first-shot bonus; quick-draw needs a DC 12 Dex check. " + R.rulesText.holster;
+    }
+    $("#holsterInfo").textContent = holMsg;
+    $$('[data-tr]').forEach(function (btn) {
+      btn.title = hasGunBelt()
+        ? "Tactical Reload: bonus action, load one round from a gun belt or bandolier"
+        : "Tactical Reload needs a gun belt or bandolier (tick the box, or pick Gun Belt / Bandolier). Tap to see the warning.";
+    });
+    var cp = v.cp;
+    out("cpTotal", "Worth " + cp.toLocaleString() + " " + UNIT + " (Eldorite Shards)");
+    var fc = $("#featChips"); fc.innerHTML = "";
+    c.feats.forEach(function (id, idx) {
+      var f = FEAT[id];
+      fc.appendChild(el("span", { class: "chip", title: f ? f.gist + (f.prereq ? " · Prerequisite: " + f.prereq : "") : id }, [f ? f.name : id,
+        el("button", { type: "button", class: "chip-x", "data-unfeat": idx, "aria-label": "Remove " + (f ? f.name : id) }, ["×"])]));
+    });
+    if (!c.feats.length) fc.appendChild(el("span", { class: "fine", text: "No feats yet." }));
+    // page 3
+    var ci = v.caster;
+    out("castingCalling", ci ? ci.from : (currentCalling() ? currentCalling().name + " (not a caster)" : "No Calling picked"));
+    out("spellAbility", ci ? ci.ability + " " + sign(v.spellMod) : "—");
+    var rest = c.hexRest || (ci ? ci.rest : "");
+    $("#restAuto").textContent = rest ? rest + " rest" : "—";
+    var cgun = CASTER_GUNS[c.casterGun];
+    var gnote = R.rulesText.casterGun.replace(/^[-\s]*Channel:\s*/, "");
+    gnote = gnote.charAt(0).toUpperCase() + gnote.slice(1);
+    if (cgun && cgun.notes && cgun.notes.length) gnote = cgun.name + ": " + cgun.notes.join(" ") + " " + gnote;
+    if (c.casterGun === "borrowed-iron") gnote = R.rulesText.borrowedIron || gnote;
+    if (c.casterGun === "ordinary-firearm") gnote = "Forcing hex lead through an ordinary firearm: spell attacks have disadvantage and targets have advantage on saves (PHB, Hexslinger).";
+    $("#gunNote").textContent = gnote;
+    for (var l = 1; l <= 9; l++) {
+      var key = "hex." + l, total = hasOv(c, key) ? num(c.overrides[key]) : v.hex[l];
+      total = Math.max(0, Math.min(MAX_BOXES, total));
+      $$('[data-hex="' + l + '"] .cb').forEach(function (cb, i) { cb.hidden = i >= total; });
+      var lvl = $('.sp-level[data-level="' + l + '"]');
+      if (lvl) lvl.classList.toggle("no-slots", !total);
+    }
+    var c0 = $('.sp-level[data-level="0"]');
+    if (c0) c0.classList.toggle("no-slots", false);
+    renderSpellbook();
+    // addiction
+    out("addFloor", String(v.addFloor));
+    var ut = $("#useTicks"); ut.innerHTML = "";
+    var uses = num(c.addiction.uses, 0);
+    for (var u = 1; u <= Math.max(uses, 9) && u <= 60; u++) ut.appendChild(el("span", { class: "tick" + (u <= uses ? " on" : "") + (u % 3 === 0 ? " third" : "") }));
+    var adj = $("#adjusted"); adj.innerHTML = "";
+    ["WIS", "INT", "CHA"].forEach(function (a) {
+      var base = num(c.abilities[a], 10), pen = c.addiction.addicted ? num(c.addiction.penalty, 0) : 0, now = base + pen;
+      adj.appendChild(el("div", { class: "adj" + (pen < 0 ? " hit" : "") + (now <= 0 ? " zero" : "") }, [el("b", { text: a }), el("span", { text: base + (pen ? " → " + now : "") })]));
+    });
+    $("#addiction").classList.toggle("on", !!c.addiction.addicted);
+    renderRef();
+  }
+  function ammoType(g, w) { return w.ammo === "shell" ? (g.load === "slug" ? "slug" : "buck") : w.ammo; }
+  function renderAmmo() {
+    var box = $("#ammoList"), c = C();
+    var focus = document.activeElement && box.contains(document.activeElement) ? document.activeElement.getAttribute("data-f") : null;
+    box.innerHTML = "";
+    if (!c.ammo.length) box.appendChild(el("p", { class: "fine", text: "No ammo yet. Add a line per ammo type and caliber." }));
+    c.ammo.forEach(function (a, i) {
+      var sel = el("select", { "data-f": "character.ammo." + i + ".type", "aria-label": "Ammo type" }, AMMO_TYPES.map(function (t) { return opt(t.id, t.label); }));
+      sel.value = a.type;
+      var cal = el("input", { type: "text", list: "caliberList", "data-f": "character.ammo." + i + ".caliber", placeholder: "caliber", "aria-label": "Caliber" });
+      cal.value = a.caliber || "";
+      var cnt = el("input", { type: "number", min: "0", "data-f": "character.ammo." + i + ".count", "aria-label": "Rounds", inputmode: "numeric" });
+      cnt.value = a.count;
+      box.appendChild(el("div", { class: "ammo-row" }, [sel, cal,
+        el("button", { type: "button", class: "btn xs", "data-ammo-step": i + ":-1", "aria-label": "One less" }, ["−"]), cnt,
+        el("button", { type: "button", class: "btn xs", "data-ammo-step": i + ":1", "aria-label": "One more" }, ["+"]),
+        el("button", { type: "button", class: "btn xs ghost", "data-ammo-del": i, "aria-label": "Remove line" }, ["×"])]));
+    });
+    if (focus) { var f = box.querySelector('[data-f="' + focus + '"]'); if (f) f.focus(); }
+  }
+  function renderExplosives() {
+    var box = $("#explosiveList"); if (!box) return;
+    box.innerHTML = "";
+    var c = C();
+    if (!c.explosives) c.explosives = [];
+    if (!c.explosives.length) box.appendChild(el("p", { class: "fine", text: "No explosives yet. Dynamite, fuses, caps, powder, kegs — costs TBD in the PHB." }));
+    var items = (R.explosives && R.explosives.items) || [];
+    c.explosives.forEach(function (row, i) {
+      var sel = el("select", { "data-f": "character.explosives." + i + ".item", "aria-label": "Explosive" });
+      sel.appendChild(opt("", "Explosive…"));
+      items.forEach(function (it) { sel.appendChild(opt(it.id, it.name + (it.notes ? " — " + it.notes : ""))); });
+      sel.value = row.item || "";
+      var cnt = el("input", { type: "number", min: "0", "data-f": "character.explosives." + i + ".count", "aria-label": "Count", inputmode: "numeric" });
+      cnt.value = row.count == null ? 0 : row.count;
+      var rm = el("button", { type: "button", class: "btn sm", "data-exp-del": i, title: "Remove" }, ["×"]);
+      box.appendChild(el("div", { class: "ammo-row" }, [sel, cnt, rm]));
+    });
+    var info = $("#explosiveInfo");
+    if (info) {
+      var bits = [];
+      if (R.explosives && R.explosives.note) bits.push(R.explosives.note);
+      if (R.explosives && R.explosives.bundles && R.explosives.bundles.length) {
+        bits.push("Bundles: " + R.explosives.bundles.map(function (b) { return b.charge + " " + b.damage + " / " + b.radius + " / " + b.save; }).join("; ") + ".");
+      }
+      info.textContent = bits.join(" ");
+    }
+  }
+  function renderStorytellerKit() {
+    var kit = $("#storytellerKit"); if (!kit) return;
+    var c = C();
+    var show = c.calling === "storyteller" || !!c.instrument;
+    kit.hidden = !show;
+    if (!show) return;
+    var inst = ((R.storytellerGear && R.storytellerGear.instruments) || []).find(function (x) { return x.id === c.instrument; });
+    var info = $("#instrumentInfo");
+    var parts = [];
+    if (inst) {
+      parts.push(inst.name + (c.instrument === "voice" || c.instrument === "piano" ? "." : (c.instrumentQuality === "quality" ? " (quality)." : " (cheap).")));
+      if (inst.perk) parts.push("Perk: " + inst.perk);
+      if (c.instrument === "voice") parts.push("Voice never rolls Wear.");
+      else {
+        var wearMod = (c.instrumentQuality === "cheap" ? -2 : 0) + ({ plain: 0, quality: 1, cheap: -1 }[c.instrumentStrings] || 0) + ({ none: 0, soft: 1, hard: 2 }[c.instrumentCase] || 0);
+        parts.push("Wear roll: 1d8 " + (wearMod >= 0 ? "+" : "") + wearMod + " (natural 1 is at least Out of tune).");
+      }
+      if (c.instrumentWear === "out-of-tune") parts.push("Currently Out of tune: disadvantage on concentration.");
+      if (c.instrumentWear === "broken") parts.push("Broken: you can't cast through it until repaired.");
+      if (c.instrumentWear === "played-in") parts.push("Played in: +1 to spell attacks through it until the next Wear roll.");
+    } else {
+      parts.push("Pick your Calling instrument (or Voice). Starting-kit instruments are cheap unless your Background says otherwise. " + ((R.storytellerGear && R.storytellerGear.note) || ""));
+    }
+    if (info) info.textContent = parts.join(" ");
+    var q = $("#selInstrumentQuality");
+    if (q) q.disabled = c.instrument === "voice" || c.instrument === "piano" || !c.instrument;
+  }
+
+  function renderRef() {
+    var c = C(), parts = [];
+    var lin = LIN[c.lineage], sub = lin && (lin.sublineages || []).filter(function (s) { return s.id === c.sublineage; })[0];
+    function traits(list) { return (list || []).map(function (t) { return "<li><b>" + esc(t.name) + ".</b> " + esc(t.text) + "</li>"; }).join(""); }
+    if (lin) parts.push("<h4>" + esc(lin.name) + " <small>(" + esc(lin.race5e || "") + ")</small></h4><p>" + esc(lin.asi || "") + " Speed " + esc(lin.speed) + " ft.</p><ul>" + traits(lin.traits) + "</ul>");
+    if (sub) parts.push("<h4>" + esc(sub.name) + "</h4><p>" + esc(sub.asi || "") + "</p><ul>" + traits(sub.traits) + "</ul>");
+    var cal = currentCalling(), lv = num(c.level, 1);
+    if (cal) {
+      parts.push("<h4>" + esc(cal.name) + " <small>(" + esc(cal.class5e) + ", hit die " + esc(cal.hitDie) + ")</small></h4><p class='fine'><b>Armor:</b> " + esc(cal.armorProf || "—") + " · <b>Weapons:</b> " + esc(cal.weaponProf || "—") + (cal.kit ? " · <b>Kit:</b> " + esc(cal.kit) : "") + "</p><ul>" + traits(cal.features) + "</ul>");
+      if (cal.progression && cal.progression.rows) {
+        var got = cal.progression.rows.filter(function (r) { return levelNum(r[0]) <= lv; }).map(function (r) { return "<li><b>" + esc(r[0]) + ":</b> " + esc(r[2]) + "</li>"; });
+        parts.push("<p class='fine'><b>Progression to level " + lv + "</b></p><ul class='fine'>" + got.join("") + "</ul>");
+      }
+      var sc = currentSubclass();
+      if (sc) parts.push("<h4>" + esc(sc.name) + "</h4>" + (sc.features.length ? "<ul>" + traits(sc.features) + "</ul>" : "<p class='fine'>The PHB lists this subclass by name only.</p>"));
+    }
+    var bg = BG[c.background];
+    if (bg) parts.push("<h4>" + esc(bg.name) + " <small>(" + esc(bg.twin5e) + ")</small></h4><p><b>Skills:</b> " + esc(bg.skills) + (bg.tools ? " · <b>Tools:</b> " + esc(bg.tools) : "") + (bg.languages ? " · <b>Languages:</b> " + esc(bg.languages) : "") + "</p><p><b>Equipment:</b> " + esc(bg.equipment) + "</p><p><b>" + esc(bg.feature.name) + ".</b> " + esc(bg.feature.text) + "</p>");
+    c.feats.forEach(function (id) { var f = FEAT[id]; if (f) parts.push("<h4>Feat: " + esc(f.name) + "</h4>" + (f.prereq ? "<p class='fine'>Prerequisite: " + esc(f.prereq) + "</p>" : "") + "<ul>" + f.bullets.map(function (b) { return "<li>" + esc(b) + "</li>"; }).join("") + "</ul>"); });
+    if (c.calling === "storyteller" || c.instrument) {
+      var inst = ((R.storytellerGear && R.storytellerGear.instruments) || []).find(function (x) { return x.id === c.instrument; });
+      parts.push("<h4>Storyteller Gear</h4><p class='fine'>" + esc(inst ? (inst.name + ": " + inst.perk) : "Pick a Calling instrument.") + " " + esc((R.storytellerGear && R.storytellerGear.note) || "") + "</p>");
+      if (R.storytellerGear && R.storytellerGear.wearTable && R.storytellerGear.wearTable.length) {
+        parts.push("<p class='fine'><b>Wear &amp; Tear:</b> " + R.storytellerGear.wearTable.map(function (w) { return esc(w.roll) + " → " + esc(w.result); }).join(" · ") + "</p>");
+      }
+    }
+    if (R.explosives && R.explosives.items && R.explosives.items.length) {
+      parts.push("<h4>Explosives</h4><p class='fine'>" + esc(R.explosives.note || "") + " Items: " + esc(R.explosives.items.map(function (x) { return x.name; }).join("; ")) + ".</p>");
+    }
+    var sl = R.spellLists && (R.spellLists[c.calling] || R.spellLists[(currentCalling() && currentCalling().id) || ""]);
+    if (!sl && currentCalling()) {
+      var cid = currentCalling().id;
+      sl = R.spellLists && R.spellLists[cid];
+    }
+    if (sl && sl.levels) {
+      var can = (sl.levels["0"] || []).slice(0, 8).join("; ");
+      parts.push("<h4>Spell list <small>(" + esc(sl.title || sl.name) + ")</small></h4><p class='fine'>" + esc(sl.blurb || "") + "</p><p class='fine'><b>Cantrips (sample):</b> " + esc(can) + ((sl.levels["0"] || []).length > 8 ? "…" : "") + "</p>");
+    }
+    parts.push("<p class='fine'>" + esc(R.rulesText.reloading) + " " + esc(R.rulesText.misfire) + "</p>");
+    $("#refBody").innerHTML = parts.join("");
+  }
+
+  // ------------------------------------------------------------------ change handling
+  function changed(opts) {
+    S.doc.updatedAt = new Date().toISOString();
+    S.fileDirty = true; S.hasContent = true;
+    scheduleLocal();
+    if (S.handle) scheduleFile();
+    if (!opts || !opts.noRender) renderCalc();
+    updateSaveBar();
+  }
+  function onFieldInput(e) {
+    var t = e.target;
+    if (suppress || !t.getAttribute) return;
+    if (t.hasAttribute("data-calc")) {
+      var k = t.getAttribute("data-calc");
+      C().overrides[k] = t.value.trim();
+      if (C().overrides[k] === "") delete C().overrides[k];
+      changed({ noRender: e.type === "input" });
+      return;
+    }
+    var path = t.getAttribute("data-f");
+    if (!path) return;
+    var old = getPath(S.doc, path), v;
+    if (t.type === "checkbox") v = t.checked;
+    else if (t.type === "number") v = t.value === "" ? "" : Number(t.value);
+    else v = t.value;
+    if (path.indexOf("shards.") === 0) v = Math.max(0, Math.floor(num(v, 0)));
+    if (e.type === "input" && t.tagName === "SELECT") return; // handled on change
+    setPath(S.doc, path, v);
+    // v0.2.1: picking Gun Belt / Bandolier ticks the TR feed box (picking something else leaves it alone)
+    if (path === "character.holster" && HOL[v] && HOL[v].feedsTR) C().gunBelt = true;
+    $$('[data-mirror="' + path + '"]').forEach(function (m) { m.textContent = v; });
+    if (e.type === "change") {
+      if (path === "character.calling") onCallingPicked();
+      else if (path === "character.lineage") onLineagePicked();
+      else if (path === "character.sublineage") onSublineagePicked();
+      else if (path === "character.background") onBackgroundPicked();
+      else if (/^character\.guns\.\d+\.(weapon|load|chamber|capacity)$/.test(path)) onGunChanged(num(path.split(".")[2]), path.split(".")[3], old);
+    }
+    if (path === "character.addiction.penalty" || path === "character.addiction.uses") clampPenalty();
+    if (path.indexOf("shards.") === 0) {
+      pushWallet();
+      $$('[data-f="' + path + '"]').forEach(function (x) { if (x !== t) setField(x, v); });
+    }
+    var structural = e.type === "change" && (t.tagName === "SELECT" || t.type === "checkbox" || /ammo\.|explosives\.|addiction\.|instrument/.test(path));
+    if (structural) { renderFields(); changed({ noRender: true }); }
+    else changed();
+  }
+  function onCallingPicked() {
+    var c = C(), cal = CAL[c.calling];
+    c.subclass = "";
+    if (!cal) return;
+    AB.forEach(function (a) { c.saveProf[a] = cal.saves.indexOf(a) >= 0; });
+    // PHB "Hit Die & Proficiencies" line -> the proficiencies box (only adds lines that aren't there yet)
+    var add = [];
+    if (cal.armorProf) add.push("Armor (" + cal.name + "): " + cal.armorProf);
+    if (cal.weaponProf) add.push("Weapons (" + cal.name + "): " + cal.weaponProf);
+    var box = c.proficienciesLanguages || "";
+    add = add.filter(function (l) { return box.indexOf(l) < 0; });
+    if (add.length) c.proficienciesLanguages = (box.trim() ? box.replace(/\s+$/, "") + "\n" : "") + add.join("\n");
+    toast("Saving throws set for " + cal.name + " (" + cal.saves.join(", ") + "). Hit die " + cal.hitDie + "." + (add.length ? " Armor and weapon proficiencies added." : ""));
+  }
+  function onLineagePicked() {
+    var c = C(), l = LIN[c.lineage];
+    c.sublineage = "";
+    if (l && l.speed) { c.speed = l.speed; toast("Speed set to " + l.speed + " ft. from " + l.name + ". " + (l.asi || "")); }
+  }
+  function onSublineagePicked() {
+    var c = C(), l = LIN[c.lineage], s = l && (l.sublineages || []).filter(function (x) { return x.id === c.sublineage; })[0];
+    if (!s) return;
+    c.speed = s.speed || l.speed || c.speed;
+    toast(s.name + ": " + (s.asi || "") + (s.speed ? " Speed " + s.speed + " ft." : ""));
+  }
+  function onBackgroundPicked() {
+    var c = C(), b = BG[c.background];
+    if (!b) return;
+    var added = [];
+    (b.skillList || []).forEach(function (sk) { if (!num(c.skillProf[sk], 0)) { c.skillProf[sk] = 1; added.push(sk); } });
+    toast(b.name + ": " + (added.length ? "proficient in " + added.join(", ") + "." : "skills already marked.") + " Its gear is in the reference panel.");
+  }
+  function findPool(type, caliber, create) {
+    var am = C().ammo, norm = function (s) { return String(s || "").trim().toLowerCase(); };
+    var p = am.filter(function (a) { return a.type === type && norm(a.caliber) === norm(caliber); })[0];
+    if (!p && caliber) p = am.filter(function (a) { return a.type === type && !norm(a.caliber); })[0];
+    if (!p && create) { p = { type: type, caliber: caliber || "", count: 0 }; am.push(p); }
+    return p || null;
+  }
+  function capOf(g, w) { var st = capSteps(w).filter(function (x) { return x.cap === num(g.capacity); })[0]; return st ? st.cap : (w.capacity || 0); }
+  function normChambers(g, w) {
+    var cap = capOf(g, w), a = Array.isArray(g.chambers) ? g.chambers.slice(0, cap) : [];
+    while (a.length < cap) a.push("");
+    if (!a.some(Boolean) && num(g.loaded) > 0) for (var k = 0; k < Math.min(cap, num(g.loaded)); k++) a[k] = "c";
+    g.chambers = a; g.loaded = a.filter(Boolean).length;
+    return a;
+  }
+  /** Ammo pool for a gun: type + chambered round. Caster Guns take any cartridge (their chosen round first). */
+  function gunPoolType(g, w) { return w.ammo === "shell" ? (g.load === "slug" ? "slug" : "buck") : w.ammo; }
+  function gunRound(g, w) { if (!w.tiers) return w.caliber || ""; var cc = chamberOf(g, w); return w.ammo === "percussion" ? "" : cc.round; }
+  function takePool(g, w, create) {
+    var type = gunPoolType(g, w), round = gunRound(g, w), p = findPool(type, round, create);
+    if ((!p || num(p.count) <= 0) && w.hexShells) p = C().ammo.filter(function (a) { return a.type === "cartridge" && num(a.count) > 0; })[0] || p;
+    return { pool: p, type: type, round: round };
+  }
+  function hexBoxes(l) { var t = compute().hex[l] || 0, c = C(); if (hasOv(c, "hex." + l)) t = num(c.overrides["hex." + l]); return Math.max(0, Math.min(MAX_BOXES, t)); }
+  function spendHex(l) { var a = C().hexLead[l], n = hexBoxes(l); for (var k = 0; k < n; k++) if (!a[k]) { a[k] = true; return true; } return false; }
+  function refundHex(l) { var a = C().hexLead[l]; for (var k = a.length - 1; k >= 0; k--) if (a[k]) { a[k] = false; return true; } return false; }
+  function unloadGun(g, prevW, prevLoad, prevChamber) {
+    if (!prevW || !prevW.capacity) return;
+    var gg = { load: prevLoad, chamber: prevChamber, tier: g.tier };
+    var plain = prevW.hexShells ? normChambers(g, prevW).filter(function (x) { return x === "c"; }).length : num(g.loaded);
+    if (prevW.hexShells) normChambers(g, prevW).forEach(function (x) { if (x && x !== "c") refundHex(num(x)); });
+    if (plain > 0 && prevW.ammo && prevW.ammo !== "arrows") {
+      var tp = takePool(gg, prevW, true);
+      tp.pool.count = num(tp.pool.count) + plain;
+      toast("Unloaded " + plain + " back into " + AMMO_LABEL[tp.type] + (tp.pool.caliber ? " " + tp.pool.caliber : "") + ".");
+    }
+  }
+  function onGunChanged(i, what, old) {
+    var g = C().guns[i];
+    var prevW = WPN[what === "weapon" ? old : g.weapon];
+    unloadGun(g, prevW, what === "load" ? old : g.load, what === "chamber" ? old : g.chamber);
+    g.loaded = 0; g.chambers = []; g.jammed = false;
+    var w = WPN[g.weapon];
+    if (what === "weapon") { g.mod = ""; g.capacity = ""; }
+    if (what === "weapon" && w) {
+      g.proficient = true;
+      if (w.scatter) g.load = "buck";
+      if (w.tiers) { g.chamber = ""; var cc = chamberOf(g, w); g.chamber = cc.tier + "|" + cc.round; g.tier = cc.tier; }
+      var st = gunStats(g, compute());
+      if (w.capacity) toast(w.name + ": " + st.damage + ", range " + st.range + ", capacity " + w.capacity + ", misfire " + st.misfire + (st.round ? ", chambered " + st.round : "") + ". Starts empty: hit Reload.");
+    }
+    if (what === "chamber" && w && w.tiers) g.tier = chamberOf(g, w).tier;
+  }
+  function fire(i, k) {
+    var g = C().guns[i], w = WPN[g.weapon];
+    if (g.jammed) { toast("Jammed! Clear it first (see Misfires), then untick “jammed”."); return; }
+    if (w && w.hexShells) {
+      var a = normChambers(g, w);
+      if (k === undefined || !a[k]) { k = a.findIndex(Boolean); }
+      if (k < 0) { toast("Click. Empty. Hit Reload."); return; }
+      var was = a[k]; a[k] = ""; g.loaded = a.filter(Boolean).length;
+      changed();
+      toast((was === "c" ? "Bang (plain round). " : "Hex lead shell (level " + was + ") fired: cast your spell. ") + g.loaded + " left.", "Undo", function () { normChambers(g, w)[k] = was; g.loaded += 1; changed(); });
+      return;
+    }
+    if (g.loaded <= 0) { toast("Click. Empty. Hit Reload."); return; }
+    g.loaded -= 1;
+    changed();
+    toast("Bang. " + g.loaded + " left in the " + (w ? w.name : "gun") + ".", "Undo", function () { g.loaded += 1; changed(); });
+  }
+  function reload(i, max) {
+    var g = C().guns[i], w = WPN[g.weapon];
+    if (!w || !w.capacity) return;
+    var a = w.hexShells ? normChambers(g, w) : null;
+    var need = capOf(g, w) - (a ? a.filter(Boolean).length : g.loaded);
+    if (max) need = Math.min(need, max);
+    if (need <= 0) { toast("Already full."); return; }
+    var tp = takePool(g, w, false), pool = tp.pool;
+    if (!pool || num(pool.count) <= 0) { toast("No " + AMMO_LABEL[tp.type] + (tp.round ? " (" + tp.round + ")" : "") + " left. Add some under Ammo by caliber."); return; }
+    var take = Math.min(need, num(pool.count));
+    pool.count = num(pool.count) - take;
+    var tierNote = "";
+    if (a && w.rounds && pool.caliber) {
+      // Caster Guns take any cartridge; the round's tier sets damage/range (PHB Caster Guns + Round tiers)
+      var cur = chamberOf(g, w);
+      TIERS.forEach(function (t) { if ((w.rounds[t] || []).indexOf(pool.caliber) >= 0 && (t !== cur.tier || pool.caliber !== cur.round)) { g.chamber = t + "|" + pool.caliber; g.tier = t; tierNote = " Fires as " + TIER_LABEL[t] + " (" + pool.caliber + ")."; } });
+    }
+    if (a) { for (var k = 0, n = take; k < a.length && n > 0; k++) if (!a[k]) { a[k] = "c"; n--; } g.loaded = a.filter(Boolean).length; }
+    else g.loaded += take;
+    changed();
+    var how = max ? "Tactical Reload (bonus action, from a gun belt or bandolier): +" + take : "Reloaded " + take + (take < need ? " (all you had)" : "") + (w.slow ? " (slow load: full turn)" : " (action)");
+    toast(how + ". " + pool.count + " " + AMMO_LABEL[tp.type] + (pool.caliber ? " " + pool.caliber : "") + " left." + tierNote);
+  }
+  function hasGunBelt() {
+    var c = C(), h = HOL[c.holster];
+    return !!c.gunBelt || !!(h && h.feedsTR);
+  }
+  function tacticalReload(i) {
+    var g = C().guns[i], w = WPN[g.weapon];
+    if (!w || !w.tr) { toast("This gun can't Tactical Reload (TR —)."); return; }
+    if (!hasGunBelt()) {
+      // v0.2.1: soft requirement (PHB Reloading: TR loads from a gun belt or bandolier). Warn; the player can override.
+      $('.gun[data-row="' + i + '"]').classList.add("tr-warn");
+      toast("No gun belt or bandolier (tick the box under Holster, or pick Gun Belt / Bandolier). The PHB says Tactical Reload loads from one; rounds in a box, pouch or saddlebag need a full reload.", "Load anyway", function () {
+        $('.gun[data-row="' + i + '"]').classList.remove("tr-warn"); reload(i, 1);
+      }, 10000);
+      return;
+    }
+    reload(i, 1);
+  }
+  function loadHexShell(i) {
+    var g = C().guns[i], w = WPN[g.weapon];
+    if (!w || !w.hexShells) return;
+    var lvl = num($('[data-hexlvl="' + i + '"]').value, 1), a = normChambers(g, w), k = a.indexOf("");
+    if (k < 0) { toast("Every chamber is loaded. Fire or unload one first."); return; }
+    if (!spendHex(lvl)) { toast("No level-" + lvl + " hex lead shells left today (page 3)."); return; }
+    a[k] = String(lvl); g.loaded = a.filter(Boolean).length;
+    changed();
+    toast("Loaded a level-" + lvl + " hex lead shell in chamber " + (k + 1) + ". It's ticked off on page 3.");
+  }
+  function clampPenalty() {
+    var a = C().addiction, floor = -Math.floor(num(a.uses, 0) / 3);
+    if (num(a.penalty, 0) > 0) a.penalty = 0;
+    if (num(a.penalty, 0) > floor) a.penalty = floor;
+  }
+  function rollTrait(kind) {
+    var b = BG[C().background];
+    if (!b || !b.traits || !b.traits[kind] || !b.traits[kind].length) { toast("Pick a Background first; its tables roll here."); return; }
+    var list = b.traits[kind], n = Math.floor(Math.random() * list.length), pick = list[n];
+    var cur = C()[kind] || "";
+    C()[kind] = cur.trim() ? cur.replace(/\s+$/, "") + "\n" + pick : pick;
+    renderFields(); changed();
+    toast("Rolled " + (n + 1) + " on d" + list.length + ".");
+  }
+  function onClick(e) {
+    var t = e.target.closest && e.target.closest("button, [data-img]");
+    if (!t) return;
+    var d = t.dataset;
+    if (d.fire !== undefined) return fire(num(d.fire), d.k !== undefined ? num(d.k) : undefined);
+    if (d.reload !== undefined) return reload(num(d.reload));
+    if (d.tr !== undefined) return tacticalReload(num(d.tr));
+    if (d.hexload !== undefined) return loadHexShell(num(d.hexload));
+    if (d.skill) { C().skillProf[d.skill] = (num(C().skillProf[d.skill], 0) + 1) % 3; changed(); return; }
+    if (d.ammoStep) { var q = d.ammoStep.split(":"), a = C().ammo[num(q[0])]; a.count = Math.max(0, num(a.count) + num(q[1])); changed(); return; }
+    if (d.ammoDel !== undefined) { C().ammo.splice(num(d.ammoDel), 1); changed(); return; }
+    if (d.expDel !== undefined) { (C().explosives || []).splice(num(d.expDel), 1); changed(); return; }
+    if (d.spellDel !== undefined) {
+      var parts = String(d.spellDel).split(":");
+      removeKnownSpell(num(parts[0]), num(parts[1]));
+      return;
+    }
+    if (d.pickLevel !== undefined) { pickerLevel = d.pickLevel; fillSpellPicker(); return; }
+    if (d.addSpell !== undefined) {
+      var btn = e.target.closest("[data-add-spell]");
+      if (btn && btn._spell) {
+        if (spellAlreadyHave(btn._spell.phb)) toast(btn._spell.phb + " is already on your list.");
+        else { addKnownSpell(btn._spell); fillSpellPicker(); toast("Added " + btn._spell.label + "."); }
+      }
+      return;
+    }
+    if (d.unfeat !== undefined) { C().feats.splice(num(d.unfeat), 1); changed(); return; }
+    if (d.roll) return rollTrait(d.roll);
+    if (d.imgpick) return pickImage(d.imgpick);
+    if (d.imgclear) { setPath(S.doc, d.imgclear, ""); renderFields(); changed(); return; }
+    if (d.img && t.tagName !== "BUTTON") return pickImage(d.img);
+  }
+  function onDblClick(e) {
+    var t = e.target;
+    if (t.hasAttribute && t.hasAttribute("data-calc")) {
+      delete C().overrides[t.getAttribute("data-calc")];
+      t.blur(); changed(); toast("Back to the automatic value.");
+    }
+  }
+
+  // ------------------------------------------------------------------ images
+  function pickImage(path) {
+    var inp = el("input", { type: "file", accept: "image/*" });
+    inp.addEventListener("change", function () { if (inp.files[0]) loadImage(inp.files[0], path); });
+    inp.click();
+  }
+  function loadImage(file, path) {
+    var r = new FileReader();
+    r.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var max = 512, s = Math.min(1, max / Math.max(img.width, img.height));
+        var cv = document.createElement("canvas"); cv.width = Math.round(img.width * s); cv.height = Math.round(img.height * s);
+        cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+        setPath(S.doc, path, cv.toDataURL("image/jpeg", 0.82));
+        renderFields(); changed();
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  }
+
+  // ------------------------------------------------------------------ saving
+  var scheduleLocal = debounce(function () { saveLocal(); }, 350);
+  var scheduleFile = debounce(function () { writeFile(false); }, 1500);
+  function saveLocal() {
+    try {
+      Store.saveCurrent(S.doc);
+      S.lastLocal = Date.now();
+      if (Date.now() - S.lastSnap > 3 * 60 * 1000) snapshot("autosave");
+      if (/^Browser backup/.test(S.error)) S.error = "";
+    } catch (err) { S.error = "Browser backup failed (storage full?). Save to a file now."; console.warn(err); }
+    updateSaveBar();
+  }
+  function snapshot(reason) {
+    try { if (Store.pushHistory(S.doc, reason)) S.lastSnap = Date.now(); } catch (e) { console.warn("snapshot failed", e); }
+  }
+  function docText() { return JSON.stringify(S.doc, null, 2) + "\n"; }
+  function fileNameFor() { return (C().name || "character").replace(/[\\/:*?"<>|]+/g, "").trim().replace(/\s+/g, " ") + ".ssdns"; }
+  function writeFile(ask) {
+    if (!S.handle) return Promise.resolve(false);
+    if (S.writing) { S.again = true; return Promise.resolve(false); }
+    S.writing = true; updateSaveBar();
+    return Store.permission(S.handle, ask).then(function (p) {
+      if (p !== "granted") { S.permNeeded = true; return false; }
+      S.permNeeded = false;
+      var text = docText(), stamp = S.doc.updatedAt;
+      return Store.writeHandle(S.handle, text).then(function () {
+        if (S.doc.updatedAt === stamp) S.fileDirty = false;
+        S.lastFile = Date.now(); S.error = "";
+        return true;
+      });
+    }).catch(function (err) {
+      console.warn(err);
+      S.error = "Couldn't write " + S.fileName + " (" + (err && err.name || "error") + "). Use Save As.";
+      return false;
+    }).then(function (ok) {
+      S.writing = false; updateSaveBar();
+      if (S.again) { S.again = false; scheduleFile(); }
+      return ok;
+    });
+  }
+  function doSave() {
+    snapshot("saved");
+    if (Store.fsSupported) {
+      if (S.handle) return writeFile(true).then(function (ok) { if (ok) toast("Saved to " + S.fileName + "."); });
+      return doSaveAs();
+    }
+    Store.download(fileNameFor(), docText());
+    S.fileDirty = false; S.lastFile = Date.now(); S.fileName = fileNameFor(); updateSaveBar();
+    toast("Downloaded " + S.fileName + ". Keep it somewhere safe and open it next time.");
+    return Promise.resolve(true);
+  }
+  function doSaveAs() {
+    if (!Store.fsSupported) return doSave();
+    return Store.pickSave(fileNameFor()).then(function (h) {
+      S.handle = h; S.fileName = h.name; S.permNeeded = false;
+      Store.putHandle(S.doc.id, h);
+      return writeFile(true).then(function (ok) { if (ok) toast("Saved to " + h.name + ". Changes now save to it automatically."); });
+    }).catch(function (err) { if (err && err.name !== "AbortError") { S.error = "Save As failed: " + err.message; updateSaveBar(); } });
+  }
+  function replaceDoc(doc, info) {
+    if (S.doc && S.hasContent) { snapshot("before " + (info.reason || "switching")); try { Store.saveCurrent(S.doc); } catch (e) {} }
+    S.doc = doc; S.handle = info.handle || null; S.fileName = info.fileName || ""; S.fileDirty = !!info.dirty;
+    S.hasContent = true; S.permNeeded = false; S.error = ""; S.lastFile = (info.handle || info.fileName) ? Date.now() : null; S.lastSnap = 0;
+    if (S.handle) Store.putHandle(doc.id, S.handle); else if (!info.keepHandle) Store.delHandle(doc.id);
+    try { Store.saveCurrent(doc); S.lastLocal = Date.now(); } catch (e) { S.error = "Browser backup failed: " + e.message; }
+    snapshot(info.reason || "opened");
+    renderFields(); adoptWallet(); pushWallet(); updateSaveBar();
+  }
+  function loadText(text, info) {
+    var doc;
+    info = info || {};
+    try { doc = migrate(JSON.parse(text)); }
+    catch (err) { toast("Couldn't open " + (info.fileName || "that file") + ": " + (err instanceof SyntaxError ? "it isn't valid JSON." : err.message)); return false; }
+    replaceDoc(doc, Object.assign({ reason: "opened " + (info.fileName || "file") }, info));
+    toast("Opened " + (C().name || "character") + (info.fileName ? " from " + info.fileName : "") + ".");
+    return true;
+  }
+  function doOpen() {
+    if (!confirmLeave()) return;
+    if (Store.fsSupported) {
+      Store.pickOpen().then(function (h) {
+        return h.getFile().then(function (f) { return f.text(); }).then(function (t) { loadText(t, { handle: h, fileName: h.name }); });
+      }).catch(function (err) { if (err && err.name !== "AbortError") toast("Open failed: " + err.message); });
+    } else $("#fileInput").click();
+  }
+  function confirmLeave() {
+    if (S.fileDirty && S.hasContent && !S.handle) return window.confirm("This character has changes that aren't in a file yet (they are backed up in this browser). Continue?");
+    return true;
+  }
+  function doNew() {
+    if (!confirmLeave()) return;
+    replaceDoc(blankDoc(), { reason: "new character" });
+    S.hasContent = false; S.fileDirty = false; updateSaveBar();
+    toast("New character. It's backed up in this browser as you type; Save makes a .ssdns file.");
+  }
+  function updateSaveBar() {
+    var bar = $("#saveBar"), txt = $("#saveText"), act = $("#saveBarAction");
+    var state = "ok", msg = "", action = null;
+    var t = function (ms) { return ms ? new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""; };
+    var backup = S.lastLocal ? "Backed up in this browser " + t(S.lastLocal) + "." : "";
+    if (S.error) { state = "bad"; msg = S.error; action = [Store.fsSupported ? "Save As" : "Download .ssdns", Store.fsSupported ? doSaveAs : doSave]; }
+    else if (S.permNeeded) { state = "warn"; msg = "Autosave to " + S.fileName + " is paused until you allow it. " + backup; action = ["Allow saving", function () { writeFile(true); }]; }
+    else if (S.writing) { state = "busy"; msg = "Saving to " + S.fileName + "…"; }
+    else if (S.handle && !S.fileDirty) { state = "ok"; msg = "Saved to " + S.fileName + " at " + t(S.lastFile) + ". Autosave is on."; }
+    else if (S.handle) { state = "busy"; msg = "Saving to " + S.fileName + " in a moment…"; }
+    else if (!S.hasContent) { state = "idle"; msg = "New character. Open a .ssdns file or start typing; it's backed up in this browser as you go."; }
+    else if (S.fileDirty) { state = "warn"; msg = "Unsaved changes: not in a file yet. " + backup; action = [Store.fsSupported ? "Save to file" : "Download .ssdns", doSave]; }
+    else { state = "ok"; msg = (S.fileName ? "Matches " + S.fileName + ". " : "") + backup; }
+    bar.className = "savebar " + state;
+    bar.setAttribute("data-state", state);
+    txt.textContent = msg;
+    if (action) { act.hidden = false; act.textContent = action[0]; act.onclick = action[1]; } else act.hidden = true;
+  }
+
+  // ------------------------------------------------------------------ restore dialog
+  function openRestore() {
+    var list = $("#restoreList"); list.innerHTML = "";
+    var h = Store.history(S.doc.id).slice().reverse();
+    if (!h.length) list.appendChild(el("p", { class: "fine", text: "No backups for this character yet." }));
+    h.forEach(function (v, idx) {
+      var ch = v.doc.character || {};
+      var cal = CAL[ch.calling];
+      list.appendChild(el("div", { class: "ver" }, [
+        el("div", {}, [el("b", { text: timeStr(v.at) }), " · " + v.reason,
+          el("div", { class: "fine", text: (ch.name || "(unnamed)") + (cal ? " · " + cal.name + " " + ch.level : "") + " · " + Bridge.cpValue(v.doc.shards).toLocaleString() + " ES in shards" })]),
+        el("button", { type: "button", class: "btn sm", "data-restore": idx, onclick: function () {
+          var d = migrate(clone(v.doc)); d.updatedAt = new Date().toISOString();
+          replaceDoc(d, { handle: S.handle, fileName: S.fileName, reason: "restore", dirty: true, keepHandle: true });
+          if (S.handle) scheduleFile();
+          $("#dlgRestore").close(); toast("Restored the " + timeStr(v.at) + " version. What you had is kept as a backup.");
+        } }, ["Restore"])]));
+    });
+    var cl = $("#charList"); cl.innerHTML = "";
+    Store.index().filter(function (c) { return c.id !== S.doc.id; }).forEach(function (c) {
+      cl.appendChild(el("div", { class: "ver" }, [el("div", {}, [el("b", { text: c.name }), el("div", { class: "fine", text: (CAL[c.calling] ? CAL[c.calling].name + " " + c.level + " · " : "") + "last change " + timeStr(c.updatedAt) })]),
+        el("button", { type: "button", class: "btn sm", onclick: function () {
+          var d = Store.loadCurrent(c.id); if (!d) return;
+          Store.getHandle(c.id).then(function (hd) {
+            replaceDoc(migrate(d), { handle: hd || null, fileName: hd ? hd.name : "", reason: "switched character", keepHandle: true });
+            if (hd) { S.permNeeded = true; updateSaveBar(); }
+            $("#dlgRestore").close();
+          });
+        } }, ["Open"])]));
+    });
+    if (!cl.children.length) cl.appendChild(el("p", { class: "fine", text: "None." }));
+    $("#dlgRestore").showModal();
+  }
+
+  // ------------------------------------------------------------------ wallet bridge
+  // v0.2.1: adopt shard changes a Saloon game made while the sheet was closed (newer wallet, same character).
+  function adoptWallet() {
+    try {
+      var w = Bridge.readWallet();
+      if (!w || !S.doc || w.characterId !== S.doc.id || w.updatedBy === "sheet") return;
+      if (S.doc.updatedAt && w.updatedAt && w.updatedAt < S.doc.updatedAt) return;
+      if (JSON.stringify(Bridge.cleanShards(S.doc.shards)) === JSON.stringify(w.shards)) return;
+      S.doc.shards = w.shards; renderFields(); changed();
+      toast("Shards updated by " + w.updatedBy + " while the sheet was closed.");
+    } catch (e) { console.warn(e); }
+  }
+  function pushWallet() {
+    try { Bridge.writeWallet({ characterId: S.doc.id, characterName: C().name, shards: S.doc.shards, updatedBy: "sheet" }); } catch (e) { console.warn(e); }
+  }
+  function onWallet(w) {
+    if (!S.doc || w.characterId !== S.doc.id || w.updatedBy === "sheet") return;
+    if (JSON.stringify(Bridge.cleanShards(S.doc.shards)) === JSON.stringify(w.shards)) return;
+    S.doc.shards = w.shards;
+    renderFields(); changed();
+    toast("Shards updated by " + w.updatedBy + ".");
+  }
+
+  // ------------------------------------------------------------------ toast
+  var toastTimer;
+  function toast(msg, actLabel, actFn, ms) {
+    var t = $("#toast"), a = $("#toastAction");
+    $("#toastText").textContent = msg;
+    if (actLabel) { a.hidden = false; a.textContent = actLabel; a.onclick = function () { actFn(); t.hidden = true; }; } else a.hidden = true;
+    t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, ms || (actLabel ? 6000 : 4200));
+  }
+
+  // ------------------------------------------------------------------ tabs, print, drag & drop
+  function showTab(id) {
+    $$(".tab").forEach(function (t) {
+      var on = t.id === id; t.setAttribute("aria-selected", on ? "true" : "false"); t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+    });
+    try { sessionStorage.setItem("ssdns.tab", id); } catch (e) {}
+  }
+  function wireTabs() {
+    var tabs = $$(".tab");
+    tabs.forEach(function (t, i) {
+      t.addEventListener("click", function () { showTab(t.id); });
+      t.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        var n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length]; showTab(n.id); n.focus();
+      });
+    });
+    var saved = null; try { saved = sessionStorage.getItem("ssdns.tab"); } catch (e) {}
+    showTab(saved && document.getElementById(saved) ? saved : "tab-main");
+  }
+  var printState = null;
+  function beforePrint() {
+    printState = $$(".page").map(function (p) { return p.hidden; });
+    $$(".page").forEach(function (p) { p.hidden = false; });
+    $$("textarea").forEach(function (t) { t.style.height = "auto"; t.style.height = Math.max(t.scrollHeight, t.offsetHeight) + "px"; });
+    $("#refPanel").open = false;
+  }
+  function afterPrint() {
+    if (printState) $$(".page").forEach(function (p, i) { p.hidden = printState[i]; });
+    printState = null;
+    $$("textarea").forEach(function (t) { t.style.height = ""; });
+  }
+  function wireDrop() {
+    var ov = $("#dropOverlay"), depth = 0;
+    function isFile(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") >= 0; }
+    window.addEventListener("dragenter", function (e) { if (!isFile(e)) return; depth++; ov.classList.add("on"); e.preventDefault(); });
+    window.addEventListener("dragover", function (e) { if (isFile(e)) e.preventDefault(); });
+    window.addEventListener("dragleave", function () { depth = Math.max(0, depth - 1); if (!depth) ov.classList.remove("on"); });
+    window.addEventListener("drop", function (e) {
+      if (!isFile(e)) return;
+      e.preventDefault(); depth = 0; ov.classList.remove("on");
+      var file = e.dataTransfer.files[0];
+      if (!file) return;
+      var target = e.target.closest && e.target.closest("[data-img]");
+      if (/^image\//.test(file.type)) {
+        if (target) loadImage(file, target.getAttribute("data-img"));
+        else toast("Drop pictures onto the portrait or gang symbol box (page 2).");
+        return;
+      }
+      if (!confirmLeave()) return;
+      var item = e.dataTransfer.items && e.dataTransfer.items[0];
+      var hp = null;
+      try { hp = item && item.getAsFileSystemHandle && Store.fsSupported ? item.getAsFileSystemHandle() : null; } catch (err) { hp = null; }
+      Promise.resolve(hp).catch(function () { return null; }).then(function (h) {
+        return file.text().then(function (t) { loadText(t, { handle: h && h.kind === "file" ? h : null, fileName: file.name }); });
+      });
+    });
+  }
+
+  // ------------------------------------------------------------------ boot
+  function rest(kind) {
+    var ci = casterInfo(), r = C().hexRest || (ci ? ci.rest : "long");
+    if (kind === "long" || r === "short") {
+      for (var l = 1; l <= 9; l++) C().hexLead[l] = new Array(MAX_BOXES).fill(false);
+      renderFields(); changed(); toast("Hex Lead refreshed (" + kind + " rest).");
+    } else toast("Your Hex Lead comes back on a long rest.");
+  }
+  function wire() {
+    document.addEventListener("input", onFieldInput);
+    document.addEventListener("change", onFieldInput);
+    document.addEventListener("click", onClick);
+    document.addEventListener("dblclick", onDblClick);
+    $("#btnNew").onclick = doNew;
+    $("#btnOpen").onclick = doOpen;
+    $("#btnSave").onclick = doSave;
+    $("#btnSaveAs").onclick = doSaveAs;
+    $("#btnSaveAs").hidden = !Store.fsSupported;
+    $("#btnRestore").onclick = openRestore;
+    $("#btnSaloon").onclick = function () { $("#dlgSaloon").showModal(); };
+    $("#btnPrint").onclick = function () { window.print(); };
+    $("#fileInput").addEventListener("change", function (e) {
+      e.stopPropagation();
+      var f = e.target.files[0]; if (!f) return;
+      f.text().then(function (t) { loadText(t, { fileName: f.name }); e.target.value = ""; });
+    });
+    $("#btnAddAmmo").onclick = function () {
+      C().ammo.push({ type: "cartridge", caliber: "", count: 0 }); changed();
+      var rows = $$("#ammoList .ammo-row"); if (rows.length) $("select", rows[rows.length - 1]).focus();
+    };
+    $("#btnAddExplosive").onclick = function () {
+      if (!C().explosives) C().explosives = [];
+      C().explosives.push({ item: "", count: 0 }); changed();
+      var rows = $$("#explosiveList .ammo-row"); if (rows.length) $("select", rows[rows.length - 1]).focus();
+    };
+    $("#btnGearAdd").onclick = function () {
+      var v = $("#gearAdd").value.trim(); if (!v) return;
+      var c = C(); c.equipment = (c.equipment ? c.equipment.replace(/\s+$/, "") + "\n" : "") + "• " + v;
+      $("#gearAdd").value = ""; renderFields(); changed();
+    };
+    $("#gearAdd").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); $("#btnGearAdd").click(); } });
+    $("#selFeatAdd").addEventListener("change", function (e) {
+      var id = e.target.value; e.target.value = "";
+      if (!id || C().feats.indexOf(id) >= 0) return;
+      C().feats.push(id); changed();
+      var f = FEAT[id]; toast("Added " + f.name + (f.prereq ? " (prerequisite: " + f.prereq + ")" : "") + ": " + f.gist);
+    });
+    $("#btnMissDay").onclick = function () {
+      var a = C().addiction; if (!a.addicted) { toast("Only counts while Addicted is ticked."); return; }
+      a.daysWithout = num(a.daysWithout) + 1; a.penalty = num(a.penalty) - 1; renderFields(); changed();
+    };
+    $("#btnFix").onclick = function () {
+      var a = C().addiction; if (!a.addicted) { toast("Only counts while Addicted is ticked."); return; }
+      a.uses = num(a.uses) + 1; a.daysWithout = 0; a.penalty = Math.min(0, num(a.penalty) + 1); clampPenalty();
+      renderFields(); changed();
+      toast("Fix taken. Use " + a.uses + (a.uses % 3 === 0 ? ": the floor drops to " + (-Math.floor(a.uses / 3)) + "." : "."));
+    };
+    $("#btnShortRest").onclick = function () { rest("short"); };
+    $("#btnLongRest").onclick = function () { rest("long"); };
+    $("#btnAddSpell").onclick = openSpellPicker;
+    $("#btnClosePicker").onclick = function () { $("#spellPicker").hidden = true; };
+    $("#spellSearch").addEventListener("input", function () {
+      renderSpellbook();
+      if ($("#spellPicker") && !$("#spellPicker").hidden) fillSpellPicker();
+    });
+    $("#btnKitAdd").onclick = function () {
+      var sel = $("#selKitCrosswalk");
+      var i = sel && sel.value !== "" ? num(sel.value) : -1;
+      var row = R.kitCrosswalk && R.kitCrosswalk.crosswalk && R.kitCrosswalk.crosswalk[i];
+      if (!row) { toast("Pick a starting-kit row first."); return; }
+      var line = "• Kit swap: " + row.old + " → " + row.frontier;
+      var c = C();
+      c.equipment = (c.equipment ? c.equipment.replace(/\s+$/, "") + "\n" : "") + line;
+      renderFields(); changed();
+      toast("Added kit crosswalk line to Equipment.");
+    };
+    window.addEventListener("beforeprint", beforePrint);
+    window.addEventListener("afterprint", afterPrint);
+    window.addEventListener("beforeunload", function (e) {
+      if (S.doc && S.hasContent) { try { Store.saveCurrent(S.doc); } catch (err) {} }
+      if (S.fileDirty && S.hasContent) { e.preventDefault(); e.returnValue = ""; return ""; }
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden && S.doc && S.hasContent) { saveLocal(); if (S.handle && S.fileDirty) writeFile(false); }
+    });
+    document.addEventListener("keydown", function (e) { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); doSave(); } });
+    Bridge.onChange(onWallet);
+    wireDrop();
+    wireTabs();
+  }
+  function boot() {
+    buildStaticLists(); buildAbilities(); buildSavesSkills(); buildChecks(); buildGuns(); buildShards(); buildSpellGrid(); buildGames();
+    wire();
+    var saved = Store.loadCurrent(Store.lastId());
+    if (saved) {
+      try { S.doc = migrate(saved); } catch (e) { S.doc = blankDoc(); }
+      S.hasContent = true; S.lastLocal = Date.now();
+      snapshot("session start");
+      renderFields(); adoptWallet(); pushWallet();
+      Store.getHandle(S.doc.id).then(function (h) {
+        if (!h) return;
+        S.handle = h; S.fileName = h.name;
+        return Store.permission(h, false).then(function (p) { S.permNeeded = p !== "granted"; });
+      }).catch(function () {}).then(updateSaveBar);
+      toast("Welcome back. Picked up " + (C().name || "your character") + " from this browser's backup.");
+    } else {
+      S.doc = blankDoc(); S.hasContent = false;
+      renderFields();
+    }
+    updateSaveBar();
+    // dev/test hook: read-only helpers, no rules
+    // v0.2.1: keep the sticky tabs just under the (possibly wrapped) app bar on phones
+    function syncBarH() { var ab = $("#appbar"); if (ab) document.documentElement.style.setProperty("--appbar-h", ab.offsetHeight + "px"); }
+    window.addEventListener("resize", syncBarH); syncBarH(); setTimeout(syncBarH, 300);
+    window.SSDNSApp = { version: APP_VERSION, state: S, loadText: loadText, migrate: migrate, compute: compute, doc: function () { return S.doc; } };
+  }
+  boot();
+})();

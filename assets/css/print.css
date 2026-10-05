@@ -1,0 +1,44 @@
+/* SSDNS Character Sheet · print / save-as-PDF. All three pages, one per sheet, no app chrome. */
+@page { size: letter; margin: 9mm; }
+html, body { background: #fff !important; }
+body { font-size: 10.5pt; }
+.appbar, .savebar, .tabs, .toast, .drop-overlay, .dlg, .btn, .roll, .reload, .quickadd, .imgbtns, .restbar .btn, #selFeatAdd, .chip-x, .ref, .wild summary + ol:empty, #btnAddAmmo { display: none !important; }
+main { padding: 0 !important; }
+.page { display: block !important; max-width: none; box-shadow: none !important; padding: 0 !important; background: none !important; break-after: page; page-break-after: always; }
+.page:last-child { break-after: auto; page-break-after: auto; }
+.page[hidden] { display: block !important; }
+.box, .namebox, .topgrid, .hexinfo, .trait, .abil, .pill, .sq-box, .hp, .hd, .ds, .shard, .sp-level { background: #fff !important; }
+.sp-head { background: #fff !important; color: #000 !important; border-bottom: 1.5px solid #000; }
+.sp-num { background: #fff !important; color: #000; border-color: #000; }
+.sp-total span, .sp-title small, .sp-total input { color: #000 !important; }
+.hexgrid .cb-box { border-color: #000; }
+.chip { background: #fff !important; color: #000 !important; border-color: #000; }
+select { -webkit-appearance: none; appearance: none; background: none; }
+textarea { resize: none; overflow: visible; border-color: #999; }
+input::placeholder, textarea::placeholder { color: transparent; }
+.main-grid { grid-template-columns: 1.1fr 1fr 1fr; grid-template-areas: "c1 c2 c3" "c1 fire fire" "c1 equip feat"; gap: 6px; }
+.story-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+.backstory textarea { min-height: 420px; }
+.spell-grid { columns: 3; }
+.gun-head, .gun { grid-template-columns: 2fr 44px 1.3fr .9fr 34px 1.8fr 56px; }
+.gun .g-note { display: none; }
+.gun.empty .g-atk input, .gun.empty .g-dmg input { visibility: visible; }
+.chamber { width: 12px; height: 12px; }
+.equip-body textarea { min-height: 170px; }
+.features textarea { min-height: 150px; }
+.sp-level.no-slots .hexgrid::before { content: ""; }
+a[href]::after { content: ""; }
+
+/* scale the desktop layout onto Letter and tighten spacing so each tab fits one sheet */
+.page { zoom: 0.62; }
+.row { min-height: 20px; }
+.abilities { gap: 5px; }
+.abil-mod { font-size: 24px; }
+.text-box textarea { min-height: 80px; }
+.equip-body textarea { min-height: 150px; }
+.features textarea { min-height: 150px; }
+.firearms > textarea { min-height: 30px; }
+.imgdrop { min-height: 160px; }
+.backstory textarea { min-height: 520px; }
+.sp-line input[type=text] { min-height: 21px; }
+.spell-grid .sp-level { margin-bottom: 8px; }

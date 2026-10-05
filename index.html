@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>SSDNS Character Sheet · Six-Shooters &amp; Sorcery: Dust and Shadows</title>
+<link rel="stylesheet" href="assets/css/sheet.css">
+<link rel="stylesheet" href="assets/css/print.css" media="print">
+</head>
+<body>
+<noscript><p class="noscript">This character sheet needs JavaScript turned on.</p></noscript>
+
+<header class="appbar" id="appbar">
+  <div class="brand">
+    <img src="assets/images/revolver.png" alt="" class="brand-gun">
+    <div>
+      <div class="brand-title">Six-Shooters &amp; Sorcery</div>
+      <div class="brand-sub">Dust and Shadows · Character Sheet <span id="appVersion"></span></div>
+    </div>
+  </div>
+  <nav class="actions" aria-label="File">
+    <button type="button" class="btn" id="btnNew" title="Start a new character">New</button>
+    <button type="button" class="btn" id="btnOpen" title="Open a .ssdns file">Open</button>
+    <button type="button" class="btn btn-primary" id="btnSave" title="Save to your .ssdns file">Save</button>
+    <button type="button" class="btn" id="btnSaveAs" title="Save a copy under a new name">Save As</button>
+    <button type="button" class="btn" id="btnRestore" title="Backups kept in this browser">Restore</button>
+    <button type="button" class="btn" id="btnSaloon" title="Saloon games and your shards">Saloon</button>
+    <button type="button" class="btn" id="btnPrint" title="Print or save as PDF">Print</button>
+    <input type="file" id="fileInput" accept=".ssdns,application/json,.json" hidden>
+  </nav>
+</header>
+
+<div class="savebar" id="saveBar" role="status" aria-live="polite">
+  <span class="savebar-dot"></span><span id="saveText">Loading…</span>
+  <button type="button" class="linkbtn" id="saveBarAction" hidden></button>
+</div>
+
+<nav class="tabs" role="tablist" aria-label="Sheet pages">
+  <button type="button" role="tab" class="tab" id="tab-main" aria-controls="page-main" aria-selected="true">1 · Main</button>
+  <button type="button" role="tab" class="tab" id="tab-story" aria-controls="page-story" aria-selected="false">2 · Backstory</button>
+  <button type="button" role="tab" class="tab" id="tab-hex" aria-controls="page-hex" aria-selected="false">3 · Spells &amp; Hex Lead</button>
+</nav>
+
+<main id="sheet">
+
+<!-- ============================== PAGE 1 : MAIN ============================== -->
+<section class="page" id="page-main" role="tabpanel" aria-labelledby="tab-main">
+  <div class="topblock">
+    <div class="namebox">
+      <input type="text" data-f="character.name" id="charName" placeholder="Character name" autocomplete="off">
+      <label for="charName">Character Name</label>
+    </div>
+    <div class="topgrid">
+      <div class="tf tf-calling">
+        <div class="pair">
+          <select data-f="character.calling" id="selCalling"></select>
+          <input type="number" min="1" max="20" data-f="character.level" id="inLevel" class="lvl" aria-label="Level" inputmode="numeric">
+        </div>
+        <label for="selCalling">Calling &amp; Level</label>
+      </div>
+      <div class="tf"><select data-f="character.background" id="selBackground"></select><label for="selBackground">Background</label></div>
+      <div class="tf"><input type="text" data-f="character.player" id="inPlayer" autocomplete="off"><label for="inPlayer">Player Name</label></div>
+      <div class="tf tf-lineage">
+        <div class="pair">
+          <select data-f="character.lineage" id="selLineage"></select>
+          <select data-f="character.sublineage" id="selSublineage" aria-label="Sublineage"></select>
+        </div>
+        <label for="selLineage">Lineage · Sublineage</label>
+      </div>
+      <div class="tf"><select data-f="character.subclass" id="selSubclass"></select><label for="selSubclass">Subclass</label></div>
+      <div class="tf"><input type="number" min="0" data-f="character.xp" id="inXP" inputmode="numeric"><label for="inXP">Experience Points</label></div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <!-- column 1 -->
+    <div class="col col-1">
+      <div class="abil-and-skills">
+        <div class="abilities" id="abilities"></div>
+        <div class="stack">
+          <div class="box party-insp">
+            <div class="box-title">Party Inspiration</div>
+            <div class="checkgrid insp" id="inspGrid"></div>
+            <ul class="fine insp-rules">
+              <li><b>Advantage</b> — spend before the roll</li>
+              <li><b>Re-roll</b> — spend after the roll</li>
+              <li><b>+1d12 damage</b> on a hit</li>
+              <li><b>+1d8</b> on a DC check</li>
+              <li>Max 1 point per roll</li>
+            </ul>
+          </div>
+          <div class="pill"><input data-calc="profBonus" class="calc" inputmode="numeric" aria-label="Proficiency bonus"><span>Proficiency Bonus</span></div>
+          <div class="box"><div class="rows" id="saves"></div><div class="box-title bottom">Saving Throws</div></div>
+          <div class="box"><div class="rows" id="skills"></div><div class="box-title bottom">Skills</div></div>
+        </div>
+      </div>
+      <div class="pill wide"><input data-calc="passive" class="calc" inputmode="numeric" aria-label="Passive Wisdom (Perception)"><span>Passive Wisdom (Perception)</span></div>
+      <div class="box text-box">
+        <textarea data-f="character.proficienciesLanguages" rows="6" id="taProfs"></textarea>
+        <label class="box-title bottom" for="taProfs">Other Proficiencies &amp; Languages</label>
+      </div>
+    </div>
+
+    <!-- column 2 -->
+    <div class="col col-2">
+      <div class="box combat">
+        <div class="trio">
+          <div class="shield-box"><input data-calc="ac" class="calc big" inputmode="numeric" aria-label="Armor Class"><span>Armor Class</span></div>
+          <div class="sq-box"><input data-calc="initiative" class="calc big" aria-label="Initiative"><span>Initiative</span></div>
+          <div class="sq-box"><input type="number" data-f="character.speed" class="big" aria-label="Speed" inputmode="numeric"><span>Speed</span></div>
+        </div>
+        <p class="reminder"><b>Take Cover</b> is a <b>bonus action</b>: incoming ranged fire has disadvantage until you attack.</p>
+        <div class="armor-row">
+          <label>Armor <select data-f="character.armor" id="selArmor"></select></label>
+          <label class="chk"><input type="checkbox" data-f="character.shield"> Shield (+2)</label>
+        </div>
+        <div class="hp">
+          <div class="hp-max"><label for="inHPMax">Hit Point Maximum</label><input type="number" id="inHPMax" data-f="character.hpMax" inputmode="numeric"></div>
+          <div class="hp-cur"><input type="number" data-f="character.hpCurrent" id="inHPCur" inputmode="numeric"><label for="inHPCur">Current Hit Points</label></div>
+          <div class="hp-tmp"><input type="number" data-f="character.hpTemp" id="inHPTemp" inputmode="numeric"><label for="inHPTemp">Temporary Hit Points</label></div>
+        </div>
+        <div class="duo">
+          <div class="hd">
+            <div class="mini"><span>Total</span><input data-calc="hitDiceTotal" class="calc"></div>
+            <input type="text" data-f="character.hitDiceLeft" aria-label="Hit dice remaining" placeholder="left">
+            <span class="box-title bottom">Hit Dice</span>
+          </div>
+          <div class="ds">
+            <div class="ds-row"><span>Successes</span><span class="checkgrid" id="dsSuccess"></span></div>
+            <div class="ds-row"><span>Failures</span><span class="checkgrid" id="dsFail"></span></div>
+            <span class="box-title bottom">Death Saves</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- column 3 -->
+    <div class="col col-3">
+      <div class="box traits">
+        <div class="trait"><div class="trait-head"><label for="taPers">Personality Traits</label><button type="button" class="roll" data-roll="personality" title="Roll from your background table">Roll d8</button></div><textarea id="taPers" data-f="character.personality" rows="3"></textarea></div>
+        <div class="trait"><div class="trait-head"><label for="taIdeals">Ideals</label><button type="button" class="roll" data-roll="ideals">Roll d6</button></div><textarea id="taIdeals" data-f="character.ideals" rows="2"></textarea></div>
+        <div class="trait"><div class="trait-head"><label for="taBonds">Bonds</label><button type="button" class="roll" data-roll="bonds">Roll d6</button></div><textarea id="taBonds" data-f="character.bonds" rows="2"></textarea></div>
+        <div class="trait"><div class="trait-head"><label for="taFlaws">Flaws</label><button type="button" class="roll" data-roll="flaws">Roll d6</button></div><textarea id="taFlaws" data-f="character.flaws" rows="2"></textarea></div>
+      </div>
+    </div>
+
+    <!-- firearms: spans col 2-3 -->
+    <div class="box firearms span-23">
+      <div class="box-head"><h2>Firearms</h2><img src="assets/images/gunslinger-spot.png" alt="" class="spot"></div>
+      <div class="guns" id="guns"></div>
+      <div class="ammo-holster">
+        <div class="ammo">
+          <div class="sub-head"><h3>Ammo by caliber</h3><button type="button" class="btn sm" id="btnAddAmmo">+ Ammo</button></div>
+          <div id="ammoList" class="ammo-list"></div>
+        </div>
+        <div class="holster">
+          <div class="sub-head"><h3>Holster</h3></div>
+          <select data-f="character.holster" id="selHolster" aria-label="Holster"></select>
+          <label class="chk"><input type="checkbox" data-f="character.holsterActive"> Pistol rides in the rig (applies Init. and first shot)</label>
+          <label class="chk"><input type="checkbox" data-f="character.gunBelt"> Gun belt or bandolier (feeds Tactical Reload)</label>
+          <p class="fine" id="holsterInfo"></p>
+        </div>
+      </div>
+      <div class="explosives">
+        <div class="sub-head"><h3>Explosives</h3><button type="button" class="btn sm" id="btnAddExplosive">+ Explosive</button></div>
+        <div id="explosiveList" class="ammo-list"></div>
+        <p class="fine" id="explosiveInfo"></p>
+      </div>
+      <textarea data-f="character.attackNotes" rows="2" placeholder="Other attacks, blades, bows, thrown gear…" aria-label="Other attacks and notes"></textarea>
+    </div>
+
+    <!-- equipment + shards -->
+    <div class="box equipment span-2">
+      <div class="shards" id="shards"></div>
+      <div class="equip-body">
+        <div class="quickadd">
+          <input type="text" id="gearAdd" list="gearList" placeholder="Add gear from the PHB list…" aria-label="Add gear">
+          <button type="button" class="btn sm" id="btnGearAdd">Add</button>
+          <datalist id="gearList"></datalist>
+        </div>
+        <div class="quickadd kit-crosswalk">
+          <select id="selKitCrosswalk" aria-label="Starting kit crosswalk">
+            <option value="">Starting kit crosswalk…</option>
+          </select>
+          <button type="button" class="btn sm" id="btnKitAdd" title="Append this kit swap to Equipment">Add kit</button>
+        </div>
+        <textarea data-f="character.equipment" rows="9" id="taEquip"></textarea>
+        <label class="box-title bottom" for="taEquip">Equipment</label>
+        <div class="storyteller-kit" id="storytellerKit" hidden>
+          <div class="sub-head"><h3>Calling instrument</h3><span class="fine">Storyteller focus · see Storyteller Gear</span></div>
+          <div class="storyteller-row">
+            <label class="field"><span>Instrument</span>
+              <select data-f="character.instrument" id="selInstrument" aria-label="Calling instrument"></select>
+            </label>
+            <label class="field"><span>Quality</span>
+              <select data-f="character.instrumentQuality" id="selInstrumentQuality" aria-label="Instrument quality">
+                <option value="cheap">Cheap (Silver Springs / starting kit)</option>
+                <option value="quality">Quality (Whiskey Bend)</option>
+              </select>
+            </label>
+            <label class="field"><span>Strings / bow</span>
+              <select data-f="character.instrumentStrings" aria-label="Strings or bow">
+                <option value="plain">Plain (+0 Wear)</option>
+                <option value="quality">Quality (+1 Wear)</option>
+                <option value="cheap">Cheap (−1 Wear; snap on 1–2)</option>
+              </select>
+            </label>
+            <label class="field"><span>Case</span>
+              <select data-f="character.instrumentCase" aria-label="Instrument case">
+                <option value="none">None</option>
+                <option value="soft">Soft travel case (+1)</option>
+                <option value="hard">Hard travel case (+2)</option>
+              </select>
+            </label>
+            <label class="field"><span>Wear</span>
+              <select data-f="character.instrumentWear" aria-label="Instrument wear">
+                <option value="ok">Holding up</option>
+                <option value="played-in">Played in (+1 spell attacks)</option>
+                <option value="out-of-tune">Out of tune (disadv. concentration)</option>
+                <option value="broken">Broken (can&apos;t cast through it)</option>
+              </select>
+            </label>
+          </div>
+          <p class="fine" id="instrumentInfo"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="box features span-3">
+      <div class="feats">
+        <div class="sub-head"><h3>Feats</h3>
+          <select id="selFeatAdd" aria-label="Add a feat"></select>
+        </div>
+        <div id="featChips" class="chips"></div>
+      </div>
+      <textarea data-f="character.features" rows="9" id="taFeatures"></textarea>
+      <label class="box-title bottom" for="taFeatures">Features &amp; Traits</label>
+      <details class="ref" id="refPanel"><summary>From your picks (PHB reference)</summary><div id="refBody"></div></details>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PAGE 2 : BACKSTORY ============================== -->
+<section class="page" id="page-story" role="tabpanel" aria-labelledby="tab-story" hidden>
+  <div class="topblock">
+    <div class="namebox"><output data-mirror="character.name" class="mirror"></output><label>Character Name</label></div>
+    <div class="topgrid g3">
+      <div class="tf"><input type="text" data-f="character.age" id="inAge"><label for="inAge">Age</label></div>
+      <div class="tf"><input type="text" data-f="character.height" id="inHeight"><label for="inHeight">Height</label></div>
+      <div class="tf"><input type="text" data-f="character.weight" id="inWeight"><label for="inWeight">Weight</label></div>
+      <div class="tf"><input type="text" data-f="character.eyes" id="inEyes"><label for="inEyes">Eyes</label></div>
+      <div class="tf"><input type="text" data-f="character.skin" id="inSkin"><label for="inSkin">Skin</label></div>
+      <div class="tf"><input type="text" data-f="character.hair" id="inHair"><label for="inHair">Hair</label></div>
+    </div>
+  </div>
+  <div class="story-grid">
+    <div class="box portrait">
+      <div class="imgdrop" id="portraitDrop" data-img="character.portrait">
+        <img alt="Character portrait" hidden>
+        <span class="imgdrop-empty">Tap to add a picture</span>
+      </div>
+      <div class="imgbtns"><button type="button" class="btn sm" data-imgpick="character.portrait">Choose picture</button><button type="button" class="btn sm" data-imgclear="character.portrait">Remove</button></div>
+      <textarea data-f="character.appearance" rows="3" placeholder="Notes on looks, scars, clothes…" aria-label="Appearance notes"></textarea>
+      <span class="box-title bottom">Character Appearance</span>
+    </div>
+    <div class="box allies">
+      <div class="gang">
+        <div class="gang-name"><input type="text" data-f="character.gangName" id="inGang"><label for="inGang">Name</label></div>
+        <div class="imgdrop sym" data-img="character.gangSymbol"><img alt="Gang symbol" hidden><span class="imgdrop-empty">Symbol</span></div>
+      </div>
+      <div class="imgbtns"><button type="button" class="btn sm" data-imgpick="character.gangSymbol">Choose symbol</button><button type="button" class="btn sm" data-imgclear="character.gangSymbol">Remove</button></div>
+      <textarea data-f="character.allies" rows="9" id="taAllies"></textarea>
+      <label class="box-title bottom" for="taAllies">Allies, Gangs &amp; Companies</label>
+    </div>
+    <div class="box backstory"><textarea data-f="character.backstory" rows="16" id="taBackstory"></textarea><label class="box-title bottom" for="taBackstory">Character Backstory</label></div>
+    <div class="box addl"><textarea data-f="character.additionalFeatures" rows="10" id="taAddl"></textarea><label class="box-title bottom" for="taAddl">Additional Features &amp; Traits</label></div>
+    <div class="box treasure"><textarea data-f="character.treasure" rows="5" id="taTreasure"></textarea><label class="box-title bottom" for="taTreasure">Treasure</label></div>
+    <div class="box addiction" id="addiction">
+      <div class="box-head"><h2>Eldorite Addiction</h2><span class="draft-tag" title="From the DM-only Eldorite Consumption draft (v6, 2026-09-29), not the PHB">DM draft rule</span></div>
+      <div class="add-row">
+        <label class="chk big"><input type="checkbox" data-f="character.addiction.addicted"> Addicted</label>
+        <div class="num"><input type="number" min="0" data-f="character.addiction.daysWithout" id="inDays" inputmode="numeric"><label for="inDays">Days without a fix</label></div>
+      </div>
+      <div class="add-row">
+        <div class="num"><input type="number" min="0" data-f="character.addiction.uses" id="inUses" inputmode="numeric"><label for="inUses">Uses while addicted</label></div>
+        <div class="num"><output data-calc-out="addFloor" id="outFloor">0</output><label for="outFloor">Floor</label></div>
+        <div class="num"><input type="number" max="0" data-f="character.addiction.penalty" id="inPenalty" inputmode="numeric"><label for="inPenalty">WIS/INT/CHA penalty</label></div>
+      </div>
+      <div class="usecount" id="useTicks" aria-label="Use counter: every third use drops the floor"></div>
+      <div class="add-btns">
+        <button type="button" class="btn sm" id="btnMissDay">Missed a day (−1)</button>
+        <button type="button" class="btn sm" id="btnFix">Took a fix (+1 use)</button>
+      </div>
+      <div class="adjusted" id="adjusted"></div>
+      <p class="fine">Every 3rd use while addicted drops the floor by 1. A fix restores 1 point, once per day, never above the floor.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PAGE 3 : CASTER GUN & HEX LEAD ============================== -->
+<section class="page" id="page-hex" role="tabpanel" aria-labelledby="tab-hex" hidden>
+  <div class="topblock hexhead">
+    <div class="namebox"><output data-calc-out="castingCalling" class="mirror"></output><label>Casting Calling</label></div>
+    <div class="hexinfo">
+      <div class="tf"><select data-f="character.casterGun" id="selCasterGun"></select><label for="selCasterGun">Caster Gun (model)</label></div>
+      <div class="tf"><select data-f="character.hexRest" id="selHexRest">
+        <option value="">Auto (by Calling)</option><option value="short">Short rest</option><option value="long">Long rest</option></select>
+        <label for="selHexRest">Hex Lead refreshes on <b id="restAuto"></b></label></div>
+      <div class="hexstats">
+        <div class="sq-box"><output data-calc-out="spellAbility"></output><span>Casting Ability</span></div>
+        <div class="sq-box"><input data-calc="spellDC" class="calc big"><span>Spell Save DC</span></div>
+        <div class="sq-box"><input data-calc="spellAtk" class="calc big"><span>Spell Attack</span></div>
+      </div>
+    </div>
+    <img src="assets/images/caster-gun.png" alt="" class="hex-art">
+  </div>
+  <div class="restbar">
+    <button type="button" class="btn sm" id="btnShortRest">Short rest</button>
+    <button type="button" class="btn sm" id="btnLongRest">Long rest</button>
+    <span class="fine" id="gunNote"></span>
+  </div>
+  <div class="spellbook-empty" id="spellbookEmpty" hidden>
+    <p><b>No spellcasting.</b> This Calling doesn't cast. Hex Lead shells and the spell list stay blank until you pick a casting Calling (or a Martial Artist tradition that casts).</p>
+  </div>
+  <div class="spellbook-bar" id="spellbookBar" hidden>
+    <input type="search" id="spellSearch" placeholder="Filter spells…" aria-label="Filter spells" autocomplete="off">
+    <button type="button" class="btn sm" id="btnAddSpell">+ Add from list</button>
+    <span class="fine" id="spellLimits"></span>
+  </div>
+  <div class="spell-picker" id="spellPicker" hidden>
+    <div class="spell-picker-head">
+      <b>Your Calling's spell list</b>
+      <button type="button" class="btn sm ghost" id="btnClosePicker">Close</button>
+    </div>
+    <div class="spell-picker-levels" id="spellPickerLevels"></div>
+    <div class="spell-picker-list" id="spellPickerList" role="listbox"></div>
+  </div>
+  <div class="spell-grid" id="spellGrid"></div>
+  <details class="box wild"><summary>Wild spark (hex misfire) · d6</summary><ol id="wildList"></ol></details>
+</section>
+</main>
+
+<div class="drop-overlay" id="dropOverlay"><div>Drop a <b>.ssdns</b> file to open it</div></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toastText"></span><button type="button" class="linkbtn" id="toastAction" hidden></button></div>
+
+<dialog id="dlgRestore" class="dlg">
+  <form method="dialog">
+    <h2>Restore</h2>
+    <p class="fine">Backups are kept in this browser: the last 10 versions of each character. Restoring keeps a copy of what you have now first.</p>
+    <div id="restoreList"></div>
+    <h3>Other characters in this browser</h3>
+    <div id="charList"></div>
+    <div class="dlg-foot"><button class="btn" value="close">Close</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlgSaloon" class="dlg">
+  <form method="dialog">
+    <h2>The Saloon</h2>
+    <p class="fine">Your shards live in this character file under <code>shards</code>. A game opened from the same place (same folder on this computer, or the same website) can read and change them through <code>localStorage["ssdns.v1.wallet"]</code>. The three games below are wired in: they show a "Linked to …" banner, use your shards as chips (1 chip = 1 ES), and write wins and losses back here. Save afterwards to keep the change in your file.</p>
+    <div class="shards mini" id="saloonShards"></div>
+    <div class="games" id="gameList"></div>
+    <div class="dlg-foot"><button class="btn" value="close">Close</button></div>
+  </form>
+</dialog>
+
+<script src="assets/data/rules.js"></script>
+<script src="assets/js/ssdns-bridge.js"></script>
+<script src="assets/js/storage.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
