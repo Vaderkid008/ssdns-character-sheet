@@ -208,20 +208,48 @@
     } catch (e) { console.warn("[DM Join] roll", e); }
   }
 
+  function seenStorageKey() {
+    return "ssdns.v1.dmJoin.seen." + state.roomCode + "." + state.uid;
+  }
+  function loadSeen() {
+    state.lastCmdSeen = {};
+    try {
+      var raw = localStorage.getItem(seenStorageKey());
+      if (!raw) return false;
+      state.lastCmdSeen = JSON.parse(raw) || {};
+      return true;
+    } catch (e) { return false; }
+  }
+  function saveSeen() {
+    var keys = Object.keys(state.lastCmdSeen);
+    if (keys.length > 500) keys.slice(0, keys.length - 300).forEach(function (k) { delete state.lastCmdSeen[k]; });
+    try { localStorage.setItem(seenStorageKey(), JSON.stringify(state.lastCmdSeen)); } catch (e) {}
+  }
   function listenCommands() {
     var fb = state._fb;
     var r = fb.ref(state.db, roomPath("commands"));
+    var hadSeen = loadSeen();
+    var first = true;
     var cb = fb.onValue(r, function (snap) {
       var val = snap.val() || {};
+      // First Join after this fix: ES rewards already in the room were applied
+      // to the wallet and adopted on refresh. Mark them seen so they don't add again.
+      var skipExistingEs = first && !hadSeen;
+      first = false;
       Object.keys(val).forEach(function (id) {
         if (state.lastCmdSeen[id]) return;
         var cmd = val[id];
         if (!cmd) return;
-        // addressed to me or all
         if (cmd.to && cmd.to !== "all" && cmd.to !== state.uid) return;
-        state.lastCmdSeen[id] = true;
-        handleCommand(cmd);
+        if (skipExistingEs && cmd.type === "reward_es") {
+          state.lastCmdSeen[id] = 1;
+          return;
+        }
+        state.lastCmdSeen[id] = 1;
+        saveSeen();
+        try { handleCommand(cmd); } catch (err) { console.warn("[DM Join] command", err); }
       });
+      if (skipExistingEs) saveSeen();
     });
     state.unsubs.push(function () { fb.off(r, "value", cb); });
   }
@@ -267,39 +295,42 @@
     }
   }
 
+  function syncShardFields(shards) {
+    ["white", "blue", "green", "yellow", "purple"].forEach(function (c) {
+      var nodes = document.querySelectorAll('[data-f="shards.' + c + '"]');
+      var n = (shards && shards[c]) || 0;
+      for (var i = 0; i < nodes.length; i++) nodes[i].value = String(n);
+      // Same path as typing the shard count: paints both piles, the ES total, and saves.
+      if (nodes[0]) nodes[0].dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
   function applyEsReward(delta, reason) {
     var Bridge = root.SSDNSBridge;
     var d = doc();
-    if (!Bridge || !d) return;
-    var old = Bridge.cpValue(d.shards);
-    var w = Bridge.applyDelta(delta, "dm-reward");
-    if (!w) {
-      // applyDelta needs wallet; ensure wallet then retry
-      try {
-        Bridge.writeWallet({
-          characterId: d.id,
-          characterName: (d.character && d.character.name) || "",
-          shards: d.shards,
-          updatedBy: "sheet"
-        });
-        w = Bridge.applyDelta(delta, "dm-reward");
-      } catch (e) {}
-    }
-    if (w) {
-      d.shards = w.shards;
-      // trigger sheet save path if exposed
-      try {
-        if (root.SSDNSApp && root.SSDNSApp.state) {
-          // force a field re-render by dispatching a fake event is hard; poke wallet listener
+    if (!Bridge || !d || !delta) return;
+    state.applyingReward = true;
+    try {
+      var old = Bridge.cpValue(d.shards);
+      var w = Bridge.applyDelta(delta, "dm-reward");
+      if (!w) {
+        try {
           Bridge.writeWallet({
             characterId: d.id,
             characterName: (d.character && d.character.name) || "",
             shards: d.shards,
-            updatedBy: "dm-reward"
+            updatedBy: "sheet"
           });
-        }
-      } catch (e) {}
+          w = Bridge.applyDelta(delta, "dm-reward");
+        } catch (e) {}
+      }
+      if (!w) {
+        toast("Could not apply DM ES change");
+        return;
+      }
+      d.shards = w.shards;
+      syncShardFields(w.shards);
       var neu = Bridge.cpValue(d.shards);
+      state.lastEs = neu;
       postLedger({
         type: "dm_push",
         what: reason + " (" + (delta >= 0 ? "+" : "") + delta + " ES)",
@@ -310,17 +341,22 @@
       });
       toast("DM " + (delta >= 0 ? "granted +" : "took ") + Math.abs(delta) + " ES");
       publishSnapshot();
-    } else {
-      toast("Could not apply DM ES change");
+    } finally {
+      state.applyingReward = false;
     }
   }
 
   function appendEquipment(text) {
     var d = doc();
     if (!d || !d.character || !text) return;
-    d.character.equipment = (d.character.equipment || "") + (d.character.equipment ? "\n" : "") + "• " + text + " (from DM)";
+    var line = "• " + text + " (from DM)";
+    var cur = d.character.equipment || "";
+    d.character.equipment = cur + (cur ? "\n" : "") + line;
     var ta = document.querySelector('[data-f="character.equipment"]');
-    if (ta) { ta.value = d.character.equipment; }
+    if (ta) {
+      ta.value = d.character.equipment;
+      ta.dispatchEvent(new Event("change", { bubbles: true }));
+    }
     publishSnapshot();
     postLedger({
       type: "dm_push", what: "Item: " + text, oldVal: null, newVal: text, flag: false, who: "DM"
@@ -358,16 +394,15 @@
 
   function watchEs() {
     // Poll ES while joined (catches Saloon wallet + manual shard edits)
-    var last = state.lastEs;
     setInterval(function () {
-      if (!state.joined) return;
+      if (!state.joined || state.applyingReward) return;
       var d = doc();
       var Bridge = root.SSDNSBridge;
       if (!d || !Bridge) return;
       var es = Bridge.cpValue(d.shards);
-      if (last == null) { last = es; state.lastEs = es; return; }
-      if (es !== last) {
-        var delta = es - last;
+      if (state.lastEs == null) { state.lastEs = es; return; }
+      if (es !== state.lastEs) {
+        var delta = es - state.lastEs;
         var by = "manual";
         try {
           var w = Bridge.readWallet();
@@ -376,12 +411,11 @@
         postLedger({
           type: delta >= 0 ? "es_gain" : "es_spend",
           what: (by.indexOf("saloon") === 0 ? "Saloon · " + by.slice(7) : "ES change") + " (" + (delta >= 0 ? "+" : "") + delta + ")",
-          oldVal: last,
+          oldVal: state.lastEs,
           newVal: es,
           flag: Math.abs(delta) >= BIG_JUMP,
           who: (d.character && d.character.player) || (d.character && d.character.name) || "Player"
         });
-        last = es;
         state.lastEs = es;
         publishSnapshot();
       }
