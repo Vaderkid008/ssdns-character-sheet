@@ -36,6 +36,15 @@
   <button type="button" class="linkbtn" id="saveBarAction" hidden></button>
 </div>
 
+
+<div class="dm-join-bar" id="dmJoinBar" role="region" aria-label="Join DM room">
+  <span class="dm-join-label">Table</span>
+  <input type="text" id="dmJoinCode" placeholder="DUST-4821" autocomplete="off" spellcheck="false" aria-label="Room code" maxlength="12">
+  <button type="button" class="btn sm" id="btnDmJoin">Join</button>
+  <button type="button" class="btn sm" id="btnDmLeave" hidden>Leave</button>
+  <span class="dm-join-status" id="dmJoinStatus">Not in a room</span>
+</div>
+
 <nav class="tabs" role="tablist" aria-label="Sheet pages">
   <button type="button" role="tab" class="tab" id="tab-main" aria-controls="page-main" aria-selected="true">1 · Main</button>
   <button type="button" role="tab" class="tab" id="tab-story" aria-controls="page-story" aria-selected="false">2 · Backstory</button>
@@ -368,6 +377,8 @@
 <script src="assets/data/rules.js"></script>
 <script src="assets/js/ssdns-bridge.js"></script>
 <script src="assets/js/storage.js"></script>
+<script src="assets/js/firebase-config.js"></script>
 <script src="assets/js/app.js"></script>
+<script src="assets/js/dm-join.js"></script>
 </body>
 </html>

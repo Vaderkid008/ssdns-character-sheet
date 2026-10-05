@@ -2,7 +2,7 @@
 @page { size: letter; margin: 9mm; }
 html, body { background: #fff !important; }
 body { font-size: 10.5pt; }
-.appbar, .savebar, .tabs, .toast, .drop-overlay, .dlg, .btn, .roll, .reload, .quickadd, .imgbtns, .restbar .btn, #selFeatAdd, .chip-x, .ref, .wild summary + ol:empty, #btnAddAmmo { display: none !important; }
+.appbar, .savebar, .dm-join-bar, .tabs, .toast, .drop-overlay, .dlg, .btn, .roll, .reload, .quickadd, .imgbtns, .restbar .btn, #selFeatAdd, .chip-x, .ref, .wild summary + ol:empty, #btnAddAmmo { display: none !important; }
 main { padding: 0 !important; }
 .page { display: block !important; max-width: none; box-shadow: none !important; padding: 0 !important; background: none !important; break-after: page; page-break-after: always; }
 .page:last-child { break-after: auto; page-break-after: auto; }
