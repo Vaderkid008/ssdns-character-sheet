@@ -186,6 +186,7 @@
       hpMax: c.hpMax,
       hpTemp: c.hpTemp || 0,
       ac: v.ac,
+      initBonus: v.initiative,
       es: es,
       shards: Bridge ? Bridge.cleanShards(d.shards) : d.shards,
       abilities: c.abilities || {},
@@ -197,6 +198,7 @@
       personality: c.personality || "",
       guns: guns,
       conditions: c.tableConditions || "",
+      activeConditions: c.activeConditions || [],
       deathSaves: c.deathSaves || { success: [false, false, false], fail: [false, false, false] },
       spellAtk: v.spellAtk || "",
       spellDC: v.spellDC || "",
@@ -222,7 +224,9 @@
     var appMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
     var authMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js");
     var dbMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js");
-    var app = appMod.initializeApp(cfg, "ssdns-player-join");
+    var app;
+    try { app = appMod.getApp("ssdns-player-join"); }
+    catch (e) { app = appMod.initializeApp(cfg, "ssdns-player-join"); }
     var auth = authMod.getAuth(app);
     await authMod.signInAnonymously(auth);
     var user = await new Promise(function (resolve, reject) {
@@ -361,7 +365,10 @@
     if (!failed.length && q.length) toast("Queued messages sent");
   }
   function rollText(entry) {
-    return (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result == null ? "" : entry.result) + (entry.detail ? " (" + entry.detail + ")" : "");
+    var detail = String((entry && entry.detail) || "");
+    if (entry && (entry.heal || /\bheals\b/i.test(detail))) return detail;
+    if (/→\s*(HIT|MISS)/.test(detail)) return detail;
+    return (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result == null ? "" : entry.result) + (detail ? " (" + detail + ")" : "");
   }
   async function writeRoll(entry) {
     if (!state.joined || state.left || !state.db) return;
@@ -428,6 +435,8 @@
       amount: Number(entry.amount) || 0,
       label: entry.label || "",
       type: entry.type || "weapon",
+      dice: entry.dice || "",
+      weapon: entry.weapon || "",
       characterName: (c && c.name) || "",
       playerName: (c && c.player) || "",
       rollId: entry.rollId || "",
@@ -523,6 +532,80 @@
     // commands is DM-only. Players already get the broadcast copy and their inbox copy.
     bind("broadcast");
     bind("inbox/" + state.uid);
+    listenConditions();
+  }
+  function writeCondition(entry, removing) {
+    if (!state.joined || !state.db || !state.uid || !state._fb) return Promise.resolve({ ok: false });
+    var id = (entry && entry.id) || (root.SSDNSConditions && root.SSDNSConditions.idFor(state.uid, entry && entry.name));
+    if (!id) return Promise.resolve({ ok: false });
+    var ref = state._fb.ref(state.db, roomPath("conditions/" + id));
+    if (removing) return state._fb.remove(ref).then(function () { return { ok: true }; }).catch(function () { return { ok: false }; });
+    var row = {
+      name: entry.name,
+      level: entry.level || 0,
+      rounds: entry.rounds == null ? null : entry.rounds,
+      subjectId: state.uid,
+      subjectKind: "player",
+      by: state.uid,
+      byName: (doc() && doc().character && doc().character.name) || "",
+      updatedAt: new Date().toISOString(),
+      active: true
+    };
+    return state._fb.set(ref, row).then(function () { return { ok: true }; }).catch(function () { return { ok: false }; });
+  }
+  function listenConditions() {
+    if (!state._fb || !state.db || state._condListening) return;
+    state._condListening = true;
+    state._condSeen = {};
+    var ref = state._fb.ref(state.db, roomPath("conditions"));
+    var unsub = state._fb.onValue(ref, function (snap) {
+      if (!state.joined) return;
+      var val = snap.val() || {};
+      var mine = [];
+      var primed = !!state._condPrimed;
+      Object.keys(val).forEach(function (id) {
+        var row = val[id];
+        if (!row || row.subjectId !== state.uid || row.subjectKind === "enemy") return;
+        row.id = id;
+        mine.push(row);
+        var stamp = id + ":" + (row.updatedAt || "") + ":" + (row.level || 0) + ":" + (row.rounds == null ? "" : row.rounds);
+        var seen = state._condSeen[id];
+        var seenStamp = seen && seen.stamp;
+        if (!seen) {
+          state._condSeen[id] = { stamp: stamp, label: root.SSDNSConditions ? root.SSDNSConditions.label(row) : row.name, rounds: row.rounds };
+          if (primed && row.by && row.by !== state.uid && root.SSDNSSheet) {
+            var line = (row.byName || "DM") + " applied " + (root.SSDNSConditions ? root.SSDNSConditions.label(row) : row.name);
+            root.SSDNSSheet.addLog({ id: "cond:" + stamp, kind: "alert", text: line });
+            toast(line);
+          }
+          return;
+        }
+        if (seenStamp !== stamp) {
+          state._condSeen[id] = { stamp: stamp, label: root.SSDNSConditions ? root.SSDNSConditions.label(row) : row.name, rounds: row.rounds };
+          if (primed && row.by && row.by !== state.uid && root.SSDNSSheet) {
+            var changed = (row.byName || "DM") + " updated " + (root.SSDNSConditions ? root.SSDNSConditions.label(row) : row.name);
+            root.SSDNSSheet.addLog({ id: "cond:" + stamp, kind: "alert", text: changed });
+            toast(changed);
+          }
+        }
+      });
+      Object.keys(state._condSeen).forEach(function (id) {
+        if (val[id]) return;
+        var gone = state._condSeen[id];
+        delete state._condSeen[id];
+        if (primed && gone && root.SSDNSSheet) {
+          var ended = gone.rounds === 1;
+          var note = ended ? ("Condition ended · " + (gone.label || "condition")) : ("DM removed " + (gone.label || "a condition"));
+          root.SSDNSSheet.addLog({ id: "cond-end:" + id + ":" + (gone.stamp || ""), kind: "alert", text: note });
+          toast(note);
+        }
+      });
+      if (root.SSDNSSheet && root.SSDNSSheet.setConditions) {
+        root.SSDNSSheet.setConditions(mine.map(function (row) { return root.SSDNSConditions ? root.SSDNSConditions.label(row) : row.name; }), { entries: mine, quiet: true });
+      }
+      state._condPrimed = true;
+    });
+    state.unsubs.push(typeof unsub === "function" ? unsub : function () {});
   }
 
   function handleCommand(cmd) {
@@ -576,7 +659,7 @@
         applyHpCommand(payload, payload.grantId || cmd.id);
         break;
       case "set_conditions":
-        if (root.SSDNSSheet) root.SSDNSSheet.setConditions(payload.list || []);
+        if (root.SSDNSSheet && root.SSDNSSheet.setConditions) root.SSDNSSheet.setConditions(payload.list || [], payload);
         break;
       case "rest":
         if (root.SSDNSSheet) root.SSDNSSheet.applyRest(payload.kind || "short");
@@ -824,9 +907,19 @@
   function ackTurn(cmd) {
     if (!state.joined || state.left || !state.db || !state.uid || !state._fb) return;
     var fb = state._fb;
+    var seen = !!(root.document && root.document.visibilityState === "visible");
+    state._turnAck = { id: (cmd && cmd.id) || "", delivered: true, seen: seen };
     fb.update(fb.ref(state.db, roomPath("players/" + state.uid)), {
-      turnAck: { id: (cmd && cmd.id) || "", seen: true, ts: new Date().toISOString() }
+      turnAck: { id: state._turnAck.id, delivered: true, seen: seen, ts: new Date().toISOString() }
     }).catch(function (err) { console.warn("[DM Join] turn ack", err); });
+  }
+  function upgradeTurnSeen() {
+    if (!state._turnAck || state._turnAck.seen || !state.joined || !state.db || !state.uid) return;
+    if (!root.document || root.document.visibilityState !== "visible") return;
+    state._turnAck.seen = true;
+    state._fb.update(state._fb.ref(state.db, roomPath("players/" + state.uid + "/turnAck")), {
+      seen: true, delivered: true, ts: new Date().toISOString()
+    }).catch(function () {});
   }
   function applyHpCommand(payload, id, replay) {
     var delta = Number(payload.delta);
@@ -834,7 +927,7 @@
     if (!delta || !root.SSDNSSheet) return;
     var grant = id ? ("hp:" + (payload.grantId || id)) : "";
     var kind = payload.kind || (delta < 0 ? "damage" : "heal");
-    var text = "DM " + kind + " " + Math.abs(delta) + (payload.formula ? " (" + payload.formula + ")" : "");
+    var text = payload.text || ("DM " + kind + " " + Math.abs(delta) + (payload.formula ? " (" + payload.formula + ")" : ""));
     if (grant && !claimGrant(grant)) {
       if (replay && root.SSDNSSheet.flashHp) root.SSDNSSheet.flashHp(text);
       else if (replay) toast(text);
@@ -979,7 +1072,9 @@
         if (chatPrimed && row.from === state.uid) return;
         var who = row.fromName || "Table";
         if (row.to && row.to !== "all") who += " (to you)";
-        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "chat:" + id, kind: "chat", text: who + ": " + (row.text || ""), ts: row.ts });
+        var chatText = row.text || "";
+        if (chatText.indexOf(who) !== 0) chatText = who + ": " + chatText;
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "chat:" + id, kind: "chat", text: chatText, ts: row.ts });
       });
       chatPrimed = true;
     });
@@ -992,7 +1087,9 @@
         var own = row.from === state.uid;
         var ts = Date.parse(row.ts);
         if (!own && (!ts || ts <= (state.marker || 0))) return;
-        var text = own ? (row.text || "") : ((row.who || row.fromName || "Table") + ": " + (row.text || ""));
+        var speaker = row.who || row.fromName || "Table";
+        var text = row.text || "";
+        if (!own && text.indexOf(speaker) !== 0) text = speaker + ": " + text;
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: (row.kind === "roll" ? "roll:" : "feed:") + id, kind: row.kind === "roll" ? "roll" : "chat", text: text, ts: row.ts });
       });
     });
@@ -1152,8 +1249,19 @@
     if (state.readOnly) { toast("This tab is read-only. The character is open in another tab."); return; }
     code = String(code || "").trim().toUpperCase();
     if (!code) { toast("Enter a room code"); return; }
+    if (state._joining && state._joiningCode === code) return state._joining;
     state.left = false;
-    var epoch = ++state.joinEpoch;
+    var epoch = state.joinEpoch;
+    if (!(state.joined && state.roomCode === code)) epoch = ++state.joinEpoch;
+    state._joiningCode = code;
+    var status = $("#dmJoinStatus");
+    if (status) status.textContent = "Connecting…";
+    var run = joinNow(code, epoch);
+    state._joining = run;
+    try { return await run; }
+    finally { if (state._joining === run) state._joining = null; }
+  }
+  async function joinNow(code, epoch) {
     var input = $("#dmJoinCode");
     if (input) input.value = code;
     state.roomCode = code;
@@ -1308,16 +1416,24 @@
       leave: leave,
       abandon: abandon,
       claimGrant: claimGrant,
-      isReadOnly: function () { return !!state.readOnly; }
+      isReadOnly: function () { return !!state.readOnly; },
+      writeCondition: writeCondition,
+      takeOverEditing: takeOverEditing
     };
   }
 
   function wireUi() {
     var btnJoin = $("#btnDmJoin");
     var btnLeave = $("#btnDmLeave");
-    if (btnJoin) btnJoin.addEventListener("click", function () {
-      join(($("#dmJoinCode") && $("#dmJoinCode").value) || "");
-    });
+    if (btnJoin) {
+      btnJoin.addEventListener("pointerdown", function () {
+        var status = $("#dmJoinStatus");
+        if (status && !state.joined) status.textContent = "Connecting…";
+      });
+      btnJoin.addEventListener("click", function () {
+        join(($("#dmJoinCode") && $("#dmJoinCode").value) || "");
+      });
+    }
     if (btnLeave) btnLeave.addEventListener("click", function () {
       var ask = root.SSDNSAsk && root.SSDNSAsk.confirm
         ? root.SSDNSAsk.confirm("Leave the table? Your sheet stays on this device.")
@@ -1354,12 +1470,29 @@
     return !lockHeldByOther();
   }
   function refreshJoinLock() {
+    if (lockHeldByOther()) {
+      showReadOnly();
+      return;
+    }
     if (state.readOnly) return;
     claimJoinLock();
+  }
+  function lockSheet(on) {
+    var sheet = $("#sheet");
+    if (sheet) {
+      if (on) sheet.setAttribute("inert", "");
+      else sheet.removeAttribute("inert");
+    }
+    var nodes = document.querySelectorAll("#sheet input, #sheet select, #sheet textarea, #sheet button, .appbar button, #dmJoinBar button, #dmJoinBar input");
+    Array.prototype.forEach.call(nodes, function (node) {
+      if (node.closest && node.closest(".tab-warn")) return;
+      node.disabled = !!on;
+    });
   }
   function showReadOnly() {
     state.readOnly = true;
     document.body.classList.add("sheet-readonly");
+    lockSheet(true);
     var btn = $("#btnDmJoin");
     if (btn) btn.disabled = true;
     var b = $("#tabWarn");
@@ -1369,14 +1502,44 @@
       b.className = "tab-warn";
       document.body.appendChild(b);
     }
-    b.textContent = "Another tab has this character open. Only one tab joins the table.";
+    b.innerHTML = "";
+    b.appendChild(document.createTextNode("Another tab has this character open. Only one tab joins the table. "));
+    var take = document.createElement("button");
+    take.type = "button";
+    take.className = "btn sm";
+    take.id = "btnTakeOver";
+    take.textContent = "Take over editing";
+    take.addEventListener("click", function () { takeOverEditing(); });
+    b.appendChild(take);
     b.hidden = false;
+  }
+  function clearReadOnly() {
+    state.readOnly = false;
+    document.body.classList.remove("sheet-readonly");
+    lockSheet(false);
+    var btn = $("#btnDmJoin");
+    if (btn) btn.disabled = false;
+    var b = $("#tabWarn");
+    if (b) b.hidden = true;
+  }
+  function takeOverEditing() {
+    try {
+      localStorage.setItem(LOCK_KEY, JSON.stringify({ tab: state.tabId, characterId: characterId(), ts: Date.now() }));
+    } catch (e) {}
+    clearReadOnly();
+    claimJoinLock();
   }
   function bootWhenReady() {
     hookRollHelper();
     wireUi();
     setUiJoined(false);
     setInterval(refreshJoinLock, 2000);
+    window.addEventListener("storage", function (e) {
+      if (!e || e.key !== LOCK_KEY) return;
+      if (lockHeldByOther()) showReadOnly();
+      else if (state.readOnly) clearReadOnly();
+    });
+    document.addEventListener("visibilitychange", upgradeTurnSeen);
     var tries = 0;
     var t = setInterval(function () {
       tries++;

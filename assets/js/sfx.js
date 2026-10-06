@@ -224,9 +224,14 @@
       dlg.innerHTML = "<form method='dialog'><p></p><div class='dlg-foot'><button class='btn' type='button' value='no'>No</button><button class='btn' type='submit' value='yes'>Yes</button></div></form>";
       dlg.querySelector("p").textContent = message || "";
       var settled = false;
+      var sheet = root.document.getElementById("sheet");
+      root.document.body.classList.add("ask-open");
+      if (sheet) sheet.setAttribute("inert", "");
       function finish(ok) {
         if (settled) return;
         settled = true;
+        root.document.body.classList.remove("ask-open");
+        if (sheet) sheet.removeAttribute("inert");
         try { if (dlg.close) dlg.close(); } catch (e) {}
         if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
         resolve(!!ok);

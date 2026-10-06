@@ -139,6 +139,20 @@ input:focus, select:focus, textarea:focus { outline: none; background: var(--fil
 .topgrid .tf-calling { grid-column: 1 / -1; position: relative; z-index: 3; }
 .kit-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; position: relative; z-index: 4; }
 .hp.hp-flash { animation: hpflash 2.6s ease; }
+.hp.hp-heal { animation: hpheal 2.6s ease; }
+@keyframes hpheal {
+  0%, 55% { background: #2f7d4a; color: #fff; box-shadow: 0 0 0 3px #3fa866; }
+  100% { background: var(--fill-hi); color: inherit; box-shadow: none; }
+}
+body.ask-open #sheet, body.wizard-open #sheet, body.ask-open .appbar, body.wizard-open .appbar { pointer-events: none; }
+body.ask-open dialog, body.wizard-open dialog { pointer-events: auto; }
+.ssdns-wizard { width: min(640px, 94vw); max-height: 86vh; overflow: auto; }
+.wiz-body { display: flex; flex-direction: column; gap: 8px; }
+.wiz-field { display: flex; flex-direction: column; gap: 4px; }
+.wiz-err { color: #8d2b22; }
+.cond-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cond-levels, .cond-head { display: flex; flex-wrap: wrap; gap: 6px; }
+.turn-badge { display: inline-flex; width: 1.6em; height: 1.6em; align-items: center; justify-content: center; border-radius: 50%; background: #3a2a1c; color: #f3e6cf; font-size: 11px; }
 @keyframes hpflash {
   0%, 55% { background: #c4322a; color: #fff; box-shadow: 0 0 0 3px #e24a3c; }
   100% { background: var(--fill-hi); color: inherit; box-shadow: none; }

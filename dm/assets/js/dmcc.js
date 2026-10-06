@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.11"; // dmcc-round8-v0211
+const VERSION = "0.2.12"; // dmcc-round9-v0212
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -803,6 +803,17 @@ function playerOptions(includeAll) {
 const UI_FIELDS = ["rewTarget", "rewType", "rewEs", "rewReason", "rewText", "rewQty", "msgTarget", "msgText", "hoName", "hoUrl", "hoText", "hoTarget", "inRoomName", "inDmName", "selForcePlayer"];
 const uiMemory = {};
 let uiTab = "tab-table";
+try { uiTab = sessionStorage.getItem("ssdns.dm.uiTab") || uiTab; } catch (e) {}
+function applyActiveTab() {
+  const decided = window.SSDNSUiTab ? window.SSDNSUiTab.nextTab(uiTab, { type: "click", tab: uiTab }) : uiTab;
+  uiTab = decided || "tab-table";
+  const tab = document.getElementById(uiTab);
+  if (!tab) return;
+  $$(".tab").forEach((t) => t.setAttribute("aria-selected", t.id === uiTab ? "true" : "false"));
+  $$(".panel").forEach((p) => { p.hidden = true; });
+  const panel = document.getElementById(tab.getAttribute("aria-controls"));
+  if (panel) panel.hidden = false;
+}
 function rememberUi() {
   UI_FIELDS.forEach((id) => {
     const el = document.getElementById(id);
@@ -810,16 +821,7 @@ function rememberUi() {
   });
 }
 function restoreUi() {
-  if (uiTab) {
-    const tab = document.getElementById(uiTab);
-    if (tab && tab.getAttribute("aria-selected") !== "true") {
-      $$(".tab").forEach((t) => t.setAttribute("aria-selected", "false"));
-      tab.setAttribute("aria-selected", "true");
-      $$(".panel").forEach((p) => { p.hidden = true; });
-      const panel = $("#" + tab.getAttribute("aria-controls"));
-      if (panel) panel.hidden = false;
-    }
-  }
+  applyActiveTab();
   UI_FIELDS.forEach((id) => {
     const el = document.getElementById(id);
     const value = uiMemory[id];
@@ -975,13 +977,17 @@ function rollAc(r) {
 }
 function rollDetail(r) {
   let detail = String((r && r.detail) || "");
+  const heal = !!(r && (r.heal || r.type === "heal" || /\bheals\b/i.test(detail)));
+  if (heal) return detail.replace(/\s*vs AC\s*\d+/gi, "");
   const ac = rollAc(r);
-  if (ac == null || detail.indexOf("vs AC") >= 0) return detail;
+  const attack = !!(r && (r.attack || /→\s*(HIT|MISS)/.test(detail)));
+  if (!attack || ac == null || detail.indexOf("vs AC") >= 0) return detail;
   if (/ → (HIT|MISS)/.test(detail)) return detail.replace(/ → (HIT|MISS)/, " vs AC " + ac + " → $1");
-  return detail ? detail + " vs AC " + ac : detail;
+  return detail;
 }
 function rollBody(r) {
   const detail = rollDetail(r);
+  if (r && (r.heal || /\bheals\b/i.test(detail))) return detail;
   if (detail && /→\s*(HIT|MISS)/.test(detail)) return detail;
   const formula = r && r.formula ? String(r.formula) + " = " + (r.result ?? "") : "";
   const head = ((r && r.label) || "Roll") + (formula ? " · " + formula : "");
@@ -990,9 +996,10 @@ function rollBody(r) {
 function hitApplyButton(r) {
   const amt = Number(r && r.damage);
   if (!r || !r.id || !isFinite(amt) || amt <= 0) return "";
-  if (r.nat === 1 || /→\s*MISS/.test(String(r.detail || ""))) return "";
+  const heal = !!(r.heal || /\bheals\b/i.test(String(r.detail || "")));
+  if (!heal && (r.nat === 1 || /→\s*MISS/.test(String(r.detail || "")))) return "";
   const name = r.targetName || "";
-  const applied = !!r.applied;
+  const applied = !!(r.applied || (window.SSDNSApplied && window.SSDNSApplied.has && window.SSDNSApplied.has(state.roomCode, r.id)));
   const label = applied ? ("Applied " + amt + (name ? " → " + name : "")) : ("Apply " + amt + (name ? " → " + name : ""));
   return `<button type="button" class="btn sm" data-apply-hit="${esc(r.id)}"${applied ? " disabled" : ""}>${esc(label)}</button>`;
 }
@@ -1045,6 +1052,7 @@ function renderPlayers() {
       <div class="stat-row">
         <div class="stat"><b>${esc(s.hpCurrent ?? "—")}<small style="font-size:12px;color:var(--muted)">/${esc(s.hpMax ?? "—")}</small></b><span>HP</span></div>
         <div class="stat"><b>${esc(s.ac ?? "—")}</b><span>AC</span></div>
+        <div class="stat"><b>${s.initBonus == null || s.initBonus === "" ? "—" : esc((Number(s.initBonus) >= 0 ? "+" : "") + s.initBonus)}</b><span>Init</span></div>
         <div class="stat"><b>${Number(s.es || 0).toLocaleString()}</b><span>ES</span></div>
       </div>
       ${dsHtml}
@@ -1142,11 +1150,17 @@ function dockItems() {
     if (e.type === "addiction") return;
     const money = MONEY_TYPES.test(String(e.type || ""));
     const alert = ALERT_TYPES.test(String(e.type || "")) || !!e.flag;
+    const rollIds = new Set((state.rolls || []).map((r) => r && r.id).filter(Boolean));
+    if (e.id && rollIds.has(e.id)) return;
+    const resend = e.type === "turn" && e.playerId && e.playerId !== "all"
+      ? `<button type="button" class="btn sm" data-resend-feed="${esc(e.playerId)}">Resend</button>`
+      : "";
     rows.push({
       ts: e.ts,
       kind: money ? "money" : (alert ? "alerts" : "ledger"),
       who: ledgerNames(e) || e.who || "",
-      text: e.what || e.type || ""
+      text: e.what || e.type || "",
+      applyHtml: resend
     });
   });
   (state.rolls || []).forEach((r) => {
@@ -1307,7 +1321,7 @@ function renderHandouts() {
       ${media}
       <div class="body">
         <h3>${esc(h.name)}</h3>
-        <div class="feed-meta"><span>${esc(fmtTime(h.ts))}</span><span>→ ${esc(h.to === "all" ? "Table" : h.to)}</span></div>
+        <div class="feed-meta"><span>${esc(fmtTime(h.ts))}</span><span>→ ${esc(h.to === "all" ? "Table" : (h.toName || (state.players[h.to] && state.players[h.to].snapshot && state.players[h.to].snapshot.name) || h.to))}</span></div>
         ${text && url ? `<p class="lede">${esc(text)}</p>` : ""}
         ${open}
         <div class="toolbar" style="margin:8px 0 0">
@@ -1616,10 +1630,12 @@ function wireTabs() {
       $$(".panel").forEach((p) => { p.hidden = true; });
       const panel = $("#" + tab.getAttribute("aria-controls"));
       if (panel) panel.hidden = false;
-      uiTab = tab.id;
+      uiTab = window.SSDNSUiTab ? window.SSDNSUiTab.nextTab(uiTab, { type: "click", tab: tab.id }) : tab.id;
+      try { sessionStorage.setItem("ssdns.dm.uiTab", uiTab); } catch (err) {}
       rememberUi();
     });
   });
+  applyActiveTab();
 }
 
 /* ---------- boot ---------- */

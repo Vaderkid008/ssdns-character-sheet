@@ -1,6 +1,8 @@
 # SSDNS Character Sheet
 
-Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.4, DM Command Center v0.2.11).
+Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.5, DM Command Center v0.2.12).
+
+- Round 9: player heals land on the target (capped, ledger, Apply/Undo), enemy rows attack a chosen player, damage apply is idempotent per event id, the DM screen keeps its tab, a table short rest prompts each player once, custom enemies take initiative from DEX, the new-character wizard walks all 12 Callings, and conditions toggle live on the sheet and the DM screen.
 
 ## Open it on your phone
 

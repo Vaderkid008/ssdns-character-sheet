@@ -11,7 +11,7 @@
  *   the empty playerInit parent listen that failed on a new room
  *   a second ruleset with that parent .read removed, which must deny the listen
  *   DM-only nodes the player must not read: commands, rolls, archives,
- *   encounter/hp, encounter/requests, messages
+ *   encounter/hp, encounter/requests, conditions, messages
  *
  * .info/connected is a Firebase system path, not a room rule, so it is skipped.
  * The sheet no longer listens to commands. Players receive broadcast and inbox.
@@ -52,13 +52,14 @@ const MUST_FIND = [
   "archives/addiction",
   "encounter/hp",
   "encounter/public",
-  "encounter/requests"
+  "encounter/requests",
+  "conditions"
 ];
 
 function addPath(found, raw) {
   let p = String(raw || "").trim().replace(/\/+$/, "");
   if (!p || /\s/.test(p) || p.startsWith(".") || p === "rooms") return;
-  if (!/^(meta|players|ledger|rolls|messages|handouts|commands|broadcast|inbox|table|tableFeed|playerInit|chat|archives|encounter)(\/|$)/.test(p)) return;
+  if (!/^(meta|players|ledger|rolls|messages|handouts|commands|broadcast|inbox|table|tableFeed|playerInit|chat|archives|encounter|conditions)(\/|$)/.test(p)) return;
   found.add(p);
 }
 
@@ -67,7 +68,7 @@ function extractPaths(src) {
   const patterns = [
     /(?:roomRef|roomPath|listenRef)\(\s*["']([^"']+)["']/g,
     /\bbind\(\s*["']([^"']+)["']/g,
-    /["']((?:meta|players|ledger|rolls|messages|handouts|commands|broadcast|inbox|table|tableFeed|playerInit|chat|archives|encounter)[^"']*)["']/g
+    /["']((?:meta|players|ledger|rolls|messages|handouts|commands|broadcast|inbox|table|tableFeed|playerInit|chat|archives|encounter|conditions)[^"']*)["']/g
   ];
   patterns.forEach((re) => {
     let m;
@@ -231,7 +232,9 @@ function buildCases() {
     ["dm", "encounter/hp"],
     ["dm", "encounter/public"],
     ["player", "encounter/public"],
-    ["dm", "encounter/requests"]
+    ["dm", "encounter/requests"],
+    ["dm", "conditions"],
+    ["player", "conditions"]
   ];
   const cases = [];
   readRoles.forEach(([role, rel]) => {
@@ -292,6 +295,15 @@ function buildCases() {
     { role: "dm", op: "set", path: ROOM + "/encounter/hp", payload: hp, expect: "allow" },
     { role: "player", op: "set", path: ROOM + "/encounter/hp", payload: hp, expect: "deny" },
     { role: "player", op: "set", path: ROOM + "/encounter/requests/req1", payload: request, expect: "allow" },
+    { role: "dm", op: "set", path: ROOM + "/conditions/enemy1", payload: { name: "Prone", subjectId: "enemy1", subjectKind: "enemy", updatedAt: TS, by: DM_UID }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/conditions/mine", payload: { name: "Poisoned", subjectId: PLAYER_UID, subjectKind: "player", updatedAt: TS, by: PLAYER_UID }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/conditions/theirs", payload: { name: "Blinded", subjectId: "other-uid", subjectKind: "player", updatedAt: TS, by: PLAYER_UID }, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/conditions/not-enemy", payload: { name: "Prone", subjectId: "enemy1", subjectKind: "enemy", updatedAt: TS, by: PLAYER_UID }, expect: "deny" },
+    { role: "player", op: "remove", path: ROOM + "/conditions/seed-own", expect: "allow" },
+    { role: "player", op: "remove", path: ROOM + "/conditions/seed-other", expect: "deny" },
+    { role: "dm", op: "remove", path: ROOM + "/conditions/seed-other", expect: "allow" },
+    { role: "dm", op: "set", path: ROOM + "/conditions", payload: { nope: true }, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/conditions", payload: { nope: true }, expect: "deny" },
     { role: "dm", op: "set", path: ROOM + "/chat/chat1", payload: chat, expect: "allow" },
     { role: "player", op: "set", path: ROOM + "/chat/chat2", payload: playerChat, expect: "allow" },
     { role: "player", op: "remove", path: ROOM + "/chat/seed-a", expect: "deny" },
@@ -348,6 +360,12 @@ async function main() {
       });
       await dbMod.set(dbMod.ref(db, ROOM + "/chat/seed-a"), {
         ts: TS, from: DM_UID, text: "seed", to: "all"
+      });
+      await dbMod.set(dbMod.ref(db, ROOM + "/conditions/seed-own"), {
+        name: "Poisoned", subjectId: PLAYER_UID, subjectKind: "player", updatedAt: TS
+      });
+      await dbMod.set(dbMod.ref(db, ROOM + "/conditions/seed-other"), {
+        name: "Blinded", subjectId: "other-uid", subjectKind: "player", updatedAt: TS
       });
     });
 

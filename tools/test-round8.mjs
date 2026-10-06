@@ -113,7 +113,7 @@ check(/combat-ended:" \+ \(room/.test(play), "combat ended id is the room, and o
 check(/inRoom && room && sawOrder/.test(play), "combat ended is not logged off the table");
 check(/keepScores/.test(play), "kit restores typed ability scores");
 check(/postDamage\(\{ amount: total/.test(play), "melee hits post damage");
-check(/Hit die/.test(play) && /postLedger/.test(play), "hit die echoes to the table");
+check(/Hit die/.test(play) && /postRoll/.test(play), "hit die echoes to the table");
 
 check(/handoutAttrs/.test(extra) && /data-reopen-handout/.test(extra), "handout rows carry reopen data");
 check(/targetName: tgt && tgt\.name, rollId: gunRollId/.test(extra), "gun damage carries the roll id");
@@ -125,7 +125,7 @@ check(/isReadOnly\(\)\) return/.test(app), "a read-only tab does not save");
 check(/sheet-readonly/.test(read("assets/css/sheet.css")), "read-only tab disables the fields");
 check(/Mail Duster/.test(read("assets/data/rules.js")) && /"phb5e": "Chain mail"/.test(read("assets/data/rules.js")), "mail duster keeps AC 16 and the chain mail name");
 
-check(read("version.json").indexOf('"sheet": "0.3.4"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.11"') >= 0, "versions bumped");
+check(read("version.json").indexOf('"sheet": "0.3.5"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.12"') >= 0, "versions bumped");
 check(read("database.rules.json").indexOf("playerInit") >= 0, "rules file still present and untouched by this test");
 
 const order = [

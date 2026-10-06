@@ -23,13 +23,15 @@
       toast._t = setTimeout(function () { box.hidden = true; }, 3600);
     }
   }
-  function pulseHp() {
+  function pulseHp(kind) {
+    var cls = kind === "heal" ? "hp-heal" : "hp-flash";
     function go() {
       var box = document.querySelector(".hp");
       if (!box) return;
       box.classList.remove("hp-flash");
+      box.classList.remove("hp-heal");
       void box.offsetWidth;
-      box.classList.add("hp-flash");
+      box.classList.add(cls);
     }
     go();
     if (root.requestAnimationFrame) root.requestAnimationFrame(go);
@@ -38,7 +40,7 @@
       go();
       setTimeout(function () {
         var box = document.querySelector(".hp");
-        if (box) box.classList.remove("hp-flash");
+        if (box) { box.classList.remove("hp-flash"); box.classList.remove("hp-heal"); }
       }, 2600);
     }, 60);
   }
@@ -79,8 +81,18 @@
     if (notice) showNotice(notice);
     var box = $(".hp");
     if (box) box.classList.toggle("hp-down", cur <= 0);
-    if (delta) pulseHp();
+    if (delta) pulseHp(delta > 0 ? "heal" : "hurt");
+    if (cur <= 0 && root.SSDNSConditions && ch()) {
+      var next = root.SSDNSConditions.ensureUnconscious(ch().activeConditions || [], cur, "self");
+      ch().activeConditions = next;
+      ch().tableConditions = root.SSDNSConditions.listText(next);
+    } else if (cur > 0 && root.SSDNSConditions && ch() && (ch().activeConditions || []).some(function (row) { return /^unconscious$/i.test(row.name || ""); })) {
+      var up = root.SSDNSConditions.ensureUnconscious(ch().activeConditions || [], cur, "self");
+      ch().activeConditions = up;
+      ch().tableConditions = root.SSDNSConditions.listText(up);
+    }
     renderConds();
+    if (root.SSDNSConditionsUi && root.SSDNSConditionsUi.paint) root.SSDNSConditionsUi.paint();
   }
 
   function showNotice(text) {
@@ -101,27 +113,40 @@
     var c = ch();
     var raw = (c && c.tableConditions) || "";
     var list = String(raw).split(",").map(function (s) { return s.trim(); }).filter(Boolean);
-    var box = $("#condBanner");
-    if (!box) return;
-    if (!list.length) { box.hidden = true; box.innerHTML = ""; return; }
-    box.hidden = false;
-    box.innerHTML = list.map(function (name) {
+    var html = list.map(function (name) {
       return '<span class="cond-chip">' + name.replace(/[&<>]/g, function (ch) {
         return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch];
       }) + "</span>";
     }).join("");
+    ["#condBanner", "#condHeader"].forEach(function (sel) {
+      var box = $(sel);
+      if (!box) return;
+      if (!list.length) { box.hidden = true; box.innerHTML = ""; return; }
+      box.hidden = false;
+      box.innerHTML = html;
+    });
     var cur = num($("#inHPCur") && $("#inHPCur").value);
     var hp = $(".hp");
     if (hp) hp.classList.toggle("hp-down", cur <= 0);
   }
 
-  function setConditions(list) {
-    var text = (list || []).filter(Boolean).join(", ");
+  function setConditions(list, extra) {
+    extra = extra || {};
     var c = ch();
-    if (c) c.tableConditions = text;
+    var text = "";
+    if (c && extra.entries && root.SSDNSConditions) {
+      c.activeConditions = extra.entries.map(root.SSDNSConditions.normalize).filter(Boolean);
+      text = root.SSDNSConditions.listText(c.activeConditions);
+      c.tableConditions = text;
+    } else {
+      text = (list || []).filter(Boolean).join(", ");
+      if (c) c.tableConditions = text;
+    }
     var el = $("#inTableConditions");
     if (el) { el.value = text; dispatch(el); }
     renderConds();
+    if (root.SSDNSConditionsUi && root.SSDNSConditionsUi.paint) root.SSDNSConditionsUi.paint();
+    if (extra.quiet) return;
     if (list && list.length) showNotice("Conditions: " + text);
     else showNotice("Conditions cleared");
   }
@@ -586,6 +611,7 @@
     var hexslinger = !!(c && c.calling === "hexslinger");
     var row = Cast.lookup(spellName);
     var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var throughGun = !!((hexslinger && fromChamber) || (row && row.weapon));
     var rolled = Cast.rollCast({
       spellName: spellName,
       slotLevel: slot,
@@ -595,7 +621,7 @@
       dc: v.spellDC,
       weaponDamage: row && row.weapon && gunDmgEl ? gunDmgEl.value : "",
       weaponAtk: gunAtk,
-      gunName: i >= 0 ? gunName(i) : "",
+      gunName: throughGun && i >= 0 ? gunName(i) : "",
       wildSpark: hexslinger && slot > 0,
       damageType: damageType || ""
     });
@@ -620,8 +646,28 @@
       rolled.text = report.player + (dmgTail && !report.miss ? " · " + dmgTail[1] : "");
       rolled.detail = rolled.text;
       acForRoll = report.ac;
-    } else if (tgt && tgt.name) {
+    } else if (row && row.kind === "heal") {
+      var whoHeal = (c && c.name) || "You";
+      var tgtHeal = (tgt && tgt.name) || whoHeal;
+      var dicePretty = root.SSDNSApplied && root.SSDNSApplied.healDice
+        ? root.SSDNSApplied.healDice(String(rolled.detail || "").replace(/^[\s\S]*heals\s+/, ""))
+        : "";
+      var sentence = root.SSDNSApplied && root.SSDNSApplied.healLine
+        ? root.SSDNSApplied.healLine(whoHeal, tgtHeal, rolled.result, dicePretty)
+        : (whoHeal + " heals " + tgtHeal + " " + rolled.result);
+      rolled.text = sentence;
+      rolled.detail = sentence;
+      rolled.attack = false;
+      rolled.heal = true;
+    } else if (tgt && tgt.name && row && row.kind !== "heal") {
       rolled.text += " · vs " + tgt.name;
+      rolled.detail = rolled.text;
+    }
+    var condNote = root.SSDNSConditions && root.SSDNSConditions.disadvantageNote
+      ? root.SSDNSConditions.disadvantageNote((c && c.activeConditions) || [])
+      : "";
+    if (condNote && rolled.attack) {
+      rolled.text += " · " + condNote;
       rolled.detail = rolled.text;
     }
     toast(rolled.text);
@@ -641,24 +687,46 @@
         formula: rolled.formula,
         result: rolled.result,
         detail: rolled.detail,
-        ac: acForRoll,
+        ac: rolled.heal ? null : acForRoll,
         nat1: false,
         isFirearm: !!fromChamber,
         attack: rolled.attack,
+        heal: !!rolled.heal,
         nat: rolled.nat,
         crit: rolled.crit,
         private: whisperOn(),
         whisper: whisperOn(),
         targetId: tgt && tgt.id,
         targetName: tgt && tgt.name,
-        damage: spellDmg
+        damage: rolled.heal ? Number(rolled.result) || 0 : spellDmg,
+        weapon: throughGun && i >= 0 ? gunName(i) : ""
       });
-      if (rolled.attack && spellDmg && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
+      if (rolled.heal && !whisperOn() && root.SSDNSDmJoin.postDamage) {
+        var healTarget = (tgt && tgt.id) || (root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid());
+        var healName = (tgt && tgt.name) || ((c && c.name) || "You");
+        if (healTarget) {
+          root.SSDNSDmJoin.postDamage({
+            amount: Number(rolled.result) || 0,
+            label: spellName,
+            dice: dicePretty || "",
+            type: "heal",
+            targetId: healTarget,
+            targetName: healName,
+            rollId: rollId
+          });
+        } else {
+          applyDelta(Number(rolled.result) || 0, rolled.text);
+        }
+      } else if (!rolled.heal && rolled.attack && spellDmg && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         root.SSDNSDmJoin.postDamage({
-          amount: spellDmg, label: spellName, type: "spell",
+          amount: spellDmg, label: spellName, type: "spell", weapon: throughGun && i >= 0 ? gunName(i) : "",
           targetId: tgt.id, targetName: tgt.name, rollId: rollId
         });
+      } else if (rolled.heal && !joined()) {
+        applyDelta(Number(rolled.result) || 0, rolled.text);
       }
+    } else if (rolled.heal) {
+      applyDelta(Number(rolled.result) || 0, rolled.text);
     }
   }
   function selectedCast(i) {
@@ -827,7 +895,10 @@
       who: who, target: tgt && tgt.name, nat: nat, atk: atk,
       ac: tgt && tgt.ac, miss: miss, misfire: misfired, dmg: dmg
     });
-    var line = report.player + (misfired ? " · misfire" : "") + (spent.left != null ? " · " + spent.left + " rounds left." : "");
+    var gunNote = root.SSDNSConditions && root.SSDNSConditions.disadvantageNote
+      ? root.SSDNSConditions.disadvantageNote((ch() && ch().activeConditions) || [])
+      : "";
+    var line = report.player + (misfired ? " · misfire" : "") + (gunNote && !report.miss ? " · " + gunNote : "") + (spent.left != null ? " · " + spent.left + " rounds left." : "");
     toast(line);
     addLog({
       id: "roll:" + gunRollId,
@@ -853,12 +924,13 @@
         private: quiet,
         whisper: quiet,
         damage: (!report.miss && dmg) ? dmg.total : null,
+        weapon: name,
         targetId: tgt && tgt.id,
         targetName: tgt && tgt.name
       });
     }
     if (!report.miss && dmg && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && !quiet) {
-      root.SSDNSDmJoin.postDamage({ amount: dmg.total, label: name, type: "weapon", targetId: tgt && tgt.id, targetName: tgt && tgt.name, rollId: gunRollId });
+      root.SSDNSDmJoin.postDamage({ amount: dmg.total, label: name, weapon: name, type: "weapon", targetId: tgt && tgt.id, targetName: tgt && tgt.name, rollId: gunRollId });
     }
   }
 
@@ -1160,7 +1232,17 @@
     if (heal) heal.addEventListener("click", function () {
       var amt = Math.abs(num($("#inHpAdjust") && $("#inHpAdjust").value));
       if (!amt) { toast("Enter an amount"); return; }
-      applyDelta(amt);
+      if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && root.SSDNSDmJoin.uid) {
+        var selfId = root.SSDNSDmJoin.uid();
+        var selfName = (ch() && ch().name) || "You";
+        var line = root.SSDNSApplied ? root.SSDNSApplied.healLine(selfName, selfName, amt, "") : (selfName + " heals " + selfName + " " + amt);
+        var hid = "r_" + Date.now().toString(36);
+        root.SSDNSDmJoin.postDamage({ amount: amt, type: "heal", label: "Heal", dice: String(amt), targetId: selfId, targetName: selfName, rollId: hid });
+        if (root.SSDNSDmJoin.postRoll) root.SSDNSDmJoin.postRoll({ id: hid, label: "Heal", formula: String(amt), result: amt, detail: line, heal: true, attack: false, damage: amt, targetId: selfId, targetName: selfName });
+        toast(line);
+        return;
+      }
+      applyDelta(amt, (ch() && ch().name ? ch().name + " heals " : "Heal ") + amt);
     });
     document.addEventListener("click", function (e) {
       var buyBtn = e.target.closest && e.target.closest("[data-buy]");
