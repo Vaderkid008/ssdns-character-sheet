@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="assets/revolver.png">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.18-chat">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.19-chat">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -365,36 +365,51 @@
     </section>
 
     <section class="panel" id="panel-store" role="tabpanel" aria-labelledby="tab-store" hidden>
-      <h2>Eldorite Store</h2>
-      <p class="lede">Browse the gear in the rules, or type a one-off. Vendor lists load into tonight's stock so you can edit prices, save, and push.</p>
-      <div class="toolbar">
-        <label>Vendor <select id="vendorPreset" aria-label="Vendor list">
-          <option value="general">General Store</option>
-          <option value="gunsmith">Gunsmith</option>
-          <option value="eldorite">Eldorite dealer</option>
-          <option value="apothecary">Apothecary</option>
-        </select></label>
-        <button type="button" class="btn sm" id="btnLoadVendor">Load list</button>
-        <label>Category <select id="catalogCat" aria-label="Gear category"><option value="">All</option></select></label>
-        <input type="search" id="catalogQ" placeholder="Search gear" aria-label="Search catalog">
+      <h2>Stores</h2>
+      <p class="lede">Pick the town and which shops are in it. Stock stays on this device until you open a store.</p>
+      <div class="town-bar" role="radiogroup" aria-label="Town size">
+        <label class="town-opt"><input type="radio" name="townSize" value="camp" checked> Camp</label>
+        <label class="town-opt"><input type="radio" name="townSize" value="boomtown"> Boomtown</label>
+        <label class="town-opt"><input type="radio" name="townSize" value="city"> City</label>
       </div>
-      <div id="catalogList" class="catalog-table"></div>
-      <div class="form-grid">
-        <div>
-          <label for="stockName">Item</label>
-          <input type="text" id="stockName" placeholder="Trail rations">
-        </div>
-        <div>
-          <label for="stockPrice">Price (ES)</label>
-          <input type="number" id="stockPrice" value="25" min="0">
-        </div>
+      <div class="store-picks">
+        <label class="store-opt"><input type="checkbox" data-store-pick="general" checked> General Store</label>
+        <label class="store-opt"><input type="checkbox" data-store-pick="gun"> Gun Store</label>
+        <label class="store-opt"><input type="checkbox" data-store-pick="music"> Music Store</label>
+        <label class="store-opt"><input type="checkbox" data-store-pick="traveling"> Traveling Merchant</label>
       </div>
       <div class="toolbar">
-        <button type="button" class="btn sm" id="btnAddStock">Add to stock</button>
-        <button type="button" class="btn sm" id="btnSaveStock">Save stock</button>
-        <button type="button" class="btn btn-primary" id="btnOpenStoreNow">Open store for the table</button>
+        <button type="button" class="btn btn-primary" id="btnOpenAllStores">Open all checked</button>
+        <button type="button" class="btn sm" id="btnCloseAllStores">Close all</button>
       </div>
-      <div id="storeList"></div>
+      <div id="storeCards"></div>
+      <details class="fold">
+        <summary>Add a one-off item</summary>
+        <div class="toolbar">
+          <label>Into <select id="adhocStore" aria-label="Store for a one-off item">
+            <option value="general">General Store</option>
+            <option value="gun">Gun Store</option>
+            <option value="music">Music Store</option>
+            <option value="traveling">Traveling Merchant</option>
+          </select></label>
+          <label>Category <select id="catalogCat" aria-label="Gear category"><option value="">All</option></select></label>
+          <input type="search" id="catalogQ" placeholder="Search gear" aria-label="Search catalog">
+        </div>
+        <div id="catalogList"></div>
+        <div class="form-grid">
+          <div>
+            <label for="stockName">Item</label>
+            <input type="text" id="stockName" placeholder="Trail rations">
+          </div>
+          <div>
+            <label for="stockPrice">Price (ES)</label>
+            <input type="number" id="stockPrice" value="25" min="0" inputmode="numeric">
+          </div>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="btn" id="btnAddStock">Add to preview</button>
+        </div>
+      </details>
     </section>
 
     <section class="panel" id="panel-lookup" role="tabpanel" aria-labelledby="tab-lookup" hidden>
@@ -483,15 +498,16 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.18"></script>
-<script src="../assets/js/conditions.js?v=0.2.18"></script>
-<script src="assets/js/ui-tab.js?v=0.2.18"></script>
-<script src="../assets/js/sfx.js?v=0.2.18"></script>
-<script src="../assets/data/rules.js?v=0.2.18"></script>
-<script src="../assets/js/spell-cast.js?v=0.2.18"></script>
-<script src="../assets/js/firebase-config.js?v=0.2.18"></script>
-<script src="assets/js/demo-data.js?v=0.2.18"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.18-chat"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.18"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.19"></script>
+<script src="../assets/js/conditions.js?v=0.2.19"></script>
+<script src="assets/js/ui-tab.js?v=0.2.19"></script>
+<script src="../assets/js/sfx.js?v=0.2.19"></script>
+<script src="../assets/data/rules.js?v=0.2.19"></script>
+<script src="../assets/js/spell-cast.js?v=0.2.19"></script>
+<script src="../assets/js/firebase-config.js?v=0.2.19"></script>
+<script src="assets/js/store-stock.js?v=0.2.19"></script>
+<script src="assets/js/demo-data.js?v=0.2.19"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.19-chat"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.19"></script>
 </body>
 </html>

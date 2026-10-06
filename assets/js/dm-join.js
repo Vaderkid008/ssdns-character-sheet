@@ -1221,13 +1221,13 @@
     bind("table", function (val) {
       var stock = val.store || [];
       var list = Array.isArray(stock) ? stock : Object.keys(stock).map(function (k) { return stock[k]; });
-      if (root.SSDNSSheet) root.SSDNSSheet.setStock(list);
+      if (root.SSDNSSheet) root.SSDNSSheet.setStock(list, !!val.storeOpen);
       if (val.storeOpen && root.SSDNSSheet && root.SSDNSSheet.openStore) {
         if (!state._storeOpened) {
           state._storeOpened = true;
           root.SSDNSSheet.openStore(list);
         }
-      } else if (val.storeOpen === false) state._storeOpened = false;
+      } else if (!val.storeOpen) state._storeOpened = false;
       if (root.SSDNSPlaytest && root.SSDNSPlaytest.setDamageMode) root.SSDNSPlaytest.setDamageMode(val.damageMode || "auto");
       if (root.SSDNSPlaytest && root.SSDNSPlaytest.showTurn) root.SSDNSPlaytest.showTurn(val.initiative || null);
       var insp = val.inspiration;

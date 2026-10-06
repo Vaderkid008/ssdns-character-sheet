@@ -622,7 +622,16 @@ html, body { overflow-x: hidden; }
   body.sheet-dock-collapsed .dock-compose,
   body.sheet-dock-collapsed .dock-head b { display: none; }
 }
+.store-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.store-tabs .btn { min-height: 44px; }
+.store-row { display: flex; gap: 8px; align-items: center; justify-content: space-between; min-height: 44px; padding: 8px 0; border-bottom: 1px solid var(--line, #c8b89a); }
+.store-row .btn { min-height: 44px; }
+.store-row.sold { opacity: .55; }
+.ref-tag { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; border: 1px solid #8a6a32; color: #8a6a32; padding: 1px 4px; }
 @media (max-width: 800px) {
+  #page-store { max-width: 100%; overflow-x: hidden; }
+  body.store-tab-active .dock-fab { bottom: 76px; }
+  body.store-tab-active .store-row { padding-right: 96px; }
   .appbar, .savebar, .dm-join-bar, .tabs, main { margin-right: 0 !important; }
   .dock-fab { display: inline-flex; align-items: center; gap: 6px; }
   .sheet-dock {

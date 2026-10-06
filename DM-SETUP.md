@@ -4,7 +4,7 @@ GitHub Pages hosts the static DMCC + character sheet. Firebase is **only** for l
 
 Demo mode works **fully offline** with no Firebase. Follow this when you want a real table.
 
-The table feed is the column on the right (a bottom sheet on a phone, with an unread count). Filters are All, Chat, Money, Rolls, and Alerts. The box at the bottom messages the whole table or one player. PHB lookup searches as you type. The store can load a General Store, Gunsmith, Eldorite dealer, or Apothecary list.
+The table feed is the column on the right (a bottom sheet on a phone, with an unread count). Filters are All, Chat, Money, Rolls, and Alerts. The box at the bottom messages the whole table or one player. PHB lookup searches as you type. The store stocks a General Store, Gun Store, Music Store, or Traveling Merchant. Preview stays on the DM screen until Open Store.
 
 v0.2.2 stores the shared party Inspiration count at `rooms/{code}/table/inspiration`. The DM can grant or spend. A joined player can only spend one at a time. **Publish `database.rules.json` again** or those writes are denied. The Fight list shows initiative scores, and a player's Initiative roll is added to that list.
 
