@@ -173,6 +173,7 @@ check(src.indexOf("tactics-note") >= 0 && src.indexOf("On deck:") >= 0 && src.in
 check(read("docs/DM-PRINCIPLES.md").indexOf("eyes stay on the table") >= 0, "principles doc");
 check(read("docs/DM-PRINCIPLES.md").indexOf("Take Cover only") < 0 && read("docs/DM-PRINCIPLES.md").indexOf("three-quarters cover is +5") >= 0, "half and three-quarters cover stay in the checklist");
 check(read("index.html").indexOf("Kneeling or prone alone is not cover") >= 0 && read("assets/data/rules.js").indexOf("Half cover is +2 and three-quarters cover is +5") >= 0, "sheet and rules state the cover lock");
+check((read("assets/data/rules.js").match(/stacks on half \/ three-quarters cover/g) || []).length === 2, "Lead and Levers and Gunslinger note that Take Cover stacks");
 check(read("docs/SCHEMA.md").indexOf("`tactics`") >= 0, "schema documents tactics");
 const liveBeasts = beasts.filter((b) => b && !b.template);
 check(liveBeasts.length === 48, "48 enemies");

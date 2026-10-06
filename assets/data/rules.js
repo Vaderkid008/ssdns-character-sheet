@@ -582,7 +582,7 @@ window.SSDNS_RULES = {
     },
     {
      "name": "Lead & Levers: Firearms, Reloads & Cover",
-     "text": "Take Cover: anyone can, as a bonus action (see Take Cover in Equipment). Six-Shooters & Reloads: 6-shot capacity. Reloading takes an action. Extra Attack allows an extra trigger pull. Fury vs. Firearm: Dust Fury bonuses apply to Strength melee strikes. When cartridges click empty, closing with a buffalo axe ends shootouts immediately."
+     "text": "Take Cover: anyone can, as a bonus action (see Take Cover in Equipment); stacks on half / three-quarters cover. Six-Shooters & Reloads: 6-shot capacity. Reloading takes an action. Extra Attack allows an extra trigger pull. Fury vs. Firearm: Dust Fury bonuses apply to Strength melee strikes. When cartridges click empty, closing with a buffalo axe ends shootouts immediately."
     }
    ],
    "subclasses": [
@@ -1632,7 +1632,7 @@ window.SSDNS_RULES = {
     },
     {
      "name": "Fast-Draw & Reload Mechanics",
-     "text": "Reloading: A standard six-shooter holds 6 rounds. Reloading takes an action for most characters, but Gunslingers can reload as a bonus action starting at 3rd level (see Quick Reload). Take Cover: anyone can, as a bonus action (see Take Cover in Equipment)."
+     "text": "Reloading: A standard six-shooter holds 6 rounds. Reloading takes an action for most characters, but Gunslingers can reload as a bonus action starting at 3rd level (see Quick Reload). Take Cover: anyone can, as a bonus action (see Take Cover in Equipment); stacks on half / three-quarters cover."
     }
    ],
    "subclasses": [
