@@ -131,7 +131,9 @@ input:focus, select:focus, textarea:focus { outline: none; background: var(--fil
 .tf { display: flex; flex-direction: column; justify-content: flex-end; min-width: 0; }
 .tf label { margin-top: 2px; }
 .pair { display: flex; gap: 6px; }
-.pair select { flex: 1; min-width: 0; }
+.pair select { flex: 1 1 9rem; min-width: 8.5rem; }
+.tf-lineage .pair { flex-wrap: wrap; }
+#lineageCard { flex: 1 1 100%; margin: 4px 0 0; }
 .pair .lvl { width: 56px; flex: none; text-align: center; }
 
 /* ---------------- page 1 grid */
@@ -334,7 +336,7 @@ input.big { font-family: var(--head); font-size: 28px !important; text-align: ce
 .sp-total input.overridden { color: #ffb4a3; background: rgba(255,255,255,.08); }
 .hexgrid .cb-box { border-color: var(--ochre); background: rgba(255,255,255,.1); }
 .sp-level.no-slots .sp-head { background: #4b3a2a; }
-.sp-level.no-slots .hexgrid::before { content: "no hex lead at this level"; font-family: var(--label); font-size: 10px; color: #bfa98a; letter-spacing: .05em; }
+.sp-level.no-slots .hexgrid::before { content: none; }
 .sp-lines { padding: 2px 8px 6px; }
 .sp-line { display: flex; align-items: center; gap: 4px; }
 .sp-line input[type=text] { min-height: 26px; padding: 2px; }
@@ -514,6 +516,18 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
 }
 .dm-join-bar .btn { color: var(--parch); border-color: var(--eld); }
 .dm-join-status { color: #a8c4ba; letter-spacing: .04em; }
+.dm-join-badge { border: 1px solid #3fbf9a; border-radius: 2px; padding: 2px 6px; letter-spacing: .08em; text-transform: uppercase; }
+.dm-join-badge.reconnecting, .dm-join-badge.offline { border-color: #c45b4a; color: #f0c2b8; }
+.version-banner { display: block; width: 100%; background: #6b3a12; color: #fff8ee; border: 0; padding: 8px 12px; text-align: center; cursor: pointer; font-family: var(--label); }
+.feature-uses { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 0 0 8px; }
+.melee-box { margin-top: 10px; }
+#dlgSaloon[open] { display: flex; flex-direction: column; max-height: 92vh; }
+#dlgSaloon .dlg-top { position: sticky; top: 0; z-index: 4; justify-content: flex-start; background: #f4efe4; margin-top: 0; }
+#gameList { max-height: 46vh; overflow: auto; }
+@media screen and (max-width: 1200px) {
+  .topgrid, .topgrid.g3 { grid-template-columns: 1fr 1fr; }
+  .tf-calling, .tf-lineage { grid-column: 1 / -1; }
+}
 @media (max-width: 520px) {
   .dm-join-bar { padding: 6px 10px; }
   .dm-join-bar input { width: 100px; }

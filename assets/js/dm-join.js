@@ -22,7 +22,11 @@
     lastCmdSeen: {},
     publishing: false,
     _chatSeen: {},
-    _ledSeen: {}
+    _ledSeen: {},
+    _feedSeen: {},
+    connected: null,
+    marker: 0,
+    link: ""
   };
 
   function $(s, r) { return (r || document).querySelector(s); }
@@ -190,7 +194,7 @@
     state.auth = auth;
     state.db = dbMod.getDatabase(app);
     state.uid = user.uid;
-    state._fb = { ref: dbMod.ref, set: dbMod.set, update: dbMod.update, push: dbMod.push, onValue: dbMod.onValue, off: dbMod.off, remove: dbMod.remove, runTransaction: dbMod.runTransaction };
+    state._fb = { ref: dbMod.ref, set: dbMod.set, update: dbMod.update, push: dbMod.push, onValue: dbMod.onValue, off: dbMod.off, remove: dbMod.remove, runTransaction: dbMod.runTransaction, get: dbMod.get, onDisconnect: dbMod.onDisconnect };
     return state._fb;
   }
 
@@ -236,6 +240,15 @@
         snapshot: snap
       });
       state.lastEs = snap.es;
+      if (!state.toldVisible) {
+        state.toldVisible = true;
+        toast("DM can see you");
+      }
+      try {
+        fb.onDisconnect(fb.ref(state.db, roomPath("players/" + state.uid + "/presence"))).update({
+          online: false, lastSeen: new Date().toISOString()
+        });
+      } catch (err) { console.warn("[DM Join] presence watch", err); }
     } catch (e) {
       console.warn("[DM Join] snapshot failed", e);
     } finally {
@@ -259,18 +272,108 @@
     } catch (e) { console.warn("[DM Join] ledger", e); }
   }
 
-  async function postRoll(entry) {
-    if (!state.joined || !state.db) return;
-    try {
-      var fb = state._fb;
-      var id = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      entry.id = id;
-      entry.ts = entry.ts || new Date().toISOString();
-      entry.uid = state.uid;
-      entry.playerId = state.uid;
-      entry.who = entry.who || ((doc() && doc().character && doc().character.name) || "Player");
-      await fb.set(fb.ref(state.db, roomPath("rolls/" + id)), entry);
-    } catch (e) { console.warn("[DM Join] roll", e); }
+  function queueKey() {
+    return "ssdns.v1.outbox." + (state.roomCode || "none") + "." + (state.uid || "local");
+  }
+  function loadQueue() {
+    try { return JSON.parse(localStorage.getItem(queueKey()) || "[]") || []; } catch (e) { return []; }
+  }
+  function saveQueue(q) {
+    try { localStorage.setItem(queueKey(), JSON.stringify((q || []).slice(-40))); } catch (e) {}
+  }
+  function enqueue(kind, payload) {
+    var q = loadQueue();
+    q.push({ kind: kind, payload: payload || {}, ts: Date.now() });
+    saveQueue(q);
+  }
+  function offlineNow() {
+    return !state.joined || !state.db || state.connected === false;
+  }
+  async function flushQueue() {
+    if (offlineNow() || state._flushing) return;
+    var q = loadQueue();
+    if (!q.length) return;
+    state._flushing = true;
+    saveQueue([]);
+    var failed = [];
+    for (var i = 0; i < q.length; i++) {
+      try {
+        if (q[i].kind === "chat") await writeChat(q[i].payload);
+        else if (q[i].kind === "roll") await writeRoll(q[i].payload);
+      } catch (e) { failed.push(q[i]); }
+    }
+    if (failed.length) saveQueue(loadQueue().concat(failed));
+    state._flushing = false;
+    if (!failed.length && q.length) toast("Queued messages sent");
+  }
+  function rollText(entry) {
+    return (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result == null ? "" : entry.result) + (entry.detail ? " (" + entry.detail + ")" : "");
+  }
+  async function writeRoll(entry) {
+    var fb = state._fb;
+    entry = entry || {};
+    var id = entry.id || ("r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+    entry.id = id;
+    entry.ts = entry.ts || new Date().toISOString();
+    entry.uid = state.uid;
+    entry.playerId = state.uid;
+    var c = doc() && doc().character;
+    entry.who = entry.who || ((c && c.name) || "Player");
+    entry.playerName = entry.playerName || ((c && c.player) || "");
+    entry.characterName = entry.characterName || ((c && c.name) || "");
+    var target = $("#atkTarget");
+    if (!entry.targetId && target && target.value) entry.targetId = target.value;
+    await fb.set(fb.ref(state.db, roomPath("rolls/" + id)), entry);
+    var quiet = !!(entry.private || entry.whisper);
+    if (!quiet) {
+      var feed = {
+        id: id, ts: entry.ts, from: state.uid,
+        fromName: entry.who, text: rollText(entry), kind: "roll", who: entry.who
+      };
+      try { await fb.set(fb.ref(state.db, roomPath("tableFeed/" + id)), feed); }
+      catch (err) { console.warn("[DM Join] table feed", err); }
+    }
+    if (/initiative/i.test(String(entry.label || ""))) {
+      try {
+        await fb.set(fb.ref(state.db, roomPath("playerInit/" + state.uid)), {
+          ts: entry.ts, init: Number(entry.result) || 0, name: entry.characterName || entry.who, from: state.uid
+        });
+      } catch (err) { console.warn("[DM Join] initiative", err); }
+    }
+  }
+  function postRoll(entry) {
+    if (offlineNow()) {
+      enqueue("roll", entry || {});
+      return Promise.resolve({ ok: false, queued: true });
+    }
+    return writeRoll(entry).then(function () { return { ok: true }; }).catch(function (e) {
+      console.warn("[DM Join] roll", e);
+      enqueue("roll", entry || {});
+      return { ok: false, queued: true };
+    });
+  }
+  function postDamage(entry) {
+    entry = entry || {};
+    var target = entry.targetId || ($("#atkTarget") && $("#atkTarget").value);
+    if (!target || offlineNow()) return Promise.resolve({ ok: false });
+    var c = doc() && doc().character;
+    var id = "req_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var row = {
+      ts: new Date().toISOString(),
+      from: state.uid,
+      targetId: target,
+      amount: Number(entry.amount) || 0,
+      label: entry.label || "",
+      type: entry.type || "weapon",
+      characterName: (c && c.name) || "",
+      playerName: (c && c.player) || ""
+    };
+    return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
+      return { ok: true };
+    }).catch(function (e) {
+      console.warn("[DM Join] damage", e);
+      return { ok: false };
+    });
   }
 
   function seenStorageKey() {
@@ -290,38 +393,56 @@
     if (keys.length > 500) keys.slice(0, keys.length - 300).forEach(function (k) { delete state.lastCmdSeen[k]; });
     try { localStorage.setItem(seenStorageKey(), JSON.stringify(state.lastCmdSeen)); } catch (e) {}
   }
+  function markerKey() {
+    return "ssdns.v1.cmdMarker." + state.roomCode + "." + state.uid;
+  }
+  function loadMarker() {
+    try {
+      var raw = localStorage.getItem(markerKey());
+      if (raw == null || raw === "") return null;
+      var n = Number(raw);
+      return isFinite(n) ? n : null;
+    } catch (e) { return null; }
+  }
+  function saveMarker(ts) {
+    state.marker = ts;
+    try { localStorage.setItem(markerKey(), String(ts)); } catch (e) {}
+  }
+  function cmdTime(cmd) {
+    var t = Date.parse(cmd && cmd.ts);
+    return isFinite(t) ? t : 0;
+  }
   function listenCommands() {
     var fb = state._fb;
-    var hadSeen = loadSeen();
-    function take(val, skipExistingEs) {
-      // Each feed's first snapshot is history. An empty broadcast must not
-      // make the commands snapshot look new, or old ES rewards would pay again.
+    var stored = loadMarker();
+    if (stored == null) saveMarker(Date.now());
+    else state.marker = stored;
+    loadSeen();
+    function take(val) {
       Object.keys(val || {}).forEach(function (id) {
         if (state.lastCmdSeen[id]) return;
         var cmd = val[id];
         if (!cmd) return;
         if (cmd.to && cmd.to !== "all" && cmd.to !== state.uid) return;
-        if (skipExistingEs && /^(reward_es|reward_item|hp|rest|set_conditions|gun_event|death_save|undo_item|hex_spend|hex_fire)$/.test(cmd.type || "")) {
+        var ts = cmdTime(cmd);
+        if (!ts || ts <= (state.marker || 0)) {
           state.lastCmdSeen[id] = 1;
           return;
         }
         state.lastCmdSeen[id] = 1;
         saveSeen();
         try { handleCommand(cmd); } catch (err) { console.warn("[DM Join] command", err); }
+        if (ts > (state.marker || 0)) saveMarker(ts);
       });
-      if (skipExistingEs) saveSeen();
+      saveSeen();
     }
     function bind(path) {
-      var primed = false;
       var r = fb.ref(state.db, roomPath(path));
       var cb = fb.onValue(r, function (snap) {
-        var skipExistingEs = !primed && !hadSeen;
-        primed = true;
-        take(snap.val() || {}, skipExistingEs);
+        take(snap.val() || {});
       }, function () {});
       state.unsubs.push(function () { try { fb.off(r, "value", cb); } catch (e) {} });
     }
-    // commands is DM-only once the room-wide read is gone. broadcast and inbox are what a player can read.
     bind("commands");
     bind("broadcast");
     bind("inbox/" + state.uid);
@@ -347,7 +468,10 @@
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "dm", text: "DM: " + (payload.text || "") });
         break;
       case "handout":
-        showHandout(payload.name || "Handout", payload.url || "");
+        showHandout(payload.name || "Handout", payload.url || "", payload.text || "");
+        break;
+      case "roll":
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "roll", text: (payload.who || "DM") + ": " + (payload.text || "") });
         break;
       case "open_saloon":
         var btn = $("#btnSaloon");
@@ -445,14 +569,6 @@
       syncShardFields(w.shards);
       var neu = Bridge.cpValue(d.shards);
       state.lastEs = neu;
-      postLedger({
-        type: "dm_push",
-        what: reason + " (" + (delta >= 0 ? "+" : "") + delta + " ES)",
-        oldVal: old,
-        newVal: neu,
-        flag: Math.abs(delta) >= BIG_JUMP,
-        who: "DM"
-      });
       toast("DM " + (delta >= 0 ? "granted +" : "took ") + Math.abs(delta) + " ES");
       if (root.SSDNSAudio) root.SSDNSAudio.play("reward");
       if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "es", text: "DM " + (delta >= 0 ? "+" : "") + delta + " ES" });
@@ -479,33 +595,61 @@
     });
   }
 
-  function showPopup(title, body) {
-    var existing = $("#dmJoinPopup");
-    if (existing) existing.remove();
-    var dlg = document.createElement("dialog");
-    dlg.id = "dmJoinPopup";
-    dlg.className = "dlg";
-    dlg.innerHTML = "<form method='dialog'><h2></h2><p class='fine' style='white-space:pre-wrap'></p><div class='dlg-foot'><button class='btn' value='close'>OK</button></div></form>";
-    dlg.querySelector("h2").textContent = title;
-    dlg.querySelector("p").textContent = body;
+  var modalQ = [];
+  var modalOpen = false;
+  function enqueueModal(build) {
+    modalQ.push(build);
+    pumpModal();
+  }
+  function pumpModal() {
+    if (modalOpen || !modalQ.length) return;
+    modalOpen = true;
+    var build = modalQ.shift();
+    var dlg = build();
+    var done = function () {
+      modalOpen = false;
+      if (dlg && dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      pumpModal();
+    };
+    dlg.addEventListener("close", done);
+    dlg.addEventListener("cancel", function (e) { e.preventDefault(); if (dlg.close) dlg.close(); });
     document.body.appendChild(dlg);
-    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
+    if (dlg.showModal) dlg.showModal(); else { dlg.setAttribute("open", ""); }
+  }
+  function showPopup(title, body) {
+    enqueueModal(function () {
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      dlg.innerHTML = "<form method='dialog'><h2></h2><p class='fine' style='white-space:pre-wrap'></p><div class='dlg-foot'><button class='btn' value='close'>OK</button></div></form>";
+      dlg.querySelector("h2").textContent = title;
+      dlg.querySelector("p").textContent = body;
+      return dlg;
+    });
   }
 
-  function showHandout(name, url) {
-    var existing = $("#dmJoinHandout");
-    if (existing) existing.remove();
-    var dlg = document.createElement("dialog");
-    dlg.id = "dmJoinHandout";
-    dlg.className = "dlg";
-    dlg.innerHTML = "<form method='dialog'><h2></h2><p class='fine'></p><p style='text-align:center'><img alt='' style='max-width:100%;max-height:60vh;border:1px solid #2b1d12'></p><div class='dlg-foot'><a class='btn' target='_blank' rel='noopener'>Open</a> <button class='btn' value='close'>Close</button></div></form>";
-    dlg.querySelector("h2").textContent = name || "Handout";
-    dlg.querySelector("p.fine").textContent = url;
-    var img = dlg.querySelector("img");
-    img.src = url;
-    dlg.querySelector("a").href = url;
-    document.body.appendChild(dlg);
-    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
+  function showHandout(name, url, text) {
+    url = url || "";
+    text = text || "";
+    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "handout", text: "Handout: " + (name || "Handout"), url: url, body: text, title: name || "Handout" });
+    enqueueModal(function () {
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      dlg.innerHTML = "<form method='dialog'><h2></h2><p class='fine' style='white-space:pre-wrap'></p><p class='handout-pic' style='text-align:center'></p><div class='dlg-foot'><a class='btn' target='_blank' rel='noopener' hidden>Open</a> <button class='btn' value='close'>Close</button></div></form>";
+      dlg.querySelector("h2").textContent = name || "Handout";
+      dlg.querySelector("p.fine").textContent = text || "";
+      var pic = dlg.querySelector(".handout-pic");
+      if (url && /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(url) || (url && !text)) {
+        var img = document.createElement("img");
+        img.alt = name || "";
+        img.style.maxWidth = "100%";
+        img.style.maxHeight = "60vh";
+        img.src = url;
+        pic.appendChild(img);
+      }
+      var a = dlg.querySelector("a");
+      if (url) { a.hidden = false; a.href = url; }
+      return dlg;
+    });
   }
 
   function applyHpCommand(payload) {
@@ -577,10 +721,9 @@
       toast("Couldn't spend Inspiration");
     }
   }
-  function postChat(entry) {
-    if (!state.joined || !state.db) return;
+  function writeChat(entry) {
     var fb = state._fb;
-    var id = "chat_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var id = (entry && entry.id) || ("chat_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
     var c = doc() && doc().character;
     var row = {
       id: id,
@@ -589,7 +732,18 @@
       fromName: (entry && entry.fromName) || (c && (c.player || c.name)) || "Player",
       text: (entry && entry.text) || ""
     };
-    fb.set(fb.ref(state.db, roomPath("chat/" + id)), row).catch(function (e) { console.warn("[DM Join] chat", e); });
+    return fb.set(fb.ref(state.db, roomPath("chat/" + id)), row);
+  }
+  function postChat(entry) {
+    if (offlineNow()) {
+      enqueue("chat", entry || {});
+      return Promise.resolve({ ok: false, queued: true });
+    }
+    return writeChat(entry).then(function () { return { ok: true }; }).catch(function (e) {
+      console.warn("[DM Join] chat", e);
+      enqueue("chat", entry || {});
+      return { ok: false, queued: true };
+    });
   }
   function listenRoomFeeds() {
     var fb = state._fb;
@@ -602,7 +756,15 @@
     var inspSeen = "";
     bind("table", function (val) {
       var stock = val.store || [];
-      if (root.SSDNSSheet) root.SSDNSSheet.setStock(Array.isArray(stock) ? stock : Object.keys(stock).map(function (k) { return stock[k]; }));
+      var list = Array.isArray(stock) ? stock : Object.keys(stock).map(function (k) { return stock[k]; });
+      if (root.SSDNSSheet) root.SSDNSSheet.setStock(list);
+      if (val.storeOpen && root.SSDNSSheet && root.SSDNSSheet.openStore) {
+        if (!state._storeOpened) {
+          state._storeOpened = true;
+          root.SSDNSSheet.openStore(list);
+        }
+      } else if (val.storeOpen === false) state._storeOpened = false;
+      if (root.SSDNSPlaytest && root.SSDNSPlaytest.setDamageMode) root.SSDNSPlaytest.setDamageMode(val.damageMode || "auto");
       var insp = val.inspiration;
       var count = 0, last = null;
       if (insp && typeof insp === "object") { count = Number(insp.count) || 0; last = insp.last || null; }
@@ -633,6 +795,59 @@
       });
       chatPrimed = true;
     });
+    bind("tableFeed", function (val) {
+      Object.keys(val || {}).forEach(function (id) {
+        if (state._feedSeen[id]) return;
+        state._feedSeen[id] = 1;
+        var row = val[id];
+        if (!row || row.from === state.uid) return;
+        var ts = Date.parse(row.ts);
+        if (!ts || ts <= (state.marker || 0)) return;
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: row.kind === "roll" ? "roll" : "chat", text: (row.who || row.fromName || "Table") + ": " + (row.text || ""), ts: row.ts });
+      });
+    });
+    bind("players", function (val) {
+      var rows = [];
+      Object.keys(val || {}).forEach(function (id) {
+        var p = val[id] || {};
+        var s = p.snapshot || {};
+        rows.push({ name: s.name || "Someone", player: s.player || "", online: !!(p.presence && p.presence.online) });
+      });
+      if (root.SSDNSPlaytest && root.SSDNSPlaytest.showRoster) root.SSDNSPlaytest.showRoster(rows);
+    });
+    bind("encounter/public", function (val) {
+      if (root.SSDNSPlaytest && root.SSDNSPlaytest.setTargets) root.SSDNSPlaytest.setTargets(val || {});
+    });
+  }
+  function watchConnection() {
+    if (state._conn) return;
+    state._conn = true;
+    var fb = state._fb;
+    var r = fb.ref(state.db, ".info/connected");
+    var cb = fb.onValue(r, function (snap) {
+      var on = snap.val() === true;
+      state.connected = on;
+      if (!state.joined) return;
+      setBadge(on ? "connected" : "reconnecting");
+      if (on) flushQueue();
+    });
+    state.unsubs.push(function () { try { fb.off(r, "value", cb); } catch (e) {} state._conn = false; });
+  }
+  function setBadge(mode) {
+    state.link = mode || "";
+    var badge = $("#dmJoinBadge");
+    var label = mode === "connected" ? "Connected" : mode === "reconnecting" ? "Reconnecting" : mode === "offline" ? "Offline" : "";
+    if (badge) {
+      badge.hidden = !label;
+      badge.textContent = label;
+      badge.className = "dm-join-badge " + (mode || "");
+    }
+    var status = $("#dmJoinStatus");
+    if (status && state.joined) {
+      if (mode === "connected") status.textContent = "Joined " + (state.roomCode || "");
+      else if (mode === "reconnecting") status.textContent = "Reconnecting " + (state.roomCode || "");
+      else if (mode === "offline") status.textContent = "Offline · " + (state.roomCode || "");
+    }
   }
   function watchEs() {
     // Poll ES while joined (catches Saloon wallet + manual shard edits)
@@ -673,7 +888,11 @@
     var btnJoin = $("#btnDmJoin");
     var btnLeave = $("#btnDmLeave");
     var input = $("#dmJoinCode");
-    if (status) status.textContent = on ? ("Joined " + code) : "Not in a room";
+    if (status) {
+      if (!on) status.textContent = "Not in a room";
+      else if (state.connected === false) status.textContent = "Reconnecting " + code;
+      else status.textContent = "Joined " + code;
+    }
     if (btnJoin) btnJoin.hidden = !!on;
     if (btnLeave) btnLeave.hidden = !on;
     if (input) { input.disabled = !!on; if (code) input.value = code; }
@@ -689,12 +908,7 @@
       toast("Connecting…");
       await loadFirebase();
       var fb = state._fb;
-      var metaSnap = await new Promise(function (resolve, reject) {
-        // dynamic import get
-        import("https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js").then(function (dbMod) {
-          dbMod.get(fb.ref(state.db, "rooms/" + code + "/meta")).then(resolve).catch(reject);
-        }).catch(reject);
-      });
+      var metaSnap = await fb.get(fb.ref(state.db, "rooms/" + code + "/meta"));
       if (!metaSnap.exists()) {
         toast("No room with code " + code + " (is the DM live? Demo rooms aren't on Firebase.)");
         return;
@@ -708,10 +922,13 @@
       state.joined = true;
       saveLocal();
       setUiJoined(true, code);
+      watchConnection();
       await publishSnapshot();
       listenCommands();
       listenRoomFeeds();
       watchEs();
+      flushQueue();
+      setBadge(state.connected === false ? "reconnecting" : "connected");
       if (!state._sheetWatch) {
         state._sheetWatch = true;
         var pubTimer;
@@ -762,6 +979,8 @@
       postLedger: postLedger,
       postRoll: postRoll,
       postChat: postChat,
+      postDamage: postDamage,
+      showHandout: showHandout,
       spendInspiration: spendInspiration,
       join: join,
       leave: leave
@@ -792,15 +1011,21 @@
       if (root.SSDNSApp || tries > 50) {
         clearInterval(t);
         var saved = loadLocal();
-        // Do NOT auto-rejoin if Firebase may be down — user taps Join again.
-        if (saved && saved.roomCode && $("#dmJoinCode")) {
-          $("#dmJoinCode").value = saved.roomCode;
-          var status = $("#dmJoinStatus");
-          if (status) status.textContent = "Last room " + saved.roomCode + " · tap Join to reconnect";
+        if (saved && saved.roomCode && $("#dmJoinCode")) $("#dmJoinCode").value = saved.roomCode;
+        if (saved && saved.joined && saved.roomCode) {
+          toast("Rejoining " + saved.roomCode);
+          join(saved.roomCode);
         }
       }
     }, 100);
   }
+
+  window.addEventListener("beforeunload", function (e) {
+    if (!state.joined) return;
+    saveLocal();
+    e.preventDefault();
+    e.returnValue = "";
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bootWhenReady);

@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.5"; // dmcc-cast-v028
+const VERSION = "0.2.6"; // dmcc-playtest-v026
 const NOTES_KEY = "ssdns.dmcc.notes";
 const ROOM_KEY = "ssdns.dmcc.lastRoom";
 const WORDS = ["DUST", "IRON", "HEX", "RUST", "BONE", "COIL", "SAGE", "RAIL", "OXEN", "VELD", "ASH", "QUILL"];
@@ -203,7 +203,7 @@ async function createLiveRoom(name) {
     code,
     name: name || "",
     dmUid: state.uid,
-    dmName: "DM",
+    dmName: (($("#inDmName") && $("#inDmName").value) || "DM").trim() || "DM",
     createdAt: new Date().toISOString(),
     status: "live"
   };
@@ -245,7 +245,28 @@ function attachLiveListeners() {
     state.unsubs.push(() => fb.off(r, "value", cb));
   };
   bind("meta", (v) => { if (v) { state.meta = v; renderRoomHero(); } });
-  bind("players", (v) => { state.players = v || {}; renderPlayers(); fillTargetSelects(); renderPresence(); });
+  const seenJoin = {};
+  bind("players", (v) => {
+    const prev = state.players || {};
+    state.players = v || {};
+    Object.keys(state.players).forEach((id) => {
+      if (seenJoin[id]) return;
+      seenJoin[id] = 1;
+      if (!prev[id]) {
+        const s = state.players[id].snapshot || {};
+        const who = [s.player, s.name].filter(Boolean).join(" · ") || id;
+        pushLedger({
+          who: who, playerId: id, playerName: s.player || "", characterName: s.name || "",
+          type: "join", what: who + " joined the table", oldVal: null, newVal: "joined", flag: false
+        });
+      }
+    });
+    renderPlayers();
+    fillTargetSelects();
+    renderPresence();
+    renderRoomHero();
+    if (window.DMCCEnhance && window.DMCCEnhance.fillAdds) window.DMCCEnhance.fillAdds();
+  });
   bind("ledger", (v) => {
     const next = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
     noteAddiction(next);
@@ -462,7 +483,18 @@ async function pushRoll(entry) {
     renderRolls();
     return;
   }
-  try { await state._fb.set(roomRef("rolls/" + entry.id), entry); }
+  try {
+    await state._fb.set(roomRef("rolls/" + entry.id), entry);
+    if (!entry.private) {
+      const text = (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result ?? "") + (entry.detail ? " (" + entry.detail + ")" : "");
+      const feed = {
+        id: entry.id, ts: entry.ts, from: state.uid || "dm", fromName: "DM",
+        text: text, kind: "roll", who: entry.who || "DM"
+      };
+      try { await state._fb.set(roomRef("tableFeed/" + entry.id), feed); } catch (err) { console.warn("[DMCC] feed", err); }
+      await pushCommand({ type: "roll", to: "all", payload: { text: text, who: entry.who || "DM", id: entry.id }, from: state.uid });
+    }
+  }
   catch (e) { toast("Roll write failed"); console.warn(e); }
 }
 
@@ -844,8 +876,8 @@ function dockItems() {
       ts: r.ts,
       kind: (r.nat1 && r.isFirearm) ? "alerts" : "rolls",
       who: r.who || "",
-      cls: face.cls,
-      tag: face.tag,
+      cls: (r.private ? "private " : "") + (face.cls || ""),
+      tag: r.private ? "PRIVATE" : face.tag,
       text: (r.label || "Roll") + " " + (r.formula || "") + " = " + (r.result ?? "") + (r.detail ? " · " + r.detail : "")
     });
   });
@@ -910,6 +942,8 @@ async function sendDockChat(text, to) {
     });
     await pushCommand({ type: "message", to: to, payload: { text: text }, from: state.uid });
     toast("Sent to " + (row.toName || "that player"));
+    const dockTo = $("#dockTo");
+    if (dockTo) dockTo.value = "all";
     return;
   }
   if (state.demo || !state.db) {
@@ -1021,20 +1055,22 @@ async function doPushReward() {
   if (type === "es") {
     const delta = parseInt($("#rewEs").value, 10) || 0;
     if (!delta) { toast("Enter a non-zero ES amount"); return; }
+    const reason = (($("#rewReason") && $("#rewReason").value) || "DM reward").trim() || "DM reward";
     for (const pid of (target === "all" ? Object.keys(state.players) : ids)) {
       const p = state.players[pid];
-      const name = (p && p.snapshot && p.snapshot.name) || pid;
-      const old = p && p.snapshot ? p.snapshot.es : null;
+      const snap = (p && p.snapshot) || {};
+      const name = snap.name || pid;
+      const old = snap.es == null || snap.es === "" ? null : Number(snap.es);
       if (state.demo) await applyEsToDemoPlayer(pid, delta);
-      const neu = p && p.snapshot ? p.snapshot.es : (old != null ? old + delta : delta);
+      const neu = old == null || !isFinite(old) ? null : old + delta;
       const flag = Math.abs(delta) >= 500;
       await pushLedger({
-        who: "DM", playerId: pid, type: "dm_push",
-        what: `DM ${delta >= 0 ? "granted" : "took"} ${Math.abs(delta)} ES → ${name}`,
+        who: "DM", playerId: pid, playerName: snap.player || "", characterName: name, type: "dm_push",
+        what: reason + " (" + (delta >= 0 ? "+" : "") + delta + " ES) → " + name,
         oldVal: old, newVal: neu, flag
       });
       await pushCommand({
-        type: "reward_es", to: pid, payload: { delta, reason: "DM reward" },
+        type: "reward_es", to: pid, payload: { delta, reason: reason },
         from: state.uid
       });
     }
@@ -1071,39 +1107,53 @@ async function doSendMsg() {
   });
   await pushCommand({ type: "message", to, payload: { text }, from: state.uid });
   $("#msgText").value = "";
+  const msgTarget = $("#msgTarget");
+  if (msgTarget) msgTarget.value = "";
   toast("Private message sent");
 }
 
+let rolling = false;
 async function doDmRoll() {
-  const label = ($("#rollLabel").value || "DM roll").trim();
-  const formula = ($("#rollFormula").value || "1d20").trim();
-  const priv = $("#rollPrivate").checked;
-  const out = parseDice(formula);
-  await pushRoll({
-    who: "DM", playerId: null, uid: state.uid || "demo_dm",
-    label, formula, result: out.total, detail: out.detail,
-    nat1: out.nat1, isFirearm: false, private: priv
-  });
-  toast((priv ? "Private " : "") + "roll: " + out.total);
+  if (rolling) return;
+  rolling = true;
+  try {
+    const label = ($("#rollLabel").value || "DM roll").trim();
+    const formula = ($("#rollFormula").value || "1d20").trim();
+    const priv = $("#rollPrivate").checked;
+    const out = parseDice(formula);
+    await pushRoll({
+      who: "DM", playerId: null, uid: state.uid || "demo_dm",
+      label, formula, result: out.total, detail: out.detail,
+      nat1: out.nat1, isFirearm: false, private: priv
+    });
+    toast((priv ? "Private " : "Public ") + "roll: " + out.total);
+  } finally { rolling = false; }
 }
 
 async function doHandout(send) {
   const name = ($("#hoName").value || "Handout").trim();
   const url = ($("#hoUrl").value || "").trim();
+  const text = ($("#hoText") && $("#hoText").value || "").trim();
   const to = $("#hoTarget").value || "all";
-  if (!url) { toast("Paste an image URL"); return; }
-  const entry = { name, url, to, sent: !!send };
+  if (!url && !text) { toast("Add an image URL or some text"); return; }
+  const entry = { name, url, text, to, sent: !!send };
   await pushHandout(entry);
+  await pushLedger({
+    who: "DM", playerId: to, type: "handout",
+    what: "Handout: " + name + (to === "all" ? " (table)" : ""),
+    oldVal: null, newVal: name, flag: false
+  });
   if (send) await sendHandoutCommand(entry);
   else toast("Saved to handout list");
   $("#hoName").value = "";
   $("#hoUrl").value = "";
+  if ($("#hoText")) $("#hoText").value = "";
 }
 
 async function sendHandoutCommand(h) {
   await pushCommand({
     type: "handout", to: h.to || "all",
-    payload: { name: h.name, url: h.url },
+    payload: { name: h.name, url: h.url || "", text: h.text || "" },
     from: state.uid
   });
   toast("Handout sent to " + (h.to === "all" ? "table" : h.to));
@@ -1115,10 +1165,14 @@ async function doForce(kind, custom) {
     ? { tab: ($("#inForceTab").value || custom || "").trim() }
     : { panel: kind };
   if (kind === "custom" && !payload.tab) { toast("Enter a tab id"); return; }
-  await pushCommand({
-    type: kind === "saloon" ? "open_saloon" : kind === "store" ? "open_store" : "open_tab",
-    to, payload, from: state.uid
+  const type = kind === "saloon" ? "open_saloon" : kind === "store" ? "open_store" : "open_tab";
+  await pushCommand({ type: type, to, payload, from: state.uid });
+  await pushLedger({
+    who: "DM", playerId: to, type: type,
+    what: (kind === "saloon" ? "Saloon opened" : kind === "store" ? "Store opened" : "Opened " + (payload.tab || kind)) + (to === "all" ? " for the table" : ""),
+    oldVal: null, newVal: kind, flag: false
   });
+  toast(kind === "saloon" ? "Saloon opened" : kind === "store" ? "Store opened" : "Sent");
 }
 
 function exportLedger(fmt) {
@@ -1234,6 +1288,13 @@ function wireTabs() {
 /* ---------- boot ---------- */
 function wire() {
   wireTabs();
+  const priv = $("#rollPrivate");
+  const privState = $("#rollPrivateState");
+  if (priv && privState) {
+    const paint = () => { privState.textContent = priv.checked ? "ON" : "OFF"; };
+    priv.addEventListener("change", paint);
+    paint();
+  }
   $("#btnCreateRoom").addEventListener("click", () => {
     const name = ($("#inRoomName").value || "").trim();
     if (state.demo || !state.firebaseReady) loadDemo(true);
@@ -1401,6 +1462,7 @@ window.DMCC = {
   pushCommand: pushCommand,
   pushMessage: pushMessage,
   pushHandout: pushHandout,
+  doDmRoll: doDmRoll,
   renderPlayers: renderPlayers,
   renderAll: renderAll,
   recordConsume: recordConsume,
@@ -1416,6 +1478,8 @@ async function boot() {
   state.demo = wantDemo();
   $("#chkDemo").checked = state.demo;
   setStatus("demo", "Starting…");
+  const lobbyVer = $("#lobbyVersion");
+  if (lobbyVer) lobbyVer.textContent = "DMCC " + VERSION;
 
   // Demo: fully offline — do not touch Firebase CDN.
   // Live (?demo=0): try Firebase; fall back to Demo if it fails.

@@ -13,7 +13,8 @@
   function doc() { return root.SSDNSApp && root.SSDNSApp.doc ? root.SSDNSApp.doc() : null; }
   function ch() { var d = doc(); return d && d.character; }
   function toast(msg) {
-    var t = $("#toastText"), box = $("#toast");
+    var t = $("#toastText"), box = $("#toast"), act = $("#toastAction");
+    if (act) act.hidden = true;
     if (t && box) {
       t.textContent = msg;
       box.hidden = false;
@@ -180,6 +181,7 @@
       return '<div class="log-item log-' + (e.kind || "all") + " " + face.cls + '"><div class="log-meta">' + when + " · " + (e.kind || "") +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") + '</div><div>' +
         String(e.text || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }) +
+        (e.kind === "handout" ? ' <button type="button" class="btn sm" data-reopen-handout="1">Reopen</button>' : "") +
         "</div></div>";
     }).join("");
   }
@@ -229,8 +231,9 @@
     if (lede) lede.textContent = "Session stock. Buying spends ES and writes a ledger line.";
     box.innerHTML = stock.map(function (item, i) {
       var price = num(item.price);
-      return '<div class="store-row"><div><b>' + esc(item.name) + '</b><div class="fine">' + price + ' ES</div></div>' +
-        '<button type="button" class="btn" data-buy="' + i + '"' + (es < price ? " disabled" : "") + ">Buy</button></div>";
+      return '<div class="store-row"><div><b>' + esc(item.name) + '</b><div class="fine">' + price.toLocaleString() + ' ES</div></div>' +
+        '<button type="button" class="btn" data-buy="' + i + '" aria-label="Buy ' + esc(item.name) + '"' + (es < price ? " disabled title=\"Need " + price.toLocaleString() + " ES (you have " + es.toLocaleString() + ")\"" : "") + ">Buy</button>" +
+        (es < price ? "<div class=\"fine\">Need " + price.toLocaleString() + " ES (you have " + es.toLocaleString() + ")</div>" : "") + "</div>";
     }).join("");
   }
 
@@ -248,6 +251,31 @@
       while (paid < owe && n > 0) { n -= 1; paid += Bridge.CP[c]; }
     });
     return paid - owe;
+  }
+  function grantBought(item) {
+    var d = doc();
+    if (!d || !d.character || !item) return;
+    var name = String(item.name || "Item");
+    var count = 1;
+    var cm = name.match(/(\d+)/);
+    if (cm) count = parseInt(cm[1], 10) || 1;
+    if (/cartridge/i.test(name)) {
+      var tier = /heavy/i.test(name) ? "Heavy" : (/medium/i.test(name) ? "Medium" : "Light");
+      d.character.ammo = d.character.ammo || [];
+      var pool = null;
+      d.character.ammo.forEach(function (a) {
+        if (!pool && a.type === "cartridge" && String(a.caliber || "").toLowerCase() === tier.toLowerCase()) pool = a;
+      });
+      if (!pool) { pool = { type: "cartridge", caliber: tier, count: 0 }; d.character.ammo.push(pool); }
+      pool.count = (parseInt(pool.count, 10) || 0) + count;
+    } else {
+      var line = "• " + name;
+      var cur = d.character.equipment || "";
+      if (cur.indexOf(line) < 0) d.character.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + line;
+      var ta = document.querySelector('[data-f="character.equipment"]');
+      if (ta) ta.value = d.character.equipment;
+    }
+    addLog({ kind: "item", text: "Gear: " + name });
   }
   function finishBuy(item, price, old) {
     var Bridge = root.SSDNSBridge;
@@ -275,6 +303,7 @@
       });
     }
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.publishSnapshot) root.SSDNSDmJoin.publishSnapshot();
+    grantBought(item);
     toast("Bought " + item.name + (old - Bridge.cpValue(d.shards) > price ? " (the shop kept the extra)" : ""));
     renderStore();
   }
@@ -348,7 +377,7 @@
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         label: label, formula: formula, result: total, detail: detail,
-        nat1: !!nat1, isFirearm: !!firearm, private: false, whisper: false
+        nat1: !!nat1, isFirearm: !!firearm, private: whisperOn(), whisper: whisperOn()
       });
     }
   }
@@ -373,10 +402,22 @@
       if (!isFinite(mod)) mod = (v.skills && v.skills[rest]) || 0;
       label = rest;
     }
-    var nat = 1 + Math.floor(Math.random() * 20);
-    var total = nat + mod;
-    var formula = "1d20" + (mod ? signMod(mod) : "");
-    postCheck(label, formula, total, String(nat) + (mod ? signMod(mod) : ""), nat === 1, false);
+    var rolled = rollAdv(mod);
+    postCheck(label, rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false);
+  }
+  function rollAdv(mod) {
+    var globalAdv = document.querySelector("#globalAdv");
+    var mode = (globalAdv && globalAdv.value) || "";
+    var n1 = 1 + Math.floor(Math.random() * 20);
+    var n2 = null;
+    var nat = n1;
+    if (mode === "adv" || mode === "dis") {
+      n2 = 1 + Math.floor(Math.random() * 20);
+      nat = mode === "adv" ? Math.max(n1, n2) : Math.min(n1, n2);
+    }
+    var formula = (n2 == null ? "1d20" : "2d20") + (mod ? signMod(mod) : "");
+    var dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
+    return { nat: nat, total: nat + (mod || 0), formula: formula, detail: dice + (mod ? signMod(mod) : "") };
   }
   function rollInitiative() {
     if (root.SSDNSAudio) root.SSDNSAudio.play("holster");
@@ -386,10 +427,8 @@
       var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
       bonus = v.initiative || 0;
     }
-    var nat = 1 + Math.floor(Math.random() * 20);
-    var total = nat + bonus;
-    var formula = "1d20" + (bonus ? signMod(bonus) : "");
-    postCheck("Initiative", formula, total, String(nat) + (bonus ? signMod(bonus) : ""), nat === 1, false);
+    var rolled = rollAdv(bonus || 0);
+    postCheck("Initiative", rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false);
   }
   function wildSparkLine(nat) {
     if (nat !== 1) return "";
@@ -414,6 +453,7 @@
     var gunAtk = parseInt(gunAtkEl && String(gunAtkEl.value).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(gunAtk)) gunAtk = 0;
     var hexslinger = !!(c && c.calling === "hexslinger");
+    var row = Cast.lookup(spellName);
     var rolled = Cast.rollCast({
       spellName: spellName,
       slotLevel: slot,
@@ -421,12 +461,17 @@
       attackBonus: atk,
       spellMod: v.spellMod,
       dc: v.spellDC,
-      weaponDamage: gunDmgEl ? gunDmgEl.value : "",
+      weaponDamage: row && row.weapon && gunDmgEl ? gunDmgEl.value : "",
       weaponAtk: gunAtk,
-      gunName: gunName(i),
+      gunName: i >= 0 ? gunName(i) : "",
       wildSpark: hexslinger && slot > 0
     });
-    if (root.SSDNSAudio) root.SSDNSAudio.play("spellcast");
+    if (root.SSDNSAudio) {
+      var cue = "spellshot";
+      if (c && c.calling === "pact-seeker") cue = "pactshot";
+      else if (!(hexslinger || fromChamber)) cue = "spellshot";
+      root.SSDNSAudio.play(cue);
+    }
     toast(rolled.text);
     addLog({
       kind: "roll", text: rolled.text, label: rolled.label, formula: rolled.formula,
@@ -443,8 +488,8 @@
         attack: rolled.attack,
         nat: rolled.nat,
         crit: rolled.crit,
-        private: false,
-        whisper: false
+        private: whisperOn(),
+        whisper: whisperOn()
       });
     }
   }
@@ -514,12 +559,43 @@
     if (btn) btn.disabled = !on || !(count > 0);
   }
   function d20() { return 1 + Math.floor(Math.random() * 20); }
+  function rollDamageExpr(expr, crit) {
+    var s = String(expr || "");
+    var m = s.match(/(\d*)d(\d+)/i);
+    if (!m) return null;
+    var n = Math.max(1, parseInt(m[1] || "1", 10));
+    var sides = parseInt(m[2], 10);
+    var flatM = s.replace(/(\d*)d(\d+)/i, " ").match(/([+-]\s*\d+)/);
+    var flat = flatM ? parseInt(flatM[1].replace(/\s/g, ""), 10) : 0;
+    if (crit) n = n * 2;
+    var rolls = [];
+    for (var k = 0; k < Math.abs(n); k++) rolls.push(1 + Math.floor(Math.random() * sides));
+    var sum = rolls.reduce(function (a, b) { return a + b; }, 0) + (flat || 0);
+    var detail = rolls.join("+") + (flat ? ((flat >= 0 ? "+" : "") + flat) : "");
+    return { total: sum, detail: detail, formula: n + "d" + sides + (flat ? ((flat >= 0 ? "+" : "") + flat) : "") };
+  }
+  function whisperOn() {
+    var box = document.querySelector("#chkWhisper");
+    return !!(box && box.checked);
+  }
   function rollGun(i) {
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
     var g = c.guns[i];
+    var name0 = gunName(i);
+    if (/borrowed iron/i.test(name0) || g.weapon === "borrowed-iron") {
+      var msg = "Borrowed Iron has no weapon stats. Use Pact Shot.";
+      toast(msg);
+      addLog({ kind: "alert", text: msg });
+      return;
+    }
     var spent = root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i) : null;
-    if (!spent || !spent.ok) { toast((spent && spent.reason) || "That gun can't fire."); return; }
+    if (!spent || !spent.ok) {
+      var reason = (spent && spent.reason) || "That gun can't fire.";
+      toast(reason);
+      addLog({ kind: "alert", text: name0 + ": " + reason });
+      return;
+    }
     var atkEl = document.querySelector('[data-calc="gunAtk.' + i + '"]');
     var atk = parseInt(atkEl && String(atkEl.value).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(atk)) atk = 0;
@@ -528,7 +604,8 @@
       ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
       : 1;
     var modeSel = document.querySelector('[data-adv="' + i + '"]');
-    var mode = (modeSel && modeSel.value) || "";
+    var globalAdv = document.querySelector("#globalAdv");
+    var mode = (modeSel && modeSel.value) || (globalAdv && globalAdv.value) || "";
     var n1 = d20(), n2 = null, nat = n1;
     if (mode === "adv" || mode === "dis") {
       n2 = d20();
@@ -562,27 +639,37 @@
       misfired = true;
     }
     if (spent.left != null) bits.push(spent.left + " rounds left.");
-    toast(bits.join(" "));
+    var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
+    var dmg = null;
+    if (!misfired) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
+    if (dmg) bits.push((nat === 20 ? "critical " : "") + "damage " + dmg.detail + " = " + dmg.total);
+    var line = bits.join(" · ");
+    toast(line);
     addLog({
-      kind: "roll", text: bits.join(" "),
+      kind: "roll", text: line,
       label: name + " attack",
-      formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
+      formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (dmg ? " · " + dmg.formula : ""),
       attack: true, nat: nat, crit: nat === 20
     });
+    var quiet = whisperOn();
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         label: name + (misfired ? " misfire" : " attack"),
         formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
         result: total,
-        detail: dice + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (misfired ? " misfire" : ""),
+        detail: dice + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (dmg ? " · dmg " + dmg.total : "") + (misfired ? " misfire" : ""),
         nat1: false,
         isFirearm: true,
         attack: true,
         nat: nat,
         crit: nat === 20,
-        private: false,
-        whisper: false
+        private: quiet,
+        whisper: quiet,
+        damage: dmg ? dmg.total : null
       });
+    }
+    if (dmg && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && !quiet) {
+      root.SSDNSDmJoin.postDamage({ amount: dmg.total, label: name, type: "weapon" });
     }
   }
 
@@ -595,7 +682,7 @@
         what: what,
         oldVal: null,
         newVal: what,
-        flag: true,
+        flag: false,
         who: (c && c.player) || "Player",
         playerName: (c && c.player) || "",
         characterName: (c && c.name) || ""
@@ -666,7 +753,10 @@
         });
       }
       syncRestFields(c);
-      showNotice(shortHex ? "Short rest — pact slots refreshed. Guns, dirt, and fouling stay." : "Short rest. Slots wait for a long rest. Guns, dirt, and fouling stay. Spend hit dice yourself if you heal.");
+      var word = "spell slots";
+      if (c.calling === "hexslinger") word = "Hex Lead";
+      else if (c.calling === "pact-seeker") word = "Pact slots";
+      showNotice(shortHex ? "Short rest — pact slots refreshed. Guns, dirt, and fouling stay." : "Short rest. Your " + word + " comes back on a long rest. Guns, dirt, and fouling stay.");
     }
   }
 
@@ -750,64 +840,118 @@
     if (c) { /* names go with the roll */ }
   }
 
-  function rollHex() {
+  function spellsForSlot(level) {
     var c = ch();
-    var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
-    if (v.spellAtk == null || v.spellAtk === "") { toast("This Calling has no spell attack."); return; }
-    var level = num($("#hexRollLevel") && $("#hexRollLevel").value);
-    if (c && c.calling === "hexslinger" && level > 0) {
-      toast("Load the shell on the gun (that spends the slot), then Cast through gun. This button won't spend a Hex Lead slot.");
-      return;
+    if (!c) return [];
+    var preparedIds = { "frontier-preacher": 1, "nature-guide": 1, "lawman": 1, "scholar": 1 };
+    var prepared = !!preparedIds[c.calling];
+    var out = [];
+    if (num(level) <= 0) {
+      (c.cantrips || []).forEach(function (n) { if (n) out.push({ name: n, level: 0, slot: 0 }); });
+      if (c.calling === "pact-seeker" && !out.some(function (s) { return /pact shot|eldritch blast/i.test(s.name); })) {
+        out.unshift({ name: "Pact Shot", level: 0, slot: 0 });
+      }
+      return out;
     }
-    var slotName = (c && c.calling === "pact-seeker") ? "pact slot" : "spell slot";
-    if (level > 0) {
-      var ok = root.SSDNSApp.spendHexSlot && root.SSDNSApp.spendHexSlot(level);
-      if (!ok) { toast("No level-" + level + " " + slotName + " left."); return; }
-    }
-    var atk = parseInt(String(v.spellAtk).replace(/[^\d-]/g, ""), 10);
-    if (!isFinite(atk)) atk = 0;
-    var nat = 1 + Math.floor(Math.random() * 20);
-    var total = nat + atk;
-    var label = level ? ("Level " + level + " " + slotName) : "Cantrip";
-    var text = label + " " + (atk >= 0 ? "+" : "") + atk + ": " + nat + (atk ? (atk >= 0 ? "+" : "") + atk : "") + " = " + total;
-    if (root.SSDNSAudio) root.SSDNSAudio.play("spellcast");
-    toast(text);
-    addLog({
-      kind: "roll", text: text, label: label + " attack",
-      formula: "1d20" + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
-      attack: true, nat: nat, crit: nat === 20
-    });
-    if (joined() && root.SSDNSDmJoin.postRoll) {
-      root.SSDNSDmJoin.postRoll({
-        label: label + " attack",
-        formula: "1d20" + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
-        result: total,
-        detail: String(nat) + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
-        nat1: nat === 1,
-        isFirearm: false,
-        attack: true,
-        nat: nat,
-        crit: nat === 20,
-        private: false,
-        whisper: false
+    var slot = num(level);
+    var lv;
+    for (lv = 1; lv <= slot; lv++) {
+      (c.spells[lv] || []).forEach(function (s) {
+        if (!s || !s.name) return;
+        if (prepared && !s.prepared) return;
+        out.push({ name: s.name, level: lv, slot: slot });
       });
     }
+    return out;
+  }
+  function castPicked(i, sp) {
+    var c = ch();
+    if (!sp) return;
+    var slot = sp.slot || 0;
+    if (slot > 0 && c && c.calling === "hexslinger") {
+      if (!root.SSDNSApp || !root.SSDNSApp.spendHexChamber) { toast("Load that shell on the gun first."); return; }
+      var held = root.SSDNSApp.spendHexChamber(i, slot);
+      if (!held.ok) { toast(held.reason || "Load a level-" + slot + " shell first."); return; }
+      castSpellAttack(i, sp.name, slot, true);
+      return;
+    }
+    if (slot > 0 && root.SSDNSApp && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(slot)) {
+      toast("No level-" + slot + " slot left.");
+      return;
+    }
+    castSpellAttack(i, sp.name, slot, !!(c && c.calling === "hexslinger" && slot > 0));
+  }
+  function openCastPrompt(level, onPick) {
+    var c = ch();
+    var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+    if (!v.caster && !(c && (c.calling === "hexslinger" || c.calling === "pact-seeker"))) {
+      toast("This Calling has no spells at this level.");
+      return;
+    }
+    var list = spellsForSlot(level);
+    var dlg = document.getElementById("dlgCast");
+    if (!dlg) {
+      dlg = document.createElement("dialog");
+      dlg.id = "dlgCast";
+      dlg.className = "dlg";
+      document.body.appendChild(dlg);
+    }
+    dlg.innerHTML = "<form method='dialog'><h2></h2><div id='castList'></div><div class='dlg-foot'><button type='button' class='btn' id='castCancel'>Cancel</button></div></form>";
+    dlg.querySelector("h2").textContent = num(level) ? ("Level " + level + " spells") : "Cantrips";
+    var box = dlg.querySelector("#castList");
+    if (!list.length) box.appendChild(document.createTextNode("No spells of that level on this sheet yet. Add them on the Spells page."));
+    list.forEach(function (sp) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn";
+      b.style.display = "block";
+      b.style.margin = "6px 0";
+      b.textContent = (sp.level ? ("L" + sp.level + " · ") : "Cantrip · ") + sp.name;
+      b.addEventListener("click", function () {
+        if (dlg.close) dlg.close();
+        onPick(sp);
+      });
+      box.appendChild(b);
+    });
+    dlg.querySelector("#castCancel").onclick = function () { if (dlg.close) dlg.close(); };
+    if (dlg.showModal) dlg.showModal();
+  }
+  function gunIndexForCast() {
+    var c = ch();
+    var hit = -1;
+    (c && c.guns || []).forEach(function (g, i) {
+      if (g && g.weapon) hit = i;
+    });
+    return hit;
+  }
+  function rollHex() {
+    var level = num($("#hexRollLevel") && $("#hexRollLevel").value);
+    openCastPrompt(level, function (sp) { castPicked(gunIndexForCast(), sp); });
   }
 
   function sendChat(input) {
     input = input || $("#logChatText");
     var text = (input && input.value || "").trim();
     if (!text) return;
-    if (!joined()) { toast("Join a table to chat. The sheet stays on this device until then."); return; }
-    input.value = "";
     var c = ch();
-    addLog({ kind: "chat", text: ((c && c.player) || "You") + ": " + text });
-    if (root.SSDNSDmJoin.postChat) {
-      root.SSDNSDmJoin.postChat({
-        text: text,
-        fromName: (c && (c.player || c.name)) || "Player"
-      });
+    var stateEl = $("#chatSendState");
+    if (!joined() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postChat) {
+      toast("Not sent. Join the table, then send again.");
+      addLog({ kind: "alert", text: "Not sent (offline): " + text });
+      return;
     }
+    if (stateEl) stateEl.textContent = "Sending…";
+    addLog({ kind: "chat", text: ((c && c.player) || "You") + ": " + text });
+    var pending = root.SSDNSDmJoin.postChat({
+      text: text,
+      fromName: (c && (c.player || c.name)) || "Player"
+    });
+    Promise.resolve(pending).then(function (res) {
+      var ok = !res || res.ok !== false;
+      if (stateEl) stateEl.textContent = ok ? "Sent" : "Failed — queued";
+      if (ok && input) input.value = "";
+      else toast("Message queued. It sends when the room reconnects.");
+    });
   }
 
   function wire() {
@@ -828,6 +972,14 @@
     document.addEventListener("click", function (e) {
       var buyBtn = e.target.closest && e.target.closest("[data-buy]");
       if (buyBtn) buy(num(buyBtn.getAttribute("data-buy")));
+      var reopen = e.target.closest && e.target.closest("[data-reopen-handout]");
+      if (reopen) {
+        var item = reopen.closest(".log-item");
+        var idx = item ? Array.prototype.indexOf.call(item.parentNode.children, item) : -1;
+        var rows = log.filter(function (row) { return filter === "all" || row.kind === filter; });
+        var entry = rows[idx];
+        if (entry && root.SSDNSDmJoin && root.SSDNSDmJoin.showHandout) root.SSDNSDmJoin.showHandout(entry.title || "Handout", entry.url || "", entry.body || "");
+      }
       var f = e.target.closest && e.target.closest("[data-log-filter]");
       if (f) {
         filter = f.getAttribute("data-log-filter");
@@ -841,7 +993,22 @@
       var d20 = e.target.closest && e.target.closest("[data-d20]");
       if (d20) { rollCheck(d20.getAttribute("data-d20")); return; }
       var cast = e.target.closest && e.target.closest("[data-cast]");
-      if (cast) { castThroughGun(num(cast.getAttribute("data-cast"))); return; }
+      if (cast) {
+        var gi = num(cast.getAttribute("data-cast"));
+        var slotSel = document.querySelector('[data-castslot="' + gi + '"]');
+        var lvl = slotSel && !slotSel.hidden ? num(slotSel.value, 0) : num($("#hexRollLevel") && $("#hexRollLevel").value, 0);
+        openCastPrompt(lvl, function (sp) { castPicked(gi, sp); });
+        return;
+      }
+      var spellCast = e.target.closest && e.target.closest("[data-spell-cast]");
+      if (spellCast) {
+        var raw = spellCast.getAttribute("data-spell-cast") || "";
+        var cut = raw.indexOf(":");
+        var sl = num(raw.slice(0, cut), 0);
+        var sname = raw.slice(cut + 1);
+        castPicked(gunIndexForCast(), { name: sname, level: sl, slot: sl });
+        return;
+      }
     }, true);
     document.addEventListener("change", function () { renderConds(); renderStore(); });
     var chat = $("#logChat");
@@ -850,6 +1017,8 @@
     if (dockChat) dockChat.addEventListener("submit", function (e) { e.preventDefault(); sendChat($("#sheetDockText")); });
     var hexBtn = $("#btnHexRoll");
     if (hexBtn) hexBtn.addEventListener("click", rollHex);
+    var hexLv = $("#hexRollLevel");
+    if (hexLv) hexLv.addEventListener("change", rollHex);
     var initBtn = $("#btnInit");
     if (initBtn) initBtn.addEventListener("click", rollInitiative);
     var spendInsp = $("#btnSpendInsp");

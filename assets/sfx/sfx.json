@@ -3,8 +3,9 @@
     "attack": "attack.mp3",
     "holster": "holster.mp3",
     "reload": "reload.mp3",
-    "spellcast": "spellcast.mp3",
-    "reward": "reward.mp3",
+    "spellshot": "spellshot.mp3",
+    "pactshot": "pactshot.mp3",
+    "spellcast": "spellshot.mp3",
     "jam": "jam.mp3",
     "explode": "explode.mp3"
   }
