@@ -150,6 +150,7 @@ function restoreSecrets() {
     });
     if (secret.damage) row.damage = secret.damage;
     if (secret.reveal) row.reveal = secret.reveal;
+    if (secret.side === "friendly" || secret.side === "enemy") row.side = secret.side;
     if (secret.card && typeof secret.card === "object") row.card = Object.assign({}, row.card || {}, secret.card);
   });
 }
@@ -158,6 +159,7 @@ function playersSeeLine(row, i) {
     ? window.SSDNSApplied.publicEnemy(row, i, conditionsForRow(row))
     : { name: (row && row.name) || "Enemy", status: enemyStatus(row), conditions: [] };
   const bits = [shown.name || "Enemy"];
+  if (shown.side === "friendly") bits.push("Friendly");
   if (shown.status) bits.push(shown.status);
   const rev = shown.revealed || {};
   if (rev.ac != null && rev.ac !== "") bits.push("AC " + rev.ac);
@@ -261,7 +263,8 @@ function buildPublish() {
         status: shown.status || "",
         slot: index,
         lastAttackerId: row.lastAttackerId || "",
-        initFrom: row.initFrom || ""
+        initFrom: row.initFrom || "",
+        side: row.kind === "player" ? "" : (window.SSDNSApplied && window.SSDNSApplied.combatantSide ? window.SSDNSApplied.combatantSide(row) : (isFriendly(row) ? "friendly" : "enemy"))
       };
     });
     const hp = {};
@@ -628,11 +631,11 @@ function enemyCardHtml(row, i) {
       ${atk.notes ? `<p class="fine">${esc(atk.notes)}</p>` : ""}
       ${calls}
       ${jam}
-      <div class="toolbar">
+      ${isFriendly(row) ? `<p class="fine">Friendly. This attack does not target the party.</p>` : `<div class="toolbar">
         <button type="button" class="btn btn-primary" data-sheet-roll="1" data-n="${n}">Roll</button>
         <button type="button" class="btn" data-sheet-apply="1" data-n="${n}">Apply</button>
         ${riderBtns}
-      </div>
+      </div>`}
     </article>`;
   }).join("");
   const rider = row.pendingRider && row.pendingRider.condition
@@ -674,7 +677,7 @@ function enemyCardHtml(row, i) {
         <h3>${esc(name)}</h3>
         <p>${esc(meta)}</p>
         ${blurb ? `<p class="fine">${esc(blurb)}</p>` : ""}
-        <button type="button" class="btn" data-sheet-cast="1" data-n="${n}">${esc(castLabel)}</button>
+        ${isFriendly(row) ? `<p class="fine">Friendly. This spell does not target the party.</p>` : `<button type="button" class="btn" data-sheet-cast="1" data-n="${n}">${esc(castLabel)}</button>`}
       </article>`;
     }).join("");
     const dc = casting.dc == null ? "—" : casting.dc;
@@ -733,6 +736,16 @@ function enemyCardHtml(row, i) {
     </div>
   </div>`;
 }
+function isFriendly(row) {
+  if (window.SSDNSApplied && window.SSDNSApplied.combatantSide) return window.SSDNSApplied.combatantSide(row) === "friendly";
+  const side = row && String(row.side || "").toLowerCase();
+  return side === "friendly" || side === "ally" || !!(row && (row.ally === true || row.friendly === true));
+}
+function partyAttackBlocked(row) {
+  if (!isFriendly(row)) return false;
+  DM.toast((row && row.name ? row.name : "Ally") + " is friendly and does not attack the party");
+  return true;
+}
 function compactAttackButtons(row, i) {
   const list = (row.card && row.card.attacks && row.card.attacks.length) ? row.card.attacks : (row.attackList || []);
   const open = `<button type="button" class="btn sm" data-open-enemy="${esc(row.id || "")}">Open sheet</button>`;
@@ -746,6 +759,7 @@ function compactAttackButtons(row, i) {
 }
 function turnRowHtml(row, i) {
   const flash = fight.flash === i ? " flash" : "";
+  const friendly = row.kind === "enemy" && isFriendly(row);
   const status = row.kind === "enemy" ? enemyStatus(row) : "";
   const current = fight.started && i === fight.turn ? " current" : "";
   const detail = row.kind === "player" ? initSourceLabel(row) : tieLabel(row);
@@ -753,15 +767,18 @@ function turnRowHtml(row, i) {
   const downed = !fled && knownNumber(row.hp) === 0;
   const bloodied = !fled && !downed && enemyStatus(row) === "Bloodied";
   const downBadge = fled ? `<span class="badge">Fled</span>` : (downed ? `<span class="badge danger">Unconscious · Down</span>` : (bloodied ? `<span class="badge warn">Bloodied</span>` : ""));
+  const sideBadge = friendly ? `<span class="badge eld">Friendly</span>` : "";
+  const sideWord = row.kind === "enemy" ? (friendly ? "Friendly" : "Enemy") : (row.kind || "combatant");
   const tactics = row.kind === "enemy" ? rowTactics(row) : "";
   const enemyEdit = row.kind === "enemy"
     ? `<label class="fine">Atk <input type="number" data-atk-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.atkBonus == null ? "" : esc(row.atkBonus)}" aria-label="Attack bonus for ${esc(row.name || "enemy")}"></label>
       <label class="fine">Dmg <input class="cond-rounds" data-dmg-val="${i}" data-row-id="${esc(row.id || "")}" value="${esc(row.damage || "")}" placeholder="1d6+2" aria-label="Damage dice for ${esc(row.name || "enemy")}"></label>`
     : "";
-  return `<div class="init-row${current}${flash}${fled ? " fled" : ""}">
+  return `<div class="init-row${current}${flash}${fled ? " fled" : ""}${friendly ? " friendly" : ""}">
       <input class="init-score" type="number" data-init-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.init == null ? "" : esc(row.init)}" aria-label="Initiative for ${esc(row.name || "combatant")}">
       <span class="init-who" title="${esc(row.name || "Someone")}">${row.kind === "enemy" ? `<button type="button" class="name-btn" data-open-enemy="${esc(row.id || "")}">${esc(row.name || "Someone")}</button>` : `<b>${esc(row.name || "Someone")}</b>`}
-        <span class="fine">${esc(row.kind || "combatant")}${row.tie ? " · tie" : ""}${status ? " · " + esc(status) : ""}${detail ? " · " + esc(detail) : ""}${esc(turnAckLabel(row))}</span>
+        <span class="fine">${esc(sideWord)}${row.tie ? " · tie" : ""}${status ? " · " + esc(status) : ""}${detail ? " · " + esc(detail) : ""}${esc(turnAckLabel(row))}</span>
+        ${sideBadge}
         ${downBadge}
         ${conditionChips(row)}
         ${tactics ? `<span class="tactics-note">Tactics. ${esc(tactics)}</span>` : ""}
@@ -772,7 +789,8 @@ function turnRowHtml(row, i) {
       ${row.kind === "enemy" ? `<label class="fine">Max <input type="number" data-max-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.maxHp == null ? "" : esc(row.maxHp)}" aria-label="Max HP for ${esc(row.name || "enemy")}"></label>` : ""}
       ${enemyEdit}
       <span class="init-actions">
-        ${row.kind === "enemy" ? compactAttackButtons(row, i) : `<button type="button" class="btn sm" data-your-turn="${i}">Your turn</button>`}
+        ${row.kind === "enemy" ? `<button type="button" class="btn sm" data-side-toggle="${i}" aria-pressed="${friendly ? "true" : "false"}">${friendly ? "Mark enemy" : "Mark friendly"}</button>` : ""}
+        ${row.kind === "enemy" ? (friendly ? `<button type="button" class="btn sm" data-open-enemy="${esc(row.id || "")}">Open sheet</button>` : compactAttackButtons(row, i)) : `<button type="button" class="btn sm" data-your-turn="${i}">Your turn</button>`}
         <button type="button" class="btn sm" data-init-cond="${i}">Conditions</button>
         <button type="button" class="btn sm" data-init-hit="${i}">${row.kind === "enemy" ? "Attack this enemy" : "Attack this player"}</button>
         <button type="button" class="btn sm" data-init-dmg="${i}">Damage</button>
@@ -851,7 +869,8 @@ function renderFight() {
         const current = fight.started && i === fight.turn ? " current" : "";
         const ondeck = deck && row.id === deck.id ? " ondeck" : "";
         const label = `<b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> ${esc(row.name || "")}`;
-        if (row.kind === "enemy") return `<button type="button" class="turn-chip${current}${ondeck}" data-open-enemy="${esc(row.id || "")}">${label}</button>`;
+        const friendlyChip = row.kind === "enemy" && isFriendly(row) ? " friendly" : "";
+        if (row.kind === "enemy") return `<button type="button" class="turn-chip${current}${ondeck}${friendlyChip}" data-open-enemy="${esc(row.id || "")}">${label}</button>`;
         return `<span class="turn-chip${current}${ondeck}">${label}</span>`;
       }).join("");
     }
@@ -1970,7 +1989,8 @@ function renderEnemySheet() {
   if (title) title.textContent = row.name || "Enemy";
   if (sub) {
     const card = row.card || {};
-    sub.textContent = [card.cr ? "CR " + card.cr : "", row.kind === "enemy" ? "Enemy" : "", card.speed ? "Speed " + card.speed : ""].filter(Boolean).join(" · ");
+    const sideWord = row.kind === "enemy" ? (isFriendly(row) ? "Friendly" : "Enemy") : "";
+    sub.textContent = [card.cr ? "CR " + card.cr : "", sideWord, card.speed ? "Speed " + card.speed : ""].filter(Boolean).join(" · ");
   }
   const add = String(enemySheetId || "").indexOf("preview:") === 0
     ? `<p><button type="button" class="btn btn-primary" data-sheet-add="1">Add to the fight</button></p>`
@@ -2809,7 +2829,7 @@ function askEnemyStrike(row, preset) {
 }
 async function enemyStrike(i, preset) {
   const row = fight.order[i];
-  if (!row) return;
+  if (!row || partyAttackBlocked(row)) return;
   const picked = await askEnemyStrike(row, preset);
   if (!picked || !picked.targetId) { DM.toast("No player to attack"); return; }
   if (picked.bonus == null || !isFinite(picked.bonus) || !picked.dice) { DM.toast("Enter an attack bonus and damage"); return; }
@@ -2932,6 +2952,7 @@ async function publishCardRoll(row, detail, result, extra) {
 }
 async function cardStrike(i, n, opts) {
   const row = fight.order[i];
+  if (partyAttackBlocked(row)) return;
   const atk = row && row.card && row.card.attacks && row.card.attacks[n];
   if (!row || !atk) {
     const listed = row && row.attackList && row.attackList[n];
@@ -3079,6 +3100,7 @@ function askSaveSpell(row, name, known) {
 }
 async function cardCast(i, n) {
   const row = fight.order[i];
+  if (partyAttackBlocked(row)) return;
   const card = row && row.card;
   const list = card && card.spellcasting && card.spellcasting.spells;
   const spell = list && list[n];
@@ -3617,8 +3639,17 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-row-atk],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all]");
+    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-row-atk],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all]");
     if (!t) return;
+    if (t.hasAttribute("data-side-toggle")) {
+      const row = fight.order[parseInt(t.getAttribute("data-side-toggle"), 10)];
+      if (!row || row.kind !== "enemy") return;
+      row.side = isFriendly(row) ? "enemy" : "friendly";
+      saveRemoteTable();
+      renderFight();
+      DM.toast((row.name || "Combatant") + (row.side === "friendly" ? " is friendly" : " is an enemy"));
+      return;
+    }
     if (t.hasAttribute("data-hide-all")) {
       const row = fight.order[parseInt(t.getAttribute("data-hide-all"), 10)];
       if (!row || row.kind !== "enemy") return;
@@ -3803,6 +3834,32 @@ function wireClicks() {
   });
 }
 
+function enemyPickerQuery() {
+  const el = $("#enemyQ");
+  return el && el.value ? String(el.value).trim().toLowerCase() : "";
+}
+function enemyPickerList(list, query, parkedOn) {
+  const q = String(query || "").trim().toLowerCase();
+  return (list || []).filter((b) => {
+    if (!b || b.template) return false;
+    if (b.parked && !parkedOn) return false;
+    if (!q) return true;
+    return [b.name, b.bookName, b.aka, b.id].join(" ").toLowerCase().indexOf(q) >= 0;
+  });
+}
+function enemySelectHtml(list) {
+  const buckets = {};
+  (list || []).forEach((b) => {
+    const key = BEAST_GROUPS.some((pair) => pair[0] === b.group) ? b.group : "other";
+    (buckets[key] || (buckets[key] = [])).push(b);
+  });
+  const order = BEAST_GROUPS.map((pair) => pair[0]).concat(buckets.other ? ["other"] : []);
+  return order.filter((key) => buckets[key] && buckets[key].length).map((key) => {
+    const label = (BEAST_GROUPS.filter((pair) => pair[0] === key)[0] || ["", "Other"])[1];
+    const opts = buckets[key].map((b) => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join("");
+    return `<optgroup label="${esc(label)}">${opts}</optgroup>`;
+  }).join("");
+}
 function fillAdds() {
   playerSelect("#dmgTarget", false);
   playerSelect("#packTarget", true);
@@ -3810,7 +3867,8 @@ function fillAdds() {
   const beast = $("#initEnemy");
   if (beast) {
     const keep = beast.value;
-    beast.innerHTML = visibleBeasts().map((b) => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join("");
+    const list = enemyPickerList(fight.bestiary, enemyPickerQuery(), showParkedBeasts());
+    beast.innerHTML = list.length ? enemySelectHtml(list) : `<option value="">No match</option>`;
     if ([...beast.options].some((o) => o.value === keep)) beast.value = keep;
   }
 }
@@ -4091,8 +4149,10 @@ async function bootV2() {
   renderBestiary();
   const beastQ = $("#beastQ");
   if (beastQ) beastQ.addEventListener("input", renderBestiary);
+  const enemyQ = $("#enemyQ");
+  if (enemyQ) enemyQ.addEventListener("input", fillAdds);
   const beastParked = $("#beastParked");
-  if (beastParked) beastParked.addEventListener("change", renderBestiary);
+  if (beastParked) beastParked.addEventListener("change", () => { renderBestiary(); fillAdds(); });
   renderFight();
   renderStock();
   renderPacks();

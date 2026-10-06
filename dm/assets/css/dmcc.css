@@ -397,6 +397,9 @@ html, body { overflow-x: hidden; max-width: 100%; }
   padding: 8px 10px; margin: 6px 0;
 }
 .init-row.current { font-weight: 700; border-color: var(--eld); box-shadow: inset 4px 0 0 var(--eld); background: rgba(201, 162, 39, .14); }
+.init-row.friendly { background: rgba(63, 191, 154, .14); border-color: var(--eld-dim); box-shadow: inset 4px 0 0 var(--eld); }
+.init-row.current.friendly { background: rgba(63, 191, 154, .2); box-shadow: inset 4px 0 0 var(--eld); }
+#enemyQ { min-height: 44px; min-width: 7rem; flex: 1 1 8rem; background: var(--bg); border: 1px solid var(--line); color: inherit; padding: 6px 8px; }
 .init-row.fled { opacity: 0.45; }
 .init-row.fled .init-who b { text-decoration: line-through; }
 .init-row.current .init-who b::before { content: "→ "; }
@@ -538,6 +541,7 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
 .turn-strip-label { font-family: var(--label); letter-spacing: .08em; text-transform: uppercase; color: var(--ochre); font-size: 12px; width: 100%; }
 .turn-chip { border: 1px solid var(--line); border-radius: 99px; padding: 6px 10px; background: var(--card); }
 .turn-chip.current { border-color: var(--eld); }
+.turn-chip.friendly { border-color: var(--eld); color: var(--eld); }
 .turn-chip.ondeck { border-color: var(--ochre); }
 .ondeck-line, .tactics-note { color: var(--ochre); font-weight: 700; letter-spacing: 0; text-transform: none; }
 .ondeck-line { width: 100%; font-family: var(--label); letter-spacing: .06em; }

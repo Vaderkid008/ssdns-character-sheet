@@ -103,7 +103,7 @@ check(v2.indexOf("buildPublish()") >= 0 && v2.indexOf("if (DM.state.demo || !DM.
 
 const version = JSON.parse(read("version.json"));
 check(version.sheet === "0.3.13" && version.sheetBuild === "sheet-suggestion-v0313", "sheet 0.3.13");
-check(version.dmcc === "0.2.24" && version.dmccBuild === "dmcc-bestiary-v0224", "dmcc 0.2.24");
+check(version.dmcc === "0.2.25" && version.dmccBuild === "dmcc-ally-v0225", "dmcc 0.2.25");
 
 if (failures.length) {
   console.error(failures.join("\n"));

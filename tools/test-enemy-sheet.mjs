@@ -46,7 +46,7 @@ vm.createContext(sandbox);
 vm.runInContext(read("assets/js/apply-guard.js"), sandbox, { filename: "apply-guard.js" });
 vm.runInContext(read("assets/data/rules.js"), sandbox, { filename: "rules.js" });
 vm.runInContext(read("assets/js/spell-cast.js"), sandbox, { filename: "spell-cast.js" });
-const v2 = read("dm/assets/js/v2.js").replace(/\nwireLookupNow\(\);\s*\nbootV2\(\);\s*$/, "\nglobalThis.__enemy = { enemyCardHtml, compactAttackButtons };\n");
+const v2 = read("dm/assets/js/v2.js").replace(/\nwireLookupNow\(\);\s*\nbootV2\(\);\s*$/, "\nglobalThis.__enemy = { enemyCardHtml, compactAttackButtons, turnRowHtml, enemyPickerList, enemySelectHtml };\n");
 vm.runInContext(v2, sandbox, { filename: "v2.js" });
 
 const Applied = sandbox.SSDNSApplied;
@@ -194,9 +194,33 @@ const suggestion = sandbox.SSDNSSpellCast.lookup("Suggestion");
 check(suggestion && suggestion.kind === "save" && suggestion.save === "WIS", "Suggestion is a Wisdom save");
 const hiddenScorp = Applied.publicEnemy({ kind: "enemy", name: "Giant Scorpion", ac: 15, hp: 52, maxHp: 52, card: scorp }, 0, []);
 check(hiddenScorp.ac == null && hiddenScorp.hp == null && JSON.stringify(hiddenScorp).indexOf("saveDamage") < 0, "a hidden scorpion keeps poison and AC off the public node");
-check(version.dmcc === "0.2.24" && version.dmccBuild === "dmcc-bestiary-v0224", "dmcc version");
+check(Applied.combatantSide({}) === "enemy" && Applied.combatantSide({ side: "friendly" }) === "friendly" && Applied.combatantSide({ ally: true }) === "friendly", "missing side stays an enemy");
+const allyPub = Applied.publicEnemy({ kind: "enemy", name: "Abigail Ellen", side: "friendly", ac: 15, hp: 9 }, 0, []);
+check(allyPub.side === "friendly" && allyPub.ac == null && allyPub.hp == null, "friendly side is public and AC stays hidden");
+check(hiddenScorp.side === "enemy", "a new enemy publishes side enemy");
+const allyRow = Object.assign({}, outlaw, { side: "friendly" });
+const allyCard = htmlOf(allyRow, 0);
+const allyFight = sandbox.__enemy.turnRowHtml(allyRow, 0);
+const enemyFight = sandbox.__enemy.turnRowHtml(outlaw, 0);
+check(allyFight.indexOf("friendly") >= 0 && allyFight.indexOf("Friendly") >= 0 && allyFight.indexOf("Mark enemy") >= 0, "friendly card is marked");
+check(allyFight.indexOf("data-row-atk") < 0 && allyFight.indexOf("Attack player") < 0 && allyFight.indexOf("Attack this player") < 0, "friendly card does not target a player");
+check(enemyFight.indexOf("data-row-atk") >= 0 && enemyFight.indexOf("Mark friendly") >= 0 && enemyFight.indexOf("init-row friendly") < 0, "enemy card still attacks and offers the toggle");
+check(allyCard.indexOf("data-sheet-roll") < 0 && allyCard.indexOf("does not target the party") >= 0 && outlawHtml.indexOf("data-sheet-roll") >= 0, "friendly sheet keeps the attack text without the roll");
+const picker = [
+  { id: "wolf", name: "Wolf", group: "creature" },
+  { id: "abigail-ellen", name: "Abigail Ellen", group: "named" },
+  { id: "outlaw", name: "Outlaw", group: "generic-folk" },
+  { id: "captain-rhee-calder", name: "Calder", group: "named", parked: true }
+];
+const picked = sandbox.__enemy.enemyPickerList(picker, "abig", false);
+check(picked.length === 1 && picked[0].id === "abigail-ellen", "fight search finds Abigail");
+check(sandbox.__enemy.enemyPickerList(picker, "", false).some((b) => b.parked) === false, "parked stays out of the fight menu");
+const menu = sandbox.__enemy.enemySelectHtml(sandbox.__enemy.enemyPickerList(picker, "", false));
+check(menu.indexOf('label="Creatures"') >= 0 && menu.indexOf('label="Folk"') >= 0 && menu.indexOf('label="Named"') >= 0 && menu.indexOf("Abigail Ellen") >= 0, "fight menu uses group headers");
+check(html.indexOf('id="enemyQ"') >= 0, "fight search box is in the page");
+check(version.dmcc === "0.2.25" && version.dmccBuild === "dmcc-ally-v0225", "dmcc version");
 check(version.sheet === "0.3.13" && version.sheetBuild === "sheet-suggestion-v0313", "sheet version");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.24"') >= 0, "dmcc.js version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.25"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {
