@@ -424,3 +424,35 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
   }
   body.dock-open .live-dock { transform: none; }
 }
+.init-score { font-family: var(--head); font-size: 28px; color: var(--eld); min-width: 2.2em; text-align: center; }
+.init-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.init-who b { color: var(--parch); }
+.insp-pool { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--eld-dim); background: var(--bg-2); }
+.insp-pool b { font-family: var(--head); font-size: 32px; color: var(--eld); line-height: 1; }
+.turn-strip { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 12px; }
+.turn-strip-label { font-family: var(--label); letter-spacing: .08em; text-transform: uppercase; color: var(--ochre); font-size: 12px; width: 100%; }
+.turn-chip { border: 1px solid var(--line); border-radius: 99px; padding: 6px 10px; background: var(--card); }
+.turn-chip.current { border-color: var(--eld); }
+.gear-table { width: 100%; border-collapse: collapse; }
+.gear-table th, .gear-table td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.gear-table th { font-family: var(--label); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ochre); }
+.gear-table td:last-child { text-align: right; }
+.catalog-table { max-height: none; overflow: visible; }
+@media (max-width: 414px) {
+  html, body { overflow-x: hidden; max-width: 100%; }
+  .tabs { flex-wrap: nowrap; overflow-x: auto; }
+  .tab { flex: 0 0 auto; min-height: 44px; font-size: 16px; }
+  main { padding-bottom: 96px; }
+  .toolbar, .form-grid, .field-inline { width: 100%; }
+  .toolbar > *, .field-inline > * { min-width: 0; }
+  .gear-table thead { display: none; }
+  .gear-table, .gear-table tbody, .gear-table tr, .gear-table td { display: block; width: 100%; }
+  .gear-table tr { border: 1px solid var(--line); margin: 0 0 8px; padding: 8px; background: var(--card); }
+  .gear-table td { border: 0; padding: 2px 0; text-align: left; }
+  .gear-table td:last-child { text-align: left; }
+  .gear-table td::before { content: attr(data-label); display: block; font-family: var(--label); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .init-row { align-items: flex-start; }
+  .live-dock { height: min(50vh, 380px); }
+  .room-code { font-size: 28px; letter-spacing: .06em; }
+  .brand-title { font-size: 16px; }
+}

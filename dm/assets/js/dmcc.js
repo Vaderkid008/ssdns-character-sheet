@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.1"; // dmcc-notes-v021
+const VERSION = "0.2.2"; // dmcc-notes-v022
 const NOTES_KEY = "ssdns.dmcc.notes";
 const ROOM_KEY = "ssdns.dmcc.lastRoom";
 const WORDS = ["DUST", "IRON", "HEX", "RUST", "BONE", "COIL", "SAGE", "RAIL", "OXEN", "VELD", "ASH", "QUILL"];
@@ -121,7 +121,8 @@ async function initFirebase() {
       onValue: dbMod.onValue,
       off: dbMod.off,
       get: dbMod.get,
-      remove: dbMod.remove
+      remove: dbMod.remove,
+      runTransaction: dbMod.runTransaction
     };
     const fb = state._fb;
     state.app = fb.initializeApp(cfg);
@@ -713,6 +714,7 @@ function renderRolls() {
     renderLiveDock();
     return;
   }
+  if (window.DMCCEnhance && window.DMCCEnhance.onRolls) window.DMCCEnhance.onRolls(visible);
   feed.innerHTML = visible.map((r) => {
     const nat = r.nat1 && r.isFirearm;
     return `<div class="feed-item ${nat ? "nat1" : ""} ${r.private ? "private" : ""}">

@@ -1,6 +1,6 @@
 # SSDNS Character Sheet
 
-Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (v0.2.4).
+Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (v0.2.5).
 
 ## Open it on your phone
 
@@ -26,6 +26,7 @@ The **DM Command Center** lives at [`/dm/`](./dm/) in this repo (GitHub Pages). 
 - **Live rooms** sync through the Firebase project `ssdns-dm-hub` (Realtime Database + Anonymous auth). Characters still stay on each device as `.ssdns` files; only table snapshots, ledger, rolls, handouts, and DM commands go through the cloud.
 - Players join from the sheet’s **Table** bar (room code like `DUST-4821`). See `DM-SETUP.md` for console steps, Stream Deck shortcuts, and `PLAYER-JOIN-PATCH.md` for sheet wiring.
 - DMCC v0.2 adds the fight tracker, store stock, handouts packs, music/SFX hooks, and a clearer HP box on the sheet. Sound and music files are not included — drop them in `assets/sfx/` and `assets/music/` (see those READMEs). Republish `database.rules.json` for table chat and private rolls.
-- v0.2.4 puts Eldorite and the addiction chart under the name, shows your purse in the store, and fills level-1 HP from the Calling hit die plus Constitution (type any calculated box to override it). Attack rolls spend a round and refuse an empty, jammed, or fouled gun. The DM store can load a General Store, Gunsmith, Eldorite dealer, or Apothecary list from the rules data. PHB lookup searches guns, melee, spells, feats, and rules notes. A live feed sits on the right of the DM screen and the sheet (chat, money, rolls, alerts). `database.rules.json` did not change for this pass.
+- v0.2.4 puts Eldorite and the addiction chart under the name, shows your purse in the store, and fills level-1 HP from the Calling hit die plus Constitution (type any calculated box to override it). Attack rolls spend a round and refuse an empty, jammed, or fouled gun. The DM store can load a General Store, Gunsmith, Eldorite dealer, or Apothecary list from the rules data. PHB lookup searches guns, melee, spells, feats, and rules notes. A live feed sits on the right of the DM screen and the sheet (chat, money, rolls, alerts).
+- v0.2.5 adds unload, color-coded cylinders, level up, initiative and d20 buttons, Gear and Conditions tabs, a cleaner DM store table, and a shared party Inspiration pool. A Caster Gun's Roll is a plain cartridge and never spends a slot; Cast through gun spends the chosen slot and rolls the spell attack. **Publish `database.rules.json` again** so players can spend Inspiration (`rooms/{code}/table/inspiration`) while only the DM can raise it.
 
 Config is shared in `assets/js/firebase-config.js`. Deploy `database.rules.json` to the Realtime Database before going live.

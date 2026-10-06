@@ -54,7 +54,21 @@
         },
         "table": {
           ".read": "auth != null",
-          ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+          "initiative": {
+            ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+          },
+          "store": {
+            ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+          },
+          "packs": {
+            ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+          },
+          "updatedAt": {
+            ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+          },
+          "inspiration": {
+            ".write": "auth != null && (root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid || (newData.child('count').isNumber() && newData.child('count').val() >= 0 && newData.child('count').val() <= 99 && data.child('count').isNumber() && newData.child('count').val() === data.child('count').val() - 1 && newData.child('last/delta').val() === -1 && newData.child('last/by').val() === auth.uid))"
+          }
         },
         "chat": {
           ".read": "auth != null",

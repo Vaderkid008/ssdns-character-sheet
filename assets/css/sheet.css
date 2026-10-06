@@ -135,7 +135,7 @@ input:focus, select:focus, textarea:focus { outline: none; background: var(--fil
 .pair .lvl { width: 56px; flex: none; text-align: center; }
 
 /* ---------------- page 1 grid */
-.main-grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; grid-template-areas: "c1 c2 c3" "c1 fire fire" "c1 equip feat"; gap: 12px; align-items: start; }
+.main-grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; grid-template-areas: "c1 c2 c3" "c1 feat feat"; gap: 12px; align-items: start; }
 .col-1 { grid-area: c1; } .col-2 { grid-area: c2; } .col-3 { grid-area: c3; }
 .span-23 { grid-area: fire; } .span-2 { grid-area: equip; } .span-3 { grid-area: feat; }
 .col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -348,7 +348,7 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
 
 /* ---------------- tablet */
 @media screen and (max-width: 1080px) {
-  .main-grid { grid-template-columns: 1.1fr 1fr; grid-template-areas: "c1 c2" "c1 c3" "fire fire" "equip feat"; }
+  .main-grid { grid-template-columns: 1.1fr 1fr; grid-template-areas: "c1 c2" "c1 c3" "feat feat"; }
   .gun-head, .gun { grid-template-columns: minmax(170px, 2fr) 54px minmax(100px, 1.3fr) minmax(70px, .9fr) 38px minmax(130px, 1.8fr) 66px; }
 }
 /* ---------------- phone */
@@ -371,7 +371,7 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
   .tf-calling { grid-column: 1 / -1; }
   .hex-art { display: none; }
   input[type=text], input[type=number], input:not([type]), select { min-height: 40px; font-size: 16px; }
-  .main-grid { grid-template-columns: 1fr; grid-template-areas: "c1" "c2" "fire" "c3" "equip" "feat"; }
+  .main-grid { grid-template-columns: 1fr; grid-template-areas: "c1" "c2" "c3" "feat"; }
   .abil-and-skills { grid-template-columns: 1fr; }
   .abilities { display: grid; grid-template-columns: repeat(3, 1fr); }
   .row { min-height: 40px; }
@@ -564,9 +564,45 @@ html, body { overflow-x: hidden; }
   }
   body.dock-open .sheet-dock { transform: none; }
 }
+.d20 { min-width: 44px; min-height: 36px; padding: 0 6px; font-family: var(--label); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--red); color: var(--red); background: transparent; border-radius: 2px; cursor: pointer; }
+.abil .d20 { margin: 0 auto 4px; }
+.row .d20 { flex: none; }
+.chamber.next { outline: 2px solid var(--red); outline-offset: 1px; }
+.cast-through, .load-picks { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.cast-through[hidden], .load-picks:empty { display: none; }
+.cast-lvl { min-height: 32px; }
+.shared-insp { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; }
+.shared-insp b { font-family: var(--head); font-size: 28px; line-height: 1; }
+.cond-list { display: flex; flex-direction: column; gap: 8px; }
+.cond-card { border: 1px solid var(--line); background: var(--fill); padding: 8px 10px; border-radius: 3px; }
+.cond-card.on { border-color: #a3301f; background: #f4e4d4; }
+.cond-card h3 { margin: 0 0 4px; font-family: var(--head); font-weight: 400; font-size: 18px; }
+.cond-card p { margin: 0; }
+.lvl-block { border: 1px solid var(--line); margin: 8px 0; padding: 8px; }
+.lvl-block legend, .lvl-block h3 { font-family: var(--head); font-weight: 400; }
+.lvl-spell, .lvl-block .chk { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0; }
+.lvl-summary { margin-top: 8px; padding: 8px; background: rgba(58,38,22,.08); }
+.lvl-two { display: flex; gap: 8px; }
+.sq-box { position: relative; }
+.sq-box .btn { margin-top: 4px; }
+details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-size: 18px; min-height: 44px; display: flex; align-items: center; }
+#page-equip .firearms, #page-equip .equipment { margin-top: 10px; }
 @media screen and (max-width: 414px) {
-  .tabs { flex-wrap: wrap; overflow-x: visible; }
-  .tab { flex: 1 1 30%; min-height: 44px; }
-  .dm-join-bar input { min-height: 44px; }
-  .log-filters .btn, .store-row .btn, .hp-quick .btn { min-height: 44px; }
+  html, body { overflow-x: hidden; max-width: 100%; }
+  .tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; justify-content: flex-start; }
+  .tab { flex: 0 0 auto; min-height: 44px; font-size: 15px; padding: 8px 12px; }
+  .dm-join-bar input, .log-filters .btn, .store-row .btn, .hp-quick .btn, .g-btns .btn, .d20, .cast-lvl { min-height: 44px; }
+  .d20 { min-width: 44px; }
+  main { padding-bottom: 96px; }
+  .gun { grid-template-columns: 1fr 1fr; }
+  .g-name, .g-load, .g-note { grid-column: 1 / -1; }
+  .ammo-row, .explosives .ammo-row { grid-template-columns: 1fr 1fr; }
+  .ammo-row > * { min-width: 0; }
+  .topgrid, .topgrid.g3, .hexinfo { grid-template-columns: 1fr; }
+  .brand-title, .brand-sub { white-space: normal; }
+  .actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sheet-dock { height: min(52vh, 420px); }
+  .dock-fab { bottom: 10px; }
+  .pair { flex-wrap: wrap; }
+  .pair .lvl, #btnLevelUp { min-height: 44px; }
 }
