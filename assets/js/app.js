@@ -1,10 +1,10 @@
-/* SSDNS Character Sheet · v0.2.9 (playtest sync, kits, cast prompt, combat)
+/* SSDNS Character Sheet · v0.3.0 (round 4: kits, turn order, focus, pact shot)
  * Static, no server. Rules data: window.SSDNS_RULES (assets/data/rules.js, generated from the PHB).
  * Saving: SSDNSStore (storage.js). Shards bridge for Saloon games: SSDNSBridge (ssdns-bridge.js).
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.2.9"; // sheet-playtest-v029
+  var APP_VERSION = "0.3.0"; // sheet-round4-v030
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1064,7 +1064,10 @@
   function setField(e, v) {
     if (e.type === "checkbox") e.checked = !!v;
     else if (e.tagName === "OUTPUT") e.textContent = v == null ? "" : v;
-    else { var s = v == null ? "" : String(v); if (e.value !== s) e.value = s; }
+    else {
+      if ((e.tagName === "INPUT" || e.tagName === "TEXTAREA" || e.tagName === "SELECT") && document.activeElement === e) return;
+      var s = v == null ? "" : String(v); if (e.value !== s) e.value = s;
+    }
   }
   function renderFields() {
     suppress = true;
@@ -1293,11 +1296,13 @@
     if (hexRoll) hexRoll.hidden = !showCast;
     var hexHead = $(".hexhead");
     if (hexHead) hexHead.hidden = !showCast;
+    var art = $(".hex-art");
+    if (art) art.hidden = !showCast || c.calling === "pact-seeker";
     var hexBtn = $("#btnHexRoll");
     if (hexBtn) {
       if (c.calling === "hexslinger") {
-        hexBtn.textContent = "Cantrip only";
-        hexBtn.title = "A Hexslinger's leveled spell loads a shell (that spends the slot) and fires from the gun. This button rolls a cantrip. It will not spend a slot for a leveled spell.";
+        hexBtn.textContent = "Cast spell";
+        hexBtn.title = "Opens the spell picker. A cantrip spends nothing. A leveled spell spends one hex lead slot.";
       } else if (c.calling === "pact-seeker") {
         hexBtn.textContent = "Pact spell";
         hexBtn.title = "Spends a Pact slot, then rolls the spell attack.";
@@ -1312,11 +1317,15 @@
     var rest = c.hexRest || (ci ? ci.rest : "");
     $("#restAuto").textContent = rest ? rest + " rest" : "—";
     var cgun = CASTER_GUNS[c.casterGun];
-    var gnote = R.rulesText.casterGun.replace(/^[-\s]*Channel:\s*/, "");
-    gnote = gnote.charAt(0).toUpperCase() + gnote.slice(1);
-    if (cgun && cgun.notes && cgun.notes.length) gnote = cgun.name + ": " + cgun.notes.join(" ") + " " + gnote;
-    if (c.casterGun === "borrowed-iron") gnote = R.rulesText.borrowedIron || gnote;
-    if (c.casterGun === "ordinary-firearm") gnote = "Forcing hex lead through an ordinary firearm: spell attacks have disadvantage and targets have advantage on saves (PHB, Hexslinger).";
+    var gnote = "";
+    if (showCast && c.calling !== "pact-seeker") {
+      gnote = R.rulesText.casterGun.replace(/^[-\s]*Channel:\s*/, "");
+      gnote = gnote.charAt(0).toUpperCase() + gnote.slice(1);
+      if (cgun && cgun.notes && cgun.notes.length) gnote = cgun.name + ": " + cgun.notes.join(" ") + " " + gnote;
+      if (c.casterGun === "ordinary-firearm") gnote = "Forcing hex lead through an ordinary firearm: spell attacks have disadvantage and targets have advantage on saves (PHB, Hexslinger).";
+    } else if (c.calling === "pact-seeker") {
+      gnote = R.rulesText.borrowedIron || "Borrowed Iron is a pact focus. It has no weapon stats. Pact Shot is the attack.";
+    }
     $("#gunNote").textContent = gnote;
     for (var l = 1; l <= 9; l++) {
       var key = "hex." + l, total = hasOv(c, key) ? num(c.overrides[key]) : v.hex[l];
@@ -2173,6 +2182,7 @@
     try { Store.saveCurrent(doc); S.lastLocal = Date.now(); } catch (e) { S.error = "Browser backup failed: " + e.message; }
     snapshot(info.reason || "opened");
     renderFields(); adoptWallet(); pushWallet(); updateSaveBar();
+    if (window.SSDNSPlaytest && window.SSDNSPlaytest.syncSheet) window.SSDNSPlaytest.syncSheet();
   }
   function loadText(text, info) {
     var doc;
@@ -2225,12 +2235,15 @@
     var list = $("#restoreList"); list.innerHTML = "";
     var h = Store.history(S.doc.id).slice().reverse();
     if (!h.length) list.appendChild(el("p", { class: "fine", text: "No backups for this character yet." }));
+    var liveName = (S.doc.character && S.doc.character.name) || "";
+    if (liveName) list.appendChild(el("p", { class: "fine", text: "This character: " + liveName }));
     h.forEach(function (v, idx) {
       var ch = v.doc.character || {};
       var cal = CAL[ch.calling];
+      var shown = ch.name || liveName || "(unnamed)";
       list.appendChild(el("div", { class: "ver" }, [
         el("div", {}, [el("b", { text: timeStr(v.at) }), " · " + v.reason,
-          el("div", { class: "fine", text: (ch.name || "(unnamed)") + (cal ? " · " + cal.name + " " + ch.level : "") + " · " + Bridge.cpValue(v.doc.shards).toLocaleString() + " ES in shards" })]),
+          el("div", { class: "fine", text: shown + (cal ? " · " + cal.name + " " + ch.level : "") + " · " + Bridge.cpValue(v.doc.shards).toLocaleString() + " ES in shards" })]),
         el("button", { type: "button", class: "btn sm", "data-restore": idx, onclick: function () {
           var d = migrate(clone(v.doc)); d.updatedAt = new Date().toISOString();
           replaceDoc(d, { handle: S.handle, fileName: S.fileName, reason: "restore", dirty: true, keepHandle: true });
@@ -2304,8 +2317,8 @@
         var n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length]; showTab(n.id); n.focus();
       });
     });
-    var saved = null; try { saved = sessionStorage.getItem("ssdns.tab"); } catch (e) {}
-    showTab(saved && document.getElementById(saved) ? saved : "tab-main");
+    try { sessionStorage.removeItem("ssdns.tab"); } catch (e) {}
+    showTab("tab-main");
   }
   var COND_TEXT = {
     Blinded: "You can't see. Attacks against you have advantage; your attacks have disadvantage.",

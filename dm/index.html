@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="../favicon.ico">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.6">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.7">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -21,6 +21,8 @@
     </div>
   </div>
   <div class="bar-actions">
+    <button type="button" class="btn sm" id="btnHeaderCreate" title="Create a room">Create a room</button>
+    <button type="button" class="btn sm" id="btnLeaveRoom" hidden title="Leave this screen without ending the table">Leave room / New session</button>
     <button type="button" class="btn sm" id="btnCopyCode" hidden title="Copy room code">Copy code</button>
     <button type="button" class="btn sm btn-danger" id="btnEndSession" hidden title="End session">End Session</button>
   </div>
@@ -41,13 +43,19 @@
 <div id="addictionAlert" class="addiction-alert" hidden></div>
 <details class="shortcut-help">
   <summary>Keyboard shortcuts (Stream Deck)</summary>
-  <p><kbd>N</kbd> next turn · <kbd>R</kbd> push the reward that is filled in · <kbd>S</kbd> play the attack sound (and send it to the table) · <kbd>M</kbd> play or stop the selected track. Ignored while you are typing in a field.</p>
+  <p><kbd>N</kbd> next turn · <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> push the reward that is filled in · <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> play the attack sound (and send it to the table) · <kbd>M</kbd> play or stop the selected track. Ignored while you are typing in a field, a menu, or while an IME is composing.</p>
 </details>
 
 <!-- Lobby (no room yet) -->
 <section class="lobby" id="lobby">
   <h1>DM Command Center</h1>
   <p>Create a table room. Players join from their character sheet with the code. Demo mode works fully offline.</p>
+  <div class="resume-choice" id="resumeChoice" hidden>
+    <p>Resume <b id="resumeCodeLabel"></b>, or create a new room. Leaving a room does not end it.</p>
+    <div class="row-btns">
+      <button type="button" class="btn btn-primary" id="btnResumeRoom">Resume</button>
+    </div>
+  </div>
   <p class="lede" id="lobbyVersion"></p>
   <div class="field">
     <label for="inDmName">Your name at the table</label>
@@ -440,12 +448,12 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/sfx.js"></script>
+<script src="../assets/js/sfx.js?v=0.2.7"></script>
 <script src="../assets/data/rules.js"></script>
 <script src="../assets/js/spell-cast.js"></script>
 <script src="../assets/js/firebase-config.js"></script>
 <script src="assets/js/demo-data.js"></script>
-<script type="module" src="assets/js/dmcc.js"></script>
-<script type="module" src="assets/js/v2.js"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.7"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.7"></script>
 </body>
 </html>

@@ -27,8 +27,8 @@
     return (c.guns || []).some(function (g) { return g && g.weapon === id; }) ||
       (c.melee || []).some(function (g) { return g && g.weapon === id; });
   }
-  function putGun(c, id) {
-    if (!id || hasId(c, id)) return;
+  function putGun(c, id, allowDup) {
+    if (!id || (!allowDup && hasId(c, id))) return;
     var slot = (c.guns || []).filter(function (g) { return g && !g.weapon; })[0];
     if (!slot) return;
     slot.weapon = id;
@@ -75,6 +75,71 @@
     c.kitGrants.es = bgId;
   }
 
+  var KIT_CHOICES = {
+    gunslinger: [
+      { id: "side", prompt: "Cavalry saber, or twin revolvers?", options: [
+        { id: "saber", label: "Cavalry saber" },
+        { id: "twins", label: "Twin revolvers (two Herringer Light Pepperboxes + 20 Light)" },
+        { id: "navy", label: "One Navy / Army Ball n Cap + 20 percussion loads" }
+      ]}
+    ],
+    "frontier-scout": [
+      { id: "hunt", prompt: "Hunting rifle: longbow, or a carbine?", options: [
+        { id: "bow", label: "Longbow + 20 arrows" },
+        { id: "carbine", label: "Dullards Light Carbine + 20 Light cartridges" }
+      ]}
+    ],
+    "frontier-preacher": [
+      { id: "melee", prompt: "Mace, or chapel hammer?", options: [
+        { id: "mace", label: "Trail mace" },
+        { id: "hammer", label: "Chapel hammer (claim hammer)" }
+      ]},
+      { id: "armor", prompt: "Plated duster, or scale mail?", options: [
+        { id: "duster", label: "Plated duster (heavy leather duster)" },
+        { id: "scale", label: "Scale coat" }
+      ]},
+      { id: "gun", prompt: "Light rifle, or Farm Shotgun?", options: [
+        { id: "rifle", label: "Light rifle — Dullards Tube Rifle + 20 Light cartridges" },
+        { id: "carbine", label: "Light rifle — Dullards Light Carbine + 20 Light cartridges" },
+        { id: "shotgun", label: "Single-Barrel Farm Shotgun, .410 + 10 shells" }
+      ]}
+    ],
+    storyteller: [
+      { id: "kit", prompt: "Diplomat's trunk, or saloon kit?", options: [
+        { id: "trunk", label: "Diplomat's trunk" },
+        { id: "saloon", label: "Saloon kit" }
+      ]},
+      { id: "voice", prompt: "Which instrument is the focus?", options: [
+        { id: "fiddle", label: "Fiddle" },
+        { id: "banjo", label: "Banjo" },
+        { id: "guitar", label: "Guitar" },
+        { id: "voice", label: "Voice" }
+      ]}
+    ],
+    "nature-guide": [
+      { id: "focus", prompt: "Focus taken from the land?", options: [
+        { id: "stick", label: "Carved walking stick" },
+        { id: "pouch", label: "Medicine pouch" },
+        { id: "soil", label: "Pouch of home-spring soil" }
+      ]}
+    ],
+    gambler: [
+      { id: "blade", prompt: "Fencing iron, or Bowie knife?", options: [
+        { id: "iron", label: "Fencing iron (sword cane)" },
+        { id: "bowie", label: "Bowie knife" }
+      ]},
+      { id: "ranged", prompt: "Shortbow, or pocket pistol?", options: [
+        { id: "bow", label: "Shortbow + 20 arrows" },
+        { id: "pistol", label: "Herringer Light Pocket Pistol + 20 Light cartridges" }
+      ]}
+    ],
+    hexslinger: [
+      { id: "gun", prompt: "Blacksnake, or Hognose?", options: [
+        { id: "blacksnake", label: "Blacksnake caster gun" },
+        { id: "hognose", label: "Hognose caster gun" }
+      ]}
+    ]
+  };
   var KITS = {
     "tribal-warrior": function (c) {
       putMelee(c, "buffalo-axe-greataxe");
@@ -84,35 +149,58 @@
       addLine(c, "Throwing spears ×4");
       addLine(c, "Explorer's pack");
     },
-    storyteller: function (c) {
+    storyteller: function (c, p) {
       putMelee(c, "stiletto-dagger");
-      addLine(c, "Instrument (fiddle, banjo, guitar, or voice) — pact focus");
+      addLine(c, "Boot knife");
+      if (p && p.voice) addLine(c, "Instrument (" + p.voice + ") — focus");
       addLine(c, "Strap or spare strings");
-      addLine(c, "Diplomat's trunk or saloon kit");
+      if ((p && p.kit) === "saloon") addLine(c, "Saloon kit");
+      else if ((p && p.kit) === "trunk") addLine(c, "Diplomat's trunk");
       addLine(c, "Duster");
     },
-    "frontier-preacher": function (c) {
-      putMelee(c, "trail-mace-chapel-mace-mace");
-      putGun(c, "single-barrel-farm-shotgun");
-      addAmmo(c, "buck", ".410", 10);
-      c.armor = c.armor || "scale-coat";
+    "frontier-preacher": function (c, p) {
+      if ((p && p.melee) === "hammer") putMelee(c, "claim-hammer-light-hammer");
+      else if ((p && p.melee) === "mace") putMelee(c, "trail-mace-chapel-mace-mace");
+      if ((p && p.gun) === "shotgun") {
+        putGun(c, "single-barrel-farm-shotgun");
+        addAmmo(c, "buck", ".410", 10);
+      } else if ((p && p.gun) === "carbine") {
+        putGun(c, "dullards-light-carbine");
+        addAmmo(c, "cartridge", "Light", 20);
+      } else if ((p && p.gun) === "rifle") {
+        putGun(c, "dullards-tube-rifle");
+        addAmmo(c, "cartridge", "Light", 20);
+      }
+      if ((p && p.armor) === "duster") c.armor = "heavy-leather-duster";
+      else if ((p && p.armor) === "scale") c.armor = "scale-coat";
       addLine(c, "Priest's kit");
       addLine(c, "Holy symbol");
     },
-    "nature-guide": function (c) {
+    "nature-guide": function (c, p) {
       putMelee(c, "machete-scimitar");
       c.shield = true;
       addLine(c, "Explorer's pack");
       addLine(c, "Herbalism kit");
-      addLine(c, "Focus: walking stick, medicine pouch, or home-spring soil");
+      var focus = { stick: "Carved walking stick", pouch: "Medicine pouch", soil: "Pouch of home-spring soil" };
+      if (p && focus[p.focus]) addLine(c, "Focus: " + focus[p.focus]);
     },
-    gunslinger: function (c) {
+    gunslinger: function (c, p) {
       putGun(c, "dullards-tube-rifle");
       addAmmo(c, "cartridge", "Light", 20);
-      putMelee(c, "cavalry-saber-longsword");
       c.holster = "mexican-loop";
       c.gunBelt = true;
+      addLine(c, "Gun belt");
+      addLine(c, "Mexican Loop");
       addLine(c, "Dungeoneer's pack");
+      addLine(c, "Duster");
+      if ((p && p.side) === "twins") {
+        putGun(c, "herringer-light-pepperbox");
+        putGun(c, "herringer-light-pepperbox", true);
+        addAmmo(c, "cartridge", "Light", 20);
+      } else if ((p && p.side) === "navy") {
+        putGun(c, "navy-army-ball-n-cap-revolver");
+        addAmmo(c, "percussion", "", 20);
+      } else if ((p && p.side) === "saber") putMelee(c, "cavalry-saber-longsword");
     },
     "martial-artist": function (c) {
       putMelee(c, "bowie-shortsword");
@@ -128,29 +216,42 @@
       addLine(c, "Badge / tin star (focus)");
       addLine(c, "Javelins ×5");
     },
-    "frontier-scout": function (c) {
-      putGun(c, "dullards-light-carbine");
-      addAmmo(c, "cartridge", "Light", 20);
+    "frontier-scout": function (c, p) {
       putMelee(c, "bowie-shortsword");
+      addLine(c, "Second Bowie knife");
       c.armor = c.armor || "scale-coat";
       c.gunBelt = true;
-      addLine(c, "Second Bowie knife");
+      addLine(c, "Gun belt");
       addLine(c, "Explorer's pack");
       addLine(c, "Compass (focus)");
+      if ((p && p.hunt) === "carbine") {
+        putGun(c, "dullards-light-carbine");
+        addAmmo(c, "cartridge", "Light", 20);
+      } else if ((p && p.hunt) === "bow") {
+        putGun(c, "longbow");
+        addLine(c, "Arrows ×20");
+      }
     },
-    gambler: function (c) {
-      putGun(c, "herringer-light-pocket-pistol");
-      addAmmo(c, "cartridge", "Light", 20);
-      putMelee(c, "bowie-shortsword");
+    gambler: function (c, p) {
+      if ((p && p.blade) === "bowie") putMelee(c, "bowie-shortsword");
+      else if ((p && p.blade) === "iron") putMelee(c, "sword-cane-rapier");
+      if ((p && p.ranged) === "bow") {
+        putGun(c, "shortbow");
+        addLine(c, "Arrows ×20");
+      } else if ((p && p.ranged) === "pistol") {
+        putGun(c, "herringer-light-pocket-pistol");
+        addAmmo(c, "cartridge", "Light", 20);
+      }
       addLine(c, "Stilettos ×2");
       addLine(c, "Thieves' tools");
       addLine(c, "Duster");
       addLine(c, "Satchel");
     },
-    hexslinger: function (c) {
-      putGun(c, "blacksnake");
-      c.casterGun = "blacksnake";
+    hexslinger: function (c, p) {
+      var gun = (p && p.gun) === "hognose" ? "hognose" : ((p && p.gun) === "blacksnake" ? "blacksnake" : "");
+      if (gun) { putGun(c, gun); c.casterGun = gun; }
       c.gunBelt = true;
+      addLine(c, "Gun belt");
       putMelee(c, "bowie-shortsword");
       addAmmo(c, "cartridge", "Light", 20);
       addLine(c, "Explorer's pack");
@@ -158,6 +259,7 @@
     },
     "pact-seeker": function (c) {
       c.casterGun = "borrowed-iron";
+      c.pactFocus = "borrowed-iron";
       addLine(c, "Borrowed Iron (pact focus)");
       addLine(c, "Dungeoneer's pack");
       addLine(c, "Duster");
@@ -170,23 +272,61 @@
       addLine(c, "Duster");
     }
   };
+  function pickKitChoices(calling, done) {
+    var choices = KIT_CHOICES[calling] || [];
+    if (!choices.length) { done({}); return; }
+    var dlg = document.getElementById("dlgKit");
+    if (!dlg) {
+      dlg = document.createElement("dialog");
+      dlg.id = "dlgKit";
+      dlg.className = "dlg";
+      document.body.appendChild(dlg);
+    }
+    var html = "<form method='dialog'><h2>Starting kit</h2><p class='fine'>These are the kit's or-lines. Pick one of each.</p>";
+    choices.forEach(function (ch) {
+      html += "<p><label class='fine'>" + ch.prompt + " <select data-kit-choice='" + ch.id + "'>";
+      ch.options.forEach(function (op) { html += "<option value='" + op.id + "'>" + op.label + "</option>"; });
+      html += "</select></label></p>";
+    });
+    html += "<div class='dlg-foot'><button class='btn' value='cancel'>Cancel</button><button class='btn' value='ok'>Apply these</button></div></form>";
+    dlg.innerHTML = html;
+    dlg.onclose = function () {
+      var value = dlg.returnValue;
+      dlg.onclose = null;
+      if (value !== "ok") { done(null); return; }
+      var picked = {};
+      choices.forEach(function (ch) {
+        var sel = dlg.querySelector("[data-kit-choice='" + ch.id + "']");
+        picked[ch.id] = sel ? sel.value : ch.options[0].id;
+      });
+      done(picked);
+    };
+    if (dlg.showModal) dlg.showModal();
+    else { toast("This browser can't show the kit choices."); done(null); }
+  }
 
-  function applyKit(force) {
+  function applyKit(force, picked) {
     var c = ch();
     if (!c || !c.calling || !KITS[c.calling]) { toast("Pick a Calling first."); return; }
     if (!force && c.kitStamp === c.calling) { toast("Starting kit is already on this sheet."); fillFeatures(); return; }
-    patch(function (d) {
-      var cc = d.character;
-      KITS[cc.calling](cc);
-      cc.kitStamp = cc.calling;
-      var bg = byId(rules().backgrounds)[cc.background];
-      if (bg && bg.equipment) {
-        var m = String(bg.equipment).match(/pouch with ([\d,]+) ES/i);
-        if (m) grantEs(cc, parseInt(m[1].replace(/,/g, ""), 10) || 0, cc.background);
-      }
-    });
-    fillFeatures();
-    toast("Starting kit applied.");
+    var go = function (choice) {
+      if (!choice) return;
+      patch(function (d) {
+        var cc = d.character;
+        KITS[cc.calling](cc, choice);
+        cc.kitStamp = cc.calling;
+        var bg = byId(rules().backgrounds)[cc.background];
+        if (bg && bg.equipment) {
+          var m = String(bg.equipment).match(/pouch with ([\d,]+) ES/i);
+          if (m) grantEs(cc, parseInt(m[1].replace(/,/g, ""), 10) || 0, cc.background);
+        }
+      });
+      fillFeatures();
+      paintPact();
+      toast("Starting kit applied.");
+    };
+    if (picked) { go(picked); return; }
+    pickKitChoices(c.calling, go);
   }
   function maybePrompt() {
     var c = ch();
@@ -217,8 +357,18 @@
   function collectFeatures(c) {
     var R = rules();
     var lines = [];
+    function asList(arr) {
+      if (!arr) return [];
+      if (Array.isArray(arr)) return arr;
+      if (typeof arr === "string") return [{ name: arr, text: "" }];
+      if (typeof arr === "object") {
+        if (arr.name) return [arr];
+        return Object.keys(arr).map(function (k) { return arr[k]; });
+      }
+      return [];
+    }
     function take(arr) {
-      (arr || []).forEach(function (f) {
+      asList(arr).forEach(function (f) {
         if (!f || !f.name) return;
         var lv = featureLevel(f.name);
         if (lv != null && lv > (c.level || 1)) return;
@@ -368,11 +518,38 @@
   }
 
   function buildUi() {
-    var calling = document.querySelector(".tf-calling .pair");
+    var calling = document.querySelector(".tf-calling");
     if (calling && !$("#btnApplyKit")) {
+      var actions = document.createElement("div");
+      actions.className = "kit-actions";
       var kit = document.createElement("button");
       kit.type = "button"; kit.className = "btn sm"; kit.id = "btnApplyKit"; kit.textContent = "Apply starting kit";
-      calling.appendChild(kit);
+      actions.appendChild(kit);
+      var lvl = $("#btnLevelUp");
+      if (lvl) actions.appendChild(lvl);
+      calling.appendChild(actions);
+    }
+    if (!$("#pactFocus")) {
+      var guns = $("#guns");
+      if (guns) {
+        var pact = document.createElement("div");
+        pact.id = "pactFocus";
+        pact.className = "pact-focus";
+        pact.hidden = true;
+        pact.innerHTML = "<b>Borrowed Iron</b> <span class='fine'>pact focus · no weapon stats</span> <button type='button' class='btn sm' id='btnPactShot'>Pact Shot</button>";
+        guns.parentNode.insertBefore(pact, guns);
+      }
+    }
+    if (!$("#turnPanel")) {
+      var bar = $("#dmJoinBar");
+      if (bar) {
+        var panel = document.createElement("div");
+        panel.id = "turnPanel";
+        panel.className = "turn-panel";
+        panel.hidden = true;
+        panel.innerHTML = "<b id='turnRound'>Round 1</b> <span id='turnWho'></span> <div id='turnNames'></div>";
+        bar.parentNode.insertBefore(panel, bar.nextSibling);
+      }
     }
     if (calling && !$("#styleWrap")) {
       var wrap = document.createElement("label");
@@ -443,7 +620,7 @@
     if (save && !$("#versionBanner")) {
       var banner = document.createElement("button");
       banner.type = "button"; banner.id = "versionBanner"; banner.className = "version-banner"; banner.hidden = true;
-      banner.textContent = "New version, tap to reload";
+      banner.textContent = "A newer sheet is published. Click to refresh. The page will not reload on its own.";
       save.parentNode.insertBefore(banner, save.nextSibling);
     }
     var ac = document.querySelector("[data-calc='ac']");
@@ -535,26 +712,55 @@
         renderUses();
       }
       if (kind === "short") offerHitDice();
+      if (root.SSDNSSheet && root.SSDNSSheet.addLog) {
+        root.SSDNSSheet.addLog({
+          id: "rest:" + kind + ":" + new Date().toISOString().slice(0, 16),
+          kind: "alert",
+          text: (kind === "long" ? "Long" : "Short") + " rest"
+        });
+      }
     };
     Sheet.applyRest._hit = true;
   }
 
+  function logKey() {
+    var id = "";
+    try { id = (doc() && doc().id) || ""; } catch (e) {}
+    return LOG_KEY + "." + (id || "local");
+  }
+  function readLogStore(key) {
+    try {
+      var raw = JSON.parse(localStorage.getItem(key) || "[]");
+      return Array.isArray(raw) ? raw : [];
+    } catch (e) { return []; }
+  }
   function persistLogs() {
     var Sheet = root.SSDNSSheet;
     if (!Sheet || !Sheet.addLog || Sheet.addLog._persist) return;
-    var key = LOG_KEY + "." + ((root.SSDNSDmJoin && root.SSDNSDmJoin.roomCode && root.SSDNSDmJoin.roomCode()) || "local");
+    var key = logKey();
+    var merged = readLogStore(key);
     try {
-      var saved = JSON.parse(localStorage.getItem(key) || "[]");
-      if (Array.isArray(saved)) saved.slice().reverse().forEach(function (row) { Sheet.addLog(row); });
-    } catch (e) {}
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (!k || k.indexOf(LOG_KEY + ".") !== 0 || k === key) continue;
+        readLogStore(k).forEach(function (row) {
+          if (!row) return;
+          if (!merged.some(function (e) { return e && row.id && e.id === row.id; })) merged.push(row);
+        });
+      }
+    } catch (err) {}
+    merged.sort(function (a, b) { return String(a && a.ts).localeCompare(String(b && b.ts)); });
+    merged.forEach(function (row) { Sheet.addLog(row); });
     var orig = Sheet.addLog;
     Sheet.addLog = function (entry) {
       orig(entry);
       try {
-        var raw = JSON.parse(localStorage.getItem(key) || "[]");
+        var storeKey = logKey();
+        var raw = readLogStore(storeKey);
+        if (entry && entry.id && raw.some(function (e) { return e && e.id === entry.id; })) return;
         raw.unshift(entry);
-        localStorage.setItem(key, JSON.stringify(raw.slice(0, 80)));
-      } catch (err) {}
+        localStorage.setItem(storeKey, JSON.stringify(raw.slice(0, 80)));
+      } catch (e2) {}
     };
     Sheet.addLog._persist = true;
   }
@@ -579,7 +785,56 @@
     }).catch(function () {});
   }
 
+  var shownTurn = "";
+  function paintPact() {
+    var box = $("#pactFocus");
+    var c = ch();
+    if (!box) return;
+    box.hidden = !(c && c.calling === "pact-seeker");
+  }
+  function syncSheet() {
+    renderMelee();
+    renderStyle();
+    renderUses();
+    paintPact();
+  }
   root.SSDNSPlaytest = {
+    syncSheet: syncSheet,
+    showTurn: function (init) {
+      var panel = $("#turnPanel");
+      if (!panel) return;
+      var order = (init && Array.isArray(init.order) && init.order) || [];
+      if (!order.length) { panel.hidden = true; shownTurn = ""; return; }
+      panel.hidden = false;
+      var round = init.round || 1;
+      var turn = Number(init.turn) || 0;
+      if (turn >= order.length) turn = 0;
+      var cur = order[turn] || {};
+      var roundEl = $("#turnRound");
+      var whoEl = $("#turnWho");
+      if (roundEl) roundEl.textContent = "Round " + round;
+      if (whoEl) whoEl.textContent = (cur.name || "Someone") + " · " + (cur.status && cur.kind === "enemy" ? cur.status : (cur.kind === "player" ? "player" : ""));
+      var names = $("#turnNames");
+      if (names) {
+        names.textContent = order.map(function (row, i) {
+          var mark = i === turn ? "→ " : "";
+          var st = row.kind === "enemy" && row.status ? " (" + row.status + ")" : "";
+          return mark + (row.name || "Someone") + st;
+        }).join("  ·  ");
+      }
+      var c = ch();
+      var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      var mine = (uid && cur.playerId && cur.playerId === uid) || (c && c.name && cur.kind === "player" && cur.name === c.name && !cur.playerId);
+      panel.classList.toggle("your-turn", !!mine);
+      var sig = String(round) + ":" + String(cur.id || turn);
+      if (sig !== shownTurn) {
+        shownTurn = sig;
+        if (mine) {
+          toast("Your turn");
+          if (root.SSDNSAudio) root.SSDNSAudio.play("holster");
+        }
+      }
+    },
     showRoster: function (rows) {
       var el = $("#tableRoster");
       if (!el) return;
@@ -608,6 +863,7 @@
     renderStyle();
     renderMelee();
     renderUses();
+    paintPact();
     wrapRest();
     persistLogs();
     versionCheck();
@@ -645,6 +901,10 @@
       var t = e.target;
       if (!t) return;
       if (t.id === "btnApplyKit") applyKit(true);
+      if (t.id === "btnPactShot") {
+        if (root.SSDNSSheet && root.SSDNSSheet.castNamed) root.SSDNSSheet.castNamed("Pact Shot");
+        else toast("Pact Shot isn't ready.");
+      }
       if (t.id === "btnPointBuy") pointBuy();
       if (t.id === "btnMainShort" && root.SSDNSSheet) root.SSDNSSheet.applyRest("short");
       if (t.id === "btnMainLong" && root.SSDNSSheet) root.SSDNSSheet.applyRest("long");

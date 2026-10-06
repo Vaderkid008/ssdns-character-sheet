@@ -438,10 +438,11 @@
     }
     function bind(path) {
       var r = fb.ref(state.db, roomPath(path));
-      var cb = fb.onValue(r, function (snap) {
+      var unsub = fb.onValue(r, function (snap) {
+        if (!state.joined) return;
         take(snap.val() || {});
       }, function () {});
-      state.unsubs.push(function () { try { fb.off(r, "value", cb); } catch (e) {} });
+      state.unsubs.push(typeof unsub === "function" ? unsub : function () { try { fb.off(r, "value", unsub); } catch (e) {} });
     }
     bind("commands");
     bind("broadcast");
@@ -452,7 +453,7 @@
     var payload = cmd.payload || {};
     switch (cmd.type) {
       case "reward_es":
-        applyEsReward(payload.delta || 0, payload.reason || "DM reward");
+        applyEsReward(payload.delta || 0, payload.reason || "DM reward", cmd.id);
         break;
       case "reward_item":
         appendEquipment(payload.text || "");
@@ -471,7 +472,8 @@
         showHandout(payload.name || "Handout", payload.url || "", payload.text || "");
         break;
       case "roll":
-        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "roll", text: (payload.who || "DM") + ": " + (payload.text || "") });
+        if (payload.id) state._feedSeen[payload.id] = 1;
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "roll:" + (payload.id || cmd.id), kind: "roll", text: (payload.who || "DM") + ": " + (payload.text || ""), ts: cmd.ts });
         break;
       case "open_saloon":
         var btn = $("#btnSaloon");
@@ -483,7 +485,7 @@
         else toast("DM opened the store");
         break;
       case "hp":
-        applyHpCommand(payload);
+        applyHpCommand(payload, cmd.id);
         break;
       case "set_conditions":
         if (root.SSDNSSheet) root.SSDNSSheet.setConditions(payload.list || []);
@@ -542,10 +544,13 @@
       if (nodes[0]) nodes[0].dispatchEvent(new Event("change", { bubbles: true }));
     });
   }
-  function applyEsReward(delta, reason) {
+  function applyEsReward(delta, reason, id) {
     var Bridge = root.SSDNSBridge;
     var d = doc();
     if (!Bridge || !d || !delta) return;
+    state.appliedRewards = state.appliedRewards || {};
+    if (id && state.appliedRewards[id]) return;
+    if (id) state.appliedRewards[id] = 1;
     state.applyingReward = true;
     try {
       var old = Bridge.cpValue(d.shards);
@@ -571,7 +576,7 @@
       state.lastEs = neu;
       toast("DM " + (delta >= 0 ? "granted +" : "took ") + Math.abs(delta) + " ES");
       if (root.SSDNSAudio) root.SSDNSAudio.play("reward");
-      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "es", text: "DM " + (delta >= 0 ? "+" : "") + delta + " ES" });
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: id ? "es:" + id : "", kind: "es", text: "DM " + (delta >= 0 ? "+" : "") + delta + " ES" });
       publishSnapshot();
     } finally {
       state.applyingReward = false;
@@ -652,14 +657,17 @@
     });
   }
 
-  function applyHpCommand(payload) {
+  function applyHpCommand(payload, id) {
     var delta = Number(payload.delta);
     if (!delta) delta = (payload.kind === "heal" ? 1 : -1) * (Number(payload.amount) || 0);
     if (!delta || !root.SSDNSSheet) return;
+    state.appliedRewards = state.appliedRewards || {};
+    if (id && state.appliedRewards["hp:" + id]) return;
+    if (id) state.appliedRewards["hp:" + id] = 1;
     var kind = payload.kind || (delta < 0 ? "damage" : "heal");
     var text = "DM " + kind + " " + Math.abs(delta) + (payload.formula ? " (" + payload.formula + ")" : "");
     root.SSDNSSheet.applyDelta(delta, text);
-    root.SSDNSSheet.addLog({ kind: "hp", text: text });
+    root.SSDNSSheet.addLog({ id: id ? "hp:" + id : "", kind: "hp", text: text });
   }
   function applyMusic(payload) {
     if (!root.SSDNSAudio) return;
@@ -747,10 +755,14 @@
   }
   function listenRoomFeeds() {
     var fb = state._fb;
+    var room = state.roomCode;
     function bind(path, handler) {
       var r = fb.ref(state.db, roomPath(path));
-      var cb = fb.onValue(r, function (snap) { handler(snap.val() || {}); }, function () {});
-      state.unsubs.push(function () { fb.off(r, "value", cb); });
+      var unsub = fb.onValue(r, function (snap) {
+        if (!state.joined || state.roomCode !== room) return;
+        handler(snap.val() || {});
+      }, function () {});
+      state.unsubs.push(typeof unsub === "function" ? unsub : function () { try { fb.off(r, "value", unsub); } catch (e) {} });
     }
     var inspPrimed = false;
     var inspSeen = "";
@@ -765,6 +777,7 @@
         }
       } else if (val.storeOpen === false) state._storeOpened = false;
       if (root.SSDNSPlaytest && root.SSDNSPlaytest.setDamageMode) root.SSDNSPlaytest.setDamageMode(val.damageMode || "auto");
+      if (root.SSDNSPlaytest && root.SSDNSPlaytest.showTurn) root.SSDNSPlaytest.showTurn(val.initiative || null);
       var insp = val.inspiration;
       var count = 0, last = null;
       if (insp && typeof insp === "object") { count = Number(insp.count) || 0; last = insp.last || null; }
@@ -791,7 +804,7 @@
         if (chatPrimed && row.from === state.uid) return;
         var who = row.fromName || "Table";
         if (row.to && row.to !== "all") who += " (to you)";
-        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "chat", text: who + ": " + (row.text || ""), ts: row.ts });
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "chat:" + id, kind: "chat", text: who + ": " + (row.text || ""), ts: row.ts });
       });
       chatPrimed = true;
     });
@@ -803,7 +816,7 @@
         if (!row || row.from === state.uid) return;
         var ts = Date.parse(row.ts);
         if (!ts || ts <= (state.marker || 0)) return;
-        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: row.kind === "roll" ? "roll" : "chat", text: (row.who || row.fromName || "Table") + ": " + (row.text || ""), ts: row.ts });
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: (row.kind === "roll" ? "roll:" : "feed:") + id, kind: row.kind === "roll" ? "roll" : "chat", text: (row.who || row.fromName || "Table") + ": " + (row.text || ""), ts: row.ts });
       });
     });
     bind("players", function (val) {
@@ -824,14 +837,18 @@
     state._conn = true;
     var fb = state._fb;
     var r = fb.ref(state.db, ".info/connected");
-    var cb = fb.onValue(r, function (snap) {
+    var unsub = fb.onValue(r, function (snap) {
       var on = snap.val() === true;
       state.connected = on;
       if (!state.joined) return;
       setBadge(on ? "connected" : "reconnecting");
       if (on) flushQueue();
     });
-    state.unsubs.push(function () { try { fb.off(r, "value", cb); } catch (e) {} state._conn = false; });
+    state.unsubs.push(function () {
+      state._conn = false;
+      if (typeof unsub === "function") unsub();
+      else { try { fb.off(r, "value", unsub); } catch (e) {} }
+    });
   }
   function setBadge(mode) {
     state.link = mode || "";
@@ -850,8 +867,8 @@
     }
   }
   function watchEs() {
-    // Poll ES while joined (catches Saloon wallet + manual shard edits)
-    setInterval(function () {
+    if (state._esTimer) return;
+    state._esTimer = setInterval(function () {
       if (!state.joined || state.applyingReward) return;
       var d = doc();
       var Bridge = root.SSDNSBridge;
@@ -882,6 +899,12 @@
       }
     }, 2000);
   }
+  function detachAll() {
+    clearUnsubs();
+    if (state._heartbeat) { clearInterval(state._heartbeat); state._heartbeat = null; }
+    if (state._esTimer) { clearInterval(state._esTimer); state._esTimer = null; }
+    state._conn = false;
+  }
 
   function setUiJoined(on, code) {
     var status = $("#dmJoinStatus");
@@ -904,20 +927,37 @@
   async function join(code) {
     code = String(code || "").trim().toUpperCase();
     if (!code) { toast("Enter a room code"); return; }
+    var input = $("#dmJoinCode");
+    if (input) input.value = code;
+    state.roomCode = code;
+    state.joined = true;
+    setUiJoined(true, code);
+    if ($("#dmJoinStatus")) $("#dmJoinStatus").textContent = "Joining " + code;
     try {
       toast("Connecting…");
       await loadFirebase();
+      if (!state.joined || ($("#dmJoinCode") && String($("#dmJoinCode").value || "").trim().toUpperCase() !== code)) {
+        detachAll();
+        state.joined = false;
+        setUiJoined(false);
+        return;
+      }
       var fb = state._fb;
       var metaSnap = await fb.get(fb.ref(state.db, "rooms/" + code + "/meta"));
-      if (!metaSnap.exists()) {
-        toast("No room with code " + code + " (is the DM live? Demo rooms aren't on Firebase.)");
+      if (!metaSnap.exists() || (metaSnap.val() || {}).status === "ended") {
+        toast(!metaSnap.exists()
+          ? "No room with code " + code + " (is the DM live? Demo rooms aren't on Firebase.)"
+          : "That session has ended");
+        detachAll();
+        state.joined = false;
+        state.roomCode = null;
+        saveLocal();
+        setUiJoined(false);
+        if ($("#dmJoinCode")) $("#dmJoinCode").value = code;
         return;
       }
       var meta = metaSnap.val();
-      if (meta.status === "ended") {
-        toast("That session has ended");
-        return;
-      }
+      detachAll();
       state.roomCode = code;
       state.joined = true;
       saveLocal();
@@ -947,26 +987,33 @@
     } catch (e) {
       console.warn(e);
       toast("Join failed: " + (e.message || e) + " — sheet still works offline");
+      detachAll();
       state.joined = false;
+      state.roomCode = null;
+      saveLocal();
       setUiJoined(false);
     }
   }
 
   async function leave() {
-    clearUnsubs();
-    if (state._heartbeat) clearInterval(state._heartbeat);
-    if (state.joined && state.db && state.uid) {
-      try {
-        var fb = state._fb;
-        await fb.update(fb.ref(state.db, roomPath("players/" + state.uid + "/presence")), {
-          online: false, lastSeen: new Date().toISOString()
-        });
-      } catch (e) {}
-    }
+    var code = state.roomCode;
+    var uid = state.uid;
+    var db = state.db;
+    var fb = state._fb;
     state.joined = false;
     state.roomCode = null;
     saveLocal();
     setUiJoined(false);
+    detachAll();
+    if (root.SSDNSPlaytest && root.SSDNSPlaytest.showRoster) root.SSDNSPlaytest.showRoster([]);
+    if (root.SSDNSPlaytest && root.SSDNSPlaytest.showTurn) root.SSDNSPlaytest.showTurn(null);
+    if (fb && db && uid && code) {
+      try {
+        var presence = fb.ref(db, "rooms/" + code + "/players/" + uid + "/presence");
+        try { await fb.onDisconnect(presence).cancel(); } catch (err) {}
+        await fb.update(presence, { online: false, lastSeen: new Date().toISOString() });
+      } catch (e) {}
+    }
     toast("Left the room · sheet is fully offline again");
   }
 
@@ -975,6 +1022,7 @@
     root.SSDNSDmJoin = {
       isJoined: function () { return !!state.joined; },
       roomCode: function () { return state.roomCode; },
+      uid: function () { return state.uid; },
       publishSnapshot: publishSnapshot,
       postLedger: postLedger,
       postRoll: postRoll,
@@ -1011,20 +1059,21 @@
       if (root.SSDNSApp || tries > 50) {
         clearInterval(t);
         var saved = loadLocal();
-        if (saved && saved.roomCode && $("#dmJoinCode")) $("#dmJoinCode").value = saved.roomCode;
-        if (saved && saved.joined && saved.roomCode) {
+        var input = $("#dmJoinCode");
+        if (saved && saved.roomCode && input && !input.value) input.value = saved.roomCode;
+        var shown = input ? String(input.value || "").trim().toUpperCase() : "";
+        if (saved && saved.joined && saved.roomCode && shown === String(saved.roomCode).toUpperCase()) {
           toast("Rejoining " + saved.roomCode);
           join(saved.roomCode);
+        } else {
+          setUiJoined(false);
         }
       }
     }, 100);
   }
 
-  window.addEventListener("beforeunload", function (e) {
-    if (!state.joined) return;
-    saveLocal();
-    e.preventDefault();
-    e.returnValue = "";
+  window.addEventListener("beforeunload", function () {
+    if (state.joined) saveLocal();
   });
 
   if (document.readyState === "loading") {

@@ -157,16 +157,18 @@ python3 -m http.server 8765
 
 ## v0.2 — keyboard shortcuts (Stream Deck)
 
-On the DM Command Center, these keys work when focus is **not** in a text field, menu, or checkbox:
+On the DM Command Center, these keys work when focus is **not** in a text field, menu, or checkbox, and not while an input method editor is composing:
 
 | Key | Action |
 |-----|--------|
 | `N` | Next turn in the Fight tracker |
-| `R` | Push the reward currently filled in on the Rewards tab |
-| `S` | Play the attack sound on this browser and send that sound cue to the table |
+| `Alt+Shift+R` | Push the reward currently filled in on the Rewards tab |
+| `Alt+Shift+S` | Play the attack sound on this browser and send that sound cue to the table |
 | `M` | Play or stop the track selected on the Music tab |
 
-Map those keys to Elgato Stream Deck hotkey buttons. `S` and `M` stay silent until you drop audio files in (see below).
+Plain `R` and `S` do nothing, so typing a URL or a name cannot grant ES or fire a sound. Map `Alt+Shift+R` and `Alt+Shift+S` on an Elgato Stream Deck hotkey button. `S` and `M` stay silent until you drop audio files in (see below).
+
+Opening `/dm/` does not drop you straight into the last room. If this browser still has a live room, the lobby offers **Resume ROOM-CODE** or **Create a room**. **Leave room / New session** returns to that lobby and leaves the table running. **End Session** is the control that closes it.
 
 ## v0.2 — sound and music files
 

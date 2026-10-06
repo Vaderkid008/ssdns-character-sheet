@@ -1,6 +1,6 @@
 {
-  "sheet": "0.2.9",
-  "dmcc": "0.2.6",
-  "sheetBuild": "sheet-playtest-v029",
-  "dmccBuild": "dmcc-playtest-v026"
+  "sheet": "0.3.0",
+  "dmcc": "0.2.7",
+  "sheetBuild": "sheet-round4-v030",
+  "dmccBuild": "dmcc-round4-v027"
 }

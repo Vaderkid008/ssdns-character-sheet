@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.6"; // dmcc-playtest-v026
+const VERSION = "0.2.7"; // dmcc-round4-v027
 const NOTES_KEY = "ssdns.dmcc.notes";
 const ROOM_KEY = "ssdns.dmcc.lastRoom";
 const WORDS = ["DUST", "IRON", "HEX", "RUST", "BONE", "COIL", "SAGE", "RAIL", "OXEN", "VELD", "ASH", "QUILL"];
@@ -35,6 +35,65 @@ function toast(msg, ms) {
   t.hidden = false;
   clearTimeout(toast._t);
   toast._t = setTimeout(() => { t.hidden = true; }, ms || 2800);
+}
+function isFormField(el) {
+  if (!el || el === document.body || el === document.documentElement) return false;
+  const tag = el.tagName || "";
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return !!el.isContentEditable;
+}
+function fieldSnap(el) {
+  if (!isFormField(el)) return null;
+  const kind = el.hasAttribute("data-init-val") ? "init" : el.hasAttribute("data-hp-val") ? "hp" : el.hasAttribute("data-ac-val") ? "ac" : "";
+  return {
+    id: el.id || "",
+    kind: kind,
+    rowId: el.getAttribute("data-row-id") || "",
+    value: "value" in el ? el.value : "",
+    start: typeof el.selectionStart === "number" ? el.selectionStart : null,
+    end: typeof el.selectionEnd === "number" ? el.selectionEnd : null
+  };
+}
+function findField(snap) {
+  if (!snap) return null;
+  if (snap.rowId && snap.kind) {
+    const hit = document.querySelector('[data-' + snap.kind + '-val][data-row-id="' + (window.CSS && CSS.escape ? CSS.escape(snap.rowId) : snap.rowId) + '"]');
+    if (hit) return hit;
+  }
+  if (snap.id) return document.getElementById(snap.id);
+  return null;
+}
+function restoreField(snap) {
+  const el = findField(snap);
+  if (!el) return;
+  if ("value" in el && snap.value != null && el.value !== snap.value) el.value = snap.value;
+  if (document.activeElement !== el) {
+    try { el.focus({ preventScroll: true }); } catch (err) { try { el.focus(); } catch (e2) {} }
+  }
+  try { if (snap.start != null && el.setSelectionRange) el.setSelectionRange(snap.start, snap.end); } catch (err) {}
+}
+function guardFocus(fn) {
+  const active = document.activeElement;
+  const snap = isFormField(active) ? fieldSnap(active) : null;
+  const node = active;
+  fn();
+  if (!snap) return;
+  if (node && document.contains(node)) {
+    if ("value" in node && document.activeElement === node && node.value !== snap.value) node.value = snap.value;
+    if (document.activeElement !== node) restoreField(snap);
+    else try { if (snap.start != null && node.setSelectionRange && node.selectionStart !== snap.start) node.setSelectionRange(snap.start, snap.end); } catch (err) {}
+    return;
+  }
+  restoreField(snap);
+}
+function listenRef(path, handler) {
+  const r = roomRef(path);
+  const fb = state._fb;
+  const unsub = fb.onValue(r, (snap) => handler(snap.val()), (err) => {
+    console.warn("[DMCC] listen", path, err);
+    setStatus("offline", "Live sync error · " + (err.message || "see console"));
+  });
+  state.unsubs.push(typeof unsub === "function" ? unsub : () => { try { fb.off(r, "value", unsub); } catch (e) {} });
 }
 function download(name, text, type) {
   const a = document.createElement("a");
@@ -235,16 +294,8 @@ function attachLiveListeners() {
   clearUnsubs();
   if (!state.db || !state.roomCode) return;
   addictionReady = false;
-  const bind = (path, handler) => {
-    const r = roomRef(path);
-    const fb = state._fb;
-    const cb = fb.onValue(r, (snap) => handler(snap.val()), (err) => {
-      console.warn("[DMCC] listen", path, err);
-      setStatus("offline", "Live sync error · " + (err.message || "see console"));
-    });
-    state.unsubs.push(() => fb.off(r, "value", cb));
-  };
-  bind("meta", (v) => { if (v) { state.meta = v; renderRoomHero(); } });
+  const bind = (path, handler) => listenRef(path, handler);
+  bind("meta", (v) => { if (v) { state.meta = v; guardFocus(() => renderRoomHero()); } });
   const seenJoin = {};
   bind("players", (v) => {
     const prev = state.players || {};
@@ -261,11 +312,14 @@ function attachLiveListeners() {
         });
       }
     });
-    renderPlayers();
-    fillTargetSelects();
-    renderPresence();
-    renderRoomHero();
-    if (window.DMCCEnhance && window.DMCCEnhance.fillAdds) window.DMCCEnhance.fillAdds();
+    guardFocus(() => {
+      renderPlayers();
+      fillTargetSelects();
+      renderPresence();
+      renderRoomHero();
+      if (window.DMCCEnhance && window.DMCCEnhance.fillAdds) window.DMCCEnhance.fillAdds();
+      if (window.DMCCEnhance && window.DMCCEnhance.syncPlayers) window.DMCCEnhance.syncPlayers();
+    });
   });
   bind("ledger", (v) => {
     const next = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
@@ -491,8 +545,8 @@ async function pushRoll(entry) {
         id: entry.id, ts: entry.ts, from: state.uid || "dm", fromName: "DM",
         text: text, kind: "roll", who: entry.who || "DM"
       };
+      // One public copy. A roll command as well made the player log the same roll twice.
       try { await state._fb.set(roomRef("tableFeed/" + entry.id), feed); } catch (err) { console.warn("[DMCC] feed", err); }
-      await pushCommand({ type: "roll", to: "all", payload: { text: text, who: entry.who || "DM", id: entry.id }, from: state.uid });
     }
   }
   catch (e) { toast("Roll write failed"); console.warn(e); }
@@ -559,27 +613,44 @@ function setStatus(mode, text) {
     : (state.firebaseReady && state.demo ? " · Firebase ready if you turn Demo off" : "");
 }
 
+function syncSessionButtons() {
+  const inRoom = document.body.classList.contains("in-room");
+  const leave = $("#btnLeaveRoom");
+  const create = $("#btnHeaderCreate");
+  if (leave) leave.hidden = !inRoom;
+  if (create) create.hidden = false;
+  const copy = $("#btnCopyCode");
+  const end = $("#btnEndSession");
+  if (copy) copy.hidden = !inRoom;
+  if (end) end.hidden = !inRoom;
+}
 function showRoom() {
   $("#lobby").hidden = true;
   $("#roomShell").hidden = false;
-  $("#btnCopyCode").hidden = false;
-  $("#btnEndSession").hidden = false;
   document.body.classList.add("in-room");
   const dock = $("#liveDock");
   if (dock) dock.hidden = false;
+  syncSessionButtons();
   renderRoomHero();
 }
 
 function hideRoom() {
   $("#lobby").hidden = false;
   $("#roomShell").hidden = true;
-  $("#btnCopyCode").hidden = true;
-  $("#btnEndSession").hidden = true;
   document.body.classList.remove("in-room");
   const dock = $("#liveDock");
   if (dock) dock.hidden = true;
   clearUnsubs();
   state.roomCode = null;
+  syncSessionButtons();
+}
+function leaveRoom() {
+  clearUnsubs();
+  state.roomCode = null;
+  hideRoom();
+  const choice = $("#resumeChoice");
+  if (choice) choice.hidden = false;
+  toast("Left this screen. The table is still live — resume it or create a new room.");
 }
 
 function renderRoomHero() {
@@ -592,6 +663,17 @@ function renderRoomHero() {
   renderPresence();
 }
 
+function prettyCalling(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (s !== s.toLowerCase() && s.indexOf("-") < 0) return s;
+  return s.split("-").map((w) => w ? w.charAt(0).toUpperCase() + w.slice(1) : "").filter(Boolean).join(" ");
+}
+function presenceExtra(s) {
+  const calling = prettyCalling(s.calling);
+  const level = s.level != null && s.level !== "" ? "L" + s.level : "";
+  return [calling, level].filter(Boolean).join(" ");
+}
 function renderPresence() {
   const box = $("#presenceList");
   const list = Object.values(state.players);
@@ -602,7 +684,9 @@ function renderPresence() {
   box.innerHTML = list.map((p) => {
     const s = p.snapshot || {};
     const on = p.presence && p.presence.online;
-    return `<span class="pill ${on ? "online" : "offline"}"><span class="dot"></span>${esc(s.name || p.id)} · ${esc(s.player || "?")}</span>`;
+    const extra = presenceExtra(s);
+    const label = esc(s.name || p.id) + (extra ? " · " + esc(extra) : "");
+    return `<span class="pill ${on ? "online" : "offline"}"><span class="dot"></span>${label}</span>`;
   }).join("");
 }
 
@@ -909,6 +993,9 @@ function fillDockTargets() {
   if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
 }
 function renderLiveDock() {
+  guardFocus(() => renderLiveDockNow());
+}
+function renderLiveDockNow() {
   const feed = $("#dockFeed");
   if (!feed) return;
   fillDockTargets();
@@ -1007,18 +1094,27 @@ function renderHandouts() {
     grid.innerHTML = '<div class="empty"><b>No handouts saved</b></div>';
     return;
   }
-  grid.innerHTML = state.handouts.map((h) => `
-    <div class="handout-card">
-      <img src="${esc(h.url)}" alt="" loading="lazy" onerror="this.style.opacity=.3">
+  grid.innerHTML = state.handouts.map((h) => {
+    const url = String(h.url || "").trim();
+    const text = String(h.text || "").trim();
+    const media = url
+      ? `<img src="${esc(url)}" alt="" loading="lazy">`
+      : `<div class="handout-text">${esc(text || "Text handout")}</div>`;
+    const open = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">Open link</a>` : "";
+    return `
+    <div class="handout-card ${url ? "" : "text-only"}">
+      ${media}
       <div class="body">
         <h3>${esc(h.name)}</h3>
         <div class="feed-meta"><span>${esc(fmtTime(h.ts))}</span><span>→ ${esc(h.to === "all" ? "Table" : h.to)}</span></div>
-        <a href="${esc(h.url)}" target="_blank" rel="noopener">Open link</a>
+        ${text && url ? `<p class="lede">${esc(text)}</p>` : ""}
+        ${open}
         <div class="toolbar" style="margin:8px 0 0">
           <button type="button" class="btn sm" data-resend="${esc(h.id)}">Send again</button>
         </div>
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
   $$("[data-resend]", grid).forEach((btn) => btn.addEventListener("click", () => {
     const h = state.handouts.find((x) => x.id === btn.dataset.resend);
     if (h) sendHandoutCommand(h);
@@ -1295,12 +1391,28 @@ function wire() {
     priv.addEventListener("change", paint);
     paint();
   }
-  $("#btnCreateRoom").addEventListener("click", () => {
+  const createRoom = () => {
     const name = ($("#inRoomName").value || "").trim();
+    if (document.body.classList.contains("in-room")) leaveRoom();
     if (state.demo || !state.firebaseReady) loadDemo(true);
     else createLiveRoom(name);
     if (name && state.meta) { state.meta.name = name; renderRoomHero(); }
+  };
+  $("#btnCreateRoom").addEventListener("click", createRoom);
+  const headerCreate = $("#btnHeaderCreate");
+  if (headerCreate) headerCreate.addEventListener("click", () => {
+    if (document.body.classList.contains("in-room")) {
+      leaveRoom();
+      const name = $("#inRoomName");
+      if (name) name.focus();
+      return;
+    }
+    createRoom();
   });
+  const leaveBtn = $("#btnLeaveRoom");
+  if (leaveBtn) leaveBtn.addEventListener("click", leaveRoom);
+  const resumeBtn = $("#btnResumeRoom");
+  if (resumeBtn) resumeBtn.addEventListener("click", () => { resumeLiveRoom(); });
   $("#btnLoadDemo").addEventListener("click", () => loadDemo(false));
   $("#chkDemo").addEventListener("change", async () => {
     state.demo = $("#chkDemo").checked;
@@ -1415,7 +1527,20 @@ function wire() {
   } catch (err) {}
 }
 
-async function tryResumeLive() {
+let pendingResume = null;
+function showResumeChoice(code) {
+  const box = $("#resumeChoice");
+  const label = $("#resumeCodeLabel");
+  const btn = $("#btnResumeRoom");
+  if (label) label.textContent = code;
+  if (btn) btn.textContent = "Resume " + code;
+  if (box) box.hidden = false;
+  $("#lobby").hidden = false;
+  $("#roomShell").hidden = true;
+  document.body.classList.remove("in-room");
+  syncSessionButtons();
+}
+async function peekResume() {
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(ROOM_KEY) || "null"); } catch (e) {}
   if (!saved || saved.demo || !saved.code || !saved.uid || saved.uid !== state.uid) return false;
@@ -1424,25 +1549,35 @@ async function tryResumeLive() {
     if (!snap.exists()) return false;
     const meta = snap.val();
     if (!meta || meta.status === "ended" || meta.dmUid !== state.uid) return false;
-    state.demo = false;
-    state.roomCode = saved.code;
-    state.meta = meta;
-    state.players = {};
-    state.ledger = [];
-    state.rolls = [];
-    state.messages = [];
-    state.handouts = [];
-    state.commands = [];
-    attachLiveListeners();
-    showRoom();
-    renderAll();
-    setStatus("live", "Rejoined " + saved.code + " · players stay connected");
-    toast("Rejoined " + saved.code);
+    pendingResume = { code: saved.code, meta: meta };
+    showResumeChoice(saved.code);
+    setStatus("live", "Live · resume " + saved.code + " or create a new room");
     return true;
   } catch (e) {
     console.warn("[DMCC] resume", e);
     return false;
   }
+}
+async function resumeLiveRoom() {
+  const pending = pendingResume;
+  if (!pending) return false;
+  state.demo = false;
+  state.roomCode = pending.code;
+  state.meta = pending.meta;
+  state.players = {};
+  state.ledger = [];
+  state.rolls = [];
+  state.messages = [];
+  state.handouts = [];
+  state.commands = [];
+  attachLiveListeners();
+  showRoom();
+  renderAll();
+  const choice = $("#resumeChoice");
+  if (choice) choice.hidden = true;
+  setStatus("live", "Rejoined " + pending.code + " · players stay connected");
+  toast("Rejoined " + pending.code);
+  return true;
 }
 
 window.DMCC = {
@@ -1465,6 +1600,10 @@ window.DMCC = {
   doDmRoll: doDmRoll,
   renderPlayers: renderPlayers,
   renderAll: renderAll,
+  isFormField: isFormField,
+  guardFocus: guardFocus,
+  fieldSnap: fieldSnap,
+  restoreField: restoreField,
   recordConsume: recordConsume,
   missAddictionDay: missAddictionDay,
   renderLedger: renderLedger,
@@ -1496,11 +1635,12 @@ async function boot() {
       setStatus("demo", "Demo mode · Firebase unavailable");
       toast("Firebase unavailable — Demo mode on. See DM-SETUP.md");
     } else {
-      const resumed = await tryResumeLive();
-      if (!resumed) {
+      const offered = await peekResume();
+      if (!offered) {
         setStatus("live", "Live · Firebase connected · create a room");
         $("#lobby").hidden = false;
         $("#roomShell").hidden = true;
+        syncSessionButtons();
       }
     }
   }

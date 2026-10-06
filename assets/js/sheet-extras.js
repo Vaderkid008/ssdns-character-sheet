@@ -54,7 +54,14 @@
     setHp(cur, temp);
     if (notice) showNotice(notice);
     var box = $(".hp");
-    if (box) box.classList.toggle("hp-down", cur <= 0);
+    if (box) {
+      box.classList.toggle("hp-down", cur <= 0);
+      box.classList.remove("hp-flash");
+      void box.offsetWidth;
+      box.classList.add("hp-flash");
+      clearTimeout(applyDelta._flash);
+      applyDelta._flash = setTimeout(function () { box.classList.remove("hp-flash"); }, 900);
+    }
     renderConds();
   }
 
@@ -103,6 +110,8 @@
 
   function addLog(entry) {
     entry.ts = entry.ts || new Date().toISOString();
+    if (!entry.id) entry.id = "log_" + entry.ts + "_" + String(entry.kind || "") + "_" + String(entry.text || "").slice(0, 80);
+    if (entry.id && log.some(function (e) { return e && e.id === entry.id; })) return;
     log.unshift(entry);
     if (log.length > 200) log.length = 200;
     renderLog();
@@ -869,9 +878,13 @@
     if (!sp) return;
     var slot = sp.slot || 0;
     if (slot > 0 && c && c.calling === "hexslinger") {
-      if (!root.SSDNSApp || !root.SSDNSApp.spendHexChamber) { toast("Load that shell on the gun first."); return; }
-      var held = root.SSDNSApp.spendHexChamber(i, slot);
-      if (!held.ok) { toast(held.reason || "Load a level-" + slot + " shell first."); return; }
+      var held = root.SSDNSApp && root.SSDNSApp.spendHexChamber ? root.SSDNSApp.spendHexChamber(i, slot) : { ok: false };
+      if (!held.ok) {
+        if (!root.SSDNSApp || !root.SSDNSApp.spendHexSlot || !root.SSDNSApp.spendHexSlot(slot)) {
+          toast(held.reason || "No level-" + slot + " hex lead left.");
+          return;
+        }
+      }
       castSpellAttack(i, sp.name, slot, true);
       return;
     }
@@ -1093,6 +1106,7 @@
     renderStore: renderStore,
     renderLog: renderLog,
     showInspiration: showInspiration,
+    castNamed: function (name) { castSpellAttack(-1, name, 0, false); },
     showTapHear: function () {
       var b = $("#btnTapHear");
       if (b) b.hidden = false;

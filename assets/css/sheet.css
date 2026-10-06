@@ -135,6 +135,14 @@ input:focus, select:focus, textarea:focus { outline: none; background: var(--fil
 .tf-lineage .pair { flex-wrap: wrap; }
 #lineageCard { flex: 1 1 100%; margin: 4px 0 0; }
 .pair .lvl { width: 56px; flex: none; text-align: center; }
+.topgrid .tf:not(.tf-calling) { position: relative; z-index: 1; }
+.topgrid .tf-calling { grid-column: 1 / -1; position: relative; z-index: 3; }
+.kit-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; position: relative; z-index: 4; }
+.hp.hp-flash { animation: hpflash .8s ease; }
+@keyframes hpflash { 40% { background: #8a2a22; color: #fff; } }
+.turn-panel { margin: 8px 16px 0; padding: 8px 12px; border: 1px solid var(--ochre); background: rgba(29,20,13,.55); color: var(--parch); }
+.turn-panel.your-turn { border-color: var(--eld); box-shadow: inset 0 0 0 1px var(--eld); }
+.pact-focus { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 8px; padding: 8px; border: 1px solid var(--line); background: var(--fill); }
 
 /* ---------------- page 1 grid */
 .main-grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; grid-template-areas: "c1 c2 c3" "c1 feat feat"; gap: 12px; align-items: start; }
