@@ -43,7 +43,7 @@
         features: "Hexslinger: spells channel through iron.\nChaos: sparks fly when the hex goes wrong.",
         personality: "Talks to her guns like old friends.",
         guns: [
-          { name: "Blacksnake", loaded: 6, capacity: 6, atk: "+5", condition: "ok", load: "buck", jammed: false, cracked: false, fouled: false, dirty: false, note: "Caster gun" },
+          { name: "Blacksnake", loaded: 6, capacity: 6, atk: "+5", damage: "1d8 +3 piercing", plain: 5, hex: 1, caster: true, condition: "ok", load: "cartridge", jammed: false, cracked: false, fouled: false, dirty: false, note: "Caster gun" },
           { name: "Pony Arms Chaosmaker", loaded: 6, capacity: 6, condition: "ok", load: "buck", jammed: false },
           { name: "Double-Barrel Coach Gun", loaded: 2, capacity: 2, condition: "ok", load: "buck", jammed: false }
         ],

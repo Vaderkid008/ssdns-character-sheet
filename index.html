@@ -52,6 +52,8 @@
   <button type="button" role="tab" class="tab" id="tab-main" aria-controls="page-main" aria-selected="true">1 · Main</button>
   <button type="button" role="tab" class="tab" id="tab-story" aria-controls="page-story" aria-selected="false">2 · Backstory</button>
   <button type="button" role="tab" class="tab" id="tab-hex" aria-controls="page-hex" aria-selected="false">3 · Spells &amp; Hex Lead</button>
+  <button type="button" role="tab" class="tab" id="tab-equip" aria-controls="page-equip" aria-selected="false">Gear</button>
+  <button type="button" role="tab" class="tab" id="tab-cond" aria-controls="page-cond" aria-selected="false">Conditions</button>
   <button type="button" role="tab" class="tab" id="tab-store" aria-controls="page-store" aria-selected="false">Store</button>
   <button type="button" role="tab" class="tab" id="tab-log" aria-controls="page-log" aria-selected="false">Log</button>
 </nav>
@@ -70,6 +72,7 @@
         <div class="pair">
           <select data-f="character.calling" id="selCalling"></select>
           <input type="number" min="1" max="20" data-f="character.level" id="inLevel" class="lvl" aria-label="Level" inputmode="numeric">
+          <button type="button" class="btn sm" id="btnLevelUp">Level up</button>
         </div>
         <label for="selCalling">Calling &amp; Level</label>
       </div>
@@ -118,6 +121,11 @@
         <div class="stack">
           <div class="box party-insp">
             <div class="box-title">Party Inspiration</div>
+            <div class="shared-insp" id="sharedInsp" hidden>
+              <b id="sharedInspCount">0</b>
+              <span>shared pool</span>
+              <button type="button" class="btn sm" id="btnSpendInsp">Spend</button>
+            </div>
             <div class="checkgrid insp" id="inspGrid"></div>
             <ul class="fine insp-rules">
               <li><b>Advantage</b> — spend before the roll</li>
@@ -133,10 +141,13 @@
         </div>
       </div>
       <div class="pill wide"><input data-calc="passive" class="calc" inputmode="numeric" aria-label="Passive Wisdom (Perception)"><span>Passive Wisdom (Perception)</span></div>
+      <details class="phone-fold" open>
+        <summary>Other proficiencies &amp; languages</summary>
       <div class="box text-box">
         <textarea data-f="character.proficienciesLanguages" rows="6" id="taProfs"></textarea>
         <label class="box-title bottom" for="taProfs">Other Proficiencies &amp; Languages</label>
       </div>
+      </details>
     </div>
 
     <!-- column 2 -->
@@ -144,7 +155,7 @@
       <div class="box combat">
         <div class="trio">
           <div class="shield-box"><input data-calc="ac" class="calc big" inputmode="numeric" aria-label="Armor Class"><span>Armor Class</span></div>
-          <div class="sq-box"><input data-calc="initiative" class="calc big" aria-label="Initiative"><span>Initiative</span></div>
+          <div class="sq-box"><input data-calc="initiative" class="calc big" aria-label="Initiative"><span>Initiative</span><button type="button" class="btn sm" id="btnInit">Roll</button></div>
           <div class="sq-box"><input type="number" data-f="character.speed" class="big" aria-label="Speed" inputmode="numeric"><span>Speed</span></div>
         </div>
         <p class="reminder"><b>Take Cover</b> is a <b>bonus action</b>: incoming ranged fire has disadvantage until you attack.</p>
@@ -190,14 +201,35 @@
 
     <!-- column 3 -->
     <div class="col col-3">
+      <details class="phone-fold" open>
+        <summary>Personality</summary>
       <div class="box traits">
         <div class="trait"><div class="trait-head"><label for="taPers">Personality Traits</label><button type="button" class="roll" data-roll="personality" title="Roll from your background table">Roll d8</button></div><textarea id="taPers" data-f="character.personality" rows="3"></textarea></div>
         <div class="trait"><div class="trait-head"><label for="taIdeals">Ideals</label><button type="button" class="roll" data-roll="ideals">Roll d6</button></div><textarea id="taIdeals" data-f="character.ideals" rows="2"></textarea></div>
         <div class="trait"><div class="trait-head"><label for="taBonds">Bonds</label><button type="button" class="roll" data-roll="bonds">Roll d6</button></div><textarea id="taBonds" data-f="character.bonds" rows="2"></textarea></div>
         <div class="trait"><div class="trait-head"><label for="taFlaws">Flaws</label><button type="button" class="roll" data-roll="flaws">Roll d6</button></div><textarea id="taFlaws" data-f="character.flaws" rows="2"></textarea></div>
       </div>
+      </details>
     </div>
 
+    <div class="box features span-3">
+      <div class="feats">
+        <div class="sub-head"><h3>Feats</h3>
+          <select id="selFeatAdd" aria-label="Add a feat"></select>
+        </div>
+        <div id="featChips" class="chips"></div>
+      </div>
+      <textarea data-f="character.features" rows="9" id="taFeatures"></textarea>
+      <label class="box-title bottom" for="taFeatures">Features &amp; Traits</label>
+      <details class="ref" id="refPanel"><summary>From your picks (PHB reference)</summary><div id="refBody"></div></details>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== GEAR ============================== -->
+<section class="page" id="page-equip" role="tabpanel" aria-labelledby="tab-equip" hidden>
+  <h2 class="page-title">Equipment</h2>
+  <p class="fine">Guns, ammo, holster, explosives, and the gear you carry.</p>
     <!-- firearms: spans col 2-3 -->
     <div class="box firearms span-23">
       <div class="box-head"><h2>Firearms</h2>
@@ -296,18 +328,13 @@
       </div>
     </div>
 
-    <div class="box features span-3">
-      <div class="feats">
-        <div class="sub-head"><h3>Feats</h3>
-          <select id="selFeatAdd" aria-label="Add a feat"></select>
-        </div>
-        <div id="featChips" class="chips"></div>
-      </div>
-      <textarea data-f="character.features" rows="9" id="taFeatures"></textarea>
-      <label class="box-title bottom" for="taFeatures">Features &amp; Traits</label>
-      <details class="ref" id="refPanel"><summary>From your picks (PHB reference)</summary><div id="refBody"></div></details>
-    </div>
-  </div>
+</section>
+
+<!-- ============================== CONDITIONS ============================== -->
+<section class="page" id="page-cond" role="tabpanel" aria-labelledby="tab-cond" hidden>
+  <h2 class="page-title">Conditions</h2>
+  <p class="fine" id="condDmNote">Nothing from the DM right now.</p>
+  <div id="condList" class="cond-list"></div>
 </section>
 
 <!-- ============================== PAGE 2 : BACKSTORY ============================== -->
@@ -443,6 +470,17 @@
 </aside>
 <button type="button" class="dock-fab" id="btnSheetDockFab">Log <span id="sheetDockBadge" hidden>0</span></button>
 
+
+<dialog id="dlgLevel" class="dlg">
+  <form method="dialog">
+    <h2>Level up</h2>
+    <div id="lvlBody"></div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" id="btnLvlCancel">Cancel</button>
+      <button type="button" class="btn" id="btnLvlApply">Confirm and apply</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="dlgRestore" class="dlg">
   <form method="dialog">
     <h2>Restore</h2>

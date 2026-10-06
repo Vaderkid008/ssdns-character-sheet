@@ -280,6 +280,132 @@
     return t.replace(/\s+·.*$/, "").trim() || "Gun";
   }
 
+  function signMod(n) { return n >= 0 ? "+" + n : String(n); }
+  function rollDiceExpr(expr) {
+    var f = String(expr || "").toLowerCase();
+    var m = f.match(/(\d*)d(\d+)\s*([+-]\s*\d+)?/);
+    if (!m) return null;
+    var n = Math.max(1, parseInt(m[1] || "1", 10));
+    var sides = parseInt(m[2], 10);
+    var mod = m[3] ? parseInt(m[3].replace(/\s/g, ""), 10) : 0;
+    if (!sides) return null;
+    var rolls = [];
+    for (var i = 0; i < n; i++) rolls.push(1 + Math.floor(Math.random() * sides));
+    var sum = rolls.reduce(function (a, b) { return a + b; }, 0) + mod;
+    return {
+      total: sum,
+      detail: rolls.join("+") + (mod ? signMod(mod) : ""),
+      formula: n + "d" + sides + (mod ? signMod(mod) : "")
+    };
+  }
+  function postCheck(label, formula, total, detail, nat1, firearm) {
+    toast(label + " " + total + " (" + detail + ")");
+    addLog({ kind: "roll", text: label + " · " + formula + " = " + total + " (" + detail + ")" });
+    if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
+      root.SSDNSDmJoin.postRoll({
+        label: label, formula: formula, result: total, detail: detail,
+        nat1: !!nat1, isFirearm: !!firearm, private: false, whisper: false
+      });
+    }
+  }
+  function rollCheck(key) {
+    var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+    var parts = String(key || "").split(".");
+    var kind = parts[0], rest = parts.slice(1).join(".");
+    var mod = 0, label = rest || "Check";
+    if (kind === "abil") {
+      var shown = document.querySelector('[data-out="mod.' + rest + '"]');
+      mod = parseInt(shown && shown.textContent, 10);
+      if (!isFinite(mod)) mod = (v.mods && v.mods[rest]) || 0;
+      label = rest + " check";
+    } else if (kind === "save") {
+      var sv = document.querySelector('[data-calc="save.' + rest + '"]');
+      mod = parseInt(sv && sv.value, 10);
+      if (!isFinite(mod)) mod = (v.saves && v.saves[rest]) || 0;
+      label = rest + " save";
+    } else {
+      var sk = document.querySelector('[data-calc="skill.' + rest + '"]');
+      mod = parseInt(sk && sk.value, 10);
+      if (!isFinite(mod)) mod = (v.skills && v.skills[rest]) || 0;
+      label = rest;
+    }
+    var nat = 1 + Math.floor(Math.random() * 20);
+    var total = nat + mod;
+    var formula = "1d20" + (mod ? signMod(mod) : "");
+    postCheck(label, formula, total, String(nat) + (mod ? signMod(mod) : ""), nat === 1, false);
+  }
+  function rollInitiative() {
+    var inp = document.querySelector('[data-calc="initiative"]');
+    var bonus = parseInt(String(inp && inp.value).replace(/[^\d-]/g, ""), 10);
+    if (!isFinite(bonus)) {
+      var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+      bonus = v.initiative || 0;
+    }
+    var nat = 1 + Math.floor(Math.random() * 20);
+    var total = nat + bonus;
+    var formula = "1d20" + (bonus ? signMod(bonus) : "");
+    postCheck("Initiative", formula, total, String(nat) + (bonus ? signMod(bonus) : ""), nat === 1, false);
+  }
+  function castThroughGun(i) {
+    var c = ch();
+    if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
+    var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+    if (v.spellAtk == null || v.spellAtk === "") { toast("This Calling has no spell attack."); return; }
+    var sel = document.querySelector('[data-castlvl="' + i + '"]');
+    var level = num(sel && sel.value, 0);
+    var spentNote = "Cantrip · no slot";
+    if (level > 0) {
+      if (!root.SSDNSApp.spendHexChamber) { toast("Cast through gun isn't ready."); return; }
+      var held = root.SSDNSApp.spendHexChamber(i, level);
+      if (!held.ok) { toast(held.reason); return; }
+      if (!held.alreadySpent) {
+        var ok = root.SSDNSApp.spendHexSlot && root.SSDNSApp.spendHexSlot(level);
+        if (!ok) { toast("No level-" + level + " slot left."); return; }
+      }
+      spentNote = "Level " + level + " slot spent";
+    }
+    var atk = parseInt(String(v.spellAtk).replace(/[^\d-]/g, ""), 10);
+    if (!isFinite(atk)) atk = 0;
+    var nat = 1 + Math.floor(Math.random() * 20);
+    var total = nat + atk;
+    var name = gunName(i);
+    var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
+    var gunDmg = (dmgEl && dmgEl.value) || "—";
+    var gunRoll = rollDiceExpr(gunDmg);
+    var gunLine = gunRoll
+      ? ("Gun " + gunRoll.formula + " = " + gunRoll.total + " (" + gunRoll.detail + ")")
+      : ("Gun " + gunDmg);
+    var dmgPart = level > 0
+      ? (gunLine + ". Spell damage is the shell fired at level " + level + ". PHB: a hex shell replaces the cartridge, so add the gun damage only when that spell says to include weapon damage.")
+      : (gunLine + " is not fired. Cantrip damage only (PHB: cantrips use no shell and no chamber).");
+    var text = "Cast through gun · " + name + " · " + spentNote
+      + " · spell attack " + signMod(atk) + " (proficiency + casting mod): "
+      + nat + (atk ? signMod(atk) : "") + " = " + total + ". " + dmgPart;
+    if (root.SSDNSAudio) root.SSDNSAudio.play("spellcast");
+    toast(text);
+    addLog({ kind: "roll", text: text });
+    if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
+      root.SSDNSDmJoin.postRoll({
+        label: name + " · Cast through gun · " + spentNote,
+        formula: "1d20" + (atk ? signMod(atk) : "") + " spell" + (gunRoll && level > 0 ? " + gun " + gunRoll.formula : ""),
+        result: total,
+        detail: nat + (atk ? signMod(atk) : "") + " = " + total + " · " + dmgPart,
+        nat1: nat === 1,
+        isFirearm: true,
+        private: false,
+        whisper: false
+      });
+    }
+  }
+  function showInspiration(count, on) {
+    var box = $("#sharedInsp");
+    if (!box) return;
+    box.hidden = !on;
+    var n = $("#sharedInspCount");
+    if (n) n.textContent = String(count || 0);
+    var btn = $("#btnSpendInsp");
+    if (btn) btn.disabled = !on || !(count > 0);
+  }
   function rollGun(i) {
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
@@ -581,6 +707,10 @@
       }
     });
     document.addEventListener("click", function (e) {
+      var d20 = e.target.closest && e.target.closest("[data-d20]");
+      if (d20) { rollCheck(d20.getAttribute("data-d20")); return; }
+      var cast = e.target.closest && e.target.closest("[data-cast]");
+      if (cast) { castThroughGun(num(cast.getAttribute("data-cast"))); return; }
       var b = e.target.closest && e.target.closest("[data-fire],[data-reload],[data-hexload]");
       if (!b || !root.SSDNSAudio) return;
       if (b.hasAttribute("data-reload")) root.SSDNSAudio.play("reload");
@@ -594,6 +724,16 @@
     if (dockChat) dockChat.addEventListener("submit", function (e) { e.preventDefault(); sendChat($("#sheetDockText")); });
     var hexBtn = $("#btnHexRoll");
     if (hexBtn) hexBtn.addEventListener("click", rollHex);
+    var initBtn = $("#btnInit");
+    if (initBtn) initBtn.addEventListener("click", rollInitiative);
+    var spendInsp = $("#btnSpendInsp");
+    if (spendInsp) spendInsp.addEventListener("click", function () {
+      if (!joined() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.spendInspiration) {
+        toast("Join a table to spend the shared Inspiration pool.");
+        return;
+      }
+      root.SSDNSDmJoin.spendInspiration();
+    });
     document.querySelectorAll("[data-sheet-filter]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         dockFilter = btn.getAttribute("data-sheet-filter") || "all";
@@ -656,6 +796,7 @@
     undoItem: undoItem,
     renderStore: renderStore,
     renderLog: renderLog,
+    showInspiration: showInspiration,
     showTapHear: function () {
       var b = $("#btnTapHear");
       if (b) b.hidden = false;

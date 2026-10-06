@@ -16,6 +16,8 @@ const fight = {
   round: 1,
   turn: 0,
   order: [],
+  inspiration: 0,
+  updatedAt: "",
   bestiary: [],
   packs: [],
   stock: [],
@@ -37,6 +39,8 @@ function loadLocalTable() {
     fight.round = raw.round || 1;
     fight.turn = raw.turn || 0;
     fight.order = raw.order || [];
+    fight.inspiration = Number(raw.inspiration) || 0;
+    fight.updatedAt = raw.updatedAt || "";
     fight.stock = raw.stock || [];
     fight.packs = raw.packs || fight.packs;
   } catch (e) {}
@@ -48,31 +52,57 @@ function loadLocalTable() {
 function saveLocalTable() {
   try {
     localStorage.setItem(tableKey(), JSON.stringify({
-      round: fight.round, turn: fight.turn, order: fight.order, stock: fight.stock, packs: fight.packs
+      round: fight.round, turn: fight.turn, order: fight.order, inspiration: fight.inspiration,
+      stock: fight.stock, packs: fight.packs, updatedAt: fight.updatedAt
     }));
     localStorage.setItem(PACK_KEY, JSON.stringify(fight.packs));
   } catch (e) {}
 }
 async function saveRemoteTable() {
+  fight.updatedAt = new Date().toISOString();
   saveLocalTable();
   if (DM.state.demo || !DM.state.db) return;
   try {
-    await DM.state._fb.set(DM.roomRef("table"), {
+    await DM.state._fb.update(DM.roomRef("table"), {
       initiative: { round: fight.round, turn: fight.turn, order: fight.order },
       store: fight.stock,
       packs: fight.packs,
-      updatedAt: new Date().toISOString()
+      updatedAt: fight.updatedAt
     });
   } catch (e) { console.warn(e); }
 }
+let inspSeen = "";
+let inspPrimed = false;
+function readInspiration(v) {
+  const insp = v && v.inspiration;
+  if (insp && typeof insp === "object") return { count: Number(insp.count) || 0, last: insp.last || null };
+  if (typeof insp === "number") return { count: insp, last: null };
+  return { count: Number(fight.inspiration) || 0, last: null };
+}
 function applyRemoteTable(v) {
   if (!v) return;
+  const remoteAt = Date.parse(v.updatedAt || "") || 0;
+  const localAt = Date.parse(fight.updatedAt || "") || 0;
   const init = v.initiative || {};
-  if (Array.isArray(init.order)) fight.order = init.order;
-  if (init.round) fight.round = init.round;
-  if (init.turn != null) fight.turn = init.turn;
-  if (Array.isArray(v.store)) fight.stock = v.store;
-  if (Array.isArray(v.packs)) fight.packs = v.packs;
+  const stale = remoteAt && localAt && remoteAt + 1500 < localAt;
+  if (!stale) {
+    if (Array.isArray(init.order)) {
+      if (!(init.order.length === 0 && fight.order.length && !v.updatedAt)) fight.order = init.order;
+    }
+    if (init.round) fight.round = init.round;
+    if (init.turn != null) fight.turn = init.turn;
+    if (Array.isArray(v.store)) fight.stock = v.store;
+    if (Array.isArray(v.packs)) fight.packs = v.packs;
+    if (v.updatedAt) fight.updatedAt = v.updatedAt;
+  }
+  const insp = readInspiration(v);
+  if (v.inspiration != null) fight.inspiration = insp.count;
+  renderInspiration();
+  if (insp.last && insp.last.id && insp.last.id !== inspSeen) {
+    inspSeen = insp.last.id;
+    if (inspPrimed) DM.toast(insp.last.text || "Inspiration");
+  }
+  inspPrimed = true;
   renderFight();
   renderStock();
   renderPacks();
@@ -122,32 +152,65 @@ function playerSelect(sel, includeAll) {
   if ([...el.options].some((o) => o.value === keep)) el.value = keep;
 }
 
-function renderFight() {
-  const list = $("#initList");
-  const label = $("#initRound");
-  if (label) label.textContent = "Round " + fight.round;
-  if (!list) return;
-  if (!fight.order.length) {
-    list.innerHTML = '<div class="empty"><b>No turn order</b>Add a player or an example creature.</div>';
-    return;
-  }
-  if (fight.turn >= fight.order.length) fight.turn = 0;
-  list.innerHTML = fight.order.map((row, i) => `
-    <div class="init-row ${i === fight.turn ? "current" : ""}">
-      <b>${esc(row.name)}</b>
-      <span class="fine">${esc(row.kind || "")}${row.ac ? " · AC " + esc(row.ac) : ""}${row.hp != null ? " · HP " + esc(row.hp) : ""}</span>
+function renderInspiration() {
+  const n = $("#inspCount");
+  if (n) n.textContent = String(Number(fight.inspiration) || 0);
+}
+function turnRowHtml(row, i) {
+  const init = row.init == null || row.init === "" ? "—" : row.init;
+  return `<div class="init-row ${i === fight.turn ? "current" : ""}">
+      <b class="init-score">${esc(init)}</b>
+      <span class="init-who"><b>${esc(row.name || "Someone")}</b>
+        <span class="fine">${esc(row.kind || "combatant")}${row.ac ? " · AC " + esc(row.ac) : ""}${row.hp != null && row.hp !== "" ? " · HP " + esc(row.hp) : ""}</span>
+      </span>
       <span class="init-actions">
         <button type="button" class="btn sm" data-init-up="${i}" aria-label="Move up">↑</button>
         <button type="button" class="btn sm" data-init-down="${i}" aria-label="Move down">↓</button>
         <button type="button" class="btn sm" data-init-del="${i}" aria-label="Remove">✕</button>
       </span>
-    </div>`).join("");
+    </div>`;
+}
+function renderFight() {
+  const list = $("#initList");
+  const strip = $("#turnStrip");
+  const label = $("#initRound");
+  if (label) label.textContent = "Round " + fight.round;
+  renderInspiration();
+  if (!fight.order.length) {
+    const empty = '<div class="empty"><b>No turn order</b>Add a player or an example creature. Initiative rolls from joined sheets land here.</div>';
+    if (list) list.innerHTML = empty;
+    if (strip) strip.innerHTML = "";
+    return;
+  }
+  if (fight.turn >= fight.order.length) fight.turn = 0;
+  const html = fight.order.map(turnRowHtml).join("");
+  if (list) list.innerHTML = html;
+  if (strip) {
+    strip.innerHTML = `<div class="turn-strip-label">Turn order</div>` + fight.order.map((row, i) =>
+      `<span class="turn-chip ${i === fight.turn ? "current" : ""}"><b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> ${esc(row.name || "")}</span>`
+    ).join("");
+  }
 }
 
 function addCombatant(row) {
+  const pid = row.playerId || (row.kind === "player" ? row.id : "");
+  if (pid) {
+    const existing = fight.order.find((r) => r.id === pid || r.playerId === pid);
+    if (existing) {
+      existing.name = row.name || existing.name;
+      existing.ac = row.ac != null ? row.ac : existing.ac;
+      existing.hp = row.hp != null ? row.hp : existing.hp;
+      if (row.init != null) existing.init = row.init;
+      existing.kind = row.kind || existing.kind;
+      saveRemoteTable();
+      renderFight();
+      return existing;
+    }
+  }
   fight.order.push(row);
   saveRemoteTable();
   renderFight();
+  return row;
 }
 function nextTurn() {
   if (!fight.order.length) { DM.toast("Add someone to the turn order first"); return; }
@@ -284,20 +347,50 @@ function vendorMatch(id, item) {
   if (id === "general") return /armor|gear|pack|mount|tool|holster|ammo|frontier|melee|ranged/.test(item.kind);
   return true;
 }
+function fillCatalogCats() {
+  const sel = $("#catalogCat");
+  if (!sel || sel.dataset.filled) return;
+  const kinds = [];
+  catalog().forEach((item) => { if (kinds.indexOf(item.kind) < 0) kinds.push(item.kind); });
+  kinds.sort();
+  kinds.forEach((k) => {
+    const o = document.createElement("option");
+    o.value = k;
+    o.textContent = k;
+    sel.appendChild(o);
+  });
+  sel.dataset.filled = "1";
+}
 function renderCatalog() {
   const box = $("#catalogList");
   if (!box) return;
+  fillCatalogCats();
   const q = ($("#catalogQ") && $("#catalogQ").value || "").trim().toLowerCase();
-  const rows = catalog().filter((item) => !q || item.name.toLowerCase().indexOf(q) >= 0).slice(0, 40);
+  const cat = ($("#catalogCat") && $("#catalogCat").value) || "";
+  const rows = catalog().filter((item) => {
+    if (cat && item.kind !== cat) return false;
+    if (q && item.name.toLowerCase().indexOf(q) < 0 && item.kind.indexOf(q) < 0) return false;
+    return true;
+  }).slice(0, 80);
   if (!window.SSDNS_RULES) {
     box.innerHTML = '<p class="lede">Rules data did not load, so the catalog is empty. You can still type an item below.</p>';
     return;
   }
-  box.innerHTML = rows.map((item, i) => {
-    const price = item.price == null ? "set price" : (item.price + " ES");
-    return `<div class="init-row"><b>${esc(item.name)}</b><span class="fine">${esc(item.kind)} · ${esc(price)}</span>
-      <button type="button" class="btn sm" data-cat-add="${i}" data-cat-name="${esc(item.name)}" data-cat-price="${item.price == null ? "" : item.price}">Add</button></div>`;
-  }).join("") || '<p class="lede">No gear matches that.</p>';
+  if (!rows.length) {
+    box.innerHTML = '<p class="lede">No gear matches that.</p>';
+    return;
+  }
+  box.innerHTML = `<table class="gear-table"><thead><tr><th>Name</th><th>Type</th><th>Price</th><th></th></tr></thead><tbody>`
+    + rows.map((item) => {
+      const price = item.price == null ? "—" : (item.price + " ES");
+      return `<tr>
+        <td data-label="Name">${esc(item.name)}</td>
+        <td data-label="Type">${esc(item.kind)}</td>
+        <td data-label="Price">${esc(price)}</td>
+        <td><button type="button" class="btn sm" data-cat-add="1" data-cat-name="${esc(item.name)}" data-cat-price="${item.price == null ? "" : item.price}">Add</button></td>
+      </tr>`;
+    }).join("")
+    + `</tbody></table>`;
 }
 function renderStock() {
   const box = $("#storeList");
@@ -544,9 +637,12 @@ function decorateDetail(pid) {
     <div class="detail-section"><h3>Gun attack</h3>
       <div class="toolbar">
         <select id="detailGun">${guns.map((g, i) => `<option value="${i}">${esc(g.name)} · ${esc(g.loaded ?? "?")}/${esc(g.capacity ?? "?")} rounds${g.atk ? " · " + esc(g.atk) : ""}</option>`).join("") || '<option value="">No guns</option>'}</select>
-        <button type="button" class="btn sm" id="btnDetailAttack">Roll to hit</button>
+        <button type="button" class="btn sm" id="btnDetailAttack">Roll weapon</button>
+      </div>
+      <p class="lede">Roll weapon is a plain attack. It never spends a spell slot.</p>
+      <div class="toolbar">
         <select id="detailSlot" aria-label="Shell level">${slotOptions(s)}</select>
-        <button type="button" class="btn sm" id="btnDetailSpell">Hex / spell</button>
+        <button type="button" class="btn sm" id="btnDetailSpell">Cast through gun</button>
       </div>
     </div>
     <div class="detail-section"><h3>Death saves</h3>
@@ -617,7 +713,18 @@ function decorateDetail(pid) {
   });
   $("#btnDetailAttack").addEventListener("click", () => rollGunAttack(pid));
   const spellBtn = $("#btnDetailSpell");
-  if (spellBtn) spellBtn.addEventListener("click", () => rollSpell(pid));
+  const slotSel = $("#detailSlot");
+  function syncCastBtn() {
+    if (!spellBtn || !slotSel) return;
+    const lv = parseInt(slotSel.value, 10) || 0;
+    if (!lv) { spellBtn.disabled = false; return; }
+    const text = slotSel.selectedOptions && slotSel.selectedOptions[0] ? slotSel.selectedOptions[0].textContent : "";
+    const m = String(text).match(/(\d+)\s*\/\s*(\d+)/);
+    spellBtn.disabled = !!(m && Number(m[1]) <= 0);
+  }
+  if (spellBtn) spellBtn.addEventListener("click", () => { if (!spellBtn.disabled) rollSpell(pid); });
+  if (slotSel) slotSel.addEventListener("change", syncCastBtn);
+  syncCastBtn();
 }
 
 function slotOptions(s) {
@@ -637,6 +744,20 @@ function atkNumber(text) {
   const m = String(text || "").match(/-?\d+/);
   return m ? parseInt(m[0], 10) : 0;
 }
+function rollDiceExpr(expr) {
+  const f = String(expr || "").toLowerCase();
+  const m = f.match(/(\d*)d(\d+)\s*([+-]\s*\d+)?/);
+  if (!m) return null;
+  const n = Math.max(1, parseInt(m[1] || "1", 10));
+  const sides = parseInt(m[2], 10);
+  const mod = m[3] ? parseInt(m[3].replace(/\s/g, ""), 10) : 0;
+  if (!sides) return null;
+  const rolls = [];
+  for (let i = 0; i < n; i++) rolls.push(1 + Math.floor(Math.random() * sides));
+  const sum = rolls.reduce((a, b) => a + b, 0) + mod;
+  const sign = mod >= 0 ? "+" + mod : String(mod);
+  return { total: sum, detail: rolls.join("+") + (mod ? sign : ""), formula: n + "d" + sides + (mod ? sign : "") };
+}
 async function rollGunAttack(pid) {
   const p = DM.state.players[pid];
   const s = (p && p.snapshot) || {};
@@ -647,8 +768,13 @@ async function rollGunAttack(pid) {
   if (g.jammed) { DM.toast(g.name + " is jammed"); return; }
   if (g.fouled) { DM.toast(g.name + " is fouled"); return; }
   const loaded = Number(g.loaded);
+  if (g.caster && Number(g.plain) <= 0) {
+    DM.toast(g.name + " has no plain cartridge. Cast through gun fires a hex shell. Roll weapon never spends a slot.");
+    return;
+  }
   if (!isFinite(loaded) || loaded <= 0) { DM.toast(g.name + " is empty"); return; }
   g.loaded = loaded - 1;
+  if (g.plain > 0) g.plain -= 1;
   const bonus = atkNumber(g.atk);
   const nat = 1 + Math.floor(Math.random() * 20);
   const total = nat + bonus;
@@ -714,15 +840,26 @@ async function rollSpell(pid) {
   const bonus = atkNumber(s.spellAtk);
   const nat = 1 + Math.floor(Math.random() * 20);
   const total = nat + bonus;
-  const label = level ? ("Level " + level + " hex") : "Cantrip";
+  const guns = (s.guns || []).filter((g) => g && g.name);
+  const gi = parseInt($("#detailGun") && $("#detailGun").value, 10);
+  const g = guns[gi];
+  const gunDmg = (g && g.damage) || (g && g.note) || "";
+  const gunRoll = rollDiceExpr(gunDmg);
+  const gunLine = gunRoll ? ("Gun " + gunRoll.formula + " = " + gunRoll.total + " (" + gunRoll.detail + ")") : (gunDmg ? ("Gun " + gunDmg) : "Gun —");
+  const slotNote = level ? ("Level " + level + " slot spent") : "Cantrip · no slot";
+  const dmgPart = level
+    ? (gunLine + ". Spell damage is the shell fired at level " + level + (g ? " through " + g.name : "") + ". PHB: add the gun damage only if that spell includes weapon damage.")
+    : (gunLine + " is not fired. Cantrip damage only (no shell, no chamber).");
+  const label = "Cast through gun · " + slotNote + (g ? " · " + g.name : "");
   if (window.SSDNSAudio) window.SSDNSAudio.play("spellcast");
   await DM.pushRoll({
     who: (s.player || s.name || "Player"),
     playerId: pid, uid: DM.state.uid,
-    label: label + " attack",
-    formula: "1d20" + (bonus ? (bonus >= 0 ? "+" : "") + bonus : ""),
-    result: total, detail: nat + (bonus ? (bonus >= 0 ? "+" : "") + bonus : ""),
-    nat1: nat === 1, isFirearm: false, private: false
+    label: label,
+    formula: "1d20" + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + " spell" + (gunRoll && level ? " + gun " + gunRoll.formula : ""),
+    result: total,
+    detail: nat + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + " = " + total + " · " + dmgPart,
+    nat1: nat === 1, isFirearm: true, private: false
   });
   DM.renderPlayers();
   DM.toast(label + " → " + total);
@@ -805,6 +942,90 @@ function shortcuts(e) {
   }
 }
 
+const seenInit = {};
+let rollsReady = false;
+function noteInitiativeRolls(rows) {
+  let changed = false;
+  (rows || []).forEach((r) => {
+    if (!r || !r.id || seenInit[r.id]) return;
+    const fresh = r.ts && (Date.now() - Date.parse(r.ts) < 20000);
+    if (!rollsReady && !fresh) { seenInit[r.id] = 1; return; }
+    seenInit[r.id] = 1;
+    if (!/initiative/i.test(String(r.label || ""))) return;
+    const total = Number(r.result);
+    if (!isFinite(total)) return;
+    const pid = r.playerId || r.uid || "";
+    const snap = pid && DM.state.players[pid] && DM.state.players[pid].snapshot;
+    addCombatant({
+      id: pid || DM.uid("pc"),
+      playerId: pid,
+      name: (snap && snap.name) || r.who || "Player",
+      kind: "player",
+      ac: snap && snap.ac,
+      hp: snap && snap.hpCurrent,
+      init: total
+    });
+    changed = true;
+  });
+  rollsReady = true;
+  if (!changed) return;
+  fight.order.sort((a, b) => (Number(b.init) || 0) - (Number(a.init) || 0));
+  saveRemoteTable();
+  renderFight();
+}
+async function changeInspiration(delta) {
+  const names = { playerName: "DM", characterName: "" };
+  if (DM.state.demo || !DM.state.db) {
+    const cur = Number(fight.inspiration) || 0;
+    if (delta < 0 && cur < 1) { DM.toast("No Inspiration to spend"); return; }
+    const next = Math.max(0, cur + delta);
+    fight.inspiration = next;
+    const text = delta > 0
+      ? "DM granted 1 Inspiration (" + next + " in the pool)"
+      : "DM spent 1 Inspiration (" + next + " left)";
+    DM.state.ledger = DM.state.ledger || [];
+    DM.state.ledger.unshift({
+      id: DM.uid("led"), ts: new Date().toISOString(), type: "inspiration",
+      who: "DM", playerName: "DM", characterName: "", what: text, flag: false
+    });
+    if (DM.renderLedger) DM.renderLedger();
+    renderInspiration();
+    saveLocalTable();
+    DM.toast(text);
+    return;
+  }
+  const fb = DM.state._fb;
+  const id = "ins_" + Date.now().toString(36);
+  try {
+    const result = await fb.runTransaction(DM.roomRef("table/inspiration"), (cur) => {
+      let count = 0;
+      if (cur && typeof cur === "object") count = Number(cur.count) || 0;
+      else if (typeof cur === "number") count = cur;
+      if (delta < 0 && count < 1) return;
+      const next = Math.max(0, count + delta);
+      const text = delta > 0
+        ? "DM granted 1 Inspiration (" + next + " in the pool)"
+        : "DM spent 1 Inspiration (" + next + " left)";
+      return {
+        count: next,
+        last: {
+          id: id, ts: new Date().toISOString(), delta: delta, by: DM.state.uid,
+          who: "DM", playerName: "DM", characterName: "", text: text
+        }
+      };
+    });
+    if (!result || result.committed === false) { DM.toast("No Inspiration to spend"); return; }
+    const snap = result.snapshot && result.snapshot.val();
+    const text = (snap && snap.last && snap.last.text) || "Inspiration";
+    await DM.pushLedger(Object.assign({
+      who: "DM", playerId: "all", type: "inspiration",
+      what: text, oldVal: null, newVal: snap && snap.count, flag: false
+    }, names));
+  } catch (e) {
+    console.warn(e);
+    DM.toast("Inspiration update failed");
+  }
+}
 async function bootV2() {
   loadLocalTable();
   try {
@@ -830,7 +1051,7 @@ async function bootV2() {
     const id = $("#initPlayer").value;
     const s = (DM.state.players[id] && DM.state.players[id].snapshot) || {};
     if (!id) return;
-    addCombatant({ id: id, name: s.name || id, kind: "player", ac: s.ac, hp: s.hpCurrent });
+    addCombatant({ id: id, playerId: id, name: s.name || s.player || id, kind: "player", ac: s.ac, hp: s.hpCurrent, init: s.initiative });
   });
   $("#btnAddEnemy") && $("#btnAddEnemy").addEventListener("click", () => {
     const b = fight.bestiary.filter((x) => x.id === $("#initEnemy").value)[0];
@@ -853,6 +1074,9 @@ async function bootV2() {
   $("#btnLoadVendor") && $("#btnLoadVendor").addEventListener("click", loadVendor);
   $("#btnSaveStock") && $("#btnSaveStock").addEventListener("click", async () => { await saveRemoteTable(); DM.toast("Stock saved"); });
   $("#catalogQ") && $("#catalogQ").addEventListener("input", renderCatalog);
+  $("#catalogCat") && $("#catalogCat").addEventListener("change", renderCatalog);
+  $("#btnInspGrant") && $("#btnInspGrant").addEventListener("click", () => changeInspiration(1));
+  $("#btnInspSpend") && $("#btnInspSpend").addEventListener("click", () => changeInspiration(-1));
   document.addEventListener("change", (e) => {
     const t = e.target;
     if (!t || !t.hasAttribute || !t.hasAttribute("data-stock-price")) return;
@@ -871,7 +1095,8 @@ async function bootV2() {
   window.DMCCEnhance = {
     decorateDetail: decorateDetail,
     afterRender: fillAdds,
-    onTable: applyRemoteTable
+    onTable: applyRemoteTable,
+    onRolls: noteInitiativeRolls
   };
   const origReward = document.getElementById("btnPushReward");
   if (origReward && !origReward.dataset.undoHook) {

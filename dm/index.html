@@ -96,6 +96,7 @@
           <button type="button" class="btn sm" id="btnForceCustom">Send</button>
         </div>
       </div>
+      <div id="turnStrip" class="turn-strip"></div>
       <div class="player-grid" id="playerGrid"></div>
     </section>
 
@@ -244,6 +245,12 @@
 
     <section class="panel" id="panel-fight" role="tabpanel" aria-labelledby="tab-fight" hidden>
       <h2>Fight</h2>
+      <div class="insp-pool" id="inspPool">
+        <b id="inspCount">0</b>
+        <span>Party Inspiration</span>
+        <button type="button" class="btn sm" id="btnInspGrant">Grant +1</button>
+        <button type="button" class="btn sm" id="btnInspSpend">Spend −1</button>
+      </div>
       <p class="lede" id="initRound">Round 1</p>
       <div class="toolbar">
         <label for="initPlayer">Player</label>
@@ -294,6 +301,7 @@
           <option value="apothecary">Apothecary</option>
         </select></label>
         <button type="button" class="btn sm" id="btnLoadVendor">Load list</button>
+        <label>Category <select id="catalogCat" aria-label="Gear category"><option value="">All</option></select></label>
         <input type="search" id="catalogQ" placeholder="Search gear" aria-label="Search catalog">
       </div>
       <div id="catalogList" class="catalog-table"></div>

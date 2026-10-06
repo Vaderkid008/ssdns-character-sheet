@@ -73,11 +73,22 @@
       var st = (v.guns || []).filter(function (x) { return x && x.w && x.w.id === g.weapon; })[0];
       var name = st && st.w ? st.w.name : g.weapon;
       var cond = g.jammed ? "jammed" : (g.cracked ? "cracked" : (g.fouled ? "fouled" : (g.dirty ? "dirty" : "ok")));
+      var plain = 0, hex = 0;
+      (g.chambers || []).forEach(function (stn) {
+        var s = String(stn || "");
+        if (!s) return;
+        if (/^[1-9]$/.test(s) || s.indexOf("k:hex:") === 0) hex++;
+        else plain++;
+      });
       return {
         name: name,
         loaded: g.loaded,
         capacity: st ? st.capacity : (g.capacity || 0),
         atk: st && st.atk ? st.atk : "",
+        damage: st && (st.dmg || st.damage) ? (st.dmg || st.damage) : "",
+        plain: plain,
+        hex: hex,
+        caster: !!(st && st.w && st.w.hexShells),
         condition: cond,
         load: g.load,
         jammed: !!g.jammed,
@@ -175,7 +186,7 @@
     state.auth = auth;
     state.db = dbMod.getDatabase(app);
     state.uid = user.uid;
-    state._fb = { ref: dbMod.ref, set: dbMod.set, update: dbMod.update, push: dbMod.push, onValue: dbMod.onValue, off: dbMod.off, remove: dbMod.remove };
+    state._fb = { ref: dbMod.ref, set: dbMod.set, update: dbMod.update, push: dbMod.push, onValue: dbMod.onValue, off: dbMod.off, remove: dbMod.remove, runTransaction: dbMod.runTransaction };
     return state._fb;
   }
 
@@ -498,6 +509,53 @@
       onmissing: function () {}
     });
   }
+  async function spendInspiration() {
+    if (!state.joined || !state.db) { toast("Join a table to spend shared Inspiration."); return; }
+    var c = doc() && doc().character;
+    var playerName = (c && c.player) || "";
+    var characterName = (c && c.name) || "";
+    var who = [playerName, characterName].filter(Boolean).join(" · ") || "Player";
+    var fb = state._fb;
+    var id = "ins_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    try {
+      var result = await fb.runTransaction(fb.ref(state.db, roomPath("table/inspiration")), function (cur) {
+        var count = 0;
+        if (cur && typeof cur === "object") count = Number(cur.count) || 0;
+        else if (typeof cur === "number") count = cur;
+        if (count < 1) return;
+        var next = count - 1;
+        return {
+          count: next,
+          last: {
+            id: id,
+            ts: new Date().toISOString(),
+            delta: -1,
+            by: state.uid,
+            who: who,
+            playerName: playerName,
+            characterName: characterName,
+            text: who + " spent 1 Inspiration (" + next + " left)"
+          }
+        };
+      });
+      if (!result || result.committed === false) { toast("No shared Inspiration left."); return; }
+      var snap = result.snapshot && result.snapshot.val ? result.snapshot.val() : null;
+      var text = (snap && snap.last && snap.last.text) || (who + " spent 1 Inspiration");
+      postLedger({
+        type: "inspiration",
+        what: text,
+        oldVal: null,
+        newVal: snap && snap.count,
+        flag: false,
+        who: playerName || characterName || "Player",
+        playerName: playerName,
+        characterName: characterName
+      });
+    } catch (e) {
+      console.warn("[DM Join] inspiration", e);
+      toast("Couldn't spend Inspiration");
+    }
+  }
   function postChat(entry) {
     if (!state.joined || !state.db) return;
     var fb = state._fb;
@@ -519,9 +577,25 @@
       var cb = fb.onValue(r, function (snap) { handler(snap.val() || {}); }, function () {});
       state.unsubs.push(function () { fb.off(r, "value", cb); });
     }
+    var inspPrimed = false;
+    var inspSeen = "";
     bind("table", function (val) {
       var stock = val.store || [];
       if (root.SSDNSSheet) root.SSDNSSheet.setStock(Array.isArray(stock) ? stock : Object.keys(stock).map(function (k) { return stock[k]; }));
+      var insp = val.inspiration;
+      var count = 0, last = null;
+      if (insp && typeof insp === "object") { count = Number(insp.count) || 0; last = insp.last || null; }
+      else if (typeof insp === "number") count = insp;
+      if (root.SSDNSSheet && root.SSDNSSheet.showInspiration) root.SSDNSSheet.showInspiration(count, true);
+      if (last && last.id && last.id !== inspSeen) {
+        inspSeen = last.id;
+        if (inspPrimed) {
+          var line = last.text || "Inspiration changed";
+          toast(line);
+          if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: line, ts: last.ts });
+        }
+      }
+      inspPrimed = true;
     });
     var chatPrimed = false;
     bind("chat", function (val) {
@@ -584,6 +658,7 @@
     if (input) { input.disabled = !!on; if (code) input.value = code; }
     var bar = $("#dmJoinBar");
     if (bar) bar.classList.toggle("joined", !!on);
+    if (!on && root.SSDNSSheet && root.SSDNSSheet.showInspiration) root.SSDNSSheet.showInspiration(0, false);
   }
 
   async function join(code) {
@@ -666,6 +741,7 @@
       postLedger: postLedger,
       postRoll: postRoll,
       postChat: postChat,
+      spendInspiration: spendInspiration,
       join: join,
       leave: leave
     };
