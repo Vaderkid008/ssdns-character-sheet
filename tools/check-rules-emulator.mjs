@@ -35,7 +35,7 @@ const TS = "2026-10-06T06:00:00.000Z";
 const MUST_FIND = [
   "meta",
   "players",
-  "players/$id/presence",
+  "players/$id/presence/conns/$id",
   "ledger",
   "rolls",
   "messages",
@@ -73,7 +73,7 @@ function extractPaths(src) {
     let m;
     while ((m = re.exec(src))) addPath(found, m[1]);
   });
-  if (src.includes('"/presence"')) found.add("players/$id/presence");
+  if (src.includes('"/presence/conns/"') || src.includes('"/presence"')) found.add("players/$id/presence/conns/$id");
   return found;
 }
 
@@ -88,6 +88,7 @@ function scanSources() {
 
 function caseCovers(extracted, rel) {
   if (extracted === "players/$id/presence") return /^players\/[^/]+\/presence$/.test(rel);
+  if (extracted === "players/$id/presence/conns/$id") return /^players\/[^/]+\/presence\/conns\/[^/]+$/.test(rel);
   return rel === extracted || rel.startsWith(extracted + "/");
 }
 
@@ -258,6 +259,9 @@ function buildCases() {
     { role: "dm", op: "set", path: ROOM + "/players/" + PLAYER_UID, payload: playerNode, expect: "allow" },
     { role: "player", op: "set", path: ROOM + "/players/" + PLAYER_UID, payload: playerNode, expect: "allow" },
     { role: "player", op: "update", path: ROOM + "/players/" + PLAYER_UID + "/presence", payload: { online: false, lastSeen: TS }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/players/" + PLAYER_UID + "/presence/conns/conn1", payload: { online: true, lastSeen: TS }, expect: "allow" },
+    { role: "player", op: "remove", path: ROOM + "/players/" + PLAYER_UID + "/presence/conns/conn1", expect: "allow" },
+    { role: "other", op: "set", path: ROOM + "/players/" + PLAYER_UID + "/presence/conns/conn2", payload: { online: true, lastSeen: TS }, expect: "deny" },
     { role: "player", op: "set", path: ROOM + "/ledger/led1", payload: ledger, expect: "allow" },
     { role: "dm", op: "set", path: ROOM + "/ledger/led2", payload: Object.assign({}, ledger, { id: "led2", who: "DM" }), expect: "allow" },
     { role: "player", op: "remove", path: ROOM + "/ledger/led2", expect: "deny" },

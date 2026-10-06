@@ -41,7 +41,11 @@
     _feedSeen: {},
     connected: null,
     marker: 0,
-    link: ""
+    link: "",
+    tabId: "tab_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    connId: "conn_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    readOnly: false,
+    joinEpoch: 0
   };
 
   function $(s, r) { return (r || document).querySelector(s); }
@@ -61,28 +65,35 @@
 
   function saveLocal() {
     try {
+      var d = doc();
+      var cid = (d && d.id) || "";
       if (!state.joined || !state.roomCode) {
-        root.localStorage.removeItem(LS_KEY);
+        root.localStorage.setItem(LS_KEY, JSON.stringify({
+          joined: false,
+          by: "sheet",
+          leftAt: Date.now(),
+          characterId: cid
+        }));
+        root.localStorage.removeItem(LS_OLD);
         return;
       }
-      var d = doc();
       root.localStorage.setItem(LS_KEY, JSON.stringify({
         roomCode: state.roomCode,
         joined: true,
         uid: state.uid,
         by: "sheet",
-        characterId: (d && d.id) || ""
+        characterId: cid
       }));
+      root.localStorage.removeItem(LS_OLD);
     } catch (e) {}
   }
   function loadLocal() {
     try {
       var raw = root.localStorage.getItem(LS_KEY);
-      if (!raw) {
-        raw = root.localStorage.getItem(LS_OLD);
-        if (raw) root.localStorage.setItem(LS_KEY, raw);
-      }
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (parsed && parsed.joined === false) return parsed;
+      return parsed;
     } catch (e) { return null; }
   }
 
@@ -261,21 +272,20 @@
       snap.portrait = await shrinkPortrait(c && c.portrait);
       var fb = state._fb;
       var playerRef = fb.ref(state.db, roomPath("players/" + state.uid));
-      await fb.set(playerRef, {
+      await fb.update(playerRef, {
         id: state.uid,
         uid: state.uid,
-        presence: { online: true, lastSeen: new Date().toISOString() },
         snapshot: snap
       });
+      var connRef = fb.ref(state.db, roomPath("players/" + state.uid + "/presence/conns/" + state.connId));
+      await fb.set(connRef, { online: true, lastSeen: new Date().toISOString() });
       state.lastEs = snap.es;
       if (!state.toldVisible) {
         state.toldVisible = true;
         toast("DM can see you");
       }
       try {
-        fb.onDisconnect(fb.ref(state.db, roomPath("players/" + state.uid + "/presence"))).update({
-          online: false, lastSeen: new Date().toISOString()
-        });
+        fb.onDisconnect(connRef).remove();
       } catch (err) { console.warn("[DM Join] presence watch", err); }
     } catch (e) {
       console.warn("[DM Join] snapshot failed", e);
@@ -351,6 +361,11 @@
     entry.who = entry.who || (charName && playerName ? (charName + " (" + playerName + ")") : (charName || playerName || "Player"));
     entry.playerName = entry.playerName || playerName;
     entry.characterName = entry.characterName || charName;
+    if (root.SSDNSTestRoll && root.SSDNSTestRoll()) {
+      entry.test = true;
+      if (String(entry.label || "").indexOf("TEST") < 0) entry.label = (entry.label || "Roll") + " · TEST";
+      if (String(entry.detail || "").indexOf("TEST") < 0) entry.detail = (entry.detail ? entry.detail + " · " : "") + "TEST";
+    }
     var target = $("#atkTarget");
     if (!entry.targetId && target && target.value) entry.targetId = target.value;
     await fb.set(fb.ref(state.db, roomPath("rolls/" + id)), entry);
@@ -511,7 +526,7 @@
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "dm", text: "DM: " + (payload.text || "") });
         break;
       case "handout":
-        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "handout", text: "Handout: " + (payload.name || "Handout"), url: payload.url || "", body: payload.text || "", title: payload.name || "Handout" });
+        showHandout(payload.name || "Handout", payload.url || "", payload.text || "");
         toast("Handout: " + (payload.name || "Handout"), "Go", function () {
           showHandout(payload.name || "Handout", payload.url || "", payload.text || "", true);
         });
@@ -675,9 +690,6 @@
       ta.dispatchEvent(new Event("change", { bubbles: true }));
     }
     publishSnapshot();
-    postLedger({
-      type: "dm_push", what: "Item: " + text, oldVal: null, newVal: text, flag: false, who: "DM"
-    });
   }
 
   var modalQ = [];
@@ -1050,8 +1062,10 @@
   }
 
   async function join(code) {
+    if (state.readOnly) { toast("This tab is read-only. The character is open in another tab."); return; }
     code = String(code || "").trim().toUpperCase();
     if (!code) { toast("Enter a room code"); return; }
+    var epoch = ++state.joinEpoch;
     var input = $("#dmJoinCode");
     if (input) input.value = code;
     state.roomCode = code;
@@ -1061,9 +1075,11 @@
     try {
       toast("Connecting…");
       await loadFirebase();
-      if (!state.joined || ($("#dmJoinCode") && String($("#dmJoinCode").value || "").trim().toUpperCase() !== code)) {
+      if (epoch !== state.joinEpoch || !state.joined || ($("#dmJoinCode") && String($("#dmJoinCode").value || "").trim().toUpperCase() !== code)) {
         detachAll();
         state.joined = false;
+        state.roomCode = null;
+        saveLocal();
         setUiJoined(false);
         return;
       }
@@ -1082,6 +1098,7 @@
         return;
       }
       var meta = metaSnap.val();
+      if (epoch !== state.joinEpoch || !state.joined) return;
       detachAll();
       state.roomCode = code;
       state.joined = true;
@@ -1089,6 +1106,7 @@
       setUiJoined(true, code);
       watchConnection();
       await publishSnapshot();
+      if (epoch !== state.joinEpoch || !state.joined) return;
       loadApplied();
       listenCommands();
       listenRoomFeeds();
@@ -1150,16 +1168,17 @@
     state._chatSeen = {};
   }
   function abandon() {
-    clearReplayMarkers();
-    if (root.SSDNSPlaytest && root.SSDNSPlaytest.dropLogStore) root.SSDNSPlaytest.dropLogStore(true);
-    if (root.SSDNSSheet && root.SSDNSSheet.clearLog) root.SSDNSSheet.clearLog();
     leave();
+    clearReplayMarkers();
+    if (root.SSDNSSheet && root.SSDNSSheet.clearLog) root.SSDNSSheet.clearLog();
   }
   async function leave() {
     var code = state.roomCode;
     var uid = state.uid;
     var db = state.db;
     var fb = state._fb;
+    var connId = state.connId;
+    state.joinEpoch++;
     state.joined = false;
     state.roomCode = null;
     saveLocal();
@@ -1167,11 +1186,11 @@
     detachAll();
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.showRoster) root.SSDNSPlaytest.showRoster([]);
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.showTurn) root.SSDNSPlaytest.showTurn(null);
-    if (fb && db && uid && code) {
+    if (fb && db && uid && code && connId) {
       try {
-        var presence = fb.ref(db, "rooms/" + code + "/players/" + uid + "/presence");
-        try { await fb.onDisconnect(presence).cancel(); } catch (err) {}
-        await fb.update(presence, { online: false, lastSeen: new Date().toISOString() });
+        var connRef = fb.ref(db, "rooms/" + code + "/players/" + uid + "/presence/conns/" + connId);
+        try { await fb.onDisconnect(connRef).cancel(); } catch (err) {}
+        await fb.remove(connRef);
       } catch (e) {}
     }
     toast("Left the room · sheet is fully offline again");
@@ -1193,7 +1212,8 @@
       join: join,
       leave: leave,
       abandon: abandon,
-      claimGrant: claimGrant
+      claimGrant: claimGrant,
+      isReadOnly: function () { return !!state.readOnly; }
     };
   }
 
@@ -1203,48 +1223,113 @@
     if (btnJoin) btnJoin.addEventListener("click", function () {
       join(($("#dmJoinCode") && $("#dmJoinCode").value) || "");
     });
-    if (btnLeave) btnLeave.addEventListener("click", leave);
+    if (btnLeave) btnLeave.addEventListener("click", function () {
+      var ask = root.SSDNSAsk && root.SSDNSAsk.confirm
+        ? root.SSDNSAsk.confirm("Leave the table? Your sheet stays on this device.")
+        : Promise.resolve(false);
+      ask.then(function (ok) { if (ok) leave(); });
+    });
     var input = $("#dmJoinCode");
     if (input) input.addEventListener("keydown", function (e) {
       if (e.key === "Enter") { e.preventDefault(); join(input.value); }
     });
   }
 
+  var LOCK_KEY = "ssdns.sheet.joinLock";
+  function characterId() {
+    var d = doc();
+    return (d && d.id) || "";
+  }
+  function readLock() {
+    try { return JSON.parse(localStorage.getItem(LOCK_KEY) || "null"); } catch (e) { return null; }
+  }
+  function lockHeldByOther() {
+    var cur = readLock();
+    if (!cur || !cur.tab || cur.tab === state.tabId) return false;
+    if (Date.now() - (cur.ts || 0) > 6500) return false;
+    var cid = characterId();
+    if (cid && cur.characterId && cur.characterId !== cid) return false;
+    return true;
+  }
+  function claimJoinLock() {
+    if (lockHeldByOther()) return false;
+    try {
+      localStorage.setItem(LOCK_KEY, JSON.stringify({ tab: state.tabId, characterId: characterId(), ts: Date.now() }));
+    } catch (e) {}
+    return !lockHeldByOther();
+  }
+  function refreshJoinLock() {
+    if (state.readOnly) return;
+    claimJoinLock();
+  }
+  function showReadOnly() {
+    state.readOnly = true;
+    var btn = $("#btnDmJoin");
+    if (btn) btn.disabled = true;
+    var b = $("#tabWarn");
+    if (!b) {
+      b = document.createElement("div");
+      b.id = "tabWarn";
+      b.className = "tab-warn";
+      document.body.appendChild(b);
+    }
+    b.textContent = "Another tab has this character open. Only one tab joins the table.";
+    b.hidden = false;
+  }
   function bootWhenReady() {
     hookRollHelper();
     wireUi();
     setUiJoined(false);
-    // Wait for SSDNSApp
+    setInterval(refreshJoinLock, 2000);
     var tries = 0;
     var t = setInterval(function () {
       tries++;
       if (root.SSDNSApp || tries > 50) {
         clearInterval(t);
-        var saved = loadLocal();
-        var input = $("#dmJoinCode");
-        var shown = input ? String(input.value || "").trim().toUpperCase() : "";
-        var cid = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc() && root.SSDNSApp.doc().id;
-        var sheetRoom = saved && saved.by === "sheet" && saved.joined === true && saved.roomCode && saved.characterId && cid && saved.characterId === cid;
-        if (sheetRoom) {
-          var code = String(saved.roomCode).toUpperCase();
-          if (!shown && input) { input.value = saved.roomCode; shown = code; }
-          if (shown === code) {
-            toast("Rejoining " + saved.roomCode);
-            join(saved.roomCode);
-          } else setUiJoined(false);
-        } else {
-          if (input) input.value = "";
-          if (!saved || saved.by !== "sheet") {
-            try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_OLD); } catch (err) {}
+        setTimeout(function () {
+          if (!claimJoinLock()) {
+            showReadOnly();
+            setUiJoined(false);
+            return;
           }
-          setUiJoined(false);
-        }
+          setTimeout(function () {
+            if (lockHeldByOther()) {
+              showReadOnly();
+              setUiJoined(false);
+              return;
+            }
+            refreshJoinLock();
+            var saved = loadLocal();
+            var input = $("#dmJoinCode");
+            var shown = input ? String(input.value || "").trim().toUpperCase() : "";
+            var cid = characterId();
+            var sheetRoom = saved && saved.by === "sheet" && saved.joined === true && saved.roomCode && saved.characterId && cid && saved.characterId === cid;
+            if (sheetRoom) {
+              var code = String(saved.roomCode).toUpperCase();
+              if (!shown && input) { input.value = saved.roomCode; shown = code; }
+              if (shown === code) {
+                toast("Rejoining " + saved.roomCode);
+                join(saved.roomCode);
+              } else setUiJoined(false);
+            } else {
+              if (input) input.value = "";
+              if (!saved || saved.by !== "sheet" || saved.joined === false) {
+                try { localStorage.removeItem(LS_OLD); } catch (err) {}
+              }
+              setUiJoined(false);
+            }
+          }, 250);
+        }, 400);
       }
     }, 100);
   }
 
-  window.addEventListener("beforeunload", function () {
+  window.addEventListener("pagehide", function () {
     if (state.joined) saveLocal();
+    try {
+      var cur = readLock();
+      if (cur && cur.tab === state.tabId) localStorage.removeItem(LOCK_KEY);
+    } catch (e) {}
   });
 
   if (document.readyState === "loading") {

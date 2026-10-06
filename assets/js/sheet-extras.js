@@ -23,15 +23,28 @@
       toast._t = setTimeout(function () { box.hidden = true; }, 3600);
     }
   }
+  function pulseHp() {
+    function go() {
+      var box = document.querySelector(".hp");
+      if (!box) return;
+      box.classList.remove("hp-flash");
+      void box.offsetWidth;
+      box.classList.add("hp-flash");
+    }
+    go();
+    if (root.requestAnimationFrame) root.requestAnimationFrame(go);
+    clearTimeout(pulseHp._t);
+    pulseHp._t = setTimeout(function () {
+      go();
+      setTimeout(function () {
+        var box = document.querySelector(".hp");
+        if (box) box.classList.remove("hp-flash");
+      }, 2600);
+    }, 60);
+  }
   function flashHp(notice) {
     if (notice) toast(notice);
-    var box = $(".hp");
-    if (!box) return;
-    box.classList.remove("hp-flash");
-    void box.offsetWidth;
-    box.classList.add("hp-flash");
-    clearTimeout(flashHp._t);
-    flashHp._t = setTimeout(function () { box.classList.remove("hp-flash"); }, 2600);
+    pulseHp();
   }
   function num(v) { var n = parseInt(v, 10); return isFinite(n) ? n : 0; }
   function dispatch(el) {
@@ -65,14 +78,8 @@
     setHp(cur, temp);
     if (notice) showNotice(notice);
     var box = $(".hp");
-    if (box) {
-      box.classList.toggle("hp-down", cur <= 0);
-      box.classList.remove("hp-flash");
-      void box.offsetWidth;
-      box.classList.add("hp-flash");
-      clearTimeout(applyDelta._flash);
-      applyDelta._flash = setTimeout(function () { box.classList.remove("hp-flash"); }, 2600);
-    }
+    if (box) box.classList.toggle("hp-down", cur <= 0);
+    if (delta) pulseHp();
     renderConds();
   }
 
@@ -121,6 +128,10 @@
 
   function addLog(entry) {
     entry.ts = entry.ts || new Date().toISOString();
+    try {
+      var cid = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc() && root.SSDNSApp.doc().id;
+      if (cid && !entry.characterId) entry.characterId = cid;
+    } catch (e) {}
     if (!entry.id) entry.id = "log_" + entry.ts + "_" + String(entry.kind || "") + "_" + String(entry.text || "").slice(0, 80);
     if (entry.id && log.some(function (e) { return e && e.id === entry.id; })) return;
     log.unshift(entry);
@@ -216,7 +227,9 @@
       var when = "";
       try { when = new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
       var face = rollFace(e);
-      return '<div class="log-item log-' + (e.kind || "all") + " " + face.cls + '"><div class="log-meta">' + when + " · " + (e.kind || "") +
+      var hand = e.kind === "handout";
+      var urlAttr = hand && e.url ? " data-url='" + String(e.url).replace(/'/g, "") + "' data-title='" + String(e.title || "Handout").replace(/'/g, "") + "' data-reopen-handout='1'" : "";
+      return '<div class="log-item log-' + (e.kind || "all") + " " + face.cls + '"' + (hand ? " data-reopen-handout='1'" + urlAttr : "") + '><div class="log-meta">' + when + " · " + (e.kind || "") +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") + '</div><div>' +
         String(e.text || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }) +
         handoutBits(e) +
@@ -479,6 +492,35 @@
     var rolled = rollAdv(mod);
     postCheck(label, rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false);
   }
+  function attackReport(opts) {
+    opts = opts || {};
+    var who = opts.who || "You";
+    var target = opts.target || "";
+    var nat = Number(opts.nat) || 0;
+    var atk = Number(opts.atk) || 0;
+    var bonus = atk ? ((atk >= 0 ? "+" : "") + atk) : "";
+    var total = nat + atk;
+    var miss = !!opts.miss || !!opts.misfire;
+    var ac = opts.ac;
+    var haveAc = ac != null && ac !== "" && isFinite(Number(ac));
+    if (haveAc && !miss && total < Number(ac)) miss = true;
+    var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
+    var dmg = (!miss && opts.dmg) ? (" · " + opts.dmg.formula + " = " + opts.dmg.total) : "";
+    var head = (target ? (who + " → " + target) : who) + ": " + nat + bonus + " = " + total;
+    return {
+      player: head + (verdict ? (" → " + verdict) : "") + dmg,
+      ac: haveAc ? Number(ac) : null,
+      miss: miss,
+      total: total
+    };
+  }
+  function currentTarget() {
+    if (root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo) return root.SSDNSPlaytest.targetInfo();
+    var sel = document.querySelector("#atkTarget");
+    if (!sel || !sel.value) return null;
+    var opt = sel.selectedOptions && sel.selectedOptions[0];
+    return { id: sel.value, name: (opt && (opt.getAttribute("data-name") || opt.textContent)) || "", ac: null };
+  }
   function rollAdv(mod) {
     var globalAdv = document.querySelector("#globalAdv");
     var mode = (globalAdv && globalAdv.value) || "";
@@ -494,7 +536,6 @@
     return { nat: nat, total: nat + (mod || 0), formula: formula, detail: dice + (mod ? signMod(mod) : "") };
   }
   function rollInitiative() {
-    if (root.SSDNSAudio) root.SSDNSAudio.play("holster");
     var inp = document.querySelector('[data-calc="initiative"]');
     var bonus = parseInt(String(inp && inp.value).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(bonus)) {
@@ -559,9 +600,25 @@
       else if (!(hexslinger || fromChamber)) cue = "spellshot";
       root.SSDNSAudio.play(cue);
     }
-    var targetSel = document.querySelector("#atkTarget");
-    var targetName = targetSel && targetSel.value && targetSel.selectedIndex >= 0 ? (targetSel.options[targetSel.selectedIndex].text || "") : "";
-    if (targetName && targetName !== "No target") rolled.text += " · vs " + targetName;
+    var tgt = currentTarget();
+    var acForRoll = null;
+    if (rolled.attack && tgt && tgt.name && rolled.nat != null) {
+      var report = attackReport({
+        who: (c && c.name) || "You",
+        target: tgt.name,
+        nat: rolled.nat,
+        atk: atk,
+        ac: tgt.ac,
+        miss: rolled.nat === 1
+      });
+      var dmgTail = String(rolled.text || "").match(/on hit (.+)$/);
+      rolled.text = report.player + (dmgTail && !report.miss ? " · " + dmgTail[1] : "");
+      rolled.detail = rolled.text;
+      acForRoll = report.ac;
+    } else if (tgt && tgt.name) {
+      rolled.text += " · vs " + tgt.name;
+      rolled.detail = rolled.text;
+    }
     toast(rolled.text);
     addLog({
       id: "roll:" + rollId,
@@ -575,6 +632,7 @@
         formula: rolled.formula,
         result: rolled.result,
         detail: rolled.detail,
+        ac: acForRoll,
         nat1: false,
         isFirearm: !!fromChamber,
         attack: rolled.attack,
@@ -722,15 +780,14 @@
     var wpn = lists.filter(function (x) { return x.id === g.weapon; })[0];
     var rugged = !!(wpn && /rugged/i.test(wpn.properties || ""));
     var name = gunName(i);
+    var who = (ch() && ch().name) || name;
     var dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
     var total = nat + atk;
-    var bits = [name + " attack " + (atk >= 0 ? "+" : "") + atk + ": " + dice + (atk ? (atk >= 0 ? "+" : "") + atk : "") + " = " + total];
     var misfired = false;
     if (both && !rugged) {
       g.fouled = true;
       var foul = document.querySelector('[data-f="character.guns.' + i + '.fouled"]');
       if (foul) { foul.checked = true; dispatch(foul); }
-      bits.push("Both dice misfire — fouled. The attack misses.");
       postGunLedger(name + " fouled (double misfire)", "foul");
       misfired = true;
     } else if (bad(nat)) {
@@ -738,46 +795,51 @@
       var jam = document.querySelector('[data-f="character.guns.' + i + '.jammed"]');
       if (jam) { jam.checked = true; dispatch(jam); }
       if (root.SSDNSAudio) root.SSDNSAudio.play("jam");
-      bits.push("Misfire — jammed. The attack misses.");
       postGunLedger(name + " jammed (misfire)", "jam");
       misfired = true;
     }
     if (!misfired && root.SSDNSAudio) root.SSDNSAudio.play("attack");
-    if (spent.left != null) bits.push(spent.left + " rounds left.");
+    var tgt = currentTarget();
+    var haveAc = tgt && tgt.ac != null && isFinite(Number(tgt.ac));
+    var miss = nat === 1 || misfired || (haveAc && total < Number(tgt.ac));
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
     var dmg = null;
-    if (!misfired && nat !== 1) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
-    if (nat === 1 || misfired) bits.push("MISS");
-    else if (dmg) bits.push((nat === 20 ? "CRIT · " : "") + "on hit " + dmg.formula + " (" + dmg.detail + ") = " + dmg.total);
-    var line = bits.join(" · ");
+    if (!miss) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
+    var report = attackReport({
+      who: who, target: tgt && tgt.name, nat: nat, atk: atk,
+      ac: tgt && tgt.ac, miss: miss, misfire: misfired, dmg: dmg
+    });
+    var line = report.player + (misfired ? " · misfire" : "") + (spent.left != null ? " · " + spent.left + " rounds left." : "");
     toast(line);
     addLog({
       id: "roll:" + gunRollId,
       kind: "roll", text: line,
-      label: name + " attack",
-      formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (dmg && nat !== 1 && !misfired ? " · " + dmg.formula : ""),
+      label: who + (tgt && tgt.name ? " → " + tgt.name : " attack"),
+      formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (dmg && !report.miss ? " · " + dmg.formula : ""),
       attack: true, nat: nat, crit: nat === 20 && !misfired
     });
     var quiet = whisperOn();
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         id: gunRollId,
-        label: name + (misfired ? " misfire" : " attack"),
+        label: who + (tgt && tgt.name ? " → " + tgt.name : ""),
         formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
         result: total,
-        detail: dice + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (dmg ? " · dmg " + dmg.total : "") + (misfired ? " misfire" : ""),
+        detail: report.player,
+        ac: report.ac,
         nat1: false,
         isFirearm: true,
         attack: true,
         nat: nat,
-        crit: nat === 20,
+        crit: nat === 20 && !report.miss,
         private: quiet,
         whisper: quiet,
-        damage: dmg ? dmg.total : null
+        damage: (!report.miss && dmg) ? dmg.total : null,
+        targetId: tgt && tgt.id
       });
     }
-    if (dmg && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && !quiet) {
-      root.SSDNSDmJoin.postDamage({ amount: dmg.total, label: name, type: "weapon" });
+    if (!report.miss && dmg && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && !quiet) {
+      root.SSDNSDmJoin.postDamage({ amount: dmg.total, label: name, type: "weapon", targetId: tgt && tgt.id });
     }
   }
 
@@ -1085,7 +1147,7 @@
       var buyBtn = e.target.closest && e.target.closest("[data-buy]");
       if (buyBtn) buy(num(buyBtn.getAttribute("data-buy")));
       var reopen = e.target.closest && e.target.closest("[data-reopen-handout]");
-      if (reopen) {
+      if (reopen && !(e.target.closest && e.target.closest("[data-handout-zoom]"))) {
         var item = reopen.closest(".log-item");
         var idx = item ? Array.prototype.indexOf.call(item.parentNode.children, item) : -1;
         var rows = log.filter(function (row) { return filter === "all" || row.kind === filter; });
@@ -1188,14 +1250,9 @@
     renderStore();
     setTimeout(renderConds, 400);
     document.addEventListener("click", function (e) {
-      var t = e.target && e.target.closest ? e.target.closest("[data-handout-zoom], [data-reopen-handout]") : null;
+      var t = e.target && e.target.closest ? e.target.closest("[data-handout-zoom]") : null;
       if (!t) return;
       zoomHandout(t.getAttribute("data-url") || t.getAttribute("src") || "", t.getAttribute("data-title") || "Handout");
-    });
-    root.addEventListener("ssdns-sfx", function (e) {
-      var key = e && e.detail;
-      if (!key) return;
-      addLog({ id: "sfx:" + key + ":" + new Date().toISOString().slice(0, 19), kind: "alert", text: "♪ " + key });
     });
   }
 

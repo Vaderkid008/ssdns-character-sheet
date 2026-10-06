@@ -1,10 +1,10 @@
-/* SSDNS Character Sheet · v0.3.2 (round 6: stop listening to DM-only commands)
+/* SSDNS Character Sheet · v0.3.3 (round 7: kits, toasts, join, attack lines)
  * Static, no server. Rules data: window.SSDNS_RULES (assets/data/rules.js, generated from the PHB).
  * Saving: SSDNSStore (storage.js). Shards bridge for Saloon games: SSDNSBridge (ssdns-bridge.js).
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.2"; // sheet-round6-v032
+  var APP_VERSION = "0.3.3"; // sheet-round7-v033
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1131,11 +1131,13 @@
     });
     var callKey = c.calling || "";
     $$("[data-gun]").forEach(function (sel) {
-      if (sel.getAttribute("data-built-for") === callKey) return;
-      var cur = sel.value || (c.guns[num(sel.getAttribute("data-gun"))] || {}).weapon || "";
-      gunOptions(sel);
-      sel.setAttribute("data-built-for", callKey);
-      if (cur) sel.value = cur;
+      var i = num(sel.getAttribute("data-gun"));
+      var cur = (c.guns[i] || {}).weapon || "";
+      if (sel.getAttribute("data-built-for") !== callKey) {
+        gunOptions(sel);
+        sel.setAttribute("data-built-for", callKey);
+      }
+      if (document.activeElement !== sel && sel.value !== cur) sel.value = cur;
     });
     fillCasterGunSelect();
     c.guns.forEach(function (g, i) {
@@ -1762,8 +1764,8 @@
       if (w.tiers) { g.chamber = ""; var cc = chamberOf(g, w); g.chamber = cc.tier + "|" + cc.round; g.tier = cc.tier; }
       var st = gunStats(g, compute());
       if (w.capacity) toast(w.name + ": " + st.damage + ", range " + st.range + ", capacity " + w.capacity + ", misfire " + st.misfire + (st.round ? ", chambered " + st.round : "") + ". Starts empty: hit Reload.");
-      var ammoType = w.ammo === "shell" || w.scatter ? "buck" : (w.ammo === "arrows" ? "arrows" : "cartridge");
-      var cal = (st && st.round) || (w.tiers ? "Light" : "");
+      var ammoType = w.ammo === "shell" || w.scatter ? "buck" : (w.ammo === "arrows" ? "arrows" : (w.ammo === "percussion" ? "percussion" : "cartridge"));
+      var cal = ammoType === "percussion" ? "" : ((st && st.round) || (w.tiers ? "Light" : ""));
       if (ammoType) {
         var pool = findPool(ammoType, cal, true);
         if (pool && !num(pool.count)) pool.count = w.ammo === "shell" || w.scatter ? 10 : 20;
@@ -2269,11 +2271,8 @@
         if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: "Declined starting a new character." });
         return;
       }
-    if (window.SSDNSPlaytest && window.SSDNSPlaytest.dropLogStore) window.SSDNSPlaytest.dropLogStore(true);
-    if (window.SSDNSDmJoin && window.SSDNSDmJoin.abandon) window.SSDNSDmJoin.abandon();
-    else if (window.SSDNSSheet && window.SSDNSSheet.clearLog) window.SSDNSSheet.clearLog();
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.isJoined && window.SSDNSDmJoin.isJoined() && window.SSDNSDmJoin.leave) window.SSDNSDmJoin.leave();
     replaceDoc(blankDoc(), { reason: "new character" });
-    if (window.SSDNSPlaytest && window.SSDNSPlaytest.dropLogStore) window.SSDNSPlaytest.dropLogStore(true);
     if (window.SSDNSSheet && window.SSDNSSheet.clearLog) window.SSDNSSheet.clearLog();
     S.hasContent = false; S.fileDirty = false; updateSaveBar();
     toast("New character. It's backed up in this browser as you type; Save makes a .ssdns file.");
@@ -2290,17 +2289,19 @@
       return Object.keys(peers).length > 0;
     }
     function renderWarn() {
-      var on = livePeers();
+      var locked = window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly();
+      var on = livePeers() || !!locked;
       var b = $("#tabWarn");
       if (!on) { if (b) b.hidden = true; return; }
       if (!b) {
         b = document.createElement("div");
         b.id = "tabWarn";
         b.className = "tab-warn";
-        b.textContent = "Another tab is editing this character. A save there can overwrite this one.";
+        b.textContent = "Another tab has this character open. Only one tab joins the table.";
         document.body.appendChild(b);
       }
       b.hidden = false;
+      b.textContent = "Another tab has this character open. Only one tab joins the table.";
     }
     function announce(bye) {
       if (!S.doc || !S.doc.id || !channel) return;
@@ -2318,9 +2319,9 @@
       if (e.key === "ssdns.sheet.char." + S.doc.id || e.key === "ssdns.v1.char." + S.doc.id) renderWarn();
     });
     window.addEventListener("pagehide", function () { announce(true); });
-    window.addEventListener("beforeunload", function () { announce(true); });
     setInterval(function () { announce(false); renderWarn(); }, 2000);
     announce(false);
+    window.SSDNSTabLock = { others: livePeers };
   }
   function updateSaveBar() {
     var bar = $("#saveBar"), txt = $("#saveText"), act = $("#saveBarAction");
@@ -2432,20 +2433,18 @@
   }
   function toast(msg, actLabel, actFn, ms, opts) {
     opts = opts || {};
-    var item = { msg: msg, actLabel: actLabel, actFn: actFn, ms: ms, sticky: !!opts.sticky, priority: opts.priority || 0 };
-    if (item.sticky && toastShowing && toastShowing.sticky && toastShowing.msg === item.msg) return;
-    if (item.priority && toastShowing && !toastShowing.sticky) {
-      clearTimeout(toastTimer);
-      toastQueue.unshift(toastShowing);
-      toastShowing = null;
-    }
-    if (item.priority) toastQueue.unshift(item);
-    else toastQueue.push(item);
+    var item = { msg: msg, actLabel: actLabel || "", actFn: actFn, ms: ms, id: opts.id || "" };
+    if (item.id && ((toastShowing && toastShowing.id === item.id) || toastQueue.some(function (q) { return q.id === item.id; }))) return;
+    toastQueue.push(item);
     pumpToast();
   }
+  toast.dismissId = function (id) {
+    toastQueue = toastQueue.filter(function (item) { return item.id !== id; });
+    if (toastShowing && toastShowing.id === id) dismissToast();
+  };
   toast.dismissSticky = function (msg) {
-    toastQueue = toastQueue.filter(function (item) { return !(item.sticky && (!msg || item.msg === msg)); });
-    if (toastShowing && toastShowing.sticky && (!msg || toastShowing.msg === msg)) dismissToast();
+    toastQueue = toastQueue.filter(function (item) { return item.msg !== msg; });
+    if (toastShowing && toastShowing.msg === msg) dismissToast();
   };
 
   // ------------------------------------------------------------------ tabs, print, drag & drop
@@ -2844,7 +2843,7 @@
     };
     window.addEventListener("beforeprint", beforePrint);
     window.addEventListener("afterprint", afterPrint);
-    window.addEventListener("beforeunload", function () {
+    window.addEventListener("pagehide", function () {
       if (S.doc && S.hasContent) { try { Store.saveCurrent(S.doc); } catch (err) {} }
     });
     document.addEventListener("visibilitychange", function () {
@@ -2870,7 +2869,15 @@
         S.handle = h; S.fileName = h.name;
         return Store.permission(h, false).then(function (p) { S.permNeeded = p !== "granted"; });
       }).catch(function () {}).then(updateSaveBar);
-      toast("Welcome back. Picked up " + (C().name || "your character") + " from this browser's backup.");
+      try {
+        var welcomeKey = "ssdns.sheet.welcomed." + S.doc.id;
+        if (!sessionStorage.getItem(welcomeKey)) {
+          sessionStorage.setItem(welcomeKey, "1");
+          toast("Welcome back. Picked up " + (C().name || "your character") + " from this browser's backup.");
+        }
+      } catch (e) {
+        toast("Welcome back. Picked up " + (C().name || "your character") + " from this browser's backup.");
+      }
     } else {
       S.doc = blankDoc(); S.hasContent = false;
       renderFields();
