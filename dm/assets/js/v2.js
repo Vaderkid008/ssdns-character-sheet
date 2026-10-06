@@ -21,6 +21,8 @@ const fight = {
   bestiary: [],
   packs: [],
   stock: [],
+  damageMode: "auto",
+  storeOpen: false,
   tracks: [],
   trackId: "",
   loop: false,
@@ -58,17 +60,47 @@ function saveLocalTable() {
     localStorage.setItem(PACK_KEY, JSON.stringify(fight.packs));
   } catch (e) {}
 }
+function enemyStatus(row) {
+  if (!row || row.kind === "player") return row && row.status ? row.status : "";
+  const hp = Number(row.hp);
+  const max = Number(row.maxHp == null || row.maxHp === "" ? row.hp : row.maxHp);
+  if (!isFinite(hp)) return row.status || "";
+  if (hp <= 0) return "Down";
+  if (isFinite(max) && max > 0 && hp <= max / 2) return "Bloodied";
+  return "Unhurt";
+}
 async function saveRemoteTable() {
   fight.updatedAt = new Date().toISOString();
   saveLocalTable();
   if (DM.state.demo || !DM.state.db) return;
   try {
+    const order = (fight.order || []).map((row) => ({
+      id: row.id || "",
+      name: row.name || "",
+      kind: row.kind || "",
+      init: row.init == null ? "" : row.init,
+      playerId: row.playerId || "",
+      status: enemyStatus(row)
+    }));
+    const hp = {};
+    const pub = {};
+    (fight.order || []).forEach((row) => {
+      if (!row.id) return;
+      hp[row.id] = { hp: row.hp == null ? "" : row.hp, maxHp: row.maxHp == null ? "" : row.maxHp, ac: row.ac == null ? "" : row.ac };
+      pub[row.id] = { name: row.name || "", status: enemyStatus(row) };
+    });
     await DM.state._fb.update(DM.roomRef("table"), {
-      initiative: { round: fight.round, turn: fight.turn, order: fight.order },
+      initiative: { round: fight.round, turn: fight.turn, order: order },
       store: fight.stock,
       packs: fight.packs,
+      storeOpen: !!fight.storeOpen,
+      damageMode: fight.damageMode || "auto",
       updatedAt: fight.updatedAt
     });
+    try {
+      await DM.state._fb.set(DM.roomRef("encounter/hp"), hp);
+      await DM.state._fb.set(DM.roomRef("encounter/public"), pub);
+    } catch (err) { console.warn("[DMCC] encounter", err); }
   } catch (e) { console.warn(e); }
 }
 let inspSeen = "";
@@ -87,8 +119,22 @@ function applyRemoteTable(v) {
   const stale = remoteAt && localAt && remoteAt + 1500 < localAt;
   if (!stale) {
     if (Array.isArray(init.order)) {
-      if (!(init.order.length === 0 && fight.order.length && !v.updatedAt)) fight.order = init.order;
+      if (!(init.order.length === 0 && fight.order.length && !v.updatedAt)) {
+        const prev = {};
+        fight.order.forEach((row) => { if (row && row.id) prev[row.id] = row; });
+        fight.order = init.order.map((row) => {
+          const old = prev[row.id] || {};
+          return Object.assign({}, old, row, {
+            hp: row.hp != null && row.hp !== "" ? row.hp : old.hp,
+            maxHp: row.maxHp != null && row.maxHp !== "" ? row.maxHp : old.maxHp,
+            ac: row.ac != null && row.ac !== "" ? row.ac : old.ac,
+            initBonus: old.initBonus
+          });
+        });
+      }
     }
+    if (v.damageMode) fight.damageMode = v.damageMode;
+    if (v.storeOpen != null) fight.storeOpen = !!v.storeOpen;
     if (init.round) fight.round = init.round;
     if (init.turn != null) fight.turn = init.turn;
     if (Array.isArray(v.store)) fight.stock = v.store;
@@ -153,19 +199,29 @@ function playerSelect(sel, includeAll) {
 }
 
 function renderInspiration() {
-  const n = $("#inspCount");
-  if (n) n.textContent = String(Number(fight.inspiration) || 0);
+  const n = String(Number(fight.inspiration) || 0);
+  const a = $("#inspCount");
+  const b = $("#inspCountTable");
+  if (a) a.textContent = n;
+  if (b) b.textContent = n;
 }
 function turnRowHtml(row, i) {
-  const init = row.init == null || row.init === "" ? "—" : row.init;
-  return `<div class="init-row ${i === fight.turn ? "current" : ""}">
-      <b class="init-score">${esc(init)}</b>
+  const flash = fight.flash === i ? " flash" : "";
+  const status = row.kind === "enemy" ? enemyStatus(row) : "";
+  return `<div class="init-row ${i === fight.turn ? "current" : ""}${flash}">
+      <input class="init-score" type="number" data-init-val="${i}" value="${row.init == null ? "" : esc(row.init)}" aria-label="Initiative for ${esc(row.name || "combatant")}">
       <span class="init-who"><b>${esc(row.name || "Someone")}</b>
-        <span class="fine">${esc(row.kind || "combatant")}${row.ac ? " · AC " + esc(row.ac) : ""}${row.hp != null && row.hp !== "" ? " · HP " + esc(row.hp) : ""}</span>
+        <span class="fine">${esc(row.kind || "combatant")}${status ? " · " + esc(status) : ""}</span>
       </span>
+      <label class="fine">AC <input type="number" data-ac-val="${i}" value="${row.ac == null ? "" : esc(row.ac)}" aria-label="AC"></label>
+      <label class="fine">HP <input type="number" data-hp-val="${i}" value="${row.hp == null ? "" : esc(row.hp)}" aria-label="HP"></label>
       <span class="init-actions">
+        <button type="button" class="btn sm" data-init-hit="${i}">Attack</button>
+        <button type="button" class="btn sm" data-init-dmg="${i}">Damage</button>
+        <button type="button" class="btn sm" data-init-heal="${i}">Heal</button>
+        <button type="button" class="btn sm" data-init-down="${i}">Down</button>
         <button type="button" class="btn sm" data-init-up="${i}" aria-label="Move up">↑</button>
-        <button type="button" class="btn sm" data-init-down="${i}" aria-label="Move down">↓</button>
+        <button type="button" class="btn sm" data-init-down-move="${i}" aria-label="Move down">↓</button>
         <button type="button" class="btn sm" data-init-del="${i}" aria-label="Remove">✕</button>
       </span>
     </div>`;
@@ -192,6 +248,15 @@ function renderFight() {
   }
 }
 
+function uniqueName(name) {
+  const base = String(name || "Enemy").replace(/\s+\d+$/, "");
+  const same = fight.order.filter((r) => String(r.name || "").replace(/\s+\d+$/, "") === base);
+  if (!same.length) return base;
+  same.forEach((r, i) => {
+    if (!new RegExp("^" + base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + " \\d+$").test(r.name || "")) r.name = base + " " + (i + 1);
+  });
+  return base + " " + (same.length + 1);
+}
 function addCombatant(row) {
   const pid = row.playerId || (row.kind === "player" ? row.id : "");
   if (pid) {
@@ -207,6 +272,8 @@ function addCombatant(row) {
       return existing;
     }
   }
+  if (row.kind === "enemy") row.name = uniqueName(row.name);
+  if (row.hp != null && (row.maxHp == null || row.maxHp === "")) row.maxHp = row.hp;
   fight.order.push(row);
   saveRemoteTable();
   renderFight();
@@ -216,6 +283,7 @@ function nextTurn() {
   if (!fight.order.length) { DM.toast("Add someone to the turn order first"); return; }
   fight.turn += 1;
   if (fight.turn >= fight.order.length) { fight.turn = 0; fight.round += 1; }
+  fight.flash = fight.turn;
   saveRemoteTable();
   renderFight();
   const cur = fight.order[fight.turn];
@@ -392,12 +460,13 @@ function renderStock() {
     box.innerHTML = '<p class="lede">No session stock yet.</p>';
     return;
   }
-  box.innerHTML = fight.stock.map((item, i) =>
-    `<div class="init-row"><b>${esc(item.name)}</b>
+  box.innerHTML = fight.stock.map((item, i) => {
+    const shown = item.price === "" || item.price == null ? "" : Number(item.price).toLocaleString();
+    return `<div class="init-row"><b>${esc(item.name)}</b>
       <input type="number" min="0" data-stock-price="${i}" value="${item.price === "" || item.price == null ? "" : esc(item.price)}" aria-label="Price for ${esc(item.name)}">
-      <span>ES</span>
-      <button type="button" class="btn sm" data-stock-del="${i}">Remove</button></div>`
-  ).join("");
+      <span>${shown ? esc(shown) + " ES" : "ES"}</span>
+      <button type="button" class="btn sm" data-stock-del="${i}">Remove</button></div>`;
+  }).join("");
 }
 async function addStockItem(name, price) {
   if (!name) { DM.toast("Need an item name"); return; }
@@ -424,11 +493,17 @@ async function loadVendor() {
 async function forceStore() {
   const priced = fight.stock.filter((item) => isFinite(parseInt(item.price, 10)));
   const skipped = fight.stock.length - priced.length;
+  fight.storeOpen = true;
   await saveRemoteTable();
   await DM.pushCommand({
     type: "open_store", to: "all",
     payload: { stock: priced.map((item) => ({ name: item.name, price: parseInt(item.price, 10) })) },
     from: DM.state.uid
+  });
+  await DM.pushLedger({
+    who: "DM", playerId: "all", type: "open_store",
+    what: "Store opened (" + priced.length + " items)",
+    oldVal: null, newVal: "open", flag: false
   });
   DM.toast("Store opened" + (skipped ? " · " + skipped + " blank prices left off" : ""));
 }
@@ -487,6 +562,7 @@ function renderBestiary() {
       <p>AC ${esc(b.ac)} · HP ${esc(b.hp)}</p>
       <p>${esc(b.attacks || "")}</p>
       <p class="lede">${esc(b.traits || "")}</p>
+      <label class="fine">Name <input type="text" data-beast-name="${esc(b.id)}" value="${esc(b.name)}" aria-label="Rename ${esc(b.name)}"></label>
       <button type="button" class="btn sm" data-add-beast="${esc(b.id)}">Add to initiative</button>
     </article>`).join("") || '<p class="lede">No bestiary file.</p>';
 }
@@ -809,11 +885,12 @@ function rollDiceExpr(expr) {
   const sides = parseInt(m[2], 10);
   const mod = m[3] ? parseInt(m[3].replace(/\s/g, ""), 10) : 0;
   if (!sides) return null;
+  const count = crit ? n * 2 : n;
   const rolls = [];
-  for (let i = 0; i < n; i++) rolls.push(1 + Math.floor(Math.random() * sides));
+  for (let i = 0; i < count; i++) rolls.push(1 + Math.floor(Math.random() * sides));
   const sum = rolls.reduce((a, b) => a + b, 0) + mod;
   const sign = mod >= 0 ? "+" + mod : String(mod);
-  return { total: sum, detail: rolls.join("+") + (mod ? sign : ""), formula: n + "d" + sides + (mod ? sign : "") };
+  return { total: sum, detail: rolls.join("+") + (mod ? sign : ""), formula: count + "d" + sides + (mod ? sign : "") };
 }
 function misfireCeiling(text, dirty) {
   const s = String(text || "1");
@@ -856,13 +933,17 @@ async function rollGunAttack(pid) {
   const total = nat + bonus;
   const dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
   if (window.SSDNSAudio) window.SSDNSAudio.play("attack");
+  let dmg = null;
+  if (!misfire) dmg = rollDiceExpr(g.damage, nat === 20);
+  const whoName = namesFor(pid).characterName || s.name || "them";
   await DM.pushRoll({
-    who: (s.player || s.name || "Player"),
+    who: "DM",
     playerId: pid, uid: DM.state.uid,
-    label: g.name + (misfire ? " misfire" : " attack"),
-    formula: (n2 == null ? "1d20" : "2d20") + (bonus ? (bonus >= 0 ? "+" : "") + bonus : ""),
-    result: total, detail: dice + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + (misfire ? " misfire" : ""),
-    nat1: false, isFirearm: true, attack: true, nat: nat, crit: nat === 20, private: false
+    label: "DM rolled for " + whoName + " · " + g.name + (misfire ? " misfire" : " attack"),
+    formula: (n2 == null ? "1d20" : "2d20") + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + (dmg ? " · " + dmg.formula : ""),
+    result: total, detail: dice + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + (dmg ? " · dmg " + dmg.total + " (" + dmg.detail + ")" : "") + (misfire ? " misfire" : ""),
+    nat1: false, isFirearm: true, attack: true, nat: nat, crit: nat === 20, private: false,
+    damage: dmg ? dmg.total : null
   });
   const names = namesFor(pid);
   if (both) {
@@ -871,7 +952,7 @@ async function rollGunAttack(pid) {
     await DM.pushLedger(Object.assign({
       who: "DM", playerId: pid, type: "foul",
       what: g.name + " fouled (double misfire) · " + (names.characterName || ""),
-      oldVal: null, newVal: "fouled", flag: true
+      oldVal: null, newVal: "fouled", flag: false
     }, names));
     await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, fouled: true }, from: DM.state.uid });
   } else if (misfire) {
@@ -881,7 +962,7 @@ async function rollGunAttack(pid) {
     await DM.pushLedger(Object.assign({
       who: "DM", playerId: pid, type: "jam",
       what: g.name + " jammed (misfire) · " + (names.characterName || ""),
-      oldVal: null, newVal: "jammed", flag: true
+      oldVal: null, newVal: "jammed", flag: false
     }, names));
     await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, jammed: true }, from: DM.state.uid });
   } else {
@@ -936,6 +1017,7 @@ async function rollSpell(pid) {
   }
   const Cast = window.SSDNSSpellCast;
   if (!Cast || !Cast.rollCast) { DM.toast("Spell roller isn't loaded"); return; }
+  const spellRow = Cast.lookup ? Cast.lookup(spellName) : null;
   const rolled = Cast.rollCast({
     spellName: spellName,
     slotLevel: level,
@@ -943,14 +1025,14 @@ async function rollSpell(pid) {
     attackBonus: atkNumber(s.spellAtk),
     spellMod: s.spellMod,
     dc: s.spellDC,
-    weaponDamage: g && g.damage,
+    weaponDamage: spellRow && spellRow.weapon ? (g && g.damage) : "",
     weaponAtk: g ? atkNumber(g.atk) : atkNumber(s.spellAtk),
     gunName: g && g.name,
     wildSpark: isHex && level > 0
   });
   if (window.SSDNSAudio) window.SSDNSAudio.play("spellcast");
   await DM.pushRoll({
-    who: (s.player || s.name || "Player"),
+    who: "DM",
     playerId: pid, uid: DM.state.uid,
     label: rolled.label,
     formula: rolled.formula,
@@ -962,18 +1044,141 @@ async function rollSpell(pid) {
   DM.toast(rolled.text);
 }
 
+async function rowHp(i, sign) {
+  const row = fight.order[i];
+  if (!row) return;
+  const formula = ($("#dmgFormula") && $("#dmgFormula").value || "1d8").trim();
+  const out = DM.parseDice(formula);
+  const amt = Math.max(0, out.total);
+  if (row.kind === "player" && row.playerId) {
+    const sel = $("#dmgTarget");
+    if (sel) sel.value = row.playerId;
+    const btn = sign < 0 ? $("#btnDmg") : $("#btnHeal");
+    if (btn) btn.click();
+    return;
+  }
+  const before = Number(row.hp) || 0;
+  row.hp = Math.max(0, before + sign * amt);
+  if (Number(row.hp) <= 0) row.status = "Down";
+  await saveRemoteTable();
+  renderFight();
+  const line = (sign < 0 ? "Damage " : "Heal ") + amt + " → " + row.name + " (" + row.hp + " HP, " + enemyStatus(row) + ")";
+  DM.toast(line);
+  await DM.pushLedger({ who: "DM", playerId: "all", type: sign < 0 ? "damage" : "heal", what: line, oldVal: before, newVal: row.hp, flag: false });
+}
+async function markDown(i) {
+  const row = fight.order[i];
+  if (!row) return;
+  row.hp = 0;
+  row.status = "Down";
+  await saveRemoteTable();
+  renderFight();
+  DM.toast(row.name + " is Down");
+}
+async function attackRow(i) {
+  const row = fight.order[i];
+  if (!row) return;
+  const formula = ($("#dmgFormula") && $("#dmgFormula").value || "1d20").trim();
+  const attackFormula = /d20/i.test(formula) ? formula : "1d20";
+  const out = DM.parseDice(attackFormula);
+  const ac = Number(row.ac);
+  const hit = isFinite(ac) ? out.total >= ac : null;
+  let dmg = null;
+  if (hit) dmg = DM.parseDice(($("#dmgFormula") && /d20/i.test($("#dmgFormula").value) ? "1d8" : ($("#dmgFormula").value || "1d8")));
+  const text = row.name + " AC " + (isFinite(ac) ? ac : "?") + " · " + attackFormula + " = " + out.total + (hit == null ? "" : hit ? " HIT" : " MISS") + (hit && dmg ? " · " + dmg.total + " damage" : "");
+  await DM.pushRoll({
+    who: "DM", uid: DM.state.uid, label: "Attack vs " + row.name, formula: attackFormula,
+    result: out.total, detail: text, private: false, attack: true
+  });
+  if (hit && dmg && (fight.damageMode || "auto") !== "approve" && row.kind !== "player") {
+    row.hp = Math.max(0, (Number(row.hp) || 0) - dmg.total);
+    if (row.hp <= 0) row.status = "Down";
+    await saveRemoteTable();
+    renderFight();
+  }
+  DM.toast(text);
+}
+function rollAllEnemies() {
+  fight.order.forEach((row) => {
+    if (row.kind === "player") return;
+    const bonus = Number(row.initBonus) || 0;
+    row.init = (1 + Math.floor(Math.random() * 20)) + bonus;
+  });
+  fight.order.sort((a, b) => (Number(b.init) || 0) - (Number(a.init) || 0));
+  fight.turn = 0;
+  fight.flash = 0;
+  saveRemoteTable();
+  renderFight();
+  DM.toast("Rolled initiative for enemies");
+}
+async function endCombat() {
+  if (!window.confirm("End combat and clear the turn order?")) return;
+  fight.order = [];
+  fight.round = 1;
+  fight.turn = 0;
+  await saveRemoteTable();
+  await DM.pushLedger({ who: "DM", playerId: "all", type: "combat", what: "Combat ended", oldVal: null, newVal: "ended", flag: false });
+  renderFight();
+  DM.toast("Combat ended");
+}
+function applyRequest(req) {
+  if (!req) return;
+  const row = fight.order.find((r) => r.id === req.targetId);
+  const name = (row && row.name) || req.targetId || "target";
+  const who = req.characterName || "Someone";
+  const amt = Number(req.amount) || 0;
+  const line = who + " hits " + name + (req.label ? " with " + req.label : "") + " for " + amt;
+  if (!row || row.kind === "player") {
+    DM.toast(line);
+    return;
+  }
+  if ((fight.damageMode || "auto") === "approve") {
+    DM.toast(line + " · waiting for you to apply");
+    return;
+  }
+  row.hp = Math.max(0, (Number(row.hp) || 0) - amt);
+  if (row.hp <= 0) row.status = "Down";
+  saveRemoteTable();
+  renderFight();
+  DM.pushLedger({ who: who, playerId: req.from || "all", type: "damage", what: line + " (" + enemyStatus(row) + ")", oldVal: null, newVal: row.hp, flag: false, characterName: who });
+  DM.toast(line + " · " + enemyStatus(row));
+}
+function watchRequests() {
+  if (fight._req || DM.state.demo || !DM.state.db || !DM.state.roomCode) return;
+  fight._req = true;
+  fight.seenReq = fight.seenReq || {};
+  const fb = DM.state._fb;
+  const r = DM.roomRef("encounter/requests");
+  const cb = fb.onValue(r, (snap) => {
+    const val = snap.val() || {};
+    Object.keys(val).forEach((id) => {
+      if (fight.seenReq[id]) return;
+      fight.seenReq[id] = 1;
+      const req = val[id];
+      const fresh = req && req.ts && (Date.now() - Date.parse(req.ts) < 120000);
+      if (!fight.reqPrimed && !fresh) return;
+      applyRequest(req);
+    });
+    fight.reqPrimed = true;
+  });
+  DM.state.unsubs.push(() => fb.off(r, "value", cb));
+}
 function wireClicks() {
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down],[data-init-del],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add]");
+    const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-dmg],[data-init-heal],[data-init-down],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add]");
     if (!t) return;
-    if (t.hasAttribute("data-init-up") || t.hasAttribute("data-init-down") || t.hasAttribute("data-init-del")) {
-      const i = parseInt(t.getAttribute("data-init-up") || t.getAttribute("data-init-down") || t.getAttribute("data-init-del"), 10);
+    if (t.hasAttribute("data-init-hit")) { attackRow(parseInt(t.getAttribute("data-init-hit"), 10)); return; }
+    if (t.hasAttribute("data-init-dmg")) { rowHp(parseInt(t.getAttribute("data-init-dmg"), 10), -1); return; }
+    if (t.hasAttribute("data-init-heal")) { rowHp(parseInt(t.getAttribute("data-init-heal"), 10), 1); return; }
+    if (t.hasAttribute("data-init-down")) { markDown(parseInt(t.getAttribute("data-init-down"), 10)); return; }
+    if (t.hasAttribute("data-init-up") || t.hasAttribute("data-init-down-move") || t.hasAttribute("data-init-del")) {
+      const i = parseInt(t.getAttribute("data-init-up") || t.getAttribute("data-init-down-move") || t.getAttribute("data-init-del"), 10);
       if (t.hasAttribute("data-init-del")) fight.order.splice(i, 1);
       else if (t.hasAttribute("data-init-up") && i > 0) {
         const row = fight.order.splice(i, 1)[0];
         fight.order.splice(i - 1, 0, row);
         if (fight.turn === i) fight.turn = i - 1;
-      } else if (t.hasAttribute("data-init-down") && i < fight.order.length - 1) {
+      } else if (t.hasAttribute("data-init-down-move") && i < fight.order.length - 1) {
         const row = fight.order.splice(i, 1)[0];
         fight.order.splice(i + 1, 0, row);
         if (fight.turn === i) fight.turn = i + 1;
@@ -1005,7 +1210,7 @@ function wireClicks() {
     if (t.hasAttribute("data-quick-roll")) {
       $("#rollLabel").value = t.getAttribute("data-quick-label") || "Roll";
       $("#rollFormula").value = t.getAttribute("data-quick-roll");
-      $("#btnDmRoll").click();
+      if (DM.doDmRoll) DM.doDmRoll();
     }
   });
 }
@@ -1128,6 +1333,12 @@ async function bootV2() {
   try {
     const res = await fetch("assets/data/bestiary.json");
     if (res.ok) fight.bestiary = await res.json();
+    const saved = JSON.parse(localStorage.getItem("ssdns.dm.bestiary") || "null");
+    if (Array.isArray(saved) && saved.length) {
+      const byId = {};
+      fight.bestiary.forEach((b) => { byId[b.id] = b; });
+      saved.forEach((b) => { if (b && b.id && byId[b.id]) Object.assign(byId[b.id], b); else if (b && b.name) fight.bestiary.push(b); });
+    }
   } catch (e) {}
   try {
     const res = await fetch("../assets/music/tracks.json");
@@ -1174,6 +1385,8 @@ async function bootV2() {
   $("#catalogCat") && $("#catalogCat").addEventListener("change", renderCatalog);
   $("#btnInspGrant") && $("#btnInspGrant").addEventListener("click", () => changeInspiration(1));
   $("#btnInspSpend") && $("#btnInspSpend").addEventListener("click", () => changeInspiration(-1));
+  $("#btnInspGrantTable") && $("#btnInspGrantTable").addEventListener("click", () => changeInspiration(1));
+  $("#btnInspSpendTable") && $("#btnInspSpendTable").addEventListener("click", () => changeInspiration(-1));
   document.addEventListener("change", (e) => {
     const t = e.target;
     if (!t || !t.hasAttribute || !t.hasAttribute("data-stock-price")) return;
@@ -1192,9 +1405,58 @@ async function bootV2() {
   window.DMCCEnhance = {
     decorateDetail: decorateDetail,
     afterRender: fillAdds,
-    onTable: applyRemoteTable,
+    fillAdds: fillAdds,
+    onTable: function (v) { applyRemoteTable(v); watchRequests(); },
     onRolls: noteInitiativeRolls
   };
+  const rollAll = $("#btnRollAll");
+  if (rollAll) rollAll.addEventListener("click", rollAllEnemies);
+  const endBtn = $("#btnEndCombat");
+  if (endBtn) endBtn.addEventListener("click", endCombat);
+  const addCustom = $("#btnAddCustom");
+  if (addCustom) addCustom.addEventListener("click", () => {
+    const name = ($("#customName") && $("#customName").value || "").trim();
+    if (!name) { DM.toast("Name the enemy"); return; }
+    addCombatant({
+      id: DM.uid("en"),
+      name: name,
+      kind: "enemy",
+      ac: parseInt($("#customAc") && $("#customAc").value, 10),
+      hp: parseInt($("#customHp") && $("#customHp").value, 10),
+      maxHp: parseInt($("#customHp") && $("#customHp").value, 10),
+      initBonus: parseInt($("#customInit") && $("#customInit").value, 10) || 0,
+      attacks: ($("#customAtk") && $("#customAtk").value) || ""
+    });
+    if ($("#customName")) $("#customName").value = "";
+  });
+  const mode = $("#damageMode");
+  if (mode) mode.addEventListener("change", () => {
+    fight.damageMode = mode.value || "auto";
+    saveRemoteTable();
+  });
+  document.addEventListener("change", (ev) => {
+    const t = ev.target;
+    if (!t || !t.getAttribute) return;
+    const initI = t.getAttribute("data-init-val");
+    const hpI = t.getAttribute("data-hp-val");
+    const acI = t.getAttribute("data-ac-val");
+    const i = parseInt(initI || hpI || acI, 10);
+    if (!isFinite(i) || !fight.order[i]) return;
+    const n = t.value === "" ? "" : parseInt(t.value, 10);
+    if (initI != null) fight.order[i].init = n;
+    if (hpI != null) fight.order[i].hp = n;
+    if (acI != null) fight.order[i].ac = n;
+    saveRemoteTable();
+  });
+  document.addEventListener("change", (ev) => {
+    const t = ev.target;
+    if (!t || !t.getAttribute || !t.hasAttribute("data-beast-name")) return;
+    const b = fight.bestiary.filter((x) => x.id === t.getAttribute("data-beast-name"))[0];
+    if (!b) return;
+    b.name = t.value.trim() || b.name;
+    try { localStorage.setItem("ssdns.dm.bestiary", JSON.stringify(fight.bestiary)); } catch (err) {}
+    fillAdds();
+  });
   const origReward = document.getElementById("btnPushReward");
   if (origReward && !origReward.dataset.undoHook) {
     origReward.dataset.undoHook = "1";

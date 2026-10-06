@@ -383,6 +383,9 @@ html, body { overflow-x: hidden; max-width: 100%; }
   padding: 8px 10px; margin: 6px 0;
 }
 .init-row.current { border-color: var(--eld); box-shadow: inset 3px 0 0 var(--eld); }
+.init-row.flash { animation: turnflash .7s ease; }
+@keyframes turnflash { from { background: #3d3018; } to { background: transparent; } }
+.init-row input[type="number"] { width: 4.2rem; }
 .init-actions { display: flex; gap: 4px; }
 .bestiary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .bestiary-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }

@@ -27,6 +27,10 @@
   function lookup(name) {
     var map = build();
     var raw = stripAlias(name);
+    if (norm(raw) === "pact shot") {
+      var pact = map["eldritch blast"];
+      if (pact) return Object.assign({}, pact, { name: "Pact Shot" });
+    }
     var exact = map[norm(raw)] || null;
     var bareKey = norm(raw.replace(/\s+shell$/i, ""));
     var bare = bareKey && bareKey !== norm(raw) ? (map[bareKey] || null) : null;

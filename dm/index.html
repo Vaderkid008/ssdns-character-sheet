@@ -6,7 +6,8 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
-<link rel="stylesheet" href="assets/css/dmcc.css">
+<link rel="icon" href="../favicon.ico">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.6">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -47,6 +48,11 @@
 <section class="lobby" id="lobby">
   <h1>DM Command Center</h1>
   <p>Create a table room. Players join from their character sheet with the code. Demo mode works fully offline.</p>
+  <p class="lede" id="lobbyVersion"></p>
+  <div class="field">
+    <label for="inDmName">Your name at the table</label>
+    <input type="text" id="inDmName" placeholder="DM" autocomplete="off">
+  </div>
   <div class="field">
     <label for="inRoomName">Session name (optional)</label>
     <input type="text" id="inRoomName" placeholder="Whiskey Bend One-Shot" autocomplete="off">
@@ -86,6 +92,12 @@
     <section class="panel" id="panel-table" role="tabpanel" aria-labelledby="tab-table">
       <h2>Table</h2>
       <p class="lede">Tap a card for the private read-only sheet (abilities, skills, gear, spells).</p>
+      <div class="insp-pool" id="inspPoolTable">
+        <b id="inspCountTable">0</b>
+        <span>Party Inspiration</span>
+        <button type="button" class="btn sm" id="btnInspGrantTable">Grant +1</button>
+        <button type="button" class="btn sm" id="btnInspSpendTable">Spend −1</button>
+      </div>
       <div class="toolbar">
         <button type="button" class="btn sm" id="btnForceSaloon">Open Saloon (all)</button>
         <button type="button" class="btn sm" id="btnForceStore">Open Store (all)</button>
@@ -120,6 +132,10 @@
         <div id="rewEsWrap">
           <label for="rewEs">ES amount (negative to take)</label>
           <input type="number" id="rewEs" value="50" step="1">
+        </div>
+        <div class="span-2">
+          <label for="rewReason">Reason</label>
+          <input type="text" id="rewReason" placeholder="Bounty, found pouch, DM reward">
         </div>
         <div class="span-2" id="rewTextWrap" hidden>
           <label for="rewText">Item or note</label>
@@ -175,7 +191,7 @@
         <div>
           <label class="toggle" style="margin-top:22px">
             <input type="checkbox" id="rollPrivate" checked>
-            Private (DM only)
+            Private <span id="rollPrivateState">ON</span>
           </label>
         </div>
       </div>
@@ -208,6 +224,10 @@
         <div class="span-2">
           <label for="hoUrl">Image URL</label>
           <input type="url" id="hoUrl" placeholder="https://…">
+        </div>
+        <div class="span-2">
+          <label for="hoText">Text (URL or text is enough)</label>
+          <textarea id="hoText" rows="3" placeholder="Read this aloud…"></textarea>
         </div>
         <div>
           <label for="hoTarget">Send to</label>
@@ -261,7 +281,18 @@
         <button type="button" class="btn sm" id="btnAddEnemy">Add enemy</button>
         <button type="button" class="btn btn-primary" id="btnNextTurn">Next turn</button>
         <button type="button" class="btn sm" id="btnPrevTurn">Previous</button>
+        <button type="button" class="btn sm" id="btnRollAll">Roll all enemies</button>
+        <button type="button" class="btn sm" id="btnEndCombat">End combat</button>
+        <label class="fine">Damage <select id="damageMode" aria-label="Damage mode"><option value="auto">Auto-apply</option><option value="approve">Approve first</option></select></label>
       </div>
+      <div class="form-grid">
+        <div><label for="customName">Custom enemy</label><input type="text" id="customName" placeholder="Bandit"></div>
+        <div><label for="customHp">HP</label><input type="number" id="customHp" value="11"></div>
+        <div><label for="customAc">AC</label><input type="number" id="customAc" value="12"></div>
+        <div><label for="customInit">Init bonus</label><input type="number" id="customInit" value="2"></div>
+        <div class="span-2"><label for="customAtk">Attacks</label><input type="text" id="customAtk" placeholder="Scimitar +3, 1d6+1"></div>
+      </div>
+      <div class="toolbar"><button type="button" class="btn sm" id="btnAddCustom">Add custom enemy</button></div>
       <div id="initList"></div>
       <details class="fold" open>
         <summary>Damage and healing</summary>

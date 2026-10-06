@@ -1,10 +1,10 @@
-/* SSDNS Character Sheet · v0.2.8 (cast-through-gun spells, attack feed colors, brass chambers)
+/* SSDNS Character Sheet · v0.2.9 (playtest sync, kits, cast prompt, combat)
  * Static, no server. Rules data: window.SSDNS_RULES (assets/data/rules.js, generated from the PHB).
  * Saving: SSDNSStore (storage.js). Shards bridge for Saloon games: SSDNSBridge (ssdns-bridge.js).
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.2.8"; // sheet-cast-v028
+  var APP_VERSION = "0.2.9"; // sheet-playtest-v029
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -108,6 +108,10 @@
       speed: "", armor: "", shield: false, hpAuto: true, hpMax: "", hpCurrent: "", hpTemp: "", hitDiceLeft: "",
       deathSaves: { success: [false, false, false], fail: [false, false, false] },
       guns: [0, 1, 2, 3].map(function () { return { weapon: "", tier: "", chamber: "", mod: "", engraving: false, capacity: "", load: "buck", loaded: 0, chambers: [], proficient: false, jammed: false, cracked: false, fouled: false, dirty: false }; }),
+      melee: [0, 1, 2, 3].map(function () { return { weapon: "", proficient: false }; }),
+      fightingStyle: "",
+      featureUses: {},
+      kitStamp: "",
       tableConditions: "",
       ammo: [], explosives: [], holster: "", holsterActive: false, seated: false, mounted: false, gunBelt: false, attackNotes: "",
       instrument: "", instrumentQuality: "cheap", instrumentStrings: "plain", instrumentCase: "none", instrumentWear: "ok",
@@ -250,7 +254,11 @@
   function currentSubclass() { var c = currentCalling(); return c ? c.subclasses.filter(function (s) { return s.id === C().subclass; })[0] || null : null; }
   function casterInfo() {
     var c = currentCalling(), sc = currentSubclass();
-    if (c && c.caster) return { type: c.caster, ability: c.spellAbility, rest: c.hexLeadRest, from: c.name };
+    var lv = Math.max(1, num(C().level, 1));
+    if (c && c.caster) {
+      if (c.caster === "half" && lv < 2) return null;
+      return { type: c.caster, ability: c.spellAbility, rest: c.hexLeadRest, from: c.name };
+    }
     if (sc && sc.caster) return { type: sc.caster, ability: sc.spellAbility, rest: "long", from: sc.name + " (" + c.name + ")" };
     return null;
   }
@@ -512,9 +520,14 @@
     v.passive = 10 + v.skills.Perception;
     v.initiative = v.mods.DEX + v.holsterInit;
     var arm = ARM[c.armor];
-    if (arm && arm.category !== "shield") v.ac = arm.base + Math.min(v.mods.DEX, arm.dexCap);
+    var wearing = arm && arm.category !== "shield";
+    if (wearing) v.ac = arm.base + Math.min(v.mods.DEX, arm.dexCap);
+    else if (c.calling === "tribal-warrior") v.ac = 10 + v.mods.DEX + v.mods.CON;
+    else if (c.calling === "martial-artist" && !wearing) v.ac = 10 + v.mods.DEX + v.mods.WIS;
     else v.ac = 10 + v.mods.DEX;
-    if (c.shield) v.ac += 2;
+    if (c.shield && !(c.calling === "martial-artist" && !wearing)) v.ac += 2;
+    if (c.fightingStyle === "point-blank") v.ac += 1;
+    if (c.fightingStyle === "defense" && wearing) v.ac += 1;
     var cal = currentCalling();
     v.hitDiceTotal = cal ? num(c.level, 1) + cal.hitDie : "";
     var ci = casterInfo();
@@ -570,12 +583,17 @@
       return s;
     }
     m = w.ability === "STR/DEX" ? Math.max(v.mods.STR, v.mods.DEX) : (w.ability === "STR" ? v.mods.STR : v.mods.DEX);
+    var style = styleAttackBonus(w);
+    var dmgStyle = styleDamageBonus(w);
     var first = (v.holsterFirst && w.group === "pistol") ? v.holsterFirst : 0;
     if (mod && /hair trigger/i.test(mod.name) && w.group === "pistol") first = Math.min(2, first + 1); // PHB: counts toward the rig's +2 first-shot cap
     if (mod) notes.push("mod: " + mod.name);
-    s.atk = sign(m + (g.proficient ? v.prof : 0));
-    if (first) notes.push("first shot from the rig " + sign(m + (g.proficient ? v.prof : 0) + first));
-    s.dmg = s.damage ? s.damage + (m ? " " + sign(m) : "") + " " + (s.dmgType || "") : "";
+    s.atk = sign(m + (g.proficient ? v.prof : 0) + style);
+    if (style) notes.push((C().fightingStyle || "style") + " " + sign(style));
+    if (dmgStyle) notes.push((C().fightingStyle || "style") + " damage " + sign(dmgStyle));
+    if (first) notes.push("first shot from the rig " + sign(m + (g.proficient ? v.prof : 0) + style + first));
+    var dmgMod = m + dmgStyle;
+    s.dmg = s.damage ? s.damage + (dmgMod ? " " + sign(dmgMod) : "") + " " + (s.dmgType || "") : "";
     s.note = notes.join(" · ");
     return s;
   }
@@ -648,6 +666,29 @@
     return "Spell slots";
   }
   function isMeleeWeapon(w) { return /melee/.test(String(w && w.group || "")); }
+  function styleReady() {
+    var c = C();
+    if (!c) return false;
+    var lv = num(c.level, 1);
+    if (c.calling === "gunslinger") return lv >= 1;
+    if (c.calling === "lawman" || c.calling === "frontier-scout") return lv >= 2;
+    return false;
+  }
+  function styleAttackBonus(w) {
+    var st = (C() && C().fightingStyle) || "";
+    if (!w || !st || !styleReady()) return 0;
+    var g = String(w.group || "");
+    var ranged = g === "rifle" || g === "carbine" || g === "bigbore" || g === "bow" || /bow/.test(g);
+    if ((st === "long-gun" || st === "archery") && ranged) return 2;
+    return 0;
+  }
+  function styleDamageBonus(w) {
+    var st = (C() && C().fightingStyle) || "";
+    if (!w || !st || !styleReady()) return 0;
+    if (st === "sidearm" && w.group === "pistol") return 2;
+    if (st === "dueling" && isMeleeWeapon(w) && !/two-handed/i.test(w.properties || "")) return 2;
+    return 0;
+  }
   function fiveEName(w) {
     var name = String(w && w.name || "");
     var m = name.match(/\(([^)]+)\)/);
@@ -661,6 +702,9 @@
     if (w.hexShells || w.group === "caster") return /caster guns?/.test(prof);
     if (/herringer/.test(name) && /herringer/.test(prof)) return true;
     if (/ball/.test(name) && /cap/.test(name) && /ball n cap/.test(prof)) return true;
+    if (/cavalry saber/.test(name) && /cavalry saber/.test(prof)) return true;
+    if ((/bowie/.test(name)) && /bowie/.test(prof)) return true;
+    if ((/fencing|sword cane/.test(name) || /\brapier\b/.test(fiveEName(w))) && /fencing/.test(prof)) return true;
     var meleeOnly = /\bmelee\b/.test(prof);
     var both = /simple\s*(and|&)\s*martial/.test(prof);
     var simple = both || /\bsimple weapons\b/.test(prof);
@@ -694,7 +738,9 @@
     items.push(["other", "Other / none"]);
     fillSelect(sel, items, "Caster gun…");
     if (cur && !items.some(function (it) { return it[0] === cur; })) cur = "";
+    if (!cur && id === "pact-seeker") cur = "borrowed-iron";
     sel.value = cur;
+    if (id === "pact-seeker" && C().casterGun !== "borrowed-iron" && cur === "borrowed-iron") C().casterGun = "borrowed-iron";
   }
   function gunOptions(sel) {
     var groups = [
@@ -703,8 +749,7 @@
       ["Carbines", R.firearms.filter(function (f) { return f.group === "carbine"; })],
       ["Rifles", R.firearms.filter(function (f) { return f.group === "rifle"; })],
       ["Big bore", R.firearms.filter(function (f) { return f.group === "bigbore"; })],
-      ["Bows & thrown", R.otherRanged],
-      ["Melee", R.melee]
+      ["Bows & thrown", R.otherRanged]
     ];
     if (isHexslinger()) groups.splice(5, 0, ["Caster guns (Hexslinger only)", R.casterGuns]);
     groups = groups.map(function (g) { return { group: g[0], items: g[1].map(function (w) { return [w.id, w.name + (w.cost && w.tiers ? " · " + w.cost + (/\d/.test(w.cost) ? " " + UNIT : "") : "")]; }) }; });
@@ -801,7 +846,7 @@
     }
   }
   function buildShards() {
-    [$("#shards"), $("#saloonShards")].forEach(function (box) {
+    [$("#shards")].forEach(function (box) {
       SHARDS.forEach(function (s) {
         box.appendChild(el("div", { class: "shard shard-" + s.id }, [
           el("span", { class: "gem", "aria-hidden": "true" }),
@@ -904,6 +949,7 @@
         line.appendChild(lab);
         // keep a hidden data-f so save still has the name if edited elsewhere
         line.appendChild(el("input", { type: "hidden", "data-f": l === 0 ? ("character.cantrips." + row.i) : ("character.spells." + l + "." + row.i + ".name"), value: row.name }));
+        line.appendChild(el("button", { type: "button", class: "btn xs", "data-spell-cast": l + ":" + row.name, "aria-label": "Cast " + parsed.label, title: "Cast " + parsed.label }, ["Cast"]));
         line.appendChild(el("button", { type: "button", class: "btn xs ghost", "data-spell-del": l + ":" + row.i, "aria-label": "Remove " + parsed.label, title: "Remove" }, ["×"]));
         box.appendChild(line);
         // sync checkbox prepared state
@@ -1001,10 +1047,9 @@
     ss.disabled = !subs.length;
     var cal = CAL[c.calling];
     var sc = $("#selSubclass");
-    fillSelect(sc, cal ? cal.subclasses.map(function (s) {
+    fillSelect(sc, cal ? cal.subclasses.filter(function (s) { return !s.dmOnly || c.subclass === s.id; }).map(function (s) {
       var tag = "";
-      if (s.dmOnly) tag = " (DM only)";
-      else if (!(s.features && s.features.length)) tag = " (no PHB features yet)";
+      if (!(s.features && s.features.length) && !s.dmOnly) tag = " (no PHB features yet)";
       return [s.id, s.name + (s.phb5e ? " (" + s.phb5e + ")" : "") + tag];
     }) : [], cal ? (cal.subclasses[0] && cal.subclasses[0].group ? cal.subclasses[0].group + "…" : "Subclass…") : "Pick a Calling first");
     if (cal) sc.querySelectorAll("option").forEach(function (o) {
@@ -1234,7 +1279,7 @@
     var lin = LIN[c.lineage];
     var card = $("#lineageCard");
     if (card) {
-      card.textContent = lin ? ["Age: " + (lin.age || "—"), "Size: " + (lin.size || "—"), "Languages: " + (lin.languages || "—")].join(" ") : "";
+      card.textContent = lin ? (lin.name + " · Age: " + (lin.age || "—") + " · Size: " + (lin.size || "—") + " · " + (lin.languages || "—")) : "";
     }
     // page 3
     var word = slotWord();
@@ -1243,6 +1288,11 @@
     if (tabHex) tabHex.textContent = "3 · Spells & " + word;
     var slotLab = $("#slotWord");
     if (slotLab) slotLab.textContent = word;
+    var showCast = !!v.caster;
+    var hexRoll = $(".hex-roll");
+    if (hexRoll) hexRoll.hidden = !showCast;
+    var hexHead = $(".hexhead");
+    if (hexHead) hexHead.hidden = !showCast;
     var hexBtn = $("#btnHexRoll");
     if (hexBtn) {
       if (c.calling === "hexslinger") {
@@ -1273,7 +1323,7 @@
       total = Math.max(0, Math.min(MAX_BOXES, total));
       $$('[data-hex="' + l + '"] .cb').forEach(function (cb, i) { cb.hidden = i >= total; });
       var lvl = $('.sp-level[data-level="' + l + '"]');
-      if (lvl) lvl.classList.toggle("no-slots", !total);
+      if (lvl) lvl.classList.toggle("no-slots", false);
     }
     var c0 = $('.sp-level[data-level="0"]');
     if (c0) c0.classList.toggle("no-slots", false);
@@ -1282,6 +1332,23 @@
     renderRef();
   }
   function ammoType(g, w) { return w.ammo === "shell" ? (g.load === "slug" ? "slug" : "buck") : w.ammo; }
+  function caliberChoices(type) {
+    var out = [];
+    function add(name) { if (name && out.indexOf(name) < 0) out.push(name); }
+    if (type === "cartridge" || !type) {
+      ["Light", "Medium", "Heavy"].forEach(add);
+      CALIBERS.forEach(add);
+    }
+    (C().guns || []).forEach(function (g) {
+      var w = WPN[g.weapon];
+      if (!w) return;
+      var round = gunRound(g, w);
+      if (round) add(round);
+      var tier = w.tiers ? chamberOf(g, w).tier : "";
+      if (tier && TIER_LABEL[tier]) add(TIER_LABEL[tier]);
+    });
+    return out;
+  }
   function renderAmmo() {
     var box = $("#ammoList"), c = C();
     var focus = document.activeElement && box.contains(document.activeElement) ? document.activeElement.getAttribute("data-f") : null;
@@ -1290,7 +1357,11 @@
     c.ammo.forEach(function (a, i) {
       var sel = el("select", { "data-f": "character.ammo." + i + ".type", "aria-label": "Ammo type" }, AMMO_TYPES.map(function (t) { return opt(t.id, t.label); }));
       sel.value = a.type;
-      var cal = el("input", { type: "text", list: "caliberList", "data-f": "character.ammo." + i + ".caliber", placeholder: "caliber", "aria-label": "Caliber" });
+      var cal = el("select", { "data-f": "character.ammo." + i + ".caliber", "aria-label": "Caliber" });
+      var cals = caliberChoices(a.type);
+      cal.appendChild(opt("", "Any / tier"));
+      cals.forEach(function (name) { cal.appendChild(opt(name, name)); });
+      if (a.caliber && !cals.some(function (name) { return name === a.caliber; })) cal.appendChild(opt(a.caliber, a.caliber));
       cal.value = a.caliber || "";
       var cnt = el("input", { type: "number", min: "0", "data-f": "character.ammo." + i + ".count", "aria-label": "Rounds", inputmode: "numeric" });
       cnt.value = a.count;
@@ -1401,9 +1472,10 @@
   // ------------------------------------------------------------------ change handling
   function changed(opts) {
     S.doc.updatedAt = new Date().toISOString();
-    S.fileDirty = true; S.hasContent = true;
+    if (!opts || !opts.quiet) S.fileDirty = true;
+    S.hasContent = true;
     scheduleLocal();
-    if (S.handle) scheduleFile();
+    if (S.handle && (!opts || !opts.quiet)) scheduleFile();
     if (!opts || !opts.noRender) renderCalc();
     updateSaveBar();
   }
@@ -1489,18 +1561,19 @@
     c.subclass = "";
     if (!cal) return;
     AB.forEach(function (a) { c.saveProf[a] = cal.saves.indexOf(a) >= 0; });
-    // PHB "Hit Die & Proficiencies" line -> the proficiencies box (only adds lines that aren't there yet)
+    var box = String(c.proficienciesLanguages || "").split("\n").filter(function (line) {
+      return !/^Armor \([^)]+\):/.test(line) && !/^Weapons \([^)]+\):/.test(line);
+    }).join("\n");
     var add = [];
     if (cal.armorProf) add.push("Armor (" + cal.name + "): " + cal.armorProf);
     if (cal.weaponProf) add.push("Weapons (" + cal.name + "): " + cal.weaponProf);
-    var box = c.proficienciesLanguages || "";
-    add = add.filter(function (l) { return box.indexOf(l) < 0; });
-    if (add.length) c.proficienciesLanguages = (box.trim() ? box.replace(/\s+$/, "") + "\n" : "") + add.join("\n");
+    c.proficienciesLanguages = (box.trim() ? box.replace(/\s+$/, "") + "\n" : "") + add.join("\n");
     (c.guns || []).forEach(function (g) {
       var w = WPN[g.weapon];
       if (w) g.proficient = callingProficient(w);
     });
-    if (c.calling !== "hexslinger" && c.casterGun && R.casterGuns.some(function (g) { return g.id === c.casterGun; })) c.casterGun = "";
+    if (c.calling === "pact-seeker") c.casterGun = "borrowed-iron";
+    else if (c.calling !== "hexslinger" && c.casterGun && R.casterGuns.some(function (g) { return g.id === c.casterGun; })) c.casterGun = "";
     toast("Saving throws set for " + cal.name + " (" + cal.saves.join(", ") + "). Hit die " + cal.hitDie + "." + (add.length ? " Armor and weapon proficiencies added." : ""));
   }
   function onLineagePicked() {
@@ -1662,26 +1735,32 @@
       if (w.tiers) { g.chamber = ""; var cc = chamberOf(g, w); g.chamber = cc.tier + "|" + cc.round; g.tier = cc.tier; }
       var st = gunStats(g, compute());
       if (w.capacity) toast(w.name + ": " + st.damage + ", range " + st.range + ", capacity " + w.capacity + ", misfire " + st.misfire + (st.round ? ", chambered " + st.round : "") + ". Starts empty: hit Reload.");
+      var ammoType = w.ammo === "shell" || w.scatter ? "buck" : (w.ammo === "arrows" ? "arrows" : "cartridge");
+      var cal = (st && st.round) || (w.tiers ? "Light" : "");
+      if (ammoType) {
+        var pool = findPool(ammoType, cal, true);
+        if (pool && !num(pool.count)) pool.count = w.ammo === "shell" || w.scatter ? 10 : 20;
+      }
     }
     if (what === "chamber" && w && w.tiers) g.tier = chamberOf(g, w).tier;
   }
   function spendRound(i, k) {
     var g = C().guns[i], w = g && WPN[g.weapon];
     if (!g || !g.weapon) return { ok: false, reason: "Pick a gun first." };
-    if (g.jammed) return { ok: false, reason: "Jammed. Clear it before it can fire." };
+    if (g.jammed) return { ok: false, reason: "Jammed: clear it first" };
     if (g.fouled) return { ok: false, reason: "Fouled. It can't fire until it's cleaned." };
     if (w && w.capacity) {
       var a = normChambers(g, w);
       if (k !== undefined && isHexChamber(a[k])) return { ok: false, reason: "That's a hex shell. Use Cast through gun — Roll never spends a slot." };
       if (k === undefined || !isPlainChamber(a[k])) k = a.findIndex(isPlainChamber);
-      if (k < 0) return { ok: false, reason: w.hexShells ? "No plain cartridge chambered. Cast through gun fires a hex shell." : "Empty. Hit Reload." };
+      if (k < 0) return { ok: false, reason: w.hexShells ? "No plain cartridge chambered. Cast through gun fires a hex shell." : "Out of rounds, Reload" };
       var was = a[k];
       a[k] = "";
       g.loaded = a.filter(Boolean).length;
-      changed();
+      changed({ quiet: true });
       return { ok: true, left: g.loaded, hex: "", chamber: k, was: was };
     }
-    if (num(g.loaded) <= 0) return { ok: false, reason: "Empty. Hit Reload." };
+    if (num(g.loaded) <= 0) return { ok: false, reason: "Out of rounds, Reload" };
     g.loaded = num(g.loaded) - 1;
     changed();
     return { ok: true, left: g.loaded };
@@ -1773,7 +1852,10 @@
       if (w.hexShells) return a.type === "cartridge";
       if (a.type !== want) return false;
       if (!round || !norm(a.caliber)) return true;
-      return norm(a.caliber) === norm(round);
+      if (norm(a.caliber) === norm(round)) return true;
+      var tier = chamberOf(g, w).tier;
+      if (tier && norm(a.caliber) === norm(TIER_LABEL[tier] || tier)) return true;
+      return false;
     });
   }
   function tokenForPool(pool, g, w) {
@@ -1830,7 +1912,9 @@
     var rows = poolsForGun(g, w);
     if (!rows.length) {
       var tp = takePool(g, w, false);
-      toast("No " + AMMO_LABEL[tp.type] + (tp.round ? " (" + tp.round + ")" : "") + " left. Add some under Ammo by caliber.");
+      var msg = "No ammo for this caliber";
+      toast(msg);
+      if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: (w.name || "Gun") + ": " + msg });
       return;
     }
     if (rows.length > 1 && !max) { showLoadPicks(i, rows, 0); toast("Pick which rounds to load."); return; }
@@ -1874,6 +1958,13 @@
   function cleanGun(i) {
     var g = C().guns[i];
     if (!g || !g.weapon) { toast("Pick a gun first."); return; }
+    if (g.jammed) {
+      g.jammed = false;
+      changed();
+      toast("Jam cleared.");
+      if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: (WPN[g.weapon] ? WPN[g.weapon].name : "Gun") + ": jam cleared." });
+      return;
+    }
     if (g.fouled) {
       g.fouled = false;
       changed();
@@ -1886,7 +1977,7 @@
       toast("Dirty cleared. That is 10 minutes with a gun cleaning kit or gunsmith's tools.");
       return;
     }
-    toast("This gun isn't dirty or fouled.");
+    toast("This gun isn't jammed, dirty, or fouled.");
   }
   function misfireCeiling(text, dirty) {
     var s = String(text || "");
@@ -2040,13 +2131,30 @@
   }
   function doSave() {
     snapshot("saved");
-    if (Store.fsSupported) {
-      if (S.handle) return writeFile(true).then(function (ok) { if (ok) toast("Saved to " + S.fileName + "."); });
-      return doSaveAs();
+    var name = fileNameFor();
+    var text = docText();
+    try {
+      Store.download(name, text);
+    } catch (err) {
+      try {
+        var blob = new Blob([text], { type: "application/json" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2500);
+      } catch (err2) {
+        toast("Download failed. The character is still backed up in this browser.");
+        S.error = "Save download failed.";
+        updateSaveBar();
+        return Promise.resolve(false);
+      }
     }
-    Store.download(fileNameFor(), docText());
-    S.fileDirty = false; S.lastFile = Date.now(); S.fileName = fileNameFor(); updateSaveBar();
-    toast("Downloaded " + S.fileName + ". Keep it somewhere safe and open it next time.");
+    S.fileDirty = false; S.lastFile = Date.now(); S.fileName = name; S.hasFile = true; updateSaveBar();
+    toast("Downloaded " + name + ".");
+    if (S.handle) writeFile(true);
     return Promise.resolve(true);
   }
   function doSaveAs() {
@@ -2088,7 +2196,7 @@
     return true;
   }
   function doNew() {
-    if (!confirmLeave()) return;
+    if (!window.confirm("Start a new character? This one stays in this browser's backups.")) return;
     replaceDoc(blankDoc(), { reason: "new character" });
     S.hasContent = false; S.fileDirty = false; updateSaveBar();
     toast("New character. It's backed up in this browser as you type; Save makes a .ssdns file.");
@@ -2254,6 +2362,17 @@
     }
     if (cal) take(cal.features);
     if (sc) take(sc.features);
+    if (cal && cal.progression && cal.progression.rows) {
+      cal.progression.rows.forEach(function (r) {
+        if (parseInt(String(r[0]), 10) !== lv) return;
+        String(r[2] || "").split(",").forEach(function (bit) {
+          var name = bit.trim();
+          if (!name || name === "—" || name === "-") return;
+          if (list.some(function (f) { return String(f.name || "").toLowerCase().indexOf(name.toLowerCase()) >= 0; })) return;
+          list.push({ name: name + " (" + lv + (lv === 2 ? "nd" : lv === 3 ? "rd" : "th") + " lvl)", text: "From the " + cal.name + " table. Pick the option with your DM." });
+        });
+      });
+    }
     return list;
   }
   function limitsAt(lv) {
@@ -2466,11 +2585,16 @@
 
   // ------------------------------------------------------------------ boot
   function rest(kind) {
+    if (window.SSDNSSheet && window.SSDNSSheet.applyRest) {
+      window.SSDNSSheet.applyRest(kind);
+      renderFields();
+      return;
+    }
     var ci = casterInfo(), r = C().hexRest || (ci ? ci.rest : "long");
     if (kind === "long" || r === "short") {
       for (var l = 1; l <= 9; l++) C().hexLead[l] = new Array(MAX_BOXES).fill(false);
       renderFields(); changed(); toast(slotWord() + " refreshed (" + kind + " rest).");
-    } else toast("Your " + slotWord() + " come back on a long rest.");
+    } else toast("Your " + slotWord() + " comes back on a long rest.");
   }
   function wire() {
     document.addEventListener("input", onFieldInput);
@@ -2557,9 +2681,8 @@
     };
     window.addEventListener("beforeprint", beforePrint);
     window.addEventListener("afterprint", afterPrint);
-    window.addEventListener("beforeunload", function (e) {
+    window.addEventListener("beforeunload", function () {
       if (S.doc && S.hasContent) { try { Store.saveCurrent(S.doc); } catch (err) {} }
-      if (S.fileDirty && S.hasContent) { e.preventDefault(); e.returnValue = ""; return ""; }
     });
     document.addEventListener("visibilitychange", function () {
       if (document.hidden && S.doc && S.hasContent) { saveLocal(); if (S.handle && S.fileDirty) writeFile(false); }
@@ -2605,6 +2728,10 @@
       spendHexChamber: spendHexChamber,
       fireHexShell: fireHexShell,
       casterInfo: casterInfo,
+      callingProficient: callingProficient,
+      styleAttackBonus: styleAttackBonus,
+      styleDamageBonus: styleDamageBonus,
+      applyPatch: function (fn) { if (fn) fn(S.doc); renderFields(); changed(); },
       slotsLeft: slotsLeft,
       misfireCeiling: misfireCeiling,
       suggestedHp: function () { return suggestedHp(C()); }
