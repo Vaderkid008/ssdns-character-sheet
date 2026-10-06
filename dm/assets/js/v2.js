@@ -1184,6 +1184,25 @@ async function rest(kind) {
   DM.toast((kind === "long" ? "Long" : "Short") + " rest sent");
 }
 
+const STORE_PREVIEW_KEY = "ssdns.dm.storePreview";
+let storeItems = [];
+let storeTown = "camp";
+const storeOn = { general: true, gun: false, music: false, traveling: false };
+const storeDraft = {};
+function loadStorePreview() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORE_PREVIEW_KEY) || "null");
+    if (!raw) return;
+    if (raw.town) storeTown = raw.town;
+    if (raw.on) Object.keys(storeOn).forEach((id) => { if (raw.on[id] != null) storeOn[id] = !!raw.on[id]; });
+    if (raw.draft) Object.keys(raw.draft).forEach((id) => { storeDraft[id] = raw.draft[id]; });
+  } catch (e) {}
+}
+function saveStorePreview() {
+  try {
+    localStorage.setItem(STORE_PREVIEW_KEY, JSON.stringify({ town: storeTown, on: storeOn, draft: storeDraft }));
+  } catch (e) {}
+}
 function parseCost(raw) {
   const s = String(raw == null ? "" : raw).replace(/,/g, "").trim();
   if (!s || !/\d/.test(s) || /tbd/i.test(s)) return null;
@@ -1217,14 +1236,6 @@ function catalog() {
   (story.accessories || []).forEach((g) => add(g.name, g.cost, "focus"));
   catalog.cache = items;
   return items;
-}
-function vendorMatch(id, item) {
-  const n = item.name.toLowerCase();
-  if (id === "gunsmith") return /gun|ammo|holster|mod/.test(item.kind);
-  if (id === "eldorite") return /eldorite|hex|charm|focus|instrument/.test(n) || item.kind === "instrument" || item.kind === "focus";
-  if (id === "apothecary") return item.kind === "explosive" || /medic|tonic|poison|blessed|herb|vial|soap/.test(n);
-  if (id === "general") return /armor|gear|pack|mount|tool|holster|ammo|frontier|melee|ranged/.test(item.kind);
-  return true;
 }
 function fillCatalogCats() {
   const sel = $("#catalogCat");
@@ -1271,59 +1282,277 @@ function renderCatalog() {
     }).join("")
     + `</tbody></table>`;
 }
-function renderStock() {
-  const box = $("#storeList");
-  if (!box) return;
-  if (!fight.stock.length) {
-    box.innerHTML = '<p class="lede">No session stock yet.</p>';
+function storeLabel(id) {
+  const labels = window.SSDNSStore && window.SSDNSStore.STORE_LABEL;
+  return (labels && labels[id]) || id || "Store";
+}
+function syncTownControls() {
+  document.querySelectorAll('input[name="townSize"]').forEach((el) => { el.checked = el.value === storeTown; });
+  document.querySelectorAll("[data-store-pick]").forEach((el) => {
+    const id = el.getAttribute("data-store-pick");
+    el.checked = !!storeOn[id];
+  });
+}
+function ensureDraft(id) {
+  if (!storeDraft[id]) storeDraft[id] = { mode: "default", phase: "preview", lines: [] };
+  return storeDraft[id];
+}
+function previewStore(storeId, mode) {
+  const Stock = window.SSDNSStore;
+  if (!Stock) { DM.toast("Store data is not loaded"); return; }
+  if (!storeItems.length) { DM.toast("Store list has not loaded"); return; }
+  const draft = ensureDraft(storeId);
+  let rows = [];
+  if (storeId === "traveling" && (mode === "draw" || mode === "merchant")) {
+    rows = Stock.merchantStock(storeItems, Math.random).map((it) => {
+      const line = Stock.lineFromItem(it, "traveling", false);
+      line.price = it.price;
+      line.checked = it.price != null && it.price !== "";
+      line.ref = it.price_es == null;
+      return line;
+    });
+    draft.mode = "draw";
+  } else if (mode === "random") {
+    rows = Stock.randomStock(storeItems, storeId, storeTown, Math.random).map((it) => Stock.lineFromItem(it, storeId, false));
+    draft.mode = "random";
+  } else if (mode === "rare") {
+    draft.lines = Stock.slipRare(draft.lines || [], storeItems, Math.random);
+    draft.mode = draft.mode || "draw";
+    draft.phase = "preview";
+    saveStorePreview();
+    renderStorePanel();
     return;
+  } else {
+    rows = Stock.stockableCommons(storeItems, storeId, storeTown).map((it) => Stock.lineFromItem(it, storeId, false));
+    draft.mode = "default";
   }
-  box.innerHTML = fight.stock.map((item, i) => {
-    const shown = item.price === "" || item.price == null ? "" : Number(item.price).toLocaleString();
-    return `<div class="init-row"><b>${esc(item.name)}</b>
-      <input type="number" min="0" data-stock-price="${i}" value="${item.price === "" || item.price == null ? "" : esc(item.price)}" aria-label="Price for ${esc(item.name)}">
-      <span>${shown ? esc(shown) + " ES" : "ES"}</span>
-      <button type="button" class="btn sm" data-stock-del="${i}">Remove</button></div>`;
-  }).join("");
+  draft.lines = rows;
+  draft.phase = "preview";
+  saveStorePreview();
+  renderStorePanel();
 }
-async function addStockItem(name, price) {
-  if (!name) { DM.toast("Need an item name"); return; }
-  fight.stock.push({ name: name, price: price === "" || price == null || !isFinite(price) ? "" : price });
-  await saveRemoteTable();
-  renderStock();
+function liveLines(storeId) {
+  return (fight.stock || []).filter((row) => row && (row.store || "general") === storeId);
 }
-async function addStock() {
-  const name = ($("#stockName").value || "").trim();
-  const price = parseInt($("#stockPrice").value, 10);
-  if (!name || !isFinite(price)) { DM.toast("Need a name and an ES price"); return; }
-  $("#stockName").value = "";
-  await addStockItem(name, price);
-  DM.toast("Stock saved");
-}
-async function loadVendor() {
-  const id = ($("#vendorPreset") && $("#vendorPreset").value) || "general";
-  const items = catalog().filter((item) => vendorMatch(id, item));
-  fight.stock = items.map((item) => ({ name: item.name, price: item.price == null ? "" : item.price }));
-  await saveRemoteTable();
-  renderStock();
-  DM.toast("Loaded " + fight.stock.length + " " + id + " items. Blank prices stay off the counter until you set them.");
-}
-async function forceStore() {
-  const priced = fight.stock.filter((item) => isFinite(parseInt(item.price, 10)));
-  const skipped = fight.stock.length - priced.length;
+async function openStoreCard(storeId) {
+  const Stock = window.SSDNSStore;
+  const draft = ensureDraft(storeId);
+  const lines = Stock.pricedLines(draft.lines, storeId);
+  if (!lines.length) { DM.toast(storeLabel(storeId) + " has no priced items checked"); return; }
+  fight.stock = (fight.stock || []).filter((row) => row && (row.store || "general") !== storeId).concat(lines);
   fight.storeOpen = true;
+  draft.phase = "live";
+  saveStorePreview();
   await saveRemoteTable();
   await DM.pushCommand({
     type: "open_store", to: "all",
-    payload: { stock: priced.map((item) => ({ name: item.name, price: parseInt(item.price, 10) })) },
+    payload: { store: storeId, stock: fight.stock.slice() },
     from: DM.state.uid
   });
-  await DM.pushLedger({
-    who: "DM", playerId: "all", type: "open_store",
-    what: "Store opened (" + priced.length + " items)",
-    oldVal: null, newVal: "open", flag: false
+  const what = storeLabel(storeId) + " opened (" + lines.length + " items)";
+  await DM.pushLedger({ who: "DM", playerId: "all", type: "open_store", what: what, oldVal: null, newVal: "open", flag: false });
+  DM.toast(what);
+  renderStorePanel();
+}
+async function openAllStores() {
+  const ids = Object.keys(storeOn).filter((id) => storeOn[id] && storeDraft[id] && (storeDraft[id].lines || []).length);
+  if (!ids.length) { DM.toast("Check a store and load its stock first"); return; }
+  for (let i = 0; i < ids.length; i++) await openStoreCard(ids[i]);
+}
+async function closeStoreCard(storeId) {
+  fight.stock = (fight.stock || []).filter((row) => row && (row.store || "general") !== storeId);
+  if (!fight.stock.length) fight.storeOpen = false;
+  const draft = ensureDraft(storeId);
+  draft.phase = "preview";
+  saveStorePreview();
+  await saveRemoteTable();
+  DM.toast(storeLabel(storeId) + " closed");
+  renderStorePanel();
+}
+async function closeAllStores() {
+  fight.stock = [];
+  fight.storeOpen = false;
+  Object.keys(storeDraft).forEach((id) => { if (storeDraft[id]) storeDraft[id].phase = "preview"; });
+  saveStorePreview();
+  await saveRemoteTable();
+  await DM.pushLedger({ who: "DM", playerId: "all", type: "open_store", what: "Stores closed", oldVal: null, newVal: "closed", flag: false });
+  DM.toast("Stores closed");
+  renderStorePanel();
+}
+function editStoreCard(storeId) {
+  const draft = ensureDraft(storeId);
+  const live = liveLines(storeId);
+  if (live.length) {
+    draft.lines = live.map((row) => ({
+      id: row.id || "",
+      name: row.name || "",
+      rarity: row.rarity || "",
+      notes: row.notes || "",
+      bookLine: row.bookLine || "",
+      price: row.price,
+      checked: true,
+      ref: !!row.ref,
+      qty: row.qty || null,
+      store: storeId
+    }));
+  }
+  draft.phase = "preview";
+  saveStorePreview();
+  renderStorePanel();
+}
+async function toggleSoldOut(storeId, index) {
+  const rows = (fight.stock || []).map((row, i) => ({ row: row, i: i })).filter((x) => x.row && (x.row.store || "general") === storeId);
+  const hit = rows[index];
+  if (!hit) return;
+  hit.row.soldOut = !hit.row.soldOut;
+  await saveRemoteTable();
+  renderStorePanel();
+}
+function previewLineHtml(storeId, line, i) {
+  const price = line.price === "" || line.price == null ? "" : line.price;
+  const ref = line.ref ? '<span class="ref-tag">ref</span>' : "";
+  return `<div class="store-line">
+    <label class="store-line-name"><input type="checkbox" data-preview-check="${esc(storeId)}" data-line="${i}"${line.checked ? " checked" : ""}> <b>${esc(line.name || "Item")}</b> <span class="chip">${esc(line.rarity || "")}</span> ${ref}</label>
+    <span class="store-line-meta">
+      <input type="number" min="0" step="1" inputmode="numeric" data-preview-price="${esc(storeId)}" data-line="${i}" value="${esc(price)}" placeholder="${line.ref ? "ref" : "TBD"}" aria-label="Price for ${esc(line.name || "item")}">
+      <button type="button" class="btn sm" data-line-info="${esc(storeId)}" data-line="${i}">Info</button>
+    </span>
+    <span class="fine store-line-notes" hidden>${esc(line.notes || "")}${line.bookLine ? " BOOK1 L" + esc(line.bookLine) : ""}</span>
+  </div>`;
+}
+function renderStorePanel() {
+  const box = $("#storeCards");
+  if (!box) return;
+  syncTownControls();
+  const ids = ["general", "gun", "music", "traveling"].filter((id) => storeOn[id]);
+  if (!ids.length) {
+    box.innerHTML = '<p class="lede">Tick a store to stock it.</p>';
+    return;
+  }
+  box.innerHTML = ids.map((id) => {
+    const draft = ensureDraft(id);
+    const live = draft.phase === "live";
+    const lines = live ? liveLines(id) : (draft.lines || []);
+    const priced = lines.filter((row) => row && row.checked !== false && row.price !== "" && row.price != null && isFinite(Number(row.price)));
+    const unpriced = lines.length - priced.length;
+    const head = lines.length + " items" + (unpriced ? " · " + unpriced + " unpriced (left off)" : "");
+    const actions = live
+      ? `<button type="button" class="btn" data-store-edit="${id}">Edit stock</button>
+         <button type="button" class="btn" data-store-close="${id}">Close store</button>`
+      : (id === "traveling"
+        ? `<button type="button" class="btn" data-store-draw="${id}">Draw 6-10</button>
+           <button type="button" class="btn" data-store-rare="${id}">+ Slip in a rare</button>`
+        : `<button type="button" class="btn" data-store-default="${id}">Default stock</button>
+           <button type="button" class="btn" data-store-random="${id}">Randomize</button>`)
+        + `<button type="button" class="btn" data-store-reroll="${id}">Reroll</button>
+           <button type="button" class="btn" data-store-refill="${id}">Fill blanks from ref</button>
+           <button type="button" class="btn btn-primary" data-store-open="${id}">Open Store</button>`;
+    const body = live
+      ? lines.map((row, i) => `<div class="store-line${row.soldOut ? " sold" : ""}">
+          <span class="store-line-name"><b>${esc(row.name || "Item")}</b>${row.ref ? ' <span class="ref-tag">ref</span>' : ""}</span>
+          <span class="store-line-meta"><span class="fine">${esc(row.price)} ES</span>
+          <button type="button" class="btn${row.soldOut ? " on" : ""}" data-sold-out="${id}" data-line="${i}">${row.soldOut ? "Sold out" : "Mark sold out"}</button></span>
+        </div>`).join("")
+      : lines.map((row, i) => previewLineHtml(id, row, i)).join("");
+    return `<article class="store-card card">
+      <h3>${esc(storeLabel(id))}</h3>
+      <p class="fine">${esc(head)}${live ? " · live" : " · preview"}</p>
+      <div class="store-lines">${body || '<p class="lede">No stock yet.</p>'}</div>
+      <div class="store-actions">${actions}</div>
+    </article>`;
+  }).join("");
+}
+function addPreviewLine(storeId, name, price, extra) {
+  if (!name) { DM.toast("Need an item name"); return; }
+  const draft = ensureDraft(storeId);
+  const n = price === "" || price == null || !isFinite(Number(price)) ? "" : Math.round(Number(price));
+  draft.lines = draft.lines || [];
+  draft.lines.push(Object.assign({
+    id: (extra && extra.id) || "",
+    name: name,
+    rarity: (extra && extra.rarity) || "common",
+    notes: (extra && extra.notes) || "",
+    bookLine: (extra && extra.bookLine) || "",
+    price: n,
+    checked: n !== "",
+    ref: !!(extra && extra.ref),
+    qty: window.SSDNSStore ? window.SSDNSStore.trailingQty(name) : null,
+    store: storeId
+  }));
+  draft.phase = "preview";
+  storeOn[storeId] = true;
+  saveStorePreview();
+  renderStorePanel();
+}
+function addStock() {
+  const name = ($("#stockName") && $("#stockName").value || "").trim();
+  const price = parseInt($("#stockPrice") && $("#stockPrice").value, 10);
+  const storeId = ($("#adhocStore") && $("#adhocStore").value) || "general";
+  if (!name || !isFinite(price)) { DM.toast("Need a name and an ES price"); return; }
+  if ($("#stockName")) $("#stockName").value = "";
+  addPreviewLine(storeId, name, price);
+  DM.toast("Added to the " + storeLabel(storeId) + " preview");
+}
+function renderStock() { renderStorePanel(); }
+function onStoreCardClick(e) {
+  const t = e.target.closest && e.target.closest("[data-store-default],[data-store-random],[data-store-draw],[data-store-rare],[data-store-reroll],[data-store-refill],[data-store-open],[data-store-edit],[data-store-close],[data-sold-out],[data-line-info]");
+  if (!t) return;
+  const id = t.getAttribute("data-store-default") || t.getAttribute("data-store-random") || t.getAttribute("data-store-draw") || t.getAttribute("data-store-rare") || t.getAttribute("data-store-reroll") || t.getAttribute("data-store-refill") || t.getAttribute("data-store-open") || t.getAttribute("data-store-edit") || t.getAttribute("data-store-close") || t.getAttribute("data-sold-out") || t.getAttribute("data-line-info");
+  if (t.hasAttribute("data-store-default")) previewStore(id, "default");
+  else if (t.hasAttribute("data-store-random")) previewStore(id, "random");
+  else if (t.hasAttribute("data-store-draw")) previewStore(id, "draw");
+  else if (t.hasAttribute("data-store-rare")) previewStore(id, "rare");
+  else if (t.hasAttribute("data-store-reroll")) {
+    const draft = ensureDraft(id);
+    previewStore(id, draft.mode === "random" ? "random" : draft.mode === "draw" ? "draw" : (id === "traveling" ? "draw" : "default"));
+  } else if (t.hasAttribute("data-store-refill")) fillBlanks(id);
+  else if (t.hasAttribute("data-store-open")) openStoreCard(id);
+  else if (t.hasAttribute("data-store-edit")) editStoreCard(id);
+  else if (t.hasAttribute("data-store-close")) closeStoreCard(id);
+  else if (t.hasAttribute("data-sold-out")) toggleSoldOut(id, parseInt(t.getAttribute("data-line"), 10));
+  else if (t.hasAttribute("data-line-info")) {
+    const line = t.closest(".store-line");
+    const notes = line && line.querySelector(".store-line-notes");
+    if (notes) notes.hidden = !notes.hidden;
+  }
+}
+function onStoreDraftChange(e) {
+  const t = e.target;
+  if (!t || !t.getAttribute) return;
+  const check = t.getAttribute("data-preview-check");
+  const price = t.getAttribute("data-preview-price");
+  if (!check && !price) return;
+  const id = check || price;
+  const i = parseInt(t.getAttribute("data-line"), 10);
+  const draft = storeDraft[id];
+  const line = draft && draft.lines && draft.lines[i];
+  if (!line) return;
+  if (check) line.checked = !!t.checked;
+  else {
+    line.price = t.value === "" ? "" : Math.round(Number(t.value));
+    if (!isFinite(line.price)) line.price = "";
+    line.ref = false;
+  }
+  saveStorePreview();
+}
+function fillBlanks(storeId) {
+  const Stock = window.SSDNSStore;
+  const draft = ensureDraft(storeId);
+  const blanks = (draft.lines || []).filter((row) => row && (row.price === "" || row.price == null));
+  if (!blanks.length) { DM.toast("No blank prices"); return; }
+  if (!window.confirm("Fill " + blanks.length + " blank prices from the handbook reference?")) return;
+  const byId = {};
+  storeItems.forEach((it) => { if (it && it.id) byId[it.id] = it; });
+  blanks.forEach((row) => {
+    const src = byId[row.id];
+    const ref = src && src.ref_price_es;
+    if (ref == null || ref === "") return;
+    row.price = storeId === "traveling" && Stock ? Stock.markup(ref) : Math.round(Number(ref));
+    row.ref = true;
+    row.checked = true;
   });
-  DM.toast("Store opened" + (skipped ? " · " + skipped + " blank prices left off" : ""));
+  saveStorePreview();
+  renderStorePanel();
 }
 
 function renderPacks() {
@@ -2901,13 +3130,14 @@ function wireClicks() {
     if (t.hasAttribute("data-cat-add")) {
       const raw = t.getAttribute("data-cat-price");
       const price = raw === "" || raw == null ? "" : parseInt(raw, 10);
-      addStockItem(t.getAttribute("data-cat-name"), price);
-      DM.toast("Added " + (t.getAttribute("data-cat-name") || "item"));
+      const storeId = ($("#adhocStore") && $("#adhocStore").value) || "general";
+      addPreviewLine(storeId, t.getAttribute("data-cat-name"), price);
+      DM.toast("Added " + (t.getAttribute("data-cat-name") || "item") + " to the preview");
     }
     if (t.hasAttribute("data-stock-del")) {
       fight.stock.splice(parseInt(t.getAttribute("data-stock-del"), 10), 1);
       saveRemoteTable();
-      renderStock();
+      renderStorePanel();
     }
     if (t.hasAttribute("data-pack-del")) {
       fight.packs.splice(parseInt(t.getAttribute("data-pack-del"), 10), 1);
@@ -3190,6 +3420,14 @@ async function bootV2() {
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
   } catch (e) {}
   try {
+    const res = await fetch("assets/data/store-items.json");
+    if (res.ok) storeItems = await res.json();
+    else DM.toast("Store list failed to load");
+  } catch (e) {
+    DM.toast("Store list failed to load");
+  }
+  loadStorePreview();
+  try {
     const res = await fetch("../assets/music/tracks.json");
     if (res.ok) {
       const data = await res.json();
@@ -3233,24 +3471,35 @@ async function bootV2() {
   $("#btnLongRest") && $("#btnLongRest").addEventListener("click", () => rest("long"));
   $("#btnUndo") && $("#btnUndo").addEventListener("click", undoLast);
   $("#btnAddStock") && $("#btnAddStock").addEventListener("click", addStock);
-  $("#btnLoadVendor") && $("#btnLoadVendor").addEventListener("click", loadVendor);
-  $("#btnSaveStock") && $("#btnSaveStock").addEventListener("click", async () => { await saveRemoteTable(); DM.toast("Stock saved"); });
+  $("#btnOpenAllStores") && $("#btnOpenAllStores").addEventListener("click", openAllStores);
+  $("#btnCloseAllStores") && $("#btnCloseAllStores").addEventListener("click", closeAllStores);
+  document.querySelectorAll('input[name="townSize"]').forEach((el) => {
+    el.addEventListener("change", () => {
+      if (!el.checked) return;
+      storeTown = el.value;
+      const next = window.SSDNSStore && window.SSDNSStore.townStores ? window.SSDNSStore.townStores(storeTown) : null;
+      if (next) Object.keys(storeOn).forEach((id) => { storeOn[id] = !!next[id]; });
+      saveStorePreview();
+      renderStorePanel();
+    });
+  });
+  document.querySelectorAll("[data-store-pick]").forEach((el) => {
+    el.addEventListener("change", () => {
+      storeOn[el.getAttribute("data-store-pick")] = el.checked;
+      saveStorePreview();
+      renderStorePanel();
+    });
+  });
+  const cards = $("#storeCards");
+  if (cards) cards.addEventListener("click", onStoreCardClick);
+  document.addEventListener("change", onStoreDraftChange);
   $("#catalogQ") && $("#catalogQ").addEventListener("input", renderCatalog);
   $("#catalogCat") && $("#catalogCat").addEventListener("change", renderCatalog);
   $("#btnInspGrant") && $("#btnInspGrant").addEventListener("click", () => changeInspiration(1));
   $("#btnInspSpend") && $("#btnInspSpend").addEventListener("click", () => changeInspiration(-1));
   $("#btnInspGrantTable") && $("#btnInspGrantTable").addEventListener("click", () => changeInspiration(1));
   $("#btnInspSpendTable") && $("#btnInspSpendTable").addEventListener("click", () => changeInspiration(-1));
-  document.addEventListener("change", (e) => {
-    const t = e.target;
-    if (!t || !t.hasAttribute || !t.hasAttribute("data-stock-price")) return;
-    const i = parseInt(t.getAttribute("data-stock-price"), 10);
-    const n = parseInt(t.value, 10);
-    if (fight.stock[i]) fight.stock[i].price = isFinite(n) ? n : "";
-    saveRemoteTable();
-  });
   renderCatalog();
-  $("#btnOpenStoreNow") && $("#btnOpenStoreNow").addEventListener("click", forceStore);
   $("#btnSavePack") && $("#btnSavePack").addEventListener("click", savePack);
   $("#btnMusicPlay") && $("#btnMusicPlay").addEventListener("click", playTrack);
   $("#btnMusicStop") && $("#btnMusicStop").addEventListener("click", stopTrack);
@@ -3279,7 +3528,8 @@ async function bootV2() {
     acFor: acForRoll,
     enterRoom: enterRoom,
     renderFight: renderFight,
-    removeCombatant: removeCombatant
+    removeCombatant: removeCombatant,
+    openAllStores: openAllStores
   };
   const rollAll = $("#btnRollAll");
   if (rollAll) rollAll.addEventListener("click", rollAllEnemies);

@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.10"; // sheet-round12-v0310
+  var APP_VERSION = "0.3.11"; // sheet-store-v0311
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -2560,6 +2560,7 @@
       document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
     });
     try { sessionStorage.setItem("ssdns.tab", id); } catch (e) {}
+    document.body.classList.toggle("store-tab-active", id === "tab-store");
   }
   function wireTabs() {
     var tabs = $$(".tab");

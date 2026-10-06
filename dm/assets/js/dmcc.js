@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.18"; // dmcc-round12-v0218
+const VERSION = "0.2.19"; // dmcc-store-v0219
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -960,6 +960,7 @@ function applyActiveTab() {
   $$(".panel").forEach((p) => { p.hidden = true; });
   const panel = document.getElementById(tab.getAttribute("aria-controls"));
   if (panel) panel.hidden = false;
+  document.body.classList.toggle("store-tab-active", uiTab === "tab-store");
 }
 function rememberUi() {
   UI_FIELDS.forEach((id) => {
@@ -2060,6 +2061,7 @@ function wireTabs() {
       if (panel) panel.hidden = false;
       uiTab = window.SSDNSUiTab ? window.SSDNSUiTab.nextTab(uiTab, { type: "click", tab: tab.id }) : tab.id;
       try { sessionStorage.setItem("ssdns.dm.uiTab", uiTab); } catch (err) {}
+      document.body.classList.toggle("store-tab-active", tab.id === "tab-store");
       rememberUi();
     });
   });
@@ -2210,7 +2212,10 @@ function wire() {
   $("#btnExportJson").addEventListener("click", () => exportLedger("json"));
   $("#btnExportCsv").addEventListener("click", () => exportLedger("csv"));
   $("#btnForceSaloon").addEventListener("click", () => doForce("saloon"));
-  $("#btnForceStore").addEventListener("click", () => doForce("store"));
+  $("#btnForceStore").addEventListener("click", () => {
+    if (window.DMCCEnhance && window.DMCCEnhance.openAllStores) window.DMCCEnhance.openAllStores();
+    else doForce("store");
+  });
   $("#btnForceCustom").addEventListener("click", () => doForce("custom"));
   let notesTimer;
   $("#dmNotes").addEventListener("input", () => {

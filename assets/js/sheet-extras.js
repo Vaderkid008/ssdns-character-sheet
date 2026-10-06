@@ -333,6 +333,19 @@
     return es.toLocaleString() + " ES on hand. " + bits.join(" · ") + "." + extra;
   }
 
+  var storeTab = "";
+  function storeLabel(id) {
+    var labels = root.SSDNSStore && root.SSDNSStore.STORE_LABEL;
+    return (labels && labels[id]) || ({ general: "General Store", gun: "Gun Store", music: "Music Store", traveling: "Traveling Merchant" }[id] || "Store");
+  }
+  function storeTabs(lines, open) {
+    if (root.SSDNSStore && root.SSDNSStore.playerTabs) return root.SSDNSStore.playerTabs(lines, open);
+    if (!open) return [];
+    var order = ["general", "gun", "music", "traveling"];
+    var seen = {};
+    (lines || []).forEach(function (row) { if (row && row.store) seen[row.store] = 1; });
+    return order.filter(function (id) { return seen[id]; });
+  }
   function renderStore() {
     var box = $("#storeStock");
     var lede = $("#storeLede");
@@ -349,17 +362,30 @@
       box.innerHTML = "";
       return;
     }
-    if (!storeOpen || !stock.length) {
-      if (lede) lede.textContent = storeOpen ? "The store is open, but the DM has not listed any stock yet." : "The DM has not opened the store this session.";
+    var tabs = storeTabs(stock, storeOpen);
+    if (!storeOpen || !tabs.length) {
+      if (lede) lede.textContent = storeOpen ? "The store is open, but the DM has not listed any stock yet." : "The DM has not opened a store this session.";
       box.innerHTML = "";
       return;
     }
-    if (lede) lede.textContent = "Session stock. Buying spends ES and writes a ledger line.";
-    box.innerHTML = stock.map(function (item, i) {
+    if (tabs.indexOf(storeTab) < 0) storeTab = tabs[0];
+    if (lede) lede.textContent = storeLabel(storeTab) + ". Buying spends ES and writes a ledger line.";
+    var tabHtml = '<div class="store-tabs">' + tabs.map(function (id) {
+      return '<button type="button" class="btn sm store-tab' + (id === storeTab ? " on" : "") + '" data-store-tab="' + esc(id) + '">' + esc(storeLabel(id)) + "</button>";
+    }).join("") + "</div>";
+    var rows = stock.map(function (item, i) { return { item: item, i: i }; }).filter(function (row) {
+      return (row.item.store || "general") === storeTab;
+    });
+    box.innerHTML = tabHtml + rows.map(function (row) {
+      var item = row.item;
       var price = num(item.price);
-      return '<div class="store-row"><div><b>' + esc(item.name) + '</b><div class="fine">' + price.toLocaleString() + ' ES</div></div>' +
-        '<button type="button" class="btn" data-buy="' + i + '" aria-label="Buy ' + esc(item.name) + '"' + (es < price ? " disabled title=\"Need " + price.toLocaleString() + " ES (you have " + es.toLocaleString() + ")\"" : "") + ">Buy</button>" +
-        (es < price ? "<div class=\"fine\">Need " + price.toLocaleString() + " ES (you have " + es.toLocaleString() + ")</div>" : "") + "</div>";
+      var sold = !!item.soldOut;
+      var broke = es < price;
+      var ref = item.ref ? ' <span class="ref-tag">ref</span>' : "";
+      return '<div class="store-row' + (sold ? " sold" : "") + '"><div><b>' + esc(item.name) + "</b>" + ref +
+        '<div class="fine">' + price.toLocaleString() + " ES" + (sold ? " · Sold out" : "") + "</div></div>" +
+        '<button type="button" class="btn" data-buy="' + row.i + '" aria-label="Buy ' + esc(item.name) + '"' +
+        (sold || broke ? " disabled" : "") + ">" + (sold ? "Sold out" : "Buy") + "</button></div>";
     }).join("");
   }
 
@@ -382,18 +408,15 @@
     var d = doc();
     if (!d || !d.character || !item) return;
     var name = String(item.name || "Item");
-    var count = 1;
-    var cm = name.match(/(\d+)/);
-    if (cm) count = parseInt(cm[1], 10) || 1;
-    if (/cartridge/i.test(name)) {
-      var tier = /heavy/i.test(name) ? "Heavy" : (/medium/i.test(name) ? "Medium" : "Light");
+    var plan = root.SSDNSStore && root.SSDNSStore.grantPlan ? root.SSDNSStore.grantPlan(item) : { kind: "gear", qty: 1 };
+    if (plan.kind === "cartridge") {
       d.character.ammo = d.character.ammo || [];
       var pool = null;
       d.character.ammo.forEach(function (a) {
-        if (!pool && a.type === "cartridge" && String(a.caliber || "").toLowerCase() === tier.toLowerCase()) pool = a;
+        if (!pool && a.type === "cartridge" && String(a.caliber || "") === String(plan.caliber || "")) pool = a;
       });
-      if (!pool) { pool = { type: "cartridge", caliber: tier, count: 0 }; d.character.ammo.push(pool); }
-      pool.count = (parseInt(pool.count, 10) || 0) + count;
+      if (!pool) { pool = { type: "cartridge", caliber: plan.caliber, count: 0 }; d.character.ammo.push(pool); }
+      pool.count = (parseInt(pool.count, 10) || 0) + (plan.qty || 1);
     } else {
       var line = "• " + name;
       var cur = d.character.equipment || "";
@@ -437,6 +460,7 @@
     if (!joined()) { toast("Join a table before buying"); return; }
     var item = stock[index];
     if (!item) return;
+    if (item.soldOut) { toast("Sold out"); return; }
     var price = num(item.price);
     var Bridge = root.SSDNSBridge;
     var d = doc();
@@ -462,14 +486,18 @@
     storeOpen = true;
     if (Array.isArray(list)) stock = list;
     renderStore();
-    toast("The Eldorite Store is open", "Go", function () {
+    var tabs = storeTabs(stock, true);
+    var label = tabs.length ? storeLabel(tabs[0]) : "Store";
+    var text = tabs.length > 1 ? tabs.map(storeLabel).join(", ") + " are open" : label + " is open";
+    toast(text, "Go", function () {
       var tab = $("#tab-store");
       if (tab) tab.click();
     });
   }
 
-  function setStock(list) {
+  function setStock(list, open) {
     stock = Array.isArray(list) ? list : [];
+    if (open === true || open === false) storeOpen = open;
     renderStore();
   }
 
@@ -1701,6 +1729,8 @@
     document.addEventListener("click", function (e) {
       var buyBtn = e.target.closest && e.target.closest("[data-buy]");
       if (buyBtn) buy(num(buyBtn.getAttribute("data-buy")));
+      var storePick = e.target.closest && e.target.closest("[data-store-tab]");
+      if (storePick) { storeTab = storePick.getAttribute("data-store-tab") || ""; renderStore(); }
       var reopen = e.target.closest && e.target.closest("[data-reopen-handout]");
       if (reopen && !(e.target.closest && e.target.closest("a")) && !(e.target.closest && e.target.closest("[data-handout-zoom]"))) {
         var item = reopen.closest("[data-reopen-handout]") || reopen;
