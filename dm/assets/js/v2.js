@@ -447,6 +447,107 @@ function syncTurnState() {
   DM.state.turnEngaged = !!fight.started;
   DM.state.turnPlayerId = cur && cur.kind === "player" ? (cur.playerId || cur.id || "") : "";
 }
+function signed(n) {
+  const v = Number(n) || 0;
+  return (v >= 0 ? "+" : "") + v;
+}
+function cardMod(score) {
+  if (window.SSDNSApplied && window.SSDNSApplied.abilityMod) return window.SSDNSApplied.abilityMod(score);
+  const n = Number(score);
+  return isFinite(n) ? Math.floor((n - 10) / 2) : 0;
+}
+function featureButtons(list, i, kind) {
+  return (list || []).map((f, n) => {
+    if (!f || typeof f !== "object") return "";
+    const key = kind + ":" + n;
+    const left = f.uses == null ? null : (f._left == null ? f.uses : f._left);
+    const use = f.uses != null
+      ? `<button type="button" class="btn sm" data-feat-use="${i}" data-feat-kind="${esc(kind)}" data-feat-n="${n}">Use ${esc(f.name || "feature")} (${left})</button>`
+      : "";
+    const recharge = f.recharge
+      ? `<button type="button" class="btn sm" data-feat-recharge="${i}" data-feat-kind="${esc(kind)}" data-feat-n="${n}">Recharge ${esc(f.recharge)}</button>`
+      : "";
+    return use || recharge ? `<span data-feat-key="${esc(key)}">${use}${recharge}</span>` : "";
+  }).join(" ");
+}
+function featureBlock(title, list, i, kind) {
+  const text = window.SSDNSApplied && window.SSDNSApplied.traitText ? window.SSDNSApplied.traitText(list) : "";
+  if (!text && !(list && list.length)) return "";
+  return `<p class="fine"><b>${esc(title)}.</b> ${esc(text)}</p><p class="toolbar">${featureButtons(list, i, kind)}</p>`;
+}
+function enemyCardHtml(row, i) {
+  const card = row.card;
+  if (!card) return "";
+  const scores = card.scores || {};
+  const scoreLine = ["STR", "DEX", "CON", "INT", "WIS", "CHA"].map((key) => {
+    const score = scores[key];
+    const mod = cardMod(score);
+    return `<button type="button" class="btn sm" data-card-check="${i}" data-check-mod="${mod}" data-check-label="${esc(key)}">${key} ${score == null ? "—" : esc(score)} (${signed(mod)})</button>`;
+  }).join(" ");
+  const saveLine = Object.keys(card.saves || {}).map((name) => {
+    const bonus = card.saves[name];
+    const n = bonus && typeof bonus === "object" ? bonus.bonus : bonus;
+    return `<button type="button" class="btn sm" data-card-check="${i}" data-check-mod="${Number(n) || 0}" data-check-label="${esc(name)} save">${esc(name)} save ${signed(n)}</button>`;
+  }).join(" ");
+  const skillLine = Object.keys(card.skills || {}).map((name) => {
+    const bonus = card.skills[name];
+    const n = bonus && typeof bonus === "object" ? bonus.bonus : bonus;
+    return `<button type="button" class="btn sm" data-card-check="${i}" data-check-mod="${Number(n) || 0}" data-check-label="${esc(name)}">${esc(name)} ${signed(n)}</button>`;
+  }).join(" ");
+  const attacks = (card.attacks || []).map((atk, n) => {
+    const gun = atk.capacity == null ? "" : ` · ${atk.loaded == null ? "?" : atk.loaded}/${atk.capacity}`;
+    const mf = atk.misfire == null ? "" : ` · MF ${atk.misfire}`;
+    const jam = atk.jammed ? ` <button type="button" class="btn sm" data-clear-jam="${i}" data-atk-n="${n}">Clear jam</button>` : "";
+    return `<p><button type="button" class="btn sm" data-card-atk="${i}" data-atk-n="${n}">${esc(atk.name)} ${signed(atk.toHit)}</button> <span class="fine">${esc(atk.damage || "")}${atk.damageType ? " " + esc(atk.damageType) : ""}${atk.range ? " · " + esc(atk.range) : ""}${gun}${mf}${atk.jammed ? " · jammed" : ""}</span>${jam}</p>`;
+  }).join("");
+  const rider = row.pendingRider
+    ? `<p><button type="button" class="btn sm" data-apply-rider="${i}">Apply ${esc(row.pendingRider.condition || "condition")}${row.pendingRider.targetName ? " to " + esc(row.pendingRider.targetName) : ""}</button></p>`
+    : "";
+  const casting = card.spellcasting;
+  let spells = "";
+  if (casting) {
+    const list = Array.isArray(casting.spells) ? casting.spells : [];
+    const pips = Object.keys(card.slots || {}).map((lv) => {
+      const slot = card.slots[lv];
+      const dots = [];
+      for (let p = 0; p < slot.max; p++) {
+        dots.push(`<button type="button" class="btn sm" data-slot-spend="${i}" data-slot-lv="${esc(lv)}" aria-label="Level ${esc(lv)} slot">${p < slot.left ? "●" : "○"}</button>`);
+      }
+      return `<span class="fine">L${esc(lv)} ${dots.join("")}</span>`;
+    }).join(" ");
+    const buttons = list.map((spell, n) => {
+      const name = typeof spell === "string" ? spell : (spell && spell.name) || "Spell";
+      const blurb = window.SSDNSSpellCast && window.SSDNSSpellCast.blurb ? window.SSDNSSpellCast.blurb(name) : "";
+      return `<p><button type="button" class="btn sm" data-card-cast="${i}" data-spell-n="${n}">Cast ${esc(name)}</button> <span class="fine">${esc(blurb)}</span></p>`;
+    }).join("");
+    spells = `<p class="fine"><b>Spellcasting.</b> DC ${esc(casting.dc == null ? "—" : casting.dc)} · attack ${signed(casting.attack)} ${pips}</p>${buttons}`;
+  }
+  return `<div class="enemy-card">
+    <p class="fine">AC ${esc(row.ac)} · HP ${esc(row.hp)}${row.maxHp != null ? "/" + esc(row.maxHp) : ""} · Speed ${esc(card.speed || "—")}${card.cr ? " · CR " + esc(card.cr) : ""}${card.senses ? " · " + esc(card.senses) : ""}</p>
+    <p class="toolbar">${scoreLine}</p>
+    ${saveLine ? `<p class="toolbar">${saveLine}</p>` : ""}
+    ${skillLine ? `<p class="toolbar">${skillLine}</p>` : ""}
+    ${card.description ? `<p class="fine">${esc(card.description)}</p>` : ""}
+    ${attacks}
+    ${rider}
+    ${featureBlock("Traits", card.traits, i, "traits")}
+    ${featureBlock("Actions", card.actions, i, "actions")}
+    ${featureBlock("Reactions", card.reactions, i, "reactions")}
+    ${featureBlock("Legendary", card.legendary, i, "legendary")}
+    ${spells}
+    <div class="toolbar">
+      <input type="text" data-dice-formula="${i}" value="1d20" aria-label="Dice for ${esc(row.name || "enemy")}" placeholder="2d6+3">
+      <select data-dice-mode="${i}" aria-label="Advantage for ${esc(row.name || "enemy")}">
+        <option value="">Normal</option>
+        <option value="adv">Advantage</option>
+        <option value="dis">Disadvantage</option>
+      </select>
+      <input type="number" data-dice-mod="${i}" value="0" aria-label="Modifier for ${esc(row.name || "enemy")}">
+      <label class="toggle"><input type="checkbox" data-card-public="${i}"${card.public ? " checked" : ""}> Public</label>
+      <button type="button" class="btn sm" data-card-dice="${i}">Roll</button>
+    </div>
+  </div>`;
+}
 function turnRowHtml(row, i) {
   const flash = fight.flash === i ? " flash" : "";
   const status = row.kind === "enemy" ? enemyStatus(row) : "";
@@ -480,6 +581,7 @@ function turnRowHtml(row, i) {
         <button type="button" class="btn sm" data-init-down-move="${i}" aria-label="Move down">↓</button>
         <button type="button" class="btn sm" data-init-del="${i}" aria-label="Remove">✕</button>
       </span>
+      ${row.kind === "enemy" && row.card ? enemyCardHtml(row, i) : ""}
     </div>`;
 }
 function fightRowFromField(el) {
@@ -1265,7 +1367,8 @@ function beastRow(b) {
     attacks: stats.attacks || b.attacks || "",
     attackList: b.attackList || [],
     speed: b.speed,
-    cr: b.cr
+    cr: b.cr,
+    card: window.SSDNSApplied && window.SSDNSApplied.enemyCardModel ? window.SSDNSApplied.enemyCardModel(b) : null
   };
 }
 function renderBestiary() {
@@ -1881,14 +1984,17 @@ function playerTargets() {
   });
   return fromOrder;
 }
-function askEnemyStrike(row) {
+function askEnemyStrike(row, preset) {
   const players = playerTargets();
   const def = row.lastAttackerId || (players[0] && players[0].id) || "";
+  const bonus = preset && preset.toHit != null && preset.toHit !== "" ? preset.toHit : row.atkBonus;
+  const dice = preset && preset.damage ? preset.damage : (row.damage || "");
+  const title = preset && preset.name ? preset.name : "Attack a player";
   return new Promise((resolve) => {
     const dlg = document.createElement("dialog");
     dlg.className = "dlg";
     const options = players.map((p) => `<option value="${esc(p.id)}"${p.id === def ? " selected" : ""}>${esc(p.name)} · AC ${esc(p.ac == null || p.ac === "" ? "?" : p.ac)}</option>`).join("");
-    dlg.innerHTML = `<form method="dialog"><h2>Attack a player</h2><p class="fine">${esc(row.name || "Enemy")} attacks.</p><label>Target <select id="enemyTarget">${options || "<option value=''>No players</option>"}</select></label><label>Attack bonus <input id="enemyBonus" type="number" value="${row.atkBonus == null ? "" : esc(row.atkBonus)}" placeholder="blank asks"></label><label>Damage <input id="enemyDice" value="${esc(row.damage || "")}" placeholder="1d6+2"></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Roll</button></div></form>`;
+    dlg.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2><p class="fine">${esc(row.name || "Enemy")} attacks.</p><label>Target <select id="enemyTarget">${options || "<option value=''>No players</option>"}</select></label><label>Attack bonus <input id="enemyBonus" type="number" value="${bonus == null ? "" : esc(bonus)}" placeholder="blank asks"></label><label>Damage <input id="enemyDice" value="${esc(dice)}" placeholder="1d6+2"></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Roll</button></div></form>`;
     const finish = (ok) => {
       const target = dlg.querySelector("#enemyTarget");
       const bonus = dlg.querySelector("#enemyBonus");
@@ -1942,6 +2048,176 @@ async function enemyStrike(i) {
     });
   }
   DM.toast(detail);
+}
+function targetMod(playerId, ability) {
+  const snap = DM.state.players[playerId] && DM.state.players[playerId].snapshot;
+  if (!snap) return 0;
+  const key = String(ability || "STR").toUpperCase();
+  if (snap.mods && snap.mods[key] != null && snap.mods[key] !== "") return Number(snap.mods[key]) || 0;
+  const scores = snap.abilities || snap.scores || {};
+  if (scores[key] != null) return cardMod(scores[key]);
+  return 0;
+}
+async function publishCardRoll(row, detail, result, extra) {
+  const pub = !!(row.card && row.card.public);
+  const shown = window.SSDNSApplied && window.SSDNSApplied.publicDetail
+    ? window.SSDNSApplied.publicDetail(detail)
+    : detail;
+  await DM.pushRoll(Object.assign({
+    who: row.name || "Enemy",
+    label: row.name || "Enemy",
+    formula: "1d20",
+    result: result,
+    detail: pub ? shown : detail,
+    private: !pub,
+    nat: extra && extra.nat
+  }, extra || {}));
+}
+async function cardStrike(i, n) {
+  const row = fight.order[i];
+  const atk = row && row.card && row.card.attacks && row.card.attacks[n];
+  if (!row || !atk) return;
+  if (atk.jammed) { DM.toast(atk.name + " is jammed"); return; }
+  if (atk.capacity != null && Number(atk.loaded) <= 0) { DM.toast(atk.name + " is empty"); return; }
+  const picked = await askEnemyStrike(row, atk);
+  if (!picked || !picked.targetId) { DM.toast("No player to attack"); return; }
+  const bonus = Number(atk.toHit);
+  const dice = String(atk.damage || "").trim();
+  if (!isFinite(bonus) || !dice) { DM.toast("That attack has no bonus or damage"); return; }
+  row.lastAttackerId = picked.targetId;
+  const target = playerTargets().filter((p) => p.id === picked.targetId)[0] || { id: picked.targetId, name: picked.targetId, ac: null };
+  const nat = d20();
+  const misfire = window.SSDNSApplied && window.SSDNSApplied.isMisfire
+    ? window.SSDNSApplied.isMisfire(nat, atk.misfire)
+    : false;
+  if (atk.capacity != null) atk.loaded = Math.max(0, Number(atk.loaded) - 1);
+  if (misfire) {
+    atk.jammed = true;
+    const detail = row.name + " fires " + atk.name + ": natural " + nat + " misfire. The round is spent.";
+    await publishCardRoll(row, detail, nat, { attack: true, nat: nat });
+    await saveRemoteTable();
+    renderFight();
+    DM.toast(detail + (atk.capacity != null ? " · " + atk.loaded + " left" : ""));
+    return;
+  }
+  const total = nat + bonus;
+  const ac = Number(target.ac);
+  const miss = nat === 1 || (isFinite(ac) && total < ac);
+  const hit = !miss;
+  let dmg = null;
+  if (hit) dmg = DM.parseDice(dice);
+  const bonusTxt = signed(bonus);
+  let detail = row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + (isFinite(ac) ? " vs AC " + ac : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
+  const id = DM.uid("enatk");
+  await publishCardRoll(row, detail, total, {
+    id: id, formula: "1d20" + bonusTxt, attack: true, nat: nat, crit: nat === 20 && hit,
+    targetId: target.id, targetName: target.name, damage: dmg ? dmg.total : null, weapon: atk.name
+  });
+  if (hit && dmg && fight.damageMode !== "approve") {
+    applyPlayerHit({
+      rollId: id, targetId: target.id, targetName: target.name, amount: dmg.total,
+      from: row.id, characterName: row.name, weapon: atk.name, label: atk.name, type: "damage"
+    });
+  }
+  if (hit && atk.rider && atk.rider.condition) {
+    const ability = atk.rider.save || "STR";
+    const dc = Number(atk.rider.dc);
+    const mod = targetMod(target.id, ability);
+    const saveNat = d20();
+    const saveTotal = saveNat + mod;
+    const failed = isFinite(dc) ? saveTotal < dc : true;
+    const saveLine = (target.name || "Target") + " " + ability + " save " + saveNat + signed(mod) + " = " + saveTotal + (isFinite(dc) ? " vs DC " + dc : "") + (failed ? " FAIL" : " OK");
+    await DM.pushRoll({
+      who: row.name, label: row.name, formula: "1d20" + signed(mod), result: saveTotal,
+      detail: saveLine, private: true, nat: saveNat
+    });
+    if (failed) {
+      row.pendingRider = {
+        condition: atk.rider.condition,
+        rounds: atk.rider.rounds,
+        targetId: target.id,
+        targetName: target.name
+      };
+    }
+    detail = saveLine;
+  }
+  await saveRemoteTable();
+  renderFight();
+  DM.toast(detail + (atk.capacity != null && !atk.rider ? " · " + atk.loaded + " left" : ""));
+}
+async function cardCheck(i, mod, label) {
+  const row = fight.order[i];
+  if (!row) return;
+  const bonus = Number(mod) || 0;
+  const nat = d20();
+  const total = nat + bonus;
+  const detail = (row.name || "Enemy") + " " + (label || "check") + " " + nat + signed(bonus) + " = " + total;
+  await publishCardRoll(row, detail, total, { formula: "1d20" + signed(bonus), nat: nat });
+  DM.toast(detail);
+}
+async function cardDice(i) {
+  const row = fight.order[i];
+  if (!row) return;
+  const formula = (document.querySelector("[data-dice-formula='" + i + "']") || {}).value || "1d20";
+  const mode = (document.querySelector("[data-dice-mode='" + i + "']") || {}).value || "";
+  const extra = Number((document.querySelector("[data-dice-mod='" + i + "']") || {}).value) || 0;
+  const out = DM.rollChecked ? DM.rollChecked(String(formula).trim() || "1d20", mode, extra) : DM.parseDice(formula);
+  const detail = (row.name || "Enemy") + " " + formula + " = " + out.total + (out.detail ? " (" + out.detail + ")" : "");
+  await publishCardRoll(row, detail, out.total, { formula: formula, nat: out.nat1 ? 1 : null });
+  DM.toast(detail);
+}
+async function cardCast(i, n) {
+  const row = fight.order[i];
+  const card = row && row.card;
+  const list = card && card.spellcasting && card.spellcasting.spells;
+  const spell = list && list[n];
+  if (!spell) return;
+  const name = typeof spell === "string" ? spell : (spell.name || "Spell");
+  const level = typeof spell === "object" && spell.level ? Number(spell.level) : 0;
+  if (level && card.slots && card.slots[level] && card.slots[level].left <= 0) {
+    DM.toast("No level-" + level + " slot left");
+    return;
+  }
+  const Cast = window.SSDNSSpellCast;
+  const known = Cast && Cast.lookup ? Cast.lookup(name) : null;
+  const kind = known && known.kind;
+  if (level && card.slots && card.slots[level]) card.slots[level].left -= 1;
+  if (kind === "heal") {
+    const dice = (known && known.dice) || "1d8";
+    const out = DM.parseDice(dice);
+    const detail = row.name + " casts " + name + " and heals " + out.total;
+    await publishCardRoll(row, detail, out.total, { formula: dice, heal: true });
+    DM.toast(detail);
+    renderFight();
+    return;
+  }
+  const picked = await askEnemyStrike(row, { name: name, toHit: card.spellcasting.attack, damage: (known && known.dice) || "" });
+  if (!picked || !picked.targetId) return;
+  const target = playerTargets().filter((p) => p.id === picked.targetId)[0] || { id: picked.targetId, name: picked.targetId, ac: null };
+  if (kind === "save") {
+    const ability = (known && known.save) || "DEX";
+    const dc = Number(card.spellcasting.dc);
+    const mod = targetMod(target.id, ability);
+    const nat = d20();
+    const total = nat + mod;
+    const failed = isFinite(dc) ? total < dc : false;
+    const detail = row.name + " casts " + name + ". " + (target.name || "Target") + " " + ability + " save " + nat + signed(mod) + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (failed ? " FAIL" : " OK");
+    await publishCardRoll(row, detail, total, { nat: nat });
+    DM.toast(detail);
+    renderFight();
+    return;
+  }
+  const bonus = Number(card.spellcasting.attack) || 0;
+  const nat = d20();
+  const total = nat + bonus;
+  const ac = Number(target.ac);
+  const hit = nat !== 1 && (!isFinite(ac) || total >= ac);
+  let dmg = null;
+  if (hit && known && known.dice) dmg = DM.parseDice(known.dice);
+  const detail = row.name + " casts " + name + " at " + (target.name || "someone") + ": " + nat + signed(bonus) + " = " + total + (isFinite(ac) ? " vs AC " + ac : "") + (hit ? " → HIT" : " → MISS") + (dmg ? " · " + dmg.total : "");
+  await publishCardRoll(row, detail, total, { attack: true, nat: nat, damage: dmg ? dmg.total : null, targetId: target.id });
+  DM.toast(detail);
+  renderFight();
 }
 async function attackRow(i) {
   const row = fight.order[i];
@@ -2250,8 +2526,14 @@ function watchRequests() {
   if (typeof cb === "function") DM.state.unsubs.push(cb);
 }
 function wireClicks() {
+  document.addEventListener("change", (e) => {
+    const box = e.target;
+    if (!box || !box.getAttribute || !box.hasAttribute("data-card-public")) return;
+    const row = fight.order[parseInt(box.getAttribute("data-card-public"), 10)];
+    if (row && row.card) row.card.public = !!box.checked;
+  });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed]");
+    const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend]");
     if (!t) return;
     if (t.hasAttribute("data-undo-hit")) {
       undoByRoll(t.getAttribute("data-undo-hit"));
@@ -2294,6 +2576,64 @@ function wireClicks() {
     }
     if (t.hasAttribute("data-init-hit")) { attackThis(parseInt(t.getAttribute("data-init-hit"), 10)); return; }
     if (t.hasAttribute("data-init-strike")) { enemyStrike(parseInt(t.getAttribute("data-init-strike"), 10)); return; }
+    if (t.hasAttribute("data-card-atk")) { cardStrike(parseInt(t.getAttribute("data-card-atk"), 10), parseInt(t.getAttribute("data-atk-n"), 10)); return; }
+    if (t.hasAttribute("data-card-check")) { cardCheck(parseInt(t.getAttribute("data-card-check"), 10), t.getAttribute("data-check-mod"), t.getAttribute("data-check-label")); return; }
+    if (t.hasAttribute("data-card-dice")) { cardDice(parseInt(t.getAttribute("data-card-dice"), 10)); return; }
+    if (t.hasAttribute("data-card-cast")) { cardCast(parseInt(t.getAttribute("data-card-cast"), 10), parseInt(t.getAttribute("data-spell-n"), 10)); return; }
+    if (t.hasAttribute("data-clear-jam")) {
+      const row = fight.order[parseInt(t.getAttribute("data-clear-jam"), 10)];
+      const atk = row && row.card && row.card.attacks[parseInt(t.getAttribute("data-atk-n"), 10)];
+      if (atk) { atk.jammed = false; renderFight(); DM.toast(atk.name + " cleared"); }
+      return;
+    }
+    if (t.hasAttribute("data-apply-rider")) {
+      const idx = parseInt(t.getAttribute("data-apply-rider"), 10);
+      const row = fight.order[idx];
+      const pending = row && row.pendingRider;
+      if (pending && pending.targetId) {
+        const names = [{ name: pending.condition || "Prone", rounds: pending.rounds }];
+        writeSubjectConditions(pending.targetId, "player", names, pending.targetName || "", 1, {}, []).then(() => {
+          DM.toast("Applied " + names[0].name);
+        });
+        row.pendingRider = null;
+        renderFight();
+      }
+      return;
+    }
+    if (t.hasAttribute("data-feat-use") || t.hasAttribute("data-feat-recharge")) {
+      const idx = parseInt(t.getAttribute("data-feat-use") || t.getAttribute("data-feat-recharge"), 10);
+      const row = fight.order[idx];
+      const kind = t.getAttribute("data-feat-kind");
+      const n = parseInt(t.getAttribute("data-feat-n"), 10);
+      const list = row && row.card && row.card[kind];
+      const feat = list && list[n];
+      if (!feat) return;
+      if (t.hasAttribute("data-feat-recharge")) {
+        const die = 1 + Math.floor(Math.random() * 6);
+        const band = String(feat.recharge || "");
+        const nums = band.split(/[^0-9]+/).map((x) => parseInt(x, 10)).filter((x) => isFinite(x));
+        const ok = nums.indexOf(die) >= 0 || (nums.length === 2 && die >= nums[0] && die <= nums[1]);
+        if (ok) feat._left = feat.uses == null ? 1 : feat.uses;
+        DM.toast((feat.name || "Feature") + " recharge " + die + (ok ? " restored" : " not yet"));
+        renderFight();
+        return;
+      }
+      const left = feat._left == null ? Number(feat.uses) : Number(feat._left);
+      if (left <= 0) { DM.toast((feat.name || "Feature") + " has no uses left"); return; }
+      feat._left = left - 1;
+      renderFight();
+      DM.toast("Used " + (feat.name || "feature"));
+      return;
+    }
+    if (t.hasAttribute("data-slot-spend")) {
+      const row = fight.order[parseInt(t.getAttribute("data-slot-spend"), 10)];
+      const lv = t.getAttribute("data-slot-lv");
+      const slot = row && row.card && row.card.slots && row.card.slots[lv];
+      if (!slot) return;
+      slot.left = slot.left > 0 ? slot.left - 1 : slot.max;
+      renderFight();
+      return;
+    }
     if (t.hasAttribute("data-init-cond")) { askRowConditions(parseInt(t.getAttribute("data-init-cond"), 10)); return; }
     if (t.hasAttribute("data-your-turn")) { sendYourTurn(fight.order[parseInt(t.getAttribute("data-your-turn"), 10)], false); return; }
     if (t.hasAttribute("data-resend-feed")) {

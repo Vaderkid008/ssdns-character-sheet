@@ -406,6 +406,10 @@ html, body { overflow-x: hidden; max-width: 100%; }
 @keyframes turnflash { from { background: #3d3018; } to { background: transparent; } }
 .init-row input[type="number"] { width: 4.2rem; }
 .init-actions { display: flex; gap: 4px; }
+.enemy-card { flex: 1 0 100%; border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+.enemy-card .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.enemy-card input[type="text"] { width: 7rem; }
+.enemy-card input[type="number"] { width: 4.2rem; }
 .bestiary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .bestiary-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
 .bestiary-card h3 { margin: 0 0 4px; font-family: var(--head); color: var(--parch); font-weight: 400; }

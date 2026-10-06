@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.15"; // dmcc-invite-v0215
+const VERSION = "0.2.16"; // dmcc-enemy-card-v0216
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -160,6 +160,29 @@ function parseDice(formula) {
   const detail = rolls.join("+") + (mod ? (mod >= 0 ? "+" : "") + mod : "");
   const nat1 = n === 1 && sides === 20 && rolls[0] === 1;
   return { total: sum, detail, nat1, rolls };
+}
+function rollChecked(formula, mode, extra) {
+  const bonus = Number(extra) || 0;
+  const first = parseDice(formula);
+  const sign = (n) => (n > 0 ? "+" + n : String(n));
+  if (mode !== "adv" && mode !== "dis") {
+    return {
+      total: first.total + bonus,
+      detail: first.detail + (bonus ? sign(bonus) : ""),
+      nat1: first.nat1,
+      rolls: first.rolls
+    };
+  }
+  const second = parseDice(formula);
+  const pick = mode === "adv"
+    ? (first.total >= second.total ? first : second)
+    : (first.total <= second.total ? first : second);
+  return {
+    total: pick.total + bonus,
+    detail: first.detail + " / " + second.detail + (bonus ? sign(bonus) : "") + (mode === "adv" ? " adv" : " dis"),
+    nat1: pick.nat1,
+    rolls: pick.rolls
+  };
 }
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -1799,8 +1822,11 @@ async function doDmRoll() {
   try {
     const label = ($("#rollLabel").value || "DM roll").trim();
     const formula = ($("#rollFormula").value || "1d20").trim();
-    const priv = $("#rollPrivate").checked;
-    const out = parseDice(formula);
+    const mode = ($("#rollMode") && $("#rollMode").value) || "";
+    const extra = Number($("#rollMod") && $("#rollMod").value) || 0;
+    const pub = $("#rollPublic") && $("#rollPublic").checked;
+    const priv = pub ? false : ($("#rollPrivate") ? $("#rollPrivate").checked : true);
+    const out = rollChecked(formula, mode, extra);
     await pushRoll({
       who: "DM", playerId: null, uid: state.uid || "demo_dm",
       label, formula, result: out.total, detail: out.detail,
@@ -1981,9 +2007,17 @@ function wire() {
   wireTabs();
   const priv = $("#rollPrivate");
   const privState = $("#rollPrivateState");
+  const pub = $("#rollPublic");
   if (priv && privState) {
     const paint = () => { privState.textContent = priv.checked ? "ON" : "OFF"; };
-    priv.addEventListener("change", paint);
+    priv.addEventListener("change", () => {
+      if (priv.checked && pub) pub.checked = false;
+      paint();
+    });
+    if (pub) pub.addEventListener("change", () => {
+      if (pub.checked) priv.checked = false;
+      paint();
+    });
     paint();
   }
   const createRoom = async () => {
@@ -2284,6 +2318,7 @@ window.DMCC = {
   uid: uid,
   toast: toast,
   parseDice: parseDice,
+  rollChecked: rollChecked,
   deepClone: deepClone,
   download: download,
   fmtTime: fmtTime,

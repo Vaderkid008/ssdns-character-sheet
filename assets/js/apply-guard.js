@@ -173,6 +173,83 @@
     url.hash = "";
     return url.toString();
   }
+  function abilityScores(beast) {
+    var b = beast || {};
+    var src = b.abilities || {};
+    function pick(key) {
+      if (src[key] != null && src[key] !== "") return Number(src[key]);
+      var flat = b[key.toLowerCase()];
+      return flat == null || flat === "" ? null : Number(flat);
+    }
+    return { STR: pick("STR"), DEX: pick("DEX"), CON: pick("CON"), INT: pick("INT"), WIS: pick("WIS"), CHA: pick("CHA") };
+  }
+  function abilityMod(score) {
+    var n = Number(score);
+    if (!isFinite(n)) return 0;
+    return Math.floor((n - 10) / 2);
+  }
+  function isMisfire(nat, ceiling) {
+    var n = Number(nat);
+    var c = Number(ceiling);
+    if (!isFinite(n)) return false;
+    if (isFinite(c) && c >= 1) return n <= c;
+    return false;
+  }
+  function publicDetail(text) {
+    return String(text || "")
+      .replace(/\s*vs AC \d+/gi, "")
+      .replace(/\bDC \d+\b/gi, "")
+      .replace(/\s{2,}/g, " ")
+      .replace(/\s+([.,])/g, "$1")
+      .trim();
+  }
+  function enemyCardModel(beast) {
+    var b = beast || {};
+    var attacks = (Array.isArray(b.attackList) ? b.attackList : []).map(function (a, n) {
+      a = a || {};
+      var toHit = a.bonus != null ? a.bonus : (a.toHit != null ? a.toHit : (a.atk != null ? a.atk : b.atkBonus));
+      var cap = a.capacity == null || a.capacity === "" ? null : Number(a.capacity);
+      return {
+        id: a.id || ("atk-" + n),
+        name: a.name || "Attack",
+        kind: a.kind || "",
+        toHit: toHit == null ? "" : toHit,
+        damage: a.damage || a.dice || b.damage || "",
+        damageType: a.damageType || "",
+        range: a.range || "",
+        capacity: cap,
+        loaded: cap,
+        misfire: a.misfire == null || a.misfire === "" ? null : Number(a.misfire),
+        jammed: false,
+        notes: a.notes || "",
+        rider: a.rider || null
+      };
+    });
+    var casting = b.spellcasting || null;
+    var slots = {};
+    if (casting && casting.slots && typeof casting.slots === "object") {
+      Object.keys(casting.slots).forEach(function (lv) {
+        var n = Number(casting.slots[lv]);
+        if (isFinite(n) && n > 0) slots[lv] = { max: n, left: n };
+      });
+    }
+    return {
+      scores: abilityScores(b),
+      saves: b.saves || {},
+      skills: b.skills || {},
+      senses: b.senses || "",
+      description: b.description || "",
+      cr: b.cr || "",
+      speed: b.speed == null ? "" : b.speed,
+      traits: Array.isArray(b.traits) ? b.traits : [],
+      actions: Array.isArray(b.actions) ? b.actions : [],
+      reactions: Array.isArray(b.reactions) ? b.reactions : [],
+      legendary: Array.isArray(b.legendary) ? b.legendary : [],
+      spellcasting: casting,
+      slots: slots,
+      attacks: attacks
+    };
+  }
   function offset() { return offsetMs; }
   /** Age of a stamp against estimated server time. */
   function stampAge(iso) {
@@ -199,6 +276,11 @@
     beastCombatant: beastCombatant,
     traitText: traitText,
     sheetInviteUrl: sheetInviteUrl,
+    abilityScores: abilityScores,
+    abilityMod: abilityMod,
+    isMisfire: isMisfire,
+    publicDetail: publicDetail,
+    enemyCardModel: enemyCardModel,
     healDice: healDice,
     healLine: healLine,
     hitLine: hitLine,
