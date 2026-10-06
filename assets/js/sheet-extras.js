@@ -115,6 +115,19 @@
     if (e.kind === "alert" || e.kind === "dm" || e.kind === "hp") return "alerts";
     return "other";
   }
+  function rollFace(e) {
+    var nat = Number(e.nat);
+    var crit = !!e.crit || nat === 20;
+    var attack = !!e.attack;
+    if (!attack && !crit) {
+      var label = String(e.label || "");
+      var formula = String(e.formula || "");
+      if (/attack/i.test(label) && /1d20|2d20/.test(formula)) attack = true;
+    }
+    if (crit) return { cls: "roll-crit", tag: "CRITICAL" };
+    if (attack) return { cls: "roll-attack", tag: "ATTACK" };
+    return { cls: "", tag: "" };
+  }
   function renderDock() {
     var feed = $("#sheetDockFeed");
     if (!feed) return;
@@ -127,7 +140,10 @@
     feed.innerHTML = slice.map(function (e) {
       var when = "";
       try { when = new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
-      return '<div class="dock-item"><div class="dock-meta">' + when + " · " + esc(dockBucket(e)) + '</div><div>' + esc(e.text || "") + "</div></div>";
+      var face = rollFace(e);
+      return '<div class="dock-item ' + face.cls + '"><div class="dock-meta">' + when + " · " + esc(dockBucket(e)) +
+        (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") +
+        '</div><div>' + esc(e.text || "") + "</div></div>";
     }).join("") || '<p class="fine">Nothing in this filter yet. Rolls, shards, and chat land here.</p>';
     if (stick) feed.scrollTop = feed.scrollHeight;
     var badge = $("#sheetDockBadge");
@@ -160,7 +176,9 @@
     feed.innerHTML = rows.map(function (e) {
       var when = "";
       try { when = new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
-      return '<div class="log-item log-' + (e.kind || "all") + '"><div class="log-meta">' + when + " · " + (e.kind || "") + '</div><div>' +
+      var face = rollFace(e);
+      return '<div class="log-item log-' + (e.kind || "all") + " " + face.cls + '"><div class="log-meta">' + when + " · " + (e.kind || "") +
+        (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") + '</div><div>' +
         String(e.text || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }) +
         "</div></div>";
     }).join("");
@@ -361,6 +379,7 @@
     postCheck(label, formula, total, String(nat) + (mod ? signMod(mod) : ""), nat === 1, false);
   }
   function rollInitiative() {
+    if (root.SSDNSAudio) root.SSDNSAudio.play("holster");
     var inp = document.querySelector('[data-calc="initiative"]');
     var bonus = parseInt(String(inp && inp.value).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(bonus)) {
@@ -379,55 +398,85 @@
     var row = table[spark - 1];
     return "Wild spark " + spark + (row && row.text ? ": " + row.text : ".");
   }
-  function castSpellAttack(i, level, spentNote, fromChamber) {
+  function castSpellAttack(i, spellName, slot, fromChamber) {
     var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
-    if (v.spellAtk == null || v.spellAtk === "") { toast("This Calling has no spell attack."); return; }
-    var atk = parseInt(String(v.spellAtk).replace(/[^\d-]/g, ""), 10);
+    var c = ch();
+    var Cast = root.SSDNSSpellCast;
+    if (!Cast || !Cast.rollCast) { toast("Spell roller isn't loaded."); return; }
+    if ((v.spellAtk == null || v.spellAtk === "") && (v.spellDC == null || v.spellDC === "")) {
+      toast("This Calling has no spell attack.");
+      return;
+    }
+    var atk = parseInt(String(v.spellAtk == null ? "" : v.spellAtk).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(atk)) atk = 0;
-    var nat = 1 + Math.floor(Math.random() * 20);
-    var total = nat + atk;
-    var name = gunName(i);
-    var spark = level > 0 ? wildSparkLine(nat) : "";
-    var dmgPart = level > 0
-      ? "Spell attack only. The shell replaces the cartridge, so gun damage is added only when that spell says to include weapon damage."
-      : "Cantrip: no shell and no chamber, so the gun's damage is not fired.";
-    var text = "Cast through gun · " + name + " · " + spentNote
-      + " · spell attack " + signMod(atk) + ": "
-      + nat + (atk ? signMod(atk) : "") + " = " + total + ". " + dmgPart
-      + (spark ? " " + spark : "");
+    var gunAtkEl = document.querySelector('[data-calc="gunAtk.' + i + '"]');
+    var gunDmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
+    var gunAtk = parseInt(gunAtkEl && String(gunAtkEl.value).replace(/[^\d-]/g, ""), 10);
+    if (!isFinite(gunAtk)) gunAtk = 0;
+    var hexslinger = !!(c && c.calling === "hexslinger");
+    var rolled = Cast.rollCast({
+      spellName: spellName,
+      slotLevel: slot,
+      characterLevel: c && c.level,
+      attackBonus: atk,
+      spellMod: v.spellMod,
+      dc: v.spellDC,
+      weaponDamage: gunDmgEl ? gunDmgEl.value : "",
+      weaponAtk: gunAtk,
+      gunName: gunName(i),
+      wildSpark: hexslinger && slot > 0
+    });
     if (root.SSDNSAudio) root.SSDNSAudio.play("spellcast");
-    toast(text);
-    addLog({ kind: "roll", text: text });
+    toast(rolled.text);
+    addLog({
+      kind: "roll", text: rolled.text, label: rolled.label, formula: rolled.formula,
+      attack: rolled.attack, nat: rolled.nat, crit: rolled.crit
+    });
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
-        label: name + " · Cast through gun · " + spentNote,
-        formula: "1d20" + (atk ? signMod(atk) : "") + " spell",
-        result: total,
-        detail: nat + (atk ? signMod(atk) : "") + " = " + total + (spark ? " · " + spark : ""),
+        label: rolled.label,
+        formula: rolled.formula,
+        result: rolled.result,
+        detail: rolled.detail,
         nat1: false,
         isFirearm: !!fromChamber,
+        attack: rolled.attack,
+        nat: rolled.nat,
+        crit: rolled.crit,
         private: false,
         whisper: false
       });
     }
   }
+  function selectedCast(i) {
+    var spellSel = document.querySelector('[data-castspell="' + i + '"]');
+    var slotSel = document.querySelector('[data-castslot="' + i + '"]');
+    var raw = spellSel && spellSel.value || "";
+    var cut = raw.indexOf(":");
+    if (cut < 0) return null;
+    var level = num(raw.slice(0, cut), 0);
+    var name = raw.slice(cut + 1);
+    if (!name) return null;
+    var slot = level === 0 ? 0 : num(slotSel && slotSel.value, level);
+    return { level: level, name: name, slot: slot };
+  }
   function castThroughGun(i) {
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
-    var sel = document.querySelector('[data-castlvl="' + i + '"]');
-    var level = num(sel && sel.value, 0);
-    if (level > 0) {
+    var pick = selectedCast(i);
+    if (!pick) { toast("Pick a spell from your list."); return; }
+    if (pick.slot > 0) {
       if (!root.SSDNSApp.spendHexChamber) { toast("Cast through gun isn't ready."); return; }
-      var held = root.SSDNSApp.spendHexChamber(i, level);
+      var held = root.SSDNSApp.spendHexChamber(i, pick.slot);
       if (!held.ok) { toast(held.reason); return; }
-      if (!held.alreadySpent && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(level)) {
-        toast("No level-" + level + " slot left.");
+      if (!held.alreadySpent && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(pick.slot)) {
+        toast("No level-" + pick.slot + " slot left.");
         return;
       }
-      castSpellAttack(i, level, "Level " + level + " hex shell fired", true);
+      castSpellAttack(i, pick.name, pick.slot, true);
       return;
     }
-    castSpellAttack(i, 0, "Cantrip · no slot", false);
+    castSpellAttack(i, pick.name, 0, false);
   }
   function castLoadedHex(i, k) {
     var c = ch();
@@ -437,8 +486,22 @@
     var legacy = /^[1-9]$/.test(String(token || ""));
     var level = m ? num(m[1]) : (legacy ? num(token) : 0);
     if (!level) { toast("That chamber isn't a hex shell."); return; }
-    var sel = document.querySelector('[data-castlvl="' + i + '"]');
-    if (sel) sel.value = String(level);
+    var spellSel = document.querySelector('[data-castspell="' + i + '"]');
+    var slotSel = document.querySelector('[data-castslot="' + i + '"]');
+    if (!spellSel) { toast("Pick a level-" + level + " spell, then Cast through gun."); return; }
+    var cur = spellSel.value || "";
+    var curLv = num(String(cur).split(":")[0], -1);
+    if (curLv !== level) {
+      var found = "";
+      Array.prototype.forEach.call(spellSel.options, function (op) {
+        if (found) return;
+        if (num(String(op.value).split(":")[0], -1) === level && op.value.indexOf(":") > 0) found = op.value;
+      });
+      if (!found) { toast("That shell is level " + level + ". Add that spell on your list, then cast it."); return; }
+      spellSel.value = found;
+      spellSel.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (slotSel) slotSel.value = String(level);
     castThroughGun(i);
   }
   function showInspiration(count, on) {
@@ -500,7 +563,12 @@
     }
     if (spent.left != null) bits.push(spent.left + " rounds left.");
     toast(bits.join(" "));
-    addLog({ kind: "roll", text: bits.join(" ") });
+    addLog({
+      kind: "roll", text: bits.join(" "),
+      label: name + " attack",
+      formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
+      attack: true, nat: nat, crit: nat === 20
+    });
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         label: name + (misfired ? " misfire" : " attack"),
@@ -509,6 +577,9 @@
         detail: dice + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (misfired ? " misfire" : ""),
         nat1: false,
         isFirearm: true,
+        attack: true,
+        nat: nat,
+        crit: nat === 20,
         private: false,
         whisper: false
       });
@@ -701,7 +772,11 @@
     var text = label + " " + (atk >= 0 ? "+" : "") + atk + ": " + nat + (atk ? (atk >= 0 ? "+" : "") + atk : "") + " = " + total;
     if (root.SSDNSAudio) root.SSDNSAudio.play("spellcast");
     toast(text);
-    addLog({ kind: "roll", text: text });
+    addLog({
+      kind: "roll", text: text, label: label + " attack",
+      formula: "1d20" + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
+      attack: true, nat: nat, crit: nat === 20
+    });
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         label: label + " attack",
@@ -710,6 +785,9 @@
         detail: String(nat) + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
         nat1: nat === 1,
         isFirearm: false,
+        attack: true,
+        nat: nat,
+        crit: nat === 20,
         private: false,
         whisper: false
       });
@@ -764,11 +842,6 @@
       if (d20) { rollCheck(d20.getAttribute("data-d20")); return; }
       var cast = e.target.closest && e.target.closest("[data-cast]");
       if (cast) { castThroughGun(num(cast.getAttribute("data-cast"))); return; }
-      var b = e.target.closest && e.target.closest("[data-fire],[data-reload],[data-hexload]");
-      if (!b || !root.SSDNSAudio) return;
-      if (b.hasAttribute("data-reload")) root.SSDNSAudio.play("reload");
-      else if (b.hasAttribute("data-hexload") || b.classList.contains("hex")) root.SSDNSAudio.play("spellcast");
-      else if (b.hasAttribute("data-fire")) root.SSDNSAudio.play("attack");
     }, true);
     document.addEventListener("change", function () { renderConds(); renderStore(); });
     var chat = $("#logChat");

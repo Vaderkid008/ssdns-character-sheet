@@ -43,13 +43,16 @@
         features: "Hexslinger: spells channel through iron.\nChaos: sparks fly when the hex goes wrong.",
         personality: "Talks to her guns like old friends.",
         guns: [
-          { name: "Blacksnake", loaded: 6, capacity: 6, atk: "+5", damage: "1d8 +3 piercing", misfire: "1", plain: 5, hex: 1, caster: true, condition: "ok", load: "cartridge", jammed: false, cracked: false, fouled: false, dirty: false, note: "Caster gun" },
-          { name: "Pony Arms Chaosmaker", loaded: 6, capacity: 6, condition: "ok", load: "buck", jammed: false },
-          { name: "Double-Barrel Coach Gun", loaded: 2, capacity: 2, condition: "ok", load: "buck", jammed: false }
+          { name: "Blacksnake", loaded: 6, capacity: 6, atk: "+5", damage: "1d8 +3 piercing", misfire: "1", plain: 5, hex: 1, caster: true, condition: "ok", load: "cartridge", jammed: false, cracked: false, fouled: false, dirty: false, note: "Caster gun",
+            chambers: ["k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:hex:1:spent", "k:cartridge::medium"] },
+          { name: "Pony Arms ChaosMaker (Medium)", loaded: 6, capacity: 6, condition: "ok", load: "buck", jammed: false,
+            chambers: ["k:buck::", "k:buck::", "k:slug::", "k:buck::", "k:buck::", "k:buck::"] },
+          { name: "Double-Barrel Coach Gun", loaded: 2, capacity: 2, condition: "ok", load: "buck", jammed: false,
+            chambers: ["k:buck::", "k:buck::"] }
         ],
         spellAtk: "+5",
         spellDC: 13,
-        spells: { cantrips: ["Powder Spark", "Alkali Bite", "Dust Mirage"], prepared: ["Powder Fan", "Iron Guard", "Dust Run"], slots: { 1: 4, 2: 2 }, spent: { 1: 1 } },
+        spells: { cantrips: ["Fire Bolt (Powder Spark)", "Acid Splash", "Poison Spray"], prepared: ["Burning Hands", "Magic Missile"], slots: { 1: 4, 2: 2 }, spent: { 1: 1 } },
         updatedAt: ago(8000)
       }
     },
@@ -83,8 +86,10 @@
         features: "Deadeye: bonus to ranged attacks after Aim.\nExtra Attack.",
         personality: "Quiet until the shooting starts.",
         guns: [
-          { name: "Peacemaker", loaded: 6, capacity: 6, condition: "ok", load: "cartridge", jammed: false },
-          { name: "Lever Rifle", loaded: 8, capacity: 10, atk: "+6", condition: "dirty", load: "cartridge", jammed: false, cracked: false, fouled: false, dirty: true, note: "Wear +1" }
+          { name: "Pony Arms ChaosMaker (Heavy)", loaded: 6, capacity: 6, condition: "ok", load: "cartridge", jammed: false,
+            chambers: ["k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy"] },
+          { name: "Henrietta Repeating Rifle", loaded: 8, capacity: 10, atk: "+6", condition: "dirty", load: "cartridge", jammed: false, cracked: false, fouled: false, dirty: true, note: "Wear +1",
+            chambers: ["k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "", ""] }
         ],
         spells: { cantrips: [], prepared: [] },
         updatedAt: ago(15000)
@@ -120,7 +125,8 @@
         features: "Balladeer: inspire allies with a verse.\nInstrument as focus.",
         personality: "Never met a stage she didn't like.",
         guns: [
-          { name: "Pocket Derringer", loaded: 2, capacity: 2, condition: "ok", load: "cartridge", jammed: false }
+          { name: "Herringer Light Double Derringer", loaded: 2, capacity: 2, condition: "ok", load: "cartridge", jammed: false,
+            chambers: ["k:cartridge::light", "k:cartridge::light"] }
         ],
         spellAtk: "+5",
         spellDC: 13,
@@ -140,9 +146,10 @@
   ];
 
   var rolls = [
-    { id: "r1", ts: ago(300000), who: "Alex", playerId: "p_jolene", uid: "demo_jolene", label: "Blacksnake attack", formula: "1d20+5", result: 18, detail: "13+5", nat1: false, isFirearm: true, private: false },
+    { id: "r1", ts: ago(300000), who: "Alex", playerId: "p_jolene", uid: "demo_jolene", label: "Blacksnake attack", formula: "1d20+5", result: 18, detail: "13+5", nat: 13, attack: true, crit: false, nat1: false, isFirearm: true, private: false },
     { id: "r2", ts: ago(290000), who: "Alex", playerId: "p_jolene", uid: "demo_jolene", label: "Damage", formula: "2d6+3", result: 11, detail: "4+4+3", nat1: false, isFirearm: false, private: false },
-    { id: "r3", ts: ago(200000), who: "Sam", playerId: "p_caleb", uid: "demo_caleb", label: "Peacemaker attack", formula: "1d20+7", result: 8, detail: "1+7", nat1: true, isFirearm: true, private: false },
+    { id: "r3", ts: ago(200000), who: "Sam", playerId: "p_caleb", uid: "demo_caleb", label: "Pony Arms ChaosMaker (Heavy) attack", formula: "1d20+7", result: 8, detail: "1+7", nat: 1, attack: true, crit: false, nat1: true, isFirearm: true, private: false },
+    { id: "r6", ts: ago(180000), who: "Sam", playerId: "p_caleb", uid: "demo_caleb", label: "Henrietta Repeating Rifle attack", formula: "1d20+6", result: 26, detail: "20+6", nat: 20, attack: true, crit: true, nat1: false, isFirearm: true, private: false },
     { id: "r4", ts: ago(90000), who: "DM", playerId: null, uid: "demo_dm", label: "Dust Devil Stealth", formula: "1d20+4", result: 15, detail: "11+4", nat1: false, isFirearm: false, private: true },
     { id: "r5", ts: ago(45000), who: "Jordan", playerId: "p_mira", uid: "demo_mira", label: "Persuasion (crowd)", formula: "1d20+5", result: 22, detail: "17+5", nat1: false, isFirearm: false, private: false }
   ];

@@ -14,6 +14,7 @@
   var sfxMap = null;
   var musicEl = null;
   var pendingMusic = null;
+  var liveSfx = [];
 
   function prefix() {
     var path = (root.location && root.location.pathname) || "";
@@ -39,6 +40,15 @@
     Array.prototype.forEach.call(boxes, function (el) { el.checked = !prefs.muted; });
     Array.prototype.forEach.call(sliders, function (el) { el.value = String(Math.round(volume() * 100)); });
     if (musicEl) musicEl.volume = volume();
+    applyLive();
+  }
+  function applyLive() {
+    var v = volume();
+    liveSfx = liveSfx.filter(function (audio) {
+      if (!audio || audio.ended) return false;
+      try { audio.volume = v; } catch (e) {}
+      return true;
+    });
   }
 
   function loadMap() {
@@ -60,13 +70,23 @@
     return audio;
   }
 
-  function play(eventName) {
-    if (prefs.muted) return;
-    loadMap().then(function (map) {
-      var file = map && map[eventName];
-      if (!file) return;
-      playUrl(fileUrl("sfx", file), false);
+  function startSfx(map, eventName) {
+    var file = map && map[eventName];
+    if (!file || prefs.muted || volume() <= 0) return;
+    var audio = playUrl(fileUrl("sfx", file), false);
+    if (!audio) return;
+    liveSfx.push(audio);
+    audio.addEventListener("ended", function () {
+      var i = liveSfx.indexOf(audio);
+      if (i >= 0) liveSfx.splice(i, 1);
     });
+  }
+
+  function play(eventName) {
+    if (prefs.muted || volume() <= 0) return;
+    // Play in this turn when the map is already loaded so a button click is still a user gesture.
+    if (sfxMap) { startSfx(sfxMap, eventName); return; }
+    loadMap().then(function (map) { startSfx(map, eventName); });
   }
 
   function stopMusic() {

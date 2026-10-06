@@ -270,7 +270,7 @@ async function pushHp(kind) {
       DM.renderPlayers();
     }
   });
-  if (window.SSDNSAudio) window.SSDNSAudio.play(kind === "heal" ? "reward" : "attack");
+  if (window.SSDNSAudio && kind === "heal") window.SSDNSAudio.play("reward");
   DM.toast(kind + " " + amount + " → " + (names.characterName || "player"));
 }
 
@@ -649,7 +649,8 @@ function decorateDetail(pid) {
       </div>
       <p class="lede">Roll weapon is a plain attack. It never spends a spell slot.</p>
       <div class="toolbar">
-        <select id="detailSlot" aria-label="Shell level">${slotOptions(s)}</select>
+        <select id="detailSpell" aria-label="Spell to cast">${spellOptions(s)}</select>
+        <select id="detailSlot" aria-label="Shell or slot level">${slotOptions(s)}</select>
         <button type="button" class="btn sm" id="btnDetailSpell">Cast through gun</button>
       </div>
     </div>
@@ -721,31 +722,79 @@ function decorateDetail(pid) {
   });
   $("#btnDetailAttack").addEventListener("click", () => rollGunAttack(pid));
   const spellBtn = $("#btnDetailSpell");
+  const spellSel = $("#detailSpell");
   const slotSel = $("#detailSlot");
+  function fillSlots() {
+    if (!spellSel || !slotSel) return;
+    const spellLv = parseInt(String(spellSel.value || "0").split(":")[0], 10) || 0;
+    const keep = slotSel.value;
+    slotSel.innerHTML = slotOptions(s, spellLv);
+    slotSel.hidden = spellLv === 0;
+    if (keep && [...slotSel.options].some((o) => o.value === keep)) slotSel.value = keep;
+  }
   function syncCastBtn() {
-    if (!spellBtn || !slotSel) return;
+    if (!spellBtn || !slotSel || !spellSel) return;
+    if (!spellSel.value) { spellBtn.disabled = true; return; }
     const lv = parseInt(slotSel.value, 10) || 0;
     if (!lv) { spellBtn.disabled = false; return; }
+    const isHex = s.callingId === "hexslinger" || /hexslinger/i.test(s.calling || "");
+    if (isHex) {
+      const gunsNow = (s.guns || []).filter((g) => g && g.name);
+      const gi = parseInt($("#detailGun") && $("#detailGun").value, 10);
+      spellBtn.disabled = !hexHeld(gunsNow[gi], lv);
+      return;
+    }
     const text = slotSel.selectedOptions && slotSel.selectedOptions[0] ? slotSel.selectedOptions[0].textContent : "";
     const m = String(text).match(/(\d+)\s*\/\s*(\d+)/);
     spellBtn.disabled = !!(m && Number(m[1]) <= 0);
   }
+  if (spellSel) spellSel.addEventListener("change", () => { fillSlots(); syncCastBtn(); });
   if (spellBtn) spellBtn.addEventListener("click", () => { if (!spellBtn.disabled) rollSpell(pid); });
   if (slotSel) slotSel.addEventListener("change", syncCastBtn);
+  fillSlots();
   syncCastBtn();
 }
 
-function slotOptions(s) {
+function spellOptions(s) {
+  const spells = (s && s.spells) || {};
+  const out = [];
+  (spells.cantrips || []).forEach((name) => {
+    if (name) out.push(`<option value="0:${esc(name)}">${esc(name)}</option>`);
+  });
+  (spells.prepared || []).forEach((name) => {
+    if (!name) return;
+    const row = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup(name);
+    const lv = row && typeof row.level === "number" ? row.level : 1;
+    if (!lv) return;
+    out.push(`<option value="${lv}:${esc(name)}">${esc(name)} · ${lv}</option>`);
+  });
+  return out.join("") || '<option value="">No spells on the sheet</option>';
+}
+function hexHeld(g, level) {
+  if (!g) return false;
+  const ch = g.chambers;
+  if (Array.isArray(ch) && ch.length) {
+    return ch.some((st) => {
+      const s = String(st || "");
+      if (s === String(level)) return true;
+      return s.indexOf("k:hex:" + level + ":") === 0;
+    });
+  }
+  return Number(g.hex) > 0;
+}
+
+function slotOptions(s, minLevel) {
   const slots = (s.spells && s.spells.slots) || {};
   const spent = (s.spells && s.spells.spent) || {};
-  let html = '<option value="0">Cantrip</option>';
-  for (let lv = 1; lv <= 9; lv++) {
+  const floor = Math.max(1, parseInt(minLevel, 10) || 1);
+  let html = "";
+  for (let lv = floor; lv <= 9; lv++) {
     const total = Number(slots[lv] || 0);
-    if (!total) continue;
+    if (!total && lv !== floor) continue;
     const left = Math.max(0, total - Number(spent[lv] || 0));
-    html += `<option value="${lv}">Level ${lv} · ${left}/${total}</option>`;
+    html += `<option value="${lv}">Level ${lv}${total ? " · " + left + "/" + total : ""}</option>`;
   }
-  return html;
+  return html || `<option value="${floor}">Level ${floor}</option>`;
 }
 
 function atkNumber(text) {
@@ -813,7 +862,7 @@ async function rollGunAttack(pid) {
     label: g.name + (misfire ? " misfire" : " attack"),
     formula: (n2 == null ? "1d20" : "2d20") + (bonus ? (bonus >= 0 ? "+" : "") + bonus : ""),
     result: total, detail: dice + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + (misfire ? " misfire" : ""),
-    nat1: false, isFirearm: true, private: false
+    nat1: false, isFirearm: true, attack: true, nat: nat, crit: nat === 20, private: false
   });
   const names = namesFor(pid);
   if (both) {
@@ -853,8 +902,12 @@ async function rollGunAttack(pid) {
 async function rollSpell(pid) {
   const p = DM.state.players[pid];
   const s = (p && p.snapshot) || {};
-  if (s.spellAtk == null || s.spellAtk === "") { DM.toast("No spell attack on this sheet"); return; }
-  const level = parseInt($("#detailSlot") && $("#detailSlot").value, 10) || 0;
+  const raw = ($("#detailSpell") && $("#detailSpell").value) || "";
+  const cut = raw.indexOf(":");
+  const spellName = cut >= 0 ? raw.slice(cut + 1) : "";
+  const spellLv = cut >= 0 ? (parseInt(raw.slice(0, cut), 10) || 0) : 0;
+  if (!spellName) { DM.toast("Pick a spell from the sheet"); return; }
+  const level = spellLv ? (parseInt($("#detailSlot") && $("#detailSlot").value, 10) || spellLv) : 0;
   s.spells = s.spells || {};
   s.spells.slots = s.spells.slots || {};
   s.spells.spent = s.spells.spent || {};
@@ -862,51 +915,51 @@ async function rollSpell(pid) {
   const gi = parseInt($("#detailGun") && $("#detailGun").value, 10);
   const g = guns[gi];
   const isHex = s.callingId === "hexslinger" || /hexslinger/i.test(s.calling || "");
-  let slotNote = level ? ("Level " + level + " slot spent") : "Cantrip · no slot";
   if (level && isHex) {
-    if (!g || !(Number(g.hex) > 0)) {
-      DM.toast("Load a hex shell first. Loading spends the slot. Cast through gun only fires it.");
+    if (!hexHeld(g, level)) {
+      DM.toast("Load a level-" + level + " hex shell first. Loading spends the slot. Cast through gun only fires it.");
       return;
     }
-    g.hex = Number(g.hex) - 1;
+    if (Array.isArray(g.chambers)) {
+      const idx = g.chambers.findIndex((st) => String(st) === String(level) || String(st || "").indexOf("k:hex:" + level + ":") === 0);
+      if (idx >= 0) g.chambers[idx] = "";
+    }
+    if (Number(g.hex) > 0) g.hex = Number(g.hex) - 1;
     if (Number(g.loaded) > 0) g.loaded = Number(g.loaded) - 1;
-    slotNote = "Level " + level + " hex shell fired";
     await DM.pushCommand({ type: "hex_fire", to: pid, payload: { level: level }, from: DM.state.uid });
   } else if (level) {
     const totalSlots = Number(s.spells.slots[level] || 0);
     const used = Number(s.spells.spent[level] || 0);
     if (!totalSlots || used >= totalSlots) { DM.toast("No level-" + level + " slot left"); return; }
     s.spells.spent[level] = used + 1;
-    const slotWord = s.callingId === "pact-seeker" ? "pact slot" : "spell slot";
-    slotNote = "Level " + level + " " + slotWord + " spent";
     await DM.pushCommand({ type: "hex_spend", to: pid, payload: { level: level }, from: DM.state.uid });
   }
-  const bonus = atkNumber(s.spellAtk);
-  const nat = 1 + Math.floor(Math.random() * 20);
-  const total = nat + bonus;
-  let spark = "";
-  if (nat === 1 && level && isHex) {
-    const table = (window.SSDNS_RULES && window.SSDNS_RULES.wildSpark) || [];
-    const sparkN = 1 + Math.floor(Math.random() * 6);
-    const row = table[sparkN - 1];
-    spark = "Wild spark " + sparkN + (row && row.text ? ": " + row.text : ".");
-  }
-  const dmgPart = level
-    ? ("Spell attack only" + (g ? " through " + g.name : "") + ". Gun damage is added only when that spell says to include weapon damage.")
-    : "Cantrip damage only (no shell, no chamber).";
-  const label = "Cast through gun · " + slotNote + (g ? " · " + g.name : "");
+  const Cast = window.SSDNSSpellCast;
+  if (!Cast || !Cast.rollCast) { DM.toast("Spell roller isn't loaded"); return; }
+  const rolled = Cast.rollCast({
+    spellName: spellName,
+    slotLevel: level,
+    characterLevel: s.level,
+    attackBonus: atkNumber(s.spellAtk),
+    spellMod: s.spellMod,
+    dc: s.spellDC,
+    weaponDamage: g && g.damage,
+    weaponAtk: g ? atkNumber(g.atk) : atkNumber(s.spellAtk),
+    gunName: g && g.name,
+    wildSpark: isHex && level > 0
+  });
   if (window.SSDNSAudio) window.SSDNSAudio.play("spellcast");
   await DM.pushRoll({
     who: (s.player || s.name || "Player"),
     playerId: pid, uid: DM.state.uid,
-    label: label,
-    formula: "1d20" + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + " spell",
-    result: total,
-    detail: nat + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + " = " + total + " · " + dmgPart + (spark ? " " + spark : ""),
-    nat1: false, isFirearm: true, private: false
+    label: rolled.label,
+    formula: rolled.formula,
+    result: rolled.result,
+    detail: rolled.detail,
+    nat1: false, isFirearm: !!level, attack: rolled.attack, nat: rolled.nat, crit: rolled.crit, private: false
   });
   DM.renderPlayers();
-  DM.toast(label + " → " + total);
+  DM.toast(rolled.text);
 }
 
 function wireClicks() {

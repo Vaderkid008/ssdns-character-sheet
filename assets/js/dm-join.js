@@ -97,7 +97,8 @@
         dirty: !!g.dirty,
         misfire: st && st.misfire ? st.misfire : "",
         rugged: !!(st && st.w && /rugged/i.test(st.w.properties || "")),
-        note: st && st.note ? st.note : ""
+        note: st && st.note ? st.note : "",
+        chambers: (g.chambers || []).slice()
       };
     }).filter(Boolean);
 
@@ -154,6 +155,7 @@
       deathSaves: c.deathSaves || { success: [false, false, false], fail: [false, false, false] },
       spellAtk: v.spellAtk || "",
       spellDC: v.spellDC || "",
+      spellMod: v.spellMod,
       spells: {
         cantrips: (c.cantrips || []).filter(Boolean),
         prepared: prepared,
@@ -290,16 +292,11 @@
   }
   function listenCommands() {
     var fb = state._fb;
-    var r = fb.ref(state.db, roomPath("commands"));
     var hadSeen = loadSeen();
-    var first = true;
-    var cb = fb.onValue(r, function (snap) {
-      var val = snap.val() || {};
-      // First Join after this fix: ES rewards already in the room were applied
-      // to the wallet and adopted on refresh. Mark them seen so they don't add again.
-      var skipExistingEs = first && !hadSeen;
-      first = false;
-      Object.keys(val).forEach(function (id) {
+    function take(val, skipExistingEs) {
+      // Each feed's first snapshot is history. An empty broadcast must not
+      // make the commands snapshot look new, or old ES rewards would pay again.
+      Object.keys(val || {}).forEach(function (id) {
         if (state.lastCmdSeen[id]) return;
         var cmd = val[id];
         if (!cmd) return;
@@ -313,8 +310,21 @@
         try { handleCommand(cmd); } catch (err) { console.warn("[DM Join] command", err); }
       });
       if (skipExistingEs) saveSeen();
-    });
-    state.unsubs.push(function () { fb.off(r, "value", cb); });
+    }
+    function bind(path) {
+      var primed = false;
+      var r = fb.ref(state.db, roomPath(path));
+      var cb = fb.onValue(r, function (snap) {
+        var skipExistingEs = !primed && !hadSeen;
+        primed = true;
+        take(snap.val() || {}, skipExistingEs);
+      }, function () {});
+      state.unsubs.push(function () { try { fb.off(r, "value", cb); } catch (e) {} });
+    }
+    // commands is DM-only once the room-wide read is gone. broadcast and inbox are what a player can read.
+    bind("commands");
+    bind("broadcast");
+    bind("inbox/" + state.uid);
   }
 
   function handleCommand(cmd) {

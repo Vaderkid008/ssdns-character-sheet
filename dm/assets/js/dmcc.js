@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.4"; // dmcc-addict-dm
+const VERSION = "0.2.5"; // dmcc-cast-v028
 const NOTES_KEY = "ssdns.dmcc.notes";
 const ROOM_KEY = "ssdns.dmcc.lastRoom";
 const WORDS = ["DUST", "IRON", "HEX", "RUST", "BONE", "COIL", "SAGE", "RAIL", "OXEN", "VELD", "ASH", "QUILL"];
@@ -499,8 +499,14 @@ async function pushCommand(cmd) {
     toast("Command queued (demo): " + cmd.type + (cmd.to && cmd.to !== "all" ? " → " + cmd.to : " → all"));
     return;
   }
-  try { await state._fb.set(roomRef("commands/" + cmd.id), cmd); toast("Sent: " + cmd.type); }
-  catch (e) { toast("Command failed"); console.warn(e); }
+  const to = cmd.to || "all";
+  try {
+    await state._fb.set(roomRef("commands/" + cmd.id), cmd);
+    const copy = to && to !== "all" ? "inbox/" + to + "/" + cmd.id : "broadcast/" + cmd.id;
+    try { await state._fb.set(roomRef(copy), cmd); }
+    catch (err) { console.warn("[DMCC] deliver", err); }
+    toast("Sent: " + cmd.type);
+  } catch (e) { toast("Command failed"); console.warn(e); }
 }
 
 async function applyEsToDemoPlayer(playerId, delta) {
@@ -624,6 +630,69 @@ function slotLine(s) {
   return bits.length ? "Shells " + bits.join(" · ") : "";
 }
 
+const HEX_CASE = ["#c4b5fd", "#a78bfa", "#8b5cf6", "#7c3aed", "#6d28d9", "#5b21b6", "#4c1d95", "#3b0764", "#2e1065"];
+const SPECIAL_CASE = { buck: "#c4a35a", slug: "#6b4f3a", percussion: "#7d8b99", bigfifty: "#4d6270", arrows: "#5e8a55" };
+function chamberTokens(g) {
+  if (Array.isArray(g.chambers) && g.chambers.length) return g.chambers.slice();
+  const cap = Number(g.capacity) || 0;
+  const out = [];
+  let plain = Number(g.plain);
+  let hex = Number(g.hex);
+  if (!isFinite(plain)) plain = Math.max(0, (Number(g.loaded) || 0) - (isFinite(hex) ? hex : 0));
+  if (!isFinite(hex)) hex = 0;
+  const kind = (g.load === "buck" || g.load === "slug") ? g.load : "cartridge";
+  for (let i = 0; i < cap; i++) {
+    if (hex > 0) { out.push("k:hex:1:spent"); hex--; }
+    else if (plain > 0) { out.push("k:" + kind + "::"); plain--; }
+    else out.push("");
+  }
+  return out;
+}
+function cylinderHtml(g) {
+  const tokens = chamberTokens(g);
+  if (!tokens.length) return "";
+  const next = tokens.findIndex(Boolean);
+  return `<div class="chambers" aria-label="${esc(g.name || "Gun")} cylinder">${tokens.map((st, k) => {
+    const s = String(st || "");
+    let cls = "chamber";
+    let style = "";
+    let text = "";
+    let label = "Empty";
+    if (/^[1-9]$/.test(s) || s.indexOf("k:hex:") === 0) {
+      const lv = s.indexOf("k:hex:") === 0 ? (s.split(":")[2] || "1") : s;
+      const color = HEX_CASE[Math.max(0, (parseInt(lv, 10) || 1) - 1)] || "#9b6fd6";
+      cls += " loaded tinted hex";
+      style = `--case:${color}`;
+      text = esc(lv);
+      label = "Hex shell " + lv;
+    } else if (s) {
+      const kind = (s.split(":")[1] || "");
+      if (SPECIAL_CASE[kind]) {
+        cls += " loaded tinted";
+        style = `--case:${SPECIAL_CASE[kind]}`;
+        label = kind;
+      } else {
+        cls += " loaded brass";
+        label = "Cartridge";
+      }
+    }
+    if (k === next) cls += " next";
+    return `<span class="${cls}"${style ? ` style="${style}"` : ""} title="${esc(label)}" aria-label="${esc(label)}">${text}</span>`;
+  }).join("")}</div>`;
+}
+function rollFace(r) {
+  let nat = Number(r && r.nat);
+  if (!isFinite(nat) && r && /1d20|2d20/.test(String(r.formula || ""))) {
+    const m = String(r.detail || "").match(/^(\d+)/);
+    if (m) nat = Number(m[1]);
+  }
+  const crit = !!(r && (r.crit || nat === 20));
+  let attack = !!(r && r.attack);
+  if (!attack && r && /attack/i.test(String(r.label || "")) && /1d20|2d20/.test(String(r.formula || ""))) attack = true;
+  if (crit) return { cls: "roll-crit", tag: "CRITICAL", attack: true, crit: true };
+  if (attack) return { cls: "roll-attack", tag: "ATTACK", attack: true, crit: false };
+  return { cls: "", tag: "", attack: false, crit: false };
+}
 function renderPlayers() {
   const grid = $("#playerGrid");
   const list = Object.values(state.players);
@@ -650,7 +719,7 @@ function renderPlayers() {
       const flags = [g.jammed ? "jammed" : "", g.cracked ? "cracked" : "", g.fouled ? "fouled" : "", g.dirty ? "dirty" : ""].filter(Boolean);
       const cls = g.jammed ? "jammed" : (g.condition === "worn" || g.condition === "cracked" ? "worn" : "");
       const cond = flags.length ? flags.join(", ") : (g.condition || "ok");
-      return `<div class="gun-chip ${cls}">${esc(g.name)} · ${g.loaded ?? "?"}/${g.capacity ?? "?"} rounds · ${esc(cond)}</div>`;
+      return `<div class="gun-chip ${cls}"><div>${esc(g.name)} · ${g.loaded ?? "?"}/${g.capacity ?? "?"} rounds · ${esc(cond)}</div>${cylinderHtml(g)}</div>`;
     }).join("") || '<div class="gun-chip">No guns listed</div>';
     return `<button type="button" class="pcard ${on ? "" : "offline"} ${downed ? "downed" : ""}" data-pid="${esc(p.id)}">
       <div class="pcard-head">
@@ -714,7 +783,7 @@ function openDetail(pid) {
     <div class="detail-section"><h3>Abilities</h3><div class="abil-grid">${abilHtml}</div></div>
     <div class="detail-section"><h3>Saves</h3><p>${saves}</p></div>
     <div class="detail-section"><h3>Skills</h3><p>${skills}</p></div>
-    <div class="detail-section"><h3>Guns</h3><pre>${esc(guns)}</pre></div>
+    <div class="detail-section"><h3>Guns</h3>${(s.guns || []).filter((g) => g && g.name).map((g) => `<div class="gun-chip ${g.jammed ? "jammed" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}</div>`).join("") || "<p>—</p>"}</div>
     <div class="detail-section"><h3>Equipment</h3><pre>${esc(s.equipment || "—")}</pre></div>
     <div class="detail-section"><h3>Features</h3><pre>${esc(s.features || "—")}</pre></div>
     <div class="detail-section"><h3>Spells</h3><p>${esc(slotLine(s) || "No shell slots")}${s.spellAtk ? " · attack " + esc(s.spellAtk) : ""}${s.spellDC ? " · DC " + esc(s.spellDC) : ""}</p><pre>${esc(spellTxt)}</pre></div>
@@ -769,12 +838,17 @@ function dockItems() {
       text: e.what || e.type || ""
     });
   });
-  (state.rolls || []).forEach((r) => rows.push({
-    ts: r.ts,
-    kind: (r.nat1 && r.isFirearm) ? "alerts" : "rolls",
-    who: r.who || "",
-    text: (r.label || "Roll") + " " + (r.formula || "") + " = " + (r.result ?? "")
-  }));
+  (state.rolls || []).forEach((r) => {
+    const face = rollFace(r);
+    rows.push({
+      ts: r.ts,
+      kind: (r.nat1 && r.isFirearm) ? "alerts" : "rolls",
+      who: r.who || "",
+      cls: face.cls,
+      tag: face.tag,
+      text: (r.label || "Roll") + " " + (r.formula || "") + " = " + (r.result ?? "") + (r.detail ? " · " + r.detail : "")
+    });
+  });
   (state.messages || []).forEach((m) => rows.push({
     ts: m.ts, kind: "alerts",
     who: "DM → " + (m.toName || m.to || "player"),
@@ -811,7 +885,7 @@ function renderLiveDock() {
   const items = all.filter((row) => filter === "all" || row.kind === filter || (filter === "alerts" && row.kind === "alerts"));
   const stick = feed.dataset.stick !== "0";
   feed.innerHTML = items.slice(-80).map((row) =>
-    `<div class="dock-item dock-${esc(row.kind)}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${esc(row.who)}</div><div>${esc(row.text)}</div></div>`
+    `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${esc(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${esc(row.text)}</div></div>`
   ).join("") || '<p class="lede">Nothing in this filter yet.</p>';
   if (stick) feed.scrollTop = feed.scrollHeight;
   if (dockIsOpen()) dockSeen = all.length;
@@ -831,17 +905,23 @@ async function sendDockChat(text, to) {
   if (to && to !== "all") {
     const names = namesFor(to);
     row.toName = names.characterName || names.playerName || to;
+    await pushMessage({
+      from: row.from, fromName: "DM", to: to, toName: row.toName, text: text, read: false
+    });
+    await pushCommand({ type: "message", to: to, payload: { text: text }, from: state.uid });
+    toast("Sent to " + (row.toName || "that player"));
+    return;
   }
   if (state.demo || !state.db) {
     state.chat = state.chat || [];
     state.chat.push(row);
     renderLiveDock();
-    toast(to && to !== "all" ? "Sent to " + (row.toName || "that player") : "Sent to the table");
+    toast("Sent to the table");
     return;
   }
   try {
     await state._fb.set(roomRef("chat/" + row.id), row);
-    toast(to && to !== "all" ? "Sent to " + (row.toName || "that player") : "Sent to the table");
+    toast("Sent to the table");
   } catch (e) { toast("Chat failed"); console.warn(e); }
 }
 
@@ -857,11 +937,13 @@ function renderRolls() {
   if (window.DMCCEnhance && window.DMCCEnhance.onRolls) window.DMCCEnhance.onRolls(visible);
   feed.innerHTML = visible.map((r) => {
     const nat = r.nat1 && r.isFirearm;
-    return `<div class="feed-item ${nat ? "nat1" : ""} ${r.private ? "private" : ""}">
+    const face = rollFace(r);
+    return `<div class="feed-item ${nat ? "nat1" : ""} ${face.cls} ${r.private ? "private" : ""}">
       <div class="feed-meta">
         <span>${esc(fmtTime(r.ts))}</span>
         <span>${esc(r.who)}</span>
         ${r.private ? '<span class="badge">Private</span>' : ""}${r.whisper ? '<span class="badge">Whisper</span>' : ""}
+        ${face.tag ? '<span class="roll-tag">' + esc(face.tag) + "</span>" : ""}
         ${nat ? '<span class="badge danger">Nat 1 · firearm</span>' : ""}
       </div>
       <div class="feed-what"><b>${esc(r.label || "Roll")}</b> · ${esc(r.formula)} = <b style="color:var(--eld)">${esc(r.result)}</b> <span style="color:var(--muted)">(${esc(r.detail)})</span></div>

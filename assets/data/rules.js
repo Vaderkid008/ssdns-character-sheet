@@ -1,11 +1,11 @@
-/* SSDNS rules data. GENERATED from BOOK1.md (sha1 5abfec3369bc) on 2026-10-06 02:29 CT by tools/build_rules.py. Do not hand-edit. */
+/* SSDNS rules data. GENERATED from BOOK1.md (sha1 5abfec3369bc) on 2026-10-05 21:57 CT by tools/build_rules.py. Do not hand-edit. */
 window.SSDNS_RULES = {
  "meta": {
   "title": "Six-Shooters & Sorcery: Dust and Shadows",
   "short": "SSDNS",
   "source": "BOOK1.md",
   "sourceSha1": "5abfec3369bc",
-  "builtAt": "2026-10-06 02:29 CT",
+  "builtAt": "2026-10-05 21:57 CT",
   "rulesVersion": 3,
   "currencyUnit": "ES",
   "note": "Generated from the live PHB markdown by tools/build_rules.py. Do not hand-edit; re-run the script."
@@ -8863,7 +8863,7 @@ window.SSDNS_RULES = {
      "Minor Illusion (Dust Mirage)",
      "Prestidigitation (Trail Trick)",
      "True Strike (Dead Reckoning)",
-     "Vicious Mockery (Tongue Lashing)."
+     "Vicious Mockery (Tongue Lashing)"
     ],
     "1": [
      "Animal Friendship",
@@ -8886,7 +8886,7 @@ window.SSDNS_RULES = {
      "Sleep (Chloroform)",
      "Speak with Animals",
      "Thunderwave (Porch Boom)",
-     "Unseen Servant (Clockwork Help)."
+     "Unseen Servant (Clockwork Help)"
     ],
     "2": [
      "Animal Messenger",
@@ -8910,7 +8910,7 @@ window.SSDNS_RULES = {
      "Shatter (Resonance)",
      "Silence",
      "Suggestion (Sweet Talk)",
-     "Zone of Truth (Under Oath)."
+     "Zone of Truth (Under Oath)"
     ],
     "3": [
      "Bestow Curse",
@@ -8928,7 +8928,7 @@ window.SSDNS_RULES = {
      "Speak with Plants",
      "Stinking Cloud (Rotten Eggs)",
      "Tiny Hut (Bedroll Camp)",
-     "Tongues."
+     "Tongues"
     ],
     "4": [
      "Compulsion",
@@ -8938,7 +8938,7 @@ window.SSDNS_RULES = {
      "Greater Invisibility (Glass Man)",
      "Hallucinatory Terrain (Fata Morgana)",
      "Locate Creature (Wanted)",
-     "Polymorph (Beast Within)."
+     "Polymorph (Beast Within)"
     ],
     "5": [
      "Animate Objects (Poltergeist)",
@@ -8955,7 +8955,7 @@ window.SSDNS_RULES = {
      "Planar Binding",
      "Scrying",
      "Seeming (Masquerade)",
-     "Teleportation Circle (Surveyed Route)."
+     "Teleportation Circle (Surveyed Route)"
     ],
     "6": [
      "Eyebite (Evil Eye)",
@@ -8964,7 +8964,7 @@ window.SSDNS_RULES = {
      "Irresistible Dance (Make 'Em Dance)",
      "Mass Suggestion (Medicine Show)",
      "Programmed Illusion (Kinetoscope)",
-     "True Seeing."
+     "True Seeing"
     ],
     "7": [
      "Arcane Sword (Phantom Saber)",
@@ -8975,19 +8975,19 @@ window.SSDNS_RULES = {
      "Project Image (Stand-In)",
      "Regenerate",
      "Symbol",
-     "Teleport (Long Gone)."
+     "Teleport (Long Gone)"
     ],
     "8": [
      "Dominate Monster (Broke to Saddle)",
      "Feeblemind (Loco Weed)",
      "Glibness (Silver Tongue)",
      "Mind Blank (Poker Face)",
-     "Power Word Stun (Hush)."
+     "Power Word Stun (Hush)"
     ],
     "9": [
      "Foresight",
      "Power Word Kill (Last Word)",
-     "True Polymorph."
+     "True Polymorph"
     ]
    },
    "bonusLists": []
@@ -9004,7 +9004,7 @@ window.SSDNS_RULES = {
      "Resistance",
      "Sacred Flame (Brimstone)",
      "Spare the Dying (Last Rites)",
-     "Thaumaturgy."
+     "Thaumaturgy"
     ],
     "1": [
      "Bane (Jinx)",
@@ -9020,7 +9020,7 @@ window.SSDNS_RULES = {
      "Inflict Wounds (Gut Shot)",
      "Protection from Evil and Good",
      "Sanctuary",
-     "Shield of Faith (Badge of Office)."
+     "Shield of Faith (Badge of Office)"
     ],
     "2": [
      "Aid",
@@ -9039,7 +9039,7 @@ window.SSDNS_RULES = {
      "Silence",
      "Spiritual Weapon",
      "Warding Bond",
-     "Zone of Truth (Under Oath)."
+     "Zone of Truth (Under Oath)"
     ],
     "3": [
      "Beacon of Hope",
@@ -9057,7 +9057,7 @@ window.SSDNS_RULES = {
      "Speak with Dead (Graveside Confession)",
      "Spirit Guardians (Guardian Angels)",
      "Tongues",
-     "Water Walk."
+     "Water Walk"
     ],
     "4": [
      "Banishment",
@@ -9067,7 +9067,7 @@ window.SSDNS_RULES = {
      "Freedom of Movement",
      "Guardian of Faith",
      "Locate Creature (Wanted)",
-     "Stone Shape."
+     "Stone Shape"
     ],
     "5": [
      "Commune",
@@ -9081,7 +9081,7 @@ window.SSDNS_RULES = {
      "Legend Lore",
      "Mass Cure Wounds",
      "Planar Binding",
-     "Scrying."
+     "Scrying"
     ],
     "6": [
      "Blade Barrier",
@@ -9092,7 +9092,7 @@ window.SSDNS_RULES = {
      "Heroes' Feast",
      "Planar Ally",
      "True Seeing",
-     "Word of Recall."
+     "Word of Recall"
     ],
     "7": [
      "Conjure Celestial",
@@ -9101,18 +9101,18 @@ window.SSDNS_RULES = {
      "Fire Storm",
      "Plane Shift",
      "Regenerate",
-     "Symbol."
+     "Symbol"
     ],
     "8": [
      "Antimagic Field",
      "Control Weather",
      "Earthquake",
-     "Holy Aura."
+     "Holy Aura"
     ],
     "9": [
      "Astral Projection",
      "Gate",
-     "Mass Heal."
+     "Mass Heal"
     ]
    },
    "bonusLists": [
@@ -9237,7 +9237,7 @@ window.SSDNS_RULES = {
      "Produce Flame (Campfire)",
      "Resistance",
      "Shillelagh (Walking Stick)",
-     "Thorn Whip (Thorn Lash)."
+     "Thorn Whip (Thorn Lash)"
     ],
     "1": [
      "Animal Friendship",
@@ -9255,7 +9255,7 @@ window.SSDNS_RULES = {
      "Longstrider",
      "Purify Food and Drink (Cut the Rot)",
      "Speak with Animals",
-     "Thunderwave (Porch Boom)."
+     "Thunderwave (Porch Boom)"
     ],
     "2": [
      "Animal Messenger",
@@ -9275,7 +9275,7 @@ window.SSDNS_RULES = {
      "Moonbeam (Hunter's Moon)",
      "Pass without Trace (Cold Trail)",
      "Protection from Poison",
-     "Spike Growth (Cholla Patch)."
+     "Spike Growth (Cholla Patch)"
     ],
     "3": [
      "Call Lightning (Thunderhead)",
@@ -9290,7 +9290,7 @@ window.SSDNS_RULES = {
      "Speak with Plants",
      "Water Breathing",
      "Water Walk",
-     "Wind Wall (Dust Wall)."
+     "Wind Wall (Dust Wall)"
     ],
     "4": [
      "Blight",
@@ -9308,7 +9308,7 @@ window.SSDNS_RULES = {
      "Polymorph (Beast Within)",
      "Stone Shape",
      "Stoneskin",
-     "Wall of Fire (Prairie Fire)."
+     "Wall of Fire (Prairie Fire)"
     ],
     "5": [
      "Antilife Shell",
@@ -9324,7 +9324,7 @@ window.SSDNS_RULES = {
      "Reincarnate",
      "Scrying",
      "Tree Stride (Cottonwood Walk)",
-     "Wall of Stone (Rimrock)."
+     "Wall of Stone (Rimrock)"
     ],
     "6": [
      "Find the Path",
@@ -9334,14 +9334,14 @@ window.SSDNS_RULES = {
      "Sunbeam (Desert Glare)",
      "Transport via Plants",
      "Wall of Thorns",
-     "Wind Walk (Dust Riders)."
+     "Wind Walk (Dust Riders)"
     ],
     "7": [
      "Fire Storm",
      "Mirage Arcane (Promised Land)",
      "Plane Shift",
      "Regenerate",
-     "Reverse Gravity (Head Over Heels)."
+     "Reverse Gravity (Head Over Heels)"
     ],
     "8": [
      "Animal Shapes",
@@ -9350,13 +9350,13 @@ window.SSDNS_RULES = {
      "Earthquake",
      "Feeblemind (Loco Weed)",
      "Sunburst (High Noon)",
-     "Tsunami."
+     "Tsunami"
     ],
     "9": [
      "Foresight",
      "Shapechange (Proteus)",
      "Storm of Vengeance",
-     "True Resurrection."
+     "True Resurrection"
     ]
    },
    "bonusLists": []
@@ -9379,7 +9379,7 @@ window.SSDNS_RULES = {
      "Searing Smite",
      "Shield of Faith (Badge of Office)",
      "Thunderous Smite",
-     "Wrathful Smite."
+     "Wrathful Smite"
     ],
     "2": [
      "Aid",
@@ -9389,14 +9389,14 @@ window.SSDNS_RULES = {
      "Locate Object",
      "Magic Weapon",
      "Protection from Poison",
-     "Zone of Truth (Under Oath)."
+     "Zone of Truth (Under Oath)"
     ],
     "3": [
      "Blinding Smite",
      "Crusader's Mantle (Posse Up)",
      "Daylight",
      "Dispel Magic",
-     "Remove Curse."
+     "Remove Curse"
     ],
     "4": [
      "Aura of Life",
@@ -9404,14 +9404,14 @@ window.SSDNS_RULES = {
      "Banishment",
      "Death Ward",
      "Locate Creature (Wanted)",
-     "Staggering Smite."
+     "Staggering Smite"
     ],
     "5": [
      "Banishing Smite",
      "Circle of Power",
      "Destructive Wave (Judgment Day)",
      "Dispel Evil and Good",
-     "Geas (Sworn Statement)."
+     "Geas (Sworn Statement)"
     ]
    },
    "bonusLists": [
@@ -9479,7 +9479,7 @@ window.SSDNS_RULES = {
      "Jump",
      "Longstrider",
      "Purify Food and Drink (Cut the Rot)",
-     "Speak with Animals."
+     "Speak with Animals"
     ],
     "2": [
      "Animal Messenger",
@@ -9494,7 +9494,7 @@ window.SSDNS_RULES = {
      "Pass without Trace (Cold Trail)",
      "Protection from Poison",
      "Silence",
-     "Spike Growth (Cholla Patch)."
+     "Spike Growth (Cholla Patch)"
     ],
     "3": [
      "Conjure Animals (Stampede)",
@@ -9507,19 +9507,19 @@ window.SSDNS_RULES = {
      "Speak with Plants",
      "Water Breathing",
      "Water Walk",
-     "Wind Wall (Dust Wall)."
+     "Wind Wall (Dust Wall)"
     ],
     "4": [
      "Freedom of Movement",
      "Grasping Vine (Vine Trap)",
      "Locate Creature (Wanted)",
-     "Stoneskin."
+     "Stoneskin"
     ],
     "5": [
      "Commune with Nature (Read the Land)",
      "Conjure Volley (Rain of Lead)",
      "Swift Quiver (Fast Hands)",
-     "Tree Stride (Cottonwood Walk)."
+     "Tree Stride (Cottonwood Walk)"
     ]
    },
    "bonusLists": []
@@ -9545,7 +9545,7 @@ window.SSDNS_RULES = {
      "Prestidigitation Shell",
      "Ray of Frost Shell",
      "Shocking Grasp Shell",
-     "True Strike Shell."
+     "True Strike Shell"
     ],
     "1": [
      "Burning Hands Shell",
@@ -9567,7 +9567,7 @@ window.SSDNS_RULES = {
      "Silent Image Shell",
      "Sleep Shell",
      "Thunderwave Shell",
-     "Witch Bolt Shell."
+     "Witch Bolt Shell"
     ],
     "2": [
      "Alter Self Shell",
@@ -9593,7 +9593,7 @@ window.SSDNS_RULES = {
      "Shatter Shell",
      "Spider Climb Shell",
      "Suggestion Shell",
-     "Web Shell."
+     "Web Shell"
     ],
     "3": [
      "Blink Shell",
@@ -9615,7 +9615,7 @@ window.SSDNS_RULES = {
      "Stinking Cloud Shell",
      "Tongues Shell",
      "Water Breathing Shell",
-     "Water Walk Shell."
+     "Water Walk Shell"
     ],
     "4": [
      "Banishment Shell",
@@ -9627,7 +9627,7 @@ window.SSDNS_RULES = {
      "Ice Storm Shell",
      "Polymorph Shell",
      "Stoneskin Shell",
-     "Wall of Fire Shell."
+     "Wall of Fire Shell"
     ],
     "5": [
      "Animate Objects Shell",
@@ -9640,7 +9640,7 @@ window.SSDNS_RULES = {
      "Seeming Shell",
      "Telekinesis Shell",
      "Teleportation Circle Shell",
-     "Wall of Stone Shell."
+     "Wall of Stone Shell"
     ],
     "6": [
      "Arcane Gate Shell",
@@ -9652,7 +9652,7 @@ window.SSDNS_RULES = {
      "Mass Suggestion Shell",
      "Move Earth Shell",
      "Sunbeam Shell",
-     "True Seeing Shell."
+     "True Seeing Shell"
     ],
     "7": [
      "Delayed Blast Fireball Shell",
@@ -9662,21 +9662,21 @@ window.SSDNS_RULES = {
      "Plane Shift Shell",
      "Prismatic Spray Shell",
      "Reverse Gravity Shell",
-     "Teleport Shell."
+     "Teleport Shell"
     ],
     "8": [
      "Dominate Monster Shell",
      "Earthquake Shell",
      "Incendiary Cloud Shell",
      "Power Word Stun Shell",
-     "Sunburst Shell."
+     "Sunburst Shell"
     ],
     "9": [
      "Gate Shell",
      "Meteor Swarm Shell",
      "Power Word Kill Shell",
      "Time Stop Shell",
-     "Wish Shell."
+     "Wish Shell"
     ]
    },
    "bonusLists": []
@@ -9695,7 +9695,7 @@ window.SSDNS_RULES = {
      "Minor Illusion (Dust Mirage)",
      "Poison Spray (Viper Puff)",
      "Prestidigitation (Trail Trick)",
-     "True Strike (Dead Reckoning)."
+     "True Strike (Dead Reckoning)"
     ],
     "1": [
      "Armor of Agathys (Cold Iron Hide)",
@@ -9708,7 +9708,7 @@ window.SSDNS_RULES = {
      "Illusory Script (Invisible Ink)",
      "Protection from Evil and Good",
      "Unseen Servant (Clockwork Help)",
-     "Witch Bolt (Wire Lash)."
+     "Witch Bolt (Wire Lash)"
     ],
     "2": [
      "Cloud of Daggers (Shrapnel Cloud)",
@@ -9722,7 +9722,7 @@ window.SSDNS_RULES = {
      "Ray of Enfeeblement",
      "Shatter (Resonance)",
      "Spider Climb (Fly on the Wall)",
-     "Suggestion (Sweet Talk)."
+     "Suggestion (Sweet Talk)"
     ],
     "3": [
      "Counterspell (Interference)",
@@ -9736,19 +9736,19 @@ window.SSDNS_RULES = {
      "Major Image (Phantasmagoria)",
      "Remove Curse",
      "Tongues",
-     "Vampiric Touch (Bleed 'Em Dry)."
+     "Vampiric Touch (Bleed 'Em Dry)"
     ],
     "4": [
      "Banishment",
      "Blight",
      "Dimension Door (Misdirection)",
-     "Hallucinatory Terrain (Fata Morgana)."
+     "Hallucinatory Terrain (Fata Morgana)"
     ],
     "5": [
      "Contact Other Plane (Automatic Writing)",
      "Dream (Night Letter)",
      "Hold Monster (Hogtie)",
-     "Scrying."
+     "Scrying"
     ],
     "6": [
      "Arcane Gate (Shortcut)",
@@ -9758,27 +9758,27 @@ window.SSDNS_RULES = {
      "Eyebite (Evil Eye)",
      "Flesh to Stone (Petrified)",
      "Mass Suggestion (Medicine Show)",
-     "True Seeing."
+     "True Seeing"
     ],
     "7": [
      "Etherealness",
      "Finger of Death (Dead Man's Hand)",
      "Forcecage (Holding Cell)",
-     "Plane Shift."
+     "Plane Shift"
     ],
     "8": [
      "Demiplane (Back Room)",
      "Dominate Monster (Broke to Saddle)",
      "Feeblemind (Loco Weed)",
      "Glibness (Silver Tongue)",
-     "Power Word Stun (Hush)."
+     "Power Word Stun (Hush)"
     ],
     "9": [
      "Astral Projection",
      "Foresight",
      "Imprisonment (Life Sentence)",
      "Power Word Kill (Last Word)",
-     "True Polymorph."
+     "True Polymorph"
     ]
    },
    "bonusLists": []
@@ -9804,7 +9804,7 @@ window.SSDNS_RULES = {
      "Prestidigitation (Trail Trick)",
      "Ray of Frost (Alkali Bite)",
      "Shocking Grasp (Wire Kiss)",
-     "True Strike (Dead Reckoning)."
+     "True Strike (Dead Reckoning)"
     ],
     "1": [
      "Alarm (Tripwire)",
@@ -9836,7 +9836,7 @@ window.SSDNS_RULES = {
      "Sleep (Chloroform)",
      "Thunderwave (Porch Boom)",
      "Unseen Servant (Clockwork Help)",
-     "Witch Bolt (Wire Lash)."
+     "Witch Bolt (Wire Lash)"
     ],
     "2": [
      "Acid Arrow (Aqua Regia)",
@@ -9872,7 +9872,7 @@ window.SSDNS_RULES = {
      "Shatter (Resonance)",
      "Spider Climb (Fly on the Wall)",
      "Suggestion (Sweet Talk)",
-     "Web (Flypaper)."
+     "Web (Flypaper)"
     ],
     "3": [
      "Animate Dead (Restart)",
@@ -9903,7 +9903,7 @@ window.SSDNS_RULES = {
      "Tiny Hut (Bedroll Camp)",
      "Tongues (Phrasebook)",
      "Vampiric Touch (Bleed 'Em Dry)",
-     "Water Breathing (Diving Bell)."
+     "Water Breathing (Diving Bell)"
     ],
     "4": [
      "Arcane Eye (Camera Obscura)",
@@ -9928,7 +9928,7 @@ window.SSDNS_RULES = {
      "Secret Chest (Safe Deposit)",
      "Stone Shape (Blasting Gelatin)",
      "Stoneskin (Vulcanized)",
-     "Wall of Fire (Prairie Fire)."
+     "Wall of Fire (Prairie Fire)"
     ],
     "5": [
      "Animate Objects (Poltergeist)",
@@ -9953,7 +9953,7 @@ window.SSDNS_RULES = {
      "Telepathic Bond (Party Line)",
      "Teleportation Circle (Surveyed Route)",
      "Wall of Force (Plate Glass)",
-     "Wall of Stone (Rimrock)."
+     "Wall of Stone (Rimrock)"
     ],
     "6": [
      "Arcane Gate (Shortcut)",
@@ -9975,7 +9975,7 @@ window.SSDNS_RULES = {
      "Programmed Illusion (Kinetoscope)",
      "Sunbeam (Desert Glare)",
      "True Seeing (Spectroscope)",
-     "Wall of Ice (Ice House)."
+     "Wall of Ice (Ice House)"
     ],
     "7": [
      "Arcane Sword (Phantom Saber)",
@@ -9992,7 +9992,7 @@ window.SSDNS_RULES = {
      "Sequester (Cold Storage)",
      "Simulacrum (Spitting Image)",
      "Symbol (Schematic)",
-     "Teleport (Long Gone)."
+     "Teleport (Long Gone)"
     ],
     "8": [
      "Antimagic Field (Null Field)",
@@ -10007,7 +10007,7 @@ window.SSDNS_RULES = {
      "Mind Blank (Poker Face)",
      "Power Word Stun (Hush)",
      "Sunburst (High Noon)",
-     "Telepathy (Wireless)."
+     "Telepathy (Wireless)"
     ],
     "9": [
      "Astral Projection (Out of Body)",
@@ -10021,12 +10021,2585 @@ window.SSDNS_RULES = {
      "Time Stop (Stopwatch)",
      "True Polymorph (Transmutation)",
      "Weird (Mass Hysteria)",
-     "Wish (Eureka)."
+     "Wish (Eureka)"
     ]
    },
    "bonusLists": []
   }
  },
+ "spellCast": [
+  {
+   "name": "Acid Splash",
+   "level": 0,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "1d6",
+   "type": "acid",
+   "scale": "cantrip"
+  },
+  {
+   "name": "Blade Ward",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Blade Ward Shell",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Chill Touch",
+   "level": 0,
+   "kind": "attack",
+   "dice": "1d8",
+   "type": "necrotic",
+   "scale": "cantrip"
+  },
+  {
+   "name": "Dancing Lights",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Dancing Lights Shell",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Druidcraft",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Eldritch Blast",
+   "level": 0,
+   "kind": "attack",
+   "dice": "1d10",
+   "type": "force",
+   "scale": "beam"
+  },
+  {
+   "name": "Fire Bolt",
+   "level": 0,
+   "kind": "attack",
+   "dice": "1d10",
+   "type": "fire",
+   "scale": "cantrip"
+  },
+  {
+   "name": "Friends",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Friends Shell",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Guidance",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Light",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Light Shell",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Mage Hand",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Mage Hand Shell",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Mending",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Mending Shell",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Message",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Message Shell",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Minor Illusion",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Minor Illusion Shell",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Poison Spray",
+   "level": 0,
+   "kind": "save",
+   "save": "CON",
+   "dice": "1d12",
+   "type": "poison",
+   "scale": "cantrip"
+  },
+  {
+   "name": "Prestidigitation",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Prestidigitation Shell",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Produce Flame",
+   "level": 0,
+   "kind": "attack",
+   "dice": "1d8",
+   "type": "fire",
+   "scale": "cantrip"
+  },
+  {
+   "name": "Ray of Frost",
+   "level": 0,
+   "kind": "attack",
+   "dice": "1d8",
+   "type": "cold",
+   "scale": "cantrip"
+  },
+  {
+   "name": "Resistance",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Sacred Flame",
+   "level": 0,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "1d8",
+   "type": "radiant",
+   "scale": "cantrip"
+  },
+  {
+   "name": "Shillelagh",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Shocking Grasp",
+   "level": 0,
+   "kind": "attack",
+   "dice": "1d8",
+   "type": "lightning",
+   "scale": "cantrip"
+  },
+  {
+   "name": "Spare the Dying",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Thaumaturgy",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Thorn Whip",
+   "level": 0,
+   "kind": "attack",
+   "dice": "1d6",
+   "type": "piercing",
+   "scale": "cantrip"
+  },
+  {
+   "name": "True Strike",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "True Strike Shell",
+   "level": 0,
+   "kind": "none"
+  },
+  {
+   "name": "Vicious Mockery",
+   "level": 0,
+   "kind": "save",
+   "save": "WIS",
+   "dice": "1d4",
+   "type": "psychic",
+   "scale": "cantrip"
+  },
+  {
+   "name": "Alarm",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Animal Friendship",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Armor of Agathys",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Arms of Hadar",
+   "level": 1,
+   "kind": "save",
+   "save": "STR",
+   "dice": "2d6",
+   "type": "necrotic",
+   "up": "1d6"
+  },
+  {
+   "name": "Bane",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Bless",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Burning Hands",
+   "level": 1,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "3d6",
+   "type": "fire",
+   "up": "1d6",
+   "half": true
+  },
+  {
+   "name": "Charm Person",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Charm Person Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Chromatic Orb",
+   "level": 1,
+   "kind": "attack",
+   "dice": "3d8",
+   "type": "the type you chose",
+   "up": "1d8"
+  },
+  {
+   "name": "Color Spray",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Color Spray Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Command",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Compelled Duel",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Comprehend Languages",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Comprehend Languages Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Create or Destroy Water",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Cure Wounds",
+   "level": 1,
+   "kind": "heal",
+   "dice": "1d8",
+   "up": "1d8",
+   "healMod": true
+  },
+  {
+   "name": "Detect Evil and Good",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Detect Magic",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Detect Magic Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Detect Poison and Disease",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Disguise Self",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Disguise Self Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Dissonant Whispers",
+   "level": 1,
+   "kind": "save",
+   "save": "WIS",
+   "dice": "3d6",
+   "type": "psychic",
+   "up": "1d6"
+  },
+  {
+   "name": "Ensnaring Strike",
+   "level": 1,
+   "kind": "weapon",
+   "save": "STR",
+   "dice": "1d6",
+   "type": "piercing",
+   "up": "1d6",
+   "weapon": true
+  },
+  {
+   "name": "Entangle",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Expeditious Retreat",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Expeditious Retreat Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Faerie Fire",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "False Life",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "False Life Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Feather Fall",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Feather Fall Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Find Familiar",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Floating Disk",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Fog Cloud",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Fog Cloud Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Goodberry",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Grease",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Guiding Bolt",
+   "level": 1,
+   "kind": "attack",
+   "dice": "4d6",
+   "type": "radiant",
+   "up": "1d6"
+  },
+  {
+   "name": "Hail of Thorns",
+   "level": 1,
+   "kind": "weapon",
+   "save": "DEX",
+   "dice": "1d10",
+   "type": "piercing",
+   "up": "1d10",
+   "weapon": true
+  },
+  {
+   "name": "Healing Word",
+   "level": 1,
+   "kind": "heal",
+   "dice": "1d4",
+   "up": "1d4",
+   "healMod": true
+  },
+  {
+   "name": "Hellish Rebuke",
+   "level": 1,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "2d10",
+   "type": "fire",
+   "up": "1d10",
+   "half": true
+  },
+  {
+   "name": "Heroism",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Hex",
+   "level": 1,
+   "kind": "rider",
+   "dice": "1d6",
+   "type": "necrotic"
+  },
+  {
+   "name": "Hideous Laughter",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Hunter's Mark",
+   "level": 1,
+   "kind": "rider",
+   "dice": "1d6",
+   "type": "the weapon's type"
+  },
+  {
+   "name": "Identify",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Illusory Script",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Inflict Wounds",
+   "level": 1,
+   "kind": "attack",
+   "dice": "3d10",
+   "type": "necrotic",
+   "up": "1d10"
+  },
+  {
+   "name": "Jump",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Jump Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Longstrider",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Mage Armor",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Mage Armor Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Magic Missile",
+   "level": 1,
+   "kind": "auto",
+   "dice": "1d4",
+   "type": "force",
+   "rays": 3,
+   "rayUp": 1,
+   "flat": 1
+  },
+  {
+   "name": "Protection from Evil and Good",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Purify Food and Drink",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Ray of Sickness",
+   "level": 1,
+   "kind": "attack",
+   "dice": "2d8",
+   "type": "poison",
+   "up": "1d8"
+  },
+  {
+   "name": "Sanctuary",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Searing Smite",
+   "level": 1,
+   "kind": "weapon",
+   "dice": "1d6",
+   "type": "fire",
+   "up": "1d6",
+   "weapon": true
+  },
+  {
+   "name": "Shield",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Shield Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Shield of Faith",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Silent Image",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Silent Image Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Sleep",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Sleep Shell",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Speak with Animals",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Thunderous Smite",
+   "level": 1,
+   "kind": "weapon",
+   "dice": "2d6",
+   "type": "thunder",
+   "up": "1d6",
+   "weapon": true
+  },
+  {
+   "name": "Thunderwave",
+   "level": 1,
+   "kind": "save",
+   "save": "CON",
+   "dice": "2d8",
+   "type": "thunder",
+   "up": "1d8",
+   "half": true
+  },
+  {
+   "name": "Unseen Servant",
+   "level": 1,
+   "kind": "none"
+  },
+  {
+   "name": "Witch Bolt",
+   "level": 1,
+   "kind": "attack",
+   "dice": "1d12",
+   "type": "lightning",
+   "up": "1d12"
+  },
+  {
+   "name": "Wrathful Smite",
+   "level": 1,
+   "kind": "weapon",
+   "dice": "1d6",
+   "type": "psychic",
+   "weapon": true
+  },
+  {
+   "name": "Acid Arrow",
+   "level": 2,
+   "kind": "attack",
+   "dice": "4d4",
+   "type": "acid",
+   "up": "1d4",
+   "note": "2d4 acid at the end of the target's next turn"
+  },
+  {
+   "name": "Aid",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Alter Self",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Alter Self Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Animal Messenger",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Arcane Lock",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Arcanist's Magic Aura",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Augury",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Barkskin",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Beast Sense",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Blindness/Deafness",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Blindness/Deafness Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Blur",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Blur Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Branding Smite",
+   "level": 2,
+   "kind": "weapon",
+   "dice": "2d6",
+   "type": "radiant",
+   "up": "1d6",
+   "weapon": true
+  },
+  {
+   "name": "Calm Emotions",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Cloud of Daggers",
+   "level": 2,
+   "kind": "auto",
+   "dice": "4d4",
+   "type": "slashing",
+   "up": "2d4"
+  },
+  {
+   "name": "Continual Flame",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Cordon of Arrows",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Crown of Madness",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Crown of Madness Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Darkness Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Darkvision",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Darkvision Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Detect Thoughts",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Detect Thoughts Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Enhance Ability",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Enhance Ability Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Enlarge/Reduce",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Enlarge/Reduce Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Enthrall",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Find Steed",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Find Traps",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Flame Blade",
+   "level": 2,
+   "kind": "attack",
+   "dice": "3d6",
+   "type": "fire",
+   "up": "1d6",
+   "upEvery": 2
+  },
+  {
+   "name": "Flaming Sphere",
+   "level": 2,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "2d6",
+   "type": "fire",
+   "up": "1d6"
+  },
+  {
+   "name": "Gentle Repose",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Gust of Wind",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Gust of Wind Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Heat Metal",
+   "level": 2,
+   "kind": "save",
+   "save": "CON",
+   "dice": "2d8",
+   "type": "fire",
+   "up": "1d8"
+  },
+  {
+   "name": "Hold Person",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Hold Person Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Invisibility",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Invisibility Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Knock",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Knock Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Lesser Restoration",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Levitate",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Levitate Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Locate Animals or Plants",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Locate Object",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Magic Mouth",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Mirror Image",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Mirror Image Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Misty Step",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Misty Step Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Moonbeam",
+   "level": 2,
+   "kind": "save",
+   "save": "CON",
+   "dice": "2d10",
+   "type": "radiant",
+   "up": "1d10"
+  },
+  {
+   "name": "Pass without Trace",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Phantasmal Force",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Phantasmal Force Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Prayer of Healing",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Protection from Poison",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Ray of Enfeeblement",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Rope Trick",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Scorching Ray",
+   "level": 2,
+   "kind": "attack",
+   "dice": "2d6",
+   "type": "fire",
+   "rays": 3,
+   "rayUp": 1
+  },
+  {
+   "name": "See Invisibility",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "See Invisibility Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Shatter",
+   "level": 2,
+   "kind": "save",
+   "save": "CON",
+   "dice": "3d8",
+   "type": "thunder",
+   "up": "1d8",
+   "half": true
+  },
+  {
+   "name": "Silence",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Spider Climb",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Spider Climb Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Spike Growth",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Spiritual Weapon",
+   "level": 2,
+   "kind": "attack",
+   "dice": "1d8",
+   "type": "force",
+   "up": "1d8",
+   "upEvery": 2,
+   "healMod": true
+  },
+  {
+   "name": "Suggestion",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Suggestion Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Warding Bond",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Web",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Web Shell",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Zone of Truth",
+   "level": 2,
+   "kind": "none"
+  },
+  {
+   "name": "Beacon of Hope",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Bestow Curse",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Blinding Smite",
+   "level": 3,
+   "kind": "weapon",
+   "dice": "3d8",
+   "type": "radiant",
+   "weapon": true
+  },
+  {
+   "name": "Blink",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Blink Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Call Lightning",
+   "level": 3,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "3d10",
+   "type": "lightning",
+   "up": "1d10"
+  },
+  {
+   "name": "Clairvoyance",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Clairvoyance Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Conjure Animals",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Conjure Barrage",
+   "level": 3,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "3d8",
+   "type": "the ammunition's type"
+  },
+  {
+   "name": "Counterspell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Counterspell Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Daylight",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Daylight Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Dispel Magic",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Dispel Magic Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Fear",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Fear Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Feign Death",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Fireball",
+   "level": 3,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "8d6",
+   "type": "fire",
+   "up": "1d6",
+   "half": true
+  },
+  {
+   "name": "Fly",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Fly Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Gaseous Form",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Gaseous Form Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Glyph of Warding",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Haste",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Haste Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Hunger of Hadar",
+   "level": 3,
+   "kind": "auto",
+   "dice": "2d6",
+   "type": "cold",
+   "note": "plus 2d6 acid, DEX save for none of the acid"
+  },
+  {
+   "name": "Hypnotic Pattern",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Hypnotic Pattern Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Lightning Arrow",
+   "level": 3,
+   "kind": "weapon",
+   "dice": "4d8",
+   "type": "lightning",
+   "up": "1d8",
+   "note": "the weapon's normal damage is replaced by this lightning"
+  },
+  {
+   "name": "Lightning Bolt",
+   "level": 3,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "8d6",
+   "type": "lightning",
+   "up": "1d6",
+   "half": true
+  },
+  {
+   "name": "Magic Circle",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Major Image",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Major Image Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Mass Healing Word",
+   "level": 3,
+   "kind": "heal",
+   "dice": "1d4",
+   "up": "1d4",
+   "healMod": true
+  },
+  {
+   "name": "Meld into Stone",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Nondetection",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Phantom Steed",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Plant Growth",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Protection from Energy",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Protection from Energy Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Remove Curse",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Revivify",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Sending",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Sleet Storm",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Sleet Storm Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Slow",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Slow Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Speak with Dead",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Speak with Plants",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Spirit Guardians",
+   "level": 3,
+   "kind": "save",
+   "save": "WIS",
+   "dice": "3d8",
+   "type": "radiant",
+   "up": "1d8",
+   "half": true
+  },
+  {
+   "name": "Stinking Cloud",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Stinking Cloud Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Tiny Hut",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Tongues",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Tongues Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Vampiric Touch",
+   "level": 3,
+   "kind": "attack",
+   "dice": "3d6",
+   "type": "necrotic",
+   "up": "1d6"
+  },
+  {
+   "name": "Water Breathing",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Water Breathing Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Water Walk",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Water Walk Shell",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Wind Wall",
+   "level": 3,
+   "kind": "none"
+  },
+  {
+   "name": "Arcane Eye",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Aura of Life",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Aura of Purity",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Banishment",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Banishment Shell",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Black Tentacles",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Blight",
+   "level": 4,
+   "kind": "save",
+   "save": "CON",
+   "dice": "8d8",
+   "type": "necrotic",
+   "up": "1d8"
+  },
+  {
+   "name": "Compulsion",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Confusion",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Confusion Shell",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Conjure Minor Elementals",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Conjure Woodland Beings",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Control Water",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Death Ward",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Dimension Door",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Dimension Door Shell",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Divination",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Dominate Beast",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Dominate Beast Shell",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Fabricate",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Faithful Hound",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Fire Shield",
+   "level": 4,
+   "kind": "rider",
+   "dice": "2d8",
+   "type": "fire or cold"
+  },
+  {
+   "name": "Freedom of Movement",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Giant Insect",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Grasping Vine",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Greater Invisibility",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Greater Invisibility Shell",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Guardian of Faith",
+   "level": 4,
+   "kind": "auto",
+   "dice": "20",
+   "type": "radiant",
+   "note": "when a creature the faith can see ends its turn in range, until 20 damage has been dealt"
+  },
+  {
+   "name": "Hallucinatory Terrain",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Ice Storm",
+   "level": 4,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "2d8+4d6",
+   "type": "bludgeoning and cold",
+   "up": "1d8",
+   "half": true
+  },
+  {
+   "name": "Locate Creature",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Phantasmal Killer",
+   "level": 4,
+   "kind": "save",
+   "save": "WIS",
+   "dice": "4d10",
+   "type": "psychic",
+   "up": "1d10"
+  },
+  {
+   "name": "Polymorph",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Polymorph Shell",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Private Sanctum",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Resilient Sphere",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Secret Chest",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Staggering Smite",
+   "level": 4,
+   "kind": "weapon",
+   "dice": "4d6",
+   "type": "psychic",
+   "weapon": true
+  },
+  {
+   "name": "Stone Shape",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Stoneskin Shell",
+   "level": 4,
+   "kind": "none"
+  },
+  {
+   "name": "Wall of Fire",
+   "level": 4,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "5d8",
+   "type": "fire",
+   "up": "1d8",
+   "half": true
+  },
+  {
+   "name": "Animate Objects",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Animate Objects Shell",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Antilife Shell",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Arcane Hand",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Awaken",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Banishing Smite",
+   "level": 5,
+   "kind": "weapon",
+   "dice": "5d10",
+   "type": "force",
+   "weapon": true
+  },
+  {
+   "name": "Circle of Power",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Cloudkill",
+   "level": 5,
+   "kind": "save",
+   "save": "CON",
+   "dice": "5d8",
+   "type": "poison",
+   "up": "1d8",
+   "half": true
+  },
+  {
+   "name": "Commune",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Commune with Nature",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Cone of Cold",
+   "level": 5,
+   "kind": "save",
+   "save": "CON",
+   "dice": "8d8",
+   "type": "cold",
+   "up": "1d8",
+   "half": true
+  },
+  {
+   "name": "Conjure Elemental",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Conjure Volley",
+   "level": 5,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "8d8",
+   "type": "the ammunition's type"
+  },
+  {
+   "name": "Contact Other Plane",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Contagion",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Creation",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Creation Shell",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Destructive Wave",
+   "level": 5,
+   "kind": "save",
+   "save": "CON",
+   "dice": "5d6+5d6",
+   "type": "thunder and radiant or necrotic"
+  },
+  {
+   "name": "Dispel Evil and Good",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Dominate Person",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Dominate Person Shell",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Dream",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Flame Strike",
+   "level": 5,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "4d6+4d6",
+   "type": "fire and radiant",
+   "up": "1d6",
+   "half": true
+  },
+  {
+   "name": "Geas",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Greater Restoration",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Hallow",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Hold Monster",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Hold Monster Shell",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Insect Plague",
+   "level": 5,
+   "kind": "save",
+   "save": "CON",
+   "dice": "4d10",
+   "type": "piercing",
+   "up": "1d10",
+   "half": true
+  },
+  {
+   "name": "Legend Lore",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Mass Cure Wounds",
+   "level": 5,
+   "kind": "heal",
+   "dice": "3d8",
+   "up": "1d8",
+   "healMod": true
+  },
+  {
+   "name": "Mislead",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Modify Memory",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Passwall",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Planar Binding",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Reincarnate",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Scrying",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Seeming",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Seeming Shell",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Swift Quiver",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Telekinesis",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Telekinesis Shell",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Telepathic Bond",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Teleportation Circle",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Teleportation Circle Shell",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Tree Stride",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Wall of Force",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Wall of Stone",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Wall of Stone Shell",
+   "level": 5,
+   "kind": "none"
+  },
+  {
+   "name": "Arcane Gate",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Arcane Gate Shell",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Blade Barrier",
+   "level": 6,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "6d10",
+   "type": "slashing",
+   "half": true
+  },
+  {
+   "name": "Chain Lightning",
+   "level": 6,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "10d8",
+   "type": "lightning",
+   "up": "1d8",
+   "half": true
+  },
+  {
+   "name": "Circle of Death",
+   "level": 6,
+   "kind": "save",
+   "save": "CON",
+   "dice": "8d6",
+   "type": "necrotic",
+   "up": "2d6",
+   "half": true
+  },
+  {
+   "name": "Conjure Fey",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Contingency",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Disintegrate",
+   "level": 6,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "10d6+40",
+   "type": "force",
+   "up": "3d6",
+   "note": "no damage on a successful save"
+  },
+  {
+   "name": "Eyebite",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Eyebite Shell",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Find the Path",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Flesh to Stone",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Forbiddance",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Freezing Sphere",
+   "level": 6,
+   "kind": "save",
+   "save": "CON",
+   "dice": "10d6",
+   "type": "cold",
+   "up": "1d6",
+   "half": true
+  },
+  {
+   "name": "Globe of Invulnerability",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Globe of Invulnerability Shell",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Guards and Wards",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Harm",
+   "level": 6,
+   "kind": "save",
+   "save": "CON",
+   "dice": "14d6",
+   "type": "necrotic",
+   "half": true
+  },
+  {
+   "name": "Heal",
+   "level": 6,
+   "kind": "heal",
+   "dice": "70",
+   "up": "10"
+  },
+  {
+   "name": "Heroes' Feast",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Instant Summons",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Irresistible Dance",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Magic Jar",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Mass Suggestion",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Mass Suggestion Shell",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Move Earth",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Move Earth Shell",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Planar Ally",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Programmed Illusion",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Sunbeam",
+   "level": 6,
+   "kind": "save",
+   "save": "CON",
+   "dice": "6d8",
+   "type": "radiant",
+   "half": true
+  },
+  {
+   "name": "Transport via Plants",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "True Seeing",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "True Seeing Shell",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Wall of Ice",
+   "level": 6,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "10d6",
+   "type": "cold",
+   "up": "2d6",
+   "half": true
+  },
+  {
+   "name": "Wall of Thorns",
+   "level": 6,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "7d8",
+   "type": "slashing",
+   "up": "1d8",
+   "half": true
+  },
+  {
+   "name": "Wind Walk",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Word of Recall",
+   "level": 6,
+   "kind": "none"
+  },
+  {
+   "name": "Arcane Sword",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Conjure Celestial",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Delayed Blast Fireball",
+   "level": 7,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "12d6",
+   "type": "fire",
+   "up": "1d6",
+   "half": true,
+   "note": "grows by 1d6 at the end of each of your turns before it goes off"
+  },
+  {
+   "name": "Divine Word",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Etherealness",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Etherealness Shell",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Finger of Death",
+   "level": 7,
+   "kind": "save",
+   "save": "CON",
+   "dice": "7d8+30",
+   "type": "necrotic",
+   "half": true
+  },
+  {
+   "name": "Fire Storm",
+   "level": 7,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "7d10",
+   "type": "fire",
+   "half": true
+  },
+  {
+   "name": "Forcecage",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Magnificent Mansion",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Mirage Arcane",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Plane Shift",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Plane Shift Shell",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Prismatic Spray",
+   "level": 7,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "10d6",
+   "type": "the ray's type"
+  },
+  {
+   "name": "Project Image",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Regenerate",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Reverse Gravity",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Reverse Gravity Shell",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Sequester",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Simulacrum",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Symbol",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Teleport",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Teleport Shell",
+   "level": 7,
+   "kind": "none"
+  },
+  {
+   "name": "Animal Shapes",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Antimagic Field",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Antipathy/Sympathy",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Clone",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Control Weather",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Demiplane",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Dominate Monster",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Dominate Monster Shell",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Earthquake",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Earthquake Shell",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Feeblemind",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Glibness",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Holy Aura",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Incendiary Cloud",
+   "level": 8,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "10d8",
+   "type": "fire",
+   "half": true
+  },
+  {
+   "name": "Maze",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Mind Blank",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Power Word Stun",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Power Word Stun Shell",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Sunburst",
+   "level": 8,
+   "kind": "save",
+   "save": "CON",
+   "dice": "12d6",
+   "type": "radiant",
+   "half": true
+  },
+  {
+   "name": "Telepathy",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Tsunami",
+   "level": 8,
+   "kind": "none"
+  },
+  {
+   "name": "Astral Projection",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Foresight",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Gate",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Gate Shell",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Imprisonment",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Mass Heal",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Meteor Swarm",
+   "level": 9,
+   "kind": "save",
+   "save": "DEX",
+   "dice": "20d6+20d6",
+   "type": "fire and bludgeoning",
+   "half": true
+  },
+  {
+   "name": "Power Word Kill",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Power Word Kill Shell",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Prismatic Wall",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Shapechange",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Storm of Vengeance",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Time Stop",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Time Stop Shell",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "True Polymorph",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "True Resurrection",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Weird",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Wish",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Wish Shell",
+   "level": 9,
+   "kind": "none"
+  },
+  {
+   "name": "Animate Dead",
+   "level": null,
+   "kind": "none"
+  },
+  {
+   "name": "Create Undead",
+   "level": null,
+   "kind": "none"
+  },
+  {
+   "name": "Crusader's Mantle",
+   "level": null,
+   "kind": "none"
+  },
+  {
+   "name": "Darkness",
+   "level": null,
+   "kind": "none"
+  },
+  {
+   "name": "Divine Favor",
+   "level": null,
+   "kind": "none"
+  },
+  {
+   "name": "Magic Weapon",
+   "level": null,
+   "kind": "none"
+  },
+  {
+   "name": "Stoneskin",
+   "level": null,
+   "kind": "none"
+  }
+ ],
  "inspiration": [
   {
    "name": "Advantage",
@@ -10478,6 +13051,6 @@ window.SSDNS_RULES = {
   "storytellerWear": "Strings: plain +0, quality +1, cheap −1. A fiddle uses the lower of its strings and its bow. Case (only if the instrument was inside): none +0, soft +1 (rain, dust, heat, falls), hard +2 (anything). A hard case also means no roll for gunshots or explosions. Instrument: quality +0, cheap −2. All modifiers stack. A natural 1 on the Wear roll always counts as at least Out of tune, whatever your modifiers. Snapped strings or bow: a snap is read on the d8 alone, before modifiers. A snapped set leaves the instrument Out of tune until you fit a new set on a short rest."
  },
  "warnings": [
-  "The PHB has no Eldorite addiction rule yet; the sheet keeps its tracker as a DM table rule (no numbers from the book)."
+  "The PHB has no Eldorite addiction rule yet; the DM Command Center keeps the chart (players do not see it)."
  ]
 };

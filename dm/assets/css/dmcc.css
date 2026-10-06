@@ -231,6 +231,45 @@ main { padding: 0 12px 80px; }
 }
 .gun-chip.jammed { border-left-color: var(--danger); color: #ffcfc7; }
 .gun-chip.worn { border-left-color: var(--warn); }
+.gun-chip .chambers { margin-top: 6px; }
+.chambers { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.chamber {
+  width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #3a2a1c; display: inline-block;
+  background: radial-gradient(circle at 50% 42%, #120c08 0 46%, #4a3828 50% 78%, #1a120c 100%);
+  box-shadow: inset 0 2px 3px rgba(0,0,0,.7);
+}
+.chamber.loaded.brass {
+  border-color: #6d4e16;
+  background:
+    radial-gradient(circle at 50% 50%, #a86b3c 0 12%, #f4f0e8 14% 26%, #5c4634 27% 32%, transparent 33%),
+    linear-gradient(155deg, #fbe7b0 0%, #e0b44a 32%, #a67c2a 62%, #6b4a14 82%, #d7b15e 100%);
+  box-shadow: inset 0 1px 1px rgba(255,244,210,.75), inset 0 -2px 3px rgba(70,40,8,.5);
+}
+.chamber.loaded.tinted {
+  border-color: #1a120c;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(30,18,8,.55) 0 12%, #f3efe6 14% 26%, rgba(0,0,0,.45) 27% 32%, transparent 33%),
+    var(--case, #c4a35a);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.28), inset 0 -2px 3px rgba(0,0,0,.4);
+}
+.chamber.hex { color: #fff; font: 700 8px/1 "Oswald", sans-serif; text-shadow: 0 1px 1px #000; display: inline-flex; align-items: flex-end; justify-content: center; padding-bottom: 1px; }
+.chamber.next { outline: 2px solid #e23b32; outline-offset: 2px; }
+.gun-chip.jammed .chamber.loaded { filter: grayscale(.75); }
+.feed-item.roll-attack, .dock-item.roll-attack {
+  box-shadow: inset 4px 0 0 #e07a2f; background: rgba(224, 122, 47, .18);
+}
+.feed-item.roll-crit, .dock-item.roll-crit {
+  box-shadow: inset 4px 0 0 #d23b2f; background: rgba(210, 59, 47, .28);
+}
+.roll-tag { font-weight: 700; letter-spacing: .08em; }
+.roll-attack .roll-tag { color: #ffb06a; }
+.roll-crit .roll-tag { color: #ff8d84; }
+@media (max-width: 800px) {
+  .chamber { width: 34px; height: 34px; }
+  .chamber.hex { font-size: 12px; padding-bottom: 2px; }
+  .chambers { gap: 6px; }
+  .dock-item, .feed-item.roll-attack, .feed-item.roll-crit { font-size: 15px; padding: 8px 8px 8px 12px; line-height: 1.35; }
+}
 
 /* ---- lists / feeds */
 .feed { display: flex; flex-direction: column; gap: 8px; max-height: 520px; overflow-y: auto; }
