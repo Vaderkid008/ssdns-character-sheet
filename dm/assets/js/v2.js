@@ -101,6 +101,17 @@ function keepVital(remoteVal, localVal) {
 function enemyFled(row) {
   return !!(row && row.kind === "enemy" && (row.fled || row.status === "Fled"));
 }
+function rowTactics(row) {
+  if (window.SSDNSApplied && window.SSDNSApplied.tacticsNote) return window.SSDNSApplied.tacticsNote(row || {});
+  const card = row && row.card;
+  return (card && card.tactics) || "";
+}
+function onDeck() {
+  if (!fight.started || !fight.order.length) return null;
+  const step = nextLivingIndex(fight.turn);
+  if (!step || step.index === fight.turn) return null;
+  return fight.order[step.index] || null;
+}
 function enemyStatus(row) {
   if (!row || row.kind === "player") return row && row.status ? row.status : "";
   if (enemyFled(row)) return "Fled";
@@ -603,6 +614,7 @@ function enemyCardHtml(row, i) {
     : `<label class="fine">HP <input type="number" data-hp-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.hp == null ? "" : esc(row.hp)}" aria-label="HP"></label>
        <label class="fine">Max <input type="number" data-max-val="${i}" data-row-id="${esc(row.id || "")}" value="${maxHp == null ? "" : esc(maxHp)}" aria-label="Max HP"></label>`;
   const loot = card.loot ? `<div class="detail-section"><h3>Loot</h3><p>${esc(card.loot)}</p>${card.esDrop != null ? `<p class="fine">Drops ${esc(card.esDrop)} ES</p>` : ""}</div>` : (card.esDrop != null ? `<div class="detail-section"><h3>Loot</h3><p>Drops ${esc(card.esDrop)} ES</p></div>` : "");
+  const tactics = rowTactics(row);
   return `<div class="enemy-card">
     <div class="stat-row">
       <div class="stat"><b>${esc(row.ac == null ? "—" : row.ac)}</b><span>AC</span></div>
@@ -612,6 +624,7 @@ function enemyCardHtml(row, i) {
     </div>
     <div class="hp-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>
     <div class="toolbar">${hpFields}</div>
+    ${tactics ? `<p class="tactics-note">Tactics. ${esc(tactics)}</p>` : ""}
     ${card.senses ? `<p class="fine">${esc(card.senses)}</p>` : ""}
     ${card.description ? `<p>${esc(card.description)}</p>` : ""}
     ${conditionChips(row)}
@@ -658,7 +671,9 @@ function turnRowHtml(row, i) {
   const detail = row.kind === "player" ? initSourceLabel(row) : tieLabel(row);
   const fled = enemyFled(row);
   const downed = !fled && knownNumber(row.hp) === 0;
-  const downBadge = fled ? `<span class="badge">Fled</span>` : (downed ? `<span class="badge danger">Unconscious · Down</span>` : "");
+  const bloodied = !fled && !downed && enemyStatus(row) === "Bloodied";
+  const downBadge = fled ? `<span class="badge">Fled</span>` : (downed ? `<span class="badge danger">Unconscious · Down</span>` : (bloodied ? `<span class="badge warn">Bloodied</span>` : ""));
+  const tactics = row.kind === "enemy" ? rowTactics(row) : "";
   const enemyEdit = row.kind === "enemy"
     ? `<label class="fine">Atk <input type="number" data-atk-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.atkBonus == null ? "" : esc(row.atkBonus)}" aria-label="Attack bonus for ${esc(row.name || "enemy")}"></label>
       <label class="fine">Dmg <input class="cond-rounds" data-dmg-val="${i}" data-row-id="${esc(row.id || "")}" value="${esc(row.damage || "")}" placeholder="1d6+2" aria-label="Damage dice for ${esc(row.name || "enemy")}"></label>`
@@ -669,6 +684,7 @@ function turnRowHtml(row, i) {
         <span class="fine">${esc(row.kind || "combatant")}${row.tie ? " · tie" : ""}${status ? " · " + esc(status) : ""}${detail ? " · " + esc(detail) : ""}${esc(turnAckLabel(row))}</span>
         ${downBadge}
         ${conditionChips(row)}
+        ${tactics ? `<span class="tactics-note">Tactics. ${esc(tactics)}</span>` : ""}
       </span>
       <label class="fine">AC <input type="number" data-ac-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.ac == null ? "" : esc(row.ac)}" aria-label="AC for ${esc(row.name || "combatant")}"></label>
       <label class="fine">HP <input type="number" data-hp-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.hp == null ? "" : esc(row.hp)}" aria-label="HP for ${esc(row.name || "combatant")}"></label>
@@ -728,7 +744,13 @@ function renderFight() {
     const list = $("#initList");
     const strip = $("#turnStrip");
     const label = $("#initRound");
-    if (label) label.textContent = fight.started && fight.order.length ? ("Round " + fight.round) : "";
+    if (label) {
+      const deck = onDeck();
+      const cur = fight.started ? fight.order[fight.turn] : null;
+      label.textContent = fight.started && fight.order.length
+        ? ("Round " + fight.round + (cur && cur.name ? " · " + cur.name : "") + (deck && deck.name ? " · On deck: " + deck.name : ""))
+        : "";
+    }
     renderInspiration();
     if (!fight.order.length) {
       const empty = '<div class="empty"><b>No turn order</b>Add a player or an example creature. Initiative rolls from joined sheets land here.</div>';
@@ -741,11 +763,15 @@ function renderFight() {
     const html = fight.order.map(turnRowHtml).join("");
     if (list) list.innerHTML = html;
     if (strip) {
-      strip.innerHTML = `<div class="turn-strip-label">Turn order</div>` + fight.order.map((row, i) => {
+      const deck = onDeck();
+      strip.innerHTML = `<div class="turn-strip-label">Turn order</div>`
+        + (deck && deck.name ? `<div class="ondeck-line">On deck: ${esc(deck.name)}</div>` : "")
+        + fight.order.map((row, i) => {
         const current = fight.started && i === fight.turn ? " current" : "";
+        const ondeck = deck && row.id === deck.id ? " ondeck" : "";
         const label = `<b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> ${esc(row.name || "")}`;
-        if (row.kind === "enemy") return `<button type="button" class="turn-chip${current}" data-open-enemy="${esc(row.id || "")}">${label}</button>`;
-        return `<span class="turn-chip${current}">${label}</span>`;
+        if (row.kind === "enemy") return `<button type="button" class="turn-chip${current}${ondeck}" data-open-enemy="${esc(row.id || "")}">${label}</button>`;
+        return `<span class="turn-chip${current}${ondeck}">${label}</span>`;
       }).join("");
     }
     syncTurnState();
@@ -1160,7 +1186,8 @@ function nextTurn() {
   saveRemoteTable();
   renderFight();
   const cur = fight.order[fight.turn];
-  const turnLine = "Round " + fight.round + " · " + (cur && cur.name ? cur.name : "someone") + "'s turn";
+  const deck = onDeck();
+  const turnLine = "Round " + fight.round + " · " + (cur && cur.name ? cur.name : "someone") + "'s turn" + (deck && deck.name ? " · On deck: " + deck.name : "");
   DM.toast(turnLine);
   DM.pushLedger({ who: "DM", playerId: (cur && (cur.playerId || cur.id)) || "all", type: "combat", what: turnLine, oldVal: null, newVal: "round " + fight.round, flag: false });
   sendYourTurn(cur, false);
@@ -1746,6 +1773,7 @@ function renderBestiary() {
     <article class="bestiary-card" data-beast-card="${esc(b.id)}">
       <h3><button type="button" class="name-btn" data-open-beast="${esc(b.id)}">${esc(b.name)}</button></h3>
       <p>AC ${esc(b.ac)} · HP ${esc(b.hp)}${b.cr ? " · CR " + esc(b.cr) : ""}</p>
+      ${window.SSDNSApplied && window.SSDNSApplied.tacticsNote && window.SSDNSApplied.tacticsNote(b) ? `<p class="tactics-note">Tactics. ${esc(window.SSDNSApplied.tacticsNote(b))}</p>` : ""}
       <p>${esc(b.attacks || "")}</p>
       <p class="lede">${esc(traitText(b.traits))}</p>
       ${traitText(b.actions) ? `<p class="lede">${esc(traitText(b.actions))}</p>` : ""}

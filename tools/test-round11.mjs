@@ -98,7 +98,7 @@ check(extras.indexOf("You're at 0 HP") >= 0 && extras.indexOf("You can't attack 
 check(extras.indexOf(" disadvantage") >= 0 && play.indexOf("advPin") >= 0, "disadvantage is labeled and one-shot unless pinned");
 check(css.indexOf("body.sheet-readonly .tab-warn button { pointer-events: auto; }") >= 0, "take over receives a real click");
 check(app.indexOf("Bleeding:") < 0 && read("dm/assets/js/demo-data.js").indexOf("Bleeding") < 0, "Bleeding is removed");
-check(read("version.json").indexOf('"sheet": "0.3.11"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.20"') >= 0, "round 12 versions");
+check(read("version.json").indexOf('"sheet": "0.3.11"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.21"') >= 0, "round 12 versions");
 const html = read("dm/index.html");
 const creator = read("assets/js/creator.js");
 check(html.indexOf('id="btnCopyLink"') >= 0 && html.indexOf('id="roomCodeDisplay"') >= 0 && html.indexOf("<button") >= 0, "copy invite and the header code are buttons");

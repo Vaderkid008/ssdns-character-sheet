@@ -125,7 +125,7 @@ check(/isReadOnly\(\)\) return/.test(app), "a read-only tab does not save");
 check(/sheet-readonly/.test(read("assets/css/sheet.css")), "read-only tab disables the fields");
 check(/Mail Duster/.test(read("assets/data/rules.js")) && /"phb5e": "Chain mail"/.test(read("assets/data/rules.js")), "mail duster keeps AC 16 and the chain mail name");
 
-check(read("version.json").indexOf('"sheet": "0.3.11"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.20"') >= 0, "versions bumped");
+check(read("version.json").indexOf('"sheet": "0.3.11"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.21"') >= 0, "versions bumped");
 check(read("database.rules.json").indexOf("playerInit") >= 0, "rules file still present and untouched by this test");
 
 const order = [

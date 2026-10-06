@@ -108,6 +108,13 @@ check(bossHtml.indexOf("6/6") >= 0 && bossHtml.indexOf("MF 2") >= 0 && bossHtml.
 check(bossHtml.indexOf("Dirty Rifle") >= 0 && bossHtml.indexOf("Handcar Nest") >= 0 && bossHtml.indexOf("Morale") >= 0, "switch boss traits");
 check(bossHtml.indexOf("Clear Jam") >= 0 && bossHtml.indexOf("Flee on the Handcar") >= 0, "switch boss actions");
 check(boss.card.esDrop === 250 && bossHtml.indexOf("Drops 250 ES") >= 0 && bossHtml.indexOf("Boss poke") >= 0, "loot and es drop");
+check(Applied.tacticsNote(beast("switch-boss")) === "Flees on the handcar when he is the last of the crew standing.", "switch boss tactics field");
+check(bossHtml.indexOf("Tactics. Flees on the handcar") >= 0, "sheet shows the tactics line");
+const moraleOnly = { traits: [{ name: "Morale (tactic)", text: "Runs when alone." }, { name: "Pack Tactics", text: "Advantage with an ally." }] };
+check(Applied.tacticsNote(moraleOnly) === "Runs when alone.", "morale trait is the fallback");
+check(Applied.tacticsNote({ tactics: "focuses the caster", traits: moraleOnly.traits }) === "focuses the caster", "tactics field wins");
+check(Applied.tacticsNote({ traits: [{ name: "Pack Tactics", text: "Advantage with an ally." }] }) === "", "pack tactics is not a morale note");
+check(Applied.tacticsNote(beast("outlaw")) === "" && outlawHtml.indexOf("tactics-note") < 0, "outlaw has no tactics note");
 rifle.jammed = true;
 const jammed = htmlOf(boss, 1);
 check(jammed.indexOf("Jammed") >= 0 && jammed.indexOf("data-clear-jam") >= 0, "jam state on the row");
@@ -161,9 +168,12 @@ check(src.indexOf("function claimApply") >= 0 && src.indexOf("if (rollId && !cla
 check(src.indexOf("lastAttackerId || (players[0]") >= 0, "target picker defaults to the last target");
 check(html.indexOf('id="enemySheet"') >= 0 && html.indexOf('id="btnCloseEnemy"') >= 0, "sheet overlay");
 check(css.indexOf(".enemy-sheet.drawer") >= 0 && css.indexOf(".sheet-dice") >= 0 && css.indexOf("position: sticky") >= 0, "sheet layout and sticky dice");
-check(version.dmcc === "0.2.20" && version.dmccBuild === "dmcc-enemy-sheet-v0220", "dmcc version");
+check(src.indexOf("tactics-note") >= 0 && src.indexOf("On deck:") >= 0 && src.indexOf("Bloodied") >= 0, "fight row tactics, on deck, bloodied");
+check(read("docs/DM-PRINCIPLES.md").indexOf("eyes stay on the table") >= 0, "principles doc");
+check(read("docs/SCHEMA.md").indexOf("`tactics`") >= 0, "schema documents tactics");
+check(version.dmcc === "0.2.21" && version.dmccBuild === "dmcc-tactics-v0221", "dmcc version");
 check(version.sheet === "0.3.11" && version.sheetBuild === "sheet-store-v0311", "sheet version stays");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.20"') >= 0, "dmcc.js version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.21"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {
