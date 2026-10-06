@@ -487,33 +487,48 @@
       if (dmg) dmg.textContent = (w.damage || "") + " " + ((ability + extra) >= 0 ? "+" : "") + (ability + extra);
     });
   }
+  function d20() {
+    if (root.SSDNSTestRoll) {
+      var forced = root.SSDNSTestRoll();
+      if (forced) return forced;
+    }
+    return 1 + Math.floor(Math.random() * 20);
+  }
   function rollMelee(i) {
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
     paintMelee();
     var atk = parseInt((document.querySelector("[data-melee-atk='" + i + "']") || {}).textContent, 10) || 0;
     var expr = (document.querySelector("[data-melee-dmg='" + i + "']") || {}).textContent || "1d4";
-    var nat = 1 + Math.floor(Math.random() * 20);
-    var Sheet = root.SSDNSSheet;
-    var dmg = null;
-    if (Sheet && Sheet.rollDamageExpr) dmg = null;
-    var n = 1, sides = 4, flat = atk;
+    var nat = d20();
+    var miss = nat === 1;
+    var crit = nat === 20;
+    var n = 1, sides = 4;
     var m = String(expr).match(/(\d*)d(\d+)/i);
     if (m) { n = Math.max(1, parseInt(m[1] || "1", 10)); sides = parseInt(m[2], 10); }
-    if (nat === 20) n *= 2;
     var flatM = String(expr).replace(/(\d*)d(\d+)/i, " ").match(/([+-]\s*\d+)/);
-    flat = flatM ? parseInt(flatM[1].replace(/\s/g, ""), 10) : 0;
+    var flat = flatM ? parseInt(flatM[1].replace(/\s/g, ""), 10) : 0;
+    var diceN = crit ? n * 2 : n;
+    var formula = diceN + "d" + sides + (flat ? ((flat >= 0 ? "+" : "") + flat) : "");
     var rolls = [];
-    for (var k = 0; k < n; k++) rolls.push(1 + Math.floor(Math.random() * sides));
-    var total = rolls.reduce(function (a, b) { return a + b; }, 0) + flat;
+    var total = 0;
+    var detail = "";
+    if (!miss) {
+      for (var k = 0; k < diceN; k++) rolls.push(1 + Math.floor(Math.random() * sides));
+      total = rolls.reduce(function (a, b) { return a + b; }, 0) + flat;
+      detail = rolls.join("+") + (flat ? ((flat >= 0 ? "+" : "") + flat) : "");
+    }
     var name = (document.querySelector("[data-melee='" + i + "']") || {}).selectedOptions;
     name = name && name[0] ? name[0].text : "Melee";
-    var line = name + " " + (atk >= 0 ? "+" : "") + atk + " = " + (nat + atk) + " · damage " + total;
+    var hit = miss ? "MISS" : ((crit ? "CRIT · " : "") + "on hit " + formula + " (" + detail + ") = " + total);
+    var line = name + " attack " + (atk >= 0 ? "+" : "") + atk + ": " + nat + (atk ? ((atk >= 0 ? "+" : "") + atk) : "") + " = " + (nat + atk) + " · " + hit;
     toast(line);
-    if (Sheet && Sheet.addLog) Sheet.addLog({ kind: "roll", text: line, attack: true, nat: nat, crit: nat === 20, label: name });
+    var Sheet = root.SSDNSSheet;
+    var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    if (Sheet && Sheet.addLog) Sheet.addLog({ id: "roll:" + rollId, kind: "roll", text: line, attack: true, nat: nat, crit: crit && !miss, label: name + " attack" });
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       var quiet = $("#chkWhisper") && $("#chkWhisper").checked;
-      root.SSDNSDmJoin.postRoll({ label: name + " attack", formula: "1d20" + (atk ? (atk >= 0 ? "+" : "") + atk : ""), result: nat + atk, detail: String(nat), attack: true, nat: nat, crit: nat === 20, damage: total, private: !!quiet, whisper: !!quiet });
+      root.SSDNSDmJoin.postRoll({ id: rollId, label: name + " attack", formula: "1d20" + (atk ? (atk >= 0 ? "+" : "") + atk : ""), result: nat + atk, detail: String(nat) + (miss ? " MISS" : (" · " + hit)), attack: true, nat: nat, crit: crit && !miss, damage: miss ? 0 : total, private: !!quiet, whisper: !!quiet });
     }
   }
 
@@ -734,23 +749,21 @@
       return Array.isArray(raw) ? raw : [];
     } catch (e) { return []; }
   }
+  function dropLogStore(skipClear) {
+    try {
+      localStorage.removeItem(logKey());
+      localStorage.removeItem(LOG_KEY + ".local");
+    } catch (e) {}
+    if (!skipClear && root.SSDNSSheet && root.SSDNSSheet.clearLog) root.SSDNSSheet.clearLog();
+  }
   function persistLogs() {
     var Sheet = root.SSDNSSheet;
     if (!Sheet || !Sheet.addLog || Sheet.addLog._persist) return;
     var key = logKey();
     var merged = readLogStore(key);
-    try {
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (!k || k.indexOf(LOG_KEY + ".") !== 0 || k === key) continue;
-        readLogStore(k).forEach(function (row) {
-          if (!row) return;
-          if (!merged.some(function (e) { return e && row.id && e.id === row.id; })) merged.push(row);
-        });
-      }
-    } catch (err) {}
-    merged.sort(function (a, b) { return String(a && a.ts).localeCompare(String(b && b.ts)); });
-    merged.forEach(function (row) { Sheet.addLog(row); });
+    merged.sort(function (a, b) { return String(a && a.ts || "").localeCompare(String(b && b.ts || "")); });
+    if (Sheet.mergeLog) Sheet.mergeLog(merged);
+    else merged.forEach(function (row) { Sheet.addLog(row); });
     var orig = Sheet.addLog;
     Sheet.addLog = function (entry) {
       orig(entry);
@@ -759,10 +772,29 @@
         var raw = readLogStore(storeKey);
         if (entry && entry.id && raw.some(function (e) { return e && e.id === entry.id; })) return;
         raw.unshift(entry);
+        raw.sort(function (a, b) { return String(b && b.ts || "").localeCompare(String(a && a.ts || "")); });
         localStorage.setItem(storeKey, JSON.stringify(raw.slice(0, 80)));
       } catch (e2) {}
     };
     Sheet.addLog._persist = true;
+  }
+  function showYourTurn() {
+    var banner = $("#yourTurnBanner");
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "yourTurnBanner";
+      banner.className = "your-turn-banner";
+      banner.innerHTML = "<b>Your turn</b> <button type='button' class='btn sm' id='btnDismissTurn'>Dismiss</button>";
+      document.body.appendChild(banner);
+      var btn = banner.querySelector("button");
+      if (btn) btn.addEventListener("click", function () { banner.hidden = true; });
+    }
+    banner.hidden = false;
+    if (root.SSDNSAudio) root.SSDNSAudio.play("holster");
+  }
+  function hideYourTurn() {
+    var banner = $("#yourTurnBanner");
+    if (banner) banner.hidden = true;
   }
   function paintDiamonds(count) {
     var c = ch();
@@ -804,7 +836,7 @@
       var panel = $("#turnPanel");
       if (!panel) return;
       var order = (init && Array.isArray(init.order) && init.order) || [];
-      if (!order.length) { panel.hidden = true; shownTurn = ""; return; }
+      if (!order.length) { panel.hidden = true; shownTurn = ""; hideYourTurn(); return; }
       panel.hidden = false;
       var round = init.round || 1;
       var turn = Number(init.turn) || 0;
@@ -829,10 +861,8 @@
       var sig = String(round) + ":" + String(cur.id || turn);
       if (sig !== shownTurn) {
         shownTurn = sig;
-        if (mine) {
-          toast("Your turn");
-          if (root.SSDNSAudio) root.SSDNSAudio.play("holster");
-        }
+        if (mine) showYourTurn();
+        else hideYourTurn();
       }
     },
     showRoster: function (rows) {
@@ -854,7 +884,8 @@
       sel.innerHTML = html;
       if (keep) sel.value = keep;
     },
-    setDamageMode: function () {}
+    setDamageMode: function () {},
+    dropLogStore: dropLogStore
   };
 
   function boot() {

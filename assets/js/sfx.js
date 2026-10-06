@@ -53,7 +53,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.0"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.1"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) { sfxMap = (j && j.events) || {}; return sfxMap; })
       .catch(function () { sfxMap = {}; return sfxMap; });
@@ -82,7 +82,26 @@
     });
   }
 
+  function forcedD20() {
+    try {
+      var q = new URLSearchParams(root.location.search).get("testroll");
+      var n = parseInt(q, 10);
+      if (n === 1 || n === 20) return n;
+    } catch (e) {}
+    return null;
+  }
+  function showTestBanner() {
+    if (!root.document || !root.document.body || !forcedD20()) return;
+    if (root.document.getElementById("testRollBanner")) return;
+    var b = root.document.createElement("div");
+    b.id = "testRollBanner";
+    b.textContent = "TEST ROLLS · d20 = " + forcedD20();
+    b.setAttribute("role", "status");
+    b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10000;background:#6b1d1d;color:#fff;text-align:center;font:700 12px/1.4 sans-serif;letter-spacing:.14em;padding:4px 8px;";
+    root.document.body.appendChild(b);
+  }
   function play(eventName) {
+    try { root.dispatchEvent(new CustomEvent("ssdns-sfx", { detail: eventName })); } catch (e) {}
     if (prefs.muted || volume() <= 0) return;
     // Play in this turn when the map is already loaded so a button click is still a user gesture.
     if (sfxMap) { startSfx(sfxMap, eventName); return; }
@@ -152,8 +171,10 @@
     });
     syncControls();
     loadMap();
+    showTestBanner();
   }
 
+  root.SSDNSTestRoll = forcedD20;
   root.SSDNSAudio = {
     play: play,
     playMusic: playMusic,

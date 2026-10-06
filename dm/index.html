@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="../favicon.ico">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.7">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.8">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -289,7 +289,7 @@
         <button type="button" class="btn sm" id="btnAddEnemy">Add enemy</button>
         <button type="button" class="btn btn-primary" id="btnNextTurn">Next turn</button>
         <button type="button" class="btn sm" id="btnPrevTurn">Previous</button>
-        <button type="button" class="btn sm" id="btnRollAll">Roll all enemies</button>
+        <button type="button" class="btn sm" id="btnRollAll">Roll all</button>
         <button type="button" class="btn sm" id="btnEndCombat">End combat</button>
         <label class="fine">Damage <select id="damageMode" aria-label="Damage mode"><option value="auto">Auto-apply</option><option value="approve">Approve first</option></select></label>
       </div>
@@ -298,6 +298,8 @@
         <div><label for="customHp">HP</label><input type="number" id="customHp" value="11"></div>
         <div><label for="customAc">AC</label><input type="number" id="customAc" value="12"></div>
         <div><label for="customInit">Init bonus</label><input type="number" id="customInit" value="2"></div>
+        <div><label for="customDex">DEX</label><input type="number" id="customDex" placeholder="or init bonus" title="Initiative tiebreak. Blank uses the init bonus."></div>
+        <div><label for="customQty">Quantity</label><input type="number" id="customQty" value="1" min="1" max="20"></div>
         <div class="span-2"><label for="customAtk">Attacks</label><input type="text" id="customAtk" placeholder="Scimitar +3, 1d6+1"></div>
       </div>
       <div class="toolbar"><button type="button" class="btn sm" id="btnAddCustom">Add custom enemy</button></div>
@@ -312,7 +314,11 @@
           </div>
           <div>
             <label for="dmgFormula">Dice</label>
-            <input type="text" id="dmgFormula" value="1d8">
+            <input type="text" id="dmgFormula" value="1d8" placeholder="1d8">
+          </div>
+          <div>
+            <label for="dmgFlat">Flat amount</label>
+            <input type="number" id="dmgFlat" value="" placeholder="0">
           </div>
         </div>
         <div class="toolbar">
@@ -448,12 +454,12 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/sfx.js?v=0.2.7"></script>
+<script src="../assets/js/sfx.js?v=0.2.8"></script>
 <script src="../assets/data/rules.js"></script>
 <script src="../assets/js/spell-cast.js"></script>
 <script src="../assets/js/firebase-config.js"></script>
 <script src="assets/js/demo-data.js"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.7"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.7"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.8"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.8"></script>
 </body>
 </html>

@@ -162,7 +162,7 @@ On the DM Command Center, these keys work when focus is **not** in a text field,
 | Key | Action |
 |-----|--------|
 | `N` | Next turn in the Fight tracker |
-| `Alt+Shift+R` | Push the reward currently filled in on the Rewards tab |
+| `Alt+Shift+R` | Open the Rewards tab with the form ready. It does not send until you confirm. |
 | `Alt+Shift+S` | Play the attack sound on this browser and send that sound cue to the table |
 | `M` | Play or stop the track selected on the Music tab |
 

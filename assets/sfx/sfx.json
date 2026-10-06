@@ -8,7 +8,7 @@
     "spellshot": "spellshot.mp3",
     "pactshot": "pactshot.mp3",
     "spellcast": "spellshot.mp3",
-    "jam": "jam.mp3",
+    "jam": "attack.mp3",
     "explode": "explode.mp3"
   }
 }

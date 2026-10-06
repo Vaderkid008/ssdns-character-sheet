@@ -60,16 +60,52 @@ function saveLocalTable() {
     localStorage.setItem(PACK_KEY, JSON.stringify(fight.packs));
   } catch (e) {}
 }
+function knownNumber(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return isFinite(n) ? n : null;
+}
+function keepVital(remoteVal, localVal) {
+  const remote = knownNumber(remoteVal);
+  if (remote != null) return remote;
+  const local = knownNumber(localVal);
+  if (local != null) return local;
+  return "";
+}
 function enemyStatus(row) {
   if (!row || row.kind === "player") return row && row.status ? row.status : "";
-  const hp = Number(row.hp);
-  const max = Number(row.maxHp);
-  if (!isFinite(hp)) return row.status || "";
+  const hp = knownNumber(row.hp);
+  const max = knownNumber(row.maxHp);
+  if (hp == null) return "";
   if (hp <= 0) return "Down";
-  if (!isFinite(max) || max <= 0) return "Hurt";
+  if (max == null || max <= 0) return "Hurt";
   if (hp >= max) return "Unhurt";
-  if (hp <= max / 2) return "Bloodied";
+  if (hp * 2 <= max) return "Bloodied";
   return "Hurt";
+}
+function d20() {
+  const forced = window.SSDNSTestRoll && window.SSDNSTestRoll();
+  if (forced) return forced;
+  return 1 + Math.floor(Math.random() * 20);
+}
+function tieLabel(row) {
+  if (!row) return "";
+  const bits = [];
+  const bonus = knownNumber(row.initBonus);
+  if (row.kind !== "player" && bonus != null) bits.push("init " + (bonus >= 0 ? "+" : "") + bonus);
+  const dex = knownNumber(row.dex);
+  if (dex != null) bits.push("DEX " + dex);
+  return bits.join(" ");
+}
+function dexModOf(snap) {
+  const mods = (snap && snap.mods) || {};
+  if (mods.DEX != null && mods.DEX !== "") return Number(mods.DEX) || 0;
+  return 0;
+}
+function postedInit(pid) {
+  const row = pid && DM.state.playerInit && DM.state.playerInit[pid];
+  const n = knownNumber(row && row.init);
+  return n;
 }
 function dexOf(row) {
   const n = Number(row && row.dex);
@@ -114,7 +150,12 @@ async function saveRemoteTable() {
       kind: row.kind || "",
       init: row.init == null ? "" : row.init,
       playerId: row.playerId || "",
-      status: enemyStatus(row)
+      status: enemyStatus(row),
+      hp: knownNumber(row.hp) == null ? "" : knownNumber(row.hp),
+      maxHp: knownNumber(row.maxHp) == null ? "" : knownNumber(row.maxHp),
+      ac: knownNumber(row.ac) == null ? "" : knownNumber(row.ac),
+      dex: knownNumber(row.dex) == null ? "" : knownNumber(row.dex),
+      initBonus: knownNumber(row.initBonus) == null ? "" : knownNumber(row.initBonus)
     }));
     const hp = {};
     const pub = {};
@@ -134,8 +175,13 @@ async function saveRemoteTable() {
     try {
       await DM.state._fb.set(DM.roomRef("encounter/hp"), hp);
       await DM.state._fb.set(DM.roomRef("encounter/public"), pub);
-    } catch (err) { console.warn("[DMCC] encounter", err); }
-  } catch (e) { console.warn(e); }
+    } catch (err) {
+      if (DM.writeFailed) DM.writeFailed(err, "Couldn't sync to players");
+      return;
+    }
+  } catch (e) {
+    if (DM.writeFailed) DM.writeFailed(e, "Couldn't sync to players");
+  }
 }
 let inspSeen = "";
 let inspPrimed = false;
@@ -159,10 +205,11 @@ function applyRemoteTable(v) {
         fight.order = init.order.map((row) => {
           const old = prev[row.id] || {};
           return Object.assign({}, old, row, {
-            hp: row.hp != null && row.hp !== "" ? row.hp : old.hp,
-            maxHp: row.maxHp != null && row.maxHp !== "" ? row.maxHp : old.maxHp,
-            ac: row.ac != null && row.ac !== "" ? row.ac : old.ac,
-            initBonus: old.initBonus
+            hp: keepVital(row.hp, old.hp),
+            maxHp: keepVital(row.maxHp, old.maxHp),
+            ac: keepVital(row.ac, old.ac),
+            dex: keepVital(row.dex, old.dex),
+            initBonus: keepVital(row.initBonus, old.initBonus)
           });
         });
       }
@@ -245,7 +292,7 @@ function turnRowHtml(row, i) {
   return `<div class="init-row ${i === fight.turn ? "current" : ""}${flash}">
       <input class="init-score" type="number" data-init-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.init == null ? "" : esc(row.init)}" aria-label="Initiative for ${esc(row.name || "combatant")}">
       <span class="init-who"><b>${esc(row.name || "Someone")}</b>
-        <span class="fine">${esc(row.kind || "combatant")}${status ? " · " + esc(status) : ""}</span>
+        <span class="fine">${esc(row.kind || "combatant")}${status ? " · " + esc(status) : ""}${tieLabel(row) ? " · " + esc(tieLabel(row)) : ""}</span>
       </span>
       <label class="fine">AC <input type="number" data-ac-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.ac == null ? "" : esc(row.ac)}" aria-label="AC"></label>
       <label class="fine">HP <input type="number" data-hp-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.hp == null ? "" : esc(row.hp)}" aria-label="HP"></label>
@@ -275,6 +322,7 @@ function fightRowFromField(el) {
 }
 function absorbFightInputs() {
   const active = document.activeElement;
+  if (!active || !active.isConnected) return;
   const row = fightRowFromField(active);
   if (!row) return;
   const initI = active.getAttribute("data-init-val");
@@ -332,7 +380,7 @@ function addCombatant(row) {
       existing.name = row.name || existing.name;
       existing.ac = row.ac != null ? row.ac : existing.ac;
       existing.hp = row.hp != null ? row.hp : existing.hp;
-      if (row.init != null) existing.init = row.init;
+      if (row.init != null && row.init !== "") existing.init = row.init;
       if (row.dex != null) existing.dex = row.dex;
       existing.kind = row.kind || existing.kind;
       sortInitiative();
@@ -347,7 +395,31 @@ function addCombatant(row) {
   sortInitiative();
   saveRemoteTable();
   renderFight();
+  if (row.kind === "enemy") ensurePlayers();
   return row;
+}
+function ensurePlayers() {
+  if (!(fight.order || []).some((r) => r && r.kind === "enemy")) return;
+  Object.keys(DM.state.players || {}).forEach((pid) => {
+    const row = fight.order.find((r) => r && (r.id === pid || r.playerId === pid));
+    const posted = postedInit(pid);
+    if (row) {
+      if (posted != null && (row.init === "" || row.init == null)) row.init = posted;
+      return;
+    }
+    const s = (DM.state.players[pid] && DM.state.players[pid].snapshot) || {};
+    addCombatant({
+      id: pid,
+      playerId: pid,
+      name: s.name || s.player || pid,
+      kind: "player",
+      ac: s.ac,
+      hp: s.hpCurrent,
+      maxHp: s.hpMax,
+      dex: dexFromSnapshot(s),
+      init: posted == null ? undefined : posted
+    });
+  });
 }
 function announce(line, type) {
   DM.toast(line);
@@ -367,9 +439,12 @@ function nextTurn() {
 async function pushHp(kind) {
   const pid = $("#dmgTarget") && $("#dmgTarget").value;
   if (!pid) { DM.toast("Pick a player"); return; }
-  const formula = ($("#dmgFormula") && $("#dmgFormula").value || "1d8").trim();
-  const out = DM.parseDice(formula);
-  const amount = Math.max(0, out.total);
+  const picked = damagePick();
+  if (!picked) { DM.toast("Enter dice or a flat amount"); return; }
+  const formula = picked.formula;
+  const out = { total: picked.total, detail: picked.detail };
+  const amount = picked.total;
+  clearDamageDice();
   const sign = kind === "heal" ? 1 : -1;
   const names = namesFor(pid);
   const p = DM.state.players[pid];
@@ -1126,12 +1201,40 @@ async function rollSpell(pid) {
   DM.toast(rolled.text);
 }
 
+function damagePick() {
+  const formula = ($("#dmgFormula") && $("#dmgFormula").value || "").trim();
+  const flatRaw = $("#dmgFlat") && String($("#dmgFlat").value || "").trim();
+  const flat = flatRaw === "" ? 0 : (parseInt(flatRaw, 10) || 0);
+  if (!formula && !flat) return null;
+  let diceTotal = 0;
+  let detail = "";
+  if (formula) {
+    const out = DM.parseDice(formula);
+    diceTotal = out.total;
+    detail = formula + " (" + (out.detail || out.total) + ")";
+  }
+  if (flat) detail = (detail ? detail + " + " : "") + String(flat);
+  return { total: Math.max(0, diceTotal + flat), detail: detail || String(diceTotal + flat), formula: formula || String(flat) };
+}
+function clearDamageDice() {
+  const el = $("#dmgFormula");
+  if (el) el.value = "";
+}
+function applyEnemyHp(row, delta) {
+  const before = knownNumber(row && row.hp);
+  if (before == null) {
+    DM.toast((row && row.name ? row.name : "Enemy") + " has no HP set, so it is not marked Down");
+    return null;
+  }
+  row.hp = Math.max(0, before + delta);
+  return before;
+}
 async function rowHp(i, sign) {
   const row = fight.order[i];
   if (!row) return;
-  const formula = ($("#dmgFormula") && $("#dmgFormula").value || "1d8").trim();
-  const out = DM.parseDice(formula);
-  const amt = Math.max(0, out.total);
+  const picked = damagePick();
+  if (!picked) { DM.toast("Enter dice or a flat amount"); return; }
+  const amt = picked.total;
   if (row.kind === "player" && row.playerId) {
     const sel = $("#dmgTarget");
     if (sel) sel.value = row.playerId;
@@ -1139,9 +1242,9 @@ async function rowHp(i, sign) {
     if (btn) btn.click();
     return;
   }
-  const before = Number(row.hp) || 0;
-  row.hp = Math.max(0, before + sign * amt);
-  if (Number(row.hp) <= 0) row.status = "Down";
+  const before = applyEnemyHp(row, sign * amt);
+  if (before == null) return;
+  clearDamageDice();
   await saveRemoteTable();
   renderFight();
   const line = (sign < 0 ? "Damage " : "Heal ") + amt + " → " + row.name + " (" + row.hp + " HP, " + enemyStatus(row) + ")";
@@ -1173,8 +1276,7 @@ async function attackRow(i) {
     result: out.total, detail: text, private: false, attack: true
   });
   if (hit && dmg && (fight.damageMode || "auto") !== "approve" && row.kind !== "player") {
-    row.hp = Math.max(0, (Number(row.hp) || 0) - dmg.total);
-    if (row.hp <= 0) row.status = "Down";
+    applyEnemyHp(row, -dmg.total);
     await saveRemoteTable();
     renderFight();
   }
@@ -1183,10 +1285,17 @@ async function attackRow(i) {
 function rollAllEnemies() {
   const cur = fight.order[fight.turn];
   const curId = cur && cur.id;
+  ensurePlayers();
   fight.order.forEach((row) => {
-    if (row.kind === "player") return;
+    if (row.kind === "player") {
+      const posted = postedInit(row.playerId || row.id);
+      if (posted != null) { row.init = posted; return; }
+      const snap = DM.state.players[row.playerId || row.id] && DM.state.players[row.playerId || row.id].snapshot;
+      row.init = d20() + dexModOf(snap);
+      return;
+    }
     const bonus = Number(row.initBonus) || 0;
-    row.init = (1 + Math.floor(Math.random() * 20)) + bonus;
+    row.init = d20() + bonus;
   });
   sortInitiative();
   if (curId) {
@@ -1195,7 +1304,7 @@ function rollAllEnemies() {
   }
   saveRemoteTable();
   renderFight();
-  announce("Rolled initiative for enemies", "initiative");
+  announce("Rolled initiative", "initiative");
 }
 async function endCombat() {
   if (!window.confirm("End combat and clear the turn order?")) return;
@@ -1222,8 +1331,7 @@ function applyRequest(req) {
     DM.toast(line + " · waiting for you to apply");
     return;
   }
-  row.hp = Math.max(0, (Number(row.hp) || 0) - amt);
-  if (row.hp <= 0) row.status = "Down";
+  if (applyEnemyHp(row, -amt) == null) return;
   saveRemoteTable();
   renderFight();
   DM.pushLedger({ who: who, playerId: req.from || "all", type: "damage", what: line + " (" + enemyStatus(row) + ")", oldVal: null, newVal: row.hp, flag: false, characterName: who });
@@ -1326,14 +1434,20 @@ function shortcuts(e) {
   const chord = e.altKey && e.shiftKey && !e.metaKey && !e.ctrlKey;
   if (chord && k === "r") {
     e.preventDefault();
-    const b = $("#btnPushReward");
-    if (b) b.click();
+    const tab = $("#tab-rewards");
+    if (tab) tab.click();
+    const es = $("#rewEs");
+    if (es) { es.focus(); try { es.select(); } catch (err) {} }
+    DM.toast("Reward form ready — confirm before it sends");
     return;
   }
   if (chord && k === "s") {
     e.preventDefault();
-    if (window.SSDNSAudio) window.SSDNSAudio.play("attack");
-    DM.pushCommand({ type: "sfx", to: "all", payload: { event: "attack" }, from: DM.state.uid });
+    const key = "attack";
+    if (window.SSDNSAudio) window.SSDNSAudio.play(key);
+    DM.toast("♪ " + key);
+    DM.pushLedger({ who: "DM", playerId: "all", type: "sfx", what: "♪ " + key, oldVal: null, newVal: key, flag: false });
+    DM.pushCommand({ type: "sfx", to: "all", payload: { event: key }, from: DM.state.uid });
     return;
   }
   if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
@@ -1395,7 +1509,24 @@ function syncPlayerVitals() {
     if (row.dex !== dex) { row.dex = dex; changed = true; }
     if (snap.hpMax != null && row.maxHp !== snap.hpMax) row.maxHp = snap.hpMax;
   });
+  ensurePlayers();
   if (!changed) return;
+  saveRemoteTable();
+  renderFight();
+}
+function onPlayerInit(map) {
+  DM.state.playerInit = map || {};
+  let changed = false;
+  (fight.order || []).forEach((row) => {
+    if (!row || row.kind !== "player") return;
+    const n = postedInit(row.playerId || row.id);
+    if (n == null || Number(row.init) === n) return;
+    row.init = n;
+    changed = true;
+  });
+  ensurePlayers();
+  if (!changed) return;
+  sortInitiative();
   saveRemoteTable();
   renderFight();
 }
@@ -1535,7 +1666,8 @@ async function bootV2() {
     fillAdds: fillAdds,
     onTable: function (v) { applyRemoteTable(v); watchRequests(); },
     onRolls: noteInitiativeRolls,
-    syncPlayers: syncPlayerVitals
+    syncPlayers: syncPlayerVitals,
+    onPlayerInit: onPlayerInit
   };
   const rollAll = $("#btnRollAll");
   if (rollAll) rollAll.addEventListener("click", rollAllEnemies);
@@ -1545,18 +1677,33 @@ async function bootV2() {
   if (addCustom) addCustom.addEventListener("click", () => {
     const name = ($("#customName") && $("#customName").value || "").trim();
     if (!name) { DM.toast("Name the enemy"); return; }
-    const row = addCombatant({
-      id: DM.uid("en"),
-      name: name,
-      kind: "enemy",
-      ac: parseInt($("#customAc") && $("#customAc").value, 10),
-      hp: parseInt($("#customHp") && $("#customHp").value, 10),
-      maxHp: parseInt($("#customHp") && $("#customHp").value, 10),
-      initBonus: parseInt($("#customInit") && $("#customInit").value, 10) || 0,
-      attacks: ($("#customAtk") && $("#customAtk").value) || ""
-    });
+    const qtyRaw = parseInt($("#customQty") && $("#customQty").value, 10);
+    const qty = Math.max(1, Math.min(20, isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1));
+    const initBonus = parseInt($("#customInit") && $("#customInit").value, 10) || 0;
+    const dexField = $("#customDex");
+    const dexBlank = !dexField || String(dexField.value).trim() === "";
+    const dex = dexBlank ? initBonus : (parseInt(dexField.value, 10) || 0);
+    const formNum = (el) => {
+      if (!el || String(el.value).trim() === "") return "";
+      const n = parseInt(el.value, 10);
+      return isFinite(n) ? n : "";
+    };
+    const rows = [];
+    for (let n = 0; n < qty; n++) {
+      rows.push(addCombatant({
+        id: DM.uid("en"),
+        name: name,
+        kind: "enemy",
+        ac: formNum($("#customAc")),
+        hp: formNum($("#customHp")),
+        maxHp: formNum($("#customHp")),
+        initBonus: initBonus,
+        dex: dex,
+        attacks: ($("#customAtk") && $("#customAtk").value) || ""
+      }));
+    }
     if ($("#customName")) $("#customName").value = "";
-    announce("Added " + row.name + " to the turn order");
+    rows.forEach((row) => announce("Added " + row.name + " to the turn order"));
   });
   const mode = $("#damageMode");
   if (mode) mode.addEventListener("change", () => {
@@ -1569,6 +1716,7 @@ async function bootV2() {
     const initI = t.getAttribute("data-init-val");
     const hpI = t.getAttribute("data-hp-val");
     const acI = t.getAttribute("data-ac-val");
+    if (!t.isConnected) return;
     const row = fightRowFromField(t);
     if (!row) return;
     const n = t.value === "" ? "" : parseInt(t.value, 10);

@@ -1,10 +1,10 @@
-/* SSDNS Character Sheet · v0.3.0 (round 4: kits, turn order, focus, pact shot)
+/* SSDNS Character Sheet · v0.3.1 (round 5: log merge, rewards, turn, crits)
  * Static, no server. Rules data: window.SSDNS_RULES (assets/data/rules.js, generated from the PHB).
  * Saving: SSDNSStore (storage.js). Shards bridge for Saloon games: SSDNSBridge (ssdns-bridge.js).
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.0"; // sheet-round4-v030
+  var APP_VERSION = "0.3.1"; // sheet-round5-v031
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -946,6 +946,8 @@
           lab.appendChild(el("div", { class: "sp-alias", text: parsed.phb }));
           if (parsed.shell) lab.appendChild(el("div", { class: "sp-phb", text: "Shell" }));
         }
+        var diceNote = spellDiceNote(parsed.phb || row.name);
+        if (diceNote) lab.appendChild(el("div", { class: "sp-phb", text: diceNote }));
         line.appendChild(lab);
         // keep a hidden data-f so save still has the name if edited elsewhere
         line.appendChild(el("input", { type: "hidden", "data-f": l === 0 ? ("character.cantrips." + row.i) : ("character.spells." + l + "." + row.i + ".name"), value: row.name }));
@@ -963,6 +965,11 @@
       }
     }
     if (picker && !picker.hidden) fillSpellPicker();
+  }
+  function spellDiceNote(name) {
+    var Cast = window.SSDNSSpellCast;
+    if (!Cast || !Cast.blurb) return "";
+    return Cast.blurb(name) || "";
   }
   function fillSpellPicker() {
     var list = $("#spellPickerList"), levels = $("#spellPickerLevels");
@@ -990,7 +997,8 @@
       var btn = el("button", { type: "button", class: "spell-pick" + (have ? " have" : ""), "data-add-spell": sp.key, role: "option" });
       btn._spell = sp;
       btn.appendChild(el("span", { class: "sp-name", text: sp.alias ? (sp.alias + " · " + sp.phb) : sp.phb }));
-      btn.appendChild(el("span", { class: "sp-meta", text: (sp.level === 0 ? "Cantrip" : ("Level " + sp.level)) + (sp.shell ? " · Shell" : "") + (have ? " · already known" : "") }));
+      var dice = spellDiceNote(sp.phb || sp.label);
+      btn.appendChild(el("span", { class: "sp-meta", text: (sp.level === 0 ? "Cantrip" : ("Level " + sp.level)) + (sp.shell ? " · Shell" : "") + (dice ? " · " + dice : "") + (have ? " · already known" : "") }));
       list.appendChild(btn);
       n++;
     });
@@ -1006,7 +1014,8 @@
       else when = sp.source + " · " + when;
       if (sp.level == null) when += " · not on the main list";
       btn.appendChild(el("span", { class: "sp-name", text: (sp.alias ? (sp.alias + " · " + sp.phb) : sp.phb) }));
-      btn.appendChild(el("span", { class: "sp-meta", text: when + (have ? " · already known" : "") }));
+      var bonusDice = spellDiceNote(sp.phb || sp.label);
+      btn.appendChild(el("span", { class: "sp-meta", text: when + (bonusDice ? " · " + bonusDice : "") + (have ? " · already known" : "") }));
       list.appendChild(btn);
       n++;
     });
@@ -1190,7 +1199,11 @@
       var unloadBtn = $('[data-unload="' + i + '"]');
       if (unloadBtn) unloadBtn.hidden = !cap;
       var rollBtn = $('[data-gunroll="' + i + '"]');
-      if (rollBtn) rollBtn.hidden = !s;
+      if (rollBtn) {
+        rollBtn.hidden = !s;
+        var emptyGun = !!(s && !(num(g.loaded) > 0));
+        rollBtn.textContent = emptyGun ? "Reload" : "Roll";
+      }
       $('[data-tr="' + i + '"]').hidden = !(cap && w && w.tr);
       $('[data-hexwrap="' + i + '"]').hidden = !(cap && w && w.hexShells);
       var castWrap = $('[data-castwrap="' + i + '"]');
@@ -1207,7 +1220,8 @@
           spellSel.innerHTML = "";
           if (!choices.length) spellSel.appendChild(opt("", "No spells on this sheet"));
           choices.forEach(function (ch) {
-            spellSel.appendChild(opt(ch.value, (ch.level ? ordinal(ch.level) + " · " : "") + ch.name));
+            var note = spellDiceNote(ch.name);
+            spellSel.appendChild(opt(ch.value, (ch.level ? ordinal(ch.level) + " · " : "") + ch.name + (note ? " · " + note : "")));
           });
           if (keepSpell && choices.some(function (ch) { return ch.value === keepSpell; })) spellSel.value = keepSpell;
         }
@@ -2162,7 +2176,7 @@
       }
     }
     S.fileDirty = false; S.lastFile = Date.now(); S.fileName = name; S.hasFile = true; updateSaveBar();
-    toast("Downloaded " + name + ".");
+    toast("Saved " + name);
     if (S.handle) writeFile(true);
     return Promise.resolve(true);
   }
@@ -2207,9 +2221,44 @@
   }
   function doNew() {
     if (!window.confirm("Start a new character? This one stays in this browser's backups.")) return;
+    if (window.SSDNSPlaytest && window.SSDNSPlaytest.dropLogStore) window.SSDNSPlaytest.dropLogStore(true);
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.abandon) window.SSDNSDmJoin.abandon();
+    else if (window.SSDNSSheet && window.SSDNSSheet.clearLog) window.SSDNSSheet.clearLog();
     replaceDoc(blankDoc(), { reason: "new character" });
+    if (window.SSDNSPlaytest && window.SSDNSPlaytest.dropLogStore) window.SSDNSPlaytest.dropLogStore(true);
+    if (window.SSDNSSheet && window.SSDNSSheet.clearLog) window.SSDNSSheet.clearLog();
     S.hasContent = false; S.fileDirty = false; updateSaveBar();
     toast("New character. It's backed up in this browser as you type; Save makes a .ssdns file.");
+  }
+  function watchTabs() {
+    var tabId = "tab_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var channel = null;
+    try { channel = new BroadcastChannel("ssdns-sheet"); } catch (err) {}
+    function warn() {
+      var b = $("#tabWarn");
+      if (!b) {
+        b = document.createElement("div");
+        b.id = "tabWarn";
+        b.className = "tab-warn";
+        b.textContent = "Another tab is editing this character. A save there can overwrite this one.";
+        document.body.appendChild(b);
+      }
+      b.hidden = false;
+    }
+    function announce() {
+      if (!S.doc || !S.doc.id || !channel) return;
+      channel.postMessage({ id: S.doc.id, tab: tabId });
+    }
+    if (channel) channel.onmessage = function (ev) {
+      var data = ev && ev.data;
+      if (data && S.doc && data.id === S.doc.id && data.tab !== tabId) warn();
+    };
+    window.addEventListener("storage", function (e) {
+      if (!S.doc || !e || !e.key) return;
+      if (e.key === "ssdns.v1.char." + S.doc.id) warn();
+    });
+    setInterval(announce, 2000);
+    announce();
   }
   function updateSaveBar() {
     var bar = $("#saveBar"), txt = $("#saveText"), act = $("#saveBarAction");
@@ -2726,6 +2775,7 @@
       renderFields();
     }
     updateSaveBar();
+    watchTabs();
     // dev/test hook: read-only helpers, no rules
     // v0.2.1: keep the sticky tabs just under the (possibly wrapped) app bar on phones
     function syncBarH() { var ab = $("#appbar"); if (ab) document.documentElement.style.setProperty("--appbar-h", ab.offsetHeight + "px"); }

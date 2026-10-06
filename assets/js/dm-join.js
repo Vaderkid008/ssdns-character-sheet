@@ -46,8 +46,12 @@
 
   function saveLocal() {
     try {
+      if (!state.joined || !state.roomCode) {
+        root.localStorage.removeItem(LS_KEY);
+        return;
+      }
       root.localStorage.setItem(LS_KEY, JSON.stringify({
-        roomCode: state.roomCode, joined: state.joined, uid: state.uid
+        roomCode: state.roomCode, joined: true, uid: state.uid
       }));
     } catch (e) {}
   }
@@ -453,13 +457,14 @@
     var payload = cmd.payload || {};
     switch (cmd.type) {
       case "reward_es":
-        applyEsReward(payload.delta || 0, payload.reason || "DM reward", cmd.id);
+        applyEsReward(payload.delta || 0, payload.reason || "DM reward", payload.grantId || cmd.id);
         break;
       case "reward_item":
+        if (!claimGrant("item:" + (payload.grantId || cmd.id || payload.text || ""))) break;
         appendEquipment(payload.text || "");
-    toast("DM sent item: " + (payload.text || ""));
-    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "item", text: "Item: " + (payload.text || "") });
-    break;
+        toast("DM sent item: " + (payload.text || ""));
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Item: " + (payload.text || "") });
+        break;
       case "reward_note":
         toast("DM note: " + (payload.text || ""));
         showPopup("DM note", payload.text || "");
@@ -485,7 +490,7 @@
         else toast("DM opened the store");
         break;
       case "hp":
-        applyHpCommand(payload, cmd.id);
+        applyHpCommand(payload, payload.grantId || cmd.id);
         break;
       case "set_conditions":
         if (root.SSDNSSheet) root.SSDNSSheet.setConditions(payload.list || []);
@@ -544,13 +549,43 @@
       if (nodes[0]) nodes[0].dispatchEvent(new Event("change", { bubbles: true }));
     });
   }
+  function appliedKey() {
+    var d = doc();
+    var cid = (d && d.id) || "local";
+    return "ssdns.v1.applied." + cid + "." + (state.roomCode || "none");
+  }
+  function loadApplied() {
+    state.appliedRewards = {};
+    try {
+      var raw = JSON.parse(localStorage.getItem(appliedKey()) || "{}");
+      if (raw && typeof raw === "object") state.appliedRewards = raw;
+    } catch (e) {}
+  }
+  function saveApplied() {
+    var keys = Object.keys(state.appliedRewards || {});
+    if (keys.length > 400) keys.slice(0, keys.length - 300).forEach(function (k) { delete state.appliedRewards[k]; });
+    try { localStorage.setItem(appliedKey(), JSON.stringify(state.appliedRewards || {})); } catch (e) {}
+  }
+  function claimGrant(id) {
+    if (!id) return true;
+    if (!state.appliedRewards || !Object.keys(state.appliedRewards).length) loadApplied();
+    state.appliedRewards = state.appliedRewards || {};
+    if (state.appliedRewards[id]) return false;
+    state.appliedRewards[id] = Date.now();
+    saveApplied();
+    return true;
+  }
+  function forgetGrant(id) {
+    if (!id || !state.appliedRewards) return;
+    delete state.appliedRewards[id];
+    saveApplied();
+  }
   function applyEsReward(delta, reason, id) {
     var Bridge = root.SSDNSBridge;
     var d = doc();
     if (!Bridge || !d || !delta) return;
-    state.appliedRewards = state.appliedRewards || {};
-    if (id && state.appliedRewards[id]) return;
-    if (id) state.appliedRewards[id] = 1;
+    var grant = id ? ("es:" + id) : "";
+    if (grant && !claimGrant(grant)) return;
     state.applyingReward = true;
     try {
       var old = Bridge.cpValue(d.shards);
@@ -567,6 +602,7 @@
         } catch (e) {}
       }
       if (!w) {
+        if (grant) forgetGrant(grant);
         toast("Could not apply DM ES change");
         return;
       }
@@ -661,9 +697,8 @@
     var delta = Number(payload.delta);
     if (!delta) delta = (payload.kind === "heal" ? 1 : -1) * (Number(payload.amount) || 0);
     if (!delta || !root.SSDNSSheet) return;
-    state.appliedRewards = state.appliedRewards || {};
-    if (id && state.appliedRewards["hp:" + id]) return;
-    if (id) state.appliedRewards["hp:" + id] = 1;
+    var grant = id ? ("hp:" + (payload.grantId || id)) : "";
+    if (grant && !claimGrant(grant)) return;
     var kind = payload.kind || (delta < 0 ? "damage" : "heal");
     var text = "DM " + kind + " " + Math.abs(delta) + (payload.formula ? " (" + payload.formula + ")" : "");
     root.SSDNSSheet.applyDelta(delta, text);
@@ -785,10 +820,11 @@
       if (root.SSDNSSheet && root.SSDNSSheet.showInspiration) root.SSDNSSheet.showInspiration(count, true);
       if (last && last.id && last.id !== inspSeen) {
         inspSeen = last.id;
-        if (inspPrimed) {
+        var fresh = claimGrant("insp:" + last.id);
+        if (inspPrimed && fresh) {
           var line = last.text || "Inspiration changed";
           toast(line);
-          if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: line, ts: last.ts });
+          if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "insp:" + last.id, kind: "alert", text: line, ts: last.ts });
         }
       }
       inspPrimed = true;
@@ -813,10 +849,12 @@
         if (state._feedSeen[id]) return;
         state._feedSeen[id] = 1;
         var row = val[id];
-        if (!row || row.from === state.uid) return;
+        if (!row) return;
+        var own = row.from === state.uid;
         var ts = Date.parse(row.ts);
-        if (!ts || ts <= (state.marker || 0)) return;
-        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: (row.kind === "roll" ? "roll:" : "feed:") + id, kind: row.kind === "roll" ? "roll" : "chat", text: (row.who || row.fromName || "Table") + ": " + (row.text || ""), ts: row.ts });
+        if (!own && (!ts || ts <= (state.marker || 0))) return;
+        var text = own ? (row.text || "") : ((row.who || row.fromName || "Table") + ": " + (row.text || ""));
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: (row.kind === "roll" ? "roll:" : "feed:") + id, kind: row.kind === "roll" ? "roll" : "chat", text: text, ts: row.ts });
       });
     });
     bind("players", function (val) {
@@ -831,6 +869,34 @@
     bind("encounter/public", function (val) {
       if (root.SSDNSPlaytest && root.SSDNSPlaytest.setTargets) root.SSDNSPlaytest.setTargets(val || {});
     });
+    bind("meta", function (val) {
+      if (!val || val.status !== "ended" || !state.joined) return;
+      toast("The DM ended the session");
+      leave();
+    });
+  }
+  function pullRoomState() {
+    var fb = state._fb;
+    var code = state.roomCode;
+    if (!fb || !state.db || !code) return;
+    function apply(tries) {
+      if (!state.joined || state.roomCode !== code) return;
+      if (!root.SSDNSPlaytest || !root.SSDNSPlaytest.showTurn) {
+        if (tries < 40) setTimeout(function () { apply(tries + 1); }, 50);
+        return;
+      }
+      fb.get(fb.ref(state.db, roomPath("table"))).then(function (snap) {
+        if (!state.joined || state.roomCode !== code) return;
+        var val = (snap && snap.val && snap.val()) || {};
+        root.SSDNSPlaytest.showTurn(val.initiative || null);
+      }).catch(function () {});
+      fb.get(fb.ref(state.db, roomPath("encounter/public"))).then(function (snap) {
+        if (!state.joined || state.roomCode !== code) return;
+        var val = (snap && snap.val && snap.val()) || {};
+        if (root.SSDNSPlaytest.setTargets) root.SSDNSPlaytest.setTargets(val);
+      }).catch(function () {});
+    }
+    apply(0);
   }
   function watchConnection() {
     if (state._conn) return;
@@ -918,7 +984,11 @@
     }
     if (btnJoin) btnJoin.hidden = !!on;
     if (btnLeave) btnLeave.hidden = !on;
-    if (input) { input.disabled = !!on; if (code) input.value = code; }
+    if (input) {
+      input.disabled = !!on;
+      if (on && code) input.value = code;
+      if (!on) input.value = "";
+    }
     var bar = $("#dmJoinBar");
     if (bar) bar.classList.toggle("joined", !!on);
     if (!on && root.SSDNSSheet && root.SSDNSSheet.showInspiration) root.SSDNSSheet.showInspiration(0, false);
@@ -964,8 +1034,10 @@
       setUiJoined(true, code);
       watchConnection();
       await publishSnapshot();
+      loadApplied();
       listenCommands();
       listenRoomFeeds();
+      pullRoomState();
       watchEs();
       flushQueue();
       setBadge(state.connected === false ? "reconnecting" : "connected");
@@ -995,6 +1067,33 @@
     }
   }
 
+  function clearReplayMarkers() {
+    var code = state.roomCode;
+    var uid = state.uid;
+    var d = doc();
+    var cid = (d && d.id) || "";
+    try {
+      if (code && uid) {
+        localStorage.removeItem("ssdns.v1.dmJoin.seen." + code + "." + uid);
+        localStorage.removeItem("ssdns.v1.cmdMarker." + code + "." + uid);
+        localStorage.removeItem("ssdns.v1.outbox." + code + "." + uid);
+        localStorage.removeItem("ssdns.v1.outbox." + code + ".local");
+      }
+      if (cid && code) localStorage.removeItem("ssdns.v1.applied." + cid + "." + code);
+      localStorage.removeItem(LS_KEY);
+    } catch (e) {}
+    state.lastCmdSeen = {};
+    state.marker = 0;
+    state.appliedRewards = {};
+    state._feedSeen = {};
+    state._chatSeen = {};
+  }
+  function abandon() {
+    clearReplayMarkers();
+    if (root.SSDNSPlaytest && root.SSDNSPlaytest.dropLogStore) root.SSDNSPlaytest.dropLogStore(true);
+    if (root.SSDNSSheet && root.SSDNSSheet.clearLog) root.SSDNSSheet.clearLog();
+    leave();
+  }
   async function leave() {
     var code = state.roomCode;
     var uid = state.uid;
@@ -1031,7 +1130,9 @@
       showHandout: showHandout,
       spendInspiration: spendInspiration,
       join: join,
-      leave: leave
+      leave: leave,
+      abandon: abandon,
+      claimGrant: claimGrant
     };
   }
 
@@ -1060,12 +1161,17 @@
         clearInterval(t);
         var saved = loadLocal();
         var input = $("#dmJoinCode");
-        if (saved && saved.roomCode && input && !input.value) input.value = saved.roomCode;
         var shown = input ? String(input.value || "").trim().toUpperCase() : "";
-        if (saved && saved.joined && saved.roomCode && shown === String(saved.roomCode).toUpperCase()) {
-          toast("Rejoining " + saved.roomCode);
-          join(saved.roomCode);
+        if (saved && saved.joined === true && saved.roomCode) {
+          var code = String(saved.roomCode).toUpperCase();
+          if (!shown && input) { input.value = saved.roomCode; shown = code; }
+          if (shown === code) {
+            toast("Rejoining " + saved.roomCode);
+            join(saved.roomCode);
+          } else setUiJoined(false);
         } else {
+          if (input) input.value = "";
+          try { localStorage.removeItem(LS_KEY); } catch (err) {}
           setUiJoined(false);
         }
       }
