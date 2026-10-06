@@ -8,7 +8,8 @@ const $ = DM.$;
 const $$ = DM.$$;
 const esc = DM.esc;
 
-const CONDITIONS = ["Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned", "Unconscious", "Exhaustion", "Bleeding"];
+const CONDITIONS = ["Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned", "Unconscious", "Exhaustion"];
+const BESTIARY_KEY = "ssdns.dm.bestiary.v2";
 const PACK_KEY = "ssdns.dm.packs";
 const TABLE_KEY = "ssdns.dm.table";
 function migrateLocal(next, prev) {
@@ -39,8 +40,10 @@ const fight = {
   toTable: false,
   playing: false,
   undo: null,
+  undos: {},
   recruit: true,
   departed: {},
+  removed: {},
   appliedHits: {},
   turnCmd: null,
   condMap: {}
@@ -65,6 +68,8 @@ function loadLocalTable() {
     fight.stock = raw.stock || [];
     fight.packs = raw.packs || fight.packs;
     if (raw.condMap && typeof raw.condMap === "object") fight.condMap = raw.condMap;
+    if (raw.removed && typeof raw.removed === "object") fight.removed = raw.removed;
+    if (raw.undos && typeof raw.undos === "object") fight.undos = raw.undos;
     if (raw.damageMode === "approve" || raw.damageMode === "auto") fight.damageMode = raw.damageMode;
   } catch (e) {}
   try {
@@ -76,7 +81,7 @@ function saveLocalTable() {
   try {
     localStorage.setItem(tableKey(), JSON.stringify({
       round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: fight.order, inspiration: fight.inspiration,
-      stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, damageMode: fight.damageMode === "approve" ? "approve" : "auto", updatedAt: fight.updatedAt
+      stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, removed: fight.removed || {}, undos: fight.undos || {}, damageMode: fight.damageMode === "approve" ? "approve" : "auto", updatedAt: fight.updatedAt
     }));
     localStorage.setItem(PACK_KEY, JSON.stringify(fight.packs));
   } catch (e) {}
@@ -260,7 +265,7 @@ function applyRemoteTable(v) {
             dex: keepVital(row.dex, old.dex),
             initBonus: keepVital(row.initBonus, old.initBonus)
           });
-        });
+        }).filter((row) => !isRemoved(row));
       }
     }
     if (v.damageMode === "approve" || v.damageMode === "auto") fight.damageMode = v.damageMode;
@@ -293,23 +298,81 @@ function namesFor(pid) {
   return { playerName: s.player || "", characterName: s.name || "" };
 }
 
+function undoStorageKey() {
+  return "ssdns.dm.undos." + (DM.state.roomCode || "demo");
+}
+function loadUndos() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(undoStorageKey()) || "null");
+    if (raw && typeof raw === "object") fight.undos = Object.assign({}, raw, fight.undos || {});
+  } catch (e) {}
+}
+function saveUndos() {
+  try { localStorage.setItem(undoStorageKey(), JSON.stringify(fight.undos || {})); } catch (e) {}
+  saveLocalTable();
+}
 function rememberUndo(entry) {
   fight.undo = entry;
   fight.undos = fight.undos || {};
   if (entry && entry.rollId) fight.undos[entry.rollId] = entry;
+  saveUndos();
   const btn = $("#btnUndo");
   if (btn) btn.disabled = !entry;
+}
+function ledgerUndo(rollId) {
+  const led = (DM.state.ledger || []).find((e) => e && e.rollId === rollId && (e.type === "damage" || e.type === "heal") && e.oldVal != null && e.type !== "undo");
+  if (!led) return null;
+  const heal = led.type === "heal" || !!led.heal;
+  const before = Number(led.oldVal);
+  const after = Number(led.newVal);
+  const amt = isFinite(before) && isFinite(after) ? Math.abs(after - before) : (Number(led.amount) || 0);
+  const targetId = led.targetId || "";
+  const pid = led.subjectId || "";
+  return {
+    type: "hit",
+    rollId: rollId,
+    label: led.what || "hit",
+    playerId: pid,
+    heal: heal,
+    amount: amt,
+    restoreHp: targetId ? { id: targetId, hp: before } : null,
+    command: pid ? {
+      type: "hp",
+      to: pid,
+      payload: { delta: heal ? -amt : amt, kind: heal ? "damage" : "heal", amount: amt, text: "Undo " + (led.what || "hit"), grantId: rollId + ":undo" },
+      from: DM.state.uid
+    } : null
+  };
+}
+function undoRecord(rollId) {
+  if (!rollId) return null;
+  loadUndos();
+  if (fight.undos && fight.undos[rollId]) return fight.undos[rollId];
+  if (fight.undo && fight.undo.rollId === rollId) return fight.undo;
+  const rebuilt = ledgerUndo(rollId);
+  if (rebuilt) {
+    fight.undos = fight.undos || {};
+    fight.undos[rollId] = rebuilt;
+    saveUndos();
+  }
+  return rebuilt;
 }
 
 async function undoEntry(u) {
   if (!u) { DM.toast("Nothing to undo"); return false; }
   const rollId = u.rollId || "";
-  if (rollId && window.SSDNSApplied && !window.SSDNSApplied.takeUndo(DM.state.roomCode, rollId)) {
-    DM.toast("Already undone");
-    return false;
+  if (rollId && window.SSDNSApplied) {
+    const marks = window.SSDNSApplied.load(DM.state.roomCode) || {};
+    if (marks["undo:" + rollId]) { DM.toast("Already undone"); return false; }
+    if (!marks[rollId]) window.SSDNSApplied.claim(DM.state.roomCode, rollId);
+    if (!window.SSDNSApplied.takeUndo(DM.state.roomCode, rollId)) {
+      DM.toast("Already undone");
+      return false;
+    }
   }
   if (fight.undo && (!rollId || fight.undo.rollId === rollId)) fight.undo = null;
   if (rollId && fight.undos) delete fight.undos[rollId];
+  saveUndos();
   const btn = $("#btnUndo");
   if (btn) btn.disabled = !fight.undo;
   const names = namesFor(u.playerId);
@@ -320,8 +383,10 @@ async function undoEntry(u) {
   }, names, { playerId: u.playerId || "all" }));
   if (u.command) await DM.pushCommand(u.command);
   if (u.restoreHp) {
-    const row = fight.order.find((r) => r && r.id === u.restoreHp.id);
+    const row = fight.order.find((r) => r && (r.id === u.restoreHp.id || r.playerId === u.restoreHp.id));
     if (row) row.hp = u.restoreHp.hp;
+    const snap = playerSnapshot(u.playerId || u.restoreHp.id);
+    if (snap && u.restoreHp.hp != null) snap.hpCurrent = u.restoreHp.hp;
     if (u.rollId) {
       delete fight.appliedHits[u.rollId];
       if (window.SSDNSApplied) window.SSDNSApplied.release(DM.state.roomCode, u.rollId);
@@ -341,7 +406,7 @@ async function undoLast() {
   return undoEntry(fight.undo);
 }
 function undoByRoll(rollId) {
-  const u = (fight.undos && fight.undos[rollId]) || (fight.undo && fight.undo.rollId === rollId ? fight.undo : null);
+  const u = undoRecord(rollId);
   if (!u) { DM.toast("Nothing to undo"); return Promise.resolve(false); }
   return undoEntry(u);
 }
@@ -508,6 +573,7 @@ function addCombatant(row) {
     row.dex = dexFromSnapshot(snap);
     if (snap && snap.hpMax != null) row.maxHp = snap.hpMax;
   }
+  if (pid && fight.removed && (fight.removed[pid] || fight.removed[row.id])) return null;
   if (pid) {
     const existing = fight.order.find((r) => r.id === pid || r.playerId === pid);
     if (existing) {
@@ -553,10 +619,16 @@ function turnAckLabel(row) {
   if (ack && ack.id === cmd.id && (ack.delivered || ack.seen === false)) return " · delivered";
   return " · sent";
 }
+function isRemoved(row) {
+  if (!row) return false;
+  const gone = fight.removed || {};
+  return !!(gone[row.id] || (row.playerId && gone[row.playerId]));
+}
 function ensurePlayers() {
   if (fight.recruit === false) return;
   Object.keys(DM.state.players || {}).forEach((pid) => {
     if (fight.departed && fight.departed[pid]) return;
+    if (fight.removed && fight.removed[pid]) return;
     const row = fight.order.find((r) => r && (r.id === pid || r.playerId === pid));
     const posted = postedInit(pid);
     if (row) {
@@ -607,12 +679,28 @@ function sendYourTurn(cur, resent) {
   });
   renderFight();
 }
+function dedupeConditions(list) {
+  const byName = {};
+  (list || []).forEach((raw) => {
+    if (!raw) return;
+    const name = String(raw.name || raw || "").trim();
+    const key = name.replace(/\s+\d+$/, "").replace(/\s+\d+r$/i, "").toLowerCase();
+    if (!key) return;
+    const row = typeof raw === "string" ? { name: name } : raw;
+    const prev = byName[key];
+    if (!prev) { byName[key] = row; return; }
+    const prevDm = /^dm$/i.test(prev.byName || "") || prev.by === "dm";
+    const nextDm = /^dm$/i.test(row.byName || "") || row.by === "dm";
+    if (prevDm && !nextDm) byName[key] = row;
+  });
+  return Object.keys(byName).map((key) => byName[key]);
+}
 function conditionsForRow(row) {
   if (!row) return [];
   const subject = row.kind === "player" ? (row.playerId || row.id) : row.id;
   const fromMap = Object.keys(fight.condMap || {}).map((id) => Object.assign({ id: id }, fight.condMap[id])).filter((c) => c && c.subjectId === subject);
-  if (fromMap.length) return fromMap;
-  return row.conditions || [];
+  const list = fromMap.length ? fromMap : (row.conditions || []);
+  return dedupeConditions(list);
 }
 function conditionChips(row) {
   const Cond = window.SSDNSConditions;
@@ -683,34 +771,56 @@ function askRowConditions(i) {
 async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, roundsByName, removeIds) {
   const Cond = window.SSDNSConditions;
   if (!Cond || !subjectId) return;
+  const existing = [];
+  Object.keys(fight.condMap || {}).forEach((id) => {
+    const row = fight.condMap[id];
+    if (row && row.subjectId === subjectId) existing.push(Object.assign({ id: id }, row));
+  });
+  const snapNow = kind === "player" && DM.state.players[subjectId] && DM.state.players[subjectId].snapshot;
+  (snapNow && snapNow.activeConditions || []).forEach((row) => {
+    if (!row || !row.name) return;
+    if (existing.some((have) => String(have.name || "").toLowerCase() === String(row.name).toLowerCase())) return;
+    existing.push(row);
+  });
   const wanted = {};
+  const changed = {};
+  const addedIds = [];
   (names || []).forEach((item) => {
     const entry = item && typeof item === "object" ? item : { name: item };
     const name = entry.name;
-    const id = Cond.idFor(subjectId, name);
     const rounds = entry.rounds != null ? entry.rounds : (roundsByName && roundsByName[name] != null ? roundsByName[name] : null);
-    wanted[id] = Cond.normalize({
-      id: id, name: name, level: name === "Exhaustion" ? (entry.level || exhLevel || 1) : 0,
-      rounds: rounds,
-      subjectId: subjectId, subjectKind: kind, by: DM.state.uid || "dm", byName: "DM",
+    const level = name === "Exhaustion" ? (entry.level || exhLevel || 1) : 0;
+    const prior = existing.filter((row) => String(row.name || "").toLowerCase() === String(name || "").toLowerCase())[0];
+    const id = (prior && prior.id) || Cond.idFor(subjectId, name);
+    const sameRounds = prior && ((prior.rounds == null && (rounds == null || rounds === "")) || Number(prior.rounds) === Number(rounds));
+    const sameLevel = !prior || name !== "Exhaustion" || Number(prior.level || 1) === Number(level);
+    if (prior && sameRounds && sameLevel) return;
+    const row = Cond.normalize({
+      id: id, name: name, level: level, rounds: rounds,
+      subjectId: subjectId, subjectKind: kind,
+      by: prior && prior.by ? prior.by : (DM.state.uid || "dm"),
+      byName: prior && prior.byName ? prior.byName : "DM",
       updatedAt: new Date().toISOString()
     });
+    wanted[id] = row;
+    if (prior) changed[id] = true;
+    else addedIds.push(id);
   });
   const drop = {};
   (removeIds || []).forEach((id) => { if (id) drop[id] = 1; });
-  const prev = Object.keys(fight.condMap || {}).filter((id) => {
-    const row = fight.condMap[id];
-    return row && row.subjectId === subjectId;
-  });
+  const prev = existing.map((row) => row.id).filter(Boolean);
   fight.condMap = fight.condMap || {};
   const removedLabels = {};
   prev.forEach((id) => {
     if (!drop[id] || wanted[id]) return;
-    removedLabels[id] = (fight.condMap[id] && fight.condMap[id].name) || Cond.label(fight.condMap[id]);
+    const had = fight.condMap[id] || existing.filter((row) => row.id === id)[0];
+    const still = Object.keys(wanted).some((wid) => String((wanted[wid] && wanted[wid].name) || "").toLowerCase() === String((had && had.name) || "").toLowerCase());
+    if (still) return;
+    removedLabels[id] = (had && had.name) || Cond.label(had);
     delete fight.condMap[id];
   });
   Object.keys(wanted).forEach((id) => { fight.condMap[id] = wanted[id]; });
-  const added = Object.keys(wanted).filter((id) => prev.indexOf(id) < 0);
+  const added = addedIds;
   const removed = Object.keys(removedLabels);
   fight.order.forEach((row) => {
     if (!row) return;
@@ -720,7 +830,7 @@ async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, r
   });
   if (kind === "player" && DM.state.players[subjectId] && DM.state.players[subjectId].snapshot) {
     const snap = DM.state.players[subjectId].snapshot;
-    snap.activeConditions = Cond.mergeById(snap.activeConditions || [], Object.keys(wanted).map((id) => wanted[id]), removed);
+    snap.activeConditions = dedupeConditions(Cond.mergeById(snap.activeConditions || [], Object.keys(wanted).map((id) => wanted[id]), removed));
     snap.conditions = Cond.listText(snap.activeConditions);
   }
   saveLocalTable();
@@ -734,6 +844,11 @@ async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, r
   const who = label || subjectId;
   for (const id of added) {
     const line = "DM applied " + Cond.label(wanted[id]) + " to " + who;
+    await DM.pushLedger({ who: "DM", playerId: kind === "player" ? subjectId : "all", type: "condition", what: line, oldVal: null, newVal: Cond.label(wanted[id]), flag: false });
+    if (kind === "player") await DM.pushCommand({ type: "set_conditions", to: subjectId, payload: { merge: true, entries: [wanted[id]], quiet: true }, from: DM.state.uid });
+  }
+  for (const id of Object.keys(changed)) {
+    const line = "DM updated " + Cond.label(wanted[id]) + " on " + who;
     await DM.pushLedger({ who: "DM", playerId: kind === "player" ? subjectId : "all", type: "condition", what: line, oldVal: null, newVal: Cond.label(wanted[id]), flag: false });
     if (kind === "player") await DM.pushCommand({ type: "set_conditions", to: subjectId, payload: { merge: true, entries: [wanted[id]], quiet: true }, from: DM.state.uid });
   }
@@ -812,7 +927,9 @@ function nextTurn() {
   saveRemoteTable();
   renderFight();
   const cur = fight.order[fight.turn];
-  DM.toast("Round " + fight.round + " · " + (cur ? cur.name : ""));
+  const turnLine = "Round " + fight.round + " · " + (cur && cur.name ? cur.name : "someone") + "'s turn";
+  DM.toast(turnLine);
+  DM.pushLedger({ who: "DM", playerId: (cur && (cur.playerId || cur.id)) || "all", type: "combat", what: turnLine, oldVal: null, newVal: "round " + fight.round, flag: false });
   sendYourTurn(cur, false);
   tickConditions(cur);
 }
@@ -1110,15 +1227,59 @@ async function sendPack(index) {
   DM.toast("Sent " + pack.name);
 }
 
+function visibleBeasts() {
+  return (fight.bestiary || []).filter((b) => b && !b.template);
+}
+function mergeBestiary(fileList, saved) {
+  const base = Array.isArray(fileList) ? fileList : [];
+  const extra = {};
+  (saved || []).forEach((b) => {
+    if (!b || !b.id || b.example || b.template) return;
+    extra[b.id] = b;
+  });
+  const out = base.map((b) => {
+    const over = b && extra[b.id];
+    if (!over) return b;
+    return Object.assign({}, b, { name: over.name || b.name });
+  });
+  const known = {};
+  out.forEach((b) => { if (b && b.id) known[b.id] = 1; });
+  Object.keys(extra).forEach((id) => { if (!known[id]) out.push(extra[id]); });
+  return out;
+}
+function beastRow(b) {
+  const stats = window.SSDNSApplied && window.SSDNSApplied.beastCombatant
+    ? window.SSDNSApplied.beastCombatant(b)
+    : { ac: b.ac, hp: b.hp, maxHp: b.hp, dex: b.dex, initBonus: b.initBonus, atkBonus: b.atkBonus, damage: b.damage || "", attacks: b.attacks || "" };
+  return {
+    id: DM.uid("en"),
+    name: b.name,
+    kind: "enemy",
+    ac: stats.ac,
+    hp: stats.hp,
+    maxHp: stats.maxHp,
+    dex: stats.dex,
+    initBonus: stats.initBonus,
+    atkBonus: stats.atkBonus,
+    damage: stats.damage,
+    attacks: stats.attacks || b.attacks || "",
+    attackList: b.attackList || [],
+    speed: b.speed,
+    cr: b.cr
+  };
+}
 function renderBestiary() {
   const box = $("#bestiaryList");
   if (!box) return;
-  box.innerHTML = fight.bestiary.map((b) => `
+  const traitText = window.SSDNSApplied && window.SSDNSApplied.traitText
+    ? window.SSDNSApplied.traitText
+    : (traits) => (Array.isArray(traits) ? traits.map((t) => (t && t.name) || "").join(", ") : String(traits || ""));
+  box.innerHTML = visibleBeasts().map((b) => `
     <article class="bestiary-card">
       <h3>${esc(b.name)}</h3>
-      <p>AC ${esc(b.ac)} · HP ${esc(b.hp)}</p>
+      <p>AC ${esc(b.ac)} · HP ${esc(b.hp)}${b.cr ? " · CR " + esc(b.cr) : ""}</p>
       <p>${esc(b.attacks || "")}</p>
-      <p class="lede">${esc(b.traits || "")}</p>
+      <p class="lede">${esc(traitText(b.traits))}</p>
       <label class="fine">Name <input type="text" data-beast-name="${esc(b.id)}" value="${esc(b.name)}" aria-label="Rename ${esc(b.name)}"></label>
       <button type="button" class="btn sm" data-add-beast="${esc(b.id)}">Add to initiative</button>
     </article>`).join("") || '<p class="lede">No bestiary file.</p>';
@@ -1971,9 +2132,16 @@ function applyPlayerHit(meta) {
   if (row) {
     const delta = heal ? amt : -amt;
     const next = applyEnemyHp(row, delta);
-    if (next == null) return;
+    if (next == null) {
+      if (rollId) {
+        delete fight.appliedHits[rollId];
+        if (window.SSDNSApplied) window.SSDNSApplied.release(DM.state.roomCode, rollId);
+      }
+      return;
+    }
     after = knownNumber(row.hp);
     if (after == null) after = before;
+    if (row.kind === "player" && snap) snap.hpCurrent = after;
   } else if (snap) {
     const max = Number(snap.hpMax) || 0;
     after = heal ? (max ? Math.min(max, before + amt) : before + amt) : Math.max(0, before - amt);
@@ -2009,13 +2177,15 @@ function applyPlayerHit(meta) {
   if (rollId && DM.markRollApplied) DM.markRollApplied(rollId, true);
   const roll = (DM.state.rolls || []).find((r) => r && r.id === rollId);
   if (roll && heal) roll.detail = line;
+  const targetId = (row && row.id) || meta.targetId || pid || "";
   DM.pushLedger({
     who: who, playerId: meta.from || pid || "all", type: heal ? "heal" : "damage",
-    what: line, oldVal: before, newVal: after, flag: false, characterName: who, rollId: rollId || ""
+    what: line, oldVal: before, newVal: after, flag: false, characterName: who, rollId: rollId || "",
+    targetId: targetId, subjectId: pid || "", heal: !!heal, amount: amt, prevHp: before
   });
   rememberUndo({
-    type: "hit", rollId: rollId, label: line, playerId: pid,
-    restoreHp: row ? { id: row.id, hp: before } : null,
+    type: "hit", rollId: rollId, label: line, playerId: pid, heal: !!heal, amount: amt,
+    restoreHp: targetId ? { id: targetId, hp: before } : null,
     command: pid ? {
       type: "hp", to: pid,
       payload: { delta: heal ? -amt : amt, kind: heal ? "damage" : "heal", amount: amt, text: "Undo " + line, grantId: (rollId || "hit") + ":undo" },
@@ -2136,7 +2306,13 @@ function wireClicks() {
     if (t.hasAttribute("data-init-down")) { markDown(parseInt(t.getAttribute("data-init-down"), 10)); return; }
     if (t.hasAttribute("data-init-up") || t.hasAttribute("data-init-down-move") || t.hasAttribute("data-init-del")) {
       const i = parseInt(t.getAttribute("data-init-up") || t.getAttribute("data-init-down-move") || t.getAttribute("data-init-del"), 10);
-      if (t.hasAttribute("data-init-del")) fight.order.splice(i, 1);
+      if (t.hasAttribute("data-init-del")) {
+        const gone = fight.order[i];
+        fight.removed = fight.removed || {};
+        if (gone && gone.id) fight.removed[gone.id] = true;
+        if (gone && gone.playerId) fight.removed[gone.playerId] = true;
+        fight.order.splice(i, 1);
+      }
       else if (t.hasAttribute("data-init-up") && i > 0) {
         const row = fight.order.splice(i, 1)[0];
         fight.order.splice(i - 1, 0, row);
@@ -2153,7 +2329,7 @@ function wireClicks() {
       const b = fight.bestiary.filter((x) => x.id === t.getAttribute("data-add-beast"))[0];
         if (b) {
         fight.recruit = true;
-        const row = addCombatant({ id: DM.uid("en"), name: b.name, kind: "enemy", ac: b.ac, hp: b.hp, dex: b.dex, example: true });
+        const row = addCombatant(beastRow(b));
         announce("Added " + row.name + " to the turn order", "combat", row);
       }
     }
@@ -2189,7 +2365,7 @@ function fillAdds() {
   const beast = $("#initEnemy");
   if (beast) {
     const keep = beast.value;
-    beast.innerHTML = fight.bestiary.map((b) => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join("");
+    beast.innerHTML = visibleBeasts().map((b) => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join("");
     if ([...beast.options].some((o) => o.value === keep)) beast.value = keep;
   }
 }
@@ -2405,17 +2581,47 @@ async function changeInspiration(delta) {
     DM.toast("Inspiration update failed");
   }
 }
+function removeCombatant(id) {
+  if (!id) return;
+  fight.removed = fight.removed || {};
+  fight.removed[id] = true;
+  fight.order = (fight.order || []).filter((row) => !(row && (row.id === id || row.playerId === id)));
+  Object.keys(fight.condMap || {}).forEach((cid) => {
+    const row = fight.condMap[cid];
+    if (row && row.subjectId === id) delete fight.condMap[cid];
+  });
+  saveRemoteTable();
+  renderFight();
+}
+function enterRoom() {
+  const code = DM.state.roomCode || "";
+  fight._room = code;
+  fight.order = [];
+  fight.round = 1;
+  fight.turn = 0;
+  fight.started = false;
+  fight.removed = {};
+  fight.departed = {};
+  fight.undo = null;
+  fight.undos = {};
+  fight.condMap = {};
+  fight.turnCmd = null;
+  fight.updatedAt = "";
+  fight.recruit = true;
+  if (code) {
+    loadLocalTable();
+    loadUndos();
+    fight.order = (fight.order || []).filter((row) => !isRemoved(row));
+  }
+  renderFight();
+}
 async function bootV2() {
-  loadLocalTable();
+  if (DM.state.roomCode) enterRoom();
   try {
     const res = await fetch("assets/data/bestiary.json");
     if (res.ok) fight.bestiary = await res.json();
-    const saved = JSON.parse(localStorage.getItem("ssdns.dm.bestiary") || "null");
-    if (Array.isArray(saved) && saved.length) {
-      const byId = {};
-      fight.bestiary.forEach((b) => { byId[b.id] = b; });
-      saved.forEach((b) => { if (b && b.id && byId[b.id]) Object.assign(byId[b.id], b); else if (b && b.name) fight.bestiary.push(b); });
-    }
+    const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
+    fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
   } catch (e) {}
   try {
     const res = await fetch("../assets/music/tracks.json");
@@ -2444,7 +2650,7 @@ async function bootV2() {
     const b = fight.bestiary.filter((x) => x.id === $("#initEnemy").value)[0];
     if (!b) { DM.toast("Pick an enemy"); return; }
     fight.recruit = true;
-    const row = addCombatant({ id: DM.uid("en"), name: b.name, kind: "enemy", ac: b.ac, hp: b.hp, dex: b.dex, example: true });
+    const row = addCombatant(beastRow(b));
     announce("Added " + row.name + " to the turn order", "combat", row);
   });
   $("#btnNextTurn") && $("#btnNextTurn").addEventListener("click", nextTurn);
@@ -2498,7 +2704,10 @@ async function bootV2() {
     syncPlayers: syncPlayerVitals,
     onPlayerInit: onPlayerInit,
     notePresence: notePresence,
-    acFor: acForRoll
+    acFor: acForRoll,
+    enterRoom: enterRoom,
+    renderFight: renderFight,
+    removeCombatant: removeCombatant
   };
   const rollAll = $("#btnRollAll");
   if (rollAll) rollAll.addEventListener("click", rollAllEnemies);
@@ -2587,7 +2796,7 @@ async function bootV2() {
     const b = fight.bestiary.filter((x) => x.id === t.getAttribute("data-beast-name"))[0];
     if (!b) return;
     b.name = t.value.trim() || b.name;
-    try { localStorage.setItem("ssdns.dm.bestiary", JSON.stringify(fight.bestiary)); } catch (err) {}
+    try { localStorage.setItem(BESTIARY_KEY, JSON.stringify(fight.bestiary.filter((b) => b && !b.template && !b.example))); } catch (err) {}
     fillAdds();
   });
   const origReward = document.getElementById("btnPushReward");

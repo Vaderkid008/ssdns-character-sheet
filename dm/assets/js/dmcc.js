@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.13"; // dmcc-round10-v0213
+const VERSION = "0.2.14"; // dmcc-round11-v0214
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -176,6 +176,7 @@ const state = {
   rolls: [],
   messages: [],
   handouts: [],
+  kicked: {},
   commands: [],
   table: null,
   chat: [],
@@ -309,6 +310,7 @@ function loadDemo(createNewCode, resumeCode) {
   state.uid = "demo_dm";
   showRoom();
   renderAll();
+  if (window.DMCCEnhance && window.DMCCEnhance.enterRoom) window.DMCCEnhance.enterRoom();
   setStatus("demo", "Demo mode · offline · code " + state.roomCode);
   try { localStorage.setItem(ROOM_KEY, JSON.stringify({ code: state.roomCode, demo: true })); } catch (e) {}
 }
@@ -346,6 +348,7 @@ async function createLiveRoom(name) {
     attachLiveListeners();
     showRoom();
     renderAll();
+    if (window.DMCCEnhance && window.DMCCEnhance.enterRoom) window.DMCCEnhance.enterRoom();
     setStatus("live", "Live · Firebase · " + code);
     try { localStorage.setItem(ROOM_KEY, JSON.stringify({ code, demo: false, uid: state.uid })); } catch (e) {}
   } catch (e) {
@@ -443,8 +446,55 @@ function attachLiveListeners() {
   });
   bind("chat", (v) => {
     state.chat = objToArr(v).sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
-    renderLiveDock();
+    renderLiveDockNow();
   });
+  bind("kicked", (v) => {
+    state.kicked = v && typeof v === "object" ? v : {};
+    renderPlayers();
+    renderKicked();
+  });
+  if (!state._visCatch) {
+    state._visCatch = true;
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible") return;
+      paintFeedsNow();
+      catchUpFeeds();
+    });
+  }
+}
+function paintFeedsNow() {
+  renderPlayers();
+  renderLedger();
+  renderRolls();
+  renderMessages();
+  renderHandouts();
+  renderLiveDockNow();
+  if (window.DMCCEnhance && window.DMCCEnhance.renderFight) window.DMCCEnhance.renderFight();
+}
+async function catchUpFeeds() {
+  if (state.demo || !state.db || !state.roomCode || !state._fb) return;
+  const code = state.roomCode;
+  const fb = state._fb;
+  const pull = async (path) => {
+    const snap = await fb.get(roomRef(path));
+    return snap.val();
+  };
+  try {
+    const [rolls, ledger, players, handouts, messages] = await Promise.all([
+      pull("rolls"), pull("ledger"), pull("players"), pull("handouts"), pull("messages")
+    ]);
+    if (state.roomCode !== code) return;
+    const allRolls = objToArr(rolls).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+    noteConsumeRolls(allRolls);
+    state.rolls = allRolls.filter((r) => !isConsumeRoll(r));
+    const nextLedger = objToArr(ledger).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+    noteAddiction(nextLedger);
+    state.ledger = dedupeById(nextLedger);
+    state.players = players || {};
+    state.handouts = objToArr(handouts).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+    state.messages = objToArr(messages).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+    paintFeedsNow();
+  } catch (e) { /* the live listeners still own the next snapshot */ }
 }
 
 const knownLedger = {};
@@ -719,7 +769,9 @@ function syncSessionButtons() {
   if (leave) leave.hidden = !inRoom;
   const copy = $("#btnCopyCode");
   const end = $("#btnEndSession");
+  const fresh = $("#btnNewCode");
   if (copy) copy.hidden = !inRoom;
+  if (fresh) fresh.hidden = !inRoom;
   if (end) end.hidden = !inRoom;
 }
 function showRoom() {
@@ -1055,7 +1107,14 @@ function renderPlayers() {
     const portrait = s.portrait
       ? `<img class="portrait" src="${esc(s.portrait)}" alt="">`
       : `<span class="portrait initials" aria-hidden="true">${esc(initials)}</span>`;
-    const conds = String(s.conditions || "").split(",").map((c) => c.trim()).filter(Boolean);
+    const seenCond = {};
+    const conds = String(s.conditions || "").split(",").map((c) => c.trim()).filter((c) => {
+      if (!c) return false;
+      const key = c.replace(/\s+\d+r$/i, "").replace(/\s+\d+$/, "").toLowerCase();
+      if (seenCond[key]) return false;
+      seenCond[key] = 1;
+      return true;
+    });
     const condHtml = conds.map((c) => `<span class="cond-chip">${esc(c)}</span>`).join("");
     const ds = s.deathSaves || {};
     const dsHtml = downed
@@ -1075,6 +1134,7 @@ function renderPlayers() {
           <div class="pcard-sub">${esc(s.calling || "?")} · L${esc(s.level ?? "?")} · ${esc(s.player || "")}</div>
         </div>
         <span class="badge ${downed ? "danger" : (on ? "eld" : "")}">${downed ? "Unconscious" : (on ? "Online" : "Away")}</span>
+        <span class="btn sm" data-kick="${esc(p.id)}" role="button">Kick</span>
       </div>
       ${condHtml ? `<div class="cond-row">${condHtml}</div>` : ""}
       <div class="stat-row">
@@ -1089,7 +1149,216 @@ function renderPlayers() {
       ${slotLine(s) ? `<div class="slot-line">${esc(slotLine(s))}</div>` : ""}
     </button>`;
   }).join("");
-  $$(".pcard", grid).forEach((btn) => btn.addEventListener("click", () => openDetail(btn.dataset.pid)));
+  $$(".pcard", grid).forEach((btn) => btn.addEventListener("click", (ev) => {
+    const kick = ev.target.closest && ev.target.closest("[data-kick]");
+    if (kick) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      kickPlayer(kick.getAttribute("data-kick"));
+      return;
+    }
+    openDetail(btn.dataset.pid);
+  }));
+  renderKicked();
+}
+function handoutAckLabel(h) {
+  if (!h || !h.id) return " · sent";
+  const ids = h.to && h.to !== "all" ? [h.to] : Object.keys(state.players || {});
+  if (!ids.length) return " · sent";
+  let seen = 0;
+  let delivered = 0;
+  ids.forEach((id) => {
+    const ack = state.players[id] && state.players[id].handoutAck;
+    if (!ack || ack.id !== h.id) return;
+    if (ack.seen) seen += 1;
+    else if (ack.delivered) delivered += 1;
+  });
+  if (seen >= ids.length) return " · seen";
+  if (seen || delivered) return " · delivered";
+  return " · sent";
+}
+function ledgerAck(e) {
+  if (!e) return "";
+  if (e.type === "turn" && e.playerId && e.playerId !== "all") {
+    const ack = state.players[e.playerId] && state.players[e.playerId].turnAck;
+    if (ack && ack.seen) return " · seen";
+    if (ack && (ack.delivered || ack.seen === false)) return " · delivered";
+    return " · sent";
+  }
+  if (e.type === "handout") return handoutAckLabel({ id: e.handoutId, to: e.playerId });
+  return "";
+}
+function askText(title, message, withReason) {
+  return new Promise((resolve) => {
+    const dlg = document.createElement("dialog");
+    dlg.className = "dlg";
+    dlg.innerHTML = `<form method="dialog"><h2></h2><p class="fine"></p>${withReason ? `<label>Reason <input id="askReason" type="text" placeholder="optional"></label>` : ""}<div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Confirm</button></div></form>`;
+    dlg.querySelector("h2").textContent = title;
+    dlg.querySelector("p").textContent = message;
+    const finish = (ok) => {
+      const reason = dlg.querySelector("#askReason");
+      const value = ok ? { ok: true, reason: reason ? reason.value.trim() : "" } : null;
+      if (dlg.close) dlg.close();
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      resolve(value);
+    };
+    dlg.querySelector("[value=no]").addEventListener("click", () => finish(false));
+    dlg.querySelector("form").addEventListener("submit", (ev) => { ev.preventDefault(); finish(true); });
+    dlg.addEventListener("cancel", (ev) => { ev.preventDefault(); finish(false); });
+    document.body.appendChild(dlg);
+    try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+    catch (err) { dlg.setAttribute("open", ""); }
+  });
+}
+async function kickPlayer(pid) {
+  const p = state.players && state.players[pid];
+  if (!pid || !p) return;
+  const s = p.snapshot || {};
+  const label = s.name || s.player || pid;
+  const ask = await askText("Kick " + label + "?", "They leave the table and cannot rejoin this code until you allow them back.", true);
+  if (!ask) return;
+  const reason = ask.reason || "";
+  state.kicked = state.kicked || {};
+  state.kicked[pid] = { uid: pid, name: label, reason: reason, ts: new Date().toISOString() };
+  delete state.players[pid];
+  if (window.DMCCEnhance && window.DMCCEnhance.enterRoom) {
+    /* keep the current fight; removal is recorded below */
+  }
+  const line = "DM kicked " + label + (reason ? " · " + reason : "");
+  await pushLedger({ who: "DM", playerId: pid, type: "kick", what: line, oldVal: null, newVal: "kicked", flag: false, characterName: label });
+  await pushCommand({ type: "kicked", to: pid, payload: { reason: reason, name: label }, from: state.uid });
+  if (!state.demo && state.db && state._fb) {
+    const fb = state._fb;
+    try {
+      await fb.set(roomRef("kicked/" + pid), state.kicked[pid]);
+      await fb.remove(roomRef("players/" + pid));
+      const condSnap = await fb.get(roomRef("conditions"));
+      const conds = condSnap.val() || {};
+      for (const id of Object.keys(conds)) {
+        if (conds[id] && conds[id].subjectId === pid) await fb.remove(roomRef("conditions/" + id));
+      }
+    } catch (e) { writeFailed(e, "Kick failed"); }
+  }
+  if (window.DMCCEnhance && window.DMCCEnhance.removeCombatant) window.DMCCEnhance.removeCombatant(pid);
+  toast(label + " was removed from the table");
+  renderPlayers();
+  renderKicked();
+  if (window.DMCCEnhance && window.DMCCEnhance.renderFight) window.DMCCEnhance.renderFight();
+}
+async function allowBack(uid) {
+  if (!uid) return;
+  const row = (state.kicked && state.kicked[uid]) || {};
+  if (state.kicked) delete state.kicked[uid];
+  const label = row.name || uid;
+  await pushLedger({ who: "DM", playerId: uid, type: "kick", what: "DM allowed " + label + " back", oldVal: "kicked", newVal: "allowed", flag: false });
+  if (!state.demo && state.db && state._fb) {
+    try { await state._fb.remove(roomRef("kicked/" + uid)); }
+    catch (e) { writeFailed(e, "Couldn't allow them back"); }
+  }
+  toast(label + " can join again");
+  renderKicked();
+}
+async function copyRoomChildren(oldCode, newCode) {
+  const fb = state._fb;
+  const root = fb.ref(state.db, "rooms/" + oldCode);
+  const snap = async (path) => (await fb.get(fb.ref(state.db, "rooms/" + oldCode + "/" + path))).val();
+  const meta = (await snap("meta")) || {};
+  const table = await snap("table");
+  const encounter = {
+    public: await snap("encounter/public"),
+    hp: await snap("encounter/hp"),
+    requests: await snap("encounter/requests")
+  };
+  const players = (await snap("players")) || {};
+  const handouts = await snap("handouts");
+  const ledger = await snap("ledger");
+  const conditions = (await snap("conditions")) || {};
+  const chat = await snap("chat");
+  const kicked = (await snap("kicked")) || {};
+  const keptPlayers = {};
+  Object.keys(players).forEach((id) => { if (!kicked[id]) keptPlayers[id] = players[id]; });
+  const keptConds = {};
+  Object.keys(conditions).forEach((id) => {
+    const row = conditions[id];
+    if (row && row.subjectId && kicked[row.subjectId]) return;
+    keptConds[id] = row;
+  });
+  const nextMeta = Object.assign({}, meta, {
+    code: newCode,
+    dmUid: state.uid || meta.dmUid || "",
+    status: "live",
+    createdAt: new Date().toISOString(),
+    movedFrom: oldCode
+  });
+  delete nextMeta.movedTo;
+  const base = "rooms/" + newCode;
+  const put = (path, value) => fb.set(fb.ref(state.db, base + "/" + path), value);
+  await put("meta", nextMeta);
+  if (table && typeof table === "object") await fb.update(fb.ref(state.db, base + "/table"), table);
+  if (encounter && encounter.public) await put("encounter/public", encounter.public);
+  if (encounter && encounter.hp) await put("encounter/hp", encounter.hp);
+  if (encounter && encounter.requests) {
+    for (const id of Object.keys(encounter.requests)) await put("encounter/requests/" + id, encounter.requests[id]);
+  }
+  for (const id of Object.keys(keptPlayers)) await put("players/" + id, keptPlayers[id]);
+  for (const id of Object.keys(handouts || {})) await put("handouts/" + id, handouts[id]);
+  for (const id of Object.keys(ledger || {})) await put("ledger/" + id, ledger[id]);
+  for (const id of Object.keys(keptConds)) await put("conditions/" + id, keptConds[id]);
+  for (const id of Object.keys(chat || {})) await put("chat/" + id, chat[id]);
+  for (const id of Object.keys(kicked)) await put("kicked/" + id, kicked[id]);
+  await fb.update(fb.ref(state.db, "rooms/" + oldCode + "/meta"), { movedTo: newCode, status: "moved" });
+  return nextMeta;
+}
+async function newRoomCode() {
+  if (!state.roomCode) { toast("Open a room first"); return; }
+  const ask = await askText("New room code?", "The table moves to a fresh code. Players follow. Kicked players stay out.");
+  if (!ask) return;
+  const oldCode = state.roomCode;
+  const code = roomCode();
+  if (state.demo || !state.db) {
+    state.roomCode = code;
+    state.meta = Object.assign({}, state.meta || {}, { code: code, status: "live" });
+    try { localStorage.setItem(ROOM_KEY, JSON.stringify({ code: code, demo: !!state.demo })); } catch (e) {}
+    if (window.DMCCEnhance && window.DMCCEnhance.enterRoom) window.DMCCEnhance.enterRoom();
+    showRoom();
+    renderAll();
+    toast("Table moved to " + code);
+    return;
+  }
+  try {
+    await pushCommand({ type: "moved", to: "all", payload: { code: code }, from: state.uid });
+    const meta = await copyRoomChildren(oldCode, code);
+    clearUnsubs();
+    state.roomCode = code;
+    state.meta = meta;
+    state._listenCode = "";
+    try { localStorage.setItem(ROOM_KEY, JSON.stringify({ code: code, demo: false, uid: state.uid })); } catch (e) {}
+    if (window.DMCCEnhance && window.DMCCEnhance.enterRoom) window.DMCCEnhance.enterRoom();
+    attachLiveListeners();
+    showRoom();
+    renderAll();
+    toast("Table moved to " + code);
+  } catch (e) {
+    writeFailed(e, "Couldn't move the table");
+  }
+}
+function renderKicked() {
+  let box = $("#kickedList");
+  const grid = $("#playerGrid");
+  if (!box && grid && grid.parentNode) {
+    box = document.createElement("div");
+    box.id = "kickedList";
+    grid.parentNode.insertBefore(box, grid.nextSibling);
+  }
+  if (!box) return;
+  const rows = Object.keys(state.kicked || {});
+  if (!rows.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<p class="lede">Removed from this table</p>` + rows.map((uid) => {
+    const row = state.kicked[uid] || {};
+    const label = row.name || uid;
+    return `<div class="feed-item"><span>${esc(label)}${row.reason ? " · " + esc(row.reason) : ""}</span> <button type="button" class="btn sm" data-allow="${esc(uid)}">Allow back</button></div>`;
+  }).join("");
+  $$("[data-allow]", box).forEach((btn) => btn.addEventListener("click", () => allowBack(btn.getAttribute("data-allow"))));
 }
 
 function openDetail(pid) {
@@ -1156,7 +1425,7 @@ function renderLedger() {
       ? `${e.oldVal} → ${e.newVal}` : (e.newVal != null ? String(e.newVal) : "");
     return `<div class="feed-item ${e.flag ? "flag" : ""}">
       <div class="feed-meta"><span>${esc(fmtTime(e.ts))}</span><span>${esc(ledgerNames(e))}</span><span class="badge">${esc(e.type)}</span>${e.flag ? '<span class="badge warn">Big jump</span>' : ""}</div>
-      <div class="feed-what">${esc(e.what)}</div>
+      <div class="feed-what">${esc(e.what)}${esc(ledgerAck(e))}</div>
       ${delta ? `<div class="feed-delta">${esc(delta)}</div>` : ""}
       ${(e.type === "damage" || e.type === "heal") ? undoHitButton(e.rollId) : ""}
     </div>`;
@@ -1181,6 +1450,7 @@ function dockItems() {
     const alert = ALERT_TYPES.test(String(e.type || "")) || !!e.flag;
     const rollIds = new Set((state.rolls || []).map((r) => r && r.id).filter(Boolean));
     if (e.id && rollIds.has(e.id)) return;
+    if ((e.type === "damage" || e.type === "heal") && e.rollId && rollIds.has(e.rollId)) return;
     const resend = e.type === "turn" && e.playerId && e.playerId !== "all"
       ? `<button type="button" class="btn sm" data-resend-feed="${esc(e.playerId)}">Resend</button>`
       : "";
@@ -1351,7 +1621,7 @@ function renderHandouts() {
       ${media}
       <div class="body">
         <h3>${esc(h.name)}</h3>
-        <div class="feed-meta"><span>${esc(fmtTime(h.ts))}</span><span>→ ${esc(h.to === "all" ? "Table" : (h.toName || (state.players[h.to] && state.players[h.to].snapshot && state.players[h.to].snapshot.name) || h.to))}</span></div>
+        <div class="feed-meta"><span>${esc(fmtTime(h.ts))}</span><span>→ ${esc(h.to === "all" ? "Table" : (h.toName || (state.players[h.to] && state.players[h.to].snapshot && state.players[h.to].snapshot.name) || h.to))}${esc(handoutAckLabel(h))}</span></div>
         ${text && url ? `<p class="lede">${esc(text)}</p>` : ""}
         ${open}
         <div class="toolbar" style="margin:8px 0 0">
@@ -1514,7 +1784,7 @@ async function doHandout(send) {
   await pushLedger({
     who: "DM", playerId: to, type: "handout",
     what: "Handout: " + name + (to === "all" ? " (table)" : ""),
-    oldVal: null, newVal: name, flag: false
+    oldVal: null, newVal: "sent", flag: false, handoutId: entry.id
   });
   if (send) await sendHandoutCommand(entry);
   else toast("Saved to handout list");
@@ -1526,7 +1796,7 @@ async function doHandout(send) {
 async function sendHandoutCommand(h) {
   await pushCommand({
     type: "handout", to: h.to || "all",
-    payload: { name: h.name, url: h.url || "", text: h.text || "" },
+    payload: { id: h.id || "", name: h.name, url: h.url || "", text: h.text || "" },
     from: state.uid
   });
   const who = h.to === "all" ? "table" : ((state.players[h.to] && state.players[h.to].snapshot && (state.players[h.to].snapshot.name || state.players[h.to].snapshot.player)) || "a player");
@@ -1743,6 +2013,8 @@ function wire() {
       setStatus("demo", "Demo mode · offline");
     }
   });
+  const newCodeBtn = $("#btnNewCode");
+  if (newCodeBtn) newCodeBtn.addEventListener("click", () => newRoomCode());
   $("#btnCopyCode").addEventListener("click", async () => {
     const c = state.roomCode;
     try { await navigator.clipboard.writeText(c); toast("Copied " + c); }
@@ -1953,6 +2225,7 @@ async function resumeLiveRoom() {
   } catch (e) {
     console.warn("[DMCC] resume load", e);
   }
+  if (window.DMCCEnhance && window.DMCCEnhance.enterRoom) window.DMCCEnhance.enterRoom();
   if (state._listenCode !== pending.code || !state.unsubs.length) attachLiveListeners();
   if (window.DMCCEnhance && window.DMCCEnhance.onTable) window.DMCCEnhance.onTable(state.table || {});
   showRoom();
@@ -2008,28 +2281,7 @@ async function boot() {
   // Demo: fully offline — do not touch Firebase CDN.
   // Live (?demo=0): try Firebase; fall back to Demo if it fails.
   const saved = readSavedRoom();
-  const open = readOpenFlag();
-  if (open && open.code && saved && String(saved.code).toUpperCase() === String(open.code).toUpperCase()) {
-    if (open.demo || saved.demo) {
-      loadDemo(false, open.code);
-      return;
-    }
-    state.demo = false;
-    $("#chkDemo").checked = false;
-    state.roomCode = open.code;
-    state.meta = state.meta || { code: open.code, name: "", status: "live", dmUid: state.uid || "" };
-    showRoom();
-    setCreateBusy(true);
-    setStatus("live", "Connecting…");
-    const resumedOk = await initFirebase();
-    setCreateBusy(false);
-    if (resumedOk) {
-      pendingResume = { code: open.code, demo: false };
-      const resumed = await resumeLiveRoom();
-      if (resumed) return;
-    }
-    releaseSession();
-  }
+  releaseSession();
   if (state.demo) {
     setCreateBusy(false);
     if (saved && saved.code && saved.demo) {

@@ -1,7 +1,8 @@
 # SSDNS Character Sheet
 
-Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.6, DM Command Center v0.2.13).
+Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.7, DM Command Center v0.2.14).
 
+- Round 11: Undo restores the HP it changed and refuses a second click. The DM feed catches up when the tab comes forward. A new room starts with an empty turn order, and removing someone sticks. The lobby always asks Resume or New. Hit lines name the weapon. One roll is one feed row. Conditions stay one chip per name. Self and ally attacks are blocked, and a character at 0 HP can only roll death saves. The disadvantage toggle is one-shot unless pinned. Healing Word reads 1d4 + mod. The wizard offers level 1–3 and the review lists saves, skills, and kit items. Take over editing receives a real click. Kick removes a player from the table and bars that uid until Allow back. New code moves the live table; kicked players stay out. The Night at the Switch bestiary loads Outlaw, Cactus Witch, and Dust Devil into the existing Attack player row. `database.rules.json` changed for `kicked` and `meta.movedTo`. This agent did not deploy rules. The full enemy-card UI is a follow-up.
 - Round 10: a heal with no target lands on the caster immediately, conditions merge per id, every attack shows its advantage or disadvantage dice, the wizard review lists the build, and Approve-first damage mode stays put. Applied damage and heals have an Undo on the row. `database.rules.json` did not change. This agent did not deploy rules.
 - Round 9: player heals land on the target (capped, ledger, Apply/Undo), enemy rows attack a chosen player, damage apply is idempotent per event id, the DM screen keeps its tab, a table short rest prompts each player once, custom enemies take initiative from DEX, the new-character wizard walks all 12 Callings, and conditions toggle live on the sheet and the DM screen.
 

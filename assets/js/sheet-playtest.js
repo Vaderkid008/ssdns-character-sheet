@@ -550,6 +550,9 @@
   function rollMelee(i) {
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
+    var early = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo && root.SSDNSPlaytest.targetInfo();
+    var gate = root.SSDNSSheet && root.SSDNSSheet.attackGate && root.SSDNSSheet.attackGate(early);
+    if (gate) { toast(gate); return; }
     paintMelee();
     var atk = parseInt((document.querySelector("[data-melee-atk='" + i + "']") || {}).textContent, 10) || 0;
     var expr = (document.querySelector("[data-melee-dmg='" + i + "']") || {}).textContent || "1d4";
@@ -578,10 +581,6 @@
     var name = (document.querySelector("[data-melee='" + i + "']") || {}).selectedOptions;
     name = name && name[0] ? name[0].text : "Melee";
     var tgt = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo && root.SSDNSPlaytest.targetInfo();
-    if (tgt && tgt.kind === "player") {
-      var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
-      if (!uid || tgt.id !== uid) toast("That target is another player.");
-    }
     if (tgt && tgt.id && tgt.kind !== "player") {
       var sel = $("#atkTarget");
       if (sel) sel.setAttribute("data-last-enemy", tgt.id);
@@ -594,7 +593,9 @@
     if (haveAc && hitTotal < Number(tgt.ac)) miss = true;
     var dmgTxt = (!miss && detail) ? (" · " + formula + " = " + total) : "";
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
-    var line = (tgt && tgt.name ? (who + " → " + tgt.name) : (who + " · " + name)) + ": " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt + (faced.note ? " · " + faced.note : "");
+    var modeWord = chosen === "dis" ? " · disadvantage" : (chosen === "adv" ? " · advantage" : "");
+    var line = (tgt && tgt.name ? (who + " → " + tgt.name) : (who + " · " + name)) + ": " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt + (faced.note ? " · " + faced.note : "") + modeWord;
+    if (root.SSDNSSheet && root.SSDNSSheet.consumeRollMode) root.SSDNSSheet.consumeRollMode();
     toast(line);
     var Sheet = root.SSDNSSheet;
     var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -682,7 +683,7 @@
     if (init && !$("#globalAdv")) {
       var adv = document.createElement("label");
       adv.className = "fine";
-      adv.innerHTML = "Roll <select id='globalAdv' aria-label='Advantage for checks, saves, and attacks'><option value=''>Normal</option><option value='adv'>Advantage</option><option value='dis'>Disadvantage</option></select>";
+      adv.innerHTML = "Roll <select id='globalAdv' aria-label='Advantage for checks, saves, and attacks'><option value=''>Normal</option><option value='adv'>Advantage</option><option value='dis'>Disadvantage</option></select> <label class='fine'><input type='checkbox' id='advPin'> Pin</label>";
       var wh = document.createElement("label");
       wh.className = "fine";
       wh.innerHTML = "<input type='checkbox' id='chkWhisper'> Whisper to DM";

@@ -637,9 +637,16 @@
         break;
       case "handout":
         showHandout(payload.name || "Handout", payload.url || "", payload.text || "");
+        ackHandout(payload.id || cmd.id);
         toast("Handout: " + (payload.name || "Handout"), "Go", function () {
           showHandout(payload.name || "Handout", payload.url || "", payload.text || "", true);
         });
+        break;
+      case "kicked":
+        droppedByDm(payload);
+        break;
+      case "moved":
+        followMove(payload.code || payload.room || "");
         break;
       case "your_turn":
         if (root.SSDNSPlaytest && root.SSDNSPlaytest.showYourTurn) root.SSDNSPlaytest.showYourTurn();
@@ -931,6 +938,59 @@
       seen: true, delivered: true, ts: new Date().toISOString()
     }).catch(function () {});
   }
+  function ackHandout(id) {
+    if (!id || !state.joined || state.left || !state.db || !state.uid || !state._fb) return;
+    var fb = state._fb;
+    fb.update(fb.ref(state.db, roomPath("players/" + state.uid)), {
+      handoutAck: { id: id, delivered: true, seen: false, ts: new Date().toISOString() }
+    }).then(function () {
+      if (!root.document || root.document.visibilityState !== "visible") return;
+      setTimeout(function () {
+        if (!state.joined || state.left) return;
+        fb.update(fb.ref(state.db, roomPath("players/" + state.uid + "/handoutAck")), {
+          id: id, seen: true, delivered: true, ts: new Date().toISOString()
+        }).catch(function () {});
+      }, 700);
+    }).catch(function () {});
+  }
+  function droppedByDm(payload) {
+    if (state._kicked) return;
+    state._kicked = true;
+    var reason = payload && payload.reason ? (" · " + payload.reason) : "";
+    toast("The DM removed you from the table" + reason);
+    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "The DM removed you from the table" });
+    state.joinEpoch++;
+    state.left = true;
+    state.joined = false;
+    state.roomCode = null;
+    saveLocal();
+    detachAll();
+    setUiJoined(false);
+    if (root.SSDNSPlaytest && root.SSDNSPlaytest.showRoster) root.SSDNSPlaytest.showRoster([]);
+    if (root.SSDNSPlaytest && root.SSDNSPlaytest.showTurn) root.SSDNSPlaytest.showTurn(null);
+  }
+  function followMove(code) {
+    code = String(code || "").trim().toUpperCase();
+    if (!code || state._kicked || state._moving) return;
+    if (state.joined && state.roomCode === code) return;
+    var old = state.roomCode;
+    var go = function () {
+      if (state._kicked) return;
+      state._moving = true;
+      toast("Table moved to " + code);
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "Table moved to " + code });
+      state.left = false;
+      join(code).then(function () { state._moving = false; }, function () { state._moving = false; });
+    };
+    if (state._fb && state.db && state.uid && old) {
+      state._fb.get(state._fb.ref(state.db, "rooms/" + old + "/kicked/" + state.uid)).then(function (snap) {
+        if (snap.exists()) return;
+        go();
+      }).catch(go);
+      return;
+    }
+    go();
+  }
   function applyHpCommand(payload, id, replay) {
     var delta = Number(payload.delta);
     if (!delta) delta = (payload.kind === "heal" ? 1 : -1) * (Number(payload.amount) || 0);
@@ -1070,6 +1130,13 @@
         }
       }
       inspPrimed = true;
+    });
+    var moveSeen = "";
+    bind("meta", function (val) {
+      var dest = val && val.movedTo ? String(val.movedTo).trim().toUpperCase() : "";
+      if (!dest || val.status !== "moved" || dest === moveSeen) return;
+      moveSeen = dest;
+      followMove(dest);
     });
     var chatPrimed = false;
     bind("chat", function (val) {
@@ -1270,6 +1337,7 @@
     saveQueue(q);
   }
   async function join(code) {
+    state._kicked = false;
     if (state.readOnly) { toast("This tab is read-only. The character is open in another tab."); return; }
     code = String(code || "").trim().toUpperCase();
     if (!code) { toast("Enter a room code"); return; }
@@ -1317,7 +1385,36 @@
         if ($("#dmJoinCode")) $("#dmJoinCode").value = code;
         return;
       }
-      var meta = metaSnap.val();
+      var meta = metaSnap.val() || {};
+      var moved = meta.movedTo ? String(meta.movedTo).trim().toUpperCase() : "";
+      if (moved && moved !== code) {
+        state._moveHops = (state._moveHops || 0) + 1;
+        if (state._moveHops > 3) {
+          toast("That table moved too many times");
+          detachAll();
+          state.joined = false;
+          state.roomCode = null;
+          saveLocal();
+          setUiJoined(false);
+          return;
+        }
+        toast("Table moved to " + moved);
+        return joinNow(moved, epoch);
+      }
+      state._moveHops = 0;
+      var kickSnap = await fb.get(fb.ref(state.db, "rooms/" + code + "/kicked/" + state.uid));
+      if (kickSnap.exists()) {
+        toast("The DM removed you from the table");
+        state._kicked = true;
+        detachAll();
+        state.joined = false;
+        state.left = true;
+        state.roomCode = null;
+        saveLocal();
+        setUiJoined(false);
+        if ($("#dmJoinCode")) $("#dmJoinCode").value = "";
+        return;
+      }
       if (epoch !== state.joinEpoch || state.left || !state.joined) return;
       detachAll();
       state.roomCode = code;

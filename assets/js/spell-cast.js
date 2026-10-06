@@ -366,7 +366,10 @@
       if (row.save) bits.push(row.save + " save");
       return bits.join(" · ");
     }
-    if (row.kind === "heal") return dice ? ("heals " + dice) : "heal";
+    if (row.kind === "heal") {
+      if (row.healMod && dice) return dice + " + mod";
+      return dice ? ("heals " + dice) : "heal";
+    }
     if (dice) return (dice + " " + type).trim();
     if (row.save) return row.save + " save";
     return "";

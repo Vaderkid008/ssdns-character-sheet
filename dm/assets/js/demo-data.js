@@ -30,7 +30,7 @@
         hpMax: 20,
         hpTemp: 0,
         portrait: portrait("J", "#3a2a22"),
-        conditions: "Bleeding",
+        conditions: "",
         deathSaves: { success: [false, false, false], fail: [false, false, false] },
         ac: 13,
         es: 3453,

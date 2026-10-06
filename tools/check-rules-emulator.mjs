@@ -53,13 +53,14 @@ const MUST_FIND = [
   "encounter/hp",
   "encounter/public",
   "encounter/requests",
-  "conditions"
+  "conditions",
+  "kicked"
 ];
 
 function addPath(found, raw) {
   let p = String(raw || "").trim().replace(/\/+$/, "");
   if (!p || /\s/.test(p) || p.startsWith(".") || p === "rooms") return;
-  if (!/^(meta|players|ledger|rolls|messages|handouts|commands|broadcast|inbox|table|tableFeed|playerInit|chat|archives|encounter|conditions)(\/|$)/.test(p)) return;
+  if (!/^(meta|players|ledger|rolls|messages|handouts|commands|broadcast|inbox|table|tableFeed|playerInit|chat|archives|encounter|conditions|kicked)(\/|$)/.test(p)) return;
   found.add(p);
 }
 
@@ -68,7 +69,7 @@ function extractPaths(src) {
   const patterns = [
     /(?:roomRef|roomPath|listenRef)\(\s*["']([^"']+)["']/g,
     /\bbind\(\s*["']([^"']+)["']/g,
-    /["']((?:meta|players|ledger|rolls|messages|handouts|commands|broadcast|inbox|table|tableFeed|playerInit|chat|archives|encounter|conditions)[^"']*)["']/g
+    /["']((?:meta|players|ledger|rolls|messages|handouts|commands|broadcast|inbox|table|tableFeed|playerInit|chat|archives|encounter|conditions|kicked)[^"']*)["']/g
   ];
   patterns.forEach((re) => {
     let m;
@@ -311,7 +312,24 @@ function buildCases() {
     { role: "dm", op: "set", path: ROOM + "/archives/arch1", payload: { archivedAt: TS, recap: "recap" }, expect: "allow" },
     { role: "player", op: "set", path: ROOM + "/archives/arch2", payload: { archivedAt: TS }, expect: "deny" },
     { role: "dm", op: "set", path: ROOM + "/archives/addiction/" + PLAYER_UID, payload: { addicted: false, uses: 0 }, expect: "allow" },
-    { role: "dm", op: "update", path: ROOM + "/meta", payload: { status: "ended", endedAt: TS }, expect: "allow" }
+    { role: "dm", op: "update", path: ROOM + "/meta", payload: { status: "ended", endedAt: TS }, expect: "allow" },
+    { role: "player", op: "get", path: ROOM + "/kicked", expect: "allow" },
+    { role: "player", op: "listen", path: ROOM + "/kicked", expect: "allow" },
+    { role: "dm", op: "listen", path: ROOM + "/kicked", expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/kicked/" + PLAYER_UID, payload: { ts: TS, uid: PLAYER_UID }, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/kicked", payload: { nope: true }, expect: "deny" },
+    { role: "player", op: "update", path: ROOM + "/meta", payload: { movedTo: "DUST-1000", status: "moved" }, expect: "deny" },
+    { role: "dm", op: "set", path: ROOM + "/kicked/" + PLAYER_UID, payload: { ts: TS, uid: PLAYER_UID, name: "Moss", reason: "left the table" }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/players/" + PLAYER_UID, payload: playerNode, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/ledger/led-kicked", payload: ledger, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/rolls/rkicked", payload: roll, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/chat/chat-kicked", payload: playerChat, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/playerInit/" + PLAYER_UID, payload: initRow, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/conditions/kicked-cond", payload: { name: "Prone", subjectId: PLAYER_UID, subjectKind: "player", updatedAt: TS, by: PLAYER_UID }, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/encounter/requests/req-kicked", payload: request, expect: "deny" },
+    { role: "dm", op: "remove", path: ROOM + "/kicked/" + PLAYER_UID, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/players/" + PLAYER_UID, payload: playerNode, expect: "allow" },
+    { role: "dm", op: "update", path: ROOM + "/meta", payload: { movedTo: "DUST-1000", status: "moved" }, expect: "allow" }
   );
   return cases;
 }
