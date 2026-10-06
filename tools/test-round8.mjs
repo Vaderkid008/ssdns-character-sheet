@@ -59,7 +59,7 @@ check(/let uiTab = "tab-table"/.test(dm), "uiTab starts on the table tab");
 check(/function rememberUi\(\) \{\s*UI_FIELDS/.test(dm), "rememberUi must not copy the selected tab from the DOM");
 check(/function rollBody/.test(dm) && /function hitApplyButton/.test(dm), "feed body and apply button");
 check(/if \(\/\^dm\$\/i\.test\(who\)\)/.test(dm), "DM ledger rows stay attributed to the DM");
-check(/presenceEver/.test(dm), "join is logged once, on the first online snapshot");
+check(/presenceStep/.test(dm) && /type: "join"/.test(dm) && /leaveTimers/.test(dm), "join is logged once, and a leave waits out a disconnect blip");
 check(/data-apply-hit/.test(dm), "apply button is in the roll markup");
 
 function grab(src, name) {
@@ -125,7 +125,7 @@ check(/isReadOnly\(\)\) return/.test(app), "a read-only tab does not save");
 check(/sheet-readonly/.test(read("assets/css/sheet.css")), "read-only tab disables the fields");
 check(/Mail Duster/.test(read("assets/data/rules.js")) && /"phb5e": "Chain mail"/.test(read("assets/data/rules.js")), "mail duster keeps AC 16 and the chain mail name");
 
-check(read("version.json").indexOf('"sheet": "0.3.8"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.16"') >= 0, "versions bumped");
+check(read("version.json").indexOf('"sheet": "0.3.10"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.18"') >= 0, "versions bumped");
 check(read("database.rules.json").indexOf("playerInit") >= 0, "rules file still present and untouched by this test");
 
 const order = [

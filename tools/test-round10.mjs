@@ -48,11 +48,11 @@ const storage = {
 check(Applied.claim("OXEN", "roll-a", storage), "apply claims the roll");
 check(Applied.takeUndo("OXEN", "roll-a", storage), "undo once");
 check(!Applied.takeUndo("OXEN", "roll-a", storage), "second undo is a no-op");
-check(Applied.claim("OXEN", "roll-a", storage), "a new apply after undo can be claimed");
-check(Applied.takeUndo("OXEN", "roll-a", storage), "that new apply undoes once");
-check(!Applied.takeUndo("OXEN", "roll-a", storage), "the new apply does not undo twice");
+check(!Applied.claim("OXEN", "roll-a", storage), "an undone roll stays undone");
+check(Applied.undone("OXEN", "roll-a", storage), "undo is still stored");
+check(!Applied.takeUndo("OXEN", "roll-a", storage), "a second undo is a no-op");
 check(!Applied.has("OXEN", "roll-a", storage), "undo releases the apply");
-check(Applied.claim("OXEN", "roll-a", storage), "the roll can be applied again");
+check(!Applied.claim("OXEN", "roll-a", storage), "the roll cannot be applied again after undo");
 
 let list = Cond.upsert([], { name: "Prone", subjectId: "willow", rounds: null });
 list = Cond.mergeById(list, [{ name: "Poisoned", subjectId: "willow", rounds: 2 }], []);
@@ -120,7 +120,7 @@ check(join.indexOf("seen: false") >= 0, "turn ack records delivered before seen"
 check(extras.indexOf("selfApplied") >= 0 && extras.indexOf("releaseHealTarget") >= 0, "self heals apply locally");
 check(play.indexOf("attackRoll") >= 0, "melee uses the shared attack dice");
 check(app.indexOf("details.box.wild") >= 0, "wild spark box can be hidden");
-check(read("version.json").indexOf('"sheet": "0.3.8"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.16"') >= 0, "current versions");
+check(read("version.json").indexOf('"sheet": "0.3.10"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.18"') >= 0, "current versions");
 
 if (failures.length) {
   console.error(failures.join("\n"));

@@ -646,6 +646,9 @@
       case "kicked":
         droppedByDm(payload);
         break;
+      case "save":
+        askPlayerSave(payload);
+        break;
       case "moved":
         followMove(payload.code || payload.room || "");
         break;
@@ -954,13 +957,40 @@
       }, 700);
     }).catch(function () {});
   }
+  function removedModal(reason) {
+    var dlg = document.createElement("dialog");
+    dlg.className = "dlg";
+    var form = document.createElement("form");
+    form.method = "dialog";
+    var title = document.createElement("h2");
+    title.textContent = "You were removed from the table";
+    var note = document.createElement("p");
+    note.textContent = reason ? ("Reason: " + reason) : "Ask your DM if you should rejoin.";
+    var foot = document.createElement("div");
+    foot.className = "dlg-foot";
+    var ok = document.createElement("button");
+    ok.className = "btn btn-primary";
+    ok.type = "submit";
+    ok.textContent = "OK";
+    foot.appendChild(ok);
+    form.appendChild(title);
+    form.appendChild(note);
+    form.appendChild(foot);
+    dlg.appendChild(form);
+    document.body.appendChild(dlg);
+    form.addEventListener("submit", function () {
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+    });
+    try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+    catch (e) { dlg.setAttribute("open", ""); }
+  }
   function droppedByDm(payload) {
     if (state._kicked) return;
     state._kicked = true;
     forgetInvite();
-    var reason = payload && payload.reason ? (" · " + payload.reason) : "";
-    toast("The DM removed you from the table" + reason);
-    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "The DM removed you from the table" });
+    var reason = payload && payload.reason ? String(payload.reason) : "";
+    removedModal(reason);
+    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "You were removed from the table" });
     state.joinEpoch++;
     state.left = true;
     state.joined = false;
@@ -968,8 +998,80 @@
     saveLocal();
     detachAll();
     setUiJoined(false);
+    var status = $("#dmJoinStatus");
+    if (status) status.textContent = "Not connected";
+    var input = $("#dmJoinCode");
+    if (input) input.value = "";
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.showRoster) root.SSDNSPlaytest.showRoster([]);
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.showTurn) root.SSDNSPlaytest.showTurn(null);
+  }
+  function abilityMod(ability) {
+    var key = String(ability || "STR").toUpperCase();
+    var v = compute() || {};
+    if (v.mods && v.mods[key] != null && v.mods[key] !== "") return Number(v.mods[key]) || 0;
+    var d = doc();
+    var score = d && d.character && d.character.abilities && d.character.abilities[key];
+    var n = Number(score);
+    return isFinite(n) ? Math.floor((n - 10) / 2) : 0;
+  }
+  function askPlayerSave(payload) {
+    payload = payload || {};
+    if (!payload.id || state._saveSeen && state._saveSeen[payload.id]) return;
+    state._saveSeen = state._saveSeen || {};
+    state._saveSeen[payload.id] = 1;
+    var ability = String(payload.ability || "STR").toUpperCase();
+    var mod = abilityMod(ability);
+    var dlg = document.createElement("dialog");
+    dlg.className = "dlg";
+    var form = document.createElement("form");
+    form.method = "dialog";
+    var title = document.createElement("h2");
+    title.textContent = (payload.label || "Save") + " · " + ability + " DC " + (payload.dc == null ? "?" : payload.dc);
+    var note = document.createElement("p");
+    var sign = (mod >= 0 ? "+" : "") + mod;
+    note.textContent = "Your " + ability + " modifier is " + sign + (payload.rider ? (". On a fail: " + payload.rider) : "") + (payload.damage ? (". Damage on a fail: " + payload.damage) : "");
+    var foot = document.createElement("div");
+    foot.className = "dlg-foot";
+    var roll = document.createElement("button");
+    roll.className = "btn btn-primary";
+    roll.type = "submit";
+    roll.textContent = "Roll " + ability + " save";
+    foot.appendChild(roll);
+    form.appendChild(title);
+    form.appendChild(note);
+    form.appendChild(foot);
+    dlg.appendChild(form);
+    document.body.appendChild(dlg);
+    form.addEventListener("submit", function (ev) {
+      if (ev.preventDefault) ev.preventDefault();
+      var nat = 1 + Math.floor(Math.random() * 20);
+      if (root.SSDNSTestRoll) {
+        var forced = root.SSDNSTestRoll();
+        if (forced) nat = forced;
+      }
+      var total = nat + mod;
+      var dc = Number(payload.dc);
+      var failed = isFinite(dc) ? total < dc : false;
+      var line = ability + " save " + nat + sign + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (failed ? " FAIL" : " OK") + (nat === 20 ? " · natural 20" : "");
+      postRoll({
+        id: "save_" + payload.id,
+        saveRequestId: payload.id,
+        label: (payload.label || "Save") + " · " + ability,
+        formula: "1d20" + sign,
+        result: total,
+        nat: nat,
+        mod: mod,
+        save: true,
+        detail: line,
+        private: true
+      });
+      toast(line);
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "save:" + payload.id, kind: "roll", text: line });
+      if (dlg.close) dlg.close();
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+    });
+    try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+    catch (e) { dlg.setAttribute("open", ""); }
   }
   function followMove(code) {
     code = String(code || "").trim().toUpperCase();
@@ -994,15 +1096,26 @@
     go();
   }
   function applyHpCommand(payload, id, replay) {
+    payload = payload || {};
+    var grant = id ? ("hp:" + (payload.grantId || id)) : "";
+    if (payload.absolute != null && payload.absolute !== "") {
+      var hp = Number(payload.absolute);
+      if (!isFinite(hp) || !root.SSDNSSheet || !root.SSDNSSheet.setHp) return;
+      if (grant && !claimGrant(grant)) {
+        if (replay && root.SSDNSSheet.flashHp) root.SSDNSSheet.flashHp(payload.text || "DM set HP");
+        return;
+      }
+      root.SSDNSSheet.setHp(hp, payload.temp, payload.maxHp);
+      if (payload.text && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ id: id ? "hp:" + id : "", kind: "hp", text: payload.text });
+      return;
+    }
     var delta = Number(payload.delta);
     if (!delta) delta = (payload.kind === "heal" ? 1 : -1) * (Number(payload.amount) || 0);
     if (!delta || !root.SSDNSSheet) return;
-    var grant = id ? ("hp:" + (payload.grantId || id)) : "";
     var kind = payload.kind || (delta < 0 ? "damage" : "heal");
     var text = payload.text || ("DM " + kind + " " + Math.abs(delta) + (payload.formula ? " (" + payload.formula + ")" : ""));
-    if (grant && !claimGrant(grant)) {
+      if (grant && !claimGrant(grant)) {
       if (replay && root.SSDNSSheet.flashHp) root.SSDNSSheet.flashHp(text);
-      else if (replay) toast(text);
       return;
     }
     root.SSDNSSheet.applyDelta(delta, text);
@@ -1306,7 +1419,10 @@
     state._conn = false;
   }
 
-  function forgetInvite() { state.inviteCode = ""; }
+  function forgetInvite() {
+    state.inviteCode = "";
+    try { root.sessionStorage.removeItem(INVITE_KEY); } catch (e) {}
+  }
   function setUiJoined(on, code) {
     var status = $("#dmJoinStatus");
     var btnJoin = $("#btnDmJoin");
@@ -1381,19 +1497,33 @@
       }
       var fb = state._fb;
       var metaSnap = await fb.get(fb.ref(state.db, "rooms/" + code + "/meta"));
-      if (!metaSnap.exists() || (metaSnap.val() || {}).status === "ended") {
-        toast(!metaSnap.exists()
-          ? "No room with code " + code + " (is the DM live? Demo rooms aren't on Firebase.)"
-          : "That session has ended");
+      var meta = metaSnap.exists() ? (metaSnap.val() || {}) : null;
+      if (!meta || meta.status === "ended" || meta.status === "moved") {
+        var closedMoved = meta && meta.movedTo ? String(meta.movedTo).trim().toUpperCase() : "";
+        var kickedEarly = false;
+        if (state.uid) {
+          var earlyKick = await fb.get(fb.ref(state.db, "rooms/" + code + "/kicked/" + state.uid));
+          kickedEarly = earlyKick.exists();
+        }
         detachAll();
         state.joined = false;
         state.roomCode = null;
         saveLocal();
         setUiJoined(false);
+        if (kickedEarly) {
+          droppedByDm({ reason: "" });
+          return;
+        }
         if ($("#dmJoinCode")) $("#dmJoinCode").value = code;
+        if (closedMoved && closedMoved !== code) {
+          toast("That table is closed; ask your DM for the new code.", "Join " + closedMoved, function () { join(closedMoved); });
+        } else if (!meta) {
+          toast("No room with code " + code + " (is the DM live? Demo rooms aren't on Firebase.)");
+        } else {
+          toast("That table is closed; ask your DM for the new code.");
+        }
         return;
       }
-      var meta = metaSnap.val() || {};
       var moved = meta.movedTo ? String(meta.movedTo).trim().toUpperCase() : "";
       if (moved && moved !== code) {
         state._moveHops = (state._moveHops || 0) + 1;
@@ -1591,21 +1721,40 @@
     if (!state.inviteCode || !characterReady()) return;
     join(state.inviteCode);
   }
+  var INVITE_KEY = "ssdns.sheet.invite";
+  function rememberInvite(code) {
+    try { root.sessionStorage.setItem(INVITE_KEY, JSON.stringify({ code: code, at: Date.now() })); } catch (e) {}
+  }
+  function storedInvite() {
+    try {
+      var parsed = JSON.parse(root.sessionStorage.getItem(INVITE_KEY) || "null");
+      if (!parsed || !parsed.code) return "";
+      if (Date.now() - Number(parsed.at || 0) > 10 * 60 * 1000) return "";
+      return String(parsed.code);
+    } catch (e) { return ""; }
+  }
   function readRoomParam() {
     var code = "";
     try {
       var loc = root.location;
-      if (!loc) return "";
+      if (!loc) return storedInvite();
       var params = new URLSearchParams(loc.search || "");
       var raw = params.get("room");
-      if (!raw) return "";
+      if (!raw && loc.hash) {
+        var hash = String(loc.hash || "").replace(/^#/, "");
+        var hp = new URLSearchParams(hash);
+        raw = hp.get("room") || "";
+      }
+      if (!raw) return storedInvite();
       code = String(raw).trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 12);
+      if (!code) return storedInvite();
+      rememberInvite(code);
       params.delete("room");
       var qs = params.toString();
-      var next = loc.pathname + (qs ? "?" + qs : "") + (loc.hash || "");
+      var next = loc.pathname + (qs ? "?" + qs : "");
       if (root.history && root.history.replaceState) root.history.replaceState(null, "", next);
     } catch (e) {}
-    return code;
+    return code || storedInvite();
   }
 
   function wireUi() {
@@ -1751,6 +1900,7 @@
               return;
             }
             refreshJoinLock();
+            if (!state.inviteCode) state.inviteCode = readRoomParam();
             if (state.inviteCode) {
               if (!state.joined) setUiJoined(false);
               return;

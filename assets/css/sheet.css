@@ -687,3 +687,86 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
   .pair { flex-wrap: wrap; }
   .pair .lvl, #btnLevelUp { min-height: 44px; }
 }
+
+/* Explicit field colors. Android Chrome paints inputs a light gray and keeps
+   inherited light text, which hid the table-log message. Dark chrome uses the
+   log colors; the parchment sheet uses ink on a light field. */
+.sheet-dock,
+.dm-join-bar,
+.appbar,
+.savebar { color-scheme: dark; }
+.sheet-dock input,
+.sheet-dock textarea,
+.sheet-dock select,
+.dm-join-bar input,
+.dm-join-bar textarea,
+.dm-join-bar select {
+  color-scheme: dark;
+  background: #1e2a24 !important;
+  color: #f2ead8 !important;
+  -webkit-text-fill-color: #f2ead8 !important;
+  caret-color: #f2ead8;
+  border: 1px solid #3d5c4e;
+}
+.sheet-dock input::placeholder,
+.sheet-dock textarea::placeholder,
+.dm-join-bar input::placeholder,
+.dm-join-bar textarea::placeholder {
+  color: #c9bfa6;
+  -webkit-text-fill-color: #c9bfa6;
+  opacity: 1;
+}
+.sheet-dock input:-webkit-autofill,
+.sheet-dock textarea:-webkit-autofill,
+.sheet-dock select:-webkit-autofill,
+.dm-join-bar input:-webkit-autofill,
+.dm-join-bar textarea:-webkit-autofill,
+.dm-join-bar select:-webkit-autofill {
+  -webkit-text-fill-color: #f2ead8 !important;
+  caret-color: #f2ead8;
+  box-shadow: 0 0 0 1000px #1e2a24 inset;
+}
+.page input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]):not([type=range]):not([type=color]),
+.page textarea,
+.page select,
+.dlg input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]),
+.dlg textarea,
+.dlg select {
+  color-scheme: light;
+  background: #fff8ee;
+  color: #1a120c;
+  -webkit-text-fill-color: #1a120c;
+  caret-color: #1a120c;
+}
+.page input::placeholder,
+.page textarea::placeholder,
+.dlg input::placeholder,
+.dlg textarea::placeholder {
+  color: #5c4a38;
+  -webkit-text-fill-color: #5c4a38;
+  opacity: 1;
+}
+.page input:focus,
+.page textarea:focus,
+.page select:focus,
+.dlg input:focus,
+.dlg textarea:focus,
+.dlg select:focus {
+  background: #fff8ee;
+  color: #1a120c;
+  -webkit-text-fill-color: #1a120c;
+}
+.dock-fab {
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px) + var(--vv-bottom, 0px));
+}
+@media (max-width: 800px) {
+  .sheet-dock {
+    bottom: var(--vv-bottom, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .dock-compose { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+  body.dock-open .dock-fab,
+  body.chat-focus .dock-fab {
+    display: none !important;
+  }
+}

@@ -56,10 +56,16 @@
     return root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined();
   }
 
-  function setHp(current, temp) {
-    var cur = $("#inHPCur"), tmp = $("#inHPTemp");
+  function setHp(current, temp, max) {
+    var cur = $("#inHPCur"), tmp = $("#inHPTemp"), maxEl = $("#inHPMax");
     if (cur) cur.value = String(current);
     if (tmp && temp != null) tmp.value = String(temp);
+    if (maxEl) {
+      var nextMax = max != null && max !== "" ? max : maxEl.value;
+      if (root.SSDNSApplied && root.SSDNSApplied.followMaxHp) nextMax = root.SSDNSApplied.followMaxHp(current, nextMax);
+      if (nextMax != null && nextMax !== "") maxEl.value = String(nextMax);
+      dispatch(maxEl);
+    }
     dispatch(tmp);
     dispatch(cur);
   }
@@ -550,6 +556,7 @@
     };
   }
   function currentTarget() {
+    if (pendingBlind) return null;
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo) return root.SSDNSPlaytest.targetInfo();
     var sel = document.querySelector("#atkTarget");
     if (!sel || !sel.value) return null;
@@ -665,19 +672,259 @@
     var row = table[spark - 1];
     return "Wild spark " + spark + (row && row.text ? ": " + row.text : ".");
   }
+  var castSource = null;
+  var castChoice = null;
+  var pendingDarts = null;
+  var pendingBlind = false;
+  function spellNeedsTarget(row) {
+    return !!(row && (row.kind === "attack" || row.kind === "weapon" || row.kind === "auto" || row.kind === "save"));
+  }
+  function autoDartCount(row, slot) {
+    if (!row || row.kind !== "auto") return 0;
+    var base = row.level || 0;
+    var sl = slot == null || slot === "" ? base : Number(slot);
+    if (!isFinite(sl)) sl = base;
+    var up = Math.max(0, sl - base);
+    if (row.upEvery) up = Math.floor(up / row.upEvery);
+    return Math.max(1, (row.rays || 1) + (row.rayUp ? up * row.rayUp : 0));
+  }
+  function targetById(id) {
+    var main = document.querySelector("#atkTarget");
+    if (!main || !id) return null;
+    var op = null;
+    Array.prototype.forEach.call(main.options, function (o) { if (o.value === id) op = o; });
+    if (!op || !op.value) return null;
+    var acRaw = op.getAttribute("data-ac");
+    var ac = acRaw == null || acRaw === "" ? null : Number(acRaw);
+    return {
+      id: op.value,
+      name: op.getAttribute("data-name") || op.textContent || "",
+      ac: isFinite(ac) ? ac : null,
+      kind: op.getAttribute("data-kind") || ""
+    };
+  }
+  function fillCastTarget(sel) {
+    if (!sel) return;
+    var main = document.querySelector("#atkTarget");
+    var keep = sel.value;
+    sel.innerHTML = "";
+    var blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "No target";
+    sel.appendChild(blank);
+    if (main) {
+      Array.prototype.forEach.call(main.options, function (op) {
+        if (!op.value) return;
+        var next = document.createElement("option");
+        next.value = op.value;
+        next.textContent = op.textContent || op.value;
+        sel.appendChild(next);
+      });
+    }
+    var narrative = document.createElement("option");
+    narrative.value = "narrative";
+    narrative.textContent = "No target / narrative";
+    sel.appendChild(narrative);
+    var prefer = keep || (main && main.value) || "";
+    if (prefer && Array.prototype.some.call(sel.options, function (o) { return o.value === prefer; })) sel.value = prefer;
+  }
+  function mountCastTarget(btn) {
+    if (!btn || !btn.parentNode) return null;
+    var prev = btn.previousElementSibling;
+    if (prev && prev.classList && prev.classList.contains("cast-target")) {
+      fillCastTarget(prev);
+      return prev;
+    }
+    var sel = document.createElement("select");
+    sel.className = "cast-target";
+    sel.setAttribute("aria-label", "Spell target");
+    fillCastTarget(sel);
+    sel.addEventListener("change", function () {
+      var main = document.querySelector("#atkTarget");
+      if (sel.value && sel.value !== "narrative" && main) main.value = sel.value;
+      document.querySelectorAll("select.cast-target").forEach(function (other) {
+        if (other !== sel) other.value = sel.value;
+      });
+    });
+    btn.parentNode.insertBefore(sel, btn);
+    return sel;
+  }
+  function syncCastTargets() {
+    var pact = document.querySelector("#btnPactShot");
+    if (pact) mountCastTarget(pact);
+    document.querySelectorAll("[data-spell-cast], [data-cast]").forEach(function (btn) { mountCastTarget(btn); });
+  }
+  function sourceSelect() {
+    var btn = castSource;
+    if (btn && btn.previousElementSibling && btn.previousElementSibling.classList && btn.previousElementSibling.classList.contains("cast-target")) {
+      return btn.previousElementSibling;
+    }
+    return null;
+  }
+  function chosenTargetValue() {
+    var sel = sourceSelect();
+    if (sel) return sel.value || "";
+    var main = document.querySelector("#atkTarget");
+    return (main && main.value) || "";
+  }
+  function applyCastChoice(choice) {
+    pendingDarts = (choice && choice.darts) || null;
+    pendingBlind = !!(choice && choice.narrative && !(choice.darts && choice.darts.some(function (d) { return d && d.id; })));
+    var id = choice && choice.id;
+    if (!id) return;
+    var main = document.querySelector("#atkTarget");
+    if (main) main.value = id;
+    document.querySelectorAll("select.cast-target").forEach(function (s) {
+      if (Array.prototype.some.call(s.options, function (o) { return o.value === id; })) s.value = id;
+    });
+  }
+  function optionList(sel, includeNarrative) {
+    var main = document.querySelector("#atkTarget");
+    if (main) {
+      Array.prototype.forEach.call(main.options, function (op) {
+        if (!op.value) return;
+        var next = document.createElement("option");
+        next.value = op.value;
+        next.textContent = op.textContent || op.value;
+        sel.appendChild(next);
+      });
+    }
+    if (includeNarrative) {
+      var narrative = document.createElement("option");
+      narrative.value = "narrative";
+      narrative.textContent = "No target / narrative";
+      sel.appendChild(narrative);
+    }
+  }
+  function askOneTarget(name) {
+    return new Promise(function (resolve) {
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      dlg.innerHTML = "<form method='dialog'><h2>Pick a target</h2><p class='fine'></p><label>Target <select id='spellPick'></select></label><div class='dlg-foot'><button class='btn' type='button' value='no'>Cancel</button><button class='btn' type='button' id='spellNarrative'>No target / narrative</button><button class='btn btn-primary' type='submit' value='yes'>Cast</button></div></form>";
+      dlg.querySelector("p").textContent = name || "Spell";
+      optionList(dlg.querySelector("#spellPick"), false);
+      var done = false;
+      function finish(choice) {
+        if (done) return;
+        done = true;
+        if (dlg.close) dlg.close();
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(choice);
+      }
+      dlg.querySelector("[value=no]").addEventListener("click", function () { finish(null); });
+      dlg.querySelector("#spellNarrative").addEventListener("click", function () { finish({ narrative: true }); });
+      dlg.querySelector("form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var id = (dlg.querySelector("#spellPick") || {}).value || "";
+        if (!id) { toast("Pick a target"); return; }
+        finish({ id: id });
+      });
+      dlg.addEventListener("cancel", function (e) { e.preventDefault(); finish(null); });
+      document.body.appendChild(dlg);
+      try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+      catch (err) { dlg.setAttribute("open", ""); }
+    });
+  }
+  function askDartTargets(name, count, preset) {
+    return new Promise(function (resolve) {
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      var form = document.createElement("form");
+      form.method = "dialog";
+      var h = document.createElement("h2");
+      h.textContent = "Pick a target";
+      var note = document.createElement("p");
+      note.className = "fine";
+      note.textContent = (name || "Spell") + " · one target per dart";
+      form.appendChild(h);
+      form.appendChild(note);
+      var picks = [];
+      var n;
+      for (n = 0; n < count; n++) {
+        var label = document.createElement("label");
+        label.appendChild(document.createTextNode("Dart " + (n + 1) + " "));
+        var sel = document.createElement("select");
+        var blank = document.createElement("option");
+        blank.value = "";
+        blank.textContent = "Pick a target";
+        sel.appendChild(blank);
+        optionList(sel, true);
+        if (preset && preset !== "narrative") sel.value = preset;
+        label.appendChild(sel);
+        form.appendChild(label);
+        picks.push(sel);
+      }
+      var foot = document.createElement("div");
+      foot.className = "dlg-foot";
+      var cancel = document.createElement("button");
+      cancel.className = "btn";
+      cancel.type = "button";
+      cancel.textContent = "Cancel";
+      var go = document.createElement("button");
+      go.className = "btn btn-primary";
+      go.type = "submit";
+      go.textContent = "Cast";
+      foot.appendChild(cancel);
+      foot.appendChild(go);
+      form.appendChild(foot);
+      dlg.appendChild(form);
+      var done = false;
+      function finish(choice) {
+        if (done) return;
+        done = true;
+        if (dlg.close) dlg.close();
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(choice);
+      }
+      cancel.addEventListener("click", function () { finish(null); });
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var darts = [];
+        var i;
+        for (i = 0; i < picks.length; i++) {
+          var val = picks[i].value;
+          if (!val) { toast("Pick a target"); return; }
+          if (val === "narrative") darts.push({ narrative: true });
+          else darts.push(targetById(val) || { id: val, name: val });
+        }
+        var first = null;
+        darts.forEach(function (d) { if (!first && d && d.id) first = d; });
+        finish({ id: first ? first.id : "", narrative: !first, darts: darts });
+      });
+      dlg.addEventListener("cancel", function (e) { e.preventDefault(); finish(null); });
+      document.body.appendChild(dlg);
+      try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+      catch (err) { dlg.setAttribute("open", ""); }
+    });
+  }
+  function chooseCastTarget(name, row, slot) {
+    if (!spellNeedsTarget(row)) return Promise.resolve({ skip: true });
+    var darts = autoDartCount(row, slot);
+    var current = chosenTargetValue();
+    if (darts > 1 || (darts === 1 && row && row.rays)) return askDartTargets(name, darts, current && current !== "narrative" ? current : "");
+    if (current === "narrative") return Promise.resolve({ narrative: true });
+    if (current) return Promise.resolve({ id: current });
+    return askOneTarget(name);
+  }
   function castSpellAttack(i, spellName, slot, fromChamber) {
     var Cast = root.SSDNSSpellCast;
     var looked = Cast && Cast.lookup && Cast.lookup(spellName);
-    var blocked = attackGate(currentTarget(), { heal: looked && looked.kind === "heal" });
-    if (blocked) { toast(blocked); addLog({ kind: "alert", text: blocked }); return; }
-    if (Cast && Cast.needsType && Cast.needsType(spellName)) {
-      Cast.pickType(spellName).then(function (type) {
-        if (!type) return;
-        castSpellAttackNow(i, spellName, slot, fromChamber, type);
-      });
-      return;
-    }
-    castSpellAttackNow(i, spellName, slot, fromChamber, "");
+    var start = castChoice ? Promise.resolve(castChoice) : chooseCastTarget(spellName, looked, slot);
+    castChoice = null;
+    start.then(function (choice) {
+      if (!choice) return;
+      if (!choice.skip) applyCastChoice(choice);
+      var blocked = attackGate(pendingBlind ? null : currentTarget(), { heal: looked && looked.kind === "heal" });
+      if (blocked) { toast(blocked); addLog({ kind: "alert", text: blocked }); pendingDarts = null; pendingBlind = false; return; }
+      if (Cast && Cast.needsType && Cast.needsType(spellName)) {
+        Cast.pickType(spellName).then(function (type) {
+          if (!type) { pendingDarts = null; pendingBlind = false; return; }
+          castSpellAttackNow(i, spellName, slot, fromChamber, type);
+        });
+        return;
+      }
+      castSpellAttackNow(i, spellName, slot, fromChamber, "");
+    });
   }
   function castSpellAttackNow(i, spellName, slot, fromChamber, damageType) {
     var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
@@ -743,6 +990,15 @@
       rolled.text = report.player + (dmgTail && !report.miss ? " · " + dmgTail[1] : "");
       rolled.detail = rolled.text;
       acForRoll = report.ac;
+    } else if (row && row.kind === "auto" && rolled.darts && pendingDarts && pendingDarts.length) {
+      var dartNotes = [];
+      rolled.darts.forEach(function (d, idx) {
+        var pick = pendingDarts[idx] || {};
+        dartNotes.push("dart " + d.n + " → " + (pick.name || "narrative"));
+      });
+      rolled.text += " · " + dartNotes.join("; ");
+      rolled.detail = rolled.text;
+      rolled.autoDarts = true;
     } else if (row && row.kind === "heal") {
       var whoHeal = (c && c.name) || "You";
       var selfHeal = blankTarget(tgt) || (root.SSDNSDmJoin && root.SSDNSDmJoin.uid && tgt && tgt.id === root.SSDNSDmJoin.uid());
@@ -829,6 +1085,44 @@
           applyDelta(Number(rolled.result) || 0, rolled.text);
           releaseHealTarget();
         }
+      } else if (rolled.autoDarts && pendingDarts) {
+        var dartGroups = {};
+        var dartOrder = [];
+        rolled.darts.forEach(function (d, idx) {
+          var pick = pendingDarts[idx];
+          if (!pick || !pick.id) return;
+          if (!dartGroups[pick.id]) {
+            dartGroups[pick.id] = { tgt: pick, total: 0, bits: [] };
+            dartOrder.push(pick.id);
+          }
+          dartGroups[pick.id].total += Number(d.total) || 0;
+          dartGroups[pick.id].bits.push(d.text || String(d.total));
+        });
+        dartOrder.forEach(function (gid) {
+          var g = dartGroups[gid];
+          var partId = rollId + "_" + gid;
+          var whoDart = (c && c.name) || "You";
+          var dartLine = whoDart + " → " + (g.tgt.name || "target") + ": " + spellName + " " + g.bits.join(" + ") + " = " + g.total;
+          root.SSDNSDmJoin.postRoll({
+            id: partId,
+            label: spellName,
+            formula: spellName,
+            result: g.total,
+            detail: dartLine,
+            attack: false,
+            damage: g.total,
+            targetId: g.tgt.id,
+            targetName: g.tgt.name,
+            private: whisperOn(),
+            whisper: whisperOn()
+          });
+          if (!whisperOn() && root.SSDNSDmJoin.postDamage) {
+            root.SSDNSDmJoin.postDamage({
+              amount: g.total, label: spellName, type: "spell",
+              targetId: g.tgt.id, targetName: g.tgt.name, rollId: partId
+            });
+          }
+        });
       } else if (!rolled.heal && rolled.attack && spellDmg && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         root.SSDNSDmJoin.postDamage({
           amount: spellDmg, label: spellName, type: "spell", weapon: throughGun && i >= 0 ? gunName(i) : "",
@@ -841,6 +1135,8 @@
       applyDelta(Number(rolled.result) || 0, rolled.text);
     }
     consumeRollMode();
+    pendingDarts = null;
+    pendingBlind = false;
   }
   function selectedCast(i) {
     var spellSel = document.querySelector('[data-castspell="' + i + '"]');
@@ -860,8 +1156,13 @@
     var pick = selectedCast(i);
     if (!pick) { toast("Pick a spell from your list."); return; }
     var looked = root.SSDNSSpellCast && root.SSDNSSpellCast.lookup && root.SSDNSSpellCast.lookup(pick.name);
-    var blocked = attackGate(currentTarget(), { heal: looked && looked.kind === "heal" });
-    if (blocked) { toast(blocked); addLog({ kind: "alert", text: blocked }); return; }
+    chooseCastTarget(pick.name, looked, pick.slot).then(function (choice) {
+      if (!choice) return;
+      castChoice = choice;
+      castThroughGunNow(i, pick);
+    });
+  }
+  function castThroughGunNow(i, pick) {
     if (pick.slot > 0) {
       if (!root.SSDNSApp.spendHexChamber) { toast("Cast through gun isn't ready."); return; }
       var held = root.SSDNSApp.spendHexChamber(i, pick.slot);
@@ -947,10 +1248,14 @@
       addLog({ kind: "alert", text: msg });
       return;
     }
-    if (!num(g.loaded)) {
-      var reloadBtn = document.querySelector('[data-reload="' + i + '"]');
-      if (reloadBtn && !reloadBtn.hidden) reloadBtn.click();
-      else toast("Reload");
+    var empty = root.SSDNSApplied && root.SSDNSApplied.gunEmpty ? root.SSDNSApplied.gunEmpty(g) : !num(g.loaded);
+    if (empty) {
+      g.loaded = 0;
+      toast("Empty: reload", "Reload", function () {
+        var reloadBtn = document.querySelector('[data-reload="' + i + '"]');
+        if (reloadBtn && !reloadBtn.hidden) reloadBtn.click();
+      });
+      addLog({ kind: "alert", text: name0 + ": Empty: reload" });
       return;
     }
     var gate = attackGate(currentTarget());
@@ -1244,6 +1549,15 @@
   function castPicked(i, sp) {
     var c = ch();
     if (!sp) return;
+    var looked = root.SSDNSSpellCast && root.SSDNSSpellCast.lookup && root.SSDNSSpellCast.lookup(sp.name);
+    chooseCastTarget(sp.name, looked, sp.slot || 0).then(function (choice) {
+      if (!choice) return;
+      castChoice = choice;
+      castPickedNow(i, sp);
+    });
+  }
+  function castPickedNow(i, sp) {
+    var c = ch();
     var slot = sp.slot || 0;
     if (slot > 0 && c && c.calling === "hexslinger") {
       var held = root.SSDNSApp && root.SSDNSApp.spendHexChamber ? root.SSDNSApp.spendHexChamber(i, slot) : { ok: false };
@@ -1335,6 +1649,32 @@
     });
   }
 
+  function watchKeyboard() {
+    var rootEl = document.documentElement;
+    function apply() {
+      var vv = window.visualViewport;
+      var inset = 0;
+      if (vv) inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      rootEl.style.setProperty("--vv-bottom", inset + "px");
+    }
+    apply();
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", apply);
+      window.visualViewport.addEventListener("scroll", apply);
+    }
+    window.addEventListener("resize", apply);
+    function chatting(node) {
+      return !!(node && node.closest && node.closest("#sheetDockChat, #logChat, .log-chat, .dock-compose"));
+    }
+    document.addEventListener("focusin", function (e) {
+      if (chatting(e.target)) document.body.classList.add("chat-focus");
+    });
+    document.addEventListener("focusout", function () {
+      setTimeout(function () {
+        if (!chatting(document.activeElement)) document.body.classList.remove("chat-focus");
+      }, 0);
+    });
+  }
   function wire() {
     var minus = $("#btnHpMinus"), plus = $("#btnHpPlus");
     if (minus) minus.addEventListener("click", function () { bump(-1); });
@@ -1452,6 +1792,7 @@
       if (document.body.classList.contains("dock-open")) sheetDockSeen = log.length;
       renderDock();
     });
+    watchKeyboard();
     try {
       if (localStorage.getItem("ssdns.sheet.dock") === "closed") {
         document.body.classList.add("sheet-dock-collapsed");
@@ -1479,6 +1820,7 @@
   root.SSDNSGunCastHex = castLoadedHex;
   root.SSDNSSheet = {
     applyDelta: applyDelta,
+    setHp: setHp,
     flashHp: flashHp,
     logRows: function () { return log.slice(); },
     showNotice: showNotice,

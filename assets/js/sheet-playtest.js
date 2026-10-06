@@ -485,7 +485,7 @@
   function styleOptions(c) {
     if (!c) return [];
     var lv = c.level || 1;
-    if (c.calling === "gunslinger") return [["long-gun", "Long-gun marksmanship (+2 ranged to hit)"], ["sidearm", "Sidearm (+2 pistol damage)"], ["point-blank", "Point-blank (+1 AC)"]];
+    if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 ranged hit)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"]];
     if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"]];
     if (c.calling === "frontier-scout" && lv >= 2) return [["archery", "Archery (+2 ranged to hit)"]];
     return [];

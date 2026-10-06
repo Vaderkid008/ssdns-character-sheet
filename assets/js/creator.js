@@ -168,6 +168,7 @@
   function stepsFor(draft) {
     var cal = callingById(draft.calling);
     var steps = ["name", "lineage", "calling", "abilities", "background", "kit"];
+    if (draft.calling === "gunslinger") steps.push("style");
     if (casterAtFirst(cal)) steps.push("spells");
     steps.push("level", "vitals", "review");
     return steps;
@@ -187,6 +188,7 @@
       background: "",
       skills: [],
       kit: {},
+      fightingStyle: "",
       level: 1,
       cantrips: [],
       spells: [],
@@ -242,6 +244,9 @@
       var lv = Number(draft.level || 1);
       if (lv !== 1 && lv !== 2 && lv !== 3) errs.push("Starting level is 1, 2, or 3.");
     }
+    if (step === "style" || step === "review") {
+      if (draft.calling === "gunslinger" && !draft.fightingStyle) errs.push("Pick a Gunfighter style.");
+    }
     if (step === "kit" || step === "review") {
       var kits = root.SSDNSKits;
       var open = kits && kits.openChoices ? kits.openChoices(draft.calling, draft.kit || {}) : [];
@@ -269,6 +274,7 @@
     c.lineage = lin ? lin.id : "";
     c.sublineage = sub ? sub.id : "";
     c.calling = cal ? cal.id : "";
+    c.fightingStyle = draft.calling === "gunslinger" ? (draft.fightingStyle || "") : (c.fightingStyle || "");
     var level = Number(draft.level) || 1;
     if (level < 1) level = 1;
     if (level > 3) level = 3;
@@ -336,6 +342,7 @@
     draft.skills = (spec.skills || skillList(bg)).slice();
     draft.kit = spec.kit || kitPick(cal.id);
     draft.level = spec.level || 1;
+    if (draft.calling === "gunslinger" && !draft.fightingStyle) draft.fightingStyle = spec.fightingStyle || "long-gun";
     var lim = levelRow(cal);
     if (casterAtFirst(cal)) {
       draft.cantrips = (spec.cantrips || spellEntries(cal.id, 0).slice(0, lim.cantrips)).slice();
@@ -441,6 +448,7 @@
         draft.calling = csel.value;
         draft.scores = assignStandard(callingById(draft.calling) || {});
         draft.kit = {};
+        draft.fightingStyle = "";
         draft.cantrips = [];
         draft.spells = [];
         renderStep(body, draft, step);
@@ -544,6 +552,23 @@
           body.appendChild(box);
         });
       }
+    } else if (step === "style") {
+      body.appendChild(el("h2", { text: "Gunfighter style" }));
+      body.appendChild(el("p", { text: "Gunslingers pick a fighting style at 1st level." }));
+      var styles = [
+        ["long-gun", "Long-Gun Marksmanship (+2 ranged hit)"],
+        ["sidearm", "Sidearm Duelling (+2 damage with one gun)"],
+        ["point-blank", "Point-Blank Defense (+1 AC)"]
+      ];
+      styles.forEach(function (pair) {
+        var box = el("label", { class: "wiz-check" });
+        var input = el("input", { type: "radio", name: "wizStyle", value: pair[0] });
+        input.checked = draft.fightingStyle === pair[0];
+        input.addEventListener("change", function () { if (input.checked) draft.fightingStyle = pair[0]; });
+        box.appendChild(input);
+        box.appendChild(root.document.createTextNode(" " + pair[1]));
+        body.appendChild(box);
+      });
     } else if (step === "kit") {
       body.appendChild(el("h2", { text: "Starting kit" }));
       var kits = root.SSDNSKits;

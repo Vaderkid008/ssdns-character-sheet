@@ -67,6 +67,8 @@ a { color: var(--eld); }
 }
 .dm-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #0a1210; box-shadow: 0 0 4px #0a1210; }
 .bar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.header-roll { display: inline-flex; gap: 4px; align-items: center; }
+.header-roll input { width: 5.5rem; min-height: 32px; }
 
 /* ---- buttons */
 .btn {
@@ -395,6 +397,8 @@ html, body { overflow-x: hidden; max-width: 100%; }
   padding: 8px 10px; margin: 6px 0;
 }
 .init-row.current { font-weight: 700; border-color: var(--eld); box-shadow: inset 4px 0 0 var(--eld); background: rgba(201, 162, 39, .14); }
+.init-row.fled { opacity: 0.45; }
+.init-row.fled .init-who b { text-decoration: line-through; }
 .init-row.current .init-who b::before { content: "→ "; }
 .ssdns-ask { border: 1px solid var(--ochre); padding: 0; max-width: min(520px, calc(100vw - 20px)); width: 100%; background: var(--bg, #1c140e); color: var(--parch, #f3e6c8); }
 .ssdns-ask::backdrop { background: rgba(10,6,3,.7); }
@@ -405,7 +409,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .init-row.flash { animation: turnflash .7s ease; }
 @keyframes turnflash { from { background: #3d3018; } to { background: transparent; } }
 .init-row input[type="number"] { width: 4.2rem; }
-.init-actions { display: flex; gap: 4px; }
+.init-actions { display: flex; gap: 4px; flex-wrap: wrap; }
 .enemy-card { flex: 1 0 100%; border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
 .enemy-card .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .enemy-card input[type="text"] { width: 7rem; }
@@ -521,4 +525,43 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
   .live-dock { height: min(50vh, 380px); }
   .room-code { font-size: 28px; letter-spacing: .06em; }
   .brand-title { font-size: 16px; }
+}
+
+/* Android Chrome can paint a light input under inherited light text. */
+body { color-scheme: dark; }
+input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]):not([type=range]):not([type=color]),
+textarea,
+select {
+  color-scheme: dark;
+  background: #1e2a24;
+  color: #f2ead8;
+  -webkit-text-fill-color: #f2ead8;
+  caret-color: #f2ead8;
+  border: 1px solid #3d5c4e;
+}
+input::placeholder,
+textarea::placeholder {
+  color: #c9bfa6;
+  -webkit-text-fill-color: #c9bfa6;
+  opacity: 1;
+}
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #f2ead8 !important;
+  caret-color: #f2ead8;
+  box-shadow: 0 0 0 1000px #1e2a24 inset;
+}
+.dock-fab {
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px) + var(--vv-bottom, 0px));
+}
+@media (max-width: 800px) {
+  .live-dock {
+    bottom: var(--vv-bottom, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  body.dock-open .dock-fab,
+  body.chat-focus .dock-fab {
+    display: none !important;
+  }
 }

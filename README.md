@@ -1,6 +1,6 @@
 # SSDNS Character Sheet
 
-Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.8, DM Command Center v0.2.16).
+Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.10, DM Command Center v0.2.18).
 
 - Enemy card: each bestiary combatant on the Fight tab shows scores, saves, skills, attacks, traits, actions, and spellcasting. Attack buttons pick a player and apply damage. A gun misfire spends the round and jams. A failed rider save offers Apply for that condition. The header roller and each card have advantage, a modifier, and a Public toggle. Rolls stay on the DM screen until Public is on, and a public line names the enemy without AC or DC. `database.rules.json` did not change.
 - Invite link and Switch Boss: the DM screen copies a player invite (`?room=CODE`, built from this site's address) and the table code in the header copies the same link. The sheet prefills that code and waits for one Join click. A new character finishes the wizard first, then joins. Switch Boss sits after Outlaw, and bestiary actions print on the card the same way traits do. `database.rules.json` did not change.
