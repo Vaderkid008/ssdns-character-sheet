@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.2.5"; // sheet-notes-v022
+  var APP_VERSION = "0.2.6"; // sheet-phb-v026
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -107,9 +107,9 @@
       partyInspiration: new Array(10).fill(false),
       speed: "", armor: "", shield: false, hpAuto: true, hpMax: "", hpCurrent: "", hpTemp: "", hitDiceLeft: "",
       deathSaves: { success: [false, false, false], fail: [false, false, false] },
-      guns: [0, 1, 2, 3].map(function () { return { weapon: "", tier: "", chamber: "", mod: "", capacity: "", load: "buck", loaded: 0, chambers: [], proficient: true, jammed: false, cracked: false, fouled: false, dirty: false }; }),
+      guns: [0, 1, 2, 3].map(function () { return { weapon: "", tier: "", chamber: "", mod: "", engraving: false, capacity: "", load: "buck", loaded: 0, chambers: [], proficient: false, jammed: false, cracked: false, fouled: false, dirty: false }; }),
       tableConditions: "",
-      ammo: [], explosives: [], holster: "", holsterActive: false, gunBelt: false, attackNotes: "",
+      ammo: [], explosives: [], holster: "", holsterActive: false, seated: false, mounted: false, gunBelt: false, attackNotes: "",
       instrument: "", instrumentQuality: "cheap", instrumentStrings: "plain", instrumentCase: "none", instrumentWear: "ok",
       proficienciesLanguages: "", equipment: "", personality: "", ideals: "", bonds: "", flaws: "", feats: [], features: "",
       age: "", height: "", weight: "", eyes: "", skin: "", hair: "", portrait: "", appearance: "", gangName: "", gangSymbol: "",
@@ -205,6 +205,7 @@
   function modsFor(w) {
     if (!w || !w.tiers || !R.gunsmithing) return [];
     return (R.gunsmithing.mods || []).filter(function (m) {
+      if (/engraving and grips/i.test(m.name || "")) return false;
       var f = String(m.fits || "").toLowerCase(), g = w.group;
       if (/except the big fifty/.test(f) && g === "bigbore") return false;
       if (/rugged/.test(f) && /rugged/i.test(w.properties)) return false;
@@ -284,15 +285,34 @@
       if (!a || a === "—" || /^—/.test(a) || /^-+$/.test(a) || /prints as 5e name/i.test(a)) return "";
       return a;
     }
-    alias = realAlias(alias);
-    if (!alias && ax) alias = realAlias(ax.alias);
-    var label = alias ? phb + " (" + alias + ")" : phb;
-    if (shell && !/\bshell\b/i.test(label)) label += " Shell";
+    if (shell) alias = "";
+    else {
+      alias = realAlias(alias);
+      if (!alias && ax) alias = realAlias(ax.alias);
+    }
+    var label = shell ? (phb + " Shell") : (alias ? phb + " (" + alias + ")" : phb);
     return { phb: phb, alias: alias, label: label, shell: shell, level: level, raw: t, key: (level + ":" + phb + (shell ? ":shell" : "")).toLowerCase() };
   }
   function callingSpellList(id) {
     id = id || (C().calling || "");
     return (R.spellLists && R.spellLists[id]) || null;
+  }
+  var SPELL_LEVEL_OF = null;
+  function spellLevelOf(phb) {
+    if (!SPELL_LEVEL_OF) {
+      SPELL_LEVEL_OF = {};
+      Object.keys(R.spellLists || {}).forEach(function (id) {
+        var levels = (R.spellLists[id] || {}).levels || {};
+        Object.keys(levels).forEach(function (lk) {
+          (levels[lk] || []).forEach(function (raw) {
+            var sp = parseSpellEntry(raw, num(lk, 0));
+            if (sp && SPELL_LEVEL_OF[sp.phb.toLowerCase()] == null) SPELL_LEVEL_OF[sp.phb.toLowerCase()] = num(lk, 0);
+          });
+        });
+      });
+    }
+    var k = String(phb || "").toLowerCase().replace(/\s+shell$/, "");
+    return Object.prototype.hasOwnProperty.call(SPELL_LEVEL_OF, k) ? SPELL_LEVEL_OF[k] : null;
   }
   function callingCatalog(id) {
     var sl = callingSpellList(id);
@@ -303,6 +323,32 @@
       (sl.levels[lk] || []).forEach(function (raw) {
         var sp = parseSpellEntry(raw, level);
         if (sp) out.push(sp);
+      });
+    });
+    return out;
+  }
+  function bonusCatalog() {
+    var sl = callingSpellList();
+    if (!sl || !sl.bonusLists) return [];
+    var sc = currentSubclass();
+    var scName = sc ? String(sc.name || "").toLowerCase() : "";
+    var out = [];
+    sl.bonusLists.forEach(function (b) {
+      var bname = String(b.name || "").toLowerCase();
+      var dark = /dark preacher/.test(bname);
+      var match = scName && (scName.indexOf(bname) >= 0 || bname.indexOf(scName) >= 0);
+      if (!match && !dark) return;
+      (b.entries || []).forEach(function (en) {
+        (en.spells || []).forEach(function (raw) {
+          var parsed = parseSpellEntry(raw, 0);
+          if (!parsed) return;
+          var lvl = spellLevelOf(parsed.phb);
+          out.push({
+            phb: parsed.phb, alias: parsed.alias, label: parsed.label, shell: parsed.shell,
+            level: lvl == null ? null : lvl, gainAt: en.atLevel, source: b.name,
+            dmOnly: !!b.dmOnly, note: b.note || "", key: ("bonus:" + bname + ":" + parsed.phb).toLowerCase()
+          });
+        });
       });
     });
     return out;
@@ -368,6 +414,14 @@
   }
   function addKnownSpell(sp) {
     if (!sp) return;
+    if (sp.level == null) {
+      var line = "Always prepared: " + sp.label + " (" + (sp.source || "subclass") + ", character level " + sp.gainAt + ").";
+      var box = C().additionalFeatures || "";
+      if (box.indexOf(sp.label) < 0) C().additionalFeatures = (box.trim() ? box.replace(/\s+$/, "") + "\n" : "") + line;
+      changed();
+      toast(sp.label + " isn't on the main list, so it's written under Additional Features.");
+      return;
+    }
     var label = sp.label;
     if (sp.level === 0) {
       var arr = C().cantrips;
@@ -379,7 +433,7 @@
       var list = C().spells[sp.level];
       var slot2 = list.findIndex(function (x) { return !x || !x.name; });
       var mode = prepareMode();
-      var row = { name: label, prepared: mode === "known" }; // known casters: treat as always "ready"
+      var row = { name: label, prepared: mode === "known" || sp.gainAt != null }; // known casters stay ready; domain and oath spells are always prepared
       if (slot2 < 0) list.push(row); else list[slot2] = row;
     }
     warnSpellLimits();
@@ -411,11 +465,22 @@
     var hol = HOL[c.holster];
     v.scores = {}; v.mods = {};
     AB.forEach(function (a) { v.scores[a] = num(c.abilities[a], 10); });
-    // PHB Holsters (rig table): Init. bonus while the rig holds a pistol when combat starts; First shot bonus on the
-    // first pistol attack from the rig. Ticked = pistol in the rig. Bonuses don't stack (one rig counts).
+    // PHB Holsters: one rig. Cross-Draw's first shot only while seated, mounted, or driving.
+    // Pommel initiative only while mounted. Belt rigs lose the first-shot bonus while seated.
     v.holsterDex = 0;
-    v.holsterInit = hol && c.holsterActive ? num(hol.initBonus) : 0;
-    v.holsterFirst = hol && c.holsterActive ? num(hol.firstShot) : 0;
+    v.holsterInit = 0;
+    v.holsterFirst = 0;
+    if (hol && c.holsterActive) {
+      var belt = /^belt rig/i.test(hol.perk || "");
+      var pommel = /†/.test(hol.initText || "") || /pommel/i.test(hol.name || "");
+      var cross = !!hol.conditional && /first-shot bonus only then/i.test(hol.perk || "");
+      var posture = !!c.seated || !!c.mounted;
+      if (pommel) { if (c.mounted) v.holsterInit = num(hol.initBonus); }
+      else v.holsterInit = num(hol.initBonus);
+      if (cross) { if (posture) v.holsterFirst = num(hol.firstShot); }
+      else if (belt) { if (!c.seated) v.holsterFirst = num(hol.firstShot); }
+      else v.holsterFirst = num(hol.firstShot);
+    }
     AB.forEach(function (a) { v.mods[a] = mod(v.scores[a]); });
     v.prof = profBonus(c.level);
     v.saves = {}; AB.forEach(function (a) { v.saves[a] = v.mods[a] + (c.saveProf[a] ? v.prof : 0); });
@@ -455,11 +520,21 @@
         var ld = t[g.load === "slug" ? "slug" : "buck"] || t.buck || t.slug || {};
         s.damage = ld.damage || ""; s.range = ld.range || ""; s.misfire = (t.slug && t.slug.misfire) || "";
       } else { s.damage = t.damage || t.raw || ""; s.range = t.range || ""; s.misfire = t.misfire || ""; }
+      if (w.rifleRounds && ch.round && w.rifleRounds[ch.round]) {
+        var rr = w.rifleRounds[ch.round];
+        if (rr.damage) s.damage = rr.damage;
+        if (rr.range) s.range = rr.range;
+        if (rr.misfire) s.misfire = rr.misfire;
+        s.unwieldy = !!rr.unwieldy;
+      }
       s.dmgType = w.scatter && g.load !== "slug" ? "piercing (cone)" : "piercing";
     } else {
       s.damage = w.damage; s.range = w.range; s.misfire = w.misfire; s.dmgType = String(w.dmgType || "").toLowerCase();
     }
     var notes = [];
+    if (w.category === "martial" || w.category === "simple" || w.category === "caster") notes.push(w.category);
+    if (s.unwieldy) notes.push("unwieldy");
+    if (g.engraving) notes.push("engraving and grips (not a mod slot)");
     if (w.action) notes.push(w.action + (w.load ? " · " + w.load : ""));
     if (w.slow) notes.push("slow load: reload takes a full turn");
     if (w.tr) notes.push("TR ✓");
@@ -508,9 +583,7 @@
     fillSelect($("#selHolster"), [
       { group: "Rigs", items: R.holsters.filter(function (h) { return h.isRig; }).map(function (h) { return [h.id, h.name + (h.initText && h.initText !== "—" ? " · Init " + h.initText : "") + (h.firstShotText && h.firstShotText !== "—" ? " · 1st shot " + h.firstShotText : "")]; }) },
       { group: "Not a rig", items: R.holsters.filter(function (h) { return !h.isRig; }).map(function (h) { return [h.id, h.name]; }) }], "No holster");
-    var cg = R.casterGuns.map(function (g) { return [g.id, g.name]; });
-    cg.push(["borrowed-iron", "Borrowed Iron (Pact Seeker pact focus)"], ["ordinary-firearm", "Ordinary firearm (disadvantage)"], ["other", "Other / none"]);
-    fillSelect($("#selCasterGun"), cg, "Caster gun…");
+    fillCasterGunSelect();
     fillSelect($("#selFeatAdd"), R.feats.map(function (f) { return [f.id, f.name + (f.prereq ? " *" : "")]; }), "+ Add a feat…");
     var gl = $("#gearList");
     var gear = [];
@@ -520,7 +593,7 @@
     R.ammo.forEach(function (a) { gear.push(a.name); });
     R.mounts.forEach(function (m) { gear.push(m.name + " (" + m.phb5e + ")"); });
     (R.frontierGear || []).forEach(function (g) { gear.push(g.name + (g.cost ? " · " + g.cost + " ES" : "") + " (frontier)"); });
-    ((R.explosives && R.explosives.items) || []).forEach(function (g) { gear.push(g.name + " · " + (g.cost || "TBD") + " ES (explosive)"); });
+    ((R.explosives && R.explosives.items) || []).forEach(function (g) { gear.push(g.name + (g.cost ? " · " + g.cost + " ES" : "") + " (explosive)"); });
     ((R.storytellerGear && R.storytellerGear.accessories) || []).forEach(function (g) { gear.push(g.name + " · " + g.cost + " ES (Storyteller)"); });
     ((R.storytellerGear && R.storytellerGear.instruments) || []).forEach(function (g) {
       if (g.id === "voice" || g.id === "piano") gear.push(g.name + " (Storyteller Calling instrument)");
@@ -546,6 +619,44 @@
     R.wildSpark.forEach(function (w) { wl.appendChild(el("li", { text: w.text })); });
     $("#appVersion").textContent = "v" + APP_VERSION;
   }
+  function isHexslinger() { return !!(S.doc && C().calling === "hexslinger"); }
+  function slotWord() {
+    var id = S.doc ? C().calling : "";
+    if (id === "hexslinger") return "Hex Lead";
+    if (id === "pact-seeker") return "Pact slots";
+    return "Spell slots";
+  }
+  function callingProficient(w) {
+    var cal = currentCalling();
+    if (!w || !cal || !cal.weaponProf) return false;
+    var prof = String(cal.weaponProf).toLowerCase();
+    var name = String(w.name || "").toLowerCase();
+    if (w.hexShells || w.group === "caster") return /caster guns?/.test(prof);
+    if (/herringer/.test(name) && /herringer/.test(prof)) return true;
+    if (/ball/.test(name) && /cap/.test(name) && /ball n cap/.test(prof)) return true;
+    var both = /simple\s*(and|&)\s*martial/.test(prof);
+    var simple = both || /\bsimple weapons\b/.test(prof);
+    var cat = String(w.category || "").toLowerCase();
+    if (cat === "simple" && simple) return true;
+    if (cat === "martial" && both) return true;
+    return false;
+  }
+  function fillCasterGunSelect() {
+    var sel = $("#selCasterGun");
+    if (!sel || !S.doc) return;
+    var id = C().calling;
+    var cur = C().casterGun || sel.value || "";
+    var items = [];
+    if (id === "hexslinger") {
+      R.casterGuns.forEach(function (g) { items.push([g.id, g.name]); });
+      items.push(["ordinary-firearm", "Ordinary firearm (disadvantage)"]);
+    }
+    if (id === "pact-seeker") items.push(["borrowed-iron", "Borrowed Iron (Pact Seeker pact focus)"]);
+    items.push(["other", "Other / none"]);
+    fillSelect(sel, items, "Caster gun…");
+    if (cur && !items.some(function (it) { return it[0] === cur; })) cur = "";
+    sel.value = cur;
+  }
   function gunOptions(sel) {
     var groups = [
       ["Pistols", R.firearms.filter(function (f) { return f.group === "pistol"; })],
@@ -553,10 +664,11 @@
       ["Carbines", R.firearms.filter(function (f) { return f.group === "carbine"; })],
       ["Rifles", R.firearms.filter(function (f) { return f.group === "rifle"; })],
       ["Big bore", R.firearms.filter(function (f) { return f.group === "bigbore"; })],
-      ["Caster guns (Hexslinger)", R.casterGuns],
       ["Bows & thrown", R.otherRanged],
       ["Melee", R.melee]
-    ].map(function (g) { return { group: g[0], items: g[1].map(function (w) { return [w.id, w.name + (w.cost && w.tiers ? " · " + w.cost + (/\d/.test(w.cost) ? " " + UNIT : "") : "")]; }) }; });
+    ];
+    if (isHexslinger()) groups.splice(5, 0, ["Caster guns (Hexslinger only)", R.casterGuns]);
+    groups = groups.map(function (g) { return { group: g[0], items: g[1].map(function (w) { return [w.id, w.name + (w.cost && w.tiers ? " · " + w.cost + (/\d/.test(w.cost) ? " " + UNIT : "") : "")]; }) }; });
     fillSelect(sel, groups, "Pick a gun…");
   }
 
@@ -617,7 +729,8 @@
       var hexSel = el("select", { class: "hex-lvl", "data-hexlvl": i, "aria-label": "Hex lead shell level" }, [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (l) { return opt(String(l), l + (l === 1 ? "st" : l === 2 ? "nd" : l === 3 ? "rd" : "th")); }));
       box.appendChild(el("div", { class: "gun", "data-row": i }, [
         el("div", { class: "g-name" }, [sel, el("div", { class: "g-sub" }, [chamber, load, modSel, capSel, el("span", { class: "g-cal", "data-out": "cal." + i }),
-          el("label", { class: "tiny" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".proficient" }), " prof."])])]),
+          el("label", { class: "tiny" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".proficient" }), " prof."]),
+          el("label", { class: "tiny", title: "Engraving and grips. It does not use the modification slot." }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".engraving" }), " engraving"])])]),
         el("div", { class: "g-atk", "data-label": "Atk" }, [el("input", { class: "calc", "data-calc": "gunAtk." + i, "aria-label": "Attack bonus" })]),
         el("div", { class: "g-dmg", "data-label": "Damage" }, [el("input", { class: "calc", "data-calc": "gunDmg." + i, "aria-label": "Damage" })]),
         el("div", { class: "g-rng", "data-label": "Range", "data-out": "rng." + i }),
@@ -627,21 +740,22 @@
             el("span", { class: "g-count", "data-out": "left." + i }),
             el("button", { type: "button", class: "btn sm reload", "data-reload": i, title: "Reload: an action, fills the gun (slow guns: a full turn). Pick which ammo if you have more than one pile." }, ["Reload"]),
             el("button", { type: "button", class: "btn sm", "data-unload": i, title: "Unload: put the chambered rounds back in your ammo, by type" }, ["Unload"]),
-            el("button", { type: "button", class: "btn sm", "data-gunroll": i, title: "Plain attack. Never spends a spell slot. Natural 1 jams." }, ["Roll"]),
+            el("select", { class: "adv-sel", "data-adv": i, "aria-label": "Advantage or disadvantage", title: "Advantage or disadvantage. Both dice in the misfire range fouls the gun." }, [opt("", "—"), opt("adv", "Adv"), opt("dis", "Dis")]),
+            el("button", { type: "button", class: "btn sm", "data-gunroll": i, title: "Plain attack. Never spends a spell slot. A natural roll in the gun's misfire range jams it. Dirty misfires on at least 1–2." }, ["Roll"]),
             el("button", { type: "button", class: "btn sm tr", "data-tr": i, title: "Tactical Reload: bonus action, load one round from a gun belt or bandolier (TR ✓ guns only)" }, ["TR +1"]),
-            el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Chamber one hex lead shell of this level. The slot is spent when you Cast through gun." }, ["+ Hex shell"])]),
+            el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Load one hex shell of this level. Loading spends the slot. Fire it later as a spell attack." }, ["+ Hex shell"])]),
             el("span", { class: "cast-through", "data-castwrap": i }, [
               el("select", { class: "cast-lvl", "data-castlvl": i, "aria-label": "Slot level to cast through this gun" }, [opt("0", "Cantrip")].concat([1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (l) { return opt(String(l), l + (l === 1 ? "st" : l === 2 ? "nd" : l === 3 ? "rd" : "th")); }))),
-              el("button", { type: "button", class: "btn sm castbtn", "data-cast": i, title: "Cast through gun: spends one slot of the chosen level and rolls your spell attack. A plain Roll never does this." }, ["Cast through gun"])
+              el("button", { type: "button", class: "btn sm castbtn", "data-cast": i, title: "Fire a loaded hex shell as a spell attack. The slot was spent when you loaded it. A natural 1 is a wild spark, not a jam. A plain Roll never spends a slot." }, ["Cast through gun"])
             ])
           ]),
           el("div", { class: "load-picks", "data-loadpick": i })
         ]),
         el("div", { class: "g-mis", "data-label": "Misfire" }, [el("span", { "data-out": "mis." + i }),
           el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".jammed" }), " jammed"]),
-          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".cracked" }), " cracked"]),
           el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".fouled" }), " fouled"]),
-          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".dirty" }), " dirty"])]),
+          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".dirty" }), " dirty"]),
+          el("button", { type: "button", class: "btn xs", "data-clean": i, title: "Dirty: 10 minutes with a gun cleaning kit or gunsmith's tools. Fouled: a short rest with tinker's or gunsmith's tools, or 500 ES." }, ["Clean"])]),
         el("div", { class: "g-note fine", "data-out": "note." + i })
       ]));
     }
@@ -674,9 +788,9 @@
     for (var l = 0; l <= 9; l++) {
       var blk = el("div", { class: "sp-level" + (l === 0 ? " cantrips" : ""), "data-level": l });
       var head = el("div", { class: "sp-head" }, [el("div", { class: "sp-num", text: String(l) })]);
-      if (l === 0) head.appendChild(el("div", { class: "sp-title" }, [el("b", { text: "Cantrips" }), el("small", { text: "at-will · empty chamber for Hexslingers" })]));
+      if (l === 0) head.appendChild(el("div", { class: "sp-title" }, [el("b", { text: "Cantrips" }), el("small", { text: "at-will · no shell, no chamber" })]));
       else head.appendChild(el("div", { class: "sp-slots" }, [
-        el("div", { class: "sp-total" }, [el("span", { text: "Slots / Hex Lead" }), el("input", { class: "calc sm", "data-calc": "hex." + l, "aria-label": "Level " + l + " slot or hex lead total" })]),
+        el("div", { class: "sp-total" }, [el("span", { class: "slot-word", text: "Spell slots" }), el("input", { class: "calc sm", "data-calc": "hex." + l, "aria-label": "Level " + l + " slots" })]),
         el("div", { class: "checkgrid hexgrid", "data-hex": l })]));
       blk.appendChild(head);
       blk.appendChild(el("div", { class: "sp-lines", "data-spell-lines": l }));
@@ -692,7 +806,15 @@
     var ci = casterInfo();
     var empty = $("#spellbookEmpty"), bar = $("#spellbookBar"), grid = $("#spellGrid"), picker = $("#spellPicker");
     if (!ci) {
-      if (empty) empty.hidden = false;
+      if (empty) {
+        empty.hidden = false;
+        var ep = empty.querySelector("p");
+        var scn = currentSubclass();
+        var breath = scn && /tong hatchet|kung fu/i.test(scn.name || "");
+        if (ep) ep.innerHTML = breath
+          ? "<b>Breath Coins.</b> " + esc(scn.name) + " casts with Breath Coins, not spell slots. Track those with your DM."
+          : "<b>No spell slots.</b> This Calling doesn't use a spellbook. Tong Hatchet Man and Way of Kung Fu cast with Breath Coins, not these slots.";
+      }
       if (bar) bar.hidden = true;
       if (picker) picker.hidden = true;
       if (grid) grid.hidden = true;
@@ -786,6 +908,22 @@
       list.appendChild(btn);
       n++;
     });
+    bonusCatalog().forEach(function (sp) {
+      if (pickerLevel !== "all" && sp.level != null && String(sp.level) !== String(pickerLevel)) return;
+      var hay = (sp.label + " " + sp.phb + " " + sp.source).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return;
+      var have = spellAlreadyHave(sp.phb);
+      var btn = el("button", { type: "button", class: "spell-pick" + (have ? " have" : ""), "data-add-spell": sp.key, role: "option" });
+      btn._spell = sp;
+      var when = "always prepared · character level " + sp.gainAt;
+      if (sp.dmOnly) when = sp.source + " · DM says so · " + when;
+      else when = sp.source + " · " + when;
+      if (sp.level == null) when += " · not on the main list";
+      btn.appendChild(el("span", { class: "sp-name", text: (sp.alias ? (sp.alias + " · " + sp.phb) : sp.phb) }));
+      btn.appendChild(el("span", { class: "sp-meta", text: when + (have ? " · already known" : "") }));
+      list.appendChild(btn);
+      n++;
+    });
     if (!n) list.appendChild(el("p", { class: "fine", text: "No spells match. Try another filter." }));
   }
   function openSpellPicker() {
@@ -823,7 +961,16 @@
     ss.disabled = !subs.length;
     var cal = CAL[c.calling];
     var sc = $("#selSubclass");
-    fillSelect(sc, cal ? cal.subclasses.map(function (s) { return [s.id, s.name + (s.phb5e ? " (" + s.phb5e + ")" : "") + (s.features && s.features.length ? "" : " (no PHB features yet)")]; }) : [], cal ? (cal.subclasses[0] && cal.subclasses[0].group ? cal.subclasses[0].group + "…" : "Subclass…") : "Pick a Calling first");
+    fillSelect(sc, cal ? cal.subclasses.map(function (s) {
+      var tag = "";
+      if (s.dmOnly) tag = " (DM only)";
+      else if (!(s.features && s.features.length)) tag = " (no PHB features yet)";
+      return [s.id, s.name + (s.phb5e ? " (" + s.phb5e + ")" : "") + tag];
+    }) : [], cal ? (cal.subclasses[0] && cal.subclasses[0].group ? cal.subclasses[0].group + "…" : "Subclass…") : "Pick a Calling first");
+    if (cal) sc.querySelectorAll("option").forEach(function (o) {
+      var sub = cal.subclasses.filter(function (s) { return s.id === o.value; })[0];
+      if (sub && sub.dmOnly && c.subclass !== sub.id) o.disabled = true;
+    });
     sc.disabled = !cal;
   }
 
@@ -886,6 +1033,15 @@
       var p = num(c.skillProf[b.getAttribute("data-skill")], 0);
       b.className = "prof3 p" + p; b.setAttribute("aria-pressed", p ? "true" : "false");
     });
+    var callKey = c.calling || "";
+    $$("[data-gun]").forEach(function (sel) {
+      if (sel.getAttribute("data-built-for") === callKey) return;
+      var cur = sel.value || (c.guns[num(sel.getAttribute("data-gun"))] || {}).weapon || "";
+      gunOptions(sel);
+      sel.setAttribute("data-built-for", callKey);
+      if (cur) sel.value = cur;
+    });
+    fillCasterGunSelect();
     c.guns.forEach(function (g, i) {
       var s = v.guns[i], row = $('.gun[data-row="' + i + '"]'), w = s && s.w;
       row.classList.toggle("empty", !s);
@@ -911,7 +1067,7 @@
       if (w && w.tiers) { var cc = chamberOf(g, w); cs.value = cc.tier + "|" + cc.round; }
       out("rng." + i, s ? s.range : "");
       out("cap." + i, s && s.capacity ? s.capacity : (s ? "—" : ""));
-      out("mis." + i, s ? s.misfire : "");
+      out("mis." + i, s ? misfireLabel(s.misfire, g.dirty) : "");
       out("cal." + i, s ? (w.hexShells ? "any cartridge + hex lead" : (w.ammo === "percussion" ? "powder & ball" : (w.tiers ? "" : (w.caliber || "")))) : "");
       out("note." + i, s ? s.note : "");
       var ch = $('[data-chambers="' + i + '"]');
@@ -950,16 +1106,17 @@
       var castSel = $('[data-castlvl="' + i + '"]');
       if (castBtn && castSel && w && w.hexShells) {
         var clv = num(castSel.value, 0);
-        var slotsOpen = clv === 0 ? 1 : slotsLeft(clv);
-        var spentHeld = false;
+        var held = false;
         if (clv > 0) (g.chambers || []).forEach(function (st) {
           var p = parseChamber(st);
-          if (p && p.kind === "hex" && String(p.level) === String(clv) && p.spent) spentHeld = true;
+          if (p && p.kind === "hex" && String(p.level) === String(clv)) held = true;
         });
-        castBtn.disabled = clv > 0 && slotsOpen <= 0 && !spentHeld;
-        castBtn.title = castBtn.disabled
-          ? "No level-" + clv + " slot left, and no shell of that level is chambered."
-          : "Cast through gun. Spell attack is proficiency + your casting ability. A plain Roll never spends a slot.";
+        castBtn.disabled = clv > 0 && !held;
+        castBtn.title = clv === 0
+          ? "Cantrip: no slot and no chamber. Spell attack only."
+          : (held
+            ? "Fire the loaded shell as a spell attack. No misfire. A natural 1 is a wild spark."
+            : "Load a level-" + clv + " shell first. Loading spends the slot.");
       }
     });
     renderAmmo();
@@ -969,7 +1126,10 @@
     var holMsg;
     if (h) {
       holMsg = h.name + ": holds " + h.holds + ". Init. " + (h.initText || "—") + ", first shot " + (h.firstShotText || "—") + ". " + h.perk + " ";
+      if (h.conditional) holMsg += "* ";
       if (h.isRig) holMsg += c.holsterActive ? "(Applied: pistol in the rig.) " : "(Tick when a pistol rides in it to apply.) ";
+      if (c.seated) holMsg += "Seated or driving. ";
+      if (c.mounted) holMsg += "Mounted. ";
       else if (h.feedsTR) holMsg += "(Feeds Tactical Reload.) ";
       holMsg += R.rulesText.holster;
     } else {
@@ -991,7 +1151,31 @@
         el("button", { type: "button", class: "chip-x", "data-unfeat": idx, "aria-label": "Remove " + (f ? f.name : id) }, ["×"])]));
     });
     if (!c.feats.length) fc.appendChild(el("span", { class: "fine", text: "No feats yet." }));
+    var lin = LIN[c.lineage];
+    var card = $("#lineageCard");
+    if (card) {
+      card.textContent = lin ? ["Age: " + (lin.age || "—"), "Size: " + (lin.size || "—"), "Languages: " + (lin.languages || "—")].join(" ") : "";
+    }
     // page 3
+    var word = slotWord();
+    $$(".slot-word").forEach(function (n) { n.textContent = word; });
+    var tabHex = $("#tab-hex");
+    if (tabHex) tabHex.textContent = "3 · Spells & " + word;
+    var slotLab = $("#slotWord");
+    if (slotLab) slotLab.textContent = word;
+    var hexBtn = $("#btnHexRoll");
+    if (hexBtn) {
+      if (c.calling === "hexslinger") {
+        hexBtn.textContent = "Cantrip only";
+        hexBtn.title = "A Hexslinger's leveled spell loads a shell (that spends the slot) and fires from the gun. This button rolls a cantrip. It will not spend a slot for a leveled spell.";
+      } else if (c.calling === "pact-seeker") {
+        hexBtn.textContent = "Pact spell";
+        hexBtn.title = "Spends a Pact slot, then rolls the spell attack.";
+      } else {
+        hexBtn.textContent = "Spell";
+        hexBtn.title = "Spends a spell slot, then rolls the spell attack.";
+      }
+    }
     var ci = v.caster;
     out("castingCalling", ci ? ci.from : (currentCalling() ? currentCalling().name + " (not a caster)" : "No Calling picked"));
     out("spellAbility", ci ? ci.ability + " " + sign(v.spellMod) : "—");
@@ -1053,7 +1237,7 @@
     box.innerHTML = "";
     var c = C();
     if (!c.explosives) c.explosives = [];
-    if (!c.explosives.length) box.appendChild(el("p", { class: "fine", text: "No explosives yet. Dynamite, fuses, caps, powder, kegs — costs TBD in the PHB." }));
+    if (!c.explosives.length) box.appendChild(el("p", { class: "fine", text: "No explosives yet." }));
     var items = (R.explosives && R.explosives.items) || [];
     c.explosives.forEach(function (row, i) {
       var sel = el("select", { "data-f": "character.explosives." + i + ".item", "aria-label": "Explosive" });
@@ -1244,12 +1428,19 @@
     var box = c.proficienciesLanguages || "";
     add = add.filter(function (l) { return box.indexOf(l) < 0; });
     if (add.length) c.proficienciesLanguages = (box.trim() ? box.replace(/\s+$/, "") + "\n" : "") + add.join("\n");
+    (c.guns || []).forEach(function (g) {
+      var w = WPN[g.weapon];
+      if (w) g.proficient = callingProficient(w);
+    });
+    if (c.calling !== "hexslinger" && c.casterGun && R.casterGuns.some(function (g) { return g.id === c.casterGun; })) c.casterGun = "";
     toast("Saving throws set for " + cal.name + " (" + cal.saves.join(", ") + "). Hit die " + cal.hitDie + "." + (add.length ? " Armor and weapon proficiencies added." : ""));
   }
   function onLineagePicked() {
     var c = C(), l = LIN[c.lineage];
     c.sublineage = "";
-    if (l && l.speed) { c.speed = l.speed; toast("Speed set to " + l.speed + " ft. from " + l.name + ". " + (l.asi || "")); }
+    if (!l) return;
+    if (l.speed) c.speed = l.speed;
+    toast(l.name + ": speed " + (l.speed || "—") + " ft. " + (l.asi || "") + " Age: " + (l.age || "—") + " Size: " + (l.size || "—") + " Languages: " + (l.languages || "—"));
   }
   function onSublineagePicked() {
     var c = C(), l = LIN[c.lineage], s = l && (l.sublineages || []).filter(function (x) { return x.id === c.sublineage; })[0];
@@ -1309,7 +1500,7 @@
   function chamberLabel(st, g, w) {
     var p = parseChamber(st);
     if (!p) return "";
-    if (p.kind === "hex") return "Hex shell " + p.level + (p.spent ? " (slot marked)" : "");
+    if (p.kind === "hex") return "Hex shell " + p.level + (p.spent ? " (slot spent)" : " (slot not spent yet)");
     if (p.kind === "plain" || p.kind === "cartridge") {
       var tier = p.tier || (w && w.tiers ? chamberOf(g, w).tier : "");
       var cal = p.caliber || (w ? gunRound(g, w) : "");
@@ -1392,7 +1583,7 @@
     var w = WPN[g.weapon];
     if (what === "weapon") { g.mod = ""; g.capacity = ""; }
     if (what === "weapon" && w) {
-      g.proficient = true;
+      g.proficient = callingProficient(w);
       if (w.scatter) g.load = "buck";
       if (w.tiers) { g.chamber = ""; var cc = chamberOf(g, w); g.chamber = cc.tier + "|" + cc.round; g.tier = cc.tier; }
       var st = gunStats(g, compute());
@@ -1429,7 +1620,7 @@
       var p = parseChamber(a[n]);
       if (p && p.kind === "hex" && String(p.level) === String(level)) { k = n; parsed = p; break; }
     }
-    if (k < 0) return { ok: false, reason: "Load a level-" + level + " hex lead shell in the cylinder first. A spell of 1st level or higher fires only from a loaded shell." };
+    if (k < 0) return { ok: false, reason: "Load a level-" + level + " hex shell first. Loading spends the slot. Then fire it from the chamber." };
     if (!(parsed && parsed.spent) && slotsLeft(level) <= 0) return { ok: false, reason: "No level-" + level + " slot left." };
     var was = a[k];
     a[k] = "";
@@ -1595,18 +1786,56 @@
     if (!w || !w.hexShells) return;
     var lvl = num($('[data-hexlvl="' + i + '"]').value, 1), a = normChambers(g, w), k = a.indexOf("");
     if (k < 0) { toast("Every chamber is loaded. Fire or unload one first."); return; }
-    var ready = 0;
-    C().guns.forEach(function (gun) {
-      (gun.chambers || []).forEach(function (st) {
-        var p = parseChamber(st);
-        if (p && p.kind === "hex" && String(p.level) === String(lvl) && !p.spent) ready++;
-      });
-    });
-    if (ready >= slotsLeft(lvl)) { toast("No unspent level-" + lvl + " slot left to chamber."); return; }
-    a[k] = "k:hex:" + lvl + ":ready";
+    if (slotsLeft(lvl) <= 0) { toast("No level-" + lvl + " slot left."); return; }
+    a[k] = "k:hex:" + lvl + ":spent";
     g.loaded = a.filter(Boolean).length;
+    if (!spendHexSlot(lvl)) {
+      a[k] = "";
+      g.loaded = a.filter(Boolean).length;
+      toast("No level-" + lvl + " slot left.");
+      return;
+    }
     changed();
-    toast("Chambered a level-" + lvl + " hex shell. Cast through gun spends the slot when you fire it.");
+    toast("Loaded a level-" + lvl + " hex shell. The slot is spent. Cast through gun fires it as a spell attack.");
+  }
+  function cleanGun(i) {
+    var g = C().guns[i];
+    if (!g || !g.weapon) { toast("Pick a gun first."); return; }
+    if (g.fouled) {
+      g.fouled = false;
+      changed();
+      toast("Fouled cleared. That is a short rest with tinker's or gunsmith's tools, or 500 ES.");
+      return;
+    }
+    if (g.dirty) {
+      g.dirty = false;
+      changed();
+      toast("Dirty cleared. That is 10 minutes with a gun cleaning kit or gunsmith's tools.");
+      return;
+    }
+    toast("This gun isn't dirty or fouled.");
+  }
+  function misfireCeiling(text, dirty) {
+    var s = String(text || "");
+    var m = s.match(/(\d+)\s*[–-]\s*(\d+)/);
+    var hi = m ? num(m[2], 1) : num((s.match(/(\d+)/) || [])[1], 1);
+    if (!hi) hi = 1;
+    if (dirty) hi = Math.max(hi, 2);
+    return hi;
+  }
+  function misfireLabel(text, dirty) {
+    var hi = misfireCeiling(text, dirty);
+    return (hi > 1 ? "1–" + hi : "1") + (dirty && hi > misfireCeiling(text, false) ? " (dirty)" : (dirty ? " (dirty)" : ""));
+  }
+  function fireHexShell(level) {
+    var guns = C().guns || [];
+    for (var i = 0; i < guns.length; i++) {
+      var w = WPN[guns[i].weapon];
+      if (!w || !w.hexShells) continue;
+      var held = spendHexChamber(i, level);
+      if (held.ok) return held;
+    }
+    return { ok: false, reason: "No level-" + level + " shell is loaded." };
   }
   function clampPenalty() {
     var a = C().addiction, floor = -Math.floor(num(a.uses, 0) / 3);
@@ -1627,7 +1856,17 @@
     if (!t) return;
     var d = t.dataset;
     if (d.gunroll !== undefined) { if (window.SSDNSGunRoll) window.SSDNSGunRoll(num(d.gunroll)); return; }
-    if (d.fire !== undefined) return fire(num(d.fire), d.k !== undefined ? num(d.k) : undefined);
+    if (d.clean !== undefined) return cleanGun(num(d.clean));
+    if (d.fire !== undefined) {
+      var gi = num(d.fire), kk = d.k !== undefined ? num(d.k) : undefined;
+      var gg = C().guns[gi];
+      var stn = gg && gg.chambers && kk !== undefined ? gg.chambers[kk] : "";
+      if (isHexChamber(stn)) {
+        if (window.SSDNSGunCastHex) window.SSDNSGunCastHex(gi, kk);
+        return;
+      }
+      return fire(gi, kk);
+    }
     if (d.unload !== undefined) return unloadLoaded(num(d.unload));
     if (d.takepool !== undefined) {
       var bits = String(d.takepool).split(":");
@@ -1893,16 +2132,22 @@
     showTab(saved && document.getElementById(saved) ? saved : "tab-main");
   }
   var COND_TEXT = {
-    Poisoned: "Disadvantage on attack rolls and ability checks.",
-    Prone: "Your attacks have disadvantage. Melee attacks against you have advantage; ranged attacks have disadvantage. Crawl, or spend half your movement to stand.",
-    Bleeding: "Losing blood. The DM says how it ticks and what stops it.",
-    Frightened: "Disadvantage on ability checks and attacks while the source is in sight. You can't willingly move closer.",
-    Grappled: "Speed is 0. It ends if the grappler can't hold you, or you're forced out of reach.",
-    Stunned: "Incapacitated, can't move, and auto-fail Strength and Dexterity saves. Attacks against you have advantage.",
     Blinded: "You can't see. Attacks against you have advantage; your attacks have disadvantage.",
     Charmed: "You can't harm the charmer. They have advantage on social checks against you.",
+    Deafened: "You can't hear. You auto-fail checks that need hearing.",
+    Frightened: "Disadvantage on ability checks and attacks while the source is in sight. You can't willingly move closer.",
+    Grappled: "Speed is 0. It ends if the grappler can't hold you, or you're forced out of reach.",
+    Incapacitated: "You can't take actions or reactions.",
     Invisible: "You're impossible to see without a special sense. Attacks against you have disadvantage; yours have advantage.",
-    Exhaustion: "Stacked fatigue. The DM says which level is on you and what it takes away."
+    Paralyzed: "Incapacitated, can't move or speak, and auto-fail Strength and Dexterity saves. Attacks against you have advantage, and a hit from within 5 feet is a critical.",
+    Petrified: "You're turned to a solid substance. Incapacitated, unaware, and resistant to all damage. Attacks against you have advantage.",
+    Poisoned: "Disadvantage on attack rolls and ability checks.",
+    Prone: "Your attacks have disadvantage. Melee attacks against you have advantage; ranged attacks have disadvantage. Crawl, or spend half your movement to stand.",
+    Restrained: "Speed is 0. Attacks against you have advantage; your attacks and Dexterity saves have disadvantage.",
+    Stunned: "Incapacitated, can't move, and auto-fail Strength and Dexterity saves. Attacks against you have advantage.",
+    Unconscious: "Incapacitated, prone, and unaware. You drop what you're holding and auto-fail Strength and Dexterity saves. Attacks against you have advantage, and a hit from within 5 feet is a critical.",
+    Exhaustion: "Stacked fatigue. The DM says which level is on you and what it takes away.",
+    Bleeding: "Losing blood. The DM says how it ticks and what stops it."
   };
   function renderConditionsTab() {
     var box = $("#condList");
@@ -2300,7 +2545,10 @@
       spendRound: spendRound,
       spendHexSlot: spendHexSlot,
       spendHexChamber: spendHexChamber,
+      fireHexShell: fireHexShell,
+      casterInfo: casterInfo,
       slotsLeft: slotsLeft,
+      misfireCeiling: misfireCeiling,
       suggestedHp: function () { return suggestedHp(C()); }
     };
   }

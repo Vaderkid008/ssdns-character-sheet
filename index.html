@@ -51,7 +51,7 @@
 <nav class="tabs" role="tablist" aria-label="Sheet pages">
   <button type="button" role="tab" class="tab" id="tab-main" aria-controls="page-main" aria-selected="true">1 · Main</button>
   <button type="button" role="tab" class="tab" id="tab-story" aria-controls="page-story" aria-selected="false">2 · Backstory</button>
-  <button type="button" role="tab" class="tab" id="tab-hex" aria-controls="page-hex" aria-selected="false">3 · Spells &amp; Hex Lead</button>
+  <button type="button" role="tab" class="tab" id="tab-hex" aria-controls="page-hex" aria-selected="false">3 · Spells</button>
   <button type="button" role="tab" class="tab" id="tab-equip" aria-controls="page-equip" aria-selected="false">Gear</button>
   <button type="button" role="tab" class="tab" id="tab-cond" aria-controls="page-cond" aria-selected="false">Conditions</button>
   <button type="button" role="tab" class="tab" id="tab-store" aria-controls="page-store" aria-selected="false">Store</button>
@@ -82,6 +82,7 @@
         <div class="pair">
           <select data-f="character.lineage" id="selLineage"></select>
           <select data-f="character.sublineage" id="selSublineage" aria-label="Sublineage"></select>
+          <p class="fine" id="lineageCard"></p>
         </div>
         <label for="selLineage">Lineage · Sublineage</label>
       </div>
@@ -246,7 +247,7 @@
             <option value="8">8th</option>
             <option value="9">9th</option>
           </select>
-          <button type="button" class="btn sm" id="btnHexRoll">Hex / spell</button>
+          <button type="button" class="btn sm" id="btnHexRoll">Spell</button>
         </div>
         <img src="assets/images/gunslinger-spot.png" alt="" class="spot">
       </div>
@@ -260,6 +261,8 @@
           <div class="sub-head"><h3>Holster</h3></div>
           <select data-f="character.holster" id="selHolster" aria-label="Holster"></select>
           <label class="chk"><input type="checkbox" data-f="character.holsterActive"> Pistol rides in the rig (applies Init. and first shot)</label>
+          <label class="chk"><input type="checkbox" data-f="character.seated"> Seated or driving</label>
+          <label class="chk"><input type="checkbox" data-f="character.mounted"> Mounted</label>
           <label class="chk"><input type="checkbox" data-f="character.gunBelt"> Gun belt or bandolier (feeds Tactical Reload)</label>
           <p class="fine" id="holsterInfo"></p>
         </div>
@@ -383,7 +386,7 @@
       <div class="tf"><select data-f="character.casterGun" id="selCasterGun"></select><label for="selCasterGun">Caster Gun (model)</label></div>
       <div class="tf"><select data-f="character.hexRest" id="selHexRest">
         <option value="">Auto (by Calling)</option><option value="short">Short rest</option><option value="long">Long rest</option></select>
-        <label for="selHexRest">Hex Lead refreshes on <b id="restAuto"></b></label></div>
+        <label for="selHexRest"><span id="slotWord">Spell slots</span> refresh on <b id="restAuto"></b></label></div>
       <div class="hexstats">
         <div class="sq-box"><output data-calc-out="spellAbility"></output><span>Casting Ability</span></div>
         <div class="sq-box"><input data-calc="spellDC" class="calc big"><span>Spell Save DC</span></div>
@@ -398,7 +401,7 @@
     <span class="fine" id="gunNote"></span>
   </div>
   <div class="spellbook-empty" id="spellbookEmpty" hidden>
-    <p><b>No spellcasting.</b> This Calling doesn't cast. Hex Lead shells and the spell list stay blank until you pick a casting Calling (or a Martial Artist tradition that casts).</p>
+    <p><b>No spell slots.</b> This Calling doesn't use a spellbook. Tong Hatchet Man and Way of Kung Fu cast with Breath Coins, not these slots.</p>
   </div>
   <div class="spellbook-bar" id="spellbookBar" hidden>
     <input type="search" id="spellSearch" placeholder="Filter spells…" aria-label="Filter spells" autocomplete="off">

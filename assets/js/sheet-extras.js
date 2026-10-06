@@ -222,16 +222,18 @@
     });
   }
 
-  function buy(index) {
-    if (!joined()) { toast("Join a table before buying"); return; }
-    var item = stock[index];
-    if (!item) return;
-    var price = num(item.price);
+  function tender(shards, owe) {
+    var Bridge = root.SSDNSBridge;
+    var paid = 0;
+    (Bridge.COLORS || []).forEach(function (c) {
+      var n = (shards && shards[c]) || 0;
+      while (paid < owe && n > 0) { n -= 1; paid += Bridge.CP[c]; }
+    });
+    return paid - owe;
+  }
+  function finishBuy(item, price, old) {
     var Bridge = root.SSDNSBridge;
     var d = doc();
-    if (!Bridge || !d) return;
-    var old = Bridge.cpValue(d.shards);
-    if (old < price) { toast("Not enough ES"); return; }
     var w = Bridge.applyDelta(-price, "store");
     if (!w) { toast("Could not spend ES"); return; }
     d.shards = w.shards;
@@ -255,8 +257,32 @@
       });
     }
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.publishSnapshot) root.SSDNSDmJoin.publishSnapshot();
-    toast("Bought " + item.name);
+    toast("Bought " + item.name + (old - Bridge.cpValue(d.shards) > price ? " (the shop kept the extra)" : ""));
     renderStore();
+  }
+  function buy(index) {
+    if (!joined()) { toast("Join a table before buying"); return; }
+    var item = stock[index];
+    if (!item) return;
+    var price = num(item.price);
+    var Bridge = root.SSDNSBridge;
+    var d = doc();
+    if (!Bridge || !d) return;
+    var old = Bridge.cpValue(d.shards);
+    if (old < price) { toast("Not enough ES"); return; }
+    var over = tender(d.shards, price);
+    if (over > 0) {
+      var box = $("#toast"), act = $("#toastAction"), text = $("#toastText");
+      if (text) text.textContent = "That pays " + (price + over) + " ES for a " + price + " ES item. Shops don't make change.";
+      if (act && box) {
+        act.hidden = false;
+        act.textContent = "Pay anyway";
+        act.onclick = function () { act.hidden = true; box.hidden = true; finishBuy(item, price, old); };
+        box.hidden = false;
+        return;
+      }
+    }
+    finishBuy(item, price, old);
   }
 
   function openStore(list) {
@@ -346,56 +372,74 @@
     var formula = "1d20" + (bonus ? signMod(bonus) : "");
     postCheck("Initiative", formula, total, String(nat) + (bonus ? signMod(bonus) : ""), nat === 1, false);
   }
-  function castThroughGun(i) {
-    var c = ch();
-    if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
+  function wildSparkLine(nat) {
+    if (nat !== 1) return "";
+    var table = (root.SSDNS_RULES && root.SSDNS_RULES.wildSpark) || [];
+    var spark = 1 + Math.floor(Math.random() * 6);
+    var row = table[spark - 1];
+    return "Wild spark " + spark + (row && row.text ? ": " + row.text : ".");
+  }
+  function castSpellAttack(i, level, spentNote, fromChamber) {
     var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     if (v.spellAtk == null || v.spellAtk === "") { toast("This Calling has no spell attack."); return; }
-    var sel = document.querySelector('[data-castlvl="' + i + '"]');
-    var level = num(sel && sel.value, 0);
-    var spentNote = "Cantrip · no slot";
-    if (level > 0) {
-      if (!root.SSDNSApp.spendHexChamber) { toast("Cast through gun isn't ready."); return; }
-      var held = root.SSDNSApp.spendHexChamber(i, level);
-      if (!held.ok) { toast(held.reason); return; }
-      if (!held.alreadySpent) {
-        var ok = root.SSDNSApp.spendHexSlot && root.SSDNSApp.spendHexSlot(level);
-        if (!ok) { toast("No level-" + level + " slot left."); return; }
-      }
-      spentNote = "Level " + level + " slot spent";
-    }
     var atk = parseInt(String(v.spellAtk).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(atk)) atk = 0;
     var nat = 1 + Math.floor(Math.random() * 20);
     var total = nat + atk;
     var name = gunName(i);
-    var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
-    var gunDmg = (dmgEl && dmgEl.value) || "—";
-    var gunRoll = rollDiceExpr(gunDmg);
-    var gunLine = gunRoll
-      ? ("Gun " + gunRoll.formula + " = " + gunRoll.total + " (" + gunRoll.detail + ")")
-      : ("Gun " + gunDmg);
+    var spark = level > 0 ? wildSparkLine(nat) : "";
     var dmgPart = level > 0
-      ? (gunLine + ". Spell damage is the shell fired at level " + level + ". PHB: a hex shell replaces the cartridge, so add the gun damage only when that spell says to include weapon damage.")
-      : (gunLine + " is not fired. Cantrip damage only (PHB: cantrips use no shell and no chamber).");
+      ? "Spell attack only. The shell replaces the cartridge, so gun damage is added only when that spell says to include weapon damage."
+      : "Cantrip: no shell and no chamber, so the gun's damage is not fired.";
     var text = "Cast through gun · " + name + " · " + spentNote
-      + " · spell attack " + signMod(atk) + " (proficiency + casting mod): "
-      + nat + (atk ? signMod(atk) : "") + " = " + total + ". " + dmgPart;
+      + " · spell attack " + signMod(atk) + ": "
+      + nat + (atk ? signMod(atk) : "") + " = " + total + ". " + dmgPart
+      + (spark ? " " + spark : "");
     if (root.SSDNSAudio) root.SSDNSAudio.play("spellcast");
     toast(text);
     addLog({ kind: "roll", text: text });
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         label: name + " · Cast through gun · " + spentNote,
-        formula: "1d20" + (atk ? signMod(atk) : "") + " spell" + (gunRoll && level > 0 ? " + gun " + gunRoll.formula : ""),
+        formula: "1d20" + (atk ? signMod(atk) : "") + " spell",
         result: total,
-        detail: nat + (atk ? signMod(atk) : "") + " = " + total + " · " + dmgPart,
-        nat1: nat === 1,
-        isFirearm: true,
+        detail: nat + (atk ? signMod(atk) : "") + " = " + total + (spark ? " · " + spark : ""),
+        nat1: false,
+        isFirearm: !!fromChamber,
         private: false,
         whisper: false
       });
     }
+  }
+  function castThroughGun(i) {
+    var c = ch();
+    if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
+    var sel = document.querySelector('[data-castlvl="' + i + '"]');
+    var level = num(sel && sel.value, 0);
+    if (level > 0) {
+      if (!root.SSDNSApp.spendHexChamber) { toast("Cast through gun isn't ready."); return; }
+      var held = root.SSDNSApp.spendHexChamber(i, level);
+      if (!held.ok) { toast(held.reason); return; }
+      if (!held.alreadySpent && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(level)) {
+        toast("No level-" + level + " slot left.");
+        return;
+      }
+      castSpellAttack(i, level, "Level " + level + " hex shell fired", true);
+      return;
+    }
+    castSpellAttack(i, 0, "Cantrip · no slot", false);
+  }
+  function castLoadedHex(i, k) {
+    var c = ch();
+    var g = c && c.guns && c.guns[i];
+    var token = g && g.chambers ? g.chambers[k] : "";
+    var m = String(token || "").match(/^k:hex:(\d+):/);
+    var legacy = /^[1-9]$/.test(String(token || ""));
+    var level = m ? num(m[1]) : (legacy ? num(token) : 0);
+    if (!level) { toast("That chamber isn't a hex shell."); return; }
+    var sel = document.querySelector('[data-castlvl="' + i + '"]');
+    if (sel) sel.value = String(level);
+    castThroughGun(i);
   }
   function showInspiration(count, on) {
     var box = $("#sharedInsp");
@@ -406,6 +450,7 @@
     var btn = $("#btnSpendInsp");
     if (btn) btn.disabled = !on || !(count > 0);
   }
+  function d20() { return 1 + Math.floor(Math.random() * 20); }
   function rollGun(i) {
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
@@ -415,38 +460,54 @@
     var atkEl = document.querySelector('[data-calc="gunAtk.' + i + '"]');
     var atk = parseInt(atkEl && String(atkEl.value).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(atk)) atk = 0;
-    var nat = 1 + Math.floor(Math.random() * 20);
-    var total = nat + atk;
+    var misEl = document.querySelector('[data-out="mis.' + i + '"]');
+    var ceiling = root.SSDNSApp.misfireCeiling
+      ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
+      : 1;
+    var modeSel = document.querySelector('[data-adv="' + i + '"]');
+    var mode = (modeSel && modeSel.value) || "";
+    var n1 = d20(), n2 = null, nat = n1;
+    if (mode === "adv" || mode === "dis") {
+      n2 = d20();
+      nat = mode === "adv" ? Math.max(n1, n2) : Math.min(n1, n2);
+    }
+    var bad = function (n) { return n >= 1 && n <= ceiling; };
+    var both = n2 != null && bad(n1) && bad(n2);
+    var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
+    var wpn = lists.filter(function (x) { return x.id === g.weapon; })[0];
+    var rugged = !!(wpn && /rugged/i.test(wpn.properties || ""));
     var name = gunName(i);
     if (root.SSDNSAudio) root.SSDNSAudio.play("attack");
-    var bits = [name + " attack " + (atk >= 0 ? "+" : "") + atk + ": " + nat + (atk ? (atk >= 0 ? "+" : "") + atk : "") + " = " + total];
-    if (nat === 1) {
+    var dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
+    var total = nat + atk;
+    var bits = [name + " attack " + (atk >= 0 ? "+" : "") + atk + ": " + dice + (atk ? (atk >= 0 ? "+" : "") + atk : "") + " = " + total];
+    var misfired = false;
+    if (both && !rugged) {
+      g.fouled = true;
+      var foul = document.querySelector('[data-f="character.guns.' + i + '.fouled"]');
+      if (foul) { foul.checked = true; dispatch(foul); }
+      bits.push("Both dice misfire — fouled. The attack misses.");
+      postGunLedger(name + " fouled (double misfire)", "foul");
+      misfired = true;
+    } else if (bad(nat)) {
       g.jammed = true;
       var jam = document.querySelector('[data-f="character.guns.' + i + '.jammed"]');
       if (jam) { jam.checked = true; dispatch(jam); }
       if (root.SSDNSAudio) root.SSDNSAudio.play("jam");
-      bits.push("Natural 1 — jammed.");
-      postGunLedger(name + " jammed (natural 1)", "jam");
-    }
-    if (g.cracked) {
-      var ex = 1 + Math.floor(Math.random() * 20);
-      bits.push("Cracked explode check: " + ex);
-      if (ex === 1) {
-        if (root.SSDNSAudio) root.SSDNSAudio.play("explode");
-        bits.push("The gun explodes.");
-        postGunLedger(name + " exploded (cracked gun, explode check 1)", "explode");
-      }
+      bits.push("Misfire — jammed. The attack misses.");
+      postGunLedger(name + " jammed (misfire)", "jam");
+      misfired = true;
     }
     if (spent.left != null) bits.push(spent.left + " rounds left.");
     toast(bits.join(" "));
     addLog({ kind: "roll", text: bits.join(" ") });
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
-        label: name + " attack",
-        formula: "1d20" + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
+        label: name + (misfired ? " misfire" : " attack"),
+        formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
         result: total,
-        detail: String(nat) + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
-        nat1: nat === 1,
+        detail: dice + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (misfired ? " misfire" : ""),
+        nat1: false,
         isFirearm: true,
         private: false,
         whisper: false
@@ -490,13 +551,13 @@
       var spent = root.SSDNSApp.spendRound(i);
       if (!spent.ok) showNotice((payload.name || "Gun") + ": " + (spent.reason || "could not spend a round"));
     }
-    ["jammed", "cracked", "fouled", "dirty"].forEach(function (k) {
+    ["jammed", "fouled", "dirty"].forEach(function (k) {
       if (payload[k] == null) return;
       var box = document.querySelector('[data-f="character.guns.' + i + '.' + k + '"]');
       if (box) { box.checked = !!payload[k]; dispatch(box); }
     });
-    if (payload.exploded) showNotice((payload.name || "Gun") + " exploded");
-    else if (payload.jammed) showNotice((payload.name || "Gun") + " jammed");
+    if (payload.jammed) showNotice((payload.name || "Gun") + " jammed (misfire)");
+    else if (payload.fouled) showNotice((payload.name || "Gun") + " fouled");
   }
 
   function setDeath(side, index, on) {
@@ -523,32 +584,18 @@
           c.hexLead[lvl] = (c.hexLead[lvl] || []).map(function () { return false; });
         });
       }
-      (c.guns || []).forEach(function (g, gi) {
-        if (!g || !g.weapon) return;
-        var capEl = document.querySelector('[data-out="cap.' + gi + '"]');
-        var use = num(capEl && capEl.textContent) || num(g.capacity);
-        if (use > 0) {
-          g.loaded = use;
-          if (Array.isArray(g.chambers)) {
-            for (var k = 0; k < g.chambers.length; k++) g.chambers[k] = k < use ? (g.chambers[k] || "c") : "";
-          }
-        }
-        g.jammed = false;
-        g.dirty = false;
-        g.fouled = false;
-      });
       syncRestFields(c);
-      showNotice("Long rest — HP full, slots and guns reset. Cracked stays until you fix it.");
+      showNotice("Long rest — HP full and slots refreshed. Guns stay as they are. Dirty and fouled need a Clean.");
     } else {
-      (c.guns || []).forEach(function (g) { if (g) g.dirty = false; });
-      var shortHex = (c.hexRest === "short");
+      var ci = root.SSDNSApp && root.SSDNSApp.casterInfo ? root.SSDNSApp.casterInfo() : null;
+      var shortHex = (c.hexRest || (ci && ci.rest) || "") === "short";
       if (shortHex && c.hexLead) {
         Object.keys(c.hexLead).forEach(function (lvl) {
           c.hexLead[lvl] = (c.hexLead[lvl] || []).map(function () { return false; });
         });
       }
       syncRestFields(c);
-      showNotice(shortHex ? "Short rest — dirt cleared and hex lead refreshed." : "Short rest — dirt cleared. Hex lead waits for a long rest. Spend hit dice yourself if you heal.");
+      showNotice(shortHex ? "Short rest — pact slots refreshed. Guns, dirt, and fouling stay." : "Short rest. Slots wait for a long rest. Guns, dirt, and fouling stay. Spend hit dice yourself if you heal.");
     }
   }
 
@@ -557,7 +604,7 @@
     if (cur) cur.value = c.hpCurrent === "" || c.hpCurrent == null ? "" : String(c.hpCurrent);
     if (tmp) tmp.value = String(c.hpTemp || 0);
     (c.guns || []).forEach(function (g, i) {
-      ["jammed", "dirty", "fouled", "cracked"].forEach(function (k) {
+      ["jammed", "dirty", "fouled"].forEach(function (k) {
         var box = document.querySelector('[data-f="character.guns.' + i + '.' + k + '"]');
         if (box) box.checked = !!g[k];
       });
@@ -633,18 +680,24 @@
   }
 
   function rollHex() {
+    var c = ch();
     var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     if (v.spellAtk == null || v.spellAtk === "") { toast("This Calling has no spell attack."); return; }
     var level = num($("#hexRollLevel") && $("#hexRollLevel").value);
+    if (c && c.calling === "hexslinger" && level > 0) {
+      toast("Load the shell on the gun (that spends the slot), then Cast through gun. This button won't spend a Hex Lead slot.");
+      return;
+    }
+    var slotName = (c && c.calling === "pact-seeker") ? "pact slot" : "spell slot";
     if (level > 0) {
       var ok = root.SSDNSApp.spendHexSlot && root.SSDNSApp.spendHexSlot(level);
-      if (!ok) { toast("No level-" + level + " shell left."); return; }
+      if (!ok) { toast("No level-" + level + " " + slotName + " left."); return; }
     }
     var atk = parseInt(String(v.spellAtk).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(atk)) atk = 0;
     var nat = 1 + Math.floor(Math.random() * 20);
     var total = nat + atk;
-    var label = level ? ("Level " + level + " hex") : "Cantrip";
+    var label = level ? ("Level " + level + " " + slotName) : "Cantrip";
     var text = label + " " + (atk >= 0 ? "+" : "") + atk + ": " + nat + (atk ? (atk >= 0 ? "+" : "") + atk : "") + " = " + total;
     if (root.SSDNSAudio) root.SSDNSAudio.play("spellcast");
     toast(text);
@@ -783,6 +836,7 @@
   }
 
   root.SSDNSGunRoll = rollGun;
+  root.SSDNSGunCastHex = castLoadedHex;
   root.SSDNSSheet = {
     applyDelta: applyDelta,
     showNotice: showNotice,
