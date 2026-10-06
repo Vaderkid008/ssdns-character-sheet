@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.2.6"; // sheet-phb-v026
+  var APP_VERSION = "0.2.7"; // sheet-addict-dm
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -501,8 +501,6 @@
     v.spellAtk = ci ? sign(v.prof + v.spellMod) : "";
     v.hex = hexTotals();
     v.cp = Bridge.cpValue(S.doc.shards); // ES total (1 ES per white shard)
-    // addiction (DM draft rule): floor drops 1 per 3 uses while addicted
-    v.addFloor = -Math.floor(num(c.addiction.uses, 0) / 3);
     v.guns = c.guns.map(function (g) { return gunStats(g, v); });
     return v;
   }
@@ -1026,7 +1024,6 @@
       out("mod." + a, sign(v.mods[a]));
       var note = "";
       if (a === "DEX" && v.holsterDex) note = "holster → " + v.scores.DEX;
-      if (c.addiction.addicted && num(c.addiction.penalty) < 0 && /INT|WIS|CHA/.test(a)) note = "addiction → " + (num(c.abilities[a], 10) + num(c.addiction.penalty));
       out("abnote." + a, note);
     });
     $$("[data-skill]").forEach(function (b) {
@@ -1199,17 +1196,6 @@
     if (c0) c0.classList.toggle("no-slots", false);
     renderSpellbook();
     renderConditionsTab();
-    // addiction
-    out("addFloor", String(v.addFloor));
-    var ut = $("#useTicks"); ut.innerHTML = "";
-    var uses = num(c.addiction.uses, 0);
-    for (var u = 1; u <= Math.max(uses, 9) && u <= 60; u++) ut.appendChild(el("span", { class: "tick" + (u <= uses ? " on" : "") + (u % 3 === 0 ? " third" : "") }));
-    var adj = $("#adjusted"); adj.innerHTML = "";
-    ["WIS", "INT", "CHA"].forEach(function (a) {
-      var base = num(c.abilities[a], 10), pen = c.addiction.addicted ? num(c.addiction.penalty, 0) : 0, now = base + pen;
-      adj.appendChild(el("div", { class: "adj" + (pen < 0 ? " hit" : "") + (now <= 0 ? " zero" : "") }, [el("b", { text: a }), el("span", { text: base + (pen ? " → " + now : "") })]));
-    });
-    $("#addiction").classList.toggle("on", !!c.addiction.addicted);
     renderRef();
   }
   function ammoType(g, w) { return w.ammo === "shell" ? (g.load === "slug" ? "slug" : "buck") : w.ammo; }
@@ -1370,12 +1356,11 @@
       else if (/^character\.guns\.\d+\.(weapon|load|chamber|capacity)$/.test(path)) onGunChanged(num(path.split(".")[2]), path.split(".")[3], old);
       if (C().hpAuto !== false && (path === "character.calling" || path === "character.level" || path === "character.abilities.CON")) applyAutoHp();
     }
-    if (path === "character.addiction.penalty" || path === "character.addiction.uses") clampPenalty();
     if (path.indexOf("shards.") === 0) {
       pushWallet();
       $$('[data-f="' + path + '"]').forEach(function (x) { if (x !== t) setField(x, v); });
     }
-    var structural = e.type === "change" && (t.tagName === "SELECT" || t.type === "checkbox" || /ammo\.|explosives\.|addiction\.|instrument/.test(path));
+    var structural = e.type === "change" && (t.tagName === "SELECT" || t.type === "checkbox" || /ammo\.|explosives\.|instrument/.test(path));
     if (structural) { renderFields(); changed({ noRender: true }); }
     else changed();
   }
@@ -1663,32 +1648,28 @@
     SHARDS.forEach(function (s) { if (s.id === color) label = s.color; });
     node.value = String(n - 1);
     node.dispatchEvent(new Event("change", { bubbles: true }));
-    var a = C().addiction;
-    var first = !a.addicted;
-    a.addicted = true;
-    a.uses = num(a.uses) + 1;
-    a.daysWithout = 0;
-    if (first) { if (num(a.penalty) > 0) a.penalty = 0; }
-    else a.penalty = Math.min(0, num(a.penalty) + 1);
-    clampPenalty();
-    renderFields();
-    changed();
-    var floor = -Math.floor(num(a.uses, 0) / 3);
-    var who = (C().player || "Player") + " · " + (C().name || "Unnamed");
-    var msg = who + " consumed 1 " + label + " shard. Chart: uses " + a.uses + ", floor " + floor + ", WIS/INT/CHA " + a.penalty + ".";
-    toast(msg);
-    if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: msg });
-    if (window.SSDNSDmJoin && window.SSDNSDmJoin.isJoined && window.SSDNSDmJoin.isJoined() && window.SSDNSDmJoin.postLedger) {
-      window.SSDNSDmJoin.postLedger({
-        type: "addiction",
-        what: msg,
-        oldVal: null,
-        newVal: a.penalty,
-        flag: false,
-        who: C().player || "Player",
-        playerName: C().player || "",
-        characterName: C().name || ""
+    toast("Consumed 1 " + label + " shard.");
+    // The addiction chart stays with the DM. Joined rooms send a private consume note.
+    // Offline, a same-browser DM Command Center can pick up the same note. The player log never hears it.
+    var ping = {
+      id: "con_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      ts: new Date().toISOString(),
+      color: color,
+      name: C().name || "",
+      player: C().player || ""
+    };
+    var joined = window.SSDNSDmJoin && window.SSDNSDmJoin.isJoined && window.SSDNSDmJoin.isJoined() && window.SSDNSDmJoin.postRoll;
+    if (joined) {
+      window.SSDNSDmJoin.postRoll({
+        private: true,
+        label: "DM note",
+        formula: "consume",
+        result: 1,
+        detail: color,
+        consume: color
       });
+    } else {
+      try { localStorage.setItem("ssdns.v1.consumePing", JSON.stringify(ping)); } catch (e) {}
     }
   }
   function poolsForGun(g, w) {
@@ -1836,11 +1817,6 @@
       if (held.ok) return held;
     }
     return { ok: false, reason: "No level-" + level + " shell is loaded." };
-  }
-  function clampPenalty() {
-    var a = C().addiction, floor = -Math.floor(num(a.uses, 0) / 3);
-    if (num(a.penalty, 0) > 0) a.penalty = 0;
-    if (num(a.penalty, 0) > floor) a.penalty = floor;
   }
   function rollTrait(kind) {
     var b = BG[C().background];
@@ -2443,16 +2419,6 @@
       C().feats.push(id); changed();
       var f = FEAT[id]; toast("Added " + f.name + (f.prereq ? " (prerequisite: " + f.prereq + ")" : "") + ": " + f.gist);
     });
-    $("#btnMissDay").onclick = function () {
-      var a = C().addiction; if (!a.addicted) { toast("Only counts while Addicted is ticked."); return; }
-      a.daysWithout = num(a.daysWithout) + 1; a.penalty = num(a.penalty) - 1; renderFields(); changed();
-    };
-    $("#btnFix").onclick = function () {
-      var a = C().addiction; if (!a.addicted) { toast("Only counts while Addicted is ticked."); return; }
-      a.uses = num(a.uses) + 1; a.daysWithout = 0; a.penalty = Math.min(0, num(a.penalty) + 1); clampPenalty();
-      renderFields(); changed();
-      toast("Fix taken. Use " + a.uses + (a.uses % 3 === 0 ? ": the floor drops to " + (-Math.floor(a.uses / 3)) + "." : "."));
-    };
     if ($("#btnConsume")) $("#btnConsume").onclick = consumeShard;
     if ($("#btnLevelUp")) $("#btnLevelUp").onclick = openLevelUp;
     var lvlBody = $("#lvlBody");

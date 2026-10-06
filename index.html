@@ -93,25 +93,6 @@
 
   <div class="eldorite-bar">
     <div class="box shards" id="shards"></div>
-    <div class="box addiction" id="addiction">
-      <div class="box-head"><h2>Eldorite Addiction</h2><span class="draft-tag" title="From the DM-only Eldorite Consumption draft, not the PHB">DM draft rule</span></div>
-      <div class="add-row">
-        <label class="chk big"><input type="checkbox" data-f="character.addiction.addicted"> Addicted</label>
-        <div class="num"><input type="number" min="0" data-f="character.addiction.daysWithout" id="inDays" inputmode="numeric"><label for="inDays">Days without a fix</label></div>
-      </div>
-      <div class="add-row">
-        <div class="num"><input type="number" min="0" data-f="character.addiction.uses" id="inUses" inputmode="numeric"><label for="inUses">Uses while addicted</label></div>
-        <div class="num"><output data-calc-out="addFloor" id="outFloor">0</output><label for="outFloor">Floor</label></div>
-        <div class="num"><input type="number" max="0" data-f="character.addiction.penalty" id="inPenalty" inputmode="numeric"><label for="inPenalty">WIS/INT/CHA penalty</label></div>
-      </div>
-      <div class="usecount" id="useTicks" aria-label="Use counter: every third use drops the floor"></div>
-      <div class="add-btns">
-        <button type="button" class="btn sm" id="btnMissDay">Missed a day (−1)</button>
-        <button type="button" class="btn sm" id="btnFix">Took a fix (+1 use)</button>
-      </div>
-      <div class="adjusted" id="adjusted"></div>
-      <p class="fine">Every 3rd use while addicted drops the floor by 1. A fix restores 1 point, once per day, never above the floor. Consume spends one shard and applies this chart.</p>
-    </div>
   </div>
 
   <div class="main-grid">

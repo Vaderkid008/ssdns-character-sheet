@@ -928,7 +928,7 @@ rt['addiction'] = ''
 rt['explosives'] = safe('explosives text', lambda: (explosives.get('note') or '') + ' ' + ' '.join(explosives.get('rules') or [])[:400], '')
 rt['storytellerWear'] = safe('storyteller wear', lambda: ' '.join((storyteller_gear.get('wearRules') or [])[:6]), '')
 if not re.search(r'addict', raw, re.I):
-    warn('The PHB has no Eldorite addiction rule yet; the sheet keeps its tracker as a DM table rule (no numbers from the book).')
+    warn('The PHB has no Eldorite addiction rule yet; the DM Command Center keeps the chart (players do not see it).')
 
 rules = {
     'meta': {'title': 'Six-Shooters & Sorcery: Dust and Shadows', 'short': 'SSDNS', 'source': os.path.basename(SRC), 'sourceSha1': hashlib.sha1(raw.encode()).hexdigest()[:12],
