@@ -171,6 +171,8 @@ check(html.indexOf('id="enemySheet"') >= 0 && html.indexOf('id="btnCloseEnemy"')
 check(css.indexOf(".enemy-sheet.drawer") >= 0 && css.indexOf(".sheet-dice") >= 0 && css.indexOf("position: sticky") >= 0, "sheet layout and sticky dice");
 check(src.indexOf("tactics-note") >= 0 && src.indexOf("On deck:") >= 0 && src.indexOf("Bloodied") >= 0, "fight row tactics, on deck, bloodied");
 check(read("docs/DM-PRINCIPLES.md").indexOf("eyes stay on the table") >= 0, "principles doc");
+check(read("docs/DM-PRINCIPLES.md").indexOf("Take Cover only") < 0 && read("docs/DM-PRINCIPLES.md").indexOf("three-quarters cover is +5") >= 0, "half and three-quarters cover stay in the checklist");
+check(read("index.html").indexOf("Kneeling or prone alone is not cover") >= 0 && read("assets/data/rules.js").indexOf("Half cover is +2 and three-quarters cover is +5") >= 0, "sheet and rules state the cover lock");
 check(read("docs/SCHEMA.md").indexOf("`tactics`") >= 0, "schema documents tactics");
 const liveBeasts = beasts.filter((b) => b && !b.template);
 check(liveBeasts.length === 48, "48 enemies");
