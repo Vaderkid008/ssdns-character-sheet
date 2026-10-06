@@ -533,7 +533,9 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
   body.dock-open .live-dock { transform: none; }
 }
 .init-score { font-family: var(--head); font-size: 28px; color: var(--eld); min-width: 2.2em; text-align: center; }
-.init-who { flex: 1; min-width: 9rem; display: flex; flex-direction: column; }
+.init-who { flex: 1; min-width: 9rem; display: flex; flex-direction: column; align-items: flex-start; }
+.who-name { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; }
+.who-name .badge { flex: none; width: auto; }
 .init-who b { color: var(--parch); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
 .insp-pool { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--eld-dim); background: var(--bg-2); }
 .insp-pool b { font-family: var(--head); font-size: 32px; color: var(--eld); line-height: 1; }

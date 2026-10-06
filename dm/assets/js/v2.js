@@ -776,9 +776,8 @@ function turnRowHtml(row, i) {
     : "";
   return `<div class="init-row${current}${flash}${fled ? " fled" : ""}${friendly ? " friendly" : ""}">
       <input class="init-score" type="number" data-init-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.init == null ? "" : esc(row.init)}" aria-label="Initiative for ${esc(row.name || "combatant")}">
-      <span class="init-who" title="${esc(row.name || "Someone")}">${row.kind === "enemy" ? `<button type="button" class="name-btn" data-open-enemy="${esc(row.id || "")}">${esc(row.name || "Someone")}</button>` : `<b>${esc(row.name || "Someone")}</b>`}
+      <span class="init-who" title="${esc(row.name || "Someone")}">        <span class="who-name">${row.kind === "enemy" ? `<button type="button" class="name-btn" data-open-enemy="${esc(row.id || "")}">${esc(row.name || "Someone")}</button>` : `<b>${esc(row.name || "Someone")}</b>`}${sideBadge}</span>
         <span class="fine">${esc(sideWord)}${row.tie ? " · tie" : ""}${status ? " · " + esc(status) : ""}${detail ? " · " + esc(detail) : ""}${esc(turnAckLabel(row))}</span>
-        ${sideBadge}
         ${downBadge}
         ${conditionChips(row)}
         ${tactics ? `<span class="tactics-note">Tactics. ${esc(tactics)}</span>` : ""}
@@ -792,7 +791,7 @@ function turnRowHtml(row, i) {
         ${row.kind === "enemy" ? `<button type="button" class="btn sm" data-side-toggle="${i}" aria-pressed="${friendly ? "true" : "false"}">${friendly ? "Mark enemy" : "Mark friendly"}</button>` : ""}
         ${row.kind === "enemy" ? (friendly ? `<button type="button" class="btn sm" data-open-enemy="${esc(row.id || "")}">Open sheet</button>` : compactAttackButtons(row, i)) : `<button type="button" class="btn sm" data-your-turn="${i}">Your turn</button>`}
         <button type="button" class="btn sm" data-init-cond="${i}">Conditions</button>
-        <button type="button" class="btn sm" data-init-hit="${i}">${row.kind === "enemy" ? "Attack this enemy" : "Attack this player"}</button>
+        <button type="button" class="btn sm" data-init-hit="${i}">${row.kind === "enemy" ? (friendly ? "Attack this creature" : "Attack this enemy") : "Attack this player"}</button>
         <button type="button" class="btn sm" data-init-dmg="${i}">Damage</button>
         <button type="button" class="btn sm" data-init-heal="${i}">Heal</button>
         <button type="button" class="btn sm" data-init-down="${i}">Down</button>
@@ -3802,11 +3801,7 @@ function wireClicks() {
     }
     if (t.hasAttribute("data-add-beast")) {
       const b = fight.bestiary.filter((x) => x.id === t.getAttribute("data-add-beast"))[0];
-        if (b) {
-        fight.recruit = true;
-        const row = addCombatant(beastRow(b));
-        announce("Added " + row.name + " to the turn order", "combat", row);
-      }
+      if (b) addBeastToFight(b);
     }
     if (t.hasAttribute("data-cat-add")) {
       const raw = t.getAttribute("data-cat-price");
@@ -3834,6 +3829,29 @@ function wireClicks() {
   });
 }
 
+const enemyAddGate = { id: "", busy: false };
+function claimEnemyAdd(beastId) {
+  if (!beastId) return false;
+  if (enemyAddGate.busy && enemyAddGate.id === beastId) return false;
+  enemyAddGate.busy = true;
+  enemyAddGate.id = beastId;
+  return true;
+}
+function finishEnemyAdd() {
+  enemyAddGate.busy = false;
+}
+function addBeastToFight(b) {
+  if (!b) { DM.toast("Pick an enemy"); return null; }
+  if (!claimEnemyAdd(b.id)) return null;
+  try {
+    fight.recruit = true;
+    const row = addCombatant(beastRow(b));
+    if (row) announce("Added " + row.name + " to the turn order", "combat", row);
+    return row;
+  } finally {
+    setTimeout(finishEnemyAdd, 0);
+  }
+}
 function enemyPickerQuery() {
   const el = $("#enemyQ");
   return el && el.value ? String(el.value).trim().toLowerCase() : "";
@@ -4150,7 +4168,10 @@ async function bootV2() {
   const beastQ = $("#beastQ");
   if (beastQ) beastQ.addEventListener("input", renderBestiary);
   const enemyQ = $("#enemyQ");
-  if (enemyQ) enemyQ.addEventListener("input", fillAdds);
+  if (enemyQ) {
+    enemyQ.addEventListener("input", fillAdds);
+    enemyQ.addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
+  }
   const beastParked = $("#beastParked");
   if (beastParked) beastParked.addEventListener("change", () => { renderBestiary(); fillAdds(); });
   renderFight();
@@ -4167,13 +4188,21 @@ async function bootV2() {
     const row = addCombatant({ id: id, playerId: id, name: s.name || s.player || id, kind: "player", ac: s.ac, hp: s.hpCurrent, dex: dexFromSnapshot(s), init: s.initiative != null && s.initiative !== "" ? s.initiative : s.initBonus, maxHp: s.hpMax });
     announce("Added " + (row.name || "a player") + " to the turn order", "combat", row);
   });
-  $("#btnAddEnemy") && $("#btnAddEnemy").addEventListener("click", () => {
-    const b = fight.bestiary.filter((x) => x.id === $("#initEnemy").value)[0];
-    if (!b) { DM.toast("Pick an enemy"); return; }
-    fight.recruit = true;
-    const row = addCombatant(beastRow(b));
-    announce("Added " + row.name + " to the turn order", "combat", row);
-  });
+  const addEnemyBtn = $("#btnAddEnemy");
+  if (addEnemyBtn) {
+    let pressedOnButton = false;
+    addEnemyBtn.addEventListener("pointerdown", (e) => { pressedOnButton = e.button === 0; });
+    document.addEventListener("pointerup", (e) => {
+      if (!addEnemyBtn.contains(e.target)) pressedOnButton = false;
+    });
+    addEnemyBtn.addEventListener("click", (e) => {
+      // A mouse click has to start on this button. A select menu that closes onto it does not add.
+      if (e.detail > 0 && !pressedOnButton) return;
+      pressedOnButton = false;
+      const b = fight.bestiary.filter((x) => x.id === $("#initEnemy").value)[0];
+      addBeastToFight(b);
+    });
+  }
   $("#btnNextTurn") && $("#btnNextTurn").addEventListener("click", nextTurn);
   $("#btnPrevTurn") && $("#btnPrevTurn").addEventListener("click", () => {
     if (!fight.order.length) return;

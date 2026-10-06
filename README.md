@@ -1,7 +1,9 @@
 # SSDNS Character Sheet
 
-Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.13, DM Command Center v0.2.25).
+Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.13, DM Command Center v0.2.26).
 
+- Bestiary lock: Wakan Takan is a necromancer (twelve spells, still CR 3, proficiency +2). Buffalo Spirit is a beast (spirit) and leaves no loot. `pendingJessey` is gone. Calder stays parked. `database.rules.json` did not change.
+- Friendly cards: one Add enemy click adds one creature. A friendly card says Attack this creature, and the Friendly badge is a small pill beside the name. `database.rules.json` did not change.
 - Ally toggle: each fight card can flip Enemy to Friendly. Friendly cards use an Eldorite accent and hide the buttons that attack a player. The side is stored on the combatant and copied to the table order and `encounter/public`. The fight's Enemy menu groups Creatures, Folk, and Named and has its own search. `database.rules.json` did not change.
 - Full bestiary: 48 enemies in Creatures, Folk, and Named, with search and a Show parked toggle (Calder stays hidden until the DM asks). Attacks carry save-for-half poison, grapple escape DCs, extra damage, and a one-hand or two-hand choice. A save with no condition does not invent a condition named "condition". Suggestion is a Wisdom save. `database.rules.json` did not change.
 

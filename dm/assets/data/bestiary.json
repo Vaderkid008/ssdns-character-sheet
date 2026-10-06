@@ -298,7 +298,7 @@
   "name": "Buffalo Spirit",
   "aka": "Prairie Buffalo Spirit",
   "size": "Huge",
-  "type": "beast",
+  "type": "beast (spirit)",
   "alignment": "unaligned",
   "ac": 14,
   "armor": "natural armor",
@@ -363,6 +363,14 @@
    {
     "name": "Charge",
     "text": "If the buffalo spirit moves at least 20 feet straight toward a target and then hits it with a ram attack on the same turn, the target takes an extra 7 (2d6) damage. If the target is a creature, it must succeed on a DC 14 Strength saving throw or be knocked prone."
+   },
+   {
+    "name": "Spirit Strikes",
+    "text": "The buffalo spirit’s weapon attacks are magical for overcoming resistance and immunity to nonmagical attacks."
+   },
+   {
+    "name": "Fades",
+    "text": "When the buffalo spirit drops to 0 hit points, it fades into the prairie wind and leaves nothing behind."
    }
   ],
   "actions": [],
@@ -373,10 +381,9 @@
   "tacticsDraft": true,
   "loot": "None. Spirits fade and leave nothing.",
   "lootSource": "drop table §1.8",
-  "description": "Spectral plains buffalo-elk, omen of big weather or a wrong done to the grass.",
+  "description": "Spectral plains buffalo-elk spirit, omen of big weather or a wrong done to the grass; it fades and leaves nothing.",
   "group": "creature",
-  "source": "six-shooters/drafts/monster-manual/BUFFALO-SPIRIT.md",
-  "pendingJessey": "J5: creature type kept as beast"
+  "source": "six-shooters/drafts/monster-manual/BUFFALO-SPIRIT.md"
  },
  {
   "id": "cactus-witch",
@@ -577,7 +584,7 @@
    },
    {
     "name": "Rust Metal",
-    "text": "Any nonmagical weapon made of metal that hits the claim rust bug corrodes. After dealing damage, the weapon takes a permanent and cumulative −1 penalty to damage rolls. If its penalty drops to −5, the weapon is destroyed. Nonmagical ammunition made of metal that hits the claim rust bug is destroyed after dealing damage. Ordinary guns, blades, bullets, and shot are nonmagical. A Story Find weapon, Charged Cartridges, or a gun under Magic Weapon (Rifling) is magical and doesn’t corrode."
+    "text": "Any nonmagical weapon made of metal that hits the claim rust bug corrodes. After dealing damage, the weapon takes a permanent and cumulative −1 penalty to damage rolls. If its penalty drops to −5, the weapon is destroyed. Nonmagical ammunition made of metal that hits the claim rust bug is destroyed after dealing damage. Ordinary bullets are nonmagical, even fired from a Caster Gun, and so are ordinary guns, blades, and shot. Hex lead shells (they are spells), a Story Find weapon, Charged Cartridges, and a gun under Magic Weapon (Rifling) count as magical and don’t corrode."
    }
   ],
   "actions": [
@@ -595,8 +602,7 @@
   "lootSource": "DRAFT",
   "description": "Calf-sized bug from a Dark Gift that rusts six-guns and shovel heads.",
   "group": "creature",
-  "source": "six-shooters/drafts/monster-manual/CLAIM-RUST-BUG.md",
-  "pendingJessey": "J6: plain cartridges treated as nonmagical, whatever gun fires them"
+  "source": "six-shooters/drafts/monster-manual/CLAIM-RUST-BUG.md"
  },
  {
   "id": "dust-devil",
@@ -1033,8 +1039,7 @@
   "lootSource": "DND Bot lock pass S15",
   "description": "Deep-water giant shark that hits boats and takes the swimmers.",
   "group": "creature",
-  "source": "six-shooters/drafts/monster-manual/GIANT-SHARK.md",
-  "pendingJessey": "J3: Megalodon duplicate question; S15 loot parity applied"
+  "source": "six-shooters/drafts/monster-manual/GIANT-SHARK.md"
  },
  {
   "id": "hunter-shark",
@@ -1232,9 +1237,9 @@
   "senses": "truesight 120 ft., passive Perception 14",
   "languages": "understands every tongue spoken on the water but can’t speak; telepathy 120 ft.",
   "damageImmunities": "lightning; bludgeoning, piercing, and slashing from nonmagical attacks",
-  "damageImmunitiesNote": "Ordinary guns, blades, bullets, and shot are nonmagical. A Story Find weapon, Charged Cartridges, or a gun under Magic Weapon (Rifling) is magical.",
+  "damageImmunitiesNote": "Ordinary bullets are nonmagical, even fired from a Caster Gun, and so are ordinary blades and shot. Hex lead shells (they are spells), a Story Find weapon, Charged Cartridges, and a gun under Magic Weapon (Rifling) count as magical.",
   "conditionImmunities": "frightened, paralyzed",
-  "nonmagicalNote": "Ordinary guns, blades, bullets, and shot are nonmagical. A Story Find weapon, Charged Cartridges, or a gun under Magic Weapon (Rifling) is magical.",
+  "nonmagicalNote": "Ordinary bullets are nonmagical, even fired from a Caster Gun, and so are ordinary blades and shot. Hex lead shells (they are spells), a Story Find weapon, Charged Cartridges, and a gun under Magic Weapon (Rifling) count as magical.",
   "attacks": "Bite +17 (3d8+10 piercing), Tentacle +17 (3d6+10 bludgeoning)",
   "atkBonus": 17,
   "damage": "3d8+10",
@@ -1321,8 +1326,7 @@
   "lootSource": "DRAFT",
   "description": "The sea beast that blocks the sail-around: tentacles, lightning, and ink.",
   "group": "creature",
-  "source": "six-shooters/drafts/monster-manual/KRAKEN.md",
-  "pendingJessey": "J6: plain cartridges treated as nonmagical, whatever gun fires them"
+  "source": "six-shooters/drafts/monster-manual/KRAKEN.md"
  },
  {
   "id": "megalodon",
@@ -1397,8 +1401,7 @@
   "lootSource": "DND Bot lock pass S15",
   "description": "Apex shark of the east coast, bigger than the boat.",
   "group": "creature",
-  "source": "six-shooters/drafts/monster-manual/MEGALODON.md",
-  "pendingJessey": "J3: kept as a Giant Shark duplicate block; S15 loot parity applied"
+  "source": "six-shooters/drafts/monster-manual/MEGALODON.md"
  },
  {
   "id": "mesa-rattler",
@@ -1822,10 +1825,10 @@
   "senses": "darkvision 60 ft., passive Perception 10",
   "languages": "understands the languages it knew in life but can’t speak",
   "damageResistances": "acid, cold, fire, lightning, thunder; bludgeoning, piercing, and slashing from nonmagical attacks",
-  "damageResistancesNote": "Ordinary guns, blades, bullets, and shot are nonmagical. A Story Find weapon, Charged Cartridges, or a gun under Magic Weapon (Rifling) is magical. Primal Strike and other “counts as magical” features overcome the resistance.",
+  "damageResistancesNote": "Ordinary bullets are nonmagical, even fired from a Caster Gun, and so are ordinary blades and shot. Hex lead shells (they are spells), a Story Find weapon, Charged Cartridges, and a gun under Magic Weapon (Rifling) count as magical. Primal Strike and other “counts as magical” features overcome the resistance.",
   "damageImmunities": "necrotic, poison",
   "conditionImmunities": "charmed, exhaustion, grappled, paralyzed, petrified, poisoned, prone, restrained, unconscious",
-  "nonmagicalNote": "Ordinary guns, blades, bullets, and shot are nonmagical. A Story Find weapon, Charged Cartridges, or a gun under Magic Weapon (Rifling) is magical. Primal Strike and other “counts as magical” features overcome the resistance.",
+  "nonmagicalNote": "Ordinary bullets are nonmagical, even fired from a Caster Gun, and so are ordinary blades and shot. Hex lead shells (they are spells), a Story Find weapon, Charged Cartridges, and a gun under Magic Weapon (Rifling) count as magical. Primal Strike and other “counts as magical” features overcome the resistance.",
   "attacks": "Life Drain +4 (3d6 necrotic)",
   "atkBonus": 4,
   "damage": "3d6",
@@ -1867,8 +1870,7 @@
   "lootSource": "drop table §1.10",
   "description": "Pioneer ghost bound to a cursed claim or grave.",
   "group": "creature",
-  "source": "six-shooters/drafts/monster-manual/RESTLESS-PIONEER.md",
-  "pendingJessey": "J6: plain cartridges treated as nonmagical, whatever gun fires them"
+  "source": "six-shooters/drafts/monster-manual/RESTLESS-PIONEER.md"
  },
  {
   "id": "riding-horse",
@@ -2005,7 +2007,7 @@
   "tacticsDraft": false,
   "loot": "Gut pouch, d8: 1-4 1d4 Black (0 ES); 5-6 1d4 Black + 1d4 White (about 2 ES); 7 one Blue + Black (10 ES); 8 a half-eaten Green (50 ES), or on a d4 roll of 4 a live Yellow (100 ES). Average about 10 ES. No guns or gear.",
   "lootSource": "drop table §1.7",
-  "description": "Eldorite-hollowed zombie with a spark of hunger left; goes for shards.",
+  "description": "Raised dead with a spark of hunger left, made by Eldorite or Eldorite-powered necromancy; goes for shards.",
   "group": "creature",
   "source": "six-shooters/drafts/monster-manual/SANDIES.md"
  },
@@ -3183,8 +3185,7 @@
   "lootSource": "DRAFT (named faces use chapter loot files)",
   "description": "Rustler Syndicate recruiter in Bottle Neck: charm first, Bowie second, derringer in the garter.",
   "group": "named",
-  "source": "six-shooters/drafts/monster-manual/BLACK-EYED-SUSAN.md",
-  "pendingJessey": "J4: written as not Murphy kin (S4 description)"
+  "source": "six-shooters/drafts/monster-manual/BLACK-EYED-SUSAN.md"
  },
  {
   "id": "buddy-kidd",
@@ -4068,10 +4069,9 @@
   "tacticsDraft": true,
   "loot": "Ally: not looted. If it ever comes to that, about 5 ES on them; story items per the chapter loot file.",
   "lootSource": "DRAFT (named faces use chapter loot files)",
-  "description": "Young O'Riley stable hand at Moe's; an ally and a pressured whistleblower.",
+  "description": "Young O'Riley stable hand at Trader Moe's: a kid, an ally, and a pressured whistleblower, not a fighter.",
   "group": "named",
-  "source": "six-shooters/drafts/monster-manual/SILAS-ORILEY.md",
-  "pendingJessey": "J1: kid stable hand version (S1 applied: CR 1/8, no Sneak Attack/Multiattack) vs adult drifter"
+  "source": "six-shooters/drafts/monster-manual/SILAS-ORILEY.md"
  },
  {
   "id": "tommy-tenderfoot",
@@ -4594,7 +4594,7 @@
   "traits": [
    {
     "name": "Spellcasting",
-    "text": "Wakan Takan is a spellcaster (Act I version: one 3rd-level slot). His spellcasting ability is Intelligence (spell save DC 13, +5 to hit with spell attacks). He has the following wizard spells prepared: Cantrips (at will): fire bolt, light, mage hand, prestidigitation; 1st level (4 slots): detect magic, mage armor, magic missile, shield; 2nd level (3 slots): misty step, suggestion; 3rd level (1 slot): counterspell, fireball, fly."
+    "text": "Wakan Takan is a spellcaster (Act I version: one 3rd-level slot). His spellcasting ability is Intelligence (spell save DC 13, +5 to hit with spell attacks). He has the following necromancy-leaning spells prepared: Cantrips (at will): chill touch, spare the dying, mage hand, prestidigitation; 1st level (4 slots): false life, mage armor, ray of sickness, shield; 2nd level (3 slots): blindness/deafness, misty step, ray of enfeeblement; 3rd level (1 slot): vampiric touch."
    }
   ],
   "actions": [],
@@ -4611,22 +4611,22 @@
    },
    "spells": [
     {
-     "id": "fire-bolt",
-     "name": "Fire Bolt",
+     "id": "chill-touch",
+     "name": "Chill Touch",
      "level": 0,
      "kind": "attack",
      "mode": "attack",
      "range": "120 ft",
-     "summary": "Ranged spell attack +5; 2d10 fire. Sets unattended flammable objects alight."
+     "summary": "Ranged spell attack +5; 2d8 necrotic, and the target can't regain HP until the start of his next turn (an undead target also has disadvantage on attacks against him)."
     },
     {
-     "id": "light",
-     "name": "Light",
+     "id": "spare-the-dying",
+     "name": "Spare the Dying",
      "level": 0,
      "kind": "utility",
      "mode": "utility",
      "range": "Touch",
-     "summary": "An object sheds bright light 20 ft and dim light 20 ft more for 1 hour."
+     "summary": "A living creature at 0 HP becomes stable (Last Rites; the healer he was)."
     },
     {
      "id": "mage-hand",
@@ -4647,13 +4647,13 @@
      "summary": "Minor trick: spark, clean or soil, chill or warm, flavor, mark, or small illusion."
     },
     {
-     "id": "detect-magic",
-     "name": "Detect Magic",
+     "id": "false-life",
+     "name": "False Life",
      "level": 1,
      "kind": "utility",
      "mode": "utility",
-     "range": "Self (30 ft)",
-     "summary": "Senses magic within 30 ft for up to 10 minutes (concentration); ritual."
+     "range": "Self",
+     "summary": "Gains 1d4 + 4 temporary HP for 1 hour; cast before the fight."
     },
     {
      "id": "mage-armor",
@@ -4665,13 +4665,14 @@
      "summary": "Base AC becomes 13 + Dex for 8 hours (AC 15 on this block); cast before the fight."
     },
     {
-     "id": "magic-missile",
-     "name": "Magic Missile",
+     "id": "ray-of-sickness",
+     "name": "Ray of Sickness",
      "level": 1,
-     "kind": "auto",
-     "mode": "auto",
-     "range": "120 ft",
-     "summary": "Three darts that always hit, 1d4+1 force each; one more dart per slot level above 1st."
+     "kind": "attack",
+     "mode": "attack",
+     "save": "CON",
+     "range": "60 ft",
+     "summary": "Ranged spell attack +5; 2d8 poison, and DC 13 Con save or poisoned until the end of his next turn."
     },
     {
      "id": "shield",
@@ -4683,6 +4684,16 @@
      "summary": "Reaction when hit or targeted by magic missile: +5 AC until the start of his next turn, and no magic missile damage."
     },
     {
+     "id": "blindness-deafness",
+     "name": "Blindness/Deafness",
+     "level": 2,
+     "kind": "save",
+     "mode": "save",
+     "save": "CON",
+     "range": "30 ft",
+     "summary": "DC 13 Con save or blinded or deafened (his choice) for 1 minute; the target repeats the save at the end of each of its turns."
+    },
+    {
      "id": "misty-step",
      "name": "Misty Step",
      "level": 2,
@@ -4692,53 +4703,32 @@
      "summary": "Bonus action: teleports up to 30 ft to a space he can see."
     },
     {
-     "id": "suggestion",
-     "name": "Suggestion",
+     "id": "ray-of-enfeeblement",
+     "name": "Ray of Enfeeblement",
      "level": 2,
-     "kind": "save",
-     "mode": "save",
-     "save": "WIS",
-     "range": "30 ft",
-     "summary": "DC 13 Wis save or the target follows a reasonable-sounding suggestion (concentration, up to 8 hours)."
-    },
-    {
-     "id": "counterspell",
-     "name": "Counterspell",
-     "level": 3,
-     "kind": "reaction",
-     "mode": "reaction",
+     "kind": "attack",
+     "mode": "attack",
      "range": "60 ft",
-     "summary": "Reaction: stops a spell of 3rd level or lower; a higher spell needs his Int check vs DC 10 + its level."
+     "summary": "Ranged spell attack +5; the target deals only half damage with Strength-based weapon attacks for 1 minute (concentration). DC 13 Con save at the end of each of its turns ends it."
     },
     {
-     "id": "fireball",
-     "name": "Fireball",
+     "id": "vampiric-touch",
+     "name": "Vampiric Touch",
      "level": 3,
-     "kind": "save",
-     "mode": "save",
-     "save": "DEX",
-     "range": "150 ft",
-     "summary": "20-ft-radius sphere, DC 13 Dex save, 8d6 fire, half on a save."
-    },
-    {
-     "id": "fly",
-     "name": "Fly",
-     "level": 3,
-     "kind": "utility",
-     "mode": "utility",
-     "range": "Touch",
-     "summary": "Fly speed 60 ft for up to 10 minutes (concentration)."
+     "kind": "attack",
+     "mode": "attack",
+     "range": "Self",
+     "summary": "For 1 minute (concentration), melee spell attack +5 as an action: 3d6 necrotic, and he regains HP equal to half the damage dealt."
     }
    ]
   },
-  "tactics": "Suggestion first, then fireball with his one 3rd-level slot; misty steps away at half HP (20). Never surrenders to settlers, but stops at his daughter Aiyana's name.",
-  "tacticsSource": "IDEAS C3-2",
+  "tactics": "Opens with ray of sickness or blindness/deafness, saves vampiric touch for when he is pressed, and misty steps away at half HP (20). Never surrenders to settlers, but stops at his daughter Aiyana's name.",
+  "tacticsSource": "IDEAS C3-2 + Section 3 call J2 (necromancer)",
   "tacticsDraft": false,
   "loot": "No cash (0 ES). Bone charms and story items per the chapter loot file.",
   "lootSource": "DRAFT (named faces use chapter loot files)",
-  "description": "The Death Dealer of Deadwood Canyon: a grieving healer turned sorcerer.",
+  "description": "The Death Dealer of Deadwood Canyon: a Ten-Asi medicine man turned necromancer.",
   "group": "named",
-  "source": "six-shooters/drafts/monster-manual/WAKAN-TAKAN.md",
-  "pendingJessey": "J2: healer-turned-sorcerer flavor and generic wizard list kept (vs Ten-Asi necromancer reflavor); sandie origin open"
+  "source": "six-shooters/drafts/monster-manual/WAKAN-TAKAN.md"
  }
 ]
