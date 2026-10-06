@@ -235,6 +235,8 @@
     try { app = appMod.getApp("ssdns-player-join"); }
     catch (e) { app = appMod.initializeApp(cfg, "ssdns-player-join"); }
     var auth = authMod.getAuth(app);
+    var emu = /(?:\?|&)emu=1(?:&|$)/.test(String((root.location && root.location.search) || ""));
+    if (emu && authMod.connectAuthEmulator) authMod.connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
     await authMod.signInAnonymously(auth);
     var user = await new Promise(function (resolve, reject) {
       var t = setTimeout(function () { reject(new Error("Auth timeout")); }, 10000);
@@ -245,6 +247,7 @@
     state.app = app;
     state.auth = auth;
     state.db = dbMod.getDatabase(app);
+    if (emu && dbMod.connectDatabaseEmulator) dbMod.connectDatabaseEmulator(state.db, "127.0.0.1", 9000);
     state.uid = user.uid;
     state._fb = { ref: dbMod.ref, set: dbMod.set, update: dbMod.update, push: dbMod.push, onValue: dbMod.onValue, off: dbMod.off, remove: dbMod.remove, runTransaction: dbMod.runTransaction, get: dbMod.get, onDisconnect: dbMod.onDisconnect };
     return state._fb;
@@ -365,6 +368,7 @@
       try {
         if (q[i].kind === "chat") await writeChat(q[i].payload);
         else if (q[i].kind === "roll") await writeRoll(q[i].payload);
+        else if (q[i].kind === "attack") await writeAttack(q[i].payload);
       } catch (e) { failed.push(q[i]); }
     }
     if (failed.length) saveQueue(loadQueue().concat(failed));
@@ -454,6 +458,49 @@
     }).catch(function (e) {
       console.warn("[DM Join] damage", e);
       return { ok: false };
+    });
+  }
+  function writeAttack(entry) {
+    entry = entry || {};
+    var target = entry.targetId || ($("#atkTarget") && $("#atkTarget").value);
+    if (!target) return Promise.resolve({ ok: false });
+    var c = doc() && doc().character;
+    var id = "atk_" + (entry.rollId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)));
+    var row = {
+      ts: entry.ts || new Date().toISOString(),
+      from: state.uid,
+      targetId: target,
+      amount: Number(entry.amount) || 0,
+      hitTotal: Number(entry.hitTotal),
+      nat: entry.nat,
+      crit: !!entry.crit,
+      nat1: !!entry.nat1 || Number(entry.nat) === 1,
+      label: entry.label || "",
+      type: "attack",
+      dice: entry.dice || "",
+      formula: entry.formula || "",
+      weapon: entry.weapon || "",
+      characterName: (c && c.name) || entry.characterName || "",
+      playerName: (c && c.player) || "",
+      rollId: entry.rollId || "",
+      targetName: entry.targetName || "",
+      sfx: entry.sfx || "attack"
+    };
+    if (entry.shots && typeof entry.shots === "object") row.shots = entry.shots;
+    return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row);
+  }
+  function postAttack(entry) {
+    entry = entry || {};
+    if (!entry.targetId || offlineNow()) {
+      if (entry.targetId) enqueue("attack", entry);
+      return Promise.resolve({ ok: false, queued: !!entry.targetId });
+    }
+    return writeAttack(entry).then(function () { return { ok: true }; }).catch(function (e) {
+      var msg = String((e && (e.code || e.message)) || e || "");
+      if (/PERMISSION_DENIED|permission_denied|permission/i.test(msg)) return { ok: true };
+      console.warn("[DM Join] attack", e);
+      enqueue("attack", entry);
+      return { ok: false, queued: true };
     });
   }
 
@@ -711,6 +758,22 @@
         break;
       case "sfx":
         if (root.SSDNSAudio && payload.event) root.SSDNSAudio.play(payload.event);
+        break;
+      case "attack_result":
+        if (!claimGrant("atk:" + (payload.grantId || payload.rollId || cmd.id))) break;
+        if (root.SSDNSSheet && root.SSDNSSheet.addLog) {
+          root.SSDNSSheet.addLog({
+            id: "roll:" + (payload.rollId || cmd.id),
+            kind: "roll",
+            text: payload.text || "",
+            attack: true,
+            nat: payload.nat,
+            crit: payload.verdict === "CRIT" || !!payload.crit,
+            replace: true
+          });
+        }
+        toast(payload.text || payload.verdict || "");
+        if (payload.sfx && root.SSDNSAudio) root.SSDNSAudio.play(payload.sfx);
         break;
       case "open_tab":
         toast("DM nudge: open " + (payload.tab || "a tab"), "Go", function () {
@@ -1687,6 +1750,7 @@
       postRoll: postRoll,
       postChat: postChat,
       postDamage: postDamage,
+      postAttack: postAttack,
       showHandout: showHandout,
       spendInspiration: spendInspiration,
       join: join,

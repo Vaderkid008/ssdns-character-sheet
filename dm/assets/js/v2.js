@@ -113,6 +113,7 @@ function onDeck() {
   return fight.order[step.index] || null;
 }
 function enemyStatus(row) {
+  if (window.SSDNSApplied && window.SSDNSApplied.coarseStatus) return window.SSDNSApplied.coarseStatus(row);
   if (!row || row.kind === "player") return row && row.status ? row.status : "";
   if (enemyFled(row)) return "Fled";
   const hp = knownNumber(row.hp);
@@ -123,6 +124,54 @@ function enemyStatus(row) {
   if (hp >= max) return "Unhurt";
   if (hp * 2 <= max) return "Bloodied";
   return "Hurt";
+}
+function revealOf(row) {
+  if (window.SSDNSApplied && window.SSDNSApplied.revealFlags) return window.SSDNSApplied.revealFlags(row);
+  const src = (row && row.reveal) || {};
+  return { name: src.name !== false, ac: !!src.ac, hp: !!src.hp, block: !!src.block };
+}
+function captureSecrets() {
+  fight.secrets = fight.secrets || {};
+  (fight.order || []).forEach((row) => {
+    if (!row || !row.id || row.kind === "player") return;
+    const secret = window.SSDNSApplied && window.SSDNSApplied.secretEnemy
+      ? window.SSDNSApplied.secretEnemy(Object.assign({}, row, { dcs: window.SSDNSApplied.dcLines ? window.SSDNSApplied.dcLines(row.card) : null }))
+      : { name: row.name, ac: row.ac, hp: row.hp, maxHp: row.maxHp, reveal: revealOf(row) };
+    fight.secrets[row.id] = secret;
+  });
+}
+function restoreSecrets() {
+  (fight.order || []).forEach((row) => {
+    const secret = row && fight.secrets && fight.secrets[row.id];
+    if (!secret || row.kind === "player") return;
+    if (secret.name) row.name = secret.name;
+    ["ac", "hp", "maxHp", "dex", "atkBonus"].forEach((key) => {
+      if (secret[key] != null && secret[key] !== "") row[key] = secret[key];
+    });
+    if (secret.damage) row.damage = secret.damage;
+    if (secret.reveal) row.reveal = secret.reveal;
+    if (secret.card && typeof secret.card === "object") row.card = Object.assign({}, row.card || {}, secret.card);
+  });
+}
+function playersSeeLine(row, i) {
+  const shown = window.SSDNSApplied && window.SSDNSApplied.publicEnemy
+    ? window.SSDNSApplied.publicEnemy(row, i, conditionsForRow(row))
+    : { name: (row && row.name) || "Enemy", status: enemyStatus(row), conditions: [] };
+  const bits = [shown.name || "Enemy"];
+  if (shown.status) bits.push(shown.status);
+  const rev = shown.revealed || {};
+  if (rev.ac != null && rev.ac !== "") bits.push("AC " + rev.ac);
+  if (rev.hp != null && rev.hp !== "") bits.push(String(rev.hp) + "/" + (rev.maxHp == null || rev.maxHp === "" ? "?" : rev.maxHp));
+  if (rev.block) bits.push("stat block");
+  const conds = (shown.conditions || []).filter(Boolean).join(", ");
+  if (conds) bits.push(conds);
+  return `<p class="fine players-see">Players see ${esc(bits.join(" · "))}</p>`;
+}
+function revealBar(row, i) {
+  if (!row || row.kind !== "enemy") return "";
+  const flags = revealOf(row);
+  const box = (key, label) => `<label class="toggle"><input type="checkbox" data-reveal="${key}" data-reveal-i="${i}"${flags[key] ? " checked" : ""}> ${label}</label>`;
+  return `<div class="reveal-bar">${box("name", "Reveal name")}${box("ac", "Reveal AC")}${box("hp", "Reveal HP")}${box("block", "Reveal stat block")}<button type="button" class="btn sm" data-hide-all="${i}">Hide all</button></div>${playersSeeLine(row, i)}`;
 }
 function d20() {
   const forced = window.SSDNSTestRoll && window.SSDNSTestRoll();
@@ -197,42 +246,52 @@ function syncDamageMode() {
   if (fight.damageMode !== "approve" && fight.damageMode !== "auto") fight.damageMode = "auto";
   if (el && el.value !== fight.damageMode) el.value = fight.damageMode;
 }
+function buildPublish() {
+  captureSecrets();
+    const order = (fight.order || []).map((row, index) => {
+      const shown = window.SSDNSApplied && window.SSDNSApplied.publicEnemy
+        ? window.SSDNSApplied.publicEnemy(row, index, conditionsForRow(row))
+        : { name: row.name || "", status: enemyStatus(row) };
+      return {
+        id: row.id || "",
+        name: shown.name || "",
+        kind: row.kind || "",
+        init: row.init == null ? "" : row.init,
+        playerId: row.playerId || "",
+        status: shown.status || "",
+        slot: index,
+        lastAttackerId: row.lastAttackerId || "",
+        initFrom: row.initFrom || ""
+      };
+    });
+    const hp = {};
+    const pub = {};
+    const secret = {};
+    (fight.order || []).forEach((row, index) => {
+      if (!row.id) return;
+      const shown = window.SSDNSApplied && window.SSDNSApplied.publicEnemy
+        ? window.SSDNSApplied.publicEnemy(row, index, conditionsForRow(row))
+        : { name: row.name || "", status: enemyStatus(row), kind: row.kind || "", playerId: row.playerId || "", slot: index, conditions: [] };
+      if (row.kind !== "player") {
+        hp[row.id] = { hp: row.hp == null ? "" : row.hp, maxHp: row.maxHp == null ? "" : row.maxHp, ac: row.ac == null ? "" : row.ac };
+        secret[row.id] = (fight.secrets && fight.secrets[row.id]) || { name: row.name || "", ac: row.ac, hp: row.hp, maxHp: row.maxHp };
+      }
+      pub[row.id] = shown;
+    });
+    fight.publicView = pub;
+  return { order: order, hp: hp, pub: pub, secret: secret };
+}
 async function saveRemoteTable() {
   syncDamageMode();
   fight.updatedAt = new Date().toISOString();
   saveLocalTable();
+  const published = buildPublish();
   if (DM.state.demo || !DM.state.db) return;
   try {
-    const order = (fight.order || []).map((row) => ({
-      id: row.id || "",
-      name: row.name || "",
-      kind: row.kind || "",
-      init: row.init == null ? "" : row.init,
-      playerId: row.playerId || "",
-      status: enemyStatus(row),
-      hp: knownNumber(row.hp) == null ? "" : knownNumber(row.hp),
-      maxHp: knownNumber(row.maxHp) == null ? "" : knownNumber(row.maxHp),
-      ac: knownNumber(row.ac) == null ? "" : knownNumber(row.ac),
-      dex: knownNumber(row.dex) == null ? "" : knownNumber(row.dex),
-      initBonus: knownNumber(row.initBonus) == null ? "" : knownNumber(row.initBonus),
-      atkBonus: row.atkBonus == null || row.atkBonus === "" ? "" : row.atkBonus,
-      damage: row.damage || "",
-      lastAttackerId: row.lastAttackerId || "",
-      initFrom: row.initFrom || ""
-    }));
-    const hp = {};
-    const pub = {};
-    (fight.order || []).forEach((row) => {
-      if (!row.id) return;
-      hp[row.id] = { hp: row.hp == null ? "" : row.hp, maxHp: row.maxHp == null ? "" : row.maxHp, ac: row.ac == null ? "" : row.ac };
-      pub[row.id] = {
-        name: row.name || "",
-        status: enemyStatus(row),
-        kind: row.kind || "",
-        playerId: row.playerId || "",
-        ac: knownNumber(row.ac) == null ? "" : knownNumber(row.ac)
-      };
-    });
+    const order = published.order;
+    const hp = published.hp;
+    const pub = published.pub;
+    const secret = published.secret;
     await DM.state._fb.update(DM.roomRef("table"), {
       initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: order },
       store: fight.stock,
@@ -243,6 +302,7 @@ async function saveRemoteTable() {
     });
     try {
       await DM.state._fb.set(DM.roomRef("encounter/hp"), hp);
+      await DM.state._fb.set(DM.roomRef("encounter/dm"), secret);
       await DM.state._fb.set(DM.roomRef("encounter/public"), pub);
     } catch (err) {
       if (DM.writeFailed) DM.writeFailed(err, "Couldn't sync to players");
@@ -281,6 +341,7 @@ function applyRemoteTable(v) {
             initBonus: keepVital(row.initBonus, old.initBonus)
           });
         }).filter((row) => !isRemoved(row));
+        restoreSecrets();
       }
     }
     if (v.damageMode === "approve" || v.damageMode === "auto") fight.damageMode = v.damageMode;
@@ -625,6 +686,7 @@ function enemyCardHtml(row, i) {
     <div class="hp-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>
     <div class="toolbar">${hpFields}</div>
     ${tactics ? `<p class="tactics-note">Tactics. ${esc(tactics)}</p>` : ""}
+    ${revealBar(row, i)}
     ${card.senses ? `<p class="fine">${esc(card.senses)}</p>` : ""}
     ${card.description ? `<p>${esc(card.description)}</p>` : ""}
     ${conditionChips(row)}
@@ -685,6 +747,7 @@ function turnRowHtml(row, i) {
         ${downBadge}
         ${conditionChips(row)}
         ${tactics ? `<span class="tactics-note">Tactics. ${esc(tactics)}</span>` : ""}
+        ${revealBar(row, i)}
       </span>
       <label class="fine">AC <input type="number" data-ac-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.ac == null ? "" : esc(row.ac)}" aria-label="AC for ${esc(row.name || "combatant")}"></label>
       <label class="fine">HP <input type="number" data-hp-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.hp == null ? "" : esc(row.hp)}" aria-label="HP for ${esc(row.name || "combatant")}"></label>
@@ -3239,8 +3302,114 @@ function applyPlayerHit(meta) {
   });
   DM.toast(line);
 }
-function applyRequest(req) {
-  if (!req) return;
+function verdictFeed(id, text) {
+  if (DM.state.demo || !DM.state.db || !DM.state._fb) return;
+  const row = {
+    id: id, ts: new Date().toISOString(), from: DM.state.uid || "dm",
+    fromName: "DM", text: text, kind: "roll", who: "DM"
+  };
+  DM.state._fb.set(DM.roomRef("tableFeed/" + id), row).catch((err) => {
+    if (DM.writeFailed) DM.writeFailed(err, "Couldn't post the attack");
+  });
+}
+function resolveIncomingAttack(req, reqId) {
+  const rollId = req.rollId || reqId || "";
+  const settled = rollId && window.SSDNSApplied && (window.SSDNSApplied.settled
+    ? window.SSDNSApplied.settled(DM.state.roomCode, rollId)
+    : window.SSDNSApplied.has(DM.state.roomCode, rollId));
+  if (rollId && (fight.appliedHits[rollId] || settled)) {
+    markRequestResolved(reqId);
+    return;
+  }
+  const row = findCombatant(req);
+  const ac = knownNumber(row && row.ac);
+  const shown = window.SSDNSApplied && window.SSDNSApplied.publicEnemy
+    ? window.SSDNSApplied.publicEnemy(row || { name: req.targetName, kind: "enemy" }, "", [])
+    : { name: (row && row.name) || req.targetName || "enemy" };
+  const shotList = req.shots && typeof req.shots === "object" ? req.shots : null;
+  const shotCount = shotList ? (Array.isArray(shotList) ? shotList.length : Object.keys(shotList).length) : 0;
+  let verdict;
+  let line;
+  let applyAmount = 0;
+  if (shotCount && window.SSDNSApplied && window.SSDNSApplied.attackShots) {
+    const packed = window.SSDNSApplied.attackShots({
+      shots: shotList,
+      ac: ac,
+      sfx: req.sfx,
+      who: req.characterName || "Someone",
+      target: shown.name || req.targetName || "enemy"
+    });
+    verdict = packed;
+    line = packed.line;
+    applyAmount = Number(packed.amount) || 0;
+  } else {
+    verdict = window.SSDNSApplied && window.SSDNSApplied.attackVerdict
+      ? window.SSDNSApplied.attackVerdict({ nat: req.nat, total: req.hitTotal, ac: ac, sfx: req.sfx })
+      : { miss: Number(req.nat) === 1 || (ac != null && Number(req.hitTotal) < ac), crit: Number(req.nat) === 20, verdict: "HIT", sfx: req.sfx || "attack" };
+    line = window.SSDNSApplied && window.SSDNSApplied.attackPublicLine
+      ? window.SSDNSApplied.attackPublicLine({
+        who: req.characterName || "Someone",
+        target: shown.name || req.targetName || "enemy",
+        nat: req.nat,
+        total: req.hitTotal,
+        dice: req.dice || "",
+        amount: verdict.miss ? "" : req.amount
+      }, verdict)
+      : ((req.characterName || "Someone") + " → " + (shown.name || "enemy") + " → " + verdict.verdict);
+    applyAmount = verdict.miss ? 0 : (Number(req.amount) || 0);
+  }
+  const feedId = "verdict_" + (rollId || reqId || DM.uid("hit"));
+  verdictFeed(feedId, line);
+  if (req.from) {
+    DM.pushCommand({
+      type: "attack_result",
+      to: req.from,
+      quiet: true,
+      payload: {
+        rollId: rollId,
+        text: line,
+        verdict: verdict.verdict,
+        nat: req.nat,
+        crit: !!verdict.crit,
+        sfx: verdict.sfx || "",
+        grantId: "atk:" + (rollId || reqId)
+      },
+      from: DM.state.uid
+    });
+  }
+  DM.toast(line + (ac == null ? "" : " · AC " + ac));
+  if (!verdict.miss && applyAmount > 0) {
+    applyPlayerHit({
+      rollId: rollId,
+      targetId: req.targetId,
+      targetName: (row && row.name) || req.targetName,
+      amount: applyAmount,
+      from: req.from,
+      characterName: req.characterName || "Someone",
+      label: req.label,
+      weapon: req.weapon || req.label,
+      dice: req.dice || "",
+      type: "attack",
+      heal: false
+    });
+  } else if (rollId) {
+    fight.appliedHits[rollId] = 1;
+    if (window.SSDNSApplied && window.SSDNSApplied.claim) window.SSDNSApplied.claim(DM.state.roomCode, rollId);
+    if (DM.markRollApplied) DM.markRollApplied(rollId, true);
+  }
+  markRequestResolved(reqId);
+}
+function markRequestResolved(reqId) {
+  if (!reqId || DM.state.demo || !DM.state.db || !DM.state._fb) return;
+  DM.state._fb.update(DM.roomRef("encounter/requests/" + reqId), { resolved: true }).catch(() => {});
+}
+function applyRequest(req, reqId) {
+  if (!req || req.resolved) return;
+  const attack = req.type === "attack" || (req.hitTotal != null && req.hitTotal !== "" && req.type !== "heal");
+  if (attack) {
+    resolveIncomingAttack(req, reqId);
+    return;
+  }
   const rollId = req.rollId || "";
   if (rollId && fight.appliedHits[rollId]) return;
   const row = findCombatant(req);
@@ -3273,6 +3442,20 @@ function applyRequest(req) {
     heal: heal
   });
 }
+function watchSecrets() {
+  if (fight._sec || DM.state.demo || !DM.state.db || !DM.state.roomCode) return;
+  fight._sec = true;
+  const fb = DM.state._fb;
+  const r = DM.roomRef("encounter/dm");
+  const cb = fb.onValue(r, (snap) => {
+    const val = snap.val();
+    if (val && typeof val === "object") fight.secrets = Object.assign({}, fight.secrets || {}, val);
+    restoreSecrets();
+    renderFight();
+    if (typeof renderEnemySheet === "function" && enemySheetId) renderEnemySheet();
+  });
+  if (typeof cb === "function") DM.state.unsubs.push(cb);
+}
 function watchRequests() {
   if (fight._req || DM.state.demo || !DM.state.db || !DM.state.roomCode) return;
   fight._req = true;
@@ -3285,17 +3468,33 @@ function watchRequests() {
       if (fight.seenReq[id]) return;
       fight.seenReq[id] = 1;
       const req = val[id];
+      const attack = req && (req.type === "attack" || (req.hitTotal != null && req.hitTotal !== "" && req.type !== "heal"));
       const fresh = req && req.ts && (Date.now() - Date.parse(req.ts) < 120000);
-      if (!fight.reqPrimed && !fresh) return;
-      applyRequest(req);
+      if (req && req.resolved) return;
+      if (!fight.reqPrimed && !fresh && !attack) return;
+      applyRequest(req, id);
     });
     fight.reqPrimed = true;
   });
   if (typeof cb === "function") DM.state.unsubs.push(cb);
 }
+function paintReveal() {
+  saveRemoteTable();
+  renderFight();
+  if (enemySheetId) renderEnemySheet();
+}
 function wireClicks() {
   document.addEventListener("change", (e) => {
     const box = e.target;
+    const key = box && box.getAttribute && box.getAttribute("data-reveal");
+    if (key) {
+      const row = fight.order[parseInt(box.getAttribute("data-reveal-i"), 10)];
+      if (!row || row.kind !== "enemy") return;
+      row.reveal = revealOf(row);
+      row.reveal[key] = !!box.checked;
+      paintReveal();
+      return;
+    }
     if (!box || !box.getAttribute || !box.hasAttribute("data-card-public")) return;
     const row = fight.order[parseInt(box.getAttribute("data-card-public"), 10)];
     if (row && row.card) row.card.public = !!box.checked;
@@ -3305,8 +3504,15 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-row-atk],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend]");
+    const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-row-atk],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all]");
     if (!t) return;
+    if (t.hasAttribute("data-hide-all")) {
+      const row = fight.order[parseInt(t.getAttribute("data-hide-all"), 10)];
+      if (!row || row.kind !== "enemy") return;
+      row.reveal = { name: false, ac: false, hp: false, block: false };
+      paintReveal();
+      return;
+    }
     if (t.hasAttribute("data-undo-hit")) {
       undoByRoll(t.getAttribute("data-undo-hit"));
       return;
@@ -3536,7 +3742,7 @@ const seenDamage = {};
 function noteDamageRolls(rows) {
   if (fight.damageMode === "approve") return;
   (rows || []).forEach((r) => {
-    if (!r || !r.id || seenDamage[r.id] || r.applied || fight.appliedHits[r.id] || r.selfApplied) return;
+    if (!r || !r.id || seenDamage[r.id] || r.applied || fight.appliedHits[r.id] || r.selfApplied || r.awaitDm) return;
     if (window.SSDNSApplied && (window.SSDNSApplied.settled ? window.SSDNSApplied.settled(DM.state.roomCode, r.id) : window.SSDNSApplied.has(DM.state.roomCode, r.id))) { seenDamage[r.id] = 1; return; }
     const amt = Number(r.damage) || 0;
     if (amt <= 0) return;
@@ -3723,6 +3929,9 @@ function removeCombatant(id) {
 function enterRoom() {
   const code = DM.state.roomCode || "";
   fight._room = code;
+  fight._req = false;
+  fight._sec = false;
+  fight._stripped = false;
   fight.order = [];
   fight.round = 1;
   fight.turn = 0;
@@ -3851,7 +4060,16 @@ async function bootV2() {
     onTable: function (v) {
       if (window.SSDNSApplied) fight.appliedHits = Object.assign(window.SSDNSApplied.load(DM.state.roomCode) || {}, fight.appliedHits || {});
       applyRemoteTable(v);
+      const order = v && v.initiative && v.initiative.order;
+      const leaked = Array.isArray(order) && order.some((row) => row && row.kind !== "player" && (
+        row.ac != null || row.hp != null || row.maxHp != null || row.saves || row.attacks || row.traits || row.tactics || row.dcs || row.atkBonus != null || row.damage
+      ));
+      if (leaked && !fight._stripped) {
+        fight._stripped = true;
+        saveRemoteTable();
+      }
       watchRequests();
+      watchSecrets();
       watchConditions();
     },
     onRolls: function (rows) {

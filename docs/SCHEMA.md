@@ -24,3 +24,5 @@
 | `loot` | Text. `esDrop` is the Eldorite shards on the body. |
 
 `database.rules.json` does not validate these fields. They live in the bestiary file and in the DM's local table, not as a new player-visible schema.
+
+In a live room the same numbers are copied to `encounter/dm`, which only the DM can read. `encounter/public` keeps the name (or Unknown gunman), turn slot, coarse status, visible conditions, and a `revealed` object for anything the DM turned on. Top-level AC, HP, saves, attacks, traits, tactics, and DCs are rejected on that public node.

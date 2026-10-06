@@ -11,7 +11,7 @@
  *   the empty playerInit parent listen that failed on a new room
  *   a second ruleset with that parent .read removed, which must deny the listen
  *   DM-only nodes the player must not read: commands, rolls, archives,
- *   encounter/hp, encounter/requests, conditions, messages
+ *   encounter/hp, encounter/dm, encounter/requests, conditions, messages
  *
  * .info/connected is a Firebase system path, not a room rule, so it is skipped.
  * The sheet no longer listens to commands. Players receive broadcast and inbox.
@@ -51,6 +51,7 @@ const MUST_FIND = [
   "archives",
   "archives/addiction",
   "encounter/hp",
+  "encounter/dm",
   "encounter/public",
   "encounter/requests",
   "conditions",
@@ -106,6 +107,9 @@ function coverageProblems(found, cases) {
   });
   const playerCommands = cases.some((c) => c.role === "player" && c.op === "listen" && c.path.endsWith("/commands") && c.expect === "deny");
   if (!playerCommands) problems.push("player listen of commands must be an explicit deny");
+  const playerSecret = cases.some((c) => c.role === "player" && c.op === "get" && c.path.endsWith("/encounter/dm") && c.expect === "deny")
+    && cases.some((c) => c.role === "player" && c.op === "listen" && c.path.endsWith("/encounter/dm") && c.expect === "deny");
+  if (!playerSecret) problems.push("player read of encounter/dm must be denied");
   const parentInit = cases.some((c) => c.role === "dm" && c.op === "listen" && c.path.endsWith("/playerInit") && c.expect === "allow");
   if (!parentInit) problems.push("DM listen of playerInit must be allowed");
   return problems;
@@ -231,6 +235,7 @@ function buildCases() {
     ["dm", "archives"],
     ["dm", "archives/addiction"],
     ["dm", "encounter/hp"],
+    ["dm", "encounter/dm"],
     ["dm", "encounter/public"],
     ["player", "encounter/public"],
     ["dm", "encounter/requests"],
@@ -250,6 +255,7 @@ function buildCases() {
     ["player", "archives"],
     ["player", "archives/addiction"],
     ["player", "encounter/hp"],
+    ["player", "encounter/dm"],
     ["player", "encounter/requests"],
     ["player", "inbox/other-uid"],
     ["other", "inbox/" + PLAYER_UID]
@@ -295,6 +301,9 @@ function buildCases() {
     { role: "player", op: "set", path: ROOM + "/encounter/public", payload: pub, expect: "deny" },
     { role: "dm", op: "set", path: ROOM + "/encounter/hp", payload: hp, expect: "allow" },
     { role: "player", op: "set", path: ROOM + "/encounter/hp", payload: hp, expect: "deny" },
+    { role: "dm", op: "set", path: ROOM + "/encounter/dm", payload: { e1: { name: "Outlaw", ac: 12, hp: 11, maxHp: 11, tactics: "flees at half" } }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/encounter/dm", payload: { e1: { ac: 12 } }, expect: "deny" },
+    { role: "dm", op: "set", path: ROOM + "/encounter/public", payload: { e1: { name: "Outlaw", ac: 12, status: "Unhurt" } }, expect: "deny" },
     { role: "player", op: "set", path: ROOM + "/encounter/requests/req1", payload: request, expect: "allow" },
     { role: "dm", op: "set", path: ROOM + "/conditions/enemy1", payload: { name: "Prone", subjectId: "enemy1", subjectKind: "enemy", updatedAt: TS, by: DM_UID }, expect: "allow" },
     { role: "player", op: "set", path: ROOM + "/conditions/mine", payload: { name: "Poisoned", subjectId: PLAYER_UID, subjectKind: "player", updatedAt: TS, by: PLAYER_UID }, expect: "allow" },

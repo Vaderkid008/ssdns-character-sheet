@@ -1,6 +1,6 @@
 {
-  "sheet": "0.3.11",
-  "dmcc": "0.2.22",
-  "sheetBuild": "sheet-store-v0311",
-  "dmccBuild": "dmcc-session-status-v0222"
+  "sheet": "0.3.12",
+  "dmcc": "0.2.23",
+  "sheetBuild": "sheet-store-v0312",
+  "dmccBuild": "dmcc-hidden-stats-v0223"
 }

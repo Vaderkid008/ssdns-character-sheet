@@ -126,8 +126,12 @@
           "public": {
             ".read": "auth != null",
             "$id": {
-              ".validate": "newData.hasChildren(['name']) && !newData.hasChild('hp') && !newData.hasChild('maxHp')"
+              ".validate": "newData.hasChildren(['name']) && !newData.hasChild('hp') && !newData.hasChild('maxHp') && !newData.hasChild('ac') && !newData.hasChild('saves') && !newData.hasChild('attacks') && !newData.hasChild('traits') && !newData.hasChild('tactics') && !newData.hasChild('dcs')"
             },
+            ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+          },
+          "dm": {
+            ".read": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
             ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
           },
           "hp": {

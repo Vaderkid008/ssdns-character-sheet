@@ -586,6 +586,31 @@
       if (sel) sel.setAttribute("data-last-enemy", tgt.id);
     }
     var who = (c && c.name) || "You";
+    var joined = root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined();
+    var quiet = $("#chkWhisper") && $("#chkWhisper").checked;
+    if (joined && !quiet && root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt) && root.SSDNSSheet.sendPendingAttack) {
+      var pendingRolls = [];
+      var pendingTotal = 0;
+      for (var p = 0; p < diceN; p++) pendingRolls.push(1 + Math.floor(Math.random() * sides));
+      pendingTotal = pendingRolls.reduce(function (a, b) { return a + b; }, 0) + flat;
+      var pendingDetail = pendingRolls.join("+") + (flat ? ((flat >= 0 ? "+" : "") + flat) : "");
+      root.SSDNSSheet.sendPendingAttack({
+        who: who,
+        targetName: tgt.name,
+        targetId: tgt.id,
+        nat: nat,
+        hitTotal: nat + atk,
+        damage: nat === 1 ? 0 : pendingTotal,
+        dice: nat === 1 ? "" : pendingDetail,
+        formula: (faced.n2 == null ? "1d20" : "2d20") + (atk ? ((atk >= 0 ? "+" : "") + atk) : ""),
+        rollId: "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        label: name + " attack",
+        weapon: name,
+        sfx: "attack"
+      });
+      if (root.SSDNSSheet.consumeRollMode) root.SSDNSSheet.consumeRollMode();
+      return;
+    }
     var bonusTxt = atk ? ((atk >= 0 ? "+" : "") + atk) : "";
     var face = faced.shown || String(nat);
     var hitTotal = nat + atk;
@@ -689,7 +714,7 @@
       wh.innerHTML = "<input type='checkbox' id='chkWhisper'> Whisper to DM";
       var tgt = document.createElement("label");
       tgt.className = "fine";
-      tgt.innerHTML = "Target <select id='atkTarget' aria-label='Attack target'><option value=''>No target</option></select>";
+      tgt.innerHTML = "Target <select id='atkTarget' aria-label='Attack target'><option value=''>No target</option></select> <span id='atkReveal' class='fine'></span>";
       init.parentNode.appendChild(adv);
       init.parentNode.appendChild(wh);
       init.parentNode.appendChild(tgt);
@@ -973,6 +998,7 @@
 
   var shownTurn = "";
   var sawOrder = false;
+  var lastTargets = {};
   function turnSeenKey() {
     var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
     var code = root.SSDNSDmJoin && root.SSDNSDmJoin.roomCode && root.SSDNSDmJoin.roomCode();
@@ -1050,7 +1076,9 @@
           var letters = raw.replace(/[^A-Za-z]/g, "");
           var initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
           var mark = i === turn ? "→ " : "";
-          var st = row.kind === "enemy" && row.status ? " (" + row.status + ")" : "";
+          var pub = lastTargets[row.id] || {};
+          var conds = Array.isArray(pub.conditions) ? pub.conditions.filter(Boolean).join(", ") : "";
+          var st = row.kind === "enemy" && (row.status || conds) ? " (" + [row.status, conds].filter(Boolean).join(" · ") + ")" : "";
           var tie = row.tie ? " tie" : "";
           return "<span class='turn-badge' title='" + raw.replace(/'/g, "") + "'>" + initials + "</span> " + mark + raw + st + tie;
         }).join("  ·  ");
@@ -1074,6 +1102,13 @@
       var ac = acRaw == null || acRaw === "" ? null : Number(acRaw);
       return { id: sel.value, name: opt.getAttribute("data-name") || opt.textContent || "", ac: isFinite(ac) ? ac : null, kind: opt.getAttribute("data-kind") || "" };
     },
+    paintReveal: function () {
+      var note = $("#atkReveal");
+      var sel = $("#atkTarget");
+      if (!note || !sel || !sel.selectedOptions || !sel.selectedOptions[0]) { if (note) note.textContent = ""; return; }
+      var opt = sel.selectedOptions[0];
+      note.textContent = opt.getAttribute("data-reveal") || "";
+    },
     showRoster: function (rows) {
       var el = $("#tableRoster");
       if (!el) return;
@@ -1082,6 +1117,7 @@
       }).join("  ");
     },
     setTargets: function (map) {
+      lastTargets = map || {};
       var sel = $("#atkTarget");
       if (!sel) return;
       var keep = sel.value;
@@ -1102,13 +1138,36 @@
       rows.sort(function (a, b) { return rank(a) - rank(b); });
       var html = "<option value=''>No target</option>";
       rows.forEach(function (row) {
-        var ac = row.ac == null || row.ac === "" ? "" : String(row.ac);
+        var revealed = row.revealed || {};
+        var ac = revealed.ac == null || revealed.ac === "" ? "" : String(revealed.ac);
         var name = String(row.name || row.id);
-        html += "<option value='" + String(row.id).replace(/'/g, "") + "' data-ac='" + ac.replace(/'/g, "") + "' data-kind='" + String(row.kind || "").replace(/'/g, "") + "' data-name='" + name.replace(/[&<>"']/g, "") + "'>" +
-          name.replace(/[&<>]/g, "") + (row.status ? " (" + String(row.status).replace(/[&<>]/g, "") + ")" : "") + "</option>";
+        var conds = Array.isArray(row.conditions) ? row.conditions.filter(Boolean).join(", ") : "";
+        var bits = [];
+        if (row.status) bits.push(String(row.status));
+        if (conds) bits.push(conds);
+        if (revealed.hp != null && revealed.hp !== "") bits.push(String(revealed.hp) + "/" + (revealed.maxHp == null || revealed.maxHp === "" ? "?" : revealed.maxHp) + " HP");
+        if (ac) bits.push("AC " + ac);
+        var blockNote = "";
+        if (revealed.block) {
+          var block = revealed.block;
+          var attacks = Array.isArray(block.attacks) ? block.attacks.map(function (atk) { return (atk && atk.name) || ""; }).filter(Boolean).join(", ") : "";
+          blockNote = [
+            block.tactics ? ("Tactics. " + block.tactics) : "",
+            attacks ? ("Attacks. " + attacks) : "",
+            block.saves ? ("Saves. " + JSON.stringify(block.saves)) : ""
+          ].filter(Boolean).join(" · ");
+        }
+        var label = name + (bits.length ? " (" + bits.join(" · ") + ")" : "");
+        html += "<option value='" + String(row.id).replace(/'/g, "") + "' data-ac='" + ac.replace(/'/g, "") + "' data-kind='" + String(row.kind || "").replace(/'/g, "") + "' data-name='" + name.replace(/[&<>"']/g, "") + "' data-reveal='" + blockNote.replace(/'/g, "") + "'>" +
+          label.replace(/[&<>]/g, "") + "</option>";
       });
       sel.innerHTML = html;
       if (keep) sel.value = keep;
+      if (!sel._revealBound) {
+        sel._revealBound = true;
+        sel.addEventListener("change", function () { if (root.SSDNSPlaytest.paintReveal) root.SSDNSPlaytest.paintReveal(); });
+      }
+      if (root.SSDNSPlaytest.paintReveal) root.SSDNSPlaytest.paintReveal();
     },
     setDamageMode: function () {},
     dropLogStore: dropLogStore
