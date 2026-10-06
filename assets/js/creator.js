@@ -169,7 +169,7 @@
     var cal = callingById(draft.calling);
     var steps = ["name", "lineage", "calling", "abilities", "background", "kit"];
     if (casterAtFirst(cal)) steps.push("spells");
-    steps.push("vitals", "review");
+    steps.push("level", "vitals", "review");
     return steps;
   }
   function blankDraft() {
@@ -187,6 +187,7 @@
       background: "",
       skills: [],
       kit: {},
+      level: 1,
       cantrips: [],
       spells: [],
       _linDefault: lin.id || "",
@@ -237,6 +238,10 @@
         });
       }
     }
+    if (step === "level" || step === "review") {
+      var lv = Number(draft.level || 1);
+      if (lv !== 1 && lv !== 2 && lv !== 3) errs.push("Starting level is 1, 2, or 3.");
+    }
     if (step === "kit" || step === "review") {
       var kits = root.SSDNSKits;
       var open = kits && kits.openChoices ? kits.openChoices(draft.calling, draft.kit || {}) : [];
@@ -264,7 +269,10 @@
     c.lineage = lin ? lin.id : "";
     c.sublineage = sub ? sub.id : "";
     c.calling = cal ? cal.id : "";
-    c.level = 1;
+    var level = Number(draft.level) || 1;
+    if (level < 1) level = 1;
+    if (level > 3) level = 3;
+    c.level = level;
     c.background = bg ? bg.id : "";
     c.abilities = {};
     AB.forEach(function (ab) { c.abilities[ab] = Number(draft.scores[ab]) || 10; });
@@ -286,11 +294,13 @@
       c.spells[1].push({ name: name, prepared: prepared || true });
     });
     var sides = dieMax(cal && cal.hitDie);
-    var hp = Math.max(1, sides + mod(c.abilities.CON));
+    var con = mod(c.abilities.CON);
+    var average = Math.floor(sides / 2) + 1;
+    var hp = Math.max(1, sides + con + (level - 1) * (average + con));
     c.hpAuto = true;
     c.hpMax = hp;
     c.hpCurrent = hp;
-    c.hitDiceLeft = "1d" + sides;
+    c.hitDiceLeft = level + "d" + sides;
     var prof = [];
     if (cal && cal.armorProf) prof.push("Armor (" + cal.name + "): " + cal.armorProf);
     if (cal && cal.weaponProf) prof.push("Weapons (" + cal.name + "): " + cal.weaponProf);
@@ -325,6 +335,7 @@
     draft.background = bg.id;
     draft.skills = (spec.skills || skillList(bg)).slice();
     draft.kit = spec.kit || kitPick(cal.id);
+    draft.level = spec.level || 1;
     var lim = levelRow(cal);
     if (casterAtFirst(cal)) {
       draft.cantrips = (spec.cantrips || spellEntries(cal.id, 0).slice(0, lim.cantrips)).slice();
@@ -581,6 +592,15 @@
       picks("Cantrips", 0, draft.cantrips || [], lim.cantrips);
       var cap = PREPARED[draft.calling] ? preparedMax(cal, draft.scores) : lim.known;
       picks(PREPARED[draft.calling] ? "Prepared" : "Spells known", 1, draft.spells || [], cap);
+    } else if (step === "level") {
+      body.appendChild(el("h2", { text: "Starting level" }));
+      var lsel = el("select", { id: "wizLevel" });
+      [1, 2, 3].forEach(function (n) {
+        lsel.appendChild(option(String(n), "Level " + n, Number(draft.level || 1) === n));
+      });
+      lsel.addEventListener("change", function () { draft.level = Number(lsel.value) || 1; });
+      body.appendChild(field("Level", lsel));
+      body.appendChild(el("p", { class: "fine", text: "Level 1 takes the full hit die. Levels 2 and 3 add the average hit die plus Constitution. Spell lists stay at 1st level until you use Level up." }));
     } else if (step === "vitals" || step === "review") {
       var preview = emptyCharacter();
       var copy = JSON.parse(JSON.stringify(draft));
@@ -592,16 +612,34 @@
       body.appendChild(el("p", { text: preview.name + (preview.player ? " · " + preview.player : "") }));
       body.appendChild(el("p", { text: (cal ? cal.name : "") + " · " + ((lineageById(draft.lineage) || {}).name || "") }));
       if (step === "review") {
+        body.appendChild(el("p", { text: "Level " + (preview.level || 1) }));
         body.appendChild(el("p", { text: AB.map(function (ab) {
           return ab + " " + (draft.scores[ab] || 0) + " (" + sign(mod(draft.scores[ab])) + ")";
         }).join(" · ") }));
-        body.appendChild(el("p", { text: "Background: " + ((bg && bg.name) || "—") + ". Skills: " + ((draft.skills || []).join(", ") || "—") + "." }));
-        var kitBits = Object.keys(draft.kit || {}).map(function (key) {
-          var choice = ((root.SSDNSKits && root.SSDNSKits.choices && root.SSDNSKits.choices[draft.calling]) || []).filter(function (ch) { return ch.id === key; })[0];
-          var op = choice && (choice.options || []).filter(function (row) { return row.id === draft.kit[key]; })[0];
-          return (choice ? choice.prompt : key) + ": " + (op ? op.label : draft.kit[key]);
+        var prof = 2;
+        var saveLine = (cal && cal.saves || []).map(function (ab) {
+          return ab + " " + sign(mod(draft.scores[ab]) + prof);
         });
-        if (kitBits.length) body.appendChild(el("p", { text: "Kit: " + kitBits.join(". ") }));
+        body.appendChild(el("p", { text: "Saves: " + (saveLine.join(", ") || "—") }));
+        var skillLine = (rules().skills || []).map(function (sk) {
+          var bonus = mod(draft.scores[sk.ability]) + ((draft.skills || []).indexOf(sk.name) >= 0 ? prof : 0);
+          return sk.name + " " + sign(bonus);
+        });
+        body.appendChild(el("p", { text: "Skills: " + skillLine.join(", ") }));
+        var named = function (list, id) {
+          return (list || []).filter(function (row) { return row.id === id; })[0];
+        };
+        var kitItems = [];
+        (preview.melee || []).forEach(function (row) {
+          var w = named(rules().melee, row.weapon);
+          if (w) kitItems.push(w.name);
+        });
+        (preview.guns || []).forEach(function (row) {
+          var w = named((rules().firearms || []).concat(rules().casterGuns || []), row.weapon);
+          if (w) kitItems.push(w.name);
+        });
+        if (preview.equipment) kitItems.push(preview.equipment);
+        body.appendChild(el("p", { text: "Kit: " + (kitItems.join(", ") || "—") }));
         var spells = (draft.cantrips || []).concat(draft.spells || []);
         if (spells.length) body.appendChild(el("p", { text: "Spells: " + spells.join(", ") }));
         if (pv.focus) body.appendChild(el("p", { text: pv.focus }));

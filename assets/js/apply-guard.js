@@ -44,7 +44,48 @@
   function weaponName(label) {
     var s = String(label || "").trim();
     if (!s || s.indexOf("→") >= 0 || /\bheals\b/i.test(s)) return "";
-    return s;
+    s = s.split(",")[0];
+    s = s.replace(/\s*[+-]\s*\d+\b.*$/, "");
+    s = s.replace(/\s+\d*d\d+.*$/i, "");
+    s = s.replace(/\s*\(.*$/, "");
+    return s.trim();
+  }
+  function beastCombatant(beast) {
+    var b = beast || {};
+    var list = Array.isArray(b.attackList) ? b.attackList : [];
+    var first = list[0] || {};
+    var dex = b.dex;
+    if ((dex == null || dex === "") && b.abilities) dex = b.abilities.DEX;
+    var initBonus = b.initBonus;
+    if (initBonus == null || initBonus === "") {
+      var n = Number(dex);
+      initBonus = isFinite(n) ? Math.floor((n - 10) / 2) : 0;
+    }
+    var atk = first.bonus != null ? first.bonus : (first.atk != null ? first.atk : b.atkBonus);
+    var damage = first.damage || first.dice || b.damage || "";
+    return {
+      ac: b.ac,
+      hp: b.hp,
+      maxHp: b.maxHp != null && b.maxHp !== "" ? b.maxHp : b.hp,
+      dex: dex == null ? "" : dex,
+      initBonus: initBonus,
+      atkBonus: atk == null ? "" : atk,
+      damage: damage,
+      attacks: b.attacks || (first.name || "")
+    };
+  }
+  function traitText(traits) {
+    if (Array.isArray(traits)) {
+      return traits.map(function (t) {
+        if (!t) return "";
+        if (typeof t === "string") return t;
+        var name = t.name || "";
+        var text = t.text || "";
+        return name ? (name + (text ? ". " + text : "")) : String(text || "");
+      }).filter(Boolean).join(" ");
+    }
+    if (traits && typeof traits === "object") return "";
+    return String(traits || "");
   }
   function cleanName(name, fallback) {
     var s = String(name || "").trim();
@@ -139,6 +180,8 @@
     release: release,
     has: has,
     weaponName: weaponName,
+    beastCombatant: beastCombatant,
+    traitText: traitText,
     healDice: healDice,
     healLine: healLine,
     hitLine: hitLine,

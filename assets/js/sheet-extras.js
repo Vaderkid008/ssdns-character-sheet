@@ -589,11 +589,37 @@
     var n = String(tgt.name || "").trim();
     return !n || /^no target$/i.test(n) || /^target$/i.test(n);
   }
-  function warnAlly(tgt) {
-    if (!tgt || tgt.kind !== "player") return;
-    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
-    if (uid && tgt.id === uid) return;
-    toast("That target is another player.");
+  function downed() {
+    var c = ch();
+    if (!c) return false;
+    var hp = c.hpCurrent;
+    if (hp !== "" && hp != null && isFinite(Number(hp)) && Number(hp) <= 0) return true;
+    return (c.activeConditions || []).some(function (row) {
+      var name = typeof row === "string" ? row : (row && row.name);
+      return name === "Unconscious";
+    });
+  }
+  function attackGate(tgt, opts) {
+    opts = opts || {};
+    if (opts.heal || opts.death) return "";
+    if (downed()) return "You're at 0 HP. Death saves only.";
+    if (tgt && tgt.kind === "player") {
+      var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      if (uid && tgt.id === uid) return "You can't attack yourself.";
+      return "You can't attack another player.";
+    }
+    return "";
+  }
+  function consumeRollMode() {
+    var sel = document.querySelector("#globalAdv");
+    var pin = document.querySelector("#advPin");
+    if (!sel || (pin && pin.checked)) return;
+    if (sel.value) sel.value = "";
+  }
+  function modeWord(mode) {
+    if (mode === "dis") return " disadvantage";
+    if (mode === "adv") return " advantage";
+    return "";
   }
   function rememberEnemy(tgt) {
     var sel = document.querySelector("#atkTarget");
@@ -618,7 +644,9 @@
     }
     var formula = (n2 == null ? "1d20" : "2d20") + (mod ? signMod(mod) : "");
     var dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
-    return { nat: nat, total: nat + (mod || 0), formula: formula, detail: dice + (mod ? signMod(mod) : "") };
+    var detail = dice + (mod ? signMod(mod) : "") + modeWord(mode);
+    consumeRollMode();
+    return { nat: nat, total: nat + (mod || 0), formula: formula, detail: detail };
   }
   function rollInitiative() {
     var inp = document.querySelector('[data-calc="initiative"]');
@@ -639,6 +667,9 @@
   }
   function castSpellAttack(i, spellName, slot, fromChamber) {
     var Cast = root.SSDNSSpellCast;
+    var looked = Cast && Cast.lookup && Cast.lookup(spellName);
+    var blocked = attackGate(currentTarget(), { heal: looked && looked.kind === "heal" });
+    if (blocked) { toast(blocked); addLog({ kind: "alert", text: blocked }); return; }
     if (Cast && Cast.needsType && Cast.needsType(spellName)) {
       Cast.pickType(spellName).then(function (type) {
         if (!type) return;
@@ -693,7 +724,6 @@
       root.SSDNSAudio.play(cue);
     }
     var tgt = currentTarget();
-    if (rolled.attack) warnAlly(tgt);
     if (tgt) rememberEnemy(tgt);
     var acForRoll = null;
     if (rolled.attack && rolled.multi && tgt && tgt.name) {
@@ -810,6 +840,7 @@
     } else if (rolled.heal) {
       applyDelta(Number(rolled.result) || 0, rolled.text);
     }
+    consumeRollMode();
   }
   function selectedCast(i) {
     var spellSel = document.querySelector('[data-castspell="' + i + '"]');
@@ -828,6 +859,9 @@
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
     var pick = selectedCast(i);
     if (!pick) { toast("Pick a spell from your list."); return; }
+    var looked = root.SSDNSSpellCast && root.SSDNSSpellCast.lookup && root.SSDNSSpellCast.lookup(pick.name);
+    var blocked = attackGate(currentTarget(), { heal: looked && looked.kind === "heal" });
+    if (blocked) { toast(blocked); addLog({ kind: "alert", text: blocked }); return; }
     if (pick.slot > 0) {
       if (!root.SSDNSApp.spendHexChamber) { toast("Cast through gun isn't ready."); return; }
       var held = root.SSDNSApp.spendHexChamber(i, pick.slot);
@@ -919,6 +953,8 @@
       else toast("Reload");
       return;
     }
+    var gate = attackGate(currentTarget());
+    if (gate) { toast(gate); addLog({ kind: "alert", text: gate }); return; }
     var spent = root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i) : null;
     if (!spent || !spent.ok) {
       var reason = (spent && spent.reason) || "That gun can't fire.";
@@ -965,7 +1001,6 @@
     }
     if (!misfired && root.SSDNSAudio) root.SSDNSAudio.play("attack");
     var tgt = currentTarget();
-    warnAlly(tgt);
     if (tgt) rememberEnemy(tgt);
     var haveAc = tgt && tgt.ac != null && isFinite(Number(tgt.ac));
     var miss = nat === 1 || misfired || (haveAc && total < Number(tgt.ac));
@@ -978,7 +1013,8 @@
       dice: dice
     });
     var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
-    var line = report.player + (misfired ? " · misfire" : "") + (gunDice.note ? " · " + gunDice.note : "") + ammoTxt;
+    var line = report.player + (misfired ? " · misfire" : "") + (gunDice.note ? " · " + gunDice.note : "") + modeWord(chosen) + ammoTxt;
+    consumeRollMode();
     toast(line);
     addLog({
       id: "roll:" + gunRollId,
@@ -1462,6 +1498,8 @@
     showInspiration: showInspiration,
     castNamed: function (name) { castSpellAttack(-1, name, 0, false); },
     attackRoll: attackRoll,
+    attackGate: attackGate,
+    consumeRollMode: consumeRollMode,
     showTapHear: function () {
       var b = $("#btnTapHear");
       if (b) b.hidden = false;

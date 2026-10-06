@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="favicon.ico">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.13">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.14">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -23,6 +23,7 @@
   <div class="bar-actions">
     <button type="button" class="btn sm" id="btnLeaveRoom" hidden title="Leave this screen without ending the table">Leave room / New session</button>
     <button type="button" class="btn sm" id="btnCopyCode" hidden title="Copy room code">Copy code</button>
+    <button type="button" class="btn sm" id="btnNewCode" hidden title="Move this table to a fresh code">New code</button>
     <button type="button" class="btn sm btn-danger" id="btnEndSession" hidden title="End session">End Session</button>
   </div>
 </header>
@@ -325,11 +326,11 @@
           </div>
           <div>
             <label for="dmgFlat">+ flat</label>
-            <input type="number" id="dmgFlat" value="" placeholder="0">
+            <input type="number" id="dmgFlat" value="" placeholder="0" title="A flat amount applies immediately. It does not wait for Approve first.">
           </div>
         </div>
         <div class="toolbar">
-          <button type="button" class="btn btn-danger" id="btnDmg">Roll damage</button>
+          <button type="button" class="btn btn-danger" id="btnDmg" title="Manual damage applies immediately. It does not wait for Approve first.">Roll damage</button>
           <button type="button" class="btn btn-primary" id="btnHeal">Roll healing</button>
           <button type="button" class="btn sm" id="btnShortRest">Short rest (party)</button>
           <button type="button" class="btn sm" id="btnLongRest">Long rest (party)</button>
@@ -461,15 +462,15 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.13"></script>
-<script src="../assets/js/conditions.js?v=0.2.13"></script>
-<script src="assets/js/ui-tab.js?v=0.2.13"></script>
-<script src="../assets/js/sfx.js?v=0.2.13"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.14"></script>
+<script src="../assets/js/conditions.js?v=0.2.14"></script>
+<script src="assets/js/ui-tab.js?v=0.2.14"></script>
+<script src="../assets/js/sfx.js?v=0.2.14"></script>
 <script src="../assets/data/rules.js"></script>
 <script src="../assets/js/spell-cast.js"></script>
 <script src="../assets/js/firebase-config.js"></script>
 <script src="assets/js/demo-data.js"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.13"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.13"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.14"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.14"></script>
 </body>
 </html>

@@ -1,29 +1,114 @@
 [
   {
+    "id": "_template",
+    "template": true,
+    "name": "Template",
+    "ac": 10,
+    "hp": 1,
+    "speed": 30,
+    "dex": 10,
+    "attacks": "",
+    "attackList": [],
+    "traits": []
+  },
+  {
+    "id": "outlaw",
+    "name": "Outlaw",
+    "size": "Medium",
+    "type": "humanoid (human)",
+    "alignment": "any non-lawful",
+    "ac": 12,
+    "armor": "leather armor",
+    "hp": 11,
+    "hitDice": "2d8+2",
+    "speed": 30,
+    "dex": 12,
+    "initBonus": 1,
+    "cr": "1/8",
+    "xp": 25,
+    "abilities": { "STR": 11, "DEX": 12, "CON": 12, "INT": 10, "WIS": 10, "CHA": 10 },
+    "saves": {},
+    "skills": {},
+    "senses": "passive Perception 10",
+    "languages": "Common",
+    "attacks": "Scimitar +3, 1d6+1",
+    "attackList": [
+      { "name": "Scimitar", "bonus": 3, "damage": "1d6+1", "kind": "melee" },
+      { "name": "Light crossbow", "bonus": 3, "damage": "1d8+1", "kind": "ranged" }
+    ],
+    "traits": [],
+    "description": "Trail trash with a six-gun attitude: duster or short coat, bandana, cheap leather, a knife that fights like a scimitar and a belt gun or short carbine. Stagecoach robbers, road agents, and posse fodder."
+  },
+  {
+    "id": "cactus-witch",
+    "name": "Cactus Witch",
+    "size": "Medium",
+    "type": "fey",
+    "alignment": "neutral evil",
+    "ac": 17,
+    "armor": "natural armor",
+    "hp": 82,
+    "hitDice": "11d8+33",
+    "speed": 30,
+    "dex": 12,
+    "initBonus": 1,
+    "cr": "3",
+    "xp": 700,
+    "abilities": { "STR": 18, "DEX": 12, "CON": 16, "INT": 13, "WIS": 14, "CHA": 14 },
+    "saves": {},
+    "skills": { "Arcana": 3, "Deception": 4, "Perception": 4, "Stealth": 3 },
+    "senses": "darkvision 60 ft., passive Perception 14",
+    "languages": "Common, Draconic, Sylvan",
+    "spellcasting": { "ability": "CHA", "dc": 12, "attack": 4, "spells": ["dancing lights", "minor illusion", "vicious mockery"] },
+    "attacks": "Claws +6, 2d8+4",
+    "attackList": [
+      { "name": "Claws", "bonus": 6, "damage": "2d8+4", "kind": "melee" }
+    ],
+    "traits": [
+      { "name": "Amphibious", "text": "The cactus witch can breathe air and water." },
+      { "name": "Innate Spellcasting", "text": "Charisma (spell save DC 12). At will: dancing lights, minor illusion, vicious mockery." },
+      { "name": "Mimicry", "text": "The cactus witch can mimic animal sounds and humanoid voices. A creature that hears the sounds can tell they are imitations with a successful DC 14 Wisdom (Insight) check." }
+    ],
+    "actions": [
+      { "name": "Illusory Appearance", "text": "The cactus witch covers herself with a magical illusion of another humanoid of her size. A creature must take an action and succeed on a DC 20 Intelligence (Investigation) check to discern the disguise." },
+      { "name": "Invisible Passage", "text": "The cactus witch magically turns invisible until she attacks or casts a spell, or until her concentration ends." }
+    ],
+    "description": "A sun-cracked crone in dust-colored robes and a wide brim stuck with dried herbs, cactus spines, and bone charms. She nests in abandoned mines, ghost towns, and canyon hollows."
+  },
+  {
     "id": "dust-devil",
-    "example": true,
-    "name": "Dust Devil (example)",
+    "name": "Dust Devil",
+    "size": "Medium",
+    "type": "beast",
+    "alignment": "unaligned",
     "ac": 13,
-    "hp": 22,
-    "attacks": "Claw +4 (1d6+2), Whirlwind +4 (2d6)",
-    "traits": "Example only — replace this file with your own stat cards. Whirlwind recharges on 5–6."
-  },
-  {
-    "id": "rail-agent",
-    "example": true,
-    "name": "Rail Company Agent (example)",
-    "ac": 15,
-    "hp": 32,
-    "attacks": "Revolver +5 (1d8+3), Sap +4 (1d4+2)",
-    "traits": "Example only. Pack tactics if an ally is adjacent."
-  },
-  {
-    "id": "hex-hound",
-    "example": true,
-    "name": "Hex Hound (example)",
-    "ac": 14,
-    "hp": 18,
-    "attacks": "Bite +4 (1d8+2)",
-    "traits": "Example only. First hit each round leaves the gun Cracked."
+    "armor": "natural armor",
+    "hp": 11,
+    "hitDice": "2d8+2",
+    "speed": 40,
+    "dex": 15,
+    "initBonus": 2,
+    "cr": "1/4",
+    "xp": 50,
+    "abilities": { "STR": 12, "DEX": 15, "CON": 12, "INT": 3, "WIS": 12, "CHA": 6 },
+    "saves": {},
+    "skills": { "Perception": 3, "Stealth": 4 },
+    "senses": "passive Perception 13",
+    "languages": "",
+    "attacks": "Bite +4, 2d4+2",
+    "attackList": [
+      {
+        "name": "Bite",
+        "bonus": 4,
+        "damage": "2d4+2",
+        "kind": "melee",
+        "rider": { "condition": "Prone", "save": "STR", "dc": 11, "rounds": null }
+      }
+    ],
+    "traits": [
+      { "name": "Keen Hearing and Smell", "text": "The dust devil has advantage on Wisdom (Perception) checks that rely on hearing or smell." },
+      { "name": "Pack Tactics", "text": "The dust devil has advantage on an attack roll against a creature if at least one of the dust devil's allies is within 5 feet of the creature and the ally isn't incapacitated." }
+    ],
+    "description": "Lean prairie wolves the color of trail dust. Not air elementals. Locals nicknamed them Dust Devils for how a pack looks like a spinning cloud of dirt until the teeth arrive."
   }
 ]
