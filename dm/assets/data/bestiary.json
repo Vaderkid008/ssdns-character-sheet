@@ -40,6 +40,43 @@
     "description": "Trail trash with a six-gun attitude: duster or short coat, bandana, cheap leather, a knife that fights like a scimitar and a belt gun or short carbine. Stagecoach robbers, road agents, and posse fodder."
   },
   {
+    "id": "switch-boss",
+    "name": "Switch Boss",
+    "description": "Rifleman who runs the rail-switch crew in Night at the Switch; fires a Dirty Henrietta from the handcar.",
+    "cr": "1/8",
+    "ac": 12,
+    "hp": 11,
+    "hpDice": "2d8+2",
+    "speed": "30 ft.",
+    "senses": "passive Perception 10",
+    "str": 11,
+    "dex": 12,
+    "con": 12,
+    "int": 10,
+    "wis": 10,
+    "cha": 10,
+    "saves": {},
+    "skills": {},
+    "loot": "Boss poke: 2 Yellow + 1 Green (250 ES). His rifle: Dirty Henrietta Repeating Rifle (.44-40) and leftover tube rounds, gear at PHB list (6,500 ES), not cash. Scene finds, not on him: tool box (Investigation DC 12) with a crowbar and a gun cleaning kit (100 ES gear); handcar lockbox (thieves' tools DC 12 or Str DC 15) with 1 Purple (500 ES) under 1 Black decoy.",
+    "esDrop": 250,
+    "attacks": "Dirty Rifle +3 (1d8+1 piercing, 30/120, 6 rds, MF 1-2), Bowie +3 (1d6+1 piercing)",
+    "atkBonus": 3,
+    "damage": "1d8+1",
+    "attackList": [
+      { "id": "dirty-rifle", "name": "Dirty Rifle", "kind": "ranged", "toHit": 3, "damage": "1d8+1", "damageType": "piercing", "range": "30/120", "capacity": 6, "misfire": 2, "notes": "Henrietta Repeating Rifle, Medium (.44-40), Dirty. Misfires on a natural 1-2: miss, jam, and the round is still spent. No close quarters: disadvantage with a hostile within 5 ft. Two-handed. Reload is an action; Tactical Reload loads 1 round as a bonus action." },
+      { "id": "bowie", "name": "Bowie", "kind": "melee", "toHit": 3, "damage": "1d6+1", "damageType": "piercing", "range": "5 ft", "notes": "Finesse, light. Only if a PC closes on the handcar." }
+    ],
+    "traits": [
+      { "name": "Dirty Rifle", "text": "The rifle is Dirty: it misfires on at least 1-2 until someone cleans it (10 minutes with gunsmith's tools or a gun cleaning kit). A misfire misses and jams the rifle, and the round is still spent. It fouls (unusable until a short rest with tools, or 500 ES to a gunsmith) if both d20s show 1-2 on a roll with advantage or disadvantage, or if it gets dirty again." },
+      { "name": "Handcar Nest (tactic)", "text": "Stays on the handcar and fires the rifle, then uses Take Cover (bonus action) behind the handcar. Ranged attacks against him have disadvantage until his next attack, and firing ends it. There is no automatic cover from the handcar." },
+      { "name": "Morale (tactic)", "text": "When he is the last of the crew standing, he flees on the handcar. If he runs, the remaining outlaws surrender." }
+    ],
+    "actions": [
+      { "name": "Clear Jam", "text": "Clears the jammed rifle with his action, or with a bonus action and a DC 10 Dexterity check (+1; no tool proficiency). A fouled rifle can't be cleared in the fight." },
+      { "name": "Flee on the Handcar", "text": "Morale break: he takes the handcar down the line and leaves the fight." }
+    ]
+  },
+  {
     "id": "cactus-witch",
     "name": "Cactus Witch",
     "size": "Medium",

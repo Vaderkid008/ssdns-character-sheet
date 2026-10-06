@@ -125,6 +125,11 @@ a { color: var(--eld); }
   letter-spacing: .12em; margin: 6px 0; text-shadow: 0 0 24px var(--eld-glow);
   user-select: all;
 }
+button.room-code {
+  display: block; width: 100%; background: none; border: 0; padding: 0;
+  cursor: pointer; color: var(--eld);
+}
+button.room-code:hover, button.room-code:focus-visible { text-decoration: underline; }
 .room-meta { font-size: 14px; color: var(--muted); }
 .presence { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
 .pill {

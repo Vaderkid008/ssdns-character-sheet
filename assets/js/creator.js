@@ -718,6 +718,7 @@
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.syncSheet) root.SSDNSPlaytest.syncSheet();
     close(false);
     if (root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice("Character created.");
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.consumeInvite) root.SSDNSDmJoin.consumeInvite();
   }
   function close(cancelled) {
     ui.open = false;

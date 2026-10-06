@@ -46,7 +46,8 @@
     connId: "conn_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     readOnly: false,
     joinEpoch: 0,
-    left: false
+    left: false,
+    inviteCode: ""
   };
 
   function $(s, r) { return (r || document).querySelector(s); }
@@ -956,6 +957,7 @@
   function droppedByDm(payload) {
     if (state._kicked) return;
     state._kicked = true;
+    forgetInvite();
     var reason = payload && payload.reason ? (" · " + payload.reason) : "";
     toast("The DM removed you from the table" + reason);
     if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "The DM removed you from the table" });
@@ -1304,22 +1306,28 @@
     state._conn = false;
   }
 
+  function forgetInvite() { state.inviteCode = ""; }
   function setUiJoined(on, code) {
     var status = $("#dmJoinStatus");
     var btnJoin = $("#btnDmJoin");
     var btnLeave = $("#btnDmLeave");
     var input = $("#dmJoinCode");
     if (status) {
-      if (!on) status.textContent = "Not in a room";
+      if (!on && state.inviteCode) status.textContent = "Join " + state.inviteCode;
+      else if (!on) status.textContent = "Not in a room";
       else if (state.connected === false) status.textContent = "Reconnecting " + code;
       else status.textContent = "Joined " + code;
     }
-    if (btnJoin) btnJoin.hidden = !!on;
+    if (btnJoin) {
+      btnJoin.hidden = !!on;
+      btnJoin.textContent = (!on && state.inviteCode) ? ("Join " + state.inviteCode) : "Join";
+    }
     if (btnLeave) btnLeave.hidden = !on;
     if (input) {
       input.disabled = !!on;
       if (on && code) input.value = code;
-      if (!on) input.value = "";
+      else if (!on && state.inviteCode) input.value = state.inviteCode;
+      else if (!on) input.value = "";
     }
     var bar = $("#dmJoinBar");
     if (bar) bar.classList.toggle("joined", !!on);
@@ -1405,6 +1413,7 @@
       var kickSnap = await fb.get(fb.ref(state.db, "rooms/" + code + "/kicked/" + state.uid));
       if (kickSnap.exists()) {
         toast("The DM removed you from the table");
+        forgetInvite();
         state._kicked = true;
         detachAll();
         state.joined = false;
@@ -1447,6 +1456,7 @@
         if (!state.joined) return;
         publishSnapshot();
       }, 15000);
+      forgetInvite();
       toast("Joined " + code);
     } catch (e) {
       console.warn(e);
@@ -1501,6 +1511,7 @@
     return ids;
   }
   async function leave() {
+    forgetInvite();
     var code = state.roomCode;
     var uid = state.uid;
     var db = state.db;
@@ -1554,8 +1565,47 @@
       claimGrant: claimGrant,
       isReadOnly: function () { return !!state.readOnly; },
       writeCondition: writeCondition,
-      takeOverEditing: takeOverEditing
+      takeOverEditing: takeOverEditing,
+      consumeInvite: consumeInvite
     };
+  }
+  function characterReady() {
+    var d = doc();
+    if (root.SSDNSCreator && root.SSDNSCreator.isExisting) return root.SSDNSCreator.isExisting(d);
+    var c = d && d.character;
+    return !!(c && (c.wizardDone || c.name || c.calling || c.lineage || c.background));
+  }
+  function joinFromBar() {
+    var input = $("#dmJoinCode");
+    var code = String((input && input.value) || state.inviteCode || "").trim().toUpperCase();
+    if (!characterReady()) {
+      if (code) state.inviteCode = code;
+      if (input && state.inviteCode) input.value = state.inviteCode;
+      toast(state.inviteCode ? ("Finish your character to join " + state.inviteCode) : "Finish your character first");
+      if (root.SSDNSCreator && root.SSDNSCreator.open) root.SSDNSCreator.open(true);
+      return;
+    }
+    join(code);
+  }
+  function consumeInvite() {
+    if (!state.inviteCode || !characterReady()) return;
+    join(state.inviteCode);
+  }
+  function readRoomParam() {
+    var code = "";
+    try {
+      var loc = root.location;
+      if (!loc) return "";
+      var params = new URLSearchParams(loc.search || "");
+      var raw = params.get("room");
+      if (!raw) return "";
+      code = String(raw).trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 12);
+      params.delete("room");
+      var qs = params.toString();
+      var next = loc.pathname + (qs ? "?" + qs : "") + (loc.hash || "");
+      if (root.history && root.history.replaceState) root.history.replaceState(null, "", next);
+    } catch (e) {}
+    return code;
   }
 
   function wireUi() {
@@ -1564,10 +1614,10 @@
     if (btnJoin) {
       btnJoin.addEventListener("pointerdown", function () {
         var status = $("#dmJoinStatus");
-        if (status && !state.joined) status.textContent = "Connecting…";
+        if (status && !state.joined && characterReady()) status.textContent = "Connecting…";
       });
       btnJoin.addEventListener("click", function () {
-        join(($("#dmJoinCode") && $("#dmJoinCode").value) || "");
+        joinFromBar();
       });
     }
     if (btnLeave) btnLeave.addEventListener("click", function () {
@@ -1578,7 +1628,7 @@
     });
     var input = $("#dmJoinCode");
     if (input) input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") { e.preventDefault(); join(input.value); }
+      if (e.key === "Enter") { e.preventDefault(); joinFromBar(); }
     });
   }
 
@@ -1671,6 +1721,7 @@
     claimJoinLock();
   }
   function bootWhenReady() {
+    state.inviteCode = readRoomParam();
     hookRollHelper();
     wireUi();
     setUiJoined(false);
@@ -1700,6 +1751,10 @@
               return;
             }
             refreshJoinLock();
+            if (state.inviteCode) {
+              if (!state.joined) setUiJoined(false);
+              return;
+            }
             var saved = loadLocal();
             var input = $("#dmJoinCode");
             var shown = input ? String(input.value || "").trim().toUpperCase() : "";
