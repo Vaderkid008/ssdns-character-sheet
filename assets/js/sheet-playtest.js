@@ -5,7 +5,8 @@
 (function (root) {
   "use strict";
   var declined = "";
-  var LOG_KEY = "ssdns.v1.tableLog";
+  var LOG_KEY = "ssdns.sheet.tableLog";
+  var LOG_OLD = "ssdns.v1.tableLog";
 
   function $(s) { return document.querySelector(s); }
   function doc() { return root.SSDNSApp && root.SSDNSApp.doc ? root.SSDNSApp.doc() : null; }
@@ -16,7 +17,8 @@
     (list || []).forEach(function (x) { if (x && x.id) m[x.id] = x; });
     return m;
   }
-  function toast(msg) {
+  function toast(msg, actLabel, actFn, ms, opts) {
+    if (root.SSDNSToast) return root.SSDNSToast(msg, actLabel, actFn, ms, opts);
     var t = $("#toastText"), box = $("#toast");
     if (t && box) { t.textContent = msg; box.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(function () { box.hidden = true; }, 3200); }
   }
@@ -345,9 +347,16 @@
     }
     if (declined === key) return;
     var cal = byId(rules().callings)[c.calling];
-    if (window.confirm("Apply the starting kit for " + ((cal && cal.name) || "this Calling") + "?")) applyKit(false);
-    else declined = key;
-    fillFeatures();
+    var msg = "Apply the starting kit for " + ((cal && cal.name) || "this Calling") + "?";
+    var ask = root.SSDNSAsk && root.SSDNSAsk.confirm ? root.SSDNSAsk.confirm(msg) : Promise.resolve(false);
+    ask.then(function (ok) {
+      if (ok) applyKit(false);
+      else {
+        declined = key;
+        if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "Declined the starting kit." });
+      }
+      fillFeatures();
+    });
   }
 
   function featureLevel(name) {
@@ -696,7 +705,18 @@
     var left = m ? parseInt(m[1], 10) : parseInt(raw, 10);
     var sides = m ? parseInt(m[2], 10) : 8;
     if (!left) { toast("No hit dice left."); return; }
-    if (!window.confirm("Spend one hit die? You have " + left + "d" + sides + " left.")) return;
+    var ask = root.SSDNSAsk && root.SSDNSAsk.confirm
+      ? root.SSDNSAsk.confirm("Spend one hit die? You have " + left + "d" + sides + " left.")
+      : Promise.resolve(false);
+    ask.then(function (ok) {
+      if (!ok) {
+        if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "Declined spending a hit die." });
+        return;
+      }
+      spendHitDie(left, sides);
+    });
+  }
+  function spendHitDie(left, sides) {
     var roll = 1 + Math.floor(Math.random() * sides);
     var v = root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var gain = Math.max(1, roll + ((v.mods && v.mods.CON) || 0));
@@ -749,34 +769,51 @@
       return Array.isArray(raw) ? raw : [];
     } catch (e) { return []; }
   }
+  function logSources() {
+    var id = "";
+    try { id = (doc() && doc().id) || ""; } catch (e) {}
+    var tail = id || "local";
+    return [LOG_KEY + "." + tail, LOG_KEY + ".local", LOG_OLD + "." + tail, LOG_OLD + ".local", LOG_OLD];
+  }
   function dropLogStore(skipClear) {
-    try {
-      localStorage.removeItem(logKey());
-      localStorage.removeItem(LOG_KEY + ".local");
-    } catch (e) {}
+    try { logSources().forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
     if (!skipClear && root.SSDNSSheet && root.SSDNSSheet.clearLog) root.SSDNSSheet.clearLog();
+  }
+  function dumpLogs() {
+    var Sheet = root.SSDNSSheet;
+    var rows = Sheet && Sheet.logRows ? Sheet.logRows() : [];
+    var json = JSON.stringify(rows.slice(0, 200));
+    try { localStorage.setItem(logKey(), json); } catch (e) {}
+    try { localStorage.setItem(LOG_KEY + ".local", json); } catch (e2) {}
   }
   function persistLogs() {
     var Sheet = root.SSDNSSheet;
     if (!Sheet || !Sheet.addLog || Sheet.addLog._persist) return;
-    var key = logKey();
-    var merged = readLogStore(key);
+    var seen = {};
+    var merged = [];
+    logSources().forEach(function (k) {
+      readLogStore(k).forEach(function (row) {
+        if (!row) return;
+        var id = row.id || ((row.ts || "") + "|" + (row.text || ""));
+        if (seen[id]) return;
+        seen[id] = 1;
+        merged.push(row);
+      });
+    });
     merged.sort(function (a, b) { return String(a && a.ts || "").localeCompare(String(b && b.ts || "")); });
     if (Sheet.mergeLog) Sheet.mergeLog(merged);
     else merged.forEach(function (row) { Sheet.addLog(row); });
     var orig = Sheet.addLog;
     Sheet.addLog = function (entry) {
       orig(entry);
-      try {
-        var storeKey = logKey();
-        var raw = readLogStore(storeKey);
-        if (entry && entry.id && raw.some(function (e) { return e && e.id === entry.id; })) return;
-        raw.unshift(entry);
-        raw.sort(function (a, b) { return String(b && b.ts || "").localeCompare(String(a && a.ts || "")); });
-        localStorage.setItem(storeKey, JSON.stringify(raw.slice(0, 80)));
-      } catch (e2) {}
+      dumpLogs();
     };
     Sheet.addLog._persist = true;
+    window.addEventListener("beforeunload", dumpLogs);
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") dumpLogs();
+    });
+    dumpLogs();
   }
   function showYourTurn() {
     var banner = $("#yourTurnBanner");
@@ -787,14 +824,19 @@
       banner.innerHTML = "<b>Your turn</b> <button type='button' class='btn sm' id='btnDismissTurn'>Dismiss</button>";
       document.body.appendChild(banner);
       var btn = banner.querySelector("button");
-      if (btn) btn.addEventListener("click", function () { banner.hidden = true; });
+      if (btn) btn.addEventListener("click", function () {
+        banner.hidden = true;
+        if (root.SSDNSToast && root.SSDNSToast.dismissSticky) root.SSDNSToast.dismissSticky("Your turn");
+      });
     }
     banner.hidden = false;
+    toast("Your turn", "Dismiss", function () { banner.hidden = true; }, 0, { sticky: true, priority: 1 });
     if (root.SSDNSAudio) root.SSDNSAudio.play("holster");
   }
   function hideYourTurn() {
     var banner = $("#yourTurnBanner");
     if (banner) banner.hidden = true;
+    if (root.SSDNSToast && root.SSDNSToast.dismissSticky) root.SSDNSToast.dismissSticky("Your turn");
   }
   function paintDiamonds(count) {
     var c = ch();
@@ -836,7 +878,15 @@
       var panel = $("#turnPanel");
       if (!panel) return;
       var order = (init && Array.isArray(init.order) && init.order) || [];
-      if (!order.length) { panel.hidden = true; shownTurn = ""; hideYourTurn(); return; }
+      if (!order.length) {
+        if (shownTurn && root.SSDNSSheet && root.SSDNSSheet.addLog) {
+          root.SSDNSSheet.addLog({ id: "combat-ended:" + new Date().toISOString().slice(0, 19), kind: "alert", text: "Combat ended" });
+        }
+        panel.hidden = true;
+        shownTurn = "";
+        hideYourTurn();
+        return;
+      }
       panel.hidden = false;
       var round = init.round || 1;
       var turn = Number(init.turn) || 0;

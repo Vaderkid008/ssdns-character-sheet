@@ -4,9 +4,34 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.8"; // dmcc-round5-v028
-const NOTES_KEY = "ssdns.dmcc.notes";
-const ROOM_KEY = "ssdns.dmcc.lastRoom";
+const VERSION = "0.2.9"; // dmcc-round6-v029
+const NOTES_KEY = "ssdns.dm.notes";
+const ROOM_KEY = "ssdns.dm.lastRoom";
+const OPEN_KEY = "ssdns.dm.open";
+function migrateDmKey(next, prev) {
+  try {
+    if (localStorage.getItem(next) == null) {
+      const old = localStorage.getItem(prev);
+      if (old != null) localStorage.setItem(next, old);
+    }
+  } catch (e) {}
+}
+migrateDmKey(NOTES_KEY, "ssdns.dmcc.notes");
+migrateDmKey(ROOM_KEY, "ssdns.dmcc.lastRoom");
+let sessionOpen = false;
+function releaseSession() {
+  sessionOpen = false;
+  try { sessionStorage.removeItem(OPEN_KEY); } catch (e) {}
+}
+function rememberOpenSession() {
+  sessionOpen = true;
+  try {
+    sessionStorage.setItem(OPEN_KEY, JSON.stringify({ code: state.roomCode, demo: !!state.demo }));
+  } catch (e) {}
+}
+function readOpenFlag() {
+  try { return JSON.parse(sessionStorage.getItem(OPEN_KEY) || "null"); } catch (e) { return null; }
+}
 const WORDS = ["DUST", "IRON", "HEX", "RUST", "BONE", "COIL", "SAGE", "RAIL", "OXEN", "VELD", "ASH", "QUILL"];
 
 const $ = (s, r) => (r || document).querySelector(s);
@@ -44,14 +69,9 @@ function writeFailed(err, fallback) {
 }
 function setCreateBusy(busy) {
   const main = $("#btnCreateRoom");
-  const header = $("#btnHeaderCreate");
   if (main) {
     main.disabled = !!busy;
     main.textContent = busy ? "Connecting…" : "Create room";
-  }
-  if (header) {
-    header.disabled = !!busy;
-    header.textContent = busy ? "Connecting…" : "Create a room";
   }
 }
 function isFormField(el) {
@@ -204,19 +224,21 @@ async function initFirebase() {
       runTransaction: dbMod.runTransaction
     };
     const fb = state._fb;
-    state.app = fb.initializeApp(cfg);
+    state.app = fb.initializeApp(cfg, "ssdns-dm");
     state.auth = fb.getAuth(state.app);
     state.db = fb.getDatabase(state.app);
     await fb.signInAnonymously(state.auth);
     await new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error("Auth timeout")), 8000);
       fb.onAuthStateChanged(state.auth, (user) => {
-        if (user) {
-          clearTimeout(t);
-          state.uid = user.uid;
-          state.firebaseReady = true;
-          resolve(user);
+        if (!user) {
+          if (sessionOpen) fb.signInAnonymously(state.auth).catch(() => {});
+          return;
         }
+        state.uid = user.uid;
+        state.firebaseReady = true;
+        clearTimeout(t);
+        resolve(user);
       }, reject);
     });
     // Anonymous sign-in is the readiness check. ref(".info/connected") throws
@@ -241,10 +263,10 @@ function clearUnsubs() {
 }
 
 /* ---------- Demo load ---------- */
-function loadDemo(createNewCode) {
+function loadDemo(createNewCode, resumeCode) {
   const D = window.DMCC_DEMO;
   state.demo = true;
-  state.roomCode = createNewCode ? roomCode() : D.roomCode;
+  state.roomCode = createNewCode ? roomCode() : (resumeCode || D.roomCode);
   state.meta = Object.assign({}, D.meta, {
     code: state.roomCode,
     dmUid: "demo_dm",
@@ -316,22 +338,36 @@ function attachLiveListeners() {
   addictionReady = false;
   const bind = (path, handler) => listenRef(path, handler);
   bind("meta", (v) => { if (v) { state.meta = v; guardFocus(() => renderRoomHero()); } });
-  const seenJoin = {};
+  const presenceWas = {};
   bind("players", (v) => {
     const prev = state.players || {};
     state.players = v || {};
     Object.keys(state.players).forEach((id) => {
-      if (seenJoin[id]) return;
-      seenJoin[id] = 1;
-      const already = (state.ledger || []).some((e) => e && e.type === "join" && e.playerId === id);
-      if (!prev[id] && !already) {
-        const s = state.players[id].snapshot || {};
-        const who = [s.player, s.name].filter(Boolean).join(" · ") || id;
+      const p = state.players[id] || {};
+      const on = !!(p.presence && p.presence.online);
+      const s = p.snapshot || {};
+      const who = [s.player, s.name].filter(Boolean).join(" · ") || id;
+      const was = presenceWas[id];
+      if (!prev[id]) {
+        const already = (state.ledger || []).some((e) => e && e.type === "join" && e.playerId === id);
+        if (!already) {
+          pushLedger({
+            who: who, playerId: id, playerName: s.player || "", characterName: s.name || "",
+            type: "join", what: who + " joined the table", oldVal: null, newVal: "joined", flag: false
+          });
+        }
+      } else if (was === false && on) {
         pushLedger({
           who: who, playerId: id, playerName: s.player || "", characterName: s.name || "",
-          type: "join", what: who + " joined the table", oldVal: null, newVal: "joined", flag: false
+          type: "rejoin", what: who + " rejoined the table", oldVal: null, newVal: "rejoined", flag: false
+        });
+      } else if (was === true && !on) {
+        pushLedger({
+          who: who, playerId: id, playerName: s.player || "", characterName: s.name || "",
+          type: "leave", what: who + " left the table", oldVal: null, newVal: "left", flag: false
         });
       }
+      presenceWas[id] = on;
     });
     guardFocus(() => {
       renderPlayers();
@@ -345,7 +381,7 @@ function attachLiveListeners() {
   bind("ledger", (v) => {
     const next = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
     noteAddiction(next);
-    state.ledger = next;
+    state.ledger = dedupeById(next);
     renderLedger();
   });
   bind("rolls", (v) => {
@@ -644,15 +680,14 @@ function setStatus(mode, text) {
 function syncSessionButtons() {
   const inRoom = document.body.classList.contains("in-room");
   const leave = $("#btnLeaveRoom");
-  const create = $("#btnHeaderCreate");
   if (leave) leave.hidden = !inRoom;
-  if (create) create.hidden = false;
   const copy = $("#btnCopyCode");
   const end = $("#btnEndSession");
   if (copy) copy.hidden = !inRoom;
   if (end) end.hidden = !inRoom;
 }
 function showRoom() {
+  rememberOpenSession();
   $("#lobby").hidden = true;
   $("#roomShell").hidden = false;
   document.body.classList.add("in-room");
@@ -663,6 +698,7 @@ function showRoom() {
 }
 
 function hideRoom() {
+  if (sessionOpen) return;
   $("#lobby").hidden = false;
   $("#roomShell").hidden = true;
   document.body.classList.remove("in-room");
@@ -673,12 +709,20 @@ function hideRoom() {
   syncSessionButtons();
 }
 function leaveRoom() {
+  releaseSession();
+  const code = state.roomCode || (state.meta && state.meta.code) || "";
+  const meta = state.meta;
+  const demo = !!state.demo;
   clearUnsubs();
-  state.roomCode = null;
   hideRoom();
-  const choice = $("#resumeChoice");
-  if (choice) choice.hidden = false;
-  toast("Left this screen. The table is still live — resume it or create a new room.");
+  if (code) {
+    pendingResume = { code: code, meta: meta, demo: demo };
+    showResumeChoice(code);
+  } else {
+    pendingResume = null;
+    showResumeChoice("");
+  }
+  toast("Left this screen. The table is still live — resume it or start a new session.");
 }
 
 function renderRoomHero() {
@@ -948,7 +992,7 @@ function renderLedger() {
     renderLiveDock();
     return;
   }
-  feed.innerHTML = state.ledger.filter((e) => e.type !== "addiction").map((e) => {
+  feed.innerHTML = dedupeById(state.ledger).filter((e) => e.type !== "addiction").map((e) => {
     const delta = (e.oldVal != null && e.newVal != null && typeof e.oldVal === "number" && typeof e.newVal === "number")
       ? `${e.oldVal} → ${e.newVal}` : (e.newVal != null ? String(e.newVal) : "");
     return `<div class="feed-item ${e.flag ? "flag" : ""}">
@@ -971,7 +1015,7 @@ function dockItems() {
     who: (c.fromName || "Table") + (c.to && c.to !== "all" ? " → " + (c.toName || "one player") : ""),
     text: c.text || ""
   }));
-  (state.ledger || []).forEach((e) => {
+  dedupeById(state.ledger || []).forEach((e) => {
     if (e.type === "addiction") return;
     const money = MONEY_TYPES.test(String(e.type || ""));
     const alert = ALERT_TYPES.test(String(e.type || "")) || !!e.flag;
@@ -1074,6 +1118,10 @@ async function sendDockChat(text, to) {
   } catch (e) { writeFailed(e, "Chat failed"); }
 }
 
+function rollWho(r) {
+  if (r && r.characterName && r.playerName) return r.characterName + " (" + r.playerName + ")";
+  return (r && r.who) || "";
+}
 function renderRolls() {
   const feed = $("#rollsFeed");
   const visible = state.rolls.filter((r) => !r.private || state.demo || r.uid === state.uid || true);
@@ -1090,7 +1138,8 @@ function renderRolls() {
     return `<div class="feed-item ${nat ? "nat1" : ""} ${face.cls} ${r.private ? "private" : ""}">
       <div class="feed-meta">
         <span>${esc(fmtTime(r.ts))}</span>
-        <span>${esc(r.who)}</span>
+        <span>${esc(rollWho(r))}</span>
+        ${state.turnEngaged && r.playerId && r.uid !== state.uid && r.playerId !== state.turnPlayerId ? '<span class="badge">out of turn</span>' : ""}
         ${r.private ? '<span class="badge">Private</span>' : ""}${r.whisper ? '<span class="badge">Whisper</span>' : ""}
         ${face.tag ? '<span class="roll-tag">' + esc(face.tag) + "</span>" : ""}
         ${nat ? '<span class="badge danger">Nat 1 · firearm</span>' : ""}
@@ -1126,7 +1175,7 @@ function renderHandouts() {
     const url = String(h.url || "").trim();
     const text = String(h.text || "").trim();
     const media = url
-      ? `<img src="${esc(url)}" alt="" loading="lazy">`
+      ? `<img src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';if(!this.dataset.fell){this.dataset.fell='1';this.insertAdjacentHTML('afterend','<span>Image couldn\\'t load — open link</span>');}">`
       : `<div class="handout-text">${esc(text || "Text handout")}</div>`;
     const open = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">Open link</a>` : "";
     return `
@@ -1171,7 +1220,25 @@ function targetsFor(selValue) {
   return selValue ? [selValue] : [];
 }
 
+let rewardBusy = false;
+function dedupeById(list) {
+  const seen = new Set();
+  const out = [];
+  (list || []).forEach((e) => {
+    if (e && e.id) {
+      if (seen.has(e.id)) return;
+      seen.add(e.id);
+    }
+    out.push(e);
+  });
+  return out;
+}
 async function doPushReward() {
+  if (rewardBusy) return;
+  rewardBusy = true;
+  const btn = $("#btnPushReward");
+  if (btn) btn.disabled = true;
+  try {
   const target = $("#rewTarget").value;
   const type = $("#rewType").value;
   const ids = targetsFor(target);
@@ -1188,13 +1255,16 @@ async function doPushReward() {
       if (state.demo) await applyEsToDemoPlayer(pid, delta);
       const neu = old == null || !isFinite(old) ? null : old + delta;
       const flag = Math.abs(delta) >= 500;
+      const id = uid("rew");
       await pushLedger({
+        id: id,
         who: "DM", playerId: pid, playerName: snap.player || "", characterName: name, type: "dm_push",
         what: reason + " (" + (delta >= 0 ? "+" : "") + delta + " ES) → " + name,
         oldVal: old, newVal: neu, flag
       });
       await pushCommand({
-        type: "reward_es", to: pid, payload: { delta, reason: reason },
+        id: id,
+        type: "reward_es", to: pid, payload: { delta, reason: reason, grantId: id },
         from: state.uid
       });
     }
@@ -1204,17 +1274,26 @@ async function doPushReward() {
   } else {
     const text = ($("#rewText").value || "").trim();
     if (!text) { toast("Enter item or note text"); return; }
+    const qty = Math.max(1, parseInt(($("#rewQty") && $("#rewQty").value) || "1", 10) || 1);
+    const labeled = type === "item" && qty > 1 && !/^\d+\s*x\b/i.test(text) ? (qty + "x " + text) : text;
     const to = target === "all" ? "all" : target;
+    const id = uid("rew");
     await pushLedger({
+      id: id,
       who: "DM", playerId: to, type: "dm_push",
-      what: (type === "item" ? "Item: " : "Note: ") + text + (to === "all" ? " (everyone)" : ""),
-      oldVal: null, newVal: text, flag: false
+      what: (type === "item" ? "Item: " : "Note: ") + labeled + (to === "all" ? " (everyone)" : ""),
+      oldVal: null, newVal: labeled, flag: false
     });
     await pushCommand({
+      id: id,
       type: type === "item" ? "reward_item" : "reward_note",
-      to, payload: { text }, from: state.uid
+      to, payload: { text: labeled, grantId: id, qty: qty }, from: state.uid
     });
     toast(type === "item" ? "Item pushed" : "Note pushed");
+  }
+  } finally {
+    rewardBusy = false;
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -1359,6 +1438,7 @@ function buildRecap() {
   return lines.join("\n");
 }
 async function endSession(wipe) {
+  releaseSession();
   const recap = buildRecap();
   const archive = {
     archivedAt: new Date().toISOString(),
@@ -1374,7 +1454,10 @@ async function endSession(wipe) {
     setTimeout(() => download(codeName + "-recap.txt", recap, "text/plain"), 400);
     toast("Demo session ended · archive and recap downloaded" + (wipe ? " · wiped" : ""));
     if (wipe) { state.players = {}; state.ledger = []; state.rolls = []; state.messages = []; state.handouts = []; }
+    try { localStorage.removeItem(ROOM_KEY); } catch (err) {}
+    pendingResume = null;
     hideRoom();
+    showResumeChoice("");
     return;
   }
   try {
@@ -1393,7 +1476,9 @@ async function endSession(wipe) {
     toast("Archive and recap downloaded locally (cloud write failed)");
   }
   try { localStorage.removeItem(ROOM_KEY); } catch (err) {}
+  pendingResume = null;
   hideRoom();
+  showResumeChoice("");
 }
 
 /* ---------- tabs ---------- */
@@ -1428,20 +1513,25 @@ function wire() {
     if (name && state.meta) { state.meta.name = name; renderRoomHero(); }
   };
   $("#btnCreateRoom").addEventListener("click", createRoom);
-  const headerCreate = $("#btnHeaderCreate");
-  if (headerCreate) headerCreate.addEventListener("click", () => {
-    if (document.body.classList.contains("in-room")) {
-      leaveRoom();
-      const name = $("#inRoomName");
-      if (name) name.focus();
-      return;
-    }
-    createRoom();
+  const startSession = $("#btnStartSession");
+  if (startSession) startSession.addEventListener("click", () => {
+    const name = $("#inRoomName");
+    if (!name) return;
+    const typed = name.value;
+    try { name.scrollIntoView({ block: "center" }); } catch (err) {}
+    name.focus();
+    if (name.value !== typed) name.value = typed;
   });
   const leaveBtn = $("#btnLeaveRoom");
   if (leaveBtn) leaveBtn.addEventListener("click", leaveRoom);
   const resumeBtn = $("#btnResumeRoom");
-  if (resumeBtn) resumeBtn.addEventListener("click", () => { resumeLiveRoom(); });
+  if (resumeBtn) resumeBtn.addEventListener("click", () => {
+    if (pendingResume && pendingResume.demo) {
+      loadDemo(false, pendingResume.code);
+      return;
+    }
+    resumeLiveRoom();
+  });
   $("#btnLoadDemo").addEventListener("click", () => loadDemo(false));
   $("#chkDemo").addEventListener("change", async () => {
     state.demo = $("#chkDemo").checked;
@@ -1489,6 +1579,8 @@ function wire() {
     const t = $("#rewType").value;
     $("#rewEsWrap").hidden = t !== "es";
     $("#rewTextWrap").hidden = t === "es";
+    const qty = $("#rewQtyWrap");
+    if (qty) qty.hidden = t !== "item";
   });
   $("#btnPushReward").addEventListener("click", doPushReward);
   $("#btnSendMsg").addEventListener("click", doSendMsg);
@@ -1535,7 +1627,7 @@ function wire() {
     }
     document.body.classList.toggle("dock-collapsed");
     collapse.textContent = document.body.classList.contains("dock-collapsed") ? "Show" : "Hide";
-    try { localStorage.setItem("ssdns.dmcc.dock", document.body.classList.contains("dock-collapsed") ? "closed" : "open"); } catch (err) {}
+    try { localStorage.setItem("ssdns.dm.dock", document.body.classList.contains("dock-collapsed") ? "closed" : "open"); } catch (err) {}
     renderLiveDock();
   });
   const fab = $("#btnDockFab");
@@ -1547,11 +1639,11 @@ function wire() {
   const alertBar = $("#addictionAlert");
   if (alertBar) alertBar.addEventListener("click", () => { alertBar.hidden = true; });
   window.addEventListener("storage", (e) => {
-    if (e.key !== "ssdns.v1.consumePing" || !e.newValue) return;
+    if ((e.key !== "ssdns.v1.consumePing" && e.key !== "ssdns.sheet.consumePing") || !e.newValue) return;
     try { takeConsumePing(JSON.parse(e.newValue)); } catch (err) { console.warn("[DMCC] consume", err); }
   });
   try {
-    if (localStorage.getItem("ssdns.dmcc.dock") === "closed") {
+    if ((localStorage.getItem("ssdns.dm.dock") || localStorage.getItem("ssdns.dmcc.dock")) === "closed") {
       document.body.classList.add("dock-collapsed");
       if (collapse) collapse.textContent = "Show";
     }
@@ -1559,30 +1651,43 @@ function wire() {
 }
 
 let pendingResume = null;
+function readSavedRoom() {
+  try { return JSON.parse(localStorage.getItem(ROOM_KEY) || "null"); } catch (e) { return null; }
+}
 function showResumeChoice(code) {
+  if (sessionOpen) return;
   const box = $("#resumeChoice");
-  const label = $("#resumeCodeLabel");
   const btn = $("#btnResumeRoom");
-  if (label) label.textContent = code;
-  if (btn) btn.textContent = "Resume " + code;
+  const prompt = $("#resumePrompt");
+  if (code) {
+    if (btn) {
+      btn.hidden = false;
+      btn.textContent = "Resume " + code;
+    }
+    if (prompt) prompt.textContent = "Resume " + code + ", or start a new session. Leaving a room does not end the table.";
+  } else if (btn) {
+    btn.hidden = true;
+    if (prompt) prompt.textContent = "Start a new session. Leaving a room does not end the table.";
+  }
   if (box) box.hidden = false;
-  $("#lobby").hidden = false;
-  $("#roomShell").hidden = true;
+  const lobby = $("#lobby");
+  const shell = $("#roomShell");
+  if (lobby) lobby.hidden = false;
+  if (shell) shell.hidden = true;
   document.body.classList.remove("in-room");
   syncSessionButtons();
 }
 async function peekResume() {
-  let saved = null;
-  try { saved = JSON.parse(localStorage.getItem(ROOM_KEY) || "null"); } catch (e) {}
+  const saved = readSavedRoom();
   if (!saved || saved.demo || !saved.code || !saved.uid || saved.uid !== state.uid) return false;
   try {
     const snap = await state._fb.get(state._fb.ref(state.db, "rooms/" + saved.code + "/meta"));
     if (!snap.exists()) return false;
     const meta = snap.val();
     if (!meta || meta.status === "ended" || meta.dmUid !== state.uid) return false;
-    pendingResume = { code: saved.code, meta: meta };
+    pendingResume = { code: saved.code, meta: meta, demo: false };
     showResumeChoice(saved.code);
-    setStatus("live", "Live · resume " + saved.code + " or create a new room");
+    setStatus("live", "Live · resume " + saved.code + " or start a new session");
     return true;
   } catch (e) {
     console.warn("[DMCC] resume", e);
@@ -1590,8 +1695,8 @@ async function peekResume() {
   }
 }
 async function resumeLiveRoom() {
-  const pending = pendingResume;
-  if (!pending) return false;
+  let pending = pendingResume;
+  if (!pending || pending.demo) return false;
   if (!state.firebaseReady) {
     setCreateBusy(true);
     setStatus("live", "Connecting…");
@@ -1599,7 +1704,27 @@ async function resumeLiveRoom() {
     setCreateBusy(false);
     if (!ok) { toast("Firebase isn't ready yet"); return false; }
   }
+  if (!pending.meta) {
+    try {
+      const snap = await state._fb.get(state._fb.ref(state.db, "rooms/" + pending.code + "/meta"));
+      const meta = snap.exists() ? snap.val() : null;
+      if (!meta || meta.status === "ended" || (meta.dmUid && state.uid && meta.dmUid !== state.uid)) {
+        toast("That session is not open to resume");
+        pendingResume = null;
+        showResumeChoice("");
+        return false;
+      }
+      pending = { code: pending.code, meta: meta, demo: false };
+      pendingResume = pending;
+    } catch (e) {
+      console.warn("[DMCC] resume", e);
+      toast("Couldn't load " + pending.code);
+      return false;
+    }
+  }
   state.demo = false;
+  const demoBox = $("#chkDemo");
+  if (demoBox) demoBox.checked = false;
   state.roomCode = pending.code;
   state.meta = pending.meta;
   state.players = {};
@@ -1678,9 +1803,38 @@ async function boot() {
 
   // Demo: fully offline — do not touch Firebase CDN.
   // Live (?demo=0): try Firebase; fall back to Demo if it fails.
+  const saved = readSavedRoom();
+  const open = readOpenFlag();
+  if (open && open.code && saved && String(saved.code).toUpperCase() === String(open.code).toUpperCase()) {
+    if (open.demo || saved.demo) {
+      loadDemo(false, open.code);
+      return;
+    }
+    state.demo = false;
+    $("#chkDemo").checked = false;
+    setCreateBusy(true);
+    setStatus("live", "Rejoining " + open.code + "…");
+    const resumedOk = await initFirebase();
+    setCreateBusy(false);
+    if (resumedOk) {
+      pendingResume = { code: open.code, demo: false };
+      const resumed = await resumeLiveRoom();
+      if (resumed) return;
+    }
+    releaseSession();
+  }
   if (state.demo) {
     setCreateBusy(false);
-    loadDemo(false);
+    if (saved && saved.code && saved.demo) {
+      pendingResume = { code: saved.code, demo: true };
+      showResumeChoice(saved.code);
+    } else if (saved && saved.code) {
+      pendingResume = { code: saved.code, demo: false };
+      showResumeChoice(saved.code);
+    } else {
+      pendingResume = null;
+      showResumeChoice("");
+    }
     setStatus("demo", "Demo mode · offline · no Firebase loaded");
   } else {
     setCreateBusy(true);
@@ -1690,16 +1844,21 @@ async function boot() {
     if (!ok) {
       state.demo = true;
       $("#chkDemo").checked = true;
-      loadDemo(false);
+      if (saved && saved.code && saved.demo) {
+        pendingResume = { code: saved.code, demo: true };
+        showResumeChoice(saved.code);
+      } else {
+        pendingResume = null;
+        showResumeChoice("");
+      }
       setStatus("demo", "Demo mode · Firebase unavailable");
       toast("Firebase unavailable — Demo mode on. See DM-SETUP.md");
     } else {
       const offered = await peekResume();
       if (!offered) {
-        setStatus("live", "Live · Firebase connected · create a room");
-        $("#lobby").hidden = false;
-        $("#roomShell").hidden = true;
-        syncSessionButtons();
+        pendingResume = null;
+        showResumeChoice("");
+        setStatus("live", "Live · Firebase connected · start a new session");
       }
     }
   }

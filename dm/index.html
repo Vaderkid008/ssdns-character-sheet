@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="../favicon.ico">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.8">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.9">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -21,7 +21,6 @@
     </div>
   </div>
   <div class="bar-actions">
-    <button type="button" class="btn sm" id="btnHeaderCreate" title="Create a room">Create a room</button>
     <button type="button" class="btn sm" id="btnLeaveRoom" hidden title="Leave this screen without ending the table">Leave room / New session</button>
     <button type="button" class="btn sm" id="btnCopyCode" hidden title="Copy room code">Copy code</button>
     <button type="button" class="btn sm btn-danger" id="btnEndSession" hidden title="End session">End Session</button>
@@ -50,10 +49,11 @@
 <section class="lobby" id="lobby">
   <h1>DM Command Center</h1>
   <p>Create a table room. Players join from their character sheet with the code. Demo mode works fully offline.</p>
-  <div class="resume-choice" id="resumeChoice" hidden>
-    <p>Resume <b id="resumeCodeLabel"></b>, or create a new room. Leaving a room does not end it.</p>
+  <div class="resume-choice" id="resumeChoice">
+    <p id="resumePrompt">Start a new session. Leaving a room does not end the table.</p>
     <div class="row-btns">
-      <button type="button" class="btn btn-primary" id="btnResumeRoom">Resume</button>
+      <button type="button" class="btn btn-primary" id="btnResumeRoom" hidden>Resume</button>
+      <button type="button" class="btn" id="btnStartSession">Start a new session</button>
     </div>
   </div>
   <p class="lede" id="lobbyVersion"></p>
@@ -85,7 +85,7 @@
   <nav class="tabs" role="tablist" aria-label="DMCC pages">
     <button type="button" role="tab" class="tab" id="tab-table" aria-controls="panel-table" aria-selected="true">Table</button>
     <button type="button" role="tab" class="tab" id="tab-rewards" aria-controls="panel-rewards" aria-selected="false">Rewards</button>
-    <button type="button" role="tab" class="tab" id="tab-ledger" aria-controls="panel-ledger" aria-selected="false">Ledger</button>
+    <button type="button" role="tab" class="tab" id="tab-ledger" aria-controls="panel-ledger" aria-selected="false">Ledger (economy)</button>
     <button type="button" role="tab" class="tab" id="tab-rolls" aria-controls="panel-rolls" aria-selected="false">Rolls</button>
     <button type="button" role="tab" class="tab" id="tab-handouts" aria-controls="panel-handouts" aria-selected="false">Handouts</button>
     <button type="button" role="tab" class="tab" id="tab-fight" aria-controls="panel-fight" aria-selected="false">Fight</button>
@@ -148,6 +148,10 @@
         <div class="span-2" id="rewTextWrap" hidden>
           <label for="rewText">Item or note</label>
           <input type="text" id="rewText" placeholder="Silvered Bowie · or free-text note">
+        </div>
+        <div id="rewQtyWrap" hidden>
+          <label for="rewQty">Quantity</label>
+          <input type="number" id="rewQty" min="1" value="1">
         </div>
       </div>
       <div class="toolbar">
@@ -280,6 +284,7 @@
         <button type="button" class="btn sm" id="btnInspSpend">Spend −1</button>
       </div>
       <p class="lede" id="initRound">Round 1</p>
+      <p class="lede" id="turnSent"></p>
       <div class="toolbar">
         <label for="initPlayer">Player</label>
         <select id="initPlayer"></select>
@@ -314,10 +319,10 @@
           </div>
           <div>
             <label for="dmgFormula">Dice</label>
-            <input type="text" id="dmgFormula" value="1d8" placeholder="1d8">
+            <input type="text" id="dmgFormula" value="" placeholder="1d8">
           </div>
           <div>
-            <label for="dmgFlat">Flat amount</label>
+            <label for="dmgFlat">+ flat</label>
             <input type="number" id="dmgFlat" value="" placeholder="0">
           </div>
         </div>
@@ -454,12 +459,12 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/sfx.js?v=0.2.8"></script>
+<script src="../assets/js/sfx.js?v=0.2.9"></script>
 <script src="../assets/data/rules.js"></script>
 <script src="../assets/js/spell-cast.js"></script>
 <script src="../assets/js/firebase-config.js"></script>
 <script src="assets/js/demo-data.js"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.8"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.8"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.9"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.9"></script>
 </body>
 </html>

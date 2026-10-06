@@ -105,7 +105,8 @@
             ".read": "auth != null",
             ".write": "auth != null && auth.uid === $playerId",
             ".validate": "newData.hasChildren(['ts', 'init', 'name'])"
-          }
+          },
+          ".read": "auth != null"
         },
         "encounter": {
           "public": {

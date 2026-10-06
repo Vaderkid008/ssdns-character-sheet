@@ -4,10 +4,19 @@
  */
 (function (root) {
   "use strict";
-  var KEY = "ssdns.audio";
+  function audioKey() {
+    var path = (root.location && root.location.pathname) || "";
+    return /\/dm(\/|$)/.test(path) ? "ssdns.dm.audio" : "ssdns.sheet.audio";
+  }
+  var KEY = audioKey();
   var prefs = { muted: false, volume: 0.8 };
   try {
-    var saved = JSON.parse(root.localStorage.getItem(KEY) || "null");
+    var raw = root.localStorage.getItem(KEY);
+    if (raw == null) {
+      raw = root.localStorage.getItem("ssdns.audio");
+      if (raw != null) root.localStorage.setItem(KEY, raw);
+    }
+    var saved = JSON.parse(raw || "null");
     if (saved) prefs = { muted: !!saved.muted, volume: typeof saved.volume === "number" ? saved.volume : 0.8 };
   } catch (e) {}
 
@@ -53,7 +62,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.1"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.2"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) { sfxMap = (j && j.events) || {}; return sfxMap; })
       .catch(function () { sfxMap = {}; return sfxMap; });
@@ -70,11 +79,16 @@
     return audio;
   }
 
+  var missingFiles = {};
   function startSfx(map, eventName) {
     var file = map && map[eventName];
-    if (!file || prefs.muted || volume() <= 0) return;
+    if (!file || missingFiles[file] || prefs.muted || volume() <= 0) return;
     var audio = playUrl(fileUrl("sfx", file), false);
     if (!audio) return;
+    if (eventName === "jam") {
+      try { audio.volume = Math.min(volume(), 0.45); } catch (e) {}
+    }
+    audio.addEventListener("error", function () { missingFiles[file] = 1; });
     liveSfx.push(audio);
     audio.addEventListener("ended", function () {
       var i = liveSfx.indexOf(audio);
@@ -174,6 +188,33 @@
     showTestBanner();
   }
 
+  function askConfirm(message) {
+    return new Promise(function (resolve) {
+      if (!root.document || !root.document.body) { resolve(false); return; }
+      var dlg = root.document.createElement("dialog");
+      dlg.className = "dlg ssdns-ask";
+      dlg.innerHTML = "<form method='dialog'><p></p><div class='dlg-foot'><button class='btn' type='button' value='no'>No</button><button class='btn' type='submit' value='yes'>Yes</button></div></form>";
+      dlg.querySelector("p").textContent = message || "";
+      var settled = false;
+      function finish(ok) {
+        if (settled) return;
+        settled = true;
+        resolve(!!ok);
+        try { if (dlg.close) dlg.close(); } catch (e) {}
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      }
+      dlg.querySelector("[value=no]").addEventListener("click", function () { finish(false); });
+      dlg.querySelector("form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        finish(true);
+      });
+      dlg.addEventListener("cancel", function (e) { e.preventDefault(); finish(false); });
+      root.document.body.appendChild(dlg);
+      if (dlg.showModal) dlg.showModal();
+      else dlg.setAttribute("open", "");
+    });
+  }
+  root.SSDNSAsk = { confirm: askConfirm };
   root.SSDNSTestRoll = forcedD20;
   root.SSDNSAudio = {
     play: play,

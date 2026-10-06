@@ -8,7 +8,22 @@
  */
 (function (root) {
   "use strict";
-  var LS_KEY = "ssdns.v1.dmJoin";
+  var LS_KEY = "ssdns.sheet.dmJoin";
+  var LS_OLD = "ssdns.v1.dmJoin";
+  function sheetStore(name) { return "ssdns.sheet." + name; }
+  function readStore(name) {
+    var next = sheetStore(name);
+    try {
+      var cur = localStorage.getItem(next);
+      if (cur != null) return cur;
+      var old = localStorage.getItem("ssdns.v1." + name);
+      if (old != null) localStorage.setItem(next, old);
+      return old;
+    } catch (e) { return null; }
+  }
+  function writeStore(name, value) {
+    try { localStorage.setItem(sheetStore(name), value); } catch (e) {}
+  }
   var BIG_JUMP = 500;
   var state = {
     joined: false,
@@ -30,8 +45,8 @@
   };
 
   function $(s, r) { return (r || document).querySelector(s); }
-  function toast(msg) {
-    if (root.SSDNSApp && root.SSDNSApp.state) { /* sheet toast if available via DOM */ }
+  function toast(msg, actLabel, actFn, ms, opts) {
+    if (root.SSDNSToast) return root.SSDNSToast(msg, actLabel, actFn, ms, opts);
     var t = $("#toastText");
     var box = $("#toast");
     if (t && box) {
@@ -50,14 +65,23 @@
         root.localStorage.removeItem(LS_KEY);
         return;
       }
+      var d = doc();
       root.localStorage.setItem(LS_KEY, JSON.stringify({
-        roomCode: state.roomCode, joined: true, uid: state.uid
+        roomCode: state.roomCode,
+        joined: true,
+        uid: state.uid,
+        by: "sheet",
+        characterId: (d && d.id) || ""
       }));
     } catch (e) {}
   }
   function loadLocal() {
     try {
       var raw = root.localStorage.getItem(LS_KEY);
+      if (!raw) {
+        raw = root.localStorage.getItem(LS_OLD);
+        if (raw) root.localStorage.setItem(LS_KEY, raw);
+      }
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
@@ -277,13 +301,13 @@
   }
 
   function queueKey() {
-    return "ssdns.v1.outbox." + (state.roomCode || "none") + "." + (state.uid || "local");
+    return "outbox." + (state.roomCode || "none") + "." + (state.uid || "local");
   }
   function loadQueue() {
-    try { return JSON.parse(localStorage.getItem(queueKey()) || "[]") || []; } catch (e) { return []; }
+    try { return JSON.parse(readStore(queueKey()) || "[]") || []; } catch (e) { return []; }
   }
   function saveQueue(q) {
-    try { localStorage.setItem(queueKey(), JSON.stringify((q || []).slice(-40))); } catch (e) {}
+    writeStore(queueKey(), JSON.stringify((q || []).slice(-40)));
   }
   function enqueue(kind, payload) {
     var q = loadQueue();
@@ -322,9 +346,11 @@
     entry.uid = state.uid;
     entry.playerId = state.uid;
     var c = doc() && doc().character;
-    entry.who = entry.who || ((c && c.name) || "Player");
-    entry.playerName = entry.playerName || ((c && c.player) || "");
-    entry.characterName = entry.characterName || ((c && c.name) || "");
+    var charName = (c && c.name) || "";
+    var playerName = (c && c.player) || "";
+    entry.who = entry.who || (charName && playerName ? (charName + " (" + playerName + ")") : (charName || playerName || "Player"));
+    entry.playerName = entry.playerName || playerName;
+    entry.characterName = entry.characterName || charName;
     var target = $("#atkTarget");
     if (!entry.targetId && target && target.value) entry.targetId = target.value;
     await fb.set(fb.ref(state.db, roomPath("rolls/" + id)), entry);
@@ -381,12 +407,12 @@
   }
 
   function seenStorageKey() {
-    return "ssdns.v1.dmJoin.seen." + state.roomCode + "." + state.uid;
+    return "dmJoin.seen." + state.roomCode + "." + state.uid;
   }
   function loadSeen() {
     state.lastCmdSeen = {};
     try {
-      var raw = localStorage.getItem(seenStorageKey());
+      var raw = readStore(seenStorageKey());
       if (!raw) return false;
       state.lastCmdSeen = JSON.parse(raw) || {};
       return true;
@@ -395,14 +421,14 @@
   function saveSeen() {
     var keys = Object.keys(state.lastCmdSeen);
     if (keys.length > 500) keys.slice(0, keys.length - 300).forEach(function (k) { delete state.lastCmdSeen[k]; });
-    try { localStorage.setItem(seenStorageKey(), JSON.stringify(state.lastCmdSeen)); } catch (e) {}
+    writeStore(seenStorageKey(), JSON.stringify(state.lastCmdSeen));
   }
   function markerKey() {
-    return "ssdns.v1.cmdMarker." + state.roomCode + "." + state.uid;
+    return "cmdMarker." + state.roomCode + "." + state.uid;
   }
   function loadMarker() {
     try {
-      var raw = localStorage.getItem(markerKey());
+      var raw = readStore(markerKey());
       if (raw == null || raw === "") return null;
       var n = Number(raw);
       return isFinite(n) ? n : null;
@@ -410,7 +436,7 @@
   }
   function saveMarker(ts) {
     state.marker = ts;
-    try { localStorage.setItem(markerKey(), String(ts)); } catch (e) {}
+    writeStore(markerKey(), String(ts));
   }
   function cmdTime(cmd) {
     var t = Date.parse(cmd && cmd.ts);
@@ -422,20 +448,31 @@
     if (stored == null) saveMarker(Date.now());
     else state.marker = stored;
     loadSeen();
+    state._hpNoted = state._hpNoted || {};
+    function noteReplayHp(id, cmd) {
+      if (!cmd || cmd.type !== "hp" || state._hpNoted[id]) return;
+      var ts = cmdTime(cmd);
+      if (!ts || (Date.now() - ts) > 3 * 60 * 1000) return;
+      state._hpNoted[id] = 1;
+      try { applyHpCommand(cmd.payload || {}, (cmd.payload && cmd.payload.grantId) || id, true); }
+      catch (err) { console.warn("[DM Join] hp replay", err); }
+    }
     function take(val) {
       Object.keys(val || {}).forEach(function (id) {
-        if (state.lastCmdSeen[id]) return;
         var cmd = val[id];
         if (!cmd) return;
         if (cmd.to && cmd.to !== "all" && cmd.to !== state.uid) return;
+        if (state.lastCmdSeen[id]) { noteReplayHp(id, cmd); return; }
         var ts = cmdTime(cmd);
         if (!ts || ts <= (state.marker || 0)) {
           state.lastCmdSeen[id] = 1;
+          noteReplayHp(id, cmd);
           return;
         }
         state.lastCmdSeen[id] = 1;
         saveSeen();
         try { handleCommand(cmd); } catch (err) { console.warn("[DM Join] command", err); }
+        if (cmd.type === "hp") state._hpNoted[id] = 1;
         if (ts > (state.marker || 0)) saveMarker(ts);
       });
       saveSeen();
@@ -448,7 +485,7 @@
       }, function () {});
       state.unsubs.push(typeof unsub === "function" ? unsub : function () { try { fb.off(r, "value", unsub); } catch (e) {} });
     }
-    bind("commands");
+    // commands is DM-only. Players already get the broadcast copy and their inbox copy.
     bind("broadcast");
     bind("inbox/" + state.uid);
   }
@@ -474,20 +511,27 @@
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "dm", text: "DM: " + (payload.text || "") });
         break;
       case "handout":
-        showHandout(payload.name || "Handout", payload.url || "", payload.text || "");
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "handout", text: "Handout: " + (payload.name || "Handout"), url: payload.url || "", body: payload.text || "", title: payload.name || "Handout" });
+        toast("Handout: " + (payload.name || "Handout"), "Go", function () {
+          showHandout(payload.name || "Handout", payload.url || "", payload.text || "", true);
+        });
         break;
       case "roll":
         if (payload.id) state._feedSeen[payload.id] = 1;
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "roll:" + (payload.id || cmd.id), kind: "roll", text: (payload.who || "DM") + ": " + (payload.text || ""), ts: cmd.ts });
         break;
       case "open_saloon":
-        var btn = $("#btnSaloon");
-        if (btn) btn.click();
-        toast("DM opened the Saloon");
+        toast("DM opened the Saloon", "Go", function () {
+          var btn = $("#btnSaloon");
+          if (btn) btn.click();
+        });
         break;
       case "open_store":
-        if (root.SSDNSSheet) root.SSDNSSheet.openStore(payload.stock);
-        else toast("DM opened the store");
+        if (root.SSDNSSheet && root.SSDNSSheet.setStock) root.SSDNSSheet.setStock(payload.stock);
+        toast("DM opened the store", "Go", function () {
+          var tab = $("#tab-store");
+          if (tab) tab.click();
+        });
         break;
       case "hp":
         applyHpCommand(payload, payload.grantId || cmd.id);
@@ -529,11 +573,11 @@
         if (root.SSDNSAudio && payload.event) root.SSDNSAudio.play(payload.event);
         break;
       case "open_tab":
-        toast("DM nudge: open tab " + (payload.tab || ""));
-        if (payload.tab) {
+        toast("DM nudge: open " + (payload.tab || "a tab"), "Go", function () {
+          if (!payload.tab) return;
           var tab = $("#" + payload.tab) || $('[aria-controls="' + payload.tab + '"]');
           if (tab) tab.click();
-        }
+        });
         break;
       default:
         console.info("[DM Join] unknown command", cmd.type);
@@ -552,19 +596,19 @@
   function appliedKey() {
     var d = doc();
     var cid = (d && d.id) || "local";
-    return "ssdns.v1.applied." + cid + "." + (state.roomCode || "none");
+    return "applied." + cid + "." + (state.roomCode || "none");
   }
   function loadApplied() {
     state.appliedRewards = {};
     try {
-      var raw = JSON.parse(localStorage.getItem(appliedKey()) || "{}");
+      var raw = JSON.parse(readStore(appliedKey()) || "{}");
       if (raw && typeof raw === "object") state.appliedRewards = raw;
     } catch (e) {}
   }
   function saveApplied() {
     var keys = Object.keys(state.appliedRewards || {});
     if (keys.length > 400) keys.slice(0, keys.length - 300).forEach(function (k) { delete state.appliedRewards[k]; });
-    try { localStorage.setItem(appliedKey(), JSON.stringify(state.appliedRewards || {})); } catch (e) {}
+    writeStore(appliedKey(), JSON.stringify(state.appliedRewards || {}));
   }
   function claimGrant(id) {
     if (!id) return true;
@@ -668,10 +712,10 @@
     });
   }
 
-  function showHandout(name, url, text) {
+  function showHandout(name, url, text, skipLog) {
     url = url || "";
     text = text || "";
-    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "handout", text: "Handout: " + (name || "Handout"), url: url, body: text, title: name || "Handout" });
+    if (!skipLog && root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "handout", text: "Handout: " + (name || "Handout"), url: url, body: text, title: name || "Handout" });
     enqueueModal(function () {
       var dlg = document.createElement("dialog");
       dlg.className = "dlg";
@@ -682,8 +726,15 @@
       if (url && /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(url) || (url && !text)) {
         var img = document.createElement("img");
         img.alt = name || "";
+        img.referrerPolicy = "no-referrer";
         img.style.maxWidth = "100%";
         img.style.maxHeight = "60vh";
+        img.addEventListener("error", function () {
+          var note = document.createElement("span");
+          note.className = "fine";
+          note.textContent = "Image couldn't load — open link";
+          if (img.parentNode) img.parentNode.replaceChild(note, img);
+        });
         img.src = url;
         pic.appendChild(img);
       }
@@ -693,14 +744,18 @@
     });
   }
 
-  function applyHpCommand(payload, id) {
+  function applyHpCommand(payload, id, replay) {
     var delta = Number(payload.delta);
     if (!delta) delta = (payload.kind === "heal" ? 1 : -1) * (Number(payload.amount) || 0);
     if (!delta || !root.SSDNSSheet) return;
     var grant = id ? ("hp:" + (payload.grantId || id)) : "";
-    if (grant && !claimGrant(grant)) return;
     var kind = payload.kind || (delta < 0 ? "damage" : "heal");
     var text = "DM " + kind + " " + Math.abs(delta) + (payload.formula ? " (" + payload.formula + ")" : "");
+    if (grant && !claimGrant(grant)) {
+      if (replay && root.SSDNSSheet.flashHp) root.SSDNSSheet.flashHp(text);
+      else if (replay) toast(text);
+      return;
+    }
     root.SSDNSSheet.applyDelta(delta, text);
     root.SSDNSSheet.addLog({ id: id ? "hp:" + id : "", kind: "hp", text: text });
   }
@@ -1074,13 +1129,19 @@
     var cid = (d && d.id) || "";
     try {
       if (code && uid) {
-        localStorage.removeItem("ssdns.v1.dmJoin.seen." + code + "." + uid);
-        localStorage.removeItem("ssdns.v1.cmdMarker." + code + "." + uid);
-        localStorage.removeItem("ssdns.v1.outbox." + code + "." + uid);
-        localStorage.removeItem("ssdns.v1.outbox." + code + ".local");
+        ["ssdns.v1.", "ssdns.sheet."].forEach(function (pre) {
+          localStorage.removeItem(pre + "dmJoin.seen." + code + "." + uid);
+          localStorage.removeItem(pre + "cmdMarker." + code + "." + uid);
+          localStorage.removeItem(pre + "outbox." + code + "." + uid);
+          localStorage.removeItem(pre + "outbox." + code + ".local");
+        });
       }
-      if (cid && code) localStorage.removeItem("ssdns.v1.applied." + cid + "." + code);
+      if (cid && code) {
+        localStorage.removeItem("ssdns.v1.applied." + cid + "." + code);
+        localStorage.removeItem("ssdns.sheet.applied." + cid + "." + code);
+      }
       localStorage.removeItem(LS_KEY);
+      localStorage.removeItem(LS_OLD);
     } catch (e) {}
     state.lastCmdSeen = {};
     state.marker = 0;
@@ -1162,7 +1223,9 @@
         var saved = loadLocal();
         var input = $("#dmJoinCode");
         var shown = input ? String(input.value || "").trim().toUpperCase() : "";
-        if (saved && saved.joined === true && saved.roomCode) {
+        var cid = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc() && root.SSDNSApp.doc().id;
+        var sheetRoom = saved && saved.by === "sheet" && saved.joined === true && saved.roomCode && saved.characterId && cid && saved.characterId === cid;
+        if (sheetRoom) {
           var code = String(saved.roomCode).toUpperCase();
           if (!shown && input) { input.value = saved.roomCode; shown = code; }
           if (shown === code) {
@@ -1171,7 +1234,9 @@
           } else setUiJoined(false);
         } else {
           if (input) input.value = "";
-          try { localStorage.removeItem(LS_KEY); } catch (err) {}
+          if (!saved || saved.by !== "sheet") {
+            try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_OLD); } catch (err) {}
+          }
           setUiJoined(false);
         }
       }

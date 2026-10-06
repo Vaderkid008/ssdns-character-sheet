@@ -12,7 +12,8 @@
   function $(s, r) { return (r || document).querySelector(s); }
   function doc() { return root.SSDNSApp && root.SSDNSApp.doc ? root.SSDNSApp.doc() : null; }
   function ch() { var d = doc(); return d && d.character; }
-  function toast(msg) {
+  function toast(msg, actLabel, actFn, ms, opts) {
+    if (root.SSDNSToast) return root.SSDNSToast(msg, actLabel, actFn, ms, opts);
     var t = $("#toastText"), box = $("#toast"), act = $("#toastAction");
     if (act) act.hidden = true;
     if (t && box) {
@@ -21,6 +22,16 @@
       clearTimeout(toast._t);
       toast._t = setTimeout(function () { box.hidden = true; }, 3600);
     }
+  }
+  function flashHp(notice) {
+    if (notice) toast(notice);
+    var box = $(".hp");
+    if (!box) return;
+    box.classList.remove("hp-flash");
+    void box.offsetWidth;
+    box.classList.add("hp-flash");
+    clearTimeout(flashHp._t);
+    flashHp._t = setTimeout(function () { box.classList.remove("hp-flash"); }, 2600);
   }
   function num(v) { var n = parseInt(v, 10); return isFinite(n) ? n : 0; }
   function dispatch(el) {
@@ -219,9 +230,9 @@
     var safe = url.replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
     var title = String(e.title || "Handout").replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
     var img = /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(url) || !e.body
-      ? '<img class="handout-thumb" data-handout-zoom="1" data-url="' + safe + '" data-title="' + title + '" src="' + safe + '" alt="" style="display:block;max-width:160px;max-height:120px;margin-top:6px;cursor:zoom-in">'
+      ? '<img class="handout-thumb" referrerpolicy="no-referrer" data-handout-zoom="1" data-url="' + safe + '" data-title="' + title + '" src="' + safe + '" alt="" style="display:block;max-width:160px;max-height:120px;margin-top:6px;cursor:zoom-in" onerror="this.style.display=\'none\';if(!this.dataset.fell){this.dataset.fell=\'1\';this.insertAdjacentHTML(\'afterend\',\'<span class=&quot;fine&quot;>Image couldn\\\'t load — open link</span>\');}">'
       : "";
-    return img + ' <a href="' + safe + '" target="_blank" rel="noopener">Open</a> <button type="button" class="btn sm" data-reopen-handout="1" data-url="' + safe + '" data-title="' + title + '">Reopen</button>';
+    return img + ' <a href="' + safe + '" target="_blank" rel="noopener noreferrer">Open</a> <button type="button" class="btn sm" data-reopen-handout="1" data-url="' + safe + '" data-title="' + title + '">Reopen</button>';
   }
   function zoomHandout(url, title) {
     if (!url) return;
@@ -231,8 +242,15 @@
     dlg.querySelector("h2").textContent = title || "Handout";
     var img = document.createElement("img");
     img.alt = title || "";
+    img.referrerPolicy = "no-referrer";
     img.style.maxWidth = "100%";
     img.style.maxHeight = "70vh";
+    img.addEventListener("error", function () {
+      var note = document.createElement("span");
+      note.className = "fine";
+      note.textContent = "Image couldn't load — open link";
+      if (img.parentNode) img.parentNode.replaceChild(note, img);
+    });
     img.src = url;
     dlg.querySelector("p").appendChild(img);
     var a = dlg.querySelector("a");
@@ -390,10 +408,11 @@
   function openStore(list) {
     storeOpen = true;
     if (Array.isArray(list)) stock = list;
-    var tab = $("#tab-store");
-    if (tab) tab.click();
     renderStore();
-    toast("The Eldorite Store is open");
+    toast("The Eldorite Store is open", "Go", function () {
+      var tab = $("#tab-store");
+      if (tab) tab.click();
+    });
   }
 
   function setStock(list) {
@@ -540,6 +559,9 @@
       else if (!(hexslinger || fromChamber)) cue = "spellshot";
       root.SSDNSAudio.play(cue);
     }
+    var targetSel = document.querySelector("#atkTarget");
+    var targetName = targetSel && targetSel.value && targetSel.selectedIndex >= 0 ? (targetSel.options[targetSel.selectedIndex].text || "") : "";
+    if (targetName && targetName !== "No target") rolled.text += " · vs " + targetName;
     toast(rolled.text);
     addLog({
       id: "roll:" + rollId,
@@ -700,7 +722,6 @@
     var wpn = lists.filter(function (x) { return x.id === g.weapon; })[0];
     var rugged = !!(wpn && /rugged/i.test(wpn.properties || ""));
     var name = gunName(i);
-    if (root.SSDNSAudio) root.SSDNSAudio.play("attack");
     var dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
     var total = nat + atk;
     var bits = [name + " attack " + (atk >= 0 ? "+" : "") + atk + ": " + dice + (atk ? (atk >= 0 ? "+" : "") + atk : "") + " = " + total];
@@ -721,6 +742,7 @@
       postGunLedger(name + " jammed (misfire)", "jam");
       misfired = true;
     }
+    if (!misfired && root.SSDNSAudio) root.SSDNSAudio.play("attack");
     if (spent.left != null) bits.push(spent.left + " rounds left.");
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
     var dmg = null;
@@ -1181,6 +1203,8 @@
   root.SSDNSGunCastHex = castLoadedHex;
   root.SSDNSSheet = {
     applyDelta: applyDelta,
+    flashHp: flashHp,
+    logRows: function () { return log.slice(); },
     showNotice: showNotice,
     setConditions: setConditions,
     addLog: addLog,

@@ -24,7 +24,8 @@
  */
 (function (root) {
   "use strict";
-  var KEY = "ssdns.v1.wallet";
+  var KEY = "ssdns.sheet.wallet";
+  var LEGACY = "ssdns.v1.wallet";
   var COLORS = ["white", "blue", "green", "yellow", "purple"];
   var CP = { white: 1, blue: 10, green: 50, yellow: 100, purple: 500 }; // ES per shard, PHB Equipment > Currency — Eldorite (10-05 book: Purple = 500 ES)
   try { (root.SSDNS_RULES && root.SSDNS_RULES.currency || []).forEach(function (c) { var v = c.es != null ? c.es : c.cp; if (c.id in CP && v) CP[c.id] = v; }); } catch (e) {}
@@ -40,6 +41,10 @@
   function readWallet() {
     try {
       var raw = root.localStorage.getItem(KEY);
+      if (!raw) raw = root.localStorage.getItem(LEGACY);
+      if (raw && root.localStorage.getItem(KEY) == null) {
+        try { root.localStorage.setItem(KEY, raw); } catch (e) {}
+      }
       if (!raw) return null;
       var w = JSON.parse(raw);
       if (!w || typeof w !== "object") return null;
@@ -56,7 +61,9 @@
       updatedAt: new Date().toISOString(),
       updatedBy: w.updatedBy || "unknown"
     };
-    root.localStorage.setItem(KEY, JSON.stringify(out));
+    var json = JSON.stringify(out);
+    root.localStorage.setItem(KEY, json);
+    try { root.localStorage.setItem(LEGACY, json); } catch (e) {}
     return out;
   }
   /** Merge a partial {color: count} into the current wallet and save it. */
@@ -70,7 +77,7 @@
   }
   function onChange(cb) {
     root.addEventListener("storage", function (e) {
-      if (e.key !== KEY) return;
+      if (e.key !== KEY && e.key !== LEGACY) return;
       var w = readWallet();
       if (w) cb(w);
     });
