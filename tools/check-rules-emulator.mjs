@@ -307,6 +307,7 @@ function buildCases() {
     { role: "player", op: "set", path: ROOM + "/conditions", payload: { nope: true }, expect: "deny" },
     { role: "dm", op: "set", path: ROOM + "/chat/chat1", payload: chat, expect: "allow" },
     { role: "player", op: "set", path: ROOM + "/chat/chat2", payload: playerChat, expect: "allow" },
+    { role: "dm", op: "set", path: ROOM + "/chat/copied", payload: Object.assign({}, playerChat, { id: "copied" }), expect: "allow" },
     { role: "player", op: "remove", path: ROOM + "/chat/seed-a", expect: "deny" },
     { role: "dm", op: "remove", path: ROOM + "/chat/seed-a", expect: "allow" },
     { role: "dm", op: "set", path: ROOM + "/archives/arch1", payload: { archivedAt: TS, recap: "recap" }, expect: "allow" },

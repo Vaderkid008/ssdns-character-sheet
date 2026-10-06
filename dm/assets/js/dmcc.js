@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.16"; // dmcc-enemy-card-v0216
+const VERSION = "0.2.18"; // dmcc-round12-v0218
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -389,8 +389,8 @@ function attachLiveListeners() {
   addictionReady = false;
   const bind = (path, handler) => listenRef(path, handler);
   bind("meta", (v) => { if (v) { state.meta = v; guardFocus(() => renderRoomHero()); } });
-  const presenceWas = {};
-  const presenceEver = {};
+  const presenceState = {};
+  const leaveTimers = {};
   bind("players", (v) => {
     state.players = v || {};
     Object.keys(state.players).forEach((id) => {
@@ -398,9 +398,16 @@ function attachLiveListeners() {
       const on = playerOnline(p);
       const s = p.snapshot || {};
       const who = [s.player, s.name].filter(Boolean).join(" · ") || id;
-      const was = presenceWas[id];
-      if (on && !presenceEver[id]) {
-        presenceEver[id] = true;
+      const prev = presenceState[id] || { phase: "new", pending: false };
+      const step = window.SSDNSApplied && window.SSDNSApplied.presenceStep
+        ? window.SSDNSApplied.presenceStep(prev, on)
+        : { phase: on ? "online" : prev.phase, pending: !on && prev.phase === "online", log: "", arm: !on && prev.phase === "online" && !prev.pending, cancel: on && prev.pending };
+      presenceState[id] = { phase: step.phase, pending: step.pending };
+      if (step.cancel && leaveTimers[id]) {
+        clearTimeout(leaveTimers[id]);
+        delete leaveTimers[id];
+      }
+      if (step.log === "join") {
         const already = (state.ledger || []).some((e) => e && (e.type === "join" || e.type === "rejoin") && e.playerId === id);
         if (!already) {
           pushLedger({
@@ -408,19 +415,35 @@ function attachLiveListeners() {
             type: "join", what: who + " joined the table", oldVal: null, newVal: "joined", flag: false
           });
         }
-      } else if (was === false && on && presenceEver[id]) {
+      } else if (step.log === "rejoin") {
         pushLedger({
           who: who, playerId: id, playerName: s.player || "", characterName: s.name || "",
           type: "rejoin", what: who + " rejoined the table", oldVal: null, newVal: "rejoined", flag: false
         });
-      } else if (was === true && !on) {
-        pushLedger({
-          who: who, playerId: id, playerName: s.player || "", characterName: s.name || "",
-          type: "leave", what: who + " left the table", oldVal: null, newVal: "left", flag: false
-        });
       }
-      if (window.DMCCEnhance && window.DMCCEnhance.notePresence) window.DMCCEnhance.notePresence(id, on);
-      presenceWas[id] = on;
+      if (step.arm && !leaveTimers[id]) {
+        const wait = window.SSDNSApplied && window.SSDNSApplied.PRESENCE_LEAVE_MS || 30000;
+        leaveTimers[id] = setTimeout(() => {
+          delete leaveTimers[id];
+          const still = state.players[id];
+          if (still && playerOnline(still)) {
+            presenceState[id] = { phase: "online", pending: false };
+            return;
+          }
+          const done = window.SSDNSApplied && window.SSDNSApplied.presenceLeave
+            ? window.SSDNSApplied.presenceLeave()
+            : { phase: "offline", pending: false };
+          presenceState[id] = { phase: done.phase, pending: false };
+          const snap = (still && still.snapshot) || s;
+          const name = [snap.player, snap.name].filter(Boolean).join(" · ") || who;
+          pushLedger({
+            who: name, playerId: id, playerName: snap.player || "", characterName: snap.name || "",
+            type: "leave", what: name + " left the table", oldVal: null, newVal: "left", flag: false
+          });
+          if (window.DMCCEnhance && window.DMCCEnhance.notePresence) window.DMCCEnhance.notePresence(id, false);
+        }, wait);
+      }
+      if (on && window.DMCCEnhance && window.DMCCEnhance.notePresence) window.DMCCEnhance.notePresence(id, true);
     });
     guardFocus(() => {
       holdUi(() => {
@@ -468,7 +491,9 @@ function attachLiveListeners() {
     if (window.DMCCEnhance && window.DMCCEnhance.onPlayerInit) window.DMCCEnhance.onPlayerInit(v || {});
   });
   bind("chat", (v) => {
-    state.chat = objToArr(v).sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+    const rows = objToArr(v);
+    state.chat = (window.SSDNSApplied && window.SSDNSApplied.dedupeById ? window.SSDNSApplied.dedupeById(rows) : dedupeById(rows))
+      .sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
     renderLiveDockNow();
   });
   bind("kicked", (v) => {
@@ -811,7 +836,10 @@ function showRoom() {
 }
 
 function hideRoom() {
-  if (sessionOpen) return;
+  const stay = window.SSDNSApplied && window.SSDNSApplied.staysInRoom
+    ? window.SSDNSApplied.staysInRoom(sessionOpen, lobbyReason)
+    : (sessionOpen && lobbyReason !== "leave" && lobbyReason !== "end" && lobbyReason !== "new");
+  if (stay) return;
   $("#lobby").hidden = false;
   $("#roomShell").hidden = true;
   document.body.classList.remove("in-room");
@@ -821,7 +849,8 @@ function hideRoom() {
   state.roomCode = null;
   syncSessionButtons();
 }
-function leaveRoom() {
+function leaveRoom(reason) {
+  permitLobby(reason || "leave");
   releaseSession();
   const code = state.roomCode || (state.meta && state.meta.code) || "";
   const meta = state.meta;
@@ -1077,8 +1106,10 @@ function rollFace(r) {
   const crit = !!(r && (r.crit || nat === 20));
   let attack = !!(r && r.attack);
   if (!attack && r && /attack/i.test(String(r.label || "")) && /1d20|2d20/.test(String(r.formula || ""))) attack = true;
+  const save = !!(r && (r.save || (!attack && /\bsave\b/i.test(String((r && r.label) || "") + " " + String((r && r.detail) || "")))));
   const test = !!(r && (r.test || /\bTEST\b/.test(String((r && r.detail) || "") + " " + String((r && r.label) || ""))));
   const tag = (base) => (test ? (base ? "TEST · " + base : "TEST") : base);
+  if (crit && save && !attack) return { cls: "roll-crit", tag: tag("natural 20"), attack: false, crit: true, test: test, save: true };
   if (crit) return { cls: "roll-crit", tag: tag("CRITICAL"), attack: true, crit: true, test: test };
   if (attack) return { cls: "roll-attack", tag: tag("ATTACK"), attack: true, crit: false, test: test };
   if (test) return { cls: "", tag: "TEST", attack: false, crit: false, test: true };
@@ -1138,6 +1169,19 @@ function hitApplyButton(r) {
   const heal = !!(r.heal || /\bheals\b/i.test(String(r.detail || "")));
   if (!heal && (r.nat === 1 || /→\s*MISS/.test(String(r.detail || "")))) return "";
   const name = realTargetName(r);
+  const roomCode = typeof state !== "undefined" && state ? state.roomCode : "";
+  if (window.SSDNSApplied && window.SSDNSApplied.undone && window.SSDNSApplied.undone(roomCode, r.id)) {
+    return `<span class="fine">Undone</span>`;
+  }
+  let outOfTurn = !!r.outOfTurn;
+  const dmRoll = typeof state !== "undefined" && state && r.uid === state.uid;
+  if (!outOfTurn && r.playerId && !dmRoll && window.DMCCEnhance && window.DMCCEnhance.currentTurn) {
+    const cur = window.DMCCEnhance.currentTurn();
+    outOfTurn = !!(cur && cur.playerId && r.playerId !== cur.playerId);
+  }
+  const gated = Object.assign({}, r, { outOfTurn: outOfTurn });
+  if (window.SSDNSApplied && window.SSDNSApplied.showHitApply && !window.SSDNSApplied.showHitApply(gated)) return "";
+  if (!window.SSDNSApplied && !heal && !r.targetId && !name) return "";
   const applied = !!(r.applied || (window.SSDNSApplied && window.SSDNSApplied.has && window.SSDNSApplied.has(state.roomCode, r.id)));
   if (applied) return `<span class="fine">Applied ${esc(amt)}${name ? " → " + esc(name) : ""}</span> ${undoHitButton(r.id)}`;
   const label = "Apply " + amt + (name ? " → " + name : "");
@@ -1354,7 +1398,16 @@ async function copyRoomChildren(oldCode, newCode) {
   const base = "rooms/" + newCode;
   const put = (path, value) => fb.set(fb.ref(state.db, base + "/" + path), value);
   await put("meta", nextMeta);
-  if (table && typeof table === "object") await fb.update(fb.ref(state.db, base + "/table"), table);
+  const metaCheck = await fb.get(fb.ref(state.db, base + "/meta"));
+  if (!metaCheck.exists() || (metaCheck.val() || {}).dmUid !== nextMeta.dmUid) {
+    throw new Error("New room meta was not saved");
+  }
+  const tableKeys = ["initiative", "store", "packs", "updatedAt", "inspiration", "storeOpen", "damageMode"];
+  if (table && typeof table === "object") {
+    const tablePatch = {};
+    tableKeys.forEach((key) => { if (table[key] != null) tablePatch[key] = table[key]; });
+    if (Object.keys(tablePatch).length) await fb.update(fb.ref(state.db, base + "/table"), tablePatch);
+  }
   if (encounter && encounter.public) await put("encounter/public", encounter.public);
   if (encounter && encounter.hp) await put("encounter/hp", encounter.hp);
   if (encounter && encounter.requests) {
@@ -1499,11 +1552,19 @@ let dockSeen = 0;
 
 function dockItems() {
   const rows = [];
-  (state.chat || []).forEach((c) => rows.push({
-    ts: c.ts, kind: "chat",
-    who: (c.fromName || "Table") + (c.to && c.to !== "all" ? " → " + (c.toName || "one player") : ""),
-    text: c.text || ""
-  }));
+  const seenChat = new Set();
+  (state.chat || []).forEach((c) => {
+    if (c && c.id) {
+      if (seenChat.has(c.id)) return;
+      seenChat.add(c.id);
+    }
+    rows.push({
+      id: c && c.id,
+      ts: c.ts, kind: "chat",
+      who: (c.fromName || "Table") + (c.to && c.to !== "all" ? " → " + (c.toName || "one player") : ""),
+      text: c.text || ""
+    });
+  });
   dedupeById(state.ledger || []).forEach((e) => {
     if (e.type === "addiction") return;
     const money = MONEY_TYPES.test(String(e.type || ""));
@@ -1942,6 +2003,7 @@ function buildRecap() {
   return lines.join("\n");
 }
 async function endSession(wipe) {
+  permitLobby("end");
   releaseSession();
   const recap = buildRecap();
   const archive = {
@@ -1962,6 +2024,7 @@ async function endSession(wipe) {
     pendingResume = null;
     hideRoom();
     showResumeChoice("");
+    setStatus("demo", "Demo mode · offline · no Firebase loaded");
     return;
   }
   try {
@@ -1983,6 +2046,7 @@ async function endSession(wipe) {
   pendingResume = null;
   hideRoom();
   showResumeChoice("");
+  setStatus("offline", "Session ended");
 }
 
 /* ---------- tabs ---------- */
@@ -2004,6 +2068,14 @@ function wireTabs() {
 
 /* ---------- boot ---------- */
 function wire() {
+  window.addEventListener("unhandledrejection", (e) => {
+    const reason = e && e.reason;
+    const msg = String((reason && (reason.message || reason.code)) || reason || "");
+    if (/CONNECTION_CLOSED|ERR_CONNECTION|unavailable|network-request-failed|Failed to fetch|client is offline|Auth timeout/i.test(msg)) {
+      if (e.preventDefault) e.preventDefault();
+      if (sessionOpen) setStatus("live", "Reconnecting…");
+    }
+  });
   wireTabs();
   const priv = $("#rollPrivate");
   const privState = $("#rollPrivateState");
@@ -2032,7 +2104,7 @@ function wire() {
         return;
       }
     }
-    if (document.body.classList.contains("in-room")) leaveRoom();
+    if (document.body.classList.contains("in-room")) leaveRoom("new");
     if (state.demo) {
       loadDemo(true);
       if (name && state.meta) { state.meta.name = name; renderRoomHero(); }
@@ -2045,6 +2117,16 @@ function wire() {
     if (name && state.meta) { state.meta.name = name; renderRoomHero(); }
   };
   $("#btnCreateRoom").addEventListener("click", createRoom);
+  const headerRoll = $("#headerRoll");
+  if (headerRoll) headerRoll.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const formula = (($("#headerFormula") && $("#headerFormula").value) || "1d20").trim() || "1d20";
+    const box = $("#rollFormula");
+    if (box) box.value = formula;
+    const label = $("#rollLabel");
+    if (label && !String(label.value || "").trim()) label.value = "Roll";
+    doDmRoll();
+  });
   const startSession = $("#btnStartSession");
   if (startSession) startSession.addEventListener("click", () => {
     const name = $("#inRoomName");
@@ -2174,6 +2256,25 @@ function wire() {
     if (document.body.classList.contains("dock-open")) dockSeen = dockItems().length;
     renderLiveDock();
   });
+  (function watchKeyboard() {
+    const rootEl = document.documentElement;
+    const apply = () => {
+      const vv = window.visualViewport;
+      const inset = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+      rootEl.style.setProperty("--vv-bottom", inset + "px");
+    };
+    apply();
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", apply);
+      window.visualViewport.addEventListener("scroll", apply);
+    }
+    window.addEventListener("resize", apply);
+    const chatting = (node) => !!(node && node.closest && node.closest("#dockChat, .dock-compose"));
+    document.addEventListener("focusin", (e) => { if (chatting(e.target)) document.body.classList.add("chat-focus"); });
+    document.addEventListener("focusout", () => {
+      setTimeout(() => { if (!chatting(document.activeElement)) document.body.classList.remove("chat-focus"); }, 0);
+    });
+  })();
   const alertBar = $("#addictionAlert");
   if (alertBar) alertBar.addEventListener("click", () => { alertBar.hidden = true; });
   window.addEventListener("storage", (e) => {
@@ -2189,11 +2290,22 @@ function wire() {
 }
 
 let pendingResume = null;
+let lobbyReason = "";
+function permitLobby(reason) {
+  lobbyReason = reason || "";
+}
 function readSavedRoom() {
   try { return JSON.parse(localStorage.getItem(ROOM_KEY) || "null"); } catch (e) { return null; }
 }
 function showResumeChoice(code) {
-  if (sessionOpen) return;
+  const stay = window.SSDNSApplied && window.SSDNSApplied.staysInRoom
+    ? window.SSDNSApplied.staysInRoom(sessionOpen, lobbyReason)
+    : (sessionOpen && lobbyReason !== "leave" && lobbyReason !== "end" && lobbyReason !== "new");
+  if (stay) {
+    console.warn("[DMCC] stayed in the room");
+    return;
+  }
+  lobbyReason = "";
   const box = $("#resumeChoice");
   const btn = $("#btnResumeRoom");
   const prompt = $("#resumePrompt");
@@ -2286,7 +2398,8 @@ async function resumeLiveRoom() {
   const choice = $("#resumeChoice");
   if (choice) choice.hidden = true;
   setStatus("live", "Loading " + pending.code + "…");
-  toast("Loading " + pending.code + "…");
+  const loadingNote = "Loading " + pending.code + "…";
+  toast(loadingNote);
   try {
     const fb = state._fb;
     const [playersSnap, tableSnap, ledgerSnap] = await Promise.all([
@@ -2306,6 +2419,8 @@ async function resumeLiveRoom() {
   showRoom();
   renderAll();
   setStatus("live", "Live · " + pending.code + " · players stay connected");
+  const loading = $("#toast");
+  if (loading && loading.textContent === loadingNote) loading.hidden = true;
   return true;
 }
 
@@ -2357,8 +2472,16 @@ async function boot() {
   // Demo: fully offline — do not touch Firebase CDN.
   // Live (?demo=0): try Firebase; fall back to Demo if it fails.
   const saved = readSavedRoom();
+  const wasOpen = readOpenFlag();
   releaseSession();
+  const autoResume = window.SSDNSApplied && window.SSDNSApplied.resumeInsteadOfLobby
+    ? window.SSDNSApplied.resumeInsteadOfLobby(wasOpen)
+    : !!(wasOpen && wasOpen.code);
   if (state.demo) {
+    if (autoResume) {
+      loadDemo(false, wasOpen.code);
+      return;
+    }
     setCreateBusy(false);
     if (saved && saved.code && saved.demo) {
       pendingResume = { code: saved.code, demo: true };
@@ -2389,6 +2512,11 @@ async function boot() {
       setStatus("demo", "Demo mode · Firebase unavailable");
       toast("Firebase unavailable — Demo mode on. See DM-SETUP.md");
     } else {
+      if (autoResume && wasOpen.code) {
+        pendingResume = { code: wasOpen.code, demo: false };
+        const resumed = await resumeLiveRoom();
+        if (resumed) return;
+      }
       const offered = await peekResume();
       if (!offered) {
         if (saved && saved.code && !saved.demo) {

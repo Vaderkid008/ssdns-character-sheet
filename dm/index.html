@@ -6,8 +6,8 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
-<link rel="icon" href="favicon.ico">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.16">
+<link rel="icon" href="assets/revolver.png">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.18-chat">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -21,6 +21,10 @@
     </div>
   </div>
   <div class="bar-actions">
+    <form class="header-roll" id="headerRoll">
+      <input type="text" id="headerFormula" value="1d20" aria-label="Dice formula" placeholder="1d20">
+      <button type="submit" class="btn sm">Roll</button>
+    </form>
     <button type="button" class="btn sm" id="btnLeaveRoom" hidden title="Leave this screen without ending the table">Leave room / New session</button>
     <button type="button" class="btn sm" id="btnCopyCode" hidden title="Copy room code">Copy code</button>
     <button type="button" class="btn sm" id="btnCopyLink" hidden title="Copy invite link">Copy invite link</button>
@@ -334,7 +338,7 @@
         <p class="lede">Rolls the dice, subtracts from current HP (temp first) or adds healing up to max, and tells the player.</p>
         <div class="form-grid">
           <div>
-            <label for="dmgTarget">Player</label>
+            <label for="dmgTarget">Target</label>
             <select id="dmgTarget"></select>
           </div>
           <div>
@@ -479,15 +483,15 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.16"></script>
-<script src="../assets/js/conditions.js?v=0.2.16"></script>
-<script src="assets/js/ui-tab.js?v=0.2.16"></script>
-<script src="../assets/js/sfx.js?v=0.2.16"></script>
-<script src="../assets/data/rules.js"></script>
-<script src="../assets/js/spell-cast.js"></script>
-<script src="../assets/js/firebase-config.js"></script>
-<script src="assets/js/demo-data.js"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.16"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.16"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.18"></script>
+<script src="../assets/js/conditions.js?v=0.2.18"></script>
+<script src="assets/js/ui-tab.js?v=0.2.18"></script>
+<script src="../assets/js/sfx.js?v=0.2.18"></script>
+<script src="../assets/data/rules.js?v=0.2.18"></script>
+<script src="../assets/js/spell-cast.js?v=0.2.18"></script>
+<script src="../assets/js/firebase-config.js?v=0.2.18"></script>
+<script src="assets/js/demo-data.js?v=0.2.18"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.18-chat"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.18"></script>
 </body>
 </html>

@@ -31,10 +31,12 @@
     "skills": {},
     "senses": "passive Perception 10",
     "languages": "Common",
-    "attacks": "Scimitar +3, 1d6+1",
+    "attacks": "Revolver +3 (1d8+1 piercing, 20/60, cap 6, MF 1), Bowie +3 (1d6+1 piercing)",
+    "atkBonus": 3,
+    "damage": "1d8+1",
     "attackList": [
-      { "name": "Scimitar", "bonus": 3, "damage": "1d6+1", "kind": "melee" },
-      { "name": "Light crossbow", "bonus": 3, "damage": "1d8+1", "kind": "ranged" }
+      { "id": "revolver", "name": "Revolver", "kind": "ranged", "toHit": 3, "bonus": 3, "damage": "1d8+1", "damageType": "piercing", "range": "20/60", "capacity": 6, "misfire": 1 },
+      { "id": "bowie", "name": "Bowie", "kind": "melee", "toHit": 3, "bonus": 3, "damage": "1d6+1", "damageType": "piercing", "range": "5 ft" }
     ],
     "traits": [],
     "description": "Trail trash with a six-gun attitude: duster or short coat, bandana, cheap leather, a knife that fights like a scimitar and a belt gun or short carbine. Stagecoach robbers, road agents, and posse fodder."

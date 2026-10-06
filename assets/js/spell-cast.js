@@ -235,12 +235,14 @@
       var rMiss = false;
       var rNat = null;
       var rSum = 0;
+      var dartRows = [];
       var r;
       for (r = 0; r < rays; r++) {
         if (kind === "auto") {
           var auto = bundle(rayDice, false);
           rSum += auto.rolled.total;
           rbits.push("dart " + (r + 1) + " " + auto.text);
+          dartRows.push({ n: r + 1, total: auto.rolled.total, text: auto.text });
         } else {
           var rayPair = d20roll(opts.mode);
           var rn = rayPair.nat;
@@ -260,6 +262,7 @@
       var rayDie = (opts.mode === "adv" || opts.mode === "dis") ? "2d20" : "1d20";
       var packedRays = pack(rtext, kind === "attack", kind === "attack" ? (rCrit ? 20 : rNat) : null, rCrit, (kind === "attack" ? rays + "x " + rayDie + sign(atkBonus) : rays + "x " + formulaOf(rayDice, false)), kind === "attack" ? ((rNat || 0) + atkBonus) : rSum, rtext, rspark);
       packedRays.multi = rays > 1 && kind === "attack";
+      if (kind === "auto") packedRays.darts = dartRows;
       return packedRays;
     }
 

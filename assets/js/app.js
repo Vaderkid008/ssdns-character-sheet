@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.8"; // sheet-invite-v038
+  var APP_VERSION = "0.3.10"; // sheet-round12-v0310
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -180,7 +180,9 @@
     TIERS.forEach(function (t) {
       if (!w.tiers || !w.tiers[t]) return;
       var list = (w.rounds && w.rounds[t] && w.rounds[t].length) ? w.rounds[t] : [""];
-      list.forEach(function (r) { o.push([t + "|" + r, TIER_LABEL[t] + (r ? " · " + r : "")]); });
+      var round = list[0] || "";
+      var label = w.ammo === "cartridge" ? ("Cartridges (" + TIER_LABEL[t] + ")") : (TIER_LABEL[t] + (round ? " · " + round : ""));
+      o.push([t + "|" + round, label]);
     });
     return o;
   }
@@ -237,7 +239,13 @@
       if (w && w.capacity) g.loaded = Math.min(num(g.loaded), w.capacity);
       if (w && w.hexShells) { g.chambers = []; for (var k = 0; k < w.capacity; k++) g.chambers.push(k < num(g.loaded) ? "c" : ""); }
     });
-    (c.ammo || []).forEach(function (a) { if (a.caliber === "12 gauge") a.caliber = "12 ga"; });
+    (c.ammo || []).forEach(function (a) {
+      if (a.caliber === "12 gauge") a.caliber = "12 ga";
+      if (a.type === "cartridge" && root.SSDNSApplied && root.SSDNSApplied.cartridgeTier) {
+        var tier = root.SSDNSApplied.cartridgeTier(a.caliber);
+        if (tier) a.caliber = tier;
+      }
+    });
   }
 
   // ------------------------------------------------------------------ state
@@ -1243,14 +1251,19 @@
       }
       var left = shells ? shells.filter(Boolean).length : num(g.loaded);
       out("left." + i, cap ? left + "/" + cap : "");
-      $('[data-reload="' + i + '"]').hidden = !cap;
+      var reloadBtn0 = $('[data-reload="' + i + '"]');
+      if (reloadBtn0) {
+        reloadBtn0.hidden = !cap;
+        var emptyNow = root.SSDNSApplied && root.SSDNSApplied.gunEmpty ? root.SSDNSApplied.gunEmpty(g) : !(num(g.loaded) > 0);
+        var kitPool = w ? takePool(g, w, false).pool : null;
+        reloadBtn0.textContent = (emptyNow && kitPool && num(kitPool.count) > 0) ? "Load from kit ammo" : "Reload";
+      }
       var unloadBtn = $('[data-unload="' + i + '"]');
       if (unloadBtn) unloadBtn.hidden = !cap;
       var rollBtn = $('[data-gunroll="' + i + '"]');
       if (rollBtn) {
         rollBtn.hidden = !s;
-        var emptyGun = !!(s && !(num(g.loaded) > 0));
-        rollBtn.textContent = emptyGun ? "Reload" : "Roll";
+        rollBtn.textContent = "Roll";
       }
       $('[data-tr="' + i + '"]').hidden = !(cap && w && w.tr);
       $('[data-hexwrap="' + i + '"]').hidden = !(cap && w && w.hexShells);
@@ -1412,6 +1425,7 @@
     function add(name) { if (name && out.indexOf(name) < 0) out.push(name); }
     if (type === "cartridge" || !type) {
       ["Light", "Medium", "Heavy"].forEach(add);
+    } else {
       CALIBERS.forEach(add);
     }
     (C().guns || []).forEach(function (g) {
@@ -1435,7 +1449,12 @@
       var cal = el("select", { "data-f": "character.ammo." + i + ".caliber", "aria-label": "Caliber" });
       var cals = caliberChoices(a.type);
       cal.appendChild(opt("", "Any / tier"));
-      cals.forEach(function (name) { cal.appendChild(opt(name, name)); });
+      cals.forEach(function (name) {
+        var label = (a.type === "cartridge" && root.SSDNSApplied && root.SSDNSApplied.cartridgePoolLabel)
+          ? (root.SSDNSApplied.cartridgePoolLabel(name) || name)
+          : name;
+        cal.appendChild(opt(name, label));
+      });
       if (a.caliber && !cals.some(function (name) { return name === a.caliber; })) cal.appendChild(opt(a.caliber, a.caliber));
       cal.value = a.caliber || "";
       var cnt = el("input", { type: "number", min: "0", "data-f": "character.ammo." + i + ".count", "aria-label": "Rounds", inputmode: "numeric" });
@@ -1752,7 +1771,13 @@
   }
   /** Ammo pool for a gun: type + chambered round. Caster Guns take any cartridge (their chosen round first). */
   function gunPoolType(g, w) { return w.ammo === "shell" ? (g.load === "slug" ? "slug" : "buck") : w.ammo; }
-  function gunRound(g, w) { if (!w.tiers) return w.caliber || ""; var cc = chamberOf(g, w); return w.ammo === "percussion" ? "" : cc.round; }
+  function gunRound(g, w) {
+    if (!w.tiers) return w.caliber || "";
+    var cc = chamberOf(g, w);
+    if (w.ammo === "percussion") return "";
+    if (w.ammo === "cartridge" && TIER_LABEL[cc.tier]) return TIER_LABEL[cc.tier];
+    return cc.round;
+  }
   function takePool(g, w, create) {
     var type = gunPoolType(g, w), round = gunRound(g, w), p = findPool(type, round, create);
     if ((!p || num(p.count) <= 0) && w.hexShells) p = C().ammo.filter(function (a) { return a.type === "cartridge" && num(a.count) > 0; })[0] || p;
@@ -2070,10 +2095,20 @@
     if (g.jammed) {
       g.jammed = false;
       var jamBox = document.querySelector('[data-f="character.guns.' + i + '.jammed"]');
-      if (jamBox) jamBox.checked = false;
+      if (jamBox) {
+        jamBox.checked = false;
+        jamBox.dispatchEvent(new Event("change", { bubbles: true }));
+      }
       changed();
+      var cleared = (WPN[g.weapon] ? WPN[g.weapon].name : "Gun") + ": jam cleared.";
       toast("Jam cleared.");
-      if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: (WPN[g.weapon] ? WPN[g.weapon].name : "Gun") + ": jam cleared." });
+      if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ id: "jam-clear:" + i + ":" + Date.now(), kind: "alert", text: cleared });
+      if (window.SSDNSDmJoin && window.SSDNSDmJoin.postLedger) {
+        window.SSDNSDmJoin.postLedger({
+          type: "jam", what: cleared, oldVal: "jammed", newVal: "clear", flag: false,
+          who: (C().player || "Player"), playerName: C().player || "", characterName: C().name || ""
+        });
+      }
       return;
     }
     if (g.fouled) {
@@ -2499,9 +2534,14 @@
   }
   function toast(msg, actLabel, actFn, ms, opts) {
     opts = opts || {};
-    var item = { msg: msg, actLabel: actLabel || "", actFn: actFn, ms: ms, id: opts.id || "" };
+    var item = { msg: msg, actLabel: actLabel || "", actFn: actFn, ms: ms, id: opts.id || "", sticky: !!opts.sticky };
     if (item.id && ((toastShowing && toastShowing.id === item.id) || toastQueue.some(function (q) { return q.id === item.id; }))) return;
-    toastQueue.push(item);
+    if (item.msg && ((toastShowing && toastShowing.msg === item.msg) || toastQueue.some(function (q) { return q.msg === item.msg; }))) return;
+    if (root.SSDNSApplied && root.SSDNSApplied.enqueueToast) toastQueue = root.SSDNSApplied.enqueueToast(toastQueue, item, 3);
+    else {
+      toastQueue.push(item);
+      while (toastQueue.length > 3) toastQueue.shift();
+    }
     pumpToast();
   }
   toast.dismissId = function (id) {

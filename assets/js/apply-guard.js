@@ -22,11 +22,19 @@
     try { storeOf(storage).setItem(key(room), JSON.stringify(set || {})); } catch (e) {}
   }
   /** Returns true the first time id is claimed. A second claim is a no-op. */
+  function undoneKey(id) { return "undo:" + id; }
+  function undone(room, id, storage) {
+    if (!id) return false;
+    return !!load(room, storage)[undoneKey(id)];
+  }
+  /** An id that was applied or undone must not be applied again after a reload. */
+  function settled(room, id, storage) {
+    return has(room, id, storage) || undone(room, id, storage);
+  }
   function claim(room, id, storage) {
     if (!id) return false;
     var set = load(room, storage);
-    if (set[id]) return false;
-    delete set["undo:" + id];
+    if (set[id] || set[undoneKey(id)]) return false;
     set[id] = 1;
     save(room, set, storage);
     return true;
@@ -170,8 +178,111 @@
     if (path.charAt(path.length - 1) !== "/") path += "/";
     url.pathname = path;
     url.search = "?room=" + encodeURIComponent(room);
-    url.hash = "";
+    url.hash = "room=" + encodeURIComponent(room);
     return url.toString();
+  }
+  /** Stay on the table unless the DM explicitly left, ended, or started new. */
+  function staysInRoom(sessionOpen, reason) {
+    if (!sessionOpen) return false;
+    return reason !== "leave" && reason !== "end" && reason !== "new";
+  }
+  function resumeInsteadOfLobby(openFlag) {
+    return !!(openFlag && openFlag.code);
+  }
+  function attackButtonLabel(atk) {
+    atk = atk || {};
+    var name = String(atk.name || "Attack").trim() || "Attack";
+    var bonus = atk.toHit != null && atk.toHit !== "" ? atk.toHit : (atk.bonus != null ? atk.bonus : "");
+    var n = Number(bonus);
+    if (bonus === "" || !isFinite(n)) return name;
+    return name + " " + (n >= 0 ? "+" : "") + n;
+  }
+  function gunEmpty(gun) {
+    var g = gun || {};
+    if (Array.isArray(g.chambers) && g.chambers.length) return !g.chambers.some(Boolean);
+    return !(Number(g.loaded) > 0);
+  }
+  function showHitApply(roll) {
+    if (!roll || !roll.id) return false;
+    var amt = Number(roll.damage);
+    if (!isFinite(amt) || amt <= 0) return false;
+    var heal = !!(roll.heal || /\bheals\b/i.test(String(roll.detail || "")));
+    if (!heal && (Number(roll.nat) === 1 || /→\s*MISS/.test(String(roll.detail || "")))) return false;
+    var name = String(roll.targetName || "").trim();
+    var unnamed = !name || /^target$/i.test(name) || /^no target$/i.test(name);
+    if (!heal && !roll.targetId && unnamed) return false;
+    if (roll.outOfTurn) return false;
+    return true;
+  }
+  function dedupeById(list) {
+    var seen = {};
+    var out = [];
+    (list || []).forEach(function (row) {
+      if (!row) return;
+      if (row.id) {
+        if (seen[row.id]) return;
+        seen[row.id] = 1;
+      }
+      out.push(row);
+    });
+    return out;
+  }
+  function cartridgeTier(caliber) {
+    var s = String(caliber || "").trim().toLowerCase();
+    if (!s) return "";
+    if (s === "light" || s === ".22 lr" || s === ".32 long" || s === ".44 rimfire") return "Light";
+    if (s === "medium" || s === ".357" || s === ".44-40" || s === ".45 long" || s === ".45 colt") return "Medium";
+    if (s === "heavy") return "Heavy";
+    return "";
+  }
+  function cartridgePoolLabel(caliber) {
+    var tier = cartridgeTier(caliber);
+    return tier ? ("Cartridges (" + tier + ")") : "";
+  }
+  /** Max rises when current HP is set above it. A lower current leaves max alone. */
+  function followMaxHp(current, max) {
+    var c = Number(current);
+    var m = Number(max);
+    var cOk = current !== "" && current != null && isFinite(c);
+    var mOk = max !== "" && max != null && isFinite(m);
+    if (!cOk) return mOk ? m : null;
+    if (!mOk) return c;
+    return Math.max(m, c);
+  }
+  function hpEditLine(name, before, after) {
+    return (name || "Enemy") + " HP " + (before == null || before === "" ? "—" : before) + " → " + after + " (DM edit)";
+  }
+  var PRESENCE_LEAVE_MS = 30000;
+  /**
+   * A connection blip stays "online" until the leave wait expires.
+   * state: { phase: "new"|"online"|"offline", pending: bool }
+   */
+  function presenceStep(state, online) {
+    var phase = (state && state.phase) || "new";
+    var pending = !!(state && state.pending);
+    if (online) {
+      if (pending || phase === "online") {
+        return { phase: "online", pending: false, log: "", arm: false, cancel: pending };
+      }
+      if (phase === "offline") return { phase: "online", pending: false, log: "rejoin", arm: false, cancel: true };
+      return { phase: "online", pending: false, log: "join", arm: false, cancel: false };
+    }
+    if (phase === "online" && !pending) {
+      return { phase: "online", pending: true, log: "", arm: true, cancel: false };
+    }
+    return { phase: phase, pending: pending, log: "", arm: false, cancel: false };
+  }
+  function presenceLeave() {
+    return { phase: "offline", pending: false, log: "leave", arm: false, cancel: false };
+  }
+  function enqueueToast(queue, item, cap) {
+    var list = Array.isArray(queue) ? queue.slice() : [];
+    var msg = item && item.msg;
+    if (msg && list.some(function (row) { return row && row.msg === msg; })) return list;
+    list.push(item);
+    var limit = cap || 3;
+    while (list.length > limit) list.shift();
+    return list;
   }
   function abilityScores(beast) {
     var b = beast || {};
@@ -286,7 +397,23 @@
     hitLine: hitLine,
     cleanName: cleanName,
     takeUndo: takeUndo,
-    sortInitiative: sortInitiative
+    undone: undone,
+    settled: settled,
+    sortInitiative: sortInitiative,
+    staysInRoom: staysInRoom,
+    resumeInsteadOfLobby: resumeInsteadOfLobby,
+    attackButtonLabel: attackButtonLabel,
+    gunEmpty: gunEmpty,
+    showHitApply: showHitApply,
+    dedupeById: dedupeById,
+    cartridgeTier: cartridgeTier,
+    cartridgePoolLabel: cartridgePoolLabel,
+    followMaxHp: followMaxHp,
+    hpEditLine: hpEditLine,
+    PRESENCE_LEAVE_MS: PRESENCE_LEAVE_MS,
+    presenceStep: presenceStep,
+    presenceLeave: presenceLeave,
+    enqueueToast: enqueueToast
   };
   root.SSDNSClock = {
     setOffset: setOffset,

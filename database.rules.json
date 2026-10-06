@@ -137,7 +137,7 @@
           "requests": {
             ".read": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
             "$id": {
-              ".write": "auth != null && !root.child('rooms/'+$roomCode+'/kicked/'+auth.uid).exists() && !data.exists() && newData.child('from').val() === auth.uid",
+              ".write": "auth != null && (root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid || (!root.child('rooms/'+$roomCode+'/kicked/'+auth.uid).exists() && !data.exists() && newData.child('from').val() === auth.uid))",
               ".validate": "newData.hasChildren(['ts', 'from', 'targetId', 'amount']) && !newData.hasChild('hp') && !newData.hasChild('maxHp')"
             }
           }
@@ -145,7 +145,7 @@
         "chat": {
           ".read": "auth != null",
           "$id": {
-            ".write": "auth != null && ((root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid && (( !data.exists() && newData.child('from').val() === auth.uid) || (data.exists() && !newData.exists()))) || (!root.child('rooms/'+$roomCode+'/kicked/'+auth.uid).exists() && !data.exists() && newData.child('from').val() === auth.uid))",
+            ".write": "auth != null && ((root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid && (!data.exists() || !newData.exists())) || (!root.child('rooms/'+$roomCode+'/kicked/'+auth.uid).exists() && !data.exists() && newData.child('from').val() === auth.uid))",
             ".validate": "!newData.exists() || (newData.hasChildren(['ts', 'from', 'text']) && (!newData.child('to').exists() || newData.child('to').val() === 'all' || newData.child('to').val() === ''))"
           }
         },

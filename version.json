@@ -1,6 +1,6 @@
 {
-  "sheet": "0.3.8",
-  "dmcc": "0.2.16",
-  "sheetBuild": "sheet-invite-v038",
-  "dmccBuild": "dmcc-enemy-card-v0216"
+  "sheet": "0.3.10",
+  "dmcc": "0.2.18",
+  "sheetBuild": "sheet-round12-v039",
+  "dmccBuild": "dmcc-round12-v0217"
 }
