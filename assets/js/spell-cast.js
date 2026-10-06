@@ -46,6 +46,14 @@
     }
     return 1 + Math.floor(Math.random() * sides);
   }
+  function d20roll(mode) {
+    var n1 = die(20);
+    var n2 = null;
+    if (mode === "adv" || mode === "dis") n2 = die(20);
+    var nat = n1;
+    if (n2 != null) nat = mode === "adv" ? Math.max(n1, n2) : Math.min(n1, n2);
+    return { nat: nat, shown: n2 == null ? String(n1) : (n1 + "/" + n2 + " → " + nat) };
+  }
   function sign(n) {
     n = Number(n) || 0;
     return (n >= 0 ? "+" : "") + n;
@@ -194,21 +202,28 @@
       var anyMiss = false;
       var shown = null;
       var b;
+      var beamShown = [];
       for (b = 0; b < beams; b++) {
-        var natb = die(20);
+        var beamPair = d20roll(opts.mode);
+        var natb = beamPair.nat;
         var tot = natb + atkBonus;
         var critb = natb === 20;
         var missb = natb === 1;
         if (critb) anyCrit = true;
         if (missb) anyMiss = true;
         if (shown == null || critb) shown = natb;
+        beamShown.push(beamPair.shown);
         var one = bundle(parseDice(row.dice || "1d10"), critb && !missb);
         var face = missb ? " MISS" : ((critb ? " CRIT · on hit " : " on hit ") + one.text);
-        bits.push("beam " + (b + 1) + " " + natb + sign(atkBonus) + " = " + tot + face);
+        bits.push("beam " + (b + 1) + " " + beamPair.shown + sign(atkBonus) + " = " + tot + face);
       }
       var spark = sparkFor(anyMiss);
       var text = name + gun + " · spell attack " + sign(atkBonus) + " · " + bits.join("; ");
-      return pack(text, true, anyCrit ? 20 : shown, anyCrit, beams + "x 1d20" + sign(atkBonus), (shown || 0) + atkBonus, text, spark);
+      var beamDie = (opts.mode === "adv" || opts.mode === "dis") ? "2d20" : "1d20";
+      var packedBeams = pack(text, true, anyCrit ? 20 : shown, anyCrit, beams + "x " + beamDie + sign(atkBonus), (shown || 0) + atkBonus, text, spark);
+      packedBeams.multi = beams > 1;
+      packedBeams.diceShown = beamShown.join("; ");
+      return packedBeams;
     }
 
     if (row.rays && (kind === "attack" || kind === "auto")) {
@@ -227,7 +242,8 @@
           rSum += auto.rolled.total;
           rbits.push("dart " + (r + 1) + " " + auto.text);
         } else {
-          var rn = die(20);
+          var rayPair = d20roll(opts.mode);
+          var rn = rayPair.nat;
           var rtot = rn + atkBonus;
           var rc = rn === 20;
           var rm = rn === 1;
@@ -236,17 +252,21 @@
           if (rNat == null || rc) rNat = rn;
           var rd = bundle(rayDice, rc && !rm);
           var rface = rm ? " MISS" : ((rc ? " CRIT · on hit " : " on hit ") + rd.text);
-          rbits.push("ray " + (r + 1) + " " + rn + sign(atkBonus) + " = " + rtot + rface);
+          rbits.push("ray " + (r + 1) + " " + rayPair.shown + sign(atkBonus) + " = " + rtot + rface);
         }
       }
       var rspark = sparkFor(rMiss);
       var rtext = name + gun + " · " + (kind === "auto" ? rays + " darts" : "spell attack " + sign(atkBonus)) + " · " + rbits.join("; ");
-      return pack(rtext, kind === "attack", kind === "attack" ? (rCrit ? 20 : rNat) : null, rCrit, (kind === "attack" ? rays + "x 1d20" + sign(atkBonus) : rays + "x " + formulaOf(rayDice, false)), kind === "attack" ? ((rNat || 0) + atkBonus) : rSum, rtext, rspark);
+      var rayDie = (opts.mode === "adv" || opts.mode === "dis") ? "2d20" : "1d20";
+      var packedRays = pack(rtext, kind === "attack", kind === "attack" ? (rCrit ? 20 : rNat) : null, rCrit, (kind === "attack" ? rays + "x " + rayDie + sign(atkBonus) : rays + "x " + formulaOf(rayDice, false)), kind === "attack" ? ((rNat || 0) + atkBonus) : rSum, rtext, rspark);
+      packedRays.multi = rays > 1 && kind === "attack";
+      return packedRays;
     }
 
     if (kind === "attack" || kind === "weapon") {
       var bonus = kind === "weapon" ? weaponAtk : atkBonus;
-      var nat = die(20);
+      var pair = d20roll(opts.mode);
+      var nat = pair.nat;
       var crit = nat === 20;
       var miss = nat === 1;
       var total = nat + bonus;
@@ -266,7 +286,9 @@
       var dmgText = miss ? "MISS" : ((crit ? "CRIT · on hit " : "on hit ") + dmgBits + " = " + dmgTotal);
       var text = head + " · " + dmgText;
       var spark = sparkFor(miss);
-      return pack(text, true, nat, crit, "1d20" + sign(bonus), total, nat + sign(bonus) + " = " + total + " · " + dmgText, spark);
+      var packed = pack(text, true, nat, crit, (pair.shown.indexOf("/") >= 0 ? "2d20" : "1d20") + sign(bonus), total, pair.shown + sign(bonus) + " = " + total + " · " + dmgText, spark);
+      packed.diceShown = pair.shown;
+      return packed;
     }
 
     if (kind === "save") {

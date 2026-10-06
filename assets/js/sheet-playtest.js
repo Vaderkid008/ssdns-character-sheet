@@ -362,6 +362,7 @@
       });
       fillFeatures();
       paintPact();
+      renderMelee();
       if (root.SSDNSApp && root.SSDNSApp.applyAutoHp && c.hpAuto !== false) root.SSDNSApp.applyAutoHp();
       toast("Starting kit applied.");
     };
@@ -552,7 +553,11 @@
     paintMelee();
     var atk = parseInt((document.querySelector("[data-melee-atk='" + i + "']") || {}).textContent, 10) || 0;
     var expr = (document.querySelector("[data-melee-dmg='" + i + "']") || {}).textContent || "1d4";
-    var nat = d20();
+    var chosen = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
+    var faced = root.SSDNSSheet && root.SSDNSSheet.attackRoll
+      ? root.SSDNSSheet.attackRoll(atk, (c && c.activeConditions) || [], chosen)
+      : { nat: d20(), shown: "", note: "", n2: null };
+    var nat = faced.nat;
     var miss = nat === 1;
     var crit = nat === 20;
     var n = 1, sides = 4;
@@ -573,14 +578,23 @@
     var name = (document.querySelector("[data-melee='" + i + "']") || {}).selectedOptions;
     name = name && name[0] ? name[0].text : "Melee";
     var tgt = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo && root.SSDNSPlaytest.targetInfo();
+    if (tgt && tgt.kind === "player") {
+      var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      if (!uid || tgt.id !== uid) toast("That target is another player.");
+    }
+    if (tgt && tgt.id && tgt.kind !== "player") {
+      var sel = $("#atkTarget");
+      if (sel) sel.setAttribute("data-last-enemy", tgt.id);
+    }
     var who = (c && c.name) || "You";
     var bonusTxt = atk ? ((atk >= 0 ? "+" : "") + atk) : "";
+    var face = faced.shown || String(nat);
     var hitTotal = nat + atk;
     var haveAc = tgt && tgt.ac != null && isFinite(Number(tgt.ac));
     if (haveAc && hitTotal < Number(tgt.ac)) miss = true;
     var dmgTxt = (!miss && detail) ? (" · " + formula + " = " + total) : "";
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
-    var line = (tgt && tgt.name ? (who + " → " + tgt.name) : (who + " · " + name)) + ": " + nat + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt;
+    var line = (tgt && tgt.name ? (who + " → " + tgt.name) : (who + " · " + name)) + ": " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt + (faced.note ? " · " + faced.note : "");
     toast(line);
     var Sheet = root.SSDNSSheet;
     var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -590,7 +604,7 @@
       root.SSDNSDmJoin.postRoll({
         id: rollId,
         label: (tgt && tgt.name ? who + " → " + tgt.name : name + " attack"),
-        formula: "1d20" + bonusTxt,
+        formula: (faced.n2 == null ? "1d20" : "2d20") + bonusTxt,
         result: hitTotal,
         detail: line,
         ac: haveAc ? Number(tgt.ac) : null,
@@ -820,12 +834,13 @@
       cc.hitDiceLeft = (left - 1) + "d" + sides;
     });
     var conTxt = (con >= 0 ? "+" : "") + con;
-    var line = "Hit die 1d" + sides + conTxt + " = " + gain + ", HP " + before + "→" + after;
+    var detail = "1d" + sides + conTxt + " = " + gain + ", HP " + before + "→" + after;
+    var line = "Hit die " + detail;
     toast(line);
     var hdId = "hd_" + Date.now().toString(36);
-    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ id: "roll:" + hdId, kind: "roll", text: line });
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ id: "roll:" + hdId, kind: "roll", text: line, label: "Hit die" });
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined() && root.SSDNSDmJoin.postRoll) {
-      root.SSDNSDmJoin.postRoll({ id: hdId, label: "Hit die", formula: "1d" + sides + conTxt, result: gain, detail: line });
+      root.SSDNSDmJoin.postRoll({ id: hdId, label: "Hit die", formula: "1d" + sides + conTxt, result: gain, detail: detail });
     }
   }
   function wrapRest() {
@@ -1056,7 +1071,7 @@
       var opt = sel.selectedOptions[0];
       var acRaw = opt.getAttribute("data-ac");
       var ac = acRaw == null || acRaw === "" ? null : Number(acRaw);
-      return { id: sel.value, name: opt.getAttribute("data-name") || opt.textContent || "", ac: isFinite(ac) ? ac : null };
+      return { id: sel.value, name: opt.getAttribute("data-name") || opt.textContent || "", ac: isFinite(ac) ? ac : null, kind: opt.getAttribute("data-kind") || "" };
     },
     showRoster: function (rows) {
       var el = $("#tableRoster");
@@ -1088,7 +1103,7 @@
       rows.forEach(function (row) {
         var ac = row.ac == null || row.ac === "" ? "" : String(row.ac);
         var name = String(row.name || row.id);
-        html += "<option value='" + String(row.id).replace(/'/g, "") + "' data-ac='" + ac.replace(/'/g, "") + "' data-name='" + name.replace(/[&<>"']/g, "") + "'>" +
+        html += "<option value='" + String(row.id).replace(/'/g, "") + "' data-ac='" + ac.replace(/'/g, "") + "' data-kind='" + String(row.kind || "").replace(/'/g, "") + "' data-name='" + name.replace(/[&<>"']/g, "") + "'>" +
           name.replace(/[&<>]/g, "") + (row.status ? " (" + String(row.status).replace(/[&<>]/g, "") + ")" : "") + "</option>";
       });
       sel.innerHTML = html;

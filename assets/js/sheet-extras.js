@@ -134,7 +134,11 @@
     extra = extra || {};
     var c = ch();
     var text = "";
-    if (c && extra.entries && root.SSDNSConditions) {
+    if (c && extra.merge && extra.entries && root.SSDNSConditions) {
+      c.activeConditions = root.SSDNSConditions.mergeById(c.activeConditions || [], extra.entries, extra.removeIds || []);
+      text = root.SSDNSConditions.listText(c.activeConditions);
+      c.tableConditions = text;
+    } else if (c && extra.entries && root.SSDNSConditions) {
       c.activeConditions = extra.entries.map(root.SSDNSConditions.normalize).filter(Boolean);
       text = root.SSDNSConditions.listText(c.activeConditions);
       c.tableConditions = text;
@@ -214,7 +218,7 @@
     var slice = rows.slice().reverse().slice(-80);
     feed.innerHTML = slice.map(function (e) {
       var when = "";
-      try { when = new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
+      try { when = root.SSDNSClock ? root.SSDNSClock.format(e.ts, false) : new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
       var face = rollFace(e);
       var hand = e.kind === "handout";
       return '<div class="dock-item ' + face.cls + '"' + handoutAttrs(e) + '><div class="dock-meta">' + when + " · " + esc(dockBucket(e)) +
@@ -251,7 +255,7 @@
     }
     feed.innerHTML = rows.map(function (e) {
       var when = "";
-      try { when = new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
+      try { when = root.SSDNSClock ? root.SSDNSClock.format(e.ts, false) : new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
       var face = rollFace(e);
       var hand = e.kind === "handout";
       return '<div class="log-item log-' + (e.kind || "all") + " " + face.cls + '"' + handoutAttrs(e) + '><div class="log-meta">' + when + " · " + (e.kind || "") +
@@ -536,7 +540,8 @@
     if (haveAc && !miss && total < Number(ac)) miss = true;
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
     var dmg = (!miss && opts.dmg) ? (" · " + opts.dmg.formula + " = " + opts.dmg.total) : "";
-    var head = (target ? (who + " → " + target) : who) + ": " + nat + bonus + " = " + total;
+    var face = opts.dice || String(nat);
+    var head = (target ? (who + " → " + target) : who) + ": " + face + bonus + " = " + total;
     return {
       player: head + (verdict ? (" → " + verdict) : "") + dmg,
       ac: haveAc ? Number(ac) : null,
@@ -550,6 +555,56 @@
     if (!sel || !sel.value) return null;
     var opt = sel.selectedOptions && sel.selectedOptions[0];
     return { id: sel.value, name: (opt && (opt.getAttribute("data-name") || opt.textContent)) || "", ac: null };
+  }
+  function attackRoll(mod, conditions, chosen) {
+    var mode = root.SSDNSConditions && root.SSDNSConditions.attackMode
+      ? root.SSDNSConditions.attackMode(conditions || [], chosen || "")
+      : (chosen === "adv" || chosen === "dis" ? chosen : "");
+    var n1 = d20();
+    var n2 = null;
+    var nat = n1;
+    if (mode === "adv" || mode === "dis") {
+      n2 = d20();
+      nat = mode === "adv" ? Math.max(n1, n2) : Math.min(n1, n2);
+    }
+    var notes = [];
+    if (root.SSDNSConditions) {
+      var dis = root.SSDNSConditions.disadvantageNote(conditions || []);
+      var adv = root.SSDNSConditions.advantageNote(conditions || []);
+      if (dis) notes.push(dis);
+      if (adv) notes.push(adv);
+    }
+    return {
+      nat: nat,
+      n1: n1,
+      n2: n2,
+      mode: mode,
+      shown: n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat),
+      note: notes.join(" · "),
+      mod: mod || 0
+    };
+  }
+  function blankTarget(tgt) {
+    if (!tgt || !tgt.id) return true;
+    var n = String(tgt.name || "").trim();
+    return !n || /^no target$/i.test(n) || /^target$/i.test(n);
+  }
+  function warnAlly(tgt) {
+    if (!tgt || tgt.kind !== "player") return;
+    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    if (uid && tgt.id === uid) return;
+    toast("That target is another player.");
+  }
+  function rememberEnemy(tgt) {
+    var sel = document.querySelector("#atkTarget");
+    if (!sel || !tgt || !tgt.id || tgt.kind === "player") return;
+    sel.setAttribute("data-last-enemy", tgt.id);
+  }
+  function releaseHealTarget() {
+    var sel = document.querySelector("#atkTarget");
+    if (!sel) return;
+    var last = sel.getAttribute("data-last-enemy") || "";
+    sel.value = last;
   }
   function rollAdv(mod) {
     var globalAdv = document.querySelector("#globalAdv");
@@ -612,6 +667,11 @@
     var row = Cast.lookup(spellName);
     var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var throughGun = !!((hexslinger && fromChamber) || (row && row.weapon));
+    var conds = (c && c.activeConditions) || [];
+    var chosenMode = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
+    var atkMode = root.SSDNSConditions && root.SSDNSConditions.attackMode
+      ? root.SSDNSConditions.attackMode(conds, chosenMode)
+      : chosenMode;
     var rolled = Cast.rollCast({
       spellName: spellName,
       slotLevel: slot,
@@ -623,7 +683,8 @@
       weaponAtk: gunAtk,
       gunName: throughGun && i >= 0 ? gunName(i) : "",
       wildSpark: hexslinger && slot > 0,
-      damageType: damageType || ""
+      damageType: damageType || "",
+      mode: atkMode
     });
     if (root.SSDNSAudio) {
       var cue = "spellshot";
@@ -632,15 +693,21 @@
       root.SSDNSAudio.play(cue);
     }
     var tgt = currentTarget();
+    if (rolled.attack) warnAlly(tgt);
+    if (tgt) rememberEnemy(tgt);
     var acForRoll = null;
-    if (rolled.attack && tgt && tgt.name && rolled.nat != null) {
+    if (rolled.attack && rolled.multi && tgt && tgt.name) {
+      rolled.text += " → " + tgt.name;
+      rolled.detail = rolled.text;
+    } else if (rolled.attack && tgt && tgt.name && rolled.nat != null) {
       var report = attackReport({
         who: (c && c.name) || "You",
         target: tgt.name,
         nat: rolled.nat,
         atk: atk,
         ac: tgt.ac,
-        miss: rolled.nat === 1
+        miss: rolled.nat === 1,
+        dice: rolled.diceShown || ""
       });
       var dmgTail = String(rolled.text || "").match(/on hit (.+)$/);
       rolled.text = report.player + (dmgTail && !report.miss ? " · " + dmgTail[1] : "");
@@ -648,24 +715,31 @@
       acForRoll = report.ac;
     } else if (row && row.kind === "heal") {
       var whoHeal = (c && c.name) || "You";
-      var tgtHeal = (tgt && tgt.name) || whoHeal;
+      var selfHeal = blankTarget(tgt) || (root.SSDNSDmJoin && root.SSDNSDmJoin.uid && tgt && tgt.id === root.SSDNSDmJoin.uid());
+      var tgtHeal = selfHeal ? whoHeal : (tgt && tgt.name);
       var dicePretty = root.SSDNSApplied && root.SSDNSApplied.healDice
         ? root.SSDNSApplied.healDice(String(rolled.detail || "").replace(/^[\s\S]*heals\s+/, ""))
         : "";
       var sentence = root.SSDNSApplied && root.SSDNSApplied.healLine
         ? root.SSDNSApplied.healLine(whoHeal, tgtHeal, rolled.result, dicePretty)
-        : (whoHeal + " heals " + tgtHeal + " " + rolled.result);
+        : (whoHeal + " heals " + (tgtHeal || whoHeal) + " " + rolled.result);
       rolled.text = sentence;
       rolled.detail = sentence;
       rolled.attack = false;
       rolled.heal = true;
+      rolled.selfHeal = !!selfHeal;
     } else if (tgt && tgt.name && row && row.kind !== "heal") {
       rolled.text += " · vs " + tgt.name;
       rolled.detail = rolled.text;
     }
-    var condNote = root.SSDNSConditions && root.SSDNSConditions.disadvantageNote
-      ? root.SSDNSConditions.disadvantageNote((c && c.activeConditions) || [])
-      : "";
+    var condBits = [];
+    if (root.SSDNSConditions) {
+      var disNote = root.SSDNSConditions.disadvantageNote(conds);
+      var advNote = root.SSDNSConditions.advantageNote(conds);
+      if (disNote) condBits.push(disNote);
+      if (advNote) condBits.push(advNote);
+    }
+    var condNote = condBits.join(" · ");
     if (condNote && rolled.attack) {
       rolled.text += " · " + condNote;
       rolled.detail = rolled.text;
@@ -696,14 +770,19 @@
         crit: rolled.crit,
         private: whisperOn(),
         whisper: whisperOn(),
-        targetId: tgt && tgt.id,
-        targetName: tgt && tgt.name,
-        damage: rolled.heal ? Number(rolled.result) || 0 : spellDmg,
+        targetId: rolled.selfHeal ? (root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid()) : (tgt && tgt.id),
+        targetName: rolled.selfHeal ? ((c && c.name) || "You") : (tgt && tgt.name),
+        damage: rolled.selfHeal ? null : (rolled.heal ? Number(rolled.result) || 0 : spellDmg),
+        selfApplied: !!rolled.selfHeal,
         weapon: throughGun && i >= 0 ? gunName(i) : ""
       });
-      if (rolled.heal && !whisperOn() && root.SSDNSDmJoin.postDamage) {
-        var healTarget = (tgt && tgt.id) || (root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid());
-        var healName = (tgt && tgt.name) || ((c && c.name) || "You");
+      if (rolled.heal && rolled.selfHeal) {
+        if (root.SSDNSDmJoin.claimGrant) root.SSDNSDmJoin.claimGrant("hp:" + rollId);
+        applyDelta(Number(rolled.result) || 0, rolled.text);
+        releaseHealTarget();
+      } else if (rolled.heal && !whisperOn() && root.SSDNSDmJoin.postDamage) {
+        var healTarget = tgt && tgt.id;
+        var healName = tgt && tgt.name;
         if (healTarget) {
           root.SSDNSDmJoin.postDamage({
             amount: Number(rolled.result) || 0,
@@ -714,8 +793,11 @@
             targetName: healName,
             rollId: rollId
           });
+          releaseHealTarget();
         } else {
+          if (root.SSDNSDmJoin.claimGrant) root.SSDNSDmJoin.claimGrant("hp:" + rollId);
           applyDelta(Number(rolled.result) || 0, rolled.text);
+          releaseHealTarget();
         }
       } else if (!rolled.heal && rolled.attack && spellDmg && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         root.SSDNSDmJoin.postDamage({
@@ -853,13 +935,10 @@
       : 1;
     var modeSel = document.querySelector('[data-adv="' + i + '"]');
     var globalAdv = document.querySelector("#globalAdv");
-    var mode = (modeSel && modeSel.value) || (globalAdv && globalAdv.value) || "";
+    var chosen = (modeSel && modeSel.value) || (globalAdv && globalAdv.value) || "";
     var gunRollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    var n1 = d20(), n2 = null, nat = n1;
-    if (mode === "adv" || mode === "dis") {
-      n2 = d20();
-      nat = mode === "adv" ? Math.max(n1, n2) : Math.min(n1, n2);
-    }
+    var gunDice = attackRoll(atk, (ch() && ch().activeConditions) || [], chosen);
+    var n1 = gunDice.n1, n2 = gunDice.n2, nat = gunDice.nat;
     var bad = function (n) { return n >= 1 && n <= ceiling; };
     var both = n2 != null && bad(n1) && bad(n2);
     var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
@@ -867,7 +946,7 @@
     var rugged = !!(wpn && /rugged/i.test(wpn.properties || ""));
     var name = gunName(i);
     var who = (ch() && ch().name) || name;
-    var dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
+    var dice = gunDice.shown || String(nat);
     var total = nat + atk;
     var misfired = false;
     if (both && !rugged) {
@@ -886,6 +965,8 @@
     }
     if (!misfired && root.SSDNSAudio) root.SSDNSAudio.play("attack");
     var tgt = currentTarget();
+    warnAlly(tgt);
+    if (tgt) rememberEnemy(tgt);
     var haveAc = tgt && tgt.ac != null && isFinite(Number(tgt.ac));
     var miss = nat === 1 || misfired || (haveAc && total < Number(tgt.ac));
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
@@ -893,12 +974,11 @@
     if (!miss) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
     var report = attackReport({
       who: who, target: tgt && tgt.name, nat: nat, atk: atk,
-      ac: tgt && tgt.ac, miss: miss, misfire: misfired, dmg: dmg
+      ac: tgt && tgt.ac, miss: miss, misfire: misfired, dmg: dmg,
+      dice: dice
     });
-    var gunNote = root.SSDNSConditions && root.SSDNSConditions.disadvantageNote
-      ? root.SSDNSConditions.disadvantageNote((ch() && ch().activeConditions) || [])
-      : "";
-    var line = report.player + (misfired ? " · misfire" : "") + (gunNote && !report.miss ? " · " + gunNote : "") + (spent.left != null ? " · " + spent.left + " rounds left." : "");
+    var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
+    var line = report.player + (misfired ? " · misfire" : "") + (gunDice.note ? " · " + gunDice.note : "") + ammoTxt;
     toast(line);
     addLog({
       id: "roll:" + gunRollId,
@@ -914,7 +994,7 @@
         label: who + (tgt && tgt.name ? " → " + tgt.name : ""),
         formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
         result: total,
-        detail: report.player,
+        detail: line,
         ac: report.ac,
         nat1: false,
         isFirearm: true,
@@ -1232,17 +1312,15 @@
     if (heal) heal.addEventListener("click", function () {
       var amt = Math.abs(num($("#inHpAdjust") && $("#inHpAdjust").value));
       if (!amt) { toast("Enter an amount"); return; }
-      if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && root.SSDNSDmJoin.uid) {
+      var selfName = (ch() && ch().name) || "You";
+      var line = root.SSDNSApplied ? root.SSDNSApplied.healLine(selfName, selfName, amt, "") : (selfName + " heals " + selfName + " " + amt);
+      var hid = "r_" + Date.now().toString(36);
+      if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.claimGrant) root.SSDNSDmJoin.claimGrant("hp:" + hid);
+      applyDelta(amt, line);
+      if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll && root.SSDNSDmJoin.uid) {
         var selfId = root.SSDNSDmJoin.uid();
-        var selfName = (ch() && ch().name) || "You";
-        var line = root.SSDNSApplied ? root.SSDNSApplied.healLine(selfName, selfName, amt, "") : (selfName + " heals " + selfName + " " + amt);
-        var hid = "r_" + Date.now().toString(36);
-        root.SSDNSDmJoin.postDamage({ amount: amt, type: "heal", label: "Heal", dice: String(amt), targetId: selfId, targetName: selfName, rollId: hid });
-        if (root.SSDNSDmJoin.postRoll) root.SSDNSDmJoin.postRoll({ id: hid, label: "Heal", formula: String(amt), result: amt, detail: line, heal: true, attack: false, damage: amt, targetId: selfId, targetName: selfName });
-        toast(line);
-        return;
+        root.SSDNSDmJoin.postRoll({ id: hid, label: "Heal", formula: String(amt), result: amt, detail: line, heal: true, attack: false, damage: null, selfApplied: true, targetId: selfId, targetName: selfName });
       }
-      applyDelta(amt, (ch() && ch().name ? ch().name + " heals " : "Heal ") + amt);
     });
     document.addEventListener("click", function (e) {
       var buyBtn = e.target.closest && e.target.closest("[data-buy]");
@@ -1383,6 +1461,7 @@
     renderLog: renderLog,
     showInspiration: showInspiration,
     castNamed: function (name) { castSpellAttack(-1, name, 0, false); },
+    attackRoll: attackRoll,
     showTapHear: function () {
       var b = $("#btnTapHear");
       if (b) b.hidden = false;

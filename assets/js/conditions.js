@@ -23,6 +23,7 @@
     ["Unconscious", "Incapacitated, prone, and unaware. You drop what you're holding and auto-fail Strength and Dexterity saves. Attacks against you have advantage, and a hit from within 5 feet is a critical."]
   ];
   var ATTACK_DISADV = { Blinded: 1, Frightened: 1, Poisoned: 1, Prone: 1, Restrained: 1 };
+  var ATTACK_ADV = { Invisible: 1 };
 
   function slug(name) {
     return String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "condition";
@@ -119,14 +120,49 @@
     });
     return { list: next, ended: ended };
   }
-  function disadvantageNote(list) {
+  function namesFrom(list, table) {
     var names = [];
     (list || []).forEach(function (raw) {
       var row = normalize(raw);
       if (!row) return;
-      if (ATTACK_DISADV[row.name] && names.indexOf(row.name) < 0) names.push(row.name);
+      if (table[row.name] && names.indexOf(row.name) < 0) names.push(row.name);
     });
+    return names;
+  }
+  function disadvantageNote(list) {
+    var names = namesFrom(list, ATTACK_DISADV);
     return names.length ? ("disadvantage: " + names.join(", ")) : "";
+  }
+  function advantageNote(list) {
+    var names = namesFrom(list, ATTACK_ADV);
+    return names.length ? ("advantage: " + names.join(", ")) : "";
+  }
+  /** Blank chosen mode plus conditions. Advantage and disadvantage cancel. */
+  function attackMode(list, chosen) {
+    var dis = !!disadvantageNote(list);
+    var adv = !!advantageNote(list);
+    var pick = chosen === "adv" || chosen === "dis" ? chosen : "";
+    if (pick === "adv" && dis) return "";
+    if (pick === "dis" && adv && !dis) return "";
+    if (pick) return pick;
+    if (dis && adv) return "";
+    if (dis) return "dis";
+    if (adv) return "adv";
+    return "";
+  }
+  /** Upsert incoming ids. Remove only ids the caller explicitly dropped. */
+  function mergeById(existing, incoming, removeIds) {
+    var drop = {};
+    (removeIds || []).forEach(function (id) { if (id) drop[id] = 1; });
+    var out = (existing || []).map(normalize).filter(function (row) { return row && !drop[row.id]; });
+    (incoming || []).forEach(function (raw) {
+      var row = normalize(raw);
+      if (!row || drop[row.id]) return;
+      var idx = out.findIndex(function (x) { return x.id === row.id || x.name.toLowerCase() === row.name.toLowerCase(); });
+      if (idx >= 0) out[idx] = row;
+      else out.push(row);
+    });
+    return out;
   }
   function ensureUnconscious(list, hp, subjectId) {
     var cur = (list || []).slice();
@@ -147,6 +183,9 @@
     removeName: removeName,
     tick: tick,
     disadvantageNote: disadvantageNote,
+    advantageNote: advantageNote,
+    attackMode: attackMode,
+    mergeById: mergeById,
     ensureUnconscious: ensureUnconscious
   };
 })(typeof window !== "undefined" ? window : globalThis);

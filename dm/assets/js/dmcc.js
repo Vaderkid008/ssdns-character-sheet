@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.12"; // dmcc-round9-v0212
+const VERSION = "0.2.13"; // dmcc-round10-v0213
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -49,6 +49,7 @@ function roomCode() {
   return w + "-" + n;
 }
 function fmtTime(iso) {
+  if (window.SSDNSClock) return window.SSDNSClock.format(iso, true);
   try {
     const d = new Date(iso);
     return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
@@ -262,6 +263,11 @@ async function runFirebaseInit() {
     });
     // Anonymous sign-in is the readiness check. ref(".info/connected") throws
     // "Invalid token in path" in the modular SDK, which was forcing Demo mode.
+    try {
+      fb.onValue(fb.ref(state.db, ".info/serverTimeOffset"), (snap) => {
+        if (window.SSDNSClock) window.SSDNSClock.setOffset(snap.val() || 0);
+      });
+    } catch (err) { /* offset is optional */ }
     return true;
   } catch (e) {
     state.firebaseError = (e && e.message) || String(e);
@@ -987,21 +993,43 @@ function rollDetail(r) {
 }
 function rollBody(r) {
   const detail = rollDetail(r);
-  if (r && (r.heal || /\bheals\b/i.test(detail))) return detail;
-  if (detail && /→\s*(HIT|MISS)/.test(detail)) return detail;
-  const formula = r && r.formula ? String(r.formula) + " = " + (r.result ?? "") : "";
-  const head = ((r && r.label) || "Roll") + (formula ? " · " + formula : "");
-  return detail ? head + " (" + detail + ")" : head;
+  let out;
+  if (r && (r.heal || /\bheals\b/i.test(detail))) out = detail;
+  else if (detail && /→\s*(HIT|MISS)/.test(detail)) out = detail;
+  else {
+    const formula = r && r.formula ? String(r.formula) + " = " + (r.result ?? "") : "";
+    const head = ((r && r.label) || "Roll") + (formula ? " · " + formula : "");
+    out = detail ? head + " (" + detail + ")" : head;
+  }
+  if (/\btarget\b/i.test(out)) {
+    const who = String((r && (r.characterName || r.who)) || "").trim() || "someone";
+    const named = realTargetName(r);
+    const repl = named || (/\bheals\b/i.test(out) ? who : "someone");
+    out = out.replace(/\bno target\b/gi, repl).replace(/\btarget\b/gi, repl);
+  }
+  return out;
+}
+function realTargetName(r) {
+  const raw = String((r && r.targetName) || "").trim();
+  if (!raw || /^target$/i.test(raw) || /^no target$/i.test(raw)) return "";
+  return raw;
+}
+function undoHitButton(rollId) {
+  if (!rollId) return "";
+  const applied = window.SSDNSApplied && window.SSDNSApplied.has && window.SSDNSApplied.has(state.roomCode, rollId);
+  if (!applied) return "";
+  return `<button type="button" class="btn sm" data-undo-hit="${esc(rollId)}">Undo</button>`;
 }
 function hitApplyButton(r) {
   const amt = Number(r && r.damage);
   if (!r || !r.id || !isFinite(amt) || amt <= 0) return "";
   const heal = !!(r.heal || /\bheals\b/i.test(String(r.detail || "")));
   if (!heal && (r.nat === 1 || /→\s*MISS/.test(String(r.detail || "")))) return "";
-  const name = r.targetName || "";
+  const name = realTargetName(r);
   const applied = !!(r.applied || (window.SSDNSApplied && window.SSDNSApplied.has && window.SSDNSApplied.has(state.roomCode, r.id)));
-  const label = applied ? ("Applied " + amt + (name ? " → " + name : "")) : ("Apply " + amt + (name ? " → " + name : ""));
-  return `<button type="button" class="btn sm" data-apply-hit="${esc(r.id)}"${applied ? " disabled" : ""}>${esc(label)}</button>`;
+  if (applied) return `<span class="fine">Applied ${esc(amt)}${name ? " → " + esc(name) : ""}</span> ${undoHitButton(r.id)}`;
+  const label = "Apply " + amt + (name ? " → " + name : "");
+  return `<button type="button" class="btn sm" data-apply-hit="${esc(r.id)}">${esc(label)}</button>`;
 }
 async function markRollApplied(id, applied) {
   const row = (state.rolls || []).find((r) => r && r.id === id);
@@ -1046,7 +1074,7 @@ function renderPlayers() {
           <div class="pcard-name">${esc(s.name || "Unknown")}</div>
           <div class="pcard-sub">${esc(s.calling || "?")} · L${esc(s.level ?? "?")} · ${esc(s.player || "")}</div>
         </div>
-        <span class="badge ${downed ? "danger" : (on ? "eld" : "")}">${downed ? "Down" : (on ? "Online" : "Away")}</span>
+        <span class="badge ${downed ? "danger" : (on ? "eld" : "")}">${downed ? "Unconscious" : (on ? "Online" : "Away")}</span>
       </div>
       ${condHtml ? `<div class="cond-row">${condHtml}</div>` : ""}
       <div class="stat-row">
@@ -1130,6 +1158,7 @@ function renderLedger() {
       <div class="feed-meta"><span>${esc(fmtTime(e.ts))}</span><span>${esc(ledgerNames(e))}</span><span class="badge">${esc(e.type)}</span>${e.flag ? '<span class="badge warn">Big jump</span>' : ""}</div>
       <div class="feed-what">${esc(e.what)}</div>
       ${delta ? `<div class="feed-delta">${esc(delta)}</div>` : ""}
+      ${(e.type === "damage" || e.type === "heal") ? undoHitButton(e.rollId) : ""}
     </div>`;
   }).join("");
   renderLiveDock();
@@ -1155,12 +1184,13 @@ function dockItems() {
     const resend = e.type === "turn" && e.playerId && e.playerId !== "all"
       ? `<button type="button" class="btn sm" data-resend-feed="${esc(e.playerId)}">Resend</button>`
       : "";
+    const undo = (e.type === "damage" || e.type === "heal") ? undoHitButton(e.rollId) : "";
     rows.push({
       ts: e.ts,
       kind: money ? "money" : (alert ? "alerts" : "ledger"),
       who: ledgerNames(e) || e.who || "",
       text: e.what || e.type || "",
-      applyHtml: resend
+      applyHtml: resend + undo
     });
   });
   (state.rolls || []).forEach((r) => {
@@ -1499,7 +1529,8 @@ async function sendHandoutCommand(h) {
     payload: { name: h.name, url: h.url || "", text: h.text || "" },
     from: state.uid
   });
-  toast("Handout sent to " + (h.to === "all" ? "table" : h.to));
+  const who = h.to === "all" ? "table" : ((state.players[h.to] && state.players[h.to].snapshot && (state.players[h.to].snapshot.name || state.players[h.to].snapshot.player)) || "a player");
+  toast("Handout sent to " + who);
 }
 
 async function doForce(kind, custom) {

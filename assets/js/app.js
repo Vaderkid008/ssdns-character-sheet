@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.5"; // sheet-round9-v035
+  var APP_VERSION = "0.3.6"; // sheet-round10-v036
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1151,6 +1151,8 @@
   }
   function renderCalc() {
     ensureSpeed();
+    var wild = document.querySelector("details.box.wild");
+    if (wild) wild.hidden = C().calling !== "hexslinger";
     var c = C(), v = compute();
     $$("[data-calc]").forEach(function (e) {
       var k = e.getAttribute("data-calc"), auto = calcValue(k, v), has = hasOv(c, k);
@@ -2377,6 +2379,7 @@
       renderWarn();
     };
     window.addEventListener("storage", function (e) {
+      if (window.SSDNSCreator && window.SSDNSCreator.isOpen && window.SSDNSCreator.isOpen()) return;
       if (!S.doc || !e || !e.key) return;
       if (e.key === "ssdns.sheet.char." + S.doc.id || e.key === "ssdns.v1.char." + S.doc.id) renderWarn();
     });
@@ -2457,6 +2460,7 @@
     try { Bridge.writeWallet({ characterId: S.doc.id, characterName: C().name, shards: S.doc.shards, updatedBy: "sheet" }); } catch (e) { console.warn(e); }
   }
   function onWallet(w) {
+    if (window.SSDNSCreator && window.SSDNSCreator.isOpen && window.SSDNSCreator.isOpen()) return;
     if (!S.doc || w.characterId !== S.doc.id || w.updatedBy === "sheet") return;
     if (JSON.stringify(Bridge.cleanShards(S.doc.shards)) === JSON.stringify(w.shards)) return;
     S.doc.shards = w.shards;

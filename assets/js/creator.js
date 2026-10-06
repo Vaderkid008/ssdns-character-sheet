@@ -473,7 +473,19 @@
       var pool = draft.method === "standard" ? STANDARD.slice() : null;
       AB.forEach(function (ab) {
         var input = el("input", { type: "number", min: "3", max: "18", value: String(draft.scores[ab] || 8), "data-ab": ab });
-        input.addEventListener("input", function () { draft.scores[ab] = parseInt(input.value, 10); paintMods(); });
+        input.addEventListener("input", function () {
+          draft.scores[ab] = parseInt(input.value, 10);
+          paintMods();
+          var left = errorsFor(draft, "abilities");
+          var err = $("#wizError");
+          if (!left.length) {
+            draft._showErrors = false;
+            if (err) { err.hidden = true; err.textContent = ""; }
+          } else if (draft._showErrors && err) {
+            err.hidden = false;
+            err.textContent = left[0];
+          }
+        });
         body.appendChild(field(ab + " " + sign(mod(draft.scores[ab])), input));
       });
       var mods = el("p", { id: "wizMods", class: "fine" });
@@ -528,8 +540,7 @@
       if (!choices.length) body.appendChild(el("p", { text: "This Calling's kit has no or-choices. Next applies it." }));
       choices.forEach(function (ch) {
         if (ch.when && !ch.when(draft.kit || {})) return;
-        body.appendChild(el("p", { text: ch.prompt }));
-        var ksel = el("select", { "data-kit": ch.id });
+        var ksel = el("select", { "data-kit": ch.id, "aria-label": ch.prompt });
         ksel.appendChild(option("", "Choose…", !(draft.kit && draft.kit[ch.id])));
         (ch.options || []).forEach(function (op) {
           ksel.appendChild(option(op.id, op.label, draft.kit && draft.kit[op.id] === op.id || (draft.kit && draft.kit[ch.id] === op.id)));
@@ -539,7 +550,7 @@
           draft.kit[ch.id] = ksel.value;
           renderStep(body, draft, step);
         });
-        body.appendChild(ksel);
+        body.appendChild(field(ch.prompt, ksel));
       });
     } else if (step === "spells") {
       body.appendChild(el("h2", { text: "Spells" }));
@@ -577,14 +588,26 @@
       preview.wizardDone = step === "review";
       body.appendChild(el("h2", { text: step === "review" ? "Review" : "HP, AC, initiative, speed" }));
       var pv = preview._preview || {};
+      var bg = backgroundById(draft.background);
       body.appendChild(el("p", { text: preview.name + (preview.player ? " · " + preview.player : "") }));
       body.appendChild(el("p", { text: (cal ? cal.name : "") + " · " + ((lineageById(draft.lineage) || {}).name || "") }));
+      if (step === "review") {
+        body.appendChild(el("p", { text: AB.map(function (ab) {
+          return ab + " " + (draft.scores[ab] || 0) + " (" + sign(mod(draft.scores[ab])) + ")";
+        }).join(" · ") }));
+        body.appendChild(el("p", { text: "Background: " + ((bg && bg.name) || "—") + ". Skills: " + ((draft.skills || []).join(", ") || "—") + "." }));
+        var kitBits = Object.keys(draft.kit || {}).map(function (key) {
+          var choice = ((root.SSDNSKits && root.SSDNSKits.choices && root.SSDNSKits.choices[draft.calling]) || []).filter(function (ch) { return ch.id === key; })[0];
+          var op = choice && (choice.options || []).filter(function (row) { return row.id === draft.kit[key]; })[0];
+          return (choice ? choice.prompt : key) + ": " + (op ? op.label : draft.kit[key]);
+        });
+        if (kitBits.length) body.appendChild(el("p", { text: "Kit: " + kitBits.join(". ") }));
+        var spells = (draft.cantrips || []).concat(draft.spells || []);
+        if (spells.length) body.appendChild(el("p", { text: "Spells: " + spells.join(", ") }));
+        if (pv.focus) body.appendChild(el("p", { text: pv.focus }));
+      }
       body.appendChild(el("p", { text: "HP " + pv.hp + " (max hit die + CON). AC " + pv.ac + ". Initiative " + sign(pv.init) + ". Speed " + pv.speed + " ft." }));
       if (step === "review") body.appendChild(el("p", { class: "fine", text: "Finish writes this onto the sheet. Back changes any step." }));
-    }
-    var problems = errorsFor(draft, step).filter(function (err) { return step !== "review" || true; });
-    if (step !== "review" && problems.length && draft._showErrors) {
-      problems.forEach(function (err) { body.appendChild(el("p", { class: "wiz-err", text: err })); });
     }
   }
   function show() {
@@ -654,6 +677,7 @@
     if (app && app.applyPatch && app.doc && app.doc()) {
       app.applyPatch(function (doc) { applyDraft(doc.character, ui.draft); });
     }
+    if (root.SSDNSPlaytest && root.SSDNSPlaytest.syncSheet) root.SSDNSPlaytest.syncSheet();
     close(false);
     if (root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice("Character created.");
   }
@@ -678,6 +702,14 @@
     if (isExisting(doc)) return;
     try { if (sessionStorage.getItem("ssdns.wizard.skip") === "1") return; } catch (e) {}
     open(false);
+  }
+
+  if (root.addEventListener) {
+    root.addEventListener("storage", function () {
+      if (!ui.open) return;
+      var dlg = $("#wizDialog");
+      if (dlg && !dlg.open && dlg.showModal) dlg.showModal();
+    });
   }
 
   root.SSDNSCreator = {
