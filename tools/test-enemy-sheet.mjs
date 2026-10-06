@@ -94,7 +94,8 @@ check(outlawHtml.indexOf("passive Perception 10") >= 0, "outlaw senses");
 check(outlawHtml.indexOf("six-gun") >= 0, "outlaw description");
 check(outlawHtml.indexOf("data-hp-val=\"0\"") >= 0 && outlawHtml.indexOf("data-max-val=\"0\"") >= 0, "editable HP");
 check(outlawHtml.indexOf('class="hp-bar"') >= 0, "hp bar");
-check(outlawHtml.indexOf("data-card-public=\"0\">") >= 0 && outlawHtml.indexOf("checked") < 0, "dice box is private by default");
+check(outlawHtml.indexOf("data-card-public=\"0\">") >= 0, "dice box is private by default");
+check(outlawHtml.indexOf("data-reveal=\"name\" data-reveal-i=\"0\" checked") >= 0 && outlawHtml.indexOf("data-reveal=\"ac\" data-reveal-i=\"0\">") >= 0, "name is revealed and AC stays hidden");
 check(outlawHtml.indexOf("data-sheet-dice=\"1\"") >= 0 && outlawHtml.indexOf("sheet-dice") >= 0, "dice box roll");
 check(outlawHtml.indexOf('value="adv"') >= 0 && outlawHtml.indexOf('value="dis"') >= 0, "adv/dis toggle");
 const outlawCompact = compact(outlaw, 0);
@@ -171,9 +172,9 @@ check(css.indexOf(".enemy-sheet.drawer") >= 0 && css.indexOf(".sheet-dice") >= 0
 check(src.indexOf("tactics-note") >= 0 && src.indexOf("On deck:") >= 0 && src.indexOf("Bloodied") >= 0, "fight row tactics, on deck, bloodied");
 check(read("docs/DM-PRINCIPLES.md").indexOf("eyes stay on the table") >= 0, "principles doc");
 check(read("docs/SCHEMA.md").indexOf("`tactics`") >= 0, "schema documents tactics");
-check(version.dmcc === "0.2.22" && version.dmccBuild === "dmcc-session-status-v0222", "dmcc version");
-check(version.sheet === "0.3.11" && version.sheetBuild === "sheet-store-v0311", "sheet version stays");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.22"') >= 0, "dmcc.js version");
+check(version.dmcc === "0.2.23" && version.dmccBuild === "dmcc-hidden-stats-v0223", "dmcc version");
+check(version.sheet === "0.3.12" && version.sheetBuild === "sheet-store-v0312", "sheet version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.23"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {

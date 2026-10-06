@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.22"; // dmcc-session-status-v0222
+const VERSION = "0.2.23"; // dmcc-hidden-stats-v0223
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -270,7 +270,16 @@ async function runFirebaseInit() {
       state.app = fb.getApp("ssdns-dm");
     }
     state.auth = fb.getAuth(state.app);
+    const emu = /(?:\?|&)emu=1(?:&|$)/.test(String((window.location && window.location.search) || ""));
+    if (emu && authMod.connectAuthEmulator) {
+      try { authMod.connectAuthEmulator(state.auth, "http://127.0.0.1:9099", { disableWarnings: true }); }
+      catch (err) {}
+    }
     state.db = fb.getDatabase(state.app);
+    if (emu && dbMod.connectDatabaseEmulator) {
+      try { dbMod.connectDatabaseEmulator(state.db, "127.0.0.1", 9000); }
+      catch (err) {}
+    }
     await fb.signInAnonymously(state.auth);
     await new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error("Auth timeout")), 8000);
@@ -1405,6 +1414,7 @@ async function copyRoomChildren(oldCode, newCode) {
   const encounter = {
     public: await snap("encounter/public"),
     hp: await snap("encounter/hp"),
+    dm: await snap("encounter/dm"),
     requests: await snap("encounter/requests")
   };
   const players = (await snap("players")) || {};
@@ -1444,6 +1454,7 @@ async function copyRoomChildren(oldCode, newCode) {
   }
   if (encounter && encounter.public) await put("encounter/public", encounter.public);
   if (encounter && encounter.hp) await put("encounter/hp", encounter.hp);
+  if (encounter && encounter.dm) await put("encounter/dm", encounter.dm);
   if (encounter && encounter.requests) {
     for (const id of Object.keys(encounter.requests)) await put("encounter/requests/" + id, encounter.requests[id]);
   }

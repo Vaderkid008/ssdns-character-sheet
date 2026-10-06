@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.11"; // sheet-store-v0311
+  var APP_VERSION = "0.3.12"; // sheet-store-v0312
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -241,8 +241,8 @@
     });
     (c.ammo || []).forEach(function (a) {
       if (a.caliber === "12 gauge") a.caliber = "12 ga";
-      if (a.type === "cartridge" && root.SSDNSApplied && root.SSDNSApplied.cartridgeTier) {
-        var tier = root.SSDNSApplied.cartridgeTier(a.caliber);
+      if (a.type === "cartridge" && window.SSDNSApplied && window.SSDNSApplied.cartridgeTier) {
+        var tier = window.SSDNSApplied.cartridgeTier(a.caliber);
         if (tier) a.caliber = tier;
       }
     });
@@ -1254,7 +1254,7 @@
       var reloadBtn0 = $('[data-reload="' + i + '"]');
       if (reloadBtn0) {
         reloadBtn0.hidden = !cap;
-        var emptyNow = root.SSDNSApplied && root.SSDNSApplied.gunEmpty ? root.SSDNSApplied.gunEmpty(g) : !(num(g.loaded) > 0);
+        var emptyNow = window.SSDNSApplied && window.SSDNSApplied.gunEmpty ? window.SSDNSApplied.gunEmpty(g) : !(num(g.loaded) > 0);
         var kitPool = w ? takePool(g, w, false).pool : null;
         reloadBtn0.textContent = (emptyNow && kitPool && num(kitPool.count) > 0) ? "Load from kit ammo" : "Reload";
       }
@@ -1450,8 +1450,8 @@
       var cals = caliberChoices(a.type);
       cal.appendChild(opt("", "Any / tier"));
       cals.forEach(function (name) {
-        var label = (a.type === "cartridge" && root.SSDNSApplied && root.SSDNSApplied.cartridgePoolLabel)
-          ? (root.SSDNSApplied.cartridgePoolLabel(name) || name)
+        var label = (a.type === "cartridge" && window.SSDNSApplied && window.SSDNSApplied.cartridgePoolLabel)
+          ? (window.SSDNSApplied.cartridgePoolLabel(name) || name)
           : name;
         cal.appendChild(opt(name, label));
       });
@@ -2537,7 +2537,7 @@
     var item = { msg: msg, actLabel: actLabel || "", actFn: actFn, ms: ms, id: opts.id || "", sticky: !!opts.sticky };
     if (item.id && ((toastShowing && toastShowing.id === item.id) || toastQueue.some(function (q) { return q.id === item.id; }))) return;
     if (item.msg && ((toastShowing && toastShowing.msg === item.msg) || toastQueue.some(function (q) { return q.msg === item.msg; }))) return;
-    if (root.SSDNSApplied && root.SSDNSApplied.enqueueToast) toastQueue = root.SSDNSApplied.enqueueToast(toastQueue, item, 3);
+    if (window.SSDNSApplied && window.SSDNSApplied.enqueueToast) toastQueue = window.SSDNSApplied.enqueueToast(toastQueue, item, 3);
     else {
       toastQueue.push(item);
       while (toastQueue.length > 3) toastQueue.shift();

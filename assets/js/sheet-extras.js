@@ -168,7 +168,18 @@
       if (cid && !entry.characterId) entry.characterId = cid;
     } catch (e) {}
     if (!entry.id) entry.id = "log_" + entry.ts + "_" + String(entry.kind || "") + "_" + String(entry.text || "").slice(0, 80);
-    if (entry.id && log.some(function (e) { return e && e.id === entry.id; })) return;
+    var prev = entry.id && log.filter(function (e) { return e && e.id === entry.id; })[0];
+    if (prev) {
+      if (entry.replace) {
+        prev.text = entry.text;
+        prev.crit = !!entry.crit;
+        prev.nat = entry.nat;
+        prev.attack = entry.attack != null ? entry.attack : prev.attack;
+        prev.ts = entry.ts || prev.ts;
+        renderLog();
+      }
+      return;
+    }
     log.unshift(entry);
     if (log.length > 200) log.length = 200;
     sortLog();
@@ -583,6 +594,66 @@
       total: total
     };
   }
+  function acHidden(tgt) {
+    return !!(tgt && tgt.id && tgt.kind !== "player" && (tgt.ac == null || tgt.ac === "" || !isFinite(Number(tgt.ac))));
+  }
+  function waitingText(who, target) {
+    return (who || "You") + " → " + (target || "enemy") + ": Waiting on DM…";
+  }
+  function sendPendingAttack(info) {
+    info = info || {};
+    var line = waitingText(info.who, info.targetName);
+    toast(line);
+    addLog({
+      id: "roll:" + info.rollId,
+      kind: "roll",
+      text: line,
+      attack: true,
+      nat: info.nat,
+      crit: false,
+      label: info.label,
+      replace: true
+    });
+    if (!(joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll)) return line;
+    root.SSDNSDmJoin.postRoll({
+      id: info.rollId,
+      label: info.label,
+      formula: info.formula,
+      result: info.hitTotal,
+      detail: line,
+      attack: true,
+      nat: info.nat,
+      crit: false,
+      awaitDm: true,
+      damage: null,
+      ac: null,
+      targetId: info.targetId,
+      targetName: info.targetName,
+      weapon: info.weapon || "",
+      private: !!info.quiet,
+      whisper: !!info.quiet
+    });
+    if (!info.quiet && root.SSDNSDmJoin.postAttack) {
+      root.SSDNSDmJoin.postAttack({
+        rollId: info.rollId,
+        targetId: info.targetId,
+        targetName: info.targetName,
+        amount: Number(info.damage) || 0,
+        hitTotal: info.hitTotal,
+        nat: info.nat,
+        crit: Number(info.nat) === 20,
+        nat1: Number(info.nat) === 1,
+        label: info.label || "",
+        weapon: info.weapon || "",
+        type: "attack",
+        dice: info.dice || "",
+        formula: info.formula || "",
+        sfx: info.sfx || "attack",
+        shots: info.shots || null
+      });
+    }
+    return line;
+  }
   function currentTarget() {
     if (pendingBlind) return null;
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo) return root.SSDNSPlaytest.targetInfo();
@@ -992,15 +1063,40 @@
       damageType: damageType || "",
       mode: atkMode
     });
+    var tgt = currentTarget();
+    if (tgt) rememberEnemy(tgt);
+    var acForRoll = null;
+    var hiddenSpell = rolled.attack && acHidden(tgt) && joined() && !whisperOn();
+    if (hiddenSpell) {
+      var spellDmgNow = rolled.damageTotal != null ? Number(rolled.damageTotal) : 0;
+      if (!isFinite(spellDmgNow)) spellDmgNow = 0;
+      sendPendingAttack({
+        who: (c && c.name) || "You",
+        targetName: tgt.name,
+        targetId: tgt.id,
+        nat: rolled.nat,
+        hitTotal: rolled.result,
+        damage: spellDmgNow,
+        dice: rolled.damageDetail || "",
+        formula: rolled.formula,
+        rollId: rollId,
+        label: rolled.label,
+        weapon: throughGun && i >= 0 ? gunName(i) : "",
+        sfx: (c && c.calling === "pact-seeker") ? "pactshot" : "spellshot",
+        shots: rolled.shots || null,
+        quiet: false
+      });
+      consumeRollMode();
+      pendingDarts = null;
+      pendingBlind = false;
+      return;
+    }
     if (root.SSDNSAudio) {
       var cue = "spellshot";
       if (c && c.calling === "pact-seeker") cue = "pactshot";
       else if (!(hexslinger || fromChamber)) cue = "spellshot";
       root.SSDNSAudio.play(cue);
     }
-    var tgt = currentTarget();
-    if (tgt) rememberEnemy(tgt);
-    var acForRoll = null;
     if (rolled.attack && rolled.multi && tgt && tgt.name) {
       rolled.text += " → " + tgt.name;
       rolled.detail = rolled.text;
@@ -1332,12 +1428,33 @@
       postGunLedger(name + " jammed (misfire)", "jam");
       misfired = true;
     }
-    if (!misfired && root.SSDNSAudio) root.SSDNSAudio.play("attack");
+    var quiet = whisperOn();
     var tgt = currentTarget();
     if (tgt) rememberEnemy(tgt);
     var haveAc = tgt && tgt.ac != null && isFinite(Number(tgt.ac));
-    var miss = nat === 1 || misfired || (haveAc && total < Number(tgt.ac));
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
+    if (!misfired && acHidden(tgt) && joined() && !quiet) {
+      var pendingDmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
+      sendPendingAttack({
+        who: who,
+        targetName: tgt.name,
+        targetId: tgt.id,
+        nat: nat,
+        hitTotal: total,
+        damage: pendingDmg ? pendingDmg.total : 0,
+        dice: pendingDmg ? pendingDmg.detail : "",
+        formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
+        rollId: gunRollId,
+        label: who + (tgt.name ? " → " + tgt.name : ""),
+        weapon: name,
+        sfx: "attack",
+        quiet: false
+      });
+      consumeRollMode();
+      return;
+    }
+    if (!misfired && root.SSDNSAudio) root.SSDNSAudio.play("attack");
+    var miss = nat === 1 || misfired || (haveAc && total < Number(tgt.ac));
     var dmg = null;
     if (!miss) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
     var report = attackReport({
@@ -1356,7 +1473,6 @@
       formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (dmg && !report.miss ? " · " + dmg.formula : ""),
       attack: true, nat: nat, crit: nat === 20 && !misfired
     });
-    var quiet = whisperOn();
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         id: gunRollId,
@@ -1871,6 +1987,8 @@
     castNamed: function (name) { castSpellAttack(-1, name, 0, false); },
     attackRoll: attackRoll,
     attackGate: attackGate,
+    acHidden: acHidden,
+    sendPendingAttack: sendPendingAttack,
     consumeRollMode: consumeRollMode,
     showTapHear: function () {
       var b = $("#btnTapHear");

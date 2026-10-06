@@ -1,7 +1,8 @@
 # SSDNS Character Sheet
 
-Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.11, DM Command Center v0.2.22).
+Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.12, DM Command Center v0.2.23).
 
+- Hidden enemy stats: players see a name (or Unknown gunman), a coarse status, visible conditions, and only the fields the DM reveals. AC, HP numbers, saves, attacks, traits, and tactics live on `encounter/dm`, which players cannot read. A hidden-AC attack waits on the DM, who posts HIT, MISS, or CRIT once. **`database.rules.json` changed.** `encounter/dm` is DM-only, and `encounter/public` rejects top-level `ac`, `hp`, `maxHp`, `saves`, `attacks`, `traits`, `tactics`, and `dcs`. This agent did not deploy rules.
 - Lobby status: after End Session the strip says the session ended, and it never stays LIVE for a room that has ended. Leave room and New code update that same strip. `database.rules.json` did not change.
 - DM principles: `docs/DM-PRINCIPLES.md` is the bar for DM Command Center work. The fight row and the enemy sheet show a one-line tactics note (`tactics`, or a trait named Tactics or Morale). Once combat has started, the round line and the turn order say who is on deck. `database.rules.json` did not change.
 - Enemy sheet: click an enemy's name in the fight list, the turn order, or the bestiary to open a full sheet. Attacks are named rows (Roll and Apply), with ability checks, all six saves, skills, spell save and attack dialogs, and a private dice box. The fight row lists those attack names plus Open sheet. `database.rules.json` did not change.

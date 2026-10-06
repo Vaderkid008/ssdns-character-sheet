@@ -217,6 +217,162 @@
     }
     return { mode: "offline", text: "Session ended" };
   }
+  var HIDDEN_ENEMY_NAME = "Unknown gunman";
+  function revealFlags(row) {
+    var src = (row && row.reveal) || {};
+    return {
+      name: src.name !== false,
+      ac: !!src.ac,
+      hp: !!src.hp,
+      block: !!src.block
+    };
+  }
+  function coarseStatus(row) {
+    if (!row || row.kind === "player") return (row && row.status) || "";
+    var status = String(row.status || "");
+    if (row.fled || status === "Fled") return "Fled";
+    var hp = Number(row.hp);
+    var max = Number(row.maxHp);
+    if (row.hp == null || row.hp === "" || !isFinite(hp)) {
+      if (/^(Unhurt|Hurt|Bloodied|Down|Fled)$/.test(status)) return status;
+      return "";
+    }
+    if (hp <= 0) return "Down";
+    if (!isFinite(max) || max <= 0) return "Hurt";
+    if (hp >= max) return "Unhurt";
+    if (hp * 2 <= max) return "Bloodied";
+    return "Hurt";
+  }
+  function conditionNames(list) {
+    var out = [];
+    (list || []).forEach(function (raw) {
+      var name = typeof raw === "string" ? raw : (raw && (raw.name || raw.label)) || "";
+      name = String(name || "").trim();
+      if (name && out.indexOf(name) < 0) out.push(name);
+    });
+    return out;
+  }
+  function publicEnemy(row, slot, conditions) {
+    row = row || {};
+    var flags = revealFlags(row);
+    var enemy = row.kind !== "player";
+    var name = !enemy || flags.name ? (String(row.name || "").trim() || (enemy ? "Enemy" : "Player")) : HIDDEN_ENEMY_NAME;
+    var out = {
+      name: name,
+      slot: slot == null ? "" : slot,
+      status: enemy ? coarseStatus(row) : (row.status || ""),
+      kind: row.kind || "",
+      playerId: row.playerId || "",
+      conditions: enemy ? conditionNames(conditions || row.conditions) : []
+    };
+    if (!enemy) return out;
+    var revealed = {};
+    if (flags.ac && row.ac != null && row.ac !== "" && isFinite(Number(row.ac))) revealed.ac = Number(row.ac);
+    if (flags.hp) {
+      if (row.hp != null && row.hp !== "") revealed.hp = row.hp;
+      if (row.maxHp != null && row.maxHp !== "") revealed.maxHp = row.maxHp;
+    }
+    if (flags.block) {
+      var card = row.card || {};
+      revealed.block = {
+        saves: card.saves || row.saves || null,
+        attacks: card.attacks || row.attackList || null,
+        traits: card.traits || row.traits || null,
+        tactics: row.tactics || card.tactics || "",
+        dcs: row.dcs || null
+      };
+    }
+    if (Object.keys(revealed).length) out.revealed = revealed;
+    return out;
+  }
+  function secretEnemy(row) {
+    row = row || {};
+    var card = row.card || {};
+    var secret = {
+      name: row.name || "",
+      ac: row.ac == null ? "" : row.ac,
+      hp: row.hp == null ? "" : row.hp,
+      maxHp: row.maxHp == null ? "" : row.maxHp,
+      dex: row.dex == null ? "" : row.dex,
+      atkBonus: row.atkBonus == null ? "" : row.atkBonus,
+      damage: row.damage || "",
+      tactics: row.tactics || card.tactics || "",
+      saves: card.saves || null,
+      attacks: card.attacks || row.attackList || null,
+      traits: card.traits || null,
+      dcs: row.dcs || null,
+      scores: card.scores || null,
+      skills: card.skills || null,
+      spellcasting: card.spellcasting || null,
+      reveal: revealFlags(row)
+    };
+    try { secret.card = JSON.parse(JSON.stringify(card)); } catch (e) { secret.card = null; }
+    return secret;
+  }
+  /** HIT, MISS, or CRIT from the player's d20 total. AC stays on the DM side. */
+  function attackVerdict(info) {
+    info = info || {};
+    var nat = Number(info.nat);
+    var total = Number(info.total);
+    var ac = info.ac;
+    var have = ac != null && ac !== "" && isFinite(Number(ac));
+    var miss = nat === 1 || !!info.misfire;
+    if (!miss && have && isFinite(total) && total < Number(ac)) miss = true;
+    var crit = !miss && nat === 20;
+    return {
+      miss: miss,
+      crit: crit,
+      verdict: miss ? "MISS" : (crit ? "CRIT" : "HIT"),
+      sfx: miss ? "" : (info.sfx || "attack")
+    };
+  }
+  function attackShots(info) {
+    info = info || {};
+    var raw = info.shots;
+    var shots = Array.isArray(raw) ? raw : [];
+    if (!Array.isArray(raw) && raw && typeof raw === "object") {
+      shots = Object.keys(raw).sort(function (a, b) { return Number(a) - Number(b); }).map(function (k) { return raw[k]; });
+    }
+    var parts = [];
+    var amount = 0;
+    var anyHit = false;
+    var anyCrit = false;
+    shots.forEach(function (shot, i) {
+      shot = shot || {};
+      var v = attackVerdict({ nat: shot.nat, total: shot.total, ac: info.ac, misfire: shot.misfire, sfx: info.sfx });
+      var bit = (shot.label || ("ray " + (i + 1))) + " " + (shot.nat == null ? "" : shot.nat) + " = " + (shot.total == null ? "" : shot.total) + " → " + v.verdict;
+      if (!v.miss) {
+        anyHit = true;
+        if (v.crit) anyCrit = true;
+        var n = Number(shot.amount) || 0;
+        amount += n;
+        if (shot.dice) bit += " · " + shot.dice;
+        else if (n) bit += " = " + n;
+      }
+      parts.push(bit);
+    });
+    var who = info.who || "Someone";
+    var target = info.target || "enemy";
+    return {
+      miss: !anyHit,
+      crit: anyHit && anyCrit,
+      verdict: anyHit ? (anyCrit ? "CRIT" : "HIT") : "MISS",
+      sfx: anyHit ? (info.sfx || "attack") : "",
+      amount: amount,
+      line: who + " → " + target + ": " + parts.join("; ")
+    };
+  }
+  function attackPublicLine(info, verdict) {
+    info = info || {};
+    verdict = verdict || attackVerdict(info);
+    var who = info.who || "Someone";
+    var target = info.target || "enemy";
+    var nat = info.nat == null ? "" : String(info.nat);
+    var total = info.total == null ? "" : String(info.total);
+    var dice = !verdict.miss && info.dice ? (" · " + info.dice) : "";
+    var amount = !verdict.miss && info.amount != null && info.amount !== "" ? (" = " + info.amount) : "";
+    return who + " → " + target + ": " + nat + " = " + total + " → " + verdict.verdict + dice + amount;
+  }
   /** Refuse an in-room LIVE line once the DM has left the table or the room has ended. */
   function liveStripAllowed(mode, text, info) {
     if (mode !== "live") return true;
@@ -500,6 +656,14 @@
     staysInRoom: staysInRoom,
     sessionStrip: sessionStrip,
     liveStripAllowed: liveStripAllowed,
+    revealFlags: revealFlags,
+    coarseStatus: coarseStatus,
+    publicEnemy: publicEnemy,
+    secretEnemy: secretEnemy,
+    attackVerdict: attackVerdict,
+    attackShots: attackShots,
+    attackPublicLine: attackPublicLine,
+    HIDDEN_ENEMY_NAME: HIDDEN_ENEMY_NAME,
     resumeInsteadOfLobby: resumeInsteadOfLobby,
     attackButtonLabel: attackButtonLabel,
     gunEmpty: gunEmpty,

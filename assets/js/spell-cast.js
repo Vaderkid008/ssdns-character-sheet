@@ -203,6 +203,8 @@
       var shown = null;
       var b;
       var beamShown = [];
+      var beamShots = [];
+      var beamHit = 0;
       for (b = 0; b < beams; b++) {
         var beamPair = d20roll(opts.mode);
         var natb = beamPair.nat;
@@ -216,6 +218,9 @@
         var one = bundle(parseDice(row.dice || "1d10"), critb && !missb);
         var face = missb ? " MISS" : ((critb ? " CRIT · on hit " : " on hit ") + one.text);
         bits.push("beam " + (b + 1) + " " + beamPair.shown + sign(atkBonus) + " = " + tot + face);
+        var beamAmt = missb ? 0 : one.rolled.total;
+        if (!missb) beamHit += beamAmt;
+        beamShots.push({ nat: natb, total: tot, amount: beamAmt, dice: missb ? "" : one.text, label: "beam " + (b + 1) });
       }
       var spark = sparkFor(anyMiss);
       var text = name + gun + " · spell attack " + sign(atkBonus) + " · " + bits.join("; ");
@@ -223,6 +228,9 @@
       var packedBeams = pack(text, true, anyCrit ? 20 : shown, anyCrit, beams + "x " + beamDie + sign(atkBonus), (shown || 0) + atkBonus, text, spark);
       packedBeams.multi = beams > 1;
       packedBeams.diceShown = beamShown.join("; ");
+      packedBeams.shots = beamShots;
+      packedBeams.damageTotal = beamHit;
+      packedBeams.damageDetail = beamShots.map(function (shot) { return shot.amount ? shot.dice : ""; }).filter(Boolean).join("; ");
       return packedBeams;
     }
 
@@ -236,6 +244,8 @@
       var rNat = null;
       var rSum = 0;
       var dartRows = [];
+      var rayShots = [];
+      var rayHit = 0;
       var r;
       for (r = 0; r < rays; r++) {
         if (kind === "auto") {
@@ -255,6 +265,9 @@
           var rd = bundle(rayDice, rc && !rm);
           var rface = rm ? " MISS" : ((rc ? " CRIT · on hit " : " on hit ") + rd.text);
           rbits.push("ray " + (r + 1) + " " + rayPair.shown + sign(atkBonus) + " = " + rtot + rface);
+          var rayAmt = rm ? 0 : rd.rolled.total;
+          if (!rm) rayHit += rayAmt;
+          rayShots.push({ nat: rn, total: rtot, amount: rayAmt, dice: rm ? "" : rd.text, label: "ray " + (r + 1) });
         }
       }
       var rspark = sparkFor(rMiss);
@@ -263,6 +276,11 @@
       var packedRays = pack(rtext, kind === "attack", kind === "attack" ? (rCrit ? 20 : rNat) : null, rCrit, (kind === "attack" ? rays + "x " + rayDie + sign(atkBonus) : rays + "x " + formulaOf(rayDice, false)), kind === "attack" ? ((rNat || 0) + atkBonus) : rSum, rtext, rspark);
       packedRays.multi = rays > 1 && kind === "attack";
       if (kind === "auto") packedRays.darts = dartRows;
+      if (kind === "attack") {
+        packedRays.shots = rayShots;
+        packedRays.damageTotal = rayHit;
+        packedRays.damageDetail = rayShots.map(function (shot) { return shot.amount ? shot.dice : ""; }).filter(Boolean).join("; ");
+      }
       return packedRays;
     }
 
@@ -291,6 +309,8 @@
       var spark = sparkFor(miss);
       var packed = pack(text, true, nat, crit, (pair.shown.indexOf("/") >= 0 ? "2d20" : "1d20") + sign(bonus), total, pair.shown + sign(bonus) + " = " + total + " · " + dmgText, spark);
       packed.diceShown = pair.shown;
+      packed.damageTotal = miss ? 0 : dmgTotal;
+      packed.damageDetail = miss ? "" : (dmgBits + " = " + dmgTotal);
       return packed;
     }
 
