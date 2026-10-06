@@ -1564,6 +1564,11 @@
     if (!cal) return null;
     var die = dieMax(cal.hitDie);
     if (!die) return null;
+    var conEl = document.querySelector("[data-f='character.abilities.CON']");
+    if (conEl && String(conEl.value).trim() !== "") {
+      var typed = Number(conEl.value);
+      if (isFinite(typed)) c.abilities.CON = typed;
+    }
     var con = mod(num(c.abilities.CON, 10));
     var lv = Math.max(1, Math.min(20, num(c.level, 1)));
     var hp = Math.max(1, die + con);
@@ -2767,6 +2772,11 @@
   function wire() {
     document.addEventListener("input", onFieldInput);
     document.addEventListener("change", onFieldInput);
+    document.addEventListener("focusout", function (e) {
+      var t = e.target;
+      if (!t || !t.getAttribute || t.getAttribute("data-f") !== "character.abilities.CON") return;
+      if (C().hpAuto !== false) applyAutoHp();
+    });
     document.addEventListener("click", onClick);
     document.addEventListener("dblclick", onDblClick);
     $("#btnNew").onclick = doNew;
