@@ -2879,14 +2879,15 @@ async function cardCast(i, n) {
   const list = card && card.spellcasting && card.spellcasting.spells;
   const spell = list && list[n];
   if (!spell) return;
-  const name = typeof spell === "string" ? spell : (spell.name || "Spell");
+  const raw = typeof spell === "string" ? spell : (spell.name || "Spell");
   const level = typeof spell === "object" && spell.level ? Number(spell.level) : 0;
   if (level && card.slots && card.slots[level] && card.slots[level].left <= 0) {
     DM.toast("No level-" + level + " slot left");
     return;
   }
   const Cast = window.SSDNSSpellCast;
-  const known = Cast && Cast.lookup ? Cast.lookup(name) : null;
+  const known = Cast && Cast.lookup ? Cast.lookup(raw) : null;
+  const name = (known && known.name) || raw;
   const kind = known && known.kind;
   if (level && card.slots && card.slots[level]) card.slots[level].left -= 1;
   if (kind === "heal") {

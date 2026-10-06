@@ -419,7 +419,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .name-btn { background: none; border: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; padding: 0; }
 .turn-chip { font: inherit; color: inherit; cursor: pointer; }
 .atk-row { border-bottom: 1px solid var(--line); padding: 8px 0; }
-.atk-row h3 { margin: 0 0 4px; font-family: var(--head); font-weight: 400; font-size: 22px; color: var(--parch); }
+.atk-row h3 { margin: 0 0 4px; font-family: var(--head); font-weight: 400; font-size: 22px; color: var(--parch); text-transform: none; letter-spacing: 0; }
 .dc-call { color: var(--ochre); font-weight: 700; margin: 4px 0; }
 .hp-bar { height: 12px; background: #121816; border: 1px solid var(--line); margin: 8px 0; }
 .hp-bar span { display: block; height: 100%; background: var(--eld); }
