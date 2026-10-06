@@ -360,8 +360,27 @@
       slots: slots,
       attacks: attacks,
       loot: b.loot || "",
-      esDrop: b.esDrop == null || b.esDrop === "" ? null : b.esDrop
+      esDrop: b.esDrop == null || b.esDrop === "" ? null : b.esDrop,
+      tactics: tacticsNote(b)
     };
+  }
+  function tacticsNote(source) {
+    source = source || {};
+    var card = source.card && typeof source.card === "object" ? source.card : null;
+    var direct = source.tactics != null && String(source.tactics).trim() !== ""
+      ? source.tactics
+      : (card && card.tactics);
+    if (direct != null && String(direct).trim() !== "") return String(direct).trim();
+    var traits = Array.isArray(source.traits) ? source.traits : (card && Array.isArray(card.traits) ? card.traits : []);
+    for (var i = 0; i < traits.length; i++) {
+      var t = traits[i];
+      if (!t) continue;
+      var name = typeof t === "string" ? t : String(t.name || "");
+      if (!/^(tactics|morale)\b/i.test(name.trim())) continue;
+      var text = typeof t === "string" ? "" : String(t.text || "").trim();
+      return text || name.trim();
+    }
+    return "";
   }
   function saveMod(card, ability) {
     card = card || {};
@@ -426,6 +445,7 @@
     saveMod: saveMod,
     riderText: riderText,
     dcLines: dcLines,
+    tacticsNote: tacticsNote,
     healDice: healDice,
     healLine: healLine,
     hitLine: hitLine,

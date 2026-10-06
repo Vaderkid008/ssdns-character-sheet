@@ -9,6 +9,7 @@
     "dex": 10,
     "attacks": "",
     "attackList": [],
+    "tactics": "",
     "traits": []
   },
   {
@@ -61,6 +62,7 @@
     "skills": {},
     "loot": "Boss poke: 2 Yellow + 1 Green (250 ES). His rifle: Dirty Henrietta Repeating Rifle (.44-40) and leftover tube rounds, gear at PHB list (6,500 ES), not cash. Scene finds, not on him: tool box (Investigation DC 12) with a crowbar and a gun cleaning kit (100 ES gear); handcar lockbox (thieves' tools DC 12 or Str DC 15) with 1 Purple (500 ES) under 1 Black decoy.",
     "esDrop": 250,
+    "tactics": "Flees on the handcar when he is the last of the crew standing.",
     "attacks": "Dirty Rifle +3 (1d8+1 piercing, 30/120, 6 rds, MF 1-2), Bowie +3 (1d6+1 piercing)",
     "atkBonus": 3,
     "damage": "1d8+1",
