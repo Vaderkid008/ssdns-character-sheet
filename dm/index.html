@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="favicon.ico">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.15">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.16">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -200,12 +200,28 @@
         </div>
         <div>
           <label for="rollFormula">Formula</label>
-          <input type="text" id="rollFormula" value="1d20" placeholder="1d20+4">
+          <input type="text" id="rollFormula" value="1d20" placeholder="2d6+3">
+        </div>
+        <div>
+          <label for="rollMode">Advantage</label>
+          <select id="rollMode" aria-label="Advantage or disadvantage">
+            <option value="">Normal</option>
+            <option value="adv">Advantage</option>
+            <option value="dis">Disadvantage</option>
+          </select>
+        </div>
+        <div>
+          <label for="rollMod">Modifier</label>
+          <input type="number" id="rollMod" value="0" aria-label="Extra modifier">
         </div>
         <div>
           <label class="toggle" style="margin-top:22px">
             <input type="checkbox" id="rollPrivate" checked>
             Private <span id="rollPrivateState">ON</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="rollPublic">
+            Public
           </label>
         </div>
       </div>
@@ -463,15 +479,15 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.15"></script>
-<script src="../assets/js/conditions.js?v=0.2.15"></script>
-<script src="assets/js/ui-tab.js?v=0.2.15"></script>
-<script src="../assets/js/sfx.js?v=0.2.15"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.16"></script>
+<script src="../assets/js/conditions.js?v=0.2.16"></script>
+<script src="assets/js/ui-tab.js?v=0.2.16"></script>
+<script src="../assets/js/sfx.js?v=0.2.16"></script>
 <script src="../assets/data/rules.js"></script>
 <script src="../assets/js/spell-cast.js"></script>
 <script src="../assets/js/firebase-config.js"></script>
 <script src="assets/js/demo-data.js"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.15"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.15"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.16"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.16"></script>
 </body>
 </html>
