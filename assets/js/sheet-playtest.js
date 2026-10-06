@@ -77,12 +77,16 @@
     c.kitGrants.es = bgId;
   }
 
-  var KIT_CHOICES = {
+  function kitApi() { return root.SSDNSKits || null; }
+  var KIT_CHOICES = (kitApi() && kitApi().choices) || {
     gunslinger: [
       { id: "side", prompt: "Cavalry saber, or twin revolvers?", options: [
         { id: "saber", label: "Cavalry saber" },
-        { id: "twins", label: "Twin revolvers (two Herringer Light Pepperboxes + 20 Light)" },
-        { id: "navy", label: "One Navy / Army Ball n Cap + 20 percussion loads" }
+        { id: "twins", label: "Twin revolvers" }
+      ]},
+      { id: "irons", prompt: "Which twin revolvers?", when: function (p) { return p.side === "twins"; }, options: [
+        { id: "pepper", label: "Two Herringer Light Pepperboxes + 20 Light cartridges" },
+        { id: "navy", label: "One Navy/Army Ball n Cap + 20 loads (powder, ball, and caps)" }
       ]}
     ],
     "frontier-scout": [
@@ -187,22 +191,24 @@
       if (p && focus[p.focus]) addLine(c, "Focus: " + focus[p.focus]);
     },
     gunslinger: function (c, p) {
+      if (kitApi()) { kitApi().apply(c, "gunslinger", p || {}); return; }
       putGun(c, "dullards-tube-rifle");
       addAmmo(c, "cartridge", "Light", 20);
       c.holster = "mexican-loop";
       c.gunBelt = true;
-      addLine(c, "Gun belt");
-      addLine(c, "Mexican Loop");
-      addLine(c, "Dungeoneer's pack");
       addLine(c, "Duster");
-      if ((p && p.side) === "twins") {
+      addLine(c, "Gun belt");
+      addLine(c, "Mexican Loop holster");
+      addLine(c, "Dungeoneer company kit");
+      if ((p && p.side) === "twins" && (p && p.irons) === "navy") {
+        putGun(c, "navy-army-ball-n-cap-revolver");
+        addAmmo(c, "percussion", "", 20);
+        addLine(c, "Powder, ball, and caps ×20");
+      } else if ((p && p.side) === "twins") {
         putGun(c, "herringer-light-pepperbox");
         putGun(c, "herringer-light-pepperbox", true);
         addAmmo(c, "cartridge", "Light", 20);
-      } else if ((p && p.side) === "navy") {
-        putGun(c, "navy-army-ball-n-cap-revolver");
-        addAmmo(c, "percussion", "", 20);
-      } else if ((p && p.side) === "saber") putMelee(c, "cavalry-saber-longsword");
+      } else putMelee(c, "cavalry-saber-longsword");
     },
     "martial-artist": function (c) {
       putMelee(c, "bowie-shortsword");
@@ -274,48 +280,71 @@
       addLine(c, "Duster");
     }
   };
+  var kitDialogOpen = false;
   function pickKitChoices(calling, done) {
-    var choices = KIT_CHOICES[calling] || [];
-    if (!choices.length) { done({}); return; }
-    var dlg = document.getElementById("dlgKit");
-    if (!dlg) {
-      dlg = document.createElement("dialog");
-      dlg.id = "dlgKit";
-      dlg.className = "dlg";
-      document.body.appendChild(dlg);
+    if (kitDialogOpen) return;
+    var all = KIT_CHOICES[calling] || [];
+    if (!all.length) { done({}); return; }
+    var picked = {};
+    function pending() {
+      return all.filter(function (ch) {
+        if (picked[ch.id] != null) return false;
+        if (ch.when && !ch.when(picked)) return false;
+        if (ch.when) return true;
+        return true;
+      }).filter(function (ch) { return !ch.when; });
     }
-    var html = "<form method='dialog'><h2>Starting kit</h2><p class='fine'>These are the kit's or-lines. Pick one of each.</p>";
-    choices.forEach(function (ch) {
-      html += "<p><label class='fine'>" + ch.prompt + " <select data-kit-choice='" + ch.id + "'>";
-      ch.options.forEach(function (op) { html += "<option value='" + op.id + "'>" + op.label + "</option>"; });
-      html += "</select></label></p>";
-    });
-    html += "<div class='dlg-foot'><button class='btn' value='cancel'>Cancel</button><button class='btn' value='ok'>Apply these</button></div></form>";
-    dlg.innerHTML = html;
-    dlg.onclose = function () {
-      var value = dlg.returnValue;
-      dlg.onclose = null;
-      if (value !== "ok") { done(null); return; }
-      var picked = {};
-      choices.forEach(function (ch) {
-        var sel = dlg.querySelector("[data-kit-choice='" + ch.id + "']");
-        picked[ch.id] = sel ? sel.value : ch.options[0].id;
+    function step() {
+      var choices = all.filter(function (ch) {
+        if (picked[ch.id] != null) return false;
+        if (!ch.when) return !Object.keys(picked).length;
+        return ch.when(picked);
       });
-      done(picked);
-    };
-    if (dlg.showModal) dlg.showModal();
-    else { toast("This browser can't show the kit choices."); done(null); }
+      if (!choices.length) { kitDialogOpen = false; maybePrompt._pending = false; done(picked); return; }
+      var dlg = document.getElementById("dlgKit");
+      if (!dlg) {
+        dlg = document.createElement("dialog");
+        dlg.id = "dlgKit";
+        dlg.className = "dlg";
+        document.body.appendChild(dlg);
+      }
+      kitDialogOpen = true;
+      var html = "<form method='dialog'><h2>Starting kit</h2><p class='fine'>These are the kit's or-lines. Pick one of each.</p>";
+      choices.forEach(function (ch) {
+        html += "<p><label class='fine'>" + ch.prompt + " <select data-kit-choice='" + ch.id + "'>";
+        ch.options.forEach(function (op) { html += "<option value='" + op.id + "'>" + op.label + "</option>"; });
+        html += "</select></label></p>";
+      });
+      html += "<div class='dlg-foot'><button class='btn' value='cancel'>Cancel</button><button class='btn' value='ok'>Apply these</button></div></form>";
+      dlg.innerHTML = html;
+      dlg.onclose = function () {
+        var value = dlg.returnValue;
+        dlg.onclose = null;
+        if (value !== "ok") { kitDialogOpen = false; maybePrompt._pending = false; done(null); return; }
+        choices.forEach(function (ch) {
+          var sel = dlg.querySelector("[data-kit-choice='" + ch.id + "']");
+          picked[ch.id] = sel ? sel.value : ch.options[0].id;
+        });
+        step();
+      };
+      if (dlg.showModal) dlg.showModal();
+      else { kitDialogOpen = false; maybePrompt._pending = false; toast("This browser can't show the kit choices."); done(null); }
+    }
+    void pending;
+    step();
   }
 
   function applyKit(force, picked) {
     var c = ch();
-    if (!c || !c.calling || !KITS[c.calling]) { toast("Pick a Calling first."); return; }
-    if (!force && c.kitStamp === c.calling) { toast("Starting kit is already on this sheet."); fillFeatures(); return; }
+    var known = KITS[c && c.calling] || (kitApi() && kitApi().callings.indexOf(c && c.calling) >= 0);
+    if (!c || !c.calling || !known) { maybePrompt._pending = false; toast("Pick a Calling first."); return; }
+    if (!force && c.kitStamp === c.calling) { maybePrompt._pending = false; toast("Starting kit is already on this sheet."); fillFeatures(); return; }
     var go = function (choice) {
       if (!choice) return;
       patch(function (d) {
         var cc = d.character;
-        KITS[cc.calling](cc, choice);
+        if (kitApi() && kitApi().apply) kitApi().apply(cc, cc.calling, choice);
+        else if (KITS[cc.calling]) KITS[cc.calling](cc, choice);
         cc.kitStamp = cc.calling;
         var bg = byId(rules().backgrounds)[cc.background];
         if (bg && bg.equipment) {
@@ -331,8 +360,9 @@
     pickKitChoices(c.calling, go);
   }
   function maybePrompt() {
+    if (maybePrompt._pending || kitDialogOpen) return;
     var c = ch();
-    if (!c || !c.calling || !KITS[c.calling]) return;
+    if (!c || !c.calling || !(KITS[c.calling] || (kitApi() && kitApi().callings.indexOf(c.calling) >= 0))) return;
     var key = c.calling + "|" + (c.background || "");
     if (c.kitStamp === c.calling) {
       var bg = byId(rules().backgrounds)[c.background];
@@ -348,15 +378,19 @@
     if (declined === key) return;
     var cal = byId(rules().callings)[c.calling];
     var msg = "Apply the starting kit for " + ((cal && cal.name) || "this Calling") + "?";
+    maybePrompt._pending = true;
     var ask = root.SSDNSAsk && root.SSDNSAsk.confirm ? root.SSDNSAsk.confirm(msg) : Promise.resolve(false);
     ask.then(function (ok) {
-      if (ok) applyKit(false);
-      else {
+      if (!ok) {
         declined = key;
         if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "Declined the starting kit." });
+        fillFeatures();
+        maybePrompt._pending = false;
+        return;
       }
+      applyKit(false);
       fillFeatures();
-    });
+    }, function () { maybePrompt._pending = false; });
   }
 
   function featureLevel(name) {
@@ -529,15 +563,22 @@
     }
     var name = (document.querySelector("[data-melee='" + i + "']") || {}).selectedOptions;
     name = name && name[0] ? name[0].text : "Melee";
-    var hit = miss ? "MISS" : ((crit ? "CRIT · " : "") + "on hit " + formula + " (" + detail + ") = " + total);
-    var line = name + " attack " + (atk >= 0 ? "+" : "") + atk + ": " + nat + (atk ? ((atk >= 0 ? "+" : "") + atk) : "") + " = " + (nat + atk) + " · " + hit;
+    var tgt = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo && root.SSDNSPlaytest.targetInfo();
+    var who = (c && c.name) || "You";
+    var bonusTxt = atk ? ((atk >= 0 ? "+" : "") + atk) : "";
+    var hitTotal = nat + atk;
+    var haveAc = tgt && tgt.ac != null && isFinite(Number(tgt.ac));
+    if (haveAc && hitTotal < Number(tgt.ac)) miss = true;
+    var dmgTxt = (!miss && detail) ? (" · " + formula + " = " + total) : "";
+    var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
+    var line = (tgt && tgt.name ? (who + " → " + tgt.name) : (who + " · " + name)) + ": " + nat + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt;
     toast(line);
     var Sheet = root.SSDNSSheet;
     var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     if (Sheet && Sheet.addLog) Sheet.addLog({ id: "roll:" + rollId, kind: "roll", text: line, attack: true, nat: nat, crit: crit && !miss, label: name + " attack" });
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       var quiet = $("#chkWhisper") && $("#chkWhisper").checked;
-      root.SSDNSDmJoin.postRoll({ id: rollId, label: name + " attack", formula: "1d20" + (atk ? (atk >= 0 ? "+" : "") + atk : ""), result: nat + atk, detail: String(nat) + (miss ? " MISS" : (" · " + hit)), attack: true, nat: nat, crit: crit && !miss, damage: miss ? 0 : total, private: !!quiet, whisper: !!quiet });
+      root.SSDNSDmJoin.postRoll({ id: rollId, label: (tgt && tgt.name ? who + " → " + tgt.name : name + " attack"), formula: "1d20" + bonusTxt, result: hitTotal, detail: line, ac: haveAc ? Number(tgt.ac) : null, attack: true, nat: nat, crit: crit && !miss, damage: miss ? 0 : total, private: !!quiet, whisper: !!quiet });
     }
   }
 
@@ -719,15 +760,23 @@
   function spendHitDie(left, sides) {
     var roll = 1 + Math.floor(Math.random() * sides);
     var v = root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
-    var gain = Math.max(1, roll + ((v.mods && v.mods.CON) || 0));
+    var con = (v.mods && v.mods.CON) || 0;
+    var gain = Math.max(1, roll + con);
+    var before = 0;
+    var after = 0;
     patch(function (d) {
       var cc = d.character;
       var max = parseInt(cc.hpMax, 10) || 0;
       var cur = parseInt(cc.hpCurrent, 10) || 0;
-      cc.hpCurrent = max ? Math.min(max, cur + gain) : cur + gain;
+      before = cur;
+      after = max ? Math.min(max, cur + gain) : cur + gain;
+      cc.hpCurrent = after;
       cc.hitDiceLeft = (left - 1) + "d" + sides;
     });
-    toast("Hit die " + roll + " + Con = " + gain + " HP.");
+    var conTxt = (con >= 0 ? "+" : "") + con;
+    var line = "Hit die 1d" + sides + conTxt + " = " + gain + ", HP " + before + "→" + after;
+    toast(line);
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "roll", text: line });
   }
   function wrapRest() {
     var Sheet = root.SSDNSSheet;
@@ -772,8 +821,8 @@
   function logSources() {
     var id = "";
     try { id = (doc() && doc().id) || ""; } catch (e) {}
-    var tail = id || "local";
-    return [LOG_KEY + "." + tail, LOG_KEY + ".local", LOG_OLD + "." + tail, LOG_OLD + ".local", LOG_OLD];
+    if (!id) return [LOG_KEY + ".local"];
+    return [LOG_KEY + "." + id, LOG_OLD + "." + id];
   }
   function dropLogStore(skipClear) {
     try { logSources().forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
@@ -782,21 +831,28 @@
   function dumpLogs() {
     var Sheet = root.SSDNSSheet;
     var rows = Sheet && Sheet.logRows ? Sheet.logRows() : [];
-    var json = JSON.stringify(rows.slice(0, 200));
+    var id = "";
+    try { id = (doc() && doc().id) || ""; } catch (e) {}
+    rows.forEach(function (row) { if (row && id && !row.characterId) row.characterId = id; });
+    var mine = rows.filter(function (row) { return row && (!id || !row.characterId || row.characterId === id); });
+    var json = JSON.stringify(mine.slice(0, 200));
     try { localStorage.setItem(logKey(), json); } catch (e) {}
-    try { localStorage.setItem(LOG_KEY + ".local", json); } catch (e2) {}
   }
   function persistLogs() {
     var Sheet = root.SSDNSSheet;
     if (!Sheet || !Sheet.addLog || Sheet.addLog._persist) return;
+    var cid = "";
+    try { cid = (doc() && doc().id) || ""; } catch (e) {}
     var seen = {};
     var merged = [];
     logSources().forEach(function (k) {
       readLogStore(k).forEach(function (row) {
         if (!row) return;
+        if (cid && row.characterId && row.characterId !== cid) return;
         var id = row.id || ((row.ts || "") + "|" + (row.text || ""));
         if (seen[id]) return;
         seen[id] = 1;
+        if (cid) row.characterId = cid;
         merged.push(row);
       });
     });
@@ -809,7 +865,7 @@
       dumpLogs();
     };
     Sheet.addLog._persist = true;
-    window.addEventListener("beforeunload", dumpLogs);
+    window.addEventListener("pagehide", dumpLogs);
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState === "hidden") dumpLogs();
     });
@@ -817,26 +873,16 @@
   }
   function showYourTurn() {
     var banner = $("#yourTurnBanner");
-    if (!banner) {
-      banner = document.createElement("div");
-      banner.id = "yourTurnBanner";
-      banner.className = "your-turn-banner";
-      banner.innerHTML = "<b>Your turn</b> <button type='button' class='btn sm' id='btnDismissTurn'>Dismiss</button>";
-      document.body.appendChild(banner);
-      var btn = banner.querySelector("button");
-      if (btn) btn.addEventListener("click", function () {
-        banner.hidden = true;
-        if (root.SSDNSToast && root.SSDNSToast.dismissSticky) root.SSDNSToast.dismissSticky("Your turn");
-      });
-    }
-    banner.hidden = false;
-    toast("Your turn", "Dismiss", function () { banner.hidden = true; }, 0, { sticky: true, priority: 1 });
-    if (root.SSDNSAudio) root.SSDNSAudio.play("holster");
+    if (banner) banner.hidden = true;
+    toast("Your turn", "Go", function () {
+      var panel = $("#turnPanel");
+      if (panel) { try { panel.scrollIntoView({ block: "center" }); } catch (err) {} }
+    }, 8000, { id: "your-turn" });
   }
   function hideYourTurn() {
     var banner = $("#yourTurnBanner");
     if (banner) banner.hidden = true;
-    if (root.SSDNSToast && root.SSDNSToast.dismissSticky) root.SSDNSToast.dismissSticky("Your turn");
+    if (root.SSDNSToast && root.SSDNSToast.dismissId) root.SSDNSToast.dismissId("your-turn");
   }
   function paintDiamonds(count) {
     var c = ch();
@@ -860,6 +906,25 @@
   }
 
   var shownTurn = "";
+  var sawOrder = false;
+  function turnSeenKey() {
+    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    var code = root.SSDNSDmJoin && root.SSDNSDmJoin.roomCode && root.SSDNSDmJoin.roomCode();
+    var cid = "";
+    try { cid = (doc() && doc().id) || ""; } catch (e) {}
+    return "ssdns.sheet.turnSeen." + (code || "none") + "." + (cid || uid || "local");
+  }
+  function loadTurnSeen() {
+    try { return JSON.parse(localStorage.getItem(turnSeenKey()) || "{}") || {}; } catch (e) { return {}; }
+  }
+  function saveTurnSeen(seen) {
+    try { localStorage.setItem(turnSeenKey(), JSON.stringify(seen || {})); } catch (e) {}
+  }
+  function markTurnSeen(id) {
+    var seen = loadTurnSeen();
+    seen[id] = 1;
+    saveTurnSeen(seen);
+  }
   function paintPact() {
     var box = $("#pactFocus");
     var c = ch();
@@ -878,25 +943,36 @@
       var panel = $("#turnPanel");
       if (!panel) return;
       var order = (init && Array.isArray(init.order) && init.order) || [];
+      var roundEl = $("#turnRound");
+      var whoEl = $("#turnWho");
+      var names = $("#turnNames");
       if (!order.length) {
-        if (shownTurn && root.SSDNSSheet && root.SSDNSSheet.addLog) {
-          root.SSDNSSheet.addLog({ id: "combat-ended:" + new Date().toISOString().slice(0, 19), kind: "alert", text: "Combat ended" });
+        if (sawOrder && !loadTurnSeen()["combat-ended"]) {
+          markTurnSeen("combat-ended");
+          if (root.SSDNSSheet && root.SSDNSSheet.addLog) {
+            root.SSDNSSheet.addLog({ id: "combat-ended:" + turnSeenKey(), kind: "alert", text: "Combat ended" });
+          }
         }
         panel.hidden = true;
+        panel.classList.remove("your-turn");
+        if (roundEl) roundEl.textContent = "";
+        if (whoEl) whoEl.textContent = "";
+        if (names) names.textContent = "";
         shownTurn = "";
+        sawOrder = false;
         hideYourTurn();
         return;
       }
+      sawOrder = true;
+      var seen = loadTurnSeen();
+      if (seen["combat-ended"]) { delete seen["combat-ended"]; saveTurnSeen(seen); }
       panel.hidden = false;
       var round = init.round || 1;
       var turn = Number(init.turn) || 0;
       if (turn >= order.length) turn = 0;
       var cur = order[turn] || {};
-      var roundEl = $("#turnRound");
-      var whoEl = $("#turnWho");
       if (roundEl) roundEl.textContent = "Round " + round;
       if (whoEl) whoEl.textContent = (cur.name || "Someone") + " · " + (cur.status && cur.kind === "enemy" ? cur.status : (cur.kind === "player" ? "player" : ""));
-      var names = $("#turnNames");
       if (names) {
         names.textContent = order.map(function (row, i) {
           var mark = i === turn ? "→ " : "";
@@ -908,12 +984,20 @@
       var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
       var mine = (uid && cur.playerId && cur.playerId === uid) || (c && c.name && cur.kind === "player" && cur.name === c.name && !cur.playerId);
       panel.classList.toggle("your-turn", !!mine);
-      var sig = String(round) + ":" + String(cur.id || turn);
+      var sig = "turn:" + String(round) + ":" + String(cur.id || turn);
       if (sig !== shownTurn) {
         shownTurn = sig;
-        if (mine) showYourTurn();
+        if (mine && !loadTurnSeen()[sig]) { markTurnSeen(sig); showYourTurn(); }
         else hideYourTurn();
       }
+    },
+    targetInfo: function () {
+      var sel = $("#atkTarget");
+      if (!sel || !sel.selectedOptions || !sel.selectedOptions[0] || !sel.value) return null;
+      var opt = sel.selectedOptions[0];
+      var acRaw = opt.getAttribute("data-ac");
+      var ac = acRaw == null || acRaw === "" ? null : Number(acRaw);
+      return { id: sel.value, name: opt.getAttribute("data-name") || opt.textContent || "", ac: isFinite(ac) ? ac : null };
     },
     showRoster: function (rows) {
       var el = $("#tableRoster");
@@ -926,10 +1010,27 @@
       var sel = $("#atkTarget");
       if (!sel) return;
       var keep = sel.value;
-      var html = "<option value=''>No target</option>";
-      Object.keys(map || {}).forEach(function (id) {
+      var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      var c = ch();
+      var selfName = c && c.name;
+      var rows = Object.keys(map || {}).map(function (id) {
         var row = map[id] || {};
-        html += "<option value='" + id + "'>" + (row.name || id) + (row.status ? " (" + row.status + ")" : "") + "</option>";
+        row.id = id;
+        return row;
+      });
+      function rank(row) {
+        var self = row.kind === "player" && ((uid && row.playerId === uid) || (selfName && row.name === selfName));
+        if (self) return 2;
+        if (row.kind === "player") return 1;
+        return 0;
+      }
+      rows.sort(function (a, b) { return rank(a) - rank(b); });
+      var html = "<option value=''>No target</option>";
+      rows.forEach(function (row) {
+        var ac = row.ac == null || row.ac === "" ? "" : String(row.ac);
+        var name = String(row.name || row.id);
+        html += "<option value='" + String(row.id).replace(/'/g, "") + "' data-ac='" + ac.replace(/'/g, "") + "' data-name='" + name.replace(/[&<>"']/g, "") + "'>" +
+          name.replace(/[&<>]/g, "") + (row.status ? " (" + String(row.status).replace(/[&<>]/g, "") + ")" : "") + "</option>";
       });
       sel.innerHTML = html;
       if (keep) sel.value = keep;

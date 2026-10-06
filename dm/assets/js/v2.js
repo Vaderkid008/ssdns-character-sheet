@@ -107,7 +107,7 @@ function tieLabel(row) {
   const bonus = knownNumber(row.initBonus);
   if (row.kind !== "player" && bonus != null) bits.push("init " + (bonus >= 0 ? "+" : "") + bonus);
   const dex = knownNumber(row.dex);
-  if (dex != null) bits.push("DEX " + dex);
+  bits.push("DEX " + (dex == null ? "—" : dex));
   return bits.join(" ");
 }
 function dexModOf(snap) {
@@ -121,8 +121,9 @@ function postedInit(pid) {
   return n;
 }
 function dexOf(row) {
-  const n = Number(row && row.dex);
-  return isFinite(n) ? n : 0;
+  const n = knownNumber(row && row.dex);
+  if (n == null) return 10;
+  return n;
 }
 function dexFromSnapshot(s) {
   if (!s) return 0;
@@ -176,7 +177,13 @@ async function saveRemoteTable() {
     (fight.order || []).forEach((row) => {
       if (!row.id) return;
       hp[row.id] = { hp: row.hp == null ? "" : row.hp, maxHp: row.maxHp == null ? "" : row.maxHp, ac: row.ac == null ? "" : row.ac };
-      pub[row.id] = { name: row.name || "", status: enemyStatus(row) };
+      pub[row.id] = {
+        name: row.name || "",
+        status: enemyStatus(row),
+        kind: row.kind || "",
+        playerId: row.playerId || "",
+        ac: knownNumber(row.ac) == null ? "" : knownNumber(row.ac)
+      };
     });
     await DM.state._fb.update(DM.roomRef("table"), {
       initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, order: order },
@@ -308,7 +315,7 @@ function initSourceLabel(row) {
   const from = row.initFrom || (posted != null && Number(row.init) === Number(posted) ? "sheet" : (row.init != null && row.init !== "" ? "rolled" : ""));
   if (row.init != null && row.init !== "" && from) bits.push("init " + row.init + " (" + from + ")");
   const dex = knownNumber(row.dex);
-  if (dex != null) bits.push("DEX " + dex);
+  bits.push("DEX " + (dex == null ? "—" : dex));
   return bits.join(" ");
 }
 function syncTurnState() {
@@ -326,8 +333,8 @@ function turnRowHtml(row, i) {
       <span class="init-who" title="${esc(row.name || "Someone")}"><b>${esc(row.name || "Someone")}</b>
         <span class="fine">${esc(row.kind || "combatant")}${status ? " · " + esc(status) : ""}${detail ? " · " + esc(detail) : ""}</span>
       </span>
-      <label class="fine">AC <input type="number" data-ac-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.ac == null ? "" : esc(row.ac)}" aria-label="AC"></label>
-      <label class="fine">HP <input type="number" data-hp-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.hp == null ? "" : esc(row.hp)}" aria-label="HP"></label>
+      <label class="fine">AC <input type="number" data-ac-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.ac == null ? "" : esc(row.ac)}" aria-label="AC for ${esc(row.name || "combatant")}"></label>
+      <label class="fine">HP <input type="number" data-hp-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.hp == null ? "" : esc(row.hp)}" aria-label="HP for ${esc(row.name || "combatant")}"></label>
       <span class="init-actions">
         <button type="button" class="btn sm" data-init-hit="${i}">Attack</button>
         <button type="button" class="btn sm" data-init-dmg="${i}">Damage</button>
@@ -1422,11 +1429,18 @@ function applyRequest(req) {
     DM.toast(line + " · waiting for you to apply");
     return;
   }
-  if (applyEnemyHp(row, -amt) == null) return;
+  const before = applyEnemyHp(row, -amt);
+  if (before == null) return;
+  const after = knownNumber(row.hp);
+  const applied = after == null ? amt : Math.max(0, before - after);
   saveRemoteTable();
   renderFight();
-  DM.pushLedger({ who: who, playerId: req.from || "all", type: "damage", what: line + " (" + enemyStatus(row) + ")", oldVal: null, newVal: row.hp, flag: false, characterName: who });
-  DM.toast(line + " · " + enemyStatus(row));
+  DM.pushLedger({
+    who: who, playerId: req.from || "all", type: "damage",
+    what: line + " · " + applied + " applied",
+    oldVal: before, newVal: after, flag: false, characterName: who
+  });
+  DM.toast(line + " · " + applied + " applied · " + enemyStatus(row));
 }
 function watchRequests() {
   if (fight._req || DM.state.demo || !DM.state.db || !DM.state.roomCode) return;
@@ -1773,7 +1787,8 @@ async function bootV2() {
     const initBonus = parseInt($("#customInit") && $("#customInit").value, 10) || 0;
     const dexField = $("#customDex");
     const dexBlank = !dexField || String(dexField.value).trim() === "";
-    const dex = dexBlank ? initBonus : (parseInt(dexField.value, 10) || 0);
+    const dexParsed = parseInt(dexField && dexField.value, 10);
+    const dex = dexBlank ? "" : (isFinite(dexParsed) ? dexParsed : 0);
     const formNum = (el) => {
       if (!el || String(el.value).trim() === "") return "";
       const n = parseInt(el.value, 10);

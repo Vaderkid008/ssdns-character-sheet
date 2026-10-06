@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.9"; // dmcc-round6-v029
+const VERSION = "0.2.10"; // dmcc-round7-v0210
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -195,20 +195,34 @@ function wantDemo() {
 }
 
 /* ---------- Firebase init (graceful) ---------- */
+let firebaseBoot = null;
 async function initFirebase() {
+  if (state.firebaseReady && state.app) return true;
+  if (firebaseBoot) return firebaseBoot;
+  firebaseBoot = runFirebaseInit().then((ok) => {
+    if (!ok) firebaseBoot = null;
+    return ok;
+  }, (err) => {
+    firebaseBoot = null;
+    throw err;
+  });
+  return firebaseBoot;
+}
+async function runFirebaseInit() {
   const cfg = window.SSDNS_FIREBASE_CONFIG;
   if (!cfg || !cfg.apiKey) {
     state.firebaseError = "Missing firebase-config.js";
     return false;
   }
   try {
-    const [{ initializeApp }, authMod, dbMod] = await Promise.all([
+    const [{ initializeApp, getApp }, authMod, dbMod] = await Promise.all([
       import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js"),
       import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js"),
       import("https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js")
     ]);
     state._fb = {
       initializeApp,
+      getApp,
       getAuth: authMod.getAuth,
       signInAnonymously: authMod.signInAnonymously,
       onAuthStateChanged: authMod.onAuthStateChanged,
@@ -224,7 +238,12 @@ async function initFirebase() {
       runTransaction: dbMod.runTransaction
     };
     const fb = state._fb;
-    state.app = fb.initializeApp(cfg, "ssdns-dm");
+    try {
+      state.app = fb.initializeApp(cfg, "ssdns-dm");
+    } catch (err) {
+      if (!/already exists/i.test(String((err && err.message) || err))) throw err;
+      state.app = fb.getApp("ssdns-dm");
+    }
     state.auth = fb.getAuth(state.app);
     state.db = fb.getDatabase(state.app);
     await fb.signInAnonymously(state.auth);
@@ -344,7 +363,7 @@ function attachLiveListeners() {
     state.players = v || {};
     Object.keys(state.players).forEach((id) => {
       const p = state.players[id] || {};
-      const on = !!(p.presence && p.presence.online);
+      const on = playerOnline(p);
       const s = p.snapshot || {};
       const who = [s.player, s.name].filter(Boolean).join(" · ") || id;
       const was = presenceWas[id];
@@ -370,12 +389,14 @@ function attachLiveListeners() {
       presenceWas[id] = on;
     });
     guardFocus(() => {
-      renderPlayers();
-      fillTargetSelects();
-      renderPresence();
-      renderRoomHero();
-      if (window.DMCCEnhance && window.DMCCEnhance.fillAdds) window.DMCCEnhance.fillAdds();
-      if (window.DMCCEnhance && window.DMCCEnhance.syncPlayers) window.DMCCEnhance.syncPlayers();
+      holdUi(() => {
+        renderPlayers();
+        fillTargetSelects();
+        renderPresence();
+        renderRoomHero();
+        if (window.DMCCEnhance && window.DMCCEnhance.fillAdds) window.DMCCEnhance.fillAdds();
+        if (window.DMCCEnhance && window.DMCCEnhance.syncPlayers) window.DMCCEnhance.syncPlayers();
+      });
     });
   });
   bind("ledger", (v) => {
@@ -728,7 +749,7 @@ function leaveRoom() {
 function renderRoomHero() {
   if (!state.meta) return;
   $("#roomCodeDisplay").textContent = state.meta.code || state.roomCode;
-  const online = Object.values(state.players).filter((p) => p.presence && p.presence.online).length;
+  const online = Object.values(state.players).filter((p) => playerOnline(p)).length;
   const total = Object.keys(state.players).length;
   $("#roomMeta").textContent = (state.meta.name ? state.meta.name + " · " : "") +
     (state.demo ? "Demo" : "Live") + " · " + online + "/" + total + " online · DMCC " + VERSION;
@@ -755,7 +776,7 @@ function renderPresence() {
   }
   box.innerHTML = list.map((p) => {
     const s = p.snapshot || {};
-    const on = p.presence && p.presence.online;
+    const on = playerOnline(p);
     const extra = presenceExtra(s);
     const label = esc(s.name || p.id) + (extra ? " · " + esc(extra) : "");
     return `<span class="pill ${on ? "online" : "offline"}"><span class="dot"></span>${label}</span>`;
@@ -770,40 +791,84 @@ function playerOptions(includeAll) {
   }).join("");
 }
 
+const UI_FIELDS = ["rewTarget", "rewType", "rewEs", "rewReason", "rewText", "rewQty", "msgTarget", "msgText", "hoName", "hoUrl", "hoText", "hoTarget", "inRoomName", "inDmName", "selForcePlayer"];
+const uiMemory = {};
+let uiTab = "";
+function rememberUi() {
+  const selected = document.querySelector(".tab[aria-selected='true']");
+  if (selected && selected.id) uiTab = selected.id;
+  UI_FIELDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) uiMemory[id] = el.value;
+  });
+}
+function restoreUi() {
+  if (uiTab) {
+    const tab = document.getElementById(uiTab);
+    if (tab && tab.getAttribute("aria-selected") !== "true") {
+      $$(".tab").forEach((t) => t.setAttribute("aria-selected", "false"));
+      tab.setAttribute("aria-selected", "true");
+      $$(".panel").forEach((p) => { p.hidden = true; });
+      const panel = $("#" + tab.getAttribute("aria-controls"));
+      if (panel) panel.hidden = false;
+    }
+  }
+  UI_FIELDS.forEach((id) => {
+    const el = document.getElementById(id);
+    const value = uiMemory[id];
+    if (!el || value == null) return;
+    if (el.tagName === "SELECT") {
+      if ([...el.options].some((o) => o.value === value)) el.value = value;
+      return;
+    }
+    if (document.activeElement === el) return;
+    if (el.value !== value) el.value = value;
+  });
+}
+function holdUi(fn) {
+  rememberUi();
+  fn();
+  restoreUi();
+}
 function fillTargetSelects() {
+  const sig = Object.keys(state.players).map((id) => {
+    const s = (state.players[id] && state.players[id].snapshot) || {};
+    return id + ":" + (s.name || "");
+  }).sort().join("|");
   ["#rewTarget", "#msgTarget", "#hoTarget", "#selForcePlayer"].forEach((sel) => {
     const el = $(sel);
     if (!el) return;
-    const keep = el.value;
-    const all = sel !== "#msgTarget";
+    const remembered = uiMemory[el.id];
+    const keep = (el.value && el.value !== "all" && el.value !== "") ? el.value : (remembered || el.value);
+    if (el.dataset.sig === sig && el.options.length) {
+      if (keep && [...el.options].some((o) => o.value === keep)) el.value = keep;
+      return;
+    }
     el.innerHTML = (sel === "#msgTarget" ? '<option value="">Select player…</option>' : "") +
       (sel === "#selForcePlayer" ? '<option value="all">Everyone</option>' : "") +
-      playerOptions(sel === "#rewTarget" || sel === "#hoTarget");
+      playerOptions(sel === "#rewTarget" || sel === "#hoTarget" || sel === "#selForcePlayer");
     if (sel === "#rewTarget" || sel === "#hoTarget") {
-      /* playerOptions already has all */
+      el.innerHTML = playerOptions(true);
     }
-    if ([...el.options].some((o) => o.value === keep)) el.value = keep;
-  });
-  // fix rew/ho to always have all
-  ["#rewTarget", "#hoTarget"].forEach((sel) => {
-    const el = $(sel);
-    const keep = el.value;
-    el.innerHTML = playerOptions(true);
-    if ([...el.options].some((o) => o.value === keep)) el.value = keep;
+    el.dataset.sig = sig;
+    const next = keep || remembered || "";
+    if (next && [...el.options].some((o) => o.value === next)) el.value = next;
   });
 }
 
 /* ---------- render tabs ---------- */
 function renderAll() {
-  renderRoomHero();
-  fillTargetSelects();
-  renderPlayers();
-  renderLedger();
-  renderRolls();
-  renderMessages();
-  renderHandouts();
-  loadNotes();
-  if (window.DMCCEnhance && window.DMCCEnhance.afterRender) window.DMCCEnhance.afterRender();
+  holdUi(() => {
+    renderRoomHero();
+    fillTargetSelects();
+    renderPlayers();
+    renderLedger();
+    renderRolls();
+    renderMessages();
+    renderHandouts();
+    loadNotes();
+    if (window.DMCCEnhance && window.DMCCEnhance.afterRender) window.DMCCEnhance.afterRender();
+  });
 }
 
 function slotLine(s) {
@@ -868,6 +933,14 @@ function cylinderHtml(g) {
     return `<span class="${cls}"${style ? ` style="${style}"` : ""} title="${esc(label)}" aria-label="${esc(label)}">${text}</span>`;
   }).join("")}</div>`;
 }
+function playerOnline(p) {
+  const pres = (p && p.presence) || {};
+  const conns = pres.conns;
+  if (conns && typeof conns === "object") {
+    return Object.keys(conns).some((id) => conns[id] && conns[id].online !== false);
+  }
+  return !!pres.online;
+}
 function rollFace(r) {
   let nat = Number(r && r.nat);
   if (!isFinite(nat) && r && /1d20|2d20/.test(String(r.formula || ""))) {
@@ -877,9 +950,19 @@ function rollFace(r) {
   const crit = !!(r && (r.crit || nat === 20));
   let attack = !!(r && r.attack);
   if (!attack && r && /attack/i.test(String(r.label || "")) && /1d20|2d20/.test(String(r.formula || ""))) attack = true;
-  if (crit) return { cls: "roll-crit", tag: "CRITICAL", attack: true, crit: true };
-  if (attack) return { cls: "roll-attack", tag: "ATTACK", attack: true, crit: false };
-  return { cls: "", tag: "", attack: false, crit: false };
+  const test = !!(r && (r.test || /\bTEST\b/.test(String((r && r.detail) || "") + " " + String((r && r.label) || ""))));
+  const tag = (base) => (test ? (base ? "TEST · " + base : "TEST") : base);
+  if (crit) return { cls: "roll-crit", tag: tag("CRITICAL"), attack: true, crit: true, test: test };
+  if (attack) return { cls: "roll-attack", tag: tag("ATTACK"), attack: true, crit: false, test: test };
+  if (test) return { cls: "", tag: "TEST", attack: false, crit: false, test: true };
+  return { cls: "", tag: "", attack: false, crit: false, test: false };
+}
+function rollDetail(r) {
+  let detail = String((r && r.detail) || "");
+  const ac = r && r.ac;
+  if (ac == null || ac === "" || !isFinite(Number(ac)) || detail.indexOf("vs AC") >= 0) return detail;
+  if (/ → (HIT|MISS)/.test(detail)) return detail.replace(/ → (HIT|MISS)/, " vs AC " + ac + " → $1");
+  return detail ? detail + " vs AC " + ac : detail;
 }
 function renderPlayers() {
   const grid = $("#playerGrid");
@@ -890,7 +973,7 @@ function renderPlayers() {
   }
   grid.innerHTML = list.map((p) => {
     const s = p.snapshot || {};
-    const on = p.presence && p.presence.online;
+    const on = playerOnline(p);
     const hpCur = Number(s.hpCurrent);
     const downed = isFinite(hpCur) && hpCur <= 0;
     const initials = String(s.name || "?").replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "?";
@@ -1144,7 +1227,7 @@ function renderRolls() {
         ${face.tag ? '<span class="roll-tag">' + esc(face.tag) + "</span>" : ""}
         ${nat ? '<span class="badge danger">Nat 1 · firearm</span>' : ""}
       </div>
-      <div class="feed-what"><b>${esc(r.label || "Roll")}</b> · ${esc(r.formula)} = <b style="color:var(--eld)">${esc(r.result)}</b> <span style="color:var(--muted)">(${esc(r.detail)})</span></div>
+      <div class="feed-what"><b>${esc(r.label || "Roll")}</b> · ${esc(r.formula)} = <b style="color:var(--eld)">${esc(r.result)}</b> <span style="color:var(--muted)">(${esc(rollDetail(r))})</span></div>
     </div>`;
   }).join("");
   renderLiveDock();
@@ -1200,10 +1283,12 @@ function renderHandouts() {
 
 /* ---------- notes (local only) ---------- */
 function loadNotes() {
+  const el = $("#dmNotes");
+  if (!el || document.activeElement === el) return;
   try {
     const key = NOTES_KEY + "." + (state.roomCode || "global");
-    $("#dmNotes").value = localStorage.getItem(key) || localStorage.getItem(NOTES_KEY) || "";
-  } catch (e) { $("#dmNotes").value = ""; }
+    el.value = localStorage.getItem(key) || localStorage.getItem(NOTES_KEY) || "";
+  } catch (e) { el.value = ""; }
 }
 function saveNotes() {
   try {
@@ -1490,6 +1575,8 @@ function wireTabs() {
       $$(".panel").forEach((p) => { p.hidden = true; });
       const panel = $("#" + tab.getAttribute("aria-controls"));
       if (panel) panel.hidden = false;
+      uiTab = tab.id;
+      rememberUi();
     });
   });
 }
@@ -1504,12 +1591,28 @@ function wire() {
     priv.addEventListener("change", paint);
     paint();
   }
-  const createRoom = () => {
-    if (!state.demo && !state.firebaseReady) return;
+  const createRoom = async () => {
     const name = ($("#inRoomName").value || "").trim();
+    if (!state.demo && !state.firebaseReady) {
+      setCreateBusy(true);
+      setStatus("live", "Connecting…");
+      const ok = await initFirebase();
+      if (!ok) {
+        setCreateBusy(false);
+        toast("Firebase isn't ready yet");
+        return;
+      }
+    }
     if (document.body.classList.contains("in-room")) leaveRoom();
-    if (state.demo || !state.firebaseReady) loadDemo(true);
-    else createLiveRoom(name);
+    if (state.demo) {
+      loadDemo(true);
+      if (name && state.meta) { state.meta.name = name; renderRoomHero(); }
+      return;
+    }
+    setCreateBusy(true);
+    setStatus("live", "Connecting…");
+    try { await createLiveRoom(name); }
+    finally { setCreateBusy(false); }
     if (name && state.meta) { state.meta.name = name; renderRoomHero(); }
   };
   $("#btnCreateRoom").addEventListener("click", createRoom);
@@ -1679,7 +1782,19 @@ function showResumeChoice(code) {
 }
 async function peekResume() {
   const saved = readSavedRoom();
-  if (!saved || saved.demo || !saved.code || !saved.uid || saved.uid !== state.uid) return false;
+  if (!saved || saved.demo || !saved.code) return false;
+  if (!saved.uid || !state.uid) {
+    pendingResume = { code: saved.code, demo: false };
+    showResumeChoice(saved.code);
+    setStatus("live", "Live · resume " + saved.code + " or start a new session");
+    return true;
+  }
+  if (saved.uid !== state.uid) {
+    pendingResume = { code: saved.code, demo: false };
+    showResumeChoice(saved.code);
+    setStatus("live", "Live · resume " + saved.code + " or start a new session");
+    return true;
+  }
   try {
     const snap = await state._fb.get(state._fb.ref(state.db, "rooms/" + saved.code + "/meta"));
     if (!snap.exists()) return false;
@@ -1754,8 +1869,7 @@ async function resumeLiveRoom() {
   if (window.DMCCEnhance && window.DMCCEnhance.onTable) window.DMCCEnhance.onTable(state.table || {});
   showRoom();
   renderAll();
-  setStatus("live", "Rejoined " + pending.code + " · players stay connected");
-  toast("Rejoined " + pending.code);
+  setStatus("live", "Live · " + pending.code + " · players stay connected");
   return true;
 }
 
@@ -1812,8 +1926,11 @@ async function boot() {
     }
     state.demo = false;
     $("#chkDemo").checked = false;
+    state.roomCode = open.code;
+    state.meta = state.meta || { code: open.code, name: "", status: "live", dmUid: state.uid || "" };
+    showRoom();
     setCreateBusy(true);
-    setStatus("live", "Rejoining " + open.code + "…");
+    setStatus("live", "Connecting…");
     const resumedOk = await initFirebase();
     setCreateBusy(false);
     if (resumedOk) {
@@ -1856,9 +1973,15 @@ async function boot() {
     } else {
       const offered = await peekResume();
       if (!offered) {
-        pendingResume = null;
-        showResumeChoice("");
-        setStatus("live", "Live · Firebase connected · start a new session");
+        if (saved && saved.code && !saved.demo) {
+          pendingResume = { code: saved.code, demo: false };
+          showResumeChoice(saved.code);
+          setStatus("live", "Live · resume " + saved.code + " or start a new session");
+        } else {
+          pendingResume = null;
+          showResumeChoice("");
+          setStatus("live", "Live · Firebase connected · start a new session");
+        }
       }
     }
   }

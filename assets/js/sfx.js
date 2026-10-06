@@ -62,7 +62,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.2"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.3"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) { sfxMap = (j && j.events) || {}; return sfxMap; })
       .catch(function () { sfxMap = {}; return sfxMap; });
@@ -188,7 +188,35 @@
     showTestBanner();
   }
 
+  var askBusy = false;
+  var askQ = [];
   function askConfirm(message) {
+    if (askQ._open === message && askQ._wait) return askQ._wait;
+    for (var i = 0; i < askQ.length; i++) {
+      if (askQ[i].message === message && askQ[i].promise) return askQ[i].promise;
+    }
+    var resolveJob;
+    var pending = new Promise(function (resolve) { resolveJob = resolve; });
+    askQ.push({ message: message, resolve: resolveJob, promise: pending });
+    pumpAsk();
+    return pending;
+  }
+  function pumpAsk() {
+    if (askBusy || !askQ.length) return;
+    var job = askQ.shift();
+    askBusy = true;
+    askQ._open = job.message;
+    askQ._wait = openAsk(job.message).then(function (ok) {
+      askBusy = false;
+      askQ._open = "";
+      askQ._wait = null;
+      job.resolve(ok);
+      pumpAsk();
+      return ok;
+    });
+    return askQ._wait;
+  }
+  function openAsk(message) {
     return new Promise(function (resolve) {
       if (!root.document || !root.document.body) { resolve(false); return; }
       var dlg = root.document.createElement("dialog");
@@ -199,9 +227,9 @@
       function finish(ok) {
         if (settled) return;
         settled = true;
-        resolve(!!ok);
         try { if (dlg.close) dlg.close(); } catch (e) {}
         if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(!!ok);
       }
       dlg.querySelector("[value=no]").addEventListener("click", function () { finish(false); });
       dlg.querySelector("form").addEventListener("submit", function (e) {
@@ -228,6 +256,7 @@
     fileUrl: fileUrl
   };
 
+  loadMap();
   if (root.document && root.document.readyState === "loading") {
     root.document.addEventListener("DOMContentLoaded", bind);
   } else {
