@@ -368,6 +368,7 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
   .appbar, .statusbar { padding-left: 10px; padding-right: 10px; }
 }
 
+.addict-line { font-family: var(--label); font-size: 12px; letter-spacing: .03em; color: var(--warn); margin-top: 6px; }
 .addiction-alert {
   max-width: var(--max); margin: 8px auto 0; padding: 10px 12px;
   background: #3a2418; border: 1px solid var(--warn); color: var(--parch); cursor: pointer;

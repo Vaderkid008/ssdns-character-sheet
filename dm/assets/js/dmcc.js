@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.3"; // dmcc-phb-v026
+const VERSION = "0.2.4"; // dmcc-addict-dm
 const NOTES_KEY = "ssdns.dmcc.notes";
 const ROOM_KEY = "ssdns.dmcc.lastRoom";
 const WORDS = ["DUST", "IRON", "HEX", "RUST", "BONE", "COIL", "SAGE", "RAIL", "OXEN", "VELD", "ASH", "QUILL"];
@@ -80,6 +80,7 @@ const state = {
   commands: [],
   table: null,
   chat: [],
+  addiction: {},
   dockFilter: "all",
   unsubs: [],
   db: null,
@@ -179,6 +180,7 @@ function loadDemo(createNewCode) {
   state.handouts = deepClone(D.handouts);
   state.commands = deepClone(D.commands || []);
   state.chat = deepClone(D.chat || []);
+  state.addiction = {};
   state.uid = "demo_dm";
   showRoom();
   renderAll();
@@ -212,6 +214,8 @@ async function createLiveRoom(name) {
   state.handouts = [];
   state.commands = [];
   state.chat = [];
+  state.addiction = {};
+  addictionReady = false;
   try {
     await state._fb.set(roomRef("meta"), state.meta);
     attachLiveListeners();
@@ -230,6 +234,7 @@ async function createLiveRoom(name) {
 function attachLiveListeners() {
   clearUnsubs();
   if (!state.db || !state.roomCode) return;
+  addictionReady = false;
   const bind = (path, handler) => {
     const r = roomRef(path);
     const fb = state._fb;
@@ -248,8 +253,16 @@ function attachLiveListeners() {
     renderLedger();
   });
   bind("rolls", (v) => {
-    state.rolls = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+    const all = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+    noteConsumeRolls(all);
+    state.rolls = all.filter((r) => !isConsumeRoll(r));
     renderRolls();
+  });
+  bind("archives/addiction", (v) => {
+    state.addiction = v && typeof v === "object" ? v : {};
+    addictionReady = true;
+    flushConsume();
+    renderPlayers();
   });
   bind("messages", (v) => {
     state.messages = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
@@ -274,17 +287,137 @@ let ledgerReady = false;
 function noteAddiction(entries) {
   (entries || []).forEach((e) => {
     if (!e || !e.id || knownLedger[e.id]) return;
-    const fresh = e.ts && (Date.now() - Date.parse(e.ts) < 20000);
-    const isNew = ledgerReady || fresh;
     knownLedger[e.id] = 1;
-    if (isNew && e.type === "addiction") {
-      const line = ledgerNames(e) + " — " + (e.what || "consumed a shard");
-      toast("Eldorite: " + line);
-      const bar = $("#addictionAlert");
-      if (bar) { bar.hidden = false; bar.textContent = line; }
-    }
   });
   ledgerReady = true;
+}
+
+function isConsumeRoll(r) {
+  return !!(r && (r.consume || r.formula === "consume"));
+}
+function blankAddiction() {
+  return { addicted: false, uses: 0, daysWithout: 0, penalty: 0, seen: [] };
+}
+function addictionFloor(uses) {
+  return -Math.floor(Number(uses || 0) / 3);
+}
+function clampAddiction(a) {
+  const floor = addictionFloor(a.uses);
+  if (a.penalty > 0) a.penalty = 0;
+  if (a.penalty > floor) a.penalty = floor;
+  return a;
+}
+function addictionSummary(a) {
+  return "uses " + a.uses + ", floor " + addictionFloor(a.uses) + ", WIS/INT/CHA " + a.penalty;
+}
+function applyConsumeChart(a) {
+  const first = !a.addicted;
+  a.addicted = true;
+  a.uses = Number(a.uses || 0) + 1;
+  a.daysWithout = 0;
+  if (first) { if (Number(a.penalty) > 0) a.penalty = 0; }
+  else a.penalty = Math.min(0, Number(a.penalty || 0) + 1);
+  return clampAddiction(a);
+}
+let addictionReady = true;
+const consumeQueue = [];
+function noteConsumeRolls(entries) {
+  (entries || []).forEach((e) => {
+    if (!isConsumeRoll(e) || !e.id) return;
+    consumeQueue.push({
+      rollId: e.id,
+      pid: e.playerId || e.uid || "",
+      color: e.consume || e.detail || "",
+      name: e.who || "",
+      ts: e.ts
+    });
+  });
+  flushConsume();
+}
+function flushConsume() {
+  if (!addictionReady) return;
+  while (consumeQueue.length) recordConsume(consumeQueue.shift());
+}
+function matchPlayer(meta) {
+  const name = String((meta && meta.name) || "").trim().toLowerCase();
+  const player = String((meta && meta.player) || "").trim().toLowerCase();
+  const ids = Object.keys(state.players || {});
+  if (name) {
+    const hit = ids.find((id) => String((state.players[id].snapshot || {}).name || "").trim().toLowerCase() === name);
+    if (hit) return hit;
+  }
+  if (player) {
+    const hit = ids.find((id) => String((state.players[id].snapshot || {}).player || "").trim().toLowerCase() === player);
+    if (hit) return hit;
+  }
+  return "";
+}
+function saveAddiction(pid) {
+  if (state.demo || !state.db || !state._fb || !pid) return;
+  const row = state.addiction[pid];
+  if (!row) return;
+  state._fb.set(roomRef("archives/addiction/" + pid), row).catch((e) => console.warn("[DMCC] addiction", e));
+}
+function alertAddiction(pid, line) {
+  toast(line, 6000);
+  const bar = $("#addictionAlert");
+  if (bar) { bar.hidden = false; bar.textContent = line; }
+  renderPlayers();
+  const overlay = $("#detailOverlay");
+  if (overlay && !overlay.hidden && overlay.dataset.pid === pid) openDetail(pid);
+}
+function recordConsume(ev) {
+  if (!ev) return null;
+  let pid = ev.pid || matchPlayer(ev) || ("anon:" + (ev.name || ev.rollId || "unknown"));
+  const prev = state.addiction[pid] || blankAddiction();
+  const a = Object.assign(blankAddiction(), prev, { seen: (prev.seen || []).slice() });
+  if (ev.rollId && a.seen.indexOf(ev.rollId) >= 0) return a;
+  if (ev.rollId) {
+    a.seen.push(ev.rollId);
+    if (a.seen.length > 40) a.seen = a.seen.slice(-40);
+  }
+  applyConsumeChart(a);
+  a.lastShard = ev.color || "";
+  state.addiction[pid] = a;
+  saveAddiction(pid);
+  const s = (state.players[pid] && state.players[pid].snapshot) || {};
+  const who = [s.player || ev.player, s.name || ev.name].filter(Boolean).join(" · ") || "A player";
+  const shard = ev.color || "a";
+  alertAddiction(pid, who + " consumed 1 " + shard + " shard. " + addictionSummary(a) + ".");
+  return a;
+}
+function missAddictionDay(pid) {
+  const prev = state.addiction[pid];
+  if (!prev || !prev.addicted) { toast("No consume yet for that character."); return; }
+  const a = Object.assign(blankAddiction(), prev, { seen: (prev.seen || []).slice() });
+  a.daysWithout = Number(a.daysWithout || 0) + 1;
+  a.penalty = Number(a.penalty || 0) - 1;
+  state.addiction[pid] = a;
+  saveAddiction(pid);
+  const s = (state.players[pid] && state.players[pid].snapshot) || {};
+  alertAddiction(pid, (s.name || "Character") + " missed a day. " + addictionSummary(a) + ".");
+}
+function takeConsumePing(ping) {
+  if (!ping || !ping.id) return;
+  recordConsume({
+    rollId: ping.id,
+    pid: matchPlayer(ping),
+    color: ping.color || "",
+    name: ping.name || "",
+    player: ping.player || ""
+  });
+}
+function addictionLine(pid) {
+  const a = state.addiction[pid];
+  if (!a || !a.addicted) return "";
+  return `<div class="addict-line">Addiction · uses ${esc(a.uses)} · floor ${esc(addictionFloor(a.uses))} · WIS/INT/CHA ${esc(a.penalty)}</div>`;
+}
+function addictionDetail(pid) {
+  const a = state.addiction[pid];
+  const body = a && a.addicted
+    ? `<p>Uses ${esc(a.uses)} · floor ${esc(addictionFloor(a.uses))} · WIS/INT/CHA ${esc(a.penalty)} · days without ${esc(a.daysWithout || 0)}</p>`
+    : `<p>No consume yet.</p>`;
+  return body + `<p class="lede">Every 3rd use drops the floor by 1. A consume restores 1 point, never above the floor. Players do not see this.</p><button type="button" class="btn sm" id="btnAddictMiss">Missed a day</button>`;
 }
 
 function objToArr(o) {
@@ -536,6 +669,7 @@ function renderPlayers() {
       </div>
       ${dsHtml}
       ${guns}
+      ${addictionLine(p.id)}
       ${slotLine(s) ? `<div class="slot-line">${esc(slotLine(s))}</div>` : ""}
     </button>`;
   }).join("");
@@ -546,6 +680,8 @@ function openDetail(pid) {
   const p = state.players[pid];
   if (!p) return;
   const s = p.snapshot || {};
+  const overlay = $("#detailOverlay");
+  if (overlay) overlay.dataset.pid = pid;
   $("#detailTitle").textContent = s.name || pid;
   $("#detailSub").textContent = [s.calling, "L" + (s.level ?? "?"), s.subclass, s.lineage, "Player: " + (s.player || "?")].filter(Boolean).join(" · ");
   const ab = s.abilities || {};
@@ -583,8 +719,11 @@ function openDetail(pid) {
     <div class="detail-section"><h3>Features</h3><pre>${esc(s.features || "—")}</pre></div>
     <div class="detail-section"><h3>Spells</h3><p>${esc(slotLine(s) || "No shell slots")}${s.spellAtk ? " · attack " + esc(s.spellAtk) : ""}${s.spellDC ? " · DC " + esc(s.spellDC) : ""}</p><pre>${esc(spellTxt)}</pre></div>
     <div class="detail-section"><h3>Personality</h3><p>${esc(s.personality || "—")}</p></div>
+    <div class="detail-section"><h3>Eldorite addiction</h3>${addictionDetail(pid)}</div>
     <p class="lede" style="margin-top:12px">Snapshot · updated ${esc(fmtTime(s.updatedAt))}</p>
   `;
+  const miss = $("#btnAddictMiss");
+  if (miss) miss.addEventListener("click", () => missAddictionDay(pid));
   if (window.DMCCEnhance && window.DMCCEnhance.decorateDetail) window.DMCCEnhance.decorateDetail(pid);
   $("#detailOverlay").hidden = false;
 }
@@ -596,7 +735,7 @@ function renderLedger() {
     renderLiveDock();
     return;
   }
-  feed.innerHTML = state.ledger.map((e) => {
+  feed.innerHTML = state.ledger.filter((e) => e.type !== "addiction").map((e) => {
     const delta = (e.oldVal != null && e.newVal != null && typeof e.oldVal === "number" && typeof e.newVal === "number")
       ? `${e.oldVal} → ${e.newVal}` : (e.newVal != null ? String(e.newVal) : "");
     return `<div class="feed-item ${e.flag ? "flag" : ""}">
@@ -609,7 +748,7 @@ function renderLedger() {
 }
 
 const MONEY_TYPES = /es|store|reward|shard/i;
-const ALERT_TYPES = /addiction|jam|explode|death|condition|alert|undo/i;
+const ALERT_TYPES = /jam|explode|death|condition|alert|undo/i;
 let dockSeen = 0;
 
 function dockItems() {
@@ -620,6 +759,7 @@ function dockItems() {
     text: c.text || ""
   }));
   (state.ledger || []).forEach((e) => {
+    if (e.type === "addiction") return;
     const money = MONEY_TYPES.test(String(e.type || ""));
     const alert = ALERT_TYPES.test(String(e.type || "")) || !!e.flag;
     rows.push({
@@ -1120,6 +1260,10 @@ function wire() {
   });
   const alertBar = $("#addictionAlert");
   if (alertBar) alertBar.addEventListener("click", () => { alertBar.hidden = true; });
+  window.addEventListener("storage", (e) => {
+    if (e.key !== "ssdns.v1.consumePing" || !e.newValue) return;
+    try { takeConsumePing(JSON.parse(e.newValue)); } catch (err) { console.warn("[DMCC] consume", err); }
+  });
   try {
     if (localStorage.getItem("ssdns.dmcc.dock") === "closed") {
       document.body.classList.add("dock-collapsed");
@@ -1177,6 +1321,8 @@ window.DMCC = {
   pushHandout: pushHandout,
   renderPlayers: renderPlayers,
   renderAll: renderAll,
+  recordConsume: recordConsume,
+  missAddictionDay: missAddictionDay,
   renderLedger: renderLedger,
   openDetail: openDetail,
   roomRef: roomRef,
