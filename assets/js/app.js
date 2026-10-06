@@ -1,10 +1,10 @@
-/* SSDNS Character Sheet · v0.2.3 (spellbook UI, current PHB: firearms v3, ES currency, hex lead shells)
+/* SSDNS Character Sheet · v0.2.8 (cast-through-gun spells, attack feed colors, brass chambers)
  * Static, no server. Rules data: window.SSDNS_RULES (assets/data/rules.js, generated from the PHB).
  * Saving: SSDNSStore (storage.js). Shards bridge for Saloon games: SSDNSBridge (ssdns-bridge.js).
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.2.7"; // sheet-addict-dm
+  var APP_VERSION = "0.2.8"; // sheet-cast-v028
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -114,7 +114,6 @@
       proficienciesLanguages: "", equipment: "", personality: "", ideals: "", bonds: "", flaws: "", feats: [], features: "",
       age: "", height: "", weight: "", eyes: "", skin: "", hair: "", portrait: "", appearance: "", gangName: "", gangSymbol: "",
       allies: "", backstory: "", additionalFeatures: "", treasure: "",
-      addiction: { addicted: false, daysWithout: 0, uses: 0, penalty: 0 },
       casterGun: "", hexRest: "", cantrips: new Array(8).fill(""), spells: spells, hexLead: hex
     };
   }
@@ -158,6 +157,7 @@
     };
     var hadHp = raw.character && raw.character.hpMax !== "" && raw.character.hpMax != null;
     if (hadHp && raw.character.hpAuto !== true) doc.character.hpAuto = false;
+    if (doc.character && doc.character.addiction) delete doc.character.addiction;
     Object.keys(raw).forEach(function (k) { if (!(k in doc)) doc[k] = raw[k]; });
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
@@ -271,7 +271,7 @@
   }
   /** Parse a spell-list entry like "Blade Ward (Galvanized)" or "Acid Splash Shell". */
   function parseSpellEntry(raw, level) {
-    var t = String(raw || "").replace(/\s+/g, " ").trim();
+    var t = String(raw || "").replace(/\s+/g, " ").trim().replace(/\.+$/, "");
     if (!t) return null;
     var shell = /\s+Shell$/i.test(t);
     var base = t.replace(/\s+Shell$/i, "").trim();
@@ -390,6 +390,29 @@
       return s && s.name ? { i: i, name: s.name, prepared: !!s.prepared, level: level } : null;
     }).filter(Boolean);
   }
+  function ordinal(n) {
+    var v = num(n, 0);
+    if (v === 1) return "1st";
+    if (v === 2) return "2nd";
+    if (v === 3) return "3rd";
+    return v + "th";
+  }
+  /** Cantrips on the sheet, plus prepared leveled spells (known casters keep every known spell). */
+  function castChoices() {
+    var mode = prepareMode();
+    var out = [];
+    knownCantrips().forEach(function (k) {
+      out.push({ level: 0, name: k.name, value: "0:" + k.name });
+    });
+    var lv;
+    for (lv = 1; lv <= 9; lv++) {
+      knownSpellsAt(lv).forEach(function (s) {
+        if (mode === "prepared" && !s.prepared) return;
+        out.push({ level: lv, name: s.name, value: lv + ":" + s.name });
+      });
+    }
+    return out;
+  }
   function countKnown(level) {
     return level === 0 ? knownCantrips().length : knownSpellsAt(level).length;
   }
@@ -466,7 +489,7 @@
     v.scores = {}; v.mods = {};
     AB.forEach(function (a) { v.scores[a] = num(c.abilities[a], 10); });
     // PHB Holsters: one rig. Cross-Draw's first shot only while seated, mounted, or driving.
-    // Pommel initiative only while mounted. Belt rigs lose the first-shot bonus while seated.
+    // Pommel initiative only while mounted. Belt rigs lose the first-shot bonus while seated or mounted.
     v.holsterDex = 0;
     v.holsterInit = 0;
     v.holsterFirst = 0;
@@ -478,7 +501,7 @@
       if (pommel) { if (c.mounted) v.holsterInit = num(hol.initBonus); }
       else v.holsterInit = num(hol.initBonus);
       if (cross) { if (posture) v.holsterFirst = num(hol.firstShot); }
-      else if (belt) { if (!c.seated) v.holsterFirst = num(hol.firstShot); }
+      else if (belt) { if (!c.seated && !c.mounted) v.holsterFirst = num(hol.firstShot); }
       else v.holsterFirst = num(hol.firstShot);
     }
     AB.forEach(function (a) { v.mods[a] = mod(v.scores[a]); });
@@ -624,6 +647,12 @@
     if (id === "pact-seeker") return "Pact slots";
     return "Spell slots";
   }
+  function isMeleeWeapon(w) { return /melee/.test(String(w && w.group || "")); }
+  function fiveEName(w) {
+    var name = String(w && w.name || "");
+    var m = name.match(/\(([^)]+)\)/);
+    return (m ? m[1] : name).toLowerCase();
+  }
   function callingProficient(w) {
     var cal = currentCalling();
     if (!w || !cal || !cal.weaponProf) return false;
@@ -632,11 +661,23 @@
     if (w.hexShells || w.group === "caster") return /caster guns?/.test(prof);
     if (/herringer/.test(name) && /herringer/.test(prof)) return true;
     if (/ball/.test(name) && /cap/.test(name) && /ball n cap/.test(prof)) return true;
+    var meleeOnly = /\bmelee\b/.test(prof);
     var both = /simple\s*(and|&)\s*martial/.test(prof);
     var simple = both || /\bsimple weapons\b/.test(prof);
     var cat = String(w.category || "").toLowerCase();
-    if (cat === "simple" && simple) return true;
-    if (cat === "martial" && both) return true;
+    var melee = isMeleeWeapon(w);
+    if (!(meleeOnly && !melee)) {
+      if (cat === "simple" && simple) return true;
+      if (cat === "martial" && both && melee) return true;
+      if (cat === "martial" && both && !meleeOnly) return true;
+    }
+    var named = { dagger: "daggers?", quarterstaff: "quarterstaffs?", dart: "darts?", sling: "slings?", longsword: "longswords?", rapier: "rapiers?", shortsword: "shortswords?", scimitar: "scimitars?" };
+    var en = fiveEName(w);
+    var key;
+    for (key in named) {
+      if (!Object.prototype.hasOwnProperty.call(named, key)) continue;
+      if (new RegExp("\\b" + key + "s?\\b").test(en) && new RegExp("\\b" + named[key] + "\\b").test(prof)) return true;
+    }
     return false;
   }
   function fillCasterGunSelect() {
@@ -743,8 +784,9 @@
             el("button", { type: "button", class: "btn sm tr", "data-tr": i, title: "Tactical Reload: bonus action, load one round from a gun belt or bandolier (TR ✓ guns only)" }, ["TR +1"]),
             el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Load one hex shell of this level. Loading spends the slot. Fire it later as a spell attack." }, ["+ Hex shell"])]),
             el("span", { class: "cast-through", "data-castwrap": i }, [
-              el("select", { class: "cast-lvl", "data-castlvl": i, "aria-label": "Slot level to cast through this gun" }, [opt("0", "Cantrip")].concat([1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (l) { return opt(String(l), l + (l === 1 ? "st" : l === 2 ? "nd" : l === 3 ? "rd" : "th")); }))),
-              el("button", { type: "button", class: "btn sm castbtn", "data-cast": i, title: "Fire a loaded hex shell as a spell attack. The slot was spent when you loaded it. A natural 1 is a wild spark, not a jam. A plain Roll never spends a slot." }, ["Cast through gun"])
+              el("select", { class: "cast-spell", "data-castspell": i, "aria-label": "Spell to cast through this gun" }),
+              el("select", { class: "cast-slot", "data-castslot": i, "aria-label": "Shell or slot level", hidden: true }),
+              el("button", { type: "button", class: "btn sm castbtn", "data-cast": i, title: "Cast the spell you picked. A cantrip spends nothing. A Hexslinger shell was spent when you loaded it. A natural 1 on a shell is a wild spark, not a jam." }, ["Cast through gun"])
             ])
           ]),
           el("div", { class: "load-picks", "data-loadpick": i })
@@ -1085,7 +1127,13 @@
           "aria-label": (label || "Empty") + " · chamber " + (k + 1) + (k === nextK ? " · next under the hammer" : ""),
           title: label ? (label + (k === nextK ? " · next" : "") + (hex ? " · Cast through gun" : " · tap to fire")) : "Empty"
         });
-        if (color) btn.style.background = color;
+        if (st && hex) {
+          btn.classList.add("tinted");
+          if (color) btn.style.setProperty("--case", color);
+        } else if (st && isSpecialChamber(st)) {
+          btn.classList.add("tinted");
+          if (color) btn.style.setProperty("--case", color);
+        } else if (st) btn.classList.add("brass");
         ch.appendChild(btn);
       }
       var left = shells ? shells.filter(Boolean).length : num(g.loaded);
@@ -1100,20 +1148,55 @@
       var castWrap = $('[data-castwrap="' + i + '"]');
       if (castWrap) castWrap.hidden = !(cap && w && w.hexShells);
       var castBtn = $('[data-cast="' + i + '"]');
-      var castSel = $('[data-castlvl="' + i + '"]');
-      if (castBtn && castSel && w && w.hexShells) {
-        var clv = num(castSel.value, 0);
+      var spellSel = $('[data-castspell="' + i + '"]');
+      var slotSel = $('[data-castslot="' + i + '"]');
+      if (castBtn && spellSel && w && w.hexShells) {
+        var choices = castChoices();
+        var sig = choices.map(function (ch) { return ch.value; }).join("|");
+        var keepSpell = spellSel.value;
+        if (spellSel.getAttribute("data-sig") !== sig) {
+          spellSel.setAttribute("data-sig", sig);
+          spellSel.innerHTML = "";
+          if (!choices.length) spellSel.appendChild(opt("", "No spells on this sheet"));
+          choices.forEach(function (ch) {
+            spellSel.appendChild(opt(ch.value, (ch.level ? ordinal(ch.level) + " · " : "") + ch.name));
+          });
+          if (keepSpell && choices.some(function (ch) { return ch.value === keepSpell; })) spellSel.value = keepSpell;
+        }
+        var picked = choices.filter(function (ch) { return ch.value === spellSel.value; })[0] || choices[0];
+        var spellLv = picked ? picked.level : 0;
+        if (slotSel) {
+          if (!spellLv) slotSel.hidden = true;
+          else {
+            slotSel.hidden = false;
+            var keepSlot = slotSel.value;
+            var slotSig = String(spellLv);
+            for (var lv = spellLv; lv <= 9; lv++) if (lv === spellLv || hexBoxes(lv) > 0) slotSig += "," + lv;
+            if (slotSel.getAttribute("data-sig") !== slotSig) {
+              slotSel.setAttribute("data-sig", slotSig);
+              slotSel.innerHTML = "";
+              for (var sl = spellLv; sl <= 9; sl++) {
+                if (sl !== spellLv && hexBoxes(sl) <= 0) continue;
+                slotSel.appendChild(opt(String(sl), ordinal(sl) + " shell"));
+              }
+              if (keepSlot && num(keepSlot) >= spellLv && slotSel.querySelector('option[value="' + keepSlot + '"]')) slotSel.value = keepSlot;
+              else slotSel.value = String(spellLv);
+            }
+          }
+        }
+        var clv = spellLv ? num(slotSel && slotSel.value, spellLv) : 0;
         var held = false;
-        if (clv > 0) (g.chambers || []).forEach(function (st) {
-          var p = parseChamber(st);
-          if (p && p.kind === "hex" && String(p.level) === String(clv)) held = true;
+        if (clv > 0) (g.chambers || []).forEach(function (st2) {
+          var p2 = parseChamber(st2);
+          if (p2 && p2.kind === "hex" && String(p2.level) === String(clv)) held = true;
         });
-        castBtn.disabled = clv > 0 && !held;
-        castBtn.title = clv === 0
-          ? "Cantrip: no slot and no chamber. Spell attack only."
-          : (held
-            ? "Fire the loaded shell as a spell attack. No misfire. A natural 1 is a wild spark."
-            : "Load a level-" + clv + " shell first. Loading spends the slot.");
+        castBtn.disabled = !picked || (clv > 0 && !held);
+        castBtn.title = !picked ? "Add a cantrip or a prepared spell on the Spells page."
+          : (clv === 0
+            ? "Cantrip: no slot and no chamber. Rolls " + picked.name + "."
+            : (held
+              ? "Fire the loaded level-" + clv + " shell as " + picked.name + ". No misfire. A natural 1 is a wild spark."
+              : "Load a level-" + clv + " shell first. Loading spends the slot."));
       }
     });
     renderAmmo();
@@ -1327,7 +1410,7 @@
   function onFieldInput(e) {
     var t = e.target;
     if (suppress || !t.getAttribute) return;
-    if (t.hasAttribute("data-castlvl")) { renderCalc(); return; }
+    if (t.hasAttribute("data-castspell") || t.hasAttribute("data-castslot")) { renderCalc(); return; }
     if (t.hasAttribute("data-calc")) {
       var k = t.getAttribute("data-calc");
       C().overrides[k] = t.value.trim();
@@ -1468,6 +1551,11 @@
   }
   function isHexChamber(st) { var p = parseChamber(st); return !!(p && p.kind === "hex"); }
   function isPlainChamber(st) { return !!st && !isHexChamber(st); }
+  function isSpecialChamber(st) {
+    var p = parseChamber(st);
+    if (!p || p.kind === "hex") return false;
+    return p.kind === "buck" || p.kind === "slug" || p.kind === "percussion" || p.kind === "bigfifty" || p.kind === "arrows";
+  }
   var ROUND_COLORS = {
     buck: "#c4a35a", slug: "#6b4f3a", percussion: "#7d8b99", bigfifty: "#4d6270", arrows: "#5e8a55",
     light: "#f3e7b3", medium: "#e0b84a", heavy: "#a86b32", plain: "#d7c07a",
@@ -1558,6 +1646,7 @@
     g.loaded = 0;
     changed();
     var bits = Object.keys(bags).map(function (k) { return bags[k] + " " + k; });
+    if (bits.length && window.SSDNSAudio) window.SSDNSAudio.play("holster");
     toast(bits.length ? ("Unloaded " + bits.join(", ") + " back to your pile.") : "Already empty.");
   }
   function onGunChanged(i, what, old) {
@@ -1618,6 +1707,7 @@
     var beforeN = C().guns[i] && C().guns[i].loaded;
     var spent = spendRound(i, k);
     if (!spent.ok) { toast(spent.reason); return; }
+    if (window.SSDNSAudio) window.SSDNSAudio.play("attack");
     var g = C().guns[i], w = WPN[g.weapon];
     var label = chamberLabel(spent.was, g, w) || "round";
     toast("Bang (" + label + "). " + g.loaded + " left in the " + (w ? w.name : "gun") + ".", "Undo", function () {
@@ -1725,6 +1815,7 @@
     var picks = $('[data-loadpick="' + i + '"]');
     if (picks) { picks.innerHTML = ""; picks.hidden = true; }
     changed();
+    if (window.SSDNSAudio) window.SSDNSAudio.play("reload");
     var tierNote = pool.caliber && w.tiers ? " Chambered " + (TIER_LABEL[g.tier] || g.tier || "") + " " + pool.caliber + "." : "";
     var how = max ? "Tactical Reload +" + take : "Reloaded " + take + (take < need ? " (all you had)" : "") + (w.slow ? " (slow load: full turn)" : " (action)");
     toast(how + ". " + pool.count + " " + (AMMO_LABEL[pool.type] || pool.type) + (pool.caliber ? " " + pool.caliber : "") + " left." + tierNote);
@@ -1777,6 +1868,7 @@
       return;
     }
     changed();
+    if (window.SSDNSAudio) window.SSDNSAudio.play("reload");
     toast("Loaded a level-" + lvl + " hex shell. The slot is spent. Cast through gun fires it as a spell attack.");
   }
   function cleanGun(i) {
@@ -2377,8 +2469,8 @@
     var ci = casterInfo(), r = C().hexRest || (ci ? ci.rest : "long");
     if (kind === "long" || r === "short") {
       for (var l = 1; l <= 9; l++) C().hexLead[l] = new Array(MAX_BOXES).fill(false);
-      renderFields(); changed(); toast("Hex Lead refreshed (" + kind + " rest).");
-    } else toast("Your Hex Lead comes back on a long rest.");
+      renderFields(); changed(); toast(slotWord() + " refreshed (" + kind + " rest).");
+    } else toast("Your " + slotWord() + " come back on a long rest.");
   }
   function wire() {
     document.addEventListener("input", onFieldInput);

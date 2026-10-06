@@ -9,6 +9,7 @@ tiers), Carbines, the Holsters rig table, ES currency (Shard/Value), Caster Guns
 shells, Borrowed Iron and Gunsmithing are read from the current book.
 """
 import re, json, sys, hashlib, datetime, os, traceback, argparse
+from zoneinfo import ZoneInfo
 _ap = argparse.ArgumentParser(description='Build assets/data/rules.js from the live PHB markdown.')
 _ap.add_argument('--src', default=os.environ.get('SSDNS_RULES_SRC', ''), help='BOOK1.md path (or SSDNS_RULES_SRC)')
 _ap.add_argument('--out', default=os.environ.get('SSDNS_RULES_OUT', ''), help='rules.js path (or SSDNS_RULES_OUT)')
@@ -757,7 +758,7 @@ def split_bonus_body(body):
             continue
         names = []
         for bit in re.split(r',\s*', mm.group(2)):
-            bit = bit.strip().rstrip('.')
+            bit = spell_name_token(bit)
             cut = re.split(r'\.\s+', bit, maxsplit=1)
             if cut[0].strip():
                 names.append(clean(cut[0]))
@@ -766,6 +767,10 @@ def split_bonus_body(body):
         if names:
             entries.append({'atLevel': int(mm.group(1)), 'spells': names})
     return entries, note
+
+def spell_name_token(raw):
+    """Drop a trailing period so 'Thaumaturgy.' and 'Wish Shell.' match the real name."""
+    return clean(raw).strip().rstrip('.').strip()
 
 def p_spell_lists():
     """Parse ##### Calling (5e) blocks under ### Calling spell lists into {cantrip: [...], 1: [...], ...}."""
@@ -793,7 +798,7 @@ def p_spell_lists():
                 if mm:
                     key = '0' if mm.group(1) == 'Cantrips' else re.match(r'(\d+)', mm.group(1)).group(1)
                     text = mm.group(2)
-                    spells = [clean(x) for x in re.split(r',\s*', text) if clean(x)]
+                    spells = [spell_name_token(x) for x in re.split(r',\s*', text) if spell_name_token(x)]
                     levels[key] = spells
                 else:
                     bm = re.match(r'^\*\*(.+?):\*\*\s*(.+)$', line)
@@ -930,9 +935,65 @@ rt['storytellerWear'] = safe('storyteller wear', lambda: ' '.join((storyteller_g
 if not re.search(r'addict', raw, re.I):
     warn('The PHB has no Eldorite addiction rule yet; the DM Command Center keeps the chart (players do not see it).')
 
+def spell_phb_name(raw, known):
+    """5e name. 'Fire Bolt (Powder Spark)' and 'Fire Bolt Shell' both become Fire Bolt. 'Antilife Shell' stays, because that is the 5e name."""
+    t = clean(raw).rstrip('.').strip()
+    m = re.match(r'^(.+?)\s*\([^)]+\)\s*$', t)
+    if m: t = m.group(1).strip()
+    base = re.sub(r'\s+Shell$', '', t, flags=re.I).strip()
+    if base.lower() in known: return known[base.lower()]
+    if t.lower() in known: return known[t.lower()]
+    return t
+
+def p_spell_cast():
+    """Attack, save, and damage lines for casting. The PHB lists names; dice live in tools/spell_cast.json (5e lines the book points at)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'spell_cast.json')
+    extra = []
+    if os.path.exists(path):
+        extra = json.load(open(path, encoding='utf-8'))
+    else:
+        warn('spell_cast.json missing')
+    by = {}
+    known = {}
+    for row in extra:
+        by[row['name'].lower()] = row
+        known[row['name'].lower()] = row['name']
+    out = []
+    seen = set()
+    def add(raw, level):
+        name = spell_phb_name(raw, known)
+        if not name: return
+        key = name.lower()
+        if key in seen: return
+        seen.add(key)
+        src = by.get(key)
+        if src:
+            row = dict(src)
+            row['name'] = name
+            if row.get('level') is None: row['level'] = level
+        else:
+            row = {'name': name, 'level': level, 'kind': 'none'}
+        out.append(row)
+    for sl in spell_lists.values():
+        for lk, names in (sl.get('levels') or {}).items():
+            for raw in names or []:
+                add(raw, int(lk) if str(lk).isdigit() else 0)
+        for b in sl.get('bonusLists') or []:
+            for en in b.get('entries') or []:
+                for raw in en.get('spells') or []:
+                    add(raw, None)
+    # keep authored rows that the lists didn't name (still useful)
+    for row in extra:
+        if row['name'].lower() not in seen:
+            out.append(dict(row))
+            seen.add(row['name'].lower())
+    out.sort(key=lambda r: (r.get('level') if isinstance(r.get('level'), int) else 99, r['name']))
+    return out
+spell_cast = safe('spell cast', p_spell_cast, [])
+
 rules = {
     'meta': {'title': 'Six-Shooters & Sorcery: Dust and Shadows', 'short': 'SSDNS', 'source': os.path.basename(SRC), 'sourceSha1': hashlib.sha1(raw.encode()).hexdigest()[:12],
-             'builtAt': datetime.datetime.now().strftime('%Y-%m-%d %H:%M CT'), 'rulesVersion': 3, 'currencyUnit': 'ES',
+             'builtAt': datetime.datetime.now(ZoneInfo('America/Chicago')).strftime('%Y-%m-%d %H:%M CT'), 'rulesVersion': 3, 'currencyUnit': 'ES',
              'note': 'Generated from the live PHB markdown by tools/build_rules.py. Do not hand-edit; re-run the script.'},
     'abilities': [{'id': 'STR', 'name': 'Strength', 'frontier': 'Muscle & Haul'}, {'id': 'DEX', 'name': 'Dexterity', 'frontier': 'Quick Iron & Balance'}, {'id': 'CON', 'name': 'Constitution', 'frontier': 'Dust Lung & Grit'},
                   {'id': 'INT', 'name': 'Intelligence', 'frontier': 'Book, Cipher & Claim Map'}, {'id': 'WIS', 'name': 'Wisdom', 'frontier': 'Trail Eye & Nerve'}, {'id': 'CHA', 'name': 'Charisma', 'frontier': 'Presence & Pay Tongue'}],
@@ -942,7 +1003,7 @@ rules = {
     'ammo': ammo, 'roundTiers': round_tiers, 'roundTierRules': round_rules, 'holsters': holsters, 'gunsmithing': gunsmithing, 'reloadTable': reload_table,
     'packs': packs, 'gear': gear, 'frontierGear': frontier_gear, 'tools': tools, 'mounts': mounts,
     'explosives': explosives, 'storytellerGear': storyteller_gear, 'kitCrosswalk': kit_crosswalk,
-    'currency': currency, 'wildSpark': wild, 'feats': feats, 'spellAliases': spell_alias, 'spellLists': spell_lists, 'inspiration': insp,
+    'currency': currency, 'wildSpark': wild, 'feats': feats, 'spellAliases': spell_alias, 'spellLists': spell_lists, 'spellCast': spell_cast, 'inspiration': insp,
     'slots5e': {'full': FULL, 'half': HALF, 'third': THIRDT, 'pact': PACT},
     'rulesText': rt,
     'warnings': warnings,
@@ -957,6 +1018,6 @@ print('lineages', len(lineages), [(l['name'], len(l['sublineages'])) for l in li
 print('callings', len(callings), [(c['name'], c['hitDie'], len(c['subclasses'])) for c in callings])
 print('backgrounds', len(backgrounds), 'armor', len(armor), 'firearms', len(firearms), 'caster', len(caster_guns), 'melee', len(melee), 'otherRanged', len(other_ranged))
 print('ammo', len(ammo), 'holsters', len(holsters), 'feats', len(feats), 'aliases', len(spell_alias), 'currency', len(currency), 'insp', len(insp), 'wild', len(wild), 'mods', len(gunsmithing['mods']), 'capUp', len(gunsmithing['capacity']))
-print('explosives', len(explosives.get('items', [])), 'bundles', len(explosives.get('bundles', [])), 'storytellerAcc', len(storyteller_gear.get('accessories', [])), 'instruments', len(storyteller_gear.get('instruments', [])), 'spellLists', list(spell_lists.keys()), 'kitCrosswalk', len(kit_crosswalk.get('crosswalk', [])))
+print('explosives', len(explosives.get('items', [])), 'bundles', len(explosives.get('bundles', [])), 'storytellerAcc', len(storyteller_gear.get('accessories', [])), 'instruments', len(storyteller_gear.get('instruments', [])), 'spellLists', list(spell_lists.keys()), 'spellCast', len(spell_cast), 'kitCrosswalk', len(kit_crosswalk.get('crosswalk', [])))
 print('--- warnings (%d)' % len(warnings))
 for w in warnings: print(' *', w)

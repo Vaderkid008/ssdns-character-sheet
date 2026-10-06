@@ -677,12 +677,6 @@
     "portrait": "",
     "gangSymbol": "",
     "additionalFeatures": "",
-    "addiction": {
-      "addicted": false,
-      "daysWithout": 0,
-      "uses": 0,
-      "penalty": 0
-    },
     "hexRest": "",
     "explosives": [],
     "gunBelt": false,

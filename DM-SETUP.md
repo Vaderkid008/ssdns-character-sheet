@@ -170,9 +170,9 @@ Map those keys to Elgato Stream Deck hotkey buttons. `S` and `M` stay silent unt
 
 ## v0.2 — sound and music files
 
-No audio ships in the repo. Missing files fail silently.
+`attack.mp3`, `holster.mp3`, and `reload.mp3` ship in `assets/sfx/`. Any other missing file fails silently.
 
-- Sound effects: `assets/sfx/` — `attack.mp3`, `reload.mp3`, `spellcast.mp3`, `reward.mp3`, `jam.mp3`, `explode.mp3` (names are set in `assets/sfx/sfx.json`)
+- Sound effects: `assets/sfx/` — `attack.mp3` (gun shot), `holster.mp3`, `reload.mp3`, plus optional `spellcast.mp3`, `reward.mp3`, `jam.mp3`, `explode.mp3` (names are set in `assets/sfx/sfx.json`)
 - Music: `assets/music/` — `saloon.mp3`, `trail.mp3`, `gunfight.mp3`, `hex.mp3` (list is `assets/music/tracks.json`)
 
 Each folder has a README with how to add another file.

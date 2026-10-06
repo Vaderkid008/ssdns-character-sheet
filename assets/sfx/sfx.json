@@ -1,6 +1,7 @@
 {
   "events": {
     "attack": "attack.mp3",
+    "holster": "holster.mp3",
     "reload": "reload.mp3",
     "spellcast": "spellcast.mp3",
     "reward": "reward.mp3",

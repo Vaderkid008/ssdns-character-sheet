@@ -2,13 +2,13 @@
   "rules": {
     "rooms": {
       "$roomCode": {
-        ".read": "auth != null",
         "meta": {
           ".read": "auth != null",
           ".write": "auth != null && (!data.exists() || data.child('dmUid').val() === auth.uid)",
           ".validate": "newData.hasChildren(['code', 'dmUid', 'createdAt', 'status'])"
         },
         "players": {
+          ".read": "auth != null",
           "$playerId": {
             ".read": "auth != null",
             ".write": "auth != null && (auth.uid === $playerId || root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid)",
@@ -32,6 +32,7 @@
           }
         },
         "messages": {
+          ".read": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
           "$messageId": {
             ".read": "auth != null && (root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid || data.child('to').val() === auth.uid || data.child('to').val() === 'all' || data.child('from').val() === auth.uid)",
             ".write": "auth != null && (!data.exists() && newData.child('from').val() === auth.uid || data.exists() && (data.child('to').val() === auth.uid || root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid))",
@@ -46,10 +47,26 @@
           }
         },
         "commands": {
-          ".read": "auth != null",
+          ".read": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
           "$cmdId": {
             ".write": "auth != null && (root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid || (data.exists() && (data.child('to').val() === auth.uid || data.child('to').val() === 'all')))",
             ".validate": "newData.hasChildren(['ts', 'type'])"
+          }
+        },
+        "broadcast": {
+          ".read": "auth != null",
+          "$cmdId": {
+            ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['ts', 'type']) && (!newData.child('to').exists() || newData.child('to').val() === 'all' || newData.child('to').val() === '')"
+          }
+        },
+        "inbox": {
+          "$playerId": {
+            ".read": "auth != null && (auth.uid === $playerId || root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid)",
+            "$cmdId": {
+              ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
+              ".validate": "newData.hasChildren(['ts', 'type']) && newData.child('to').val() === $playerId"
+            }
           }
         },
         "table": {
@@ -74,7 +91,7 @@
           ".read": "auth != null",
           "$id": {
             ".write": "auth != null && ((!data.exists() && newData.child('from').val() === auth.uid) || (data.exists() && !newData.exists() && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid))",
-            ".validate": "newData.hasChildren(['ts', 'from', 'text']) || !newData.exists()"
+            ".validate": "!newData.exists() || (newData.hasChildren(['ts', 'from', 'text']) && (!newData.child('to').exists() || newData.child('to').val() === 'all' || newData.child('to').val() === ''))"
           }
         },
         "archives": {
