@@ -252,6 +252,13 @@
     });
     return out;
   }
+  function combatantSide(row) {
+    if (!row || row.kind === "player") return "enemy";
+    if (row.ally === true || row.friendly === true) return "friendly";
+    var side = String(row.side || "").toLowerCase();
+    if (side === "friendly" || side === "ally") return "friendly";
+    return "enemy";
+  }
   function publicEnemy(row, slot, conditions) {
     row = row || {};
     var flags = revealFlags(row);
@@ -265,6 +272,7 @@
       playerId: row.playerId || "",
       conditions: enemy ? conditionNames(conditions || row.conditions) : []
     };
+    if (enemy) out.side = combatantSide(row);
     if (!enemy) return out;
     var revealed = {};
     if (flags.ac && row.ac != null && row.ac !== "" && isFinite(Number(row.ac))) revealed.ac = Number(row.ac);
@@ -304,7 +312,8 @@
       scores: card.scores || null,
       skills: card.skills || null,
       spellcasting: card.spellcasting || null,
-      reveal: revealFlags(row)
+      reveal: revealFlags(row),
+      side: combatantSide(row)
     };
     try { secret.card = JSON.parse(JSON.stringify(card)); } catch (e) { secret.card = null; }
     return secret;
@@ -704,6 +713,7 @@
     liveStripAllowed: liveStripAllowed,
     revealFlags: revealFlags,
     coarseStatus: coarseStatus,
+    combatantSide: combatantSide,
     publicEnemy: publicEnemy,
     secretEnemy: secretEnemy,
     attackVerdict: attackVerdict,
