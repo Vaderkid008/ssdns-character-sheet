@@ -103,6 +103,11 @@ a { color: var(--eld); }
   font-family: var(--label); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--parch);
 }
 .toggle input { width: 18px; height: 18px; accent-color: var(--eld); }
+.toggle input[type="number"], .cond-rounds {
+  width: 4.8rem; height: auto; accent-color: auto;
+  font-family: var(--body, inherit); font-size: 14px; letter-spacing: 0; text-transform: none;
+  padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg);
+}
 
 /* ---- room code hero */
 .room-hero {

@@ -65,6 +65,7 @@ function loadLocalTable() {
     fight.stock = raw.stock || [];
     fight.packs = raw.packs || fight.packs;
     if (raw.condMap && typeof raw.condMap === "object") fight.condMap = raw.condMap;
+    if (raw.damageMode === "approve" || raw.damageMode === "auto") fight.damageMode = raw.damageMode;
   } catch (e) {}
   try {
     const packs = JSON.parse(localStorage.getItem(PACK_KEY) || "null");
@@ -75,7 +76,7 @@ function saveLocalTable() {
   try {
     localStorage.setItem(tableKey(), JSON.stringify({
       round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: fight.order, inspiration: fight.inspiration,
-      stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, updatedAt: fight.updatedAt
+      stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, damageMode: fight.damageMode === "approve" ? "approve" : "auto", updatedAt: fight.updatedAt
     }));
     localStorage.setItem(PACK_KEY, JSON.stringify(fight.packs));
   } catch (e) {}
@@ -143,30 +144,41 @@ function dexFromSnapshot(s) {
 function sortInitiative() {
   const cur = fight.order[fight.turn];
   const curId = cur && cur.id;
-  const indexed = fight.order.map((row, i) => ({ row: row, i: i }));
-  indexed.sort((a, b) => {
-    const aOk = a.row.init !== "" && a.row.init != null && isFinite(Number(a.row.init));
-    const bOk = b.row.init !== "" && b.row.init != null && isFinite(Number(b.row.init));
-    const av = aOk ? Number(a.row.init) : -Infinity;
-    const bv = bOk ? Number(b.row.init) : -Infinity;
-    if (bv !== av) return bv - av;
-    const dd = dexOf(b.row) - dexOf(a.row);
-    if (dd) return dd;
-    return a.i - b.i;
-  });
-  fight.order = indexed.map((x) => x.row);
-  fight.order.forEach((row, i, arr) => {
-    const prev = arr[i - 1];
-    const next = arr[i + 1];
-    const same = (other) => other && row.init !== "" && row.init != null && Number(other.init) === Number(row.init);
-    row.tie = !!(same(prev) || same(next));
-  });
+  if (window.SSDNSApplied && window.SSDNSApplied.sortInitiative) {
+    fight.order = window.SSDNSApplied.sortInitiative(fight.order, dexOf);
+  } else {
+    const indexed = fight.order.map((row, i) => ({ row: row, i: i }));
+    indexed.sort((a, b) => {
+      const aOk = a.row.init !== "" && a.row.init != null && isFinite(Number(a.row.init));
+      const bOk = b.row.init !== "" && b.row.init != null && isFinite(Number(b.row.init));
+      const av = aOk ? Number(a.row.init) : -Infinity;
+      const bv = bOk ? Number(b.row.init) : -Infinity;
+      if (bv !== av) return bv - av;
+      const dd = dexOf(b.row) - dexOf(a.row);
+      if (dd) return dd;
+      return a.i - b.i;
+    });
+    fight.order = indexed.map((x) => x.row);
+    fight.order.forEach((row, i, arr) => {
+      const prev = arr[i - 1];
+      const next = arr[i + 1];
+      const same = (other) => other && row.init !== "" && row.init != null && Number(other.init) === Number(row.init);
+      row.tie = !!(same(prev) || same(next));
+    });
+  }
   if (curId) {
     const idx = fight.order.findIndex((r) => r.id === curId);
     if (idx >= 0) fight.turn = idx;
   } else if (fight.turn >= fight.order.length) fight.turn = 0;
 }
+function syncDamageMode() {
+  const el = $("#damageMode");
+  if (el && el.value === "approve") fight.damageMode = "approve";
+  if (fight.damageMode !== "approve" && fight.damageMode !== "auto") fight.damageMode = "auto";
+  if (el && el.value !== fight.damageMode) el.value = fight.damageMode;
+}
 async function saveRemoteTable() {
+  syncDamageMode();
   fight.updatedAt = new Date().toISOString();
   saveLocalTable();
   if (DM.state.demo || !DM.state.db) return;
@@ -206,7 +218,7 @@ async function saveRemoteTable() {
       store: fight.stock,
       packs: fight.packs,
       storeOpen: !!fight.storeOpen,
-      damageMode: fight.damageMode || "auto",
+      damageMode: fight.damageMode === "approve" ? "approve" : "auto",
       updatedAt: fight.updatedAt
     });
     try {
@@ -251,7 +263,8 @@ function applyRemoteTable(v) {
         });
       }
     }
-    if (v.damageMode) fight.damageMode = v.damageMode;
+    if (v.damageMode === "approve" || v.damageMode === "auto") fight.damageMode = v.damageMode;
+    syncDamageMode();
     if (v.storeOpen != null) fight.storeOpen = !!v.storeOpen;
     if (init.round) fight.round = init.round;
     if (init.turn != null) fight.turn = init.turn;
@@ -282,16 +295,23 @@ function namesFor(pid) {
 
 function rememberUndo(entry) {
   fight.undo = entry;
+  fight.undos = fight.undos || {};
+  if (entry && entry.rollId) fight.undos[entry.rollId] = entry;
   const btn = $("#btnUndo");
   if (btn) btn.disabled = !entry;
 }
 
-async function undoLast() {
-  const u = fight.undo;
-  if (!u) { DM.toast("Nothing to undo"); return; }
-  fight.undo = null;
+async function undoEntry(u) {
+  if (!u) { DM.toast("Nothing to undo"); return false; }
+  const rollId = u.rollId || "";
+  if (rollId && window.SSDNSApplied && !window.SSDNSApplied.takeUndo(DM.state.roomCode, rollId)) {
+    DM.toast("Already undone");
+    return false;
+  }
+  if (fight.undo && (!rollId || fight.undo.rollId === rollId)) fight.undo = null;
+  if (rollId && fight.undos) delete fight.undos[rollId];
   const btn = $("#btnUndo");
-  if (btn) btn.disabled = true;
+  if (btn) btn.disabled = !fight.undo;
   const names = namesFor(u.playerId);
   await DM.pushLedger(Object.assign({
     who: "DM", type: "undo", flag: false,
@@ -312,7 +332,18 @@ async function undoLast() {
   }
   if (DM.state.demo && u.demo) u.demo();
   DM.renderPlayers();
+  if (DM.renderLedger) DM.renderLedger();
+  if (DM.renderRolls) DM.renderRolls();
   DM.toast("Undid last push");
+  return true;
+}
+async function undoLast() {
+  return undoEntry(fight.undo);
+}
+function undoByRoll(rollId) {
+  const u = (fight.undos && fight.undos[rollId]) || (fight.undo && fight.undo.rollId === rollId ? fight.undo : null);
+  if (!u) { DM.toast("Nothing to undo"); return Promise.resolve(false); }
+  return undoEntry(u);
 }
 
 function playerSelect(sel, includeAll) {
@@ -356,14 +387,22 @@ function turnRowHtml(row, i) {
   const status = row.kind === "enemy" ? enemyStatus(row) : "";
   const current = fight.started && i === fight.turn ? " current" : "";
   const detail = row.kind === "player" ? initSourceLabel(row) : tieLabel(row);
+  const downed = knownNumber(row.hp) === 0;
+  const downBadge = downed ? `<span class="badge danger">Unconscious · Down</span>` : "";
+  const enemyEdit = row.kind === "enemy"
+    ? `<label class="fine">Atk <input type="number" data-atk-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.atkBonus == null ? "" : esc(row.atkBonus)}" aria-label="Attack bonus for ${esc(row.name || "enemy")}"></label>
+      <label class="fine">Dmg <input class="cond-rounds" data-dmg-val="${i}" data-row-id="${esc(row.id || "")}" value="${esc(row.damage || "")}" placeholder="1d6+2" aria-label="Damage dice for ${esc(row.name || "enemy")}"></label>`
+    : "";
   return `<div class="init-row${current}${flash}">
       <input class="init-score" type="number" data-init-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.init == null ? "" : esc(row.init)}" aria-label="Initiative for ${esc(row.name || "combatant")}">
       <span class="init-who" title="${esc(row.name || "Someone")}"><b>${esc(row.name || "Someone")}</b>
         <span class="fine">${esc(row.kind || "combatant")}${row.tie ? " · tie" : ""}${status ? " · " + esc(status) : ""}${detail ? " · " + esc(detail) : ""}${esc(turnAckLabel(row))}</span>
+        ${downBadge}
         ${conditionChips(row)}
       </span>
       <label class="fine">AC <input type="number" data-ac-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.ac == null ? "" : esc(row.ac)}" aria-label="AC for ${esc(row.name || "combatant")}"></label>
       <label class="fine">HP <input type="number" data-hp-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.hp == null ? "" : esc(row.hp)}" aria-label="HP for ${esc(row.name || "combatant")}"></label>
+      ${enemyEdit}
       <span class="init-actions">
         ${row.kind === "enemy" ? `<button type="button" class="btn sm" data-init-strike="${i}">Attack player</button>` : `<button type="button" class="btn sm" data-your-turn="${i}">Your turn</button>`}
         <button type="button" class="btn sm" data-init-cond="${i}">Conditions</button>
@@ -388,7 +427,9 @@ function fightRowFromField(el) {
   const initI = el.getAttribute("data-init-val");
   const hpI = el.getAttribute("data-hp-val");
   const acI = el.getAttribute("data-ac-val");
-  const i = parseInt(initI != null ? initI : (hpI != null ? hpI : acI), 10);
+  const atkI = el.getAttribute("data-atk-val");
+  const dmgI = el.getAttribute("data-dmg-val");
+  const i = parseInt(initI != null ? initI : (hpI != null ? hpI : (acI != null ? acI : (atkI != null ? atkI : dmgI))), 10);
   return isFinite(i) ? fight.order[i] : null;
 }
 function absorbFightInputs() {
@@ -399,13 +440,18 @@ function absorbFightInputs() {
   const initI = active.getAttribute("data-init-val");
   const hpI = active.getAttribute("data-hp-val");
   const acI = active.getAttribute("data-ac-val");
+  const atkI = active.getAttribute("data-atk-val");
+  const dmgI = active.getAttribute("data-dmg-val");
   const n = active.value === "" ? "" : parseInt(active.value, 10);
   if (initI != null) row.init = n;
   if (hpI != null) row.hp = n;
   if (acI != null) row.ac = n;
+  if (atkI != null) row.atkBonus = active.value === "" ? "" : Number(active.value);
+  if (dmgI != null) row.damage = active.value;
 }
 function renderFight() {
   const run = () => {
+    syncDamageMode();
     absorbFightInputs();
     const list = $("#initList");
     const strip = $("#turnStrip");
@@ -574,6 +620,14 @@ function conditionChips(row) {
   if (!Cond || !list.length) return "";
   return `<span class="cond-row">${list.map((c) => `<span class="cond-chip">${esc(Cond.label(c))}</span>`).join("")}</span>`;
 }
+function openDialog(dlg) {
+  try {
+    if (dlg.showModal) dlg.showModal();
+    else dlg.setAttribute("open", "");
+  } catch (e) {
+    dlg.setAttribute("open", "");
+  }
+}
 function askRowConditions(i) {
   const row = fight.order[i];
   const Cond = window.SSDNSConditions;
@@ -589,10 +643,11 @@ function askRowConditions(i) {
     const level = have && have.level ? have.level : 1;
     return `<label class="toggle"><input type="checkbox" data-cond="${esc(item.name)}"${have ? " checked" : ""}> ${esc(item.name)}
       ${item.exhaustion ? `<input type="number" min="1" max="6" data-cond-level="${esc(item.name)}" value="${level}" aria-label="Exhaustion level">` : ""}
-      <input type="number" min="1" data-cond-rounds="${esc(item.name)}" placeholder="rounds" value="${esc(rounds)}" aria-label="Rounds for ${esc(item.name)}">
+      <input class="cond-rounds" type="number" min="1" data-cond-rounds="${esc(item.name)}" placeholder="rounds" value="${esc(rounds)}" aria-label="Rounds for ${esc(item.name)}">
       <span class="fine">${esc(item.text)}</span></label>`;
   }).join("");
   dlg.innerHTML = `<form method="dialog"><h2>Conditions · ${esc(row.name || "")}</h2><div class="cond-picks">${picks}</div><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Save</button></div></form>`;
+  const initialIds = current.map((c) => c && c.id).filter(Boolean);
   const finish = async (ok) => {
     const names = [];
     const roundsByName = {};
@@ -611,17 +666,21 @@ function askRowConditions(i) {
     if (dlg.close) dlg.close();
     if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
     if (!ok) return;
-    await writeSubjectConditions(subjectId, kind, names, row.name || "", level, roundsByName);
-    DM.toast(names.length ? "Conditions set" : "Conditions cleared");
+    const removeIds = initialIds.filter((id) => {
+      const had = current.filter((c) => c && c.id === id)[0];
+      if (!had) return false;
+      return names.every((n) => String(n).toLowerCase() !== String(had.name || "").toLowerCase());
+    });
+    await writeSubjectConditions(subjectId, kind, names, row.name || "", level, roundsByName, removeIds);
+    DM.toast(names.length ? "Conditions set" : (removeIds.length ? "Conditions cleared" : "Conditions kept"));
   };
   dlg.querySelector("[value=no]").addEventListener("click", () => finish(false));
   dlg.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); finish(true); });
   dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(false); });
   document.body.appendChild(dlg);
-  if (dlg.showModal) dlg.showModal();
-  else dlg.setAttribute("open", "");
+  openDialog(dlg);
 }
-async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, roundsByName) {
+async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, roundsByName, removeIds) {
   const Cond = window.SSDNSConditions;
   if (!Cond || !subjectId) return;
   const wanted = {};
@@ -637,6 +696,8 @@ async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, r
       updatedAt: new Date().toISOString()
     });
   });
+  const drop = {};
+  (removeIds || []).forEach((id) => { if (id) drop[id] = 1; });
   const prev = Object.keys(fight.condMap || {}).filter((id) => {
     const row = fight.condMap[id];
     return row && row.subjectId === subjectId;
@@ -644,8 +705,8 @@ async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, r
   fight.condMap = fight.condMap || {};
   const removedLabels = {};
   prev.forEach((id) => {
-    if (wanted[id]) return;
-    removedLabels[id] = Cond.label(fight.condMap[id]);
+    if (!drop[id] || wanted[id]) return;
+    removedLabels[id] = (fight.condMap[id] && fight.condMap[id].name) || Cond.label(fight.condMap[id]);
     delete fight.condMap[id];
   });
   Object.keys(wanted).forEach((id) => { fight.condMap[id] = wanted[id]; });
@@ -655,11 +716,11 @@ async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, r
     if (!row) return;
     const sid = row.kind === "player" ? (row.playerId || row.id) : row.id;
     if (sid !== subjectId) return;
-    row.conditions = Object.keys(wanted).map((id) => wanted[id]);
+    row.conditions = Object.keys(fight.condMap).map((id) => fight.condMap[id]).filter((c) => c && c.subjectId === subjectId);
   });
   if (kind === "player" && DM.state.players[subjectId] && DM.state.players[subjectId].snapshot) {
     const snap = DM.state.players[subjectId].snapshot;
-    snap.activeConditions = Object.keys(wanted).map((id) => wanted[id]);
+    snap.activeConditions = Cond.mergeById(snap.activeConditions || [], Object.keys(wanted).map((id) => wanted[id]), removed);
     snap.conditions = Cond.listText(snap.activeConditions);
   }
   saveLocalTable();
@@ -671,11 +732,10 @@ async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, r
     for (const id of removed) await fb.remove(DM.roomRef("conditions/" + id));
   }
   const who = label || subjectId;
-  const liveNames = Object.keys(wanted).map((id) => Cond.label(wanted[id]));
   for (const id of added) {
     const line = "DM applied " + Cond.label(wanted[id]) + " to " + who;
     await DM.pushLedger({ who: "DM", playerId: kind === "player" ? subjectId : "all", type: "condition", what: line, oldVal: null, newVal: Cond.label(wanted[id]), flag: false });
-    if (kind === "player") await DM.pushCommand({ type: "set_conditions", to: subjectId, payload: { list: liveNames, quiet: true }, from: DM.state.uid });
+    if (kind === "player") await DM.pushCommand({ type: "set_conditions", to: subjectId, payload: { merge: true, entries: [wanted[id]], quiet: true }, from: DM.state.uid });
   }
   for (const id of removed) {
     const line = "DM removed " + (removedLabels[id] || "a condition") + " from " + who;
@@ -735,6 +795,7 @@ function watchConditions() {
   if (typeof cb === "function") DM.state.unsubs.push(cb);
 }
 function nextTurn() {
+  syncDamageMode();
   if (!fight.order.length) { DM.toast("Add someone to the turn order first"); return; }
   fight.recruit = true;
   ensurePlayers();
@@ -1594,14 +1655,50 @@ async function rowHp(i, sign) {
   DM.toast(line);
   await DM.pushLedger({ who: "DM", playerId: "all", type: sign < 0 ? "damage" : "heal", what: line, oldVal: before, newVal: row.hp, flag: false });
 }
+function noteUnconscious(row) {
+  if (!row) return;
+  const hp = knownNumber(row.hp);
+  if (hp != null && hp > 0) return;
+  const Cond = window.SSDNSConditions;
+  if (!Cond) return;
+  const subjectId = row.kind === "player" ? (row.playerId || row.id) : row.id;
+  if (!subjectId) return;
+  const id = Cond.idFor(subjectId, "Unconscious");
+  row.hp = 0;
+  if (fight.condMap && fight.condMap[id]) {
+    row.conditions = Cond.ensureUnconscious(conditionsForRow(row), 0, subjectId);
+    return;
+  }
+  const entry = Cond.normalize({
+    id: id, name: "Unconscious", subjectId: subjectId,
+    subjectKind: row.kind === "enemy" ? "enemy" : "player",
+    by: DM.state.uid || "dm", byName: "DM", updatedAt: new Date().toISOString(), active: true
+  });
+  fight.condMap = fight.condMap || {};
+  fight.condMap[id] = entry;
+  row.conditions = Cond.ensureUnconscious(row.conditions || [], 0, subjectId);
+  if (row.kind === "player" && DM.state.players[subjectId] && DM.state.players[subjectId].snapshot) {
+    const snap = DM.state.players[subjectId].snapshot;
+    snap.activeConditions = Cond.mergeById(snap.activeConditions || [], [entry], []);
+    snap.conditions = Cond.listText(snap.activeConditions);
+    snap.hpCurrent = 0;
+  }
+  const line = (row.name || "Someone") + " is Unconscious";
+  DM.pushLedger({ who: "DM", playerId: row.kind === "player" ? subjectId : "all", type: "condition", what: line, oldVal: null, newVal: "Unconscious", flag: false });
+  if (!DM.state.demo && DM.state.db && DM.state._fb) DM.state._fb.set(DM.roomRef("conditions/" + id), entry).catch(() => {});
+  if (row.kind === "player") {
+    DM.pushCommand({ type: "set_conditions", to: subjectId, payload: { merge: true, entries: [entry], quiet: true }, from: DM.state.uid });
+  }
+}
 async function markDown(i) {
   const row = fight.order[i];
   if (!row) return;
   row.hp = 0;
   row.status = "Down";
+  noteUnconscious(row);
   await saveRemoteTable();
   renderFight();
-  DM.toast(row.name + " is Down");
+  DM.toast((row.name || "Someone") + " is Unconscious · Down");
 }
 function attackThis(i) { return attackRow(i); }
 function dexModFrom(dex) {
@@ -1647,8 +1744,7 @@ function askEnemyStrike(row) {
     dlg.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); finish(true); });
     dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(false); });
     document.body.appendChild(dlg);
-    if (dlg.showModal) dlg.showModal();
-    else dlg.setAttribute("open", "");
+    openDialog(dlg);
   });
 }
 async function enemyStrike(i) {
@@ -1667,17 +1763,20 @@ async function enemyStrike(i) {
   const hit = !miss;
   let dmg = null;
   if (hit) dmg = DM.parseDice(picked.dice);
-  const detail = row.name + " attack " + nat + (picked.bonus >= 0 ? "+" : "") + picked.bonus + " = " + total + (isFinite(ac) ? " vs AC " + ac : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
+  const bonusTxt = (picked.bonus >= 0 ? "+" : "") + picked.bonus;
+  const attackName = String(row.attacks || "").trim();
+  const weapon = attackName && attackName.toLowerCase() !== String(row.name || "").toLowerCase() ? attackName : "";
+  const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + " = " + total + (isFinite(ac) ? " vs AC " + ac : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   const id = DM.uid("enatk");
   await DM.pushRoll({
-    id: id, who: row.name, uid: DM.state.uid, label: row.name + " attack", formula: "1d20" + (picked.bonus >= 0 ? "+" : "") + picked.bonus,
+    id: id, who: row.name, uid: DM.state.uid, label: row.name + " attacks " + (target.name || ""), formula: "1d20" + bonusTxt,
     result: total, detail: detail, private: false, attack: true, nat: nat, crit: nat === 20 && hit,
-    targetId: target.id, targetName: target.name, damage: dmg ? dmg.total : null, ac: isFinite(ac) ? ac : null, weapon: row.name
+    targetId: target.id, targetName: target.name, damage: dmg ? dmg.total : null, ac: isFinite(ac) ? ac : null, weapon: weapon
   });
-  if (hit && dmg && (fight.damageMode || "auto") !== "approve") {
+  if (hit && dmg && fight.damageMode !== "approve") {
     applyPlayerHit({
       rollId: id, targetId: target.id, targetName: target.name, amount: dmg.total,
-      from: row.id, characterName: row.name, weapon: row.name, label: row.name, type: "damage"
+      from: row.id, characterName: row.name, weapon: weapon, label: attackName || row.name, type: "damage"
     });
   }
   DM.toast(detail);
@@ -1730,13 +1829,51 @@ function rollAllEnemies() {
   renderFight();
   announce("Rolled initiative", "initiative");
 }
+function askEndCombat() {
+  return new Promise((resolve) => {
+    const dlg = document.createElement("dialog");
+    dlg.className = "dlg ssdns-ask";
+    dlg.innerHTML = `<form method="dialog"><p>End combat and clear the turn order?</p><label class="toggle">Clear combat conditions <input type="checkbox" id="clearCombatConds" checked></label><p class="fine">Exhaustion stays.</p><div class="dlg-foot"><button class="btn" value="no" type="button">No</button><button class="btn btn-primary" value="yes" type="submit">Yes</button></div></form>`;
+    const finish = (ok) => {
+      const box = dlg.querySelector("#clearCombatConds");
+      const clear = !!(box && box.checked);
+      if (dlg.close) dlg.close();
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      resolve(ok ? { ok: true, clear: clear } : null);
+    };
+    dlg.querySelector("[value=no]").addEventListener("click", () => finish(false));
+    dlg.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); finish(true); });
+    dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(false); });
+    document.body.appendChild(dlg);
+    openDialog(dlg);
+  });
+}
+async function clearCombatConditions() {
+  const remove = [];
+  Object.keys(fight.condMap || {}).forEach((id) => {
+    const row = fight.condMap[id];
+    if (!row || /^exhaustion$/i.test(row.name || "")) return;
+    remove.push(id);
+    delete fight.condMap[id];
+  });
+  Object.keys(DM.state.players || {}).forEach((pid) => {
+    const snap = DM.state.players[pid] && DM.state.players[pid].snapshot;
+    if (!snap || !window.SSDNSConditions) return;
+    snap.activeConditions = (snap.activeConditions || []).filter((c) => c && /^exhaustion$/i.test(c.name || ""));
+    snap.conditions = window.SSDNSConditions.listText(snap.activeConditions);
+  });
+  if (!DM.state.demo && DM.state.db && DM.state._fb) {
+    for (const id of remove) {
+      try { await DM.state._fb.remove(DM.roomRef("conditions/" + id)); } catch (e) {}
+    }
+  }
+  saveLocalTable();
+}
 async function endCombat() {
-  const ask = window.SSDNSAsk && window.SSDNSAsk.confirm
-    ? window.SSDNSAsk.confirm("End combat and clear the turn order?")
-    : Promise.resolve(false);
-  const ok = await ask;
-  if (!ok) { DM.toast("Declined ending combat."); return; }
+  const choice = await askEndCombat();
+  if (!choice || !choice.ok) { DM.toast("Declined ending combat."); return; }
   fight.recruit = false;
+  if (choice.clear) await clearCombatConditions();
   fight.order = [];
   fight.started = false;
   fight.turnCmd = null;
@@ -1747,6 +1884,7 @@ async function endCombat() {
   await saveRemoteTable();
   await DM.pushLedger({ who: "DM", playerId: "all", type: "combat", what: "Combat ended", oldVal: null, newVal: "ended", flag: false });
   renderFight();
+  DM.renderPlayers();
   DM.toast("Combat ended");
 }
 function findCombatant(meta) {
@@ -1768,18 +1906,65 @@ function playerSnapshot(pid) {
   const p = pid && DM.state.players && DM.state.players[pid];
   return (p && p.snapshot) || null;
 }
+function blankLabel(name) {
+  const s = String(name || "").trim();
+  return !s || /^target$/i.test(s) || /^no target$/i.test(s);
+}
+function applyTargets() {
+  const rows = [];
+  (fight.order || []).forEach((r) => {
+    if (!r) return;
+    rows.push({ id: r.kind === "player" ? (r.playerId || r.id) : r.id, name: r.name || "Someone", kind: r.kind || "" });
+  });
+  Object.keys(DM.state.players || {}).forEach((pid) => {
+    if (rows.some((r) => r.id === pid)) return;
+    const s = DM.state.players[pid].snapshot || {};
+    rows.push({ id: pid, name: s.name || "Someone", kind: "player" });
+  });
+  return rows.filter((r) => r.id);
+}
+function askApplyTarget(preferId) {
+  const rows = applyTargets();
+  return new Promise((resolve) => {
+    const dlg = document.createElement("dialog");
+    dlg.className = "dlg";
+    const options = rows.map((p) => `<option value="${esc(p.id)}"${p.id === preferId ? " selected" : ""}>${esc(p.name)}</option>`).join("");
+    dlg.innerHTML = `<form method="dialog"><h2>Choose a recipient</h2><label>Who <select id="applyWho">${options || "<option value=''>No one in the fight</option>"}</select></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Apply</button></div></form>`;
+    const finish = (ok) => {
+      const sel = dlg.querySelector("#applyWho");
+      const id = ok && sel ? sel.value : "";
+      const hit = rows.filter((r) => r.id === id)[0];
+      if (dlg.close) dlg.close();
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      resolve(hit || null);
+    };
+    dlg.querySelector("[value=no]").addEventListener("click", () => finish(false));
+    dlg.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); finish(true); });
+    dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(false); });
+    document.body.appendChild(dlg);
+    openDialog(dlg);
+  });
+}
 function applyPlayerHit(meta) {
   if (!meta) return;
   const amt = Number(meta.amount != null ? meta.amount : meta.damage) || 0;
   const rollId = meta.rollId || "";
   if (amt <= 0) return;
-  if (rollId && !claimApply(rollId)) return;
   const heal = meta.kind === "heal" || meta.type === "heal" || meta.heal;
-  const row = findCombatant(meta);
   const who = meta.characterName || "Someone";
-  const name = (row && row.name) || meta.targetName || meta.targetId || "target";
+  const row = findCombatant(meta);
+  const snap = playerSnapshot((row && row.kind === "player" && (row.playerId || row.id)) || meta.targetId);
+  if (!row && !snap) {
+    DM.toast("Pick a target");
+    return;
+  }
+  const name = (row && row.name) || (blankLabel(meta.targetName) ? "" : meta.targetName) || (snap && snap.name) || who;
+  if (blankLabel(name)) {
+    DM.toast("Pick a target");
+    return;
+  }
+  if (rollId && !claimApply(rollId)) return;
   const weapon = (window.SSDNSApplied && window.SSDNSApplied.weaponName(meta.weapon || meta.label)) || "";
-  const snap = playerSnapshot((row && (row.playerId || row.id)) || meta.targetId);
   let before = row ? knownNumber(row.hp) : knownNumber(snap && snap.hpCurrent);
   if (before == null) before = 0;
   let after = before;
@@ -1793,8 +1978,8 @@ function applyPlayerHit(meta) {
     const max = Number(snap.hpMax) || 0;
     after = heal ? (max ? Math.min(max, before + amt) : before + amt) : Math.max(0, before - amt);
     snap.hpCurrent = after;
-  } else if (!heal) {
-    DM.toast((window.SSDNSApplied ? window.SSDNSApplied.hitLine(who, name, weapon, amt) : who + " hits " + name) + " · no matching combatant");
+  } else {
+    DM.toast("Pick a target");
     return;
   }
   const applied = Math.abs(before - after);
@@ -1817,7 +2002,7 @@ function applyPlayerHit(meta) {
     });
   }
   if (!heal && meta.from && row && row.kind === "enemy") row.lastAttackerId = meta.from;
-  if (after <= 0 && row) row.conditions = (window.SSDNSConditions ? window.SSDNSConditions.ensureUnconscious(row.conditions || [], 0, row.id) : row.conditions);
+  if (after <= 0) noteUnconscious(row || { kind: snap ? "player" : "enemy", playerId: meta.targetId, id: (row && row.id) || meta.targetId, name: name, hp: 0 });
   saveRemoteTable();
   renderFight();
   DM.renderPlayers();
@@ -1826,7 +2011,7 @@ function applyPlayerHit(meta) {
   if (roll && heal) roll.detail = line;
   DM.pushLedger({
     who: who, playerId: meta.from || pid || "all", type: heal ? "heal" : "damage",
-    what: line, oldVal: before, newVal: after, flag: false, characterName: who
+    what: line, oldVal: before, newVal: after, flag: false, characterName: who, rollId: rollId || ""
   });
   rememberUndo({
     type: "hit", rollId: rollId, label: line, playerId: pid,
@@ -1844,14 +2029,18 @@ function applyRequest(req) {
   const rollId = req.rollId || "";
   if (rollId && fight.appliedHits[rollId]) return;
   const row = findCombatant(req);
-  const name = (row && row.name) || req.targetName || req.targetId || "target";
   const who = req.characterName || "Someone";
+  const name = (row && row.name) || (blankLabel(req.targetName) ? "" : req.targetName) || who;
   const amt = Number(req.amount) || 0;
   const heal = req.type === "heal" || req.kind === "heal";
   const line = heal
     ? (window.SSDNSApplied ? window.SSDNSApplied.healLine(who, name, amt, req.dice || "") : (who + " heals " + name + " " + amt))
     : (window.SSDNSApplied ? window.SSDNSApplied.hitLine(who, name, req.weapon || req.label, amt) : (who + " hits " + name + " for " + amt));
-  if ((fight.damageMode || "auto") === "approve") {
+  if (!row && !req.targetId && blankLabel(req.targetName)) {
+    DM.toast("Pick a target");
+    return;
+  }
+  if (fight.damageMode === "approve") {
     DM.toast(line + " · waiting for you to apply");
     return;
   }
@@ -1891,13 +2080,18 @@ function watchRequests() {
 }
 function wireClicks() {
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-resend-turn],[data-resend-feed]");
+    const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed]");
     if (!t) return;
+    if (t.hasAttribute("data-undo-hit")) {
+      undoByRoll(t.getAttribute("data-undo-hit"));
+      return;
+    }
     if (t.hasAttribute("data-apply-hit")) {
       const id = t.getAttribute("data-apply-hit");
       const roll = (DM.state.rolls || []).find((r) => r && r.id === id);
       if (!roll) return;
-      applyPlayerHit({
+      const heal = !!(roll.heal || /\bheals\b/i.test(String(roll.detail || "")));
+      const meta = {
         rollId: roll.id,
         targetId: roll.targetId,
         targetName: roll.targetName,
@@ -1907,9 +2101,19 @@ function wireClicks() {
         label: roll.label,
         weapon: roll.weapon || roll.label,
         dice: roll.dice || "",
-        type: roll.heal ? "heal" : "",
-        heal: !!roll.heal
-      });
+        type: heal ? "heal" : "",
+        heal: heal
+      };
+      const named = !blankLabel(roll.targetName);
+      if (!roll.targetId && !named) {
+        const caster = roll.playerId || roll.uid || "";
+        askApplyTarget(heal ? caster : "").then((picked) => {
+          if (!picked) return;
+          applyPlayerHit(Object.assign({}, meta, { targetId: picked.id, targetName: picked.name }));
+        });
+        return;
+      }
+      applyPlayerHit(meta);
       return;
     }
     if (t.hasAttribute("data-resend-turn")) {
@@ -2028,15 +2232,17 @@ const seenInit = {};
 let rollsReady = false;
 const seenDamage = {};
 function noteDamageRolls(rows) {
-  if ((fight.damageMode || "auto") === "approve") return;
+  if (fight.damageMode === "approve") return;
   (rows || []).forEach((r) => {
-    if (!r || !r.id || seenDamage[r.id] || r.applied || fight.appliedHits[r.id]) return;
+    if (!r || !r.id || seenDamage[r.id] || r.applied || fight.appliedHits[r.id] || r.selfApplied) return;
     if (window.SSDNSApplied && window.SSDNSApplied.has(DM.state.roomCode, r.id)) { seenDamage[r.id] = 1; return; }
     const amt = Number(r.damage) || 0;
     if (amt <= 0) return;
     if (r.nat === 1 || /→\s*MISS/.test(String(r.detail || ""))) return;
-    if (!r.targetId && !r.targetName) return;
-    const fresh = r.ts && (Date.now() - Date.parse(r.ts) < 20000);
+    if (!r.targetId && blankLabel(r.targetName)) { seenDamage[r.id] = 1; return; }
+    const age = window.SSDNSClock ? window.SSDNSClock.stampAge(r.ts) : (Date.now() - Date.parse(r.ts));
+    const fresh = isFinite(age) && age > -15000 && age < 120000;
+    if (!rollsReady && (!isFinite(age) || age > 20000)) { seenDamage[r.id] = 1; return; }
     if (!fresh || !findCombatant({ targetId: r.targetId, targetName: r.targetName })) return;
     seenDamage[r.id] = 1;
     applyPlayerHit({
@@ -2354,13 +2560,23 @@ async function bootV2() {
     const initI = t.getAttribute("data-init-val");
     const hpI = t.getAttribute("data-hp-val");
     const acI = t.getAttribute("data-ac-val");
+    const atkI = t.getAttribute("data-atk-val");
+    const dmgI = t.getAttribute("data-dmg-val");
     if (!t.isConnected) return;
     const row = fightRowFromField(t);
     if (!row) return;
     const n = t.value === "" ? "" : parseInt(t.value, 10);
     if (initI != null) row.init = n;
-    if (hpI != null) row.hp = n;
+    if (hpI != null) {
+      row.hp = n;
+      if (n === 0) {
+        noteUnconscious(row);
+        DM.renderPlayers();
+      }
+    }
     if (acI != null) row.ac = n;
+    if (atkI != null) row.atkBonus = t.value === "" ? "" : Number(t.value);
+    if (dmgI != null) row.damage = t.value;
     if (initI != null) sortInitiative();
     saveRemoteTable();
     renderFight();

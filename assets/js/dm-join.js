@@ -79,12 +79,18 @@
         root.localStorage.removeItem(LS_OLD);
         return;
       }
+      var prev = null;
+      try { prev = JSON.parse(root.localStorage.getItem(LS_KEY) || "null"); } catch (err) { prev = null; }
+      var joinedAt = prev && prev.joined === true && prev.roomCode === state.roomCode && prev.characterId === cid && prev.joinedAt
+        ? prev.joinedAt
+        : Date.now();
       root.localStorage.setItem(LS_KEY, JSON.stringify({
         roomCode: state.roomCode,
         joined: true,
         uid: state.uid,
         by: "sheet",
-        characterId: cid
+        characterId: cid,
+        joinedAt: joinedAt
       }));
       root.localStorage.removeItem(LS_OLD);
     } catch (e) {}
@@ -572,7 +578,7 @@
         var seen = state._condSeen[id];
         var seenStamp = seen && seen.stamp;
         if (!seen) {
-          state._condSeen[id] = { stamp: stamp, label: root.SSDNSConditions ? root.SSDNSConditions.label(row) : row.name, rounds: row.rounds };
+          state._condSeen[id] = { stamp: stamp, name: row.name, label: row.name, rounds: row.rounds };
           if (primed && row.by && row.by !== state.uid && root.SSDNSSheet) {
             var line = (row.byName || "DM") + " applied " + (root.SSDNSConditions ? root.SSDNSConditions.label(row) : row.name);
             root.SSDNSSheet.addLog({ id: "cond:" + stamp, kind: "alert", text: line });
@@ -581,7 +587,7 @@
           return;
         }
         if (seenStamp !== stamp) {
-          state._condSeen[id] = { stamp: stamp, label: root.SSDNSConditions ? root.SSDNSConditions.label(row) : row.name, rounds: row.rounds };
+          state._condSeen[id] = { stamp: stamp, name: row.name, label: row.name, rounds: row.rounds };
           if (primed && row.by && row.by !== state.uid && root.SSDNSSheet) {
             var changed = (row.byName || "DM") + " updated " + (root.SSDNSConditions ? root.SSDNSConditions.label(row) : row.name);
             root.SSDNSSheet.addLog({ id: "cond:" + stamp, kind: "alert", text: changed });
@@ -595,7 +601,8 @@
         delete state._condSeen[id];
         if (primed && gone && root.SSDNSSheet) {
           var ended = gone.rounds === 1;
-          var note = ended ? ("Condition ended · " + (gone.label || "condition")) : ("DM removed " + (gone.label || "a condition"));
+          var bare = gone.name || String(gone.label || "condition").replace(/\s+\d+r$/, "");
+          var note = ended ? ("Condition ended · " + bare) : ("DM removed " + bare);
           root.SSDNSSheet.addLog({ id: "cond-end:" + id + ":" + (gone.stamp || ""), kind: "alert", text: note });
           toast(note);
         }
@@ -907,10 +914,13 @@
   function ackTurn(cmd) {
     if (!state.joined || state.left || !state.db || !state.uid || !state._fb) return;
     var fb = state._fb;
-    var seen = !!(root.document && root.document.visibilityState === "visible");
-    state._turnAck = { id: (cmd && cmd.id) || "", delivered: true, seen: seen };
+    state._turnAck = { id: (cmd && cmd.id) || "", delivered: true, seen: false };
     fb.update(fb.ref(state.db, roomPath("players/" + state.uid)), {
-      turnAck: { id: state._turnAck.id, delivered: true, seen: seen, ts: new Date().toISOString() }
+      turnAck: { id: state._turnAck.id, delivered: true, seen: false, ts: new Date().toISOString() }
+    }).then(function () {
+      if (root.document && root.document.visibilityState === "visible") {
+        setTimeout(upgradeTurnSeen, 700);
+      }
     }).catch(function (err) { console.warn("[DM Join] turn ack", err); });
   }
   function upgradeTurnSeen() {
@@ -1139,6 +1149,19 @@
     }
     apply(0);
   }
+  function watchServerClock() {
+    if (state._clock || !state._fb || !state.db) return;
+    state._clock = true;
+    var fb = state._fb;
+    var r = fb.ref(state.db, ".info/serverTimeOffset");
+    var unsub = fb.onValue(r, function (snap) {
+      if (root.SSDNSClock) root.SSDNSClock.setOffset(snap.val() || 0);
+    });
+    state.unsubs.push(function () {
+      state._clock = false;
+      if (typeof unsub === "function") unsub();
+    });
+  }
   function watchConnection() {
     if (state._conn) return;
     state._conn = true;
@@ -1156,6 +1179,7 @@
       if (typeof unsub === "function") unsub();
       else { try { fb.off(r, "value", unsub); } catch (e) {} }
     });
+    watchServerClock();
   }
   function setBadge(mode) {
     state.link = mode || "";
@@ -1370,17 +1394,32 @@
     clearReplayMarkers();
     if (root.SSDNSSheet && root.SSDNSSheet.clearLog) root.SSDNSSheet.clearLog();
   }
+  function roomConditionIds() {
+    var ids = Object.keys(state._condSeen || {});
+    var c = doc() && doc().character;
+    (c && c.activeConditions || []).forEach(function (row) {
+      var id = (row && row.id) || (root.SSDNSConditions && root.SSDNSConditions.idFor(state.uid, row && row.name));
+      if (id && ids.indexOf(id) < 0) ids.push(id);
+    });
+    return ids;
+  }
   async function leave() {
     var code = state.roomCode;
     var uid = state.uid;
     var db = state.db;
     var fb = state._fb;
     var connId = state.connId;
+    var condIds = roomConditionIds();
     state.joinEpoch++;
     state.left = true;
     state.joined = false;
     state.roomCode = null;
     saveLocal();
+    if (fb && db && uid && code) {
+      condIds.forEach(function (id) {
+        fb.remove(fb.ref(db, "rooms/" + code + "/conditions/" + id)).catch(function () {});
+      });
+    }
     try {
       localStorage.removeItem(LS_OLD);
       localStorage.removeItem("ssdns.v1.dmJoin");
@@ -1502,15 +1541,20 @@
       b.className = "tab-warn";
       document.body.appendChild(b);
     }
-    b.innerHTML = "";
-    b.appendChild(document.createTextNode("Another tab has this character open. Only one tab joins the table. "));
-    var take = document.createElement("button");
-    take.type = "button";
-    take.className = "btn sm";
-    take.id = "btnTakeOver";
-    take.textContent = "Take over editing";
-    take.addEventListener("click", function () { takeOverEditing(); });
-    b.appendChild(take);
+    if (!$("#btnTakeOver")) {
+      b.textContent = "";
+      b.appendChild(document.createTextNode("Another tab has this character open. Only one tab joins the table. "));
+      var take = document.createElement("button");
+      take.type = "button";
+      take.className = "btn sm";
+      take.id = "btnTakeOver";
+      take.textContent = "Take over editing";
+      take.addEventListener("click", function (ev) {
+        if (ev.stopPropagation) ev.stopPropagation();
+        takeOverEditing();
+      });
+      b.appendChild(take);
+    }
     b.hidden = false;
   }
   function clearReadOnly() {
@@ -1535,6 +1579,7 @@
     setUiJoined(false);
     setInterval(refreshJoinLock, 2000);
     window.addEventListener("storage", function (e) {
+      if (root.SSDNSCreator && root.SSDNSCreator.isOpen && root.SSDNSCreator.isOpen()) return;
       if (!e || e.key !== LOCK_KEY) return;
       if (lockHeldByOther()) showReadOnly();
       else if (state.readOnly) clearReadOnly();
@@ -1562,7 +1607,9 @@
             var input = $("#dmJoinCode");
             var shown = input ? String(input.value || "").trim().toUpperCase() : "";
             var cid = characterId();
-            var sheetRoom = saved && saved.by === "sheet" && saved.joined === true && saved.left !== true && saved.roomCode && saved.characterId && cid && saved.characterId === cid;
+            var maxJoinAge = 12 * 60 * 60 * 1000;
+            var ageOk = saved && saved.joinedAt && (Date.now() - Number(saved.joinedAt)) < maxJoinAge;
+            var sheetRoom = saved && saved.by === "sheet" && saved.joined === true && saved.left !== true && saved.roomCode && saved.characterId && cid && saved.characterId === cid && ageOk;
             if (sheetRoom) {
               var code = String(saved.roomCode).toUpperCase();
               if (!shown && input) { input.value = saved.roomCode; shown = code; }

@@ -79,7 +79,7 @@ check(!Applied.claim("IRON", "roll-1", storage), "second apply is idempotent");
 Applied.release("IRON", "roll-1", storage);
 check(Applied.claim("IRON", "roll-1", storage), "undo releases the id");
 const line = Applied.healLine("Abigail", "Hank Ridley", 7, "1d8 (5) +2 = 7", 6, 11);
-check(line === "Abigail heals Hank Ridley 7 (1d8 5 +2) · HP 6→11", "heal line " + line);
+check(line === "Abigail heals Hank Ridley 7 (1d8: 5, +2) · HP 6→11", "heal line " + line);
 check(Applied.weaponName("Hank Ridley → Outlaw 1") === "", "arrow labels are not weapon names");
 check(Applied.hitLine("Hank Ridley", "Outlaw 1", "Dullards Light Carbine", 4).indexOf("→") < 0, "hit line names the weapon");
 
