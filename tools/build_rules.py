@@ -448,8 +448,10 @@ def gun_rows(heading, group_id, ability):
         if nm.startswith('↳'):
             vm = re.match(r'↳\s*(\w+)', nm)
             nm = '%s (%s)' % (parent or 'Variant', vm.group(1) if vm else nm[1:].strip())
-        props = clean(col(r, 'Properties'))
+        own_props = clean(col(r, 'Properties'))
+        props = own_props
         # A group header like "Pony Arms ChaosMaker: close quarters, martial (...)" applies to every variant row.
+        # Keep the row's own "chambered …" text intact so calibers don't swallow those properties.
         header_props = ''
         if parent_props and nm.startswith((parent or '\0') + ' ('):
             header_props = parent_props
@@ -472,8 +474,8 @@ def gun_rows(heading, group_id, ability):
              'slow': 'slow' in action.lower() or 'slow load' in pl, 'ability': ability}
         w['category'] = 'martial' if 'martial' in pl or (parent and 'martial' in parent.lower()) or group_id == 'caster' else 'simple'
         if group_id == 'caster': w['category'] = 'caster'
-        # rounds per tier: chambered text in properties wins, else the section's Rounds line
-        chm = re.search(r'chambered (.+)$', props)
+        # rounds per tier: the row's own chambered text wins, else the section's Rounds line
+        chm = re.search(r'chambered (.+)$', own_props)
         w['rounds'] = {}
         for t in tiers:
             if chm and len(tiers) == 1: w['rounds'][t] = [x.strip() for x in re.split(r'\s+or\s+', chm.group(1))]

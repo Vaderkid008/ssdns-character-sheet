@@ -1,11 +1,11 @@
-/* SSDNS rules data. GENERATED from BOOK1.md (sha1 5abfec3369bc) on 2026-10-06 02:18 CT by tools/build_rules.py. Do not hand-edit. */
+/* SSDNS rules data. GENERATED from BOOK1.md (sha1 5abfec3369bc) on 2026-10-06 02:29 CT by tools/build_rules.py. Do not hand-edit. */
 window.SSDNS_RULES = {
  "meta": {
   "title": "Six-Shooters & Sorcery: Dust and Shadows",
   "short": "SSDNS",
   "source": "BOOK1.md",
   "sourceSha1": "5abfec3369bc",
-  "builtAt": "2026-10-06 02:18 CT",
+  "builtAt": "2026-10-06 02:29 CT",
   "rulesVersion": 3,
   "currencyUnit": "ES",
   "note": "Generated from the live PHB markdown by tools/build_rules.py. Do not hand-edit; re-run the script."
@@ -5063,7 +5063,7 @@ window.SSDNS_RULES = {
    "category": "martial",
    "rounds": {
     "light": [
-     ".32 Long, close quarters, martial"
+     ".32 Long"
     ]
    },
    "ammo": "cartridge"
@@ -5094,7 +5094,7 @@ window.SSDNS_RULES = {
    "rounds": {
     "medium": [
      ".357",
-     ".44-40, close quarters, martial"
+     ".44-40"
     ]
    },
    "ammo": "cartridge"
@@ -5124,7 +5124,7 @@ window.SSDNS_RULES = {
    "category": "martial",
    "rounds": {
     "heavy": [
-     ".45 Long, close quarters, martial"
+     ".45 Long"
     ]
    },
    "ammo": "cartridge"
