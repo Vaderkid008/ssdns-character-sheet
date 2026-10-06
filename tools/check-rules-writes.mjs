@@ -4,6 +4,8 @@
  * whose rules grant .write only on a child. set() of a parent needs .write
  * on that node or an ancestor. update() is checked per child key.
  *
+ * Reads and listeners are checked by tools/check-rules-emulator.mjs.
+ *
  *   node tools/check-rules-writes.mjs
  */
 import fs from "node:fs";

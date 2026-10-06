@@ -1,10 +1,10 @@
-/* SSDNS Character Sheet · v0.3.1 (round 5: log merge, rewards, turn, crits)
+/* SSDNS Character Sheet · v0.3.2 (round 6: stop listening to DM-only commands)
  * Static, no server. Rules data: window.SSDNS_RULES (assets/data/rules.js, generated from the PHB).
  * Saving: SSDNSStore (storage.js). Shards bridge for Saloon games: SSDNSBridge (ssdns-bridge.js).
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.1"; // sheet-round5-v031
+  var APP_VERSION = "0.3.2"; // sheet-round6-v032
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -941,10 +941,10 @@
         var lab = el("div", { class: "sp-label" });
         if (parsed.alias) {
           lab.appendChild(el("div", { class: "sp-alias", text: parsed.alias }));
-          lab.appendChild(el("div", { class: "sp-phb", text: parsed.phb + (parsed.shell ? " · Shell" : "") }));
+          lab.appendChild(el("div", { class: "sp-phb", text: parsed.phb + (parsed.shell && l > 0 ? " · Shell" : "") }));
         } else {
           lab.appendChild(el("div", { class: "sp-alias", text: parsed.phb }));
-          if (parsed.shell) lab.appendChild(el("div", { class: "sp-phb", text: "Shell" }));
+          if (parsed.shell && l > 0) lab.appendChild(el("div", { class: "sp-phb", text: "Shell" }));
         }
         var diceNote = spellDiceNote(parsed.phb || row.name);
         if (diceNote) lab.appendChild(el("div", { class: "sp-phb", text: diceNote }));
@@ -998,7 +998,7 @@
       btn._spell = sp;
       btn.appendChild(el("span", { class: "sp-name", text: sp.alias ? (sp.alias + " · " + sp.phb) : sp.phb }));
       var dice = spellDiceNote(sp.phb || sp.label);
-      btn.appendChild(el("span", { class: "sp-meta", text: (sp.level === 0 ? "Cantrip" : ("Level " + sp.level)) + (sp.shell ? " · Shell" : "") + (dice ? " · " + dice : "") + (have ? " · already known" : "") }));
+      btn.appendChild(el("span", { class: "sp-meta", text: (sp.level === 0 ? "Cantrip" : ("Level " + sp.level)) + (sp.shell && sp.level > 0 ? " · Shell" : "") + (dice ? " · " + dice : "") + (have ? " · already known" : "") }));
       list.appendChild(btn);
       n++;
     });
@@ -1144,6 +1144,10 @@
       row.classList.toggle("is-shotgun", !!(w && w.scatter));
       row.classList.toggle("is-caster", !!(w && w.hexShells));
       row.classList.toggle("jammed", !!g.jammed);
+      ["jammed", "fouled", "dirty"].forEach(function (flag) {
+        var box = row.querySelector('[data-f="character.guns.' + i + '.' + flag + '"]');
+        if (box && document.activeElement !== box) box.checked = !!g[flag];
+      });
       if (hasGunBelt() || !(w && w.tr)) row.classList.remove("tr-warn");
       var cs = row.querySelector(".chamber-sel");
       if (cs.getAttribute("data-for") !== (g.weapon || "")) {
@@ -1861,7 +1865,11 @@
         consume: color
       });
     } else {
-      try { localStorage.setItem("ssdns.v1.consumePing", JSON.stringify(ping)); } catch (e) {}
+      try {
+        var pingJson = JSON.stringify(ping);
+        localStorage.setItem("ssdns.sheet.consumePing", pingJson);
+        localStorage.setItem("ssdns.v1.consumePing", pingJson);
+      } catch (e) {}
     }
   }
   function poolsForGun(g, w) {
@@ -1960,13 +1968,10 @@
     }
     reload(i, 1);
   }
-  function loadHexShell(i) {
-    var g = C().guns[i], w = WPN[g.weapon];
-    if (!w || !w.hexShells) return;
-    var lvl = num($('[data-hexlvl="' + i + '"]').value, 1), a = normChambers(g, w), k = a.indexOf("");
-    if (k < 0) { toast("Every chamber is loaded. Fire or unload one first."); return; }
+  function finishHexLoad(i, g, w, lvl, a, k) {
     if (slotsLeft(lvl) <= 0) { toast("No level-" + lvl + " slot left."); return; }
     a[k] = "k:hex:" + lvl + ":spent";
+    g.chambers = a;
     g.loaded = a.filter(Boolean).length;
     if (!spendHexSlot(lvl)) {
       a[k] = "";
@@ -1978,11 +1983,38 @@
     if (window.SSDNSAudio) window.SSDNSAudio.play("reload");
     toast("Loaded a level-" + lvl + " hex shell. The slot is spent. Cast through gun fires it as a spell attack.");
   }
+  function loadHexShell(i) {
+    var g = C().guns[i], w = WPN[g.weapon];
+    if (!w || !w.hexShells) return;
+    var lvl = num($('[data-hexlvl="' + i + '"]').value, 1), a = normChambers(g, w), k = a.indexOf("");
+    if (k < 0) {
+      var plain = -1;
+      for (var p = 0; p < a.length; p++) if (isPlainChamber(a[p])) { plain = p; break; }
+      if (plain < 0) { toast("Every chamber is a hex shell. Fire or unload one first."); return; }
+      var ask = window.SSDNSAsk && window.SSDNSAsk.confirm
+        ? window.SSDNSAsk.confirm("Swap one round for a hex shell?")
+        : Promise.resolve(false);
+      ask.then(function (ok) {
+        if (!ok) {
+          if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: "Declined swapping a round for a hex shell." });
+          return;
+        }
+        returnChamber(a[plain], g, w);
+        a[plain] = "";
+        g.chambers = a;
+        finishHexLoad(i, g, w, lvl, a, plain);
+      });
+      return;
+    }
+    finishHexLoad(i, g, w, lvl, a, k);
+  }
   function cleanGun(i) {
     var g = C().guns[i];
     if (!g || !g.weapon) { toast("Pick a gun first."); return; }
     if (g.jammed) {
       g.jammed = false;
+      var jamBox = document.querySelector('[data-f="character.guns.' + i + '.jammed"]');
+      if (jamBox) jamBox.checked = false;
       changed();
       toast("Jam cleared.");
       if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: (WPN[g.weapon] ? WPN[g.weapon].name : "Gun") + ": jam cleared." });
@@ -2208,19 +2240,35 @@
     return true;
   }
   function doOpen() {
-    if (!confirmLeave()) return;
+    confirmLeave().then(function (ok) {
+      if (!ok) return;
     if (Store.fsSupported) {
       Store.pickOpen().then(function (h) {
         return h.getFile().then(function (f) { return f.text(); }).then(function (t) { loadText(t, { handle: h, fileName: h.name }); });
       }).catch(function (err) { if (err && err.name !== "AbortError") toast("Open failed: " + err.message); });
     } else $("#fileInput").click();
+    });
   }
   function confirmLeave() {
-    if (S.fileDirty && S.hasContent && !S.handle) return window.confirm("This character has changes that aren't in a file yet (they are backed up in this browser). Continue?");
-    return true;
+    if (S.fileDirty && S.hasContent && !S.handle) {
+      var msg = "This character has changes that aren't in a file yet (they are backed up in this browser). Continue?";
+      var ask = window.SSDNSAsk && window.SSDNSAsk.confirm ? window.SSDNSAsk.confirm(msg) : Promise.resolve(false);
+      return ask.then(function (ok) {
+        if (!ok && window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: "Declined leaving an unsaved character." });
+        return !!ok;
+      });
+    }
+    return Promise.resolve(true);
   }
   function doNew() {
-    if (!window.confirm("Start a new character? This one stays in this browser's backups.")) return;
+    var ask = window.SSDNSAsk && window.SSDNSAsk.confirm
+      ? window.SSDNSAsk.confirm("Start a new character? This one stays in this browser's backups.")
+      : Promise.resolve(false);
+    ask.then(function (ok) {
+      if (!ok) {
+        if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: "Declined starting a new character." });
+        return;
+      }
     if (window.SSDNSPlaytest && window.SSDNSPlaytest.dropLogStore) window.SSDNSPlaytest.dropLogStore(true);
     if (window.SSDNSDmJoin && window.SSDNSDmJoin.abandon) window.SSDNSDmJoin.abandon();
     else if (window.SSDNSSheet && window.SSDNSSheet.clearLog) window.SSDNSSheet.clearLog();
@@ -2229,13 +2277,22 @@
     if (window.SSDNSSheet && window.SSDNSSheet.clearLog) window.SSDNSSheet.clearLog();
     S.hasContent = false; S.fileDirty = false; updateSaveBar();
     toast("New character. It's backed up in this browser as you type; Save makes a .ssdns file.");
+    });
   }
   function watchTabs() {
     var tabId = "tab_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var channel = null;
+    var peers = {};
     try { channel = new BroadcastChannel("ssdns-sheet"); } catch (err) {}
-    function warn() {
+    function livePeers() {
+      var now = Date.now();
+      Object.keys(peers).forEach(function (id) { if (now - peers[id] > 5000) delete peers[id]; });
+      return Object.keys(peers).length > 0;
+    }
+    function renderWarn() {
+      var on = livePeers();
       var b = $("#tabWarn");
+      if (!on) { if (b) b.hidden = true; return; }
       if (!b) {
         b = document.createElement("div");
         b.id = "tabWarn";
@@ -2245,20 +2302,25 @@
       }
       b.hidden = false;
     }
-    function announce() {
+    function announce(bye) {
       if (!S.doc || !S.doc.id || !channel) return;
-      channel.postMessage({ id: S.doc.id, tab: tabId });
+      try { channel.postMessage({ id: S.doc.id, tab: tabId, bye: !!bye, ts: Date.now() }); } catch (e) {}
     }
     if (channel) channel.onmessage = function (ev) {
       var data = ev && ev.data;
-      if (data && S.doc && data.id === S.doc.id && data.tab !== tabId) warn();
+      if (!data || !S.doc || data.id !== S.doc.id || data.tab === tabId) return;
+      if (data.bye) delete peers[data.tab];
+      else peers[data.tab] = data.ts || Date.now();
+      renderWarn();
     };
     window.addEventListener("storage", function (e) {
       if (!S.doc || !e || !e.key) return;
-      if (e.key === "ssdns.v1.char." + S.doc.id) warn();
+      if (e.key === "ssdns.sheet.char." + S.doc.id || e.key === "ssdns.v1.char." + S.doc.id) renderWarn();
     });
-    setInterval(announce, 2000);
-    announce();
+    window.addEventListener("pagehide", function () { announce(true); });
+    window.addEventListener("beforeunload", function () { announce(true); });
+    setInterval(function () { announce(false); renderWarn(); }, 2000);
+    announce(false);
   }
   function updateSaveBar() {
     var bar = $("#saveBar"), txt = $("#saveText"), act = $("#saveBarAction");
@@ -2341,13 +2403,50 @@
 
   // ------------------------------------------------------------------ toast
   var toastTimer;
-  function toast(msg, actLabel, actFn, ms) {
-    var t = $("#toast"), a = $("#toastAction");
-    $("#toastText").textContent = msg;
-    if (actLabel) { a.hidden = false; a.textContent = actLabel; a.onclick = function () { actFn(); t.hidden = true; }; } else a.hidden = true;
-    t.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, ms || (actLabel ? 6000 : 4200));
+  var toastQueue = [];
+  var toastShowing = null;
+  function dismissToast() {
+    var t = $("#toast");
+    if (t) t.hidden = true;
+    toastShowing = null;
+    pumpToast();
   }
+  function paintToast(item) {
+    var t = $("#toast"), a = $("#toastAction");
+    $("#toastText").textContent = item.msg;
+    if (item.actLabel) {
+      a.hidden = false;
+      a.textContent = item.actLabel;
+      a.onclick = function () { if (item.actFn) item.actFn(); dismissToast(); };
+    } else a.hidden = true;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    if (!item.sticky) toastTimer = setTimeout(dismissToast, item.ms || (item.actLabel ? 6000 : 4200));
+  }
+  function pumpToast() {
+    if (toastShowing) return;
+    var item = toastQueue.shift();
+    if (!item) return;
+    toastShowing = item;
+    paintToast(item);
+  }
+  function toast(msg, actLabel, actFn, ms, opts) {
+    opts = opts || {};
+    var item = { msg: msg, actLabel: actLabel, actFn: actFn, ms: ms, sticky: !!opts.sticky, priority: opts.priority || 0 };
+    if (item.sticky && toastShowing && toastShowing.sticky && toastShowing.msg === item.msg) return;
+    if (item.priority && toastShowing && !toastShowing.sticky) {
+      clearTimeout(toastTimer);
+      toastQueue.unshift(toastShowing);
+      toastShowing = null;
+    }
+    if (item.priority) toastQueue.unshift(item);
+    else toastQueue.push(item);
+    pumpToast();
+  }
+  toast.dismissSticky = function (msg) {
+    toastQueue = toastQueue.filter(function (item) { return !(item.sticky && (!msg || item.msg === msg)); });
+    if (toastShowing && toastShowing.sticky && (!msg || toastShowing.msg === msg)) dismissToast();
+  };
 
   // ------------------------------------------------------------------ tabs, print, drag & drop
   function showTab(id) {
@@ -2635,12 +2734,14 @@
         else toast("Drop pictures onto the portrait or gang symbol box (page 2).");
         return;
       }
-      if (!confirmLeave()) return;
-      var item = e.dataTransfer.items && e.dataTransfer.items[0];
-      var hp = null;
-      try { hp = item && item.getAsFileSystemHandle && Store.fsSupported ? item.getAsFileSystemHandle() : null; } catch (err) { hp = null; }
-      Promise.resolve(hp).catch(function () { return null; }).then(function (h) {
-        return file.text().then(function (t) { loadText(t, { handle: h && h.kind === "file" ? h : null, fileName: file.name }); });
+      confirmLeave().then(function (ok) {
+        if (!ok) return;
+        var item = e.dataTransfer.items && e.dataTransfer.items[0];
+        var hp = null;
+        try { hp = item && item.getAsFileSystemHandle && Store.fsSupported ? item.getAsFileSystemHandle() : null; } catch (err) { hp = null; }
+        Promise.resolve(hp).catch(function () { return null; }).then(function (h) {
+          return file.text().then(function (t) { loadText(t, { handle: h && h.kind === "file" ? h : null, fileName: file.name }); });
+        });
       });
     });
   }
@@ -2783,6 +2884,7 @@
     if (window.matchMedia("(max-width: 414px)").matches) {
       $$("details.phone-fold").forEach(function (d) { d.open = false; });
     }
+    window.SSDNSToast = toast;
     window.SSDNSApp = {
       version: APP_VERSION, state: S, loadText: loadText, migrate: migrate, compute: compute,
       doc: function () { return S.doc; },

@@ -168,7 +168,7 @@ On the DM Command Center, these keys work when focus is **not** in a text field,
 
 Plain `R` and `S` do nothing, so typing a URL or a name cannot grant ES or fire a sound. Map `Alt+Shift+R` and `Alt+Shift+S` on an Elgato Stream Deck hotkey button. `S` and `M` stay silent until you drop audio files in (see below).
 
-Opening `/dm/` does not drop you straight into the last room. If this browser still has a live room, the lobby offers **Resume ROOM-CODE** or **Create a room**. **Leave room / New session** returns to that lobby and leaves the table running. **End Session** is the control that closes it.
+Opening `/dm/` stays on the lobby. If this browser still has a room, the lobby offers **Resume ROOM-CODE** and **Start a new session**. **Start a new session** only scrolls to the session name and focuses it. It does not create a room and it does not clear what you already typed. **Leave room / New session** returns to that lobby and leaves the table running. **End Session** is the control that closes it.
 
 ## v0.2 — sound and music files
 

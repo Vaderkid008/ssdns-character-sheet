@@ -384,7 +384,14 @@ html, body { overflow-x: hidden; max-width: 100%; }
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 8px 10px; margin: 6px 0;
 }
-.init-row.current { border-color: var(--eld); box-shadow: inset 3px 0 0 var(--eld); }
+.init-row.current { font-weight: 700; border-color: var(--eld); box-shadow: inset 4px 0 0 var(--eld); background: rgba(201, 162, 39, .14); }
+.init-row.current .init-who b::before { content: "→ "; }
+.ssdns-ask { border: 1px solid var(--ochre); padding: 0; max-width: min(520px, calc(100vw - 20px)); width: 100%; background: var(--bg, #1c140e); color: var(--parch, #f3e6c8); }
+.ssdns-ask::backdrop { background: rgba(10,6,3,.7); }
+.ssdns-ask form { padding: 16px 18px; }
+.ssdns-ask p { font-size: 17px; line-height: 1.4; margin: 0; }
+.ssdns-ask .dlg-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.ssdns-ask .btn { min-height: 44px; min-width: 44%; }
 .init-row.flash { animation: turnflash .7s ease; }
 @keyframes turnflash { from { background: #3d3018; } to { background: transparent; } }
 .init-row input[type="number"] { width: 4.2rem; }
@@ -470,8 +477,8 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
   body.dock-open .live-dock { transform: none; }
 }
 .init-score { font-family: var(--head); font-size: 28px; color: var(--eld); min-width: 2.2em; text-align: center; }
-.init-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.init-who b { color: var(--parch); }
+.init-who { flex: 1; min-width: 9rem; display: flex; flex-direction: column; }
+.init-who b { color: var(--parch); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
 .insp-pool { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--eld-dim); background: var(--bg-2); }
 .insp-pool b { font-family: var(--head); font-size: 32px; color: var(--eld); line-height: 1; }
 .turn-strip { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 12px; }

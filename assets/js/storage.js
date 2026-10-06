@@ -4,11 +4,23 @@
  */
 (function (root) {
   "use strict";
-  var P = "ssdns.v1.";
+  var P = "ssdns.sheet.";
+  var OLD = "ssdns.v1.";
   var MAX_VERSIONS = 10;
   var ls = root.localStorage;
 
-  function get(k) { try { var v = ls.getItem(P + k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function migrateKey(k) {
+    try {
+      if (ls.getItem(P + k) == null) {
+        var old = ls.getItem(OLD + k);
+        if (old != null) ls.setItem(P + k, old);
+      }
+    } catch (e) {}
+  }
+  function get(k) {
+    migrateKey(k);
+    try { var v = ls.getItem(P + k); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+  }
   function setRaw(k, str) { ls.setItem(P + k, str); }
 
   /** setItem that frees space by trimming old versions if the browser runs out. */
