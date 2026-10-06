@@ -171,9 +171,9 @@ check(css.indexOf(".enemy-sheet.drawer") >= 0 && css.indexOf(".sheet-dice") >= 0
 check(src.indexOf("tactics-note") >= 0 && src.indexOf("On deck:") >= 0 && src.indexOf("Bloodied") >= 0, "fight row tactics, on deck, bloodied");
 check(read("docs/DM-PRINCIPLES.md").indexOf("eyes stay on the table") >= 0, "principles doc");
 check(read("docs/SCHEMA.md").indexOf("`tactics`") >= 0, "schema documents tactics");
-check(version.dmcc === "0.2.21" && version.dmccBuild === "dmcc-tactics-v0221", "dmcc version");
+check(version.dmcc === "0.2.22" && version.dmccBuild === "dmcc-session-status-v0222", "dmcc version");
 check(version.sheet === "0.3.11" && version.sheetBuild === "sheet-store-v0311", "sheet version stays");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.21"') >= 0, "dmcc.js version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.22"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {

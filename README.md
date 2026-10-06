@@ -1,7 +1,8 @@
 # SSDNS Character Sheet
 
-Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.11, DM Command Center v0.2.21).
+Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.11, DM Command Center v0.2.22).
 
+- Lobby status: after End Session the strip says the session ended, and it never stays LIVE for a room that has ended. Leave room and New code update that same strip. `database.rules.json` did not change.
 - DM principles: `docs/DM-PRINCIPLES.md` is the bar for DM Command Center work. The fight row and the enemy sheet show a one-line tactics note (`tactics`, or a trait named Tactics or Morale). Once combat has started, the round line and the turn order say who is on deck. `database.rules.json` did not change.
 - Enemy sheet: click an enemy's name in the fight list, the turn order, or the bestiary to open a full sheet. Attacks are named rows (Roll and Apply), with ability checks, all six saves, skills, spell save and attack dialogs, and a private dice box. The fight row lists those attack names plus Open sheet. `database.rules.json` did not change.
 - Enemy card: each bestiary combatant on the Fight tab shows scores, saves, skills, attacks, traits, actions, and spellcasting. Attack buttons pick a player and apply damage. A gun misfire spends the round and jams. A failed rider save offers Apply for that condition. The header roller and each card have advantage, a modifier, and a Public toggle. Rolls stay on the DM screen until Public is on, and a public line names the enemy without AC or DC. `database.rules.json` did not change.
