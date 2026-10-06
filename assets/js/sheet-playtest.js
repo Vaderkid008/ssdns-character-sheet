@@ -341,10 +341,18 @@
     if (!force && c.kitStamp === c.calling) { maybePrompt._pending = false; toast("Starting kit is already on this sheet."); fillFeatures(); return; }
     var go = function (choice) {
       if (!choice) return;
+      var keepScores = {};
+      ["STR", "DEX", "CON", "INT", "WIS", "CHA"].forEach(function (id) {
+        var el = document.querySelector("[data-f='character.abilities." + id + "']");
+        if (el && String(el.value).trim() !== "") keepScores[id] = Number(el.value);
+        else if (c.abilities && c.abilities[id] != null && c.abilities[id] !== "") keepScores[id] = c.abilities[id];
+      });
       patch(function (d) {
         var cc = d.character;
         if (kitApi() && kitApi().apply) kitApi().apply(cc, cc.calling, choice);
         else if (KITS[cc.calling]) KITS[cc.calling](cc, choice);
+        cc.abilities = cc.abilities || {};
+        Object.keys(keepScores).forEach(function (id) { cc.abilities[id] = keepScores[id]; });
         cc.kitStamp = cc.calling;
         var bg = byId(rules().backgrounds)[cc.background];
         if (bg && bg.equipment) {
@@ -354,6 +362,7 @@
       });
       fillFeatures();
       paintPact();
+      if (root.SSDNSApp && root.SSDNSApp.applyAutoHp && c.hpAuto !== false) root.SSDNSApp.applyAutoHp();
       toast("Starting kit applied.");
     };
     if (picked) { go(picked); return; }
@@ -576,9 +585,27 @@
     var Sheet = root.SSDNSSheet;
     var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     if (Sheet && Sheet.addLog) Sheet.addLog({ id: "roll:" + rollId, kind: "roll", text: line, attack: true, nat: nat, crit: crit && !miss, label: name + " attack" });
-    if (root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined() && root.SSDNSDmJoin.postRoll) {
       var quiet = $("#chkWhisper") && $("#chkWhisper").checked;
-      root.SSDNSDmJoin.postRoll({ id: rollId, label: (tgt && tgt.name ? who + " → " + tgt.name : name + " attack"), formula: "1d20" + bonusTxt, result: hitTotal, detail: line, ac: haveAc ? Number(tgt.ac) : null, attack: true, nat: nat, crit: crit && !miss, damage: miss ? 0 : total, private: !!quiet, whisper: !!quiet });
+      root.SSDNSDmJoin.postRoll({
+        id: rollId,
+        label: (tgt && tgt.name ? who + " → " + tgt.name : name + " attack"),
+        formula: "1d20" + bonusTxt,
+        result: hitTotal,
+        detail: line,
+        ac: haveAc ? Number(tgt.ac) : null,
+        attack: true,
+        nat: nat,
+        crit: crit && !miss,
+        damage: miss ? 0 : total,
+        targetId: tgt && tgt.id,
+        targetName: tgt && tgt.name,
+        private: !!quiet,
+        whisper: !!quiet
+      });
+      if (!miss && total && tgt && tgt.id && !quiet && root.SSDNSDmJoin.postDamage) {
+        root.SSDNSDmJoin.postDamage({ amount: total, label: name, type: "weapon", targetId: tgt.id, targetName: tgt.name, rollId: rollId });
+      }
     }
   }
 
@@ -733,6 +760,10 @@
       patch(function (d) {
         abilities.forEach(function (a, i) { d.character.abilities[a] = scores[i]; });
       });
+      if (root.SSDNSApp && root.SSDNSApp.applyAutoHp) {
+        var cc = ch();
+        if (cc && cc.hpAuto !== false) root.SSDNSApp.applyAutoHp();
+      }
       if (dlg.close) dlg.close();
     };
     if (dlg.showModal) dlg.showModal();
@@ -777,6 +808,15 @@
     var line = "Hit die 1d" + sides + conTxt + " = " + gain + ", HP " + before + "→" + after;
     toast(line);
     if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "roll", text: line });
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined()) {
+      var hdId = "hd_" + Date.now().toString(36);
+      if (root.SSDNSDmJoin.postRoll) {
+        root.SSDNSDmJoin.postRoll({ id: hdId, label: "Hit die", formula: "1d" + sides + conTxt, result: gain, detail: line });
+      }
+      if (root.SSDNSDmJoin.postLedger) {
+        root.SSDNSDmJoin.postLedger({ type: "rest", what: line, oldVal: before, newVal: after, flag: false });
+      }
+    }
   }
   function wrapRest() {
     var Sheet = root.SSDNSSheet;
@@ -939,6 +979,7 @@
   }
   root.SSDNSPlaytest = {
     syncSheet: syncSheet,
+    showYourTurn: showYourTurn,
     showTurn: function (init) {
       var panel = $("#turnPanel");
       if (!panel) return;
@@ -947,10 +988,13 @@
       var whoEl = $("#turnWho");
       var names = $("#turnNames");
       if (!order.length) {
-        if (sawOrder && !loadTurnSeen()["combat-ended"]) {
-          markTurnSeen("combat-ended");
+        var inRoom = root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined();
+        var room = root.SSDNSDmJoin && root.SSDNSDmJoin.roomCode && root.SSDNSDmJoin.roomCode();
+        var endedId = "combat-ended:" + (room || "");
+        if (inRoom && room && sawOrder && !loadTurnSeen()[endedId]) {
+          markTurnSeen(endedId);
           if (root.SSDNSSheet && root.SSDNSSheet.addLog) {
-            root.SSDNSSheet.addLog({ id: "combat-ended:" + turnSeenKey(), kind: "alert", text: "Combat ended" });
+            root.SSDNSSheet.addLog({ id: endedId, kind: "alert", text: "Combat ended" });
           }
         }
         panel.hidden = true;
@@ -965,7 +1009,8 @@
       }
       sawOrder = true;
       var seen = loadTurnSeen();
-      if (seen["combat-ended"]) { delete seen["combat-ended"]; saveTurnSeen(seen); }
+      Object.keys(seen).forEach(function (k) { if (k.indexOf("combat-ended:") === 0) delete seen[k]; });
+      saveTurnSeen(seen);
       panel.hidden = false;
       var round = init.round || 1;
       var turn = Number(init.turn) || 0;
