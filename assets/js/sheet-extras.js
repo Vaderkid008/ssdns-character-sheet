@@ -191,9 +191,10 @@
       var when = "";
       try { when = new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
       var face = rollFace(e);
-      return '<div class="dock-item ' + face.cls + '"><div class="dock-meta">' + when + " · " + esc(dockBucket(e)) +
+      var hand = e.kind === "handout";
+      return '<div class="dock-item ' + face.cls + '"' + handoutAttrs(e) + '><div class="dock-meta">' + when + " · " + esc(dockBucket(e)) +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") +
-        '</div><div>' + esc(e.text || "") + "</div></div>";
+        '</div><div>' + esc(e.text || "") + (hand ? handoutBits(e) : "") + "</div></div>";
     }).join("") || '<p class="fine">Nothing in this filter yet. Rolls, shards, and chat land here.</p>';
     if (stick) feed.scrollTop = feed.scrollHeight;
     var badge = $("#sheetDockBadge");
@@ -228,8 +229,7 @@
       try { when = new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
       var face = rollFace(e);
       var hand = e.kind === "handout";
-      var urlAttr = hand && e.url ? " data-url='" + String(e.url).replace(/'/g, "") + "' data-title='" + String(e.title || "Handout").replace(/'/g, "") + "' data-reopen-handout='1'" : "";
-      return '<div class="log-item log-' + (e.kind || "all") + " " + face.cls + '"' + (hand ? " data-reopen-handout='1'" + urlAttr : "") + '><div class="log-meta">' + when + " · " + (e.kind || "") +
+      return '<div class="log-item log-' + (e.kind || "all") + " " + face.cls + '"' + handoutAttrs(e) + '><div class="log-meta">' + when + " · " + (e.kind || "") +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") + '</div><div>' +
         String(e.text || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }) +
         handoutBits(e) +
@@ -237,6 +237,11 @@
     }).join("");
   }
 
+  function handoutAttrs(e) {
+    if (!e || e.kind !== "handout") return "";
+    function enc(v) { return encodeURIComponent(String(v || "")); }
+    return " data-reopen-handout='1' data-url='" + enc(e.url) + "' data-title='" + enc(e.title || "Handout") + "' data-body='" + enc(e.body) + "'";
+  }
   function handoutBits(e) {
     if (!e || e.kind !== "handout" || !e.url) return (e && e.kind === "handout") ? ' <button type="button" class="btn sm" data-reopen-handout="1">Reopen</button>' : "";
     var url = String(e.url);
@@ -620,6 +625,10 @@
       rolled.detail = rolled.text;
     }
     toast(rolled.text);
+    var spellDmg = null;
+    var hitTail = String(rolled.text || "").split("→ HIT")[1] || "";
+    var dmgMatch = hitTail.match(/=\s*(\d+)\s*$/);
+    if (rolled.attack && dmgMatch) spellDmg = Number(dmgMatch[1]);
     addLog({
       id: "roll:" + rollId,
       kind: "roll", text: rolled.text, label: rolled.label, formula: rolled.formula,
@@ -639,8 +648,17 @@
         nat: rolled.nat,
         crit: rolled.crit,
         private: whisperOn(),
-        whisper: whisperOn()
+        whisper: whisperOn(),
+        targetId: tgt && tgt.id,
+        targetName: tgt && tgt.name,
+        damage: spellDmg
       });
+      if (rolled.attack && spellDmg && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
+        root.SSDNSDmJoin.postDamage({
+          amount: spellDmg, label: spellName, type: "spell",
+          targetId: tgt.id, targetName: tgt.name, rollId: rollId
+        });
+      }
     }
   }
   function selectedCast(i) {
@@ -835,11 +853,12 @@
         private: quiet,
         whisper: quiet,
         damage: (!report.miss && dmg) ? dmg.total : null,
-        targetId: tgt && tgt.id
+        targetId: tgt && tgt.id,
+        targetName: tgt && tgt.name
       });
     }
     if (!report.miss && dmg && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && !quiet) {
-      root.SSDNSDmJoin.postDamage({ amount: dmg.total, label: name, type: "weapon", targetId: tgt && tgt.id });
+      root.SSDNSDmJoin.postDamage({ amount: dmg.total, label: name, type: "weapon", targetId: tgt && tgt.id, targetName: tgt && tgt.name, rollId: gunRollId });
     }
   }
 
@@ -1147,12 +1166,16 @@
       var buyBtn = e.target.closest && e.target.closest("[data-buy]");
       if (buyBtn) buy(num(buyBtn.getAttribute("data-buy")));
       var reopen = e.target.closest && e.target.closest("[data-reopen-handout]");
-      if (reopen && !(e.target.closest && e.target.closest("[data-handout-zoom]"))) {
-        var item = reopen.closest(".log-item");
-        var idx = item ? Array.prototype.indexOf.call(item.parentNode.children, item) : -1;
+      if (reopen && !(e.target.closest && e.target.closest("a")) && !(e.target.closest && e.target.closest("[data-handout-zoom]"))) {
+        var item = reopen.closest("[data-reopen-handout]") || reopen;
+        var idx = item && item.parentNode ? Array.prototype.indexOf.call(item.parentNode.children, item) : -1;
         var rows = log.filter(function (row) { return filter === "all" || row.kind === filter; });
-        var entry = rows[idx];
-        if (entry && root.SSDNSDmJoin && root.SSDNSDmJoin.showHandout) root.SSDNSDmJoin.showHandout(entry.title || "Handout", entry.url || "", entry.body || "");
+        var entry = item && item.classList && item.classList.contains("log-item") ? rows[idx] : null;
+        function dec(v) { try { return decodeURIComponent(v || ""); } catch (err) { return v || ""; } }
+        var title = dec(item && item.getAttribute("data-title")) || (entry && entry.title) || "Handout";
+        var url = dec(item && item.getAttribute("data-url")) || (entry && entry.url) || "";
+        var body = dec(item && item.getAttribute("data-body")) || (entry && entry.body) || "";
+        if (root.SSDNSDmJoin && root.SSDNSDmJoin.showHandout) root.SSDNSDmJoin.showHandout(title, url, body, true);
       }
       var f = e.target.closest && e.target.closest("[data-log-filter]");
       if (f) {

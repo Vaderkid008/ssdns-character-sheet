@@ -146,6 +146,12 @@ input:focus, select:focus, textarea:focus { outline: none; background: var(--fil
 .your-turn-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; gap: 12px; align-items: center; background: var(--dark); color: var(--parch); border: 2px solid var(--eld); padding: 12px 16px; font-size: 16px; box-shadow: 0 8px 28px rgba(0,0,0,.55); }
 .your-turn-banner[hidden] { display: none; }
 .tab-warn { position: fixed; bottom: 0; left: 0; right: 0; top: auto; z-index: 20; background: #6a2a16; color: #fff; text-align: center; padding: 8px 12px; font-size: 14px; }
+body.sheet-readonly input,
+body.sheet-readonly select,
+body.sheet-readonly textarea,
+body.sheet-readonly button,
+body.sheet-readonly [contenteditable="true"] { pointer-events: none; }
+body.sheet-readonly .tab-warn { pointer-events: auto; }
 .ssdns-ask p { font-size: 17px; line-height: 1.4; margin: 0 0 8px; }
 .ssdns-ask .dlg-foot { gap: 8px; flex-wrap: wrap; }
 .ssdns-ask .btn { min-height: 44px; min-width: 44%; }

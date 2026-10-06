@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.3"; // sheet-round7-v033
+  var APP_VERSION = "0.3.4"; // sheet-round8-v034
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -616,7 +616,11 @@
     fillSelect($("#selLineage"), R.lineages.map(function (l) { return [l.id, l.name]; }), "Lineage…");
     fillSelect($("#selBackground"), R.backgrounds.map(function (b) { return [b.id, b.name]; }), "Background…");
     var armGroups = ["light", "medium", "heavy"].map(function (cat) {
-      return { group: cat[0].toUpperCase() + cat.slice(1) + " armor", items: R.armor.filter(function (a) { return a.category === cat; }).map(function (a) { return [a.id, a.name + " (" + a.ac + ")"]; }) };
+      return { group: cat[0].toUpperCase() + cat.slice(1) + " armor", items: R.armor.filter(function (a) { return a.category === cat; }).map(function (a) {
+        var label = a.name + " (" + a.ac + ")";
+        if (a.phb5e && a.phb5e !== a.name) label += " · " + a.phb5e;
+        return [a.id, label];
+      }) };
     });
     fillSelect($("#selArmor"), armGroups, "None (10 + Dex)");
     fillSelect($("#selHolster"), [
@@ -1500,6 +1504,7 @@
 
   // ------------------------------------------------------------------ change handling
   function changed(opts) {
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
     S.doc.updatedAt = new Date().toISOString();
     if (!opts || !opts.quiet) S.fileDirty = true;
     S.hasContent = true;
@@ -1510,6 +1515,7 @@
   }
   function onFieldInput(e) {
     var t = e.target;
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
     if (suppress || !t.getAttribute) return;
     if (t.hasAttribute("data-castspell") || t.hasAttribute("data-castslot")) { renderCalc(); return; }
     if (t.hasAttribute("data-calc")) {
@@ -1531,15 +1537,15 @@
     // v0.2.1: picking Gun Belt / Bandolier ticks the TR feed box (picking something else leaves it alone)
     if (path === "character.holster" && HOL[v] && HOL[v].feedsTR) C().gunBelt = true;
     $$('[data-mirror="' + path + '"]').forEach(function (m) { m.textContent = v; });
-    if (path === "character.hpMax") C().hpAuto = false;
+    if (path === "character.hpMax" && e.isTrusted && String(t.value).trim() !== "" && String(v) !== String(old)) C().hpAuto = false;
     if (e.type === "change") {
       if (path === "character.calling") onCallingPicked();
       else if (path === "character.lineage") onLineagePicked();
       else if (path === "character.sublineage") onSublineagePicked();
       else if (path === "character.background") onBackgroundPicked();
       else if (/^character\.guns\.\d+\.(weapon|load|chamber|capacity)$/.test(path)) onGunChanged(num(path.split(".")[2]), path.split(".")[3], old);
-      if (C().hpAuto !== false && (path === "character.calling" || path === "character.level" || path === "character.abilities.CON")) applyAutoHp();
     }
+    if (C().hpAuto !== false && (path === "character.calling" || path === "character.level" || path === "character.abilities.CON")) applyAutoHp();
     if (path.indexOf("shards.") === 0) {
       pushWallet();
       $$('[data-f="' + path + '"]').forEach(function (x) { if (x !== t) setField(x, v); });
@@ -1558,6 +1564,11 @@
     if (!cal) return null;
     var die = dieMax(cal.hitDie);
     if (!die) return null;
+    var conEl = document.querySelector("[data-f='character.abilities.CON']");
+    if (conEl && String(conEl.value).trim() !== "") {
+      var typed = Number(conEl.value);
+      if (isFinite(typed)) c.abilities.CON = typed;
+    }
     var con = mod(num(c.abilities.CON, 10));
     var lv = Math.max(1, Math.min(20, num(c.level, 1)));
     var hp = Math.max(1, die + con);
@@ -2761,6 +2772,11 @@
   function wire() {
     document.addEventListener("input", onFieldInput);
     document.addEventListener("change", onFieldInput);
+    document.addEventListener("focusout", function (e) {
+      var t = e.target;
+      if (!t || !t.getAttribute || t.getAttribute("data-f") !== "character.abilities.CON") return;
+      if (C().hpAuto !== false) applyAutoHp();
+    });
     document.addEventListener("click", onClick);
     document.addEventListener("dblclick", onDblClick);
     $("#btnNew").onclick = doNew;
@@ -2903,7 +2919,11 @@
       callingProficient: callingProficient,
       styleAttackBonus: styleAttackBonus,
       styleDamageBonus: styleDamageBonus,
-      applyPatch: function (fn) { if (fn) fn(S.doc); renderFields(); changed(); },
+      applyPatch: function (fn) {
+        if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
+        if (fn) fn(S.doc); renderFields(); changed();
+      },
+      applyAutoHp: function () { applyAutoHp(); renderFields(); changed(); },
       slotsLeft: slotsLeft,
       misfireCeiling: misfireCeiling,
       suggestedHp: function () { return suggestedHp(C()); }

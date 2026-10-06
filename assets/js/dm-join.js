@@ -45,7 +45,8 @@
     tabId: "tab_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     connId: "conn_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     readOnly: false,
-    joinEpoch: 0
+    joinEpoch: 0,
+    left: false
   };
 
   function $(s, r) { return (r || document).querySelector(s); }
@@ -67,9 +68,10 @@
     try {
       var d = doc();
       var cid = (d && d.id) || "";
-      if (!state.joined || !state.roomCode) {
+      if (!state.joined || !state.roomCode || state.left) {
         root.localStorage.setItem(LS_KEY, JSON.stringify({
           joined: false,
+          left: true,
           by: "sheet",
           leftAt: Date.now(),
           characterId: cid
@@ -262,14 +264,19 @@
       img.src = src;
     });
   }
+  function stillHere(epoch) {
+    return epoch === state.joinEpoch && state.joined && !state.left && !!state.roomCode;
+  }
   async function publishSnapshot() {
-    if (!state.joined || !state.db || state.publishing) return;
+    if (!state.joined || state.left || !state.db || state.publishing) return;
+    var epoch = state.joinEpoch;
     var snap = buildSnapshot();
     if (!snap) return;
     state.publishing = true;
     try {
       var c = doc() && doc().character;
       snap.portrait = await shrinkPortrait(c && c.portrait);
+      if (!stillHere(epoch)) return;
       var fb = state._fb;
       var playerRef = fb.ref(state.db, roomPath("players/" + state.uid));
       await fb.update(playerRef, {
@@ -277,8 +284,13 @@
         uid: state.uid,
         snapshot: snap
       });
+      if (!stillHere(epoch)) return;
       var connRef = fb.ref(state.db, roomPath("players/" + state.uid + "/presence/conns/" + state.connId));
       await fb.set(connRef, { online: true, lastSeen: new Date().toISOString() });
+      if (!stillHere(epoch)) {
+        try { await fb.remove(connRef); } catch (err) {}
+        return;
+      }
       state.lastEs = snap.es;
       if (!state.toldVisible) {
         state.toldVisible = true;
@@ -320,8 +332,9 @@
     writeStore(queueKey(), JSON.stringify((q || []).slice(-40)));
   }
   function enqueue(kind, payload) {
+    if (kind === "roll" && (!state.joined || state.left)) return;
     var q = loadQueue();
-    q.push({ kind: kind, payload: payload || {}, ts: Date.now() });
+    q.push({ kind: kind, payload: payload || {}, ts: Date.now(), joined: !!(state.joined && !state.left) });
     saveQueue(q);
   }
   function offlineNow() {
@@ -329,8 +342,11 @@
   }
   async function flushQueue() {
     if (offlineNow() || state._flushing) return;
-    var q = loadQueue();
-    if (!q.length) return;
+    var q = loadQueue().filter(function (item) {
+      if (item && item.kind === "roll" && item.joined !== true) return false;
+      return true;
+    });
+    if (!q.length) { saveQueue([]); return; }
     state._flushing = true;
     saveQueue([]);
     var failed = [];
@@ -348,6 +364,7 @@
     return (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result == null ? "" : entry.result) + (entry.detail ? " (" + entry.detail + ")" : "");
   }
   async function writeRoll(entry) {
+    if (!state.joined || state.left || !state.db) return;
     var fb = state._fb;
     entry = entry || {};
     var id = entry.id || ("r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
@@ -387,6 +404,7 @@
     }
   }
   function postRoll(entry) {
+    if (!state.joined || state.left) return Promise.resolve({ ok: false, skipped: true });
     if (offlineNow()) {
       enqueue("roll", entry || {});
       return Promise.resolve({ ok: false, queued: true });
@@ -411,7 +429,9 @@
       label: entry.label || "",
       type: entry.type || "weapon",
       characterName: (c && c.name) || "",
-      playerName: (c && c.player) || ""
+      playerName: (c && c.player) || "",
+      rollId: entry.rollId || "",
+      targetName: entry.targetName || ""
     };
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
       return { ok: true };
@@ -530,6 +550,10 @@
         toast("Handout: " + (payload.name || "Handout"), "Go", function () {
           showHandout(payload.name || "Handout", payload.url || "", payload.text || "", true);
         });
+        break;
+      case "your_turn":
+        if (root.SSDNSPlaytest && root.SSDNSPlaytest.showYourTurn) root.SSDNSPlaytest.showYourTurn();
+        ackTurn(cmd);
         break;
       case "roll":
         if (payload.id) state._feedSeen[payload.id] = 1;
@@ -700,18 +724,36 @@
   }
   function pumpModal() {
     if (modalOpen || !modalQ.length) return;
+    if (document.querySelector("dialog[open]")) {
+      setTimeout(pumpModal, 400);
+      return;
+    }
     modalOpen = true;
     var build = modalQ.shift();
-    var dlg = build();
+    var dlg;
+    try { dlg = build(); }
+    catch (err) {
+      modalOpen = false;
+      console.warn("[DM Join] modal", err);
+      return;
+    }
     var done = function () {
       modalOpen = false;
       if (dlg && dlg.parentNode) dlg.parentNode.removeChild(dlg);
       pumpModal();
+      flushHandouts();
     };
     dlg.addEventListener("close", done);
     dlg.addEventListener("cancel", function (e) { e.preventDefault(); if (dlg.close) dlg.close(); });
     document.body.appendChild(dlg);
-    if (dlg.showModal) dlg.showModal(); else { dlg.setAttribute("open", ""); }
+    try {
+      if (dlg.showModal) dlg.showModal(); else { dlg.setAttribute("open", ""); }
+    } catch (err) {
+      modalOpen = false;
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      modalQ.unshift(build);
+      console.warn("[DM Join] modal", err);
+    }
   }
   function showPopup(title, body) {
     enqueueModal(function () {
@@ -724,10 +766,33 @@
     });
   }
 
+  var HANDOUT_Q = "ssdns.sheet.handoutQueue";
+  function readHandoutQueue() {
+    try { return JSON.parse(sessionStorage.getItem(HANDOUT_Q) || "[]") || []; } catch (e) { return []; }
+  }
+  function queueHandout(payload) {
+    var q = readHandoutQueue();
+    q.push(payload);
+    try { sessionStorage.setItem(HANDOUT_Q, JSON.stringify(q.slice(-20))); } catch (e) {}
+  }
+  function flushHandouts() {
+    if (!state.joined || state.left) return;
+    if (document.querySelector("dialog[open]")) return;
+    var q = readHandoutQueue();
+    if (!q.length) return;
+    try { sessionStorage.removeItem(HANDOUT_Q); } catch (e) {}
+    q.forEach(function (h) { showHandout(h.name, h.url, h.text, true); });
+  }
   function showHandout(name, url, text, skipLog) {
     url = url || "";
     text = text || "";
-    if (!skipLog && root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "handout", text: "Handout: " + (name || "Handout"), url: url, body: text, title: name || "Handout" });
+    var id = "handout:" + String(name || "Handout") + ":" + url;
+    if (!skipLog && root.SSDNSSheet) root.SSDNSSheet.addLog({ id: id, kind: "handout", text: "Handout: " + (name || "Handout"), url: url, body: text, title: name || "Handout" });
+    var dialogOpen = !!document.querySelector("dialog[open]");
+    if (dialogOpen || (!skipLog && (!state.joined || state.left))) {
+      queueHandout({ name: name || "Handout", url: url, text: text });
+      return;
+    }
     enqueueModal(function () {
       var dlg = document.createElement("dialog");
       dlg.className = "dlg";
@@ -756,6 +821,13 @@
     });
   }
 
+  function ackTurn(cmd) {
+    if (!state.joined || state.left || !state.db || !state.uid || !state._fb) return;
+    var fb = state._fb;
+    fb.update(fb.ref(state.db, roomPath("players/" + state.uid)), {
+      turnAck: { id: (cmd && cmd.id) || "", seen: true, ts: new Date().toISOString() }
+    }).catch(function (err) { console.warn("[DM Join] turn ack", err); });
+  }
   function applyHpCommand(payload, id, replay) {
     var delta = Number(payload.delta);
     if (!delta) delta = (payload.kind === "heal" ? 1 : -1) * (Number(payload.amount) || 0);
@@ -929,7 +1001,12 @@
       Object.keys(val || {}).forEach(function (id) {
         var p = val[id] || {};
         var s = p.snapshot || {};
-        rows.push({ name: s.name || "Someone", player: s.player || "", online: !!(p.presence && p.presence.online) });
+        var pres = p.presence || {};
+        var conns = pres.conns;
+        var online = false;
+        if (conns && typeof conns === "object") online = Object.keys(conns).some(function (cid) { return conns[cid] && conns[cid].online !== false; });
+        else online = !!pres.online;
+        rows.push({ name: s.name || "Someone", player: s.player || "", online: online });
       });
       if (root.SSDNSPlaytest && root.SSDNSPlaytest.showRoster) root.SSDNSPlaytest.showRoster(rows);
     });
@@ -1061,10 +1138,21 @@
     if (!on && root.SSDNSSheet && root.SSDNSSheet.showInspiration) root.SSDNSSheet.showInspiration(0, false);
   }
 
+  function dropPrejoinRolls() {
+    try {
+      ["ssdns.sheet.", "ssdns.v1."].forEach(function (pre) {
+        localStorage.removeItem(pre + "outbox.none.local");
+        localStorage.removeItem(pre + "outbox.none." + (state.uid || "local"));
+      });
+    } catch (e) {}
+    var q = loadQueue().filter(function (item) { return !(item && item.kind === "roll" && item.joined !== true); });
+    saveQueue(q);
+  }
   async function join(code) {
     if (state.readOnly) { toast("This tab is read-only. The character is open in another tab."); return; }
     code = String(code || "").trim().toUpperCase();
     if (!code) { toast("Enter a room code"); return; }
+    state.left = false;
     var epoch = ++state.joinEpoch;
     var input = $("#dmJoinCode");
     if (input) input.value = code;
@@ -1075,7 +1163,7 @@
     try {
       toast("Connecting…");
       await loadFirebase();
-      if (epoch !== state.joinEpoch || !state.joined || ($("#dmJoinCode") && String($("#dmJoinCode").value || "").trim().toUpperCase() !== code)) {
+      if (epoch !== state.joinEpoch || state.left || !state.joined || ($("#dmJoinCode") && String($("#dmJoinCode").value || "").trim().toUpperCase() !== code)) {
         detachAll();
         state.joined = false;
         state.roomCode = null;
@@ -1098,7 +1186,7 @@
         return;
       }
       var meta = metaSnap.val();
-      if (epoch !== state.joinEpoch || !state.joined) return;
+      if (epoch !== state.joinEpoch || state.left || !state.joined) return;
       detachAll();
       state.roomCode = code;
       state.joined = true;
@@ -1106,13 +1194,15 @@
       setUiJoined(true, code);
       watchConnection();
       await publishSnapshot();
-      if (epoch !== state.joinEpoch || !state.joined) return;
+      if (epoch !== state.joinEpoch || state.left || !state.joined) return;
       loadApplied();
       listenCommands();
       listenRoomFeeds();
       pullRoomState();
       watchEs();
+      dropPrejoinRolls();
       flushQueue();
+      flushHandouts();
       setBadge(state.connected === false ? "reconnecting" : "connected");
       if (!state._sheetWatch) {
         state._sheetWatch = true;
@@ -1179,9 +1269,14 @@
     var fb = state._fb;
     var connId = state.connId;
     state.joinEpoch++;
+    state.left = true;
     state.joined = false;
     state.roomCode = null;
     saveLocal();
+    try {
+      localStorage.removeItem(LS_OLD);
+      localStorage.removeItem("ssdns.v1.dmJoin");
+    } catch (e) {}
     setUiJoined(false);
     detachAll();
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.showRoster) root.SSDNSPlaytest.showRoster([]);
@@ -1264,6 +1359,7 @@
   }
   function showReadOnly() {
     state.readOnly = true;
+    document.body.classList.add("sheet-readonly");
     var btn = $("#btnDmJoin");
     if (btn) btn.disabled = true;
     var b = $("#tabWarn");
@@ -1303,7 +1399,7 @@
             var input = $("#dmJoinCode");
             var shown = input ? String(input.value || "").trim().toUpperCase() : "";
             var cid = characterId();
-            var sheetRoom = saved && saved.by === "sheet" && saved.joined === true && saved.roomCode && saved.characterId && cid && saved.characterId === cid;
+            var sheetRoom = saved && saved.by === "sheet" && saved.joined === true && saved.left !== true && saved.roomCode && saved.characterId && cid && saved.characterId === cid;
             if (sheetRoom) {
               var code = String(saved.roomCode).toUpperCase();
               if (!shown && input) { input.value = saved.roomCode; shown = code; }
@@ -1325,11 +1421,24 @@
   }
 
   window.addEventListener("pagehide", function () {
-    if (state.joined) saveLocal();
+    if (state.left) {
+      state.joined = false;
+      state.roomCode = null;
+      saveLocal();
+    } else if (state.joined) saveLocal();
     try {
       var cur = readLock();
       if (cur && cur.tab === state.tabId) localStorage.removeItem(LOCK_KEY);
     } catch (e) {}
+  });
+
+  window.addEventListener("unhandledrejection", function (e) {
+    var reason = e && e.reason;
+    var msg = String((reason && (reason.message || reason.code)) || reason || "");
+    if (/CONNECTION_CLOSED|ERR_CONNECTION|unavailable|network-request-failed|Failed to fetch|client is offline/i.test(msg)) {
+      if (e.preventDefault) e.preventDefault();
+      if (state.joined) setBadge("reconnecting");
+    }
   });
 
   if (document.readyState === "loading") {

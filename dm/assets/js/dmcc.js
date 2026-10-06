@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.10"; // dmcc-round7-v0210
+const VERSION = "0.2.11"; // dmcc-round8-v0211
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -358,8 +358,8 @@ function attachLiveListeners() {
   const bind = (path, handler) => listenRef(path, handler);
   bind("meta", (v) => { if (v) { state.meta = v; guardFocus(() => renderRoomHero()); } });
   const presenceWas = {};
+  const presenceEver = {};
   bind("players", (v) => {
-    const prev = state.players || {};
     state.players = v || {};
     Object.keys(state.players).forEach((id) => {
       const p = state.players[id] || {};
@@ -367,15 +367,16 @@ function attachLiveListeners() {
       const s = p.snapshot || {};
       const who = [s.player, s.name].filter(Boolean).join(" · ") || id;
       const was = presenceWas[id];
-      if (!prev[id]) {
-        const already = (state.ledger || []).some((e) => e && e.type === "join" && e.playerId === id);
+      if (on && !presenceEver[id]) {
+        presenceEver[id] = true;
+        const already = (state.ledger || []).some((e) => e && (e.type === "join" || e.type === "rejoin") && e.playerId === id);
         if (!already) {
           pushLedger({
             who: who, playerId: id, playerName: s.player || "", characterName: s.name || "",
             type: "join", what: who + " joined the table", oldVal: null, newVal: "joined", flag: false
           });
         }
-      } else if (was === false && on) {
+      } else if (was === false && on && presenceEver[id]) {
         pushLedger({
           who: who, playerId: id, playerName: s.player || "", characterName: s.name || "",
           type: "rejoin", what: who + " rejoined the table", oldVal: null, newVal: "rejoined", flag: false
@@ -386,6 +387,7 @@ function attachLiveListeners() {
           type: "leave", what: who + " left the table", oldVal: null, newVal: "left", flag: false
         });
       }
+      if (window.DMCCEnhance && window.DMCCEnhance.notePresence) window.DMCCEnhance.notePresence(id, on);
       presenceWas[id] = on;
     });
     guardFocus(() => {
@@ -590,6 +592,13 @@ function namesFor(pid) {
   return { playerName: s.player || "", characterName: s.name || "" };
 }
 function ledgerNames(e) {
+  const who = String((e && e.who) || "").trim();
+  if (/^dm$/i.test(who)) {
+    const looked = namesFor(e.playerId);
+    const target = e.characterName || looked.characterName || e.playerName || looked.playerName || "";
+    if (e.playerId && e.playerId !== "all" && target && !/^dm$/i.test(target)) return "DM → " + target;
+    return "DM";
+  }
   const looked = namesFor(e.playerId);
   const playerName = e.playerName || looked.playerName;
   const characterName = e.characterName || looked.characterName;
@@ -667,7 +676,7 @@ async function pushCommand(cmd) {
   }
   if (state.demo) {
     state.commands.unshift(cmd);
-    toast("Command queued (demo): " + cmd.type + (cmd.to && cmd.to !== "all" ? " → " + cmd.to : " → all"));
+    if (!cmd.quiet) toast("Command queued (demo): " + cmd.type + (cmd.to && cmd.to !== "all" ? " → " + cmd.to : " → all"));
     return;
   }
   const to = cmd.to || "all";
@@ -676,7 +685,7 @@ async function pushCommand(cmd) {
     const copy = to && to !== "all" ? "inbox/" + to + "/" + cmd.id : "broadcast/" + cmd.id;
     try { await state._fb.set(roomRef(copy), cmd); }
     catch (err) { writeFailed(err, "Couldn't sync to players"); }
-    toast("Sent: " + cmd.type);
+    if (!cmd.quiet) toast("Sent: " + cmd.type);
   } catch (e) { writeFailed(e, "Command failed"); }
 }
 
@@ -793,10 +802,8 @@ function playerOptions(includeAll) {
 
 const UI_FIELDS = ["rewTarget", "rewType", "rewEs", "rewReason", "rewText", "rewQty", "msgTarget", "msgText", "hoName", "hoUrl", "hoText", "hoTarget", "inRoomName", "inDmName", "selForcePlayer"];
 const uiMemory = {};
-let uiTab = "";
+let uiTab = "tab-table";
 function rememberUi() {
-  const selected = document.querySelector(".tab[aria-selected='true']");
-  if (selected && selected.id) uiTab = selected.id;
   UI_FIELDS.forEach((id) => {
     const el = document.getElementById(id);
     if (el) uiMemory[id] = el.value;
@@ -957,12 +964,45 @@ function rollFace(r) {
   if (test) return { cls: "", tag: "TEST", attack: false, crit: false, test: true };
   return { cls: "", tag: "", attack: false, crit: false, test: false };
 }
+function rollAc(r) {
+  const ac = r && r.ac;
+  if (ac != null && ac !== "" && isFinite(Number(ac))) return Number(ac);
+  if (window.DMCCEnhance && window.DMCCEnhance.acFor) {
+    const found = window.DMCCEnhance.acFor(r);
+    if (found != null && found !== "" && isFinite(Number(found))) return Number(found);
+  }
+  return null;
+}
 function rollDetail(r) {
   let detail = String((r && r.detail) || "");
-  const ac = r && r.ac;
-  if (ac == null || ac === "" || !isFinite(Number(ac)) || detail.indexOf("vs AC") >= 0) return detail;
+  const ac = rollAc(r);
+  if (ac == null || detail.indexOf("vs AC") >= 0) return detail;
   if (/ → (HIT|MISS)/.test(detail)) return detail.replace(/ → (HIT|MISS)/, " vs AC " + ac + " → $1");
   return detail ? detail + " vs AC " + ac : detail;
+}
+function rollBody(r) {
+  const detail = rollDetail(r);
+  if (detail && /→\s*(HIT|MISS)/.test(detail)) return detail;
+  const formula = r && r.formula ? String(r.formula) + " = " + (r.result ?? "") : "";
+  const head = ((r && r.label) || "Roll") + (formula ? " · " + formula : "");
+  return detail ? head + " (" + detail + ")" : head;
+}
+function hitApplyButton(r) {
+  const amt = Number(r && r.damage);
+  if (!r || !r.id || !isFinite(amt) || amt <= 0) return "";
+  if (r.nat === 1 || /→\s*MISS/.test(String(r.detail || ""))) return "";
+  const name = r.targetName || "";
+  const applied = !!r.applied;
+  const label = applied ? ("Applied " + amt + (name ? " → " + name : "")) : ("Apply " + amt + (name ? " → " + name : ""));
+  return `<button type="button" class="btn sm" data-apply-hit="${esc(r.id)}"${applied ? " disabled" : ""}>${esc(label)}</button>`;
+}
+async function markRollApplied(id, applied) {
+  const row = (state.rolls || []).find((r) => r && r.id === id);
+  if (row) row.applied = !!applied;
+  renderRolls();
+  if (state.demo || !state.db || !id) return;
+  try { await state._fb.update(roomRef("rolls/" + id), { applied: !!applied }); }
+  catch (e) { /* the roll row can already be gone */ }
 }
 function renderPlayers() {
   const grid = $("#playerGrid");
@@ -1117,7 +1157,8 @@ function dockItems() {
       who: r.who || "",
       cls: (r.private ? "private " : "") + (face.cls || ""),
       tag: r.private ? "PRIVATE" : face.tag,
-      text: (r.label || "Roll") + " " + (r.formula || "") + " = " + (r.result ?? "") + (r.detail ? " · " + r.detail : "")
+      text: rollBody(r),
+      applyHtml: hitApplyButton(r)
     });
   });
   (state.messages || []).forEach((m) => rows.push({
@@ -1159,7 +1200,7 @@ function renderLiveDockNow() {
   const items = all.filter((row) => filter === "all" || row.kind === filter || (filter === "alerts" && row.kind === "alerts"));
   const stick = feed.dataset.stick !== "0";
   feed.innerHTML = items.slice(-80).map((row) =>
-    `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${esc(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${esc(row.text)}</div></div>`
+    `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${esc(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${esc(row.text || "")}${row.applyHtml || ""}</div></div>`
   ).join("") || '<p class="lede">Nothing in this filter yet.</p>';
   if (stick) feed.scrollTop = feed.scrollHeight;
   if (dockIsOpen()) dockSeen = all.length;
@@ -1227,7 +1268,7 @@ function renderRolls() {
         ${face.tag ? '<span class="roll-tag">' + esc(face.tag) + "</span>" : ""}
         ${nat ? '<span class="badge danger">Nat 1 · firearm</span>' : ""}
       </div>
-      <div class="feed-what"><b>${esc(r.label || "Roll")}</b> · ${esc(r.formula)} = <b style="color:var(--eld)">${esc(r.result)}</b> <span style="color:var(--muted)">(${esc(rollDetail(r))})</span></div>
+      <div class="feed-what">${esc(rollBody(r))} ${hitApplyButton(r)}</div>
     </div>`;
   }).join("");
   renderLiveDock();
@@ -1904,7 +1945,9 @@ window.DMCC = {
   roomRef: roomRef,
   namesFor: namesFor,
   writeFailed: writeFailed,
-  setCreateBusy: setCreateBusy
+  setCreateBusy: setCreateBusy,
+  playerOnline: playerOnline,
+  markRollApplied: markRollApplied
 };
 
 async function boot() {
