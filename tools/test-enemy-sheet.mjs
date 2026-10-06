@@ -46,7 +46,7 @@ vm.createContext(sandbox);
 vm.runInContext(read("assets/js/apply-guard.js"), sandbox, { filename: "apply-guard.js" });
 vm.runInContext(read("assets/data/rules.js"), sandbox, { filename: "rules.js" });
 vm.runInContext(read("assets/js/spell-cast.js"), sandbox, { filename: "spell-cast.js" });
-const v2 = read("dm/assets/js/v2.js").replace(/\nwireLookupNow\(\);\s*\nbootV2\(\);\s*$/, "\nglobalThis.__enemy = { enemyCardHtml, compactAttackButtons, turnRowHtml, enemyPickerList, enemySelectHtml };\n");
+const v2 = read("dm/assets/js/v2.js").replace(/\nwireLookupNow\(\);\s*\nbootV2\(\);\s*$/, "\nglobalThis.__enemy = { enemyCardHtml, compactAttackButtons, turnRowHtml, enemyPickerList, enemySelectHtml, claimEnemyAdd, finishEnemyAdd };\n");
 vm.runInContext(v2, sandbox, { filename: "v2.js" });
 
 const Applied = sandbox.SSDNSApplied;
@@ -181,6 +181,12 @@ check(liveBeasts.filter((b) => b.group === "creature").length === 24 && liveBeas
 check(liveBeasts.filter((b) => b.parked).map((b) => b.id).join(",") === "captain-rhee-calder", "only Calder is parked");
 const wakan = beasts.filter((b) => b.id === "wakan-takan")[0];
 check(wakan && wakan.spellcasting.dc === 13 && wakan.spellcasting.attack === 5 && wakan.saves.INT === 5 && wakan.saves.WIS === 3 && wakan.attackList[0].toHit === 4 && wakan.proficiencyNote == null, "Wakan Takan uses proficiency +2");
+const wakanSpells = ["Chill Touch", "Spare the Dying", "Mage Hand", "Prestidigitation", "False Life", "Mage Armor", "Ray of Sickness", "Shield", "Blindness/Deafness", "Misty Step", "Ray of Enfeeblement", "Vampiric Touch"];
+check(wakan && wakan.spellcasting.spells.map((s) => s.name).join("|") === wakanSpells.join("|"), "Wakan Takan necromancer list");
+check(wakanSpells.every((name) => sandbox.SSDNSSpellCast.lookup(name)), "every Wakan Takan spell resolves");
+check(liveBeasts.every((b) => !("pendingJessey" in b)), "pendingJessey is gone");
+const buffalo = beasts.filter((b) => b.id === "buffalo-spirit")[0];
+check(buffalo && buffalo.type === "beast (spirit)" && /Spirits fade/.test(buffalo.loot || "") && (buffalo.traits || []).some((t) => t.name === "Spirit Strikes"), "Buffalo Spirit is a spirit with no loot");
 const scorp = Applied.enemyCardModel(beasts.filter((b) => b.id === "giant-scorpion")[0]);
 const claw = scorp.attacks.filter((a) => a.name === "Claw")[0];
 const sting = scorp.attacks.filter((a) => a.name === "Sting")[0];
@@ -204,6 +210,13 @@ const allyFight = sandbox.__enemy.turnRowHtml(allyRow, 0);
 const enemyFight = sandbox.__enemy.turnRowHtml(outlaw, 0);
 check(allyFight.indexOf("friendly") >= 0 && allyFight.indexOf("Friendly") >= 0 && allyFight.indexOf("Mark enemy") >= 0, "friendly card is marked");
 check(allyFight.indexOf("data-row-atk") < 0 && allyFight.indexOf("Attack player") < 0 && allyFight.indexOf("Attack this player") < 0, "friendly card does not target a player");
+check(allyFight.indexOf("Attack this creature") >= 0 && allyFight.indexOf("Attack this enemy") < 0 && allyFight.indexOf('class="who-name"') >= 0 && allyFight.indexOf('class="badge eld"') >= 0, "friendly card says Attack this creature and keeps the badge on the name");
+check(enemyFight.indexOf("Attack this enemy") >= 0 && enemyFight.indexOf("Attack this creature") < 0, "an enemy card still says Attack this enemy");
+check(sandbox.__enemy.claimEnemyAdd("abigail-ellen") === true, "the first add is accepted");
+check(sandbox.__enemy.claimEnemyAdd("abigail-ellen") === false, "the same click does not add a second copy");
+sandbox.__enemy.finishEnemyAdd();
+check(sandbox.__enemy.claimEnemyAdd("abigail-ellen") === true, "a later click can add another copy");
+sandbox.__enemy.finishEnemyAdd();
 check(enemyFight.indexOf("data-row-atk") >= 0 && enemyFight.indexOf("Mark friendly") >= 0 && enemyFight.indexOf("init-row friendly") < 0, "enemy card still attacks and offers the toggle");
 check(allyCard.indexOf("data-sheet-roll") < 0 && allyCard.indexOf("does not target the party") >= 0 && outlawHtml.indexOf("data-sheet-roll") >= 0, "friendly sheet keeps the attack text without the roll");
 const picker = [
@@ -218,9 +231,9 @@ check(sandbox.__enemy.enemyPickerList(picker, "", false).some((b) => b.parked) =
 const menu = sandbox.__enemy.enemySelectHtml(sandbox.__enemy.enemyPickerList(picker, "", false));
 check(menu.indexOf('label="Creatures"') >= 0 && menu.indexOf('label="Folk"') >= 0 && menu.indexOf('label="Named"') >= 0 && menu.indexOf("Abigail Ellen") >= 0, "fight menu uses group headers");
 check(html.indexOf('id="enemyQ"') >= 0, "fight search box is in the page");
-check(version.dmcc === "0.2.25" && version.dmccBuild === "dmcc-ally-v0225", "dmcc version");
+check(version.dmcc === "0.2.26" && version.dmccBuild === "dmcc-necromancer-v0226", "dmcc version");
 check(version.sheet === "0.3.13" && version.sheetBuild === "sheet-suggestion-v0313", "sheet version");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.25"') >= 0, "dmcc.js version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.26"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {

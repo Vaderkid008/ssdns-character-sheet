@@ -26,7 +26,7 @@
 | `group` | `creature`, `generic-folk`, or `named`. The picker labels those Creatures, Folk, and Named. |
 | `parked` | Hidden from the picker until Show parked is on. |
 
-`pendingJessey`, `tacticsDraft`, `lootSource`, and `proficiencyNote` are stored on the entry and ignored by the fight tools. Long action and legendary text, including a kraken's swallow, Lightning Storm, and a restless pioneer's hit-point drain, stays on the sheet as readable text.
+`tacticsDraft`, `lootSource`, and `proficiencyNote` may be stored on an entry and are ignored by the fight tools. `pendingJessey` is not a field. Long action and legendary text, including a kraken's swallow, Lightning Storm, and a restless pioneer's hit-point drain, stays on the sheet as readable text.
 | `spellcasting` | `{ ability, dc, attack, spells, slots }`. Spell names look up mode, damage, and range in the rules data. |
 | `traits`, `actions`, `reactions`, `legendary` | `{ name, text }`. `uses` and `recharge` add buttons. |
 | `tactics` | One line for the DM, such as "flees at half HP". Shown on the fight row and the sheet. Blank falls through to a trait whose name starts with Tactics or Morale. |
