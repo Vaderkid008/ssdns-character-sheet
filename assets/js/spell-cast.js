@@ -39,7 +39,13 @@
     }
     return exact || bare;
   }
-  function die(sides) { return 1 + Math.floor(Math.random() * sides); }
+  function die(sides) {
+    if (sides === 20 && root.SSDNSTestRoll) {
+      var forced = root.SSDNSTestRoll();
+      if (forced) return forced;
+    }
+    return 1 + Math.floor(Math.random() * sides);
+  }
   function sign(n) {
     n = Number(n) || 0;
     return (n >= 0 ? "+" : "") + n;
@@ -122,10 +128,13 @@
     var row = table[spark - 1];
     return "Wild spark " + spark + (row && row.text ? ": " + row.text : ".");
   }
-  function typeBit(row) { return row && row.type ? " " + row.type : ""; }
-
   function rollCast(opts) {
     opts = opts || {};
+    function typeBit(row) {
+      var t = row && row.type ? String(row.type) : "";
+      if (/you chose|you choose/i.test(t)) t = opts.damageType || "";
+      return t ? " " + t : "";
+    }
     var found = lookup(opts.spellName);
     var row = found || { name: opts.spellName || "Spell", level: 0, kind: "none" };
     var name = (opts.spellName && String(opts.spellName).replace(/\.+$/, "").trim()) || row.name || "Spell";
@@ -192,7 +201,8 @@
         if (missb) anyMiss = true;
         if (shown == null || critb) shown = natb;
         var one = bundle(parseDice(row.dice || "1d10"), critb && !missb);
-        bits.push("beam " + (b + 1) + " " + natb + sign(atkBonus) + " = " + tot + (missb ? " miss" : (critb ? " critical" : "")) + ", " + one.text + (missb ? " (not dealt)" : ""));
+        var face = missb ? " MISS" : ((critb ? " CRIT · on hit " : " on hit ") + one.text);
+        bits.push("beam " + (b + 1) + " " + natb + sign(atkBonus) + " = " + tot + face);
       }
       var spark = sparkFor(anyMiss);
       var text = name + gun + " · spell attack " + sign(atkBonus) + " · " + bits.join("; ");
@@ -223,7 +233,8 @@
           if (rm) rMiss = true;
           if (rNat == null || rc) rNat = rn;
           var rd = bundle(rayDice, rc && !rm);
-          rbits.push("ray " + (r + 1) + " " + rn + sign(atkBonus) + " = " + rtot + (rm ? " miss" : (rc ? " critical" : "")) + ", " + rd.text + (rm ? " (not dealt)" : ""));
+          var rface = rm ? " MISS" : ((rc ? " CRIT · on hit " : " on hit ") + rd.text);
+          rbits.push("ray " + (r + 1) + " " + rn + sign(atkBonus) + " = " + rtot + rface);
         }
       }
       var rspark = sparkFor(rMiss);
@@ -248,11 +259,10 @@
           dmgTotal += wr.total;
         }
       }
-      var dealt = miss ? " (not dealt)" : (crit ? " critical" : "");
       var head = name + gun + " · " + (kind === "weapon" ? "weapon attack " : "spell attack ") + sign(bonus) + ": " + nat + sign(bonus) + " = " + total;
       if (kind === "weapon" && row.save) head += " · " + row.save + " save";
-      var dmgText = dmgBits + " = " + dmgTotal + dealt;
-      var text = head + " · " + dmgText + (miss ? ". Miss." : "");
+      var dmgText = miss ? "MISS" : ((crit ? "CRIT · on hit " : "on hit ") + dmgBits + " = " + dmgTotal);
+      var text = head + " · " + dmgText;
       var spark = sparkFor(miss);
       return pack(text, true, nat, crit, "1d20" + sign(bonus), total, nat + sign(bonus) + " = " + total + " · " + dmgText, spark);
     }
@@ -286,5 +296,56 @@
     return pack(none, false, null, false, "—", 0, none, "");
   }
 
-  root.SSDNSSpellCast = { lookup: lookup, rollCast: rollCast, cantripTier: cantripTier };
+  function needsType(name) {
+    var row = lookup(name);
+    return !!(row && /you chose|you choose/i.test(row.type || ""));
+  }
+  function pickType(name) {
+    return new Promise(function (resolve) {
+      var types = ["acid", "cold", "fire", "lightning", "poison", "thunder"];
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      dlg.innerHTML = "<form method='dialog'><h2></h2><p class='fine'>Choose a damage type.</p><div class='type-picks'></div><div class='dlg-foot'><button class='btn' value=''>Cancel</button></div></form>";
+      dlg.querySelector("h2").textContent = name || "Spell";
+      var box = dlg.querySelector(".type-picks");
+      types.forEach(function (t) {
+        var b = document.createElement("button");
+        b.type = "submit";
+        b.className = "btn sm";
+        b.value = t;
+        b.textContent = t;
+        b.style.margin = "0 6px 6px 0";
+        box.appendChild(b);
+      });
+      var done = false;
+      dlg.addEventListener("close", function () {
+        if (done) return;
+        done = true;
+        var value = dlg.returnValue || "";
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(value);
+      });
+      document.body.appendChild(dlg);
+      if (dlg.showModal) dlg.showModal();
+      else dlg.setAttribute("open", "");
+    });
+  }
+  function blurb(name) {
+    var row = lookup(name);
+    if (!row || !row.kind || row.kind === "none") return "";
+    var type = row.type || "";
+    if (/you chose|you choose/i.test(type)) type = "(type you choose)";
+    var dice = row.dice || "";
+    if (row.kind === "save") {
+      var bits = [];
+      if (dice || type) bits.push((dice + " " + type).trim());
+      if (row.save) bits.push(row.save + " save");
+      return bits.join(" · ");
+    }
+    if (row.kind === "heal") return dice ? ("heals " + dice) : "heal";
+    if (dice) return (dice + " " + type).trim();
+    if (row.save) return row.save + " save";
+    return "";
+  }
+  root.SSDNSSpellCast = { lookup: lookup, rollCast: rollCast, cantripTier: cantripTier, needsType: needsType, pickType: pickType, blurb: blurb };
 })(typeof window !== "undefined" ? window : globalThis);

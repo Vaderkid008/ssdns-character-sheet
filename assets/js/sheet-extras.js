@@ -60,7 +60,7 @@
       void box.offsetWidth;
       box.classList.add("hp-flash");
       clearTimeout(applyDelta._flash);
-      applyDelta._flash = setTimeout(function () { box.classList.remove("hp-flash"); }, 900);
+      applyDelta._flash = setTimeout(function () { box.classList.remove("hp-flash"); }, 2600);
     }
     renderConds();
   }
@@ -114,6 +114,24 @@
     if (entry.id && log.some(function (e) { return e && e.id === entry.id; })) return;
     log.unshift(entry);
     if (log.length > 200) log.length = 200;
+    sortLog();
+    renderLog();
+  }
+  function sortLog() {
+    log.sort(function (a, b) { return String(b && b.ts || "").localeCompare(String(a && a.ts || "")); });
+  }
+  function clearLog() {
+    log.length = 0;
+    renderLog();
+    if (clearLog._busy) return;
+    clearLog._busy = true;
+    try {
+      if (root.SSDNSPlaytest && root.SSDNSPlaytest.dropLogStore) root.SSDNSPlaytest.dropLogStore(true);
+    } finally { clearLog._busy = false; }
+  }
+  function mergeLog(entries) {
+    (entries || []).forEach(function (entry) { if (entry) addLog(entry); });
+    sortLog();
     renderLog();
   }
 
@@ -190,11 +208,39 @@
       return '<div class="log-item log-' + (e.kind || "all") + " " + face.cls + '"><div class="log-meta">' + when + " · " + (e.kind || "") +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") + '</div><div>' +
         String(e.text || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }) +
-        (e.kind === "handout" ? ' <button type="button" class="btn sm" data-reopen-handout="1">Reopen</button>' : "") +
+        handoutBits(e) +
         "</div></div>";
     }).join("");
   }
 
+  function handoutBits(e) {
+    if (!e || e.kind !== "handout" || !e.url) return (e && e.kind === "handout") ? ' <button type="button" class="btn sm" data-reopen-handout="1">Reopen</button>' : "";
+    var url = String(e.url);
+    var safe = url.replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+    var title = String(e.title || "Handout").replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+    var img = /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(url) || !e.body
+      ? '<img class="handout-thumb" data-handout-zoom="1" data-url="' + safe + '" data-title="' + title + '" src="' + safe + '" alt="" style="display:block;max-width:160px;max-height:120px;margin-top:6px;cursor:zoom-in">'
+      : "";
+    return img + ' <a href="' + safe + '" target="_blank" rel="noopener">Open</a> <button type="button" class="btn sm" data-reopen-handout="1" data-url="' + safe + '" data-title="' + title + '">Reopen</button>';
+  }
+  function zoomHandout(url, title) {
+    if (!url) return;
+    var dlg = document.createElement("dialog");
+    dlg.className = "dlg";
+    dlg.innerHTML = "<form method='dialog'><h2></h2><p style='text-align:center'></p><div class='dlg-foot'><a class='btn' target='_blank' rel='noopener'>Open</a> <button class='btn' value='close'>Close</button></div></form>";
+    dlg.querySelector("h2").textContent = title || "Handout";
+    var img = document.createElement("img");
+    img.alt = title || "";
+    img.style.maxWidth = "100%";
+    img.style.maxHeight = "70vh";
+    img.src = url;
+    dlg.querySelector("p").appendChild(img);
+    var a = dlg.querySelector("a");
+    a.href = url;
+    dlg.addEventListener("close", function () { if (dlg.parentNode) dlg.parentNode.removeChild(dlg); });
+    document.body.appendChild(dlg);
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
+  }
   function walletLine() {
     var d = doc();
     var Bridge = root.SSDNSBridge;
@@ -447,6 +493,17 @@
     return "Wild spark " + spark + (row && row.text ? ": " + row.text : ".");
   }
   function castSpellAttack(i, spellName, slot, fromChamber) {
+    var Cast = root.SSDNSSpellCast;
+    if (Cast && Cast.needsType && Cast.needsType(spellName)) {
+      Cast.pickType(spellName).then(function (type) {
+        if (!type) return;
+        castSpellAttackNow(i, spellName, slot, fromChamber, type);
+      });
+      return;
+    }
+    castSpellAttackNow(i, spellName, slot, fromChamber, "");
+  }
+  function castSpellAttackNow(i, spellName, slot, fromChamber, damageType) {
     var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var c = ch();
     var Cast = root.SSDNSSpellCast;
@@ -463,6 +520,7 @@
     if (!isFinite(gunAtk)) gunAtk = 0;
     var hexslinger = !!(c && c.calling === "hexslinger");
     var row = Cast.lookup(spellName);
+    var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var rolled = Cast.rollCast({
       spellName: spellName,
       slotLevel: slot,
@@ -473,7 +531,8 @@
       weaponDamage: row && row.weapon && gunDmgEl ? gunDmgEl.value : "",
       weaponAtk: gunAtk,
       gunName: i >= 0 ? gunName(i) : "",
-      wildSpark: hexslinger && slot > 0
+      wildSpark: hexslinger && slot > 0,
+      damageType: damageType || ""
     });
     if (root.SSDNSAudio) {
       var cue = "spellshot";
@@ -483,11 +542,13 @@
     }
     toast(rolled.text);
     addLog({
+      id: "roll:" + rollId,
       kind: "roll", text: rolled.text, label: rolled.label, formula: rolled.formula,
       attack: rolled.attack, nat: rolled.nat, crit: rolled.crit
     });
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
+        id: rollId,
         label: rolled.label,
         formula: rolled.formula,
         result: rolled.result,
@@ -567,7 +628,13 @@
     var btn = $("#btnSpendInsp");
     if (btn) btn.disabled = !on || !(count > 0);
   }
-  function d20() { return 1 + Math.floor(Math.random() * 20); }
+  function d20() {
+    if (root.SSDNSTestRoll) {
+      var forced = root.SSDNSTestRoll();
+      if (forced) return forced;
+    }
+    return 1 + Math.floor(Math.random() * 20);
+  }
   function rollDamageExpr(expr, crit) {
     var s = String(expr || "");
     var m = s.match(/(\d*)d(\d+)/i);
@@ -598,6 +665,12 @@
       addLog({ kind: "alert", text: msg });
       return;
     }
+    if (!num(g.loaded)) {
+      var reloadBtn = document.querySelector('[data-reload="' + i + '"]');
+      if (reloadBtn && !reloadBtn.hidden) reloadBtn.click();
+      else toast("Reload");
+      return;
+    }
     var spent = root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i) : null;
     if (!spent || !spent.ok) {
       var reason = (spent && spent.reason) || "That gun can't fire.";
@@ -615,6 +688,7 @@
     var modeSel = document.querySelector('[data-adv="' + i + '"]');
     var globalAdv = document.querySelector("#globalAdv");
     var mode = (modeSel && modeSel.value) || (globalAdv && globalAdv.value) || "";
+    var gunRollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var n1 = d20(), n2 = null, nat = n1;
     if (mode === "adv" || mode === "dis") {
       n2 = d20();
@@ -650,19 +724,22 @@
     if (spent.left != null) bits.push(spent.left + " rounds left.");
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
     var dmg = null;
-    if (!misfired) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
-    if (dmg) bits.push((nat === 20 ? "critical " : "") + "damage " + dmg.detail + " = " + dmg.total);
+    if (!misfired && nat !== 1) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
+    if (nat === 1 || misfired) bits.push("MISS");
+    else if (dmg) bits.push((nat === 20 ? "CRIT · " : "") + "on hit " + dmg.formula + " (" + dmg.detail + ") = " + dmg.total);
     var line = bits.join(" · ");
     toast(line);
     addLog({
+      id: "roll:" + gunRollId,
       kind: "roll", text: line,
       label: name + " attack",
-      formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (dmg ? " · " + dmg.formula : ""),
-      attack: true, nat: nat, crit: nat === 20
+      formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (dmg && nat !== 1 && !misfired ? " · " + dmg.formula : ""),
+      attack: true, nat: nat, crit: nat === 20 && !misfired
     });
     var quiet = whisperOn();
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
+        id: gunRollId,
         label: name + (misfired ? " misfire" : " attack"),
         formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
         result: total,
@@ -1088,6 +1165,16 @@
     renderLog();
     renderStore();
     setTimeout(renderConds, 400);
+    document.addEventListener("click", function (e) {
+      var t = e.target && e.target.closest ? e.target.closest("[data-handout-zoom], [data-reopen-handout]") : null;
+      if (!t) return;
+      zoomHandout(t.getAttribute("data-url") || t.getAttribute("src") || "", t.getAttribute("data-title") || "Handout");
+    });
+    root.addEventListener("ssdns-sfx", function (e) {
+      var key = e && e.detail;
+      if (!key) return;
+      addLog({ id: "sfx:" + key + ":" + new Date().toISOString().slice(0, 19), kind: "alert", text: "♪ " + key });
+    });
   }
 
   root.SSDNSGunRoll = rollGun;
@@ -1097,6 +1184,9 @@
     showNotice: showNotice,
     setConditions: setConditions,
     addLog: addLog,
+    clearLog: clearLog,
+    mergeLog: mergeLog,
+    rollDamageExpr: rollDamageExpr,
     openStore: openStore,
     setStock: setStock,
     applyGunEvent: applyGunEvent,

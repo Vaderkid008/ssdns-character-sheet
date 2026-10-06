@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.7"; // dmcc-round4-v027
+const VERSION = "0.2.8"; // dmcc-round5-v028
 const NOTES_KEY = "ssdns.dmcc.notes";
 const ROOM_KEY = "ssdns.dmcc.lastRoom";
 const WORDS = ["DUST", "IRON", "HEX", "RUST", "BONE", "COIL", "SAGE", "RAIL", "OXEN", "VELD", "ASH", "QUILL"];
@@ -35,6 +35,24 @@ function toast(msg, ms) {
   t.hidden = false;
   clearTimeout(toast._t);
   toast._t = setTimeout(() => { t.hidden = true; }, ms || 2800);
+}
+function writeFailed(err, fallback) {
+  const msg = (err && (err.code || err.message)) || String(err || "");
+  const denied = /permission[_\s-]*denied/i.test(String(msg));
+  toast(denied ? "Couldn't sync to players: permission denied" : (fallback || "Couldn't sync to players"));
+  console.warn(err);
+}
+function setCreateBusy(busy) {
+  const main = $("#btnCreateRoom");
+  const header = $("#btnHeaderCreate");
+  if (main) {
+    main.disabled = !!busy;
+    main.textContent = busy ? "Connecting…" : "Create room";
+  }
+  if (header) {
+    header.disabled = !!busy;
+    header.textContent = busy ? "Connecting…" : "Create a room";
+  }
 }
 function isFormField(el) {
   if (!el || el === document.body || el === document.documentElement) return false;
@@ -114,8 +132,9 @@ function parseDice(formula) {
   const n = Math.max(1, parseInt(m[1] || "1", 10));
   const sides = parseInt(m[2], 10);
   const mod = m[3] ? parseInt(m[3], 10) : 0;
+  const forced = sides === 20 && n === 1 && window.SSDNSTestRoll && window.SSDNSTestRoll();
   const rolls = [];
-  for (let i = 0; i < n; i++) rolls.push(1 + Math.floor(Math.random() * sides));
+  for (let i = 0; i < n; i++) rolls.push(forced || (1 + Math.floor(Math.random() * sides)));
   const sum = rolls.reduce((a, b) => a + b, 0) + mod;
   const detail = rolls.join("+") + (mod ? (mod >= 0 ? "+" : "") + mod : "");
   const nat1 = n === 1 && sides === 20 && rolls[0] === 1;
@@ -293,6 +312,7 @@ async function createLiveRoom(name) {
 function attachLiveListeners() {
   clearUnsubs();
   if (!state.db || !state.roomCode) return;
+  state._listenCode = state.roomCode;
   addictionReady = false;
   const bind = (path, handler) => listenRef(path, handler);
   bind("meta", (v) => { if (v) { state.meta = v; guardFocus(() => renderRoomHero()); } });
@@ -303,7 +323,8 @@ function attachLiveListeners() {
     Object.keys(state.players).forEach((id) => {
       if (seenJoin[id]) return;
       seenJoin[id] = 1;
-      if (!prev[id]) {
+      const already = (state.ledger || []).some((e) => e && e.type === "join" && e.playerId === id);
+      if (!prev[id] && !already) {
         const s = state.players[id].snapshot || {};
         const who = [s.player, s.name].filter(Boolean).join(" · ") || id;
         pushLedger({
@@ -350,6 +371,10 @@ function attachLiveListeners() {
   bind("table", (v) => {
     state.table = v || null;
     if (window.DMCCEnhance && window.DMCCEnhance.onTable) window.DMCCEnhance.onTable(v || {});
+  });
+  bind("playerInit", (v) => {
+    state.playerInit = v || {};
+    if (window.DMCCEnhance && window.DMCCEnhance.onPlayerInit) window.DMCCEnhance.onPlayerInit(v || {});
   });
   bind("chat", (v) => {
     state.chat = objToArr(v).sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
@@ -431,7 +456,7 @@ function saveAddiction(pid) {
   if (state.demo || !state.db || !state._fb || !pid) return;
   const row = state.addiction[pid];
   if (!row) return;
-  state._fb.set(roomRef("archives/addiction/" + pid), row).catch((e) => console.warn("[DMCC] addiction", e));
+  state._fb.set(roomRef("archives/addiction/" + pid), row).catch((e) => writeFailed(e, "Couldn't sync to players"));
 }
 function alertAddiction(pid, line) {
   toast(line, 6000);
@@ -526,7 +551,7 @@ async function pushLedger(entry) {
     return;
   }
   try { await state._fb.set(roomRef("ledger/" + entry.id), entry); }
-  catch (e) { toast("Ledger write failed"); console.warn(e); }
+  catch (e) { writeFailed(e, "Ledger write failed"); }
 }
 
 async function pushRoll(entry) {
@@ -546,10 +571,10 @@ async function pushRoll(entry) {
         text: text, kind: "roll", who: entry.who || "DM"
       };
       // One public copy. A roll command as well made the player log the same roll twice.
-      try { await state._fb.set(roomRef("tableFeed/" + entry.id), feed); } catch (err) { console.warn("[DMCC] feed", err); }
+      try { await state._fb.set(roomRef("tableFeed/" + entry.id), feed); } catch (err) { writeFailed(err, "Couldn't sync to players"); }
     }
   }
-  catch (e) { toast("Roll write failed"); console.warn(e); }
+  catch (e) { writeFailed(e, "Roll write failed"); }
 }
 
 async function pushMessage(entry) {
@@ -561,7 +586,7 @@ async function pushMessage(entry) {
     return;
   }
   try { await state._fb.set(roomRef("messages/" + entry.id), entry); }
-  catch (e) { toast("Message failed"); console.warn(e); }
+  catch (e) { writeFailed(e, "Message failed"); }
 }
 
 async function pushHandout(entry) {
@@ -574,12 +599,15 @@ async function pushHandout(entry) {
     return;
   }
   try { await state._fb.set(roomRef("handouts/" + entry.id), entry); }
-  catch (e) { toast("Handout failed"); console.warn(e); }
+  catch (e) { writeFailed(e, "Handout failed"); }
 }
 
 async function pushCommand(cmd) {
   cmd.id = cmd.id || uid("cmd");
   cmd.ts = cmd.ts || new Date().toISOString();
+  if (cmd.payload && (cmd.type === "reward_es" || cmd.type === "reward_item" || cmd.type === "hp")) {
+    if (!cmd.payload.grantId) cmd.payload.grantId = cmd.id;
+  }
   if (state.demo) {
     state.commands.unshift(cmd);
     toast("Command queued (demo): " + cmd.type + (cmd.to && cmd.to !== "all" ? " → " + cmd.to : " → all"));
@@ -590,9 +618,9 @@ async function pushCommand(cmd) {
     await state._fb.set(roomRef("commands/" + cmd.id), cmd);
     const copy = to && to !== "all" ? "inbox/" + to + "/" + cmd.id : "broadcast/" + cmd.id;
     try { await state._fb.set(roomRef(copy), cmd); }
-    catch (err) { console.warn("[DMCC] deliver", err); }
+    catch (err) { writeFailed(err, "Couldn't sync to players"); }
     toast("Sent: " + cmd.type);
-  } catch (e) { toast("Command failed"); console.warn(e); }
+  } catch (e) { writeFailed(e, "Command failed"); }
 }
 
 async function applyEsToDemoPlayer(playerId, delta) {
@@ -1043,7 +1071,7 @@ async function sendDockChat(text, to) {
   try {
     await state._fb.set(roomRef("chat/" + row.id), row);
     toast("Sent to the table");
-  } catch (e) { toast("Chat failed"); console.warn(e); }
+  } catch (e) { writeFailed(e, "Chat failed"); }
 }
 
 function renderRolls() {
@@ -1392,6 +1420,7 @@ function wire() {
     paint();
   }
   const createRoom = () => {
+    if (!state.demo && !state.firebaseReady) return;
     const name = ($("#inRoomName").value || "").trim();
     if (document.body.classList.contains("in-room")) leaveRoom();
     if (state.demo || !state.firebaseReady) loadDemo(true);
@@ -1417,7 +1446,9 @@ function wire() {
   $("#chkDemo").addEventListener("change", async () => {
     state.demo = $("#chkDemo").checked;
     if (!state.demo) {
+      if (!state.firebaseReady) setCreateBusy(true);
       const ok = state.firebaseReady || await initFirebase();
+      setCreateBusy(false);
       if (!ok) {
         $("#chkDemo").checked = true;
         state.demo = true;
@@ -1561,6 +1592,13 @@ async function peekResume() {
 async function resumeLiveRoom() {
   const pending = pendingResume;
   if (!pending) return false;
+  if (!state.firebaseReady) {
+    setCreateBusy(true);
+    setStatus("live", "Connecting…");
+    const ok = await initFirebase();
+    setCreateBusy(false);
+    if (!ok) { toast("Firebase isn't ready yet"); return false; }
+  }
   state.demo = false;
   state.roomCode = pending.code;
   state.meta = pending.meta;
@@ -1570,11 +1608,27 @@ async function resumeLiveRoom() {
   state.messages = [];
   state.handouts = [];
   state.commands = [];
-  attachLiveListeners();
-  showRoom();
-  renderAll();
   const choice = $("#resumeChoice");
   if (choice) choice.hidden = true;
+  setStatus("live", "Loading " + pending.code + "…");
+  toast("Loading " + pending.code + "…");
+  try {
+    const fb = state._fb;
+    const [playersSnap, tableSnap, ledgerSnap] = await Promise.all([
+      fb.get(roomRef("players")),
+      fb.get(roomRef("table")),
+      fb.get(roomRef("ledger"))
+    ]);
+    state.players = playersSnap.val() || {};
+    state.ledger = objToArr(ledgerSnap.val()).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+    state.table = tableSnap.val() || {};
+  } catch (e) {
+    console.warn("[DMCC] resume load", e);
+  }
+  if (state._listenCode !== pending.code || !state.unsubs.length) attachLiveListeners();
+  if (window.DMCCEnhance && window.DMCCEnhance.onTable) window.DMCCEnhance.onTable(state.table || {});
+  showRoom();
+  renderAll();
   setStatus("live", "Rejoined " + pending.code + " · players stay connected");
   toast("Rejoined " + pending.code);
   return true;
@@ -1609,7 +1663,9 @@ window.DMCC = {
   renderLedger: renderLedger,
   openDetail: openDetail,
   roomRef: roomRef,
-  namesFor: namesFor
+  namesFor: namesFor,
+  writeFailed: writeFailed,
+  setCreateBusy: setCreateBusy
 };
 
 async function boot() {
@@ -1623,11 +1679,14 @@ async function boot() {
   // Demo: fully offline — do not touch Firebase CDN.
   // Live (?demo=0): try Firebase; fall back to Demo if it fails.
   if (state.demo) {
+    setCreateBusy(false);
     loadDemo(false);
     setStatus("demo", "Demo mode · offline · no Firebase loaded");
   } else {
+    setCreateBusy(true);
     setStatus("live", "Connecting to Firebase…");
     const ok = await initFirebase();
+    setCreateBusy(false);
     if (!ok) {
       state.demo = true;
       $("#chkDemo").checked = true;

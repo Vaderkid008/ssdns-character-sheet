@@ -111,9 +111,9 @@
           "public": {
             ".read": "auth != null",
             "$id": {
-              ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
               ".validate": "newData.hasChildren(['name']) && !newData.hasChild('hp') && !newData.hasChild('maxHp')"
-            }
+            },
+            ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
           },
           "hp": {
             ".read": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
