@@ -411,9 +411,21 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .init-row input[type="number"] { width: 4.2rem; }
 .init-actions { display: flex; gap: 4px; flex-wrap: wrap; }
 .enemy-card { flex: 1 0 100%; border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
-.enemy-card .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.enemy-card input[type="text"] { width: 7rem; }
-.enemy-card input[type="number"] { width: 4.2rem; }
+.enemy-card .toolbar, .enemy-sheet .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.enemy-card input[type="text"], .enemy-sheet input[type="text"] { width: 7rem; min-height: 44px; }
+.enemy-card input[type="number"], .enemy-sheet input[type="number"] { width: 4.6rem; min-height: 44px; }
+.enemy-sheet.drawer { max-width: 720px; }
+.enemy-sheet .btn, .name-btn, .turn-chip { min-height: 44px; }
+.name-btn { background: none; border: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; padding: 0; }
+.turn-chip { font: inherit; color: inherit; cursor: pointer; }
+.atk-row { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.atk-row h3 { margin: 0 0 4px; font-family: var(--head); font-weight: 400; font-size: 22px; color: var(--parch); text-transform: none; letter-spacing: 0; }
+.dc-call { color: var(--ochre); font-weight: 700; margin: 4px 0; }
+.hp-bar { height: 12px; background: #121816; border: 1px solid var(--line); margin: 8px 0; }
+.hp-bar span { display: block; height: 100%; background: var(--eld); }
+.sheet-dice { position: sticky; bottom: 0; background: var(--bg-2); padding: 8px 0; z-index: 1; }
+.enemy-sheet .abil-cell { width: 100%; color: inherit; cursor: pointer; min-height: 44px; }
+.enemy-sheet p, .atk-row p { overflow-wrap: anywhere; }
 .bestiary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .bestiary-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
 .bestiary-card h3 { margin: 0 0 4px; font-family: var(--head); color: var(--parch); font-weight: 400; }

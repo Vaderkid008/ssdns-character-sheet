@@ -358,8 +358,39 @@
       legendary: Array.isArray(b.legendary) ? b.legendary : [],
       spellcasting: casting,
       slots: slots,
-      attacks: attacks
+      attacks: attacks,
+      loot: b.loot || "",
+      esDrop: b.esDrop == null || b.esDrop === "" ? null : b.esDrop
     };
+  }
+  function saveMod(card, ability) {
+    card = card || {};
+    var key = String(ability || "").toUpperCase();
+    var listed = card.saves && card.saves[key];
+    if (listed && typeof listed === "object") listed = listed.bonus != null ? listed.bonus : listed.mod;
+    if (listed != null && listed !== "" && isFinite(Number(listed))) return Number(listed);
+    return abilityMod(card.scores && card.scores[key]);
+  }
+  function riderText(rider) {
+    if (!rider) return "";
+    var dc = rider.dc == null || rider.dc === "" ? "" : ("DC " + rider.dc);
+    var save = rider.save ? String(rider.save).toUpperCase() : "";
+    var cond = rider.condition || "";
+    var head = [dc, save].filter(Boolean).join(" ");
+    if (head && cond) return head + " or " + cond;
+    return head || cond;
+  }
+  function dcLines(card) {
+    var lines = [];
+    ((card && card.attacks) || []).forEach(function (atk) {
+      var text = riderText(atk && atk.rider);
+      if (text) lines.push((atk.name || "Attack") + ": " + text);
+    });
+    var cast = card && card.spellcasting;
+    if (cast && cast.dc != null && cast.dc !== "") {
+      lines.push("Spell save DC " + cast.dc + (cast.ability ? " (" + cast.ability + ")" : ""));
+    }
+    return lines;
   }
   function offset() { return offsetMs; }
   /** Age of a stamp against estimated server time. */
@@ -392,6 +423,9 @@
     isMisfire: isMisfire,
     publicDetail: publicDetail,
     enemyCardModel: enemyCardModel,
+    saveMod: saveMod,
+    riderText: riderText,
+    dcLines: dcLines,
     healDice: healDice,
     healLine: healLine,
     hitLine: hitLine,
