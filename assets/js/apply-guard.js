@@ -186,6 +186,49 @@
     if (!sessionOpen) return false;
     return reason !== "leave" && reason !== "end" && reason !== "new";
   }
+  /**
+   * Lobby / room status strip after the DM ends, leaves, or moves the table.
+   * An ended room is never "live".
+   */
+  function sessionStrip(event, info) {
+    info = info || {};
+    var code = String(info.code || "").trim();
+    var roomStatus = String(info.roomStatus || "");
+    var demo = !!info.demo;
+    var ended = event === "end" || roomStatus === "ended";
+    if (ended) {
+      if (demo) return { mode: "demo", text: "Demo mode · offline · no Firebase loaded" };
+      return { mode: "offline", text: "Session ended" };
+    }
+    if (event === "leave") {
+      if (demo) {
+        return {
+          mode: "demo",
+          text: code ? ("Demo mode · offline · resume " + code + " or start a new session") : "Demo mode · offline"
+        };
+      }
+      if (code) return { mode: "live", text: "Live · resume " + code + " or start a new session" };
+      return { mode: "offline", text: "Left the room" };
+    }
+    if (event === "move") {
+      if (demo) return { mode: "demo", text: code ? ("Demo mode · offline · code " + code) : "Demo mode · offline" };
+      if (code) return { mode: "live", text: "Live · " + code + " · players stay connected" };
+      return { mode: "offline", text: "Session ended" };
+    }
+    return { mode: "offline", text: "Session ended" };
+  }
+  /** Refuse an in-room LIVE line once the DM has left the table or the room has ended. */
+  function liveStripAllowed(mode, text, info) {
+    if (mode !== "live") return true;
+    info = info || {};
+    var line = String(text || "");
+    var roomStatus = String(info.roomStatus || "");
+    var inRoom = !!info.inRoom;
+    var closed = roomStatus === "ended" || roomStatus === "moved";
+    if (/players stay connected/i.test(line) && (!inRoom || closed)) return false;
+    if (closed && /players stay connected|resume /i.test(line)) return false;
+    return true;
+  }
   function resumeInsteadOfLobby(openFlag) {
     return !!(openFlag && openFlag.code);
   }
@@ -455,6 +498,8 @@
     settled: settled,
     sortInitiative: sortInitiative,
     staysInRoom: staysInRoom,
+    sessionStrip: sessionStrip,
+    liveStripAllowed: liveStripAllowed,
     resumeInsteadOfLobby: resumeInsteadOfLobby,
     attackButtonLabel: attackButtonLabel,
     gunEmpty: gunEmpty,

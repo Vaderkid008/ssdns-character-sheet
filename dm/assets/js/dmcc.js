@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.21"; // dmcc-tactics-v0221
+const VERSION = "0.2.22"; // dmcc-session-status-v0222
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -802,7 +802,39 @@ async function applyEsToDemoPlayer(playerId, delta) {
 }
 
 /* ---------- UI: status / room ---------- */
+function sessionStrip(event, info) {
+  const extra = info || {};
+  if (window.SSDNSApplied && window.SSDNSApplied.sessionStrip) {
+    return window.SSDNSApplied.sessionStrip(event, extra);
+  }
+  if (event === "end" || extra.roomStatus === "ended") {
+    return extra.demo
+      ? { mode: "demo", text: "Demo mode · offline · no Firebase loaded" }
+      : { mode: "offline", text: "Session ended" };
+  }
+  return { mode: "offline", text: "Session ended" };
+}
+function paintSession(event, info) {
+  const next = sessionStrip(event, info || {});
+  setStatus(next.mode, next.text);
+}
 function setStatus(mode, text) {
+  const inRoom = document.body.classList.contains("in-room") && !!state.roomCode;
+  const roomStatus = (state.meta && state.meta.status) || "";
+  const allowed = window.SSDNSApplied && window.SSDNSApplied.liveStripAllowed
+    ? window.SSDNSApplied.liveStripAllowed(mode, text, { roomStatus: roomStatus, inRoom: inRoom })
+    : !(mode === "live" && /players stay connected/i.test(text || "") && (!inRoom || roomStatus === "ended" || roomStatus === "moved"));
+  if (!allowed) {
+    const ended = roomStatus === "ended" || roomStatus === "moved";
+    mode = state.demo ? "demo" : (ended ? "offline" : "live");
+    text = ended
+      ? (state.demo ? "Demo mode · offline · no Firebase loaded" : "Session ended")
+      : sessionStrip("leave", {
+          code: (state.meta && state.meta.code) || "",
+          roomStatus: roomStatus,
+          demo: !!state.demo
+        }).text;
+  }
   const dot = $("#statusDot");
   dot.className = "status-dot " + (mode === "live" ? "live" : mode === "offline" ? "offline" : "demo");
   $("#statusText").textContent = text;
@@ -865,6 +897,7 @@ function leaveRoom(reason) {
     showResumeChoice("");
   }
   toast("Left this screen. The table is still live — resume it or start a new session.");
+  paintSession("leave", { code: code, roomStatus: (meta && meta.status) || "", demo: demo });
 }
 
 async function copyText(text) {
@@ -1437,6 +1470,7 @@ async function newRoomCode() {
     showRoom();
     renderAll();
     toast("Table moved to " + code);
+    paintSession("move", { code: code, roomStatus: "live", demo: !!state.demo });
     return;
   }
   try {
@@ -1452,6 +1486,7 @@ async function newRoomCode() {
     showRoom();
     renderAll();
     toast("Table moved to " + code);
+    paintSession("move", { code: code, roomStatus: (state.meta && state.meta.status) || "live", demo: false });
   } catch (e) {
     writeFailed(e, "Couldn't move the table");
   }
@@ -2023,9 +2058,13 @@ async function endSession(wipe) {
     if (wipe) { state.players = {}; state.ledger = []; state.rolls = []; state.messages = []; state.handouts = []; }
     try { localStorage.removeItem(ROOM_KEY); } catch (err) {}
     pendingResume = null;
-    hideRoom();
-    showResumeChoice("");
-    setStatus("demo", "Demo mode · offline · no Firebase loaded");
+    if (state.meta) state.meta.status = "ended";
+    try {
+      hideRoom();
+      showResumeChoice("");
+    } finally {
+      paintSession("end", { code: codeName, roomStatus: "ended", demo: true });
+    }
     return;
   }
   try {
@@ -2045,9 +2084,13 @@ async function endSession(wipe) {
   }
   try { localStorage.removeItem(ROOM_KEY); } catch (err) {}
   pendingResume = null;
-  hideRoom();
-  showResumeChoice("");
-  setStatus("offline", "Session ended");
+  if (state.meta) state.meta.status = "ended";
+  try {
+    hideRoom();
+    showResumeChoice("");
+  } finally {
+    paintSession("end", { code: codeName, roomStatus: "ended", demo: false });
+  }
 }
 
 /* ---------- tabs ---------- */
