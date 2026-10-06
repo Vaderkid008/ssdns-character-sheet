@@ -468,11 +468,17 @@ function featureButtons(list, i, kind) {
     if (!f || typeof f !== "object") return "";
     const key = kind + ":" + n;
     const left = f.uses == null ? null : (f._left == null ? f.uses : f._left);
+    const useAttr = i < 0
+      ? `data-sheet-feat="use" data-feat-kind="${esc(kind)}" data-n="${n}"`
+      : `data-feat-use="${i}" data-feat-kind="${esc(kind)}" data-feat-n="${n}"`;
+    const rechargeAttr = i < 0
+      ? `data-sheet-feat="recharge" data-feat-kind="${esc(kind)}" data-n="${n}"`
+      : `data-feat-recharge="${i}" data-feat-kind="${esc(kind)}" data-feat-n="${n}"`;
     const use = f.uses != null
-      ? `<button type="button" class="btn sm" data-feat-use="${i}" data-feat-kind="${esc(kind)}" data-feat-n="${n}">Use ${esc(f.name || "feature")} (${left})</button>`
+      ? `<button type="button" class="btn sm" ${useAttr}>Use ${esc(f.name || "feature")} (${left})</button>`
       : "";
     const recharge = f.recharge
-      ? `<button type="button" class="btn sm" data-feat-recharge="${i}" data-feat-kind="${esc(kind)}" data-feat-n="${n}">Recharge ${esc(f.recharge)}</button>`
+      ? `<button type="button" class="btn sm" ${rechargeAttr}>Recharge ${esc(f.recharge)}</button>`
       : "";
     return use || recharge ? `<span data-feat-key="${esc(key)}">${use}${recharge}</span>` : "";
   }).join(" ");
@@ -482,34 +488,65 @@ function featureBlock(title, list, i, kind) {
   if (!text && !(list && list.length)) return "";
   return `<p class="fine"><b>${esc(title)}.</b> ${esc(text)}</p><p class="toolbar">${featureButtons(list, i, kind)}</p>`;
 }
+let enemySheetId = null;
+const previewRows = {};
+function sheetSaveMod(card, ability) {
+  if (window.SSDNSApplied && window.SSDNSApplied.saveMod) return window.SSDNSApplied.saveMod(card, ability);
+  return cardMod(card && card.scores && card.scores[ability]);
+}
 function enemyCardHtml(row, i) {
   const card = row.card;
   if (!card) return "";
   const scores = card.scores || {};
-  const scoreLine = ["STR", "DEX", "CON", "INT", "WIS", "CHA"].map((key) => {
+  const abilities = ["STR", "DEX", "CON", "INT", "WIS", "CHA"].map((key) => {
     const score = scores[key];
     const mod = cardMod(score);
-    return `<button type="button" class="btn sm" data-card-check="${i}" data-check-mod="${mod}" data-check-label="${esc(key)}">${key} ${score == null ? "—" : esc(score)} (${signed(mod)})</button>`;
-  }).join(" ");
-  const saveBtns = Object.keys(card.saves || {}).map((name) => {
-    const bonus = card.saves[name];
-    const n = bonus && typeof bonus === "object" ? bonus.bonus : bonus;
-    return `<button type="button" class="btn sm" data-card-check="${i}" data-check-mod="${Number(n) || 0}" data-check-label="${esc(name)} save">${esc(name)} save ${signed(n)}</button>`;
-  }).join(" ");
-  const saveLine = saveBtns || "—";
+    return `<button type="button" class="abil-cell" data-sheet-check="1" data-check-mod="${mod}" data-check-label="${esc(key)}"><b>${signed(mod)}</b><span>${key} ${score == null ? "—" : esc(score)}</span></button>`;
+  }).join("");
+  const saves = ["STR", "DEX", "CON", "INT", "WIS", "CHA"].map((key) => {
+    const mod = sheetSaveMod(card, key);
+    const listed = card.saves && card.saves[key] != null && card.saves[key] !== "";
+    return `<button type="button" class="abil-cell" data-sheet-check="1" data-check-mod="${mod}" data-check-label="${esc(key)} save"><b>${signed(mod)}</b><span>${key}${listed ? "" : ""}</span></button>`;
+  }).join("");
   const skillLine = Object.keys(card.skills || {}).map((name) => {
     const bonus = card.skills[name];
     const n = bonus && typeof bonus === "object" ? bonus.bonus : bonus;
-    return `<button type="button" class="btn sm" data-card-check="${i}" data-check-mod="${Number(n) || 0}" data-check-label="${esc(name)}">${esc(name)} ${signed(n)}</button>`;
-  }).join(" ");
+    return `<button type="button" class="btn" data-sheet-check="1" data-check-mod="${Number(n) || 0}" data-check-label="${esc(name)}">${esc(name)} ${signed(n)}</button>`;
+  }).join("");
+  const dcLines = window.SSDNSApplied && window.SSDNSApplied.dcLines ? window.SSDNSApplied.dcLines(card) : [];
   const attacks = (card.attacks || []).map((atk, n) => {
-    const gun = atk.capacity == null ? "" : ` · ${atk.loaded == null ? "?" : atk.loaded}/${atk.capacity}`;
-    const mf = atk.misfire == null ? "" : ` · MF ${atk.misfire}`;
-    const jam = atk.jammed ? ` <button type="button" class="btn sm" data-clear-jam="${i}" data-atk-n="${n}">Clear jam</button>` : "";
-    return `<p><button type="button" class="btn sm" data-card-atk="${i}" data-atk-n="${n}">${esc(atk.name)} ${signed(atk.toHit)}</button> <span class="fine">${esc(atk.damage || "")}${atk.damageType ? " " + esc(atk.damageType) : ""}${atk.range ? " · " + esc(atk.range) : ""}${gun}${mf}${atk.jammed ? " · jammed" : ""}</span>${jam}</p>`;
+    const rider = window.SSDNSApplied && window.SSDNSApplied.riderText ? window.SSDNSApplied.riderText(atk.rider) : "";
+    const cap = atk.capacity == null ? "" : `${atk.loaded == null ? "?" : atk.loaded}/${atk.capacity}`;
+    const bits = [
+      atk.kind || "",
+      signed(atk.toHit),
+      [atk.damage || "", atk.damageType || ""].filter(Boolean).join(" "),
+      atk.range || "",
+      cap,
+      atk.misfire == null ? "" : ("MF " + atk.misfire)
+    ].filter(Boolean);
+    const jam = atk.jammed
+      ? `<p class="fine">Jammed. <button type="button" class="btn sm" data-clear-jam="${i}" data-atk-n="${n}">Clear jam</button></p>`
+      : "";
+    const riderBtns = atk.rider
+      ? `<button type="button" class="btn" data-sheet-save="prompt" data-n="${n}">Prompt player save</button>
+         <button type="button" class="btn" data-sheet-save="auto" data-n="${n}">Auto-roll</button>`
+      : "";
+    return `<article class="atk-row">
+      <h3>${esc(atk.name || "Attack")}</h3>
+      <p>${esc(bits.join(" · "))}</p>
+      ${atk.notes ? `<p class="fine">${esc(atk.notes)}</p>` : ""}
+      ${rider ? `<p class="dc-call">${esc(rider)}</p>` : ""}
+      ${jam}
+      <div class="toolbar">
+        <button type="button" class="btn btn-primary" data-sheet-roll="1" data-n="${n}">Roll</button>
+        <button type="button" class="btn" data-sheet-apply="1" data-n="${n}">Apply</button>
+        ${riderBtns}
+      </div>
+    </article>`;
   }).join("");
   const rider = row.pendingRider
-    ? `<p><button type="button" class="btn sm" data-apply-rider="${i}">Apply ${esc(row.pendingRider.condition || "condition")}${row.pendingRider.targetName ? " to " + esc(row.pendingRider.targetName) : ""}</button></p>`
+    ? `<p><button type="button" class="btn" data-apply-rider="${i}">Apply ${esc(row.pendingRider.condition || "condition")}${row.pendingRider.targetName ? " to " + esc(row.pendingRider.targetName) : ""}</button></p>`
     : "";
   const casting = card.spellcasting;
   let spells = "";
@@ -519,31 +556,78 @@ function enemyCardHtml(row, i) {
       const slot = card.slots[lv];
       const dots = [];
       for (let p = 0; p < slot.max; p++) {
-        dots.push(`<button type="button" class="btn sm" data-slot-spend="${i}" data-slot-lv="${esc(lv)}" aria-label="Level ${esc(lv)} slot">${p < slot.left ? "●" : "○"}</button>`);
+        const mark = p < slot.left ? "●" : "○";
+        dots.push(i < 0
+          ? `<button type="button" class="btn sm" data-sheet-slot="${esc(lv)}" aria-label="Level ${esc(lv)} slot">${mark}</button>`
+          : `<button type="button" class="btn sm" data-slot-spend="${i}" data-slot-lv="${esc(lv)}" aria-label="Level ${esc(lv)} slot">${mark}</button>`);
       }
       return `<span class="fine">L${esc(lv)} ${dots.join("")}</span>`;
     }).join(" ");
     const buttons = list.map((spell, n) => {
-      const name = typeof spell === "string" ? spell : (spell && spell.name) || "Spell";
+      const raw = typeof spell === "string" ? spell : (spell && spell.name) || "Spell";
+      const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(raw) : null;
+      const name = (known && known.name) || raw;
       const blurb = window.SSDNSSpellCast && window.SSDNSSpellCast.blurb ? window.SSDNSSpellCast.blurb(name) : "";
-      return `<p><button type="button" class="btn sm" data-card-cast="${i}" data-spell-n="${n}">Cast ${esc(name)}</button> <span class="fine">${esc(blurb)}</span></p>`;
+      const kind = (known && known.kind) || (spell && spell.kind) || "";
+      const level = spell && spell.level != null ? spell.level : (known && known.level != null ? known.level : "");
+      const mode = kind === "save" ? "SAVE" : (kind === "attack" ? "ATTACK" : (kind ? String(kind).toUpperCase() : ""));
+      const meta = [
+        level !== "" && level != null ? "L" + level : "",
+        mode,
+        casting.dc != null ? "DC " + casting.dc : "",
+        casting.attack != null ? "atk " + signed(casting.attack) : "",
+        known && known.dice ? known.dice : "",
+        known && known.range ? known.range : ""
+      ].filter(Boolean).join(" · ");
+      const castLabel = kind === "save" ? "Cast (save)" : (kind === "attack" ? "Cast (attack)" : "Cast");
+      return `<article class="atk-row">
+        <h3>${esc(name)}</h3>
+        <p>${esc(meta)}</p>
+        ${blurb ? `<p class="fine">${esc(blurb)}</p>` : ""}
+        <button type="button" class="btn" data-sheet-cast="1" data-n="${n}">${esc(castLabel)}</button>
+      </article>`;
     }).join("");
-    spells = `<p class="fine"><b>Spellcasting.</b> DC ${esc(casting.dc == null ? "—" : casting.dc)} · attack ${signed(casting.attack)} ${pips}</p>${buttons}`;
+    const dc = casting.dc == null ? "—" : casting.dc;
+    spells = `<div class="detail-section"><h3>Spells</h3>
+      <p class="dc-call">Spell save DC ${esc(dc)}${casting.ability ? " (" + esc(casting.ability) + ")" : ""} · attack ${signed(casting.attack)}</p>
+      ${pips ? `<p>${pips}</p>` : `<p class="fine">At will</p>`}
+      ${buttons}</div>`;
   }
+  const maxHp = row.maxHp == null || row.maxHp === "" ? row.hp : row.maxHp;
+  const cur = Number(row.hp);
+  const max = Number(maxHp);
+  const pct = isFinite(cur) && isFinite(max) && max > 0 ? Math.max(0, Math.min(100, Math.round(cur / max * 100))) : 0;
+  const hpFields = String(enemySheetId || "").indexOf("preview:") === 0
+    ? `<label class="fine">HP <input type="number" data-preview-hp="${esc(row.beastId || "")}" value="${row.hp == null ? "" : esc(row.hp)}" aria-label="HP"></label>
+       <label class="fine">Max <input type="number" data-preview-max="${esc(row.beastId || "")}" value="${maxHp == null ? "" : esc(maxHp)}" aria-label="Max HP"></label>`
+    : `<label class="fine">HP <input type="number" data-hp-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.hp == null ? "" : esc(row.hp)}" aria-label="HP"></label>
+       <label class="fine">Max <input type="number" data-max-val="${i}" data-row-id="${esc(row.id || "")}" value="${maxHp == null ? "" : esc(maxHp)}" aria-label="Max HP"></label>`;
+  const loot = card.loot ? `<div class="detail-section"><h3>Loot</h3><p>${esc(card.loot)}</p>${card.esDrop != null ? `<p class="fine">Drops ${esc(card.esDrop)} ES</p>` : ""}</div>` : (card.esDrop != null ? `<div class="detail-section"><h3>Loot</h3><p>Drops ${esc(card.esDrop)} ES</p></div>` : "");
   return `<div class="enemy-card">
-    <p class="fine">AC ${esc(row.ac)} · HP ${esc(row.hp)}${row.maxHp != null ? "/" + esc(row.maxHp) : ""} · Speed ${esc(card.speed || "—")}${card.cr ? " · CR " + esc(card.cr) : ""}${card.senses ? " · " + esc(card.senses) : ""}</p>
-    <p class="toolbar">${scoreLine}</p>
-    <p class="toolbar"><b>Saves.</b> ${saveLine}</p>
-    ${skillLine ? `<p class="toolbar">${skillLine}</p>` : ""}
-    ${card.description ? `<p class="fine">${esc(card.description)}</p>` : ""}
-    ${attacks}
+    <div class="stat-row">
+      <div class="stat"><b>${esc(row.ac == null ? "—" : row.ac)}</b><span>AC</span></div>
+      <div class="stat"><b>${esc(row.hp == null ? "—" : row.hp)}/${esc(maxHp == null ? "—" : maxHp)}</b><span>HP</span></div>
+      <div class="stat"><b>${esc(card.speed || "—")}</b><span>Speed</span></div>
+      <div class="stat"><b>${esc(card.cr || "—")}</b><span>CR</span></div>
+    </div>
+    <div class="hp-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>
+    <div class="toolbar">${hpFields}</div>
+    ${card.senses ? `<p class="fine">${esc(card.senses)}</p>` : ""}
+    ${card.description ? `<p>${esc(card.description)}</p>` : ""}
+    ${conditionChips(row)}
+    ${dcLines.length ? `<div class="detail-section"><h3>DCs</h3>${dcLines.map((line) => `<p class="dc-call">${esc(line)}</p>`).join("")}</div>` : ""}
+    <div class="detail-section"><h3>Attacks</h3>${attacks || "<p class=\"fine\">No listed attacks.</p>"}</div>
     ${rider}
+    <div class="detail-section"><h3>Abilities</h3><div class="abil-grid">${abilities}</div></div>
+    <div class="detail-section"><h3>Saving throws</h3><div class="abil-grid">${saves}</div><p class="fine">Uses the advantage toggle in the dice box.</p></div>
+    ${skillLine ? `<div class="detail-section"><h3>Skills</h3><div class="toolbar">${skillLine}</div></div>` : ""}
     ${featureBlock("Traits", card.traits, i, "traits")}
     ${featureBlock("Actions", card.actions, i, "actions")}
     ${featureBlock("Reactions", card.reactions, i, "reactions")}
     ${featureBlock("Legendary", card.legendary, i, "legendary")}
     ${spells}
-    <div class="toolbar">
+    ${loot}
+    <div class="toolbar sheet-dice">
       <input type="text" data-dice-formula="${i}" value="1d20" aria-label="Dice for ${esc(row.name || "enemy")}" placeholder="2d6+3">
       <select data-dice-mode="${i}" aria-label="Advantage for ${esc(row.name || "enemy")}">
         <option value="">Normal</option>
@@ -552,19 +636,20 @@ function enemyCardHtml(row, i) {
       </select>
       <input type="number" data-dice-mod="${i}" value="0" aria-label="Modifier for ${esc(row.name || "enemy")}">
       <label class="toggle"><input type="checkbox" data-card-public="${i}"${card.public ? " checked" : ""}> Public</label>
-      <button type="button" class="btn sm" data-card-dice="${i}">Roll</button>
+      <button type="button" class="btn" data-sheet-dice="1">Roll</button>
     </div>
   </div>`;
 }
 function compactAttackButtons(row, i) {
   const list = (row.card && row.card.attacks && row.card.attacks.length) ? row.card.attacks : (row.attackList || []);
-  if (!list.length) return `<button type="button" class="btn sm" data-init-strike="${i}">Attack player</button>`;
+  const open = `<button type="button" class="btn sm" data-open-enemy="${esc(row.id || "")}">Open sheet</button>`;
+  if (!list.length) return `<button type="button" class="btn sm" data-init-strike="${i}">Attack player</button>${open}`;
   return list.map((atk, n) => {
     const label = window.SSDNSApplied && window.SSDNSApplied.attackButtonLabel
       ? window.SSDNSApplied.attackButtonLabel(atk)
       : ((atk && atk.name) || "Attack");
     return `<button type="button" class="btn sm" data-row-atk="${i}" data-atk-n="${n}">${esc(label)}</button>`;
-  }).join("");
+  }).join("") + open;
 }
 function turnRowHtml(row, i) {
   const flash = fight.flash === i ? " flash" : "";
@@ -580,7 +665,7 @@ function turnRowHtml(row, i) {
     : "";
   return `<div class="init-row${current}${flash}${fled ? " fled" : ""}">
       <input class="init-score" type="number" data-init-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.init == null ? "" : esc(row.init)}" aria-label="Initiative for ${esc(row.name || "combatant")}">
-      <span class="init-who" title="${esc(row.name || "Someone")}"><b>${esc(row.name || "Someone")}</b>
+      <span class="init-who" title="${esc(row.name || "Someone")}">${row.kind === "enemy" ? `<button type="button" class="name-btn" data-open-enemy="${esc(row.id || "")}">${esc(row.name || "Someone")}</button>` : `<b>${esc(row.name || "Someone")}</b>`}
         <span class="fine">${esc(row.kind || "combatant")}${row.tie ? " · tie" : ""}${status ? " · " + esc(status) : ""}${detail ? " · " + esc(detail) : ""}${esc(turnAckLabel(row))}</span>
         ${downBadge}
         ${conditionChips(row)}
@@ -602,7 +687,6 @@ function turnRowHtml(row, i) {
         <button type="button" class="btn sm" data-init-down-move="${i}" aria-label="Move down">↓</button>
         <button type="button" class="btn sm" data-init-del="${i}" aria-label="Remove">✕</button>
       </span>
-      ${row.kind === "enemy" && row.card ? enemyCardHtml(row, i) : ""}
     </div>`;
 }
 function fightRowFromField(el) {
@@ -657,11 +741,16 @@ function renderFight() {
     const html = fight.order.map(turnRowHtml).join("");
     if (list) list.innerHTML = html;
     if (strip) {
-      strip.innerHTML = `<div class="turn-strip-label">Turn order</div>` + fight.order.map((row, i) =>
-        `<span class="turn-chip ${fight.started && i === fight.turn ? "current" : ""}"><b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> ${esc(row.name || "")}</span>`
-      ).join("");
+      strip.innerHTML = `<div class="turn-strip-label">Turn order</div>` + fight.order.map((row, i) => {
+        const current = fight.started && i === fight.turn ? " current" : "";
+        const label = `<b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> ${esc(row.name || "")}`;
+        if (row.kind === "enemy") return `<button type="button" class="turn-chip${current}" data-open-enemy="${esc(row.id || "")}">${label}</button>`;
+        return `<span class="turn-chip${current}">${label}</span>`;
+      }).join("");
     }
     syncTurnState();
+    const sheet = $("#enemySheet");
+    if (sheet && !sheet.hidden) renderEnemySheet();
   };
   if (DM.guardFocus) DM.guardFocus(run);
   else run();
@@ -1643,6 +1732,7 @@ function beastRow(b) {
     attackList: b.attackList || [],
     speed: b.speed,
     cr: b.cr,
+    beastId: b.id || "",
     card: window.SSDNSApplied && window.SSDNSApplied.enemyCardModel ? window.SSDNSApplied.enemyCardModel(b) : null
   };
 }
@@ -1653,8 +1743,8 @@ function renderBestiary() {
     ? window.SSDNSApplied.traitText
     : (traits) => (Array.isArray(traits) ? traits.map((t) => (t && t.name) || "").join(", ") : String(traits || ""));
   box.innerHTML = visibleBeasts().map((b) => `
-    <article class="bestiary-card">
-      <h3>${esc(b.name)}</h3>
+    <article class="bestiary-card" data-beast-card="${esc(b.id)}">
+      <h3><button type="button" class="name-btn" data-open-beast="${esc(b.id)}">${esc(b.name)}</button></h3>
       <p>AC ${esc(b.ac)} · HP ${esc(b.hp)}${b.cr ? " · CR " + esc(b.cr) : ""}</p>
       <p>${esc(b.attacks || "")}</p>
       <p class="lede">${esc(traitText(b.traits))}</p>
@@ -1662,6 +1752,206 @@ function renderBestiary() {
       <label class="fine">Name <input type="text" data-beast-name="${esc(b.id)}" value="${esc(b.name)}" aria-label="Rename ${esc(b.name)}"></label>
       <button type="button" class="btn sm" data-add-beast="${esc(b.id)}">Add to initiative</button>
     </article>`).join("") || '<p class="lede">No bestiary file.</p>';
+}
+function beastById(id) {
+  return visibleBeasts().filter((b) => b && b.id === id)[0] || null;
+}
+function showEnemySheet() {
+  const sheet = $("#enemySheet");
+  if (sheet) sheet.hidden = false;
+}
+function closeEnemySheet() {
+  const sheet = $("#enemySheet");
+  if (sheet) sheet.hidden = true;
+  enemySheetId = null;
+}
+function openEnemyById(id) {
+  if (!id) return;
+  enemySheetId = id;
+  showEnemySheet();
+  renderEnemySheet();
+}
+function openEnemyBeast(id) {
+  const live = fight.order.filter((r) => r && r.beastId === id).slice(-1)[0];
+  if (live) return openEnemyById(live.id);
+  enemySheetId = "preview:" + id;
+  showEnemySheet();
+  renderEnemySheet();
+}
+function renderEnemySheet() {
+  const sheet = $("#enemySheet");
+  const body = $("#enemySheetBody");
+  const title = $("#enemySheetTitle");
+  const sub = $("#enemySheetSub");
+  if (!sheet || !body || sheet.hidden) return;
+  const active = document.activeElement;
+  if (active && body.contains(active) && /INPUT|TEXTAREA|SELECT/.test(active.tagName)) return;
+  let row = null;
+  let index = -1;
+  if (String(enemySheetId || "").indexOf("preview:") === 0) {
+    const id = String(enemySheetId).slice(8);
+    const beast = beastById(id);
+    if (!beast) { closeEnemySheet(); return; }
+    row = previewRows[id] || beastRow(beast);
+    row.beastId = beast.id;
+    previewRows[id] = row;
+  } else {
+    index = fight.order.findIndex((r) => r && r.id === enemySheetId);
+    row = index >= 0 ? fight.order[index] : null;
+    if (!row) { closeEnemySheet(); return; }
+    if (!row.card && window.SSDNSApplied && window.SSDNSApplied.enemyCardModel) {
+      row.card = window.SSDNSApplied.enemyCardModel(row.attackList ? row : { attackList: [], abilities: {} });
+    }
+    const named = (row.atkBonus !== "" && row.atkBonus != null) || row.damage || row.attacks;
+    if (row.card && !row.card.attacks.length && named) {
+      row.card.attacks.push({
+        id: "custom",
+        name: row.attacks || "Attack",
+        kind: "",
+        toHit: row.atkBonus,
+        damage: row.damage || "",
+        damageType: "",
+        range: "",
+        capacity: null,
+        loaded: null,
+        misfire: null,
+        jammed: false,
+        notes: "",
+        rider: null
+      });
+    }
+  }
+  if (title) title.textContent = row.name || "Enemy";
+  if (sub) {
+    const card = row.card || {};
+    sub.textContent = [card.cr ? "CR " + card.cr : "", row.kind === "enemy" ? "Enemy" : "", card.speed ? "Speed " + card.speed : ""].filter(Boolean).join(" · ");
+  }
+  const add = String(enemySheetId || "").indexOf("preview:") === 0
+    ? `<p><button type="button" class="btn btn-primary" data-sheet-add="1">Add to the fight</button></p>`
+    : "";
+  body.innerHTML = add + enemyCardHtml(row, index);
+}
+async function withSheetRow() {
+  if (String(enemySheetId || "").indexOf("preview:") === 0) {
+    const id = String(enemySheetId).slice(8);
+    const row = previewRows[id];
+    if (!row) return null;
+    enemySheetId = row.id;
+    fight.recruit = true;
+    addCombatant(row);
+    delete previewRows[id];
+    announce("Added " + (row.name || "an enemy") + " to the turn order", "combat", row);
+  }
+  const i = fight.order.findIndex((r) => r && r.id === enemySheetId);
+  return i >= 0 ? i : null;
+}
+async function applyLastStrike(i, n) {
+  const row = fight.order[i];
+  const atk = row && row.card && row.card.attacks && row.card.attacks[n];
+  const last = atk && atk.lastRoll;
+  if (!last || !last.hit || !last.damage) { DM.toast("Roll a hit first"); return; }
+  const room = DM.state.roomCode;
+  if (last.id && window.SSDNSApplied && window.SSDNSApplied.settled && window.SSDNSApplied.settled(room, last.id)) {
+    DM.toast("Already applied");
+    return;
+  }
+  applyPlayerHit({
+    rollId: last.id,
+    targetId: last.targetId,
+    targetName: last.targetName,
+    amount: last.damage,
+    from: row.id,
+    characterName: row.name,
+    weapon: atk.name,
+    label: atk.name,
+    type: "damage"
+  });
+}
+async function runRider(i, n, mode) {
+  const row = fight.order[i];
+  const atk = row && row.card && row.card.attacks && row.card.attacks[n];
+  const rider = atk && atk.rider;
+  if (!row || !rider) return;
+  let targetId = (atk.lastRoll && atk.lastRoll.targetId) || row.lastAttackerId;
+  let targetName = (atk.lastRoll && atk.lastRoll.targetName) || "";
+  if (!targetId) {
+    const picked = await askEnemyStrike(row, atk);
+    if (!picked || !picked.targetId) return;
+    targetId = picked.targetId;
+  }
+  const target = playerTargets().filter((p) => p.id === targetId)[0] || { id: targetId, name: targetName || targetId };
+  const save = await requestPlayerSave({
+    targetId: target.id,
+    targetName: target.name,
+    ability: rider.save || "STR",
+    dc: rider.dc,
+    label: (row.name || "Enemy") + " " + (atk.name || "attack"),
+    rider: rider.condition || "",
+    fromName: row.name || "",
+    auto: mode === "auto"
+  });
+  if (save.failed) {
+    row.pendingRider = {
+      condition: rider.condition || "condition",
+      rounds: rider.rounds,
+      targetId: target.id,
+      targetName: target.name
+    };
+    try {
+      await writeSubjectConditions(target.id, "player", [{ name: row.pendingRider.condition, rounds: rider.rounds }], target.name || "", 1, {}, []);
+    } catch (err) {}
+  }
+  if (DM.state.demo || mode === "auto") {
+    await DM.pushRoll({
+      who: target.name || row.name, label: (atk.name || "Save"), formula: "1d20" + signed(save.mod || 0),
+      result: save.total, detail: save.line, private: !(row.card && row.card.public), nat: save.nat, save: true
+    });
+  }
+  await saveRemoteTable();
+  renderFight();
+  DM.toast(save.line);
+}
+function onEnemySheetClick(e) {
+  const t = e.target.closest && e.target.closest("[data-open-enemy],[data-open-beast],[data-beast-card],[data-sheet-roll],[data-sheet-apply],[data-sheet-save],[data-sheet-check],[data-sheet-cast],[data-sheet-dice],[data-sheet-add],[data-sheet-feat],[data-sheet-slot]");
+  if (!t) return;
+  if (t.hasAttribute("data-open-enemy")) {
+    openEnemyById(t.getAttribute("data-open-enemy"));
+    return;
+  }
+  if (t.hasAttribute("data-open-beast")) {
+    openEnemyBeast(t.getAttribute("data-open-beast"));
+    return;
+  }
+  if (t.hasAttribute("data-beast-card") && !e.target.closest("input, button, a, label")) {
+    openEnemyBeast(t.getAttribute("data-beast-card"));
+    return;
+  }
+  if (!t.hasAttribute("data-sheet-roll") && !t.hasAttribute("data-sheet-apply") && !t.hasAttribute("data-sheet-save") && !t.hasAttribute("data-sheet-check") && !t.hasAttribute("data-sheet-cast") && !t.hasAttribute("data-sheet-dice") && !t.hasAttribute("data-sheet-add") && !t.hasAttribute("data-sheet-feat") && !t.hasAttribute("data-sheet-slot")) return;
+  e.preventDefault();
+  const n = parseInt(t.getAttribute("data-n"), 10);
+  withSheetRow().then((i) => {
+    if (t.hasAttribute("data-sheet-add")) return;
+    if (i == null) return;
+    if (t.hasAttribute("data-sheet-roll")) return cardStrike(i, n, { skipRider: true });
+    if (t.hasAttribute("data-sheet-apply")) return applyLastStrike(i, n);
+    if (t.hasAttribute("data-sheet-save")) return runRider(i, n, t.getAttribute("data-sheet-save"));
+    if (t.hasAttribute("data-sheet-check")) return cardCheck(i, t.getAttribute("data-check-mod"), t.getAttribute("data-check-label"));
+    if (t.hasAttribute("data-sheet-cast")) return cardCast(i, n);
+    if (t.hasAttribute("data-sheet-dice")) return cardDice(i);
+    if (t.hasAttribute("data-sheet-slot")) {
+      const row = fight.order[i];
+      const lv = t.getAttribute("data-sheet-slot");
+      const slot = row && row.card && row.card.slots && row.card.slots[lv];
+      if (!slot) return;
+      slot.left = slot.left > 0 ? slot.left - 1 : slot.max;
+      renderEnemySheet();
+      return;
+    }
+    if (t.hasAttribute("data-sheet-feat")) {
+      const again = document.querySelector("#enemySheet [data-feat-" + (t.getAttribute("data-sheet-feat") === "recharge" ? "recharge" : "use") + "=\"" + i + "\"][data-feat-n=\"" + n + "\"]");
+      if (again) again.click();
+    }
+  });
 }
 
 function tierLines(g) {
@@ -2361,6 +2651,7 @@ function requestPlayerSave(opts) {
     const line = who + " " + ability + " save" + (auto ? " (no answer, DM rolled)" : "") + " " + nat + signed(mod) + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (failed ? " FAIL" : " OK");
     return { id: id, nat: nat, total: total, failed: failed, auto: !!auto, line: line, mod: mod, target: target };
   };
+  if (opts.auto) return Promise.resolve(localRoll(true));
   if (DM.state.demo || !DM.state.db) return Promise.resolve(localRoll(false));
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
@@ -2434,7 +2725,7 @@ async function publishCardRoll(row, detail, result, extra) {
     nat: extra && extra.nat
   }, extra || {}));
 }
-async function cardStrike(i, n) {
+async function cardStrike(i, n, opts) {
   const row = fight.order[i];
   const atk = row && row.card && row.card.attacks && row.card.attacks[n];
   if (!row || !atk) {
@@ -2474,6 +2765,7 @@ async function cardStrike(i, n) {
   const bonusTxt = signed(bonus);
   let detail = row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + (isFinite(ac) ? " vs AC " + ac : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   const id = DM.uid("enatk");
+  atk.lastRoll = { id: id, damage: dmg ? dmg.total : null, targetId: target.id, targetName: target.name, hit: hit };
   await publishCardRoll(row, detail, total, {
     id: id, formula: "1d20" + bonusTxt, attack: true, nat: nat, crit: nat === 20 && hit,
     targetId: target.id, targetName: target.name, damage: dmg ? dmg.total : null, weapon: atk.name
@@ -2484,7 +2776,7 @@ async function cardStrike(i, n) {
       from: row.id, characterName: row.name, weapon: atk.name, label: atk.name, type: "damage"
     });
   }
-  if (hit && atk.rider && (atk.rider.condition || atk.rider.save)) {
+  if (!(opts && opts.skipRider) && hit && atk.rider && (atk.rider.condition || atk.rider.save)) {
     const save = await requestPlayerSave({
       targetId: target.id,
       targetName: target.name,
@@ -2517,22 +2809,28 @@ async function cardStrike(i, n) {
   renderFight();
   DM.toast(detail + (atk.capacity != null && !atk.rider ? " · " + atk.loaded + " left" : ""));
 }
+function sheetDiceMode() {
+  const el = document.querySelector("#enemySheet [data-dice-mode]");
+  return (el && el.value) || "";
+}
 async function cardCheck(i, mod, label) {
   const row = fight.order[i];
   if (!row) return;
   const bonus = Number(mod) || 0;
-  const nat = d20();
-  const total = nat + bonus;
-  const detail = (row.name || "Enemy") + " " + (label || "check") + " " + nat + signed(bonus) + " = " + total;
-  await publishCardRoll(row, detail, total, { formula: "1d20" + signed(bonus), nat: nat });
+  const mode = sheetDiceMode();
+  const out = DM.rollChecked ? DM.rollChecked("1d20", mode, bonus) : { total: d20() + bonus, detail: "", nat1: false };
+  const nat = out.rolls && out.rolls.length ? out.rolls[0] : null;
+  const detail = (row.name || "Enemy") + " " + (label || "check") + " " + (out.detail || (nat + signed(bonus))) + " = " + out.total;
+  await publishCardRoll(row, detail, out.total, { formula: "1d20" + signed(bonus), nat: nat });
   DM.toast(detail);
 }
 async function cardDice(i) {
   const row = fight.order[i];
   if (!row) return;
-  const formula = (document.querySelector("[data-dice-formula='" + i + "']") || {}).value || "1d20";
-  const mode = (document.querySelector("[data-dice-mode='" + i + "']") || {}).value || "";
-  const extra = Number((document.querySelector("[data-dice-mod='" + i + "']") || {}).value) || 0;
+  const root = document.getElementById("enemySheet") || document;
+  const formula = (root.querySelector("[data-dice-formula='" + i + "']") || {}).value || "1d20";
+  const mode = (root.querySelector("[data-dice-mode='" + i + "']") || {}).value || "";
+  const extra = Number((root.querySelector("[data-dice-mod='" + i + "']") || {}).value) || 0;
   const out = DM.rollChecked ? DM.rollChecked(String(formula).trim() || "1d20", mode, extra) : DM.parseDice(formula);
   const detail = (row.name || "Enemy") + " " + formula + " = " + out.total + (out.detail ? " (" + out.detail + ")" : "");
   await publishCardRoll(row, detail, out.total, { formula: formula, nat: out.nat1 ? 1 : null });
@@ -2972,6 +3270,10 @@ function wireClicks() {
     if (!box || !box.getAttribute || !box.hasAttribute("data-card-public")) return;
     const row = fight.order[parseInt(box.getAttribute("data-card-public"), 10)];
     if (row && row.card) row.card.public = !!box.checked;
+    else if (String(enemySheetId || "").indexOf("preview:") === 0) {
+      const prev = previewRows[String(enemySheetId).slice(8)];
+      if (prev && prev.card) prev.card.public = !!box.checked;
+    }
   });
   document.addEventListener("click", (e) => {
     const t = e.target.closest && e.target.closest("[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-row-atk],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend]");
@@ -3471,6 +3773,14 @@ async function bootV2() {
   $("#btnLongRest") && $("#btnLongRest").addEventListener("click", () => rest("long"));
   $("#btnUndo") && $("#btnUndo").addEventListener("click", undoLast);
   $("#btnAddStock") && $("#btnAddStock").addEventListener("click", addStock);
+  document.addEventListener("click", onEnemySheetClick);
+  $("#btnCloseEnemy") && $("#btnCloseEnemy").addEventListener("click", closeEnemySheet);
+  $("#enemySheet") && $("#enemySheet").addEventListener("click", (e) => {
+    if (e.target && e.target.id === "enemySheet") closeEnemySheet();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && $("#enemySheet") && !$("#enemySheet").hidden) closeEnemySheet();
+  });
   $("#btnOpenAllStores") && $("#btnOpenAllStores").addEventListener("click", openAllStores);
   $("#btnCloseAllStores") && $("#btnCloseAllStores").addEventListener("click", closeAllStores);
   document.querySelectorAll('input[name="townSize"]').forEach((el) => {
@@ -3588,6 +3898,16 @@ async function bootV2() {
   document.addEventListener("change", (ev) => {
     const t = ev.target;
     if (!t || !t.getAttribute) return;
+    if (t.hasAttribute("data-preview-hp") || t.hasAttribute("data-preview-max")) {
+      const id = t.getAttribute("data-preview-hp") || t.getAttribute("data-preview-max");
+      const preview = previewRows[id];
+      if (!preview) return;
+      const next = t.value === "" ? "" : parseInt(t.value, 10);
+      if (t.hasAttribute("data-preview-hp")) preview.hp = next;
+      else preview.maxHp = next;
+      renderEnemySheet();
+      return;
+    }
     const initI = t.getAttribute("data-init-val");
     const hpI = t.getAttribute("data-hp-val");
     const acI = t.getAttribute("data-ac-val");

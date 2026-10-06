@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="assets/revolver.png">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.19-chat">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.20-chat">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -461,6 +461,19 @@
   </div>
 </div>
 
+<div class="overlay" id="enemySheet" hidden>
+  <div class="drawer enemy-sheet" role="dialog" aria-modal="true" aria-labelledby="enemySheetTitle">
+    <div class="drawer-head">
+      <div>
+        <h2 id="enemySheetTitle">Enemy</h2>
+        <div class="pcard-sub" id="enemySheetSub"></div>
+      </div>
+      <button type="button" class="btn" id="btnCloseEnemy">Close</button>
+    </div>
+    <div id="enemySheetBody"></div>
+  </div>
+</div>
+
 <!-- End session dialog -->
 <dialog id="dlgEnd" class="drawer" style="border:1px solid var(--eld-dim);background:var(--bg-2);color:var(--ink);max-width:420px;padding:18px">
   <h2 style="font-family:var(--head);color:var(--eld);margin:0 0 8px;font-weight:400">End Session</h2>
@@ -498,16 +511,16 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.19"></script>
-<script src="../assets/js/conditions.js?v=0.2.19"></script>
-<script src="assets/js/ui-tab.js?v=0.2.19"></script>
-<script src="../assets/js/sfx.js?v=0.2.19"></script>
-<script src="../assets/data/rules.js?v=0.2.19"></script>
-<script src="../assets/js/spell-cast.js?v=0.2.19"></script>
-<script src="../assets/js/firebase-config.js?v=0.2.19"></script>
-<script src="assets/js/store-stock.js?v=0.2.19"></script>
-<script src="assets/js/demo-data.js?v=0.2.19"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.19-chat"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.19"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.20"></script>
+<script src="../assets/js/conditions.js?v=0.2.20"></script>
+<script src="assets/js/ui-tab.js?v=0.2.20"></script>
+<script src="../assets/js/sfx.js?v=0.2.20"></script>
+<script src="../assets/data/rules.js?v=0.2.20"></script>
+<script src="../assets/js/spell-cast.js?v=0.2.20"></script>
+<script src="../assets/js/firebase-config.js?v=0.2.20"></script>
+<script src="assets/js/store-stock.js?v=0.2.20"></script>
+<script src="assets/js/demo-data.js?v=0.2.20"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.20-chat"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.20"></script>
 </body>
 </html>
