@@ -532,7 +532,12 @@
         misfire: a.misfire == null || a.misfire === "" ? null : Number(a.misfire),
         jammed: false,
         notes: a.notes || "",
-        rider: a.rider || null
+        rider: a.rider || null,
+        saveDamage: a.saveDamage || null,
+        grapple: a.grapple || null,
+        saveEffect: a.saveEffect || null,
+        extraDamage: a.extraDamage || null,
+        versatile: a.versatile || ""
       };
     });
     var casting = b.spellcasting || null;
@@ -589,20 +594,56 @@
     if (listed != null && listed !== "" && isFinite(Number(listed))) return Number(listed);
     return abilityMod(card.scores && card.scores[key]);
   }
+  function namedCondition(rider) {
+    if (!rider) return "";
+    var name = String(rider.condition || "").trim();
+    if (!name || /^condition$/i.test(name)) return "";
+    return name;
+  }
   function riderText(rider) {
     if (!rider) return "";
     var dc = rider.dc == null || rider.dc === "" ? "" : ("DC " + rider.dc);
     var save = rider.save ? String(rider.save).toUpperCase() : "";
-    var cond = rider.condition || "";
+    var cond = namedCondition(rider);
     var head = [dc, save].filter(Boolean).join(" ");
     if (head && cond) return head + " or " + cond;
     return head || cond;
   }
+  function grappleText(grapple) {
+    if (!grapple || grapple.escapeDc == null || grapple.escapeDc === "") return "";
+    return "Grappled (escape DC " + grapple.escapeDc + ")";
+  }
+  function saveDamageText(spec) {
+    if (!spec) return "";
+    var dc = spec.dc == null || spec.dc === "" ? "" : ("DC " + spec.dc);
+    var save = spec.save ? String(spec.save).toUpperCase() : "";
+    var dmg = [spec.damage, spec.damageType].filter(Boolean).join(" ");
+    var half = spec.onSave === "half" ? "half on a success" : "";
+    return [dc, save, dmg, half].filter(Boolean).join(" ");
+  }
+  function saveEffectText(spec) {
+    if (!spec) return "";
+    var dc = spec.dc == null || spec.dc === "" ? "" : ("DC " + spec.dc);
+    var save = spec.save ? String(spec.save).toUpperCase() : "";
+    return [dc, save].filter(Boolean).join(" ");
+  }
+  function halved(n) {
+    var v = Number(n);
+    if (!isFinite(v)) return 0;
+    return Math.floor(v / 2);
+  }
   function dcLines(card) {
     var lines = [];
     ((card && card.attacks) || []).forEach(function (atk) {
-      var text = riderText(atk && atk.rider);
+      if (!atk) return;
+      var text = riderText(atk.rider);
       if (text) lines.push((atk.name || "Attack") + ": " + text);
+      var poison = saveDamageText(atk.saveDamage);
+      if (poison) lines.push((atk.name || "Attack") + ": " + poison);
+      var grip = grappleText(atk.grapple);
+      if (grip) lines.push((atk.name || "Attack") + ": " + grip);
+      var effect = saveEffectText(atk.saveEffect);
+      if (effect) lines.push((atk.name || "Attack") + ": " + effect);
     });
     var cast = card && card.spellcasting;
     if (cast && cast.dc != null && cast.dc !== "") {
@@ -642,7 +683,12 @@
     publicDetail: publicDetail,
     enemyCardModel: enemyCardModel,
     saveMod: saveMod,
+    namedCondition: namedCondition,
     riderText: riderText,
+    grappleText: grappleText,
+    saveDamageText: saveDamageText,
+    saveEffectText: saveEffectText,
+    halved: halved,
     dcLines: dcLines,
     tacticsNote: tacticsNote,
     healDice: healDice,

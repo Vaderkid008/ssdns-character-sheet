@@ -426,6 +426,10 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .sheet-dice { position: sticky; bottom: 0; background: var(--bg-2); padding: 8px 0; z-index: 1; }
 .enemy-sheet .abil-cell { width: 100%; color: inherit; cursor: pointer; min-height: 44px; }
 .enemy-sheet p, .atk-row p { overflow-wrap: anywhere; }
+.beast-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.beast-tools input[type="search"] { flex: 1 1 160px; min-width: 0; min-height: 44px; background: var(--bg); border: 1px solid var(--line); color: inherit; padding: 6px 8px; }
+.beast-group { margin: 12px 0; }
+.beast-group > h3 { margin: 0 0 8px; font-family: var(--head); color: var(--eld); font-weight: 400; font-size: 22px; }
 .bestiary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .bestiary-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
 .bestiary-card h3 { margin: 0 0 4px; font-family: var(--head); color: var(--parch); font-weight: 400; }

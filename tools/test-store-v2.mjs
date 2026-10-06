@@ -158,7 +158,7 @@ check(buyFn.indexOf("soldOut") >= 0 && buyFn.indexOf("soldOut") < buyFn.indexOf(
 check(Store.playerTabs([{ store: "gun" }, { store: "general" }, { store: "gun" }], true).join() === "general,gun", "one tab per open store, in shop order");
 check(Store.playerTabs([{ store: "general" }], false).length === 0, "a closed store shows no tabs");
 
-check(read("version.json").indexOf('"sheet": "0.3.12"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.23"') >= 0, "versions");
+check(read("version.json").indexOf('"sheet": "0.3.13"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.24"') >= 0, "versions");
 
 function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 async function viewport() {

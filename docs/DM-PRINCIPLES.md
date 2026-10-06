@@ -18,4 +18,4 @@ The goal: the DM's eyes stay on the table, not the screen. Every click saved is 
 - DCs spelled out in text the DM can read aloud
 - Spells: mode (attack/save/heal/utility), one-line summary, uses/slots
 - A tactics/morale trait
-- Loot priced in ES; cover written as Take Cover only
+- Loot priced in ES. Half cover is +2 and three-quarters cover is +5 to AC and Dexterity saves. Take Cover still stacks: a bonus action imposes disadvantage on incoming ranged attacks until the next attack, and firing ends it. Kneeling or prone alone is not cover.

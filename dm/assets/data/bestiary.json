@@ -1,155 +1,4744 @@
 [
-  {
-    "id": "_template",
-    "template": true,
-    "name": "Template",
-    "ac": 10,
-    "hp": 1,
-    "speed": 30,
-    "dex": 10,
-    "attacks": "",
-    "attackList": [],
-    "tactics": "",
-    "traits": []
+ {
+  "id": "_template",
+  "template": true,
+  "name": "Template",
+  "ac": 10,
+  "hp": 1,
+  "speed": 30,
+  "dex": 10,
+  "attacks": "",
+  "attackList": [],
+  "tactics": "",
+  "traits": []
+ },
+ {
+  "id": "outlaw",
+  "name": "Outlaw",
+  "bookName": "Gunslinger Outlaw",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any non-lawful alignment",
+  "ac": 12,
+  "armor": "Leather Jacket",
+  "hp": 11,
+  "hitDice": "2d8+2",
+  "hpDice": "2d8+2",
+  "speed": "30 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 11,
+   "DEX": 12,
+   "CON": 12,
+   "INT": 10,
+   "WIS": 10,
+   "CHA": 10
   },
-  {
-    "id": "outlaw",
-    "name": "Outlaw",
-    "size": "Medium",
-    "type": "humanoid (human)",
-    "alignment": "any non-lawful",
-    "ac": 12,
-    "armor": "leather armor",
-    "hp": 11,
-    "hitDice": "2d8+2",
-    "speed": 30,
-    "dex": 12,
-    "initBonus": 1,
-    "cr": "1/8",
-    "xp": 25,
-    "abilities": { "STR": 11, "DEX": 12, "CON": 12, "INT": 10, "WIS": 10, "CHA": 10 },
-    "saves": {},
-    "skills": {},
-    "senses": "passive Perception 10",
-    "languages": "Common",
-    "attacks": "Revolver +3 (1d8+1 piercing, 20/60, cap 6, MF 1), Bowie +3 (1d6+1 piercing)",
-    "atkBonus": 3,
+  "str": 11,
+  "con": 12,
+  "int": 10,
+  "wis": 10,
+  "cha": 10,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 10",
+  "languages": "Common",
+  "attacks": "Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1), Bowie +3 (1d6+1 piercing)",
+  "atkBonus": 3,
+  "damage": "1d8+1",
+  "attackList": [
+   {
+    "id": "revolver",
+    "name": "Revolver",
+    "kind": "ranged",
+    "toHit": 3,
     "damage": "1d8+1",
-    "attackList": [
-      { "id": "revolver", "name": "Revolver", "kind": "ranged", "toHit": 3, "bonus": 3, "damage": "1d8+1", "damageType": "piercing", "range": "20/60", "capacity": 6, "misfire": 1 },
-      { "id": "bowie", "name": "Bowie", "kind": "melee", "toHit": 3, "bonus": 3, "damage": "1d6+1", "damageType": "piercing", "range": "5 ft" }
-    ],
-    "traits": [],
-    "description": "Trail trash with a six-gun attitude: duster or short coat, bandana, cheap leather, a knife that fights like a scimitar and a belt gun or short carbine. Stagecoach robbers, road agents, and posse fodder."
+    "damageType": "piercing",
+    "range": "20/60",
+    "capacity": 6,
+    "misfire": 1,
+    "notes": "Pony Arms ChaosMaker, Medium (.44-40). Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action.",
+    "bonus": 3,
+    "weaponClass": "martial",
+    "weapon": "Pony Arms ChaosMaker, Medium (.44-40)",
+    "target": "one target"
+   },
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 3,
+    "damage": "1d6+1",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "notes": "Martial. Finesse, light.",
+    "bonus": 3,
+    "weaponClass": "martial",
+    "target": "one target"
+   }
+  ],
+  "traits": [
+   {
+    "name": "Cover Habit (tactic)",
+    "text": "Shoots, then uses Take Cover (bonus action) behind solid cover such as a wagon, embankment, or switch stand. Ranged attacks against it have disadvantage until its next attack, and firing ends it. It won't charge into melee unless a PC closes."
+   },
+   {
+    "name": "Morale (tactic)",
+    "text": "If the leader runs or drops, or two of the gang are down, the last outlaws surrender, or flee if they have a horse and room to run."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Surrenders when wounded or outnumbered; lookouts ride off to warn the gang.",
+  "tacticsSource": "IDEAS Ch2 robber/lookouts + playtest Morale trait",
+  "tacticsDraft": false,
+  "loot": "Pockets: roll d6 on the outlaw drop table (IDEAS draft, average 250 ES). A gun taken off the dead is Dirty. Keepable gun (one per encounter): the ChaosMaker Medium he fired (2,500 ES list; gear, not cash).",
+  "lootSource": "playtest bestiary.json (drop table §1.1) + DND Bot lock pass S23 gun",
+  "description": "Basic gunman: trail outlaw with a six-gun and a Bowie (Gunslinger Outlaw block).",
+  "group": "generic-folk",
+  "source": "six-shooters/drafts/monster-manual/GUNSLINGER-OUTLAW.md"
+ },
+ {
+  "id": "switch-boss",
+  "name": "Switch Boss",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any non-lawful alignment",
+  "ac": 12,
+  "armor": "Leather Jacket",
+  "hp": 11,
+  "hitDice": "2d8+2",
+  "hpDice": "2d8+2",
+  "speed": "30 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 11,
+   "DEX": 12,
+   "CON": 12,
+   "INT": 10,
+   "WIS": 10,
+   "CHA": 10
   },
-  {
-    "id": "switch-boss",
-    "name": "Switch Boss",
-    "description": "Rifleman who runs the rail-switch crew in Night at the Switch; fires a Dirty Henrietta from the handcar.",
-    "cr": "1/8",
-    "ac": 12,
-    "hp": 11,
-    "hpDice": "2d8+2",
-    "speed": "30 ft.",
-    "senses": "passive Perception 10",
-    "str": 11,
-    "dex": 12,
-    "con": 12,
-    "int": 10,
-    "wis": 10,
-    "cha": 10,
-    "saves": {},
-    "skills": {},
-    "loot": "Boss poke: 2 Yellow + 1 Green (250 ES). His rifle: Dirty Henrietta Repeating Rifle (.44-40) and leftover tube rounds, gear at PHB list (6,500 ES), not cash. Scene finds, not on him: tool box (Investigation DC 12) with a crowbar and a gun cleaning kit (100 ES gear); handcar lockbox (thieves' tools DC 12 or Str DC 15) with 1 Purple (500 ES) under 1 Black decoy.",
-    "esDrop": 250,
-    "tactics": "Flees on the handcar when he is the last of the crew standing.",
-    "attacks": "Dirty Rifle +3 (1d8+1 piercing, 30/120, 6 rds, MF 1-2), Bowie +3 (1d6+1 piercing)",
-    "atkBonus": 3,
+  "str": 11,
+  "con": 12,
+  "int": 10,
+  "wis": 10,
+  "cha": 10,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 10",
+  "languages": "Common",
+  "attacks": "Dirty Rifle +3 (1d8+1 piercing, 30/120, 6 rds, MF 1-2), Bowie +3 (1d6+1 piercing)",
+  "atkBonus": 3,
+  "damage": "1d8+1",
+  "attackList": [
+   {
+    "id": "dirty-rifle",
+    "name": "Dirty Rifle",
+    "kind": "ranged",
+    "toHit": 3,
+    "bonus": 3,
     "damage": "1d8+1",
-    "attackList": [
-      { "id": "dirty-rifle", "name": "Dirty Rifle", "kind": "ranged", "toHit": 3, "damage": "1d8+1", "damageType": "piercing", "range": "30/120", "capacity": 6, "misfire": 2, "notes": "Henrietta Repeating Rifle, Medium (.44-40), Dirty. Misfires on a natural 1-2: miss, jam, and the round is still spent. No close quarters: disadvantage with a hostile within 5 ft. Two-handed. Reload is an action; Tactical Reload loads 1 round as a bonus action." },
-      { "id": "bowie", "name": "Bowie", "kind": "melee", "toHit": 3, "damage": "1d6+1", "damageType": "piercing", "range": "5 ft", "notes": "Finesse, light. Only if a PC closes on the handcar." }
+    "damageType": "piercing",
+    "range": "30/120",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 2,
+    "properties": [
+     "two-handed",
+     "no close quarters",
+     "Tactical Reload",
+     "martial"
     ],
-    "traits": [
-      { "name": "Dirty Rifle", "text": "The rifle is Dirty: it misfires on at least 1-2 until someone cleans it (10 minutes with gunsmith's tools or a gun cleaning kit). A misfire misses and jams the rifle, and the round is still spent. It fouls (unusable until a short rest with tools, or 500 ES to a gunsmith) if both d20s show 1-2 on a roll with advantage or disadvantage, or if it gets dirty again." },
-      { "name": "Handcar Nest (tactic)", "text": "Stays on the handcar and fires the rifle, then uses Take Cover (bonus action) behind the handcar. Ranged attacks against him have disadvantage until his next attack, and firing ends it. There is no automatic cover from the handcar." },
-      { "name": "Morale (tactic)", "text": "When he is the last of the crew standing, he flees on the handcar. If he runs, the remaining outlaws surrender." }
+    "weapon": "Henrietta Repeating Rifle, Medium (.44-40), Dirty",
+    "notes": "Henrietta Repeating Rifle, Medium (.44-40), Dirty. Martial. Two-handed. No close quarters: disadvantage with a hostile within 5 ft. Misfire on a natural 1-2: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   },
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d6+1",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
     ],
-    "actions": [
-      { "name": "Clear Jam", "text": "Clears the jammed rifle with his action, or with a bonus action and a DC 10 Dexterity check (+1; no tool proficiency). A fouled rifle can't be cleared in the fight." },
-      { "name": "Flee on the Handcar", "text": "Morale break: he takes the handcar down the line and leaves the fight." }
-    ]
+    "notes": "Martial. Finesse, light. Only if a PC closes on the handcar."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Dirty Rifle",
+    "text": "The rifle is Dirty: it misfires on at least 1–2 until someone cleans it (10 minutes with gunsmith's tools or a gun cleaning kit). A misfire misses and jams the rifle, and the round is still spent. It fouls (unusable until a short rest with tools, or 500 ES to a gunsmith) if both d20s show 1–2 on a roll with advantage or disadvantage, or if it gets dirty again."
+   },
+   {
+    "name": "Handcar Nest (tactic)",
+    "text": "Stays on the handcar and fires the rifle, then uses Take Cover (bonus action) behind the handcar. Ranged attacks against him have disadvantage until his next attack, and firing ends it."
+   },
+   {
+    "name": "Morale (tactic)",
+    "text": "When he is the last of the crew standing, he flees on the handcar. If he runs, the remaining outlaws surrender."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Clear Jam",
+    "text": "Clears the jammed rifle with his action, or with a bonus action and a DC 10 Dexterity check (+1; no tool proficiency). A fouled rifle can't be cleared in the fight."
+   },
+   {
+    "name": "Flee on the Handcar",
+    "text": "Morale break: he takes the handcar down the line and leaves the fight."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Flees on the handcar when he is the last of the crew standing.",
+  "tacticsSource": "INTRO-FIGHTS Night at the Switch / live DMCC switch-boss",
+  "tacticsDraft": false,
+  "loot": "Boss poke: 2 Yellow + 1 Green (250 ES). His rifle: Dirty Henrietta Repeating Rifle (.44-40) and leftover tube rounds, gear at PHB list (6,500 ES), not cash. Scene finds, not on him: tool box (Investigation DC 12) with a crowbar and a gun cleaning kit (100 ES gear); handcar lockbox (thieves' tools DC 12 or Str DC 15) with 1 Purple (500 ES) under 1 Black decoy.",
+  "esDrop": 250,
+  "lootSource": "live DMCC switch-boss (INTRO-FIGHTS Night at the Switch)",
+  "description": "Rifleman who runs the rail-switch crew in Night at the Switch; fires a Dirty Henrietta from the handcar.",
+  "group": "generic-folk",
+  "source": "six-shooters/drafts/monster-manual/SWITCH-BOSS.md",
+  "bookName": "Switch Boss"
+ },
+ {
+  "id": "buffalo-bull",
+  "name": "Buffalo Bull",
+  "size": "Large",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 12,
+  "armor": "natural armor",
+  "hp": 42,
+  "hitDice": "5d10+15",
+  "hpDice": "5d10+15",
+  "speed": "40 ft.",
+  "dex": 10,
+  "initBonus": 0,
+  "cr": "2",
+  "xp": 450,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 17,
+   "DEX": 10,
+   "CON": 16,
+   "INT": 2,
+   "WIS": 7,
+   "CHA": 5
   },
-  {
-    "id": "cactus-witch",
-    "name": "Cactus Witch",
-    "size": "Medium",
-    "type": "fey",
-    "alignment": "neutral evil",
-    "ac": 17,
-    "armor": "natural armor",
-    "hp": 82,
-    "hitDice": "11d8+33",
-    "speed": 30,
-    "dex": 12,
-    "initBonus": 1,
-    "cr": "3",
-    "xp": 700,
-    "abilities": { "STR": 18, "DEX": 12, "CON": 16, "INT": 13, "WIS": 14, "CHA": 14 },
-    "saves": {},
-    "skills": { "Arcana": 3, "Deception": 4, "Perception": 4, "Stealth": 3 },
-    "senses": "darkvision 60 ft., passive Perception 14",
-    "languages": "Common, Draconic, Sylvan",
-    "spellcasting": { "ability": "CHA", "dc": 12, "attack": 4, "spells": ["dancing lights", "minor illusion", "vicious mockery"] },
-    "attacks": "Claws +6, 2d8+4",
-    "attackList": [
-      { "name": "Claws", "bonus": 6, "damage": "2d8+4", "kind": "melee" }
-    ],
-    "traits": [
-      { "name": "Amphibious", "text": "The cactus witch can breathe air and water." },
-      { "name": "Innate Spellcasting", "text": "Charisma (spell save DC 12). At will: dancing lights, minor illusion, vicious mockery." },
-      { "name": "Mimicry", "text": "The cactus witch can mimic animal sounds and humanoid voices. A creature that hears the sounds can tell they are imitations with a successful DC 14 Wisdom (Insight) check." }
-    ],
-    "actions": [
-      { "name": "Illusory Appearance", "text": "The cactus witch covers herself with a magical illusion of another humanoid of her size. A creature must take an action and succeed on a DC 20 Intelligence (Investigation) check to discern the disguise." },
-      { "name": "Invisible Passage", "text": "The cactus witch magically turns invisible until she attacks or casts a spell, or until her concentration ends." }
-    ],
-    "description": "A sun-cracked crone in dust-colored robes and a wide brim stuck with dried herbs, cactus spines, and bone charms. She nests in abandoned mines, ghost towns, and canyon hollows."
+  "str": 17,
+  "con": 16,
+  "int": 2,
+  "wis": 7,
+  "cha": 5,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 8",
+  "languages": "—",
+  "attacks": "Tusk +5 (2d6+3 slashing)",
+  "atkBonus": 5,
+  "damage": "2d6+3",
+  "attackList": [
+   {
+    "id": "tusk",
+    "name": "Tusk",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "2d6+3",
+    "damageType": "slashing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Charge",
+    "text": "If the buffalo bull moves at least 20 feet straight toward a target and then hits it with a tusk attack on the same turn, the target takes an extra 7 (2d6) slashing damage. If the target is a creature, it must succeed on a DC 13 Strength saving throw or be knocked prone."
+   },
+   {
+    "name": "Relentless",
+    "text": "If the buffalo bull takes 10 damage or less that would reduce it to 0 hit points, it is reduced to 1 hit point instead.",
+    "uses": 1,
+    "recharge": "short or long rest"
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Charges the nearest rider or horse from 20 ft out, then gores; Relentless keeps it standing once, and it breaks off when the herd runs.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Hide, horns and meat, 1,000 ES (takes a horse to haul): 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "drop table §1.8",
+  "description": "Shaggy plains buffalo bull: a wall of horn and muscle, or the lead animal in a stampede.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/BUFFALO-BULL.md"
+ },
+ {
+  "id": "buffalo-spirit",
+  "name": "Buffalo Spirit",
+  "aka": "Prairie Buffalo Spirit",
+  "size": "Huge",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 14,
+  "armor": "natural armor",
+  "hp": 42,
+  "hitDice": "5d12+10",
+  "hpDice": "5d12+10",
+  "speed": "60 ft.",
+  "dex": 16,
+  "initBonus": 3,
+  "cr": "2",
+  "xp": 450,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 19,
+   "DEX": 16,
+   "CON": 14,
+   "INT": 7,
+   "WIS": 14,
+   "CHA": 10
   },
-  {
-    "id": "dust-devil",
-    "name": "Dust Devil",
-    "size": "Medium",
-    "type": "beast",
-    "alignment": "unaligned",
-    "ac": 13,
-    "armor": "natural armor",
-    "hp": 11,
-    "hitDice": "2d8+2",
-    "speed": 40,
-    "dex": 15,
-    "initBonus": 2,
-    "cr": "1/4",
-    "xp": 50,
-    "abilities": { "STR": 12, "DEX": 15, "CON": 12, "INT": 3, "WIS": 12, "CHA": 6 },
-    "saves": {},
-    "skills": { "Perception": 3, "Stealth": 4 },
-    "senses": "passive Perception 13",
-    "languages": "",
-    "attacks": "Bite +4, 2d4+2",
-    "attackList": [
-      {
-        "name": "Bite",
-        "bonus": 4,
-        "damage": "2d4+2",
-        "kind": "melee",
-        "rider": { "condition": "Prone", "save": "STR", "dc": 11, "rounds": null }
-      }
+  "str": 19,
+  "con": 14,
+  "int": 7,
+  "wis": 14,
+  "cha": 10,
+  "saves": {},
+  "skills": {
+   "Perception": 4
+  },
+  "senses": "passive Perception 14",
+  "languages": "understands Common and Trail Tongue but can’t speak",
+  "attacks": "Ram +6 (2d6+4 bludgeoning), Hooves +6 (4d8+4 bludgeoning)",
+  "atkBonus": 6,
+  "damage": "2d6+4",
+  "attackList": [
+   {
+    "id": "ram",
+    "name": "Ram",
+    "kind": "melee",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "2d6+4",
+    "damageType": "bludgeoning",
+    "range": "10 ft",
+    "target": "one target",
+    "notes": ""
+   },
+   {
+    "id": "hooves",
+    "name": "Hooves",
+    "kind": "melee",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "4d8+4",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one prone creature",
+    "notes": "One prone creature only."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Charge",
+    "text": "If the buffalo spirit moves at least 20 feet straight toward a target and then hits it with a ram attack on the same turn, the target takes an extra 7 (2d6) damage. If the target is a creature, it must succeed on a DC 14 Strength saving throw or be knocked prone."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Charges whoever wronged the herd or the grass and tramples anyone it knocks prone; it fades when the wrong is set right or it drops below half HP (21).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "None. Spirits fade and leave nothing.",
+  "lootSource": "drop table §1.8",
+  "description": "Spectral plains buffalo-elk, omen of big weather or a wrong done to the grass.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/BUFFALO-SPIRIT.md",
+  "pendingJessey": "J5: creature type kept as beast"
+ },
+ {
+  "id": "cactus-witch",
+  "name": "Cactus Witch",
+  "aka": "Desert Witch",
+  "size": "Medium",
+  "type": "fey",
+  "alignment": "neutral evil",
+  "ac": 17,
+  "armor": "natural armor",
+  "hp": 82,
+  "hitDice": "11d8+33",
+  "hpDice": "11d8+33",
+  "speed": "30 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "3",
+  "xp": 700,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 18,
+   "DEX": 12,
+   "CON": 16,
+   "INT": 13,
+   "WIS": 14,
+   "CHA": 14
+  },
+  "str": 18,
+  "con": 16,
+  "int": 13,
+  "wis": 14,
+  "cha": 14,
+  "saves": {},
+  "skills": {
+   "Arcana": 3,
+   "Deception": 4,
+   "Perception": 4,
+   "Stealth": 3
+  },
+  "senses": "darkvision 60 ft., passive Perception 14",
+  "languages": "Common, Spanish, Trail Tongue",
+  "attacks": "Claws +6 (2d8+4 slashing)",
+  "atkBonus": 6,
+  "damage": "2d8+4",
+  "attackList": [
+   {
+    "id": "claws",
+    "name": "Claws",
+    "kind": "melee",
+    "toHit": 6,
+    "damage": "2d8+4",
+    "damageType": "slashing",
+    "range": "5 ft",
+    "notes": "Melee weapon attack, one target.",
+    "bonus": 6,
+    "target": "one target"
+   }
+  ],
+  "traits": [
+   {
+    "name": "Amphibious",
+    "text": "She can breathe air and water."
+   },
+   {
+    "name": "Innate Spellcasting",
+    "text": "Charisma (spell save DC 12), no material components. At will: dancing lights, minor illusion, vicious mockery."
+   },
+   {
+    "name": "Mimicry",
+    "text": "She can mimic animal sounds and humanoid voices. A creature that hears them can tell they are imitations with a DC 14 Wisdom (Insight) check."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Illusory Appearance",
+    "text": "She covers herself and her gear with an illusion of another creature of her size and humanoid shape. It ends if she ends it as a bonus action or dies. It fails physical inspection (touch feels her rough flesh); otherwise a creature must use an action and pass a DC 20 Intelligence (Investigation) check to see through it."
+   },
+   {
+    "name": "Invisible Passage",
+    "text": "She turns invisible (Invisible) until she attacks or casts a spell, or until her concentration ends, as if concentrating on a spell. She leaves no physical trail, so only magic can track her. Her gear is invisible with her."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "spellcasting": {
+   "ability": "CHA",
+   "dc": 12,
+   "attack": 4,
+   "slots": {},
+   "spells": [
+    {
+     "id": "vicious-mockery",
+     "name": "Vicious Mockery",
+     "level": 0,
+     "mode": "save",
+     "save": "WIS",
+     "damage": "1d4",
+     "damageType": "psychic",
+     "range": "60 ft",
+     "summary": "One creature that can hear her makes a WIS save; on a failure it takes 1d4 psychic and has disadvantage on its next attack roll before the end of its next turn.",
+     "uses": "at will",
+     "rider": {
+      "save": "WIS",
+      "dc": 12,
+      "rounds": 1,
+      "onSave": "none",
+      "text": "On a failed save the target has disadvantage on its next attack roll before the end of its next turn. This is not a condition, so no condition badge."
+     },
+     "kind": "save"
+    },
+    {
+     "id": "minor-illusion",
+     "name": "Minor Illusion",
+     "level": 0,
+     "mode": "utility",
+     "range": "30 ft",
+     "summary": "A sound or a still image up to a 5-ft cube for 1 minute; a creature that spends an action studying it sees through it on a DC 12 Investigation check.",
+     "uses": "at will",
+     "kind": "utility"
+    },
+    {
+     "id": "dancing-lights",
+     "name": "Dancing Lights",
+     "level": 0,
+     "mode": "utility",
+     "range": "120 ft",
+     "summary": "Up to four torch-bright lights (or one glowing humanoid shape) she can move 60 ft as a bonus action; concentration, up to 1 minute.",
+     "uses": "at will",
+     "kind": "utility"
+    }
+   ]
+  },
+  "tactics": "Opens in a friendly disguise, goes invisible to reach the weakest traveler, and strikes with advantage (the attack ends it). At half HP (41) she turns invisible again and slips away; Invisible Passage leaves no trail.",
+  "tacticsSource": "DND Bot lock pass S12",
+  "tacticsDraft": false,
+  "loot": "Nothing in her pockets. Her nest pays: d6 on the Cactus Witch nest table (IDEAS draft, average about 715 ES), plus a half-used herbalism kit (500 ES list). Any shards she pays a PC are Black.",
+  "lootSource": "playtest bestiary.json (drop table §1.9)",
+  "description": "Desert crone fey who wears borrowed faces and voices, with innate cantrips and claws (Green Hag clone).",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/CACTUS-WITCH.md"
+ },
+ {
+  "id": "claim-rust-bug",
+  "name": "Claim Rust Bug",
+  "aka": "Eldorite Rust Monster",
+  "size": "Medium",
+  "type": "monstrosity",
+  "alignment": "unaligned",
+  "ac": 14,
+  "armor": "natural armor",
+  "hp": 27,
+  "hitDice": "5d8+5",
+  "hpDice": "5d8+5",
+  "speed": "40 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "1/2",
+  "xp": 100,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 13,
+   "DEX": 12,
+   "CON": 13,
+   "INT": 2,
+   "WIS": 13,
+   "CHA": 6
+  },
+  "str": 13,
+  "con": 13,
+  "int": 2,
+  "wis": 13,
+  "cha": 6,
+  "saves": {},
+  "skills": {},
+  "senses": "darkvision 60 ft., passive Perception 11",
+  "languages": "—",
+  "attacks": "Bite +3 (1d8+1 piercing)",
+  "atkBonus": 3,
+  "damage": "1d8+1",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d8+1",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Iron Scent",
+    "text": "The claim rust bug can pinpoint, by scent, the location of ferrous metal within 30 feet of it."
+   },
+   {
+    "name": "Rust Metal",
+    "text": "Any nonmagical weapon made of metal that hits the claim rust bug corrodes. After dealing damage, the weapon takes a permanent and cumulative −1 penalty to damage rolls. If its penalty drops to −5, the weapon is destroyed. Nonmagical ammunition made of metal that hits the claim rust bug is destroyed after dealing damage. Ordinary guns, blades, bullets, and shot are nonmagical. A Story Find weapon, Charged Cartridges, or a gun under Magic Weapon (Rifling) is magical and doesn’t corrode."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Antennae",
+    "text": "The claim rust bug corrodes a nonmagical ferrous metal object it can see within 5 feet of it. If the object isn’t being worn or carried, the touch destroys a 1-foot cube of it. If the object is being worn or carried by a creature, the creature can make a DC 11 Dexterity saving throw to avoid the claim rust bug’s touch. If the object touched is either metal armor or a metal shield being worn or carried, it takes a permanent and cumulative −1 penalty to the AC it offers. Armor reduced to an AC of 10 or a shield that drops to a +0 bonus is destroyed. If the object touched is a held metal weapon, it rusts as described in the Rust Metal trait."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Smells out the best gun or iron in reach and goes for the metal, not the person; winks out when the Dark Gift ends.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "None. It winks out with the Dark Gift; whatever it rusted stays rusted.",
+  "lootSource": "DRAFT",
+  "description": "Calf-sized bug from a Dark Gift that rusts six-guns and shovel heads.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/CLAIM-RUST-BUG.md",
+  "pendingJessey": "J6: plain cartridges treated as nonmagical, whatever gun fires them"
+ },
+ {
+  "id": "dust-devil",
+  "name": "Dust Devil",
+  "size": "Medium",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 13,
+  "armor": "natural armor",
+  "hp": 11,
+  "hitDice": "2d8+2",
+  "hpDice": "2d8+2",
+  "speed": "40 ft.",
+  "dex": 15,
+  "initBonus": 2,
+  "cr": "1/4",
+  "xp": 50,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 12,
+   "DEX": 15,
+   "CON": 12,
+   "INT": 3,
+   "WIS": 12,
+   "CHA": 6
+  },
+  "str": 12,
+  "con": 12,
+  "int": 3,
+  "wis": 12,
+  "cha": 6,
+  "saves": {},
+  "skills": {
+   "Perception": 3,
+   "Stealth": 4
+  },
+  "senses": "passive Perception 13",
+  "languages": "—",
+  "attacks": "Bite +4 (2d4+2 piercing)",
+  "atkBonus": 4,
+  "damage": "2d4+2",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 4,
+    "damage": "2d4+2",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "notes": "Uses DEX (+2), as in the canon block. Advantage from Pack Tactics when an ally is within 5 ft of the target.",
+    "rider": {
+     "save": "STR",
+     "dc": 11,
+     "condition": "Prone",
+     "onSave": "none",
+     "text": "If the target is a creature, it must succeed on a DC 11 Strength save or be knocked Prone."
+    },
+    "bonus": 4,
+    "target": "one target"
+   }
+  ],
+  "traits": [
+   {
+    "name": "Keen Hearing and Smell",
+    "text": "Advantage on Wisdom (Perception) checks that rely on hearing or smell."
+   },
+   {
+    "name": "Pack Tactics",
+    "text": "Advantage on an attack roll against a creature if at least one of its allies is within 5 ft of the creature and the ally isn't incapacitated."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Pack rushes the first creature in the doorway; when one wolf drops, the rest make a DC 10 Wisdom save or flee. Fire keeps them at bay.",
+  "tacticsSource": "IDEAS Ch1 encounter card",
+  "tacticsDraft": false,
+  "loot": "No cash. Pelt + varmint bounty, 150 ES (IDEAS draft): 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "playtest bestiary.json (drop table §1.8)",
+  "description": "Dust-colored prairie wolf that hunts in packs and drags riders down (Wolf clone).",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/DUST-DEVIL.md"
+ },
+ {
+  "id": "giant-crocodile",
+  "name": "Giant Crocodile",
+  "size": "Huge",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 14,
+  "armor": "natural armor",
+  "hp": 85,
+  "hitDice": "9d12+27",
+  "hpDice": "9d12+27",
+  "speed": "30 ft., swim 50 ft.",
+  "dex": 9,
+  "initBonus": -1,
+  "cr": "5",
+  "xp": 1800,
+  "proficiencyBonus": 3,
+  "abilities": {
+   "STR": 21,
+   "DEX": 9,
+   "CON": 17,
+   "INT": 2,
+   "WIS": 10,
+   "CHA": 7
+  },
+  "str": 21,
+  "con": 17,
+  "int": 2,
+  "wis": 10,
+  "cha": 7,
+  "saves": {},
+  "skills": {
+   "Stealth": 5
+  },
+  "senses": "passive Perception 10",
+  "languages": "—",
+  "attacks": "Bite +8 (3d10+5 piercing), Tail +8 (2d8+5 bludgeoning)",
+  "atkBonus": 8,
+  "damage": "3d10+5",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 8,
+    "bonus": 8,
+    "damage": "3d10+5",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "grapple": {
+     "escapeDc": 16
+    },
+    "notes": "On a hit: The target is grappled (escape DC 16). Until this grapple ends, the target is restrained, and the crocodile can’t bite another target."
+   },
+   {
+    "id": "tail",
+    "name": "Tail",
+    "kind": "melee",
+    "toHit": 8,
+    "bonus": 8,
+    "damage": "2d8+5",
+    "damageType": "bludgeoning",
+    "range": "10 ft",
+    "target": "one target not grappled by the crocodile",
+    "rider": {
+     "condition": "Prone",
+     "save": "STR",
+     "dc": 16,
+     "rounds": null,
+     "onSave": "none",
+     "text": "On a hit: If the target is a creature, it must succeed on a DC 16 Strength saving throw or be knocked prone."
+    },
+    "notes": "Target: one target not grappled by the crocodile. On a hit: If the target is a creature, it must succeed on a DC 16 Strength saving throw or be knocked prone."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Hold Breath",
+    "text": "The giant crocodile can hold its breath for 30 minutes."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The giant crocodile makes two attacks: one with its bite and one with its tail."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Waits under the waterline, grabs the nearest wader, and drags them under; lets go and sinks away below half HP (42).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Hide and teeth, 2,500 ES (5 Purple): 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "DND Bot lock pass S16 (REWARDS §3.2 scale)",
+  "description": "Bayou-and-estuary giant crocodile that drags waders under.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/GIANT-CROCODILE.md"
+ },
+ {
+  "id": "giant-octopus",
+  "name": "Giant Octopus",
+  "size": "Large",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 11,
+  "hp": 52,
+  "hitDice": "8d10+8",
+  "hpDice": "8d10+8",
+  "speed": "10 ft., swim 60 ft.",
+  "dex": 13,
+  "initBonus": 1,
+  "cr": "1",
+  "xp": 200,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 17,
+   "DEX": 13,
+   "CON": 13,
+   "INT": 4,
+   "WIS": 10,
+   "CHA": 4
+  },
+  "str": 17,
+  "con": 13,
+  "int": 4,
+  "wis": 10,
+  "cha": 4,
+  "saves": {},
+  "skills": {
+   "Perception": 4,
+   "Stealth": 5
+  },
+  "senses": "darkvision 60 ft., passive Perception 14",
+  "languages": "—",
+  "attacks": "Tentacles +5 (2d6+3 bludgeoning)",
+  "atkBonus": 5,
+  "damage": "2d6+3",
+  "attackList": [
+   {
+    "id": "tentacles",
+    "name": "Tentacles",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "2d6+3",
+    "damageType": "bludgeoning",
+    "range": "15 ft",
+    "target": "one target",
+    "grapple": {
+     "escapeDc": 16
+    },
+    "notes": "On a hit: If the target is a creature, it is grappled (escape DC 16). Until this grapple ends, the target is restrained, and the octopus can’t use its tentacles on another target."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Hold Breath",
+    "text": "While out of water, the giant octopus can hold its breath for 1 hour."
+   },
+   {
+    "name": "Underwater Camouflage",
+    "text": "The giant octopus has advantage on Dexterity (Stealth) checks made while underwater."
+   },
+   {
+    "name": "Water Breathing",
+    "text": "The giant octopus can breathe only underwater."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Ink Cloud",
+    "text": "A 20-foot-radius cloud of ink extends all around the octopus if it is underwater. The area is heavily obscured for 1 minute, although a significant current can disperse the ink. After releasing the ink, the octopus can use the Dash action as a bonus action.",
+    "uses": 1,
+    "recharge": "short or long rest"
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Grabs from under the hull or dock and holds one target; inks and jets away below half HP (26).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "None worth hauling. A chemist pays 20 ES for the ink sac.",
+  "lootSource": "DRAFT",
+  "description": "Dock-and-reef giant octopus that grabs from below and inks away.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/GIANT-OCTOPUS.md"
+ },
+ {
+  "id": "giant-scorpion",
+  "name": "Giant Scorpion",
+  "size": "Large",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 15,
+  "armor": "natural armor",
+  "hp": 52,
+  "hitDice": "7d10+14",
+  "hpDice": "7d10+14",
+  "speed": "40 ft.",
+  "dex": 13,
+  "initBonus": 1,
+  "cr": "3",
+  "xp": 700,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 15,
+   "DEX": 13,
+   "CON": 15,
+   "INT": 1,
+   "WIS": 9,
+   "CHA": 3
+  },
+  "str": 15,
+  "con": 15,
+  "int": 1,
+  "wis": 9,
+  "cha": 3,
+  "saves": {},
+  "skills": {},
+  "senses": "blindsight 60 ft., passive Perception 9",
+  "languages": "—",
+  "attacks": "Claw +4 (1d8+2 bludgeoning), Sting +4 (1d10+2 piercing)",
+  "atkBonus": 4,
+  "damage": "1d8+2",
+  "attackList": [
+   {
+    "id": "claw",
+    "name": "Claw",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d8+2",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "grapple": {
+     "escapeDc": 12
+    },
+    "notes": "On a hit: The target is grappled (escape DC 12). The giant scorpion has two claws. While a claw is grappling a creature, the giant scorpion can use only that claw to attack that creature, and that claw can’t attack another target. The target is also restrained until the grapple ends."
+   },
+   {
+    "id": "sting",
+    "name": "Sting",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d10+2",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one creature",
+    "saveDamage": {
+     "save": "CON",
+     "dc": 12,
+     "damage": "4d10",
+     "damageType": "poison",
+     "onSave": "half"
+    },
+    "notes": "On a hit: The target must make a DC 12 Constitution saving throw, taking 22 (4d10) poison damage on a failed save, or half as much damage on a successful one."
+   }
+  ],
+  "traits": [],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The giant scorpion makes three attacks: two with its claws and one with its sting."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Pins the nearest target with both claws, then stings it; fights to the death near its burrow.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Carapace and stinger (alchemists), 2,000 ES: 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "drop table §1.8",
+  "description": "Wagon-sized desert scorpion with crushing claws and a venom sting.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/GIANT-SCORPION.md"
+ },
+ {
+  "id": "giant-shark",
+  "name": "Giant Shark",
+  "size": "Huge",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 13,
+  "armor": "natural armor",
+  "hp": 126,
+  "hitDice": "11d12+55",
+  "hpDice": "11d12+55",
+  "speed": "0 ft., swim 50 ft.",
+  "dex": 11,
+  "initBonus": 0,
+  "cr": "5",
+  "xp": 1800,
+  "proficiencyBonus": 3,
+  "abilities": {
+   "STR": 23,
+   "DEX": 11,
+   "CON": 21,
+   "INT": 1,
+   "WIS": 10,
+   "CHA": 5
+  },
+  "str": 23,
+  "con": 21,
+  "int": 1,
+  "wis": 10,
+  "cha": 5,
+  "saves": {},
+  "skills": {
+   "Perception": 3
+  },
+  "senses": "blindsight 60 ft., passive Perception 13",
+  "languages": "—",
+  "attacks": "Bite +9 (3d10+6 piercing)",
+  "atkBonus": 9,
+  "damage": "3d10+6",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 9,
+    "bonus": 9,
+    "damage": "3d10+6",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Blood Frenzy",
+    "text": "The giant shark has advantage on melee attack rolls against any creature that doesn’t have all its hit points."
+   },
+   {
+    "name": "Water Breathing",
+    "text": "The giant shark can breathe only underwater."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Circles anything bleeding, then hits the weakest swimmer; breaks off below half HP (63).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Jaw and teeth, 1,500 ES (3 Purple) to a dockside curio buyer: 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "DND Bot lock pass S15",
+  "description": "Deep-water giant shark that hits boats and takes the swimmers.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/GIANT-SHARK.md",
+  "pendingJessey": "J3: Megalodon duplicate question; S15 loot parity applied"
+ },
+ {
+  "id": "hunter-shark",
+  "name": "Hunter Shark",
+  "size": "Large",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 12,
+  "armor": "natural armor",
+  "hp": 45,
+  "hitDice": "6d10+12",
+  "hpDice": "6d10+12",
+  "speed": "0 ft., swim 40 ft.",
+  "dex": 13,
+  "initBonus": 1,
+  "cr": "2",
+  "xp": 450,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 18,
+   "DEX": 13,
+   "CON": 15,
+   "INT": 1,
+   "WIS": 10,
+   "CHA": 4
+  },
+  "str": 18,
+  "con": 15,
+  "int": 1,
+  "wis": 10,
+  "cha": 4,
+  "saves": {},
+  "skills": {
+   "Perception": 2
+  },
+  "senses": "blindsight 30 ft., passive Perception 12",
+  "languages": "—",
+  "attacks": "Bite +6 (2d8+4 piercing)",
+  "atkBonus": 6,
+  "damage": "2d8+4",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "2d8+4",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Blood Frenzy",
+    "text": "The hunter shark has advantage on melee attack rolls against any creature that doesn’t have all its hit points."
+   },
+   {
+    "name": "Water Breathing",
+    "text": "The hunter shark can breathe only underwater."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Goes for the bleeding and the lone swimmer; turns away below half HP (22).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Teeth, 50 ES: 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "DRAFT",
+  "description": "Lone open-water shark that follows blood.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/HUNTER-SHARK.md"
+ },
+ {
+  "id": "killer-whale",
+  "name": "Killer Whale",
+  "aka": "Orca",
+  "size": "Huge",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 12,
+  "armor": "natural armor",
+  "hp": 90,
+  "hitDice": "12d12+12",
+  "hpDice": "12d12+12",
+  "speed": "0 ft., swim 60 ft.",
+  "dex": 10,
+  "initBonus": 0,
+  "cr": "3",
+  "xp": 700,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 19,
+   "DEX": 10,
+   "CON": 13,
+   "INT": 3,
+   "WIS": 12,
+   "CHA": 7
+  },
+  "str": 19,
+  "con": 13,
+  "int": 3,
+  "wis": 12,
+  "cha": 7,
+  "saves": {},
+  "skills": {
+   "Perception": 3
+  },
+  "senses": "blindsight 120 ft., passive Perception 13",
+  "languages": "—",
+  "attacks": "Bite +6 (5d6+4 piercing)",
+  "atkBonus": 6,
+  "damage": "5d6+4",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "5d6+4",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Echolocation",
+    "text": "The killer whale can’t use its blindsight while deafened."
+   },
+   {
+    "name": "Hold Breath",
+    "text": "The killer whale can hold its breath for 30 minutes."
+   },
+   {
+    "name": "Keen Hearing",
+    "text": "The killer whale has advantage on Wisdom (Perception) checks that rely on hearing."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Bites the smallest swimmer or anyone knocked overboard; leaves when the prey gets out of the water.",
+  "tacticsSource": "DND Bot lock pass S13",
+  "tacticsDraft": false,
+  "loot": "None. Blubber and bone are a whaler's job, not a party's.",
+  "lootSource": "DRAFT",
+  "description": "Pod-hunting orca that tips swimmers off small boats.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/KILLER-WHALE.md"
+ },
+ {
+  "id": "kraken",
+  "name": "The Kraken",
+  "size": "Gargantuan",
+  "type": "monstrosity (titan)",
+  "alignment": "chaotic evil",
+  "ac": 18,
+  "armor": "natural armor",
+  "hp": 472,
+  "hitDice": "27d20+189",
+  "hpDice": "27d20+189",
+  "speed": "20 ft., swim 60 ft.",
+  "dex": 11,
+  "initBonus": 0,
+  "cr": "23",
+  "xp": 50000,
+  "proficiencyBonus": 7,
+  "abilities": {
+   "STR": 30,
+   "DEX": 11,
+   "CON": 25,
+   "INT": 22,
+   "WIS": 18,
+   "CHA": 20
+  },
+  "str": 30,
+  "con": 25,
+  "int": 22,
+  "wis": 18,
+  "cha": 20,
+  "saves": {
+   "STR": 17,
+   "DEX": 7,
+   "CON": 14,
+   "INT": 13,
+   "WIS": 11
+  },
+  "skills": {},
+  "senses": "truesight 120 ft., passive Perception 14",
+  "languages": "understands every tongue spoken on the water but can’t speak; telepathy 120 ft.",
+  "damageImmunities": "lightning; bludgeoning, piercing, and slashing from nonmagical attacks",
+  "damageImmunitiesNote": "Ordinary guns, blades, bullets, and shot are nonmagical. A Story Find weapon, Charged Cartridges, or a gun under Magic Weapon (Rifling) is magical.",
+  "conditionImmunities": "frightened, paralyzed",
+  "nonmagicalNote": "Ordinary guns, blades, bullets, and shot are nonmagical. A Story Find weapon, Charged Cartridges, or a gun under Magic Weapon (Rifling) is magical.",
+  "attacks": "Bite +17 (3d8+10 piercing), Tentacle +17 (3d6+10 bludgeoning)",
+  "atkBonus": 17,
+  "damage": "3d8+10",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 17,
+    "bonus": 17,
+    "damage": "3d8+10",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": "On a hit: If the target is a Large or smaller creature grappled by the kraken, that creature is swallowed, and the grapple ends. While swallowed, the creature is blinded and restrained, it has total cover against attacks and other effects outside the kraken, and it takes 42 (12d6) acid damage at the start of each of the kraken’s turns. If the kraken takes 50 damage or more on a single turn from a creature inside it, the kraken must succeed on a DC 25 Constitution saving throw at the end of that turn or regurgitate all swallowed creatures, which fall prone in a space within 10 feet of the kraken. If the kraken dies, a swallowed creature is no longer restrained by it and can escape from the corpse using 15 feet of movement, exiting prone."
+   },
+   {
+    "id": "tentacle",
+    "name": "Tentacle",
+    "kind": "melee",
+    "toHit": 17,
+    "bonus": 17,
+    "damage": "3d6+10",
+    "damageType": "bludgeoning",
+    "range": "30 ft",
+    "target": "one target",
+    "grapple": {
+     "escapeDc": 18
+    },
+    "notes": "On a hit: The target is grappled (escape DC 18). Until this grapple ends, the target is restrained. The kraken has ten tentacles, each of which can grapple one target."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Amphibious",
+    "text": "The kraken can breathe air and water."
+   },
+   {
+    "name": "Freedom of Movement",
+    "text": "The kraken ignores difficult terrain, and magical effects can’t reduce its speed or cause it to be restrained. It can spend 5 feet of movement to escape from nonmagical restraints or being grappled."
+   },
+   {
+    "name": "Siege Monster",
+    "text": "The kraken deals double damage to objects and structures."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The kraken makes three tentacle attacks, each of which it can replace with one use of Fling."
+   },
+   {
+    "name": "Fling",
+    "text": "One Large or smaller object held or creature grappled by the kraken is thrown up to 60 feet in a random direction and knocked prone. If a thrown target strikes a solid surface, the target takes 3 (1d6) bludgeoning damage for every 10 feet it was thrown. If the target is thrown at another creature, that creature must succeed on a DC 18 Dexterity saving throw or take the same damage and be knocked prone."
+   },
+   {
+    "name": "Lightning Storm",
+    "text": "The kraken magically creates three bolts of lightning, each of which can strike a target the kraken can see within 120 feet of it. A target must make a DC 23 Dexterity saving throw, taking 22 (4d10) lightning damage on a failed save, or half as much damage on a successful one."
+   }
+  ],
+  "reactions": [],
+  "legendary": [
+   {
+    "name": "Legendary Actions",
+    "text": "The kraken can take 3 legendary actions, choosing from the options below. Only one legendary action option can be used at a time and only at the end of another creature’s turn. The kraken regains spent legendary actions at the start of its turn."
+   },
+   {
+    "name": "Tentacle Attack or Fling",
+    "text": "The kraken makes one tentacle attack or uses its Fling."
+   },
+   {
+    "name": "Lightning Storm (Costs 2 Actions)",
+    "text": "The kraken uses Lightning Storm."
+   },
+   {
+    "name": "Ink Cloud (Costs 3 Actions)",
+    "text": "While underwater, the kraken expels an ink cloud in a 60-foot radius. The cloud spreads around corners, and that area is heavily obscured to creatures other than the kraken. Each creature other than the kraken that ends its turn there must succeed on a DC 23 Constitution saving throw, taking 16 (3d10) poison damage on a failed save, or half as much damage on a successful one. A strong current disperses the cloud, which otherwise disappears at the end of the kraken’s next turn."
+   }
+  ],
+  "tactics": "Tentacles pull sailors off the deck while it flings the rest and storms the rigging; it never retreats in its own water.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Nothing on the body. The prize is the open sea route (story).",
+  "lootSource": "DRAFT",
+  "description": "The sea beast that blocks the sail-around: tentacles, lightning, and ink.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/KRAKEN.md",
+  "pendingJessey": "J6: plain cartridges treated as nonmagical, whatever gun fires them"
+ },
+ {
+  "id": "megalodon",
+  "name": "Megalodon",
+  "size": "Huge",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 13,
+  "armor": "natural armor",
+  "hp": 126,
+  "hitDice": "11d12+55",
+  "hpDice": "11d12+55",
+  "speed": "0 ft., swim 50 ft.",
+  "dex": 11,
+  "initBonus": 0,
+  "cr": "5",
+  "xp": 1800,
+  "proficiencyBonus": 3,
+  "abilities": {
+   "STR": 23,
+   "DEX": 11,
+   "CON": 21,
+   "INT": 1,
+   "WIS": 10,
+   "CHA": 5
+  },
+  "str": 23,
+  "con": 21,
+  "int": 1,
+  "wis": 10,
+  "cha": 5,
+  "saves": {},
+  "skills": {
+   "Perception": 3
+  },
+  "senses": "blindsight 60 ft., passive Perception 13",
+  "languages": "—",
+  "attacks": "Bite +9 (3d10+6 piercing)",
+  "atkBonus": 9,
+  "damage": "3d10+6",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 9,
+    "bonus": 9,
+    "damage": "3d10+6",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Blood Frenzy",
+    "text": "The megalodon has advantage on melee attack rolls against any creature that doesn’t have all its hit points."
+   },
+   {
+    "name": "Water Breathing",
+    "text": "The megalodon can breathe only underwater."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Hits the boat first, then takes whoever goes over the side; never leaves blood in the water.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Jaw and teeth, 1,500 ES (3 Purple): 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "DND Bot lock pass S15",
+  "description": "Apex shark of the east coast, bigger than the boat.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/MEGALODON.md",
+  "pendingJessey": "J3: kept as a Giant Shark duplicate block; S15 loot parity applied"
+ },
+ {
+  "id": "mesa-rattler",
+  "name": "Mesa Rattler",
+  "aka": "Gargantuan Rattlesnake",
+  "size": "Huge",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 12,
+  "hp": 60,
+  "hitDice": "8d12+8",
+  "hpDice": "8d12+8",
+  "speed": "30 ft., swim 30 ft.",
+  "dex": 14,
+  "initBonus": 2,
+  "cr": "2",
+  "xp": 450,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 19,
+   "DEX": 14,
+   "CON": 12,
+   "INT": 1,
+   "WIS": 10,
+   "CHA": 3
+  },
+  "str": 19,
+  "con": 12,
+  "int": 1,
+  "wis": 10,
+  "cha": 3,
+  "saves": {},
+  "skills": {
+   "Perception": 2
+  },
+  "senses": "blindsight 10 ft., passive Perception 12",
+  "languages": "—",
+  "attacks": "Bite +6 (2d6+4 piercing), Constrict +6 (2d8+4 bludgeoning)",
+  "atkBonus": 6,
+  "damage": "2d6+4",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "2d6+4",
+    "damageType": "piercing",
+    "range": "10 ft",
+    "target": "one creature",
+    "notes": ""
+   },
+   {
+    "id": "constrict",
+    "name": "Constrict",
+    "kind": "melee",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "2d8+4",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one creature",
+    "grapple": {
+     "escapeDc": 16
+    },
+    "notes": "On a hit: The target is grappled (escape DC 16). Until this grapple ends, the creature is restrained, and the mesa rattler can’t constrict another target."
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Strikes from rimrock or brush, wraps one target, and squeezes; slithers off below half HP (30).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Hide and rattle, 1,500 ES: 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "drop table §1.8 (DND Bot lock pass S17)",
+  "description": "Giant rimrock rattler that wraps and squeezes.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/MESA-RATTLER.md"
+ },
+ {
+  "id": "prairie-coyote",
+  "name": "Prairie Coyote",
+  "size": "Small",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 12,
+  "hp": 3,
+  "hitDice": "1d6",
+  "hpDice": "1d6",
+  "speed": "40 ft.",
+  "dex": 15,
+  "initBonus": 2,
+  "cr": "0",
+  "xp": 10,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 8,
+   "DEX": 15,
+   "CON": 11,
+   "INT": 3,
+   "WIS": 12,
+   "CHA": 6
+  },
+  "str": 8,
+  "con": 11,
+  "int": 3,
+  "wis": 12,
+  "cha": 6,
+  "saves": {},
+  "skills": {
+   "Perception": 3
+  },
+  "senses": "passive Perception 13",
+  "languages": "—",
+  "attacks": "Bite +1 (1d4-1 piercing)",
+  "atkBonus": 1,
+  "damage": "1d4-1",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 1,
+    "bonus": 1,
+    "damage": "1d4-1",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Keen Hearing and Smell",
+    "text": "The prairie coyote has advantage on Wisdom (Perception) checks that rely on hearing or smell."
+   },
+   {
+    "name": "Pack Tactics",
+    "text": "The prairie coyote has advantage on an attack roll against a creature if at least one of the coyote’s allies is within 5 feet of the creature and the ally isn’t incapacitated."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Nips at stragglers and horses; the pack scatters as soon as one coyote drops or fire comes out.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Pelt (30 ES) or county varmint bounty on the ears (50 ES): 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "drop table §1.8",
+  "description": "Skinny prairie coyote that runs in nipping packs.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/PRAIRIE-COYOTE.md"
+ },
+ {
+  "id": "prairie-griffon",
+  "name": "Prairie Griffon",
+  "size": "Large",
+  "type": "monstrosity",
+  "alignment": "unaligned",
+  "ac": 12,
+  "hp": 59,
+  "hitDice": "7d10+21",
+  "hpDice": "7d10+21",
+  "speed": "30 ft., fly 80 ft.",
+  "dex": 15,
+  "initBonus": 2,
+  "cr": "2",
+  "xp": 450,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 18,
+   "DEX": 15,
+   "CON": 16,
+   "INT": 2,
+   "WIS": 13,
+   "CHA": 8
+  },
+  "str": 18,
+  "con": 16,
+  "int": 2,
+  "wis": 13,
+  "cha": 8,
+  "saves": {},
+  "skills": {
+   "Perception": 5
+  },
+  "senses": "darkvision 60 ft., passive Perception 15",
+  "languages": "—",
+  "attacks": "Beak +6 (1d8+4 piercing), Claws +6 (2d6+4 slashing)",
+  "atkBonus": 6,
+  "damage": "1d8+4",
+  "attackList": [
+   {
+    "id": "beak",
+    "name": "Beak",
+    "kind": "melee",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "1d8+4",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   },
+   {
+    "id": "claws",
+    "name": "Claws",
+    "kind": "melee",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "2d6+4",
+    "damageType": "slashing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Keen Sight",
+    "text": "The prairie griffon has advantage on Wisdom (Perception) checks that rely on sight."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The prairie griffon makes two attacks: one with its beak and one with its claws."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Dives on horses and mounts first; flees at half HP (29).",
+  "tacticsSource": "IDEAS side encounters (flee at half); horses-first is DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Feathers or trophy, 2,500 ES (a live egg is a story beat, not a drop): 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "drop table §1.8",
+  "description": "Plains griffon that dives on horses.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/PRAIRIE-GRIFFON.md"
+ },
+ {
+  "id": "rattlesnake",
+  "name": "Rattlesnake",
+  "size": "Tiny",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 13,
+  "hp": 2,
+  "hitDice": "1d4",
+  "hpDice": "1d4",
+  "speed": "30 ft., swim 30 ft.",
+  "dex": 16,
+  "initBonus": 3,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 2,
+   "DEX": 16,
+   "CON": 11,
+   "INT": 1,
+   "WIS": 10,
+   "CHA": 3
+  },
+  "str": 2,
+  "con": 11,
+  "int": 1,
+  "wis": 10,
+  "cha": 3,
+  "saves": {},
+  "skills": {},
+  "senses": "blindsight 10 ft., passive Perception 10",
+  "languages": "—",
+  "attacks": "Bite +5 (1 piercing)",
+  "atkBonus": 5,
+  "damage": "1",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "saveDamage": {
+     "save": "CON",
+     "dc": 10,
+     "damage": "2d4",
+     "damageType": "poison",
+     "onSave": "half"
+    },
+    "notes": "On a hit: The target must make a DC 10 Constitution saving throw, taking 5 (2d4) poison damage on a failed save, or half as much damage on a successful one."
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Bites only when stepped on or cornered, then slithers away.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Rattle or venom gland, 50 ES: 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "drop table §1.8",
+  "description": "Desert rattlesnake that bites when stepped on.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/RATTLESNAKE.md"
+ },
+ {
+  "id": "reef-shark",
+  "name": "Reef Shark",
+  "size": "Medium",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 12,
+  "armor": "natural armor",
+  "hp": 22,
+  "hitDice": "4d8+4",
+  "hpDice": "4d8+4",
+  "speed": "0 ft., swim 40 ft.",
+  "dex": 13,
+  "initBonus": 1,
+  "cr": "1/2",
+  "xp": 100,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 14,
+   "DEX": 13,
+   "CON": 13,
+   "INT": 1,
+   "WIS": 10,
+   "CHA": 4
+  },
+  "str": 14,
+  "con": 13,
+  "int": 1,
+  "wis": 10,
+  "cha": 4,
+  "saves": {},
+  "skills": {
+   "Perception": 2
+  },
+  "senses": "blindsight 30 ft., passive Perception 12",
+  "languages": "—",
+  "attacks": "Bite +4 (1d8+2 piercing)",
+  "atkBonus": 4,
+  "damage": "1d8+2",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d8+2",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Pack Tactics",
+    "text": "The reef shark has advantage on an attack roll against a creature if at least one of the reef shark’s allies is within 5 feet of the creature and the ally isn’t incapacitated."
+   },
+   {
+    "name": "Water Breathing",
+    "text": "The reef shark can breathe only underwater."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Hunts with the school for Pack Tactics; the school scatters when one shark dies.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Teeth, 25 ES: 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "DRAFT",
+  "description": "Small reef shark that hunts in schools.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/REEF-SHARK.md"
+ },
+ {
+  "id": "restless-pioneer",
+  "name": "Restless Pioneer",
+  "aka": "Trail Specter",
+  "size": "Medium",
+  "type": "undead",
+  "alignment": "chaotic evil",
+  "ac": 12,
+  "hp": 22,
+  "hitDice": "5d8",
+  "hpDice": "5d8",
+  "speed": "0 ft., fly 50 ft. (hover)",
+  "dex": 14,
+  "initBonus": 2,
+  "cr": "1",
+  "xp": 200,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 1,
+   "DEX": 14,
+   "CON": 11,
+   "INT": 10,
+   "WIS": 10,
+   "CHA": 11
+  },
+  "str": 1,
+  "con": 11,
+  "int": 10,
+  "wis": 10,
+  "cha": 11,
+  "saves": {},
+  "skills": {},
+  "senses": "darkvision 60 ft., passive Perception 10",
+  "languages": "understands the languages it knew in life but can’t speak",
+  "damageResistances": "acid, cold, fire, lightning, thunder; bludgeoning, piercing, and slashing from nonmagical attacks",
+  "damageResistancesNote": "Ordinary guns, blades, bullets, and shot are nonmagical. A Story Find weapon, Charged Cartridges, or a gun under Magic Weapon (Rifling) is magical. Primal Strike and other “counts as magical” features overcome the resistance.",
+  "damageImmunities": "necrotic, poison",
+  "conditionImmunities": "charmed, exhaustion, grappled, paralyzed, petrified, poisoned, prone, restrained, unconscious",
+  "nonmagicalNote": "Ordinary guns, blades, bullets, and shot are nonmagical. A Story Find weapon, Charged Cartridges, or a gun under Magic Weapon (Rifling) is magical. Primal Strike and other “counts as magical” features overcome the resistance.",
+  "attacks": "Life Drain +4 (3d6 necrotic)",
+  "atkBonus": 4,
+  "damage": "3d6",
+  "attackList": [
+   {
+    "id": "life-drain",
+    "name": "Life Drain",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "3d6",
+    "damageType": "necrotic",
+    "range": "5 ft",
+    "target": "one creature",
+    "saveEffect": {
+     "save": "CON",
+     "dc": 10
+    },
+    "notes": "On a hit: The target must succeed on a DC 10 Constitution saving throw or its hit point maximum is reduced by an amount equal to the damage taken. This reduction lasts until the creature finishes a long rest. The target dies if this effect reduces its hit point maximum to 0."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Incorporeal Movement",
+    "text": "The restless pioneer can move through other creatures and objects as if they were difficult terrain. It takes 5 (1d10) force damage if it ends its turn inside an object."
+   },
+   {
+    "name": "Sunlight Sensitivity",
+    "text": "While in sunlight, the restless pioneer has disadvantage on attack rolls, as well as on Wisdom (Perception) checks that rely on sight."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Hunts whoever carries the curse; ghosts don't run.",
+  "tacticsSource": "IDEAS SQ5",
+  "tacticsDraft": false,
+  "loot": "Grave goods only, d6: 1-3 nothing; 4 a tintype or letter (a name, a claim, a hook); 5 one Yellow in a buried watch pocket (100 ES); 6 a Dirty Dulls Rolling-Block Rifle and 6 .44-40 rounds (gear, not cash).",
+  "lootSource": "drop table §1.10",
+  "description": "Pioneer ghost bound to a cursed claim or grave.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/RESTLESS-PIONEER.md",
+  "pendingJessey": "J6: plain cartridges treated as nonmagical, whatever gun fires them"
+ },
+ {
+  "id": "riding-horse",
+  "name": "Riding Horse",
+  "size": "Large",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 10,
+  "hp": 13,
+  "hitDice": "2d10+2",
+  "hpDice": "2d10+2",
+  "speed": "60 ft.",
+  "dex": 10,
+  "initBonus": 0,
+  "cr": "1/4",
+  "xp": 50,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 16,
+   "DEX": 10,
+   "CON": 12,
+   "INT": 2,
+   "WIS": 11,
+   "CHA": 7
+  },
+  "str": 16,
+  "con": 12,
+  "int": 2,
+  "wis": 11,
+  "cha": 7,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 10",
+  "languages": "—",
+  "attacks": "Hooves +5 (2d4+3 bludgeoning)",
+  "atkBonus": 5,
+  "damage": "2d4+3",
+  "attackList": [
+   {
+    "id": "hooves",
+    "name": "Hooves",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "2d4+3",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Bolts from gunfire unless a rider calms it; kicks only when cornered.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Not harvested. A caught horse can be kept or sold, but a brand means heat.",
+  "lootSource": "drop table §1.8",
+  "description": "Ordinary trail stock: bay, roan, paint, or scrub mustang.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/RIDING-HORSE.md"
+ },
+ {
+  "id": "sandie",
+  "name": "Sandie",
+  "size": "Medium",
+  "type": "undead",
+  "alignment": "neutral evil",
+  "ac": 8,
+  "hp": 22,
+  "hitDice": "3d8+9",
+  "hpDice": "3d8+9",
+  "speed": "20 ft.",
+  "dex": 6,
+  "initBonus": -2,
+  "cr": "1/4",
+  "xp": 50,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 13,
+   "DEX": 6,
+   "CON": 16,
+   "INT": 6,
+   "WIS": 6,
+   "CHA": 5
+  },
+  "str": 13,
+  "con": 16,
+  "int": 6,
+  "wis": 6,
+  "cha": 5,
+  "saves": {
+   "WIS": 0
+  },
+  "skills": {},
+  "senses": "darkvision 60 ft., passive Perception 8",
+  "languages": "understands Common and the tribal tongue it knew in life; speaks only in broken whispers, howls, and stolen scraps of words",
+  "damageImmunities": "poison",
+  "conditionImmunities": "poisoned",
+  "attacks": "Slam +3 (1d6+1 bludgeoning)",
+  "atkBonus": 3,
+  "damage": "1d6+1",
+  "attackList": [
+   {
+    "id": "slam",
+    "name": "Slam",
+    "kind": "melee",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d6+1",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Undead Fortitude",
+    "text": "If damage reduces the Sandie to 0 hit points, it must make a Constitution saving throw with a DC of 5 + the damage taken, unless the damage is radiant or from a critical hit. On a success, the Sandie drops to 1 hit point instead."
+   },
+   {
+    "name": "Eldorite Hunger",
+    "text": "The Sandie has advantage on Wisdom (Perception) checks to notice Eldorite, Eldorite glow, or creatures carrying visible Eldorite within 60 feet."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Goes for whoever shows the most Eldorite and never runs; a thrown shard distracts it.",
+  "tacticsSource": "IDEAS C3-1",
+  "tacticsDraft": false,
+  "loot": "Gut pouch, d8: 1-4 1d4 Black (0 ES); 5-6 1d4 Black + 1d4 White (about 2 ES); 7 one Blue + Black (10 ES); 8 a half-eaten Green (50 ES), or on a d4 roll of 4 a live Yellow (100 ES). Average about 10 ES. No guns or gear.",
+  "lootSource": "drop table §1.7",
+  "description": "Eldorite-hollowed zombie with a spark of hunger left; goes for shards.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/SANDIES.md"
+ },
+ {
+  "id": "scorpion",
+  "name": "Scorpion",
+  "size": "Tiny",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 11,
+  "armor": "natural armor",
+  "hp": 1,
+  "hitDice": "1d4-1",
+  "hpDice": "1d4-1",
+  "speed": "10 ft.",
+  "dex": 11,
+  "initBonus": 0,
+  "cr": "0",
+  "xp": 10,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 2,
+   "DEX": 11,
+   "CON": 8,
+   "INT": 1,
+   "WIS": 8,
+   "CHA": 2
+  },
+  "str": 2,
+  "con": 8,
+  "int": 1,
+  "wis": 8,
+  "cha": 2,
+  "saves": {},
+  "skills": {},
+  "senses": "blindsight 10 ft., passive Perception 9",
+  "languages": "—",
+  "attacks": "Sting +2 (1 piercing)",
+  "atkBonus": 2,
+  "damage": "1",
+  "attackList": [
+   {
+    "id": "sting",
+    "name": "Sting",
+    "kind": "melee",
+    "toHit": 2,
+    "bonus": 2,
+    "damage": "1",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one creature",
+    "saveDamage": {
+     "save": "CON",
+     "dc": 9,
+     "damage": "1d8",
+     "damageType": "poison",
+     "onSave": "half"
+    },
+    "notes": "On a hit: The target must make a DC 9 Constitution saving throw, taking 4 (1d8) poison damage on a failed save, or half as much damage on a successful one."
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Stings whatever disturbs it, then hides.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "No cash. Venom gland, 50 ES: 1 hour and Survival DC 12 to harvest; on a fail the part is ruined and worth a quarter.",
+  "lootSource": "drop table §1.8",
+  "description": "Thumb-to-palm desert scorpion that hides in boots and bedrolls.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/SCORPION.md"
+ },
+ {
+  "id": "thunder-eagle",
+  "name": "Thunder Eagle",
+  "size": "Large",
+  "type": "dragon",
+  "alignment": "lawful evil",
+  "ac": 18,
+  "armor": "natural armor",
+  "hp": 152,
+  "hitDice": "16d10+64",
+  "hpDice": "16d10+64",
+  "speed": "40 ft., burrow 20 ft., fly 80 ft.",
+  "dex": 10,
+  "initBonus": 0,
+  "cr": "9",
+  "xp": 5000,
+  "proficiencyBonus": 4,
+  "abilities": {
+   "STR": 21,
+   "DEX": 10,
+   "CON": 19,
+   "INT": 14,
+   "WIS": 13,
+   "CHA": 17
+  },
+  "str": 21,
+  "con": 19,
+  "int": 14,
+  "wis": 13,
+  "cha": 17,
+  "saves": {
+   "DEX": 4,
+   "CON": 8,
+   "WIS": 5,
+   "CHA": 7
+  },
+  "skills": {
+   "Perception": 9,
+   "Stealth": 4
+  },
+  "senses": "blindsight 30 ft., darkvision 120 ft., passive Perception 19",
+  "languages": "Common, Trail Tongue",
+  "damageImmunities": "lightning",
+  "attacks": "Bite +9 (2d10+5 piercing), Claw +9 (2d6+5 slashing)",
+  "atkBonus": 9,
+  "damage": "2d10+5",
+  "attackList": [
+   {
+    "id": "bite",
+    "name": "Bite",
+    "kind": "melee",
+    "toHit": 9,
+    "bonus": 9,
+    "damage": "2d10+5",
+    "damageType": "piercing",
+    "range": "10 ft",
+    "target": "one target",
+    "extraDamage": {
+     "damage": "1d10",
+     "damageType": "lightning"
+    },
+    "notes": "Plus 1d10 lightning damage on a hit (add it by hand)."
+   },
+   {
+    "id": "claw",
+    "name": "Claw",
+    "kind": "melee",
+    "toHit": 9,
+    "bonus": 9,
+    "damage": "2d6+5",
+    "damageType": "slashing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The thunder eagle makes three attacks: one with its bite and two with its claws."
+   },
+   {
+    "name": "Lightning Breath",
+    "text": "The thunder eagle exhales lightning in a 60-foot line that is 5 feet wide. Each creature in that line must make a DC 16 Dexterity saving throw, taking 55 (10d10) lightning damage on a failed save, or half as much damage on a successful one.",
+    "recharge": "5–6"
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Breathes lightning on the biggest group from the air, then dives on the loudest; leaves at a quarter HP (38).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Nothing to harvest.",
+  "lootSource": "drop table §1.8",
+  "description": "Storm-scaled mesa dragon wearing eagle myth; breathes lightning.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/THUNDER-EAGLE.md"
+ },
+ {
+  "id": "warhorse",
+  "name": "Warhorse",
+  "aka": "Cavalry Mount",
+  "size": "Large",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 11,
+  "hp": 19,
+  "hitDice": "3d10+3",
+  "hpDice": "3d10+3",
+  "speed": "60 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "1/2",
+  "xp": 100,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 18,
+   "DEX": 12,
+   "CON": 13,
+   "INT": 2,
+   "WIS": 12,
+   "CHA": 7
+  },
+  "str": 18,
+  "con": 13,
+  "int": 2,
+  "wis": 12,
+  "cha": 7,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 11",
+  "languages": "—",
+  "attacks": "Hooves +6 (2d6+4 bludgeoning)",
+  "atkBonus": 6,
+  "damage": "2d6+4",
+  "attackList": [
+   {
+    "id": "hooves",
+    "name": "Hooves",
+    "kind": "melee",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "2d6+4",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Trampling Charge",
+    "text": "If the warhorse moves at least 20 feet straight toward a creature and then hits it with a hooves attack on the same turn, that target must succeed on a DC 14 Strength saving throw or be knocked prone. If the target is prone, the warhorse can make another attack with its hooves against it as a bonus action."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Trampling Charge at whatever its rider points it at; riderless, it bolts unless cornered.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Not harvested. A caught horse can be kept or sold, but a brand means heat.",
+  "lootSource": "drop table §1.8",
+  "description": "Heavy combat charger used to powder and shouting.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/WARHORSE.md"
+ },
+ {
+  "id": "common-townsfolk",
+  "name": "Common Townsfolk",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 10,
+  "hp": 4,
+  "hitDice": "1d8",
+  "hpDice": "1d8",
+  "speed": "30 ft.",
+  "dex": 10,
+  "initBonus": 0,
+  "cr": "0",
+  "xp": 10,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 10,
+   "DEX": 10,
+   "CON": 10,
+   "INT": 10,
+   "WIS": 10,
+   "CHA": 10
+  },
+  "str": 10,
+  "con": 10,
+  "int": 10,
+  "wis": 10,
+  "cha": 10,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 10",
+  "languages": "Common",
+  "attacks": "Baton +2 (1d4 bludgeoning)",
+  "atkBonus": 2,
+  "damage": "1d4",
+  "attackList": [
+   {
+    "id": "baton",
+    "name": "Baton",
+    "kind": "melee",
+    "toHit": 2,
+    "bonus": 2,
+    "damage": "1d4",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "simple",
+    "properties": [
+     "light"
     ],
-    "traits": [
-      { "name": "Keen Hearing and Smell", "text": "The dust devil has advantage on Wisdom (Perception) checks that rely on hearing or smell." },
-      { "name": "Pack Tactics", "text": "The dust devil has advantage on an attack roll against a creature if at least one of the dust devil's allies is within 5 feet of the creature and the ally isn't incapacitated." }
+    "notes": "Simple. Light. Baton or belaying pin."
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Scatters or surrenders when guns come out; fights only for home or kin.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Pocket change, about 15 ES (a White or a Blue and a few Whites). Robbing townsfolk draws the law.",
+  "lootSource": "DRAFT",
+  "description": "Settlers, clerks, and porch folk with whatever's to hand.",
+  "group": "generic-folk",
+  "source": "six-shooters/drafts/monster-manual/COMMON-TOWNSFOLK.md"
+ },
+ {
+  "id": "company-rider",
+  "name": "Company Rider",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any non-good alignment",
+  "ac": 11,
+  "armor": "Leather Jacket",
+  "hp": 32,
+  "hitDice": "5d8+10",
+  "hpDice": "5d8+10",
+  "speed": "30 ft.",
+  "dex": 11,
+  "initBonus": 0,
+  "cr": "1/2",
+  "xp": 100,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 15,
+   "DEX": 11,
+   "CON": 14,
+   "INT": 10,
+   "WIS": 10,
+   "CHA": 11
+  },
+  "str": 15,
+  "con": 14,
+  "int": 10,
+  "wis": 10,
+  "cha": 11,
+  "saves": {},
+  "skills": {
+   "Intimidation": 2
+  },
+  "senses": "passive Perception 10",
+  "languages": "Common",
+  "attacks": "Trail Mace +4 (1d6+2 bludgeoning), Lancaster Rifle +2 (1d10 piercing, 30/120, 6 rds, MF 1)",
+  "atkBonus": 4,
+  "damage": "1d6+2",
+  "attackList": [
+   {
+    "id": "trail-mace",
+    "name": "Trail Mace",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d6+2",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "simple",
+    "notes": "Simple."
+   },
+   {
+    "id": "lancaster-rifle",
+    "name": "Lancaster Rifle",
+    "kind": "ranged",
+    "toHit": 2,
+    "bonus": 2,
+    "damage": "1d10",
+    "damageType": "piercing",
+    "range": "30/120",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 1,
+    "properties": [
+     "two-handed",
+     "no close quarters",
+     "Tactical Reload",
+     "martial"
     ],
-    "description": "Lean prairie wolves the color of trail dust. Not air elementals. Locals nicknamed them Dust Devils for how a pack looks like a spinning cloud of dirt until the teeth arrive."
-  }
+    "weapon": "Lancaster Repeating Rifle, Medium (.44-40), company-stamped",
+    "notes": "Lancaster Repeating Rifle, Medium (.44-40), company-stamped. Martial. Two-handed. No close quarters: disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Pack Tactics",
+    "text": "The company rider has advantage on an attack roll against a creature if at least one of the company rider’s allies is within 5 feet of the creature and the ally isn’t incapacitated."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The company rider makes two melee attacks."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Works in pairs for Pack Tactics; surrenders or pulls back once half the riders are down.",
+  "tacticsSource": "IDEAS C4-2 / C5-1",
+  "tacticsDraft": false,
+  "loot": "Pockets: roll d8 on the company rider drop table (average about 230 ES; a 1 is drained Black company scrip). Gear is company-stamped; selling it draws Blackwood notice. Keepable gun (one per encounter): his company-stamped Lancaster Repeating Rifle (8,000 ES list; Blackwood heat; filing the stamp takes 1 hour and Sleight of Hand DC 15 with tools).",
+  "lootSource": "drop table §1.2 (+ DND Bot lock pass S23 gun)",
+  "description": "Blackwood claim-and-warrant muscle in dust-gray dusters with company-stamped Lancasters.",
+  "group": "generic-folk",
+  "source": "six-shooters/drafts/monster-manual/COMPANY-RIDER.md"
+ },
+ {
+  "id": "frontier-ranger",
+  "name": "Frontier Ranger",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 13,
+  "armor": "Leather Jacket",
+  "hp": 16,
+  "hitDice": "3d8+3",
+  "hpDice": "3d8+3",
+  "speed": "30 ft.",
+  "dex": 14,
+  "initBonus": 2,
+  "cr": "1/2",
+  "xp": 100,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 11,
+   "DEX": 14,
+   "CON": 12,
+   "INT": 11,
+   "WIS": 13,
+   "CHA": 11
+  },
+  "str": 11,
+  "con": 12,
+  "int": 11,
+  "wis": 13,
+  "cha": 11,
+  "saves": {},
+  "skills": {
+   "Nature": 4,
+   "Perception": 5,
+   "Stealth": 6,
+   "Survival": 5
+  },
+  "senses": "passive Perception 15",
+  "languages": "Common, plus one other language",
+  "attacks": "Bowie +4 (1d6+2 piercing), Longbow +4 (1d8+2 piercing, 150/600)",
+  "atkBonus": 4,
+  "damage": "1d6+2",
+  "attackList": [
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d6+2",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "longbow",
+    "name": "Longbow",
+    "kind": "ranged",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d8+2",
+    "damageType": "piercing",
+    "range": "150/600",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "ammunition (arrows)",
+     "heavy",
+     "two-handed"
+    ],
+    "notes": "Martial. Ammunition (arrows), heavy, two-handed."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Keen Hearing and Sight",
+    "text": "The ranger has advantage on Wisdom (Perception) checks that rely on hearing or sight."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The ranger makes two melee attacks or two ranged attacks."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Shoots from range, then closes on anyone threatening the herd; withdraws to Moe's if outnumbered.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Trail kit and about 60 ES. Rangers ride for Gunny O'Riley; looting one makes enemies at Moe's Ranch.",
+  "lootSource": "DND Bot lock pass S6",
+  "description": "Gunny O'Riley's rangers out of Moe's Ranch, who keep the roads and cattle pens honest.",
+  "group": "generic-folk",
+  "source": "six-shooters/drafts/monster-manual/FRONTIER-RANGER.md"
+ },
+ {
+  "id": "iron-fist-contractor",
+  "name": "Iron Fist Contractor",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 16,
+  "armor": "Mail Undershirt, shield",
+  "hp": 11,
+  "hitDice": "2d8+2",
+  "hpDice": "2d8+2",
+  "speed": "30 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 13,
+   "DEX": 12,
+   "CON": 12,
+   "INT": 10,
+   "WIS": 11,
+   "CHA": 10
+  },
+  "str": 13,
+  "con": 12,
+  "int": 10,
+  "wis": 11,
+  "cha": 10,
+  "saves": {},
+  "skills": {
+   "Perception": 2
+  },
+  "senses": "passive Perception 12",
+  "languages": "Common",
+  "attacks": "Trail Spear +3 (1d6+1 piercing, 20/60)",
+  "atkBonus": 3,
+  "damage": "1d6+1",
+  "attackList": [
+   {
+    "id": "trail-spear",
+    "name": "Trail Spear",
+    "kind": "melee",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d6+1",
+    "damageType": "piercing",
+    "range": "5 ft or 20/60",
+    "target": "one target",
+    "weaponClass": "simple",
+    "properties": [
+     "thrown",
+     "versatile"
+    ],
+    "versatile": "1d8+1",
+    "notes": "Simple. Thrown, versatile. Versatile: 1d8+1 piercing two-handed."
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Holds the line with the trail spear; breaks once the foreman or half the crew falls.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Day wages, about 40 ES, and a contractor's chit (paper, story).",
+  "lootSource": "DRAFT",
+  "description": "Hired line-holder for Jasper \"Iron Fist\" Hargrove's crews.",
+  "group": "generic-folk",
+  "source": "six-shooters/drafts/monster-manual/IRON-FIST-CONTRACTOR.md"
+ },
+ {
+  "id": "rival-adventurer",
+  "name": "Rival Adventurer",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 13,
+  "armor": "Leather Jacket",
+  "hp": 16,
+  "hitDice": "3d8+3",
+  "hpDice": "3d8+3",
+  "speed": "30 ft.",
+  "dex": 14,
+  "initBonus": 2,
+  "cr": "1/2",
+  "xp": 100,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 11,
+   "DEX": 14,
+   "CON": 12,
+   "INT": 11,
+   "WIS": 13,
+   "CHA": 11
+  },
+  "str": 11,
+  "con": 12,
+  "int": 11,
+  "wis": 13,
+  "cha": 11,
+  "saves": {},
+  "skills": {
+   "Nature": 4,
+   "Perception": 5,
+   "Stealth": 6,
+   "Survival": 5
+  },
+  "senses": "passive Perception 15",
+  "languages": "any one language (usually Common)",
+  "attacks": "Bowie +4 (1d6+2 piercing), Henrietta Rifle +4 (1d8+2 piercing, 30/120, 6 rds, MF 1-2)",
+  "atkBonus": 4,
+  "damage": "1d6+2",
+  "attackList": [
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d6+2",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "henrietta-rifle",
+    "name": "Henrietta Rifle",
+    "kind": "ranged",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d8+2",
+    "damageType": "piercing",
+    "range": "30/120",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 2,
+    "properties": [
+     "two-handed",
+     "no close quarters",
+     "Tactical Reload",
+     "martial"
+    ],
+    "weapon": "Henrietta Repeating Rifle, Medium (.44-40)",
+    "notes": "Henrietta Repeating Rifle, Medium (.44-40). Martial. Two-handed. No close quarters: disadvantage with a hostile within 5 ft. Misfire on a natural 1-2: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Keen Hearing and Sight",
+    "text": "The rival adventurer has advantage on Wisdom (Perception) checks that rely on hearing or sight."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The rival adventurer makes two melee attacks or two ranged attacks."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Keeps distance with the rifle and wants the prize, not a fight; grabs the loot and runs when two fall.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Pockets: roll d6 on the outlaw drop table (average 250 ES). A claim map folded wrong. Keepable gun (one per encounter): the Henrietta Repeating Rifle they fired (6,500 ES list; gear, not cash).",
+  "lootSource": "drop table §1.1 (+ DND Bot lock pass S23 gun)",
+  "description": "Another outfit on the same map, with Henrietta repeaters and Bowie knives.",
+  "group": "generic-folk",
+  "source": "six-shooters/drafts/monster-manual/RIVAL-ADVENTURER.md"
+ },
+ {
+  "id": "rustler",
+  "name": "Rustler",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any non-lawful alignment",
+  "ac": 12,
+  "armor": "Leather Jacket",
+  "hp": 11,
+  "hitDice": "2d8+2",
+  "hpDice": "2d8+2",
+  "speed": "30 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 11,
+   "DEX": 12,
+   "CON": 12,
+   "INT": 10,
+   "WIS": 10,
+   "CHA": 10
+  },
+  "str": 11,
+  "con": 12,
+  "int": 10,
+  "wis": 10,
+  "cha": 10,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 10",
+  "languages": "Common",
+  "attacks": "Bowie +3 (1d6+1 piercing), ChaosMaker Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1)",
+  "atkBonus": 3,
+  "damage": "1d6+1",
+  "attackList": [
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d6+1",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "chaosmaker-revolver",
+    "name": "ChaosMaker Revolver",
+    "kind": "ranged",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d8+1",
+    "damageType": "piercing",
+    "range": "20/60",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 1,
+    "properties": [
+     "close quarters",
+     "Tactical Reload",
+     "martial"
+    ],
+    "weapon": "Pony Arms ChaosMaker, Medium (.44-40)",
+    "notes": "Pony Arms ChaosMaker, Medium (.44-40). Martial. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Never surrenders, but can be bribed.",
+  "tacticsSource": "IDEAS C5-1",
+  "tacticsDraft": false,
+  "loot": "Pockets: roll d6 on the rustler drop table (average about 265 ES). A lariat and a running iron (evidence of rustling). Keepable gun (one per encounter): the ChaosMaker Medium he fired (2,500 ES list; gear, not cash).",
+  "lootSource": "drop table §1.4 (+ DND Bot lock pass S23 gun)",
+  "description": "Rustler Syndicate rider out of Bottle Neck with a Bowie and a ChaosMaker.",
+  "group": "generic-folk",
+  "source": "six-shooters/drafts/monster-manual/RUSTLER.md"
+ },
+ {
+  "id": "scorps-enforcer",
+  "name": "Scorps Enforcer",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any non-good alignment",
+  "ac": 11,
+  "armor": "Leather Jacket",
+  "hp": 32,
+  "hitDice": "5d8+10",
+  "hpDice": "5d8+10",
+  "speed": "30 ft.",
+  "dex": 11,
+  "initBonus": 0,
+  "cr": "1/2",
+  "xp": 100,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 15,
+   "DEX": 11,
+   "CON": 14,
+   "INT": 10,
+   "WIS": 10,
+   "CHA": 11
+  },
+  "str": 15,
+  "con": 14,
+  "int": 10,
+  "wis": 10,
+  "cha": 11,
+  "saves": {},
+  "skills": {
+   "Intimidation": 2
+  },
+  "senses": "passive Perception 10",
+  "languages": "Common",
+  "attacks": "Trail Mace +4 (1d6+2 bludgeoning), Heavy ChaosMaker +2 (1d10 piercing, 30/90, 6 rds, MF 1-2)",
+  "atkBonus": 4,
+  "damage": "1d6+2",
+  "attackList": [
+   {
+    "id": "trail-mace",
+    "name": "Trail Mace",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d6+2",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "simple",
+    "notes": "Simple."
+   },
+   {
+    "id": "heavy-chaosmaker",
+    "name": "Heavy ChaosMaker",
+    "kind": "ranged",
+    "toHit": 2,
+    "bonus": 2,
+    "damage": "1d10",
+    "damageType": "piercing",
+    "range": "30/90",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 2,
+    "properties": [
+     "close quarters",
+     "loud",
+     "Tactical Reload",
+     "martial"
+    ],
+    "weapon": "Pony Arms ChaosMaker, Heavy (.45 Long)",
+    "notes": "Pony Arms ChaosMaker, Heavy (.45 Long). Martial. Loud. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1-2: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Pack Tactics",
+    "text": "The Scorps enforcer has advantage on an attack roll against a creature if at least one of the enforcer’s allies is within 5 feet of the creature and the ally isn’t incapacitated."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The Scorps enforcer makes two melee attacks."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Pairs up for Pack Tactics on one target; backs off once half the crew is down.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Collection bag, about 120 ES in debts collected for Viper Trent. Spending it marks you to the Scorps.",
+  "lootSource": "DRAFT",
+  "description": "Scorps debt collector with a trail mace and a Heavy ChaosMaker.",
+  "group": "generic-folk",
+  "source": "six-shooters/drafts/monster-manual/SCORPS-ENFORCER.md"
+ },
+ {
+  "id": "town-deputy",
+  "name": "Town Deputy",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 16,
+  "armor": "Mail Undershirt, shield",
+  "hp": 11,
+  "hitDice": "2d8+2",
+  "hpDice": "2d8+2",
+  "speed": "30 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 13,
+   "DEX": 12,
+   "CON": 12,
+   "INT": 10,
+   "WIS": 11,
+   "CHA": 10
+  },
+  "str": 13,
+  "con": 12,
+  "int": 10,
+  "wis": 11,
+  "cha": 10,
+  "saves": {},
+  "skills": {
+   "Perception": 2
+  },
+  "senses": "passive Perception 12",
+  "languages": "Common",
+  "attacks": "Ball n Cap Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1-4), Baton +3 (1d4+1 bludgeoning)",
+  "atkBonus": 3,
+  "damage": "1d8+1",
+  "attackList": [
+   {
+    "id": "ball-n-cap-revolver",
+    "name": "Ball n Cap Revolver",
+    "kind": "ranged",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d8+1",
+    "damageType": "piercing",
+    "range": "20/60",
+    "target": "one target",
+    "weaponClass": "simple",
+    "capacity": 6,
+    "misfire": 4,
+    "properties": [
+     "close quarters",
+     "slow load (a full turn)",
+     "simple"
+    ],
+    "weapon": "Navy / Army Ball n Cap Revolver (ball & cap)",
+    "notes": "Navy / Army Ball n Cap Revolver (ball & cap). Simple. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1-4: miss, jam, and the round is still spent. Slow load: reloading takes a full turn (action, bonus action, and movement)."
+   },
+   {
+    "id": "baton",
+    "name": "Baton",
+    "kind": "melee",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d4+1",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "simple",
+    "properties": [
+     "light"
+    ],
+    "notes": "Simple. Light."
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Falls back after two deputies drop.",
+  "tacticsSource": "IDEAS C5-1",
+  "tacticsDraft": false,
+  "loot": "Pockets: roll d6 on the deputy drop table (average about 155 ES), plus manacles. Robbing a lawman is a felony.",
+  "lootSource": "drop table §1.3",
+  "description": "Local badge with a Ball n Cap and a baton; honest, or naive.",
+  "group": "generic-folk",
+  "source": "six-shooters/drafts/monster-manual/TOWN-DEPUTY.md"
+ },
+ {
+  "id": "abigail-ellen",
+  "name": "Abigail Ellen",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 15,
+  "armor": "Steel Vest",
+  "hp": 9,
+  "hitDice": "2d8",
+  "hpDice": "2d8",
+  "speed": "30 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 11,
+   "DEX": 12,
+   "CON": 11,
+   "INT": 12,
+   "WIS": 14,
+   "CHA": 16
+  },
+  "str": 11,
+  "con": 11,
+  "int": 12,
+  "wis": 14,
+  "cha": 16,
+  "saves": {},
+  "skills": {
+   "Deception": 5,
+   "Insight": 4,
+   "Persuasion": 5
+  },
+  "senses": "passive Perception 12",
+  "languages": "Common",
+  "attacks": "Sword Cane +3 (1d8+1 piercing), Henrietta Rifle +3 (1d8+1 piercing, 30/120, 6 rds, MF 1-2)",
+  "atkBonus": 3,
+  "damage": "1d8+1",
+  "attackList": [
+   {
+    "id": "sword-cane",
+    "name": "Sword Cane",
+    "kind": "melee",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d8+1",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse"
+    ],
+    "notes": "Martial. Finesse."
+   },
+   {
+    "id": "henrietta-rifle",
+    "name": "Henrietta Rifle",
+    "kind": "ranged",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d8+1",
+    "damageType": "piercing",
+    "range": "30/120",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 2,
+    "properties": [
+     "two-handed",
+     "no close quarters",
+     "Tactical Reload",
+     "martial"
+    ],
+    "weapon": "Henrietta Repeating Rifle, Medium (.44-40)",
+    "notes": "Henrietta Repeating Rifle, Medium (.44-40). Martial. Two-handed. No close quarters: disadvantage with a hostile within 5 ft. Misfire on a natural 1-2: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [
+   {
+    "name": "Parry",
+    "text": "Abigail Ellen adds 2 to her AC against one melee attack that would hit her. To do so, she must see the attacker and be wielding a melee weapon."
+   }
+  ],
+  "legendary": [],
+  "tactics": "Ch2: leads from the saddle with her repeater, rallies volunteers, and won't leave townsfolk behind. Ch5: wrecked and out of the fight; not a combat asset.",
+  "tacticsSource": "DND Bot lock pass S2",
+  "tacticsDraft": false,
+  "loot": "Ally: not looted. If it ever comes to that, about 60 ES on her; story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Sheriff and Mayor of Silver Springs: rally voice, pardons, and a sword cane she rarely draws.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/ABIGAIL-ELLEN.md"
+ },
+ {
+  "id": "black-eyed-susan",
+  "name": "Black-Eyed Susan",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 12,
+  "hp": 27,
+  "hitDice": "6d8",
+  "hpDice": "6d8",
+  "speed": "30 ft.",
+  "dex": 15,
+  "initBonus": 2,
+  "cr": "1",
+  "xp": 200,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 10,
+   "DEX": 15,
+   "CON": 10,
+   "INT": 12,
+   "WIS": 14,
+   "CHA": 16
+  },
+  "str": 10,
+  "con": 10,
+  "int": 12,
+  "wis": 14,
+  "cha": 16,
+  "saves": {},
+  "skills": {
+   "Deception": 5,
+   "Insight": 4,
+   "Investigation": 5,
+   "Perception": 6,
+   "Persuasion": 5,
+   "Sleight of Hand": 4,
+   "Stealth": 4
+  },
+  "senses": "passive Perception 16",
+  "languages": "Common, plus any one other language",
+  "attacks": "Bowie +4 (1d6+2 piercing), Double Derringer +4 (1d6+2 piercing, 10/30, 2 rds, MF 1-3)",
+  "atkBonus": 4,
+  "damage": "1d6+2",
+  "attackList": [
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d6+2",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "double-derringer",
+    "name": "Double Derringer",
+    "kind": "ranged",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d6+2",
+    "damageType": "piercing",
+    "range": "10/30",
+    "target": "one target",
+    "weaponClass": "simple",
+    "capacity": 2,
+    "misfire": 3,
+    "properties": [
+     "light",
+     "concealable",
+     "close quarters",
+     "simple"
+    ],
+    "weapon": "Herringer Light Double Derringer (.32 Long)",
+    "notes": "Herringer Light Double Derringer (.32 Long). Simple. Light, concealable. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1-3: miss, jam, and the round is still spent. Reload is an action."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Cunning Action",
+    "text": "On each of her turns, Black-Eyed Susan can use a bonus action to take the Dash, Disengage, or Hide action."
+   },
+   {
+    "name": "Sneak Attack (1/Turn)",
+    "text": "Susan deals an extra 7 (2d6) damage when she hits a target with a weapon attack and has advantage on the attack roll, or when the target is within 5 feet of an ally of hers that isn’t incapacitated and she doesn’t have disadvantage on the attack roll."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "Black-Eyed Susan makes two melee attacks."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Hides with Cunning Action every turn; runs below half HP (13) or when Dolan falls.",
+  "tacticsSource": "IDEAS C4-3",
+  "tacticsDraft": false,
+  "loot": "About 150 ES on her, plus story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Rustler Syndicate recruiter in Bottle Neck: charm first, Bowie second, derringer in the garter.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/BLACK-EYED-SUSAN.md",
+  "pendingJessey": "J4: written as not Murphy kin (S4 description)"
+ },
+ {
+  "id": "buddy-kidd",
+  "name": "Buddy Kidd",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any non-lawful alignment",
+  "ac": 15,
+  "armor": "Studded Vest",
+  "hp": 65,
+  "hitDice": "10d8+20",
+  "hpDice": "10d8+20",
+  "speed": "30 ft.",
+  "dex": 16,
+  "initBonus": 3,
+  "cr": "2",
+  "xp": 450,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 15,
+   "DEX": 16,
+   "CON": 14,
+   "INT": 14,
+   "WIS": 11,
+   "CHA": 14
+  },
+  "str": 15,
+  "con": 14,
+  "int": 14,
+  "wis": 11,
+  "cha": 14,
+  "saves": {
+   "STR": 4,
+   "DEX": 5,
+   "WIS": 2
+  },
+  "skills": {
+   "Athletics": 4,
+   "Deception": 4
+  },
+  "senses": "passive Perception 10",
+  "languages": "Common, Thieves’ cant",
+  "attacks": "Bowie +5 (1d6+3 piercing), Stiletto +5 (1d4+3 piercing, 20/60), ChaosMaker Revolver +5 (1d8+3 piercing, 20/60, 6 rds, MF 1)",
+  "atkBonus": 5,
+  "damage": "1d6+3",
+  "attackList": [
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d6+3",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "stiletto",
+    "name": "Stiletto",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d4+3",
+    "damageType": "piercing",
+    "range": "5 ft or 20/60",
+    "target": "one target",
+    "weaponClass": "simple",
+    "properties": [
+     "finesse",
+     "light",
+     "thrown"
+    ],
+    "notes": "Simple. Finesse, light, thrown."
+   },
+   {
+    "id": "chaosmaker-revolver",
+    "name": "ChaosMaker Revolver",
+    "kind": "ranged",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d8+3",
+    "damageType": "piercing",
+    "range": "20/60",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 1,
+    "properties": [
+     "close quarters",
+     "Tactical Reload",
+     "martial"
+    ],
+    "weapon": "Pony Arms ChaosMaker, Medium (.44-40)",
+    "notes": "Pony Arms ChaosMaker, Medium (.44-40). Martial. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   }
+  ],
+  "traits": [],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "Buddy Kidd makes three melee attacks: two with his Bowie and one with his stiletto. Or he makes two ranged attacks with his ChaosMaker."
+   }
+  ],
+  "reactions": [
+   {
+    "name": "Parry",
+    "text": "Buddy Kidd adds 2 to his AC against one melee attack that would hit him. To do so, he must see the attacker and be wielding a melee weapon."
+   }
+  ],
+  "legendary": [],
+  "tactics": "Duels the best gunhand and Parries; calls \"Hold!\" when a Pal drops or at half HP (32). Can't die in Act I.",
+  "tacticsSource": "IDEAS C2-2 / C3-3",
+  "tacticsDraft": false,
+  "loot": "Ally: not looted. If it ever comes to that, about 250 ES on them; story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Jovial young outlaw who leads the Pals; skips before he shoots.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/BUDDY-KIDD.md"
+ },
+ {
+  "id": "captain-rhee-calder",
+  "name": "Captain Rhee Calder",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 17,
+  "armor": "Splint Harness",
+  "hp": 58,
+  "hitDice": "9d8+18",
+  "hpDice": "9d8+18",
+  "speed": "30 ft.",
+  "dex": 13,
+  "initBonus": 1,
+  "cr": "3",
+  "xp": 700,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 16,
+   "DEX": 13,
+   "CON": 14,
+   "INT": 10,
+   "WIS": 11,
+   "CHA": 10
+  },
+  "str": 16,
+  "con": 14,
+  "int": 10,
+  "wis": 11,
+  "cha": 10,
+  "saves": {},
+  "skills": {
+   "Athletics": 5,
+   "Perception": 2
+  },
+  "senses": "passive Perception 12",
+  "languages": "Common",
+  "attacks": "Cavalry Saber +5 (1d8+3 slashing), Bowie +5 (1d6+3 piercing), Lancaster Rifle +3 (1d10+1 piercing, 30/120, 6 rds, MF 1)",
+  "atkBonus": 5,
+  "damage": "1d8+3",
+  "attackList": [
+   {
+    "id": "cavalry-saber",
+    "name": "Cavalry Saber",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d8+3",
+    "damageType": "slashing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "versatile"
+    ],
+    "versatile": "1d10+3",
+    "notes": "Martial. Versatile. Versatile: 1d10+3 slashing two-handed."
+   },
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d6+3",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "lancaster-rifle",
+    "name": "Lancaster Rifle",
+    "kind": "ranged",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d10+1",
+    "damageType": "piercing",
+    "range": "30/120",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 1,
+    "properties": [
+     "two-handed",
+     "no close quarters",
+     "Tactical Reload",
+     "martial"
+    ],
+    "weapon": "Lancaster Repeating Rifle, Medium (.44-40)",
+    "notes": "Lancaster Repeating Rifle, Medium (.44-40). Martial. Two-handed. No close quarters: disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   }
+  ],
+  "traits": [],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "Captain Rhee Calder makes two Cavalry Saber attacks. If he has his Bowie drawn, he can also make a Bowie attack."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Polite until the second refusal; fights behind his company riders and withdraws once half are down.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "About 300 ES on them, plus story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Blackwood's company-rider captain: calm voice, cooked warrants, saber and Lancaster.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/CAPTAIN-RHEE-CALDER.md",
+  "parked": true
+ },
+ {
+  "id": "chavez",
+  "name": "Chavez",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any non-lawful alignment",
+  "ac": 12,
+  "armor": "Leather Jacket",
+  "hp": 11,
+  "hitDice": "2d8+2",
+  "hpDice": "2d8+2",
+  "speed": "30 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 11,
+   "DEX": 12,
+   "CON": 12,
+   "INT": 10,
+   "WIS": 10,
+   "CHA": 10
+  },
+  "str": 11,
+  "con": 12,
+  "int": 10,
+  "wis": 10,
+  "cha": 10,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 10",
+  "languages": "Common",
+  "attacks": "Bowie +3 (1d6+1 piercing), ChaosMaker Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1)",
+  "atkBonus": 3,
+  "damage": "1d6+1",
+  "attackList": [
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d6+1",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "chaosmaker-revolver",
+    "name": "ChaosMaker Revolver",
+    "kind": "ranged",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d8+1",
+    "damageType": "piercing",
+    "range": "20/60",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 1,
+    "properties": [
+     "close quarters",
+     "Tactical Reload",
+     "martial"
+    ],
+    "weapon": "Pony Arms ChaosMaker, Medium (.44-40)",
+    "notes": "Pony Arms ChaosMaker, Medium (.44-40). Martial. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Slips to a flank and shoots from there.",
+  "tacticsSource": "IDEAS C3-3",
+  "tacticsDraft": false,
+  "loot": "Ally: not looted. If it ever comes to that, about 30 ES on them; story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Buddy's quiet wire-runner and scout inside the Rustler Syndicate camp.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/CHAVEZ.md"
+ },
+ {
+  "id": "dolan-murphy",
+  "name": "Dolan Murphy",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any non-lawful alignment",
+  "ac": 15,
+  "armor": "Studded Vest",
+  "hp": 65,
+  "hitDice": "10d8+20",
+  "hpDice": "10d8+20",
+  "speed": "30 ft.",
+  "dex": 16,
+  "initBonus": 3,
+  "cr": "2",
+  "xp": 450,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 15,
+   "DEX": 16,
+   "CON": 14,
+   "INT": 14,
+   "WIS": 11,
+   "CHA": 14
+  },
+  "str": 15,
+  "con": 14,
+  "int": 14,
+  "wis": 11,
+  "cha": 14,
+  "saves": {
+   "STR": 4,
+   "DEX": 5,
+   "WIS": 2
+  },
+  "skills": {
+   "Athletics": 4,
+   "Deception": 4
+  },
+  "senses": "passive Perception 10",
+  "languages": "Common, Thieves’ cant",
+  "attacks": "Bowie +5 (1d6+3 piercing), Stiletto +5 (1d4+3 piercing, 20/60), ChaosMaker Revolver +5 (1d8+3 piercing, 20/60, 6 rds, MF 1)",
+  "atkBonus": 5,
+  "damage": "1d6+3",
+  "attackList": [
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d6+3",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "stiletto",
+    "name": "Stiletto",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d4+3",
+    "damageType": "piercing",
+    "range": "5 ft or 20/60",
+    "target": "one target",
+    "weaponClass": "simple",
+    "properties": [
+     "finesse",
+     "light",
+     "thrown"
+    ],
+    "notes": "Simple. Finesse, light, thrown."
+   },
+   {
+    "id": "chaosmaker-revolver",
+    "name": "ChaosMaker Revolver",
+    "kind": "ranged",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d8+3",
+    "damageType": "piercing",
+    "range": "20/60",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 1,
+    "properties": [
+     "close quarters",
+     "Tactical Reload",
+     "martial"
+    ],
+    "weapon": "Pony Arms ChaosMaker, Medium (.44-40)",
+    "notes": "Pony Arms ChaosMaker, Medium (.44-40). Martial. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   }
+  ],
+  "traits": [],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "Dolan Murphy makes three melee attacks: two with his Bowie and one with his stiletto. Or he makes two ranged attacks with his ChaosMaker."
+   }
+  ],
+  "reactions": [
+   {
+    "name": "Parry",
+    "text": "Dolan Murphy adds 2 to his AC against one melee attack that would hit him. To do so, he must see the attacker and be wielding a melee weapon."
+   }
+  ],
+  "legendary": [],
+  "tactics": "Fights from his porch or desk with the crony family around him. He won't surrender, but at a quarter HP (16) he tries to buy his life.",
+  "tacticsSource": "DND Bot lock pass S3 (IDEAS C4-3)",
+  "tacticsDraft": false,
+  "loot": "About 500 ES on them, plus story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Boss of the Rustler Syndicate out of Bottle Neck; sells cattle monopoly as public order.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/DOLAN-MURPHY.md"
+ },
+ {
+  "id": "jasper-hargrove",
+  "name": "Jasper “Iron Fist” Hargrove",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 17,
+  "armor": "Splint Harness",
+  "hp": 58,
+  "hitDice": "9d8+18",
+  "hpDice": "9d8+18",
+  "speed": "30 ft.",
+  "dex": 13,
+  "initBonus": 1,
+  "cr": "3",
+  "xp": 700,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 16,
+   "DEX": 13,
+   "CON": 14,
+   "INT": 10,
+   "WIS": 11,
+   "CHA": 10
+  },
+  "str": 16,
+  "con": 14,
+  "int": 10,
+  "wis": 11,
+  "cha": 10,
+  "saves": {},
+  "skills": {
+   "Athletics": 5,
+   "Perception": 2
+  },
+  "senses": "passive Perception 12",
+  "languages": "Common",
+  "attacks": "Cavalry Saber +5 (1d8+3 slashing), Bowie +5 (1d6+3 piercing), Lancaster Rifle +3 (1d10+1 piercing, 30/120, 6 rds, MF 1)",
+  "atkBonus": 5,
+  "damage": "1d8+3",
+  "attackList": [
+   {
+    "id": "cavalry-saber",
+    "name": "Cavalry Saber",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d8+3",
+    "damageType": "slashing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "versatile"
+    ],
+    "versatile": "1d10+3",
+    "notes": "Martial. Versatile. Versatile: 1d10+3 slashing two-handed."
+   },
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d6+3",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "lancaster-rifle",
+    "name": "Lancaster Rifle",
+    "kind": "ranged",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d10+1",
+    "damageType": "piercing",
+    "range": "30/120",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 1,
+    "properties": [
+     "two-handed",
+     "no close quarters",
+     "Tactical Reload",
+     "martial"
+    ],
+    "weapon": "Lancaster Repeating Rifle, Medium (.44-40)",
+    "notes": "Lancaster Repeating Rifle, Medium (.44-40). Martial. Two-handed. No close quarters: disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   }
+  ],
+  "traits": [],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "Jasper makes two Cavalry Saber attacks. If he has his Bowie drawn, he can also make a Bowie attack."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Leads from the front with the saber; calls his men off below half HP (29).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "About 250 ES on them, plus story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Jasper \"Iron Fist\" Hargrove: hard-handed contractor boss with a saber and a Lancaster.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/JASPER-IRON-FIST.md"
+ },
+ {
+  "id": "nina-vasquez",
+  "name": "Nina “Black Widow” Vasquez",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any non-good alignment",
+  "ac": 15,
+  "armor": "Studded Vest",
+  "hp": 78,
+  "hitDice": "12d8+24",
+  "hpDice": "12d8+24",
+  "speed": "30 ft.",
+  "dex": 16,
+  "initBonus": 3,
+  "cr": "8",
+  "xp": 3900,
+  "proficiencyBonus": 3,
+  "abilities": {
+   "STR": 11,
+   "DEX": 16,
+   "CON": 14,
+   "INT": 13,
+   "WIS": 11,
+   "CHA": 10
+  },
+  "str": 11,
+  "con": 14,
+  "int": 13,
+  "wis": 11,
+  "cha": 10,
+  "saves": {
+   "DEX": 6,
+   "INT": 4
+  },
+  "skills": {
+   "Acrobatics": 6,
+   "Deception": 3,
+   "Perception": 3,
+   "Stealth": 9
+  },
+  "senses": "passive Perception 13",
+  "languages": "Thieves’ cant, plus any two languages",
+  "damageResistances": "poison",
+  "attacks": "Bowie +6 (1d6+3 piercing), ChaosMaker Revolver +6 (1d8+3 piercing, 20/60, 6 rds, MF 1)",
+  "atkBonus": 6,
+  "damage": "1d6+3",
+  "attackList": [
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "1d6+3",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light",
+     "venom-coated blade"
+    ],
+    "saveDamage": {
+     "save": "CON",
+     "dc": 15,
+     "damage": "7d6",
+     "damageType": "poison",
+     "onSave": "half"
+    },
+    "notes": "Martial. Finesse, light, venom-coated blade. On a hit: The target must make a DC 15 Constitution saving throw, taking 24 (7d6) poison damage on a failed save, or half as much damage on a successful one."
+   },
+   {
+    "id": "chaosmaker-revolver",
+    "name": "ChaosMaker Revolver",
+    "kind": "ranged",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "1d8+3",
+    "damageType": "piercing",
+    "range": "20/60",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 1,
+    "properties": [
+     "close quarters",
+     "Tactical Reload",
+     "martial"
+    ],
+    "weapon": "Pony Arms ChaosMaker, Medium (.44-40), venom-packed rounds",
+    "saveDamage": {
+     "save": "CON",
+     "dc": 15,
+     "damage": "7d6",
+     "damageType": "poison",
+     "onSave": "half"
+    },
+    "notes": "Pony Arms ChaosMaker, Medium (.44-40), venom-packed rounds. Martial. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action. On a hit: The target must make a DC 15 Constitution saving throw, taking 24 (7d6) poison damage on a failed save, or half as much damage on a successful one."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Assassinate",
+    "text": "During her first turn, Nina has advantage on attack rolls against any creature that hasn’t taken a turn. Any hit she scores against a surprised creature is a critical hit."
+   },
+   {
+    "name": "Evasion",
+    "text": "If Nina is subjected to an effect that allows her to make a Dexterity saving throw to take only half damage, she instead takes no damage if she succeeds on the saving throw, and only half damage if she fails."
+   },
+   {
+    "name": "Sneak Attack (1/Turn)",
+    "text": "Nina deals an extra 14 (4d6) damage when she hits a target with a weapon attack and has advantage on the attack roll, or when the target is within 5 feet of one of Nina’s allies that isn’t incapacitated and Nina doesn’t have disadvantage on the attack roll."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "Nina makes two Bowie attacks."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Opens from hiding to Assassinate, then fights with venom; slips away below half HP (39).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "About 400 ES on her, plus story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Nina \"Black Widow\" Vasquez: Scorps assassin with venom on her Bowie and in her bullets.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/NINA-BLACK-WIDOW.md"
+ },
+ {
+  "id": "prospector-moe",
+  "name": "Prospector Moe",
+  "aka": "Trader Moe",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 15,
+  "armor": "Steel Vest",
+  "hp": 9,
+  "hitDice": "2d8",
+  "hpDice": "2d8",
+  "speed": "30 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 11,
+   "DEX": 12,
+   "CON": 11,
+   "INT": 12,
+   "WIS": 14,
+   "CHA": 16
+  },
+  "str": 11,
+  "con": 11,
+  "int": 12,
+  "wis": 14,
+  "cha": 16,
+  "saves": {},
+  "skills": {
+   "Deception": 5,
+   "Insight": 4,
+   "Persuasion": 5
+  },
+  "senses": "passive Perception 12",
+  "languages": "Common",
+  "attacks": "Sword Cane +3 (1d8+1 piercing)",
+  "atkBonus": 3,
+  "damage": "1d8+1",
+  "attackList": [
+   {
+    "id": "sword-cane",
+    "name": "Sword Cane",
+    "kind": "melee",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d8+1",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse"
+    ],
+    "notes": "Martial. Finesse."
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [
+   {
+    "name": "Parry",
+    "text": "Moe adds 2 to his AC against one melee attack that would hit him. To do so, he must see the attacker and be wielding a melee weapon."
+   }
+  ],
+  "legendary": [],
+  "tactics": "Not a fighter: shouts, Parries, and bargains; surrenders before he bleeds.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Ally: not looted. If it ever comes to that, about 100 ES on them; story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Proprietor of Trader Moe's in Marianna Flats: loud, shrewd, and carrying a sword cane for a walking stick.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/PROSPECTOR-MOE.md"
+ },
+ {
+  "id": "silas-oriley",
+  "name": "Silas O’Riley",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 12,
+  "hp": 27,
+  "hitDice": "6d8",
+  "hpDice": "6d8",
+  "speed": "30 ft.",
+  "dex": 15,
+  "initBonus": 2,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 10,
+   "DEX": 15,
+   "CON": 10,
+   "INT": 12,
+   "WIS": 14,
+   "CHA": 16
+  },
+  "str": 10,
+  "con": 10,
+  "int": 12,
+  "wis": 14,
+  "cha": 16,
+  "saves": {},
+  "skills": {
+   "Deception": 5,
+   "Insight": 4,
+   "Investigation": 5,
+   "Perception": 6,
+   "Persuasion": 5,
+   "Sleight of Hand": 4,
+   "Stealth": 4
+  },
+  "senses": "passive Perception 16",
+  "languages": "Common, plus any one other language",
+  "attacks": "Bowie +4 (1d6+2 piercing), Double Derringer +4 (1d6+2 piercing, 10/30, 2 rds, MF 1-3)",
+  "atkBonus": 4,
+  "damage": "1d6+2",
+  "attackList": [
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d6+2",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "double-derringer",
+    "name": "Double Derringer",
+    "kind": "ranged",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d6+2",
+    "damageType": "piercing",
+    "range": "10/30",
+    "target": "one target",
+    "weaponClass": "simple",
+    "capacity": 2,
+    "misfire": 3,
+    "properties": [
+     "light",
+     "concealable",
+     "close quarters",
+     "simple"
+    ],
+    "weapon": "Herringer Light Double Derringer (.32 Long)",
+    "notes": "Herringer Light Double Derringer (.32 Long). Simple. Light, concealable. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1-3: miss, jam, and the round is still spent. Reload is an action."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Cunning Action",
+    "text": "On each of his turns, Silas can use a bonus action to take the Dash, Disengage, or Hide action."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "A boy, not a fighter: hides and runs. Keep him out of the fight when the scene allows.",
+  "tacticsSource": "entry lore (DRAFT wording)",
+  "tacticsDraft": true,
+  "loot": "Ally: not looted. If it ever comes to that, about 5 ES on them; story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Young O'Riley stable hand at Moe's; an ally and a pressured whistleblower.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/SILAS-ORILEY.md",
+  "pendingJessey": "J1: kid stable hand version (S1 applied: CR 1/8, no Sneak Attack/Multiattack) vs adult drifter"
+ },
+ {
+  "id": "tommy-tenderfoot",
+  "name": "Tommy Tenderfoot",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any non-lawful alignment",
+  "ac": 12,
+  "armor": "Leather Jacket",
+  "hp": 11,
+  "hitDice": "2d8+2",
+  "hpDice": "2d8+2",
+  "speed": "30 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 11,
+   "DEX": 12,
+   "CON": 12,
+   "INT": 10,
+   "WIS": 10,
+   "CHA": 10
+  },
+  "str": 11,
+  "con": 12,
+  "int": 10,
+  "wis": 10,
+  "cha": 10,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 10",
+  "languages": "Common",
+  "attacks": "Bowie +3 (1d6+1 piercing), ChaosMaker Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1)",
+  "atkBonus": 3,
+  "damage": "1d6+1",
+  "attackList": [
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d6+1",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "chaosmaker-revolver",
+    "name": "ChaosMaker Revolver",
+    "kind": "ranged",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d8+1",
+    "damageType": "piercing",
+    "range": "20/60",
+    "target": "one target",
+    "weaponClass": "martial",
+    "capacity": 6,
+    "misfire": 1,
+    "properties": [
+     "close quarters",
+     "Tactical Reload",
+     "martial"
+    ],
+    "weapon": "Pony Arms ChaosMaker, Medium (.44-40)",
+    "notes": "Pony Arms ChaosMaker, Medium (.44-40). Martial. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Shoots with his ChaosMaker; no explosives in close quarters.",
+  "tacticsSource": "IDEAS C3-3 / C4-3",
+  "tacticsDraft": false,
+  "loot": "Ally: not looted. If it ever comes to that, about 30 ES on them; story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Buddy's loyal second and the Pals' powder man.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/TOMMY-TENDERFOOT.md"
+ },
+ {
+  "id": "two-finger-jack",
+  "name": "Two-Finger Jack",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any non-lawful alignment",
+  "ac": 15,
+  "armor": "Studded Vest",
+  "hp": 65,
+  "hitDice": "10d8+20",
+  "hpDice": "10d8+20",
+  "speed": "30 ft.",
+  "dex": 16,
+  "initBonus": 3,
+  "cr": "2",
+  "xp": 450,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 15,
+   "DEX": 16,
+   "CON": 14,
+   "INT": 14,
+   "WIS": 11,
+   "CHA": 14
+  },
+  "str": 15,
+  "con": 14,
+  "int": 14,
+  "wis": 11,
+  "cha": 14,
+  "saves": {
+   "STR": 4,
+   "DEX": 5,
+   "WIS": 2
+  },
+  "skills": {
+   "Athletics": 4,
+   "Deception": 4
+  },
+  "senses": "passive Perception 10",
+  "languages": "Common, Thieves’ cant",
+  "attacks": "Bowie +5 (1d6+3 piercing), Stiletto +5 (1d4+3 piercing, 20/60), Throwing Knives +5 (1d4+3 piercing, 20/60)",
+  "atkBonus": 5,
+  "damage": "1d6+3",
+  "attackList": [
+   {
+    "id": "bowie",
+    "name": "Bowie",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d6+3",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "weaponClass": "martial",
+    "properties": [
+     "finesse",
+     "light"
+    ],
+    "notes": "Martial. Finesse, light."
+   },
+   {
+    "id": "stiletto",
+    "name": "Stiletto",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d4+3",
+    "damageType": "piercing",
+    "range": "5 ft or 20/60",
+    "target": "one target",
+    "weaponClass": "simple",
+    "properties": [
+     "finesse",
+     "light",
+     "thrown"
+    ],
+    "notes": "Simple. Finesse, light, thrown."
+   },
+   {
+    "id": "throwing-knives",
+    "name": "Throwing Knives",
+    "kind": "ranged",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d4+3",
+    "damageType": "piercing",
+    "range": "20/60",
+    "target": "one target",
+    "weaponClass": "simple",
+    "properties": [
+     "finesse",
+     "thrown"
+    ],
+    "weapon": "Throwing knife",
+    "notes": "Throwing knife. Simple. Finesse, thrown."
+   }
+  ],
+  "traits": [],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "Two-Finger Jack makes three melee attacks: two with his Bowie and one with his stiletto. Or he makes two Throwing Knives attacks."
+   }
+  ],
+  "reactions": [
+   {
+    "name": "Parry",
+    "text": "Two-Finger Jack adds 2 to his AC against one melee attack that would hit him. To do so, he must see the attacker and be wielding a melee weapon."
+   }
+  ],
+  "legendary": [],
+  "tactics": "Opens with throwing knives, then closes with Bowie and stiletto; may offer a deal at half HP (32).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "About 300 ES on them, plus story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "East-road boss of the Bonito Bandits with a Bowie, a stiletto, and throwing knives.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/TWO-FINGER-JACK.md"
+ },
+ {
+  "id": "viper-trent",
+  "name": "Viper Trent",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 12,
+  "armor": "15 with mage armor",
+  "hp": 40,
+  "hitDice": "9d8",
+  "hpDice": "9d8",
+  "speed": "30 ft.",
+  "dex": 14,
+  "initBonus": 2,
+  "cr": "6",
+  "xp": 2300,
+  "proficiencyBonus": 3,
+  "abilities": {
+   "STR": 9,
+   "DEX": 14,
+   "CON": 11,
+   "INT": 17,
+   "WIS": 12,
+   "CHA": 11
+  },
+  "str": 9,
+  "con": 11,
+  "int": 17,
+  "wis": 12,
+  "cha": 11,
+  "saves": {
+   "INT": 6,
+   "WIS": 4
+  },
+  "skills": {
+   "Arcana": 6,
+   "History": 6
+  },
+  "senses": "passive Perception 11",
+  "languages": "Common, plus any three others",
+  "attacks": "Stiletto +5 (1d4+2 piercing, 20/60)",
+  "atkBonus": 5,
+  "damage": "1d4+2",
+  "attackList": [
+   {
+    "id": "stiletto",
+    "name": "Stiletto",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "1d4+2",
+    "damageType": "piercing",
+    "range": "5 ft or 20/60",
+    "target": "one target",
+    "weaponClass": "simple",
+    "properties": [
+     "finesse",
+     "light",
+     "thrown"
+    ],
+    "notes": "Simple. Finesse, light, thrown."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Spellcasting",
+    "text": "Viper Trent is a 9th-level spellcaster. His spellcasting ability is Intelligence (spell save DC 14, +6 to hit with spell attacks). He has the following wizard spells prepared: Cantrips (at will): fire bolt, light, mage hand, prestidigitation; 1st level (4 slots): detect magic, mage armor, magic missile, shield; 2nd level (3 slots): misty step, suggestion; 3rd level (3 slots): counterspell, fireball, fly; 4th level (3 slots): greater invisibility, ice storm; 5th level (1 slot): cone of cold."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "spellcasting": {
+   "ability": "INT",
+   "dc": 14,
+   "attack": 6,
+   "slots": {
+    "1": 4,
+    "2": 3,
+    "3": 3,
+    "4": 3,
+    "5": 1
+   },
+   "spells": [
+    {
+     "id": "fire-bolt",
+     "name": "Fire Bolt",
+     "level": 0,
+     "kind": "attack",
+     "mode": "attack",
+     "range": "120 ft",
+     "summary": "Ranged spell attack +6; 2d10 fire. Sets unattended flammable objects alight."
+    },
+    {
+     "id": "light",
+     "name": "Light",
+     "level": 0,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "Touch",
+     "summary": "An object sheds bright light 20 ft and dim light 20 ft more for 1 hour."
+    },
+    {
+     "id": "mage-hand",
+     "name": "Mage Hand",
+     "level": 0,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "30 ft",
+     "summary": "A spectral hand moves or handles an object up to 10 lb for 1 minute; can't attack."
+    },
+    {
+     "id": "prestidigitation",
+     "name": "Prestidigitation",
+     "level": 0,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "10 ft",
+     "summary": "Minor trick: spark, clean or soil, chill or warm, flavor, mark, or small illusion."
+    },
+    {
+     "id": "detect-magic",
+     "name": "Detect Magic",
+     "level": 1,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "Self (30 ft)",
+     "summary": "Senses magic within 30 ft for up to 10 minutes (concentration); ritual."
+    },
+    {
+     "id": "mage-armor",
+     "name": "Mage Armor",
+     "level": 1,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "Touch",
+     "summary": "Base AC becomes 13 + Dex for 8 hours (AC 15 on this block); cast before the fight."
+    },
+    {
+     "id": "magic-missile",
+     "name": "Magic Missile",
+     "level": 1,
+     "kind": "auto",
+     "mode": "auto",
+     "range": "120 ft",
+     "summary": "Three darts that always hit, 1d4+1 force each; one more dart per slot level above 1st."
+    },
+    {
+     "id": "shield",
+     "name": "Shield",
+     "level": 1,
+     "kind": "reaction",
+     "mode": "reaction",
+     "range": "Self",
+     "summary": "Reaction when hit or targeted by magic missile: +5 AC until the start of his next turn, and no magic missile damage."
+    },
+    {
+     "id": "misty-step",
+     "name": "Misty Step",
+     "level": 2,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "Self",
+     "summary": "Bonus action: teleports up to 30 ft to a space he can see."
+    },
+    {
+     "id": "suggestion",
+     "name": "Suggestion",
+     "level": 2,
+     "kind": "save",
+     "mode": "save",
+     "save": "WIS",
+     "range": "30 ft",
+     "summary": "DC 14 Wis save or the target follows a reasonable-sounding suggestion (concentration, up to 8 hours)."
+    },
+    {
+     "id": "counterspell",
+     "name": "Counterspell",
+     "level": 3,
+     "kind": "reaction",
+     "mode": "reaction",
+     "range": "60 ft",
+     "summary": "Reaction: stops a spell of 3rd level or lower; a higher spell needs his Int check vs DC 10 + its level."
+    },
+    {
+     "id": "fireball",
+     "name": "Fireball",
+     "level": 3,
+     "kind": "save",
+     "mode": "save",
+     "save": "DEX",
+     "range": "150 ft",
+     "summary": "20-ft-radius sphere, DC 14 Dex save, 8d6 fire, half on a save."
+    },
+    {
+     "id": "fly",
+     "name": "Fly",
+     "level": 3,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "Touch",
+     "summary": "Fly speed 60 ft for up to 10 minutes (concentration)."
+    },
+    {
+     "id": "greater-invisibility",
+     "name": "Greater Invisibility",
+     "level": 4,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "Touch",
+     "summary": "Invisible for up to 1 minute, even while attacking or casting (concentration)."
+    },
+    {
+     "id": "ice-storm",
+     "name": "Ice Storm",
+     "level": 4,
+     "kind": "save",
+     "mode": "save",
+     "save": "DEX",
+     "range": "300 ft",
+     "summary": "20-ft-radius, 40-ft-high cylinder, DC 14 Dex save, 2d8 bludgeoning + 4d6 cold, half on a save; ground becomes difficult terrain."
+    },
+    {
+     "id": "cone-of-cold",
+     "name": "Cone of Cold",
+     "level": 5,
+     "kind": "save",
+     "mode": "save",
+     "save": "CON",
+     "range": "Self (60-ft cone)",
+     "summary": "DC 14 Con save, 8d8 cold, half on a save."
+    }
+   ]
+  },
+  "tactics": "Stays behind his enforcers, opens with fireball or ice storm, and misty steps out below half HP (20).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "About 500 ES on them, plus story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "Alchemist turned crime boss who leads the Scorps.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/VIPER-TRENT.md"
+ },
+ {
+  "id": "wakan-takan",
+  "name": "Wakan Takan",
+  "size": "Medium",
+  "type": "humanoid (human)",
+  "alignment": "any alignment",
+  "ac": 12,
+  "armor": "15 with mage armor",
+  "hp": 40,
+  "hitDice": "9d8",
+  "hpDice": "9d8",
+  "speed": "30 ft.",
+  "dex": 14,
+  "initBonus": 2,
+  "cr": "3",
+  "xp": 700,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 9,
+   "DEX": 14,
+   "CON": 11,
+   "INT": 17,
+   "WIS": 12,
+   "CHA": 11
+  },
+  "str": 9,
+  "con": 11,
+  "int": 17,
+  "wis": 12,
+  "cha": 11,
+  "saves": {
+   "INT": 5,
+   "WIS": 3
+  },
+  "skills": {
+   "Arcana": 5,
+   "History": 5
+  },
+  "senses": "passive Perception 11",
+  "languages": "Common, plus any three others",
+  "attacks": "Stiletto +4 (1d4+2 piercing, 20/60)",
+  "atkBonus": 4,
+  "damage": "1d4+2",
+  "attackList": [
+   {
+    "id": "stiletto",
+    "name": "Stiletto",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d4+2",
+    "damageType": "piercing",
+    "range": "5 ft or 20/60",
+    "target": "one target",
+    "weaponClass": "simple",
+    "properties": [
+     "finesse",
+     "light",
+     "thrown"
+    ],
+    "notes": "Simple. Finesse, light, thrown."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Spellcasting",
+    "text": "Wakan Takan is a spellcaster (Act I version: one 3rd-level slot). His spellcasting ability is Intelligence (spell save DC 13, +5 to hit with spell attacks). He has the following wizard spells prepared: Cantrips (at will): fire bolt, light, mage hand, prestidigitation; 1st level (4 slots): detect magic, mage armor, magic missile, shield; 2nd level (3 slots): misty step, suggestion; 3rd level (1 slot): counterspell, fireball, fly."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "spellcasting": {
+   "ability": "INT",
+   "dc": 13,
+   "attack": 5,
+   "slots": {
+    "1": 4,
+    "2": 3,
+    "3": 1
+   },
+   "spells": [
+    {
+     "id": "fire-bolt",
+     "name": "Fire Bolt",
+     "level": 0,
+     "kind": "attack",
+     "mode": "attack",
+     "range": "120 ft",
+     "summary": "Ranged spell attack +5; 2d10 fire. Sets unattended flammable objects alight."
+    },
+    {
+     "id": "light",
+     "name": "Light",
+     "level": 0,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "Touch",
+     "summary": "An object sheds bright light 20 ft and dim light 20 ft more for 1 hour."
+    },
+    {
+     "id": "mage-hand",
+     "name": "Mage Hand",
+     "level": 0,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "30 ft",
+     "summary": "A spectral hand moves or handles an object up to 10 lb for 1 minute; can't attack."
+    },
+    {
+     "id": "prestidigitation",
+     "name": "Prestidigitation",
+     "level": 0,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "10 ft",
+     "summary": "Minor trick: spark, clean or soil, chill or warm, flavor, mark, or small illusion."
+    },
+    {
+     "id": "detect-magic",
+     "name": "Detect Magic",
+     "level": 1,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "Self (30 ft)",
+     "summary": "Senses magic within 30 ft for up to 10 minutes (concentration); ritual."
+    },
+    {
+     "id": "mage-armor",
+     "name": "Mage Armor",
+     "level": 1,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "Touch",
+     "summary": "Base AC becomes 13 + Dex for 8 hours (AC 15 on this block); cast before the fight."
+    },
+    {
+     "id": "magic-missile",
+     "name": "Magic Missile",
+     "level": 1,
+     "kind": "auto",
+     "mode": "auto",
+     "range": "120 ft",
+     "summary": "Three darts that always hit, 1d4+1 force each; one more dart per slot level above 1st."
+    },
+    {
+     "id": "shield",
+     "name": "Shield",
+     "level": 1,
+     "kind": "reaction",
+     "mode": "reaction",
+     "range": "Self",
+     "summary": "Reaction when hit or targeted by magic missile: +5 AC until the start of his next turn, and no magic missile damage."
+    },
+    {
+     "id": "misty-step",
+     "name": "Misty Step",
+     "level": 2,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "Self",
+     "summary": "Bonus action: teleports up to 30 ft to a space he can see."
+    },
+    {
+     "id": "suggestion",
+     "name": "Suggestion",
+     "level": 2,
+     "kind": "save",
+     "mode": "save",
+     "save": "WIS",
+     "range": "30 ft",
+     "summary": "DC 13 Wis save or the target follows a reasonable-sounding suggestion (concentration, up to 8 hours)."
+    },
+    {
+     "id": "counterspell",
+     "name": "Counterspell",
+     "level": 3,
+     "kind": "reaction",
+     "mode": "reaction",
+     "range": "60 ft",
+     "summary": "Reaction: stops a spell of 3rd level or lower; a higher spell needs his Int check vs DC 10 + its level."
+    },
+    {
+     "id": "fireball",
+     "name": "Fireball",
+     "level": 3,
+     "kind": "save",
+     "mode": "save",
+     "save": "DEX",
+     "range": "150 ft",
+     "summary": "20-ft-radius sphere, DC 13 Dex save, 8d6 fire, half on a save."
+    },
+    {
+     "id": "fly",
+     "name": "Fly",
+     "level": 3,
+     "kind": "utility",
+     "mode": "utility",
+     "range": "Touch",
+     "summary": "Fly speed 60 ft for up to 10 minutes (concentration)."
+    }
+   ]
+  },
+  "tactics": "Suggestion first, then fireball with his one 3rd-level slot; misty steps away at half HP (20). Never surrenders to settlers, but stops at his daughter Aiyana's name.",
+  "tacticsSource": "IDEAS C3-2",
+  "tacticsDraft": false,
+  "loot": "No cash (0 ES). Bone charms and story items per the chapter loot file.",
+  "lootSource": "DRAFT (named faces use chapter loot files)",
+  "description": "The Death Dealer of Deadwood Canyon: a grieving healer turned sorcerer.",
+  "group": "named",
+  "source": "six-shooters/drafts/monster-manual/WAKAN-TAKAN.md",
+  "pendingJessey": "J2: healer-turned-sorcerer flavor and generic wizard list kept (vs Ten-Asi necromancer reflavor); sandie origin open"
+ }
 ]

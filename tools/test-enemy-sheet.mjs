@@ -115,7 +115,7 @@ const moraleOnly = { traits: [{ name: "Morale (tactic)", text: "Runs when alone.
 check(Applied.tacticsNote(moraleOnly) === "Runs when alone.", "morale trait is the fallback");
 check(Applied.tacticsNote({ tactics: "focuses the caster", traits: moraleOnly.traits }) === "focuses the caster", "tactics field wins");
 check(Applied.tacticsNote({ traits: [{ name: "Pack Tactics", text: "Advantage with an ally." }] }) === "", "pack tactics is not a morale note");
-check(Applied.tacticsNote(beast("outlaw")) === "" && outlawHtml.indexOf("tactics-note") < 0, "outlaw has no tactics note");
+check(Applied.tacticsNote(beast("outlaw")) === "Surrenders when wounded or outnumbered; lookouts ride off to warn the gang." && outlawHtml.indexOf("Tactics. Surrenders when wounded") >= 0, "outlaw tactics line");
 rifle.jammed = true;
 const jammed = htmlOf(boss, 1);
 check(jammed.indexOf("Jammed") >= 0 && jammed.indexOf("data-clear-jam") >= 0, "jam state on the row");
@@ -171,10 +171,32 @@ check(html.indexOf('id="enemySheet"') >= 0 && html.indexOf('id="btnCloseEnemy"')
 check(css.indexOf(".enemy-sheet.drawer") >= 0 && css.indexOf(".sheet-dice") >= 0 && css.indexOf("position: sticky") >= 0, "sheet layout and sticky dice");
 check(src.indexOf("tactics-note") >= 0 && src.indexOf("On deck:") >= 0 && src.indexOf("Bloodied") >= 0, "fight row tactics, on deck, bloodied");
 check(read("docs/DM-PRINCIPLES.md").indexOf("eyes stay on the table") >= 0, "principles doc");
+check(read("docs/DM-PRINCIPLES.md").indexOf("Take Cover only") < 0 && read("docs/DM-PRINCIPLES.md").indexOf("three-quarters cover is +5") >= 0, "half and three-quarters cover stay in the checklist");
+check(read("index.html").indexOf("Kneeling or prone alone is not cover") >= 0 && read("assets/data/rules.js").indexOf("Half cover is +2 and three-quarters cover is +5") >= 0, "sheet and rules state the cover lock");
+check((read("assets/data/rules.js").match(/stacks on half \/ three-quarters cover/g) || []).length === 2, "Lead and Levers and Gunslinger note that Take Cover stacks");
 check(read("docs/SCHEMA.md").indexOf("`tactics`") >= 0, "schema documents tactics");
-check(version.dmcc === "0.2.23" && version.dmccBuild === "dmcc-hidden-stats-v0223", "dmcc version");
-check(version.sheet === "0.3.12" && version.sheetBuild === "sheet-store-v0312", "sheet version");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.23"') >= 0, "dmcc.js version");
+const liveBeasts = beasts.filter((b) => b && !b.template);
+check(liveBeasts.length === 48, "48 enemies");
+check(liveBeasts.filter((b) => b.group === "creature").length === 24 && liveBeasts.filter((b) => b.group === "generic-folk").length === 10 && liveBeasts.filter((b) => b.group === "named").length === 14, "creatures, folk, named");
+check(liveBeasts.filter((b) => b.parked).map((b) => b.id).join(",") === "captain-rhee-calder", "only Calder is parked");
+const wakan = beasts.filter((b) => b.id === "wakan-takan")[0];
+check(wakan && wakan.spellcasting.dc === 13 && wakan.spellcasting.attack === 5 && wakan.saves.INT === 5 && wakan.saves.WIS === 3 && wakan.attackList[0].toHit === 4 && wakan.proficiencyNote == null, "Wakan Takan uses proficiency +2");
+const scorp = Applied.enemyCardModel(beasts.filter((b) => b.id === "giant-scorpion")[0]);
+const claw = scorp.attacks.filter((a) => a.name === "Claw")[0];
+const sting = scorp.attacks.filter((a) => a.name === "Sting")[0];
+check(Applied.grappleText(claw.grapple) === "Grappled (escape DC 12)", "claw grapple text");
+check(Applied.saveDamageText(sting.saveDamage).indexOf("DC 12 CON") >= 0 && Applied.saveDamageText(sting.saveDamage).indexOf("half on a success") >= 0, "sting save for half");
+check(Applied.namedCondition({ save: "CON", dc: 12 }) === "" && Applied.namedCondition({ condition: "Prone" }) === "Prone" && Applied.namedCondition({ condition: "condition" }) === "", "a save with no condition applies none");
+check(Applied.halved(7) === 3 && Applied.halved(4) === 2, "half damage rounds down");
+check(src.indexOf('|| "condition"') < 0, "a missing rider condition is not named condition");
+check(html.indexOf("Show parked") >= 0 && html.indexOf('id="beastQ"') >= 0 && src.indexOf("Creatures") >= 0, "grouped picker and search");
+const suggestion = sandbox.SSDNSSpellCast.lookup("Suggestion");
+check(suggestion && suggestion.kind === "save" && suggestion.save === "WIS", "Suggestion is a Wisdom save");
+const hiddenScorp = Applied.publicEnemy({ kind: "enemy", name: "Giant Scorpion", ac: 15, hp: 52, maxHp: 52, card: scorp }, 0, []);
+check(hiddenScorp.ac == null && hiddenScorp.hp == null && JSON.stringify(hiddenScorp).indexOf("saveDamage") < 0, "a hidden scorpion keeps poison and AC off the public node");
+check(version.dmcc === "0.2.24" && version.dmccBuild === "dmcc-bestiary-v0224", "dmcc version");
+check(version.sheet === "0.3.13" && version.sheetBuild === "sheet-suggestion-v0313", "sheet version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.24"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {

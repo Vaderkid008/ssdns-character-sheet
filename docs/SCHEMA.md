@@ -16,8 +16,17 @@
 | `senses`, `description` | One line each on the sheet. |
 | `attacks` | Short summary string for the bestiary card. |
 | `atkBonus`, `damage` | Fallback when `attackList` is empty. |
-| `attackList` | One object per attack: `name`, `kind`, `toHit` or `bonus`, `damage`, `damageType`, `range`, `capacity`, `misfire`, `notes`, `rider`. |
-| `rider` | `{ condition, save, dc, rounds }` on an attack. |
+| `attackList` | One object per attack: `name`, `kind`, `toHit` or `bonus`, `damage`, `damageType`, `range`, `capacity`, `misfire`, `notes`, `rider`, `saveDamage`, `grapple`, `saveEffect`, `extraDamage`, `versatile`. |
+| `rider` | `{ condition, save, dc, rounds }` on an attack. A save with no condition does not apply a condition. |
+| `saveDamage` | `{ save, dc, damage, damageType, onSave }`. `onSave: "half"` deals full damage on a failure and half (rounded down) on a success. |
+| `grapple` | `{ escapeDc }`. A hit applies Grappled and shows `Grappled (escape DC X)`. It is not a saving throw. |
+| `saveEffect` | `{ save, dc }`. The save result is shown with the attack notes. The DM resolves the effect, such as a hit-point-maximum drain. |
+| `extraDamage` | `{ damage, damageType }` rolled and added on a hit. |
+| `versatile` | Two-handed damage dice. The attack dialog offers one-handed or two-handed. |
+| `group` | `creature`, `generic-folk`, or `named`. The picker labels those Creatures, Folk, and Named. |
+| `parked` | Hidden from the picker until Show parked is on. |
+
+`pendingJessey`, `tacticsDraft`, `lootSource`, and `proficiencyNote` are stored on the entry and ignored by the fight tools. Long action and legendary text, including a kraken's swallow, Lightning Storm, and a restless pioneer's hit-point drain, stays on the sheet as readable text.
 | `spellcasting` | `{ ability, dc, attack, spells, slots }`. Spell names look up mode, damage, and range in the rules data. |
 | `traits`, `actions`, `reactions`, `legendary` | `{ name, text }`. `uses` and `recharge` add buttons. |
 | `tactics` | One line for the DM, such as "flees at half HP". Shown on the fight row and the sheet. Blank falls through to a trait whose name starts with Tactics or Morale. |
