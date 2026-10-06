@@ -271,9 +271,15 @@ async function runFirebaseInit() {
     }
     state.auth = fb.getAuth(state.app);
     const emu = /(?:\?|&)emu=1(?:&|$)/.test(String((window.location && window.location.search) || ""));
-    if (emu && authMod.connectAuthEmulator) authMod.connectAuthEmulator(state.auth, "http://127.0.0.1:9099", { disableWarnings: true });
+    if (emu && authMod.connectAuthEmulator) {
+      try { authMod.connectAuthEmulator(state.auth, "http://127.0.0.1:9099", { disableWarnings: true }); }
+      catch (err) {}
+    }
     state.db = fb.getDatabase(state.app);
-    if (emu && dbMod.connectDatabaseEmulator) dbMod.connectDatabaseEmulator(state.db, "127.0.0.1", 9000);
+    if (emu && dbMod.connectDatabaseEmulator) {
+      try { dbMod.connectDatabaseEmulator(state.db, "127.0.0.1", 9000); }
+      catch (err) {}
+    }
     await fb.signInAnonymously(state.auth);
     await new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error("Auth timeout")), 8000);

@@ -226,6 +226,7 @@
   }
 
   async function loadFirebase() {
+    if (state.db && state.uid && state._fb) return state._fb;
     var cfg = root.SSDNS_FIREBASE_CONFIG;
     if (!cfg) throw new Error("Missing firebase-config.js");
     var appMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
@@ -236,7 +237,10 @@
     catch (e) { app = appMod.initializeApp(cfg, "ssdns-player-join"); }
     var auth = authMod.getAuth(app);
     var emu = /(?:\?|&)emu=1(?:&|$)/.test(String((root.location && root.location.search) || ""));
-    if (emu && authMod.connectAuthEmulator) authMod.connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+    if (emu && authMod.connectAuthEmulator) {
+      try { authMod.connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true }); }
+      catch (e) {}
+    }
     await authMod.signInAnonymously(auth);
     var user = await new Promise(function (resolve, reject) {
       var t = setTimeout(function () { reject(new Error("Auth timeout")); }, 10000);
@@ -247,7 +251,10 @@
     state.app = app;
     state.auth = auth;
     state.db = dbMod.getDatabase(app);
-    if (emu && dbMod.connectDatabaseEmulator) dbMod.connectDatabaseEmulator(state.db, "127.0.0.1", 9000);
+    if (emu && dbMod.connectDatabaseEmulator) {
+      try { dbMod.connectDatabaseEmulator(state.db, "127.0.0.1", 9000); }
+      catch (e) {}
+    }
     state.uid = user.uid;
     state._fb = { ref: dbMod.ref, set: dbMod.set, update: dbMod.update, push: dbMod.push, onValue: dbMod.onValue, off: dbMod.off, remove: dbMod.remove, runTransaction: dbMod.runTransaction, get: dbMod.get, onDisconnect: dbMod.onDisconnect };
     return state._fb;
