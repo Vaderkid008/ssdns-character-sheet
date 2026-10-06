@@ -14,7 +14,7 @@ function check(cond, msg) {
 }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function load(names) {
-  const sandbox = { window: {}, console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array };
+  const sandbox = { window: {}, console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array, URL, encodeURIComponent };
   sandbox.globalThis = sandbox;
   sandbox.window = sandbox;
   names.forEach((rel) => vm.runInNewContext(read(rel), sandbox, { filename: rel }));
@@ -40,6 +40,7 @@ check(Applied.hitLine("Moss", "Outlaw", "Revolver +4, 1d8+2", 6) === "Moss hits 
 const beasts = JSON.parse(read("dm/assets/data/bestiary.json"));
 const ids = beasts.map((b) => b.id);
 check(ids.indexOf("_template") >= 0 && ids.indexOf("outlaw") >= 0 && ids.indexOf("cactus-witch") >= 0 && ids.indexOf("dust-devil") >= 0, "bestiary has the night-at-the-switch entries");
+check(ids.indexOf("switch-boss") === ids.indexOf("outlaw") + 1, "switch boss sits after outlaw");
 const dust = beasts.filter((b) => b.id === "dust-devil")[0];
 const outlaw = beasts.filter((b) => b.id === "outlaw")[0];
 const witch = beasts.filter((b) => b.id === "cactus-witch")[0];
@@ -53,6 +54,15 @@ check(Number(filled.ac) === 12 && Number(filled.hp) === 11 && Number(filled.maxH
 check(Number(filled.dex) === 12 && Number(filled.atkBonus) === 3 && filled.damage === "1d6+1", "first attack fills the Attack player fields, got " + JSON.stringify(filled));
 check(Applied.traitText(witch.traits).indexOf("Amphibious") === 0 && Applied.traitText(witch.traits).indexOf("[object Object]") < 0, "trait cards print the name and text");
 check(Applied.traitText({ name: "Nope" }) === "", "a bare trait object does not print");
+const boss = beasts.filter((b) => b.id === "switch-boss")[0];
+const bossFill = Applied.beastCombatant(boss);
+check(boss && boss.hp === 11 && boss.attackList[0].toHit === 3 && boss.attackList[0].misfire === 2, "switch boss keeps the canon rifle");
+check(Number(bossFill.atkBonus) === 3 && bossFill.damage === "1d8+1", "switch boss attackList fills Attack player, got " + JSON.stringify(bossFill));
+check(Applied.traitText(boss.actions).indexOf("Clear Jam") >= 0 && Applied.traitText(boss.actions).indexOf("Flee on the Handcar") >= 0 && Applied.traitText(boss.actions).indexOf("[object Object]") < 0, "actions print like traits");
+check(Applied.sheetInviteUrl("https://vaderkid008.github.io/ssdns-character-sheet/dm/", "dust-4821") === "https://vaderkid008.github.io/ssdns-character-sheet/?room=DUST-4821", "pages invite drops /dm/");
+check(Applied.sheetInviteUrl("https://vaderkid008.github.io/ssdns-character-sheet/dm/index.html?x=1", "AB-12") === "https://vaderkid008.github.io/ssdns-character-sheet/?room=AB-12", "index.html invite drops the query");
+check(Applied.sheetInviteUrl("http://127.0.0.1:8765/dm/?demo=1", "VELD-9") === "http://127.0.0.1:8765/?room=VELD-9", "local invite uses this origin");
+check(Applied.sheetInviteUrl("https://example.github.io/fork-name/dm/", "SWITCH-1") === "https://example.github.io/fork-name/?room=SWITCH-1", "a fork keeps its own path");
 
 const mem = { bag: {} };
 const storage = {
@@ -88,10 +98,17 @@ check(extras.indexOf("You're at 0 HP") >= 0 && extras.indexOf("You can't attack 
 check(extras.indexOf(" disadvantage") >= 0 && play.indexOf("advPin") >= 0, "disadvantage is labeled and one-shot unless pinned");
 check(css.indexOf("body.sheet-readonly .tab-warn button { pointer-events: auto; }") >= 0, "take over receives a real click");
 check(app.indexOf("Bleeding:") < 0 && read("dm/assets/js/demo-data.js").indexOf("Bleeding") < 0, "Bleeding is removed");
-check(read("version.json").indexOf('"sheet": "0.3.7"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.14"') >= 0, "round 11 versions");
+check(read("version.json").indexOf('"sheet": "0.3.8"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.15"') >= 0, "invite versions");
+const html = read("dm/index.html");
+const creator = read("assets/js/creator.js");
+check(html.indexOf('id="btnCopyLink"') >= 0 && html.indexOf('id="roomCodeDisplay"') >= 0 && html.indexOf("<button") >= 0, "copy invite and the header code are buttons");
+check(dmcc.indexOf("Invite link copied") >= 0 && dmcc.indexOf("sheetInviteUrl") >= 0 && dmcc.indexOf("copyInvite") >= 0, "new code still copies the current invite");
+check(v2.indexOf("traitText(b.actions)") >= 0, "bestiary cards print actions");
+check(join.indexOf("readRoomParam") >= 0 && join.indexOf("replaceState") >= 0 && join.indexOf("consumeInvite") >= 0 && join.indexOf("joinFromBar") >= 0, "the sheet waits for one Join click");
+check(creator.indexOf("consumeInvite") >= 0, "wizard finish joins the invite");
 
 if (failures.length) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log("ok 24");
+console.log("ok 42");

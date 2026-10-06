@@ -1280,6 +1280,7 @@ function renderBestiary() {
       <p>AC ${esc(b.ac)} · HP ${esc(b.hp)}${b.cr ? " · CR " + esc(b.cr) : ""}</p>
       <p>${esc(b.attacks || "")}</p>
       <p class="lede">${esc(traitText(b.traits))}</p>
+      ${traitText(b.actions) ? `<p class="lede">${esc(traitText(b.actions))}</p>` : ""}
       <label class="fine">Name <input type="text" data-beast-name="${esc(b.id)}" value="${esc(b.name)}" aria-label="Rename ${esc(b.name)}"></label>
       <button type="button" class="btn sm" data-add-beast="${esc(b.id)}">Add to initiative</button>
     </article>`).join("") || '<p class="lede">No bestiary file.</p>';

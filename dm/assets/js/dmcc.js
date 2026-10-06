@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.14"; // dmcc-round11-v0214
+const VERSION = "0.2.15"; // dmcc-invite-v0215
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -768,9 +768,11 @@ function syncSessionButtons() {
   const leave = $("#btnLeaveRoom");
   if (leave) leave.hidden = !inRoom;
   const copy = $("#btnCopyCode");
+  const link = $("#btnCopyLink");
   const end = $("#btnEndSession");
   const fresh = $("#btnNewCode");
   if (copy) copy.hidden = !inRoom;
+  if (link) link.hidden = !inRoom;
   if (fresh) fresh.hidden = !inRoom;
   if (end) end.hidden = !inRoom;
 }
@@ -813,6 +815,41 @@ function leaveRoom() {
   toast("Left this screen. The table is still live — resume it or start a new session.");
 }
 
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return !!ok;
+    } catch (err) {
+      return false;
+    }
+  }
+}
+function inviteHref(code) {
+  if (window.SSDNSApplied && window.SSDNSApplied.sheetInviteUrl) {
+    return window.SSDNSApplied.sheetInviteUrl(location.href, code);
+  }
+  return "";
+}
+async function copyInvite() {
+  const code = state.roomCode || (state.meta && state.meta.code) || "";
+  if (!code || code === "————") { toast("Open a room first"); return; }
+  const link = inviteHref(code);
+  if (!link) { toast("Couldn't build the invite link"); return; }
+  const ok = await copyText(link);
+  toast(ok ? "Invite link copied" : link);
+}
 function renderRoomHero() {
   if (!state.meta) return;
   $("#roomCodeDisplay").textContent = state.meta.code || state.roomCode;
@@ -2020,6 +2057,10 @@ function wire() {
     try { await navigator.clipboard.writeText(c); toast("Copied " + c); }
     catch (e) { toast(c); }
   });
+  const copyLink = $("#btnCopyLink");
+  if (copyLink) copyLink.addEventListener("click", () => copyInvite());
+  const codeDisplay = $("#roomCodeDisplay");
+  if (codeDisplay) codeDisplay.addEventListener("click", () => copyInvite());
   $("#btnEndSession").addEventListener("click", () => {
     const dlg = $("#dlgEnd");
     if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");

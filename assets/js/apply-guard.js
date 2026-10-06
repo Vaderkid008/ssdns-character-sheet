@@ -61,7 +61,7 @@
       var n = Number(dex);
       initBonus = isFinite(n) ? Math.floor((n - 10) / 2) : 0;
     }
-    var atk = first.bonus != null ? first.bonus : (first.atk != null ? first.atk : b.atkBonus);
+    var atk = first.bonus != null ? first.bonus : (first.toHit != null ? first.toHit : (first.atk != null ? first.atk : b.atkBonus));
     var damage = first.damage || first.dice || b.damage || "";
     return {
       ac: b.ac,
@@ -157,6 +157,22 @@
     var v = Number(n);
     offsetMs = isFinite(v) ? v : 0;
   }
+  /** Player invite for a DM page. Forks keep their own origin and path. */
+  function sheetInviteUrl(href, code) {
+    var room = String(code || "").trim().toUpperCase();
+    if (!room) return "";
+    var url;
+    try { url = new URL(String(href || ""), "http://localhost/"); }
+    catch (e) { return ""; }
+    var path = String(url.pathname || "/");
+    path = path.replace(/\/dm\/index\.html$/i, "/").replace(/\/dm\/?$/i, "/");
+    if (!path) path = "/";
+    if (path.charAt(path.length - 1) !== "/") path += "/";
+    url.pathname = path;
+    url.search = "?room=" + encodeURIComponent(room);
+    url.hash = "";
+    return url.toString();
+  }
   function offset() { return offsetMs; }
   /** Age of a stamp against estimated server time. */
   function stampAge(iso) {
@@ -182,6 +198,7 @@
     weaponName: weaponName,
     beastCombatant: beastCombatant,
     traitText: traitText,
+    sheetInviteUrl: sheetInviteUrl,
     healDice: healDice,
     healLine: healLine,
     hitLine: hitLine,
