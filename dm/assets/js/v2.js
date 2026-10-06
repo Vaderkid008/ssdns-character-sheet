@@ -8,7 +8,7 @@ const $ = DM.$;
 const $$ = DM.$$;
 const esc = DM.esc;
 
-const CONDITIONS = ["Poisoned", "Prone", "Bleeding", "Frightened", "Grappled", "Stunned", "Blinded", "Charmed", "Invisible", "Exhaustion"];
+const CONDITIONS = ["Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned", "Unconscious", "Exhaustion", "Bleeding"];
 const PACK_KEY = "ssdns.dmcc.packs";
 const TABLE_KEY = "ssdns.dmcc.table";
 
@@ -286,18 +286,11 @@ async function rest(kind) {
     ids.forEach((id) => {
       const s = DM.state.players[id] && DM.state.players[id].snapshot;
       if (!s) return;
-      if (kind === "long") {
+        if (kind === "long") {
         s.hpCurrent = s.hpMax;
         s.hpTemp = 0;
         s.deathSaves = { success: [false, false, false], fail: [false, false, false] };
-        (s.guns || []).forEach((g) => {
-          if (!g) return;
-          g.loaded = g.capacity;
-          g.jammed = false; g.dirty = false; g.fouled = false;
-          if (g.condition === "jammed" || g.condition === "dirty" || g.condition === "fouled") g.condition = "ok";
-        });
-      } else {
-        (s.guns || []).forEach((g) => { if (g) g.dirty = false; });
+        if (s.spells) s.spells.spent = {};
       }
     });
     DM.renderPlayers();
@@ -498,6 +491,21 @@ function renderBestiary() {
     </article>`).join("") || '<p class="lede">No bestiary file.</p>';
 }
 
+function tierLines(g) {
+  if (!g || !g.tiers || typeof g.tiers !== "object") {
+    return [g && g.damage, g && g.range && ("range " + g.range), g && g.properties].filter(Boolean).join(" · ");
+  }
+  return Object.keys(g.tiers).filter((k) => k !== "standard").map((k) => {
+    const t = g.tiers[k] || {};
+    if (t.buck || t.slug) {
+      const buck = t.buck || {};
+      const slug = t.slug || {};
+      return k + ": buck " + (buck.damage || "—") + (buck.range ? " " + buck.range : "") + (slug.damage ? " / slug " + slug.damage + (slug.range ? " " + slug.range : "") + (slug.misfire ? " MF " + slug.misfire : "") : "");
+    }
+    return k + ": " + [t.damage, t.range && ("range " + t.range), t.misfire && ("MF " + t.misfire)].filter(Boolean).join(" ");
+  }).concat(g.properties ? [g.properties] : []).join(" · ");
+}
+
 function lookup(q) {
   const box = $("#lookupResults");
   if (!box) return;
@@ -518,11 +526,10 @@ function lookup(q) {
       hits.push(`<div class="feed-item"><b>${esc(title)}</b><div>${esc(line || "")}</div><div class="fine">${esc(src || "No printed page in the rules data")}</div></div>`);
     }
     function has(text) { return String(text || "").toLowerCase().indexOf(query) >= 0; }
-    ["firearms", "melee", "otherRanged"].forEach((key) => {
+    ["firearms", "casterGuns", "melee", "otherRanged"].forEach((key) => {
       (rules[key] || []).forEach((g) => {
         if (!has(g.name) && !has(g.properties) && !has(g.phb5e)) return;
-        const tier = g.tiers && typeof g.tiers === "object" ? (g.tiers.light || g.tiers.standard || Object.values(g.tiers)[0] || {}) : {};
-        const line = [tier.damage || g.damage, (tier.range || g.range) && ("range " + (tier.range || g.range)), g.properties].filter(Boolean).join(" · ");
+        const line = tierLines(g);
         push(g.name, line, g.src);
       });
     });
@@ -636,7 +643,8 @@ function decorateDetail(pid) {
     </div>
     <div class="detail-section"><h3>Gun attack</h3>
       <div class="toolbar">
-        <select id="detailGun">${guns.map((g, i) => `<option value="${i}">${esc(g.name)} · ${esc(g.loaded ?? "?")}/${esc(g.capacity ?? "?")} rounds${g.atk ? " · " + esc(g.atk) : ""}</option>`).join("") || '<option value="">No guns</option>'}</select>
+        <select id="detailGun">${guns.map((g, i) => `<option value="${i}">${esc(g.name)} · ${esc(g.loaded ?? "?")}/${esc(g.capacity ?? "?")} rounds${g.atk ? " · " + esc(g.atk) : ""}${g.misfire ? " · MF " + esc(g.misfire) : ""}</option>`).join("") || '<option value="">No guns</option>'}</select>
+        <select id="detailAdv" aria-label="Advantage or disadvantage"><option value="">Straight</option><option value="adv">Advantage</option><option value="dis">Disadvantage</option></select>
         <button type="button" class="btn sm" id="btnDetailAttack">Roll weapon</button>
       </div>
       <p class="lede">Roll weapon is a plain attack. It never spends a spell slot.</p>
@@ -758,6 +766,14 @@ function rollDiceExpr(expr) {
   const sign = mod >= 0 ? "+" + mod : String(mod);
   return { total: sum, detail: rolls.join("+") + (mod ? sign : ""), formula: n + "d" + sides + (mod ? sign : "") };
 }
+function misfireCeiling(text, dirty) {
+  const s = String(text || "1");
+  const m = s.match(/(\d+)\s*[–-]\s*(\d+)/);
+  let hi = m ? parseInt(m[2], 10) : parseInt((s.match(/(\d+)/) || ["", "1"])[1], 10);
+  if (!hi) hi = 1;
+  if (dirty) hi = Math.max(hi, 2);
+  return hi;
+}
 async function rollGunAttack(pid) {
   const p = DM.state.players[pid];
   const s = (p && p.snapshot) || {};
@@ -776,25 +792,46 @@ async function rollGunAttack(pid) {
   g.loaded = loaded - 1;
   if (g.plain > 0) g.plain -= 1;
   const bonus = atkNumber(g.atk);
-  const nat = 1 + Math.floor(Math.random() * 20);
+  const mode = ($("#detailAdv") && $("#detailAdv").value) || "";
+  const n1 = 1 + Math.floor(Math.random() * 20);
+  let n2 = null;
+  let nat = n1;
+  if (mode === "adv" || mode === "dis") {
+    n2 = 1 + Math.floor(Math.random() * 20);
+    nat = mode === "adv" ? Math.max(n1, n2) : Math.min(n1, n2);
+  }
+  const hi = misfireCeiling(g.misfire, !!g.dirty);
+  const inRange = (n) => n >= 1 && n <= hi;
+  const both = n2 != null && inRange(n1) && inRange(n2) && !g.rugged;
+  const misfire = both || inRange(nat);
   const total = nat + bonus;
+  const dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
   if (window.SSDNSAudio) window.SSDNSAudio.play("attack");
   await DM.pushRoll({
     who: (s.player || s.name || "Player"),
     playerId: pid, uid: DM.state.uid,
-    label: g.name + " attack",
-    formula: "1d20" + (bonus ? (bonus >= 0 ? "+" : "") + bonus : ""),
-    result: total, detail: nat + (bonus ? (bonus >= 0 ? "+" : "") + bonus : ""),
-    nat1: nat === 1, isFirearm: true, private: false
+    label: g.name + (misfire ? " misfire" : " attack"),
+    formula: (n2 == null ? "1d20" : "2d20") + (bonus ? (bonus >= 0 ? "+" : "") + bonus : ""),
+    result: total, detail: dice + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + (misfire ? " misfire" : ""),
+    nat1: false, isFirearm: true, private: false
   });
   const names = namesFor(pid);
-  if (nat === 1) {
+  if (both) {
+    g.fouled = true;
+    g.condition = "fouled";
+    await DM.pushLedger(Object.assign({
+      who: "DM", playerId: pid, type: "foul",
+      what: g.name + " fouled (double misfire) · " + (names.characterName || ""),
+      oldVal: null, newVal: "fouled", flag: true
+    }, names));
+    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, fouled: true }, from: DM.state.uid });
+  } else if (misfire) {
     g.jammed = true;
     g.condition = "jammed";
     if (window.SSDNSAudio) window.SSDNSAudio.play("jam");
     await DM.pushLedger(Object.assign({
       who: "DM", playerId: pid, type: "jam",
-      what: g.name + " jammed (natural 1) · " + (names.characterName || ""),
+      what: g.name + " jammed (misfire) · " + (names.characterName || ""),
       oldVal: null, newVal: "jammed", flag: true
     }, names));
     await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, jammed: true }, from: DM.state.uid });
@@ -805,22 +842,13 @@ async function rollGunAttack(pid) {
     const ex = 1 + Math.floor(Math.random() * 20);
     await DM.pushRoll({
       who: "DM", playerId: pid, uid: DM.state.uid,
-      label: g.name + " explode check", formula: "1d20", result: ex, detail: String(ex),
-      nat1: ex === 1, isFirearm: true, private: false
+      label: g.name + " · DM note", formula: "1d20", result: ex, detail: String(ex),
+      nat1: ex === 1, isFirearm: true, private: true
     });
-    if (ex === 1) {
-      if (window.SSDNSAudio) window.SSDNSAudio.play("explode");
-      await DM.pushLedger(Object.assign({
-        who: "DM", playerId: pid, type: "explode",
-        what: g.name + " exploded (cracked) · " + (names.characterName || ""),
-        oldVal: null, newVal: "exploded", flag: true
-      }, names));
-      await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, exploded: true, jammed: true }, from: DM.state.uid });
-      DM.toast(g.name + " explodes");
-    }
+    if (ex === 1) DM.toast(g.name + " — DM note only");
   }
   DM.renderPlayers();
-  DM.toast(g.name + " → " + total + (nat === 1 ? " JAM" : "") + " · " + g.loaded + " left");
+  DM.toast(g.name + " → " + total + (both ? " FOULED" : (misfire ? " misfire" : "")) + " · " + g.loaded + " left");
 }
 async function rollSpell(pid) {
   const p = DM.state.players[pid];
@@ -830,36 +858,52 @@ async function rollSpell(pid) {
   s.spells = s.spells || {};
   s.spells.slots = s.spells.slots || {};
   s.spells.spent = s.spells.spent || {};
-  if (level) {
-    const total = Number(s.spells.slots[level] || 0);
+  const guns = (s.guns || []).filter((g) => g && g.name);
+  const gi = parseInt($("#detailGun") && $("#detailGun").value, 10);
+  const g = guns[gi];
+  const isHex = s.callingId === "hexslinger" || /hexslinger/i.test(s.calling || "");
+  let slotNote = level ? ("Level " + level + " slot spent") : "Cantrip · no slot";
+  if (level && isHex) {
+    if (!g || !(Number(g.hex) > 0)) {
+      DM.toast("Load a hex shell first. Loading spends the slot. Cast through gun only fires it.");
+      return;
+    }
+    g.hex = Number(g.hex) - 1;
+    if (Number(g.loaded) > 0) g.loaded = Number(g.loaded) - 1;
+    slotNote = "Level " + level + " hex shell fired";
+    await DM.pushCommand({ type: "hex_fire", to: pid, payload: { level: level }, from: DM.state.uid });
+  } else if (level) {
+    const totalSlots = Number(s.spells.slots[level] || 0);
     const used = Number(s.spells.spent[level] || 0);
-    if (!total || used >= total) { DM.toast("No level-" + level + " shell left"); return; }
+    if (!totalSlots || used >= totalSlots) { DM.toast("No level-" + level + " slot left"); return; }
     s.spells.spent[level] = used + 1;
+    const slotWord = s.callingId === "pact-seeker" ? "pact slot" : "spell slot";
+    slotNote = "Level " + level + " " + slotWord + " spent";
     await DM.pushCommand({ type: "hex_spend", to: pid, payload: { level: level }, from: DM.state.uid });
   }
   const bonus = atkNumber(s.spellAtk);
   const nat = 1 + Math.floor(Math.random() * 20);
   const total = nat + bonus;
-  const guns = (s.guns || []).filter((g) => g && g.name);
-  const gi = parseInt($("#detailGun") && $("#detailGun").value, 10);
-  const g = guns[gi];
-  const gunDmg = (g && g.damage) || (g && g.note) || "";
-  const gunRoll = rollDiceExpr(gunDmg);
-  const gunLine = gunRoll ? ("Gun " + gunRoll.formula + " = " + gunRoll.total + " (" + gunRoll.detail + ")") : (gunDmg ? ("Gun " + gunDmg) : "Gun —");
-  const slotNote = level ? ("Level " + level + " slot spent") : "Cantrip · no slot";
+  let spark = "";
+  if (nat === 1 && level && isHex) {
+    const table = (window.SSDNS_RULES && window.SSDNS_RULES.wildSpark) || [];
+    const sparkN = 1 + Math.floor(Math.random() * 6);
+    const row = table[sparkN - 1];
+    spark = "Wild spark " + sparkN + (row && row.text ? ": " + row.text : ".");
+  }
   const dmgPart = level
-    ? (gunLine + ". Spell damage is the shell fired at level " + level + (g ? " through " + g.name : "") + ". PHB: add the gun damage only if that spell includes weapon damage.")
-    : (gunLine + " is not fired. Cantrip damage only (no shell, no chamber).");
+    ? ("Spell attack only" + (g ? " through " + g.name : "") + ". Gun damage is added only when that spell says to include weapon damage.")
+    : "Cantrip damage only (no shell, no chamber).";
   const label = "Cast through gun · " + slotNote + (g ? " · " + g.name : "");
   if (window.SSDNSAudio) window.SSDNSAudio.play("spellcast");
   await DM.pushRoll({
     who: (s.player || s.name || "Player"),
     playerId: pid, uid: DM.state.uid,
     label: label,
-    formula: "1d20" + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + " spell" + (gunRoll && level ? " + gun " + gunRoll.formula : ""),
+    formula: "1d20" + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + " spell",
     result: total,
-    detail: nat + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + " = " + total + " · " + dmgPart,
-    nat1: nat === 1, isFirearm: true, private: false
+    detail: nat + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + " = " + total + " · " + dmgPart + (spark ? " " + spark : ""),
+    nat1: false, isFirearm: true, private: false
   });
   DM.renderPlayers();
   DM.toast(label + " → " + total);

@@ -95,6 +95,8 @@
         cracked: !!g.cracked,
         fouled: !!g.fouled,
         dirty: !!g.dirty,
+        misfire: st && st.misfire ? st.misfire : "",
+        rugged: !!(st && st.w && /rugged/i.test(st.w.properties || "")),
         note: st && st.note ? st.note : ""
       };
     }).filter(Boolean);
@@ -302,7 +304,7 @@
         var cmd = val[id];
         if (!cmd) return;
         if (cmd.to && cmd.to !== "all" && cmd.to !== state.uid) return;
-        if (skipExistingEs && /^(reward_es|reward_item|hp|rest|set_conditions|gun_event|death_save|undo_item|hex_spend)$/.test(cmd.type || "")) {
+        if (skipExistingEs && /^(reward_es|reward_item|hp|rest|set_conditions|gun_event|death_save|undo_item|hex_spend|hex_fire)$/.test(cmd.type || "")) {
           state.lastCmdSeen[id] = 1;
           return;
         }
@@ -360,8 +362,17 @@
         break;
       case "hex_spend":
         if (root.SSDNSApp && root.SSDNSApp.spendHexSlot) {
-          if (!root.SSDNSApp.spendHexSlot(payload.level)) toast("No level-" + (payload.level || "?") + " shell left");
-          else if (root.SSDNSSheet) root.SSDNSSheet.showNotice("Spent a level-" + payload.level + " shell");
+          var calling = doc() && doc().character && doc().character.calling;
+          var slotName = calling === "pact-seeker" ? "pact slot" : (calling === "hexslinger" ? "hex shell" : "spell slot");
+          if (!root.SSDNSApp.spendHexSlot(payload.level)) toast("No level-" + (payload.level || "?") + " " + slotName + " left");
+          else if (root.SSDNSSheet) root.SSDNSSheet.showNotice("Spent a level-" + payload.level + " " + slotName);
+        }
+        break;
+      case "hex_fire":
+        if (root.SSDNSApp && root.SSDNSApp.fireHexShell) {
+          var fired = root.SSDNSApp.fireHexShell(payload.level);
+          if (!fired.ok) toast(fired.reason || "No shell loaded");
+          else if (root.SSDNSSheet) root.SSDNSSheet.showNotice("Fired a level-" + payload.level + " hex shell");
         }
         break;
       case "death_save":

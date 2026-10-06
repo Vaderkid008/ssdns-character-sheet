@@ -1,14 +1,14 @@
-/* SSDNS rules data. GENERATED from /workspace/1_SSDNS_PHB/BOOK1.md (sha1 45de60707054) on 2026-10-05 05:15 CT by _work/build_rules.py. Do not hand-edit. */
+/* SSDNS rules data. GENERATED from BOOK1.md (sha1 5abfec3369bc) on 2026-10-06 02:29 CT by tools/build_rules.py. Do not hand-edit. */
 window.SSDNS_RULES = {
  "meta": {
   "title": "Six-Shooters & Sorcery: Dust and Shadows",
   "short": "SSDNS",
-  "source": "/workspace/1_SSDNS_PHB/BOOK1.md",
-  "sourceSha1": "45de60707054",
-  "builtAt": "2026-10-05 05:15 CT",
+  "source": "BOOK1.md",
+  "sourceSha1": "5abfec3369bc",
+  "builtAt": "2026-10-06 02:29 CT",
   "rulesVersion": 3,
   "currencyUnit": "ES",
-  "note": "Generated from the live PHB markdown by _work/build_rules.py. Do not hand-edit; re-run the script."
+  "note": "Generated from the live PHB markdown by tools/build_rules.py. Do not hand-edit; re-run the script."
  },
  "abilities": [
   {
@@ -121,7 +121,7 @@ window.SSDNS_RULES = {
    "id": "mountain-folk",
    "name": "Mountain Folk",
    "race5e": "Dwarf",
-   "src": "BOOK1.md line 327",
+   "src": "BOOK1.md line 329",
    "asi": "Your Constitution score increases by 2.",
    "speed": 25,
    "speedText": "Your base walking speed is 25 feet. Your speed is not reduced by wearing heavy armor (reinforced leathers / plated dusters count).",
@@ -161,7 +161,7 @@ window.SSDNS_RULES = {
        "text": "Your hit point maximum increases by 1, and it increases by 1 every time you gain a level."
       }
      ],
-     "src": "BOOK1.md line 377"
+     "src": "BOOK1.md line 379"
     },
     {
      "id": "coal-miner",
@@ -174,15 +174,16 @@ window.SSDNS_RULES = {
        "text": "You have proficiency with light and medium armor (reinforced leathers / plated dusters)."
       }
      ],
-     "src": "BOOK1.md line 385"
+     "src": "BOOK1.md line 387"
     }
-   ]
+   ],
+   "age": "Mountain Folk mature in their late teens like other folk. Hardy stock often carries them into their eighties or nineties — a little longer than most frontier folk, if the rock doesn’t take them first."
   },
   {
    "id": "aristocrats",
    "name": "Aristocrats",
    "race5e": "Elf",
-   "src": "BOOK1.md line 395",
+   "src": "BOOK1.md line 397",
    "asi": "Your Dexterity score increases by 2.",
    "speed": 30,
    "speedText": "Your base walking speed is 30 feet.",
@@ -226,7 +227,7 @@ window.SSDNS_RULES = {
        "text": "You can speak, read, and write one extra language of your choice."
       }
      ],
-     "src": "BOOK1.md line 444"
+     "src": "BOOK1.md line 446"
     },
     {
      "id": "greenwood-kin",
@@ -247,7 +248,7 @@ window.SSDNS_RULES = {
        "text": "You can attempt to hide even when you are only lightly obscured by foliage, heavy rain, falling snow, mist, and other natural phenomena (scrub, dust-haze, and bosque count)."
       }
      ],
-     "src": "BOOK1.md line 460",
+     "src": "BOOK1.md line 462",
      "speed": 35
     },
     {
@@ -269,15 +270,16 @@ window.SSDNS_RULES = {
        "text": "You know the thaumaturgy cantrip. When you reach 3rd level, you can cast faerie fire once per long rest; at 5th level, darkness once per long rest. Charisma is your spellcasting ability for these spells."
       }
      ],
-     "src": "BOOK1.md line 476"
+     "src": "BOOK1.md line 478"
     }
-   ]
+   ],
+   "age": "Aristocrats mature in their late teens like other folk. Careful living and old-house habits may carry some into their eighties or nineties — if dust and lead don’t decide first."
   },
   {
    "id": "farmers",
    "name": "Farmers",
    "race5e": "Halfling",
-   "src": "BOOK1.md line 496",
+   "src": "BOOK1.md line 498",
    "asi": "Your Dexterity score increases by 2.",
    "speed": 25,
    "speedText": "Your base walking speed is 25 feet.",
@@ -309,7 +311,7 @@ window.SSDNS_RULES = {
        "text": "You can attempt to hide even when you are obscured only by a creature that is at least one size larger than you."
       }
      ],
-     "src": "BOOK1.md line 538"
+     "src": "BOOK1.md line 540"
     },
     {
      "id": "maccoy",
@@ -322,15 +324,16 @@ window.SSDNS_RULES = {
        "text": "You have advantage on saving throws against poison, and you have resistance against poison damage."
       }
      ],
-     "src": "BOOK1.md line 550"
+     "src": "BOOK1.md line 552"
     }
-   ]
+   ],
+   "age": "Farmers reach adulthood around 20 and often live into their seventies or eighties on hard seasons — if famine and lead don’t shorten the tally."
   },
   {
    "id": "nomads",
    "name": "Nomads",
    "race5e": "Human",
-   "src": "BOOK1.md line 568",
+   "src": "BOOK1.md line 570",
    "asi": "Your ability scores each increase by 1.",
    "speed": 30,
    "speedText": "Your base walking speed is 30 feet.",
@@ -358,15 +361,16 @@ window.SSDNS_RULES = {
        "text": "You gain one feat of your choice."
       }
      ],
-     "src": "BOOK1.md line 606"
+     "src": "BOOK1.md line 608"
     }
-   ]
+   ],
+   "age": "Nomads reach adulthood in their late teens and live less than a century — same as any hard-lived frontier human."
   },
   {
    "id": "camp-kin",
    "name": "Camp Kin",
    "race5e": "Dragonborn",
-   "src": "BOOK1.md line 623",
+   "src": "BOOK1.md line 625",
    "asi": "Your Strength score increases by 2, and your Charisma score increases by 1.",
    "speed": 30,
    "speedText": "Your base walking speed is 30 feet.",
@@ -386,13 +390,14 @@ window.SSDNS_RULES = {
     }
    ],
    "languages": "You can speak, read, and write Common and Draconic (watch-cipher / company battle-tongue).",
-   "sublineages": []
+   "sublineages": [],
+   "age": "Camp Kin mature by twenty and live about as long as other hard humans — drill shortens some lives; stubbornness lengthens others."
   },
   {
    "id": "merchants",
    "name": "Merchants",
    "race5e": "Gnome",
-   "src": "BOOK1.md line 671",
+   "src": "BOOK1.md line 673",
    "asi": "Your Intelligence score increases by 2.",
    "speed": 25,
    "speedText": "Your base walking speed is 25 feet.",
@@ -424,7 +429,7 @@ window.SSDNS_RULES = {
        "text": "You have proficiency with artisan’s tools (tinker’s tools). Using those tools, you can spend 1 hour and 1,000 ES worth of materials to construct a Tiny clockwork device (as PHB Rock Gnome Tinker: clockwork toy, fire starter, or music box, or any small frontier gadget you can describe). The device functions for 24 hours unless you spend 1 hour repairing it to keep it working. You can have up to three such devices active at a time."
       }
      ],
-     "src": "BOOK1.md line 710"
+     "src": "BOOK1.md line 712"
     },
     {
      "id": "toymaker",
@@ -441,15 +446,16 @@ window.SSDNS_RULES = {
        "text": "Through sounds and gestures, you can communicate simple ideas with Small or smaller beasts."
       }
      ],
-     "src": "BOOK1.md line 724"
+     "src": "BOOK1.md line 726"
     }
-   ]
+   ],
+   "age": "Merchants mature at a similar pace to Nomads. Careful indoor work may carry some into their eighties — if the road and the ledger don’t settle it sooner."
   },
   {
    "id": "diplomats",
    "name": "Diplomats",
    "race5e": "Half-Elf",
-   "src": "BOOK1.md line 743",
+   "src": "BOOK1.md line 745",
    "asi": "Your Charisma score increases by 2, and two other ability scores of your choice increase by 1.",
    "speed": 30,
    "speedText": "Your base walking speed is 30 feet.",
@@ -469,13 +475,14 @@ window.SSDNS_RULES = {
     }
    ],
    "languages": "You can speak, read, and write Common, Elvish, and one extra language of your choice.",
-   "sublineages": []
+   "sublineages": [],
+   "age": "Diplomats mature at about the same rate as Nomads and often reach their seventies or eighties — if politics don’t cut that short."
   },
   {
    "id": "pioneers",
    "name": "Pioneers",
    "race5e": "Half-Orc",
-   "src": "BOOK1.md line 790",
+   "src": "BOOK1.md line 792",
    "asi": "Your Strength score increases by 2, and your Constitution score increases by 1.",
    "speed": 30,
    "speedText": "Your base walking speed is 30 feet.",
@@ -499,13 +506,14 @@ window.SSDNS_RULES = {
     }
    ],
    "languages": "You can speak, read, and write Common and Orc (dock-cant / blood-cant).",
-   "sublineages": []
+   "sublineages": [],
+   "age": "Pioneers mature a little faster than soft-city folk and rarely see a quiet old age — but some outlast every range war they walk into."
   },
   {
    "id": "street-folk",
    "name": "Street Folk",
    "race5e": "Tiefling",
-   "src": "BOOK1.md line 841",
+   "src": "BOOK1.md line 843",
    "asi": "Your Intelligence score increases by 1, and your Charisma score increases by 2.",
    "speed": 30,
    "speedText": "Your base walking speed is 30 feet.",
@@ -525,7 +533,8 @@ window.SSDNS_RULES = {
     }
    ],
    "languages": "You can speak, read, and write Common and Infernal (brand-cant).",
-   "sublineages": []
+   "sublineages": [],
+   "age": "Street Folk mature at the same rate as other humans and live about as long — if rope, lead, or Blackwood heat don’t settle the account early."
   }
  ],
  "callings": [
@@ -533,7 +542,7 @@ window.SSDNS_RULES = {
    "id": "tribal-warrior",
    "name": "Tribal Warrior",
    "class5e": "Barbarian",
-   "src": "BOOK1.md line 924",
+   "src": "BOOK1.md line 923",
    "hitDie": "d12",
    "primary": "Str",
    "saves": [
@@ -599,7 +608,7 @@ window.SSDNS_RULES = {
        "text": "Reaction to strike back immediately when damaged by a foe within 5 ft."
       }
      ],
-     "src": "BOOK1.md line 998"
+     "src": "BOOK1.md line 997"
     },
     {
      "id": "totem-warrior",
@@ -627,7 +636,7 @@ window.SSDNS_RULES = {
        "text": "Buffalo (while in fury, foes within 5 ft have disadvantage attacking anyone but you), Hawk (fly speed in fury), Wolf (bonus-action knockdown on a melee hit)."
       }
      ],
-     "src": "BOOK1.md line 1007"
+     "src": "BOOK1.md line 1006"
     }
    ],
    "progression": {
@@ -788,7 +797,7 @@ window.SSDNS_RULES = {
    "id": "storyteller",
    "name": "Storyteller",
    "class5e": "Bard",
-   "src": "BOOK1.md line 1026",
+   "src": "BOOK1.md line 1025",
    "hitDie": "d8",
    "primary": "Cha",
    "saves": [
@@ -854,7 +863,7 @@ window.SSDNS_RULES = {
        "text": "When making an ability check, expend an Inspiration die and add it to your d20 roll after seeing the number."
       }
      ],
-     "src": "BOOK1.md line 1107"
+     "src": "BOOK1.md line 1106"
     },
     {
      "id": "college-of-the-rag-time-valor",
@@ -878,7 +887,7 @@ window.SSDNS_RULES = {
        "text": "When you cast a bard spell as an action, make one weapon attack as a bonus action."
       }
      ],
-     "src": "BOOK1.md line 1116"
+     "src": "BOOK1.md line 1115"
     }
    ],
    "progression": {
@@ -1081,7 +1090,7 @@ window.SSDNS_RULES = {
    "id": "frontier-preacher",
    "name": "Frontier Preacher",
    "class5e": "Cleric",
-   "src": "BOOK1.md line 1131",
+   "src": "BOOK1.md line 1130",
    "hitDie": "d8",
    "primary": "Wis",
    "saves": [
@@ -1143,7 +1152,7 @@ window.SSDNS_RULES = {
        "text": "Melee attacks deal +1d8 radiant damage (2d8 at 14th)."
       }
      ],
-     "src": "BOOK1.md line 1202"
+     "src": "BOOK1.md line 1201"
     },
     {
      "id": "shotgun-preacher-war",
@@ -1167,7 +1176,7 @@ window.SSDNS_RULES = {
        "text": "Gain resistance to non-magical bludgeoning, piercing, and slashing damage."
       }
      ],
-     "src": "BOOK1.md line 1211"
+     "src": "BOOK1.md line 1210"
     }
    ],
    "progression": {
@@ -1328,7 +1337,7 @@ window.SSDNS_RULES = {
    "id": "nature-guide",
    "name": "Nature Guide",
    "class5e": "Druid",
-   "src": "BOOK1.md line 1230",
+   "src": "BOOK1.md line 1229",
    "hitDie": "d8",
    "primary": "Wis",
    "saves": [
@@ -1398,7 +1407,7 @@ window.SSDNS_RULES = {
        "text": "Beasts and plant creatures hesitate to attack you."
       }
      ],
-     "src": "BOOK1.md line 1307"
+     "src": "BOOK1.md line 1306"
     },
     {
      "id": "circle-of-the-skinwalker-moon",
@@ -1422,7 +1431,7 @@ window.SSDNS_RULES = {
        "text": "Expend two uses to transform into dust or fire elementals."
       }
      ],
-     "src": "BOOK1.md line 1316"
+     "src": "BOOK1.md line 1315"
     }
    ],
    "progression": {
@@ -1583,7 +1592,7 @@ window.SSDNS_RULES = {
    "id": "gunslinger",
    "name": "Gunslinger",
    "class5e": "Fighter",
-   "src": "BOOK1.md line 1333",
+   "src": "BOOK1.md line 1332",
    "hitDie": "d10",
    "primary": "Str/Dex",
    "saves": [
@@ -1653,7 +1662,7 @@ window.SSDNS_RULES = {
        "text": "At the start of each of your turns, regain 5 + your Con modifier in hit points if you have no more than half your hit points left (and at least 1)."
       }
      ],
-     "src": "BOOK1.md line 1406"
+     "src": "BOOK1.md line 1405"
     },
     {
      "id": "gun-whisperer-battle-master",
@@ -1679,9 +1688,13 @@ window.SSDNS_RULES = {
       {
        "name": "Relentless (15th level)",
        "text": "When you roll initiative with no superiority dice left, you regain one."
+      },
+      {
+       "name": "Trick Shots",
+       "text": "Trick Shots (PHB maneuvers, rules as the PHB): Call the Shot (Commander's Strike), Disarming Shot (Disarming), Winging Shot (Distracting Strike), Hot Foot (Evasive Footwork), Fake Draw (Feinting), Calling Out (Goading), Long Reach (Lunging), Covering Fire (Maneuvering), Shoot the Hat (Menacing), Turn the Blade (Parry), Draw a Bead (Precision), Pushing Shot (Pushing), Buck Up (Rally), Pistol-Whip (Riposte), Backhand Sweep (Sweeping), Trip Shot (Trip). \"Melee\" ones need a melee weapon: a rifle butt, a pistol-whip, a Bowie."
       }
      ],
-     "src": "BOOK1.md line 1416"
+     "src": "BOOK1.md line 1415"
     }
    ],
    "progression": {
@@ -1800,7 +1813,7 @@ window.SSDNS_RULES = {
    "id": "martial-artist",
    "name": "Martial Artist",
    "class5e": "Monk",
-   "src": "BOOK1.md line 1436",
+   "src": "BOOK1.md line 1435",
    "hitDie": "d8",
    "primary": "Dex & Wis",
    "saves": [
@@ -1866,7 +1879,7 @@ window.SSDNS_RULES = {
        "text": "Spend 3 Ki on hit to transmit lethal vibrations; trigger to drop foe to 0 HP (Con save for 10d10)."
       }
      ],
-     "src": "BOOK1.md line 1511"
+     "src": "BOOK1.md line 1510"
     },
     {
      "id": "tong-hatchet-man-shadow",
@@ -1882,7 +1895,7 @@ window.SSDNS_RULES = {
        "text": "Bonus action to teleport 60 ft between dim light or darkness; gain advantage on your next attack."
       }
      ],
-     "src": "BOOK1.md line 1520"
+     "src": "BOOK1.md line 1519"
     },
     {
      "id": "way-of-kung-fu-four-elements",
@@ -1895,7 +1908,7 @@ window.SSDNS_RULES = {
       },
       {
        "name": "Disciplines (any level)",
-       "text": "Small Weather (Elemental Attunement): tiny tricks of fire, water, earth, and air. Fire Snake (Fangs of the Fire Snake, 1): 10-ft reach and fire damage on your strikes this turn. Thunder Palm (Fist of Four Thunders, 2): casts Thunderwave (Porch Boom). Mule Kick (Fist of Unbroken Air, 2): a blow at 30 ft; Str save or 3d10 bludgeoning, pushed 20 ft and knocked prone. Gale Breath (Rush of the Gale Spirits, 2): casts Gust of Wind (Dust Devil). Shape the River (Shape the Flowing River, 1): move, freeze, or thaw water and ice. Cinder Sweep (Sweeping Cinder Strike, 2): casts Burning Hands (Powder Fan). Water Whip (2): a creature within 30 ft makes a Dex save or takes 3d10 bludgeoning and is pulled 25 ft toward you or knocked prone."
+       "text": "Small Weather (Elemental Attunement): tiny tricks of fire, water, earth, and air. Fire Snake (Fangs of the Fire Snake, 1): 10-ft reach and fire damage on your strikes this turn (heat and friction, not magical flame). Thunder Palm (Fist of Four Thunders, 2): casts Thunderwave (Porch Boom). Mule Kick (Fist of Unbroken Air, 2): a blow at 30 ft; Str save or 3d10 bludgeoning, pushed 20 ft and knocked prone. Gale Breath (Rush of the Gale Spirits, 2): casts Gust of Wind (Dust Devil). Shape the River (Shape the Flowing River, 1): move, freeze, or thaw water and ice. Cinder Sweep (Sweeping Cinder Strike, 2): casts Burning Hands (Powder Fan). Water Whip (2): a creature within 30 ft makes a Dex save or takes 3d10 bludgeoning and is pulled 25 ft toward you or knocked prone."
       },
       {
        "name": "Disciplines (6th level+)",
@@ -1910,7 +1923,7 @@ window.SSDNS_RULES = {
        "text": "Breath of Winter (6): casts Cone of Cold (Liquid Air). River of Fire (River of Hungry Flame, 5): casts Wall of Fire (Prairie Fire). Rolling Earth (Wave of Rolling Earth, 6): casts Wall of Stone (Rimrock)."
       }
      ],
-     "src": "BOOK1.md line 1527"
+     "src": "BOOK1.md line 1526"
     }
    ],
    "progression": {
@@ -2092,7 +2105,7 @@ window.SSDNS_RULES = {
    "id": "lawman",
    "name": "Lawman",
    "class5e": "Paladin",
-   "src": "BOOK1.md line 1547",
+   "src": "BOOK1.md line 1546",
    "hitDie": "d10",
    "primary": "Str & Cha",
    "saves": [
@@ -2158,7 +2171,7 @@ window.SSDNS_RULES = {
        "text": "You and nearby allies cannot be charmed."
       }
      ],
-     "src": "BOOK1.md line 1631"
+     "src": "BOOK1.md line 1630"
     },
     {
      "id": "oath-of-the-bounty-hunter-vengeance",
@@ -2174,13 +2187,17 @@ window.SSDNS_RULES = {
        "text": "Opportunity attack hits allow moving up to half speed without provoking attacks."
       }
      ],
-     "src": "BOOK1.md line 1639"
+     "src": "BOOK1.md line 1638"
     },
     {
      "id": "oath-of-the-lawless-oathbreaker",
      "name": "Oath of the Lawless",
      "phb5e": "Oathbreaker",
      "features": [
+      {
+       "name": "DM assigned",
+       "text": "You can't choose this oath at character creation. You fall into it when your badge tarnishes (see Badge Bound)."
+      },
       {
        "name": "Channel Creed (3rd level)",
        "text": "Control Undead: as an action, one undead you can see within 30 ft makes a Wis save or obeys you for 24 hours (or until you use this again). Undead with a CR equal to or higher than your Lawman level are immune. Dreadful Aspect: as an action, each creature of your choice within 30 ft that can see you makes a Wis save or is frightened of you for 1 minute. It repeats the save if it ends its turn more than 30 ft from you."
@@ -2198,7 +2215,9 @@ window.SSDNS_RULES = {
        "text": "As an action, for 1 minute, gloom fills 30 ft around you and bright light there drops to dim. A creature frightened of you that starts its turn in the gloom takes 4d10 psychic damage. Creatures that rely on sight have disadvantage on attacks against you and the allies you choose in it. As a bonus action on your turns, you can make a melee spell attack against a creature in the gloom for 3d10 + your Cha modifier necrotic damage. Once per long rest."
       }
      ],
-     "src": "BOOK1.md line 1646"
+     "src": "BOOK1.md line 1645",
+     "dmOnly": true,
+     "restriction": "You can't choose this oath at character creation. You fall into it when your badge tarnishes (see Badge Bound)."
     }
    ],
    "progression": {
@@ -2338,7 +2357,7 @@ window.SSDNS_RULES = {
    "id": "frontier-scout",
    "name": "Frontier Scout",
    "class5e": "Ranger",
-   "src": "BOOK1.md line 1669",
+   "src": "BOOK1.md line 1668",
    "hitDie": "d10",
    "primary": "Dex & Wis",
    "saves": [
@@ -2404,7 +2423,7 @@ window.SSDNS_RULES = {
        "text": "Evasion, Stand Against the Tide, or Uncanny Dodge."
       }
      ],
-     "src": "BOOK1.md line 1743"
+     "src": "BOOK1.md line 1742"
     },
     {
      "id": "beast-wrangler-beast-master",
@@ -2428,7 +2447,7 @@ window.SSDNS_RULES = {
        "text": "Spells targeting yourself also affect your companion."
       }
      ],
-     "src": "BOOK1.md line 1752"
+     "src": "BOOK1.md line 1751"
     }
    ],
    "progression": {
@@ -2589,7 +2608,7 @@ window.SSDNS_RULES = {
    "id": "gambler",
    "name": "Gambler",
    "class5e": "Rogue",
-   "src": "BOOK1.md line 1769",
+   "src": "BOOK1.md line 1768",
    "hitDie": "d8",
    "primary": "Dex",
    "saves": [
@@ -2655,7 +2674,7 @@ window.SSDNS_RULES = {
        "text": "You take two turns in the first round of combat: one at your initiative and one at your initiative minus 10. You can't do this when you're surprised."
       }
      ],
-     "src": "BOOK1.md line 1838"
+     "src": "BOOK1.md line 1837"
     },
     {
      "id": "hitman-assassin",
@@ -2672,7 +2691,7 @@ window.SSDNS_RULES = {
       },
       {
        "name": "Infiltration Expertise (9th level)",
-       "text": "Spend 7 days and TBD ES to build a false identity: a history, a trade, papers, and people who'll vouch for you. You can't take over an identity that belongs to someone else."
+       "text": "Spend 7 days and 2,500 ES to build a false identity: a history, a trade, papers, and people who'll vouch for you. You can't take over an identity that belongs to someone else."
       },
       {
        "name": "Impostor (13th level)",
@@ -2683,7 +2702,7 @@ window.SSDNS_RULES = {
        "text": "When you hit a surprised creature, it makes a Con save (DC 8 + your Dex modifier + your proficiency bonus). On a failure, the attack's damage is doubled."
       }
      ],
-     "src": "BOOK1.md line 1848"
+     "src": "BOOK1.md line 1847"
     }
    ],
    "progression": {
@@ -2823,7 +2842,7 @@ window.SSDNS_RULES = {
    "id": "hexslinger",
    "name": "Hexslinger",
    "class5e": "Sorcerer",
-   "src": "BOOK1.md line 1866",
+   "src": "BOOK1.md line 1865",
    "hitDie": "d6",
    "primary": "Cha",
    "saves": [
@@ -2885,7 +2904,7 @@ window.SSDNS_RULES = {
        "text": "As an action, spend 5 sorcery points to radiate a 60-foot aura of awe or fear (your choice) for 1 minute or until you lose concentration (as if concentrating on a spell). Each hostile creature that starts its turn in the aura must succeed on a Wisdom save against your spell save DC or be charmed (awe) or frightened (fear) until the aura ends. A creature that succeeds is immune to your aura for 24 hours."
       }
      ],
-     "src": "BOOK1.md line 1958"
+     "src": "BOOK1.md line 1957"
     },
     {
      "id": "chaos-wild-magic",
@@ -2913,7 +2932,7 @@ window.SSDNS_RULES = {
        "text": "When you roll damage for a spell and roll the highest number possible on any of the dice, choose one of those dice, roll it again, and add that roll to the damage. Once per turn."
       }
      ],
-     "src": "BOOK1.md line 1968"
+     "src": "BOOK1.md line 1967"
     }
    ],
    "progression": {
@@ -3137,7 +3156,7 @@ window.SSDNS_RULES = {
    "id": "pact-seeker",
    "name": "Pact Seeker",
    "class5e": "Warlock",
-   "src": "BOOK1.md line 1986",
+   "src": "BOOK1.md line 1985",
    "hitDie": "d8",
    "primary": "Cha",
    "saves": [
@@ -3187,7 +3206,7 @@ window.SSDNS_RULES = {
        "text": "Signed at midnight where two roads cross. The terms were generous. The interest is something else."
       }
      ],
-     "src": "BOOK1.md line 2061",
+     "src": "BOOK1.md line 2060",
      "group": "Choose a Pact",
      "intro": "You don't choose your patron. You choose the deal you remember making: the name you'd give it if anyone ever asked. Pick a pact name and tell your DM. Your DM reveals who's on the other side of it, and what your Borrowed Iron really is. Don't expect the whole truth on day one."
     },
@@ -3201,7 +3220,7 @@ window.SSDNS_RULES = {
        "text": "Someone very high up has work for you. He doesn't explain, and he doesn't take no."
       }
      ],
-     "src": "BOOK1.md line 2061",
+     "src": "BOOK1.md line 2060",
      "group": "Choose a Pact",
      "intro": "You don't choose your patron. You choose the deal you remember making: the name you'd give it if anyone ever asked. Pick a pact name and tell your DM. Your DM reveals who's on the other side of it, and what your Borrowed Iron really is. Don't expect the whole truth on day one."
     },
@@ -3215,7 +3234,7 @@ window.SSDNS_RULES = {
        "text": "The lake remembers your name, though you don't remember giving it. Something beautiful is waiting beneath the surface, and it has a favor to ask."
       }
      ],
-     "src": "BOOK1.md line 2061",
+     "src": "BOOK1.md line 2060",
      "group": "Choose a Pact",
      "intro": "You don't choose your patron. You choose the deal you remember making: the name you'd give it if anyone ever asked. Pick a pact name and tell your DM. Your DM reveals who's on the other side of it, and what your Borrowed Iron really is. Don't expect the whole truth on day one."
     },
@@ -3229,7 +3248,7 @@ window.SSDNS_RULES = {
        "text": "You didn't find the gun. The gun found you, and it's been talking ever since."
       }
      ],
-     "src": "BOOK1.md line 2061",
+     "src": "BOOK1.md line 2060",
      "group": "Choose a Pact",
      "intro": "You don't choose your patron. You choose the deal you remember making: the name you'd give it if anyone ever asked. Pick a pact name and tell your DM. Your DM reveals who's on the other side of it, and what your Borrowed Iron really is. Don't expect the whole truth on day one."
     },
@@ -3243,7 +3262,7 @@ window.SSDNS_RULES = {
        "text": "Sworn on a hot wind that smelled of spice and lightning. He wants a gift, and it'd better be one of a kind."
       }
      ],
-     "src": "BOOK1.md line 2061",
+     "src": "BOOK1.md line 2060",
      "group": "Choose a Pact",
      "intro": "You don't choose your patron. You choose the deal you remember making: the name you'd give it if anyone ever asked. Pick a pact name and tell your DM. Your DM reveals who's on the other side of it, and what your Borrowed Iron really is. Don't expect the whole truth on day one."
     },
@@ -3257,7 +3276,7 @@ window.SSDNS_RULES = {
        "text": "Every grave you fill pays down the debt. Somebody tall is keeping count."
       }
      ],
-     "src": "BOOK1.md line 2061",
+     "src": "BOOK1.md line 2060",
      "group": "Choose a Pact",
      "intro": "You don't choose your patron. You choose the deal you remember making: the name you'd give it if anyone ever asked. Pick a pact name and tell your DM. Your DM reveals who's on the other side of it, and what your Borrowed Iron really is. Don't expect the whole truth on day one."
     },
@@ -3271,7 +3290,7 @@ window.SSDNS_RULES = {
        "text": "You owe your last breath to something that doesn't breathe air. It'll want that breath back, one favor at a time."
       }
      ],
-     "src": "BOOK1.md line 2061",
+     "src": "BOOK1.md line 2060",
      "group": "Choose a Pact",
      "intro": "You don't choose your patron. You choose the deal you remember making: the name you'd give it if anyone ever asked. Pick a pact name and tell your DM. Your DM reveals who's on the other side of it, and what your Borrowed Iron really is. Don't expect the whole truth on day one."
     }
@@ -3476,7 +3495,7 @@ window.SSDNS_RULES = {
    "id": "scholar",
    "name": "Scholar",
    "class5e": "Wizard",
-   "src": "BOOK1.md line 2081",
+   "src": "BOOK1.md line 2080",
    "hitDie": "d6",
    "primary": "Int",
    "saves": [
@@ -3526,7 +3545,7 @@ window.SSDNS_RULES = {
        "text": "\"The Sight\" or \"True Grit.\" Calculates vectors and psychological tells to predict enemy moves or time lethal trick shots."
       }
      ],
-     "src": "BOOK1.md line 2156"
+     "src": "BOOK1.md line 2155"
     },
     {
      "id": "law-of-neurological-suggestion-enchantment",
@@ -3538,7 +3557,7 @@ window.SSDNS_RULES = {
        "text": "Exploits biological frequencies through hypnotic cadence and sonic vibrations to pacify saloons or freeze bounties."
       }
      ],
-     "src": "BOOK1.md line 2157"
+     "src": "BOOK1.md line 2156"
     },
     {
      "id": "law-of-thermodynamic-transfer-evocation",
@@ -3550,7 +3569,7 @@ window.SSDNS_RULES = {
        "text": "Focuses on violent releases of stored energy: sparks brushfires, arcs lightning, or drains heat to freeze locks."
       }
      ],
-     "src": "BOOK1.md line 2158"
+     "src": "BOOK1.md line 2157"
     },
     {
      "id": "law-of-refractive-photon-manipulation-illusion",
@@ -3562,7 +3581,7 @@ window.SSDNS_RULES = {
        "text": "Physically bends light waves to create mirages, duplicate silhouettes in duels, or mask break-outs."
       }
      ],
-     "src": "BOOK1.md line 2159"
+     "src": "BOOK1.md line 2158"
     },
     {
      "id": "law-of-cellular-degradation-animation-necromancy",
@@ -3574,7 +3593,7 @@ window.SSDNS_RULES = {
        "text": "Deals with biological decay; saps caloric energy or channels currents to animate dead tissue."
       }
      ],
-     "src": "BOOK1.md line 2160"
+     "src": "BOOK1.md line 2159"
     },
     {
      "id": "law-of-molecular-realignment-transmutation",
@@ -3586,7 +3605,7 @@ window.SSDNS_RULES = {
        "text": "Alters atomic structures: turns lead to gold, hardens leather to bulletproof hide, or softens vault iron."
       }
      ],
-     "src": "BOOK1.md line 2161"
+     "src": "BOOK1.md line 2160"
     },
     {
      "id": "law-of-kinetic-thaumaturgical-dampening-abjuration",
@@ -3598,7 +3617,7 @@ window.SSDNS_RULES = {
        "text": "Wardwright barriers that absorb explosive shockwaves and dissipate arcane backlashes."
       }
      ],
-     "src": "BOOK1.md line 2162"
+     "src": "BOOK1.md line 2161"
     },
     {
      "id": "law-of-spatial-displacement-manifestation-conjuration",
@@ -3610,7 +3629,7 @@ window.SSDNS_RULES = {
        "text": "Spatial clerks calculating folded coordinates to draw ammo, mounts, and gear instantly."
       }
      ],
-     "src": "BOOK1.md line 2163"
+     "src": "BOOK1.md line 2162"
     }
    ],
    "progression": {
@@ -3773,7 +3792,7 @@ window.SSDNS_RULES = {
    "id": "chapel-hand",
    "name": "Chapel Hand",
    "twin5e": "Acolyte",
-   "src": "BOOK1.md line 2390",
+   "src": "BOOK1.md line 2389",
    "skills": "Insight, Religion",
    "tools": "",
    "languages": "Two of your choice",
@@ -3828,7 +3847,7 @@ window.SSDNS_RULES = {
    "id": "snake-oil-cardsharp",
    "name": "Snake-Oil / Cardsharp",
    "twin5e": "Charlatan",
-   "src": "BOOK1.md line 2462",
+   "src": "BOOK1.md line 2461",
    "skills": "Deception, Sleight of Hand",
    "tools": "Disguise kit, forgery kit",
    "languages": "",
@@ -3883,7 +3902,7 @@ window.SSDNS_RULES = {
    "id": "outlaw",
    "name": "Outlaw",
    "twin5e": "Criminal",
-   "src": "BOOK1.md line 2534",
+   "src": "BOOK1.md line 2533",
    "skills": "Deception, Stealth",
    "tools": "One gaming set, thieves’ tools",
    "languages": "",
@@ -3938,7 +3957,7 @@ window.SSDNS_RULES = {
    "id": "saloon-act",
    "name": "Saloon Act",
    "twin5e": "Entertainer",
-   "src": "BOOK1.md line 2606",
+   "src": "BOOK1.md line 2605",
    "skills": "Acrobatics, Performance",
    "tools": "Disguise kit, one musical instrument",
    "languages": "",
@@ -3993,7 +4012,7 @@ window.SSDNS_RULES = {
    "id": "honorable-figure",
    "name": "Honorable Figure",
    "twin5e": "Folk Hero",
-   "src": "BOOK1.md line 2678",
+   "src": "BOOK1.md line 2677",
    "skills": "Animal Handling, Survival",
    "tools": "One type of artisan’s tools, vehicles (land)",
    "languages": "",
@@ -4048,7 +4067,7 @@ window.SSDNS_RULES = {
    "id": "craft-guild-exile",
    "name": "Craft Guild Exile",
    "twin5e": "Guild Artisan",
-   "src": "BOOK1.md line 2750",
+   "src": "BOOK1.md line 2749",
    "skills": "Insight, Persuasion",
    "tools": "One type of artisan’s tools",
    "languages": "One of your choice",
@@ -4103,7 +4122,7 @@ window.SSDNS_RULES = {
    "id": "desert-hermit",
    "name": "Desert Hermit",
    "twin5e": "Hermit",
-   "src": "BOOK1.md line 2825",
+   "src": "BOOK1.md line 2824",
    "skills": "Medicine, Religion",
    "tools": "Herbalism kit",
    "languages": "One of your choice",
@@ -4158,7 +4177,7 @@ window.SSDNS_RULES = {
    "id": "fallen-aristocrat",
    "name": "Fallen Aristocrat",
    "twin5e": "Noble",
-   "src": "BOOK1.md line 2900",
+   "src": "BOOK1.md line 2899",
    "skills": "History, Persuasion",
    "tools": "One gaming set",
    "languages": "One of your choice",
@@ -4213,7 +4232,7 @@ window.SSDNS_RULES = {
    "id": "trail-born",
    "name": "Trail-Born",
    "twin5e": "Outlander",
-   "src": "BOOK1.md line 2975",
+   "src": "BOOK1.md line 2974",
    "skills": "Athletics, Survival",
    "tools": "One musical instrument",
    "languages": "One of your choice",
@@ -4268,7 +4287,7 @@ window.SSDNS_RULES = {
    "id": "scholar-of-the-dying-weave",
    "name": "Scholar of the Dying Weave",
    "twin5e": "Sage",
-   "src": "BOOK1.md line 3050",
+   "src": "BOOK1.md line 3049",
    "skills": "Arcana, History",
    "tools": "",
    "languages": "Two of your choice",
@@ -4323,7 +4342,7 @@ window.SSDNS_RULES = {
    "id": "last-ship-hand",
    "name": "Last-Ship Hand",
    "twin5e": "Sailor",
-   "src": "BOOK1.md line 3122",
+   "src": "BOOK1.md line 3121",
    "skills": "Athletics, Perception",
    "tools": "Navigator’s tools, vehicles (water)",
    "languages": "",
@@ -4378,7 +4397,7 @@ window.SSDNS_RULES = {
    "id": "company-veteran",
    "name": "Company Veteran",
    "twin5e": "Soldier",
-   "src": "BOOK1.md line 3194",
+   "src": "BOOK1.md line 3193",
    "skills": "Athletics, Intimidation",
    "tools": "One gaming set, vehicles (land)",
    "languages": "",
@@ -4433,7 +4452,7 @@ window.SSDNS_RULES = {
    "id": "street-rat-of-neverwinter-docks",
    "name": "Street Rat of Neverwinter Docks",
    "twin5e": "Urchin",
-   "src": "BOOK1.md line 3266",
+   "src": "BOOK1.md line 3265",
    "skills": "Sleight of Hand, Stealth",
    "tools": "Disguise kit, thieves’ tools",
    "languages": "",
@@ -4488,7 +4507,7 @@ window.SSDNS_RULES = {
    "id": "settler",
    "name": "Settler",
    "twin5e": "Folk Hero / custom",
-   "src": "BOOK1.md line 3338",
+   "src": "BOOK1.md line 3337",
    "skills": "Animal Handling, Survival",
    "tools": "One artisan’s tools (carpenter’s, smith’s, or weaver’s), vehicles (land)",
    "languages": "",
@@ -4543,7 +4562,7 @@ window.SSDNS_RULES = {
    "id": "tracker",
    "name": "Tracker",
    "twin5e": "Outlander / custom",
-   "src": "BOOK1.md line 3410",
+   "src": "BOOK1.md line 3409",
    "skills": "Perception, Survival",
    "tools": "Herbalism kit or one gaming set (DM choice); vehicles (land) optional swap",
    "languages": "One of your choice (often Under-Cant, hearth-cant, or a tribal trade tongue)",
@@ -4598,7 +4617,7 @@ window.SSDNS_RULES = {
    "id": "gunslinger-drifter",
    "name": "Gunslinger Drifter",
    "twin5e": "Soldier / custom",
-   "src": "BOOK1.md line 3485",
+   "src": "BOOK1.md line 3484",
    "skills": "Intimidation, Perception",
    "tools": "One gaming set, vehicles (land)",
    "languages": "",
@@ -4653,7 +4672,7 @@ window.SSDNS_RULES = {
    "id": "tinker",
    "name": "Tinker",
    "twin5e": "Guild Artisan / custom",
-   "src": "BOOK1.md line 3557",
+   "src": "BOOK1.md line 3556",
    "skills": "Insight, Investigation",
    "tools": "Tinker’s tools or one artisan’s tools (smith’s / carpenter’s); forgery kit optional swap with DM",
    "languages": "One of your choice (often guild-cant)",
@@ -4719,7 +4738,7 @@ window.SSDNS_RULES = {
    "strength": "—",
    "stealth": "Disadvantage",
    "weight": "8 lb.",
-   "src": "BOOK1.md line 3841"
+   "src": "BOOK1.md line 3840"
   },
   {
    "id": "leather-jacket",
@@ -4734,7 +4753,7 @@ window.SSDNS_RULES = {
    "strength": "—",
    "stealth": "—",
    "weight": "10 lb.",
-   "src": "BOOK1.md line 3842"
+   "src": "BOOK1.md line 3841"
   },
   {
    "id": "studded-vest",
@@ -4749,7 +4768,7 @@ window.SSDNS_RULES = {
    "strength": "—",
    "stealth": "—",
    "weight": "13 lb.",
-   "src": "BOOK1.md line 3843"
+   "src": "BOOK1.md line 3842"
   },
   {
    "id": "hide-wrap",
@@ -4764,7 +4783,7 @@ window.SSDNS_RULES = {
    "strength": "—",
    "stealth": "—",
    "weight": "12 lb.",
-   "src": "BOOK1.md line 3849"
+   "src": "BOOK1.md line 3848"
   },
   {
    "id": "mail-undershirt",
@@ -4779,7 +4798,7 @@ window.SSDNS_RULES = {
    "strength": "—",
    "stealth": "—",
    "weight": "20 lb.",
-   "src": "BOOK1.md line 3850"
+   "src": "BOOK1.md line 3849"
   },
   {
    "id": "scale-coat",
@@ -4794,7 +4813,7 @@ window.SSDNS_RULES = {
    "strength": "—",
    "stealth": "Disadvantage",
    "weight": "45 lb.",
-   "src": "BOOK1.md line 3851"
+   "src": "BOOK1.md line 3850"
   },
   {
    "id": "steel-vest",
@@ -4809,7 +4828,7 @@ window.SSDNS_RULES = {
    "strength": "—",
    "stealth": "—",
    "weight": "20 lb.",
-   "src": "BOOK1.md line 3852"
+   "src": "BOOK1.md line 3851"
   },
   {
    "id": "heavy-leather-duster",
@@ -4824,7 +4843,7 @@ window.SSDNS_RULES = {
    "strength": "—",
    "stealth": "Disadvantage",
    "weight": "40 lb.",
-   "src": "BOOK1.md line 3853"
+   "src": "BOOK1.md line 3852"
   },
   {
    "id": "ring-coat",
@@ -4839,7 +4858,7 @@ window.SSDNS_RULES = {
    "strength": "—",
    "stealth": "Disadvantage",
    "weight": "40 lb.",
-   "src": "BOOK1.md line 3863"
+   "src": "BOOK1.md line 3862"
   },
   {
    "id": "mail-duster",
@@ -4854,7 +4873,7 @@ window.SSDNS_RULES = {
    "strength": "Str 13",
    "stealth": "Disadvantage",
    "weight": "55 lb.",
-   "src": "BOOK1.md line 3864"
+   "src": "BOOK1.md line 3863"
   },
   {
    "id": "splint-harness",
@@ -4869,7 +4888,7 @@ window.SSDNS_RULES = {
    "strength": "Str 15",
    "stealth": "Disadvantage",
    "weight": "60 lb.",
-   "src": "BOOK1.md line 3865"
+   "src": "BOOK1.md line 3864"
   },
   {
    "id": "iron-suit",
@@ -4884,7 +4903,7 @@ window.SSDNS_RULES = {
    "strength": "Str 15",
    "stealth": "Disadvantage",
    "weight": "65 lb.",
-   "src": "BOOK1.md line 3866"
+   "src": "BOOK1.md line 3865"
   },
   {
    "id": "shield-badge-board-cavalry-shield-rifle-plate",
@@ -4899,7 +4918,7 @@ window.SSDNS_RULES = {
    "strength": "",
    "stealth": "",
    "weight": "6 lb.",
-   "src": "BOOK1.md line 3872"
+   "src": "BOOK1.md line 3871"
   }
  ],
  "firearms": [
@@ -4922,7 +4941,7 @@ window.SSDNS_RULES = {
    },
    "weight": "½ lb.",
    "properties": "Light, concealable, close quarters, simple",
-   "src": "BOOK1.md line 3978",
+   "src": "BOOK1.md line 3977",
    "slow": false,
    "ability": "DEX",
    "category": "simple",
@@ -4952,7 +4971,7 @@ window.SSDNS_RULES = {
    },
    "weight": "1 lb.",
    "properties": "Light, concealable, close quarters, simple",
-   "src": "BOOK1.md line 3979",
+   "src": "BOOK1.md line 3978",
    "slow": false,
    "ability": "DEX",
    "category": "simple",
@@ -4982,7 +5001,7 @@ window.SSDNS_RULES = {
    },
    "weight": "½ lb.",
    "properties": "Light, concealable, close quarters, simple",
-   "src": "BOOK1.md line 3980",
+   "src": "BOOK1.md line 3979",
    "slow": false,
    "ability": "DEX",
    "category": "simple",
@@ -5012,7 +5031,7 @@ window.SSDNS_RULES = {
    },
    "weight": "3 lb.",
    "properties": "Close quarters, slow load, simple",
-   "src": "BOOK1.md line 3981",
+   "src": "BOOK1.md line 3980",
    "slow": true,
    "ability": "DEX",
    "category": "simple",
@@ -5037,11 +5056,11 @@ window.SSDNS_RULES = {
     }
    },
    "weight": "2½ lb.",
-   "properties": "chambered .32 Long",
-   "src": "BOOK1.md line 3983",
+   "properties": "chambered .32 Long, close quarters, martial",
+   "src": "BOOK1.md line 3982",
    "slow": false,
    "ability": "DEX",
-   "category": "simple",
+   "category": "martial",
    "rounds": {
     "light": [
      ".32 Long"
@@ -5067,11 +5086,11 @@ window.SSDNS_RULES = {
     }
    },
    "weight": "2½ lb.",
-   "properties": "chambered .357 or .44-40",
-   "src": "BOOK1.md line 3984",
+   "properties": "chambered .357 or .44-40, close quarters, martial",
+   "src": "BOOK1.md line 3983",
    "slow": false,
    "ability": "DEX",
-   "category": "simple",
+   "category": "martial",
    "rounds": {
     "medium": [
      ".357",
@@ -5098,11 +5117,11 @@ window.SSDNS_RULES = {
     }
    },
    "weight": "2½ lb.",
-   "properties": "chambered .45 Long",
-   "src": "BOOK1.md line 3985",
+   "properties": "chambered .45 Long, close quarters, martial",
+   "src": "BOOK1.md line 3984",
    "slow": false,
    "ability": "DEX",
-   "category": "simple",
+   "category": "martial",
    "rounds": {
     "heavy": [
      ".45 Long"
@@ -5157,7 +5176,7 @@ window.SSDNS_RULES = {
    },
    "weight": "6 lb.",
    "properties": "Two-handed, scatter, close quarters, simple",
-   "src": "BOOK1.md line 3995",
+   "src": "BOOK1.md line 3994",
    "slow": false,
    "ability": "STR",
    "category": "simple",
@@ -5211,7 +5230,7 @@ window.SSDNS_RULES = {
    },
    "weight": "8 lb.",
    "properties": "Two-handed, scatter, both barrels, close quarters, martial",
-   "src": "BOOK1.md line 3996",
+   "src": "BOOK1.md line 3995",
    "slow": false,
    "ability": "STR",
    "category": "martial",
@@ -5262,7 +5281,7 @@ window.SSDNS_RULES = {
    },
    "weight": "8 lb.",
    "properties": "Two-handed, scatter, close quarters, martial",
-   "src": "BOOK1.md line 3997",
+   "src": "BOOK1.md line 3996",
    "slow": false,
    "ability": "STR",
    "category": "martial",
@@ -5306,7 +5325,7 @@ window.SSDNS_RULES = {
    },
    "weight": "7 lb.",
    "properties": "Two-handed, saddle, rugged, close quarters, martial",
-   "src": "BOOK1.md line 4007",
+   "src": "BOOK1.md line 4006",
    "slow": false,
    "ability": "DEX",
    "category": "martial",
@@ -5348,7 +5367,7 @@ window.SSDNS_RULES = {
    },
    "weight": "7 lb.",
    "properties": "Two-handed, saddle, close quarters, martial",
-   "src": "BOOK1.md line 4008",
+   "src": "BOOK1.md line 4007",
    "slow": false,
    "ability": "DEX",
    "category": "martial",
@@ -5382,7 +5401,7 @@ window.SSDNS_RULES = {
    },
    "weight": "6 lb.",
    "properties": "Two-handed, saddle, close quarters, simple",
-   "src": "BOOK1.md line 4009",
+   "src": "BOOK1.md line 4008",
    "slow": false,
    "ability": "DEX",
    "category": "simple",
@@ -5423,7 +5442,7 @@ window.SSDNS_RULES = {
    },
    "weight": "8 lb.",
    "properties": "Two-handed, simple",
-   "src": "BOOK1.md line 4019",
+   "src": "BOOK1.md line 4018",
    "slow": false,
    "ability": "DEX",
    "category": "simple",
@@ -5465,7 +5484,7 @@ window.SSDNS_RULES = {
    },
    "weight": "9 lb.",
    "properties": "Two-handed, simple",
-   "src": "BOOK1.md line 4020",
+   "src": "BOOK1.md line 4019",
    "slow": false,
    "ability": "DEX",
    "category": "simple",
@@ -5509,7 +5528,7 @@ window.SSDNS_RULES = {
    },
    "weight": "9 lb.",
    "properties": "Two-handed, martial",
-   "src": "BOOK1.md line 4021",
+   "src": "BOOK1.md line 4020",
    "slow": false,
    "ability": "DEX",
    "category": "martial",
@@ -5556,7 +5575,7 @@ window.SSDNS_RULES = {
    },
    "weight": "9 lb.",
    "properties": "Two-handed, martial",
-   "src": "BOOK1.md line 4022",
+   "src": "BOOK1.md line 4021",
    "slow": false,
    "ability": "DEX",
    "category": "martial",
@@ -5593,7 +5612,7 @@ window.SSDNS_RULES = {
    },
    "weight": "9 lb.",
    "properties": "Two-handed, heavy, slow load, simple",
-   "src": "BOOK1.md line 4023",
+   "src": "BOOK1.md line 4022",
    "slow": true,
    "ability": "DEX",
    "category": "simple",
@@ -5619,7 +5638,7 @@ window.SSDNS_RULES = {
    },
    "weight": "13 lb.",
    "properties": "Two-handed, heavy, unwieldy, slow load, martial",
-   "src": "BOOK1.md line 4033",
+   "src": "BOOK1.md line 4032",
    "slow": true,
    "ability": "DEX",
    "category": "martial",
@@ -5661,24 +5680,41 @@ window.SSDNS_RULES = {
    },
    "weight": "2½ lb.",
    "properties": "Hex, focus, attunement, close quarters",
-   "src": "BOOK1.md line 4129",
+   "src": "BOOK1.md line 4128",
    "slow": false,
    "ability": "SPELL",
    "category": "caster",
    "rounds": {
     "light": [
-     ".32 Long"
+     ".32 Long",
+     ".22 LR",
+     ".44 rimfire"
     ],
     "medium": [
      ".357",
      ".44-40"
     ],
     "heavy": [
-     ".45 Long"
+     ".45 Long",
+     ".45-70",
+     ".50-90"
     ]
    },
    "ammo": "cartridge",
    "hexShells": true,
+   "rifleRounds": {
+    ".45-70": {
+     "damage": "2d8",
+     "range": "30/120",
+     "misfire": "1–3"
+    },
+    ".50-90": {
+     "damage": "2d12",
+     "range": "150/600",
+     "misfire": "1–5",
+     "unwieldy": true
+    }
+   },
    "notes": [
     "The plain honest six. No perk and no pedigree, and nobody sells one. Every Hexslinger's first iron."
    ]
@@ -5712,30 +5748,44 @@ window.SSDNS_RULES = {
    },
    "weight": "1½ lb.",
    "properties": "Hex, focus, attunement, concealable, close quarters, simple",
-   "src": "BOOK1.md line 4130",
+   "src": "BOOK1.md line 4129",
    "slow": false,
    "ability": "SPELL",
    "category": "caster",
    "rounds": {
     "light": [
-     ".32 Long"
+     ".32 Long",
+     ".22 LR",
+     ".44 rimfire"
     ],
     "medium": [
      ".357",
      ".44-40"
     ],
     "heavy": [
-     ".45 Long"
+     ".45 Long",
+     ".45-70",
+     ".50-90"
     ]
    },
    "ammo": "cartridge",
    "hexShells": true,
+   "rifleRounds": {
+    ".45-70": {
+     "damage": "2d8",
+     "range": "30/120",
+     "misfire": "1–3"
+    },
+    ".50-90": {
+     "damage": "2d12",
+     "range": "150/600",
+     "misfire": "1–5",
+     "unwieldy": true
+    }
+   },
    "notes": [
     "A snub-nosed belly gun that rides where nobody looks. Concealable (advantage on Dexterity (Sleight of Hand) checks to hide it), 4 chambers that a Caster specialist can stretch to 6, and 10/30 range on every round.",
-    "Once per long rest, when you fail a saving throw against a spell or a curse, you can use your reaction to reroll it.",
-    "The Blacksnake isn't the only Caster Gun ever forged. Older makes are still out there, but they're rare relics now: buried with their owners, locked in collectors' cases, or still in the hands of folks who won't part with them. Whoever finds one finds out what it can do.",
-    "The Weave is dying, or so most folks believe. Every channeled shot draws on spark that isn't coming back. The DM may limit relic Caster Guns, make them the prize of a long search, or make carrying one a story problem.",
-    "}}"
+    "Once per long rest, when you fail a saving throw against a spell or a curse, you can use your reaction to reroll it."
    ]
   }
  ],
@@ -5753,7 +5803,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "Light",
-   "src": "BOOK1.md line 3914",
+   "src": "BOOK1.md line 3913",
    "category": "simple",
    "ability": "STR"
   },
@@ -5770,7 +5820,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "Light",
-   "src": "BOOK1.md line 3915",
+   "src": "BOOK1.md line 3914",
    "category": "simple",
    "ability": "STR"
   },
@@ -5787,7 +5837,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "Light, thrown",
-   "src": "BOOK1.md line 3916",
+   "src": "BOOK1.md line 3915",
    "category": "simple",
    "ability": "STR"
   },
@@ -5804,7 +5854,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "10 lb.",
    "properties": "Two-handed",
-   "src": "BOOK1.md line 3917",
+   "src": "BOOK1.md line 3916",
    "category": "simple",
    "ability": "STR"
   },
@@ -5821,7 +5871,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "Light, thrown",
-   "src": "BOOK1.md line 3918",
+   "src": "BOOK1.md line 3917",
    "category": "simple",
    "ability": "STR"
   },
@@ -5838,7 +5888,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "1 lb.",
    "properties": "Finesse, light, thrown",
-   "src": "BOOK1.md line 3919",
+   "src": "BOOK1.md line 3918",
    "category": "simple",
    "ability": "STR/DEX"
   },
@@ -5855,7 +5905,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "Thrown",
-   "src": "BOOK1.md line 3920",
+   "src": "BOOK1.md line 3919",
    "category": "simple",
    "ability": "STR"
   },
@@ -5872,7 +5922,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "4 lb.",
    "properties": "—",
-   "src": "BOOK1.md line 3921",
+   "src": "BOOK1.md line 3920",
    "category": "simple",
    "ability": "STR"
   },
@@ -5889,7 +5939,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "3 lb.",
    "properties": "Thrown, versatile (1d8)",
-   "src": "BOOK1.md line 3922",
+   "src": "BOOK1.md line 3921",
    "category": "simple",
    "ability": "STR"
   },
@@ -5906,7 +5956,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "4 lb.",
    "properties": "Versatile (1d8)",
-   "src": "BOOK1.md line 3923",
+   "src": "BOOK1.md line 3922",
    "category": "simple",
    "ability": "STR"
   },
@@ -5923,7 +5973,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "6 lb.",
    "properties": "Heavy, reach, two-handed",
-   "src": "BOOK1.md line 3939",
+   "src": "BOOK1.md line 3938",
    "category": "martial",
    "ability": "STR"
   },
@@ -5940,7 +5990,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "Finesse, light",
-   "src": "BOOK1.md line 3940",
+   "src": "BOOK1.md line 3939",
    "category": "martial",
    "ability": "STR/DEX"
   },
@@ -5957,7 +6007,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "4 lb.",
    "properties": "Thrown, versatile (1d8)",
-   "src": "BOOK1.md line 3941",
+   "src": "BOOK1.md line 3940",
    "category": "martial",
    "ability": "STR"
   },
@@ -5974,7 +6024,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "7 lb.",
    "properties": "Heavy, two-handed",
-   "src": "BOOK1.md line 3942",
+   "src": "BOOK1.md line 3941",
    "category": "martial",
    "ability": "STR"
   },
@@ -5991,7 +6041,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "3 lb.",
    "properties": "Finesse, reach",
-   "src": "BOOK1.md line 3943",
+   "src": "BOOK1.md line 3942",
    "category": "martial",
    "ability": "STR/DEX"
   },
@@ -6008,7 +6058,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "6 lb.",
    "properties": "Reach, special (PHB lance)",
-   "src": "BOOK1.md line 3944",
+   "src": "BOOK1.md line 3943",
    "category": "martial",
    "ability": "STR"
   },
@@ -6025,7 +6075,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "3 lb.",
    "properties": "Versatile (1d10)",
-   "src": "BOOK1.md line 3945",
+   "src": "BOOK1.md line 3944",
    "category": "martial",
    "ability": "STR"
   },
@@ -6042,7 +6092,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "—",
-   "src": "BOOK1.md line 3946",
+   "src": "BOOK1.md line 3945",
    "category": "martial",
    "ability": "STR"
   },
@@ -6059,7 +6109,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "3 lb.",
    "properties": "Finesse, light (scimitar-class; own line, distinct from the Machete)",
-   "src": "BOOK1.md line 3947",
+   "src": "BOOK1.md line 3946",
    "category": "martial",
    "ability": "STR/DEX"
   },
@@ -6076,7 +6126,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "10 lb.",
    "properties": "Heavy, two-handed",
-   "src": "BOOK1.md line 3948",
+   "src": "BOOK1.md line 3947",
    "category": "martial",
    "ability": "STR"
   },
@@ -6093,7 +6143,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "3 lb.",
    "properties": "Finesse, light",
-   "src": "BOOK1.md line 3949",
+   "src": "BOOK1.md line 3948",
    "category": "martial",
    "ability": "STR/DEX"
   },
@@ -6110,7 +6160,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "—",
-   "src": "BOOK1.md line 3950",
+   "src": "BOOK1.md line 3949",
    "category": "martial",
    "ability": "STR"
   },
@@ -6127,7 +6177,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "18 lb.",
    "properties": "Heavy, reach, two-handed",
-   "src": "BOOK1.md line 3951",
+   "src": "BOOK1.md line 3950",
    "category": "martial",
    "ability": "STR"
   },
@@ -6144,7 +6194,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "6 lb.",
    "properties": "Heavy, reach, two-handed",
-   "src": "BOOK1.md line 3952",
+   "src": "BOOK1.md line 3951",
    "category": "martial",
    "ability": "STR"
   },
@@ -6161,7 +6211,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "Versatile (1d10)",
-   "src": "BOOK1.md line 3953",
+   "src": "BOOK1.md line 3952",
    "category": "martial",
    "ability": "STR"
   },
@@ -6178,7 +6228,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "4 lb.",
    "properties": "—",
-   "src": "BOOK1.md line 3954",
+   "src": "BOOK1.md line 3953",
    "category": "martial",
    "ability": "STR"
   },
@@ -6195,7 +6245,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "Finesse",
-   "src": "BOOK1.md line 3955",
+   "src": "BOOK1.md line 3954",
    "category": "martial",
    "ability": "STR/DEX"
   },
@@ -6212,7 +6262,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "4 lb.",
    "properties": "Versatile (1d10)",
-   "src": "BOOK1.md line 3956",
+   "src": "BOOK1.md line 3955",
    "category": "martial",
    "ability": "STR"
   }
@@ -6231,7 +6281,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "Ammunition (arrows), two-handed",
-   "src": "BOOK1.md line 3929",
+   "src": "BOOK1.md line 3928",
    "category": "simple",
    "ability": "DEX",
    "ammo": "arrows"
@@ -6249,7 +6299,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "—",
    "properties": "Ammunition (sling stones)",
-   "src": "BOOK1.md line 3930",
+   "src": "BOOK1.md line 3929",
    "category": "simple",
    "ability": "DEX",
    "ammo": "sling stones"
@@ -6267,7 +6317,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "¼ lb.",
    "properties": "Finesse, thrown",
-   "src": "BOOK1.md line 3931",
+   "src": "BOOK1.md line 3930",
    "category": "simple",
    "ability": "STR/DEX"
   },
@@ -6284,7 +6334,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "1 lb.",
    "properties": "Ammunition (needles), loading",
-   "src": "BOOK1.md line 3962",
+   "src": "BOOK1.md line 3961",
    "category": "martial",
    "ability": "DEX",
    "ammo": "needles"
@@ -6302,7 +6352,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "3 lb.",
    "properties": "Special (PHB net), thrown",
-   "src": "BOOK1.md line 3963",
+   "src": "BOOK1.md line 3962",
    "category": "martial",
    "ability": "STR"
   },
@@ -6319,7 +6369,7 @@ window.SSDNS_RULES = {
    "misfire": "—",
    "weight": "2 lb.",
    "properties": "Ammunition (arrows), heavy, two-handed",
-   "src": "BOOK1.md line 3964",
+   "src": "BOOK1.md line 3963",
    "category": "martial",
    "ability": "DEX",
    "ammo": "arrows"
@@ -6331,7 +6381,7 @@ window.SSDNS_RULES = {
    "name": "Cartridges, Light (20)",
    "cost": "50",
    "weight": "1 lb.",
-   "src": "BOOK1.md line 4198",
+   "src": "BOOK1.md line 4197",
    "pack": 20,
    "type": "cartridge",
    "tier": "light"
@@ -6341,7 +6391,7 @@ window.SSDNS_RULES = {
    "name": "Cartridges, Medium (20)",
    "cost": "100",
    "weight": "1 lb.",
-   "src": "BOOK1.md line 4199",
+   "src": "BOOK1.md line 4198",
    "pack": 20,
    "type": "cartridge",
    "tier": "medium"
@@ -6351,7 +6401,7 @@ window.SSDNS_RULES = {
    "name": "Cartridges, Heavy (20)",
    "cost": "200",
    "weight": "1 lb.",
-   "src": "BOOK1.md line 4200",
+   "src": "BOOK1.md line 4199",
    "pack": 20,
    "type": "cartridge",
    "tier": "heavy"
@@ -6361,7 +6411,7 @@ window.SSDNS_RULES = {
    "name": "Shells, .410 (10)",
    "cost": "50",
    "weight": "1 lb.",
-   "src": "BOOK1.md line 4201",
+   "src": "BOOK1.md line 4200",
    "pack": 10,
    "type": "shell",
    "caliber": ".410"
@@ -6371,7 +6421,7 @@ window.SSDNS_RULES = {
    "name": "Shells, 12 ga (10)",
    "cost": "100",
    "weight": "1 lb.",
-   "src": "BOOK1.md line 4202",
+   "src": "BOOK1.md line 4201",
    "pack": 10,
    "type": "shell",
    "caliber": "12 ga"
@@ -6381,7 +6431,7 @@ window.SSDNS_RULES = {
    "name": "Shells, 10 ga (10)",
    "cost": "200",
    "weight": "1 lb.",
-   "src": "BOOK1.md line 4203",
+   "src": "BOOK1.md line 4202",
    "pack": 10,
    "type": "shell",
    "caliber": "10 ga"
@@ -6391,7 +6441,7 @@ window.SSDNS_RULES = {
    "name": "Big Fifty cartridges, .50-90 (10)",
    "cost": "200",
    "weight": "1½ lb.",
-   "src": "BOOK1.md line 4204",
+   "src": "BOOK1.md line 4203",
    "pack": 10,
    "type": "bigfifty",
    "caliber": ".50-90"
@@ -6401,7 +6451,7 @@ window.SSDNS_RULES = {
    "name": "Powder, ball, and caps (20 shots)",
    "cost": "100",
    "weight": "1 lb.",
-   "src": "BOOK1.md line 4205",
+   "src": "BOOK1.md line 4204",
    "pack": 20,
    "type": "percussion"
   },
@@ -6410,7 +6460,7 @@ window.SSDNS_RULES = {
    "name": "Arrows (20)",
    "cost": "100",
    "weight": "1 lb.",
-   "src": "BOOK1.md line 4206",
+   "src": "BOOK1.md line 4205",
    "pack": 20,
    "type": "arrows"
   },
@@ -6419,7 +6469,7 @@ window.SSDNS_RULES = {
    "name": "Rechambering (gunsmith), per tier step",
    "cost": "500",
    "weight": "—",
-   "src": "BOOK1.md line 4207",
+   "src": "BOOK1.md line 4206",
    "pack": null,
    "type": "service"
   }
@@ -6503,7 +6553,7 @@ window.SSDNS_RULES = {
    "firstShotText": "—",
    "perk": "Belt rig.",
    "notes": "Plain slim leather pouch on a belt loop. Every drover's first holster.",
-   "src": "BOOK1.md line 4317",
+   "src": "BOOK1.md line 4316",
    "isRig": true,
    "feedsTR": false,
    "dexBonus": 0
@@ -6519,7 +6569,7 @@ window.SSDNS_RULES = {
    "firstShotText": "+1",
    "perk": "Belt rig.",
    "notes": "A single folded piece of leather. The gun rides high and steady.",
-   "src": "BOOK1.md line 4318",
+   "src": "BOOK1.md line 4317",
    "isRig": true,
    "feedsTR": false,
    "dexBonus": 0
@@ -6535,7 +6585,7 @@ window.SSDNS_RULES = {
    "firstShotText": "+1",
    "perk": "Belt rig.",
    "notes": "Cut-away leather with almost no drag on the draw. Favored by men who get paid to be fast.",
-   "src": "BOOK1.md line 4319",
+   "src": "BOOK1.md line 4318",
    "isRig": true,
    "feedsTR": false,
    "dexBonus": 0
@@ -6551,7 +6601,7 @@ window.SSDNS_RULES = {
    "firstShotText": "+2",
    "perk": "Belt rig. Fast swap.",
    "notes": "A steel clip on a stud in the hammer screw. It pivots, so you can fire it before it's fully drawn.",
-   "src": "BOOK1.md line 4320",
+   "src": "BOOK1.md line 4319",
    "isRig": true,
    "feedsTR": false,
    "dexBonus": 0
@@ -6567,7 +6617,7 @@ window.SSDNS_RULES = {
    "firstShotText": "—",
    "perk": "Hidden: advantage on checks to keep the gun hidden. Works seated.",
    "notes": "A spring sleeve or a sewn vest pocket, the gambler's insurance at the card table.",
-   "src": "BOOK1.md line 4321",
+   "src": "BOOK1.md line 4320",
    "isRig": true,
    "feedsTR": false,
    "dexBonus": 0
@@ -6583,7 +6633,7 @@ window.SSDNS_RULES = {
    "firstShotText": "—",
    "perk": "Hidden under a coat. Slow draw: no free quick-draw; drawing uses your object interaction, and you can't start combat with it in hand.",
    "notes": "Leather straps under the arm and a long coat over it. Lawyers and bank detectives swear by it.",
-   "src": "BOOK1.md line 4322",
+   "src": "BOOK1.md line 4321",
    "isRig": true,
    "feedsTR": false,
    "dexBonus": 0
@@ -6599,7 +6649,7 @@ window.SSDNS_RULES = {
    "firstShotText": "+1",
    "perk": "No penalty while seated, mounted, or driving. First-shot bonus only then.",
    "notes": "Butt forward on the off hip, so the gun comes clear while you sit a horse or a wagon box.",
-   "src": "BOOK1.md line 4323",
+   "src": "BOOK1.md line 4322",
    "isRig": true,
    "feedsTR": false,
    "dexBonus": 0,
@@ -6616,7 +6666,7 @@ window.SSDNS_RULES = {
    "firstShotText": "—",
    "perk": "Hidden. Quick-draw works as normal.",
    "notes": "A scrap of leather that keeps a Herringer upright in a trouser or vest pocket.",
-   "src": "BOOK1.md line 4324",
+   "src": "BOOK1.md line 4323",
    "isRig": true,
    "feedsTR": false,
    "dexBonus": 0
@@ -6632,7 +6682,7 @@ window.SSDNS_RULES = {
    "firstShotText": "—",
    "perk": "Hidden; searches to find it have disadvantage. Drawing takes a bonus action (never free).",
    "notes": "A sleeve stitched inside the boot. It's the last gun they'll find, and the last you'll reach.",
-   "src": "BOOK1.md line 4325",
+   "src": "BOOK1.md line 4324",
    "isRig": true,
    "feedsTR": false,
    "dexBonus": 0
@@ -6648,7 +6698,7 @@ window.SSDNS_RULES = {
    "firstShotText": "—",
    "perk": "Not a rig. Carries your hip holster (pairs with any belt rig). Feeds Tactical Reload (see below).",
    "notes": "Wide cowhide with a loop for every round.",
-   "src": "BOOK1.md line 4326",
+   "src": "BOOK1.md line 4325",
    "isRig": false,
    "feedsTR": true,
    "dexBonus": 0
@@ -6664,7 +6714,7 @@ window.SSDNS_RULES = {
    "firstShotText": "—",
    "perk": "Not a rig. Suits shoulder rigs and long guns. Feeds Tactical Reload (see below).",
    "notes": "Loops of cartridges slung across the chest, cavalry fashion.",
-   "src": "BOOK1.md line 4327",
+   "src": "BOOK1.md line 4326",
    "isRig": false,
    "feedsTR": true,
    "dexBonus": 0
@@ -6680,7 +6730,7 @@ window.SSDNS_RULES = {
    "firstShotText": "—",
    "perk": "Long guns only. Enables the Saddle property; other long guns ride here but draw normally.",
    "notes": "A boot of stiff leather slung under the stirrup leather. The carbine rides butt-up by your knee.",
-   "src": "BOOK1.md line 4328",
+   "src": "BOOK1.md line 4327",
    "isRig": true,
    "feedsTR": false,
    "dexBonus": 0
@@ -6696,7 +6746,7 @@ window.SSDNS_RULES = {
    "firstShotText": "—",
    "perk": "Saddle only. No mounted penalty. Fast swap while mounted. †Mounted only.",
    "notes": "Twin horse-pistol holsters over the saddle horn, cavalry fashion. Three loaded Ball n Caps beat one reload.",
-   "src": "BOOK1.md line 4329",
+   "src": "BOOK1.md line 4328",
    "isRig": true,
    "feedsTR": false,
    "dexBonus": 0,
@@ -7116,7 +7166,7 @@ window.SSDNS_RULES = {
   },
   {
    "phb5e": "Potion of healing",
-   "name": "Assay tonic / trail draught (consumable; still PHB)"
+   "name": "Assay tonic / trail draught (consumable; handbook rules)"
   },
   {
    "phb5e": "Robe",
@@ -7134,83 +7184,148 @@ window.SSDNS_RULES = {
  "frontierGear": [
   {
    "name": "Gunsmith's tools",
-   "cost": "",
-   "notes": ""
+   "cost": "2,500",
+   "notes": "",
+   "src": "BOOK1.md line 4648"
   },
   {
    "name": "Gun cleaning kit (cleans a Dirty gun; see Misfires)",
-   "cost": "",
-   "notes": ""
+   "cost": "100",
+   "notes": "",
+   "src": "BOOK1.md line 4649"
   },
   {
    "name": "Bandolier (see Holsters)",
-   "cost": "",
-   "notes": ""
+   "cost": "200",
+   "notes": "",
+   "src": "BOOK1.md line 4650"
   },
   {
    "name": "Canvas tent (wall tent; sleeps 4; 40 lb., needs a pack animal)",
-   "cost": "",
-   "notes": ""
+   "cost": "1,000",
+   "notes": "",
+   "src": "BOOK1.md line 4651"
   },
   {
    "name": "Lariat (50 ft; hempen rope rules)",
-   "cost": "",
-   "notes": ""
+   "cost": "200",
+   "notes": "",
+   "src": "BOOK1.md line 4652"
   },
   {
    "name": "Spurs",
-   "cost": "",
-   "notes": ""
+   "cost": "100",
+   "notes": "",
+   "src": "BOOK1.md line 4653"
   },
   {
    "name": "Assayer's lead tin (hides a live shard's glow)",
-   "cost": "",
-   "notes": ""
+   "cost": "200",
+   "notes": "",
+   "src": "BOOK1.md line 4654"
   },
   {
    "name": "Harmonica",
-   "cost": "",
-   "notes": ""
+   "cost": "100",
+   "notes": "",
+   "src": "BOOK1.md line 4655"
   },
   {
    "name": "Jaw harp",
-   "cost": "",
-   "notes": ""
+   "cost": "50",
+   "notes": "",
+   "src": "BOOK1.md line 4656"
   },
   {
    "name": "Rotgut whiskey (glass)",
-   "cost": "",
-   "notes": ""
+   "cost": "10",
+   "notes": "",
+   "src": "BOOK1.md line 4657"
   },
   {
    "name": "Whiskey (bottle)",
-   "cost": "",
-   "notes": ""
+   "cost": "100",
+   "notes": "",
+   "src": "BOOK1.md line 4658"
   },
   {
    "name": "Rail ticket (per mile)",
-   "cost": "",
-   "notes": ""
+   "cost": "2",
+   "notes": "",
+   "src": "BOOK1.md line 4659"
   },
   {
    "name": "Telegram (10 words; +10 per extra word)",
-   "cost": "",
-   "notes": ""
+   "cost": "100",
+   "notes": "",
+   "src": "BOOK1.md line 4660"
   },
   {
    "name": "Bath, shave, or haircut",
-   "cost": "",
-   "notes": ""
+   "cost": "10 each",
+   "notes": "",
+   "src": "BOOK1.md line 4661"
   },
   {
    "name": "Breaking a bill: bank",
-   "cost": "",
-   "notes": ""
+   "cost": "Free",
+   "notes": "",
+   "src": "BOOK1.md line 4662"
   },
   {
    "name": "Breaking a bill: assayer or saloon",
-   "cost": "",
-   "notes": ""
+   "cost": "10%",
+   "notes": "",
+   "src": "BOOK1.md line 4663"
+  },
+  {
+   "name": "Field glass (spyglass)",
+   "cost": "5,000",
+   "notes": "Price isn't PHB ×100",
+   "exception": true,
+   "src": "BOOK1.md line 4637"
+  },
+  {
+   "name": "Assay glass (magnifying glass)",
+   "cost": "1,000",
+   "notes": "Price isn't PHB ×100",
+   "exception": true,
+   "src": "BOOK1.md line 4638"
+  },
+  {
+   "name": "Snakebite antivenin (antitoxin)",
+   "cost": "2,500",
+   "notes": "Price isn't PHB ×100",
+   "exception": true,
+   "src": "BOOK1.md line 4639"
+  },
+  {
+   "name": "Bottle, empty",
+   "cost": "10",
+   "notes": "Price isn't PHB ×100",
+   "exception": true,
+   "src": "BOOK1.md line 4640"
+  },
+  {
+   "name": "Room, squalid (per night)",
+   "cost": "10",
+   "notes": "Price isn't PHB ×100",
+   "exception": true,
+   "src": "BOOK1.md line 4641"
+  },
+  {
+   "name": "Spellcasting, cantrip to 2nd level (if you can find a caster)",
+   "cost": "5,000–10,000",
+   "notes": "Price isn't PHB ×100",
+   "exception": true,
+   "src": "BOOK1.md line 4642"
+  },
+  {
+   "name": "Spellcasting, 3rd level and up",
+   "cost": "Not for sale",
+   "notes": "Price isn't PHB ×100",
+   "exception": true,
+   "src": "BOOK1.md line 4643"
   }
  ],
  "tools": [
@@ -7294,73 +7409,73 @@ window.SSDNS_RULES = {
    {
     "id": "dynamite-stick-standard-fuse",
     "name": "Dynamite stick (standard fuse)",
-    "cost": "TBD",
+    "cost": "500",
     "weight": "1 lb.",
     "notes": "3d6 bludgeoning, 5-ft radius, DC 12 Dex",
-    "src": "BOOK1.md line 4255",
+    "src": "BOOK1.md line 4254",
     "trackable": true
    },
    {
     "id": "dynamite-stick-sweating-sold-cheap",
     "name": "Dynamite stick, sweating (sold cheap)",
-    "cost": "TBD",
+    "cost": "250",
     "weight": "1 lb.",
     "notes": "As above; misfires on 1–3",
-    "src": "BOOK1.md line 4256",
+    "src": "BOOK1.md line 4255",
     "trackable": true
    },
    {
     "id": "long-fuse-per-stick",
     "name": "Long fuse (per stick)",
-    "cost": "TBD",
+    "cost": "50",
     "weight": "—",
     "notes": "Goes off at the start of your next turn",
-    "src": "BOOK1.md line 4257",
+    "src": "BOOK1.md line 4256",
     "trackable": true
    },
    {
     "id": "blasting-caps-box-of-5",
     "name": "Blasting caps (box of 5)",
-    "cost": "TBD",
+    "cost": "250",
     "weight": "—",
     "notes": "Impact fuse; Powder Man only",
-    "src": "BOOK1.md line 4258",
+    "src": "BOOK1.md line 4257",
     "trackable": true
    },
    {
     "id": "fuse-cord-50-ft",
     "name": "Fuse cord (50 ft)",
-    "cost": "TBD",
+    "cost": "100",
     "weight": "1 lb.",
     "notes": "For placed charges; burns 10 ft per round",
-    "src": "BOOK1.md line 4259",
+    "src": "BOOK1.md line 4258",
     "trackable": true
    },
    {
     "id": "blasting-powder-1-lb",
     "name": "Blasting powder (1 lb)",
-    "cost": "TBD",
+    "cost": "400",
     "weight": "1 lb.",
     "notes": "Powder Man makes charges from it",
-    "src": "BOOK1.md line 4260",
+    "src": "BOOK1.md line 4259",
     "trackable": true
    },
    {
     "id": "blasting-keg",
     "name": "Blasting keg",
-    "cost": "TBD",
+    "cost": "2,000",
     "weight": "20 lb.",
     "notes": "Placed only; 6d6, 20-ft radius, DC 13 Dex",
-    "src": "BOOK1.md line 4261",
+    "src": "BOOK1.md line 4260",
     "trackable": true
    },
    {
     "id": "padded-powder-crate-holds-12-sticks",
     "name": "Padded powder crate (holds 12 sticks)",
-    "cost": "TBD",
+    "cost": "200",
     "weight": "5 lb.",
     "notes": "Safe carry (see below)",
-    "src": "BOOK1.md line 4262",
+    "src": "BOOK1.md line 4261",
     "trackable": true
    }
   ],
@@ -7415,7 +7530,7 @@ window.SSDNS_RULES = {
    "Loose (pocket, saddlebag, bandolier, coat lining): when you take fire damage, or fail a save against an explosion, the DM can have you roll a d20 for your loose sticks. On a 1, one goes off on you.",
    "Sweating: sticks left in sun, heat, or damp for weeks start to weep. They misfire on 1–3. A gunsmith or a Powder Man can tell at a glance; you can't."
   ],
-  "note": "Costs are TBD in the PHB (___). Powder Man feat makes you good at explosives."
+  "note": "Anyone can buy dynamite and anyone can throw it. The Powder Man feat makes you good at explosives."
  },
  "storytellerGear": {
   "accessories": [
@@ -7425,7 +7540,7 @@ window.SSDNS_RULES = {
     "cost": "100",
     "effect": "Swing the instrument to your back or front as part of your movement.",
     "storyteller": true,
-    "src": "BOOK1.md line 4689"
+    "src": "BOOK1.md line 4688"
    },
    {
     "id": "violin-strap",
@@ -7433,7 +7548,7 @@ window.SSDNS_RULES = {
     "cost": "100",
     "effect": "Holds fiddle and bow at your shoulder between songs without a hand, so you can hold a weapon. Taking them up or slinging them is your free object interaction.",
     "storyteller": true,
-    "src": "BOOK1.md line 4690"
+    "src": "BOOK1.md line 4689"
    },
    {
     "id": "cartridge-strap-guitar-banjo",
@@ -7441,7 +7556,7 @@ window.SSDNS_RULES = {
     "cost": "1,500 WB",
     "effect": "A standard strap with 6 cartridge loops. Reload a revolver or lever-action (TR ✓) from it as a bonus action. Not for single-shot or slow-load guns. Empty loops refill only on a short rest, from ammo you carry.",
     "storyteller": true,
-    "src": "BOOK1.md line 4691"
+    "src": "BOOK1.md line 4690"
    },
    {
     "id": "soft-travel-case",
@@ -7449,7 +7564,7 @@ window.SSDNS_RULES = {
     "cost": "200",
     "effect": "+1 to Wear rolls from rain, dust, heat, or falls while the instrument is inside. Unpacking takes an action.",
     "storyteller": true,
-    "src": "BOOK1.md line 4692"
+    "src": "BOOK1.md line 4691"
    },
    {
     "id": "hard-travel-case",
@@ -7457,7 +7572,7 @@ window.SSDNS_RULES = {
     "cost": "1,000 WB",
     "effect": "+2 to Wear rolls while the instrument is inside, and no Wear roll at all from gunshots or explosions. Unpacking takes an action. Heavy gear: −5 ft speed while you carry it.",
     "storyteller": true,
-    "src": "BOOK1.md line 4693"
+    "src": "BOOK1.md line 4692"
    },
    {
     "id": "plain-strings-set",
@@ -7465,7 +7580,7 @@ window.SSDNS_RULES = {
     "cost": "25",
     "effect": "+0 to Wear rolls. Sold at any store. Every instrument comes with plain strings (a fiddle, with a plain bow).",
     "storyteller": true,
-    "src": "BOOK1.md line 4694"
+    "src": "BOOK1.md line 4693"
    },
    {
     "id": "quality-strings-bow",
@@ -7473,7 +7588,7 @@ window.SSDNS_RULES = {
     "cost": "50 / 300 WB",
     "effect": "+1 to Wear rolls.",
     "storyteller": true,
-    "src": "BOOK1.md line 4695"
+    "src": "BOOK1.md line 4694"
    },
    {
     "id": "cheap-strings-bow",
@@ -7481,7 +7596,7 @@ window.SSDNS_RULES = {
     "cost": "10 / 50 SS",
     "effect": "−1 to Wear rolls. They snap when the Wear d8 shows 1–2.",
     "storyteller": true,
-    "src": "BOOK1.md line 4696"
+    "src": "BOOK1.md line 4695"
    },
    {
     "id": "glass-slide",
@@ -7489,7 +7604,7 @@ window.SSDNS_RULES = {
     "cost": "500 WB",
     "effect": "Guitar, banjo, or fiddle. Once per short rest, add 30 ft to the range of one ranged spell you cast through it (never touch or self).",
     "storyteller": true,
-    "src": "BOOK1.md line 4697"
+    "src": "BOOK1.md line 4696"
    },
    {
     "id": "fingerpicks",
@@ -7497,7 +7612,7 @@ window.SSDNS_RULES = {
     "cost": "2,000 WB",
     "effect": "On a turn you play a string instrument (cast through it, or spend your action playing), you gain +2 to Constitution saves to keep concentration until the start of your next turn.",
     "storyteller": true,
-    "src": "BOOK1.md line 4698"
+    "src": "BOOK1.md line 4697"
    },
    {
     "id": "tuning-fork",
@@ -7505,7 +7620,7 @@ window.SSDNS_RULES = {
     "cost": "200",
     "effect": "Strike it as a bonus action: 1 minute later the instrument is no longer Out of tune, with no short rest needed. It can't mend snapped strings.",
     "storyteller": true,
-    "src": "BOOK1.md line 4699"
+    "src": "BOOK1.md line 4698"
    },
    {
     "id": "harmonica-rack",
@@ -7513,7 +7628,7 @@ window.SSDNS_RULES = {
     "cost": "300",
     "effect": "Play a harmonica hands-free, so you can cast through it and use a weapon on the same turn. Spells through it have voice range (30 ft to target a creature) and can't take your Rally Word die on a save DC.",
     "storyteller": true,
-    "src": "BOOK1.md line 4700"
+    "src": "BOOK1.md line 4699"
    },
    {
     "id": "capo",
@@ -7521,7 +7636,7 @@ window.SSDNS_RULES = {
     "cost": "200",
     "effect": "Advantage on Performance checks for a gig or a crowd, busking included.",
     "storyteller": true,
-    "src": "BOOK1.md line 4701"
+    "src": "BOOK1.md line 4700"
    },
    {
     "id": "songbook-blank",
@@ -7529,7 +7644,7 @@ window.SSDNS_RULES = {
     "cost": "2,500 WB",
     "effect": "A ritual book. When you find a Storyteller ritual of a level you can cast written down, copy it in: 2 hours and 5,000 ES per spell level (as Prayer Book, Feats). You can cast its songs only as rituals, even ones you don't know.",
     "storyteller": true,
-    "src": "BOOK1.md line 4702"
+    "src": "BOOK1.md line 4701"
    },
    {
     "id": "busking-hat",
@@ -7537,7 +7652,7 @@ window.SSDNS_RULES = {
     "cost": "100",
     "effect": "Busk in downtime with a Performance check: about 160 ES a day (the DM may adjust), at most 3 days a week in one town.",
     "storyteller": true,
-    "src": "BOOK1.md line 4703"
+    "src": "BOOK1.md line 4702"
    },
    {
     "id": "luthier-repair-service",
@@ -7545,7 +7660,7 @@ window.SSDNS_RULES = {
     "cost": "500 / 250",
     "effect": "Fixes Broken (quality / cheap instrument). Whiskey Bend fixes any; Silver Springs, cheap ones only.",
     "storyteller": true,
-    "src": "BOOK1.md line 4704"
+    "src": "BOOK1.md line 4703"
    }
   ],
   "instruments": [
@@ -7557,7 +7672,7 @@ window.SSDNS_RULES = {
     "cost": "4,000 / 2,000",
     "perk": "+1 to each roll of your Rally Word die.",
     "storyteller": true,
-    "src": "BOOK1.md line 4713"
+    "src": "BOOK1.md line 4712"
    },
    {
     "id": "banjo",
@@ -7567,7 +7682,7 @@ window.SSDNS_RULES = {
     "cost": "3,000 / 1,500",
     "perk": "Once per short rest, add 1d4 to one roll of your Rally Word die.",
     "storyteller": true,
-    "src": "BOOK1.md line 4714"
+    "src": "BOOK1.md line 4713"
    },
    {
     "id": "guitar",
@@ -7577,7 +7692,7 @@ window.SSDNS_RULES = {
     "cost": "7,000 / 3,500",
     "perk": "Once per short rest, +1 to the save DC of one spell you cast through it.",
     "storyteller": true,
-    "src": "BOOK1.md line 4715"
+    "src": "BOOK1.md line 4714"
    },
    {
     "id": "accordion",
@@ -7587,7 +7702,7 @@ window.SSDNS_RULES = {
     "cost": "3,000 / 1,500",
     "perk": "Loud. Once per short rest, one target within 30 ft has disadvantage on its first save against one of your enchantment spells.",
     "storyteller": true,
-    "src": "BOOK1.md line 4716"
+    "src": "BOOK1.md line 4715"
    },
    {
     "id": "harmonica",
@@ -7597,7 +7712,7 @@ window.SSDNS_RULES = {
     "cost": "200 / 100",
     "perk": "Rides in a pocket: it can't be disarmed or lost in a fall, and it works as your focus while you're grappled or restrained.",
     "storyteller": true,
-    "src": "BOOK1.md line 4717"
+    "src": "BOOK1.md line 4716"
    },
    {
     "id": "piano",
@@ -7607,7 +7722,7 @@ window.SSDNS_RULES = {
     "cost": "Not for sale",
     "perk": "Play one wherever you find it (a saloon, a church, a parlor): +1 to your spell save DC for spells cast through it.",
     "storyteller": true,
-    "src": "BOOK1.md line 4718"
+    "src": "BOOK1.md line 4717"
    },
    {
     "id": "voice",
@@ -7756,7 +7871,7 @@ window.SSDNS_RULES = {
    "equals": "1 ES",
    "es": 1,
    "cp": 1,
-   "src": "BOOK1.md line 3819"
+   "src": "BOOK1.md line 3818"
   },
   {
    "id": "blue",
@@ -7764,7 +7879,7 @@ window.SSDNS_RULES = {
    "equals": "10 ES",
    "es": 10,
    "cp": 10,
-   "src": "BOOK1.md line 3820"
+   "src": "BOOK1.md line 3819"
   },
   {
    "id": "green",
@@ -7772,7 +7887,7 @@ window.SSDNS_RULES = {
    "equals": "50 ES",
    "es": 50,
    "cp": 50,
-   "src": "BOOK1.md line 3821"
+   "src": "BOOK1.md line 3820"
   },
   {
    "id": "yellow",
@@ -7780,7 +7895,7 @@ window.SSDNS_RULES = {
    "equals": "100 ES",
    "es": 100,
    "cp": 100,
-   "src": "BOOK1.md line 3822"
+   "src": "BOOK1.md line 3821"
   },
   {
    "id": "purple",
@@ -7788,7 +7903,7 @@ window.SSDNS_RULES = {
    "equals": "500 ES",
    "es": 500,
    "cp": 500,
-   "src": "BOOK1.md line 3823"
+   "src": "BOOK1.md line 3822"
   }
  ],
  "wildSpark": [
@@ -7829,7 +7944,7 @@ window.SSDNS_RULES = {
     "Advantage on Charisma (Deception) and (Performance) checks when you're trying to pass as someone else.",
     "You can copy the voice of a person or the sounds of a creature after hearing it for at least 1 minute. A listener sees through it only with a Wisdom (Insight) check against DC 8 + your proficiency bonus + your Charisma modifier."
    ],
-   "src": "BOOK1.md line 4811"
+   "src": "BOOK1.md line 4810"
   },
   {
    "id": "alert",
@@ -7842,7 +7957,7 @@ window.SSDNS_RULES = {
     "You can't be surprised while you're conscious.",
     "Creatures you can't see don't gain advantage on attacks against you just for being hidden."
    ],
-   "src": "BOOK1.md line 4819"
+   "src": "BOOK1.md line 4818"
   },
   {
    "id": "athlete",
@@ -7856,7 +7971,7 @@ window.SSDNS_RULES = {
     "Climbing doesn't cost you extra movement.",
     "A running long jump or high jump needs only a 5-foot run-up."
    ],
-   "src": "BOOK1.md line 4827"
+   "src": "BOOK1.md line 4826"
   },
   {
    "id": "charger",
@@ -7868,7 +7983,7 @@ window.SSDNS_RULES = {
     "When you take the Dash action, you can use a bonus action to make one melee weapon attack or shove a creature.",
     "If you moved at least 10 feet in a straight line right before that bonus action, the attack deals +5 damage, or the shove pushes the target up to 10 feet away (your choice)."
    ],
-   "src": "BOOK1.md line 4836"
+   "src": "BOOK1.md line 4835"
   },
   {
    "id": "defensive-duelist",
@@ -7879,7 +7994,7 @@ window.SSDNS_RULES = {
    "bullets": [
     "While wielding a finesse weapon you're proficient with (Sword Cane, Bowie, Stiletto), when a melee attack hits you, you can use your reaction to add your proficiency bonus to your AC against that attack, possibly turning the hit into a miss."
    ],
-   "src": "BOOK1.md line 4843"
+   "src": "BOOK1.md line 4842"
   },
   {
    "id": "dual-wielder",
@@ -7892,7 +8007,7 @@ window.SSDNS_RULES = {
     "You can use two-weapon fighting with any pair of qualifying weapons, even ones that aren't light.",
     "You can draw or stow two qualifying weapons when you'd normally draw or stow just one."
    ],
-   "src": "BOOK1.md line 4853"
+   "src": "BOOK1.md line 4852"
   },
   {
    "id": "durable",
@@ -7904,7 +8019,7 @@ window.SSDNS_RULES = {
     "Increase your Constitution by 1 (max 20).",
     "When you roll a Hit Die to regain hit points, the minimum you regain equals twice your Constitution modifier (minimum 2)."
    ],
-   "src": "BOOK1.md line 4866"
+   "src": "BOOK1.md line 4865"
   },
   {
    "id": "element-tamer",
@@ -7919,7 +8034,7 @@ window.SSDNS_RULES = {
     "You can take this feat more than once, choosing a new damage type each time.",
     "Weave note: the Weave is dying; the DM may gate this feat."
    ],
-   "src": "BOOK1.md line 4873"
+   "src": "BOOK1.md line 4872"
   },
   {
    "id": "grappler",
@@ -7931,7 +8046,7 @@ window.SSDNS_RULES = {
     "Advantage on attack rolls against a creature you're grappling.",
     "You can use your action to try to pin a creature you're grappling with another grapple check. On a success, you and it are both restrained until the grapple ends."
    ],
-   "src": "BOOK1.md line 4885"
+   "src": "BOOK1.md line 4884"
   },
   {
    "id": "great-weapon-master",
@@ -7944,7 +8059,7 @@ window.SSDNS_RULES = {
     "Before you attack with a heavy melee weapon you're proficient with, you can take −5 to the attack roll. If it hits, add +10 to the damage.",
     "Melee weapons only. No gun, bow, or Caster Gun qualifies, heavy or not; shotguns and long guns use Sharpshooter. Qualifying heavy melee weapons include the buffalo axe, heavy sledge, pole iron, boarding hook, and pike."
    ],
-   "src": "BOOK1.md line 4894"
+   "src": "BOOK1.md line 4893"
   },
   {
    "id": "gunsmoke-caster",
@@ -7958,7 +8073,7 @@ window.SSDNS_RULES = {
     "When a creature provokes an opportunity attack from you, you can use your reaction to cast a spell at it instead of attacking. The spell must take 1 action to cast and must target only that creature.",
     "Weave note: the Weave is dying; the DM may gate this feat."
    ],
-   "src": "BOOK1.md line 4904"
+   "src": "BOOK1.md line 4903"
   },
   {
    "id": "healer",
@@ -7970,7 +8085,7 @@ window.SSDNS_RULES = {
     "When you stabilize a dying creature with a healer's kit, it also regains 1 hit point.",
     "As an action, you can spend one use of a healer's kit to restore 1d6 + 4 hit points to a creature, plus hit points equal to its maximum number of Hit Dice. A creature can't benefit from this again until it finishes a short or long rest."
    ],
-   "src": "BOOK1.md line 4915"
+   "src": "BOOK1.md line 4914"
   },
   {
    "id": "heavily-armored",
@@ -7982,7 +8097,7 @@ window.SSDNS_RULES = {
     "Increase your Strength by 1 (max 20).",
     "You gain proficiency with heavy armor (Ring Coat, Mail Duster, Splint Harness, Iron Suit)."
    ],
-   "src": "BOOK1.md line 4922"
+   "src": "BOOK1.md line 4921"
   },
   {
    "id": "heavy-armor-master",
@@ -7994,7 +8109,7 @@ window.SSDNS_RULES = {
     "Increase your Strength by 1 (max 20).",
     "While wearing heavy armor, bludgeoning, piercing, and slashing damage you take from nonmagical weapons is reduced by 3. Ordinary bullets and shot count."
    ],
-   "src": "BOOK1.md line 4931"
+   "src": "BOOK1.md line 4930"
   },
   {
    "id": "hex-breaker",
@@ -8008,7 +8123,7 @@ window.SSDNS_RULES = {
     "Advantage on saving throws against spells cast by creatures within 5 feet of you.",
     "Weave note: casters are scarce as the Weave dies; the DM may gate this feat."
    ],
-   "src": "BOOK1.md line 4940"
+   "src": "BOOK1.md line 4939"
   },
   {
    "id": "horse-soldier",
@@ -8021,7 +8136,7 @@ window.SSDNS_RULES = {
     "You can force an attack aimed at your mount to target you instead.",
     "If your mount must make a Dexterity save to take half damage, it takes no damage on a success and only half on a failure."
    ],
-   "src": "BOOK1.md line 4951"
+   "src": "BOOK1.md line 4950"
   },
   {
    "id": "inspiring-leader",
@@ -8033,7 +8148,7 @@ window.SSDNS_RULES = {
     "Spend 10 minutes rallying your companions. Up to six friendly creatures (you can include yourself) within 30 feet who can see or hear you and understand you gain temporary hit points equal to your level + your Charisma modifier.",
     "A creature can't gain these temporary hit points again until it finishes a short or long rest."
    ],
-   "src": "BOOK1.md line 4959"
+   "src": "BOOK1.md line 4958"
   },
   {
    "id": "keen-mind",
@@ -8047,7 +8162,7 @@ window.SSDNS_RULES = {
     "You always know how many hours remain until the next sunrise or sunset.",
     "You can accurately recall anything you've seen or heard within the past month."
    ],
-   "src": "BOOK1.md line 4968"
+   "src": "BOOK1.md line 4967"
   },
   {
    "id": "lightly-armored",
@@ -8059,7 +8174,7 @@ window.SSDNS_RULES = {
     "Increase your Strength or Dexterity by 1 (max 20).",
     "You gain proficiency with light armor (Thick Coat, Leather Jacket, Studded Vest)."
    ],
-   "src": "BOOK1.md line 4977"
+   "src": "BOOK1.md line 4976"
   },
   {
    "id": "linguist",
@@ -8072,7 +8187,7 @@ window.SSDNS_RULES = {
     "You learn three languages of your choice.",
     "You can write ciphers. Others can't decode them unless you teach them, succeed on an Intelligence check (DC = your Intelligence score + your proficiency bonus), or use magic."
    ],
-   "src": "BOOK1.md line 4984"
+   "src": "BOOK1.md line 4983"
   },
   {
    "id": "long-range-hex",
@@ -8086,7 +8201,7 @@ window.SSDNS_RULES = {
     "You learn one cantrip that requires an attack roll, chosen from the Storyteller (bard), Frontier Preacher (cleric), Nature Guide (druid), Hexslinger (sorcerer), Pact Seeker (warlock), or Scholar (wizard) list. Its spellcasting ability matches that list.",
     "Weave note: the Weave is dying; the DM may gate this feat."
    ],
-   "src": "BOOK1.md line 4994"
+   "src": "BOOK1.md line 4993"
   },
   {
    "id": "lucky",
@@ -8100,7 +8215,7 @@ window.SSDNS_RULES = {
     "When a creature attacks you, you can spend a point to roll a d20 and choose whether the attacker uses its roll or yours.",
     "Separate from the Farmers' (Halfling) Lucky trait."
    ],
-   "src": "BOOK1.md line 5005"
+   "src": "BOOK1.md line 5004"
   },
   {
    "id": "martial-adept",
@@ -8112,7 +8227,7 @@ window.SSDNS_RULES = {
     "You learn two maneuvers of your choice from the Battle Master (Gun Whisperer) list of Trick Shots. If a maneuver calls for a save, the DC is 8 + your proficiency bonus + your Strength or Dexterity modifier (your choice).",
     "You gain one d6 superiority die (added to any you already have), regained on a short or long rest."
    ],
-   "src": "BOOK1.md line 5014"
+   "src": "BOOK1.md line 5013"
   },
   {
    "id": "medium-armor-master",
@@ -8124,7 +8239,7 @@ window.SSDNS_RULES = {
     "Medium armor doesn't give you disadvantage on Dexterity (Stealth) checks.",
     "In medium armor, you can add up to 3 from Dexterity to your AC instead of 2."
    ],
-   "src": "BOOK1.md line 5021"
+   "src": "BOOK1.md line 5020"
   },
   {
    "id": "mobile",
@@ -8137,7 +8252,7 @@ window.SSDNS_RULES = {
     "When you Dash, difficult terrain costs no extra movement that turn.",
     "When you make a melee attack against a creature, you don't provoke opportunity attacks from that creature for the rest of your turn, whether you hit or miss."
    ],
-   "src": "BOOK1.md line 5032"
+   "src": "BOOK1.md line 5031"
   },
   {
    "id": "moderately-armored",
@@ -8149,7 +8264,7 @@ window.SSDNS_RULES = {
     "Increase your Strength or Dexterity by 1 (max 20).",
     "You gain proficiency with medium armor and shields (badge board, cavalry shield, rifle plate)."
    ],
-   "src": "BOOK1.md line 5040"
+   "src": "BOOK1.md line 5039"
   },
   {
    "id": "muzzleloader",
@@ -8162,7 +8277,7 @@ window.SSDNS_RULES = {
     "Powder Hands. You can use Tactical Reload (bonus action: load 1 round) with your percussion revolvers and muzzleloaders (Ball n Cap, Rifle-Musket), even though the Rifle-Musket is single-shot. Never the Big Fifty.",
     "Clear the Jam. When one of your guns misfires, you can clear it as a bonus action, with no check."
    ],
-   "src": "BOOK1.md line 5049"
+   "src": "BOOK1.md line 5048"
   },
   {
    "id": "observant",
@@ -8175,7 +8290,7 @@ window.SSDNS_RULES = {
     "If you can see a creature's mouth while it speaks a language you understand, you can read its lips.",
     "+5 bonus to your passive Wisdom (Perception) and passive Intelligence (Investigation) scores."
    ],
-   "src": "BOOK1.md line 5057"
+   "src": "BOOK1.md line 5056"
   },
   {
    "id": "pistolero",
@@ -8189,7 +8304,7 @@ window.SSDNS_RULES = {
     "Dead Eye. Your attacks with pistols score a critical hit on a roll of 19 or 20 against targets within the pistol's normal range.",
     "Fan the Hammer uses your bonus action, so you can't use Tactical Reload on a turn you fan the hammer."
    ],
-   "src": "BOOK1.md line 5065"
+   "src": "BOOK1.md line 5064"
   },
   {
    "id": "powder-man",
@@ -8203,7 +8318,7 @@ window.SSDNS_RULES = {
     "Long Arm. Your throwing range for explosives is 50/100 ft.",
     "Blast-Wise. You have advantage on Dexterity saves against explosives (not spells). Your bundles and placed charges deal maximum damage to objects and structures."
    ],
-   "src": "BOOK1.md line 5078"
+   "src": "BOOK1.md line 5077"
   },
   {
    "id": "prayer-book",
@@ -8217,7 +8332,7 @@ window.SSDNS_RULES = {
     "When you find a ritual spell from your chosen list written down (a Glowing Letter you opened, another book), you can copy it in if its level is no higher than half your level (round up). Copying takes 2 hours and 5,000 ES per spell level.",
     "Weave note: the Weave is dying; the DM may gate this feat."
    ],
-   "src": "BOOK1.md line 5087"
+   "src": "BOOK1.md line 5086"
   },
   {
    "id": "resilient",
@@ -8229,7 +8344,7 @@ window.SSDNS_RULES = {
     "Pick one ability score. Increase it by 1 (max 20).",
     "You gain proficiency in saving throws using that ability."
    ],
-   "src": "BOOK1.md line 5100"
+   "src": "BOOK1.md line 5099"
   },
   {
    "id": "rifleman",
@@ -8242,7 +8357,7 @@ window.SSDNS_RULES = {
     "When you take the Attack action with a long gun, you can use a bonus action to hit someone with the rifle butt: a melee attack dealing 1d4 bludgeoning + your Strength modifier.",
     "While holding a long gun, you can make an opportunity attack with the rifle butt when a creature enters your reach (5 feet)."
    ],
-   "src": "BOOK1.md line 5107"
+   "src": "BOOK1.md line 5106"
   },
   {
    "id": "saloon-brawler",
@@ -8256,7 +8371,7 @@ window.SSDNS_RULES = {
     "Your unarmed strike deals 1d4 damage.",
     "When you hit a creature on your turn with an unarmed strike or an improvised weapon, you can use a bonus action to try to grapple it."
    ],
-   "src": "BOOK1.md line 5119"
+   "src": "BOOK1.md line 5118"
   },
   {
    "id": "savage-attacker",
@@ -8267,7 +8382,7 @@ window.SSDNS_RULES = {
    "bullets": [
     "Once per turn, when you roll damage for a melee weapon attack, you can reroll the weapon's damage dice and use either total."
    ],
-   "src": "BOOK1.md line 5128"
+   "src": "BOOK1.md line 5127"
   },
   {
    "id": "sentinel",
@@ -8280,7 +8395,7 @@ window.SSDNS_RULES = {
     "Creatures provoke opportunity attacks from you even if they take the Disengage action.",
     "When a creature within 5 feet of you attacks someone other than you (who doesn't also have this feat), you can use your reaction to make a melee weapon attack against it."
    ],
-   "src": "BOOK1.md line 5136"
+   "src": "BOOK1.md line 5135"
   },
   {
    "id": "sharpshooter",
@@ -8294,7 +8409,7 @@ window.SSDNS_RULES = {
     "Before you attack with a ranged weapon you're proficient with, you can take −5 to the attack roll. If it hits, add +10 to the damage.",
     "Applies to every gun and bow in the Weapons chapter, shotguns included, but it doesn't remove Unwieldy."
    ],
-   "src": "BOOK1.md line 5144"
+   "src": "BOOK1.md line 5143"
   },
   {
    "id": "shield-master",
@@ -8307,7 +8422,7 @@ window.SSDNS_RULES = {
     "If you aren't incapacitated, add your shield's AC bonus to Dexterity saves against spells or harmful effects that target only you.",
     "When an effect lets you make a Dexterity save for half damage, you can use your reaction to take no damage on a success by bracing behind your shield."
    ],
-   "src": "BOOK1.md line 5153"
+   "src": "BOOK1.md line 5152"
   },
   {
    "id": "skilled",
@@ -8318,7 +8433,7 @@ window.SSDNS_RULES = {
    "bullets": [
     "Gain proficiency in any combination of three skills or tools."
    ],
-   "src": "BOOK1.md line 5161"
+   "src": "BOOK1.md line 5160"
   },
   {
    "id": "skulker",
@@ -8331,7 +8446,7 @@ window.SSDNS_RULES = {
     "When you're hidden and miss with a ranged weapon attack, the attack doesn't reveal where you are.",
     "Dim light doesn't give you disadvantage on Wisdom (Perception) checks that rely on sight."
    ],
-   "src": "BOOK1.md line 5169"
+   "src": "BOOK1.md line 5168"
   },
   {
    "id": "tough",
@@ -8343,7 +8458,7 @@ window.SSDNS_RULES = {
     "Your hit point maximum increases by 2 × your level when you take this feat.",
     "It increases by 2 more every time you gain a level after that."
    ],
-   "src": "BOOK1.md line 5179"
+   "src": "BOOK1.md line 5178"
   },
   {
    "id": "tunnel-rat",
@@ -8357,7 +8472,7 @@ window.SSDNS_RULES = {
     "Resistance to damage from traps.",
     "You can search for traps while traveling at a normal pace instead of only at a slow pace."
    ],
-   "src": "BOOK1.md line 5186"
+   "src": "BOOK1.md line 5185"
   },
   {
    "id": "weapon-master",
@@ -8369,7 +8484,7 @@ window.SSDNS_RULES = {
     "Increase your Strength or Dexterity by 1 (max 20).",
     "You gain proficiency with four weapons of your choice (any weapon in the Weapons chapter; Caster Guns still need a Hexslinger)."
    ],
-   "src": "BOOK1.md line 5195"
+   "src": "BOOK1.md line 5194"
   },
   {
    "id": "weave-touched",
@@ -8384,7 +8499,7 @@ window.SSDNS_RULES = {
     "Your spellcasting ability for these spells is the chosen list's (Cha for Storyteller, Hexslinger, and Pact Seeker; Wis for Frontier Preacher and Nature Guide; Int for Scholar).",
     "Weave note: the Weave is dying; the DM may gate this feat."
    ],
-   "src": "BOOK1.md line 5202"
+   "src": "BOOK1.md line 5201"
   }
  ],
  "spellAliases": [
@@ -8874,7 +8989,8 @@ window.SSDNS_RULES = {
      "Power Word Kill (Last Word)",
      "True Polymorph."
     ]
-   }
+   },
+   "bonusLists": []
   },
   "frontier-preacher": {
    "name": "Frontier Preacher",
@@ -8998,7 +9114,115 @@ window.SSDNS_RULES = {
      "Gate",
      "Mass Heal."
     ]
-   }
+   },
+   "bonusLists": [
+    {
+     "name": "Faithful Sawbones",
+     "title": "Faithful Sawbones (Life)",
+     "dmOnly": false,
+     "note": "",
+     "entries": [
+      {
+       "atLevel": 1,
+       "spells": [
+        "Bless",
+        "Cure Wounds (Trail Medicine)"
+       ]
+      },
+      {
+       "atLevel": 3,
+       "spells": [
+        "Lesser Restoration",
+        "Spiritual Weapon"
+       ]
+      },
+      {
+       "atLevel": 5,
+       "spells": [
+        "Beacon of Hope",
+        "Revivify"
+       ]
+      },
+      {
+       "atLevel": 7,
+       "spells": [
+        "Death Ward",
+        "Guardian of Faith"
+       ]
+      },
+      {
+       "atLevel": 9,
+       "spells": [
+        "Mass Cure Wounds",
+        "Greater Restoration"
+       ]
+      }
+     ]
+    },
+    {
+     "name": "Shotgun Preacher",
+     "title": "Shotgun Preacher (War)",
+     "dmOnly": false,
+     "note": "",
+     "entries": [
+      {
+       "atLevel": 1,
+       "spells": [
+        "Divine Favor (Righteous Aim)",
+        "Shield of Faith (Badge of Office)"
+       ]
+      },
+      {
+       "atLevel": 3,
+       "spells": [
+        "Magic Weapon",
+        "Spiritual Weapon"
+       ]
+      },
+      {
+       "atLevel": 5,
+       "spells": [
+        "Crusader's Mantle (Posse Up)",
+        "Spirit Guardians (Guardian Angels)"
+       ]
+      },
+      {
+       "atLevel": 7,
+       "spells": [
+        "Freedom of Movement",
+        "Stoneskin"
+       ]
+      },
+      {
+       "atLevel": 9,
+       "spells": [
+        "Flame Strike (Fire and Brimstone)",
+        "Hold Monster (Hogtie)"
+       ]
+      }
+     ]
+    },
+    {
+     "name": "Dark Preacher",
+     "title": "Dark Preacher (you can't choose this; your DM tells you when you've fallen)",
+     "dmOnly": true,
+     "note": "",
+     "entries": [
+      {
+       "atLevel": 3,
+       "spells": [
+        "Animate Dead (Restart)"
+       ]
+      },
+      {
+       "atLevel": 6,
+       "spells": [
+        "Create Undead"
+       ]
+      }
+     ]
+    }
+   ]
   },
   "nature-guide": {
    "name": "Nature Guide",
@@ -9134,7 +9358,8 @@ window.SSDNS_RULES = {
      "Storm of Vengeance",
      "True Resurrection."
     ]
-   }
+   },
+   "bonusLists": []
   },
   "lawman": {
    "name": "Lawman",
@@ -9188,7 +9413,52 @@ window.SSDNS_RULES = {
      "Dispel Evil and Good",
      "Geas (Sworn Statement)."
     ]
-   }
+   },
+   "bonusLists": [
+    {
+     "name": "Oath of the Lawless",
+     "title": "Oath of the Lawless (you can't choose this; you fall into it when your badge tarnishes). Oath spells",
+     "dmOnly": true,
+     "note": "Your DM has the rest of the Lawless list",
+     "entries": [
+      {
+       "atLevel": 3,
+       "spells": [
+        "Hellish Rebuke (Return Fire)",
+        "Inflict Wounds (Gut Shot)"
+       ]
+      },
+      {
+       "atLevel": 5,
+       "spells": [
+        "Crown of Madness",
+        "Darkness (Black Hat)"
+       ]
+      },
+      {
+       "atLevel": 9,
+       "spells": [
+        "Animate Dead (Restart)",
+        "Bestow Curse"
+       ]
+      },
+      {
+       "atLevel": 13,
+       "spells": [
+        "Blight",
+        "Confusion"
+       ]
+      },
+      {
+       "atLevel": 17,
+       "spells": [
+        "Contagion",
+        "Dominate Person (Bought and Paid For)"
+       ]
+      }
+     ]
+    }
+   ]
   },
   "frontier-scout": {
    "name": "Frontier Scout",
@@ -9251,7 +9521,8 @@ window.SSDNS_RULES = {
      "Swift Quiver (Fast Hands)",
      "Tree Stride (Cottonwood Walk)."
     ]
-   }
+   },
+   "bonusLists": []
   },
   "hexslinger": {
    "name": "Hexslinger",
@@ -9407,7 +9678,8 @@ window.SSDNS_RULES = {
      "Time Stop Shell",
      "Wish Shell."
     ]
-   }
+   },
+   "bonusLists": []
   },
   "pact-seeker": {
    "name": "Pact Seeker",
@@ -9508,7 +9780,8 @@ window.SSDNS_RULES = {
      "Power Word Kill (Last Word)",
      "True Polymorph."
     ]
-   }
+   },
+   "bonusLists": []
   },
   "scholar": {
    "name": "Scholar",
@@ -9750,7 +10023,8 @@ window.SSDNS_RULES = {
      "Weird (Mass Hysteria)",
      "Wish (Eureka)."
     ]
-   }
+   },
+   "bonusLists": []
   }
  },
  "inspiration": [
@@ -10190,7 +10464,7 @@ window.SSDNS_RULES = {
  "rulesText": {
   "takeCover": "Anyone, as a bonus action: duck behind solid cover. Ranged attacks against you have disadvantage until your next attack.",
   "reloading": "Reloading takes an action and fills the whole gun. Slow-load guns take a full turn. Tactical Reload (TR ✓): bonus action, load one round from a gun belt or bandolier. Quick Reload (Gunslinger) makes the reload a bonus action (not slow guns).",
-  "reloadingFull": "A gun fires until its Capacity is spent. Reloading takes an action and fills the whole gun. You can reload a partly empty gun the same way. One gun per reload. Slow load. Some guns (percussion revolvers, muzzleloaders, the Big Fifty) take a full turn to reload: your action, bonus action, and movement. You can still take reactions, but not with that gun. Nothing shortens a slow load except the Muzzleloader feat, and nothing ever shortens the Big Fifty. Tactical Reload. With a revolver or a lever-action repeater (TR ✓), you can use your bonus action to load one round from a gun belt or bandolier. You can't do this on a turn when you make a bonus-action shot. Single-shot guns can't use it. Quick Reload (Gunslinger) turns the reload action into a bonus action. It doesn't work on slow guns, or on a Dulls Rolling-Block chambered for a Heavy round. Caster cylinder. A reload (or Tactical Reload) can load hex lead shells as well as cartridges, in any mix. Cantrips need neither (Callings p.30). Single-shot guns fire, then spend an action reloading (a full turn for slow guns). That's the price of the damage. Balance note: features that grant an extra action (e.g. Second Cylinder / Action Surge) can spend that action reloading; they don't shorten a slow load.",
+  "reloadingFull": "A gun fires until its Capacity is spent. Reloading takes an action and fills the whole gun. You can reload a partly empty gun the same way. One gun per reload. Slow load. Some guns (percussion revolvers, muzzleloaders, the Big Fifty) take a full turn to reload: your action, bonus action, and movement. You can still take reactions, but not with that gun. Nothing shortens a slow load except the Muzzleloader feat, and nothing ever shortens the Big Fifty. Tactical Reload. With a revolver or a lever-action repeater (TR ✓), you can use your bonus action to load one round from a gun belt or bandolier. You can't do this on a turn when you make a bonus-action shot. Single-shot guns can't use it. Quick Reload (Gunslinger) turns the reload action into a bonus action. It doesn't work on slow guns, or on a Dulls Rolling-Block chambered for a Heavy round. Caster cylinder. A reload (or Tactical Reload) can load hex lead shells as well as cartridges, in any mix. Cantrips need neither (Callings p.31). Single-shot guns fire, then spend an action reloading (a full turn for slow guns). That's the price of the damage. Balance note: features that grant an extra action (e.g. Second Cylinder / Action Surge) can spend that action reloading; they don't shorten a slow load.",
   "misfire": "Every gun has a Misfire number. If your attack roll's natural d20 shows that number, the attack misses and the gun jams. That's the raw roll, before any modifiers: Misfire 1–5 means a natural 1 to 5. Base misfire by build quality. Light-only guns roll one step better than their base: Herringers 1–3 (pepperbox 1–4), Dullards carbine 1–4. Clearing a jam: spend your action, or use a bonus action and succeed on a DC 10 Dexterity check (add your proficiency bonus if you're proficient with tinker's tools or gunsmith's tools). A jammed gun can't fire. Dirty: quicksand, a river dunk, a dust storm, or whatever the DM calls for makes a gun Dirty. A Dirty gun misfires on at least 1–2. Cleaning it takes 10 minutes with gunsmith's tools or a gun cleaning kit. Fouled: if a Dirty gun gets dirty again, or you roll with advantage or disadvantage and both d20s show a misfire number, the gun is fouled. It can't be used until someone spends a short rest working on it with tinker's or gunsmith's tools (or pays a gunsmith 500 ES). Forcing a fouled gun to fire is at your own risk.",
   "holster": "Rig bonuses don't stack: use the single best initiative bonus and the single best first-shot bonus. A gun belt isn't a rig and always pairs. Holsters work only for pistols (the saddle scabbard holds long guns).",
   "casterGun": "A Caster Gun is a spellcasting focus for your Hexslinger spells. It requires attunement. Chambers: Capacity (Blacksnake 6, machined to 7 or 8; Hognose 4, up to 6) is the cylinder. Every chamber holds either a hex lead shell or a plain cartridge, in whatever mix you load. Spin the Cylinder: a free action, any time. Turn the chamber you want under the hammer. Cantrips: at will. They use no shell and no chamber; the gun fires them from your own power. Hex lead: your spell slots are your hex lead shells (etched brass), one per slot, restored when you finish a long rest. A spell of 1st level or higher can be fired only from a loaded shell, reactions included. Use your normal spell attack bonus and save DC. Plain rounds: any cartridge. Pistol rounds (.32 Long, .357, .44-40, or .45 Long) use that tier's line in the Caster Guns table. Caster Guns are exempt from the Chambering Lock. Loading: shells and cartridges load the same way. A reload is an action and fills the whole cylinder with your chosen mix, and Tactical Reload (bonus action, 1 shell or cartridge) works. See Reloading. Two guns: a pair of Caster Guns (two attunements) gives you both cylinders, 12 chambers on two Blacksnakes. Light rifle rounds (.22 LR, .44 rimfire) fire as Light, and the .44-40 as Medium. Shotgun shells don't fit. Heavy rifle rounds (.45-70): 2d8 piercing, range 30/120, Misfire 1–3.",
@@ -10200,7 +10474,7 @@ window.SSDNS_RULES = {
   "hexCylinder": "- The cylinder. A Blacksnake has 6 chambers (a Caster specialist can machine it to 7 or 8; a Hognose has 4, up to 6; Equipment p.64). Each chamber holds one hex lead shell or one plain cartridge, and you choose the mix every time you load.",
   "currency": "Reading PHB prices: 1 cp = 1 ES, 1 sp = 10 ES, 1 ep = 50 ES, 1 gp = 100 ES, and 1 pp = 1,000 ES. Multiply any PHB gold price by 100. Black shards are drained and worth nothing. Shops don't make change (a frontier custom). Pay in whole shards; odd amounts are kept. Banks make change for free.",
   "addiction": "",
-  "explosives": "Costs are TBD in the PHB (___). Powder Man feat makes you good at explosives. Light and throw is one action, if you have a flame to hand (a lit cigar or pipe, a lamp, a torch, a campfire in reach, or a match). With a tinderbox, lighting takes an action first. It's never Use an Object, so Quick Grift can't do it, and Extra Attack doesn't add throws. Range 30/60 ft. Pick a point you can see. Past 30 ft, the stick lands 10 ft off in a random direction (d8). There's no attack r",
+  "explosives": "Anyone can buy dynamite and anyone can throw it. The Powder Man feat makes you good at explosives. Light and throw is one action, if you have a flame to hand (a lit cigar or pipe, a lamp, a torch, a campfire in reach, or a match). With a tinderbox, lighting takes an action first. It's never Use an Object, so Quick Grift can't do it, and Extra Attack doesn't add throws. Range 30/60 ft. Pick a point you can see. Past 30 ft, the stick lands 10 ft off in a random direction (d8). There's no attack r",
   "storytellerWear": "Strings: plain +0, quality +1, cheap −1. A fiddle uses the lower of its strings and its bow. Case (only if the instrument was inside): none +0, soft +1 (rain, dust, heat, falls), hard +2 (anything). A hard case also means no roll for gunshots or explosions. Instrument: quality +0, cheap −2. All modifiers stack. A natural 1 on the Wear roll always counts as at least Out of tune, whatever your modifiers. Snapped strings or bow: a snap is read on the d8 alone, before modifiers. A snapped set leaves the instrument Out of tune until you fit a new set on a short rest."
  },
  "warnings": [

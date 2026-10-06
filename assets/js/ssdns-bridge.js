@@ -86,10 +86,18 @@
     return out;
   }
   /**
-   * v1.1: apply a win (+) or loss (-) in ES to the wallet, like a saloon cashier (banks make change, PHB).
-   * Wins are paid largest shard first. Losses are paid with the smallest shards first; any overpay comes back
-   * as change, largest shard first. Returns the new wallet, or null if no character is linked or it can't cover it.
+   * Apply a win (+) or a loss (-) in ES.
+   * Wins are paid largest shard first. Losses are paid smallest shard first.
+   * by "store": the shop keeps any overpay (no change).
+   * by "saloon" or "saloon:…": breaking a larger shard costs 10% of that shard, then the rest comes back.
+   * Anything else (bank, DM reward): full change.
    */
+  function payMode(by) {
+    var tag = String(by || "");
+    if (tag === "store" || tag.indexOf("store:") === 0) return "store";
+    if (tag === "saloon" || tag.indexOf("saloon:") === 0) return "saloon";
+    return "change";
+  }
   function applyDelta(deltaES, by) {
     var w = readWallet();
     if (!w) return null;
@@ -98,9 +106,23 @@
     else if (d < 0) {
       var owe = -d;
       if (cpValue(s) < owe) return null;
-      var paid = 0;
-      COLORS.forEach(function (c) { while (paid < owe && s[c] > 0) { s[c] -= 1; paid += CP[c]; } });
-      var ch = breakdown(paid - owe); COLORS.forEach(function (c) { s[c] += ch[c]; });
+      var paid = 0, broken = 0;
+      COLORS.forEach(function (c) {
+        while (paid < owe && s[c] > 0) {
+          s[c] -= 1;
+          paid += CP[c];
+          if (paid >= owe) broken = CP[c];
+        }
+      });
+      var over = paid - owe;
+      var mode = payMode(by);
+      var back = over;
+      if (mode === "store") back = 0;
+      else if (mode === "saloon" && over > 0) back = Math.max(0, over - Math.floor(broken * 0.10));
+      if (back > 0) {
+        var ch = breakdown(back);
+        COLORS.forEach(function (c) { s[c] += ch[c]; });
+      }
     }
     w.shards = s; w.updatedBy = by || "game";
     return writeWallet(w);

@@ -19,7 +19,7 @@
   function paint() {
     if (linked) {
       bar.style.background = "#2d4a2b"; bar.style.color = "#f3ead7";
-      bar.textContent = "Linked to " + name + "'s shards: " + last + " ES. Wins and losses go straight to the character sheet.";
+      bar.textContent = "Linked to " + name + "'s shards: " + last + " ES. Breaking a bill for a bet costs 10%. Wins pay in full.";
     } else {
       bar.style.background = "#4a3b22"; bar.style.color = "#f3ead7";
       bar.textContent = "Not linked: open a character in the SSDNS Character Sheet (same browser) to play with real shards. These chips are pretend.";
@@ -41,14 +41,14 @@
   window.SSDNSWallet = {
     seen: function (bal) {
       if (!linked || last === null || bal === last) return;
-      var r = B.applyDelta(bal - last, G.id);
+      var r = B.applyDelta(bal - last, "saloon:" + G.id);
       if (r) { last = bal; paint(); }
       else { var v = B.readWallet(); link(v); }   // wallet couldn't cover it: resync to the real shards
     },
     isLinked: function () { return linked; }
   };
   B.onChange(function (w) {
-    if (!w || w.updatedBy === G.id) return;
+    if (!w || w.updatedBy === "saloon:" + G.id) return;
     if (G.busy && G.busy()) return;   // never yank chips mid-hand; next seen() resyncs the delta anyway
     link(w);
   });
