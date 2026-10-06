@@ -777,16 +777,31 @@
     var left = m ? parseInt(m[1], 10) : parseInt(raw, 10);
     var sides = m ? parseInt(m[2], 10) : 8;
     if (!left) { toast("No hit dice left."); return; }
-    var ask = root.SSDNSAsk && root.SSDNSAsk.confirm
-      ? root.SSDNSAsk.confirm("Spend one hit die? You have " + left + "d" + sides + " left.")
-      : Promise.resolve(false);
-    ask.then(function (ok) {
-      if (!ok) {
-        if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "Declined spending a hit die." });
-        return;
-      }
-      spendHitDie(left, sides);
+    var bar = $("#hitDieBar");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "hitDieBar";
+      bar.className = "tab-warn";
+      document.body.appendChild(bar);
+    }
+    bar.innerHTML = "";
+    bar.appendChild(document.createTextNode("Short rest. Spend one hit die? " + left + "d" + sides + " left. "));
+    var yes = document.createElement("button");
+    yes.type = "button";
+    yes.className = "btn sm";
+    yes.textContent = "Spend";
+    var no = document.createElement("button");
+    no.type = "button";
+    no.className = "btn sm";
+    no.textContent = "Not now";
+    yes.addEventListener("click", function () { bar.hidden = true; spendHitDie(left, sides); });
+    no.addEventListener("click", function () {
+      bar.hidden = true;
+      if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "Declined spending a hit die." });
     });
+    bar.appendChild(yes);
+    bar.appendChild(no);
+    bar.hidden = false;
   }
   function spendHitDie(left, sides) {
     var roll = 1 + Math.floor(Math.random() * sides);
@@ -807,15 +822,10 @@
     var conTxt = (con >= 0 ? "+" : "") + con;
     var line = "Hit die 1d" + sides + conTxt + " = " + gain + ", HP " + before + "→" + after;
     toast(line);
-    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "roll", text: line });
-    if (root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined()) {
-      var hdId = "hd_" + Date.now().toString(36);
-      if (root.SSDNSDmJoin.postRoll) {
-        root.SSDNSDmJoin.postRoll({ id: hdId, label: "Hit die", formula: "1d" + sides + conTxt, result: gain, detail: line });
-      }
-      if (root.SSDNSDmJoin.postLedger) {
-        root.SSDNSDmJoin.postLedger({ type: "rest", what: line, oldVal: before, newVal: after, flag: false });
-      }
+    var hdId = "hd_" + Date.now().toString(36);
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ id: "roll:" + hdId, kind: "roll", text: line });
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined() && root.SSDNSDmJoin.postRoll) {
+      root.SSDNSDmJoin.postRoll({ id: hdId, label: "Hit die", formula: "1d" + sides + conTxt, result: gain, detail: line });
     }
   }
   function wrapRest() {
@@ -1019,10 +1029,14 @@
       if (roundEl) roundEl.textContent = "Round " + round;
       if (whoEl) whoEl.textContent = (cur.name || "Someone") + " · " + (cur.status && cur.kind === "enemy" ? cur.status : (cur.kind === "player" ? "player" : ""));
       if (names) {
-        names.textContent = order.map(function (row, i) {
+        names.innerHTML = order.map(function (row, i) {
+          var raw = String(row.name || "Someone");
+          var letters = raw.replace(/[^A-Za-z]/g, "");
+          var initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
           var mark = i === turn ? "→ " : "";
           var st = row.kind === "enemy" && row.status ? " (" + row.status + ")" : "";
-          return mark + (row.name || "Someone") + st;
+          var tie = row.tie ? " tie" : "";
+          return "<span class='turn-badge' title='" + raw.replace(/'/g, "") + "'>" + initials + "</span> " + mark + raw + st + tie;
         }).join("  ·  ");
       }
       var c = ch();
@@ -1103,7 +1117,16 @@
     document.addEventListener("change", function (e) {
       var t = e.target;
       if (!t) return;
-      if (t.id === "selCalling" || t.id === "selBackground") setTimeout(maybePrompt, 0);
+      if (t.id === "selBackground") setTimeout(function () {
+        var cnow = ch();
+        var bg = cnow && byId(rules().backgrounds)[cnow.background];
+        if (cnow && cnow.kitStamp === cnow.calling && bg && /pouch with/i.test(bg.equipment || "") && !(cnow.kitGrants && cnow.kitGrants.es === cnow.background)) {
+          patch(function (d) {
+            var m = String(bg.equipment).match(/pouch with ([\d,]+) ES/i);
+            if (m) grantEs(d.character, parseInt(m[1].replace(/,/g, ""), 10) || 0, d.character.background);
+          });
+        }
+      }, 0);
       if (t.id === "selCalling" || t.id === "selLineage" || t.id === "selSublineage" || t.id === "inLevel") {
         setTimeout(function () { fillFeatures(); renderStyle(); }, 0);
       }

@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.4"; // sheet-round8-v034
+  var APP_VERSION = "0.3.5"; // sheet-round9-v035
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -369,6 +369,17 @@
     if (c && c.caster) return "known";
     return null;
   }
+  function preparedCap() {
+    if (prepareMode() !== "prepared") return null;
+    var cal = currentCalling();
+    if (!cal) return null;
+    var ab = String(cal.spellAbility || "WIS").toUpperCase();
+    var score = num(C().abilities && C().abilities[ab], 10);
+    var bonus = mod(score);
+    var lv = Math.max(1, num(C().level, 1));
+    if (cal.id === "lawman" || cal.caster === "half") return Math.max(1, bonus + Math.floor(lv / 2));
+    return Math.max(1, bonus + lv);
+  }
   /** Progression soft limits: cantrips + spells known (when the book lists them). */
   function spellLimits() {
     var c = currentCalling(), lv = Math.max(1, Math.min(20, num(C().level, 1)));
@@ -435,7 +446,7 @@
       var p = parseSpellEntry(name, level);
       if (!p) return false;
       var phb = p.phb.toLowerCase().replace(/\s+shell$/, "");
-      return phb === needle || name.toLowerCase().indexOf(needle) >= 0;
+      return phb === needle || name.toLowerCase() === needle;
     }
     if (knownCantrips().some(function (k) { return match(k.name, 0); })) return true;
     for (var l = 1; l <= 9; l++) {
@@ -732,6 +743,9 @@
     var sel = $("#selCasterGun");
     if (!sel || !S.doc) return;
     var id = C().calling;
+    sel.hidden = id !== "hexslinger";
+    var gunLab = document.querySelector("label[for='selCasterGun']");
+    if (gunLab) gunLab.hidden = id !== "hexslinger";
     var cur = C().casterGun || sel.value || "";
     var items = [];
     if (id === "hexslinger") {
@@ -900,9 +914,12 @@
         var ep = empty.querySelector("p");
         var scn = currentSubclass();
         var breath = scn && /tong hatchet|kung fu/i.test(scn.name || "");
+        var copy = window.SSDNSCreator && window.SSDNSCreator.spellPageCopy
+          ? window.SSDNSCreator.spellPageCopy(C().calling, scn && scn.name)
+          : null;
         if (ep) ep.innerHTML = breath
           ? "<b>Breath Coins.</b> " + esc(scn.name) + " casts with Breath Coins, not spell slots. Track those with your DM."
-          : "<b>No spell slots.</b> This Calling doesn't use a spellbook. Tong Hatchet Man and Way of Kung Fu cast with Breath Coins, not these slots.";
+          : ("<b>No spell slots.</b> " + esc(String((copy && copy.empty) || "This Calling doesn't use a spellbook.").replace(/^No spell slots\.\s*/, "")));
       }
       if (bar) bar.hidden = true;
       if (picker) picker.hidden = true;
@@ -917,6 +934,12 @@
     if (limEl) {
       var bits = [];
       bits.push(mode === "prepared" ? "Prepared caster (mark what you have ready today)" : "Spells known (from your Calling list)");
+      var capN = preparedCap();
+      if (capN) {
+        var readyN = 0;
+        for (var pr = 1; pr <= 9; pr++) readyN += knownSpellsAt(pr).filter(function (s) { return s.prepared; }).length;
+        bits.push("Prepared " + readyN + "/" + capN);
+      }
       if (lim.cantrips != null) bits.push("Cantrips " + countKnown(0) + "/" + lim.cantrips);
       if (lim.known != null) bits.push("Spells known " + totalKnownSpells() + "/" + lim.known);
       else if (mode === "prepared") bits.push("Prepared: tick what you readied after the last long rest");
@@ -1114,7 +1137,20 @@
     return "";
   }
   function hasOv(c, k) { return Object.prototype.hasOwnProperty.call(c.overrides, k) && c.overrides[k] !== ""; }
+  function ensureSpeed() {
+    var c = C();
+    if (!c || c.speedAuto === false) return;
+    if (String(c.speed || "").trim() !== "") return;
+    var lin = LIN[c.lineage];
+    var sub = lin && (lin.sublineages || []).filter(function (s) { return s.id === c.sublineage; })[0];
+    var sp = (sub && sub.speed) || (lin && lin.speed) || ((c.lineage || c.calling) ? 30 : "");
+    if (sp === "") return;
+    c.speed = sp;
+    var speedEl = document.querySelector("[data-f='character.speed']");
+    if (speedEl && document.activeElement !== speedEl) speedEl.value = sp;
+  }
   function renderCalc() {
+    ensureSpeed();
     var c = C(), v = compute();
     $$("[data-calc]").forEach(function (e) {
       var k = e.getAttribute("data-calc"), auto = calcValue(k, v), has = hasOv(c, k);
@@ -1341,16 +1377,20 @@
     var rest = c.hexRest || (ci ? ci.rest : "");
     $("#restAuto").textContent = rest ? rest + " rest" : "—";
     var cgun = CASTER_GUNS[c.casterGun];
+    var pageCopy = window.SSDNSCreator && window.SSDNSCreator.spellPageCopy ? window.SSDNSCreator.spellPageCopy(c.calling, currentSubclass() && currentSubclass().name) : null;
     var gnote = "";
-    if (showCast && c.calling !== "pact-seeker") {
+    if (showCast && c.calling === "hexslinger") {
       gnote = R.rulesText.casterGun.replace(/^[-\s]*Channel:\s*/, "");
       gnote = gnote.charAt(0).toUpperCase() + gnote.slice(1);
       if (cgun && cgun.notes && cgun.notes.length) gnote = cgun.name + ": " + cgun.notes.join(" ") + " " + gnote;
       if (c.casterGun === "ordinary-firearm") gnote = "Forcing hex lead through an ordinary firearm: spell attacks have disadvantage and targets have advantage on saves (PHB, Hexslinger).";
     } else if (c.calling === "pact-seeker") {
       gnote = R.rulesText.borrowedIron || "Borrowed Iron is a pact focus. It has no weapon stats. Pact Shot is the attack.";
+    } else if (showCast && pageCopy && pageCopy.blurb) {
+      gnote = pageCopy.blurb;
     }
     $("#gunNote").textContent = gnote;
+    if (art) art.hidden = !(pageCopy && pageCopy.art);
     for (var l = 1; l <= 9; l++) {
       var key = "hex." + l, total = hasOv(c, key) ? num(c.overrides[key]) : v.hex[l];
       total = Math.max(0, Math.min(MAX_BOXES, total));
@@ -1538,6 +1578,7 @@
     if (path === "character.holster" && HOL[v] && HOL[v].feedsTR) C().gunBelt = true;
     $$('[data-mirror="' + path + '"]').forEach(function (m) { m.textContent = v; });
     if (path === "character.hpMax" && e.isTrusted && String(t.value).trim() !== "" && String(v) !== String(old)) C().hpAuto = false;
+    if (path === "character.speed" && e.isTrusted && String(t.value).trim() !== "" && String(v) !== String(old)) C().speedAuto = false;
     if (e.type === "change") {
       if (path === "character.calling") onCallingPicked();
       else if (path === "character.lineage") onLineagePicked();
@@ -2115,9 +2156,24 @@
     if (d.pickLevel !== undefined) { pickerLevel = d.pickLevel; fillSpellPicker(); return; }
     if (d.addSpell !== undefined) {
       var btn = e.target.closest("[data-add-spell]");
-      if (btn && btn._spell) {
-        if (spellAlreadyHave(btn._spell.phb)) toast(btn._spell.phb + " is already on your list.");
-        else { addKnownSpell(btn._spell); fillSpellPicker(); toast("Added " + btn._spell.label + "."); }
+      var spell = btn && btn._spell;
+      if (!spell && btn) {
+        var key = btn.getAttribute("data-add-spell");
+        spell = callingCatalog().concat(bonusCatalog()).filter(function (sp) { return sp.key === key; })[0] || null;
+      }
+      if (spell) {
+        if (spellAlreadyHave(spell.phb)) toast(spell.phb + " is already on your list.");
+        else {
+          addKnownSpell(spell);
+          var cap = preparedCap();
+          if (cap && spell.level > 0) {
+            var ready = 0;
+            for (var pl = 1; pl <= 9; pl++) ready += knownSpellsAt(pl).filter(function (s) { return s.prepared; }).length;
+            if (ready > cap) toast("Prepared " + ready + "/" + cap + ". Unprepare one before the next day.");
+          }
+          fillSpellPicker();
+          toast("Added " + spell.label + ".");
+        }
       }
       return;
     }
@@ -2283,10 +2339,12 @@
         return;
       }
     if (window.SSDNSDmJoin && window.SSDNSDmJoin.isJoined && window.SSDNSDmJoin.isJoined() && window.SSDNSDmJoin.leave) window.SSDNSDmJoin.leave();
+    try { sessionStorage.removeItem("ssdns.wizard.skip"); } catch (e) {}
     replaceDoc(blankDoc(), { reason: "new character" });
     if (window.SSDNSSheet && window.SSDNSSheet.clearLog) window.SSDNSSheet.clearLog();
     S.hasContent = false; S.fileDirty = false; updateSaveBar();
-    toast("New character. It's backed up in this browser as you type; Save makes a .ssdns file.");
+    if (window.SSDNSCreator) window.SSDNSCreator.open(true);
+    else toast("New character. It's backed up in this browser as you type; Save makes a .ssdns file.");
     });
   }
   function watchTabs() {
@@ -2301,18 +2359,11 @@
     }
     function renderWarn() {
       var locked = window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly();
-      var on = livePeers() || !!locked;
-      var b = $("#tabWarn");
-      if (!on) { if (b) b.hidden = true; return; }
-      if (!b) {
-        b = document.createElement("div");
-        b.id = "tabWarn";
-        b.className = "tab-warn";
-        b.textContent = "Another tab has this character open. Only one tab joins the table.";
-        document.body.appendChild(b);
+      if (!locked) {
+        var b0 = $("#tabWarn");
+        if (b0 && !b0.querySelector("#btnTakeOver")) b0.hidden = true;
+        return;
       }
-      b.hidden = false;
-      b.textContent = "Another tab has this character open. Only one tab joins the table.";
     }
     function announce(bye) {
       if (!S.doc || !S.doc.id || !channel) return;
@@ -2496,30 +2547,82 @@
     Exhaustion: "Stacked fatigue. The DM says which level is on you and what it takes away.",
     Bleeding: "Losing blood. The DM says how it ticks and what stops it."
   };
+  function activeCondList() {
+    var c = C();
+    var rows = (c && c.activeConditions) || [];
+    if (rows.length) return rows;
+    return String((c && c.tableConditions) || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean).map(function (name) {
+      var level = 0;
+      var m = name.match(/exhaustion\s+(\d+)/i);
+      if (m) level = parseInt(m[1], 10);
+      return { name: m ? "Exhaustion" : name.replace(/\s+\d+r$/, ""), level: level };
+    });
+  }
+  function toggleCondition(name, level, rounds, keep) {
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
+    var c = C();
+    var Cond = window.SSDNSConditions;
+    if (!c || !Cond) return;
+    var cur = (c.activeConditions || []).slice();
+    var have = cur.filter(function (row) { return String(row.name || "").toLowerCase() === name.toLowerCase(); })[0];
+    var removing = !keep && !!have && name !== "Exhaustion";
+    if (!keep && name === "Exhaustion" && have && have.level === level) removing = true;
+    if (removing) cur = Cond.removeName(cur, name);
+    else cur = Cond.upsert(cur, { name: name, level: level || (name === "Exhaustion" ? 1 : 0), rounds: rounds, subjectId: "self" });
+    c.activeConditions = cur;
+    c.tableConditions = Cond.listText(cur);
+    changed();
+    renderConditionsTab();
+    if (window.SSDNSSheet && window.SSDNSSheet.setConditions) window.SSDNSSheet.setConditions(Cond.listText(cur).split(", "), { entries: cur, quiet: true });
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.writeCondition) {
+      window.SSDNSDmJoin.writeCondition(removing ? { name: name, id: have && have.id } : cur.filter(function (row) { return row.name === name; })[0], removing);
+    }
+    if (window.SSDNSSheet && window.SSDNSSheet.addLog) {
+      window.SSDNSSheet.addLog({ id: "cond-self:" + name + ":" + Date.now(), kind: "alert", text: (removing ? "Cleared " : "Gained ") + name });
+    }
+  }
   function renderConditionsTab() {
     var box = $("#condList");
     if (!box || !S.doc) return;
-    var set = String(C().tableConditions || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
-    var known = {};
+    var Cond = window.SSDNSConditions;
+    var rows = activeCondList();
     box.innerHTML = "";
-    Object.keys(COND_TEXT).forEach(function (name) {
-      known[name.toLowerCase()] = true;
-      var on = set.some(function (s) { return s.toLowerCase() === name.toLowerCase(); });
-      box.appendChild(el("article", { class: "cond-card" + (on ? " on" : "") }, [
-        el("h3", { text: name + (on ? " · on you" : "") }),
-        el("p", { text: COND_TEXT[name] })
-      ]));
-    });
-    set.forEach(function (name) {
-      if (known[name.toLowerCase()]) return;
-      box.appendChild(el("article", { class: "cond-card on" }, [
-        el("h3", { text: name + " · on you" }),
-        el("p", { text: "Set by the DM for this table." })
-      ]));
+    var catalog = Cond ? Cond.catalog() : Object.keys(COND_TEXT).map(function (name) { return { name: name, text: COND_TEXT[name], exhaustion: name === "Exhaustion" }; });
+    catalog.forEach(function (item) {
+      var have = rows.filter(function (row) { return String(row.name || row).toLowerCase() === item.name.toLowerCase(); })[0];
+      var card = el("article", { class: "cond-card" + (have ? " on" : "") });
+      var head = el("div", { class: "cond-head" });
+      var btn = el("button", { type: "button", class: "btn sm cond-toggle" + (have ? " on" : ""), text: have ? "On" : "Off" });
+      btn.addEventListener("click", function () { toggleCondition(item.name, have && have.level); });
+      head.appendChild(el("h3", { text: item.name }));
+      head.appendChild(btn);
+      card.appendChild(head);
+      if (item.exhaustion) {
+        var levels = el("div", { class: "cond-levels" });
+        for (var n = 1; n <= 6; n++) {
+          (function (lv) {
+            var b = el("button", { type: "button", class: "btn sm" + (have && have.level === lv ? " on" : ""), text: String(lv) });
+            b.addEventListener("click", function () { toggleCondition("Exhaustion", lv); });
+            levels.appendChild(b);
+          })(n);
+        }
+        card.appendChild(levels);
+      }
+      var rounds = el("input", { type: "number", min: "1", class: "cond-rounds", placeholder: "rounds", value: have && have.rounds ? String(have.rounds) : "" });
+      rounds.addEventListener("change", function () {
+        if (!have && !rounds.value) return;
+        toggleCondition(item.name, (have && have.level) || (item.exhaustion ? 1 : 0), rounds.value === "" ? null : parseInt(rounds.value, 10), true);
+      });
+      card.appendChild(rounds);
+      var more = el("p", { class: "fine", text: item.text || COND_TEXT[item.name] || "" });
+      card.appendChild(more);
+      box.appendChild(card);
     });
     var note = $("#condDmNote");
-    if (note) note.textContent = set.length ? ("From the DM: " + set.join(", ")) : "Nothing from the DM right now. The banner on Main updates when they set one.";
+    var labels = rows.map(function (row) { return Cond ? Cond.label(row) : (row.name || row); }).filter(Boolean);
+    if (note) note.textContent = labels.length ? ("On you: " + labels.join(", ")) : "Nothing on you right now. Toggle a condition, or wait for the DM.";
   }
+  window.SSDNSConditionsUi = { paint: renderConditionsTab, toggle: toggleCondition };
   var ASI_LEVELS = { 4: 1, 8: 1, 12: 1, 16: 1, 19: 1 };
   var lvlDraft = null;
   function featureLevel(name) {
@@ -2900,6 +3003,7 @@
     }
     updateSaveBar();
     watchTabs();
+    setTimeout(function () { if (window.SSDNSCreator) window.SSDNSCreator.maybeOpen(S.doc); }, 0);
     // dev/test hook: read-only helpers, no rules
     // v0.2.1: keep the sticky tabs just under the (possibly wrapped) app bar on phones
     function syncBarH() { var ab = $("#appbar"); if (ab) document.documentElement.style.setProperty("--appbar-h", ab.offsetHeight + "px"); }

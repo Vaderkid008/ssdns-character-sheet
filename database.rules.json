@@ -108,6 +108,13 @@
           },
           ".read": "auth != null"
         },
+        "conditions": {
+          ".read": "auth != null",
+          "$id": {
+            ".write": "auth != null && (root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid || (newData.exists() && newData.child('subjectKind').val() === 'player' && newData.child('subjectId').val() === auth.uid) || (!newData.exists() && data.child('subjectKind').val() === 'player' && data.child('subjectId').val() === auth.uid))",
+            ".validate": "!newData.exists() || (newData.hasChildren(['name', 'subjectId', 'subjectKind', 'updatedAt']) && (newData.child('subjectKind').val() === 'player' || newData.child('subjectKind').val() === 'enemy'))"
+          }
+        },
         "encounter": {
           "public": {
             ".read": "auth != null",

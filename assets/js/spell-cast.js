@@ -95,12 +95,14 @@
     };
   }
   function formulaOf(parsed, crit) {
-    var bits = (parsed.parts || []).map(function (p) {
+    var bits = [];
+    (parsed.parts || []).forEach(function (p) {
       var n = Math.abs(p.n) * (crit ? 2 : 1);
-      return n + "d" + p.sides;
+      var sign = p.n < 0 ? "-" : (bits.length ? "+" : "");
+      bits.push(sign + n + "d" + p.sides);
     });
     if (parsed.flat) bits.push((parsed.flat > 0 ? "+" : "") + parsed.flat);
-    return bits.join("+") || "0";
+    return bits.join("") || "0";
   }
   function rollParts(parsed, crit) {
     var bits = [];

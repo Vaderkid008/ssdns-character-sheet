@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="favicon.ico">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.11">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.12">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -302,7 +302,9 @@
         <div><label for="customName">Custom enemy</label><input type="text" id="customName" placeholder="Bandit"></div>
         <div><label for="customHp">HP</label><input type="number" id="customHp" value="11"></div>
         <div><label for="customAc">AC</label><input type="number" id="customAc" value="12"></div>
-        <div><label for="customInit">Init bonus</label><input type="number" id="customInit" value="2"></div>
+        <div><label for="customInit">Init bonus</label><input type="number" id="customInit" placeholder="blank uses DEX" title="Leave blank to use the Dexterity modifier. A typed 0 stays 0."></div>
+        <div><label for="customAtkBonus">Attack bonus</label><input type="number" id="customAtkBonus" placeholder="blank asks"></div>
+        <div><label for="customDmg">Damage</label><input type="text" id="customDmg" placeholder="1d6+2"></div>
         <div><label for="customDex">DEX</label><input type="number" id="customDex" placeholder="blank ties as 10" title="Initiative tiebreak. Blank is 10."></div>
         <div><label for="customQty">Quantity</label><input type="number" id="customQty" value="1" min="1" max="20"></div>
         <div class="span-2"><label for="customAtk">Attacks</label><input type="text" id="customAtk" placeholder="Scimitar +3, 1d6+1"></div>
@@ -459,12 +461,15 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/sfx.js?v=0.2.11"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.12"></script>
+<script src="../assets/js/conditions.js?v=0.2.12"></script>
+<script src="assets/js/ui-tab.js?v=0.2.12"></script>
+<script src="../assets/js/sfx.js?v=0.2.12"></script>
 <script src="../assets/data/rules.js"></script>
 <script src="../assets/js/spell-cast.js"></script>
 <script src="../assets/js/firebase-config.js"></script>
 <script src="assets/js/demo-data.js"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.11"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.11"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.12"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.12"></script>
 </body>
 </html>
