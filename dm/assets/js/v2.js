@@ -556,9 +556,16 @@ function featureButtons(list, i, kind) {
   }).join(" ");
 }
 function featureBlock(title, list, i, kind) {
-  const text = window.SSDNSApplied && window.SSDNSApplied.traitText ? window.SSDNSApplied.traitText(list) : "";
-  if (!text && !(list && list.length)) return "";
-  return `<p class="fine"><b>${esc(title)}.</b> ${esc(text)}</p><p class="toolbar">${featureButtons(list, i, kind)}</p>`;
+  const items = Array.isArray(list) ? list : [];
+  if (!items.length) return "";
+  const paras = items.map((item) => {
+    if (!item) return "";
+    if (typeof item === "string") return `<p class="fine">${esc(item)}</p>`;
+    const name = item.name || "";
+    const text = item.text || "";
+    return `<p class="fine">${name ? `<b>${esc(name)}.</b> ` : ""}${esc(text)}</p>`;
+  }).join("");
+  return `<div class="detail-section"><h3>${esc(title)}</h3>${paras}<p class="toolbar">${featureButtons(list, i, kind)}</p></div>`;
 }
 let enemySheetId = null;
 const previewRows = {};
@@ -587,12 +594,21 @@ function enemyCardHtml(row, i) {
   }).join("");
   const dcLines = window.SSDNSApplied && window.SSDNSApplied.dcLines ? window.SSDNSApplied.dcLines(card) : [];
   const attacks = (card.attacks || []).map((atk, n) => {
-    const rider = window.SSDNSApplied && window.SSDNSApplied.riderText ? window.SSDNSApplied.riderText(atk.rider) : "";
+    const call = (fn, value) => (window.SSDNSApplied && window.SSDNSApplied[fn] ? window.SSDNSApplied[fn](value) : "");
+    const rider = call("riderText", atk.rider);
+    const poison = call("saveDamageText", atk.saveDamage);
+    const grip = call("grappleText", atk.grapple);
+    const effect = call("saveEffectText", atk.saveEffect);
     const cap = atk.capacity == null ? "" : `${atk.loaded == null ? "?" : atk.loaded}/${atk.capacity}`;
+    const extra = atk.extraDamage && atk.extraDamage.damage
+      ? ("+" + atk.extraDamage.damage + (atk.extraDamage.damageType ? " " + atk.extraDamage.damageType : ""))
+      : "";
     const bits = [
       atk.kind || "",
       signed(atk.toHit),
       [atk.damage || "", atk.damageType || ""].filter(Boolean).join(" "),
+      extra,
+      atk.versatile ? ("2H " + atk.versatile) : "",
       atk.range || "",
       cap,
       atk.misfire == null ? "" : ("MF " + atk.misfire)
@@ -600,15 +616,17 @@ function enemyCardHtml(row, i) {
     const jam = atk.jammed
       ? `<p class="fine">Jammed. <button type="button" class="btn sm" data-clear-jam="${i}" data-atk-n="${n}">Clear jam</button></p>`
       : "";
-    const riderBtns = atk.rider
+    const needsSave = !!(atk.rider || atk.saveDamage || atk.saveEffect);
+    const riderBtns = needsSave
       ? `<button type="button" class="btn" data-sheet-save="prompt" data-n="${n}">Prompt player save</button>
          <button type="button" class="btn" data-sheet-save="auto" data-n="${n}">Auto-roll</button>`
       : "";
+    const calls = [rider, poison, grip, effect].filter(Boolean).map((line) => `<p class="dc-call">${esc(line)}</p>`).join("");
     return `<article class="atk-row">
       <h3>${esc(atk.name || "Attack")}</h3>
       <p>${esc(bits.join(" · "))}</p>
       ${atk.notes ? `<p class="fine">${esc(atk.notes)}</p>` : ""}
-      ${rider ? `<p class="dc-call">${esc(rider)}</p>` : ""}
+      ${calls}
       ${jam}
       <div class="toolbar">
         <button type="button" class="btn btn-primary" data-sheet-roll="1" data-n="${n}">Roll</button>
@@ -617,8 +635,8 @@ function enemyCardHtml(row, i) {
       </div>
     </article>`;
   }).join("");
-  const rider = row.pendingRider
-    ? `<p><button type="button" class="btn" data-apply-rider="${i}">Apply ${esc(row.pendingRider.condition || "condition")}${row.pendingRider.targetName ? " to " + esc(row.pendingRider.targetName) : ""}</button></p>`
+  const rider = row.pendingRider && row.pendingRider.condition
+    ? `<p><button type="button" class="btn" data-apply-rider="${i}">Apply ${esc(row.pendingRider.condition)}${row.pendingRider.targetName ? " to " + esc(row.pendingRider.targetName) : ""}</button></p>`
     : "";
   const casting = card.spellcasting;
   let spells = "";
@@ -1779,8 +1797,28 @@ async function sendPack(index) {
   DM.toast("Sent " + pack.name);
 }
 
+const BEAST_GROUPS = [
+  ["creature", "Creatures"],
+  ["generic-folk", "Folk"],
+  ["named", "Named"]
+];
+function beastQuery() {
+  const el = $("#beastQ");
+  return el && el.value ? String(el.value).trim().toLowerCase() : "";
+}
+function showParkedBeasts() {
+  const el = $("#beastParked");
+  return !!(el && el.checked);
+}
 function visibleBeasts() {
-  return (fight.bestiary || []).filter((b) => b && !b.template);
+  const q = beastQuery();
+  const parked = showParkedBeasts();
+  return (fight.bestiary || []).filter((b) => {
+    if (!b || b.template) return false;
+    if (b.parked && !parked) return false;
+    if (!q) return true;
+    return [b.name, b.bookName, b.aka, b.id].join(" ").toLowerCase().indexOf(q) >= 0;
+  });
 }
 function mergeBestiary(fileList, saved) {
   const base = Array.isArray(fileList) ? fileList : [];
@@ -1826,23 +1864,40 @@ function beastRow(b) {
     card: window.SSDNSApplied && window.SSDNSApplied.enemyCardModel ? window.SSDNSApplied.enemyCardModel(b) : null
   };
 }
-function renderBestiary() {
-  const box = $("#bestiaryList");
-  if (!box) return;
+function beastCard(b) {
   const traitText = window.SSDNSApplied && window.SSDNSApplied.traitText
     ? window.SSDNSApplied.traitText
     : (traits) => (Array.isArray(traits) ? traits.map((t) => (t && t.name) || "").join(", ") : String(traits || ""));
-  box.innerHTML = visibleBeasts().map((b) => `
-    <article class="bestiary-card" data-beast-card="${esc(b.id)}">
-      <h3><button type="button" class="name-btn" data-open-beast="${esc(b.id)}">${esc(b.name)}</button></h3>
+  const tactics = window.SSDNSApplied && window.SSDNSApplied.tacticsNote ? window.SSDNSApplied.tacticsNote(b) : "";
+  return `<article class="bestiary-card" data-beast-card="${esc(b.id)}">
+      <h3><button type="button" class="name-btn" data-open-beast="${esc(b.id)}">${esc(b.name)}</button>${b.parked ? ' <span class="badge">Parked</span>' : ""}</h3>
       <p>AC ${esc(b.ac)} · HP ${esc(b.hp)}${b.cr ? " · CR " + esc(b.cr) : ""}</p>
-      ${window.SSDNSApplied && window.SSDNSApplied.tacticsNote && window.SSDNSApplied.tacticsNote(b) ? `<p class="tactics-note">Tactics. ${esc(window.SSDNSApplied.tacticsNote(b))}</p>` : ""}
+      ${tactics ? `<p class="tactics-note">Tactics. ${esc(tactics)}</p>` : ""}
       <p>${esc(b.attacks || "")}</p>
       <p class="lede">${esc(traitText(b.traits))}</p>
       ${traitText(b.actions) ? `<p class="lede">${esc(traitText(b.actions))}</p>` : ""}
       <label class="fine">Name <input type="text" data-beast-name="${esc(b.id)}" value="${esc(b.name)}" aria-label="Rename ${esc(b.name)}"></label>
       <button type="button" class="btn sm" data-add-beast="${esc(b.id)}">Add to initiative</button>
-    </article>`).join("") || '<p class="lede">No bestiary file.</p>';
+    </article>`;
+}
+function renderBestiary() {
+  const box = $("#bestiaryList");
+  if (!box) return;
+  const list = visibleBeasts();
+  if (!list.length) {
+    box.innerHTML = '<p class="lede">No matching enemies.</p>';
+    return;
+  }
+  const buckets = {};
+  list.forEach((b) => {
+    const key = BEAST_GROUPS.some((pair) => pair[0] === b.group) ? b.group : "other";
+    (buckets[key] || (buckets[key] = [])).push(b);
+  });
+  const order = BEAST_GROUPS.map((pair) => pair[0]).concat(buckets.other ? ["other"] : []);
+  box.innerHTML = order.filter((key) => buckets[key] && buckets[key].length).map((key) => {
+    const label = (BEAST_GROUPS.filter((pair) => pair[0] === key)[0] || ["", "Other"])[1];
+    return `<section class="beast-group"><h3>${esc(label)}</h3><div class="bestiary-grid">${buckets[key].map(beastCard).join("")}</div></section>`;
+  }).join("");
 }
 function beastById(id) {
   return visibleBeasts().filter((b) => b && b.id === id)[0] || null;
@@ -1958,49 +2013,98 @@ async function applyLastStrike(i, n) {
     type: "damage"
   });
 }
-async function runRider(i, n, mode) {
-  const row = fight.order[i];
-  const atk = row && row.card && row.card.attacks && row.card.attacks[n];
-  const rider = atk && atk.rider;
-  if (!row || !rider) return;
-  let targetId = (atk.lastRoll && atk.lastRoll.targetId) || row.lastAttackerId;
-  let targetName = (atk.lastRoll && atk.lastRoll.targetName) || "";
-  if (!targetId) {
-    const picked = await askEnemyStrike(row, atk);
-    if (!picked || !picked.targetId) return;
-    targetId = picked.targetId;
-  }
-  const target = playerTargets().filter((p) => p.id === targetId)[0] || { id: targetId, name: targetName || targetId };
+function conditionName(rider) {
+  if (window.SSDNSApplied && window.SSDNSApplied.namedCondition) return window.SSDNSApplied.namedCondition(rider);
+  const name = rider && rider.condition != null ? String(rider.condition).trim() : "";
+  if (!name || /^condition$/i.test(name)) return "";
+  return name;
+}
+async function rememberCondition(row, target, name, rounds) {
+  if (!name) return;
+  row.pendingRider = { condition: name, rounds: rounds, targetId: target.id, targetName: target.name };
+  try {
+    await writeSubjectConditions(target.id, "player", [{ name: name, rounds: rounds }], target.name || "", 1, {}, []);
+  } catch (err) {}
+}
+async function askAttackSave(row, atk, target, spec, mode) {
   const save = await requestPlayerSave({
     targetId: target.id,
     targetName: target.name,
-    ability: rider.save || "STR",
-    dc: rider.dc,
+    ability: (spec && spec.save) || "STR",
+    dc: spec && spec.dc,
     label: (row.name || "Enemy") + " " + (atk.name || "attack"),
-    rider: rider.condition || "",
+    rider: conditionName(spec),
+    damage: spec && spec.damage ? (spec.damage + (spec.damageType ? " " + spec.damageType : "") + (spec.onSave === "half" ? " (half on a success)" : "")) : "",
     fromName: row.name || "",
     auto: mode === "auto"
   });
-  if (save.failed) {
-    row.pendingRider = {
-      condition: rider.condition || "condition",
-      rounds: rider.rounds,
-      targetId: target.id,
-      targetName: target.name
-    };
-    try {
-      await writeSubjectConditions(target.id, "player", [{ name: row.pendingRider.condition, rounds: rider.rounds }], target.name || "", 1, {}, []);
-    } catch (err) {}
-  }
   if (DM.state.demo || mode === "auto") {
     await DM.pushRoll({
       who: target.name || row.name, label: (atk.name || "Save"), formula: "1d20" + signed(save.mod || 0),
       result: save.total, detail: save.line, private: !(row.card && row.card.public), nat: save.nat, save: true
     });
   }
+  return save;
+}
+async function applySaveDamage(row, atk, target, mode) {
+  const spec = atk && atk.saveDamage;
+  if (!row || !spec) return "";
+  const save = await askAttackSave(row, atk, target, spec, mode);
+  const rolled = DM.parseDice(spec.damage || "");
+  const full = rolled ? rolled.total : 0;
+  const amount = !save.failed ? (spec.onSave === "half" && window.SSDNSApplied ? window.SSDNSApplied.halved(full) : (spec.onSave === "half" ? Math.floor(full / 2) : 0)) : full;
+  const kind = spec.damageType || "damage";
+  const line = save.line + " · " + (rolled ? rolled.detail + " = " + full : (spec.damage || "")) + " " + kind + (save.failed ? "" : (spec.onSave === "half" ? " · half " + amount : ""));
+  if (amount > 0 && fight.damageMode !== "approve") {
+    applyPlayerHit({
+      rollId: (save.id || DM.uid("pois")) + ":saveDmg",
+      targetId: target.id,
+      targetName: target.name,
+      amount: amount,
+      from: row.id,
+      characterName: row.name,
+      weapon: atk.name,
+      label: (atk.name || "Attack") + " " + kind,
+      type: "damage"
+    });
+  }
+  return line;
+}
+async function applySaveEffect(row, atk, target, mode) {
+  const spec = atk && atk.saveEffect;
+  if (!row || !spec) return "";
+  const save = await askAttackSave(row, atk, target, spec, mode);
+  const text = atk.notes || "The DM resolves this effect.";
+  return save.line + " · " + text;
+}
+async function strikeTarget(row, atk) {
+  let targetId = (atk.lastRoll && atk.lastRoll.targetId) || row.lastAttackerId;
+  let targetName = (atk.lastRoll && atk.lastRoll.targetName) || "";
+  if (!targetId) {
+    const picked = await askEnemyStrike(row, atk);
+    if (!picked || !picked.targetId) return null;
+    targetId = picked.targetId;
+    targetName = "";
+  }
+  return playerTargets().filter((p) => p.id === targetId)[0] || { id: targetId, name: targetName || targetId };
+}
+async function runRider(i, n, mode) {
+  const row = fight.order[i];
+  const atk = row && row.card && row.card.attacks && row.card.attacks[n];
+  if (!row || !atk) return;
+  const target = await strikeTarget(row, atk);
+  if (!target) return;
+  const lines = [];
+  if (atk.rider && (atk.rider.save || conditionName(atk.rider))) {
+    const save = await askAttackSave(row, atk, target, atk.rider, mode);
+    if (save.failed) await rememberCondition(row, target, conditionName(atk.rider), atk.rider.rounds);
+    lines.push(save.line);
+  }
+  if (atk.saveDamage) lines.push(await applySaveDamage(row, atk, target, mode));
+  if (atk.saveEffect) lines.push(await applySaveEffect(row, atk, target, mode));
   await saveRemoteTable();
   renderFight();
-  DM.toast(save.line);
+  DM.toast(lines.filter(Boolean).join(" · ") || "No save on that attack");
 }
 function onEnemySheetClick(e) {
   const t = e.target.closest && e.target.closest("[data-open-enemy],[data-open-beast],[data-beast-card],[data-sheet-roll],[data-sheet-apply],[data-sheet-save],[data-sheet-check],[data-sheet-cast],[data-sheet-dice],[data-sheet-add],[data-sheet-feat],[data-sheet-slot]");
@@ -2672,7 +2776,17 @@ function askEnemyStrike(row, preset) {
     const dlg = document.createElement("dialog");
     dlg.className = "dlg";
     const options = players.map((p) => `<option value="${esc(p.id)}"${p.id === def ? " selected" : ""}>${esc(p.name)} · AC ${esc(p.ac == null || p.ac === "" ? "?" : p.ac)}</option>`).join("");
-    dlg.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2><p class="fine">${esc(row.name || "Enemy")} attacks.</p><label>Target <select id="enemyTarget">${options || "<option value=''>No players</option>"}</select></label><label>Attack bonus <input id="enemyBonus" type="number" value="${bonus == null ? "" : esc(bonus)}" placeholder="blank asks"></label><label>Damage <input id="enemyDice" value="${esc(dice)}" placeholder="1d6+2"></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Roll</button></div></form>`;
+    const grip = preset && preset.versatile
+      ? `<label>Grip <select id="enemyGrip" aria-label="One or two hands"><option value="1">One-handed</option><option value="2">Two-handed</option></select></label>`
+      : "";
+    dlg.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2><p class="fine">${esc(row.name || "Enemy")} attacks.</p><label>Target <select id="enemyTarget">${options || "<option value=''>No players</option>"}</select></label><label>Attack bonus <input id="enemyBonus" type="number" value="${bonus == null ? "" : esc(bonus)}" placeholder="blank asks"></label>${grip}<label>Damage <input id="enemyDice" value="${esc(dice)}" placeholder="1d6+2"></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Roll</button></div></form>`;
+    const gripSel = dlg.querySelector("#enemyGrip");
+    const diceInput = dlg.querySelector("#enemyDice");
+    if (gripSel && diceInput && preset && preset.versatile) {
+      const oneHand = String(dice || "");
+      const twoHand = String(preset.versatile);
+      gripSel.addEventListener("change", () => { diceInput.value = gripSel.value === "2" ? twoHand : oneHand; });
+    }
     const finish = (ok) => {
       const target = dlg.querySelector("#enemyTarget");
       const bonus = dlg.querySelector("#enemyBonus");
@@ -2828,8 +2942,8 @@ async function cardStrike(i, n, opts) {
   if (atk.capacity != null && Number(atk.loaded) <= 0) { DM.toast(atk.name + " is empty"); return; }
   const picked = await askEnemyStrike(row, atk);
   if (!picked || !picked.targetId) { DM.toast("No player to attack"); return; }
-  const bonus = Number(atk.toHit);
-  const dice = String(atk.damage || "").trim();
+  const bonus = picked.bonus != null && isFinite(Number(picked.bonus)) ? Number(picked.bonus) : Number(atk.toHit);
+  const dice = String((picked.dice || atk.damage || "")).trim();
   if (!isFinite(bonus) || !dice) { DM.toast("That attack has no bonus or damage"); return; }
   row.lastAttackerId = picked.targetId;
   const target = playerTargets().filter((p) => p.id === picked.targetId)[0] || { id: picked.targetId, name: picked.targetId, ac: null };
@@ -2867,34 +2981,33 @@ async function cardStrike(i, n, opts) {
       from: row.id, characterName: row.name, weapon: atk.name, label: atk.name, type: "damage"
     });
   }
-  if (!(opts && opts.skipRider) && hit && atk.rider && (atk.rider.condition || atk.rider.save)) {
-    const save = await requestPlayerSave({
-      targetId: target.id,
-      targetName: target.name,
-      ability: atk.rider.save || "STR",
-      dc: atk.rider.dc,
-      label: (row.name || "Enemy") + " " + (atk.name || "attack"),
-      rider: atk.rider.condition || "",
-      fromName: row.name || ""
-    });
-    if (save.failed) {
-      row.pendingRider = {
-        condition: atk.rider.condition || "condition",
-        rounds: atk.rider.rounds,
-        targetId: target.id,
-        targetName: target.name
-      };
-      try {
-        await writeSubjectConditions(target.id, "player", [{ name: row.pendingRider.condition, rounds: atk.rider.rounds }], target.name || "", 1, {}, []);
-      } catch (err) { /* the Apply button stays */ }
+  if (hit && atk.extraDamage && atk.extraDamage.damage) {
+    const extra = DM.parseDice(atk.extraDamage.damage);
+    if (extra) {
+      detail += " · +" + extra.detail + (atk.extraDamage.damageType ? " " + atk.extraDamage.damageType : "") + " = " + extra.total;
+      if (fight.damageMode !== "approve") {
+        applyPlayerHit({
+          rollId: id + ":extra", targetId: target.id, targetName: target.name, amount: extra.total,
+          from: row.id, characterName: row.name, weapon: atk.name, label: (atk.name || "Attack") + " " + (atk.extraDamage.damageType || "extra"), type: "damage"
+        });
+      }
     }
+  }
+  if (hit && atk.grapple && atk.grapple.escapeDc != null && atk.grapple.escapeDc !== "") {
+    const grip = "Grappled (escape DC " + atk.grapple.escapeDc + ")";
+    detail += " · " + grip;
+    await rememberCondition(row, target, "Grappled", null);
+  }
+  if (!(opts && opts.skipRider) && hit && atk.rider && (conditionName(atk.rider) || atk.rider.save)) {
+    const save = await askAttackSave(row, atk, target, atk.rider, "");
+    if (save.failed) await rememberCondition(row, target, conditionName(atk.rider), atk.rider.rounds);
     detail = save.line;
-    if (DM.state.demo) {
-      await DM.pushRoll({
-        who: target.name || row.name, label: (atk.name || "Save"), formula: "1d20" + signed(save.mod || 0),
-        result: save.total, detail: save.line, private: true, nat: save.nat, save: true
-      });
-    }
+  }
+  if (!(opts && opts.skipRider) && hit && atk.saveDamage) {
+    detail = await applySaveDamage(row, atk, target, "");
+  }
+  if (!(opts && opts.skipRider) && hit && atk.saveEffect) {
+    detail = await applySaveEffect(row, atk, target, "");
   }
   await saveRemoteTable();
   renderFight();
@@ -3576,8 +3689,8 @@ function wireClicks() {
       const idx = parseInt(t.getAttribute("data-apply-rider"), 10);
       const row = fight.order[idx];
       const pending = row && row.pendingRider;
-      if (pending && pending.targetId) {
-        const names = [{ name: pending.condition || "Prone", rounds: pending.rounds }];
+      if (pending && pending.targetId && pending.condition) {
+        const names = [{ name: pending.condition, rounds: pending.rounds }];
         writeSubjectConditions(pending.targetId, "player", names, pending.targetName || "", 1, {}, []).then(() => {
           DM.toast("Applied " + names[0].name);
         });
@@ -3976,6 +4089,10 @@ async function bootV2() {
   } catch (e) {}
   renderTracks();
   renderBestiary();
+  const beastQ = $("#beastQ");
+  if (beastQ) beastQ.addEventListener("input", renderBestiary);
+  const beastParked = $("#beastParked");
+  if (beastParked) beastParked.addEventListener("change", renderBestiary);
   renderFight();
   renderStock();
   renderPacks();

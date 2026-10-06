@@ -11103,7 +11103,8 @@ window.SSDNS_RULES = {
   {
    "name": "Suggestion",
    "level": 2,
-   "kind": "none"
+   "kind": "save",
+   "save": "WIS"
   },
   {
    "name": "Suggestion Shell",

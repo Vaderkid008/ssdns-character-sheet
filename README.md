@@ -1,6 +1,8 @@
 # SSDNS Character Sheet
 
-Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.12, DM Command Center v0.2.23).
+Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.13, DM Command Center v0.2.24).
+
+- Full bestiary: 48 enemies in Creatures, Folk, and Named, with search and a Show parked toggle (Calder stays hidden until the DM asks). Attacks carry save-for-half poison, grapple escape DCs, extra damage, and a one-hand or two-hand choice. A save with no condition does not invent a condition named "condition". Suggestion is a Wisdom save. `database.rules.json` did not change.
 
 - Hidden enemy stats: players see a name (or Unknown gunman), a coarse status, visible conditions, and only the fields the DM reveals. AC, HP numbers, saves, attacks, traits, and tactics live on `encounter/dm`, which players cannot read. A hidden-AC attack waits on the DM, who posts HIT, MISS, or CRIT once. **`database.rules.json` changed.** `encounter/dm` is DM-only, and `encounter/public` rejects top-level `ac`, `hp`, `maxHp`, `saves`, `attacks`, `traits`, `tactics`, and `dcs`. This agent did not deploy rules.
 - Lobby status: after End Session the strip says the session ended, and it never stays LIVE for a room that has ended. Leave room and New code update that same strip. `database.rules.json` did not change.

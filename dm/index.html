@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="assets/revolver.png">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.23-chat">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.24-chat">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -358,9 +358,13 @@
         </div>
       </details>
       <details class="fold">
-        <summary>Bestiary (examples)</summary>
-        <p class="lede">Placeholder cards. Edit <code>dm/assets/data/bestiary.json</code> to add real ones.</p>
-        <div class="bestiary-grid" id="bestiaryList"></div>
+        <summary>Bestiary</summary>
+        <p class="lede">Creatures, folk, and named enemies. Search keeps the list usable on a phone.</p>
+        <div class="beast-tools">
+          <input type="search" id="beastQ" placeholder="Search enemies" aria-label="Search enemies">
+          <label class="toggle"><input type="checkbox" id="beastParked"> Show parked</label>
+        </div>
+        <div id="bestiaryList"></div>
       </details>
     </section>
 
@@ -511,16 +515,16 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.23"></script>
-<script src="../assets/js/conditions.js?v=0.2.23"></script>
-<script src="assets/js/ui-tab.js?v=0.2.23"></script>
-<script src="../assets/js/sfx.js?v=0.2.23"></script>
-<script src="../assets/data/rules.js?v=0.2.23"></script>
-<script src="../assets/js/spell-cast.js?v=0.2.23"></script>
-<script src="../assets/js/firebase-config.js?v=0.2.23"></script>
-<script src="assets/js/store-stock.js?v=0.2.23"></script>
-<script src="assets/js/demo-data.js?v=0.2.23"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.23-chat"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.23"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.24"></script>
+<script src="../assets/js/conditions.js?v=0.2.24"></script>
+<script src="assets/js/ui-tab.js?v=0.2.24"></script>
+<script src="../assets/js/sfx.js?v=0.2.24"></script>
+<script src="../assets/data/rules.js?v=0.2.24"></script>
+<script src="../assets/js/spell-cast.js?v=0.2.24"></script>
+<script src="../assets/js/firebase-config.js?v=0.2.24"></script>
+<script src="assets/js/store-stock.js?v=0.2.24"></script>
+<script src="assets/js/demo-data.js?v=0.2.24"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.24-chat"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.24"></script>
 </body>
 </html>
