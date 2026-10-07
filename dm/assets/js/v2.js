@@ -1989,7 +1989,10 @@ function renderEnemySheet() {
   if (sub) {
     const card = row.card || {};
     const sideWord = row.kind === "enemy" ? (isFriendly(row) ? "Friendly" : "Enemy") : "";
-    sub.textContent = [card.cr ? "CR " + card.cr : "", sideWord, card.speed ? "Speed " + card.speed : ""].filter(Boolean).join(" · ");
+    const header = window.SSDNSApplied && window.SSDNSApplied.sheetHeader
+      ? window.SSDNSApplied.sheetHeader({ size: card.size, type: card.type, cr: card.cr, side: sideWord, speed: card.speed })
+      : [card.cr ? "CR " + card.cr : "", sideWord, card.speed ? "Speed " + card.speed : ""].filter(Boolean).join(" · ");
+    sub.textContent = header;
   }
   const add = String(enemySheetId || "").indexOf("preview:") === 0
     ? `<p><button type="button" class="btn btn-primary" data-sheet-add="1">Add to the fight</button></p>`
