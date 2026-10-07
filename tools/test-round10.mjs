@@ -157,7 +157,7 @@ check(join.indexOf("seen: false") >= 0, "turn ack records delivered before seen"
 check(extras.indexOf("selfApplied") >= 0 && extras.indexOf("releaseHealTarget") >= 0, "self heals apply locally");
 check(play.indexOf("attackRoll") >= 0, "melee uses the shared attack dice");
 check(app.indexOf("details.box.wild") >= 0, "wild spark box can be hidden");
-check(read("version.json").indexOf('"sheet": "0.3.14"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.27"') >= 0, "current versions");
+check(read("version.json").indexOf('"sheet": "0.3.15"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.28"') >= 0, "current versions");
 
 if (failures.length) {
   console.error(failures.join("\n"));

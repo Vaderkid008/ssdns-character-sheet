@@ -166,7 +166,7 @@ check(src.indexOf("function openEnemyById") >= 0 && src.indexOf("function openEn
 check(src.indexOf("skipRider: true") >= 0 && src.indexOf("opts && opts.skipRider") >= 0, "sheet Roll does not also fire the rider");
 check(src.indexOf("function applyLastStrike") >= 0 && src.indexOf("Already applied") >= 0 && src.indexOf("settled(room, last.id)") >= 0, "Apply uses the settled roll");
 check(src.indexOf("function claimApply") >= 0 && src.indexOf("if (rollId && !claimApply(rollId)) return;") >= 0, "apply still claims the roll id");
-check(src.indexOf("lastAttackerId || (players[0]") >= 0, "target picker defaults to the last target");
+check(src.indexOf("livingPlayer") >= 0 && src.indexOf("row.lastAttackerId") >= 0, "target picker prefers a living last attacker");
 check(html.indexOf('id="enemySheet"') >= 0 && html.indexOf('id="btnCloseEnemy"') >= 0, "sheet overlay");
 check(css.indexOf(".enemy-sheet.drawer") >= 0 && css.indexOf(".sheet-dice") >= 0 && css.indexOf("position: sticky") >= 0, "sheet layout and sticky dice");
 check(src.indexOf("tactics-note") >= 0 && src.indexOf("On deck:") >= 0 && src.indexOf("Bloodied") >= 0, "fight row tactics, on deck, bloodied");
@@ -243,9 +243,9 @@ check(sandbox.__enemy.enemyPickerList(picker, "", false).some((b) => b.parked) =
 const menu = sandbox.__enemy.enemySelectHtml(sandbox.__enemy.enemyPickerList(picker, "", false));
 check(menu.indexOf('label="Creatures"') >= 0 && menu.indexOf('label="Folk"') >= 0 && menu.indexOf('label="Named"') >= 0 && menu.indexOf("Abigail Ellen") >= 0, "fight menu uses group headers");
 check(html.indexOf('id="enemyQ"') >= 0, "fight search box is in the page");
-check(version.dmcc === "0.2.27" && version.dmccBuild === "dmcc-header-v0227", "dmcc version");
-check(version.sheet === "0.3.14" && version.sheetBuild === "sheet-storyteller-kit-v0314", "sheet version");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.27"') >= 0, "dmcc.js version");
+check(version.dmcc === "0.2.28" && version.dmccBuild === "dmcc-playtest-v0228", "dmcc version");
+check(version.sheet === "0.3.15" && version.sheetBuild === "sheet-playtest-v0315", "sheet version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.28"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {

@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.14"; // sheet-storyteller-kit-v0314
+  var APP_VERSION = "0.3.15"; // sheet-playtest-v0315
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -510,8 +510,42 @@
     else row.forEach(function (n, i) { t[i + 1] = n; });
     return t;
   }
+  function wantedLineageAsi(c) {
+    var Applied = window.SSDNSApplied;
+    if (!Applied || !Applied.parseAsi) return { fixed: {}, choices: [] };
+    var lin = LIN[c.lineage];
+    var sub = lin && (lin.sublineages || []).filter(function (x) { return x.id === c.sublineage; })[0];
+    var parts = [Applied.parseAsi(lin && lin.asi), Applied.parseAsi(sub && sub.asi)];
+    var merged = Applied.mergeAsi ? Applied.mergeAsi(parts) : parts[0];
+    var fixed = {};
+    AB.forEach(function (a) { fixed[a] = (merged.fixed && merged.fixed[a]) || 0; });
+    var picks = Array.isArray(c.asiChoice) ? c.asiChoice : [];
+    var cursor = 0;
+    (merged.choices || []).forEach(function (choice) {
+      var n = 0;
+      while (n < choice.count && cursor < picks.length) {
+        var key = String(picks[cursor] || "").toUpperCase();
+        cursor++;
+        if (AB.indexOf(key) < 0) continue;
+        fixed[key] = (fixed[key] || 0) + (choice.by || 0);
+        n++;
+      }
+    });
+    return { fixed: fixed, choices: merged.choices || [] };
+  }
+  function syncLineageAsi(c) {
+    if (!c) return false;
+    var want = wantedLineageAsi(c);
+    var Applied = window.SSDNSApplied;
+    if (!Applied || !Applied.applyAsiScores) return false;
+    var next = Applied.applyAsiScores(c.abilities || {}, c.lineageAsi || {}, want.fixed);
+    if (next.changed) c.abilities = Object.assign({}, c.abilities || {}, next.abilities);
+    c.lineageAsi = want.fixed;
+    return next.changed;
+  }
   function compute() {
     var c = C(), v = {};
+    syncLineageAsi(c);
     var hol = HOL[c.holster];
     v.scores = {}; v.mods = {};
     AB.forEach(function (a) { v.scores[a] = num(c.abilities[a], 10); });
@@ -1161,7 +1195,18 @@
     ensureSpeed();
     var wild = document.querySelector("details.box.wild");
     if (wild) wild.hidden = C().calling !== "hexslinger";
-    var c = C(), v = compute();
+    var c = C();
+    var asiBumped = syncLineageAsi(c);
+    if (asiBumped) {
+      AB.forEach(function (a) {
+        var el = document.querySelector("[data-f='character.abilities." + a + "']");
+        if (!el || document.activeElement === el) return;
+        el.value = c.abilities[a] == null ? "" : String(c.abilities[a]);
+      });
+      if (c.hpAuto !== false) applyAutoHp();
+      changed({ noRender: true, quiet: true });
+    }
+    var v = compute();
     $$("[data-calc]").forEach(function (e) {
       var k = e.getAttribute("data-calc"), auto = calcValue(k, v), has = hasOv(c, k);
       e.classList.toggle("overridden", has);
@@ -1631,6 +1676,7 @@
       var typed = Number(conEl.value);
       if (isFinite(typed)) c.abilities.CON = typed;
     }
+    syncLineageAsi(c);
     var con = mod(num(c.abilities.CON, 10));
     var lv = Math.max(1, Math.min(20, num(c.level, 1)));
     var hp = Math.max(1, die + con);
@@ -1644,11 +1690,11 @@
     var hp = suggestedHp(c);
     if (hp == null) return;
     var oldMax = c.hpMax === "" || c.hpMax == null ? null : num(c.hpMax, 0);
-    var cur = c.hpCurrent === "" || c.hpCurrent == null ? null : num(c.hpCurrent, 0);
+    var cur = c.hpCurrent === "" || c.hpCurrent == null ? null : c.hpCurrent;
+    var Applied = window.SSDNSApplied;
+    var nextCur = Applied && Applied.adjustCurrentHp ? Applied.adjustCurrentHp(cur, oldMax, hp) : hp;
     c.hpMax = hp;
-    if (cur == null || (oldMax != null && cur === oldMax)) c.hpCurrent = hp;
-    else if (oldMax != null) c.hpCurrent = Math.max(0, cur + (hp - oldMax));
-    else c.hpCurrent = hp;
+    c.hpCurrent = nextCur;
     if (!String(c.hitDiceLeft || "").trim()) {
       var cal = currentCalling();
       if (cal) c.hitDiceLeft = num(c.level, 1) + cal.hitDie;
@@ -1678,17 +1724,120 @@
     else if (c.calling !== "hexslinger" && c.casterGun && R.casterGuns.some(function (g) { return g.id === c.casterGun; })) c.casterGun = "";
     toast("Saving throws set for " + cal.name + " (" + cal.saves.join(", ") + "). Hit die " + cal.hitDie + "." + (add.length ? " Armor and weapon proficiencies added." : ""));
   }
+  function asiChoiceCount(spec) {
+    var n = 0;
+    (spec && spec.choices || []).forEach(function (choice) { n += choice.count || 0; });
+    return n;
+  }
+  function askAsiChoice(count) {
+    return new Promise(function (resolve) {
+      if (!count) { resolve([]); return; }
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      var form = document.createElement("form");
+      form.method = "dialog";
+      var h = document.createElement("h2");
+      h.textContent = "Ability score increase";
+      var note = document.createElement("p");
+      note.className = "fine";
+      note.textContent = "Choose " + count + " different " + (count === 1 ? "score" : "scores") + ".";
+      form.appendChild(h);
+      form.appendChild(note);
+      var picks = [];
+      var i;
+      for (i = 0; i < count; i++) {
+        var label = document.createElement("label");
+        label.appendChild(document.createTextNode("Score " + (i + 1) + " "));
+        var sel = document.createElement("select");
+        var blank = document.createElement("option");
+        blank.value = "";
+        blank.textContent = "Choose";
+        sel.appendChild(blank);
+        AB.forEach(function (key) {
+          var opt = document.createElement("option");
+          opt.value = key;
+          opt.textContent = key;
+          sel.appendChild(opt);
+        });
+        label.appendChild(sel);
+        form.appendChild(label);
+        picks.push(sel);
+      }
+      var foot = document.createElement("div");
+      foot.className = "dlg-foot";
+      var cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "btn";
+      cancel.textContent = "Cancel";
+      var go = document.createElement("button");
+      go.type = "submit";
+      go.className = "btn btn-primary";
+      go.textContent = "Apply";
+      foot.appendChild(cancel);
+      foot.appendChild(go);
+      form.appendChild(foot);
+      dlg.appendChild(form);
+      var done = false;
+      function finish(value) {
+        if (done) return;
+        done = true;
+        if (dlg.close) dlg.close();
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(value);
+      }
+      cancel.addEventListener("click", function () { finish(null); });
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var chosen = [];
+        var k;
+        for (k = 0; k < picks.length; k++) {
+          var val = picks[k].value;
+          if (!val || chosen.indexOf(val) >= 0) { toast("Choose " + count + " different scores."); return; }
+          chosen.push(val);
+        }
+        finish(chosen);
+      });
+      dlg.addEventListener("cancel", function (e) { e.preventDefault(); finish(null); });
+      document.body.appendChild(dlg);
+      try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+      catch (err) { dlg.setAttribute("open", ""); }
+    });
+  }
+  function finishLineageAsi(c) {
+    var spec = wantedLineageAsi(c);
+    var need = asiChoiceCount(spec);
+    var have = Array.isArray(c.asiChoice) ? c.asiChoice.length : 0;
+    function applyNow() {
+      var bumped = syncLineageAsi(c);
+      if (bumped && c.hpAuto !== false) applyAutoHp();
+      renderFields();
+      changed();
+      return bumped;
+    }
+    if (need && have < need) {
+      askAsiChoice(need).then(function (chosen) {
+        if (chosen && chosen.length) c.asiChoice = chosen;
+        applyNow();
+      });
+      return;
+    }
+    applyNow();
+  }
   function onLineagePicked() {
     var c = C(), l = LIN[c.lineage];
     c.sublineage = "";
+    c.asiChoice = [];
     if (!l) return;
     if (l.speed) c.speed = l.speed;
+    finishLineageAsi(c);
     toast(l.name + ": speed " + (l.speed || "—") + " ft. " + (l.asi || "") + " Age: " + (l.age || "—") + " Size: " + (l.size || "—") + " Languages: " + (l.languages || "—"));
   }
   function onSublineagePicked() {
     var c = C(), l = LIN[c.lineage], s = l && (l.sublineages || []).filter(function (x) { return x.id === c.sublineage; })[0];
     if (!s) return;
     c.speed = s.speed || l.speed || c.speed;
+    c.asiChoice = [];
+    finishLineageAsi(c);
     toast(s.name + ": " + (s.asi || "") + (s.speed ? " Speed " + s.speed + " ft." : ""));
   }
   function onBackgroundPicked() {
@@ -1859,8 +2008,17 @@
     if (g.fouled) return { ok: false, reason: "Fouled. It can't fire until it's cleaned." };
     if (w && w.capacity) {
       var a = normChambers(g, w);
-      if (k !== undefined && isHexChamber(a[k])) return { ok: false, reason: "That's a hex shell. Use Cast through gun — Roll never spends a slot." };
-      if (k === undefined || !isPlainChamber(a[k])) k = a.findIndex(isPlainChamber);
+      var clicked = k !== undefined;
+      var click = window.SSDNSApplied && window.SSDNSApplied.chamberClick
+        ? window.SSDNSApplied.chamberClick(a[k], clicked)
+        : { action: clicked && !a[k] ? "empty" : (clicked && isHexChamber(a[k]) ? "hex" : "fire") };
+      if (click.action === "empty") return { ok: false, empty: true, reason: "Click." };
+      if (click.action === "hex" || (clicked && isHexChamber(a[k]))) return { ok: false, reason: "That's a hex shell. Use Cast through gun — Roll never spends a slot." };
+      if (!clicked) {
+        k = a.findIndex(Boolean);
+        if (k >= 0 && isHexChamber(a[k])) return { ok: false, reason: "That's a hex shell. Use Cast through gun — Roll never spends a cartridge." };
+        if (k < 0 || !isPlainChamber(a[k])) k = a.findIndex(isPlainChamber);
+      } else if (!isPlainChamber(a[k])) k = -1;
       if (k < 0) return { ok: false, reason: w.hexShells ? "No plain cartridge chambered. Cast through gun fires a hex shell." : "Out of rounds, Reload" };
       var was = a[k];
       a[k] = "";
@@ -1893,6 +2051,7 @@
     var before = C().guns[i] && C().guns[i].chambers ? C().guns[i].chambers.slice() : null;
     var beforeN = C().guns[i] && C().guns[i].loaded;
     var spent = spendRound(i, k);
+    if (spent && spent.empty) { toast("Click."); return; }
     if (!spent.ok) { toast(spent.reason); return; }
     if (window.SSDNSAudio) window.SSDNSAudio.play("attack");
     var g = C().guns[i], w = WPN[g.weapon];
@@ -1911,9 +2070,10 @@
     for (var i = 0; i < n; i++) if (!a[i]) { k = i; break; }
     if (k < 0) return false;
     a[k] = true;
-    var box = document.querySelector('[data-f="character.hexLead.' + l + '.' + k + '"]');
-    if (box) { box.checked = true; box.dispatchEvent(new Event("change", { bubbles: true })); }
-    else changed();
+    suppress = true;
+    $$('[data-f="character.hexLead.' + l + '.' + k + '"]').forEach(function (box) { box.checked = true; });
+    suppress = false;
+    changed();
     return true;
   }
   function consumeShard() {

@@ -98,7 +98,7 @@ check(extras.indexOf("You're at 0 HP") >= 0 && extras.indexOf("You can't attack 
 check(extras.indexOf(" disadvantage") >= 0 && play.indexOf("advPin") >= 0, "disadvantage is labeled and one-shot unless pinned");
 check(css.indexOf("body.sheet-readonly .tab-warn button { pointer-events: auto; }") >= 0, "take over receives a real click");
 check(app.indexOf("Bleeding:") < 0 && read("dm/assets/js/demo-data.js").indexOf("Bleeding") < 0, "Bleeding is removed");
-check(read("version.json").indexOf('"sheet": "0.3.14"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.27"') >= 0, "round 12 versions");
+check(read("version.json").indexOf('"sheet": "0.3.15"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.28"') >= 0, "round 12 versions");
 const suggestion = Cast.lookup("Suggestion");
 check(suggestion && suggestion.kind === "save" && suggestion.save === "WIS", "Suggestion is a Wisdom save");
 const html = read("dm/index.html");

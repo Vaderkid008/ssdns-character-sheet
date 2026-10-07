@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.27"; // dmcc-header-v0227
+const VERSION = "0.2.28"; // dmcc-playtest-v0228
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -412,6 +412,8 @@ function attachLiveListeners() {
         ? window.SSDNSApplied.presenceStep(prev, on)
         : { phase: on ? "online" : prev.phase, pending: !on && prev.phase === "online", log: "", arm: !on && prev.phase === "online" && !prev.pending, cancel: on && prev.pending };
       presenceState[id] = { phase: step.phase, pending: step.pending };
+      state.presenceHold = state.presenceHold || {};
+      state.presenceHold[id] = step.phase;
       if (step.cancel && leaveTimers[id]) {
         clearTimeout(leaveTimers[id]);
         delete leaveTimers[id];
@@ -443,6 +445,8 @@ function attachLiveListeners() {
             ? window.SSDNSApplied.presenceLeave()
             : { phase: "offline", pending: false };
           presenceState[id] = { phase: done.phase, pending: false };
+          state.presenceHold = state.presenceHold || {};
+          state.presenceHold[id] = done.phase;
           const snap = (still && still.snapshot) || s;
           const name = [snap.player, snap.name].filter(Boolean).join(" · ") || who;
           pushLedger({
@@ -972,11 +976,16 @@ function renderPresence() {
     box.innerHTML = '<span class="pill">No players yet — share the code</span>';
     return;
   }
-  box.innerHTML = list.map((p) => {
+  box.innerHTML = Object.keys(state.players).map((id) => {
+    const p = state.players[id] || {};
     const s = p.snapshot || {};
-    const on = playerOnline(p);
+    const rawOn = playerOnline(p);
+    const held = state.presenceHold && state.presenceHold[id];
+    const on = window.SSDNSApplied && window.SSDNSApplied.presenceShownOnline
+      ? window.SSDNSApplied.presenceShownOnline(rawOn, held)
+      : rawOn;
     const extra = presenceExtra(s);
-    const label = esc(s.name || p.id) + (extra ? " · " + esc(extra) : "");
+    const label = esc(s.name || id) + (extra ? " · " + esc(extra) : "");
     return `<span class="pill ${on ? "online" : "offline"}"><span class="dot"></span>${label}</span>`;
   }).join("");
 }
@@ -1450,6 +1459,14 @@ async function copyRoomChildren(oldCode, newCode) {
   if (table && typeof table === "object") {
     const tablePatch = {};
     tableKeys.forEach((key) => { if (table[key] != null) tablePatch[key] = table[key]; });
+    if (tablePatch.initiative && Array.isArray(tablePatch.initiative.order)) {
+      const ids = {};
+      Object.keys(keptPlayers).forEach((id) => { ids[id] = 1; });
+      const order = window.SSDNSApplied && window.SSDNSApplied.stripGhostCombatants
+        ? window.SSDNSApplied.stripGhostCombatants(tablePatch.initiative.order, ids)
+        : tablePatch.initiative.order.filter((row) => !row || row.kind !== "player" || ids[row.playerId || row.id]);
+      tablePatch.initiative = Object.assign({}, tablePatch.initiative, { order: order });
+    }
     if (Object.keys(tablePatch).length) await fb.update(fb.ref(state.db, base + "/table"), tablePatch);
   }
   if (encounter && encounter.public) await put("encounter/public", encounter.public);
@@ -1636,7 +1653,7 @@ function dockItems() {
     rows.push({
       ts: r.ts,
       kind: (r.nat1 && r.isFirearm) ? "alerts" : "rolls",
-      who: r.who || "",
+      who: rollWho(r) || r.characterName || r.who || "",
       cls: (r.private ? "private " : "") + (face.cls || ""),
       tag: r.private ? "PRIVATE" : face.tag,
       text: rollBody(r),
@@ -2050,6 +2067,7 @@ function buildRecap() {
   return lines.join("\n");
 }
 async function endSession(wipe) {
+  if (window.DMCCEnhance && window.DMCCEnhance.clearFight) window.DMCCEnhance.clearFight();
   permitLobby("end");
   releaseSession();
   const recap = buildRecap();

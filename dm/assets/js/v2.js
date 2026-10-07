@@ -69,6 +69,17 @@ function loadLocalTable() {
     fight.packs = raw.packs || fight.packs;
     if (raw.condMap && typeof raw.condMap === "object") fight.condMap = raw.condMap;
     if (raw.removed && typeof raw.removed === "object") fight.removed = raw.removed;
+    if (raw.departed && typeof raw.departed === "object") fight.departed = raw.departed;
+    const present = {};
+    Object.keys(DM.state.players || {}).forEach((id) => { present[id] = 1; });
+    fight.order = window.SSDNSApplied && window.SSDNSApplied.stripGhostCombatants
+      ? window.SSDNSApplied.stripGhostCombatants(fight.order, DM.state.players && Object.keys(DM.state.players).length ? present : null)
+      : (fight.order || []);
+    fight.order = (fight.order || []).filter((row) => {
+      if (!row || row.kind !== "player") return !!row;
+      const id = row.playerId || row.id;
+      return !(fight.departed && fight.departed[id]);
+    });
     if (raw.undos && typeof raw.undos === "object") fight.undos = raw.undos;
     if (raw.damageMode === "approve" || raw.damageMode === "auto") fight.damageMode = raw.damageMode;
   } catch (e) {}
@@ -81,7 +92,7 @@ function saveLocalTable() {
   try {
     localStorage.setItem(tableKey(), JSON.stringify({
       round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: fight.order, inspiration: fight.inspiration,
-      stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, removed: fight.removed || {}, undos: fight.undos || {}, damageMode: fight.damageMode === "approve" ? "approve" : "auto", updatedAt: fight.updatedAt
+      stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, removed: fight.removed || {}, departed: fight.departed || {}, undos: fight.undos || {}, damageMode: fight.damageMode === "approve" ? "approve" : "auto", updatedAt: fight.updatedAt
     }));
     localStorage.setItem(PACK_KEY, JSON.stringify(fight.packs));
   } catch (e) {}
@@ -250,6 +261,9 @@ function syncDamageMode() {
 }
 function buildPublish() {
   captureSecrets();
+  (fight.order || []).forEach((row) => {
+    if (window.SSDNSApplied && window.SSDNSApplied.refreshCombatantStatus) window.SSDNSApplied.refreshCombatantStatus(row);
+  });
     const order = (fight.order || []).map((row, index) => {
       const shown = window.SSDNSApplied && window.SSDNSApplied.publicEnemy
         ? window.SSDNSApplied.publicEnemy(row, index, conditionsForRow(row))
@@ -1282,6 +1296,9 @@ function nextTurn() {
     if (step.wrapped) fight.round += 1;
   }
   fight.flash = fight.turn;
+  (fight.order || []).forEach((row) => {
+    if (window.SSDNSApplied && window.SSDNSApplied.refreshCombatantStatus) window.SSDNSApplied.refreshCombatantStatus(row);
+  });
   saveRemoteTable();
   renderFight();
   const cur = fight.order[fight.turn];
@@ -2102,13 +2119,16 @@ async function applySaveEffect(row, atk, target, mode) {
 async function strikeTarget(row, atk) {
   let targetId = (atk.lastRoll && atk.lastRoll.targetId) || row.lastAttackerId;
   let targetName = (atk.lastRoll && atk.lastRoll.targetName) || "";
-  if (!targetId) {
+  const stored = playerTargets().filter((p) => p.id === targetId)[0];
+  if (!targetId || !stored || !livingPlayer(stored)) {
     const picked = await askEnemyStrike(row, atk);
     if (!picked || !picked.targetId) return null;
     targetId = picked.targetId;
     targetName = "";
   }
-  return playerTargets().filter((p) => p.id === targetId)[0] || { id: targetId, name: targetName || targetId };
+  const next = playerTargets().filter((p) => p.id === targetId)[0];
+  if (next && !livingPlayer(next)) return null;
+  return next || { id: targetId, name: targetName || targetId };
 }
 async function runRider(i, n, mode) {
   const row = fight.order[i];
@@ -2729,6 +2749,7 @@ function applyEnemyHp(row, delta) {
     const max = knownNumber(row.maxHp);
     row.hp = max == null ? before + delta : Math.min(max, before + delta);
   } else row.hp = Math.max(0, before + delta);
+  if (window.SSDNSApplied && window.SSDNSApplied.refreshCombatantStatus) window.SSDNSApplied.refreshCombatantStatus(row);
   return before;
 }
 function askAmount(sign) {
@@ -2826,22 +2847,35 @@ function dexModFrom(dex) {
   if (!isFinite(n)) return 0;
   return Math.floor((n - 10) / 2);
 }
+function livingPlayer(p) {
+  if (!p) return false;
+  if (window.SSDNSApplied && window.SSDNSApplied.isUnusableTarget) return !window.SSDNSApplied.isUnusableTarget(p);
+  const hp = knownNumber(p.hp);
+  if (hp != null && hp <= 0) return false;
+  if (/^(down|dead|unconscious|fled|left)$/i.test(String(p.status || ""))) return false;
+  return true;
+}
 function playerTargets() {
   const fromOrder = fight.order.filter((r) => r && r.kind === "player").map((r) => ({
     id: r.playerId || r.id,
     name: r.name || "Player",
-    ac: r.ac
+    ac: r.ac,
+    hp: r.hp,
+    status: r.status || "",
+    fled: !!r.fled
   }));
   Object.keys(DM.state.players || {}).forEach((pid) => {
     if (fromOrder.some((p) => p.id === pid)) return;
+    if (fight.departed && fight.departed[pid]) return;
     const s = DM.state.players[pid].snapshot || {};
-    fromOrder.push({ id: pid, name: s.name || pid, ac: s.ac });
+    fromOrder.push({ id: pid, name: s.name || pid, ac: s.ac, hp: s.hpCurrent, status: "" });
   });
   return fromOrder;
 }
 function askEnemyStrike(row, preset) {
-  const players = playerTargets();
-  const def = row.lastAttackerId || (players[0] && players[0].id) || "";
+  const players = playerTargets().filter(livingPlayer);
+  const previous = row.lastAttackerId && players.some((p) => p.id === row.lastAttackerId) ? row.lastAttackerId : "";
+  const def = previous || (players[0] && players[0].id) || "";
   const bonus = preset && preset.toHit != null && preset.toHit !== "" ? preset.toHit : row.atkBonus;
   const dice = preset && preset.damage ? preset.damage : (row.damage || "");
   const title = preset && preset.name ? preset.name : "Attack a player";
@@ -3495,11 +3529,12 @@ function applyPlayerHit(meta) {
   });
   DM.toast(line);
 }
-function verdictFeed(id, text) {
+function verdictFeed(id, text, who) {
   if (DM.state.demo || !DM.state.db || !DM.state._fb) return;
+  const speaker = who || "DM";
   const row = {
     id: id, ts: new Date().toISOString(), from: DM.state.uid || "dm",
-    fromName: "DM", text: text, kind: "roll", who: "DM"
+    fromName: speaker, text: text, kind: "roll", who: speaker
   };
   DM.state._fb.set(DM.roomRef("tableFeed/" + id), row).catch((err) => {
     if (DM.writeFailed) DM.writeFailed(err, "Couldn't post the attack");
@@ -3551,8 +3586,8 @@ function resolveIncomingAttack(req, reqId) {
       : ((req.characterName || "Someone") + " → " + (shown.name || "enemy") + " → " + verdict.verdict);
     applyAmount = verdict.miss ? 0 : (Number(req.amount) || 0);
   }
-  const feedId = "verdict_" + (rollId || reqId || DM.uid("hit"));
-  verdictFeed(feedId, line);
+  const feedId = rollId || reqId || DM.uid("hit");
+  verdictFeed(feedId, line, req.characterName || shown.name || "");
   if (req.from) {
     DM.pushCommand({
       type: "attack_result",
@@ -3644,7 +3679,14 @@ function watchSecrets() {
     const val = snap.val();
     if (val && typeof val === "object") fight.secrets = Object.assign({}, fight.secrets || {}, val);
     restoreSecrets();
+    let statusChanged = false;
+    (fight.order || []).forEach((row) => {
+      const before = row && row.status;
+      if (window.SSDNSApplied && window.SSDNSApplied.refreshCombatantStatus) window.SSDNSApplied.refreshCombatantStatus(row);
+      if (row && row.status !== before) statusChanged = true;
+    });
     renderFight();
+    if (statusChanged) saveRemoteTable();
     if (typeof renderEnemySheet === "function" && enemySheetId) renderEnemySheet();
   });
   if (typeof cb === "function") DM.state.unsubs.push(cb);
@@ -4085,8 +4127,29 @@ function paintTurnAck() {
 }
 function notePresence(id, on) {
   if (!id) return;
-  if (!on) fight.departed[id] = true;
-  else if (fight.departed) delete fight.departed[id];
+  if (on) {
+    if (fight.departed) delete fight.departed[id];
+    return;
+  }
+  fight.departed[id] = true;
+  const before = (fight.order || []).length;
+  fight.order = (fight.order || []).filter((row) => !(row && row.kind === "player" && (row.playerId === id || row.id === id)));
+  if (fight.turn >= fight.order.length) fight.turn = 0;
+  if (fight.order.length !== before) {
+    saveRemoteTable();
+    renderFight();
+  }
+}
+function clearFight() {
+  fight.order = [];
+  fight.departed = {};
+  fight.started = false;
+  fight.round = 1;
+  fight.turn = 0;
+  fight.turnCmd = null;
+  saveLocalTable();
+  saveRemoteTable();
+  renderFight();
 }
 function acForRoll(r) {
   const row = findCombatant({ targetId: r && r.targetId, targetName: r && r.targetName });
@@ -4349,6 +4412,7 @@ async function bootV2() {
     syncPlayers: syncPlayerVitals,
     onPlayerInit: onPlayerInit,
     notePresence: notePresence,
+    clearFight: clearFight,
     acFor: acForRoll,
     enterRoom: enterRoom,
     renderFight: renderFight,

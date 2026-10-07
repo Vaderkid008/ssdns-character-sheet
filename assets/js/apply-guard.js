@@ -349,7 +349,7 @@
     shots.forEach(function (shot, i) {
       shot = shot || {};
       var v = attackVerdict({ nat: shot.nat, total: shot.total, ac: info.ac, misfire: shot.misfire, sfx: info.sfx });
-      var bit = (shot.label || ("ray " + (i + 1))) + " " + (shot.nat == null ? "" : shot.nat) + " = " + (shot.total == null ? "" : shot.total) + " → " + v.verdict;
+      var bit = (shot.label || ("ray " + (i + 1))) + " " + attackRollCore({ nat: shot.nat, total: shot.total, atk: shot.atk }) + " → " + v.verdict;
       if (!v.miss) {
         anyHit = true;
         if (v.crit) anyCrit = true;
@@ -376,11 +376,9 @@
     verdict = verdict || attackVerdict(info);
     var who = info.who || "Someone";
     var target = info.target || "enemy";
-    var nat = info.nat == null ? "" : String(info.nat);
-    var total = info.total == null ? "" : String(info.total);
     var dice = !verdict.miss && info.dice ? (" · " + info.dice) : "";
     var amount = !verdict.miss && info.amount != null && info.amount !== "" ? (" = " + info.amount) : "";
-    return who + " → " + target + ": " + nat + " = " + total + " → " + verdict.verdict + dice + amount;
+    return who + " → " + target + ": " + attackRollCore(info) + " → " + verdict.verdict + dice + amount;
   }
   /** Refuse an in-room LIVE line once the DM has left the table or the room has ended. */
   function liveStripAllowed(mode, text, info) {
@@ -683,6 +681,159 @@
     }
     return lines;
   }
+  var ABILITY_KEYS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
+  function isUnusableTarget(row) {
+    if (!row) return true;
+    if (row.fled || row.left || row.departed) return true;
+    var status = String(row.status || "");
+    if (/^(fled|left|gone)$/i.test(status)) return true;
+    var hp = row.hp;
+    if ((hp == null || hp === "") && row.revealed && row.revealed.hp != null && row.revealed.hp !== "") hp = row.revealed.hp;
+    var known = hp != null && hp !== "" && isFinite(Number(hp));
+    if (known && Number(hp) > 0) return false;
+    if (known && Number(hp) <= 0) return true;
+    if (/^(down|dead|unconscious|dying)$/i.test(status)) return true;
+    if (conditionNames(row.conditions).some(function (name) { return /unconscious|dead|dying/i.test(name); })) return true;
+    return false;
+  }
+  function isLivingHostile(row) {
+    if (!row || isUnusableTarget(row)) return false;
+    if (row.kind === "player") return false;
+    var side = String(row.side || combatantSide(row) || "").toLowerCase();
+    if (side === "friendly" || side === "ally") return false;
+    return true;
+  }
+  /** HP wins over a sticky Down. Fled stays fled. A living creature is not Down. */
+  function refreshCombatantStatus(row) {
+    if (!row) return "";
+    if (row.fled || String(row.status || "") === "Fled") {
+      row.status = "Fled";
+      return "Fled";
+    }
+    var hp = row.hp;
+    if ((hp == null || hp === "") && row.revealed && row.revealed.hp != null && row.revealed.hp !== "") hp = row.revealed.hp;
+    var known = hp != null && hp !== "" && isFinite(Number(hp));
+    var n = known ? Number(hp) : null;
+    if (known && n <= 0) {
+      row.status = "Down";
+      return "Down";
+    }
+    if (known && n > 0 && /^(down|dead|unconscious|dying)$/i.test(String(row.status || ""))) row.status = "";
+    if (row.kind === "player") return row.status || "";
+    if (known) row.status = coarseStatus(row);
+    return row.status || "";
+  }
+  function chamberClick(token, indexed) {
+    if (!indexed) return { action: "advance" };
+    if (token == null || token === "") return { action: "empty" };
+    var s = String(token);
+    if (/^[1-9]$/.test(s) || s.indexOf("k:hex:") === 0) return { action: "hex" };
+    return { action: "fire" };
+  }
+  /** Hex and cantrip shots spend a spell, not a cartridge pile. */
+  function shotConsumesCartridge(kind) {
+    var k = String(kind || "");
+    if (!k || k === "hex" || k === "cantrip" || k === "spell") return false;
+    return k === "plain" || k === "cartridge" || k === "buck" || k === "slug" || k === "percussion" || k === "bigfifty" || k === "arrows";
+  }
+  function parseAsi(text) {
+    var fixed = { STR: 0, DEX: 0, CON: 0, INT: 0, WIS: 0, CHA: 0 };
+    var s = String(text || "");
+    var names = { strength: "STR", dexterity: "DEX", constitution: "CON", intelligence: "INT", wisdom: "WIS", charisma: "CHA" };
+    var re = /(strength|dexterity|constitution|intelligence|wisdom|charisma)\s+score\s+increases\s+by\s+(\d+)/gi;
+    var m;
+    while ((m = re.exec(s))) fixed[names[m[1].toLowerCase()]] += Number(m[2]) || 0;
+    var each = s.match(/ability scores each increase by\s+(\d+)/i);
+    if (each) {
+      var bump = Number(each[1]) || 0;
+      ABILITY_KEYS.forEach(function (key) { fixed[key] += bump; });
+    }
+    var choices = [];
+    var cre = /(one|two|three|\d+)\s+(?:different|other)\s+ability scores of your choice increase by\s+(\d+)/gi;
+    var words = { one: 1, two: 2, three: 3 };
+    while ((m = cre.exec(s))) {
+      var count = words[String(m[1] || "").toLowerCase()] || Number(m[1]) || 0;
+      var by = Number(m[2]) || 0;
+      if (count > 0 && by > 0) choices.push({ count: count, by: by });
+    }
+    return { fixed: fixed, choices: choices };
+  }
+  function mergeAsi(parts) {
+    var fixed = { STR: 0, DEX: 0, CON: 0, INT: 0, WIS: 0, CHA: 0 };
+    var choices = [];
+    (parts || []).forEach(function (part) {
+      if (!part) return;
+      ABILITY_KEYS.forEach(function (key) { fixed[key] += Number(part.fixed && part.fixed[key]) || 0; });
+      (part.choices || []).forEach(function (choice) { choices.push(choice); });
+    });
+    return { fixed: fixed, choices: choices };
+  }
+  function applyAsiScores(abilities, previous, next) {
+    var out = {};
+    var changed = false;
+    ABILITY_KEYS.forEach(function (key) {
+      var raw = abilities && abilities[key];
+      var base = raw == null || raw === "" || !isFinite(Number(raw)) ? 10 : Number(raw);
+      var delta = (Number(next && next[key]) || 0) - (Number(previous && previous[key]) || 0);
+      out[key] = base + delta;
+      if (delta) changed = true;
+    });
+    return { abilities: out, changed: changed };
+  }
+  /** Same contract as the sheet HP recalc: match a full pool, otherwise shift current by the max delta. */
+  function adjustCurrentHp(current, oldMax, nextMax) {
+    var next = Number(nextMax);
+    if (!isFinite(next)) return current;
+    var curKnown = current != null && current !== "" && isFinite(Number(current));
+    var oldKnown = oldMax != null && oldMax !== "" && isFinite(Number(oldMax));
+    if (!curKnown) return next;
+    var cur = Number(current);
+    if (oldKnown && cur === Number(oldMax)) return next;
+    if (oldKnown) return Math.max(0, cur + (next - Number(oldMax)));
+    return next;
+  }
+  function attackMod(info) {
+    info = info || {};
+    var bonus = info.atk != null && info.atk !== "" ? Number(info.atk) : (info.bonus != null && info.bonus !== "" ? Number(info.bonus) : NaN);
+    if (!isFinite(bonus) && info.nat != null && info.nat !== "" && info.total != null && info.total !== "") {
+      var nat = Number(info.nat);
+      var total = Number(info.total);
+      if (isFinite(nat) && isFinite(total)) bonus = total - nat;
+    }
+    if (!isFinite(bonus)) return "";
+    return (bonus >= 0 ? "+" : "") + bonus;
+  }
+  function attackRollCore(info) {
+    info = info || {};
+    var nat = info.nat == null || info.nat === "" ? "" : String(info.nat);
+    var total = info.total == null || info.total === "" ? "" : String(info.total);
+    var modTxt = attackMod(info);
+    if (nat === "") return total;
+    if (!modTxt) modTxt = "+0";
+    return nat + modTxt + (total !== "" ? " = " + total : "");
+  }
+  function speakerName(character, player) {
+    var who = String(character || "").trim();
+    if (who) return who;
+    return String(player || "").trim();
+  }
+  function stripGhostCombatants(order, playerIds) {
+    var ids = playerIds || null;
+    return (order || []).filter(function (row) {
+      if (!row) return false;
+      if (row.kind !== "player") return true;
+      var id = row.playerId || row.id;
+      if (!id) return false;
+      if (row.departed || row.left) return false;
+      if (ids && !ids[id]) return false;
+      return true;
+    });
+  }
+  function presenceShownOnline(rawOnline, phase) {
+    if (phase === "online") return true;
+    if (phase === "offline") return false;
+    return !!rawOnline;
+  }
   function offset() { return offsetMs; }
   /** Age of a stamp against estimated server time. */
   function stampAge(iso) {
@@ -756,7 +907,21 @@
     PRESENCE_LEAVE_MS: PRESENCE_LEAVE_MS,
     presenceStep: presenceStep,
     presenceLeave: presenceLeave,
-    enqueueToast: enqueueToast
+    enqueueToast: enqueueToast,
+    isUnusableTarget: isUnusableTarget,
+    isLivingHostile: isLivingHostile,
+    refreshCombatantStatus: refreshCombatantStatus,
+    chamberClick: chamberClick,
+    shotConsumesCartridge: shotConsumesCartridge,
+    parseAsi: parseAsi,
+    mergeAsi: mergeAsi,
+    applyAsiScores: applyAsiScores,
+    adjustCurrentHp: adjustCurrentHp,
+    attackMod: attackMod,
+    attackRollCore: attackRollCore,
+    speakerName: speakerName,
+    stripGhostCombatants: stripGhostCombatants,
+    presenceShownOnline: presenceShownOnline
   };
   root.SSDNSClock = {
     setOffset: setOffset,
