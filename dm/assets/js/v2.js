@@ -2525,6 +2525,56 @@ function misfireCeiling(text, dirty) {
   if (dirty) hi = Math.max(hi, 2);
   return hi;
 }
+function playTableSfx(eventName) {
+  const name = window.SSDNSAudio && window.SSDNSAudio.sharedCue
+    ? window.SSDNSAudio.sharedCue(eventName)
+    : "";
+  if (!name) return;
+  if (window.SSDNSAudio) window.SSDNSAudio.play(name);
+  if (DM.state.demo || !DM.state.db || !DM.state.roomCode) return;
+  DM.pushCommand({
+    type: "sfx",
+    to: "all",
+    quiet: true,
+    payload: { event: name },
+    from: DM.state.uid
+  });
+}
+function watchTableSfx() {
+  if (DM.state.demo || !DM.state.db || !DM.state.roomCode || !DM.state._fb) return;
+  const room = DM.state.roomCode;
+  if (fight._sfxRoom === room && fight._sfxUnsub && DM.state.unsubs.indexOf(fight._sfxUnsub) >= 0) return;
+  if (fight._sfxUnsub) {
+    const prev = DM.state.unsubs.indexOf(fight._sfxUnsub);
+    if (prev >= 0) DM.state.unsubs.splice(prev, 1);
+    try { fight._sfxUnsub(); } catch (e) {}
+    fight._sfxUnsub = null;
+  }
+  const started = Date.now();
+  const seen = {};
+  const fb = DM.state._fb;
+  const r = fb.ref(DM.state.db, "rooms/" + room + "/tableFeed");
+  const cb = fb.onValue(r, (snap) => {
+    if (DM.state.demo || DM.state.roomCode !== room) return;
+    const val = snap.val() || {};
+    Object.keys(val).forEach((id) => {
+      if (seen[id]) return;
+      seen[id] = 1;
+      const row = val[id];
+      if (!row || row.kind !== "sfx") return;
+      const ts = Date.parse(row.ts);
+      if (!ts || ts + 4000 < started) return;
+      const heard = window.SSDNSAudio && window.SSDNSAudio.sharedCue
+        ? window.SSDNSAudio.sharedCue(row.event || row.text, row.from, DM.state.uid)
+        : "";
+      if (heard) window.SSDNSAudio.play(heard);
+    });
+  });
+  const unsub = typeof cb === "function" ? cb : function () {};
+  fight._sfxUnsub = unsub;
+  fight._sfxRoom = room;
+  DM.state.unsubs.push(unsub);
+}
 async function rollGunAttack(pid) {
   const p = DM.state.players[pid];
   const s = (p && p.snapshot) || {};
@@ -2557,7 +2607,7 @@ async function rollGunAttack(pid) {
   const misfire = both || inRange(nat);
   const total = nat + bonus;
   const dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
-  if (window.SSDNSAudio) window.SSDNSAudio.play("attack");
+  playTableSfx("attack");
   let dmg = null;
   if (!misfire) dmg = rollDiceExpr(g.damage, nat === 20);
   const whoName = namesFor(pid).characterName || s.name || "them";
@@ -2583,7 +2633,7 @@ async function rollGunAttack(pid) {
   } else if (misfire) {
     g.jammed = true;
     g.condition = "jammed";
-    if (window.SSDNSAudio) window.SSDNSAudio.play("jam");
+    playTableSfx("jam");
     await DM.pushLedger(Object.assign({
       who: "DM", playerId: pid, type: "jam",
       what: g.name + " jammed (misfire) · " + (names.characterName || ""),
@@ -2655,7 +2705,8 @@ async function rollSpell(pid) {
     gunName: g && g.name,
     wildSpark: isHex && level > 0
   });
-  if (window.SSDNSAudio) window.SSDNSAudio.play("spellcast");
+  if (rolled.attack) playTableSfx("spellcast");
+  else if (window.SSDNSAudio) window.SSDNSAudio.play("spellcast");
   await DM.pushRoll({
     who: "DM",
     playerId: pid, uid: DM.state.uid,
@@ -2884,6 +2935,7 @@ async function enemyStrike(i, preset) {
   const weapon = attackName && attackName.toLowerCase() !== String(row.name || "").toLowerCase() ? attackName : "";
   const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + " = " + total + (isFinite(ac) ? " vs AC " + ac : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   const id = DM.uid("enatk");
+  playTableSfx("attack");
   await DM.pushRoll({
     id: id, who: row.name, uid: DM.state.uid, label: row.name + " attacks " + (target.name || ""), formula: "1d20" + bonusTxt,
     result: total, detail: detail, private: false, attack: true, nat: nat, crit: nat === 20 && hit,
@@ -3012,6 +3064,7 @@ async function cardStrike(i, n, opts) {
   if (misfire) {
     atk.jammed = true;
     const detail = row.name + " fires " + atk.name + ": natural " + nat + " misfire. The round is spent.";
+    playTableSfx("jam");
     await publishCardRoll(row, detail, nat, { attack: true, nat: nat });
     await saveRemoteTable();
     renderFight();
@@ -3028,6 +3081,7 @@ async function cardStrike(i, n, opts) {
   let detail = row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + (isFinite(ac) ? " vs AC " + ac : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   const id = DM.uid("enatk");
   atk.lastRoll = { id: id, damage: dmg ? dmg.total : null, targetId: target.id, targetName: target.name, hit: hit };
+  playTableSfx("attack");
   await publishCardRoll(row, detail, total, {
     id: id, formula: "1d20" + bonusTxt, attack: true, nat: nat, crit: nat === 20 && hit,
     targetId: target.id, targetName: target.name, damage: dmg ? dmg.total : null, weapon: atk.name
@@ -3217,6 +3271,7 @@ async function cardCast(i, n) {
   let dmg = null;
   if (hit && known && known.dice) dmg = DM.parseDice(known.dice);
   const detail = row.name + " casts " + name + " at " + (target.name || "someone") + ": " + nat + signed(bonus) + " = " + total + (isFinite(ac) ? " vs AC " + ac : "") + (hit ? " → HIT" : " → MISS") + (dmg ? " · " + dmg.total : "");
+  playTableSfx("spellcast");
   await publishCardRoll(row, detail, total, { attack: true, nat: nat, damage: dmg ? dmg.total : null, targetId: target.id });
   DM.toast(detail);
   renderFight();
@@ -3232,6 +3287,7 @@ async function attackRow(i) {
   let dmg = null;
   if (hit) dmg = DM.parseDice(($("#dmgFormula") && /d20/i.test($("#dmgFormula").value) ? "1d8" : ($("#dmgFormula").value || "1d8")));
   const text = row.name + " AC " + (isFinite(ac) ? ac : "?") + " · " + attackFormula + " = " + out.total + (hit == null ? "" : hit ? " HIT" : " MISS") + (hit && dmg ? " · " + dmg.total + " damage" : "");
+  playTableSfx("attack");
   await DM.pushRoll({
     who: "DM", uid: DM.state.uid, label: "Attack this " + (row.kind === "player" ? "player" : "enemy") + " · " + row.name, formula: attackFormula,
     result: out.total, detail: text, private: false, attack: true
@@ -4205,6 +4261,7 @@ function enterRoom() {
     fight.order = (fight.order || []).filter((row) => !isRemoved(row));
   }
   renderFight();
+  watchTableSfx();
 }
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
@@ -4343,6 +4400,7 @@ async function bootV2() {
       watchRequests();
       watchSecrets();
       watchConditions();
+      watchTableSfx();
     },
     onRolls: function (rows) {
       (rows || []).forEach(noteSaveRoll);

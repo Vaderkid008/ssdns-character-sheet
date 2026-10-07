@@ -55,6 +55,16 @@
   function joined() {
     return root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined();
   }
+  function attackCue(name) {
+    if (!name) return;
+    if (root.SSDNSAudio) root.SSDNSAudio.play(name);
+    if (whisperOn()) return;
+    if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postSfx) root.SSDNSDmJoin.postSfx(name);
+  }
+  function spellCueName() {
+    var c = ch();
+    return (c && c.calling === "pact-seeker") ? "pactshot" : "spellshot";
+  }
 
   function setHp(current, temp, max) {
     var cur = $("#inHPCur"), tmp = $("#inHPTemp"), maxEl = $("#inHPMax");
@@ -1162,6 +1172,8 @@
     if (tgt) rememberEnemy(tgt);
     var acForRoll = null;
     var hiddenSpell = rolled.attack && acHidden(tgt) && joined() && !whisperOn();
+    if (rolled.attack) attackCue(spellCueName());
+    else if (root.SSDNSAudio) root.SSDNSAudio.play(spellCueName());
     if (hiddenSpell) {
       var spellDmgNow = rolled.damageTotal != null ? Number(rolled.damageTotal) : 0;
       if (!isFinite(spellDmgNow)) spellDmgNow = 0;
@@ -1177,7 +1189,7 @@
         rollId: rollId,
         label: rolled.label,
         weapon: throughGun && i >= 0 ? gunName(i) : "",
-        sfx: (c && c.calling === "pact-seeker") ? "pactshot" : "spellshot",
+        sfx: spellCueName(),
         shots: rolled.shots || null,
         quiet: false
       });
@@ -1185,12 +1197,6 @@
       pendingDarts = null;
       pendingBlind = false;
       return;
-    }
-    if (root.SSDNSAudio) {
-      var cue = "spellshot";
-      if (c && c.calling === "pact-seeker") cue = "pactshot";
-      else if (!(hexslinger || fromChamber)) cue = "spellshot";
-      root.SSDNSAudio.play(cue);
     }
     if (rolled.attack && rolled.multi && tgt && tgt.name) {
       rolled.text += " → " + tgt.name;
@@ -1530,7 +1536,7 @@
       g.jammed = true;
       var jam = document.querySelector('[data-f="character.guns.' + i + '.jammed"]');
       if (jam) { jam.checked = true; dispatch(jam); }
-      if (root.SSDNSAudio) root.SSDNSAudio.play("jam");
+      attackCue("jam");
       postGunLedger(name + " jammed (misfire)", "jam");
       misfired = true;
     }
@@ -1539,6 +1545,7 @@
     if (tgt) rememberEnemy(tgt);
     var haveAc = tgt && tgt.ac != null && isFinite(Number(tgt.ac));
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
+    if (!misfired) attackCue("attack");
     if (!misfired && acHidden(tgt) && joined() && !quiet) {
       var pendingDmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
       sendPendingAttack({
@@ -1559,7 +1566,6 @@
       consumeRollMode();
       return;
     }
-    if (!misfired && root.SSDNSAudio) root.SSDNSAudio.play("attack");
     var miss = nat === 1 || misfired || (haveAc && total < Number(tgt.ac));
     var dmg = null;
     if (!miss) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
@@ -2105,6 +2111,7 @@
     acHidden: acHidden,
     sendPendingAttack: sendPendingAttack,
     consumeRollMode: consumeRollMode,
+    attackCue: attackCue,
     showTapHear: function () {
       var b = $("#btnTapHear");
       if (b) b.hidden = false;

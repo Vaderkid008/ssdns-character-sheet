@@ -575,14 +575,16 @@
       });
       return;
     }
+    var early = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo && root.SSDNSPlaytest.targetInfo();
+    var gate = root.SSDNSSheet && root.SSDNSSheet.attackGate && root.SSDNSSheet.attackGate(early);
+    if (gate) { toast(gate); return; }
+    if (root.SSDNSSheet && root.SSDNSSheet.attackCue) root.SSDNSSheet.attackCue("attack");
+    else if (root.SSDNSAudio) root.SSDNSAudio.play("attack");
     rollMeleeNow(i);
   }
   function rollMeleeNow(i) {
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
-    var early = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo && root.SSDNSPlaytest.targetInfo();
-    var gate = root.SSDNSSheet && root.SSDNSSheet.attackGate && root.SSDNSSheet.attackGate(early);
-    if (gate) { toast(gate); return; }
     paintMelee();
     var atk = parseInt((document.querySelector("[data-melee-atk='" + i + "']") || {}).textContent, 10) || 0;
     var expr = (document.querySelector("[data-melee-dmg='" + i + "']") || {}).textContent || "1d4";

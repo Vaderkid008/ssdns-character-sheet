@@ -114,6 +114,14 @@
     b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10000;background:#6b1d1d;color:#fff;text-align:center;font:700 12px/1.4 sans-serif;letter-spacing:.14em;padding:4px 8px;";
     root.document.body.appendChild(b);
   }
+  // Cues a live table may share. Skill checks, initiative, chat, and reloads stay local.
+  var SHARED_CUES = { attack: 1, jam: 1, spellshot: 1, pactshot: 1, spellcast: 1 };
+  function sharedCue(eventName, fromUid, selfUid) {
+    var name = String(eventName || "");
+    if (!SHARED_CUES[name]) return "";
+    if (fromUid && selfUid && String(fromUid) === String(selfUid)) return "";
+    return name;
+  }
   function play(eventName) {
     try { root.dispatchEvent(new CustomEvent("ssdns-sfx", { detail: eventName })); } catch (e) {}
     if (prefs.muted || volume() <= 0) return;
@@ -251,6 +259,7 @@
   root.SSDNSTestRoll = forcedD20;
   root.SSDNSAudio = {
     play: play,
+    sharedCue: sharedCue,
     playMusic: playMusic,
     stopMusic: stopMusic,
     resumeMusic: resumeMusic,
