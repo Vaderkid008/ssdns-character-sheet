@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#121618">
+<meta name="description" content="Set up your own Six-Shooters &amp; Sorcery table: fork the sheet, host it on GitHub Pages, and connect a Firebase project you create.">
+<title>Set up your table · SSDNS</title>
+<link rel="icon" href="../dm/assets/revolver.png">
+<link rel="stylesheet" href="setup.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to the guide</a>
+<header class="appbar">
+  <a class="brand" href="../dm/">
+    <img src="../dm/assets/revolver.png" alt="" width="48" height="48">
+    <span>
+      <span class="brand-title">Six-Shooters &amp; Sorcery</span>
+      <span class="brand-sub">Dust and Shadows · Setup</span>
+    </span>
+  </a>
+  <nav class="bar-actions" aria-label="App">
+    <a class="btn sm" href="../">Sheet</a>
+    <a class="btn sm" href="../dm/">DM screen</a>
+    <a class="btn sm btn-primary" href="../dm/?demo=1">Try demo</a>
+  </nav>
+</header>
+
+<main class="wrap" id="content">
+  <p class="kicker">For DMs running their own table</p>
+  <h1>Run your own table</h1>
+  <p class="lede">The character sheet and the DM Command Center are ready to use. The foundation is solid, and the tool will keep improving.</p>
+  <p>This page is for a DM who wants their own table. You make a copy of the app, connect a Firebase project on your Google account, and send your players your link. The first time through is a string of clicks on GitHub and Firebase. After that, a night starts with <strong>Create room</strong>.</p>
+  <p>You need a free GitHub account and a Google account. Firebase’s free plan covers a home game. If it offers Hosting or an upgrade, skip both.</p>
+  <p>These clicks are easier on a computer. The sheet and the DM screen themselves are comfortable on a phone.</p>
+
+  <nav aria-label="On this page">
+    <ol class="toc">
+      <li><a href="#what">What this is</a></li>
+      <li><a href="#quick">Quick start</a></li>
+      <li><a href="#fork">Fork and host</a></li>
+      <li><a href="#session">Running a session</a></li>
+      <li><a href="#trouble">Troubleshooting</a></li>
+      <li><a href="#privacy">Privacy</a></li>
+    </ol>
+  </nav>
+
+  <section id="what">
+    <h2>What this is</h2>
+    <p>Two pages, one game.</p>
+    <div class="links">
+      <a class="card" href="https://vaderkid008.github.io/ssdns-character-sheet/">
+        <span class="label">Player sheet</span>
+        <span class="url">https://vaderkid008.github.io/ssdns-character-sheet/</span>
+      </a>
+      <a class="card" href="https://vaderkid008.github.io/ssdns-character-sheet/dm/">
+        <span class="label">DM Command Center</span>
+        <span class="url">https://vaderkid008.github.io/ssdns-character-sheet/dm/</span>
+      </a>
+      <a class="card" href="https://vaderkid008.github.io/ssdns-character-sheet/dm/?demo=1">
+        <span class="label">Demo mode — start here, no account</span>
+        <span class="url">https://vaderkid008.github.io/ssdns-character-sheet/dm/?demo=1</span>
+      </a>
+    </div>
+    <div class="callout calm">
+      <p><strong>Open the demo first.</strong> Demo mode works offline. It fills the screen with sample players so you can learn the buttons. It does not use Firebase, and the sample room code exists only in that browser.</p>
+    </div>
+    <p>Each character stays on its own phone or computer as a <code>.ssdns</code> file. That file is a save you can keep, move, or send. <strong>Save</strong> writes it. <strong>Open</strong> loads it. Nothing about the character is stored on GitHub.</p>
+    <p><strong>Firebase</strong> is Google’s backend. Here it only syncs the live table: the room, rolls, chat, HP pushes, handouts, and the other things the table shares while you play. It is a private channel for one DM’s session, and each DM creates their own project.</p>
+  </section>
+
+  <section id="quick">
+    <h2>Quick start</h2>
+    <p>Use this if you want to learn the screens on the public site before you host anything. A live room of your own still needs the fork in the next section.</p>
+    <ol class="steps">
+      <li>
+        <h3>Learn the screen in Demo</h3>
+        <p>Open <a href="https://vaderkid008.github.io/ssdns-character-sheet/dm/?demo=1">the demo DM Command Center</a>. Click through Table, Fight, Store, and the feed. Leave <strong>Demo</strong> checked. That practice table is not a live room.</p>
+      </li>
+      <li>
+        <h3>Create your own Firebase project</h3>
+        <p>Sign in at <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">console.firebase.google.com</a> with a Google account. Click <strong>Add project</strong>. Name it anything. Google Analytics is optional; you can turn it off.</p>
+      </li>
+      <li>
+        <h3>Turn on Realtime Database and Anonymous sign-in</h3>
+        <p><strong>Realtime Database</strong> is the shared notebook for the room. In the left sidebar: <strong>Build → Realtime Database → Create Database</strong>. If you see Firestore, that is a different product. Leave it alone.</p>
+        <p><strong>Anonymous</strong> sign-in lets the DM and the players connect without an email. Firebase gives each browser an id. <strong>Build → Authentication → Sign-in method → Anonymous → Enable → Save</strong>. Click <strong>Get started</strong> first if Authentication asks.</p>
+      </li>
+      <li>
+        <h3>Add authorized domains</h3>
+        <p>An <strong>authorized domain</strong> is a website address Firebase will accept sign-ins from. Open <strong>Authentication → Settings → Authorized domains → Add domain</strong>.</p>
+        <ol class="clicks">
+          <li>Add <code>vaderkid008.github.io</code></li>
+          <li>Add <code>localhost</code> (for tests on your own computer)</li>
+        </ol>
+        <p>Adding <code>vaderkid008.github.io</code> does not move the public sheet onto your project. That site already has its own config in its files. Your real domain is the one you add after you fork: <code>your-username.github.io</code>.</p>
+      </li>
+      <li>
+        <h3>Create a Web app and copy the config</h3>
+        <p>Gear icon → <strong>Project settings</strong> → <strong>Your apps</strong> → the Web icon (<code>&lt;/&gt;</code>). Nickname it anything. Skip Firebase Hosting. Click <strong>Register app</strong>.</p>
+        <p>Copy the config values: <code>apiKey</code>, <code>authDomain</code>, <code>databaseURL</code>, <code>projectId</code>, <code>storageBucket</code>, <code>messagingSenderId</code>, and <code>appId</code>. If the snippet also shows <code>measurementId</code>, you can leave that one out.</p>
+      </li>
+      <li>
+        <h3>Your config belongs in your fork</h3>
+        <div class="callout">
+          <p>The pages at vaderkid008.github.io already contain a Firebase config, and only the owner of that repository can change those files. Your config has to live in a copy you control.</p>
+          <p><strong>Fork the repo, turn on GitHub Pages, and paste your config there.</strong> That is the next section, and it is the path for a real table.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section id="fork">
+    <h2>Fork and host your own copy</h2>
+    <p>A <strong>fork</strong> is your own copy of the project on GitHub. <strong>GitHub Pages</strong> is GitHub’s free host for the files in that copy. Firebase stays on your Google account. Players use your Pages address, and your rooms live in your database.</p>
+    <ol class="steps">
+      <li>
+        <h3>Fork the repository</h3>
+        <ol class="clicks">
+          <li>Sign in at <a href="https://github.com/" target="_blank" rel="noopener noreferrer">github.com</a>.</li>
+          <li>Open <a href="https://github.com/Vaderkid008/ssdns-character-sheet" target="_blank" rel="noopener noreferrer">Vaderkid008/ssdns-character-sheet</a>.</li>
+          <li>Click <strong>Fork</strong> (top right).</li>
+          <li>Leave the name as <code>ssdns-character-sheet</code> and click <strong>Create fork</strong>.</li>
+        </ol>
+        <p>If you already use git on your computer, cloning and pushing to a new repository works too. The clicks above are enough.</p>
+      </li>
+      <li>
+        <h3>Turn on GitHub Pages</h3>
+        <ol class="clicks">
+          <li>On <em>your</em> fork, click <strong>Settings</strong>. That is the repository settings tab, not your account settings.</li>
+          <li>In the left sidebar, click <strong>Pages</strong>.</li>
+          <li>Under Build and deployment, choose <strong>Deploy from a branch</strong>.</li>
+          <li>Branch: <strong>main</strong>. Folder: <strong>/ (root)</strong>. Click <strong>Save</strong>.</li>
+          <li>Wait until Pages says the site is live. The first build often takes a minute or two. A yellow dot means it is still working.</li>
+        </ol>
+      </li>
+      <li>
+        <h3>Your sheet address</h3>
+        <p><code>https://&lt;your-username&gt;.github.io/ssdns-character-sheet/</code></p>
+        <p>Use the lowercase form of your GitHub username. If you renamed the fork, use that repository name in the address instead of <code>ssdns-character-sheet</code>.</p>
+      </li>
+      <li>
+        <h3>Your DM Command Center</h3>
+        <p><code>https://&lt;your-username&gt;.github.io/ssdns-character-sheet/dm/</code></p>
+        <p>This guide is on your copy too, at <code>…/setup/</code>.</p>
+      </li>
+      <li>
+        <h3>Create a Firebase project</h3>
+        <ol class="clicks">
+          <li>Open <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">the Firebase console</a> and sign in with a Google account.</li>
+          <li>Click <strong>Add project</strong>. Name it anything, such as <code>dust-table</code>.</li>
+          <li>Google Analytics is optional. You can turn it off.</li>
+          <li>Wait until the project overview opens.</li>
+        </ol>
+      </li>
+      <li>
+        <h3>Create the Realtime Database</h3>
+        <ol class="clicks">
+          <li>Left sidebar: <strong>Build → Realtime Database</strong>.</li>
+          <li>Click <strong>Create Database</strong>.</li>
+          <li>Prefer location <strong>us-central1</strong> when it is offered. That matches a database address ending in <code>-default-rtdb.firebaseio.com</code>.</li>
+          <li>If the console only offers another region, create it there. Then copy the database URL shown on the <strong>Data</strong> tab. You will paste that exact URL into <code>databaseURL</code> in step 10. A mismatched URL is a common reason Live mode fails.</li>
+          <li>Start in <strong>locked mode</strong>. Locked mode denies everyone until you publish rules in the next step. Test mode would leave the room readable for a while. Choose locked mode.</li>
+        </ol>
+      </li>
+      <li>
+        <h3>Publish the database rules</h3>
+        <ol class="clicks">
+          <li>On your fork, open <a href="../database.rules.json"><code>database.rules.json</code></a>. Select all of it and copy. The same file is on GitHub in the repository root.</li>
+          <li>In Firebase: <strong>Realtime Database → Rules</strong>.</li>
+          <li>Replace the rules in the editor with what you copied.</li>
+          <li>Click <strong>Publish</strong>.</li>
+        </ol>
+        <p>Until you publish, the app can sign in and still be refused when it tries to write a room.</p>
+        <p>If you already use the Firebase command-line tool, this repo includes <code>firebase.json</code>. From your clone, run <code>firebase use --add</code> and pick your project, then <code>firebase deploy --only database</code>. The console paste is enough.</p>
+      </li>
+      <li>
+        <h3>Turn on Anonymous sign-in</h3>
+        <ol class="clicks">
+          <li><strong>Build → Authentication</strong>.</li>
+          <li>If you see <strong>Get started</strong>, click it.</li>
+          <li>Open the <strong>Sign-in method</strong> tab.</li>
+          <li>Click <strong>Anonymous</strong>, switch <strong>Enable</strong> on, and click <strong>Save</strong>.</li>
+        </ol>
+        <p>The DM and the players both sign in this way. The DM’s id is what marks that browser as the one running the room.</p>
+      </li>
+      <li>
+        <h3>Add a Web app and copy the config</h3>
+        <ol class="clicks">
+          <li>Gear icon → <strong>Project settings</strong>.</li>
+          <li>Scroll to <strong>Your apps</strong>.</li>
+          <li>Click the Web icon (<code>&lt;/&gt;</code>).</li>
+          <li>Nickname: anything, such as <code>ssdns-table</code>. Skip Firebase Hosting.</li>
+          <li>Click <strong>Register app</strong>.</li>
+          <li>Copy <code>apiKey</code>, <code>authDomain</code>, <code>databaseURL</code>, <code>projectId</code>, <code>storageBucket</code>, <code>messagingSenderId</code>, and <code>appId</code>.</li>
+        </ol>
+        <p>That block is client config. The browser has to be able to read it, so it is public by design for this kind of web app. It is not a server password. The rules file is what decides who can read and write.</p>
+      </li>
+      <li>
+        <h3>Put your config in the fork</h3>
+        <p>A fresh fork still has the original project’s config in <code>assets/js/firebase-config.js</code>. Replace all seven values before you create a live room. Until you do, leave <strong>Demo</strong> on.</p>
+        <ol class="clicks">
+          <li>On your fork, open <code>assets/js/firebase-config.js</code>.</li>
+          <li>Click the pencil (<strong>Edit this file</strong>). You need to be signed in as the owner of the fork.</li>
+          <li>Replace the seven values inside <code>SSDNS_FIREBASE_CONFIG</code>. Leave the rest of the file as it is.</li>
+          <li>Click <strong>Commit changes</strong>. Choose <strong>Commit directly to the <code>main</code> branch</strong>. A message such as “Use my Firebase project for live rooms” is plenty.</li>
+          <li>Wait until GitHub Pages is green again. Settings → Pages, or the Actions tab, shows the build.</li>
+        </ol>
+        <p>The values look like this. Yours will be different. A long <code>apiKey</code> is normal.</p>
+<pre><code>root.SSDNS_FIREBASE_CONFIG = {
+  apiKey: "PASTE_YOURS",
+  authDomain: "YOUR-PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR-PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR-PROJECT",
+  storageBucket: "YOUR-PROJECT.firebasestorage.app",
+  messagingSenderId: "PASTE_YOURS",
+  appId: "PASTE_YOURS"
+};</code></pre>
+        <p><code>databaseURL</code> must be the URL from your Realtime Database <strong>Data</strong> tab, including <code>https://</code>. One file serves both the sheet and the DM screen.</p>
+      </li>
+      <li>
+        <h3>Authorize your website</h3>
+        <ol class="clicks">
+          <li>Firebase → <strong>Authentication → Settings → Authorized domains</strong>.</li>
+          <li>Click <strong>Add domain</strong>.</li>
+          <li>Add <code>&lt;your-username&gt;.github.io</code> with no <code>https://</code> and no path.</li>
+          <li>Add <code>localhost</code> if you will test on your own computer. If the address bar says <code>127.0.0.1</code>, add <code>127.0.0.1</code> as well.</li>
+        </ol>
+        <p>To poke at the files before Pages finishes, from a clone of your fork:</p>
+<pre><code>python3 -m http.server 8765</code></pre>
+        <p>Then open <code>http://localhost:8765/dm/</code> for the DM screen and <code>http://localhost:8765/</code> for the sheet.</p>
+      </li>
+      <li>
+        <h3>Open a room</h3>
+        <ol class="clicks">
+          <li>Open your <code>/dm/</code> address from step 4.</li>
+          <li>If the page still looks like the copy you forked, hard-refresh so the browser loads the new config. On Windows or Linux: <kbd>Ctrl</kbd>+<kbd>F5</kbd>. On a Mac: <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>. On a phone, close the tab and open the link again.</li>
+          <li>Turn <strong>Demo</strong> off. The status line should say Firebase is connected. If it snaps back to Demo, use the troubleshooting table.</li>
+          <li>Type your name, and a session name if you want one.</li>
+          <li>Click <strong>Create room</strong>.</li>
+          <li>A code appears, shaped like <code>DUST-4821</code>. <strong>Copy invite link</strong> (or tap the big code) for a link players can open. <strong>Copy code</strong> if you only want the code.</li>
+        </ol>
+      </li>
+      <li>
+        <h3>Players join</h3>
+        <ol class="clicks">
+          <li>Each player opens <em>your</em> sheet address from step 3.</li>
+          <li>If the new-character wizard is on screen, finish it first. Join waits until a character exists. A character already on the device can join right away.</li>
+          <li>On the <strong>Table</strong> bar, paste the code. An invite link fills the code in and still waits for one click.</li>
+          <li>Click <strong>Join</strong>.</li>
+        </ol>
+        <p>Their card should show on your Table tab.</p>
+      </li>
+      <li>
+        <h3>End the session when you are done</h3>
+        <p>Click <strong>End Session</strong>. The ledger (the money log) is archived by default. An optional checkbox can also wipe the live room data.</p>
+        <p><strong>Leave room / New session</strong> only returns you to the lobby. The table keeps running until you end it.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section id="session">
+    <h2>Running a session</h2>
+    <p>A short map of the DM screen once a room is open.</p>
+    <dl class="cheat">
+      <dt>Lobby</dt>
+      <dd>Opening <code>/dm/</code> stays on the lobby. If this browser still remembers a room, you get <strong>Resume</strong> (that room code) and <strong>Start a new session</strong>. Start a new session scrolls to the session name and puts the cursor there. It does not create a room, and it does not clear what you already typed. <strong>Create room</strong> is the button that opens a table.</dd>
+      <dt>Invite link and room code</dt>
+      <dd><strong>Copy invite link</strong> builds a player link with <code>?room=CODE</code> from your site’s address. The big code copies that same link. The sheet fills in the code and still waits for <strong>Join</strong>.</dd>
+      <dt>Fight strip and Next turn</dt>
+      <dd>The Table tab shows a turn strip. The Fight tab has <strong>Next turn</strong>, and <kbd>N</kbd> does the same thing when you are not typing in a field. The screen says who is on deck. The fight layout is still getting easier to scan.</dd>
+      <dt>Store</dt>
+      <dd>Stock a General Store, Gun Store, Music Store, or Traveling Merchant. What you stage stays on the DM screen until you open the store for the table.</dd>
+      <dt>Handouts</dt>
+      <dd>Send a named note or an image link to one player or the whole table. A pack is a saved set of links.</dd>
+      <dt>Rewards</dt>
+      <dd>Push Eldorite shards (ES), an item, or a note to one player or everyone. The keyboard shortcut opens the form. It does not send until you confirm.</dd>
+      <dt>Feed</dt>
+      <dd>On a wide screen the table feed is the column on the right. On a phone it is a bottom sheet with an unread count. Filters are All, Chat, Money, Rolls, and Alerts. The box at the bottom messages the whole table or one player.</dd>
+    </dl>
+
+    <h3>Keyboard shortcuts</h3>
+    <p>On the DM Command Center, these keys work when focus is not in a text field, a menu, or a checkbox, and not while an input method editor is composing. That editor is the popup some phones use to build a character before it lands in the field.</p>
+    <table>
+      <thead>
+        <tr><th>Key</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-label="Key"><kbd>N</kbd></td>
+          <td data-label="Action">Next turn in the fight tracker</td>
+        </tr>
+        <tr>
+          <td data-label="Key"><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></td>
+          <td data-label="Action">Open the Rewards tab with the form ready. It does not send until you confirm.</td>
+        </tr>
+        <tr>
+          <td data-label="Key"><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td>
+          <td data-label="Action">Play the attack sound on this browser and send that cue to the table</td>
+        </tr>
+        <tr>
+          <td data-label="Key"><kbd>M</kbd></td>
+          <td data-label="Action">Play or stop the track selected on the Music tab</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>Plain <kbd>R</kbd> and <kbd>S</kbd> do nothing, so typing a name cannot grant shards or fire a sound. On an Elgato Stream Deck, map <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> and <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> to hotkey buttons. <kbd>M</kbd> stays quiet until a music file is in the folder below.</p>
+
+    <h3>Sound and music</h3>
+    <p>Gun, holster, reload, reward, jam, and spell-shot cues already sit in <code>assets/sfx/</code>. A missing file stays silent. Music tracks are named in <code>assets/music/tracks.json</code> (<code>saloon.mp3</code>, <code>trail.mp3</code>, <code>gunfight.mp3</code>, <code>hex.mp3</code>). Those music files are optional. Add them beside the README when you want table music. Each folder’s README says how to add another file.</p>
+    <p>Players hear a track when you turn on <strong>Also play on players' devices</strong>. Their browser may wait until they tap <strong>Tap to hear</strong>.</p>
+  </section>
+
+  <section id="trouble">
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead>
+        <tr><th>What you see</th><th>What to do</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-label="What you see">Demo works. Turning Demo off snaps back.</td>
+          <td data-label="What to do">Create the Realtime Database and turn on Anonymous sign-in. Set <code>databaseURL</code> to the URL on the Data tab, including the region when it is not us-central1. A 404 on that URL means the database was never created. The status line shows the Firebase message.</td>
+        </tr>
+        <tr>
+          <td data-label="What you see">Couldn’t sync to players: permission denied</td>
+          <td data-label="What to do">Publish <a href="../database.rules.json"><code>database.rules.json</code></a> on Realtime Database → Rules. An older paste refuses newer writes (table chat, private rolls, Inspiration). Confirm Anonymous is enabled so the browser is signed in.</td>
+        </tr>
+        <tr>
+          <td data-label="What you see"><code>auth/unauthorized-domain</code></td>
+          <td data-label="What to do">Add the exact host under Authentication → Settings → Authorized domains. For Pages that is <code>your-username.github.io</code>, with no <code>https://</code> and no path. For a local test, add <code>localhost</code> or <code>127.0.0.1</code> to match the address bar. Reload after you add it.</td>
+        </tr>
+        <tr>
+          <td data-label="What you see">Players never appear, or the sheet says “No room with code” and mentions Demo rooms.</td>
+          <td data-label="What to do">They need the live code from <strong>Create room</strong> after Demo is off. A Demo code stays on the DM’s browser. The DM’s screen has to be in that live room when they click Join.</td>
+        </tr>
+        <tr>
+          <td data-label="What you see">Players opened the public sheet and the code does nothing.</td>
+          <td data-label="What to do">Send your fork’s sheet address. The public sheet talks to the Firebase config shipped with that site. Your room lives in the project you pasted into your fork.</td>
+        </tr>
+        <tr>
+          <td data-label="What you see">The sheet works fine and never shows the table.</td>
+          <td data-label="What to do">Solo play keeps the character on the device. The table starts when they paste the live code and click <strong>Join</strong>.</td>
+        </tr>
+        <tr>
+          <td data-label="What you see">You committed the config and the DM screen is unchanged.</td>
+          <td data-label="What to do">Wait for the green Pages check, then hard-refresh with <kbd>Ctrl</kbd>+<kbd>F5</kbd> or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>. On a phone, close the tab and open the link again.</td>
+        </tr>
+        <tr>
+          <td data-label="What you see">Create room sits on “Connecting…”</td>
+          <td data-label="What to do">Anonymous sign-in or the database URL is still unfinished. Stay in Demo until the status line says Firebase is connected. Create room stays disabled while it is still connecting.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="privacy">
+    <h2>Privacy and ownership</h2>
+    <p>Your fork is your copy of the app. Your Firebase project is where your rooms live. Each DM creates a project on their own Google account and points their fork at it.</p>
+    <p>Keep service-account files off the site and out of chat. A service account is a private key Firebase gives to servers (Project settings → Service accounts). It does not belong in <code>firebase-config.js</code>.</p>
+    <p>The seven values in <code>assets/js/firebase-config.js</code> are client config. Browsers have to read them, so they are public by design for this web app. They do not unlock the database. The published rules do. Share room codes with your players. Keep admin keys to yourself.</p>
+    <p>Characters remain <code>.ssdns</code> files on each device. Ending a session archives the ledger in your database. It does not upload character files to GitHub.</p>
+  </section>
+</main>
+
+<footer class="site">
+  <nav aria-label="More">
+    <a href="../">Player sheet</a>
+    <a href="../dm/">DM Command Center</a>
+    <a href="../dm/?demo=1">Demo</a>
+    <a href="https://github.com/Vaderkid008/ssdns-character-sheet">Repository</a>
+  </nav>
+  <p>Same steps in the repo: <a href="https://github.com/Vaderkid008/ssdns-character-sheet/blob/main/DM-SETUP.md">DM-SETUP.md</a></p>
+</footer>
+</body>
+</html>

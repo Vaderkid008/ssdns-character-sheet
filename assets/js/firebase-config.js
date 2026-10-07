@@ -1,20 +1,19 @@
 /**
  * SSDNS Firebase config (shared by DM Command Center + player sheet Join room).
  *
- * Project: ssdns-dm-hub
- * Used only for live table sync (rooms). Characters stay on-device as .ssdns files.
+ * Whoever hosts this copy puts their own Web app config in the object below.
+ * Another DM replaces all seven fields in their fork before creating a live room.
+ * Steps: /setup/ and DM-SETUP.md.
  *
- * Sheet load order (after Join patch):
- *   ...
- *   <script type="module"> import { initializeApp } ... OR classic compat CDN </script>
+ * Characters stay on-device as .ssdns files. Firebase only syncs the live table.
+ * Demo mode (/dm/?demo=1) works fully offline, with no Firebase.
+ *
+ * Sheet load order:
  *   <script src="assets/js/firebase-config.js"></script>
  *   <script src="assets/js/dm-join.js"></script>
  *   <script src="assets/js/app.js"></script>
  *
  * DMCC loads this from ../assets/js/firebase-config.js relative to /dm/.
- *
- * Tonight: create Realtime Database + enable Anonymous auth in the Firebase console
- * (see DM-SETUP.md). Until then, DMCC Demo mode works fully offline.
  */
 (function (root) {
   "use strict";

@@ -2230,7 +2230,7 @@ function wire() {
       if (!ok) {
         $("#chkDemo").checked = true;
         state.demo = true;
-        toast("Firebase not available — stay in Demo. See DM-SETUP.md");
+        toast("Firebase is not ready, so Demo stays on. Use How to set this up.");
         setStatus("demo", "Demo mode · Firebase not ready");
         return;
       }
@@ -2587,7 +2587,7 @@ async function boot() {
         showResumeChoice("");
       }
       setStatus("demo", "Demo mode · Firebase unavailable");
-      toast("Firebase unavailable — Demo mode on. See DM-SETUP.md");
+      toast("Firebase is not ready, so Demo stays on. Use How to set this up.");
     } else {
       if (autoResume && wasOpen.code) {
         pendingResume = { code: wasOpen.code, demo: false };

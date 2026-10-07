@@ -158,6 +158,8 @@ button.room-code:hover, button.room-code:focus-visible { text-decoration: underl
 }
 .lobby input:focus { outline: none; border-color: var(--eld); box-shadow: 0 0 0 2px var(--eld-glow); }
 .lobby .row-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.lobby p.lobby-setup { margin: 18px 0 0; color: var(--parch); }
+.lobby-setup a { font-family: var(--label); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
 
 /* ---- tabs */
 .tabs {
