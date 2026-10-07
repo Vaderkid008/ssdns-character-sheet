@@ -603,6 +603,8 @@
     var who = (c && c.name) || "You";
     var joined = root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined();
     var quiet = $("#chkWhisper") && $("#chkWhisper").checked;
+    if (root.SSDNSSheet && root.SSDNSSheet.attackCue) root.SSDNSSheet.attackCue("attack");
+    else if (root.SSDNSAudio) root.SSDNSAudio.play("attack");
     if (joined && !quiet && root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt) && root.SSDNSSheet.sendPendingAttack) {
       var pendingRolls = [];
       var pendingTotal = 0;
