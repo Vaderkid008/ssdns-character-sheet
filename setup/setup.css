@@ -89,9 +89,10 @@ a:hover { color: #6fe0bd; }
 h1 { font-family: var(--title); color: var(--parch); font-size: clamp(28px, 6vw, 40px); font-weight: 400; line-height: 1.15; margin: 0 0 12px; }
 .lede { font-size: 1.12rem; color: var(--parch); margin: 0 0 12px; }
 p { margin: 0 0 14px; }
+section[id] { scroll-margin-top: 136px; }
 h2 {
   font-family: var(--head); color: var(--eld); font-weight: 400; font-size: clamp(28px, 5vw, 36px);
-  line-height: 1.1; margin: 36px 0 10px; scroll-margin-top: 88px;
+  line-height: 1.1; margin: 36px 0 10px; scroll-margin-top: 136px;
 }
 h3 { font-family: var(--head); color: var(--parch); font-weight: 400; font-size: 1.45rem; line-height: 1.2; margin: 0 0 8px; }
 strong { font-weight: 600; }
