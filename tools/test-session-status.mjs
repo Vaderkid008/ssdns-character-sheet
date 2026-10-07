@@ -59,7 +59,7 @@ check(dmcc.indexOf("liveStripAllowed") >= 0, "setStatus refuses a stale LIVE lin
 
 const version = JSON.parse(read("version.json"));
 check(version.dmcc === "0.2.27" && version.dmccBuild === "dmcc-header-v0227", "dmcc 0.2.27");
-check(version.sheet === "0.3.13" && version.sheetBuild === "sheet-suggestion-v0313", "sheet 0.3.13");
+check(version.sheet === "0.3.14" && version.sheetBuild === "sheet-storyteller-kit-v0314", "sheet 0.3.14");
 check(read("dm/index.html").indexOf("dmcc.js?v=0.2.27") >= 0, "cache bust");
 
 if (failures.length) {

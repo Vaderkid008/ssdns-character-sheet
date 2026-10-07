@@ -41,10 +41,23 @@ const expect = {
     melee: ["buffalo-axe-greataxe", "hatchet-handaxe", "throwing-spear-javelin"],
     lines: ["Hatchet (second)", "Throwing spears ×4", "Explorer pack"]
   }),
-  storyteller: (p) => ({
-    melee: ["stiletto-dagger"],
-    lines: ["Boot knife", "Instrument (" + p.voice + ") — focus", "Strap and one spare set of strings", p.kit === "saloon" ? "Saloon kit" : "Diplomat trunk", "Duster"]
-  }),
+  storyteller: (p) => {
+    const names = { fiddle: "Fiddle", banjo: "Banjo", guitar: "Guitar" };
+    const voice = p.voice === "voice";
+    return {
+      melee: ["bowie-shortsword"],
+      guns: ["herringer-light-double-derringer"],
+      ammo: ["cartridge", "Light", 20],
+      instrument: p.voice || "fiddle",
+      instrumentQuality: voice ? null : "cheap",
+      instrumentStrings: voice ? null : "plain",
+      lines: [
+        voice ? "Voice — focus" : (names[p.voice] + " with a strap and one spare set of strings"),
+        p.kit === "saloon" ? "Saloon kit" : "Diplomat trunk",
+        "Duster"
+      ]
+    };
+  },
   "frontier-preacher": (p) => ({
     guns: p.gun === "shotgun" ? ["single-barrel-farm-shotgun"] : [p.gun === "carbine" ? "dullards-light-carbine" : "dullards-tube-rifle"],
     melee: [p.melee === "hammer" ? "claim-hammer-light-hammer" : "trail-mace-chapel-mace-mace"],
@@ -128,6 +141,16 @@ Kits.callings.forEach((calling) => {
     if (want.gunBelt) check(c.gunBelt === true, calling + " gun belt");
     if (want.shield) check(c.shield === true, calling + " shield");
     if (want.casterGun) check(c.casterGun === want.casterGun, calling + " caster gun " + c.casterGun);
+    if (want.instrument) check(c.instrument === want.instrument, calling + " instrument " + c.instrument + " for " + JSON.stringify(p));
+    if (want.instrumentQuality) check(c.instrumentQuality === want.instrumentQuality, calling + " instrument quality " + c.instrumentQuality);
+    if (want.instrumentStrings) check(c.instrumentStrings === want.instrumentStrings, calling + " strings " + c.instrumentStrings);
+    if (calling === "storyteller") {
+      const bowie = (c.melee || []).find((row) => row && row.weapon === "bowie-shortsword");
+      const iron = (c.guns || []).find((row) => row && row.weapon === "herringer-light-double-derringer");
+      check(bowie && bowie.proficient === true, "storyteller boot knife is a proficient Bowie");
+      check(iron && iron.proficient === true && iron.chamber === "light|.32 Long", "storyteller derringer is chambered Light .32 Long");
+      check(!hasLine(c, "Boot knife"), "boot knife is an attack row, not a loose gear line");
+    }
     if (want.ammo) check(ammo(c, want.ammo[0], want.ammo[1]) === want.ammo[2], calling + " ammo " + JSON.stringify(p) + " got " + ammo(c, want.ammo[0], want.ammo[1]));
     if (want.perc != null) check(ammo(c, "percussion", "") === want.perc, calling + " percussion " + ammo(c, "percussion", ""));
     if (calling === "gunslinger") {
