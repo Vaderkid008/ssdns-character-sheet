@@ -538,14 +538,24 @@
     };
   }
   function postCheck(label, formula, total, detail, nat1, firearm) {
+    var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var who = sheetSpeaker();
+    var text = (who ? who + " · " : "") + label + " · " + formula + " = " + total + " (" + detail + ")";
     toast(label + " " + total + " (" + detail + ")");
-    addLog({ kind: "roll", text: label + " · " + formula + " = " + total + " (" + detail + ")" });
+    addLog({ id: "roll:" + rollId, kind: "roll", text: text });
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
+        id: rollId,
         label: label, formula: formula, result: total, detail: detail,
         nat1: !!nat1, isFirearm: !!firearm, private: whisperOn(), whisper: whisperOn()
       });
     }
+  }
+  function sheetSpeaker() {
+    var c = ch();
+    var Applied = root.SSDNSApplied;
+    if (Applied && Applied.speakerName) return Applied.speakerName(c && c.name, c && c.player) || "You";
+    return (c && (c.name || c.player)) || "You";
   }
   function rollCheck(key) {
     var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
@@ -576,8 +586,9 @@
     var who = opts.who || "You";
     var target = opts.target || "";
     var nat = Number(opts.nat) || 0;
-    var atk = Number(opts.atk) || 0;
-    var bonus = atk ? ((atk >= 0 ? "+" : "") + atk) : "";
+    var atk = Number(opts.atk);
+    if (!isFinite(atk)) atk = 0;
+    var bonus = (atk >= 0 ? "+" : "") + atk;
     var total = nat + atk;
     var miss = !!opts.miss || !!opts.misfire;
     var ac = opts.ac;
@@ -860,11 +871,95 @@
     }
     return null;
   }
+  function targetMeta(opt) {
+    if (!opt || !opt.value) return null;
+    var hp = opt.getAttribute("data-hp");
+    return {
+      id: opt.value,
+      name: opt.getAttribute("data-name") || opt.textContent || "",
+      kind: opt.getAttribute("data-kind") || "",
+      status: opt.getAttribute("data-status") || "",
+      side: opt.getAttribute("data-side") || "",
+      hp: hp == null || hp === "" ? "" : hp,
+      fled: opt.getAttribute("data-fled") === "1",
+      conditions: String(opt.getAttribute("data-conds") || "").split(",").filter(Boolean)
+    };
+  }
+  function listedTargets() {
+    var main = document.querySelector("#atkTarget");
+    if (!main) return [];
+    return Array.prototype.map.call(main.options, targetMeta).filter(Boolean);
+  }
+  function targetUnusable(row) {
+    var Applied = root.SSDNSApplied;
+    if (Applied && Applied.isUnusableTarget) return Applied.isUnusableTarget(row);
+    return !row;
+  }
   function chosenTargetValue() {
     var sel = sourceSelect();
-    if (sel) return sel.value || "";
-    var main = document.querySelector("#atkTarget");
-    return (main && main.value) || "";
+    var value = sel ? (sel.value || "") : ((document.querySelector("#atkTarget") || {}).value || "");
+    if (!value) return "";
+    var row = listedTargets().filter(function (r) { return r.id === value; })[0];
+    if (row && targetUnusable(row)) return "";
+    return value;
+  }
+  function ensureAttackTarget() {
+    var rows = listedTargets();
+    if (!rows.length) return Promise.resolve(true);
+    var current = chosenTargetValue();
+    var currentRow = current && rows.filter(function (r) { return r.id === current; })[0];
+    if (currentRow && !targetUnusable(currentRow)) return Promise.resolve(true);
+    return askAttackTarget(rows);
+  }
+  function askAttackTarget(rows) {
+    var Applied = root.SSDNSApplied;
+    var living = (rows || []).filter(function (row) { return !targetUnusable(row); });
+    var hostiles = living.filter(function (row) {
+      return Applied && Applied.isLivingHostile ? Applied.isLivingHostile(row) : row.kind !== "player";
+    });
+    return new Promise(function (resolve) {
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      dlg.innerHTML = "<form method='dialog'><h2>Pick a target</h2><p class='fine'></p><label>Target <select id='attackPick'></select></label><div class='dlg-foot'><button class='btn' type='button' value='no'>Cancel</button><button class='btn btn-primary' type='submit' value='yes'>Attack</button></div></form>";
+      dlg.querySelector("p").textContent = hostiles.length ? "Choose who this attack hits." : "No living hostile target. Cancel, or pick someone still standing.";
+      var sel = dlg.querySelector("#attackPick");
+      var blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = living.length ? "Pick a target" : "No living target";
+      sel.appendChild(blank);
+      var preferred = hostiles[0] || null;
+      living.forEach(function (row) {
+        var opt = document.createElement("option");
+        opt.value = row.id;
+        opt.textContent = row.name || row.id;
+        sel.appendChild(opt);
+      });
+      if (preferred) sel.value = preferred.id;
+      else sel.value = "";
+      var attackBtn = dlg.querySelector("[value=yes]");
+      if (!living.length && attackBtn) attackBtn.hidden = true;
+      var done = false;
+      function finish(choice) {
+        if (done) return;
+        done = true;
+        if (dlg.close) dlg.close();
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(choice);
+      }
+      dlg.querySelector("[value=no]").addEventListener("click", function () { finish(false); });
+      dlg.querySelector("form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var id = sel.value || "";
+        if (!id) { toast("Pick a target"); return; }
+        var main = document.querySelector("#atkTarget");
+        if (main) main.value = id;
+        finish(true);
+      });
+      dlg.addEventListener("cancel", function (e) { e.preventDefault(); finish(false); });
+      document.body.appendChild(dlg);
+      try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+      catch (err) { dlg.setAttribute("open", ""); }
+    });
   }
   function applyCastChoice(choice) {
     pendingDarts = (choice && choice.darts) || null;
@@ -1225,21 +1320,6 @@
         dartOrder.forEach(function (gid) {
           var g = dartGroups[gid];
           var partId = rollId + "_" + gid;
-          var whoDart = (c && c.name) || "You";
-          var dartLine = whoDart + " → " + (g.tgt.name || "target") + ": " + spellName + " " + g.bits.join(" + ") + " = " + g.total;
-          root.SSDNSDmJoin.postRoll({
-            id: partId,
-            label: spellName,
-            formula: spellName,
-            result: g.total,
-            detail: dartLine,
-            attack: false,
-            damage: g.total,
-            targetId: g.tgt.id,
-            targetName: g.tgt.name,
-            private: whisperOn(),
-            whisper: whisperOn()
-          });
           if (!whisperOn() && root.SSDNSDmJoin.postDamage) {
             root.SSDNSDmJoin.postDamage({
               amount: g.total, label: spellName, type: "spell",
@@ -1286,19 +1366,36 @@
       castThroughGunNow(i, pick);
     });
   }
+  function cartridgeSnapshot() {
+    var c = ch();
+    return ((c && c.ammo) || []).map(function (a) { return a && a.type === "cartridge" ? num(a.count) : null; });
+  }
+  function restoreCartridges(before) {
+    var c = ch();
+    if (!c || !c.ammo || !before) return;
+    c.ammo.forEach(function (a, i) {
+      if (!a || a.type !== "cartridge" || before[i] == null || num(a.count) === before[i]) return;
+      a.count = before[i];
+    });
+  }
   function castThroughGunNow(i, pick) {
-    if (pick.slot > 0) {
-      if (!root.SSDNSApp.spendHexChamber) { toast("Cast through gun isn't ready."); return; }
-      var held = root.SSDNSApp.spendHexChamber(i, pick.slot);
-      if (!held.ok) { toast(held.reason); return; }
-      if (!held.alreadySpent && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(pick.slot)) {
-        toast("No level-" + pick.slot + " slot left.");
+    var cartridges = cartridgeSnapshot();
+    try {
+      if (pick.slot > 0) {
+        if (!root.SSDNSApp.spendHexChamber) { toast("Cast through gun isn't ready."); return; }
+        var held = root.SSDNSApp.spendHexChamber(i, pick.slot);
+        if (!held.ok) { toast(held.reason); return; }
+        if (!held.alreadySpent && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(pick.slot)) {
+          toast("No level-" + pick.slot + " slot left.");
+          return;
+        }
+        castSpellAttack(i, pick.name, pick.slot, true);
         return;
       }
-      castSpellAttack(i, pick.name, pick.slot, true);
-      return;
+      castSpellAttack(i, pick.name, 0, false);
+    } finally {
+      restoreCartridges(cartridges);
     }
-    castSpellAttack(i, pick.name, 0, false);
   }
   function castLoadedHex(i, k) {
     var c = ch();
@@ -1382,6 +1479,15 @@
       addLog({ kind: "alert", text: name0 + ": Empty: reload" });
       return;
     }
+    if (!rollGun._aimed) {
+      ensureAttackTarget().then(function (ok) {
+        if (!ok) return;
+        rollGun._aimed = true;
+        try { rollGun(i); }
+        finally { rollGun._aimed = false; }
+      });
+      return;
+    }
     var gate = attackGate(currentTarget());
     if (gate) { toast(gate); addLog({ kind: "alert", text: gate }); return; }
     var spent = root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i) : null;
@@ -1443,7 +1549,7 @@
         hitTotal: total,
         damage: pendingDmg ? pendingDmg.total : 0,
         dice: pendingDmg ? pendingDmg.detail : "",
-        formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
+        formula: (n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk),
         rollId: gunRollId,
         label: who + (tgt.name ? " → " + tgt.name : ""),
         weapon: name,
@@ -1470,14 +1576,14 @@
       id: "roll:" + gunRollId,
       kind: "roll", text: line,
       label: who + (tgt && tgt.name ? " → " + tgt.name : " attack"),
-      formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : "") + (dmg && !report.miss ? " · " + dmg.formula : ""),
+      formula: (n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk) + (dmg && !report.miss ? " · " + dmg.formula : ""),
       attack: true, nat: nat, crit: nat === 20 && !misfired
     });
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         id: gunRollId,
         label: who + (tgt && tgt.name ? " → " + tgt.name : ""),
-        formula: (n2 == null ? "1d20" : "2d20") + (atk ? (atk >= 0 ? "+" : "") + atk : ""),
+        formula: (n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk),
         result: total,
         detail: line,
         ac: report.ac,
@@ -1703,22 +1809,27 @@
   function castPickedNow(i, sp) {
     var c = ch();
     var slot = sp.slot || 0;
-    if (slot > 0 && c && c.calling === "hexslinger") {
-      var held = root.SSDNSApp && root.SSDNSApp.spendHexChamber ? root.SSDNSApp.spendHexChamber(i, slot) : { ok: false };
-      if (!held.ok) {
-        if (!root.SSDNSApp || !root.SSDNSApp.spendHexSlot || !root.SSDNSApp.spendHexSlot(slot)) {
-          toast(held.reason || "No level-" + slot + " hex lead left.");
-          return;
+    var cartridges = cartridgeSnapshot();
+    try {
+      if (slot > 0 && c && c.calling === "hexslinger") {
+        var held = root.SSDNSApp && root.SSDNSApp.spendHexChamber ? root.SSDNSApp.spendHexChamber(i, slot) : { ok: false };
+        if (!held.ok) {
+          if (!root.SSDNSApp || !root.SSDNSApp.spendHexSlot || !root.SSDNSApp.spendHexSlot(slot)) {
+            toast(held.reason || "No level-" + slot + " hex lead left.");
+            return;
+          }
         }
+        castSpellAttack(i, sp.name, slot, true);
+        return;
       }
-      castSpellAttack(i, sp.name, slot, true);
-      return;
+      if (slot > 0 && root.SSDNSApp && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(slot)) {
+        toast("No level-" + slot + " slot left.");
+        return;
+      }
+      castSpellAttack(i, sp.name, slot, !!(c && c.calling === "hexslinger" && slot > 0));
+    } finally {
+      restoreCartridges(cartridges);
     }
-    if (slot > 0 && root.SSDNSApp && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(slot)) {
-      toast("No level-" + slot + " slot left.");
-      return;
-    }
-    castSpellAttack(i, sp.name, slot, !!(c && c.calling === "hexslinger" && slot > 0));
   }
   function openCastPrompt(level, onPick) {
     var c = ch();
@@ -1780,10 +1891,13 @@
       return;
     }
     if (stateEl) stateEl.textContent = "Sending…";
-    addLog({ kind: "chat", text: ((c && c.player) || "You") + ": " + text });
+    var chatId = "chat_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var speaker = sheetSpeaker();
+    addLog({ id: "chat:" + chatId, kind: "chat", text: speaker + ": " + text });
     var pending = root.SSDNSDmJoin.postChat({
+      id: chatId,
       text: text,
-      fromName: (c && (c.player || c.name)) || "Player"
+      fromName: speaker
     });
     Promise.resolve(pending).then(function (res) {
       var ok = !res || res.ok !== false;
@@ -1972,6 +2086,7 @@
     showNotice: showNotice,
     setConditions: setConditions,
     addLog: addLog,
+    ensureAttackTarget: ensureAttackTarget,
     clearLog: clearLog,
     mergeLog: mergeLog,
     rollDamageExpr: rollDamageExpr,

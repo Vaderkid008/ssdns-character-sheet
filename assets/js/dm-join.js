@@ -400,9 +400,12 @@
     var c = doc() && doc().character;
     var charName = (c && c.name) || "";
     var playerName = (c && c.player) || "";
-    entry.who = entry.who || (charName && playerName ? (charName + " (" + playerName + ")") : (charName || playerName || "Player"));
-    entry.playerName = entry.playerName || playerName;
+    var speaker = root.SSDNSApplied && root.SSDNSApplied.speakerName
+      ? (root.SSDNSApplied.speakerName(charName, playerName) || "Player")
+      : (charName || playerName || "Player");
     entry.characterName = entry.characterName || charName;
+    entry.playerName = entry.playerName || playerName;
+    if (!entry.who || entry.who === playerName || entry.who === "Player") entry.who = speaker;
     if (root.SSDNSTestRoll && root.SSDNSTestRoll()) {
       entry.test = true;
       if (String(entry.label || "").indexOf("TEST") < 0) entry.label = (entry.label || "Roll") + " · TEST";
@@ -415,7 +418,7 @@
     if (!quiet) {
       var feed = {
         id: id, ts: entry.ts, from: state.uid,
-        fromName: entry.who, text: rollText(entry), kind: "roll", who: entry.who
+        fromName: entry.characterName || entry.who, text: rollText(entry), kind: "roll", who: entry.characterName || entry.who
       };
       try { await fb.set(fb.ref(state.db, roomPath("tableFeed/" + id)), feed); }
       catch (err) { console.warn("[DM Join] table feed", err); }
@@ -712,7 +715,22 @@
         break;
       case "roll":
         if (payload.id) state._feedSeen[payload.id] = 1;
-        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "roll:" + (payload.id || cmd.id), kind: "roll", text: (payload.who || "DM") + ": " + (payload.text || ""), ts: cmd.ts });
+        if (root.SSDNSSheet) {
+          var rollBody = payload.text || "";
+          var rollSpeaker = payload.characterName || "";
+          if (!rollSpeaker && payload.who && payload.who !== "DM") rollSpeaker = payload.who;
+          if (/^DM:\s*/i.test(rollBody)) rollBody = rollBody.replace(/^DM:\s*/i, "");
+          var rollShown = rollBody;
+          if (rollSpeaker && rollShown.indexOf(rollSpeaker) !== 0 && rollShown.indexOf("→") < 0) rollShown = rollSpeaker + ": " + rollShown;
+          else if (!rollSpeaker && payload.who && payload.who !== "DM" && rollShown.indexOf(payload.who) !== 0) rollShown = payload.who + ": " + rollShown;
+          root.SSDNSSheet.addLog({
+            id: "roll:" + (payload.id || cmd.id),
+            kind: "roll",
+            text: rollShown,
+            ts: cmd.ts,
+            replace: /→\s*(HIT|MISS|CRIT)/.test(rollShown)
+          });
+        }
         break;
       case "open_saloon":
         toast("DM opened the Saloon", "Go", function () {
@@ -1259,7 +1277,7 @@
       id: id,
       ts: new Date().toISOString(),
       from: state.uid,
-      fromName: (entry && entry.fromName) || (c && (c.player || c.name)) || "Player",
+      fromName: (entry && entry.fromName) || (c && (root.SSDNSApplied && root.SSDNSApplied.speakerName ? root.SSDNSApplied.speakerName(c.name, c.player) : (c.name || c.player))) || "Player",
       text: (entry && entry.text) || ""
     };
     return fb.set(fb.ref(state.db, roomPath("chat/" + id)), row);
@@ -1350,9 +1368,16 @@
         var ts = Date.parse(row.ts);
         if (!own && (!ts || ts <= (state.marker || 0))) return;
         var speaker = row.who || row.fromName || "Table";
+        if (speaker === "DM" && row.kind === "roll") speaker = "";
         var text = row.text || "";
-        if (!own && text.indexOf(speaker) !== 0) text = speaker + ": " + text;
-        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: (row.kind === "roll" ? "roll:" : "feed:") + id, kind: row.kind === "roll" ? "roll" : "chat", text: text, ts: row.ts });
+        if (speaker && !own && text.indexOf(speaker) !== 0 && text.indexOf("→") < 0) text = speaker + ": " + text;
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({
+          id: (row.kind === "roll" ? "roll:" : "feed:") + id,
+          kind: row.kind === "roll" ? "roll" : "chat",
+          text: text,
+          ts: row.ts,
+          replace: row.kind === "roll" && /→\s*(HIT|MISS|CRIT)/.test(text)
+        });
       });
     });
     bind("players", function (val) {
