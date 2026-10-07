@@ -522,6 +522,27 @@
       .replace(/\s+([.,])/g, "$1")
       .trim();
   }
+  function labelText(v) {
+    if (v == null) return "";
+    var s = String(v).trim();
+    if (!s || /^undefined$/i.test(s) || /^null$/i.test(s)) return "";
+    return s;
+  }
+  function sheetHeader(parts) {
+    parts = parts || {};
+    var size = labelText(parts.size);
+    var type = labelText(parts.type);
+    var who = [size, type].filter(Boolean).join(" ");
+    var bits = [];
+    if (who) bits.push(who);
+    var cr = labelText(parts.cr);
+    if (cr) bits.push("CR " + cr);
+    var side = labelText(parts.side);
+    if (side) bits.push(side);
+    var speed = labelText(parts.speed);
+    if (speed) bits.push("Speed " + speed);
+    return bits.join(" · ");
+  }
   function enemyCardModel(beast) {
     var b = beast || {};
     var attacks = (Array.isArray(b.attackList) ? b.attackList : []).map(function (a, n) {
@@ -565,6 +586,8 @@
       description: b.description || "",
       cr: b.cr || "",
       speed: b.speed == null ? "" : b.speed,
+      size: labelText(b.size),
+      type: labelText(b.type),
       traits: Array.isArray(b.traits) ? b.traits : [],
       actions: Array.isArray(b.actions) ? b.actions : [],
       reactions: Array.isArray(b.reactions) ? b.reactions : [],
@@ -691,6 +714,7 @@
     isMisfire: isMisfire,
     publicDetail: publicDetail,
     enemyCardModel: enemyCardModel,
+    sheetHeader: sheetHeader,
     saveMod: saveMod,
     namedCondition: namedCondition,
     riderText: riderText,

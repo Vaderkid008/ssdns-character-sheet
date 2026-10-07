@@ -187,6 +187,18 @@ check(wakanSpells.every((name) => sandbox.SSDNSSpellCast.lookup(name)), "every W
 check(liveBeasts.every((b) => !("pendingJessey" in b)), "pendingJessey is gone");
 const buffalo = beasts.filter((b) => b.id === "buffalo-spirit")[0];
 check(buffalo && buffalo.type === "beast (spirit)" && /Spirits fade/.test(buffalo.loot || "") && (buffalo.traits || []).some((t) => t.name === "Spirit Strikes"), "Buffalo Spirit is a spirit with no loot");
+const buffaloCard = Applied.enemyCardModel(buffalo);
+check(Applied.sheetHeader({ size: buffaloCard.size, type: buffaloCard.type, cr: buffaloCard.cr, side: "Enemy", speed: buffaloCard.speed }) === "Huge beast (spirit) · CR 2 · Enemy · Speed 60 ft.", "buffalo sheet header");
+check(Applied.sheetHeader({ size: "undefined", type: null, cr: "1/8", side: "Enemy", speed: "30 ft." }) === "CR 1/8 · Enemy · Speed 30 ft.", "a custom combatant omits a missing size and type");
+check(src.indexOf("sheetHeader") >= 0, "the sheet subtitle uses the header");
+const ray = sandbox.SSDNSSpellCast.lookup("Ray of Enfeeblement");
+check(ray && ray.kind === "attack" && ray.level === 2, "Ray of Enfeeblement is an attack");
+const rayRoll = sandbox.SSDNSSpellCast.rollCast({ spellName: "Ray of Enfeeblement", slotLevel: 2, attackBonus: 5 });
+check(rayRoll.attack === true && /spell attack/.test(rayRoll.text) && !/on hit 0/.test(rayRoll.text), "enfeeblement rolls an attack and no fake damage");
+check(sandbox.SSDNSSpellCast.lookup("Contagion").kind === "attack", "Contagion is a spell attack");
+["Chill Touch", "Ray of Frost", "Shocking Grasp", "Ray of Sickness", "Scorching Ray", "Vampiric Touch"].forEach((name) => {
+  check(sandbox.SSDNSSpellCast.lookup(name).kind === "attack", name + " stays an attack");
+});
 const scorp = Applied.enemyCardModel(beasts.filter((b) => b.id === "giant-scorpion")[0]);
 const claw = scorp.attacks.filter((a) => a.name === "Claw")[0];
 const sting = scorp.attacks.filter((a) => a.name === "Sting")[0];
@@ -231,9 +243,9 @@ check(sandbox.__enemy.enemyPickerList(picker, "", false).some((b) => b.parked) =
 const menu = sandbox.__enemy.enemySelectHtml(sandbox.__enemy.enemyPickerList(picker, "", false));
 check(menu.indexOf('label="Creatures"') >= 0 && menu.indexOf('label="Folk"') >= 0 && menu.indexOf('label="Named"') >= 0 && menu.indexOf("Abigail Ellen") >= 0, "fight menu uses group headers");
 check(html.indexOf('id="enemyQ"') >= 0, "fight search box is in the page");
-check(version.dmcc === "0.2.26" && version.dmccBuild === "dmcc-necromancer-v0226", "dmcc version");
+check(version.dmcc === "0.2.27" && version.dmccBuild === "dmcc-header-v0227", "dmcc version");
 check(version.sheet === "0.3.13" && version.sheetBuild === "sheet-suggestion-v0313", "sheet version");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.26"') >= 0, "dmcc.js version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.27"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {

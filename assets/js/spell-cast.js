@@ -291,7 +291,20 @@
       var crit = nat === 20;
       var miss = nat === 1;
       var total = nat + bonus;
-      var spellRoll = rollParts(shaped(), crit && !miss);
+      var head = name + gun + " · " + (kind === "weapon" ? "weapon attack " : "spell attack ") + sign(bonus) + ": " + nat + sign(bonus) + " = " + total;
+      if (kind === "weapon" && row.save) head += " · " + row.save + " save";
+      var shapedDice = shaped();
+      var hasDamage = (shapedDice.parts && shapedDice.parts.length) || shapedDice.flat;
+      if (!hasDamage) {
+        var plain = miss ? "MISS" : (crit ? "CRIT" : "HIT");
+        var bare = head + " · " + plain;
+        var barePack = pack(bare, true, nat, crit, (pair.shown.indexOf("/") >= 0 ? "2d20" : "1d20") + sign(bonus), total, pair.shown + sign(bonus) + " = " + total + " · " + plain, sparkFor(miss));
+        barePack.diceShown = pair.shown;
+        barePack.damageTotal = 0;
+        barePack.damageDetail = "";
+        return barePack;
+      }
+      var spellRoll = rollParts(shapedDice, crit && !miss);
       var dmgTotal = spellRoll.total;
       var dmgBits = spellRoll.detail + typeBit(row);
       if (row.weapon && opts.weaponDamage) {
@@ -302,8 +315,6 @@
           dmgTotal += wr.total;
         }
       }
-      var head = name + gun + " · " + (kind === "weapon" ? "weapon attack " : "spell attack ") + sign(bonus) + ": " + nat + sign(bonus) + " = " + total;
-      if (kind === "weapon" && row.save) head += " · " + row.save + " save";
       var dmgText = miss ? "MISS" : ((crit ? "CRIT · on hit " : "on hit ") + dmgBits + " = " + dmgTotal);
       var text = head + " · " + dmgText;
       var spark = sparkFor(miss);

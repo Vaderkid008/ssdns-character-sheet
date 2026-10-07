@@ -11034,7 +11034,7 @@ window.SSDNS_RULES = {
   {
    "name": "Ray of Enfeeblement",
    "level": 2,
-   "kind": "none"
+   "kind": "attack"
   },
   {
    "name": "Rope Trick",
@@ -11804,7 +11804,7 @@ window.SSDNS_RULES = {
   {
    "name": "Contagion",
    "level": 5,
-   "kind": "none"
+   "kind": "attack"
   },
   {
    "name": "Creation",
