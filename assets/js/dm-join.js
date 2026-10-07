@@ -764,7 +764,11 @@
         applyMusic(payload);
         break;
       case "sfx":
-        if (root.SSDNSAudio && payload.event) root.SSDNSAudio.play(payload.event);
+        // The sender already heard it. sharedCue drops the echo when from is this client.
+        if (root.SSDNSAudio && root.SSDNSAudio.sharedCue) {
+          var sfxName = root.SSDNSAudio.sharedCue(payload.event, cmd.from, state.uid);
+          if (sfxName) root.SSDNSAudio.play(sfxName);
+        }
         break;
       case "attack_result":
         if (!claimGrant("atk:" + (payload.grantId || payload.rollId || cmd.id))) break;
@@ -780,7 +784,6 @@
           });
         }
         toast(payload.text || payload.verdict || "");
-        if (payload.sfx && root.SSDNSAudio) root.SSDNSAudio.play(payload.sfx);
         break;
       case "open_tab":
         toast("DM nudge: open " + (payload.tab || "a tab"), "Go", function () {
@@ -1275,9 +1278,35 @@
       return { ok: false, queued: true };
     });
   }
+  function postSfx(eventName) {
+    var name = root.SSDNSAudio && root.SSDNSAudio.sharedCue ? root.SSDNSAudio.sharedCue(eventName) : "";
+    if (!name) return Promise.resolve({ ok: false });
+    // commands/broadcast are DM-write. Players already may append tableFeed, so the cue rides there.
+    if (!state.joined || state.left || offlineNow() || !state.uid || !state._fb || !state.db) {
+      return Promise.resolve({ ok: false, skipped: true });
+    }
+    var id = "sfx_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var c = doc() && doc().character;
+    var row = {
+      id: id,
+      ts: new Date().toISOString(),
+      from: state.uid,
+      fromName: (c && (c.name || c.player)) || "Player",
+      text: name,
+      kind: "sfx",
+      event: name
+    };
+    return state._fb.set(state._fb.ref(state.db, roomPath("tableFeed/" + id)), row).then(function () {
+      return { ok: true };
+    }).catch(function (e) {
+      console.warn("[DM Join] sfx", e);
+      return { ok: false };
+    });
+  }
   function listenRoomFeeds() {
     var fb = state._fb;
     var room = state.roomCode;
+    state._sfxSince = Date.now();
     function bind(path, handler) {
       var r = fb.ref(state.db, roomPath(path));
       var unsub = fb.onValue(r, function (snap) {
@@ -1346,6 +1375,14 @@
         state._feedSeen[id] = 1;
         var row = val[id];
         if (!row) return;
+        if (row.kind === "sfx") {
+          var sfxTs = Date.parse(row.ts);
+          var heard = root.SSDNSAudio && root.SSDNSAudio.sharedCue
+            ? root.SSDNSAudio.sharedCue(row.event || row.text, row.from, state.uid)
+            : "";
+          if (heard && sfxTs && sfxTs + 4000 >= (state._sfxSince || 0)) root.SSDNSAudio.play(heard);
+          return;
+        }
         var own = row.from === state.uid;
         var ts = Date.parse(row.ts);
         if (!own && (!ts || ts <= (state.marker || 0))) return;
@@ -1755,6 +1792,7 @@
       publishSnapshot: publishSnapshot,
       postLedger: postLedger,
       postRoll: postRoll,
+      postSfx: postSfx,
       postChat: postChat,
       postDamage: postDamage,
       postAttack: postAttack,
