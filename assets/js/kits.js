@@ -157,13 +157,27 @@
       addLine(c, "Throwing spears ×4");
       addLine(c, "Explorer pack");
     } else if (calling === "storyteller") {
-      putMelee(c, "stiletto-dagger");
-      addLine(c, "Boot knife");
-      if (p.voice) addLine(c, "Instrument (" + p.voice + ") — focus");
-      addLine(c, "Strap and one spare set of strings");
+      var voice = p.voice || "fiddle";
+      var voiceName = { fiddle: "Fiddle", banjo: "Banjo", guitar: "Guitar", voice: "Voice" };
+      putMelee(c, "bowie-shortsword");
+      putGun(c, "herringer-light-double-derringer");
+      var derringer = (c.guns || []).filter(function (g) { return g && g.weapon === "herringer-light-double-derringer"; })[0];
+      if (derringer) {
+        derringer.tier = "light";
+        derringer.chamber = "light|.32 Long";
+        derringer.proficient = true;
+      }
+      addAmmo(c, "cartridge", "Light", 20);
+      if (voice === "voice") addLine(c, "Voice — focus");
+      else addLine(c, (voiceName[voice] || "Fiddle") + " with a strap and one spare set of strings");
       if (p.kit === "saloon") addLine(c, "Saloon kit");
       else addLine(c, "Diplomat trunk");
       addLine(c, "Duster");
+      c.instrument = voice;
+      if (voice !== "voice") {
+        if (!c.instrumentQuality) c.instrumentQuality = "cheap";
+        if (!c.instrumentStrings) c.instrumentStrings = "plain";
+      }
     } else if (calling === "frontier-preacher") {
       if (p.melee === "hammer") putMelee(c, "claim-hammer-light-hammer");
       else putMelee(c, "trail-mace-chapel-mace-mace");
@@ -268,6 +282,7 @@
       addLine(c, "Scholar pack");
       addLine(c, "Duster");
     }
+    if (CALLINGS.indexOf(calling) >= 0) c.kitStamp = calling;
     return c;
   }
 

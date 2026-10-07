@@ -156,13 +156,27 @@
       addLine(c, "Explorer's pack");
     },
     storyteller: function (c, p) {
-      putMelee(c, "stiletto-dagger");
-      addLine(c, "Boot knife");
-      if (p && p.voice) addLine(c, "Instrument (" + p.voice + ") — focus");
-      addLine(c, "Strap or spare strings");
+      var voice = (p && p.voice) || "fiddle";
+      var voiceName = { fiddle: "Fiddle", banjo: "Banjo", guitar: "Guitar", voice: "Voice" };
+      putMelee(c, "bowie-shortsword");
+      putGun(c, "herringer-light-double-derringer");
+      var derringer = (c.guns || []).filter(function (g) { return g && g.weapon === "herringer-light-double-derringer"; })[0];
+      if (derringer) {
+        derringer.tier = "light";
+        derringer.chamber = "light|.32 Long";
+        derringer.proficient = true;
+      }
+      addAmmo(c, "cartridge", "Light", 20);
+      if (voice === "voice") addLine(c, "Voice — focus");
+      else addLine(c, (voiceName[voice] || "Fiddle") + " with a strap and one spare set of strings");
       if ((p && p.kit) === "saloon") addLine(c, "Saloon kit");
-      else if ((p && p.kit) === "trunk") addLine(c, "Diplomat's trunk");
+      else addLine(c, "Diplomat trunk");
       addLine(c, "Duster");
+      c.instrument = voice;
+      if (voice !== "voice") {
+        if (!c.instrumentQuality) c.instrumentQuality = "cheap";
+        if (!c.instrumentStrings) c.instrumentStrings = "plain";
+      }
     },
     "frontier-preacher": function (c, p) {
       if ((p && p.melee) === "hammer") putMelee(c, "claim-hammer-light-hammer");
@@ -185,10 +199,11 @@
     "nature-guide": function (c, p) {
       putMelee(c, "machete-scimitar");
       c.shield = true;
-      addLine(c, "Explorer's pack");
+      addLine(c, "Wooden shield");
+      addLine(c, "Explorer pack");
       addLine(c, "Herbalism kit");
       var focus = { stick: "Carved walking stick", pouch: "Medicine pouch", soil: "Pouch of home-spring soil" };
-      if (p && focus[p.focus]) addLine(c, "Focus: " + focus[p.focus]);
+      addLine(c, "Focus: " + (focus[p && p.focus] || focus.stick));
     },
     gunslinger: function (c, p) {
       if (kitApi()) { kitApi().apply(c, "gunslinger", p || {}); return; }

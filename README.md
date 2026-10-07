@@ -1,6 +1,6 @@
 # SSDNS Character Sheet
 
-Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.13, DM Command Center v0.2.27).
+Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.14, DM Command Center v0.2.27).
 
 - Sheet header: the enemy sheet names size and type before CR, side, and speed, such as Huge beast (spirit). A missing size or type is left off. Ray of Enfeeblement and Contagion are spell attacks. `database.rules.json` did not change.
 - Bestiary lock: Wakan Takan is a necromancer (twelve spells, still CR 3, proficiency +2). Buffalo Spirit is a beast (spirit) and leaves no loot. `pendingJessey` is gone. Calder stays parked. `database.rules.json` did not change.

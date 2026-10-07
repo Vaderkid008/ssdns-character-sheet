@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.13"; // sheet-suggestion-v0313
+  var APP_VERSION = "0.3.14"; // sheet-storyteller-kit-v0314
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;

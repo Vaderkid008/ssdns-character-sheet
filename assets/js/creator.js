@@ -123,6 +123,14 @@
     var branches = kits && kits.branches ? kits.branches(callingId) : [{}];
     return (branches && branches[0]) || {};
   }
+  function ensureKitDefaults(draft) {
+    var def = kitPick(draft && draft.calling);
+    draft.kit = draft.kit || {};
+    Object.keys(def).forEach(function (k) {
+      if (draft.kit[k] == null || draft.kit[k] === "") draft.kit[k] = def[k];
+    });
+    return draft.kit;
+  }
   function emptyCharacter() {
     var kits = root.SSDNSKits;
     var c = kits && kits.blankCharacter ? kits.blankCharacter() : {
@@ -288,6 +296,7 @@
     (draft.skills || []).forEach(function (sk) { c.skillProf[sk] = 1; });
     c.speedAuto = true;
     c.speed = (sub && sub.speed) || (lin && lin.speed) || 30;
+    ensureKitDefaults(draft);
     if (root.SSDNSKits && root.SSDNSKits.apply) root.SSDNSKits.apply(c, c.calling, draft.kit || {});
     var focus = focusFor(c.calling);
     if (focus.kind === "borrowed-iron") c.casterGun = "borrowed-iron";
@@ -341,6 +350,7 @@
     draft.background = bg.id;
     draft.skills = (spec.skills || skillList(bg)).slice();
     draft.kit = spec.kit || kitPick(cal.id);
+    ensureKitDefaults(draft);
     draft.level = spec.level || 1;
     if (draft.calling === "gunslinger" && !draft.fightingStyle) draft.fightingStyle = spec.fightingStyle || "long-gun";
     var lim = levelRow(cal);
@@ -571,6 +581,7 @@
       });
     } else if (step === "kit") {
       body.appendChild(el("h2", { text: "Starting kit" }));
+      ensureKitDefaults(draft);
       var kits = root.SSDNSKits;
       var choices = (kits && kits.choices && kits.choices[draft.calling]) || [];
       if (!choices.length) body.appendChild(el("p", { text: "This Calling's kit has no or-choices. Next applies it." }));

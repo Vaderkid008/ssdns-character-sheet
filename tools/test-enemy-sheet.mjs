@@ -244,7 +244,7 @@ const menu = sandbox.__enemy.enemySelectHtml(sandbox.__enemy.enemyPickerList(pic
 check(menu.indexOf('label="Creatures"') >= 0 && menu.indexOf('label="Folk"') >= 0 && menu.indexOf('label="Named"') >= 0 && menu.indexOf("Abigail Ellen") >= 0, "fight menu uses group headers");
 check(html.indexOf('id="enemyQ"') >= 0, "fight search box is in the page");
 check(version.dmcc === "0.2.27" && version.dmccBuild === "dmcc-header-v0227", "dmcc version");
-check(version.sheet === "0.3.13" && version.sheetBuild === "sheet-suggestion-v0313", "sheet version");
+check(version.sheet === "0.3.14" && version.sheetBuild === "sheet-storyteller-kit-v0314", "sheet version");
 check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.27"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
