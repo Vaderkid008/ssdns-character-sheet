@@ -75,7 +75,7 @@ function rowFor(id) {
 const outlaw = rowFor("outlaw");
 const outlawHtml = htmlOf(outlaw, 0);
 check(outlaw.card.attacks.length === 2, "outlaw has two attacks");
-check(Applied.attackButtonLabel(outlaw.card.attacks[0]) === "Revolver +3", "revolver label");
+check(Applied.attackButtonLabel(outlaw.card.attacks[0]) === "ChaosMaker Revolver +3", "revolver label");
 check(Applied.attackButtonLabel(outlaw.card.attacks[1]) === "Bowie +3", "bowie label");
 check(outlawHtml.indexOf("Revolver") >= 0 && outlawHtml.indexOf("ranged") >= 0 && outlawHtml.indexOf("1d8+1 piercing") >= 0 && outlawHtml.indexOf("20/60") >= 0 && outlawHtml.indexOf("6/6") >= 0 && outlawHtml.indexOf("MF 1") >= 0, "outlaw revolver row " + outlawHtml.slice(0, 400));
 check(outlawHtml.indexOf("Bowie") >= 0 && outlawHtml.indexOf("melee") >= 0 && outlawHtml.indexOf("1d6+1") >= 0, "outlaw bowie row");
@@ -221,16 +221,16 @@ const allyCard = htmlOf(allyRow, 0);
 const allyFight = sandbox.__enemy.turnRowHtml(allyRow, 0);
 const enemyFight = sandbox.__enemy.turnRowHtml(outlaw, 0);
 check(allyFight.indexOf("friendly") >= 0 && allyFight.indexOf("Friendly") >= 0 && allyFight.indexOf("Mark enemy") >= 0, "friendly card is marked");
-check(allyFight.indexOf("data-row-atk") < 0 && allyFight.indexOf("Attack player") < 0 && allyFight.indexOf("Attack this player") < 0, "friendly card does not target a player");
-check(allyFight.indexOf("Attack this creature") >= 0 && allyFight.indexOf("Attack this enemy") < 0 && allyFight.indexOf('class="who-name"') >= 0 && allyFight.indexOf('class="badge eld"') >= 0, "friendly card says Attack this creature and keeps the badge on the name");
-check(enemyFight.indexOf("Attack this enemy") >= 0 && enemyFight.indexOf("Attack this creature") < 0, "an enemy card still says Attack this enemy");
+check(allyFight.indexOf("data-row-atk") >= 0 && allyFight.indexOf("DM roll vs this AC") >= 0 && allyFight.indexOf("Attack this player") < 0, "friendly row can attack and the AC button is named");
+check(allyFight.indexOf("Attack this creature") < 0 && allyFight.indexOf("Attack this enemy") < 0 && allyFight.indexOf('class="who-name"') >= 0 && allyFight.indexOf('class="badge eld"') >= 0, "friendly card keeps the badge and drops the old attack-this labels");
+check(enemyFight.indexOf("DM roll vs this AC") >= 0 && enemyFight.indexOf("Attack this enemy") < 0, "an enemy card says DM roll vs this AC");
 check(sandbox.__enemy.claimEnemyAdd("abigail-ellen") === true, "the first add is accepted");
 check(sandbox.__enemy.claimEnemyAdd("abigail-ellen") === false, "the same click does not add a second copy");
 sandbox.__enemy.finishEnemyAdd();
 check(sandbox.__enemy.claimEnemyAdd("abigail-ellen") === true, "a later click can add another copy");
 sandbox.__enemy.finishEnemyAdd();
 check(enemyFight.indexOf("data-row-atk") >= 0 && enemyFight.indexOf("Mark friendly") >= 0 && enemyFight.indexOf("init-row friendly") < 0, "enemy card still attacks and offers the toggle");
-check(allyCard.indexOf("data-sheet-roll") < 0 && allyCard.indexOf("does not target the party") >= 0 && outlawHtml.indexOf("data-sheet-roll") >= 0, "friendly sheet keeps the attack text without the roll");
+check(allyCard.indexOf("data-sheet-roll") >= 0 && allyCard.indexOf("does not target the party") < 0 && outlawHtml.indexOf("data-sheet-roll") >= 0, "friendly sheet can roll the attack");
 const picker = [
   { id: "wolf", name: "Wolf", group: "creature" },
   { id: "abigail-ellen", name: "Abigail Ellen", group: "named" },

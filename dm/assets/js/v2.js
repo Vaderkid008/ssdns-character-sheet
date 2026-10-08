@@ -427,6 +427,7 @@ function applyRemoteTable(v) {
     if (inspPrimed) DM.toast(insp.last.text || "Inspiration");
   }
   inspPrimed = true;
+  refreshFightCards();
   renderFight();
   renderStock();
   renderPacks();
@@ -667,6 +668,7 @@ function enemyCardHtml(row, i) {
     const extra = atk.extraDamage && atk.extraDamage.damage
       ? ("+" + atk.extraDamage.damage + (atk.extraDamage.damageType ? " " + atk.extraDamage.damageType : ""))
       : "";
+    const props = Array.isArray(atk.properties) ? atk.properties.filter(Boolean).join(", ") : (atk.properties || "");
     const bits = [
       atk.kind || "",
       signed(atk.toHit),
@@ -675,7 +677,8 @@ function enemyCardHtml(row, i) {
       atk.versatile ? ("2H " + atk.versatile) : "",
       atk.range || "",
       cap,
-      atk.misfire == null ? "" : ("MF " + atk.misfire)
+      atk.misfire == null ? "" : ("MF " + atk.misfire),
+      props
     ].filter(Boolean);
     const jam = atk.jammed
       ? `<p class="fine">Jammed. <button type="button" class="btn sm" data-clear-jam="${i}" data-atk-n="${n}">Clear jam</button></p>`
@@ -692,11 +695,11 @@ function enemyCardHtml(row, i) {
       ${atk.notes ? `<p class="fine">${esc(atk.notes)}</p>` : ""}
       ${calls}
       ${jam}
-      ${isFriendly(row) ? `<p class="fine">Friendly. This attack does not target the party.</p>` : `<div class="toolbar">
+      <div class="toolbar">
         <button type="button" class="btn btn-primary" data-sheet-roll="1" data-n="${n}">Roll</button>
         <button type="button" class="btn" data-sheet-apply="1" data-n="${n}">Apply</button>
         ${riderBtns}
-      </div>`}
+      </div>
     </article>`;
   }).join("");
   const rider = row.pendingRider && row.pendingRider.condition
@@ -738,7 +741,7 @@ function enemyCardHtml(row, i) {
         <h3>${esc(name)}</h3>
         <p>${esc(meta)}</p>
         ${blurb ? `<p class="fine">${esc(blurb)}</p>` : ""}
-        ${isFriendly(row) ? `<p class="fine">Friendly. This spell does not target the party.</p>` : `<button type="button" class="btn" data-sheet-cast="1" data-n="${n}">${esc(castLabel)}</button>`}
+        <button type="button" class="btn" data-sheet-cast="1" data-n="${n}">${esc(castLabel)}</button>
       </article>`;
     }).join("");
     const dc = casting.dc == null ? "—" : casting.dc;
@@ -802,15 +805,10 @@ function isFriendly(row) {
   const side = row && String(row.side || "").toLowerCase();
   return side === "friendly" || side === "ally" || !!(row && (row.ally === true || row.friendly === true));
 }
-function partyAttackBlocked(row) {
-  if (!isFriendly(row)) return false;
-  DM.toast((row && row.name ? row.name : "Ally") + " is friendly and does not attack the party");
-  return true;
-}
 function compactAttackButtons(row, i) {
   const list = (row.card && row.card.attacks && row.card.attacks.length) ? row.card.attacks : (row.attackList || []);
   const open = `<button type="button" class="btn sm" data-open-enemy="${esc(row.id || "")}">Open sheet</button>`;
-  if (!list.length) return `<button type="button" class="btn sm" data-init-strike="${i}">Attack player</button>${open}`;
+  if (!list.length) return `<button type="button" class="btn sm" data-init-strike="${i}">Attack</button>${open}`;
   return list.map((atk, n) => {
     const label = window.SSDNSApplied && window.SSDNSApplied.attackButtonLabel
       ? window.SSDNSApplied.attackButtonLabel(atk)
@@ -850,9 +848,9 @@ function turnRowHtml(row, i) {
       ${enemyEdit}
       <span class="init-actions">
         ${row.kind === "enemy" ? `<button type="button" class="btn sm" data-side-toggle="${i}" aria-pressed="${friendly ? "true" : "false"}">${friendly ? "Mark enemy" : "Mark friendly"}</button>` : ""}
-        ${row.kind === "enemy" ? (friendly ? `<button type="button" class="btn sm" data-open-enemy="${esc(row.id || "")}">Open sheet</button>` : compactAttackButtons(row, i)) : `<button type="button" class="btn sm" data-your-turn="${i}">Your turn</button>`}
+        ${row.kind === "enemy" ? compactAttackButtons(row, i) : `<button type="button" class="btn sm" data-your-turn="${i}">Your turn</button>`}
         <button type="button" class="btn sm" data-init-cond="${i}">Conditions</button>
-        <button type="button" class="btn sm" data-init-hit="${i}">${row.kind === "enemy" ? (friendly ? "Attack this creature" : "Attack this enemy") : "Attack this player"}</button>
+        <button type="button" class="btn sm" data-init-hit="${i}" title="Rolls against this row's AC using the Damage box dice">DM roll vs this AC</button>
         <button type="button" class="btn sm" data-init-dmg="${i}">Damage</button>
         <button type="button" class="btn sm" data-init-heal="${i}">Heal</button>
         <button type="button" class="btn sm" data-init-down="${i}">Down</button>
@@ -1908,24 +1906,93 @@ function visibleBeasts() {
 }
 function mergeBestiary(fileList, saved) {
   const base = Array.isArray(fileList) ? fileList : [];
-  const extra = {};
+  const fileIds = {};
+  base.forEach((b) => { if (b && b.id) fileIds[b.id] = 1; });
+  const names = {};
+  const custom = [];
   (saved || []).forEach((b) => {
     if (!b || !b.id || b.example || b.template) return;
-    extra[b.id] = b;
+    if (fileIds[b.id]) {
+      if (b.name) names[b.id] = b.name;
+      return;
+    }
+    // A saved id missing from the file is a leftover copy. Keep a true custom entry.
+    if (b.custom === true || !b.source) custom.push(b);
   });
   const out = base.map((b) => {
-    const over = b && extra[b.id];
-    if (!over) return b;
-    return Object.assign({}, over, b, {
-      name: over.name || b.name,
-      attackList: b.attackList || [],
-      attacks: b.attacks || ""
-    });
+    if (!b || !names[b.id] || names[b.id] === b.name) return b;
+    return Object.assign({}, b, { name: names[b.id] });
   });
-  const known = {};
-  out.forEach((b) => { if (b && b.id) known[b.id] = 1; });
-  Object.keys(extra).forEach((id) => { if (!known[id]) out.push(extra[id]); });
+  custom.forEach((b) => out.push(b));
   return out;
+}
+function beastRecord(id) {
+  if (!id) return null;
+  return (fight.bestiary || []).filter((b) => b && b.id === id && !b.template)[0] || null;
+}
+function gunMemory(attacks) {
+  return (attacks || []).map((atk) => atk && ({
+    id: atk.id || "",
+    name: atk.name || "",
+    loaded: atk.loaded,
+    jammed: !!atk.jammed,
+    lastRoll: atk.lastRoll || null
+  })).filter(Boolean);
+}
+function restoreGuns(attacks, prev) {
+  (attacks || []).forEach((atk, n) => {
+    if (!atk) return;
+    const old = (prev || []).filter((p) => (atk.id && p.id === atk.id) || (atk.name && p.name === atk.name))[0] || (prev || [])[n];
+    if (!old) return;
+    if (atk.capacity != null && old.loaded != null && old.loaded !== "" && isFinite(Number(old.loaded))) atk.loaded = Number(old.loaded);
+    if (old.jammed) atk.jammed = true;
+    if (old.lastRoll) atk.lastRoll = old.lastRoll;
+  });
+}
+function normalizeAttackMisfires(attacks) {
+  const num = window.SSDNSApplied && window.SSDNSApplied.misfireNumber;
+  if (!num) return;
+  (attacks || []).forEach((atk) => {
+    if (!atk || atk.misfire == null || atk.misfire === "") return;
+    const n = num(atk.misfire);
+    if (n != null) atk.misfire = n;
+  });
+}
+function ensureCombatantCard(row) {
+  if (!row || row.kind === "player" || !window.SSDNSApplied || !window.SSDNSApplied.enemyCardModel) return;
+  normalizeAttackMisfires(row.card && row.card.attacks);
+  normalizeAttackMisfires(row.attackList);
+  const beast = beastRecord(row.beastId);
+  if (!beast) {
+    const listed = row.attackList || [];
+    if (!listed.length) return;
+    if (row.card && row.card.attacks && row.card.attacks.length) return;
+    const prev = gunMemory((row.card && row.card.attacks) || listed);
+    const next = window.SSDNSApplied.enemyCardModel(row);
+    restoreGuns(next.attacks, prev);
+    row.card = next;
+    return;
+  }
+  const stamp = (beast.id || "") + "|" + (beast.attacks || "");
+  if (row._cardStamp === stamp && row.card && row.card.attacks && row.card.attacks.length) return;
+  const prev = gunMemory((row.card && row.card.attacks) || row.attackList);
+  const prevSlots = row.card && row.card.slots;
+  const pub = !!(row.card && row.card.public);
+  const next = window.SSDNSApplied.enemyCardModel(beast);
+  restoreGuns(next.attacks, prev);
+  if (prevSlots && next.slots) {
+    Object.keys(next.slots).forEach((lv) => {
+      if (prevSlots[lv] && prevSlots[lv].left != null) next.slots[lv].left = prevSlots[lv].left;
+    });
+  }
+  if (pub) next.public = true;
+  row.card = next;
+  row.attackList = beast.attackList || [];
+  row.attacks = beast.attacks || row.attacks || "";
+  row._cardStamp = stamp;
+}
+function refreshFightCards() {
+  (fight.order || []).forEach(ensureCombatantCard);
 }
 function beastRow(b) {
   const stats = window.SSDNSApplied && window.SSDNSApplied.beastCombatant
@@ -2109,11 +2176,16 @@ function conditionName(rider) {
   if (!name || /^condition$/i.test(name)) return "";
   return name;
 }
+function subjectKindOf(target) {
+  const row = findCombatant(target || {});
+  const kind = (target && target.kind) || (row && row.kind) || "player";
+  return kind === "player" ? "player" : kind;
+}
 async function rememberCondition(row, target, name, rounds) {
-  if (!name) return;
+  if (!name || !target) return;
   row.pendingRider = { condition: name, rounds: rounds, targetId: target.id, targetName: target.name };
   try {
-    await writeSubjectConditions(target.id, "player", [{ name: name, rounds: rounds }], target.name || "", 1, {}, []);
+    await writeSubjectConditions(target.id, subjectKindOf(target), [{ name: name, rounds: rounds }], target.name || "", 1, {}, []);
   } catch (err) {}
 }
 async function askAttackSave(row, atk, target, spec, mode) {
@@ -2128,7 +2200,7 @@ async function askAttackSave(row, atk, target, spec, mode) {
     fromName: row.name || "",
     auto: mode === "auto"
   });
-  if (DM.state.demo || mode === "auto") {
+  if ((DM.state.demo || mode === "auto") && !save.logged) {
     await DM.pushRoll({
       who: target.name || row.name, label: (atk.name || "Save"), formula: "1d20" + signed(save.mod || 0),
       result: save.total, detail: save.line, private: !(row.card && row.card.public), nat: save.nat, save: true
@@ -2169,17 +2241,15 @@ async function applySaveEffect(row, atk, target, mode) {
 }
 async function strikeTarget(row, atk) {
   let targetId = (atk.lastRoll && atk.lastRoll.targetId) || row.lastAttackerId;
-  let targetName = (atk.lastRoll && atk.lastRoll.targetName) || "";
-  const stored = playerTargets().filter((p) => p.id === targetId)[0];
+  const stored = resolveStrikeTarget(targetId);
   if (!targetId || !stored || !livingPlayer(stored)) {
     const picked = await askEnemyStrike(row, atk);
     if (!picked || !picked.targetId) return null;
     targetId = picked.targetId;
-    targetName = "";
   }
-  const next = playerTargets().filter((p) => p.id === targetId)[0];
-  if (next && !livingPlayer(next)) return null;
-  return next || { id: targetId, name: targetName || targetId };
+  const next = resolveStrikeTarget(targetId);
+  if (!next || !livingPlayer(next)) return null;
+  return next;
 }
 async function runRider(i, n, mode) {
   const row = fight.order[i];
@@ -2907,37 +2977,131 @@ function livingPlayer(p) {
   return true;
 }
 function playerTargets() {
-  const fromOrder = fight.order.filter((r) => r && r.kind === "player").map((r) => ({
-    id: r.playerId || r.id,
-    name: r.name || "Player",
-    ac: r.ac,
-    hp: r.hp,
-    status: r.status || "",
-    fled: !!r.fled
-  }));
-  Object.keys(DM.state.players || {}).forEach((pid) => {
-    if (fromOrder.some((p) => p.id === pid)) return;
-    if (fight.departed && fight.departed[pid]) return;
-    const s = DM.state.players[pid].snapshot || {};
-    fromOrder.push({ id: pid, name: s.name || pid, ac: s.ac, hp: s.hpCurrent, status: "" });
+  return combatTargets(null).filter((p) => p.kind === "player");
+}
+function combatantKey(row) {
+  if (!row) return "";
+  return row.kind === "player" ? (row.playerId || row.id || "") : (row.id || "");
+}
+function targetGroup(row) {
+  if (!row) return "Enemies";
+  if (row.kind === "player") return "Party";
+  if (isFriendly(row)) return "Allies";
+  return "Enemies";
+}
+function combatTargets(attacker) {
+  const skip = {};
+  if (attacker) {
+    if (attacker.id) skip[attacker.id] = 1;
+    const key = combatantKey(attacker);
+    if (key) skip[key] = 1;
+  }
+  const rows = [];
+  const seen = {};
+  function push(entry) {
+    if (!entry || !entry.id || seen[entry.id] || skip[entry.id]) return;
+    if (!livingPlayer(entry)) return;
+    seen[entry.id] = 1;
+    rows.push(entry);
+  }
+  (fight.order || []).forEach((row) => {
+    if (!row) return;
+    const id = combatantKey(row);
+    push({
+      id: id,
+      name: row.name || (row.kind === "player" ? "Player" : "Creature"),
+      ac: row.ac,
+      hp: row.hp,
+      status: row.status || "",
+      fled: !!row.fled,
+      kind: row.kind || "enemy",
+      group: targetGroup(row),
+      card: row.card || null,
+      conditions: row.conditions || []
+    });
   });
-  return fromOrder;
+  Object.keys(DM.state.players || {}).forEach((pid) => {
+    if (fight.departed && fight.departed[pid]) return;
+    const s = (DM.state.players[pid] && DM.state.players[pid].snapshot) || {};
+    push({
+      id: pid,
+      name: s.name || pid,
+      ac: s.ac,
+      hp: s.hpCurrent,
+      status: s.hpCurrent === 0 ? "Down" : "",
+      kind: "player",
+      group: "Party",
+      card: null
+    });
+  });
+  const groupRank = { Party: 0, Allies: 1, Enemies: 2 };
+  rows.sort((a, b) => (groupRank[a.group] == null ? 9 : groupRank[a.group]) - (groupRank[b.group] == null ? 9 : groupRank[b.group]));
+  return rows;
+}
+function defaultCombatTarget(attacker, list) {
+  const last = attacker && attacker.lastAttackerId;
+  if (last && (list || []).some((p) => p.id === last)) return last;
+  const strikesHostiles = !attacker || attacker.kind === "player" || isFriendly(attacker);
+  const want = strikesHostiles ? "Enemies" : "Party";
+  const first = (list || []).filter((p) => p.group === want)[0];
+  if (first) return first.id;
+  if (!strikesHostiles) {
+    const ally = (list || []).filter((p) => p.group === "Allies")[0];
+    if (ally) return ally.id;
+  }
+  return (list && list[0] && list[0].id) || "";
+}
+function targetMenu(list, selected) {
+  const groups = ["Party", "Allies", "Enemies"];
+  const html = groups.map((label) => {
+    const items = (list || []).filter((p) => p.group === label);
+    if (!items.length) return "";
+    const opts = items.map((p) => {
+      const ac = p.ac == null || p.ac === "" ? "?" : p.ac;
+      return `<option value="${esc(p.id)}"${p.id === selected ? " selected" : ""}>${esc(p.name)} · AC ${esc(ac)}</option>`;
+    }).join("");
+    return `<optgroup label="${label}">${opts}</optgroup>`;
+  }).join("");
+  return html || `<option value="">No targets</option>`;
+}
+function numericAc(ac) {
+  if (ac == null || ac === "") return null;
+  const n = Number(ac);
+  return isFinite(n) ? n : null;
+}
+function resolveStrikeTarget(targetId) {
+  if (!targetId) return null;
+  const row = findCombatant({ targetId: targetId, id: targetId });
+  if (row) {
+    return {
+      id: combatantKey(row),
+      name: row.name || "Someone",
+      ac: row.ac,
+      hp: row.hp,
+      kind: row.kind || "enemy",
+      status: row.status || "",
+      fled: !!row.fled,
+      group: targetGroup(row),
+      card: row.card || null,
+      conditions: row.conditions || []
+    };
+  }
+  return combatTargets(null).filter((p) => p.id === targetId)[0] || null;
 }
 function askEnemyStrike(row, preset) {
-  const players = playerTargets().filter(livingPlayer);
-  const previous = row.lastAttackerId && players.some((p) => p.id === row.lastAttackerId) ? row.lastAttackerId : "";
-  const def = previous || (players[0] && players[0].id) || "";
+  const players = combatTargets(row);
+  const def = defaultCombatTarget(row, players);
   const bonus = preset && preset.toHit != null && preset.toHit !== "" ? preset.toHit : row.atkBonus;
   const dice = preset && preset.damage ? preset.damage : (row.damage || "");
-  const title = preset && preset.name ? preset.name : "Attack a player";
+  const title = preset && preset.name ? preset.name : "Attack a target";
   return new Promise((resolve) => {
     const dlg = document.createElement("dialog");
     dlg.className = "dlg";
-    const options = players.map((p) => `<option value="${esc(p.id)}"${p.id === def ? " selected" : ""}>${esc(p.name)} · AC ${esc(p.ac == null || p.ac === "" ? "?" : p.ac)}</option>`).join("");
+    const options = targetMenu(players, def);
     const grip = preset && preset.versatile
       ? `<label>Grip <select id="enemyGrip" aria-label="One or two hands"><option value="1">One-handed</option><option value="2">Two-handed</option></select></label>`
       : "";
-    dlg.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2><p class="fine">${esc(row.name || "Enemy")} attacks.</p><label>Target <select id="enemyTarget">${options || "<option value=''>No players</option>"}</select></label><label>Attack bonus <input id="enemyBonus" type="number" value="${bonus == null ? "" : esc(bonus)}" placeholder="blank asks"></label>${grip}<label>Damage <input id="enemyDice" value="${esc(dice)}" placeholder="1d6+2"></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Roll</button></div></form>`;
+    dlg.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2><p class="fine">${esc(row.name || "Enemy")} attacks.</p><label>Target <select id="enemyTarget">${options}</select></label><label>Attack bonus <input id="enemyBonus" type="number" value="${bonus == null ? "" : esc(bonus)}" placeholder="blank asks"></label>${grip}<label>Damage <input id="enemyDice" value="${esc(dice)}" placeholder="1d6+2"></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Roll</button></div></form>`;
     const gripSel = dlg.querySelector("#enemyGrip");
     const diceInput = dlg.querySelector("#enemyDice");
     if (gripSel && diceInput && preset && preset.versatile) {
@@ -2967,30 +3131,34 @@ function askEnemyStrike(row, preset) {
 }
 async function enemyStrike(i, preset) {
   const row = fight.order[i];
-  if (!row || partyAttackBlocked(row)) return;
+  if (!row) return;
+  ensureCombatantCard(row);
   const picked = await askEnemyStrike(row, preset);
-  if (!picked || !picked.targetId) { DM.toast("No player to attack"); return; }
+  if (!picked || !picked.targetId) { DM.toast("No targets"); return; }
   if (picked.bonus == null || !isFinite(picked.bonus) || !picked.dice) { DM.toast("Enter an attack bonus and damage"); return; }
   row.atkBonus = picked.bonus;
   row.damage = picked.dice;
-  const target = playerTargets().filter((p) => p.id === picked.targetId)[0] || { id: picked.targetId, name: picked.targetId, ac: null };
+  row.lastAttackerId = picked.targetId;
+  const target = resolveStrikeTarget(picked.targetId);
+  if (!target) { DM.toast("No targets"); return; }
   const nat = d20();
   const total = nat + picked.bonus;
-  const ac = Number(target.ac);
-  const miss = nat === 1 || (isFinite(ac) && total < ac);
+  const ac = numericAc(target.ac);
+  if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
+  const miss = nat === 1 || total < ac;
   const hit = !miss;
   let dmg = null;
   if (hit) dmg = DM.parseDice(picked.dice);
   const bonusTxt = (picked.bonus >= 0 ? "+" : "") + picked.bonus;
   const attackName = (preset && preset.name) || String(row.attacks || "").trim();
   const weapon = attackName && attackName.toLowerCase() !== String(row.name || "").toLowerCase() ? attackName : "";
-  const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + " = " + total + (isFinite(ac) ? " vs AC " + ac : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
+  const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   const id = DM.uid("enatk");
   playTableSfx("attack");
   await DM.pushRoll({
     id: id, who: row.name, uid: DM.state.uid, label: row.name + " attacks " + (target.name || ""), formula: "1d20" + bonusTxt,
     result: total, detail: detail, private: false, attack: true, nat: nat, crit: nat === 20 && hit,
-    targetId: target.id, targetName: target.name, damage: dmg ? dmg.total : null, ac: isFinite(ac) ? ac : null, weapon: weapon
+    targetId: target.id, targetName: target.name, damage: dmg ? dmg.total : null, ac: ac, weapon: weapon
   });
   if (hit && dmg && fight.damageMode !== "approve") {
     applyPlayerHit({
@@ -3002,12 +3170,21 @@ async function enemyStrike(i, preset) {
 }
 const pendingSaves = {};
 function requestPlayerSave(opts) {
-  const ability = String((opts && opts.ability) || "STR").toUpperCase();
-  const dc = Number(opts && opts.dc);
-  const target = playerTargets().filter((p) => p.id === opts.targetId)[0] || { id: opts.targetId, name: opts.targetName || opts.targetId };
+  opts = opts || {};
+  const ability = String(opts.ability || "STR").toUpperCase();
+  const dc = Number(opts.dc);
+  const found = resolveStrikeTarget(opts.targetId);
+  const target = found || { id: opts.targetId, name: opts.targetName || opts.targetId || "Target", kind: opts.kind || "" };
+  const npc = subjectKindOf(target) !== "player";
   const id = DM.uid("save");
+  const modFor = () => {
+    if (!npc) return targetMod(target.id, ability);
+    const row = findCombatant(target);
+    const card = (row && row.card) || target.card || null;
+    return Number(sheetSaveMod(card, ability)) || 0;
+  };
   const localRoll = (auto) => {
-    const mod = targetMod(target.id, ability);
+    const mod = modFor();
     const nat = d20();
     const total = nat + (Number(mod) || 0);
     const failed = isFinite(dc) ? total < dc : true;
@@ -3015,6 +3192,15 @@ function requestPlayerSave(opts) {
     const line = who + " " + ability + " save" + (auto ? " (no answer, DM rolled)" : "") + " " + nat + signed(mod) + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (failed ? " FAIL" : " OK");
     return { id: id, nat: nat, total: total, failed: failed, auto: !!auto, line: line, mod: mod, target: target };
   };
+  if (npc) {
+    const rolled = localRoll(!!opts.auto);
+    rolled.logged = true;
+    DM.pushRoll({
+      who: target.name || "Target", label: (opts.label || "Save") + " · " + ability, formula: "1d20" + signed(rolled.mod),
+      result: rolled.total, detail: rolled.line, private: true, nat: rolled.nat, save: true, saveRequestId: id
+    });
+    return Promise.resolve(rolled);
+  }
   if (opts.auto) return Promise.resolve(localRoll(true));
   if (DM.state.demo || !DM.state.db) return Promise.resolve(localRoll(false));
   return new Promise((resolve) => {
@@ -3091,22 +3277,22 @@ async function publishCardRoll(row, detail, result, extra) {
 }
 async function cardStrike(i, n, opts) {
   const row = fight.order[i];
-  if (partyAttackBlocked(row)) return;
-  const atk = row && row.card && row.card.attacks && row.card.attacks[n];
-  if (!row || !atk) {
-    const listed = row && row.attackList && row.attackList[n];
-    if (listed) return enemyStrike(i, listed);
-    return;
-  }
+  if (!row) return;
+  ensureCombatantCard(row);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk) return;
   if (atk.jammed) { DM.toast(atk.name + " is jammed"); return; }
   if (atk.capacity != null && Number(atk.loaded) <= 0) { DM.toast(atk.name + " is empty"); return; }
   const picked = await askEnemyStrike(row, atk);
-  if (!picked || !picked.targetId) { DM.toast("No player to attack"); return; }
+  if (!picked || !picked.targetId) { DM.toast("No targets"); return; }
   const bonus = picked.bonus != null && isFinite(Number(picked.bonus)) ? Number(picked.bonus) : Number(atk.toHit);
   const dice = String((picked.dice || atk.damage || "")).trim();
   if (!isFinite(bonus) || !dice) { DM.toast("That attack has no bonus or damage"); return; }
   row.lastAttackerId = picked.targetId;
-  const target = playerTargets().filter((p) => p.id === picked.targetId)[0] || { id: picked.targetId, name: picked.targetId, ac: null };
+  const target = resolveStrikeTarget(picked.targetId);
+  if (!target) { DM.toast("No targets"); return; }
+  const ac = numericAc(target.ac);
+  if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
   const nat = d20();
   const misfire = window.SSDNSApplied && window.SSDNSApplied.isMisfire
     ? window.SSDNSApplied.isMisfire(nat, atk.misfire)
@@ -3123,13 +3309,12 @@ async function cardStrike(i, n, opts) {
     return;
   }
   const total = nat + bonus;
-  const ac = Number(target.ac);
-  const miss = nat === 1 || (isFinite(ac) && total < ac);
+  const miss = nat === 1 || total < ac;
   const hit = !miss;
   let dmg = null;
   if (hit) dmg = DM.parseDice(dice);
   const bonusTxt = signed(bonus);
-  let detail = row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + (isFinite(ac) ? " vs AC " + ac : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
+  let detail = row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   const id = DM.uid("enatk");
   atk.lastRoll = { id: id, damage: dmg ? dmg.total : null, targetId: target.id, targetName: target.name, hit: hit };
   playTableSfx("attack");
@@ -3208,7 +3393,7 @@ function spellRider(name) {
   return "";
 }
 function askSaveSpell(row, name, known) {
-  const players = playerTargets();
+  const players = combatTargets(row);
   const casting = (row.card && row.card.spellcasting) || {};
   const ability = (known && known.save) || "WIS";
   const dc = casting.dc == null ? "" : casting.dc;
@@ -3218,8 +3403,8 @@ function askSaveSpell(row, name, known) {
   return new Promise((resolve) => {
     const dlg = document.createElement("dialog");
     dlg.className = "dlg";
-    const options = players.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
-    dlg.innerHTML = `<form method="dialog"><h2>${esc(name)} save</h2><p class="fine">${esc(row.name || "Enemy")} casts a save spell.</p><label>Target <select id="saveTarget">${options || "<option value=''>No players</option>"}</select></label><label>Save <input id="saveAbility" value="${esc(ability)}" aria-label="Save ability"></label><label>DC <input id="saveDc" type="number" value="${esc(dc)}"></label><label>Damage on a fail <input id="saveDice" value="${esc(dice)}${type ? " " + esc(type) : ""}"></label><label>Rider on a fail <input id="saveRider" value="${esc(rider)}"></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Ask for the save</button></div></form>`;
+    const options = targetMenu(players, defaultCombatTarget(row, players));
+    dlg.innerHTML = `<form method="dialog"><h2>${esc(name)} save</h2><p class="fine">${esc(row.name || "Enemy")} casts a save spell.</p><label>Target <select id="saveTarget">${options}</select></label><label>Save <input id="saveAbility" value="${esc(ability)}" aria-label="Save ability"></label><label>DC <input id="saveDc" type="number" value="${esc(dc)}"></label><label>Damage on a fail <input id="saveDice" value="${esc(dice)}${type ? " " + esc(type) : ""}"></label><label>Rider on a fail <input id="saveRider" value="${esc(rider)}"></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Ask for the save</button></div></form>`;
     const finish = (ok) => {
       const payload = ok ? {
         targetId: (dlg.querySelector("#saveTarget") || {}).value || "",
@@ -3241,7 +3426,7 @@ function askSaveSpell(row, name, known) {
 }
 async function cardCast(i, n) {
   const row = fight.order[i];
-  if (partyAttackBlocked(row)) return;
+  if (!row) return;
   const card = row && row.card;
   const list = card && card.spellcasting && card.spellcasting.spells;
   const spell = list && list[n];
@@ -3268,8 +3453,9 @@ async function cardCast(i, n) {
   }
   if (kind === "save") {
     const asked = await askSaveSpell(row, name, known);
-    if (!asked || !asked.targetId) return;
-    const target = playerTargets().filter((p) => p.id === asked.targetId)[0] || { id: asked.targetId, name: asked.targetId };
+    if (!asked || !asked.targetId) { DM.toast("No targets"); return; }
+    const target = resolveStrikeTarget(asked.targetId);
+    if (!target) { DM.toast("No targets"); return; }
     const save = await requestPlayerSave({
       targetId: target.id,
       targetName: target.name,
@@ -3303,7 +3489,7 @@ async function cardCast(i, n) {
       const cond = /prone/i.test(asked.rider) ? "Prone" : (/disadvantage/i.test(asked.rider) ? "Disadvantage" : asked.rider);
       row.pendingRider = { condition: cond, targetId: target.id, targetName: target.name };
       try {
-        await writeSubjectConditions(target.id, "player", [{ name: cond }], target.name || "", 1, {}, []);
+        await writeSubjectConditions(target.id, subjectKindOf(target), [{ name: cond }], target.name || "", 1, {}, []);
       } catch (err) {}
     }
     await publishCardRoll(row, detail, save.total, { nat: save.nat, save: true });
@@ -3312,16 +3498,19 @@ async function cardCast(i, n) {
     return;
   }
   const picked = await askEnemyStrike(row, { name: name, toHit: card.spellcasting.attack, damage: (known && known.dice) || "" });
-  if (!picked || !picked.targetId) return;
-  const target = playerTargets().filter((p) => p.id === picked.targetId)[0] || { id: picked.targetId, name: picked.targetId, ac: null };
+  if (!picked || !picked.targetId) { DM.toast("No targets"); return; }
+  const target = resolveStrikeTarget(picked.targetId);
+  if (!target) { DM.toast("No targets"); return; }
+  row.lastAttackerId = picked.targetId;
   const bonus = Number(card.spellcasting.attack) || 0;
+  const ac = numericAc(target.ac);
+  if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
   const nat = d20();
   const total = nat + bonus;
-  const ac = Number(target.ac);
-  const hit = nat !== 1 && (!isFinite(ac) || total >= ac);
+  const hit = nat !== 1 && total >= ac;
   let dmg = null;
   if (hit && known && known.dice) dmg = DM.parseDice(known.dice);
-  const detail = row.name + " casts " + name + " at " + (target.name || "someone") + ": " + nat + signed(bonus) + " = " + total + (isFinite(ac) ? " vs AC " + ac : "") + (hit ? " → HIT" : " → MISS") + (dmg ? " · " + dmg.total : "");
+  const detail = row.name + " casts " + name + " at " + (target.name || "someone") + ": " + nat + signed(bonus) + " = " + total + " vs AC " + ac + (hit ? " → HIT" : " → MISS") + (dmg ? " · " + dmg.total : "");
   playTableSfx("spellcast");
   await publishCardRoll(row, detail, total, { attack: true, nat: nat, damage: dmg ? dmg.total : null, targetId: target.id });
   DM.toast(detail);
@@ -3340,7 +3529,7 @@ async function attackRow(i) {
   const text = row.name + " AC " + (isFinite(ac) ? ac : "?") + " · " + attackFormula + " = " + out.total + (hit == null ? "" : hit ? " HIT" : " MISS") + (hit && dmg ? " · " + dmg.total + " damage" : "");
   playTableSfx("attack");
   await DM.pushRoll({
-    who: "DM", uid: DM.state.uid, label: "Attack this " + (row.kind === "player" ? "player" : "enemy") + " · " + row.name, formula: attackFormula,
+    who: "DM", uid: DM.state.uid, label: "DM roll vs this AC · " + row.name, formula: attackFormula,
     result: out.total, detail: text, private: false, attack: true
   });
   if (hit && dmg && (fight.damageMode || "auto") !== "approve" && row.kind !== "player") {
@@ -3500,7 +3689,10 @@ function applyPlayerHit(meta) {
   const heal = meta.kind === "heal" || meta.type === "heal" || meta.heal;
   const who = meta.characterName || "Someone";
   const row = findCombatant(meta);
-  const snap = playerSnapshot((row && row.kind === "player" && (row.playerId || row.id)) || meta.targetId);
+  const playerRow = !!(row && row.kind === "player");
+  const snap = playerRow
+    ? playerSnapshot(row.playerId || row.id)
+    : (row ? null : playerSnapshot(meta.targetId));
   if (!row && !snap) {
     DM.toast("Pick a target");
     return;
@@ -3527,7 +3719,7 @@ function applyPlayerHit(meta) {
     }
     after = knownNumber(row.hp);
     if (after == null) after = before;
-    if (row.kind === "player" && snap) snap.hpCurrent = after;
+    if (playerRow && snap) snap.hpCurrent = after;
   } else if (snap) {
     const max = Number(snap.hpMax) || 0;
     after = heal ? (max ? Math.min(max, before + amt) : before + amt) : Math.max(0, before - amt);
@@ -3541,8 +3733,8 @@ function applyPlayerHit(meta) {
   const line = heal
     ? (window.SSDNSApplied ? window.SSDNSApplied.healLine(who, name, amt, dice, before, after) : (who + " heals " + name + " " + amt + " · HP " + before + "→" + after))
     : ((window.SSDNSApplied ? window.SSDNSApplied.hitLine(who, name, weapon, amt) : (who + " hits " + name + " for " + amt)) + " · " + applied + " applied");
-  const pid = (row && row.kind === "player" && (row.playerId || row.id)) || (snap && meta.targetId) || "";
-  if (pid && (row ? row.kind === "player" : !!snap)) {
+  const pid = playerRow ? (row.playerId || row.id) : (!row && snap ? (meta.targetId || "") : "");
+  if (pid && (playerRow || (!row && snap))) {
     DM.pushCommand({
       type: "hp", to: pid, quiet: true,
       payload: {
@@ -4321,16 +4513,63 @@ function enterRoom() {
   renderFight();
   watchTableSfx();
 }
+function banditGun() {
+  return {
+    id: "ball-n-cap",
+    name: "Ball n Cap Revolver",
+    kind: "ranged",
+    toHit: 3,
+    bonus: 3,
+    damage: "1d8+1",
+    damageType: "piercing",
+    range: "20/60",
+    capacity: 6,
+    loaded: 6,
+    misfire: 4,
+    weapon: "Navy / Army Ball n Cap Revolver",
+    properties: ["close quarters", "slow load (a full turn)", "simple"],
+    notes: "Navy / Army Ball n Cap Revolver. Simple. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1–4: miss, jam, and the round is spent. Slow load: reloading takes a full turn (action, bonus action, and movement)."
+  };
+}
+function attackFromLine(text, bonus, damage) {
+  const raw = String(text || "").trim();
+  if (!raw) return banditGun();
+  const mf = raw.match(/(?:misfire|MF)\s*(\d+)(?:\s*[–-]\s*(\d+))?/i);
+  const cap = raw.match(/(?:capacity|cap)\s*(\d+)|\b(\d+)\s*rds?\b/i);
+  const dmg = raw.match(/(\d+d\d+(?:\s*[+-]\s*\d+)?)/i);
+  const range = raw.match(/(\d+\s*\/\s*\d+)/);
+  const signedBonus = raw.match(/([+-]\d+)/);
+  const name = raw.split(/[,.(]/)[0].replace(/\s*[+-]\d+\s*$/, "").trim() || "Attack";
+  const capacity = cap ? Number(cap[1] || cap[2]) : null;
+  const hit = bonus === "" || bonus == null ? (signedBonus ? Number(signedBonus[1]) : "") : bonus;
+  const gun = /ball|revolver|rifle|gun|pistol|cap/i.test(raw);
+  return {
+    id: "custom-atk",
+    name: name,
+    kind: gun ? "ranged" : "",
+    toHit: hit,
+    bonus: hit,
+    damage: (damage && String(damage).trim()) || (dmg ? dmg[1].replace(/\s+/g, "") : ""),
+    damageType: /piercing/i.test(raw) ? "piercing" : (/slashing/i.test(raw) ? "slashing" : (/bludgeoning/i.test(raw) ? "bludgeoning" : "")),
+    range: range ? range[1].replace(/\s+/g, "") : "",
+    capacity: isFinite(capacity) ? capacity : null,
+    loaded: isFinite(capacity) ? capacity : null,
+    misfire: mf ? Number(mf[2] || mf[1]) : null,
+    weapon: name,
+    properties: /slow/i.test(raw) ? ["slow load (a full turn)"] : []
+  };
+}
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.29-targets");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
+    refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json");
+    const res = await fetch("assets/data/store-items.json?v=0.2.29-targets");
     if (res.ok) storeItems = await res.json();
     else DM.toast("Store list failed to load");
   } catch (e) {
@@ -4502,8 +4741,9 @@ async function bootV2() {
       return isFinite(n) ? n : "";
     };
     const rows = [];
+    const customText = (($("#customAtk") && $("#customAtk").value) || "").trim();
     for (let n = 0; n < qty; n++) {
-      rows.push(addCombatant({
+      const spec = {
         id: DM.uid("en"),
         name: name,
         kind: "enemy",
@@ -4515,12 +4755,14 @@ async function bootV2() {
         dex: dex,
         atkBonus: atkBonus,
         damage: damageDice,
-        attacks: (($("#customAtk") && $("#customAtk").value) || "").trim() || "Ball n Cap revolver +3, range 20/60, 1d8+1 piercing, capacity 6, misfire 1–4, slow load",
-        attackList: (($("#customAtk") && $("#customAtk").value) || "").trim() ? undefined : [{ name: "Ball n Cap revolver", toHit: 3, bonus: 3, damage: "1d8+1", capacity: 6, loaded: 6, misfire: "1–4", range: "20/60", reserve: 12 }],
+        attacks: customText || "Ball n Cap Revolver +3, range 20/60, 1d8+1 piercing, capacity 6, misfire 4, slow load",
+        attackList: [customText ? attackFromLine(customText, atkBonus, damageDice) : banditGun()],
         size: "Medium",
         speed: 30,
         cr: "1/8"
-      }));
+      };
+      ensureCombatantCard(spec);
+      rows.push(addCombatant(spec));
     }
     ["customHp", "customAc", "customInit", "customDex", "customAtk", "customAtkBonus", "customDmg"].forEach((id) => {
       const el = document.getElementById(id);

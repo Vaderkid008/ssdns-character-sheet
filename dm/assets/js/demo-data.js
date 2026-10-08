@@ -45,8 +45,8 @@
         guns: [
           { name: "Blacksnake", loaded: 6, capacity: 6, atk: "+5", damage: "1d8 +3 piercing", misfire: "1", plain: 5, hex: 1, caster: true, condition: "ok", load: "cartridge", jammed: false, cracked: false, fouled: false, dirty: false, note: "Caster gun",
             chambers: ["k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:hex:1:spent", "k:cartridge::medium"] },
-          { name: "Pony Arms ChaosMaker (Medium)", loaded: 6, capacity: 6, condition: "ok", load: "buck", jammed: false,
-            chambers: ["k:buck::", "k:buck::", "k:slug::", "k:buck::", "k:buck::", "k:buck::"] },
+          { name: "Pony Arms ChaosMaker (Medium)", loaded: 6, capacity: 6, condition: "ok", load: "cartridge", jammed: false,
+            chambers: ["k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium"] },
           { name: "Double-Barrel Coach Gun", loaded: 2, capacity: 2, condition: "ok", load: "buck", jammed: false,
             chambers: ["k:buck::", "k:buck::"] }
         ],
@@ -88,8 +88,8 @@
         guns: [
           { name: "Pony Arms ChaosMaker (Heavy)", loaded: 6, capacity: 6, condition: "ok", load: "cartridge", jammed: false,
             chambers: ["k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy"] },
-          { name: "Henrietta Repeating Rifle", loaded: 8, capacity: 10, atk: "+6", condition: "dirty", load: "cartridge", jammed: false, cracked: false, fouled: false, dirty: true, note: "Wear +1",
-            chambers: ["k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "", ""] }
+          { name: "Henrietta Repeating Rifle", loaded: 6, capacity: 6, atk: "+6", condition: "dirty", load: "cartridge", jammed: false, cracked: false, fouled: false, dirty: true, note: "Wear +1",
+            chambers: ["k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium"] }
         ],
         spells: { cantrips: [], prepared: [] },
         updatedAt: ago(15000)

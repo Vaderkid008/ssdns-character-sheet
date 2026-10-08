@@ -553,6 +553,7 @@
         body.appendChild(el("p", { text: "Hit die " + cal.hitDie + ". Saves " + (cal.saves || []).join(", ") + ". Key ability " + (cal.primary || "—") + "." }));
         if (cal.armorProf) body.appendChild(el("p", { class: "fine", text: "Armor: " + cal.armorProf }));
         if (cal.weaponProf) body.appendChild(el("p", { class: "fine", text: "Weapons: " + cal.weaponProf }));
+        if (cal.kit) body.appendChild(el("p", { class: "fine", text: "Kit: " + cal.kit }));
         body.appendChild(aboutButton("callings", cal.id));
         var feat = (cal.features || [])[0];
         if (feat) body.appendChild(el("p", { text: feat.name + " — " + feat.text }));

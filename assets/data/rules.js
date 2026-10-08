@@ -2114,10 +2114,10 @@ window.SSDNS_RULES = {
    ],
    "spellAbility": "CHA",
    "caster": "half",
-   "proficiencies": "Hit Die: 1d10 per level · Proficiencies & Kit: All armor, shields · Simple and martial weapons · Cavalry saber, badge (tin star, your focus), shield, 5 javelins, chain mail under heavy duster coat.",
+   "proficiencies": "Hit Die: 1d10 per level · Proficiencies & Kit: All armor, shields · Simple and martial weapons · Cavalry saber, tin star (focus), shield, mail duster, Ball n Cap + 20 loads.",
    "armorProf": "All armor, shields",
    "weaponProf": "Simple and martial weapons",
-   "kit": "Cavalry saber, badge (tin star, your focus), shield, 5 javelins, chain mail under heavy duster coat.",
+   "kit": "Cavalry saber, tin star, shield, mail duster, Ball n Cap + 20 loads.",
    "features": [
     {
      "name": "Oath Sense (Divine Sense - 1st lvl)",

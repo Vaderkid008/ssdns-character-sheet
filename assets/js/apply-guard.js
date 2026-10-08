@@ -507,10 +507,20 @@
   }
   function isMisfire(nat, ceiling) {
     var n = Number(nat);
-    var c = Number(ceiling);
+    var c = misfireNumber(ceiling);
     if (!isFinite(n)) return false;
-    if (isFinite(c) && c >= 1) return n <= c;
+    if (c != null && c >= 1) return n <= c;
     return false;
+  }
+  /** "1–4" and "1-4" are a ceiling of 4. A blank value is not a misfire range. */
+  function misfireNumber(value) {
+    if (value == null || value === "") return null;
+    if (typeof value === "number" && isFinite(value)) return value;
+    var text = String(value).trim();
+    var range = text.match(/(\d+)\s*[–-]\s*(\d+)/);
+    if (range) return Number(range[2]);
+    var n = Number(text);
+    return isFinite(n) ? n : null;
   }
   function publicDetail(text) {
     return String(text || "")
@@ -547,6 +557,8 @@
       a = a || {};
       var toHit = a.bonus != null ? a.bonus : (a.toHit != null ? a.toHit : (a.atk != null ? a.atk : b.atkBonus));
       var cap = a.capacity == null || a.capacity === "" ? null : Number(a.capacity);
+      var loaded = cap;
+      if (cap != null && a.loaded != null && a.loaded !== "" && isFinite(Number(a.loaded))) loaded = Number(a.loaded);
       return {
         id: a.id || ("atk-" + n),
         name: a.name || "Attack",
@@ -556,9 +568,11 @@
         damageType: a.damageType || "",
         range: a.range || "",
         capacity: cap,
-        loaded: cap,
-        misfire: a.misfire == null || a.misfire === "" ? null : Number(a.misfire),
-        jammed: false,
+        loaded: loaded,
+        misfire: misfireNumber(a.misfire),
+        jammed: !!a.jammed,
+        weapon: a.weapon || "",
+        properties: a.properties || "",
         notes: a.notes || "",
         rider: a.rider || null,
         saveDamage: a.saveDamage || null,
@@ -863,6 +877,7 @@
     abilityScores: abilityScores,
     abilityMod: abilityMod,
     isMisfire: isMisfire,
+    misfireNumber: misfireNumber,
     publicDetail: publicDetail,
     enemyCardModel: enemyCardModel,
     sheetHeader: sheetHeader,
