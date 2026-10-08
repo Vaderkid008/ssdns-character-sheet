@@ -1,5 +1,6 @@
 /**
- * Starting kits from PHB-KITS-AND-FOCI and the BOOK1 kit crosswalk.
+ * Starting kits from the 2026-10-07 kit scrub, with Jessey's locks:
+ * Lawman gets a Ball n Cap and no javelins; Gunslinger gets no matched pair.
  * Or-lines are player choices. Loaded before sheet-playtest.js.
  */
 (function (root) {
@@ -15,21 +16,30 @@
       return g && g.weapon === id;
     });
   }
+  function emptyGun() {
+    return { weapon: "", proficient: true, chambers: [], loaded: 0, chamberSet: false };
+  }
   function putGun(c, id, allowDup) {
-    if (!id) return;
-    if (!allowDup && hasWeapon(c, id)) return;
+    if (!id) return null;
+    if (!allowDup && hasWeapon(c, id)) {
+      return (c.guns || []).filter(function (g) { return g && g.weapon === id; })[0] || null;
+    }
     var guns = ensureList(c, "guns", 4);
     var slot = guns.filter(function (g) { return g && !g.weapon; })[0];
     if (!slot) {
-      slot = { weapon: "", proficient: true, chambers: [], loaded: 0 };
+      slot = emptyGun();
       guns.push(slot);
     }
     slot.weapon = id;
     slot.proficient = true;
     if (!slot.chambers) slot.chambers = [];
+    return slot;
   }
-  function putMelee(c, id) {
-    if (!id || hasWeapon(c, id)) return;
+  function putMelee(c, id, allowDup) {
+    if (!id) return null;
+    if (!allowDup && hasWeapon(c, id)) {
+      return (c.melee || []).filter(function (g) { return g && g.weapon === id; })[0] || null;
+    }
     var melee = ensureList(c, "melee", 4);
     var slot = melee.filter(function (g) { return g && !g.weapon; })[0];
     if (!slot) {
@@ -38,6 +48,16 @@
     }
     slot.weapon = id;
     slot.proficient = true;
+    return slot;
+  }
+  function chamberGun(slot, chamber, extra) {
+    if (!slot) return;
+    if (chamber) {
+      slot.chamber = chamber;
+      slot.tier = String(chamber).split("|")[0];
+      slot.chamberSet = true;
+    }
+    if (extra) Object.keys(extra).forEach(function (k) { slot[k] = extra[k]; });
   }
   function addAmmo(c, type, caliber, count) {
     c.ammo = c.ammo || [];
@@ -57,84 +77,197 @@
     if (cur.indexOf(text) >= 0) return;
     c.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + "• " + text;
   }
-  function lightRifle(c, which) {
-    if (which === "carbine") putGun(c, "dullards-light-carbine");
-    else putGun(c, "dullards-tube-rifle");
+  function packLine(id) {
+    return {
+      trail: "Trail kit",
+      claim: "Claim pack",
+      circuit: "Circuit kit",
+      trunk: "Circuit trunk",
+      saloon: "Saloon kit",
+      book: "Book trunk",
+      alley: "Alley kit"
+    }[id] || "Trail kit";
+  }
+  function lightGun(c, id, chamber) {
+    var slot = putGun(c, id);
+    chamberGun(slot, chamber || "light|.44 rimfire");
     addAmmo(c, "cartridge", "Light", 20);
+  }
+  function ballCap(c) {
+    var slot = putGun(c, "navy-army-ball-n-cap-revolver");
+    chamberGun(slot, "medium|");
+    addAmmo(c, "percussion", "", 20);
+    addLine(c, "Powder, ball, and caps ×20");
+  }
+  function derringer(c) {
+    var slot = putGun(c, "herringer-light-double-derringer");
+    chamberGun(slot, "light|.32 Long");
+    addAmmo(c, "cartridge", "Light", 20);
+  }
+  function plinker(c) {
+    var slot = putGun(c, "dullards-plinker-revolver");
+    chamberGun(slot, "light|.22 LR", { rusty: false });
+    addAmmo(c, "cartridge", "Light", 20);
+  }
+  function stilettos(c, n) {
+    putMelee(c, "stiletto-dagger");
+    var i;
+    for (i = 1; i < n; i++) putMelee(c, "stiletto-dagger", true);
+    if (n > 1) addLine(c, "Stilettos ×" + n);
+  }
+  function instrumentLine(voice) {
+    var names = { fiddle: "Fiddle", banjo: "Banjo", guitar: "Guitar", accordion: "Accordion", harmonica: "Harmonica" };
+    if (voice === "voice") return "Voice — focus";
+    if (voice === "harmonica") return "Harmonica (rides in a pocket)";
+    return (names[voice] || "Fiddle") + " with a strap and one spare set of strings";
   }
 
   var CHOICES = {
-    gunslinger: [
-      { id: "side", prompt: "Cavalry saber, or twin revolvers?", options: [
-        { id: "saber", label: "Cavalry saber" },
-        { id: "twins", label: "Twin revolvers" }
-      ]},
-      { id: "irons", prompt: "Which twin revolvers?", when: function (p) { return p.side === "twins"; }, options: [
-        { id: "pepper", label: "Two Herringer Light Pepperboxes + 20 Light cartridges" },
-        { id: "navy", label: "One Navy/Army Ball n Cap + 20 loads (powder, ball, and caps)" }
-      ]}
-    ],
-    "frontier-scout": [
-      { id: "hunt", prompt: "Hunting rifle: longbow, or a carbine?", options: [
-        { id: "bow", label: "Longbow + 20 arrows" },
-        { id: "carbine", label: "Dullards Light Carbine + 20 Light cartridges" }
-      ]}
-    ],
-    "frontier-preacher": [
-      { id: "melee", prompt: "Mace, or chapel hammer?", options: [
-        { id: "mace", label: "Trail mace" },
-        { id: "hammer", label: "Chapel hammer (claim hammer)" }
-      ]},
-      { id: "armor", prompt: "Plated duster, or scale mail?", options: [
-        { id: "duster", label: "Plated duster (heavy leather duster)" },
-        { id: "scale", label: "Scale coat" }
-      ]},
-      { id: "gun", prompt: "Light rifle, or Farm Shotgun?", options: [
-        { id: "rifle", label: "Light rifle — Dullards Tube Rifle + 20 Light cartridges" },
-        { id: "carbine", label: "Light rifle — Dullards Light Carbine + 20 Light cartridges" },
-        { id: "shotgun", label: "Single-Barrel Farm Shotgun, .410 + 10 shells" }
-      ]}
-    ],
     storyteller: [
-      { id: "kit", prompt: "Diplomat's trunk, or saloon kit?", options: [
-        { id: "trunk", label: "Diplomat's trunk" },
-        { id: "saloon", label: "Saloon kit" }
-      ]},
-      { id: "voice", prompt: "Which instrument is the focus?", options: [
+      { id: "voice", prompt: "Calling instrument (voice can be the focus; you still carry one)", options: [
         { id: "fiddle", label: "Fiddle" },
         { id: "banjo", label: "Banjo" },
         { id: "guitar", label: "Guitar" },
-        { id: "voice", label: "Voice" }
+        { id: "accordion", label: "Accordion" },
+        { id: "harmonica", label: "Harmonica" },
+        { id: "voice", label: "Voice (still carry a harmonica)" }
+      ]},
+      { id: "weapon", prompt: "Sword cane, cavalry saber, or derringer?", options: [
+        { id: "cane", label: "Sword cane" },
+        { id: "saber", label: "Cavalry saber" },
+        { id: "derringer", label: "Herringer Light Double Derringer + 20 Light cartridges" }
+      ]},
+      { id: "kit", prompt: "Circuit trunk, or saloon kit?", options: [
+        { id: "trunk", label: "Circuit trunk" },
+        { id: "saloon", label: "Saloon kit" }
+      ]}
+    ],
+    "frontier-preacher": [
+      { id: "melee", prompt: "Trail mace, or sledgehammer?", options: [
+        { id: "mace", label: "Trail mace" },
+        { id: "hammer", label: "Sledgehammer (if proficient)" }
+      ]},
+      { id: "armor", prompt: "Scale coat, leather jacket, or mail duster?", options: [
+        { id: "scale", label: "Scale coat" },
+        { id: "leather", label: "Leather jacket" },
+        { id: "mail", label: "Mail duster" }
+      ]},
+      { id: "gun", prompt: "Tube rifle, carbine, farm shotgun, or plinker?", options: [
+        { id: "rifle", label: "Dullards Tube Rifle, Light + 20 Light cartridges" },
+        { id: "carbine", label: "Dullards Light Carbine, Light + 20 Light cartridges" },
+        { id: "shotgun", label: "Single-Barrel Farm Shotgun, .410 + 10 shells" },
+        { id: "plinker", label: "Dullards Plinker Revolver, .22 LR + 20 Light cartridges" }
+      ]},
+      { id: "pack", prompt: "Circuit kit, or trail kit?", options: [
+        { id: "circuit", label: "Circuit kit" },
+        { id: "trail", label: "Trail kit" }
       ]}
     ],
     "nature-guide": [
+      { id: "shieldOr", prompt: "Wooden shield, or a throwing spear?", options: [
+        { id: "shield", label: "Wooden shield" },
+        { id: "spear", label: "Throwing spear" }
+      ]},
       { id: "focus", prompt: "Focus taken from the land?", options: [
         { id: "stick", label: "Carved walking stick" },
         { id: "pouch", label: "Medicine pouch" },
         { id: "soil", label: "Pouch of home-spring soil" }
       ]}
     ],
-    gambler: [
-      { id: "blade", prompt: "Fencing iron, or Bowie knife?", options: [
-        { id: "iron", label: "Fencing iron (sword cane)" },
-        { id: "bowie", label: "Bowie knife" }
+    gunslinger: [
+      { id: "side", prompt: "Cavalry saber and shield, or one Ball n Cap?", options: [
+        { id: "saber", label: "Cavalry saber and shield" },
+        { id: "revolver", label: "Navy / Army Ball n Cap + 20 loads" }
       ]},
-      { id: "ranged", prompt: "Shortbow, or pocket pistol?", options: [
-        { id: "bow", label: "Shortbow + 20 arrows" },
-        { id: "pistol", label: "Herringer Light Pocket Pistol + 20 Light cartridges" }
+      { id: "armor", prompt: "Mail duster, or leather jacket and a carbine?", options: [
+        { id: "mail", label: "Mail duster" },
+        { id: "leather", label: "Leather jacket and Dullards Light Carbine + 20 Light cartridges" }
+      ]},
+      { id: "pack", prompt: "Claim pack, or trail kit?", options: [
+        { id: "claim", label: "Claim pack" },
+        { id: "trail", label: "Trail kit" }
+      ]}
+    ],
+    "martial-artist": [
+      { id: "pack", prompt: "Claim pack, or trail kit?", options: [
+        { id: "claim", label: "Claim pack" },
+        { id: "trail", label: "Trail kit" }
+      ]}
+    ],
+    lawman: [
+      { id: "pack", prompt: "Circuit kit, or trail kit?", options: [
+        { id: "circuit", label: "Circuit kit" },
+        { id: "trail", label: "Trail kit" }
+      ]}
+    ],
+    "frontier-scout": [
+      { id: "hunt", prompt: "Longbow, or a carbine?", options: [
+        { id: "bow", label: "Longbow + 20 arrows" },
+        { id: "carbine", label: "Dullards Light Carbine + 20 Light cartridges" }
+      ]},
+      { id: "armor", prompt: "Scale coat, or leather jacket?", options: [
+        { id: "scale", label: "Scale coat" },
+        { id: "leather", label: "Leather jacket" }
+      ]},
+      { id: "pack", prompt: "Trail kit, or claim pack?", options: [
+        { id: "trail", label: "Trail kit" },
+        { id: "claim", label: "Claim pack" }
+      ]}
+    ],
+    gambler: [
+      { id: "blade", prompt: "Sword cane, or Bowie?", options: [
+        { id: "iron", label: "Sword cane" },
+        { id: "bowie", label: "Bowie" }
+      ]},
+      { id: "ranged", prompt: "Pocket pistol, pepperbox, or shortbow?", options: [
+        { id: "pistol", label: "Herringer Light Pocket Pistol + 20 Light cartridges" },
+        { id: "pepper", label: "Herringer Light Pepperbox + 20 Light cartridges" },
+        { id: "bow", label: "Shortbow + 20 arrows" }
+      ]},
+      { id: "pack", prompt: "Alley kit, claim pack, or trail kit?", options: [
+        { id: "alley", label: "Alley kit" },
+        { id: "claim", label: "Claim pack" },
+        { id: "trail", label: "Trail kit" }
       ]}
     ],
     hexslinger: [
       { id: "gun", prompt: "Blacksnake, or Hognose?", options: [
         { id: "blacksnake", label: "Blacksnake caster gun" },
         { id: "hognose", label: "Hognose caster gun" }
+      ]},
+      { id: "pack", prompt: "Trail kit, or claim pack?", options: [
+        { id: "trail", label: "Trail kit" },
+        { id: "claim", label: "Claim pack" }
+      ]}
+    ],
+    "pact-seeker": [
+      { id: "gun", prompt: "A simple sidearm, plinker, or a hatchet?", options: [
+        { id: "pocket", label: "Herringer Light Pocket Pistol + 20 Light cartridges" },
+        { id: "double", label: "Herringer Light Double Derringer + 20 Light cartridges" },
+        { id: "pepper", label: "Herringer Light Pepperbox + 20 Light cartridges" },
+        { id: "plinker", label: "Dullards Plinker Revolver + 20 Light cartridges" },
+        { id: "simple", label: "Hatchet (simple weapon)" }
+      ]},
+      { id: "pack", prompt: "Book trunk, or claim pack?", options: [
+        { id: "book", label: "Book trunk" },
+        { id: "claim", label: "Claim pack" }
+      ]}
+    ],
+    scholar: [
+      { id: "weapon", prompt: "Trail staff, or stiletto?", options: [
+        { id: "cane", label: "Weighted walking cane (trail staff)" },
+        { id: "stiletto", label: "Stiletto" }
+      ]},
+      { id: "pack", prompt: "Book trunk, or trail kit?", options: [
+        { id: "book", label: "Book trunk" },
+        { id: "trail", label: "Trail kit" }
       ]}
     ]
   };
 
   function blankCharacter() {
     return {
-      guns: [0, 1, 2, 3].map(function () { return { weapon: "", proficient: false, chambers: [], loaded: 0 }; }),
+      guns: [0, 1, 2, 3].map(function () { return emptyGun(); }),
       melee: [0, 1, 2, 3].map(function () { return { weapon: "", proficient: false }; }),
       ammo: [],
       equipment: "",
@@ -147,142 +280,225 @@
     };
   }
 
-  function apply(c, calling, p) {
+  function moduleStart(c, calling, p) {
     p = p || {};
     if (calling === "tribal-warrior") {
-      putMelee(c, "buffalo-axe-greataxe");
       putMelee(c, "hatchet-handaxe");
-      putMelee(c, "throwing-spear-javelin");
-      addLine(c, "Hatchet (second)");
-      addLine(c, "Throwing spears ×4");
-      addLine(c, "Explorer pack");
     } else if (calling === "storyteller") {
       var voice = p.voice || "fiddle";
-      var voiceName = { fiddle: "Fiddle", banjo: "Banjo", guitar: "Guitar", voice: "Voice" };
-      putMelee(c, "bowie-shortsword");
-      putGun(c, "herringer-light-double-derringer");
-      var derringer = (c.guns || []).filter(function (g) { return g && g.weapon === "herringer-light-double-derringer"; })[0];
-      if (derringer) {
-        derringer.tier = "light";
-        derringer.chamber = "light|.32 Long";
-        derringer.proficient = true;
-      }
-      addAmmo(c, "cartridge", "Light", 20);
-      if (voice === "voice") addLine(c, "Voice — focus");
-      else addLine(c, (voiceName[voice] || "Fiddle") + " with a strap and one spare set of strings");
-      if (p.kit === "saloon") addLine(c, "Saloon kit");
-      else addLine(c, "Diplomat trunk");
-      addLine(c, "Duster");
-      c.instrument = voice;
-      if (voice !== "voice") {
-        if (!c.instrumentQuality) c.instrumentQuality = "cheap";
-        if (!c.instrumentStrings) c.instrumentStrings = "plain";
+      c.instrument = voice === "voice" ? "voice" : (voice === "harmonica" ? "harmonica" : "voice");
+      if (voice === "harmonica" || voice === "voice") {
+        addLine(c, "Harmonica (cheap, pocket)");
+        c.instrument = voice === "harmonica" ? "harmonica" : "voice";
+        c.instrumentQuality = "cheap";
+      } else {
+        c.instrument = "voice";
+        addLine(c, "Voice — focus");
       }
     } else if (calling === "frontier-preacher") {
-      if (p.melee === "hammer") putMelee(c, "claim-hammer-light-hammer");
-      else putMelee(c, "trail-mace-chapel-mace-mace");
-      if (p.gun === "shotgun") {
-        putGun(c, "single-barrel-farm-shotgun");
-        addAmmo(c, "buck", ".410", 10);
-      } else lightRifle(c, p.gun === "carbine" ? "carbine" : "rifle");
-      if (p.armor === "scale") c.armor = "scale-coat";
-      else c.armor = "heavy-leather-duster";
-      addLine(c, "Priest kit");
-      addLine(c, "Carved holy symbol");
+      addLine(c, "Holy symbol (focus)");
     } else if (calling === "nature-guide") {
-      putMelee(c, "machete-scimitar");
-      c.shield = true;
-      addLine(c, "Wooden shield");
-      addLine(c, "Explorer pack");
-      addLine(c, "Herbalism kit");
-      var focus = { stick: "Carved walking stick", pouch: "Medicine pouch", soil: "Pouch of home-spring soil" };
-      addLine(c, "Focus: " + (focus[p.focus] || focus.stick));
+      var worn = { pouch: "Medicine pouch", soil: "Pouch of home-spring soil" };
+      if (worn[p.focus]) addLine(c, "Focus: " + worn[p.focus]);
+      else addLine(c, "Focus worn on a cord, if the DM agrees");
     } else if (calling === "gunslinger") {
-      putGun(c, "dullards-tube-rifle");
-      addAmmo(c, "cartridge", "Light", 20);
       c.holster = "mexican-loop";
       c.gunBelt = true;
-      addLine(c, "Duster");
       addLine(c, "Gun belt");
-      addLine(c, "Mexican Loop holster");
-      addLine(c, "Dungeoneer company kit");
-      if (p.side === "twins") {
-        if (p.irons === "navy") {
-          putGun(c, "navy-army-ball-n-cap-revolver");
-          addAmmo(c, "percussion", "", 20);
-          addLine(c, "Powder, ball, and caps ×20");
-        } else {
-          putGun(c, "herringer-light-pepperbox");
-          putGun(c, "herringer-light-pepperbox", true);
-          addAmmo(c, "cartridge", "Light", 20);
-        }
-      } else putMelee(c, "cavalry-saber-longsword");
+      addLine(c, "Mexican Loop holster (empty)");
     } else if (calling === "martial-artist") {
-      putMelee(c, "bowie-shortsword");
-      addLine(c, "Throwing knives ×10");
-      addLine(c, "Dungeoneer pack");
       addLine(c, "Rough canvas shirt and heavy boots");
     } else if (calling === "lawman") {
-      putMelee(c, "cavalry-saber-longsword");
-      putMelee(c, "throwing-spear-javelin");
-      c.shield = true;
-      c.armor = c.armor || "mail-duster";
       addLine(c, "Badge (tin star, focus)");
-      addLine(c, "Javelins ×5");
-      addLine(c, "Chain mail under heavy duster coat");
+      c.badgeState = "dull";
     } else if (calling === "frontier-scout") {
       putMelee(c, "bowie-shortsword");
-      addLine(c, "Second Bowie knife");
-      c.armor = c.armor || "scale-coat";
-      c.gunBelt = true;
-      addLine(c, "Gun belt");
-      addLine(c, "Scale/leather coat");
-      addLine(c, "Explorer trail pack");
-      addLine(c, "Compass (focus)");
-      if (p.hunt === "bow") {
-        putGun(c, "longbow");
-        addLine(c, "Arrows ×20");
-      } else {
-        putGun(c, "dullards-light-carbine");
-        addAmmo(c, "cartridge", "Light", 20);
-      }
+      addLine(c, "Keepsake (focus)");
     } else if (calling === "gambler") {
-      if (p.blade === "bowie") putMelee(c, "bowie-shortsword");
-      else putMelee(c, "sword-cane-rapier");
-      if (p.ranged === "bow") {
-        putGun(c, "shortbow");
-        addLine(c, "Arrows ×20");
-      } else {
-        putGun(c, "herringer-light-pocket-pistol");
-        addAmmo(c, "cartridge", "Light", 20);
-      }
-      addLine(c, "Stilettos ×2");
+      putMelee(c, "stiletto-dagger");
       addLine(c, "Thieves' tools");
-      addLine(c, "Duster");
-      addLine(c, "Satchel");
     } else if (calling === "hexslinger") {
       var gun = p.gun === "hognose" ? "hognose" : "blacksnake";
       putGun(c, gun);
       c.casterGun = gun;
-      c.gunBelt = true;
-      addLine(c, "Gun belt");
-      putMelee(c, "bowie-shortsword");
-      addLine(c, "Explorer pack");
-      addLine(c, "Daggers ×2");
     } else if (calling === "pact-seeker") {
       c.casterGun = "borrowed-iron";
       c.pactFocus = "borrowed-iron";
       addLine(c, "Borrowed Iron (pact focus)");
-      addLine(c, "Dungeoneer pack");
-      addLine(c, "Duster");
     } else if (calling === "scholar") {
       addLine(c, "Chemical Field Ledger (focus)");
-      addLine(c, "Prism");
-      addLine(c, "Galvanic reagents");
-      addLine(c, "Scholar pack");
-      addLine(c, "Duster");
+    }
+    if (p.bedtime) addLine(c, "Bedtime item: " + p.bedtime);
+    if (CALLINGS.indexOf(calling) >= 0) c.kitStamp = calling;
+    c.kitMode = "module";
+    return c;
+  }
+
+  function apply(c, calling, p, opts) {
+    p = p || {};
+    opts = opts || {};
+    if (opts.start === "module" || p._start === "module") return moduleStart(c, calling, p);
+    if (calling === "tribal-warrior") {
+      putMelee(c, "buffalo-axe-greataxe");
+      putMelee(c, "hatchet-handaxe");
+      putMelee(c, "hatchet-handaxe", true);
+      putMelee(c, "throwing-spear-javelin");
+      putMelee(c, "throwing-spear-javelin", true);
+      putMelee(c, "throwing-spear-javelin", true);
+      putMelee(c, "throwing-spear-javelin", true);
+      addLine(c, "Trail kit");
+    } else if (calling === "storyteller") {
+      var voice = p.voice || "fiddle";
+      if (p.weapon === "saber") putMelee(c, "cavalry-saber-longsword");
+      else if (p.weapon === "derringer") derringer(c);
+      else putMelee(c, "sword-cane-rapier");
+      putMelee(c, "stiletto-dagger");
+      c.armor = "leather-jacket";
+      addLine(c, instrumentLine(voice));
+      if (voice === "voice") addLine(c, "Harmonica (kit instrument)");
+      addLine(c, p.kit === "saloon" ? "Saloon kit" : "Circuit trunk");
+      c.instrument = voice;
+      if (voice !== "voice" && voice !== "harmonica") {
+        if (!c.instrumentQuality) c.instrumentQuality = "cheap";
+        if (!c.instrumentStrings) c.instrumentStrings = "plain";
+      } else if (voice === "harmonica") {
+        if (!c.instrumentQuality) c.instrumentQuality = "cheap";
+      }
+    } else if (calling === "frontier-preacher") {
+      if (p.melee === "hammer") putMelee(c, "sledgehammer-warhammer");
+      else putMelee(c, "trail-mace-chapel-mace-mace");
+      if (p.gun === "shotgun") {
+        var shot = putGun(c, "single-barrel-farm-shotgun");
+        chamberGun(shot, "light|.410");
+        addAmmo(c, "buck", ".410", 10);
+      } else if (p.gun === "plinker") plinker(c);
+      else if (p.gun === "carbine") lightGun(c, "dullards-light-carbine");
+      else lightGun(c, "dullards-tube-rifle");
+      c.armor = p.armor === "leather" ? "leather-jacket" : (p.armor === "mail" ? "mail-duster" : "scale-coat");
+      c.shield = true;
+      addLine(c, "Shield");
+      addLine(c, packLine(p.pack === "trail" ? "trail" : "circuit"));
+      addLine(c, "Holy symbol (focus)");
+    } else if (calling === "nature-guide") {
+      putMelee(c, "machete-scimitar");
+      if (p.shieldOr === "spear") {
+        putMelee(c, "throwing-spear-javelin");
+        c.shield = false;
+      } else {
+        c.shield = true;
+        addLine(c, "Wooden shield");
+      }
+      c.armor = "leather-jacket";
+      addLine(c, "Trail kit");
+      addLine(c, "Herbalism kit");
+      var focus = { stick: "Carved walking stick", pouch: "Medicine pouch", soil: "Pouch of home-spring soil" };
+      addLine(c, "Focus: " + (focus[p.focus] || focus.stick));
+    } else if (calling === "gunslinger") {
+      lightGun(c, "dullards-tube-rifle");
+      c.holster = "mexican-loop";
+      c.gunBelt = true;
+      addLine(c, "Gun belt");
+      addLine(c, "Mexican Loop holster");
+      addLine(c, packLine(p.pack === "trail" ? "trail" : "claim"));
+      if (p.armor === "leather") {
+        c.armor = "leather-jacket";
+        lightGun(c, "dullards-light-carbine");
+      } else c.armor = "mail-duster";
+      if (p.side === "revolver") ballCap(c);
+      else {
+        putMelee(c, "cavalry-saber-longsword");
+        c.shield = true;
+        addLine(c, "Shield");
+      }
+    } else if (calling === "martial-artist") {
+      putMelee(c, "bowie-shortsword");
+      putGun(c, "throwing-knife-dart");
+      addLine(c, "Throwing knives ×10");
+      addLine(c, packLine(p.pack === "trail" ? "trail" : "claim"));
+      addLine(c, "Rough canvas shirt and heavy boots");
+    } else if (calling === "lawman") {
+      putMelee(c, "cavalry-saber-longsword");
+      c.shield = true;
+      c.armor = "mail-duster";
+      addLine(c, "Badge (tin star, focus)");
+      ballCap(c);
+      addLine(c, "Mail Duster (chain mail)");
+      addLine(c, packLine(p.pack === "trail" ? "trail" : "circuit"));
+    } else if (calling === "frontier-scout") {
+      putMelee(c, "bowie-shortsword");
+      putMelee(c, "bowie-shortsword", true);
+      addLine(c, "Bowies ×2");
+      c.armor = p.armor === "leather" ? "leather-jacket" : "scale-coat";
+      c.gunBelt = true;
+      addLine(c, "Gun belt");
+      addLine(c, packLine(p.pack === "claim" ? "claim" : "trail"));
+      addLine(c, "Keepsake (focus)");
+      if (p.hunt === "carbine") lightGun(c, "dullards-light-carbine");
+      else {
+        putGun(c, "longbow");
+        addAmmo(c, "arrows", "", 20);
+        addLine(c, "Arrows ×20");
+      }
+    } else if (calling === "gambler") {
+      if (p.blade === "bowie") putMelee(c, "bowie-shortsword");
+      else putMelee(c, "sword-cane-rapier");
+      stilettos(c, 2);
+      c.armor = "leather-jacket";
+      addLine(c, "Thieves' tools");
+      addLine(c, packLine(p.pack === "claim" ? "claim" : (p.pack === "trail" ? "trail" : "alley")));
+      if (p.ranged === "bow") {
+        putGun(c, "shortbow");
+        addAmmo(c, "arrows", "", 20);
+        addLine(c, "Arrows ×20");
+      } else if (p.ranged === "pepper") {
+        var pep = putGun(c, "herringer-light-pepperbox");
+        chamberGun(pep, "light|.32 Long");
+        addAmmo(c, "cartridge", "Light", 20);
+      } else {
+        var pocket = putGun(c, "herringer-light-pocket-pistol");
+        chamberGun(pocket, "light|.32 Long");
+        addAmmo(c, "cartridge", "Light", 20);
+      }
+    } else if (calling === "hexslinger") {
+      var hex = p.gun === "hognose" ? "hognose" : "blacksnake";
+      putGun(c, hex);
+      c.casterGun = hex;
+      c.gunBelt = true;
+      addLine(c, "Gun belt");
+      addAmmo(c, "cartridge", "Light", 20);
+      addLine(c, "Light cartridges ×20 (plain rounds, not in the cylinder)");
+      stilettos(c, 2);
+      addLine(c, packLine(p.pack === "claim" ? "claim" : "trail"));
+    } else if (calling === "pact-seeker") {
+      c.casterGun = "borrowed-iron";
+      c.pactFocus = "borrowed-iron";
+      addLine(c, "Borrowed Iron (pact focus)");
+      if (p.gun === "simple") putMelee(c, "hatchet-handaxe");
+      else if (p.gun === "double") derringer(c);
+      else if (p.gun === "pepper") {
+        var pp = putGun(c, "herringer-light-pepperbox");
+        chamberGun(pp, "light|.32 Long");
+        addAmmo(c, "cartridge", "Light", 20);
+      } else if (p.gun === "plinker") plinker(c);
+      else {
+        var pk = putGun(c, "herringer-light-pocket-pistol");
+        chamberGun(pk, "light|.32 Long");
+        addAmmo(c, "cartridge", "Light", 20);
+      }
+      stilettos(c, 2);
+      c.armor = "leather-jacket";
+      addLine(c, packLine(p.pack === "claim" ? "claim" : "book"));
+    } else if (calling === "scholar") {
+      if (p.weapon === "stiletto") putMelee(c, "stiletto-dagger");
+      else putMelee(c, "trail-staff-drover-s-staff-quarterstaff");
+      addLine(c, "Chemical Field Ledger");
+      addLine(c, "Prism (focus)");
+      addLine(c, "Galvanic reagents (component pouch)");
+      addLine(c, packLine(p.pack === "trail" ? "trail" : "book"));
+      addLine(c, "Duster (traveler's clothes)");
     }
     if (CALLINGS.indexOf(calling) >= 0) c.kitStamp = calling;
+    c.kitMode = "full";
     return c;
   }
 
@@ -293,7 +509,7 @@
 
   function openChoices(calling, picked) {
     return (CHOICES[calling] || []).filter(function (ch) {
-      if (picked && picked[ch.id] != null) return false;
+      if (picked && picked[ch.id] != null && picked[ch.id] !== "") return false;
       if (!ch.when) return !picked || !picked._locked;
       return ch.when(picked || {});
     });
@@ -322,6 +538,33 @@
     });
     return out;
   }
+  function weaponLabel(id) {
+    var rules = root.SSDNS_RULES || {};
+    var lists = [].concat(rules.melee || [], rules.firearms || [], rules.casterGuns || [], rules.otherRanged || []);
+    var hit = lists.filter(function (w) { return w && w.id === id; })[0];
+    return (hit && hit.name) || id;
+  }
+  function describe(calling, picks, opts) {
+    var c = apply(blankCharacter(), calling, picks || {}, opts || {});
+    var lines = [];
+    (c.melee || []).forEach(function (row) {
+      if (row && row.weapon) lines.push(weaponLabel(row.weapon));
+    });
+    (c.guns || []).forEach(function (row) {
+      if (row && row.weapon) lines.push(weaponLabel(row.weapon));
+    });
+    if (c.armor) lines.push("Armor: " + c.armor);
+    if (c.shield) lines.push("Shield");
+    (c.ammo || []).forEach(function (a) {
+      if (!a || !a.count) return;
+      lines.push(a.count + " " + a.type + (a.caliber ? " " + a.caliber : ""));
+    });
+    String(c.equipment || "").split("\n").forEach(function (line) {
+      var text = line.replace(/^•\s*/, "").trim();
+      if (text) lines.push(text);
+    });
+    return lines;
+  }
 
   var api = {
     choices: CHOICES,
@@ -330,7 +573,8 @@
     apply: apply,
     firstChoices: firstChoices,
     openChoices: openChoices,
-    branches: branches
+    branches: branches,
+    describe: describe
   };
   root.SSDNSKits = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

@@ -537,7 +537,7 @@
   },
   {
     "id": "miner-s-pick",
-    "name": "Miner\u2019s pick",
+    "name": "Miner’s pick",
     "category": "melee",
     "price_es": 500,
     "stores": [
@@ -1942,13 +1942,13 @@
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Healer\u2019s kit. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Healer’s kit. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4540,
     "ref_price_es": 500
   },
   {
     "id": "blessed-water-saint-s-wash",
-    "name": "Blessed water / saint\u2019s wash",
+    "name": "Blessed water / saint’s wash",
     "category": "gear",
     "price_es": null,
     "stores": [
@@ -2182,7 +2182,7 @@
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Climber\u2019s kit. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Climber’s kit. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4563,
     "ref_price_es": 2500
   },
@@ -2227,7 +2227,7 @@
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Scale, merchant\u2019s. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Scale, merchant’s. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4567,
     "ref_price_es": 500
   },
@@ -2692,7 +2692,7 @@
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Burglar\u2019s pack contents, western names. Reference only: PHB price x100 = 1,600 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). PHB Burglar’s pack contents, western names. Reference only: PHB price x100 = 1,600 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4512,
     "ref_price_es": 1600
   },
@@ -2707,7 +2707,7 @@
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Diplomat\u2019s pack contents, western names. Reference only: PHB price x100 = 3,900 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). PHB Diplomat’s pack contents, western names. Reference only: PHB price x100 = 3,900 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4513,
     "ref_price_es": 3900
   },
@@ -2722,7 +2722,7 @@
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Dungeoneer\u2019s pack contents, western names. Reference only: PHB price x100 = 1,200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). PHB Dungeoneer’s pack contents, western names. Reference only: PHB price x100 = 1,200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4514,
     "ref_price_es": 1200
   },
@@ -2737,7 +2737,7 @@
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Entertainer\u2019s pack contents, western names. Reference only: PHB price x100 = 4,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). PHB Entertainer’s pack contents, western names. Reference only: PHB price x100 = 4,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4515,
     "ref_price_es": 4000
   },
@@ -2752,7 +2752,7 @@
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Explorer\u2019s pack contents, western names. Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). PHB Explorer’s pack contents, western names. Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4516,
     "ref_price_es": 1000
   },
@@ -2767,7 +2767,7 @@
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Priest\u2019s pack contents, western names. Reference only: PHB price x100 = 1,900 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). PHB Priest’s pack contents, western names. Reference only: PHB price x100 = 1,900 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4517,
     "ref_price_es": 1900
   },
@@ -2782,7 +2782,7 @@
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Scholar\u2019s pack contents, western names. Reference only: PHB price x100 = 4,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). PHB Scholar’s pack contents, western names. Reference only: PHB price x100 = 4,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4518,
     "ref_price_es": 4000
   },
@@ -2812,7 +2812,7 @@
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). Artisan\u2019s tools row mentions leatherwork. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). Artisan’s tools row mentions leatherwork. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4604,
     "ref_price_es": 500
   },
@@ -2827,7 +2827,7 @@
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). Artisan\u2019s tools row mentions cookware. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "PRICE TBD (Encounter Bot to price). Artisan’s tools row mentions cookware. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4604,
     "ref_price_es": 100
   },
@@ -3426,5 +3426,32 @@
     "minTown": "boomtown",
     "notes": "PRICE TBD (Encounter Bot to price). Named in the Tools table only; no price in BOOK1.",
     "bookLine": 4609
+  },
+  {
+    "id": "dullards-plinker-revolver",
+    "name": "Dullards Plinker Revolver",
+    "category": "gun",
+    "price_es": 1000,
+    "stores": [
+      "gun",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "boomtown",
+    "notes": "Revolver, TR, cap 7, .22 LR (Light). Sold clean: 1d6, misfire 1-2. A found one is usually Rusty: 1d4, misfire 1-4 until cleaned. Simple.",
+    "bookLine": ""
+  },
+  {
+    "id": "repair-exploded-gun",
+    "name": "Repair an exploded gun",
+    "category": "gunsmithing",
+    "price_es": 500,
+    "stores": [
+      "gun"
+    ],
+    "rarity": "common",
+    "minTown": "boomtown",
+    "notes": "A day with a gunsmith. The gun comes back clean and in service. A tinker's tools action at DC 12 can also bring a blown Plinker back.",
+    "bookLine": ""
   }
 ]

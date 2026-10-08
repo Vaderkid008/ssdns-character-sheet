@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.15"; // sheet-playtest-v0315
+  var APP_VERSION = "0.3.16"; // sheet-playtest-v0316
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -163,6 +163,24 @@
     if (hadHp && raw.character.hpAuto !== true) doc.character.hpAuto = false;
     if (doc.character && doc.character.addiction) delete doc.character.addiction;
     Object.keys(raw).forEach(function (k) { if (!(k in doc)) doc[k] = raw[k]; });
+    if (doc.character && doc.character.proficienciesLanguages) {
+      var lingo = [
+        ["You can speak, read, and write Common and Dwarvish (Under-Cant — clan tunnel speech).", "You can speak, read, and write Common and Under Lingo (clan tunnel speech)."],
+        ["You can speak, read, and write Common and Elvish (Old Neverwinter court speech).", "You can speak, read, and write Common and Court Lingo (the old court speech of Neverwinter)."],
+        ["You can speak, read, and write Common and Halfling (hearth-cant).", "You can speak, read, and write Common and Hearth Lingo."],
+        ["You can speak, read, and write Common and Draconic (watch-cipher / company battle-tongue).", "You can speak, read, and write Common and Watch Lingo (watch-cipher / company battle-tongue)."],
+        ["You can speak, read, and write Common and Gnomish (guild-cant).", "You can speak, read, and write Common and Guild Lingo."],
+        ["You can speak, read, and write Common, Elvish, and one extra language of your choice.", "You can speak, read, and write Common, Court Lingo, and one extra language of your choice."],
+        ["You can speak, read, and write Common and Orc (dock-cant / blood-cant).", "You can speak, read, and write Common and Dock Lingo / Blood Lingo."],
+        ["You can speak, read, and write Common and Infernal (brand-cant).", "You can speak, read, and write Common and Brand Lingo."],
+        ["You can speak, read, and write Infernal (brand-cant).", "You can speak, read, and write Brand Lingo."]
+      ];
+      var langs = doc.character.proficienciesLanguages;
+      lingo.forEach(function (pair) {
+        if (langs.indexOf(pair[0]) >= 0) langs = langs.split(pair[0]).join(pair[1]);
+      });
+      doc.character.proficienciesLanguages = langs;
+    }
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
   }
@@ -515,7 +533,8 @@
     if (!Applied || !Applied.parseAsi) return { fixed: {}, choices: [] };
     var lin = LIN[c.lineage];
     var sub = lin && (lin.sublineages || []).filter(function (x) { return x.id === c.sublineage; })[0];
-    var parts = [Applied.parseAsi(lin && lin.asi), Applied.parseAsi(sub && sub.asi)];
+    var skipLine = sub && sub.id === "variant-human";
+    var parts = skipLine ? [Applied.parseAsi(sub && sub.asi)] : [Applied.parseAsi(lin && lin.asi), Applied.parseAsi(sub && sub.asi)];
     var merged = Applied.mergeAsi ? Applied.mergeAsi(parts) : parts[0];
     var fixed = {};
     AB.forEach(function (a) { fixed[a] = (merged.fixed && merged.fixed[a]) || 0; });
@@ -574,7 +593,10 @@
     v.initiative = v.mods.DEX + v.holsterInit;
     var arm = ARM[c.armor];
     var wearing = arm && arm.category !== "shield";
-    if (wearing) v.ac = arm.base + Math.min(v.mods.DEX, arm.dexCap);
+    if (wearing) {
+      var dexAdd = arm.dexCap === 0 ? 0 : Math.min(v.mods.DEX, arm.dexCap == null ? v.mods.DEX : arm.dexCap);
+      v.ac = arm.base + dexAdd;
+    }
     else if (c.calling === "tribal-warrior") v.ac = 10 + v.mods.DEX + v.mods.CON;
     else if (c.calling === "martial-artist" && !wearing) v.ac = 10 + v.mods.DEX + v.mods.WIS;
     else v.ac = 10 + v.mods.DEX;
@@ -615,6 +637,8 @@
         s.unwieldy = !!rr.unwieldy;
       }
       s.dmgType = w.scatter && g.load !== "slug" ? "piercing (cone)" : "piercing";
+      if (g.rusty && w.rustyDamage) s.damage = w.rustyDamage;
+      if (g.rusty && w.rustyMisfire) s.misfire = w.rustyMisfire;
     } else {
       s.damage = w.damage; s.range = w.range; s.misfire = w.misfire; s.dmgType = String(w.dmgType || "").toLowerCase();
     }
@@ -635,7 +659,9 @@
       s.note = notes.join(" · ");
       return s;
     }
-    m = w.ability === "STR/DEX" ? Math.max(v.mods.STR, v.mods.DEX) : (w.ability === "STR" ? v.mods.STR : v.mods.DEX);
+    var ability = w.ability || "DEX";
+    if (w.heavyChambered && s.tier === "heavy") ability = w.heavyChambered;
+    m = ability === "STR/DEX" ? Math.max(v.mods.STR, v.mods.DEX) : (ability === "STR" ? v.mods.STR : v.mods.DEX);
     var style = styleAttackBonus(w);
     var dmgStyle = styleDamageBonus(w);
     var first = (v.holsterFirst && w.group === "pistol") ? v.holsterFirst : 0;
@@ -735,8 +761,10 @@
     var st = (C() && C().fightingStyle) || "";
     if (!w || !st || !styleReady()) return 0;
     var g = String(w.group || "");
-    var ranged = g === "rifle" || g === "carbine" || g === "bigbore" || g === "bow" || /bow/.test(g);
-    if ((st === "long-gun" || st === "archery") && ranged) return 2;
+    var longGun = g === "rifle" || g === "carbine" || g === "bigbore";
+    var bow = g === "bow" || /bow/.test(g);
+    if (st === "long-gun" && longGun) return 2;
+    if (st === "archery" && (bow || longGun)) return 2;
     return 0;
   }
   function styleDamageBonus(w) {
@@ -1682,6 +1710,7 @@
     var hp = Math.max(1, die + con);
     var per = Math.max(1, Math.floor(die / 2) + 1 + con);
     for (var i = 1; i < lv; i++) hp += per;
+    if (c.sublineage === "gold-miner") hp += lv;
     return hp;
   }
   function applyAutoHp() {
@@ -1994,16 +2023,22 @@
       if (w.capacity) toast(w.name + ": " + st.damage + ", range " + st.range + ", capacity " + w.capacity + ", misfire " + st.misfire + (st.round ? ", chambered " + st.round : "") + ". Starts empty: hit Reload.");
       var ammoType = w.ammo === "shell" || w.scatter ? "buck" : (w.ammo === "arrows" ? "arrows" : (w.ammo === "percussion" ? "percussion" : "cartridge"));
       var cal = ammoType === "percussion" ? "" : ((st && st.round) || (w.tiers ? "Light" : ""));
-      if (ammoType) {
-        var pool = findPool(ammoType, cal, true);
-        if (pool && !num(pool.count)) pool.count = w.ammo === "shell" || w.scatter ? 10 : 20;
+    }
+    if (what === "chamber" && w && w.tiers) {
+      if (g.chamberSet && old && String(old) !== String(g.chamber)) {
+        g.chamber = old;
+        toast("A gunsmith rechambers this: 500 ES per tier step. Light to Heavy is two steps.");
+      } else {
+        g.tier = chamberOf(g, w).tier;
+        g.chamberSet = true;
       }
     }
-    if (what === "chamber" && w && w.tiers) g.tier = chamberOf(g, w).tier;
   }
   function spendRound(i, k) {
     var g = C().guns[i], w = g && WPN[g.weapon];
     if (!g || !g.weapon) return { ok: false, reason: "Pick a gun first." };
+    if (g.broken) return { ok: false, reason: "Out of service until a gunsmith (or a tinker's tools action at DC 12) fixes it." };
+    if (g.pendingD4) return { ok: false, reason: "Roll the d4 first." };
     if (g.jammed) return { ok: false, reason: "Jammed: clear it first" };
     if (g.fouled) return { ok: false, reason: "Fouled. It can't fire until it's cleaned." };
     if (w && w.capacity) {
@@ -2120,10 +2155,16 @@
     return (C().ammo || []).map(function (a, idx) { return { a: a, idx: idx }; }).filter(function (row) {
       var a = row.a;
       if (num(a.count) <= 0) return false;
-      if (w.ammo === "shell") return a.type === "buck" || a.type === "slug";
+      if (w.ammo === "shell" || w.scatter) {
+        if (a.type !== "buck" && a.type !== "slug") return false;
+        var gauge = round || (chamberOf(g, w).round || "");
+        if (!gauge) return true;
+        return norm(a.caliber) === norm(gauge) || !norm(a.caliber);
+      }
       if (w.hexShells) return a.type === "cartridge";
       if (a.type !== want) return false;
-      if (!round || !norm(a.caliber)) return true;
+      if (!round) return true;
+      if (!norm(a.caliber)) return !g.chamberSet;
       if (norm(a.caliber) === norm(round)) return true;
       var tier = chamberOf(g, w).tier;
       if (tier && norm(a.caliber) === norm(TIER_LABEL[tier] || tier)) return true;
@@ -2134,7 +2175,14 @@
     var tier = "";
     if (w.rounds && pool.caliber) TIERS.forEach(function (t) { if ((w.rounds[t] || []).indexOf(pool.caliber) >= 0) tier = t; });
     if (w.scatter && (pool.type === "buck" || pool.type === "slug")) g.load = pool.type === "slug" ? "slug" : "buck";
-    if (tier && (w.hexShells || w.tiers)) { g.chamber = tier + "|" + (pool.caliber || ""); g.tier = tier; }
+    if (w.hexShells) { /* caster guns are exempt from the chambering lock */ }
+    else if (!g.chamberSet && tier && w.tiers) {
+      var stamped = pool.caliber || (chamberOf(g, w).round || "");
+      if (!String(pool.caliber || "").trim() && stamped) pool.caliber = stamped;
+      g.chamber = tier + "|" + (stamped || "");
+      g.tier = tier;
+      g.chamberSet = true;
+    }
     return "k:" + pool.type + ":" + (pool.caliber || "") + ":" + tier;
   }
   function showLoadPicks(i, rows, max) {
@@ -2252,6 +2300,34 @@
   function cleanGun(i) {
     var g = C().guns[i];
     if (!g || !g.weapon) { toast("Pick a gun first."); return; }
+    if (g.broken) {
+      toast("Out of service. A gunsmith repairs it for 500 ES and a day. A tinker's tools action at DC 12 can also bring a blown Plinker back.");
+      return;
+    }
+    if (g.jammed && g.rusty && g.weapon === "dullards-plinker-revolver") {
+      if (window.SSDNSD4 && window.SSDNSD4.reveal) {
+        window.SSDNSD4.reveal({
+          sides: 6,
+          title: "Clear the rusty jam",
+          faces: { 1: "IT BLOWS", 2: "STAYS JAMMED", 3: "STAYS JAMMED", 4: "CLEARS", 5: "CLEARS", 6: "CLEARS" }
+        }).then(function (n) {
+          if (n >= 4) {
+            g.jammed = false;
+            changed();
+            toast("The jam clears.");
+          } else if (n === 1) {
+            g.jammed = false;
+            g.broken = true;
+            g.rusty = false;
+            var hp = 1 + Math.floor(Math.random() * 4);
+            if (window.SSDNSSheet && window.SSDNSSheet.applyDelta) window.SSDNSSheet.applyDelta(-hp, "Plinker blows: " + hp + " fire");
+            toast("The cylinder blows. " + hp + " fire damage. The gun is out of service.");
+            changed();
+          } else toast("Still jammed.");
+        });
+      }
+      return;
+    }
     if (g.jammed) {
       g.jammed = false;
       var jamBox = document.querySelector('[data-f="character.guns.' + i + '.jammed"]');
@@ -2320,7 +2396,7 @@
     var t = e.target.closest && e.target.closest("button, [data-img]");
     if (!t) return;
     var d = t.dataset;
-    if (d.gunroll !== undefined) { if (window.SSDNSGunRoll) window.SSDNSGunRoll(num(d.gunroll)); return; }
+    if (d.gunroll !== undefined) { if (window.SSDNSGunRoll) window.SSDNSGunRoll(num(d.gunroll), d.k !== undefined ? num(d.k) : undefined); return; }
     if (d.clean !== undefined) return cleanGun(num(d.clean));
     if (d.fire !== undefined) {
       var gi = num(d.fire), kk = d.k !== undefined ? num(d.k) : undefined;
@@ -2330,6 +2406,7 @@
         if (window.SSDNSGunCastHex) window.SSDNSGunCastHex(gi, kk);
         return;
       }
+      if (window.SSDNSGunRoll) return window.SSDNSGunRoll(gi, kk);
       return fire(gi, kk);
     }
     if (d.unload !== undefined) return unloadLoaded(num(d.unload));
@@ -3234,6 +3311,8 @@
       applyAutoHp: function () { applyAutoHp(); renderFields(); changed(); },
       slotsLeft: slotsLeft,
       misfireCeiling: misfireCeiling,
+      reloadGun: function (i) { reload(i); },
+      unloadGunIndex: function (i) { unloadLoaded(i); },
       suggestedHp: function () { return suggestedHp(C()); }
     };
   }

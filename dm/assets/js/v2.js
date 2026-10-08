@@ -259,6 +259,52 @@ function syncDamageMode() {
   if (fight.damageMode !== "approve" && fight.damageMode !== "auto") fight.damageMode = "auto";
   if (el && el.value !== fight.damageMode) el.value = fight.damageMode;
 }
+function stripGuns(row, i) {
+  if (!fight.started || i !== fight.turn) return "";
+  function dots(count, loaded, attrs, flags) {
+    let html = "";
+    const n = Number(count) || 0;
+    const fullN = Number(loaded) || 0;
+    for (let k = 0; k < n; k++) {
+      const full = flags ? !!flags[k] : k < fullN;
+      html += `<button type="button" class="chamber-dot${full ? " full" : ""}" ${attrs} data-gun-k="${k}" aria-label="Chamber ${k + 1}"></button>`;
+    }
+    return html;
+  }
+  if (row.kind === "enemy") {
+    const list = (row.card && row.card.attacks && row.card.attacks.length) ? row.card.attacks : (row.attackList || []);
+    return list.map((atk, n) => {
+      if (!atk || atk.capacity == null) return "";
+      return `<span class="cylinder-row">${esc(atk.name || "Gun")} ${dots(atk.capacity, atk.loaded, `data-row-atk="${i}" data-atk-n="${n}"`)}</span>`;
+    }).join("");
+  }
+  return publicGuns(row).map((g, gi) => {
+    const chambers = g.chambers || [];
+    const cap = chambers.length || Number(g.capacity) || 0;
+    const loaded = chambers.length ? chambers.filter(Boolean).length : (Number(g.loaded) || 0);
+    const pid = esc(row.playerId || row.id || "");
+    return `<span class="cylinder-row">${esc(g.name || "Gun")} ${dots(cap, loaded, `data-strip-fire="${pid}" data-gun-i="${gi}"`, chambers.length ? chambers.map(Boolean) : null)}</span>`;
+  }).join("");
+}
+function publicGuns(row) {
+  if (!row) return [];
+  if (row.kind === "player" && row.playerId && DM.state.players[row.playerId]) {
+    const snap = DM.state.players[row.playerId].snapshot || {};
+    return (snap.guns || []).filter((g) => g && g.name).map((g) => ({
+      name: g.name,
+      capacity: g.capacity || 0,
+      loaded: g.loaded || 0,
+      chambers: (g.chambers || []).map((st) => (st ? 1 : 0))
+    }));
+  }
+  const attacks = (row.attackList || row.card && row.card.attacks || []).filter((a) => a && a.capacity);
+  return attacks.map((a) => ({
+    name: a.name || "Gun",
+    capacity: a.capacity,
+    loaded: a.loaded || 0,
+    chambers: Array.from({ length: Number(a.capacity) || 0 }, (_, i) => i < Number(a.loaded || 0) ? 1 : 0)
+  }));
+}
 function buildPublish() {
   captureSecrets();
   (fight.order || []).forEach((row) => {
@@ -278,7 +324,8 @@ function buildPublish() {
         slot: index,
         lastAttackerId: row.lastAttackerId || "",
         initFrom: row.initFrom || "",
-        side: row.kind === "player" ? "" : (window.SSDNSApplied && window.SSDNSApplied.combatantSide ? window.SSDNSApplied.combatantSide(row) : (isFriendly(row) ? "friendly" : "enemy"))
+        side: row.kind === "player" ? "" : (window.SSDNSApplied && window.SSDNSApplied.combatantSide ? window.SSDNSApplied.combatantSide(row) : (isFriendly(row) ? "friendly" : "enemy")),
+        guns: publicGuns(row)
       };
     });
     const hp = {};
@@ -874,17 +921,21 @@ function renderFight() {
     if (fight.turn >= fight.order.length) fight.turn = 0;
     const html = fight.order.map(turnRowHtml).join("");
     if (list) list.innerHTML = html;
+    const rollAllBtn = $("#btnRollAll");
+    if (rollAllBtn) rollAllBtn.hidden = !!fight.started;
     if (strip) {
-      const deck = onDeck();
-      strip.innerHTML = `<div class="turn-strip-label">Turn order</div>`
-        + (deck && deck.name ? `<div class="ondeck-line">On deck: ${esc(deck.name)}</div>` : "")
-        + fight.order.map((row, i) => {
+      const len = fight.order.length;
+      strip.innerHTML = fight.order.map((row, i) => {
+        const dist = fight.started ? (i - fight.turn + len) % len : 99;
         const current = fight.started && i === fight.turn ? " current" : "";
-        const ondeck = deck && row.id === deck.id ? " ondeck" : "";
-        const label = `<b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> ${esc(row.name || "")}`;
-        const friendlyChip = row.kind === "enemy" && isFriendly(row) ? " friendly" : "";
-        if (row.kind === "enemy") return `<button type="button" class="turn-chip${current}${ondeck}${friendlyChip}" data-open-enemy="${esc(row.id || "")}">${label}</button>`;
-        return `<span class="turn-chip${current}${ondeck}">${label}</span>`;
+        const ondeck = fight.started && dist > 0 && dist <= 2 ? " ondeck" : "";
+        const side = row.kind === "enemy" ? " enemy" : " player";
+        const letters = String(row.name || "?").replace(/[^A-Za-z]/g, "");
+        const initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
+        const face = `<span class="chip-face">${esc(initials)}</span><b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> ${esc(row.name || "")}`;
+        const guns = stripGuns(row, i);
+        if (row.kind === "enemy") return `<div class="turn-chip${current}${ondeck}${side}"><button type="button" class="chip-open" data-open-enemy="${esc(row.id || "")}">${face}</button>${guns}</div>`;
+        return `<div class="turn-chip${current}${ondeck}${side}">${face}${guns}</div>`;
       }).join("");
     }
     syncTurnState();
@@ -3739,7 +3790,7 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-row-atk],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all]");
+    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all]");
     if (!t) return;
     if (t.hasAttribute("data-side-toggle")) {
       const row = fight.order[parseInt(t.getAttribute("data-side-toggle"), 10)];
@@ -3798,6 +3849,13 @@ function wireClicks() {
     }
     if (t.hasAttribute("data-init-hit")) { attackThis(parseInt(t.getAttribute("data-init-hit"), 10)); return; }
     if (t.hasAttribute("data-init-strike")) { enemyStrike(parseInt(t.getAttribute("data-init-strike"), 10)); return; }
+    if (t.hasAttribute("data-strip-fire")) {
+      const pid = t.getAttribute("data-strip-fire");
+      const payload = { op: "fire", index: Number(t.getAttribute("data-gun-i")), chamber: Number(t.getAttribute("data-gun-k")) };
+      DM.pushCommand({ type: "gun", to: pid, payload: payload });
+      if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+      return;
+    }
     if (t.hasAttribute("data-row-atk")) { cardStrike(parseInt(t.getAttribute("data-row-atk"), 10), parseInt(t.getAttribute("data-atk-n"), 10)); return; }
     if (t.hasAttribute("data-card-atk")) { cardStrike(parseInt(t.getAttribute("data-card-atk"), 10), parseInt(t.getAttribute("data-atk-n"), 10)); return; }
     if (t.hasAttribute("data-card-check")) { cardCheck(parseInt(t.getAttribute("data-card-check"), 10), t.getAttribute("data-check-mod"), t.getAttribute("data-check-label")); return; }
@@ -4425,8 +4483,7 @@ async function bootV2() {
   if (endBtn) endBtn.addEventListener("click", endCombat);
   const addCustom = $("#btnAddCustom");
   if (addCustom) addCustom.addEventListener("click", () => {
-    const name = ($("#customName") && $("#customName").value || "").trim();
-    if (!name) { DM.toast("Name the enemy"); return; }
+    const name = ($("#customName") && $("#customName").value || "").trim() || "Bandit";
     fight.recruit = true;
     const qtyRaw = parseInt($("#customQty") && $("#customQty").value, 10);
     const qty = Math.max(1, Math.min(20, isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1));
@@ -4458,7 +4515,11 @@ async function bootV2() {
         dex: dex,
         atkBonus: atkBonus,
         damage: damageDice,
-        attacks: ($("#customAtk") && $("#customAtk").value) || ""
+        attacks: (($("#customAtk") && $("#customAtk").value) || "").trim() || "Ball n Cap revolver +3, range 20/60, 1d8+1 piercing, capacity 6, misfire 1–4, slow load",
+        attackList: (($("#customAtk") && $("#customAtk").value) || "").trim() ? undefined : [{ name: "Ball n Cap revolver", toHit: 3, bonus: 3, damage: "1d8+1", capacity: 6, loaded: 6, misfire: "1–4", range: "20/60", reserve: 12 }],
+        size: "Medium",
+        speed: 30,
+        cr: "1/8"
       }));
     }
     ["customHp", "customAc", "customInit", "customDex", "customAtk", "customAtkBonus", "customDmg"].forEach((id) => {

@@ -500,7 +500,7 @@
   function styleOptions(c) {
     if (!c) return [];
     var lv = c.level || 1;
-    if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 ranged hit)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"]];
+    if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"]];
     if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"]];
     if (c.calling === "frontier-scout" && lv >= 2) return [["archery", "Archery (+2 ranged to hit)"]];
     return [];
@@ -547,10 +547,14 @@
       var atk = $("#meleeBox [data-melee-atk='" + i + "']") || document.querySelector("[data-melee-atk='" + i + "']");
       var dmg = document.querySelector("[data-melee-dmg='" + i + "']");
       if (!w) { if (atk) atk.textContent = ""; if (dmg) dmg.textContent = ""; return; }
-      var ability = /finesse/i.test(w.properties || "") ? Math.max(v.mods.STR || 0, v.mods.DEX || 0) : (v.mods.STR || 0);
+      var finesse = /finesse/i.test(w.properties || "");
+      var thrown = /thrown/i.test(w.properties || "");
+      var ability = finesse ? Math.max(v.mods.STR || 0, v.mods.DEX || 0) : (v.mods.STR || 0);
+      var usingDex = finesse && (v.mods.DEX || 0) > (v.mods.STR || 0);
       var prof = row.proficient || (root.SSDNSApp.callingProficient && root.SSDNSApp.callingProficient(w)) ? (v.prof || 0) : 0;
       var bonus = ability + prof + ((root.SSDNSApp.styleAttackBonus && root.SSDNSApp.styleAttackBonus(w)) || 0);
       var extra = (root.SSDNSApp.styleDamageBonus && root.SSDNSApp.styleDamageBonus(w)) || 0;
+      if (c.raging && c.calling === "tribal-warrior" && !thrown && !usingDex) extra += 2;
       if (atk) atk.textContent = (bonus >= 0 ? "+" : "") + bonus;
       if (dmg) dmg.textContent = (w.damage || "") + " " + ((ability + extra) >= 0 ? "+" : "") + (ability + extra);
     });
@@ -586,6 +590,7 @@
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
     paintMelee();
+    c.takingCover = false;
     var atk = parseInt((document.querySelector("[data-melee-atk='" + i + "']") || {}).textContent, 10) || 0;
     var expr = (document.querySelector("[data-melee-dmg='" + i + "']") || {}).textContent || "1d4";
     var chosen = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
@@ -651,7 +656,7 @@
     var dmgTxt = (!miss && detail) ? (" · " + formula + " = " + total) : "";
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
     var modeWord = chosen === "dis" ? " · disadvantage" : (chosen === "adv" ? " · advantage" : "");
-    var line = (tgt && tgt.name ? (who + " → " + tgt.name) : (who + " · " + name)) + ": " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt + (faced.note ? " · " + faced.note : "") + modeWord;
+    var line = (tgt && tgt.name ? (who + " → " + tgt.name) : who) + ": " + name + " · " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt + (faced.note ? " · " + faced.note : "") + modeWord;
     if (root.SSDNSSheet && root.SSDNSSheet.consumeRollMode) root.SSDNSSheet.consumeRollMode();
     toast(line);
     var Sheet = root.SSDNSSheet;
@@ -711,7 +716,7 @@
         panel.id = "turnPanel";
         panel.className = "turn-panel";
         panel.hidden = true;
-        panel.innerHTML = "<b id='turnRound'>Round 1</b> <span id='turnWho'></span> <div id='turnNames'></div>";
+        panel.innerHTML = "<b id='turnRound'>Round 1</b> <span id='turnWho'></span> <div id='turnNames' class='turn-order-strip'></div><div id='turnDetail'></div>";
         bar.parentNode.insertBefore(panel, bar.nextSibling);
       }
     }
@@ -876,6 +881,7 @@
     bar.hidden = false;
   }
   function spendHitDie(left, sides) {
+    if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
     var roll = 1 + Math.floor(Math.random() * sides);
     var v = root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var con = (v.mods && v.mods.CON) || 0;
@@ -996,7 +1002,14 @@
   }
   function showYourTurn() {
     var banner = $("#yourTurnBanner");
-    if (banner) banner.hidden = true;
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "yourTurnBanner";
+      banner.className = "your-turn-box";
+      banner.textContent = "Your turn";
+      document.body.appendChild(banner);
+    }
+    banner.hidden = false;
     toast("Your turn", "Go", function () {
       var panel = $("#turnPanel");
       if (panel) { try { panel.scrollIntoView({ block: "center" }); } catch (err) {} }
@@ -1117,6 +1130,9 @@
       var turn = Number(init.turn) || 0;
       if (turn >= order.length) turn = 0;
       var cur = order[turn] || {};
+      var c = ch();
+      var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      var mine = (uid && cur.playerId && cur.playerId === uid) || (c && c.name && cur.kind === "player" && cur.name === c.name && !cur.playerId);
       if (roundEl) roundEl.textContent = "Round " + round;
       if (whoEl) whoEl.textContent = (cur.name || "Someone") + " · " + (cur.kind === "enemy" ? (stripStatus(cur) || "") : (cur.kind === "player" ? "player" : ""));
       if (names) {
@@ -1124,18 +1140,26 @@
           var raw = String(row.name || "Someone");
           var letters = raw.replace(/[^A-Za-z]/g, "");
           var initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
-          var mark = i === turn ? "→ " : "";
-          var pub = lastTargets[row.id] || {};
-          var conds = Array.isArray(pub.conditions) ? pub.conditions.filter(Boolean).join(", ") : "";
-          var live = stripStatus(row);
-          var st = row.kind === "enemy" && (live || conds) ? " (" + [live, conds].filter(Boolean).join(" · ") + ")" : "";
-          var tie = row.tie ? " tie" : "";
-          return "<span class='turn-badge' title='" + raw.replace(/'/g, "") + "'>" + initials + "</span> " + mark + raw + st + tie;
-        }).join("  ·  ");
+          var dist = (i - turn + order.length) % order.length;
+          var cls = "turn-chip" + (i === turn ? " current" : "") + (dist > 0 && dist <= 2 ? " ondeck" : "") + (row.kind === "enemy" ? " enemy" : " player");
+          return "<span class='" + cls + "' title='" + raw.replace(/'/g, "") + "'><b>" + initials + "</b> " + raw + "</span>";
+        }).join("");
       }
-      var c = ch();
-      var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
-      var mine = (uid && cur.playerId && cur.playerId === uid) || (c && c.name && cur.kind === "player" && cur.name === c.name && !cur.playerId);
+      var detail = $("#turnDetail");
+      if (detail) {
+        var guns = cur.guns || [];
+        var mineGuns = mine && ch() && ch().guns;
+        detail.innerHTML = "<p class='fine'>" + (cur.name || "") + (mine ? " — your turn" : "") + "</p>" + (mineGuns || guns).map(function (g, i) {
+          if (!g || !(g.name || g.weapon)) return "";
+          var chambers = g.chambers || [];
+          var dots = chambers.map(function (st, k) {
+            var full = !!st;
+            if (mine) return "<button type='button' class='chamber-dot" + (full ? " full" : "") + "' data-gunroll='" + i + "' data-k='" + k + "' aria-label='Chamber " + (k + 1) + "'></button>";
+            return "<span class='chamber-dot" + (full ? " full" : "") + "'></span>";
+          }).join("");
+          return "<div class='cylinder-row'><span>" + (g.name || g.weapon) + "</span> " + dots + "</div>";
+        }).join("");
+      }
       panel.classList.toggle("your-turn", !!mine);
       var sig = "turn:" + String(round) + ":" + String(cur.id || turn);
       if (sig !== shownTurn) {

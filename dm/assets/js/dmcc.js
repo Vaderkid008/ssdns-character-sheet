@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.28"; // dmcc-playtest-v0228
+const VERSION = "0.2.29"; // dmcc-playtest-v0229
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -398,6 +398,23 @@ function attachLiveListeners() {
   addictionReady = false;
   const bind = (path, handler) => listenRef(path, handler);
   bind("meta", (v) => { if (v) { state.meta = v; guardFocus(() => renderRoomHero()); } });
+  bind("encounter/requests", (v) => {
+    const rows = v || {};
+    state._mercySeen = state._mercySeen || {};
+    Object.keys(rows).forEach((id) => {
+      const row = rows[id];
+      if (!row || row.type !== "mercy" || state._mercySeen[id] || row.applied) return;
+      state._mercySeen[id] = 1;
+      const amount = Number(row.amount) || 0;
+      if (!amount || !row.targetId) return;
+      pushCommand({
+        type: "hp",
+        to: row.targetId,
+        quiet: true,
+        payload: { delta: amount, kind: "heal", grantId: "mercy:" + id, text: (row.characterName || "Mercy Hands") + " heals " + amount }
+      });
+    });
+  });
   const presenceState = {};
   const leaveTimers = {};
   bind("players", (v) => {
@@ -788,7 +805,7 @@ async function pushHandout(entry) {
 async function pushCommand(cmd) {
   cmd.id = cmd.id || uid("cmd");
   cmd.ts = cmd.ts || new Date().toISOString();
-  if (cmd.payload && (cmd.type === "reward_es" || cmd.type === "reward_item" || cmd.type === "hp")) {
+  if (cmd.payload && (cmd.type === "reward_es" || cmd.type === "reward_item" || cmd.type === "hp" || cmd.type === "gun")) {
     if (!cmd.payload.grantId) cmd.payload.grantId = cmd.id;
   }
   if (state.demo) {
@@ -804,6 +821,31 @@ async function pushCommand(cmd) {
     catch (err) { writeFailed(err, "Couldn't sync to players"); }
     if (!cmd.quiet) toast("Sent: " + cmd.type);
   } catch (e) { writeFailed(e, "Command failed"); }
+}
+
+function applyDemoGun(playerId, payload) {
+  const p = state.players[playerId];
+  const g = p && p.snapshot && p.snapshot.guns && p.snapshot.guns[payload.index];
+  if (!g) return;
+  if (payload.op === "unload") { g.loaded = 0; g.chambers = (g.chambers || []).map(() => ""); }
+  else if (payload.op === "reload") {
+    const cap = Number(g.capacity) || 0;
+    g.loaded = cap;
+    g.chambers = Array.from({ length: cap }, () => "round");
+  } else if (payload.op === "set" && payload.loaded != null && isFinite(payload.loaded)) {
+    g.loaded = payload.loaded;
+  } else if (payload.op === "fire") {
+    const chambers = Array.isArray(g.chambers) ? g.chambers : [];
+    const k = Number(payload.chamber);
+    if (chambers.length && isFinite(k) && k >= 0 && k < chambers.length && chambers[k]) {
+      chambers[k] = "";
+      g.loaded = Math.max(0, (Number(g.loaded) || 0) - 1);
+    } else if ((Number(g.loaded) || 0) > 0) {
+      g.loaded = Math.max(0, Number(g.loaded) - 1);
+    }
+  }
+  renderPlayers();
+  if ($("#detailOverlay") && !$("#detailOverlay").hidden) openDetail(playerId);
 }
 
 async function applyEsToDemoPlayer(playerId, delta) {
@@ -1576,7 +1618,16 @@ function openDetail(pid) {
     <div class="detail-section"><h3>Abilities</h3><div class="abil-grid">${abilHtml}</div></div>
     <div class="detail-section"><h3>Saves</h3><p>${saves}</p></div>
     <div class="detail-section"><h3>Skills</h3><p>${skills}</p></div>
-    <div class="detail-section"><h3>Guns</h3>${(s.guns || []).filter((g) => g && g.name).map((g) => `<div class="gun-chip ${g.jammed ? "jammed" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}</div>`).join("") || "<p>—</p>"}</div>
+    <div class="detail-section"><h3>HP and guns</h3>
+      <label>Set HP <input type="number" id="dmSetHp" value="${esc(s.hpCurrent)}" aria-label="Set player hit points"></label>
+      <button type="button" class="btn sm" id="btnDmSetHp">Set HP</button>
+      ${(s.guns || []).filter((g) => g && g.name).map((g, i) => `<div class="gun-chip ${g.jammed ? "jammed" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}
+        <button type="button" class="btn sm" data-gun-op="reload" data-gun-i="${i}">Reload</button>
+        <button type="button" class="btn sm" data-gun-op="unload" data-gun-i="${i}">Unload</button>
+        <button type="button" class="btn sm" data-gun-op="set" data-gun-i="${i}">Set loaded</button>
+        <input type="number" data-gun-loaded="${i}" value="${esc(g.loaded)}" aria-label="Loaded chambers">
+      </div>`).join("") || "<p>—</p>"}
+    </div>
     <div class="detail-section"><h3>Equipment</h3><pre>${esc(s.equipment || "—")}</pre></div>
     <div class="detail-section"><h3>Features</h3><pre>${esc(s.features || "—")}</pre></div>
     <div class="detail-section"><h3>Spells</h3><p>${esc(slotLine(s) || "No shell slots")}${s.spellAtk ? " · attack " + esc(s.spellAtk) : ""}${s.spellDC ? " · DC " + esc(s.spellDC) : ""}</p><pre>${esc(spellTxt)}</pre></div>
@@ -1587,6 +1638,26 @@ function openDetail(pid) {
   const miss = $("#btnAddictMiss");
   if (miss) miss.addEventListener("click", () => missAddictionDay(pid));
   if (window.DMCCEnhance && window.DMCCEnhance.decorateDetail) window.DMCCEnhance.decorateDetail(pid);
+  const setHpBtn = $("#btnDmSetHp");
+  if (setHpBtn) setHpBtn.addEventListener("click", () => {
+    const n = Number($("#dmSetHp") && $("#dmSetHp").value);
+    if (!isFinite(n)) return;
+    pushCommand({ type: "hp", to: pid, payload: { absolute: n, text: "DM set HP to " + n } });
+    if (state.demo && state.players[pid] && state.players[pid].snapshot) {
+      state.players[pid].snapshot.hpCurrent = n;
+      renderPlayers();
+    }
+  });
+  $("#detailBody").querySelectorAll("[data-gun-op]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const index = Number(btn.getAttribute("data-gun-i"));
+      const op = btn.getAttribute("data-gun-op");
+      const loadedEl = $("#detailBody").querySelector("[data-gun-loaded='" + index + "']");
+      const payload = { index, op, loaded: loadedEl ? Number(loadedEl.value) : null };
+      pushCommand({ type: "gun", to: pid, payload });
+      if (state.demo) applyDemoGun(pid, payload);
+    });
+  });
   $("#detailOverlay").hidden = false;
 }
 
@@ -2517,6 +2588,7 @@ window.DMCC = {
   pushLedger: pushLedger,
   pushRoll: pushRoll,
   pushCommand: pushCommand,
+  applyDemoGun: applyDemoGun,
   pushMessage: pushMessage,
   pushHandout: pushHandout,
   doDmRoll: doDmRoll,

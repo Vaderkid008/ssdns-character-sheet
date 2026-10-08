@@ -541,10 +541,19 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
 .init-who b { color: var(--parch); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
 .insp-pool { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--eld-dim); background: var(--bg-2); }
 .insp-pool b { font-family: var(--head); font-size: 32px; color: var(--eld); line-height: 1; }
-.turn-strip { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 12px; }
+.turn-strip { display: flex; flex-wrap: nowrap; gap: 8px; align-items: stretch; margin: 0 0 12px; overflow-x: auto; }
+.btn-next { font-size: 1.15rem; min-width: 7rem; min-height: 48px; }
 .turn-strip-label { font-family: var(--label); letter-spacing: .08em; text-transform: uppercase; color: var(--ochre); font-size: 12px; width: 100%; }
-.turn-chip { border: 1px solid var(--line); border-radius: 99px; padding: 6px 10px; background: var(--card); }
-.turn-chip.current { border-color: var(--eld); }
+.turn-chip { border: 1px solid var(--line); border-radius: 99px; padding: 6px 10px; background: var(--card); display: inline-flex; gap: 6px; align-items: center; }
+.turn-chip .chip-face { width: 28px; height: 28px; border-radius: 50%; display: inline-grid; place-items: center; background: rgba(0,0,0,.15); font-size: 12px; }
+.turn-chip.enemy { background: #6e2430; color: #fff; }
+.turn-chip.player { background: #2f5f73; color: #fff; }
+.turn-chip.current { box-shadow: 0 0 0 3px #e2c56a; opacity: 1; flex-wrap: wrap; border-radius: 14px; }
+.turn-chip .chip-open { background: transparent; border: 0; color: inherit; font: inherit; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; padding: 0; }
+.turn-chip .cylinder-row { flex-basis: 100%; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; font-size: 12px; }
+.chamber-dot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255,255,255,.75); background: transparent; padding: 0; cursor: pointer; }
+.chamber-dot.full { background: #e2c56a; }
+.turn-chip.ondeck { opacity: .45; }
 .turn-chip.friendly { border-color: var(--eld); color: var(--eld); }
 .turn-chip.ondeck { border-color: var(--ochre); }
 .ondeck-line, .tactics-note { color: var(--ochre); font-weight: 700; letter-spacing: 0; text-transform: none; }

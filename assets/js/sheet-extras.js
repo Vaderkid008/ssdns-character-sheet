@@ -78,6 +78,24 @@
     }
     dispatch(tmp);
     dispatch(cur);
+    if (Number(current) > 0) clearDowned();
+  }
+  function clearDowned() {
+    var c = ch();
+    if (!c) return;
+    if (root.SSDNSConditions && root.SSDNSConditions.ensureUnconscious) {
+      c.activeConditions = root.SSDNSConditions.ensureUnconscious(c.activeConditions || [], 1, "self");
+      c.tableConditions = root.SSDNSConditions.listText ? root.SSDNSConditions.listText(c.activeConditions) : (c.tableConditions || "");
+    }
+    if (!c.deathSaves) c.deathSaves = { success: [false, false, false], fail: [false, false, false] };
+    c.deathSaves.success = [false, false, false];
+    c.deathSaves.fail = [false, false, false];
+    ["success", "fail"].forEach(function (side) {
+      [0, 1, 2].forEach(function (i) {
+        var box = document.querySelector('[data-f="character.deathSaves.' + side + '.' + i + '"]');
+        if (box) { box.checked = false; dispatch(box); }
+      });
+    });
   }
 
   function applyDelta(delta, notice) {
@@ -102,10 +120,8 @@
       var next = root.SSDNSConditions.ensureUnconscious(ch().activeConditions || [], cur, "self");
       ch().activeConditions = next;
       ch().tableConditions = root.SSDNSConditions.listText(next);
-    } else if (cur > 0 && root.SSDNSConditions && ch() && (ch().activeConditions || []).some(function (row) { return /^unconscious$/i.test(row.name || ""); })) {
-      var up = root.SSDNSConditions.ensureUnconscious(ch().activeConditions || [], cur, "self");
-      ch().activeConditions = up;
-      ch().tableConditions = root.SSDNSConditions.listText(up);
+    } else if (cur > 0) {
+      clearDowned();
     }
     renderConds();
     if (root.SSDNSConditionsUi && root.SSDNSConditionsUi.paint) root.SSDNSConditionsUi.paint();
@@ -248,7 +264,8 @@
       try { when = root.SSDNSClock ? root.SSDNSClock.format(e.ts, false) : new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
       var face = rollFace(e);
       var hand = e.kind === "handout";
-      return '<div class="dock-item ' + face.cls + '"' + handoutAttrs(e) + '><div class="dock-meta">' + when + " · " + esc(dockBucket(e)) +
+      var chatColor = e.kind === "chat" ? speakerColor(String(e.text || "").split(":")[0]) : "";
+      return '<div class="dock-item ' + face.cls + '"' + (chatColor ? ' style="border-left:4px solid ' + chatColor + '"' : "") + handoutAttrs(e) + '><div class="dock-meta">' + when + " · " + esc(dockBucket(e)) +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") +
         '</div><div>' + esc(e.text || "") + (hand ? handoutBits(e) : "") + "</div></div>";
     }).join("") || '<p class="fine">Nothing in this filter yet. Rolls, shards, and chat land here.</p>';
@@ -561,8 +578,12 @@
       });
     }
   }
+  function chatVoice() {
+    try { return localStorage.getItem("ssdns.chatVoice") === "player" ? "player" : "character"; } catch (e) { return "character"; }
+  }
   function sheetSpeaker() {
     var c = ch();
+    if (chatVoice() === "player") return (c && (c.player || c.name)) || "You";
     var Applied = root.SSDNSApplied;
     if (Applied && Applied.speakerName) return Applied.speakerName(c && c.name, c && c.player) || "You";
     return (c && (c.name || c.player)) || "You";
@@ -588,6 +609,7 @@
       if (!isFinite(mod)) mod = (v.skills && v.skills[rest]) || 0;
       label = rest;
     }
+    if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
     var rolled = rollAdv(mod);
     postCheck(label, rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false);
   }
@@ -607,7 +629,8 @@
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
     var dmg = (!miss && opts.dmg) ? (" · " + opts.dmg.formula + " = " + opts.dmg.total) : "";
     var face = opts.dice || String(nat);
-    var head = (target ? (who + " → " + target) : who) + ": " + face + bonus + " = " + total;
+    var weapon = opts.weapon ? (opts.weapon + (opts.caliber ? " (" + opts.caliber + ")" : "") + " · ") : "";
+    var head = (target ? (who + " → " + target) : who) + ": " + weapon + face + bonus + " = " + total;
     return {
       player: head + (verdict ? (" → " + verdict) : "") + dmg,
       ac: haveAc ? Number(ac) : null,
@@ -782,6 +805,7 @@
       var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
       bonus = v.initiative || 0;
     }
+    if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
     var rolled = rollAdv(bonus || 0);
     postCheck("Initiative", rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false);
   }
@@ -1464,7 +1488,8 @@
     var box = document.querySelector("#chkWhisper");
     return !!(box && box.checked);
   }
-  function rollGun(i) {
+  function rollGun(i, chamber) {
+    if (chamber != null) rollGun._chamber = chamber;
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
     var g = c.guns[i];
@@ -1486,17 +1511,18 @@
       return;
     }
     if (!rollGun._aimed) {
+      var keepChamber = rollGun._chamber;
       ensureAttackTarget().then(function (ok) {
-        if (!ok) return;
+        if (!ok) { rollGun._chamber = null; return; }
         rollGun._aimed = true;
-        try { rollGun(i); }
-        finally { rollGun._aimed = false; }
+        try { rollGun(i, keepChamber); }
+        finally { rollGun._aimed = false; rollGun._chamber = null; }
       });
       return;
     }
     var gate = attackGate(currentTarget());
     if (gate) { toast(gate); addLog({ kind: "alert", text: gate }); return; }
-    var spent = root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i) : null;
+    var spent = root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i, rollGun._chamber) : null;
     if (!spent || !spent.ok) {
       var reason = (spent && spent.reason) || "That gun can't fire.";
       toast(reason);
@@ -1569,11 +1595,21 @@
     var miss = nat === 1 || misfired || (haveAc && total < Number(tgt.ac));
     var dmg = null;
     if (!miss) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
+    var caliber = (g.chamber && String(g.chamber).split("|")[1]) || (wpn && wpn.ammo) || "";
     var report = attackReport({
       who: who, target: tgt && tgt.name, nat: nat, atk: atk,
       ac: tgt && tgt.ac, miss: miss, misfire: misfired, dmg: dmg,
-      dice: dice
+      dice: dice, weapon: name, caliber: caliber
     });
+    if (ch()) ch().takingCover = false;
+    if (misfired && g.dirty && !g.rusty && !both) {
+      g.misStreak = (Number(g.misStreak) || 0) + 1;
+      if (g.misStreak % 2 === 0 && window.SSDNSD4) {
+        g.pendingD4 = true;
+        g.misStreak = 0;
+        window.SSDNSD4.reveal({ sides: 4, gun: name, index: i });
+      }
+    } else if (!misfired) g.misStreak = 0;
     var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
     var line = report.player + (misfired ? " · misfire" : "") + (gunDice.note ? " · " + gunDice.note : "") + modeWord(chosen) + ammoTxt;
     consumeRollMode();
@@ -1786,9 +1822,6 @@
     var out = [];
     if (num(level) <= 0) {
       (c.cantrips || []).forEach(function (n) { if (n) out.push({ name: n, level: 0, slot: 0 }); });
-      if (c.calling === "pact-seeker" && !out.some(function (s) { return /pact shot|eldritch blast/i.test(s.name); })) {
-        out.unshift({ name: "Pact Shot", level: 0, slot: 0 });
-      }
       return out;
     }
     var slot = num(level);
@@ -1862,7 +1895,8 @@
       b.className = "btn";
       b.style.display = "block";
       b.style.margin = "6px 0";
-      b.textContent = (sp.level ? ("L" + sp.level + " · ") : "Cantrip · ") + sp.name;
+      var blurb = root.SSDNSSpellCast && root.SSDNSSpellCast.blurb ? root.SSDNSSpellCast.blurb(sp.name) : "";
+      b.textContent = (sp.level ? ("L" + sp.level + " · ") : "Cantrip · ") + sp.name + (blurb ? " — " + blurb : "");
       b.addEventListener("click", function () {
         if (dlg.close) dlg.close();
         onPick(sp);
@@ -2084,6 +2118,55 @@
 
   root.SSDNSGunRoll = rollGun;
   root.SSDNSGunCastHex = castLoadedHex;
+  function speakerColor(name) {
+    var palette = ["#2f6f8f", "#3d6b4f", "#6b4c2a", "#5a3d6b", "#8a4b2f", "#1f5c6b", "#4a6741", "#7a3e55"];
+    var s = String(name || "You");
+    var h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0;
+    return palette[h % palette.length];
+  }
+  function rollDeathSave() {
+    var c = ch();
+    if (!c) return;
+    var hp = num($("#inHPCur") && $("#inHPCur").value);
+    if (hp > 0) { toast("You're on your feet."); return; }
+    if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
+    var nat = 1 + Math.floor(Math.random() * 20);
+    if (root.SSDNSTestRoll) {
+      var forced = root.SSDNSTestRoll();
+      if (forced) nat = forced;
+    }
+    if (!c.deathSaves) c.deathSaves = { success: [false, false, false], fail: [false, false, false] };
+    var line = "Death save: " + nat;
+    if (nat === 20) {
+      setHp(1);
+      line += " — natural 20, back to 1 HP";
+      addLog({ kind: "roll", text: line, nat: nat });
+      toast(line);
+      return;
+    }
+    if (nat >= 10) {
+      var si = (c.deathSaves.success || []).indexOf(false);
+      if (si >= 0) setDeath("success", si, true);
+      line += " — success";
+    } else {
+      var marks = nat === 1 ? 2 : 1;
+      if (nat === 1) line += " — two failures";
+      else line += " — failure";
+      while (marks > 0) {
+        var fi = (c.deathSaves.fail || []).indexOf(false);
+        if (fi < 0) break;
+        setDeath("fail", fi, true);
+        marks--;
+      }
+    }
+    var sCount = (c.deathSaves.success || []).filter(Boolean).length;
+    var fCount = (c.deathSaves.fail || []).filter(Boolean).length;
+    if (fCount >= 3) line += " · dead";
+    else if (sCount >= 3) line += " · stable";
+    addLog({ kind: "roll", text: line, nat: nat });
+    toast(line);
+  }
   root.SSDNSSheet = {
     applyDelta: applyDelta,
     setHp: setHp,
@@ -2100,6 +2183,8 @@
     setStock: setStock,
     applyGunEvent: applyGunEvent,
     setDeath: setDeath,
+    rollDeathSave: rollDeathSave,
+    clearDowned: clearDowned,
     applyRest: applyRest,
     undoItem: undoItem,
     renderStore: renderStore,

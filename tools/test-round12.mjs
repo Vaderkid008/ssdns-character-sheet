@@ -113,7 +113,7 @@ check(Creator.errorsFor({ calling: "gunslinger", fightingStyle: "", name: "Ada",
 
 check(read("dm/assets/js/dmcc.js").indexOf('await put("meta"') >= 0, "a moved room writes meta before its children");
 check(read("database.rules.json").indexOf("meta/dmUid').val() === auth.uid && (!data.exists() || !newData.exists())") >= 0, "the DM can copy chat into the new room");
-check(read("version.json").indexOf('"sheet": "0.3.15"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.28"') >= 0, "versions");
+check(read("version.json").indexOf('"sheet": "0.3.16"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.29"') >= 0, "versions");
 check(read("index.html").indexOf("favicon.ico") < 0 && read("dm/index.html").indexOf("favicon.ico") < 0, "favicon no longer 404s on a missing ico");
 check(read("dm/index.html").indexOf('id="headerRoll"') >= 0, "the header has a dice roller");
 
