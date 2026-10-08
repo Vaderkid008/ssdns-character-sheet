@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="assets/revolver.png">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.28-chat">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.29-chat">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -309,6 +309,15 @@
       <p class="lede" id="initRound">Round 1</p>
       <p class="lede" id="turnSent"></p>
       <div class="toolbar">
+        <button type="button" class="btn btn-primary btn-next" id="btnNextTurn">Next</button>
+        <button type="button" class="btn sm" id="btnPrevTurn">Previous</button>
+        <button type="button" class="btn sm" id="btnRollAll">Roll all</button>
+        <button type="button" class="btn sm" id="btnEndCombat">End combat</button>
+        <label class="fine">Damage <select id="damageMode" aria-label="Damage mode"><option value="auto">Auto-apply</option><option value="approve">Approve first</option></select></label>
+      </div>
+      <details class="fold" id="combatantMenu">
+        <summary>Set order and add a combatant</summary>
+      <div class="toolbar">
         <label for="initPlayer">Player</label>
         <select id="initPlayer"></select>
         <button type="button" class="btn sm" id="btnAddPlayer">Add player</button>
@@ -316,24 +325,20 @@
         <input type="search" id="enemyQ" placeholder="Search" aria-label="Search enemies to add">
         <select id="initEnemy"></select>
         <button type="button" class="btn sm" id="btnAddEnemy">Add enemy</button>
-        <button type="button" class="btn btn-primary" id="btnNextTurn">Next turn</button>
-        <button type="button" class="btn sm" id="btnPrevTurn">Previous</button>
-        <button type="button" class="btn sm" id="btnRollAll">Roll all</button>
-        <button type="button" class="btn sm" id="btnEndCombat">End combat</button>
-        <label class="fine">Damage <select id="damageMode" aria-label="Damage mode"><option value="auto">Auto-apply</option><option value="approve">Approve first</option></select></label>
       </div>
       <div class="form-grid">
-        <div><label for="customName">Custom enemy</label><input type="text" id="customName" placeholder="Bandit"></div>
+        <div><label for="customName">Custom enemy</label><input type="text" id="customName" value="Bandit"></div>
         <div><label for="customHp">HP</label><input type="number" id="customHp" value="11"></div>
         <div><label for="customAc">AC</label><input type="number" id="customAc" value="12"></div>
         <div><label for="customInit">Init bonus</label><input type="number" id="customInit" placeholder="blank uses DEX" title="Leave blank to use the Dexterity modifier. A typed 0 stays 0."></div>
         <div><label for="customAtkBonus">Attack bonus</label><input type="number" id="customAtkBonus" placeholder="blank asks"></div>
         <div><label for="customDmg">Damage</label><input type="text" id="customDmg" placeholder="1d6+2"></div>
-        <div><label for="customDex">DEX</label><input type="number" id="customDex" placeholder="blank ties as 10" title="Initiative tiebreak. Blank is 10."></div>
+        <div><label for="customDex">DEX</label><input type="number" id="customDex" value="12" title="Initiative tiebreak. Blank is 10. A Bandit is DEX 12 (+1)."></div>
         <div><label for="customQty">Quantity</label><input type="number" id="customQty" value="1" min="1" max="20"></div>
-        <div class="span-2"><label for="customAtk">Attacks</label><input type="text" id="customAtk" placeholder="Scimitar +3, 1d6+1"></div>
+        <div class="span-2"><label for="customAtk">Attacks</label><input type="text" id="customAtk" placeholder="Ball n Cap Revolver +3, 20/60, 1d8+1 piercing, MF 4, slow, cap 6"></div>
       </div>
       <div class="toolbar"><button type="button" class="btn sm" id="btnAddCustom">Add custom enemy</button></div>
+      </details>
       <div id="initList"></div>
       <details class="fold" open>
         <summary>Damage and healing</summary>
@@ -517,16 +522,16 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.28"></script>
-<script src="../assets/js/conditions.js?v=0.2.28"></script>
-<script src="assets/js/ui-tab.js?v=0.2.28"></script>
-<script src="../assets/js/sfx.js?v=0.2.28-sfx"></script>
-<script src="../assets/data/rules.js?v=0.2.28"></script>
-<script src="../assets/js/spell-cast.js?v=0.2.28"></script>
-<script src="../assets/js/firebase-config.js?v=0.2.28"></script>
-<script src="assets/js/store-stock.js?v=0.2.28"></script>
-<script src="assets/js/demo-data.js?v=0.2.28"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.28-chat"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.28-sfx"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.29-targets"></script>
+<script src="../assets/js/conditions.js?v=0.2.29"></script>
+<script src="assets/js/ui-tab.js?v=0.2.29"></script>
+<script src="../assets/js/sfx.js?v=0.2.29-sfx"></script>
+<script src="../assets/data/rules.js?v=0.2.29-kit"></script>
+<script src="../assets/js/spell-cast.js?v=0.2.29"></script>
+<script src="../assets/js/firebase-config.js?v=0.2.29"></script>
+<script src="assets/js/store-stock.js?v=0.2.29"></script>
+<script src="assets/js/demo-data.js?v=0.2.29-guns"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.29-chat"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.29-targets"></script>
 </body>
 </html>

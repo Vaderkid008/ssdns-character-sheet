@@ -205,6 +205,8 @@
       personality: c.personality || "",
       guns: guns,
       conditions: c.tableConditions || "",
+      takingCover: !!c.takingCover,
+      badgeState: c.badgeState || "",
       activeConditions: c.activeConditions || [],
       deathSaves: c.deathSaves || { success: [false, false, false], fail: [false, false, false] },
       spellAtk: v.spellAtk || "",
@@ -748,6 +750,9 @@
       case "hp":
         applyHpCommand(payload, payload.grantId || cmd.id);
         break;
+      case "gun":
+        applyGunCommand(payload, payload.grantId || cmd.id);
+        break;
       case "set_conditions":
         if (root.SSDNSSheet && root.SSDNSSheet.setConditions) root.SSDNSSheet.setConditions(payload.list || [], payload);
         break;
@@ -1212,6 +1217,26 @@
     root.SSDNSSheet.applyDelta(delta, text);
     root.SSDNSSheet.addLog({ id: id ? "hp:" + id : "", kind: "hp", text: text });
   }
+  function applyGunCommand(payload, id) {
+    payload = payload || {};
+    var grant = "gun:" + (payload.grantId || id || "");
+    if (!grant || !claimGrant(grant)) return;
+    var app = root.SSDNSApp;
+    if (!app) return;
+    if (payload.op === "unload" && app.unloadGunIndex) app.unloadGunIndex(payload.index);
+    else if (payload.op === "reload" && app.reloadGun) app.reloadGun(payload.index);
+    else if (payload.op === "set" && app.applyPatch) {
+      app.applyPatch(function (doc) {
+        var g = doc.character && doc.character.guns && doc.character.guns[payload.index];
+        var n = Number(payload.loaded);
+        if (g && isFinite(n)) g.loaded = Math.max(0, n);
+      });
+    } else if (payload.op === "fire" && root.SSDNSGunRoll) {
+      root.SSDNSGunRoll(payload.index, payload.chamber);
+      return;
+    }
+    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM " + (payload.op || "adjusted") + " a gun." });
+  }
   function applyMusic(payload) {
     if (!root.SSDNSAudio) return;
     if (!payload || payload.action === "stop") {
@@ -1510,6 +1535,22 @@
       else if (mode === "reconnecting") status.textContent = "Reconnecting " + (state.roomCode || "");
       else if (mode === "offline") status.textContent = "Offline · " + (state.roomCode || "");
     }
+  }
+  function postMercy(entry) {
+    entry = entry || {};
+    if (!state.joined || !state._fb || !state.db) return Promise.resolve({ ok: false });
+    var id = "mercy_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var c = doc() && doc().character;
+    var row = {
+      ts: new Date().toISOString(),
+      from: state.uid,
+      targetId: entry.targetId,
+      amount: Number(entry.amount) || 0,
+      type: "mercy",
+      label: "Mercy Hands",
+      characterName: (c && c.name) || ""
+    };
+    return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row);
   }
   function watchEs() {
     if (state._esTimer) return;
@@ -1820,6 +1861,7 @@
       postSfx: postSfx,
       postChat: postChat,
       postDamage: postDamage,
+      postMercy: postMercy,
       postAttack: postAttack,
       showHandout: showHandout,
       spendInspiration: spendInspiration,

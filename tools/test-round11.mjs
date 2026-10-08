@@ -74,7 +74,7 @@ check(Applied.takeUndo("RUST", "hit-1", storage), "undo restores once");
 check(!Applied.takeUndo("RUST", "hit-1", storage), "a second undo is refused");
 
 const word = Cast.blurb("Healing Word");
-check(word === "1d4 + mod", "Healing Word card says 1d4 + mod, got " + word);
+check(word === "60 ft · 1d4 + mod", "Healing Word card says range and 1d4 + mod, got " + word);
 check(!Cond.catalog().some((row) => row.name === "Bleeding"), "Bleeding is not a sheet condition");
 
 const raised = Creator.buildSheet({ calling: "gunslinger", name: "Wade", level: 3 });
@@ -98,7 +98,7 @@ check(extras.indexOf("You're at 0 HP") >= 0 && extras.indexOf("You can't attack 
 check(extras.indexOf(" disadvantage") >= 0 && play.indexOf("advPin") >= 0, "disadvantage is labeled and one-shot unless pinned");
 check(css.indexOf("body.sheet-readonly .tab-warn button { pointer-events: auto; }") >= 0, "take over receives a real click");
 check(app.indexOf("Bleeding:") < 0 && read("dm/assets/js/demo-data.js").indexOf("Bleeding") < 0, "Bleeding is removed");
-check(read("version.json").indexOf('"sheet": "0.3.15"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.28"') >= 0, "round 12 versions");
+check(read("version.json").indexOf('"sheet": "0.3.16"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.29"') >= 0, "round 13 versions");
 const suggestion = Cast.lookup("Suggestion");
 check(suggestion && suggestion.kind === "save" && suggestion.save === "WIS", "Suggestion is a Wisdom save");
 const html = read("dm/index.html");

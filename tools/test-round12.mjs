@@ -72,12 +72,12 @@ check(Applied.settled("DUST", "hit-9", storage), "undone hits stay settled");
 
 const beasts = JSON.parse(read("dm/assets/data/bestiary.json"));
 const outlaw = beasts.filter((b) => b.id === "outlaw")[0];
-check(outlaw.attackList.map((a) => a.name).join(",") === "Revolver,Bowie", "outlaw weapons are Revolver and Bowie");
+check(outlaw.attackList.map((a) => a.name).join(",") === "ChaosMaker Revolver,Bowie", "outlaw weapons are ChaosMaker Revolver and Bowie");
 check(outlaw.attackList[0].damage === "1d8+1" && outlaw.attackList[0].range === "20/60" && outlaw.attackList[0].capacity === 6 && outlaw.attackList[0].misfire === 1, "revolver keeps the canon stats");
 check(outlaw.attackList[1].damage === "1d6+1", "bowie damage is 1d6+1");
 const stale = [{ id: "outlaw", name: "Outlaw", attackList: [{ name: "Scimitar", bonus: 3, damage: "1d6+1" }], attacks: "Scimitar" }];
 const mergedSrc = read("dm/assets/js/v2.js");
-check(mergedSrc.indexOf("attackList: b.attackList") >= 0, "bestiary merge keeps the file attack list");
+check(mergedSrc.indexOf("b.custom === true") >= 0 && mergedSrc.indexOf("!b.source") >= 0, "bestiary merge keeps custom entries and drops stale file ids");
 
 check(Applied.attackButtonLabel({ name: "Revolver", toHit: 3 }) === "Revolver +3", "compact button uses the attack name and bonus");
 check(Applied.attackButtonLabel({ name: "Bowie", bonus: 3 }) === "Bowie +3", "bonus field still labels the button");
@@ -113,7 +113,7 @@ check(Creator.errorsFor({ calling: "gunslinger", fightingStyle: "", name: "Ada",
 
 check(read("dm/assets/js/dmcc.js").indexOf('await put("meta"') >= 0, "a moved room writes meta before its children");
 check(read("database.rules.json").indexOf("meta/dmUid').val() === auth.uid && (!data.exists() || !newData.exists())") >= 0, "the DM can copy chat into the new room");
-check(read("version.json").indexOf('"sheet": "0.3.15"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.28"') >= 0, "versions");
+check(read("version.json").indexOf('"sheet": "0.3.16"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.29"') >= 0, "versions");
 check(read("index.html").indexOf("favicon.ico") < 0 && read("dm/index.html").indexOf("favicon.ico") < 0, "favicon no longer 404s on a missing ico");
 check(read("dm/index.html").indexOf('id="headerRoll"') >= 0, "the header has a dice roller");
 

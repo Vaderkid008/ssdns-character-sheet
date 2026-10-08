@@ -388,25 +388,113 @@
       else dlg.setAttribute("open", "");
     });
   }
+  var SPELL_META = {
+    "acid splash": { range: "60 ft" },
+    "chill touch": { range: "120 ft" },
+    "eldritch blast": { range: "120 ft" },
+    "fire bolt": { range: "120 ft" },
+    "poison spray": { range: "10 ft" },
+    "produce flame": { range: "30 ft" },
+    "ray of frost": { range: "60 ft" },
+    "sacred flame": { range: "60 ft" },
+    "shocking grasp": { range: "touch" },
+    "thorn whip": { range: "30 ft" },
+    "vicious mockery": { range: "60 ft" },
+    "arms of hadar": { range: "self 10 ft" },
+    "burning hands": { range: "self 15 ft" },
+    "chromatic orb": { range: "90 ft" },
+    "cure wounds": { range: "touch" },
+    "dissonant whispers": { range: "60 ft" },
+    "ensnaring strike": { range: "self", conc: true },
+    "guiding bolt": { range: "120 ft" },
+    "hail of thorns": { range: "self", conc: true },
+    "healing word": { range: "60 ft" },
+    "hellish rebuke": { range: "60 ft" },
+    "hex": { range: "90 ft", conc: true },
+    "hunter's mark": { range: "90 ft", conc: true },
+    "inflict wounds": { range: "touch" },
+    "magic missile": { range: "120 ft" },
+    "ray of sickness": { range: "60 ft" },
+    "searing smite": { range: "self", conc: true },
+    "thunderous smite": { range: "self", conc: true },
+    "thunderwave": { range: "self 15 ft" },
+    "witch bolt": { range: "30 ft", conc: true },
+    "wrathful smite": { range: "self", conc: true },
+    "acid arrow": { range: "90 ft" },
+    "branding smite": { range: "self", conc: true },
+    "cloud of daggers": { range: "60 ft", conc: true },
+    "flame blade": { range: "self", conc: true },
+    "flaming sphere": { range: "60 ft", conc: true },
+    "heat metal": { range: "60 ft", conc: true },
+    "moonbeam": { range: "120 ft", conc: true },
+    "ray of enfeeblement": { range: "60 ft", conc: true },
+    "scorching ray": { range: "120 ft" },
+    "shatter": { range: "60 ft" },
+    "spiritual weapon": { range: "60 ft" },
+    "blinding smite": { range: "self", conc: true },
+    "call lightning": { range: "120 ft", conc: true },
+    "conjure barrage": { range: "self 60 ft" },
+    "fireball": { range: "150 ft" },
+    "hunger of hadar": { range: "150 ft", conc: true },
+    "lightning arrow": { range: "self", conc: true },
+    "lightning bolt": { range: "self 100 ft" },
+    "mass healing word": { range: "60 ft" },
+    "spirit guardians": { range: "self 15 ft", conc: true },
+    "vampiric touch": { range: "self", conc: true },
+    "blight": { range: "30 ft" },
+    "fire shield": { range: "self" },
+    "guardian of faith": { range: "30 ft" },
+    "ice storm": { range: "300 ft" },
+    "phantasmal killer": { range: "120 ft", conc: true },
+    "staggering smite": { range: "self", conc: true },
+    "wall of fire": { range: "120 ft", conc: true },
+    "banishing smite": { range: "self" },
+    "cloudkill": { range: "120 ft", conc: true },
+    "cone of cold": { range: "self 60 ft" },
+    "contagion": { range: "touch" },
+    "conjure volley": { range: "150 ft" },
+    "destructive wave": { range: "self 30 ft" },
+    "flame strike": { range: "60 ft" },
+    "insect plague": { range: "300 ft", conc: true },
+    "mass cure wounds": { range: "60 ft" },
+    "blade barrier": { range: "90 ft", conc: true },
+    "chain lightning": { range: "150 ft" },
+    "circle of death": { range: "150 ft" },
+    "disintegrate": { range: "60 ft" },
+    "freezing sphere": { range: "300 ft" },
+    "harm": { range: "60 ft" },
+    "heal": { range: "60 ft" },
+    "sunbeam": { range: "self 60 ft", conc: true },
+    "wall of ice": { range: "120 ft", conc: true },
+    "wall of thorns": { range: "120 ft", conc: true },
+    "delayed blast fireball": { range: "150 ft", conc: true },
+    "finger of death": { range: "60 ft" },
+    "fire storm": { range: "150 ft" },
+    "prismatic spray": { range: "self 60 ft" },
+    "incendiary cloud": { range: "150 ft", conc: true },
+    "sunburst": { range: "150 ft" },
+    "meteor swarm": { range: "1 mile" }
+  };
   function blurb(name) {
     var row = lookup(name);
     if (!row || !row.kind || row.kind === "none") return "";
     var type = row.type || "";
     if (/you chose|you choose/i.test(type)) type = "(type you choose)";
     var dice = row.dice || "";
+    var bits = [];
+    var meta = SPELL_META[norm(row.name)] || SPELL_META[norm(name)] || {};
+    if (meta.range) bits.push(meta.range);
     if (row.kind === "save") {
-      var bits = [];
       if (dice || type) bits.push((dice + " " + type).trim());
       if (row.save) bits.push(row.save + " save");
-      return bits.join(" · ");
-    }
-    if (row.kind === "heal") {
-      if (row.healMod && dice) return dice + " + mod";
-      return dice ? ("heals " + dice) : "heal";
-    }
-    if (dice) return (dice + " " + type).trim();
-    if (row.save) return row.save + " save";
-    return "";
+    } else if (row.kind === "heal") {
+      if (row.healMod && dice) bits.push(dice + " + mod");
+      else if (dice) bits.push("heals " + dice);
+      else bits.push("heal");
+    } else if (dice) bits.push((dice + " " + type).trim());
+    else if (row.save) bits.push(row.save + " save");
+    if (meta.conc) bits.push("concentration");
+    return bits.filter(Boolean).join(" · ");
   }
   root.SSDNSSpellCast = { lookup: lookup, rollCast: rollCast, cantripTier: cantripTier, needsType: needsType, pickType: pickType, blurb: blurb };
 })(typeof window !== "undefined" ? window : globalThis);

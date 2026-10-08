@@ -779,3 +779,21 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
     display: none !important;
   }
 }
+.your-turn-box { position: sticky; top: 0; z-index: 40; background: #8f1d1d; color: #fff; text-align: center; font-weight: 700; letter-spacing: .08em; padding: 10px 12px; }
+.turn-order-strip { display: flex; gap: 6px; overflow-x: auto; padding: 6px 0; }
+.turn-chip { border: 1px solid #c8b89a; border-radius: 999px; padding: 4px 8px; white-space: nowrap; background: #f4efe4; }
+.turn-chip.current { background: #fff6d8; border-color: #8a6a22; box-shadow: 0 0 0 2px #e2c56a; }
+.turn-chip.ondeck { opacity: .55; }
+.turn-chip.enemy { background: #6e2430; color: #fff; }
+.turn-chip.player { background: #2f5f73; color: #fff; }
+.chamber-dot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #333; display: inline-block; background: transparent; padding: 0; }
+.chamber-dot.full { background: #c4a35a; }
+.status-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.status-chips .chip { border-radius: 999px; padding: 2px 8px; font-size: 12px; background: #efe6d4; }
+.status-chips .faction { background: #2f5f73; color: #fff; }
+.status-chips .rage { background: #8a3b12; color: #fff; }
+.status-chips .cover { background: #3d6b4f; color: #fff; }
+.status-chips .cond { background: #6e2430; color: #fff; }
+.wiz-ref { max-height: 80vh; overflow: auto; }
+.d4-die { font-size: 2rem; min-width: 4rem; min-height: 4rem; }
+#btnTakeCover.is-on { background: #3d6b4f; color: #fff; }

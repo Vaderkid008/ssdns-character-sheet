@@ -105,7 +105,7 @@ const sheet = read("assets/js/app.js") + read("assets/js/sheet-extras.js") + rea
 check(!/maybePrompt\(/.test(read("assets/js/sheet-playtest.js").split("function maybePrompt")[0]), "calling change does not auto-prompt the kit");
 check(sheet.includes("data-add-spell") && sheet.includes("callingCatalog().concat(bonusCatalog())"), "spell add looks up the catalog key");
 check(sheet.includes("Take over editing") && sheet.includes("sheet-readonly"), "second tab can be taken over");
-check(dm.includes("Attack player") && dm.includes("Attack this enemy"), "enemy attack buttons are labeled");
+check(dm.includes("DM roll vs this AC") && dm.includes("Attack a target"), "enemy attack buttons are labeled");
 check(dm.includes("SSDNSApplied.claim") && dm.includes("conditions/"), "apply ids and condition paths are wired");
 check(dm.includes("applyActiveTab") && !dm.includes("location.hash"), "tabs are restored from the stored tab");
 check(sheet.includes("visibilityState") && dm.includes("· delivered") && dm.includes("· seen"), "delivered and seen are distinct");

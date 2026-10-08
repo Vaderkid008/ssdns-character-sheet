@@ -148,7 +148,7 @@ window.SSDNS_RULES = {
      "text": "You gain proficiency with one of the following of your choice: smith’s tools, brewer’s supplies, or mason’s tools."
     }
    ],
-   "languages": "You can speak, read, and write Common and Dwarvish (Under-Cant — clan tunnel speech).",
+   "languages": "You can speak, read, and write Common and Under Lingo (clan tunnel speech).",
    "sublineages": [
     {
      "id": "gold-miner",
@@ -206,7 +206,7 @@ window.SSDNS_RULES = {
      "text": "Aristocrats don’t need a full night the way Nomads do. You can finish a long rest in 4 hours of light sleep / watch-rest (as PHB Trance). After resting this way, you gain the same benefit a Nomad does from 8 hours of sleep."
     }
    ],
-   "languages": "You can speak, read, and write Common and Elvish (Old Neverwinter court speech).",
+   "languages": "You can speak, read, and write Common and Court Lingo (the old court speech of Neverwinter).",
    "sublineages": [
     {
      "id": "high-house",
@@ -298,7 +298,7 @@ window.SSDNS_RULES = {
      "text": "You can move through the space of any creature that is of a size larger than yours."
     }
    ],
-   "languages": "You can speak, read, and write Common and Halfling (hearth-cant).",
+   "languages": "You can speak, read, and write Common and Hearth Lingo.",
    "sublineages": [
     {
      "id": "hetfield",
@@ -389,7 +389,7 @@ window.SSDNS_RULES = {
      "text": "You have resistance to the damage type associated with your Ancestral Affinity."
     }
    ],
-   "languages": "You can speak, read, and write Common and Draconic (watch-cipher / company battle-tongue).",
+   "languages": "You can speak, read, and write Common and Watch Lingo (watch-cipher / company battle-tongue).",
    "sublineages": [],
    "age": "Camp Kin mature by twenty and live about as long as other hard humans — drill shortens some lives; stubbornness lengthens others."
   },
@@ -412,7 +412,7 @@ window.SSDNS_RULES = {
      "text": "You have advantage on all Intelligence, Wisdom, and Charisma saving throws against magic."
     }
    ],
-   "languages": "You can speak, read, and write Common and Gnomish (guild-cant).",
+   "languages": "You can speak, read, and write Common and Guild Lingo.",
    "sublineages": [
     {
      "id": "clockmaker",
@@ -474,7 +474,7 @@ window.SSDNS_RULES = {
      "text": "You gain proficiency in two skills of your choice."
     }
    ],
-   "languages": "You can speak, read, and write Common, Elvish, and one extra language of your choice.",
+   "languages": "You can speak, read, and write Common, Court Lingo, and one extra language of your choice.",
    "sublineages": [],
    "age": "Diplomats mature at about the same rate as Nomads and often reach their seventies or eighties — if politics don’t cut that short."
   },
@@ -505,7 +505,7 @@ window.SSDNS_RULES = {
      "text": "When you score a critical hit with a melee weapon attack, you can roll one of the weapon’s damage dice one additional time and add it to the extra damage of the critical hit."
     }
    ],
-   "languages": "You can speak, read, and write Common and Orc (dock-cant / blood-cant).",
+   "languages": "You can speak, read, and write Common and Dock Lingo / Blood Lingo.",
    "sublineages": [],
    "age": "Pioneers mature a little faster than soft-city folk and rarely see a quiet old age — but some outlast every range war they walk into."
   },
@@ -532,7 +532,7 @@ window.SSDNS_RULES = {
      "text": "You know the thaumaturgy cantrip. When you reach 3rd level, you can cast hellish rebuke as a 2nd-level spell once with this trait and regain the ability to do so when you finish a long rest. When you reach 5th level, you can cast darkness once with this trait and regain the ability to do so when you finish a long rest. Charisma is your spellcasting ability for these spells. Flavour as curse-blood, powder-hex, or dying hell-pact scrap that still sparks."
     }
    ],
-   "languages": "You can speak, read, and write Common and Infernal (brand-cant).",
+   "languages": "You can speak, read, and write Common and Brand Lingo.",
    "sublineages": [],
    "age": "Street Folk mature at the same rate as other humans and live about as long — if rope, lead, or Blackwood heat don’t settle the account early."
   }
@@ -551,14 +551,14 @@ window.SSDNS_RULES = {
    ],
    "spellAbility": null,
    "caster": null,
-   "proficiencies": "Hit Die: 1d12 per level · HP at 1st Level: 12 + Con mod · Proficiencies & Kit: Light & medium armor, shields (no heavy) · Simple & martial melee weapons, throwing hatchets · Greataxe (buffalo axe), 2 handaxes, explorer pack, 4 javelins.",
+   "proficiencies": "Hit Die: 1d12 per level · HP at 1st Level: 12 + Con mod · Proficiencies & Kit: Light & medium armor, shields (no heavy) · Simple & martial weapons (guns included), throwing hatchets · Greataxe (buffalo axe), 2 handaxes, explorer pack, 4 javelins.",
    "armorProf": "Light & medium armor, shields (no heavy)",
-   "weaponProf": "Simple & martial melee weapons, throwing hatchets",
+   "weaponProf": "Simple & martial weapons (guns included), throwing hatchets",
    "kit": "Greataxe (buffalo axe), 2 handaxes, explorer pack, 4 javelins.",
    "features": [
     {
      "name": "Dust Fury (Rage - 1st lvl)",
-     "text": "Bonus action to enter fury. Gain advantage on Str checks/saves, bonus melee damage (+2 to +4), and resistance to bludgeoning, piercing, and slashing. Heavy armor prevents fury."
+     "text": "Bonus action to enter fury. Gain advantage on Str checks/saves, bonus damage on Strength melee attacks only (+2 to +4; never on gun, bow, or thrown attacks), and resistance to bludgeoning, piercing, and slashing. Heavy armor prevents fury."
     },
     {
      "name": "Hard Hide (Unarmored Defense - 1st lvl)",
@@ -582,7 +582,7 @@ window.SSDNS_RULES = {
     },
     {
      "name": "Lead & Levers: Firearms, Reloads & Cover",
-     "text": "Take Cover: anyone can, as a bonus action (see Take Cover in Equipment); stacks on half / three-quarters cover. Six-Shooters & Reloads: 6-shot capacity. Reloading takes an action. Extra Attack allows an extra trigger pull. Fury vs. Firearm: Dust Fury bonuses apply to Strength melee strikes. When cartridges click empty, closing with a buffalo axe ends shootouts immediately."
+     "text": "Take Cover: anyone can, as a bonus action (see Take Cover in Equipment); stacks on half / three-quarters cover. Six-Shooters & Reloads: 6-shot capacity. Reloading takes an action. Extra Attack allows an extra trigger pull. Fury vs. Firearm: You can shoot any gun you're proficient with, but Dust Fury damage, All-In Swing, and Frenzy only work in melee. When cartridges click empty, closing with a buffalo axe ends shootouts immediately."
     }
    ],
    "subclasses": [
@@ -1352,7 +1352,7 @@ window.SSDNS_RULES = {
    "kit": "Wooden shield, machete, explorer pack, herbalism kit, a focus taken from the land (carved walking stick, medicine pouch, or a pouch of home-spring soil).",
    "features": [
     {
-     "name": "Trail Cant (Druidic - 1st lvl)",
+     "name": "Sign Lingo (1st lvl)",
      "text": "Secret signs carved into canyon rocks and telegraph poles denoting water, hazards, and safe trails."
     },
     {
@@ -1446,7 +1446,7 @@ window.SSDNS_RULES = {
      [
       "1st",
       "+2",
-      "Trail Cant, Spellcasting",
+      "Sign Lingo, Spellcasting",
       "2",
       "2 — — — —"
      ],
@@ -1608,7 +1608,7 @@ window.SSDNS_RULES = {
    "features": [
     {
      "name": "Gunfighter's Style (1st lvl)",
-     "text": "Choose: Long-Gun Marksmanship (+2 ranged hit), Sidearm Duelling (+2 damage single iron), or Point-Blank Defense (+1 AC)."
+     "text": "Choose: Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore rifles; not shotguns), Sidearm Duelling (+2 damage single iron), or Point-Blank Defense (+1 AC)."
     },
     {
      "name": "Dust Breath (Second Wind - 1st lvl)",
@@ -2114,10 +2114,10 @@ window.SSDNS_RULES = {
    ],
    "spellAbility": "CHA",
    "caster": "half",
-   "proficiencies": "Hit Die: 1d10 per level · Proficiencies & Kit: All armor, shields · Simple and martial weapons · Cavalry saber, badge (tin star, your focus), shield, 5 javelins, chain mail under heavy duster coat.",
+   "proficiencies": "Hit Die: 1d10 per level · Proficiencies & Kit: All armor, shields · Simple and martial weapons · Cavalry saber, tin star (focus), shield, mail duster, Ball n Cap + 20 loads.",
    "armorProf": "All armor, shields",
    "weaponProf": "Simple and martial weapons",
-   "kit": "Cavalry saber, badge (tin star, your focus), shield, 5 javelins, chain mail under heavy duster coat.",
+   "kit": "Cavalry saber, tin star, shield, mail duster, Ball n Cap + 20 loads.",
    "features": [
     {
      "name": "Oath Sense (Divine Sense - 1st lvl)",
@@ -2716,7 +2716,7 @@ window.SSDNS_RULES = {
      [
       "1st",
       "+2",
-      "Sneak Attack (1d6), Sharp Practice, Cant",
+      "Sneak Attack (1d6), Sharp Practice, Thieves’ Lingo",
       "1d6"
      ],
      [
@@ -2885,7 +2885,7 @@ window.SSDNS_RULES = {
      "features": [
       {
        "name": "Infernal Ancestor (1st level)",
-       "text": "Choose the kind of demon in your blood. It sets your element: Ember (fire), Venom (poison), Bile (acid), Storm (lightning), or Rime (cold, from the frozen pit). You can speak, read, and write Infernal (brand-cant). When you make a Charisma check to deal with fiends, your proficiency bonus is doubled if it applies."
+       "text": "Choose the kind of demon in your blood. It sets your element: Ember (fire), Venom (poison), Bile (acid), Storm (lightning), or Rime (cold, from the frozen pit). You can speak, read, and write Brand Lingo. When you make a Charisma check to deal with fiends, your proficiency bonus is doubled if it applies."
       },
       {
        "name": "Demon Hide (1st level)",
@@ -3943,7 +3943,7 @@ window.SSDNS_RULES = {
      "A bounty poster with my jawline hangs somewhere I’ve already been.",
      "I can’t walk past an unlocked till without my fingers itching.",
      "I answer insults with iron faster than sense.",
-     "I trust the wrong smiles if they speak dock-cant.",
+     "I trust the wrong smiles if they speak Dock Lingo.",
      "I keep proof of old jobs — souvenirs that hang me.",
      "I’d rather burn a bridge than admit I need help crossing it."
     ]
@@ -4020,7 +4020,7 @@ window.SSDNS_RULES = {
    "feature": {
     "name": "Homestead Welcome",
     "twin5e": "Rustic Hospitality",
-    "text": "Common folk (settlers, ranch hands, miners) will hide you from soft-handed law and provide a meal and a loft. They won’t risk mass hanging — but they’ll tip you when riders come."
+    "text": "Common folk (settlers, ranch hands, miners) will hide you from soft-handed law and provide a meal and a loft. They won’t hang for you, but they’ll warn you when riders come."
    },
    "traits": {
     "personality": [
@@ -4460,7 +4460,7 @@ window.SSDNS_RULES = {
    "feature": {
     "name": "Alley Memory",
     "twin5e": "City Secrets",
-    "text": "In cities and large towns you know shortcuts, climbs, and crawlspaces. You move between districts faster than street-folk — and vanish into crowds when heat rises."
+    "text": "In cities and large towns you know shortcuts, climbs, and crawlspaces. You move between districts faster than most locals — and vanish into crowds when heat rises."
    },
    "traits": {
     "personality": [
@@ -4515,7 +4515,7 @@ window.SSDNS_RULES = {
    "feature": {
     "name": "Homestead Welcome",
     "twin5e": "Rustic Hospitality",
-    "text": "Common folk feed and hide you from soft-handed law. You’ve heard they tip you when surveyors ride — work the details with the DM once you’ve landed."
+    "text": "Common folk feed and hide you from soft-handed law. They’ll tip you off when surveyors ride."
    },
    "traits": {
     "personality": [
@@ -4565,12 +4565,12 @@ window.SSDNS_RULES = {
    "src": "BOOK1.md line 3409",
    "skills": "Perception, Survival",
    "tools": "Herbalism kit or one gaming set (DM choice); vehicles (land) optional swap",
-   "languages": "One of your choice (often Under-Cant, hearth-cant, or a tribal trade tongue)",
+   "languages": "One of your choice",
    "equipment": "Hunting trap, spyglass or cheap field glass (if DM allows; else trophy + 500 ES), hardtack box, traveler’s clothes, pouch with 1,000 ES",
    "feature": {
     "name": "Open-Ground Memory",
     "twin5e": "Wanderer",
-    "text": "You find food and water for a small group in wild country and remember trails like scripture. Bonus flavor: local hunters tip you when Eldorite-strange kills show up."
+    "text": "You find food and water for a small group in wild country and remember trails like scripture. Local hunters tip you off when Eldorite-strange kills show up."
    },
    "traits": {
     "personality": [
@@ -4623,9 +4623,9 @@ window.SSDNS_RULES = {
    "languages": "",
    "equipment": "Insignia or notched token from an old company/outfit, cartridge trophy or rival’s spent casing, dice or cards, traveler’s clothes / duster, pouch with 1,000 ES",
    "feature": {
-    "name": "Company Papers / Road Respect",
+    "name": "Road Respect",
     "twin5e": "Military Rank",
-    "text": "Gun hands, company riders, and trail law recognize a professional. You can get a free meal, a warning, or a quiet sit-down with local shootists. Somewhere west, your name opens a door — or a crossfire. Work the place-name with the DM after you land."
+    "text": "Gun hands, company riders, and trail law recognize a professional. You can get a free meal, a warning, or a quiet sit-down with local shootists. Somewhere west, your name opens a door — or a crossfire."
    },
    "traits": {
     "personality": [
@@ -4675,7 +4675,7 @@ window.SSDNS_RULES = {
    "src": "BOOK1.md line 3556",
    "skills": "Insight, Investigation",
    "tools": "Tinker’s tools or one artisan’s tools (smith’s / carpenter’s); forgery kit optional swap with DM",
-   "languages": "One of your choice (often guild-cant)",
+   "languages": "One of your choice (often Guild Lingo)",
    "equipment": "Tinker’s tools (or chosen artisan’s tools), guild letter or assay scrap, traveler’s clothes with burn holes, pouch with 1,500 ES, tiny prototype (nonmagical gadget — DM defines)",
    "feature": {
     "name": "Maker’s Mark",
@@ -5039,6 +5039,40 @@ window.SSDNS_RULES = {
    "ammo": "percussion"
   },
   {
+   "id": "dullards-plinker-revolver",
+   "name": "Dullards Plinker Revolver",
+   "model": "Dullards Plinker Revolver",
+   "group": "pistol",
+   "cost": "1,000",
+   "action": "Revolver",
+   "tr": true,
+   "load": "Cartridge",
+   "capacity": 7,
+   "tiers": {
+    "light": {
+     "damage": "1d6",
+     "range": "10/30",
+     "misfire": "1–2"
+    }
+   },
+   "weight": "1 lb.",
+   "properties": "Close quarters, simple, chambered .22 LR",
+   "src": "sheet lock 2026-10-07",
+   "slow": false,
+   "ability": "DEX",
+   "category": "simple",
+   "dirtyMisfire": "1–4",
+   "rustyDamage": "1d4",
+   "rustyMisfire": "1–4",
+   "rounds": {
+    "light": [
+     ".22 LR"
+    ]
+   },
+   "ammo": "cartridge"
+  },
+
+  {
    "id": "pony-arms-chaosmaker-light",
    "name": "Pony Arms ChaosMaker (Light)",
    "model": "Pony Arms ChaosMaker",
@@ -5120,7 +5154,7 @@ window.SSDNS_RULES = {
    "properties": "chambered .45 Long, close quarters, martial",
    "src": "BOOK1.md line 3984",
    "slow": false,
-   "ability": "DEX",
+   "ability": "STR/DEX",
    "category": "martial",
    "rounds": {
     "heavy": [
@@ -5298,6 +5332,7 @@ window.SSDNS_RULES = {
   },
   {
    "id": "lancaster-heavy-saddle-carbine",
+   "heavyChambered": "STR/DEX",
    "name": "Lancaster Heavy Saddle Carbine",
    "model": "Lancaster Heavy Saddle Carbine",
    "group": "carbine",
@@ -5445,6 +5480,7 @@ window.SSDNS_RULES = {
    "src": "BOOK1.md line 4018",
    "slow": false,
    "ability": "DEX",
+   "heavyChambered": "STR/DEX",
    "category": "simple",
    "rounds": {
     "light": [
@@ -5531,6 +5567,7 @@ window.SSDNS_RULES = {
    "src": "BOOK1.md line 4020",
    "slow": false,
    "ability": "DEX",
+   "heavyChambered": "STR/DEX",
    "category": "martial",
    "rounds": {
     "light": [
@@ -5578,6 +5615,7 @@ window.SSDNS_RULES = {
    "src": "BOOK1.md line 4021",
    "slow": false,
    "ability": "DEX",
+   "heavyChambered": "STR/DEX",
    "category": "martial",
    "rounds": {
     "light": [
@@ -5614,7 +5652,7 @@ window.SSDNS_RULES = {
    "properties": "Two-handed, heavy, slow load, simple",
    "src": "BOOK1.md line 4022",
    "slow": true,
-   "ability": "DEX",
+   "ability": "STR/DEX",
    "category": "simple",
    "rounds": {},
    "ammo": "percussion"
@@ -5640,7 +5678,7 @@ window.SSDNS_RULES = {
    "properties": "Two-handed, heavy, unwieldy, slow load, martial",
    "src": "BOOK1.md line 4032",
    "slow": true,
-   "ability": "DEX",
+   "ability": "STR",
    "category": "martial",
    "rounds": {
     "medium": [

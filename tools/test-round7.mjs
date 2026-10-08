@@ -36,92 +36,144 @@ function hasLine(c, text) {
   return String(c.equipment || "").indexOf(text) >= 0;
 }
 
+function packName(id, fallback) {
+  return ({
+    trail: "Trail kit", claim: "Claim pack", circuit: "Circuit kit",
+    trunk: "Circuit trunk", saloon: "Saloon kit", book: "Book trunk", alley: "Alley kit"
+  })[id] || fallback;
+}
 const expect = {
   "tribal-warrior": () => ({
-    melee: ["buffalo-axe-greataxe", "hatchet-handaxe", "throwing-spear-javelin"],
-    lines: ["Hatchet (second)", "Throwing spears ×4", "Explorer pack"]
+    melee: ["buffalo-axe-greataxe", "hatchet-handaxe", "hatchet-handaxe", "throwing-spear-javelin", "throwing-spear-javelin", "throwing-spear-javelin", "throwing-spear-javelin"],
+    lines: ["Trail kit"]
   }),
   storyteller: (p) => {
-    const names = { fiddle: "Fiddle", banjo: "Banjo", guitar: "Guitar" };
-    const voice = p.voice === "voice";
+    const voice = p.voice || "fiddle";
+    const names = { fiddle: "Fiddle", banjo: "Banjo", guitar: "Guitar", accordion: "Accordion" };
+    const stringed = voice !== "voice" && voice !== "harmonica";
+    const melee = [];
+    const guns = [];
+    if (p.weapon === "saber") melee.push("cavalry-saber-longsword");
+    else if (p.weapon === "derringer") guns.push("herringer-light-double-derringer");
+    else melee.push("sword-cane-rapier");
+    melee.push("stiletto-dagger");
+    const lines = [
+      voice === "voice" ? "Voice — focus" : (voice === "harmonica" ? "Harmonica (rides in a pocket)" : (names[voice] + " with a strap and one spare set of strings")),
+      p.kit === "saloon" ? "Saloon kit" : "Circuit trunk"
+    ];
+    if (voice === "voice") lines.splice(1, 0, "Harmonica (kit instrument)");
     return {
-      melee: ["bowie-shortsword"],
-      guns: ["herringer-light-double-derringer"],
-      ammo: ["cartridge", "Light", 20],
-      instrument: p.voice || "fiddle",
-      instrumentQuality: voice ? null : "cheap",
-      instrumentStrings: voice ? null : "plain",
-      lines: [
-        voice ? "Voice — focus" : (names[p.voice] + " with a strap and one spare set of strings"),
-        p.kit === "saloon" ? "Saloon kit" : "Diplomat trunk",
-        "Duster"
-      ]
+      melee, guns, armor: "leather-jacket",
+      ammo: p.weapon === "derringer" ? ["cartridge", "Light", 20] : null,
+      instrument: voice,
+      instrumentQuality: voice === "voice" ? null : "cheap",
+      instrumentStrings: stringed ? "plain" : null,
+      lines
     };
   },
-  "frontier-preacher": (p) => ({
-    guns: p.gun === "shotgun" ? ["single-barrel-farm-shotgun"] : [p.gun === "carbine" ? "dullards-light-carbine" : "dullards-tube-rifle"],
-    melee: [p.melee === "hammer" ? "claim-hammer-light-hammer" : "trail-mace-chapel-mace-mace"],
-    lines: ["Priest kit", "Carved holy symbol"],
-    armor: p.armor === "scale" ? "scale-coat" : "heavy-leather-duster",
-    ammo: p.gun === "shotgun" ? ["buck", ".410", 10] : ["cartridge", "Light", 20]
-  }),
+  "frontier-preacher": (p) => {
+    const guns = [];
+    if (p.gun === "shotgun") guns.push("single-barrel-farm-shotgun");
+    else if (p.gun === "plinker") guns.push("dullards-plinker-revolver");
+    else if (p.gun === "carbine") guns.push("dullards-light-carbine");
+    else guns.push("dullards-tube-rifle");
+    return {
+      guns,
+      melee: [p.melee === "hammer" ? "sledgehammer-warhammer" : "trail-mace-chapel-mace-mace"],
+      lines: ["Shield", packName(p.pack === "trail" ? "trail" : "circuit", "Circuit kit"), "Holy symbol (focus)"],
+      armor: p.armor === "leather" ? "leather-jacket" : (p.armor === "mail" ? "mail-duster" : "scale-coat"),
+      shield: true,
+      ammo: p.gun === "shotgun" ? ["buck", ".410", 10] : ["cartridge", "Light", 20]
+    };
+  },
   "nature-guide": (p) => ({
-    melee: ["machete-scimitar"],
-    shield: true,
-    lines: ["Wooden shield", "Explorer pack", "Herbalism kit", "Focus: " + ({ stick: "Carved walking stick", pouch: "Medicine pouch", soil: "Pouch of home-spring soil" }[p.focus || "stick"])]
+    melee: p.shieldOr === "spear" ? ["machete-scimitar", "throwing-spear-javelin"] : ["machete-scimitar"],
+    shield: p.shieldOr !== "spear",
+    armor: "leather-jacket",
+    lines: (p.shieldOr === "spear" ? [] : ["Wooden shield"]).concat([
+      "Trail kit", "Herbalism kit",
+      "Focus: " + ({ stick: "Carved walking stick", pouch: "Medicine pouch", soil: "Pouch of home-spring soil" }[p.focus || "stick"])
+    ])
   }),
   gunslinger: (p) => {
     const g = ["dullards-tube-rifle"];
-    const lines = ["Duster", "Gun belt", "Mexican Loop holster", "Dungeoneer company kit"];
+    const lines = ["Gun belt", "Mexican Loop holster", packName(p.pack === "trail" ? "trail" : "claim", "Claim pack")];
     const m = [];
     let cart = 20;
     let perc = 0;
-    if (p.side === "twins" && p.irons === "navy") {
+    if (p.armor === "leather") {
+      g.push("dullards-light-carbine");
+      cart = 40;
+    }
+    if (p.side === "revolver") {
       g.push("navy-army-ball-n-cap-revolver");
       perc = 20;
       lines.push("Powder, ball, and caps ×20");
-    } else if (p.side === "twins") {
-      g.push("herringer-light-pepperbox", "herringer-light-pepperbox");
-      cart = 40;
-    } else m.push("cavalry-saber-longsword");
-    return { guns: g, melee: m, lines: lines, holster: "mexican-loop", gunBelt: true, ammo: ["cartridge", "Light", cart], perc: perc };
+    } else {
+      m.push("cavalry-saber-longsword");
+      lines.push("Shield");
+    }
+    return {
+      guns: g, melee: m, lines, holster: "mexican-loop", gunBelt: true,
+      armor: p.armor === "leather" ? "leather-jacket" : "mail-duster",
+      shield: p.side !== "revolver",
+      ammo: ["cartridge", "Light", cart], perc
+    };
   },
-  "martial-artist": () => ({
+  "martial-artist": (p) => ({
     melee: ["bowie-shortsword"],
-    lines: ["Throwing knives ×10", "Dungeoneer pack", "Rough canvas shirt and heavy boots"]
+    guns: ["throwing-knife-dart"],
+    lines: ["Throwing knives ×10", packName(p.pack === "trail" ? "trail" : "claim", "Claim pack"), "Rough canvas shirt and heavy boots"]
   }),
-  lawman: () => ({
-    melee: ["cavalry-saber-longsword", "throwing-spear-javelin"],
+  lawman: (p) => ({
+    melee: ["cavalry-saber-longsword"],
+    guns: ["navy-army-ball-n-cap-revolver"],
     shield: true,
     armor: "mail-duster",
-    lines: ["Badge (tin star, focus)", "Javelins ×5", "Chain mail under heavy duster coat"]
+    perc: 20,
+    lines: ["Badge (tin star, focus)", "Powder, ball, and caps ×20", "Mail Duster (chain mail)", packName(p.pack === "trail" ? "trail" : "circuit", "Circuit kit")]
   }),
   "frontier-scout": (p) => ({
-    melee: ["bowie-shortsword"],
-    guns: p.hunt === "bow" ? ["longbow"] : ["dullards-light-carbine"],
+    melee: ["bowie-shortsword", "bowie-shortsword"],
+    guns: p.hunt === "carbine" ? ["dullards-light-carbine"] : ["longbow"],
     gunBelt: true,
-    lines: ["Second Bowie knife", "Gun belt", "Scale/leather coat", "Explorer trail pack", "Compass (focus)"].concat(p.hunt === "bow" ? ["Arrows ×20"] : []),
-    ammo: p.hunt === "bow" ? null : ["cartridge", "Light", 20]
+    armor: p.armor === "leather" ? "leather-jacket" : "scale-coat",
+    lines: ["Bowies ×2", "Gun belt", packName(p.pack === "claim" ? "claim" : "trail", "Trail kit"), "Keepsake (focus)"].concat(p.hunt === "carbine" ? [] : ["Arrows ×20"]),
+    ammo: p.hunt === "carbine" ? ["cartridge", "Light", 20] : ["arrows", "", 20]
   }),
   gambler: (p) => ({
-    melee: [p.blade === "bowie" ? "bowie-shortsword" : "sword-cane-rapier"],
-    guns: p.ranged === "bow" ? ["shortbow"] : ["herringer-light-pocket-pistol"],
-    lines: ["Stilettos ×2", "Thieves' tools", "Duster", "Satchel"].concat(p.ranged === "bow" ? ["Arrows ×20"] : []),
-    ammo: p.ranged === "bow" ? null : ["cartridge", "Light", 20]
+    melee: [p.blade === "bowie" ? "bowie-shortsword" : "sword-cane-rapier", "stiletto-dagger", "stiletto-dagger"],
+    guns: p.ranged === "bow" ? ["shortbow"] : [p.ranged === "pepper" ? "herringer-light-pepperbox" : "herringer-light-pocket-pistol"],
+    armor: "leather-jacket",
+    lines: ["Stilettos ×2", "Thieves' tools", packName(p.pack === "claim" ? "claim" : (p.pack === "trail" ? "trail" : "alley"), "Alley kit")].concat(p.ranged === "bow" ? ["Arrows ×20"] : []),
+    ammo: p.ranged === "bow" ? ["arrows", "", 20] : ["cartridge", "Light", 20]
   }),
   hexslinger: (p) => ({
     guns: [p.gun === "hognose" ? "hognose" : "blacksnake"],
-    melee: ["bowie-shortsword"],
+    melee: ["stiletto-dagger", "stiletto-dagger"],
     casterGun: p.gun === "hognose" ? "hognose" : "blacksnake",
     gunBelt: true,
-    lines: ["Gun belt", "Explorer pack", "Daggers ×2"]
+    ammo: ["cartridge", "Light", 20],
+    lines: ["Gun belt", "Light cartridges ×20 (plain rounds, not in the cylinder)", "Stilettos ×2", packName(p.pack === "claim" ? "claim" : "trail", "Trail kit")]
   }),
-  "pact-seeker": () => ({
-    casterGun: "borrowed-iron",
-    lines: ["Borrowed Iron (pact focus)", "Dungeoneer pack", "Duster"]
-  }),
-  scholar: () => ({
-    lines: ["Chemical Field Ledger (focus)", "Prism", "Galvanic reagents", "Scholar pack", "Duster"]
+  "pact-seeker": (p) => {
+    const guns = [];
+    const melee = [];
+    if (p.gun === "simple") melee.push("hatchet-handaxe");
+    else if (p.gun === "double") guns.push("herringer-light-double-derringer");
+    else if (p.gun === "pepper") guns.push("herringer-light-pepperbox");
+    else if (p.gun === "plinker") guns.push("dullards-plinker-revolver");
+    else guns.push("herringer-light-pocket-pistol");
+    melee.push("stiletto-dagger", "stiletto-dagger");
+    return {
+      guns, melee, casterGun: "borrowed-iron", armor: "leather-jacket",
+      ammo: p.gun === "simple" ? null : ["cartridge", "Light", 20],
+      lines: ["Borrowed Iron (pact focus)", "Stilettos ×2", packName(p.pack === "claim" ? "claim" : "book", "Book trunk")]
+    };
+  },
+  scholar: (p) => ({
+    melee: [p.weapon === "stiletto" ? "stiletto-dagger" : "trail-staff-drover-s-staff-quarterstaff"],
+    lines: ["Chemical Field Ledger", "Prism (focus)", "Galvanic reagents (component pouch)", packName(p.pack === "trail" ? "trail" : "book", "Book trunk"), "Duster (traveler's clothes)"]
   })
 };
 
@@ -145,27 +197,40 @@ Kits.callings.forEach((calling) => {
     if (want.instrumentQuality) check(c.instrumentQuality === want.instrumentQuality, calling + " instrument quality " + c.instrumentQuality);
     if (want.instrumentStrings) check(c.instrumentStrings === want.instrumentStrings, calling + " strings " + c.instrumentStrings);
     if (calling === "storyteller") {
-      const bowie = (c.melee || []).find((row) => row && row.weapon === "bowie-shortsword");
-      const iron = (c.guns || []).find((row) => row && row.weapon === "herringer-light-double-derringer");
-      check(bowie && bowie.proficient === true, "storyteller boot knife is a proficient Bowie");
-      check(iron && iron.proficient === true && iron.chamber === "light|.32 Long", "storyteller derringer is chambered Light .32 Long");
-      check(!hasLine(c, "Boot knife"), "boot knife is an attack row, not a loose gear line");
+      const knife = (c.melee || []).find((row) => row && row.weapon === "stiletto-dagger");
+      check(knife && knife.proficient === true, "storyteller stiletto is proficient");
+      check(!hasLine(c, "Boot knife") && !hasLine(c, "Duster"), "boot knife and duster are not storyteller gear");
+      if (p.weapon === "derringer") {
+        const iron = (c.guns || []).find((row) => row && row.weapon === "herringer-light-double-derringer");
+        check(iron && iron.proficient === true && iron.chamber === "light|.32 Long" && iron.chamberSet === true, "storyteller derringer is chambered Light .32 Long");
+      }
+    }
+    if (calling === "lawman") {
+      check(!hasLine(c, "Javelin") && melee(c).indexOf("throwing-spear-javelin") < 0, "lawman kit has no javelins");
     }
     if (want.ammo) check(ammo(c, want.ammo[0], want.ammo[1]) === want.ammo[2], calling + " ammo " + JSON.stringify(p) + " got " + ammo(c, want.ammo[0], want.ammo[1]));
     if (want.perc != null) check(ammo(c, "percussion", "") === want.perc, calling + " percussion " + ammo(c, "percussion", ""));
     if (calling === "gunslinger") {
-      check(guns(c).indexOf("dullards-tube-rifle") === 0, "gunslinger repeater missing");
-      check(!(p.side !== "twins" && guns(c).indexOf("herringer-light-pepperbox") >= 0), "saber branch must not add revolvers");
+      check(guns(c).indexOf("dullards-tube-rifle") === 0, "gunslinger tube rifle missing");
+      check(guns(c).indexOf("herringer-light-pepperbox") < 0, "gunslinger starts with no matched pepperboxes");
+      check(!(p.side === "saber" && guns(c).indexOf("navy-army-ball-n-cap-revolver") >= 0), "saber branch must not add a revolver");
     }
+    const listed = Kits.describe(calling, p);
+    check(listed.length > 0, calling + " describe() is empty");
   });
 });
 check(branches >= 12, "expected at least one branch per calling, ran " + branches);
 
 const gunslingerBranches = Kits.branches("gunslinger");
-check(gunslingerBranches.length === 3, "gunslinger branches " + JSON.stringify(gunslingerBranches));
-check(gunslingerBranches.some((p) => p.side === "saber"), "saber branch");
-check(gunslingerBranches.some((p) => p.side === "twins" && p.irons === "pepper"), "pepper branch");
-check(gunslingerBranches.some((p) => p.side === "twins" && p.irons === "navy"), "ball n cap branch");
+check(gunslingerBranches.length === 8, "gunslinger branches " + gunslingerBranches.length);
+check(gunslingerBranches.some((p) => p.side === "saber" && p.armor === "mail"), "saber and mail branch");
+check(gunslingerBranches.some((p) => p.side === "revolver" && p.armor === "leather"), "ball n cap and leather branch");
+check(!gunslingerBranches.some((p) => p.side === "twins" || p.irons), "no twin-revolver branch");
+const lawman = Kits.apply(Kits.blankCharacter(), "lawman", {});
+check(melee(lawman).join(",") === "cavalry-saber-longsword", "lawman melee is the saber");
+check(guns(lawman).indexOf("navy-army-ball-n-cap-revolver") >= 0, "lawman carries a Ball n Cap");
+const mod = Kits.apply(Kits.blankCharacter(), "lawman", { _start: "module" });
+check(mod.badgeState === "dull" && guns(mod).length === 0, "module-start lawman badge is dull and unarmed");
 
 const join = fs.readFileSync(path.join(root, "assets/js/dm-join.js"), "utf8");
 const equip = join.slice(join.indexOf("function appendEquipment"), join.indexOf("function appendEquipment") + 900);

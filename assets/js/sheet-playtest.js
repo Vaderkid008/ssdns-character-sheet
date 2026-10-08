@@ -25,44 +25,6 @@
   function patch(fn) {
     if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(fn);
   }
-  function hasId(c, id) {
-    return (c.guns || []).some(function (g) { return g && g.weapon === id; }) ||
-      (c.melee || []).some(function (g) { return g && g.weapon === id; });
-  }
-  function putGun(c, id, allowDup) {
-    if (!id || (!allowDup && hasId(c, id))) return;
-    var slot = (c.guns || []).filter(function (g) { return g && !g.weapon; })[0];
-    if (!slot) return;
-    slot.weapon = id;
-    if (root.SSDNSApp && root.SSDNSApp.callingProficient) {
-      var lists = [].concat(rules().firearms || [], rules().casterGuns || [], rules().melee || [], rules().otherRanged || []);
-      var w = lists.filter(function (x) { return x.id === id; })[0];
-      if (w) slot.proficient = root.SSDNSApp.callingProficient(w);
-    }
-  }
-  function putMelee(c, id) {
-    if (!id || hasId(c, id)) return;
-    c.melee = c.melee || [{}, {}, {}, {}];
-    var slot = c.melee.filter(function (g) { return g && !g.weapon; })[0];
-    if (!slot) return;
-    slot.weapon = id;
-    slot.proficient = true;
-  }
-  function addAmmo(c, type, caliber, count) {
-    c.ammo = c.ammo || [];
-    var pool = null;
-    c.ammo.forEach(function (a) {
-      if (!pool && a.type === type && String(a.caliber || "").toLowerCase() === String(caliber || "").toLowerCase()) pool = a;
-    });
-    if (!pool) { pool = { type: type, caliber: caliber || "", count: 0 }; c.ammo.push(pool); }
-    if (!pool._kit) { pool.count = (parseInt(pool.count, 10) || 0) + count; pool._kit = 1; }
-  }
-  function addLine(c, text) {
-    if (!text) return;
-    var cur = c.equipment || "";
-    if (cur.indexOf(text) >= 0) return;
-    c.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + "• " + text;
-  }
   function grantEs(c, amount, bgId) {
     c.kitGrants = c.kitGrants || {};
     if (c.kitGrants.es === bgId) return;
@@ -146,155 +108,6 @@
       ]}
     ]
   };
-  var KITS = {
-    "tribal-warrior": function (c) {
-      putMelee(c, "buffalo-axe-greataxe");
-      putMelee(c, "hatchet-handaxe");
-      putMelee(c, "throwing-spear-javelin");
-      addLine(c, "Hatchet (second)");
-      addLine(c, "Throwing spears ×4");
-      addLine(c, "Explorer's pack");
-    },
-    storyteller: function (c, p) {
-      var voice = (p && p.voice) || "fiddle";
-      var voiceName = { fiddle: "Fiddle", banjo: "Banjo", guitar: "Guitar", voice: "Voice" };
-      putMelee(c, "bowie-shortsword");
-      putGun(c, "herringer-light-double-derringer");
-      var derringer = (c.guns || []).filter(function (g) { return g && g.weapon === "herringer-light-double-derringer"; })[0];
-      if (derringer) {
-        derringer.tier = "light";
-        derringer.chamber = "light|.32 Long";
-        derringer.proficient = true;
-      }
-      addAmmo(c, "cartridge", "Light", 20);
-      if (voice === "voice") addLine(c, "Voice — focus");
-      else addLine(c, (voiceName[voice] || "Fiddle") + " with a strap and one spare set of strings");
-      if ((p && p.kit) === "saloon") addLine(c, "Saloon kit");
-      else addLine(c, "Diplomat trunk");
-      addLine(c, "Duster");
-      c.instrument = voice;
-      if (voice !== "voice") {
-        if (!c.instrumentQuality) c.instrumentQuality = "cheap";
-        if (!c.instrumentStrings) c.instrumentStrings = "plain";
-      }
-    },
-    "frontier-preacher": function (c, p) {
-      if ((p && p.melee) === "hammer") putMelee(c, "claim-hammer-light-hammer");
-      else if ((p && p.melee) === "mace") putMelee(c, "trail-mace-chapel-mace-mace");
-      if ((p && p.gun) === "shotgun") {
-        putGun(c, "single-barrel-farm-shotgun");
-        addAmmo(c, "buck", ".410", 10);
-      } else if ((p && p.gun) === "carbine") {
-        putGun(c, "dullards-light-carbine");
-        addAmmo(c, "cartridge", "Light", 20);
-      } else if ((p && p.gun) === "rifle") {
-        putGun(c, "dullards-tube-rifle");
-        addAmmo(c, "cartridge", "Light", 20);
-      }
-      if ((p && p.armor) === "duster") c.armor = "heavy-leather-duster";
-      else if ((p && p.armor) === "scale") c.armor = "scale-coat";
-      addLine(c, "Priest's kit");
-      addLine(c, "Holy symbol");
-    },
-    "nature-guide": function (c, p) {
-      putMelee(c, "machete-scimitar");
-      c.shield = true;
-      addLine(c, "Wooden shield");
-      addLine(c, "Explorer pack");
-      addLine(c, "Herbalism kit");
-      var focus = { stick: "Carved walking stick", pouch: "Medicine pouch", soil: "Pouch of home-spring soil" };
-      addLine(c, "Focus: " + (focus[p && p.focus] || focus.stick));
-    },
-    gunslinger: function (c, p) {
-      if (kitApi()) { kitApi().apply(c, "gunslinger", p || {}); return; }
-      putGun(c, "dullards-tube-rifle");
-      addAmmo(c, "cartridge", "Light", 20);
-      c.holster = "mexican-loop";
-      c.gunBelt = true;
-      addLine(c, "Duster");
-      addLine(c, "Gun belt");
-      addLine(c, "Mexican Loop holster");
-      addLine(c, "Dungeoneer company kit");
-      if ((p && p.side) === "twins" && (p && p.irons) === "navy") {
-        putGun(c, "navy-army-ball-n-cap-revolver");
-        addAmmo(c, "percussion", "", 20);
-        addLine(c, "Powder, ball, and caps ×20");
-      } else if ((p && p.side) === "twins") {
-        putGun(c, "herringer-light-pepperbox");
-        putGun(c, "herringer-light-pepperbox", true);
-        addAmmo(c, "cartridge", "Light", 20);
-      } else putMelee(c, "cavalry-saber-longsword");
-    },
-    "martial-artist": function (c) {
-      putMelee(c, "bowie-shortsword");
-      addLine(c, "Throwing knives ×10");
-      addLine(c, "Dungeoneer's pack");
-      addLine(c, "Canvas shirt and boots");
-    },
-    lawman: function (c) {
-      putMelee(c, "cavalry-saber-longsword");
-      putMelee(c, "throwing-spear-javelin");
-      c.shield = true;
-      c.armor = c.armor || "mail-duster";
-      addLine(c, "Badge / tin star (focus)");
-      addLine(c, "Javelins ×5");
-    },
-    "frontier-scout": function (c, p) {
-      putMelee(c, "bowie-shortsword");
-      addLine(c, "Second Bowie knife");
-      c.armor = c.armor || "scale-coat";
-      c.gunBelt = true;
-      addLine(c, "Gun belt");
-      addLine(c, "Explorer's pack");
-      addLine(c, "Compass (focus)");
-      if ((p && p.hunt) === "carbine") {
-        putGun(c, "dullards-light-carbine");
-        addAmmo(c, "cartridge", "Light", 20);
-      } else if ((p && p.hunt) === "bow") {
-        putGun(c, "longbow");
-        addLine(c, "Arrows ×20");
-      }
-    },
-    gambler: function (c, p) {
-      if ((p && p.blade) === "bowie") putMelee(c, "bowie-shortsword");
-      else if ((p && p.blade) === "iron") putMelee(c, "sword-cane-rapier");
-      if ((p && p.ranged) === "bow") {
-        putGun(c, "shortbow");
-        addLine(c, "Arrows ×20");
-      } else if ((p && p.ranged) === "pistol") {
-        putGun(c, "herringer-light-pocket-pistol");
-        addAmmo(c, "cartridge", "Light", 20);
-      }
-      addLine(c, "Stilettos ×2");
-      addLine(c, "Thieves' tools");
-      addLine(c, "Duster");
-      addLine(c, "Satchel");
-    },
-    hexslinger: function (c, p) {
-      var gun = (p && p.gun) === "hognose" ? "hognose" : ((p && p.gun) === "blacksnake" ? "blacksnake" : "");
-      if (gun) { putGun(c, gun); c.casterGun = gun; }
-      c.gunBelt = true;
-      addLine(c, "Gun belt");
-      putMelee(c, "bowie-shortsword");
-      addAmmo(c, "cartridge", "Light", 20);
-      addLine(c, "Explorer's pack");
-      addLine(c, "Daggers ×2");
-    },
-    "pact-seeker": function (c) {
-      c.casterGun = "borrowed-iron";
-      c.pactFocus = "borrowed-iron";
-      addLine(c, "Borrowed Iron (pact focus)");
-      addLine(c, "Dungeoneer's pack");
-      addLine(c, "Duster");
-    },
-    scholar: function (c) {
-      addLine(c, "Chemical Field Ledger (focus)");
-      addLine(c, "Prism");
-      addLine(c, "Galvanic reagents");
-      addLine(c, "Scholar's pack");
-      addLine(c, "Duster");
-    }
-  };
   var kitDialogOpen = false;
   function pickKitChoices(calling, done) {
     if (kitDialogOpen) return;
@@ -351,7 +164,7 @@
 
   function applyKit(force, picked) {
     var c = ch();
-    var known = KITS[c && c.calling] || (kitApi() && kitApi().callings.indexOf(c && c.calling) >= 0);
+    var known = kitApi() && kitApi().callings.indexOf(c && c.calling) >= 0;
     if (!c || !c.calling || !known) { maybePrompt._pending = false; toast("Pick a Calling first."); return; }
     if (!force && c.kitStamp === c.calling) { maybePrompt._pending = false; toast("Starting kit is already on this sheet."); fillFeatures(); return; }
     var go = function (choice) {
@@ -365,7 +178,6 @@
       patch(function (d) {
         var cc = d.character;
         if (kitApi() && kitApi().apply) kitApi().apply(cc, cc.calling, choice);
-        else if (KITS[cc.calling]) KITS[cc.calling](cc, choice);
         cc.abilities = cc.abilities || {};
         Object.keys(keepScores).forEach(function (id) { cc.abilities[id] = keepScores[id]; });
         cc.kitStamp = cc.calling;
@@ -387,7 +199,7 @@
   function maybePrompt() {
     if (maybePrompt._pending || kitDialogOpen) return;
     var c = ch();
-    if (!c || !c.calling || !(KITS[c.calling] || (kitApi() && kitApi().callings.indexOf(c.calling) >= 0))) return;
+    if (!c || !c.calling || !(kitApi() && kitApi().callings.indexOf(c.calling) >= 0)) return;
     var key = c.calling + "|" + (c.background || "");
     if (c.kitStamp === c.calling) {
       var bg = byId(rules().backgrounds)[c.background];
@@ -500,7 +312,7 @@
   function styleOptions(c) {
     if (!c) return [];
     var lv = c.level || 1;
-    if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 ranged hit)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"]];
+    if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"]];
     if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"]];
     if (c.calling === "frontier-scout" && lv >= 2) return [["archery", "Archery (+2 ranged to hit)"]];
     return [];
@@ -547,10 +359,14 @@
       var atk = $("#meleeBox [data-melee-atk='" + i + "']") || document.querySelector("[data-melee-atk='" + i + "']");
       var dmg = document.querySelector("[data-melee-dmg='" + i + "']");
       if (!w) { if (atk) atk.textContent = ""; if (dmg) dmg.textContent = ""; return; }
-      var ability = /finesse/i.test(w.properties || "") ? Math.max(v.mods.STR || 0, v.mods.DEX || 0) : (v.mods.STR || 0);
+      var finesse = /finesse/i.test(w.properties || "");
+      var thrown = /thrown/i.test(w.properties || "");
+      var ability = finesse ? Math.max(v.mods.STR || 0, v.mods.DEX || 0) : (v.mods.STR || 0);
+      var usingDex = finesse && (v.mods.DEX || 0) > (v.mods.STR || 0);
       var prof = row.proficient || (root.SSDNSApp.callingProficient && root.SSDNSApp.callingProficient(w)) ? (v.prof || 0) : 0;
       var bonus = ability + prof + ((root.SSDNSApp.styleAttackBonus && root.SSDNSApp.styleAttackBonus(w)) || 0);
       var extra = (root.SSDNSApp.styleDamageBonus && root.SSDNSApp.styleDamageBonus(w)) || 0;
+      if (c.raging && c.calling === "tribal-warrior" && !thrown && !usingDex) extra += 2;
       if (atk) atk.textContent = (bonus >= 0 ? "+" : "") + bonus;
       if (dmg) dmg.textContent = (w.damage || "") + " " + ((ability + extra) >= 0 ? "+" : "") + (ability + extra);
     });
@@ -586,6 +402,7 @@
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
     paintMelee();
+    c.takingCover = false;
     var atk = parseInt((document.querySelector("[data-melee-atk='" + i + "']") || {}).textContent, 10) || 0;
     var expr = (document.querySelector("[data-melee-dmg='" + i + "']") || {}).textContent || "1d4";
     var chosen = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
@@ -651,7 +468,7 @@
     var dmgTxt = (!miss && detail) ? (" · " + formula + " = " + total) : "";
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
     var modeWord = chosen === "dis" ? " · disadvantage" : (chosen === "adv" ? " · advantage" : "");
-    var line = (tgt && tgt.name ? (who + " → " + tgt.name) : (who + " · " + name)) + ": " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt + (faced.note ? " · " + faced.note : "") + modeWord;
+    var line = (tgt && tgt.name ? (who + " → " + tgt.name) : who) + ": " + name + " · " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt + (faced.note ? " · " + faced.note : "") + modeWord;
     if (root.SSDNSSheet && root.SSDNSSheet.consumeRollMode) root.SSDNSSheet.consumeRollMode();
     toast(line);
     var Sheet = root.SSDNSSheet;
@@ -711,7 +528,7 @@
         panel.id = "turnPanel";
         panel.className = "turn-panel";
         panel.hidden = true;
-        panel.innerHTML = "<b id='turnRound'>Round 1</b> <span id='turnWho'></span> <div id='turnNames'></div>";
+        panel.innerHTML = "<b id='turnRound'>Round 1</b> <span id='turnWho'></span> <div id='turnNames' class='turn-order-strip'></div><div id='turnDetail'></div>";
         bar.parentNode.insertBefore(panel, bar.nextSibling);
       }
     }
@@ -876,6 +693,7 @@
     bar.hidden = false;
   }
   function spendHitDie(left, sides) {
+    if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
     var roll = 1 + Math.floor(Math.random() * sides);
     var v = root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var con = (v.mods && v.mods.CON) || 0;
@@ -996,7 +814,14 @@
   }
   function showYourTurn() {
     var banner = $("#yourTurnBanner");
-    if (banner) banner.hidden = true;
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "yourTurnBanner";
+      banner.className = "your-turn-box";
+      banner.textContent = "Your turn";
+      document.body.appendChild(banner);
+    }
+    banner.hidden = false;
     toast("Your turn", "Go", function () {
       var panel = $("#turnPanel");
       if (panel) { try { panel.scrollIntoView({ block: "center" }); } catch (err) {} }
@@ -1117,6 +942,9 @@
       var turn = Number(init.turn) || 0;
       if (turn >= order.length) turn = 0;
       var cur = order[turn] || {};
+      var c = ch();
+      var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      var mine = (uid && cur.playerId && cur.playerId === uid) || (c && c.name && cur.kind === "player" && cur.name === c.name && !cur.playerId);
       if (roundEl) roundEl.textContent = "Round " + round;
       if (whoEl) whoEl.textContent = (cur.name || "Someone") + " · " + (cur.kind === "enemy" ? (stripStatus(cur) || "") : (cur.kind === "player" ? "player" : ""));
       if (names) {
@@ -1124,18 +952,26 @@
           var raw = String(row.name || "Someone");
           var letters = raw.replace(/[^A-Za-z]/g, "");
           var initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
-          var mark = i === turn ? "→ " : "";
-          var pub = lastTargets[row.id] || {};
-          var conds = Array.isArray(pub.conditions) ? pub.conditions.filter(Boolean).join(", ") : "";
-          var live = stripStatus(row);
-          var st = row.kind === "enemy" && (live || conds) ? " (" + [live, conds].filter(Boolean).join(" · ") + ")" : "";
-          var tie = row.tie ? " tie" : "";
-          return "<span class='turn-badge' title='" + raw.replace(/'/g, "") + "'>" + initials + "</span> " + mark + raw + st + tie;
-        }).join("  ·  ");
+          var dist = (i - turn + order.length) % order.length;
+          var cls = "turn-chip" + (i === turn ? " current" : "") + (dist > 0 && dist <= 2 ? " ondeck" : "") + (row.kind === "enemy" ? " enemy" : " player");
+          return "<span class='" + cls + "' title='" + raw.replace(/'/g, "") + "'><b>" + initials + "</b> " + raw + "</span>";
+        }).join("");
       }
-      var c = ch();
-      var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
-      var mine = (uid && cur.playerId && cur.playerId === uid) || (c && c.name && cur.kind === "player" && cur.name === c.name && !cur.playerId);
+      var detail = $("#turnDetail");
+      if (detail) {
+        var guns = cur.guns || [];
+        var mineGuns = mine && ch() && ch().guns;
+        detail.innerHTML = "<p class='fine'>" + (cur.name || "") + (mine ? " — your turn" : "") + "</p>" + (mineGuns || guns).map(function (g, i) {
+          if (!g || !(g.name || g.weapon)) return "";
+          var chambers = g.chambers || [];
+          var dots = chambers.map(function (st, k) {
+            var full = !!st;
+            if (mine) return "<button type='button' class='chamber-dot" + (full ? " full" : "") + "' data-gunroll='" + i + "' data-k='" + k + "' aria-label='Chamber " + (k + 1) + "'></button>";
+            return "<span class='chamber-dot" + (full ? " full" : "") + "'></span>";
+          }).join("");
+          return "<div class='cylinder-row'><span>" + (g.name || g.weapon) + "</span> " + dots + "</div>";
+        }).join("");
+      }
       panel.classList.toggle("your-turn", !!mine);
       var sig = "turn:" + String(round) + ":" + String(cur.id || turn);
       if (sig !== shownTurn) {

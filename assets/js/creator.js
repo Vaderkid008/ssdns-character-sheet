@@ -216,7 +216,9 @@
       if (!String(draft.name || "").trim()) errs.push("Enter a character name.");
     }
     if (step === "lineage" || step === "review") {
-      if (!lineageById(draft.lineage)) errs.push("Pick a lineage.");
+      var linPick = lineageById(draft.lineage);
+      if (!linPick) errs.push("Pick a lineage.");
+      else if (subRequired(linPick) && !draft.sublineage) errs.push("Pick a sublineage.");
     }
     if (step === "calling" || step === "review") {
       if (!cal) errs.push("Pick a calling.");
@@ -236,17 +238,14 @@
         var cost = pointCost(scores);
         if (cost !== 27) errs.push("Point buy spends 27. This set spends " + cost + ".");
       }
+      if (draft.method === "roll" && draft.rolled && draft.rolled.length === 6 && !draft.rollManual) {
+        var gotRoll = AB.map(function (ab) { return Number(scores[ab]); }).sort(function (a, b) { return a - b; });
+        var wantRoll = draft.rolled.map(function (row) { return row.total; }).sort(function (a, b) { return a - b; });
+        if (gotRoll.join() !== wantRoll.join()) errs.push("Assign each rolled total once, or mark the scores as DM-approved.");
+      }
     }
     if (step === "background" || step === "review") {
       if (!bg) errs.push("Pick a background.");
-      else {
-        var need = skillList(bg);
-        var have = draft.skills || [];
-        if (have.length !== need.length) errs.push("Pick " + need.length + " background skills.");
-        need.forEach(function (sk) {
-          if (have.indexOf(sk) < 0) errs.push("Include " + sk + ".");
-        });
-      }
     }
     if (step === "level" || step === "review") {
       var lv = Number(draft.level || 1);
@@ -297,7 +296,10 @@
     c.speedAuto = true;
     c.speed = (sub && sub.speed) || (lin && lin.speed) || 30;
     ensureKitDefaults(draft);
-    if (root.SSDNSKits && root.SSDNSKits.apply) root.SSDNSKits.apply(c, c.calling, draft.kit || {});
+    var kitPicks = Object.assign({}, draft.kit || {});
+    if (draft.kitMode === "module") kitPicks._start = "module";
+    if (draft.bedtime) kitPicks.bedtime = draft.bedtime;
+    if (root.SSDNSKits && root.SSDNSKits.apply) root.SSDNSKits.apply(c, c.calling, kitPicks);
     var focus = focusFor(c.calling);
     if (focus.kind === "borrowed-iron") c.casterGun = "borrowed-iron";
     else if (focus.kind !== "caster-gun") c.casterGun = "";
@@ -311,7 +313,8 @@
     var sides = dieMax(cal && cal.hitDie);
     var con = mod(c.abilities.CON);
     var average = Math.floor(sides / 2) + 1;
-    var hp = Math.max(1, sides + con + (level - 1) * (average + con));
+    var tough = sub && sub.id === "gold-miner" ? level : 0;
+    var hp = Math.max(1, sides + con + (level - 1) * (average + con)) + tough;
     c.hpAuto = true;
     c.hpMax = hp;
     c.hpCurrent = hp;
@@ -323,6 +326,13 @@
     c.proficienciesLanguages = prof.join("\n");
     if (bg && bg.feature && bg.feature.name) {
       c.features = bg.feature.name + ": " + (bg.feature.text || "");
+    }
+    if (draft.kitMode !== "module") {
+      var card = refById("backgrounds", c.background);
+      var gear = card && (card.table || []).filter(function (row) { return row && /equipment/i.test(row[0] || ""); })[0];
+      if (gear && gear[1]) addGearLine(c, gear[1]);
+      var pouch = gear && String(gear[1] || "").match(/([\d,]+)\s*ES/);
+      if (pouch) c._pouchEs = parseInt(pouch[1].replace(/,/g, ""), 10) || 0;
     }
     c.wizardDone = true;
     c._preview = {
@@ -355,7 +365,12 @@
     if (draft.calling === "gunslinger" && !draft.fightingStyle) draft.fightingStyle = spec.fightingStyle || "long-gun";
     var lim = levelRow(cal);
     if (casterAtFirst(cal)) {
-      draft.cantrips = (spec.cantrips || spellEntries(cal.id, 0).slice(0, lim.cantrips)).slice();
+      var cantripPool = spellEntries(cal.id, 0);
+      if (!spec.cantrips && cal.id === "pact-seeker") {
+        var pactName = cantripPool.filter(function (n) { return /pact shot|eldritch blast/i.test(n); })[0] || "Pact Shot";
+        var other = cantripPool.filter(function (n) { return n !== pactName; })[0];
+        draft.cantrips = [pactName, other].filter(Boolean).slice(0, lim.cantrips);
+      } else draft.cantrips = (spec.cantrips || cantripPool.slice(0, lim.cantrips)).slice();
       var spellCount = PREPARED[cal.id] ? preparedMax(cal, draft.scores) : lim.known;
       draft.spells = (spec.spells || spellEntries(cal.id, 1).slice(0, spellCount)).slice();
     }
@@ -408,6 +423,64 @@
     if (selected) o.selected = true;
     return o;
   }
+  var SUB_REQUIRED = { "mountain-folk": 1, aristocrats: 1, farmers: 1, merchants: 1 };
+  function subRequired(lin) {
+    return !!(lin && SUB_REQUIRED[lin.id] && (lin.sublineages || []).length);
+  }
+  function refById(kind, id) {
+    var cards = (root.SSDNS_REFCARDS && root.SSDNS_REFCARDS[kind]) || [];
+    return cards.filter(function (row) { return row && row.id === id; })[0] || null;
+  }
+  function addGearLine(c, text) {
+    if (!text) return;
+    var cur = c.equipment || "";
+    if (cur.indexOf(text) >= 0) return;
+    c.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + "• " + text;
+  }
+  function combinedAsi(lin, sub) {
+    if (sub && sub.asi && lin && lin.asi && sub.id !== "variant-human") return lin.asi + " · " + sub.asi;
+    if (sub && sub.asi) return sub.asi;
+    return (lin && lin.asi) || "";
+  }
+  function aboutButton(kind, id) {
+    var b = el("button", { type: "button", class: "btn sm", text: "About" });
+    b.addEventListener("click", function () { openRef(kind, id); });
+    return b;
+  }
+  function openRef(kind, id) {
+    var card = refById(kind, id);
+    if (!card || !root.document) return;
+    var dlg = el("dialog", { class: "dlg wiz-ref" });
+    var body = el("div", { class: "wiz-body" });
+    body.appendChild(el("h2", { text: card.name || "Reference" }));
+    if (card.race5e || card.class5e || card.twin5e) body.appendChild(el("p", { class: "fine", text: card.race5e || card.class5e || card.twin5e }));
+    if (card.blurb) body.appendChild(el("p", { text: card.blurb }));
+    if (card.moreInfo) body.appendChild(el("p", { class: "fine", text: card.moreInfo }));
+    (card.table || []).forEach(function (row) {
+      if (!row) return;
+      body.appendChild(el("p", { text: (row[0] || "") + ": " + (row[1] || "") }));
+    });
+    if (card.languageNote) body.appendChild(el("p", { class: "fine", text: card.languageNote }));
+    (card.sublineages || []).forEach(function (sub) {
+      body.appendChild(el("h3", { text: sub.name || "Sublineage" }));
+      if (sub.blurb) body.appendChild(el("p", { text: sub.blurb }));
+      (sub.table || []).forEach(function (row) {
+        body.appendChild(el("p", { text: (row[0] || "") + ": " + (row[1] || "") }));
+      });
+      if (sub.moreInfo) body.appendChild(el("p", { class: "fine", text: sub.moreInfo }));
+    });
+    if (card.feature && card.feature.name) body.appendChild(el("p", { text: card.feature.name + " — " + (card.feature.text || "") }));
+    var foot = el("div", { class: "dlg-foot" });
+    var closeBtn = el("button", { type: "button", class: "btn", text: "Close" });
+    closeBtn.addEventListener("click", function () { if (dlg.close) dlg.close(); });
+    foot.appendChild(closeBtn);
+    dlg.appendChild(body);
+    dlg.appendChild(foot);
+    dlg.addEventListener("click", function (e) { if (e.target === dlg && dlg.close) dlg.close(); });
+    dlg.addEventListener("cancel", function () { if (dlg.parentNode) dlg.parentNode.removeChild(dlg); });
+    root.document.body.appendChild(dlg);
+    if (dlg.showModal) dlg.showModal();
+  }
   function renderStep(body, draft, step) {
     body.innerHTML = "";
     var cal = callingById(draft.calling);
@@ -430,22 +503,34 @@
       function fillSub() {
         sub.innerHTML = "";
         var lin = lineageById(draft.lineage);
-        sub.appendChild(option("", "No sublineage", !draft.sublineage));
-        ((lin && lin.sublineages) || []).forEach(function (s) {
+        var subs = (lin && lin.sublineages) || [];
+        if (lin && lin.id === "nomads") sub.appendChild(option("", "Standard", !draft.sublineage));
+        else if (!subRequired(lin)) sub.appendChild(option("", subs.length ? "No sublineage" : "None", !draft.sublineage));
+        else sub.appendChild(option("", "Choose…", !draft.sublineage));
+        subs.forEach(function (s) {
           sub.appendChild(option(s.id, s.name, s.id === draft.sublineage));
         });
       }
       sel.addEventListener("change", function () { draft.lineage = sel.value; draft.sublineage = ""; fillSub(); renderStep(body, draft, step); });
       sub.addEventListener("change", function () { draft.sublineage = sub.value; renderStep(body, draft, step); });
       fillSub();
-      body.appendChild(field("Lineage", sel));
+      var linRow = el("div", { class: "wiz-inline" });
+      linRow.appendChild(field("Lineage", sel));
+      if (draft.lineage) linRow.appendChild(aboutButton("lineages", draft.lineage));
+      body.appendChild(linRow);
       body.appendChild(field("Sublineage", sub));
       var lin = lineageById(draft.lineage);
       var picked = lin && (lin.sublineages || []).filter(function (s) { return s.id === draft.sublineage; })[0];
       if (lin) {
-        var traits = (lin.traits || []).map(function (t) { return t.name; }).join(", ");
-        body.appendChild(el("p", { text: (lin.asi || "") + " Speed " + (picked && picked.speed || lin.speed || 30) + " ft. " + (lin.size || "") }));
-        if (traits) body.appendChild(el("p", { class: "fine", text: traits }));
+        var speed = (picked && picked.speed) || lin.speed || 30;
+        body.appendChild(el("p", { text: combinedAsi(lin, picked) + " · Speed " + speed + " ft. · " + (lin.size || "Medium") }));
+        if (picked && picked.asi) body.appendChild(el("p", { text: "Sublineage bonus: " + picked.asi }));
+        else if (picked && picked.text) body.appendChild(el("p", { text: "Sublineage bonus: " + picked.text }));
+        var refSub = refById("lineages", lin.id);
+        var refPicked = refSub && (refSub.sublineages || []).filter(function (s) { return s.id === draft.sublineage; })[0];
+        if (refPicked) (refPicked.table || []).forEach(function (row) {
+          if (row && row[0] && !/ability scores/i.test(row[0])) body.appendChild(el("p", { text: row[0] + ": " + row[1] }));
+        });
       }
     } else if (step === "calling") {
       body.appendChild(el("h2", { text: "Calling" }));
@@ -468,8 +553,8 @@
         body.appendChild(el("p", { text: "Hit die " + cal.hitDie + ". Saves " + (cal.saves || []).join(", ") + ". Key ability " + (cal.primary || "—") + "." }));
         if (cal.armorProf) body.appendChild(el("p", { class: "fine", text: "Armor: " + cal.armorProf }));
         if (cal.weaponProf) body.appendChild(el("p", { class: "fine", text: "Weapons: " + cal.weaponProf }));
-        if (cal.class5e) body.appendChild(el("p", { class: "fine", text: "PHB class: " + cal.class5e + (cal.src ? " · " + cal.src : "") }));
-        else if (cal.src) body.appendChild(el("p", { class: "fine", text: cal.src }));
+        if (cal.kit) body.appendChild(el("p", { class: "fine", text: "Kit: " + cal.kit }));
+        body.appendChild(aboutButton("callings", cal.id));
         var feat = (cal.features || [])[0];
         if (feat) body.appendChild(el("p", { text: feat.name + " — " + feat.text }));
       }
@@ -489,20 +574,53 @@
       if (draft.method === "roll") {
         var rollBtn = el("button", { type: "button", class: "btn", text: "Roll six scores" });
         rollBtn.addEventListener("click", function () {
+          if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
           var rolled = [];
           for (var n = 0; n < 6; n++) {
             var dice = [0, 0, 0, 0].map(function () { return 1 + Math.floor(Math.random() * 6); }).sort(function (a, b) { return a - b; });
-            rolled.push(dice[1] + dice[2] + dice[3]);
+            rolled.push({ total: dice[1] + dice[2] + dice[3], dice: dice });
           }
-          draft._rolled = rolled;
+          draft.rolled = rolled;
+          draft.rollPick = {};
           renderStep(body, draft, step);
         });
         body.appendChild(rollBtn);
+        if (draft.rolled && draft.rolled.length === 6) {
+          body.appendChild(el("p", { text: "Rolled: " + draft.rolled.map(function (row) { return row.total; }).join(", ") }));
+        }
+        var manual = el("label", { class: "wiz-check" });
+        var manualBox = el("input", { type: "checkbox" });
+        manualBox.checked = !!draft.rollManual;
+        manualBox.addEventListener("change", function () { draft.rollManual = manualBox.checked; renderStep(body, draft, step); });
+        manual.appendChild(manualBox);
+        manual.appendChild(root.document.createTextNode(" DM-approved manual scores"));
+        body.appendChild(manual);
       }
       var pool = draft.method === "standard" ? STANDARD.slice() : null;
+      var assigning = draft.method === "roll" && draft.rolled && draft.rolled.length === 6 && !draft.rollManual;
       AB.forEach(function (ab) {
-        var input = el("input", { type: "number", min: "3", max: "18", value: String(draft.scores[ab] || 8), "data-ab": ab });
-        input.addEventListener("input", function () {
+        var input;
+        if (assigning) {
+          input = el("select", { "data-ab": ab });
+          input.appendChild(option("", "Assign…", draft.rollPick[ab] == null));
+          draft.rolled.forEach(function (row, idx) {
+            var taken = Object.keys(draft.rollPick || {}).some(function (k) { return k !== ab && Number(draft.rollPick[k]) === idx; });
+            if (taken) return;
+            input.appendChild(option(String(idx), String(row.total), Number(draft.rollPick[ab]) === idx));
+          });
+          input.addEventListener("change", function () {
+            draft.rollPick = draft.rollPick || {};
+            if (input.value === "") delete draft.rollPick[ab];
+            else {
+              draft.rollPick[ab] = Number(input.value);
+              draft.scores[ab] = draft.rolled[Number(input.value)].total;
+            }
+            renderStep(body, draft, step);
+          });
+        } else {
+          input = el("input", { type: "number", min: "3", max: "18", value: String(draft.scores[ab] || 8), "data-ab": ab });
+        }
+        if (!assigning) input.addEventListener("input", function () {
           draft.scores[ab] = parseInt(input.value, 10);
           paintMods();
           var left = errorsFor(draft, "abilities");
@@ -543,30 +661,29 @@
         draft.skills = skillList(backgroundById(draft.background)).slice();
         renderStep(body, draft, step);
       });
-      body.appendChild(field("Background", bsel));
+      var bgRow = el("div", { class: "wiz-inline" });
+      bgRow.appendChild(field("Background", bsel));
+      if (draft.background) bgRow.appendChild(aboutButton("backgrounds", draft.background));
+      body.appendChild(bgRow);
       var bg = backgroundById(draft.background);
-      if (bg) {
-        if (bg.feature) body.appendChild(el("p", { text: bg.feature.name + " — " + bg.feature.text }));
-        body.appendChild(el("p", { class: "fine", text: "Skills: " + skillList(bg).join(", ") + ". All " + skillList(bg).length + " are part of this background." }));
-        skillList(bg).forEach(function (sk) {
-          var box = el("label", { class: "wiz-check" });
-          var input = el("input", { type: "checkbox", "data-skill": sk });
-          input.checked = (draft.skills || []).indexOf(sk) >= 0;
-          input.addEventListener("change", function () {
-            var set = (draft.skills || []).filter(function (x) { return x !== sk; });
-            if (input.checked) set.push(sk);
-            draft.skills = set;
-          });
-          box.appendChild(input);
-          box.appendChild(root.document.createTextNode(" " + sk));
-          body.appendChild(box);
+      var bgCard = refById("backgrounds", draft.background);
+      if (bgCard) {
+        if (bgCard.blurb) body.appendChild(el("p", { text: bgCard.blurb }));
+        (bgCard.table || []).forEach(function (row) {
+          body.appendChild(el("p", { text: (row[0] || "") + ": " + (row[1] || "") }));
         });
+        if (bgCard.feature) body.appendChild(el("p", { text: "Feature — " + bgCard.feature.name + ": " + (bgCard.feature.text || "") }));
+        if (bgCard.moreInfo) body.appendChild(el("p", { class: "fine", text: bgCard.moreInfo }));
+      } else if (bg && bg.feature) body.appendChild(el("p", { text: bg.feature.name + " — " + bg.feature.text }));
+      if (bg) {
+        draft.skills = skillList(bg).slice();
+        body.appendChild(el("p", { text: "You gain proficiency in " + skillList(bg).join(", ") + "." }));
       }
     } else if (step === "style") {
       body.appendChild(el("h2", { text: "Gunfighter style" }));
       body.appendChild(el("p", { text: "Gunslingers pick a fighting style at 1st level." }));
       var styles = [
-        ["long-gun", "Long-Gun Marksmanship (+2 ranged hit)"],
+        ["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"],
         ["sidearm", "Sidearm Duelling (+2 damage with one gun)"],
         ["point-blank", "Point-Blank Defense (+1 AC)"]
       ];
@@ -584,7 +701,17 @@
       ensureKitDefaults(draft);
       var kits = root.SSDNSKits;
       var choices = (kits && kits.choices && kits.choices[draft.calling]) || [];
-      if (!choices.length) body.appendChild(el("p", { text: "This Calling's kit has no or-choices. Next applies it." }));
+      var mode = el("select", { id: "wizKitMode" });
+      mode.appendChild(option("full", "Full kit", draft.kitMode !== "module"));
+      mode.appendChild(option("module", "Module start", draft.kitMode === "module"));
+      mode.addEventListener("change", function () { draft.kitMode = mode.value; renderStep(body, draft, step); });
+      body.appendChild(field("Start", mode));
+      if (draft.kitMode === "module") {
+        var bed = el("input", { id: "wizBedtime", value: draft.bedtime || "", placeholder: "Bedtime item the DM approved" });
+        bed.addEventListener("input", function () { draft.bedtime = bed.value; });
+        body.appendChild(field("Bedtime item", bed));
+      }
+      if (!choices.length) body.appendChild(el("p", { text: "No choices to make; this is your kit." }));
       choices.forEach(function (ch) {
         if (ch.when && !ch.when(draft.kit || {})) return;
         var ksel = el("select", { "data-kit": ch.id, "aria-label": ch.prompt });
@@ -599,6 +726,10 @@
         });
         body.appendChild(field(ch.prompt, ksel));
       });
+      var kitLines = root.SSDNSKits && root.SSDNSKits.describe
+        ? root.SSDNSKits.describe(draft.calling, Object.assign({}, draft.kit || {}, draft.kitMode === "module" ? { _start: "module", bedtime: draft.bedtime || "" } : {}))
+        : [];
+      if (kitLines.length) body.appendChild(el("p", { text: "Kit: " + kitLines.join("; ") }));
     } else if (step === "spells") {
       body.appendChild(el("h2", { text: "Spells" }));
       var focus = focusFor(draft.calling);
@@ -626,6 +757,9 @@
         });
       }
       picks("Cantrips", 0, draft.cantrips || [], lim.cantrips);
+      if (draft.calling === "pact-seeker" && !(draft.cantrips || []).some(function (n) { return /pact shot|eldritch blast/i.test(n); })) {
+        body.appendChild(el("p", { text: "Pact Shot counts as one of your cantrips. It is not a free extra." }));
+      }
       var cap = PREPARED[draft.calling] ? preparedMax(cal, draft.scores) : lim.known;
       picks(PREPARED[draft.calling] ? "Prepared" : "Spells known", 1, draft.spells || [], cap);
     } else if (step === "level") {
@@ -749,7 +883,16 @@
     }
     var app = root.SSDNSApp;
     if (app && app.applyPatch && app.doc && app.doc()) {
-      app.applyPatch(function (doc) { applyDraft(doc.character, ui.draft); });
+      app.applyPatch(function (doc) {
+        applyDraft(doc.character, ui.draft);
+        var pouch = doc.character && doc.character._pouchEs;
+        if (pouch && ui.draft.kitMode !== "module" && root.SSDNSBridge && root.SSDNSBridge.breakdown) {
+          var add = root.SSDNSBridge.breakdown(pouch);
+          doc.shards = doc.shards || {};
+          Object.keys(add).forEach(function (k) { doc.shards[k] = (parseInt(doc.shards[k], 10) || 0) + add[k]; });
+        }
+        if (doc.character) delete doc.character._pouchEs;
+      });
     }
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.syncSheet) root.SSDNSPlaytest.syncSheet();
     close(false);

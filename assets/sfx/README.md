@@ -1,6 +1,6 @@
 # Sound effects
 
-The sheet and the DM Command Center look up sounds in `sfx.json`. A missing file stays silent. These three clips are in the repo:
+The sheet and the DM Command Center look up sounds in `sfx.json`. A missing file stays silent. `roll.mp3` (and `roll.wav`) play on ability rolls and the wizard's six scores. `explode.mp3` is mapped for a gun that blows; the file is not in the repo yet, so that cue stays silent.
 
 | Event | Filename | Length | When it plays |
 |-------|----------|--------|----------------|
