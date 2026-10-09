@@ -394,8 +394,16 @@
     var early = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo && root.SSDNSPlaytest.targetInfo();
     var gate = root.SSDNSSheet && root.SSDNSSheet.attackGate && root.SSDNSSheet.attackGate(early);
     if (gate) { toast(gate); return; }
-    if (root.SSDNSSheet && root.SSDNSSheet.attackCue) root.SSDNSSheet.attackCue("attack");
-    else if (root.SSDNSAudio) root.SSDNSAudio.play("attack");
+    var meleeRow = c.melee[i];
+    var meleeW = null;
+    var meleeLists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.melee) || [], (root.SSDNS_RULES && root.SSDNS_RULES.otherRanged) || []);
+    meleeLists.forEach(function (w) { if (w && meleeRow && w.id === meleeRow.weapon) meleeW = w; });
+    var meleeCue = root.SSDNSAudio && root.SSDNSAudio.weaponCue
+      ? root.SSDNSAudio.weaponCue(Object.assign({}, meleeW || {}, { id: meleeRow.weapon, sfx: (meleeRow && meleeRow.sfx) || (meleeW && meleeW.sfx) || "" }))
+      : "whoosh";
+    rollMelee._cue = meleeCue;
+    if (root.SSDNSSheet && root.SSDNSSheet.attackCue) root.SSDNSSheet.attackCue(meleeCue);
+    else if (root.SSDNSAudio) root.SSDNSAudio.play(meleeCue);
     rollMeleeNow(i);
   }
   function rollMeleeNow(i) {
@@ -455,7 +463,7 @@
         rollId: "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         label: name + " attack",
         weapon: name,
-        sfx: "attack"
+        sfx: rollMelee._cue || "whoosh"
       });
       if (root.SSDNSSheet.consumeRollMode) root.SSDNSSheet.consumeRollMode();
       return;

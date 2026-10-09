@@ -3438,7 +3438,7 @@
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "Revolver, TR, cap 7, .22 LR (Light). Sold clean: 1d6, misfire 1-2. A found one is usually Rusty: 1d4, misfire 1-4 until cleaned. Simple.",
+    "notes": "Revolver, TR, cap 7. .22 LR is 1d4. A .32 rimfire rechamber is Light only and deals 1d6. Clean misfire 1-2. A found one is Dirty: misfire 1-4 until cleaned. Simple.",
     "bookLine": ""
   },
   {

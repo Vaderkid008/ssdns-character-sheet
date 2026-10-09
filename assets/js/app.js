@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.16"; // sheet-playtest-v0316
+  var APP_VERSION = "0.3.17"; // sheet-playtest-v0317
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -164,22 +164,7 @@
     if (doc.character && doc.character.addiction) delete doc.character.addiction;
     Object.keys(raw).forEach(function (k) { if (!(k in doc)) doc[k] = raw[k]; });
     if (doc.character && doc.character.proficienciesLanguages) {
-      var lingo = [
-        ["You can speak, read, and write Common and Dwarvish (Under-Cant — clan tunnel speech).", "You can speak, read, and write Common and Under Lingo (clan tunnel speech)."],
-        ["You can speak, read, and write Common and Elvish (Old Neverwinter court speech).", "You can speak, read, and write Common and Court Lingo (the old court speech of Neverwinter)."],
-        ["You can speak, read, and write Common and Halfling (hearth-cant).", "You can speak, read, and write Common and Hearth Lingo."],
-        ["You can speak, read, and write Common and Draconic (watch-cipher / company battle-tongue).", "You can speak, read, and write Common and Watch Lingo (watch-cipher / company battle-tongue)."],
-        ["You can speak, read, and write Common and Gnomish (guild-cant).", "You can speak, read, and write Common and Guild Lingo."],
-        ["You can speak, read, and write Common, Elvish, and one extra language of your choice.", "You can speak, read, and write Common, Court Lingo, and one extra language of your choice."],
-        ["You can speak, read, and write Common and Orc (dock-cant / blood-cant).", "You can speak, read, and write Common and Dock Lingo / Blood Lingo."],
-        ["You can speak, read, and write Common and Infernal (brand-cant).", "You can speak, read, and write Common and Brand Lingo."],
-        ["You can speak, read, and write Infernal (brand-cant).", "You can speak, read, and write Brand Lingo."]
-      ];
-      var langs = doc.character.proficienciesLanguages;
-      lingo.forEach(function (pair) {
-        if (langs.indexOf(pair[0]) >= 0) langs = langs.split(pair[0]).join(pair[1]);
-      });
-      doc.character.proficienciesLanguages = langs;
+      doc.character.proficienciesLanguages = migrateSettlerLanguages(doc.character.proficienciesLanguages);
     }
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
@@ -198,11 +183,54 @@
     TIERS.forEach(function (t) {
       if (!w.tiers || !w.tiers[t]) return;
       var list = (w.rounds && w.rounds[t] && w.rounds[t].length) ? w.rounds[t] : [""];
-      var round = list[0] || "";
-      var label = w.ammo === "cartridge" ? ("Cartridges (" + TIER_LABEL[t] + ")") : (TIER_LABEL[t] + (round ? " · " + round : ""));
-      o.push([t + "|" + round, label]);
+      list.forEach(function (round) {
+        var label = w.ammo === "cartridge"
+          ? (round ? (round + " (" + TIER_LABEL[t] + ")") : ("Cartridges (" + TIER_LABEL[t] + ")"))
+          : (TIER_LABEL[t] + (round ? " · " + round : ""));
+        o.push([t + "|" + round, label]);
+      });
     });
+    if (w.tiers && w.tiers.light && !w.scatter && (w.group === "rifle" || w.group === "carbine" || w.group === "caster")) {
+      var lights = (w.rounds && w.rounds.light) || [];
+      var has22 = lights.some(function (r) { return /\.22\s*lr/i.test(String(r || "")); });
+      if (!has22) o.push(["light|.22 LR", ".22 LR (Light, 1d4)"]);
+    }
     return o;
+  }
+  /** Saved sheets: exact old lineage and Demon Blood sentences become settler-language lines. The generic Nomads "one extra language" sentence is left alone. */
+  function migrateSettlerLanguages(langs) {
+    var pairs = [
+      ["You can speak, read, and write Common and Dwarvish (Under-Cant — clan tunnel speech).", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (German or Welsh)."],
+      ["You can speak, read, and write Common and Under Lingo (clan tunnel speech).", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (German or Welsh)."],
+      ["You can speak, read, and write Common and Elvish (Old Neverwinter court speech).", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (French or Latin)."],
+      ["You can speak, read, and write Common and Court Lingo (the old court speech of Neverwinter).", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (French or Latin)."],
+      ["You can speak, read, and write Common and Halfling (hearth-cant).", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Irish Gaelic or Spanish)."],
+      ["You can speak, read, and write Common and Hearth Lingo.", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Irish Gaelic or Spanish)."],
+      ["You can speak, read, and write Common and Draconic (watch-cipher / company battle-tongue).", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (German or Russian)."],
+      ["You can speak, read, and write Common and Watch Lingo (watch-cipher / company battle-tongue).", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (German or Russian)."],
+      ["You can speak, read, and write Common and Gnomish (guild-cant).", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Cantonese, German, or Italian)."],
+      ["You can speak, read, and write Common and Guild Lingo.", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Cantonese, German, or Italian)."],
+      ["You can speak, read, and write Common, Elvish, and one extra language of your choice.", "You can speak, read, and write Common, one settler language from your lineage's row on the Accents & Languages table (Spanish or French), and one extra language of your choice."],
+      ["You can speak, read, and write Common, Court Lingo, and one extra language of your choice.", "You can speak, read, and write Common, one settler language from your lineage's row on the Accents & Languages table (Spanish or French), and one extra language of your choice."],
+      ["You can speak, read, and write Common and Orc (dock-cant / blood-cant).", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Swedish, Norwegian, or Dutch)."],
+      ["You can speak, read, and write Common and Dock Lingo / Blood Lingo.", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Swedish, Norwegian, or Dutch)."],
+      ["You can speak, read, and write Common and Infernal (brand-cant).", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Italian or Polish)."],
+      ["You can speak, read, and write Common and Brand Lingo.", "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Italian or Polish)."],
+      ["You can speak, read, and write Infernal (brand-cant).", "You can speak, read, and write one extra language of your choice."],
+      ["You can speak, read, and write Brand Lingo.", "You can speak, read, and write one extra language of your choice."]
+    ];
+    pairs.forEach(function (pair) {
+      if (langs.indexOf(pair[0]) >= 0) langs = langs.split(pair[0]).join(pair[1]);
+    });
+    return langs;
+  }
+  function longGun22(w, round) {
+    if (!w || !/\.22\s*lr/i.test(round || "")) return false;
+    var g = String(w.group || "");
+    return g === "rifle" || g === "carbine" || g === "caster";
+  }
+  function d4Pending(g) {
+    return !!(g && g.pendingD4);
   }
   /** Gunsmithing › Capacity Upgrades rows that fit this gun -> list of capacities [base, step1, ...]. */
   var SKIPW = /^(Light|Medium|Heavy|Repeating|Rifles?|Carbines?|Saddle|Shotgun|Lever)$/;
@@ -636,9 +664,9 @@
         if (rr.misfire) s.misfire = rr.misfire;
         s.unwieldy = !!rr.unwieldy;
       }
+      if (longGun22(w, ch.round)) s.damage = "1d4";
+      if (g.dirty && w.dirtyMisfire) s.misfire = w.dirtyMisfire;
       s.dmgType = w.scatter && g.load !== "slug" ? "piercing (cone)" : "piercing";
-      if (g.rusty && w.rustyDamage) s.damage = w.rustyDamage;
-      if (g.rusty && w.rustyMisfire) s.misfire = w.rustyMisfire;
     } else {
       s.damage = w.damage; s.range = w.range; s.misfire = w.misfire; s.dmgType = String(w.dmgType || "").toLowerCase();
     }
@@ -785,6 +813,7 @@
     var prof = String(cal.weaponProf).toLowerCase();
     var name = String(w.name || "").toLowerCase();
     if (w.hexShells || w.group === "caster") return /caster guns?/.test(prof);
+    if (/plinker/.test(name) && /plinker/.test(prof)) return true;
     if (/herringer/.test(name) && /herringer/.test(prof)) return true;
     if (/ball/.test(name) && /cap/.test(name) && /ball n cap/.test(prof)) return true;
     if (/cavalry saber/.test(name) && /cavalry saber/.test(prof)) return true;
@@ -919,16 +948,18 @@
             el("span", { class: "cast-through", "data-castwrap": i }, [
               el("select", { class: "cast-spell", "data-castspell": i, "aria-label": "Spell to cast through this gun" }),
               el("select", { class: "cast-slot", "data-castslot": i, "aria-label": "Shell or slot level", hidden: true }),
-              el("button", { type: "button", class: "btn sm castbtn", "data-cast": i, title: "Cast the spell you picked. A cantrip spends nothing. A Hexslinger shell was spent when you loaded it. A natural 1 on a shell is a wild spark, not a jam." }, ["Cast through gun"])
+              el("button", { type: "button", class: "btn sm castbtn", "data-cast": i, title: "Cast the spell you picked. A cantrip spends nothing. A Hexslinger shell was spent when you loaded it. A natural 1 on a shell is a wild spark, not a jam." }, ["Cast through gun"]),
+              el("details", { class: "spell-more", "data-castabout": i }, [el("summary", { text: "About" }), el("p", { class: "spell-desc" })])
             ])
           ]),
           el("div", { class: "load-picks", "data-loadpick": i })
         ]),
         el("div", { class: "g-mis", "data-label": "Misfire" }, [el("span", { "data-out": "mis." + i }),
-          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".jammed" }), " jammed"]),
-          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".fouled" }), " fouled"]),
-          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".dirty" }), " dirty"]),
-          el("button", { type: "button", class: "btn xs", "data-clean": i, title: "Dirty: 10 minutes with a gun cleaning kit or gunsmith's tools. Fouled: a short rest with tinker's or gunsmith's tools, or 500 ES." }, ["Clean"])]),
+          el("span", { class: "gun-status", "data-out": "gst." + i }),
+          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".jammed", disabled: "disabled" }), " jammed"]),
+          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".fouled", disabled: "disabled" }), " fouled"]),
+          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".dirty", disabled: "disabled" }), " dirty"]),
+          el("button", { type: "button", class: "btn xs", "data-clean": i, title: "Pick a clean before anything changes. Dirty: 10 minutes with gunsmith's tools or a gun cleaning kit. Fouled: a short rest with tinker's or gunsmith's tools, or pay a gunsmith 500 ES. Ruined: gunsmith repair, 500 ES and a day." }, ["Clean"])]),
         el("div", { class: "g-note fine", "data-out": "note." + i })
       ]));
     }
@@ -1045,6 +1076,8 @@
         }
         var diceNote = spellDiceNote(parsed.phb || row.name);
         if (diceNote) lab.appendChild(el("div", { class: "sp-phb", text: diceNote }));
+        var aboutKnown = spellDetails(parsed.phb || row.name);
+        if (aboutKnown) lab.appendChild(aboutKnown);
         line.appendChild(lab);
         // keep a hidden data-f so save still has the name if edited elsewhere
         line.appendChild(el("input", { type: "hidden", "data-f": l === 0 ? ("character.cantrips." + row.i) : ("character.spells." + l + "." + row.i + ".name"), value: row.name }));
@@ -1067,6 +1100,23 @@
     var Cast = window.SSDNSSpellCast;
     if (!Cast || !Cast.blurb) return "";
     return Cast.blurb(name) || "";
+  }
+  function spellReadout(name) {
+    var Cast = window.SSDNSSpellCast;
+    if (!Cast || !Cast.describe) return "";
+    var v = compute();
+    return Cast.describe(name, { spellDC: v.spellDC, spellAtk: v.spellAtk, level: (C() && C().level) || 1 });
+  }
+  function spellDetails(name) {
+    var text = spellReadout(name);
+    if (!text) return null;
+    var d = el("details", { class: "spell-more" });
+    var sum = el("summary", { text: "About" });
+    var p = el("p", { class: "spell-desc", text: text });
+    d.appendChild(sum);
+    d.appendChild(p);
+    d.addEventListener("click", function (ev) { ev.stopPropagation(); });
+    return d;
   }
   function fillSpellPicker() {
     var list = $("#spellPickerList"), levels = $("#spellPickerLevels");
@@ -1096,7 +1146,11 @@
       btn.appendChild(el("span", { class: "sp-name", text: sp.alias ? (sp.alias + " · " + sp.phb) : sp.phb }));
       var dice = spellDiceNote(sp.phb || sp.label);
       btn.appendChild(el("span", { class: "sp-meta", text: (sp.level === 0 ? "Cantrip" : ("Level " + sp.level)) + (sp.shell && sp.level > 0 ? " · Shell" : "") + (dice ? " · " + dice : "") + (have ? " · already known" : "") }));
-      list.appendChild(btn);
+      var pickRow = el("div", { class: "spell-pick-row" });
+      pickRow.appendChild(btn);
+      var aboutPick = spellDetails(sp.phb || sp.label);
+      if (aboutPick) pickRow.appendChild(aboutPick);
+      list.appendChild(pickRow);
       n++;
     });
     bonusCatalog().forEach(function (sp) {
@@ -1113,7 +1167,11 @@
       btn.appendChild(el("span", { class: "sp-name", text: (sp.alias ? (sp.alias + " · " + sp.phb) : sp.phb) }));
       var bonusDice = spellDiceNote(sp.phb || sp.label);
       btn.appendChild(el("span", { class: "sp-meta", text: when + (bonusDice ? " · " + bonusDice : "") + (have ? " · already known" : "") }));
-      list.appendChild(btn);
+      var bonusRow = el("div", { class: "spell-pick-row" });
+      bonusRow.appendChild(btn);
+      var aboutBonus = spellDetails(sp.phb || sp.label);
+      if (aboutBonus) bonusRow.appendChild(aboutBonus);
+      list.appendChild(bonusRow);
       n++;
     });
     if (!n) list.appendChild(el("p", { class: "fine", text: "No spells match. Try another filter." }));
@@ -1272,7 +1330,16 @@
       ["jammed", "fouled", "dirty"].forEach(function (flag) {
         var box = row.querySelector('[data-f="character.guns.' + i + '.' + flag + '"]');
         if (box && document.activeElement !== box) box.checked = !!g[flag];
+        if (box) box.disabled = true;
       });
+      var statusBits = [];
+      if (g.dirty) statusBits.push("Dirty");
+      if (g.fouled) statusBits.push("Fouled");
+      if (g.ruined || g.broken) statusBits.push("Ruined");
+      if (g.jammed) statusBits.push("Jammed");
+      if (Number(g.misStreak)) statusBits.push("misfires " + g.misStreak);
+      if (g.pendingD4) statusBits.push("d4 pending");
+      out("gst." + i, statusBits.join(" · "));
       if (hasGunBelt() || !(w && w.tr)) row.classList.remove("tr-warn");
       var cs = row.querySelector(".chamber-sel");
       if (cs.getAttribute("data-for") !== (g.weapon || "")) {
@@ -1327,10 +1394,16 @@
       var reloadBtn0 = $('[data-reload="' + i + '"]');
       if (reloadBtn0) {
         reloadBtn0.hidden = !cap;
+        reloadBtn0.disabled = !!g.pendingD4;
         var emptyNow = window.SSDNSApplied && window.SSDNSApplied.gunEmpty ? window.SSDNSApplied.gunEmpty(g) : !(num(g.loaded) > 0);
         var kitPool = w ? takePool(g, w, false).pool : null;
         reloadBtn0.textContent = (emptyNow && kitPool && num(kitPool.count) > 0) ? "Load from kit ammo" : "Reload";
       }
+      var cleanBtn = $('[data-clean="' + i + '"]');
+      if (cleanBtn) cleanBtn.disabled = !!g.pendingD4;
+      var gunSel = $('[data-gun="' + i + '"]');
+      if (gunSel) gunSel.disabled = !!g.pendingD4;
+      if (cs) cs.disabled = !!g.pendingD4;
       var unloadBtn = $('[data-unload="' + i + '"]');
       if (unloadBtn) unloadBtn.hidden = !cap;
       var rollBtn = $('[data-gunroll="' + i + '"]');
@@ -1360,6 +1433,13 @@
           if (keepSpell && choices.some(function (ch) { return ch.value === keepSpell; })) spellSel.value = keepSpell;
         }
         var picked = choices.filter(function (ch) { return ch.value === spellSel.value; })[0] || choices[0];
+        var castAbout = $('[data-castabout="' + i + '"]');
+        if (castAbout) {
+          var castText = picked ? spellReadout(picked.name) : "";
+          castAbout.hidden = !castText;
+          var castP = castAbout.querySelector("p");
+          if (castP) castP.textContent = castText;
+        }
         var spellLv = picked ? picked.level : 0;
         if (slotSel) {
           if (!spellLv) slotSel.hidden = true;
@@ -2010,11 +2090,18 @@
   }
   function onGunChanged(i, what, old) {
     var g = C().guns[i];
+    if (d4Pending(g) && (what === "weapon" || what === "chamber")) {
+      if (what === "weapon") g.weapon = old;
+      if (what === "chamber") g.chamber = old;
+      toast("Roll the d4 first.");
+      renderFields();
+      return;
+    }
     var prevW = WPN[what === "weapon" ? old : g.weapon];
     unloadGun(g, prevW, what === "load" ? old : g.load, what === "chamber" ? old : g.chamber);
     g.loaded = 0; g.chambers = []; g.jammed = false;
     var w = WPN[g.weapon];
-    if (what === "weapon") { g.mod = ""; g.capacity = ""; }
+    if (what === "weapon") { g.mod = ""; g.capacity = ""; g.misStreak = 0; g.pendingD4 = false; g.pendingD4Rolls = null; g.pendingD4Step = 0; }
     if (what === "weapon" && w) {
       g.proficient = callingProficient(w);
       if (w.scatter) g.load = "buck";
@@ -2027,7 +2114,8 @@
     if (what === "chamber" && w && w.tiers) {
       if (g.chamberSet && old && String(old) !== String(g.chamber)) {
         g.chamber = old;
-        toast("A gunsmith rechambers this: 500 ES per tier step. Light to Heavy is two steps.");
+        if (w && w.id === "dullards-plinker-revolver") toast("A gunsmith rechambers a Plinker from .22 to .32 rimfire. Light only. Never Medium.");
+        else toast("A gunsmith rechambers this: 500 ES per tier step. Light to Heavy is two steps.");
       } else {
         g.tier = chamberOf(g, w).tier;
         g.chamberSet = true;
@@ -2037,7 +2125,7 @@
   function spendRound(i, k) {
     var g = C().guns[i], w = g && WPN[g.weapon];
     if (!g || !g.weapon) return { ok: false, reason: "Pick a gun first." };
-    if (g.broken) return { ok: false, reason: "Out of service until a gunsmith (or a tinker's tools action at DC 12) fixes it." };
+    if (g.ruined || g.broken) return { ok: false, reason: "Ruined. A gunsmith repairs it for 500 ES and a day. It comes back clean." };
     if (g.pendingD4) return { ok: false, reason: "Roll the d4 first." };
     if (g.jammed) return { ok: false, reason: "Jammed: clear it first" };
     if (g.fouled) return { ok: false, reason: "Fouled. It can't fire until it's cleaned." };
@@ -2088,8 +2176,11 @@
     var spent = spendRound(i, k);
     if (spent && spent.empty) { toast("Click."); return; }
     if (!spent.ok) { toast(spent.reason); return; }
-    if (window.SSDNSAudio) window.SSDNSAudio.play("attack");
     var g = C().guns[i], w = WPN[g.weapon];
+    var cue = window.SSDNSAudio && window.SSDNSAudio.weaponCue
+      ? window.SSDNSAudio.weaponCue(Object.assign({ gun: true }, w || {}, { id: g.weapon, sfx: (g && g.sfx) || (w && w.sfx) || "" }))
+      : "attack";
+    if (window.SSDNSAudio) window.SSDNSAudio.play(cue);
     var label = chamberLabel(spent.was, g, w) || "round";
     toast("Bang (" + label + "). " + g.loaded + " left in the " + (w ? w.name : "gun") + ".", "Undo", function () {
       if (before) g.chambers = before;
@@ -2203,6 +2294,7 @@
   }
   function reloadFromPool(i, pool, max) {
     var g = C().guns[i], w = WPN[g.weapon];
+    if (d4Pending(g)) { toast("Roll the d4 first."); return; }
     if (!w || !w.capacity || !pool) return;
     var a = normChambers(g, w);
     var need = capOf(g, w) - a.filter(Boolean).length;
@@ -2224,6 +2316,7 @@
   }
   function reload(i, max) {
     var g = C().guns[i], w = WPN[g.weapon];
+    if (d4Pending(g)) { toast("Roll the d4 first."); return; }
     if (!w || !w.capacity) return;
     var a = normChambers(g, w);
     var need = capOf(g, w) - a.filter(Boolean).length;
@@ -2246,6 +2339,7 @@
   }
   function tacticalReload(i) {
     var g = C().guns[i], w = WPN[g.weapon];
+    if (d4Pending(g)) { toast("Roll the d4 first."); return; }
     if (!w || !w.tr) { toast("This gun can't Tactical Reload (TR —)."); return; }
     if (!hasGunBelt()) {
       // v0.2.1: soft requirement (PHB Reloading: TR loads from a gun belt or bandolier). Warn; the player can override.
@@ -2297,69 +2391,116 @@
     }
     finishHexLoad(i, g, w, lvl, a, k);
   }
+  function toolProfBonus() {
+    var v = compute();
+    var blob = [C().proficienciesLanguages, C().equipment, C().features].join("\n").toLowerCase();
+    if (/tinker/.test(blob) || /gunsmith/.test(blob)) return v.prof || 0;
+    return 0;
+  }
+  function rollJamCheck() {
+    var v = compute();
+    var dex = (v.mods && v.mods.DEX) || 0;
+    var prof = toolProfBonus();
+    var n = 1 + Math.floor(Math.random() * 20);
+    var detail = String(n) + (dex ? ((dex >= 0 ? "+" : "") + dex) : "") + (prof ? ("+" + prof + " tools") : "");
+    return { nat: n, total: n + dex + prof, detail: detail };
+  }
+  function chargeEs(amount, reason) {
+    var logged = reason + " (" + amount + " ES)";
+    var c = C();
+    if (c && typeof c.es === "number" && isFinite(c.es)) {
+      if (c.es < amount) {
+        if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "alert", text: logged + " — logged, not deducted (not enough ES)." });
+        return { paid: false, logged: true };
+      }
+      c.es -= amount;
+      return { paid: true, logged: false };
+    }
+    var Bridge = window.SSDNSBridge;
+    if (Bridge && S.doc.shards && Bridge.cpValue(S.doc.shards) >= amount && Bridge.applyDelta) {
+      var w = Bridge.applyDelta(-amount, "gunsmith");
+      if (w && w.shards) {
+        S.doc.shards = Bridge.cleanShards(w.shards);
+        return { paid: true, logged: false };
+      }
+    }
+    if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "alert", text: logged + " — logged, not deducted (no ES field with enough to pay)." });
+    return { paid: false, logged: true };
+  }
+  function openCleanModal(gunName, options) {
+    return new Promise(function (resolve) {
+      if (!document.body || !options.length) { resolve(null); return; }
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg clean-modal";
+      var buttons = options.map(function (opt, n) {
+        return "<button type='button' class='btn' data-clean-opt='" + n + "'>" + opt.label.replace(/</g, "") + "</button>";
+      }).join("");
+      dlg.innerHTML = "<form method='dialog'><h2>Clean " + String(gunName || "gun").replace(/</g, "") + "</h2><p>Pick a method. Nothing changes until you do.</p><div class='clean-opts'>" + buttons + "</div><button type='button' class='btn' value='no'>Cancel</button></form>";
+      var settled = false;
+      function finish(opt) {
+        if (settled) return;
+        settled = true;
+        document.body.classList.remove("ask-open");
+        try { if (dlg.close) dlg.close(); } catch (e) {}
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(opt || null);
+      }
+      dlg.querySelector("[value=no]").addEventListener("click", function () { finish(null); });
+      dlg.querySelectorAll("[data-clean-opt]").forEach(function (btn) {
+        btn.addEventListener("click", function () { finish(options[Number(btn.getAttribute("data-clean-opt"))]); });
+      });
+      dlg.addEventListener("cancel", function (e) { e.preventDefault(); finish(null); });
+      document.body.classList.add("ask-open");
+      document.body.appendChild(dlg);
+      if (dlg.showModal) dlg.showModal();
+      else dlg.setAttribute("open", "");
+    });
+  }
+  function applyCleanChoice(i, g, pick) {
+    var M = window.SSDNSMisfire;
+    if (!M || !pick) return;
+    if (pick.cost) chargeEs(pick.cost, (WPN[g.weapon] ? WPN[g.weapon].name : "Gun") + ": " + pick.label);
+    var applied = M.applyClean(g, pick.id);
+    if (!applied.ok) { toast(applied.reason || "That clean isn't available."); return; }
+    var next = applied.gun;
+    g.dirty = !!next.dirty;
+    g.fouled = !!next.fouled;
+    g.jammed = !!next.jammed;
+    g.ruined = !!next.ruined;
+    g.broken = !!next.broken;
+    g.misStreak = next.misStreak || 0;
+    if (pick.resetStreak || pick.comesClean) {
+      g.pendingD4 = false;
+      g.pendingD4Rolls = null;
+      g.pendingD4Step = 0;
+    }
+    changed();
+    var line = (WPN[g.weapon] ? WPN[g.weapon].name : "Gun") + ": " + pick.label + ".";
+    toast(line);
+    if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
+  }
   function cleanGun(i) {
     var g = C().guns[i];
     if (!g || !g.weapon) { toast("Pick a gun first."); return; }
-    if (g.broken) {
-      toast("Out of service. A gunsmith repairs it for 500 ES and a day. A tinker's tools action at DC 12 can also bring a blown Plinker back.");
-      return;
-    }
-    if (g.jammed && g.rusty && g.weapon === "dullards-plinker-revolver") {
-      if (window.SSDNSD4 && window.SSDNSD4.reveal) {
-        window.SSDNSD4.reveal({
-          sides: 6,
-          title: "Clear the rusty jam",
-          faces: { 1: "IT BLOWS", 2: "STAYS JAMMED", 3: "STAYS JAMMED", 4: "CLEARS", 5: "CLEARS", 6: "CLEARS" }
-        }).then(function (n) {
-          if (n >= 4) {
-            g.jammed = false;
-            changed();
-            toast("The jam clears.");
-          } else if (n === 1) {
-            g.jammed = false;
-            g.broken = true;
-            g.rusty = false;
-            var hp = 1 + Math.floor(Math.random() * 4);
-            if (window.SSDNSSheet && window.SSDNSSheet.applyDelta) window.SSDNSSheet.applyDelta(-hp, "Plinker blows: " + hp + " fire");
-            toast("The cylinder blows. " + hp + " fire damage. The gun is out of service.");
-            changed();
-          } else toast("Still jammed.");
-        });
+    if (d4Pending(g)) { toast("Roll the d4 first."); return; }
+    var M = window.SSDNSMisfire;
+    var opts = M ? M.cleanOptions(g) : [];
+    if (!opts.length) { toast("This gun isn't jammed, dirty, fouled, or ruined."); return; }
+    var name = WPN[g.weapon] ? WPN[g.weapon].name : "Gun";
+    openCleanModal(name, opts).then(function (pick) {
+      if (!pick) return;
+      if (pick.check) {
+        var rolled = rollJamCheck();
+        var line = "Jam check " + rolled.detail + " = " + rolled.total + " vs DC " + pick.check.dc;
+        if (rolled.total < pick.check.dc) {
+          toast(line + ". The jam stays.");
+          if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "roll", text: line + " — fail" });
+          return;
+        }
+        if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "roll", text: line + " — success" });
       }
-      return;
-    }
-    if (g.jammed) {
-      g.jammed = false;
-      var jamBox = document.querySelector('[data-f="character.guns.' + i + '.jammed"]');
-      if (jamBox) {
-        jamBox.checked = false;
-        jamBox.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-      changed();
-      var cleared = (WPN[g.weapon] ? WPN[g.weapon].name : "Gun") + ": jam cleared.";
-      toast("Jam cleared.");
-      if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ id: "jam-clear:" + i + ":" + Date.now(), kind: "alert", text: cleared });
-      if (window.SSDNSDmJoin && window.SSDNSDmJoin.postLedger) {
-        window.SSDNSDmJoin.postLedger({
-          type: "jam", what: cleared, oldVal: "jammed", newVal: "clear", flag: false,
-          who: (C().player || "Player"), playerName: C().player || "", characterName: C().name || ""
-        });
-      }
-      return;
-    }
-    if (g.fouled) {
-      g.fouled = false;
-      changed();
-      toast("Fouled cleared. That is a short rest with tinker's or gunsmith's tools, or 500 ES.");
-      return;
-    }
-    if (g.dirty) {
-      g.dirty = false;
-      changed();
-      toast("Dirty cleared. That is 10 minutes with a gun cleaning kit or gunsmith's tools.");
-      return;
-    }
-    toast("This gun isn't jammed, dirty, or fouled.");
+      applyCleanChoice(i, g, pick);
+    });
   }
   function misfireCeiling(text, dirty) {
     var s = String(text || "");
@@ -2990,11 +3131,14 @@
       if (!cat.length) { block.appendChild(el("p", { text: "No new spells left on this Calling's list." })); body.appendChild(block); return; }
       cat.forEach(function (sp) {
         var id = "lvlsp-" + sp.key.replace(/[^a-z0-9]+/gi, "-");
-        block.appendChild(el("label", { class: "chk lvl-spell" }, [
+        var lvlLab = el("label", { class: "chk lvl-spell" }, [
           el("input", { type: "checkbox", "data-lvl-spell": sp.key, id: id }),
           (sp.level === 0 ? "Cantrip · " : ("L" + sp.level + " · ")) + sp.label
-        ]));
-        block.lastChild._spell = sp;
+        ]);
+        lvlLab._spell = sp;
+        block.appendChild(lvlLab);
+        var lvlAbout = spellDetails(sp.phb || sp.label);
+        if (lvlAbout) block.appendChild(lvlAbout);
       });
       body.appendChild(block);
     }
@@ -3311,6 +3455,11 @@
       applyAutoHp: function () { applyAutoHp(); renderFields(); changed(); },
       slotsLeft: slotsLeft,
       misfireCeiling: misfireCeiling,
+      migrateSettlerLanguages: migrateSettlerLanguages,
+      longGun22: longGun22,
+      armDirtyD4: function (i) {
+        if (window.SSDNSD4 && window.SSDNSD4.arm) return window.SSDNSD4.arm(i);
+      },
       reloadGun: function (i) { reload(i); },
       unloadGunIndex: function (i) { unloadLoaded(i); },
       suggestedHp: function () { return suggestedHp(C()); }

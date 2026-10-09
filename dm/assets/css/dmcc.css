@@ -623,3 +623,8 @@ select:-webkit-autofill {
     display: none !important;
   }
 }
+.spell-more { margin: 4px 0 8px; }
+.spell-more summary { cursor: pointer; }
+.spell-desc { margin: 6px 0 0; max-width: 42rem; }
+.misfire-override { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.misfire-override .fine { flex-basis: 100%; }

@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.29"; // dmcc-playtest-v0229
+const VERSION = "0.2.30"; // dmcc-playtest-v0230
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -823,6 +823,29 @@ async function pushCommand(cmd) {
   } catch (e) { writeFailed(e, "Command failed"); }
 }
 
+function misfireOverrideWords(payload) {
+  const bits = [];
+  if (payload.resetStreak) bits.push("streak reset");
+  if (payload.cancelD4) bits.push("pending d4 cancelled");
+  ["dirty", "fouled", "ruined"].forEach((k) => {
+    if (payload[k] == null) return;
+    bits.push((payload[k] ? "set " : "cleared ") + k);
+  });
+  return bits.join(", ") || "gun";
+}
+async function postDmAction(text, playerId) {
+  const id = uid("dmact");
+  const entry = {
+    id, ts: new Date().toISOString(), who: "DM", playerId: playerId || "all",
+    type: "dm", what: text, oldVal: null, newVal: text, flag: false
+  };
+  await pushLedger(entry);
+  const feed = { id, ts: entry.ts, from: state.uid || "dm", fromName: "DM", text, kind: "dm", who: "DM" };
+  if (state.demo) return feed;
+  try { await state._fb.set(roomRef("tableFeed/" + id), feed); }
+  catch (err) { writeFailed(err, "Couldn't sync the DM action"); }
+  return feed;
+}
 function applyDemoGun(playerId, payload) {
   const p = state.players[playerId];
   const g = p && p.snapshot && p.snapshot.guns && p.snapshot.guns[payload.index];
@@ -834,6 +857,17 @@ function applyDemoGun(playerId, payload) {
     g.chambers = Array.from({ length: cap }, () => "round");
   } else if (payload.op === "set" && payload.loaded != null && isFinite(payload.loaded)) {
     g.loaded = payload.loaded;
+  } else if (payload.op === "misfire" && window.SSDNSMisfire) {
+    const applied = window.SSDNSMisfire.applyOverride(g, payload);
+    const next = applied.gun;
+    g.dirty = !!next.dirty;
+    g.fouled = !!next.fouled;
+    g.ruined = !!next.ruined;
+    g.misStreak = next.misStreak || 0;
+    g.pendingD4 = !!next.pendingD4;
+    if (g.ruined) g.condition = "ruined";
+    else if (g.fouled) g.condition = "fouled";
+    else if (g.dirty) g.condition = "dirty";
   } else if (payload.op === "fire") {
     const chambers = Array.isArray(g.chambers) ? g.chambers : [];
     const k = Number(payload.chamber);
@@ -1618,13 +1652,34 @@ function openDetail(pid) {
     <div class="detail-section"><h3>Abilities</h3><div class="abil-grid">${abilHtml}</div></div>
     <div class="detail-section"><h3>Saves</h3><p>${saves}</p></div>
     <div class="detail-section"><h3>Skills</h3><p>${skills}</p></div>
+    <div class="detail-section"><h3>Badge</h3>
+      <label>Lawman badge
+        <select id="dmBadge" aria-label="Lawman badge">
+          <option value="bright">Bright (sworn in)</option>
+          <option value="dull">Dull</option>
+          <option value="tarnished">Tarnished</option>
+        </select>
+      </label>
+      <button type="button" class="btn sm" id="btnDmBadge">Set badge</button>
+      <p class="fine">Mercy Hands stays off while the badge is Dull. Swearing in sets it Bright.</p>
+    </div>
     <div class="detail-section"><h3>HP and guns</h3>
       <label>Set HP <input type="number" id="dmSetHp" value="${esc(s.hpCurrent)}" aria-label="Set player hit points"></label>
       <button type="button" class="btn sm" id="btnDmSetHp">Set HP</button>
       ${(s.guns || []).filter((g) => g && g.name).map((g, i) => `<div class="gun-chip ${g.jammed ? "jammed" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}
+        <p class="fine">Streak ${esc(g.misStreak || 0)}${g.pendingD4 ? " · d4 pending" : ""}${g.dirty ? " · Dirty" : ""}${g.fouled ? " · Fouled" : ""}${g.ruined ? " · Ruined" : ""}</p>
         <button type="button" class="btn sm" data-gun-op="reload" data-gun-i="${i}">Reload</button>
         <button type="button" class="btn sm" data-gun-op="unload" data-gun-i="${i}">Unload</button>
+        <button type="button" class="btn sm" data-gun-op="dirty-d4" data-gun-i="${i}">Dirty d4</button>
         <button type="button" class="btn sm" data-gun-op="set" data-gun-i="${i}">Set loaded</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="reset" data-gun-i="${i}">Reset streak</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="dirty" data-mf-on="1" data-gun-i="${i}">Set Dirty</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="dirty" data-mf-on="0" data-gun-i="${i}">Clear Dirty</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="fouled" data-mf-on="1" data-gun-i="${i}">Set Fouled</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="fouled" data-mf-on="0" data-gun-i="${i}">Clear Fouled</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="ruined" data-mf-on="1" data-gun-i="${i}">Set Ruined</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="ruined" data-mf-on="0" data-gun-i="${i}">Clear Ruined</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="cancel" data-gun-i="${i}">Cancel d4</button>
         <input type="number" data-gun-loaded="${i}" value="${esc(g.loaded)}" aria-label="Loaded chambers">
       </div>`).join("") || "<p>—</p>"}
     </div>
@@ -1654,9 +1709,28 @@ function openDetail(pid) {
       const op = btn.getAttribute("data-gun-op");
       const loadedEl = $("#detailBody").querySelector("[data-gun-loaded='" + index + "']");
       const payload = { index, op, loaded: loadedEl ? Number(loadedEl.value) : null };
+      if (op === "misfire") {
+        const key = btn.getAttribute("data-mf");
+        if (key === "reset") payload.resetStreak = true;
+        else if (key === "cancel") payload.cancelD4 = true;
+        else if (key) payload[key] = btn.getAttribute("data-mf-on") === "1";
+      }
       pushCommand({ type: "gun", to: pid, payload });
+      const gunName = (state.players[pid] && state.players[pid].snapshot && state.players[pid].snapshot.guns && state.players[pid].snapshot.guns[index] && state.players[pid].snapshot.guns[index].name) || "gun";
+      if (op === "misfire") postDmAction("DM override on " + gunName + ": " + misfireOverrideWords(payload) + ".", pid);
       if (state.demo) applyDemoGun(pid, payload);
     });
+  });
+  const badgeSel = $("#dmBadge");
+  if (badgeSel) badgeSel.value = s.badgeState || "dull";
+  const badgeBtn = $("#btnDmBadge");
+  if (badgeBtn) badgeBtn.addEventListener("click", () => {
+    const stateName = (badgeSel && badgeSel.value) || "bright";
+    pushCommand({ type: "badge", to: pid, payload: { state: stateName } });
+    if (state.demo && state.players[pid] && state.players[pid].snapshot) {
+      state.players[pid].snapshot.badgeState = stateName;
+      renderPlayers();
+    }
   });
   $("#detailOverlay").hidden = false;
 }
@@ -2586,6 +2660,7 @@ window.DMCC = {
   download: download,
   fmtTime: fmtTime,
   pushLedger: pushLedger,
+  postDmAction: postDmAction,
   pushRoll: pushRoll,
   pushCommand: pushCommand,
   applyDemoGun: applyDemoGun,

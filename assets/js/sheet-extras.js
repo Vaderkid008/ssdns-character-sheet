@@ -1546,32 +1546,43 @@
     var both = n2 != null && bad(n1) && bad(n2);
     var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
     var wpn = lists.filter(function (x) { return x.id === g.weapon; })[0];
+    var cue = root.SSDNSAudio && root.SSDNSAudio.weaponCue
+      ? root.SSDNSAudio.weaponCue(Object.assign({ gun: true }, wpn || {}, { id: g.weapon, sfx: g.sfx || (wpn && wpn.sfx) || "" }))
+      : "attack";
     var rugged = !!(wpn && /rugged/i.test(wpn.properties || ""));
     var name = gunName(i);
     var who = (ch() && ch().name) || name;
     var dice = gunDice.shown || String(nat);
     var total = nat + atk;
-    var misfired = false;
-    if (both && !rugged) {
-      g.fouled = true;
-      var foul = document.querySelector('[data-f="character.guns.' + i + '.fouled"]');
-      if (foul) { foul.checked = true; dispatch(foul); }
+    var resolved = root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
+      ? root.SSDNSMisfire.resolveShot({
+        dirty: g.dirty, fouled: g.fouled, ruined: g.ruined || g.broken, jammed: g.jammed,
+        misStreak: g.misStreak, weapon: g.weapon, rugged: rugged, properties: wpn && wpn.properties
+      }, { n1: n1, n2: n2, nat: nat, ceiling: ceiling, spark: false })
+      : { misfire: both || bad(nat), both: both && !rugged, fouled: both && !rugged, jammed: !(both && !rugged) && bad(nat), armD4: false, misStreak: g.misStreak, reset: !(both || bad(nat)) };
+    g.misStreak = resolved.misStreak;
+    g.fouled = !!resolved.fouled;
+    g.jammed = !!resolved.jammed;
+    if (resolved.ruined) { g.ruined = true; g.broken = true; }
+    var misfired = !!resolved.misfire;
+    function syncFlag(flag) {
+      var box = document.querySelector('[data-f="character.guns.' + i + '.' + flag + '"]');
+      if (box) { box.checked = !!g[flag]; dispatch(box); }
+    }
+    if (resolved.fouled) {
+      syncFlag("fouled");
       postGunLedger(name + " fouled (double misfire)", "foul");
-      misfired = true;
-    } else if (bad(nat)) {
-      g.jammed = true;
-      var jam = document.querySelector('[data-f="character.guns.' + i + '.jammed"]');
-      if (jam) { jam.checked = true; dispatch(jam); }
+    } else if (resolved.jammed) {
+      syncFlag("jammed");
       attackCue("jam");
       postGunLedger(name + " jammed (misfire)", "jam");
-      misfired = true;
     }
     var quiet = whisperOn();
     var tgt = currentTarget();
     if (tgt) rememberEnemy(tgt);
     var haveAc = tgt && tgt.ac != null && isFinite(Number(tgt.ac));
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
-    if (!misfired) attackCue("attack");
+    if (!misfired) attackCue(cue);
     if (!misfired && acHidden(tgt) && joined() && !quiet) {
       var pendingDmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
       sendPendingAttack({
@@ -1586,7 +1597,7 @@
         rollId: gunRollId,
         label: who + (tgt.name ? " → " + tgt.name : ""),
         weapon: name,
-        sfx: "attack",
+        sfx: cue,
         quiet: false
       });
       consumeRollMode();
@@ -1602,14 +1613,7 @@
       dice: dice, weapon: name, caliber: caliber
     });
     if (ch()) ch().takingCover = false;
-    if (misfired && g.dirty && !g.rusty && !both) {
-      g.misStreak = (Number(g.misStreak) || 0) + 1;
-      if (g.misStreak % 2 === 0 && window.SSDNSD4) {
-        g.pendingD4 = true;
-        g.misStreak = 0;
-        window.SSDNSD4.reveal({ sides: 4, gun: name, index: i });
-      }
-    } else if (!misfired) g.misStreak = 0;
+    if (resolved.armD4 && window.SSDNSD4 && window.SSDNSD4.arm) window.SSDNSD4.arm(i);
     var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
     var line = report.player + (misfired ? " · misfire" : "") + (gunDice.note ? " · " + gunDice.note : "") + modeWord(chosen) + ammoTxt;
     consumeRollMode();
@@ -1684,10 +1688,25 @@
       if (!spent.ok) showNotice((payload.name || "Gun") + ": " + (spent.reason || "could not spend a round"));
     }
     ["jammed", "fouled", "dirty"].forEach(function (k) {
-      if (payload[k] == null) return;
+      if (payload[k] == null || payload[k] === false) return;
       var box = document.querySelector('[data-f="character.guns.' + i + '.' + k + '"]');
-      if (box) { box.checked = !!payload[k]; dispatch(box); }
+      if (box) { box.checked = true; dispatch(box); }
     });
+    if (payload.misStreak != null && root.SSDNSApp && root.SSDNSApp.applyPatch) {
+      root.SSDNSApp.applyPatch(function (doc) {
+        var gun = doc.character && doc.character.guns && doc.character.guns[i];
+        if (gun) gun.misStreak = Number(payload.misStreak) || 0;
+      });
+    }
+    if (payload.ruined && root.SSDNSApp && root.SSDNSApp.applyPatch) {
+      root.SSDNSApp.applyPatch(function (doc) {
+        var gun = doc.character && doc.character.guns && doc.character.guns[i];
+        if (!gun) return;
+        gun.ruined = true;
+        gun.broken = true;
+      });
+    }
+    if (payload.armD4 && root.SSDNSD4 && root.SSDNSD4.arm) root.SSDNSD4.arm(i);
     if (payload.jammed) showNotice((payload.name || "Gun") + " jammed (misfire)");
     else if (payload.fouled) showNotice((payload.name || "Gun") + " fouled");
   }

@@ -219,6 +219,8 @@
       var linPick = lineageById(draft.lineage);
       if (!linPick) errs.push("Pick a lineage.");
       else if (subRequired(linPick) && !draft.sublineage) errs.push("Pick a sublineage.");
+      else if (linPick && SETTLER_ROW[linPick.id] && !draft.settlerLanguage) errs.push("Pick a settler language.");
+      if (linPick && needsExtraLang(draft) && !draft.extraLanguage) errs.push("Pick an extra language.");
     }
     if (step === "calling" || step === "review") {
       if (!cal) errs.push("Pick a calling.");
@@ -322,7 +324,7 @@
     var prof = [];
     if (cal && cal.armorProf) prof.push("Armor (" + cal.name + "): " + cal.armorProf);
     if (cal && cal.weaponProf) prof.push("Weapons (" + cal.name + "): " + cal.weaponProf);
-    if (lin && lin.languages) prof.push(lin.languages);
+    if (lin) prof.push(languageLine(draft, lin));
     c.proficienciesLanguages = prof.join("\n");
     if (bg && bg.feature && bg.feature.name) {
       c.features = bg.feature.name + ": " + (bg.feature.text || "");
@@ -354,6 +356,8 @@
     draft.player = spec.player || "Tester";
     draft.lineage = lin.id;
     draft.sublineage = spec.sublineage || ((lin.sublineages || [])[0] && lin.sublineages[0].id) || "";
+    draft.settlerLanguage = spec.settlerLanguage || defaultSettler(lin.id);
+    if (needsExtraLang(draft)) draft.extraLanguage = spec.extraLanguage || "German";
     draft.calling = cal.id;
     draft.method = spec.method || "standard";
     draft.scores = spec.scores || assignStandard(cal);
@@ -424,6 +428,26 @@
     return o;
   }
   var SUB_REQUIRED = { "mountain-folk": 1, aristocrats: 1, farmers: 1, merchants: 1 };
+  var SETTLER_ROW = {
+    "mountain-folk": ["German", "Welsh"],
+    aristocrats: ["French", "Latin"],
+    farmers: ["Irish Gaelic", "Spanish"],
+    "camp-kin": ["German", "Russian"],
+    merchants: ["Cantonese", "German", "Italian"],
+    diplomats: ["Spanish", "French"],
+    pioneers: ["Swedish", "Norwegian", "Dutch"],
+    "street-folk": ["Italian", "Polish"]
+  };
+  var CHOICE_LANGS = ["Cantonese", "Dutch", "French", "German", "Irish Gaelic", "Italian", "Latin", "Norwegian", "Polish", "Russian", "Spanish", "Swedish", "Trail Tongue", "Welsh", "Dwarvish", "Elvish", "Halfling", "Gnomish", "Orc"];
+  function needsExtraLang(draft) {
+    if (!draft) return false;
+    if (draft.lineage === "nomads" || draft.lineage === "diplomats") return true;
+    return draft.sublineage === "high-house";
+  }
+  function defaultSettler(id) {
+    var row = SETTLER_ROW[id];
+    return row ? row[0] : "";
+  }
   function subRequired(lin) {
     return !!(lin && SUB_REQUIRED[lin.id] && (lin.sublineages || []).length);
   }
@@ -437,39 +461,84 @@
     if (cur.indexOf(text) >= 0) return;
     c.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + "• " + text;
   }
+  function languageLine(draft, lin) {
+    if (!lin) return "";
+    if (lin.id === "nomads") {
+      var nomad = ["Common", "Trail Tongue"];
+      if (draft.extraLanguage) nomad.push(draft.extraLanguage);
+      return "You can speak, read, and write " + nomad.join(", ") + ".";
+    }
+    var parts = ["Common"];
+    if (draft.settlerLanguage) parts.push(draft.settlerLanguage);
+    if (draft.extraLanguage) parts.push(draft.extraLanguage);
+    if (parts.length < 2) return lin.languages || "";
+    if (parts.length === 2) return "You can speak, read, and write " + parts[0] + " and " + parts[1] + ".";
+    return "You can speak, read, and write " + parts.slice(0, -1).join(", ") + ", and " + parts[parts.length - 1] + ".";
+  }
+  function langSelect(id, current, choices, placeholder) {
+    var sel = el("select", { id: id, "aria-label": placeholder || "Language" });
+    sel.appendChild(option("", placeholder || "Choose…", !current));
+    (choices || []).forEach(function (name) {
+      sel.appendChild(option(name, name, name === current));
+    });
+    return sel;
+  }
   function combinedAsi(lin, sub) {
     if (sub && sub.asi && lin && lin.asi && sub.id !== "variant-human") return lin.asi + " · " + sub.asi;
     if (sub && sub.asi) return sub.asi;
     return (lin && lin.asi) || "";
   }
-  function aboutButton(kind, id) {
+  function aboutButton(kind, id, subId) {
     var b = el("button", { type: "button", class: "btn sm", text: "About" });
-    b.addEventListener("click", function () { openRef(kind, id); });
+    b.addEventListener("click", function () { openRef(kind, id, subId); });
     return b;
   }
-  function openRef(kind, id) {
+  function chartTable(rows) {
+    var table = el("table", { class: "wiz-chart" });
+    (rows || []).forEach(function (row) {
+      if (!row) return;
+      var tr = el("tr");
+      tr.appendChild(el("th", { text: row[0] || "" }));
+      tr.appendChild(el("td", { text: row[1] || "" }));
+      table.appendChild(tr);
+    });
+    return table;
+  }
+  function accentRows(card) {
+    var rows = [];
+    if (!card || !card.accent) return rows;
+    if (card.accent.accent) rows.push(["Accent", card.accent.accent]);
+    if (card.accent.settlerLanguages && card.accent.settlerLanguages.length) rows.push(["Settler languages", card.accent.settlerLanguages.join(" or ")]);
+    return rows;
+  }
+  function openRef(kind, id, subId) {
     var card = refById(kind, id);
     if (!card || !root.document) return;
     var dlg = el("dialog", { class: "dlg wiz-ref" });
     var body = el("div", { class: "wiz-body" });
     body.appendChild(el("h2", { text: card.name || "Reference" }));
-    if (card.race5e || card.class5e || card.twin5e) body.appendChild(el("p", { class: "fine", text: card.race5e || card.class5e || card.twin5e }));
+    if (card.race5e || card.class5e || card.twin5e) body.appendChild(el("p", { class: "fine", text: "5E " + (kind === "callings" ? "class" : "lineage") + ": " + (card.race5e || card.class5e || card.twin5e) }));
     if (card.blurb) body.appendChild(el("p", { text: card.blurb }));
-    if (card.moreInfo) body.appendChild(el("p", { class: "fine", text: card.moreInfo }));
-    (card.table || []).forEach(function (row) {
-      if (!row) return;
-      body.appendChild(el("p", { text: (row[0] || "") + ": " + (row[1] || "") }));
-    });
+    var rows = (card.table || []).slice();
+    accentRows(card).forEach(function (row) { rows.push(row); });
+    if (rows.length) body.appendChild(chartTable(rows));
     if (card.languageNote) body.appendChild(el("p", { class: "fine", text: card.languageNote }));
-    (card.sublineages || []).forEach(function (sub) {
-      body.appendChild(el("h3", { text: sub.name || "Sublineage" }));
-      if (sub.blurb) body.appendChild(el("p", { text: sub.blurb }));
-      (sub.table || []).forEach(function (row) {
-        body.appendChild(el("p", { text: (row[0] || "") + ": " + (row[1] || "") }));
+    var subs = card.sublineages || [];
+    var picked = subId && subs.filter(function (sub) { return sub.id === subId; })[0];
+    if (picked) {
+      body.appendChild(el("h3", { text: picked.name || "Sublineage" }));
+      if (picked.blurb) body.appendChild(el("p", { text: picked.blurb }));
+      if (picked.table) body.appendChild(chartTable(picked.table));
+    } else if (subs.length) {
+      if (card.subPick) body.appendChild(el("p", { text: card.subPick }));
+      subs.forEach(function (sub) {
+        body.appendChild(el("h3", { text: sub.name || "Sublineage" }));
+        if (sub.blurb) body.appendChild(el("p", { text: sub.blurb }));
+        if (sub.table) body.appendChild(chartTable(sub.table));
       });
-      if (sub.moreInfo) body.appendChild(el("p", { class: "fine", text: sub.moreInfo }));
-    });
-    if (card.feature && card.feature.name) body.appendChild(el("p", { text: card.feature.name + " — " + (card.feature.text || "") }));
+    }
+    if (card.feature && card.feature.name) body.appendChild(el("p", { text: "Feature — " + card.feature.name + ": " + (card.feature.text || "") }));
+    if (card.moreInfo) body.appendChild(el("p", { class: "fine wiz-page", text: card.moreInfo }));
     var foot = el("div", { class: "dlg-foot" });
     var closeBtn = el("button", { type: "button", class: "btn", text: "Close" });
     closeBtn.addEventListener("click", function () { if (dlg.close) dlg.close(); });
@@ -511,26 +580,43 @@
           sub.appendChild(option(s.id, s.name, s.id === draft.sublineage));
         });
       }
-      sel.addEventListener("change", function () { draft.lineage = sel.value; draft.sublineage = ""; fillSub(); renderStep(body, draft, step); });
+      sel.addEventListener("change", function () {
+        draft.lineage = sel.value;
+        draft.sublineage = "";
+        draft.settlerLanguage = "";
+        draft.extraLanguage = "";
+        fillSub();
+        renderStep(body, draft, step);
+      });
       sub.addEventListener("change", function () { draft.sublineage = sub.value; renderStep(body, draft, step); });
       fillSub();
       var linRow = el("div", { class: "wiz-inline" });
       linRow.appendChild(field("Lineage", sel));
-      if (draft.lineage) linRow.appendChild(aboutButton("lineages", draft.lineage));
+      if (draft.lineage) linRow.appendChild(aboutButton("lineages", draft.lineage, draft.sublineage));
       body.appendChild(linRow);
-      body.appendChild(field("Sublineage", sub));
+      var subRow = el("div", { class: "wiz-inline" });
+      subRow.appendChild(field("Sublineage", sub));
+      if (draft.sublineage) subRow.appendChild(aboutButton("lineages", draft.lineage, draft.sublineage));
+      body.appendChild(subRow);
       var lin = lineageById(draft.lineage);
       var picked = lin && (lin.sublineages || []).filter(function (s) { return s.id === draft.sublineage; })[0];
       if (lin) {
         var speed = (picked && picked.speed) || lin.speed || 30;
         body.appendChild(el("p", { text: combinedAsi(lin, picked) + " · Speed " + speed + " ft. · " + (lin.size || "Medium") }));
-        if (picked && picked.asi) body.appendChild(el("p", { text: "Sublineage bonus: " + picked.asi }));
-        else if (picked && picked.text) body.appendChild(el("p", { text: "Sublineage bonus: " + picked.text }));
-        var refSub = refById("lineages", lin.id);
-        var refPicked = refSub && (refSub.sublineages || []).filter(function (s) { return s.id === draft.sublineage; })[0];
-        if (refPicked) (refPicked.table || []).forEach(function (row) {
-          if (row && row[0] && !/ability scores/i.test(row[0])) body.appendChild(el("p", { text: row[0] + ": " + row[1] }));
-        });
+        body.appendChild(el("h3", { text: "Languages" }));
+        if (lin.id === "nomads") body.appendChild(el("p", { text: "Common and Trail Tongue. Trail Tongue is fixed for Nomads." }));
+        else if (SETTLER_ROW[lin.id]) {
+          var langSel = langSelect("wizSettler", draft.settlerLanguage, SETTLER_ROW[lin.id], "Settler language…");
+          langSel.addEventListener("change", function () { draft.settlerLanguage = langSel.value; renderStep(body, draft, step); });
+          body.appendChild(field("Settler language", langSel));
+          body.appendChild(el("p", { class: "fine", text: lin.languages || "" }));
+        }
+        if (needsExtraLang(draft)) {
+          var extraSel = langSelect("wizExtraLang", draft.extraLanguage, CHOICE_LANGS, "Extra language…");
+          extraSel.addEventListener("change", function () { draft.extraLanguage = extraSel.value; renderStep(body, draft, step); });
+          body.appendChild(field("Extra language of your choice", extraSel));
+          body.appendChild(el("p", { class: "fine", text: "A settler language or an Old Tongue. Infernal and Celestial are not offered." }));
+        }
       }
     } else if (step === "calling") {
       body.appendChild(el("h2", { text: "Calling" }));
@@ -548,15 +634,17 @@
         draft.spells = [];
         renderStep(body, draft, step);
       });
-      body.appendChild(field("Calling", csel));
+      var callRow = el("div", { class: "wiz-inline" });
+      callRow.appendChild(field("Calling", csel));
+      if (cal) callRow.appendChild(aboutButton("callings", cal.id));
+      body.appendChild(callRow);
       if (cal) {
         body.appendChild(el("p", { text: "Hit die " + cal.hitDie + ". Saves " + (cal.saves || []).join(", ") + ". Key ability " + (cal.primary || "—") + "." }));
         if (cal.armorProf) body.appendChild(el("p", { class: "fine", text: "Armor: " + cal.armorProf }));
         if (cal.weaponProf) body.appendChild(el("p", { class: "fine", text: "Weapons: " + cal.weaponProf }));
-        if (cal.kit) body.appendChild(el("p", { class: "fine", text: "Kit: " + cal.kit }));
-        body.appendChild(aboutButton("callings", cal.id));
-        var feat = (cal.features || [])[0];
-        if (feat) body.appendChild(el("p", { text: feat.name + " — " + feat.text }));
+        var callCard = refById("callings", cal.id);
+        var firstLevel = callCard && (callCard.table || []).filter(function (row) { return row && /1st level/i.test(row[0] || ""); })[0];
+        if (firstLevel) body.appendChild(el("p", { text: firstLevel[0] + ": " + firstLevel[1] }));
       }
     } else if (step === "abilities") {
       body.appendChild(el("h2", { text: "Ability scores" }));
@@ -586,7 +674,12 @@
         });
         body.appendChild(rollBtn);
         if (draft.rolled && draft.rolled.length === 6) {
-          body.appendChild(el("p", { text: "Rolled: " + draft.rolled.map(function (row) { return row.total; }).join(", ") }));
+          body.appendChild(el("p", { text: "Rolled: " + draft.rolled.map(function (row) {
+            var dice = row.dice || [];
+            var dropped = dice.length ? dice[0] : "";
+            var kept = dice.slice(1);
+            return row.total + " (" + kept.join("+") + (dropped !== "" ? ", drop " + dropped : "") + ")";
+          }).join(" · ") }));
         }
         var manual = el("label", { class: "wiz-check" });
         var manualBox = el("input", { type: "checkbox" });
@@ -711,6 +804,7 @@
         bed.addEventListener("input", function () { draft.bedtime = bed.value; });
         body.appendChild(field("Bedtime item", bed));
       }
+      body.appendChild(el("h3", { text: "Your starting kit" }));
       if (!choices.length) body.appendChild(el("p", { text: "No choices to make; this is your kit." }));
       choices.forEach(function (ch) {
         if (ch.when && !ch.when(draft.kit || {})) return;
@@ -729,7 +823,13 @@
       var kitLines = root.SSDNSKits && root.SSDNSKits.describe
         ? root.SSDNSKits.describe(draft.calling, Object.assign({}, draft.kit || {}, draft.kitMode === "module" ? { _start: "module", bedtime: draft.bedtime || "" } : {}))
         : [];
-      if (kitLines.length) body.appendChild(el("p", { text: "Kit: " + kitLines.join("; ") }));
+      if (kitLines.length) {
+        var list = el("ul", { class: "wiz-kit" });
+        kitLines.forEach(function (line) { list.appendChild(el("li", { text: line })); });
+        body.appendChild(list);
+      }
+      var kitCard = refById("callings", draft.calling);
+      if (kitCard && kitCard.moreInfo) body.appendChild(el("p", { class: "fine wiz-page", text: kitCard.moreInfo }));
     } else if (step === "spells") {
       body.appendChild(el("h2", { text: "Spells" }));
       var focus = focusFor(draft.calling);
@@ -754,6 +854,20 @@
           box.appendChild(input);
           box.appendChild(root.document.createTextNode(" " + name));
           body.appendChild(box);
+          var Cast = root.SSDNSSpellCast;
+          if (Cast && Cast.describe) {
+            var ability = ({ "storyteller": "CHA", "frontier-preacher": "WIS", "nature-guide": "WIS", "lawman": "CHA", "scholar": "INT", "hexslinger": "CHA", "pact-seeker": "CHA", "frontier-scout": "WIS" })[draft.calling] || "CHA";
+            var score = (draft.scores && draft.scores[ability]) || 10;
+            var modN = Math.floor((Number(score) - 10) / 2);
+            var prof = (Number(draft.level) || 1) >= 5 ? 3 : 2;
+            var text = Cast.describe(name, { spellDC: 8 + prof + modN, spellAtk: prof + modN, level: draft.level || 1, ability: ability });
+            if (text) {
+              body.appendChild(el("details", { class: "spell-more" }, [
+                el("summary", { text: "About" }),
+                el("p", { class: "spell-desc", text: text })
+              ]));
+            }
+          }
         });
       }
       picks("Cantrips", 0, draft.cantrips || [], lim.cantrips);

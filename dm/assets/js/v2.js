@@ -683,6 +683,18 @@ function enemyCardHtml(row, i) {
     const jam = atk.jammed
       ? `<p class="fine">Jammed. <button type="button" class="btn sm" data-clear-jam="${i}" data-atk-n="${n}">Clear jam</button></p>`
       : "";
+    const gunLike = atk.misfire != null && atk.misfire !== "" || atk.capacity != null;
+    const mfOverride = gunLike ? `<div class="misfire-override">
+      <p class="fine">Streak ${esc(atk.misStreak || 0)}${atk.pendingD4 ? " · d4 pending" : ""}${atk.dirty ? " · Dirty" : ""}${atk.fouled ? " · Fouled" : ""}${atk.ruined ? " · Ruined" : ""}</p>
+      <button type="button" class="btn sm" data-mf-op="reset" data-mf-row="${i}" data-atk-n="${n}">Reset streak</button>
+      <button type="button" class="btn sm" data-mf-op="dirty" data-mf-on="1" data-mf-row="${i}" data-atk-n="${n}">Set Dirty</button>
+      <button type="button" class="btn sm" data-mf-op="dirty" data-mf-on="0" data-mf-row="${i}" data-atk-n="${n}">Clear Dirty</button>
+      <button type="button" class="btn sm" data-mf-op="fouled" data-mf-on="1" data-mf-row="${i}" data-atk-n="${n}">Set Fouled</button>
+      <button type="button" class="btn sm" data-mf-op="fouled" data-mf-on="0" data-mf-row="${i}" data-atk-n="${n}">Clear Fouled</button>
+      <button type="button" class="btn sm" data-mf-op="ruined" data-mf-on="1" data-mf-row="${i}" data-atk-n="${n}">Set Ruined</button>
+      <button type="button" class="btn sm" data-mf-op="ruined" data-mf-on="0" data-mf-row="${i}" data-atk-n="${n}">Clear Ruined</button>
+      <button type="button" class="btn sm" data-mf-op="cancel" data-mf-row="${i}" data-atk-n="${n}">Cancel d4</button>
+    </div>` : "";
     const needsSave = !!(atk.rider || atk.saveDamage || atk.saveEffect);
     const riderBtns = needsSave
       ? `<button type="button" class="btn" data-sheet-save="prompt" data-n="${n}">Prompt player save</button>
@@ -695,6 +707,7 @@ function enemyCardHtml(row, i) {
       ${atk.notes ? `<p class="fine">${esc(atk.notes)}</p>` : ""}
       ${calls}
       ${jam}
+      ${mfOverride}
       <div class="toolbar">
         <button type="button" class="btn btn-primary" data-sheet-roll="1" data-n="${n}">Roll</button>
         <button type="button" class="btn" data-sheet-apply="1" data-n="${n}">Apply</button>
@@ -724,7 +737,9 @@ function enemyCardHtml(row, i) {
       const raw = typeof spell === "string" ? spell : (spell && spell.name) || "Spell";
       const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(raw) : null;
       const name = (known && known.name) || raw;
-      const blurb = window.SSDNSSpellCast && window.SSDNSSpellCast.blurb ? window.SSDNSSpellCast.blurb(name) : "";
+      const medium = window.SSDNSSpellCast && window.SSDNSSpellCast.describe
+        ? window.SSDNSSpellCast.describe(name, { spellDC: casting.dc, spellAtk: casting.attack, ability: casting.ability, level: row.level || (card && card.level) || 1 })
+        : "";
       const kind = (known && known.kind) || (spell && spell.kind) || "";
       const level = spell && spell.level != null ? spell.level : (known && known.level != null ? known.level : "");
       const mode = kind === "save" ? "SAVE" : (kind === "attack" ? "ATTACK" : (kind ? String(kind).toUpperCase() : ""));
@@ -740,7 +755,7 @@ function enemyCardHtml(row, i) {
       return `<article class="atk-row">
         <h3>${esc(name)}</h3>
         <p>${esc(meta)}</p>
-        ${blurb ? `<p class="fine">${esc(blurb)}</p>` : ""}
+        ${medium ? `<details class="spell-more"><summary>About</summary><p class="spell-desc">${esc(medium)}</p></details>` : ""}
         <button type="button" class="btn" data-sheet-cast="1" data-n="${n}">${esc(castLabel)}</button>
       </article>`;
     }).join("");
@@ -1936,6 +1951,12 @@ function gunMemory(attacks) {
     name: atk.name || "",
     loaded: atk.loaded,
     jammed: !!atk.jammed,
+    dirty: !!atk.dirty,
+    fouled: !!atk.fouled,
+    ruined: !!atk.ruined,
+    misStreak: Number(atk.misStreak) || 0,
+    pendingD4: !!atk.pendingD4,
+    pendingD4Rolls: atk.pendingD4Rolls || null,
     lastRoll: atk.lastRoll || null
   })).filter(Boolean);
 }
@@ -1946,6 +1967,11 @@ function restoreGuns(attacks, prev) {
     if (!old) return;
     if (atk.capacity != null && old.loaded != null && old.loaded !== "" && isFinite(Number(old.loaded))) atk.loaded = Number(old.loaded);
     if (old.jammed) atk.jammed = true;
+    if (old.dirty) atk.dirty = true;
+    if (old.fouled) atk.fouled = true;
+    if (old.ruined) atk.ruined = true;
+    if (old.misStreak) atk.misStreak = old.misStreak;
+    if (old.pendingD4) { atk.pendingD4 = true; atk.pendingD4Rolls = old.pendingD4Rolls; }
     if (old.lastRoll) atk.lastRoll = old.lastRoll;
   });
 }
@@ -2646,6 +2672,10 @@ function misfireCeiling(text, dirty) {
   if (dirty) hi = Math.max(hi, 2);
   return hi;
 }
+function strikeCue(info) {
+  if (window.SSDNSAudio && window.SSDNSAudio.weaponCue) return window.SSDNSAudio.weaponCue(info || {});
+  return "whoosh";
+}
 function playTableSfx(eventName) {
   const name = window.SSDNSAudio && window.SSDNSAudio.sharedCue
     ? window.SSDNSAudio.sharedCue(eventName)
@@ -2705,6 +2735,8 @@ async function rollGunAttack(pid) {
   if (!g) { DM.toast("No gun"); return; }
   if (g.jammed) { DM.toast(g.name + " is jammed"); return; }
   if (g.fouled) { DM.toast(g.name + " is fouled"); return; }
+  if (g.ruined) { DM.toast(g.name + " is ruined"); return; }
+  if (g.pendingD4) { DM.toast("Roll the d4 first."); return; }
   const loaded = Number(g.loaded);
   if (g.caster && Number(g.plain) <= 0) {
     DM.toast(g.name + " has no plain cartridge. Cast through gun fires a hex shell. Roll weapon never spends a slot.");
@@ -2724,11 +2756,21 @@ async function rollGunAttack(pid) {
   }
   const hi = misfireCeiling(g.misfire, !!g.dirty);
   const inRange = (n) => n >= 1 && n <= hi;
-  const both = n2 != null && inRange(n1) && inRange(n2) && !g.rugged;
-  const misfire = both || inRange(nat);
+  const resolved = window.SSDNSMisfire
+    ? window.SSDNSMisfire.resolveShot(g, { n1, n2, nat, ceiling: hi, spark: false })
+    : null;
+  const both = resolved ? resolved.both : (n2 != null && inRange(n1) && inRange(n2) && !g.rugged);
+  const misfire = resolved ? resolved.misfire : (both || inRange(nat));
+  if (resolved) {
+    g.misStreak = resolved.misStreak;
+    g.fouled = !!resolved.fouled;
+    g.jammed = !!resolved.jammed;
+    g.ruined = !!resolved.ruined;
+    if (resolved.armD4) g.pendingD4 = true;
+  }
   const total = nat + bonus;
   const dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
-  playTableSfx("attack");
+  playTableSfx(strikeCue({ gun: true, name: g.name, id: g.weapon, sfx: g.sfx }));
   let dmg = null;
   if (!misfire) dmg = rollDiceExpr(g.damage, nat === 20);
   const whoName = namesFor(pid).characterName || s.name || "them";
@@ -2742,27 +2784,27 @@ async function rollGunAttack(pid) {
     damage: dmg ? dmg.total : null
   });
   const names = namesFor(pid);
+  if (resolved && resolved.fouled) g.condition = "fouled";
+  else if (resolved && resolved.jammed) g.condition = "jammed";
+  else if (resolved && resolved.ruined) g.condition = "ruined";
   if (both) {
-    g.fouled = true;
-    g.condition = "fouled";
     await DM.pushLedger(Object.assign({
       who: "DM", playerId: pid, type: "foul",
       what: g.name + " fouled (double misfire) · " + (names.characterName || ""),
       oldVal: null, newVal: "fouled", flag: false
     }, names));
-    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, fouled: true }, from: DM.state.uid });
+    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, fouled: true, misStreak: 0 }, from: DM.state.uid });
   } else if (misfire) {
-    g.jammed = true;
-    g.condition = "jammed";
-    playTableSfx("jam");
+    if (resolved && resolved.jammed) playTableSfx("jam");
     await DM.pushLedger(Object.assign({
-      who: "DM", playerId: pid, type: "jam",
-      what: g.name + " jammed (misfire) · " + (names.characterName || ""),
-      oldVal: null, newVal: "jammed", flag: false
+      who: "DM", playerId: pid, type: resolved && resolved.armD4 ? "d4" : "jam",
+      what: g.name + (resolved && resolved.armD4 ? " dirty streak opens a d4" : " jammed (misfire)") + " · " + (names.characterName || ""),
+      oldVal: null, newVal: resolved && resolved.armD4 ? "d4" : "jammed", flag: false
     }, names));
-    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, jammed: true }, from: DM.state.uid });
+    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, jammed: !!(resolved && resolved.jammed), misStreak: g.misStreak, armD4: !!(resolved && resolved.armD4) }, from: DM.state.uid });
   } else {
-    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1 }, from: DM.state.uid });
+    g.misStreak = 0;
+    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, misStreak: 0 }, from: DM.state.uid });
   }
   if (g.cracked || g.condition === "cracked") {
     const ex = 1 + Math.floor(Math.random() * 20);
@@ -3154,7 +3196,7 @@ async function enemyStrike(i, preset) {
   const weapon = attackName && attackName.toLowerCase() !== String(row.name || "").toLowerCase() ? attackName : "";
   const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   const id = DM.uid("enatk");
-  playTableSfx("attack");
+  playTableSfx(strikeCue(preset || { name: attackName }));
   await DM.pushRoll({
     id: id, who: row.name, uid: DM.state.uid, label: row.name + " attacks " + (target.name || ""), formula: "1d20" + bonusTxt,
     result: total, detail: detail, private: false, attack: true, nat: nat, crit: nat === 20 && hit,
@@ -3282,6 +3324,9 @@ async function cardStrike(i, n, opts) {
   const atk = row.card && row.card.attacks && row.card.attacks[n];
   if (!atk) return;
   if (atk.jammed) { DM.toast(atk.name + " is jammed"); return; }
+  if (atk.fouled) { DM.toast(atk.name + " is fouled"); return; }
+  if (atk.ruined) { DM.toast(atk.name + " is ruined"); return; }
+  if (atk.pendingD4) { DM.toast("Roll the d4 first."); return; }
   if (atk.capacity != null && Number(atk.loaded) <= 0) { DM.toast(atk.name + " is empty"); return; }
   const picked = await askEnemyStrike(row, atk);
   if (!picked || !picked.targetId) { DM.toast("No targets"); return; }
@@ -3294,14 +3339,27 @@ async function cardStrike(i, n, opts) {
   const ac = numericAc(target.ac);
   if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
   const nat = d20();
-  const misfire = window.SSDNSApplied && window.SSDNSApplied.isMisfire
+  const ceiling = window.SSDNSApplied && window.SSDNSApplied.misfireNumber
+    ? window.SSDNSApplied.misfireNumber(atk.misfire)
+    : null;
+  const resolved = (atk.misfire != null && atk.misfire !== "" && window.SSDNSMisfire)
+    ? window.SSDNSMisfire.resolveShot(atk, { n1: nat, nat: nat, ceiling: ceiling || 1, spark: false })
+    : null;
+  const misfire = resolved ? resolved.misfire : (window.SSDNSApplied && window.SSDNSApplied.isMisfire
     ? window.SSDNSApplied.isMisfire(nat, atk.misfire)
-    : false;
+    : false);
+  if (resolved) {
+    atk.misStreak = resolved.misStreak;
+    atk.fouled = !!resolved.fouled;
+    atk.jammed = !!resolved.jammed;
+    atk.ruined = !!resolved.ruined;
+    if (resolved.armD4) atk.pendingD4 = true;
+  }
   if (atk.capacity != null) atk.loaded = Math.max(0, Number(atk.loaded) - 1);
   if (misfire) {
-    atk.jammed = true;
+    if (!resolved) atk.jammed = true;
     const detail = row.name + " fires " + atk.name + ": natural " + nat + " misfire. The round is spent.";
-    playTableSfx("jam");
+    if (!resolved || resolved.jammed) playTableSfx("jam");
     await publishCardRoll(row, detail, nat, { attack: true, nat: nat });
     await saveRemoteTable();
     renderFight();
@@ -3317,7 +3375,7 @@ async function cardStrike(i, n, opts) {
   let detail = row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   const id = DM.uid("enatk");
   atk.lastRoll = { id: id, damage: dmg ? dmg.total : null, targetId: target.id, targetName: target.name, hit: hit };
-  playTableSfx("attack");
+  playTableSfx(strikeCue(atk));
   await publishCardRoll(row, detail, total, {
     id: id, formula: "1d20" + bonusTxt, attack: true, nat: nat, crit: nat === 20 && hit,
     targetId: target.id, targetName: target.name, damage: dmg ? dmg.total : null, weapon: atk.name
@@ -3527,7 +3585,7 @@ async function attackRow(i) {
   let dmg = null;
   if (hit) dmg = DM.parseDice(($("#dmgFormula") && /d20/i.test($("#dmgFormula").value) ? "1d8" : ($("#dmgFormula").value || "1d8")));
   const text = row.name + " AC " + (isFinite(ac) ? ac : "?") + " · " + attackFormula + " = " + out.total + (hit == null ? "" : hit ? " HIT" : " MISS") + (hit && dmg ? " · " + dmg.total + " damage" : "");
-  playTableSfx("attack");
+  playTableSfx(strikeCue({ name: row.name, sfx: row.sfx }));
   await DM.pushRoll({
     who: "DM", uid: DM.state.uid, label: "DM roll vs this AC · " + row.name, formula: attackFormula,
     result: out.total, detail: text, private: false, attack: true
@@ -3982,7 +4040,7 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all]");
+    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all]");
     if (!t) return;
     if (t.hasAttribute("data-side-toggle")) {
       const row = fight.order[parseInt(t.getAttribute("data-side-toggle"), 10)];
@@ -4053,6 +4111,25 @@ function wireClicks() {
     if (t.hasAttribute("data-card-check")) { cardCheck(parseInt(t.getAttribute("data-card-check"), 10), t.getAttribute("data-check-mod"), t.getAttribute("data-check-label")); return; }
     if (t.hasAttribute("data-card-dice")) { cardDice(parseInt(t.getAttribute("data-card-dice"), 10)); return; }
     if (t.hasAttribute("data-card-cast")) { cardCast(parseInt(t.getAttribute("data-card-cast"), 10), parseInt(t.getAttribute("data-spell-n"), 10)); return; }
+    if (t.hasAttribute("data-mf-op")) {
+      const row = fight.order[parseInt(t.getAttribute("data-mf-row"), 10)];
+      const atk = row && row.card && row.card.attacks && row.card.attacks[parseInt(t.getAttribute("data-atk-n"), 10)];
+      if (!atk || !window.SSDNSMisfire) return;
+      const op = t.getAttribute("data-mf-op");
+      const override = {};
+      if (op === "reset") override.resetStreak = true;
+      else if (op === "cancel") override.cancelD4 = true;
+      else override[op] = t.getAttribute("data-mf-on") === "1";
+      const applied = window.SSDNSMisfire.applyOverride(atk, override);
+      Object.assign(atk, applied.gun);
+      const line = "DM override on " + (row.name || "combatant") + " · " + (atk.name || "gun") + ": " + (applied.notes || []).join(", ") + ".";
+      saveRemoteTable();
+      if (DM.postDmAction) DM.postDmAction(line, row.id || "all");
+      else DM.pushLedger({ who: "DM", playerId: row.id || "all", type: "dm", what: line, oldVal: null, newVal: line, flag: false, characterName: row.name || "" });
+      renderFight();
+      DM.toast(line);
+      return;
+    }
     if (t.hasAttribute("data-clear-jam")) {
       const row = fight.order[parseInt(t.getAttribute("data-clear-jam"), 10)];
       const atk = row && row.card && row.card.attacks[parseInt(t.getAttribute("data-atk-n"), 10)];
@@ -4562,14 +4639,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.29-targets");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.30-targets");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.29-targets");
+    const res = await fetch("assets/data/store-items.json?v=0.2.30-targets");
     if (res.ok) storeItems = await res.json();
     else DM.toast("Store list failed to load");
   } catch (e) {
