@@ -55,6 +55,7 @@ const expect = {
     const guns = [];
     if (p.weapon === "saber") melee.push("cavalry-saber-longsword");
     else if (p.weapon === "derringer") guns.push("herringer-light-double-derringer");
+    else if (p.weapon === "plinker") guns.push("dullards-plinker-revolver");
     else melee.push("sword-cane-rapier");
     melee.push("stiletto-dagger");
     const lines = [
@@ -64,7 +65,7 @@ const expect = {
     if (voice === "voice") lines.splice(1, 0, "Harmonica (kit instrument)");
     return {
       melee, guns, armor: "leather-jacket",
-      ammo: p.weapon === "derringer" ? ["cartridge", "Light", 20] : null,
+      ammo: (p.weapon === "derringer" || p.weapon === "plinker") ? ["cartridge", "Light", 20] : null,
       instrument: voice,
       instrumentQuality: voice === "voice" ? null : "cheap",
       instrumentStrings: stringed ? "plain" : null,
@@ -172,7 +173,9 @@ const expect = {
     };
   },
   scholar: (p) => ({
-    melee: [p.weapon === "stiletto" ? "stiletto-dagger" : "trail-staff-drover-s-staff-quarterstaff"],
+    guns: p.weapon === "plinker" ? ["dullards-plinker-revolver"] : undefined,
+    melee: p.weapon === "plinker" ? undefined : [p.weapon === "stiletto" ? "stiletto-dagger" : "trail-staff-drover-s-staff-quarterstaff"],
+    ammo: p.weapon === "plinker" ? ["cartridge", "Light", 20] : undefined,
     lines: ["Chemical Field Ledger", "Prism (focus)", "Galvanic reagents (component pouch)", packName(p.pack === "trail" ? "trail" : "book", "Book trunk"), "Duster (traveler's clothes)"]
   })
 };
