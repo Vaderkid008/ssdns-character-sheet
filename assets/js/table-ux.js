@@ -75,7 +75,7 @@
     paintCallingChips();
     var guns = ch() && ch().guns;
     (guns || []).forEach(function (g, i) {
-      if (g && g.pendingD4 && root.SSDNSD4) root.SSDNSD4.reveal({ sides: 4, index: i, gun: g.weapon, title: "Roll the d4" });
+      if (g && g.pendingD4 && root.SSDNSD4 && root.SSDNSD4.arm) root.SSDNSD4.arm(i);
     });
     root.document.addEventListener("change", function () { paintCallingChips(); paintCover(); });
   }
@@ -101,11 +101,27 @@
     if (c.calling) bits.push("<span class='chip calling'>" + c.calling + "</span>");
     if (c.takingCover) bits.push("<span class='chip cover'>Cover</span>");
     if (c.raging) bits.push("<span class='chip rage'>Dust Fury</span>");
-    if (c.badgeState) bits.push("<span class='chip badge'>" + c.badgeState + " badge</span>");
+    if (c.calling === "lawman") bits.push("<label class='chip badge'>Badge <select id='badgeState' aria-label='Lawman badge'></select></label>");
+    else if (c.badgeState) bits.push("<span class='chip badge'>" + c.badgeState + " badge</span>");
     (c.activeConditions || []).forEach(function (row) {
       if (row && row.name) bits.push("<span class='chip cond'>" + row.name + "</span>");
     });
     host.innerHTML = bits.join("");
+    var badgeSel = $("badgeState");
+    if (badgeSel && c.calling === "lawman") {
+      ["bright", "dull", "tarnished"].forEach(function (state) {
+        var o = root.document.createElement("option");
+        o.value = state;
+        o.textContent = state === "bright" ? "Bright (sworn in)" : (state === "dull" ? "Dull" : "Tarnished");
+        if ((c.badgeState || "bright") === state) o.selected = true;
+        badgeSel.appendChild(o);
+      });
+      badgeSel.addEventListener("change", function () {
+        c.badgeState = badgeSel.value;
+        if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
+        paintCallingChips();
+      });
+    }
     var mercy = $("btnMercy");
     if (mercy) {
       mercy.hidden = c.calling !== "lawman";

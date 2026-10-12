@@ -794,6 +794,22 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .status-chips .rage { background: #8a3b12; color: #fff; }
 .status-chips .cover { background: #3d6b4f; color: #fff; }
 .status-chips .cond { background: #6e2430; color: #fff; }
-.wiz-ref { max-height: 80vh; overflow: auto; }
-.d4-die { font-size: 2rem; min-width: 4rem; min-height: 4rem; }
+.wiz-ref { max-height: 80vh; overflow: auto; width: min(40rem, 92vw); }
+.wiz-chart { width: 100%; border-collapse: collapse; margin: 8px 0 12px; }
+.wiz-chart th, .wiz-chart td { border: 1px solid var(--edge); padding: 4px 8px; text-align: left; vertical-align: top; }
+.wiz-chart th { width: 34%; font-family: var(--label); font-weight: 600; }
+.wiz-page { margin-top: 12px; }
+.wiz-kit { margin: 6px 0 10px; padding-left: 1.2rem; }
+.d4-reveal { width: min(28rem, 92vw); text-align: center; }
+.d4-reveal h2 { font-size: 1.7rem; }
+.d4-face { font-size: 2.2rem; min-height: 3rem; }
+.d4-die { font-size: 4rem; min-width: 7rem; min-height: 7rem; }
+#badgeState, #dmBadge { font: inherit; margin-left: 4px; }
+.gun-status { display: block; font-weight: 700; }
+.spell-more { margin: 4px 0 8px; }
+.spell-more summary { cursor: pointer; }
+.spell-desc { margin: 6px 0 0; max-width: 42rem; }
+.spell-pick-row { display: flex; flex-direction: column; align-items: stretch; margin-bottom: 6px; }
+.clean-modal { width: min(32rem, 94vw); }
+.clean-opts { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
 #btnTakeCover.is-on { background: #3d6b4f; color: #fff; }

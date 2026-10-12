@@ -10,6 +10,11 @@
     "spellcast": "spellshot.mp3",
     "jam": "jam.wav",
     "explode": "explode.mp3",
-    "roll": "roll.mp3"
-  }
+    "roll": "roll.mp3",
+    "slash": "slash.wav",
+    "thud": "thud.wav",
+    "twang": "twang.wav",
+    "whoosh": "whoosh.wav"
+  },
+  "weapons": {}
 }

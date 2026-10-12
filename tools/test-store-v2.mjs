@@ -158,7 +158,7 @@ check(buyFn.indexOf("soldOut") >= 0 && buyFn.indexOf("soldOut") < buyFn.indexOf(
 check(Store.playerTabs([{ store: "gun" }, { store: "general" }, { store: "gun" }], true).join() === "general,gun", "one tab per open store, in shop order");
 check(Store.playerTabs([{ store: "general" }], false).length === 0, "a closed store shows no tabs");
 
-check(read("version.json").indexOf('"sheet": "0.3.16"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.29"') >= 0, "versions");
+check(read("version.json").indexOf('"sheet": "0.3.17"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.30"') >= 0, "versions");
 
 function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 async function viewport() {
@@ -247,7 +247,11 @@ async function viewport() {
 }
 
 const logicFails = failures.length;
-await viewport().catch((err) => failures.push("viewport: " + err.message));
+if (typeof globalThis.WebSocket !== "function") {
+  console.log("viewport skipped: WebSocket is not defined in this Node. The store logic checks above still ran.");
+} else {
+  await viewport().catch((err) => failures.push("viewport: " + err.message));
+}
 
 if (failures.length) {
   console.error(failures.join("\n"));

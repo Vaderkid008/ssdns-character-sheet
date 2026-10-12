@@ -4,7 +4,11 @@ The sheet and the DM Command Center look up sounds in `sfx.json`. A missing file
 
 | Event | Filename | Length | When it plays |
 |-------|----------|--------|----------------|
-| attack | `attack.mp3` | 5.0s | Gun attack **Roll** on the sheet, tapping a loaded cartridge, and **Roll weapon** on the DM Command Center |
+| attack | `attack.mp3` | 5.0s | Gun attacks. Every gun uses this cue unless a weapon sets its own `sfx` |
+| slash | `slash.wav` | short | Blades and slashing weapons, such as a scimitar or machete |
+| thud | `thud.wav` | short | Bludgeoning weapons and unarmed strikes |
+| twang | `twang.wav` | short | Bows and thrown weapons |
+| whoosh | `whoosh.wav` | short | Anything that is not a gun, blade, bludgeon, bow, or thrown weapon |
 | holster | `holster.mp3` | 1.5s | **Unload**, and **Roll** next to Initiative (drawing the gun) |
 | reload | `reload.mp3` | 0.7s | **Reload** (including Tactical Reload) once rounds go in, and loading a hex shell |
 

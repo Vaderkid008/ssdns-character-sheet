@@ -1,6 +1,6 @@
 # SSDNS Character Sheet
 
-Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.16, DM Command Center v0.2.29).
+Fillable character sheet for **Six-Shooters & Sorcery: Dust and Shadows** (sheet v0.3.17, DM Command Center v0.2.30).
 
 - Playtest ASH-3501: every attack asks for a living target instead of auto-picking someone Down or fled. The turn strip follows current HP after damage, healing, flee, and End turn. An empty chamber clicks and does not fire a live round. A connection blip does not mark a player left, and a real leave, End session, or new code drops that ghost from the fight strip. Pioneer (and other fixed lineage increases) apply to the scores, modifiers refresh, and HP recalc keeps the current hit points unless they were already at the old maximum. Table chat and rolls use the character name, and the same roll is not logged twice. A hex or cantrip through a Caster Gun does not spend Light cartridges. A leveled spell marks the slot and saves it. Attack lines show the bonus, such as 14+4 = 18. `database.rules.json` did not change.
 - Sheet header: the enemy sheet names size and type before CR, side, and speed, such as Huge beast (spirit). A missing size or type is left off. Ray of Enfeeblement and Contagion are spell attacks. `database.rules.json` did not change.

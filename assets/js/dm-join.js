@@ -124,7 +124,7 @@
       if (!g || !g.weapon) return null;
       var st = (v.guns || []).filter(function (x) { return x && x.w && x.w.id === g.weapon; })[0];
       var name = st && st.w ? st.w.name : g.weapon;
-      var cond = g.jammed ? "jammed" : (g.cracked ? "cracked" : (g.fouled ? "fouled" : (g.dirty ? "dirty" : "ok")));
+      var cond = (g.ruined || g.broken) ? "ruined" : (g.jammed ? "jammed" : (g.cracked ? "cracked" : (g.fouled ? "fouled" : (g.dirty ? "dirty" : "ok"))));
       var plain = 0, hex = 0;
       (g.chambers || []).forEach(function (stn) {
         var s = String(stn || "");
@@ -147,6 +147,10 @@
         cracked: !!g.cracked,
         fouled: !!g.fouled,
         dirty: !!g.dirty,
+        ruined: !!(g.ruined || g.broken),
+        misStreak: Number(g.misStreak) || 0,
+        pendingD4: !!g.pendingD4,
+        weapon: g.weapon || "",
         misfire: st && st.misfire ? st.misfire : "",
         rugged: !!(st && st.w && /rugged/i.test(st.w.properties || "")),
         note: st && st.note ? st.note : "",
@@ -753,6 +757,14 @@
       case "gun":
         applyGunCommand(payload, payload.grantId || cmd.id);
         break;
+      case "badge":
+        if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
+          root.SSDNSApp.applyPatch(function (doc) {
+            if (doc.character) doc.character.badgeState = payload.state || "bright";
+          });
+        }
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "Badge set to " + (payload.state || "bright") + "." });
+        break;
       case "set_conditions":
         if (root.SSDNSSheet && root.SSDNSSheet.setConditions) root.SSDNSSheet.setConditions(payload.list || [], payload);
         break;
@@ -1231,8 +1243,36 @@
         var n = Number(payload.loaded);
         if (g && isFinite(n)) g.loaded = Math.max(0, n);
       });
-    } else if (payload.op === "fire" && root.SSDNSGunRoll) {
+    }     else if (payload.op === "fire" && root.SSDNSGunRoll) {
       root.SSDNSGunRoll(payload.index, payload.chamber);
+      return;
+    } else if (payload.op === "dirty-d4") {
+      if (root.SSDNSD4 && root.SSDNSD4.arm) root.SSDNSD4.arm(payload.index);
+      return;
+    } else if (payload.op === "misfire" && app.applyPatch && root.SSDNSMisfire) {
+      var notes = [];
+      app.applyPatch(function (doc) {
+        var g = doc.character && doc.character.guns && doc.character.guns[payload.index];
+        if (!g) return;
+        var applied = root.SSDNSMisfire.applyOverride(g, payload);
+        var next = applied.gun;
+        g.dirty = !!next.dirty;
+        g.fouled = !!next.fouled;
+        g.ruined = !!next.ruined;
+        g.broken = !!next.broken;
+        g.jammed = !!next.jammed;
+        g.misStreak = next.misStreak || 0;
+        g.pendingD4 = !!next.pendingD4;
+        g.pendingD4Rolls = next.pendingD4Rolls;
+        g.pendingD4Step = next.pendingD4Step || 0;
+        notes = applied.notes || [];
+      });
+      if (payload.cancelD4 && root.document) {
+        var dlg = root.document.querySelector("dialog.d4-reveal");
+        if (dlg && dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        if (root.document.body) root.document.body.classList.remove("ask-open");
+      }
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM override: " + (notes.join(", ") || "gun") + "." });
       return;
     }
     if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM " + (payload.op || "adjusted") + " a gun." });
@@ -1319,6 +1359,30 @@
       console.warn("[DM Join] chat", e);
       enqueue("chat", entry || {});
       return { ok: false, queued: true };
+    });
+  }
+  function postFeed(entry) {
+    entry = entry || {};
+    if (!state.joined || state.left || offlineNow() || !state.uid || !state._fb || !state.db) {
+      return Promise.resolve({ ok: false, skipped: true });
+    }
+    var id = "d4_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var c = doc() && doc().character;
+    var row = {
+      id: id,
+      ts: new Date().toISOString(),
+      from: state.uid,
+      fromName: (c && (c.name || c.player)) || "Player",
+      text: entry.text || "",
+      kind: entry.kind || "d4",
+      result: entry.result,
+      formula: entry.formula || "1d4"
+    };
+    return state._fb.set(state._fb.ref(state.db, roomPath("tableFeed/" + id)), row).then(function () {
+      return { ok: true };
+    }).catch(function (e) {
+      console.warn("[DM Join] table feed", e);
+      return { ok: false };
     });
   }
   function postSfx(eventName) {
@@ -1859,6 +1923,7 @@
       postLedger: postLedger,
       postRoll: postRoll,
       postSfx: postSfx,
+      postFeed: postFeed,
       postChat: postChat,
       postDamage: postDamage,
       postMercy: postMercy,
