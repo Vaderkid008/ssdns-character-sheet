@@ -554,6 +554,80 @@ async function testMaps(w) {
   dm.api.destroy();
   pl.api.destroy();
   check("map.destroy", dm.el.innerHTML === "" && pl.el.innerHTML === "", "html left");
+
+  const css = read("map/ssdns-map.css");
+  const dmCss = read("dm/assets/css/dmcc.css");
+  const dmHtml = read("dm/index.html");
+  check("map.layoutGrid", css.indexOf("grid-template-areas") >= 0 && /body\.map-fullscreen #mapMount \.ssdns-leftbar \{[\s\S]*?top: 60px;/.test(css), "embedded grid, fullscreen overlay kept");
+  const dmcc = read("dm/assets/js/dmcc.js");
+  check("map.roomCodeCopiesCode",
+    dmcc.indexOf("function roomCodeString()") >= 0 &&
+    dmcc.indexOf("roomCodeClickTarget") >= 0 &&
+    dmcc.indexOf('copyLink.addEventListener("click", () => copyInvite())') >= 0 &&
+    dmcc.indexOf("codeDisplay.addEventListener") < 0 &&
+    dmcc.indexOf('e.clipboardData.setData("text/plain", code)') >= 0 &&
+    dmcc.indexOf("text/html") < 0,
+    "every code click writes the plain code; invite link stays the URL");
+  check("map.roomCodeNotSelectable", /user-select:\s*none/.test(dmCss) && dmCss.indexOf("user-select: all") < 0, "code cannot be selected as HTML");
+  check("map.demoBoxUnchecked", /<input type="checkbox" id="chkDemo">/.test(dmHtml) && !/id="chkDemo"[^>]*\bchecked\b/.test(dmHtml), "demo checkbox has no checked attribute");
+  check("map.refreshIgnoresDemoFlag",
+    dmcc.indexOf("wasOpen.demo") < 0 &&
+    !/if \(!saved \|\| saved\.demo/.test(dmcc) &&
+    /A saved demo flag never opens demo/.test(dmcc),
+    "refresh of a saved demo flag still tries the live room");
+  check("map.createRoomStaysLive", /function wantDemo\(\) \{[\s\S]*?return q\.get\("demo"\) === "1";/.test(dmcc) && dmcc.indexOf("loadDemo(true)") < 0, "Create room no longer falls into demo");
+  check("map.sceneWallsArray", /if \(!Array\.isArray\(scene\.walls\)\) scene\.walls = \[\]/.test(read("map/ssdns-map.js")), "a firebase scene with no walls array can still take a wall");
+
+  const freshStore = { pub: {}, dm: {} };
+  const freshBus = [];
+  const freshPlayers = [
+    { uid: "player-uid", name: "Wade" },
+    { uid: "player-two", name: "Nia" }
+  ];
+  const freshDm = spy(w.SSDNSMapFirebase.memory({ role: "dm", store: freshStore, bus: freshBus }));
+  const freshPl = spy(w.SSDNSMapFirebase.memory({ role: "player", store: freshStore, bus: freshBus }));
+  const fresh = await bootMap(w, {
+    id: "freshDm",
+    role: "dm",
+    uid: "dm-uid",
+    adapter: freshDm,
+    host: { players: () => freshPlayers },
+    options: { scene, tokens: { tokens: {} }, assetBase: "", players: () => freshPlayers, ensureScene: true }
+  });
+  const pcPubs = freshDm.log.filter((e) => e.op === "write" && /^map\/public\/tokens\/tok_/.test(e.path) && e.value && e.value.ownerUid);
+  const owners = pcPubs.map((e) => e.value.ownerUid).sort();
+  check("map.fresh.pcTokens", owners.join(",") === "player-two,player-uid", owners.join(","));
+  check("map.fresh.pcNoSecrets", pcPubs.every((e) => e.value.hp == null && e.value.notes == null && e.value.ownerCanMove !== false), JSON.stringify(pcPubs.map((e) => e.value)));
+  const sceneWrite = [...freshDm.log].reverse().find((e) => e.op === "write" && e.path === "map/public/scenes/scn_dustyspur01");
+  check("map.fresh.defaultScene", !!(sceneWrite && sceneWrite.value && sceneWrite.value.id === "scn_dustyspur01" && /Dusty Spur/.test(sceneWrite.value.name || "")), JSON.stringify(sceneWrite && sceneWrite.value));
+  const addMark = freshDm.log.length;
+  act(fresh.el, "addTokenBtn").click();
+  const enemy = writesSince(freshDm.log, addMark).find((e) => e.op === "write" && /^map\/public\/tokens\//.test(e.path));
+  check("map.fresh.addEnemy", !!(enemy && !enemy.value.ownerUid && enemy.value.name === "Enemy" && enemy.value.hp == null), JSON.stringify(enemy && enemy.value));
+  const playerFresh = await bootMap(w, {
+    id: "freshPl",
+    role: "player",
+    uid: "player-uid",
+    adapter: freshPl,
+    options: { scene, assetBase: "" }
+  });
+  const moveMark = freshPl.log.length;
+  const freshCanvas = playerFresh.el.querySelector("canvas");
+  pointer(w, freshCanvas, "pointerdown", 400, 300);
+  pointer(w, freshCanvas, "pointermove", 470, 300);
+  pointer(w, freshCanvas, "pointerup", 470, 300);
+  const posWrites = writesSince(freshPl.log, moveMark).filter((e) => /\/pos$/.test(e.path));
+  check("map.fresh.playerMoves", posWrites.length === 1 && posWrites[0].value && typeof posWrites[0].value.x === "number", posWrites.map((e) => e.path + ":" + (e.value && e.value.x)).join(","));
+  const dmCanvas = fresh.el.querySelector("canvas");
+  pointer(w, dmCanvas, "pointerdown", 295, 335);
+  pointer(w, dmCanvas, "pointerup", 295, 335);
+  const delMark = freshDm.log.length;
+  act(fresh.el, "delTokenBtn").click();
+  fresh.api.refreshPlayers();
+  const revived = writesSince(freshDm.log, delMark).filter((e) => e.op === "write" && e.value && e.value.ownerUid === "player-uid");
+  check("map.fresh.noRespawn", revived.length === 0, revived.map((e) => e.path).join(","));
+  fresh.api.destroy();
+  playerFresh.api.destroy();
 }
 
 async function testHost(w) {
@@ -671,6 +745,35 @@ async function testHost(w) {
   din.value = "Roll initiative";
   dsend.click();
   check("host.dmChat", dock === "Roll initiative|all", dock);
+  const liveFetched = [];
+  w.fetch = async (url) => {
+    liveFetched.push(String(url));
+    return origFetch(url);
+  };
+  w.DMCC.state.demo = false;
+  w.DMCC.state.db = {};
+  w.DMCC.state.uid = "dm-live";
+  w.DMCC.state.roomCode = "LIVE-1001";
+  w.DMCC.state.meta = { dmUid: "dm-live" };
+  w.DMCC.state.players = { "player-uid": { snapshot: { name: "Wade" } } };
+  w.DMCC.state._fb = {
+    ref() { return { path: "rooms/LIVE-1001/map/public/scenes" }; },
+    onValue() { return function () {}; },
+    get() { return Promise.resolve({ exists: () => false, val: () => null }); },
+    set() { return Promise.resolve(); },
+    remove() { return Promise.resolve(); },
+    runTransaction(r, fn) { fn(null); return Promise.resolve({ committed: true }); }
+  };
+  doc.body.classList.add("in-room");
+  w.SSDNSMapHost.syncRoom();
+  await flush(180);
+  check("host.liveSkipsSampleTokens", liveFetched.every((u) => u.indexOf("tokens.json") < 0), liveFetched.join(","));
+  const liveGrant = [...doc.querySelectorAll("#mapMount [data-act=grantUid] option")].map((o) => o.textContent);
+  check("host.liveGrant", liveGrant.join(",") === "Wade", liveGrant.join(","));
+  const add = doc.querySelector("#mapMount [data-act=addTokenBtn]");
+  if (add) add.click();
+  const selected = doc.querySelector("#mapMount [data-act=targetList]");
+  check("host.liveAddToken", !!(selected && selected.textContent.indexOf("Enemy") >= 0), selected && selected.textContent);
   w.DMCC.state.roomCode = null;
   doc.body.classList.remove("in-room");
   w.SSDNSMapHost.syncRoom();

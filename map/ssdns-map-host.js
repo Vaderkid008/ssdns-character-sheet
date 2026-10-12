@@ -201,7 +201,7 @@
     var tokensUrl = el.getAttribute("data-tokens") || "";
     setIdle("Opening the map…");
     var sceneP = loadJson(sceneUrl);
-    var tokensP = ctx.role === "dm" && tokensUrl ? loadJson(tokensUrl) : Promise.resolve(null);
+    var tokensP = ctx.role === "dm" && ctx.demo && tokensUrl ? loadJson(tokensUrl) : Promise.resolve(null);
     return Promise.all([sceneP, tokensP]).then(function (pair) {
       if (gen !== generation) return;
       var again = roomContext();
@@ -232,11 +232,20 @@
           tokens: pair[1],
           assetBase: base,
           players: currentPlayers,
+          ensureScene: !!ctx.demo,
           room: { table: { initiative: initiative || { order: [], turn: 0 } } }
         }
       });
       mountedKey = key;
       if (map.refreshPlayers) map.refreshPlayers();
+      if (!ctx.demo && ctx.fb && ctx.fb.get && ctx.db) {
+        var scenesRef = ctx.fb.ref(ctx.db, "rooms/" + ctx.roomCode + "/map/public/scenes");
+        ctx.fb.get(scenesRef).then(function (snap) {
+          var exists = snap && snap.exists ? snap.exists() : !!(snap && snap.val && snap.val());
+          if (exists) return;
+          if (map && map.ensureDefaultScene) map.ensureDefaultScene();
+        }).catch(function () {});
+      }
     }).catch(function (err) {
       if (gen !== generation) return;
       setIdle("The map didn't open. " + ((err && err.message) || err));

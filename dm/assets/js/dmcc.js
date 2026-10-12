@@ -1,10 +1,11 @@
 /**
  * SSDNS DM Command Center v0.1.0-draft
- * Demo mode (default / ?demo=1) is fully offline — no Firebase CDN load.
+ * Demo mode (?demo=1, or Load demo table) is fully offline — no Firebase CDN load.
+ * Create room always opens a live Firebase table.
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.31"; // dmcc-playtest-v0231
+const VERSION = "0.2.32"; // dmcc-playtest-v0232
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -214,9 +215,7 @@ const state = {
 function wantDemo() {
   const q = new URLSearchParams(location.search);
   if (q.get("demo") === "0" || q.get("live") === "1") return false;
-  if (q.get("demo") === "1") return true;
-  // default ON until Firebase has been proven
-  return true;
+  return q.get("demo") === "1";
 }
 
 /* ---------- Firebase init (graceful) ---------- */
@@ -348,11 +347,9 @@ function loadDemo(createNewCode, resumeCode) {
 }
 
 async function createLiveRoom(name) {
-  if (!state.firebaseReady) {
-    toast("Firebase not ready — starting Demo room instead");
-    loadDemo(true);
-    if (name) state.meta.name = name;
-    renderAll();
+  if (!state.firebaseReady || !state._fb) {
+    toast("Firebase isn't ready yet. Use Load demo table to practice offline.");
+    setStatus("offline", "Firebase isn't ready");
     return;
   }
   const code = roomCode();
@@ -385,9 +382,10 @@ async function createLiveRoom(name) {
     try { localStorage.setItem(ROOM_KEY, JSON.stringify({ code, demo: false, uid: state.uid })); } catch (e) {}
   } catch (e) {
     console.warn(e);
-    toast("Could not create live room (" + (e.message || e) + "). Falling back to Demo.");
-    loadDemo(true);
-    if (name) { state.meta.name = name; renderAll(); }
+    toast("Could not create the room (" + ((e && e.message) || e) + ").");
+    state.roomCode = null;
+    state.meta = null;
+    setStatus("live", "Live · Firebase connected · start a new session");
   }
 }
 
@@ -997,26 +995,55 @@ function leaveRoom(reason) {
   paintSession("leave", { code: code, roomStatus: (meta && meta.status) || "", demo: demo });
 }
 
-async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch (e) {
+function roomCodeString() {
+  const raw = String(state.roomCode || (state.meta && state.meta.code) || "");
+  const match = raw.toUpperCase().match(/[A-Z]+-\d+/);
+  return match ? match[0] : "";
+}
+function roomCodeClickTarget(node) {
+  const el = node && node.nodeType === 1 ? node : (node && node.parentElement);
+  if (!el || !el.closest) return null;
+  if (el.closest("#btnCopyLink")) return null;
+  return el.closest("#roomCodeDisplay, #btnCopyCode, .room-code, .room-code-label");
+}
+async function writePlain(text) {
+  const value = String(text == null ? "" : text);
+  const clip = navigator.clipboard;
+  if (clip && typeof ClipboardItem === "function" && clip.write) {
     try {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.setAttribute("readonly", "");
-      ta.style.position = "fixed";
-      ta.style.left = "-9999px";
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand("copy");
-      ta.remove();
-      return !!ok;
-    } catch (err) {
-      return false;
-    }
+      await clip.write([new ClipboardItem({
+        "text/plain": new Blob([value], { type: "text/plain" })
+      })]);
+      return true;
+    } catch (e) {}
   }
+  if (clip && clip.writeText) {
+    try {
+      await clip.writeText(value);
+      return true;
+    } catch (e) {}
+  }
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (sel && sel.removeAllRanges) sel.removeAllRanges();
+    const ta = document.createElement("textarea");
+    ta.value = value;
+    ta.setAttribute("readonly", "");
+    ta.setAttribute("aria-hidden", "true");
+    ta.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;user-select:text;";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    if (sel && sel.removeAllRanges) sel.removeAllRanges();
+    return !!ok;
+  } catch (err) {
+    return false;
+  }
+}
+async function copyText(text) {
+  return writePlain(text);
 }
 function inviteHref(code) {
   if (window.SSDNSApplied && window.SSDNSApplied.sheetInviteUrl) {
@@ -1024,12 +1051,22 @@ function inviteHref(code) {
   }
   return "";
 }
+async function copyRoomCode(ev) {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  const sel = window.getSelection && window.getSelection();
+  if (sel && sel.removeAllRanges) sel.removeAllRanges();
+  const code = roomCodeString();
+  if (!code) { toast("Open a room first"); return; }
+  const ok = await writePlain(code);
+  toast(ok ? "Copied " + code : code);
+}
 async function copyInvite() {
-  const code = state.roomCode || (state.meta && state.meta.code) || "";
-  if (!code || code === "————") { toast("Open a room first"); return; }
+  const code = roomCodeString();
+  if (!code) { toast("Open a room first"); return; }
   const link = inviteHref(code);
   if (!link) { toast("Couldn't build the invite link"); return; }
-  const ok = await copyText(link);
+  const ok = await writePlain(link);
   toast(ok ? "Invite link copied" : link);
 }
 function renderRoomHero() {
@@ -2321,27 +2358,26 @@ function wire() {
   }
   const createRoom = async () => {
     const name = ($("#inRoomName").value || "").trim();
-    if (!state.demo && !state.firebaseReady) {
+    state.demo = false;
+    const demoBox = $("#chkDemo");
+    if (demoBox) demoBox.checked = false;
+    if (!state.firebaseReady) {
       setCreateBusy(true);
       setStatus("live", "Connecting…");
       const ok = await initFirebase();
       if (!ok) {
         setCreateBusy(false);
-        toast("Firebase isn't ready yet");
+        toast("Firebase isn't ready yet. Use Load demo table to practice offline.");
+        setStatus("offline", "Firebase isn't ready");
         return;
       }
     }
     if (document.body.classList.contains("in-room")) leaveRoom("new");
-    if (state.demo) {
-      loadDemo(true);
-      if (name && state.meta) { state.meta.name = name; renderRoomHero(); }
-      return;
-    }
     setCreateBusy(true);
     setStatus("live", "Connecting…");
     try { await createLiveRoom(name); }
     finally { setCreateBusy(false); }
-    if (name && state.meta) { state.meta.name = name; renderRoomHero(); }
+    if (name && state.meta && !state.demo) { state.meta.name = name; renderRoomHero(); }
   };
   $("#btnCreateRoom").addEventListener("click", createRoom);
   const headerRoll = $("#headerRoll");
@@ -2367,15 +2403,24 @@ function wire() {
   if (leaveBtn) leaveBtn.addEventListener("click", leaveRoom);
   const resumeBtn = $("#btnResumeRoom");
   if (resumeBtn) resumeBtn.addEventListener("click", () => {
-    if (pendingResume && pendingResume.demo) {
+    if (wantDemo() && pendingResume && pendingResume.demo) {
       loadDemo(false, pendingResume.code);
       return;
     }
+    if (pendingResume) pendingResume.demo = false;
     resumeLiveRoom();
   });
-  $("#btnLoadDemo").addEventListener("click", () => loadDemo(false));
+  $("#btnLoadDemo").addEventListener("click", () => {
+    const box = $("#chkDemo");
+    if (box) box.checked = true;
+    loadDemo(false);
+  });
   $("#chkDemo").addEventListener("change", async () => {
     state.demo = $("#chkDemo").checked;
+    if (state.demo) {
+      setStatus("demo", "Demo mode · offline · use Load demo table");
+      return;
+    }
     if (!state.demo) {
       if (!state.firebaseReady) setCreateBusy(true);
       const ok = state.firebaseReady || await initFirebase();
@@ -2395,15 +2440,21 @@ function wire() {
   });
   const newCodeBtn = $("#btnNewCode");
   if (newCodeBtn) newCodeBtn.addEventListener("click", () => newRoomCode());
-  $("#btnCopyCode").addEventListener("click", async () => {
-    const c = state.roomCode;
-    try { await navigator.clipboard.writeText(c); toast("Copied " + c); }
-    catch (e) { toast(c); }
+  document.addEventListener("click", (e) => {
+    if (!roomCodeClickTarget(e.target)) return;
+    copyRoomCode(e);
+  });
+  document.addEventListener("copy", (e) => {
+    const sel = window.getSelection && window.getSelection();
+    const anchor = sel && sel.anchorNode;
+    if (!roomCodeClickTarget(e.target) && !roomCodeClickTarget(anchor)) return;
+    const code = roomCodeString();
+    if (!code || !e.clipboardData) return;
+    e.preventDefault();
+    e.clipboardData.setData("text/plain", code);
   });
   const copyLink = $("#btnCopyLink");
   if (copyLink) copyLink.addEventListener("click", () => copyInvite());
-  const codeDisplay = $("#roomCodeDisplay");
-  if (codeDisplay) codeDisplay.addEventListener("click", () => copyInvite());
   $("#btnEndSession").addEventListener("click", () => {
     const dlg = $("#dlgEnd");
     if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
@@ -2559,7 +2610,7 @@ function showResumeChoice(code) {
 }
 async function peekResume() {
   const saved = readSavedRoom();
-  if (!saved || saved.demo || !saved.code) return false;
+  if (!saved || !saved.code) return false;
   if (!saved.uid || !state.uid) {
     pendingResume = { code: saved.code, demo: false };
     showResumeChoice(saved.code);
@@ -2695,14 +2746,14 @@ window.DMCC = {
 
 async function boot() {
   wire();
+  const demoBox = $("#chkDemo");
   state.demo = wantDemo();
-  $("#chkDemo").checked = state.demo;
-  setStatus("demo", "Starting…");
+  if (demoBox) demoBox.checked = !!state.demo;
+  setStatus(state.demo ? "demo" : "offline", "Starting…");
   const lobbyVer = $("#lobbyVersion");
   if (lobbyVer) lobbyVer.textContent = "DMCC " + VERSION;
 
-  // Demo: fully offline — do not touch Firebase CDN.
-  // Live (?demo=0): try Firebase; fall back to Demo if it fails.
+  // Demo only from ?demo=1 or Load demo table. A saved demo flag never opens demo.
   const saved = readSavedRoom();
   const wasOpen = readOpenFlag();
   releaseSession();
@@ -2727,31 +2778,30 @@ async function boot() {
     }
     setStatus("demo", "Demo mode · offline · no Firebase loaded");
   } else {
+    state.demo = false;
+    if (demoBox) demoBox.checked = false;
     setCreateBusy(true);
     setStatus("live", "Connecting to Firebase…");
     const ok = await initFirebase();
     setCreateBusy(false);
+    state.demo = false;
+    if (demoBox) demoBox.checked = false;
     if (!ok) {
-      state.demo = true;
-      $("#chkDemo").checked = true;
-      if (saved && saved.code && saved.demo) {
-        pendingResume = { code: saved.code, demo: true };
-        showResumeChoice(saved.code);
-      } else {
-        pendingResume = null;
-        showResumeChoice("");
-      }
-      setStatus("demo", "Demo mode · Firebase unavailable");
-      toast("Firebase is not ready, so Demo stays on. Use How to set this up.");
+      pendingResume = null;
+      showResumeChoice("");
+      setStatus("offline", "Firebase isn't ready. Use Load demo table to practice offline.");
+      toast("Firebase isn't ready yet. Use Load demo table to practice offline.");
+    } else if (autoResume && wasOpen && wasOpen.code) {
+      pendingResume = { code: wasOpen.code, demo: false };
+      const resumed = await resumeLiveRoom();
+      if (resumed) return;
+      pendingResume = null;
+      showResumeChoice("");
+      setStatus("live", "Live · Firebase connected · start a new session");
     } else {
-      if (autoResume && wasOpen.code) {
-        pendingResume = { code: wasOpen.code, demo: false };
-        const resumed = await resumeLiveRoom();
-        if (resumed) return;
-      }
       const offered = await peekResume();
       if (!offered) {
-        if (saved && saved.code && !saved.demo) {
+        if (saved && saved.code) {
           pendingResume = { code: saved.code, demo: false };
           showResumeChoice(saved.code);
           setStatus("live", "Live · resume " + saved.code + " or start a new session");

@@ -371,7 +371,16 @@ function buildCases() {
     { role: "dm", op: "set", path: ROOM + "/kicked/" + PLAYER_UID, payload: { ts: TS, uid: PLAYER_UID, name: "Wade" }, expect: "allow" },
     { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_own/pos", payload: { x: 8, y: 8, by: PLAYER_UID, seq: 11 }, expect: "deny" },
     { role: "dm", op: "remove", path: ROOM + "/kicked/" + PLAYER_UID, expect: "allow" },
-    { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_own/pos", payload: { x: 8, y: 8, by: PLAYER_UID, seq: 12 }, expect: "allow" }
+    { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_own/pos", payload: { x: 8, y: 8, by: PLAYER_UID, seq: 12 }, expect: "allow" },
+    { role: "dm", op: "set", path: "rooms/FRESH-1001/map/public/scenes/scn_dustyspur01", payload: { id: "scn_dustyspur01", name: "Dusty Spur", walls: [] }, expect: "allow" },
+    { role: "player", op: "set", path: "rooms/FRESH-1001/map/public/scenes/scn_dustyspur01", payload: { walls: [1] }, expect: "deny" },
+    { role: "dm", op: "set", path: "rooms/FRESH-1001/map/public/tokens/tok_pc", payload: { id: "tok_pc", name: "Wade", label: "Wade", ownerUid: PLAYER_UID, ownerCanMove: true, controlledBy: [], pos: { x: 12, y: 8 } }, expect: "allow" },
+    { role: "dm", op: "set", path: "rooms/FRESH-1001/map/public/tokens/tok_badhp", payload: { id: "tok_badhp", name: "Nope", hp: 9, pos: { x: 1, y: 1 } }, expect: "deny" },
+    { role: "dm", op: "set", path: "rooms/FRESH-1001/map/dm/tokens/tok_pc", payload: { id: "tok_pc", name: "Wade", hp: 20, maxHp: 20, ac: 13, pos: { x: 12, y: 8 } }, expect: "allow" },
+    { role: "dm", op: "set", path: "rooms/FRESH-1001/map/public/control/tok_pc", payload: { [PLAYER_UID]: true }, expect: "allow" },
+    { role: "player", op: "get", path: "rooms/FRESH-1001/map/dm/tokens/tok_pc", expect: "deny" },
+    { role: "player", op: "set", path: "rooms/FRESH-1001/map/public/tokens/tok_pc/pos", payload: { x: 13, y: 8, by: PLAYER_UID, seq: 3 }, expect: "allow" },
+    { role: "dm", op: "set", path: "rooms/FRESH-1001/map/dm/dismissed/" + PLAYER_UID, payload: true, expect: "allow" }
   );
   return cases;
 }
@@ -437,6 +446,15 @@ async function main() {
       await dbMod.set(dbMod.ref(db, ROOM + "/map/public/control/tok_grant/" + PLAYER_UID), true);
       await dbMod.set(dbMod.ref(db, ROOM + "/map/dm/tokens/tok_hidden"), {
         id: "tok_hidden", hp: 11, maxHp: 11, ac: 12, notes: "secret", hidden: true, pos: { x: 3, y: 3 }
+      });
+      await dbMod.set(dbMod.ref(db, "rooms/FRESH-1001/meta"), {
+        code: "FRESH-1001", dmUid: DM_UID, createdAt: TS, status: "live"
+      });
+      await dbMod.set(dbMod.ref(db, "rooms/FRESH-1001/players/" + PLAYER_UID), {
+        id: PLAYER_UID,
+        uid: PLAYER_UID,
+        presence: { online: true, lastSeen: TS },
+        snapshot: { name: "Wade", updatedAt: TS, player: "Wade" }
       });
     });
 

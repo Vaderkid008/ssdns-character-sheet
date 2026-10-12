@@ -1704,10 +1704,18 @@
     var q = loadQueue().filter(function (item) { return !(item && item.kind === "roll" && item.joined !== true); });
     saveQueue(q);
   }
+  function normalizeRoomCode(raw) {
+    var s = String(raw || "").trim();
+    var fromUrl = s.match(/[?#&]room=([A-Za-z]+-\d+)/i);
+    if (fromUrl) return fromUrl[1].toUpperCase();
+    var bare = s.match(/([A-Za-z]+-\d+)/);
+    if (bare && /https?:|room=/i.test(s)) return bare[1].toUpperCase();
+    return s.toUpperCase();
+  }
   async function join(code) {
     state._kicked = false;
     if (state.readOnly) { toast("This tab is read-only. The character is open in another tab."); return; }
-    code = String(code || "").trim().toUpperCase();
+    code = normalizeRoomCode(code);
     if (!code) { toast("Enter a room code"); return; }
     if (state._joining && state._joiningCode === code) return state._joining;
     state.left = false;

@@ -169,7 +169,7 @@ A **fork** is your own copy of the project on GitHub. **GitHub Pages** is GitHub
     3. Turn **Demo** off. The status line should say Firebase is connected. If it snaps back to Demo, use the troubleshooting table.
     4. Type your name, and a session name if you want one.
     5. Click **Create room**.
-    6. A code appears, shaped like `DUST-4821`. **Copy invite link** (or tap the big code) for a link players can open. **Copy code** if you only want the code.
+    6. A code appears, shaped like `DUST-4821`. Tap the big code, or **Copy code**, to copy just that code. **Copy invite link** is the full player link.
 
 13. **Players join.**
     1. Each player opens *your* sheet address from step 3.
@@ -191,7 +191,7 @@ A short map of the DM screen once a room is open.
 
 **Lobby.** Opening `/dm/` stays on the lobby. If this browser still remembers a room, you get **Resume** (that room code) and **Start a new session**. Start a new session scrolls to the session name and puts the cursor there. It does not create a room, and it does not clear what you already typed. **Create room** is the button that opens a table.
 
-**Invite link and room code.** **Copy invite link** builds a player link with `?room=CODE` from your site’s address. The big code copies that same link. The sheet fills in the code and still waits for **Join**.
+**Invite link and room code.** **Copy invite link** builds a player link with `?room=CODE` from your site’s address. The big code copies only the room code. The sheet fills in the code and still waits for **Join**.
 
 **Fight strip and Next turn.** The Table tab shows a turn strip. The Fight tab has **Next turn**, and `N` does the same thing when you are not typing in a field. The screen says who is on deck. The fight layout is still getting easier to scan.
 
