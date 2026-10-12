@@ -339,7 +339,39 @@ function buildCases() {
     { role: "player", op: "set", path: ROOM + "/encounter/requests/req-kicked", payload: request, expect: "deny" },
     { role: "dm", op: "remove", path: ROOM + "/kicked/" + PLAYER_UID, expect: "allow" },
     { role: "player", op: "set", path: ROOM + "/players/" + PLAYER_UID, payload: playerNode, expect: "allow" },
-    { role: "dm", op: "update", path: ROOM + "/meta", payload: { movedTo: "DUST-1000", status: "moved" }, expect: "allow" }
+    { role: "dm", op: "update", path: ROOM + "/meta", payload: { movedTo: "DUST-1000", status: "moved" }, expect: "allow" },
+    { role: "dm", op: "get", path: ROOM + "/map/public", expect: "allow" },
+    { role: "dm", op: "listen", path: ROOM + "/map/public", expect: "allow" },
+    { role: "player", op: "get", path: ROOM + "/map/public", expect: "allow" },
+    { role: "player", op: "listen", path: ROOM + "/map/public/tokens/tok_own", expect: "allow" },
+    { role: "player", op: "get", path: ROOM + "/map/dm", expect: "deny" },
+    { role: "player", op: "listen", path: ROOM + "/map/dm/tokens/tok_hidden", expect: "deny" },
+    { role: "dm", op: "get", path: ROOM + "/map/dm/tokens/tok_hidden", expect: "allow" },
+    { role: "dm", op: "listen", path: ROOM + "/map/dm", expect: "allow" },
+    { role: "other", op: "get", path: ROOM + "/map/public", expect: "deny" },
+    { role: "anon", op: "get", path: ROOM + "/map/public", expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_own/pos", payload: { x: 4, y: 5, by: PLAYER_UID, seq: 9 }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_other/pos", payload: { x: 4, y: 5, by: PLAYER_UID, seq: 9 }, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_grant/pos", payload: { x: 6, y: 6, by: PLAYER_UID, seq: 9 }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_locked/pos", payload: { x: 2, y: 2, by: PLAYER_UID, seq: 9 }, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_own", payload: { id: "tok_own", name: "Own", ownerUid: PLAYER_UID, pos: { x: 1, y: 1 } }, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_own/patch", payload: { seq: 3, by: PLAYER_UID, color: "#4a90d9", label: "Wade" }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_own/patch", payload: { seq: 4, by: PLAYER_UID, color: "#4a90d9", hp: 1 }, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/map/public/scenes/scn_dustyspur01", payload: { walls: [] }, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/map/public/playerScenes", payload: { [PLAYER_UID]: "scn_street" }, expect: "deny" },
+    { role: "dm", op: "set", path: ROOM + "/map/public/tokens/tok_pub", payload: { id: "tok_pub", name: "Pub", ownerUid: PLAYER_UID, ownerCanMove: true, pos: { x: 2, y: 2 }, label: "P" }, expect: "allow" },
+    { role: "dm", op: "set", path: ROOM + "/map/public/tokens/tok_leak", payload: { id: "tok_leak", name: "Leak", hp: 11, ac: 12, notes: "secret", hidden: true }, expect: "deny" },
+    { role: "dm", op: "set", path: ROOM + "/map/dm/tokens/tok_hidden", payload: { id: "tok_hidden", hp: 11, maxHp: 11, ac: 12, notes: "secret", hidden: true, pos: { x: 3, y: 3 } }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/map/dm/tokens/tok_hidden", payload: { hp: 1 }, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/map/public/events/ping", payload: { x: 1, y: 2, seq: 1, by: PLAYER_UID }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/map/public/events/ping", payload: { x: 1, y: 2, hp: 4 }, expect: "deny" },
+    { role: "player", op: "set", path: ROOM + "/map/public/events/slide", payload: { id: "tok_own", points: [{ x: 1, y: 1 }, { x: 2, y: 1 }] }, expect: "allow" },
+    { role: "dm", op: "set", path: ROOM + "/map/public/control/tok_own", payload: { [PLAYER_UID]: true }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/map/public/control/tok_own", payload: { [PLAYER_UID]: true }, expect: "deny" },
+    { role: "dm", op: "set", path: ROOM + "/kicked/" + PLAYER_UID, payload: { ts: TS, uid: PLAYER_UID, name: "Wade" }, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_own/pos", payload: { x: 8, y: 8, by: PLAYER_UID, seq: 11 }, expect: "deny" },
+    { role: "dm", op: "remove", path: ROOM + "/kicked/" + PLAYER_UID, expect: "allow" },
+    { role: "player", op: "set", path: ROOM + "/map/public/tokens/tok_own/pos", payload: { x: 8, y: 8, by: PLAYER_UID, seq: 12 }, expect: "allow" }
   );
   return cases;
 }
@@ -394,6 +426,17 @@ async function main() {
       });
       await dbMod.set(dbMod.ref(db, ROOM + "/conditions/seed-other"), {
         name: "Blinded", subjectId: "other-uid", subjectKind: "player", updatedAt: TS
+      });
+      const token = (id, owner, canMove) => ({
+        id, name: id, ownerUid: owner, ownerCanMove: canMove, pos: { x: 1, y: 1 }
+      });
+      await dbMod.set(dbMod.ref(db, ROOM + "/map/public/tokens/tok_own"), token("tok_own", PLAYER_UID, true));
+      await dbMod.set(dbMod.ref(db, ROOM + "/map/public/tokens/tok_other"), token("tok_other", "other-uid", true));
+      await dbMod.set(dbMod.ref(db, ROOM + "/map/public/tokens/tok_grant"), token("tok_grant", "other-uid", false));
+      await dbMod.set(dbMod.ref(db, ROOM + "/map/public/tokens/tok_locked"), token("tok_locked", PLAYER_UID, false));
+      await dbMod.set(dbMod.ref(db, ROOM + "/map/public/control/tok_grant/" + PLAYER_UID), true);
+      await dbMod.set(dbMod.ref(db, ROOM + "/map/dm/tokens/tok_hidden"), {
+        id: "tok_hidden", hp: 11, maxHp: 11, ac: 12, notes: "secret", hidden: true, pos: { x: 3, y: 3 }
       });
     });
 

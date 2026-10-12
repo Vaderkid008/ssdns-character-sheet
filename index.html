@@ -6,8 +6,9 @@
 <meta name="color-scheme" content="light">
 <title>SSDNS Character Sheet · Six-Shooters &amp; Sorcery: Dust and Shadows</title>
 <link rel="icon" href="assets/images/revolver.png">
-<link rel="stylesheet" href="assets/css/sheet.css?v=0.3.17-chat">
-<link rel="stylesheet" href="assets/css/print.css?v=0.3.17" media="print">
+<link rel="stylesheet" href="map/ssdns-map.css?v=0.3.18-map">
+<link rel="stylesheet" href="assets/css/sheet.css?v=0.3.18-chat">
+<link rel="stylesheet" href="assets/css/print.css?v=0.3.18" media="print">
 </head>
 <body>
 <noscript><p class="noscript">This character sheet needs JavaScript turned on.</p></noscript>
@@ -58,6 +59,7 @@
   <button type="button" role="tab" class="tab" id="tab-cond" aria-controls="page-cond" aria-selected="false">Conditions</button>
   <button type="button" role="tab" class="tab" id="tab-store" aria-controls="page-store" aria-selected="false">Store</button>
   <button type="button" role="tab" class="tab" id="tab-log" aria-controls="page-log" aria-selected="false">Log</button>
+  <button type="button" role="tab" class="tab" id="tab-map" aria-controls="page-map" aria-selected="false">Map</button>
 </nav>
 
 <main id="sheet">
@@ -431,6 +433,15 @@
     <button type="button" class="btn" id="btnWhisper">Whisper roll to DM</button>
   </div>
 </section>
+
+<section class="page page-map" id="page-map" role="tabpanel" aria-labelledby="tab-map" hidden>
+  <div class="map-tabbar">
+    <h2 class="page-title">Map</h2>
+    <button type="button" class="btn sm" id="btnMapFull">Full screen</button>
+  </div>
+  <p class="fine" id="mapIdle">Join a table to open the map.</p>
+  <div id="mapMount" class="ssdns-map hidden" data-map-role="player" data-asset-base="map/" data-scene="map/scene-dusty-spur.json"></div>
+</section>
 </main>
 
 <div class="drop-overlay" id="dropOverlay"><div>Drop a <b>.ssdns</b> file to open it</div></div>
@@ -488,24 +499,27 @@
   </form>
 </dialog>
 
-<script src="assets/data/rules.js?v=0.3.17-kit"></script>
-<script src="assets/js/spell-fx.js?v=0.3.17"></script>
-<script src="assets/js/spell-cast.js?v=0.3.17"></script>
-<script src="assets/js/misfire.js?v=0.3.17"></script>
-<script src="assets/js/ssdns-bridge.js?v=0.3.17"></script>
-<script src="assets/js/storage.js?v=0.3.17"></script>
-<script src="assets/js/firebase-config.js?v=0.3.17"></script>
-<script src="assets/js/sfx.js?v=0.3.17-sfx"></script>
-<script src="assets/js/app.js?v=0.3.17"></script>
-<script src="dm/assets/js/store-stock.js?v=0.3.17"></script>
-<script src="assets/js/sheet-extras.js?v=0.3.17-chat-sfx"></script>
-<script src="assets/js/dm-join.js?v=0.3.17-sfx"></script>
-<script src="assets/js/kits.js?v=0.3.17"></script>
-<script src="assets/js/apply-guard.js?v=0.3.17-targets"></script>
-<script src="assets/js/conditions.js?v=0.3.17"></script>
-<script src="assets/js/creator.js?v=0.3.17-kit"></script>
-<script src="assets/js/sheet-playtest.js?v=0.3.17-kit"></script>
-<script src="assets/data/refcards.js?v=0.3.17"></script>
-<script src="assets/js/table-ux.js?v=0.3.17"></script>
+<script src="assets/data/rules.js?v=0.3.18-kit"></script>
+<script src="assets/js/spell-fx.js?v=0.3.18"></script>
+<script src="assets/js/spell-cast.js?v=0.3.18"></script>
+<script src="assets/js/misfire.js?v=0.3.18"></script>
+<script src="assets/js/ssdns-bridge.js?v=0.3.18"></script>
+<script src="assets/js/storage.js?v=0.3.18"></script>
+<script src="assets/js/firebase-config.js?v=0.3.18"></script>
+<script src="assets/js/sfx.js?v=0.3.18-sfx"></script>
+<script src="assets/js/app.js?v=0.3.18"></script>
+<script src="dm/assets/js/store-stock.js?v=0.3.18"></script>
+<script src="assets/js/sheet-extras.js?v=0.3.18-chat-sfx"></script>
+<script src="assets/js/dm-join.js?v=0.3.18-sfx"></script>
+<script src="assets/js/kits.js?v=0.3.18"></script>
+<script src="assets/js/apply-guard.js?v=0.3.18-targets"></script>
+<script src="assets/js/conditions.js?v=0.3.18"></script>
+<script src="assets/js/creator.js?v=0.3.18-kit"></script>
+<script src="assets/js/sheet-playtest.js?v=0.3.18-kit"></script>
+<script src="assets/data/refcards.js?v=0.3.18"></script>
+<script src="assets/js/table-ux.js?v=0.3.18"></script>
+<script src="map/ssdns-map.js?v=0.3.18-map"></script>
+<script src="map/ssdns-map-firebase.js?v=0.3.18-map"></script>
+<script src="map/ssdns-map-host.js?v=0.3.18-map"></script>
 </body>
 </html>

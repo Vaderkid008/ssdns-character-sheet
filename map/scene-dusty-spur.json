@@ -1,0 +1,242 @@
+{
+ "_comment": "Sample scene for the SSDNS map module. Coordinates are grid squares, 0-based: x=column (A=0 … AD=29), y=row (1→0 … 20→19). Square centers are x+0.5,y+0.5 when drawing. Shape follows 02-DATA-MODEL-AND-SYNC.md (scenes/$sceneId).",
+ "id": "scn_dustyspur01",
+ "name": "Dusty Spur Saloon",
+ "image": {
+  "src": "assets/maps/dusty-spur-saloon_30x20_70px.webp",
+  "_srcNote": "Proposed repo path, resolved against createMap assetBase. For the offline demo, copy dusty-spur-saloon_30x20_70px.webp (or the .png) from this pack into map/demo/ and point src there.",
+  "pngFallback": "dusty-spur-saloon_30x20_70px.png",
+  "w": 2100,
+  "h": 1400
+ },
+ "grid": {
+  "cols": 30,
+  "rows": 20,
+  "px": 70,
+  "offsetX": 0,
+  "offsetY": 0,
+  "show": true,
+  "strength": 1.0,
+  "color": "two-tone",
+  "labels": true
+ },
+ "entry": {
+  "x": 12,
+  "y": 1
+ },
+ "partyStarts": [
+  {
+   "x": 11,
+   "y": 1
+  },
+  {
+   "x": 12,
+   "y": 1
+  },
+  {
+   "x": 13,
+   "y": 2
+  },
+  {
+   "x": 15,
+   "y": 2
+  }
+ ],
+ "notes": "See dusty-spur-LAYOUT-KEY.md. Interior dim; lanterns over N11 and the bar (bright 15 ft).",
+ "createdAt": "2026-10-10T21:00:00-05:00",
+ "updatedAt": "2026-10-10T21:00:00-05:00",
+ "layout": {
+  "_comment": "Optional v2 data transcribed from the layout key (walls on square edges). Rects are [x1,y1,x2,y2] inclusive squares.",
+  "zones": {
+   "mainStreet": [
+    0,
+    0,
+    29,
+    2
+   ],
+   "boardwalk": [
+    3,
+    3,
+    26,
+    4
+   ],
+   "westAlley": [
+    0,
+    3,
+    2,
+    19
+   ],
+   "eastAlley": [
+    27,
+    3,
+    29,
+    17
+   ],
+   "backLot": [
+    3,
+    18,
+    29,
+    19
+   ],
+   "saloonFloor": [
+    3,
+    5,
+    26,
+    17
+   ],
+   "storeroom": [
+    17,
+    15,
+    21,
+    17
+   ],
+   "stage": [
+    4,
+    13,
+    9,
+    17
+   ]
+  },
+  "doors": [
+   {
+    "name": "Front batwing doors",
+    "squares": [
+     "O6",
+     "P6"
+    ]
+   },
+   {
+    "name": "Side door",
+    "squares": [
+     "D12"
+    ]
+   },
+   {
+    "name": "Back door",
+    "squares": [
+     "Y18"
+    ]
+   },
+   {
+    "name": "Storeroom door",
+    "squares": [
+     "T16"
+    ]
+   }
+  ],
+  "windows": [
+   {
+    "squares": [
+     "G6",
+     "H6"
+    ],
+    "cover": "half"
+   },
+   {
+    "squares": [
+     "V6",
+     "W6"
+    ],
+    "cover": "half"
+   }
+  ],
+  "cover": [
+   {
+    "name": "Water trough",
+    "squares": [
+     "H2",
+     "I2"
+    ],
+    "cover": "half"
+   },
+   {
+    "name": "Freight wagon",
+    "squares": [
+     "T1",
+     "W2"
+    ],
+    "cover": "three-quarters"
+   },
+   {
+    "name": "Round tables",
+    "squares": [
+     "H9",
+     "K9",
+     "Q9",
+     "N11",
+     "T11",
+     "K13",
+     "Q13"
+    ],
+    "cover": "half"
+   },
+   {
+    "name": "Bar counter",
+    "squares": [
+     "W9",
+     "W15"
+    ],
+    "cover": "three-quarters"
+   },
+   {
+    "name": "Piano",
+    "squares": [
+     "E14",
+     "F14"
+    ],
+    "cover": "half"
+   },
+   {
+    "name": "Crates",
+    "squares": [
+     "S17",
+     "U17",
+     "T18"
+    ],
+    "cover": "three-quarters"
+   },
+   {
+    "name": "Rain barrels",
+    "squares": [
+     "B10",
+     "AC14"
+    ],
+    "cover": "half"
+   },
+   {
+    "name": "Outhouse",
+    "squares": [
+     "AC19",
+     "AD20"
+    ],
+    "cover": "total"
+   }
+  ],
+  "difficult": [
+   {
+    "name": "Broken glass + whiskey",
+    "squares": [
+     "O10",
+     "P11"
+    ]
+   },
+   {
+    "name": "Mud",
+    "squares": [
+     "Y19",
+     "AB20"
+    ]
+   }
+  ],
+  "elevation": [
+   {
+    "name": "Stage",
+    "squares": [
+     "E14",
+     "J18"
+    ],
+    "ft": 3
+   }
+  ]
+ }
+}

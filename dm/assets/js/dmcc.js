@@ -4,7 +4,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.30"; // dmcc-playtest-v0230
+const VERSION = "0.2.31"; // dmcc-playtest-v0231
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -419,6 +419,12 @@ function attachLiveListeners() {
   const leaveTimers = {};
   bind("players", (v) => {
     state.players = v || {};
+    if (window.SSDNSMapHost && window.SSDNSMapHost.setPlayers) {
+      window.SSDNSMapHost.setPlayers(Object.keys(state.players).map((id) => {
+        const s = (state.players[id] && state.players[id].snapshot) || {};
+        return { uid: id, id: id, name: s.name || s.player || id };
+      }));
+    }
     Object.keys(state.players).forEach((id) => {
       const p = state.players[id] || {};
       const on = playerOnline(p);
@@ -954,6 +960,7 @@ function showRoom() {
   if (dock) dock.hidden = false;
   syncSessionButtons();
   renderRoomHero();
+  if (window.SSDNSMapHost && window.SSDNSMapHost.syncRoom) window.SSDNSMapHost.syncRoom();
 }
 
 function hideRoom() {
@@ -969,6 +976,7 @@ function hideRoom() {
   clearUnsubs();
   state.roomCode = null;
   syncSessionButtons();
+  if (window.SSDNSMapHost && window.SSDNSMapHost.syncRoom) window.SSDNSMapHost.syncRoom();
 }
 function leaveRoom(reason) {
   permitLobby(reason || "leave");

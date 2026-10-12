@@ -1,0 +1,667 @@
+{
+ "_comment": "Mock of rooms/$roomCode in the REAL repo shapes at commit 2a69bc3 (see 01-ARCHITECTURE.md §3, §5). Player ids = auth uids (here fake 'p_*'). Player view may read: meta, players, table, encounter/public, conditions, playerInit. DM-only: encounter/hp, encounter/dm, encounter/requests, commands. The map adds map/* (02). _dmLocalFightOrder is NOT in Firebase; it is the DMCC's local v2.js fight.order (full rows) for reference.",
+ "roomCode": "MOCK-0001",
+ "meta": {
+  "code": "MOCK-0001",
+  "name": "Map mock",
+  "dmUid": "demo_dm",
+  "dmName": "Jessey",
+  "createdAt": "2026-10-10T21:05:00.000Z",
+  "status": "live"
+ },
+ "players": {
+  "p_jolene": {
+   "id": "p_jolene",
+   "uid": "p_jolene",
+   "presence": {
+    "conns": {
+     "c_1": {
+      "online": true,
+      "lastSeen": "2026-10-10T21:05:00.000Z"
+     }
+    }
+   },
+   "snapshot": {
+    "name": "Jolene \"Dusty\" Pike",
+    "player": "Alex",
+    "calling": "Hexslinger",
+    "level": 3,
+    "hpCurrent": 17,
+    "hpMax": 20,
+    "hpTemp": 0,
+    "ac": 13,
+    "portrait": "",
+    "conditions": "",
+    "guns": [
+     {
+      "name": "Blacksnake",
+      "loaded": 6,
+      "capacity": 6,
+      "atk": "+5",
+      "damage": "1d8 +3 piercing",
+      "misfire": "1",
+      "caster": true,
+      "condition": "ok",
+      "load": "cartridge",
+      "jammed": false,
+      "dirty": false,
+      "chambers": [
+       "k:cartridge::medium",
+       "k:cartridge::medium",
+       "k:cartridge::medium",
+       "k:cartridge::medium",
+       "k:cartridge::medium",
+       "k:cartridge::medium"
+      ]
+     },
+     {
+      "name": "Double-Barrel Coach Gun",
+      "loaded": 2,
+      "capacity": 2,
+      "condition": "ok",
+      "load": "buck",
+      "jammed": false,
+      "chambers": [
+       "k:buck::",
+       "k:buck::"
+      ]
+     }
+    ],
+    "updatedAt": "2026-10-10T21:05:00.000Z"
+   }
+  },
+  "p_caleb": {
+   "id": "p_caleb",
+   "uid": "p_caleb",
+   "presence": {
+    "conns": {
+     "c_1": {
+      "online": true,
+      "lastSeen": "2026-10-10T21:05:00.000Z"
+     }
+    }
+   },
+   "snapshot": {
+    "name": "Caleb \"Iron\" Marsh",
+    "player": "Sam",
+    "level": 3,
+    "hpCurrent": 36,
+    "hpMax": 36,
+    "ac": 15,
+    "portrait": "",
+    "conditions": "",
+    "guns": [
+     {
+      "name": "Henrietta Repeating Rifle",
+      "loaded": 6,
+      "capacity": 6,
+      "atk": "+6",
+      "condition": "dirty",
+      "dirty": true,
+      "load": "cartridge",
+      "jammed": false,
+      "chambers": [
+       "k:cartridge::medium",
+       "k:cartridge::medium",
+       "k:cartridge::medium",
+       "k:cartridge::medium",
+       "k:cartridge::medium",
+       "k:cartridge::medium"
+      ]
+     }
+    ],
+    "updatedAt": "2026-10-10T21:05:00.000Z"
+   }
+  },
+  "p_mira": {
+   "id": "p_mira",
+   "uid": "p_mira",
+   "presence": {
+    "conns": {
+     "c_1": {
+      "online": true,
+      "lastSeen": "2026-10-10T21:05:00.000Z"
+     }
+    }
+   },
+   "snapshot": {
+    "name": "Mira Quill",
+    "player": "Jo",
+    "level": 3,
+    "hpCurrent": 21,
+    "hpMax": 21,
+    "ac": 12,
+    "portrait": "",
+    "conditions": "",
+    "guns": [
+     {
+      "name": "Herringer Light Double Derringer",
+      "loaded": 2,
+      "capacity": 2,
+      "condition": "ok",
+      "load": "cartridge",
+      "jammed": false,
+      "chambers": [
+       "k:cartridge::light",
+       "k:cartridge::light"
+      ]
+     }
+    ],
+    "updatedAt": "2026-10-10T21:05:00.000Z"
+   }
+  },
+  "p_wes": {
+   "id": "p_wes",
+   "uid": "p_wes",
+   "presence": {
+    "conns": {}
+   },
+   "snapshot": {
+    "name": "Wes Calloway",
+    "player": "Rae",
+    "level": 3,
+    "hpCurrent": 24,
+    "hpMax": 28,
+    "ac": 14,
+    "portrait": "",
+    "conditions": "",
+    "guns": [
+     {
+      "name": "Navy / Army Ball n Cap Revolver",
+      "loaded": 6,
+      "capacity": 6,
+      "condition": "ok",
+      "load": "cap",
+      "jammed": false,
+      "chambers": [
+       "k:cap::medium",
+       "k:cap::medium",
+       "k:cap::medium",
+       "k:cap::medium",
+       "k:cap::medium",
+       "k:cap::medium"
+      ]
+     }
+    ],
+    "updatedAt": "2026-10-10T21:05:00.000Z"
+   }
+  }
+ },
+ "table": {
+  "initiative": {
+   "round": 2,
+   "turn": 2,
+   "started": true,
+   "recruit": true,
+   "order": [
+    {
+     "id": "p_caleb",
+     "name": "Caleb \"Iron\" Marsh",
+     "kind": "player",
+     "init": 19,
+     "playerId": "p_caleb",
+     "status": "",
+     "slot": 0,
+     "lastAttackerId": "",
+     "initFrom": "sheet",
+     "side": "",
+     "guns": [
+      {
+       "name": "Henrietta Repeating Rifle",
+       "capacity": 6,
+       "loaded": 6,
+       "chambers": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "id": "en_bandit2",
+     "name": "Bandit 2",
+     "kind": "enemy",
+     "init": 16,
+     "playerId": "",
+     "status": "Bloodied",
+     "slot": 1,
+     "lastAttackerId": "p_caleb",
+     "initFrom": "",
+     "side": "enemy",
+     "guns": [
+      {
+       "name": "ChaosMaker Revolver",
+       "capacity": 6,
+       "loaded": 6,
+       "chambers": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "id": "p_jolene",
+     "name": "Jolene \"Dusty\" Pike",
+     "kind": "player",
+     "init": 15,
+     "playerId": "p_jolene",
+     "status": "",
+     "slot": 2,
+     "lastAttackerId": "",
+     "initFrom": "sheet",
+     "side": "",
+     "guns": [
+      {
+       "name": "Blacksnake",
+       "capacity": 6,
+       "loaded": 6,
+       "chambers": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+       ]
+      },
+      {
+       "name": "Double-Barrel Coach Gun",
+       "capacity": 2,
+       "loaded": 2,
+       "chambers": [
+        1,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "id": "en_abigail",
+     "name": "Abigail Ellen",
+     "kind": "enemy",
+     "init": 13,
+     "playerId": "",
+     "status": "Unhurt",
+     "slot": 3,
+     "lastAttackerId": "",
+     "initFrom": "",
+     "side": "friendly",
+     "guns": [
+      {
+       "name": "Henrietta Rifle",
+       "capacity": 6,
+       "loaded": 6,
+       "chambers": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "id": "en_bandit1",
+     "name": "Unknown gunman",
+     "kind": "enemy",
+     "init": 12,
+     "playerId": "",
+     "status": "Unhurt",
+     "slot": 4,
+     "lastAttackerId": "",
+     "initFrom": "",
+     "side": "enemy",
+     "guns": [
+      {
+       "name": "ChaosMaker Revolver",
+       "capacity": 6,
+       "loaded": 6,
+       "chambers": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "id": "p_mira",
+     "name": "Mira Quill",
+     "kind": "player",
+     "init": 11,
+     "playerId": "p_mira",
+     "status": "",
+     "slot": 5,
+     "lastAttackerId": "",
+     "initFrom": "rolled",
+     "side": "",
+     "guns": [
+      {
+       "name": "Herringer Light Double Derringer",
+       "capacity": 2,
+       "loaded": 2,
+       "chambers": [
+        1,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "id": "en_bandit3",
+     "name": "Bandit 3",
+     "kind": "enemy",
+     "init": 9,
+     "playerId": "",
+     "status": "Unhurt",
+     "slot": 6,
+     "lastAttackerId": "",
+     "initFrom": "",
+     "side": "enemy",
+     "guns": [
+      {
+       "name": "ChaosMaker Revolver",
+       "capacity": 6,
+       "loaded": 6,
+       "chambers": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "id": "p_wes",
+     "name": "Wes Calloway",
+     "kind": "player",
+     "init": 7,
+     "playerId": "p_wes",
+     "status": "",
+     "slot": 7,
+     "lastAttackerId": "",
+     "initFrom": "rolled",
+     "side": "",
+     "guns": [
+      {
+       "name": "Navy / Army Ball n Cap Revolver",
+       "capacity": 6,
+       "loaded": 6,
+       "chambers": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "damageMode": "auto",
+  "storeOpen": false,
+  "updatedAt": "2026-10-10T21:05:00.000Z",
+  "inspiration": {
+   "count": 1
+  }
+ },
+ "encounter": {
+  "public": {
+   "p_caleb": {
+    "name": "Caleb \"Iron\" Marsh",
+    "slot": 0,
+    "status": "",
+    "kind": "player",
+    "playerId": "p_caleb",
+    "conditions": []
+   },
+   "en_bandit2": {
+    "name": "Bandit 2",
+    "slot": 1,
+    "status": "Bloodied",
+    "kind": "enemy",
+    "playerId": "",
+    "conditions": [
+     "Prone"
+    ],
+    "side": "enemy"
+   },
+   "p_jolene": {
+    "name": "Jolene \"Dusty\" Pike",
+    "slot": 2,
+    "status": "",
+    "kind": "player",
+    "playerId": "p_jolene",
+    "conditions": []
+   },
+   "en_abigail": {
+    "name": "Abigail Ellen",
+    "slot": 3,
+    "status": "Unhurt",
+    "kind": "enemy",
+    "playerId": "",
+    "conditions": [],
+    "side": "friendly",
+    "revealed": {
+     "ac": 15
+    }
+   },
+   "en_bandit1": {
+    "name": "Unknown gunman",
+    "slot": 4,
+    "status": "Unhurt",
+    "kind": "enemy",
+    "playerId": "",
+    "conditions": [],
+    "side": "enemy"
+   },
+   "p_mira": {
+    "name": "Mira Quill",
+    "slot": 5,
+    "status": "",
+    "kind": "player",
+    "playerId": "p_mira",
+    "conditions": []
+   },
+   "en_bandit3": {
+    "name": "Bandit 3",
+    "slot": 6,
+    "status": "Unhurt",
+    "kind": "enemy",
+    "playerId": "",
+    "conditions": [],
+    "side": "enemy"
+   },
+   "p_wes": {
+    "name": "Wes Calloway",
+    "slot": 7,
+    "status": "",
+    "kind": "player",
+    "playerId": "p_wes",
+    "conditions": []
+   }
+  },
+  "hp": {
+   "en_bandit1": {
+    "hp": 11,
+    "maxHp": 11,
+    "ac": 12
+   },
+   "en_bandit2": {
+    "hp": 5,
+    "maxHp": 11,
+    "ac": 12
+   },
+   "en_bandit3": {
+    "hp": 11,
+    "maxHp": 11,
+    "ac": 12
+   },
+   "en_abigail": {
+    "hp": 9,
+    "maxHp": 9,
+    "ac": 15
+   }
+  },
+  "dm": {
+   "en_bandit1": {
+    "name": "Bandit 1",
+    "ac": 12,
+    "hp": 11,
+    "maxHp": 11,
+    "dex": 12,
+    "atkBonus": 3,
+    "damage": "1d6+1",
+    "tactics": "Never surrenders, but can be bribed.",
+    "reveal": {
+     "name": false,
+     "ac": false,
+     "hp": false,
+     "block": false
+    },
+    "side": "enemy"
+   },
+   "en_bandit2": {
+    "name": "Bandit 2",
+    "ac": 12,
+    "hp": 5,
+    "maxHp": 11,
+    "dex": 12,
+    "atkBonus": 3,
+    "damage": "1d6+1",
+    "tactics": "Never surrenders, but can be bribed.",
+    "reveal": {
+     "name": true,
+     "ac": false,
+     "hp": false,
+     "block": false
+    },
+    "side": "enemy"
+   },
+   "en_bandit3": {
+    "name": "Bandit 3",
+    "ac": 12,
+    "hp": 11,
+    "maxHp": 11,
+    "dex": 12,
+    "atkBonus": 3,
+    "damage": "1d6+1",
+    "tactics": "Never surrenders, but can be bribed.",
+    "reveal": {
+     "name": true,
+     "ac": false,
+     "hp": false,
+     "block": false
+    },
+    "side": "enemy"
+   },
+   "en_abigail": {
+    "name": "Abigail Ellen",
+    "ac": 15,
+    "hp": 9,
+    "maxHp": 9,
+    "dex": 12,
+    "atkBonus": 3,
+    "damage": "1d6+1",
+    "tactics": "Leads from the saddle with her repeater; won't leave townsfolk behind.",
+    "reveal": {
+     "name": true,
+     "ac": true,
+     "hp": false,
+     "block": false
+    },
+    "side": "friendly"
+   }
+  },
+  "requests": {}
+ },
+ "conditions": {
+  "cond_en_bandit2_prone": {
+   "name": "Prone",
+   "subjectId": "en_bandit2",
+   "subjectKind": "enemy",
+   "updatedAt": "2026-10-10T21:05:00.000Z",
+   "level": 0,
+   "rounds": null,
+   "active": true
+  }
+ },
+ "playerInit": {
+  "p_caleb": {
+   "ts": "2026-10-10T21:05:00.000Z",
+   "init": 19,
+   "name": "Caleb \"Iron\" Marsh"
+  },
+  "p_jolene": {
+   "ts": "2026-10-10T21:05:00.000Z",
+   "init": 15,
+   "name": "Jolene \"Dusty\" Pike"
+  }
+ },
+ "_dmLocalFightOrder_example": [
+  {
+   "id": "en_bandit2",
+   "name": "Bandit 2",
+   "kind": "enemy",
+   "ac": 12,
+   "hp": 5,
+   "maxHp": 11,
+   "dex": 12,
+   "initBonus": 1,
+   "init": 16,
+   "atkBonus": 3,
+   "damage": "1d6+1",
+   "attacks": "Bowie +3 (1d6+1 piercing), ChaosMaker Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1)",
+   "attackList": "<copied from bestiary rustler.attackList>",
+   "speed": "30 ft.",
+   "cr": "1/8",
+   "beastId": "rustler",
+   "card": "<enemyCardModel(b)>",
+   "side": "enemy",
+   "status": "Bloodied",
+   "lastAttackerId": "p_caleb",
+   "reveal": {
+    "name": true,
+    "ac": false,
+    "hp": false,
+    "block": false
+   }
+  },
+  {
+   "id": "p_jolene",
+   "playerId": "p_jolene",
+   "name": "Jolene \"Dusty\" Pike",
+   "kind": "player",
+   "ac": 13,
+   "hp": 17,
+   "maxHp": 20,
+   "dex": 14,
+   "init": 15,
+   "initFrom": "sheet"
+  }
+ ],
+ "_notes": [
+  "It is p_jolene's turn (turn index 2): only p_jolene may move tok_jolene right now.",
+  "en_bandit1 has reveal.name=false, so public name is 'Unknown gunman' (apply-guard.js publicEnemy HIDDEN_ENEMY_NAME).",
+  "Abigail Ellen is kind 'enemy' + side 'friendly' (that is how allies are stored)."
+ ]
+}

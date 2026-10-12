@@ -5,6 +5,7 @@
   "dependencies": {
     "@firebase/rules-unit-testing": "3.0.4",
     "firebase": "10.14.1",
-    "firebase-tools": "13.29.1"
+    "firebase-tools": "13.29.1",
+    "jsdom": "^26.1.0"
   }
 }

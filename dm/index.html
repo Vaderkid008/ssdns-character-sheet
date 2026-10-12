@@ -7,7 +7,8 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="assets/revolver.png">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.30-chat">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.31-map">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.31-chat">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -100,6 +101,7 @@
     <button type="button" role="tab" class="tab" id="tab-lookup" aria-controls="panel-lookup" aria-selected="false">Lookup</button>
     <button type="button" role="tab" class="tab" id="tab-music" aria-controls="panel-music" aria-selected="false">Music</button>
     <button type="button" role="tab" class="tab" id="tab-notes" aria-controls="panel-notes" aria-selected="false">Notes</button>
+    <button type="button" role="tab" class="tab" id="tab-map" aria-controls="panel-map" aria-selected="false">Map</button>
   </nav>
 
   <main>
@@ -455,6 +457,16 @@
       <textarea class="notes-area" id="dmNotes" placeholder="Session beats, NPC names, secrets…"></textarea>
       <p class="notes-hint" id="notesSaved">Autosaved to this browser.</p>
     </section>
+
+    <!-- MAP -->
+    <section class="panel" id="panel-map" role="tabpanel" aria-labelledby="tab-map" hidden>
+      <div class="map-tabbar">
+        <h2>Map</h2>
+        <button type="button" class="btn sm" id="btnMapFull">Full screen</button>
+      </div>
+      <p class="lede" id="mapIdle">Open a room to use the map.</p>
+      <div id="mapMount" class="ssdns-map hidden" data-map-role="dm" data-asset-base="../map/" data-scene="../map/scene-dusty-spur.json" data-tokens="../map/tokens.json"></div>
+    </section>
   </main>
 </div>
 
@@ -522,18 +534,21 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.30-targets"></script>
-<script src="../assets/js/conditions.js?v=0.2.30"></script>
-<script src="assets/js/ui-tab.js?v=0.2.30"></script>
-<script src="../assets/js/sfx.js?v=0.2.30-sfx"></script>
-<script src="../assets/data/rules.js?v=0.2.30-kit"></script>
-<script src="../assets/js/spell-fx.js?v=0.2.30"></script>
-<script src="../assets/js/spell-cast.js?v=0.2.30"></script>
-<script src="../assets/js/misfire.js?v=0.2.30"></script>
-<script src="../assets/js/firebase-config.js?v=0.2.30"></script>
-<script src="assets/js/store-stock.js?v=0.2.30"></script>
-<script src="assets/js/demo-data.js?v=0.2.30-guns"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.30-chat"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.30-targets"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.31-targets"></script>
+<script src="../assets/js/conditions.js?v=0.2.31"></script>
+<script src="assets/js/ui-tab.js?v=0.2.31"></script>
+<script src="../assets/js/sfx.js?v=0.2.31-sfx"></script>
+<script src="../assets/data/rules.js?v=0.2.31-kit"></script>
+<script src="../assets/js/spell-fx.js?v=0.2.31"></script>
+<script src="../assets/js/spell-cast.js?v=0.2.31"></script>
+<script src="../assets/js/misfire.js?v=0.2.31"></script>
+<script src="../assets/js/firebase-config.js?v=0.2.31"></script>
+<script src="assets/js/store-stock.js?v=0.2.31"></script>
+<script src="assets/js/demo-data.js?v=0.2.31-guns"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.31-chat"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.31-targets"></script>
+<script src="../map/ssdns-map.js?v=0.2.31-map"></script>
+<script src="../map/ssdns-map-firebase.js?v=0.2.31-map"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.31-map"></script>
 </body>
 </html>
