@@ -2238,10 +2238,14 @@ function activeSceneId() {
 function sceneData(id) {
   const sid = id || activeSceneId();
   if (!shared.scenes) shared.scenes = {};
-  if (!shared.scenes[sid]) {
+  if (!shared.scenes[sid] || typeof shared.scenes[sid] !== "object") {
     shared.scenes[sid] = { walls: [], fogRects: [], fogRevealed: false };
   }
-  return shared.scenes[sid];
+  const scene = shared.scenes[sid];
+  // Realtime Database drops empty arrays, so a fresh scene comes back without walls.
+  if (!Array.isArray(scene.walls)) scene.walls = [];
+  if (!Array.isArray(scene.fogRects)) scene.fogRects = [];
+  return scene;
 }
 function migrateGlobalToScenes() {
   if (shared._migrated) return;
@@ -2450,7 +2454,11 @@ async function loadSceneImage(sceneId) {
       const sid = path.split('/').pop();
       if (sid && sid !== 'scenes' && value && typeof value === 'object') {
         sawRemoteScene = true;
-        shared.scenes[sid] = value;
+        if (!shared.scenes) shared.scenes = {};
+        const next = Object.assign({}, value);
+        if (!Array.isArray(next.walls)) next.walls = [];
+        if (!Array.isArray(next.fogRects)) next.fogRects = [];
+        shared.scenes[sid] = next;
         requestDraw();
       }
     }));

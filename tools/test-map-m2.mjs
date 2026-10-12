@@ -556,10 +556,27 @@ async function testMaps(w) {
   check("map.destroy", dm.el.innerHTML === "" && pl.el.innerHTML === "", "html left");
 
   const css = read("map/ssdns-map.css");
+  const dmCss = read("dm/assets/css/dmcc.css");
+  const dmHtml = read("dm/index.html");
   check("map.layoutGrid", css.indexOf("grid-template-areas") >= 0 && /body\.map-fullscreen #mapMount \.ssdns-leftbar \{[\s\S]*?top: 60px;/.test(css), "embedded grid, fullscreen overlay kept");
   const dmcc = read("dm/assets/js/dmcc.js");
-  check("map.roomCodeCopiesCode", dmcc.indexOf('codeDisplay.addEventListener("click", () => copyRoomCode())') >= 0 && dmcc.indexOf("copyInvite()") >= 0, "big code handler");
+  check("map.roomCodeCopiesCode",
+    dmcc.indexOf("function roomCodeString()") >= 0 &&
+    dmcc.indexOf("roomCodeClickTarget") >= 0 &&
+    dmcc.indexOf('copyLink.addEventListener("click", () => copyInvite())') >= 0 &&
+    dmcc.indexOf("codeDisplay.addEventListener") < 0 &&
+    dmcc.indexOf('e.clipboardData.setData("text/plain", code)') >= 0 &&
+    dmcc.indexOf("text/html") < 0,
+    "every code click writes the plain code; invite link stays the URL");
+  check("map.roomCodeNotSelectable", /user-select:\s*none/.test(dmCss) && dmCss.indexOf("user-select: all") < 0, "code cannot be selected as HTML");
+  check("map.demoBoxUnchecked", /<input type="checkbox" id="chkDemo">/.test(dmHtml) && !/id="chkDemo"[^>]*\bchecked\b/.test(dmHtml), "demo checkbox has no checked attribute");
+  check("map.refreshIgnoresDemoFlag",
+    dmcc.indexOf("wasOpen.demo") < 0 &&
+    !/if \(!saved \|\| saved\.demo/.test(dmcc) &&
+    /A saved demo flag never opens demo/.test(dmcc),
+    "refresh of a saved demo flag still tries the live room");
   check("map.createRoomStaysLive", /function wantDemo\(\) \{[\s\S]*?return q\.get\("demo"\) === "1";/.test(dmcc) && dmcc.indexOf("loadDemo(true)") < 0, "Create room no longer falls into demo");
+  check("map.sceneWallsArray", /if \(!Array\.isArray\(scene\.walls\)\) scene\.walls = \[\]/.test(read("map/ssdns-map.js")), "a firebase scene with no walls array can still take a wall");
 
   const freshStore = { pub: {}, dm: {} };
   const freshBus = [];

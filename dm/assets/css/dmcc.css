@@ -121,11 +121,14 @@ a { color: var(--eld); }
   padding: 16px 20px; text-align: center;
   box-shadow: inset 0 0 40px rgba(63,191,154,.05);
 }
-.room-code-label { font-family: var(--label); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--ochre); }
+.room-code-label {
+  font-family: var(--label); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--ochre);
+  cursor: pointer; user-select: none;
+}
 .room-code {
   font-family: var(--title); font-size: clamp(32px, 8vw, 52px); color: var(--eld);
   letter-spacing: .12em; margin: 6px 0; text-shadow: 0 0 24px var(--eld-glow);
-  user-select: all;
+  user-select: none; -webkit-user-select: none;
 }
 button.room-code {
   display: block; width: 100%; background: none; border: 0; padding: 0;
