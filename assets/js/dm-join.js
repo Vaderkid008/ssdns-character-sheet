@@ -1454,6 +1454,13 @@
         else online = !!pres.online;
         rows.push({ name: s.name || "Someone", player: s.player || "", online: online });
       });
+      if (root.SSDNSMapHost && root.SSDNSMapHost.setPlayers) {
+        root.SSDNSMapHost.setPlayers(Object.keys(val || {}).map(function (id) {
+          var p = val[id] || {};
+          var s = p.snapshot || {};
+          return { uid: id, id: id, name: s.name || s.player || id };
+        }));
+      }
       if (root.SSDNSPlaytest && root.SSDNSPlaytest.showRoster) root.SSDNSPlaytest.showRoster(rows);
     });
     bind("encounter/public", function (val) {
@@ -1713,6 +1720,7 @@
         return joinNow(moved, epoch);
       }
       state._moveHops = 0;
+      state.dmUid = meta.dmUid || "";
       var kickSnap = await fb.get(fb.ref(state.db, "rooms/" + code + "/kicked/" + state.uid));
       if (kickSnap.exists()) {
         toast("The DM removed you from the table");
@@ -1761,6 +1769,7 @@
       }, 15000);
       forgetInvite();
       toast("Joined " + code);
+      if (root.SSDNSMapHost && root.SSDNSMapHost.syncRoom) root.SSDNSMapHost.syncRoom();
     } catch (e) {
       console.warn(e);
       toast("Join failed: " + (e.message || e) + " — sheet still works offline");
@@ -1769,6 +1778,7 @@
       state.roomCode = null;
       saveLocal();
       setUiJoined(false);
+      if (root.SSDNSMapHost && root.SSDNSMapHost.syncRoom) root.SSDNSMapHost.syncRoom();
     }
   }
 
@@ -1847,6 +1857,7 @@
       } catch (e) {}
     }
     toast("Left the room · sheet is fully offline again");
+    if (root.SSDNSMapHost && root.SSDNSMapHost.syncRoom) root.SSDNSMapHost.syncRoom();
   }
 
   function hookRollHelper() {
@@ -1863,6 +1874,16 @@
       postDamage: postDamage,
       postMercy: postMercy,
       postAttack: postAttack,
+      live: function () {
+        return {
+          db: state.db,
+          fb: state._fb,
+          uid: state.uid,
+          roomCode: state.roomCode,
+          joined: !!state.joined && !state.left,
+          dmUid: state.dmUid || ""
+        };
+      },
       showHandout: showHandout,
       spendInspiration: spendInspiration,
       join: join,

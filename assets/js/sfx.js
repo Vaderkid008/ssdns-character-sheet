@@ -62,7 +62,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.16"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.18"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) { sfxMap = (j && j.events) || {}; return sfxMap; })
       .catch(function () { sfxMap = {}; return sfxMap; });

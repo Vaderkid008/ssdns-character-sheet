@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>SSDNS Map — M2 v3.1 demo</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1a1612; color: #e8dcc8; font-family: system-ui, sans-serif; }
+  .ssdns-map { position: relative; width: 100vw; height: 100vh; overflow: hidden; touch-action: none; background: #1a1612; }
+  .ssdns-map.hidden { visibility: hidden; }
+  .ssdns-toolbar { position: absolute; top: 8px; left: 8px; z-index: 10; background: rgba(20,16,12,0.9); padding: 8px 12px; border-radius: 6px; display: flex; gap: 10px; align-items: center; font-size: 13px; flex-wrap: wrap; max-width: 90vw; }
+  .ssdns-leftbar { position: absolute; top: 60px; left: 8px; z-index: 10; background: rgba(20,16,12,0.9); padding: 8px; border-radius: 6px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+  .ssdns-rightbar { position: absolute; top: 60px; right: 8px; bottom: 12px; width: 150px; z-index: 10; background: rgba(20,16,12,0.9); padding: 8px; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; overflow-y: auto; }
+  .ssdns-chatdock { position: absolute; bottom: 8px; left: 160px; right: 170px; z-index: 11; background: rgba(20,16,12,0.9); border-radius: 6px; padding: 6px; font-size: 12px; }
+  .ssdns-chatdock [data-act="chatlog"] { max-height: 90px; overflow: auto; }
+  .ssdns-chatdock [data-act="chatrow"] { display: flex; gap: 4px; }
+  .ssdns-chatdock input { flex: 1; background: #3a3228; color: #e8dcc8; border: 1px solid #5a4e40; border-radius: 4px; padding: 4px; }
+  .panel-title { color: #c9a227; font-size: 10px; text-transform: uppercase; margin-top: 6px; }
+  .panel-list { color: #e8dcc8; font-size: 11px; padding: 4px 0; }
+  .ssdns-leftbar button, .ssdns-leftbar select, .ssdns-rightbar button, .ssdns-rightbar select { width: 100%; text-align: left; }
+  .ssdns-toolbar label { display: flex; align-items: center; gap: 6px; }
+  button { background: #3a3228; color: #e8dcc8; border: 1px solid #5a4e40; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+  button.active { background: #8a7040; border-color: #e8c36a; color: #fff; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="mount" class="ssdns-map hidden"></div>
+<script src="ssdns-map.js"></script>
+<script>
+// demo.html is the only file allowed to read the URL, localStorage, and BroadcastChannel.
+const params = new URLSearchParams(location.search);
+const role = params.get('role') === 'dm' ? 'dm' : 'player';
+const uid = params.get('uid') || (role === 'player' ? 'p_jolene' : 'dm');
+const room = params.get('room') || 'demo';
+
+function mockAdapter(room, role) {
+  const dmKey = 'ssdns.map.dm.' + room;
+  const pubKey = 'ssdns.map.pub.' + room;
+  // Separate channels: players never open the DM channel.
+  const pubCh = new BroadcastChannel('ssdns-mock-pub-' + room);
+  const dmCh = role === 'dm' ? new BroadcastChannel('ssdns-mock-dm-' + room) : null;
+  const subs = [];
+  const load = (k) => { try { return JSON.parse(localStorage.getItem(k) || '{}'); } catch { return {}; } };
+  const save = (k, o) => localStorage.setItem(k, JSON.stringify(o));
+  function bucket(path) { return path.startsWith('map/dm') ? 'dm' : 'pub'; }
+  function matches(subPath, writePath) {
+    return writePath === subPath || writePath.startsWith(subPath + '/');
+  }
+  function deliver(path, value, meta) {
+    const m = Object.assign({ path }, meta || {});
+    subs.forEach(s => {
+      if (matches(s.path, path)) s.cb(value, m);
+    });
+  }
+  return {
+    subscribe(path, cb) {
+      if (role !== 'dm' && path.startsWith('map/dm')) return () => {};
+      const entry = { path, cb };
+      subs.push(entry);
+      const key = bucket(path) === 'dm' ? dmKey : pubKey;
+      if (role === 'dm' || !path.startsWith('map/dm')) {
+        const store = load(key);
+        Object.keys(store).forEach(k => {
+          if (matches(path, k) && store[k]) {
+            cb(store[k].value, { path: k, seq: store[k].seq, by: store[k].by });
+          }
+        });
+      }
+      const ch = path.startsWith('map/dm') ? dmCh : pubCh;
+      if (!ch) return () => {};
+      const onMsg = (e) => {
+        if (!e.data || !e.data.path) return;
+        if (matches(path, e.data.path)) cb(e.data.value, e.data);
+      };
+      ch.addEventListener('message', onMsg);
+      return () => { ch.removeEventListener('message', onMsg); const i = subs.indexOf(entry); if (i >= 0) subs.splice(i, 1); };
+    },
+    write(path, value, meta) {
+      if (role !== 'dm' && path.startsWith('map/dm')) return Promise.resolve();
+      const key = bucket(path) === 'dm' ? dmKey : pubKey;
+      const store = load(key);
+      const prev = store[path];
+      if (prev && meta && meta.seq && prev.seq && meta.seq < prev.seq) return Promise.resolve();
+      store[path] = { value, seq: meta && meta.seq, by: meta && meta.by };
+      save(key, store);
+      const msg = { path, value, seq: meta && meta.seq, by: meta && meta.by };
+      const ch = path.startsWith('map/dm') ? dmCh : pubCh;
+      if (ch) ch.postMessage(msg);
+      deliver(path, value, msg);
+      return Promise.resolve();
+    },
+    remove(path) {
+      if (role !== 'dm' && path.startsWith('map/dm')) return Promise.resolve();
+      const key = bucket(path) === 'dm' ? dmKey : pubKey;
+      const store = load(key);
+      delete store[path];
+      save(key, store);
+      const msg = { path, removed: true };
+      const ch = path.startsWith('map/dm') ? dmCh : pubCh;
+      if (ch) ch.postMessage(msg);
+      deliver(path, null, msg);
+      return Promise.resolve();
+    }
+  };
+}
+
+const host = {
+  displayName(id) { return ({ p_jolene: 'Jolene', p_caleb: 'Caleb', p_mira: 'Mira', p_wes: 'Wes', dm: 'DM' })[id] || id; },
+  actions: {
+    get() { return [
+      { id: 'sheet', label: 'Sheet', group: 'sheet', enabled: true },
+      { id: 'check', label: 'Check', group: 'sheet', enabled: true },
+      { id: 'note', label: 'Note', group: 'sheet', enabled: true }
+    ]; },
+    run(id) { console.log('host.actions.run', id); return Promise.resolve(); }
+  },
+  on(name, detail) { console.log('host', name, detail); }
+};
+
+(async () => {
+  const scene = await fetch('scene-dusty-spur.json').then(r => r.json());
+  const options = {
+    scene,
+    getGrid: () => localStorage.getItem('ssdns.map.grid.' + uid),
+    setGrid: (v) => localStorage.setItem('ssdns.map.grid.' + uid, String(v))
+  };
+  if (role === 'dm') {
+    options.tokens = await fetch('tokens.json').then(r => r.json());
+  }
+  const el = document.getElementById('mount');
+  window.map = SSDNSMap.create({
+    el, role, uid,
+    adapter: mockAdapter(room, role),
+    host,
+    options
+  });
+})();
+</script>
+</body>
+</html>

@@ -100,6 +100,48 @@
             ".validate": "newData.hasChildren(['ts', 'from', 'text']) && !newData.hasChild('hp') && !newData.hasChild('maxHp')"
           }
         },
+        "map": {
+          "public": {
+            ".read": "auth != null && !root.child('rooms/'+$roomCode+'/kicked/'+auth.uid).exists() && (root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid || root.child('rooms/'+$roomCode+'/players/'+auth.uid).exists())",
+            "tokens": {
+              "$id": {
+                ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
+                ".validate": "!newData.exists() || (!newData.hasChild('hp') && !newData.hasChild('maxHp') && !newData.hasChild('ac') && !newData.hasChild('notes') && !newData.hasChild('hidden'))",
+                "pos": {
+                  ".write": "auth != null && !root.child('rooms/'+$roomCode+'/kicked/'+auth.uid).exists() && root.child('rooms/'+$roomCode+'/players/'+auth.uid).exists() && ((data.parent().child('ownerUid').val() === auth.uid && data.parent().child('ownerCanMove').val() != false) || root.child('rooms/'+$roomCode+'/map/public/control/'+$id+'/'+auth.uid).val() === true)",
+                  ".validate": "newData.hasChildren(['x','y']) && newData.child('x').isNumber() && newData.child('y').isNumber() && !newData.hasChild('hp') && !newData.hasChild('maxHp') && !newData.hasChild('ac') && !newData.hasChild('notes') && !newData.hasChild('hidden')"
+                },
+                "patch": {
+                  ".write": "auth != null && !root.child('rooms/'+$roomCode+'/kicked/'+auth.uid).exists() && root.child('rooms/'+$roomCode+'/players/'+auth.uid).exists() && ((data.parent().child('ownerUid').val() === auth.uid && data.parent().child('ownerCanMove').val() != false) || root.child('rooms/'+$roomCode+'/map/public/control/'+$id+'/'+auth.uid).val() === true)",
+                  ".validate": "newData.hasChild('seq') && !newData.hasChild('hp') && !newData.hasChild('maxHp') && !newData.hasChild('ac') && !newData.hasChild('notes') && !newData.hasChild('hidden') && !newData.hasChild('ownerUid') && !newData.hasChild('pos') && (!newData.hasChild('color') || newData.child('color').isString()) && (!newData.hasChild('label') || newData.child('label').isString())"
+                }
+              }
+            },
+            "scenes": {
+              ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+            },
+            "playerScenes": {
+              ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+            },
+            "control": {
+              ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+            },
+            "events": {
+              "ping": {
+                ".write": "auth != null && !root.child('rooms/'+$roomCode+'/kicked/'+auth.uid).exists() && (root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid || root.child('rooms/'+$roomCode+'/players/'+auth.uid).exists())",
+                ".validate": "!newData.hasChild('hp') && !newData.hasChild('ac') && !newData.hasChild('notes') && !newData.hasChild('hidden')"
+              },
+              "slide": {
+                ".write": "auth != null && !root.child('rooms/'+$roomCode+'/kicked/'+auth.uid).exists() && (root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid || root.child('rooms/'+$roomCode+'/players/'+auth.uid).exists())",
+                ".validate": "!newData.hasChild('hp') && !newData.hasChild('ac') && !newData.hasChild('notes') && !newData.hasChild('hidden')"
+              }
+            }
+          },
+          "dm": {
+            ".read": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
+            ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+          }
+        },
         "kicked": {
           ".read": "auth != null",
           "$uid": {
