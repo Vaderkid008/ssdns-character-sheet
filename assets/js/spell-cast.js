@@ -496,5 +496,100 @@
     if (meta.conc) bits.push("concentration");
     return bits.filter(Boolean).join(" · ");
   }
-  root.SSDNSSpellCast = { lookup: lookup, rollCast: rollCast, cantripTier: cantripTier, needsType: needsType, pickType: pickType, blurb: blurb };
+  var SAVE_NAME = { STR: "Strength", DEX: "Dexterity", CON: "Constitution", INT: "Intelligence", WIS: "Wisdom", CHA: "Charisma" };
+  function fxFor(name) {
+    var map = root.SSDNS_SPELL_FX || {};
+    var key = norm(name);
+    return map[key] || map[key.replace(/\s+shell$/, "")] || null;
+  }
+  function frontierFace(row) {
+    var aliases = rules().spellAliases || [];
+    var key = norm(row && row.name);
+    if (key === "pact shot") key = "eldritch blast";
+    var hit = null;
+    aliases.forEach(function (a) { if (!hit && a && norm(a.phb) === key) hit = a; });
+    var alias = hit && hit.alias && hit.alias !== "—" && !/prints as 5e/i.test(hit.alias) ? hit.alias : "";
+    var title = row.name || "Spell";
+    if (norm(title) === "pact shot") title = "Pact Shot";
+    else if (alias) title = alias + " (" + (row.name || "") + ")";
+    return { title: title, sketch: (hit && hit.sketch) || "" };
+  }
+  function typeWord(row) {
+    var t = row && row.type ? String(row.type) : "";
+    if (/you chose|you choose/i.test(t)) return "the type you choose";
+    return t;
+  }
+  function damageSentence(row) {
+    if (!row) return "";
+    var dice = row.dice ? String(row.dice) : "";
+    var type = typeWord(row);
+    if (row.kind === "heal") {
+      if (!dice) return "Effect: it restores hit points.";
+      var heal = /^\d+$/.test(dice) ? ("It restores " + dice + " hit points.") : ("It restores " + dice + (row.healMod ? " plus your spellcasting ability modifier" : "") + " hit points.");
+      if (row.up) heal += " A slot above " + (row.level || 1) + "th level adds " + row.up + ".";
+      return heal;
+    }
+    if (!dice) return "";
+    var line;
+    if (row.scale === "beam") line = "Each beam deals " + dice + (type ? " " + type : "") + ". You create one beam, then two at 5th level, three at 11th, and four at 17th.";
+    else if (row.scale === "cantrip") line = "Damage is " + dice + (type ? " " + type : "") + ". Cantrip scaling raises that to two dice at 5th level, three at 11th, and four at 17th.";
+    else line = "Damage is " + dice + (type ? " " + type : "") + ".";
+    if (row.up && row.scale !== "beam") line += " A slot above " + (row.level || 1) + "th level adds " + row.up + (row.upEvery ? " for every " + row.upEvery + " levels above that" : "") + ".";
+    if (row.note) line += " " + String(row.note).replace(/\.$/, "") + ".";
+    return line;
+  }
+  function rollSentence(row, ctx) {
+    ctx = ctx || {};
+    var dcBit = ctx.spellDC != null && ctx.spellDC !== "" ? (" Your spell save DC is " + ctx.spellDC + ".") : " It uses your spell save DC.";
+    var atkBit = ctx.spellAtk != null && ctx.spellAtk !== "" ? (" Your spell attack bonus is " + sign(ctx.spellAtk) + ".") : " It uses your spell attack bonus.";
+    if (row.kind === "save") return "The target makes a " + (SAVE_NAME[row.save] || row.save || "saving") + " saving throw." + dcBit;
+    if (row.kind === "attack") return "You make a spell attack." + atkBit;
+    if (row.kind === "weapon") return "This extra damage rides on a weapon hit. It does not make its own attack roll.";
+    if (row.kind === "auto") return "No attack roll is required.";
+    if (row.kind === "rider") return "There is no attack roll. The extra damage applies when you hit.";
+    if (row.kind === "heal") return "There is no attack roll and no saving throw to resist the healing.";
+    return "";
+  }
+  function fieldSentence(row, fx) {
+    var meta = SPELL_META[norm(row.name)] || {};
+    var range = (fx && fx.range) || meta.range || "";
+    var area = (fx && fx.area) || "";
+    var dur = (fx && fx.dur) || "";
+    var conc = (fx && fx.conc) || meta.conc;
+    var bits = [];
+    if (range) bits.push("Range " + range);
+    if (area) bits.push(area);
+    if (dur) bits.push("duration " + dur);
+    else if (row.dice) bits.push("duration instantaneous");
+    if (conc) bits.push("concentration");
+    if (!bits.length) return "";
+    return bits.join(", ") + ".";
+  }
+  function describe(name, ctx) {
+    ctx = ctx || {};
+    var row = lookup(name) || { name: stripAlias(name) || "Spell", level: 0, kind: "none" };
+    var fx = fxFor(row.name) || fxFor(name) || {};
+    if (norm(row.name) === "pact shot") fx = fxFor("eldritch blast") || fx;
+    var face = frontierFace(row);
+    var sentences = [];
+    var open = face.title + ".";
+    if (face.sketch) open += " " + String(face.sketch).replace(/\.$/, "") + ".";
+    var does = fx.does || "";
+    if (!does) {
+      does = row.dice
+        ? "You cast it at a target in range."
+        : "Effect: you cast " + (row.name || name) + " using its ordinary rules.";
+    }
+    if (!/[.!?]$/.test(does)) does += ".";
+    sentences.push(open + " " + does);
+    var dmg = damageSentence(row);
+    if (dmg) sentences.push(dmg);
+    else if (!fx.does) sentences.push("Effect: it changes the scene as that spell always has, with no damage dice on the sheet.");
+    var roll = rollSentence(row, ctx);
+    if (roll) sentences.push(roll);
+    var field = fieldSentence(row, fx);
+    if (field) sentences.push(field);
+    return sentences.join(" ");
+  }
+  root.SSDNSSpellCast = { lookup: lookup, rollCast: rollCast, cantripTier: cantripTier, needsType: needsType, pickType: pickType, blurb: blurb, describe: describe };
 })(typeof window !== "undefined" ? window : globalThis);

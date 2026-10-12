@@ -58,9 +58,9 @@ check(endBody.indexOf('paintSession("end"') >= 0 && endBody.indexOf("finally") >
 check(dmcc.indexOf("liveStripAllowed") >= 0, "setStatus refuses a stale LIVE line");
 
 const version = JSON.parse(read("version.json"));
-check(version.dmcc === "0.2.29" && version.dmccBuild === "dmcc-playtest-v0229", "dmcc 0.2.29");
-check(version.sheet === "0.3.16" && version.sheetBuild === "sheet-playtest-v0316", "sheet 0.3.16");
-check(read("dm/index.html").indexOf("dmcc.js?v=0.2.29") >= 0, "cache bust");
+check(version.dmcc === "0.2.31" && version.dmccBuild === "dmcc-playtest-v0231", "dmcc 0.2.31");
+check(version.sheet === "0.3.18" && version.sheetBuild === "sheet-playtest-v0318", "sheet 0.3.18");
+check(read("dm/index.html").indexOf("dmcc.js?v=0.2.31") >= 0, "cache bust");
 
 if (failures.length) {
   console.error(failures.join("\n"));

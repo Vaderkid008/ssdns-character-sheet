@@ -148,7 +148,7 @@ window.SSDNS_RULES = {
      "text": "You gain proficiency with one of the following of your choice: smith’s tools, brewer’s supplies, or mason’s tools."
     }
    ],
-   "languages": "You can speak, read, and write Common and Under Lingo (clan tunnel speech).",
+   "languages": "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (German or Welsh).",
    "sublineages": [
     {
      "id": "gold-miner",
@@ -206,7 +206,7 @@ window.SSDNS_RULES = {
      "text": "Aristocrats don’t need a full night the way Nomads do. You can finish a long rest in 4 hours of light sleep / watch-rest (as PHB Trance). After resting this way, you gain the same benefit a Nomad does from 8 hours of sleep."
     }
    ],
-   "languages": "You can speak, read, and write Common and Court Lingo (the old court speech of Neverwinter).",
+   "languages": "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (French or Latin).",
    "sublineages": [
     {
      "id": "high-house",
@@ -298,7 +298,7 @@ window.SSDNS_RULES = {
      "text": "You can move through the space of any creature that is of a size larger than yours."
     }
    ],
-   "languages": "You can speak, read, and write Common and Hearth Lingo.",
+   "languages": "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Irish Gaelic or Spanish).",
    "sublineages": [
     {
      "id": "hetfield",
@@ -344,7 +344,7 @@ window.SSDNS_RULES = {
      "text": "You can speak, read, and write one extra language of your choice."
     }
    ],
-   "languages": "You can speak, read, and write Common and one extra language of your choice.",
+   "languages": "You can speak, read, and write Common and Trail Tongue (see the Accents & Languages table).",
    "sublineages": [
     {
      "id": "variant-human",
@@ -389,7 +389,7 @@ window.SSDNS_RULES = {
      "text": "You have resistance to the damage type associated with your Ancestral Affinity."
     }
    ],
-   "languages": "You can speak, read, and write Common and Watch Lingo (watch-cipher / company battle-tongue).",
+   "languages": "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (German or Russian).",
    "sublineages": [],
    "age": "Camp Kin mature by twenty and live about as long as other hard humans — drill shortens some lives; stubbornness lengthens others."
   },
@@ -412,7 +412,7 @@ window.SSDNS_RULES = {
      "text": "You have advantage on all Intelligence, Wisdom, and Charisma saving throws against magic."
     }
    ],
-   "languages": "You can speak, read, and write Common and Guild Lingo.",
+   "languages": "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Cantonese, German, or Italian).",
    "sublineages": [
     {
      "id": "clockmaker",
@@ -474,7 +474,7 @@ window.SSDNS_RULES = {
      "text": "You gain proficiency in two skills of your choice."
     }
    ],
-   "languages": "You can speak, read, and write Common, Court Lingo, and one extra language of your choice.",
+   "languages": "You can speak, read, and write Common, one settler language from your lineage's row on the Accents & Languages table (Spanish or French), and one extra language of your choice.",
    "sublineages": [],
    "age": "Diplomats mature at about the same rate as Nomads and often reach their seventies or eighties — if politics don’t cut that short."
   },
@@ -505,7 +505,7 @@ window.SSDNS_RULES = {
      "text": "When you score a critical hit with a melee weapon attack, you can roll one of the weapon’s damage dice one additional time and add it to the extra damage of the critical hit."
     }
    ],
-   "languages": "You can speak, read, and write Common and Dock Lingo / Blood Lingo.",
+   "languages": "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Swedish, Norwegian, or Dutch).",
    "sublineages": [],
    "age": "Pioneers mature a little faster than soft-city folk and rarely see a quiet old age — but some outlast every range war they walk into."
   },
@@ -532,7 +532,7 @@ window.SSDNS_RULES = {
      "text": "You know the thaumaturgy cantrip. When you reach 3rd level, you can cast hellish rebuke as a 2nd-level spell once with this trait and regain the ability to do so when you finish a long rest. When you reach 5th level, you can cast darkness once with this trait and regain the ability to do so when you finish a long rest. Charisma is your spellcasting ability for these spells. Flavour as curse-blood, powder-hex, or dying hell-pact scrap that still sparks."
     }
    ],
-   "languages": "You can speak, read, and write Common and Brand Lingo.",
+   "languages": "You can speak, read, and write Common and one settler language from your lineage's row on the Accents & Languages table (Italian or Polish).",
    "sublineages": [],
    "age": "Street Folk mature at the same rate as other humans and live about as long — if rope, lead, or Blackwood heat don’t settle the account early."
   }
@@ -1352,7 +1352,7 @@ window.SSDNS_RULES = {
    "kit": "Wooden shield, machete, explorer pack, herbalism kit, a focus taken from the land (carved walking stick, medicine pouch, or a pouch of home-spring soil).",
    "features": [
     {
-     "name": "Sign Lingo (1st lvl)",
+     "name": "Pathfinder's Code (1st lvl)",
      "text": "Secret signs carved into canyon rocks and telegraph poles denoting water, hazards, and safe trails."
     },
     {
@@ -1446,7 +1446,7 @@ window.SSDNS_RULES = {
      [
       "1st",
       "+2",
-      "Sign Lingo, Spellcasting",
+      "Pathfinder's Code, Spellcasting",
       "2",
       "2 — — — —"
      ],
@@ -2627,6 +2627,10 @@ window.SSDNS_RULES = {
      "text": "Double proficiency bonus for two chosen skill proficiencies or thieves' tools (two more at 6th level)."
     },
     {
+     "name": "Card Sharp's Tells (1st lvl)",
+     "text": "You know the signals, card tells, and code words hustlers use. You can hide a short message in ordinary talk or leave a mark that only another hustler will read."
+    },
+    {
      "name": "Suckerpunch / Dead Angle (Sneak Attack - 1st lvl)",
      "text": "Deal extra 1d6 damage (scaling to 10d6) to one creature you hit with advantage (or if an ally is within 5 ft and you lack disadvantage)."
     },
@@ -2716,7 +2720,7 @@ window.SSDNS_RULES = {
      [
       "1st",
       "+2",
-      "Sneak Attack (1d6), Sharp Practice, Thieves’ Lingo",
+      "Sneak Attack (1d6), Sharp Practice, Card Sharp's Tells",
       "1d6"
      ],
      [
@@ -2885,7 +2889,7 @@ window.SSDNS_RULES = {
      "features": [
       {
        "name": "Infernal Ancestor (1st level)",
-       "text": "Choose the kind of demon in your blood. It sets your element: Ember (fire), Venom (poison), Bile (acid), Storm (lightning), or Rime (cold, from the frozen pit). You can speak, read, and write Brand Lingo. When you make a Charisma check to deal with fiends, your proficiency bonus is doubled if it applies."
+       "text": "Choose the kind of demon in your blood. It sets your element: Ember (fire), Venom (poison), Bile (acid), Storm (lightning), or Rime (cold, from the frozen pit). You can speak, read, and write one extra language of your choice. When you make a Charisma check to deal with fiends, your proficiency bonus is doubled if it applies."
       },
       {
        "name": "Demon Hide (1st level)",
@@ -3504,9 +3508,9 @@ window.SSDNS_RULES = {
    ],
    "spellAbility": "INT",
    "caster": "full",
-   "proficiencies": "Hit Die: 1d6 per level · Proficiencies & Kit: Armor: None · Daggers, quarterstaffs (weighted walking canes), darts, slings, Herringer pistols · Chemical Field Ledger, prism, galvanic reagents, scholar pack, duster.",
+   "proficiencies": "Hit Die: 1d6 per level · Proficiencies & Kit: Armor: None · Daggers, quarterstaffs (weighted walking canes), darts, slings, Herringer pistols, the Dullards Plinker · Chemical Field Ledger, prism, galvanic reagents, scholar pack, duster.",
    "armorProf": "None",
-   "weaponProf": "Daggers, quarterstaffs (weighted walking canes), darts, slings, Herringer pistols",
+   "weaponProf": "Daggers, quarterstaffs (weighted walking canes), darts, slings, Herringer pistols, the Dullards Plinker",
    "kit": "Chemical Field Ledger, prism, galvanic reagents, scholar pack, duster.",
    "features": [
     {
@@ -3943,7 +3947,7 @@ window.SSDNS_RULES = {
      "A bounty poster with my jawline hangs somewhere I’ve already been.",
      "I can’t walk past an unlocked till without my fingers itching.",
      "I answer insults with iron faster than sense.",
-     "I trust the wrong smiles if they speak Dock Lingo.",
+     "I trust the wrong smiles if they sound like home.",
      "I keep proof of old jobs — souvenirs that hang me.",
      "I’d rather burn a bridge than admit I need help crossing it."
     ]
@@ -4675,7 +4679,7 @@ window.SSDNS_RULES = {
    "src": "BOOK1.md line 3556",
    "skills": "Insight, Investigation",
    "tools": "Tinker’s tools or one artisan’s tools (smith’s / carpenter’s); forgery kit optional swap with DM",
-   "languages": "One of your choice (often Guild Lingo)",
+   "languages": "One of your choice",
    "equipment": "Tinker’s tools (or chosen artisan’s tools), guild letter or assay scrap, traveler’s clothes with burn holes, pouch with 1,500 ES, tiny prototype (nonmagical gadget — DM defines)",
    "feature": {
     "name": "Maker’s Mark",
@@ -5050,24 +5054,28 @@ window.SSDNS_RULES = {
    "capacity": 7,
    "tiers": {
     "light": {
-     "damage": "1d6",
+     "damage": "1d4",
      "range": "10/30",
      "misfire": "1–2"
     }
    },
    "weight": "1 lb.",
-   "properties": "Close quarters, simple, chambered .22 LR",
-   "src": "sheet lock 2026-10-07",
+   "properties": "Close quarters, simple, chambered .22 LR or .32 rimfire",
+   "src": "sheet lock 2026-10-09",
    "slow": false,
    "ability": "DEX",
    "category": "simple",
    "dirtyMisfire": "1–4",
-   "rustyDamage": "1d4",
-   "rustyMisfire": "1–4",
    "rounds": {
     "light": [
-     ".22 LR"
+     ".22 LR",
+     ".32 rimfire"
     ]
+   },
+   "rifleRounds": {
+    ".32 rimfire": {
+     "damage": "1d6"
+    }
    },
    "ammo": "cartridge"
   },

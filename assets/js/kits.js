@@ -31,7 +31,7 @@
       guns.push(slot);
     }
     slot.weapon = id;
-    slot.proficient = true;
+    slot.proficient = kitProficient(id);
     if (!slot.chambers) slot.chambers = [];
     return slot;
   }
@@ -47,7 +47,7 @@
       melee.push(slot);
     }
     slot.weapon = id;
-    slot.proficient = true;
+    slot.proficient = kitProficient(id);
     return slot;
   }
   function chamberGun(slot, chamber, extra) {
@@ -104,9 +104,54 @@
     chamberGun(slot, "light|.32 Long");
     addAmmo(c, "cartridge", "Light", 20);
   }
+  var kitCalling = "";
+  function rulesWeapon(id) {
+    var rules = root.SSDNS_RULES || {};
+    var lists = [].concat(rules.melee || [], rules.firearms || [], rules.casterGuns || [], rules.otherRanged || []);
+    return lists.filter(function (w) { return w && w.id === id; })[0] || null;
+  }
+  function fiveEName(w) {
+    var name = String(w && w.name || "");
+    var m = name.match(/\(([^)]+)\)/);
+    return (m ? m[1] : name).toLowerCase();
+  }
+  function kitProficient(id) {
+    var w = rulesWeapon(id);
+    var rules = root.SSDNS_RULES;
+    if (!w || !rules || !kitCalling) return true;
+    if (root.SSDNSApp && root.SSDNSApp.callingProficient) return !!root.SSDNSApp.callingProficient(w);
+    var cal = (rules.callings || []).filter(function (c) { return c.id === kitCalling; })[0];
+    if (!cal || !cal.weaponProf) return false;
+    var prof = String(cal.weaponProf).toLowerCase();
+    var name = String(w.name || "").toLowerCase();
+    if (w.hexShells || w.group === "caster") return /caster guns?/.test(prof);
+    if (/plinker/.test(name) && /plinker/.test(prof)) return true;
+    if (/herringer/.test(name) && /herringer/.test(prof)) return true;
+    if (/ball/.test(name) && /cap/.test(name) && /ball n cap/.test(prof)) return true;
+    if (/cavalry saber/.test(name) && /cavalry saber/.test(prof)) return true;
+    if (/bowie/.test(name) && /bowie/.test(prof)) return true;
+    if ((/fencing|sword cane/.test(name) || /\brapier\b/.test(fiveEName(w))) && /fencing/.test(prof)) return true;
+    var meleeOnly = /\bmelee\b/.test(prof);
+    var both = /simple\s*(and|&)\s*martial/.test(prof);
+    var simple = both || /\bsimple weapons\b/.test(prof);
+    var cat = String(w.category || "").toLowerCase();
+    var melee = String(w.group || "").indexOf("melee") >= 0 || !w.tiers;
+    if (!(meleeOnly && !melee)) {
+      if (cat === "simple" && simple) return true;
+      if (cat === "martial" && both) return true;
+    }
+    var named = { dagger: "daggers?", quarterstaff: "quarterstaffs?", dart: "darts?", sling: "slings?", longsword: "longswords?", rapier: "rapiers?", shortsword: "shortswords?", scimitar: "scimitars?" };
+    var en = fiveEName(w);
+    var key;
+    for (key in named) {
+      if (!Object.prototype.hasOwnProperty.call(named, key)) continue;
+      if (new RegExp("\\b" + key + "s?\\b").test(en) && new RegExp("\\b" + named[key] + "\\b").test(prof)) return true;
+    }
+    return false;
+  }
   function plinker(c) {
     var slot = putGun(c, "dullards-plinker-revolver");
-    chamberGun(slot, "light|.22 LR", { rusty: false });
+    chamberGun(slot, "light|.22 LR", { dirty: true });
     addAmmo(c, "cartridge", "Light", 20);
   }
   function stilettos(c, n) {
@@ -132,10 +177,11 @@
         { id: "harmonica", label: "Harmonica" },
         { id: "voice", label: "Voice (still carry a harmonica)" }
       ]},
-      { id: "weapon", prompt: "Sword cane, cavalry saber, or derringer?", options: [
+      { id: "weapon", prompt: "Sword cane, cavalry saber, derringer, or plinker?", options: [
         { id: "cane", label: "Sword cane" },
         { id: "saber", label: "Cavalry saber" },
-        { id: "derringer", label: "Herringer Light Double Derringer + 20 Light cartridges" }
+        { id: "derringer", label: "Herringer Light Double Derringer + 20 Light cartridges" },
+        { id: "plinker", label: "Dullards Plinker Revolver, .22 LR + 20 Light cartridges" }
       ]},
       { id: "kit", prompt: "Circuit trunk, or saloon kit?", options: [
         { id: "trunk", label: "Circuit trunk" },
@@ -254,9 +300,10 @@
       ]}
     ],
     scholar: [
-      { id: "weapon", prompt: "Trail staff, or stiletto?", options: [
+      { id: "weapon", prompt: "Trail staff, stiletto, or plinker?", options: [
         { id: "cane", label: "Weighted walking cane (trail staff)" },
-        { id: "stiletto", label: "Stiletto" }
+        { id: "stiletto", label: "Stiletto" },
+        { id: "plinker", label: "Dullards Plinker Revolver + 20 Light cartridges" }
       ]},
       { id: "pack", prompt: "Book trunk, or trail kit?", options: [
         { id: "book", label: "Book trunk" },
@@ -282,6 +329,7 @@
 
   function moduleStart(c, calling, p) {
     p = p || {};
+    kitCalling = calling || "";
     if (calling === "tribal-warrior") {
       putMelee(c, "hatchet-handaxe");
     } else if (calling === "storyteller") {
@@ -337,6 +385,7 @@
   function apply(c, calling, p, opts) {
     p = p || {};
     opts = opts || {};
+    kitCalling = calling || "";
     if (opts.start === "module" || p._start === "module") return moduleStart(c, calling, p);
     if (calling === "tribal-warrior") {
       putMelee(c, "buffalo-axe-greataxe");
@@ -351,6 +400,7 @@
       var voice = p.voice || "fiddle";
       if (p.weapon === "saber") putMelee(c, "cavalry-saber-longsword");
       else if (p.weapon === "derringer") derringer(c);
+      else if (p.weapon === "plinker") plinker(c);
       else putMelee(c, "sword-cane-rapier");
       putMelee(c, "stiletto-dagger");
       c.armor = "leather-jacket";
@@ -489,7 +539,8 @@
       c.armor = "leather-jacket";
       addLine(c, packLine(p.pack === "claim" ? "claim" : "book"));
     } else if (calling === "scholar") {
-      if (p.weapon === "stiletto") putMelee(c, "stiletto-dagger");
+      if (p.weapon === "plinker") plinker(c);
+      else if (p.weapon === "stiletto") putMelee(c, "stiletto-dagger");
       else putMelee(c, "trail-staff-drover-s-staff-quarterstaff");
       addLine(c, "Chemical Field Ledger");
       addLine(c, "Prism (focus)");
@@ -544,16 +595,23 @@
     var hit = lists.filter(function (w) { return w && w.id === id; })[0];
     return (hit && hit.name) || id;
   }
+  function armorName(id) {
+    var rules = root.SSDNS_RULES || {};
+    var hit = (rules.armor || []).filter(function (a) { return a && a.id === id; })[0];
+    if (hit && hit.name) return hit.name;
+    return String(id || "").replace(/-/g, " ");
+  }
   function describe(calling, picks, opts) {
     var c = apply(blankCharacter(), calling, picks || {}, opts || {});
     var lines = [];
+    var worn = c.armor ? armorName(c.armor) : "";
     (c.melee || []).forEach(function (row) {
       if (row && row.weapon) lines.push(weaponLabel(row.weapon));
     });
     (c.guns || []).forEach(function (row) {
       if (row && row.weapon) lines.push(weaponLabel(row.weapon));
     });
-    if (c.armor) lines.push("Armor: " + c.armor);
+    if (worn) lines.push("Armor: " + worn);
     if (c.shield) lines.push("Shield");
     (c.ammo || []).forEach(function (a) {
       if (!a || !a.count) return;
@@ -561,7 +619,9 @@
     });
     String(c.equipment || "").split("\n").forEach(function (line) {
       var text = line.replace(/^•\s*/, "").trim();
-      if (text) lines.push(text);
+      if (!text) return;
+      if (worn && text.toLowerCase().indexOf(worn.toLowerCase()) >= 0) return;
+      lines.push(text);
     });
     return lines;
   }

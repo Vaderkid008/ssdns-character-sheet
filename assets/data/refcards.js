@@ -60,7 +60,7 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Languages",
-     "Common and Under Lingo (clan tunnel speech)"
+     "Common and one settler language: German or Welsh"
     ]
    ],
    "subPick": "Pick one sublineage: Gold Miner or Coal Miner.",
@@ -103,7 +103,7 @@ window.SSDNS_REFCARDS = {
     }
    ],
    "moreInfo": "More information: SSDNS PHB p.9",
-   "languageNote": "A settler language from Accents & Languages (p.4) can take the place of your lineage language."
+   "languageNote": "Everyone speaks Common, the frontier's English. Any language of your choice can be another settler language or an Old Tongue (Accents & Languages, p.4)."
   },
   {
    "id": "aristocrats",
@@ -147,7 +147,7 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Languages",
-     "Common and Court Lingo (the old court speech of Neverwinter)"
+     "Common and one settler language: French or Latin"
     ]
    ],
    "subPick": "Pick one sublineage: High House, Greenwood Kin, or Night House.",
@@ -232,7 +232,7 @@ window.SSDNS_REFCARDS = {
     }
    ],
    "moreInfo": "More information: SSDNS PHB pp.10–11",
-   "languageNote": "A settler language from Accents & Languages (p.4) can take the place of your lineage language."
+   "languageNote": "Everyone speaks Common, the frontier's English. Any language of your choice can be another settler language or an Old Tongue (Accents & Languages, p.4)."
   },
   {
    "id": "farmers",
@@ -268,7 +268,7 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Languages",
-     "Common and Hearth Lingo"
+     "Common and one settler language: Irish Gaelic or Spanish"
     ]
    ],
    "subPick": "Pick one sublineage: Hetfield or MacCoy.",
@@ -311,7 +311,7 @@ window.SSDNS_REFCARDS = {
     }
    ],
    "moreInfo": "More information: SSDNS PHB p.12",
-   "languageNote": "A settler language from Accents & Languages (p.4) can take the place of your lineage language."
+   "languageNote": "Everyone speaks Common, the frontier's English. Any language of your choice can be another settler language or an Old Tongue (Accents & Languages, p.4)."
   },
   {
    "id": "nomads",
@@ -343,7 +343,7 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Languages",
-     "Common and one extra language of your choice"
+     "Common and Trail Tongue"
     ]
    ],
    "subPick": "Optional: Variant Human, if your table allows it. It replaces the +1 to all six.",
@@ -372,7 +372,7 @@ window.SSDNS_REFCARDS = {
     }
    ],
    "moreInfo": "More information: SSDNS PHB p.13",
-   "languageNote": "A settler language from Accents & Languages (p.4) can take the place of your lineage language."
+   "languageNote": "Everyone speaks Common, the frontier's English. Any language of your choice can be another settler language or an Old Tongue (Accents & Languages, p.4)."
   },
   {
    "id": "camp-kin",
@@ -416,12 +416,12 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Languages",
-     "Common and Watch Lingo (watch-cipher / company battle-tongue)"
+     "Common and one settler language: German or Russian"
     ]
    ],
    "sublineages": [],
    "moreInfo": "More information: SSDNS PHB p.14",
-   "languageNote": "A settler language from Accents & Languages (p.4) can take the place of your lineage language."
+   "languageNote": "Everyone speaks Common, the frontier's English. Any language of your choice can be another settler language or an Old Tongue (Accents & Languages, p.4)."
   },
   {
    "id": "merchants",
@@ -462,7 +462,7 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Languages",
-     "Common and Guild Lingo"
+     "Common and one settler language: Cantonese, German, or Italian"
     ]
    ],
    "subPick": "Pick one sublineage: Clockmaker or Toymaker.",
@@ -513,7 +513,7 @@ window.SSDNS_REFCARDS = {
     }
    ],
    "moreInfo": "More information: SSDNS PHB p.15",
-   "languageNote": "A settler language from Accents & Languages (p.4) can take the place of your lineage language."
+   "languageNote": "Everyone speaks Common, the frontier's English. Any language of your choice can be another settler language or an Old Tongue (Accents & Languages, p.4)."
   },
   {
    "id": "diplomats",
@@ -557,12 +557,12 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Languages",
-     "Common, Court Lingo, and one extra language of your choice"
+     "Common, one settler language (Spanish or French), and one extra language of your choice"
     ]
    ],
    "sublineages": [],
    "moreInfo": "More information: SSDNS PHB p.16",
-   "languageNote": "A settler language from Accents & Languages (p.4) can take the place of your lineage language."
+   "languageNote": "Everyone speaks Common, the frontier's English. Any language of your choice can be another settler language or an Old Tongue (Accents & Languages, p.4)."
   },
   {
    "id": "pioneers",
@@ -607,12 +607,12 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Languages",
-     "Common and Dock Lingo / Blood Lingo"
+     "Common and one settler language: Swedish, Norwegian, or Dutch"
     ]
    ],
    "sublineages": [],
    "moreInfo": "More information: SSDNS PHB p.17",
-   "languageNote": "A settler language from Accents & Languages (p.4) can take the place of your lineage language."
+   "languageNote": "Everyone speaks Common, the frontier's English. Any language of your choice can be another settler language or an Old Tongue (Accents & Languages, p.4)."
   },
   {
    "id": "street-folk",
@@ -656,12 +656,12 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Languages",
-     "Common and Brand Lingo"
+     "Common and one settler language: Italian or Polish"
     ]
    ],
    "sublineages": [],
    "moreInfo": "More information: SSDNS PHB p.18",
-   "languageNote": "A settler language from Accents & Languages (p.4) can take the place of your lineage language."
+   "languageNote": "Everyone speaks Common, the frontier's English. Any language of your choice can be another settler language or an Old Tongue (Accents & Languages, p.4)."
   }
  ],
  "callings": [
@@ -835,7 +835,7 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "1st level",
-     "Sign Lingo: secret signs for water, hazards, and safe trails. Spellcasting"
+     "Pathfinder's Code: secret signs for water, hazards, and safe trails. Spellcasting"
     ],
     [
      "Spellcasting",
@@ -1055,7 +1055,7 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "1st level",
-     "Sharp Practice (Expertise): double proficiency on two skills or thieves' tools. Suckerpunch / Dead Angle: Sneak Attack 1d6. Thieves’ Lingo"
+     "Sharp Practice (Expertise): double proficiency on two skills or thieves' tools. Suckerpunch / Dead Angle: Sneak Attack 1d6. Card Sharp's Tells: hand signs and code words, not a language"
     ],
     [
      "Spellcasting",
@@ -1685,7 +1685,7 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Languages",
-     "One of your choice (often Guild Lingo)"
+     "One of your choice"
     ],
     [
      "Equipment",
