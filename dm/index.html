@@ -7,8 +7,8 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="assets/revolver.png">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.31-map">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.31-chat">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.32-map">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.32-chat">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -36,9 +36,9 @@
 
 <div class="statusbar" id="statusBar" role="status">
   <span class="status-dot demo" id="statusDot"></span>
-  <span id="statusText">Demo mode · offline</span>
-  <label class="toggle" title="Use fake players; no Firebase needed">
-    <input type="checkbox" id="chkDemo" checked>
+  <span id="statusText">Starting…</span>
+  <label class="toggle" title="Offline practice table. Create room stays live. Use Load demo table to open the sample.">
+    <input type="checkbox" id="chkDemo">
     Demo
   </label>
   <span id="statusExtra"></span>
@@ -55,7 +55,7 @@
 <!-- Lobby (no room yet) -->
 <section class="lobby" id="lobby">
   <h1>DM Command Center</h1>
-  <p>Create a table room. Players join from their character sheet with the code. Demo mode works fully offline.</p>
+  <p>Create a table room. Players join from their character sheet with the code. Load demo table is the offline practice table.</p>
   <div class="resume-choice" id="resumeChoice">
     <p id="resumePrompt">Start a new session. Leaving a room does not end the table.</p>
     <div class="row-btns">
@@ -84,7 +84,7 @@
   <div class="room-hero">
     <div class="room-code-card">
       <div class="room-code-label">Table code · share with players</div>
-      <button type="button" class="room-code" id="roomCodeDisplay" title="Copy invite link">————</button>
+      <button type="button" class="room-code" id="roomCodeDisplay" title="Copy room code">————</button>
       <div class="room-meta" id="roomMeta"></div>
       <div class="presence" id="presenceList"></div>
     </div>
@@ -534,21 +534,21 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.31-targets"></script>
-<script src="../assets/js/conditions.js?v=0.2.31"></script>
-<script src="assets/js/ui-tab.js?v=0.2.31"></script>
-<script src="../assets/js/sfx.js?v=0.2.31-sfx"></script>
-<script src="../assets/data/rules.js?v=0.2.31-kit"></script>
-<script src="../assets/js/spell-fx.js?v=0.2.31"></script>
-<script src="../assets/js/spell-cast.js?v=0.2.31"></script>
-<script src="../assets/js/misfire.js?v=0.2.31"></script>
-<script src="../assets/js/firebase-config.js?v=0.2.31"></script>
-<script src="assets/js/store-stock.js?v=0.2.31"></script>
-<script src="assets/js/demo-data.js?v=0.2.31-guns"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.31-chat"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.31-targets"></script>
-<script src="../map/ssdns-map.js?v=0.2.31-map"></script>
-<script src="../map/ssdns-map-firebase.js?v=0.2.31-map"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.31-map"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.32-targets"></script>
+<script src="../assets/js/conditions.js?v=0.2.32"></script>
+<script src="assets/js/ui-tab.js?v=0.2.32"></script>
+<script src="../assets/js/sfx.js?v=0.2.32-sfx"></script>
+<script src="../assets/data/rules.js?v=0.2.32-kit"></script>
+<script src="../assets/js/spell-fx.js?v=0.2.32"></script>
+<script src="../assets/js/spell-cast.js?v=0.2.32"></script>
+<script src="../assets/js/misfire.js?v=0.2.32"></script>
+<script src="../assets/js/firebase-config.js?v=0.2.32"></script>
+<script src="assets/js/store-stock.js?v=0.2.32"></script>
+<script src="assets/js/demo-data.js?v=0.2.32-guns"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.32-chat"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.32-targets"></script>
+<script src="../map/ssdns-map.js?v=0.2.32-map"></script>
+<script src="../map/ssdns-map-firebase.js?v=0.2.32-map"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.32-map"></script>
 </body>
 </html>

@@ -307,6 +307,7 @@ if (role === 'dm') {
   rightbar.innerHTML = `
     <div class="panel-title">DM Tools</div>
     <button data-act="addTokenBtn">Add token</button>
+    <button data-act="addPcBtn">Add player token</button>
     <button data-act="dupTokenBtn">Duplicate</button>
     <button data-act="copyTokenBtn">Copy</button>
     <button data-act="pasteTokenBtn">Paste</button>
@@ -349,31 +350,41 @@ if (role === 'dm') {
 }
 
 // --- render ---
+function viewBox() {
+  const w = canvas.clientWidth || el.clientWidth || 1;
+  const h = canvas.clientHeight || el.clientHeight || 1;
+  return { w: w, h: h };
+}
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = el.clientWidth * dpr;
-  canvas.height = el.clientHeight * dpr;
-  canvas.style.width = el.clientWidth + 'px';
-  canvas.style.height = el.clientHeight + 'px';
+  const box = viewBox();
+  if (canvas.width !== Math.round(box.w * dpr) || canvas.height !== Math.round(box.h * dpr)) {
+    canvas.width = box.w * dpr;
+    canvas.height = box.h * dpr;
+  }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   draw();
 }
-const ro = new ResizeObserver(resize); ro.observe(el);
+const ro = new ResizeObserver(resize);
+ro.observe(el);
+ro.observe(canvas);
 
 function worldToScreen(wx, wy) {
+  const box = viewBox();
   return {
-    x: (wx - state.view.x) * state.view.zoom + el.clientWidth / 2,
-    y: (wy - state.view.y) * state.view.zoom + el.clientHeight / 2
+    x: (wx - state.view.x) * state.view.zoom + box.w / 2,
+    y: (wy - state.view.y) * state.view.zoom + box.h / 2
   };
 }
 function screenToWorld(sx, sy) {
+  const box = viewBox();
   return {
-    x: (sx - el.clientWidth / 2) / state.view.zoom + state.view.x,
-    y: (sy - el.clientHeight / 2) / state.view.zoom + state.view.y
+    x: (sx - box.w / 2) / state.view.zoom + state.view.x,
+    y: (sy - box.h / 2) / state.view.zoom + state.view.y
   };
 }
 function localXY(e) {
-  const r = el.getBoundingClientRect ? el.getBoundingClientRect() : { left: 0, top: 0 };
+  const r = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
   return { x: e.clientX - (r.left || 0), y: e.clientY - (r.top || 0) };
 }
 function pointerWorld(e) {
@@ -391,7 +402,8 @@ function draw() {
   ctx.globalAlpha = 1; // ensure no leaked alpha dims the DM view
   const { cols, rows, px } = state.scene.grid;
   const img = state.scene._img;
-  ctx.clearRect(0, 0, el.clientWidth, el.clientHeight);
+  const box = viewBox();
+  ctx.clearRect(0, 0, box.w, box.h);
 
   // collect light sources (tokens with torch)
   const lightSources = [];
@@ -424,7 +436,7 @@ function draw() {
     if (role === 'player' && sceneData().fogRevealed === false) {
       // dark base for players
       ctx.fillStyle = '#0a0806';
-      ctx.fillRect(0, 0, el.clientWidth, el.clientHeight);
+      ctx.fillRect(0, 0, box.w, box.h);
 
       if (visionCenter) {
         drawVisible(visionCenter.x, visionCenter.y, visionRadiusSq * px);
@@ -453,7 +465,7 @@ function draw() {
       // DM: grey everywhere, then redraw bright map inside each FOV circle
       if (role === 'dm' && state.showPlayerFov && img) {
         ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fillRect(0, 0, el.clientWidth, el.clientHeight);
+        ctx.fillRect(0, 0, box.w, box.h);
 
         for (const ls of lightSources) {
           drawVisible(ls.x, ls.y, ls.radius * px);
@@ -1023,6 +1035,145 @@ function pasteTokens() {
   made.forEach(t => saveToken(t.id));
   toast('Pasted ' + made.length + ' — own stats, not linked');
   draw();
+}
+const PC_COLORS = ['#4a90d9', '#2a9d8f', '#9b59b6', '#e67e22', '#d35400', '#c9a227'];
+function partyList() {
+  const raw = typeof options.players === 'function' ? options.players() : (options.players || (host.players && host.players()) || []);
+  return (Array.isArray(raw) ? raw : []).filter(p => p && (p.uid || p.id));
+}
+function dismissedMap() {
+  if (!state.dismissed || typeof state.dismissed !== 'object') state.dismissed = {};
+  return state.dismissed;
+}
+function tokenForOwner(ownerUid) {
+  if (!ownerUid) return null;
+  const live = state.tokens.find(t => t.ownerUid === ownerUid);
+  if (live) return live;
+  const sharedHit = Object.values(shared.tokens || {}).find(t => t && t.ownerUid === ownerUid);
+  return sharedHit || null;
+}
+function viewCenterCell() {
+  const grid = (state.scene && state.scene.grid) || { cols: 30, rows: 20, px: 70 };
+  const px = grid.px || 70;
+  let x = Math.round((state.view.x || 0) / px - 0.5);
+  let y = Math.round((state.view.y || 0) / px - 0.5);
+  x = Math.max(0, Math.min((grid.cols || 30) - 1, x));
+  y = Math.max(0, Math.min((grid.rows || 20) - 1, y));
+  return { x: x, y: y };
+}
+function selectToken(token) {
+  if (!token) return;
+  state.selected = token;
+  state.selectedIds = [token.id];
+  refreshSelectedPanel();
+  draw();
+}
+function makeToken(spec) {
+  if (!state.scene) return null;
+  const grid = state.scene.grid || { cols: 30, rows: 20 };
+  const spot = spec.pos || viewCenterCell();
+  const id = 'tok_' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
+  const token = {
+    id: id,
+    kind: spec.kind || 'npc',
+    name: spec.name || 'Token',
+    label: String(spec.label || spec.name || 'Tok').slice(0, 16),
+    ownerUid: spec.ownerUid || '',
+    controlledBy: spec.controlledBy ? spec.controlledBy.slice() : [],
+    ownerCanMove: spec.ownerCanMove !== false,
+    size: 1,
+    color: spec.color || '',
+    status: '',
+    conditions: [],
+    locked: false,
+    hidden: false,
+    pos: {
+      x: Math.max(0, Math.min((grid.cols || 30) - 1, spot.x)),
+      y: Math.max(0, Math.min((grid.rows || 20) - 1, spot.y))
+    },
+    sceneId: (state.scene && state.scene.id) || 'scn_dustyspur01',
+    image: spec.image || '',
+    sheetId: spec.sheetId || ''
+  };
+  state.tokens.push(token);
+  shared.tokens[id] = JSON.parse(JSON.stringify(token));
+  emit('combatant:add', { tokenId: id });
+  saveToken(id);
+  return token;
+}
+function ensurePartyTokens() {
+  if (role !== 'dm' || !state.scene) return;
+  const list = partyList();
+  list.forEach((p, i) => {
+    const who = p.uid || p.id;
+    if (!who || dismissedMap()[who] || tokenForOwner(who)) return;
+    const cell = viewCenterCell();
+    const name = p.name || p.label || who;
+    makeToken({
+      kind: 'player',
+      name: name,
+      label: name,
+      ownerUid: who,
+      ownerCanMove: true,
+      color: PC_COLORS[i % PC_COLORS.length],
+      pos: { x: cell.x + (i % 5) - 2, y: cell.y }
+    });
+  });
+}
+function addEnemyToken() {
+  const cell = viewCenterCell();
+  const n = state.tokens.filter(t => t.kind === 'npc' || t.kind === 'enemy').length;
+  const token = makeToken({
+    kind: 'npc',
+    name: 'Enemy',
+    label: 'Enemy',
+    ownerUid: '',
+    ownerCanMove: false,
+    color: '#a33b3b',
+    pos: { x: cell.x + (n % 4), y: cell.y }
+  });
+  if (!token) { toast('Open a scene first'); return; }
+  selectToken(token);
+  toast('Enemy token added. Grant it to a player, or leave it for the DM.');
+}
+function addPlayerToken() {
+  const who = q('grantUid') && q('grantUid').value;
+  if (!who) { toast('No player to add'); return; }
+  delete dismissedMap()[who];
+  if (adapter && adapter.remove) adapter.remove('map/dm/dismissed/' + who);
+  if (tokenForOwner(who)) { toast('That player already has a token'); return; }
+  const p = partyList().find(x => (x.uid || x.id) === who) || {};
+  const name = p.name || p.label || who;
+  const cell = viewCenterCell();
+  const token = makeToken({
+    kind: 'player',
+    name: name,
+    label: name,
+    ownerUid: who,
+    ownerCanMove: true,
+    color: '#4a90d9',
+    pos: cell
+  });
+  if (!token) return;
+  selectToken(token);
+  toast('Player token added');
+}
+let defaultSceneDone = false;
+let sawRemoteScene = false;
+function ensureDefaultScene() {
+  if (role !== 'dm' || sawRemoteScene || defaultSceneDone) return;
+  const sid = (state.scene && state.scene.id) || 'scn_dustyspur01';
+  const cur = (shared.scenes && shared.scenes[sid]) || {};
+  if (cur.walls && cur.walls.length) { defaultSceneDone = true; return; }
+  shared.scenes[sid] = {
+    id: sid,
+    name: (state.scene && state.scene.name) || 'Dusty Spur',
+    walls: cur.walls || [],
+    fogRects: cur.fogRects || [],
+    fogRevealed: cur.fogRevealed === true
+  };
+  defaultSceneDone = true;
+  saveScene(sid);
 }
 
 function pathFeet(points) {
@@ -1927,6 +2078,8 @@ if (role === 'dm') {
     postScenes();
     toast('Floors pushed to players');
   });
+  q('addTokenBtn').addEventListener('click', () => { addEnemyToken(); flashBtn('addTokenBtn'); });
+  q('addPcBtn').addEventListener('click', () => { addPlayerToken(); flashBtn('addPcBtn'); });
   q('dupTokenBtn').addEventListener('click', () => {
     const list = selectedTokens();
     if (!list.length) { toast('Select a token'); return; }
@@ -1981,7 +2134,18 @@ if (role === 'dm') {
     const ids = state.selectedIds.length ? [...state.selectedIds] : (state.selected ? [state.selected.id] : []);
     if (!ids.length) { toast('Select a token'); return; }
     state.tokens = state.tokens.filter(t => !ids.includes(t.id));
-    ids.forEach(id => { delete shared.tokens[id]; if (adapter && adapter.remove) adapter.remove('map/public/tokens/' + id); });
+    ids.forEach(id => {
+      const gone = shared.tokens[id];
+      if (gone && gone.ownerUid) {
+        dismissedMap()[gone.ownerUid] = true;
+        write('map/dm/dismissed/' + gone.ownerUid, true);
+      }
+      delete shared.tokens[id];
+      if (adapter && adapter.remove) {
+        adapter.remove('map/public/tokens/' + id);
+        adapter.remove('map/dm/tokens/' + id);
+      }
+    });
     ids.forEach(id => emit('combatant:remove', { tokenId: id }));
     if (ids.includes(state.currentTurnId)) state.currentTurnId = null;
     state.selected = null;
@@ -2081,12 +2245,13 @@ function sceneData(id) {
 }
 function migrateGlobalToScenes() {
   if (shared._migrated) return;
-  const saloon = sceneData('scn_dustyspur01');
-  if (shared.walls && shared.walls.length && !saloon.walls.length) saloon.walls = shared.walls;
-  if (shared.fogRects && shared.fogRects.length && !saloon.fogRects.length) saloon.fogRects = shared.fogRects;
-  if (typeof shared.fogRevealed === 'boolean') saloon.fogRevealed = shared.fogRevealed;
   shared._migrated = true;
-  saveScene();
+  const saloon = sceneData('scn_dustyspur01');
+  let changed = false;
+  if (shared.walls && shared.walls.length && !saloon.walls.length) { saloon.walls = shared.walls; changed = true; }
+  if (shared.fogRects && shared.fogRects.length && !saloon.fogRects.length) { saloon.fogRects = shared.fogRects; changed = true; }
+  if (shared.fogRevealed === true && saloon.fogRevealed !== true) { saloon.fogRevealed = true; changed = true; }
+  if (changed) saveScene();
 }
 function getPlayerScene() {
   if (role !== 'player') return state.dmView || 'scn_dustyspur01';
@@ -2283,7 +2448,8 @@ async function loadSceneImage(sceneId) {
     unsubs.push(adapter.subscribe('map/public/scenes', (value, meta) => {
       const path = meta && meta.path || '';
       const sid = path.split('/').pop();
-      if (sid && value) {
+      if (sid && sid !== 'scenes' && value && typeof value === 'object') {
+        sawRemoteScene = true;
         shared.scenes[sid] = value;
         requestDraw();
       }
@@ -2314,6 +2480,17 @@ async function loadSceneImage(sceneId) {
           applySharedToTokens();
           requestDraw();
         }
+      }));
+      unsubs.push(adapter.subscribe('map/dm/dismissed', (value, meta) => {
+        const path = (meta && meta.path) || '';
+        const id = path.split('/').pop();
+        if (!state.dismissed || typeof state.dismissed !== 'object') state.dismissed = {};
+        if (!id || id === 'dismissed') {
+          state.dismissed = value && typeof value === 'object' ? Object.assign({}, value) : {};
+          return;
+        }
+        if (value) state.dismissed[id] = true;
+        else delete state.dismissed[id];
       }));
     }
   }
@@ -2367,6 +2544,10 @@ async function boot() {
       state.view.x = (cols * px) / 2;
       state.view.y = (rows * px) / 2;
     }
+    if (role === 'dm') {
+      ensurePartyTokens();
+      if (options.ensureScene) ensureDefaultScene();
+    }
 
     el.classList.remove('hidden');
     paintZoom();
@@ -2389,7 +2570,11 @@ return {
   setChat,
   pushFeed,
   requestDraw,
-  refreshPlayers: fillGrant
+  refreshPlayers: function () {
+    fillGrant();
+    ensurePartyTokens();
+  },
+  ensureDefaultScene: ensureDefaultScene
 };
 }
 };

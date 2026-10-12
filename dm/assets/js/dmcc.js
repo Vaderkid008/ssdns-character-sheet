@@ -1,10 +1,11 @@
 /**
  * SSDNS DM Command Center v0.1.0-draft
- * Demo mode (default / ?demo=1) is fully offline — no Firebase CDN load.
+ * Demo mode (?demo=1, or Load demo table) is fully offline — no Firebase CDN load.
+ * Create room always opens a live Firebase table.
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.31"; // dmcc-playtest-v0231
+const VERSION = "0.2.32"; // dmcc-playtest-v0232
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -214,9 +215,7 @@ const state = {
 function wantDemo() {
   const q = new URLSearchParams(location.search);
   if (q.get("demo") === "0" || q.get("live") === "1") return false;
-  if (q.get("demo") === "1") return true;
-  // default ON until Firebase has been proven
-  return true;
+  return q.get("demo") === "1";
 }
 
 /* ---------- Firebase init (graceful) ---------- */
@@ -348,11 +347,9 @@ function loadDemo(createNewCode, resumeCode) {
 }
 
 async function createLiveRoom(name) {
-  if (!state.firebaseReady) {
-    toast("Firebase not ready — starting Demo room instead");
-    loadDemo(true);
-    if (name) state.meta.name = name;
-    renderAll();
+  if (!state.firebaseReady || !state._fb) {
+    toast("Firebase isn't ready yet. Use Load demo table to practice offline.");
+    setStatus("offline", "Firebase isn't ready");
     return;
   }
   const code = roomCode();
@@ -385,9 +382,10 @@ async function createLiveRoom(name) {
     try { localStorage.setItem(ROOM_KEY, JSON.stringify({ code, demo: false, uid: state.uid })); } catch (e) {}
   } catch (e) {
     console.warn(e);
-    toast("Could not create live room (" + (e.message || e) + "). Falling back to Demo.");
-    loadDemo(true);
-    if (name) { state.meta.name = name; renderAll(); }
+    toast("Could not create the room (" + ((e && e.message) || e) + ").");
+    state.roomCode = null;
+    state.meta = null;
+    setStatus("live", "Live · Firebase connected · start a new session");
   }
 }
 
@@ -1023,6 +1021,12 @@ function inviteHref(code) {
     return window.SSDNSApplied.sheetInviteUrl(location.href, code);
   }
   return "";
+}
+async function copyRoomCode() {
+  const code = state.roomCode || (state.meta && state.meta.code) || "";
+  if (!code || code === "————") { toast("Open a room first"); return; }
+  const ok = await copyText(code);
+  toast(ok ? "Copied " + code : code);
 }
 async function copyInvite() {
   const code = state.roomCode || (state.meta && state.meta.code) || "";
@@ -2321,27 +2325,26 @@ function wire() {
   }
   const createRoom = async () => {
     const name = ($("#inRoomName").value || "").trim();
-    if (!state.demo && !state.firebaseReady) {
+    state.demo = false;
+    const demoBox = $("#chkDemo");
+    if (demoBox) demoBox.checked = false;
+    if (!state.firebaseReady) {
       setCreateBusy(true);
       setStatus("live", "Connecting…");
       const ok = await initFirebase();
       if (!ok) {
         setCreateBusy(false);
-        toast("Firebase isn't ready yet");
+        toast("Firebase isn't ready yet. Use Load demo table to practice offline.");
+        setStatus("offline", "Firebase isn't ready");
         return;
       }
     }
     if (document.body.classList.contains("in-room")) leaveRoom("new");
-    if (state.demo) {
-      loadDemo(true);
-      if (name && state.meta) { state.meta.name = name; renderRoomHero(); }
-      return;
-    }
     setCreateBusy(true);
     setStatus("live", "Connecting…");
     try { await createLiveRoom(name); }
     finally { setCreateBusy(false); }
-    if (name && state.meta) { state.meta.name = name; renderRoomHero(); }
+    if (name && state.meta && !state.demo) { state.meta.name = name; renderRoomHero(); }
   };
   $("#btnCreateRoom").addEventListener("click", createRoom);
   const headerRoll = $("#headerRoll");
@@ -2373,9 +2376,17 @@ function wire() {
     }
     resumeLiveRoom();
   });
-  $("#btnLoadDemo").addEventListener("click", () => loadDemo(false));
+  $("#btnLoadDemo").addEventListener("click", () => {
+    const box = $("#chkDemo");
+    if (box) box.checked = true;
+    loadDemo(false);
+  });
   $("#chkDemo").addEventListener("change", async () => {
     state.demo = $("#chkDemo").checked;
+    if (state.demo) {
+      setStatus("demo", "Demo mode · offline · use Load demo table");
+      return;
+    }
     if (!state.demo) {
       if (!state.firebaseReady) setCreateBusy(true);
       const ok = state.firebaseReady || await initFirebase();
@@ -2395,15 +2406,11 @@ function wire() {
   });
   const newCodeBtn = $("#btnNewCode");
   if (newCodeBtn) newCodeBtn.addEventListener("click", () => newRoomCode());
-  $("#btnCopyCode").addEventListener("click", async () => {
-    const c = state.roomCode;
-    try { await navigator.clipboard.writeText(c); toast("Copied " + c); }
-    catch (e) { toast(c); }
-  });
+  $("#btnCopyCode").addEventListener("click", () => copyRoomCode());
   const copyLink = $("#btnCopyLink");
   if (copyLink) copyLink.addEventListener("click", () => copyInvite());
   const codeDisplay = $("#roomCodeDisplay");
-  if (codeDisplay) codeDisplay.addEventListener("click", () => copyInvite());
+  if (codeDisplay) codeDisplay.addEventListener("click", () => copyRoomCode());
   $("#btnEndSession").addEventListener("click", () => {
     const dlg = $("#dlgEnd");
     if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
@@ -2731,20 +2738,15 @@ async function boot() {
     setStatus("live", "Connecting to Firebase…");
     const ok = await initFirebase();
     setCreateBusy(false);
-    if (!ok) {
-      state.demo = true;
-      $("#chkDemo").checked = true;
-      if (saved && saved.code && saved.demo) {
-        pendingResume = { code: saved.code, demo: true };
-        showResumeChoice(saved.code);
-      } else {
-        pendingResume = null;
-        showResumeChoice("");
-      }
-      setStatus("demo", "Demo mode · Firebase unavailable");
-      toast("Firebase is not ready, so Demo stays on. Use How to set this up.");
+      if (!ok) {
+      state.demo = false;
+      $("#chkDemo").checked = false;
+      pendingResume = null;
+      showResumeChoice("");
+      setStatus("offline", "Firebase isn't ready. Use Load demo table to practice offline.");
+      toast("Firebase isn't ready yet. Use Load demo table to practice offline.");
     } else {
-      if (autoResume && wasOpen.code) {
+      if (autoResume && wasOpen && wasOpen.code && !wasOpen.demo) {
         pendingResume = { code: wasOpen.code, demo: false };
         const resumed = await resumeLiveRoom();
         if (resumed) return;

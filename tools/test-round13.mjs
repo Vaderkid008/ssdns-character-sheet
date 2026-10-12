@@ -44,7 +44,7 @@ const kits = read("assets/js/kits.js");
 const lawStart = kits.lastIndexOf('} else if (calling === "lawman")');
 const lawman = kits.slice(lawStart, kits.indexOf('} else if (calling === "frontier-scout")', lawStart));
 check(lawman.indexOf("javelin") < 0 && lawman.indexOf("ballCap(c)") >= 0 && kits.indexOf("navy-army-ball-n-cap-revolver") >= 0, "lawman kit is saber, shield, and Ball n Cap");
-check(read("version.json").indexOf("0.3.18") >= 0 && read("version.json").indexOf("0.2.31") >= 0, "versions bumped");
+check(read("version.json").indexOf("0.3.19") >= 0 && read("version.json").indexOf("0.2.32") >= 0, "versions bumped");
 check(!/database\.rules\.json/.test("") , "placeholder");
 const rulesDiff = read("database.rules.json");
 check(rulesDiff.indexOf("requests") >= 0, "rules file still present");

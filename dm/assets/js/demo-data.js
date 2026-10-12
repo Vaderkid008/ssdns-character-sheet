@@ -1,6 +1,6 @@
 /**
  * DMCC Demo mode — fully offline fake room with 3 players + sample events.
- * Loaded before dmcc.js. Toggle via ?demo=1 or the Demo switch (default ON until Firebase is live).
+ * Loaded before dmcc.js. Open it with ?demo=1 or the Load demo table button. Create room stays live.
  */
 (function (root) {
   "use strict";
