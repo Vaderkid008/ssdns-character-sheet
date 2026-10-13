@@ -261,6 +261,12 @@ function syncDamageMode() {
   if (fight.damageMode !== "approve" && fight.damageMode !== "auto") fight.damageMode = "auto";
   if (el && el.value !== fight.damageMode) el.value = fight.damageMode;
 }
+function cylinderTargetHtml(row) {
+  const list = combatTargets(row);
+  const hinted = row && row.lastAttackerId;
+  const selected = hinted && list.some((p) => p.id === hinted) ? hinted : defaultCombatTarget(row, list);
+  return `<select class="cyl-target" data-cyl-target="${esc(row && row.id || "")}" aria-label="Target">${targetMenu(list, selected)}</select>`;
+}
 function stripGuns(row, i) {
   if (!fight.started || i !== fight.turn) return "";
   function dots(count, loaded, attrs, flags) {
@@ -275,9 +281,10 @@ function stripGuns(row, i) {
   }
   if (row.kind === "enemy") {
     const list = (row.card && row.card.attacks && row.card.attacks.length) ? row.card.attacks : (row.attackList || []);
+    const target = cylinderTargetHtml(row);
     return list.map((atk, n) => {
       if (!atk || atk.capacity == null) return "";
-      return `<span class="cylinder-row">${esc(atk.name || "Gun")} ${dots(atk.capacity, atk.loaded, `data-row-atk="${i}" data-atk-n="${n}"`)}</span>`;
+      return `<span class="cylinder-row">${esc(atk.name || "Gun")} ${dots(atk.capacity, atk.loaded, `data-cyl-fire="${esc(row.id)}" data-atk-n="${n}"`)} ${target}</span>`;
     }).join("");
   }
   return publicGuns(row).map((g, gi) => {
@@ -1003,11 +1010,12 @@ function claimTokenId(row, tokenId) {
   if (prev && window.SSDNSMapHost && typeof window.SSDNSMapHost.releaseToken === "function") window.SSDNSMapHost.releaseToken(prev);
 }
 function rememberPlayerToken(row) {
-  if (!row || row.kind !== "player" || row.mapTokenId || linkBusy) return;
+  if (!row || row.kind !== "player" || linkBusy) return;
   const pid = row.playerId || row.id;
   const host = window.SSDNSMapHost;
   const tokenId = host && typeof host.tokenForPlayer === "function" ? host.tokenForPlayer(pid) : "";
-  if (tokenId) claimTokenId(row, tokenId);
+  if (!tokenId || row.mapTokenId === tokenId) return;
+  claimTokenId(row, tokenId);
 }
 function addCombatant(row) {
   const pid = row.playerId || (row.kind === "player" ? row.id : "");
@@ -4320,7 +4328,7 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all]");
+    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all]");
     if (!t) return;
     if (t.hasAttribute("data-side-toggle")) {
       const row = fight.order[parseInt(t.getAttribute("data-side-toggle"), 10)];
@@ -4379,6 +4387,23 @@ function wireClicks() {
     }
     if (t.hasAttribute("data-init-hit")) { attackThis(parseInt(t.getAttribute("data-init-hit"), 10)); return; }
     if (t.hasAttribute("data-init-strike")) { enemyStrike(parseInt(t.getAttribute("data-init-strike"), 10)); return; }
+    if (t.hasAttribute("data-cyl-fire")) {
+      const rowId = t.getAttribute("data-cyl-fire");
+      const row = (fight.order || []).find((r) => r && r.id === rowId);
+      if (!row) return;
+      const n = parseInt(t.getAttribute("data-atk-n"), 10);
+      const atk = row.card && row.card.attacks && row.card.attacks[n];
+      const wrap = t.closest(".cylinder-row");
+      const sel = wrap && wrap.querySelector("[data-cyl-target]");
+      const targetId = (sel && sel.value) || (row.lastAttackerId || "");
+      SSDNSMapFight.attack({
+        combatantId: row.id,
+        tokenId: row.mapTokenId || "",
+        weaponId: atk && (atk.id || atk.name),
+        targetCombatantId: targetId
+      });
+      return;
+    }
     if (t.hasAttribute("data-strip-fire")) {
       const pid = t.getAttribute("data-strip-fire");
       const payload = { op: "fire", index: Number(t.getAttribute("data-gun-i")), chamber: Number(t.getAttribute("data-gun-k")) };
@@ -5892,6 +5917,26 @@ window.SSDNSMapFight = {
     return true;
   },
   chamber(detail) { return mapGunChamber(detail); },
+  targets(detail) {
+    detail = detail || {};
+    const i = mapFightIndex(detail);
+    const row = i >= 0 ? fight.order[i] : null;
+    const list = combatTargets(row);
+    let selected = "";
+    const hinted = detail.selectedCombatantId || detail.selectedTokenId || "";
+    if (hinted && list.some((p) => p.id === hinted)) selected = hinted;
+    if (!selected && row && row.lastAttackerId && list.some((p) => p.id === row.lastAttackerId)) selected = row.lastAttackerId;
+    if (!selected) selected = defaultCombatTarget(row, list);
+    return {
+      selected: selected,
+      options: list.map((p) => ({
+        id: p.id,
+        name: p.name,
+        group: p.group,
+        label: (p.name || "Target") + " · AC " + (p.ac == null || p.ac === "" ? "?" : p.ac)
+      }))
+    };
+  },
   async hp(detail) {
     detail = detail || {};
     const i = mapFightIndex(detail);

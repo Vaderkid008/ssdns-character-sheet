@@ -200,6 +200,13 @@
       var prev = $("btnPrevTurn");
       if (prev) prev.click();
     }
+    if (name === "party:sync") {
+      var sync = root.SSDNSMapFight;
+      if (sync && typeof sync.syncMap === "function") {
+        try { sync.syncMap(); } catch (e) {}
+      }
+      return;
+    }
     if (name === "drawer:link") {
       var linker = root.SSDNSMapFight;
       if (!linker || typeof linker.link !== "function") return;
@@ -326,6 +333,11 @@
             var api = root.SSDNSMapCards;
             if (!isDmPage() || !api || typeof api.get !== "function") return null;
             try { return api.get(tokenId) || null; } catch (e) { return null; }
+          },
+          combatTargets: function (detail) {
+            var api = root.SSDNSMapFight;
+            if (!isDmPage() || !api || typeof api.targets !== "function") return null;
+            try { return api.targets(detail || {}) || null; } catch (e) { return null; }
           },
           linkChoices: function () {
             var api = root.SSDNSMapCards;

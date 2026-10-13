@@ -93,7 +93,8 @@ const banditPreview = {
   card: { attacks: [api.banditGun()] }
 };
 const dots = api.stripGuns(banditPreview, 0);
-check(dots.indexOf("chamber-dot") >= 0 && dots.indexOf("data-row-atk") >= 0, "a friendly gun's chambers are clickable on its turn");
+check(dots.indexOf("chamber-dot") >= 0 && dots.indexOf("data-cyl-fire") >= 0 && dots.indexOf("data-cyl-target") >= 0, "a friendly gun's chambers fire as that combatant");
+check(allyFight.indexOf("data-row-atk") >= 0, "attack buttons keep their target flow");
 api.setFight(false, 0);
 
 api.setOrder([

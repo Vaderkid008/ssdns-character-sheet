@@ -404,22 +404,22 @@ async function testMaps(w) {
   const floorMark = dmAd.log.length;
   act(dm.el, "setFloorBtn").click();
   const floorWrites = writesSince(dmAd.log, floorMark);
-  const floorTok = floorWrites.find((e) => e.path === "map/public/tokens/tok_jolene");
+  const floorTok = floorWrites.find((e) => e.path === "map/public/tokens/ply_p_jolene");
   const floorScenes = floorWrites.find((e) => e.path === "map/public/playerScenes");
-  check("map.dm.R6floor", !!(floorTok && floorTok.value.sceneId === "scn_upstairs" && floorScenes && floorScenes.value.p_jolene === "scn_upstairs" && floorWrites.some((e) => e.path === "map/dm/tokens/tok_jolene")), floorWrites.map((e) => e.path).join(", "));
+  check("map.dm.R6floor", !!(floorTok && floorTok.value.sceneId === "scn_upstairs" && floorScenes && floorScenes.value.p_jolene === "scn_upstairs" && floorWrites.some((e) => e.path === "map/dm/tokens/ply_p_jolene")), floorWrites.map((e) => e.path).join(", "));
 
   act(dm.el, "grantUid").value = "p_mira";
   const grantMark = dmAd.log.length;
   act(dm.el, "grantBtn").click();
-  const grantWrite = writesSince(dmAd.log, grantMark).find((e) => e.path === "map/public/tokens/tok_jolene");
+  const grantWrite = writesSince(dmAd.log, grantMark).find((e) => e.path === "map/public/tokens/ply_p_jolene");
   check("map.dm.R7grant", !!(grantWrite && grantWrite.value.controlledBy && grantWrite.value.controlledBy.indexOf("p_mira") >= 0), JSON.stringify(grantWrite && grantWrite.value.controlledBy));
 
   act(dm.el, "condSelect").value = "prone";
   const condMark = dmAd.log.length;
   act(dm.el, "condToggleBtn").click();
   act(dm.el, "downBtn").click();
-  const condWrite = writesSince(dmAd.log, condMark).filter((e) => e.path === "map/public/tokens/tok_jolene").pop();
-  const condDm = writesSince(dmAd.log, condMark).filter((e) => e.path === "map/dm/tokens/tok_jolene").pop();
+  const condWrite = writesSince(dmAd.log, condMark).filter((e) => e.path === "map/public/tokens/ply_p_jolene").pop();
+  const condDm = writesSince(dmAd.log, condMark).filter((e) => e.path === "map/dm/tokens/ply_p_jolene").pop();
   check("map.dm.R8status", !!(condWrite && condWrite.value.conditions.indexOf("prone") >= 0 && condWrite.value.status === "down" && secretKeys(condWrite.value).length === 0), JSON.stringify(condWrite && condWrite.value));
   check("map.dm.R8dmKeepsSheet", condDm && condDm.value.status === "down", "dm status");
 
@@ -459,8 +459,8 @@ async function testMaps(w) {
   pointer(w, plCanvas, "pointerup", 400, 370);
   const ownWrites = writesSince(plAd.log, ownMark);
   check("map.player.R2moveSilent", ownDuring.length === 0, "during " + ownDuring.length);
-  check("map.player.R2onePos", ownWrites.length === 1 && ownWrites[0].path === "map/public/tokens/tok_jolene/pos" && ownWrites[0].value.y === 2 && ownWrites[0].value.by === "p_jolene", JSON.stringify(ownWrites));
-  check("map.player.R9center", ownWrites.length === 1 && ownWrites[0].path.indexOf("tok_jolene") >= 0, ownWrites.map((e) => e.path).join(","));
+  check("map.player.R2onePos", ownWrites.length === 1 && ownWrites[0].path === "map/public/tokens/ply_p_jolene/pos" && ownWrites[0].value.y === 2 && ownWrites[0].value.by === "p_jolene", JSON.stringify(ownWrites));
+  check("map.player.R9center", ownWrites.length === 1 && ownWrites[0].path.indexOf("ply_p_jolene") >= 0, ownWrites.map((e) => e.path).join(","));
   results.writes.playerDrag = ownWrites.length;
   results.writes.playerDragDuringMove = ownDuring.length;
 
@@ -486,7 +486,7 @@ async function testMaps(w) {
   act(pl.el, "playerColorBtn").click();
   const patch = writesSince(plAd.log, colorMark).find((e) => e.path.indexOf("/patch") >= 0);
   check("map.player.patchCosmetic", !!(patch && patch.value.color && patch.value.by === "p_jolene" && patch.value.hp == null), JSON.stringify(patch && patch.value));
-  const jolenePub = store.pub["map/public/tokens/tok_jolene"];
+  const jolenePub = store.pub["map/public/tokens/ply_p_jolene"];
   check("map.player.patchApplied", !!(jolenePub && jolenePub.value.color === "#4a90d9" && jolenePub.value.hp == null), JSON.stringify(jolenePub && jolenePub.value && { color: jolenePub.value.color, hp: jolenePub.value.hp }));
 
   const pubTokens = {};
@@ -593,7 +593,7 @@ async function testMaps(w) {
     host: { players: () => freshPlayers },
     options: { scene, tokens: { tokens: {} }, assetBase: "", players: () => freshPlayers, ensureScene: true }
   });
-  const pcPubs = freshDm.log.filter((e) => e.op === "write" && /^map\/public\/tokens\/tok_/.test(e.path) && e.value && e.value.ownerUid);
+  const pcPubs = freshDm.log.filter((e) => e.op === "write" && /^map\/public\/tokens\/ply_/.test(e.path) && e.value && e.value.ownerUid);
   const owners = pcPubs.map((e) => e.value.ownerUid).sort();
   check("map.fresh.pcTokens", owners.join(",") === "player-two,player-uid", owners.join(","));
   check("map.fresh.pcNoSecrets", pcPubs.every((e) => e.value.hp == null && e.value.notes == null && e.value.ownerCanMove !== false), JSON.stringify(pcPubs.map((e) => e.value)));

@@ -63,7 +63,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.22"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.23"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -170,6 +170,12 @@
     if (explicit) return String(explicit);
     var id = info.id || info.weaponId || "";
     if (id && weaponOverrides[id]) return String(weaponOverrides[id]);
+    var slug = String(info.weapon || info.model || "")
+      .toLowerCase()
+      .replace(/\([^)]*\)/g, " ")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    if (slug && weaponOverrides[slug]) return String(weaponOverrides[slug]);
     var kind = classifyWeapon(info);
     if (kind === "gun") return "attack";
     if (kind === "axe") return "axe";
