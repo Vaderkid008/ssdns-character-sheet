@@ -58,6 +58,7 @@ window.SSDNSMap = { create(opts) {
       color: t.color || '', torch: !!t.torch, status: t.status || '',
       conditions: t.conditions ? [...t.conditions] : [],
       sceneId: t.sceneId || 'scn_dustyspur01', image: t.image || '',
+      veil: !!t.veil,
       ownerUid: t.ownerUid || '', controlledBy: t.controlledBy || [],
       ownerCanMove: t.ownerCanMove !== false, locked: !!t.locked,
       label: t.label || t.name || '', size: t.size || 1, name: t.name || ''
@@ -93,7 +94,11 @@ window.SSDNSMap = { create(opts) {
   }
   function publishPlayerPatch(token, patch) {
     if (!token || role !== 'player') return;
-    write('map/public/tokens/' + token.id + '/patch', Object.assign({ seq: Date.now(), by: uid }, patch));
+    const safe = { seq: Date.now(), by: uid };
+    if (patch && patch.color != null) safe.color = String(patch.color);
+    if (patch && patch.label != null) safe.label = String(patch.label);
+    if (patch && patch.veil != null) safe.veil = !!patch.veil;
+    write('map/public/tokens/' + token.id + '/patch', safe);
   }
   function applyPublic(pub) {
     if (!pub) return;
@@ -138,16 +143,13 @@ function applySharedToTokens() {
       t.conditions = s.conditions ? [...s.conditions] : [];
       t.sceneId = s.sceneId || 'scn_dustyspur01';
       t.image = s.image || t.image || '';
+      t.veil = !!s.veil;
       t.sheetId = s.sheetId || t.sheetId || '';
       if (s.ownerUid) t.ownerUid = s.ownerUid;
       if (s.combatantId) t.combatantId = s.combatantId;
       if (s.kind) t.kind = s.kind;
       if (s.name) t.name = s.name;
-      if (t.image && !t._img) {
-        const im = new Image();
-        im.src = asset(t.image);
-        im.onload = () => { t._img = im; draw(); };
-      }
+      if (t.image && !t._img) loadTokenImage(t);
     }
   }
 }
@@ -211,15 +213,7 @@ toolbar.innerHTML = `
     <button data-act="setFloorBtn">Set floor</button>
     <button data-act="showSceneBtn">Show to players</button>
     <button data-act="importWallsBtn">Import Walls</button>
-  ` : `
-    <button data-act="playerColorBtn">My color</button>
-    <input data-act="playerLabel" placeholder="My label" style="width:90px;background:#3a3228;color:#e8dcc8;border:1px solid #5a4e40;border-radius:4px;padding:2px 4px;">
-    <button data-act="playerPingBtn">Ping</button>
-    <button data-act="playerRulerBtn">Ruler</button>
-    <button data-act="playerTorchBtn">Torch: OFF</button>
-    <button data-act="playerGhostBtn">Ghost Plan: OFF</button>
-    <button data-act="playerCancelBtn">Cancel plan</button>
-  `}
+  ` : ``}
 `;
 el.appendChild(toolbar);
 on(document, 'keydown', e => {
@@ -313,7 +307,11 @@ if (role === 'dm') {
   leftbar.innerHTML = `
     <button data-act="pingBtn">Ping</button>
     <button data-act="rulerBtn">Ruler</button>
-    <button data-act="colorBtn">Color</button>
+    <div class="ssm-colorpick">
+      <span class="ssm-swatch" data-act="colorSwatch"></span>
+      <select data-act="colorBtn" aria-label="Token color"></select>
+    </div>
+    <input data-act="colorCustom" type="color" value="#4a90d9" hidden aria-label="Custom token color">
     <div class="panel-title">Fog</div>
     <button data-act="revealFogBtn" type="button">Reveal: Box</button>
     <select data-act="revealShape" aria-label="Reveal shape">
@@ -331,11 +329,9 @@ if (role === 'dm') {
     </select>
     <button data-act="eraseFogBtn" type="button">Erase</button>
     <button data-act="deleteFogBtn" type="button">Delete selection</button>
-    <div class="panel-title">Fog history</div>
-    <div data-act="fogHistory"></div>
     <button data-act="fogUndoBtn" type="button">Undo</button>
     <button data-act="fogRedoBtn" type="button">Redo</button>
-    <button data-act="hideBtn">Hide</button>
+    <button data-act="hideBtn">Hide/Reveal</button>
     <button data-act="hideAllBtn">Hide All</button>
     <button data-act="revealAllBtn">Reveal All</button>
     <div style="height:12px"></div>
@@ -393,13 +389,33 @@ if (role === 'dm') {
   `;
   el.appendChild(rightbar);
 } else {
-  const rightbar = document.createElement('div');
-  rightbar.className = 'ssdns-rightbar';
-  rightbar.innerHTML = `
-    <div class="panel-title">Sheet</div>
-    <div data-act="actionSlot"></div>
+  const card = document.createElement('div');
+  card.className = 'ssdns-playercard';
+  card.setAttribute('data-act', 'playerCard');
+  card.innerHTML = `
+    <div class="ssm-card-head" data-act="playerCardHead">
+      <b>My token</b>
+      <button type="button" data-act="playerCardMin" aria-label="Minimize">–</button>
+    </div>
+    <div class="ssm-card-body">
+      <label>Label <input data-act="playerLabel" placeholder="My label" aria-label="My label"></label>
+      <div class="ssm-colorpick">
+        <span class="ssm-swatch" data-act="playerSwatch"></span>
+        <select data-act="playerColorBtn" aria-label="My color"></select>
+      </div>
+      <input data-act="playerColorCustom" type="color" value="#4a90d9" hidden aria-label="Custom color">
+      <button type="button" data-act="playerHiddenBtn">Hidden: OFF</button>
+      <div class="panel-title">Tools</div>
+      <button data-act="playerPingBtn">Ping</button>
+      <button data-act="playerRulerBtn">Ruler</button>
+      <button data-act="playerTorchBtn">Torch: OFF</button>
+      <button data-act="playerGhostBtn">Ghost Plan: OFF</button>
+      <button data-act="playerCancelBtn">Cancel plan</button>
+      <div class="panel-title">Sheet</div>
+      <div data-act="actionSlot"></div>
+    </div>
   `;
-  el.appendChild(rightbar);
+  el.appendChild(card);
 }
 
 // --- render ---
@@ -501,28 +517,8 @@ function rememberFog() {
   if (!state.fogBefore) state.fogBefore = cloneShapes(sceneData().fogShapes);
 }
 function renderFogHistory() {
-  const box = q('fogHistory');
   const past = state.fogPast || [];
   const future = state.fogFuture || [];
-  if (box) {
-    box.innerHTML = '';
-    if (!past.length && !future.length) box.textContent = 'No fog edits';
-    past.forEach((step, i) => {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.textContent = step.label;
-      if (i === past.length - 1) row.classList.add('active');
-      row.addEventListener('click', () => jumpFog(i));
-      box.appendChild(row);
-    });
-    future.slice().reverse().forEach(step => {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.textContent = step.label;
-      row.disabled = true;
-      box.appendChild(row);
-    });
-  }
   const undo = q('fogUndoBtn');
   const redo = q('fogRedoBtn');
   if (undo) undo.disabled = !past.length;
@@ -983,6 +979,7 @@ function draw() {
         if (shapeContains(shape, gx, gy)) visible = shape.op !== 'hide';
       });
       if (!visible) continue;
+      if (t.veil && t.ownerUid !== uid) continue;
     }
 
     const size = t.size || 1;
@@ -1001,6 +998,7 @@ function draw() {
     // Hidden tokens stay on the DM map, drawn dimmed. Players never reach this branch.
     ctx.save();
     if (isHidden && role === 'dm') ctx.globalAlpha = 0.4;
+    if (t.veil && (role === 'dm' || t.ownerUid === uid)) ctx.globalAlpha = 0.45;
 
     ctx.beginPath();
     ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
@@ -1055,8 +1053,24 @@ function draw() {
       ctx.stroke();
     }
 
-    // red X if downed
-    if (t.status === 'down' || (t.hp != null && t.hp <= 0)) {
+    let hpCur = null;
+    let hpMax = null;
+    if (role === 'dm') {
+      let card = null;
+      try {
+        if (host.getCard) card = host.getCard(t.id) || (t.combatantId && host.getCard(t.combatantId)) || (t.ownerUid && host.getCard(t.ownerUid)) || null;
+      } catch (e) { card = null; }
+      if (card && card.hp && card.hp.max != null && card.hp.cur != null && card.hp.max !== '') {
+        hpCur = Number(card.hp.cur);
+        hpMax = Number(card.hp.max);
+      } else if (t.maxHp) {
+        hpCur = Number(t.hp);
+        hpMax = Number(t.maxHp);
+      }
+    }
+    const downMark = String(t.status || '').toLowerCase() === 'down' || (role === 'dm' && hpCur != null && hpCur <= 0);
+    // red X if downed. Players only see it from the public status, never from an HP number.
+    if (downMark) {
       ctx.strokeStyle = '#e74c3c';
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -1111,9 +1125,9 @@ function draw() {
     }
     ctx.restore();
 
-    // HP bar under the name
-    if (t.hp != null && t.maxHp && (role === 'dm' || canControl(t))) {
-      const pct = t.hp / t.maxHp;
+    // HP bar under the name. DM only — the public token has no HP, and players never see an enemy bar.
+    if (role === 'dm' && hpMax) {
+      const pct = Math.max(0, Math.min(1, (Number(hpCur) || 0) / hpMax));
       const bw = r * 1.8, bh = 5;
       const barY = nameY + 14;
       ctx.fillStyle = '#333';
@@ -1419,6 +1433,69 @@ function pasteTokens() {
   draw();
 }
 const PC_COLORS = ['#4a90d9', '#2a9d8f', '#9b59b6', '#e67e22', '#d35400', '#c9a227'];
+const TOKEN_COLORS = [
+  { name: 'Dust Blue', value: '#4a90d9' },
+  { name: 'Saloon Red', value: '#8b3a3a' },
+  { name: 'Sage', value: '#2a9d8f' },
+  { name: 'Violet', value: '#9b59b6' },
+  { name: 'Rust', value: '#e67e22' },
+  { name: 'Ember', value: '#d35400' },
+  { name: 'Brass', value: '#c9a227' },
+  { name: 'Rose', value: '#e91e63' },
+  { name: 'Lantern', value: '#ffeb3b' },
+  { name: 'Bone', value: '#ffffff' },
+  { name: 'Ash', value: '#888888' }
+];
+function fillColorSelect(sel) {
+  if (!sel || sel.dataset.filled) return;
+  sel.dataset.filled = '1';
+  sel.innerHTML = TOKEN_COLORS.map(c => '<option value="' + c.value + '">' + c.name + '</option>').join('') + '<option value="custom">Custom</option>';
+}
+function paintSwatch(el, color) {
+  if (!el) return;
+  el.style.background = color && color !== 'custom' ? color : 'transparent';
+}
+function loadTokenImage(t) {
+  if (!t || !t.image || t._img) return;
+  const im = new Image();
+  const src = asset(t.image);
+  if (src && !/^(data:|blob:)/.test(src)) {
+    try { im.crossOrigin = 'anonymous'; } catch (e) {}
+  }
+  im.onload = () => { t._img = im; draw(); };
+  im.onerror = () => {
+    if (im.crossOrigin) {
+      const plain = new Image();
+      plain.onload = () => { t._img = plain; draw(); };
+      plain.onerror = () => { t._img = null; };
+      plain.src = src;
+      return;
+    }
+    t._img = null;
+  };
+  im.src = src;
+}
+function rememberTokenImage(t, src) {
+  if (!t || !src) return;
+  t.image = src;
+  t._img = null;
+  if (shared.tokens[t.id]) shared.tokens[t.id].image = src;
+  loadTokenImage(t);
+  if (role === 'dm') saveToken(t.id);
+  draw();
+}
+function scheduleDefaultImage(t, src) {
+  if (!t || t.image || !src) return;
+  const Crop = window.SSDNSTokenCrop;
+  const preset = Crop && Crop.preset ? (Crop.preset(src) || '') : '';
+  if (preset) { rememberTokenImage(t, preset); return; }
+  if (/^tokenImages\//.test(src)) { rememberTokenImage(t, src); return; }
+  if (!Crop || typeof Crop.cropUrl !== 'function') return;
+  Crop.cropUrl(asset(src)).then(out => {
+    if (!out || t.image) return;
+    rememberTokenImage(t, out);
+  }).catch(() => {});
+}
 function partyList() {
   const raw = typeof options.players === 'function' ? options.players() : (options.players || (host.players && host.players()) || []);
   return (Array.isArray(raw) ? raw : []).filter(p => p && (p.uid || p.id));
@@ -1608,6 +1685,11 @@ function ensurePartyTokens() {
         color: PC_COLORS[i % PC_COLORS.length],
         pos: { x: cell.x + (i % 5) - 2, y: cell.y }
       });
+    }
+    if (token && !token.image) {
+      const preset = window.SSDNSTokenCrop && window.SSDNSTokenCrop.preset && window.SSDNSTokenCrop.preset(p.name || who);
+      if (preset) rememberTokenImage(token, preset);
+      else if (p.portrait) scheduleDefaultImage(token, p.portrait);
     }
     if (token) emit('party:sync', { playerId: who, tokenId: token.id });
   });
@@ -2417,7 +2499,23 @@ function removeMapTokens(ids, opts) {
   state.selectedIds = (state.selectedIds || []).filter(id => !list.includes(id));
   draw();
 }
-function applyLink(tokenId, patch) {
+  function patchToken(id, fields) {
+    if (role !== 'dm' || !id || !fields) return null;
+    const t = state.tokens.find(tok => tok && tok.id === id);
+    if (!t) return null;
+    if (fields.status != null) t.status = fields.status;
+    if (fields.image && !t.image) t.image = fields.image;
+    const copy = shared.tokens[t.id] || (shared.tokens[t.id] = { id: t.id });
+    copy.status = t.status || '';
+    if (t.image) {
+      copy.image = t.image;
+      loadTokenImage(t);
+    }
+    saveToken(t.id);
+    draw();
+    return t;
+  }
+  function applyLink(tokenId, patch) {
   if (role !== 'dm' || !patch) return null;
   let t = state.tokens.find(tok => tok && tok.id === tokenId);
   if (!t) return null;
@@ -2441,6 +2539,9 @@ function applyLink(tokenId, patch) {
   if (patch.name) t.name = patch.name;
   if (patch.label) t.label = String(patch.label).slice(0, 16);
   if (patch.color) t.color = patch.color;
+  if (patch.image && !t.image) t.image = patch.image;
+  if (patch.portrait && !t.image && !patch.image) scheduleDefaultImage(t, patch.portrait);
+  if (patch.status != null) t.status = patch.status;
   if (patch.ownerCanMove != null) t.ownerCanMove = patch.ownerCanMove !== false;
   else if (patch.ownerUid) t.ownerCanMove = true;
   const copy = shared.tokens[t.id] || (shared.tokens[t.id] = { id: t.id });
@@ -2449,6 +2550,7 @@ function applyLink(tokenId, patch) {
   });
   if (t.controlledBy) copy.controlledBy = t.controlledBy.slice();
   if (t.conditions) copy.conditions = t.conditions.slice();
+  if (t.image) loadTokenImage(t);
   saveToken(t.id);
   draw();
   if (patch.ownerUid) emit('party:sync', { playerId: patch.ownerUid, tokenId: t.id });
@@ -2559,21 +2661,29 @@ if (role === 'dm') {
     flashBtn('hideBtn');
     draw();
   });
-  q('colorBtn').addEventListener('click', () => {
+  fillColorSelect(q('colorBtn'));
+  function applyDmColor(color) {
     const targets = state.selectedIds.length ? state.tokens.filter(t => state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
     if (!targets.length) { toast('Select a token first'); return; }
-    const colors = ['#4a90d9', '#8b3a3a', '#2a9d8f', '#9b59b6', '#e67e22', '#d35400', '#c9a227', '#e91e63', '#ffeb3b', '#ffffff', '#888'];
     targets.forEach(t => {
-      const current = t.color || '';
-      const idx = colors.indexOf(current);
-      const next = colors[(idx + 1) % colors.length];
-      t.color = next;
-      if (shared.tokens[t.id]) shared.tokens[t.id].color = next;
+      t.color = color;
+      if (shared.tokens[t.id]) shared.tokens[t.id].color = color;
     });
     targets.forEach(t => saveToken(t.id));
-    flashBtn('colorBtn');
+    paintSwatch(q('colorSwatch'), color);
     draw();
+  }
+  q('colorBtn').addEventListener('change', () => {
+    const sel = q('colorBtn');
+    const custom = q('colorCustom');
+    if (sel.value === 'custom') {
+      if (custom) { custom.hidden = false; custom.click(); }
+      return;
+    }
+    if (custom) custom.hidden = true;
+    applyDmColor(sel.value);
   });
+  if (q('colorCustom')) q('colorCustom').addEventListener('input', () => applyDmColor(q('colorCustom').value));
   q('lockBtn').addEventListener('click', () => {
     const targets = state.selectedIds.length ? state.tokens.filter(t => state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
     if (!targets.length) { toast('Select a token first'); return; }
@@ -2661,7 +2771,7 @@ if (role === 'dm') {
   });
   q('deleteFogBtn').addEventListener('click', () => {
     const ids = state.fogSelection || [];
-    if (!ids.length) { toast('Select fog first'); return; }
+    if (!ids.length) { toast('Hold Shift and use Erase to make a selection.'); return; }
     rememberFog();
     sceneData().fogShapes = sceneData().fogShapes.filter(s => ids.indexOf(s.id) < 0);
     state.fogSelection = [];
@@ -2917,20 +3027,97 @@ if (role === 'dm') {
   });
   renderActions();
 } else {
-  // player color cycle (no red)
-  q('playerColorBtn').addEventListener('click', () => {
-    const myToken = state.tokens.find(t => t.ownerUid === uid);
-    if (!myToken) { toast('No token found'); return; }
-    const colors = ['#4a90d9', '#2a9d8f', '#9b59b6', '#e67e22', '#d35400', '#c9a227', '#e91e63', '#ffeb3b', '#1abc9c', '#3498db'];
-    const current = myToken.color || '';
-    const idx = colors.indexOf(current);
-    const next = colors[(idx + 1) % colors.length];
-    myToken.color = next;
-    if (shared.tokens[myToken.id]) {
-      shared.tokens[myToken.id].color = next;
+  fillColorSelect(q('playerColorBtn'));
+  (function placePlayerCard() {
+    const card = q('playerCard');
+    if (!card) return;
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem('ssdns.playerCard') || 'null'); } catch (e) { saved = null; }
+    if (saved && isFinite(saved.x) && isFinite(saved.y)) {
+      card.style.left = saved.x + 'px';
+      card.style.top = saved.y + 'px';
+      card.style.right = 'auto';
     }
-    flashBtn('playerColorBtn');
-    publishPlayerPatch(myToken, { color: next });
+    if (saved && saved.min) {
+      card.classList.add('min');
+      const minBtn = q('playerCardMin');
+      if (minBtn) minBtn.textContent = '+';
+    }
+    function persist() {
+      const rect = card.getBoundingClientRect();
+      const host = el.getBoundingClientRect();
+      try {
+        localStorage.setItem('ssdns.playerCard', JSON.stringify({
+          x: rect.left - host.left,
+          y: rect.top - host.top,
+          min: card.classList.contains('min')
+        }));
+      } catch (e) {}
+    }
+    const head = q('playerCardHead');
+    let drag = null;
+    if (head) {
+      head.addEventListener('pointerdown', (e) => {
+        if (e.target && e.target.closest && e.target.closest('button')) return;
+        const rect = card.getBoundingClientRect();
+        const hostBox = el.getBoundingClientRect();
+        drag = { dx: e.clientX - rect.left, dy: e.clientY - rect.top, host: hostBox };
+        card.style.left = (rect.left - hostBox.left) + 'px';
+        card.style.top = (rect.top - hostBox.top) + 'px';
+        card.style.right = 'auto';
+        if (head.setPointerCapture) head.setPointerCapture(e.pointerId);
+      });
+      head.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        card.style.left = Math.max(0, e.clientX - drag.dx - drag.host.left) + 'px';
+        card.style.top = Math.max(0, e.clientY - drag.dy - drag.host.top) + 'px';
+      });
+      const endDrag = () => { if (!drag) return; drag = null; persist(); };
+      head.addEventListener('pointerup', endDrag);
+      head.addEventListener('pointercancel', endDrag);
+    }
+    const minBtn = q('playerCardMin');
+    if (minBtn) minBtn.addEventListener('click', () => {
+      card.classList.toggle('min');
+      minBtn.textContent = card.classList.contains('min') ? '+' : '–';
+      persist();
+    });
+  })();
+  function myToken() {
+    return state.tokens.find(t => t.ownerUid === uid) || Object.values(shared.tokens || {}).find(t => t && t.ownerUid === uid) || null;
+  }
+  function applyPlayerColor(color) {
+    const myTokenRow = myToken();
+    if (!myTokenRow) { toast('No token found'); return; }
+    myTokenRow.color = color;
+    if (shared.tokens[myTokenRow.id]) shared.tokens[myTokenRow.id].color = color;
+    paintSwatch(q('playerSwatch'), color);
+    publishPlayerPatch(myTokenRow, { color: color });
+    draw();
+  }
+  q('playerColorBtn').addEventListener('change', () => {
+    const sel = q('playerColorBtn');
+    const custom = q('playerColorCustom');
+    if (sel.value === 'custom') {
+      if (custom) { custom.hidden = false; if (custom.showPicker) custom.showPicker(); else custom.click(); }
+      return;
+    }
+    if (custom) custom.hidden = true;
+    applyPlayerColor(sel.value);
+  });
+  if (q('playerColorCustom')) q('playerColorCustom').addEventListener('input', () => applyPlayerColor(q('playerColorCustom').value));
+  q('playerHiddenBtn').addEventListener('click', () => {
+    const row = myToken();
+    const id = (row && row.id) || playerTokenId(uid);
+    const next = !(row && row.veil);
+    if (row) row.veil = next;
+    if (shared.tokens[id]) shared.tokens[id].veil = next;
+    const btn = q('playerHiddenBtn');
+    if (btn) {
+      btn.textContent = next ? 'Hidden: ON' : 'Hidden: OFF';
+      btn.classList.toggle('active', next);
+    }
+    publishPlayerPatch({ id: id }, { veil: next });
     draw();
   });
   q('playerPingBtn').addEventListener('click', () => {
@@ -3325,16 +3512,35 @@ async function loadSceneImage(sceneId) {
       return '<button type="button" class="ssm-atk" data-sid="' + esc(s.id) + '" data-skind="' + esc(s.kind || '') + '" ' + (canAct ? '' : 'disabled') + '>' +
         esc(s.name || s.id) + (s.level != null ? ' (L' + esc(s.level) + ')' : '') + (meta ? ' · ' + esc(meta) : '') + '</button>';
     }).join('');
-    const conds = (card.conditions || []).map(c => '<span class="ssm-cond">' + esc(condLabel(c)) + '</span>').join(' ');
+    const conds = (card.conditions || []).map(c => {
+      const name = condLabel(c);
+      return '<span class="ssm-cond">' + esc(name) +
+        '<button type="button" class="ssm-cond-x" data-act="condX" data-cond="' + esc(name) + '" aria-label="Remove ' + esc(name) + '">×</button></span>';
+    }).join(' ');
     const condOptions = conditionNames().map(name => '<option value="' + esc(name) + '">' + esc(name) + '</option>').join('');
     const weaponOptions = (card.attacks || []).map(a => '<option value="' + esc(a.id || a.name || '') + '">' + esc(a.name || a.id || 'Weapon') + '</option>').join('') || '<option value="">No weapon</option>';
     const detail = (extra) => Object.assign({ tokenId: tokenId, combatantId: tokenCombatant(tokenId) }, extra || {});
+    const maxHp = Number(hp.max);
+    const curHp = Number(hp.cur);
+    const hpPct = isFinite(maxHp) && maxHp > 0 && isFinite(curHp) ? Math.max(0, Math.min(100, (curHp / maxHp) * 100)) : null;
+    const hpBar = hpPct == null ? '' : '<div class="ssm-hpbar" role="meter" aria-label="HP" aria-valuenow="' + esc(curHp) + '" aria-valuemax="' + esc(maxHp) + '"><span style="width:' + hpPct + '%"></span></div>';
+    const ds = card.deathSaves;
+    const marks = (arr) => (Array.isArray(arr) ? arr : [false, false, false]).slice(0, 3).map(on => on ? '●' : '○').join('');
+    const deathLine = (isFinite(curHp) && curHp <= 0)
+      ? '<div class="ssm-deaths">Death saves · S ' + marks(ds && ds.success) + ' · F ' + marks(ds && ds.fail) + '</div>'
+      : '';
+    const actToggle = isPc
+      ? '<label class="ssm-act"><input type="checkbox" data-act="actFor"' + (card.dmActsAs ? ' checked' : '') + '> Act for player</label>'
+      : '';
     d.innerHTML =
       '<div class="ssm-drawer-head"><b>' + esc(card.name || tokenId) + '</b> <span class="ssm-kind">' + esc(card.kind || '') + '</span>' +
       '<button type="button" data-act="drawerClose">×</button></div>' +
       '<div class="ssm-drawer-body">' +
       '<div>AC ' + esc(card.ac != null ? card.ac : '—') + ' · HP ' + esc(hp.cur != null ? hp.cur : '—') + '/' + esc(hp.max != null ? hp.max : '—') +
       (hp.temp ? ' (+' + esc(hp.temp) + ')' : '') + ' · ' + esc(speedLabel(card.speed)) + '</div>' +
+      hpBar +
+      deathLine +
+      actToggle +
       (conds ? '<div class="ssm-conds">' + conds + '</div>' : '') +
       (card.tactics ? '<div class="ssm-tactics">' + esc(card.tactics) + '</div>' : '') +
       '<div class="ssm-section">Attacks</div>' + attacks +
@@ -3344,6 +3550,7 @@ async function loadSceneImage(sceneId) {
         '<input data-act="hpAmt" type="number" value="1" min="0" aria-label="HP amount">' +
         '<button type="button" data-act="hpMinus">− HP</button><button type="button" data-act="hpPlus">+ HP</button>' +
         '<button type="button" data-act="hpSet">Set HP</button>' +
+        '<button type="button" data-act="downCard">Down</button>' +
       '</div>' +
       '<div class="ssm-row">' +
         '<select data-act="condPick" aria-label="Condition">' + condOptions + '</select>' +
@@ -3354,6 +3561,7 @@ async function loadSceneImage(sceneId) {
         '<button type="button" data-act="reloadBtn">Reload</button><button type="button" data-act="unloadBtn">Unload</button>' +
         '<button type="button" data-act="deathBtn">Death save</button><button type="button" data-act="undoBtnD">Undo</button>' +
       '</div>' +
+      '<button type="button" data-act="imageBtn">Replace image</button>' +
       (state.pendingTarget ? '<div class="ssm-pending">Click a token to target, Esc to cancel</div>' : '') +
       '</div>';
     const readHp = () => {
@@ -3402,6 +3610,27 @@ async function loadSceneImage(sceneId) {
     d.querySelector('[data-act="hpMinus"]').addEventListener('click', () => emit('drawer:hp', detail({ delta: -readHp() })));
     d.querySelector('[data-act="hpPlus"]').addEventListener('click', () => emit('drawer:hp', detail({ delta: readHp() })));
     d.querySelector('[data-act="hpSet"]').addEventListener('click', () => emit('drawer:hp', detail({ set: readHp() })));
+    d.querySelector('[data-act="downCard"]').addEventListener('click', () => emit('drawer:down', detail()));
+    d.querySelectorAll('[data-act="condX"]').forEach(b => {
+      b.addEventListener('click', () => {
+        const name = b.getAttribute('data-cond') || '';
+        if (!name) return;
+        emit('drawer:condition', detail({ condition: name, on: false }));
+      });
+    });
+    const actBox = d.querySelector('[data-act="actFor"]');
+    if (actBox) actBox.addEventListener('change', () => emit('drawer:act', detail({ on: !!actBox.checked })));
+    d.querySelector('[data-act="imageBtn"]').addEventListener('click', () => {
+      const token = state.tokens.find(tok => tok && tok.id === tokenId);
+      const Crop = window.SSDNSTokenCrop;
+      if (!token || !Crop || typeof Crop.open !== 'function') { toast('Image cropper is not loaded'); return; }
+      Crop.open({
+        host: el,
+        src: token.image ? asset(token.image) : '',
+        onSave: (url) => rememberTokenImage(token, url),
+        onFallback: () => toast('The browser blocked that image. The original picture stays.')
+      });
+    });
     d.querySelector('[data-act="condBtn"]').addEventListener('click', () => {
       const sel = d.querySelector('[data-act="condPick"]');
       const name = String((sel && sel.value) || '').trim();
@@ -3499,6 +3728,7 @@ async function loadSceneImage(sceneId) {
       const cosmetic = {};
       if (value.color != null) cosmetic.color = value.color;
       if (value.label != null) cosmetic.label = value.label;
+      if (value.veil != null) cosmetic.veil = !!value.veil;
       Object.assign(t, cosmetic);
       if (role === 'dm') saveToken(id);
     } else if (value && (value.id || id)) {
@@ -3681,6 +3911,7 @@ return {
   setTool,
   removeToken: function (id) { removeMapTokens([id], { silent: true }); },
   applyLink,
+  patchToken,
   tokenForPlayer,
   hasToken,
   releaseToken

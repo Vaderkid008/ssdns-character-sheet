@@ -115,7 +115,7 @@ function texts(w) {
 
 const src = read("map/ssdns-map.js");
 check("src.names", src.includes("Reveal: Box") && src.includes("Hide: Box") && src.includes("Delete selection"));
-check("src.tokenButtons", src.includes('data-act="hideBtn">Hide') && src.includes('data-act="hideAllBtn">Hide All') && src.includes('data-act="revealAllBtn">Reveal All'));
+check("src.tokenButtons", src.includes('data-act="hideBtn">Hide/Reveal') && src.includes('data-act="hideAllBtn">Hide All') && src.includes('data-act="revealAllBtn">Reveal All') && !src.includes('data-act="fogHistory"'));
 check("src.shapes", src.includes("fogShapes") && src.includes("function commitFog"));
 check("src.rulesUntouched", !read("database.rules.json").includes("fogShapes"));
 
@@ -141,8 +141,10 @@ const dm = w.SSDNSMap.create({
 await flush(60);
 const canvas = dmEl.querySelector("canvas");
 check("empty.mounted", !!canvas && act(dmEl, "revealFogBtn").textContent === "Reveal: Box" && act(dmEl, "hideFogBtn").textContent === "Hide: Box");
-check("empty.tokenButtons", act(dmEl, "hideBtn").textContent === "Hide" && act(dmEl, "hideAllBtn").textContent === "Hide All" && act(dmEl, "revealAllBtn").textContent === "Reveal All");
+check("empty.tokenButtons", act(dmEl, "hideBtn").textContent === "Hide/Reveal" && act(dmEl, "hideAllBtn").textContent === "Hide All" && act(dmEl, "revealAllBtn").textContent === "Reveal All" && !act(dmEl, "fogHistory"));
 check("empty.noTokens", !Object.keys(store.pub).some((k) => k.indexOf("map/public/tokens/") === 0));
+act(dmEl, "deleteFogBtn").click();
+check("empty.deleteFlash", act(dmEl, "toast") && act(dmEl, "toast").textContent === "Hold Shift and use Erase to make a selection.");
 
 act(dmEl, "revealShape").value = "square";
 act(dmEl, "revealFogBtn").click();
@@ -151,7 +153,7 @@ const squareAt = screenOf(8.5, 6.5);
 clickAt(squareAt.x, squareAt.y, { detail: 1 });
 const oneSq = shapesOf(store)[0];
 check("square.click", shapesOf(store).length === 1 && oneSq && oneSq.kind === "square" && oneSq.op === "reveal" && oneSq.w === 1 && oneSq.h === 1 && oneSq.x === 8 && oneSq.y === 6, JSON.stringify(oneSq));
-check("square.history", act(dmEl, "fogHistory").textContent.indexOf("Reveal square") >= 0);
+check("square.history", act(dmEl, "fogUndoBtn") && !act(dmEl, "fogUndoBtn").disabled && !act(dmEl, "fogHistory"));
 const pubScene = sceneValue(store);
 check("square.synced", !!(pubScene && pubScene.fogShapes && pubScene.fogShapes.length === 1 && (pubScene.fogRects || []).some((r) => r.w === 1 && r.h === 1 && r.x === 8 && r.y === 6)));
 store.pub["map/public/tokens/tok_sq"] = {
@@ -184,7 +186,7 @@ pointer(w, canvas, "pointermove", dragCells[2].x, dragCells[2].y, { detail: 1 })
 pointer(w, canvas, "pointerup", dragCells[2].x, dragCells[2].y, { detail: 1, buttons: 0 });
 const dragged = shapesOf(store).filter((s) => s.kind === "square");
 check("square.drag", dragged.length === 4 && dragged.filter((s) => s.y === 6 && s.x >= 10 && s.x <= 12).length === 3, JSON.stringify(dragged.map((s) => s.x + "," + s.y)));
-check("square.oneStep", (act(dmEl, "fogHistory").textContent.match(/Reveal square/g) || []).length === 2);
+check("square.oneStep", !act(dmEl, "fogUndoBtn").disabled && shapesOf(store).filter((s) => s.kind === "square").length === 4);
 act(dmEl, "fogUndoBtn").click();
 check("square.undoDrag", shapesOf(store).length === 1 && shapesOf(store)[0].x === 8 && shapesOf(store)[0].y === 6);
 act(dmEl, "eraseFogBtn").click();
@@ -217,7 +219,7 @@ check("poly.drew", w.__calls.some((c) => c[0] === "strokeStyle" && String(c[1][0
 clickAt(200, 200, { detail: 1 });
 const poly = shapesOf(store)[0];
 check("poly.closed", shapesOf(store).length === 1 && poly && poly.op === "reveal" && poly.kind === "poly" && poly.points.length >= 3, JSON.stringify(poly));
-check("poly.history", act(dmEl, "fogHistory").textContent.indexOf("Reveal poly") >= 0, act(dmEl, "fogHistory").textContent);
+check("poly.history", act(dmEl, "fogUndoBtn") && !act(dmEl, "fogUndoBtn").disabled);
 check("poly.synced", !!(store.dm["map/dm/scenes/scn_dustyspur01"] && store.dm["map/dm/scenes/scn_dustyspur01"].value.fogShapes.length === 1));
 
 act(dmEl, "fogUndoBtn").click();
@@ -328,7 +330,7 @@ key(w, canvas, "Enter");
 check("hide.fullscreen", shapesOf(store).some((s) => s.op === "hide" && s.kind === "poly"), JSON.stringify(shapesOf(store).map((s) => s.op + " " + s.kind)));
 w.document.body.classList.remove("map-fullscreen");
 
-check("names.stay", act(dmEl, "hideBtn").textContent === "Hide" && act(dmEl, "hideAllBtn").textContent === "Hide All" && act(dmEl, "revealAllBtn").textContent === "Reveal All");
+check("names.stay", act(dmEl, "hideBtn").textContent === "Hide/Reveal" && act(dmEl, "hideAllBtn").textContent === "Hide All" && act(dmEl, "revealAllBtn").textContent === "Reveal All");
 
 dm.destroy();
 player.destroy();

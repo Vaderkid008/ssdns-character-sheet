@@ -39,7 +39,7 @@
     if (isDmPage() && root.DMCC && root.DMCC.state && root.DMCC.state.players) {
       return Object.keys(root.DMCC.state.players).map(function (id) {
         var snap = (root.DMCC.state.players[id] && root.DMCC.state.players[id].snapshot) || {};
-        return { uid: id, id: id, name: snap.name || snap.player || id };
+        return { uid: id, id: id, name: snap.name || snap.player || id, portrait: snap.portrait || "" };
       });
     }
     return players.slice();
@@ -235,7 +235,9 @@
       "drawer:unload": "unload",
       "drawer:deathsave": "deathsave",
       "drawer:undo": "undo",
-      "drawer:chamber": "chamber"
+      "drawer:chamber": "chamber",
+      "drawer:down": "down",
+      "drawer:act": "act"
     }[name];
     if (name === "drawer:target") fightCall = detail.spellId ? "cast" : "attack";
     if (!fightCall) return;
@@ -459,6 +461,10 @@
     tokenForPlayer: tokenForPlayer,
     hasToken: hasToken,
     releaseToken: releaseToken,
+    patchToken: function (id, fields) {
+      if (!isDmPage() || !map || typeof map.patchToken !== "function") return null;
+      return map.patchToken(id, fields || {});
+    },
     rounds: roundsLabel
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);

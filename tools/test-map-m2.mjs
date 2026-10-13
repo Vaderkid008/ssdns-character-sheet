@@ -483,7 +483,9 @@ async function testMaps(w) {
   check("map.player.R10commit", ghostCommit.some((e) => e.path === "map/public/events/slide"), ghostCommit.map((e) => e.path).join(", "));
 
   const colorMark = plAd.log.length;
-  act(pl.el, "playerColorBtn").click();
+  const colorSel = act(pl.el, "playerColorBtn");
+  colorSel.value = "#4a90d9";
+  colorSel.dispatchEvent(new w.Event("change", { bubbles: true }));
   const patch = writesSince(plAd.log, colorMark).find((e) => e.path.indexOf("/patch") >= 0);
   check("map.player.patchCosmetic", !!(patch && patch.value.color && patch.value.by === "p_jolene" && patch.value.hp == null), JSON.stringify(patch && patch.value));
   const jolenePub = store.pub["map/public/tokens/ply_p_jolene"];
