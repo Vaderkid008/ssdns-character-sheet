@@ -28,6 +28,13 @@
     "stage right"
     "dock dock";
 }
+.ssdns-map:not(:has(.ssdns-leftbar)):not(:has(.ssdns-rightbar)) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "bar"
+    "stage"
+    "dock";
+}
 .ssdns-map.hidden { visibility: hidden; }
 .page-map, #panel-map.panel { background: #1a1612; color: #e8dcc8; }
 .page-map .page-title, #panel-map h2 { color: #e8c36a; }
@@ -220,7 +227,15 @@ body.map-fullscreen #btnMapFull {
   body:not(.map-fullscreen) .ssdns-map .ssdns-leftbar button,
   body:not(.map-fullscreen) .ssdns-map .ssdns-leftbar select { width: auto; }
   body:not(.map-fullscreen) .ssdns-map .ssdns-rightbar { width: auto; max-height: 180px; }
+  body:not(.map-fullscreen) .ssdns-map:not(:has(.ssdns-rightbar)) {
+    grid-template-rows: auto minmax(220px, 1fr) auto;
+    grid-template-areas:
+      "bar"
+      "stage"
+      "dock";
+  }
 }
+body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right: 8px; }
 
 /* DM combatant drawer. Sits in the stage cell so it does not cover the toolbars, turn strip, or chat. */
 .ssdns-map > .ssm-drawer {
@@ -279,7 +294,59 @@ body.map-fullscreen #btnMapFull {
 .ssm-drawer select[data-act="linkPick"] { width: 100%; }
 .ssm-drawer input[type="number"] { width: 64px; }
 .ssm-conds { display: flex; gap: 4px; flex-wrap: wrap; }
-.ssm-cond { background: #4a3b22; padding: 2px 6px; border-radius: 3px; font-size: 10px; }
+.ssm-cond { background: #4a3b22; padding: 2px 6px; border-radius: 3px; font-size: 10px; display: inline-flex; align-items: center; gap: 4px; }
+.ssm-cond-x { min-height: 0; min-width: 18px; padding: 0 4px; line-height: 1; }
+.ssm-hpbar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+.ssm-hpbar > span { display: block; height: 100%; background: #4caf50; }
+.ssm-deaths { color: #e2c56a; font-size: 11px; }
+.ssm-act { display: flex; align-items: center; gap: 6px; }
+.ssm-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #e8dcc8; display: inline-block; flex: 0 0 auto; }
+.ssm-colorpick { display: flex; align-items: center; gap: 6px; }
+.ssm-colorpick select { flex: 1; min-width: 0; }
+.ssdns-playercard {
+  position: absolute;
+  top: 52px;
+  right: 12px;
+  z-index: 16;
+  width: 200px;
+  max-height: calc(100% - 70px);
+  overflow: auto;
+  background: rgba(20, 16, 12, 0.96);
+  border: 1px solid #8a6a3a;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color: #f0e4cf;
+}
+.ssdns-playercard .ssm-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  cursor: grab;
+  background: #1c1814;
+  border-bottom: 1px solid #5a4e40;
+}
+.ssdns-playercard .ssm-card-head b { flex: 1; }
+.ssdns-playercard .ssm-card-body { display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+.ssdns-playercard.min .ssm-card-body { display: none; }
+.ssdns-playercard label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; }
+.ssdns-playercard input, .ssdns-playercard select, .ssdns-playercard button { width: 100%; }
+.ssm-cropper {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 30;
+  width: 280px;
+  padding: 10px;
+  background: rgba(20, 16, 12, 0.98);
+  border: 1px solid #8a6a3a;
+  border-radius: 8px;
+  color: #f0e4cf;
+}
+.ssm-crop-head, .ssm-crop-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.ssm-crop-head b { flex: 1; }
+.ssm-cropper canvas { width: 240px; height: 240px; border-radius: 50%; background: #111; display: block; margin: 8px auto; }
+.ssm-crop-note { font-size: 11px; color: #e2c56a; min-height: 1em; }
 .ssm-tactics { font-style: italic; color: #c9b89a; }
 .ssm-pending { color: #e8c36a; font-weight: 600; }
 .ssm-action { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }

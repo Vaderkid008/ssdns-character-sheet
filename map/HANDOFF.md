@@ -1,3 +1,29 @@
+# Map card — sheet 0.3.25 / DMCC 0.2.38
+
+`database.rules.json` did not change. HP, hide, and notes stay off the public token. Token pictures use the existing `image` field plus static files in `map/tokenImages/`. There is no new database path.
+
+## What it is
+
+The DM sees an HP bar under a token and in the token card. Players do not. The card's Down button uses the Fight tab's mark-down path: 0 HP, Unconscious, Down, and a fresh death-save tally. Healing back above 0 clears Unconscious, Down, and the tally through that same path.
+
+Act for player is a switch on a player card. Attacks and spells still go through the existing strike and cast code, and the log says `DM acting for <character>`.
+
+The player's right-hand map toolbar is gone. A floating card holds the label, color, Hidden switch, ping, ruler, torch, ghost plan, and sheet actions. It drags, minimizes, and remembers its place.
+
+Fog keeps Undo, Redo, Shift-select, and Delete selection. The history list is gone. Delete selection with nothing selected says `Hold Shift and use Erase to make a selection.`
+
+The token button is Hide/Reveal. Each condition chip in the DM card has an x that removes it the same way the Fight tab does, with a ledger line and Undo.
+
+Token color is a named list with a swatch, plus Custom. Token pictures default to a sheet portrait or a pre-cropped portrait in `map/tokenImages/` (top-biased, small WebP). A picture on another host that the browser will not export stays as the original URL. The DM can replace any token image with the cropper. Fit covers the circle. Zooming out still exports pixels. Players cannot write their own token image.
+
+```cmd
+node tools/test-token-crop.mjs
+node tools/test-map-card.mjs
+node tools/test-token-sync.mjs
+```
+
+Cache queries: map CSS, map JS, token-crop.js, and the map host are `0.3.25-card` on the sheet and `0.2.38-card` on the DMCC. `v2.js` is `0.2.38-card`.
+
 # Ammo display framework — sheet 0.3.24 / DMCC 0.2.37
 
 `database.rules.json` did not change. No new database path. The flag stays off.

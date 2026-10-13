@@ -572,6 +572,30 @@ async function undoEntry(u) {
     await saveRemoteTable();
     renderFight();
   }
+  if (u.restoreConditions && u.restoreConditions.entries) {
+    const pack = u.restoreConditions;
+    fight.condMap = fight.condMap || {};
+    pack.entries.forEach((entry) => { if (entry && entry.id) fight.condMap[entry.id] = entry; });
+    (fight.order || []).forEach((row) => {
+      if (!row) return;
+      const sid = row.kind === "player" ? (row.playerId || row.id) : row.id;
+      if (sid !== pack.subjectId) return;
+      row.conditions = Object.keys(fight.condMap).map((id) => fight.condMap[id]).filter((c) => c && c.subjectId === pack.subjectId);
+    });
+    if (pack.kind === "player" && DM.state.players[pack.subjectId] && DM.state.players[pack.subjectId].snapshot && window.SSDNSConditions) {
+      const snap = DM.state.players[pack.subjectId].snapshot;
+      snap.activeConditions = window.SSDNSConditions.mergeById(snap.activeConditions || [], pack.entries, []);
+      snap.conditions = window.SSDNSConditions.listText(snap.activeConditions);
+      await DM.pushCommand({ type: "set_conditions", to: pack.subjectId, payload: { merge: true, entries: pack.entries, quiet: true }, from: DM.state.uid });
+    }
+    if (!DM.state.demo && DM.state.db && DM.state._fb) {
+      for (const entry of pack.entries) {
+        if (entry && entry.id) await DM.state._fb.set(DM.roomRef("conditions/" + entry.id), entry);
+      }
+    }
+    await saveRemoteTable();
+    renderFight();
+  }
   if (DM.state.demo && u.demo) u.demo();
   DM.renderPlayers();
   if (DM.renderLedger) DM.renderLedger();
@@ -1336,6 +1360,15 @@ async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, r
   for (const id of removed) {
     const line = "DM removed " + (removedLabels[id] || "a condition") + " from " + who;
     await DM.pushLedger({ who: "DM", playerId: kind === "player" ? subjectId : "all", type: "condition", what: line, oldVal: removedLabels[id] || "", newVal: "cleared", flag: false });
+  }
+  if (removed.length) {
+    const entries = removed.map((id) => existing.filter((row) => row && row.id === id)[0]).filter(Boolean).map((row) => JSON.parse(JSON.stringify(row)));
+    rememberUndo({
+      type: "condition",
+      label: "removed " + entries.map((row) => row.name || "condition").join(", "),
+      playerId: kind === "player" ? subjectId : "all",
+      restoreConditions: { subjectId: subjectId, kind: kind, entries: entries }
+    });
   }
 }
 function tickConditions(row) {
@@ -3021,6 +3054,7 @@ async function rollSpellAt(row, spellId, targetId) {
     });
   }
   if (spellConcentrates({ name: name }, known)) detail += noteConcentration(row, name);
+  detail = withDmActing(row, detail);
   const castCue = window.SSDNSAudio && window.SSDNSAudio.spellCue
     ? window.SSDNSAudio.spellCue({ name: name, kind: kind, attack: !!rolled.attack, calling: s.callingId || s.calling })
     : "spellcast";
@@ -3096,6 +3130,8 @@ async function rowHp(i, sign) {
   }
   const before = applyEnemyHp(row, sign * amt);
   if (before == null) return;
+  if (row.hp <= 0) noteUnconscious(row);
+  else await clearDown(row);
   clearDamageDice();
   await saveRemoteTable();
   renderFight();
@@ -3108,11 +3144,19 @@ function noteUnconscious(row) {
   const hp = knownNumber(row.hp);
   if (hp != null && hp > 0) return;
   const Cond = window.SSDNSConditions;
-  if (!Cond) return;
   const subjectId = row.kind === "player" ? (row.playerId || row.id) : row.id;
   if (!subjectId) return;
-  const id = Cond.idFor(subjectId, "Unconscious");
   row.hp = 0;
+  row.status = "Down";
+  if (!row.deathSaves) row.deathSaves = { success: [false, false, false], fail: [false, false, false] };
+  if (row.kind === "player" && DM.state.players[subjectId] && DM.state.players[subjectId].snapshot) {
+    const snap = DM.state.players[subjectId].snapshot;
+    snap.hpCurrent = 0;
+    if (!snap.deathSaves) snap.deathSaves = { success: [false, false, false], fail: [false, false, false] };
+  }
+  mirrorMapStatus(row, "down");
+  if (!Cond) return;
+  const id = Cond.idFor(subjectId, "Unconscious");
   if (fight.condMap && fight.condMap[id]) {
     row.conditions = Cond.ensureUnconscious(conditionsForRow(row), 0, subjectId);
     return;
@@ -3144,9 +3188,49 @@ async function markDown(i) {
   row.hp = 0;
   row.status = "Down";
   noteUnconscious(row);
+  const pid = row.kind === "player" ? (row.playerId || row.id) : "";
+  if (pid) await DM.pushCommand({ type: "hp", to: pid, payload: { absolute: 0, text: (row.name || "Someone") + " is Down" }, from: DM.state.uid });
   await saveRemoteTable();
   renderFight();
   DM.toast((row.name || "Someone") + " is Unconscious · Down");
+}
+async function clearDown(row) {
+  if (!row) return;
+  const hp = knownNumber(row.hp);
+  if (hp == null || hp <= 0) return;
+  const subjectId = row.kind === "player" ? (row.playerId || row.id) : row.id;
+  const current = conditionsForRow(row);
+  const have = current.filter((c) => String((c && c.name) || c || "").toLowerCase() === "unconscious")[0];
+  const hadDown = /^down$/i.test(String(row.status || ""));
+  const ds = row.deathSaves;
+  const marked = ds && ((ds.success || []).some(Boolean) || (ds.fail || []).some(Boolean));
+  if (!have && !hadDown && !ds) return;
+  if (hadDown) row.status = "";
+  const pid = row.kind === "player" ? subjectId : "";
+  if (pid && ds) {
+    for (const side of ["success", "fail"]) {
+      const arr = ds[side] || [];
+      for (let n = 0; n < 3; n++) {
+        if (!arr[n]) continue;
+        await DM.pushCommand({ type: "death_save", to: pid, payload: { side: side, index: n, on: false }, from: DM.state.uid });
+      }
+    }
+  }
+  row.deathSaves = null;
+  const snap = pid ? playerSnapshot(pid) : null;
+  if (snap) snap.deathSaves = null;
+  mirrorMapStatus(row, "");
+  if (have && subjectId) {
+    const Cond = window.SSDNSConditions;
+    const removeIds = [];
+    if (have.id) removeIds.push(have.id);
+    else if (Cond && Cond.idFor) removeIds.push(Cond.idFor(subjectId, "Unconscious"));
+    await writeSubjectConditions(subjectId, row.kind === "enemy" ? "enemy" : "player", [], row.name || "", 1, {}, removeIds);
+  }
+  if (have || hadDown || marked) {
+    const line = "Unconscious and Down cleared · " + (row.name || "Someone");
+    await DM.pushLedger({ who: "DM", playerId: pid || "all", type: "condition", what: line, oldVal: "Down", newVal: "up", flag: false });
+  }
 }
 async function markFled(i) {
   const row = fight.order[i];
@@ -3457,7 +3541,19 @@ function targetMod(playerId, ability) {
   if (scores[key] != null) return cardMod(scores[key]);
   return 0;
 }
+function withDmActing(row, detail) {
+  if (!row || row.kind !== "player" || !row.dmActsAs) return detail;
+  const line = "DM acting for " + (row.name || "a player");
+  if (String(detail || "").indexOf(line) === 0) return detail;
+  return detail ? line + " — " + detail : line;
+}
+function mirrorMapStatus(row, status) {
+  const host = window.SSDNSMapHost;
+  if (!host || typeof host.patchToken !== "function" || !row || !row.mapTokenId) return;
+  try { host.patchToken(row.mapTokenId, { status: status || "" }); } catch (e) {}
+}
 async function publishCardRoll(row, detail, result, extra) {
+  detail = withDmActing(row, detail);
   const pub = !!(row.card && row.card.public);
   const shown = window.SSDNSApplied && window.SSDNSApplied.publicDetail
     ? window.SSDNSApplied.publicDetail(detail)
@@ -4119,6 +4215,7 @@ function applyPlayerHit(meta) {
   }
   if (!heal && meta.from && row && row.kind === "enemy") row.lastAttackerId = meta.from;
   if (after <= 0) noteUnconscious(row || { kind: snap ? "player" : "enemy", playerId: meta.targetId, id: (row && row.id) || meta.targetId, name: name, hp: 0 });
+  else if (row && after > 0) clearDown(row);
   saveRemoteTable();
   renderFight();
   DM.renderPlayers();
@@ -4610,7 +4707,7 @@ function tokenPatchForRow(row) {
   const name = publicTokenName(row);
   const player = !!(row && row.kind === "player");
   const who = player ? ((row && (row.playerId || row.id)) || "") : ((row && row.id) || "");
-  return {
+  const patch = {
     combatantId: who,
     sheetId: player ? who : "",
     label: String(name).slice(0, 16),
@@ -4620,6 +4717,15 @@ function tokenPatchForRow(row) {
     color: player ? "#4a90d9" : "#a33b3b",
     ownerCanMove: player
   };
+  const preset = window.SSDNSTokenCrop && window.SSDNSTokenCrop.preset
+    ? window.SSDNSTokenCrop.preset((row && (row.beastId || row.name)) || "")
+    : "";
+  if (preset) patch.image = preset;
+  else if (player) {
+    const snap = playerSnapshot(who);
+    if (snap && snap.portrait) patch.portrait = snap.portrait;
+  }
+  return patch;
 }
 function assignMapToken(row, tokenId) {
   const live = rowInOrder(row);
@@ -5626,6 +5732,7 @@ async function mapAssignHp(row, next) {
     await DM.pushCommand({ type: "hp", to: pid, payload: { absolute: hp, text: "DM set HP to " + hp }, from: DM.state.uid });
   }
   if (hp <= 0) noteUnconscious(row);
+  else await clearDown(row);
   const line = "Set HP " + hp + " → " + (row.name || "combatant");
   await DM.pushLedger({ who: "DM", playerId: pid || "all", type: "hp", what: line, oldVal: start, newVal: hp, flag: false });
   rememberUndo({
@@ -5653,6 +5760,8 @@ async function mapDeltaHp(row, delta) {
     const after = sign < 0 ? Math.max(0, start - amt) : (max != null ? Math.min(max, start + amt) : start + amt);
     row.hp = after;
     if (snap) snap.hpCurrent = after;
+    if (after <= 0) noteUnconscious(row);
+    else await clearDown(row);
     const kind = sign < 0 ? "damage" : "heal";
     const line = (sign < 0 ? "Damage " : "Heal ") + amt + " → " + (row.name || pid) + " (" + after + " HP)";
     await DM.pushCommand({
@@ -5670,7 +5779,6 @@ async function mapDeltaHp(row, delta) {
       restoreHp: { id: row.id, hp: start },
       command: { type: "hp", to: pid, payload: { delta: -sign * amt, kind: sign < 0 ? "heal" : "damage", amount: amt, text: "Undo " + line }, from: DM.state.uid }
     });
-    if (after <= 0) noteUnconscious(row);
     await saveRemoteTable();
     renderFight();
     DM.toast(line);
@@ -5678,6 +5786,8 @@ async function mapDeltaHp(row, delta) {
   }
   const before = applyEnemyHp(row, sign * amt);
   if (before == null) return;
+  if (row.hp <= 0) noteUnconscious(row);
+  else await clearDown(row);
   const line = (sign < 0 ? "Damage " : "Heal ") + amt + " → " + (row.name || "enemy") + " (" + row.hp + " HP)";
   await DM.pushLedger({ who: "DM", playerId: "all", type: sign < 0 ? "damage" : "heal", what: line, oldVal: before, newVal: row.hp, flag: false });
   rememberUndo({
@@ -6018,6 +6128,7 @@ window.SSDNSMapFight = {
       const snap = pid ? playerSnapshot(pid) : null;
       if (snap) snap.hpCurrent = 1;
       if (pid) await DM.pushCommand({ type: "hp", to: pid, payload: { absolute: 1, text: line + " — natural 20, back to 1 HP" }, from: DM.state.uid });
+      await clearDown(row);
       line += " — natural 20, back to 1 HP";
     } else if (nat >= 10) {
       const si = ((row.deathSaves && row.deathSaves.success) || [false, false, false]).indexOf(false);
@@ -6045,6 +6156,28 @@ window.SSDNSMapFight = {
     return true;
   },
   undo() { return undoLast(); },
+  async down(detail) {
+    const i = mapFightIndex(detail || {});
+    if (i < 0) { DM.toast("No card linked"); return false; }
+    await markDown(i);
+    return true;
+  },
+  async act(detail) {
+    detail = detail || {};
+    const i = mapFightIndex(detail);
+    if (i < 0) { DM.toast("No card linked"); return false; }
+    const row = fight.order[i];
+    if (!row || row.kind !== "player") return false;
+    row.dmActsAs = !!detail.on;
+    if (row.dmActsAs) {
+      const line = "DM acting for " + (row.name || "a player");
+      await DM.pushLedger({ who: "DM", playerId: row.playerId || row.id, type: "dm_act", what: line, oldVal: null, newVal: "acting", flag: false });
+      DM.toast(line);
+    }
+    await saveRemoteTable();
+    renderFight();
+    return true;
+  },
   link(detail) { return linkMapToken(detail); },
   onTokenRemoved(detail) { unlinkMapToken(detail); },
   syncMap() { syncMapTokens(); }
