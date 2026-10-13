@@ -591,6 +591,9 @@ function syncTurnState() {
   DM.state.turnEngaged = !!fight.started;
   DM.state.turnPlayerId = cur && cur.kind === "player" ? (cur.playerId || cur.id || "") : "";
 }
+function pushMapInitiative() {
+  if (window.SSDNSMapHost && window.SSDNSMapHost.syncInitiative) window.SSDNSMapHost.syncInitiative();
+}
 function signed(n) {
   const v = Number(n) || 0;
   return (v >= 0 ? "+" : "") + v;
@@ -929,6 +932,7 @@ function renderFight() {
       if (list && !(document.activeElement && list.contains(document.activeElement))) list.innerHTML = empty;
       if (strip) strip.innerHTML = "";
       syncTurnState();
+      pushMapInitiative();
       return;
     }
     if (fight.turn >= fight.order.length) fight.turn = 0;
@@ -952,6 +956,7 @@ function renderFight() {
       }).join("");
     }
     syncTurnState();
+    pushMapInitiative();
     const sheet = $("#enemySheet");
     if (sheet && !sheet.hidden) renderEnemySheet();
   };
@@ -4973,5 +4978,71 @@ function wireLookupNow() {
     q.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
   }
 }
+function mapDrawerCard(row) {
+  if (!row) return null;
+  const rawAttacks = (row.card && row.card.attacks && row.card.attacks.length) ? row.card.attacks : (row.attackList || []);
+  const guns = row.kind === "player" ? publicGuns(row) : [];
+  const attacks = (rawAttacks.length ? rawAttacks : guns).filter(Boolean).map((a, n) => {
+    const cap = a.capacity != null && a.capacity !== "" ? Number(a.capacity) : (a.ammo && a.ammo.cap != null ? Number(a.ammo.cap) : null);
+    const loaded = a.loaded != null && a.loaded !== "" ? Number(a.loaded) : (a.ammo && a.ammo.loaded != null ? Number(a.ammo.loaded) : null);
+    const attack = {
+      id: a.id || a.name || ("atk-" + n),
+      name: a.name || "Attack",
+      toHit: a.toHit != null && a.toHit !== "" ? a.toHit : (a.bonus != null ? a.bonus : (row.atkBonus != null ? row.atkBonus : 0)),
+      range: a.range || "",
+      damage: a.damage || a.dice || row.damage || ""
+    };
+    if (cap != null && isFinite(cap)) attack.ammo = { loaded: isFinite(loaded) ? loaded : 0, cap: cap, spare: a.spare != null ? a.spare : (a.ammo && a.ammo.spare) };
+    return attack;
+  });
+  const spells = ((row.card && row.card.spells) || []).map((s) => ({ id: s.id || s.name, name: s.name || "Spell", level: s.level, note: s.note || "" }));
+  const conds = conditionsForRow(row).map((c) => {
+    const Cond = window.SSDNSConditions;
+    if (Cond && Cond.label) return Cond.label(c);
+    return typeof c === "string" ? c : (c && (c.name || c.label)) || "";
+  }).filter(Boolean);
+  const speed = row.speed != null && row.speed !== "" ? row.speed : (row.card && row.card.speed);
+  return {
+    tokenId: row.id,
+    kind: row.kind === "player" ? "pc" : "enemy",
+    name: row.name || "Combatant",
+    owner: row.playerId || "",
+    hidden: !!(row.hidden || (row.reveal && row.reveal.name === false)),
+    ac: row.ac,
+    hp: { cur: row.hp, max: row.maxHp, temp: row.tempHp || row.hpTemp || 0 },
+    speed: speed == null || speed === "" ? 30 : speed,
+    conditions: conds,
+    portrait: row.portrait || null,
+    attacks: attacks,
+    spells: spells,
+    tactics: (window.SSDNSApplied && window.SSDNSApplied.tacticsNote) ? (window.SSDNSApplied.tacticsNote(row) || "") : (row.tactics || ""),
+    deathSaves: row.deathSaves || null,
+    dmActsAs: row.kind === "player" ? !!row.dmActsAs : false
+  };
+}
+function findFightRow(tokenId) {
+  if (!tokenId) return null;
+  return (fight.order || []).find((row) => row && (row.id === tokenId || row.playerId === tokenId || row.mapTokenId === tokenId)) || null;
+}
+window.SSDNSMapCards = {
+  get(tokenId) {
+    const row = findFightRow(tokenId);
+    return row ? mapDrawerCard(row) : null;
+  },
+  initiative() {
+    return {
+      round: fight.round || 1,
+      turn: fight.started ? (fight.turn || 0) : -1,
+      started: !!fight.started,
+      order: (fight.order || []).filter(Boolean).map((row) => ({
+        id: row.id || "",
+        name: row.name || "",
+        kind: row.kind || "",
+        playerId: row.playerId || ""
+      }))
+    };
+  }
+};
+
 wireLookupNow();
 bootV2();
