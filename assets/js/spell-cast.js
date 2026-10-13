@@ -591,5 +591,12 @@
     if (field) sentences.push(field);
     return sentences.join(" ");
   }
-  root.SSDNSSpellCast = { lookup: lookup, rollCast: rollCast, cantripTier: cantripTier, needsType: needsType, pickType: pickType, blurb: blurb, describe: describe };
+  function rangeOf(name) {
+    var row = lookup(name);
+    var key = norm((row && row.name) || name);
+    if (key === "pact shot") key = "eldritch blast";
+    var meta = SPELL_META[key] || SPELL_META[norm(name)] || {};
+    return meta.range || "";
+  }
+  root.SSDNSSpellCast = { lookup: lookup, rollCast: rollCast, cantripTier: cantripTier, needsType: needsType, pickType: pickType, blurb: blurb, describe: describe, rangeOf: rangeOf };
 })(typeof window !== "undefined" ? window : globalThis);

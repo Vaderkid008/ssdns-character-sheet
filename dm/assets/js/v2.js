@@ -279,6 +279,10 @@ function stripGuns(row, i) {
         action: gun && gun.action,
         weapon: gun && gun.weapon,
         ammoDisplay: gun && gun.ammoDisplay,
+        group: gun && gun.group,
+        ammo: gun && gun.ammo,
+        tier: gun && gun.tier,
+        scatter: !!(gun && gun.scatter),
         cap: n,
         loaded: fullN,
         chambers: flags || undefined,
@@ -320,6 +324,10 @@ function publicGuns(row) {
       weapon: g.weapon || "",
       action: g.action || "",
       ammoDisplay: g.ammoDisplay || "",
+      group: g.group || "",
+      ammo: g.ammo || "",
+      tier: g.tier || "",
+      scatter: !!g.scatter,
       jammed: !!g.jammed,
       capacity: g.capacity || 0,
       loaded: g.loaded || 0,
@@ -5514,6 +5522,7 @@ function mapDrawerSpells(row) {
       name: name,
       level: typeof s === "object" && s.level != null ? s.level : (known && known.level != null ? known.level : 0),
       kind: kind,
+      range: (typeof s === "object" && s.range) || (window.SSDNSSpellCast && window.SSDNSSpellCast.rangeOf && window.SSDNSSpellCast.rangeOf(name)) || "",
       save: (typeof s === "object" && s.save) || (known && known.save) || "",
       dc: casting.dc != null ? casting.dc : "",
       toHit: casting.attack != null ? casting.attack : "",
@@ -5535,7 +5544,18 @@ function mapDrawerCard(row) {
       name: a.name || "Attack",
       toHit: a.toHit != null && a.toHit !== "" ? a.toHit : (a.bonus != null ? a.bonus : (row.atkBonus != null ? row.atkBonus : 0)),
       range: a.range || "",
-      damage: a.damage || a.dice || row.damage || ""
+      damage: a.damage || a.dice || row.damage || "",
+      weapon: a.weapon || "",
+      properties: Array.isArray(a.properties) ? a.properties.join(", ") : (a.properties || ""),
+      group: a.group || "",
+      action: a.action || "",
+      mod: a.mod || "",
+      tier: a.tier || "",
+      unwieldy: !!a.unwieldy,
+      scatter: !!a.scatter,
+      load: a.load || "",
+      kind: a.kind || "",
+      scope: !!(a.scope || /scope/i.test(a.mod || ""))
     };
     if (cap != null && isFinite(cap)) {
       const chambers = Array.isArray(a.chambers) && a.chambers.length
@@ -5551,6 +5571,7 @@ function mapDrawerCard(row) {
     return attack;
   });
   const spells = mapDrawerSpells(row);
+  const snapFeats = row.kind === "player" ? (playerSnapshot(row.playerId || row.id) || {}) : {};
   const conds = conditionsForRow(row).map((c) => {
     const Cond = window.SSDNSConditions;
     if (Cond && Cond.label) return Cond.label(c);
@@ -5570,6 +5591,8 @@ function mapDrawerCard(row) {
     portrait: row.portrait || null,
     attacks: attacks,
     spells: spells,
+    longRangeHex: !!snapFeats.longRangeHex,
+    sharpshooter: !!snapFeats.sharpshooter,
     tactics: (window.SSDNSApplied && window.SSDNSApplied.tacticsNote) ? (window.SSDNSApplied.tacticsNote(row) || "") : (row.tactics || ""),
     deathSaves: row.deathSaves || null,
     dmActsAs: row.kind === "player" ? !!row.dmActsAs : false
@@ -5682,7 +5705,18 @@ function ensurePlayerAttacks(row) {
       pendingD4: !!g.pendingD4,
       dirty: !!g.dirty,
       chambers: Array.isArray(g.chambers) ? g.chambers.map((st) => (st ? 1 : 0)) : null,
-      gunIndex: n
+      gunIndex: n,
+      weapon: g.weapon || "",
+      range: g.range || "",
+      properties: g.properties || "",
+      group: g.group || "",
+      action: g.action || "",
+      mod: g.mod || "",
+      tier: g.tier || "",
+      unwieldy: !!g.unwieldy,
+      scatter: !!g.scatter,
+      load: g.load || "",
+      scope: /scope/i.test(g.mod || "")
     };
   });
 }

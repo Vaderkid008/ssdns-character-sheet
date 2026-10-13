@@ -87,11 +87,32 @@ check("tube.rounds", rounds(tubeFull, "tube").length === 6);
 check("tube.slides", follower(tubeFull) > follower(tubeHalf) && follower(tubeHalf) > follower(tubeEmpty), [follower(tubeFull), follower(tubeHalf), follower(tubeEmpty)].join(" > "));
 check("tube.click", doc(tubeHalf).querySelector(".ammo-round").tagName === "BUTTON");
 
-const dots = api.html({ action: "Pepperbox", cap: 4, chambers: [1, "", 1, "jam"] });
+const dots = api.html({ action: "Pepperbox", cap: 4, tier: "heavy", chambers: [1, "", 1, "jam"] });
 const dotsDoc = doc(dots);
 check("dots.kind", dotsDoc.querySelector(".ssdns-ammo-dots") && !dotsDoc.querySelector("svg"));
 check("dots.four", dotsDoc.querySelectorAll(".ammo-round").length === 4);
 check("dots.jam", !!dotsDoc.querySelector(".is-jam"));
+check("dots.primer", !!dotsDoc.querySelector(".ammo-round.is-primer.is-loaded") && (dotsDoc.querySelector(".is-primer.is-loaded").getAttribute("style") || "").includes("--case:#a86b32"));
+const light = doc(api.html({ action: "Pepperbox", cap: 1, tier: "light", loaded: 1 }));
+check("dots.light", (light.querySelector(".ammo-round").getAttribute("style") || "").includes("--case:#f3e7b3"));
+
+const tubeSpend = api.html({
+  action: "Lever (tube)",
+  cap: 6,
+  chambers: ["", 1, 1, "", "", ""],
+  attrs: function (k) { return { "data-k": String(k), "data-fire": "9" }; }
+});
+const tubeSpendDoc = doc(tubeSpend);
+const tubeKeys = Array.from(tubeSpendDoc.querySelectorAll(".ammo-round, .ammo-tube-fire")).map((b) => b.getAttribute("data-k"));
+check("tube.leftmost", tubeSpendDoc.querySelector(".ssdns-ammo-tube").getAttribute("data-ammo-spend") === "1" && tubeKeys.length >= 2 && tubeKeys.every((k) => k === "1"), tubeKeys.join(","));
+check("tube.cart", !!tubeSpendDoc.querySelector("svg.ammo-cart"));
+const tubeWide = doc(api.html({ action: "Lever (tube)", cap: 12, loaded: 12, tier: "medium" }));
+check("tube.compact", !!tubeWide.querySelector(".ssdns-ammo-tube.is-compact") && tubeWide.querySelectorAll(".ammo-round").length === 12);
+
+const shotDots = doc(api.html({ action: "Break-action", name: "Coach Gun", group: "shotgun", ammo: "shell", cap: 2, tier: "medium", chambers: [1, ""] }));
+check("shot.dots", !!shotDots.querySelector(".ssdns-ammo-dots.is-shotgun svg.ammo-shell") && shotDots.querySelectorAll(".ammo-round").length === 2);
+const shotTube = doc(api.html({ weapon: "lancaster-lever-shotgun", cap: 4, loaded: 2 }));
+check("shot.tube", !!shotTube.querySelector(".ssdns-ammo-tube.is-shotgun svg.ammo-shell"));
 
 const gunJammed = doc(api.html({ action: "Revolver", cap: 6, loaded: 4, jammed: true }));
 check("jam.gun", !!gunJammed.querySelector(".ssdns-ammo.is-jammed"));

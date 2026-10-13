@@ -123,6 +123,75 @@
     var guns = (card.attacks || []).filter(function (a) { return a && a.ammo && a.ammo.cap; });
     return guns.map(function (a) { return (Number(a.ammo.loaded) || 0) + "/" + a.ammo.cap; }).join(" ");
   }
+  function rangeWeapons() {
+    if (isDmPage()) return [];
+    var app = root.SSDNSApp;
+    var doc = app && app.doc && app.doc();
+    var computed = app && app.compute && app.compute();
+    if (!doc || !doc.character) return [];
+    var c = doc.character;
+    var feats = c.feats || [];
+    var longRangeHex = feats.indexOf("long-range-hex") >= 0;
+    var sharpshooter = feats.indexOf("sharpshooter") >= 0;
+    var list = [];
+    (c.guns || []).forEach(function (g, i) {
+      if (!g || !g.weapon) return;
+      var st = ((computed && computed.guns) || []).filter(function (x) { return x && x.w && x.w.id === g.weapon; })[0];
+      var w = st && st.w;
+      list.push({
+        id: "gun:" + i,
+        name: (w && w.name) || gunName(i),
+        weapon: g.weapon,
+        range: (st && st.range) || "",
+        properties: (w && w.properties) || "",
+        group: (w && w.group) || "",
+        kind: "weapon",
+        mod: g.mod || "",
+        tier: (st && st.tier) || "",
+        unwieldy: !!(st && st.unwieldy),
+        scatter: !!(w && w.scatter),
+        load: g.load || "",
+        scope: /scope/i.test(g.mod || ""),
+        longRangeHex: longRangeHex,
+        sharpshooter: sharpshooter
+      });
+    });
+    (c.melee || []).forEach(function (m, i) {
+      if (!m || !m.weapon) return;
+      list.push({
+        id: "melee:" + i,
+        name: meleeName(i),
+        weapon: m.weapon,
+        kind: "melee",
+        sharpshooter: sharpshooter
+      });
+    });
+    function addSpell(name) {
+      if (!name || !root.SSDNSSpellCast || typeof root.SSDNSSpellCast.lookup !== "function") return;
+      var known = root.SSDNSSpellCast.lookup(name);
+      if (!known || known.kind !== "attack") return;
+      var id = "spell:" + name;
+      if (list.some(function (row) { return row.id === id; })) return;
+      var range = typeof root.SSDNSSpellCast.rangeOf === "function" ? root.SSDNSSpellCast.rangeOf(name) : "";
+      if (!range) return;
+      list.push({
+        id: id,
+        name: name,
+        kind: "spell",
+        spell: true,
+        spellKind: "attack",
+        range: range,
+        longRangeHex: longRangeHex
+      });
+    }
+    (c.cantrips || []).forEach(addSpell);
+    Object.keys(c.spells || {}).forEach(function (lvl) {
+      (c.spells[lvl] || []).forEach(function (sp) {
+        if (sp && sp.prepared && sp.name) addSpell(sp.name);
+      });
+    });
+    return list;
+  }
   function sheetActions() {
     if (isDmPage()) return [];
     var list = [];
@@ -345,7 +414,8 @@
             var api = root.SSDNSMapCards;
             if (!isDmPage() || !api || typeof api.choices !== "function") return null;
             try { return api.choices(); } catch (e) { return null; }
-          }
+          },
+          rangeWeapons: rangeWeapons
         },
         options: {
           scene: pair[0],

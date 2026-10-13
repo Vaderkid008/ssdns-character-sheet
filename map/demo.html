@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>SSDNS Map — M2 v4 demo</title>
-<link rel="stylesheet" href="ssdns-map.css">
+<link rel="stylesheet" href="ssdns-map.css?v=0.3.26-range">
 <style>
   html, body { margin: 0; height: 100%; background: #1a1612; color: #e8dcc8; font-family: system-ui, sans-serif; }
   .ssdns-map { position: relative; width: 100vw; height: 100vh; overflow: hidden; touch-action: none; background: #1a1612; }
@@ -27,7 +27,8 @@
 </head>
 <body>
 <div id="mount" class="ssdns-map hidden"></div>
-<script src="ssdns-map.js"></script>
+<script src="../assets/js/range-rings.js?v=0.3.26-range"></script>
+<script src="ssdns-map.js?v=0.3.26-range"></script>
 <script>
 // demo.html is the only file allowed to read the URL, localStorage, and BroadcastChannel.
 const params = new URLSearchParams(location.search);
@@ -117,7 +118,36 @@ const host = {
     run(id) { console.log('host.actions.run', id); return Promise.resolve(); }
   },
   on(name, detail) { console.log('host', name, detail); },
-  getCard(tokenId) { return (window.__cards && window.__cards[tokenId]) || null; }
+  getCard(tokenId) {
+    const card = (window.__cards && window.__cards[tokenId]) || null;
+    if (!card) return null;
+    const extra = [
+      { id: 'rolling', name: 'Dulls Rolling-Block', range: '60/240', group: 'rifle', properties: 'Two-handed', kind: 'weapon' },
+      { id: 'fifty', name: 'Big Fifty', range: '150/600', group: 'bigbore', properties: 'unwieldy', unwieldy: true, kind: 'weapon' },
+      { id: 'henrietta', name: 'Henrietta', range: '20/60', group: 'carbine', properties: 'Two-handed, saddle, close quarters', kind: 'weapon' },
+      { id: 'henrietta-scope', name: 'Henrietta (scope)', range: '20/60', group: 'carbine', properties: 'Two-handed, saddle, close quarters', scope: true, kind: 'weapon' },
+      { id: 'dagger', name: 'Stiletto', range: '20/60 (thrown)', properties: 'Finesse, light, thrown', group: 'simple-melee', kind: 'melee' },
+      { id: 'hook', name: 'Boarding hook', range: '—', properties: 'Heavy, reach, two-handed', group: 'martial-melee', kind: 'melee' }
+    ];
+    const spells = (card.spells || []).slice();
+    if (!spells.some(s => s && s.name === 'Fire Bolt')) spells.push({ id: 'fire-bolt', name: 'Fire Bolt', kind: 'attack', range: '120 ft' });
+    return Object.assign({}, card, {
+      longRangeHex: true,
+      attacks: (card.attacks || []).concat(extra),
+      spells: spells
+    });
+  },
+  rangeWeapons() {
+    return [
+      { id: 'rolling', name: 'Dulls Rolling-Block', range: '60/240', group: 'rifle', properties: 'Two-handed', kind: 'weapon' },
+      { id: 'fifty', name: 'Big Fifty', range: '150/600', group: 'bigbore', properties: 'unwieldy', unwieldy: true, kind: 'weapon' },
+      { id: 'henrietta', name: 'Henrietta', range: '20/60', group: 'carbine', properties: 'Two-handed, saddle, close quarters', kind: 'weapon' },
+      { id: 'henrietta-scope', name: 'Henrietta (scope)', range: '20/60', group: 'carbine', properties: 'Two-handed, saddle, close quarters', scope: true, kind: 'weapon' },
+      { id: 'dagger', name: 'Stiletto', range: '20/60 (thrown)', properties: 'Finesse, light, thrown', group: 'simple-melee', kind: 'melee' },
+      { id: 'hook', name: 'Boarding hook', range: '—', properties: 'Heavy, reach, two-handed', group: 'martial-melee', kind: 'melee' },
+      { id: 'spell:fire-bolt', name: 'Fire Bolt', kind: 'spell', spell: true, spellKind: 'attack', range: '120 ft', longRangeHex: true }
+    ];
+  }
 };
 
 (async () => {

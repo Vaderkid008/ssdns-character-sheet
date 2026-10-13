@@ -330,6 +330,10 @@ body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right
 .ssdns-playercard .ssm-card-body { display: flex; flex-direction: column; gap: 6px; padding: 8px; }
 .ssdns-playercard.min .ssm-card-body { display: none; }
 .ssdns-playercard label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; }
+.ssdns-playercard label.ssm-range,
+.ssdns-rightbar label.ssm-range,
+.ssm-drawer label.ssm-range { flex-direction: row; align-items: center; gap: 6px; font-size: 12px; }
+.ssm-range input[type="checkbox"] { width: auto; }
 .ssdns-playercard input, .ssdns-playercard select, .ssdns-playercard button { width: 100%; }
 .ssm-cropper {
   position: absolute;
