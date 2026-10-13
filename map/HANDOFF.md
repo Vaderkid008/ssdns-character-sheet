@@ -1,3 +1,20 @@
+# Main tab layout — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed at sheet 0.3.22 / DMCC 0.2.35. `database.rules.json` did not change. No combat, spell, or wallet math changed.
+
+At about 1024px the Main tab header lined the name box up with the bottom of the calling grid, so the left column was a blank portrait-sized gap. The tab row was centered, and with the chat dock open the labels wrapped into tall buttons. Camp Kin has no sublineages, and the disabled "—" select still took a cell under Apply starting kit.
+
+## What changed
+
+- The Main tab left column is a portrait frame on the existing `character.portrait` field. Empty, it shows a silhouette and "Add portrait". Choose picture and Remove use the same picture path as the Backstory page. A URL writes that same field through the sheet save. Once set, the picture shows on Main and on Backstory.
+- A lineage with no sublineages hides the sublineage select. The stored value is left alone. Mountain Folk still shows Sublineage.
+- The tab row starts at the sheet's left edge. Tab labels stay on one line.
+- The initiative strip sizes to the turn chips instead of the full window.
+
+## Check
+
+Browser, Hexslinger / Camp Kin, no room wizard. At 1024 the first tab and the sheet both start at x=12, tab height is 42px, the sublineage select measures 0×0, and the page does not scroll sideways. At 390 and 360 the portrait, name, and tabs stack, portrait buttons are 44px tall, and `scrollWidth` matches the viewport. A `javascript:` address is refused. `assets/images/revolver.png` saves onto `character.portrait` and shows in both portrait frames.
+
 # Saloon games — sheet 0.3.22 / DMCC 0.2.35
 
 Same draft as the token link. Versions stayed at sheet 0.3.22 / DMCC 0.2.35. `database.rules.json` did not change. `games/*/game.js` and `assets/js/ssdns-bridge.js` were not edited.

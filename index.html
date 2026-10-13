@@ -7,7 +7,7 @@
 <title>SSDNS Character Sheet · Six-Shooters &amp; Sorcery: Dust and Shadows</title>
 <link rel="icon" href="assets/images/revolver.png">
 <link rel="stylesheet" href="map/ssdns-map.css?v=0.3.22-drawer">
-<link rel="stylesheet" href="assets/css/sheet.css?v=0.3.22-chat">
+<link rel="stylesheet" href="assets/css/sheet.css?v=0.3.22-layout">
 <link rel="stylesheet" href="assets/css/print.css?v=0.3.22" media="print">
 </head>
 <body>
@@ -67,9 +67,22 @@
 <!-- ============================== PAGE 1 : MAIN ============================== -->
 <section class="page" id="page-main" role="tabpanel" aria-labelledby="tab-main">
   <div class="topblock">
-    <div class="namebox">
-      <input type="text" data-f="character.name" id="charName" placeholder="Character name" autocomplete="off">
-      <label for="charName">Character Name</label>
+    <div class="identity">
+      <div class="portrait-slot">
+        <div class="imgdrop" data-img="character.portrait" aria-label="Add portrait">
+          <img alt="Character portrait" hidden>
+          <span class="imgdrop-empty"><span class="portrait-silhouette" aria-hidden="true"></span>Add portrait</span>
+        </div>
+        <div class="imgbtns">
+          <button type="button" class="btn sm" data-imgpick="character.portrait">Choose picture</button>
+          <button type="button" class="btn sm" data-imgclear="character.portrait">Remove</button>
+          <label class="portrait-url">URL <input type="url" data-portrait-url="character.portrait" placeholder="https://…" aria-label="Portrait image URL" inputmode="url" autocomplete="off" spellcheck="false"></label>
+        </div>
+      </div>
+      <div class="namebox">
+        <input type="text" data-f="character.name" id="charName" placeholder="Character name" autocomplete="off">
+        <label for="charName">Character Name</label>
+      </div>
     </div>
     <div class="topgrid">
       <div class="tf tf-calling">
@@ -507,7 +520,7 @@
 <script src="assets/js/storage.js?v=0.3.22"></script>
 <script src="assets/js/firebase-config.js?v=0.3.22"></script>
 <script src="assets/js/sfx.js?v=0.3.22-sfx"></script>
-<script src="assets/js/app.js?v=0.3.22"></script>
+<script src="assets/js/app.js?v=0.3.22-layout"></script>
 <script src="dm/assets/js/store-stock.js?v=0.3.22"></script>
 <script src="assets/js/sheet-extras.js?v=0.3.22-chat-sfx"></script>
 <script src="assets/js/dm-join.js?v=0.3.22-sfx"></script>

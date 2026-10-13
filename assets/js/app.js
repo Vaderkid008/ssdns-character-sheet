@@ -1209,6 +1209,9 @@
     var ss = $("#selSublineage");
     fillSelect(ss, subs.map(function (s) { return [s.id, s.name]; }), subs.length ? "Sublineage…" : "—");
     ss.disabled = !subs.length;
+    ss.hidden = !subs.length;
+    var linLab = document.querySelector("label[for='selLineage']");
+    if (linLab) linLab.textContent = subs.length ? "Lineage · Sublineage" : "Lineage";
     var cal = CAL[c.calling];
     var sc = $("#selSubclass");
     fillSelect(sc, cal ? cal.subclasses.filter(function (s) { return !s.dmOnly || c.subclass === s.id; }).map(function (s) {
@@ -1241,6 +1244,11 @@
     $$("[data-img]").forEach(function (box) {
       var src = getPath(S.doc, box.getAttribute("data-img")), img = $("img", box);
       if (src) { img.src = src; img.hidden = false; box.classList.add("has"); } else { img.removeAttribute("src"); img.hidden = true; box.classList.remove("has"); }
+    });
+    $$("[data-portrait-url]").forEach(function (inp) {
+      if (document.activeElement === inp) return;
+      var src = getPath(S.doc, inp.getAttribute("data-portrait-url")) || "";
+      inp.value = /^data:/i.test(src) ? "" : src;
     });
     suppress = false;
     renderCalc();
@@ -1737,6 +1745,19 @@
       C().overrides[k] = t.value.trim();
       if (C().overrides[k] === "") delete C().overrides[k];
       changed({ noRender: e.type === "input" });
+      return;
+    }
+    var urlPath = t.getAttribute("data-portrait-url");
+    if (urlPath) {
+      if (e.type !== "change") return;
+      var url = String(t.value || "").trim();
+      if (!url) return;
+      var scheme = /^[a-z][a-z0-9+.-]*:/i.test(url);
+      var ok = /^https?:\/\//i.test(url) || (!scheme && !/^\/\//.test(url) && !/[\s<>]/.test(url));
+      if (!ok) { toast("Use an http(s) image address."); return; }
+      setPath(S.doc, urlPath, url);
+      renderFields();
+      changed({ noRender: true });
       return;
     }
     var path = t.getAttribute("data-f");
