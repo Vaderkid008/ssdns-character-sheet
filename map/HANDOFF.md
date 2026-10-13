@@ -1,3 +1,19 @@
+# Drawer cylinder on one row — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change.
+
+The map drawer CYLINDER row wrapped the sixth chamber. The drawer is 260px wide, and its button style added padding and a 32px minimum height on top of each 14px dot, so the name plus six chambers plus the count did not fit.
+
+The chambers now sit in one `.chamber-dots` group that does not wrap. The gun name ellipsizes. The count stays on the same line. Token badges and the Fight-tab strip use their own rules and are unchanged.
+
+Cache queries only: map CSS and JS are `0.3.22-cylrow` on the sheet and `0.2.35-cylrow` on the DMCC.
+
+```cmd
+node tools/test-map-spells.mjs
+```
+
+`cyl.oneRow` checks the six chambers share one group. `cyl.nowrap` checks the drawer row does not wrap.
+
 # Big Fifty class and Cross-Draw — sheet 0.3.22 / DMCC 0.2.35
 
 Same draft. Versions stayed. `database.rules.json` did not change.

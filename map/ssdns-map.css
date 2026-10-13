@@ -294,7 +294,36 @@ body.map-fullscreen #btnMapFull {
   cursor: pointer;
 }
 .cylinder-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.ssm-drawer .cylinder-row { flex-wrap: nowrap; min-width: 0; width: 100%; }
+.ssm-drawer .cylinder-row .cyl-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ssm-drawer .chamber-dots {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 2px;
+  align-items: center;
+}
+.ssm-drawer .ssm-rounds { flex: 0 0 auto; white-space: nowrap; }
 .chamber-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255,255,255,.75); background: transparent; padding: 0; cursor: pointer; display: inline-block; }
+.ssm-drawer .chamber-dots .chamber-dot {
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  flex: 0 0 14px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.75);
+}
+.ssm-drawer .chamber-dots .chamber-dot.full { background: #e2c56a; }
 .ssm-cyl-btn .chamber-dot { width: 10px; height: 10px; pointer-events: none; }
 .chamber-dot.full { background: #e2c56a; }
 .ssm-rounds { font-size: 11px; color: #e2c56a; }

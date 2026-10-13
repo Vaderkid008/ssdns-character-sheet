@@ -3143,7 +3143,7 @@ async function loadSceneImage(sceneId) {
         const full = flags ? !!flags[k] : k < loaded;
         dots += '<button type="button" class="chamber-dot' + (full ? ' full' : '') + '" data-act="chamber" data-wid="' + esc(a.id) + '" data-k="' + k + '" aria-label="Chamber ' + (k + 1) + '"></button>';
       }
-      return '<div class="cylinder-row"><span>' + esc(a.name || 'Gun') + '</span> ' + dots + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span></div>';
+      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span></div>';
     }).join('');
     const spells = (card.spells || []).map(s => {
       const meta = [
