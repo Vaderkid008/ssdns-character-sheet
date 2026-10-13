@@ -38,6 +38,8 @@ function makeWindow() {
   proto.getBoundingClientRect = function () {
     return { x: 0, y: 0, left: 0, top: 0, right: 800, bottom: 600, width: 800, height: 600, toJSON() { return {}; } };
   };
+  w.__alphas = [];
+  w.__prompted = 0;
   w.HTMLCanvasElement.prototype.getContext = function () {
     const bag = {};
     return new Proxy(bag, {
@@ -46,7 +48,11 @@ function makeWindow() {
         if (typeof p !== "string") return undefined;
         return function () { return bag; };
       },
-      set(t, p, v) { t[p] = v; return true; }
+      set(t, p, v) {
+        t[p] = v;
+        if (p === "globalAlpha") w.__alphas.push(v);
+        return true;
+      }
     });
   };
   w.HTMLImageElement.prototype.decode = function () { return Promise.resolve(); };
@@ -55,7 +61,7 @@ function makeWindow() {
     disconnect() {}
     unobserve() {}
   };
-  w.prompt = () => "Prone";
+  w.prompt = () => { w.__prompted += 1; return "Prone"; };
   return w;
 }
 
@@ -67,10 +73,14 @@ function addScript(w, rel) {
 
 function pointer(w, el, type, x, y, extra) {
   const init = Object.assign({
-    bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 1, button: 0, buttons: 1
+    bubbles: true, cancelable: true, clientX: x, clientY: y, screenX: x, screenY: y,
+    pointerId: 1, button: 0, buttons: 1, altKey: false, ctrlKey: false, shiftKey: false, deltaY: 0
   }, extra || {});
-  const Ev = w.PointerEvent || w.MouseEvent;
+  const Ev = type === "wheel" ? w.WheelEvent : (w.PointerEvent || w.MouseEvent);
   const ev = new Ev(type, init);
+  if (ev.pointerId == null) {
+    try { Object.defineProperty(ev, "pointerId", { value: init.pointerId }); } catch (e) {}
+  }
   el.dispatchEvent(ev);
 }
 
@@ -141,8 +151,9 @@ act(dm.el, "drawerClose").click();
 check("empty.close", !act(dm.el, "drawer") && events.some((e) => e.name === "drawer:close"));
 dm.api.destroy();
 
+const tableAd = w.SSDNSMapFirebase.memory({ role: "dm" });
 const table = await boot(w, {
-  id: "table", role: "dm", uid: "dm", adapter: w.SSDNSMapFirebase.memory({ role: "dm" }), host: dmHost,
+  id: "table", role: "dm", uid: "dm", adapter: tableAd, host: dmHost,
   options: { scene, tokens, assetBase: "", players: () => [{ uid: "p_jolene", name: "Jolene" }], room: { table: { initiative: { order: [], turn: 0 } } } }
 });
 table.api.syncCombatants({
@@ -174,8 +185,16 @@ act(table.el, "undoBtnD").click();
 check("pc.emits", ["drawer:hp", "drawer:condition", "drawer:reload", "drawer:unload", "drawer:deathsave", "drawer:undo"].every((name) => events.some((e) => e.name === name && e.detail.tokenId)));
 const hp = events.filter((e) => e.name === "drawer:hp").pop();
 const cond = events.filter((e) => e.name === "drawer:condition").pop();
-check("pc.hpDelta", hp && hp.detail.delta === -1 && hp.detail.set == null);
+check("pc.hpDelta", hp && hp.detail.delta === -1 && hp.detail.set == null && hp.detail.combatantId === "p_jolene");
 check("pc.condOn", cond && cond.detail.condition === "Prone" && cond.detail.on === true);
+const amt = act(table.el, "hpAmt");
+if (amt) amt.value = "12";
+act(table.el, "hpSet").click();
+const setEv = events.filter((e) => e.name === "drawer:hp").pop();
+check("pc.hpSet", setEv && setEv.detail.set === 12 && setEv.detail.delta == null);
+const reload = events.filter((e) => e.name === "drawer:reload").pop();
+check("pc.weapon", reload && reload.detail.weaponId === "blacksnake");
+check("picker.noPrompt", w.__prompted === 0, "prompt calls " + w.__prompted);
 
 table.api.syncCombatants({
   round: 1, turn: 1, started: true,
@@ -194,17 +213,81 @@ await flush(10);
 check("enemy.esc", act(table.el, "drawer") && !act(table.el, "drawer").textContent.includes("Click a token to target"));
 enemyAtk.click();
 await flush(10);
+const targetsBefore = events.filter((e) => e.name === "drawer:target").length;
+const opensBefore = events.filter((e) => e.name === "drawer:open").length;
+openChip("Bandit");
+await flush(10);
+check("enemy.selfTarget", events.filter((e) => e.name === "drawer:target").length === targetsBefore);
+check("enemy.selfOpen", events.filter((e) => e.name === "drawer:open").length === opensBefore);
+check("enemy.selfToast", act(table.el, "toast") && act(table.el, "toast").textContent === "Pick a different token");
 openChip("Jolene");
 await flush(10);
-check("enemy.target", events.some((e) => e.name === "drawer:target" && e.detail.weaponId === "ballncap" && e.detail.targetTokenId === "tok_jolene"));
+check("enemy.target", events.some((e) => e.name === "drawer:target" && e.detail.weaponId === "ballncap" && e.detail.targetTokenId === "tok_jolene" && e.detail.targetCombatantId === "p_jolene"));
 
 openChip("Jolene");
 await flush(10);
 check("strip.click", act(table.el, "drawer") && act(table.el, "drawer").textContent.includes("Jolene"));
+const opensAtJolene = events.filter((e) => e.name === "drawer:open").length;
+openChip("Jolene");
+await flush(10);
+check("drawer.reselect", events.filter((e) => e.name === "drawer:open").length === opensAtJolene);
 const strip = act(table.el, "turnStrip");
 const next = [...(strip ? strip.querySelectorAll("button") : [])].find((b) => b.textContent === "Next");
 if (next) next.click();
 check("init.next", events.some((e) => e.name === "initiative:next"));
+
+cards.tok_bystander1 = {
+  kind: "enemy",
+  name: '<img src=x onerror=alert(1)>',
+  ac: 10,
+  hp: { cur: 4, max: 4 },
+  conditions: [{ name: "Prone" }],
+  tactics: 'Watch <script>',
+  attacks: [{ id: "a&b", name: "A<B", toHit: 1, damage: "1" }]
+};
+const canvas = table.el.querySelector("canvas");
+pointer(w, canvas, "pointerdown", 85, 265);
+pointer(w, canvas, "pointerup", 85, 265);
+await flush(10);
+const nasty = act(table.el, "drawer");
+check("escape.text", !!(nasty && nasty.textContent.includes("<img") && nasty.textContent.includes("A<B") && nasty.textContent.includes("Prone") && nasty.textContent.includes("Watch <script>")));
+check("escape.html", !!(nasty && !nasty.querySelector("img") && !nasty.querySelector("script") && nasty.innerHTML.includes("&lt;img")));
+
+function byPos() {
+  const row = tableAd._store.dm["map/dm/tokens/tok_bystander1"];
+  return row && row.value && row.value.pos;
+}
+const hiddenBefore = tableAd._store.dm["map/dm/tokens/tok_bandit1"];
+check("hide.banditKept", !!(hiddenBefore && hiddenBefore.value && hiddenBefore.value.hidden && !tableAd._store.pub["map/public/tokens/tok_bandit1"]));
+check("hide.dimmed", w.__alphas.includes(0.4));
+pointer(w, canvas, "pointerdown", 85, 265);
+pointer(w, canvas, "pointermove", 295, 335);
+pointer(w, canvas, "pointerup", 295, 335);
+await flush(10);
+check("stack.blocked", byPos() && byPos().x === 10 && byPos().y === 9, JSON.stringify(byPos()));
+check("stack.toast", act(table.el, "toast") && act(table.el, "toast").textContent === "That square is taken");
+act(table.el, "hideBtn").click();
+await flush(10);
+pointer(w, canvas, "pointerdown", 85, 265);
+pointer(w, canvas, "pointermove", 155, 265);
+pointer(w, canvas, "pointerup", 155, 265);
+await flush(10);
+check("hide.stillThere", byPos() && byPos().x === 11 && byPos().y === 9 && tableAd._store.dm["map/dm/tokens/tok_bystander1"].value.hidden === true && !tableAd._store.pub["map/public/tokens/tok_bystander1"], JSON.stringify(byPos()));
+check("hide.dimmedAgain", w.__alphas.filter((n) => n === 0.4).length >= 2);
+pointer(w, canvas, "pointerdown", 155, 265, { shiftKey: true });
+pointer(w, canvas, "pointermove", 295, 335, { shiftKey: true });
+pointer(w, canvas, "pointerup", 295, 335, { shiftKey: true });
+await flush(10);
+check("stack.shift", byPos() && byPos().x === 13 && byPos().y === 10, JSON.stringify(byPos()));
+
+const zoomBefore = act(table.el, "zoomLabel").textContent;
+pointer(w, canvas, "pointerdown", 400, 300, { button: 1, buttons: 4 });
+pointer(w, canvas, "wheel", 400, 300, { deltaY: -120, buttons: 4 });
+pointer(w, canvas, "pointerup", 420, 320, { button: 1, buttons: 0 });
+check("middle.noZoom", act(table.el, "zoomLabel").textContent === zoomBefore, act(table.el, "zoomLabel").textContent);
+pointer(w, canvas, "wheel", 400, 300, { deltaY: -120, buttons: 0 });
+check("middle.wheelStillZooms", act(table.el, "zoomLabel").textContent === "1.10×", act(table.el, "zoomLabel").textContent);
+act(table.el, "reset").click();
 
 const wallsBtn = act(table.el, "wallsVisBtn");
 wallsBtn.click();

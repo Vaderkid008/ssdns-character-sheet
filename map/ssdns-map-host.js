@@ -149,6 +149,27 @@
       var prev = $("btnPrevTurn");
       if (prev) prev.click();
     }
+    var fightCall = {
+      "drawer:target": "attack",
+      "drawer:hp": "hp",
+      "drawer:condition": "condition",
+      "drawer:reload": "reload",
+      "drawer:unload": "unload",
+      "drawer:deathsave": "deathsave",
+      "drawer:undo": "undo"
+    }[name];
+    if (!fightCall) return;
+    var api = root.SSDNSMapFight;
+    var fn = api && api[fightCall];
+    if (typeof fn !== "function") return;
+    var refresh = function () {
+      if (map && map.refreshCard) map.refreshCard(detail.tokenId || "");
+    };
+    try {
+      Promise.resolve(fn(detail)).then(refresh, refresh);
+    } catch (e) {
+      refresh();
+    }
   }
   function roomContext() {
     if (isDmPage()) {

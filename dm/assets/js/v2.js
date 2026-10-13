@@ -3333,7 +3333,19 @@ async function cardStrike(i, n, opts) {
   if (atk.ruined) { DM.toast(atk.name + " is ruined"); return; }
   if (atk.pendingD4) { DM.toast("Roll the d4 first."); return; }
   if (atk.capacity != null && Number(atk.loaded) <= 0) { DM.toast(atk.name + " is empty"); return; }
-  const picked = await askEnemyStrike(row, atk);
+  let picked;
+  if (opts && opts.targetId) {
+    const want = String(opts.targetId);
+    const selfId = combatantKey(row);
+    if (want === String(row.id || "") || want === String(selfId || "") || (row.playerId && want === String(row.playerId))) {
+      DM.toast("Pick a different token");
+      return;
+    }
+    const bonus = atk.toHit != null && atk.toHit !== "" ? Number(atk.toHit) : null;
+    picked = { targetId: want, bonus: bonus, dice: String(atk.damage || "").trim() };
+  } else {
+    picked = await askEnemyStrike(row, atk);
+  }
   if (!picked || !picked.targetId) { DM.toast("No targets"); return; }
   const bonus = picked.bonus != null && isFinite(Number(picked.bonus)) ? Number(picked.bonus) : Number(atk.toHit);
   const dice = String((picked.dice || atk.damage || "")).trim();
@@ -4644,14 +4656,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.32-targets");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.33-targets");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.32-targets");
+    const res = await fetch("assets/data/store-items.json?v=0.2.33-targets");
     if (res.ok) storeItems = await res.json();
     else DM.toast("Store list failed to load");
   } catch (e) {
@@ -5042,6 +5054,302 @@ window.SSDNSMapCards = {
       }))
     };
   }
+};
+
+function mapFightIndex(detail) {
+  const keys = [];
+  if (detail && detail.combatantId) keys.push(detail.combatantId);
+  if (detail && detail.tokenId) keys.push(detail.tokenId);
+  for (let n = 0; n < keys.length; n++) {
+    const key = keys[n];
+    const found = (fight.order || []).findIndex((row) => row && (row.id === key || row.playerId === key || row.mapTokenId === key));
+    if (found >= 0) return found;
+  }
+  return -1;
+}
+function ensurePlayerAttacks(row) {
+  if (!row || row.kind !== "player") return;
+  const pid = row.playerId || row.id;
+  const snap = playerSnapshot(pid);
+  const guns = ((snap && snap.guns) || []).filter((g) => g && (g.name || g.weapon));
+  if (!guns.length) return;
+  const prev = (row.card && row.card.attacks) || [];
+  row.card = row.card || {};
+  row.card.attacks = guns.map((g, n) => {
+    const id = g.id || ("gun-" + n);
+    const name = g.name || g.weapon || ("Gun " + (n + 1));
+    const old = prev.filter((a) => a && (a.id === id || a.name === name))[0] || {};
+    const cap = g.capacity != null && g.capacity !== "" ? Number(g.capacity) : (old.capacity != null ? old.capacity : null);
+    const loaded = g.loaded != null && g.loaded !== "" ? Number(g.loaded) : (old.loaded != null ? Number(old.loaded) : (cap || 0));
+    return {
+      id: id,
+      name: name,
+      toHit: g.toHit != null && g.toHit !== "" ? g.toHit : atkNumber(g.atk != null ? g.atk : old.toHit),
+      damage: g.damage || old.damage || "",
+      capacity: typeof cap === "number" && isFinite(cap) ? cap : null,
+      loaded: typeof loaded === "number" && isFinite(loaded) ? loaded : 0,
+      spare: g.spare != null ? g.spare : old.spare,
+      misfire: g.misfire != null ? g.misfire : old.misfire,
+      jammed: !!g.jammed,
+      fouled: !!g.fouled,
+      ruined: !!g.ruined,
+      pendingD4: !!g.pendingD4,
+      gunIndex: n
+    };
+  });
+}
+function syncPlayerGun(row, atk) {
+  if (!row || row.kind !== "player" || !atk || atk.gunIndex == null) return;
+  const pid = row.playerId || row.id;
+  const payload = { op: "set", index: atk.gunIndex, loaded: atk.loaded };
+  DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+  if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+  else {
+    const snap = playerSnapshot(pid);
+    const g = snap && snap.guns && snap.guns[atk.gunIndex];
+    if (g && atk.loaded != null) g.loaded = atk.loaded;
+  }
+}
+function mapAttackIndex(row, weaponId) {
+  const list = (row.card && row.card.attacks) || [];
+  const wid = weaponId == null ? "" : String(weaponId);
+  let n = list.findIndex((a) => a && (String(a.id) === wid || String(a.name) === wid));
+  if (n < 0 && list.length === 1 && !wid) n = 0;
+  return n;
+}
+async function mapAssignHp(row, next) {
+  const before = knownNumber(row.hp);
+  const start = before == null ? 0 : before;
+  const max = knownNumber(row.maxHp);
+  let hp = Math.max(0, Math.round(Number(next)));
+  if (max != null) hp = Math.min(max, hp);
+  row.hp = hp;
+  const pid = row.kind === "player" ? (row.playerId || row.id) : "";
+  const snap = pid ? playerSnapshot(pid) : null;
+  if (snap) snap.hpCurrent = hp;
+  if (pid) {
+    await DM.pushCommand({ type: "hp", to: pid, payload: { absolute: hp, text: "DM set HP to " + hp }, from: DM.state.uid });
+  }
+  if (hp <= 0) noteUnconscious(row);
+  const line = "Set HP " + hp + " → " + (row.name || "combatant");
+  await DM.pushLedger({ who: "DM", playerId: pid || "all", type: "hp", what: line, oldVal: start, newVal: hp, flag: false });
+  rememberUndo({
+    type: "hit",
+    label: line,
+    playerId: pid,
+    amount: Math.abs(start - hp),
+    restoreHp: { id: row.id, hp: start },
+    command: pid ? { type: "hp", to: pid, payload: { absolute: start, text: "Undo set HP" }, from: DM.state.uid } : null
+  });
+  await saveRemoteTable();
+  renderFight();
+  DM.toast(line);
+}
+async function mapDeltaHp(row, delta) {
+  const amt = Math.abs(Number(delta));
+  if (!isFinite(amt) || amt === 0) { DM.toast("Enter an amount"); return; }
+  const sign = delta < 0 ? -1 : 1;
+  if (row.kind === "player") {
+    const pid = row.playerId || row.id;
+    const snap = playerSnapshot(pid);
+    const before = knownNumber(row.hp);
+    const start = before == null ? (knownNumber(snap && snap.hpCurrent) || 0) : before;
+    const max = knownNumber(row.maxHp) != null ? knownNumber(row.maxHp) : knownNumber(snap && snap.hpMax);
+    const after = sign < 0 ? Math.max(0, start - amt) : (max != null ? Math.min(max, start + amt) : start + amt);
+    row.hp = after;
+    if (snap) snap.hpCurrent = after;
+    const kind = sign < 0 ? "damage" : "heal";
+    const line = (sign < 0 ? "Damage " : "Heal ") + amt + " → " + (row.name || pid) + " (" + after + " HP)";
+    await DM.pushCommand({
+      type: "hp", to: pid, quiet: true,
+      payload: { delta: sign * amt, kind: kind, amount: amt, text: line },
+      from: DM.state.uid
+    });
+    await DM.pushLedger({ who: "DM", playerId: pid, type: kind, what: line, oldVal: start, newVal: after, flag: false });
+    rememberUndo({
+      type: "hit",
+      label: line,
+      playerId: pid,
+      heal: sign > 0,
+      amount: amt,
+      restoreHp: { id: row.id, hp: start },
+      command: { type: "hp", to: pid, payload: { delta: -sign * amt, kind: sign < 0 ? "heal" : "damage", amount: amt, text: "Undo " + line }, from: DM.state.uid }
+    });
+    if (after <= 0) noteUnconscious(row);
+    await saveRemoteTable();
+    renderFight();
+    DM.toast(line);
+    return;
+  }
+  const before = applyEnemyHp(row, sign * amt);
+  if (before == null) return;
+  const line = (sign < 0 ? "Damage " : "Heal ") + amt + " → " + (row.name || "enemy") + " (" + row.hp + " HP)";
+  await DM.pushLedger({ who: "DM", playerId: "all", type: sign < 0 ? "damage" : "heal", what: line, oldVal: before, newVal: row.hp, flag: false });
+  rememberUndo({
+    type: "hit",
+    label: line,
+    heal: sign > 0,
+    amount: amt,
+    restoreHp: { id: row.id, hp: before }
+  });
+  await saveRemoteTable();
+  renderFight();
+  DM.toast(line);
+}
+async function mapGunLoad(detail, unload) {
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No card linked"); return false; }
+  const row = fight.order[i];
+  if (row.kind === "player") ensurePlayerAttacks(row);
+  else ensureCombatantCard(row);
+  const n = mapAttackIndex(row, detail && detail.weaponId);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk) { DM.toast("No weapon"); return false; }
+  if (row.kind === "player") {
+    const pid = row.playerId || row.id;
+    const payload = { op: unload ? "unload" : "reload", index: atk.gunIndex != null ? atk.gunIndex : n };
+    await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+    if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+    ensurePlayerAttacks(row);
+    await saveRemoteTable();
+    renderFight();
+    DM.toast((unload ? "Unloaded " : "Reloaded ") + (atk.name || "weapon"));
+    return true;
+  }
+  if (atk.capacity == null) { DM.toast("That weapon doesn't load"); return false; }
+  if (unload) {
+    const held = Number(atk.loaded) || 0;
+    atk.spare = (Number(atk.spare) || 0) + held;
+    atk.loaded = 0;
+  } else {
+    const cap = Number(atk.capacity) || 0;
+    const need = Math.max(0, cap - (Number(atk.loaded) || 0));
+    const spare = Number(atk.spare);
+    const take = isFinite(spare) ? Math.min(need, Math.max(0, spare)) : need;
+    atk.loaded = (Number(atk.loaded) || 0) + take;
+    if (isFinite(spare)) atk.spare = spare - take;
+  }
+  await saveRemoteTable();
+  renderFight();
+  DM.toast((unload ? "Unloaded " : "Reloaded ") + (atk.name || "weapon"));
+  return true;
+}
+function markDeath(row, side, index) {
+  if (!row.deathSaves) row.deathSaves = { success: [false, false, false], fail: [false, false, false] };
+  if (!row.deathSaves[side]) row.deathSaves[side] = [false, false, false];
+  row.deathSaves[side][index] = true;
+  const pid = row.kind === "player" ? (row.playerId || row.id) : "";
+  if (!pid) return Promise.resolve();
+  return DM.pushCommand({
+    type: "death_save", to: pid,
+    payload: { side: side, index: index, on: true },
+    from: DM.state.uid
+  });
+}
+window.SSDNSMapFight = {
+  async attack(detail) {
+    detail = detail || {};
+    const i = mapFightIndex(detail);
+    if (i < 0) { DM.toast("No card linked"); return false; }
+    const row = fight.order[i];
+    const targetIndex = mapFightIndex({ combatantId: detail.targetCombatantId, tokenId: detail.targetTokenId });
+    const target = targetIndex >= 0 ? fight.order[targetIndex] : null;
+    const targetId = target ? combatantKey(target) : (detail.targetCombatantId || detail.targetTokenId || "");
+    if (!targetId || targetId === combatantKey(row) || (target && target.id === row.id)) {
+      DM.toast("Pick a different token");
+      return false;
+    }
+    if (row.kind === "player") ensurePlayerAttacks(row);
+    else ensureCombatantCard(row);
+    const n = mapAttackIndex(row, detail.weaponId);
+    if (n < 0) { DM.toast("No attack"); return false; }
+    await cardStrike(i, n, { targetId: targetId });
+    if (row.kind === "player") syncPlayerGun(row, row.card.attacks[n]);
+    return true;
+  },
+  async hp(detail) {
+    detail = detail || {};
+    const i = mapFightIndex(detail);
+    if (i < 0) { DM.toast("No card linked"); return false; }
+    const row = fight.order[i];
+    if (detail.set != null && detail.set !== "" && isFinite(Number(detail.set))) {
+      await mapAssignHp(row, Number(detail.set));
+      return true;
+    }
+    const delta = Number(detail.delta);
+    if (!isFinite(delta) || delta === 0) { DM.toast("Enter an amount"); return false; }
+    await mapDeltaHp(row, delta);
+    return true;
+  },
+  async condition(detail) {
+    detail = detail || {};
+    const i = mapFightIndex(detail);
+    if (i < 0) { DM.toast("No card linked"); return false; }
+    const row = fight.order[i];
+    if (!detail.condition) {
+      askRowConditions(i);
+      return true;
+    }
+    const subjectId = row.kind === "player" ? (row.playerId || row.id) : row.id;
+    const kind = row.kind === "enemy" ? "enemy" : "player";
+    const name = String(detail.condition);
+    const current = conditionsForRow(row);
+    const have = current.filter((c) => String((c && c.name) || c || "").toLowerCase() === name.toLowerCase())[0];
+    const turningOff = detail.on === false || (detail.on == null && !!have);
+    if (turningOff) {
+      const removeIds = [];
+      if (have && have.id) removeIds.push(have.id);
+      else if (window.SSDNSConditions && window.SSDNSConditions.idFor) removeIds.push(window.SSDNSConditions.idFor(subjectId, name));
+      await writeSubjectConditions(subjectId, kind, [], row.name || "", 1, {}, removeIds);
+    } else {
+      await writeSubjectConditions(subjectId, kind, [name], row.name || "", 1, {}, []);
+    }
+    renderFight();
+    return true;
+  },
+  reload(detail) { return mapGunLoad(detail, false); },
+  unload(detail) { return mapGunLoad(detail, true); },
+  async deathsave(detail) {
+    const i = mapFightIndex(detail || {});
+    if (i < 0) { DM.toast("No card linked"); return false; }
+    const row = fight.order[i];
+    const hp = knownNumber(row.hp);
+    if (hp != null && hp > 0) { DM.toast("They're on their feet."); return false; }
+    const nat = d20();
+    const pid = row.kind === "player" ? (row.playerId || row.id) : "";
+    let line = (row.name || "Someone") + " death save: " + nat;
+    if (nat === 20) {
+      row.hp = 1;
+      const snap = pid ? playerSnapshot(pid) : null;
+      if (snap) snap.hpCurrent = 1;
+      if (pid) await DM.pushCommand({ type: "hp", to: pid, payload: { absolute: 1, text: line + " — natural 20, back to 1 HP" }, from: DM.state.uid });
+      line += " — natural 20, back to 1 HP";
+    } else if (nat >= 10) {
+      const si = ((row.deathSaves && row.deathSaves.success) || [false, false, false]).indexOf(false);
+      if (si >= 0) await markDeath(row, "success", si);
+      line += " — success";
+    } else {
+      let marks = nat === 1 ? 2 : 1;
+      line += nat === 1 ? " — two failures" : " — failure";
+      while (marks > 0) {
+        const fi = ((row.deathSaves && row.deathSaves.fail) || [false, false, false]).indexOf(false);
+        if (fi < 0) break;
+        await markDeath(row, "fail", fi);
+        marks -= 1;
+      }
+    }
+    const successes = ((row.deathSaves && row.deathSaves.success) || []).filter(Boolean).length;
+    const fails = ((row.deathSaves && row.deathSaves.fail) || []).filter(Boolean).length;
+    if (fails >= 3) line += " · dead";
+    else if (successes >= 3) line += " · stable";
+    await DM.pushLedger({ who: "DM", playerId: pid || "all", type: "death_save", what: line, oldVal: null, newVal: nat, flag: nat === 1 });
+    await DM.pushRoll({ who: row.name || "DM", label: "Death save", formula: "1d20", result: nat, detail: line, nat: nat, private: false });
+    await saveRemoteTable();
+    renderFight();
+    DM.toast(line);
+    return true;
+  },
+  undo() { return undoLast(); }
 };
 
 wireLookupNow();
