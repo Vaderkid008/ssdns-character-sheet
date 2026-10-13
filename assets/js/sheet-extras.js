@@ -61,8 +61,19 @@
     if (whisperOn()) return;
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postSfx) root.SSDNSDmJoin.postSfx(name);
   }
+  var spellCueRow = null;
+  var spellCueAttack = false;
   function spellCueName() {
     var c = ch();
+    var row = spellCueRow;
+    if (root.SSDNSAudio && root.SSDNSAudio.spellCue) {
+      return root.SSDNSAudio.spellCue({
+        name: row && (row.name || row.spellName),
+        kind: row && row.kind,
+        attack: spellCueAttack,
+        calling: c && c.calling
+      });
+    }
     return (c && c.calling === "pact-seeker") ? "pactshot" : "spellshot";
   }
 
@@ -1196,6 +1207,8 @@
     if (tgt) rememberEnemy(tgt);
     var acForRoll = null;
     var hiddenSpell = rolled.attack && acHidden(tgt) && joined() && !whisperOn();
+    spellCueRow = row;
+    spellCueAttack = !!rolled.attack;
     if (rolled.attack) attackCue(spellCueName());
     else if (root.SSDNSAudio) root.SSDNSAudio.play(spellCueName());
     if (hiddenSpell) {
@@ -1503,6 +1516,7 @@
     var empty = root.SSDNSApplied && root.SSDNSApplied.gunEmpty ? root.SSDNSApplied.gunEmpty(g) : !num(g.loaded);
     if (empty) {
       g.loaded = 0;
+      if (root.SSDNSAudio) root.SSDNSAudio.play("empty-click");
       toast("Empty: reload", "Reload", function () {
         var reloadBtn = document.querySelector('[data-reload="' + i + '"]');
         if (reloadBtn && !reloadBtn.hidden) reloadBtn.click();

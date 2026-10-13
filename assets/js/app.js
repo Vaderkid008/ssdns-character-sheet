@@ -2174,7 +2174,11 @@
     var before = C().guns[i] && C().guns[i].chambers ? C().guns[i].chambers.slice() : null;
     var beforeN = C().guns[i] && C().guns[i].loaded;
     var spent = spendRound(i, k);
-    if (spent && spent.empty) { toast("Click."); return; }
+    if (spent && spent.empty) {
+      if (window.SSDNSAudio) window.SSDNSAudio.play("empty-click");
+      toast("Click.");
+      return;
+    }
     if (!spent.ok) { toast(spent.reason); return; }
     var g = C().guns[i], w = WPN[g.weapon];
     var cue = window.SSDNSAudio && window.SSDNSAudio.weaponCue
@@ -2309,7 +2313,7 @@
     var picks = $('[data-loadpick="' + i + '"]');
     if (picks) { picks.innerHTML = ""; picks.hidden = true; }
     changed();
-    if (window.SSDNSAudio) window.SSDNSAudio.play("reload");
+    if (window.SSDNSAudio) window.SSDNSAudio.play(window.SSDNSAudio.reloadCue ? window.SSDNSAudio.reloadCue(w) : "reload");
     var tierNote = pool.caliber && w.tiers ? " Chambered " + (TIER_LABEL[g.tier] || g.tier || "") + " " + pool.caliber + "." : "";
     var how = max ? "Tactical Reload +" + take : "Reloaded " + take + (take < need ? " (all you had)" : "") + (w.slow ? " (slow load: full turn)" : " (action)");
     toast(how + ". " + pool.count + " " + (AMMO_LABEL[pool.type] || pool.type) + (pool.caliber ? " " + pool.caliber : "") + " left." + tierNote);
@@ -2363,7 +2367,7 @@
       return;
     }
     changed();
-    if (window.SSDNSAudio) window.SSDNSAudio.play("reload");
+    if (window.SSDNSAudio) window.SSDNSAudio.play(window.SSDNSAudio.reloadCue ? window.SSDNSAudio.reloadCue(w) : "reload");
     toast("Loaded a level-" + lvl + " hex shell. The slot is spent. Cast through gun fires it as a spell attack.");
   }
   function loadHexShell(i) {
