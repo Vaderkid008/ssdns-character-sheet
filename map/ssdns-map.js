@@ -227,6 +227,27 @@ on(document, 'keydown', e => {
   }
   if (!el.matches(':hover') && !el.contains(e.target)) return;
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
+  if (role === 'dm' && (state.tool === 'poly' || state.fogMode === 'poly') && state.polyPoints && state.polyPoints.length) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      state.polyPoints = [];
+      state.polyHover = null;
+      draw();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitPoly();
+      return;
+    }
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      state.polyPoints.pop();
+      draw();
+      return;
+    }
+  }
   if (e.key === 'Shift' && state.drag && state.drag.token) { dropPin(); return; }
   if (e.key === 'Backspace' && state.drag && state.drag.pins) { e.preventDefault(); popPin(); return; }
   if (e.key.toLowerCase() === 'x' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); recallPath(); }
@@ -400,6 +421,115 @@ function pointerWorld(e) {
   const p = localXY(e);
   return screenToWorld(p.x, p.y);
 }
+function gridPoint(world) {
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 1;
+  let x = world.x / px;
+  let y = world.y / px;
+  if (state.snap) { x = Math.round(x); y = Math.round(y); }
+  return { x: x, y: y };
+}
+function sameGrid(a, b) {
+  return !!a && !!b && Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01;
+}
+function screenDistGrid(a, b) {
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 1;
+  const pa = worldToScreen(a.x * px, a.y * px);
+  const pb = worldToScreen(b.x * px, b.y * px);
+  return Math.hypot(pa.x - pb.x, pa.y - pb.y);
+}
+function pointInPoly(x, y, points) {
+  if (!points || points.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const xi = points[i].x, yi = points[i].y;
+    const xj = points[j].x, yj = points[j].y;
+    const denom = (yj - yi) || 1e-9;
+    const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / denom + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+function tracePoly(points, close) {
+  const px = state.scene.grid.px;
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const s = worldToScreen(p.x * px, p.y * px);
+    if (i === 0) ctx.moveTo(s.x, s.y);
+    else ctx.lineTo(s.x, s.y);
+  });
+  if (close) ctx.closePath();
+}
+function paintFogPolys(px) {
+  const polys = sceneData().fogPolys || [];
+  if (polys.length) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(200,180,80,0.9)';
+    ctx.fillStyle = 'rgba(200,180,80,0.18)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    polys.forEach(poly => {
+      if (!poly || !poly.points || poly.points.length < 3) return;
+      tracePoly(poly.points, true);
+      ctx.fill();
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+  if ((state.tool === 'poly' || state.fogMode === 'poly') && state.polyPoints && state.polyPoints.length) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,220,120,0.95)';
+    ctx.fillStyle = 'rgba(255,220,120,0.95)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    state.polyPoints.forEach((p, i) => {
+      const s = worldToScreen(p.x * px, p.y * px);
+      if (i === 0) ctx.moveTo(s.x, s.y);
+      else ctx.lineTo(s.x, s.y);
+    });
+    if (state.polyHover) {
+      const h = worldToScreen(state.polyHover.x, state.polyHover.y);
+      ctx.lineTo(h.x, h.y);
+    }
+    ctx.stroke();
+    state.polyPoints.forEach((p, i) => {
+      const s = worldToScreen(p.x * px, p.y * px);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, i === 0 ? 6 : 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+}
+function commitPoly() {
+  const pts = state.polyPoints || [];
+  if (pts.length < 3) return false;
+  const poly = { points: pts.map(p => ({ x: p.x, y: p.y })) };
+  sceneData().fogPolys.push(poly);
+  state.undoStack.push({ type: 'fog', kind: 'poly' });
+  state.redoStack = [];
+  state.polyPoints = [];
+  state.polyHover = null;
+  saveScene();
+  toast('Fog polygon');
+  draw();
+  return true;
+}
+function popFogShape() {
+  for (let i = state.undoStack.length - 1; i >= 0; i--) {
+    if (state.undoStack[i].type !== 'fog') continue;
+    const action = state.undoStack.splice(i, 1)[0];
+    if (action.kind === 'poly') {
+      if (sceneData().fogPolys.length) sceneData().fogPolys.pop();
+    } else if (sceneData().fogRects.length) sceneData().fogRects.pop();
+    saveScene();
+    draw();
+    return true;
+  }
+  if (sceneData().fogPolys.length) { sceneData().fogPolys.pop(); saveScene(); draw(); return true; }
+  if (sceneData().fogRects.length) { sceneData().fogRects.pop(); saveScene(); draw(); return true; }
+  return false;
+}
 function paintZoom() {
   const z = q('zoomLabel');
   if (z) z.textContent = (state.view.zoom || 1).toFixed(2) + '×';
@@ -454,7 +584,11 @@ function draw() {
         drawVisible(ls.x, ls.y, ls.radius * px);
       }
 
-      // revealed rects
+      // revealed rects and polygons
+      const topLeftFog = worldToScreen(0, 0);
+      const paintFog = () => {
+        ctx.drawImage(img, topLeftFog.x, topLeftFog.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
+      };
       for (const fr of (sceneData().fogRects || [])) {
         ctx.save();
         const a = worldToScreen(fr.x * px, fr.y * px);
@@ -462,8 +596,15 @@ function draw() {
         ctx.beginPath();
         ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
         ctx.clip();
-        const topLeft = worldToScreen(0, 0);
-        ctx.drawImage(img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
+        paintFog();
+        ctx.restore();
+      }
+      for (const poly of (sceneData().fogPolys || [])) {
+        if (!poly || !poly.points || poly.points.length < 3) continue;
+        ctx.save();
+        tracePoly(poly.points, true);
+        ctx.clip();
+        paintFog();
         ctx.restore();
       }
     } else {
@@ -593,6 +734,7 @@ function draw() {
     }
     ctx.setLineDash([]);
   }
+  if (role === 'dm') paintFogPolys(px);
 
   // grid
   const strength = Math.max(state.gridStrength, state.minStrength);
@@ -661,6 +803,13 @@ function draw() {
             visible = true;
             break;
           }
+        }
+      }
+      if (!visible && sceneData().fogPolys) {
+        const tcxG = t.pos.x + (t.size || 1) / 2;
+        const tcyG = t.pos.y + (t.size || 1) / 2;
+        for (const poly of sceneData().fogPolys) {
+          if (poly && poly.points && pointInPoly(tcxG, tcyG, poly.points)) { visible = true; break; }
         }
       }
       if (!visible) continue;
@@ -905,6 +1054,7 @@ function setTool(tool) {
   }
   state.tool = state.tool === tool ? null : tool;
   state.fogMode = state.tool;
+  if (state.tool !== 'poly') { state.polyPoints = []; state.polyHover = null; }
   if (wallTool) revealWallLines();
   el.querySelectorAll('.ssdns-leftbar button').forEach(b => {
     if (b.getAttribute('data-act') === 'fogBtn' || b.getAttribute('data-act') === 'showFovBtn' || b.getAttribute('data-act') === 'wallsVisBtn') return;
@@ -1216,6 +1366,7 @@ function ensureDefaultScene() {
     name: (state.scene && state.scene.name) || 'Dusty Spur',
     walls: cur.walls || [],
     fogRects: cur.fogRects || [],
+    fogPolys: cur.fogPolys || [],
     fogRevealed: cur.fogRevealed === true
   };
   defaultSceneDone = true;
@@ -1506,27 +1657,24 @@ function onPointerDown(e) {
       return;
     }
     if (role === 'dm' && (state.tool === 'poly' || state.fogMode === 'poly')) {
-      const w = pointerWorld(e);
+      e.preventDefault();
+      e.stopPropagation();
       if (!state.polyPoints) state.polyPoints = [];
-      state.polyPoints.push(w);
-      if (state.polyPoints.length >= 3 && e.detail === 2) { // double-click to close
-        // simple bounding rect for demo
-        const xs = state.polyPoints.map(p => p.x), ys = state.polyPoints.map(p => p.y);
-        const px = state.scene.grid.px;
-        const rect = {
-          x: Math.floor(Math.min(...xs) / px),
-          y: Math.floor(Math.min(...ys) / px),
-          w: Math.max(1, Math.ceil((Math.max(...xs) - Math.min(...xs)) / px)),
-          h: Math.max(1, Math.ceil((Math.max(...ys) - Math.min(...ys)) / px))
-        };
-        sceneData().fogRects.push(rect);
-        state.undoStack.push({ type: 'fog', rect });
-        state.polyPoints = [];
-        state.tool = null;
-        const btn = q('fogRectBtn');
-        if (btn) btn.textContent = 'Fog: Rect';
-        saveScene();
+      if (e.button === 2) {
+        if (state.polyPoints.length >= 3) commitPoly();
+        else { state.polyPoints = []; state.polyHover = null; draw(); }
+        return;
       }
+      if (e.button !== 0) return;
+      const g = gridPoint(pointerWorld(e));
+      const pts = state.polyPoints;
+      const onFirst = pts.length >= 3 && (sameGrid(g, pts[0]) || screenDistGrid(pts[0], g) <= 12);
+      if (onFirst || (pts.length >= 3 && e.detail === 2)) {
+        commitPoly();
+        return;
+      }
+      if (pts.length && sameGrid(g, pts[pts.length - 1])) { draw(); return; }
+      pts.push(g);
       draw();
       return;
     }
@@ -1602,7 +1750,12 @@ function onPointerDown(e) {
   e.preventDefault();
 }
 function onPointerMove(e) {
-  if (!pointers.has(e.pointerId)) return;
+  const polyLive = role === 'dm' && (state.tool === 'poly' || state.fogMode === 'poly') && state.polyPoints && state.polyPoints.length;
+  if (polyLive) state.polyHover = pointerWorld(e);
+  if (!pointers.has(e.pointerId)) {
+    if (polyLive) draw();
+    return;
+  }
   pointers.set(e.pointerId, localXY(e));
   if (state.tool === 'wall' && state.wallStart) draw();
   if (state.tool === 'room' && state.roomStart) draw();
@@ -1663,7 +1816,7 @@ function onPointerMove(e) {
       // write on pointerup only
     }
     draw();
-  }
+  } else if (polyLive) draw();
 }
 function onPointerUp(e) {
   if (state.drag && state.drag.token && state.drag.blocked && !(role === 'dm' && e.shiftKey)) {
@@ -2019,7 +2172,8 @@ Door / Window: click a wall. Click again to open or shut. Right-click removes it
 Wall and Room: drag, release to commit.<br>
 Walls: OFF hides the lines so you can see the raw map. Walls still block.<br>
 Grant / Revoke: pick a player, then a token. Revoke on their own token locks them out. Grant gives it back.<br>
-Fog covers the player map. Show Player FOV greys the rest and brightens their light.<br>
+Fog: Poly — click each corner. Click the first point, double-click, or press Enter to close. Right-click or Escape cancels. Fog: Rect — drag a box. Fog: ON hides everything outside those shapes from players.<br>
+Show Player FOV greys the rest and brightens their light.<br>
 Set floor, then Show to players, to move someone to another map.` : `<b>Player</b><br>
 You move your own token, and any the DM has granted you.<br>
 My color changes your ring. Ping uses that color. The button stays lit while the tool is on.<br>
@@ -2181,11 +2335,7 @@ if (role === 'dm') {
   q('rulerBtn').addEventListener('click', () => setTool('ruler'));
   q('pingBtn').addEventListener('click', () => setTool('ping'));
   q('undoFogBtn').addEventListener('click', () => {
-    if (sceneData().fogRects.length) {
-      sceneData().fogRects.pop();
-      saveScene();
-      draw();
-    }
+    if (!popFogShape()) toast('No fog');
   });
   q('undoBtn').addEventListener('click', () => {
     const action = state.undoStack.pop();
@@ -2233,6 +2383,9 @@ if (role === 'dm') {
   q('revealAllBtn').addEventListener('click', () => {
     sceneData().fogRevealed = true;
     sceneData().fogRects = [];
+    sceneData().fogPolys = [];
+    state.polyPoints = [];
+    state.polyHover = null;
     q('fogBtn').textContent = 'Fog: OFF';
     saveScene();
     draw();
@@ -2240,6 +2393,9 @@ if (role === 'dm') {
   q('hideAllBtn').addEventListener('click', () => {
     sceneData().fogRevealed = false;
     sceneData().fogRects = [];
+    sceneData().fogPolys = [];
+    state.polyPoints = [];
+    state.polyHover = null;
     q('fogBtn').textContent = 'Fog: ON';
     saveScene();
     draw();
@@ -2447,6 +2603,7 @@ function sceneData(id) {
   // Realtime Database drops empty arrays, so a fresh scene comes back without walls.
   if (!Array.isArray(scene.walls)) scene.walls = [];
   if (!Array.isArray(scene.fogRects)) scene.fogRects = [];
+  if (!Array.isArray(scene.fogPolys)) scene.fogPolys = [];
   return scene;
 }
 function migrateGlobalToScenes() {
@@ -2914,6 +3071,7 @@ async function loadSceneImage(sceneId) {
         const next = Object.assign({}, value);
         if (!Array.isArray(next.walls)) next.walls = [];
         if (!Array.isArray(next.fogRects)) next.fogRects = [];
+        if (!Array.isArray(next.fogPolys)) next.fogPolys = [];
         shared.scenes[sid] = next;
         requestDraw();
       }
@@ -3051,6 +3209,7 @@ return {
   },
   ensureDefaultScene: ensureDefaultScene,
   placeLinkedToken,
+  setTool,
   removeToken: function (id) { removeMapTokens([id], { silent: true }); },
   applyLink,
   tokenForPlayer,

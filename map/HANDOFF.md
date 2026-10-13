@@ -1,3 +1,28 @@
+# Fog polygon — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change. The polygon is a field on the existing scene object (`map/public/scenes` and `map/dm/scenes`), not a new path.
+
+## Cause
+
+The polygon tool was unchanged from the Map tab landing (#38, `496e52e`). A click appended a point and committed only when that `pointerdown` had `detail === 2`. The points were never painted, and a close stored the bounding rectangle and relabeled the button "Fog: Rect". The polygon branch also returned before `preventDefault`. After the #40 pointer changes, a double-click often arrived as two `detail === 1` events, so nothing was drawn and nothing was saved. An empty scene from Realtime Database omits empty arrays; a polygon was never written for players to clip.
+
+## What changed
+
+- While Fog: Poly is on, each click paints a vertex and a line to the cursor.
+- The shape closes when you click the first point, double-click, press Enter, or right-click. Escape drops the points. Backspace removes the last point and does not delete the selected token.
+- The closed shape is stored as `fogPolys` (grid coordinates) and written with the rest of the scene. Players clip the map to it. A token is visible when its center is inside the polygon. Fog: ON / Fog: OFF still hides and reveals. Undo Fog removes the last rectangle or polygon.
+- An empty room (no tokens, no walls, no `fogRects`) can take a polygon. Preview and full screen use the same handler.
+
+## Check
+
+```cmd
+node tools/test-map-fog.mjs
+```
+
+That covers close without a double-click count, drawing while open, Enter, right-click, Backspace leaving the selected token, reveal/hide, a player seeing a token inside the polygon and not one outside, full screen, an empty room, and a smoke pass of rect, brush, Ping, Ruler, Wall, and Room. `node tools/test-map-drawer.mjs`, `test-map-m2.mjs`, `test-map-link.mjs`, `test-map-spells.mjs`, and `test-map-fight.mjs` still pass.
+
+Browser: DMCC Map tab and the sheet Map tab, preview and full screen. The canvas pixels changed when the polygon was placed, and the button stayed "Fog: Poly".
+
 # Embedded map middle-pan — sheet 0.3.22 / DMCC 0.2.35
 
 Same draft. Versions stayed. `database.rules.json` did not change.
