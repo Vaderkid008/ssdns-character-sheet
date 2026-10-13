@@ -2873,8 +2873,15 @@
       toast("Shards updated by " + w.updatedBy + " while the sheet was closed.");
     } catch (e) { console.warn(e); }
   }
+  function beatAlive() {
+    try {
+      if (!S.doc || !S.doc.id) return;
+      localStorage.setItem("ssdns.sheet.alive", JSON.stringify({ characterId: S.doc.id, at: Date.now() }));
+    } catch (e) {}
+  }
   function pushWallet() {
     try { Bridge.writeWallet({ characterId: S.doc.id, characterName: C().name, shards: S.doc.shards, updatedBy: "sheet" }); } catch (e) { console.warn(e); }
+    beatAlive();
   }
   function onWallet(w) {
     if (window.SSDNSCreator && window.SSDNSCreator.isOpen && window.SSDNSCreator.isOpen()) return;
@@ -3399,6 +3406,8 @@
     });
     document.addEventListener("keydown", function (e) { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); doSave(); } });
     Bridge.onChange(onWallet);
+    beatAlive();
+    setInterval(beatAlive, 20000);
     wireDrop();
     wireTabs();
   }

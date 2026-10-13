@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Oscar Slots — Rock Machines · Whiskey Bend</title>
+  <link rel="stylesheet" href="../saloon-theme.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -60,8 +61,8 @@
 
     <button type="button" class="spin-btn" id="spinBtn">SPIN</button>
 
-    <section class="paytable" aria-label="Payout table">
-      <h2>Rock Machines odds</h2>
+    <details class="paytable" aria-label="Payout table">
+      <summary>Rock Machines odds</summary>
       <ul>
         <li><span>Base ante</span><span class="gold">5</span> <em>× bet multiplier</em></li>
         <li><span>2 matching crystals</span><span class="gold">2× ante</span></li>
@@ -78,7 +79,7 @@
         Outlaw WILD (gunmetal badge) substitutes crystals; triple WILD is the saloon jackpot. Bets: 1×–75× + All In. Higher bets nudge volatility up slightly.
         Manual chip Set/Add for table play. SFX synthesized in-browser.
       </p>
-    </section>
+    </details>
   </main>
 
   <script src="../../assets/js/ssdns-bridge.js"></script>

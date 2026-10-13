@@ -1,3 +1,42 @@
+# Saloon games — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft as the token link. Versions stayed at sheet 0.3.22 / DMCC 0.2.35. `database.rules.json` did not change. `games/*/game.js` and `assets/js/ssdns-bridge.js` were not edited.
+
+The saloon pages (blackjack, roulette, slots) use `games/saloon-theme.css` and `games/ssdns-wallet.js` 0.3.0. Art URLs in the theme are `_art/…`, which resolves next to the stylesheet. The `_art` folder is still empty, so those images 404 and the gradient fallbacks paint. Chip art files are reserved in `games/_art/ART-SLOTS.md`. There is no chip CSS variable; the stake controls are text buttons.
+
+## Host
+
+The game page exposes `host.requestCredits({amount, reason})`, `host.unlink()`, and `host.onWallet(cb)`. It talks to the sheet over `BroadcastChannel("ssdns-saloon")` and `window.opener`.
+
+- Buy chips is an inline picker (5 / 10 / 25 / 50, a number field, Ask the DM, Cancel). It does not call `prompt()`, and it does not call `applyDelta`.
+- The sheet posts `rooms/$code/encounter/requests/bank_<id>` with the existing required fields (`ts`, `from`, `targetId`, `amount`) plus `type: "bank"`. The player creates that row. The game does not write shards.
+- DMCC shows the open bank row with Approve and Decline. Approve sends the existing `reward_es` command with `grantId: "bank:" + clientId`. The player's `applyEsReward` adds the shards through `SSDNSBridge.applyDelta(..., "dm-reward")`. Decline sends `bank_reply`, and the game hears `{ok: false}`.
+- `watchRequests` and `applyRequest` skip `type === "bank"` so the amount is not applied as a hit.
+- Unlink stays linked until the sheet replies `{type: "unlinked", ok: true}`. The sheet does not clear the wallet. The game tab then sets `sessionStorage` `ssdns.saloon.unlinked` for that character.
+- A linked banner reads `Linked to NAME · N ES`. It does not say "Set chips".
+- The sheet writes `localStorage` `ssdns.sheet.alive` from `pushWallet` and every 20 seconds. The game links only when that beat is under 3 minutes and the character id matches. Closing the sheet ages the link out. The alive key is not removed on `pagehide`.
+
+## Test
+
+```cmd
+node tools/test-saloon.mjs
+```
+
+Browser shots at 390, 360, and 1280: every measured control was at least 44px, and `scrollWidth` matched the viewport. Linked and Buy chips shots are at 390. The DMCC bank tray shot shows Approve and Decline for a 25 ES request.
+
+## Regression
+
+| # | Check | Result | Note |
+|---|-------|--------|------|
+| 1 | Theme art URLs are `_art/…`, and each art variable is used | PASS | `test-saloon.mjs` src.artUrls, src.artWired. Missing webp files 404 (blackjack 4, roulette 4, slots 3). Gradients still paint |
+| 2 | Tap targets at least 44px, no horizontal scroll at 390 / 360 / 1280 | PASS | Puppeteer measured `small: []` and `scrollWidth` equal to the viewport on all three games |
+| 3 | Buy chips is an inline picker and does not mint shards | PASS | src.noPrompt, buy.asked, buy.noDelta, buy.stillNoDelta |
+| 4 | Unlink waits for the sheet | PASS | unlink.waits, unlink.asked, unlink.confirmed |
+| 5 | Linked copy does not say Set chips | PASS | fresh.noSetChips, fresh.status. Banner text was `Linked to Jolene Pike · 23 ES` |
+| 6 | Stale sheet unlinks and does not apply a bet | PASS | stale.unlinked, stale.noDelta, timeout.stale |
+| 7 | Bank request uses the existing request and reward path | PASS | src.bankRow, src.approvePath, src.noDirectGameWrite, src.bankSkip. `database.rules.json` not edited |
+| 8 | Payout math in `game.js` | not re-run | `game.js` was not changed |
+
 # Map spells and cylinders — sheet 0.3.22 / DMCC 0.2.35
 
 Same draft as the token link. Versions stayed at sheet 0.3.22 / DMCC 0.2.35. `database.rules.json` did not change.

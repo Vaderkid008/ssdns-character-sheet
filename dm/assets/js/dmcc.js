@@ -398,6 +398,15 @@ function attachLiveListeners() {
   bind("meta", (v) => { if (v) { state.meta = v; guardFocus(() => renderRoomHero()); } });
   bind("encounter/requests", (v) => {
     const rows = v || {};
+    state.bankReqs = rows;
+    state._bankSeen = state._bankSeen || {};
+    Object.keys(rows).forEach((id) => {
+      const row = rows[id];
+      if (!row || row.type !== "bank" || row.resolved || state._bankSeen[id]) return;
+      state._bankSeen[id] = 1;
+      toast((row.characterName || "A player") + " asks the bank for " + (Number(row.amount) || 0) + " ES");
+    });
+    renderBankReqs();
     state._mercySeen = state._mercySeen || {};
     Object.keys(rows).forEach((id) => {
       const row = rows[id];
@@ -805,6 +814,73 @@ async function pushHandout(entry) {
   try { await state._fb.set(roomRef("handouts/" + entry.id), entry); }
   catch (e) { writeFailed(e, "Handout failed"); }
 }
+
+function renderBankReqs() {
+  const box = document.getElementById("bankReqs");
+  if (!box) return;
+  const rows = state.bankReqs || {};
+  box.textContent = "";
+  const ids = Object.keys(rows).filter((id) => {
+    const row = rows[id];
+    return row && row.type === "bank" && !row.resolved;
+  });
+  if (!ids.length) { box.hidden = true; return; }
+  box.hidden = false;
+  ids.forEach((id) => {
+    const row = rows[id];
+    const card = document.createElement("div");
+    card.className = "bank-req";
+    const p = document.createElement("p");
+    const who = row.characterName || "A player";
+    p.textContent = who + " asks the bank for " + (Number(row.amount) || 0) + " ES. " + (row.reason || "");
+    const approve = document.createElement("button");
+    approve.type = "button";
+    approve.className = "btn btn-primary";
+    approve.textContent = "Approve";
+    approve.addEventListener("click", () => settleBank(id, true));
+    const decline = document.createElement("button");
+    decline.type = "button";
+    decline.className = "btn";
+    decline.textContent = "Decline";
+    decline.addEventListener("click", () => settleBank(id, false));
+    card.appendChild(p);
+    card.appendChild(approve);
+    card.appendChild(decline);
+    box.appendChild(card);
+  });
+}
+async function settleBank(id, ok) {
+  const row = (state.bankReqs || {})[id];
+  if (!row || row.resolved || row.type !== "bank") return;
+  row.resolved = true;
+  row.approved = !!ok;
+  const amount = Math.floor(Number(row.amount) || 0);
+  if (ok && amount > 0 && row.from) {
+    await pushCommand({
+      type: "reward_es",
+      to: row.from,
+      quiet: true,
+      payload: { delta: amount, reason: row.reason || "Bank", grantId: "bank:" + (row.clientId || id) }
+    });
+    toast("Bank approved " + amount + " ES");
+  } else if (row.from) {
+    await pushCommand({
+      type: "bank_reply",
+      to: row.from,
+      quiet: true,
+      payload: { ok: false, requestId: row.clientId || id, amount }
+    });
+    toast("Bank declined");
+  }
+  renderBankReqs();
+  if (state.demo || !state.db || !state._fb) return;
+  try {
+    await state._fb.update(roomRef("encounter/requests/" + id), { resolved: true, approved: !!ok });
+  } catch (e) { writeFailed(e, "Couldn't close the bank request"); }
+}
+window.SSDNSBank = {
+  show: function (rows) { state.bankReqs = rows || {}; renderBankReqs(); }
+};
 
 async function pushCommand(cmd) {
   cmd.id = cmd.id || uid("cmd");

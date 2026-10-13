@@ -679,11 +679,65 @@
     state.unsubs.push(typeof unsub === "function" ? unsub : function () {});
   }
 
+  var saloonBus = null;
+  try { saloonBus = new BroadcastChannel("ssdns-saloon"); } catch (e) {}
+  function saloonReply(msg) {
+    if (!msg) return;
+    if (saloonBus) { try { saloonBus.postMessage(msg); } catch (e) {} }
+  }
+  function onSaloonMessage(ev) {
+    var msg = ev && ev.data;
+    if (!msg || !msg.id) return;
+    state._saloonSeen = state._saloonSeen || {};
+    if (state._saloonSeen[msg.id]) return;
+    state._saloonSeen[msg.id] = 1;
+    if (msg.type === "unlink") {
+      saloonReply({ type: "unlinked", id: msg.id, ok: true });
+      return;
+    }
+    if (msg.type !== "requestCredits") return;
+    var amount = Math.floor(Number(msg.amount) || 0);
+    if (amount < 1 || amount > 100000) {
+      saloonReply({ type: "credits", id: msg.id, ok: false, reason: "bad amount" });
+      return;
+    }
+    if (!state.joined || state.left || !state._fb || !state.db || !state.uid) {
+      saloonReply({ type: "credits", id: msg.id, ok: false, reason: "no room" });
+      return;
+    }
+    var c = doc() && doc().character;
+    var safe = String(msg.id).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
+    var reqId = "bank_" + (safe || Date.now().toString(36));
+    var row = {
+      ts: new Date().toISOString(),
+      from: state.uid,
+      targetId: state.uid,
+      amount: amount,
+      type: "bank",
+      reason: String(msg.reason || "saloon").slice(0, 160),
+      characterName: (c && c.name) || "",
+      clientId: msg.id
+    };
+    state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + reqId)), row).catch(function () {
+      saloonReply({ type: "credits", id: msg.id, ok: false, reason: "write failed" });
+    });
+  }
+  if (saloonBus) saloonBus.addEventListener("message", onSaloonMessage);
+  window.addEventListener("message", function (ev) {
+    if (ev.origin && ev.origin !== window.location.origin) return;
+    onSaloonMessage(ev);
+  });
+
   function handleCommand(cmd) {
     var payload = cmd.payload || {};
     switch (cmd.type) {
       case "reward_es":
-        applyEsReward(payload.delta || 0, payload.reason || "DM reward", payload.grantId || cmd.id);
+        var bankId = String(payload.grantId || "").indexOf("bank:") === 0 ? String(payload.grantId).slice(5) : "";
+        var bankOk = applyEsReward(payload.delta || 0, payload.reason || "DM reward", payload.grantId || cmd.id);
+        if (bankId) saloonReply({ type: "credits", id: bankId, ok: !!bankOk, amount: Number(payload.delta) || 0 });
+        break;
+      case "bank_reply":
+        saloonReply({ type: "credits", id: payload.requestId, ok: false, amount: Number(payload.amount) || 0 });
         break;
       case "reward_item":
         if (!claimGrant("item:" + (payload.grantId || cmd.id || payload.text || ""))) break;
@@ -896,7 +950,7 @@
       if (!w) {
         if (grant) forgetGrant(grant);
         toast("Could not apply DM ES change");
-        return;
+        return false;
       }
       d.shards = w.shards;
       syncShardFields(w.shards);
@@ -906,6 +960,7 @@
       if (root.SSDNSAudio) root.SSDNSAudio.play("reward");
       if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: id ? "es:" + id : "", kind: "es", text: "DM " + (delta >= 0 ? "+" : "") + delta + " ES" });
       publishSnapshot();
+      return true;
     } finally {
       state.applyingReward = false;
     }

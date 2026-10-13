@@ -89,6 +89,14 @@ a { color: var(--eld); }
 .btn-ghost { border-color: transparent; }
 .btn.sm { min-height: 36px; font-size: 12px; padding: 0 10px; }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
+.bank-reqs {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 16px; background: #2a2214; border-bottom: 1px solid var(--line);
+}
+.bank-reqs[hidden] { display: none; }
+.bank-req { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bank-req p { margin: 0; flex: 1; min-width: 12rem; }
+.bank-req .btn { min-height: 44px; min-width: 44px; }
 
 /* ---- status / demo strip */
 .statusbar {

@@ -4212,7 +4212,7 @@ function markRequestResolved(reqId) {
   DM.state._fb.update(DM.roomRef("encounter/requests/" + reqId), { resolved: true }).catch(() => {});
 }
 function applyRequest(req, reqId) {
-  if (!req || req.resolved) return;
+  if (!req || req.resolved || req.type === "bank") return;
   const attack = req.type === "attack" || (req.hitTotal != null && req.hitTotal !== "" && req.type !== "heal");
   if (attack) {
     resolveIncomingAttack(req, reqId);
@@ -4286,6 +4286,7 @@ function watchRequests() {
       const attack = req && (req.type === "attack" || (req.hitTotal != null && req.hitTotal !== "" && req.type !== "heal"));
       const fresh = req && req.ts && (Date.now() - Date.parse(req.ts) < 120000);
       if (req && req.resolved) return;
+      if (req && req.type === "bank") return;
       if (!fight.reqPrimed && !fresh && !attack) return;
       applyRequest(req, id);
     });

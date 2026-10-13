@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Whiskey Bend Blackjack — Rock Machines · Whiskey Bend</title>
+  <link rel="stylesheet" href="../saloon-theme.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -78,8 +79,8 @@
       <button type="button" class="action-btn double" id="doubleBtn" disabled>Double</button>
     </div>
 
-    <section class="paytable" aria-label="Payout table">
-      <h2>Blackjack odds</h2>
+    <details class="paytable" aria-label="Payout table">
+      <summary>Blackjack odds</summary>
       <ul>
         <li><span>Natural blackjack</span><span class="gold">3:2</span> <em>two-card 21 pays 1.5× stake + stake back</em></li>
         <li><span>Win</span><span class="gold">1:1</span> <em>stake returned + equal win</em></li>
@@ -91,7 +92,7 @@
         Standard 52-card deck; reshuffles when low. Dealer hits until hard/soft 17+, then stands on all 17s.
         No insurance in v1. Manual Set/Add Eldorite for table play. SFX synthesized in-browser.
       </p>
-    </section>
+    </details>
   </main>
 
   <script src="../../assets/js/ssdns-bridge.js"></script>
