@@ -1381,7 +1381,25 @@
       var cap = s ? Math.min(s.capacity || 0, 15) : 0;
       var shells = cap && w ? normChambers(g, w) : null;
       var nextK = shells ? shells.findIndex(Boolean) : -1;
-      for (var k = 0; k < cap; k++) {
+      if (cap && window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled()) {
+        window.SSDNSAmmoDisplay.mount(ch, {
+          name: w && w.name,
+          action: w && w.action,
+          weapon: g.weapon,
+          ammoDisplay: g.ammoDisplay,
+          cap: cap,
+          chambers: shells || undefined,
+          loaded: shells ? undefined : num(g.loaded),
+          jammed: !!g.jammed,
+          size: "gear",
+          next: nextK,
+          label: function (k) {
+            var parsed = parseChamber(shells ? shells[k] : "");
+            return parsed && parsed.kind === "hex" ? String(parsed.level) : "";
+          },
+          attrs: function (k) { return { "data-fire": String(i), "data-k": String(k) }; }
+        });
+      } else for (var k = 0; k < cap; k++) {
         var st = shells ? shells[k] : "";
         var parsed = parseChamber(st);
         var hex = parsed && parsed.kind === "hex";

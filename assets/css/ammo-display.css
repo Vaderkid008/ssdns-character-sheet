@@ -1,0 +1,117 @@
+/* Ammo pictures. Only .ssdns-ammo is styled, so a flag-off page is unchanged. */
+.ssdns-ammo { position: relative; display: inline-block; vertical-align: middle; line-height: 0; }
+.ssdns-ammo-cylinder { width: 112px; height: 112px; }
+.ssdns-ammo-cylinder.is-drawer { width: 96px; height: 96px; }
+.ssdns-ammo-cylinder.is-gear { width: 88px; height: 88px; }
+.ssdns-ammo-cylinder.is-strip { width: 64px; height: 64px; }
+.ssdns-ammo-cylinder.is-demo { width: 180px; height: 180px; }
+.ammo-cylinder-svg { width: 100%; height: 100%; display: block; }
+.ammo-rim { fill: #b7b3ad; stroke: #2c261f; stroke-width: 1.6; }
+.ammo-pin { fill: #3a342c; stroke: #c9a227; stroke-width: 1.4; }
+.ammo-pin-core { fill: #14110e; }
+.ssdns-ammo.is-jammed .ammo-pin { fill: #8d1f18; stroke: #e23b32; }
+
+.ssdns-ammo .ammo-round {
+  border-radius: 50%;
+  border: 1px solid #1a120c;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  line-height: 1;
+  background: #16120e;
+  color: #fff;
+  font: 700 9px/1 system-ui, sans-serif;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.ssdns-ammo-cylinder .ammo-round {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+.ssdns-ammo .ammo-round.is-loaded {
+  background: radial-gradient(circle at 38% 32%, #fff4d2, #e0b44a 42%, #8a5a16 78%);
+  border-color: #5c3d10;
+}
+.ssdns-ammo .ammo-round.is-spent {
+  background: radial-gradient(circle at 50% 40%, #3a342c, #120e0b 72%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+.ssdns-ammo .ammo-round.is-jam {
+  background: radial-gradient(circle at 38% 32%, #ffb0a8, #c4322a 46%, #4a100c 80%);
+  border-color: #e23b32;
+}
+.ssdns-ammo .ammo-round.is-next { outline: 2px solid #e23b32; outline-offset: 1px; }
+.ssdns-ammo.is-jammed .ammo-round.is-loaded { filter: grayscale(0.45); }
+
+.ssdns-ammo-tube { width: 220px; max-width: 100%; }
+.ssdns-ammo-tube.is-strip { width: 160px; }
+.ssdns-ammo-tube.is-drawer { width: 168px; }
+.ssdns-ammo-tube.is-demo { width: 280px; }
+.ammo-tube {
+  position: relative;
+  display: block;
+  height: 28px;
+  border-radius: 14px;
+  background: linear-gradient(#5c564c, #2a261f);
+  border: 2px solid #1a1612;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.ssdns-ammo-tube.is-strip .ammo-tube,
+.ssdns-ammo-tube.is-drawer .ammo-tube { height: 24px; }
+.ssdns-ammo-tube .ammo-round {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+.ammo-follower {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 8px;
+  border-radius: 2px;
+  background: linear-gradient(#e7c56a, #8a6a28);
+  box-shadow: 1px 0 0 #1a140c;
+  z-index: 2;
+  pointer-events: none;
+}
+.ssdns-ammo.is-jammed .ammo-follower { background: linear-gradient(#e23b32, #6b1410); }
+.ammo-spring {
+  position: absolute;
+  top: 3px;
+  height: calc(100% - 6px);
+  z-index: 2;
+  pointer-events: none;
+}
+.ammo-spring path {
+  fill: none;
+  stroke: #efe8da;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.ssdns-ammo-dots { line-height: 0; }
+.ssdns-ammo-dots .ammo-round {
+  width: 14px;
+  height: 14px;
+  margin-right: 2px;
+}
+.ssdns-ammo-dots .ammo-round:last-child { margin-right: 0; }
+
+.ssm-drawer .ssdns-ammo button,
+.cylinder-row .ssdns-ammo button,
+.gun .ssdns-ammo button,
+.chambers .ssdns-ammo button {
+  min-height: 0;
+  padding: 0;
+  background-image: none;
+}
+.ssm-drawer .cylinder-graphic { align-items: center; }
+.ssm-drawer .cylinder-graphic .ssdns-ammo { flex: 0 0 auto; }
+.init-who .cylinder-row { flex-basis: 100%; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.turn-strip .cylinder-row { flex-wrap: wrap; }
