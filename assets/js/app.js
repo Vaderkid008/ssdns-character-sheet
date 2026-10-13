@@ -85,7 +85,7 @@
       "dulls-rifle": ["dulls-rolling-block-rifle", "medium"], "dullards-rifle": ["dullards-tube-rifle", "medium"],
       "henrietta-repeating-rifle-44-rimfire": ["henrietta-repeating-rifle", "light"], "henrietta-repeating-rifle-357": ["henrietta-repeating-rifle", "medium"], "henrietta-repeating-rifle-45-long": ["henrietta-repeating-rifle", "heavy"],
       "lancaster-repeating-rifle-44-rimfire": ["lancaster-repeating-rifle", "light"], "lancaster-repeating-rifle-357": ["lancaster-repeating-rifle", "medium"], "lancaster-repeating-rifle-45-long": ["lancaster-repeating-rifle", "heavy"],
-      "musket": ["dull-co-rifle-musket", "medium"], "bison-big-fifty-50-90": ["bison-big-fifty-buffalo-rifle", "medium"],
+      "musket": ["dull-co-rifle-musket", "medium"], "bison-big-fifty-50-90": ["bison-big-fifty-buffalo-rifle", "heavy"],
       "standard-caster-gun": ["blacksnake", "medium"], "python": ["blacksnake", "medium"], "cobra": ["blacksnake", "medium"], "viper": ["blacksnake", "medium"], "boa": ["blacksnake", "medium"] },
     holster: { "concealed-shoulder-vest-sleeve": "concealed-vest-sleeve" }
   };
@@ -604,7 +604,8 @@
     if (hol && c.holsterActive) {
       var belt = /^belt rig/i.test(hol.perk || "");
       var pommel = /†/.test(hol.initText || "") || /pommel/i.test(hol.name || "");
-      var cross = !!hol.conditional && /first-shot bonus only then/i.test(hol.perk || "");
+      var cross = hol.id === "cross-draw-holster";
+      // character.seated is the existing "Seated or driving" toggle.
       var posture = !!c.seated || !!c.mounted;
       if (pommel) { if (c.mounted) v.holsterInit = num(hol.initBonus); }
       else v.holsterInit = num(hol.initBonus);
@@ -1364,7 +1365,12 @@
       ms.hidden = !(w && modsFor(w).length); ps.hidden = !(w && capSteps(w).length);
       ms.value = g.mod || ""; ps.value = g.capacity ? String(g.capacity) : "";
       ms.title = s && s.mod ? s.mod.effect : "Gunsmithing: one modification slot";
-      if (w && w.tiers) { var cc = chamberOf(g, w); cs.value = cc.tier + "|" + cc.round; }
+      if (w && w.tiers) {
+        var cc = chamberOf(g, w);
+        var storedTier = String(g.chamber || "").split("|")[0];
+        if (storedTier && !w.tiers[storedTier]) { g.chamber = cc.tier + "|" + cc.round; g.tier = cc.tier; }
+        cs.value = cc.tier + "|" + cc.round;
+      }
       out("rng." + i, s ? s.range : "");
       out("cap." + i, s && s.capacity ? s.capacity : (s ? "—" : ""));
       out("mis." + i, s ? misfireLabel(s.misfire, g.dirty) : "");
@@ -1490,7 +1496,9 @@
     var holMsg;
     if (h) {
       holMsg = h.name + ": holds " + h.holds + ". Init. " + (h.initText || "—") + ", first shot " + (h.firstShotText || "—") + ". " + h.perk + " ";
-      if (h.conditional) holMsg += "* ";
+      if (h.id === "cross-draw-holster") {
+        holMsg += (c.holsterActive && (c.seated || c.mounted)) ? "That bonus is on. " : "That bonus is off. ";
+      } else if (h.conditional) holMsg += "* ";
       if (h.isRig) holMsg += c.holsterActive ? "(Applied: pistol in the rig.) " : "(Tick when a pistol rides in it to apply.) ";
       if (c.seated) holMsg += "Seated or driving. ";
       if (c.mounted) holMsg += "Mounted. ";

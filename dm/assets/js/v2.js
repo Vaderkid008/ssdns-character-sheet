@@ -5054,7 +5054,7 @@ async function bootV2() {
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.35-targets");
+    const res = await fetch("assets/data/store-items.json?v=0.2.35-class");
     if (res.ok) storeItems = await res.json();
     else DM.toast("Store list failed to load");
   } catch (e) {

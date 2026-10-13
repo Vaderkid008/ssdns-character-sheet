@@ -1,3 +1,26 @@
+# Big Fifty class and Cross-Draw — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change.
+
+## Exact changes
+
+- `assets/data/rules.js` — Bison Big Fifty Buffalo Rifle. The only class moved from `tiers.medium` / `rounds.medium` to `tiers.heavy` / `rounds.heavy`. Damage stays 3d10, range 150/600, misfire 1–5. `roundTiers["big bore"]` lists `.50-90` under Heavy. The Medium list for big bore is empty.
+- `assets/data/rules.js` — Cross-Draw Holster. `perk` and `notes` now say the +1 first-shot bonus applies only while seated, mounted, or driving, and the note says it does not apply on foot. `firstShot` stays 1. `initBonus` stays 1. No other holster text or numbers changed.
+- `assets/js/app.js` — The old id `bison-big-fifty-50-90` migrates to Heavy. A saved chamber whose tier is no longer on that gun is rewritten to the current tier, so a Medium Big Fifty becomes `heavy|.50-90`.
+- `assets/js/app.js` — Cross-Draw's first-shot bonus is added only when a pistol rides in the rig and `character.seated` or `character.mounted` is on. `character.seated` is the existing "Seated or driving" checkbox. No new toggle. The holster line repeats the perk and then says "That bonus is on." or "That bonus is off." Belt rigs still lose their first-shot bonus while seated or mounted. Pommel initiative is still mounted only.
+- `dm/assets/data/store-items.json` — The Big Fifty store note says Heavy .50-90. The Cross-Draw store note states the same first-shot rule. DMCC lookup uses `rules.js`, so the gun line reads `heavy: 3d10`.
+- Cache queries only: sheet `rules.js` and `app.js` are `0.3.22-class`. DMCC `rules.js`, `v2.js`, and the store JSON fetch are `0.2.35-class`.
+
+## Check
+
+```cmd
+node tools/test-item8.mjs
+```
+
+That covers the Heavy class, the unchanged 3d10 line, the store notes, the other holsters' bonuses, Cross-Draw off on foot and on while seated or mounted, a Mexican Loop that still works on foot, and a saved Medium chamber becoming Heavy. `node tools/test-round13.mjs` and `node tools/test-store-v2.mjs` still pass.
+
+Browser: the Gear tab chamber reads "Heavy · .50-90" and damage is 3d10 piercing. The Cross-Draw line says the bonus is off until Seated or driving is ticked, then it says the bonus is on. DMCC Lookup for Big Fifty shows `heavy: 3d10`.
+
 # Fog tools — sheet 0.3.22 / DMCC 0.2.35
 
 Same draft. Versions stayed. `database.rules.json` did not change. Fog stays a field on the existing scene (`map/public/scenes` and `map/dm/scenes`).
