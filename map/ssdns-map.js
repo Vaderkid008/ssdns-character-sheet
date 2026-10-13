@@ -172,6 +172,9 @@ const state = {
   gridStrength: 1.0,
   minStrength: 1.0,
   currentTurnId: null,
+  drawerOpen: false,
+  drawerTokenId: null,
+  pendingTarget: null,
   role,
   uid,
   chat: [],
@@ -216,6 +219,12 @@ toolbar.innerHTML = `
 `;
 el.appendChild(toolbar);
 on(document, 'keydown', e => {
+  if (role === 'dm' && e.key === 'Escape' && state.pendingTarget) {
+    e.preventDefault();
+    state.pendingTarget = null;
+    renderDrawer();
+    return;
+  }
   if (!el.matches(':hover') && !el.contains(e.target)) return;
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
   if (e.key === 'Shift' && state.drag && state.drag.token) { dropPin(); return; }
@@ -480,7 +489,7 @@ function draw() {
   }
 
   // walls
-  if (sceneData().walls.length && role === 'dm') {
+  if (sceneData().walls.length && role === 'dm' && state.showWalls) {
     for (const w of sceneData().walls) {
       const a = worldToScreen(w.x1 * px, w.y1 * px);
       const b = worldToScreen(w.x2 * px, w.y2 * px);
@@ -670,10 +679,9 @@ function draw() {
       else if (t.kind === 'friendly') ring = '#2a9d8f';
     }
 
-    // ghost for DM if hidden
-    if (isHidden && role === 'dm') {
-      ctx.globalAlpha = 0.4;
-    }
+    // Hidden tokens stay on the DM map, drawn dimmed. Players never reach this branch.
+    ctx.save();
+    if (isHidden && role === 'dm') ctx.globalAlpha = 0.4;
 
     ctx.beginPath();
     ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
@@ -740,8 +748,7 @@ function draw() {
       ctx.stroke();
     }
 
-    // condition badges (simple icons)
-    ctx.globalAlpha = 1;
+    // condition badges stay inside the token's alpha, so a hidden token stays dim
     if (t.conditions && t.conditions.length) {
       const icons = { unconscious: '💤', paralyzed: '⚡', poisoned: '☠️', stunned: '💫', prone: '⬇' };
       const size = Math.max(28, r * 1.15);
@@ -765,6 +772,7 @@ function draw() {
     ctx.textBaseline = 'top';
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
+    ctx.restore();
 
     // HP bar under the name
     if (t.hp != null && t.maxHp && (role === 'dm' || canControl(t))) {
@@ -871,6 +879,7 @@ function applyCursor() {
   else canvas.style.cursor = 'default';
 }
 function setTool(tool) {
+  const wallTool = tool === 'wall' || tool === 'room' || tool === 'door' || tool === 'window' || tool === 'delwall';
   if (tool === 'fogToggle') {
     if (state.tool === 'poly') tool = 'rect';
     else if (state.tool === 'rect') tool = null;
@@ -878,8 +887,9 @@ function setTool(tool) {
   }
   state.tool = state.tool === tool ? null : tool;
   state.fogMode = state.tool;
+  if (wallTool) revealWallLines();
   el.querySelectorAll('.ssdns-leftbar button').forEach(b => {
-    if (b.getAttribute('data-act') === 'fogBtn' || b.getAttribute('data-act') === 'showFovBtn') return;
+    if (b.getAttribute('data-act') === 'fogBtn' || b.getAttribute('data-act') === 'showFovBtn' || b.getAttribute('data-act') === 'wallsVisBtn') return;
     b.classList.remove('active');
   });
   const fogBtn = q('fogRectBtn');
@@ -1016,6 +1026,10 @@ function cloneToken(src, dx, dy) {
     y: Math.max(0, Math.min(state.scene.grid.rows - 1, src.pos.y + dy))
   };
   delete clean._img;
+  if (cellTaken(clean.pos.x, clean.pos.y)) {
+    toast('That square is taken');
+    return null;
+  }
   state.tokens.push(clean);
   shared.tokens[id] = JSON.parse(JSON.stringify(clean));
   emit('combatant:add', { tokenId: id });
@@ -1029,7 +1043,8 @@ function copyTokens() {
 }
 function pasteTokens() {
   if (!state.clipboard || !state.clipboard.length) { toast('Nothing copied'); return; }
-  const made = state.clipboard.map((src, i) => cloneToken(src, 1, i));
+  const made = state.clipboard.map((src, i) => cloneToken(src, 1, i)).filter(Boolean);
+  if (!made.length) return;
   state.selectedIds = made.map(t => t.id);
   state.selected = made[0];
   made.forEach(t => saveToken(t.id));
@@ -1063,9 +1078,21 @@ function viewCenterCell() {
 }
 function selectToken(token) {
   if (!token) return;
+  if (state.pendingTarget && role === 'dm') {
+    if (token.id === state.pendingTarget.tokenId) {
+      toast('Pick a different token');
+      return;
+    }
+    emit('drawer:target', { tokenId: state.pendingTarget.tokenId, weaponId: state.pendingTarget.weaponId, targetTokenId: token.id, combatantId: tokenCombatant(state.pendingTarget.tokenId), targetCombatantId: tokenCombatant(token.id) });
+    state.pendingTarget = null;
+    toast('Target set');
+    renderDrawer();
+    return;
+  }
   state.selected = token;
   state.selectedIds = [token.id];
   refreshSelectedPanel();
+  if (role === 'dm') openDrawer(token.id);
   draw();
 }
 function makeToken(spec) {
@@ -1326,6 +1353,11 @@ function canDrag(token) {
 function onPointerDown(e) {
   pointers.set(e.pointerId, Object.assign({ t: Date.now() }, localXY(e)));
   if (pointers.size === 1) {
+    if (e.button === 1) {
+      state.drag = { pan: true, middle: true, sx: e.clientX, sy: e.clientY, vx: state.view.x, vy: state.view.y };
+      draw();
+      return;
+    }
     if (role === 'dm' && state.tool === 'room') {
       const w = pointerWorld(e);
       const px = state.scene.grid.px;
@@ -1499,11 +1531,16 @@ function onPointerDown(e) {
     }
     const w = pointerWorld(e);
     const hit = hitTest(w.x, w.y);
+    if (hit && state.pendingTarget && role === 'dm') {
+      selectToken(hit);
+      return;
+    }
     if (hit && (canDrag(hit) || (role === 'dm' && hit.locked))) {
       if (hit.locked && role === 'dm') {
         // select locked token so DM can unlock it, but don't start a drag
         state.selectedIds = [hit.id];
         state.selected = hit;
+        openDrawer(hit.id);
         draw();
         return;
       }
@@ -1526,6 +1563,7 @@ function onPointerDown(e) {
         const t = state.tokens.find(tok => tok.id === id);
         if (t) state.drag.starts[id] = { x: t.pos.x, y: t.pos.y };
       });
+      if (role === 'dm') openDrawer(hit.id);
     } else if (hit && role === 'player') {
       if (hit.locked) toast('That token is locked');
       else toast('No permission to move that token');
@@ -1567,6 +1605,7 @@ function onPointerMove(e) {
       const dx = nx - state.drag.ox;
       const dy = ny - state.drag.oy;
       const ids = state.selectedIds.length ? state.selectedIds : [state.drag.token.id];
+      state.drag.blocked = false;
       ids.forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
         if (!t) return;
@@ -1575,7 +1614,10 @@ function onPointerMove(e) {
         if (!state.drag.starts[id]) state.drag.starts[id] = { x: t.pos.x - dx, y: t.pos.y - dy };
         const newX = Math.max(0, Math.min(state.scene.grid.cols - 1, state.drag.starts[id].x + dx));
         const newY = Math.max(0, Math.min(state.scene.grid.rows - 1, state.drag.starts[id].y + dy));
-        if (!crossesWall(t.pos.x + 0.5, t.pos.y + 0.5, newX + 0.5, newY + 0.5)) {
+        const allowStack = role === 'dm' && e.shiftKey;
+        if (!allowStack && cellTaken(newX, newY, state.drag.starts)) {
+          state.drag.blocked = true;
+        } else if (!crossesWall(t.pos.x + 0.5, t.pos.y + 0.5, newX + 0.5, newY + 0.5)) {
           if (state.offline) {
             state.drag.ghost = { x: newX, y: newY };
             const existing = state.pendingMoves.find(m => m.id === t.id);
@@ -1601,6 +1643,18 @@ function onPointerMove(e) {
   }
 }
 function onPointerUp(e) {
+  if (state.drag && state.drag.token && state.drag.blocked && !(role === 'dm' && e.shiftKey)) {
+    const starts = state.drag.starts || {};
+    Object.keys(starts).forEach(id => {
+      const t = state.tokens.find(tok => tok.id === id);
+      if (!t || !starts[id]) return;
+      t.pos.x = starts[id].x;
+      t.pos.y = starts[id].y;
+      if (shared.tokens[t.id]) shared.tokens[t.id].pos = Object.assign({}, t.pos, { by: uid, ts: Date.now() });
+    });
+    state.drag.pins = null;
+    toast('That square is taken');
+  }
   if (state.drag && state.drag.token && !state.offline && state.drag.pins && state.drag.pins.length) {
     const t = state.drag.token;
     const pts = state.drag.pins.concat([{ x: t.pos.x, y: t.pos.y }]);
@@ -1754,6 +1808,19 @@ function crossesWall(x1, y1, x2, y2) {
   }
   return false;
 }
+function tokenCombatant(tokenId) {
+  const token = state.tokens.find(t => t.id === tokenId);
+  return (token && (token.combatantId || token.sheetId)) || tokenId;
+}
+function cellTaken(x, y, ignore) {
+  const skip = ignore || {};
+  return state.tokens.some(t => {
+    if (!t || skip[t.id]) return false;
+    if (role !== 'dm' && t.hidden) return false;
+    const size = t.size || 1;
+    return x >= t.pos.x && x < t.pos.x + size && y >= t.pos.y && y < t.pos.y + size;
+  });
+}
 function hitTest(wx, wy) {
   const px = state.scene.grid.px;
   for (let i = state.tokens.length - 1; i >= 0; i--) {
@@ -1774,6 +1841,7 @@ on(canvas, 'pointerup', onPointerUp);
 on(canvas, 'pointercancel', onPointerUp);
 on(canvas, 'wheel', e => {
   e.preventDefault();
+  if ((e.buttons & 4) || (state.drag && state.drag.middle)) return;
   const before = pointerWorld(e);
   const factor = e.deltaY < 0 ? 1.1 : 0.9;
   state.view.zoom = Math.max(0.25, Math.min(4, state.view.zoom * factor));
@@ -1794,7 +1862,8 @@ q('helpBtn').addEventListener('click', () => {
   box.style.cssText = 'position:absolute;top:48px;right:16px;width:320px;max-height:70vh;overflow:auto;background:#1c1814;color:#e8dcc8;border:1px solid #5a4e40;border-radius:8px;padding:12px;z-index:20;font:13px system-ui;';
   const dm = role === 'dm';
   box.innerHTML = `<b>How to use the map</b><br><br>
-<b>Move</b> Drag your token. Walls block the path.<br>
+<b>Move</b> Drag your token. Walls block the path. Two tokens cannot share a square. The DM holds Shift to stack them.<br>
+<b>Middle mouse</b> Pans the map. It does not zoom.<br>
 <b>Shift</b> While dragging, drop a pin to turn a corner. Up, Shift, left, Shift, down. Release to slide. Backspace removes the last pin.<br>
 <b>X</b> Show the last path for the selected token.<br>
 <b>Ghost Plan</b> Plot in private. Turn it off to slide for everyone. Cancel plan drops it.<br>
@@ -1806,7 +1875,7 @@ Ctrl-click or drag a box to select many.<br>
 Copy Ctrl+C, Paste Ctrl+V, Delete removes from the turn order.<br>
 Door / Window: click a wall. Click again to open or shut. Right-click removes it.<br>
 Wall and Room: drag, release to commit.<br>
-Walls: ON hides the lines so you can see the raw map. Walls still block.<br>
+Walls: OFF hides the lines so you can see the raw map. Walls still block.<br>
 Grant / Revoke: pick a player, then a token. Revoke on their own token locks them out. Grant gives it back.<br>
 Fog covers the player map. Show Player FOV greys the rest and brightens their light.<br>
 Set floor, then Show to players, to move someone to another map.` : `<b>Player</b><br>
@@ -1919,6 +1988,14 @@ if (role === 'dm') {
     b.textContent = state.snap ? 'Snap: ON' : 'Snap: OFF';
     b.classList.toggle('active', state.snap);
   });
+  function revealWallLines() {
+    if (role !== 'dm' || state.showWalls) return;
+    state.showWalls = true;
+    const b = q('wallsVisBtn');
+    if (!b) return;
+    b.textContent = 'Walls: ON';
+    b.classList.add('active');
+  }
   q('wallsVisBtn').addEventListener('click', () => {
     state.showWalls = !state.showWalls;
     const b = q('wallsVisBtn');
@@ -2310,12 +2387,18 @@ async function loadSceneImage(sceneId) {
     animRaf = requestAnimationFrame(step);
   }
   function syncCombatants(initiative) {
+    const prevId = state.currentTurnId;
     state.initiative = initiative || { order: [], turn: 0 };
     const order = state.initiative.order || [];
     const turn = state.initiative.turn || 0;
     state.currentTurnId = order[turn] ? order[turn].id : null;
     renderTurnStrip();
     renderActions();
+    if (role === 'dm' && state.drawerOpen && state.currentTurnId && state.currentTurnId !== prevId) {
+      state.pendingTarget = null;
+      const t = state.tokens.find(tok => tok.combatantId === state.currentTurnId || tok.id === state.currentTurnId);
+      if (t) { state.selected = t; state.selectedIds = [t.id]; openDrawer(t.id); }
+    }
     requestDraw();
   }
   function renderTurnStrip() {
@@ -2332,7 +2415,13 @@ async function loadSceneImage(sceneId) {
     order.forEach((c, i) => {
       const b = document.createElement('span');
       b.textContent = c.name || c.id;
-      b.style.cssText = 'padding:2px 6px;border-radius:4px;font-size:11px;background:' + (i === turn ? '#8a7040' : '#2a241c') + ';color:#e8dcc8;';
+      b.style.cssText = 'padding:2px 6px;border-radius:4px;font-size:11px;background:' + (i === turn ? '#8a7040' : '#2a241c') + ';color:#e8dcc8;cursor:pointer;';
+      if (role === 'dm') {
+        b.addEventListener('click', () => {
+          const t = state.tokens.find(tok => tok.combatantId === c.id || tok.id === c.id);
+          if (t) selectToken(t);
+        });
+      }
       strip.appendChild(b);
     });
     if (role === 'dm') {
@@ -2364,12 +2453,164 @@ async function loadSceneImage(sceneId) {
       slot.appendChild(b);
     });
   }
+
+  // --- DM drawer (role === 'dm' only). Player create() never calls these. ---
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  }
+  function speedLabel(speed) {
+    if (speed == null || speed === '') return '30 ft';
+    const s = String(speed);
+    return /ft/i.test(s) ? s : s + ' ft';
+  }
+  function condLabel(c) {
+    if (c && typeof c === 'object') return c.name || c.label || '';
+    return c == null ? '' : String(c);
+  }
+  function conditionNames() {
+    const Cond = window.SSDNSConditions;
+    const rows = Cond && typeof Cond.catalog === 'function' ? Cond.catalog() : null;
+    const names = rows && rows.length ? rows.map(item => item && item.name).filter(Boolean) : ['Prone', 'Unconscious', 'Paralyzed', 'Poisoned', 'Stunned', 'Grappled', 'Frightened', 'Restrained'];
+    return names.length ? names : ['Prone'];
+  }
+  function lookupCard(tokenId) {
+    if (role !== 'dm' || typeof host.getCard !== 'function' || !tokenId) return null;
+    const direct = host.getCard(tokenId);
+    if (direct) return direct;
+    const token = state.tokens.find(t => t.id === tokenId);
+    const alt = token && (token.combatantId || token.sheetId);
+    if (alt && alt !== tokenId) return host.getCard(alt) || null;
+    return null;
+  }
+  function openDrawer(tokenId) {
+    if (role !== 'dm') return;
+    const same = state.drawerOpen && state.drawerTokenId === tokenId;
+    state.drawerOpen = true;
+    state.drawerTokenId = tokenId;
+    if (!same) emit('drawer:open', { tokenId, combatantId: tokenCombatant(tokenId) });
+    renderDrawer();
+  }
+  function closeDrawer() {
+    if (!state.drawerOpen) return;
+    const id = state.drawerTokenId;
+    state.drawerOpen = false;
+    state.drawerTokenId = null;
+    state.pendingTarget = null;
+    const d = q('drawer');
+    if (d) d.remove();
+    emit('drawer:close', { tokenId: id });
+  }
+  function renderDrawer() {
+    if (role !== 'dm' || !state.drawerOpen) return;
+    let d = q('drawer');
+    if (!d) {
+      d = document.createElement('aside');
+      d.setAttribute('data-act', 'drawer');
+      d.className = 'ssm-drawer';
+      d.setAttribute('role', 'dialog');
+      d.setAttribute('aria-label', 'Combatant card');
+      el.appendChild(d);
+    }
+    const tokenId = state.drawerTokenId;
+    const card = lookupCard(tokenId);
+    if (!card) {
+      d.innerHTML = '<div class="ssm-drawer-head"><b>No card linked</b><button type="button" data-act="drawerClose">×</button></div>';
+      const c = d.querySelector('[data-act="drawerClose"]');
+      if (c) c.addEventListener('click', closeDrawer);
+      return;
+    }
+    const isPc = card.kind === 'pc';
+    const canAct = !isPc || card.dmActsAs === true;
+    const hp = card.hp || {};
+    const attacks = (card.attacks || []).map(a => {
+      const ammo = a.ammo ? ' [' + (a.ammo.loaded != null ? a.ammo.loaded : '—') + '/' + (a.ammo.cap != null ? a.ammo.cap : '—') + ']' : '';
+      return '<button type="button" class="ssm-atk" data-wid="' + esc(a.id) + '" ' + (canAct ? '' : 'disabled') + '>' +
+        esc(a.name || a.id) + ' +' + esc(a.toHit != null && a.toHit !== '' ? a.toHit : 0) + ' ' + esc(a.damage || '') + esc(ammo) + '</button>';
+    }).join('');
+    const spells = (card.spells || []).map(s =>
+      '<button type="button" class="ssm-atk" data-sid="' + esc(s.id) + '" ' + (canAct ? '' : 'disabled') + '>' +
+      esc(s.name || s.id) + (s.level != null ? ' (L' + esc(s.level) + ')' : '') + '</button>'
+    ).join('');
+    const conds = (card.conditions || []).map(c => '<span class="ssm-cond">' + esc(condLabel(c)) + '</span>').join(' ');
+    const condOptions = conditionNames().map(name => '<option value="' + esc(name) + '">' + esc(name) + '</option>').join('');
+    const weaponOptions = (card.attacks || []).map(a => '<option value="' + esc(a.id || a.name || '') + '">' + esc(a.name || a.id || 'Weapon') + '</option>').join('') || '<option value="">No weapon</option>';
+    const detail = (extra) => Object.assign({ tokenId: tokenId, combatantId: tokenCombatant(tokenId) }, extra || {});
+    d.innerHTML =
+      '<div class="ssm-drawer-head"><b>' + esc(card.name || tokenId) + '</b> <span class="ssm-kind">' + esc(card.kind || '') + '</span>' +
+      '<button type="button" data-act="drawerClose">×</button></div>' +
+      '<div class="ssm-drawer-body">' +
+      '<div>AC ' + esc(card.ac != null ? card.ac : '—') + ' · HP ' + esc(hp.cur != null ? hp.cur : '—') + '/' + esc(hp.max != null ? hp.max : '—') +
+      (hp.temp ? ' (+' + esc(hp.temp) + ')' : '') + ' · ' + esc(speedLabel(card.speed)) + '</div>' +
+      (conds ? '<div class="ssm-conds">' + conds + '</div>' : '') +
+      (card.tactics ? '<div class="ssm-tactics">' + esc(card.tactics) + '</div>' : '') +
+      '<div class="ssm-section">Attacks</div>' + attacks +
+      (spells ? '<div class="ssm-section">Spells</div>' + spells : '') +
+      '<div class="ssm-row">' +
+        '<input data-act="hpAmt" type="number" value="1" min="0" aria-label="HP amount">' +
+        '<button type="button" data-act="hpMinus">− HP</button><button type="button" data-act="hpPlus">+ HP</button>' +
+        '<button type="button" data-act="hpSet">Set HP</button>' +
+      '</div>' +
+      '<div class="ssm-row">' +
+        '<select data-act="condPick" aria-label="Condition">' + condOptions + '</select>' +
+        '<button type="button" data-act="condBtn">Condition</button>' +
+      '</div>' +
+      '<div class="ssm-row">' +
+        '<select data-act="weaponPick" aria-label="Weapon">' + weaponOptions + '</select>' +
+        '<button type="button" data-act="reloadBtn">Reload</button><button type="button" data-act="unloadBtn">Unload</button>' +
+        '<button type="button" data-act="deathBtn">Death save</button><button type="button" data-act="undoBtnD">Undo</button>' +
+      '</div>' +
+      (state.pendingTarget ? '<div class="ssm-pending">Click a token to target, Esc to cancel</div>' : '') +
+      '</div>';
+    const readHp = () => {
+      const elAmt = d.querySelector('[data-act="hpAmt"]');
+      const n = parseInt(elAmt && elAmt.value, 10);
+      if (!isFinite(n) || n === 0) return 1;
+      return n < 0 ? -n : n;
+    };
+    const pickedWeapon = () => {
+      const sel = d.querySelector('[data-act="weaponPick"]');
+      return sel && sel.value ? sel.value : null;
+    };
+    d.querySelector('[data-act="drawerClose"]').addEventListener('click', closeDrawer);
+    d.querySelectorAll('.ssm-atk').forEach(b => {
+      b.addEventListener('click', () => {
+        if (b.disabled) return;
+        const wid = b.getAttribute('data-wid') || b.getAttribute('data-sid');
+        emit('drawer:attack', detail({ weaponId: wid }));
+        state.pendingTarget = { tokenId, weaponId: wid };
+        renderDrawer();
+      });
+    });
+    d.querySelector('[data-act="hpMinus"]').addEventListener('click', () => emit('drawer:hp', detail({ delta: -readHp() })));
+    d.querySelector('[data-act="hpPlus"]').addEventListener('click', () => emit('drawer:hp', detail({ delta: readHp() })));
+    d.querySelector('[data-act="hpSet"]').addEventListener('click', () => emit('drawer:hp', detail({ set: readHp() })));
+    d.querySelector('[data-act="condBtn"]').addEventListener('click', () => {
+      const sel = d.querySelector('[data-act="condPick"]');
+      const name = String((sel && sel.value) || '').trim();
+      if (!name) return;
+      const already = (card.conditions || []).some(x => condLabel(x).toLowerCase() === name.toLowerCase());
+      emit('drawer:condition', detail({ condition: name, on: !already }));
+    });
+    d.querySelector('[data-act="reloadBtn"]').addEventListener('click', () => emit('drawer:reload', detail({ weaponId: pickedWeapon() })));
+    d.querySelector('[data-act="unloadBtn"]').addEventListener('click', () => emit('drawer:unload', detail({ weaponId: pickedWeapon() })));
+    d.querySelector('[data-act="deathBtn"]').addEventListener('click', () => emit('drawer:deathsave', detail()));
+    d.querySelector('[data-act="undoBtnD"]').addEventListener('click', () => emit('drawer:undo', detail()));
+  }
+  function refreshCard(tokenId) {
+    if (role !== 'dm') return;
+    if (state.drawerOpen && (!tokenId || tokenId === state.drawerTokenId)) renderDrawer();
+  }
+
   function destroy() {
     dead = true;
+    state.drawerOpen = false;
+    state.drawerTokenId = null;
+    state.pendingTarget = null;
     if (raf) cancelAnimationFrame(raf);
     if (animRaf) cancelAnimationFrame(animRaf);
     if (ro) ro.disconnect();
     listeners.forEach(([t, ev, fn, opt]) => t.removeEventListener(ev, fn, opt));
+    listeners.length = 0;
     unsubs.forEach(u => { try { u(); } catch (e) {} });
     el.innerHTML = '';
   }
@@ -2388,6 +2629,16 @@ async function loadSceneImage(sceneId) {
     const sub = parts[4];
     if (value == null || (meta && meta.removed)) {
       if (!newer(path, meta && meta.seq)) return;
+      if (role === 'dm' && shared.tokens[id] && shared.tokens[id].hidden) {
+        let kept = state.tokens.find(tok => tok.id === id);
+        if (!kept) {
+          kept = Object.assign({}, shared.tokens[id]);
+          state.tokens.push(kept);
+        }
+        kept.hidden = true;
+        requestDraw();
+        return;
+      }
       dropToken(id);
       if (role === 'player') state.tokens = Object.values(shared.tokens).filter(t => !t.hidden);
       requestDraw();
@@ -2566,8 +2817,18 @@ async function boot() {
     el.classList.remove('hidden');
   }
 
-  renderTurnStrip();
-  renderActions();
+  if (!state.initiative) {
+    const seeded = state.room && state.room.table && state.room.table.initiative;
+    const hasOrder = seeded && Array.isArray(seeded.order) && seeded.order.length;
+    if (hasOrder) syncCombatants(seeded);
+    else {
+      renderTurnStrip();
+      renderActions();
+    }
+  }
+  if (typeof options.onReady === 'function') {
+    try { options.onReady(); } catch (e) {}
+  }
 }
 
 boot().catch(err => { console.error(err); toast('Failed to load map: ' + (err && err.message ? err.message : err)); });
@@ -2578,6 +2839,7 @@ return {
   setChat,
   pushFeed,
   requestDraw,
+  refreshCard,
   refreshPlayers: function () {
     fillGrant();
     ensurePartyTokens();
