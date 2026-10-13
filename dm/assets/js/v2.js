@@ -1455,7 +1455,7 @@ async function pushHp(kind) {
       DM.renderPlayers();
     }
   });
-  if (window.SSDNSAudio && kind === "heal") window.SSDNSAudio.play("reward");
+  if (window.SSDNSAudio && kind === "heal") window.SSDNSAudio.play("heal");
   DM.toast(kind + " " + amount + " → " + (names.characterName || "player"));
 }
 
@@ -2873,8 +2873,11 @@ async function rollSpell(pid) {
     gunName: g && g.name,
     wildSpark: isHex && level > 0
   });
-  if (rolled.attack) playTableSfx("spellcast");
-  else if (window.SSDNSAudio) window.SSDNSAudio.play("spellcast");
+  const castCue = window.SSDNSAudio && window.SSDNSAudio.spellCue
+    ? window.SSDNSAudio.spellCue({ name: spellName, kind: spellRow && spellRow.kind, attack: !!rolled.attack, calling: s.callingId || s.calling })
+    : "spellcast";
+  if (rolled.attack) playTableSfx(castCue);
+  else if (window.SSDNSAudio) window.SSDNSAudio.play(castCue);
   await DM.pushRoll({
     who: "DM",
     playerId: pid, uid: DM.state.uid,
@@ -3516,12 +3519,16 @@ async function cardCast(i, n) {
   const known = Cast && Cast.lookup ? Cast.lookup(raw) : null;
   const name = (known && known.name) || raw;
   const kind = known && known.kind;
+  const castCue = window.SSDNSAudio && window.SSDNSAudio.spellCue
+    ? window.SSDNSAudio.spellCue({ name: name, kind: kind, attack: kind === "attack" })
+    : "spellcast";
   if (level && card.slots && card.slots[level]) card.slots[level].left -= 1;
   if (kind === "heal") {
     const dice = (known && known.dice) || "1d8";
     const out = DM.parseDice(dice);
     const detail = row.name + " casts " + name + " and heals " + out.total;
     await publishCardRoll(row, detail, out.total, { formula: dice, heal: true });
+    if (window.SSDNSAudio) window.SSDNSAudio.play(castCue);
     DM.toast(detail);
     renderFight();
     return;
@@ -3568,6 +3575,7 @@ async function cardCast(i, n) {
       } catch (err) {}
     }
     await publishCardRoll(row, detail, save.total, { nat: save.nat, save: true });
+    if (window.SSDNSAudio) window.SSDNSAudio.play(castCue);
     DM.toast(detail);
     renderFight();
     return;
@@ -3586,7 +3594,8 @@ async function cardCast(i, n) {
   let dmg = null;
   if (hit && known && known.dice) dmg = DM.parseDice(known.dice);
   const detail = row.name + " casts " + name + " at " + (target.name || "someone") + ": " + nat + signed(bonus) + " = " + total + " vs AC " + ac + (hit ? " → HIT" : " → MISS") + (dmg ? " · " + dmg.total : "");
-  playTableSfx("spellcast");
+  if (castCue !== "spellcast") playTableSfx(castCue);
+  else playTableSfx("spellcast");
   await publishCardRoll(row, detail, total, { attack: true, nat: nat, damage: dmg ? dmg.total : null, targetId: target.id });
   DM.toast(detail);
   renderFight();
@@ -4656,14 +4665,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.33-targets");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.34-targets");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.33-targets");
+    const res = await fetch("assets/data/store-items.json?v=0.2.34-targets");
     if (res.ok) storeItems = await res.json();
     else DM.toast("Store list failed to load");
   } catch (e) {

@@ -63,7 +63,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.20"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.21"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -85,7 +85,13 @@
   }
 
   var missingFiles = {};
-  var CUE_FALLBACK = { slash: "holster", thud: "holster", twang: "holster", whoosh: "holster", explode: "jam" };
+  var CUE_FALLBACK = {
+    slash: "holster", thud: "holster", twang: "holster", whoosh: "holster", explode: "jam",
+    revolver: "attack", "lever-fire": "attack", plinker: "attack", shotgun: "attack", buffalo: "attack", silenced: "attack",
+    bow: "twang", spear: "twang", axe: "slash",
+    lightning: "spellcast", electric: "spellcast", teleport: "spellcast", heal: "spellcast",
+    "reload-lever": "reload", "reload-revolver": "reload", "empty-click": "jam", cock: "holster"
+  };
   function startSfx(map, eventName, depth) {
     var file = map && map[eventName];
     if ((!file || missingFiles[file]) && CUE_FALLBACK[eventName] && !depth) {
@@ -129,7 +135,11 @@
     root.document.body.appendChild(b);
   }
   // Cues a live table may share. Skill checks, initiative, chat, and reloads stay local.
-  var SHARED_CUES = { attack: 1, jam: 1, spellshot: 1, pactshot: 1, spellcast: 1, explode: 1, slash: 1, thud: 1, twang: 1, whoosh: 1 };
+  var SHARED_CUES = {
+    attack: 1, jam: 1, spellshot: 1, pactshot: 1, spellcast: 1, explode: 1, slash: 1, thud: 1, twang: 1, whoosh: 1,
+    revolver: 1, "lever-fire": 1, plinker: 1, shotgun: 1, buffalo: 1, bow: 1, spear: 1, axe: 1, silenced: 1,
+    lightning: 1, electric: 1
+  };
   function sharedCue(eventName, fromUid, selfUid) {
     var name = String(eventName || "");
     if (!SHARED_CUES[name]) return "";
@@ -147,8 +157,10 @@
     if (/pistol|rifle|carbine|shotgun|caster|bigbore/.test(group)) return "gun";
     if (/\b(gun|revolver|rifle|carbine|shotgun|pistol|derringer|pepperbox|musket|plinker)\b/.test(name)) return "gun";
     if (group === "bow" || /\bbow\b/.test(name)) return "bow";
+    if (/\b(axe|hatchet|tomahawk)\b/.test(name)) return "axe";
+    if (/\b(javelin|spear|pike)\b/.test(name)) return "spear";
     if (/\b(javelin|spear|dart)\b/.test(name) || kind === "thrown" || (/\bthrown\b/.test(props) && !/dagger|stiletto|knife|bowie/.test(name))) return "thrown";
-    if (/slash/.test(dmg) || /sword|saber|sabre|scimitar|machete|axe|knife|dagger|rapier|blade|stiletto|bowie/.test(name)) return "blade";
+    if (/slash/.test(dmg) || /sword|saber|sabre|scimitar|machete|knife|dagger|rapier|blade|stiletto|bowie/.test(name)) return "blade";
     if (/bludgeon/.test(dmg) || /unarmed|fist|kick|club|mace|hammer|staff|baton/.test(name)) return "bludgeon";
     return "other";
   }
@@ -160,10 +172,33 @@
     if (id && weaponOverrides[id]) return String(weaponOverrides[id]);
     var kind = classifyWeapon(info);
     if (kind === "gun") return "attack";
+    if (kind === "axe") return "axe";
+    if (kind === "spear") return "spear";
     if (kind === "blade") return "slash";
     if (kind === "bludgeon") return "thud";
     if (kind === "bow" || kind === "thrown") return "twang";
     return "whoosh";
+  }
+  function reloadCue(info) {
+    info = info || {};
+    var action = String(info.action || "").toLowerCase();
+    var group = String(info.group || "").toLowerCase();
+    var name = String(info.name || info.model || "").toLowerCase();
+    if (/lever/.test(action)) return "reload-lever";
+    if (group === "pistol" || group === "caster" || /revolver|derringer|pepperbox|plinker|chaosmaker/.test(name)) return "reload-revolver";
+    return "reload";
+  }
+  function spellCue(info) {
+    info = info || {};
+    var name = String(info.name || "").toLowerCase();
+    var kind = String(info.kind || "").toLowerCase();
+    if (kind === "heal" || /\b(heal|healing|cure)\b/.test(name)) return "heal";
+    if (/shock|galvanic|electric/.test(name)) return "electric";
+    if (/lightning|thunder/.test(name)) return "lightning";
+    if (/teleport|misty step/.test(name)) return "teleport";
+    if (info.calling === "pact-seeker") return "pactshot";
+    if (info.attack || kind === "attack") return "spellshot";
+    return "spellcast";
   }
   function play(eventName) {
     try { root.dispatchEvent(new CustomEvent("ssdns-sfx", { detail: eventName })); } catch (e) {}
@@ -463,6 +498,8 @@
   root.SSDNSAudio = {
     play: play,
     weaponCue: weaponCue,
+    reloadCue: reloadCue,
+    spellCue: spellCue,
     sharedCue: sharedCue,
     playMusic: playMusic,
     stopMusic: stopMusic,
