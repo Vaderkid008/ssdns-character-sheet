@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>SSDNS Map — M2 v3.1 demo</title>
+<title>SSDNS Map — M2 v4 demo</title>
+<link rel="stylesheet" href="ssdns-map.css">
 <style>
   html, body { margin: 0; height: 100%; background: #1a1612; color: #e8dcc8; font-family: system-ui, sans-serif; }
   .ssdns-map { position: relative; width: 100vw; height: 100vh; overflow: hidden; touch-action: none; background: #1a1612; }
@@ -115,7 +116,8 @@ const host = {
     ]; },
     run(id) { console.log('host.actions.run', id); return Promise.resolve(); }
   },
-  on(name, detail) { console.log('host', name, detail); }
+  on(name, detail) { console.log('host', name, detail); },
+  getCard(tokenId) { return (window.__cards && window.__cards[tokenId]) || null; }
 };
 
 (async () => {
@@ -127,6 +129,11 @@ const host = {
   };
   if (role === 'dm') {
     options.tokens = await fetch('tokens.json').then(r => r.json());
+    window.__cards = await fetch('cards.json').then(r => r.json()).catch(() => ({}));
+    options.room = { table: { initiative: { round: 1, turn: 0, started: true, order: [
+      { id: 'p_jolene', name: 'Jolene', kind: 'player' },
+      { id: 'en_bandit1', name: 'Bandit', kind: 'enemy' }
+    ] } } };
   }
   const el = document.getElementById('mount');
   window.map = SSDNSMap.create({

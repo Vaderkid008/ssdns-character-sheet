@@ -149,6 +149,27 @@
       var prev = $("btnPrevTurn");
       if (prev) prev.click();
     }
+    var fightCall = {
+      "drawer:target": "attack",
+      "drawer:hp": "hp",
+      "drawer:condition": "condition",
+      "drawer:reload": "reload",
+      "drawer:unload": "unload",
+      "drawer:deathsave": "deathsave",
+      "drawer:undo": "undo"
+    }[name];
+    if (!fightCall) return;
+    var api = root.SSDNSMapFight;
+    var fn = api && api[fightCall];
+    if (typeof fn !== "function") return;
+    var refresh = function () {
+      if (map && map.refreshCard) map.refreshCard(detail.tokenId || "");
+    };
+    try {
+      Promise.resolve(fn(detail)).then(refresh, refresh);
+    } catch (e) {
+      refresh();
+    }
   }
   function roomContext() {
     if (isDmPage()) {
@@ -225,7 +246,12 @@
             get: function () { return sheetActions(); },
             run: function (id) { runAction(id); }
           },
-          on: onHost
+          on: onHost,
+          getCard: function (tokenId) {
+            var api = root.SSDNSMapCards;
+            if (!isDmPage() || !api || typeof api.get !== "function") return null;
+            try { return api.get(tokenId) || null; } catch (e) { return null; }
+          }
         },
         options: {
           scene: pair[0],
@@ -233,11 +259,13 @@
           assetBase: base,
           players: currentPlayers,
           ensureScene: !!ctx.demo,
-          room: { table: { initiative: initiative || { order: [], turn: 0 } } }
+          room: { table: { initiative: initiative || { order: [], turn: 0 } } },
+          onReady: function () { syncInitiative(); }
         }
       });
       mountedKey = key;
       if (map.refreshPlayers) map.refreshPlayers();
+      syncInitiative();
       if (!ctx.demo && ctx.fb && ctx.fb.get && ctx.db) {
         var scenesRef = ctx.fb.ref(ctx.db, "rooms/" + ctx.roomCode + "/map/public/scenes");
         ctx.fb.get(scenesRef).then(function (snap) {
@@ -267,6 +295,20 @@
     }
     mountNow(ctx);
   }
+  function fightInitiative() {
+    var api = root.SSDNSMapCards;
+    if (api && typeof api.initiative === "function") {
+      try { return api.initiative() || null; } catch (e) { return null; }
+    }
+    var table = root.DMCC && root.DMCC.state && root.DMCC.state.table;
+    return (table && table.initiative) || null;
+  }
+  function syncInitiative() {
+    if (!isDmPage() || !map || !map.syncCombatants) return;
+    var init = fightInitiative();
+    if (!init) return;
+    map.syncCombatants(init);
+  }
   function setPlayers(list) {
     players = (list || []).map(function (p) {
       return { uid: p.uid || p.id, id: p.id || p.uid, name: p.name || p.label || p.uid || p.id };
@@ -294,6 +336,7 @@
   root.SSDNSMapHost = {
     syncRoom: syncRoom,
     setPlayers: setPlayers,
+    syncInitiative: syncInitiative,
     destroy: destroyMap
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);

@@ -1,0 +1,155 @@
+{
+  "enemy-bandit-1": {
+    "tokenId": "enemy-bandit-1",
+    "kind": "enemy",
+    "name": "Bandit",
+    "hidden": true,
+    "ac": 12,
+    "hp": { "cur": 11, "max": 11, "temp": 0 },
+    "speed": 30,
+    "conditions": [],
+    "portrait": null,
+    "attacks": [
+      {
+        "id": "ballncap",
+        "name": "Ball n Cap",
+        "toHit": 3,
+        "range": "20/60",
+        "damage": "1d8+1 piercing",
+        "ammo": { "loaded": 6, "cap": 6, "spare": 12, "misfire": "1-4" }
+      }
+    ],
+    "spells": [],
+    "tactics": "Fires from cover. Flees at 3 HP.",
+    "deathSaves": null,
+    "dmActsAs": false
+  },
+  "tok_bandit1": {
+    "tokenId": "tok_bandit1",
+    "kind": "enemy",
+    "name": "Bandit",
+    "hidden": true,
+    "ac": 12,
+    "hp": { "cur": 11, "max": 11, "temp": 0 },
+    "speed": 30,
+    "conditions": [],
+    "portrait": null,
+    "attacks": [
+      {
+        "id": "ballncap",
+        "name": "Ball n Cap",
+        "toHit": 3,
+        "range": "20/60",
+        "damage": "1d8+1 piercing",
+        "ammo": { "loaded": 6, "cap": 6, "spare": 12, "misfire": "1-4" }
+      }
+    ],
+    "spells": [],
+    "tactics": "Fires from cover. Flees at 3 HP.",
+    "deathSaves": null,
+    "dmActsAs": false
+  },
+  "en_bandit1": {
+    "tokenId": "en_bandit1",
+    "kind": "enemy",
+    "name": "Bandit",
+    "hidden": true,
+    "ac": 12,
+    "hp": { "cur": 11, "max": 11, "temp": 0 },
+    "speed": 30,
+    "conditions": [],
+    "portrait": null,
+    "attacks": [
+      {
+        "id": "ballncap",
+        "name": "Ball n Cap",
+        "toHit": 3,
+        "range": "20/60",
+        "damage": "1d8+1 piercing",
+        "ammo": { "loaded": 6, "cap": 6, "spare": 12, "misfire": "1-4" }
+      }
+    ],
+    "spells": [],
+    "tactics": "Fires from cover. Flees at 3 HP.",
+    "deathSaves": null,
+    "dmActsAs": false
+  },
+  "pc-dust": {
+    "tokenId": "pc-dust",
+    "kind": "pc",
+    "name": "Dust",
+    "owner": "uid-player-1",
+    "hidden": false,
+    "ac": 14,
+    "hp": { "cur": 0, "max": 18, "temp": 0 },
+    "speed": 30,
+    "conditions": ["Unconscious"],
+    "portrait": null,
+    "attacks": [
+      {
+        "id": "blacksnake",
+        "name": "Blacksnake",
+        "toHit": 5,
+        "range": "40/120",
+        "damage": "1d10+3 piercing",
+        "ammo": { "loaded": 4, "cap": 6, "spare": 20 }
+      }
+    ],
+    "spells": [{ "id": "firebolt", "name": "Fire Bolt", "level": 0, "note": "120 ft, 1d10 fire" }],
+    "tactics": "",
+    "deathSaves": { "success": 1, "fail": 0 },
+    "dmActsAs": false
+  },
+  "tok_jolene": {
+    "tokenId": "tok_jolene",
+    "kind": "pc",
+    "name": "Jolene \"Dusty\" Pike",
+    "owner": "p_jolene",
+    "hidden": false,
+    "ac": 13,
+    "hp": { "cur": 17, "max": 20, "temp": 0 },
+    "speed": 30,
+    "conditions": [],
+    "portrait": null,
+    "attacks": [
+      {
+        "id": "blacksnake",
+        "name": "Blacksnake",
+        "toHit": 5,
+        "range": "40/120",
+        "damage": "1d10+3 piercing",
+        "ammo": { "loaded": 6, "cap": 6, "spare": 12 }
+      }
+    ],
+    "spells": [],
+    "tactics": "",
+    "deathSaves": null,
+    "dmActsAs": false
+  },
+  "p_jolene": {
+    "tokenId": "p_jolene",
+    "kind": "pc",
+    "name": "Jolene \"Dusty\" Pike",
+    "owner": "p_jolene",
+    "hidden": false,
+    "ac": 13,
+    "hp": { "cur": 17, "max": 20, "temp": 0 },
+    "speed": 30,
+    "conditions": [],
+    "portrait": null,
+    "attacks": [
+      {
+        "id": "blacksnake",
+        "name": "Blacksnake",
+        "toHit": 5,
+        "range": "40/120",
+        "damage": "1d10+3 piercing",
+        "ammo": { "loaded": 6, "cap": 6, "spare": 12 }
+      }
+    ],
+    "spells": [],
+    "tactics": "",
+    "deathSaves": null,
+    "dmActsAs": false
+  }
+}

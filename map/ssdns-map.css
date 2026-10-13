@@ -209,3 +209,85 @@ body.map-fullscreen #btnMapFull {
   body:not(.map-fullscreen) .ssdns-map .ssdns-leftbar select { width: auto; }
   body:not(.map-fullscreen) .ssdns-map .ssdns-rightbar { width: auto; max-height: 180px; }
 }
+
+/* DM combatant drawer. Sits in the stage cell so it does not cover the toolbars, turn strip, or chat. */
+.ssdns-map > .ssm-drawer {
+  grid-area: stage;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  left: auto;
+  bottom: auto;
+  width: min(260px, calc(100% - 16px));
+  max-height: calc(100% - 16px);
+  overflow: auto;
+  background: rgba(20, 16, 12, 0.96);
+  border: 1px solid #8a6a3a;
+  border-radius: 8px;
+  z-index: 5;
+  color: #f0e4cf;
+  font-size: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+.ssm-drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #5a4e40;
+  position: sticky;
+  top: 0;
+  background: #1c1814;
+}
+.ssm-drawer-head b { flex: 1; }
+.ssm-drawer-head button, .ssm-drawer button {
+  min-height: 32px;
+  padding: 4px 8px;
+  background: #3a3228;
+  color: #f0e4cf;
+  border: 1px solid #5a4e40;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.ssm-drawer-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.ssm-kind { font-size: 10px; color: #c9a227; text-transform: uppercase; }
+.ssm-section { font-size: 10px; color: #c9a227; text-transform: uppercase; margin-top: 4px; }
+.ssm-atk { width: 100%; text-align: left; }
+.ssm-atk:disabled { opacity: 0.4; cursor: not-allowed; }
+.ssm-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.ssm-drawer select, .ssm-drawer input[type="number"] {
+  min-height: 32px;
+  background: #2a241c;
+  color: #f0e4cf;
+  border: 1px solid #5a4e40;
+  border-radius: 4px;
+  padding: 4px;
+}
+.ssm-drawer input[type="number"] { width: 64px; }
+.ssm-conds { display: flex; gap: 4px; flex-wrap: wrap; }
+.ssm-cond { background: #4a3b22; padding: 2px 6px; border-radius: 3px; font-size: 10px; }
+.ssm-tactics { font-style: italic; color: #c9b89a; }
+.ssm-pending { color: #e8c36a; font-weight: 600; }
+body.map-fullscreen #mapMount > .ssm-drawer {
+  position: absolute;
+  top: 108px;
+  right: 184px;
+  left: auto;
+  bottom: auto;
+  width: 260px;
+  max-height: calc(100% - 220px);
+  grid-area: auto;
+}
+@media (max-width: 480px) {
+  .ssdns-map > .ssm-drawer,
+  body.map-fullscreen #mapMount > .ssm-drawer {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 60%;
+    border-radius: 12px 12px 0 0;
+  }
+}
