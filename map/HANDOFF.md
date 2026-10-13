@@ -1,3 +1,31 @@
+# Fog tools — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change. Fog stays a field on the existing scene (`map/public/scenes` and `map/dm/scenes`).
+
+## What changed
+
+The left bar no longer cycles one Fog button, and it no longer has a one-step Undo Fog. Reveal and Hide are separate tools. Each has a Box, Poly, or Brush picker, and the button name is the action plus the shape (`Reveal: Poly`, `Hide: Box`).
+
+Each placement is one entry in `scene.fogShapes`: `{ id, op, kind }` with a box, polygon points, or brush cells. `op` is `reveal` (clears fog) or `hide` (paints fog back). Later shapes win. Reveal boxes and polygons are also written to `fogRects` and `fogPolys` so an older reader still sees them. A scene that only has those older fields is copied into `fogShapes` the first time it loads.
+
+Erase deletes the topmost shape under the click and records that as one history step. Shift-click selects without deleting. Delete selection removes every selected shape in one step. An empty click in Erase clears the selection.
+
+Fog history is a session list on the DM client. Undo and Redo walk more than the last step. Clicking an earlier row jumps there. The list is not written to the database. Hide All and Reveal All still clear every fog shape and reset that list. Their labels stayed, and no extra all-map fog buttons were added. The token Hide button is unchanged.
+
+Players get the scene on the same path. With fog on, the map stays dark except where a reveal shape shows it, and a hide shape covers it again. A token shows when the base fog, vision, or a containing shape says so. An empty room can take shapes. Preview and full screen use the same handler.
+
+A polygon still closes when you click the first point, double-click, press Enter, or right-click. Escape cancels. Backspace removes the last point and does not delete the selected token.
+
+## Check
+
+```cmd
+node tools/test-map-fog.mjs
+```
+
+That covers an empty room, a reveal polygon, multi-step undo and redo, a hide box, erase, shift-select plus Delete selection, a player seeing a token inside a reveal and not one outside or under a hide, a brush stroke as one shape, and a hide polygon in full screen. The token buttons stay Hide, Hide All, and Reveal All. `test-map-drawer.mjs`, `test-map-m2.mjs`, `test-map-link.mjs`, `test-map-spells.mjs`, and `test-map-fight.mjs` still pass.
+
+Browser: DMCC Map tab and the sheet Map tab, preview and full screen. The buttons read Reveal: Poly, Hide: Box, Erase, and the existing Hide, Hide All, and Reveal All. History listed Reveal poly and Hide box. Undo, redo, and erase changed the canvas. The sheet preview used Reveal: Brush. Full screen closed a Hide: Poly with Enter.
+
 # Fog polygon — sheet 0.3.22 / DMCC 0.2.35
 
 Same draft. Versions stayed. `database.rules.json` did not change. The polygon is a field on the existing scene object (`map/public/scenes` and `map/dm/scenes`), not a new path.

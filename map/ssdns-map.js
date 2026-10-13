@@ -227,7 +227,7 @@ on(document, 'keydown', e => {
   }
   if (!el.matches(':hover') && !el.contains(e.target)) return;
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
-  if (role === 'dm' && (state.tool === 'poly' || state.fogMode === 'poly') && state.polyPoints && state.polyPoints.length) {
+  if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly' && state.polyPoints && state.polyPoints.length) {
     if (e.key === 'Escape') {
       e.preventDefault();
       state.polyPoints = [];
@@ -310,8 +310,25 @@ if (role === 'dm') {
     <button data-act="pingBtn">Ping</button>
     <button data-act="rulerBtn">Ruler</button>
     <button data-act="colorBtn">Color</button>
-    <button data-act="fogRectBtn">Fog</button>
-    <button data-act="undoFogBtn">Undo Fog</button>
+    <div class="panel-title">Fog</div>
+    <button data-act="revealFogBtn" type="button">Reveal: Box</button>
+    <select data-act="revealShape" aria-label="Reveal shape">
+      <option value="box">Box</option>
+      <option value="poly">Poly</option>
+      <option value="brush">Brush</option>
+    </select>
+    <button data-act="hideFogBtn" type="button">Hide: Box</button>
+    <select data-act="hideShape" aria-label="Hide shape">
+      <option value="box">Box</option>
+      <option value="poly">Poly</option>
+      <option value="brush">Brush</option>
+    </select>
+    <button data-act="eraseFogBtn" type="button">Erase</button>
+    <button data-act="deleteFogBtn" type="button">Delete selection</button>
+    <div class="panel-title">Fog history</div>
+    <div data-act="fogHistory"></div>
+    <button data-act="fogUndoBtn" type="button">Undo</button>
+    <button data-act="fogRedoBtn" type="button">Redo</button>
     <button data-act="hideBtn">Hide</button>
     <button data-act="hideAllBtn">Hide All</button>
     <button data-act="revealAllBtn">Reveal All</button>
@@ -459,26 +476,197 @@ function tracePoly(points, close) {
   });
   if (close) ctx.closePath();
 }
-function paintFogPolys(px) {
-  const polys = sceneData().fogPolys || [];
-  if (polys.length) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(200,180,80,0.9)';
-    ctx.fillStyle = 'rgba(200,180,80,0.18)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    polys.forEach(poly => {
-      if (!poly || !poly.points || poly.points.length < 3) return;
-      tracePoly(poly.points, true);
-      ctx.fill();
-      ctx.stroke();
+let fogSeq = 1;
+function fogId() { return 'fg_' + (fogSeq++); }
+function cloneShapes(list) { return JSON.parse(JSON.stringify(list || [])); }
+function shapeWord(kind) {
+  if (kind === 'poly') return 'Poly';
+  if (kind === 'brush') return 'Brush';
+  return 'Box';
+}
+function fogOp() { return state.tool === 'hide' ? 'hide' : 'reveal'; }
+function mirrorFog(scene) {
+  const shapes = scene.fogShapes || [];
+  scene.fogRects = shapes.filter(s => s && s.op === 'reveal' && s.kind === 'box').map(s => ({ x: s.x, y: s.y, w: s.w, h: s.h }));
+  scene.fogPolys = shapes.filter(s => s && s.op === 'reveal' && s.kind === 'poly' && s.points).map(s => ({ points: s.points }));
+}
+function rememberFog() {
+  if (!state.fogBefore) state.fogBefore = cloneShapes(sceneData().fogShapes);
+}
+function renderFogHistory() {
+  const box = q('fogHistory');
+  const past = state.fogPast || [];
+  const future = state.fogFuture || [];
+  if (box) {
+    box.innerHTML = '';
+    if (!past.length && !future.length) box.textContent = 'No fog edits';
+    past.forEach((step, i) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.textContent = step.label;
+      if (i === past.length - 1) row.classList.add('active');
+      row.addEventListener('click', () => jumpFog(i));
+      box.appendChild(row);
     });
-    ctx.restore();
+    future.slice().reverse().forEach(step => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.textContent = step.label;
+      row.disabled = true;
+      box.appendChild(row);
+    });
   }
-  if ((state.tool === 'poly' || state.fogMode === 'poly') && state.polyPoints && state.polyPoints.length) {
+  const undo = q('fogUndoBtn');
+  const redo = q('fogRedoBtn');
+  if (undo) undo.disabled = !past.length;
+  if (redo) redo.disabled = !future.length;
+}
+function commitFog(label) {
+  const scene = sceneData();
+  mirrorFog(scene);
+  if (!state.fogPast) state.fogPast = [];
+  state.fogPast.push({ label: label, before: state.fogBefore || [], after: cloneShapes(scene.fogShapes) });
+  if (state.fogPast.length > 40) state.fogPast.shift();
+  state.fogFuture = [];
+  state.fogBefore = null;
+  saveScene();
+  renderFogHistory();
+  toast(label);
+  draw();
+}
+function applyFogSnapshot(shapes) {
+  const scene = sceneData();
+  scene.fogShapes = cloneShapes(shapes);
+  mirrorFog(scene);
+  state.fogSelection = (state.fogSelection || []).filter(id => scene.fogShapes.some(s => s.id === id));
+  state.fogBefore = null;
+  saveScene();
+  renderFogHistory();
+  draw();
+}
+function undoFog() {
+  const past = state.fogPast || [];
+  const step = past.pop();
+  if (!step) { toast('Nothing to undo'); return; }
+  if (!state.fogFuture) state.fogFuture = [];
+  state.fogFuture.push(step);
+  applyFogSnapshot(step.before);
+}
+function redoFog() {
+  const future = state.fogFuture || [];
+  const step = future.pop();
+  if (!step) { toast('Nothing to redo'); return; }
+  if (!state.fogPast) state.fogPast = [];
+  state.fogPast.push(step);
+  applyFogSnapshot(step.after);
+}
+function jumpFog(index) {
+  const past = state.fogPast || [];
+  while (past.length - 1 > index) {
+    const step = past.pop();
+    if (!step) break;
+    if (!state.fogFuture) state.fogFuture = [];
+    state.fogFuture.push(step);
+  }
+  const current = past[past.length - 1];
+  if (current) applyFogSnapshot(current.after);
+}
+function addFogShape(shape) {
+  rememberFog();
+  shape.id = shape.id || fogId();
+  shape.op = shape.op || fogOp();
+  sceneData().fogShapes.push(shape);
+  const word = shape.op === 'hide' ? 'Hide' : 'Reveal';
+  commitFog(word + ' ' + shapeWord(shape.kind).toLowerCase());
+}
+function commitPoly() {
+  const pts = state.polyPoints || [];
+  if (pts.length < 3) return false;
+  const op = fogOp();
+  state.polyPoints = [];
+  state.polyHover = null;
+  addFogShape({ op: op, kind: 'poly', points: pts.map(p => ({ x: p.x, y: p.y })) });
+  return true;
+}
+function shapeContains(shape, x, y) {
+  if (!shape) return false;
+  if (shape.kind === 'box') return x >= shape.x && y >= shape.y && x < shape.x + shape.w && y < shape.y + shape.h;
+  if (shape.kind === 'poly') return pointInPoly(x, y, shape.points || []);
+  if (shape.kind === 'brush') return (shape.cells || []).some(c => x >= c.x && y >= c.y && x < c.x + 1 && y < c.y + 1);
+  return false;
+}
+function fogAt(x, y) {
+  const shapes = sceneData().fogShapes || [];
+  for (let i = shapes.length - 1; i >= 0; i--) {
+    if (shapeContains(shapes[i], x, y)) return shapes[i];
+  }
+  return null;
+}
+function fogCovers(x, y) {
+  let hidden = sceneData().fogRevealed !== true;
+  (sceneData().fogShapes || []).forEach(shape => {
+    if (shapeContains(shape, x, y)) hidden = shape.op === 'hide';
+  });
+  return hidden;
+}
+function clipShape(shape) {
+  const px = state.scene.grid.px;
+  if (!shape) return false;
+  if (shape.kind === 'box') {
+    const a = worldToScreen(shape.x * px, shape.y * px);
+    const b = worldToScreen((shape.x + shape.w) * px, (shape.y + shape.h) * px);
+    ctx.beginPath();
+    ctx.rect(a.x, a.y, Math.max(1, b.x - a.x), Math.max(1, b.y - a.y));
+    return true;
+  }
+  if (shape.kind === 'poly' && shape.points && shape.points.length >= 3) {
+    tracePoly(shape.points, true);
+    return true;
+  }
+  if (shape.kind === 'brush' && shape.cells && shape.cells.length) {
+    ctx.beginPath();
+    shape.cells.forEach(c => {
+      const a = worldToScreen(c.x * px, c.y * px);
+      const b = worldToScreen((c.x + 1) * px, (c.y + 1) * px);
+      ctx.rect(a.x, a.y, Math.max(1, b.x - a.x), Math.max(1, b.y - a.y));
+    });
+    return true;
+  }
+  return false;
+}
+function paintPlayerFog(img, cols, rows, px, box) {
+  const topLeft = worldToScreen(0, 0);
+  const paintMap = () => {
+    if (img) ctx.drawImage(img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
+  };
+  (sceneData().fogShapes || []).forEach(shape => {
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,220,120,0.95)';
-    ctx.fillStyle = 'rgba(255,220,120,0.95)';
+    if (!clipShape(shape)) { ctx.restore(); return; }
+    ctx.clip();
+    if (shape.op === 'hide') {
+      ctx.fillStyle = '#0a0806';
+      ctx.fillRect(0, 0, box.w, box.h);
+    } else paintMap();
+    ctx.restore();
+  });
+}
+function paintFogShapes(px) {
+  if (role !== 'dm') return;
+  (sceneData().fogShapes || []).forEach(shape => {
+    const selected = (state.fogSelection || []).indexOf(shape.id) >= 0;
+    const hide = shape.op === 'hide';
+    ctx.save();
+    ctx.strokeStyle = selected ? 'rgba(255,255,255,0.95)' : (hide ? 'rgba(90,150,230,0.95)' : 'rgba(200,180,80,0.9)');
+    ctx.fillStyle = hide ? 'rgba(12,28,60,0.35)' : 'rgba(200,180,80,0.16)';
+    ctx.lineWidth = selected ? 3 : 2;
+    ctx.setLineDash(selected ? [] : [4, 4]);
+    if (clipShape(shape)) { ctx.fill(); ctx.stroke(); }
+    ctx.restore();
+  });
+  if ((state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly' && state.polyPoints && state.polyPoints.length) {
+    ctx.save();
+    ctx.strokeStyle = state.tool === 'hide' ? 'rgba(140,190,255,0.95)' : 'rgba(255,220,120,0.95)';
+    ctx.fillStyle = ctx.strokeStyle;
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
     ctx.beginPath();
@@ -500,35 +688,34 @@ function paintFogPolys(px) {
     });
     ctx.restore();
   }
-}
-function commitPoly() {
-  const pts = state.polyPoints || [];
-  if (pts.length < 3) return false;
-  const poly = { points: pts.map(p => ({ x: p.x, y: p.y })) };
-  sceneData().fogPolys.push(poly);
-  state.undoStack.push({ type: 'fog', kind: 'poly' });
-  state.redoStack = [];
-  state.polyPoints = [];
-  state.polyHover = null;
-  saveScene();
-  toast('Fog polygon');
-  draw();
-  return true;
-}
-function popFogShape() {
-  for (let i = state.undoStack.length - 1; i >= 0; i--) {
-    if (state.undoStack[i].type !== 'fog') continue;
-    const action = state.undoStack.splice(i, 1)[0];
-    if (action.kind === 'poly') {
-      if (sceneData().fogPolys.length) sceneData().fogPolys.pop();
-    } else if (sceneData().fogRects.length) sceneData().fogRects.pop();
-    saveScene();
-    draw();
-    return true;
+  if (state.drag && state.drag.fog && state.fogStart) {
+    const pts = [...pointers.values()];
+    if (pts.length) {
+      const cur = screenToWorld(pts[0].x, pts[0].y);
+      const x1 = Math.min(state.fogStart.x, cur.x);
+      const y1 = Math.min(state.fogStart.y, cur.y);
+      const x2 = Math.max(state.fogStart.x, cur.x);
+      const y2 = Math.max(state.fogStart.y, cur.y);
+      const a = worldToScreen(x1, y1);
+      const b = worldToScreen(x2, y2);
+      ctx.save();
+      ctx.strokeStyle = state.tool === 'hide' ? 'rgba(140,190,255,0.95)' : 'rgba(255,220,120,0.95)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+      ctx.restore();
+    }
   }
-  if (sceneData().fogPolys.length) { sceneData().fogPolys.pop(); saveScene(); draw(); return true; }
-  if (sceneData().fogRects.length) { sceneData().fogRects.pop(); saveScene(); draw(); return true; }
-  return false;
+  if (state.brushCells && state.brushCells.length) {
+    ctx.save();
+    ctx.fillStyle = state.tool === 'hide' ? 'rgba(80,140,220,0.45)' : 'rgba(255,220,120,0.45)';
+    state.brushCells.forEach(c => {
+      const a = worldToScreen(c.x * px, c.y * px);
+      const b = worldToScreen((c.x + 1) * px, (c.y + 1) * px);
+      ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
+    });
+    ctx.restore();
+  }
 }
 function paintZoom() {
   const z = q('zoomLabel');
@@ -584,29 +771,11 @@ function draw() {
         drawVisible(ls.x, ls.y, ls.radius * px);
       }
 
-      // revealed rects and polygons
-      const topLeftFog = worldToScreen(0, 0);
-      const paintFog = () => {
-        ctx.drawImage(img, topLeftFog.x, topLeftFog.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
-      };
-      for (const fr of (sceneData().fogRects || [])) {
-        ctx.save();
-        const a = worldToScreen(fr.x * px, fr.y * px);
-        const b = worldToScreen((fr.x + fr.w) * px, (fr.y + fr.h) * px);
-        ctx.beginPath();
-        ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
-        ctx.clip();
-        paintFog();
-        ctx.restore();
-      }
-      for (const poly of (sceneData().fogPolys || [])) {
-        if (!poly || !poly.points || poly.points.length < 3) continue;
-        ctx.save();
-        tracePoly(poly.points, true);
-        ctx.clip();
-        paintFog();
-        ctx.restore();
-      }
+      paintPlayerFog(img, cols, rows, px, box);
+    } else if (role === 'player') {
+      const topLeft = worldToScreen(0, 0);
+      ctx.drawImage(img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
+      paintPlayerFog(img, cols, rows, px, box);
     } else {
       // DM always sees the full map
       const topLeft = worldToScreen(0, 0);
@@ -723,18 +892,7 @@ function draw() {
       ctx.restore();
     }
   }
-  if (role === 'dm' && sceneData().fogRects) {
-    ctx.strokeStyle = 'rgba(200,180,80,0.6)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    for (const fr of sceneData().fogRects) {
-      const a = worldToScreen(fr.x * px, fr.y * px);
-      const b = worldToScreen((fr.x + fr.w) * px, (fr.y + fr.h) * px);
-      ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
-    }
-    ctx.setLineDash([]);
-  }
-  if (role === 'dm') paintFogPolys(px);
+  if (role === 'dm') paintFogShapes(px);
 
   // grid
   const strength = Math.max(state.gridStrength, state.minStrength);
@@ -779,12 +937,11 @@ function draw() {
       if ((t.sceneId || 'scn_dustyspur01') !== myScene) continue;
     }
 
-    // player vision + revealed rects + other light sources
-    if (role === 'player' && !sceneData().fogRevealed) {
+    if (role === 'player') {
       const tcx = (t.pos.x + (t.size || 1) / 2) * px;
       const tcy = (t.pos.y + (t.size || 1) / 2) * px;
-      let visible = false;
-      if (visionCenter) {
+      let visible = sceneData().fogRevealed === true;
+      if (!visible && visionCenter) {
         const dx = tcx - visionCenter.x;
         const dy = tcy - visionCenter.y;
         if (Math.hypot(dx, dy) <= visionRadiusSq * px) visible = true;
@@ -796,22 +953,11 @@ function draw() {
           if (Math.hypot(dx, dy) <= ls.radius * px) { visible = true; break; }
         }
       }
-      if (!visible && sceneData().fogRects) {
-        for (const fr of sceneData().fogRects) {
-          if (t.pos.x >= fr.x && t.pos.x < fr.x + fr.w &&
-              t.pos.y >= fr.y && t.pos.y < fr.y + fr.h) {
-            visible = true;
-            break;
-          }
-        }
-      }
-      if (!visible && sceneData().fogPolys) {
-        const tcxG = t.pos.x + (t.size || 1) / 2;
-        const tcyG = t.pos.y + (t.size || 1) / 2;
-        for (const poly of sceneData().fogPolys) {
-          if (poly && poly.points && pointInPoly(tcxG, tcyG, poly.points)) { visible = true; break; }
-        }
-      }
+      const gx = t.pos.x + (t.size || 1) / 2;
+      const gy = t.pos.y + (t.size || 1) / 2;
+      (sceneData().fogShapes || []).forEach(shape => {
+        if (shapeContains(shape, gx, gy)) visible = shape.op !== 'hide';
+      });
       if (!visible) continue;
     }
 
@@ -1039,38 +1185,67 @@ function iconCursor(emoji) {
   return `url("data:image/svg+xml;utf8,${svg}") 6 28, crosshair`;
 }
 function applyCursor() {
-  if (state.tool === 'rect' || state.tool === 'poly' || state.tool === 'wall' || state.tool === 'room' || state.tool === 'door' || state.tool === 'window') canvas.style.cursor = 'crosshair';
+  if (state.tool === 'reveal' || state.tool === 'hide' || state.tool === 'erase' || state.tool === 'wall' || state.tool === 'room' || state.tool === 'door' || state.tool === 'window') canvas.style.cursor = 'crosshair';
   else if (state.tool === 'ruler') canvas.style.cursor = iconCursor('📏');
   else if (state.tool === 'ping') canvas.style.cursor = iconCursor('📡');
   else if (state.offline) canvas.style.cursor = iconCursor('👻');
   else canvas.style.cursor = 'default';
 }
-function setTool(tool) {
-  const wallTool = tool === 'wall' || tool === 'room' || tool === 'door' || tool === 'window' || tool === 'delwall';
-  if (tool === 'fogToggle') {
-    if (state.tool === 'poly') tool = 'rect';
-    else if (state.tool === 'rect') tool = null;
-    else tool = 'poly';
+function paintFogTools() {
+  const revealKind = (q('revealShape') && q('revealShape').value) || 'box';
+  const hideKind = (q('hideShape') && q('hideShape').value) || 'box';
+  const reveal = q('revealFogBtn');
+  const hide = q('hideFogBtn');
+  const erase = q('eraseFogBtn');
+  if (reveal) {
+    reveal.textContent = 'Reveal: ' + shapeWord(revealKind);
+    reveal.classList.toggle('active', state.tool === 'reveal');
   }
-  state.tool = state.tool === tool ? null : tool;
-  state.fogMode = state.tool;
-  if (state.tool !== 'poly') { state.polyPoints = []; state.polyHover = null; }
-  if (wallTool) revealWallLines();
+  if (hide) {
+    hide.textContent = 'Hide: ' + shapeWord(hideKind);
+    hide.classList.toggle('active', state.tool === 'hide');
+  }
+  if (erase) erase.classList.toggle('active', state.tool === 'erase');
+}
+function clearToolButtons() {
   el.querySelectorAll('.ssdns-leftbar button').forEach(b => {
-    if (b.getAttribute('data-act') === 'fogBtn' || b.getAttribute('data-act') === 'showFovBtn' || b.getAttribute('data-act') === 'wallsVisBtn') return;
+    const act = b.getAttribute('data-act');
+    if (act === 'fogBtn' || act === 'showFovBtn' || act === 'wallsVisBtn' || act === 'fogUndoBtn' || act === 'fogRedoBtn' || act === 'deleteFogBtn') return;
     b.classList.remove('active');
   });
-  const fogBtn = q('fogRectBtn');
-  if (fogBtn) {
-    if (state.tool === 'poly') { fogBtn.textContent = 'Fog: Poly'; fogBtn.classList.add('active'); }
-    else if (state.tool === 'rect') { fogBtn.textContent = 'Fog: Rect'; fogBtn.classList.add('active'); }
-    else { fogBtn.textContent = 'Fog'; }
+}
+function armFog(op) {
+  const sel = q(op === 'hide' ? 'hideShape' : 'revealShape');
+  const kind = (sel && sel.value) || 'box';
+  if (state.tool === op) {
+    state.tool = null;
+    state.fogKind = null;
+  } else {
+    state.tool = op;
+    state.fogKind = kind;
   }
+  state.fogMode = state.tool;
+  if (state.fogKind !== 'poly') { state.polyPoints = []; state.polyHover = null; }
+  clearToolButtons();
+  paintFogTools();
+  applyCursor();
+  draw();
+}
+function setTool(tool) {
+  const wallTool = tool === 'wall' || tool === 'room' || tool === 'door' || tool === 'window' || tool === 'delwall';
+  state.tool = state.tool === tool ? null : tool;
+  state.fogMode = null;
+  state.fogKind = null;
+  state.polyPoints = [];
+  state.polyHover = null;
+  if (wallTool) revealWallLines();
+  clearToolButtons();
   ['rulerBtn','pingBtn','wallBtn','delWallBtn','roomBtn','doorBtn','windowBtn'].forEach(id => {
     const b = q(id);
     const toolMap = { rulerBtn: 'ruler', pingBtn: 'ping', wallBtn: 'wall', delWallBtn: 'delwall', roomBtn: 'room', doorBtn: 'door', windowBtn: 'window' };
     if (b && state.tool === toolMap[id]) b.classList.add('active');
   });
+  paintFogTools();
   applyCursor();
   draw();
 }
@@ -1369,6 +1544,7 @@ function ensureDefaultScene() {
     fogPolys: cur.fogPolys || [],
     fogRevealed: cur.fogRevealed === true
   };
+  if (Array.isArray(cur.fogShapes)) shared.scenes[sid].fogShapes = cur.fogShapes;
   defaultSceneDone = true;
   saveScene(sid);
 }
@@ -1640,23 +1816,49 @@ function onPointerDown(e) {
       draw();
       return;
     }
-    if (role === 'dm' && (state.tool === 'rect' || state.fogMode === 'rect')) {
+    if (role === 'dm' && state.tool === 'erase') {
+      e.preventDefault();
+      e.stopPropagation();
+      const w = pointerWorld(e);
+      const px = state.scene.grid.px;
+      const hit = fogAt(w.x / px, w.y / px);
+      if (e.shiftKey) {
+        if (!hit) return;
+        if (!state.fogSelection) state.fogSelection = [];
+        const idx = state.fogSelection.indexOf(hit.id);
+        if (idx >= 0) state.fogSelection.splice(idx, 1);
+        else state.fogSelection.push(hit.id);
+        draw();
+        return;
+      }
+      if (!hit) {
+        state.fogSelection = [];
+        draw();
+        return;
+      }
+      rememberFog();
+      sceneData().fogShapes = sceneData().fogShapes.filter(s => s.id !== hit.id);
+      state.fogSelection = (state.fogSelection || []).filter(id => id !== hit.id);
+      commitFog('Erase');
+      return;
+    }
+    if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'box') {
+      e.preventDefault();
       const w = pointerWorld(e);
       state.fogStart = w;
       state.drag = { fog: true, sx: e.clientX, sy: e.clientY };
       return;
     }
-    if (role === 'dm' && (state.tool === 'brush' || state.fogMode === 'brush')) {
+    if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'brush') {
+      e.preventDefault();
       const w = pointerWorld(e);
       const px = state.scene.grid.px;
-      const rect = { x: Math.floor(w.x / px), y: Math.floor(w.y / px), w: 1, h: 1 };
-      sceneData().fogRects.push(rect);
-      state.undoStack.push({ type: 'fog', rect });
-      saveScene();
+      state.brushCells = [{ x: Math.floor(w.x / px), y: Math.floor(w.y / px) }];
+      state.drag = { brush: true };
       draw();
       return;
     }
-    if (role === 'dm' && (state.tool === 'poly' || state.fogMode === 'poly')) {
+    if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly') {
       e.preventDefault();
       e.stopPropagation();
       if (!state.polyPoints) state.polyPoints = [];
@@ -1750,7 +1952,13 @@ function onPointerDown(e) {
   e.preventDefault();
 }
 function onPointerMove(e) {
-  const polyLive = role === 'dm' && (state.tool === 'poly' || state.fogMode === 'poly') && state.polyPoints && state.polyPoints.length;
+  const polyLive = role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly' && state.polyPoints && state.polyPoints.length;
+  if (state.drag && state.drag.brush && state.brushCells) {
+    const w = pointerWorld(e);
+    const px = state.scene.grid.px;
+    const cell = { x: Math.floor(w.x / px), y: Math.floor(w.y / px) };
+    if (!state.brushCells.some(c => c.x === cell.x && c.y === cell.y)) state.brushCells.push(cell);
+  }
   if (polyLive) state.polyHover = pointerWorld(e);
   if (!pointers.has(e.pointerId)) {
     if (polyLive) draw();
@@ -1910,17 +2118,18 @@ function onPointerUp(e) {
     const y1 = Math.min(state.fogStart.y, w.y);
     const x2 = Math.max(state.fogStart.x, w.x);
     const y2 = Math.max(state.fogStart.y, w.y);
-    const rect = {
+    addFogShape({
+      op: fogOp(),
+      kind: 'box',
       x: Math.floor(x1 / px),
       y: Math.floor(y1 / px),
       w: Math.max(1, Math.ceil((x2 - x1) / px)),
       h: Math.max(1, Math.ceil((y2 - y1) / px))
-    };
-    sceneData().fogRects.push(rect);
-    saveScene();
-    state.fogMode = null;
-    const btn = q('fogRectBtn');
-    if (btn) btn.textContent = 'Fog Rect';
+    });
+  }
+  if (state.drag && state.drag.brush && state.brushCells && state.brushCells.length) {
+    addFogShape({ op: fogOp(), kind: 'brush', cells: state.brushCells.map(c => ({ x: c.x, y: c.y })) });
+    state.brushCells = null;
   }
   pointers.delete(e.pointerId);
   if (pointers.size === 0) state.drag = null;
@@ -2172,7 +2381,7 @@ Door / Window: click a wall. Click again to open or shut. Right-click removes it
 Wall and Room: drag, release to commit.<br>
 Walls: OFF hides the lines so you can see the raw map. Walls still block.<br>
 Grant / Revoke: pick a player, then a token. Revoke on their own token locks them out. Grant gives it back.<br>
-Fog: Poly — click each corner. Click the first point, double-click, or press Enter to close. Right-click or Escape cancels. Fog: Rect — drag a box. Fog: ON hides everything outside those shapes from players.<br>
+Reveal clears fog. Hide paints fog back. Each has a Box, Poly, or Brush picker, and the button name is the action. Poly: click corners, then the first point, double-click, or Enter. Erase deletes one shape. Shift-click selects more, then Delete selection removes them together. Undo and Redo walk the fog history.<br>
 Show Player FOV greys the rest and brightens their light.<br>
 Set floor, then Show to players, to move someone to another map.` : `<b>Player</b><br>
 You move your own token, and any the DM has granted you.<br>
@@ -2273,7 +2482,54 @@ if (role === 'dm') {
     saveScene();
     draw();
   });
-  q('fogRectBtn').addEventListener('click', () => setTool('fogToggle'));
+  q('revealFogBtn').addEventListener('click', () => armFog('reveal'));
+  q('hideFogBtn').addEventListener('click', () => armFog('hide'));
+  q('eraseFogBtn').addEventListener('click', () => {
+    if (state.tool === 'erase') {
+      state.tool = null;
+      state.fogKind = null;
+      clearToolButtons();
+      paintFogTools();
+      applyCursor();
+      draw();
+      return;
+    }
+    state.tool = 'erase';
+    state.fogKind = null;
+    state.polyPoints = [];
+    state.polyHover = null;
+    clearToolButtons();
+    paintFogTools();
+    applyCursor();
+    draw();
+  });
+  q('revealShape').addEventListener('change', () => {
+    if (state.tool === 'reveal') {
+      state.fogKind = q('revealShape').value;
+      if (state.fogKind !== 'poly') { state.polyPoints = []; state.polyHover = null; }
+    }
+    paintFogTools();
+    draw();
+  });
+  q('hideShape').addEventListener('change', () => {
+    if (state.tool === 'hide') {
+      state.fogKind = q('hideShape').value;
+      if (state.fogKind !== 'poly') { state.polyPoints = []; state.polyHover = null; }
+    }
+    paintFogTools();
+    draw();
+  });
+  q('deleteFogBtn').addEventListener('click', () => {
+    const ids = state.fogSelection || [];
+    if (!ids.length) { toast('Select fog first'); return; }
+    rememberFog();
+    sceneData().fogShapes = sceneData().fogShapes.filter(s => ids.indexOf(s.id) < 0);
+    state.fogSelection = [];
+    commitFog(ids.length === 1 ? 'Erase' : 'Erase ' + ids.length);
+  });
+  q('fogUndoBtn').addEventListener('click', undoFog);
+  q('fogRedoBtn').addEventListener('click', redoFog);
+  renderFogHistory();
   q('wallBtn').addEventListener('click', () => setTool('wall'));
   q('roomBtn').addEventListener('click', () => setTool('room'));
   q('doorBtn').addEventListener('click', () => setTool('door'));
@@ -2334,9 +2590,6 @@ if (role === 'dm') {
   });
   q('rulerBtn').addEventListener('click', () => setTool('ruler'));
   q('pingBtn').addEventListener('click', () => setTool('ping'));
-  q('undoFogBtn').addEventListener('click', () => {
-    if (!popFogShape()) toast('No fog');
-  });
   q('undoBtn').addEventListener('click', () => {
     const action = state.undoStack.pop();
     if (!action) return;
@@ -2384,20 +2637,30 @@ if (role === 'dm') {
     sceneData().fogRevealed = true;
     sceneData().fogRects = [];
     sceneData().fogPolys = [];
+    sceneData().fogShapes = [];
     state.polyPoints = [];
     state.polyHover = null;
+    state.fogSelection = [];
+    state.fogPast = [];
+    state.fogFuture = [];
     q('fogBtn').textContent = 'Fog: OFF';
     saveScene();
+    renderFogHistory();
     draw();
   });
   q('hideAllBtn').addEventListener('click', () => {
     sceneData().fogRevealed = false;
     sceneData().fogRects = [];
     sceneData().fogPolys = [];
+    sceneData().fogShapes = [];
     state.polyPoints = [];
     state.polyHover = null;
+    state.fogSelection = [];
+    state.fogPast = [];
+    state.fogFuture = [];
     q('fogBtn').textContent = 'Fog: ON';
     saveScene();
+    renderFogHistory();
     draw();
   });
   q('dmTorchBtn').addEventListener('click', () => {
@@ -2604,6 +2867,18 @@ function sceneData(id) {
   if (!Array.isArray(scene.walls)) scene.walls = [];
   if (!Array.isArray(scene.fogRects)) scene.fogRects = [];
   if (!Array.isArray(scene.fogPolys)) scene.fogPolys = [];
+  if (!Array.isArray(scene.fogShapes)) {
+    const shapes = [];
+    scene.fogRects.forEach(r => {
+      if (!r) return;
+      shapes.push({ id: fogId(), op: 'reveal', kind: 'box', x: r.x || 0, y: r.y || 0, w: r.w || 1, h: r.h || 1 });
+    });
+    scene.fogPolys.forEach(p => {
+      if (!p || !p.points || p.points.length < 3) return;
+      shapes.push({ id: fogId(), op: 'reveal', kind: 'poly', points: p.points.map(pt => ({ x: pt.x, y: pt.y })) });
+    });
+    scene.fogShapes = shapes;
+  }
   return scene;
 }
 function migrateGlobalToScenes() {
