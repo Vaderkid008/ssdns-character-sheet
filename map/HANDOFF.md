@@ -1,3 +1,13 @@
+# Embedded map middle-pan — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change.
+
+Middle-click on the embedded map started the browser's autoscroll because the pan path returned before `preventDefault`. Full screen hid that, since the map already covered the page.
+
+The canvas now cancels middle `pointerdown` and `mousedown`, and `auxclick`, and those events do not bubble. The map container does the same when the click is not already on the canvas. Wheel and an in-progress pan do not bubble either. The map and its canvas use `touch-action: none` and `overscroll-behavior: none`. Middle-drag still pans, and the wheel still zooms when the middle button is up.
+
+Checked in the browser: sheet Map tab and DMCC Map tab, preview and full screen. The page scroll position stayed put while the canvas pixels changed. `node tools/test-map-drawer.mjs` covers the cancel, the no-zoom rule, and that a normal wheel still zooms.
+
 # Main tab layout — sheet 0.3.22 / DMCC 0.2.35
 
 Same draft. Versions stayed at sheet 0.3.22 / DMCC 0.2.35. `database.rules.json` did not change. No combat, spell, or wallet math changed.

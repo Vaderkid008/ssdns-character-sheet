@@ -1373,6 +1373,8 @@ function onPointerDown(e) {
   pointers.set(e.pointerId, Object.assign({ t: Date.now() }, localXY(e)));
   if (pointers.size === 1) {
     if (e.button === 1) {
+      e.preventDefault();
+      e.stopPropagation();
       state.drag = { pan: true, middle: true, sx: e.clientX, sy: e.clientY, vx: state.view.x, vy: state.view.y };
       draw();
       return;
@@ -1606,6 +1608,8 @@ function onPointerMove(e) {
   if (state.tool === 'room' && state.roomStart) draw();
   if (pointers.size === 1 && state.drag) {
     if (state.drag.pan) {
+      e.preventDefault();
+      e.stopPropagation();
       const dx = (e.clientX - state.drag.sx) / state.view.zoom;
       const dy = (e.clientY - state.drag.sy) / state.view.zoom;
       state.view.x = state.drag.vx - dx;
@@ -1961,14 +1965,24 @@ function hitTest(wx, wy) {
   return null;
 }
 
+function swallowMiddle(e) {
+  if (e.button !== 1) return;
+  e.preventDefault();
+  e.stopPropagation();
+}
 on(canvas, 'pointerdown', onPointerDown);
+on(el, 'pointerdown', e => { if (e.button === 1 && e.target !== canvas) swallowMiddle(e); });
+on(canvas, 'mousedown', swallowMiddle);
+on(el, 'mousedown', swallowMiddle);
 on(canvas, 'contextmenu', e => e.preventDefault());
-on(canvas, 'auxclick', e => { if (e.button === 1) e.preventDefault(); });
+on(canvas, 'auxclick', swallowMiddle);
+on(el, 'auxclick', swallowMiddle);
 on(canvas, 'pointermove', onPointerMove);
 on(canvas, 'pointerup', onPointerUp);
 on(canvas, 'pointercancel', onPointerUp);
 on(canvas, 'wheel', e => {
   e.preventDefault();
+  e.stopPropagation();
   if ((e.buttons & 4) || (state.drag && state.drag.middle)) return;
   const before = pointerWorld(e);
   const factor = e.deltaY < 0 ? 1.1 : 0.9;
