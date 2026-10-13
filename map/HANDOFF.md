@@ -1,3 +1,35 @@
+# Ammo display framework — sheet 0.3.24 / DMCC 0.2.37
+
+`database.rules.json` did not change. No new database path. The flag stays off.
+
+## What it is
+
+`assets/js/ammo-display.js` draws one picture from the gun you already have. The Gear tab, the Fight tab's current turn, the turn strip, and the map drawer call it. Each chamber button keeps the attributes those screens already listen for (`data-fire`, `data-strip-fire`, `data-cyl-fire`, `data-act="chamber"`). Spending, loading, and misfire math are unchanged. The target menu stays next to the cylinder. With the flag off, the Fight tab list does not gain a new row and the old dots stay.
+
+The flag is off unless `window.SSDNS_AMMO_DISPLAY` is true, `localStorage.ssdns.ammoDisplay` is `"on"`, or the URL has `ammoDisplay=1`. While it is off, those three screens keep the old dots.
+
+## Types
+
+- `cylinder` — round SVG, notched rim, center pin. Chambers sit on a circle. Capacity comes from the gun, including 6, 7, and 8.
+- `tube` — horizontal magazine. Rounds sit in a row. The follower and spring move as rounds empty.
+- `dots` — the old row, for everything else.
+
+`ammoDisplay` on the gun or attack overrides the pick. Otherwise the weapon `action` decides: revolver or caster cylinder becomes a cylinder, lever or tube becomes a tube. A pepperbox stays dots. If the attack has no action, the name is used the same way, and a catalog id is looked up in the rules already loaded on the page.
+
+Loaded, spent, and misfire/jam are three chamber states. A gun-level `jammed` flag marks the whole picture.
+
+## Where to look
+
+`map/ammo-display.html` draws each type without turning the flag on for the sheet. Click a chamber there and only that picture changes.
+
+```cmd
+node tools/test-ammo-display.mjs
+```
+
+That covers the flag, the type pick, the override, 6/7/8 cylinders, the tube follower, the dot fallback, and a click that still reaches the existing attribute. `node tools/test-map-spells.mjs` still sees the one-row dots while the flag is off.
+
+Cache queries: `ammo-display.js`, `ammo-display.css`, and `app.js` are `0.3.24-ammo` on the sheet. DMCC `ammo-display.js`, `ammo-display.css`, `v2.js`, and the map JS are `0.2.37-ammo`.
+
 # Token sync and enemy chamber fire — sheet 0.3.23 / DMCC 0.2.36
 
 `database.rules.json` did not change. Distance and range are unchanged.

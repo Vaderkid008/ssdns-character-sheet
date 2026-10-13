@@ -3290,6 +3290,23 @@ async function loadSceneImage(sceneId) {
       const cap = Number(a.ammo.cap) || 0;
       const loaded = Number(a.ammo.loaded) || 0;
       const flags = Array.isArray(a.ammo.chambers) ? a.ammo.chambers : null;
+      const graphic = window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
+      if (graphic) {
+        const picture = window.SSDNSAmmoDisplay.html({
+          name: a.name || '',
+          action: a.action || '',
+          weapon: a.weapon || '',
+          ammoDisplay: a.ammoDisplay || (a.ammo && a.ammo.ammoDisplay) || '',
+          cap: cap,
+          loaded: loaded,
+          chambers: flags || undefined,
+          jammed: !!(a.jammed || (a.ammo && a.ammo.jammed)),
+          size: 'drawer',
+          attr: 'data-act="chamber" data-wid="' + esc(a.id) + '"',
+          attrs: function (k) { return { 'data-k': String(k) }; }
+        });
+        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select></div>';
+      }
       let dots = '';
       for (let k = 0; k < cap; k++) {
         const full = flags ? !!flags[k] : k < loaded;

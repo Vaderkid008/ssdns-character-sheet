@@ -269,10 +269,26 @@ function cylinderTargetHtml(row) {
 }
 function stripGuns(row, i) {
   if (!fight.started || i !== fight.turn) return "";
-  function dots(count, loaded, attrs, flags) {
-    let html = "";
+  function dots(count, loaded, attrs, flags, gun) {
     const n = Number(count) || 0;
     const fullN = Number(loaded) || 0;
+    const graphic = window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
+    if (graphic && n) {
+      return window.SSDNSAmmoDisplay.html({
+        name: gun && gun.name,
+        action: gun && gun.action,
+        weapon: gun && gun.weapon,
+        ammoDisplay: gun && gun.ammoDisplay,
+        cap: n,
+        loaded: fullN,
+        chambers: flags || undefined,
+        jammed: !!(gun && gun.jammed),
+        size: "strip",
+        attr: attrs,
+        attrs: function (k) { return { "data-gun-k": String(k), "data-k": String(k) }; }
+      });
+    }
+    let html = "";
     for (let k = 0; k < n; k++) {
       const full = flags ? !!flags[k] : k < fullN;
       html += `<button type="button" class="chamber-dot${full ? " full" : ""}" ${attrs} data-gun-k="${k}" aria-label="Chamber ${k + 1}"></button>`;
@@ -284,7 +300,7 @@ function stripGuns(row, i) {
     const target = cylinderTargetHtml(row);
     return list.map((atk, n) => {
       if (!atk || atk.capacity == null) return "";
-      return `<span class="cylinder-row">${esc(atk.name || "Gun")} ${dots(atk.capacity, atk.loaded, `data-cyl-fire="${esc(row.id)}" data-atk-n="${n}"`)} ${target}</span>`;
+      return `<span class="cylinder-row">${esc(atk.name || "Gun")} ${dots(atk.capacity, atk.loaded, `data-cyl-fire="${esc(row.id)}" data-atk-n="${n}"`, null, atk)} ${target}</span>`;
     }).join("");
   }
   return publicGuns(row).map((g, gi) => {
@@ -292,7 +308,7 @@ function stripGuns(row, i) {
     const cap = chambers.length || Number(g.capacity) || 0;
     const loaded = chambers.length ? chambers.filter(Boolean).length : (Number(g.loaded) || 0);
     const pid = esc(row.playerId || row.id || "");
-    return `<span class="cylinder-row">${esc(g.name || "Gun")} ${dots(cap, loaded, `data-strip-fire="${pid}" data-gun-i="${gi}"`, chambers.length ? chambers.map(Boolean) : null)}</span>`;
+    return `<span class="cylinder-row">${esc(g.name || "Gun")} ${dots(cap, loaded, `data-strip-fire="${pid}" data-gun-i="${gi}"`, chambers.length ? chambers.map(Boolean) : null, g)}</span>`;
   }).join("");
 }
 function publicGuns(row) {
@@ -301,14 +317,22 @@ function publicGuns(row) {
     const snap = DM.state.players[row.playerId].snapshot || {};
     return (snap.guns || []).filter((g) => g && g.name).map((g) => ({
       name: g.name,
+      weapon: g.weapon || "",
+      action: g.action || "",
+      ammoDisplay: g.ammoDisplay || "",
+      jammed: !!g.jammed,
       capacity: g.capacity || 0,
       loaded: g.loaded || 0,
-      chambers: (g.chambers || []).map((st) => (st ? 1 : 0))
+      chambers: (g.chambers || []).map((st) => (/^(jam|misfire)$/i.test(String(st || "")) ? "jam" : (st ? 1 : 0)))
     }));
   }
   const attacks = (row.attackList || row.card && row.card.attacks || []).filter((a) => a && a.capacity);
   return attacks.map((a) => ({
     name: a.name || "Gun",
+    weapon: a.weapon || "",
+    action: a.action || "",
+    ammoDisplay: a.ammoDisplay || "",
+    jammed: !!a.jammed,
     capacity: a.capacity,
     loaded: a.loaded || 0,
     chambers: Array.from({ length: Number(a.capacity) || 0 }, (_, i) => i < Number(a.loaded || 0) ? 1 : 0)
@@ -865,6 +889,7 @@ function turnRowHtml(row, i) {
       <span class="init-who" title="${esc(row.name || "Someone")}">        <span class="who-name">${row.kind === "enemy" ? `<button type="button" class="name-btn" data-open-enemy="${esc(row.id || "")}">${esc(row.name || "Someone")}</button>` : `<b>${esc(row.name || "Someone")}</b>`}${sideBadge}</span>
         <span class="fine">${esc(sideWord)}${row.tie ? " · tie" : ""}${status ? " · " + esc(status) : ""}${detail ? " · " + esc(detail) : ""}${esc(turnAckLabel(row))}</span>
         ${downBadge}
+        ${window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled() ? stripGuns(row, i) : ""}
         ${conditionChips(row)}
         ${tactics ? `<span class="tactics-note">Tactics. ${esc(tactics)}</span>` : ""}
         ${revealBar(row, i)}

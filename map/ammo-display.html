@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ammo display</title>
+<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.22-ammo">
+<style>
+  body { margin: 0; background: #1a1612; color: #f0e4cf; font: 15px/1.4 system-ui, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  .note { color: #c9b89a; max-width: 68ch; }
+  .flag { margin: 12px 0 20px; padding: 8px 10px; border: 1px solid #8a6a3a; border-radius: 6px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .card { background: #241e18; border: 1px solid #5a4e40; border-radius: 8px; padding: 12px; }
+  .card h2 { font-size: 14px; margin: 0 0 4px; color: #e2c56a; }
+  .kind { font-size: 12px; color: #c9a227; margin-bottom: 8px; }
+  .stage { min-height: 188px; display: flex; align-items: center; }
+  .log { margin-top: 16px; font-size: 13px; color: #e2c56a; min-height: 1.2em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Ammo display</h1>
+  <p class="note">Cylinder, tube, and the dot row share one component. A chamber click on this page only changes the picture. The Gear tab, the Fight tab, and the map drawer keep their own spend and load handlers, and they keep today's dots until the flag is on.</p>
+  <p class="flag" id="flag"></p>
+  <div class="grid" id="board"></div>
+  <p class="log" id="log">Click a chamber.</p>
+</main>
+<script src="../assets/data/rules.js?v=0.3.22-ammo"></script>
+<script src="../assets/js/ammo-display.js?v=0.3.22-ammo"></script>
+<script>
+(function () {
+  var api = window.SSDNSAmmoDisplay;
+  var flag = document.getElementById("flag");
+  flag.textContent = api.enabled()
+    ? "Flag is on for this page. Gear, Fight, and the map drawer will use these pictures too."
+    : "Flag is off. This page draws the pictures directly. Gear, Fight, and the map drawer still use the old dots until Jessey turns the flag on.";
+
+  var panels = [
+    { title: "Cylinder, 6", spec: { action: "Revolver", name: "Revolver", cap: 6, size: "demo", chambers: [1, 1, "jam", 1, "", 1] } },
+    { title: "Cylinder, 7", spec: { action: "Revolver", name: "Seven", cap: 7, size: "demo", chambers: [1, 1, 1, 1, 1, "", ""] } },
+    { title: "Cylinder, 8", spec: { action: "Revolver", name: "Eight", cap: 8, size: "demo", chambers: [1, 1, 1, 1, 1, 1, 1, ""] } },
+    { title: "Tube, four left", spec: { action: "Lever (tube)", name: "Lever", cap: 8, size: "demo", chambers: [1, 1, 1, 1, "", "", "", ""] } },
+    { title: "Tube, one round", spec: { action: "Lever (tube)", name: "Carbine", cap: 6, size: "demo", chambers: [1, "", "", "", "", ""] } },
+    { title: "Dots, pepperbox", spec: { action: "Pepperbox", name: "Pepperbox", cap: 4, size: "demo", chambers: [1, 1, "", 1] } },
+    { title: "Override, revolver as tube", spec: { action: "Revolver", ammoDisplay: "tube", name: "Revolver", cap: 6, size: "demo", chambers: [1, 1, 1, "", "", ""] } },
+    { title: "Override, lever as dots", spec: { action: "Lever (tube)", ammoDisplay: "dots", name: "Lever", cap: 7, size: "demo", loaded: 3 } },
+    { title: "Jammed revolver", spec: { action: "Revolver", name: "Jammed", cap: 6, size: "demo", jammed: true, loaded: 4 } },
+    { title: "Catalog, pocket pistol", spec: { weapon: "herringer-light-pocket-pistol", name: "Herringer Light Pocket Pistol", cap: 1, size: "demo", loaded: 1 } }
+  ];
+
+  var board = document.getElementById("board");
+  var log = document.getElementById("log");
+
+  function paint() {
+    board.innerHTML = panels.map(function (panel, i) {
+      var type = api.kind(panel.spec);
+      return '<section class="card"><h2>' + panel.title + '</h2><div class="kind">' + type + '</div><div class="stage" data-panel="' + i + '">' + api.html(panel.spec) + '</div></section>';
+    }).join("");
+  }
+
+  board.addEventListener("click", function (e) {
+    var btn = e.target.closest && e.target.closest("button.ammo-round");
+    if (!btn) return;
+    var stage = btn.closest("[data-panel]");
+    var panel = panels[Number(stage.getAttribute("data-panel"))];
+    var k = Number(btn.getAttribute("data-k"));
+    var cap = panel.spec.cap;
+    var chambers = Array.isArray(panel.spec.chambers) ? panel.spec.chambers.slice() : [];
+    while (chambers.length < cap) chambers.push(chambers.length < (Number(panel.spec.loaded) || 0) ? 1 : "");
+    var cur = chambers[k];
+    chambers[k] = cur && cur !== "jam" && cur !== "misfire" ? "" : 1;
+    panel.spec.chambers = chambers;
+    delete panel.spec.loaded;
+    paint();
+    var word = chambers[k] ? "loaded" : "spent";
+    log.textContent = panel.title + " · chamber " + (k + 1) + " is " + word + ".";
+  });
+
+  paint();
+})();
+</script>
+</body>
+</html>
