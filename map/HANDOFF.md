@@ -1,3 +1,23 @@
+# Fog Square and polygons with more than three corners — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change. Fog stays on the existing scene.
+
+## Polygon
+
+Reveal Poly and Hide Poly were not capped at three corners. A test now places five corners and closes with Enter, then places four and closes by clicking the first point. Both stay open until that close. The stored shape keeps every corner.
+
+## Square
+
+Reveal and Hide each have a Square choice. A click reveals or hides the one grid cell under the cursor. A drag paints each cell the pointer enters. Each cell is its own fog shape, so Erase can delete one. The drag is one history step, so Undo removes that whole drag. Preview and full screen use the same handler. An empty room can take squares. Players get them on the existing scene. A reveal square is also written into `fogRects`.
+
+```cmd
+node tools/test-map-fog.mjs
+```
+
+That covers the five-corner polygon, the four-corner close, one square, a three-cell drag, undo of the drag, erase of the cell, a player who sees a token in the square and not one outside, and a hide square in full screen.
+
+Map JS cache query is `0.3.22-square` on the sheet and `0.2.35-square` on the DMCC.
+
 # Drawer cylinder on one row — sheet 0.3.22 / DMCC 0.2.35
 
 Same draft. Versions stayed. `database.rules.json` did not change.

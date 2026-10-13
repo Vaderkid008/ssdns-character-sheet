@@ -144,6 +144,64 @@ check("empty.mounted", !!canvas && act(dmEl, "revealFogBtn").textContent === "Re
 check("empty.tokenButtons", act(dmEl, "hideBtn").textContent === "Hide" && act(dmEl, "hideAllBtn").textContent === "Hide All" && act(dmEl, "revealAllBtn").textContent === "Reveal All");
 check("empty.noTokens", !Object.keys(store.pub).some((k) => k.indexOf("map/public/tokens/") === 0));
 
+act(dmEl, "revealShape").value = "square";
+act(dmEl, "revealFogBtn").click();
+check("square.armed", act(dmEl, "revealFogBtn").textContent === "Reveal: Square" && act(dmEl, "revealFogBtn").classList.contains("active"));
+const squareAt = screenOf(8.5, 6.5);
+clickAt(squareAt.x, squareAt.y, { detail: 1 });
+const oneSq = shapesOf(store)[0];
+check("square.click", shapesOf(store).length === 1 && oneSq && oneSq.kind === "square" && oneSq.op === "reveal" && oneSq.w === 1 && oneSq.h === 1 && oneSq.x === 8 && oneSq.y === 6, JSON.stringify(oneSq));
+check("square.history", act(dmEl, "fogHistory").textContent.indexOf("Reveal square") >= 0);
+const pubScene = sceneValue(store);
+check("square.synced", !!(pubScene && pubScene.fogShapes && pubScene.fogShapes.length === 1 && (pubScene.fogRects || []).some((r) => r.w === 1 && r.h === 1 && r.x === 8 && r.y === 6)));
+store.pub["map/public/tokens/tok_sq"] = {
+  value: { id: "tok_sq", name: "Squared", label: "Squared", kind: "enemy", pos: { x: 8, y: 6 }, size: 1, sceneId: "scn_dustyspur01" },
+  seq: 1
+};
+store.pub["map/public/tokens/tok_far"] = {
+  value: { id: "tok_far", name: "Far", label: "Far", kind: "enemy", pos: { x: 1, y: 1 }, size: 1, sceneId: "scn_dustyspur01" },
+  seq: 1
+};
+const sqAd = w.SSDNSMapFirebase.memory({ role: "player", store, bus });
+const sqEl = w.document.createElement("div");
+w.document.body.appendChild(sqEl);
+w.__calls = [];
+const sqPlayer = w.SSDNSMap.create({
+  el: sqEl, role: "player", uid: "p_sq", adapter: sqAd, host: { on() {} },
+  options: { scene, assetBase: "", room: { table: { initiative: { order: [], turn: 0 } } } }
+});
+await flush(80);
+let sqSeen = texts(w);
+check("square.player", sqSeen.includes("Squared") && !sqSeen.includes("Far"), sqSeen.filter((t) => t === "Squared" || t === "Far").join(","));
+sqPlayer.destroy();
+delete store.pub["map/public/tokens/tok_sq"];
+delete store.pub["map/public/tokens/tok_far"];
+
+const dragCells = [screenOf(10.2, 6.2), screenOf(11.2, 6.2), screenOf(12.2, 6.2)];
+pointer(w, canvas, "pointerdown", dragCells[0].x, dragCells[0].y, { detail: 1 });
+pointer(w, canvas, "pointermove", dragCells[1].x, dragCells[1].y, { detail: 1 });
+pointer(w, canvas, "pointermove", dragCells[2].x, dragCells[2].y, { detail: 1 });
+pointer(w, canvas, "pointerup", dragCells[2].x, dragCells[2].y, { detail: 1, buttons: 0 });
+const dragged = shapesOf(store).filter((s) => s.kind === "square");
+check("square.drag", dragged.length === 4 && dragged.filter((s) => s.y === 6 && s.x >= 10 && s.x <= 12).length === 3, JSON.stringify(dragged.map((s) => s.x + "," + s.y)));
+check("square.oneStep", (act(dmEl, "fogHistory").textContent.match(/Reveal square/g) || []).length === 2);
+act(dmEl, "fogUndoBtn").click();
+check("square.undoDrag", shapesOf(store).length === 1 && shapesOf(store)[0].x === 8 && shapesOf(store)[0].y === 6);
+act(dmEl, "eraseFogBtn").click();
+clickAt(squareAt.x, squareAt.y, { detail: 1 });
+check("square.erase", shapesOf(store).length === 0, JSON.stringify(shapesOf(store)));
+
+w.document.body.classList.add("map-fullscreen");
+act(dmEl, "hideShape").value = "square";
+act(dmEl, "hideFogBtn").click();
+check("square.hideArmed", act(dmEl, "hideFogBtn").textContent === "Hide: Square");
+clickAt(screenOf(4.5, 4.5).x, screenOf(4.5, 4.5).y, { detail: 1 });
+const hidSq = shapesOf(store).find((s) => s.op === "hide" && s.kind === "square");
+check("square.fullscreen", !!(hidSq && hidSq.w === 1 && hidSq.h === 1), JSON.stringify(shapesOf(store)));
+w.document.body.classList.remove("map-fullscreen");
+act(dmEl, "fogUndoBtn").click();
+check("square.cleared", shapesOf(store).length === 0);
+
 act(dmEl, "revealShape").value = "poly";
 act(dmEl, "revealFogBtn").click();
 check("reveal.armed", act(dmEl, "revealFogBtn").textContent === "Reveal: Poly" && act(dmEl, "revealFogBtn").classList.contains("active"));
@@ -167,6 +225,24 @@ check("history.undo", shapesOf(store).length === 0, JSON.stringify(shapesOf(stor
 act(dmEl, "fogRedoBtn").click();
 check("history.redo", shapesOf(store).length === 1 && shapesOf(store)[0].kind === "poly");
 
+const pent = [screenOf(4, 4), screenOf(9, 4), screenOf(11, 8), screenOf(7, 12), screenOf(3, 8)];
+pent.forEach((p) => clickAt(p.x, p.y, { detail: 1 }));
+check("poly.notTriangle", shapesOf(store).length === 1, "a fourth and fifth corner must stay open");
+key(w, canvas, "Enter");
+const five = shapesOf(store).filter((s) => s.kind === "poly").pop();
+check("poly.five", !!(five && five.points.length === 5 && five.op === "reveal"), JSON.stringify(five && five.points));
+act(dmEl, "fogUndoBtn").click();
+check("poly.fiveUndone", shapesOf(store).length === 1 && shapesOf(store)[0].points.length === 3);
+const quad = [screenOf(20, 2), screenOf(24, 2), screenOf(24, 6), screenOf(20, 6)];
+quad.forEach((p) => clickAt(p.x, p.y, { detail: 1 }));
+check("poly.fourOpen", shapesOf(store).length === 1);
+clickAt(quad[0].x, quad[0].y, { detail: 1 });
+const four = shapesOf(store).filter((s) => s.kind === "poly").pop();
+check("poly.four", !!(four && four.points.length === 4), JSON.stringify(four && four.points));
+act(dmEl, "fogUndoBtn").click();
+check("poly.backToTriangle", shapesOf(store).length === 1 && shapesOf(store)[0].points.length === 3);
+
+act(dmEl, "hideShape").value = "box";
 act(dmEl, "hideFogBtn").click();
 check("hide.armed", act(dmEl, "hideFogBtn").textContent === "Hide: Box" && act(dmEl, "hideFogBtn").classList.contains("active"));
 const pts = shapesOf(store)[0].points;

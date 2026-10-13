@@ -314,12 +314,14 @@ if (role === 'dm') {
     <button data-act="revealFogBtn" type="button">Reveal: Box</button>
     <select data-act="revealShape" aria-label="Reveal shape">
       <option value="box">Box</option>
+      <option value="square">Square</option>
       <option value="poly">Poly</option>
       <option value="brush">Brush</option>
     </select>
     <button data-act="hideFogBtn" type="button">Hide: Box</button>
     <select data-act="hideShape" aria-label="Hide shape">
       <option value="box">Box</option>
+      <option value="square">Square</option>
       <option value="poly">Poly</option>
       <option value="brush">Brush</option>
     </select>
@@ -482,12 +484,13 @@ function cloneShapes(list) { return JSON.parse(JSON.stringify(list || [])); }
 function shapeWord(kind) {
   if (kind === 'poly') return 'Poly';
   if (kind === 'brush') return 'Brush';
+  if (kind === 'square') return 'Square';
   return 'Box';
 }
 function fogOp() { return state.tool === 'hide' ? 'hide' : 'reveal'; }
 function mirrorFog(scene) {
   const shapes = scene.fogShapes || [];
-  scene.fogRects = shapes.filter(s => s && s.op === 'reveal' && s.kind === 'box').map(s => ({ x: s.x, y: s.y, w: s.w, h: s.h }));
+  scene.fogRects = shapes.filter(s => s && s.op === 'reveal' && (s.kind === 'box' || s.kind === 'square')).map(s => ({ x: s.x, y: s.y, w: s.w, h: s.h }));
   scene.fogPolys = shapes.filter(s => s && s.op === 'reveal' && s.kind === 'poly' && s.points).map(s => ({ points: s.points }));
 }
 function rememberFog() {
@@ -579,6 +582,23 @@ function addFogShape(shape) {
   const word = shape.op === 'hide' ? 'Hide' : 'Reveal';
   commitFog(word + ' ' + shapeWord(shape.kind).toLowerCase());
 }
+function addFogSquares(cells) {
+  const list = [];
+  const seen = {};
+  (cells || []).forEach(c => {
+    const x = Math.floor(Number(c.x));
+    const y = Math.floor(Number(c.y));
+    if (!isFinite(x) || !isFinite(y)) return;
+    const key = x + ',' + y;
+    if (seen[key]) return;
+    seen[key] = true;
+    list.push({ id: fogId(), op: fogOp(), kind: 'square', x: x, y: y, w: 1, h: 1 });
+  });
+  if (!list.length) return;
+  rememberFog();
+  list.forEach(shape => sceneData().fogShapes.push(shape));
+  commitFog((list[0].op === 'hide' ? 'Hide' : 'Reveal') + ' square');
+}
 function commitPoly() {
   const pts = state.polyPoints || [];
   if (pts.length < 3) return false;
@@ -590,7 +610,7 @@ function commitPoly() {
 }
 function shapeContains(shape, x, y) {
   if (!shape) return false;
-  if (shape.kind === 'box') return x >= shape.x && y >= shape.y && x < shape.x + shape.w && y < shape.y + shape.h;
+  if (shape.kind === 'box' || shape.kind === 'square') return x >= shape.x && y >= shape.y && x < shape.x + shape.w && y < shape.y + shape.h;
   if (shape.kind === 'poly') return pointInPoly(x, y, shape.points || []);
   if (shape.kind === 'brush') return (shape.cells || []).some(c => x >= c.x && y >= c.y && x < c.x + 1 && y < c.y + 1);
   return false;
@@ -612,7 +632,7 @@ function fogCovers(x, y) {
 function clipShape(shape) {
   const px = state.scene.grid.px;
   if (!shape) return false;
-  if (shape.kind === 'box') {
+  if (shape.kind === 'box' || shape.kind === 'square') {
     const a = worldToScreen(shape.x * px, shape.y * px);
     const b = worldToScreen((shape.x + shape.w) * px, (shape.y + shape.h) * px);
     ctx.beginPath();
@@ -1849,6 +1869,15 @@ function onPointerDown(e) {
       state.drag = { fog: true, sx: e.clientX, sy: e.clientY };
       return;
     }
+    if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'square') {
+      e.preventDefault();
+      const w = pointerWorld(e);
+      const px = state.scene.grid.px;
+      state.brushCells = [{ x: Math.floor(w.x / px), y: Math.floor(w.y / px) }];
+      state.drag = { square: true };
+      draw();
+      return;
+    }
     if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'brush') {
       e.preventDefault();
       const w = pointerWorld(e);
@@ -1953,7 +1982,7 @@ function onPointerDown(e) {
 }
 function onPointerMove(e) {
   const polyLive = role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly' && state.polyPoints && state.polyPoints.length;
-  if (state.drag && state.drag.brush && state.brushCells) {
+  if (state.drag && (state.drag.brush || state.drag.square) && state.brushCells) {
     const w = pointerWorld(e);
     const px = state.scene.grid.px;
     const cell = { x: Math.floor(w.x / px), y: Math.floor(w.y / px) };
@@ -2126,6 +2155,10 @@ function onPointerUp(e) {
       w: Math.max(1, Math.ceil((x2 - x1) / px)),
       h: Math.max(1, Math.ceil((y2 - y1) / px))
     });
+  }
+  if (state.drag && state.drag.square && state.brushCells && state.brushCells.length) {
+    addFogSquares(state.brushCells);
+    state.brushCells = null;
   }
   if (state.drag && state.drag.brush && state.brushCells && state.brushCells.length) {
     addFogShape({ op: fogOp(), kind: 'brush', cells: state.brushCells.map(c => ({ x: c.x, y: c.y })) });
@@ -2381,7 +2414,7 @@ Door / Window: click a wall. Click again to open or shut. Right-click removes it
 Wall and Room: drag, release to commit.<br>
 Walls: OFF hides the lines so you can see the raw map. Walls still block.<br>
 Grant / Revoke: pick a player, then a token. Revoke on their own token locks them out. Grant gives it back.<br>
-Reveal clears fog. Hide paints fog back. Each has a Box, Poly, or Brush picker, and the button name is the action. Poly: click corners, then the first point, double-click, or Enter. Erase deletes one shape. Shift-click selects more, then Delete selection removes them together. Undo and Redo walk the fog history.<br>
+Reveal clears fog. Hide paints fog back. Each has a Box, Square, Poly, or Brush picker, and the button name is the action. Square: click one grid cell, or drag across cells. Each cell erases on its own. A drag is one history step. Poly: click as many corners as you need, then the first point, double-click, or Enter. Erase deletes one shape. Shift-click selects more, then Delete selection removes them together. Undo and Redo walk the fog history.<br>
 Show Player FOV greys the rest and brightens their light.<br>
 Set floor, then Show to players, to move someone to another map.` : `<b>Player</b><br>
 You move your own token, and any the DM has granted you.<br>
