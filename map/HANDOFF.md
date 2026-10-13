@@ -1,3 +1,21 @@
+# Token sync and enemy chamber fire — sheet 0.3.23 / DMCC 0.2.36
+
+`database.rules.json` did not change. Distance and range are unchanged.
+
+A player token id is `ply_` plus the player id, with any character outside `A-Za-z0-9_-` replaced by `_`. The DM waits for the tokens snapshot and a centered view before placing party tokens, so a remount does not invent a second id or drop the token on the view center. The drawer treats `ownerUid` as the card id. Link to… for a player who already has a token keeps `ply_` and deletes the extra. A boot also removes an older duplicate and keeps the `ply_` square.
+
+A DM drag writes `pos` as `{x,y}` only. Watchers now hear that position change, and `seq` / `by` fall back to the token when the position object has neither.
+
+On a DM enemy card, a cylinder chamber fires as that token's own combatant through the existing Fight attack (`SSDNSMapFight.attack` → `cardStrike`). The log names that enemy, the roll is that enemy's, one loaded round is spent, and the weapon's sound plays. ChaosMaker Medium maps to the revolver cue. A target menu sits next to the cylinder and defaults to the last or selected target. Attack buttons still use their old target step: the map waits for a token click, and the fight strip still opens the strike dialog. The unload/load chamber API is unchanged.
+
+```cmd
+node tools/test-token-sync.mjs
+node tools/test-map-fight.mjs
+node tools/test-combat-targets.mjs
+```
+
+`test-token-sync.mjs` runs two clients on one fake database: join, DM move to the player, player move to the DM, reload, Link reuse, and duplicate cleanup. Cache queries on the changed map, host, firebase, fight, and sound files are `0.3.23-sync` on the sheet and `0.2.36-sync` on the DMCC.
+
 # Fog Square and polygons with more than three corners — sheet 0.3.22 / DMCC 0.2.35
 
 Same draft. Versions stayed. `database.rules.json` did not change. Fog stays on the existing scene.

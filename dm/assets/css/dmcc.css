@@ -563,6 +563,7 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
 .turn-chip .chip-open { background: transparent; border: 0; color: inherit; font: inherit; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; padding: 0; }
 .turn-chip .cylinder-row { flex-basis: 100%; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; font-size: 12px; }
 .chamber-dot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255,255,255,.75); background: transparent; padding: 0; cursor: pointer; }
+.cyl-target { max-width: 140px; font-size: 12px; }
 .chamber-dot.full { background: #e2c56a; }
 .turn-chip.ondeck { opacity: .45; }
 .turn-chip.friendly { border-color: var(--eld); color: var(--eld); }

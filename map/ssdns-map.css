@@ -310,6 +310,13 @@ body.map-fullscreen #btnMapFull {
   align-items: center;
 }
 .ssm-drawer .ssm-rounds { flex: 0 0 auto; white-space: nowrap; }
+.ssm-drawer .cylinder-row [data-act="cylTarget"] {
+  flex: 0 1 92px;
+  min-width: 0;
+  max-width: 110px;
+  font-size: 11px;
+  padding: 0 2px;
+}
 .chamber-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255,255,255,.75); background: transparent; padding: 0; cursor: pointer; display: inline-block; }
 .ssm-drawer .chamber-dots .chamber-dot {
   box-sizing: border-box;

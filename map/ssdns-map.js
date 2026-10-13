@@ -139,6 +139,10 @@ function applySharedToTokens() {
       t.sceneId = s.sceneId || 'scn_dustyspur01';
       t.image = s.image || t.image || '';
       t.sheetId = s.sheetId || t.sheetId || '';
+      if (s.ownerUid) t.ownerUid = s.ownerUid;
+      if (s.combatantId) t.combatantId = s.combatantId;
+      if (s.kind) t.kind = s.kind;
+      if (s.name) t.name = s.name;
       if (t.image && !t._img) {
         const im = new Image();
         im.src = asset(t.image);
@@ -1458,11 +1462,43 @@ function selectToken(token) {
   if (role === 'dm') openDrawer(token.id);
   draw();
 }
+function playerTokenId(pid) {
+  return 'ply_' + String(pid || '').replace(/[^A-Za-z0-9_-]/g, '_');
+}
+let tokensReady = false;
+let viewReady = false;
+let partySynced = false;
+function adoptSharedTokens() {
+  Object.keys(shared.tokens || {}).forEach(id => {
+    const src = shared.tokens[id];
+    if (!src || state.tokens.some(t => t && t.id === id)) return;
+    state.tokens.push(JSON.parse(JSON.stringify(src)));
+  });
+  applySharedToTokens();
+}
+function noteTokensReady() {
+  tokensReady = true;
+  syncPartyFromSnapshot();
+}
+function syncPartyFromSnapshot() {
+  if (role !== 'dm' || !state.scene || !tokensReady || !viewReady || partySynced) return;
+  partySynced = true;
+  adoptSharedTokens();
+  dedupePlayerTokens();
+  ensurePartyTokens();
+}
 function makeToken(spec) {
   if (!state.scene) return null;
+  spec = spec || {};
   const grid = state.scene.grid || { cols: 30, rows: 20 };
   const spot = spec.pos || viewCenterCell();
-  const id = 'tok_' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
+  const stable = spec.id || (spec.ownerUid && spec.kind === 'player' ? playerTokenId(spec.ownerUid) : '');
+  if (stable) {
+    const existing = state.tokens.find(t => t && t.id === stable);
+    if (existing) return existing;
+  }
+  const id = stable || ('tok_' + Date.now().toString(36) + Math.floor(Math.random() * 1000));
+  const owner = spec.ownerUid || '';
   const token = {
     id: id,
     kind: spec.kind || 'npc',
@@ -1483,8 +1519,8 @@ function makeToken(spec) {
     },
     sceneId: (state.scene && state.scene.id) || 'scn_dustyspur01',
     image: spec.image || '',
-    sheetId: spec.sheetId || '',
-    combatantId: spec.combatantId || ''
+    sheetId: spec.sheetId || (spec.kind === 'player' ? owner : ''),
+    combatantId: spec.combatantId || (spec.kind === 'player' ? owner : '')
   };
   state.tokens.push(token);
   shared.tokens[id] = JSON.parse(JSON.stringify(token));
@@ -1492,23 +1528,88 @@ function makeToken(spec) {
   saveToken(id);
   return token;
 }
+function canonicalPlayerToken(uid) {
+  if (!uid || role !== 'dm') return null;
+  const want = playerTokenId(uid);
+  adoptSharedTokens();
+  const owned = state.tokens.filter(t => t && t.ownerUid === uid);
+  if (!owned.length) return null;
+  let canon = owned.find(t => t.id === want) || owned[0];
+  if (canon.id !== want) {
+    const oldId = canon.id;
+    const next = JSON.parse(JSON.stringify(canon));
+    next.id = want;
+    next.kind = 'player';
+    next.ownerUid = uid;
+    next.combatantId = next.combatantId || uid;
+    next.sheetId = next.sheetId || uid;
+    state.tokens = state.tokens.filter(t => t && t.id !== oldId);
+    delete shared.tokens[oldId];
+    if (adapter && adapter.remove) {
+      adapter.remove('map/public/tokens/' + oldId);
+      adapter.remove('map/dm/tokens/' + oldId);
+    }
+    state.tokens.push(next);
+    shared.tokens[want] = JSON.parse(JSON.stringify(next));
+    saveToken(want);
+    canon = next;
+    emit('party:sync', { playerId: uid, tokenId: want, replacedId: oldId });
+  } else if (!canon.combatantId || !canon.sheetId) {
+    if (!canon.combatantId) canon.combatantId = uid;
+    if (!canon.sheetId) canon.sheetId = uid;
+    canon.kind = canon.kind || 'player';
+    const copy = shared.tokens[want] || (shared.tokens[want] = { id: want });
+    copy.ownerUid = uid;
+    copy.combatantId = canon.combatantId;
+    copy.sheetId = canon.sheetId;
+    copy.kind = canon.kind;
+    saveToken(want);
+  }
+  const extras = [];
+  state.tokens.forEach(t => {
+    if (t && t.ownerUid === uid && t.id !== want) extras.push(t.id);
+  });
+  Object.keys(shared.tokens || {}).forEach(id => {
+    const t = shared.tokens[id];
+    if (t && t.ownerUid === uid && id !== want && extras.indexOf(id) < 0) extras.push(id);
+  });
+  if (extras.length) removeMapTokens(extras, { keepOwner: true, silent: true });
+  return state.tokens.find(t => t && t.id === want) || null;
+}
+function dedupePlayerTokens() {
+  if (role !== 'dm') return;
+  const uids = {};
+  state.tokens.forEach(t => { if (t && t.ownerUid) uids[t.ownerUid] = 1; });
+  Object.keys(shared.tokens || {}).forEach(id => {
+    const t = shared.tokens[id];
+    if (t && t.ownerUid) uids[t.ownerUid] = 1;
+  });
+  Object.keys(uids).forEach(uid => canonicalPlayerToken(uid));
+}
 function ensurePartyTokens() {
-  if (role !== 'dm' || !state.scene) return;
+  if (role !== 'dm' || !state.scene || !tokensReady || !viewReady) return;
   const list = partyList();
   list.forEach((p, i) => {
     const who = p.uid || p.id;
-    if (!who || dismissedMap()[who] || tokenForOwner(who)) return;
-    const cell = viewCenterCell();
-    const name = p.name || p.label || who;
-    makeToken({
-      kind: 'player',
-      name: name,
-      label: name,
-      ownerUid: who,
-      ownerCanMove: true,
-      color: PC_COLORS[i % PC_COLORS.length],
-      pos: { x: cell.x + (i % 5) - 2, y: cell.y }
-    });
+    if (!who || dismissedMap()[who]) return;
+    let token = canonicalPlayerToken(who);
+    if (!token) {
+      const cell = viewCenterCell();
+      const name = p.name || p.label || who;
+      token = makeToken({
+        id: playerTokenId(who),
+        kind: 'player',
+        name: name,
+        label: name,
+        ownerUid: who,
+        ownerCanMove: true,
+        combatantId: who,
+        sheetId: who,
+        color: PC_COLORS[i % PC_COLORS.length],
+        pos: { x: cell.x + (i % 5) - 2, y: cell.y }
+      });
+    }
+    if (token) emit('party:sync', { playerId: who, tokenId: token.id });
   });
 }
 function addEnemyToken() {
@@ -1532,20 +1633,24 @@ function addPlayerToken() {
   if (!who) { toast('No player to add'); return; }
   delete dismissedMap()[who];
   if (adapter && adapter.remove) adapter.remove('map/dm/dismissed/' + who);
-  if (tokenForOwner(who)) { toast('That player already has a token'); return; }
+  if (canonicalPlayerToken(who) || tokenForOwner(who)) { toast('That player already has a token'); return; }
   const p = partyList().find(x => (x.uid || x.id) === who) || {};
   const name = p.name || p.label || who;
   const cell = viewCenterCell();
   const token = makeToken({
+    id: playerTokenId(who),
     kind: 'player',
     name: name,
     label: name,
     ownerUid: who,
     ownerCanMove: true,
+    combatantId: who,
+    sheetId: who,
     color: '#4a90d9',
     pos: cell
   });
   if (!token) return;
+  emit('party:sync', { playerId: who, tokenId: token.id });
   selectToken(token);
   toast('Player token added');
 }
@@ -2270,7 +2375,9 @@ function hasToken(id) {
 }
 function tokenForPlayer(pid) {
   if (!pid) return null;
-  return state.tokens.find(t => t && (t.ownerUid === pid || t.combatantId === pid || t.sheetId === pid)) || null;
+  const want = playerTokenId(pid);
+  const hits = state.tokens.filter(t => t && (t.id === want || t.ownerUid === pid || t.combatantId === pid || t.sheetId === pid));
+  return hits.find(t => t.id === want) || hits[0] || null;
 }
 function releaseToken(id) {
   const t = state.tokens.find(tok => tok && tok.id === id);
@@ -2312,20 +2419,18 @@ function removeMapTokens(ids, opts) {
 }
 function applyLink(tokenId, patch) {
   if (role !== 'dm' || !patch) return null;
-  const t = state.tokens.find(tok => tok && tok.id === tokenId);
+  let t = state.tokens.find(tok => tok && tok.id === tokenId);
   if (!t) return null;
+  const reopen = state.drawerOpen && state.drawerTokenId === tokenId;
   if (patch.ownerUid) {
-    state.tokens.forEach(other => {
-      if (!other || other.id === t.id || other.ownerUid !== patch.ownerUid) return;
-      other.ownerUid = '';
-      if (other.combatantId === patch.ownerUid) delete other.combatantId;
-      const otherCopy = shared.tokens[other.id];
-      if (otherCopy) {
-        otherCopy.ownerUid = '';
-        delete otherCopy.combatantId;
-      }
-      saveToken(other.id);
-    });
+    t.ownerUid = patch.ownerUid;
+    const pre = shared.tokens[t.id];
+    if (pre) pre.ownerUid = patch.ownerUid;
+    const canon = canonicalPlayerToken(patch.ownerUid);
+    if (canon) {
+      t = canon;
+      tokenId = canon.id;
+    }
     delete dismissedMap()[patch.ownerUid];
     if (adapter && adapter.remove) adapter.remove('map/dm/dismissed/' + patch.ownerUid);
   }
@@ -2346,6 +2451,8 @@ function applyLink(tokenId, patch) {
   if (t.conditions) copy.conditions = t.conditions.slice();
   saveToken(t.id);
   draw();
+  if (patch.ownerUid) emit('party:sync', { playerId: patch.ownerUid, tokenId: t.id });
+  if (reopen) openDrawer(t.id);
   return t;
 }
 function hitTest(wx, wy) {
@@ -3093,7 +3200,7 @@ async function loadSceneImage(sceneId) {
     const direct = host.getCard(tokenId);
     if (direct) return direct;
     const token = state.tokens.find(t => t.id === tokenId);
-    const alt = token && (token.combatantId || token.sheetId);
+    const alt = token && (token.combatantId || token.sheetId || token.ownerUid);
     if (alt && alt !== tokenId) return host.getCard(alt) || null;
     return null;
   }
@@ -3167,6 +3274,18 @@ async function loadSceneImage(sceneId) {
       return '<button type="button" class="ssm-atk" data-wid="' + esc(a.id) + '" ' + (canAct ? '' : 'disabled') + '>' +
         esc(a.name || a.id) + ' +' + esc(a.toHit != null && a.toHit !== '' ? a.toHit : 0) + ' ' + esc(a.damage || '') + esc(ammo) + '</button>';
     }).join('');
+    const picked = state.selected && state.selected.id !== tokenId ? state.selected : null;
+    const targetPack = (typeof host.combatTargets === 'function' && host.combatTargets({
+      tokenId: tokenId,
+      combatantId: tokenCombatant(tokenId),
+      selectedTokenId: picked ? picked.id : '',
+      selectedCombatantId: picked ? tokenCombatant(picked.id) : ''
+    })) || { options: [], selected: '' };
+    const targetOptions = (targetPack.options || []).map(o => {
+      const id = o && (o.id || '');
+      const on = id && id === targetPack.selected ? ' selected' : '';
+      return '<option value="' + esc(id) + '"' + on + '>' + esc((o && (o.label || o.name)) || id) + '</option>';
+    }).join('') || '<option value="">No targets</option>';
     const cylinders = (card.attacks || []).filter(a => a && a.ammo && a.ammo.cap).map(a => {
       const cap = Number(a.ammo.cap) || 0;
       const loaded = Number(a.ammo.loaded) || 0;
@@ -3176,7 +3295,7 @@ async function loadSceneImage(sceneId) {
         const full = flags ? !!flags[k] : k < loaded;
         dots += '<button type="button" class="chamber-dot' + (full ? ' full' : '') + '" data-act="chamber" data-wid="' + esc(a.id) + '" data-k="' + k + '" aria-label="Chamber ' + (k + 1) + '"></button>';
       }
-      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span></div>';
+      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select></div>';
     }).join('');
     const spells = (card.spells || []).map(s => {
       const meta = [
@@ -3247,8 +3366,20 @@ async function loadSceneImage(sceneId) {
       });
     });
     d.querySelectorAll('[data-act="chamber"]').forEach(b => {
-      b.addEventListener('click', () => {
-        emit('drawer:chamber', detail({ weaponId: b.getAttribute('data-wid'), chamber: Number(b.getAttribute('data-k')) }));
+      b.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (!canAct) { toast('The player acts for themselves'); return; }
+        const row = b.closest('.cylinder-row');
+        const sel = row && row.querySelector('[data-act="cylTarget"]');
+        const targetId = sel && sel.value;
+        if (!targetId) { toast('Pick a target'); return; }
+        const targetTok = state.tokens.find(tok => tok && (tokenCombatant(tok.id) === targetId || tok.id === targetId));
+        emit('drawer:target', detail({
+          weaponId: b.getAttribute('data-wid'),
+          chamber: Number(b.getAttribute('data-k')),
+          targetTokenId: targetTok ? targetTok.id : '',
+          targetCombatantId: targetId
+        }));
       });
     });
     d.querySelector('[data-act="hpMinus"]').addEventListener('click', () => emit('drawer:hp', detail({ delta: -readHp() })));
@@ -3292,6 +3423,10 @@ async function loadSceneImage(sceneId) {
     state.selectedIds = (state.selectedIds || []).filter(x => x !== id);
   }
   function handlePublicToken(path, value, meta) {
+    if (meta && meta.ready) {
+      noteTokensReady();
+      return;
+    }
     const parts = (path || '').split('/');
     // map/public/tokens/<id>[/pos|/patch]
     const id = parts[3];
@@ -3360,6 +3495,9 @@ async function loadSceneImage(sceneId) {
         delete next.hidden;
       }
       shared.tokens[tid] = Object.assign(shared.tokens[tid] || {}, next);
+      if (role === 'dm' && !state.tokens.some(tok => tok && tok.id === tid)) {
+        state.tokens.push(JSON.parse(JSON.stringify(shared.tokens[tid])));
+      }
     }
     if (role === 'player') state.tokens = Object.values(shared.tokens).filter(t => !t.hidden);
     applySharedToTokens();
@@ -3429,9 +3567,14 @@ async function boot() {
   try {
     const data = await load();
     state.scene = data.scene;
-    state.tokens = (role === 'player' && Object.keys(shared.tokens).length)
-      ? Object.values(shared.tokens).filter(t => !t.hidden)
-      : data.tokens;
+    const remoteIds = Object.keys(shared.tokens || {});
+    if (role === 'player' && remoteIds.length) {
+      state.tokens = Object.values(shared.tokens).filter(t => !t.hidden);
+    } else if (role === 'dm' && tokensReady && remoteIds.length) {
+      state.tokens = remoteIds.map(id => JSON.parse(JSON.stringify(shared.tokens[id])));
+    } else {
+      state.tokens = data.tokens || [];
+    }
     state.room = data.room;
     applySharedToTokens();
     migrateGlobalToScenes();
@@ -3475,7 +3618,8 @@ async function boot() {
       state.view.y = (rows * px) / 2;
     }
     if (role === 'dm') {
-      ensurePartyTokens();
+      viewReady = true;
+      syncPartyFromSnapshot();
       if (options.ensureScene) ensureDefaultScene();
     }
 

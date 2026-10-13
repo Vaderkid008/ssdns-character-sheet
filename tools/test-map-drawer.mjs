@@ -222,7 +222,7 @@ check("enemy.selfOpen", events.filter((e) => e.name === "drawer:open").length ==
 check("enemy.selfToast", act(table.el, "toast") && act(table.el, "toast").textContent === "Pick a different token");
 openChip("Jolene");
 await flush(10);
-check("enemy.target", events.some((e) => e.name === "drawer:target" && e.detail.weaponId === "ballncap" && e.detail.targetTokenId === "tok_jolene" && e.detail.targetCombatantId === "p_jolene"));
+check("enemy.target", events.some((e) => e.name === "drawer:target" && e.detail.weaponId === "ballncap" && e.detail.targetTokenId === "ply_p_jolene" && e.detail.targetCombatantId === "p_jolene"));
 
 openChip("Jolene");
 await flush(10);

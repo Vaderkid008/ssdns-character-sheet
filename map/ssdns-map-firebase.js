@@ -93,8 +93,8 @@
           var restChanged = JSON.stringify(rest(old)) !== JSON.stringify(rest(next));
           if (old == null || restChanged) cb(clone(next), { path: childPath, seq: next.seq, by: next.by });
           var nextPos = next.pos;
-          if (nextPos && (nextPos.by || nextPos.seq) && JSON.stringify((old && old.pos) || null) !== JSON.stringify(nextPos)) {
-            cb(clone(nextPos), { path: childPath + "/pos", seq: nextPos.seq, by: nextPos.by });
+          if (nextPos && old != null && JSON.stringify(old.pos || null) !== JSON.stringify(nextPos)) {
+            cb(clone(nextPos), { path: childPath + "/pos", seq: nextPos.seq || next.seq, by: nextPos.by || next.by });
           }
           var nextPatch = next.patch;
           if (nextPatch && JSON.stringify((old && old.patch) || null) !== JSON.stringify(nextPatch)) {
@@ -138,6 +138,7 @@
             return;
           }
           prev = deliverTree(path, val, prev, cb);
+          if (mode === "tokens") cb(null, { path: path, ready: true });
         }, function () {});
         return function () {
           if (typeof unsub === "function") unsub();
@@ -202,6 +203,7 @@
         Object.keys(bag).forEach(function (k) {
           if (matches(path, k) && bag[k]) cb(clone(bag[k].value), { path: k, seq: bag[k].seq, by: bag[k].by });
         });
+        if (path === "map/public/tokens") cb(null, { path: path, ready: true });
         return function () {
           var i = subs.indexOf(entry);
           if (i >= 0) subs.splice(i, 1);
