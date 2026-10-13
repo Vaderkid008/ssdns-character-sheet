@@ -5676,7 +5676,7 @@ window.SSDNS_RULES = {
    "load": "Cartridge",
    "capacity": 1,
    "tiers": {
-    "medium": {
+    "heavy": {
      "damage": "3d10",
      "range": "150/600",
      "misfire": "1–5"
@@ -5689,7 +5689,7 @@ window.SSDNS_RULES = {
    "ability": "STR",
    "category": "martial",
    "rounds": {
-    "medium": [
+    "heavy": [
      ".50-90"
     ]
    },
@@ -6558,10 +6558,10 @@ window.SSDNS_RULES = {
   },
   "big bore": {
    "light": [],
-   "medium": [
+   "medium": [],
+   "heavy": [
     ".50-90"
-   ],
-   "heavy": []
+   ]
   }
  },
  "roundTierRules": [
@@ -6693,8 +6693,8 @@ window.SSDNS_RULES = {
    "firstShot": 1,
    "initText": "+1",
    "firstShotText": "+1",
-   "perk": "No penalty while seated, mounted, or driving. First-shot bonus only then.",
-   "notes": "Butt forward on the off hip, so the gun comes clear while you sit a horse or a wagon box.",
+   "perk": "The +1 first-shot bonus applies only while seated, mounted, or driving.",
+   "notes": "The +1 first-shot bonus applies only while seated, mounted, or driving. It does not apply on foot.",
    "src": "BOOK1.md line 4322",
    "isRig": true,
    "feedsTR": false,

@@ -227,6 +227,27 @@ on(document, 'keydown', e => {
   }
   if (!el.matches(':hover') && !el.contains(e.target)) return;
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
+  if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly' && state.polyPoints && state.polyPoints.length) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      state.polyPoints = [];
+      state.polyHover = null;
+      draw();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitPoly();
+      return;
+    }
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      state.polyPoints.pop();
+      draw();
+      return;
+    }
+  }
   if (e.key === 'Shift' && state.drag && state.drag.token) { dropPin(); return; }
   if (e.key === 'Backspace' && state.drag && state.drag.pins) { e.preventDefault(); popPin(); return; }
   if (e.key.toLowerCase() === 'x' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); recallPath(); }
@@ -289,8 +310,27 @@ if (role === 'dm') {
     <button data-act="pingBtn">Ping</button>
     <button data-act="rulerBtn">Ruler</button>
     <button data-act="colorBtn">Color</button>
-    <button data-act="fogRectBtn">Fog</button>
-    <button data-act="undoFogBtn">Undo Fog</button>
+    <div class="panel-title">Fog</div>
+    <button data-act="revealFogBtn" type="button">Reveal: Box</button>
+    <select data-act="revealShape" aria-label="Reveal shape">
+      <option value="box">Box</option>
+      <option value="square">Square</option>
+      <option value="poly">Poly</option>
+      <option value="brush">Brush</option>
+    </select>
+    <button data-act="hideFogBtn" type="button">Hide: Box</button>
+    <select data-act="hideShape" aria-label="Hide shape">
+      <option value="box">Box</option>
+      <option value="square">Square</option>
+      <option value="poly">Poly</option>
+      <option value="brush">Brush</option>
+    </select>
+    <button data-act="eraseFogBtn" type="button">Erase</button>
+    <button data-act="deleteFogBtn" type="button">Delete selection</button>
+    <div class="panel-title">Fog history</div>
+    <div data-act="fogHistory"></div>
+    <button data-act="fogUndoBtn" type="button">Undo</button>
+    <button data-act="fogRedoBtn" type="button">Redo</button>
     <button data-act="hideBtn">Hide</button>
     <button data-act="hideAllBtn">Hide All</button>
     <button data-act="revealAllBtn">Reveal All</button>
@@ -400,6 +440,303 @@ function pointerWorld(e) {
   const p = localXY(e);
   return screenToWorld(p.x, p.y);
 }
+function gridPoint(world) {
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 1;
+  let x = world.x / px;
+  let y = world.y / px;
+  if (state.snap) { x = Math.round(x); y = Math.round(y); }
+  return { x: x, y: y };
+}
+function sameGrid(a, b) {
+  return !!a && !!b && Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01;
+}
+function screenDistGrid(a, b) {
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 1;
+  const pa = worldToScreen(a.x * px, a.y * px);
+  const pb = worldToScreen(b.x * px, b.y * px);
+  return Math.hypot(pa.x - pb.x, pa.y - pb.y);
+}
+function pointInPoly(x, y, points) {
+  if (!points || points.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const xi = points[i].x, yi = points[i].y;
+    const xj = points[j].x, yj = points[j].y;
+    const denom = (yj - yi) || 1e-9;
+    const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / denom + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+function tracePoly(points, close) {
+  const px = state.scene.grid.px;
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const s = worldToScreen(p.x * px, p.y * px);
+    if (i === 0) ctx.moveTo(s.x, s.y);
+    else ctx.lineTo(s.x, s.y);
+  });
+  if (close) ctx.closePath();
+}
+let fogSeq = 1;
+function fogId() { return 'fg_' + (fogSeq++); }
+function cloneShapes(list) { return JSON.parse(JSON.stringify(list || [])); }
+function shapeWord(kind) {
+  if (kind === 'poly') return 'Poly';
+  if (kind === 'brush') return 'Brush';
+  if (kind === 'square') return 'Square';
+  return 'Box';
+}
+function fogOp() { return state.tool === 'hide' ? 'hide' : 'reveal'; }
+function mirrorFog(scene) {
+  const shapes = scene.fogShapes || [];
+  scene.fogRects = shapes.filter(s => s && s.op === 'reveal' && (s.kind === 'box' || s.kind === 'square')).map(s => ({ x: s.x, y: s.y, w: s.w, h: s.h }));
+  scene.fogPolys = shapes.filter(s => s && s.op === 'reveal' && s.kind === 'poly' && s.points).map(s => ({ points: s.points }));
+}
+function rememberFog() {
+  if (!state.fogBefore) state.fogBefore = cloneShapes(sceneData().fogShapes);
+}
+function renderFogHistory() {
+  const box = q('fogHistory');
+  const past = state.fogPast || [];
+  const future = state.fogFuture || [];
+  if (box) {
+    box.innerHTML = '';
+    if (!past.length && !future.length) box.textContent = 'No fog edits';
+    past.forEach((step, i) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.textContent = step.label;
+      if (i === past.length - 1) row.classList.add('active');
+      row.addEventListener('click', () => jumpFog(i));
+      box.appendChild(row);
+    });
+    future.slice().reverse().forEach(step => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.textContent = step.label;
+      row.disabled = true;
+      box.appendChild(row);
+    });
+  }
+  const undo = q('fogUndoBtn');
+  const redo = q('fogRedoBtn');
+  if (undo) undo.disabled = !past.length;
+  if (redo) redo.disabled = !future.length;
+}
+function commitFog(label) {
+  const scene = sceneData();
+  mirrorFog(scene);
+  if (!state.fogPast) state.fogPast = [];
+  state.fogPast.push({ label: label, before: state.fogBefore || [], after: cloneShapes(scene.fogShapes) });
+  if (state.fogPast.length > 40) state.fogPast.shift();
+  state.fogFuture = [];
+  state.fogBefore = null;
+  saveScene();
+  renderFogHistory();
+  toast(label);
+  draw();
+}
+function applyFogSnapshot(shapes) {
+  const scene = sceneData();
+  scene.fogShapes = cloneShapes(shapes);
+  mirrorFog(scene);
+  state.fogSelection = (state.fogSelection || []).filter(id => scene.fogShapes.some(s => s.id === id));
+  state.fogBefore = null;
+  saveScene();
+  renderFogHistory();
+  draw();
+}
+function undoFog() {
+  const past = state.fogPast || [];
+  const step = past.pop();
+  if (!step) { toast('Nothing to undo'); return; }
+  if (!state.fogFuture) state.fogFuture = [];
+  state.fogFuture.push(step);
+  applyFogSnapshot(step.before);
+}
+function redoFog() {
+  const future = state.fogFuture || [];
+  const step = future.pop();
+  if (!step) { toast('Nothing to redo'); return; }
+  if (!state.fogPast) state.fogPast = [];
+  state.fogPast.push(step);
+  applyFogSnapshot(step.after);
+}
+function jumpFog(index) {
+  const past = state.fogPast || [];
+  while (past.length - 1 > index) {
+    const step = past.pop();
+    if (!step) break;
+    if (!state.fogFuture) state.fogFuture = [];
+    state.fogFuture.push(step);
+  }
+  const current = past[past.length - 1];
+  if (current) applyFogSnapshot(current.after);
+}
+function addFogShape(shape) {
+  rememberFog();
+  shape.id = shape.id || fogId();
+  shape.op = shape.op || fogOp();
+  sceneData().fogShapes.push(shape);
+  const word = shape.op === 'hide' ? 'Hide' : 'Reveal';
+  commitFog(word + ' ' + shapeWord(shape.kind).toLowerCase());
+}
+function addFogSquares(cells) {
+  const list = [];
+  const seen = {};
+  (cells || []).forEach(c => {
+    const x = Math.floor(Number(c.x));
+    const y = Math.floor(Number(c.y));
+    if (!isFinite(x) || !isFinite(y)) return;
+    const key = x + ',' + y;
+    if (seen[key]) return;
+    seen[key] = true;
+    list.push({ id: fogId(), op: fogOp(), kind: 'square', x: x, y: y, w: 1, h: 1 });
+  });
+  if (!list.length) return;
+  rememberFog();
+  list.forEach(shape => sceneData().fogShapes.push(shape));
+  commitFog((list[0].op === 'hide' ? 'Hide' : 'Reveal') + ' square');
+}
+function commitPoly() {
+  const pts = state.polyPoints || [];
+  if (pts.length < 3) return false;
+  const op = fogOp();
+  state.polyPoints = [];
+  state.polyHover = null;
+  addFogShape({ op: op, kind: 'poly', points: pts.map(p => ({ x: p.x, y: p.y })) });
+  return true;
+}
+function shapeContains(shape, x, y) {
+  if (!shape) return false;
+  if (shape.kind === 'box' || shape.kind === 'square') return x >= shape.x && y >= shape.y && x < shape.x + shape.w && y < shape.y + shape.h;
+  if (shape.kind === 'poly') return pointInPoly(x, y, shape.points || []);
+  if (shape.kind === 'brush') return (shape.cells || []).some(c => x >= c.x && y >= c.y && x < c.x + 1 && y < c.y + 1);
+  return false;
+}
+function fogAt(x, y) {
+  const shapes = sceneData().fogShapes || [];
+  for (let i = shapes.length - 1; i >= 0; i--) {
+    if (shapeContains(shapes[i], x, y)) return shapes[i];
+  }
+  return null;
+}
+function fogCovers(x, y) {
+  let hidden = sceneData().fogRevealed !== true;
+  (sceneData().fogShapes || []).forEach(shape => {
+    if (shapeContains(shape, x, y)) hidden = shape.op === 'hide';
+  });
+  return hidden;
+}
+function clipShape(shape) {
+  const px = state.scene.grid.px;
+  if (!shape) return false;
+  if (shape.kind === 'box' || shape.kind === 'square') {
+    const a = worldToScreen(shape.x * px, shape.y * px);
+    const b = worldToScreen((shape.x + shape.w) * px, (shape.y + shape.h) * px);
+    ctx.beginPath();
+    ctx.rect(a.x, a.y, Math.max(1, b.x - a.x), Math.max(1, b.y - a.y));
+    return true;
+  }
+  if (shape.kind === 'poly' && shape.points && shape.points.length >= 3) {
+    tracePoly(shape.points, true);
+    return true;
+  }
+  if (shape.kind === 'brush' && shape.cells && shape.cells.length) {
+    ctx.beginPath();
+    shape.cells.forEach(c => {
+      const a = worldToScreen(c.x * px, c.y * px);
+      const b = worldToScreen((c.x + 1) * px, (c.y + 1) * px);
+      ctx.rect(a.x, a.y, Math.max(1, b.x - a.x), Math.max(1, b.y - a.y));
+    });
+    return true;
+  }
+  return false;
+}
+function paintPlayerFog(img, cols, rows, px, box) {
+  const topLeft = worldToScreen(0, 0);
+  const paintMap = () => {
+    if (img) ctx.drawImage(img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
+  };
+  (sceneData().fogShapes || []).forEach(shape => {
+    ctx.save();
+    if (!clipShape(shape)) { ctx.restore(); return; }
+    ctx.clip();
+    if (shape.op === 'hide') {
+      ctx.fillStyle = '#0a0806';
+      ctx.fillRect(0, 0, box.w, box.h);
+    } else paintMap();
+    ctx.restore();
+  });
+}
+function paintFogShapes(px) {
+  if (role !== 'dm') return;
+  (sceneData().fogShapes || []).forEach(shape => {
+    const selected = (state.fogSelection || []).indexOf(shape.id) >= 0;
+    const hide = shape.op === 'hide';
+    ctx.save();
+    ctx.strokeStyle = selected ? 'rgba(255,255,255,0.95)' : (hide ? 'rgba(90,150,230,0.95)' : 'rgba(200,180,80,0.9)');
+    ctx.fillStyle = hide ? 'rgba(12,28,60,0.35)' : 'rgba(200,180,80,0.16)';
+    ctx.lineWidth = selected ? 3 : 2;
+    ctx.setLineDash(selected ? [] : [4, 4]);
+    if (clipShape(shape)) { ctx.fill(); ctx.stroke(); }
+    ctx.restore();
+  });
+  if ((state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly' && state.polyPoints && state.polyPoints.length) {
+    ctx.save();
+    ctx.strokeStyle = state.tool === 'hide' ? 'rgba(140,190,255,0.95)' : 'rgba(255,220,120,0.95)';
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    state.polyPoints.forEach((p, i) => {
+      const s = worldToScreen(p.x * px, p.y * px);
+      if (i === 0) ctx.moveTo(s.x, s.y);
+      else ctx.lineTo(s.x, s.y);
+    });
+    if (state.polyHover) {
+      const h = worldToScreen(state.polyHover.x, state.polyHover.y);
+      ctx.lineTo(h.x, h.y);
+    }
+    ctx.stroke();
+    state.polyPoints.forEach((p, i) => {
+      const s = worldToScreen(p.x * px, p.y * px);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, i === 0 ? 6 : 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+  if (state.drag && state.drag.fog && state.fogStart) {
+    const pts = [...pointers.values()];
+    if (pts.length) {
+      const cur = screenToWorld(pts[0].x, pts[0].y);
+      const x1 = Math.min(state.fogStart.x, cur.x);
+      const y1 = Math.min(state.fogStart.y, cur.y);
+      const x2 = Math.max(state.fogStart.x, cur.x);
+      const y2 = Math.max(state.fogStart.y, cur.y);
+      const a = worldToScreen(x1, y1);
+      const b = worldToScreen(x2, y2);
+      ctx.save();
+      ctx.strokeStyle = state.tool === 'hide' ? 'rgba(140,190,255,0.95)' : 'rgba(255,220,120,0.95)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+      ctx.restore();
+    }
+  }
+  if (state.brushCells && state.brushCells.length) {
+    ctx.save();
+    ctx.fillStyle = state.tool === 'hide' ? 'rgba(80,140,220,0.45)' : 'rgba(255,220,120,0.45)';
+    state.brushCells.forEach(c => {
+      const a = worldToScreen(c.x * px, c.y * px);
+      const b = worldToScreen((c.x + 1) * px, (c.y + 1) * px);
+      ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
+    });
+    ctx.restore();
+  }
+}
 function paintZoom() {
   const z = q('zoomLabel');
   if (z) z.textContent = (state.view.zoom || 1).toFixed(2) + '×';
@@ -454,18 +791,11 @@ function draw() {
         drawVisible(ls.x, ls.y, ls.radius * px);
       }
 
-      // revealed rects
-      for (const fr of (sceneData().fogRects || [])) {
-        ctx.save();
-        const a = worldToScreen(fr.x * px, fr.y * px);
-        const b = worldToScreen((fr.x + fr.w) * px, (fr.y + fr.h) * px);
-        ctx.beginPath();
-        ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
-        ctx.clip();
-        const topLeft = worldToScreen(0, 0);
-        ctx.drawImage(img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
-        ctx.restore();
-      }
+      paintPlayerFog(img, cols, rows, px, box);
+    } else if (role === 'player') {
+      const topLeft = worldToScreen(0, 0);
+      ctx.drawImage(img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
+      paintPlayerFog(img, cols, rows, px, box);
     } else {
       // DM always sees the full map
       const topLeft = worldToScreen(0, 0);
@@ -582,17 +912,7 @@ function draw() {
       ctx.restore();
     }
   }
-  if (role === 'dm' && sceneData().fogRects) {
-    ctx.strokeStyle = 'rgba(200,180,80,0.6)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    for (const fr of sceneData().fogRects) {
-      const a = worldToScreen(fr.x * px, fr.y * px);
-      const b = worldToScreen((fr.x + fr.w) * px, (fr.y + fr.h) * px);
-      ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
-    }
-    ctx.setLineDash([]);
-  }
+  if (role === 'dm') paintFogShapes(px);
 
   // grid
   const strength = Math.max(state.gridStrength, state.minStrength);
@@ -637,12 +957,11 @@ function draw() {
       if ((t.sceneId || 'scn_dustyspur01') !== myScene) continue;
     }
 
-    // player vision + revealed rects + other light sources
-    if (role === 'player' && !sceneData().fogRevealed) {
+    if (role === 'player') {
       const tcx = (t.pos.x + (t.size || 1) / 2) * px;
       const tcy = (t.pos.y + (t.size || 1) / 2) * px;
-      let visible = false;
-      if (visionCenter) {
+      let visible = sceneData().fogRevealed === true;
+      if (!visible && visionCenter) {
         const dx = tcx - visionCenter.x;
         const dy = tcy - visionCenter.y;
         if (Math.hypot(dx, dy) <= visionRadiusSq * px) visible = true;
@@ -654,15 +973,11 @@ function draw() {
           if (Math.hypot(dx, dy) <= ls.radius * px) { visible = true; break; }
         }
       }
-      if (!visible && sceneData().fogRects) {
-        for (const fr of sceneData().fogRects) {
-          if (t.pos.x >= fr.x && t.pos.x < fr.x + fr.w &&
-              t.pos.y >= fr.y && t.pos.y < fr.y + fr.h) {
-            visible = true;
-            break;
-          }
-        }
-      }
+      const gx = t.pos.x + (t.size || 1) / 2;
+      const gy = t.pos.y + (t.size || 1) / 2;
+      (sceneData().fogShapes || []).forEach(shape => {
+        if (shapeContains(shape, gx, gy)) visible = shape.op !== 'hide';
+      });
       if (!visible) continue;
     }
 
@@ -772,6 +1087,24 @@ function draw() {
     ctx.textBaseline = 'top';
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
+    if (state.selected && state.selected.id === t.id && host.rounds) {
+      let badge = '';
+      try { badge = host.rounds(t) || ''; } catch (e) { badge = ''; }
+      if (badge) {
+        ctx.font = '11px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const measured = ctx.measureText ? ctx.measureText(badge) : null;
+        const bw = ((measured && measured.width) || (badge.length * 7)) + 8;
+        const bh = 14;
+        const bx = s.x - bw / 2;
+        const by = nameY - bh - 2;
+        ctx.fillStyle = 'rgba(20,16,12,0.9)';
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.fillStyle = '#e2c56a';
+        ctx.fillText(badge, s.x, nameY - 3);
+      }
+    }
     ctx.restore();
 
     // HP bar under the name
@@ -872,37 +1205,67 @@ function iconCursor(emoji) {
   return `url("data:image/svg+xml;utf8,${svg}") 6 28, crosshair`;
 }
 function applyCursor() {
-  if (state.tool === 'rect' || state.tool === 'poly' || state.tool === 'wall' || state.tool === 'room' || state.tool === 'door' || state.tool === 'window') canvas.style.cursor = 'crosshair';
+  if (state.tool === 'reveal' || state.tool === 'hide' || state.tool === 'erase' || state.tool === 'wall' || state.tool === 'room' || state.tool === 'door' || state.tool === 'window') canvas.style.cursor = 'crosshair';
   else if (state.tool === 'ruler') canvas.style.cursor = iconCursor('📏');
   else if (state.tool === 'ping') canvas.style.cursor = iconCursor('📡');
   else if (state.offline) canvas.style.cursor = iconCursor('👻');
   else canvas.style.cursor = 'default';
 }
-function setTool(tool) {
-  const wallTool = tool === 'wall' || tool === 'room' || tool === 'door' || tool === 'window' || tool === 'delwall';
-  if (tool === 'fogToggle') {
-    if (state.tool === 'poly') tool = 'rect';
-    else if (state.tool === 'rect') tool = null;
-    else tool = 'poly';
+function paintFogTools() {
+  const revealKind = (q('revealShape') && q('revealShape').value) || 'box';
+  const hideKind = (q('hideShape') && q('hideShape').value) || 'box';
+  const reveal = q('revealFogBtn');
+  const hide = q('hideFogBtn');
+  const erase = q('eraseFogBtn');
+  if (reveal) {
+    reveal.textContent = 'Reveal: ' + shapeWord(revealKind);
+    reveal.classList.toggle('active', state.tool === 'reveal');
   }
-  state.tool = state.tool === tool ? null : tool;
-  state.fogMode = state.tool;
-  if (wallTool) revealWallLines();
+  if (hide) {
+    hide.textContent = 'Hide: ' + shapeWord(hideKind);
+    hide.classList.toggle('active', state.tool === 'hide');
+  }
+  if (erase) erase.classList.toggle('active', state.tool === 'erase');
+}
+function clearToolButtons() {
   el.querySelectorAll('.ssdns-leftbar button').forEach(b => {
-    if (b.getAttribute('data-act') === 'fogBtn' || b.getAttribute('data-act') === 'showFovBtn' || b.getAttribute('data-act') === 'wallsVisBtn') return;
+    const act = b.getAttribute('data-act');
+    if (act === 'fogBtn' || act === 'showFovBtn' || act === 'wallsVisBtn' || act === 'fogUndoBtn' || act === 'fogRedoBtn' || act === 'deleteFogBtn') return;
     b.classList.remove('active');
   });
-  const fogBtn = q('fogRectBtn');
-  if (fogBtn) {
-    if (state.tool === 'poly') { fogBtn.textContent = 'Fog: Poly'; fogBtn.classList.add('active'); }
-    else if (state.tool === 'rect') { fogBtn.textContent = 'Fog: Rect'; fogBtn.classList.add('active'); }
-    else { fogBtn.textContent = 'Fog'; }
+}
+function armFog(op) {
+  const sel = q(op === 'hide' ? 'hideShape' : 'revealShape');
+  const kind = (sel && sel.value) || 'box';
+  if (state.tool === op) {
+    state.tool = null;
+    state.fogKind = null;
+  } else {
+    state.tool = op;
+    state.fogKind = kind;
   }
+  state.fogMode = state.tool;
+  if (state.fogKind !== 'poly') { state.polyPoints = []; state.polyHover = null; }
+  clearToolButtons();
+  paintFogTools();
+  applyCursor();
+  draw();
+}
+function setTool(tool) {
+  const wallTool = tool === 'wall' || tool === 'room' || tool === 'door' || tool === 'window' || tool === 'delwall';
+  state.tool = state.tool === tool ? null : tool;
+  state.fogMode = null;
+  state.fogKind = null;
+  state.polyPoints = [];
+  state.polyHover = null;
+  if (wallTool) revealWallLines();
+  clearToolButtons();
   ['rulerBtn','pingBtn','wallBtn','delWallBtn','roomBtn','doorBtn','windowBtn'].forEach(id => {
     const b = q(id);
     const toolMap = { rulerBtn: 'ruler', pingBtn: 'ping', wallBtn: 'wall', delWallBtn: 'delwall', roomBtn: 'room', doorBtn: 'door', windowBtn: 'window' };
     if (b && state.tool === toolMap[id]) b.classList.add('active');
   });
+  paintFogTools();
   applyCursor();
   draw();
 }
@@ -1079,11 +1442,11 @@ function viewCenterCell() {
 function selectToken(token) {
   if (!token) return;
   if (state.pendingTarget && role === 'dm') {
-    if (token.id === state.pendingTarget.tokenId) {
+    if (token.id === state.pendingTarget.tokenId && state.pendingTarget.spellKind !== 'heal') {
       toast('Pick a different token');
       return;
     }
-    emit('drawer:target', { tokenId: state.pendingTarget.tokenId, weaponId: state.pendingTarget.weaponId, targetTokenId: token.id, combatantId: tokenCombatant(state.pendingTarget.tokenId), targetCombatantId: tokenCombatant(token.id) });
+    emit('drawer:target', { tokenId: state.pendingTarget.tokenId, weaponId: state.pendingTarget.weaponId || '', spellId: state.pendingTarget.spellId || '', targetTokenId: token.id, combatantId: tokenCombatant(state.pendingTarget.tokenId), targetCombatantId: tokenCombatant(token.id) });
     state.pendingTarget = null;
     toast('Target set');
     renderDrawer();
@@ -1120,7 +1483,8 @@ function makeToken(spec) {
     },
     sceneId: (state.scene && state.scene.id) || 'scn_dustyspur01',
     image: spec.image || '',
-    sheetId: spec.sheetId || ''
+    sheetId: spec.sheetId || '',
+    combatantId: spec.combatantId || ''
   };
   state.tokens.push(token);
   shared.tokens[id] = JSON.parse(JSON.stringify(token));
@@ -1197,8 +1561,10 @@ function ensureDefaultScene() {
     name: (state.scene && state.scene.name) || 'Dusty Spur',
     walls: cur.walls || [],
     fogRects: cur.fogRects || [],
+    fogPolys: cur.fogPolys || [],
     fogRevealed: cur.fogRevealed === true
   };
+  if (Array.isArray(cur.fogShapes)) shared.scenes[sid].fogShapes = cur.fogShapes;
   defaultSceneDone = true;
   saveScene(sid);
 }
@@ -1354,6 +1720,8 @@ function onPointerDown(e) {
   pointers.set(e.pointerId, Object.assign({ t: Date.now() }, localXY(e)));
   if (pointers.size === 1) {
     if (e.button === 1) {
+      e.preventDefault();
+      e.stopPropagation();
       state.drag = { pan: true, middle: true, sx: e.clientX, sy: e.clientY, vx: state.view.x, vy: state.view.y };
       draw();
       return;
@@ -1468,44 +1836,76 @@ function onPointerDown(e) {
       draw();
       return;
     }
-    if (role === 'dm' && (state.tool === 'rect' || state.fogMode === 'rect')) {
+    if (role === 'dm' && state.tool === 'erase') {
+      e.preventDefault();
+      e.stopPropagation();
+      const w = pointerWorld(e);
+      const px = state.scene.grid.px;
+      const hit = fogAt(w.x / px, w.y / px);
+      if (e.shiftKey) {
+        if (!hit) return;
+        if (!state.fogSelection) state.fogSelection = [];
+        const idx = state.fogSelection.indexOf(hit.id);
+        if (idx >= 0) state.fogSelection.splice(idx, 1);
+        else state.fogSelection.push(hit.id);
+        draw();
+        return;
+      }
+      if (!hit) {
+        state.fogSelection = [];
+        draw();
+        return;
+      }
+      rememberFog();
+      sceneData().fogShapes = sceneData().fogShapes.filter(s => s.id !== hit.id);
+      state.fogSelection = (state.fogSelection || []).filter(id => id !== hit.id);
+      commitFog('Erase');
+      return;
+    }
+    if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'box') {
+      e.preventDefault();
       const w = pointerWorld(e);
       state.fogStart = w;
       state.drag = { fog: true, sx: e.clientX, sy: e.clientY };
       return;
     }
-    if (role === 'dm' && (state.tool === 'brush' || state.fogMode === 'brush')) {
+    if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'square') {
+      e.preventDefault();
       const w = pointerWorld(e);
       const px = state.scene.grid.px;
-      const rect = { x: Math.floor(w.x / px), y: Math.floor(w.y / px), w: 1, h: 1 };
-      sceneData().fogRects.push(rect);
-      state.undoStack.push({ type: 'fog', rect });
-      saveScene();
+      state.brushCells = [{ x: Math.floor(w.x / px), y: Math.floor(w.y / px) }];
+      state.drag = { square: true };
       draw();
       return;
     }
-    if (role === 'dm' && (state.tool === 'poly' || state.fogMode === 'poly')) {
+    if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'brush') {
+      e.preventDefault();
       const w = pointerWorld(e);
+      const px = state.scene.grid.px;
+      state.brushCells = [{ x: Math.floor(w.x / px), y: Math.floor(w.y / px) }];
+      state.drag = { brush: true };
+      draw();
+      return;
+    }
+    if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly') {
+      e.preventDefault();
+      e.stopPropagation();
       if (!state.polyPoints) state.polyPoints = [];
-      state.polyPoints.push(w);
-      if (state.polyPoints.length >= 3 && e.detail === 2) { // double-click to close
-        // simple bounding rect for demo
-        const xs = state.polyPoints.map(p => p.x), ys = state.polyPoints.map(p => p.y);
-        const px = state.scene.grid.px;
-        const rect = {
-          x: Math.floor(Math.min(...xs) / px),
-          y: Math.floor(Math.min(...ys) / px),
-          w: Math.max(1, Math.ceil((Math.max(...xs) - Math.min(...xs)) / px)),
-          h: Math.max(1, Math.ceil((Math.max(...ys) - Math.min(...ys)) / px))
-        };
-        sceneData().fogRects.push(rect);
-        state.undoStack.push({ type: 'fog', rect });
-        state.polyPoints = [];
-        state.tool = null;
-        const btn = q('fogRectBtn');
-        if (btn) btn.textContent = 'Fog: Rect';
-        saveScene();
+      if (e.button === 2) {
+        if (state.polyPoints.length >= 3) commitPoly();
+        else { state.polyPoints = []; state.polyHover = null; draw(); }
+        return;
       }
+      if (e.button !== 0) return;
+      const g = gridPoint(pointerWorld(e));
+      const pts = state.polyPoints;
+      const onFirst = pts.length >= 3 && (sameGrid(g, pts[0]) || screenDistGrid(pts[0], g) <= 12);
+      if (onFirst || (pts.length >= 3 && e.detail === 2)) {
+        commitPoly();
+        return;
+      }
+      if (pts.length && sameGrid(g, pts[pts.length - 1])) { draw(); return; }
+      pts.push(g);
       draw();
       return;
     }
@@ -1581,12 +1981,25 @@ function onPointerDown(e) {
   e.preventDefault();
 }
 function onPointerMove(e) {
-  if (!pointers.has(e.pointerId)) return;
+  const polyLive = role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly' && state.polyPoints && state.polyPoints.length;
+  if (state.drag && (state.drag.brush || state.drag.square) && state.brushCells) {
+    const w = pointerWorld(e);
+    const px = state.scene.grid.px;
+    const cell = { x: Math.floor(w.x / px), y: Math.floor(w.y / px) };
+    if (!state.brushCells.some(c => c.x === cell.x && c.y === cell.y)) state.brushCells.push(cell);
+  }
+  if (polyLive) state.polyHover = pointerWorld(e);
+  if (!pointers.has(e.pointerId)) {
+    if (polyLive) draw();
+    return;
+  }
   pointers.set(e.pointerId, localXY(e));
   if (state.tool === 'wall' && state.wallStart) draw();
   if (state.tool === 'room' && state.roomStart) draw();
   if (pointers.size === 1 && state.drag) {
     if (state.drag.pan) {
+      e.preventDefault();
+      e.stopPropagation();
       const dx = (e.clientX - state.drag.sx) / state.view.zoom;
       const dy = (e.clientY - state.drag.sy) / state.view.zoom;
       state.view.x = state.drag.vx - dx;
@@ -1640,7 +2053,7 @@ function onPointerMove(e) {
       // write on pointerup only
     }
     draw();
-  }
+  } else if (polyLive) draw();
 }
 function onPointerUp(e) {
   if (state.drag && state.drag.token && state.drag.blocked && !(role === 'dm' && e.shiftKey)) {
@@ -1734,17 +2147,22 @@ function onPointerUp(e) {
     const y1 = Math.min(state.fogStart.y, w.y);
     const x2 = Math.max(state.fogStart.x, w.x);
     const y2 = Math.max(state.fogStart.y, w.y);
-    const rect = {
+    addFogShape({
+      op: fogOp(),
+      kind: 'box',
       x: Math.floor(x1 / px),
       y: Math.floor(y1 / px),
       w: Math.max(1, Math.ceil((x2 - x1) / px)),
       h: Math.max(1, Math.ceil((y2 - y1) / px))
-    };
-    sceneData().fogRects.push(rect);
-    saveScene();
-    state.fogMode = null;
-    const btn = q('fogRectBtn');
-    if (btn) btn.textContent = 'Fog Rect';
+    });
+  }
+  if (state.drag && state.drag.square && state.brushCells && state.brushCells.length) {
+    addFogSquares(state.brushCells);
+    state.brushCells = null;
+  }
+  if (state.drag && state.drag.brush && state.brushCells && state.brushCells.length) {
+    addFogShape({ op: fogOp(), kind: 'brush', cells: state.brushCells.map(c => ({ x: c.x, y: c.y })) });
+    state.brushCells = null;
   }
   pointers.delete(e.pointerId);
   if (pointers.size === 0) state.drag = null;
@@ -1821,6 +2239,115 @@ function cellTaken(x, y, ignore) {
     return x >= t.pos.x && x < t.pos.x + size && y >= t.pos.y && y < t.pos.y + size;
   });
 }
+function nextFreeCell() {
+  if (!state.scene) return null;
+  const grid = state.scene.grid || { cols: 30, rows: 20 };
+  const cols = grid.cols || 30;
+  const rows = grid.rows || 20;
+  const start = viewCenterCell();
+  const free = (x, y) => x >= 0 && y >= 0 && x < cols && y < rows && !cellTaken(x, y);
+  if (free(start.x, start.y)) return { x: start.x, y: start.y };
+  const max = Math.max(cols, rows);
+  for (let r = 1; r < max; r++) {
+    for (let y = start.y - r; y <= start.y + r; y++) {
+      for (let x = start.x - r; x <= start.x + r; x++) {
+        if (Math.max(Math.abs(x - start.x), Math.abs(y - start.y)) !== r) continue;
+        if (free(x, y)) return { x: x, y: y };
+      }
+    }
+  }
+  return null;
+}
+function placeLinkedToken(spec) {
+  if (role !== 'dm' || !state.scene) return null;
+  spec = spec || {};
+  const spot = nextFreeCell();
+  if (!spot) { toast('No open square'); return null; }
+  return makeToken(Object.assign({}, spec, { pos: spot, kind: spec.kind || 'npc' }));
+}
+function hasToken(id) {
+  return !!(id && state.tokens.some(t => t && t.id === id));
+}
+function tokenForPlayer(pid) {
+  if (!pid) return null;
+  return state.tokens.find(t => t && (t.ownerUid === pid || t.combatantId === pid || t.sheetId === pid)) || null;
+}
+function releaseToken(id) {
+  const t = state.tokens.find(tok => tok && tok.id === id);
+  if (!t) return;
+  delete t.combatantId;
+  const copy = shared.tokens[id];
+  if (copy) delete copy.combatantId;
+  saveToken(id);
+  if (state.drawerOpen && state.drawerTokenId === id) renderDrawer();
+}
+function removeMapTokens(ids, opts) {
+  opts = opts || {};
+  const list = (ids || []).filter(Boolean);
+  if (!list.length) return;
+  const goneInfo = list.map(id => {
+    const gone = (shared.tokens && shared.tokens[id]) || state.tokens.find(t => t && t.id === id) || {};
+    return { id: id, ownerUid: gone.ownerUid || '', combatantId: gone.combatantId || '' };
+  });
+  state.tokens = state.tokens.filter(t => !list.includes(t.id));
+  goneInfo.forEach(info => {
+    if (info.ownerUid && !opts.keepOwner) {
+      dismissedMap()[info.ownerUid] = true;
+      write('map/dm/dismissed/' + info.ownerUid, true);
+    }
+    delete shared.tokens[info.id];
+    if (adapter && adapter.remove) {
+      adapter.remove('map/public/tokens/' + info.id);
+      adapter.remove('map/dm/tokens/' + info.id);
+    }
+  });
+  if (!opts.silent) {
+    goneInfo.forEach(info => emit('combatant:remove', { tokenId: info.id, combatantId: info.combatantId, ownerUid: info.ownerUid }));
+  }
+  if (state.drawerOpen && list.includes(state.drawerTokenId)) closeDrawer();
+  if (list.includes(state.currentTurnId)) state.currentTurnId = null;
+  if (state.selected && list.includes(state.selected.id)) state.selected = null;
+  state.selectedIds = (state.selectedIds || []).filter(id => !list.includes(id));
+  draw();
+}
+function applyLink(tokenId, patch) {
+  if (role !== 'dm' || !patch) return null;
+  const t = state.tokens.find(tok => tok && tok.id === tokenId);
+  if (!t) return null;
+  if (patch.ownerUid) {
+    state.tokens.forEach(other => {
+      if (!other || other.id === t.id || other.ownerUid !== patch.ownerUid) return;
+      other.ownerUid = '';
+      if (other.combatantId === patch.ownerUid) delete other.combatantId;
+      const otherCopy = shared.tokens[other.id];
+      if (otherCopy) {
+        otherCopy.ownerUid = '';
+        delete otherCopy.combatantId;
+      }
+      saveToken(other.id);
+    });
+    delete dismissedMap()[patch.ownerUid];
+    if (adapter && adapter.remove) adapter.remove('map/dm/dismissed/' + patch.ownerUid);
+  }
+  if (patch.kind) t.kind = patch.kind;
+  if (patch.ownerUid != null) t.ownerUid = patch.ownerUid;
+  if (patch.combatantId) t.combatantId = patch.combatantId;
+  if (patch.sheetId != null) t.sheetId = patch.sheetId;
+  if (patch.name) t.name = patch.name;
+  if (patch.label) t.label = String(patch.label).slice(0, 16);
+  if (patch.color) t.color = patch.color;
+  if (patch.ownerCanMove != null) t.ownerCanMove = patch.ownerCanMove !== false;
+  else if (patch.ownerUid) t.ownerCanMove = true;
+  const copy = shared.tokens[t.id] || (shared.tokens[t.id] = { id: t.id });
+  ['kind', 'ownerUid', 'combatantId', 'sheetId', 'name', 'label', 'color', 'ownerCanMove', 'pos', 'sceneId', 'size', 'hidden', 'locked', 'status', 'image'].forEach(key => {
+    if (t[key] !== undefined) copy[key] = t[key];
+  });
+  if (t.controlledBy) copy.controlledBy = t.controlledBy.slice();
+  if (t.conditions) copy.conditions = t.conditions.slice();
+  saveToken(t.id);
+  draw();
+  return t;
+}
 function hitTest(wx, wy) {
   const px = state.scene.grid.px;
   for (let i = state.tokens.length - 1; i >= 0; i--) {
@@ -1833,14 +2360,24 @@ function hitTest(wx, wy) {
   return null;
 }
 
+function swallowMiddle(e) {
+  if (e.button !== 1) return;
+  e.preventDefault();
+  e.stopPropagation();
+}
 on(canvas, 'pointerdown', onPointerDown);
+on(el, 'pointerdown', e => { if (e.button === 1 && e.target !== canvas) swallowMiddle(e); });
+on(canvas, 'mousedown', swallowMiddle);
+on(el, 'mousedown', swallowMiddle);
 on(canvas, 'contextmenu', e => e.preventDefault());
-on(canvas, 'auxclick', e => { if (e.button === 1) e.preventDefault(); });
+on(canvas, 'auxclick', swallowMiddle);
+on(el, 'auxclick', swallowMiddle);
 on(canvas, 'pointermove', onPointerMove);
 on(canvas, 'pointerup', onPointerUp);
 on(canvas, 'pointercancel', onPointerUp);
 on(canvas, 'wheel', e => {
   e.preventDefault();
+  e.stopPropagation();
   if ((e.buttons & 4) || (state.drag && state.drag.middle)) return;
   const before = pointerWorld(e);
   const factor = e.deltaY < 0 ? 1.1 : 0.9;
@@ -1877,7 +2414,8 @@ Door / Window: click a wall. Click again to open or shut. Right-click removes it
 Wall and Room: drag, release to commit.<br>
 Walls: OFF hides the lines so you can see the raw map. Walls still block.<br>
 Grant / Revoke: pick a player, then a token. Revoke on their own token locks them out. Grant gives it back.<br>
-Fog covers the player map. Show Player FOV greys the rest and brightens their light.<br>
+Reveal clears fog. Hide paints fog back. Each has a Box, Square, Poly, or Brush picker, and the button name is the action. Square: click one grid cell, or drag across cells. Each cell erases on its own. A drag is one history step. Poly: click as many corners as you need, then the first point, double-click, or Enter. Erase deletes one shape. Shift-click selects more, then Delete selection removes them together. Undo and Redo walk the fog history.<br>
+Show Player FOV greys the rest and brightens their light.<br>
 Set floor, then Show to players, to move someone to another map.` : `<b>Player</b><br>
 You move your own token, and any the DM has granted you.<br>
 My color changes your ring. Ping uses that color. The button stays lit while the tool is on.<br>
@@ -1977,7 +2515,54 @@ if (role === 'dm') {
     saveScene();
     draw();
   });
-  q('fogRectBtn').addEventListener('click', () => setTool('fogToggle'));
+  q('revealFogBtn').addEventListener('click', () => armFog('reveal'));
+  q('hideFogBtn').addEventListener('click', () => armFog('hide'));
+  q('eraseFogBtn').addEventListener('click', () => {
+    if (state.tool === 'erase') {
+      state.tool = null;
+      state.fogKind = null;
+      clearToolButtons();
+      paintFogTools();
+      applyCursor();
+      draw();
+      return;
+    }
+    state.tool = 'erase';
+    state.fogKind = null;
+    state.polyPoints = [];
+    state.polyHover = null;
+    clearToolButtons();
+    paintFogTools();
+    applyCursor();
+    draw();
+  });
+  q('revealShape').addEventListener('change', () => {
+    if (state.tool === 'reveal') {
+      state.fogKind = q('revealShape').value;
+      if (state.fogKind !== 'poly') { state.polyPoints = []; state.polyHover = null; }
+    }
+    paintFogTools();
+    draw();
+  });
+  q('hideShape').addEventListener('change', () => {
+    if (state.tool === 'hide') {
+      state.fogKind = q('hideShape').value;
+      if (state.fogKind !== 'poly') { state.polyPoints = []; state.polyHover = null; }
+    }
+    paintFogTools();
+    draw();
+  });
+  q('deleteFogBtn').addEventListener('click', () => {
+    const ids = state.fogSelection || [];
+    if (!ids.length) { toast('Select fog first'); return; }
+    rememberFog();
+    sceneData().fogShapes = sceneData().fogShapes.filter(s => ids.indexOf(s.id) < 0);
+    state.fogSelection = [];
+    commitFog(ids.length === 1 ? 'Erase' : 'Erase ' + ids.length);
+  });
+  q('fogUndoBtn').addEventListener('click', undoFog);
+  q('fogRedoBtn').addEventListener('click', redoFog);
+  renderFogHistory();
   q('wallBtn').addEventListener('click', () => setTool('wall'));
   q('roomBtn').addEventListener('click', () => setTool('room'));
   q('doorBtn').addEventListener('click', () => setTool('door'));
@@ -2038,13 +2623,6 @@ if (role === 'dm') {
   });
   q('rulerBtn').addEventListener('click', () => setTool('ruler'));
   q('pingBtn').addEventListener('click', () => setTool('ping'));
-  q('undoFogBtn').addEventListener('click', () => {
-    if (sceneData().fogRects.length) {
-      sceneData().fogRects.pop();
-      saveScene();
-      draw();
-    }
-  });
   q('undoBtn').addEventListener('click', () => {
     const action = state.undoStack.pop();
     if (!action) return;
@@ -2091,15 +2669,31 @@ if (role === 'dm') {
   q('revealAllBtn').addEventListener('click', () => {
     sceneData().fogRevealed = true;
     sceneData().fogRects = [];
+    sceneData().fogPolys = [];
+    sceneData().fogShapes = [];
+    state.polyPoints = [];
+    state.polyHover = null;
+    state.fogSelection = [];
+    state.fogPast = [];
+    state.fogFuture = [];
     q('fogBtn').textContent = 'Fog: OFF';
     saveScene();
+    renderFogHistory();
     draw();
   });
   q('hideAllBtn').addEventListener('click', () => {
     sceneData().fogRevealed = false;
     sceneData().fogRects = [];
+    sceneData().fogPolys = [];
+    sceneData().fogShapes = [];
+    state.polyPoints = [];
+    state.polyHover = null;
+    state.fogSelection = [];
+    state.fogPast = [];
+    state.fogFuture = [];
     q('fogBtn').textContent = 'Fog: ON';
     saveScene();
+    renderFogHistory();
     draw();
   });
   q('dmTorchBtn').addEventListener('click', () => {
@@ -2210,26 +2804,9 @@ if (role === 'dm') {
   q('delTokenBtn').addEventListener('click', () => {
     const ids = state.selectedIds.length ? [...state.selectedIds] : (state.selected ? [state.selected.id] : []);
     if (!ids.length) { toast('Select a token'); return; }
-    state.tokens = state.tokens.filter(t => !ids.includes(t.id));
-    ids.forEach(id => {
-      const gone = shared.tokens[id];
-      if (gone && gone.ownerUid) {
-        dismissedMap()[gone.ownerUid] = true;
-        write('map/dm/dismissed/' + gone.ownerUid, true);
-      }
-      delete shared.tokens[id];
-      if (adapter && adapter.remove) {
-        adapter.remove('map/public/tokens/' + id);
-        adapter.remove('map/dm/tokens/' + id);
-      }
-    });
-    ids.forEach(id => emit('combatant:remove', { tokenId: id }));
-    if (ids.includes(state.currentTurnId)) state.currentTurnId = null;
-    state.selected = null;
-    state.selectedIds = [];
+    removeMapTokens(ids);
     flashBtn('delTokenBtn');
     toast('Removed from map and turn order');
-    draw();
   });
   renderActions();
 } else {
@@ -2322,6 +2899,19 @@ function sceneData(id) {
   // Realtime Database drops empty arrays, so a fresh scene comes back without walls.
   if (!Array.isArray(scene.walls)) scene.walls = [];
   if (!Array.isArray(scene.fogRects)) scene.fogRects = [];
+  if (!Array.isArray(scene.fogPolys)) scene.fogPolys = [];
+  if (!Array.isArray(scene.fogShapes)) {
+    const shapes = [];
+    scene.fogRects.forEach(r => {
+      if (!r) return;
+      shapes.push({ id: fogId(), op: 'reveal', kind: 'box', x: r.x || 0, y: r.y || 0, w: r.w || 1, h: r.h || 1 });
+    });
+    scene.fogPolys.forEach(p => {
+      if (!p || !p.points || p.points.length < 3) return;
+      shapes.push({ id: fogId(), op: 'reveal', kind: 'poly', points: p.points.map(pt => ({ x: pt.x, y: pt.y })) });
+    });
+    scene.fogShapes = shapes;
+  }
   return scene;
 }
 function migrateGlobalToScenes() {
@@ -2440,6 +3030,8 @@ async function loadSceneImage(sceneId) {
     const list = host.actions.get({ role, uid, tokenId }) || [];
     slot.innerHTML = '';
     list.forEach(a => {
+      const wrap = document.createElement('div');
+      wrap.className = 'ssm-action';
       const b = document.createElement('button');
       b.textContent = a.label || a.id;
       b.disabled = a.enabled === false;
@@ -2450,7 +3042,30 @@ async function loadSceneImage(sceneId) {
         const ret = host.actions.run ? host.actions.run(a.id, ctx) : null;
         Promise.resolve(ret).then(() => emit('action:done', ctx)).catch(err => emit('action:error', { id: a.id, error: String(err) }));
       });
-      slot.appendChild(b);
+      wrap.appendChild(b);
+      const cyl = a.cylinder;
+      if (cyl && cyl.cap) {
+        const gun = document.createElement('button');
+        gun.type = 'button';
+        gun.className = 'ssm-cyl-btn';
+        gun.title = 'Reload';
+        gun.setAttribute('aria-label', (a.label || 'Gun') + ' cylinder ' + (cyl.loaded || 0) + '/' + cyl.cap);
+        const flags = Array.isArray(cyl.chambers) ? cyl.chambers : null;
+        for (let k = 0; k < Number(cyl.cap); k++) {
+          const dot = document.createElement('span');
+          const full = flags ? !!flags[k] : k < (Number(cyl.loaded) || 0);
+          dot.className = 'chamber-dot' + (full ? ' full' : '');
+          gun.appendChild(dot);
+        }
+        gun.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const id = 'reload:' + cyl.index;
+          if (host.actions && host.actions.run) host.actions.run(id, { id: id, tokenId });
+        });
+        wrap.appendChild(gun);
+      }
+      slot.appendChild(wrap);
     });
   }
 
@@ -2514,9 +3129,34 @@ async function loadSceneImage(sceneId) {
     const tokenId = state.drawerTokenId;
     const card = lookupCard(tokenId);
     if (!card) {
-      d.innerHTML = '<div class="ssm-drawer-head"><b>No card linked</b><button type="button" data-act="drawerClose">×</button></div>';
+      const choices = (typeof host.linkChoices === 'function' && host.linkChoices()) || {};
+      const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
+      const group = (label, inner) => inner ? '<optgroup label="' + esc(label) + '">' + inner + '</optgroup>' : '';
+      const players = (choices.players || []).map(p => option('player:' + (p.id || ''), p.label || p.name || p.id)).join('');
+      const enemies = (choices.enemies || []).map(row => option('enemy:' + (row.id || ''), row.label || row.name || row.id)).join('');
+      const beasts = (choices.bestiary || []).map(g => group(g.label || 'Bestiary', (g.options || []).map(b => option('beast:' + (b.id || ''), b.name || b.id)).join(''))).join('');
+      const custom = choices.customLabel || 'New custom enemy (Bandit)';
+      d.innerHTML = '<div class="ssm-drawer-head"><b>No card linked</b><button type="button" data-act="drawerClose">×</button></div>' +
+        '<div class="ssm-drawer-body">' +
+        '<label class="ssm-section" for="ssm-link-pick">Link to…</label>' +
+        '<select data-act="linkPick" id="ssm-link-pick" aria-label="Link to…">' +
+        '<option value="">Link to…</option>' +
+        group('Current players', players) +
+        group('In this fight', enemies) +
+        beasts +
+        group('Custom', option('custom', custom)) +
+        '</select>' +
+        '<p class="ssm-tactics">Players can be laid out before a fight. A bestiary or custom enemy is added on the Fight tab and linked here.</p>' +
+        '</div>';
       const c = d.querySelector('[data-act="drawerClose"]');
       if (c) c.addEventListener('click', closeDrawer);
+      const pick = d.querySelector('[data-act="linkPick"]');
+      if (pick) pick.addEventListener('change', () => {
+        const link = pick.value;
+        if (!link) return;
+        emit('drawer:link', { tokenId: tokenId, link: link });
+        pick.value = '';
+      });
       return;
     }
     const isPc = card.kind === 'pc';
@@ -2527,10 +3167,28 @@ async function loadSceneImage(sceneId) {
       return '<button type="button" class="ssm-atk" data-wid="' + esc(a.id) + '" ' + (canAct ? '' : 'disabled') + '>' +
         esc(a.name || a.id) + ' +' + esc(a.toHit != null && a.toHit !== '' ? a.toHit : 0) + ' ' + esc(a.damage || '') + esc(ammo) + '</button>';
     }).join('');
-    const spells = (card.spells || []).map(s =>
-      '<button type="button" class="ssm-atk" data-sid="' + esc(s.id) + '" ' + (canAct ? '' : 'disabled') + '>' +
-      esc(s.name || s.id) + (s.level != null ? ' (L' + esc(s.level) + ')' : '') + '</button>'
-    ).join('');
+    const cylinders = (card.attacks || []).filter(a => a && a.ammo && a.ammo.cap).map(a => {
+      const cap = Number(a.ammo.cap) || 0;
+      const loaded = Number(a.ammo.loaded) || 0;
+      const flags = Array.isArray(a.ammo.chambers) ? a.ammo.chambers : null;
+      let dots = '';
+      for (let k = 0; k < cap; k++) {
+        const full = flags ? !!flags[k] : k < loaded;
+        dots += '<button type="button" class="chamber-dot' + (full ? ' full' : '') + '" data-act="chamber" data-wid="' + esc(a.id) + '" data-k="' + k + '" aria-label="Chamber ' + (k + 1) + '"></button>';
+      }
+      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span></div>';
+    }).join('');
+    const spells = (card.spells || []).map(s => {
+      const meta = [
+        s.kind === 'save' ? 'save' : (s.kind === 'attack' ? 'attack' : (s.kind && s.kind !== 'none' ? s.kind : '')),
+        s.dc !== '' && s.dc != null && s.kind === 'save' ? 'DC ' + s.dc : '',
+        s.toHit !== '' && s.toHit != null && s.kind === 'attack' ? '+' + s.toHit : '',
+        s.damage || '',
+        s.concentration ? 'concentration' : ''
+      ].filter(Boolean).join(' · ');
+      return '<button type="button" class="ssm-atk" data-sid="' + esc(s.id) + '" data-skind="' + esc(s.kind || '') + '" ' + (canAct ? '' : 'disabled') + '>' +
+        esc(s.name || s.id) + (s.level != null ? ' (L' + esc(s.level) + ')' : '') + (meta ? ' · ' + esc(meta) : '') + '</button>';
+    }).join('');
     const conds = (card.conditions || []).map(c => '<span class="ssm-cond">' + esc(condLabel(c)) + '</span>').join(' ');
     const condOptions = conditionNames().map(name => '<option value="' + esc(name) + '">' + esc(name) + '</option>').join('');
     const weaponOptions = (card.attacks || []).map(a => '<option value="' + esc(a.id || a.name || '') + '">' + esc(a.name || a.id || 'Weapon') + '</option>').join('') || '<option value="">No weapon</option>';
@@ -2544,6 +3202,7 @@ async function loadSceneImage(sceneId) {
       (conds ? '<div class="ssm-conds">' + conds + '</div>' : '') +
       (card.tactics ? '<div class="ssm-tactics">' + esc(card.tactics) + '</div>' : '') +
       '<div class="ssm-section">Attacks</div>' + attacks +
+      (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       (spells ? '<div class="ssm-section">Spells</div>' + spells : '') +
       '<div class="ssm-row">' +
         '<input data-act="hpAmt" type="number" value="1" min="0" aria-label="HP amount">' +
@@ -2575,10 +3234,21 @@ async function loadSceneImage(sceneId) {
     d.querySelectorAll('.ssm-atk').forEach(b => {
       b.addEventListener('click', () => {
         if (b.disabled) return;
-        const wid = b.getAttribute('data-wid') || b.getAttribute('data-sid');
-        emit('drawer:attack', detail({ weaponId: wid }));
-        state.pendingTarget = { tokenId, weaponId: wid };
+        if (b.hasAttribute('data-sid')) {
+          const sid = b.getAttribute('data-sid');
+          emit('drawer:spell', detail({ spellId: sid }));
+          state.pendingTarget = { tokenId, spellId: sid, spellKind: b.getAttribute('data-skind') || '' };
+        } else {
+          const wid = b.getAttribute('data-wid');
+          emit('drawer:attack', detail({ weaponId: wid }));
+          state.pendingTarget = { tokenId, weaponId: wid };
+        }
         renderDrawer();
+      });
+    });
+    d.querySelectorAll('[data-act="chamber"]').forEach(b => {
+      b.addEventListener('click', () => {
+        emit('drawer:chamber', detail({ weaponId: b.getAttribute('data-wid'), chamber: Number(b.getAttribute('data-k')) }));
       });
     });
     d.querySelector('[data-act="hpMinus"]').addEventListener('click', () => emit('drawer:hp', detail({ delta: -readHp() })));
@@ -2709,6 +3379,7 @@ async function loadSceneImage(sceneId) {
         const next = Object.assign({}, value);
         if (!Array.isArray(next.walls)) next.walls = [];
         if (!Array.isArray(next.fogRects)) next.fogRects = [];
+        if (!Array.isArray(next.fogPolys)) next.fogPolys = [];
         shared.scenes[sid] = next;
         requestDraw();
       }
@@ -2844,7 +3515,14 @@ return {
     fillGrant();
     ensurePartyTokens();
   },
-  ensureDefaultScene: ensureDefaultScene
+  ensureDefaultScene: ensureDefaultScene,
+  placeLinkedToken,
+  setTool,
+  removeToken: function (id) { removeMapTokens([id], { silent: true }); },
+  applyLink,
+  tokenForPlayer,
+  hasToken,
+  releaseToken
 };
 }
 };

@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.21"; // sheet-playtest-v0321
+  var APP_VERSION = "0.3.22"; // sheet-playtest-v0322
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -85,7 +85,7 @@
       "dulls-rifle": ["dulls-rolling-block-rifle", "medium"], "dullards-rifle": ["dullards-tube-rifle", "medium"],
       "henrietta-repeating-rifle-44-rimfire": ["henrietta-repeating-rifle", "light"], "henrietta-repeating-rifle-357": ["henrietta-repeating-rifle", "medium"], "henrietta-repeating-rifle-45-long": ["henrietta-repeating-rifle", "heavy"],
       "lancaster-repeating-rifle-44-rimfire": ["lancaster-repeating-rifle", "light"], "lancaster-repeating-rifle-357": ["lancaster-repeating-rifle", "medium"], "lancaster-repeating-rifle-45-long": ["lancaster-repeating-rifle", "heavy"],
-      "musket": ["dull-co-rifle-musket", "medium"], "bison-big-fifty-50-90": ["bison-big-fifty-buffalo-rifle", "medium"],
+      "musket": ["dull-co-rifle-musket", "medium"], "bison-big-fifty-50-90": ["bison-big-fifty-buffalo-rifle", "heavy"],
       "standard-caster-gun": ["blacksnake", "medium"], "python": ["blacksnake", "medium"], "cobra": ["blacksnake", "medium"], "viper": ["blacksnake", "medium"], "boa": ["blacksnake", "medium"] },
     holster: { "concealed-shoulder-vest-sleeve": "concealed-vest-sleeve" }
   };
@@ -604,7 +604,8 @@
     if (hol && c.holsterActive) {
       var belt = /^belt rig/i.test(hol.perk || "");
       var pommel = /†/.test(hol.initText || "") || /pommel/i.test(hol.name || "");
-      var cross = !!hol.conditional && /first-shot bonus only then/i.test(hol.perk || "");
+      var cross = hol.id === "cross-draw-holster";
+      // character.seated is the existing "Seated or driving" toggle.
       var posture = !!c.seated || !!c.mounted;
       if (pommel) { if (c.mounted) v.holsterInit = num(hol.initBonus); }
       else v.holsterInit = num(hol.initBonus);
@@ -1209,6 +1210,9 @@
     var ss = $("#selSublineage");
     fillSelect(ss, subs.map(function (s) { return [s.id, s.name]; }), subs.length ? "Sublineage…" : "—");
     ss.disabled = !subs.length;
+    ss.hidden = !subs.length;
+    var linLab = document.querySelector("label[for='selLineage']");
+    if (linLab) linLab.textContent = subs.length ? "Lineage · Sublineage" : "Lineage";
     var cal = CAL[c.calling];
     var sc = $("#selSubclass");
     fillSelect(sc, cal ? cal.subclasses.filter(function (s) { return !s.dmOnly || c.subclass === s.id; }).map(function (s) {
@@ -1241,6 +1245,11 @@
     $$("[data-img]").forEach(function (box) {
       var src = getPath(S.doc, box.getAttribute("data-img")), img = $("img", box);
       if (src) { img.src = src; img.hidden = false; box.classList.add("has"); } else { img.removeAttribute("src"); img.hidden = true; box.classList.remove("has"); }
+    });
+    $$("[data-portrait-url]").forEach(function (inp) {
+      if (document.activeElement === inp) return;
+      var src = getPath(S.doc, inp.getAttribute("data-portrait-url")) || "";
+      inp.value = /^data:/i.test(src) ? "" : src;
     });
     suppress = false;
     renderCalc();
@@ -1356,7 +1365,12 @@
       ms.hidden = !(w && modsFor(w).length); ps.hidden = !(w && capSteps(w).length);
       ms.value = g.mod || ""; ps.value = g.capacity ? String(g.capacity) : "";
       ms.title = s && s.mod ? s.mod.effect : "Gunsmithing: one modification slot";
-      if (w && w.tiers) { var cc = chamberOf(g, w); cs.value = cc.tier + "|" + cc.round; }
+      if (w && w.tiers) {
+        var cc = chamberOf(g, w);
+        var storedTier = String(g.chamber || "").split("|")[0];
+        if (storedTier && !w.tiers[storedTier]) { g.chamber = cc.tier + "|" + cc.round; g.tier = cc.tier; }
+        cs.value = cc.tier + "|" + cc.round;
+      }
       out("rng." + i, s ? s.range : "");
       out("cap." + i, s && s.capacity ? s.capacity : (s ? "—" : ""));
       out("mis." + i, s ? misfireLabel(s.misfire, g.dirty) : "");
@@ -1482,7 +1496,9 @@
     var holMsg;
     if (h) {
       holMsg = h.name + ": holds " + h.holds + ". Init. " + (h.initText || "—") + ", first shot " + (h.firstShotText || "—") + ". " + h.perk + " ";
-      if (h.conditional) holMsg += "* ";
+      if (h.id === "cross-draw-holster") {
+        holMsg += (c.holsterActive && (c.seated || c.mounted)) ? "That bonus is on. " : "That bonus is off. ";
+      } else if (h.conditional) holMsg += "* ";
       if (h.isRig) holMsg += c.holsterActive ? "(Applied: pistol in the rig.) " : "(Tick when a pistol rides in it to apply.) ";
       if (c.seated) holMsg += "Seated or driving. ";
       if (c.mounted) holMsg += "Mounted. ";
@@ -1737,6 +1753,19 @@
       C().overrides[k] = t.value.trim();
       if (C().overrides[k] === "") delete C().overrides[k];
       changed({ noRender: e.type === "input" });
+      return;
+    }
+    var urlPath = t.getAttribute("data-portrait-url");
+    if (urlPath) {
+      if (e.type !== "change") return;
+      var url = String(t.value || "").trim();
+      if (!url) return;
+      var scheme = /^[a-z][a-z0-9+.-]*:/i.test(url);
+      var ok = /^https?:\/\//i.test(url) || (!scheme && !/^\/\//.test(url) && !/[\s<>]/.test(url));
+      if (!ok) { toast("Use an http(s) image address."); return; }
+      setPath(S.doc, urlPath, url);
+      renderFields();
+      changed({ noRender: true });
       return;
     }
     var path = t.getAttribute("data-f");
@@ -2873,8 +2902,15 @@
       toast("Shards updated by " + w.updatedBy + " while the sheet was closed.");
     } catch (e) { console.warn(e); }
   }
+  function beatAlive() {
+    try {
+      if (!S.doc || !S.doc.id) return;
+      localStorage.setItem("ssdns.sheet.alive", JSON.stringify({ characterId: S.doc.id, at: Date.now() }));
+    } catch (e) {}
+  }
   function pushWallet() {
     try { Bridge.writeWallet({ characterId: S.doc.id, characterName: C().name, shards: S.doc.shards, updatedBy: "sheet" }); } catch (e) { console.warn(e); }
+    beatAlive();
   }
   function onWallet(w) {
     if (window.SSDNSCreator && window.SSDNSCreator.isOpen && window.SSDNSCreator.isOpen()) return;
@@ -3399,6 +3435,8 @@
     });
     document.addEventListener("keydown", function (e) { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); doSave(); } });
     Bridge.onChange(onWallet);
+    beatAlive();
+    setInterval(beatAlive, 20000);
     wireDrop();
     wireTabs();
   }
@@ -3464,7 +3502,7 @@
       armDirtyD4: function (i) {
         if (window.SSDNSD4 && window.SSDNSD4.arm) return window.SSDNSD4.arm(i);
       },
-      reloadGun: function (i) { reload(i); },
+      reloadGun: function (i, max) { reload(i, max); },
       unloadGunIndex: function (i) { unloadLoaded(i); },
       suggestedHp: function () { return suggestedHp(C()); }
     };

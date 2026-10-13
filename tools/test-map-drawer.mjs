@@ -287,6 +287,31 @@ pointer(w, canvas, "pointerup", 420, 320, { button: 1, buttons: 0 });
 check("middle.noZoom", act(table.el, "zoomLabel").textContent === zoomBefore, act(table.el, "zoomLabel").textContent);
 pointer(w, canvas, "wheel", 400, 300, { deltaY: -120, buttons: 0 });
 check("middle.wheelStillZooms", act(table.el, "zoomLabel").textContent === "1.10×", act(table.el, "zoomLabel").textContent);
+function gesture(type, extra) {
+  const init = Object.assign({
+    bubbles: true, cancelable: true, clientX: 400, clientY: 300,
+    pointerId: 7, button: 1, buttons: 4
+  }, extra || {});
+  const Ev = type === "wheel" ? w.WheelEvent : ((type === "mousedown" || type === "auxclick") ? w.MouseEvent : (w.PointerEvent || w.MouseEvent));
+  const ev = new Ev(type, init);
+  if (ev.pointerId == null) {
+    try { Object.defineProperty(ev, "pointerId", { value: init.pointerId }); } catch (e) {}
+  }
+  let bubbled = false;
+  const onDoc = () => { bubbled = true; };
+  w.document.addEventListener(type, onDoc);
+  canvas.dispatchEvent(ev);
+  w.document.removeEventListener(type, onDoc);
+  return { prevented: ev.defaultPrevented, bubbled };
+}
+const midDown = gesture("pointerdown");
+check("middle.prevents", midDown.prevented && !midDown.bubbled, JSON.stringify(midDown));
+const midMouse = gesture("mousedown");
+check("middle.mousedown", midMouse.prevented && !midMouse.bubbled, JSON.stringify(midMouse));
+const midAux = gesture("auxclick");
+check("middle.auxclick", midAux.prevented && !midAux.bubbled, JSON.stringify(midAux));
+const wheelBlock = gesture("wheel", { button: 0, buttons: 0, deltaY: 40 });
+check("middle.wheelStays", wheelBlock.prevented && !wheelBlock.bubbled, JSON.stringify(wheelBlock));
 act(table.el, "reset").click();
 
 const wallsBtn = act(table.el, "wallsVisBtn");

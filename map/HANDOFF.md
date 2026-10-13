@@ -1,3 +1,270 @@
+# Fog Square and polygons with more than three corners — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change. Fog stays on the existing scene.
+
+## Polygon
+
+Reveal Poly and Hide Poly were not capped at three corners. A test now places five corners and closes with Enter, then places four and closes by clicking the first point. Both stay open until that close. The stored shape keeps every corner.
+
+## Square
+
+Reveal and Hide each have a Square choice. A click reveals or hides the one grid cell under the cursor. A drag paints each cell the pointer enters. Each cell is its own fog shape, so Erase can delete one. The drag is one history step, so Undo removes that whole drag. Preview and full screen use the same handler. An empty room can take squares. Players get them on the existing scene. A reveal square is also written into `fogRects`.
+
+```cmd
+node tools/test-map-fog.mjs
+```
+
+That covers the five-corner polygon, the four-corner close, one square, a three-cell drag, undo of the drag, erase of the cell, a player who sees a token in the square and not one outside, and a hide square in full screen.
+
+Map JS cache query is `0.3.22-square` on the sheet and `0.2.35-square` on the DMCC.
+
+# Drawer cylinder on one row — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change.
+
+The map drawer CYLINDER row wrapped the sixth chamber. The drawer is 260px wide, and its button style added padding and a 32px minimum height on top of each 14px dot, so the name plus six chambers plus the count did not fit.
+
+The chambers now sit in one `.chamber-dots` group that does not wrap. The gun name ellipsizes. The count stays on the same line. Token badges and the Fight-tab strip use their own rules and are unchanged.
+
+Cache queries only: map CSS and JS are `0.3.22-cylrow` on the sheet and `0.2.35-cylrow` on the DMCC.
+
+```cmd
+node tools/test-map-spells.mjs
+```
+
+`cyl.oneRow` checks the six chambers share one group. `cyl.nowrap` checks the drawer row does not wrap.
+
+# Big Fifty class and Cross-Draw — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change.
+
+## Exact changes
+
+- `assets/data/rules.js` — Bison Big Fifty Buffalo Rifle. The only class moved from `tiers.medium` / `rounds.medium` to `tiers.heavy` / `rounds.heavy`. Damage stays 3d10, range 150/600, misfire 1–5. `roundTiers["big bore"]` lists `.50-90` under Heavy. The Medium list for big bore is empty.
+- `assets/data/rules.js` — Cross-Draw Holster. `perk` and `notes` now say the +1 first-shot bonus applies only while seated, mounted, or driving, and the note says it does not apply on foot. `firstShot` stays 1. `initBonus` stays 1. No other holster text or numbers changed.
+- `assets/js/app.js` — The old id `bison-big-fifty-50-90` migrates to Heavy. A saved chamber whose tier is no longer on that gun is rewritten to the current tier, so a Medium Big Fifty becomes `heavy|.50-90`.
+- `assets/js/app.js` — Cross-Draw's first-shot bonus is added only when a pistol rides in the rig and `character.seated` or `character.mounted` is on. `character.seated` is the existing "Seated or driving" checkbox. No new toggle. The holster line repeats the perk and then says "That bonus is on." or "That bonus is off." Belt rigs still lose their first-shot bonus while seated or mounted. Pommel initiative is still mounted only.
+- `dm/assets/data/store-items.json` — The Big Fifty store note says Heavy .50-90. The Cross-Draw store note states the same first-shot rule. DMCC lookup uses `rules.js`, so the gun line reads `heavy: 3d10`.
+- Cache queries only: sheet `rules.js` and `app.js` are `0.3.22-class`. DMCC `rules.js`, `v2.js`, and the store JSON fetch are `0.2.35-class`.
+
+## Check
+
+```cmd
+node tools/test-item8.mjs
+```
+
+That covers the Heavy class, the unchanged 3d10 line, the store notes, the other holsters' bonuses, Cross-Draw off on foot and on while seated or mounted, a Mexican Loop that still works on foot, and a saved Medium chamber becoming Heavy. `node tools/test-round13.mjs` and `node tools/test-store-v2.mjs` still pass.
+
+Browser: the Gear tab chamber reads "Heavy · .50-90" and damage is 3d10 piercing. The Cross-Draw line says the bonus is off until Seated or driving is ticked, then it says the bonus is on. DMCC Lookup for Big Fifty shows `heavy: 3d10`.
+
+# Fog tools — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change. Fog stays a field on the existing scene (`map/public/scenes` and `map/dm/scenes`).
+
+## What changed
+
+The left bar no longer cycles one Fog button, and it no longer has a one-step Undo Fog. Reveal and Hide are separate tools. Each has a Box, Poly, or Brush picker, and the button name is the action plus the shape (`Reveal: Poly`, `Hide: Box`).
+
+Each placement is one entry in `scene.fogShapes`: `{ id, op, kind }` with a box, polygon points, or brush cells. `op` is `reveal` (clears fog) or `hide` (paints fog back). Later shapes win. Reveal boxes and polygons are also written to `fogRects` and `fogPolys` so an older reader still sees them. A scene that only has those older fields is copied into `fogShapes` the first time it loads.
+
+Erase deletes the topmost shape under the click and records that as one history step. Shift-click selects without deleting. Delete selection removes every selected shape in one step. An empty click in Erase clears the selection.
+
+Fog history is a session list on the DM client. Undo and Redo walk more than the last step. Clicking an earlier row jumps there. The list is not written to the database. Hide All and Reveal All still clear every fog shape and reset that list. Their labels stayed, and no extra all-map fog buttons were added. The token Hide button is unchanged.
+
+Players get the scene on the same path. With fog on, the map stays dark except where a reveal shape shows it, and a hide shape covers it again. A token shows when the base fog, vision, or a containing shape says so. An empty room can take shapes. Preview and full screen use the same handler.
+
+A polygon still closes when you click the first point, double-click, press Enter, or right-click. Escape cancels. Backspace removes the last point and does not delete the selected token.
+
+## Check
+
+```cmd
+node tools/test-map-fog.mjs
+```
+
+That covers an empty room, a reveal polygon, multi-step undo and redo, a hide box, erase, shift-select plus Delete selection, a player seeing a token inside a reveal and not one outside or under a hide, a brush stroke as one shape, and a hide polygon in full screen. The token buttons stay Hide, Hide All, and Reveal All. `test-map-drawer.mjs`, `test-map-m2.mjs`, `test-map-link.mjs`, `test-map-spells.mjs`, and `test-map-fight.mjs` still pass.
+
+Browser: DMCC Map tab and the sheet Map tab, preview and full screen. The buttons read Reveal: Poly, Hide: Box, Erase, and the existing Hide, Hide All, and Reveal All. History listed Reveal poly and Hide box. Undo, redo, and erase changed the canvas. The sheet preview used Reveal: Brush. Full screen closed a Hide: Poly with Enter.
+
+# Fog polygon — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change. The polygon is a field on the existing scene object (`map/public/scenes` and `map/dm/scenes`), not a new path.
+
+## Cause
+
+The polygon tool was unchanged from the Map tab landing (#38, `496e52e`). A click appended a point and committed only when that `pointerdown` had `detail === 2`. The points were never painted, and a close stored the bounding rectangle and relabeled the button "Fog: Rect". The polygon branch also returned before `preventDefault`. After the #40 pointer changes, a double-click often arrived as two `detail === 1` events, so nothing was drawn and nothing was saved. An empty scene from Realtime Database omits empty arrays; a polygon was never written for players to clip.
+
+## What changed
+
+- While Fog: Poly is on, each click paints a vertex and a line to the cursor.
+- The shape closes when you click the first point, double-click, press Enter, or right-click. Escape drops the points. Backspace removes the last point and does not delete the selected token.
+- The closed shape is stored as `fogPolys` (grid coordinates) and written with the rest of the scene. Players clip the map to it. A token is visible when its center is inside the polygon. Fog: ON / Fog: OFF still hides and reveals. Undo Fog removes the last rectangle or polygon.
+- An empty room (no tokens, no walls, no `fogRects`) can take a polygon. Preview and full screen use the same handler.
+
+## Check
+
+```cmd
+node tools/test-map-fog.mjs
+```
+
+That covers close without a double-click count, drawing while open, Enter, right-click, Backspace leaving the selected token, reveal/hide, a player seeing a token inside the polygon and not one outside, full screen, an empty room, and a smoke pass of rect, brush, Ping, Ruler, Wall, and Room. `node tools/test-map-drawer.mjs`, `test-map-m2.mjs`, `test-map-link.mjs`, `test-map-spells.mjs`, and `test-map-fight.mjs` still pass.
+
+Browser: DMCC Map tab and the sheet Map tab, preview and full screen. The canvas pixels changed when the polygon was placed, and the button stayed "Fog: Poly".
+
+# Embedded map middle-pan — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed. `database.rules.json` did not change.
+
+Middle-click on the embedded map started the browser's autoscroll because the pan path returned before `preventDefault`. Full screen hid that, since the map already covered the page.
+
+The canvas now cancels middle `pointerdown` and `mousedown`, and `auxclick`, and those events do not bubble. The map container does the same when the click is not already on the canvas. Wheel and an in-progress pan do not bubble either. The map and its canvas use `touch-action: none` and `overscroll-behavior: none`. Middle-drag still pans, and the wheel still zooms when the middle button is up.
+
+Checked in the browser: sheet Map tab and DMCC Map tab, preview and full screen. The page scroll position stayed put while the canvas pixels changed. `node tools/test-map-drawer.mjs` covers the cancel, the no-zoom rule, and that a normal wheel still zooms.
+
+# Main tab layout — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft. Versions stayed at sheet 0.3.22 / DMCC 0.2.35. `database.rules.json` did not change. No combat, spell, or wallet math changed.
+
+At about 1024px the Main tab header lined the name box up with the bottom of the calling grid, so the left column was a blank portrait-sized gap. The tab row was centered, and with the chat dock open the labels wrapped into tall buttons. Camp Kin has no sublineages, and the disabled "—" select still took a cell under Apply starting kit.
+
+## What changed
+
+- The Main tab left column is a portrait frame on the existing `character.portrait` field. Empty, it shows a silhouette and "Add portrait". Choose picture and Remove use the same picture path as the Backstory page. A URL writes that same field through the sheet save. Once set, the picture shows on Main and on Backstory.
+- A lineage with no sublineages hides the sublineage select. The stored value is left alone. Mountain Folk still shows Sublineage.
+- The tab row starts at the sheet's left edge. Tab labels stay on one line.
+- The initiative strip sizes to the turn chips instead of the full window.
+
+## Check
+
+Browser, Hexslinger / Camp Kin, no room wizard. At 1024 the first tab and the sheet both start at x=12, tab height is 42px, the sublineage select measures 0×0, and the page does not scroll sideways. At 390 and 360 the portrait, name, and tabs stack, portrait buttons are 44px tall, and `scrollWidth` matches the viewport. A `javascript:` address is refused. `assets/images/revolver.png` saves onto `character.portrait` and shows in both portrait frames.
+
+# Saloon games — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft as the token link. Versions stayed at sheet 0.3.22 / DMCC 0.2.35. `database.rules.json` did not change. `games/*/game.js` and `assets/js/ssdns-bridge.js` were not edited.
+
+The saloon pages (blackjack, roulette, slots) use `games/saloon-theme.css` and `games/ssdns-wallet.js` 0.3.0. Art URLs in the theme are `_art/…`, which resolves next to the stylesheet. The `_art` folder is still empty, so those images 404 and the gradient fallbacks paint. Chip art files are reserved in `games/_art/ART-SLOTS.md`. There is no chip CSS variable; the stake controls are text buttons.
+
+## Host
+
+The game page exposes `host.requestCredits({amount, reason})`, `host.unlink()`, and `host.onWallet(cb)`. It talks to the sheet over `BroadcastChannel("ssdns-saloon")` and `window.opener`.
+
+- Buy chips is an inline picker (5 / 10 / 25 / 50, a number field, Ask the DM, Cancel). It does not call `prompt()`, and it does not call `applyDelta`.
+- The sheet posts `rooms/$code/encounter/requests/bank_<id>` with the existing required fields (`ts`, `from`, `targetId`, `amount`) plus `type: "bank"`. The player creates that row. The game does not write shards.
+- DMCC shows the open bank row with Approve and Decline. Approve sends the existing `reward_es` command with `grantId: "bank:" + clientId`. The player's `applyEsReward` adds the shards through `SSDNSBridge.applyDelta(..., "dm-reward")`. Decline sends `bank_reply`, and the game hears `{ok: false}`.
+- `watchRequests` and `applyRequest` skip `type === "bank"` so the amount is not applied as a hit.
+- Unlink stays linked until the sheet replies `{type: "unlinked", ok: true}`. The sheet does not clear the wallet. The game tab then sets `sessionStorage` `ssdns.saloon.unlinked` for that character.
+- A linked banner reads `Linked to NAME · N ES`. It does not say "Set chips".
+- The sheet writes `localStorage` `ssdns.sheet.alive` from `pushWallet` and every 20 seconds. The game links only when that beat is under 3 minutes and the character id matches. Closing the sheet ages the link out. The alive key is not removed on `pagehide`.
+
+## Test
+
+```cmd
+node tools/test-saloon.mjs
+```
+
+Browser shots at 390, 360, and 1280: every measured control was at least 44px, and `scrollWidth` matched the viewport. Linked and Buy chips shots are at 390. The DMCC bank tray shot shows Approve and Decline for a 25 ES request.
+
+## Regression
+
+| # | Check | Result | Note |
+|---|-------|--------|------|
+| 1 | Theme art URLs are `_art/…`, and each art variable is used | PASS | `test-saloon.mjs` src.artUrls, src.artWired. Missing webp files 404 (blackjack 4, roulette 4, slots 3). Gradients still paint |
+| 2 | Tap targets at least 44px, no horizontal scroll at 390 / 360 / 1280 | PASS | Puppeteer measured `small: []` and `scrollWidth` equal to the viewport on all three games |
+| 3 | Buy chips is an inline picker and does not mint shards | PASS | src.noPrompt, buy.asked, buy.noDelta, buy.stillNoDelta |
+| 4 | Unlink waits for the sheet | PASS | unlink.waits, unlink.asked, unlink.confirmed |
+| 5 | Linked copy does not say Set chips | PASS | fresh.noSetChips, fresh.status. Banner text was `Linked to Jolene Pike · 23 ES` |
+| 6 | Stale sheet unlinks and does not apply a bet | PASS | stale.unlinked, stale.noDelta, timeout.stale |
+| 7 | Bank request uses the existing request and reward path | PASS | src.bankRow, src.approvePath, src.noDirectGameWrite, src.bankSkip. `database.rules.json` not edited |
+| 8 | Payout math in `game.js` | not re-run | `game.js` was not changed |
+
+# Map spells and cylinders — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft as the token link. Versions stayed at sheet 0.3.22 / DMCC 0.2.35. `database.rules.json` did not change.
+
+## Drawer spells
+
+Bestiary casters already carry `spellcasting` (Viper Trent and Wakan Takan). The drawer was only reading `card.spells`, so those lists never appeared. `mapDrawerCard` now reads `card.spellcasting` for enemies and the sheet spell list for a player.
+
+A spell button enters target mode and emits `drawer:spell`. The click on a token calls `SSDNSMapFight.cast`, which runs the existing `cardCast` path with the chosen target. No dialog. The roll is posted to the table log. Damage and healing go through `applyPlayerHit`, so Undo restores the HP. A slot is spent when the cast goes through.
+
+What the data can resolve:
+
+- Spell attack uses the caster's attack bonus, AC, and the spell's damage dice.
+- A save uses the spell's ability and the caster's DC. Fireball's rules row has `half: true`, so a successful save takes half.
+- One named condition in the spell summary is applied when the save fails (Ray of Sickness applies Poisoned). Blindness/Deafness names two conditions, so the drawer does not pick one.
+- Concentration is taken from the summary text, or from `SSDNSSpellCast.blurb` when the rules meta marks it. The caster's `concentration` field moves to the new spell. That field stays on the fight row.
+
+A player spell button stays disabled unless `dmActsAs` is set. When it is, the cast calls `rollSpellAt`, which uses `SSDNSSpellCast.rollCast` and the same slot spend as the Fight-tab spell button.
+
+## Cylinders
+
+The drawer draws each gun's chambers from the same `loaded` / `capacity` / `chambers` fields as the Fight tab. Firing spends a chamber and uses `SSDNSMisfire`, including the Dirty d4 flag. Clicking a filled chamber unloads it. Clicking an empty chamber loads one. Reload and Unload still call `mapGunLoad`. For a player, that is the gun command the sheet already applies against their ammo. The sheet snapshot is the source of truth. `syncPlayerGun` writes the spent chamber back onto `snapshot.guns`.
+
+On the player map, each gun button has a small cylinder. Clicking it runs the sheet's existing Reload button. A round-count badge (for example `4/6`) is drawn on the selected token only. The DM sees enemy guns from the fight card. A player sees the badge only on their own token, read from `SSDNSApp` guns. `publicToken` does not carry loaded, capacity, chambers, or ammo.
+
+## Test
+
+```cmd
+node tools/test-map-spells.mjs
+node tools/test-map-link.mjs
+node tools/test-map-drawer.mjs
+node tools/test-map-fight.mjs
+node tools/test-hidden-enemy.mjs
+```
+
+## Regression
+
+| # | Check | Result | Note |
+|---|-------|--------|------|
+| 1 | Enemy spell button enters target mode and resolves without a dialog | PASS | `test-map-spells.mjs` spell.targetMode, spell.noDialog, spell.damage, spell.log |
+| 2 | Save damage, half-on-save data, attack damage, one condition, concentration, heal, Undo | PASS | Fireball, Ray of Sickness (Poisoned), Suggestion (concentration), Cure Wounds, spell.undo |
+| 3 | Player spells only when dmActsAs, via the sheet roller and slot spend | PASS | pc.blocked, pc.cast, pc.sheetRoll |
+| 4 | Cylinder spend, misfire, chamber load/unload, player snapshot sync | PASS | cyl.spent, cyl.misfire, cyl.unload, cyl.load, cyl.playerSync |
+| 5 | Enemy ammo never reaches the player map | PASS | public token omits loaded/capacity/chambers/ammo. Player rounds return "" for an enemy token. Player toolbar has no Fireball and no enemy `6/6` |
+| 6 | Token link, hidden enemy, drawer, rules file | PASS | existing map suites. `database.rules.json` not edited |
+
+# Map token link — sheet 0.3.22 / DMCC 0.2.35
+
+Built on live main `d27b340` (sheet 0.3.21 / DMCC 0.2.34). `database.rules.json` did not change.
+
+An enemy token added on the DM map opened the drawer on "No card linked" because `findFightRow` / `mapFightIndex` already accept `row.mapTokenId`, and nothing ever wrote that field.
+
+## What changed
+
+- The DM drawer's "No card linked" state has a **Link to…** picker with two groups.
+  - **Current players:** everyone in `DM.state.players`, joined or only on the roster, even when they are not in `fight.order`. Linking sets the token's `ownerUid`, `combatantId`, and `kind` to that player. The drawer shows their sheet card. They are not added to the fight, so the DM can lay tokens out before combat.
+  - **Bestiary:** every non-parked bestiary creature, plus **New custom enemy (Bandit)**. Choosing one calls the same `addBeastToFight` / `addCustomEnemy` path the Fight tab uses, then sets `row.mapTokenId` to this token. Unlinked enemies already in `fight.order` are listed under **In this fight**.
+- `mapTokenId` is stored on the fight row. `saveRemoteTable` keeps it in the DM local table and on `encounter/dm`. It is not copied into `table/initiative`, `encounter/public`, or `map/public` tokens. The public token gets a label. A hidden name is published as "Unknown gunman". `combatantId` stays on `map/dm/tokens`.
+- Adding an enemy on the Fight tab while the map scene is open places a linked token on the next free square. Occupied squares are skipped.
+- Removing an enemy from the fight removes that token. Removing the token removes that enemy. Removing a player token only clears `row.mapTokenId`; the player stays on the roster and in the fight. Undo still restores the last HP change and leaves the link in place.
+- `sortInitiative` copies each row. The link is written onto the row that remains in `fight.order`.
+
+## Test
+
+```cmd
+node tools/test-map-link.mjs
+node tools/test-map-drawer.mjs
+node tools/test-map-fight.mjs
+node tools/test-map-m2.mjs
+node tools/test-hidden-enemy.mjs
+node tools/check-rules-emulator.mjs
+```
+
+## Regression
+
+| # | Check | Result | Note |
+|---|-------|--------|------|
+| 1 | Empty room: add a token, picker shows Link to… and New custom enemy (Bandit) | PASS | `test-map-link.mjs` empty.drawer / empty.groups / empty.order. `test-live-room.mjs` live.addTokenAlone |
+| 2 | Custom Bandit uses the Fight add path and sets mapTokenId | PASS | custom.row, custom.card, attack is Ball n Cap Revolver |
+| 3 | Link data is DM-only | PASS | public map token has no combatantId or mapTokenId. `encounter/public` and `table/initiative` omit mapTokenId. `encounter/dm` keeps it. Hidden name on the public token is Unknown gunman |
+| 4 | Roster player links without joining the fight | PASS | player.notInFight, player.card shows Jolene's AC, token ownerUid is the player |
+| 5 | Unlinked fight enemy can be chosen; bestiary add matches Fight stats | PASS | fight.unlinked AC 13 HP 11, fight.linked opens the Outlaw card |
+| 6 | Fight-tab add places tokens on distinct squares | PASS | place.count / place.unique |
+| 7 | Remove either side clears the other | PASS | remove.row / remove.token / remove.tokenClearsRow |
+| 8 | Undo still restores HP and keeps the link | PASS | undo.hp, undo.link |
+| 9 | Hidden-enemy leak and map leak suites | PASS | `test-hidden-enemy.mjs`, `test-map-m2.mjs` publicSecrets empty, `test-map-drawer.mjs` leak.noDrawer |
+| 10 | Rules emulator, no rules file edit | PASS | `check-rules-emulator.mjs` 203 checks. `database.rules.json` not edited |
+| 11 | Sheet and DMCC suites, live room | PASS | `tools/test-*.mjs` except the pre-existing `check-rules-writes.mjs` report. `test-live-room.mjs` passed against the emulators |
+
 # M2 v4 — DM drawer + Walls on/off
 
 Built on the current merged map (repo main `9737b1e`, now sheet 0.3.20 / DMCC 0.2.33), not m2-v3.1. `database.rules.json` did not change.

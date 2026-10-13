@@ -1,0 +1,165 @@
+/* Saloon theme — art slots with CSS-gradient fallbacks.
+   Games work with _art/ empty. Paths are relative to this file (games/). */
+:root {
+  --art-wood: url("_art/wood-rail.webp"), linear-gradient(180deg, #6b4e32 0%, #3d2a1c 100%);
+  --art-wall: url("_art/saloon-wall.webp"), radial-gradient(ellipse at 50% 0%, rgba(196, 140, 40, 0.22) 0%, transparent 55%), radial-gradient(ellipse at bottom, #1a120c 0%, #0c0907 70%);
+  --art-felt-green: url("_art/felt-green.webp"), linear-gradient(160deg, #1e5c3a 0%, #0f3d26 100%);
+  --art-felt-red: url("_art/felt-red.webp"), linear-gradient(160deg, #6b1e1e 0%, #3d1010 100%);
+  --art-card-back: url("_art/card-back.webp"), linear-gradient(135deg, #2a4a6a 0%, #1a2a3a 100%);
+  --art-parchment: url("_art/parchment.webp");
+  --art-brass: url("_art/brass-plate.webp"), linear-gradient(180deg, #c9a66b 0%, #8a6a3a 100%);
+  --art-slot-cabinet: url("_art/slot-cabinet.webp"), linear-gradient(165deg, #4a3424 0%, #2a1c14 100%);
+  --art-wheel-rim: url("_art/wheel-rim.webp");
+}
+
+/* Link banner — full width above the table, never beside it */
+.ssdns-link {
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto 8px;
+  box-sizing: border-box;
+  font: 600 13px/1.4 system-ui, sans-serif;
+  padding: 8px 12px;
+  border-radius: 6px;
+  text-align: left;
+  color: #f3ead7;
+  background: #4a3b22;
+}
+.ssdns-link.linked { background: #2d4a2b; }
+.ssdns-link .link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ssdns-link .link-summary { flex: 1; min-width: 0; }
+.ssdns-link .link-toggle,
+.ssdns-link .link-unlink,
+.ssdns-link .buy-chips,
+.ssdns-link .buy-pick button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #c9a66b;
+  background: #3a3228;
+  color: #f3ead7;
+  cursor: pointer;
+  font: inherit;
+}
+.ssdns-link .link-detail {
+  display: none;
+  margin-top: 8px;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.ssdns-link.open .link-detail { display: block; }
+.ssdns-link .buy-pick {
+  display: none;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}
+.ssdns-link .buy-pick.show { display: flex; }
+.ssdns-link .buy-amt {
+  min-height: 44px;
+  min-width: 44px;
+  width: 5.5rem;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #c9a66b;
+  background: #140e0a;
+  color: #f3ead7;
+  font: inherit;
+}
+
+/* Disabled controls look disabled */
+button:disabled,
+input:disabled,
+.chip-btn:disabled,
+.stake-btn:disabled,
+.bet-btn:disabled,
+.deal-btn:disabled,
+.action-btn:disabled,
+.spin-btn:disabled,
+.type-btn:disabled,
+.num-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+}
+
+/* Mobile-first: column, full width, no horizontal scroll */
+html { overflow-x: hidden; }
+body {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  padding: 0.75rem !important;
+  background: var(--art-wall) !important;
+}
+.table,
+.machine {
+  width: 100% !important;
+  max-width: 540px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+.machine { background: var(--art-slot-cabinet) !important; }
+.table { background: var(--art-wood) !important; }
+.felt { background: var(--art-felt-green) !important; }
+.wheel-stage { background: var(--art-felt-red); }
+.wheel-stage canvas { background-image: var(--art-wheel-rim); background-size: cover; }
+.card.back { background: var(--art-card-back) !important; }
+.balance-bar {
+  background: var(--art-brass) !important;
+  color: #1a1008;
+}
+.balance-bar strong { color: #1a1008; }
+.paytable {
+  background-image: linear-gradient(180deg, rgba(12, 8, 6, 0.78), rgba(12, 8, 6, 0.82)), var(--art-parchment);
+  background-color: #140e0a;
+}
+
+/* Every tap control is at least 44px. Number picks wrap instead of shrinking. */
+button,
+.paytable > summary,
+.buyin input,
+.stake-custom input,
+.bet-btn,
+.stake-btn,
+.type-btn,
+.num-btn,
+.mute-btn,
+.chip-btn {
+  min-height: 44px;
+}
+.bet-btn,
+.stake-btn,
+.type-btn,
+.num-btn,
+.mute-btn,
+.chip-btn,
+.paytable > summary {
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+.num-grid { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)) !important; }
+.paytable > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #c9a66b;
+  list-style: none;
+}
+.paytable > summary::-webkit-details-marker { display: none; }
+
+@media (min-width: 900px) {
+  body { padding: 1.5rem !important; }
+  .table, .machine { max-width: 540px; }
+}

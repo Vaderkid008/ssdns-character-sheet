@@ -386,16 +386,15 @@ async function testMaps(w) {
   const windowed = winWrite && (winWrite.value.walls || []).some((wall) => wall.window);
   check("map.dm.R4window", !!windowed, "window flag missing");
 
-  act(dm.el, "fogRectBtn").click();
-  act(dm.el, "fogRectBtn").click();
+  act(dm.el, "revealFogBtn").click();
   const fogMark = dmAd.log.length;
   pointer(w, canvas, "pointerdown", 200, 200);
   pointer(w, canvas, "pointermove", 280, 280);
   pointer(w, canvas, "pointerup", 280, 280);
   const fogWrite = writesSince(dmAd.log, fogMark).find((e) => e.path === "map/public/scenes/scn_dustyspur01");
-  check("map.dm.R5fog", !!(fogWrite && fogWrite.value.fogRects && fogWrite.value.fogRects.length), JSON.stringify(fogWrite && fogWrite.value.fogRects));
+  check("map.dm.R5fog", !!(fogWrite && fogWrite.value.fogRects && fogWrite.value.fogRects.length && fogWrite.value.fogShapes && fogWrite.value.fogShapes.some((s) => s.op === "reveal" && s.kind === "box")), JSON.stringify(fogWrite && fogWrite.value.fogShapes));
 
-  act(dm.el, "fogRectBtn").click();
+  act(dm.el, "revealFogBtn").click();
   pointer(w, canvas, "pointerdown", 200, 30, { altKey: true });
   pointer(w, canvas, "pointermove", 200, 625, { altKey: true });
   pointer(w, canvas, "pointerup", 200, 625, { altKey: true });
@@ -432,7 +431,7 @@ async function testMaps(w) {
   const hideOps = writesSince(dmAd.log, hideMark);
   check("map.dm.hideRemovesPublic", hideOps.some((e) => e.op === "remove" && e.path === "map/public/tokens/tok_bystander1") && hideOps.some((e) => e.op === "write" && e.path === "map/dm/tokens/tok_bystander1" && e.value.hidden === true), hideOps.map((e) => e.op + " " + e.path).join(", "));
 
-  const leftTools = ["pingBtn", "rulerBtn", "wallBtn", "doorBtn", "windowBtn", "roomBtn", "fogRectBtn"].every((id) => act(dm.el, id));
+  const leftTools = ["pingBtn", "rulerBtn", "wallBtn", "doorBtn", "windowBtn", "roomBtn", "revealFogBtn", "hideFogBtn", "eraseFogBtn"].every((id) => act(dm.el, id));
   check("map.dm.R11tools", leftTools, "missing left tool");
 
   const pl = await bootMap(w, {

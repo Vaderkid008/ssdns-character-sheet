@@ -980,7 +980,7 @@
     ],
     "rarity": "rare",
     "minTown": "city",
-    "notes": "Breechloader (slow), cap 1, .50-90 only, unwieldy. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
+    "notes": "Breechloader (slow), cap 1, Heavy .50-90 only, unwieldy. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
     "bookLine": 4032
   },
   {
@@ -1360,7 +1360,7 @@
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "",
+    "notes": "The +1 first-shot bonus applies only while seated, mounted, or driving. It does not apply on foot.",
     "bookLine": 4322
   },
   {

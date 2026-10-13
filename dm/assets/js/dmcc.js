@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.34"; // dmcc-playtest-v0234
+const VERSION = "0.2.35"; // dmcc-playtest-v0235
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -398,6 +398,15 @@ function attachLiveListeners() {
   bind("meta", (v) => { if (v) { state.meta = v; guardFocus(() => renderRoomHero()); } });
   bind("encounter/requests", (v) => {
     const rows = v || {};
+    state.bankReqs = rows;
+    state._bankSeen = state._bankSeen || {};
+    Object.keys(rows).forEach((id) => {
+      const row = rows[id];
+      if (!row || row.type !== "bank" || row.resolved || state._bankSeen[id]) return;
+      state._bankSeen[id] = 1;
+      toast((row.characterName || "A player") + " asks the bank for " + (Number(row.amount) || 0) + " ES");
+    });
+    renderBankReqs();
     state._mercySeen = state._mercySeen || {};
     Object.keys(rows).forEach((id) => {
       const row = rows[id];
@@ -806,6 +815,73 @@ async function pushHandout(entry) {
   catch (e) { writeFailed(e, "Handout failed"); }
 }
 
+function renderBankReqs() {
+  const box = document.getElementById("bankReqs");
+  if (!box) return;
+  const rows = state.bankReqs || {};
+  box.textContent = "";
+  const ids = Object.keys(rows).filter((id) => {
+    const row = rows[id];
+    return row && row.type === "bank" && !row.resolved;
+  });
+  if (!ids.length) { box.hidden = true; return; }
+  box.hidden = false;
+  ids.forEach((id) => {
+    const row = rows[id];
+    const card = document.createElement("div");
+    card.className = "bank-req";
+    const p = document.createElement("p");
+    const who = row.characterName || "A player";
+    p.textContent = who + " asks the bank for " + (Number(row.amount) || 0) + " ES. " + (row.reason || "");
+    const approve = document.createElement("button");
+    approve.type = "button";
+    approve.className = "btn btn-primary";
+    approve.textContent = "Approve";
+    approve.addEventListener("click", () => settleBank(id, true));
+    const decline = document.createElement("button");
+    decline.type = "button";
+    decline.className = "btn";
+    decline.textContent = "Decline";
+    decline.addEventListener("click", () => settleBank(id, false));
+    card.appendChild(p);
+    card.appendChild(approve);
+    card.appendChild(decline);
+    box.appendChild(card);
+  });
+}
+async function settleBank(id, ok) {
+  const row = (state.bankReqs || {})[id];
+  if (!row || row.resolved || row.type !== "bank") return;
+  row.resolved = true;
+  row.approved = !!ok;
+  const amount = Math.floor(Number(row.amount) || 0);
+  if (ok && amount > 0 && row.from) {
+    await pushCommand({
+      type: "reward_es",
+      to: row.from,
+      quiet: true,
+      payload: { delta: amount, reason: row.reason || "Bank", grantId: "bank:" + (row.clientId || id) }
+    });
+    toast("Bank approved " + amount + " ES");
+  } else if (row.from) {
+    await pushCommand({
+      type: "bank_reply",
+      to: row.from,
+      quiet: true,
+      payload: { ok: false, requestId: row.clientId || id, amount }
+    });
+    toast("Bank declined");
+  }
+  renderBankReqs();
+  if (state.demo || !state.db || !state._fb) return;
+  try {
+    await state._fb.update(roomRef("encounter/requests/" + id), { resolved: true, approved: !!ok });
+  } catch (e) { writeFailed(e, "Couldn't close the bank request"); }
+}
+window.SSDNSBank = {
+  show: function (rows) { state.bankReqs = rows || {}; renderBankReqs(); }
+};
+
 async function pushCommand(cmd) {
   cmd.id = cmd.id || uid("cmd");
   cmd.ts = cmd.ts || new Date().toISOString();
@@ -857,10 +933,23 @@ function applyDemoGun(playerId, payload) {
   if (payload.op === "unload") { g.loaded = 0; g.chambers = (g.chambers || []).map(() => ""); }
   else if (payload.op === "reload") {
     const cap = Number(g.capacity) || 0;
-    g.loaded = cap;
-    g.chambers = Array.from({ length: cap }, () => "round");
+    const max = payload.max != null && isFinite(Number(payload.max)) ? Number(payload.max) : cap;
+    const chambers = Array.isArray(g.chambers) && g.chambers.length === cap ? g.chambers.slice() : Array.from({ length: cap }, (_, idx) => (idx < (Number(g.loaded) || 0) ? "round" : ""));
+    let left = max;
+    for (let k = 0; k < chambers.length && left > 0; k++) {
+      if (!chambers[k]) { chambers[k] = "round"; left -= 1; }
+    }
+    g.chambers = chambers;
+    g.loaded = chambers.filter(Boolean).length;
   } else if (payload.op === "set" && payload.loaded != null && isFinite(payload.loaded)) {
     g.loaded = payload.loaded;
+    if (Array.isArray(payload.chambers)) g.chambers = payload.chambers.slice();
+    if (payload.jammed != null) g.jammed = !!payload.jammed;
+    if (payload.fouled != null) g.fouled = !!payload.fouled;
+    if (payload.ruined != null) g.ruined = !!payload.ruined;
+    if (payload.pendingD4 != null) g.pendingD4 = !!payload.pendingD4;
+    if (payload.dirty != null) g.dirty = !!payload.dirty;
+    if (payload.misStreak != null) g.misStreak = payload.misStreak;
   } else if (payload.op === "misfire" && window.SSDNSMisfire) {
     const applied = window.SSDNSMisfire.applyOverride(g, payload);
     const next = applied.gun;

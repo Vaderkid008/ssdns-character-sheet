@@ -4,6 +4,7 @@
   "use strict";
   var map = null;
   var mountedKey = "";
+  var mountedUid = "";
   var players = [];
   var generation = 0;
 
@@ -72,13 +73,63 @@
     var text = opt && opt.value ? String(opt.textContent || "").trim() : "";
     return text || ("Melee " + (Number(i) + 1));
   }
+  function gunCylinder(i) {
+    var app = root.SSDNSApp;
+    var doc = app && app.doc && app.doc();
+    var g = doc && doc.character && doc.character.guns && doc.character.guns[i];
+    if (!g || !(g.weapon || g.name)) return null;
+    var cap = Number(g.capacity) || (Array.isArray(g.chambers) ? g.chambers.length : 0);
+    if (!cap) return null;
+    var chambers = Array.isArray(g.chambers) && g.chambers.length ? g.chambers.map(function (st) { return st ? 1 : 0; }) : null;
+    var loaded = chambers ? chambers.filter(Boolean).length : (Number(g.loaded) || 0);
+    return { index: Number(i), loaded: loaded, cap: cap, chambers: chambers };
+  }
+  function ownRounds() {
+    var app = root.SSDNSApp;
+    var doc = app && app.doc && app.doc();
+    var guns = doc && doc.character && doc.character.guns || [];
+    var bits = [];
+    guns.forEach(function (g) {
+      if (!g || !(g.weapon || g.name)) return;
+      var cap = Number(g.capacity) || (Array.isArray(g.chambers) ? g.chambers.length : 0);
+      if (!cap) return;
+      var loaded = Array.isArray(g.chambers) && g.chambers.length ? g.chambers.filter(Boolean).length : (Number(g.loaded) || 0);
+      bits.push(loaded + "/" + cap);
+    });
+    return bits.join(" ");
+  }
+  function viewerUid() {
+    if (mountedUid) return mountedUid;
+    if (!isDmPage()) {
+      var Join = root.SSDNSDmJoin;
+      if (Join && typeof Join.uid === "function") return Join.uid() || "";
+    }
+    var st = root.DMCC && root.DMCC.state;
+    return (st && st.uid) || "";
+  }
+  function roundsLabel(token) {
+    if (!token) return "";
+    if (!isDmPage()) {
+      if (!token.ownerUid || token.ownerUid !== viewerUid()) return "";
+      return ownRounds();
+    }
+    var api = root.SSDNSMapCards;
+    if (!api || typeof api.get !== "function") return "";
+    var card = null;
+    try {
+      card = api.get(token.id) || (token.combatantId && api.get(token.combatantId)) || (token.ownerUid && api.get(token.ownerUid)) || null;
+    } catch (e) { card = null; }
+    if (!card) return "";
+    var guns = (card.attacks || []).filter(function (a) { return a && a.ammo && a.ammo.cap; });
+    return guns.map(function (a) { return (Number(a.ammo.loaded) || 0) + "/" + a.ammo.cap; }).join(" ");
+  }
   function sheetActions() {
     if (isDmPage()) return [];
     var list = [];
     document.querySelectorAll("[data-gunroll]").forEach(function (btn) {
       if (btn.hasAttribute("data-k") || btn.hidden) return;
       var i = btn.getAttribute("data-gunroll");
-      list.push({ id: "gunroll:" + i, label: gunName(i) + " · Attack", group: "attack", enabled: !btn.disabled, title: btn.title || "" });
+      list.push({ id: "gunroll:" + i, label: gunName(i) + " · Attack", group: "attack", enabled: !btn.disabled, title: btn.title || "", cylinder: gunCylinder(i) });
     });
     document.querySelectorAll("[data-melee-roll]").forEach(function (btn) {
       if (btn.hidden) return;
@@ -149,15 +200,37 @@
       var prev = $("btnPrevTurn");
       if (prev) prev.click();
     }
+    if (name === "drawer:link") {
+      var linker = root.SSDNSMapFight;
+      if (!linker || typeof linker.link !== "function") return;
+      var apply = function (patch) {
+        if (patch && map && map.applyLink) map.applyLink(detail.tokenId, patch);
+        if (map && map.refreshCard) map.refreshCard(detail.tokenId || "");
+      };
+      try {
+        Promise.resolve(linker.link(detail)).then(apply, function () { apply(); });
+      } catch (e) {
+        apply();
+      }
+      return;
+    }
+    if (name === "combatant:remove") {
+      var drop = root.SSDNSMapFight;
+      if (drop && typeof drop.onTokenRemoved === "function") {
+        try { Promise.resolve(drop.onTokenRemoved(detail)); } catch (e) {}
+      }
+      return;
+    }
     var fightCall = {
-      "drawer:target": "attack",
       "drawer:hp": "hp",
       "drawer:condition": "condition",
       "drawer:reload": "reload",
       "drawer:unload": "unload",
       "drawer:deathsave": "deathsave",
-      "drawer:undo": "undo"
+      "drawer:undo": "undo",
+      "drawer:chamber": "chamber"
     }[name];
+    if (name === "drawer:target") fightCall = detail.spellId ? "cast" : "attack";
     if (!fightCall) return;
     var api = root.SSDNSMapFight;
     var fn = api && api[fightCall];
@@ -210,6 +283,7 @@
   function mountNow(ctx) {
     var el = mountEl();
     if (!el || !root.SSDNSMap || !root.SSDNSMapFirebase) return Promise.resolve();
+    mountedUid = ctx.uid || "";
     var key = ctx.roomCode + ":" + ctx.role + ":" + ctx.uid + ":" + (ctx.demo ? "demo" : "live");
     if (map && mountedKey === key) {
       if (map.refreshPlayers) map.refreshPlayers();
@@ -247,10 +321,16 @@
             run: function (id) { runAction(id); }
           },
           on: onHost,
+          rounds: roundsLabel,
           getCard: function (tokenId) {
             var api = root.SSDNSMapCards;
             if (!isDmPage() || !api || typeof api.get !== "function") return null;
             try { return api.get(tokenId) || null; } catch (e) { return null; }
+          },
+          linkChoices: function () {
+            var api = root.SSDNSMapCards;
+            if (!isDmPage() || !api || typeof api.choices !== "function") return null;
+            try { return api.choices(); } catch (e) { return null; }
           }
         },
         options: {
@@ -260,7 +340,10 @@
           players: currentPlayers,
           ensureScene: !!ctx.demo,
           room: { table: { initiative: initiative || { order: [], turn: 0 } } },
-          onReady: function () { syncInitiative(); }
+          onReady: function () {
+            syncInitiative();
+            if (root.SSDNSMapFight && typeof root.SSDNSMapFight.syncMap === "function") root.SSDNSMapFight.syncMap();
+          }
         }
       });
       mountedKey = key;
@@ -333,11 +416,38 @@
     });
     syncRoom();
   }
+  function placeToken(spec) {
+    if (!isDmPage() || !map || typeof map.placeLinkedToken !== "function") return "";
+    var token = map.placeLinkedToken(spec || {});
+    return token && token.id ? token.id : "";
+  }
+  function removeToken(id) {
+    if (!isDmPage() || !map || typeof map.removeToken !== "function") return;
+    map.removeToken(id);
+  }
+  function tokenForPlayer(pid) {
+    if (!isDmPage() || !map || typeof map.tokenForPlayer !== "function") return "";
+    var token = map.tokenForPlayer(pid);
+    return token && token.id ? token.id : "";
+  }
+  function hasToken(id) {
+    return !!(isDmPage() && map && typeof map.hasToken === "function" && map.hasToken(id));
+  }
+  function releaseToken(id) {
+    if (!isDmPage() || !map || typeof map.releaseToken !== "function") return;
+    map.releaseToken(id);
+  }
   root.SSDNSMapHost = {
     syncRoom: syncRoom,
     setPlayers: setPlayers,
     syncInitiative: syncInitiative,
-    destroy: destroyMap
+    destroy: destroyMap,
+    placeToken: placeToken,
+    removeToken: removeToken,
+    tokenForPlayer: tokenForPlayer,
+    hasToken: hasToken,
+    releaseToken: releaseToken,
+    rounds: roundsLabel
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
   else wire();

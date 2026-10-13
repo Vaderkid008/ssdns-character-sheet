@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Whiskey Bend Roulette — Rock Machines · Dust Wheel</title>
+  <link rel="stylesheet" href="../saloon-theme.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -74,8 +75,8 @@
 
     <button type="button" class="spin-btn" id="spinBtn" disabled>SPIN</button>
 
-    <section class="paytable" aria-label="Payout table">
-      <h2>Dust Wheel odds</h2>
+    <details class="paytable" aria-label="Payout table">
+      <summary>Dust Wheel odds</summary>
       <ul>
         <li><span>Pockets</span><span class="gold">0–12</span> <em>13 pockets · 0 Eldorite green</em></li>
         <li><span>Red / Black</span><span class="gold">2×</span> <em>even money (0 loses)</em></li>
@@ -86,7 +87,7 @@
         Stake is deducted when you spin. Wins credit the full payout (stake × multiplier), so a 10 stake at 2× returns 20 to the stack.
         One bet per spin. Manual Set/Add Eldorite for table play. SFX synthesized in-browser.
       </p>
-    </section>
+    </details>
   </main>
 
   <script src="../../assets/js/ssdns-bridge.js"></script>
