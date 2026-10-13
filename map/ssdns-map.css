@@ -270,6 +270,22 @@ body.map-fullscreen #btnMapFull {
 .ssm-cond { background: #4a3b22; padding: 2px 6px; border-radius: 3px; font-size: 10px; }
 .ssm-tactics { font-style: italic; color: #c9b89a; }
 .ssm-pending { color: #e8c36a; font-weight: 600; }
+.ssm-action { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.ssm-cyl-btn {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  padding: 2px 4px;
+  background: transparent;
+  border: 1px solid #5a4e40;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.cylinder-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.chamber-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255,255,255,.75); background: transparent; padding: 0; cursor: pointer; display: inline-block; }
+.ssm-cyl-btn .chamber-dot { width: 10px; height: 10px; pointer-events: none; }
+.chamber-dot.full { background: #e2c56a; }
+.ssm-rounds { font-size: 11px; color: #e2c56a; }
 body.map-fullscreen #mapMount > .ssm-drawer {
   position: absolute;
   top: 108px;

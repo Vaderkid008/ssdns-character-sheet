@@ -1236,12 +1236,20 @@
     var app = root.SSDNSApp;
     if (!app) return;
     if (payload.op === "unload" && app.unloadGunIndex) app.unloadGunIndex(payload.index);
-    else if (payload.op === "reload" && app.reloadGun) app.reloadGun(payload.index);
+    else if (payload.op === "reload" && app.reloadGun) app.reloadGun(payload.index, payload.max);
     else if (payload.op === "set" && app.applyPatch) {
       app.applyPatch(function (doc) {
         var g = doc.character && doc.character.guns && doc.character.guns[payload.index];
         var n = Number(payload.loaded);
-        if (g && isFinite(n)) g.loaded = Math.max(0, n);
+        if (!g) return;
+        if (isFinite(n)) g.loaded = Math.max(0, n);
+        if (Array.isArray(payload.chambers)) g.chambers = payload.chambers.slice();
+        if (payload.jammed != null) g.jammed = !!payload.jammed;
+        if (payload.fouled != null) g.fouled = !!payload.fouled;
+        if (payload.ruined != null) g.ruined = !!payload.ruined;
+        if (payload.pendingD4 != null) g.pendingD4 = !!payload.pendingD4;
+        if (payload.dirty != null) g.dirty = !!payload.dirty;
+        if (payload.misStreak != null) g.misStreak = payload.misStreak;
       });
     }     else if (payload.op === "fire" && root.SSDNSGunRoll) {
       root.SSDNSGunRoll(payload.index, payload.chamber);

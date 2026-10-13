@@ -772,6 +772,24 @@ function draw() {
     ctx.textBaseline = 'top';
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
+    if (state.selected && state.selected.id === t.id && host.rounds) {
+      let badge = '';
+      try { badge = host.rounds(t) || ''; } catch (e) { badge = ''; }
+      if (badge) {
+        ctx.font = '11px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const measured = ctx.measureText ? ctx.measureText(badge) : null;
+        const bw = ((measured && measured.width) || (badge.length * 7)) + 8;
+        const bh = 14;
+        const bx = s.x - bw / 2;
+        const by = nameY - bh - 2;
+        ctx.fillStyle = 'rgba(20,16,12,0.9)';
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.fillStyle = '#e2c56a';
+        ctx.fillText(badge, s.x, nameY - 3);
+      }
+    }
     ctx.restore();
 
     // HP bar under the name
@@ -1079,11 +1097,11 @@ function viewCenterCell() {
 function selectToken(token) {
   if (!token) return;
   if (state.pendingTarget && role === 'dm') {
-    if (token.id === state.pendingTarget.tokenId) {
+    if (token.id === state.pendingTarget.tokenId && state.pendingTarget.spellKind !== 'heal') {
       toast('Pick a different token');
       return;
     }
-    emit('drawer:target', { tokenId: state.pendingTarget.tokenId, weaponId: state.pendingTarget.weaponId, targetTokenId: token.id, combatantId: tokenCombatant(state.pendingTarget.tokenId), targetCombatantId: tokenCombatant(token.id) });
+    emit('drawer:target', { tokenId: state.pendingTarget.tokenId, weaponId: state.pendingTarget.weaponId || '', spellId: state.pendingTarget.spellId || '', targetTokenId: token.id, combatantId: tokenCombatant(state.pendingTarget.tokenId), targetCombatantId: tokenCombatant(token.id) });
     state.pendingTarget = null;
     toast('Target set');
     renderDrawer();
@@ -2533,6 +2551,8 @@ async function loadSceneImage(sceneId) {
     const list = host.actions.get({ role, uid, tokenId }) || [];
     slot.innerHTML = '';
     list.forEach(a => {
+      const wrap = document.createElement('div');
+      wrap.className = 'ssm-action';
       const b = document.createElement('button');
       b.textContent = a.label || a.id;
       b.disabled = a.enabled === false;
@@ -2543,7 +2563,30 @@ async function loadSceneImage(sceneId) {
         const ret = host.actions.run ? host.actions.run(a.id, ctx) : null;
         Promise.resolve(ret).then(() => emit('action:done', ctx)).catch(err => emit('action:error', { id: a.id, error: String(err) }));
       });
-      slot.appendChild(b);
+      wrap.appendChild(b);
+      const cyl = a.cylinder;
+      if (cyl && cyl.cap) {
+        const gun = document.createElement('button');
+        gun.type = 'button';
+        gun.className = 'ssm-cyl-btn';
+        gun.title = 'Reload';
+        gun.setAttribute('aria-label', (a.label || 'Gun') + ' cylinder ' + (cyl.loaded || 0) + '/' + cyl.cap);
+        const flags = Array.isArray(cyl.chambers) ? cyl.chambers : null;
+        for (let k = 0; k < Number(cyl.cap); k++) {
+          const dot = document.createElement('span');
+          const full = flags ? !!flags[k] : k < (Number(cyl.loaded) || 0);
+          dot.className = 'chamber-dot' + (full ? ' full' : '');
+          gun.appendChild(dot);
+        }
+        gun.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const id = 'reload:' + cyl.index;
+          if (host.actions && host.actions.run) host.actions.run(id, { id: id, tokenId });
+        });
+        wrap.appendChild(gun);
+      }
+      slot.appendChild(wrap);
     });
   }
 
@@ -2645,10 +2688,28 @@ async function loadSceneImage(sceneId) {
       return '<button type="button" class="ssm-atk" data-wid="' + esc(a.id) + '" ' + (canAct ? '' : 'disabled') + '>' +
         esc(a.name || a.id) + ' +' + esc(a.toHit != null && a.toHit !== '' ? a.toHit : 0) + ' ' + esc(a.damage || '') + esc(ammo) + '</button>';
     }).join('');
-    const spells = (card.spells || []).map(s =>
-      '<button type="button" class="ssm-atk" data-sid="' + esc(s.id) + '" ' + (canAct ? '' : 'disabled') + '>' +
-      esc(s.name || s.id) + (s.level != null ? ' (L' + esc(s.level) + ')' : '') + '</button>'
-    ).join('');
+    const cylinders = (card.attacks || []).filter(a => a && a.ammo && a.ammo.cap).map(a => {
+      const cap = Number(a.ammo.cap) || 0;
+      const loaded = Number(a.ammo.loaded) || 0;
+      const flags = Array.isArray(a.ammo.chambers) ? a.ammo.chambers : null;
+      let dots = '';
+      for (let k = 0; k < cap; k++) {
+        const full = flags ? !!flags[k] : k < loaded;
+        dots += '<button type="button" class="chamber-dot' + (full ? ' full' : '') + '" data-act="chamber" data-wid="' + esc(a.id) + '" data-k="' + k + '" aria-label="Chamber ' + (k + 1) + '"></button>';
+      }
+      return '<div class="cylinder-row"><span>' + esc(a.name || 'Gun') + '</span> ' + dots + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span></div>';
+    }).join('');
+    const spells = (card.spells || []).map(s => {
+      const meta = [
+        s.kind === 'save' ? 'save' : (s.kind === 'attack' ? 'attack' : (s.kind && s.kind !== 'none' ? s.kind : '')),
+        s.dc !== '' && s.dc != null && s.kind === 'save' ? 'DC ' + s.dc : '',
+        s.toHit !== '' && s.toHit != null && s.kind === 'attack' ? '+' + s.toHit : '',
+        s.damage || '',
+        s.concentration ? 'concentration' : ''
+      ].filter(Boolean).join(' · ');
+      return '<button type="button" class="ssm-atk" data-sid="' + esc(s.id) + '" data-skind="' + esc(s.kind || '') + '" ' + (canAct ? '' : 'disabled') + '>' +
+        esc(s.name || s.id) + (s.level != null ? ' (L' + esc(s.level) + ')' : '') + (meta ? ' · ' + esc(meta) : '') + '</button>';
+    }).join('');
     const conds = (card.conditions || []).map(c => '<span class="ssm-cond">' + esc(condLabel(c)) + '</span>').join(' ');
     const condOptions = conditionNames().map(name => '<option value="' + esc(name) + '">' + esc(name) + '</option>').join('');
     const weaponOptions = (card.attacks || []).map(a => '<option value="' + esc(a.id || a.name || '') + '">' + esc(a.name || a.id || 'Weapon') + '</option>').join('') || '<option value="">No weapon</option>';
@@ -2662,6 +2723,7 @@ async function loadSceneImage(sceneId) {
       (conds ? '<div class="ssm-conds">' + conds + '</div>' : '') +
       (card.tactics ? '<div class="ssm-tactics">' + esc(card.tactics) + '</div>' : '') +
       '<div class="ssm-section">Attacks</div>' + attacks +
+      (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       (spells ? '<div class="ssm-section">Spells</div>' + spells : '') +
       '<div class="ssm-row">' +
         '<input data-act="hpAmt" type="number" value="1" min="0" aria-label="HP amount">' +
@@ -2693,10 +2755,21 @@ async function loadSceneImage(sceneId) {
     d.querySelectorAll('.ssm-atk').forEach(b => {
       b.addEventListener('click', () => {
         if (b.disabled) return;
-        const wid = b.getAttribute('data-wid') || b.getAttribute('data-sid');
-        emit('drawer:attack', detail({ weaponId: wid }));
-        state.pendingTarget = { tokenId, weaponId: wid };
+        if (b.hasAttribute('data-sid')) {
+          const sid = b.getAttribute('data-sid');
+          emit('drawer:spell', detail({ spellId: sid }));
+          state.pendingTarget = { tokenId, spellId: sid, spellKind: b.getAttribute('data-skind') || '' };
+        } else {
+          const wid = b.getAttribute('data-wid');
+          emit('drawer:attack', detail({ weaponId: wid }));
+          state.pendingTarget = { tokenId, weaponId: wid };
+        }
         renderDrawer();
+      });
+    });
+    d.querySelectorAll('[data-act="chamber"]').forEach(b => {
+      b.addEventListener('click', () => {
+        emit('drawer:chamber', detail({ weaponId: b.getAttribute('data-wid'), chamber: Number(b.getAttribute('data-k')) }));
       });
     });
     d.querySelector('[data-act="hpMinus"]').addEventListener('click', () => emit('drawer:hp', detail({ delta: -readHp() })));

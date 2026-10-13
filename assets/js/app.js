@@ -3464,7 +3464,7 @@
       armDirtyD4: function (i) {
         if (window.SSDNSD4 && window.SSDNSD4.arm) return window.SSDNSD4.arm(i);
       },
-      reloadGun: function (i) { reload(i); },
+      reloadGun: function (i, max) { reload(i, max); },
       unloadGunIndex: function (i) { unloadLoaded(i); },
       suggestedHp: function () { return suggestedHp(C()); }
     };

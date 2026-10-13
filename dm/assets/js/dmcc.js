@@ -857,10 +857,23 @@ function applyDemoGun(playerId, payload) {
   if (payload.op === "unload") { g.loaded = 0; g.chambers = (g.chambers || []).map(() => ""); }
   else if (payload.op === "reload") {
     const cap = Number(g.capacity) || 0;
-    g.loaded = cap;
-    g.chambers = Array.from({ length: cap }, () => "round");
+    const max = payload.max != null && isFinite(Number(payload.max)) ? Number(payload.max) : cap;
+    const chambers = Array.isArray(g.chambers) && g.chambers.length === cap ? g.chambers.slice() : Array.from({ length: cap }, (_, idx) => (idx < (Number(g.loaded) || 0) ? "round" : ""));
+    let left = max;
+    for (let k = 0; k < chambers.length && left > 0; k++) {
+      if (!chambers[k]) { chambers[k] = "round"; left -= 1; }
+    }
+    g.chambers = chambers;
+    g.loaded = chambers.filter(Boolean).length;
   } else if (payload.op === "set" && payload.loaded != null && isFinite(payload.loaded)) {
     g.loaded = payload.loaded;
+    if (Array.isArray(payload.chambers)) g.chambers = payload.chambers.slice();
+    if (payload.jammed != null) g.jammed = !!payload.jammed;
+    if (payload.fouled != null) g.fouled = !!payload.fouled;
+    if (payload.ruined != null) g.ruined = !!payload.ruined;
+    if (payload.pendingD4 != null) g.pendingD4 = !!payload.pendingD4;
+    if (payload.dirty != null) g.dirty = !!payload.dirty;
+    if (payload.misStreak != null) g.misStreak = payload.misStreak;
   } else if (payload.op === "misfire" && window.SSDNSMisfire) {
     const applied = window.SSDNSMisfire.applyOverride(g, payload);
     const next = applied.gun;

@@ -2918,6 +2918,92 @@ async function rollSpell(pid) {
   DM.renderPlayers();
   DM.toast(rolled.text);
 }
+async function rollSpellAt(row, spellId, targetId) {
+  const pid = row.playerId || row.id;
+  const p = DM.state.players[pid];
+  const s = (p && p.snapshot) || {};
+  const Cast = window.SSDNSSpellCast;
+  if (!Cast || !Cast.rollCast) { DM.toast("Spell roller isn't loaded"); return false; }
+  const known = Cast.lookup ? Cast.lookup(spellId) : null;
+  const name = (known && known.name) || String(spellId || "");
+  if (!name) { DM.toast("Pick a spell from the sheet"); return false; }
+  const level = known && typeof known.level === "number" ? known.level : 0;
+  s.spells = s.spells || {};
+  s.spells.slots = s.spells.slots || {};
+  s.spells.spent = s.spells.spent || {};
+  if (level) {
+    const totalSlots = Number(s.spells.slots[level] || 0);
+    const used = Number(s.spells.spent[level] || 0);
+    if (!totalSlots || used >= totalSlots) { DM.toast("No level-" + level + " slot left"); return false; }
+    s.spells.spent[level] = used + 1;
+    await DM.pushCommand({ type: "hex_spend", to: pid, payload: { level: level }, from: DM.state.uid });
+  }
+  const rolled = Cast.rollCast({
+    spellName: name,
+    slotLevel: level,
+    characterLevel: s.level,
+    attackBonus: atkNumber(s.spellAtk),
+    spellMod: s.spellMod,
+    dc: s.spellDC
+  });
+  const target = targetId ? resolveStrikeTarget(targetId) : null;
+  const id = DM.uid("spell");
+  let detail = (row.name || "PC") + " casts " + rolled.text;
+  const kind = listedKind({ name: name, kind: known && known.kind }, known);
+  if (rolled.attack && target) {
+    const ac = numericAc(target.ac);
+    const total = Number(rolled.result);
+    const nat = rolled.nat;
+    const hit = ac != null && nat !== 1 && total >= ac;
+    detail += " vs AC " + (ac == null ? "?" : ac) + (hit ? " → HIT" : " → MISS");
+    if (hit && rolled.damageTotal && fight.damageMode !== "approve") {
+      applyPlayerHit({
+        rollId: id, targetId: target.id, targetName: target.name, amount: rolled.damageTotal,
+        from: row.id, characterName: row.name, weapon: name, label: name, type: "damage"
+      });
+    }
+  } else if (kind === "save" && target) {
+    const save = await requestPlayerSave({
+      targetId: target.id, targetName: target.name, ability: (known && known.save) || "WIS",
+      dc: s.spellDC, label: name, damage: (known && known.dice) || "", fromName: row.name || ""
+    });
+    detail += ". " + save.line;
+    let amount = Number(rolled.result) || 0;
+    if (!save.failed && known && known.half) amount = Math.floor(amount / 2);
+    if (amount > 0 && (save.failed || (known && known.half)) && fight.damageMode !== "approve") {
+      applyPlayerHit({
+        rollId: id + ":dmg", targetId: target.id, targetName: target.name, amount: amount,
+        from: row.id, characterName: row.name, label: name, weapon: name, type: "damage"
+      });
+    }
+  } else if (kind === "heal" && target && fight.damageMode !== "approve") {
+    applyPlayerHit({
+      rollId: id, targetId: target.id, targetName: target.name, amount: rolled.result,
+      from: row.id, characterName: row.name, label: name, weapon: name, type: "heal"
+    });
+  } else if (kind === "auto" && target && rolled.result && fight.damageMode !== "approve") {
+    applyPlayerHit({
+      rollId: id, targetId: target.id, targetName: target.name, amount: rolled.result,
+      from: row.id, characterName: row.name, label: name, weapon: name, type: "damage"
+    });
+  }
+  if (spellConcentrates({ name: name }, known)) detail += noteConcentration(row, name);
+  const castCue = window.SSDNSAudio && window.SSDNSAudio.spellCue
+    ? window.SSDNSAudio.spellCue({ name: name, kind: kind, attack: !!rolled.attack, calling: s.callingId || s.calling })
+    : "spellcast";
+  if (rolled.attack) playTableSfx(castCue);
+  else if (window.SSDNSAudio) window.SSDNSAudio.play(castCue);
+  await DM.pushRoll({
+    id: id, who: "DM", playerId: pid, uid: DM.state.uid,
+    label: rolled.label, formula: rolled.formula, result: rolled.result, detail: detail,
+    nat1: false, isFirearm: !!level, attack: rolled.attack, nat: rolled.nat, crit: rolled.crit, private: false
+  });
+  await saveRemoteTable();
+  DM.renderPlayers();
+  renderFight();
+  DM.toast(detail);
+  return true;
+}
 
 function damagePick() {
   const formula = ($("#dmgFormula") && $("#dmgFormula").value || "").trim();
@@ -3498,6 +3584,42 @@ function spellRider(name) {
   if (key.indexOf("vicious mockery") >= 0) return "disadvantage on the next attack";
   return "";
 }
+function listedKind(spell, known) {
+  const fromCard = spell && typeof spell === "object" && spell.kind ? String(spell.kind) : "";
+  if (fromCard && fromCard !== "none") return fromCard;
+  const fromRules = known && known.kind ? String(known.kind) : "";
+  if (fromRules && fromRules !== "none") return fromRules;
+  return fromCard || "none";
+}
+function spellConcentrates(spell, known) {
+  if (spell && typeof spell === "object" && (spell.concentration || spell.conc)) return true;
+  const summary = spell && typeof spell === "object" ? String(spell.summary || spell.note || "") : "";
+  if (/\bconcentration\b/i.test(summary)) return true;
+  const Cast = window.SSDNSSpellCast;
+  const label = (known && known.name) || (spell && spell.name) || (typeof spell === "string" ? spell : "");
+  if (Cast && Cast.blurb && /\bconcentration\b/i.test(Cast.blurb(label) || "")) return true;
+  return false;
+}
+function spellConditionName(spell) {
+  if (spell && typeof spell === "object" && spell.condition) {
+    const named = String(spell.condition).trim();
+    if (named) return named;
+  }
+  const rider = spellRider(spell && (spell.name || spell.id));
+  if (/disadvantage/i.test(rider)) return "Disadvantage";
+  const summary = spell && typeof spell === "object" ? String(spell.summary || "") : "";
+  const hit = CONDITIONS.filter((name) => new RegExp("\\b" + name + "\\b", "i").test(summary));
+  return hit.length === 1 ? hit[0] : "";
+}
+function noteConcentration(row, name) {
+  const prev = row && row.concentration ? String(row.concentration) : "";
+  if (row) row.concentration = name;
+  if (prev && prev !== name) return " Concentration moves from " + prev + " to " + name + ".";
+  return " (concentration)";
+}
+function spendSpellSlot(card, level) {
+  if (level && card && card.slots && card.slots[level]) card.slots[level].left -= 1;
+}
 function askSaveSpell(row, name, known) {
   const players = combatTargets(row);
   const casting = (row.card && row.card.spellcasting) || {};
@@ -3530,7 +3652,7 @@ function askSaveSpell(row, name, known) {
     openDialog(dlg);
   });
 }
-async function cardCast(i, n) {
+async function cardCast(i, n, opts) {
   const row = fight.order[i];
   if (!row) return;
   const card = row && row.card;
@@ -3546,87 +3668,190 @@ async function cardCast(i, n) {
   const Cast = window.SSDNSSpellCast;
   const known = Cast && Cast.lookup ? Cast.lookup(raw) : null;
   const name = (known && known.name) || raw;
-  const kind = known && known.kind;
+  const kind = listedKind(spell, known);
+  const casting = card.spellcasting || {};
+  const direct = opts && opts.targetId ? String(opts.targetId) : "";
   const castCue = window.SSDNSAudio && window.SSDNSAudio.spellCue
     ? window.SSDNSAudio.spellCue({ name: name, kind: kind, attack: kind === "attack" })
     : "spellcast";
-  if (level && card.slots && card.slots[level]) card.slots[level].left -= 1;
-  if (kind === "heal") {
-    const dice = (known && known.dice) || "1d8";
-    const out = DM.parseDice(dice);
-    const detail = row.name + " casts " + name + " and heals " + out.total;
-    await publishCardRoll(row, detail, out.total, { formula: dice, heal: true });
-    if (window.SSDNSAudio) window.SSDNSAudio.play(castCue);
-    DM.toast(detail);
+  const playCue = () => {
+    if (castCue !== "spellcast") playTableSfx(castCue);
+    else if (window.SSDNSAudio) window.SSDNSAudio.play(castCue);
+    else playTableSfx("spellcast");
+  };
+  const diceOf = () => (known && known.dice) || (spell && spell.damage) || "";
+  if (kind === "utility" || kind === "reaction" || kind === "none" || kind === "rider") {
+    spendSpellSlot(card, level);
+    let detail = row.name + " casts " + name;
+    if (spellConcentrates(spell, known)) detail += noteConcentration(row, name);
+    await publishCardRoll(row, detail, 0, { formula: "—", spell: true });
+    playCue();
+    await saveRemoteTable();
     renderFight();
+    DM.toast(detail);
     return;
   }
-  if (kind === "save") {
-    const asked = await askSaveSpell(row, name, known);
+  if (kind === "heal") {
+    const dice = diceOf() || "1d8";
+    const out = DM.parseDice(dice);
+    spendSpellSlot(card, level);
+    let detail = row.name + " casts " + name + " and heals " + out.total;
+    if (spellConcentrates(spell, known)) detail += noteConcentration(row, name);
+    const target = direct ? resolveStrikeTarget(direct) : null;
+    if (target && out && fight.damageMode !== "approve") {
+      applyPlayerHit({
+        rollId: DM.uid("spell"),
+        targetId: target.id,
+        targetName: target.name,
+        amount: out.total,
+        from: row.id,
+        characterName: row.name,
+        label: name,
+        weapon: name,
+        type: "heal"
+      });
+    }
+    await publishCardRoll(row, detail, out.total, { formula: dice, heal: true, spell: true, targetId: target && target.id });
+    playCue();
+    await saveRemoteTable();
+    renderFight();
+    DM.toast(detail);
+    return;
+  }
+  if (kind === "save" || kind === "auto") {
+    let asked = null;
+    if (direct) {
+      asked = {
+        targetId: direct,
+        ability: (spell && spell.save) || (known && known.save) || "WIS",
+        dc: casting.dc,
+        damage: diceOf(),
+        rider: spellConditionName(spell) || spellRider(name)
+      };
+    } else if (kind === "save") {
+      asked = await askSaveSpell(row, name, known);
+    } else {
+      const picked = await askEnemyStrike(row, { name: name, toHit: "", damage: diceOf() });
+      asked = picked && picked.targetId ? { targetId: picked.targetId, ability: "", dc: "", damage: diceOf(), rider: "" } : null;
+    }
     if (!asked || !asked.targetId) { DM.toast("No targets"); return; }
     const target = resolveStrikeTarget(asked.targetId);
     if (!target) { DM.toast("No targets"); return; }
-    const save = await requestPlayerSave({
-      targetId: target.id,
-      targetName: target.name,
-      ability: asked.ability,
-      dc: asked.dc,
-      label: name,
-      rider: asked.rider,
-      damage: asked.damage,
-      fromName: row.name || ""
-    });
-    let detail = row.name + " casts " + name + ". " + save.line;
-    if (save.failed && asked.damage) {
-      const expr = String(asked.damage).match(/\d*d\d+(?:\s*[+-]\s*\d+)?/i);
-      const rolled = expr ? DM.parseDice(expr[0]) : null;
-      if (rolled) {
-        detail += " · " + rolled.total + " " + String(asked.damage).replace(expr[0], "").trim();
-        applyPlayerHit({
-          rollId: DM.uid("spell"),
-          targetId: target.id,
-          targetName: target.name,
-          amount: rolled.total,
-          from: row.id,
-          characterName: row.name,
-          label: name,
-          weapon: name,
-          type: "damage"
-        });
+    spendSpellSlot(card, level);
+    let detail = row.name + " casts " + name;
+    let save = null;
+    if (kind === "save") {
+      save = await requestPlayerSave({
+        targetId: target.id,
+        targetName: target.name,
+        ability: asked.ability,
+        dc: asked.dc,
+        label: name,
+        rider: asked.rider,
+        damage: asked.damage,
+        fromName: row.name || ""
+      });
+      detail += ". " + save.line;
+    } else {
+      detail += " at " + (target.name || "someone");
+    }
+    const expr = asked.damage ? String(asked.damage).match(/\d*d\d+(?:\s*[+-]\s*\d+)?/i) : null;
+    const rolled = expr ? DM.parseDice(expr[0]) : null;
+    const failed = !save || save.failed;
+    let amount = rolled ? rolled.total : 0;
+    if (save && !save.failed && known && known.half) amount = Math.floor(amount / 2);
+    if (rolled && amount > 0 && (failed || (known && known.half)) && fight.damageMode !== "approve") {
+      detail += " · " + amount + " " + String(asked.damage).replace(expr[0], "").trim();
+      applyPlayerHit({
+        rollId: DM.uid("spell"),
+        targetId: target.id,
+        targetName: target.name,
+        amount: amount,
+        from: row.id,
+        characterName: row.name,
+        label: name,
+        weapon: name,
+        type: "damage"
+      });
+    }
+    const cond = asked.rider || spellConditionName(spell);
+    if (failed && cond) {
+      const named = /prone/i.test(cond) ? "Prone" : (/disadvantage/i.test(cond) ? "Disadvantage" : cond);
+      if (CONDITIONS.indexOf(named) >= 0 || named === "Disadvantage") {
+        await rememberCondition(row, target, named, null);
+        detail += " · " + named;
       }
     }
-    if (save.failed && asked.rider) {
-      const cond = /prone/i.test(asked.rider) ? "Prone" : (/disadvantage/i.test(asked.rider) ? "Disadvantage" : asked.rider);
-      row.pendingRider = { condition: cond, targetId: target.id, targetName: target.name };
-      try {
-        await writeSubjectConditions(target.id, subjectKindOf(target), [{ name: cond }], target.name || "", 1, {}, []);
-      } catch (err) {}
-    }
-    await publishCardRoll(row, detail, save.total, { nat: save.nat, save: true });
-    if (window.SSDNSAudio) window.SSDNSAudio.play(castCue);
-    DM.toast(detail);
+    if (spellConcentrates(spell, known)) detail += noteConcentration(row, name);
+    await publishCardRoll(row, detail, save ? save.total : (rolled ? rolled.total : 0), {
+      nat: save && save.nat, save: kind === "save", spell: true, targetId: target.id, damage: amount || null
+    });
+    playCue();
+    await saveRemoteTable();
     renderFight();
+    DM.toast(detail);
     return;
   }
-  const picked = await askEnemyStrike(row, { name: name, toHit: card.spellcasting.attack, damage: (known && known.dice) || "" });
-  if (!picked || !picked.targetId) { DM.toast("No targets"); return; }
-  const target = resolveStrikeTarget(picked.targetId);
+  let targetId = direct;
+  if (!targetId) {
+    const picked = await askEnemyStrike(row, { name: name, toHit: casting.attack, damage: diceOf() });
+    targetId = picked && picked.targetId;
+  }
+  if (!targetId) { DM.toast("No targets"); return; }
+  const target = resolveStrikeTarget(targetId);
   if (!target) { DM.toast("No targets"); return; }
-  row.lastAttackerId = picked.targetId;
-  const bonus = Number(card.spellcasting.attack) || 0;
+  const bonus = Number(casting.attack) || 0;
   const ac = numericAc(target.ac);
   if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
+  spendSpellSlot(card, level);
+  row.lastAttackerId = targetId;
   const nat = d20();
   const total = nat + bonus;
   const hit = nat !== 1 && total >= ac;
   let dmg = null;
-  if (hit && known && known.dice) dmg = DM.parseDice(known.dice);
-  const detail = row.name + " casts " + name + " at " + (target.name || "someone") + ": " + nat + signed(bonus) + " = " + total + " vs AC " + ac + (hit ? " → HIT" : " → MISS") + (dmg ? " · " + dmg.total : "");
-  if (castCue !== "spellcast") playTableSfx(castCue);
-  else playTableSfx("spellcast");
-  await publishCardRoll(row, detail, total, { attack: true, nat: nat, damage: dmg ? dmg.total : null, targetId: target.id });
-  DM.toast(detail);
+  if (hit && diceOf()) dmg = DM.parseDice(diceOf());
+  let detail = row.name + " casts " + name + " at " + (target.name || "someone") + ": " + nat + signed(bonus) + " = " + total + " vs AC " + ac + (hit ? " → HIT" : " → MISS") + (dmg ? " · " + dmg.total : "");
+  const rollId = DM.uid("spell");
+  if (hit && dmg && fight.damageMode !== "approve") {
+    applyPlayerHit({
+      rollId: rollId,
+      targetId: target.id,
+      targetName: target.name,
+      amount: dmg.total,
+      from: row.id,
+      characterName: row.name,
+      label: name,
+      weapon: name,
+      type: "damage"
+    });
+  }
+  const cond = spellConditionName(spell);
+  if (hit && cond) {
+    let apply = true;
+    if (spell && spell.save) {
+      const riderSave = await requestPlayerSave({
+        targetId: target.id,
+        targetName: target.name,
+        ability: spell.save,
+        dc: casting.dc,
+        label: name,
+        rider: cond,
+        fromName: row.name || ""
+      });
+      detail += ". " + riderSave.line;
+      apply = !!riderSave.failed;
+    }
+    if (apply) {
+      await rememberCondition(row, target, cond, null);
+      detail += " · " + cond;
+    }
+  }
+  if (spellConcentrates(spell, known)) detail += noteConcentration(row, name);
+  playCue();
+  await publishCardRoll(row, detail, total, { id: rollId, attack: true, nat: nat, damage: dmg ? dmg.total : null, targetId: target.id, spell: true, formula: "1d20" + signed(bonus) });
+  await saveRemoteTable();
   renderFight();
+  DM.toast(detail);
 }
 async function attackRow(i) {
   const row = fight.order[i];
@@ -5106,6 +5331,41 @@ function wireLookupNow() {
     q.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
   }
 }
+function mapDrawerSpells(row) {
+  const card = (row && row.card) || {};
+  const casting = card.spellcasting || {};
+  let list = Array.isArray(casting.spells) ? casting.spells : (Array.isArray(card.spells) ? card.spells : []);
+  if (!list.length && row && row.kind === "player") {
+    const snap = playerSnapshot(row.playerId || row.id) || {};
+    const book = snap.spells || {};
+    list = [];
+    (book.cantrips || []).forEach((name) => { if (name) list.push({ id: name, name: name, level: 0 }); });
+    (book.prepared || []).forEach((name) => {
+      if (!name) return;
+      const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(name) : null;
+      const lv = known && typeof known.level === "number" ? known.level : 1;
+      list.push({ id: name, name: name, level: lv });
+    });
+  }
+  return list.filter(Boolean).map((s, n) => {
+    const raw = typeof s === "string" ? s : (s.name || s.id || "Spell");
+    const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(raw) : null;
+    const name = (known && known.name) || raw;
+    const kind = listedKind(typeof s === "string" ? { name: name } : s, known);
+    return {
+      id: (typeof s === "object" && (s.id || s.name)) || name || ("spell-" + n),
+      name: name,
+      level: typeof s === "object" && s.level != null ? s.level : (known && known.level != null ? known.level : 0),
+      kind: kind,
+      save: (typeof s === "object" && s.save) || (known && known.save) || "",
+      dc: casting.dc != null ? casting.dc : "",
+      toHit: casting.attack != null ? casting.attack : "",
+      damage: (known && known.dice) || (typeof s === "object" && s.damage) || "",
+      concentration: spellConcentrates(typeof s === "string" ? { name: name } : s, known),
+      note: (typeof s === "object" && (s.summary || s.note)) || ""
+    };
+  });
+}
 function mapDrawerCard(row) {
   if (!row) return null;
   const rawAttacks = (row.card && row.card.attacks && row.card.attacks.length) ? row.card.attacks : (row.attackList || []);
@@ -5120,10 +5380,20 @@ function mapDrawerCard(row) {
       range: a.range || "",
       damage: a.damage || a.dice || row.damage || ""
     };
-    if (cap != null && isFinite(cap)) attack.ammo = { loaded: isFinite(loaded) ? loaded : 0, cap: cap, spare: a.spare != null ? a.spare : (a.ammo && a.ammo.spare) };
+    if (cap != null && isFinite(cap)) {
+      const chambers = Array.isArray(a.chambers) && a.chambers.length
+        ? a.chambers.map((st) => (st ? 1 : 0))
+        : (a.ammo && Array.isArray(a.ammo.chambers) ? a.ammo.chambers.map((st) => (st ? 1 : 0)) : null);
+      attack.ammo = {
+        loaded: isFinite(loaded) ? loaded : 0,
+        cap: cap,
+        spare: a.spare != null ? a.spare : (a.ammo && a.ammo.spare),
+        chambers: chambers
+      };
+    }
     return attack;
   });
-  const spells = ((row.card && row.card.spells) || []).map((s) => ({ id: s.id || s.name, name: s.name || "Spell", level: s.level, note: s.note || "" }));
+  const spells = mapDrawerSpells(row);
   const conds = conditionsForRow(row).map((c) => {
     const Cond = window.SSDNSConditions;
     if (Cond && Cond.label) return Cond.label(c);
@@ -5253,6 +5523,8 @@ function ensurePlayerAttacks(row) {
       fouled: !!g.fouled,
       ruined: !!g.ruined,
       pendingD4: !!g.pendingD4,
+      dirty: !!g.dirty,
+      chambers: Array.isArray(g.chambers) ? g.chambers.map((st) => (st ? 1 : 0)) : null,
       gunIndex: n
     };
   });
@@ -5260,14 +5532,27 @@ function ensurePlayerAttacks(row) {
 function syncPlayerGun(row, atk) {
   if (!row || row.kind !== "player" || !atk || atk.gunIndex == null) return;
   const pid = row.playerId || row.id;
-  const payload = { op: "set", index: atk.gunIndex, loaded: atk.loaded };
+  const snap = playerSnapshot(pid);
+  const g = snap && snap.guns && snap.guns[atk.gunIndex];
+  if (g) {
+    const beforeFilled = Array.isArray(g.chambers) ? g.chambers.filter(Boolean).length : null;
+    g.loaded = atk.loaded;
+    g.jammed = !!atk.jammed;
+    g.fouled = !!atk.fouled;
+    g.ruined = !!atk.ruined;
+    g.pendingD4 = !!atk.pendingD4;
+    g.dirty = !!atk.dirty;
+    g.misStreak = atk.misStreak || 0;
+    if (Array.isArray(g.chambers) && g.chambers.length && beforeFilled != null && Number(atk.loaded) < beforeFilled) {
+      let extra = beforeFilled - Number(atk.loaded);
+      for (let k = 0; k < g.chambers.length && extra > 0; k++) {
+        if (g.chambers[k]) { g.chambers[k] = ""; extra -= 1; }
+      }
+    }
+  }
+  const payload = { op: "set", index: atk.gunIndex, loaded: atk.loaded, chambers: g && g.chambers ? g.chambers.slice() : null, jammed: !!atk.jammed, fouled: !!atk.fouled, ruined: !!atk.ruined, pendingD4: !!atk.pendingD4, dirty: !!atk.dirty, misStreak: atk.misStreak || 0 };
   DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
   if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
-  else {
-    const snap = playerSnapshot(pid);
-    const g = snap && snap.guns && snap.guns[atk.gunIndex];
-    if (g && atk.loaded != null) g.loaded = atk.loaded;
-  }
 }
 function mapAttackIndex(row, weaponId) {
   const list = (row.card && row.card.attacks) || [];
@@ -5393,6 +5678,77 @@ async function mapGunLoad(detail, unload) {
   DM.toast((unload ? "Unloaded " : "Reloaded ") + (atk.name || "weapon"));
   return true;
 }
+function mapSpellIndex(row, spellId) {
+  const list = (row && row.card && row.card.spellcasting && row.card.spellcasting.spells) || [];
+  const wid = spellId == null ? "" : String(spellId);
+  return list.findIndex((s) => {
+    if (!s) return false;
+    if (typeof s === "string") return s === wid;
+    return String(s.id || "") === wid || String(s.name || "") === wid;
+  });
+}
+async function mapGunChamber(detail) {
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No card linked"); return false; }
+  const row = fight.order[i];
+  const k = Number(detail && detail.chamber);
+  if (!isFinite(k) || k < 0) return false;
+  if (row.kind === "player") {
+    ensurePlayerAttacks(row);
+    const n = mapAttackIndex(row, detail && detail.weaponId);
+    const atk = row.card && row.card.attacks && row.card.attacks[n];
+    if (!atk) { DM.toast("No weapon"); return false; }
+    const pid = row.playerId || row.id;
+    const snap = playerSnapshot(pid);
+    const g = snap && snap.guns && snap.guns[atk.gunIndex != null ? atk.gunIndex : n];
+    if (!g) { DM.toast("No weapon"); return false; }
+    const cap = Number(g.capacity) || Number(atk.capacity) || 0;
+    const chambers = Array.isArray(g.chambers) && g.chambers.length
+      ? g.chambers.slice()
+      : Array.from({ length: cap }, (_, idx) => (idx < (Number(g.loaded) || 0) ? "round" : ""));
+    if (k >= chambers.length) return false;
+    if (chambers[k]) {
+      chambers[k] = "";
+      g.chambers = chambers;
+      g.loaded = chambers.filter(Boolean).length;
+      const payload = { op: "set", index: atk.gunIndex != null ? atk.gunIndex : n, loaded: g.loaded, chambers: chambers };
+      await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+      if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+      ensurePlayerAttacks(row);
+      await saveRemoteTable();
+      renderFight();
+      DM.toast("Unloaded a chamber · " + g.loaded + "/" + cap);
+      return true;
+    }
+    const payload = { op: "reload", index: atk.gunIndex != null ? atk.gunIndex : n, max: 1 };
+    await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+    if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+    ensurePlayerAttacks(row);
+    await saveRemoteTable();
+    renderFight();
+    DM.toast("Loaded a chamber");
+    return true;
+  }
+  ensureCombatantCard(row);
+  const n = mapAttackIndex(row, detail && detail.weaponId);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk || atk.capacity == null) { DM.toast("That weapon doesn't load"); return false; }
+  const cap = Number(atk.capacity) || 0;
+  const loaded = Number(atk.loaded) || 0;
+  if (k < loaded) {
+    atk.loaded = loaded - 1;
+    if (isFinite(Number(atk.spare))) atk.spare = Number(atk.spare) + 1;
+  } else if (k < cap && loaded < cap) {
+    const spare = Number(atk.spare);
+    if (isFinite(spare) && spare <= 0) { DM.toast("No ammo left"); return false; }
+    atk.loaded = loaded + 1;
+    if (isFinite(spare)) atk.spare = spare - 1;
+  }
+  await saveRemoteTable();
+  renderFight();
+  DM.toast((atk.name || "Gun") + " · " + atk.loaded + "/" + cap);
+  return true;
+}
 function markDeath(row, side, index) {
   if (!row.deathSaves) row.deathSaves = { success: [false, false, false], fail: [false, false, false] };
   if (!row.deathSaves[side]) row.deathSaves[side] = [false, false, false];
@@ -5508,6 +5864,33 @@ window.SSDNSMapFight = {
     if (row.kind === "player") syncPlayerGun(row, row.card.attacks[n]);
     return true;
   },
+  async cast(detail) {
+    detail = detail || {};
+    const i = mapFightIndex(detail);
+    if (i < 0) { DM.toast("No card linked"); return false; }
+    const row = fight.order[i];
+    const targetIndex = mapFightIndex({ combatantId: detail.targetCombatantId, tokenId: detail.targetTokenId });
+    const target = targetIndex >= 0 ? fight.order[targetIndex] : null;
+    const targetId = target ? combatantKey(target) : (detail.targetCombatantId || detail.targetTokenId || "");
+    if (!targetId) { DM.toast("No targets"); return false; }
+    if (row.kind === "player") {
+      if (!row.dmActsAs) { DM.toast("The player casts their own spells"); return false; }
+      const self = targetId === combatantKey(row) || targetId === String(row.id || "") || (row.playerId && targetId === String(row.playerId));
+      const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(detail.spellId) : null;
+      if (self && listedKind({ kind: known && known.kind }, known) !== "heal") { DM.toast("Pick a different token"); return false; }
+      return rollSpellAt(row, detail.spellId, targetId);
+    }
+    ensureCombatantCard(row);
+    const n = mapSpellIndex(row, detail.spellId);
+    if (n < 0) { DM.toast("No spell"); return false; }
+    const spell = row.card.spellcasting.spells[n];
+    const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(typeof spell === "string" ? spell : spell.name) : null;
+    const self = targetId === String(row.id || "") || targetId === combatantKey(row);
+    if (self && listedKind(typeof spell === "string" ? {} : spell, known) !== "heal") { DM.toast("Pick a different token"); return false; }
+    await cardCast(i, n, { targetId: targetId });
+    return true;
+  },
+  chamber(detail) { return mapGunChamber(detail); },
   async hp(detail) {
     detail = detail || {};
     const i = mapFightIndex(detail);

@@ -1,3 +1,49 @@
+# Map spells and cylinders — sheet 0.3.22 / DMCC 0.2.35
+
+Same draft as the token link. Versions stayed at sheet 0.3.22 / DMCC 0.2.35. `database.rules.json` did not change.
+
+## Drawer spells
+
+Bestiary casters already carry `spellcasting` (Viper Trent and Wakan Takan). The drawer was only reading `card.spells`, so those lists never appeared. `mapDrawerCard` now reads `card.spellcasting` for enemies and the sheet spell list for a player.
+
+A spell button enters target mode and emits `drawer:spell`. The click on a token calls `SSDNSMapFight.cast`, which runs the existing `cardCast` path with the chosen target. No dialog. The roll is posted to the table log. Damage and healing go through `applyPlayerHit`, so Undo restores the HP. A slot is spent when the cast goes through.
+
+What the data can resolve:
+
+- Spell attack uses the caster's attack bonus, AC, and the spell's damage dice.
+- A save uses the spell's ability and the caster's DC. Fireball's rules row has `half: true`, so a successful save takes half.
+- One named condition in the spell summary is applied when the save fails (Ray of Sickness applies Poisoned). Blindness/Deafness names two conditions, so the drawer does not pick one.
+- Concentration is taken from the summary text, or from `SSDNSSpellCast.blurb` when the rules meta marks it. The caster's `concentration` field moves to the new spell. That field stays on the fight row.
+
+A player spell button stays disabled unless `dmActsAs` is set. When it is, the cast calls `rollSpellAt`, which uses `SSDNSSpellCast.rollCast` and the same slot spend as the Fight-tab spell button.
+
+## Cylinders
+
+The drawer draws each gun's chambers from the same `loaded` / `capacity` / `chambers` fields as the Fight tab. Firing spends a chamber and uses `SSDNSMisfire`, including the Dirty d4 flag. Clicking a filled chamber unloads it. Clicking an empty chamber loads one. Reload and Unload still call `mapGunLoad`. For a player, that is the gun command the sheet already applies against their ammo. The sheet snapshot is the source of truth. `syncPlayerGun` writes the spent chamber back onto `snapshot.guns`.
+
+On the player map, each gun button has a small cylinder. Clicking it runs the sheet's existing Reload button. A round-count badge (for example `4/6`) is drawn on the selected token only. The DM sees enemy guns from the fight card. A player sees the badge only on their own token, read from `SSDNSApp` guns. `publicToken` does not carry loaded, capacity, chambers, or ammo.
+
+## Test
+
+```cmd
+node tools/test-map-spells.mjs
+node tools/test-map-link.mjs
+node tools/test-map-drawer.mjs
+node tools/test-map-fight.mjs
+node tools/test-hidden-enemy.mjs
+```
+
+## Regression
+
+| # | Check | Result | Note |
+|---|-------|--------|------|
+| 1 | Enemy spell button enters target mode and resolves without a dialog | PASS | `test-map-spells.mjs` spell.targetMode, spell.noDialog, spell.damage, spell.log |
+| 2 | Save damage, half-on-save data, attack damage, one condition, concentration, heal, Undo | PASS | Fireball, Ray of Sickness (Poisoned), Suggestion (concentration), Cure Wounds, spell.undo |
+| 3 | Player spells only when dmActsAs, via the sheet roller and slot spend | PASS | pc.blocked, pc.cast, pc.sheetRoll |
+| 4 | Cylinder spend, misfire, chamber load/unload, player snapshot sync | PASS | cyl.spent, cyl.misfire, cyl.unload, cyl.load, cyl.playerSync |
+| 5 | Enemy ammo never reaches the player map | PASS | public token omits loaded/capacity/chambers/ammo. Player rounds return "" for an enemy token. Player toolbar has no Fireball and no enemy `6/6` |
+| 6 | Token link, hidden enemy, drawer, rules file | PASS | existing map suites. `database.rules.json` not edited |
+
 # Map token link — sheet 0.3.22 / DMCC 0.2.35
 
 Built on live main `d27b340` (sheet 0.3.21 / DMCC 0.2.34). `database.rules.json` did not change.
