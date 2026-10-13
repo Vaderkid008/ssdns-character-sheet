@@ -1,3 +1,46 @@
+# Map token link — sheet 0.3.22 / DMCC 0.2.35
+
+Built on live main `d27b340` (sheet 0.3.21 / DMCC 0.2.34). `database.rules.json` did not change.
+
+An enemy token added on the DM map opened the drawer on "No card linked" because `findFightRow` / `mapFightIndex` already accept `row.mapTokenId`, and nothing ever wrote that field.
+
+## What changed
+
+- The DM drawer's "No card linked" state has a **Link to…** picker with two groups.
+  - **Current players:** everyone in `DM.state.players`, joined or only on the roster, even when they are not in `fight.order`. Linking sets the token's `ownerUid`, `combatantId`, and `kind` to that player. The drawer shows their sheet card. They are not added to the fight, so the DM can lay tokens out before combat.
+  - **Bestiary:** every non-parked bestiary creature, plus **New custom enemy (Bandit)**. Choosing one calls the same `addBeastToFight` / `addCustomEnemy` path the Fight tab uses, then sets `row.mapTokenId` to this token. Unlinked enemies already in `fight.order` are listed under **In this fight**.
+- `mapTokenId` is stored on the fight row. `saveRemoteTable` keeps it in the DM local table and on `encounter/dm`. It is not copied into `table/initiative`, `encounter/public`, or `map/public` tokens. The public token gets a label. A hidden name is published as "Unknown gunman". `combatantId` stays on `map/dm/tokens`.
+- Adding an enemy on the Fight tab while the map scene is open places a linked token on the next free square. Occupied squares are skipped.
+- Removing an enemy from the fight removes that token. Removing the token removes that enemy. Removing a player token only clears `row.mapTokenId`; the player stays on the roster and in the fight. Undo still restores the last HP change and leaves the link in place.
+- `sortInitiative` copies each row. The link is written onto the row that remains in `fight.order`.
+
+## Test
+
+```cmd
+node tools/test-map-link.mjs
+node tools/test-map-drawer.mjs
+node tools/test-map-fight.mjs
+node tools/test-map-m2.mjs
+node tools/test-hidden-enemy.mjs
+node tools/check-rules-emulator.mjs
+```
+
+## Regression
+
+| # | Check | Result | Note |
+|---|-------|--------|------|
+| 1 | Empty room: add a token, picker shows Link to… and New custom enemy (Bandit) | PASS | `test-map-link.mjs` empty.drawer / empty.groups / empty.order. `test-live-room.mjs` live.addTokenAlone |
+| 2 | Custom Bandit uses the Fight add path and sets mapTokenId | PASS | custom.row, custom.card, attack is Ball n Cap Revolver |
+| 3 | Link data is DM-only | PASS | public map token has no combatantId or mapTokenId. `encounter/public` and `table/initiative` omit mapTokenId. `encounter/dm` keeps it. Hidden name on the public token is Unknown gunman |
+| 4 | Roster player links without joining the fight | PASS | player.notInFight, player.card shows Jolene's AC, token ownerUid is the player |
+| 5 | Unlinked fight enemy can be chosen; bestiary add matches Fight stats | PASS | fight.unlinked AC 13 HP 11, fight.linked opens the Outlaw card |
+| 6 | Fight-tab add places tokens on distinct squares | PASS | place.count / place.unique |
+| 7 | Remove either side clears the other | PASS | remove.row / remove.token / remove.tokenClearsRow |
+| 8 | Undo still restores HP and keeps the link | PASS | undo.hp, undo.link |
+| 9 | Hidden-enemy leak and map leak suites | PASS | `test-hidden-enemy.mjs`, `test-map-m2.mjs` publicSecrets empty, `test-map-drawer.mjs` leak.noDrawer |
+| 10 | Rules emulator, no rules file edit | PASS | `check-rules-emulator.mjs` 203 checks. `database.rules.json` not edited |
+| 11 | Sheet and DMCC suites, live room | PASS | `tools/test-*.mjs` except the pre-existing `check-rules-writes.mjs` report. `test-live-room.mjs` passed against the emulators |
+
 # M2 v4 — DM drawer + Walls on/off
 
 Built on the current merged map (repo main `9737b1e`, now sheet 0.3.20 / DMCC 0.2.33), not m2-v3.1. `database.rules.json` did not change.

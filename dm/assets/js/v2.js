@@ -148,6 +148,7 @@ function captureSecrets() {
     const secret = window.SSDNSApplied && window.SSDNSApplied.secretEnemy
       ? window.SSDNSApplied.secretEnemy(Object.assign({}, row, { dcs: window.SSDNSApplied.dcLines ? window.SSDNSApplied.dcLines(row.card) : null }))
       : { name: row.name, ac: row.ac, hp: row.hp, maxHp: row.maxHp, reveal: revealOf(row) };
+    if (row.mapTokenId) secret.mapTokenId = String(row.mapTokenId);
     fight.secrets[row.id] = secret;
   });
 }
@@ -156,6 +157,7 @@ function restoreSecrets() {
     const secret = row && fight.secrets && fight.secrets[row.id];
     if (!secret || row.kind === "player") return;
     if (secret.name) row.name = secret.name;
+    if (secret.mapTokenId) row.mapTokenId = secret.mapTokenId;
     ["ac", "hp", "maxHp", "dex", "atkBonus"].forEach((key) => {
       if (secret[key] != null && secret[key] !== "") row[key] = secret[key];
     });
@@ -986,6 +988,27 @@ function uniqueName(name, opts) {
   });
   return base + " " + (same.length + 1);
 }
+let linkBusy = false;
+function rowInOrder(row) {
+  if (!row) return null;
+  return (fight.order || []).find((r) => r && row.id && r.id === row.id) || row;
+}
+function claimTokenId(row, tokenId) {
+  if (!row || !tokenId) return;
+  const prev = row.mapTokenId && row.mapTokenId !== tokenId ? row.mapTokenId : "";
+  (fight.order || []).forEach((other) => {
+    if (other && other !== row && other.mapTokenId === tokenId) delete other.mapTokenId;
+  });
+  row.mapTokenId = tokenId;
+  if (prev && window.SSDNSMapHost && typeof window.SSDNSMapHost.releaseToken === "function") window.SSDNSMapHost.releaseToken(prev);
+}
+function rememberPlayerToken(row) {
+  if (!row || row.kind !== "player" || row.mapTokenId || linkBusy) return;
+  const pid = row.playerId || row.id;
+  const host = window.SSDNSMapHost;
+  const tokenId = host && typeof host.tokenForPlayer === "function" ? host.tokenForPlayer(pid) : "";
+  if (tokenId) claimTokenId(row, tokenId);
+}
 function addCombatant(row) {
   const pid = row.playerId || (row.kind === "player" ? row.id : "");
   if (pid && row.kind === "player") {
@@ -1004,9 +1027,11 @@ function addCombatant(row) {
       if (row.dex != null) existing.dex = row.dex;
       existing.kind = row.kind || existing.kind;
       sortInitiative();
+      const live = rowInOrder(existing);
+      rememberPlayerToken(live);
       saveRemoteTable();
       renderFight();
-      return existing;
+      return live;
     }
   }
   if (row.kind === "enemy") {
@@ -1019,10 +1044,13 @@ function addCombatant(row) {
   if (row.hp != null && (row.maxHp == null || row.maxHp === "")) row.maxHp = row.hp;
   fight.order.push(row);
   sortInitiative();
+  let live = rowInOrder(row);
+  if (live.kind === "player") rememberPlayerToken(live);
   saveRemoteTable();
   renderFight();
-  if (row.kind === "enemy") ensurePlayers();
-  return row;
+  if (live.kind === "enemy") ensurePlayers();
+  live = rowInOrder(live);
+  return live;
 }
 function playerIsOnline(pid) {
   const p = DM.state.players && DM.state.players[pid];
@@ -4235,6 +4263,7 @@ function wireClicks() {
         const gone = fight.order[i];
         const name = (gone && gone.name) || "this combatant";
         if (!window.confirm("Remove " + name + " from the turn order?")) return;
+        releaseFightToken(gone);
         fight.removed = fight.removed || {};
         if (gone && gone.id) fight.removed[gone.id] = true;
         if (gone && gone.playerId) fight.removed[gone.playerId] = true;
@@ -4294,17 +4323,141 @@ function claimEnemyAdd(beastId) {
 function finishEnemyAdd() {
   enemyAddGate.busy = false;
 }
-function addBeastToFight(b) {
+function publicTokenName(row) {
+  if (!row) return "Enemy";
+  if (row.kind !== "player" && row.reveal && row.reveal.name === false) {
+    return (window.SSDNSApplied && window.SSDNSApplied.HIDDEN_ENEMY_NAME) || "Unknown gunman";
+  }
+  return row.name || (row.kind === "player" ? "Player" : "Enemy");
+}
+function tokenPatchForRow(row) {
+  const name = publicTokenName(row);
+  const player = !!(row && row.kind === "player");
+  const who = player ? ((row && (row.playerId || row.id)) || "") : ((row && row.id) || "");
+  return {
+    combatantId: who,
+    sheetId: player ? who : "",
+    label: String(name).slice(0, 16),
+    name: name,
+    kind: player ? "player" : "npc",
+    ownerUid: player ? who : "",
+    color: player ? "#4a90d9" : "#a33b3b",
+    ownerCanMove: player
+  };
+}
+function assignMapToken(row, tokenId) {
+  const live = rowInOrder(row);
+  claimTokenId(live, tokenId);
+  saveRemoteTable();
+  pushMapInitiative();
+}
+function tokenStillThere(tokenId) {
+  const host = window.SSDNSMapHost;
+  if (!tokenId || !host || typeof host.hasToken !== "function") return !!tokenId;
+  return !!host.hasToken(tokenId);
+}
+function bindNewToken(row) {
+  if (!row || row.kind === "player" || linkBusy) return;
+  if (row.mapTokenId && tokenStillThere(row.mapTokenId)) return;
+  const host = window.SSDNSMapHost;
+  if (!host || typeof host.placeToken !== "function") return;
+  const patch = tokenPatchForRow(row);
+  const tokenId = host.placeToken(Object.assign({ combatantId: row.id }, patch));
+  if (tokenId) assignMapToken(row, tokenId);
+}
+function dropMapToken(row) {
+  const tokenId = row && row.mapTokenId;
+  if (row && row.mapTokenId) delete row.mapTokenId;
+  if (!tokenId || linkBusy) return;
+  const host = window.SSDNSMapHost;
+  if (!host || typeof host.removeToken !== "function") return;
+  linkBusy = true;
+  try { host.removeToken(tokenId); }
+  finally { linkBusy = false; }
+}
+function releaseFightToken(row) {
+  if (!row) return;
+  if (row.kind === "player") {
+    if (row.mapTokenId) delete row.mapTokenId;
+    return;
+  }
+  dropMapToken(row);
+}
+function addBeastToFight(b, opts) {
   if (!b) { DM.toast("Pick an enemy"); return null; }
   if (!claimEnemyAdd(b.id)) return null;
   try {
     fight.recruit = true;
     const row = addCombatant(beastRow(b));
-    if (row) announce("Added " + row.name + " to the turn order", "combat", row);
+    if (row) {
+      announce("Added " + row.name + " to the turn order", "combat", row);
+      if (opts && opts.tokenId) assignMapToken(row, opts.tokenId);
+      else bindNewToken(row);
+    }
     return row;
   } finally {
     setTimeout(finishEnemyAdd, 0);
   }
+}
+function addCustomEnemy(opts) {
+  opts = opts || {};
+  const fromMap = !!opts.tokenId;
+  const name = (opts.name || ($("#customName") && $("#customName").value || "")).trim() || "Bandit";
+  fight.recruit = true;
+  const qtyRaw = parseInt($("#customQty") && $("#customQty").value, 10);
+  const qty = fromMap ? 1 : Math.max(1, Math.min(20, isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1));
+  const initRaw = $("#customInit") && String($("#customInit").value).trim();
+  const dexField = $("#customDex");
+  const dexBlank = !dexField || String(dexField.value).trim() === "";
+  const dexParsed = parseInt(dexField && dexField.value, 10);
+  const dex = dexBlank ? "" : (isFinite(dexParsed) ? dexParsed : 0);
+  const initBonus = initRaw === "" || initRaw == null ? (dexBlank ? "" : dexModFrom(dex)) : (parseInt(initRaw, 10) || 0);
+  const atkRaw = $("#customAtkBonus") && String($("#customAtkBonus").value).trim();
+  const atkBonus = atkRaw === "" || atkRaw == null ? "" : (Number(atkRaw));
+  const damageDice = ($("#customDmg") && $("#customDmg").value) || "";
+  const formNum = (el) => {
+    if (!el || String(el.value).trim() === "") return "";
+    const n = parseInt(el.value, 10);
+    return isFinite(n) ? n : "";
+  };
+  const customText = (($("#customAtk") && $("#customAtk").value) || "").trim();
+  const rows = [];
+  for (let n = 0; n < qty; n++) {
+    const spec = {
+      id: DM.uid("en"),
+      name: name,
+      kind: "enemy",
+      forceNumber: qty > 1,
+      ac: formNum($("#customAc")),
+      hp: formNum($("#customHp")),
+      maxHp: formNum($("#customHp")),
+      initBonus: initBonus,
+      dex: dex,
+      atkBonus: atkBonus,
+      damage: damageDice,
+      attacks: customText || "Ball n Cap Revolver +3, range 20/60, 1d8+1 piercing, capacity 6, misfire 4, slow load",
+      attackList: [customText ? attackFromLine(customText, atkBonus, damageDice) : banditGun()],
+      size: "Medium",
+      speed: 30,
+      cr: "1/8"
+    };
+    ensureCombatantCard(spec);
+    const row = addCombatant(spec);
+    if (row) rows.push(row);
+  }
+  if (!fromMap) {
+    ["customHp", "customAc", "customInit", "customDex", "customAtk", "customAtkBonus", "customDmg"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    if ($("#customQty")) $("#customQty").value = "1";
+  }
+  rows.forEach((row, n) => {
+    announce("Added " + row.name + " to the turn order", "combat", row);
+    if (fromMap && n === 0) assignMapToken(row, opts.tokenId);
+    else bindNewToken(row);
+  });
+  return rows[0] || null;
 }
 function enemyPickerQuery() {
   const el = $("#enemyQ");
@@ -4582,6 +4735,9 @@ function removeCombatant(id) {
   if (!id) return;
   fight.removed = fight.removed || {};
   fight.removed[id] = true;
+  (fight.order || []).forEach((row) => {
+    if (row && (row.id === id || row.playerId === id)) releaseFightToken(row);
+  });
   fight.order = (fight.order || []).filter((row) => !(row && (row.id === id || row.playerId === id)));
   Object.keys(fight.condMap || {}).forEach((cid) => {
     const row = fight.condMap[cid];
@@ -4665,14 +4821,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.34-targets");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.35-targets");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.34-targets");
+    const res = await fetch("assets/data/store-items.json?v=0.2.35-targets");
     if (res.ok) storeItems = await res.json();
     else DM.toast("Store list failed to load");
   } catch (e) {
@@ -4824,56 +4980,7 @@ async function bootV2() {
   const endBtn = $("#btnEndCombat");
   if (endBtn) endBtn.addEventListener("click", endCombat);
   const addCustom = $("#btnAddCustom");
-  if (addCustom) addCustom.addEventListener("click", () => {
-    const name = ($("#customName") && $("#customName").value || "").trim() || "Bandit";
-    fight.recruit = true;
-    const qtyRaw = parseInt($("#customQty") && $("#customQty").value, 10);
-    const qty = Math.max(1, Math.min(20, isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1));
-    const initRaw = $("#customInit") && String($("#customInit").value).trim();
-    const dexField = $("#customDex");
-    const dexBlank = !dexField || String(dexField.value).trim() === "";
-    const dexParsed = parseInt(dexField && dexField.value, 10);
-    const dex = dexBlank ? "" : (isFinite(dexParsed) ? dexParsed : 0);
-    const initBonus = initRaw === "" ? (dexBlank ? "" : dexModFrom(dex)) : (parseInt(initRaw, 10) || 0);
-    const atkRaw = $("#customAtkBonus") && String($("#customAtkBonus").value).trim();
-    const atkBonus = atkRaw === "" ? "" : (Number(atkRaw));
-    const damageDice = ($("#customDmg") && $("#customDmg").value) || "";
-    const formNum = (el) => {
-      if (!el || String(el.value).trim() === "") return "";
-      const n = parseInt(el.value, 10);
-      return isFinite(n) ? n : "";
-    };
-    const rows = [];
-    const customText = (($("#customAtk") && $("#customAtk").value) || "").trim();
-    for (let n = 0; n < qty; n++) {
-      const spec = {
-        id: DM.uid("en"),
-        name: name,
-        kind: "enemy",
-        forceNumber: qty > 1,
-        ac: formNum($("#customAc")),
-        hp: formNum($("#customHp")),
-        maxHp: formNum($("#customHp")),
-        initBonus: initBonus,
-        dex: dex,
-        atkBonus: atkBonus,
-        damage: damageDice,
-        attacks: customText || "Ball n Cap Revolver +3, range 20/60, 1d8+1 piercing, capacity 6, misfire 4, slow load",
-        attackList: [customText ? attackFromLine(customText, atkBonus, damageDice) : banditGun()],
-        size: "Medium",
-        speed: 30,
-        cr: "1/8"
-      };
-      ensureCombatantCard(spec);
-      rows.push(addCombatant(spec));
-    }
-    ["customHp", "customAc", "customInit", "customDex", "customAtk", "customAtkBonus", "customDmg"].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.value = "";
-    });
-    if ($("#customQty")) $("#customQty").value = "1";
-    rows.forEach((row) => announce("Added " + row.name + " to the turn order", "combat", row));
-  });
+  if (addCustom) addCustom.addEventListener("click", () => { addCustomEnemy({ clear: true }); });
   const mode = $("#damageMode");
   if (mode) mode.addEventListener("change", () => {
     fight.damageMode = mode.value || "auto";
@@ -5045,10 +5152,53 @@ function findFightRow(tokenId) {
   if (!tokenId) return null;
   return (fight.order || []).find((row) => row && (row.id === tokenId || row.playerId === tokenId || row.mapTokenId === tokenId)) || null;
 }
+function rosterCard(pid) {
+  const p = pid && DM.state.players && DM.state.players[pid];
+  if (!p) return null;
+  const s = p.snapshot || {};
+  const shadow = {
+    id: pid,
+    playerId: pid,
+    kind: "player",
+    name: s.name || s.player || pid,
+    ac: s.ac,
+    hp: s.hpCurrent,
+    maxHp: s.hpMax,
+    dex: dexFromSnapshot(s)
+  };
+  ensurePlayerAttacks(shadow);
+  return mapDrawerCard(shadow);
+}
+function linkChoiceList() {
+  const players = Object.keys(DM.state.players || {}).map((id) => {
+    const s = (DM.state.players[id] && DM.state.players[id].snapshot) || {};
+    return { id: id, label: s.name || s.player || id };
+  });
+  const enemies = (fight.order || []).filter((row) => row && row.kind !== "player" && !row.mapTokenId).map((row) => ({
+    id: row.id,
+    label: row.name || "Enemy"
+  }));
+  const buckets = {};
+  (fight.bestiary || []).forEach((b) => {
+    if (!b || b.template || b.parked) return;
+    const key = BEAST_GROUPS.some((pair) => pair[0] === b.group) ? b.group : "other";
+    (buckets[key] || (buckets[key] = [])).push({ id: b.id, name: b.name || b.id });
+  });
+  const order = BEAST_GROUPS.map((pair) => pair[0]).concat(buckets.other ? ["other"] : []);
+  const bestiary = order.filter((key) => buckets[key] && buckets[key].length).map((key) => ({
+    label: (BEAST_GROUPS.filter((pair) => pair[0] === key)[0] || ["", "Other"])[1],
+    options: buckets[key]
+  }));
+  return { players: players, enemies: enemies, bestiary: bestiary, customLabel: "New custom enemy (Bandit)" };
+}
 window.SSDNSMapCards = {
   get(tokenId) {
     const row = findFightRow(tokenId);
-    return row ? mapDrawerCard(row) : null;
+    if (row) return mapDrawerCard(row);
+    return rosterCard(tokenId);
+  },
+  choices() {
+    return linkChoiceList();
   },
   initiative() {
     return {
@@ -5255,6 +5405,88 @@ function markDeath(row, side, index) {
     from: DM.state.uid
   });
 }
+function playerLinkPatch(pid) {
+  const p = pid && DM.state.players && DM.state.players[pid];
+  if (!p) return null;
+  const s = p.snapshot || {};
+  const name = s.name || s.player || pid;
+  return {
+    combatantId: pid,
+    sheetId: pid,
+    ownerUid: pid,
+    kind: "player",
+    label: String(name).slice(0, 16),
+    name: name,
+    color: "#4a90d9",
+    ownerCanMove: true
+  };
+}
+function linkMapToken(detail) {
+  detail = detail || {};
+  const tokenId = detail.tokenId;
+  const raw = String(detail.link || "");
+  const split = raw.indexOf(":");
+  const kind = split < 0 ? raw : raw.slice(0, split);
+  const id = split < 0 ? "" : raw.slice(split + 1);
+  if (!tokenId || !kind) return null;
+  if (kind === "player") {
+    const patch = playerLinkPatch(id);
+    if (!patch) return null;
+    const row = (fight.order || []).find((r) => r && (r.id === id || r.playerId === id));
+    if (row) assignMapToken(row, tokenId);
+    return patch;
+  }
+  if (kind === "enemy") {
+    const row = (fight.order || []).find((r) => r && r.id === id && r.kind !== "player" && !r.mapTokenId);
+    if (!row) { DM.toast("That enemy is already linked"); return null; }
+    assignMapToken(row, tokenId);
+    return tokenPatchForRow(row);
+  }
+  if (kind === "beast") {
+    const beast = (fight.bestiary || []).find((b) => b && b.id === id);
+    const row = addBeastToFight(beast, { tokenId: tokenId });
+    return row ? tokenPatchForRow(row) : null;
+  }
+  if (kind === "custom") {
+    const row = addCustomEnemy({ tokenId: tokenId });
+    return row ? tokenPatchForRow(row) : null;
+  }
+  return null;
+}
+function unlinkMapToken(detail) {
+  if (linkBusy) return;
+  const tokenId = detail && detail.tokenId;
+  if (!tokenId) return;
+  const row = (fight.order || []).find((r) => r && r.mapTokenId === tokenId);
+  if (!row) return;
+  delete row.mapTokenId;
+  if (row.kind === "player") {
+    saveRemoteTable();
+    renderFight();
+    return;
+  }
+  linkBusy = true;
+  try { removeCombatant(row.id); }
+  finally { linkBusy = false; }
+}
+function syncMapTokens() {
+  if (linkBusy) return;
+  let dirty = false;
+  (fight.order || []).slice().forEach((row) => {
+    if (!row) return;
+    if (row.kind === "player") {
+      if (row.mapTokenId) return;
+      rememberPlayerToken(row);
+      if (row.mapTokenId) dirty = true;
+      return;
+    }
+    bindNewToken(row);
+  });
+  if (dirty) {
+    saveRemoteTable();
+    pushMapInitiative();
+  }
+}
 window.SSDNSMapFight = {
   async attack(detail) {
     detail = detail || {};
@@ -5358,7 +5590,10 @@ window.SSDNSMapFight = {
     DM.toast(line);
     return true;
   },
-  undo() { return undoLast(); }
+  undo() { return undoLast(); },
+  link(detail) { return linkMapToken(detail); },
+  onTokenRemoved(detail) { unlinkMapToken(detail); },
+  syncMap() { syncMapTokens(); }
 };
 
 wireLookupNow();

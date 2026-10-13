@@ -2,7 +2,7 @@
 
 The sheet and the DM Command Center look up sounds in `sfx.json`. A missing file stays silent. `SSDNSAudio.weaponCue` picks a cue in this order: an explicit `sfx` field, then `weapons[id]` in this file, then the weapon kind. `weapons` values are cue names, not filenames.
 
-`sfx.js` fetches this file as `sfx.json?v=0.3.21`, the same sheet version as the rest of the playtest.
+`sfx.js` fetches this file as `sfx.json?v=0.3.22`, the same sheet version as the rest of the playtest.
 
 | Event | Filename | When it plays |
 |-------|----------|----------------|

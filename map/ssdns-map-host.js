@@ -149,6 +149,27 @@
       var prev = $("btnPrevTurn");
       if (prev) prev.click();
     }
+    if (name === "drawer:link") {
+      var linker = root.SSDNSMapFight;
+      if (!linker || typeof linker.link !== "function") return;
+      var apply = function (patch) {
+        if (patch && map && map.applyLink) map.applyLink(detail.tokenId, patch);
+        if (map && map.refreshCard) map.refreshCard(detail.tokenId || "");
+      };
+      try {
+        Promise.resolve(linker.link(detail)).then(apply, function () { apply(); });
+      } catch (e) {
+        apply();
+      }
+      return;
+    }
+    if (name === "combatant:remove") {
+      var drop = root.SSDNSMapFight;
+      if (drop && typeof drop.onTokenRemoved === "function") {
+        try { Promise.resolve(drop.onTokenRemoved(detail)); } catch (e) {}
+      }
+      return;
+    }
     var fightCall = {
       "drawer:target": "attack",
       "drawer:hp": "hp",
@@ -251,6 +272,11 @@
             var api = root.SSDNSMapCards;
             if (!isDmPage() || !api || typeof api.get !== "function") return null;
             try { return api.get(tokenId) || null; } catch (e) { return null; }
+          },
+          linkChoices: function () {
+            var api = root.SSDNSMapCards;
+            if (!isDmPage() || !api || typeof api.choices !== "function") return null;
+            try { return api.choices(); } catch (e) { return null; }
           }
         },
         options: {
@@ -260,7 +286,10 @@
           players: currentPlayers,
           ensureScene: !!ctx.demo,
           room: { table: { initiative: initiative || { order: [], turn: 0 } } },
-          onReady: function () { syncInitiative(); }
+          onReady: function () {
+            syncInitiative();
+            if (root.SSDNSMapFight && typeof root.SSDNSMapFight.syncMap === "function") root.SSDNSMapFight.syncMap();
+          }
         }
       });
       mountedKey = key;
@@ -333,11 +362,37 @@
     });
     syncRoom();
   }
+  function placeToken(spec) {
+    if (!isDmPage() || !map || typeof map.placeLinkedToken !== "function") return "";
+    var token = map.placeLinkedToken(spec || {});
+    return token && token.id ? token.id : "";
+  }
+  function removeToken(id) {
+    if (!isDmPage() || !map || typeof map.removeToken !== "function") return;
+    map.removeToken(id);
+  }
+  function tokenForPlayer(pid) {
+    if (!isDmPage() || !map || typeof map.tokenForPlayer !== "function") return "";
+    var token = map.tokenForPlayer(pid);
+    return token && token.id ? token.id : "";
+  }
+  function hasToken(id) {
+    return !!(isDmPage() && map && typeof map.hasToken === "function" && map.hasToken(id));
+  }
+  function releaseToken(id) {
+    if (!isDmPage() || !map || typeof map.releaseToken !== "function") return;
+    map.releaseToken(id);
+  }
   root.SSDNSMapHost = {
     syncRoom: syncRoom,
     setPlayers: setPlayers,
     syncInitiative: syncInitiative,
-    destroy: destroyMap
+    destroy: destroyMap,
+    placeToken: placeToken,
+    removeToken: removeToken,
+    tokenForPlayer: tokenForPlayer,
+    hasToken: hasToken,
+    releaseToken: releaseToken
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
   else wire();

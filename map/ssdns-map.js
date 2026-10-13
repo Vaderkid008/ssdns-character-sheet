@@ -1120,7 +1120,8 @@ function makeToken(spec) {
     },
     sceneId: (state.scene && state.scene.id) || 'scn_dustyspur01',
     image: spec.image || '',
-    sheetId: spec.sheetId || ''
+    sheetId: spec.sheetId || '',
+    combatantId: spec.combatantId || ''
   };
   state.tokens.push(token);
   shared.tokens[id] = JSON.parse(JSON.stringify(token));
@@ -1821,6 +1822,115 @@ function cellTaken(x, y, ignore) {
     return x >= t.pos.x && x < t.pos.x + size && y >= t.pos.y && y < t.pos.y + size;
   });
 }
+function nextFreeCell() {
+  if (!state.scene) return null;
+  const grid = state.scene.grid || { cols: 30, rows: 20 };
+  const cols = grid.cols || 30;
+  const rows = grid.rows || 20;
+  const start = viewCenterCell();
+  const free = (x, y) => x >= 0 && y >= 0 && x < cols && y < rows && !cellTaken(x, y);
+  if (free(start.x, start.y)) return { x: start.x, y: start.y };
+  const max = Math.max(cols, rows);
+  for (let r = 1; r < max; r++) {
+    for (let y = start.y - r; y <= start.y + r; y++) {
+      for (let x = start.x - r; x <= start.x + r; x++) {
+        if (Math.max(Math.abs(x - start.x), Math.abs(y - start.y)) !== r) continue;
+        if (free(x, y)) return { x: x, y: y };
+      }
+    }
+  }
+  return null;
+}
+function placeLinkedToken(spec) {
+  if (role !== 'dm' || !state.scene) return null;
+  spec = spec || {};
+  const spot = nextFreeCell();
+  if (!spot) { toast('No open square'); return null; }
+  return makeToken(Object.assign({}, spec, { pos: spot, kind: spec.kind || 'npc' }));
+}
+function hasToken(id) {
+  return !!(id && state.tokens.some(t => t && t.id === id));
+}
+function tokenForPlayer(pid) {
+  if (!pid) return null;
+  return state.tokens.find(t => t && (t.ownerUid === pid || t.combatantId === pid || t.sheetId === pid)) || null;
+}
+function releaseToken(id) {
+  const t = state.tokens.find(tok => tok && tok.id === id);
+  if (!t) return;
+  delete t.combatantId;
+  const copy = shared.tokens[id];
+  if (copy) delete copy.combatantId;
+  saveToken(id);
+  if (state.drawerOpen && state.drawerTokenId === id) renderDrawer();
+}
+function removeMapTokens(ids, opts) {
+  opts = opts || {};
+  const list = (ids || []).filter(Boolean);
+  if (!list.length) return;
+  const goneInfo = list.map(id => {
+    const gone = (shared.tokens && shared.tokens[id]) || state.tokens.find(t => t && t.id === id) || {};
+    return { id: id, ownerUid: gone.ownerUid || '', combatantId: gone.combatantId || '' };
+  });
+  state.tokens = state.tokens.filter(t => !list.includes(t.id));
+  goneInfo.forEach(info => {
+    if (info.ownerUid && !opts.keepOwner) {
+      dismissedMap()[info.ownerUid] = true;
+      write('map/dm/dismissed/' + info.ownerUid, true);
+    }
+    delete shared.tokens[info.id];
+    if (adapter && adapter.remove) {
+      adapter.remove('map/public/tokens/' + info.id);
+      adapter.remove('map/dm/tokens/' + info.id);
+    }
+  });
+  if (!opts.silent) {
+    goneInfo.forEach(info => emit('combatant:remove', { tokenId: info.id, combatantId: info.combatantId, ownerUid: info.ownerUid }));
+  }
+  if (state.drawerOpen && list.includes(state.drawerTokenId)) closeDrawer();
+  if (list.includes(state.currentTurnId)) state.currentTurnId = null;
+  if (state.selected && list.includes(state.selected.id)) state.selected = null;
+  state.selectedIds = (state.selectedIds || []).filter(id => !list.includes(id));
+  draw();
+}
+function applyLink(tokenId, patch) {
+  if (role !== 'dm' || !patch) return null;
+  const t = state.tokens.find(tok => tok && tok.id === tokenId);
+  if (!t) return null;
+  if (patch.ownerUid) {
+    state.tokens.forEach(other => {
+      if (!other || other.id === t.id || other.ownerUid !== patch.ownerUid) return;
+      other.ownerUid = '';
+      if (other.combatantId === patch.ownerUid) delete other.combatantId;
+      const otherCopy = shared.tokens[other.id];
+      if (otherCopy) {
+        otherCopy.ownerUid = '';
+        delete otherCopy.combatantId;
+      }
+      saveToken(other.id);
+    });
+    delete dismissedMap()[patch.ownerUid];
+    if (adapter && adapter.remove) adapter.remove('map/dm/dismissed/' + patch.ownerUid);
+  }
+  if (patch.kind) t.kind = patch.kind;
+  if (patch.ownerUid != null) t.ownerUid = patch.ownerUid;
+  if (patch.combatantId) t.combatantId = patch.combatantId;
+  if (patch.sheetId != null) t.sheetId = patch.sheetId;
+  if (patch.name) t.name = patch.name;
+  if (patch.label) t.label = String(patch.label).slice(0, 16);
+  if (patch.color) t.color = patch.color;
+  if (patch.ownerCanMove != null) t.ownerCanMove = patch.ownerCanMove !== false;
+  else if (patch.ownerUid) t.ownerCanMove = true;
+  const copy = shared.tokens[t.id] || (shared.tokens[t.id] = { id: t.id });
+  ['kind', 'ownerUid', 'combatantId', 'sheetId', 'name', 'label', 'color', 'ownerCanMove', 'pos', 'sceneId', 'size', 'hidden', 'locked', 'status', 'image'].forEach(key => {
+    if (t[key] !== undefined) copy[key] = t[key];
+  });
+  if (t.controlledBy) copy.controlledBy = t.controlledBy.slice();
+  if (t.conditions) copy.conditions = t.conditions.slice();
+  saveToken(t.id);
+  draw();
+  return t;
+}
 function hitTest(wx, wy) {
   const px = state.scene.grid.px;
   for (let i = state.tokens.length - 1; i >= 0; i--) {
@@ -2210,26 +2320,9 @@ if (role === 'dm') {
   q('delTokenBtn').addEventListener('click', () => {
     const ids = state.selectedIds.length ? [...state.selectedIds] : (state.selected ? [state.selected.id] : []);
     if (!ids.length) { toast('Select a token'); return; }
-    state.tokens = state.tokens.filter(t => !ids.includes(t.id));
-    ids.forEach(id => {
-      const gone = shared.tokens[id];
-      if (gone && gone.ownerUid) {
-        dismissedMap()[gone.ownerUid] = true;
-        write('map/dm/dismissed/' + gone.ownerUid, true);
-      }
-      delete shared.tokens[id];
-      if (adapter && adapter.remove) {
-        adapter.remove('map/public/tokens/' + id);
-        adapter.remove('map/dm/tokens/' + id);
-      }
-    });
-    ids.forEach(id => emit('combatant:remove', { tokenId: id }));
-    if (ids.includes(state.currentTurnId)) state.currentTurnId = null;
-    state.selected = null;
-    state.selectedIds = [];
+    removeMapTokens(ids);
     flashBtn('delTokenBtn');
     toast('Removed from map and turn order');
-    draw();
   });
   renderActions();
 } else {
@@ -2514,9 +2607,34 @@ async function loadSceneImage(sceneId) {
     const tokenId = state.drawerTokenId;
     const card = lookupCard(tokenId);
     if (!card) {
-      d.innerHTML = '<div class="ssm-drawer-head"><b>No card linked</b><button type="button" data-act="drawerClose">×</button></div>';
+      const choices = (typeof host.linkChoices === 'function' && host.linkChoices()) || {};
+      const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
+      const group = (label, inner) => inner ? '<optgroup label="' + esc(label) + '">' + inner + '</optgroup>' : '';
+      const players = (choices.players || []).map(p => option('player:' + (p.id || ''), p.label || p.name || p.id)).join('');
+      const enemies = (choices.enemies || []).map(row => option('enemy:' + (row.id || ''), row.label || row.name || row.id)).join('');
+      const beasts = (choices.bestiary || []).map(g => group(g.label || 'Bestiary', (g.options || []).map(b => option('beast:' + (b.id || ''), b.name || b.id)).join(''))).join('');
+      const custom = choices.customLabel || 'New custom enemy (Bandit)';
+      d.innerHTML = '<div class="ssm-drawer-head"><b>No card linked</b><button type="button" data-act="drawerClose">×</button></div>' +
+        '<div class="ssm-drawer-body">' +
+        '<label class="ssm-section" for="ssm-link-pick">Link to…</label>' +
+        '<select data-act="linkPick" id="ssm-link-pick" aria-label="Link to…">' +
+        '<option value="">Link to…</option>' +
+        group('Current players', players) +
+        group('In this fight', enemies) +
+        beasts +
+        group('Custom', option('custom', custom)) +
+        '</select>' +
+        '<p class="ssm-tactics">Players can be laid out before a fight. A bestiary or custom enemy is added on the Fight tab and linked here.</p>' +
+        '</div>';
       const c = d.querySelector('[data-act="drawerClose"]');
       if (c) c.addEventListener('click', closeDrawer);
+      const pick = d.querySelector('[data-act="linkPick"]');
+      if (pick) pick.addEventListener('change', () => {
+        const link = pick.value;
+        if (!link) return;
+        emit('drawer:link', { tokenId: tokenId, link: link });
+        pick.value = '';
+      });
       return;
     }
     const isPc = card.kind === 'pc';
@@ -2844,7 +2962,13 @@ return {
     fillGrant();
     ensurePartyTokens();
   },
-  ensureDefaultScene: ensureDefaultScene
+  ensureDefaultScene: ensureDefaultScene,
+  placeLinkedToken,
+  removeToken: function (id) { removeMapTokens([id], { silent: true }); },
+  applyLink,
+  tokenForPlayer,
+  hasToken,
+  releaseToken
 };
 }
 };
