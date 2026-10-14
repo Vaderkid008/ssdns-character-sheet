@@ -1790,7 +1790,15 @@ function cloneToken(src, dx, dy) {
   }
   state.tokens.push(clean);
   shared.tokens[id] = JSON.parse(JSON.stringify(clean));
-  emit('combatant:add', { tokenId: id });
+  const playerTok = !!(src.ownerUid || src.kind === 'player' || src.sheetId);
+  emit('combatant:add', playerTok ? { tokenId: id } : {
+    tokenId: id,
+    duplicate: true,
+    sourceId: src.id,
+    sourceCombatantId: src.combatantId || '',
+    hidden: !!src.hidden,
+    name: src.name || src.label || ''
+  });
   return clean;
 }
 function copyTokens() {
@@ -2992,9 +3000,15 @@ function removeMapTokens(ids, opts) {
     const t = state.tokens.find(tok => tok && tok.id === id);
     if (!t) return null;
     if (fields.status != null) t.status = fields.status;
+    if (fields.name) t.name = fields.name;
+    if (fields.label) t.label = String(fields.label).slice(0, 16);
+    if (fields.combatantId) t.combatantId = fields.combatantId;
     if (fields.image && !t.image) t.image = fields.image;
     const copy = shared.tokens[t.id] || (shared.tokens[t.id] = { id: t.id });
     copy.status = t.status || '';
+    if (t.name) copy.name = t.name;
+    if (t.label) copy.label = t.label;
+    if (t.combatantId) copy.combatantId = t.combatantId;
     if (t.image) {
       copy.image = t.image;
       loadTokenImage(t);
@@ -3154,6 +3168,11 @@ if (role === 'dm') {
       shared.tokens[state.selected.id].hidden = state.selected.hidden;
       saveToken(state.selected.id);
     }
+    emit('token:hidden', {
+      tokenId: state.selected.id,
+      hidden: !!state.selected.hidden,
+      combatantId: state.selected.combatantId || ''
+    });
     flashBtn('hideBtn');
     draw();
   });
@@ -3800,6 +3819,7 @@ async function loadSceneImage(sceneId) {
     const turn = (state.initiative && state.initiative.turn) || 0;
     strip.innerHTML = '';
     order.forEach((c, i) => {
+      if (role !== 'dm' && c && c.mapHidden) return;
       const b = document.createElement('span');
       b.textContent = c.name || c.id;
       b.style.cssText = 'padding:2px 6px;border-radius:4px;font-size:11px;background:' + (i === turn ? '#8a7040' : '#2a241c') + ';color:#e8dcc8;cursor:pointer;';

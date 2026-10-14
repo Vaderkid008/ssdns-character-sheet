@@ -457,6 +457,24 @@ body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right
 .ssm-atk { width: 100%; text-align: left; }
 .ssm-atk:disabled, .cylinder-row button[data-act="playerClean"]:disabled, .cylinder-row button[data-act="rowClean"]:disabled { opacity: 0.4; cursor: not-allowed; }
 .ssm-dis { color: #ff3b30; font-weight: 700; }
+.ssdns-playercard label,
+.ssm-drawer label { color: #f0e4cf; }
+.ssdns-playercard label.ssm-mode:has(input[data-act="playerAdv"]),
+.ssdns-playercard label.ssm-mode:has(input[data-act="rowAdv"]),
+.ssm-drawer label.ssm-mode:has(input[data-act="playerAdv"]),
+.ssm-drawer label.ssm-mode:has(input[data-act="rowAdv"]) { color: #34c759; font-weight: 700; }
+.ssdns-playercard label.ssm-mode:has(input[data-act="playerDis"]),
+.ssdns-playercard label.ssm-mode:has(input[data-act="rowDis"]),
+.ssm-drawer label.ssm-mode:has(input[data-act="playerDis"]),
+.ssm-drawer label.ssm-mode:has(input[data-act="rowDis"]) { color: #ff3b30; font-weight: 700; }
+.ssdns-playercard select,
+.ssdns-playercard button:not(.ammo-round):not(.chamber-dot),
+.ssm-drawer select { color: #f0e4cf; }
+.ssdns-playercard button:not(.ammo-round):not(.chamber-dot) {
+  background: #3a3228;
+  border: 1px solid #5a4e40;
+}
+.ssdns-playercard select { background: #2a241c; }
 .ssm-dis-confirm {
   border: 1px solid #c9a227;
   background: #f4efe4;

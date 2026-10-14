@@ -1027,9 +1027,10 @@
       var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
       var mine = (uid && cur.playerId && cur.playerId === uid) || (c && c.name && cur.kind === "player" && cur.name === c.name && !cur.playerId);
       if (roundEl) roundEl.textContent = "Round " + round;
-      if (whoEl) whoEl.textContent = (cur.name || "Someone") + " · " + (cur.kind === "enemy" ? (stripStatus(cur) || "") : (cur.kind === "player" ? "player" : ""));
+      if (whoEl) whoEl.textContent = cur.mapHidden ? "Hidden" : ((cur.name || "Someone") + " · " + (cur.kind === "enemy" ? (stripStatus(cur) || "") : (cur.kind === "player" ? "player" : "")));
       if (names) {
         names.innerHTML = order.map(function (row, i) {
+          if (row.mapHidden) return "";
           var raw = String(row.name || "Someone");
           var letters = raw.replace(/[^A-Za-z]/g, "");
           var initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
@@ -1105,6 +1106,7 @@
       rows.sort(function (a, b) { return rank(a) - rank(b); });
       var html = "<option value=''>No target</option>";
       rows.forEach(function (row) {
+        if (row.mapHidden) return;
         var revealed = row.revealed || {};
         var ac = revealed.ac == null || revealed.ac === "" ? "" : String(revealed.ac);
         var name = String(row.name || row.id);

@@ -149,6 +149,7 @@ function captureSecrets() {
       ? window.SSDNSApplied.secretEnemy(Object.assign({}, row, { dcs: window.SSDNSApplied.dcLines ? window.SSDNSApplied.dcLines(row.card) : null }))
       : { name: row.name, ac: row.ac, hp: row.hp, maxHp: row.maxHp, reveal: revealOf(row) };
     if (row.mapTokenId) secret.mapTokenId = String(row.mapTokenId);
+    secret.mapHidden = !!row.mapHidden;
     fight.secrets[row.id] = secret;
   });
 }
@@ -165,6 +166,7 @@ function restoreSecrets() {
     if (secret.reveal) row.reveal = secret.reveal;
     if (secret.side === "friendly" || secret.side === "enemy") row.side = secret.side;
     if (secret.card && typeof secret.card === "object") row.card = Object.assign({}, row.card || {}, secret.card);
+    row.mapHidden = !!secret.mapHidden;
   });
 }
 function playersSeeLine(row, i) {
@@ -359,21 +361,24 @@ function buildPublish() {
     if (window.SSDNSApplied && window.SSDNSApplied.refreshCombatantStatus) window.SSDNSApplied.refreshCombatantStatus(row);
   });
     const order = (fight.order || []).map((row, index) => {
+      const hidden = !!(row && row.mapHidden && row.kind !== "player");
       const shown = window.SSDNSApplied && window.SSDNSApplied.publicEnemy
         ? window.SSDNSApplied.publicEnemy(row, index, conditionsForRow(row))
         : { name: row.name || "", status: enemyStatus(row) };
+      const masked = (window.SSDNSApplied && window.SSDNSApplied.HIDDEN_ENEMY_NAME) || "Unknown gunman";
       return {
         id: row.id || "",
-        name: shown.name || "",
+        name: hidden ? masked : (shown.name || ""),
         kind: row.kind || "",
         init: row.init == null ? "" : row.init,
         playerId: row.playerId || "",
-        status: shown.status || "",
+        status: hidden ? "" : (shown.status || ""),
         slot: index,
         lastAttackerId: row.lastAttackerId || "",
         initFrom: row.initFrom || "",
+        mapHidden: hidden,
         side: row.kind === "player" ? "" : (window.SSDNSApplied && window.SSDNSApplied.combatantSide ? window.SSDNSApplied.combatantSide(row) : (isFriendly(row) ? "friendly" : "enemy")),
-        guns: publicGuns(row)
+        guns: hidden ? [] : publicGuns(row)
       };
     });
     const hp = {};
@@ -387,7 +392,9 @@ function buildPublish() {
       if (row.kind !== "player") {
         hp[row.id] = { hp: row.hp == null ? "" : row.hp, maxHp: row.maxHp == null ? "" : row.maxHp, ac: row.ac == null ? "" : row.ac };
         secret[row.id] = (fight.secrets && fight.secrets[row.id]) || { name: row.name || "", ac: row.ac, hp: row.hp, maxHp: row.maxHp };
+        if (row.mapHidden) secret[row.id].mapHidden = true;
       }
+      if (row.mapHidden && row.kind !== "player") return;
       pub[row.id] = shown;
     });
     fight.publicView = pub;
@@ -6301,7 +6308,74 @@ function syncMapTokens() {
     pushMapInitiative();
   }
 }
+function copyConditions(sourceId, nextId) {
+  if (!sourceId || !nextId || sourceId === nextId) return;
+  fight.condMap = fight.condMap || {};
+  Object.keys(fight.condMap).forEach((id) => {
+    const row = fight.condMap[id];
+    if (!row || row.subjectId !== sourceId) return;
+    let copy;
+    try { copy = JSON.parse(JSON.stringify(row)); } catch (e) { return; }
+    copy.subjectId = nextId;
+    copy.id = DM.uid("cond");
+    fight.condMap[copy.id] = copy;
+  });
+}
+function duplicateCombatant(detail) {
+  detail = detail || {};
+  if (!detail.duplicate) return null;
+  const source = (fight.order || []).find((row) => row && (
+    (detail.sourceCombatantId && (row.id === detail.sourceCombatantId || row.mapTokenId === detail.sourceCombatantId)) ||
+    (detail.sourceId && (row.mapTokenId === detail.sourceId || row.id === detail.sourceId))
+  ));
+  if (!source || source.kind === "player") return null;
+  let copy;
+  try { copy = JSON.parse(JSON.stringify(source)); } catch (e) { return null; }
+  copy.id = DM.uid("en");
+  copy.kind = "enemy";
+  copy.name = source.name || detail.name || "Enemy";
+  copy.init = source.init;
+  delete copy.mapTokenId;
+  delete copy.announceId;
+  delete copy.playerId;
+  delete copy.lastAttackerId;
+  delete copy._gunSig;
+  if (detail.hidden) copy.mapHidden = true;
+  else delete copy.mapHidden;
+  copyConditions(source.id, copy.id);
+  const row = addCombatant(copy);
+  if (!row) return null;
+  if (detail.tokenId) claimTokenId(row, detail.tokenId);
+  const host = window.SSDNSMapHost;
+  if (detail.tokenId && host && typeof host.patchToken === "function") {
+    host.patchToken(detail.tokenId, {
+      name: row.name,
+      label: String(row.name || "").slice(0, 16),
+      combatantId: row.id
+    });
+  }
+  announce("Added " + row.name + " to the turn order", "combat", row);
+  saveRemoteTable();
+  renderFight();
+  return row;
+}
+function setTokenHidden(detail) {
+  detail = detail || {};
+  const tokenId = detail.tokenId || "";
+  const combatantId = detail.combatantId || "";
+  const row = (fight.order || []).find((r) => r && (
+    (combatantId && (r.id === combatantId || r.mapTokenId === combatantId)) ||
+    (tokenId && r.mapTokenId === tokenId)
+  ));
+  if (!row || row.kind === "player") return false;
+  row.mapHidden = !!detail.hidden;
+  saveRemoteTable();
+  renderFight();
+  return true;
+}
 window.SSDNSMapFight = {
+  duplicate(detail) { return duplicateCombatant(detail); },
+  hidden(detail) { return setTokenHidden(detail); },
   async attack(detail) {
     detail = detail || {};
     const i = mapFightIndex(detail);

@@ -436,6 +436,21 @@
       }
       return;
     }
+    if (name === "combatant:add") {
+      if (!detail.duplicate) return;
+      var dup = root.SSDNSMapFight;
+      if (dup && typeof dup.duplicate === "function") {
+        try { Promise.resolve(dup.duplicate(detail)); } catch (e2) {}
+      }
+      return;
+    }
+    if (name === "token:hidden") {
+      var hideApi = root.SSDNSMapFight;
+      if (hideApi && typeof hideApi.hidden === "function") {
+        try { Promise.resolve(hideApi.hidden(detail)); } catch (e3) {}
+      }
+      return;
+    }
     var fightCall = {
       "drawer:hp": "hp",
       "drawer:condition": "condition",
