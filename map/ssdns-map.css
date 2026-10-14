@@ -357,7 +357,7 @@ body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right
 }
 .ssdns-playercard .ssm-settings[open] summary { margin-bottom: 6px; }
 .ssdns-playercard .ssm-atk { text-align: left; }
-.ssdns-playercard .cylinder-row { flex-wrap: nowrap; min-width: 0; width: 100%; }
+.ssdns-playercard .cylinder-row { flex-wrap: wrap; min-width: 0; width: 100%; align-items: center; }
 .ssdns-playercard .cylinder-row .cyl-name {
   flex: 1 1 auto;
   min-width: 0;
@@ -439,7 +439,7 @@ body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right
   cursor: pointer;
 }
 .cylinder-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
-.ssm-drawer .cylinder-row { flex-wrap: nowrap; min-width: 0; width: 100%; }
+.ssm-drawer .cylinder-row { flex-wrap: wrap; min-width: 0; width: 100%; align-items: center; }
 .ssm-drawer .cylinder-row .cyl-name {
   flex: 1 1 auto;
   min-width: 0;

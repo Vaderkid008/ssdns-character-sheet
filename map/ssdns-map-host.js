@@ -243,6 +243,16 @@
     sel.value = String(id);
     try { sel.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {}
   }
+  function spareForGun(g, w) {
+    var piles = [];
+    try {
+      var doc = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc();
+      piles = (doc && doc.character && doc.character.ammo) || [];
+    } catch (e) { piles = []; }
+    var gun = { name: (w && w.name) || (g && g.weapon) || "", caliber: (w && w.ammo) || (g && g.caliber) || "", ammo: (w && w.ammo) || "" };
+    if (root.SSDNSApplied && root.SSDNSApplied.spareCount) return root.SSDNSApplied.spareCount(gun, piles);
+    return 0;
+  }
   function ownCard() {
     if (isDmPage()) return null;
     var app = root.SSDNSApp;
@@ -269,7 +279,8 @@
         group: (w && w.group) || "",
         tier: (st && st.tier) || "",
         scatter: !!(w && w.scatter),
-        ammo: cyl ? { loaded: cyl.loaded, cap: cyl.cap, chambers: cyl.chambers } : null,
+        ammo: cyl ? { loaded: cyl.loaded, cap: cyl.cap, chambers: cyl.chambers, spare: spareForGun(g, w) } : null,
+        spare: spareForGun(g, w),
         reloadId: cyl ? ("reload:" + i) : "",
         trId: w && w.tr ? ("tr:" + i) : ""
       });

@@ -598,7 +598,7 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
 .hp-notice { margin-top: 6px; padding: 8px 10px; background: #2a2218; color: var(--parch, #efe2c2); border-radius: 4px; }
 .page-title { font-family: var(--head); font-weight: 400; margin: 0 0 8px; }
 .store-row, .log-item { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.log-item { flex-direction: column; align-items: flex-start; }
+.log-item { flex-direction: column; align-items: flex-start; white-space: pre-line; }
 .log-meta { font-size: 12px; opacity: .7; }
 .log-filters, .log-chat { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .log-chat input { flex: 1 1 140px; min-height: 44px; }

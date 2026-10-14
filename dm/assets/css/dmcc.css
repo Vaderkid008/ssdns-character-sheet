@@ -306,7 +306,7 @@ main { padding: 0 12px 80px; }
 .feed-item.nat1 { border-color: var(--danger); box-shadow: inset 3px 0 0 var(--danger); }
 .feed-item.private { border-style: dashed; opacity: .9; }
 .feed-meta { font-family: var(--label); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px; }
-.feed-what { font-size: 15px; }
+.feed-what { font-size: 15px; white-space: pre-line; }
 .feed-delta { font-family: var(--label); font-size: 13px; color: var(--eld); }
 .badge {
   display: inline-block; font-family: var(--label); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;

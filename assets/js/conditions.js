@@ -137,9 +137,10 @@
     var names = namesFrom(list, ATTACK_ADV);
     return names.length ? ("advantage: " + names.join(", ")) : "";
   }
-  /** Blank chosen mode plus conditions. Advantage and disadvantage cancel. */
-  function attackMode(list, chosen) {
-    var dis = !!disadvantageNote(list);
+  /** Blank chosen mode plus conditions. Advantage and disadvantage cancel.
+   * extraDis is a range (or other) disadvantage source. It cancels with any advantage. */
+  function attackMode(list, chosen, extraDis) {
+    var dis = !!disadvantageNote(list) || !!extraDis;
     var adv = !!advantageNote(list);
     var pick = chosen === "adv" || chosen === "dis" ? chosen : "";
     if (pick === "adv" && dis) return "";

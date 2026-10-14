@@ -848,6 +848,174 @@
     if (phase === "offline") return false;
     return !!rawOnline;
   }
+  function hpNumber(v) {
+    if (v == null || v === "" || !isFinite(Number(v))) return null;
+    return Number(v);
+  }
+  function sameNumber(a, b) {
+    return hpNumber(a) === hpNumber(b);
+  }
+  /** Remember a DM write so a stale player snapshot cannot echo over it. */
+  function markHpExpect(row, value, now, ms) {
+    if (!row) return;
+    var n = hpNumber(value);
+    row.hp = n == null ? value : n;
+    row.hpExpect = { value: n, until: (now || Date.now()) + (ms == null ? 8000 : ms) };
+  }
+  /**
+   * Sheet HP is the source of truth. Ignore a snapshot that does not match
+   * an in-flight DM edit. Return true only when the row value changes.
+   */
+  function acceptPlayerHp(row, snapHp, now) {
+    if (!row) return false;
+    var incoming = hpNumber(snapHp);
+    var t = now || Date.now();
+    var expect = row.hpExpect;
+    if (expect && t < Number(expect.until)) {
+      if (incoming != null && incoming === expect.value) {
+        var changed = hpNumber(row.hp) !== incoming;
+        row.hp = incoming;
+        return changed;
+      }
+      return false;
+    }
+    if (expect) row.hpExpect = null;
+    if (incoming == null) return false;
+    if (hpNumber(row.hp) === incoming) return false;
+    row.hp = incoming;
+    return true;
+  }
+  /** Local Down flag from HP. Returns the new status only when it changed. */
+  function syncDownStatus(row) {
+    if (!row) return "";
+    var hp = hpNumber(row.hp);
+    var prev = String(row.status || "");
+    var next = prev;
+    if (row.fled || prev === "Fled") return "";
+    if (hp != null && hp <= 0) next = "Down";
+    else if (hp != null && hp > 0 && /^(down|dead|unconscious|dying)$/i.test(prev)) next = "";
+    if (next === prev) return "";
+    row.status = next;
+    return next;
+  }
+  function gunsSignature(guns) {
+    return (guns || []).map(function (g) {
+      if (!g) return "";
+      var ch = Array.isArray(g.chambers) ? g.chambers.map(function (x) { return x ? String(x) : ""; }).join(",") : "";
+      return [g.weapon || g.name || "", g.loaded == null ? "" : g.loaded, ch, g.spare == null ? "" : g.spare].join(":");
+    }).join("|");
+  }
+  function roundLabel(gun) {
+    var name = String((gun && (gun.name || gun.weapon)) || "");
+    var cal = String((gun && (gun.caliber || gun.ammo)) || "");
+    if (/navy/i.test(name) || /navy/i.test(cal)) return "Navy";
+    if (/dullard/i.test(name) || /dullard/i.test(cal)) return "Dullards";
+    if (cal) return cal;
+    return "rounds";
+  }
+  function spareCount(gun, piles) {
+    gun = gun || {};
+    var cal = String(gun.caliber || gun.ammo || "").toLowerCase();
+    var name = String(gun.name || gun.weapon || "").toLowerCase();
+    var n = 0;
+    var matched = false;
+    (piles || []).forEach(function (p) {
+      if (!p) return;
+      var pc = String(p.caliber || "").toLowerCase();
+      var pt = String(p.type || "").toLowerCase();
+      var hit = false;
+      if (cal && pc && (pc === cal || pc.indexOf(cal) >= 0 || cal.indexOf(pc) >= 0)) hit = true;
+      if (!hit && cal && pt && pt.indexOf(cal) >= 0) hit = true;
+      if (!hit && /navy/i.test(name) && /navy/.test(pc + " " + pt)) hit = true;
+      if (!hit && /dullard/i.test(name) && /dullard/.test(pc + " " + pt)) hit = true;
+      if (!hit && !cal && !pc) hit = true;
+      if (!hit) return;
+      matched = true;
+      n += Number(p.count) || 0;
+    });
+    if (!matched && gun.spare != null && gun.spare !== "" && isFinite(Number(gun.spare))) return Number(gun.spare);
+    return n;
+  }
+  function ammoFailText(who, gun) {
+    return (who || "Player") + ": no " + roundLabel(gun) + " rounds left to reload";
+  }
+  function emptyShotText(who, gun) {
+    var name = (gun && (gun.name || gun.weapon)) || "gun";
+    return (who || "Player") + ": " + name + " empty, reload first";
+  }
+  function signNum(n) {
+    var v = Number(n);
+    if (!isFinite(v)) v = 0;
+    return (v >= 0 ? "+" : "") + v;
+  }
+  /**
+   * Chat attack card. DM text includes AC. publicText hides AC.
+   * Both dice show for advantage and disadvantage; the used face is marked « ».
+   */
+  function attackBreakdown(info) {
+    info = info || {};
+    var faces = [];
+    if (Array.isArray(info.faces) && info.faces.length) {
+      info.faces.forEach(function (n) { if (n != null && n !== "" && isFinite(Number(n))) faces.push(Number(n)); });
+    } else {
+      if (info.n1 != null && info.n1 !== "" && isFinite(Number(info.n1))) faces.push(Number(info.n1));
+      if (info.n2 != null && info.n2 !== "" && isFinite(Number(info.n2))) faces.push(Number(info.n2));
+      if (!faces.length && info.nat != null && info.nat !== "" && isFinite(Number(info.nat))) faces.push(Number(info.nat));
+    }
+    var used = info.nat != null && info.nat !== "" && isFinite(Number(info.nat)) ? Number(info.nat) : (faces.length ? faces[0] : 0);
+    var marked = false;
+    var diceBits = faces.map(function (n) {
+      if (!marked && n === used) { marked = true; return "«" + n + "»"; }
+      return String(n);
+    });
+    var diceLine = "d20 " + (diceBits.join(" / ") || "«" + used + "»");
+    var parts = Array.isArray(info.parts) ? info.parts.filter(function (p) { return p && p.label; }) : [];
+    if (!parts.length && info.atk != null && info.atk !== "" && isFinite(Number(info.atk))) {
+      parts = [{ label: "bonus", value: Number(info.atk) }];
+    }
+    var bonusSum = 0;
+    parts.forEach(function (p) { bonusSum += Number(p.value) || 0; });
+    var total = info.total != null && info.total !== "" && isFinite(Number(info.total)) ? Number(info.total) : used + bonusSum;
+    var bonusLine = parts.map(function (p) { return p.label + " " + signNum(p.value); }).join(" · ");
+    var ac = info.ac;
+    var haveAc = ac != null && ac !== "" && isFinite(Number(ac));
+    var misfire = !!info.misfire;
+    var miss = misfire || used === 1 || !!info.miss || (haveAc && total < Number(ac));
+    var crit = !miss && (used === 20 || !!info.crit);
+    var verdict = misfire ? "misfire" : (miss ? "MISS" : (crit ? "CRIT" : "HIT"));
+    var vs = haveAc ? (" vs AC " + Number(ac)) : "";
+    var who = info.who || "Someone";
+    var head = who + (info.target ? " → " + info.target : "");
+    var math = diceLine + (bonusLine ? " · " + bonusLine : "") + " = " + total;
+    var dmg = info.damage;
+    var dmgLine = "";
+    if (!miss && dmg && typeof dmg === "object") {
+      var dFaces = Array.isArray(dmg.faces) ? dmg.faces.filter(function (n) { return n != null && n !== ""; }) : [];
+      var dParts = Array.isArray(dmg.parts) ? dmg.parts.filter(function (p) { return p && Number(p.value); }) : [];
+      var faceTxt = dFaces.length ? dFaces.join("+") : String(dmg.dice || "");
+      var extra = dParts.map(function (p) { return signNum(p.value) + " (" + (p.label || "mod") + ")"; }).join(" ");
+      var dTotal = dmg.total != null && dmg.total !== "" ? dmg.total : "";
+      var type = dmg.type ? (" " + dmg.type) : "";
+      dmgLine = "Damage: " + [faceTxt, extra].filter(Boolean).join(" ") + (dTotal !== "" ? " = " + dTotal : "") + type;
+    } else if (!miss && info.dice) {
+      dmgLine = "Damage: " + info.dice + (info.amount != null && info.amount !== "" ? " = " + info.amount : "");
+    }
+    var dmBody = math + vs + " → " + verdict + (dmgLine ? "\n" + dmgLine : "");
+    var pubBody = math + " → " + verdict + (dmgLine ? "\n" + dmgLine : "");
+    var reveal = info.revealAc !== false && haveAc;
+    return {
+      text: head + "\n" + (reveal ? dmBody : pubBody),
+      dmText: head + "\n" + dmBody,
+      publicText: head + "\n" + pubBody,
+      verdict: verdict,
+      miss: miss || verdict === "misfire",
+      crit: !!crit,
+      total: total,
+      diceLine: diceLine,
+      bonusLine: bonusLine,
+      damageLine: dmgLine
+    };
+  }
   function offset() { return offsetMs; }
   /** Age of a stamp against estimated server time. */
   function stampAge(iso) {
@@ -934,6 +1102,17 @@
     adjustCurrentHp: adjustCurrentHp,
     attackMod: attackMod,
     attackRollCore: attackRollCore,
+    hpNumber: hpNumber,
+    sameNumber: sameNumber,
+    markHpExpect: markHpExpect,
+    acceptPlayerHp: acceptPlayerHp,
+    syncDownStatus: syncDownStatus,
+    gunsSignature: gunsSignature,
+    spareCount: spareCount,
+    roundLabel: roundLabel,
+    ammoFailText: ammoFailText,
+    emptyShotText: emptyShotText,
+    attackBreakdown: attackBreakdown,
     speakerName: speakerName,
     stripGhostCombatants: stripGhostCombatants,
     presenceShownOnline: presenceShownOnline

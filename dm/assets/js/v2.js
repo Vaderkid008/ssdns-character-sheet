@@ -1508,6 +1508,7 @@ async function pushHp(kind) {
   }
   if (row) {
     row.hp = after;
+    if (window.SSDNSApplied && window.SSDNSApplied.markHpExpect) window.SSDNSApplied.markHpExpect(row, after);
     renderFight();
   }
   if (DM.state.demo && p && p.snapshot) {
@@ -3154,15 +3155,18 @@ function noteUnconscious(row) {
   const Cond = window.SSDNSConditions;
   const subjectId = row.kind === "player" ? (row.playerId || row.id) : row.id;
   if (!subjectId) return;
+  const idEarly = Cond && Cond.idFor(subjectId, "Unconscious");
+  if (String(row.status || "") === "Down" && knownNumber(row.hp) === 0 && idEarly && fight.condMap && fight.condMap[idEarly]) return;
+  const alreadyDown = String(row.status || "") === "Down" && knownNumber(row.hp) === 0;
   row.hp = 0;
-  row.status = "Down";
-  if (!row.deathSaves) row.deathSaves = { success: [false, false, false], fail: [false, false, false] };
-  if (row.kind === "player" && DM.state.players[subjectId] && DM.state.players[subjectId].snapshot) {
-    const snap = DM.state.players[subjectId].snapshot;
-    snap.hpCurrent = 0;
-    if (!snap.deathSaves) snap.deathSaves = { success: [false, false, false], fail: [false, false, false] };
+  if (window.SSDNSApplied && window.SSDNSApplied.markHpExpect && row.kind === "player") {
+    window.SSDNSApplied.markHpExpect(row, 0);
   }
-  mirrorMapStatus(row, "down");
+  if (!alreadyDown) {
+    row.status = "Down";
+    mirrorMapStatus(row, "down");
+  } else row.status = "Down";
+  if (!row.deathSaves) row.deathSaves = { success: [false, false, false], fail: [false, false, false] };
   if (!Cond) return;
   const id = Cond.idFor(subjectId, "Unconscious");
   if (fight.condMap && fight.condMap[id]) {
@@ -3181,7 +3185,6 @@ function noteUnconscious(row) {
     const snap = DM.state.players[subjectId].snapshot;
     snap.activeConditions = Cond.mergeById(snap.activeConditions || [], [entry], []);
     snap.conditions = Cond.listText(snap.activeConditions);
-    snap.hpCurrent = 0;
   }
   const line = (row.name || "Someone") + " is Unconscious";
   DM.pushLedger({ who: "DM", playerId: row.kind === "player" ? subjectId : "all", type: "condition", what: line, oldVal: null, newVal: "Unconscious", flag: false });
@@ -3549,6 +3552,25 @@ function targetMod(playerId, ability) {
   if (scores[key] != null) return cardMod(scores[key]);
   return 0;
 }
+function logTableAlert(text) {
+  DM.toast(text);
+  const row = {
+    id: "alert_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+    ts: new Date().toISOString(),
+    from: DM.state.uid || "dm",
+    fromName: "DM",
+    text: text,
+    to: "all"
+  };
+  if (DM.state.demo || !DM.state.db) {
+    DM.state.chat = DM.state.chat || [];
+    DM.state.chat.push(row);
+    if (DM.renderLiveDock) DM.renderLiveDock();
+  } else if (DM.state._fb && DM.roomRef) {
+    DM.state._fb.set(DM.roomRef("chat/" + row.id), row).catch(() => {});
+  }
+  DM.pushLedger({ who: "DM", playerId: "all", type: "alert", what: text, oldVal: null, newVal: text, flag: false });
+}
 function withDmActing(row, detail) {
   if (!row || row.kind !== "player" || !row.dmActsAs) return detail;
   const line = "DM acting for " + (row.name || "a player");
@@ -3586,7 +3608,13 @@ async function cardStrike(i, n, opts) {
   if (atk.fouled) { DM.toast(atk.name + " is fouled"); return; }
   if (atk.ruined) { DM.toast(atk.name + " is ruined"); return; }
   if (atk.pendingD4) { DM.toast("Roll the d4 first."); return; }
-  if (atk.capacity != null && Number(atk.loaded) <= 0) { DM.toast(atk.name + " is empty"); return; }
+  if (atk.capacity != null && Number(atk.loaded) <= 0) {
+    const emptyText = window.SSDNSApplied && window.SSDNSApplied.emptyShotText
+      ? window.SSDNSApplied.emptyShotText(row.name, atk)
+      : (row.name || "Someone") + ": " + (atk.name || "gun") + " empty, reload first";
+    logTableAlert(emptyText);
+    return;
+  }
   let picked;
   if (opts && opts.targetId) {
     const want = String(opts.targetId);
@@ -3609,7 +3637,19 @@ async function cardStrike(i, n, opts) {
   if (!target) { DM.toast("No targets"); return; }
   const ac = numericAc(target.ac);
   if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
-  const nat = d20();
+  const rangeShot = window.SSDNSRangeRings && window.SSDNSRangeRings.take ? window.SSDNSRangeRings.take() : null;
+  if (rangeShot && rangeShot.apply && rangeShot.blocked) {
+    logTableAlert((row.name || "Someone") + ": " + (rangeShot.button || "Out of range"));
+    return;
+  }
+  if (rangeShot && rangeShot.log) logTableAlert(rangeShot.log);
+  let n1 = d20();
+  let n2 = null;
+  let nat = n1;
+  if (rangeShot && rangeShot.apply && rangeShot.disadvantage) {
+    n2 = d20();
+    nat = Math.min(n1, n2);
+  }
   const ceiling = window.SSDNSApplied && window.SSDNSApplied.misfireNumber
     ? window.SSDNSApplied.misfireNumber(atk.misfire)
     : null;
@@ -3643,7 +3683,35 @@ async function cardStrike(i, n, opts) {
   let dmg = null;
   if (hit) dmg = DM.parseDice(dice);
   const bonusTxt = signed(bonus);
-  let detail = row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
+  const strikeCard = window.SSDNSApplied && window.SSDNSApplied.attackBreakdown
+    ? window.SSDNSApplied.attackBreakdown({
+      who: row.name || "Someone",
+      target: target.name || "someone",
+      nat: nat,
+      n1: n1,
+      n2: n2,
+      parts: [{ label: "bonus", value: bonus }],
+      total: total,
+      ac: ac,
+      revealAc: true,
+      misfire: false,
+      miss: miss,
+      crit: nat === 20 && hit,
+      damage: dmg ? { faces: dmg.rolls, parts: [], total: dmg.total, dice: dmg.detail, type: atk.damageType || "" } : null
+    })
+    : null;
+  let detail = strikeCard ? strikeCard.dmText : (row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (miss ? " → MISS" : (nat === 20 ? " → CRIT" : " → HIT")) + (dmg ? " · " + dmg.detail + " = " + dmg.total : ""));
+  if (rangeShot && rangeShot.note && rangeShot.disadvantage) detail += "\n" + rangeShot.note;
+  if (window.SSDNSAudio && window.SSDNSAudio.playOutcome) {
+    window.SSDNSAudio.playOutcome({
+      id: atk.weapon || atk.id || "",
+      name: atk.name || "",
+      gun: !!(atk.capacity != null || atk.group),
+      group: atk.group || "",
+      properties: atk.properties || "",
+      kind: atk.kind || ""
+    }, miss ? "miss" : (nat === 20 && hit ? "crit" : "hit"));
+  }
   const id = DM.uid("enatk");
   atk.lastRoll = { id: id, damage: dmg ? dmg.total : null, targetId: target.id, targetName: target.name, hit: hit };
   playTableSfx(strikeCue(atk));
@@ -4193,7 +4261,7 @@ function applyPlayerHit(meta) {
     }
     after = knownNumber(row.hp);
     if (after == null) after = before;
-    if (playerRow && snap) snap.hpCurrent = after;
+    if (playerRow && window.SSDNSApplied && window.SSDNSApplied.markHpExpect) window.SSDNSApplied.markHpExpect(row, after);
   } else if (snap) {
     const max = Number(snap.hpMax) || 0;
     after = heal ? (max ? Math.min(max, before + amt) : before + amt) : Math.max(0, before - amt);
@@ -4292,7 +4360,28 @@ function resolveIncomingAttack(req, reqId) {
     verdict = window.SSDNSApplied && window.SSDNSApplied.attackVerdict
       ? window.SSDNSApplied.attackVerdict({ nat: req.nat, total: req.hitTotal, ac: ac, sfx: req.sfx })
       : { miss: Number(req.nat) === 1 || (ac != null && Number(req.hitTotal) < ac), crit: Number(req.nat) === 20, verdict: "HIT", sfx: req.sfx || "attack" };
-    line = window.SSDNSApplied && window.SSDNSApplied.attackPublicLine
+    const card = window.SSDNSApplied && window.SSDNSApplied.attackBreakdown
+      ? window.SSDNSApplied.attackBreakdown({
+        who: req.characterName || "Someone",
+        target: shown.name || req.targetName || "enemy",
+        nat: req.nat,
+        n1: req.n1,
+        n2: req.n2,
+        parts: req.parts,
+        total: req.hitTotal,
+        ac: ac,
+        revealAc: true,
+        misfire: !!req.misfire,
+        damage: verdict.miss ? null : {
+          faces: req.dmgFaces,
+          parts: req.dmgParts,
+          total: req.amount,
+          type: req.dmgType || "",
+          dice: req.dice || ""
+        }
+      })
+      : null;
+    line = card ? card.publicText : (window.SSDNSApplied && window.SSDNSApplied.attackPublicLine
       ? window.SSDNSApplied.attackPublicLine({
         who: req.characterName || "Someone",
         target: shown.name || req.targetName || "enemy",
@@ -4301,11 +4390,22 @@ function resolveIncomingAttack(req, reqId) {
         dice: req.dice || "",
         amount: verdict.miss ? "" : req.amount
       }, verdict)
-      : ((req.characterName || "Someone") + " → " + (shown.name || "enemy") + " → " + verdict.verdict);
+      : ((req.characterName || "Someone") + " → " + (shown.name || "enemy") + " → " + verdict.verdict));
+    if (card) verdict.dmText = card.dmText;
     applyAmount = verdict.miss ? 0 : (Number(req.amount) || 0);
   }
   const feedId = rollId || reqId || DM.uid("hit");
   verdictFeed(feedId, line, req.characterName || shown.name || "");
+  if (window.SSDNSAudio && window.SSDNSAudio.playOutcome) {
+    const outcome = verdict.miss ? "miss" : (verdict.crit ? "crit" : "hit");
+    window.SSDNSAudio.playOutcome({
+      id: req.weaponId || "",
+      name: req.weapon || "",
+      gun: !!req.gun,
+      spell: !!req.spell,
+      kind: req.spell ? "spell" : ""
+    }, outcome);
+  }
   if (req.from) {
     DM.pushCommand({
       type: "attack_result",
@@ -4323,7 +4423,7 @@ function resolveIncomingAttack(req, reqId) {
       from: DM.state.uid
     });
   }
-  DM.toast(line + (ac == null ? "" : " · AC " + ac));
+  DM.toast((verdict.dmText || line) + (verdict.dmText ? "" : (ac == null ? "" : " · AC " + ac)));
   if (!verdict.miss && applyAmount > 0) {
     applyPlayerHit({
       rollId: rollId,
@@ -4987,29 +5087,52 @@ function noteInitiativeRolls(rows) {
   renderFight();
 }
 function syncPlayerVitals() {
-  let changed = false;
+  let tableChanged = false;
+  let gunsChanged = false;
+  const Applied = window.SSDNSApplied;
   (fight.order || []).forEach((row) => {
     if (!row || row.kind !== "player") return;
     const pid = row.playerId || row.id;
     const snap = pid && DM.state.players[pid] && DM.state.players[pid].snapshot;
     if (!snap) return;
     const hpEl = document.querySelector('[data-hp-val][data-row-id="' + (window.CSS && CSS.escape ? CSS.escape(row.id || "") : (row.id || "")) + '"]');
-    if (row.hpLockUntil && Date.now() < row.hpLockUntil) return;
-    if (snap.hpCurrent != null && snap.hpCurrent !== "" && document.activeElement !== hpEl && Number(row.hp) !== Number(snap.hpCurrent)) {
+    if (document.activeElement === hpEl) return;
+    if (Applied && Applied.acceptPlayerHp) {
+      if (Applied.acceptPlayerHp(row, snap.hpCurrent, Date.now())) {
+        const status = Applied.syncDownStatus ? Applied.syncDownStatus(row) : "";
+        if (status === "Down") mirrorMapStatus(row, "down");
+        else if (status === "") mirrorMapStatus(row, "");
+        tableChanged = true;
+      }
+    } else if (!(row.hpLockUntil && Date.now() < row.hpLockUntil) && snap.hpCurrent != null && snap.hpCurrent !== "" && Number(row.hp) !== Number(snap.hpCurrent)) {
       row.hp = snap.hpCurrent;
-      changed = true;
+      tableChanged = true;
     }
     if (snap.ac != null && snap.ac !== "" && Number(row.ac) !== Number(snap.ac)) {
       row.ac = snap.ac;
-      changed = true;
+      tableChanged = true;
     }
     const dex = dexFromSnapshot(snap);
-    if (row.dex !== dex) { row.dex = dex; changed = true; }
+    if (row.dex !== dex) { row.dex = dex; tableChanged = true; }
     if (snap.hpMax != null && row.maxHp !== snap.hpMax) row.maxHp = snap.hpMax;
+    if (Applied && Applied.gunsSignature) {
+      const sig = Applied.gunsSignature(snap.guns);
+      if (row._gunSig !== sig) {
+        row._gunSig = sig;
+        ensurePlayerAttacks(row);
+        gunsChanged = true;
+      }
+    }
   });
   ensurePlayers();
   paintTurnAck();
-  if (!changed) return;
+  if (gunsChanged) {
+    renderFight();
+    if (window.SSDNSMapHost && window.SSDNSMapHost.refreshCard) {
+      try { window.SSDNSMapHost.refreshCard(); } catch (e) {}
+    }
+  }
+  if (!tableChanged) return;
   saveRemoteTable();
   renderFight();
 }
@@ -5402,6 +5525,7 @@ async function bootV2() {
     if (initI != null) row.init = n;
     if (maxI != null) row.maxHp = n;
     if (hpI != null) {
+      if (!ev.isTrusted) return;
       const before = row.hp;
       const oldMax = row.maxHp;
       row.hp = n;
@@ -5423,6 +5547,7 @@ async function bootV2() {
         };
         if (row.kind === "player" && row.playerId) {
           row.hpLockUntil = Date.now() + 8000;
+          if (window.SSDNSApplied && window.SSDNSApplied.markHpExpect) window.SSDNSApplied.markHpExpect(row, n);
           const payload = { absolute: n, maxHp: row.maxHp, text: line, grantId: editId };
           DM.pushCommand({ type: "hp", to: row.playerId, payload: payload, from: DM.state.uid });
           undo.command = { type: "hp", to: row.playerId, payload: { absolute: before, maxHp: oldMax, text: "Undo " + line, grantId: DM.uid("hp") }, from: DM.state.uid };
@@ -5697,14 +5822,14 @@ function ensurePlayerAttacks(row) {
       damage: g.damage || old.damage || "",
       capacity: typeof cap === "number" && isFinite(cap) ? cap : null,
       loaded: typeof loaded === "number" && isFinite(loaded) ? loaded : 0,
-      spare: g.spare != null ? g.spare : old.spare,
       misfire: g.misfire != null ? g.misfire : old.misfire,
       jammed: !!g.jammed,
       fouled: !!g.fouled,
       ruined: !!g.ruined,
       pendingD4: !!g.pendingD4,
       dirty: !!g.dirty,
-      chambers: Array.isArray(g.chambers) ? g.chambers.map((st) => (st ? 1 : 0)) : null,
+      chambers: Array.isArray(g.chambers) ? g.chambers.slice() : null,
+      spare: window.SSDNSApplied && window.SSDNSApplied.spareCount ? window.SSDNSApplied.spareCount(Object.assign({}, g, { caliber: g.caliber || g.ammo }), (snap && snap.ammo) || []) : (g.spare || 0),
       gunIndex: n,
       weapon: g.weapon || "",
       range: g.range || "",
@@ -5761,7 +5886,7 @@ async function mapAssignHp(row, next) {
   row.hp = hp;
   const pid = row.kind === "player" ? (row.playerId || row.id) : "";
   const snap = pid ? playerSnapshot(pid) : null;
-  if (snap) snap.hpCurrent = hp;
+  if (pid && window.SSDNSApplied && window.SSDNSApplied.markHpExpect) window.SSDNSApplied.markHpExpect(row, hp);
   if (pid) {
     await DM.pushCommand({ type: "hp", to: pid, payload: { absolute: hp, text: "DM set HP to " + hp }, from: DM.state.uid });
   }
@@ -5793,7 +5918,7 @@ async function mapDeltaHp(row, delta) {
     const max = knownNumber(row.maxHp) != null ? knownNumber(row.maxHp) : knownNumber(snap && snap.hpMax);
     const after = sign < 0 ? Math.max(0, start - amt) : (max != null ? Math.min(max, start + amt) : start + amt);
     row.hp = after;
-    if (snap) snap.hpCurrent = after;
+    if (window.SSDNSApplied && window.SSDNSApplied.markHpExpect) window.SSDNSApplied.markHpExpect(row, after);
     if (after <= 0) noteUnconscious(row);
     else await clearDown(row);
     const kind = sign < 0 ? "damage" : "heal";
@@ -5846,6 +5971,22 @@ async function mapGunLoad(detail, unload) {
   if (!atk) { DM.toast("No weapon"); return false; }
   if (row.kind === "player") {
     const pid = row.playerId || row.id;
+    const snap = playerSnapshot(pid);
+    if (!unload) {
+      const cap = Number(atk.capacity) || 0;
+      const loaded = Number(atk.loaded) || 0;
+      const spare = window.SSDNSApplied && window.SSDNSApplied.spareCount
+        ? window.SSDNSApplied.spareCount(atk, (snap && snap.ammo) || [])
+        : Number(atk.spare) || 0;
+      if (cap && loaded >= cap) { DM.toast((atk.name || "Gun") + " is already full."); return false; }
+      if (spare <= 0) {
+        const fail = window.SSDNSApplied && window.SSDNSApplied.ammoFailText
+          ? window.SSDNSApplied.ammoFailText(row.name, atk)
+          : (row.name || "Player") + ": no rounds left to reload";
+        logTableAlert(fail);
+        return false;
+      }
+    }
     const payload = { op: unload ? "unload" : "reload", index: atk.gunIndex != null ? atk.gunIndex : n };
     await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
     if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);

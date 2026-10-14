@@ -163,7 +163,8 @@
         misfire: st && st.misfire ? st.misfire : "",
         rugged: !!(st && st.w && /rugged/i.test(st.w.properties || "")),
         note: st && st.note ? st.note : "",
-        chambers: (g.chambers || []).slice()
+        chambers: (g.chambers || []).slice(),
+        caliber: (st && st.w && st.w.ammo) || g.caliber || ""
       };
     }).filter(Boolean);
 
@@ -233,6 +234,9 @@
         slots: slots,
         spent: spent
       },
+      ammo: (c.ammo || []).filter(Boolean).map(function (a) {
+        return { type: a.type || "", caliber: a.caliber || "", count: Number(a.count) || 0 };
+      }),
       updatedAt: new Date().toISOString()
     };
   }
@@ -1302,7 +1306,21 @@
     var app = root.SSDNSApp;
     if (!app) return;
     if (payload.op === "unload" && app.unloadGunIndex) app.unloadGunIndex(payload.index);
-    else if (payload.op === "reload" && app.reloadGun) app.reloadGun(payload.index, payload.max);
+    else if (payload.op === "reload" && app.reloadGun) {
+      var docNow = app.doc && app.doc();
+      var gunsNow = docNow && docNow.character && docNow.character.guns;
+      var beforeGun = gunsNow && gunsNow[payload.index];
+      var beforeKey = beforeGun ? String(beforeGun.loaded) + ":" + (beforeGun.chambers || []).join("|") : "";
+      app.reloadGun(payload.index, payload.max);
+      var afterGun = gunsNow && gunsNow[payload.index];
+      var afterKey = afterGun ? String(afterGun.loaded) + ":" + (afterGun.chambers || []).join("|") : "";
+      if (beforeKey === afterKey && root.SSDNSApplied && root.SSDNSApplied.ammoFailText) {
+        var whoName = (docNow.character && docNow.character.name) || "Player";
+        var failText = root.SSDNSApplied.ammoFailText(whoName, afterGun || beforeGun || {});
+        postChat({ text: failText });
+        if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: failText });
+      }
+    }
     else if (payload.op === "set" && app.applyPatch) {
       app.applyPatch(function (doc) {
         var g = doc.character && doc.character.guns && doc.character.guns[payload.index];

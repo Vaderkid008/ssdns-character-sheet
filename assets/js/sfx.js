@@ -22,6 +22,7 @@
 
   var sfxMap = null;
   var weaponOverrides = {};
+  var outcomeMap = { categories: {}, weapons: {} };
   var musicEl = null;
   var pendingMusic = null;
   var liveSfx = [];
@@ -63,14 +64,17 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.27"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.28"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
         weaponOverrides = (j && j.weapons) || {};
+        outcomeMap = (j && j.outcomes) || { categories: {}, weapons: {} };
+        if (!outcomeMap.categories) outcomeMap.categories = {};
+        if (!outcomeMap.weapons) outcomeMap.weapons = {};
         return sfxMap;
       })
-      .catch(function () { sfxMap = {}; weaponOverrides = {}; return sfxMap; });
+      .catch(function () { sfxMap = {}; weaponOverrides = {}; outcomeMap = { categories: {}, weapons: {} }; return sfxMap; });
   }
 
   function playUrl(url, loop) {
@@ -205,6 +209,54 @@
     if (info.calling === "pact-seeker") return "pactshot";
     if (info.attack || kind === "attack") return "spellshot";
     return "spellcast";
+  }
+  function outcomeCategory(info) {
+    info = info || {};
+    var kind = String(info.kind || "").toLowerCase();
+    if (info.spell || kind === "spell") return "spell";
+    if (info.gun || classifyWeapon(info) === "gun") return "gun";
+    var props = String(info.properties || "").toLowerCase();
+    var name = String(info.name || info.weapon || info.model || "").toLowerCase();
+    var group = String(info.group || "").toLowerCase();
+    if (group === "bow" || /\bbow\b|\barrow\b/.test(name) || kind === "thrown" || /\bthrown\b/.test(props) || /\b(javelin|dart)\b/.test(name)) return "arrow";
+    return "melee";
+  }
+  function outcomeSlot(result) {
+    var slot = String(result || "").toLowerCase();
+    if (slot === "critical" || slot === "crit") return "crit";
+    if (slot === "misfire" || slot === "miss") return "miss";
+    if (slot === "hit") return "hit";
+    return "";
+  }
+  /** Per-weapon override, then category default, then silent. */
+  function outcomeCue(info, result) {
+    info = info || {};
+    var slot = outcomeSlot(result);
+    if (!slot) return "";
+    var tables = outcomeMap || { categories: {}, weapons: {} };
+    var weapons = tables.weapons || {};
+    var id = info.id || info.weaponId || "";
+    var row = id && weapons[id];
+    if (!row) {
+      var slug = String(info.weapon || info.model || info.name || "")
+        .toLowerCase()
+        .replace(/\([^)]*\)/g, " ")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      if (slug && weapons[slug]) row = weapons[slug];
+    }
+    if (row && row[slot]) return String(row[slot]);
+    var cat = outcomeCategory(info);
+    var def = (tables.categories || {})[cat] || {};
+    if (def[slot]) return String(def[slot]);
+    return "";
+  }
+  function playOutcome(info, result) {
+    var cue = outcomeCue(info, result);
+    try { root.dispatchEvent(new CustomEvent("ssdns-sfx-outcome", { detail: { cue: cue, result: outcomeSlot(result), category: outcomeCategory(info) } })); } catch (e) {}
+    if (!cue || prefs.muted || volume() <= 0) return cue;
+    play(cue);
+    return cue;
   }
   function play(eventName) {
     try { root.dispatchEvent(new CustomEvent("ssdns-sfx", { detail: eventName })); } catch (e) {}
@@ -504,6 +556,9 @@
   root.SSDNSAudio = {
     play: play,
     weaponCue: weaponCue,
+    outcomeCue: outcomeCue,
+    outcomeCategory: outcomeCategory,
+    playOutcome: playOutcome,
     reloadCue: reloadCue,
     spellCue: spellCue,
     sharedCue: sharedCue,

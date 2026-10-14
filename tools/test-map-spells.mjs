@@ -290,7 +290,7 @@ const dots = gunDrawer ? gunDrawer.querySelectorAll('[data-act="chamber"]') : []
 check("cyl.dots", dots.length === 6 && gunDrawer.textContent.includes("6/6"), "dots " + dots.length);
 const dotWrap = gunDrawer && gunDrawer.querySelector(".cylinder-row .chamber-dots");
 check("cyl.oneRow", !!(dotWrap && dotWrap.querySelectorAll('[data-act="chamber"]').length === 6));
-check("cyl.nowrap", /\.ssm-drawer \.cylinder-row \{[^}]*flex-wrap:\s*nowrap/.test(read("map/ssdns-map.css")));
+check("cyl.wrap", /\.ssm-drawer \.cylinder-row \{[^}]*flex-wrap:\s*wrap/.test(read("map/ssdns-map.css")));
 check("cyl.dmBadge", w.SSDNSMapHost.rounds({ id: bandit.mapTokenId, combatantId: bandit.id, ownerUid: "" }) === "6/6", w.SSDNSMapHost.rounds({ id: bandit.mapTokenId, combatantId: bandit.id }));
 w.SSDNSTestRoll = () => 15;
 const livePc = () => w.__fightTest.order().find((row) => row && row.playerId === "p1");

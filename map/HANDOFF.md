@@ -1,3 +1,23 @@
+# Range, sync, and the attack card — sheet 0.3.28 / DMCC 0.2.41
+
+`database.rules.json` did not change. `assets/data/rules.js` did not change.
+
+Map attacks that have a target token use the grid distance (5 ft per cell). Normal-to-long adds disadvantage on the same advantage/disadvantage path, so a manual Advantage cancels it. Past the limit the button reads `Out of range` for a weapon and `out of range` for a spell, and the attack does not roll. Rifles within 5 ft of a hostile, and the Big Fifty within 30 ft, take disadvantage. Close-quarters guns are exempt. A scope drops the long-band disadvantage until the shooter moves. Sharpshooter and Long-Range Hex still apply. The DM card has `Range: Auto`, `Ignore range`, and `Force DIS`. An override is logged to chat. Players do not get that control. Attacks with no map or no target roll as they did before. Range rings stay off until Show range / Show my range is turned on. The check still runs when the rings are hidden.
+
+A spell or a hexlead round draws one purple ring, labeled `Spell · N ft`. Long-Range Hex doubles attack-roll spells and adds `x2 Long-Range Hex`. Self draws nothing. Touch draws 5 ft. In spell mode a hostile within 5 ft lights a red warning ring and the card notes `DIS: hostile within 5 ft`. When a target is chosen, that target's band is drawn thicker. Caster-gun .50-90 does not take the Big Fifty close band.
+
+The player's sheet is the source of truth for HP, conditions, chambers, and spare ammo. A DM edit is a command. Unchanged values are not written again, a stale snapshot cannot overwrite an in-flight edit, and Down / Unconscious does not re-fire once it is already set. A player reload shows on the DM card and the Fight tab. A DM reload uses the sheet reload for that row's weapon, not the first gun. Spare rounds sit next to Reload. No spare rounds, or an empty gun, toasts the DM (`Steve: no Navy rounds left to reload`, `empty, reload first`) and logs the line to chat.
+
+The chat attack card shows both d20 faces when advantage or disadvantage applies, marks the face that counted, labels each bonus, and shows the total against AC for the DM. Players still see only HIT or MISS when enemy AC is hidden. Damage lists the dice, the modifiers, and the type. Hit, miss, and crit sounds look up a per-weapon override, then a category default for melee, gun, arrow, or spell, then stay silent. Nothing new was added under `assets/sfx` except the config. Mute still wins.
+
+Cylinder art keeps a square aspect in the narrow card. The tube keeps its height. Names truncate, and the buttons wrap.
+
+```cmd
+node tools/test-pr48.mjs
+node tools/test-range-rings.mjs
+node tools/test-sfx-pack.mjs
+```
+
 # Player card — sheet 0.3.27 / DMCC 0.2.40
 
 `database.rules.json` did not change. `assets/data/rules.js` did not change. Rolls still go through the sheet buttons and the DM Fight tab.

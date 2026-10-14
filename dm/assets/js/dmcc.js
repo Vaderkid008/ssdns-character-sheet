@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.40"; // dmcc-playtest-v0240
+const VERSION = "0.2.41"; // dmcc-playtest-v0241
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1393,14 +1393,14 @@ function rollDetail(r) {
   const ac = rollAc(r);
   const attack = !!(r && (r.attack || /→\s*(HIT|MISS)/.test(detail)));
   if (!attack || ac == null || detail.indexOf("vs AC") >= 0) return detail;
-  if (/ → (HIT|MISS)/.test(detail)) return detail.replace(/ → (HIT|MISS)/, " vs AC " + ac + " → $1");
+  if (/ → (HIT|MISS|CRIT)/.test(detail)) return detail.replace(/ → (HIT|MISS|CRIT)/, " vs AC " + ac + " → $1");
   return detail;
 }
 function rollBody(r) {
   const detail = rollDetail(r);
   let out;
   if (r && (r.heal || /\bheals\b/i.test(detail))) out = detail;
-  else if (detail && /→\s*(HIT|MISS)/.test(detail)) out = detail;
+  else if (detail && /→\s*(HIT|MISS|CRIT|misfire)/i.test(detail)) out = detail;
   else {
     const formula = r && r.formula ? String(r.formula) + " = " + (r.result ?? "") : "";
     const head = ((r && r.label) || "Roll") + (formula ? " · " + formula : "");

@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.27"; // sheet-playtest-v0327
+  var APP_VERSION = "0.3.28"; // sheet-playtest-v0328
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -683,6 +683,11 @@
     if (w.ability === "SPELL") {
       m = v.mods.CHA; // plain rounds: the Caster Gun uses your spellcasting ability (PHB: Caster Guns, Spellcasting (Cha))
       s.atk = sign(m + (g.proficient ? v.prof : 0));
+      s.parts = [{ label: "CHA", value: m }];
+      if (g.proficient) s.parts.push({ label: "proficiency", value: v.prof || 0 });
+      if (g.magic != null && isFinite(Number(g.magic)) && Number(g.magic)) s.parts.push({ label: "magic", value: Number(g.magic) });
+      s.dmgParts = m ? [{ label: "CHA", value: m }] : [];
+      s.dmgType = s.dmgType || "piercing";
       s.dmg = s.damage + (m ? " " + sign(m) : "") + " piercing";
       notes.push("hex lead shells: spell attack " + (v.caster ? v.spellAtk : "—"));
       s.note = notes.join(" · ");
@@ -697,6 +702,16 @@
     if (mod && /hair trigger/i.test(mod.name) && w.group === "pistol") first = Math.min(2, first + 1); // PHB: counts toward the rig's +2 first-shot cap
     if (mod) notes.push("mod: " + mod.name);
     s.atk = sign(m + (g.proficient ? v.prof : 0) + style);
+    var abilityLabel = ability === "STR/DEX" ? (v.mods.STR >= v.mods.DEX ? "STR" : "DEX") : ability;
+    var styleLabels = { "long-gun": "Long Gun", archery: "Archery", sidearm: "Sidearm", dueling: "Dueling" };
+    var styleLabel = styleLabels[C() && C().fightingStyle] || "style";
+    s.parts = [{ label: abilityLabel, value: m }];
+    if (g.proficient) s.parts.push({ label: "proficiency", value: v.prof || 0 });
+    if (style) s.parts.push({ label: styleLabel, value: style });
+    if (g.magic != null && isFinite(Number(g.magic)) && Number(g.magic)) s.parts.push({ label: "magic", value: Number(g.magic) });
+    s.dmgParts = [];
+    if (m) s.dmgParts.push({ label: abilityLabel, value: m });
+    if (dmgStyle) s.dmgParts.push({ label: styleLabel, value: dmgStyle });
     if (style) notes.push((C().fightingStyle || "style") + " " + sign(style));
     if (dmgStyle) notes.push((C().fightingStyle || "style") + " damage " + sign(dmgStyle));
     if (first) notes.push("first shot from the rig " + sign(m + (g.proficient ? v.prof : 0) + style + first));

@@ -1,6 +1,7 @@
-/* Range rings for the map. Visual only: this file does not roll attacks.
+/* Range rings and the range check for a map attack that has a target.
    Green is normal range. Orange is a disadvantage band. Red is the line
-   you cannot shoot past. Rings stay off until a player or the DM turns them on. */
+   you cannot shoot past. Purple is a spell ring. Rings stay off until a
+   player or the DM turns them on. The check still runs when rings are hidden. */
 (function (root) {
   "use strict";
 
@@ -69,7 +70,8 @@
   function empty(label) {
     return {
       close: 0, normal: 0, long: 0, melee: 0, meleeRed: 0,
-      clearLong: false, cone: false, spell: false, thrown: false, label: label || ""
+      clearLong: false, cone: false, spell: false, thrown: false,
+      purple: false, touch: false, doubled: false, self: false, label: label || ""
     };
   }
 
@@ -82,15 +84,26 @@
     var kind = String(spec.kind || "");
     var spell = kind === "spell" || spec.spell === true;
     if (spell) {
-      if (spec.spellKind && spec.spellKind !== "attack") return empty(name);
-      var raw = spellRange(spec);
-      var ft = feetOf(raw);
-      if (!ft) return empty(name);
-      if (spec.longRangeHex) ft *= 2;
+      var rawSpell = spellRange(spec);
+      var selfSpell = /^\s*self\b/i.test(rawSpell);
+      var touchSpell = /^\s*touch\b/i.test(rawSpell);
+      if (selfSpell) {
+        var none = empty(name);
+        none.self = true;
+        none.spell = true;
+        return none;
+      }
+      var attackSpell = !spec.spellKind || spec.spellKind === "attack";
+      var ftSpell = touchSpell ? 5 : feetOf(rawSpell);
+      if (!ftSpell) return empty(name);
+      var doubled = !!(attackSpell && spec.longRangeHex && !touchSpell);
+      if (doubled) ftSpell *= 2;
+      var spellLabel = "Spell · " + ftSpell + " ft" + (doubled ? " · x2 Long-Range Hex" : "");
       return {
-        close: 0, normal: ft, long: ft, melee: 0, meleeRed: 0,
+        close: 0, normal: ftSpell, long: ftSpell, melee: 0, meleeRed: 0,
         clearLong: false, cone: false, spell: true, thrown: false,
-        label: name + " · " + ft + " ft"
+        purple: true, touch: !!touchSpell, doubled: doubled, self: false,
+        label: spellLabel
       };
     }
     var range = rangeString(spec, cat);
@@ -107,8 +120,12 @@
     if (scope && carbine) closeQuarters = false;
     var unwieldy = !!(spec.unwieldy || /unwieldy/i.test(properties) || /big fifty/i.test(name));
     var rifle = group === "rifle" || group === "carbine" || group === "bigbore" || /\brifle\b|\bcarbine\b/i.test(name);
+    var roundName = String(spec.round || spec.caliber || "").toLowerCase();
+    var casterGun = group === "caster" || /caster/.test(group) || !!(cat && (cat.hexShells || cat.group === "caster"));
+    var fiftyRound = /\.50-90|50-90/.test(roundName);
     var close = 0;
-    if (unwieldy) close = 30;
+    if (casterGun && (fiftyRound || spec.spellMode || spec.hexlead)) close = 0;
+    else if (unwieldy && !casterGun) close = 30;
     else if (rifle && !closeQuarters) close = 5;
     var normal = pair ? pair.normal : (coneFt || 0);
     var long = pair ? pair.long : (coneFt || 0);
@@ -135,13 +152,26 @@
   }
 
   function rings(spec) {
+    spec = spec || {};
     var b = bands(spec);
     var greenF = "rgba(46,168,74,0.18)";
     var orangeF = "rgba(224,122,32,0.24)";
+    var purpleF = "rgba(123,79,214,0.16)";
     var greenS = "#2ea84a";
     var orangeS = "#e07a20";
     var redS = "#e23b32";
+    var purpleS = "#7b4fd6";
     var out = [];
+    if (b.spell) {
+      if (b.long && !b.self) {
+        out.push({ feet: b.long, role: "spell", fill: purpleF, stroke: purpleS, width: 3 });
+      }
+      var near = spec.hostileFeet;
+      if (near != null && near !== "" && isFinite(Number(near)) && Number(near) <= 5) {
+        out.push({ feet: 5, role: "warn", fill: "", stroke: redS, width: 2 });
+      }
+      return { rings: out, label: b.label, bands: b };
+    }
     if (b.long) {
       var same = b.normal === b.long;
       out.push({
@@ -163,5 +193,61 @@
     return { rings: out, label: b.label, bands: b };
   }
 
-  root.SSDNSRangeRings = { bands: bands, rings: rings };
+  var armed = null;
+  function arm(verdict) { armed = verdict || null; return armed; }
+  function peek() { return armed; }
+  function take() { var v = armed; armed = null; return v; }
+  function clearArm() { armed = null; }
+
+  /**
+   * Map attack with a target. No target: apply false (today's roll).
+   * override "ignore" skips the block and the range disadvantage.
+   * override "force" adds disadvantage and still blocks past the limit.
+   */
+  function resolve(spec, feet, opts) {
+    opts = opts || {};
+    var hasTarget = opts.hasTarget !== false && feet != null && feet !== "" && isFinite(Number(feet));
+    if (!hasTarget) return { apply: false, blocked: false, disadvantage: false, band: "", feet: null, note: "", button: "", spell: false, override: opts.override || "auto" };
+    var dist = Math.round(Number(feet));
+    var b = bands(spec || {});
+    var override = opts.override === "ignore" || opts.override === "force" ? opts.override : "auto";
+    var spell = !!b.spell;
+    var limit = b.long || b.melee || 0;
+    var past = limit > 0 && dist > limit;
+    if (b.melee && b.long) past = dist > b.long;
+    var blocked = past && override !== "ignore";
+    var longBand = !spell && b.long > b.normal && dist > b.normal && dist <= b.long && !b.clearLong;
+    var hostile = opts.hostileFeet;
+    var hostileN = hostile != null && hostile !== "" && isFinite(Number(hostile)) ? Number(hostile) : null;
+    var closeBand = !spell && b.close > 0 && hostileN != null && hostileN <= b.close;
+    var spellWarn = spell && hostileN != null && hostileN <= 5 && !b.self;
+    var disadvantage = !blocked && (longBand || closeBand || spellWarn || override === "force");
+    if (override === "ignore") disadvantage = false;
+    var notes = [];
+    if (disadvantage && longBand) notes.push("DIS: long range (" + dist + " ft)");
+    if (disadvantage && closeBand) notes.push("DIS: close quarters (" + Math.round(hostileN) + " ft)");
+    if (disadvantage && spellWarn) notes.push("DIS: hostile within 5 ft");
+    if (disadvantage && override === "force" && !notes.length) notes.push("DIS: DM forced disadvantage");
+    var button = "";
+    if (blocked) button = spell ? "out of range" : "Out of range";
+    else if (longBand && disadvantage) button = "DIS · long range";
+    else if (closeBand && disadvantage) button = "DIS · close quarters";
+    else if (spellWarn && disadvantage) button = "DIS · hostile within 5 ft";
+    else if (override === "force" && disadvantage) button = "DIS · forced";
+    var band = blocked ? "blocked" : (longBand ? "long" : (closeBand ? "close" : (spellWarn ? "warn" : "normal")));
+    return {
+      apply: true,
+      blocked: blocked,
+      disadvantage: disadvantage,
+      band: band,
+      feet: dist,
+      note: notes.join(" · "),
+      button: button,
+      spell: spell,
+      override: override,
+      log: override === "ignore" ? "DM override: range ignored" : (override === "force" ? "DM override: disadvantage forced" : "")
+    };
+  }
+
+  root.SSDNSRangeRings = { bands: bands, rings: rings, resolve: resolve, arm: arm, peek: peek, take: take, clear: clearArm };
 })(typeof window !== "undefined" ? window : globalThis);
