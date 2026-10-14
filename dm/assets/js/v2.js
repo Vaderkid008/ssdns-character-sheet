@@ -1373,7 +1373,7 @@ async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, r
     const entries = removed.map((id) => existing.filter((row) => row && row.id === id)[0]).filter(Boolean).map((row) => JSON.parse(JSON.stringify(row)));
     rememberUndo({
       type: "condition",
-      label: "removed " + entries.map((row) => row.name || "condition").join(", "),
+      label: "removed " + entries.map((row) => row.name || "a condition").join(", "),
       playerId: kind === "player" ? subjectId : "all",
       restoreConditions: { subjectId: subjectId, kind: kind, entries: entries }
     });

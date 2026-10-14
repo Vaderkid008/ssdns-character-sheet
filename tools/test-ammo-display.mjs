@@ -1,5 +1,5 @@
 /**
- * Ammo display framework: cylinder, tube, dots, flag off by default.
+ * Ammo display framework: cylinder, tube, dots, flag on by default.
  *   node tools/test-ammo-display.mjs
  */
 import fs from "node:fs";
@@ -25,18 +25,28 @@ function boot(url) {
 
 const dom = boot();
 const api = dom.window.SSDNSAmmoDisplay;
-check("flag.off", api.enabled() === false);
+check("flag.on", api.enabled() === true);
 
-dom.window.SSDNS_AMMO_DISPLAY = true;
-check("flag.window", api.enabled() === true);
 dom.window.SSDNS_AMMO_DISPLAY = false;
 check("flag.windowOff", api.enabled() === false);
+dom.window.SSDNS_AMMO_DISPLAY = true;
+check("flag.window", api.enabled() === true);
+delete dom.window.SSDNS_AMMO_DISPLAY;
+check("flag.windowCleared", api.enabled() === true);
+
+dom.window.localStorage.setItem("ssdns.ammoDisplay", "off");
+check("flag.storageOff", api.enabled() === false);
 dom.window.localStorage.setItem("ssdns.ammoDisplay", "on");
 check("flag.storage", api.enabled() === true);
 dom.window.localStorage.removeItem("ssdns.ammoDisplay");
-check("flag.storageOff", api.enabled() === false);
+check("flag.storageCleared", api.enabled() === true);
 
+const queriedOff = boot("http://localhost/?ammoDisplay=0");
+check("flag.queryOff", queriedOff.window.SSDNSAmmoDisplay.enabled() === false);
+queriedOff.window.localStorage.setItem("ssdns.ammoDisplay", "on");
+check("flag.queryBeatsStorage", queriedOff.window.SSDNSAmmoDisplay.enabled() === false);
 const queried = boot("http://localhost/?ammoDisplay=1");
+queried.window.localStorage.setItem("ssdns.ammoDisplay", "off");
 check("flag.query", queried.window.SSDNSAmmoDisplay.enabled() === true);
 
 check("kind.revolver", api.kind({ action: "Revolver" }) === "cylinder");
@@ -106,6 +116,7 @@ const tubeSpendDoc = doc(tubeSpend);
 const tubeKeys = Array.from(tubeSpendDoc.querySelectorAll(".ammo-round, .ammo-tube-fire")).map((b) => b.getAttribute("data-k"));
 check("tube.leftmost", tubeSpendDoc.querySelector(".ssdns-ammo-tube").getAttribute("data-ammo-spend") === "1" && tubeKeys.length >= 2 && tubeKeys.every((k) => k === "1"), tubeKeys.join(","));
 check("tube.cart", !!tubeSpendDoc.querySelector("svg.ammo-cart"));
+check("tube.tip", (tubeSpendDoc.querySelector(".ammo-tip") || {}).getAttribute("fill") === "#7a5828" && !tubeSpend.includes("#1c1612"));
 const tubeWide = doc(api.html({ action: "Lever (tube)", cap: 12, loaded: 12, tier: "medium" }));
 check("tube.compact", !!tubeWide.querySelector(".ssdns-ammo-tube.is-compact") && tubeWide.querySelectorAll(".ammo-round").length === 12);
 
@@ -113,6 +124,45 @@ const shotDots = doc(api.html({ action: "Break-action", name: "Coach Gun", group
 check("shot.dots", !!shotDots.querySelector(".ssdns-ammo-dots.is-shotgun svg.ammo-shell") && shotDots.querySelectorAll(".ammo-round").length === 2);
 const shotTube = doc(api.html({ weapon: "lancaster-lever-shotgun", cap: 4, loaded: 2 }));
 check("shot.tube", !!shotTube.querySelector(".ssdns-ammo-tube.is-shotgun svg.ammo-shell"));
+function shellOf(spec) {
+  return doc(api.html(spec)).querySelector(".ammo-round");
+}
+const buck12 = shellOf({ action: "Break-action", group: "shotgun", ammo: "shell", tier: "medium", cap: 1, loaded: 1 });
+const buck410 = shellOf({ action: "Break-action", group: "shotgun", ammo: "shell", tier: "light", cap: 1, loaded: 1 });
+const buck10 = shellOf({ action: "Break-action", group: "shotgun", ammo: "shell", tier: "heavy", cap: 1, loaded: 1 });
+const slug12 = shellOf({ action: "Break-action", group: "shotgun", ammo: "shell", tier: "medium", load: "slug", cap: 1, loaded: 1 });
+check("shell.red", !!buck12 && buck12.className.includes("is-gauge-12") && buck12.className.includes("is-buck") && buck12.innerHTML.includes('fill="#c4322e"') && buck12.innerHTML.includes('fill="#d7b15e"'));
+check("shell.410", !!buck410 && buck410.className.includes("is-gauge-410") && !buck410.className.includes("is-gauge-12"));
+check("shell.10", !!buck10 && buck10.className.includes("is-gauge-10"));
+check("shell.slug", !!slug12 && slug12.className.includes("is-slug") && slug12.innerHTML.includes(">S<") && slug12.innerHTML.includes('fill="#2a62b5"') && !slug12.innerHTML.includes('fill="#c4322e"'));
+function holes(cap) {
+  return [...doc(api.html({ action: "Revolver", cap: cap, loaded: cap })).querySelectorAll(".ammo-round")].map((b) => {
+    const s = b.getAttribute("style") || "";
+    return {
+      x: Number((s.match(/left:([0-9.]+)/) || [])[1]),
+      y: Number((s.match(/top:([0-9.]+)/) || [])[1]),
+      r: Number((s.match(/width:([0-9.]+)/) || [])[1]) / 2
+    };
+  });
+}
+function clearHoles(list) {
+  if (!list.length) return false;
+  for (let i = 0; i < list.length; i++) {
+    const reach = Math.hypot(list[i].x - 50, list[i].y - 50) + list[i].r;
+    if (reach > 44) return false;
+    for (let j = i + 1; j < list.length; j++) {
+      const dist = Math.hypot(list[i].x - list[j].x, list[i].y - list[j].y);
+      if (dist + 0.15 < list[i].r + list[j].r) return false;
+    }
+  }
+  return true;
+}
+const sixHoles = holes(6);
+const eightHoles = holes(8);
+const twelveHoles = holes(12);
+check("cyl.fill6", sixHoles.length === 6 && sixHoles[0].r > 11 && clearHoles(sixHoles), "r " + (sixHoles[0] && sixHoles[0].r));
+check("cyl.fill8", eightHoles.length === 8 && eightHoles[0].r > 9 && eightHoles[0].r < sixHoles[0].r && clearHoles(eightHoles), "r " + (eightHoles[0] && eightHoles[0].r));
+check("cyl.fill12", twelveHoles.length === 12 && twelveHoles[0].r < eightHoles[0].r && clearHoles(twelveHoles));
 
 const gunJammed = doc(api.html({ action: "Revolver", cap: 6, loaded: 4, jammed: true }));
 check("jam.gun", !!gunJammed.querySelector(".ssdns-ammo.is-jammed"));

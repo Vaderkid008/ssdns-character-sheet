@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>SSDNS Map — M2 v4 demo</title>
-<link rel="stylesheet" href="ssdns-map.css?v=0.3.26-range">
+<link rel="stylesheet" href="ssdns-map.css?v=0.3.27-card">
 <style>
   html, body { margin: 0; height: 100%; background: #1a1612; color: #e8dcc8; font-family: system-ui, sans-serif; }
   .ssdns-map { position: relative; width: 100vw; height: 100vh; overflow: hidden; touch-action: none; background: #1a1612; }
@@ -28,7 +28,7 @@
 <body>
 <div id="mount" class="ssdns-map hidden"></div>
 <script src="../assets/js/range-rings.js?v=0.3.26-range"></script>
-<script src="ssdns-map.js?v=0.3.26-range"></script>
+<script src="ssdns-map.js?v=0.3.27-card"></script>
 <script>
 // demo.html is the only file allowed to read the URL, localStorage, and BroadcastChannel.
 const params = new URLSearchParams(location.search);
@@ -115,7 +115,33 @@ const host = {
       { id: 'check', label: 'Check', group: 'sheet', enabled: true },
       { id: 'note', label: 'Note', group: 'sheet', enabled: true }
     ]; },
-    run(id) { console.log('host.actions.run', id); return Promise.resolve(); }
+    run(id, ctx) { console.log('host.actions.run', id, ctx || {}); return Promise.resolve(); }
+  },
+  ownCard() {
+    if (role !== 'player') return null;
+    return {
+      name: 'Jolene "Dusty" Pike',
+      ac: 14,
+      hp: { cur: 23, max: 27 },
+      speed: 30,
+      attacks: [
+        { id: 'gunroll:0', name: 'Blacksnake', toHit: 6, damage: '1d6 +3 piercing', ammo: { loaded: 3, cap: 6, chambers: [1, 1, 1, 0, 0, 0] }, reloadId: 'reload:0' },
+        { id: 'gunroll:1', name: 'Lancaster Heavy Saddle Carbine', toHit: 4, damage: '1d6 +1 piercing', ammo: { loaded: 0, cap: 8 }, reloadId: 'reload:1' },
+        { id: 'gunroll:2', name: 'Dulls Rolling-Block Rifle', toHit: 4, damage: '2d6 +1 piercing', ammo: { loaded: 0, cap: 1 }, reloadId: 'reload:2' },
+        { id: 'melee:0', name: 'Bowie knife', toHit: 5, damage: '1d4 +3 slashing' }
+      ],
+      spells: [
+        { id: 'spell:0:Fire Bolt', name: 'Fire Bolt', level: 0, kind: 'attack', damage: '1d10' },
+        { id: 'spell:0:Shocking Grasp', name: 'Shocking Grasp', level: 0, kind: 'attack', damage: '1d8' },
+        { id: 'spell:0:Ray of Frost', name: 'Ray of Frost', level: 0, kind: 'attack', damage: '1d8' },
+        { id: 'spell:1:Magic Missile', name: 'Magic Missile', level: 1, kind: 'auto', damage: '1d4' },
+        { id: 'spell:1:Cure Wounds', name: 'Cure Wounds', level: 1, kind: 'heal' }
+      ]
+    };
+  },
+  sheetTargets() {
+    if (role !== 'player') return null;
+    return [{ id: 'rustle', label: 'Rustle' }, { id: 'bandit', label: 'Bandit' }];
   },
   on(name, detail) { console.log('host', name, detail); },
   getCard(tokenId) {
@@ -130,7 +156,12 @@ const host = {
       { id: 'hook', name: 'Boarding hook', range: '—', properties: 'Heavy, reach, two-handed', group: 'martial-melee', kind: 'melee' }
     ];
     const spells = (card.spells || []).slice();
-    if (!spells.some(s => s && s.name === 'Fire Bolt')) spells.push({ id: 'fire-bolt', name: 'Fire Bolt', kind: 'attack', range: '120 ft' });
+    function ensureSpell(row) {
+      if (!spells.some(s => s && s.name === row.name)) spells.push(row);
+    }
+    ensureSpell({ id: 'fire-bolt', name: 'Fire Bolt', level: 0, kind: 'attack', damage: '1d10', range: '120 ft' });
+    ensureSpell({ id: 'magic-missile', name: 'Magic Missile', level: 1, kind: 'auto', damage: '1d4' });
+    ensureSpell({ id: 'fireball', name: 'Fireball', level: 3, kind: 'save', damage: '8d6' });
     return Object.assign({}, card, {
       longRangeHex: true,
       attacks: (card.attacks || []).concat(extra),

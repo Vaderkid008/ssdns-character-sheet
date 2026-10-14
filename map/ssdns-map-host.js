@@ -230,7 +230,106 @@
     });
     return list;
   }
-  function runAction(id) {
+  function tidyName(text) {
+    return String(text || "")
+      .replace(/\s*-\s*Not sold\b/ig, "")
+      .replace(/\s*-\s*[\d,]+\s*ES\b/ig, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  function setSheetTarget(id) {
+    var sel = $("atkTarget");
+    if (!sel || id == null) return;
+    sel.value = String(id);
+    try { sel.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {}
+  }
+  function ownCard() {
+    if (isDmPage()) return null;
+    var app = root.SSDNSApp;
+    if (!app || typeof app.doc !== "function" || typeof app.compute !== "function") return null;
+    var doc = app.doc();
+    var computed = app.compute();
+    if (!doc || !doc.character || !computed) return null;
+    var c = doc.character;
+    var attacks = [];
+    (c.guns || []).forEach(function (g, i) {
+      if (!g || !g.weapon) return;
+      var st = ((computed.guns) || []).filter(function (x) { return x && x.w && x.w.id === g.weapon; })[0];
+      var w = st && st.w;
+      var name = tidyName((w && w.name) || "");
+      if (!name) return;
+      var cyl = gunCylinder(i);
+      attacks.push({
+        id: "gunroll:" + i,
+        name: name,
+        toHit: st && st.atk,
+        damage: (st && st.dmg) || "",
+        weapon: g.weapon,
+        action: (w && w.action) || "",
+        group: (w && w.group) || "",
+        tier: (st && st.tier) || "",
+        scatter: !!(w && w.scatter),
+        ammo: cyl ? { loaded: cyl.loaded, cap: cyl.cap, chambers: cyl.chambers } : null,
+        reloadId: cyl ? ("reload:" + i) : "",
+        trId: w && w.tr ? ("tr:" + i) : ""
+      });
+    });
+    var meleeList = (root.SSDNSRules && root.SSDNSRules.melee) || [];
+    (c.melee || []).forEach(function (m, i) {
+      if (!m || !m.weapon) return;
+      var w = meleeList.filter(function (x) { return x.id === m.weapon; })[0];
+      var name = tidyName((w && w.name) || "");
+      if (!name || /^Melee \d+$/i.test(name)) return;
+      var atkEl = document.querySelector("[data-melee-atk='" + i + "']");
+      var dmgEl = document.querySelector("[data-melee-dmg='" + i + "']");
+      attacks.push({
+        id: "melee:" + i,
+        name: name,
+        toHit: atkEl ? String(atkEl.textContent || "").trim() : "",
+        damage: dmgEl ? String(dmgEl.textContent || "").trim() : ((w && w.damage) || "")
+      });
+    });
+    var spells = [];
+    function pushSpell(level, name) {
+      if (!name) return;
+      var known = root.SSDNSSpellCast && typeof root.SSDNSSpellCast.lookup === "function" ? root.SSDNSSpellCast.lookup(name) : null;
+      spells.push({
+        id: "spell:" + level + ":" + name,
+        name: name,
+        level: known && known.level != null ? known.level : level,
+        kind: (known && known.kind) || "",
+        damage: (known && (known.damage || known.dmg)) || ""
+      });
+    }
+    (c.cantrips || []).forEach(function (name) { pushSpell(0, name); });
+    Object.keys(c.spells || {}).forEach(function (lvl) {
+      (c.spells[lvl] || []).forEach(function (sp) {
+        if (sp && sp.prepared && sp.name) pushSpell(lvl, sp.name);
+      });
+    });
+    var pact = $("btnPactShot");
+    if (pact && !pact.hidden) spells.push({ id: "pact", name: "Pact Shot", kind: "attack" });
+    var nameInput = $("charName");
+    return {
+      name: (nameInput && nameInput.value) || c.name || "",
+      kind: "pc",
+      ac: computed.ac,
+      hp: { cur: c.hpCurrent, max: c.hpMax, temp: c.hpTemp || 0 },
+      speed: c.speed || 30,
+      attacks: attacks,
+      spells: spells
+    };
+  }
+  function runAction(id, ctx) {
+    ctx = ctx || {};
+    if (ctx.targetId) setSheetTarget(ctx.targetId);
+    if (id.indexOf("gunroll:") === 0 && ctx.chamber != null && ctx.chamber !== "") {
+      var gi = id.slice(8);
+      var k = String(ctx.chamber);
+      var chamber = document.querySelector('[data-fire="' + cssEscape(gi) + '"][data-k="' + cssEscape(k) + '"]')
+        || document.querySelector('[data-gunroll="' + cssEscape(gi) + '"][data-k="' + cssEscape(k) + '"]');
+      if (chamber && !chamber.hidden) { chamber.click(); return; }
+    }
     var btn = null;
     if (id.indexOf("gunroll:") === 0) btn = document.querySelector('[data-gunroll="' + cssEscape(id.slice(8)) + '"]:not([data-k])');
     else if (id.indexOf("melee:") === 0) btn = document.querySelector('[data-melee-roll="' + cssEscape(id.slice(6)) + '"]');
@@ -396,8 +495,10 @@
           players: currentPlayers,
           actions: {
             get: function () { return sheetActions(); },
-            run: function (id) { runAction(id); }
+            run: function (id, ctx) { runAction(id, ctx); }
           },
+          ownCard: ownCard,
+          setSheetTarget: setSheetTarget,
           on: onHost,
           rounds: roundsLabel,
           getCard: function (tokenId) {
