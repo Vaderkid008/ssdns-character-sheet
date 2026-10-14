@@ -2550,79 +2550,80 @@
     return { paid: false, logged: true };
   }
   function openCleanModal(gunName, options) {
-    return new Promise(function (resolve) {
-      if (!document.body || !options.length) { resolve(null); return; }
-      var dlg = document.createElement("dialog");
-      dlg.className = "dlg clean-modal";
-      var buttons = options.map(function (opt, n) {
-        return "<button type='button' class='btn' data-clean-opt='" + n + "'>" + opt.label.replace(/</g, "") + "</button>";
-      }).join("");
-      dlg.innerHTML = "<form method='dialog'><h2>Clean " + String(gunName || "gun").replace(/</g, "") + "</h2><p>Pick a method. Nothing changes until you do.</p><div class='clean-opts'>" + buttons + "</div><button type='button' class='btn' value='no'>Cancel</button></form>";
-      var settled = false;
-      function finish(opt) {
-        if (settled) return;
-        settled = true;
-        document.body.classList.remove("ask-open");
-        try { if (dlg.close) dlg.close(); } catch (e) {}
-        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
-        resolve(opt || null);
-      }
-      dlg.querySelector("[value=no]").addEventListener("click", function () { finish(null); });
-      dlg.querySelectorAll("[data-clean-opt]").forEach(function (btn) {
-        btn.addEventListener("click", function () { finish(options[Number(btn.getAttribute("data-clean-opt"))]); });
-      });
-      dlg.addEventListener("cancel", function (e) { e.preventDefault(); finish(null); });
-      document.body.classList.add("ask-open");
-      document.body.appendChild(dlg);
-      if (dlg.showModal) dlg.showModal();
-      else dlg.setAttribute("open", "");
-    });
+    var M = window.SSDNSMisfire;
+    if (M && M.pickClean) return M.pickClean(gunName, options);
+    return Promise.resolve(null);
   }
   function applyCleanChoice(i, g, pick) {
     var M = window.SSDNSMisfire;
     if (!M || !pick) return;
-    if (pick.cost) chargeEs(pick.cost, (WPN[g.weapon] ? WPN[g.weapon].name : "Gun") + ": " + pick.label);
-    var applied = M.applyClean(g, pick.id);
+    var name = WPN[g.weapon] ? WPN[g.weapon].name : "Gun";
+    if (pick.cost) chargeEs(pick.cost, name + ": " + pick.label);
+    var applied = M.commitClean ? M.commitClean(g, pick.id) : M.applyClean(g, pick.id);
     if (!applied.ok) { toast(applied.reason || "That clean isn't available."); return; }
-    var next = applied.gun;
-    g.dirty = !!next.dirty;
-    g.fouled = !!next.fouled;
-    g.jammed = !!next.jammed;
-    g.ruined = !!next.ruined;
-    g.broken = !!next.broken;
-    g.misStreak = next.misStreak || 0;
-    if (pick.resetStreak || pick.comesClean) {
-      g.pendingD4 = false;
-      g.pendingD4Rolls = null;
-      g.pendingD4Step = 0;
+    if (!M.commitClean) {
+      var next = applied.gun;
+      g.dirty = !!next.dirty;
+      g.fouled = !!next.fouled;
+      g.jammed = !!next.jammed;
+      g.ruined = !!next.ruined;
+      g.broken = !!next.broken;
+      g.misStreak = next.misStreak || 0;
+      if (pick.resetStreak || pick.comesClean) {
+        g.pendingD4 = false;
+        g.pendingD4Rolls = null;
+        g.pendingD4Step = 0;
+      }
     }
     changed();
-    var line = (WPN[g.weapon] ? WPN[g.weapon].name : "Gun") + ": " + pick.label + ".";
+    var line = name + ": " + pick.label + ".";
     toast(line);
     if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.publishSnapshot) {
+      try { window.SSDNSDmJoin.publishSnapshot(); } catch (e) {}
+    }
+    if (window.SSDNSMapHost && window.SSDNSMapHost.refreshCard) {
+      try { window.SSDNSMapHost.refreshCard(); } catch (e) {}
+    }
+  }
+  function finishClean(i, g, pick) {
+    if (!pick) return Promise.resolve(false);
+    if (pick.check) {
+      var rolled = rollJamCheck();
+      var line = "Jam check " + rolled.detail + " = " + rolled.total + " vs DC " + pick.check.dc;
+      if (rolled.total < pick.check.dc) {
+        toast(line + ". The jam stays.");
+        if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "roll", text: line + " — fail" });
+        return Promise.resolve(false);
+      }
+      if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "roll", text: line + " — success" });
+    }
+    applyCleanChoice(i, g, pick);
+    return Promise.resolve(true);
   }
   function cleanGun(i) {
     var g = C().guns[i];
-    if (!g || !g.weapon) { toast("Pick a gun first."); return; }
-    if (d4Pending(g)) { toast("Roll the d4 first."); return; }
+    if (!g || !g.weapon) { toast("Pick a gun first."); return Promise.resolve(false); }
+    if (d4Pending(g)) { toast("Roll the d4 first."); return Promise.resolve(false); }
     var M = window.SSDNSMisfire;
     var opts = M ? M.cleanOptions(g) : [];
-    if (!opts.length) { toast("This gun isn't jammed, dirty, fouled, or ruined."); return; }
+    if (!opts.length) { toast("This gun isn't jammed, dirty, fouled, or ruined."); return Promise.resolve(false); }
     var name = WPN[g.weapon] ? WPN[g.weapon].name : "Gun";
-    openCleanModal(name, opts).then(function (pick) {
-      if (!pick) return;
-      if (pick.check) {
-        var rolled = rollJamCheck();
-        var line = "Jam check " + rolled.detail + " = " + rolled.total + " vs DC " + pick.check.dc;
-        if (rolled.total < pick.check.dc) {
-          toast(line + ". The jam stays.");
-          if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "roll", text: line + " — fail" });
-          return;
-        }
-        if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "roll", text: line + " — success" });
-      }
-      applyCleanChoice(i, g, pick);
+    return openCleanModal(name, opts).then(function (pick) {
+      if (!pick) return false;
+      return finishClean(i, g, pick);
     });
+  }
+  function applyCleanOption(i, optionId) {
+    var g = C().guns[i];
+    if (!g || !g.weapon) { toast("Pick a gun first."); return Promise.resolve(false); }
+    if (d4Pending(g)) { toast("Roll the d4 first."); return Promise.resolve(false); }
+    var M = window.SSDNSMisfire;
+    var opts = M ? M.cleanOptions(g) : [];
+    var pick = null;
+    for (var n = 0; n < opts.length; n++) if (opts[n].id === optionId) pick = opts[n];
+    if (!pick) { toast("This gun isn't jammed, dirty, fouled, or ruined."); return Promise.resolve(false); }
+    return finishClean(i, g, pick);
   }
   function misfireCeiling(text, dirty) {
     var s = String(text || "");
@@ -3593,6 +3594,8 @@
       },
       reloadGun: function (i, max) { reload(i, max); },
       unloadGunIndex: function (i) { unloadLoaded(i); },
+      cleanGun: function (i) { return cleanGun(i); },
+      applyCleanOption: function (i, optionId) { return applyCleanOption(i, optionId); },
       suggestedHp: function () { return suggestedHp(C()); }
     };
   }

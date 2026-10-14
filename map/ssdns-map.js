@@ -4029,7 +4029,14 @@ async function loadSceneImage(sceneId) {
           group: a.group || '',
           tier: a.tier || '',
           scatter: !!a.scatter,
-          jammed: !!a.jammed
+          jammed: !!a.jammed,
+          dirty: !!a.dirty,
+          fouled: !!a.fouled,
+          ruined: !!(a.ruined || a.broken),
+          broken: !!a.broken,
+          misStreak: Number(a.misStreak) || 0,
+          pendingD4: !!a.pendingD4,
+          gunIndex: a.gunIndex
         });
       }
     });
@@ -4102,6 +4109,36 @@ async function loadSceneImage(sceneId) {
       paintPlayerFight();
     }).catch(err => emit('action:error', { id: id, error: String(err) }));
   }
+  function cleanActId(a) {
+    const id = String(a && a.id || '');
+    if (id.indexOf('gunroll:') === 0) return 'clean:' + id.slice(8);
+    if (a && a.gunIndex != null && a.gunIndex !== '') return 'clean:' + a.gunIndex;
+    return '';
+  }
+  function cleanControl(a, act) {
+    const M = window.SSDNSMisfire;
+    if (!a || !M || typeof M.cleanOptions !== 'function') return '';
+    const ammo = a.ammo || {};
+    const gun = {
+      dirty: !!(a.dirty || ammo.dirty),
+      fouled: !!(a.fouled || ammo.fouled),
+      ruined: !!(a.ruined || a.broken || ammo.ruined || ammo.broken),
+      broken: !!(a.broken || ammo.broken),
+      jammed: !!(a.jammed || ammo.jammed),
+      misStreak: Number(a.misStreak || ammo.misStreak || 0),
+      pendingD4: !!(a.pendingD4 || ammo.pendingD4)
+    };
+    if (!M.cleanOptions(gun).length) return '';
+    let idAttr = '';
+    if (act === 'playerClean') {
+      const cid = cleanActId(a);
+      if (!cid) return '';
+      idAttr = ' data-id="' + esc(cid) + '"';
+    } else {
+      idAttr = ' data-wid="' + esc(a.id || '') + '"';
+    }
+    return '<button type="button" data-act="' + act + '"' + idAttr + (gun.pendingD4 ? ' disabled' : '') + '>Clean</button>';
+  }
   function playerCylinderRow(a, targetHtml) {
     const cap = a.ammo ? (Number(a.ammo.cap) || 0) : 0;
     const loaded = a.ammo ? (Number(a.ammo.loaded) || 0) : 0;
@@ -4110,6 +4147,7 @@ async function loadSceneImage(sceneId) {
     const reloadLabel = 'Reload' + (spareN != null && spareN !== '' ? ' · ' + spareN : '');
     const reload = a.reloadId ? '<button type="button" data-act="playerReload" data-id="' + esc(a.reloadId) + '">' + esc(reloadLabel) + '</button>' : '';
     const tr = a.trId ? '<button type="button" data-act="playerTr" data-id="' + esc(a.trId) + '">TR</button>' : '';
+    const clean = cleanControl(a, 'playerClean');
     const select = '<select data-act="cylTarget" aria-label="Target">' + targetHtml + '</select>';
     const graphic = cap && window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
     if (graphic) {
@@ -4130,7 +4168,7 @@ async function loadSceneImage(sceneId) {
         attrs: function (k) { return { 'data-k': String(k) }; }
       });
       return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture +
-        '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + select + reload + tr + '</div>';
+        '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + select + reload + tr + clean + '</div>';
     }
     let dots = '';
     for (let k = 0; k < cap; k++) {
@@ -4139,7 +4177,7 @@ async function loadSceneImage(sceneId) {
     }
     const dotsHtml = cap ? '<span class="chamber-dots">' + dots + '</span>' : '';
     const rounds = cap ? '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' : '';
-    return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + dotsHtml + rounds + select + reload + tr + '</div>';
+    return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + dotsHtml + rounds + select + reload + tr + clean + '</div>';
   }
   function paintPlayerFight() {
     const slot = q('actionSlot');
@@ -4204,7 +4242,7 @@ async function loadSceneImage(sceneId) {
       (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       spells;
     bindSpellFold(slot);
-    slot.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"]').forEach(b => {
+    slot.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"], [data-act="playerClean"]').forEach(b => {
       b.addEventListener('click', () => runPlayer(b.getAttribute('data-id') || b.getAttribute('data-wid')));
     });
     slot.querySelectorAll('[data-act="playerChamber"]').forEach(b => {
@@ -4305,6 +4343,7 @@ async function loadSceneImage(sceneId) {
       const cap = Number(a.ammo.cap) || 0;
       const loaded = Number(a.ammo.loaded) || 0;
       const flags = Array.isArray(a.ammo.chambers) ? a.ammo.chambers : null;
+      const rowClean = (isPc && canAct) ? cleanControl(a, 'rowClean') : '';
       const graphic = window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
       if (graphic) {
         const picture = window.SSDNSAmmoDisplay.html({
@@ -4325,7 +4364,7 @@ async function loadSceneImage(sceneId) {
         });
         const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
         const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
-        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + '</div>';
+        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + '</div>';
       }
       let dots = '';
       for (let k = 0; k < cap; k++) {
@@ -4334,7 +4373,7 @@ async function loadSceneImage(sceneId) {
       }
       const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
       const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
-      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + '</div>';
+      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + '</div>';
     }).join('');
     const spellButtons = groupedSpells(card.spells || [], s => {
       const meta = [
@@ -4514,6 +4553,13 @@ async function loadSceneImage(sceneId) {
     });
     d.querySelectorAll('[data-act="rowReload"]').forEach(b => {
       b.addEventListener('click', () => emit('drawer:reload', detail({ weaponId: b.getAttribute('data-wid') })));
+    });
+    d.querySelectorAll('[data-act="rowClean"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (b.disabled) return;
+        if (!canAct) { toast('The player acts for themselves'); return; }
+        emit('drawer:clean', detail({ weaponId: b.getAttribute('data-wid') }));
+      });
     });
     const rangeMode = d.querySelector('[data-act="rangeOverride"]');
     if (rangeMode) rangeMode.addEventListener('change', () => {

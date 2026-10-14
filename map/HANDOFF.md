@@ -1,3 +1,7 @@
+# Map gun Clean — sheet 0.3.31 / DMCC 0.2.44
+
+Each gun row on the player map card, and on the DM card while the DM is acting for that player, shows Clean when `SSDNSMisfire.cleanOptions` has a method (dirty, fouled, jammed, or ruined). The button opens the same picker as the Gear tab and runs `SSDNSApp.cleanGun` / `applyCleanOption`, so the log line, the ES charge, and the Dirty / Fouled / streak reset match. A DM clean is a `gun` command with `op: "clean"`; the player's sheet applies it and publishes the snapshot. A streak by itself still has no clean method, so the button stays hidden. `assets/data/rules.js` and `database.rules.json` did not change.
+
 # Floating map chat — sheet 0.3.31 / DMCC 0.2.44
 
 Pop out opens a floating chat panel over the map, on the player sheet and on DMCC. Drag it by the header. Resize it from the corner. It stays inside the map, and the position and size are remembered in `ssdns.map.chatFloat`, the same way the player card remembers `ssdns.playerCard`. Dock puts the feed back on the map. Open in new tab still opens the separate chat window. A phone narrower than 600px uses the full-screen overlay instead of the float. The opener stays the only Firebase client, so a line is sent once.

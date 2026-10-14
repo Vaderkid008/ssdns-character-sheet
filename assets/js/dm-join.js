@@ -1342,6 +1342,9 @@
     } else if (payload.op === "dirty-d4") {
       if (root.SSDNSD4 && root.SSDNSD4.arm) root.SSDNSD4.arm(payload.index);
       return;
+    } else if (payload.op === "clean" && app.applyCleanOption) {
+      app.applyCleanOption(payload.index, payload.optionId);
+      return;
     } else if (payload.op === "misfire" && app.applyPatch && root.SSDNSMisfire) {
       var notes = [];
       app.applyPatch(function (doc) {

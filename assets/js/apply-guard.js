@@ -902,7 +902,18 @@
     return (guns || []).map(function (g) {
       if (!g) return "";
       var ch = Array.isArray(g.chambers) ? g.chambers.map(function (x) { return x ? String(x) : ""; }).join(",") : "";
-      return [g.weapon || g.name || "", g.loaded == null ? "" : g.loaded, ch, g.spare == null ? "" : g.spare].join(":");
+      return [
+        g.weapon || g.name || "",
+        g.loaded == null ? "" : g.loaded,
+        ch,
+        g.spare == null ? "" : g.spare,
+        g.dirty ? 1 : 0,
+        g.fouled ? 1 : 0,
+        g.ruined || g.broken ? 1 : 0,
+        g.jammed ? 1 : 0,
+        g.misStreak || 0,
+        g.pendingD4 ? 1 : 0
+      ].join(":");
     }).join("|");
   }
   function roundLabel(gun) {

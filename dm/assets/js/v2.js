@@ -5747,7 +5747,15 @@ function mapDrawerCard(row) {
       scatter: !!a.scatter,
       load: a.load || "",
       kind: a.kind || "",
-      scope: !!(a.scope || /scope/i.test(a.mod || ""))
+      scope: !!(a.scope || /scope/i.test(a.mod || "")),
+      dirty: !!a.dirty,
+      fouled: !!a.fouled,
+      ruined: !!(a.ruined || a.broken),
+      broken: !!a.broken,
+      jammed: !!a.jammed,
+      misStreak: Number(a.misStreak) || 0,
+      pendingD4: !!a.pendingD4,
+      gunIndex: a.gunIndex
     };
     if (cap != null && isFinite(cap)) {
       const chambers = Array.isArray(a.chambers) && a.chambers.length
@@ -5892,9 +5900,11 @@ function ensurePlayerAttacks(row) {
       misfire: g.misfire != null ? g.misfire : old.misfire,
       jammed: !!g.jammed,
       fouled: !!g.fouled,
-      ruined: !!g.ruined,
+      ruined: !!(g.ruined || g.broken),
+      broken: !!g.broken,
       pendingD4: !!g.pendingD4,
       dirty: !!g.dirty,
+      misStreak: Number(g.misStreak) || 0,
       chambers: Array.isArray(g.chambers) ? g.chambers.slice() : null,
       spare: window.SSDNSApplied && window.SSDNSApplied.spareCount ? window.SSDNSApplied.spareCount(Object.assign({}, g, { caliber: g.caliber || g.ammo }), (snap && snap.ammo) || []) : (g.spare || 0),
       gunIndex: n,
@@ -6079,6 +6089,35 @@ async function mapGunLoad(detail, unload) {
   await saveRemoteTable();
   renderFight();
   DM.toast((unload ? "Unloaded " : "Reloaded ") + (atk.name || "weapon"));
+  return true;
+}
+async function mapGunClean(detail) {
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No card linked"); return false; }
+  const row = fight.order[i];
+  if (!row || row.kind !== "player" || !row.dmActsAs) { DM.toast("The player acts for themselves"); return false; }
+  ensurePlayerAttacks(row);
+  const n = mapAttackIndex(row, detail && detail.weaponId);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk) { DM.toast("No weapon"); return false; }
+  const pid = row.playerId || row.id;
+  const snap = playerSnapshot(pid);
+  const gi = atk.gunIndex != null ? atk.gunIndex : n;
+  const g = snap && snap.guns && snap.guns[gi];
+  if (!g) { DM.toast("No weapon"); return false; }
+  if (g.pendingD4) { DM.toast("Roll the d4 first."); return false; }
+  const M = window.SSDNSMisfire;
+  const opts = M && M.cleanOptions ? M.cleanOptions(g) : [];
+  if (!opts.length) { DM.toast("This gun isn't jammed, dirty, fouled, or ruined."); return false; }
+  const pick = M.pickClean ? await M.pickClean(g.name || atk.name || "gun", opts) : null;
+  if (!pick) return false;
+  const payload = { op: "clean", index: gi, optionId: pick.id };
+  await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+  if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+  ensurePlayerAttacks(row);
+  await saveRemoteTable();
+  renderFight();
+  if (!pick.check) DM.toast((g.name || atk.name || "Gun") + ": " + pick.label + ".");
   return true;
 }
 function mapSpellIndex(row, spellId) {
@@ -6356,6 +6395,7 @@ window.SSDNSMapFight = {
   },
   reload(detail) { return mapGunLoad(detail, false); },
   unload(detail) { return mapGunLoad(detail, true); },
+  clean(detail) { return mapGunClean(detail); },
   async deathsave(detail) {
     const i = mapFightIndex(detail || {});
     if (i < 0) { DM.toast("No card linked"); return false; }

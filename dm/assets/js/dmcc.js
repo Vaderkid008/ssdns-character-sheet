@@ -950,6 +950,13 @@ function applyDemoGun(playerId, payload) {
     if (payload.pendingD4 != null) g.pendingD4 = !!payload.pendingD4;
     if (payload.dirty != null) g.dirty = !!payload.dirty;
     if (payload.misStreak != null) g.misStreak = payload.misStreak;
+  } else if (payload.op === "clean" && window.SSDNSMisfire && window.SSDNSMisfire.commitClean) {
+    window.SSDNSMisfire.commitClean(g, payload.optionId);
+    if (g.ruined || g.broken) g.condition = "ruined";
+    else if (g.jammed) g.condition = "jammed";
+    else if (g.fouled) g.condition = "fouled";
+    else if (g.dirty) g.condition = "dirty";
+    else g.condition = "ok";
   } else if (payload.op === "misfire" && window.SSDNSMisfire) {
     const applied = window.SSDNSMisfire.applyOverride(g, payload);
     const next = applied.gun;

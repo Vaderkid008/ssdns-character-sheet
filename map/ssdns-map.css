@@ -455,7 +455,7 @@ body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right
 .ssm-kind { font-size: 10px; color: #c9a227; text-transform: uppercase; }
 .ssm-section { font-size: 10px; color: #c9a227; text-transform: uppercase; margin-top: 4px; }
 .ssm-atk { width: 100%; text-align: left; }
-.ssm-atk:disabled { opacity: 0.4; cursor: not-allowed; }
+.ssm-atk:disabled, .cylinder-row button[data-act="playerClean"]:disabled, .cylinder-row button[data-act="rowClean"]:disabled { opacity: 0.4; cursor: not-allowed; }
 .ssm-dis { color: #ff3b30; font-weight: 700; }
 .ssm-dis-confirm {
   border: 1px solid #c9a227;
@@ -577,7 +577,8 @@ body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right
   padding: 0 2px;
 }
 .ssdns-playercard .cylinder-row button[data-act="playerReload"],
-.ssdns-playercard .cylinder-row button[data-act="playerTr"] {
+.ssdns-playercard .cylinder-row button[data-act="playerTr"],
+.ssdns-playercard .cylinder-row button[data-act="playerClean"] {
   width: auto;
   flex: 0 0 auto;
   min-height: 24px;

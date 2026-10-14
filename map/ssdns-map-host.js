@@ -282,7 +282,15 @@
         ammo: cyl ? { loaded: cyl.loaded, cap: cyl.cap, chambers: cyl.chambers, spare: spareForGun(g, w) } : null,
         spare: spareForGun(g, w),
         reloadId: cyl ? ("reload:" + i) : "",
-        trId: w && w.tr ? ("tr:" + i) : ""
+        trId: w && w.tr ? ("tr:" + i) : "",
+        dirty: !!g.dirty,
+        fouled: !!g.fouled,
+        ruined: !!(g.ruined || g.broken),
+        broken: !!g.broken,
+        jammed: !!g.jammed,
+        misStreak: Number(g.misStreak) || 0,
+        pendingD4: !!g.pendingD4,
+        gunIndex: i
       });
     });
     var meleeList = (root.SSDNSRules && root.SSDNSRules.melee) || [];
@@ -347,6 +355,11 @@
     else if (id.indexOf("cast:") === 0) btn = document.querySelector('[data-cast="' + cssEscape(id.slice(5)) + '"]');
     else if (id.indexOf("spell:") === 0) btn = document.querySelector('[data-spell-cast="' + cssEscape(id.slice(6)) + '"]');
     else if (id === "pact") btn = $("btnPactShot");
+    else if (id.indexOf("clean:") === 0) {
+      var cleaner = root.SSDNSApp && root.SSDNSApp.cleanGun;
+      if (typeof cleaner === "function") return cleaner(Number(id.slice(6)));
+      btn = document.querySelector('[data-clean="' + cssEscape(id.slice(6)) + '"]');
+    }
     else if (id.indexOf("reload:") === 0) btn = document.querySelector('[data-reload="' + cssEscape(id.slice(7)) + '"]');
     else if (id.indexOf("tr:") === 0) btn = document.querySelector('[data-tr="' + cssEscape(id.slice(3)) + '"]');
     if (btn && !btn.hidden) btn.click();
@@ -412,6 +425,7 @@
       "drawer:condition": "condition",
       "drawer:reload": "reload",
       "drawer:unload": "unload",
+      "drawer:clean": "clean",
       "drawer:deathsave": "deathsave",
       "drawer:undo": "undo",
       "drawer:chamber": "chamber",
@@ -646,6 +660,9 @@
     patchToken: function (id, fields) {
       if (!isDmPage() || !map || typeof map.patchToken !== "function") return null;
       return map.patchToken(id, fields || {});
+    },
+    refreshCard: function (tokenId) {
+      if (map && map.refreshCard) map.refreshCard(tokenId || "");
     },
     rounds: roundsLabel,
     armAttack: function (attack, targetId, shooterId) {
