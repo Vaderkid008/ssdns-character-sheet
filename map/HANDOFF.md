@@ -1,12 +1,10 @@
-# Map sync on the popped-out chat — sheet 0.3.30 / DMCC 0.2.43
+# Floating map chat — sheet 0.3.31 / DMCC 0.2.44
 
-Range buttons, the red Disadvantage label, the band highlight, and the disadvantage check read the token positions on this screen while a token is dragged and again when the pointer goes up. A remote echo during the drag does not pull the token back. After the drag, a newer synced position still wins. The roll uses the position at the click.
+Pop out opens a floating chat panel over the map, on the player sheet and on DMCC. Drag it by the header. Resize it from the corner. It stays inside the map, and the position and size are remembered in `ssdns.map.chatFloat`, the same way the player card remembers `ssdns.playerCard`. Dock puts the feed back on the map. Open in new tab still opens the separate chat window. A phone narrower than 600px uses the full-screen overlay instead of the float. The opener stays the only Firebase client, so a line is sent once.
 
-While a token is dragged, its cell is written about six times a second, and only when the cell changed. Pointer-up still writes the final cell. A blocked square snaps back before that write. A hidden token is written only under `map/dm`. An idle map does not write. `database.rules.json` and `assets/data/rules.js` did not change.
+The float, the overlay, and the new tab color the speaker with `SSDNSApplied.tokenColorFor`, filter All / Rolls / Talk on this screen only (`ssdns.map.chatFilter`), and show the player's roll math (d20, labeled bonuses, total, and damage) without target AC or hit/miss. The docked chat still has the unread badge. `assets/data/rules.js` and `database.rules.json` did not change.
 
-An attack the player cannot score yet still posts the d20, the labeled bonuses, the total, and the damage. It does not show AC or hit/miss until the DM resolves it. Chat names use the map token color. The docked map chat can collapse, shows an unread count, and filters All / Rolls / Talk on this screen only.
-
-Pop out still opens the same feed in its own window. Dock puts it back. A narrow screen uses a full-screen overlay. The opener stays the only Firebase client.
+Range buttons, the red Disadvantage label, and the band highlight still read the token positions on this screen during a drag. A remote echo does not pull the token back. While a token is dragged, its cell is written about six times a second, and only when the cell changed. A hidden token is written only under `map/dm`.
 
 # Range on every fire path — sheet 0.3.29 / DMCC 0.2.42
 

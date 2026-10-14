@@ -322,7 +322,7 @@ on(document, 'keydown', e => {
 });
 const chatdock = document.createElement('div');
 chatdock.className = 'ssdns-chatdock';
-chatdock.innerHTML = `<div class="ssdns-chathead"><button type="button" data-act="chatToggle" aria-expanded="true">Chat <span data-act="chatBadge" class="ssm-chatbadge" hidden>0</span></button><span data-act="chatFilters"><button type="button" data-chat-filter="all" class="on">All</button><button type="button" data-chat-filter="rolls">Rolls</button><button type="button" data-chat-filter="talk">Talk</button></span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden>Chat is in its own window.</p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
+chatdock.innerHTML = `<div class="ssdns-chathead"><button type="button" data-act="chatToggle" aria-expanded="true">Chat <span data-act="chatBadge" class="ssm-chatbadge" hidden>0</span></button><span data-act="chatFilters"><button type="button" data-chat-filter="all" class="on">All</button><button type="button" data-chat-filter="rolls">Rolls</button><button type="button" data-chat-filter="talk">Talk</button></span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatWindow" class="ssm-chat-tab">Open in new tab</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden></p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
 el.appendChild(chatdock);
 state.chatFilter = 'all';
 state.chatOpen = true;
@@ -411,9 +411,11 @@ function setChat(rows) {
 function pushChat(row) { pushFeed(row); }
 function setChatFilter(next) {
   if (next !== 'all' && next !== 'rolls' && next !== 'talk') return;
+  const changed = state.chatFilter !== next;
   state.chatFilter = next;
   try { localStorage.setItem('ssdns.map.chatFilter', next); } catch (e) {}
   renderChat();
+  if (changed && chatUi && chatUi.setFilter) chatUi.setFilter(next);
 }
 function setChatOpen(open) {
   state.chatOpen = !!open;
@@ -476,18 +478,23 @@ if (window.SSDNSMapChat) {
       input.value = text;
       sendChat();
     },
-    onMode: function (open, mode) {
+    onMode: function (open, mode, extra) {
       el.classList.toggle('ssdns-chat-popped', !!open);
       const popBtn = q('chatPop');
       const dockBtn = q('chatDock');
       const note = q('chatPopNote');
       if (popBtn) popBtn.hidden = !!open;
       if (dockBtn) dockBtn.hidden = !open;
-      if (note) {
-        note.hidden = !open;
-        note.textContent = mode === 'overlay' ? 'Chat covers the map. Dock puts it back.' : 'Chat is in its own window.';
+      if (!note) return;
+      if (extra === 'blocked') {
+        note.hidden = false;
+        note.textContent = 'The browser blocked the new tab.';
+        return;
       }
-    }
+      note.hidden = !open;
+      note.textContent = mode === 'overlay' ? 'Chat covers the map. Dock puts it back.' : 'Chat is floating over the map.';
+    },
+    onFilter: function (next) { setChatFilter(next); }
   });
 }
 
@@ -3081,6 +3088,7 @@ on(canvas, 'wheel', e => {
 
 q('chatSend').addEventListener('click', sendChat);
 q('chatPop').addEventListener('click', () => { if (chatUi) chatUi.pop(); });
+q('chatWindow').addEventListener('click', () => { if (chatUi && chatUi.openTab) chatUi.openTab(); });
 q('chatDock').addEventListener('click', () => { if (chatUi) chatUi.dock(); });
 
 q('helpBtn').addEventListener('click', () => {
