@@ -1,3 +1,19 @@
+# Player card — sheet 0.3.27 / DMCC 0.2.40
+
+`database.rules.json` did not change. `assets/data/rules.js` did not change. Rolls still go through the sheet buttons and the DM Fight tab.
+
+The player's floating card keeps Ping, Ruler, Ghost Plan, Cancel plan, and Torch in a compact row, with Show my range under them. Below that it matches the DM token card: name, AC, HP, speed, and an HP bar for the player's own sheet only. Attacks read `name +hit damage [ammo]`. Cylinder rows show the rounds and a target list. That target is written to the sheet's attack target, then the existing chamber button fires. Reload and TR use the same sheet buttons. Spells, on this card and on the DM card, sit in a dropdown that starts closed and remembers whether it was opened. A list with more than one spell level is grouped. Label, color, and Hidden sit in Settings.
+
+The old sheet dump is gone: unsold labels, prices, empty melee slots, and the extra Cast button on a gun.
+
+```cmd
+node tools/test-player-card.mjs
+node tools/test-map-m2.mjs
+node tools/test-map-spells.mjs
+```
+
+Cache queries on the touched sheet files are `0.3.27-card`. The DMCC copies are `0.2.40-card`.
+
 # Range rings and bullet art — sheet 0.3.26 / DMCC 0.2.39
 
 `database.rules.json` did not change. `assets/data/rules.js` did not change. Range rings are a picture on the map. They do not change attack rolls, misfires, or reloads.

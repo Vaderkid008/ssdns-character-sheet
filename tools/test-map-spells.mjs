@@ -340,10 +340,12 @@ const playerMap = w.SSDNSMap.create({
   options: { scene, assetBase: "", players: () => [], room: { table: { initiative: { order: [], turn: 0 } } } }
 });
 await flush(30);
-const cyl = playerEl.querySelector(".ssm-cyl-btn");
-check("player.cylinder", !!(cyl && cyl.querySelectorAll(".chamber-dot").length === 6 && cyl.querySelectorAll(".chamber-dot.full").length === 4));
+const playerDots = playerEl.querySelectorAll(".cylinder-row .chamber-dot");
+const playerFull = playerEl.querySelectorAll(".cylinder-row .chamber-dot.full");
+check("player.cylinder", playerDots.length === 6 && playerFull.length === 4, "dots " + playerDots.length + " full " + playerFull.length);
 check("player.noEnemySpell", !playerEl.textContent.includes("Fireball") && !playerEl.textContent.includes("6/6"));
-click(cyl);
+const reload = playerEl.querySelector('[data-act="playerReload"]');
+click(reload);
 check("player.reload", reloaded === 1);
 playerMap.destroy();
 

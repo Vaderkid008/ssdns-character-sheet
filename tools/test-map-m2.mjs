@@ -683,8 +683,8 @@ async function testHost(w) {
   check("host.playerNoTokensFetch", fetched.every((u) => u.indexOf("tokens.json") < 0) && fetched.some((u) => u.indexOf("scene-dusty-spur.json") >= 0), fetched.join(","));
   check("host.playerMounted", doc.getElementById("mapMount").querySelector("canvas") != null, doc.getElementById("mapIdle").textContent);
   const labels = [...doc.querySelectorAll("#mapMount [data-act=actionSlot] button")].map((b) => b.textContent);
-  check("host.actionsFromSheet", labels.some((t) => t.indexOf("Attack") >= 0) && labels.some((t) => t.indexOf("Cast") >= 0) && labels.some((t) => t.indexOf("Reload") >= 0) && labels.some((t) => t.indexOf("Pact") >= 0), labels.join(" | "));
-  const attack = [...doc.querySelectorAll("#mapMount [data-act=actionSlot] button")].find((b) => b.textContent.indexOf("Attack") >= 0);
+  check("host.actionsFromSheet", labels.some((t) => t.indexOf("Gun 1") >= 0) && labels.some((t) => t.indexOf("Reload") >= 0) && labels.some((t) => t.indexOf("Pact") >= 0) && !labels.some((t) => /Cast|Melee 1|Not sold/.test(t)), labels.join(" | "));
+  const attack = [...doc.querySelectorAll("#mapMount [data-act=actionSlot] button")].find((b) => b.getAttribute("data-id") === "gunroll:0");
   clicks.length = 0;
   if (attack) attack.click();
   check("host.attackClicksSheet", clicks.indexOf("gun") >= 0 && clicks.indexOf("Chamber") < 0, clicks.join(","));
