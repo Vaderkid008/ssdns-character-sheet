@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.28"; // sheet-playtest-v0328
+  var APP_VERSION = "0.3.29"; // sheet-playtest-v0329
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -935,7 +935,6 @@
   }
   function buildGuns() {
     var box = $("#guns");
-    box.appendChild(el("div", { class: "gun-head" }, ["Gun (maker / model)", "Atk", "Damage", "Range", "Cap.", "Rounds in the gun", "Misfire"].map(function (h) { return el("span", { text: h }); })));
     for (var i = 0; i < 4; i++) {
       var sel = el("select", { "data-f": "character.guns." + i + ".weapon", "data-gun": i, "aria-label": "Gun " + (i + 1) });
       gunOptions(sel);
@@ -943,39 +942,56 @@
       var load = el("select", { "data-f": "character.guns." + i + ".load", class: "load", "aria-label": "Shell load" }, [opt("buck", "Buckshot"), opt("slug", "Slug")]);
       var modSel = el("select", { "data-f": "character.guns." + i + ".mod", class: "mod-sel", "aria-label": "Gunsmith modification", title: "Gunsmithing: one modification slot" });
       var capSel = el("select", { "data-f": "character.guns." + i + ".capacity", class: "cap-sel", "aria-label": "Capacity upgrade", title: "Gunsmithing: capacity upgrades (one step at a time)" });
+      var ammoSel = el("select", { class: "ammo-pool", "data-ammopool": i, "aria-label": "Ammo for this gun" });
       var hexSel = el("select", { class: "hex-lvl", "data-hexlvl": i, "aria-label": "Hex lead shell level" }, [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (l) { return opt(String(l), l + (l === 1 ? "st" : l === 2 ? "nd" : l === 3 ? "rd" : "th")); }));
       box.appendChild(el("div", { class: "gun", "data-row": i }, [
-        el("div", { class: "g-name" }, [sel, el("div", { class: "g-sub" }, [chamber, load, modSel, capSel, el("span", { class: "g-cal", "data-out": "cal." + i }),
-          el("label", { class: "tiny" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".proficient" }), " prof."]),
-          el("label", { class: "tiny", title: "Engraving and grips. It does not use the modification slot." }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".engraving" }), " engraving"])])]),
-        el("div", { class: "g-atk", "data-label": "Atk" }, [el("input", { class: "calc", "data-calc": "gunAtk." + i, "aria-label": "Attack bonus" })]),
-        el("div", { class: "g-dmg", "data-label": "Damage" }, [el("input", { class: "calc", "data-calc": "gunDmg." + i, "aria-label": "Damage" })]),
-        el("div", { class: "g-rng", "data-label": "Range", "data-out": "rng." + i }),
-        el("div", { class: "g-cap", "data-label": "Cap.", "data-out": "cap." + i }),
-        el("div", { class: "g-load", "data-label": "Loaded" }, [el("div", { class: "chambers", "data-chambers": i }),
-          el("div", { class: "g-btns" }, [
-            el("span", { class: "g-count", "data-out": "left." + i }),
-            el("button", { type: "button", class: "btn sm reload", "data-reload": i, title: "Reload: an action, fills the gun (slow guns: a full turn). Pick which ammo if you have more than one pile." }, ["Reload"]),
-            el("button", { type: "button", class: "btn sm", "data-unload": i, title: "Unload: put the chambered rounds back in your ammo, by type" }, ["Unload"]),
-            el("select", { class: "adv-sel", "data-adv": i, "aria-label": "Advantage or disadvantage", title: "Advantage or disadvantage. Both dice in the misfire range fouls the gun." }, [opt("", "—"), opt("adv", "Adv"), opt("dis", "Dis")]),
-            el("button", { type: "button", class: "btn sm", "data-gunroll": i, title: "Plain attack. Never spends a spell slot. A natural roll in the gun's misfire range jams it. Dirty misfires on at least 1–2." }, ["Roll"]),
-            el("button", { type: "button", class: "btn sm tr", "data-tr": i, title: "Tactical Reload: bonus action, load one round from a gun belt or bandolier (TR ✓ guns only)" }, ["TR +1"]),
-            el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Load one hex shell of this level. Loading spends the slot. Fire it later as a spell attack." }, ["+ Hex shell"])]),
-            el("span", { class: "cast-through", "data-castwrap": i }, [
-              el("select", { class: "cast-spell", "data-castspell": i, "aria-label": "Spell to cast through this gun" }),
-              el("select", { class: "cast-slot", "data-castslot": i, "aria-label": "Shell or slot level", hidden: true }),
-              el("button", { type: "button", class: "btn sm castbtn", "data-cast": i, title: "Cast the spell you picked. A cantrip spends nothing. A Hexslinger shell was spent when you loaded it. A natural 1 on a shell is a wild spark, not a jam." }, ["Cast through gun"]),
-              el("details", { class: "spell-more", "data-castabout": i }, [el("summary", { text: "About" }), el("p", { class: "spell-desc" })])
+        el("div", { class: "g-card-top" }, [
+          el("div", { class: "g-photo", title: "Firearm photo later" }, ["Photo"]),
+          el("div", { class: "g-name" }, [
+            sel,
+            el("div", { class: "g-stats" }, [
+              el("div", { class: "g-atk", "data-label": "Atk" }, [el("input", { class: "calc", "data-calc": "gunAtk." + i, "aria-label": "Attack bonus" })]),
+              el("div", { class: "g-dmg", "data-label": "Damage" }, [el("input", { class: "calc", "data-calc": "gunDmg." + i, "aria-label": "Damage" })]),
+              el("div", { class: "g-rng", "data-label": "Range", "data-out": "rng." + i }),
+              el("div", { class: "g-cap", "data-label": "Cap.", "data-out": "cap." + i })
+            ]),
+            el("div", { class: "g-sub" }, [
+              chamber, load,
+              el("span", { class: "g-cal", "data-out": "cal." + i }),
+              el("label", { class: "tiny" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".proficient" }), " prof."]),
+              el("label", { class: "tiny", title: "Engraving and grips. It does not use the modification slot." }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".engraving" }), " engraving"])
             ])
-          ]),
-          el("div", { class: "load-picks", "data-loadpick": i })
+          ])
         ]),
-        el("div", { class: "g-mis", "data-label": "Misfire" }, [el("span", { "data-out": "mis." + i }),
-          el("span", { class: "gun-status", "data-out": "gst." + i }),
-          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".jammed", disabled: "disabled" }), " jammed"]),
-          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".fouled", disabled: "disabled" }), " fouled"]),
-          el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".dirty", disabled: "disabled" }), " dirty"]),
-          el("button", { type: "button", class: "btn xs", "data-clean": i, title: "Pick a clean before anything changes. Dirty: 10 minutes with gunsmith's tools or a gun cleaning kit. Fouled: a short rest with tinker's or gunsmith's tools, or pay a gunsmith 500 ES. Ruined: gunsmith repair, 500 ES and a day." }, ["Clean"])]),
+        el("div", { class: "g-chamber-row" }, [
+          el("div", { class: "chambers", "data-chambers": i }),
+          el("span", { class: "g-count", "data-out": "left." + i }),
+          el("button", { type: "button", class: "btn sm reload", "data-reload": i, title: "Reload: an action, fills the gun (slow guns: a full turn). Uses the ammo selected on this card." }, ["Reload"]),
+          el("button", { type: "button", class: "btn sm", "data-unload": i, title: "Unload: put the chambered rounds back in your ammo, by type" }, ["Unload"]),
+          ammoSel
+        ]),
+        el("div", { class: "g-smith" }, [modSel, capSel]),
+        el("div", { class: "g-actions" }, [
+          el("select", { class: "adv-sel", "data-adv": i, "aria-label": "Advantage or disadvantage", title: "Advantage or disadvantage. Both dice in the misfire range fouls the gun." }, [opt("", "—"), opt("adv", "Adv"), opt("dis", "Dis")]),
+          el("button", { type: "button", class: "btn sm", "data-gunroll": i, title: "Plain attack. Never spends a spell slot. A natural roll in the gun's misfire range jams it. Dirty misfires on at least 1–2." }, ["Roll"]),
+          el("button", { type: "button", class: "btn sm tr", "data-tr": i, title: "Tactical Reload: bonus action, load one round from a gun belt or bandolier (TR ✓ guns only)" }, ["TR +1"]),
+          el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Load one hex shell of this level. Loading spends the slot. Fire it later as a spell attack." }, ["+ Hex shell"])]),
+          el("span", { class: "cast-through", "data-castwrap": i }, [
+            el("select", { class: "cast-spell", "data-castspell": i, "aria-label": "Spell to cast through this gun" }),
+            el("select", { class: "cast-slot", "data-castslot": i, "aria-label": "Shell or slot level", hidden: true }),
+            el("button", { type: "button", class: "btn sm castbtn", "data-cast": i, title: "Cast the spell you picked. A cantrip spends nothing. A Hexslinger shell was spent when you loaded it. A natural 1 on a shell is a wild spark, not a jam." }, ["Cast through gun"]),
+            el("details", { class: "spell-more", "data-castabout": i }, [el("summary", { text: "About" }), el("p", { class: "spell-desc" })])
+          ]),
+          el("span", { class: "g-mis", "data-label": "Misfire" }, [
+            el("span", { "data-out": "mis." + i }),
+            el("span", { class: "gun-status", "data-out": "gst." + i }),
+            el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".jammed", disabled: "disabled" }), " jammed"]),
+            el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".fouled", disabled: "disabled" }), " fouled"]),
+            el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".dirty", disabled: "disabled" }), " dirty"]),
+            el("button", { type: "button", class: "btn xs", "data-clean": i, title: "Pick a clean before anything changes. Dirty: 10 minutes with gunsmith's tools or a gun cleaning kit. Fouled: a short rest with tinker's or gunsmith's tools, or pay a gunsmith 500 ES. Ruined: gunsmith repair, 500 ES and a day." }, ["Clean"])
+          ])
+        ]),
+        el("div", { class: "load-picks", "data-loadpick": i }),
         el("div", { class: "g-note fine", "data-out": "note." + i })
       ]));
     }
@@ -1451,6 +1467,7 @@
         var kitPool = w ? takePool(g, w, false).pool : null;
         reloadBtn0.textContent = (emptyNow && kitPool && num(kitPool.count) > 0) ? "Load from kit ammo" : "Reload";
       }
+      paintAmmoPool(i, g, w, cap);
       var cleanBtn = $('[data-clean="' + i + '"]');
       if (cleanBtn) cleanBtn.disabled = !!g.pendingD4;
       var gunSel = $('[data-gun="' + i + '"]');
@@ -2347,6 +2364,38 @@
     }
     return "k:" + pool.type + ":" + (pool.caliber || "") + ":" + tier;
   }
+  function ammoPoolLabel(a) {
+    var name = AMMO_LABEL[a.type] || a.type || "Ammo";
+    if (a.type === "cartridge" && a.caliber && window.SSDNSApplied && window.SSDNSApplied.cartridgePoolLabel) {
+      name = window.SSDNSApplied.cartridgePoolLabel(a.caliber) || a.caliber;
+    } else if (a.caliber) name += " " + a.caliber;
+    return name + " (" + num(a.count) + ")";
+  }
+  function paintAmmoPool(i, g, w, cap) {
+    var sel = $('[data-ammopool="' + i + '"]');
+    if (!sel) return;
+    if (!cap || !w) { sel.hidden = true; sel.innerHTML = ""; sel.removeAttribute("data-sig"); return; }
+    sel.hidden = false;
+    var rows = poolsForGun(g, w);
+    var keep = sel.value;
+    var sig = rows.map(function (row) { return row.idx + ":" + row.a.type + ":" + (row.a.caliber || "") + ":" + num(row.a.count); }).join("|");
+    if (sel.getAttribute("data-sig") === sig) return;
+    sel.setAttribute("data-sig", sig);
+    sel.innerHTML = "";
+    if (!rows.length) sel.appendChild(opt("", "No matching ammo"));
+    rows.forEach(function (row) { sel.appendChild(opt(String(row.idx), ammoPoolLabel(row.a))); });
+    if (keep && sel.querySelector('option[value="' + keep + '"]')) sel.value = keep;
+  }
+  function chosenAmmoPool(i, g, w) {
+    var sel = $('[data-ammopool="' + i + '"]');
+    if (!sel || sel.value === "") return null;
+    var idx = Number(sel.value);
+    var pool = (C().ammo || [])[idx];
+    if (!pool) return null;
+    var rows = poolsForGun(g, w);
+    var hit = rows.filter(function (row) { return row.idx === idx; })[0];
+    return hit ? hit.a : null;
+  }
   function showLoadPicks(i, rows, max) {
     var box = $('[data-loadpick="' + i + '"]');
     if (!box) return;
@@ -2401,6 +2450,8 @@
       if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: (w.name || "Gun") + ": " + msg });
       return;
     }
+    var picked = chosenAmmoPool(i, g, w);
+    if (picked) { reloadFromPool(i, picked, max); return; }
     if (rows.length > 1 && !max) { showLoadPicks(i, rows, 0); toast("Pick which rounds to load."); return; }
     reloadFromPool(i, rows[0].a, max);
   }

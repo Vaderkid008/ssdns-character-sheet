@@ -2851,10 +2851,44 @@ async function rollGunAttack(pid) {
     return;
   }
   if (!isFinite(loaded) || loaded <= 0) { DM.toast(g.name + " is empty"); return; }
+  const bonus = atkNumber(g.atk);
+  let mode = ($("#detailAdv") && $("#detailAdv").value) || "";
+  const rings = window.SSDNSRangeRings;
+  const mapHost = window.SSDNSMapHost;
+  if (mapHost && typeof mapHost.armAttack === "function" && !(rings && rings.peek && rings.peek())) {
+    mapHost.armAttack({
+      id: g.weapon || g.name || "",
+      weapon: g.weapon || "",
+      name: g.name || "",
+      group: g.group || "",
+      action: g.action || "",
+      tier: g.tier || "",
+      range: g.range || "",
+      properties: g.properties || "",
+      sfx: g.sfx || ""
+    }, "", pid);
+  }
+  const peeked = rings && rings.peek ? rings.peek() : null;
+  if (peeked && peeked.apply && peeked.blocked) {
+    if (rings.take) rings.take();
+    DM.toast(peeked.button || "Out of range");
+    return;
+  }
+  const rangeDis = !!(peeked && peeked.apply && peeked.disadvantage);
+  if (rangeDis && mode !== "adv" && mode !== "dis") mode = "dis";
+  if (mode === "adv" && rangeDis) mode = "";
+  const willDis = mode === "dis";
+  if (willDis) {
+    const ask = rings && rings.confirmDisadvantage;
+    const ok = ask ? await ask() : true;
+    if (!ok) {
+      if (rings && rings.clear) rings.clear();
+      return;
+    }
+  }
+  if (rings && rings.take) rings.take();
   g.loaded = loaded - 1;
   if (g.plain > 0) g.plain -= 1;
-  const bonus = atkNumber(g.atk);
-  const mode = ($("#detailAdv") && $("#detailAdv").value) || "";
   const n1 = 1 + Math.floor(Math.random() * 20);
   let n2 = null;
   let nat = n1;
@@ -3637,6 +3671,39 @@ async function cardStrike(i, n, opts) {
   if (!target) { DM.toast("No targets"); return; }
   const ac = numericAc(target.ac);
   if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
+  if (!(opts && opts._rangeReady)) {
+    const rings = window.SSDNSRangeRings;
+    const host = window.SSDNSMapHost;
+    if (host && typeof host.armAttack === "function" && !(rings && rings.peek && rings.peek())) {
+      host.armAttack({
+        id: atk.id || atk.name || "",
+        weapon: atk.weapon || atk.id || "",
+        name: atk.name || "",
+        group: atk.group || "",
+        action: atk.action || "",
+        tier: atk.tier || "",
+        range: atk.range || "",
+        properties: atk.properties || "",
+        scatter: !!atk.scatter,
+        kind: atk.kind || ""
+      }, (target && (target.mapTokenId || target.id)) || picked.targetId, row.mapTokenId || "");
+    }
+    const peeked = rings && rings.peek ? rings.peek() : null;
+    if (peeked && peeked.apply && peeked.blocked) {
+      if (rings.take) rings.take();
+      logTableAlert((row.name || "Someone") + ": " + (peeked.button || "Out of range"));
+      return;
+    }
+    const willDis = !!(peeked && peeked.apply && peeked.disadvantage);
+    if (willDis) {
+      const ask = rings && rings.confirmDisadvantage;
+      const ok = ask ? await ask() : true;
+      if (!ok) {
+        if (rings && rings.clear) rings.clear();
+        return;
+      }
+    }
+  }
   const rangeShot = window.SSDNSRangeRings && window.SSDNSRangeRings.take ? window.SSDNSRangeRings.take() : null;
   if (rangeShot && rangeShot.apply && rangeShot.blocked) {
     logTableAlert((row.name || "Someone") + ": " + (rangeShot.button || "Out of range"));

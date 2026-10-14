@@ -1,3 +1,11 @@
+# Range on every fire path — sheet 0.3.29 / DMCC 0.2.42
+
+Cylinder, tube, and attack-button shots use the same range check as the map attack buttons. A shot that would roll at disadvantage asks first: `This attack is with Disadvantage.  Continue?` Cancel spends nothing, posts nothing, and plays no sound. Continue is the first moment a gunshot can play. The map attack buttons add a red `Disadvantage` when the selected target is in a disadvantage band. `assets/data/rules.js` and `database.rules.json` did not change.
+
+# Gear tab — sheet 0.3.29 / DMCC 0.2.41
+
+The sheet Gear tab is two columns. A red target bar with a bullseye sits at the top and holds the same `#atkTarget` select the attack code already uses. The left column is weapon cards (guns, melee, explosives): name, Atk/Dmg/Range/Cap, a photo placeholder, cylinder or tube art, Reload/Unload, an ammo-pool dropdown, mod and capacity, then Roll, TR, hex shell, cast-through-gun, and the jam flags. The right column is armor, then the ammo piles, holster, notes, and the equipment list. DMCC stayed at 0.2.41. `assets/data/rules.js` and `database.rules.json` did not change.
+
 # Range, sync, and the attack card — sheet 0.3.28 / DMCC 0.2.41
 
 `database.rules.json` did not change. `assets/data/rules.js` did not change.

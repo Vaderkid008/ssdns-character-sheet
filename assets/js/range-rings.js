@@ -199,6 +199,63 @@
   function take() { var v = armed; armed = null; return v; }
   function clearArm() { armed = null; }
 
+  var CONFIRM_TEXT = "This attack is with Disadvantage.  Continue?";
+
+  /** Ask before a disadvantaged attack. Cancel resolves false and plays nothing. */
+  function confirmDisadvantage() {
+    if (typeof root.SSDNSTestDisadvantage === "function") {
+      var hooked = root.SSDNSTestDisadvantage();
+      if (hooked && typeof hooked.then === "function") return hooked;
+      return Promise.resolve(hooked !== false);
+    }
+    var doc = root.document;
+    if (!doc || !doc.body) return Promise.resolve(true);
+    return new Promise(function (resolve) {
+      var dlg = doc.createElement("dialog");
+      dlg.className = "dlg ssm-dis-confirm";
+      dlg.setAttribute("data-dis-confirm", "1");
+      var form = doc.createElement("form");
+      form.method = "dialog";
+      var p = doc.createElement("p");
+      p.className = "dis-confirm-text";
+      p.textContent = CONFIRM_TEXT;
+      var foot = doc.createElement("div");
+      foot.className = "dlg-foot";
+      var go = doc.createElement("button");
+      go.type = "submit";
+      go.className = "btn btn-primary";
+      go.setAttribute("data-dis-continue", "1");
+      go.textContent = "Continue";
+      var cancel = doc.createElement("button");
+      cancel.type = "button";
+      cancel.className = "btn";
+      cancel.setAttribute("data-dis-cancel", "1");
+      cancel.textContent = "Cancel";
+      foot.appendChild(go);
+      foot.appendChild(cancel);
+      form.appendChild(p);
+      form.appendChild(foot);
+      dlg.appendChild(form);
+      var done = false;
+      function finish(ok) {
+        if (done) return;
+        done = true;
+        try { if (dlg.close) dlg.close(); } catch (e) {}
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(!!ok);
+      }
+      cancel.addEventListener("click", function () { finish(false); });
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        finish(true);
+      });
+      dlg.addEventListener("cancel", function (e) { e.preventDefault(); finish(false); });
+      doc.body.appendChild(dlg);
+      try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+      catch (err) { dlg.setAttribute("open", ""); }
+    });
+  }
+
   /**
    * Map attack with a target. No target: apply false (today's roll).
    * override "ignore" skips the block and the range disadvantage.
@@ -249,5 +306,8 @@
     };
   }
 
-  root.SSDNSRangeRings = { bands: bands, rings: rings, resolve: resolve, arm: arm, peek: peek, take: take, clear: clearArm };
+  root.SSDNSRangeRings = {
+    bands: bands, rings: rings, resolve: resolve, arm: arm, peek: peek, take: take, clear: clearArm,
+    confirmDisadvantage: confirmDisadvantage, confirmText: CONFIRM_TEXT
+  };
 })(typeof window !== "undefined" ? window : globalThis);

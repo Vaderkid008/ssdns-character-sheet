@@ -1207,6 +1207,31 @@
     var throughGun = !!((hexslinger && fromChamber) || (row && row.weapon));
     var conds = (c && c.activeConditions) || [];
     var chosenMode = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
+    if (!castSpellAttackNow._ready) {
+      var rings0 = root.SSDNSRangeRings;
+      var host0 = root.SSDNSMapHost;
+      if (host0 && typeof host0.armAttack === "function" && !(rings0 && rings0.peek && rings0.peek())) {
+        var tgt0 = currentTarget();
+        host0.armAttack({ id: "spell:" + (spellName || ""), name: spellName || "", spell: true, kind: "spell", spellKind: (row && row.kind) || "attack" }, tgt0 && tgt0.id);
+      }
+      var peekedSpell = rings0 && rings0.peek ? rings0.peek() : null;
+      if (peekedSpell && peekedSpell.apply && peekedSpell.blocked) {
+        if (rings0.take) rings0.take();
+        toast(peekedSpell.button || "out of range");
+        addLog({ kind: "alert", text: (spellName || "Spell") + ": " + (peekedSpell.button || "out of range") });
+        return;
+      }
+      var peekNote = peekedSpell && peekedSpell.apply && peekedSpell.disadvantage ? (peekedSpell.note || "disadvantage: range") : "";
+      if (attackWouldDis(conds, chosenMode, peekNote)) {
+        confirmIfDis(true).then(function (ok) {
+          if (!ok) { if (rings0 && rings0.clear) rings0.clear(); return; }
+          castSpellAttackNow._ready = true;
+          try { castSpellAttackNow(i, spellName, slot, fromChamber, damageType); }
+          finally { castSpellAttackNow._ready = false; }
+        });
+        return;
+      }
+    }
     var rangeShot = root.SSDNSRangeRings && root.SSDNSRangeRings.take ? root.SSDNSRangeRings.take() : null;
     if (rangeShot && rangeShot.apply && rangeShot.blocked) {
       toast(rangeShot.button || "out of range");
@@ -1546,6 +1571,80 @@
     var box = document.querySelector("#chkWhisper");
     return !!(box && box.checked);
   }
+  function attackWouldDis(conditions, chosen, extraDis) {
+    if (root.SSDNSConditions && root.SSDNSConditions.attackMode) {
+      return root.SSDNSConditions.attackMode(conditions || [], chosen || "", extraDis || "") === "dis";
+    }
+    if ((chosen || "") === "adv" && extraDis) return false;
+    return (chosen || "") === "dis" || !!extraDis;
+  }
+  function confirmIfDis(willDis) {
+    if (!willDis) return Promise.resolve(true);
+    var ask = root.SSDNSRangeRings && root.SSDNSRangeRings.confirmDisadvantage;
+    if (!ask) return Promise.resolve(true);
+    return ask().then(function (ok) { return !!ok; });
+  }
+  function gunAttackSpec(i) {
+    var c = ch();
+    var g = c && c.guns && c.guns[i];
+    if (!g) return { id: "gunroll:" + i };
+    var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
+    var wpn = lists.filter(function (x) { return x && x.id === g.weapon; })[0] || {};
+    var rngEl = document.querySelector('[data-out="rng.' + i + '"]');
+    return {
+      id: "gunroll:" + i,
+      weapon: g.weapon,
+      name: wpn.name || gunName(i),
+      group: wpn.group || "",
+      action: wpn.action || "",
+      tier: g.tier || "",
+      scatter: !!wpn.scatter,
+      load: g.load || "",
+      range: rngEl ? String(rngEl.textContent || "") : "",
+      properties: wpn.properties || "",
+      mod: g.mod || "",
+      scope: /scope/i.test(g.mod || "")
+    };
+  }
+  function ensureGunRange(i) {
+    var rings = root.SSDNSRangeRings;
+    if (rings && rings.peek && rings.peek()) return rings.peek();
+    var host = root.SSDNSMapHost;
+    if (!host || typeof host.armAttack !== "function") return null;
+    var tgt = currentTarget();
+    return host.armAttack(gunAttackSpec(i), tgt && tgt.id);
+  }
+  function gunChosen(i) {
+    var modeSel = document.querySelector('[data-adv="' + i + '"]');
+    var globalAdv = document.querySelector("#globalAdv");
+    return (modeSel && modeSel.value) || (globalAdv && globalAdv.value) || "";
+  }
+  function prepareGun(i) {
+    var gate = attackGate(currentTarget());
+    if (gate) {
+      if (root.SSDNSRangeRings && root.SSDNSRangeRings.clear) root.SSDNSRangeRings.clear();
+      toast(gate);
+      addLog({ kind: "alert", text: gate });
+      return Promise.resolve(false);
+    }
+    ensureGunRange(i);
+    var rings = root.SSDNSRangeRings;
+    var peeked = rings && rings.peek ? rings.peek() : null;
+    var name0 = gunName(i);
+    if (peeked && peeked.apply && peeked.blocked) {
+      if (rings.take) rings.take();
+      toast(peeked.button || "Out of range");
+      addLog({ kind: "alert", text: name0 + ": " + (peeked.button || "Out of range") });
+      return Promise.resolve(false);
+    }
+    var rangeNote = peeked && peeked.apply && peeked.disadvantage ? (peeked.note || "disadvantage: range") : "";
+    var willDis = attackWouldDis((ch() && ch().activeConditions) || [], gunChosen(i), rangeNote);
+    if (!willDis) return Promise.resolve(true);
+    return confirmIfDis(true).then(function (ok) {
+      if (!ok && rings && rings.clear) rings.clear();
+      return !!ok;
+    });
+  }
   function rollGun(i, chamber) {
     if (chamber != null) rollGun._chamber = chamber;
     var c = ch();
@@ -1573,9 +1672,14 @@
       var keepChamber = rollGun._chamber;
       ensureAttackTarget().then(function (ok) {
         if (!ok) { rollGun._chamber = null; return; }
-        rollGun._aimed = true;
-        try { rollGun(i, keepChamber); }
-        finally { rollGun._aimed = false; rollGun._chamber = null; }
+        rollGun._chamber = keepChamber;
+        prepareGun(i).then(function (go) {
+          if (!go) { rollGun._chamber = null; return; }
+          rollGun._aimed = true;
+          rollGun._chamber = keepChamber;
+          try { rollGun(i, keepChamber); }
+          finally { rollGun._aimed = false; rollGun._chamber = null; }
+        });
       });
       return;
     }
