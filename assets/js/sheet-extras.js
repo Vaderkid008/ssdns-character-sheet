@@ -1666,6 +1666,7 @@
     return host.armAttack(gunAttackSpec(i), tgt && tgt.id);
   }
   function gunChosen(i) {
+    if (root.SSDNSApp && root.SSDNSApp.gunAttackMode) return root.SSDNSApp.gunAttackMode(i);
     var modeSel = document.querySelector('[data-adv="' + i + '"]');
     var globalAdv = document.querySelector("#globalAdv");
     return (modeSel && modeSel.value) || (globalAdv && globalAdv.value) || "";
@@ -1759,9 +1760,7 @@
     var ceiling = root.SSDNSApp.misfireCeiling
       ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
       : 1;
-    var modeSel = document.querySelector('[data-adv="' + i + '"]');
-    var globalAdv = document.querySelector("#globalAdv");
-    var chosen = (modeSel && modeSel.value) || (globalAdv && globalAdv.value) || "";
+    var chosen = gunChosen(i);
     var gunRollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     var gunDice = attackRoll(atk, (ch() && ch().activeConditions) || [], chosen, rangeNote);
@@ -2399,6 +2398,7 @@
   }
 
   root.SSDNSGunRoll = rollGun;
+  root.SSDNSGunCast = castThroughGun;
   root.SSDNSGunCastHex = castLoadedHex;
   function speakerColor(name) {
     var palette = ["#2f6f8f", "#3d6b4f", "#6b4c2a", "#5a3d6b", "#8a4b2f", "#1f5c6b", "#4a6741", "#7a3e55"];

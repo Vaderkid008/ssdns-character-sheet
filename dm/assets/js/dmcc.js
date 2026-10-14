@@ -950,7 +950,9 @@ function applyDemoGun(playerId, payload) {
     if (payload.pendingD4 != null) g.pendingD4 = !!payload.pendingD4;
     if (payload.dirty != null) g.dirty = !!payload.dirty;
     if (payload.misStreak != null) g.misStreak = payload.misStreak;
-  } else if (payload.op === "clean" && window.SSDNSMisfire && window.SSDNSMisfire.commitClean) {
+  } else if (payload.op === "pool") g.ammoPool = payload.pool == null ? "" : String(payload.pool);
+  else if (payload.op === "mode") g.attackMode = payload.mode === "adv" || payload.mode === "dis" ? payload.mode : "";
+  else if (payload.op === "clean" && window.SSDNSMisfire && window.SSDNSMisfire.commitClean) {
     window.SSDNSMisfire.commitClean(g, payload.optionId);
     if (g.ruined || g.broken) g.condition = "ruined";
     else if (g.jammed) g.condition = "jammed";

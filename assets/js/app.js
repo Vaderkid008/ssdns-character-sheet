@@ -1803,6 +1803,16 @@
     if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
     if (suppress || !t.getAttribute) return;
     if (t.hasAttribute("data-castspell") || t.hasAttribute("data-castslot")) { renderCalc(); return; }
+    if (t.hasAttribute("data-adv")) {
+      if (e.type !== "change") return;
+      setGunAttackMode(num(t.getAttribute("data-adv")), t.value);
+      return;
+    }
+    if (t.hasAttribute("data-ammopool")) {
+      if (e.type !== "change") return;
+      setGunAmmoPool(num(t.getAttribute("data-ammopool")), t.value);
+      return;
+    }
     if (t.hasAttribute("data-calc")) {
       var k = t.getAttribute("data-calc");
       C().overrides[k] = t.value.trim();
@@ -2377,9 +2387,12 @@
     if (!cap || !w) { sel.hidden = true; sel.innerHTML = ""; sel.removeAttribute("data-sig"); return; }
     sel.hidden = false;
     var rows = poolsForGun(g, w);
-    var keep = sel.value;
+    var keep = (g && g.ammoPool !== "" && g.ammoPool != null) ? String(g.ammoPool) : sel.value;
     var sig = rows.map(function (row) { return row.idx + ":" + row.a.type + ":" + (row.a.caliber || "") + ":" + num(row.a.count); }).join("|");
-    if (sel.getAttribute("data-sig") === sig) return;
+    if (sel.getAttribute("data-sig") === sig) {
+      if (keep && sel.querySelector('option[value="' + keep + '"]')) sel.value = keep;
+      return;
+    }
     sel.setAttribute("data-sig", sig);
     sel.innerHTML = "";
     if (!rows.length) sel.appendChild(opt("", "No matching ammo"));
@@ -2387,9 +2400,13 @@
     if (keep && sel.querySelector('option[value="' + keep + '"]')) sel.value = keep;
   }
   function chosenAmmoPool(i, g, w) {
-    var sel = $('[data-ammopool="' + i + '"]');
-    if (!sel || sel.value === "") return null;
-    var idx = Number(sel.value);
+    var idx = null;
+    if (g && g.ammoPool !== "" && g.ammoPool != null && isFinite(Number(g.ammoPool))) idx = Number(g.ammoPool);
+    else {
+      var sel = $('[data-ammopool="' + i + '"]');
+      if (sel && sel.value !== "") idx = Number(sel.value);
+    }
+    if (idx == null || !isFinite(idx)) return null;
     var pool = (C().ammo || [])[idx];
     if (!pool) return null;
     var rows = poolsForGun(g, w);
@@ -2512,6 +2529,95 @@
       return;
     }
     finishHexLoad(i, g, w, lvl, a, k);
+  }
+  function publishGunCard() {
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.publishSnapshot) {
+      try { window.SSDNSDmJoin.publishSnapshot(); } catch (e) {}
+    }
+    if (window.SSDNSMapHost && window.SSDNSMapHost.refreshCard) {
+      try { window.SSDNSMapHost.refreshCard(); } catch (e) {}
+    }
+  }
+  function ammoChoices(i) {
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    if (!g || !w || !w.capacity) return [];
+    return poolsForGun(g, w).map(function (row) {
+      return { idx: row.idx, label: ammoPoolLabel(row.a), count: num(row.a.count), type: row.a.type || "", caliber: row.a.caliber || "" };
+    });
+  }
+  function setGunAmmoPool(i, idx) {
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    if (!g) return false;
+    var next = idx == null ? "" : String(idx);
+    if (next !== "") {
+      var n = Number(next);
+      var rows = w ? poolsForGun(g, w) : [];
+      if (!rows.some(function (row) { return row.idx === n; })) return false;
+      next = String(n);
+    }
+    g.ammoPool = next;
+    var sel = $('[data-ammopool="' + i + '"]');
+    if (sel && sel.value !== next) sel.value = next;
+    changed();
+    publishGunCard();
+    return true;
+  }
+  function setGunAttackMode(i, mode) {
+    var g = C().guns[i];
+    if (!g) return false;
+    var next = mode === "adv" || mode === "dis" ? mode : "";
+    g.attackMode = next;
+    var sel = $('[data-adv="' + i + '"]');
+    if (sel && sel.value !== next) sel.value = next;
+    changed();
+    publishGunCard();
+    return true;
+  }
+  function gunAttackMode(i) {
+    var g = C().guns[i];
+    if (g && (g.attackMode === "adv" || g.attackMode === "dis")) return g.attackMode;
+    var sel = $('[data-adv="' + i + '"]');
+    var globalAdv = $("#globalAdv");
+    return (sel && sel.value) || (globalAdv && globalAdv.value) || "";
+  }
+  function loadHexAt(i, level) {
+    var sel = $('[data-hexlvl="' + i + '"]');
+    if (sel && level != null && level !== "") sel.value = String(level);
+    return loadHexShell(i);
+  }
+  function castList() {
+    return castChoices().map(function (ch) {
+      var slots = [];
+      if (ch.level) {
+        for (var sl = ch.level; sl <= 9; sl++) {
+          if (sl !== ch.level && hexBoxes(sl) <= 0) continue;
+          slots.push({ value: String(sl), label: ordinal(sl) + " shell" });
+        }
+      }
+      return {
+        level: ch.level,
+        name: ch.name,
+        value: ch.value,
+        label: (ch.level ? ordinal(ch.level) + " · " : "") + ch.name,
+        slots: slots
+      };
+    });
+  }
+  function ensureSelectValue(sel, value) {
+    if (!sel || value == null || value === "") return;
+    var val = String(value);
+    var found = false;
+    Array.prototype.forEach.call(sel.options || [], function (op) { if (op.value === val) found = true; });
+    if (!found) sel.appendChild(opt(val, val));
+    sel.value = val;
+  }
+  function prepareGunCast(i, spell, slot) {
+    ensureSelectValue($('[data-castspell="' + i + '"]'), spell);
+    var slotSel = $('[data-castslot="' + i + '"]');
+    if (slotSel && slot != null && slot !== "") {
+      slotSel.hidden = false;
+      ensureSelectValue(slotSel, slot);
+    }
   }
   function toolProfBonus() {
     var v = compute();
@@ -3594,6 +3700,15 @@
       },
       reloadGun: function (i, max) { reload(i, max); },
       unloadGunIndex: function (i) { unloadLoaded(i); },
+      tacticalReload: function (i) { tacticalReload(i); },
+      loadHexShell: function (i) { loadHexShell(i); },
+      loadHexAt: function (i, level) { return loadHexAt(i, level); },
+      ammoChoices: function (i) { return ammoChoices(i); },
+      setAmmoPool: function (i, idx) { return setGunAmmoPool(i, idx); },
+      setAttackMode: function (i, mode) { return setGunAttackMode(i, mode); },
+      gunAttackMode: function (i) { return gunAttackMode(i); },
+      castList: function () { return castList(); },
+      prepareGunCast: function (i, spell, slot) { prepareGunCast(i, spell, slot); },
       cleanGun: function (i) { return cleanGun(i); },
       applyCleanOption: function (i, optionId) { return applyCleanOption(i, optionId); },
       suggestedHp: function () { return suggestedHp(C()); }

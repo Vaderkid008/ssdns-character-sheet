@@ -283,6 +283,13 @@
         spare: spareForGun(g, w),
         reloadId: cyl ? ("reload:" + i) : "",
         trId: w && w.tr ? ("tr:" + i) : "",
+        tr: !!(w && w.tr),
+        caster: !!(w && w.hexShells),
+        calling: c.calling || "",
+        ammoPool: g.ammoPool == null ? "" : String(g.ammoPool),
+        attackMode: g.attackMode === "adv" || g.attackMode === "dis" ? g.attackMode : "",
+        pools: (app.ammoChoices && w && w.capacity) ? app.ammoChoices(i) : [],
+        castSpells: (c.calling === "hexslinger" && w && w.hexShells && app.castList) ? app.castList() : [],
         dirty: !!g.dirty,
         fouled: !!g.fouled,
         ruined: !!(g.ruined || g.broken),
@@ -361,6 +368,11 @@
       btn = document.querySelector('[data-clean="' + cssEscape(id.slice(6)) + '"]');
     }
     else if (id.indexOf("reload:") === 0) btn = document.querySelector('[data-reload="' + cssEscape(id.slice(7)) + '"]');
+    else if (id.indexOf("unload:") === 0) {
+      var unloader = root.SSDNSApp && root.SSDNSApp.unloadGunIndex;
+      if (typeof unloader === "function") return unloader(Number(id.slice(7)));
+      btn = document.querySelector('[data-unload="' + cssEscape(id.slice(7)) + '"]');
+    }
     else if (id.indexOf("tr:") === 0) btn = document.querySelector('[data-tr="' + cssEscape(id.slice(3)) + '"]');
     if (btn && !btn.hidden) btn.click();
   }
@@ -426,6 +438,11 @@
       "drawer:reload": "reload",
       "drawer:unload": "unload",
       "drawer:clean": "clean",
+      "drawer:pool": "pool",
+      "drawer:tr": "tr",
+      "drawer:hex": "hex",
+      "drawer:castgun": "castgun",
+      "drawer:mode": "mode",
       "drawer:deathsave": "deathsave",
       "drawer:undo": "undo",
       "drawer:chamber": "chamber",

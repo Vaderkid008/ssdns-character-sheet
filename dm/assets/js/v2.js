@@ -5755,7 +5755,15 @@ function mapDrawerCard(row) {
       jammed: !!a.jammed,
       misStreak: Number(a.misStreak) || 0,
       pendingD4: !!a.pendingD4,
-      gunIndex: a.gunIndex
+      gunIndex: a.gunIndex,
+      sheetIndex: a.sheetIndex != null ? a.sheetIndex : a.gunIndex,
+      tr: !!a.tr,
+      caster: !!a.caster,
+      calling: a.calling || "",
+      ammoPool: a.ammoPool == null ? "" : String(a.ammoPool),
+      attackMode: a.attackMode === "adv" || a.attackMode === "dis" ? a.attackMode : "",
+      pools: Array.isArray(a.pools) ? a.pools : [],
+      castSpells: Array.isArray(a.castSpells) ? a.castSpells : []
     };
     if (cap != null && isFinite(cap)) {
       const chambers = Array.isArray(a.chambers) && a.chambers.length
@@ -5793,10 +5801,11 @@ function mapDrawerCard(row) {
     spells: spells,
     longRangeHex: !!snapFeats.longRangeHex,
     sharpshooter: !!snapFeats.sharpshooter,
-    tactics: (window.SSDNSApplied && window.SSDNSApplied.tacticsNote) ? (window.SSDNSApplied.tacticsNote(row) || "") : (row.tactics || ""),
-    deathSaves: row.deathSaves || null,
-    dmActsAs: row.kind === "player" ? !!row.dmActsAs : false
-  };
+      tactics: (window.SSDNSApplied && window.SSDNSApplied.tacticsNote) ? (window.SSDNSApplied.tacticsNote(row) || "") : (row.tactics || ""),
+      deathSaves: row.deathSaves || null,
+      dmActsAs: row.kind === "player" ? !!row.dmActsAs : false,
+      calling: snapFeats.calling || snapFeats.callingId || ""
+    };
 }
 function findFightRow(tokenId) {
   if (!tokenId) return null;
@@ -5908,7 +5917,15 @@ function ensurePlayerAttacks(row) {
       chambers: Array.isArray(g.chambers) ? g.chambers.slice() : null,
       spare: window.SSDNSApplied && window.SSDNSApplied.spareCount ? window.SSDNSApplied.spareCount(Object.assign({}, g, { caliber: g.caliber || g.ammo }), (snap && snap.ammo) || []) : (g.spare || 0),
       gunIndex: n,
+      sheetIndex: g.index != null && g.index !== "" ? g.index : n,
       weapon: g.weapon || "",
+      tr: !!g.tr,
+      caster: !!g.caster,
+      calling: (snap && (snap.calling || snap.callingId)) || "",
+      ammoPool: g.ammoPool == null ? "" : String(g.ammoPool),
+      attackMode: g.attackMode === "adv" || g.attackMode === "dis" ? g.attackMode : "",
+      pools: Array.isArray(g.pools) ? g.pools : [],
+      castSpells: Array.isArray(snap && snap.castSpells) ? snap.castSpells : [],
       range: g.range || "",
       properties: g.properties || "",
       group: g.group || "",
@@ -6089,6 +6106,39 @@ async function mapGunLoad(detail, unload) {
   await saveRemoteTable();
   renderFight();
   DM.toast((unload ? "Unloaded " : "Reloaded ") + (atk.name || "weapon"));
+  return true;
+}
+async function mapGunChoice(detail, op, extra) {
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No card linked"); return false; }
+  const row = fight.order[i];
+  if (!row || row.kind !== "player" || !row.dmActsAs) { DM.toast("The player acts for themselves"); return false; }
+  ensurePlayerAttacks(row);
+  const n = mapAttackIndex(row, detail && detail.weaponId);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk) { DM.toast("No weapon"); return false; }
+  const pid = row.playerId || row.id;
+  const snap = playerSnapshot(pid);
+  const calling = (snap && (snap.calling || snap.callingId)) || atk.calling || "";
+  if ((op === "hex" || op === "cast") && (calling !== "hexslinger" || !atk.caster)) {
+    DM.toast("Hex shells are only for a Hexslinger's caster gun.");
+    return false;
+  }
+  if (op === "tr" && !atk.tr) { DM.toast("This gun can't Tactical Reload (TR —)."); return false; }
+  if (op === "pool" && extra && extra.pool !== "" && extra.pool != null) {
+    const piles = atk.pools || [];
+    if (piles.length && !piles.some((p) => String(p.idx) === String(extra.pool))) {
+      DM.toast("That pile doesn't fit this gun.");
+      return false;
+    }
+  }
+  const gi = atk.sheetIndex != null ? atk.sheetIndex : (atk.gunIndex != null ? atk.gunIndex : n);
+  const payload = Object.assign({ op: op, index: gi }, extra || {});
+  await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+  if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+  ensurePlayerAttacks(row);
+  await saveRemoteTable();
+  renderFight();
   return true;
 }
 async function mapGunClean(detail) {
@@ -6396,6 +6446,14 @@ window.SSDNSMapFight = {
   reload(detail) { return mapGunLoad(detail, false); },
   unload(detail) { return mapGunLoad(detail, true); },
   clean(detail) { return mapGunClean(detail); },
+  pool(detail) { return mapGunChoice(detail, "pool", { pool: detail && detail.pool != null ? detail.pool : "" }); },
+  tr(detail) { return mapGunChoice(detail, "tr", {}); },
+  hex(detail) { return mapGunChoice(detail, "hex", { level: detail && detail.level }); },
+  castgun(detail) { return mapGunChoice(detail, "cast", { spell: detail && detail.spell, slot: detail && detail.slot }); },
+  mode(detail) {
+    const mode = detail && (detail.mode === "adv" || detail.mode === "dis") ? detail.mode : "";
+    return mapGunChoice(detail, "mode", { mode: mode });
+  },
   async deathsave(detail) {
     const i = mapFightIndex(detail || {});
     if (i < 0) { DM.toast("No card linked"); return false; }

@@ -578,7 +578,43 @@ body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right
 }
 .ssdns-playercard .cylinder-row button[data-act="playerReload"],
 .ssdns-playercard .cylinder-row button[data-act="playerTr"],
-.ssdns-playercard .cylinder-row button[data-act="playerClean"] {
+.ssdns-playercard .cylinder-row button[data-act="playerClean"],
+.ssdns-playercard .cylinder-row button[data-act="playerUnload"],
+.ssdns-playercard .cylinder-row button[data-act="playerHex"],
+.ssdns-playercard .cylinder-row button[data-act="playerCast"] {
+  width: auto;
+  flex: 0 0 auto;
+  min-height: 24px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+.ssdns-playercard label.ssm-pool,
+.ssdns-playercard label.ssm-mode,
+.ssm-drawer label.ssm-pool,
+.ssm-drawer label.ssm-mode {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  flex: 1 1 100%;
+  font-size: 11px;
+}
+.ssdns-playercard label.ssm-mode input,
+.ssm-drawer label.ssm-mode input { width: auto; margin: 0; }
+.ssdns-playercard .ssm-pool select,
+.ssdns-playercard .ssm-hex select,
+.ssm-drawer .ssm-pool select,
+.ssm-drawer .ssm-hex select {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 11px;
+}
+.ssm-hex { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; flex: 1 1 100%; }
+.ssm-drawer .cylinder-row button[data-act="rowTr"],
+.ssm-drawer .cylinder-row button[data-act="rowHex"],
+.ssm-drawer .cylinder-row button[data-act="rowCast"] {
   width: auto;
   flex: 0 0 auto;
   min-height: 24px;

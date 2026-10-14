@@ -4139,6 +4139,101 @@ async function loadSceneImage(sceneId) {
     }
     return '<button type="button" data-act="' + act + '"' + idAttr + (gun.pendingD4 ? ' disabled' : '') + '>Clean</button>';
   }
+  function gunIndexOf(a) {
+    if (a && a.gunIndex != null && a.gunIndex !== '') return String(a.gunIndex);
+    const id = String(a && a.id || '');
+    if (id.indexOf('gunroll:') === 0) return id.slice(8);
+    return '';
+  }
+  function rememberGun(el, field, value) {
+    const key = (el && (el.getAttribute('data-wid') || el.getAttribute('data-gun'))) || '';
+    if (!key) return;
+    state.gunUi = state.gunUi || {};
+    state.gunUi[key] = state.gunUi[key] || {};
+    state.gunUi[key][field] = value;
+  }
+  function recalled(a, field, fallback) {
+    const key = String((a && a.id) || gunIndexOf(a) || '');
+    const bag = state.gunUi && state.gunUi[key];
+    if (bag && bag[field] != null && bag[field] !== '') return bag[field];
+    return fallback || '';
+  }
+  function poolSelect(a, act) {
+    const gi = gunIndexOf(a);
+    const pools = (a && a.pools) || [];
+    const cur = a && a.ammoPool != null ? String(a.ammoPool) : '';
+    let opts = '';
+    if (!pools.length) opts = '<option value="">No matching ammo</option>';
+    else pools.forEach(p => {
+      const v = String(p.idx);
+      opts += '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(p.label || v) + '</option>';
+    });
+    return '<label class="ssm-pool">Ammo <select data-act="' + act + '" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '" aria-label="Ammo for this gun">' + opts + '</select></label>';
+  }
+  function modeChecks(a, advAct, disAct) {
+    const mode = a && (a.attackMode === 'adv' || a.attackMode === 'dis') ? a.attackMode : '';
+    const gi = gunIndexOf(a);
+    return '<label class="ssm-mode"><input type="checkbox" data-act="' + advAct + '" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '"' + (mode === 'adv' ? ' checked' : '') + '> Adv</label>' +
+      '<label class="ssm-mode"><input type="checkbox" data-act="' + disAct + '" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '"' + (mode === 'dis' ? ' checked' : '') + '> Dis</label>';
+  }
+  function hexCastControl(a, prefix) {
+    if (!a || a.calling !== 'hexslinger' || !a.caster) return '';
+    const gi = gunIndexOf(a);
+    const spells = a.castSpells || [];
+    let picked = recalled(a, 'spell', '');
+    if (!picked && prefix === 'player') {
+      const gear = document.querySelector('[data-castspell="' + gi + '"]');
+      picked = gear && gear.value || '';
+    }
+    if (picked && spells.length && !spells.some(s => s && s.value === picked)) picked = '';
+    if (!picked && spells[0]) picked = spells[0].value;
+    let spellOpts = spells.length ? '' : '<option value="">No spells on this sheet</option>';
+    spells.forEach(s => {
+      const v = s.value || '';
+      spellOpts += '<option value="' + esc(v) + '"' + (v === picked ? ' selected' : '') + '>' + esc(s.label || s.name || v) + '</option>';
+    });
+    const chosen = spells.filter(s => s && s.value === picked)[0] || null;
+    const slots = (chosen && chosen.slots) || [];
+    let slotLv = recalled(a, 'slot', '');
+    if (!slotLv && prefix === 'player') {
+      const gearSlot = document.querySelector('[data-castslot="' + gi + '"]');
+      slotLv = gearSlot && gearSlot.value || '';
+    }
+    if (slotLv && slots.length && !slots.some(s => String(s.value) === String(slotLv))) slotLv = '';
+    if (!slotLv && slots[0]) slotLv = String(slots[0].value);
+    let slotOpts = '';
+    slots.forEach(s => {
+      const v = String(s.value);
+      slotOpts += '<option value="' + esc(v) + '"' + (v === String(slotLv) ? ' selected' : '') + '>' + esc(s.label || v) + '</option>';
+    });
+    let hexLv = recalled(a, 'hex', '1');
+    let lvl = '';
+    for (let n = 1; n <= 9; n++) {
+      const suf = n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th';
+      lvl += '<option value="' + n + '"' + (String(hexLv) === String(n) ? ' selected' : '') + '>' + n + suf + '</option>';
+    }
+    const slotHidden = slots.length ? '' : ' hidden';
+    return '<span class="ssm-hex" data-gun="' + esc(gi) + '">' +
+      '<select data-act="' + prefix + 'HexLvl" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '" aria-label="Hex lead shell level">' + lvl + '</select>' +
+      '<button type="button" data-act="' + prefix + 'Hex" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '">+ Hex shell</button>' +
+      '<select data-act="' + prefix + 'CastSpell" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '" aria-label="Spell to cast through this gun">' + spellOpts + '</select>' +
+      '<select data-act="' + prefix + 'CastSlot" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '" aria-label="Shell or slot level"' + slotHidden + '>' + slotOpts + '</select>' +
+      '<button type="button" data-act="' + prefix + 'Cast" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '">Cast through gun</button>' +
+      '</span>';
+  }
+  function gunExtras(a, side) {
+    const gi = gunIndexOf(a);
+    const unload = side === 'player' && ((a && a.reloadId) || (a && a.ammo && a.ammo.cap))
+      ? '<button type="button" data-act="playerUnload" data-id="unload:' + esc(gi) + '">Unload</button>'
+      : '';
+    const tr = side === 'row' && a && a.tr
+      ? '<button type="button" data-act="rowTr" data-wid="' + esc(a.id || '') + '" data-gun="' + esc(gi) + '">TR</button>'
+      : '';
+    const pools = poolSelect(a, side === 'player' ? 'playerPool' : 'rowPool');
+    const modes = modeChecks(a, side === 'player' ? 'playerAdv' : 'rowAdv', side === 'player' ? 'playerDis' : 'rowDis');
+    const hex = hexCastControl(a, side === 'player' ? 'player' : 'row');
+    return unload + tr + pools + modes + hex;
+  }
   function playerCylinderRow(a, targetHtml) {
     const cap = a.ammo ? (Number(a.ammo.cap) || 0) : 0;
     const loaded = a.ammo ? (Number(a.ammo.loaded) || 0) : 0;
@@ -4148,6 +4243,7 @@ async function loadSceneImage(sceneId) {
     const reload = a.reloadId ? '<button type="button" data-act="playerReload" data-id="' + esc(a.reloadId) + '">' + esc(reloadLabel) + '</button>' : '';
     const tr = a.trId ? '<button type="button" data-act="playerTr" data-id="' + esc(a.trId) + '">TR</button>' : '';
     const clean = cleanControl(a, 'playerClean');
+    const extras = gunExtras(a, 'player');
     const select = '<select data-act="cylTarget" aria-label="Target">' + targetHtml + '</select>';
     const graphic = cap && window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
     if (graphic) {
@@ -4168,7 +4264,7 @@ async function loadSceneImage(sceneId) {
         attrs: function (k) { return { 'data-k': String(k) }; }
       });
       return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture +
-        '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + select + reload + tr + clean + '</div>';
+        '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + select + reload + tr + clean + extras + '</div>';
     }
     let dots = '';
     for (let k = 0; k < cap; k++) {
@@ -4177,7 +4273,7 @@ async function loadSceneImage(sceneId) {
     }
     const dotsHtml = cap ? '<span class="chamber-dots">' + dots + '</span>' : '';
     const rounds = cap ? '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' : '';
-    return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + dotsHtml + rounds + select + reload + tr + clean + '</div>';
+    return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + dotsHtml + rounds + select + reload + tr + clean + extras + '</div>';
   }
   function paintPlayerFight() {
     const slot = q('actionSlot');
@@ -4242,8 +4338,60 @@ async function loadSceneImage(sceneId) {
       (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       spells;
     bindSpellFold(slot);
-    slot.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"], [data-act="playerClean"]').forEach(b => {
+    slot.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"], [data-act="playerClean"], [data-act="playerUnload"]').forEach(b => {
       b.addEventListener('click', () => runPlayer(b.getAttribute('data-id') || b.getAttribute('data-wid')));
+    });
+    const appGun = () => window.SSDNSApp || null;
+    slot.querySelectorAll('[data-act="playerPool"]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const app = appGun();
+        if (app && app.setAmmoPool) app.setAmmoPool(Number(sel.getAttribute('data-gun')), sel.value);
+        paintPlayerFight();
+      });
+    });
+    const bindMode = (box, mode) => {
+      box.addEventListener('change', () => {
+        const app = appGun();
+        const on = box.checked ? mode : '';
+        if (app && app.setAttackMode) app.setAttackMode(Number(box.getAttribute('data-gun')), on);
+        paintPlayerFight();
+      });
+    };
+    slot.querySelectorAll('[data-act="playerAdv"]').forEach(b => bindMode(b, 'adv'));
+    slot.querySelectorAll('[data-act="playerDis"]').forEach(b => bindMode(b, 'dis'));
+    slot.querySelectorAll('[data-act="playerHexLvl"]').forEach(sel => {
+      sel.addEventListener('change', () => rememberGun(sel, 'hex', sel.value));
+    });
+    slot.querySelectorAll('[data-act="playerHex"]').forEach(b => {
+      b.addEventListener('click', () => {
+        const gi = b.getAttribute('data-gun');
+        const lvl = slot.querySelector('[data-act="playerHexLvl"][data-gun="' + gi + '"]');
+        const app = appGun();
+        if (app && app.loadHexAt) app.loadHexAt(Number(gi), lvl ? lvl.value : 1);
+        paintPlayerFight();
+      });
+    });
+    slot.querySelectorAll('[data-act="playerCastSpell"], [data-act="playerCastSlot"]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        rememberGun(sel, sel.getAttribute('data-act') === 'playerCastSpell' ? 'spell' : 'slot', sel.value);
+        const app = appGun();
+        const gi = sel.getAttribute('data-gun');
+        const spell = slot.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
+        const slotSel = slot.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
+        if (app && app.prepareGunCast) app.prepareGunCast(Number(gi), spell && spell.value, slotSel && slotSel.value);
+        paintPlayerFight();
+      });
+    });
+    slot.querySelectorAll('[data-act="playerCast"]').forEach(b => {
+      b.addEventListener('click', () => {
+        const gi = b.getAttribute('data-gun');
+        const spell = slot.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
+        const slotSel = slot.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
+        const app = appGun();
+        if (app && app.prepareGunCast) app.prepareGunCast(Number(gi), spell && spell.value, slotSel && !slotSel.hidden ? slotSel.value : '');
+        if (window.SSDNSGunCast) window.SSDNSGunCast(Number(gi));
+        paintPlayerFight();
+      });
     });
     slot.querySelectorAll('[data-act="playerChamber"]').forEach(b => {
       b.addEventListener('click', (ev) => {
@@ -4364,7 +4512,8 @@ async function loadSceneImage(sceneId) {
         });
         const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
         const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
-        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + '</div>';
+        const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : '';
+        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + rowExtras + '</div>';
       }
       let dots = '';
       for (let k = 0; k < cap; k++) {
@@ -4373,7 +4522,8 @@ async function loadSceneImage(sceneId) {
       }
       const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
       const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
-      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + '</div>';
+      const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : '';
+      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + rowExtras + '</div>';
     }).join('');
     const spellButtons = groupedSpells(card.spells || [], s => {
       const meta = [
@@ -4561,6 +4711,60 @@ async function loadSceneImage(sceneId) {
         emit('drawer:clean', detail({ weaponId: b.getAttribute('data-wid') }));
       });
     });
+    const actGate = () => {
+      if (canAct) return true;
+      toast('The player acts for themselves');
+      return false;
+    };
+    d.querySelectorAll('[data-act="rowPool"]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        if (!actGate()) return;
+        emit('drawer:pool', detail({ weaponId: sel.getAttribute('data-wid'), pool: sel.value }));
+      });
+    });
+    d.querySelectorAll('[data-act="rowTr"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (!actGate()) return;
+        emit('drawer:tr', detail({ weaponId: b.getAttribute('data-wid') }));
+      });
+    });
+    d.querySelectorAll('[data-act="rowHexLvl"], [data-act="rowCastSpell"], [data-act="rowCastSlot"]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const field = sel.getAttribute('data-act') === 'rowHexLvl' ? 'hex' : (sel.getAttribute('data-act') === 'rowCastSpell' ? 'spell' : 'slot');
+        rememberGun(sel, field, sel.value);
+        if (field === 'spell') renderDrawer();
+      });
+    });
+    d.querySelectorAll('[data-act="rowHex"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (!actGate()) return;
+        const gi = b.getAttribute('data-gun');
+        const lvl = d.querySelector('[data-act="rowHexLvl"][data-gun="' + gi + '"]');
+        emit('drawer:hex', detail({ weaponId: b.getAttribute('data-wid'), level: lvl ? lvl.value : 1 }));
+      });
+    });
+    d.querySelectorAll('[data-act="rowCast"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (!actGate()) return;
+        const gi = b.getAttribute('data-gun');
+        const spell = d.querySelector('[data-act="rowCastSpell"][data-gun="' + gi + '"]');
+        const slotSel = d.querySelector('[data-act="rowCastSlot"][data-gun="' + gi + '"]');
+        emit('drawer:castgun', detail({
+          weaponId: b.getAttribute('data-wid'),
+          spell: spell ? spell.value : '',
+          slot: slotSel && !slotSel.hidden ? slotSel.value : ''
+        }));
+      });
+    });
+    const bindRowMode = (box, mode) => {
+      box.addEventListener('change', () => {
+        if (!actGate()) { box.checked = !box.checked; return; }
+        const on = box.checked ? mode : '';
+        emit('drawer:mode', detail({ weaponId: box.getAttribute('data-wid'), mode: on }));
+      });
+    };
+    d.querySelectorAll('[data-act="rowAdv"]').forEach(b => bindRowMode(b, 'adv'));
+    d.querySelectorAll('[data-act="rowDis"]').forEach(b => bindRowMode(b, 'dis'));
     const rangeMode = d.querySelector('[data-act="rangeOverride"]');
     if (rangeMode) rangeMode.addEventListener('change', () => {
       state.rangeOverride = rangeMode.value || 'auto';

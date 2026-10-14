@@ -120,7 +120,7 @@
     var v = compute();
     var Bridge = root.SSDNSBridge;
     var es = Bridge ? Bridge.cpValue(d.shards) : 0;
-    var guns = (c.guns || []).map(function (g) {
+    var guns = (c.guns || []).map(function (g, i) {
       if (!g || !g.weapon) return null;
       var st = (v.guns || []).filter(function (x) { return x && x.w && x.w.id === g.weapon; })[0];
       var name = st && st.w ? st.w.name : g.weapon;
@@ -164,7 +164,12 @@
         rugged: !!(st && st.w && /rugged/i.test(st.w.properties || "")),
         note: st && st.note ? st.note : "",
         chambers: (g.chambers || []).slice(),
-        caliber: (st && st.w && st.w.ammo) || g.caliber || ""
+        caliber: (st && st.w && st.w.ammo) || g.caliber || "",
+        index: i,
+        tr: !!(st && st.w && st.w.tr),
+        ammoPool: g.ammoPool == null ? "" : String(g.ammoPool),
+        attackMode: g.attackMode === "adv" || g.attackMode === "dis" ? g.attackMode : "",
+        pools: (root.SSDNSApp && root.SSDNSApp.ammoChoices) ? root.SSDNSApp.ammoChoices(i) : []
       };
     }).filter(Boolean);
 
@@ -237,6 +242,7 @@
       ammo: (c.ammo || []).filter(Boolean).map(function (a) {
         return { type: a.type || "", caliber: a.caliber || "", count: Number(a.count) || 0 };
       }),
+      castSpells: (c.calling === "hexslinger" && root.SSDNSApp && root.SSDNSApp.castList) ? root.SSDNSApp.castList() : [],
       updatedAt: new Date().toISOString()
     };
   }
@@ -1344,6 +1350,22 @@
       return;
     } else if (payload.op === "clean" && app.applyCleanOption) {
       app.applyCleanOption(payload.index, payload.optionId);
+      return;
+    } else if (payload.op === "pool" && app.setAmmoPool) {
+      app.setAmmoPool(payload.index, payload.pool);
+      return;
+    } else if (payload.op === "tr" && app.tacticalReload) {
+      app.tacticalReload(payload.index);
+      return;
+    } else if (payload.op === "hex" && app.loadHexAt) {
+      app.loadHexAt(payload.index, payload.level);
+      return;
+    } else if (payload.op === "cast") {
+      if (app.prepareGunCast) app.prepareGunCast(payload.index, payload.spell, payload.slot);
+      if (root.SSDNSGunCast) root.SSDNSGunCast(payload.index);
+      return;
+    } else if (payload.op === "mode" && app.setAttackMode) {
+      app.setAttackMode(payload.index, payload.mode);
       return;
     } else if (payload.op === "misfire" && app.applyPatch && root.SSDNSMisfire) {
       var notes = [];
