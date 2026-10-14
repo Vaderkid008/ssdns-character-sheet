@@ -6,7 +6,7 @@ The player's floating card keeps Ping, Ruler, Ghost Plan, Cancel plan, and Torch
 
 The old sheet dump is gone: unsold labels, prices, empty melee slots, and the extra Cast button on a gun.
 
-The ammo pictures are on by default for the Gear tab, the Fight tab, and the map. `?ammoDisplay=0` or `localStorage ssdns.ammoDisplay = "off"` puts the old dots back. `?ammoDisplay=1` or `"on"` forces the pictures.
+The ammo pictures are on by default for the Gear tab, the Fight tab, and the map. `?ammoDisplay=0` or `localStorage ssdns.ammoDisplay = "off"` puts the old dots back. `?ammoDisplay=1` or `"on"` forces the pictures. Cylinder holes scale with the chamber count so they fill the face. Lever-tube bullets are bronze. Shotgun shells are side-view cylinders: a brass base and a red hull, long and thin for .410, medium for 12 gauge, largest for 10 gauge. A slug is the same shape in blue with an S.
 
 ```cmd
 node tools/test-player-card.mjs

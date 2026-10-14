@@ -200,18 +200,61 @@
       '<rect x="1" y="3" width="27" height="10" rx="1.4" fill="var(--case,#e0b44a)" stroke="#5c4316" stroke-width="0.6"/>' +
       '<circle cx="6.2" cy="8" r="2.2" fill="#f4f0e8"/>' +
       '<circle cx="6.2" cy="8" r="1.05" fill="#a86b3c"/>' +
-      '<path d="M27.5 4.1 H39.5 L46 8 L39.5 11.9 H27.5 Z" fill="#1c1612"/>' +
+      '<path class="ammo-tip" d="M27.5 4.1 H39.5 L46 8 L39.5 11.9 H27.5 Z" fill="#7a5828"/>' +
       "</svg>";
   }
 
-  function shellSvg() {
-    return '<svg class="ammo-shell" viewBox="0 0 48 16" aria-hidden="true">' +
-      '<rect x="1" y="3" width="13" height="10" rx="1" fill="#d7b15e" stroke="#5c4316" stroke-width="0.5"/>' +
-      '<circle cx="5.2" cy="8" r="1.7" fill="#6b3a22"/>' +
-      '<rect x="13" y="3.3" width="24" height="9.4" fill="var(--case,#c4a35a)" stroke="#3a2a14" stroke-width="0.4"/>' +
-      '<path d="M37 3.6 L46 8 L37 12.4 Z" fill="#efe8da" stroke="#6a6258" stroke-width="0.45"/>' +
-      '<path d="M39.2 6.4 L43.2 8 L39.2 9.6" fill="none" stroke="#6a6258" stroke-width="0.45"/>' +
+  function isSlug(spec) {
+    var load = String((spec && spec.load) || "").toLowerCase();
+    return load === "slug" || /\bslug\b/.test(load);
+  }
+
+  function shellGauge(spec) {
+    spec = spec || {};
+    var bits = [spec.gauge, spec.round, spec.caliber, spec.tier, spec.name].join(" ").toLowerCase();
+    if (/10\s*-?\s*ga\b|10\s*gauge/.test(bits)) return "10";
+    if (/\.410|\b410\b/.test(bits)) return "410";
+    if (/12\s*-?\s*ga\b|12\s*gauge/.test(bits)) return "12";
+    var tier = String(spec.tier || "").toLowerCase();
+    if (tier === "heavy") return "10";
+    if (tier === "light") return "410";
+    return "12";
+  }
+
+  function shellSvg(spec) {
+    var gauge = shellGauge(spec);
+    var slug = isSlug(spec);
+    var hull = slug ? "#2a62b5" : "#c4322e";
+    var hullDark = slug ? "#1c457f" : "#8e241f";
+    var brass = "#d7b15e";
+    var brassEdge = "#8a6a32";
+    var box = gauge === "410" ? { w: 78, h: 14 } : (gauge === "10" ? { w: 62, h: 26 } : { w: 56, h: 20 });
+    var w = box.w;
+    var h = box.h;
+    var bodyH = h - 4.4;
+    var rimH = h - 1.4;
+    var yBody = (h - bodyH) / 2;
+    var yRim = (h - rimH) / 2;
+    var rimW = Math.max(2.4, h * 0.16);
+    var headW = Math.max(4.2, h * 0.38);
+    var crimp = Math.max(2.2, h * 0.16);
+    var hullX = rimW + headW - 0.3;
+    var hullW = Math.max(6, w - hullX - crimp - 1.2);
+    var mark = slug
+      ? '<text x="' + (hullX + hullW * 0.46).toFixed(1) + '" y="' + (h * 0.68).toFixed(1) + '" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="' + (bodyH * 0.7).toFixed(1) + '" fill="#f4f7fb">S</text>'
+      : "";
+    return '<svg class="ammo-shell" viewBox="0 0 ' + w + " " + h + '" aria-hidden="true">' +
+      '<rect x="0.6" y="' + yRim.toFixed(2) + '" width="' + rimW.toFixed(2) + '" height="' + rimH.toFixed(2) + '" rx="0.5" fill="' + brass + '" stroke="' + brassEdge + '" stroke-width="0.45"/>' +
+      '<rect x="' + rimW.toFixed(2) + '" y="' + yBody.toFixed(2) + '" width="' + headW.toFixed(2) + '" height="' + bodyH.toFixed(2) + '" fill="' + brass + '" stroke="' + brassEdge + '" stroke-width="0.35"/>' +
+      '<circle cx="' + (rimW + headW * 0.42).toFixed(2) + '" cy="' + (h / 2).toFixed(2) + '" r="' + Math.max(0.7, bodyH * 0.16).toFixed(2) + '" fill="#6b3a22"/>' +
+      '<rect x="' + hullX.toFixed(2) + '" y="' + yBody.toFixed(2) + '" width="' + hullW.toFixed(2) + '" height="' + bodyH.toFixed(2) + '" rx="' + (bodyH * 0.2).toFixed(2) + '" fill="' + hull + '" stroke="' + hullDark + '" stroke-width="0.4"/>' +
+      '<rect x="' + (hullX + hullW - 0.4).toFixed(2) + '" y="' + (yBody + bodyH * 0.08).toFixed(2) + '" width="' + (crimp + 0.6).toFixed(2) + '" height="' + (bodyH * 0.84).toFixed(2) + '" rx="' + (bodyH * 0.2).toFixed(2) + '" fill="' + hull + '" stroke="' + hullDark + '" stroke-width="0.35"/>' +
+      mark +
       "</svg>";
+  }
+
+  function shellClass(spec) {
+    return "is-shell is-cart is-gauge-" + shellGauge(spec) + (isSlug(spec) ? " is-slug" : " is-buck");
   }
 
   function rimPath(n) {
@@ -238,13 +281,32 @@
     return "";
   }
 
+  function chamberLayout(n) {
+    var rim = 40.8;
+    var pin = 8.4;
+    var gap = 0.9;
+    n = Math.max(n, 1);
+    if (n === 1) return { R: 0, d: 58 };
+    var sin = Math.sin(Math.PI / n);
+    var r = (rim * sin - gap) / (1 + sin);
+    var R = rim - r;
+    if (R - r < pin) {
+      r = (rim - pin) / 2;
+      R = (rim + pin) / 2;
+      var along = R * sin - gap;
+      if (along < r) r = along;
+    }
+    return { R: R, d: r * 2 };
+  }
+
   function cylinderHtml(spec, model) {
     var n = Math.max(model.cap, 1);
-    var diameter = n >= 8 ? 15 : (n === 7 ? 16 : (n <= 5 ? 20 : 18));
+    var lay = chamberLayout(n);
+    var diameter = lay.d;
     var buttons = model.chambers.map(function (chamber) {
       var ang = -Math.PI / 2 + (chamber.index * 2 * Math.PI / n);
-      var cx = 50 + Math.cos(ang) * 29;
-      var cy = 50 + Math.sin(ang) * 29;
+      var cx = 50 + Math.cos(ang) * lay.R;
+      var cy = 50 + Math.sin(ang) * lay.R;
       var style = "left:" + cx.toFixed(2) + "%;top:" + cy.toFixed(2) + "%;width:" + diameter + "%;height:" + diameter + "%;" + toneStyle(spec, chamber);
       return roundButton(spec, chamber, style, null, "is-primer");
     }).join("");
@@ -280,7 +342,7 @@
       var left = ((col + 0.5) / per) * 84;
       var top = wrap ? (row ? 72 : 28) : 50;
       var style = "left:" + left.toFixed(2) + "%;top:" + top + "%;" + toneStyle(spec, chamber);
-      return roundButton(spec, chamber, style, spend, art, shell ? shellSvg() : cartSvg());
+      return roundButton(spec, chamber, style, spend, shell ? shellClass(spec) : art, shell ? shellSvg(spec) : cartSvg());
     }).join("");
     var fire = spend < 0 ? "" : '<button type="button" class="ammo-tube-fire" ' + attrString(spec, spend) + ' aria-label="Fire the leftmost round"></button>';
     var follower = (model.filled / cap) * 84;
@@ -300,7 +362,7 @@
     var shell = isShotgun(spec);
     var buttons = model.chambers.map(function (chamber) {
       var style = toneStyle(spec, chamber);
-      if (shell) return roundButton(spec, chamber, style, null, "is-shell is-cart", shellSvg());
+      if (shell) return roundButton(spec, chamber, style, null, shellClass(spec), shellSvg(spec));
       return roundButton(spec, chamber, style, null, "is-primer");
     }).join("");
     var gun = shell ? " is-shotgun" : "";
