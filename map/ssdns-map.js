@@ -797,15 +797,15 @@ function currentRangeChoices() {
     if (choice) list.push(choice);
   });
   (card.spells || []).forEach(s => {
-    if (!s || s.kind !== 'attack') return;
-    const range = s.range || (window.SSDNSRangeRings && window.SSDNSSpellCast && window.SSDNSSpellCast.rangeOf && window.SSDNSSpellCast.rangeOf(s.name)) || '';
+    if (!s) return;
+    const range = s.range || (window.SSDNSSpellCast && window.SSDNSSpellCast.rangeOf && window.SSDNSSpellCast.rangeOf(s.name)) || '';
     if (!range) return;
     list.push({
       id: 'spell:' + (s.id || s.name),
       name: s.name || 'Spell',
       kind: 'spell',
       spell: true,
-      spellKind: 'attack',
+      spellKind: s.kind || 'attack',
       range: range,
       longRangeHex: !!feats.longRangeHex
     });
@@ -876,21 +876,26 @@ function paintRangeRings() {
   if (!picked) return;
   const px = state.scene.grid.px;
   const moved = !!(state.rangeMoved && state.rangeMoved[token.id]);
-  const pack = window.SSDNSRangeRings.rings(Object.assign({}, picked, { moved: moved }));
+  const pack = window.SSDNSRangeRings.rings(Object.assign({}, picked, {
+    moved: moved,
+    hostileFeet: nearestHostileFeet(token)
+  }));
+  const highlight = highlightBand(token, picked, pack.rings || []);
   const size = token.size || 1;
   const center = worldToScreen((token.pos.x + size / 2) * px, (token.pos.y + size / 2) * px);
   ctx.save();
   (pack.rings || []).forEach(ring => {
     const radius = (ring.feet / 5) * px * state.view.zoom;
     if (!(radius > 0)) return;
+    const hot = ring.role === highlight;
     ctx.beginPath();
     ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
     if (ring.fill) {
-      ctx.fillStyle = ring.fill;
+      ctx.fillStyle = hot ? ring.fill.replace(/0\.\d+\)/, "0.34)") : ring.fill;
       ctx.fill();
     }
     ctx.strokeStyle = ring.stroke;
-    ctx.lineWidth = ring.width || 2;
+    ctx.lineWidth = (ring.width || 2) + (hot ? 4 : 0);
     ctx.setLineDash([]);
     ctx.stroke();
   });
@@ -1688,6 +1693,82 @@ function viewCenterCell() {
   y = Math.max(0, Math.min((grid.rows || 20) - 1, y));
   return { x: x, y: y };
 }
+function feetBetween(a, b) {
+  if (!a || !b || !a.pos || !b.pos) return null;
+  const dx = (a.pos.x + (a.size || 1) / 2) - (b.pos.x + (b.size || 1) / 2);
+  const dy = (a.pos.y + (a.size || 1) / 2) - (b.pos.y + (b.size || 1) / 2);
+  return Math.round(Math.hypot(dx, dy) * 5);
+}
+function tokenByRef(id) {
+  if (!id) return null;
+  return (state.tokens || []).find(t => t && (t.id === id || t.combatantId === id || t.ownerUid === id)) || null;
+}
+function nearestHostileFeet(shooter) {
+  if (!shooter) return null;
+  let hostile = null;
+  (state.tokens || []).forEach(t => {
+    if (!t || t.id === shooter.id || !t.pos) return;
+    const otherPc = !!t.ownerUid;
+    const hostileTok = shooter.ownerUid ? !otherPc : otherPc;
+    if (!hostileTok) return;
+    const ft = feetBetween(shooter, t);
+    if (ft == null) return;
+    if (hostile == null || ft < hostile) hostile = ft;
+  });
+  return hostile;
+}
+function highlightBand(shooter, attack, rings) {
+  const tgt = rangeHighlightToken(shooter);
+  if (!tgt || !attack) return "";
+  const verdict = rangeButtonNote(attack, tgt.id, shooter.id);
+  const band = verdict && verdict.band;
+  if (!band) return "";
+  const roles = (rings || []).map(r => r.role);
+  if (band === "close" && roles.indexOf("close") >= 0) return "close";
+  if (band === "warn" && roles.indexOf("warn") >= 0) return "warn";
+  if ((band === "long" || band === "blocked") && roles.indexOf("limit") >= 0) return "limit";
+  if (band === "blocked" && roles.indexOf("past") >= 0) return "past";
+  if (band === "blocked" && roles.indexOf("spell") >= 0) return "spell";
+  if (roles.indexOf("normal") >= 0) return "normal";
+  if (roles.indexOf("reach") >= 0) return "reach";
+  if (roles.indexOf("spell") >= 0) return "spell";
+  if (roles.indexOf("limit") >= 0) return "limit";
+  return "";
+}
+function rangeHighlightToken(shooter) {
+  let id = "";
+  if (role === "player") id = state.playerTarget || "";
+  else {
+    const box = q("drawer");
+    const sel = box && box.querySelector('[data-act="cylTarget"]');
+    id = state.rangeTargetId || (sel && sel.value) || "";
+    if (!id && state.selected && shooter && state.selected.id !== shooter.id) id = state.selected.id;
+  }
+  const tgt = tokenByRef(id);
+  if (!tgt || !shooter || tgt.id === shooter.id) return null;
+  return tgt;
+}
+function rangeButtonNote(attack, targetId, shooterId) {
+  if (!window.SSDNSRangeRings || !window.SSDNSRangeRings.resolve || !attack || !targetId) return null;
+  const shooter = tokenByRef(shooterId) ||
+    (role === 'player' ? (state.tokens || []).find(t => t && t.ownerUid === uid) : null);
+  const tgt = tokenByRef(targetId);
+  if (!shooter || !tgt || !shooter.pos || !tgt.pos) return null;
+  const id = String(attack.id || '');
+  const spell = !!(attack.spell || attack.kind === 'spell' || id.indexOf('spell:') === 0);
+  return window.SSDNSRangeRings.resolve(Object.assign({}, attack, { spell: spell, kind: spell ? 'spell' : (attack.kind || '') }), feetBetween(shooter, tgt), {
+    hasTarget: true,
+    hostileFeet: nearestHostileFeet(shooter),
+    override: role === 'dm' ? (state.rangeOverride || 'auto') : 'auto'
+  });
+}
+function armRange(attack, targetId, shooterId) {
+  const verdict = rangeButtonNote(attack, targetId, shooterId);
+  if (!verdict || !verdict.apply || !window.SSDNSRangeRings.arm) return verdict;
+  window.SSDNSRangeRings.arm(verdict);
+  if (verdict.log && role === 'dm') emit('chat:send', { text: verdict.log });
+  return verdict;
+}
 function selectToken(token) {
   if (!token) return;
   if (state.pendingTarget && role === 'dm') {
@@ -1695,7 +1776,18 @@ function selectToken(token) {
       toast('Pick a different token');
       return;
     }
+    const card = lookupCard(state.pendingTarget.tokenId);
+    const wid = state.pendingTarget.weaponId || state.pendingTarget.spellId || '';
+    const attack = card && ((card.attacks || []).find(a => a && (a.id === wid || a.name === wid)) || (card.spells || []).find(s => s && (s.id === wid || s.name === wid)));
+    const verdict = armRange(attack || { id: wid }, token.id, state.pendingTarget.tokenId);
+    if (verdict && verdict.blocked) {
+      toast(verdict.button || 'Out of range');
+      state.pendingTarget = null;
+      renderDrawer();
+      return;
+    }
     emit('drawer:target', { tokenId: state.pendingTarget.tokenId, weaponId: state.pendingTarget.weaponId || '', spellId: state.pendingTarget.spellId || '', targetTokenId: token.id, combatantId: tokenCombatant(state.pendingTarget.tokenId), targetCombatantId: tokenCombatant(token.id) });
+    state.rangeTargetId = token.id;
     state.pendingTarget = null;
     toast('Target set');
     renderDrawer();
@@ -3753,7 +3845,16 @@ async function loadSceneImage(sceneId) {
     if (!id) return;
     extra = extra || {};
     const tokenId = state.selected ? state.selected.id : null;
-    const targetId = extra.targetId != null ? extra.targetId : (state.playerTarget || '');
+    const targetId = extra.targetId != null ? extra.targetId : ((state.rowTargets && state.rowTargets[id]) || state.playerTarget || '');
+    if (String(id).indexOf('gunroll:') === 0 || String(id).indexOf('melee:') === 0 || String(id).indexOf('spell:') === 0 || id === 'pact') {
+      const card = playerFightModel();
+      const attack = ((card && card.attacks) || []).concat((card && card.spells) || []).find(a => a && a.id === id);
+      const verdict = armRange(attack || { id: id }, targetId, uid);
+      if (verdict && verdict.blocked) {
+        toast(verdict.button || 'Out of range');
+        return;
+      }
+    }
     state.playerTarget = targetId;
     const ctx = { id: id, tokenId: tokenId, targetId: targetId };
     if (extra.chamber != null && extra.chamber !== '') ctx.chamber = extra.chamber;
@@ -3769,7 +3870,9 @@ async function loadSceneImage(sceneId) {
     const cap = a.ammo ? (Number(a.ammo.cap) || 0) : 0;
     const loaded = a.ammo ? (Number(a.ammo.loaded) || 0) : 0;
     const flags = a.ammo && Array.isArray(a.ammo.chambers) ? a.ammo.chambers : null;
-    const reload = a.reloadId ? '<button type="button" data-act="playerReload" data-id="' + esc(a.reloadId) + '">Reload</button>' : '';
+    const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : null);
+    const reloadLabel = 'Reload' + (spareN != null && spareN !== '' ? ' · ' + spareN : '');
+    const reload = a.reloadId ? '<button type="button" data-act="playerReload" data-id="' + esc(a.reloadId) + '">' + esc(reloadLabel) + '</button>' : '';
     const tr = a.trId ? '<button type="button" data-act="playerTr" data-id="' + esc(a.trId) + '">TR</button>' : '';
     const select = '<select data-act="cylTarget" aria-label="Target">' + targetHtml + '</select>';
     const graphic = cap && window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
@@ -3827,9 +3930,22 @@ async function loadSceneImage(sceneId) {
       return '<option value="' + esc(o.id) + '"' + on + '>' + esc(o.label || 'No target') + '</option>';
     }).join('');
     const attacks = (card.attacks || []).map(a => {
-      return '<button type="button" class="ssm-atk" data-act="playerAttack" data-id="' + esc(a.id) + '">' + esc(attackLine(a)) + '</button>';
+      const rowTarget = (state.rowTargets && state.rowTargets[a.id]) || state.playerTarget || '';
+      const verdict = rangeButtonNote(a, rowTarget, uid);
+      let text = attackLine(a);
+      let off = '';
+      if (verdict && verdict.blocked) { text = verdict.button || 'Out of range'; off = ' disabled'; }
+      else if (verdict && verdict.button) text = attackLine(a) + ' · ' + verdict.button;
+      return '<button type="button" class="ssm-atk" data-act="playerAttack" data-id="' + esc(a.id) + '"' + off + '>' + esc(text) + '</button>';
     }).join('');
-    const cylinders = (card.attacks || []).filter(a => (a.ammo && a.ammo.cap) || a.reloadId || a.trId).map(a => playerCylinderRow(a, targetHtml)).join('');
+    const cylinders = (card.attacks || []).filter(a => (a.ammo && a.ammo.cap) || a.reloadId || a.trId).map(a => {
+      const chosen = (state.rowTargets && (state.rowTargets[a.id] || state.rowTargets[a.reloadId])) || state.playerTarget || '';
+      const html = playerTargetOptions().map(o => {
+        const on = String(o.id) === String(chosen) ? ' selected' : '';
+        return '<option value="' + esc(o.id) + '"' + on + '>' + esc(o.label || 'No target') + '</option>';
+      }).join('');
+      return playerCylinderRow(a, html);
+    }).join('');
     const spellButtons = groupedSpells(card.spells || [], s => {
       const meta = [
         s.kind === 'save' ? 'save' : (s.kind === 'attack' ? 'attack' : (s.kind && s.kind !== 'none' ? s.kind : '')),
@@ -3861,9 +3977,15 @@ async function loadSceneImage(sceneId) {
     });
     slot.querySelectorAll('[data-act="cylTarget"]').forEach(sel => {
       sel.addEventListener('change', () => {
+        const row = sel.closest('.cylinder-row');
+        const gunBtn = row && row.querySelector('[data-act="playerReload"], [data-act="playerChamber"]');
+        const wid = gunBtn ? (gunBtn.getAttribute('data-wid') || gunBtn.getAttribute('data-id') || '') : '';
+        state.rowTargets = state.rowTargets || {};
+        if (wid) state.rowTargets[wid] = sel.value;
         state.playerTarget = sel.value;
-        slot.querySelectorAll('[data-act="cylTarget"]').forEach(other => { if (other !== sel) other.value = sel.value; });
         if (host.setSheetTarget) host.setSheetTarget(sel.value);
+        paintPlayerFight();
+        requestDraw();
       });
     });
   }
@@ -3914,11 +4036,6 @@ async function loadSceneImage(sceneId) {
     const isPc = card.kind === 'pc';
     const canAct = !isPc || card.dmActsAs === true;
     const hp = card.hp || {};
-    const attacks = (card.attacks || []).map(a => {
-      const ammo = a.ammo ? ' [' + (a.ammo.loaded != null ? a.ammo.loaded : '—') + '/' + (a.ammo.cap != null ? a.ammo.cap : '—') + ']' : '';
-      return '<button type="button" class="ssm-atk" data-wid="' + esc(a.id) + '" ' + (canAct ? '' : 'disabled') + '>' +
-        esc(a.name || a.id) + ' +' + esc(a.toHit != null && a.toHit !== '' ? a.toHit : 0) + ' ' + esc(a.damage || '') + esc(ammo) + '</button>';
-    }).join('');
     const picked = state.selected && state.selected.id !== tokenId ? state.selected : null;
     const targetPack = (typeof host.combatTargets === 'function' && host.combatTargets({
       tokenId: tokenId,
@@ -3931,6 +4048,16 @@ async function loadSceneImage(sceneId) {
       const on = id && id === targetPack.selected ? ' selected' : '';
       return '<option value="' + esc(id) + '"' + on + '>' + esc((o && (o.label || o.name)) || id) + '</option>';
     }).join('') || '<option value="">No targets</option>';
+    const attacks = (card.attacks || []).map(a => {
+      const ammo = a.ammo ? ' [' + (a.ammo.loaded != null ? a.ammo.loaded : '—') + '/' + (a.ammo.cap != null ? a.ammo.cap : '—') + ']' : '';
+      const base = (a.name || a.id) + ' +' + (a.toHit != null && a.toHit !== '' ? a.toHit : 0) + ' ' + (a.damage || '') + ammo;
+      const verdict = rangeButtonNote(a, targetPack.selected || '', tokenId);
+      let text = base;
+      let off = canAct ? '' : 'disabled';
+      if (verdict && verdict.blocked) { text = verdict.button || 'Out of range'; off = 'disabled'; }
+      else if (verdict && verdict.button) text = base + ' · ' + verdict.button;
+      return '<button type="button" class="ssm-atk" data-wid="' + esc(a.id) + '" ' + off + '>' + esc(text) + '</button>';
+    }).join('');
     const cylinders = (card.attacks || []).filter(a => a && a.ammo && a.ammo.cap).map(a => {
       const cap = Number(a.ammo.cap) || 0;
       const loaded = Number(a.ammo.loaded) || 0;
@@ -3953,14 +4080,18 @@ async function loadSceneImage(sceneId) {
           attr: 'data-act="chamber" data-wid="' + esc(a.id) + '"',
           attrs: function (k) { return { 'data-k': String(k) }; }
         });
-        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select></div>';
+        const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
+        const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
+        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + '</div>';
       }
       let dots = '';
       for (let k = 0; k < cap; k++) {
         const full = flags ? !!flags[k] : k < loaded;
         dots += '<button type="button" class="chamber-dot' + (full ? ' full' : '') + '" data-act="chamber" data-wid="' + esc(a.id) + '" data-k="' + k + '" aria-label="Chamber ' + (k + 1) + '"></button>';
       }
-      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select></div>';
+      const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
+      const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
+      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + '</div>';
     }).join('');
     const spellButtons = groupedSpells(card.spells || [], s => {
       const meta = [
@@ -4004,6 +4135,11 @@ async function loadSceneImage(sceneId) {
       deathLine +
       actToggle +
       '<label class="ssm-act ssm-range"><input type="checkbox" data-act="drawerRange"' + (state.showRange ? ' checked' : '') + '> Show range</label>' +
+      '<label class="ssm-act">Range: <select data-act="rangeOverride" aria-label="Range: Auto">' +
+        '<option value="auto"' + ((state.rangeOverride || 'auto') === 'auto' ? ' selected' : '') + '>Auto</option>' +
+        '<option value="ignore"' + (state.rangeOverride === 'ignore' ? ' selected' : '') + '>Ignore range</option>' +
+        '<option value="force"' + (state.rangeOverride === 'force' ? ' selected' : '') + '>Force DIS</option>' +
+      '</select></label>' +
       '<select data-act="drawerRangeWeapon" aria-label="Token weapon" hidden></select>' +
       (conds ? '<div class="ssm-conds">' + conds + '</div>' : '') +
       (card.tactics ? '<div class="ssm-tactics">' + esc(card.tactics) + '</div>' : '') +
@@ -4053,6 +4189,12 @@ async function loadSceneImage(sceneId) {
           state.pendingTarget = { tokenId, weaponId: wid };
         }
         renderDrawer();
+      });
+    });
+    d.querySelectorAll('[data-act="cylTarget"]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        state.rangeTargetId = sel.value || '';
+        requestDraw();
       });
     });
     d.querySelectorAll('[data-act="chamber"]').forEach(b => {
@@ -4113,6 +4255,11 @@ async function loadSceneImage(sceneId) {
       const already = (card.conditions || []).some(x => condLabel(x).toLowerCase() === name.toLowerCase());
       emit('drawer:condition', detail({ condition: name, on: !already }));
     });
+    d.querySelectorAll('[data-act="rowReload"]').forEach(b => {
+      b.addEventListener('click', () => emit('drawer:reload', detail({ weaponId: b.getAttribute('data-wid') })));
+    });
+    const rangeMode = d.querySelector('[data-act="rangeOverride"]');
+    if (rangeMode) rangeMode.addEventListener('change', () => { state.rangeOverride = rangeMode.value || 'auto'; });
     d.querySelector('[data-act="reloadBtn"]').addEventListener('click', () => emit('drawer:reload', detail({ weaponId: pickedWeapon() })));
     d.querySelector('[data-act="unloadBtn"]').addEventListener('click', () => emit('drawer:unload', detail({ weaponId: pickedWeapon() })));
     d.querySelector('[data-act="deathBtn"]').addEventListener('click', () => emit('drawer:deathsave', detail()));

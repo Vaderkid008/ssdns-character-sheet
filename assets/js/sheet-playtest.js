@@ -414,8 +414,11 @@
     var atk = parseInt((document.querySelector("[data-melee-atk='" + i + "']") || {}).textContent, 10) || 0;
     var expr = (document.querySelector("[data-melee-dmg='" + i + "']") || {}).textContent || "1d4";
     var chosen = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
+    var rangeShot = root.SSDNSRangeRings && root.SSDNSRangeRings.take ? root.SSDNSRangeRings.take() : null;
+    if (rangeShot && rangeShot.apply && rangeShot.blocked) { toast(rangeShot.button || "Out of range"); return; }
+    var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     var faced = root.SSDNSSheet && root.SSDNSSheet.attackRoll
-      ? root.SSDNSSheet.attackRoll(atk, (c && c.activeConditions) || [], chosen)
+      ? root.SSDNSSheet.attackRoll(atk, (c && c.activeConditions) || [], chosen, rangeNote)
       : { nat: d20(), shown: "", note: "", n2: null };
     var nat = faced.nat;
     var miss = nat === 1;
@@ -476,7 +479,20 @@
     var dmgTxt = (!miss && detail) ? (" · " + formula + " = " + total) : "";
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
     var modeWord = chosen === "dis" ? " · disadvantage" : (chosen === "adv" ? " · advantage" : "");
-    var line = (tgt && tgt.name ? (who + " → " + tgt.name) : who) + ": " + name + " · " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt + (faced.note ? " · " + faced.note : "") + modeWord;
+    var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
+      ? root.SSDNSApplied.attackBreakdown({
+        who: who, target: tgt && tgt.name, nat: nat, n1: faced.n1, n2: faced.n2,
+        parts: [{ label: "bonus", value: atk }], total: hitTotal, ac: haveAc ? tgt.ac : null,
+        revealAc: !(root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt)),
+        miss: miss, crit: crit && !miss,
+        damage: !miss ? { faces: rolls, parts: flat ? [{ label: "mod", value: flat }] : [], total: total, type: "" } : null
+      })
+      : null;
+    var line = (card ? card.text : ((tgt && tgt.name ? (who + " → " + tgt.name) : who) + ": " + name + " · " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt)) + (faced.note ? " · " + faced.note : "") + modeWord;
+    if (root.SSDNSAudio && root.SSDNSAudio.playOutcome) {
+      var meleeId = c.melee && c.melee[i] && c.melee[i].weapon;
+      root.SSDNSAudio.playOutcome({ id: meleeId || "", name: name, kind: "melee" }, miss ? "miss" : (crit ? "crit" : "hit"));
+    }
     if (root.SSDNSSheet && root.SSDNSSheet.consumeRollMode) root.SSDNSSheet.consumeRollMode();
     toast(line);
     var Sheet = root.SSDNSSheet;

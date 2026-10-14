@@ -36,6 +36,17 @@
     "arrow-impact": "arrow-impact.mp3",
     "silenced": "silenced.mp3"
   },
+  "outcomes": {
+    "categories": {
+      "melee": { "hit": "", "miss": "", "crit": "" },
+      "gun": { "hit": "", "miss": "", "crit": "" },
+      "arrow": { "hit": "", "miss": "", "crit": "" },
+      "spell": { "hit": "", "miss": "", "crit": "" }
+    },
+    "weapons": {
+      "shortbow": { "hit": "bow", "miss": "", "crit": "bow" }
+    }
+  },
   "weapons": {
     "navy-army-ball-n-cap-revolver": "revolver",
     "herringer-light-pocket-pistol": "revolver",

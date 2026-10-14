@@ -1,5 +1,5 @@
 /**
- * Range rings are a picture. Attack rolls are not changed here.
+ * Range rings draw the bands. resolve() applies them to a map attack that has a target.
  *   node tools/test-range-rings.mjs
  */
 import fs from "node:fs";
@@ -58,7 +58,36 @@ check("hex.double", bolt.spell && bolt.normal === 240 && bolt.long === 240 && bo
 const plain = api.bands({ name: "Fire Bolt", kind: "spell", spell: true, spellKind: "attack", range: "120 ft" });
 check("hex.off", plain.normal === 120);
 const save = api.bands({ name: "Bless", kind: "spell", spellKind: "save", range: "30 ft", longRangeHex: true });
-check("hex.notSave", save.normal === 0 && save.long === 0);
+check("hex.notSave", save.normal === 30 && save.long === 30 && save.doubled === false && save.purple === true, JSON.stringify(save));
+const selfSpell = api.bands({ name: "Shield", kind: "spell", spell: true, spellKind: "save", range: "self" });
+check("spell.self", selfSpell.self === true && selfSpell.normal === 0, JSON.stringify(selfSpell));
+const touch = api.bands({ name: "Shocking Grasp", kind: "spell", spell: true, spellKind: "attack", range: "touch" });
+check("spell.touch", touch.normal === 5 && touch.touch === true && touch.purple === true, JSON.stringify(touch));
+const purple = api.rings({ name: "Fire Bolt", kind: "spell", spell: true, spellKind: "attack", range: "120 ft" });
+check("spell.purple", purple.rings.length === 1 && purple.rings[0].role === "spell" && purple.rings[0].stroke === "#7b4fd6" && purple.rings[0].feet === 120, JSON.stringify(purple.rings));
+check("spell.label", purple.label === "Spell · 120 ft", purple.label);
+const hexLabel = api.rings({ name: "Fire Bolt", kind: "spell", spell: true, spellKind: "attack", range: "120 ft", longRangeHex: true });
+check("spell.hexLabel", hexLabel.label.indexOf("x2 Long-Range Hex") >= 0 && hexLabel.rings[0].feet === 240, hexLabel.label);
+const warn = api.rings({ name: "Fire Bolt", kind: "spell", spell: true, spellKind: "attack", range: "120 ft", hostileFeet: 5 });
+check("spell.warn", warn.rings.some((r) => r.role === "warn" && r.feet === 5 && r.stroke === "#e23b32"));
+const long = api.resolve({ weapon: "dulls-rolling-block-rifle", tier: "medium" }, 100, { hasTarget: true, hostileFeet: 40 });
+check("band.long", long.apply && long.disadvantage && !long.blocked && long.button === "DIS · long range" && long.note.indexOf("100 ft") >= 0, JSON.stringify(long));
+const casterFifty = api.resolve({ weapon: "blacksnake", round: ".50-90" }, 10, { hasTarget: true, hostileFeet: 5 });
+check("caster.fifty", !casterFifty.note || casterFifty.note.indexOf("close quarters") < 0, JSON.stringify(casterFifty));
+const blocked = api.resolve({ weapon: "dulls-rolling-block-rifle", tier: "medium" }, 300, { hasTarget: true });
+check("band.past", blocked.blocked && blocked.button === "Out of range", JSON.stringify(blocked));
+const spellPast = api.resolve({ name: "Fire Bolt", kind: "spell", spell: true, spellKind: "attack", range: "120 ft" }, 130, { hasTarget: true });
+check("band.spellPast", spellPast.blocked && spellPast.button === "out of range", JSON.stringify(spellPast));
+const ignored = api.resolve({ weapon: "dulls-rolling-block-rifle", tier: "medium" }, 300, { hasTarget: true, override: "ignore" });
+check("band.ignore", !ignored.blocked && !ignored.disadvantage && ignored.log === "DM override: range ignored", JSON.stringify(ignored));
+const forced = api.resolve({ weapon: "herringer-light-pocket-pistol" }, 10, { hasTarget: true, override: "force", hostileFeet: 100 });
+check("band.force", forced.disadvantage && !forced.blocked && forced.log === "DM override: disadvantage forced", JSON.stringify(forced));
+const none = api.resolve({ weapon: "dulls-rolling-block-rifle", tier: "medium" }, null, { hasTarget: false });
+check("band.noTarget", none.apply === false, JSON.stringify(none));
+const close = api.resolve({ weapon: "dulls-rolling-block-rifle", tier: "medium" }, 20, { hasTarget: true, hostileFeet: 5 });
+check("band.close", close.disadvantage && close.note.indexOf("close quarters") >= 0, JSON.stringify(close));
+const cq = api.resolve({ weapon: "henrietta-saddle-carbine" }, 10, { hasTarget: true, hostileFeet: 5 });
+check("band.closeQuarters", !cq.disadvantage, JSON.stringify(cq));
 
 const sharp = api.bands({ weapon: "bison-big-fifty-buffalo-rifle", sharpshooter: true, moved: true });
 check("sharp.keepsUnwieldy", sharp.clearLong === true && sharp.close === 30, JSON.stringify(sharp));

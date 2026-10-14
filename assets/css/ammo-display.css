@@ -1,5 +1,20 @@
 /* Ammo pictures. Only .ssdns-ammo is styled, so a flag-off page is unchanged. */
-.ssdns-ammo { position: relative; display: inline-block; vertical-align: middle; line-height: 0; }
+.ssdns-ammo { position: relative; display: inline-block; vertical-align: middle; line-height: 0; flex: 0 0 auto; }
+.ssdns-playercard .ssdns-ammo-cylinder,
+.ssm-drawer .ssdns-ammo-cylinder {
+  width: 72px;
+  height: 72px;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+}
+.ssdns-playercard .ssdns-ammo .ammo-round,
+.ssm-drawer .ssdns-ammo .ammo-round { width: auto; }
+.ssdns-playercard .ssdns-ammo-tube.is-drawer,
+.ssm-drawer .ssdns-ammo-tube.is-drawer {
+  width: 148px;
+  max-width: none;
+  flex: 0 0 auto;
+}
 .ssdns-ammo-cylinder { width: 112px; height: 112px; }
 .ssdns-ammo-cylinder.is-drawer { width: 96px; height: 96px; }
 .ssdns-ammo-cylinder.is-gear { width: 88px; height: 88px; }

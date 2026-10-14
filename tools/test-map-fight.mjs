@@ -175,7 +175,7 @@ const fired = await sandbox.SSDNSMapFight.attack({
 });
 const rustlerRoll = rolls[rolls.length - 1] || {};
 check("chamber.fire", fired === true && jolene.hp === 16 && rustler.card.attacks[0].loaded === 5, "hp " + jolene.hp + " loaded " + rustler.card.attacks[0].loaded);
-check("chamber.actor", rustlerRoll.who === "Rustler" && /Rustler attacks Jolene/.test(rustlerRoll.detail || "") && !/Wade attacks/.test(rustlerRoll.detail || ""), rustlerRoll.detail);
+check("chamber.actor", rustlerRoll.who === "Rustler" && /Rustler → Jolene/.test(rustlerRoll.detail || "") && /→ HIT/.test(rustlerRoll.detail || "") && !/Wade attacks/.test(rustlerRoll.detail || ""), rustlerRoll.detail);
 check("chamber.sfx", played[played.length - 1] === "revolver", played.join(","));
 {
   const sfxDom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/", runScripts: "dangerously" });

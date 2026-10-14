@@ -79,6 +79,8 @@
 
   function setHp(current, temp, max) {
     var cur = $("#inHPCur"), tmp = $("#inHPTemp"), maxEl = $("#inHPMax");
+    var sameCur = cur && String(cur.value) === String(current);
+    var sameTmp = !tmp || temp == null || String(tmp.value) === String(temp);
     if (cur) cur.value = String(current);
     if (tmp && temp != null) tmp.value = String(temp);
     if (maxEl) {
@@ -87,13 +89,21 @@
       if (nextMax != null && nextMax !== "") maxEl.value = String(nextMax);
       dispatch(maxEl);
     }
-    dispatch(tmp);
-    dispatch(cur);
+    if (!sameTmp) dispatch(tmp);
+    if (!sameCur) dispatch(cur);
     if (Number(current) > 0) clearDowned();
   }
   function clearDowned() {
     var c = ch();
     if (!c) return;
+    var list = c.activeConditions || [];
+    var already = list.some(function (row) {
+      var name = typeof row === "string" ? row : (row && row.name);
+      return name === "Unconscious";
+    });
+    var saves = c.deathSaves;
+    var marked = saves && ((saves.success || []).some(Boolean) || (saves.fail || []).some(Boolean));
+    if (!already && !marked) return;
     if (root.SSDNSConditions && root.SSDNSConditions.ensureUnconscious) {
       c.activeConditions = root.SSDNSConditions.ensureUnconscious(c.activeConditions || [], 1, "self");
       c.tableConditions = root.SSDNSConditions.listText ? root.SSDNSConditions.listText(c.activeConditions) : (c.tableConditions || "");
@@ -696,10 +706,19 @@
         amount: Number(info.damage) || 0,
         hitTotal: info.hitTotal,
         nat: info.nat,
+        n1: info.n1,
+        n2: info.n2,
+        parts: info.parts || null,
+        dmgFaces: info.dmgFaces || null,
+        dmgParts: info.dmgParts || null,
+        dmgType: info.dmgType || "",
         crit: Number(info.nat) === 20,
         nat1: Number(info.nat) === 1,
         label: info.label || "",
         weapon: info.weapon || "",
+        weaponId: info.weaponId || "",
+        gun: !!info.gun,
+        spell: !!info.spell,
         type: "attack",
         dice: info.dice || "",
         formula: info.formula || "",
@@ -717,10 +736,11 @@
     var opt = sel.selectedOptions && sel.selectedOptions[0];
     return { id: sel.value, name: (opt && (opt.getAttribute("data-name") || opt.textContent)) || "", ac: null };
   }
-  function attackRoll(mod, conditions, chosen) {
+  function attackRoll(mod, conditions, chosen, extraDis) {
     var mode = root.SSDNSConditions && root.SSDNSConditions.attackMode
-      ? root.SSDNSConditions.attackMode(conditions || [], chosen || "")
-      : (chosen === "adv" || chosen === "dis" ? chosen : "");
+      ? root.SSDNSConditions.attackMode(conditions || [], chosen || "", extraDis)
+      : ((chosen === "adv" || chosen === "dis") ? chosen : (extraDis ? "dis" : ""));
+    if (!root.SSDNSConditions && chosen === "adv" && extraDis) mode = "";
     var n1 = d20();
     var n2 = null;
     var nat = n1;
@@ -735,6 +755,7 @@
       if (dis) notes.push(dis);
       if (adv) notes.push(adv);
     }
+    if (mode === "dis" && extraDis) notes.push(typeof extraDis === "string" ? extraDis : "disadvantage: range");
     return {
       nat: nat,
       n1: n1,
@@ -1186,9 +1207,16 @@
     var throughGun = !!((hexslinger && fromChamber) || (row && row.weapon));
     var conds = (c && c.activeConditions) || [];
     var chosenMode = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
+    var rangeShot = root.SSDNSRangeRings && root.SSDNSRangeRings.take ? root.SSDNSRangeRings.take() : null;
+    if (rangeShot && rangeShot.apply && rangeShot.blocked) {
+      toast(rangeShot.button || "out of range");
+      addLog({ kind: "alert", text: (spellName || "Spell") + ": " + (rangeShot.button || "out of range") });
+      return;
+    }
+    var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     var atkMode = root.SSDNSConditions && root.SSDNSConditions.attackMode
-      ? root.SSDNSConditions.attackMode(conds, chosenMode)
-      : chosenMode;
+      ? root.SSDNSConditions.attackMode(conds, chosenMode, rangeNote)
+      : (chosenMode === "adv" && rangeNote ? "" : (rangeNote ? "dis" : chosenMode));
     var rolled = Cast.rollCast({
       spellName: spellName,
       slotLevel: slot,
@@ -1239,19 +1267,36 @@
       rolled.text += " → " + tgt.name;
       rolled.detail = rolled.text;
     } else if (rolled.attack && tgt && tgt.name && rolled.nat != null) {
-      var report = attackReport({
-        who: (c && c.name) || "You",
-        target: tgt.name,
-        nat: rolled.nat,
-        atk: atk,
-        ac: tgt.ac,
-        miss: rolled.nat === 1,
-        dice: rolled.diceShown || ""
-      });
+      var spellParts = [];
+      if (v.spellMod != null && isFinite(Number(v.spellMod))) spellParts.push({ label: "spellcasting", value: Number(v.spellMod) });
+      if (isFinite(Number(v.prof))) spellParts.push({ label: "proficiency", value: Number(v.prof) || 0 });
+      if (!spellParts.length) spellParts.push({ label: "spell attack", value: atk });
       var dmgTail = String(rolled.text || "").match(/on hit (.+)$/);
-      rolled.text = report.player + (dmgTail && !report.miss ? " · " + dmgTail[1] : "");
+      var spellCard = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
+        ? root.SSDNSApplied.attackBreakdown({
+          who: (c && c.name) || "You",
+          target: tgt.name,
+          nat: rolled.nat,
+          n1: rolled.n1,
+          n2: rolled.n2,
+          parts: spellParts,
+          total: Number(rolled.nat) + atk,
+          ac: tgt.ac,
+          revealAc: !acHidden(tgt),
+          miss: rolled.nat === 1,
+          damage: dmgTail ? { dice: dmgTail[1], total: (String(dmgTail[1]).match(/=\s*(\d+)/) || [])[1] || "", type: damageType || "" } : null
+        })
+        : null;
+      rolled.text = spellCard ? spellCard.text : attackReport({
+        who: (c && c.name) || "You", target: tgt.name, nat: rolled.nat, atk: atk, ac: tgt.ac, miss: rolled.nat === 1, dice: rolled.diceShown || ""
+      }).player;
+      if (rangeNote && spellCard) rolled.text += "\n" + rangeNote;
       rolled.detail = rolled.text;
-      acForRoll = report.ac;
+      acForRoll = tgt.ac != null && isFinite(Number(tgt.ac)) ? Number(tgt.ac) : null;
+      if (root.SSDNSAudio && root.SSDNSAudio.playOutcome) {
+        var spellMiss = rolled.nat === 1 || (acForRoll != null && (Number(rolled.nat) + atk) < acForRoll);
+        root.SSDNSAudio.playOutcome({ spell: true, name: spellName, kind: "spell" }, spellMiss ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"));
+      }
     } else if (row && row.kind === "auto" && rolled.darts && pendingDarts && pendingDarts.length) {
       var dartNotes = [];
       rolled.darts.forEach(function (d, idx) {
@@ -1495,7 +1540,7 @@
     for (var k = 0; k < Math.abs(n); k++) rolls.push(1 + Math.floor(Math.random() * sides));
     var sum = rolls.reduce(function (a, b) { return a + b; }, 0) + (flat || 0);
     var detail = rolls.join("+") + (flat ? ((flat >= 0 ? "+" : "") + flat) : "");
-    return { total: sum, detail: detail, formula: n + "d" + sides + (flat ? ((flat >= 0 ? "+" : "") + flat) : "") };
+    return { total: sum, detail: detail, faces: rolls, flat: flat || 0, formula: n + "d" + sides + (flat ? ((flat >= 0 ? "+" : "") + flat) : "") };
   }
   function whisperOn() {
     var box = document.querySelector("#chkWhisper");
@@ -1535,7 +1580,16 @@
       return;
     }
     var gate = attackGate(currentTarget());
-    if (gate) { toast(gate); addLog({ kind: "alert", text: gate }); return; }
+    if (gate) {
+      if (root.SSDNSRangeRings && root.SSDNSRangeRings.clear) root.SSDNSRangeRings.clear();
+      toast(gate); addLog({ kind: "alert", text: gate }); return;
+    }
+    var rangeShot = root.SSDNSRangeRings && root.SSDNSRangeRings.take ? root.SSDNSRangeRings.take() : null;
+    if (rangeShot && rangeShot.apply && rangeShot.blocked) {
+      toast(rangeShot.button || "Out of range");
+      addLog({ kind: "alert", text: name0 + ": " + (rangeShot.button || "Out of range") });
+      return;
+    }
     var spent = root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i, rollGun._chamber) : null;
     if (!spent || !spent.ok) {
       var reason = (spent && spent.reason) || "That gun can't fire.";
@@ -1554,7 +1608,8 @@
     var globalAdv = document.querySelector("#globalAdv");
     var chosen = (modeSel && modeSel.value) || (globalAdv && globalAdv.value) || "";
     var gunRollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    var gunDice = attackRoll(atk, (ch() && ch().activeConditions) || [], chosen);
+    var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
+    var gunDice = attackRoll(atk, (ch() && ch().activeConditions) || [], chosen, rangeNote);
     var n1 = gunDice.n1, n2 = gunDice.n2, nat = gunDice.nat;
     var bad = function (n) { return n >= 1 && n <= ceiling; };
     var both = n2 != null && bad(n1) && bad(n2);
@@ -1567,7 +1622,19 @@
     var name = gunName(i);
     var who = (ch() && ch().name) || name;
     var dice = gunDice.shown || String(nat);
-    var total = nat + atk;
+    var rolledView = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+    var gunStat = rolledView.guns && rolledView.guns[i];
+    var parts = gunStat && gunStat.parts ? gunStat.parts.map(function (p) { return { label: p.label, value: Number(p.value) || 0 }; }) : [{ label: "bonus", value: atk }];
+    var featList = (ch() && ch().feats) || [];
+    if (wpn && wpn.group === "pistol" && featList.indexOf("pistolero") >= 0 && rangeShot && rangeShot.apply && rangeShot.band !== "long" && rangeShot.band !== "blocked") {
+      parts.push({ label: "Pistolero", value: 1 });
+    }
+    var bonus = atk;
+    if (gunStat && gunStat.parts) {
+      bonus = 0;
+      parts.forEach(function (p) { bonus += Number(p.value) || 0; });
+    }
+    var total = nat + bonus;
     var resolved = root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
       ? root.SSDNSMisfire.resolveShot({
         dirty: g.dirty, fouled: g.fouled, ruined: g.ruined || g.broken, jammed: g.jammed,
@@ -1604,13 +1671,21 @@
         targetName: tgt.name,
         targetId: tgt.id,
         nat: nat,
+        n1: n1,
+        n2: n2,
+        parts: parts,
         hitTotal: total,
         damage: pendingDmg ? pendingDmg.total : 0,
         dice: pendingDmg ? pendingDmg.detail : "",
-        formula: (n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk),
+        dmgFaces: pendingDmg ? pendingDmg.faces : null,
+        dmgParts: gunStat && gunStat.dmgParts,
+        dmgType: gunStat && gunStat.dmgType,
+        formula: (n2 == null ? "1d20" : "2d20") + ((bonus >= 0 ? "+" : "") + bonus),
         rollId: gunRollId,
         label: who + (tgt.name ? " → " + tgt.name : ""),
         weapon: name,
+        weaponId: g.weapon,
+        gun: true,
         sfx: cue,
         quiet: false
       });
@@ -1620,16 +1695,35 @@
     var miss = nat === 1 || misfired || (haveAc && total < Number(tgt.ac));
     var dmg = null;
     if (!miss) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
+    var dmgParts = [];
+    if (dmg && gunStat && gunStat.dmgParts) {
+      var partSum = 0;
+      gunStat.dmgParts.forEach(function (p) { partSum += Number(p.value) || 0; });
+      dmgParts = partSum === (dmg.flat || 0) ? gunStat.dmgParts : (dmg.flat ? [{ label: "mod", value: dmg.flat }] : []);
+    } else if (dmg && dmg.flat) dmgParts = [{ label: "mod", value: dmg.flat }];
     var caliber = (g.chamber && String(g.chamber).split("|")[1]) || (wpn && wpn.ammo) || "";
+    var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
+      ? root.SSDNSApplied.attackBreakdown({
+        who: who, target: tgt && tgt.name, nat: nat, n1: n1, n2: n2, parts: parts, total: total,
+        ac: tgt && tgt.ac, revealAc: !acHidden(tgt), misfire: misfired, miss: miss,
+        damage: dmg ? { faces: dmg.faces, parts: dmgParts, total: dmg.total, type: (gunStat && gunStat.dmgType) || "piercing" } : null
+      })
+      : null;
     var report = attackReport({
-      who: who, target: tgt && tgt.name, nat: nat, atk: atk,
+      who: who, target: tgt && tgt.name, nat: nat, atk: bonus,
       ac: tgt && tgt.ac, miss: miss, misfire: misfired, dmg: dmg,
       dice: dice, weapon: name, caliber: caliber
     });
     if (ch()) ch().takingCover = false;
     if (resolved.armD4 && window.SSDNSD4 && window.SSDNSD4.arm) window.SSDNSD4.arm(i);
     var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
-    var line = report.player + (misfired ? " · misfire" : "") + (gunDice.note ? " · " + gunDice.note : "") + modeWord(chosen) + ammoTxt;
+    var shownCard = card ? (acHidden(tgt) ? card.publicText : card.dmText) : report.player;
+    var line = shownCard + (gunDice.note ? " · " + gunDice.note : "") + (chosen && gunDice.mode ? modeWord(chosen) : "") + ammoTxt;
+    if (root.SSDNSAudio && root.SSDNSAudio.playOutcome && !misfired) {
+      root.SSDNSAudio.playOutcome({ gun: true, id: g.weapon, name: name, group: wpn && wpn.group }, miss ? "miss" : (nat === 20 ? "crit" : "hit"));
+    } else if (root.SSDNSAudio && root.SSDNSAudio.playOutcome && misfired) {
+      root.SSDNSAudio.playOutcome({ gun: true, id: g.weapon, name: name }, "miss");
+    }
     consumeRollMode();
     toast(line);
     addLog({
