@@ -178,6 +178,10 @@ const state = {
   gridStrength: 1.0,
   minStrength: 1.0,
   currentTurnId: null,
+  showRange: false,
+  rangeWeaponId: "",
+  rangeChoices: [],
+  rangeMoved: {},
   drawerOpen: false,
   drawerTokenId: null,
   pendingTarget: null,
@@ -371,6 +375,8 @@ if (role === 'dm') {
     <div style="height:12px"></div>
     <div class="panel-title">Selected</div>
     <div data-act="targetList" class="panel-list">None</div>
+    <label class="ssm-range"><input type="checkbox" data-act="showRange"> Show range</label>
+    <select data-act="rangeWeapon" aria-label="Token weapon" hidden></select>
     <input data-act="dmLabel" placeholder="Label" style="width:100%;background:#3a3228;color:#e8dcc8;border:1px solid #5a4e40;border-radius:4px;padding:4px;">
     <div class="panel-title">Actions</div>
     <div data-act="actionList" class="panel-list">Select a token</div>
@@ -409,6 +415,8 @@ if (role === 'dm') {
       <button data-act="playerPingBtn">Ping</button>
       <button data-act="playerRulerBtn">Ruler</button>
       <button data-act="playerTorchBtn">Torch: OFF</button>
+      <label class="ssm-range"><input type="checkbox" data-act="showRange"> Show my range</label>
+      <select data-act="rangeWeapon" aria-label="Equipped weapon" hidden></select>
       <button data-act="playerGhostBtn">Ghost Plan: OFF</button>
       <button data-act="playerCancelBtn">Cancel plan</button>
       <div class="panel-title">Sheet</div>
@@ -742,6 +750,158 @@ function paintZoom() {
   if (z) z.textContent = (state.view.zoom || 1).toFixed(2) + '×';
 }
 
+function rangeToken() {
+  if (role === 'player') return state.tokens.find(t => t && t.ownerUid === uid) || null;
+  return state.selected || null;
+}
+function choiceFromAttack(a, feats) {
+  feats = feats || {};
+  if (!a) return null;
+  const id = String(a.id || a.name || '');
+  if (!id) return null;
+  return {
+    id: id,
+    name: a.name || a.id || 'Weapon',
+    weapon: a.weapon || '',
+    range: a.range || '',
+    properties: Array.isArray(a.properties) ? a.properties.join(', ') : (a.properties || ''),
+    group: a.group || '',
+    kind: a.kind || '',
+    mod: a.mod || '',
+    tier: a.tier || '',
+    unwieldy: !!a.unwieldy,
+    scatter: !!a.scatter,
+    load: a.load || '',
+    scope: !!(a.scope || /scope/i.test(a.mod || '')),
+    longRangeHex: !!(a.longRangeHex || feats.longRangeHex),
+    sharpshooter: !!(a.sharpshooter || feats.sharpshooter)
+  };
+}
+function currentRangeChoices() {
+  const token = rangeToken();
+  if (!token) return [];
+  if (role === 'player' && typeof host.rangeWeapons === 'function') {
+    try { return host.rangeWeapons() || []; } catch (e) { return []; }
+  }
+  const card = lookupCard(token.id) || lookupCard(token.combatantId) || lookupCard(token.ownerUid);
+  if (!card) return [];
+  const feats = { longRangeHex: !!card.longRangeHex, sharpshooter: !!card.sharpshooter };
+  const list = [];
+  (card.attacks || []).forEach(a => {
+    const choice = choiceFromAttack(a, feats);
+    if (choice) list.push(choice);
+  });
+  (card.spells || []).forEach(s => {
+    if (!s || s.kind !== 'attack') return;
+    const range = s.range || (window.SSDNSRangeRings && window.SSDNSSpellCast && window.SSDNSSpellCast.rangeOf && window.SSDNSSpellCast.rangeOf(s.name)) || '';
+    if (!range) return;
+    list.push({
+      id: 'spell:' + (s.id || s.name),
+      name: s.name || 'Spell',
+      kind: 'spell',
+      spell: true,
+      spellKind: 'attack',
+      range: range,
+      longRangeHex: !!feats.longRangeHex
+    });
+  });
+  return list;
+}
+function paintRangeControls() {
+  const on = !!state.showRange;
+  const box = q('showRange');
+  const drawerBox = q('drawerRange');
+  if (box && box.checked !== on) box.checked = on;
+  if (drawerBox && drawerBox.checked !== on) drawerBox.checked = on;
+  const choices = on ? currentRangeChoices() : [];
+  state.rangeChoices = choices;
+  const sig = choices.map(c => c.id).join('|');
+  [q('rangeWeapon'), q('drawerRangeWeapon')].forEach(sel => {
+    if (!sel) return;
+    sel.hidden = !on || !choices.length;
+    if (sel.getAttribute('data-sig') !== sig) {
+      sel.setAttribute('data-sig', sig);
+      sel.innerHTML = choices.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name || c.id) + '</option>').join('');
+    }
+    if (state.rangeWeaponId && choices.some(c => c.id === state.rangeWeaponId)) sel.value = state.rangeWeaponId;
+    else if (choices[0]) {
+      state.rangeWeaponId = choices[0].id;
+      sel.value = choices[0].id;
+    }
+  });
+}
+function onRangeToggle(on) {
+  state.showRange = !!on;
+  if (state.showRange && role === 'dm' && !state.selected) toast('Select a token');
+  if (state.showRange && role === 'player' && !rangeToken()) toast('No token found');
+  paintRangeControls();
+  const choices = state.rangeChoices || [];
+  if (state.showRange && !choices.length) toast(role === 'player' ? 'No equipped weapon' : 'No equipped weapon on this token');
+  requestDraw();
+}
+function bindRangeUi() {
+  const box = q('showRange');
+  const sel = q('rangeWeapon');
+  if (box && !box.dataset.bound) {
+    box.dataset.bound = '1';
+    box.addEventListener('change', () => onRangeToggle(box.checked));
+  }
+  if (sel && !sel.dataset.bound) {
+    sel.dataset.bound = '1';
+    sel.addEventListener('change', () => {
+      state.rangeWeaponId = sel.value;
+      const other = q('drawerRangeWeapon');
+      if (other) other.value = sel.value;
+      requestDraw();
+    });
+  }
+}
+function markRangeMoved(id, from, to) {
+  if (!id || !from || !to) return;
+  if (from.x === to.x && from.y === to.y) return;
+  if (!state.rangeMoved) state.rangeMoved = {};
+  state.rangeMoved[id] = true;
+}
+function paintRangeRings() {
+  if (!state.showRange || !window.SSDNSRangeRings) return;
+  const token = rangeToken();
+  if (!token || !token.pos) return;
+  const choices = state.rangeChoices || [];
+  const picked = choices.filter(c => c.id === state.rangeWeaponId)[0] || choices[0];
+  if (!picked) return;
+  const px = state.scene.grid.px;
+  const moved = !!(state.rangeMoved && state.rangeMoved[token.id]);
+  const pack = window.SSDNSRangeRings.rings(Object.assign({}, picked, { moved: moved }));
+  const size = token.size || 1;
+  const center = worldToScreen((token.pos.x + size / 2) * px, (token.pos.y + size / 2) * px);
+  ctx.save();
+  (pack.rings || []).forEach(ring => {
+    const radius = (ring.feet / 5) * px * state.view.zoom;
+    if (!(radius > 0)) return;
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+    if (ring.fill) {
+      ctx.fillStyle = ring.fill;
+      ctx.fill();
+    }
+    ctx.strokeStyle = ring.stroke;
+    ctx.lineWidth = ring.width || 2;
+    ctx.setLineDash([]);
+    ctx.stroke();
+  });
+  if (pack.label) {
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(12,8,6,0.8)';
+    ctx.fillStyle = '#f4f0e8';
+    const y = center.y - ((token.size || 1) * px * state.view.zoom) / 2 - 8;
+    ctx.strokeText(pack.label, center.x, y);
+    ctx.fillText(pack.label, center.x, y);
+  }
+  ctx.restore();
+}
 function draw() {
   if (!state.scene) return;
   try { sceneData(); } catch (e) { console.error(e); return; }
@@ -947,6 +1107,9 @@ function draw() {
       if (p.x > -20 && p.x < 40) ctx.fillText(String(r + 1), p.x, p.y + 4);
     }
   }
+
+  paintRangeControls();
+  paintRangeRings();
 
   // tokens
   for (const t of state.tokens) {
@@ -2226,8 +2389,10 @@ function onPointerMove(e) {
             if (existing) { existing.x = newX; existing.y = newY; existing.path = path; }
             else state.pendingMoves.push({ id: t.id, x: newX, y: newY, fromX: origin.x, fromY: origin.y, path });
           } else {
+            const origin = state.drag.starts && state.drag.starts[id];
             t.pos.x = newX;
             t.pos.y = newY;
+            if (origin) markRangeMoved(t.id, origin, { x: newX, y: newY });
             if (shared.tokens[t.id]) shared.tokens[t.id].pos = { ...t.pos, by: uid, ts: Date.now() };
           }
         }
@@ -3026,6 +3191,7 @@ if (role === 'dm') {
     toast('Removed from map and turn order');
   });
   renderActions();
+  bindRangeUi();
 } else {
   fillColorSelect(q('playerColorBtn'));
   (function placePlayerCard() {
@@ -3159,6 +3325,7 @@ if (role === 'dm') {
   q('playerGhostBtn').addEventListener('click', () => toggleGhost(q('playerGhostBtn')));
   q('playerCancelBtn').addEventListener('click', () => { cancelGhost(); flashBtn('playerCancelBtn'); });
   q('playerTorchBtn').textContent = 'Torch: OFF';
+  bindRangeUi();
 }
 
 // --- scene images ---
@@ -3276,6 +3443,10 @@ async function loadSceneImage(sceneId) {
     const order = state.initiative.order || [];
     const turn = state.initiative.turn || 0;
     state.currentTurnId = order[turn] ? order[turn].id : null;
+    if (state.currentTurnId !== prevId && state.rangeMoved) {
+      const fresh = state.tokens.find(tok => tok && (tok.combatantId === state.currentTurnId || tok.id === state.currentTurnId || tok.ownerUid === state.currentTurnId));
+      if (fresh) delete state.rangeMoved[fresh.id];
+    }
     renderTurnStrip();
     renderActions();
     if (role === 'dm' && state.drawerOpen && state.currentTurnId && state.currentTurnId !== prevId) {
@@ -3484,6 +3655,9 @@ async function loadSceneImage(sceneId) {
           action: a.action || '',
           weapon: a.weapon || '',
           ammoDisplay: a.ammoDisplay || (a.ammo && a.ammo.ammoDisplay) || '',
+          group: a.group || '',
+          tier: a.tier || '',
+          scatter: !!a.scatter,
           cap: cap,
           loaded: loaded,
           chambers: flags || undefined,
@@ -3541,6 +3715,8 @@ async function loadSceneImage(sceneId) {
       hpBar +
       deathLine +
       actToggle +
+      '<label class="ssm-act ssm-range"><input type="checkbox" data-act="drawerRange"' + (state.showRange ? ' checked' : '') + '> Show range</label>' +
+      '<select data-act="drawerRangeWeapon" aria-label="Token weapon" hidden></select>' +
       (conds ? '<div class="ssm-conds">' + conds + '</div>' : '') +
       (card.tactics ? '<div class="ssm-tactics">' + esc(card.tactics) + '</div>' : '') +
       '<div class="ssm-section">Attacks</div>' + attacks +
@@ -3620,6 +3796,16 @@ async function loadSceneImage(sceneId) {
     });
     const actBox = d.querySelector('[data-act="actFor"]');
     if (actBox) actBox.addEventListener('change', () => emit('drawer:act', detail({ on: !!actBox.checked })));
+    const rangeBox = d.querySelector('[data-act="drawerRange"]');
+    if (rangeBox) rangeBox.addEventListener('change', () => onRangeToggle(rangeBox.checked));
+    const rangeSel = d.querySelector('[data-act="drawerRangeWeapon"]');
+    if (rangeSel) rangeSel.addEventListener('change', () => {
+      state.rangeWeaponId = rangeSel.value;
+      const other = q('rangeWeapon');
+      if (other) other.value = rangeSel.value;
+      requestDraw();
+    });
+    paintRangeControls();
     d.querySelector('[data-act="imageBtn"]').addEventListener('click', () => {
       const token = state.tokens.find(tok => tok && tok.id === tokenId);
       const Crop = window.SSDNSTokenCrop;
@@ -3712,6 +3898,7 @@ async function loadSceneImage(sceneId) {
     }
     if (sub === 'pos') {
       const t = shared.tokens[id];
+      const prevPos = t && t.pos ? { x: t.pos.x, y: t.pos.y } : null;
       const by = (meta && meta.by) || (value && value.by);
       if (role === 'dm' && t && by && by !== uid) {
         if (!canControlBy(t, by)) return;
@@ -3720,6 +3907,7 @@ async function loadSceneImage(sceneId) {
       } else if (shared.tokens[id]) {
         shared.tokens[id].pos = { x: value.x, y: value.y };
       }
+      if (prevPos && value) markRangeMoved(id, prevPos, { x: value.x, y: value.y });
     } else if (sub === 'patch') {
       const t = shared.tokens[id];
       if (!t || !value) return;

@@ -1,3 +1,28 @@
+# Range rings and bullet art — sheet 0.3.26 / DMCC 0.2.39
+
+`database.rules.json` did not change. `assets/data/rules.js` did not change. Range rings are a picture on the map. They do not change attack rolls, misfires, or reloads.
+
+## Range rings
+
+Green is normal range. Orange is a disadvantage band. A red line is the distance you cannot reach past.
+
+A rifle has an orange disk inside 5 ft. The Big Fifty's orange disk goes out to 30 ft, including when Sharpshooter removes the long-range band. A carbine with close quarters has no inner disk until a scope is fitted, which takes close quarters away. A scope removes the long-range orange band when that token has not moved this turn. Moving the token brings the orange band back until that token's turn starts again.
+
+Melee is a green ring at 5 ft, or 10 ft when the weapon has reach, with a red ring just past it. A thrown weapon shows that melee ring and its thrown normal and long bands. A shotgun cone is a green disk out to the cone and a red line at that edge. Long-Range Hex doubles an attack spell's range. Other spells are not drawn.
+
+The rings stay off until someone turns them on. A player uses Show my range on the floating card, for the equipped gun, melee weapon, or attack spell. The DM uses Show range on the selected token and on that token's card. The list is that token's attacks, plus attack spells when the sheet has them.
+
+## Bullet art
+
+Still behind the ammo display flag, which stays off. Dots use the Fight tab's primer: a brass case head and a center primer, colored by shell size (light, medium, heavy, and the special rounds). A lever tube shows horizontal brass cartridges. A shotgun, including a break-action and a lever shotgun while it is reloading, shows shotgun shells. Clicking the tube, or any round in it, spends the leftmost loaded round through the same fire button the screen already used. A tube of 10 or more rounds wraps onto two short rows.
+
+```cmd
+node tools/test-range-rings.mjs
+node tools/test-ammo-display.mjs
+```
+
+Cache queries on the touched sheet files are `0.3.26-range`. The DMCC copies are `0.2.39-range`.
+
 # Map card — sheet 0.3.25 / DMCC 0.2.38
 
 `database.rules.json` did not change. HP, hide, and notes stay off the public token. Token pictures use the existing `image` field plus static files in `map/tokenImages/`. There is no new database path.
