@@ -1,3 +1,7 @@
+# Gear tab — sheet 0.3.29 / DMCC 0.2.41
+
+The sheet Gear tab is two columns. A red target bar with a bullseye sits at the top and holds the same `#atkTarget` select the attack code already uses. The left column is weapon cards (guns, melee, explosives): name, Atk/Dmg/Range/Cap, a photo placeholder, cylinder or tube art, Reload/Unload, an ammo-pool dropdown, mod and capacity, then Roll, TR, hex shell, cast-through-gun, and the jam flags. The right column is armor, then the ammo piles, holster, notes, and the equipment list. DMCC stayed at 0.2.41. `assets/data/rules.js` and `database.rules.json` did not change.
+
 # Range, sync, and the attack card — sheet 0.3.28 / DMCC 0.2.41
 
 `database.rules.json` did not change. `assets/data/rules.js` did not change.

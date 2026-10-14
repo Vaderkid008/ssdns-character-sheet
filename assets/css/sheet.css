@@ -252,12 +252,32 @@ input.big { font-family: var(--head); font-size: 28px !important; text-align: ce
 .roll { appearance: none; border: 1px solid var(--red); color: var(--red); background: transparent; font-family: var(--label); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; min-height: 26px; cursor: pointer; border-radius: 2px; }
 .roll:hover { background: rgba(88,24,13,.08); }
 
+/* ---------------- gear page */
+.gear-target {
+  display: flex; align-items: center; gap: 12px;
+  margin: 8px 0 14px; padding: 10px 12px;
+  border: 2px solid #8d1c14; background: #f6d5d0; color: #6e1212;
+  border-radius: 4px;
+}
+.gear-bullseye { width: 36px; height: 36px; flex: 0 0 36px; }
+.gear-target-slot { flex: 1; min-width: 0; }
+.gear-target-label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: var(--label); font-size: 14px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: #6e1212; }
+.gear-target-label select { min-width: min(280px, 100%); font-weight: 700; border-color: #8d1c14; background: #fff8f6; }
+.gear-columns { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, .85fr); gap: 16px; align-items: start; }
+.gear-col { min-width: 0; }
+.gear-kit .equip-body { gap: 10px; }
+.gear-kit .armor-row { margin-bottom: 8px; }
+
 /* ---------------- firearms */
 .firearms { background: rgba(255,250,238,.6); }
-.gun-head, .gun { display: grid; grid-template-columns: minmax(190px, 2.1fr) 58px minmax(110px, 1.3fr) minmax(80px, .9fr) 42px minmax(150px, 1.9fr) 74px; gap: 6px; align-items: center; }
-.gun-head { font-family: var(--label); text-transform: uppercase; font-size: 10px; letter-spacing: .07em; color: #3b2a1a; font-weight: 600; border-bottom: 2px solid var(--line); padding-bottom: 3px; }
-.gun { padding: 6px 0; border-bottom: 1px solid rgba(43,29,18,.25); }
-.gun .g-note { grid-column: 1 / -1; margin-top: -2px; }
+.gun-head { display: none; }
+.gun { display: flex; flex-direction: column; gap: 8px; padding: 10px; margin: 0 0 10px; border: 1px solid var(--line); background: #fffaf3; border-radius: 4px; }
+.g-card-top { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; align-items: start; }
+.g-photo { width: 76px; height: 76px; display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--label); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #6b5438; border: 1px dashed #8a7040; background: repeating-linear-gradient(45deg, #f6efe2, #f6efe2 6px, #efe4d0 6px, #efe4d0 12px); }
+.g-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; }
+.g-stats [data-label] { display: flex; flex-direction: column; gap: 2px; min-width: 52px; }
+.g-stats [data-label]::before { content: attr(data-label); font-family: var(--label); font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: #3b2a1a; }
+.gun .g-note { margin-top: 0; }
 .gun .g-note:empty { display: none; }
 .g-name select { font-weight: 600; }
 .g-sub { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
@@ -267,10 +287,12 @@ input.big { font-family: var(--head); font-size: 28px !important; text-align: ce
 .g-atk input, .g-dmg input { text-align: center; }
 .g-rng, .g-cap, .g-mis { text-align: center; font-size: 13.5px; }
 .g-mis { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.gun.empty .g-atk input, .gun.empty .g-dmg input, .gun.empty .tiny, .gun.empty .reload { visibility: hidden; }
+.gun.empty .g-chamber-row, .gun.empty .g-smith, .gun.empty .g-actions, .gun.empty .g-note, .gun.empty .load-picks, .gun.empty .g-stats, .gun.empty .g-sub { display: none; }
 .gun.jammed { background: rgba(88,24,13,.08); }
 .gun.jammed .chamber.loaded { filter: grayscale(.8); }
-.g-load { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.g-chamber-row, .g-actions, .g-smith, .g-mis { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.g-smith select, .ammo-pool, .g-actions .cast-spell { flex: 1 1 140px; min-width: 0; }
+.g-mis { margin-left: auto; }
 .chambers { display: flex; flex-wrap: wrap; gap: 3px; }
 .chamber {
   position: relative; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #3a2a1c;
@@ -417,7 +439,6 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
 /* ---------------- tablet */
 @media screen and (max-width: 1080px) {
   .main-grid { grid-template-columns: 1.1fr 1fr; grid-template-areas: "c1 c2" "c1 c3" "feat feat"; }
-  .gun-head, .gun { grid-template-columns: minmax(170px, 2fr) 54px minmax(100px, 1.3fr) minmax(70px, .9fr) 38px minmax(130px, 1.8fr) 66px; }
 }
 /* ---------------- phone */
 @media screen and (max-width: 760px) {
@@ -449,16 +470,13 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
   .prof3 { width: 40px; height: 40px; } .prof3::before { left: 11px; top: 11px; width: 18px; height: 18px; }
   .cb { width: 40px; height: 40px; } .cb-box { width: 20px; height: 20px; } .cb.gem .cb-box { width: 20px; height: 20px; }
   .insp { gap: 0; }
-  .gun-head { display: none; }
-  .gun { grid-template-columns: repeat(4, 1fr); gap: 6px 8px; padding: 10px 8px; margin-bottom: 8px; border: 1px solid var(--line); background: var(--fill-hi); border-radius: 3px; }
-  .gun > [data-label]::before { content: attr(data-label); display: block; font-family: var(--label); font-size: 9.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
-  .g-name { grid-column: 1 / -1; }
-  .g-atk, .g-rng { grid-column: span 1; } .g-dmg { grid-column: span 2; }
-  .g-load { grid-column: 1 / -1; order: 7; } .g-cap { order: 5; } .g-mis { order: 6; grid-column: span 3; flex-direction: row; gap: 14px; align-items: center; } .g-note { order: 8; }
-  .g-mis { align-items: flex-start; text-align: left; }
+  .g-card-top { grid-template-columns: 64px minmax(0, 1fr); }
+  .g-photo { width: 64px; height: 64px; }
+  .g-mis { margin-left: 0; align-items: flex-start; }
   .chamber { width: 34px; height: 34px; }
   .chambers { gap: 6px; }
-  .gun.empty > :not(.g-name) { display: none; }
+  .gear-columns { grid-template-columns: 1fr; }
+  .gear-target-label select, .g-actions .btn, .g-chamber-row .btn { min-height: 44px; }
   .ammo-holster { grid-template-columns: 1fr; }
   .ammo-row { grid-template-columns: 1fr 80px 40px 56px 40px 40px; }
   .btn.xs { min-width: 40px; min-height: 40px; }

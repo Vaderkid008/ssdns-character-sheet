@@ -339,12 +339,19 @@
     if (!box || !c) return;
     var list = rules().melee || [];
     c.melee = c.melee || [{}, {}, {}, {}];
-    var html = "<div class='gun-head'><span>Melee</span><span>Atk</span><span>Damage</span><span></span></div>";
+    var html = "";
     for (var i = 0; i < 4; i++) {
       var cur = (c.melee[i] && c.melee[i].weapon) || "";
-      html += "<div class='gun'><select data-melee='" + i + "' aria-label='Melee " + (i + 1) + "'><option value=''>—</option>" +
+      html += "<div class='gun melee-card" + (cur ? "" : " empty") + "'>" +
+        "<div class='g-card-top'><div class='g-photo' title='Weapon photo later'>Photo</div><div class='g-name'>" +
+        "<select data-melee='" + i + "' aria-label='Melee " + (i + 1) + "'><option value=''>Melee, bow, or thrown…</option>" +
         list.map(function (w) { return "<option value='" + w.id + "'" + (w.id === cur ? " selected" : "") + ">" + w.name + "</option>"; }).join("") +
-        "</select><span data-melee-atk='" + i + "'></span><span data-melee-dmg='" + i + "'></span><button type='button' class='btn sm' data-melee-roll='" + i + "'>Roll</button></div>";
+        "</select><div class='g-stats'>" +
+        "<span data-label='Atk' data-melee-atk='" + i + "'></span>" +
+        "<span data-label='Dmg' data-melee-dmg='" + i + "'></span>" +
+        "<span data-label='Range' data-melee-rng='" + i + "'></span>" +
+        "</div></div></div>" +
+        "<div class='g-actions'><button type='button' class='btn sm' data-melee-roll='" + i + "'>Roll</button></div></div>";
     }
     box.innerHTML = html;
     paintMelee();
@@ -358,7 +365,13 @@
       var w = list.filter(function (x) { return x.id === row.weapon; })[0];
       var atk = $("#meleeBox [data-melee-atk='" + i + "']") || document.querySelector("[data-melee-atk='" + i + "']");
       var dmg = document.querySelector("[data-melee-dmg='" + i + "']");
-      if (!w) { if (atk) atk.textContent = ""; if (dmg) dmg.textContent = ""; return; }
+      if (!w) {
+        if (atk) atk.textContent = "";
+        if (dmg) dmg.textContent = "";
+        var blankRng = document.querySelector("[data-melee-rng='" + i + "']");
+        if (blankRng) blankRng.textContent = "";
+        return;
+      }
       var finesse = /finesse/i.test(w.properties || "");
       var thrown = /thrown/i.test(w.properties || "");
       var ability = finesse ? Math.max(v.mods.STR || 0, v.mods.DEX || 0) : (v.mods.STR || 0);
@@ -369,6 +382,9 @@
       if (c.raging && c.calling === "tribal-warrior" && !thrown && !usingDex) extra += 2;
       if (atk) atk.textContent = (bonus >= 0 ? "+" : "") + bonus;
       if (dmg) dmg.textContent = (w.damage || "") + " " + ((ability + extra) >= 0 ? "+" : "") + (ability + extra);
+      var rng = document.querySelector("[data-melee-rng='" + i + "']");
+      var rangeText = w.range && !/^[\u2014-]$/.test(String(w.range).trim()) ? w.range : "";
+      if (rng) rng.textContent = rangeText || w.properties || "";
     });
   }
   function d20() {
@@ -586,11 +602,13 @@
       wh.className = "fine";
       wh.innerHTML = "<input type='checkbox' id='chkWhisper'> Whisper to DM";
       var tgt = document.createElement("label");
-      tgt.className = "fine";
+      tgt.className = "gear-target-label";
       tgt.innerHTML = "Target <select id='atkTarget' aria-label='Attack target'><option value=''>No target</option></select> <span id='atkReveal' class='fine'></span>";
       init.parentNode.appendChild(adv);
       init.parentNode.appendChild(wh);
-      init.parentNode.appendChild(tgt);
+      var slot = $("#gearTargetSlot");
+      if (slot) slot.appendChild(tgt);
+      else init.parentNode.appendChild(tgt);
     }
     var guns = $("#guns");
     if (guns && !$("#meleeBox")) {

@@ -8,7 +8,7 @@
 <link rel="icon" href="assets/images/revolver.png">
 <link rel="stylesheet" href="map/ssdns-map.css?v=0.3.28-card">
 <link rel="stylesheet" href="assets/css/ammo-display.css?v=0.3.28-art">
-<link rel="stylesheet" href="assets/css/sheet.css?v=0.3.22-layout">
+<link rel="stylesheet" href="assets/css/sheet.css?v=0.3.29-gear">
 <link rel="stylesheet" href="assets/css/print.css?v=0.3.22" media="print">
 </head>
 <body>
@@ -159,10 +159,7 @@
           <div class="sq-box"><input type="number" data-f="character.speed" class="big" aria-label="Speed" inputmode="numeric"><span>Speed</span></div>
         </div>
         <p class="reminder">Half cover is <b>+2</b> and three-quarters cover is <b>+5</b> to AC and Dexterity saves. <b>Take Cover</b> stacks on that: a <b>bonus action</b>, incoming ranged attacks have disadvantage until your next attack, and firing ends it. Kneeling or prone alone is not cover.</p>
-        <div class="armor-row">
-          <label>Armor <select data-f="character.armor" id="selArmor"></select></label>
-          <label class="chk"><input type="checkbox" data-f="character.shield"> Shield (+2)</label>
-        </div>
+        <p class="fine">Armor and shield are on the Gear tab.</p>
         <div class="hp">
           <div class="hp-max"><label for="inHPMax">Hit Point Maximum</label><input type="number" id="inHPMax" data-f="character.hpMax" inputmode="numeric"><button type="button" class="btn sm" id="btnHpAuto">Use calculated HP</button></div>
           <p class="fine hp-auto-note">Level 1 HP is the Calling's hit die maximum plus Constitution. Later levels add the average (rounded up) plus Constitution. Ability mods, proficiency, saves, skills, initiative, passive Perception, and spell DC / attack fill in on their own. Type any calculated box to override it; double-click to clear.</p>
@@ -228,108 +225,121 @@
 
 <!-- ============================== GEAR ============================== -->
 <section class="page" id="page-equip" role="tabpanel" aria-labelledby="tab-equip" hidden>
-  <h2 class="page-title">Equipment</h2>
-  <p class="fine">Guns, ammo, holster, explosives, and the gear you carry.</p>
-    <!-- firearms: spans col 2-3 -->
-    <div class="box firearms span-23">
-      <div class="box-head"><h2>Firearms</h2>
-        <div class="hex-roll">
-          <select id="hexRollLevel" aria-label="Shell level for the hex roll">
-            <option value="0">Cantrip</option>
-            <option value="1">1st slot</option>
-            <option value="2">2nd</option>
-            <option value="3">3rd</option>
-            <option value="4">4th</option>
-            <option value="5">5th</option>
-            <option value="6">6th</option>
-            <option value="7">7th</option>
-            <option value="8">8th</option>
-            <option value="9">9th</option>
-          </select>
-          <button type="button" class="btn sm" id="btnHexRoll">Spell</button>
-        </div>
-        <img src="assets/images/gunslinger-spot.png" alt="" class="spot">
-      </div>
-      <div class="guns" id="guns"></div>
-      <div class="ammo-holster">
-        <div class="ammo">
-          <div class="sub-head"><h3>Ammo by caliber</h3><button type="button" class="btn sm" id="btnAddAmmo">+ Ammo</button></div>
-          <div id="ammoList" class="ammo-list"></div>
-        </div>
-        <div class="holster">
-          <div class="sub-head"><h3>Holster</h3></div>
-          <select data-f="character.holster" id="selHolster" aria-label="Holster"></select>
-          <label class="chk"><input type="checkbox" data-f="character.holsterActive"> Pistol rides in the rig (applies Init. and first shot)</label>
-          <label class="chk"><input type="checkbox" data-f="character.seated"> Seated or driving</label>
-          <label class="chk"><input type="checkbox" data-f="character.mounted"> Mounted</label>
-          <label class="chk"><input type="checkbox" data-f="character.gunBelt"> Gun belt or bandolier (feeds Tactical Reload)</label>
-          <p class="fine" id="holsterInfo"></p>
-        </div>
-      </div>
-      <div class="explosives">
-        <div class="sub-head"><h3>Explosives</h3><button type="button" class="btn sm" id="btnAddExplosive">+ Explosive</button></div>
-        <div id="explosiveList" class="ammo-list"></div>
-        <p class="fine" id="explosiveInfo"></p>
-      </div>
-      <textarea data-f="character.attackNotes" rows="2" placeholder="Other attacks, blades, bows, thrown gear…" aria-label="Other attacks and notes"></textarea>
-    </div>
-
-    <!-- equipment -->
-    <div class="box equipment span-2">
-      <div class="equip-body">
-        <div class="quickadd">
-          <input type="text" id="gearAdd" list="gearList" placeholder="Add gear from the PHB list…" aria-label="Add gear">
-          <button type="button" class="btn sm" id="btnGearAdd">Add</button>
-          <datalist id="gearList"></datalist>
-        </div>
-        <div class="quickadd kit-crosswalk">
-          <select id="selKitCrosswalk" aria-label="Starting kit crosswalk">
-            <option value="">Starting kit crosswalk…</option>
-          </select>
-          <button type="button" class="btn sm" id="btnKitAdd" title="Append this kit swap to Equipment">Add kit</button>
-        </div>
-        <textarea data-f="character.equipment" rows="9" id="taEquip"></textarea>
-        <label class="box-title bottom" for="taEquip">Equipment</label>
-        <div class="storyteller-kit" id="storytellerKit" hidden>
-          <div class="sub-head"><h3>Calling instrument</h3><span class="fine">Storyteller focus · see Storyteller Gear</span></div>
-          <div class="storyteller-row">
-            <label class="field"><span>Instrument</span>
-              <select data-f="character.instrument" id="selInstrument" aria-label="Calling instrument"></select>
-            </label>
-            <label class="field"><span>Quality</span>
-              <select data-f="character.instrumentQuality" id="selInstrumentQuality" aria-label="Instrument quality">
-                <option value="cheap">Cheap (Silver Springs / starting kit)</option>
-                <option value="quality">Quality (Whiskey Bend)</option>
-              </select>
-            </label>
-            <label class="field"><span>Strings / bow</span>
-              <select data-f="character.instrumentStrings" aria-label="Strings or bow">
-                <option value="plain">Plain (+0 Wear)</option>
-                <option value="quality">Quality (+1 Wear)</option>
-                <option value="cheap">Cheap (−1 Wear; snap on 1–2)</option>
-              </select>
-            </label>
-            <label class="field"><span>Case</span>
-              <select data-f="character.instrumentCase" aria-label="Instrument case">
-                <option value="none">None</option>
-                <option value="soft">Soft travel case (+1)</option>
-                <option value="hard">Hard travel case (+2)</option>
-              </select>
-            </label>
-            <label class="field"><span>Wear</span>
-              <select data-f="character.instrumentWear" aria-label="Instrument wear">
-                <option value="ok">Holding up</option>
-                <option value="played-in">Played in (+1 spell attacks)</option>
-                <option value="out-of-tune">Out of tune (disadv. concentration)</option>
-                <option value="broken">Broken (can&apos;t cast through it)</option>
-              </select>
-            </label>
+  <h2 class="page-title">Gear</h2>
+  <div class="gear-target" id="gearTarget">
+    <svg class="gear-bullseye" viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="16" cy="16" r="14" fill="none" stroke="#8d1c14" stroke-width="2"/>
+      <circle cx="16" cy="16" r="9" fill="none" stroke="#8d1c14" stroke-width="2"/>
+      <circle cx="16" cy="16" r="4" fill="#8d1c14"/>
+    </svg>
+    <div class="gear-target-slot" id="gearTargetSlot"></div>
+  </div>
+  <div class="gear-columns">
+    <div class="gear-col gear-weapons">
+      <div class="box firearms">
+        <div class="box-head"><h2>Weapons</h2>
+          <div class="hex-roll">
+            <select id="hexRollLevel" aria-label="Shell level for the hex roll">
+              <option value="0">Cantrip</option>
+              <option value="1">1st slot</option>
+              <option value="2">2nd</option>
+              <option value="3">3rd</option>
+              <option value="4">4th</option>
+              <option value="5">5th</option>
+              <option value="6">6th</option>
+              <option value="7">7th</option>
+              <option value="8">8th</option>
+              <option value="9">9th</option>
+            </select>
+            <button type="button" class="btn sm" id="btnHexRoll">Spell</button>
           </div>
-          <p class="fine" id="instrumentInfo"></p>
+          <img src="assets/images/gunslinger-spot.png" alt="" class="spot">
+        </div>
+        <div class="guns" id="guns"></div>
+        <div class="explosives">
+          <div class="sub-head"><h3>Explosives</h3><button type="button" class="btn sm" id="btnAddExplosive">+ Explosive</button></div>
+          <div id="explosiveList" class="ammo-list"></div>
+          <p class="fine" id="explosiveInfo"></p>
         </div>
       </div>
     </div>
-
+    <div class="gear-col gear-kit">
+      <div class="box equipment">
+        <div class="equip-body">
+          <div class="sub-head"><h3>Armor</h3></div>
+          <div class="armor-row">
+            <label>Armor <select data-f="character.armor" id="selArmor"></select></label>
+            <label class="chk"><input type="checkbox" data-f="character.shield"> Shield (+2)</label>
+          </div>
+          <div class="ammo">
+            <div class="sub-head"><h3>Ammo</h3><button type="button" class="btn sm" id="btnAddAmmo">+ Ammo</button></div>
+            <div id="ammoList" class="ammo-list"></div>
+          </div>
+          <div class="holster">
+            <div class="sub-head"><h3>Holster</h3></div>
+            <select data-f="character.holster" id="selHolster" aria-label="Holster"></select>
+            <label class="chk"><input type="checkbox" data-f="character.holsterActive"> Pistol rides in the rig (applies Init. and first shot)</label>
+            <label class="chk"><input type="checkbox" data-f="character.seated"> Seated or driving</label>
+            <label class="chk"><input type="checkbox" data-f="character.mounted"> Mounted</label>
+            <label class="chk"><input type="checkbox" data-f="character.gunBelt"> Gun belt or bandolier (feeds Tactical Reload)</label>
+            <p class="fine" id="holsterInfo"></p>
+          </div>
+          <label class="box-title" for="taAttackNotes">Notes</label>
+          <textarea data-f="character.attackNotes" rows="2" id="taAttackNotes" placeholder="Other attacks, blades, bows, thrown gear…" aria-label="Other attacks and notes"></textarea>
+          <div class="quickadd">
+            <input type="text" id="gearAdd" list="gearList" placeholder="Add gear from the PHB list…" aria-label="Add gear">
+            <button type="button" class="btn sm" id="btnGearAdd">Add</button>
+            <datalist id="gearList"></datalist>
+          </div>
+          <div class="quickadd kit-crosswalk">
+            <select id="selKitCrosswalk" aria-label="Starting kit crosswalk">
+              <option value="">Starting kit crosswalk…</option>
+            </select>
+            <button type="button" class="btn sm" id="btnKitAdd" title="Append this kit swap to Equipment">Add kit</button>
+          </div>
+          <textarea data-f="character.equipment" rows="9" id="taEquip"></textarea>
+          <label class="box-title bottom" for="taEquip">Equipment</label>
+          <div class="storyteller-kit" id="storytellerKit" hidden>
+            <div class="sub-head"><h3>Calling instrument</h3><span class="fine">Storyteller focus · see Storyteller Gear</span></div>
+            <div class="storyteller-row">
+              <label class="field"><span>Instrument</span>
+                <select data-f="character.instrument" id="selInstrument" aria-label="Calling instrument"></select>
+              </label>
+              <label class="field"><span>Quality</span>
+                <select data-f="character.instrumentQuality" id="selInstrumentQuality" aria-label="Instrument quality">
+                  <option value="cheap">Cheap (Silver Springs / starting kit)</option>
+                  <option value="quality">Quality (Whiskey Bend)</option>
+                </select>
+              </label>
+              <label class="field"><span>Strings / bow</span>
+                <select data-f="character.instrumentStrings" aria-label="Strings or bow">
+                  <option value="plain">Plain (+0 Wear)</option>
+                  <option value="quality">Quality (+1 Wear)</option>
+                  <option value="cheap">Cheap (−1 Wear; snap on 1–2)</option>
+                </select>
+              </label>
+              <label class="field"><span>Case</span>
+                <select data-f="character.instrumentCase" aria-label="Instrument case">
+                  <option value="none">None</option>
+                  <option value="soft">Soft travel case (+1)</option>
+                  <option value="hard">Hard travel case (+2)</option>
+                </select>
+              </label>
+              <label class="field"><span>Wear</span>
+                <select data-f="character.instrumentWear" aria-label="Instrument wear">
+                  <option value="ok">Holding up</option>
+                  <option value="played-in">Played in (+1 spell attacks)</option>
+                  <option value="out-of-tune">Out of tune (disadv. concentration)</option>
+                  <option value="broken">Broken (can&apos;t cast through it)</option>
+                </select>
+              </label>
+            </div>
+            <p class="fine" id="instrumentInfo"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- ============================== CONDITIONS ============================== -->
@@ -520,9 +530,9 @@
 <script src="assets/js/ssdns-bridge.js?v=0.3.22"></script>
 <script src="assets/js/storage.js?v=0.3.22"></script>
 <script src="assets/js/firebase-config.js?v=0.3.22"></script>
-<script src="assets/js/sfx.js?v=0.3.28-card"></script>
+<script src="assets/js/sfx.js?v=0.3.29-gear"></script>
 <script src="assets/js/ammo-display.js?v=0.3.28-art"></script>
-<script src="assets/js/app.js?v=0.3.28-card"></script>
+<script src="assets/js/app.js?v=0.3.29-gear"></script>
 <script src="dm/assets/js/store-stock.js?v=0.3.22"></script>
 <script src="assets/js/sheet-extras.js?v=0.3.22-chat-sfx"></script>
 <script src="assets/js/dm-join.js?v=0.3.26-range"></script>
@@ -530,7 +540,7 @@
 <script src="assets/js/apply-guard.js?v=0.3.22-targets"></script>
 <script src="assets/js/conditions.js?v=0.3.22"></script>
 <script src="assets/js/creator.js?v=0.3.22-kit"></script>
-<script src="assets/js/sheet-playtest.js?v=0.3.22-kit"></script>
+<script src="assets/js/sheet-playtest.js?v=0.3.29-gear"></script>
 <script src="assets/data/refcards.js?v=0.3.22"></script>
 <script src="assets/js/table-ux.js?v=0.3.22"></script>
 <script src="map/token-crop.js?v=0.3.25-card"></script>

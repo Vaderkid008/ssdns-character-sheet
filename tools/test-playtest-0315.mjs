@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.28 / DMCC 0.2.41 playtest helpers.
+ * Sheet 0.3.29 / DMCC 0.2.41 playtest helpers.
  * Target eligibility, strip status, empty chambers, ASI, attack bonus, ghosts.
  */
 import fs from "fs";
@@ -70,9 +70,9 @@ check(A.presenceShownOnline(false, "online") === true, "a connection blip stays 
 check(A.presenceShownOnline(false, "offline") === false, "a finished leave shows offline");
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.28" && version.sheetBuild === "sheet-playtest-v0328", "sheet 0.3.28");
+check(version.sheet === "0.3.29" && version.sheetBuild === "sheet-playtest-v0329", "sheet 0.3.29");
 check(version.dmcc === "0.2.41" && version.dmccBuild === "dmcc-playtest-v0241", "dmcc 0.2.41");
-check(read("assets/js/app.js").indexOf('APP_VERSION = "0.3.28"') >= 0, "sheet banner");
+check(read("assets/js/app.js").indexOf('APP_VERSION = "0.3.29"') >= 0, "sheet banner");
 check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.41"') >= 0, "dmcc banner");
 check(read("assets/js/sheet-extras.js").indexOf("ensureAttackTarget") >= 0, "attacks can ask for a target");
 check(read("assets/js/app.js").indexOf("empty: true") >= 0, "an empty chamber returns a click");
@@ -82,4 +82,4 @@ if (failures.length) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log("playtest 0.3.28 / 0.2.41 ok");
+console.log("playtest 0.3.29 / 0.2.41 ok");
