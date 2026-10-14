@@ -282,6 +282,27 @@ body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right
 .ssm-section { font-size: 10px; color: #c9a227; text-transform: uppercase; margin-top: 4px; }
 .ssm-atk { width: 100%; text-align: left; }
 .ssm-atk:disabled { opacity: 0.4; cursor: not-allowed; }
+.ssm-dis { color: #ff3b30; font-weight: 700; }
+.ssm-dis-confirm {
+  border: 1px solid #c9a227;
+  background: #f4efe4;
+  color: #1a120c;
+  border-radius: 4px;
+  padding: 0;
+  max-width: min(440px, calc(100vw - 24px));
+}
+.ssm-dis-confirm form { padding: 16px 18px; margin: 0; }
+.ssm-dis-confirm .dis-confirm-text { margin: 0 0 4px; font-size: 16px; }
+.ssm-dis-confirm .dlg-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.ssm-dis-confirm .btn {
+  background: #3a3228;
+  color: #f4efe4;
+  border: 1px solid #5a4e40;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.ssm-dis-confirm .btn-primary { background: #8a7040; color: #fff; border-color: #e8c36a; }
 .ssm-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .ssm-drawer select, .ssm-drawer input[type="number"] {
   min-height: 32px;

@@ -647,7 +647,12 @@
       if (!isDmPage() || !map || typeof map.patchToken !== "function") return null;
       return map.patchToken(id, fields || {});
     },
-    rounds: roundsLabel
+    rounds: roundsLabel,
+    armAttack: function (attack, targetId, shooterId) {
+      if (!map || typeof map.armAttack !== "function") return null;
+      try { return map.armAttack(attack, targetId, shooterId); }
+      catch (e) { return null; }
+    }
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
   else wire();

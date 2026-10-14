@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.29 Gear tab layout. DMCC stays 0.2.41.
+ * Sheet 0.3.29 Gear tab layout. DMCC 0.2.42.
  *   node tools/test-gear-tab.mjs
  */
 import fs from "node:fs";
@@ -23,7 +23,7 @@ const css = read("assets/css/sheet.css");
 const version = JSON.parse(read("version.json"));
 
 check("ver.sheet", version.sheet === "0.3.29" && version.sheetBuild === "sheet-playtest-v0329");
-check("ver.dmcc", version.dmcc === "0.2.41" && version.dmccBuild === "dmcc-playtest-v0241");
+check("ver.dmcc", version.dmcc === "0.2.42" && version.dmccBuild === "dmcc-playtest-v0242");
 check("ver.app", app.includes('APP_VERSION = "0.3.29"'));
 check("target.banner", equip.includes('id="gearTarget"') && equip.includes("gear-bullseye") && equip.includes('id="gearTargetSlot"'));
 check("target.mount", play.includes('id=\'atkTarget\'') && play.includes('$("#gearTargetSlot")'));

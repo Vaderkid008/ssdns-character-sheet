@@ -418,9 +418,45 @@
       ? root.SSDNSAudio.weaponCue(Object.assign({}, meleeW || {}, { id: meleeRow.weapon, sfx: (meleeRow && meleeRow.sfx) || (meleeW && meleeW.sfx) || "" }))
       : "whoosh";
     rollMelee._cue = meleeCue;
-    if (root.SSDNSSheet && root.SSDNSSheet.attackCue) root.SSDNSSheet.attackCue(meleeCue);
-    else if (root.SSDNSAudio) root.SSDNSAudio.play(meleeCue);
-    rollMeleeNow(i);
+    prepareMelee(i, meleeW, meleeRow).then(function (ok) {
+      if (!ok) return;
+      rollMeleeNow(i);
+    });
+  }
+  function prepareMelee(i, meleeW, meleeRow) {
+    var rings = root.SSDNSRangeRings;
+    var host = root.SSDNSMapHost;
+    if (host && typeof host.armAttack === "function" && !(rings && rings.peek && rings.peek())) {
+      var tgt = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo && root.SSDNSPlaytest.targetInfo();
+      host.armAttack({
+        id: "melee:" + i,
+        weapon: meleeRow && meleeRow.weapon,
+        name: (meleeW && meleeW.name) || "",
+        kind: "melee",
+        properties: (meleeW && meleeW.properties) || "",
+        range: (meleeW && meleeW.range) || ""
+      }, tgt && tgt.id);
+    }
+    var peeked = rings && rings.peek ? rings.peek() : null;
+    if (peeked && peeked.apply && peeked.blocked) {
+      if (rings.take) rings.take();
+      if (root.SSDNSToast) root.SSDNSToast(peeked.button || "Out of range");
+      return Promise.resolve(false);
+    }
+    var note = peeked && peeked.apply && peeked.disadvantage ? (peeked.note || "disadvantage: range") : "";
+    var chosen = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
+    var conds = (ch() && ch().activeConditions) || [];
+    var willDis = root.SSDNSConditions && root.SSDNSConditions.attackMode
+      ? root.SSDNSConditions.attackMode(conds, chosen, note) === "dis"
+      : ((chosen === "dis" && !note) || (!!note && chosen !== "adv"));
+    if (chosen === "adv" && note) willDis = false;
+    if (!willDis) return Promise.resolve(true);
+    var ask = rings && rings.confirmDisadvantage;
+    if (!ask) return Promise.resolve(true);
+    return ask().then(function (ok) {
+      if (!ok && rings && rings.clear) rings.clear();
+      return !!ok;
+    });
   }
   function rollMeleeNow(i) {
     var c = ch();
@@ -432,6 +468,9 @@
     var chosen = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
     var rangeShot = root.SSDNSRangeRings && root.SSDNSRangeRings.take ? root.SSDNSRangeRings.take() : null;
     if (rangeShot && rangeShot.apply && rangeShot.blocked) { toast(rangeShot.button || "Out of range"); return; }
+    var cueNow = rollMelee._cue || "whoosh";
+    if (root.SSDNSSheet && root.SSDNSSheet.attackCue) root.SSDNSSheet.attackCue(cueNow);
+    else if (root.SSDNSAudio) root.SSDNSAudio.play(cueNow);
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     var faced = root.SSDNSSheet && root.SSDNSSheet.attackRoll
       ? root.SSDNSSheet.attackRoll(atk, (c && c.activeConditions) || [], chosen, rangeNote)

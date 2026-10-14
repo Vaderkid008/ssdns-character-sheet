@@ -49,7 +49,7 @@ Object.keys(weapons).forEach((id) => {
 
 const version = JSON.parse(read("version.json"));
 check(version.sheet === "0.3.29" && version.sheetBuild === "sheet-playtest-v0329", "sheet 0.3.29");
-check(version.dmcc === "0.2.41" && version.dmccBuild === "dmcc-playtest-v0241", "dmcc 0.2.41");
+check(version.dmcc === "0.2.42" && version.dmccBuild === "dmcc-playtest-v0242", "dmcc 0.2.42");
 check(read("assets/js/sfx.js").indexOf('sfx.json?v=0.3.29') >= 0, "the sound map cache query matches the sheet version");
 check(read("assets/js/app.js").indexOf('APP_VERSION = "0.3.29"') >= 0, "the sheet banner is 0.3.29");
 

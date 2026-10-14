@@ -1766,8 +1766,18 @@ function armRange(attack, targetId, shooterId) {
   const verdict = rangeButtonNote(attack, targetId, shooterId);
   if (!verdict || !verdict.apply || !window.SSDNSRangeRings.arm) return verdict;
   window.SSDNSRangeRings.arm(verdict);
-  if (verdict.log && role === 'dm') emit('chat:send', { text: verdict.log });
   return verdict;
+}
+function noteOverride(verdict) {
+  if (verdict && verdict.log && role === 'dm') emit('chat:send', { text: verdict.log });
+}
+function disMark(verdict) {
+  if (!verdict || verdict.blocked || !verdict.disadvantage) return '';
+  return ' <span class="ssm-dis">Disadvantage</span>';
+}
+function armAttack(attack, targetId, shooterId) {
+  const sid = shooterId || (role === 'player' ? uid : '');
+  return armRange(attack || {}, targetId, sid);
 }
 function selectToken(token) {
   if (!token) return;
@@ -1781,6 +1791,8 @@ function selectToken(token) {
     const attack = card && ((card.attacks || []).find(a => a && (a.id === wid || a.name === wid)) || (card.spells || []).find(s => s && (s.id === wid || s.name === wid)));
     const verdict = armRange(attack || { id: wid }, token.id, state.pendingTarget.tokenId);
     if (verdict && verdict.blocked) {
+      noteOverride(verdict);
+      if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
       toast(verdict.button || 'Out of range');
       state.pendingTarget = null;
       renderDrawer();
@@ -3666,6 +3678,7 @@ async function loadSceneImage(sceneId) {
     const same = state.drawerOpen && state.drawerTokenId === tokenId;
     state.drawerOpen = true;
     state.drawerTokenId = tokenId;
+    if (!same) state.rangeTargetId = '';
     if (!same) emit('drawer:open', { tokenId, combatantId: tokenCombatant(tokenId) });
     renderDrawer();
   }
@@ -3851,6 +3864,7 @@ async function loadSceneImage(sceneId) {
       const attack = ((card && card.attacks) || []).concat((card && card.spells) || []).find(a => a && a.id === id);
       const verdict = armRange(attack || { id: id }, targetId, uid);
       if (verdict && verdict.blocked) {
+        if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
         toast(verdict.button || 'Out of range');
         return;
       }
@@ -3936,7 +3950,7 @@ async function loadSceneImage(sceneId) {
       let off = '';
       if (verdict && verdict.blocked) { text = verdict.button || 'Out of range'; off = ' disabled'; }
       else if (verdict && verdict.button) text = attackLine(a) + ' · ' + verdict.button;
-      return '<button type="button" class="ssm-atk" data-act="playerAttack" data-id="' + esc(a.id) + '"' + off + '>' + esc(text) + '</button>';
+      return '<button type="button" class="ssm-atk" data-act="playerAttack" data-id="' + esc(a.id) + '"' + off + '>' + esc(text) + disMark(verdict) + '</button>';
     }).join('');
     const cylinders = (card.attacks || []).filter(a => (a.ammo && a.ammo.cap) || a.reloadId || a.trId).map(a => {
       const chosen = (state.rowTargets && (state.rowTargets[a.id] || state.rowTargets[a.reloadId])) || state.playerTarget || '';
@@ -3947,14 +3961,20 @@ async function loadSceneImage(sceneId) {
       return playerCylinderRow(a, html);
     }).join('');
     const spellButtons = groupedSpells(card.spells || [], s => {
+      const spellTarget = (state.rowTargets && state.rowTargets[s.id]) || state.playerTarget || '';
+      const verdict = rangeButtonNote(s, spellTarget, uid);
       const meta = [
         s.kind === 'save' ? 'save' : (s.kind === 'attack' ? 'attack' : (s.kind && s.kind !== 'none' ? s.kind : '')),
         s.dc !== '' && s.dc != null && s.kind === 'save' ? 'DC ' + s.dc : '',
         s.toHit !== '' && s.toHit != null && s.kind === 'attack' ? '+' + s.toHit : '',
         s.damage || ''
       ].filter(Boolean).join(' · ');
-      return '<button type="button" class="ssm-atk" data-act="playerSpell" data-id="' + esc(s.id) + '">' +
-        esc(s.name || s.id) + (s.level != null && s.level !== '' ? ' (L' + esc(s.level) + ')' : '') + (meta ? ' · ' + esc(meta) : '') + '</button>';
+      let off = '';
+      let extra = '';
+      if (verdict && verdict.blocked) { extra = ' · ' + (verdict.button || 'out of range'); off = ' disabled'; }
+      else if (verdict && verdict.button) extra = ' · ' + verdict.button;
+      return '<button type="button" class="ssm-atk" data-act="playerSpell" data-id="' + esc(s.id) + '"' + off + '>' +
+        esc(s.name || s.id) + (s.level != null && s.level !== '' ? ' (L' + esc(s.level) + ')' : '') + (meta ? ' · ' + esc(meta) : '') + esc(extra) + disMark(verdict) + '</button>';
     });
     const spells = spellsBlock(spellButtons, (card.spells || []).length);
     slot.innerHTML =
@@ -4043,20 +4063,21 @@ async function loadSceneImage(sceneId) {
       selectedTokenId: picked ? picked.id : '',
       selectedCombatantId: picked ? tokenCombatant(picked.id) : ''
     })) || { options: [], selected: '' };
+    const aimId = state.rangeTargetId || targetPack.selected || '';
     const targetOptions = (targetPack.options || []).map(o => {
       const id = o && (o.id || '');
-      const on = id && id === targetPack.selected ? ' selected' : '';
+      const on = id && id === aimId ? ' selected' : '';
       return '<option value="' + esc(id) + '"' + on + '>' + esc((o && (o.label || o.name)) || id) + '</option>';
     }).join('') || '<option value="">No targets</option>';
     const attacks = (card.attacks || []).map(a => {
       const ammo = a.ammo ? ' [' + (a.ammo.loaded != null ? a.ammo.loaded : '—') + '/' + (a.ammo.cap != null ? a.ammo.cap : '—') + ']' : '';
       const base = (a.name || a.id) + ' +' + (a.toHit != null && a.toHit !== '' ? a.toHit : 0) + ' ' + (a.damage || '') + ammo;
-      const verdict = rangeButtonNote(a, targetPack.selected || '', tokenId);
+      const verdict = rangeButtonNote(a, aimId, tokenId);
       let text = base;
       let off = canAct ? '' : 'disabled';
       if (verdict && verdict.blocked) { text = verdict.button || 'Out of range'; off = 'disabled'; }
       else if (verdict && verdict.button) text = base + ' · ' + verdict.button;
-      return '<button type="button" class="ssm-atk" data-wid="' + esc(a.id) + '" ' + off + '>' + esc(text) + '</button>';
+      return '<button type="button" class="ssm-atk" data-wid="' + esc(a.id) + '" ' + off + '>' + esc(text) + disMark(verdict) + '</button>';
     }).join('');
     const cylinders = (card.attacks || []).filter(a => a && a.ammo && a.ammo.cap).map(a => {
       const cap = Number(a.ammo.cap) || 0;
@@ -4101,8 +4122,13 @@ async function loadSceneImage(sceneId) {
         s.damage || '',
         s.concentration ? 'concentration' : ''
       ].filter(Boolean).join(' · ');
-      return '<button type="button" class="ssm-atk" data-sid="' + esc(s.id) + '" data-skind="' + esc(s.kind || '') + '" ' + (canAct ? '' : 'disabled') + '>' +
-        esc(s.name || s.id) + (s.level != null ? ' (L' + esc(s.level) + ')' : '') + (meta ? ' · ' + esc(meta) : '') + '</button>';
+      const verdict = rangeButtonNote(s, aimId, tokenId);
+      let off = canAct ? '' : 'disabled';
+      let extra = '';
+      if (verdict && verdict.blocked) { extra = ' · ' + (verdict.button || 'out of range'); off = 'disabled'; }
+      else if (verdict && verdict.button) extra = ' · ' + verdict.button;
+      return '<button type="button" class="ssm-atk" data-sid="' + esc(s.id) + '" data-skind="' + esc(s.kind || '') + '" ' + off + '>' +
+        esc(s.name || s.id) + (s.level != null ? ' (L' + esc(s.level) + ')' : '') + (meta ? ' · ' + esc(meta) : '') + esc(extra) + disMark(verdict) + '</button>';
     });
     const spells = spellsBlock(spellButtons, (card.spells || []).length);
     const conds = (card.conditions || []).map(c => {
@@ -4194,7 +4220,7 @@ async function loadSceneImage(sceneId) {
     d.querySelectorAll('[data-act="cylTarget"]').forEach(sel => {
       sel.addEventListener('change', () => {
         state.rangeTargetId = sel.value || '';
-        requestDraw();
+        renderDrawer();
       });
     });
     d.querySelectorAll('[data-act="chamber"]').forEach(b => {
@@ -4206,8 +4232,17 @@ async function loadSceneImage(sceneId) {
         const targetId = sel && sel.value;
         if (!targetId) { toast('Pick a target'); return; }
         const targetTok = state.tokens.find(tok => tok && (tokenCombatant(tok.id) === targetId || tok.id === targetId));
+        const wid = b.getAttribute('data-wid');
+        const attack = ((card.attacks || []).find(a => a && (a.id === wid || a.name === wid))) || { id: wid };
+        const verdict = armRange(attack, targetTok ? targetTok.id : targetId, tokenId);
+        if (verdict && verdict.blocked) {
+          noteOverride(verdict);
+          if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
+          toast(verdict.button || 'Out of range');
+          return;
+        }
         emit('drawer:target', detail({
-          weaponId: b.getAttribute('data-wid'),
+          weaponId: wid,
           chamber: Number(b.getAttribute('data-k')),
           targetTokenId: targetTok ? targetTok.id : '',
           targetCombatantId: targetId
@@ -4259,7 +4294,10 @@ async function loadSceneImage(sceneId) {
       b.addEventListener('click', () => emit('drawer:reload', detail({ weaponId: b.getAttribute('data-wid') })));
     });
     const rangeMode = d.querySelector('[data-act="rangeOverride"]');
-    if (rangeMode) rangeMode.addEventListener('change', () => { state.rangeOverride = rangeMode.value || 'auto'; });
+    if (rangeMode) rangeMode.addEventListener('change', () => {
+      state.rangeOverride = rangeMode.value || 'auto';
+      renderDrawer();
+    });
     d.querySelector('[data-act="reloadBtn"]').addEventListener('click', () => emit('drawer:reload', detail({ weaponId: pickedWeapon() })));
     d.querySelector('[data-act="unloadBtn"]').addEventListener('click', () => emit('drawer:unload', detail({ weaponId: pickedWeapon() })));
     d.querySelector('[data-act="deathBtn"]').addEventListener('click', () => emit('drawer:deathsave', detail()));
@@ -4539,7 +4577,8 @@ return {
   patchToken,
   tokenForPlayer,
   hasToken,
-  releaseToken
+  releaseToken,
+  armAttack
 };
 }
 };

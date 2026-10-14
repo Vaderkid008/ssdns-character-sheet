@@ -103,7 +103,7 @@ check(v2.indexOf("buildPublish()") >= 0 && v2.indexOf("if (DM.state.demo || !DM.
 
 const version = JSON.parse(read("version.json"));
 check(version.sheet === "0.3.29" && version.sheetBuild === "sheet-playtest-v0329", "sheet 0.3.29");
-check(version.dmcc === "0.2.41" && version.dmccBuild === "dmcc-playtest-v0241", "dmcc 0.2.41");
+check(version.dmcc === "0.2.42" && version.dmccBuild === "dmcc-playtest-v0242", "dmcc 0.2.42");
 
 if (failures.length) {
   console.error(failures.join("\n"));
