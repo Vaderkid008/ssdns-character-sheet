@@ -343,7 +343,7 @@
     for (var i = 0; i < 4; i++) {
       var cur = (c.melee[i] && c.melee[i].weapon) || "";
       html += "<div class='gun melee-card" + (cur ? "" : " empty") + "'>" +
-        "<div class='g-card-top'><div class='g-photo' title='Weapon photo later'>Photo</div><div class='g-name'>" +
+        "<div class='g-card-top'><div class='g-photo' data-melee-photo='" + i + "' title='Weapon photo later'>Photo</div><div class='g-name'>" +
         "<select data-melee='" + i + "' aria-label='Melee " + (i + 1) + "'><option value=''>Melee, bow, or thrown…</option>" +
         list.map(function (w) { return "<option value='" + w.id + "'" + (w.id === cur ? " selected" : "") + ">" + w.name + "</option>"; }).join("") +
         "</select><div class='g-stats'>" +
@@ -363,6 +363,8 @@
     var list = rules().melee || [];
     (c.melee || []).forEach(function (row, i) {
       var w = list.filter(function (x) { return x.id === row.weapon; })[0];
+      var photo = document.querySelector("[data-melee-photo='" + i + "']");
+      if (photo && root.SSDNSWeaponArt) root.SSDNSWeaponArt.paint(photo, w || (row && row.weapon ? { id: row.weapon } : null));
       var atk = $("#meleeBox [data-melee-atk='" + i + "']") || document.querySelector("[data-melee-atk='" + i + "']");
       var dmg = document.querySelector("[data-melee-dmg='" + i + "']");
       if (!w) {

@@ -273,7 +273,10 @@ input.big { font-family: var(--head); font-size: 28px !important; text-align: ce
 .gun-head { display: none; }
 .gun { display: flex; flex-direction: column; gap: 8px; padding: 10px; margin: 0 0 10px; border: 1px solid var(--line); background: #fffaf3; border-radius: 4px; }
 .g-card-top { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; align-items: start; }
-.g-photo { width: 76px; height: 76px; display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--label); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #6b5438; border: 1px dashed #8a7040; background: repeating-linear-gradient(45deg, #f6efe2, #f6efe2 6px, #efe4d0 6px, #efe4d0 12px); }
+.g-photo { width: 76px; height: 76px; display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--label); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #6b5438; border: 1px dashed #8a7040; background: repeating-linear-gradient(45deg, #f6efe2, #f6efe2 6px, #efe4d0 6px, #efe4d0 12px); overflow: hidden; }
+.g-card-top:has(.g-photo.has-art) { grid-template-columns: minmax(0, 1fr); }
+.g-photo.has-art { width: 100%; height: auto; aspect-ratio: 3 / 1; border-style: solid; border-color: #c4b497; background: #fffaf3; }
+.g-photo.has-art img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
 .g-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; }
 .g-stats [data-label] { display: flex; flex-direction: column; gap: 2px; min-width: 52px; }
 .g-stats [data-label]::before { content: attr(data-label); font-family: var(--label); font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: #3b2a1a; }
@@ -472,6 +475,8 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
   .insp { gap: 0; }
   .g-card-top { grid-template-columns: 64px minmax(0, 1fr); }
   .g-photo { width: 64px; height: 64px; }
+  .g-card-top:has(.g-photo.has-art) { grid-template-columns: minmax(0, 1fr); }
+  .g-photo.has-art { width: 100%; height: auto; aspect-ratio: 3 / 1; }
   .g-mis { margin-left: 0; align-items: flex-start; }
   .chamber { width: 34px; height: 34px; }
   .chambers { gap: 6px; }

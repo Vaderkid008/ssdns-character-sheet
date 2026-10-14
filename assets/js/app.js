@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.31"; // sheet-playtest-v0331
+  var APP_VERSION = "0.3.32"; // sheet-playtest-v0332
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1377,6 +1377,7 @@
     fillCasterGunSelect();
     c.guns.forEach(function (g, i) {
       var s = v.guns[i], row = $('.gun[data-row="' + i + '"]'), w = s && s.w;
+      if (row && window.SSDNSWeaponArt) window.SSDNSWeaponArt.paint(row.querySelector(".g-photo"), w || null);
       row.classList.toggle("empty", !s);
       row.classList.toggle("is-shotgun", !!(w && w.scatter));
       row.classList.toggle("is-caster", !!(w && w.hexShells));
