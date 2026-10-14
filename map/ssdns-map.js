@@ -257,7 +257,7 @@ on(document, 'keydown', e => {
 });
 const chatdock = document.createElement('div');
 chatdock.className = 'ssdns-chatdock';
-chatdock.innerHTML = `<div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button data-act="chatSend">Send</button></div>`;
+chatdock.innerHTML = `<div class="ssdns-chathead"><span class="panel-title">Chat</span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden>Chat is in its own window.</p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
 el.appendChild(chatdock);
 function pushFeed(row) {
   if (!row || row.kind === 'sfx') { if (row && host.sfx) host.sfx(row); return; }
@@ -271,12 +271,14 @@ function pushFeed(row) {
   line.textContent = name + ': ' + row.text;
   log.appendChild(line);
   log.scrollTop = log.scrollHeight;
+  syncChatPop();
 }
 function setChat(rows) {
   state.chat = [];
   const log = q('chatlog');
   if (log) log.innerHTML = '';
   (rows || []).forEach(pushFeed);
+  if (!(rows || []).length) syncChatPop();
 }
 function pushChat(row) { pushFeed(row); }
 
@@ -304,6 +306,49 @@ function sendChat() {
   const text = input.value.trim();
   input.value = '';
   emit('chat:send', { text });
+}
+function mapChatItems() {
+  return (state.chat || []).filter(row => row && row.kind !== 'sfx').map(row => {
+    const crit = !!row.crit || Number(row.nat) === 20;
+    const attack = row.kind === 'roll' || !!row.attack;
+    return {
+      id: row.id,
+      kind: row.kind || 'chat',
+      who: row.fromName || row.who || (host.displayName ? host.displayName(row.from) : row.from) || '',
+      text: row.text || '',
+      ts: row.ts,
+      tag: row.tag || (crit ? 'CRITICAL' : (attack ? 'ATTACK' : '')),
+      cls: row.cls || (crit ? 'roll-crit' : (attack ? 'roll-attack' : ''))
+    };
+  });
+}
+let chatUi = null;
+function syncChatPop() {
+  if (!chatUi) return;
+  chatUi.setMapItems(mapChatItems());
+}
+if (window.SSDNSMapChat) {
+  chatUi = window.SSDNSMapChat.attach({
+    root: el,
+    send: function (text) {
+      const input = q('chatInput');
+      if (!input) return;
+      input.value = text;
+      sendChat();
+    },
+    onMode: function (open, mode) {
+      el.classList.toggle('ssdns-chat-popped', !!open);
+      const popBtn = q('chatPop');
+      const dockBtn = q('chatDock');
+      const note = q('chatPopNote');
+      if (popBtn) popBtn.hidden = !!open;
+      if (dockBtn) dockBtn.hidden = !open;
+      if (note) {
+        note.hidden = !open;
+        note.textContent = mode === 'overlay' ? 'Chat covers the map. Dock puts it back.' : 'Chat is in its own window.';
+      }
+    }
+  });
 }
 
 if (role === 'dm') {
@@ -2873,6 +2918,8 @@ on(canvas, 'wheel', e => {
 }, { passive: false });
 
 q('chatSend').addEventListener('click', sendChat);
+q('chatPop').addEventListener('click', () => { if (chatUi) chatUi.pop(); });
+q('chatDock').addEventListener('click', () => { if (chatUi) chatUi.dock(); });
 
 q('helpBtn').addEventListener('click', () => {
   let box = q('helpBox');
@@ -4320,6 +4367,7 @@ async function loadSceneImage(sceneId) {
     listeners.forEach(([t, ev, fn, opt]) => t.removeEventListener(ev, fn, opt));
     listeners.length = 0;
     unsubs.forEach(u => { try { u(); } catch (e) {} });
+    if (chatUi) { chatUi.detach(); chatUi = null; }
     el.innerHTML = '';
   }
 

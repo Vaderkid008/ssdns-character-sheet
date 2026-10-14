@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.29 Gear tab layout. DMCC 0.2.42.
+ * Sheet 0.3.30 Gear tab layout. DMCC 0.2.43.
  *   node tools/test-gear-tab.mjs
  */
 import fs from "node:fs";
@@ -22,9 +22,9 @@ const play = read("assets/js/sheet-playtest.js");
 const css = read("assets/css/sheet.css");
 const version = JSON.parse(read("version.json"));
 
-check("ver.sheet", version.sheet === "0.3.29" && version.sheetBuild === "sheet-playtest-v0329");
-check("ver.dmcc", version.dmcc === "0.2.42" && version.dmccBuild === "dmcc-playtest-v0242");
-check("ver.app", app.includes('APP_VERSION = "0.3.29"'));
+check("ver.sheet", version.sheet === "0.3.30" && version.sheetBuild === "sheet-playtest-v0330");
+check("ver.dmcc", version.dmcc === "0.2.43" && version.dmccBuild === "dmcc-playtest-v0243");
+check("ver.app", app.includes('APP_VERSION = "0.3.30"'));
 check("target.banner", equip.includes('id="gearTarget"') && equip.includes("gear-bullseye") && equip.includes('id="gearTargetSlot"'));
 check("target.mount", play.includes('id=\'atkTarget\'') && play.includes('$("#gearTargetSlot")'));
 check("columns", equip.includes("gear-weapons") && equip.includes("gear-kit") && css.includes(".gear-columns"));

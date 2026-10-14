@@ -271,6 +271,20 @@
     if (attack) return { cls: "roll-attack", tag: "ATTACK" };
     return { cls: "", tag: "" };
   }
+  function chatPopItems() {
+    return log.filter(function (e) {
+      return e && (e.kind === "chat" || e.kind === "roll");
+    }).map(function (e) {
+      var face = rollFace(e);
+      var text = String(e.text || "");
+      var who = "";
+      if (e.kind === "chat") {
+        var cut = text.indexOf(":");
+        if (cut > 0) who = text.slice(0, cut);
+      }
+      return { id: e.id, kind: e.kind, who: who, text: text, ts: e.ts, tag: face.tag, cls: face.cls };
+    });
+  }
   function renderDock() {
     var feed = $("#sheetDockFeed");
     if (!feed) return;
@@ -291,6 +305,9 @@
         '</div><div>' + esc(e.text || "") + (hand ? handoutBits(e) : "") + "</div></div>";
     }).join("") || '<p class="fine">Nothing in this filter yet. Rolls, shards, and chat land here.</p>';
     if (stick) feed.scrollTop = feed.scrollHeight;
+    var popped = chatPopItems();
+    root.SSDNSChatDockItems = popped;
+    if (root.SSDNSMapChat) root.SSDNSMapChat.publish(popped);
     var badge = $("#sheetDockBadge");
     var closed = document.body.classList.contains("sheet-dock-collapsed") || (window.matchMedia("(max-width: 800px)").matches && !document.body.classList.contains("dock-open"));
     if (!closed) sheetDockSeen = log.length;

@@ -1,3 +1,7 @@
+# Map chat pop-out — sheet 0.3.30 / DMCC 0.2.43
+
+The map chat has a Pop out button on the player sheet and on DMCC. It opens the same room feed in its own browser window. Dock puts that feed back on the map. A narrow screen, or a blocked window, uses a full-screen overlay instead. The opener stays the only Firebase client: the window mirrors the dock and sends through the existing chat path once, so a line is not written twice. `assets/data/rules.js` and `database.rules.json` did not change.
+
 # Range on every fire path — sheet 0.3.29 / DMCC 0.2.42
 
 Cylinder, tube, and attack-button shots use the same range check as the map attack buttons. A shot that would roll at disadvantage asks first: `This attack is with Disadvantage.  Continue?` Cancel spends nothing, posts nothing, and plays no sound. Continue is the first moment a gunshot can play. The map attack buttons add a red `Disadvantage` when the selected target is in a disadvantage band. `assets/data/rules.js` and `database.rules.json` did not change.
