@@ -6,6 +6,8 @@ The player's floating card keeps Ping, Ruler, Ghost Plan, Cancel plan, and Torch
 
 The old sheet dump is gone: unsold labels, prices, empty melee slots, and the extra Cast button on a gun.
 
+The ammo pictures are on by default for the Gear tab, the Fight tab, and the map. `?ammoDisplay=0` or `localStorage ssdns.ammoDisplay = "off"` puts the old dots back. `?ammoDisplay=1` or `"on"` forces the pictures.
+
 ```cmd
 node tools/test-player-card.mjs
 node tools/test-map-m2.mjs

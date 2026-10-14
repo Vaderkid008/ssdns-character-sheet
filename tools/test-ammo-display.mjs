@@ -1,5 +1,5 @@
 /**
- * Ammo display framework: cylinder, tube, dots, flag off by default.
+ * Ammo display framework: cylinder, tube, dots, flag on by default.
  *   node tools/test-ammo-display.mjs
  */
 import fs from "node:fs";
@@ -25,18 +25,28 @@ function boot(url) {
 
 const dom = boot();
 const api = dom.window.SSDNSAmmoDisplay;
-check("flag.off", api.enabled() === false);
+check("flag.on", api.enabled() === true);
 
-dom.window.SSDNS_AMMO_DISPLAY = true;
-check("flag.window", api.enabled() === true);
 dom.window.SSDNS_AMMO_DISPLAY = false;
 check("flag.windowOff", api.enabled() === false);
+dom.window.SSDNS_AMMO_DISPLAY = true;
+check("flag.window", api.enabled() === true);
+delete dom.window.SSDNS_AMMO_DISPLAY;
+check("flag.windowCleared", api.enabled() === true);
+
+dom.window.localStorage.setItem("ssdns.ammoDisplay", "off");
+check("flag.storageOff", api.enabled() === false);
 dom.window.localStorage.setItem("ssdns.ammoDisplay", "on");
 check("flag.storage", api.enabled() === true);
 dom.window.localStorage.removeItem("ssdns.ammoDisplay");
-check("flag.storageOff", api.enabled() === false);
+check("flag.storageCleared", api.enabled() === true);
 
+const queriedOff = boot("http://localhost/?ammoDisplay=0");
+check("flag.queryOff", queriedOff.window.SSDNSAmmoDisplay.enabled() === false);
+queriedOff.window.localStorage.setItem("ssdns.ammoDisplay", "on");
+check("flag.queryBeatsStorage", queriedOff.window.SSDNSAmmoDisplay.enabled() === false);
 const queried = boot("http://localhost/?ammoDisplay=1");
+queried.window.localStorage.setItem("ssdns.ammoDisplay", "off");
 check("flag.query", queried.window.SSDNSAmmoDisplay.enabled() === true);
 
 check("kind.revolver", api.kind({ action: "Revolver" }) === "cylinder");

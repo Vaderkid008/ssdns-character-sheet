@@ -1,7 +1,8 @@
 /* Shared ammo picture for the Gear tab, the Fight strip, and the map drawer.
-   Off unless SSDNS_AMMO_DISPLAY is true, localStorage ssdns.ammoDisplay is "on",
-   or the page URL has ammoDisplay=1. Calling html() or mount() always draws;
-   the three hosts check enabled() first and keep today's markup when it is off.
+   On unless localStorage ssdns.ammoDisplay is "off", the page URL has
+   ammoDisplay=0, or SSDNS_AMMO_DISPLAY is false. ammoDisplay=1 and
+   ssdns.ammoDisplay "on" force it on. Calling html() or mount() always draws;
+   the three hosts check enabled() first and keep the old dots when it is off.
    Clicks stay on the buttons the hosts already listen for. This file does not
    spend rounds or change a roll. A tube click reports the leftmost loaded
    chamber so the existing fire path spends that round. */
@@ -22,15 +23,18 @@
   var HEX = ["#c4b5fd", "#a78bfa", "#8b5cf6", "#7c3aed", "#6d28d9", "#5b21b6", "#4c1d95", "#3b0764", "#2e1065"];
 
   function enabled() {
-    if (root.SSDNS_AMMO_DISPLAY === true) return true;
-    try {
-      if (root.localStorage && root.localStorage.getItem("ssdns.ammoDisplay") === "on") return true;
-    } catch (e) {}
     try {
       var q = root.location && root.location.search || "";
+      if (/[?&]ammoDisplay=0(?:&|$)/.test(q)) return false;
       if (/[?&]ammoDisplay=1(?:&|$)/.test(q)) return true;
+    } catch (e) {}
+    try {
+      var stored = root.localStorage && root.localStorage.getItem("ssdns.ammoDisplay");
+      if (stored === "off") return false;
+      if (stored === "on") return true;
     } catch (e2) {}
-    return false;
+    if (root.SSDNS_AMMO_DISPLAY === false) return false;
+    return true;
   }
 
   function catalogRow(weapon) {

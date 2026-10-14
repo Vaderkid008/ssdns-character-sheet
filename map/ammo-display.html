@@ -22,20 +22,20 @@
 <body>
 <main>
   <h1>Ammo display</h1>
-  <p class="note">Cylinder, tube, and the dot row share one component. A chamber click on this page only changes the picture. The Gear tab, the Fight tab, and the map drawer keep their own spend and load handlers, and they keep today's dots until the flag is on.</p>
+  <p class="note">Cylinder, tube, and the dot row share one component. A chamber click on this page only changes the picture. The Gear tab, the Fight tab, and the map drawer use the same pictures. Add ?ammoDisplay=0, or set localStorage ssdns.ammoDisplay to "off", to go back to the old dots.</p>
   <p class="flag" id="flag"></p>
   <div class="grid" id="board"></div>
   <p class="log" id="log">Click a chamber.</p>
 </main>
 <script src="../assets/data/rules.js?v=0.3.22-ammo"></script>
-<script src="../assets/js/ammo-display.js?v=0.3.26-range"></script>
+<script src="../assets/js/ammo-display.js?v=0.3.27-ammo"></script>
 <script>
 (function () {
   var api = window.SSDNSAmmoDisplay;
   var flag = document.getElementById("flag");
   flag.textContent = api.enabled()
     ? "Flag is on for this page. Gear, Fight, and the map drawer will use these pictures too."
-    : "Flag is off. This page draws the pictures directly. Gear, Fight, and the map drawer still use the old dots until Jessey turns the flag on.";
+    : "Flag is off for this page (?ammoDisplay=0 or ssdns.ammoDisplay is off). Gear, Fight, and the map drawer use the old dots until it is turned back on.";
 
   var panels = [
     { title: "Cylinder, 6", spec: { action: "Revolver", name: "Revolver", cap: 6, size: "demo", chambers: [1, 1, "jam", 1, "", 1] } },
