@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.42"; // dmcc-playtest-v0242
+const VERSION = "0.2.43"; // dmcc-playtest-v0243
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1966,6 +1966,43 @@ function fillDockTargets() {
   sel.innerHTML = opts;
   if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
 }
+function publishMapChat() {
+  const items = [];
+  const seen = new Set();
+  (state.chat || []).forEach((c) => {
+    if (!c) return;
+    const id = c.id || "";
+    if (id && seen.has(id)) return;
+    if (id) seen.add(id);
+    const who = (c.fromName || "Table") + (c.to && c.to !== "all" ? " → " + (c.toName || "one player") : "");
+    items.push({ id: id, ts: c.ts, kind: "chat", who: who, text: c.text || "" });
+  });
+  (state.rolls || []).forEach((r) => {
+    if (!r) return;
+    const face = rollFace(r);
+    items.push({
+      id: r.id ? ("roll:" + r.id) : "",
+      ts: r.ts,
+      kind: "rolls",
+      who: rollWho(r) || r.characterName || r.who || "",
+      cls: (r.private ? "private " : "") + (face.cls || ""),
+      tag: r.private ? "PRIVATE" : face.tag,
+      text: rollBody(r)
+    });
+  });
+  (state.messages || []).forEach((m) => {
+    items.push({
+      id: m.id || "",
+      ts: m.ts,
+      kind: "alerts",
+      who: "DM → " + (m.toName || m.to || "player"),
+      text: m.text || ""
+    });
+  });
+  items.sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
+  window.SSDNSChatDockItems = items;
+  if (window.SSDNSMapChat) window.SSDNSMapChat.publish(items);
+}
 function renderLiveDock() {
   guardFocus(() => renderLiveDockNow());
 }
@@ -1981,6 +2018,7 @@ function renderLiveDockNow() {
     `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${esc(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${esc(row.text || "")}${row.applyHtml || ""}</div></div>`
   ).join("") || '<p class="lede">Nothing in this filter yet.</p>';
   if (stick) feed.scrollTop = feed.scrollHeight;
+  publishMapChat();
   if (dockIsOpen()) dockSeen = all.length;
   const unread = Math.max(0, all.length - dockSeen);
   const badge = $("#dockBadge");
