@@ -1396,8 +1396,17 @@ function rollDetail(r) {
   if (/ → (HIT|MISS|CRIT)/.test(detail)) return detail.replace(/ → (HIT|MISS|CRIT)/, " vs AC " + ac + " → $1");
   return detail;
 }
+function paintWho(name) {
+  if (window.SSDNSApplied && window.SSDNSApplied.whoHtml) return window.SSDNSApplied.whoHtml(name);
+  return esc(name);
+}
+function paintText(text) {
+  if (window.SSDNSApplied && window.SSDNSApplied.leadNameHtml) return window.SSDNSApplied.leadNameHtml(text);
+  return esc(text);
+}
 function rollBody(r) {
   const detail = rollDetail(r);
+  if (detail && /\bd20\b/.test(detail) && detail.indexOf("=") >= 0 && !/→\s*(HIT|MISS|CRIT|misfire)/i.test(detail)) return detail;
   let out;
   if (r && (r.heal || /\bheals\b/i.test(detail))) out = detail;
   else if (detail && /→\s*(HIT|MISS|CRIT|misfire)/i.test(detail)) out = detail;
@@ -2015,7 +2024,7 @@ function renderLiveDockNow() {
   const items = all.filter((row) => filter === "all" || row.kind === filter || (filter === "alerts" && row.kind === "alerts"));
   const stick = feed.dataset.stick !== "0";
   feed.innerHTML = items.slice(-80).map((row) =>
-    `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${esc(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${esc(row.text || "")}${row.applyHtml || ""}</div></div>`
+    `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${paintWho(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${paintText(row.text || "")}${row.applyHtml || ""}</div></div>`
   ).join("") || '<p class="lede">Nothing in this filter yet.</p>';
   if (stick) feed.scrollTop = feed.scrollHeight;
   publishMapChat();
@@ -2078,13 +2087,13 @@ function renderRolls() {
     return `<div class="feed-item ${nat ? "nat1" : ""} ${face.cls} ${r.private ? "private" : ""}">
       <div class="feed-meta">
         <span>${esc(fmtTime(r.ts))}</span>
-        <span>${esc(rollWho(r))}</span>
+        <span>${paintWho(rollWho(r))}</span>
         ${state.turnEngaged && r.playerId && r.uid !== state.uid && r.playerId !== state.turnPlayerId ? '<span class="badge">out of turn</span>' : ""}
         ${r.private ? '<span class="badge">Private</span>' : ""}${r.whisper ? '<span class="badge">Whisper</span>' : ""}
         ${face.tag ? '<span class="roll-tag">' + esc(face.tag) + "</span>" : ""}
         ${nat ? '<span class="badge danger">Nat 1 · firearm</span>' : ""}
       </div>
-      <div class="feed-what">${esc(rollBody(r))} ${hitApplyButton(r)}</div>
+      <div class="feed-what">${paintText(rollBody(r))} ${hitApplyButton(r)}</div>
     </div>`;
   }).join("");
   renderLiveDock();

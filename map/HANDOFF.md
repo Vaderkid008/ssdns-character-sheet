@@ -1,6 +1,12 @@
-# Map chat pop-out — sheet 0.3.30 / DMCC 0.2.43
+# Map sync on the popped-out chat — sheet 0.3.30 / DMCC 0.2.43
 
-The map chat has a Pop out button on the player sheet and on DMCC. It opens the same room feed in its own browser window. Dock puts that feed back on the map. A narrow screen, or a blocked window, uses a full-screen overlay instead. The opener stays the only Firebase client: the window mirrors the dock and sends through the existing chat path once, so a line is not written twice. `assets/data/rules.js` and `database.rules.json` did not change.
+Range buttons, the red Disadvantage label, the band highlight, and the disadvantage check read the token positions on this screen while a token is dragged and again when the pointer goes up. A remote echo during the drag does not pull the token back. After the drag, a newer synced position still wins. The roll uses the position at the click.
+
+While a token is dragged, its cell is written about six times a second, and only when the cell changed. Pointer-up still writes the final cell. A blocked square snaps back before that write. A hidden token is written only under `map/dm`. An idle map does not write. `database.rules.json` and `assets/data/rules.js` did not change.
+
+An attack the player cannot score yet still posts the d20, the labeled bonuses, the total, and the damage. It does not show AC or hit/miss until the DM resolves it. Chat names use the map token color. The docked map chat can collapse, shows an unread count, and filters All / Rolls / Talk on this screen only.
+
+Pop out still opens the same feed in its own window. Dock puts it back. A narrow screen uses a full-screen overlay. The opener stays the only Firebase client.
 
 # Range on every fire path — sheet 0.3.29 / DMCC 0.2.42
 

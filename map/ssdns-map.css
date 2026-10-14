@@ -105,7 +105,18 @@
   touch-action: none;
   overscroll-behavior: none;
 }
-.ssdns-map .ssdns-chatdock [data-act="chatlog"] { max-height: 90px; overflow: auto; }
+.ssdns-map .ssdns-chathead { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.ssdns-map .ssdns-chathead [data-act="chatFilters"] { display: flex; gap: 2px; }
+.ssdns-map .ssdns-chathead [data-act="chatFilters"] button,
+.ssdns-map .ssdns-chathead [data-act="chatPop"],
+.ssdns-map .ssdns-chathead [data-act="chatDock"] { padding: 2px 6px; font-size: 11px; width: auto; }
+.ssdns-map .ssm-chatbadge { background: #8b3a3a; color: #fff; border-radius: 8px; padding: 0 5px; font-size: 10px; margin-left: 4px; }
+.ssdns-map .ssm-who { font-weight: 700; }
+.ssdns-map .ssdns-chatdock.ssm-chat-shut [data-act="chatlog"],
+.ssdns-map .ssdns-chatdock.ssm-chat-shut [data-act="chatrow"],
+.ssdns-map .ssdns-chatdock.ssm-chat-shut [data-act="chatFilters"] { display: none; }
+.ssdns-map .ssdns-chatdock [data-act="chatlog"] { max-height: 140px; overflow: auto; }
+.ssdns-map .ssm-chatline { white-space: pre-line; }
 .ssdns-chat-overlay,
 body.ssdns-chat-pop {
   position: fixed;

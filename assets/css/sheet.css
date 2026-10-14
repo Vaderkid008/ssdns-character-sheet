@@ -632,7 +632,7 @@ html, body { overflow-x: hidden; }
 .sheet-dock .dock-head { justify-content: space-between; border-bottom: 1px solid #3a454c; }
 .sheet-dock .dock-head b { font-family: var(--head); color: #3fbf9a; font-weight: 400; }
 .sheet-dock .dock-feed { flex: 1; overflow: auto; padding: 8px; }
-.sheet-dock .dock-item { border-bottom: 1px solid #3a454c; padding: 6px 2px; font-size: 14px; }
+.sheet-dock .dock-item { border-bottom: 1px solid #3a454c; padding: 6px 2px; font-size: 14px; white-space: pre-line; }
 .sheet-dock .dock-meta { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; opacity: .7; }
 .sheet-dock .dock-compose { border-top: 1px solid #3a454c; }
 .sheet-dock .dock-compose input { flex: 1; min-width: 0; min-height: 40px; }

@@ -407,6 +407,7 @@
     var detail = String((entry && entry.detail) || "");
     if (entry && (entry.heal || /\bheals\b/i.test(detail))) return detail;
     if (/→\s*(HIT|MISS)/.test(detail)) return detail;
+    if (/\bd20\b/.test(detail) && detail.indexOf("=") >= 0) return detail;
     return (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result == null ? "" : entry.result) + (detail ? " (" + detail + ")" : "");
   }
   async function writeRoll(entry) {

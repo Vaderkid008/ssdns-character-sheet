@@ -488,7 +488,7 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
 .chip { border: 1px solid var(--line); background: var(--bg); color: var(--muted); cursor: pointer; border-radius: 99px; font-family: var(--label); font-size: 12px; letter-spacing: .04em; }
 .chip.on { background: var(--eld-dim); color: var(--parch); border-color: var(--eld); }
 .dock-feed { flex: 1; overflow: auto; padding: 8px; }
-.dock-item { border-bottom: 1px solid var(--line); padding: 6px 2px; font-size: 14px; }
+.dock-item { border-bottom: 1px solid var(--line); padding: 6px 2px; font-size: 14px; white-space: pre-line; }
 .dock-meta { font-family: var(--label); font-size: 11px; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; }
 .dock-compose { border-top: 1px solid var(--line); }
 .dock-compose input, .dock-compose select { flex: 1; min-width: 0; min-height: 40px; background: var(--bg); border: 1px solid var(--line); padding: 6px 8px; }

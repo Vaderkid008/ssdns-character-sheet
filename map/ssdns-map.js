@@ -100,6 +100,71 @@ window.SSDNSMap = { create(opts) {
     if (patch && patch.veil != null) safe.veil = !!patch.veil;
     write('map/public/tokens/' + token.id + '/patch', safe);
   }
+  // About 6 Hz. Inside the 5–8 Hz cap, and only when the cell changed.
+  const STREAM_MS = 160;
+  let streamAt = 0;
+  let streamTimer = 0;
+  const streamSent = {};
+  function dragTokenIds() {
+    if (!state.drag || !state.drag.token || state.offline) return [];
+    const ids = state.selectedIds && state.selectedIds.length ? state.selectedIds.slice() : [state.drag.token.id];
+    if (ids.indexOf(state.drag.token.id) < 0) ids.push(state.drag.token.id);
+    return ids;
+  }
+  function streamChangedIds() {
+    const out = [];
+    dragTokenIds().forEach(id => {
+      const t = state.tokens.find(tok => tok && tok.id === id);
+      if (!t || !t.pos || !canControl(t)) return;
+      const key = t.pos.x + ',' + t.pos.y;
+      if (streamSent[id] === key) return;
+      out.push(t);
+    });
+    return out;
+  }
+  function writeStreamToken(t) {
+    if (!t) return;
+    streamSent[t.id] = t.pos.x + ',' + t.pos.y;
+    if (role === 'player') {
+      publishPlayerMove(t);
+      return;
+    }
+    if (!shared.tokens[t.id]) return;
+    shared.tokens[t.id].pos = { x: t.pos.x, y: t.pos.y, by: uid, ts: Date.now() };
+    if (t.hidden || shared.tokens[t.id].hidden) {
+      write('map/dm/tokens/' + t.id, JSON.parse(JSON.stringify(shared.tokens[t.id], (k, v) => k === '_img' ? undefined : v)));
+      return;
+    }
+    saveToken(t.id);
+  }
+  function sendStream(list) {
+    (list || []).forEach(writeStreamToken);
+    streamAt = Date.now();
+  }
+  function clearStreamTimer() {
+    if (!streamTimer) return;
+    clearTimeout(streamTimer);
+    streamTimer = 0;
+  }
+  function streamDrag() {
+    if (state.offline || !state.drag || !state.drag.token) return;
+    const pending = streamChangedIds();
+    if (!pending.length) return;
+    const now = Date.now();
+    if (streamAt && now - streamAt < STREAM_MS) {
+      if (!streamTimer) {
+        streamTimer = setTimeout(() => {
+          streamTimer = 0;
+          if (state.offline || !state.drag || !state.drag.token) return;
+          const again = streamChangedIds();
+          if (again.length) sendStream(again);
+        }, STREAM_MS);
+      }
+      return;
+    }
+    clearStreamTimer();
+    sendStream(pending);
+  }
   function applyPublic(pub) {
     if (!pub) return;
     shared.tokens = pub.tokens || shared.tokens;
@@ -257,30 +322,105 @@ on(document, 'keydown', e => {
 });
 const chatdock = document.createElement('div');
 chatdock.className = 'ssdns-chatdock';
-chatdock.innerHTML = `<div class="ssdns-chathead"><span class="panel-title">Chat</span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden>Chat is in its own window.</p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
+chatdock.innerHTML = `<div class="ssdns-chathead"><button type="button" data-act="chatToggle" aria-expanded="true">Chat <span data-act="chatBadge" class="ssm-chatbadge" hidden>0</span></button><span data-act="chatFilters"><button type="button" data-chat-filter="all" class="on">All</button><button type="button" data-chat-filter="rolls">Rolls</button><button type="button" data-chat-filter="talk">Talk</button></span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden>Chat is in its own window.</p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
 el.appendChild(chatdock);
+state.chatFilter = 'all';
+state.chatOpen = true;
+state.chatSeen = 0;
+try {
+  const savedFilter = localStorage.getItem('ssdns.map.chatFilter');
+  if (savedFilter === 'rolls' || savedFilter === 'talk' || savedFilter === 'all') state.chatFilter = savedFilter;
+  if (localStorage.getItem('ssdns.map.chatOpen') === '0') state.chatOpen = false;
+} catch (e) {}
+function chatBucket(row) {
+  if (!row || row.kind === 'sfx') return '';
+  if (row.kind === 'roll' || row.kind === 'rolls' || row.attack) return 'rolls';
+  const text = String(row.text || '');
+  if (/\bd20\b/.test(text) || /→\s*(HIT|MISS|CRIT)/.test(text)) return 'rolls';
+  return 'talk';
+}
+function chatName(row) {
+  return row.fromName || row.who || (host.displayName ? host.displayName(row.from) : row.from) || '';
+}
+function publishTokenColors() {
+  const bag = {};
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.color) return;
+    if (t.hidden && role !== 'dm') return;
+    [t.name, t.label, t.ownerUid].forEach(key => {
+      const id = String(key || '').trim().toLowerCase();
+      if (id) bag[id] = String(t.color);
+    });
+  });
+  window.SSDNSTokenColors = bag;
+}
+function chatLineHtml(row) {
+  const name = chatName(row);
+  const text = String(row.text || '');
+  const Applied = window.SSDNSApplied;
+  const bucket = chatBucket(row);
+  if (bucket === 'rolls' && Applied && Applied.leadNameHtml) return Applied.leadNameHtml(name && text.indexOf(name) !== 0 ? (name + ': ' + text) : text);
+  if (Applied && Applied.whoHtml) return Applied.whoHtml(name) + ': ' + esc(text);
+  return esc(name + ': ' + text);
+}
+function renderChat() {
+  publishTokenColors();
+  const log = q('chatlog');
+  if (!log) return;
+  const rows = (state.chat || []).filter(row => {
+    const bucket = chatBucket(row);
+    if (!bucket) return false;
+    if (state.chatFilter === 'rolls') return bucket === 'rolls';
+    if (state.chatFilter === 'talk') return bucket === 'talk';
+    return true;
+  });
+  log.innerHTML = rows.map(row => '<div class="ssm-chatline">' + chatLineHtml(row) + '</div>').join('');
+  log.scrollTop = log.scrollHeight;
+  chatdock.classList.toggle('ssm-chat-shut', !state.chatOpen);
+  const toggle = q('chatToggle');
+  if (toggle) toggle.setAttribute('aria-expanded', state.chatOpen ? 'true' : 'false');
+  document.querySelectorAll('[data-chat-filter]').forEach(btn => {
+    if (btn.closest && btn.closest('.ssdns-map') !== el && !el.contains(btn)) return;
+    btn.classList.toggle('on', btn.getAttribute('data-chat-filter') === state.chatFilter);
+  });
+  const badge = q('chatBadge');
+  const unread = state.chatOpen ? 0 : Math.max(0, (state.chat || []).filter(chatBucket).length - state.chatSeen);
+  if (badge) {
+    badge.hidden = unread < 1;
+    badge.textContent = String(unread);
+  }
+  syncChatPop();
+}
 function pushFeed(row) {
   if (!row || row.kind === 'sfx') { if (row && host.sfx) host.sfx(row); return; }
   state.chat = state.chat || [];
   state.chat.push(row);
-  if (state.chat.length > 100) state.chat.shift();
-  const log = q('chatlog');
-  if (!log) return;
-  const line = document.createElement('div');
-  const name = row.fromName || (host.displayName ? host.displayName(row.from) : row.from);
-  line.textContent = name + ': ' + row.text;
-  log.appendChild(line);
-  log.scrollTop = log.scrollHeight;
-  syncChatPop();
+  if (state.chat.length > 100) {
+    const drop = state.chat.length - 100;
+    state.chat.splice(0, drop);
+    state.chatSeen = Math.max(0, state.chatSeen - drop);
+  }
+  if (state.chatOpen) state.chatSeen = state.chat.filter(chatBucket).length;
+  renderChat();
 }
 function setChat(rows) {
-  state.chat = [];
-  const log = q('chatlog');
-  if (log) log.innerHTML = '';
-  (rows || []).forEach(pushFeed);
-  if (!(rows || []).length) syncChatPop();
+  state.chat = (rows || []).filter(row => row && row.kind !== 'sfx');
+  state.chatSeen = state.chat.filter(chatBucket).length;
+  renderChat();
 }
 function pushChat(row) { pushFeed(row); }
+function setChatFilter(next) {
+  if (next !== 'all' && next !== 'rolls' && next !== 'talk') return;
+  state.chatFilter = next;
+  try { localStorage.setItem('ssdns.map.chatFilter', next); } catch (e) {}
+  renderChat();
+}
+function setChatOpen(open) {
+  state.chatOpen = !!open;
+  if (state.chatOpen) state.chatSeen = (state.chat || []).filter(chatBucket).length;
+  try { localStorage.setItem('ssdns.map.chatOpen', state.chatOpen ? '1' : '0'); } catch (e) {}
+  renderChat();
+}
 
 function refreshSelectedPanel() {
   if (role !== 'dm') return;
@@ -906,6 +1046,10 @@ function bindRangeUi() {
     });
   }
 }
+function refreshRangeSurfaces() {
+  if (role === 'player') paintPlayerFight();
+  else if (state.drawerOpen) renderDrawer();
+}
 function markRangeMoved(id, from, to) {
   if (!id || !from || !to) return;
   if (from.x === to.x && from.y === to.y) return;
@@ -913,9 +1057,15 @@ function markRangeMoved(id, from, to) {
   state.rangeMoved[id] = true;
 }
 function paintRangeRings() {
-  if (!state.showRange || !window.SSDNSRangeRings) return;
+  if (!state.showRange || !window.SSDNSRangeRings) {
+    el.dataset.rangeBand = '';
+    return;
+  }
   const token = rangeToken();
-  if (!token || !token.pos) return;
+  if (!token || !token.pos) {
+    el.dataset.rangeBand = '';
+    return;
+  }
   const choices = state.rangeChoices || [];
   const picked = choices.filter(c => c.id === state.rangeWeaponId)[0] || choices[0];
   if (!picked) return;
@@ -926,6 +1076,7 @@ function paintRangeRings() {
     hostileFeet: nearestHostileFeet(token)
   }));
   const highlight = highlightBand(token, picked, pack.rings || []);
+  el.dataset.rangeBand = highlight || '';
   const size = token.size || 1;
   const center = worldToScreen((token.pos.x + size / 2) * px, (token.pos.y + size / 2) * px);
   ctx.save();
@@ -958,6 +1109,7 @@ function paintRangeRings() {
   ctx.restore();
 }
 function draw() {
+  publishTokenColors();
   if (!state.scene) return;
   try { sceneData(); } catch (e) { console.error(e); return; }
   ctx.globalAlpha = 1; // ensure no leaked alpha dims the DM view
@@ -2544,10 +2696,13 @@ function onPointerMove(e) {
             else state.pendingMoves.push({ id: t.id, x: newX, y: newY, fromX: origin.x, fromY: origin.y, path });
           } else {
             const origin = state.drag.starts && state.drag.starts[id];
+            const prevX = t.pos.x;
+            const prevY = t.pos.y;
             t.pos.x = newX;
             t.pos.y = newY;
             if (origin) markRangeMoved(t.id, origin, { x: newX, y: newY });
             if (shared.tokens[t.id]) shared.tokens[t.id].pos = { ...t.pos, by: uid, ts: Date.now() };
+            if (prevX !== newX || prevY !== newY) state.drag.rangeMoved = true;
           }
         }
       });
@@ -2556,12 +2711,18 @@ function onPointerMove(e) {
         state.drag.recorded = true;
         state.redoStack = [];
       }
-      // write on pointerup only
+      if (state.drag.rangeMoved) {
+        state.drag.rangeMoved = false;
+        refreshRangeSurfaces();
+        streamDrag();
+      }
     }
     draw();
   } else if (polyLive) draw();
 }
 function onPointerUp(e) {
+  const wasTokenDrag = !!(state.drag && state.drag.token);
+  if (wasTokenDrag) clearStreamTimer();
   if (state.drag && state.drag.token && state.drag.blocked && !(role === 'dm' && e.shiftKey)) {
     const starts = state.drag.starts || {};
     Object.keys(starts).forEach(id => {
@@ -2673,6 +2834,7 @@ function onPointerUp(e) {
   pointers.delete(e.pointerId);
   if (pointers.size === 0) state.drag = null;
   state.fogStart = null;
+  if (wasTokenDrag) refreshRangeSurfaces();
   draw();
 }
 function raycastVisible(cx, cy, radius) {
@@ -2956,6 +3118,11 @@ Fog hides what you cannot see. A torch or your vision opens a circle.`}
 });
 
 q('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+q('chatToggle').addEventListener('click', () => setChatOpen(!state.chatOpen));
+el.querySelectorAll('[data-chat-filter]').forEach(btn => {
+  btn.addEventListener('click', () => setChatFilter(btn.getAttribute('data-chat-filter')));
+});
+setChatOpen(state.chatOpen);
 q('strength').addEventListener('input', e => {
   state.gridStrength = Math.max(state.minStrength, parseFloat(e.target.value));
   e.target.value = state.gridStrength;
@@ -4368,6 +4535,7 @@ async function loadSceneImage(sceneId) {
     listeners.length = 0;
     unsubs.forEach(u => { try { u(); } catch (e) {} });
     if (chatUi) { chatUi.detach(); chatUi = null; }
+    clearStreamTimer();
     el.innerHTML = '';
   }
 
@@ -4376,6 +4544,24 @@ async function loadSceneImage(sceneId) {
     state.tokens = state.tokens.filter(t => t.id !== id);
     if (state.selected && state.selected.id === id) state.selected = null;
     state.selectedIds = (state.selectedIds || []).filter(x => x !== id);
+  }
+  function dragPosKeep() {
+    const ids = dragTokenIds();
+    if (!ids.length) return null;
+    const keep = {};
+    ids.forEach(id => {
+      const t = state.tokens.find(tok => tok && tok.id === id);
+      if (t && t.pos) keep[id] = { x: t.pos.x, y: t.pos.y };
+    });
+    return Object.keys(keep).length ? keep : null;
+  }
+  function restoreDragPos(keep) {
+    if (!keep) return;
+    Object.keys(keep).forEach(id => {
+      const t = state.tokens.find(tok => tok && tok.id === id);
+      if (t) t.pos = Object.assign({}, t.pos, keep[id]);
+      if (shared.tokens[id]) shared.tokens[id].pos = Object.assign({}, shared.tokens[id].pos || {}, keep[id]);
+    });
   }
   function handlePublicToken(path, value, meta) {
     if (meta && meta.ready) {
@@ -4419,18 +4605,23 @@ async function loadSceneImage(sceneId) {
       }
       delete value.hidden;
     }
+    const keep = dragPosKeep();
+    let remotePos = false;
     if (sub === 'pos') {
-      const t = shared.tokens[id];
-      const prevPos = t && t.pos ? { x: t.pos.x, y: t.pos.y } : null;
-      const by = (meta && meta.by) || (value && value.by);
-      if (role === 'dm' && t && by && by !== uid) {
-        if (!canControlBy(t, by)) return;
-        t.pos = { x: value.x, y: value.y, by, seq };
-        saveToken(id);
-      } else if (shared.tokens[id]) {
-        shared.tokens[id].pos = { x: value.x, y: value.y };
+      if (!(keep && keep[id])) {
+        const t = shared.tokens[id];
+        const prevPos = t && t.pos ? { x: t.pos.x, y: t.pos.y } : null;
+        const by = (meta && meta.by) || (value && value.by);
+        if (role === 'dm' && t && by && by !== uid) {
+          if (!canControlBy(t, by)) return;
+          t.pos = { x: value.x, y: value.y, by, seq };
+          saveToken(id);
+        } else if (shared.tokens[id]) {
+          shared.tokens[id].pos = { x: value.x, y: value.y };
+        }
+        if (prevPos && value) markRangeMoved(id, prevPos, { x: value.x, y: value.y });
+        remotePos = true;
       }
-      if (prevPos && value) markRangeMoved(id, prevPos, { x: value.x, y: value.y });
     } else if (sub === 'patch') {
       const t = shared.tokens[id];
       if (!t || !value) return;
@@ -4459,6 +4650,8 @@ async function loadSceneImage(sceneId) {
     }
     if (role === 'player') state.tokens = Object.values(shared.tokens).filter(t => !t.hidden);
     applySharedToTokens();
+    restoreDragPos(keep);
+    if (remotePos) refreshRangeSurfaces();
     requestDraw();
   }
 
