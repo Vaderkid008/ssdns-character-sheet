@@ -64,7 +64,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.30"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.31"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -510,8 +510,10 @@
     });
   }
   function weaponProps(g) {
+    var id = g && g.weapon;
     var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
-    var w = lists.filter(function (x) { return x.id === (g && g.weapon); })[0];
+    var w = lists.filter(function (x) { return x.id === id; })[0];
+    if (!w && root.SSDNSTestJammer && root.SSDNSTestJammer.lookup) w = root.SSDNSTestJammer.lookup(id);
     return w && w.properties || "";
   }
   function applyDirtyDie(n, opts) {

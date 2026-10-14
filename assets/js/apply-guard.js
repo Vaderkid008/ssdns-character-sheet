@@ -744,6 +744,11 @@
     if (/^[1-9]$/.test(s) || s.indexOf("k:hex:") === 0) return { action: "hex" };
     return { action: "fire" };
   }
+  /** Chamber tokens as the sheet stored them. Callers paint these; they do not turn a loaded round into 1. */
+  function chamberTokens(list) {
+    if (!Array.isArray(list)) return [];
+    return list.slice();
+  }
   /** Hex and cantrip shots spend a spell, not a cartridge pile. */
   function shotConsumesCartridge(kind) {
     var k = String(kind || "");
@@ -902,7 +907,21 @@
     return (guns || []).map(function (g) {
       if (!g) return "";
       var ch = Array.isArray(g.chambers) ? g.chambers.map(function (x) { return x ? String(x) : ""; }).join(",") : "";
-      return [g.weapon || g.name || "", g.loaded == null ? "" : g.loaded, ch, g.spare == null ? "" : g.spare].join(":");
+      return [
+        g.weapon || g.name || "",
+        g.loaded == null ? "" : g.loaded,
+        ch,
+        g.spare == null ? "" : g.spare,
+        g.dirty ? 1 : 0,
+        g.fouled ? 1 : 0,
+        g.ruined || g.broken ? 1 : 0,
+        g.jammed ? 1 : 0,
+        g.misStreak || 0,
+        g.pendingD4 ? 1 : 0,
+        g.ammoPool == null ? "" : g.ammoPool,
+        g.attackMode || "",
+        Array.isArray(g.pools) ? g.pools.map(function (p) { return (p && p.idx != null ? p.idx : "") + "=" + (p && p.count != null ? p.count : ""); }).join(",") : ""
+      ].join(":");
     }).join("|");
   }
   function roundLabel(gun) {
@@ -979,11 +998,12 @@
     var bonusLine = parts.map(function (p) { return p.label + " " + signNum(p.value); }).join(" · ");
     var ac = info.ac;
     var haveAc = ac != null && ac !== "" && isFinite(Number(ac));
+    var hideVerdict = !!info.hideVerdict;
     var misfire = !!info.misfire;
-    var miss = misfire || used === 1 || !!info.miss || (haveAc && total < Number(ac));
+    var miss = !hideVerdict && (misfire || used === 1 || !!info.miss || (haveAc && total < Number(ac)));
     var crit = !miss && (used === 20 || !!info.crit);
     var verdict = misfire ? "misfire" : (miss ? "MISS" : (crit ? "CRIT" : "HIT"));
-    var vs = haveAc ? (" vs AC " + Number(ac)) : "";
+    var vs = (!hideVerdict && haveAc) ? (" vs AC " + Number(ac)) : "";
     var who = info.who || "Someone";
     var head = who + (info.target ? " → " + info.target : "");
     var math = diceLine + (bonusLine ? " · " + bonusLine : "") + " = " + total;
@@ -1000,8 +1020,9 @@
     } else if (!miss && info.dice) {
       dmgLine = "Damage: " + info.dice + (info.amount != null && info.amount !== "" ? " = " + info.amount : "");
     }
-    var dmBody = math + vs + " → " + verdict + (dmgLine ? "\n" + dmgLine : "");
-    var pubBody = math + " → " + verdict + (dmgLine ? "\n" + dmgLine : "");
+    var verdictBit = hideVerdict ? "" : (" → " + verdict);
+    var dmBody = math + vs + verdictBit + (dmgLine ? "\n" + dmgLine : "");
+    var pubBody = math + verdictBit + (dmgLine ? "\n" + dmgLine : "");
     var reveal = info.revealAc !== false && haveAc;
     return {
       text: head + "\n" + (reveal ? dmBody : pubBody),
@@ -1015,6 +1036,57 @@
       bonusLine: bonusLine,
       damageLine: dmgLine
     };
+  }
+  function escHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function neutralSpeaker(name) {
+    return /^(dm|system|table)\b/i.test(String(name || "").trim());
+  }
+  /** Lighten a token color so the name stays readable on the dark chat background. */
+  function readableOnDark(color) {
+    var m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(color || "").trim());
+    if (!m) return "";
+    var hex = m[1];
+    if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    var n = parseInt(hex, 16);
+    var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    var lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    if (lum < 0.62) {
+      r = Math.round(r + (255 - r) * 0.62);
+      g = Math.round(g + (255 - g) * 0.62);
+      b = Math.round(b + (255 - b) * 0.62);
+    }
+    function h(c) { var x = c.toString(16); return x.length < 2 ? "0" + x : x; }
+    return "#" + h(r) + h(g) + h(b);
+  }
+  function tokenColorFor(name) {
+    var raw = String(name || "").trim();
+    if (!raw || neutralSpeaker(raw)) return "";
+    var bag = root.SSDNSTokenColors || {};
+    function pick(key) {
+      var hit = bag[String(key || "").trim().toLowerCase()];
+      return hit ? readableOnDark(hit) : "";
+    }
+    return pick(raw) || pick(raw.split("(")[0]) || pick(raw.split("→")[0]) || pick(raw.split(":")[0]) || "";
+  }
+  function whoHtml(name) {
+    var raw = String(name || "");
+    var color = tokenColorFor(raw);
+    if (!color) return escHtml(raw);
+    return '<span class="ssm-who" style="color:' + color + '">' + escHtml(raw) + "</span>";
+  }
+  function leadNameHtml(text) {
+    var raw = String(text || "");
+    var m = raw.match(/^(\s*)([^\n:→]{1,48}?)(\s*(?:→|:|\n))/);
+    if (!m) return escHtml(raw);
+    var name = String(m[2] || "").trim();
+    if (!name || neutralSpeaker(name) || !tokenColorFor(name)) return escHtml(raw);
+    var start = m[1].length;
+    var nameEnd = start + m[2].length;
+    return escHtml(raw.slice(0, start)) + whoHtml(raw.slice(start, nameEnd)) + escHtml(raw.slice(nameEnd));
   }
   function offset() { return offsetMs; }
   /** Age of a stamp against estimated server time. */
@@ -1095,6 +1167,7 @@
     isLivingHostile: isLivingHostile,
     refreshCombatantStatus: refreshCombatantStatus,
     chamberClick: chamberClick,
+    chamberTokens: chamberTokens,
     shotConsumesCartridge: shotConsumesCartridge,
     parseAsi: parseAsi,
     mergeAsi: mergeAsi,
@@ -1113,6 +1186,11 @@
     ammoFailText: ammoFailText,
     emptyShotText: emptyShotText,
     attackBreakdown: attackBreakdown,
+    readableOnDark: readableOnDark,
+    tokenColorFor: tokenColorFor,
+    neutralSpeaker: neutralSpeaker,
+    whoHtml: whoHtml,
+    leadNameHtml: leadNameHtml,
     speakerName: speakerName,
     stripGhostCombatants: stripGhostCombatants,
     presenceShownOnline: presenceShownOnline

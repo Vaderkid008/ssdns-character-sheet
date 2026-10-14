@@ -299,10 +299,13 @@
       try { when = root.SSDNSClock ? root.SSDNSClock.format(e.ts, false) : new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
       var face = rollFace(e);
       var hand = e.kind === "handout";
-      var chatColor = e.kind === "chat" ? speakerColor(String(e.text || "").split(":")[0]) : "";
+      var whoName = String(e.text || "").split(/→|:/)[0].trim();
+      var tokenC = root.SSDNSApplied && root.SSDNSApplied.tokenColorFor && root.SSDNSApplied.tokenColorFor(whoName);
+      var chatColor = tokenC || (e.kind === "chat" ? speakerColor(whoName) : "");
+      var body = root.SSDNSApplied && root.SSDNSApplied.leadNameHtml ? root.SSDNSApplied.leadNameHtml(e.text || "") : esc(e.text || "");
       return '<div class="dock-item ' + face.cls + '"' + (chatColor ? ' style="border-left:4px solid ' + chatColor + '"' : "") + handoutAttrs(e) + '><div class="dock-meta">' + when + " · " + esc(dockBucket(e)) +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") +
-        '</div><div>' + esc(e.text || "") + (hand ? handoutBits(e) : "") + "</div></div>";
+        '</div><div>' + body + (hand ? handoutBits(e) : "") + "</div></div>";
     }).join("") || '<p class="fine">Nothing in this filter yet. Rolls, shards, and chat land here.</p>';
     if (stick) feed.scrollTop = feed.scrollHeight;
     var popped = chatPopItems();
@@ -340,9 +343,12 @@
       try { when = root.SSDNSClock ? root.SSDNSClock.format(e.ts, false) : new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
       var face = rollFace(e);
       var hand = e.kind === "handout";
+      var body = root.SSDNSApplied && root.SSDNSApplied.leadNameHtml
+        ? root.SSDNSApplied.leadNameHtml(e.text || "")
+        : String(e.text || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; });
       return '<div class="log-item log-' + (e.kind || "all") + " " + face.cls + '"' + handoutAttrs(e) + '><div class="log-meta">' + when + " · " + (e.kind || "") +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") + '</div><div>' +
-        String(e.text || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }) +
+        body +
         handoutBits(e) +
         "</div></div>";
     }).join("");
@@ -682,9 +688,37 @@
   function waitingText(who, target) {
     return (who || "You") + " → " + (target || "enemy") + ": Waiting on DM…";
   }
+  function pendingBreakdown(info) {
+    var Applied = root.SSDNSApplied;
+    if (!Applied || !Applied.attackBreakdown) return "";
+    var parts = info.parts;
+    if ((!parts || !parts.length) && info.nat != null && info.hitTotal != null && isFinite(Number(info.hitTotal))) {
+      parts = [{ label: "bonus", value: Number(info.hitTotal) - (Number(info.nat) || 0) }];
+    }
+    var hasDmg = (info.dice && String(info.dice).trim()) || (info.dmgFaces && info.dmgFaces.length) || (isFinite(Number(info.damage)) && Number(info.damage) > 0);
+    var card = Applied.attackBreakdown({
+      who: info.who,
+      target: info.targetName,
+      nat: info.nat,
+      n1: info.n1 != null ? info.n1 : info.nat,
+      n2: info.n2,
+      parts: parts,
+      total: info.hitTotal,
+      revealAc: false,
+      hideVerdict: true,
+      damage: hasDmg ? {
+        faces: info.dmgFaces || null,
+        parts: info.dmgParts || null,
+        total: info.damage,
+        type: info.dmgType || "",
+        dice: info.dice || ""
+      } : null
+    });
+    return (card && (card.publicText || card.text)) || "";
+  }
   function sendPendingAttack(info) {
     info = info || {};
-    var line = waitingText(info.who, info.targetName);
+    var line = pendingBreakdown(info) || waitingText(info.who, info.targetName);
     toast(line);
     addLog({
       id: "roll:" + info.rollId,
@@ -1601,12 +1635,17 @@
     if (!ask) return Promise.resolve(true);
     return ask().then(function (ok) { return !!ok; });
   }
+  function catalogWeapon(id) {
+    var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
+    var wpn = lists.filter(function (x) { return x && x.id === id; })[0];
+    if (wpn) return wpn;
+    return (root.SSDNSTestJammer && root.SSDNSTestJammer.lookup && root.SSDNSTestJammer.lookup(id)) || null;
+  }
   function gunAttackSpec(i) {
     var c = ch();
     var g = c && c.guns && c.guns[i];
     if (!g) return { id: "gunroll:" + i };
-    var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
-    var wpn = lists.filter(function (x) { return x && x.id === g.weapon; })[0] || {};
+    var wpn = catalogWeapon(g.weapon) || {};
     var rngEl = document.querySelector('[data-out="rng.' + i + '"]');
     return {
       id: "gunroll:" + i,
@@ -1632,6 +1671,7 @@
     return host.armAttack(gunAttackSpec(i), tgt && tgt.id);
   }
   function gunChosen(i) {
+    if (root.SSDNSApp && root.SSDNSApp.gunAttackMode) return root.SSDNSApp.gunAttackMode(i);
     var modeSel = document.querySelector('[data-adv="' + i + '"]');
     var globalAdv = document.querySelector("#globalAdv");
     return (modeSel && modeSel.value) || (globalAdv && globalAdv.value) || "";
@@ -1725,17 +1765,14 @@
     var ceiling = root.SSDNSApp.misfireCeiling
       ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
       : 1;
-    var modeSel = document.querySelector('[data-adv="' + i + '"]');
-    var globalAdv = document.querySelector("#globalAdv");
-    var chosen = (modeSel && modeSel.value) || (globalAdv && globalAdv.value) || "";
+    var chosen = gunChosen(i);
     var gunRollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     var gunDice = attackRoll(atk, (ch() && ch().activeConditions) || [], chosen, rangeNote);
     var n1 = gunDice.n1, n2 = gunDice.n2, nat = gunDice.nat;
     var bad = function (n) { return n >= 1 && n <= ceiling; };
     var both = n2 != null && bad(n1) && bad(n2);
-    var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
-    var wpn = lists.filter(function (x) { return x.id === g.weapon; })[0];
+    var wpn = catalogWeapon(g.weapon);
     var cue = root.SSDNSAudio && root.SSDNSAudio.weaponCue
       ? root.SSDNSAudio.weaponCue(Object.assign({ gun: true }, wpn || {}, { id: g.weapon, sfx: g.sfx || (wpn && wpn.sfx) || "" }))
       : "attack";
@@ -2365,6 +2402,7 @@
   }
 
   root.SSDNSGunRoll = rollGun;
+  root.SSDNSGunCast = castThroughGun;
   root.SSDNSGunCastHex = castLoadedHex;
   function speakerColor(name) {
     var palette = ["#2f6f8f", "#3d6b4f", "#6b4c2a", "#5a3d6b", "#8a4b2f", "#1f5c6b", "#4a6741", "#7a3e55"];

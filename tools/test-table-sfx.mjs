@@ -122,8 +122,8 @@ check(fnBody(v2, "enemyStrike").indexOf("strikeCue") >= 0, "an enemy strike uses
 check(fnBody(v2, "cardStrike").indexOf('playTableSfx("jam")') >= 0, "an enemy gun misfire shares jam");
 check(fnBody(v2, "cardStrike").indexOf("strikeCue") >= 0, "an enemy weapon roll uses the weapon cue");
 check(fnBody(v2, "cardCast").indexOf('playTableSfx("spellcast")') >= 0, "an enemy spell attack shares spellcast");
-check(fnBody(v2, "rollGunAttack").indexOf("strikeCue") >= 0, "DM weapon roll uses the weapon cue");
-check(fnBody(v2, "rollGunAttack").indexOf('playTableSfx("jam")') >= 0, "DM weapon misfire shares jam");
+check(fnBody(v2, "rollGunAttack").indexOf('op: "fire"') >= 0, "DM weapon roll sends one fire command");
+check(fnBody(v2, "rollGunAttack").indexOf("strikeCue") < 0 && fnBody(v2, "rollGunAttack").indexOf("playTableSfx") < 0 && fnBody(v2, "rollGunAttack").indexOf("gun_event") < 0, "DM weapon roll does not resolve the shot locally");
 check(fnBody(v2, "rollSpell").indexOf("rolled.attack) playTableSfx") >= 0, "DM spell share is attack-only");
 check(fnBody(v2, "cardCheck").indexOf("playTableSfx") < 0, "enemy checks stay quiet");
 check(fnBody(v2, "cardDice").indexOf("playTableSfx") < 0, "enemy plain dice stay quiet");

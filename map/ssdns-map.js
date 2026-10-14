@@ -100,6 +100,71 @@ window.SSDNSMap = { create(opts) {
     if (patch && patch.veil != null) safe.veil = !!patch.veil;
     write('map/public/tokens/' + token.id + '/patch', safe);
   }
+  // About 6 Hz. Inside the 5–8 Hz cap, and only when the cell changed.
+  const STREAM_MS = 160;
+  let streamAt = 0;
+  let streamTimer = 0;
+  const streamSent = {};
+  function dragTokenIds() {
+    if (!state.drag || !state.drag.token || state.offline) return [];
+    const ids = state.selectedIds && state.selectedIds.length ? state.selectedIds.slice() : [state.drag.token.id];
+    if (ids.indexOf(state.drag.token.id) < 0) ids.push(state.drag.token.id);
+    return ids;
+  }
+  function streamChangedIds() {
+    const out = [];
+    dragTokenIds().forEach(id => {
+      const t = state.tokens.find(tok => tok && tok.id === id);
+      if (!t || !t.pos || !canControl(t)) return;
+      const key = t.pos.x + ',' + t.pos.y;
+      if (streamSent[id] === key) return;
+      out.push(t);
+    });
+    return out;
+  }
+  function writeStreamToken(t) {
+    if (!t) return;
+    streamSent[t.id] = t.pos.x + ',' + t.pos.y;
+    if (role === 'player') {
+      publishPlayerMove(t);
+      return;
+    }
+    if (!shared.tokens[t.id]) return;
+    shared.tokens[t.id].pos = { x: t.pos.x, y: t.pos.y, by: uid, ts: Date.now() };
+    if (t.hidden || shared.tokens[t.id].hidden) {
+      write('map/dm/tokens/' + t.id, JSON.parse(JSON.stringify(shared.tokens[t.id], (k, v) => k === '_img' ? undefined : v)));
+      return;
+    }
+    saveToken(t.id);
+  }
+  function sendStream(list) {
+    (list || []).forEach(writeStreamToken);
+    streamAt = Date.now();
+  }
+  function clearStreamTimer() {
+    if (!streamTimer) return;
+    clearTimeout(streamTimer);
+    streamTimer = 0;
+  }
+  function streamDrag() {
+    if (state.offline || !state.drag || !state.drag.token) return;
+    const pending = streamChangedIds();
+    if (!pending.length) return;
+    const now = Date.now();
+    if (streamAt && now - streamAt < STREAM_MS) {
+      if (!streamTimer) {
+        streamTimer = setTimeout(() => {
+          streamTimer = 0;
+          if (state.offline || !state.drag || !state.drag.token) return;
+          const again = streamChangedIds();
+          if (again.length) sendStream(again);
+        }, STREAM_MS);
+      }
+      return;
+    }
+    clearStreamTimer();
+    sendStream(pending);
+  }
   function applyPublic(pub) {
     if (!pub) return;
     shared.tokens = pub.tokens || shared.tokens;
@@ -257,30 +322,107 @@ on(document, 'keydown', e => {
 });
 const chatdock = document.createElement('div');
 chatdock.className = 'ssdns-chatdock';
-chatdock.innerHTML = `<div class="ssdns-chathead"><span class="panel-title">Chat</span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden>Chat is in its own window.</p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
+chatdock.innerHTML = `<div class="ssdns-chathead"><button type="button" data-act="chatToggle" aria-expanded="true">Chat <span data-act="chatBadge" class="ssm-chatbadge" hidden>0</span></button><span data-act="chatFilters"><button type="button" data-chat-filter="all" class="on">All</button><button type="button" data-chat-filter="rolls">Rolls</button><button type="button" data-chat-filter="talk">Talk</button></span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatWindow" class="ssm-chat-tab">Open in new tab</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden></p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
 el.appendChild(chatdock);
+state.chatFilter = 'all';
+state.chatOpen = true;
+state.chatSeen = 0;
+try {
+  const savedFilter = localStorage.getItem('ssdns.map.chatFilter');
+  if (savedFilter === 'rolls' || savedFilter === 'talk' || savedFilter === 'all') state.chatFilter = savedFilter;
+  if (localStorage.getItem('ssdns.map.chatOpen') === '0') state.chatOpen = false;
+} catch (e) {}
+function chatBucket(row) {
+  if (!row || row.kind === 'sfx') return '';
+  if (row.kind === 'roll' || row.kind === 'rolls' || row.attack) return 'rolls';
+  const text = String(row.text || '');
+  if (/\bd20\b/.test(text) || /→\s*(HIT|MISS|CRIT)/.test(text)) return 'rolls';
+  return 'talk';
+}
+function chatName(row) {
+  return row.fromName || row.who || (host.displayName ? host.displayName(row.from) : row.from) || '';
+}
+function publishTokenColors() {
+  const bag = {};
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.color) return;
+    if (t.hidden && role !== 'dm') return;
+    [t.name, t.label, t.ownerUid].forEach(key => {
+      const id = String(key || '').trim().toLowerCase();
+      if (id) bag[id] = String(t.color);
+    });
+  });
+  window.SSDNSTokenColors = bag;
+}
+function chatLineHtml(row) {
+  const name = chatName(row);
+  const text = String(row.text || '');
+  const Applied = window.SSDNSApplied;
+  const bucket = chatBucket(row);
+  if (bucket === 'rolls' && Applied && Applied.leadNameHtml) return Applied.leadNameHtml(name && text.indexOf(name) !== 0 ? (name + ': ' + text) : text);
+  if (Applied && Applied.whoHtml) return Applied.whoHtml(name) + ': ' + esc(text);
+  return esc(name + ': ' + text);
+}
+function renderChat() {
+  publishTokenColors();
+  const log = q('chatlog');
+  if (!log) return;
+  const rows = (state.chat || []).filter(row => {
+    const bucket = chatBucket(row);
+    if (!bucket) return false;
+    if (state.chatFilter === 'rolls') return bucket === 'rolls';
+    if (state.chatFilter === 'talk') return bucket === 'talk';
+    return true;
+  });
+  log.innerHTML = rows.map(row => '<div class="ssm-chatline">' + chatLineHtml(row) + '</div>').join('');
+  log.scrollTop = log.scrollHeight;
+  chatdock.classList.toggle('ssm-chat-shut', !state.chatOpen);
+  const toggle = q('chatToggle');
+  if (toggle) toggle.setAttribute('aria-expanded', state.chatOpen ? 'true' : 'false');
+  document.querySelectorAll('[data-chat-filter]').forEach(btn => {
+    if (btn.closest && btn.closest('.ssdns-map') !== el && !el.contains(btn)) return;
+    btn.classList.toggle('on', btn.getAttribute('data-chat-filter') === state.chatFilter);
+  });
+  const badge = q('chatBadge');
+  const unread = state.chatOpen ? 0 : Math.max(0, (state.chat || []).filter(chatBucket).length - state.chatSeen);
+  if (badge) {
+    badge.hidden = unread < 1;
+    badge.textContent = String(unread);
+  }
+  syncChatPop();
+}
 function pushFeed(row) {
   if (!row || row.kind === 'sfx') { if (row && host.sfx) host.sfx(row); return; }
   state.chat = state.chat || [];
   state.chat.push(row);
-  if (state.chat.length > 100) state.chat.shift();
-  const log = q('chatlog');
-  if (!log) return;
-  const line = document.createElement('div');
-  const name = row.fromName || (host.displayName ? host.displayName(row.from) : row.from);
-  line.textContent = name + ': ' + row.text;
-  log.appendChild(line);
-  log.scrollTop = log.scrollHeight;
-  syncChatPop();
+  if (state.chat.length > 100) {
+    const drop = state.chat.length - 100;
+    state.chat.splice(0, drop);
+    state.chatSeen = Math.max(0, state.chatSeen - drop);
+  }
+  if (state.chatOpen) state.chatSeen = state.chat.filter(chatBucket).length;
+  renderChat();
 }
 function setChat(rows) {
-  state.chat = [];
-  const log = q('chatlog');
-  if (log) log.innerHTML = '';
-  (rows || []).forEach(pushFeed);
-  if (!(rows || []).length) syncChatPop();
+  state.chat = (rows || []).filter(row => row && row.kind !== 'sfx');
+  state.chatSeen = state.chat.filter(chatBucket).length;
+  renderChat();
 }
 function pushChat(row) { pushFeed(row); }
+function setChatFilter(next) {
+  if (next !== 'all' && next !== 'rolls' && next !== 'talk') return;
+  const changed = state.chatFilter !== next;
+  state.chatFilter = next;
+  try { localStorage.setItem('ssdns.map.chatFilter', next); } catch (e) {}
+  renderChat();
+  if (changed && chatUi && chatUi.setFilter) chatUi.setFilter(next);
+}
+function setChatOpen(open) {
+  state.chatOpen = !!open;
+  if (state.chatOpen) state.chatSeen = (state.chat || []).filter(chatBucket).length;
+  try { localStorage.setItem('ssdns.map.chatOpen', state.chatOpen ? '1' : '0'); } catch (e) {}
+  renderChat();
+}
 
 function refreshSelectedPanel() {
   if (role !== 'dm') return;
@@ -336,18 +478,23 @@ if (window.SSDNSMapChat) {
       input.value = text;
       sendChat();
     },
-    onMode: function (open, mode) {
+    onMode: function (open, mode, extra) {
       el.classList.toggle('ssdns-chat-popped', !!open);
       const popBtn = q('chatPop');
       const dockBtn = q('chatDock');
       const note = q('chatPopNote');
       if (popBtn) popBtn.hidden = !!open;
       if (dockBtn) dockBtn.hidden = !open;
-      if (note) {
-        note.hidden = !open;
-        note.textContent = mode === 'overlay' ? 'Chat covers the map. Dock puts it back.' : 'Chat is in its own window.';
+      if (!note) return;
+      if (extra === 'blocked') {
+        note.hidden = false;
+        note.textContent = 'The browser blocked the new tab.';
+        return;
       }
-    }
+      note.hidden = !open;
+      note.textContent = mode === 'overlay' ? 'Chat covers the map. Dock puts it back.' : 'Chat is floating over the map.';
+    },
+    onFilter: function (next) { setChatFilter(next); }
   });
 }
 
@@ -906,6 +1053,10 @@ function bindRangeUi() {
     });
   }
 }
+function refreshRangeSurfaces() {
+  if (role === 'player') paintPlayerFight();
+  else if (state.drawerOpen) renderDrawer();
+}
 function markRangeMoved(id, from, to) {
   if (!id || !from || !to) return;
   if (from.x === to.x && from.y === to.y) return;
@@ -913,9 +1064,15 @@ function markRangeMoved(id, from, to) {
   state.rangeMoved[id] = true;
 }
 function paintRangeRings() {
-  if (!state.showRange || !window.SSDNSRangeRings) return;
+  if (!state.showRange || !window.SSDNSRangeRings) {
+    el.dataset.rangeBand = '';
+    return;
+  }
   const token = rangeToken();
-  if (!token || !token.pos) return;
+  if (!token || !token.pos) {
+    el.dataset.rangeBand = '';
+    return;
+  }
   const choices = state.rangeChoices || [];
   const picked = choices.filter(c => c.id === state.rangeWeaponId)[0] || choices[0];
   if (!picked) return;
@@ -926,6 +1083,7 @@ function paintRangeRings() {
     hostileFeet: nearestHostileFeet(token)
   }));
   const highlight = highlightBand(token, picked, pack.rings || []);
+  el.dataset.rangeBand = highlight || '';
   const size = token.size || 1;
   const center = worldToScreen((token.pos.x + size / 2) * px, (token.pos.y + size / 2) * px);
   ctx.save();
@@ -958,6 +1116,7 @@ function paintRangeRings() {
   ctx.restore();
 }
 function draw() {
+  publishTokenColors();
   if (!state.scene) return;
   try { sceneData(); } catch (e) { console.error(e); return; }
   ctx.globalAlpha = 1; // ensure no leaked alpha dims the DM view
@@ -1631,7 +1790,15 @@ function cloneToken(src, dx, dy) {
   }
   state.tokens.push(clean);
   shared.tokens[id] = JSON.parse(JSON.stringify(clean));
-  emit('combatant:add', { tokenId: id });
+  const playerTok = !!(src.ownerUid || src.kind === 'player' || src.sheetId);
+  emit('combatant:add', playerTok ? { tokenId: id } : {
+    tokenId: id,
+    duplicate: true,
+    sourceId: src.id,
+    sourceCombatantId: src.combatantId || '',
+    hidden: !!src.hidden,
+    name: src.name || src.label || ''
+  });
   return clean;
 }
 function copyTokens() {
@@ -2544,10 +2711,13 @@ function onPointerMove(e) {
             else state.pendingMoves.push({ id: t.id, x: newX, y: newY, fromX: origin.x, fromY: origin.y, path });
           } else {
             const origin = state.drag.starts && state.drag.starts[id];
+            const prevX = t.pos.x;
+            const prevY = t.pos.y;
             t.pos.x = newX;
             t.pos.y = newY;
             if (origin) markRangeMoved(t.id, origin, { x: newX, y: newY });
             if (shared.tokens[t.id]) shared.tokens[t.id].pos = { ...t.pos, by: uid, ts: Date.now() };
+            if (prevX !== newX || prevY !== newY) state.drag.rangeMoved = true;
           }
         }
       });
@@ -2556,12 +2726,18 @@ function onPointerMove(e) {
         state.drag.recorded = true;
         state.redoStack = [];
       }
-      // write on pointerup only
+      if (state.drag.rangeMoved) {
+        state.drag.rangeMoved = false;
+        refreshRangeSurfaces();
+        streamDrag();
+      }
     }
     draw();
   } else if (polyLive) draw();
 }
 function onPointerUp(e) {
+  const wasTokenDrag = !!(state.drag && state.drag.token);
+  if (wasTokenDrag) clearStreamTimer();
   if (state.drag && state.drag.token && state.drag.blocked && !(role === 'dm' && e.shiftKey)) {
     const starts = state.drag.starts || {};
     Object.keys(starts).forEach(id => {
@@ -2673,6 +2849,7 @@ function onPointerUp(e) {
   pointers.delete(e.pointerId);
   if (pointers.size === 0) state.drag = null;
   state.fogStart = null;
+  if (wasTokenDrag) refreshRangeSurfaces();
   draw();
 }
 function raycastVisible(cx, cy, radius) {
@@ -2823,9 +3000,15 @@ function removeMapTokens(ids, opts) {
     const t = state.tokens.find(tok => tok && tok.id === id);
     if (!t) return null;
     if (fields.status != null) t.status = fields.status;
+    if (fields.name) t.name = fields.name;
+    if (fields.label) t.label = String(fields.label).slice(0, 16);
+    if (fields.combatantId) t.combatantId = fields.combatantId;
     if (fields.image && !t.image) t.image = fields.image;
     const copy = shared.tokens[t.id] || (shared.tokens[t.id] = { id: t.id });
     copy.status = t.status || '';
+    if (t.name) copy.name = t.name;
+    if (t.label) copy.label = t.label;
+    if (t.combatantId) copy.combatantId = t.combatantId;
     if (t.image) {
       copy.image = t.image;
       loadTokenImage(t);
@@ -2919,6 +3102,7 @@ on(canvas, 'wheel', e => {
 
 q('chatSend').addEventListener('click', sendChat);
 q('chatPop').addEventListener('click', () => { if (chatUi) chatUi.pop(); });
+q('chatWindow').addEventListener('click', () => { if (chatUi && chatUi.openTab) chatUi.openTab(); });
 q('chatDock').addEventListener('click', () => { if (chatUi) chatUi.dock(); });
 
 q('helpBtn').addEventListener('click', () => {
@@ -2956,6 +3140,11 @@ Fog hides what you cannot see. A torch or your vision opens a circle.`}
 });
 
 q('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+q('chatToggle').addEventListener('click', () => setChatOpen(!state.chatOpen));
+el.querySelectorAll('[data-chat-filter]').forEach(btn => {
+  btn.addEventListener('click', () => setChatFilter(btn.getAttribute('data-chat-filter')));
+});
+setChatOpen(state.chatOpen);
 q('strength').addEventListener('input', e => {
   state.gridStrength = Math.max(state.minStrength, parseFloat(e.target.value));
   e.target.value = state.gridStrength;
@@ -2979,6 +3168,11 @@ if (role === 'dm') {
       shared.tokens[state.selected.id].hidden = state.selected.hidden;
       saveToken(state.selected.id);
     }
+    emit('token:hidden', {
+      tokenId: state.selected.id,
+      hidden: !!state.selected.hidden,
+      combatantId: state.selected.combatantId || ''
+    });
     flashBtn('hideBtn');
     draw();
   });
@@ -3625,6 +3819,7 @@ async function loadSceneImage(sceneId) {
     const turn = (state.initiative && state.initiative.turn) || 0;
     strip.innerHTML = '';
     order.forEach((c, i) => {
+      if (role !== 'dm' && c && c.mapHidden) return;
       const b = document.createElement('span');
       b.textContent = c.name || c.id;
       b.style.cssText = 'padding:2px 6px;border-radius:4px;font-size:11px;background:' + (i === turn ? '#8a7040' : '#2a241c') + ';color:#e8dcc8;cursor:pointer;';
@@ -3854,7 +4049,14 @@ async function loadSceneImage(sceneId) {
           group: a.group || '',
           tier: a.tier || '',
           scatter: !!a.scatter,
-          jammed: !!a.jammed
+          jammed: !!a.jammed,
+          dirty: !!a.dirty,
+          fouled: !!a.fouled,
+          ruined: !!(a.ruined || a.broken),
+          broken: !!a.broken,
+          misStreak: Number(a.misStreak) || 0,
+          pendingD4: !!a.pendingD4,
+          gunIndex: a.gunIndex
         });
       }
     });
@@ -3927,6 +4129,131 @@ async function loadSceneImage(sceneId) {
       paintPlayerFight();
     }).catch(err => emit('action:error', { id: id, error: String(err) }));
   }
+  function cleanActId(a) {
+    const id = String(a && a.id || '');
+    if (id.indexOf('gunroll:') === 0) return 'clean:' + id.slice(8);
+    if (a && a.gunIndex != null && a.gunIndex !== '') return 'clean:' + a.gunIndex;
+    return '';
+  }
+  function cleanControl(a, act) {
+    const M = window.SSDNSMisfire;
+    if (!a || !M || typeof M.cleanOptions !== 'function') return '';
+    const ammo = a.ammo || {};
+    const gun = {
+      dirty: !!(a.dirty || ammo.dirty),
+      fouled: !!(a.fouled || ammo.fouled),
+      ruined: !!(a.ruined || a.broken || ammo.ruined || ammo.broken),
+      broken: !!(a.broken || ammo.broken),
+      jammed: !!(a.jammed || ammo.jammed),
+      misStreak: Number(a.misStreak || ammo.misStreak || 0),
+      pendingD4: !!(a.pendingD4 || ammo.pendingD4)
+    };
+    if (!M.cleanOptions(gun).length) return '';
+    let idAttr = '';
+    if (act === 'playerClean') {
+      const cid = cleanActId(a);
+      if (!cid) return '';
+      idAttr = ' data-id="' + esc(cid) + '"';
+    } else {
+      idAttr = ' data-wid="' + esc(a.id || '') + '"';
+    }
+    return '<button type="button" data-act="' + act + '"' + idAttr + (gun.pendingD4 ? ' disabled' : '') + '>Clean</button>';
+  }
+  function gunIndexOf(a) {
+    if (a && a.gunIndex != null && a.gunIndex !== '') return String(a.gunIndex);
+    const id = String(a && a.id || '');
+    if (id.indexOf('gunroll:') === 0) return id.slice(8);
+    return '';
+  }
+  function rememberGun(el, field, value) {
+    const key = (el && (el.getAttribute('data-wid') || el.getAttribute('data-gun'))) || '';
+    if (!key) return;
+    state.gunUi = state.gunUi || {};
+    state.gunUi[key] = state.gunUi[key] || {};
+    state.gunUi[key][field] = value;
+  }
+  function recalled(a, field, fallback) {
+    const key = String((a && a.id) || gunIndexOf(a) || '');
+    const bag = state.gunUi && state.gunUi[key];
+    if (bag && bag[field] != null && bag[field] !== '') return bag[field];
+    return fallback || '';
+  }
+  function poolSelect(a, act) {
+    const gi = gunIndexOf(a);
+    const pools = (a && a.pools) || [];
+    const cur = a && a.ammoPool != null ? String(a.ammoPool) : '';
+    let opts = '';
+    if (!pools.length) opts = '<option value="">No matching ammo</option>';
+    else pools.forEach(p => {
+      const v = String(p.idx);
+      opts += '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(p.label || v) + '</option>';
+    });
+    return '<label class="ssm-pool">Ammo <select data-act="' + act + '" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '" aria-label="Ammo for this gun">' + opts + '</select></label>';
+  }
+  function modeChecks(a, advAct, disAct) {
+    const mode = a && (a.attackMode === 'adv' || a.attackMode === 'dis') ? a.attackMode : '';
+    const gi = gunIndexOf(a);
+    return '<label class="ssm-mode"><input type="checkbox" data-act="' + advAct + '" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '"' + (mode === 'adv' ? ' checked' : '') + '> Adv</label>' +
+      '<label class="ssm-mode"><input type="checkbox" data-act="' + disAct + '" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '"' + (mode === 'dis' ? ' checked' : '') + '> Dis</label>';
+  }
+  function hexCastControl(a, prefix) {
+    if (!a || a.calling !== 'hexslinger' || !a.caster) return '';
+    const gi = gunIndexOf(a);
+    const spells = a.castSpells || [];
+    let picked = recalled(a, 'spell', '');
+    if (!picked && prefix === 'player') {
+      const gear = document.querySelector('[data-castspell="' + gi + '"]');
+      picked = gear && gear.value || '';
+    }
+    if (picked && spells.length && !spells.some(s => s && s.value === picked)) picked = '';
+    if (!picked && spells[0]) picked = spells[0].value;
+    let spellOpts = spells.length ? '' : '<option value="">No spells on this sheet</option>';
+    spells.forEach(s => {
+      const v = s.value || '';
+      spellOpts += '<option value="' + esc(v) + '"' + (v === picked ? ' selected' : '') + '>' + esc(s.label || s.name || v) + '</option>';
+    });
+    const chosen = spells.filter(s => s && s.value === picked)[0] || null;
+    const slots = (chosen && chosen.slots) || [];
+    let slotLv = recalled(a, 'slot', '');
+    if (!slotLv && prefix === 'player') {
+      const gearSlot = document.querySelector('[data-castslot="' + gi + '"]');
+      slotLv = gearSlot && gearSlot.value || '';
+    }
+    if (slotLv && slots.length && !slots.some(s => String(s.value) === String(slotLv))) slotLv = '';
+    if (!slotLv && slots[0]) slotLv = String(slots[0].value);
+    let slotOpts = '';
+    slots.forEach(s => {
+      const v = String(s.value);
+      slotOpts += '<option value="' + esc(v) + '"' + (v === String(slotLv) ? ' selected' : '') + '>' + esc(s.label || v) + '</option>';
+    });
+    let hexLv = recalled(a, 'hex', '1');
+    let lvl = '';
+    for (let n = 1; n <= 9; n++) {
+      const suf = n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th';
+      lvl += '<option value="' + n + '"' + (String(hexLv) === String(n) ? ' selected' : '') + '>' + n + suf + '</option>';
+    }
+    const slotHidden = slots.length ? '' : ' hidden';
+    return '<span class="ssm-hex" data-gun="' + esc(gi) + '">' +
+      '<select data-act="' + prefix + 'HexLvl" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '" aria-label="Hex lead shell level">' + lvl + '</select>' +
+      '<button type="button" data-act="' + prefix + 'Hex" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '">+ Hex shell</button>' +
+      '<select data-act="' + prefix + 'CastSpell" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '" aria-label="Spell to cast through this gun">' + spellOpts + '</select>' +
+      '<select data-act="' + prefix + 'CastSlot" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '" aria-label="Shell or slot level"' + slotHidden + '>' + slotOpts + '</select>' +
+      '<button type="button" data-act="' + prefix + 'Cast" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '">Cast through gun</button>' +
+      '</span>';
+  }
+  function gunExtras(a, side) {
+    const gi = gunIndexOf(a);
+    const unload = side === 'player' && ((a && a.reloadId) || (a && a.ammo && a.ammo.cap))
+      ? '<button type="button" data-act="playerUnload" data-id="unload:' + esc(gi) + '">Unload</button>'
+      : '';
+    const tr = side === 'row' && a && a.tr
+      ? '<button type="button" data-act="rowTr" data-wid="' + esc(a.id || '') + '" data-gun="' + esc(gi) + '">TR</button>'
+      : '';
+    const pools = poolSelect(a, side === 'player' ? 'playerPool' : 'rowPool');
+    const modes = modeChecks(a, side === 'player' ? 'playerAdv' : 'rowAdv', side === 'player' ? 'playerDis' : 'rowDis');
+    const hex = hexCastControl(a, side === 'player' ? 'player' : 'row');
+    return unload + tr + pools + modes + hex;
+  }
   function playerCylinderRow(a, targetHtml) {
     const cap = a.ammo ? (Number(a.ammo.cap) || 0) : 0;
     const loaded = a.ammo ? (Number(a.ammo.loaded) || 0) : 0;
@@ -3935,6 +4262,8 @@ async function loadSceneImage(sceneId) {
     const reloadLabel = 'Reload' + (spareN != null && spareN !== '' ? ' · ' + spareN : '');
     const reload = a.reloadId ? '<button type="button" data-act="playerReload" data-id="' + esc(a.reloadId) + '">' + esc(reloadLabel) + '</button>' : '';
     const tr = a.trId ? '<button type="button" data-act="playerTr" data-id="' + esc(a.trId) + '">TR</button>' : '';
+    const clean = cleanControl(a, 'playerClean');
+    const extras = gunExtras(a, 'player');
     const select = '<select data-act="cylTarget" aria-label="Target">' + targetHtml + '</select>';
     const graphic = cap && window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
     if (graphic) {
@@ -3945,6 +4274,7 @@ async function loadSceneImage(sceneId) {
         ammoDisplay: a.ammoDisplay || '',
         group: a.group || '',
         tier: a.tier || '',
+        ammo: a.ammoName || '',
         scatter: !!a.scatter,
         cap: cap,
         loaded: loaded,
@@ -3955,7 +4285,7 @@ async function loadSceneImage(sceneId) {
         attrs: function (k) { return { 'data-k': String(k) }; }
       });
       return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture +
-        '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + select + reload + tr + '</div>';
+        '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + select + reload + tr + clean + extras + '</div>';
     }
     let dots = '';
     for (let k = 0; k < cap; k++) {
@@ -3964,7 +4294,7 @@ async function loadSceneImage(sceneId) {
     }
     const dotsHtml = cap ? '<span class="chamber-dots">' + dots + '</span>' : '';
     const rounds = cap ? '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' : '';
-    return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + dotsHtml + rounds + select + reload + tr + '</div>';
+    return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + dotsHtml + rounds + select + reload + tr + clean + extras + '</div>';
   }
   function paintPlayerFight() {
     const slot = q('actionSlot');
@@ -4029,8 +4359,60 @@ async function loadSceneImage(sceneId) {
       (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       spells;
     bindSpellFold(slot);
-    slot.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"]').forEach(b => {
+    slot.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"], [data-act="playerClean"], [data-act="playerUnload"]').forEach(b => {
       b.addEventListener('click', () => runPlayer(b.getAttribute('data-id') || b.getAttribute('data-wid')));
+    });
+    const appGun = () => window.SSDNSApp || null;
+    slot.querySelectorAll('[data-act="playerPool"]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const app = appGun();
+        if (app && app.setAmmoPool) app.setAmmoPool(Number(sel.getAttribute('data-gun')), sel.value);
+        paintPlayerFight();
+      });
+    });
+    const bindMode = (box, mode) => {
+      box.addEventListener('change', () => {
+        const app = appGun();
+        const on = box.checked ? mode : '';
+        if (app && app.setAttackMode) app.setAttackMode(Number(box.getAttribute('data-gun')), on);
+        paintPlayerFight();
+      });
+    };
+    slot.querySelectorAll('[data-act="playerAdv"]').forEach(b => bindMode(b, 'adv'));
+    slot.querySelectorAll('[data-act="playerDis"]').forEach(b => bindMode(b, 'dis'));
+    slot.querySelectorAll('[data-act="playerHexLvl"]').forEach(sel => {
+      sel.addEventListener('change', () => rememberGun(sel, 'hex', sel.value));
+    });
+    slot.querySelectorAll('[data-act="playerHex"]').forEach(b => {
+      b.addEventListener('click', () => {
+        const gi = b.getAttribute('data-gun');
+        const lvl = slot.querySelector('[data-act="playerHexLvl"][data-gun="' + gi + '"]');
+        const app = appGun();
+        if (app && app.loadHexAt) app.loadHexAt(Number(gi), lvl ? lvl.value : 1);
+        paintPlayerFight();
+      });
+    });
+    slot.querySelectorAll('[data-act="playerCastSpell"], [data-act="playerCastSlot"]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        rememberGun(sel, sel.getAttribute('data-act') === 'playerCastSpell' ? 'spell' : 'slot', sel.value);
+        const app = appGun();
+        const gi = sel.getAttribute('data-gun');
+        const spell = slot.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
+        const slotSel = slot.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
+        if (app && app.prepareGunCast) app.prepareGunCast(Number(gi), spell && spell.value, slotSel && slotSel.value);
+        paintPlayerFight();
+      });
+    });
+    slot.querySelectorAll('[data-act="playerCast"]').forEach(b => {
+      b.addEventListener('click', () => {
+        const gi = b.getAttribute('data-gun');
+        const spell = slot.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
+        const slotSel = slot.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
+        const app = appGun();
+        if (app && app.prepareGunCast) app.prepareGunCast(Number(gi), spell && spell.value, slotSel && !slotSel.hidden ? slotSel.value : '');
+        if (window.SSDNSGunCast) window.SSDNSGunCast(Number(gi));
+        paintPlayerFight();
+      });
     });
     slot.querySelectorAll('[data-act="playerChamber"]').forEach(b => {
       b.addEventListener('click', (ev) => {
@@ -4130,6 +4512,7 @@ async function loadSceneImage(sceneId) {
       const cap = Number(a.ammo.cap) || 0;
       const loaded = Number(a.ammo.loaded) || 0;
       const flags = Array.isArray(a.ammo.chambers) ? a.ammo.chambers : null;
+      const rowClean = (isPc && canAct) ? cleanControl(a, 'rowClean') : '';
       const graphic = window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
       if (graphic) {
         const picture = window.SSDNSAmmoDisplay.html({
@@ -4139,6 +4522,7 @@ async function loadSceneImage(sceneId) {
           ammoDisplay: a.ammoDisplay || (a.ammo && a.ammo.ammoDisplay) || '',
           group: a.group || '',
           tier: a.tier || '',
+          ammo: a.ammoName || '',
           scatter: !!a.scatter,
           cap: cap,
           loaded: loaded,
@@ -4150,7 +4534,8 @@ async function loadSceneImage(sceneId) {
         });
         const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
         const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
-        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + '</div>';
+        const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : '';
+        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + rowExtras + '</div>';
       }
       let dots = '';
       for (let k = 0; k < cap; k++) {
@@ -4159,7 +4544,8 @@ async function loadSceneImage(sceneId) {
       }
       const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
       const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
-      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + '</div>';
+      const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : '';
+      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + rowExtras + '</div>';
     }).join('');
     const spellButtons = groupedSpells(card.spells || [], s => {
       const meta = [
@@ -4340,6 +4726,67 @@ async function loadSceneImage(sceneId) {
     d.querySelectorAll('[data-act="rowReload"]').forEach(b => {
       b.addEventListener('click', () => emit('drawer:reload', detail({ weaponId: b.getAttribute('data-wid') })));
     });
+    d.querySelectorAll('[data-act="rowClean"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (b.disabled) return;
+        if (!canAct) { toast('The player acts for themselves'); return; }
+        emit('drawer:clean', detail({ weaponId: b.getAttribute('data-wid') }));
+      });
+    });
+    const actGate = () => {
+      if (canAct) return true;
+      toast('The player acts for themselves');
+      return false;
+    };
+    d.querySelectorAll('[data-act="rowPool"]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        if (!actGate()) return;
+        emit('drawer:pool', detail({ weaponId: sel.getAttribute('data-wid'), pool: sel.value }));
+      });
+    });
+    d.querySelectorAll('[data-act="rowTr"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (!actGate()) return;
+        emit('drawer:tr', detail({ weaponId: b.getAttribute('data-wid') }));
+      });
+    });
+    d.querySelectorAll('[data-act="rowHexLvl"], [data-act="rowCastSpell"], [data-act="rowCastSlot"]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const field = sel.getAttribute('data-act') === 'rowHexLvl' ? 'hex' : (sel.getAttribute('data-act') === 'rowCastSpell' ? 'spell' : 'slot');
+        rememberGun(sel, field, sel.value);
+        if (field === 'spell') renderDrawer();
+      });
+    });
+    d.querySelectorAll('[data-act="rowHex"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (!actGate()) return;
+        const gi = b.getAttribute('data-gun');
+        const lvl = d.querySelector('[data-act="rowHexLvl"][data-gun="' + gi + '"]');
+        emit('drawer:hex', detail({ weaponId: b.getAttribute('data-wid'), level: lvl ? lvl.value : 1 }));
+      });
+    });
+    d.querySelectorAll('[data-act="rowCast"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (!actGate()) return;
+        const gi = b.getAttribute('data-gun');
+        const spell = d.querySelector('[data-act="rowCastSpell"][data-gun="' + gi + '"]');
+        const slotSel = d.querySelector('[data-act="rowCastSlot"][data-gun="' + gi + '"]');
+        emit('drawer:castgun', detail({
+          weaponId: b.getAttribute('data-wid'),
+          spell: spell ? spell.value : '',
+          slot: slotSel && !slotSel.hidden ? slotSel.value : ''
+        }));
+      });
+    });
+    const bindRowMode = (box, mode) => {
+      box.addEventListener('change', () => {
+        if (!actGate()) { box.checked = !box.checked; return; }
+        const on = box.checked ? mode : '';
+        emit('drawer:mode', detail({ weaponId: box.getAttribute('data-wid'), mode: on }));
+      });
+    };
+    d.querySelectorAll('[data-act="rowAdv"]').forEach(b => bindRowMode(b, 'adv'));
+    d.querySelectorAll('[data-act="rowDis"]').forEach(b => bindRowMode(b, 'dis'));
     const rangeMode = d.querySelector('[data-act="rangeOverride"]');
     if (rangeMode) rangeMode.addEventListener('change', () => {
       state.rangeOverride = rangeMode.value || 'auto';
@@ -4368,6 +4815,7 @@ async function loadSceneImage(sceneId) {
     listeners.length = 0;
     unsubs.forEach(u => { try { u(); } catch (e) {} });
     if (chatUi) { chatUi.detach(); chatUi = null; }
+    clearStreamTimer();
     el.innerHTML = '';
   }
 
@@ -4376,6 +4824,24 @@ async function loadSceneImage(sceneId) {
     state.tokens = state.tokens.filter(t => t.id !== id);
     if (state.selected && state.selected.id === id) state.selected = null;
     state.selectedIds = (state.selectedIds || []).filter(x => x !== id);
+  }
+  function dragPosKeep() {
+    const ids = dragTokenIds();
+    if (!ids.length) return null;
+    const keep = {};
+    ids.forEach(id => {
+      const t = state.tokens.find(tok => tok && tok.id === id);
+      if (t && t.pos) keep[id] = { x: t.pos.x, y: t.pos.y };
+    });
+    return Object.keys(keep).length ? keep : null;
+  }
+  function restoreDragPos(keep) {
+    if (!keep) return;
+    Object.keys(keep).forEach(id => {
+      const t = state.tokens.find(tok => tok && tok.id === id);
+      if (t) t.pos = Object.assign({}, t.pos, keep[id]);
+      if (shared.tokens[id]) shared.tokens[id].pos = Object.assign({}, shared.tokens[id].pos || {}, keep[id]);
+    });
   }
   function handlePublicToken(path, value, meta) {
     if (meta && meta.ready) {
@@ -4419,18 +4885,23 @@ async function loadSceneImage(sceneId) {
       }
       delete value.hidden;
     }
+    const keep = dragPosKeep();
+    let remotePos = false;
     if (sub === 'pos') {
-      const t = shared.tokens[id];
-      const prevPos = t && t.pos ? { x: t.pos.x, y: t.pos.y } : null;
-      const by = (meta && meta.by) || (value && value.by);
-      if (role === 'dm' && t && by && by !== uid) {
-        if (!canControlBy(t, by)) return;
-        t.pos = { x: value.x, y: value.y, by, seq };
-        saveToken(id);
-      } else if (shared.tokens[id]) {
-        shared.tokens[id].pos = { x: value.x, y: value.y };
+      if (!(keep && keep[id])) {
+        const t = shared.tokens[id];
+        const prevPos = t && t.pos ? { x: t.pos.x, y: t.pos.y } : null;
+        const by = (meta && meta.by) || (value && value.by);
+        if (role === 'dm' && t && by && by !== uid) {
+          if (!canControlBy(t, by)) return;
+          t.pos = { x: value.x, y: value.y, by, seq };
+          saveToken(id);
+        } else if (shared.tokens[id]) {
+          shared.tokens[id].pos = { x: value.x, y: value.y };
+        }
+        if (prevPos && value) markRangeMoved(id, prevPos, { x: value.x, y: value.y });
+        remotePos = true;
       }
-      if (prevPos && value) markRangeMoved(id, prevPos, { x: value.x, y: value.y });
     } else if (sub === 'patch') {
       const t = shared.tokens[id];
       if (!t || !value) return;
@@ -4459,6 +4930,8 @@ async function loadSceneImage(sceneId) {
     }
     if (role === 'player') state.tokens = Object.values(shared.tokens).filter(t => !t.hidden);
     applySharedToTokens();
+    restoreDragPos(keep);
+    if (remotePos) refreshRangeSurfaces();
     requestDraw();
   }
 

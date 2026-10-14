@@ -80,7 +80,9 @@
     if (!g || !(g.weapon || g.name)) return null;
     var cap = Number(g.capacity) || (Array.isArray(g.chambers) ? g.chambers.length : 0);
     if (!cap) return null;
-    var chambers = Array.isArray(g.chambers) && g.chambers.length ? g.chambers.map(function (st) { return st ? 1 : 0; }) : null;
+    var chambers = Array.isArray(g.chambers) && g.chambers.length
+      ? (root.SSDNSApplied && root.SSDNSApplied.chamberTokens ? root.SSDNSApplied.chamberTokens(g.chambers) : g.chambers.slice())
+      : null;
     var loaded = chambers ? chambers.filter(Boolean).length : (Number(g.loaded) || 0);
     return { index: Number(i), loaded: loaded, cap: cap, chambers: chambers };
   }
@@ -278,11 +280,28 @@
         action: (w && w.action) || "",
         group: (w && w.group) || "",
         tier: (st && st.tier) || "",
+        ammoName: (w && w.ammo) || "",
+        ammoDisplay: g.ammoDisplay || "",
         scatter: !!(w && w.scatter),
         ammo: cyl ? { loaded: cyl.loaded, cap: cyl.cap, chambers: cyl.chambers, spare: spareForGun(g, w) } : null,
         spare: spareForGun(g, w),
         reloadId: cyl ? ("reload:" + i) : "",
-        trId: w && w.tr ? ("tr:" + i) : ""
+        trId: w && w.tr ? ("tr:" + i) : "",
+        tr: !!(w && w.tr),
+        caster: !!(w && w.hexShells),
+        calling: c.calling || "",
+        ammoPool: g.ammoPool == null ? "" : String(g.ammoPool),
+        attackMode: g.attackMode === "adv" || g.attackMode === "dis" ? g.attackMode : "",
+        pools: (app.ammoChoices && w && w.capacity) ? app.ammoChoices(i) : [],
+        castSpells: (c.calling === "hexslinger" && w && w.hexShells && app.castList) ? app.castList() : [],
+        dirty: !!g.dirty,
+        fouled: !!g.fouled,
+        ruined: !!(g.ruined || g.broken),
+        broken: !!g.broken,
+        jammed: !!g.jammed,
+        misStreak: Number(g.misStreak) || 0,
+        pendingD4: !!g.pendingD4,
+        gunIndex: i
       });
     });
     var meleeList = (root.SSDNSRules && root.SSDNSRules.melee) || [];
@@ -347,7 +366,17 @@
     else if (id.indexOf("cast:") === 0) btn = document.querySelector('[data-cast="' + cssEscape(id.slice(5)) + '"]');
     else if (id.indexOf("spell:") === 0) btn = document.querySelector('[data-spell-cast="' + cssEscape(id.slice(6)) + '"]');
     else if (id === "pact") btn = $("btnPactShot");
+    else if (id.indexOf("clean:") === 0) {
+      var cleaner = root.SSDNSApp && root.SSDNSApp.cleanGun;
+      if (typeof cleaner === "function") return cleaner(Number(id.slice(6)));
+      btn = document.querySelector('[data-clean="' + cssEscape(id.slice(6)) + '"]');
+    }
     else if (id.indexOf("reload:") === 0) btn = document.querySelector('[data-reload="' + cssEscape(id.slice(7)) + '"]');
+    else if (id.indexOf("unload:") === 0) {
+      var unloader = root.SSDNSApp && root.SSDNSApp.unloadGunIndex;
+      if (typeof unloader === "function") return unloader(Number(id.slice(7)));
+      btn = document.querySelector('[data-unload="' + cssEscape(id.slice(7)) + '"]');
+    }
     else if (id.indexOf("tr:") === 0) btn = document.querySelector('[data-tr="' + cssEscape(id.slice(3)) + '"]');
     if (btn && !btn.hidden) btn.click();
   }
@@ -407,11 +436,32 @@
       }
       return;
     }
+    if (name === "combatant:add") {
+      if (!detail.duplicate) return;
+      var dup = root.SSDNSMapFight;
+      if (dup && typeof dup.duplicate === "function") {
+        try { Promise.resolve(dup.duplicate(detail)); } catch (e2) {}
+      }
+      return;
+    }
+    if (name === "token:hidden") {
+      var hideApi = root.SSDNSMapFight;
+      if (hideApi && typeof hideApi.hidden === "function") {
+        try { Promise.resolve(hideApi.hidden(detail)); } catch (e3) {}
+      }
+      return;
+    }
     var fightCall = {
       "drawer:hp": "hp",
       "drawer:condition": "condition",
       "drawer:reload": "reload",
       "drawer:unload": "unload",
+      "drawer:clean": "clean",
+      "drawer:pool": "pool",
+      "drawer:tr": "tr",
+      "drawer:hex": "hex",
+      "drawer:castgun": "castgun",
+      "drawer:mode": "mode",
       "drawer:deathsave": "deathsave",
       "drawer:undo": "undo",
       "drawer:chamber": "chamber",
@@ -647,7 +697,11 @@
       if (!isDmPage() || !map || typeof map.patchToken !== "function") return null;
       return map.patchToken(id, fields || {});
     },
+    refreshCard: function (tokenId) {
+      if (map && map.refreshCard) map.refreshCard(tokenId || "");
+    },
     rounds: roundsLabel,
+    sheetCylinder: gunCylinder,
     armAttack: function (attack, targetId, shooterId) {
       if (!map || typeof map.armAttack !== "function") return null;
       try { return map.armAttack(attack, targetId, shooterId); }

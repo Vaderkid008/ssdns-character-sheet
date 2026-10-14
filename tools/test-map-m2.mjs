@@ -355,8 +355,8 @@ async function testMaps(w) {
   const during = writesSince(dmAd.log, dragMark);
   pointer(w, canvas, "pointerup", 155, 265);
   const dragWrites = writesSince(dmAd.log, dragMark);
-  check("map.dm.R2moveSilent", during.length === 0, "writes during move " + during.length);
-  check("map.dm.R2oneDrag", dragWrites.length === 2 && dragWrites.every((e) => e.op === "write") && dragWrites[0].path === "map/public/tokens/tok_bystander1" && dragWrites[1].path === "map/dm/tokens/tok_bystander1", dragWrites.map((e) => e.path).join(" | "));
+  check("map.dm.R2stream", during.length === 2 && during.every((e) => e.op === "write") && during[0].path === "map/public/tokens/tok_bystander1" && during[1].path === "map/dm/tokens/tok_bystander1", "writes during move " + during.map((e) => e.path).join(" | "));
+  check("map.dm.R2oneDrag", dragWrites.length === 4 && dragWrites.every((e) => e.op === "write") && dragWrites[2].path === "map/public/tokens/tok_bystander1" && dragWrites[3].path === "map/dm/tokens/tok_bystander1", dragWrites.map((e) => e.path).join(" | "));
   check("map.dm.R2snap", dragWrites[0] && dragWrites[0].value.pos.x === 11 && dragWrites[0].value.pos.y === 9, JSON.stringify(dragWrites[0] && dragWrites[0].value.pos));
   results.writes.dmDrag = dragWrites.length;
   results.writes.dmDragDuringMove = during.length;
@@ -458,9 +458,9 @@ async function testMaps(w) {
   const ownDuring = writesSince(plAd.log, ownMark);
   pointer(w, plCanvas, "pointerup", 400, 370);
   const ownWrites = writesSince(plAd.log, ownMark);
-  check("map.player.R2moveSilent", ownDuring.length === 0, "during " + ownDuring.length);
-  check("map.player.R2onePos", ownWrites.length === 1 && ownWrites[0].path === "map/public/tokens/ply_p_jolene/pos" && ownWrites[0].value.y === 2 && ownWrites[0].value.by === "p_jolene", JSON.stringify(ownWrites));
-  check("map.player.R9center", ownWrites.length === 1 && ownWrites[0].path.indexOf("ply_p_jolene") >= 0, ownWrites.map((e) => e.path).join(","));
+  check("map.player.R2stream", ownDuring.length === 1 && ownDuring[0].path === "map/public/tokens/ply_p_jolene/pos", "during " + ownDuring.length);
+  check("map.player.R2onePos", ownWrites.length === 2 && ownWrites.every((e) => e.path === "map/public/tokens/ply_p_jolene/pos") && ownWrites[1].value.y === 2 && ownWrites[1].value.by === "p_jolene", JSON.stringify(ownWrites));
+  check("map.player.R9center", ownWrites.length === 2 && ownWrites[1].path.indexOf("ply_p_jolene") >= 0, ownWrites.map((e) => e.path).join(","));
   results.writes.playerDrag = ownWrites.length;
   results.writes.playerDragDuringMove = ownDuring.length;
 

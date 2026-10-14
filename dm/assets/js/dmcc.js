@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.43"; // dmcc-playtest-v0243
+const VERSION = "0.2.44"; // dmcc-playtest-v0244
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -926,10 +926,63 @@ async function postDmAction(text, playerId) {
   catch (err) { writeFailed(err, "Couldn't sync the DM action"); }
   return feed;
 }
+function demoGunAt(snapshot, index) {
+  const guns = (snapshot && snapshot.guns) || [];
+  const n = Number(index);
+  if (!isFinite(n)) return null;
+  const tagged = guns.find((g) => g && g.index != null && g.index !== "" && Number(g.index) === n);
+  if (tagged) return tagged;
+  return guns[n] || null;
+}
+function grantDemoTestGun(snapshot, payload) {
+  const jam = window.SSDNSTestJammer && window.SSDNSTestJammer.weapon ? window.SSDNSTestJammer.weapon() : null;
+  const id = jam && jam.id ? jam.id : "test-jammer";
+  const name = jam && jam.name ? jam.name : "TEST Jammer";
+  const cap = jam && jam.capacity ? jam.capacity : 6;
+  const guns = snapshot.guns || (snapshot.guns = []);
+  let slot = guns.find((g) => g && g.weapon === id);
+  if (!slot) {
+    slot = {};
+    guns.push(slot);
+  }
+  const chambers = [];
+  for (let k = 0; k < cap; k++) chambers.push("k:percussion::medium");
+  const index = payload.index != null && payload.index !== "" && isFinite(Number(payload.index))
+    ? Number(payload.index)
+    : (slot.index != null && slot.index !== "" ? Number(slot.index) : guns.indexOf(slot));
+  Object.assign(slot, {
+    name: name,
+    weapon: id,
+    action: jam && jam.action ? jam.action : "Percussion revolver (slow)",
+    ammo: "percussion",
+    group: "pistol",
+    tier: "medium",
+    capacity: cap,
+    loaded: cap,
+    chambers: chambers,
+    misfire: "1–20",
+    range: "20/60",
+    damage: "1d8",
+    properties: jam && jam.properties ? jam.properties : "TEST, close quarters, simple",
+    index: index,
+    jammed: false,
+    fouled: false,
+    dirty: false,
+    ruined: false,
+    misStreak: 0,
+    pendingD4: false,
+    condition: "ok",
+    debug: true,
+    testOnly: true
+  });
+}
 function applyDemoGun(playerId, payload) {
   const p = state.players[playerId];
-  const g = p && p.snapshot && p.snapshot.guns && p.snapshot.guns[payload.index];
-  if (!g) return;
+  if (!p || !p.snapshot) return;
+  payload = payload || {};
+  if (payload.op === "test-gun") grantDemoTestGun(p.snapshot, payload);
+  const g = payload.op === "test-gun" ? null : demoGunAt(p.snapshot, payload.index);
+  if (payload.op !== "test-gun" && !g) return;
   if (payload.op === "unload") { g.loaded = 0; g.chambers = (g.chambers || []).map(() => ""); }
   else if (payload.op === "reload") {
     const cap = Number(g.capacity) || 0;
@@ -950,6 +1003,15 @@ function applyDemoGun(playerId, payload) {
     if (payload.pendingD4 != null) g.pendingD4 = !!payload.pendingD4;
     if (payload.dirty != null) g.dirty = !!payload.dirty;
     if (payload.misStreak != null) g.misStreak = payload.misStreak;
+  } else if (payload.op === "pool") g.ammoPool = payload.pool == null ? "" : String(payload.pool);
+  else if (payload.op === "mode") g.attackMode = payload.mode === "adv" || payload.mode === "dis" ? payload.mode : "";
+  else if (payload.op === "clean" && window.SSDNSMisfire && window.SSDNSMisfire.commitClean) {
+    window.SSDNSMisfire.commitClean(g, payload.optionId);
+    if (g.ruined || g.broken) g.condition = "ruined";
+    else if (g.jammed) g.condition = "jammed";
+    else if (g.fouled) g.condition = "fouled";
+    else if (g.dirty) g.condition = "dirty";
+    else g.condition = "ok";
   } else if (payload.op === "misfire" && window.SSDNSMisfire) {
     const applied = window.SSDNSMisfire.applyOverride(g, payload);
     const next = applied.gun;
@@ -1396,8 +1458,17 @@ function rollDetail(r) {
   if (/ → (HIT|MISS|CRIT)/.test(detail)) return detail.replace(/ → (HIT|MISS|CRIT)/, " vs AC " + ac + " → $1");
   return detail;
 }
+function paintWho(name) {
+  if (window.SSDNSApplied && window.SSDNSApplied.whoHtml) return window.SSDNSApplied.whoHtml(name);
+  return esc(name);
+}
+function paintText(text) {
+  if (window.SSDNSApplied && window.SSDNSApplied.leadNameHtml) return window.SSDNSApplied.leadNameHtml(text);
+  return esc(text);
+}
 function rollBody(r) {
   const detail = rollDetail(r);
+  if (detail && /\bd20\b/.test(detail) && detail.indexOf("=") >= 0 && !/→\s*(HIT|MISS|CRIT|misfire)/i.test(detail)) return detail;
   let out;
   if (r && (r.heal || /\bheals\b/i.test(detail))) out = detail;
   else if (detail && /→\s*(HIT|MISS|CRIT|misfire)/i.test(detail)) out = detail;
@@ -2015,7 +2086,7 @@ function renderLiveDockNow() {
   const items = all.filter((row) => filter === "all" || row.kind === filter || (filter === "alerts" && row.kind === "alerts"));
   const stick = feed.dataset.stick !== "0";
   feed.innerHTML = items.slice(-80).map((row) =>
-    `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${esc(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${esc(row.text || "")}${row.applyHtml || ""}</div></div>`
+    `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${paintWho(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${paintText(row.text || "")}${row.applyHtml || ""}</div></div>`
   ).join("") || '<p class="lede">Nothing in this filter yet.</p>';
   if (stick) feed.scrollTop = feed.scrollHeight;
   publishMapChat();
@@ -2078,13 +2149,13 @@ function renderRolls() {
     return `<div class="feed-item ${nat ? "nat1" : ""} ${face.cls} ${r.private ? "private" : ""}">
       <div class="feed-meta">
         <span>${esc(fmtTime(r.ts))}</span>
-        <span>${esc(rollWho(r))}</span>
+        <span>${paintWho(rollWho(r))}</span>
         ${state.turnEngaged && r.playerId && r.uid !== state.uid && r.playerId !== state.turnPlayerId ? '<span class="badge">out of turn</span>' : ""}
         ${r.private ? '<span class="badge">Private</span>' : ""}${r.whisper ? '<span class="badge">Whisper</span>' : ""}
         ${face.tag ? '<span class="roll-tag">' + esc(face.tag) + "</span>" : ""}
         ${nat ? '<span class="badge danger">Nat 1 · firearm</span>' : ""}
       </div>
-      <div class="feed-what">${esc(rollBody(r))} ${hitApplyButton(r)}</div>
+      <div class="feed-what">${paintText(rollBody(r))} ${hitApplyButton(r)}</div>
     </div>`;
   }).join("");
   renderLiveDock();

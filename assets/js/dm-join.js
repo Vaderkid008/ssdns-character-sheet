@@ -120,7 +120,7 @@
     var v = compute();
     var Bridge = root.SSDNSBridge;
     var es = Bridge ? Bridge.cpValue(d.shards) : 0;
-    var guns = (c.guns || []).map(function (g) {
+    var guns = (c.guns || []).map(function (g, i) {
       if (!g || !g.weapon) return null;
       var st = (v.guns || []).filter(function (x) { return x && x.w && x.w.id === g.weapon; })[0];
       var name = st && st.w ? st.w.name : g.weapon;
@@ -164,7 +164,12 @@
         rugged: !!(st && st.w && /rugged/i.test(st.w.properties || "")),
         note: st && st.note ? st.note : "",
         chambers: (g.chambers || []).slice(),
-        caliber: (st && st.w && st.w.ammo) || g.caliber || ""
+        caliber: (st && st.w && st.w.ammo) || g.caliber || "",
+        index: i,
+        tr: !!(st && st.w && st.w.tr),
+        ammoPool: g.ammoPool == null ? "" : String(g.ammoPool),
+        attackMode: g.attackMode === "adv" || g.attackMode === "dis" ? g.attackMode : "",
+        pools: (root.SSDNSApp && root.SSDNSApp.ammoChoices) ? root.SSDNSApp.ammoChoices(i) : []
       };
     }).filter(Boolean);
 
@@ -237,6 +242,7 @@
       ammo: (c.ammo || []).filter(Boolean).map(function (a) {
         return { type: a.type || "", caliber: a.caliber || "", count: Number(a.count) || 0 };
       }),
+      castSpells: (c.calling === "hexslinger" && root.SSDNSApp && root.SSDNSApp.castList) ? root.SSDNSApp.castList() : [],
       updatedAt: new Date().toISOString()
     };
   }
@@ -407,6 +413,7 @@
     var detail = String((entry && entry.detail) || "");
     if (entry && (entry.heal || /\bheals\b/i.test(detail))) return detail;
     if (/→\s*(HIT|MISS)/.test(detail)) return detail;
+    if (/\bd20\b/.test(detail) && detail.indexOf("=") >= 0) return detail;
     return (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result == null ? "" : entry.result) + (detail ? " (" + detail + ")" : "");
   }
   async function writeRoll(entry) {
@@ -1336,10 +1343,39 @@
         if (payload.misStreak != null) g.misStreak = payload.misStreak;
       });
     }     else if (payload.op === "fire" && root.SSDNSGunRoll) {
+      if (app.setAttackMode && (payload.mode === "adv" || payload.mode === "dis")) app.setAttackMode(payload.index, payload.mode);
+      if (payload.targetId != null && payload.targetId !== "" && root.document) {
+        var aim = root.document.querySelector("#atkTarget");
+        if (aim) {
+          var wantId = String(payload.targetId);
+          var aimed = false;
+          Array.prototype.forEach.call(aim.options || [], function (o) { if (o && o.value === wantId) aimed = true; });
+          if (aimed) aim.value = wantId;
+        }
+      }
       root.SSDNSGunRoll(payload.index, payload.chamber);
       return;
     } else if (payload.op === "dirty-d4") {
       if (root.SSDNSD4 && root.SSDNSD4.arm) root.SSDNSD4.arm(payload.index);
+      return;
+    } else if (payload.op === "clean" && app.applyCleanOption) {
+      app.applyCleanOption(payload.index, payload.optionId);
+      return;
+    } else if (payload.op === "pool" && app.setAmmoPool) {
+      app.setAmmoPool(payload.index, payload.pool);
+      return;
+    } else if (payload.op === "tr" && app.tacticalReload) {
+      app.tacticalReload(payload.index);
+      return;
+    } else if (payload.op === "hex" && app.loadHexAt) {
+      app.loadHexAt(payload.index, payload.level);
+      return;
+    } else if (payload.op === "cast") {
+      if (app.prepareGunCast) app.prepareGunCast(payload.index, payload.spell, payload.slot);
+      if (root.SSDNSGunCast) root.SSDNSGunCast(payload.index);
+      return;
+    } else if (payload.op === "mode" && app.setAttackMode) {
+      app.setAttackMode(payload.index, payload.mode);
       return;
     } else if (payload.op === "misfire" && app.applyPatch && root.SSDNSMisfire) {
       var notes = [];
@@ -1365,6 +1401,10 @@
         if (root.document.body) root.document.body.classList.remove("ask-open");
       }
       if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM override: " + (notes.join(", ") || "gun") + "." });
+      return;
+    }
+    if (payload.op === "test-gun" && app.grantTestGun) {
+      app.grantTestGun(payload.index);
       return;
     }
     if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM " + (payload.op || "adjusted") + " a gun." });

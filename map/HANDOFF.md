@@ -1,6 +1,18 @@
-# Map chat pop-out — sheet 0.3.30 / DMCC 0.2.43
+# Map gun actions — sheet 0.3.31 / DMCC 0.2.44
 
-The map chat has a Pop out button on the player sheet and on DMCC. It opens the same room feed in its own browser window. Dock puts that feed back on the map. A narrow screen, or a blocked window, uses a full-screen overlay instead. The opener stays the only Firebase client: the window mirrors the dock and sends through the existing chat path once, so a line is not written twice. `assets/data/rules.js` and `database.rules.json` did not change.
+Each gun row on the player map card, and on the DM card while the DM is acting for that player, uses the Gear functions for the spare-pile chooser (`poolsForGun` / `setAmmoPool` / `reload`), Unload (`unloadGunIndex`; the DM card already had it), Tactical Reload (`tacticalReload`; the player card already had it), and Advantage / Disadvantage. Advantage and Disadvantage are checkboxes: one, the other, or both off. The choice is stored on the gun, written into the Gear select, and published with the snapshot, so the next attack uses `gunAttackMode` the same way the Gear select did. Hex shell and Cast through gun appear only when the calling is Hexslinger and the weapon is a caster gun (`hexShells`). They call `loadHexAt` / `loadHexShell` and `SSDNSGunCast`. Gunsmith mods and capacity upgrades stay on the Gear tab. `assets/data/rules.js` and `database.rules.json` did not change.
+
+# Map gun Clean — sheet 0.3.31 / DMCC 0.2.44
+
+Each gun row on the player map card, and on the DM card while the DM is acting for that player, shows Clean when `SSDNSMisfire.cleanOptions` has a method (dirty, fouled, jammed, or ruined). The button opens the same picker as the Gear tab and runs `SSDNSApp.cleanGun` / `applyCleanOption`, so the log line, the ES charge, and the Dirty / Fouled / streak reset match. A DM clean is a `gun` command with `op: "clean"`; the player's sheet applies it and publishes the snapshot. A streak by itself still has no clean method, so the button stays hidden. `assets/data/rules.js` and `database.rules.json` did not change.
+
+# Floating map chat — sheet 0.3.31 / DMCC 0.2.44
+
+Pop out opens a floating chat panel over the map, on the player sheet and on DMCC. Drag it by the header. Resize it from the corner. It stays inside the map, and the position and size are remembered in `ssdns.map.chatFloat`, the same way the player card remembers `ssdns.playerCard`. Dock puts the feed back on the map. Open in new tab still opens the separate chat window. A phone narrower than 600px uses the full-screen overlay instead of the float. The opener stays the only Firebase client, so a line is sent once.
+
+The float, the overlay, and the new tab color the speaker with `SSDNSApplied.tokenColorFor`, filter All / Rolls / Talk on this screen only (`ssdns.map.chatFilter`), and show the player's roll math (d20, labeled bonuses, total, and damage) without target AC or hit/miss. The docked chat still has the unread badge. `assets/data/rules.js` and `database.rules.json` did not change.
+
+Range buttons, the red Disadvantage label, and the band highlight still read the token positions on this screen during a drag. A remote echo does not pull the token back. While a token is dragged, its cell is written about six times a second, and only when the cell changed. A hidden token is written only under `map/dm`.
 
 # Range on every fire path — sheet 0.3.29 / DMCC 0.2.42
 

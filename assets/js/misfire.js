@@ -166,6 +166,59 @@
     next.broken = !!next.ruined;
     return { ok: true, gun: next, option: opt };
   }
+  /** Write applyClean onto the live gun. Gear and the map both use this. */
+  function commitClean(gun, optionId) {
+    var applied = applyClean(gun, optionId);
+    if (!applied.ok || !gun) return applied;
+    var next = applied.gun;
+    gun.dirty = !!next.dirty;
+    gun.fouled = !!next.fouled;
+    gun.jammed = !!next.jammed;
+    gun.ruined = !!next.ruined;
+    gun.broken = !!next.broken;
+    gun.misStreak = next.misStreak || 0;
+    if (kClearsPending(applied.option)) {
+      gun.pendingD4 = false;
+      gun.pendingD4Rolls = null;
+      gun.pendingD4Step = 0;
+    }
+    return applied;
+  }
+  /** Same picker the Gear tab opens. Nothing changes until a method is chosen. */
+  function pickClean(gunName, options) {
+    return new Promise(function (resolve) {
+      var doc = root.document;
+      if (!doc || !doc.body || !options || !options.length) { resolve(null); return; }
+      var dlg = doc.createElement("dialog");
+      dlg.className = "dlg clean-modal";
+      var buttons = options.map(function (opt, n) {
+        return "<button type='button' class='btn' data-clean-opt='" + n + "'>" + String(opt.label || "").replace(/</g, "") + "</button>";
+      }).join("");
+      dlg.innerHTML = "<form method='dialog'><h2>Clean " + String(gunName || "gun").replace(/</g, "") + "</h2><p>Pick a method. Nothing changes until you do.</p><div class='clean-opts'>" + buttons + "</div><button type='button' class='btn' value='no'>Cancel</button></form>";
+      var settled = false;
+      function finish(opt) {
+        if (settled) return;
+        settled = true;
+        doc.body.classList.remove("ask-open");
+        try { if (dlg.close) dlg.close(); } catch (e) {}
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(opt || null);
+      }
+      dlg.querySelector("[value=no]").addEventListener("click", function () { finish(null); });
+      dlg.querySelectorAll("[data-clean-opt]").forEach(function (btn) {
+        btn.addEventListener("click", function () { finish(options[Number(btn.getAttribute("data-clean-opt"))]); });
+      });
+      dlg.addEventListener("cancel", function (e) { e.preventDefault(); finish(null); });
+      doc.body.classList.add("ask-open");
+      doc.body.appendChild(dlg);
+      try {
+        if (dlg.showModal) dlg.showModal();
+        else dlg.setAttribute("open", "");
+      } catch (e) {
+        dlg.setAttribute("open", "");
+      }
+    });
+  }
   function kClearsPending(opt) {
     return !!(opt && (opt.resetStreak || opt.comesClean));
   }
@@ -211,6 +264,8 @@
     resolveShot: resolveShot,
     cleanOptions: cleanOptions,
     applyClean: applyClean,
+    commitClean: commitClean,
+    pickClean: pickClean,
     applyOverride: applyOverride,
     d4Result: d4Result
   };

@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.30"; // sheet-playtest-v0330
+  var APP_VERSION = "0.3.31"; // sheet-playtest-v0331
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -54,6 +54,13 @@
   var CASTER_GUNS = byId(R.casterGuns);
   var WEAPON_LIST = [].concat(R.firearms, R.casterGuns, R.otherRanged, R.melee);
   var WPN = byId(WEAPON_LIST);
+  (function installDebugGuns() {
+    var jam = window.SSDNSTestJammer;
+    if (!jam || !jam.weapons) return;
+    jam.weapons().forEach(function (w) {
+      if (w && w.debug && w.id && !WPN[w.id]) WPN[w.id] = w;
+    });
+  })();
   var SHARDS = R.currency; // [{id:"white", color:"White", equals:"1 ES", es:1}, ...] (PHB Currency — Eldorite)
   var SPELL_LINES = [8, 12, 13, 13, 13, 9, 9, 9, 7, 7]; // same number of lines as the 5e base sheet, page 3
   var MAX_BOXES = 9;
@@ -1358,6 +1365,13 @@
         gunOptions(sel);
         sel.setAttribute("data-built-for", callKey);
       }
+      var testOpt = sel.querySelector("option[data-test-gun]");
+      var testGun = cur && window.SSDNSTestJammer && window.SSDNSTestJammer.lookup ? window.SSDNSTestJammer.lookup(cur) : null;
+      if (testGun) {
+        if (!testOpt) sel.appendChild(el("option", { value: testGun.id, text: testGun.name + " · TEST", "data-test-gun": "1" }));
+      } else if (testOpt) {
+        testOpt.parentNode.removeChild(testOpt);
+      }
       if (document.activeElement !== sel && sel.value !== cur) sel.value = cur;
     });
     fillCasterGunSelect();
@@ -1803,6 +1817,16 @@
     if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
     if (suppress || !t.getAttribute) return;
     if (t.hasAttribute("data-castspell") || t.hasAttribute("data-castslot")) { renderCalc(); return; }
+    if (t.hasAttribute("data-adv")) {
+      if (e.type !== "change") return;
+      setGunAttackMode(num(t.getAttribute("data-adv")), t.value);
+      return;
+    }
+    if (t.hasAttribute("data-ammopool")) {
+      if (e.type !== "change") return;
+      setGunAmmoPool(num(t.getAttribute("data-ammopool")), t.value);
+      return;
+    }
     if (t.hasAttribute("data-calc")) {
       var k = t.getAttribute("data-calc");
       C().overrides[k] = t.value.trim();
@@ -2377,9 +2401,12 @@
     if (!cap || !w) { sel.hidden = true; sel.innerHTML = ""; sel.removeAttribute("data-sig"); return; }
     sel.hidden = false;
     var rows = poolsForGun(g, w);
-    var keep = sel.value;
+    var keep = (g && g.ammoPool !== "" && g.ammoPool != null) ? String(g.ammoPool) : sel.value;
     var sig = rows.map(function (row) { return row.idx + ":" + row.a.type + ":" + (row.a.caliber || "") + ":" + num(row.a.count); }).join("|");
-    if (sel.getAttribute("data-sig") === sig) return;
+    if (sel.getAttribute("data-sig") === sig) {
+      if (keep && sel.querySelector('option[value="' + keep + '"]')) sel.value = keep;
+      return;
+    }
     sel.setAttribute("data-sig", sig);
     sel.innerHTML = "";
     if (!rows.length) sel.appendChild(opt("", "No matching ammo"));
@@ -2387,9 +2414,13 @@
     if (keep && sel.querySelector('option[value="' + keep + '"]')) sel.value = keep;
   }
   function chosenAmmoPool(i, g, w) {
-    var sel = $('[data-ammopool="' + i + '"]');
-    if (!sel || sel.value === "") return null;
-    var idx = Number(sel.value);
+    var idx = null;
+    if (g && g.ammoPool !== "" && g.ammoPool != null && isFinite(Number(g.ammoPool))) idx = Number(g.ammoPool);
+    else {
+      var sel = $('[data-ammopool="' + i + '"]');
+      if (sel && sel.value !== "") idx = Number(sel.value);
+    }
+    if (idx == null || !isFinite(idx)) return null;
     var pool = (C().ammo || [])[idx];
     if (!pool) return null;
     var rows = poolsForGun(g, w);
@@ -2513,6 +2544,95 @@
     }
     finishHexLoad(i, g, w, lvl, a, k);
   }
+  function publishGunCard() {
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.publishSnapshot) {
+      try { window.SSDNSDmJoin.publishSnapshot(); } catch (e) {}
+    }
+    if (window.SSDNSMapHost && window.SSDNSMapHost.refreshCard) {
+      try { window.SSDNSMapHost.refreshCard(); } catch (e) {}
+    }
+  }
+  function ammoChoices(i) {
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    if (!g || !w || !w.capacity) return [];
+    return poolsForGun(g, w).map(function (row) {
+      return { idx: row.idx, label: ammoPoolLabel(row.a), count: num(row.a.count), type: row.a.type || "", caliber: row.a.caliber || "" };
+    });
+  }
+  function setGunAmmoPool(i, idx) {
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    if (!g) return false;
+    var next = idx == null ? "" : String(idx);
+    if (next !== "") {
+      var n = Number(next);
+      var rows = w ? poolsForGun(g, w) : [];
+      if (!rows.some(function (row) { return row.idx === n; })) return false;
+      next = String(n);
+    }
+    g.ammoPool = next;
+    var sel = $('[data-ammopool="' + i + '"]');
+    if (sel && sel.value !== next) sel.value = next;
+    changed();
+    publishGunCard();
+    return true;
+  }
+  function setGunAttackMode(i, mode) {
+    var g = C().guns[i];
+    if (!g) return false;
+    var next = mode === "adv" || mode === "dis" ? mode : "";
+    g.attackMode = next;
+    var sel = $('[data-adv="' + i + '"]');
+    if (sel && sel.value !== next) sel.value = next;
+    changed();
+    publishGunCard();
+    return true;
+  }
+  function gunAttackMode(i) {
+    var g = C().guns[i];
+    if (g && (g.attackMode === "adv" || g.attackMode === "dis")) return g.attackMode;
+    var sel = $('[data-adv="' + i + '"]');
+    var globalAdv = $("#globalAdv");
+    return (sel && sel.value) || (globalAdv && globalAdv.value) || "";
+  }
+  function loadHexAt(i, level) {
+    var sel = $('[data-hexlvl="' + i + '"]');
+    if (sel && level != null && level !== "") sel.value = String(level);
+    return loadHexShell(i);
+  }
+  function castList() {
+    return castChoices().map(function (ch) {
+      var slots = [];
+      if (ch.level) {
+        for (var sl = ch.level; sl <= 9; sl++) {
+          if (sl !== ch.level && hexBoxes(sl) <= 0) continue;
+          slots.push({ value: String(sl), label: ordinal(sl) + " shell" });
+        }
+      }
+      return {
+        level: ch.level,
+        name: ch.name,
+        value: ch.value,
+        label: (ch.level ? ordinal(ch.level) + " · " : "") + ch.name,
+        slots: slots
+      };
+    });
+  }
+  function ensureSelectValue(sel, value) {
+    if (!sel || value == null || value === "") return;
+    var val = String(value);
+    var found = false;
+    Array.prototype.forEach.call(sel.options || [], function (op) { if (op.value === val) found = true; });
+    if (!found) sel.appendChild(opt(val, val));
+    sel.value = val;
+  }
+  function prepareGunCast(i, spell, slot) {
+    ensureSelectValue($('[data-castspell="' + i + '"]'), spell);
+    var slotSel = $('[data-castslot="' + i + '"]');
+    if (slotSel && slot != null && slot !== "") {
+      slotSel.hidden = false;
+      ensureSelectValue(slotSel, slot);
+    }
+  }
   function toolProfBonus() {
     var v = compute();
     var blob = [C().proficienciesLanguages, C().equipment, C().features].join("\n").toLowerCase();
@@ -2550,79 +2670,123 @@
     return { paid: false, logged: true };
   }
   function openCleanModal(gunName, options) {
-    return new Promise(function (resolve) {
-      if (!document.body || !options.length) { resolve(null); return; }
-      var dlg = document.createElement("dialog");
-      dlg.className = "dlg clean-modal";
-      var buttons = options.map(function (opt, n) {
-        return "<button type='button' class='btn' data-clean-opt='" + n + "'>" + opt.label.replace(/</g, "") + "</button>";
-      }).join("");
-      dlg.innerHTML = "<form method='dialog'><h2>Clean " + String(gunName || "gun").replace(/</g, "") + "</h2><p>Pick a method. Nothing changes until you do.</p><div class='clean-opts'>" + buttons + "</div><button type='button' class='btn' value='no'>Cancel</button></form>";
-      var settled = false;
-      function finish(opt) {
-        if (settled) return;
-        settled = true;
-        document.body.classList.remove("ask-open");
-        try { if (dlg.close) dlg.close(); } catch (e) {}
-        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
-        resolve(opt || null);
-      }
-      dlg.querySelector("[value=no]").addEventListener("click", function () { finish(null); });
-      dlg.querySelectorAll("[data-clean-opt]").forEach(function (btn) {
-        btn.addEventListener("click", function () { finish(options[Number(btn.getAttribute("data-clean-opt"))]); });
-      });
-      dlg.addEventListener("cancel", function (e) { e.preventDefault(); finish(null); });
-      document.body.classList.add("ask-open");
-      document.body.appendChild(dlg);
-      if (dlg.showModal) dlg.showModal();
-      else dlg.setAttribute("open", "");
-    });
+    var M = window.SSDNSMisfire;
+    if (M && M.pickClean) return M.pickClean(gunName, options);
+    return Promise.resolve(null);
   }
   function applyCleanChoice(i, g, pick) {
     var M = window.SSDNSMisfire;
     if (!M || !pick) return;
-    if (pick.cost) chargeEs(pick.cost, (WPN[g.weapon] ? WPN[g.weapon].name : "Gun") + ": " + pick.label);
-    var applied = M.applyClean(g, pick.id);
+    var name = WPN[g.weapon] ? WPN[g.weapon].name : "Gun";
+    if (pick.cost) chargeEs(pick.cost, name + ": " + pick.label);
+    var applied = M.commitClean ? M.commitClean(g, pick.id) : M.applyClean(g, pick.id);
     if (!applied.ok) { toast(applied.reason || "That clean isn't available."); return; }
-    var next = applied.gun;
-    g.dirty = !!next.dirty;
-    g.fouled = !!next.fouled;
-    g.jammed = !!next.jammed;
-    g.ruined = !!next.ruined;
-    g.broken = !!next.broken;
-    g.misStreak = next.misStreak || 0;
-    if (pick.resetStreak || pick.comesClean) {
-      g.pendingD4 = false;
-      g.pendingD4Rolls = null;
-      g.pendingD4Step = 0;
+    if (!M.commitClean) {
+      var next = applied.gun;
+      g.dirty = !!next.dirty;
+      g.fouled = !!next.fouled;
+      g.jammed = !!next.jammed;
+      g.ruined = !!next.ruined;
+      g.broken = !!next.broken;
+      g.misStreak = next.misStreak || 0;
+      if (pick.resetStreak || pick.comesClean) {
+        g.pendingD4 = false;
+        g.pendingD4Rolls = null;
+        g.pendingD4Step = 0;
+      }
     }
     changed();
-    var line = (WPN[g.weapon] ? WPN[g.weapon].name : "Gun") + ": " + pick.label + ".";
+    var line = name + ": " + pick.label + ".";
     toast(line);
     if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.publishSnapshot) {
+      try { window.SSDNSDmJoin.publishSnapshot(); } catch (e) {}
+    }
+    if (window.SSDNSMapHost && window.SSDNSMapHost.refreshCard) {
+      try { window.SSDNSMapHost.refreshCard(); } catch (e) {}
+    }
+  }
+  function finishClean(i, g, pick) {
+    if (!pick) return Promise.resolve(false);
+    if (pick.check) {
+      var rolled = rollJamCheck();
+      var line = "Jam check " + rolled.detail + " = " + rolled.total + " vs DC " + pick.check.dc;
+      if (rolled.total < pick.check.dc) {
+        toast(line + ". The jam stays.");
+        if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "roll", text: line + " — fail" });
+        return Promise.resolve(false);
+      }
+      if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "roll", text: line + " — success" });
+    }
+    applyCleanChoice(i, g, pick);
+    return Promise.resolve(true);
   }
   function cleanGun(i) {
     var g = C().guns[i];
-    if (!g || !g.weapon) { toast("Pick a gun first."); return; }
-    if (d4Pending(g)) { toast("Roll the d4 first."); return; }
+    if (!g || !g.weapon) { toast("Pick a gun first."); return Promise.resolve(false); }
+    if (d4Pending(g)) { toast("Roll the d4 first."); return Promise.resolve(false); }
     var M = window.SSDNSMisfire;
     var opts = M ? M.cleanOptions(g) : [];
-    if (!opts.length) { toast("This gun isn't jammed, dirty, fouled, or ruined."); return; }
+    if (!opts.length) { toast("This gun isn't jammed, dirty, fouled, or ruined."); return Promise.resolve(false); }
     var name = WPN[g.weapon] ? WPN[g.weapon].name : "Gun";
-    openCleanModal(name, opts).then(function (pick) {
-      if (!pick) return;
-      if (pick.check) {
-        var rolled = rollJamCheck();
-        var line = "Jam check " + rolled.detail + " = " + rolled.total + " vs DC " + pick.check.dc;
-        if (rolled.total < pick.check.dc) {
-          toast(line + ". The jam stays.");
-          if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "roll", text: line + " — fail" });
-          return;
-        }
-        if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "roll", text: line + " — success" });
-      }
-      applyCleanChoice(i, g, pick);
+    return openCleanModal(name, opts).then(function (pick) {
+      if (!pick) return false;
+      return finishClean(i, g, pick);
     });
+  }
+  function applyCleanOption(i, optionId) {
+    var g = C().guns[i];
+    if (!g || !g.weapon) { toast("Pick a gun first."); return Promise.resolve(false); }
+    if (d4Pending(g)) { toast("Roll the d4 first."); return Promise.resolve(false); }
+    var M = window.SSDNSMisfire;
+    var opts = M ? M.cleanOptions(g) : [];
+    var pick = null;
+    for (var n = 0; n < opts.length; n++) if (opts[n].id === optionId) pick = opts[n];
+    if (!pick) { toast("This gun isn't jammed, dirty, fouled, or ruined."); return Promise.resolve(false); }
+    return finishClean(i, g, pick);
+  }
+  function grantTestGun(index) {
+    var jam = window.SSDNSTestJammer && window.SSDNSTestJammer.weapon && window.SSDNSTestJammer.weapon();
+    if (!jam || !jam.debug) return false;
+    var guns = C().guns || [];
+    var requested = index != null && index !== "" && isFinite(Number(index)) ? Number(index) : -1;
+    var i = -1;
+    if (requested >= 0 && requested < guns.length) {
+      var asked = guns[requested];
+      if (!asked || !asked.weapon || asked.weapon === jam.id) i = requested;
+    }
+    if (i < 0) {
+      for (var n = 0; n < guns.length; n++) {
+        if (!guns[n] || !guns[n].weapon) { i = n; break; }
+      }
+    }
+    if (i < 0) i = requested >= 0 && requested < guns.length ? requested : 0;
+    var g = guns[i];
+    if (!g) return false;
+    var round = "k:percussion::medium";
+    g.weapon = jam.id;
+    g.tier = "medium";
+    g.chamber = "medium|";
+    g.chamberSet = true;
+    g.capacity = jam.capacity || 6;
+    g.loaded = g.capacity;
+    g.chambers = [];
+    for (var k = 0; k < g.capacity; k++) g.chambers.push(round);
+    g.load = "percussion";
+    g.mod = "";
+    g.jammed = false;
+    g.fouled = false;
+    g.dirty = false;
+    g.ruined = false;
+    g.broken = false;
+    g.cracked = false;
+    g.misStreak = 0;
+    g.pendingD4 = false;
+    g.pendingD4Rolls = null;
+    g.pendingD4Step = 0;
+    g.proficient = true;
+    changed();
+    return true;
   }
   function misfireCeiling(text, dirty) {
     var s = String(text || "");
@@ -3593,6 +3757,18 @@
       },
       reloadGun: function (i, max) { reload(i, max); },
       unloadGunIndex: function (i) { unloadLoaded(i); },
+      tacticalReload: function (i) { tacticalReload(i); },
+      loadHexShell: function (i) { loadHexShell(i); },
+      loadHexAt: function (i, level) { return loadHexAt(i, level); },
+      ammoChoices: function (i) { return ammoChoices(i); },
+      setAmmoPool: function (i, idx) { return setGunAmmoPool(i, idx); },
+      setAttackMode: function (i, mode) { return setGunAttackMode(i, mode); },
+      gunAttackMode: function (i) { return gunAttackMode(i); },
+      castList: function () { return castList(); },
+      prepareGunCast: function (i, spell, slot) { prepareGunCast(i, spell, slot); },
+      grantTestGun: function (i) { return grantTestGun(i); },
+      cleanGun: function (i) { return cleanGun(i); },
+      applyCleanOption: function (i, optionId) { return applyCleanOption(i, optionId); },
       suggestedHp: function () { return suggestedHp(C()); }
     };
   }
