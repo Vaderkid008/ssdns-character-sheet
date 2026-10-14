@@ -51,6 +51,8 @@
         if (name && row.name === name) return row;
       }
     }
+    var jam = root.SSDNSTestJammer && root.SSDNSTestJammer.lookup && root.SSDNSTestJammer.lookup(id || name);
+    if (jam) return jam;
     return null;
   }
 

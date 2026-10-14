@@ -54,6 +54,13 @@
   var CASTER_GUNS = byId(R.casterGuns);
   var WEAPON_LIST = [].concat(R.firearms, R.casterGuns, R.otherRanged, R.melee);
   var WPN = byId(WEAPON_LIST);
+  (function installDebugGuns() {
+    var jam = window.SSDNSTestJammer;
+    if (!jam || !jam.weapons) return;
+    jam.weapons().forEach(function (w) {
+      if (w && w.debug && w.id && !WPN[w.id]) WPN[w.id] = w;
+    });
+  })();
   var SHARDS = R.currency; // [{id:"white", color:"White", equals:"1 ES", es:1}, ...] (PHB Currency — Eldorite)
   var SPELL_LINES = [8, 12, 13, 13, 13, 9, 9, 9, 7, 7]; // same number of lines as the 5e base sheet, page 3
   var MAX_BOXES = 9;
@@ -1357,6 +1364,13 @@
       if (sel.getAttribute("data-built-for") !== callKey) {
         gunOptions(sel);
         sel.setAttribute("data-built-for", callKey);
+      }
+      var testOpt = sel.querySelector("option[data-test-gun]");
+      var testGun = cur && window.SSDNSTestJammer && window.SSDNSTestJammer.lookup ? window.SSDNSTestJammer.lookup(cur) : null;
+      if (testGun) {
+        if (!testOpt) sel.appendChild(el("option", { value: testGun.id, text: testGun.name + " · TEST", "data-test-gun": "1" }));
+      } else if (testOpt) {
+        testOpt.parentNode.removeChild(testOpt);
       }
       if (document.activeElement !== sel && sel.value !== cur) sel.value = cur;
     });
@@ -2731,6 +2745,49 @@
     if (!pick) { toast("This gun isn't jammed, dirty, fouled, or ruined."); return Promise.resolve(false); }
     return finishClean(i, g, pick);
   }
+  function grantTestGun(index) {
+    var jam = window.SSDNSTestJammer && window.SSDNSTestJammer.weapon && window.SSDNSTestJammer.weapon();
+    if (!jam || !jam.debug) return false;
+    var guns = C().guns || [];
+    var requested = index != null && index !== "" && isFinite(Number(index)) ? Number(index) : -1;
+    var i = -1;
+    if (requested >= 0 && requested < guns.length) {
+      var asked = guns[requested];
+      if (!asked || !asked.weapon || asked.weapon === jam.id) i = requested;
+    }
+    if (i < 0) {
+      for (var n = 0; n < guns.length; n++) {
+        if (!guns[n] || !guns[n].weapon) { i = n; break; }
+      }
+    }
+    if (i < 0) i = requested >= 0 && requested < guns.length ? requested : 0;
+    var g = guns[i];
+    if (!g) return false;
+    var round = "k:percussion::medium";
+    g.weapon = jam.id;
+    g.tier = "medium";
+    g.chamber = "medium|";
+    g.chamberSet = true;
+    g.capacity = jam.capacity || 6;
+    g.loaded = g.capacity;
+    g.chambers = [];
+    for (var k = 0; k < g.capacity; k++) g.chambers.push(round);
+    g.load = "percussion";
+    g.mod = "";
+    g.jammed = false;
+    g.fouled = false;
+    g.dirty = false;
+    g.ruined = false;
+    g.broken = false;
+    g.cracked = false;
+    g.misStreak = 0;
+    g.pendingD4 = false;
+    g.pendingD4Rolls = null;
+    g.pendingD4Step = 0;
+    g.proficient = true;
+    changed();
+    return true;
+  }
   function misfireCeiling(text, dirty) {
     var s = String(text || "");
     var m = s.match(/(\d+)\s*[–-]\s*(\d+)/);
@@ -3709,6 +3766,7 @@
       gunAttackMode: function (i) { return gunAttackMode(i); },
       castList: function () { return castList(); },
       prepareGunCast: function (i, spell, slot) { prepareGunCast(i, spell, slot); },
+      grantTestGun: function (i) { return grantTestGun(i); },
       cleanGun: function (i) { return cleanGun(i); },
       applyCleanOption: function (i, optionId) { return applyCleanOption(i, optionId); },
       suggestedHp: function () { return suggestedHp(C()); }

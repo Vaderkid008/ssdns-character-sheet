@@ -926,10 +926,63 @@ async function postDmAction(text, playerId) {
   catch (err) { writeFailed(err, "Couldn't sync the DM action"); }
   return feed;
 }
+function demoGunAt(snapshot, index) {
+  const guns = (snapshot && snapshot.guns) || [];
+  const n = Number(index);
+  if (!isFinite(n)) return null;
+  const tagged = guns.find((g) => g && g.index != null && g.index !== "" && Number(g.index) === n);
+  if (tagged) return tagged;
+  return guns[n] || null;
+}
+function grantDemoTestGun(snapshot, payload) {
+  const jam = window.SSDNSTestJammer && window.SSDNSTestJammer.weapon ? window.SSDNSTestJammer.weapon() : null;
+  const id = jam && jam.id ? jam.id : "test-jammer";
+  const name = jam && jam.name ? jam.name : "TEST Jammer";
+  const cap = jam && jam.capacity ? jam.capacity : 6;
+  const guns = snapshot.guns || (snapshot.guns = []);
+  let slot = guns.find((g) => g && g.weapon === id);
+  if (!slot) {
+    slot = {};
+    guns.push(slot);
+  }
+  const chambers = [];
+  for (let k = 0; k < cap; k++) chambers.push("k:percussion::medium");
+  const index = payload.index != null && payload.index !== "" && isFinite(Number(payload.index))
+    ? Number(payload.index)
+    : (slot.index != null && slot.index !== "" ? Number(slot.index) : guns.indexOf(slot));
+  Object.assign(slot, {
+    name: name,
+    weapon: id,
+    action: jam && jam.action ? jam.action : "Percussion revolver (slow)",
+    ammo: "percussion",
+    group: "pistol",
+    tier: "medium",
+    capacity: cap,
+    loaded: cap,
+    chambers: chambers,
+    misfire: "1–20",
+    range: "20/60",
+    damage: "1d8",
+    properties: jam && jam.properties ? jam.properties : "TEST, close quarters, simple",
+    index: index,
+    jammed: false,
+    fouled: false,
+    dirty: false,
+    ruined: false,
+    misStreak: 0,
+    pendingD4: false,
+    condition: "ok",
+    debug: true,
+    testOnly: true
+  });
+}
 function applyDemoGun(playerId, payload) {
   const p = state.players[playerId];
-  const g = p && p.snapshot && p.snapshot.guns && p.snapshot.guns[payload.index];
-  if (!g) return;
+  if (!p || !p.snapshot) return;
+  payload = payload || {};
+  if (payload.op === "test-gun") grantDemoTestGun(p.snapshot, payload);
+  const g = payload.op === "test-gun" ? null : demoGunAt(p.snapshot, payload.index);
+  if (payload.op !== "test-gun" && !g) return;
   if (payload.op === "unload") { g.loaded = 0; g.chambers = (g.chambers || []).map(() => ""); }
   else if (payload.op === "reload") {
     const cap = Number(g.capacity) || 0;

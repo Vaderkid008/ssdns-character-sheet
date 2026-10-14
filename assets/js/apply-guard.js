@@ -744,6 +744,11 @@
     if (/^[1-9]$/.test(s) || s.indexOf("k:hex:") === 0) return { action: "hex" };
     return { action: "fire" };
   }
+  /** Chamber tokens as the sheet stored them. Callers paint these; they do not turn a loaded round into 1. */
+  function chamberTokens(list) {
+    if (!Array.isArray(list)) return [];
+    return list.slice();
+  }
   /** Hex and cantrip shots spend a spell, not a cartridge pile. */
   function shotConsumesCartridge(kind) {
     var k = String(kind || "");
@@ -1162,6 +1167,7 @@
     isLivingHostile: isLivingHostile,
     refreshCombatantStatus: refreshCombatantStatus,
     chamberClick: chamberClick,
+    chamberTokens: chamberTokens,
     shotConsumesCartridge: shotConsumesCartridge,
     parseAsi: parseAsi,
     mergeAsi: mergeAsi,

@@ -80,7 +80,9 @@
     if (!g || !(g.weapon || g.name)) return null;
     var cap = Number(g.capacity) || (Array.isArray(g.chambers) ? g.chambers.length : 0);
     if (!cap) return null;
-    var chambers = Array.isArray(g.chambers) && g.chambers.length ? g.chambers.map(function (st) { return st ? 1 : 0; }) : null;
+    var chambers = Array.isArray(g.chambers) && g.chambers.length
+      ? (root.SSDNSApplied && root.SSDNSApplied.chamberTokens ? root.SSDNSApplied.chamberTokens(g.chambers) : g.chambers.slice())
+      : null;
     var loaded = chambers ? chambers.filter(Boolean).length : (Number(g.loaded) || 0);
     return { index: Number(i), loaded: loaded, cap: cap, chambers: chambers };
   }
@@ -278,6 +280,8 @@
         action: (w && w.action) || "",
         group: (w && w.group) || "",
         tier: (st && st.tier) || "",
+        ammoName: (w && w.ammo) || "",
+        ammoDisplay: g.ammoDisplay || "",
         scatter: !!(w && w.scatter),
         ammo: cyl ? { loaded: cyl.loaded, cap: cyl.cap, chambers: cyl.chambers, spare: spareForGun(g, w) } : null,
         spare: spareForGun(g, w),
@@ -682,6 +686,7 @@
       if (map && map.refreshCard) map.refreshCard(tokenId || "");
     },
     rounds: roundsLabel,
+    sheetCylinder: gunCylinder,
     armAttack: function (attack, targetId, shooterId) {
       if (!map || typeof map.armAttack !== "function") return null;
       try { return map.armAttack(attack, targetId, shooterId); }

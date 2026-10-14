@@ -32,7 +32,7 @@ check("route.chamber", fireBranch.includes("SSDNSGunRoll") && !fireBranch.includ
 check("route.rollGun", rollGunBody.indexOf("prepareGun") >= 0 && rollGunBody.indexOf("prepareGun") < rollGunBody.indexOf("attackCue"));
 check("route.melee", meleeStart < play.indexOf("prepareMelee") && play.indexOf("function prepareMelee") < play.indexOf("function rollMeleeNow") && play.indexOf("function rollMeleeNow") < play.indexOf("attackCue(cueNow)"));
 check("route.card", strikeBody.indexOf("confirmDisadvantage") < strikeBody.indexOf("playTableSfx"));
-check("route.detail", detailBody.indexOf("confirmDisadvantage") < detailBody.indexOf("g.loaded = loaded - 1") && detailBody.indexOf("g.loaded = loaded - 1") < detailBody.indexOf("playTableSfx"));
+check("route.detail", detailBody.indexOf("confirmDisadvantage") >= 0 && detailBody.indexOf("confirmDisadvantage") < detailBody.indexOf('op: "fire"') && detailBody.indexOf("g.loaded = loaded - 1") < 0 && detailBody.indexOf("playTableSfx") < 0 && detailBody.indexOf("gun_event") < 0 && detailBody.indexOf("g.misStreak") < 0);
 check("copy.confirm", read("assets/js/range-rings.js").includes(CONFIRM));
 
 function makeWindow() {

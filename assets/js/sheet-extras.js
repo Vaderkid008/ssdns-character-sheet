@@ -1635,12 +1635,17 @@
     if (!ask) return Promise.resolve(true);
     return ask().then(function (ok) { return !!ok; });
   }
+  function catalogWeapon(id) {
+    var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
+    var wpn = lists.filter(function (x) { return x && x.id === id; })[0];
+    if (wpn) return wpn;
+    return (root.SSDNSTestJammer && root.SSDNSTestJammer.lookup && root.SSDNSTestJammer.lookup(id)) || null;
+  }
   function gunAttackSpec(i) {
     var c = ch();
     var g = c && c.guns && c.guns[i];
     if (!g) return { id: "gunroll:" + i };
-    var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
-    var wpn = lists.filter(function (x) { return x && x.id === g.weapon; })[0] || {};
+    var wpn = catalogWeapon(g.weapon) || {};
     var rngEl = document.querySelector('[data-out="rng.' + i + '"]');
     return {
       id: "gunroll:" + i,
@@ -1767,8 +1772,7 @@
     var n1 = gunDice.n1, n2 = gunDice.n2, nat = gunDice.nat;
     var bad = function (n) { return n >= 1 && n <= ceiling; };
     var both = n2 != null && bad(n1) && bad(n2);
-    var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
-    var wpn = lists.filter(function (x) { return x.id === g.weapon; })[0];
+    var wpn = catalogWeapon(g.weapon);
     var cue = root.SSDNSAudio && root.SSDNSAudio.weaponCue
       ? root.SSDNSAudio.weaponCue(Object.assign({ gun: true }, wpn || {}, { id: g.weapon, sfx: g.sfx || (wpn && wpn.sfx) || "" }))
       : "attack";

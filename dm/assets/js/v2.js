@@ -312,8 +312,14 @@ function stripGuns(row, i) {
     const cap = chambers.length || Number(g.capacity) || 0;
     const loaded = chambers.length ? chambers.filter(Boolean).length : (Number(g.loaded) || 0);
     const pid = esc(row.playerId || row.id || "");
-    return `<span class="cylinder-row">${esc(g.name || "Gun")} ${dots(cap, loaded, `data-strip-fire="${pid}" data-gun-i="${gi}"`, chambers.length ? chambers.map(Boolean) : null, g)}</span>`;
+    const sheetI = g.index != null && g.index !== "" ? g.index : gi;
+    return `<span class="cylinder-row">${esc(g.name || "Gun")} ${dots(cap, loaded, `data-strip-fire="${pid}" data-gun-i="${sheetI}"`, chambers.length ? chambers : null, g)}</span>`;
   }).join("");
+}
+function chamberPicture(list) {
+  if (!Array.isArray(list)) return null;
+  if (window.SSDNSApplied && window.SSDNSApplied.chamberTokens) return window.SSDNSApplied.chamberTokens(list);
+  return list.slice();
 }
 function publicGuns(row) {
   if (!row) return [];
@@ -331,7 +337,8 @@ function publicGuns(row) {
       jammed: !!g.jammed,
       capacity: g.capacity || 0,
       loaded: g.loaded || 0,
-      chambers: (g.chambers || []).map((st) => (/^(jam|misfire)$/i.test(String(st || "")) ? "jam" : (st ? 1 : 0)))
+      index: g.index != null && g.index !== "" ? g.index : undefined,
+      chambers: chamberPicture(g.chambers) || []
     }));
   }
   const attacks = (row.attackList || row.card && row.card.attacks || []).filter((a) => a && a.capacity);
@@ -2574,12 +2581,21 @@ async function stopTrack() {
   }
 }
 
+function testingSectionOpen() {
+  try { return /(?:^|[?&])debug=1(?:&|$)/.test(String(location.search || "")); }
+  catch (e) { return false; }
+}
+function testJammerOf(s) {
+  const guns = (s && s.guns) || [];
+  return guns.find((g) => g && (g.weapon === "test-jammer" || String(g.name || "") === "TEST Jammer")) || null;
+}
 function decorateDetail(pid) {
   const p = DM.state.players[pid];
   const s = (p && p.snapshot) || {};
   const body = $("#detailBody");
   if (!body) return;
   const guns = (s.guns || []).filter((g) => g && g.name);
+  const jammer = testJammerOf(s);
   const conds = String(s.conditions || "").split(",").map((x) => x.trim()).filter(Boolean);
   const box = document.createElement("div");
   box.className = "detail-tools";
@@ -2590,6 +2606,14 @@ function decorateDetail(pid) {
         <button type="button" class="btn sm" id="btnDetailItem">Add to sheet</button>
       </div>
     </div>
+    <details class="detail-section" id="detailTesting"${testingSectionOpen() ? " open" : ""}>
+      <summary>Testing</summary>
+      <div class="toolbar">
+        <button type="button" class="btn sm" id="btnGiveTestGun">Give TEST Jammer</button>
+        <button type="button" class="btn sm" id="btnMakeDirty">${jammer && jammer.dirty ? "Clear Dirty" : "Make Dirty"}</button>
+      </div>
+      <p class="fine">TEST Jammer is a debug revolver. It is not in the gun list. A straight shot always misfires.</p>
+    </details>
     <div class="detail-section"><h3>Conditions</h3>
       <div class="cond-picks">${(window.SSDNSConditions ? window.SSDNSConditions.catalog() : CONDITIONS.filter((c) => c !== "Bleeding").map((c) => ({ name: c, text: "", exhaustion: c === "Exhaustion" }))).map((item) => {
         const on = conds.some((c) => c.toLowerCase() === item.name.toLowerCase() || c.toLowerCase().indexOf(item.name.toLowerCase()) === 0);
@@ -2664,6 +2688,38 @@ function decorateDetail(pid) {
     });
     $("#detailItem").value = "";
     DM.toast("Item sent");
+  });
+  const giveTest = $("#btnGiveTestGun");
+  if (giveTest) giveTest.addEventListener("click", async () => {
+    const list = s.guns || [];
+    const existing = testJammerOf(s);
+    let index = 0;
+    if (existing) {
+      index = existing.index != null && existing.index !== "" ? Number(existing.index) : list.indexOf(existing);
+    } else {
+      const taken = {};
+      list.forEach((g, n) => {
+        if (!g || !(g.name || g.weapon)) return;
+        const slot = g.index != null && g.index !== "" ? Number(g.index) : n;
+        if (isFinite(slot)) taken[slot] = true;
+      });
+      for (let n = 0; n < 4; n++) if (!taken[n]) { index = n; break; }
+    }
+    const payload = { op: "test-gun", index: index, weapon: "test-jammer" };
+    await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+    if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+    DM.toast("TEST Jammer sent");
+  });
+  const dirtyBtn = $("#btnMakeDirty");
+  if (dirtyBtn) dirtyBtn.addEventListener("click", async () => {
+    const gun = testJammerOf(s);
+    if (!gun) { DM.toast("Give TEST Jammer first"); return; }
+    const list = s.guns || [];
+    const index = gun.index != null && gun.index !== "" ? Number(gun.index) : list.indexOf(gun);
+    const payload = { op: "misfire", index: index, dirty: !gun.dirty };
+    await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+    if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+    DM.toast(payload.dirty ? "TEST Jammer is dirty" : "TEST Jammer is clean");
   });
   $("#btnSaveConds").addEventListener("click", async () => {
     const list = $$("[data-cond]", box).filter((el) => el.checked).map((el) => el.getAttribute("data-cond"));
@@ -2851,7 +2907,6 @@ async function rollGunAttack(pid) {
     return;
   }
   if (!isFinite(loaded) || loaded <= 0) { DM.toast(g.name + " is empty"); return; }
-  const bonus = atkNumber(g.atk);
   let mode = ($("#detailAdv") && $("#detailAdv").value) || "";
   const rings = window.SSDNSRangeRings;
   const mapHost = window.SSDNSMapHost;
@@ -2886,79 +2941,14 @@ async function rollGunAttack(pid) {
       return;
     }
   }
-  if (rings && rings.take) rings.take();
-  g.loaded = loaded - 1;
-  if (g.plain > 0) g.plain -= 1;
-  const n1 = 1 + Math.floor(Math.random() * 20);
-  let n2 = null;
-  let nat = n1;
-  if (mode === "adv" || mode === "dis") {
-    n2 = 1 + Math.floor(Math.random() * 20);
-    nat = mode === "adv" ? Math.max(n1, n2) : Math.min(n1, n2);
-  }
-  const hi = misfireCeiling(g.misfire, !!g.dirty);
-  const inRange = (n) => n >= 1 && n <= hi;
-  const resolved = window.SSDNSMisfire
-    ? window.SSDNSMisfire.resolveShot(g, { n1, n2, nat, ceiling: hi, spark: false })
-    : null;
-  const both = resolved ? resolved.both : (n2 != null && inRange(n1) && inRange(n2) && !g.rugged);
-  const misfire = resolved ? resolved.misfire : (both || inRange(nat));
-  if (resolved) {
-    g.misStreak = resolved.misStreak;
-    g.fouled = !!resolved.fouled;
-    g.jammed = !!resolved.jammed;
-    g.ruined = !!resolved.ruined;
-    if (resolved.armD4) g.pendingD4 = true;
-  }
-  const total = nat + bonus;
-  const dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
-  playTableSfx(strikeCue({ gun: true, name: g.name, id: g.weapon, sfx: g.sfx }));
-  let dmg = null;
-  if (!misfire) dmg = rollDiceExpr(g.damage, nat === 20);
+  if (rings && rings.clear) rings.clear();
+  const gi = g.index != null && g.index !== "" ? Number(g.index) : idx;
+  const payload = { op: "fire", index: gi };
+  if (mode === "adv" || mode === "dis") payload.mode = mode;
+  await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+  if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
   const whoName = namesFor(pid).characterName || s.name || "them";
-  await DM.pushRoll({
-    who: "DM",
-    playerId: pid, uid: DM.state.uid,
-    label: "DM rolled for " + whoName + " · " + g.name + (misfire ? " misfire" : " attack"),
-    formula: (n2 == null ? "1d20" : "2d20") + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + (dmg ? " · " + dmg.formula : ""),
-    result: total, detail: dice + (bonus ? (bonus >= 0 ? "+" : "") + bonus : "") + (dmg ? " · dmg " + dmg.total + " (" + dmg.detail + ")" : "") + (misfire ? " misfire" : ""),
-    nat1: false, isFirearm: true, attack: true, nat: nat, crit: nat === 20, private: false,
-    damage: dmg ? dmg.total : null
-  });
-  const names = namesFor(pid);
-  if (resolved && resolved.fouled) g.condition = "fouled";
-  else if (resolved && resolved.jammed) g.condition = "jammed";
-  else if (resolved && resolved.ruined) g.condition = "ruined";
-  if (both) {
-    await DM.pushLedger(Object.assign({
-      who: "DM", playerId: pid, type: "foul",
-      what: g.name + " fouled (double misfire) · " + (names.characterName || ""),
-      oldVal: null, newVal: "fouled", flag: false
-    }, names));
-    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, fouled: true, misStreak: 0 }, from: DM.state.uid });
-  } else if (misfire) {
-    if (resolved && resolved.jammed) playTableSfx("jam");
-    await DM.pushLedger(Object.assign({
-      who: "DM", playerId: pid, type: resolved && resolved.armD4 ? "d4" : "jam",
-      what: g.name + (resolved && resolved.armD4 ? " dirty streak opens a d4" : " jammed (misfire)") + " · " + (names.characterName || ""),
-      oldVal: null, newVal: resolved && resolved.armD4 ? "d4" : "jammed", flag: false
-    }, names));
-    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, jammed: !!(resolved && resolved.jammed), misStreak: g.misStreak, armD4: !!(resolved && resolved.armD4) }, from: DM.state.uid });
-  } else {
-    g.misStreak = 0;
-    await DM.pushCommand({ type: "gun_event", to: pid, payload: { name: g.name, spend: 1, misStreak: 0 }, from: DM.state.uid });
-  }
-  if (g.cracked || g.condition === "cracked") {
-    const ex = 1 + Math.floor(Math.random() * 20);
-    await DM.pushRoll({
-      who: "DM", playerId: pid, uid: DM.state.uid,
-      label: g.name + " · DM note", formula: "1d20", result: ex, detail: String(ex),
-      nat1: ex === 1, isFirearm: true, private: true
-    });
-    if (ex === 1) DM.toast(g.name + " — DM note only");
-  }
-  DM.renderPlayers();
-  DM.toast(g.name + " → " + total + (both ? " FOULED" : (misfire ? " misfire" : "")) + " · " + g.loaded + " left");
+  DM.toast("Asked " + whoName + " to fire " + g.name);
 }
 async function rollSpell(pid) {
   const p = DM.state.players[pid];
@@ -5757,6 +5747,8 @@ function mapDrawerCard(row) {
       pendingD4: !!a.pendingD4,
       gunIndex: a.gunIndex,
       sheetIndex: a.sheetIndex != null ? a.sheetIndex : a.gunIndex,
+      ammoName: typeof a.ammoName === "string" ? a.ammoName : (typeof a.ammo === "string" ? a.ammo : ""),
+      ammoDisplay: a.ammoDisplay || "",
       tr: !!a.tr,
       caster: !!a.caster,
       calling: a.calling || "",
@@ -5767,8 +5759,8 @@ function mapDrawerCard(row) {
     };
     if (cap != null && isFinite(cap)) {
       const chambers = Array.isArray(a.chambers) && a.chambers.length
-        ? a.chambers.map((st) => (st ? 1 : 0))
-        : (a.ammo && Array.isArray(a.ammo.chambers) ? a.ammo.chambers.map((st) => (st ? 1 : 0)) : null);
+        ? chamberPicture(a.chambers)
+        : (a.ammo && Array.isArray(a.ammo.chambers) ? chamberPicture(a.ammo.chambers) : null);
       attack.ammo = {
         loaded: isFinite(loaded) ? loaded : 0,
         cap: cap,
@@ -5897,8 +5889,8 @@ function ensurePlayerAttacks(row) {
     const id = g.id || ("gun-" + n);
     const name = g.name || g.weapon || ("Gun " + (n + 1));
     const old = prev.filter((a) => a && (a.id === id || a.name === name))[0] || {};
-    const cap = g.capacity != null && g.capacity !== "" ? Number(g.capacity) : (old.capacity != null ? old.capacity : null);
-    const loaded = g.loaded != null && g.loaded !== "" ? Number(g.loaded) : (old.loaded != null ? Number(old.loaded) : (cap || 0));
+    const cap = g.capacity != null && g.capacity !== "" ? Number(g.capacity) : (Array.isArray(g.chambers) ? g.chambers.length : null);
+    const loaded = g.loaded != null && g.loaded !== "" ? Number(g.loaded) : (Array.isArray(g.chambers) ? g.chambers.filter((st) => !!st).length : 0);
     return {
       id: id,
       name: name,
@@ -5914,7 +5906,9 @@ function ensurePlayerAttacks(row) {
       pendingD4: !!g.pendingD4,
       dirty: !!g.dirty,
       misStreak: Number(g.misStreak) || 0,
-      chambers: Array.isArray(g.chambers) ? g.chambers.slice() : null,
+      chambers: chamberPicture(g.chambers),
+      ammoName: typeof g.ammo === "string" ? g.ammo : "",
+      ammoDisplay: g.ammoDisplay || "",
       spare: window.SSDNSApplied && window.SSDNSApplied.spareCount ? window.SSDNSApplied.spareCount(Object.assign({}, g, { caliber: g.caliber || g.ammo }), (snap && snap.ammo) || []) : (g.spare || 0),
       gunIndex: n,
       sheetIndex: g.index != null && g.index !== "" ? g.index : n,
@@ -5938,31 +5932,6 @@ function ensurePlayerAttacks(row) {
       scope: /scope/i.test(g.mod || "")
     };
   });
-}
-function syncPlayerGun(row, atk) {
-  if (!row || row.kind !== "player" || !atk || atk.gunIndex == null) return;
-  const pid = row.playerId || row.id;
-  const snap = playerSnapshot(pid);
-  const g = snap && snap.guns && snap.guns[atk.gunIndex];
-  if (g) {
-    const beforeFilled = Array.isArray(g.chambers) ? g.chambers.filter(Boolean).length : null;
-    g.loaded = atk.loaded;
-    g.jammed = !!atk.jammed;
-    g.fouled = !!atk.fouled;
-    g.ruined = !!atk.ruined;
-    g.pendingD4 = !!atk.pendingD4;
-    g.dirty = !!atk.dirty;
-    g.misStreak = atk.misStreak || 0;
-    if (Array.isArray(g.chambers) && g.chambers.length && beforeFilled != null && Number(atk.loaded) < beforeFilled) {
-      let extra = beforeFilled - Number(atk.loaded);
-      for (let k = 0; k < g.chambers.length && extra > 0; k++) {
-        if (g.chambers[k]) { g.chambers[k] = ""; extra -= 1; }
-      }
-    }
-  }
-  const payload = { op: "set", index: atk.gunIndex, loaded: atk.loaded, chambers: g && g.chambers ? g.chambers.slice() : null, jammed: !!atk.jammed, fouled: !!atk.fouled, ruined: !!atk.ruined, pendingD4: !!atk.pendingD4, dirty: !!atk.dirty, misStreak: atk.misStreak || 0 };
-  DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
-  if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
 }
 function mapAttackIndex(row, weaponId) {
   const list = (row.card && row.card.attacks) || [];
@@ -6201,18 +6170,15 @@ async function mapGunChamber(detail) {
     if (k >= chambers.length) return false;
     if (chambers[k]) {
       chambers[k] = "";
-      g.chambers = chambers;
-      g.loaded = chambers.filter(Boolean).length;
-      const payload = { op: "set", index: atk.gunIndex != null ? atk.gunIndex : n, loaded: g.loaded, chambers: chambers };
+      const payload = { op: "set", index: atk.sheetIndex != null ? atk.sheetIndex : (atk.gunIndex != null ? atk.gunIndex : n), loaded: chambers.filter(Boolean).length, chambers: chambers };
       await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
       if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
       ensurePlayerAttacks(row);
-      await saveRemoteTable();
       renderFight();
-      DM.toast("Unloaded a chamber · " + g.loaded + "/" + cap);
+      DM.toast("Unloaded a chamber · " + payload.loaded + "/" + cap);
       return true;
     }
-    const payload = { op: "reload", index: atk.gunIndex != null ? atk.gunIndex : n, max: 1 };
+    const payload = { op: "reload", index: atk.sheetIndex != null ? atk.sheetIndex : (atk.gunIndex != null ? atk.gunIndex : n), max: 1 };
     await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
     if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
     ensurePlayerAttacks(row);
@@ -6348,12 +6314,28 @@ window.SSDNSMapFight = {
       DM.toast("Pick a different token");
       return false;
     }
-    if (row.kind === "player") ensurePlayerAttacks(row);
-    else ensureCombatantCard(row);
+    if (row.kind === "player") {
+      if (!row.dmActsAs) { DM.toast("The player acts for themselves"); return false; }
+      ensurePlayerAttacks(row);
+      const n = mapAttackIndex(row, detail.weaponId);
+      if (n < 0) { DM.toast("No attack"); return false; }
+      const atk = row.card && row.card.attacks && row.card.attacks[n];
+      if (!atk) { DM.toast("No attack"); return false; }
+      const pid = row.playerId || row.id;
+      const gi = atk.sheetIndex != null ? atk.sheetIndex : (atk.gunIndex != null ? atk.gunIndex : n);
+      const payload = { op: "fire", index: gi };
+      if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
+      if (targetId) payload.targetId = targetId;
+      await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+      if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+      if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
+      ensurePlayerAttacks(row);
+      return true;
+    }
+    ensureCombatantCard(row);
     const n = mapAttackIndex(row, detail.weaponId);
     if (n < 0) { DM.toast("No attack"); return false; }
     await cardStrike(i, n, { targetId: targetId });
-    if (row.kind === "player") syncPlayerGun(row, row.card.attacks[n]);
     return true;
   },
   async cast(detail) {

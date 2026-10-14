@@ -1343,6 +1343,16 @@
         if (payload.misStreak != null) g.misStreak = payload.misStreak;
       });
     }     else if (payload.op === "fire" && root.SSDNSGunRoll) {
+      if (app.setAttackMode && (payload.mode === "adv" || payload.mode === "dis")) app.setAttackMode(payload.index, payload.mode);
+      if (payload.targetId != null && payload.targetId !== "" && root.document) {
+        var aim = root.document.querySelector("#atkTarget");
+        if (aim) {
+          var wantId = String(payload.targetId);
+          var aimed = false;
+          Array.prototype.forEach.call(aim.options || [], function (o) { if (o && o.value === wantId) aimed = true; });
+          if (aimed) aim.value = wantId;
+        }
+      }
       root.SSDNSGunRoll(payload.index, payload.chamber);
       return;
     } else if (payload.op === "dirty-d4") {
@@ -1391,6 +1401,10 @@
         if (root.document.body) root.document.body.classList.remove("ask-open");
       }
       if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM override: " + (notes.join(", ") || "gun") + "." });
+      return;
+    }
+    if (payload.op === "test-gun" && app.grantTestGun) {
+      app.grantTestGun(payload.index);
       return;
     }
     if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM " + (payload.op || "adjusted") + " a gun." });

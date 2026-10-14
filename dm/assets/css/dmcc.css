@@ -355,10 +355,12 @@ main { padding: 0 12px 80px; }
 .drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
 .drawer-head h2 { margin: 0; font-family: var(--head); color: var(--eld); font-size: 24px; font-weight: 400; }
 .detail-section { margin: 14px 0; }
-.detail-section h3 {
+.detail-section h3,
+.detail-section summary {
   font-family: var(--label); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
   color: var(--ochre); margin: 0 0 6px; border-bottom: 1px solid var(--line); padding-bottom: 4px;
 }
+.detail-section summary { cursor: pointer; }
 .detail-section pre, .detail-section p {
   margin: 0; white-space: pre-wrap; font-family: var(--body); font-size: 14px; color: var(--ink);
 }
