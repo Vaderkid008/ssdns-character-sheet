@@ -343,7 +343,7 @@
     for (var i = 0; i < 4; i++) {
       var cur = (c.melee[i] && c.melee[i].weapon) || "";
       html += "<div class='gun melee-card" + (cur ? "" : " empty") + "'>" +
-        "<div class='g-card-top'><div class='g-photo' title='Weapon photo later'>Photo</div><div class='g-name'>" +
+        "<div class='g-card-top'><div class='g-photo' data-melee-photo='" + i + "' title='Weapon photo later'>Photo</div><div class='g-name'>" +
         "<select data-melee='" + i + "' aria-label='Melee " + (i + 1) + "'><option value=''>Melee, bow, or thrown…</option>" +
         list.map(function (w) { return "<option value='" + w.id + "'" + (w.id === cur ? " selected" : "") + ">" + w.name + "</option>"; }).join("") +
         "</select><div class='g-stats'>" +
@@ -363,6 +363,8 @@
     var list = rules().melee || [];
     (c.melee || []).forEach(function (row, i) {
       var w = list.filter(function (x) { return x.id === row.weapon; })[0];
+      var photo = document.querySelector("[data-melee-photo='" + i + "']");
+      if (photo && root.SSDNSWeaponArt) root.SSDNSWeaponArt.paint(photo, w || (row && row.weapon ? { id: row.weapon } : null));
       var atk = $("#meleeBox [data-melee-atk='" + i + "']") || document.querySelector("[data-melee-atk='" + i + "']");
       var dmg = document.querySelector("[data-melee-dmg='" + i + "']");
       if (!w) {
@@ -529,15 +531,22 @@
     var bonusTxt = (atk >= 0 ? "+" : "") + atk;
     var face = faced.shown || String(nat);
     var hitTotal = nat + atk;
-    var haveAc = tgt && tgt.ac != null && isFinite(Number(tgt.ac));
-    if (haveAc && hitTotal < Number(tgt.ac)) miss = true;
+    var meleeRange = "";
+    var meleeListsNow = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.melee) || [], (root.SSDNS_RULES && root.SSDNS_RULES.otherRanged) || []);
+    meleeListsNow.forEach(function (w) { if (w && c.melee[i] && w.id === c.melee[i].weapon) meleeRange = String(w.range || ""); });
+    var meleeRanged = /\d+\s*\/\s*\d+/.test(meleeRange);
+    var meleeCover = root.SSDNSSheet && root.SSDNSSheet.coverFor
+      ? root.SSDNSSheet.coverFor(tgt, root.SSDNSSheet.coverOptsFor(meleeRanged ? "ranged" : "melee"))
+      : { have: tgt && tgt.ac != null && isFinite(Number(tgt.ac)), ac: tgt && tgt.ac, note: "" };
+    var haveAc = !!meleeCover.have;
+    if (haveAc && hitTotal < Number(meleeCover.ac)) miss = true;
     var dmgTxt = (!miss && detail) ? (" · " + formula + " = " + total) : "";
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
     var modeWord = chosen === "dis" ? " · disadvantage" : (chosen === "adv" ? " · advantage" : "");
     var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
       ? root.SSDNSApplied.attackBreakdown({
         who: who, target: tgt && tgt.name, nat: nat, n1: faced.n1, n2: faced.n2,
-        parts: [{ label: "bonus", value: atk }], total: hitTotal, ac: haveAc ? tgt.ac : null,
+        parts: [{ label: "bonus", value: atk }], total: hitTotal, ac: haveAc ? meleeCover.ac : null, coverNote: meleeCover.note,
         revealAc: !(root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt)),
         miss: miss, crit: crit && !miss,
         damage: !miss ? { faces: rolls, parts: flat ? [{ label: "mod", value: flat }] : [], total: total, type: "" } : null
@@ -561,7 +570,7 @@
         formula: (faced.n2 == null ? "1d20" : "2d20") + bonusTxt,
         result: hitTotal,
         detail: line,
-        ac: haveAc ? Number(tgt.ac) : null,
+        ac: haveAc ? Number(meleeCover.ac) : null,
         attack: true,
         nat: nat,
         crit: crit && !miss,
@@ -643,11 +652,17 @@
       var tgt = document.createElement("label");
       tgt.className = "gear-target-label";
       tgt.innerHTML = "Target <select id='atkTarget' aria-label='Attack target'><option value=''>No target</option></select> <span id='atkReveal' class='fine'></span>";
+      var coverLab = document.createElement("label");
+      coverLab.className = "fine";
+      coverLab.innerHTML = "Cover <select id='coverPick' aria-label='Cover for the selected target'><option value=''>None</option><option value='half'>Half +2</option><option value='three'>3/4 +5</option><option value='full'>Total</option></select>";
       init.parentNode.appendChild(adv);
       init.parentNode.appendChild(wh);
       var slot = $("#gearTargetSlot");
-      if (slot) slot.appendChild(tgt);
-      else init.parentNode.appendChild(tgt);
+      if (slot) { slot.appendChild(tgt); slot.appendChild(coverLab); }
+      else { init.parentNode.appendChild(tgt); init.parentNode.appendChild(coverLab); }
+      var coverSel = $("#coverPick");
+      if (coverSel) coverSel.addEventListener("change", writeCoverPick);
+      syncCoverPick();
     }
     var guns = $("#guns");
     if (guns && !$("#meleeBox")) {
@@ -1068,7 +1083,7 @@
       var opt = sel.selectedOptions[0];
       var acRaw = opt.getAttribute("data-ac");
       var ac = acRaw == null || acRaw === "" ? null : Number(acRaw);
-      return { id: sel.value, name: opt.getAttribute("data-name") || opt.textContent || "", ac: isFinite(ac) ? ac : null, kind: opt.getAttribute("data-kind") || "" };
+      return { id: sel.value, name: opt.getAttribute("data-name") || opt.textContent || "", ac: isFinite(ac) ? ac : null, kind: opt.getAttribute("data-kind") || "", cover: opt.getAttribute("data-cover") || "", coverLock: opt.getAttribute("data-cover-lock") === "1" };
     },
     paintReveal: function () {
       var note = $("#atkReveal");
@@ -1117,6 +1132,10 @@
         if (conds) bits.push(conds);
         if (revealed.hp != null && revealed.hp !== "") bits.push(String(revealed.hp) + "/" + (revealed.maxHp == null || revealed.maxHp === "" ? "?" : revealed.maxHp) + " HP");
         if (ac) bits.push("AC " + ac);
+        var coverKey = String(row.cover || "");
+        if (coverKey === "half") bits.push("half cover +2");
+        else if (coverKey === "three") bits.push("3/4 cover +5");
+        else if (coverKey === "full") bits.push("total cover");
         var blockNote = "";
         if (revealed.block) {
           var block = revealed.block;
@@ -1128,7 +1147,7 @@
           ].filter(Boolean).join(" · ");
         }
         var label = name + (bits.length ? " (" + bits.join(" · ") + ")" : "");
-        html += "<option value='" + String(row.id).replace(/'/g, "") + "' data-ac='" + ac.replace(/'/g, "") + "' data-hp='" + hpAttr.replace(/'/g, "") + "' data-status='" + String(row.status || "").replace(/'/g, "") + "' data-side='" + String(row.side || "").replace(/'/g, "") + "' data-fled='" + (row.fled || row.status === "Fled" ? "1" : "0") + "' data-conds='" + conds.replace(/'/g, "") + "' data-kind='" + String(row.kind || "").replace(/'/g, "") + "' data-name='" + name.replace(/[&<>"']/g, "") + "' data-reveal='" + blockNote.replace(/'/g, "") + "'>" +
+        html += "<option value='" + String(row.id).replace(/'/g, "") + "' data-ac='" + ac.replace(/'/g, "") + "' data-hp='" + hpAttr.replace(/'/g, "") + "' data-status='" + String(row.status || "").replace(/'/g, "") + "' data-side='" + String(row.side || "").replace(/'/g, "") + "' data-fled='" + (row.fled || row.status === "Fled" ? "1" : "0") + "' data-conds='" + conds.replace(/'/g, "") + "' data-kind='" + String(row.kind || "").replace(/'/g, "") + "' data-name='" + name.replace(/[&<>"']/g, "") + "' data-reveal='" + blockNote.replace(/'/g, "") + "' data-cover='" + coverKey.replace(/'/g, "") + "' data-cover-lock='" + (row.coverLock ? "1" : "0") + "'>" +
           label.replace(/[&<>]/g, "") + "</option>";
       });
       sel.innerHTML = html;
@@ -1139,13 +1158,57 @@
       if (last && rows.some(function (row) { return String(row.id) === String(last) && unusableRow(row); })) sel.removeAttribute("data-last-enemy");
       if (!sel._revealBound) {
         sel._revealBound = true;
-        sel.addEventListener("change", function () { if (root.SSDNSPlaytest.paintReveal) root.SSDNSPlaytest.paintReveal(); });
+        sel.addEventListener("change", function () {
+          if (root.SSDNSPlaytest.paintReveal) root.SSDNSPlaytest.paintReveal();
+          if (root.SSDNSPlaytest.syncCover) root.SSDNSPlaytest.syncCover();
+        });
       }
       if (root.SSDNSPlaytest.paintReveal) root.SSDNSPlaytest.paintReveal();
+      if (root.SSDNSPlaytest.syncCover) root.SSDNSPlaytest.syncCover();
     },
     setDamageMode: function () {},
+    syncCover: syncCoverPick,
     dropLogStore: dropLogStore
   };
+  function coverTitle(key, locked) {
+    var Applied = root.SSDNSApplied;
+    var adj = Applied && Applied.coverAdjust ? Applied.coverAdjust(0, key || "", {}) : { title: "Half cover +2, three-quarters +5. Total cover can't be targeted." };
+    return (locked ? "DM locked this cover. " : "") + (adj.title || "");
+  }
+  function syncCoverPick() {
+    var cover = $("#coverPick");
+    var sel = $("#atkTarget");
+    if (!cover) return;
+    var c = ch();
+    var opt = sel && sel.selectedOptions && sel.selectedOptions[0];
+    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    var aimed = !!(opt && opt.value);
+    var mine = !aimed || (uid && opt.value === uid);
+    var key = aimed ? (opt.getAttribute("data-cover") || "") : ((c && c.cover) || "");
+    var locked = aimed ? opt.getAttribute("data-cover-lock") === "1" : !!(c && c.coverLock);
+    if (mine && c && c.coverLock) locked = true;
+    if (["", "half", "three", "full"].indexOf(key) < 0) key = "";
+    cover.value = key;
+    cover.disabled = !!locked;
+    cover.title = coverTitle(key, locked);
+  }
+  function writeCoverPick() {
+    var cover = $("#coverPick");
+    var sel = $("#atkTarget");
+    if (!cover || cover.disabled) return;
+    var key = cover.value || "";
+    var c = ch();
+    var opt = sel && sel.selectedOptions && sel.selectedOptions[0];
+    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    if (opt && opt.value) opt.setAttribute("data-cover", key);
+    var mine = !opt || !opt.value || (uid && opt.value === uid);
+    if (mine && c && !c.coverLock) {
+      c.cover = key;
+      if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
+      if (root.SSDNSDmJoin && root.SSDNSDmJoin.publishSnapshot) root.SSDNSDmJoin.publishSnapshot();
+    }
+    cover.title = coverTitle(key, false);
+  }
 
   function boot() {
     if (!root.SSDNSApp) { setTimeout(boot, 50); return; }

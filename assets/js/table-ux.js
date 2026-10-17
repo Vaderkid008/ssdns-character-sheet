@@ -99,6 +99,9 @@
     var bits = [];
     if (c.lineage) bits.push("<span class='chip faction'>" + c.lineage + "</span>");
     if (c.calling) bits.push("<span class='chip calling'>" + c.calling + "</span>");
+    if (c.cover === "half") bits.push("<span class='chip cover' title='Half cover: +2 to AC and Dexterity saves.'>Half +2</span>");
+    else if (c.cover === "three") bits.push("<span class='chip cover' title='Three-quarters cover: +5 to AC and Dexterity saves.'>3/4 +5</span>");
+    else if (c.cover === "full") bits.push("<span class='chip cover' title=\"Total cover: can't be targeted.\">Total cover</span>");
     if (c.takingCover) bits.push("<span class='chip cover'>Cover</span>");
     if (c.raging) bits.push("<span class='chip rage'>Dust Fury</span>");
     if (c.calling === "lawman") bits.push("<label class='chip badge'>Badge <select id='badgeState' aria-label='Lawman badge'></select></label>");

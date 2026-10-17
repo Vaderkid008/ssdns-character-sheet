@@ -227,6 +227,8 @@
       sharpshooter: (c.feats || []).indexOf("sharpshooter") >= 0,
       conditions: c.tableConditions || "",
       takingCover: !!c.takingCover,
+      cover: c.cover || "",
+      coverLock: !!c.coverLock,
       badgeState: c.badgeState || "",
       activeConditions: c.activeConditions || [],
       deathSaves: c.deathSaves || { success: [false, false, false], fail: [false, false, false] },
@@ -518,6 +520,10 @@
       dice: entry.dice || "",
       formula: entry.formula || "",
       weapon: entry.weapon || "",
+      gun: !!entry.gun,
+      spell: !!entry.spell,
+      cover: entry.cover || "",
+      coverSet: !!entry.coverSet,
       characterName: (c && c.name) || entry.characterName || "",
       playerName: (c && c.player) || "",
       rollId: entry.rollId || "",
@@ -763,9 +769,26 @@
         break;
       case "reward_item":
         if (!claimGrant("item:" + (payload.grantId || cmd.id || payload.text || ""))) break;
+        if (root.SSDNSTestJammer && root.SSDNSTestJammer.matches && root.SSDNSTestJammer.matches(payload.text) && root.SSDNSApp && root.SSDNSApp.grantTestGun) {
+          root.SSDNSApp.grantTestGun();
+          toast("DM sent TEST Jammer");
+          if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Weapon: TEST Jammer" });
+          break;
+        }
         appendEquipment(payload.text || "");
         toast("DM sent item: " + (payload.text || ""));
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Item: " + (payload.text || "") });
+        break;
+      case "cover":
+        if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
+          root.SSDNSApp.applyPatch(function (doc) {
+            if (!doc.character) return;
+            doc.character.cover = payload.cover || "";
+            doc.character.coverLock = !!payload.lock;
+          });
+        }
+        if (root.SSDNSPlaytest && root.SSDNSPlaytest.syncCover) root.SSDNSPlaytest.syncCover();
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: payload.lock ? "DM locked your cover." : "DM set your cover." });
         break;
       case "reward_note":
         toast("DM note: " + (payload.text || ""));
@@ -1206,6 +1229,18 @@
     state._saveSeen[payload.id] = 1;
     var ability = String(payload.ability || "STR").toUpperCase();
     var mod = abilityMod(ability);
+    var coverBonus = 0;
+    var coverTitle = payload.coverTitle || "";
+    if (ability === "DEX" && !/sacred flame/i.test(payload.label || "")) {
+      if (payload.coverBonus != null && payload.coverBonus !== "") coverBonus = Number(payload.coverBonus) || 0;
+      else if (root.SSDNSApplied && root.SSDNSApplied.coverSaveBonus) {
+        var mine = doc() && doc().character;
+        var adj = root.SSDNSApplied.coverSaveBonus(mine && mine.cover, "DEX", {});
+        coverBonus = adj.bonus || 0;
+        if (!coverTitle) coverTitle = adj.title || "";
+      }
+    }
+    mod += coverBonus;
     var dlg = document.createElement("dialog");
     dlg.className = "dlg";
     var form = document.createElement("form");
@@ -1214,7 +1249,8 @@
     title.textContent = (payload.label || "Save") + " · " + ability + " DC " + (payload.dc == null ? "?" : payload.dc);
     var note = document.createElement("p");
     var sign = (mod >= 0 ? "+" : "") + mod;
-    note.textContent = "Your " + ability + " modifier is " + sign + (payload.rider ? (". On a fail: " + payload.rider) : "") + (payload.damage ? (". Damage on a fail: " + payload.damage) : "");
+    note.textContent = "Your " + ability + " modifier is " + sign + (coverBonus ? (" (cover +" + coverBonus + ")") : "") + (payload.rider ? (". On a fail: " + payload.rider) : "") + (payload.damage ? (". Damage on a fail: " + payload.damage) : "");
+    if (coverBonus && coverTitle) note.title = coverTitle;
     var foot = document.createElement("div");
     foot.className = "dlg-foot";
     var roll = document.createElement("button");

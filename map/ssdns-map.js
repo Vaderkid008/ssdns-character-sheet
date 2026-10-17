@@ -4584,6 +4584,15 @@ async function loadSceneImage(sceneId) {
     const actToggle = isPc
       ? '<label class="ssm-act"><input type="checkbox" data-act="actFor"' + (card.dmActsAs ? ' checked' : '') + '> Act for player</label>'
       : '';
+    const coverKey = (window.SSDNSApplied && window.SSDNSApplied.coverKey)
+      ? window.SSDNSApplied.coverKey(card.cover)
+      : (card.cover || '');
+    const coverTitle = "Half cover +2 to AC and Dexterity saves. Three-quarters +5. Total cover can't be targeted.";
+    const coverOpt = (val, label) => '<option value="' + val + '"' + (coverKey === val ? ' selected' : '') + '>' + label + '</option>';
+    const coverRow = '<label class="ssm-act" title="' + esc(coverTitle) + '">Cover <select data-act="coverPick" aria-label="Cover" title="' + esc(coverTitle) + '">' +
+      coverOpt('', 'None') + coverOpt('half', 'Half +2') + coverOpt('three', '3/4 +5') + coverOpt('full', 'Total') +
+      '</select></label>' +
+      '<label class="ssm-act" title="Lock cover so the player can\'t change it."><input type="checkbox" data-act="coverLock"' + (card.coverLock ? ' checked' : '') + '> Lock cover</label>';
     d.innerHTML =
       '<div class="ssm-drawer-head"><b>' + esc(card.name || tokenId) + '</b> <span class="ssm-kind">' + esc(card.kind || '') + '</span>' +
       '<button type="button" data-act="drawerClose">×</button></div>' +
@@ -4593,6 +4602,7 @@ async function loadSceneImage(sceneId) {
       hpBar +
       deathLine +
       actToggle +
+      coverRow +
       '<label class="ssm-act ssm-range"><input type="checkbox" data-act="drawerRange"' + (state.showRange ? ' checked' : '') + '> Show range</label>' +
       '<label class="ssm-act">Range: <select data-act="rangeOverride" aria-label="Range: Auto">' +
         '<option value="auto"' + ((state.rangeOverride || 'auto') === 'auto' ? ' selected' : '') + '>Auto</option>' +
@@ -4695,6 +4705,14 @@ async function loadSceneImage(sceneId) {
     });
     const actBox = d.querySelector('[data-act="actFor"]');
     if (actBox) actBox.addEventListener('change', () => emit('drawer:act', detail({ on: !!actBox.checked })));
+    const coverPick = d.querySelector('[data-act="coverPick"]');
+    const coverLock = d.querySelector('[data-act="coverLock"]');
+    const emitCover = () => emit('drawer:cover', detail({
+      cover: coverPick ? coverPick.value : '',
+      lock: !!(coverLock && coverLock.checked)
+    }));
+    if (coverPick) coverPick.addEventListener('change', emitCover);
+    if (coverLock) coverLock.addEventListener('change', emitCover);
     const rangeBox = d.querySelector('[data-act="drawerRange"]');
     if (rangeBox) rangeBox.addEventListener('change', () => onRangeToggle(rangeBox.checked));
     const rangeSel = d.querySelector('[data-act="drawerRangeWeapon"]');

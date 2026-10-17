@@ -35,10 +35,15 @@
     if (key === WEAPON.id || key === WEAPON.name) return WEAPON;
     return null;
   }
+  function matches(name) {
+    var key = String(name || "").replace(/^\s*\d+\s*x\s+/i, "").trim().toLowerCase();
+    return key === WEAPON.id || key === "test jammer" || key === "test jammer.";
+  }
   root.SSDNSTestJammer = {
     id: WEAPON.id,
     weapon: weapon,
     weapons: weapons,
-    lookup: lookup
+    lookup: lookup,
+    matches: matches
   };
 })(typeof window !== "undefined" ? window : globalThis);

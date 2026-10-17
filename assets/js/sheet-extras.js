@@ -750,6 +750,8 @@
       whisper: !!info.quiet
     });
     if (!info.quiet && root.SSDNSDmJoin.postAttack) {
+      var tgtCover = currentTarget();
+      var coverRaw = info.cover != null ? info.cover : (tgtCover && tgtCover.id === info.targetId ? (tgtCover.cover || "") : "");
       root.SSDNSDmJoin.postAttack({
         rollId: info.rollId,
         targetId: info.targetId,
@@ -770,6 +772,8 @@
         weaponId: info.weaponId || "",
         gun: !!info.gun,
         spell: !!info.spell,
+        cover: coverRaw || "",
+        coverSet: true,
         type: "attack",
         dice: info.dice || "",
         formula: info.formula || "",
@@ -785,7 +789,8 @@
     var sel = document.querySelector("#atkTarget");
     if (!sel || !sel.value) return null;
     var opt = sel.selectedOptions && sel.selectedOptions[0];
-    return { id: sel.value, name: (opt && (opt.getAttribute("data-name") || opt.textContent)) || "", ac: null };
+    var coverRaw = opt && opt.getAttribute("data-cover");
+    return { id: sel.value, name: (opt && (opt.getAttribute("data-name") || opt.textContent)) || "", ac: null, cover: coverRaw || "" };
   }
   function attackRoll(mod, conditions, chosen, extraDis) {
     var mode = root.SSDNSConditions && root.SSDNSConditions.attackMode
@@ -832,10 +837,35 @@
       return name === "Unconscious";
     });
   }
+  function coverOptsFor(kind, extra) {
+    extra = extra || {};
+    var feats = (ch() && ch().feats) || [];
+    var ranged = kind === "gun" || kind === "ranged" || (kind === "spell" && extra.ranged !== false);
+    if (kind === "melee") ranged = false;
+    return {
+      ranged: !!ranged,
+      spell: kind === "spell",
+      sharpshooter: feats.indexOf("sharpshooter") >= 0,
+      spellSniper: feats.indexOf("long-range-hex") >= 0,
+      noCover: !!extra.noCover
+    };
+  }
+  function coverFor(tgt, opts) {
+    var Applied = root.SSDNSApplied;
+    if (!Applied || !Applied.coverAdjust) {
+      var ac = tgt && tgt.ac;
+      var have = ac != null && ac !== "" && isFinite(Number(ac));
+      return { ac: have ? Number(ac) : null, have: have, blocked: false, note: "", key: "", title: "", bonus: 0 };
+    }
+    return Applied.coverAdjust(tgt && tgt.ac, tgt && tgt.cover, opts || {});
+  }
   function attackGate(tgt, opts) {
     opts = opts || {};
     if (opts.heal || opts.death) return "";
     if (downed()) return "You're at 0 HP. Death saves only.";
+    if (tgt && tgt.cover && root.SSDNSApplied && root.SSDNSApplied.coverAdjust && root.SSDNSApplied.coverAdjust(null, tgt.cover, {}).blocked) {
+      return "Total cover. You can't target " + (tgt.name || "them") + ".";
+    }
     if (tgt && tgt.kind === "player") {
       var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
       if (uid && tgt.id === uid) return "You can't attack yourself.";
@@ -927,7 +957,8 @@
       id: op.value,
       name: op.getAttribute("data-name") || op.textContent || "",
       ac: isFinite(ac) ? ac : null,
-      kind: op.getAttribute("data-kind") || ""
+      kind: op.getAttribute("data-kind") || "",
+      cover: op.getAttribute("data-cover") || ""
     };
   }
   function fillCastTarget(sel) {
@@ -1309,6 +1340,8 @@
     });
     var tgt = currentTarget();
     if (tgt) rememberEnemy(tgt);
+    var spellTouch = !!(row && /touch/i.test(String(row.range || "")));
+    var spellCover = coverFor(tgt, coverOptsFor("spell", { ranged: !spellTouch, noCover: /sacred flame/i.test(spellName || "") }));
     var acForRoll = null;
     var hiddenSpell = rolled.attack && acHidden(tgt) && joined() && !whisperOn();
     spellCueRow = row;
@@ -1332,6 +1365,7 @@
         weapon: throughGun && i >= 0 ? gunName(i) : "",
         sfx: spellCueName(),
         shots: rolled.shots || null,
+        spell: true,
         quiet: false
       });
       consumeRollMode();
@@ -1357,18 +1391,19 @@
           n2: rolled.n2,
           parts: spellParts,
           total: Number(rolled.nat) + atk,
-          ac: tgt.ac,
+          ac: spellCover.have ? spellCover.ac : tgt.ac,
           revealAc: !acHidden(tgt),
+          coverNote: spellCover.note,
           miss: rolled.nat === 1,
           damage: dmgTail ? { dice: dmgTail[1], total: (String(dmgTail[1]).match(/=\s*(\d+)/) || [])[1] || "", type: damageType || "" } : null
         })
         : null;
       rolled.text = spellCard ? spellCard.text : attackReport({
-        who: (c && c.name) || "You", target: tgt.name, nat: rolled.nat, atk: atk, ac: tgt.ac, miss: rolled.nat === 1, dice: rolled.diceShown || ""
+        who: (c && c.name) || "You", target: tgt.name, nat: rolled.nat, atk: atk, ac: spellCover.have ? spellCover.ac : tgt.ac, miss: rolled.nat === 1, dice: rolled.diceShown || ""
       }).player;
       if (rangeNote && spellCard) rolled.text += "\n" + rangeNote;
       rolled.detail = rolled.text;
-      acForRoll = tgt.ac != null && isFinite(Number(tgt.ac)) ? Number(tgt.ac) : null;
+      acForRoll = spellCover.have ? spellCover.ac : null;
       if (root.SSDNSAudio && root.SSDNSAudio.playOutcome) {
         var spellMiss = rolled.nat === 1 || (acForRoll != null && (Number(rolled.nat) + atk) < acForRoll);
         root.SSDNSAudio.playOutcome({ spell: true, name: spellName, kind: "spell" }, spellMiss ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"));
@@ -1819,7 +1854,8 @@
     var quiet = whisperOn();
     var tgt = currentTarget();
     if (tgt) rememberEnemy(tgt);
-    var haveAc = tgt && tgt.ac != null && isFinite(Number(tgt.ac));
+    var gunCover = coverFor(tgt, coverOptsFor("gun"));
+    var haveAc = !!(gunCover && gunCover.have);
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
     if (!misfired) attackCue(cue);
     if (!misfired && acHidden(tgt) && joined() && !quiet) {
@@ -1850,7 +1886,7 @@
       consumeRollMode();
       return;
     }
-    var miss = nat === 1 || misfired || (haveAc && total < Number(tgt.ac));
+    var miss = nat === 1 || misfired || (haveAc && total < Number(gunCover.ac));
     var dmg = null;
     if (!miss) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
     var dmgParts = [];
@@ -1863,13 +1899,13 @@
     var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
       ? root.SSDNSApplied.attackBreakdown({
         who: who, target: tgt && tgt.name, nat: nat, n1: n1, n2: n2, parts: parts, total: total,
-        ac: tgt && tgt.ac, revealAc: !acHidden(tgt), misfire: misfired, miss: miss,
+        ac: haveAc ? gunCover.ac : (tgt && tgt.ac), revealAc: !acHidden(tgt), misfire: misfired, miss: miss, coverNote: gunCover.note,
         damage: dmg ? { faces: dmg.faces, parts: dmgParts, total: dmg.total, type: (gunStat && gunStat.dmgType) || "piercing" } : null
       })
       : null;
     var report = attackReport({
       who: who, target: tgt && tgt.name, nat: nat, atk: bonus,
-      ac: tgt && tgt.ac, miss: miss, misfire: misfired, dmg: dmg,
+      ac: haveAc ? gunCover.ac : (tgt && tgt.ac), miss: miss, misfire: misfired, dmg: dmg,
       dice: dice, weapon: name, caliber: caliber
     });
     if (ch()) ch().takingCover = false;
@@ -2479,6 +2515,8 @@
     castNamed: function (name) { castSpellAttack(-1, name, 0, false); },
     attackRoll: attackRoll,
     attackGate: attackGate,
+    coverFor: coverFor,
+    coverOptsFor: coverOptsFor,
     acHidden: acHidden,
     sendPendingAttack: sendPendingAttack,
     consumeRollMode: consumeRollMode,
