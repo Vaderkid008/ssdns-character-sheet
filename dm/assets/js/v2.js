@@ -941,6 +941,7 @@ function turnRowHtml(row, i) {
         ${revealBar(row, i)}
       </span>
       <label class="fine">AC <input type="number" data-ac-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.ac == null ? "" : esc(row.ac)}" aria-label="AC for ${esc(row.name || "combatant")}"></label>
+      ${coverSelectHtml(i, row)}
       <label class="fine">HP <input type="number" data-hp-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.hp == null ? "" : esc(row.hp)}" aria-label="HP for ${esc(row.name || "combatant")}"></label>
       ${row.kind === "enemy" ? `<label class="fine">Max <input type="number" data-max-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.maxHp == null ? "" : esc(row.maxHp)}" aria-label="Max HP for ${esc(row.name || "enemy")}"></label>` : ""}
       ${enemyEdit}
@@ -972,8 +973,25 @@ function fightRowFromField(el) {
   const acI = el.getAttribute("data-ac-val");
   const atkI = el.getAttribute("data-atk-val");
   const dmgI = el.getAttribute("data-dmg-val");
-  const i = parseInt(initI != null ? initI : (hpI != null ? hpI : (acI != null ? acI : (atkI != null ? atkI : dmgI))), 10);
+  const coverI = el.getAttribute("data-cover-val");
+  const lockI = el.getAttribute("data-cover-lock");
+  const i = parseInt(initI != null ? initI : (hpI != null ? hpI : (acI != null ? acI : (atkI != null ? atkI : (dmgI != null ? dmgI : (coverI != null ? coverI : lockI))))), 10);
   return isFinite(i) ? fight.order[i] : null;
+}
+function applyCoverEdit(row, cover, lock) {
+  if (!row) return;
+  const Applied = window.SSDNSApplied;
+  row.cover = Applied && Applied.coverKey ? Applied.coverKey(cover) : (cover || "");
+  row.coverLock = !!lock;
+  const pid = row.kind === "player" ? (row.playerId || row.id) : "";
+  const snap = pid && DM.state.players[pid] && DM.state.players[pid].snapshot;
+  if (snap) {
+    snap.cover = row.cover;
+    snap.coverLock = row.coverLock;
+  }
+  saveRemoteTable();
+  renderFight();
+  if (pid) DM.pushCommand({ type: "cover", to: pid, payload: { cover: row.cover || "", lock: !!row.coverLock }, from: DM.state.uid });
 }
 function absorbFightInputs() {
   const active = document.activeElement;
@@ -1094,6 +1112,8 @@ function addCombatant(row) {
     const snap = DM.state.players[pid] && DM.state.players[pid].snapshot;
     row.dex = dexFromSnapshot(snap);
     if (snap && snap.hpMax != null) row.maxHp = snap.hpMax;
+    if (snap && row.cover == null) row.cover = window.SSDNSApplied && window.SSDNSApplied.coverKey ? window.SSDNSApplied.coverKey(snap.cover) : (snap.cover || "");
+    if (snap && row.coverLock == null) row.coverLock = !!snap.coverLock;
   }
   if (pid && fight.removed && (fight.removed[pid] || fight.removed[row.id])) return null;
   if (pid) {
@@ -1638,6 +1658,8 @@ function catalog() {
   }
   (R.armor || []).forEach((a) => add(a.name, a.cost, "armor"));
   (R.firearms || []).forEach((g) => add(g.name, g.cost, "gun"));
+  const jam = window.SSDNSTestJammer && window.SSDNSTestJammer.weapon ? window.SSDNSTestJammer.weapon() : null;
+  if (jam && jam.name) add(jam.name, jam.cost || "0", "gun");
   (R.melee || []).forEach((g) => add(g.name, g.cost, "melee"));
   (R.otherRanged || []).forEach((g) => add(g.name, g.cost, "ranged"));
   (R.ammo || []).forEach((a) => add(a.name, a.cost, "ammo"));
@@ -2502,6 +2524,8 @@ function lookup(q) {
         push(g.name, line, g.src);
       });
     });
+    const jamLookup = window.SSDNSTestJammer && window.SSDNSTestJammer.weapon ? window.SSDNSTestJammer.weapon() : null;
+    if (jamLookup && (has(jamLookup.name) || has(jamLookup.id))) push(jamLookup.name, "Debug revolver. A straight shot always misfires.", "test-jammer.js");
     (rules.feats || []).forEach((f) => {
       if (!has(f.name) && !has(f.phb5e) && !has(f.gist)) return;
       push(f.name, f.gist || "", f.src);
@@ -2596,6 +2620,49 @@ function testJammerOf(s) {
   const guns = (s && s.guns) || [];
   return guns.find((g) => g && (g.weapon === "test-jammer" || String(g.name || "") === "TEST Jammer")) || null;
 }
+function isTestJammerName(name) {
+  if (window.SSDNSTestJammer && window.SSDNSTestJammer.matches) return window.SSDNSTestJammer.matches(name);
+  const key = String(name || "").trim().toLowerCase();
+  return key === "test-jammer" || key === "test jammer";
+}
+function grantWeaponOptions() {
+  const rows = [];
+  const seen = {};
+  function add(id, name) {
+    const label = String(name || "").trim();
+    const key = String(id || label);
+    if (!label || seen[key]) return;
+    seen[key] = 1;
+    rows.push(`<option value="${esc(key)}">${esc(label)}</option>`);
+  }
+  const R = window.SSDNS_RULES || {};
+  ["firearms", "casterGuns", "otherRanged", "melee"].forEach((group) => {
+    (R[group] || []).forEach((g) => { if (g) add(g.id || g.name, g.name); });
+  });
+  const jam = window.SSDNSTestJammer && window.SSDNSTestJammer.weapon ? window.SSDNSTestJammer.weapon() : null;
+  if (jam) add(jam.id || "test-jammer", jam.name || "TEST Jammer");
+  return `<option value="">Pick a weapon</option>` + rows.join("");
+}
+async function giveTestJammer(pid, s) {
+  const list = (s && s.guns) || [];
+  const existing = testJammerOf(s);
+  let index = 0;
+  if (existing) {
+    index = existing.index != null && existing.index !== "" ? Number(existing.index) : list.indexOf(existing);
+  } else {
+    const taken = {};
+    list.forEach((g, n) => {
+      if (!g || !(g.name || g.weapon)) return;
+      const slot = g.index != null && g.index !== "" ? Number(g.index) : n;
+      if (isFinite(slot)) taken[slot] = true;
+    });
+    for (let n = 0; n < 4; n++) if (!taken[n]) { index = n; break; }
+  }
+  const payload = { op: "test-gun", index: index, weapon: "test-jammer" };
+  await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+  if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+  DM.toast("TEST Jammer sent");
+}
 function decorateDetail(pid) {
   const p = DM.state.players[pid];
   const s = (p && p.snapshot) || {};
@@ -2609,6 +2676,10 @@ function decorateDetail(pid) {
   box.innerHTML = `
     <div class="detail-section"><h3>Give equipment</h3>
       <div class="toolbar">
+        <label class="fine">Weapon <select id="detailGrantWeapon" aria-label="Weapon to give">${grantWeaponOptions()}</select></label>
+        <button type="button" class="btn sm" id="btnGrantWeapon">Give weapon</button>
+      </div>
+      <div class="toolbar">
         <input type="text" id="detailItem" placeholder="Item that lands in their equipment">
         <button type="button" class="btn sm" id="btnDetailItem">Add to sheet</button>
       </div>
@@ -2616,10 +2687,9 @@ function decorateDetail(pid) {
     <details class="detail-section" id="detailTesting"${testingSectionOpen() ? " open" : ""}>
       <summary>Testing</summary>
       <div class="toolbar">
-        <button type="button" class="btn sm" id="btnGiveTestGun">Give TEST Jammer</button>
         <button type="button" class="btn sm" id="btnMakeDirty">${jammer && jammer.dirty ? "Clear Dirty" : "Make Dirty"}</button>
       </div>
-      <p class="fine">TEST Jammer is a debug revolver. It is not in the gun list. A straight shot always misfires.</p>
+      <p class="fine">Make Dirty flags the TEST Jammer after you give it. A straight shot always misfires.</p>
     </details>
     <div class="detail-section"><h3>Conditions</h3>
       <div class="cond-picks">${(window.SSDNSConditions ? window.SSDNSConditions.catalog() : CONDITIONS.filter((c) => c !== "Bleeding").map((c) => ({ name: c, text: "", exhaustion: c === "Exhaustion" }))).map((item) => {
@@ -2674,9 +2744,32 @@ function decorateDetail(pid) {
       tools.appendChild(b);
     }
   });
+  const grantWeapon = $("#btnGrantWeapon");
+  if (grantWeapon) grantWeapon.addEventListener("click", async () => {
+    const sel = $("#detailGrantWeapon");
+    const id = sel && sel.value;
+    if (!id) { DM.toast("Pick a weapon"); return; }
+    if (isTestJammerName(id) || id === "test-jammer") {
+      await giveTestJammer(pid, s);
+      return;
+    }
+    const names = namesFor(pid);
+    const label = (sel.selectedOptions && sel.selectedOptions[0] && sel.selectedOptions[0].textContent) || id;
+    await DM.pushCommand({ type: "reward_item", to: pid, payload: { text: label }, from: DM.state.uid });
+    await DM.pushLedger(Object.assign({
+      who: "DM", playerId: pid, type: "dm_push",
+      what: "Item: " + label, oldVal: null, newVal: label, flag: false
+    }, names));
+    DM.toast("Sent " + label);
+  });
   $("#btnDetailItem").addEventListener("click", async () => {
     const text = ($("#detailItem").value || "").trim();
     if (!text) return;
+    if (isTestJammerName(text)) {
+      await giveTestJammer(pid, s);
+      $("#detailItem").value = "";
+      return;
+    }
     const names = namesFor(pid);
     if (DM.state.demo && s) s.equipment = (s.equipment ? s.equipment + "\n" : "") + "• " + text + " (from DM)";
     await DM.pushLedger(Object.assign({
@@ -2695,27 +2788,6 @@ function decorateDetail(pid) {
     });
     $("#detailItem").value = "";
     DM.toast("Item sent");
-  });
-  const giveTest = $("#btnGiveTestGun");
-  if (giveTest) giveTest.addEventListener("click", async () => {
-    const list = s.guns || [];
-    const existing = testJammerOf(s);
-    let index = 0;
-    if (existing) {
-      index = existing.index != null && existing.index !== "" ? Number(existing.index) : list.indexOf(existing);
-    } else {
-      const taken = {};
-      list.forEach((g, n) => {
-        if (!g || !(g.name || g.weapon)) return;
-        const slot = g.index != null && g.index !== "" ? Number(g.index) : n;
-        if (isFinite(slot)) taken[slot] = true;
-      });
-      for (let n = 0; n < 4; n++) if (!taken[n]) { index = n; break; }
-    }
-    const payload = { op: "test-gun", index: index, weapon: "test-jammer" };
-    await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
-    if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
-    DM.toast("TEST Jammer sent");
   });
   const dirtyBtn = $("#btnMakeDirty");
   if (dirtyBtn) dirtyBtn.addEventListener("click", async () => {
@@ -3033,6 +3105,11 @@ async function rollSpellAt(row, spellId, targetId) {
   const known = Cast.lookup ? Cast.lookup(spellId) : null;
   const name = (known && known.name) || String(spellId || "");
   if (!name) { DM.toast("Pick a spell from the sheet"); return false; }
+  const earlyTarget = targetId ? resolveStrikeTarget(targetId) : null;
+  if (earlyTarget && coverBlocked(earlyTarget)) {
+    DM.toast("Total cover. You can't target " + (earlyTarget.name || "them") + ".");
+    return false;
+  }
   const level = known && typeof known.level === "number" ? known.level : 0;
   s.spells = s.spells || {};
   s.spells.slots = s.spells.slots || {};
@@ -3057,11 +3134,13 @@ async function rollSpellAt(row, spellId, targetId) {
   let detail = (row.name || "PC") + " casts " + rolled.text;
   const kind = listedKind({ name: name, kind: known && known.kind }, known);
   if (rolled.attack && target) {
-    const ac = numericAc(target.ac);
+    const spellRange = (known && known.range) || (Cast.rangeOf && Cast.rangeOf(name)) || "";
+    const adj = acWithCover(target, attackerCoverOpts(row, { spell: true, ranged: !/touch/i.test(String(spellRange)) }));
+    const ac = adj.ac;
     const total = Number(rolled.result);
     const nat = rolled.nat;
     const hit = ac != null && nat !== 1 && total >= ac;
-    detail += " vs AC " + (ac == null ? "?" : ac) + (hit ? " → HIT" : " → MISS");
+    detail += " vs AC " + (ac == null ? "?" : ac) + (adj.note ? " (" + adj.note + ")" : "") + (hit ? " → HIT" : " → MISS");
     if (hit && rolled.damageTotal && fight.damageMode !== "approve") {
       applyPlayerHit({
         rollId: id, targetId: target.id, targetName: target.name, amount: rolled.damageTotal,
@@ -3074,9 +3153,9 @@ async function rollSpellAt(row, spellId, targetId) {
       dc: s.spellDC, label: name, damage: (known && known.dice) || "", fromName: row.name || ""
     });
     detail += ". " + save.line;
-    let amount = Number(rolled.result) || 0;
-    if (!save.failed && known && known.half) amount = Math.floor(amount / 2);
-    if (amount > 0 && (save.failed || (known && known.half)) && fight.damageMode !== "approve") {
+    let amount = save.blocked ? 0 : (Number(rolled.result) || 0);
+    if (!save.blocked && !save.failed && known && known.half) amount = Math.floor(amount / 2);
+    if (!save.blocked && amount > 0 && (save.failed || (known && known.half)) && fight.damageMode !== "approve") {
       applyPlayerHit({
         rollId: id + ":dmg", targetId: target.id, targetName: target.name, amount: amount,
         from: row.id, characterName: row.name, label: name, weapon: name, type: "damage"
@@ -3392,6 +3471,44 @@ function numericAc(ac) {
   const n = Number(ac);
   return isFinite(n) ? n : null;
 }
+function coverValue(target) {
+  const row = target && findCombatant(target);
+  if (row && row.coverLock) return row.cover || "";
+  if (row && row.cover) return row.cover;
+  const pid = (target && (target.playerId || target.id)) || (row && (row.playerId || row.id)) || "";
+  const snap = pid && DM.state.players[pid] && DM.state.players[pid].snapshot;
+  if (snap && snap.cover) return snap.cover;
+  return (target && target.cover) || "";
+}
+function attackerCoverOpts(attacker, spec) {
+  spec = spec || {};
+  const pid = attacker && attacker.kind === "player" ? (attacker.playerId || attacker.id) : "";
+  const snap = pid ? playerSnapshot(pid) : null;
+  return {
+    ranged: !!spec.ranged,
+    spell: !!spec.spell,
+    sharpshooter: !!(snap && snap.sharpshooter),
+    spellSniper: !!(snap && snap.longRangeHex),
+    noCover: !!spec.noCover
+  };
+}
+function acWithCover(target, opts) {
+  const Applied = window.SSDNSApplied;
+  const base = numericAc(target && target.ac);
+  if (!Applied || !Applied.coverAdjust) return { ac: base, have: base != null, blocked: false, note: "", bonus: 0, title: "", key: "" };
+  return Applied.coverAdjust(base, coverValue(target), opts || {});
+}
+function coverBlocked(target) {
+  return !!acWithCover(target, {}).blocked;
+}
+function coverSelectHtml(i, row) {
+  const key = window.SSDNSApplied && window.SSDNSApplied.coverKey ? window.SSDNSApplied.coverKey(row && row.cover) : "";
+  const title = "Half cover +2 to AC and Dexterity saves. Three-quarters +5. Total cover can't be targeted.";
+  const opt = (val, label) => `<option value="${val}"${key === val ? " selected" : ""}>${label}</option>`;
+  const id = esc(row && row.id || "");
+  const name = esc(row && row.name || "combatant");
+  return `<label class="fine" title="${esc(title)}">Cover <select data-cover-val="${i}" data-row-id="${id}" aria-label="Cover for ${name}" title="${esc(title)}">${opt("", "None")}${opt("half", "Half +2")}${opt("three", "3/4 +5")}${opt("full", "Total")}</select></label><label class="fine" title="Lock cover so the player can't change it."><input type="checkbox" data-cover-lock="${i}" data-row-id="${id}"${row && row.coverLock ? " checked" : ""}> Lock</label>`;
+}
 function resolveStrikeTarget(targetId) {
   if (!targetId) return null;
   const row = findCombatant({ targetId: targetId, id: targetId });
@@ -3464,9 +3581,12 @@ async function enemyStrike(i, preset) {
   row.lastAttackerId = picked.targetId;
   const target = resolveStrikeTarget(picked.targetId);
   if (!target) { DM.toast("No targets"); return; }
+  const rangedPreset = !!(preset && preset.range && /\d+\s*\/\s*\d+/.test(String(preset.range)));
+  const adj = acWithCover(target, attackerCoverOpts(row, { ranged: rangedPreset }));
+  if (adj.blocked) { DM.toast("Total cover. You can't target " + (target.name || "them") + "."); return; }
   const nat = d20();
   const total = nat + picked.bonus;
-  const ac = numericAc(target.ac);
+  const ac = adj.ac;
   if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
   const miss = nat === 1 || total < ac;
   const hit = !miss;
@@ -3475,7 +3595,7 @@ async function enemyStrike(i, preset) {
   const bonusTxt = (picked.bonus >= 0 ? "+" : "") + picked.bonus;
   const attackName = (preset && preset.name) || String(row.attacks || "").trim();
   const weapon = attackName && attackName.toLowerCase() !== String(row.name || "").toLowerCase() ? attackName : "";
-  const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
+  const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (adj.note ? " (" + adj.note + ")" : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   const id = DM.uid("enatk");
   playTableSfx(strikeCue(preset || { name: attackName }));
   await DM.pushRoll({
@@ -3500,6 +3620,14 @@ function requestPlayerSave(opts) {
   const target = found || { id: opts.targetId, name: opts.targetName || opts.targetId || "Target", kind: opts.kind || "" };
   const npc = subjectKindOf(target) !== "player";
   const id = DM.uid("save");
+  const cov = window.SSDNSApplied && window.SSDNSApplied.coverSaveBonus
+    ? window.SSDNSApplied.coverSaveBonus(coverValue(target), ability, { noCover: /sacred flame/i.test(opts.label || "") })
+    : { bonus: 0, blocked: false, note: "", title: "" };
+  if (cov.blocked) {
+    const line = (target.name || "Target") + " has total cover and can't be targeted.";
+    DM.toast(line);
+    return Promise.resolve({ id: id, blocked: true, failed: false, line: line, total: 0, nat: 0, mod: 0, target: target });
+  }
   const modFor = () => {
     if (!npc) return targetMod(target.id, ability);
     const row = findCombatant(target);
@@ -3507,12 +3635,12 @@ function requestPlayerSave(opts) {
     return Number(sheetSaveMod(card, ability)) || 0;
   };
   const localRoll = (auto) => {
-    const mod = modFor();
+    const mod = (Number(modFor()) || 0) + (cov.bonus || 0);
     const nat = d20();
-    const total = nat + (Number(mod) || 0);
+    const total = nat + mod;
     const failed = isFinite(dc) ? total < dc : true;
     const who = target.name || "Target";
-    const line = who + " " + ability + " save" + (auto ? " (no answer, DM rolled)" : "") + " " + nat + signed(mod) + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (failed ? " FAIL" : " OK");
+    const line = who + " " + ability + " save" + (auto ? " (no answer, DM rolled)" : "") + " " + nat + signed(mod) + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (cov.note ? " · " + cov.note : "") + (failed ? " FAIL" : " OK");
     return { id: id, nat: nat, total: total, failed: failed, auto: !!auto, line: line, mod: mod, target: target };
   };
   if (npc) {
@@ -3549,7 +3677,9 @@ function requestPlayerSave(opts) {
         label: opts.label || "Save",
         rider: opts.rider || "",
         damage: opts.damage || "",
-        fromName: opts.fromName || ""
+        fromName: opts.fromName || "",
+        coverBonus: cov.bonus || 0,
+        coverTitle: cov.title || ""
       },
       from: DM.state.uid
     });
@@ -3666,7 +3796,10 @@ async function cardStrike(i, n, opts) {
   row.lastAttackerId = picked.targetId;
   const target = resolveStrikeTarget(picked.targetId);
   if (!target) { DM.toast("No targets"); return; }
-  const ac = numericAc(target.ac);
+  const rangedGun = !!(atk && (/\d+\s*\/\s*\d+/.test(String(atk.range || "")) || /pistol|rifle|shotgun|carbine|bow/i.test(String(atk.group || ""))));
+  const adj = acWithCover(target, attackerCoverOpts(row, { ranged: rangedGun }));
+  if (adj.blocked) { DM.toast("Total cover. You can't target " + (target.name || "them") + "."); return; }
+  const ac = adj.ac;
   if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
   if (!(opts && opts._rangeReady)) {
     const rings = window.SSDNSRangeRings;
@@ -3757,6 +3890,7 @@ async function cardStrike(i, n, opts) {
       parts: [{ label: "bonus", value: bonus }],
       total: total,
       ac: ac,
+      coverNote: adj.note,
       revealAc: true,
       misfire: false,
       miss: miss,
@@ -4006,6 +4140,7 @@ async function cardCast(i, n, opts) {
     if (!asked || !asked.targetId) { DM.toast("No targets"); return; }
     const target = resolveStrikeTarget(asked.targetId);
     if (!target) { DM.toast("No targets"); return; }
+    if (coverBlocked(target)) { DM.toast("Total cover. You can't target " + (target.name || "them") + "."); return; }
     spendSpellSlot(card, level);
     let detail = row.name + " casts " + name;
     let save = null;
@@ -4026,10 +4161,11 @@ async function cardCast(i, n, opts) {
     }
     const expr = asked.damage ? String(asked.damage).match(/\d*d\d+(?:\s*[+-]\s*\d+)?/i) : null;
     const rolled = expr ? DM.parseDice(expr[0]) : null;
-    const failed = !save || save.failed;
-    let amount = rolled ? rolled.total : 0;
-    if (save && !save.failed && known && known.half) amount = Math.floor(amount / 2);
-    if (rolled && amount > 0 && (failed || (known && known.half)) && fight.damageMode !== "approve") {
+    const blockedSave = !!(save && save.blocked);
+    const failed = !blockedSave && (!save || save.failed);
+    let amount = blockedSave ? 0 : (rolled ? rolled.total : 0);
+    if (!blockedSave && save && !save.failed && known && known.half) amount = Math.floor(amount / 2);
+    if (!blockedSave && rolled && amount > 0 && (failed || (known && known.half)) && fight.damageMode !== "approve") {
       detail += " · " + amount + " " + String(asked.damage).replace(expr[0], "").trim();
       applyPlayerHit({
         rollId: DM.uid("spell"),
@@ -4069,8 +4205,11 @@ async function cardCast(i, n, opts) {
   if (!targetId) { DM.toast("No targets"); return; }
   const target = resolveStrikeTarget(targetId);
   if (!target) { DM.toast("No targets"); return; }
+  const spellRange = (known && known.range) || "";
+  const adj = acWithCover(target, attackerCoverOpts(row, { spell: true, ranged: !/touch/i.test(spellRange) }));
+  if (adj.blocked) { DM.toast("Total cover. You can't target " + (target.name || "them") + "."); return; }
   const bonus = Number(casting.attack) || 0;
-  const ac = numericAc(target.ac);
+  const ac = adj.ac;
   if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
   spendSpellSlot(card, level);
   row.lastAttackerId = targetId;
@@ -4079,7 +4218,7 @@ async function cardCast(i, n, opts) {
   const hit = nat !== 1 && total >= ac;
   let dmg = null;
   if (hit && diceOf()) dmg = DM.parseDice(diceOf());
-  let detail = row.name + " casts " + name + " at " + (target.name || "someone") + ": " + nat + signed(bonus) + " = " + total + " vs AC " + ac + (hit ? " → HIT" : " → MISS") + (dmg ? " · " + dmg.total : "");
+  let detail = row.name + " casts " + name + " at " + (target.name || "someone") + ": " + nat + signed(bonus) + " = " + total + " vs AC " + ac + (adj.note ? " (" + adj.note + ")" : "") + (hit ? " → HIT" : " → MISS") + (dmg ? " · " + dmg.total : "");
   const rollId = DM.uid("spell");
   if (hit && dmg && fight.damageMode !== "approve") {
     applyPlayerHit({
@@ -4127,12 +4266,14 @@ async function attackRow(i) {
   if (!row) return;
   const formula = ($("#dmgFormula") && $("#dmgFormula").value || "1d20").trim();
   const attackFormula = /d20/i.test(formula) ? formula : "1d20";
+  const adj = acWithCover(row, {});
+  if (adj.blocked) { DM.toast("Total cover. You can't target " + (row.name || "them") + "."); return; }
   const out = DM.parseDice(attackFormula);
-  const ac = Number(row.ac);
+  const ac = adj.have ? adj.ac : Number(row.ac);
   const hit = isFinite(ac) ? out.total >= ac : null;
   let dmg = null;
   if (hit) dmg = DM.parseDice(($("#dmgFormula") && /d20/i.test($("#dmgFormula").value) ? "1d8" : ($("#dmgFormula").value || "1d8")));
-  const text = row.name + " AC " + (isFinite(ac) ? ac : "?") + " · " + attackFormula + " = " + out.total + (hit == null ? "" : hit ? " HIT" : " MISS") + (hit && dmg ? " · " + dmg.total + " damage" : "");
+  const text = row.name + " AC " + (isFinite(ac) ? ac : "?") + (adj.note ? " (" + adj.note + ")" : "") + " · " + attackFormula + " = " + out.total + (hit == null ? "" : hit ? " HIT" : " MISS") + (hit && dmg ? " · " + dmg.total + " damage" : "");
   playTableSfx(strikeCue({ name: row.name, sfx: row.sfx }));
   await DM.pushRoll({
     who: "DM", uid: DM.state.uid, label: "DM roll vs this AC · " + row.name, formula: attackFormula,
@@ -4400,7 +4541,26 @@ function resolveIncomingAttack(req, reqId) {
     return;
   }
   const row = findCombatant(req);
-  const ac = knownNumber(row && row.ac);
+  const fromId = req.from || "";
+  const fromSnap = fromId && DM.state.players[fromId] && DM.state.players[fromId].snapshot;
+  const rawCover = (row && row.coverLock) ? (row.cover || "") : (req.coverSet ? (req.cover || "") : coverValue(row || { id: req.targetId }));
+  const coverAdj = window.SSDNSApplied && window.SSDNSApplied.coverAdjust
+    ? window.SSDNSApplied.coverAdjust(knownNumber(row && row.ac), rawCover, {
+      ranged: !!req.gun || !!req.spell,
+      spell: !!req.spell,
+      sharpshooter: !!(fromSnap && fromSnap.sharpshooter),
+      spellSniper: !!(fromSnap && fromSnap.longRangeHex)
+    })
+    : { ac: knownNumber(row && row.ac), blocked: false, note: "" };
+  if (coverAdj.blocked) {
+    const who = req.characterName || "Someone";
+    const name = (row && row.name) || req.targetName || "enemy";
+    const line = who + " → " + name + ": total cover, can't be targeted.";
+    markRequestResolved(reqId);
+    DM.toast(line);
+    return;
+  }
+  const ac = coverAdj.ac != null ? coverAdj.ac : knownNumber(row && row.ac);
   const shown = window.SSDNSApplied && window.SSDNSApplied.publicEnemy
     ? window.SSDNSApplied.publicEnemy(row || { name: req.targetName, kind: "enemy" }, "", [])
     : { name: (row && row.name) || req.targetName || "enemy" };
@@ -5176,6 +5336,11 @@ function syncPlayerVitals() {
       row.ac = snap.ac;
       tableChanged = true;
     }
+    if (!row.coverLock) {
+      const nextCover = window.SSDNSApplied && window.SSDNSApplied.coverKey ? window.SSDNSApplied.coverKey(snap.cover) : (snap.cover || "");
+      const curCover = window.SSDNSApplied && window.SSDNSApplied.coverKey ? window.SSDNSApplied.coverKey(row.cover) : (row.cover || "");
+      if (nextCover !== curCover) { row.cover = nextCover; tableChanged = true; }
+    }
     const dex = dexFromSnapshot(snap);
     if (row.dex !== dex) { row.dex = dex; tableChanged = true; }
     if (snap.hpMax != null && row.maxHp !== snap.hpMax) row.maxHp = snap.hpMax;
@@ -5576,6 +5741,14 @@ async function bootV2() {
       renderEnemySheet();
       return;
     }
+    if (t.hasAttribute("data-cover-val") || t.hasAttribute("data-cover-lock")) {
+      const coverRow = fightRowFromField(t);
+      if (!coverRow) return;
+      const nextKey = t.hasAttribute("data-cover-val") ? t.value : coverRow.cover;
+      const nextLock = t.hasAttribute("data-cover-lock") ? !!t.checked : !!coverRow.coverLock;
+      applyCoverEdit(coverRow, nextKey, nextLock);
+      return;
+    }
     const initI = t.getAttribute("data-init-val");
     const hpI = t.getAttribute("data-hp-val");
     const acI = t.getAttribute("data-ac-val");
@@ -5792,6 +5965,8 @@ function mapDrawerCard(row) {
     owner: row.playerId || "",
     hidden: !!(row.hidden || (row.reveal && row.reveal.name === false)),
     ac: row.ac,
+    cover: window.SSDNSApplied && window.SSDNSApplied.coverKey ? window.SSDNSApplied.coverKey(row.cover) : (row.cover || ""),
+    coverLock: !!row.coverLock,
     hp: { cur: row.hp, max: row.maxHp, temp: row.tempHp || row.hpTemp || 0 },
     speed: speed == null || speed === "" ? 30 : speed,
     conditions: conds,
@@ -5820,6 +5995,8 @@ function rosterCard(pid) {
     kind: "player",
     name: s.name || s.player || pid,
     ac: s.ac,
+    cover: s.cover || "",
+    coverLock: !!s.coverLock,
     hp: s.hpCurrent,
     maxHp: s.hpMax,
     dex: dexFromSnapshot(s)
@@ -6556,6 +6733,26 @@ window.SSDNSMapFight = {
     const i = mapFightIndex(detail || {});
     if (i < 0) { DM.toast("No card linked"); return false; }
     await markDown(i);
+    return true;
+  },
+  cover(detail) {
+    detail = detail || {};
+    const i = mapFightIndex(detail);
+    const Applied = window.SSDNSApplied;
+    const keyOf = (value) => Applied && Applied.coverKey ? Applied.coverKey(value) : (value || "");
+    if (i >= 0) {
+      const row = fight.order[i];
+      const key = detail.cover != null ? keyOf(detail.cover) : keyOf(row.cover);
+      const lock = detail.lock != null ? !!detail.lock : !!row.coverLock;
+      applyCoverEdit(row, key, lock);
+      return true;
+    }
+    const pid = detail.combatantId || detail.tokenId || "";
+    const snap = pid && DM.state.players[pid] && DM.state.players[pid].snapshot;
+    if (!snap) { DM.toast("No card linked"); return false; }
+    snap.cover = detail.cover != null ? keyOf(detail.cover) : keyOf(snap.cover);
+    snap.coverLock = detail.lock != null ? !!detail.lock : !!snap.coverLock;
+    DM.pushCommand({ type: "cover", to: pid, payload: { cover: snap.cover || "", lock: !!snap.coverLock }, from: DM.state.uid });
     return true;
   },
   async act(detail) {

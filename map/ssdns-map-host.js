@@ -466,7 +466,8 @@
       "drawer:undo": "undo",
       "drawer:chamber": "chamber",
       "drawer:down": "down",
-      "drawer:act": "act"
+      "drawer:act": "act",
+      "drawer:cover": "cover"
     }[name];
     if (name === "drawer:target") fightCall = detail.spellId ? "cast" : "attack";
     if (!fightCall) return;

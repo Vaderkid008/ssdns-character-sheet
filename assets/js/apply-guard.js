@@ -259,6 +259,44 @@
     if (side === "friendly" || side === "ally") return "friendly";
     return "enemy";
   }
+  function coverKey(raw) {
+    var s = String(raw == null ? "" : raw).trim().toLowerCase();
+    if (!s || s === "none" || s === "0" || s === "no") return "";
+    if (s === "half" || s === "1/2" || s === "2" || s === "half cover") return "half";
+    if (s === "three" || s === "3/4" || s === "5" || s === "three-quarters" || s === "three quarters") return "three";
+    if (s === "full" || s === "total" || s === "total cover") return "full";
+    return "";
+  }
+  function coverMeta(key) {
+    if (key === "half") return { bonus: 2, note: "half cover +2", title: "Half cover: +2 to AC and Dexterity saves." };
+    if (key === "three") return { bonus: 5, note: "three-quarters cover +5", title: "Three-quarters cover: +5 to AC and Dexterity saves." };
+    if (key === "full") return { bonus: 0, note: "total cover", title: "Total cover: can't be targeted." };
+    return { bonus: 0, note: "", title: "No cover. Half cover is +2 and three-quarters cover is +5 to AC and Dexterity saves. Total cover can't be targeted." };
+  }
+  /** Half +2, three-quarters +5, total cover can't be targeted. Sharpshooter and Spell Sniper skip the bonus only. */
+  function coverAdjust(ac, cover, opts) {
+    opts = opts || {};
+    var key = coverKey(cover);
+    if ((key === "half" || key === "three") && (opts.noCover || (opts.sharpshooter && opts.ranged && !opts.spell) || (opts.spellSniper && opts.spell && opts.ranged !== false))) key = "";
+    var meta = coverMeta(key);
+    var have = ac != null && ac !== "" && isFinite(Number(ac));
+    var base = have ? Number(ac) : null;
+    return {
+      key: key,
+      bonus: key === "full" ? 0 : meta.bonus,
+      blocked: key === "full",
+      ac: base == null ? null : base + (key === "full" ? 0 : meta.bonus),
+      have: have,
+      note: meta.note,
+      title: meta.title
+    };
+  }
+  function coverSaveBonus(cover, ability, opts) {
+    var full = coverAdjust(0, cover, {});
+    if (full.blocked) return full;
+    if (String(ability || "").toUpperCase() !== "DEX") return coverAdjust(0, "", opts);
+    return coverAdjust(0, cover, opts);
+  }
   function publicEnemy(row, slot, conditions) {
     row = row || {};
     var flags = revealFlags(row);
@@ -270,7 +308,9 @@
       status: enemy ? coarseStatus(row) : (row.status || ""),
       kind: row.kind || "",
       playerId: row.playerId || "",
-      conditions: enemy ? conditionNames(conditions || row.conditions) : []
+      conditions: enemy ? conditionNames(conditions || row.conditions) : [],
+      cover: coverKey(row.cover),
+      coverLock: !!row.coverLock
     };
     if (enemy) out.side = combatantSide(row);
     if (!enemy) return out;
@@ -1003,7 +1043,7 @@
     var miss = !hideVerdict && (misfire || used === 1 || !!info.miss || (haveAc && total < Number(ac)));
     var crit = !miss && (used === 20 || !!info.crit);
     var verdict = misfire ? "misfire" : (miss ? "MISS" : (crit ? "CRIT" : "HIT"));
-    var vs = (!hideVerdict && haveAc) ? (" vs AC " + Number(ac)) : "";
+    var vs = (!hideVerdict && haveAc) ? (" vs AC " + Number(ac) + (info.coverNote ? " (" + info.coverNote + ")" : "")) : "";
     var who = info.who || "Someone";
     var head = who + (info.target ? " → " + info.target : "");
     var math = diceLine + (bonusLine ? " · " + bonusLine : "") + " = " + total;
@@ -1145,6 +1185,9 @@
     coarseStatus: coarseStatus,
     combatantSide: combatantSide,
     publicEnemy: publicEnemy,
+    coverKey: coverKey,
+    coverAdjust: coverAdjust,
+    coverSaveBonus: coverSaveBonus,
     secretEnemy: secretEnemy,
     attackVerdict: attackVerdict,
     attackShots: attackShots,
