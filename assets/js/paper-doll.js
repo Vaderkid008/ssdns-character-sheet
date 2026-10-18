@@ -1,4 +1,4 @@
-/* SSDNS paper doll (sheet 0.3.50). Art Bot take B6: frame + silhouette + 25 slot boxes.
+/* SSDNS paper doll (sheet 0.3.51). Art Bot take B6: frame + silhouette + 25 slot boxes.
    Worn slots hold Items (item.equipSlot). Weapon slots mirror the Gear tab.
    Only slotted (and, if needed, attuned) items give bonuses. Holster rigs don't stack. Dex caps at 20. */
 (function (root) {
@@ -59,25 +59,132 @@
     return { ok: true, item: it };
   }
 
-  function weaponName(c, key) {
-    var rr = R(), guns = (c && c.guns) || [];
-    var named = guns.map(function (g) { var w = g && g.weapon && (byId(rr.firearms, g.weapon) || byId(rr.otherRanged, g.weapon)); return w ? { w: w, g: g } : null; }).filter(Boolean);
-    var pistols = named.filter(function (x) { return x.w.group === "pistol"; });
-    var longs = named.filter(function (x) { return x.w.group !== "pistol"; });
-    if (key === "revolver_1") return pistols[0] ? pistols[0].w.name : "";
-    if (key === "revolver_2") return pistols[1] ? pistols[1].w.name : "";
-    if (key === "long_gun") return longs[0] ? longs[0].w.name : "";
-    if (key === "melee") {
-      var m = ((c && c.melee) || []).filter(function (x) { return x && x.weapon && x.equipped !== false; })[0];
-      var mw = m && byId(rr.melee, m.weapon);
-      return mw ? mw.name : (m ? m.weapon : "");
+  /* 0.3.51: weapon slots are pickers. c.dollWeapons maps slot -> gun/melee index. */
+  function gunRows(c) {
+    var rr = R();
+    return ((c && c.guns) || []).map(function (g, i) {
+      var w = g && g.weapon && (byId(rr.firearms, g.weapon) || byId(rr.otherRanged, g.weapon));
+      return w ? { kind: "gun", i: i, w: w, g: g, id: g.weapon, name: w.name, pistol: w.group === "pistol", equipped: g.equipped !== false } : null;
+    }).filter(Boolean);
+  }
+  function meleeRows(c) {
+    var rr = R();
+    return ((c && c.melee) || []).map(function (m, i) {
+      if (!m || !m.weapon) return null;
+      var w = byId(rr.melee, m.weapon);
+      return { kind: "melee", i: i, w: w, g: m, id: m.weapon, name: w ? w.name : m.weapon, equipped: m.equipped !== false };
+    }).filter(Boolean);
+  }
+  function weaponOptions(c, key) {
+    if (key === "melee") return meleeRows(c);
+    var guns = gunRows(c);
+    if (key === "revolver_1" || key === "revolver_2") return guns.filter(function (x) { return x.pistol; });
+    if (key === "long_gun") return guns.filter(function (x) { return !x.pistol && x.id !== "borrowed-iron"; });
+    return [];
+  }
+  function weaponRow(c, key) {
+    var map = (c && c.dollWeapons) || {};
+    var opts = weaponOptions(c, key);
+    if (map[key] != null && map[key] !== "") {
+      var hit = opts.filter(function (x) { return String(x.i) === String(map[key]); })[0];
+      if (hit) return hit.equipped ? hit : null;
     }
+    var taken = {};
+    Object.keys(map).forEach(function (k) { if (k !== key && k !== "melee" && map[k] != null && map[k] !== "") taken[String(map[k])] = 1; });
+    if (key === "melee") return opts.filter(function (x) { return x.equipped && !taken[String(x.i)]; })[0] || null;
+    var free = opts.filter(function (x) { return x.equipped && !taken[String(x.i)]; });
+    if (key === "revolver_2") {
+      var first = weaponRow(c, "revolver_1");
+      free = free.filter(function (x) { return !first || x.i !== first.i; });
+    }
+    return free[0] || null;
+  }
+  /* Instruments you own: the focus one plus Items tagged instrument:<id>. */
+  function instrumentId(it) {
+    var tags = (it && Array.isArray(it.tags)) ? it.tags : [];
+    for (var i = 0; i < tags.length; i++) { var m = /^instrument:(.+)$/.exec(String(tags[i])); if (m) return m[1]; }
+    var cid = String((it && it.catalogId) || "");
+    return /^instrument-/.test(cid) ? cid.slice(11) : "";
+  }
+  function instruments(c) {
+    var rr = R(), list = (rr.storytellerGear && rr.storytellerGear.instruments) || [];
+    var out = [];
+    if (c && c.instrument) { var f = byId(list, c.instrument); out.push({ id: c.instrument, name: f ? f.name : c.instrument, quality: c.instrumentQuality || "cheap", focus: true, uid: "" }); }
+    items(c).forEach(function (it) {
+      var id = instrumentId(it); if (!id) return;
+      var r = byId(list, id);
+      out.push({ id: id, name: r ? r.name : it.name, quality: it.quality || "cheap", focus: false, uid: it.uid });
+    });
+    return out;
+  }
+  /* Swap an owned instrument item into the focus slot; the old focus becomes an item. */
+  function makeFocus(c, uid) {
+    if (!c) return { ok: false, reason: "No character." };
+    var list = items(c), idx = -1;
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].uid === uid) idx = i;
+    if (idx < 0) return { ok: false, reason: "No instrument." };
+    var it = list[idx], id = instrumentId(it);
+    if (!id) return { ok: false, reason: it.name + " isn't an instrument." };
+    var oldId = c.instrument, oldQ = c.instrumentQuality || "cheap";
+    list.splice(idx, 1);
+    if (oldId) {
+      var rr = R(), r = byId(rr.storytellerGear && rr.storytellerGear.instruments, oldId);
+      var row = { id: "instrument-" + oldId, name: r ? r.name : oldId, type: "gear", tags: ["instrument:" + oldId], quality: oldQ, description: "Instrument (focus). Swap it into the focus slot on Gear.", effect: { kind: "text", text: "Spellcasting focus (Storyteller)." } };
+      if (root.SSDNSItems && root.SSDNSItems.add) root.SSDNSItems.add(c, row, { dm: true });
+      else { row.uid = "i" + Date.now().toString(36); list.push(row); }
+    }
+    c.instrument = id; c.instrumentQuality = it.quality || "cheap";
+    c.instrumentWear = "ok";
+    return { ok: true, id: id };
+  }
+  /* Point a weapon slot at gun/melee index (or "" to clear). Sets Equipped to match. */
+  function setWeapon(c, key, ref) {
+    if (!WEAPON_SLOTS[key] || key === "focus_borrowed_iron") return { ok: false, reason: "Not a weapon slot." };
+    c.dollWeapons = c.dollWeapons || {};
+    var Equip = root.SSDNSEquip;
+    if (ref === "" || ref == null) {
+      var cur = weaponRow(c, key);
+      c.dollWeapons[key] = "";
+      if (cur) {
+        var r0 = Equip && Equip.setEquipped ? Equip.setEquipped(c, { kind: cur.kind, index: cur.i, equipped: false }) : (cur.g.equipped = false, { ok: true });
+        if (r0 && !r0.ok) return r0;
+      }
+      return { ok: true };
+    }
+    var pick = weaponOptions(c, key).filter(function (x) { return String(x.i) === String(ref); })[0];
+    if (!pick) return { ok: false, reason: "That weapon doesn't go in the " + WEAPON_SLOTS[key] + " slot." };
+    var prev = weaponRow(c, key);
+    if (prev && prev.i !== pick.i && prev.kind === pick.kind && pick.g.equipped === false) {
+      if (Equip && Equip.setEquipped) Equip.setEquipped(c, { kind: prev.kind, index: prev.i, equipped: false }); else prev.g.equipped = false;
+    }
+    if (Equip && Equip.setEquipped) { var r1 = Equip.setEquipped(c, { kind: pick.kind, index: pick.i, equipped: true }); if (r1 && !r1.ok) return r1; }
+    else pick.g.equipped = true;
+    Object.keys(c.dollWeapons).forEach(function (k) { if (k !== key && String(c.dollWeapons[k]) === String(pick.i) && (k === "melee") === (pick.kind === "melee")) c.dollWeapons[k] = ""; });
+    c.dollWeapons[key] = pick.i;
+    return { ok: true, row: pick };
+  }
+  function weaponName(c, key) {
+    var guns = (c && c.guns) || [];
     if (key === "focus_borrowed_iron") {
       if (guns.some(function (g) { return g && g.weapon === "borrowed-iron"; })) return "Borrowed Iron";
-      var ins = c && c.instrument && byId(rr.storytellerGear && rr.storytellerGear.instruments, c.instrument);
+      var ins = c && c.instrument && byId(R().storytellerGear && R().storytellerGear.instruments, c.instrument);
       return ins ? ins.name : "";
     }
-    return "";
+    var row = weaponRow(c, key);
+    return row ? row.name : "";
+  }
+  function weaponArt(c, key) {
+    var A = root.SSDNSWeaponArt;
+    if (key === "focus_borrowed_iron") {
+      var guns = (c && c.guns) || [];
+      if (guns.some(function (g) { return g && g.weapon === "borrowed-iron"; })) return A && A.srcFor ? (A.srcFor({ id: "borrowed-iron", name: "Borrowed Iron" }) || "") : "";
+      var IA = root.SSDNSInstrumentArt;
+      if (c && c.instrument && IA && IA.srcFor) { try { return IA.srcFor({ id: c.instrument, quality: c.instrumentQuality, name: weaponName(c, key) }) || ""; } catch (e) { return ""; } }
+      return "";
+    }
+    var row = weaponRow(c, key);
+    if (!row || !A || !A.srcFor) return "";
+    try { return A.srcFor({ id: row.id, name: row.name }) || ""; } catch (e) { return ""; }
   }
 
   function num(x) { var n = Number(x); return isFinite(n) ? n : 0; }
@@ -126,7 +233,7 @@
     Object.keys(BOX).forEach(function (key) {
       var b = BOX[key], tall = b[3] > 200, label, name = "", art = "", filled = false, cls = "";
       if (WEAPON_SLOTS[key]) {
-        label = WEAPON_SLOTS[key]; name = weaponName(c, key); filled = !!name; cls = " doll-weapon";
+        label = WEAPON_SLOTS[key]; name = weaponName(c, key); filled = !!name; cls = " doll-weapon"; art = filled ? weaponArt(c, key) : "";
       } else {
         label = SLOTS[key][0];
         var it = inSlot(c, key);
@@ -137,8 +244,10 @@
         filled = !!name;
         if (key === "accessory_8" && filled && bonuses(c).shieldOff) cls += " doll-off";
       }
-      var tile = filled ? (tall ? "slot-256x512-filled.webp" : "slot-256-filled.webp") : (tall ? "slot-256x512.webp" : "slot-256.webp");
-      parts.push('<' + (ro ? "div" : "button type=\"button\"") + ' class="doll-slot' + (filled ? " filled" : "") + cls + '" data-doll-slot="' + key + '" style="' + pct(b) + ';background-image:url(' + img(tile) + ')" title="' + esc(label + (name ? ": " + name : " (empty)")) + '" aria-label="' + esc(label + (name ? ": " + name : " empty")) + '">' +
+      /* 0.3.51: 9-slice the square tile so tall/wide slots keep true corners. */
+      var tile = filled ? "slot-256-filled.webp" : "slot-256.webp";
+      if (tall) cls += b[2] > 200 ? " doll-wide" : " doll-tall";
+      parts.push('<' + (ro ? "div" : "button type=\"button\"") + ' class="doll-slot doll-9' + (filled ? " filled" : "") + cls + '" data-doll-slot="' + key + '" style="' + pct(b) + ';border-image-source:url(' + img(tile) + ')" title="' + esc(label + (name ? ": " + name : " (empty)")) + '" aria-label="' + esc(label + (name ? ": " + name : " empty")) + '">' +
         (art ? '<img class="doll-art" alt="" src="' + esc(art) + '">' : "") +
         (filled ? '<span class="doll-name">' + esc(name) + "</span>" : "") +
         (ro ? "" : '<span class="doll-label">' + esc(label) + "</span>") +
@@ -150,7 +259,30 @@
     return parts.join("");
   }
 
+  function opt(v, label, cur) { return '<option value="' + esc(v) + '"' + (String(v) === String(cur || "") ? " selected" : "") + ">" + esc(label) + "</option>"; }
+  function weaponPicker(c, key) {
+    var label = WEAPON_SLOTS[key], btn = function (attr, text, on) { return '<button type="button" class="btn sm' + (on ? " btn-primary" : "") + '" ' + attr + ">" + esc(text) + "</button>"; };
+    var rows = "", hint = "";
+    if (key === "focus_borrowed_iron") {
+      var ins = instruments(c);
+      rows = ins.map(function (x) {
+        return x.focus ? btn("data-doll-noop", x.name + " · focus", true) : btn('data-doll-focus="' + esc(x.uid) + '"', "Make focus: " + x.name + (x.quality === "quality" ? " (quality)" : ""), false);
+      }).join(" ");
+      if (((c && c.guns) || []).some(function (g) { return g && g.weapon === "borrowed-iron"; })) rows = btn("data-doll-noop", "Borrowed Iron", true) + " " + rows;
+      hint = "Your focus is your Calling instrument (or Borrowed Iron). Extra instruments wait in Items.";
+    } else {
+      var cur = weaponRow(c, key);
+      rows = weaponOptions(c, key).map(function (x) {
+        return btn('data-doll-weapon="' + x.i + '"', x.name + (x.equipped ? "" : " · packed"), !!cur && cur.i === x.i);
+      }).join(" ");
+      if (cur) rows += " " + btn('data-doll-weapon=""', "Unequip", false);
+      hint = "Picking a weapon here sets it Equipped on Gear.";
+    }
+    return '<div class="doll-pick" data-doll-pick="' + key + '"><b>' + esc(label) + "</b> " + (rows || '<span class="fine">Nothing you carry fits here.</span>') +
+      ' <button type="button" class="btn sm" data-doll-close>Close</button><p class="fine">' + esc(hint) + "</p></div>";
+  }
   function pickerHtml(c, key) {
+    if (WEAPON_SLOTS[key]) return weaponPicker(c, key);
     var label = SLOTS[key][0];
     var cur = inSlot(c, key);
     var list = items(c).filter(function (it) { return fits(it, key) && (!it.equipSlot || it.equipSlot === key); });
@@ -158,8 +290,16 @@
     var rows = list.map(function (it) {
       return '<button type="button" class="btn sm' + (cur === it ? " btn-primary" : "") + '" data-doll-put="' + esc(it.uid) + '">' + esc(it.name) + (it.attune ? (it.attuned ? " · attuned" : " · needs attunement") : "") + "</button>";
     }).join(" ");
-    var hint = key === "vest" ? "PHB armor is picked under Armor below." : key === "accessory_8" ? "The PHB shield is the Shield box below. A two-handed weapon turns a shield off." : key === "holster_l" ? "PHB holster is picked under Holster below. Rig bonuses don't stack: best Dex and best Init count." : "";
-    return '<div class="doll-pick" data-doll-pick="' + key + '"><b>' + esc(label) + "</b> " + (rows || '<span class="fine">Nothing you carry fits here.</span>') +
+    var rr = R(), extra = "";
+    if (key === "vest") {
+      extra = '<label class="tiny">PHB armor <select data-doll-armor>' + opt("", "None", c.armor) + (rr.armor || []).filter(function (a) { return a && a.category !== "shield"; }).map(function (a) { return opt(a.id, a.name, c.armor); }).join("") + "</select></label>";
+    } else if (key === "accessory_8") {
+      extra = '<button type="button" class="btn sm' + (c.shield ? " btn-primary" : "") + '" data-doll-shield>' + (c.shield ? "PHB shield: on" : "PHB shield: off") + "</button>";
+    } else if (key === "holster_l") {
+      extra = '<label class="tiny">PHB holster <select data-doll-holster>' + opt("", "None", c.holster) + (rr.holsters || []).map(function (h) { return opt(h.id, h.name, c.holster); }).join("") + "</select></label>";
+    }
+    var hint = key === "vest" ? "Same as Armor on Gear; either one updates the other." : key === "accessory_8" ? "Same as the Shield box on Gear. A two-handed weapon turns a shield off." : key === "holster_l" ? "Same as Holster on Gear. Rig bonuses don't stack: best Dex and best Init count." : "";
+    return '<div class="doll-pick" data-doll-pick="' + key + '"><b>' + esc(label) + "</b> " + (extra ? extra + " " : "") + (rows || (extra ? "" : '<span class="fine">Nothing you carry fits here.</span>')) +
       (cur ? ' <button type="button" class="btn sm" data-doll-put="">Take off</button>' : "") +
       ' <button type="button" class="btn sm" data-doll-close>Close</button>' +
       (hint ? '<p class="fine">' + esc(hint) + "</p>" : "") + (att ? '<p class="fine">Attuned ' + esc(att) + "</p>" : "") + "</div>";
@@ -173,9 +313,7 @@
     var c = character(); if (!c) return;
     var es = esTotal();
     var host = document.getElementById("dollHost");
-    if (host) host.innerHTML = html(c, { es: es }) + (openKey && SLOTS[openKey] ? pickerHtml(c, openKey) : "") + '<p class="fine doll-msg" id="dollMsg"></p>';
-    var mini = document.getElementById("dollMini");
-    if (mini) mini.innerHTML = html(c, { readOnly: true, es: es });
+    if (host) host.innerHTML = html(c, { es: es }) + (openKey && (SLOTS[openKey] || WEAPON_SLOTS[openKey]) ? pickerHtml(c, openKey) : "") + '<p class="fine doll-msg" id="dollMsg"></p>';
   }
   function msg(t) { var m = document.getElementById("dollMsg"); if (m) m.textContent = t || ""; }
   function commit(fn) {
@@ -185,24 +323,49 @@
   function wire() {
     if (typeof document === "undefined") return;
     document.addEventListener("click", function (e) {
-      var host = document.getElementById("dollHost");
-      if (!host || !host.contains(e.target)) return;
-      var t = e.target.closest("[data-doll-slot],[data-doll-put],[data-doll-close]");
-      if (!t) return;
-      if (t.hasAttribute("data-doll-close")) { openKey = ""; paint(); return; }
-      if (t.hasAttribute("data-doll-put")) {
-        var uid = t.getAttribute("data-doll-put"), key = openKey, res;
-        commit(function () { res = equip(character(), key, uid); });
-        if (res && res.ok) openKey = "";
-        paint(); if (res && !res.ok) msg(res.reason);
+      var mf = e.target.closest && e.target.closest("[data-make-focus]");
+      if (mf) {
+        var mu = mf.getAttribute("data-make-focus"), mr;
+        commit(function () { mr = makeFocus(character(), mu); });
+        if (mr && !mr.ok && root.SSDNSApp && root.SSDNSApp.toast) root.SSDNSApp.toast(mr.reason);
         return;
       }
+      var host = document.getElementById("dollHost");
+      if (!host || !host.contains(e.target)) return;
+      var t = e.target.closest("[data-doll-slot],[data-doll-put],[data-doll-close],[data-doll-weapon],[data-doll-focus],[data-doll-shield]");
+      if (!t) return;
+      if (t.hasAttribute("data-doll-close")) { openKey = ""; paint(); return; }
+      var res, key = openKey;
+      if (t.hasAttribute("data-doll-put")) {
+        var uid = t.getAttribute("data-doll-put");
+        commit(function () { res = equip(character(), key, uid); });
+      } else if (t.hasAttribute("data-doll-weapon")) {
+        var ref = t.getAttribute("data-doll-weapon");
+        commit(function () { res = setWeapon(character(), key, ref); });
+      } else if (t.hasAttribute("data-doll-focus")) {
+        var fu = t.getAttribute("data-doll-focus");
+        commit(function () { res = makeFocus(character(), fu); });
+      } else if (t.hasAttribute("data-doll-shield")) {
+        commit(function () { var ch = character(); ch.shield = !ch.shield; res = { ok: true }; });
+      }
+      if (res) { if (res.ok) openKey = ""; paint(); if (!res.ok) msg(res.reason); return; }
       var k = t.getAttribute("data-doll-slot");
-      if (WEAPON_SLOTS[k]) { var g = document.getElementById(k === "melee" ? "meleeList" : "guns") || document.getElementById("guns"); if (g && g.scrollIntoView) g.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+      if (!k) return;
       openKey = openKey === k ? "" : k; paint();
     });
   }
+  function wireChange() {
+    document.addEventListener("change", function (e) {
+      var host = document.getElementById("dollHost");
+      if (!host || !host.contains(e.target)) return;
+      var t = e.target, f = t.hasAttribute("data-doll-armor") ? "armor" : t.hasAttribute("data-doll-holster") ? "holster" : "";
+      if (!f) return;
+      commit(function () { character()[f] = t.value; });
+      openKey = ""; paint();
+    });
+  }
+  if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { BOX: BOX, SLOTS: SLOTS, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName };
+  root.SSDNSDoll = { BOX: BOX, SLOTS: SLOTS, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
 })(typeof window !== "undefined" ? window : globalThis);

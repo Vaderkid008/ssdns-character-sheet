@@ -60,7 +60,7 @@ const h = D.html(c, { es: 42 });
 check("html.slots", (h.match(/data-doll-slot=/g) || []).length === 25 && /42<\/span><span class="doll-es-unit">ES/.test(h));
 check("html.ro", !/<button/.test(D.html(c, { readOnly: true })));
 const idx = read("index.html");
-check("index.wired", /id="dollHost"/.test(idx) && /id="dollMini"/.test(idx) && /paper-doll\.js/.test(idx));
+check("index.wired", /id="dollHost"/.test(idx) && !/id="dollMini"/.test(idx) && /paper-doll\.js/.test(idx));
 check("app.hook", /SSDNSDoll\.bonuses/.test(read("assets/js/app.js")));
 if (failures.length) { console.log(failures.length + " failed"); process.exit(1); }
 console.log("pr67 ok");

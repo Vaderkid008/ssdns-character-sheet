@@ -1,4 +1,4 @@
-/* SSDNS music deck (sheet 0.3.50 / DMCC 0.2.63). Two layers: music + ambient.
+/* SSDNS music deck (sheet 0.3.51 / DMCC 0.2.64). Two layers: music + ambient.
    Same engine on the DM page and the player sheet. The DM pushes "music" commands;
    players keep their own volume per layer and a mute (localStorage, never synced).
    Old payloads ({action:"play"|"stop", file, loop}) still work: they drive the music layer. */

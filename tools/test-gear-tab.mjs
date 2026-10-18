@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.50 Gear tab layout and weapon art. DMCC 0.2.63.
+ * Sheet 0.3.51 Gear tab layout and weapon art. DMCC 0.2.64.
  *   node tools/test-gear-tab.mjs
  */
 import fs from "node:fs";
@@ -24,9 +24,9 @@ const play = read("assets/js/sheet-playtest.js");
 const css = read("assets/css/sheet.css");
 const version = JSON.parse(read("version.json"));
 
-check("ver.sheet", version.sheet === "0.3.50" && version.sheetBuild === "sheet-playtest-v0350");
-check("ver.dmcc", version.dmcc === "0.2.63" && version.dmccBuild === "dmcc-playtest-v0263");
-check("ver.app", app.includes('APP_VERSION = "0.3.50"'));
+check("ver.sheet", version.sheet === "0.3.51" && version.sheetBuild === "sheet-playtest-v0351");
+check("ver.dmcc", version.dmcc === "0.2.64" && version.dmccBuild === "dmcc-playtest-v0264");
+check("ver.app", app.includes('APP_VERSION = "0.3.51"'));
 check("target.banner", equip.includes('id="gearTarget"') && equip.includes("gear-bullseye") && equip.includes('id="gearTargetSlot"'));
 check("target.mount", play.includes('id=\'atkTarget\'') && play.includes('$("#gearTargetSlot")'));
 check("columns", equip.includes("gear-weapons") && equip.includes("gear-kit") && css.includes(".gear-columns"));
@@ -40,7 +40,7 @@ check("card.photo", app.includes("g-photo") && css.includes(".g-photo"));
 check("melee.card", play.includes("data-melee-roll") && play.includes("data-melee-rng") && play.includes("Melee, bow, or thrown"));
 check("phone", css.includes("max-width: 760px") && css.includes(".gear-columns { grid-template-columns: 1fr; }"));
 check("attack.shared", play.includes("rollMeleeNow") && app.includes("function reload("));
-check("html.art", html.includes('assets/js/weapon-art.js?v=0.3.50-art'));
+check("html.art", html.includes('assets/js/weapon-art.js?v=0.3.51-'));
 check("css.ratio", css.includes("aspect-ratio: 3 / 1") && css.includes(".g-photo.has-art img") && css.includes("object-fit: contain"));
 check("app.paint", app.includes("SSDNSWeaponArt.paint"));
 check("melee.paint", play.includes("data-melee-photo") && play.includes("SSDNSWeaponArt.paint"));
@@ -82,6 +82,8 @@ live.paint(box, { id: "shortbow", name: "Shortbow" });
 const img = box.querySelector("img");
 check("paint.lazy", !!img && img.getAttribute("loading") === "lazy" && img.getAttribute("decoding") === "async" && img.getAttribute("src") === "assets/img/weapons/shortbow.webp" && box.querySelectorAll("img").length === 1);
 check("paint.class", box.classList.contains("has-art"));
+img.dispatchEvent(new dom.window.Event("error"));
+check("paint.retry", !!box.querySelector("img") && /shortbow\.webp\?r=/.test(box.querySelector("img").getAttribute("src")));
 img.dispatchEvent(new dom.window.Event("error"));
 check("paint.fallback", !box.classList.contains("has-art") && box.textContent === "Photo" && !box.querySelector("img"));
 live.paint(box, { id: "shortbow", name: "Shortbow" });

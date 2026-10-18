@@ -222,7 +222,9 @@
       approved: opts.player ? false : (raw && raw.approved != null ? !!raw.approved : true),
       addressedTo: (raw && raw.addressedTo) || opts.addressedTo || "",
       dmAllowDrop: !!(raw && raw.dmAllowDrop),
-      dmAllowRob: !!(raw && raw.dmAllowRob)
+      dmAllowRob: !!(raw && raw.dmAllowRob),
+      tags: (raw && Array.isArray(raw.tags)) ? raw.tags.slice() : (Array.isArray(base.tags) ? base.tags.slice() : []),
+      quality: (raw && raw.quality) || ""
     };
   }
 
@@ -667,7 +669,7 @@
     return { ok: true, item: item, landed: landed };
   }
 
-  /* 0.3.50: the old character.explosives[] rows move into items (one list). */
+  /* 0.3.51: the old character.explosives[] rows move into items (one list). */
   function mergeExplosives(character) {
     if (!character || !Array.isArray(character.explosives) || !character.explosives.length) return 0;
     var moved = 0;

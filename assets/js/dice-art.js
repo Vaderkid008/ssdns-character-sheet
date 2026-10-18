@@ -15,6 +15,7 @@
     50: "#B47CFF",
     100: "#FCFCFA"
   };
+  var LOCKED_PX = 96;
   /* Face centers and font sizes in a 512px viewBox. */
   var CENTER_Y = { 4: 320, 8: 180 };
   /* Small icons: the number is bigger than the face, so sit it nearer the middle. */
@@ -301,7 +302,8 @@
     stage.hidden = false;
     var list = Array.isArray(info.dice) && info.dice.length ? info.dice : null;
     var faces = Array.isArray(info.faces) && info.faces.length ? info.faces : [info.face];
-    var px = (list || faces).length > 6 ? 96 : 168;
+    // 0.3.51: one locked die size (the 7-dice size). More dice wrap; nothing shrinks.
+    var px = LOCKED_PX;
     var parts = list ? list.map(function (d) { return faceHtml(d.sides, d.face, px); })
       : faces.map(function (n) { return faceHtml(sides, n, px); });
     stage.innerHTML = parts.join("") +

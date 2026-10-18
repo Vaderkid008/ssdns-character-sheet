@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.50"; // sheet-playtest-v0350
+  var APP_VERSION = "0.3.51"; // sheet-playtest-v0351
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -644,7 +644,7 @@
       else if (belt) { if (!c.seated && !c.mounted) v.holsterFirst = num(hol.firstShot); }
       else v.holsterFirst = num(hol.firstShot);
     }
-    // Paper doll (0.3.50): only slotted gear counts. Rigs don't stack; scores cap at 20.
+    // Paper doll (0.3.51): only slotted gear counts. Rigs don't stack; scores cap at 20.
     var DB = window.SSDNSDoll && window.SSDNSDoll.bonuses ? window.SSDNSDoll.bonuses(c) : null;
     v.doll = DB;
     if (DB) {
@@ -1834,7 +1834,7 @@
     });
     if (focus) { var f = box.querySelector('[data-f="' + focus + '"]'); if (f) f.focus(); }
   }
-  /* 0.3.50: explosives live in Items (one list). This box shows the explosive
+  /* 0.3.51: explosives live in Items (one list). This box shows the explosive
      items with a count and the same Use button as the Items list. */
   function renderExplosives() {
     var box = $("#explosiveList"); if (!box) return;
@@ -1875,9 +1875,18 @@
   function renderStorytellerKit() {
     var kit = $("#storytellerKit"); if (!kit) return;
     var c = C();
-    var show = c.calling === "storyteller" || !!c.instrument;
+    var owned = window.SSDNSDoll && window.SSDNSDoll.instruments ? window.SSDNSDoll.instruments(c) : [];
+    var show = c.calling === "storyteller" || !!c.instrument || owned.length > 0;
     kit.hidden = !show;
     if (!show) return;
+    var listEl = $("#instrumentList");
+    if (listEl) {
+      listEl.innerHTML = owned.map(function (x) {
+        return '<div class="instrument-row' + (x.focus ? " is-focus" : "") + '"><span class="instrument-name">' + esc(x.name) + (x.id === "voice" || x.id === "piano" ? "" : ' <span class="fine">(' + esc(x.quality === "quality" ? "quality" : "cheap") + ")</span>") + "</span>" +
+          (x.focus ? '<span class="tag">Focus</span>' : '<button type="button" class="btn sm" data-make-focus="' + esc(x.uid) + '">Make focus</button>') + "</div>";
+      }).join("");
+      listEl.hidden = owned.length < 2 && !(owned.length === 1 && !owned[0].focus);
+    }
     var inst = ((R.storytellerGear && R.storytellerGear.instruments) || []).find(function (x) { return x.id === c.instrument; });
     var info = $("#instrumentInfo");
     var parts = [];
