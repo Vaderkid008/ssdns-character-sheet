@@ -185,8 +185,30 @@
     return spec.label(chamber.index, chamber) || "";
   }
 
+  /* 0.3.51: what the round looks like, keyed off the ammo type (never the gun name).
+     ball = powder, ball & caps; cart = brass rim + primer; buck = red hull, brass base;
+     rf22 = small brass (.22 / light); hex = dark lead with a green glow. */
+  function roundType(spec, chamber) {
+    var raw = chamber ? chamber.raw : "";
+    if (typeof raw === "string" && (/^[1-9]$/.test(raw) || raw.indexOf("k:hex:") === 0)) return "hex";
+    var row = catalogRow(spec);
+    var ammo = String(spec.ammo || (row && row.ammo) || "").toLowerCase();
+    if (typeof raw === "string" && raw.indexOf("k:") === 0) {
+      var kn = raw.split(":")[1] || "";
+      if (kn === "percussion") ammo = "percussion";
+      else if (kn === "buck" || kn === "slug") ammo = "shell";
+    }
+    if (ammo === "percussion" || ammo === "ball" || ammo === "powder") return "ball";
+    if (ammo === "shell" || ammo === "buck" || ammo === "slug" || isShotgun(spec)) return "buck";
+    var tier = String(spec.tier || "").toLowerCase();
+    if (!tier && row && row.tiers) { var keys = Object.keys(row.tiers); if (keys.length === 1) tier = keys[0]; }
+    if (tier === "light" || /\.22\b/.test(String(spec.caliber || ""))) return "rf22";
+    return "cart";
+  }
+
   function roundButton(spec, chamber, style, indexOverride, extraClass, inner) {
     var k = indexOverride == null ? chamber.index : indexOverride;
+    extraClass = (extraClass ? extraClass + " " : "") + "rt-" + roundType(spec, chamber);
     var locked = chamber.state === "locked";
     var word = locked ? "Locked" : (chamber.state === "loaded" ? "Loaded" : (chamber.state === "jam" ? "Misfire" : "Spent"));
     var next = spec.next === chamber.index ? " is-next" : "";
@@ -399,6 +421,7 @@
   root.SSDNSAmmoDisplay = {
     enabled: enabled,
     kind: kind,
+    roundType: roundType,
     html: html,
     mount: mount
   };

@@ -872,7 +872,7 @@
     onSaloonMessage(ev);
   });
 
-  /* 0.3.50 reward routing: instruments go to the focus slot, explosives and
+  /* 0.3.51 reward routing: instruments go to the focus slot, explosives and
      consumables become real items with a Use button. Anything else stays a line
      in Equipment, as before. Returns true when the reward was routed. */
   function routeReward(payload, cmd) {
@@ -895,10 +895,10 @@
         var ch = d.character;
         if (!ch.instrument) {
           ch.instrument = instId;
-          ch.instrumentQuality = hit.quality || payload.quality || "cheap";
+          ch.instrumentQuality = payload.quality || hit.quality || "cheap";
           placed = "focus";
         } else if (Items && Items.add) {
-          Items.add(ch, { id: "instrument-" + instId, name: hit.name || text, type: "gear", description: "Instrument (focus). Swap it into the focus slot on Gear.", effect: { kind: "text", text: "Spellcasting focus (Storyteller)." } }, { dm: true });
+          Items.add(ch, { id: "instrument-" + instId, name: hit.name || text, type: "gear", tags: ["instrument:" + instId], quality: payload.quality || hit.quality || "cheap", description: "Instrument (focus). Swap it into the focus slot on Gear.", effect: { kind: "text", text: "Spellcasting focus (Storyteller)." } }, { dm: true });
           placed = "item";
         }
       });

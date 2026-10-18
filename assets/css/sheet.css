@@ -667,6 +667,7 @@ html, body { overflow-x: hidden; }
   body:not(.sheet-dock-collapsed) .dm-join-bar,
   body:not(.sheet-dock-collapsed) .tabs,
   body:not(.sheet-dock-collapsed) .turn-panel,
+  body:not(.sheet-dock-collapsed) .dice-stage,
   body:not(.sheet-dock-collapsed) main { margin-right: 300px; }
   body:not(.sheet-dock-collapsed) .turn-panel { max-width: calc(100% - 324px); }
   body.sheet-dock-collapsed .sheet-dock { width: 48px; }
@@ -913,18 +914,18 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .item-form input, .item-form select { max-width: 100%; }
 .item-form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .weight-line { font-weight: 600; }
-/* 0.3.50 fading, non-blocking toasts */
+/* 0.3.51 fading, non-blocking toasts */
 .fade-toasts { position: fixed; top: 72px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
 .fade-toast { background: rgba(28,22,18,.94); color: #f3e6c8; border: 1px solid #c9a24a; border-radius: 8px; padding: 10px 18px; font-size: 18px; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.4); transition: opacity .7s ease, transform .7s ease; }
 .fade-toast.out { opacity: 0; transform: translateY(-8px); }
-/* 0.3.50 items: attunement, created weapons, explosives in Items */
+/* 0.3.51 items: attunement, created weapons, explosives in Items */
 .attune-line { margin: 0 0 6px; font-weight: 700; }
 .item-weapon-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; border: 1px dashed #c4b497; padding: 6px 8px; margin: 6px 0; }
 .item-weapon-fields[hidden] { display: none; }
 .exp-row { display: flex; gap: 8px; align-items: center; }
 .exp-row .exp-name { flex: 1; }
 
-/* Paper doll (0.3.50) — Art Bot B6 frame */
+/* Paper doll (0.3.51) — Art Bot B6 frame */
 .doll-wrap { max-width: 540px; margin: 0 auto 14px; }
 .doll { position: relative; width: 100%; aspect-ratio: 1080 / 1350; background-size: 100% 100%; background-repeat: no-repeat; container-type: inline-size; }
 .doll-sil { position: absolute; object-fit: contain; pointer-events: none; opacity: .55; }
@@ -942,10 +943,48 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .doll-es-unit { font-size: .6em; opacity: .75; }
 .doll-pick { margin-top: 8px; padding: 8px; border: 1px solid #b39a6a; border-radius: 6px; background: #f6ecd6; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .doll-pick .fine { flex-basis: 100%; margin: 0; }
-.doll-mini { float: right; width: 150px; margin: 0 0 8px 12px; }
-.doll-mini .doll-name { font-size: 4cqw; }
-@media (max-width: 640px) { .doll-mini { width: 110px; } }
-@media print { .doll-wrap, .doll-mini { display: none; } }
+@media print { .doll-wrap { display: none; } }
+/* 0.3.51: doll lives in the Gear right column; tiles are 9-sliced so tall/wide slots keep square corners. */
+.doll-wrap.doll-in-col { max-width: 100%; width: 100%; margin: 0 0 12px; }
+.doll-slot.doll-9 { background: none; border-style: solid; border-width: 0; border-image-slice: 34 fill; border-image-width: 2.8cqw; border-image-repeat: stretch; border-image-outset: 0; }
+.doll-tall .doll-art, .doll-wide .doll-art { inset: 10% 8%; width: 84%; height: 80%; }
+.doll-weapon .doll-art { object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
 .mx-mine-ctl { display: inline-block; }
 .mx-mine-ctl[open] { background: rgba(255,255,255,.08); border-radius: 6px; padding: 2px 6px; }
 .art-upload .fine { margin: 2px 0 6px; }
+
+/* 0.3.51: lineage description gets its own full-width row (no gap under Background/Player) */
+.topgrid .lineage-row { grid-column: 1 / -1; margin: 0; padding: 2px 0 4px; }
+.topgrid .lineage-row:empty { display: none; }
+.instrument-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.instrument-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border: 1px solid #b39a6a; border-radius: 6px; background: rgba(246,236,214,.6); }
+.instrument-row.is-focus { border-color: #8d1c14; }
+
+/* 0.3.51: wizard spell picker (card grid) */
+.spell-info-strip { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 12px; margin: 4px 0 10px; border: 1px solid #b39a6a; border-left: 4px solid #8d1c14; border-radius: 6px; background: linear-gradient(180deg, #f6ecd6, #ead9b4); color: #2b1d10; font-size: 13px; }
+.spell-info-strip .sis-cell b { font-variant: small-caps; letter-spacing: .03em; color: #6b3f12; margin-right: 2px; }
+.spell-info-strip .sis-focus { flex-basis: 100%; font-size: 12px; opacity: .9; }
+.spell-counter { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 6px 10px; margin: 0 0 8px; background: #2b1d10; color: #f6e7c1; border-radius: 6px; font-weight: 700; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.spell-counter .sc-group.full { color: #9fe0a4; }
+.spell-counter .sc-dots { display: inline-flex; gap: 3px; vertical-align: middle; margin-left: 4px; }
+.spell-counter .sc-dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid #c9a227; background: transparent; display: inline-block; }
+.spell-counter .sc-dot.on { background: #c9a227; }
+.spell-counter.shake { animation: sc-shake .35s; }
+@keyframes sc-shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+.spell-section-head { margin: 12px 0 6px; padding-bottom: 3px; border-bottom: 2px solid #8a6a2c; font-size: 16px; color: #6b3f12; }
+.spell-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; align-items: start; }
+@media (max-width: 520px) { .spell-grid { grid-template-columns: 1fr; } }
+.spell-card { position: relative; border: 2px solid #c8b083; border-radius: 8px; background: #fbf4e3; transition: border-color .12s, box-shadow .12s; }
+.spell-card.is-picked { border-color: #8d1c14; box-shadow: 0 0 0 2px rgba(141,28,20,.18); background: #fff6e6; }
+.spell-card-pick { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; text-align: left; padding: 8px 34px 8px 30px; background: none; border: 0; font: inherit; color: #2b1d10; cursor: pointer; min-height: 64px; }
+.spell-check { position: absolute; left: 7px; top: 9px; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #b39a6a; font-size: 11px; line-height: 12px; text-align: center; color: #fff; }
+.spell-card.is-picked .spell-check { background: #8d1c14; border-color: #8d1c14; }
+.spell-name { font-weight: 700; font-size: 14px; }
+.spell-tag { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #6b3f12; background: #ead9b4; border-radius: 3px; padding: 0 4px; }
+.spell-line { font-size: 12px; opacity: .85; }
+.spell-info { position: absolute; right: 6px; top: 6px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid #8a6a2c; background: #f6ecd6; font: italic 700 13px/1 Georgia, serif; color: #6b3f12; cursor: pointer; padding: 0; }
+.spell-card.is-open .spell-info { background: #6b3f12; color: #f6ecd6; }
+.spell-card .spell-desc { margin: 0; padding: 0 10px 10px 30px; font-size: 12.5px; }
+.doll-weapon .doll-name { font-size: 1.6cqw; }
+.doll-tall.doll-weapon .doll-art { inset: auto; left: 50%; top: 46%; width: 230%; height: 40%; transform: translate(-50%, -50%) rotate(-90deg); }
+.doll-weapon .doll-art ~ .doll-name { display: none; }

@@ -841,49 +841,82 @@
     } else if (step === "spells") {
       body.appendChild(el("h2", { text: "Spells" }));
       var focus = focusFor(draft.calling);
-      if (focus.text) body.appendChild(el("p", { text: focus.text }));
       var lim = levelRow(cal);
+      /* 0.3.51: card-grid spell picker. Tap a card to pick it; "i" opens the full text. */
+      var spAbility = ({ "storyteller": "CHA", "frontier-preacher": "WIS", "nature-guide": "WIS", "lawman": "CHA", "scholar": "INT", "hexslinger": "CHA", "pact-seeker": "CHA", "frontier-scout": "WIS" })[draft.calling] || "CHA";
+      var spScore = (draft.scores && draft.scores[spAbility]) || 10;
+      var spMod = Math.floor((Number(spScore) - 10) / 2);
+      var spProf = (Number(draft.level) || 1) >= 5 ? 3 : 2;
+      var spCap = PREPARED[draft.calling] ? preparedMax(cal, draft.scores) : lim.known;
+      var strip = el("div", { class: "spell-info-strip" }, [
+        el("span", { class: "sis-cell" }, [el("b", { text: "Ability" }), root.document.createTextNode(" " + spAbility + " " + (spMod >= 0 ? "+" : "") + spMod)]),
+        el("span", { class: "sis-cell" }, [el("b", { text: "Save DC" }), root.document.createTextNode(" " + (8 + spProf + spMod))]),
+        el("span", { class: "sis-cell" }, [el("b", { text: PREPARED[draft.calling] ? "Prepared" : "Spells known" }), root.document.createTextNode(" " + spCap)]),
+        el("span", { class: "sis-cell sis-focus" }, [el("b", { text: "Focus" }), root.document.createTextNode(" " + (focus.text || "None"))])
+      ]);
+      body.appendChild(strip);
+      var counter = el("div", { class: "spell-counter", "aria-live": "polite" });
+      body.appendChild(counter);
+      function dots(n, max) {
+        var out = "";
+        for (var d = 0; d < max; d++) out += '<i class="sc-dot' + (d < n ? " on" : "") + '"></i>';
+        return out;
+      }
+      function paintCounter() {
+        var cn = (draft.cantrips || []).length, sn = (draft.spells || []).length;
+        counter.innerHTML = (lim.cantrips ? '<span class="sc-group' + (cn === lim.cantrips ? " full" : "") + '">Cantrips ' + cn + "/" + lim.cantrips + ' <span class="sc-dots">' + dots(cn, lim.cantrips) + "</span></span>" : "") +
+          (spCap ? '<span class="sc-group' + (sn === spCap ? " full" : "") + '">1st level ' + sn + "/" + spCap + ' <span class="sc-dots">' + dots(sn, spCap) + "</span></span>" : "");
+      }
+      function kindTag(row, level) {
+        var k = (row && row.kind) || "";
+        var word = ({ attack: "Attack", save: "Save", heal: "Healing", buff: "Buff", utility: "Utility", none: "Utility" })[k] || (k ? k.charAt(0).toUpperCase() + k.slice(1) : "Utility");
+        return (level === 0 ? "Cantrip" : "1st level") + " · " + word;
+      }
       function picks(title, level, chosen, max) {
-        body.appendChild(el("p", { text: title + " (" + chosen.length + "/" + max + ")" }));
+        body.appendChild(el("h3", { class: "spell-section-head", text: title + " (" + chosen.length + "/" + max + ")" }));
+        var grid = el("div", { class: "spell-grid", role: "list" });
+        body.appendChild(grid);
+        var Cast = root.SSDNSSpellCast;
         spellEntries(draft.calling, level).forEach(function (name) {
-          var box = el("label", { class: "wiz-check" });
-          var input = el("input", { type: "checkbox" });
-          input.checked = chosen.indexOf(name) >= 0;
-          input.addEventListener("change", function () {
+          var on = chosen.indexOf(name) >= 0;
+          var row = Cast && Cast.lookup ? Cast.lookup(name) : null;
+          var line = Cast && Cast.blurb ? (Cast.blurb(name) || "") : "";
+          var full = Cast && Cast.describe ? Cast.describe(name, { spellDC: 8 + spProf + spMod, spellAtk: spProf + spMod, level: draft.level || 1, ability: spAbility }) : "";
+          if (!line && full) line = String(full).split(/(?<=\.)\s/)[0];
+          var card = el("div", { class: "spell-card" + (on ? " is-picked" : ""), role: "listitem" });
+          var pick = el("button", { type: "button", class: "spell-card-pick", "aria-pressed": on ? "true" : "false", "data-spell": name });
+          pick.appendChild(el("span", { class: "spell-check", "aria-hidden": "true", text: on ? "✓" : "" }));
+          pick.appendChild(el("span", { class: "spell-name", text: name }));
+          pick.appendChild(el("span", { class: "spell-tag", text: kindTag(row, level) }));
+          if (line) pick.appendChild(el("span", { class: "spell-line", text: line }));
+          pick.addEventListener("click", function () {
             var set = chosen.filter(function (x) { return x !== name; });
-            if (input.checked) {
-              if (set.length >= max) { input.checked = false; return; }
+            if (!on) {
+              if (set.length >= max) { counter.classList.add("shake"); setTimeout(function () { counter.classList.remove("shake"); }, 400); return; }
               set.push(name);
             }
             if (level === 0) draft.cantrips = set;
             else draft.spells = set;
             renderStep(body, draft, step);
           });
-          box.appendChild(input);
-          box.appendChild(root.document.createTextNode(" " + name));
-          body.appendChild(box);
-          var Cast = root.SSDNSSpellCast;
-          if (Cast && Cast.describe) {
-            var ability = ({ "storyteller": "CHA", "frontier-preacher": "WIS", "nature-guide": "WIS", "lawman": "CHA", "scholar": "INT", "hexslinger": "CHA", "pact-seeker": "CHA", "frontier-scout": "WIS" })[draft.calling] || "CHA";
-            var score = (draft.scores && draft.scores[ability]) || 10;
-            var modN = Math.floor((Number(score) - 10) / 2);
-            var prof = (Number(draft.level) || 1) >= 5 ? 3 : 2;
-            var text = Cast.describe(name, { spellDC: 8 + prof + modN, spellAtk: prof + modN, level: draft.level || 1, ability: ability });
-            if (text) {
-              body.appendChild(el("details", { class: "spell-more" }, [
-                el("summary", { text: "About" }),
-                el("p", { class: "spell-desc", text: text })
-              ]));
-            }
+          card.appendChild(pick);
+          if (full) {
+            var more = el("p", { class: "spell-desc", text: full });
+            more.hidden = true;
+            var info = el("button", { type: "button", class: "spell-info", "aria-expanded": "false", "aria-label": "About " + name, text: "i" });
+            info.addEventListener("click", function () { more.hidden = !more.hidden; info.setAttribute("aria-expanded", more.hidden ? "false" : "true"); card.classList.toggle("is-open", !more.hidden); });
+            card.appendChild(info);
+            card.appendChild(more);
           }
+          grid.appendChild(card);
         });
       }
       picks("Cantrips", 0, draft.cantrips || [], lim.cantrips);
       if (draft.calling === "pact-seeker" && !(draft.cantrips || []).some(function (n) { return /pact shot|eldritch blast/i.test(n); })) {
         body.appendChild(el("p", { text: "Pact Shot counts as one of your cantrips. It is not a free extra." }));
       }
-      var cap = PREPARED[draft.calling] ? preparedMax(cal, draft.scores) : lim.known;
-      picks(PREPARED[draft.calling] ? "Prepared" : "Spells known", 1, draft.spells || [], cap);
+      picks(PREPARED[draft.calling] ? "1st level · Prepared" : "1st level · Spells known", 1, draft.spells || [], spCap);
+      paintCounter();
     } else if (step === "level") {
       body.appendChild(el("h2", { text: "Starting level" }));
       var lsel = el("select", { id: "wizLevel" });

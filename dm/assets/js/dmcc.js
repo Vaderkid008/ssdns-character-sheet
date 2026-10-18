@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.63"; // dmcc-playtest-v0263
+const VERSION = "0.2.64"; // dmcc-playtest-v0264
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2393,6 +2393,20 @@ function dedupeById(list) {
   });
   return out;
 }
+/* 0.2.64: tell the sheet what kind of reward this is (instrument id + quality) so it
+   never has to guess from the text. */
+function rewardPayload(type, labeled, id, qty) {
+  const payload = { text: labeled, grantId: id, qty: qty };
+  if (type !== "item") return payload;
+  const Items = window.SSDNSItems;
+  const hit = Items && Items.classifyReward ? Items.classifyReward(labeled, "") : { kind: "" };
+  if (hit && hit.kind) payload.kind = hit.kind;
+  if (hit && hit.kind === "instrument") { payload.instrument = hit.id; payload.quality = hit.quality || "cheap"; }
+  else if (hit && hit.id) payload.itemId = hit.id;
+  return payload;
+}
+if (typeof window !== "undefined") window.__ssdnsRewardPayload = rewardPayload;
+
 async function doPushReward() {
   if (rewardBusy) return;
   rewardBusy = true;
@@ -2444,12 +2458,14 @@ async function doPushReward() {
       what: (type === "item" ? "Item: " : "Note: ") + labeled + (to === "all" ? " (everyone)" : ""),
       oldVal: null, newVal: labeled, flag: false
     });
+    const payload = rewardPayload(type, labeled, id, qty);
     await pushCommand({
       id: id,
       type: type === "item" ? "reward_item" : "reward_note",
-      to, payload: { text: labeled, grantId: id, qty: qty }, from: state.uid
+      to, payload: payload, from: state.uid
     });
-    toast(type === "item" ? "Item pushed" : "Note pushed");
+    const what = payload.kind === "instrument" ? "Instrument pushed" : (type === "item" ? "Item pushed" : "Note pushed");
+    toast(state.demo ? what + " (Demo: not sent to players)" : what);
   }
   } finally {
     rewardBusy = false;
