@@ -2706,6 +2706,7 @@ function decorateDetail(pid) {
         <button type="button" class="btn sm" id="btnDetailAttack">Roll weapon</button>
       </div>
       <p class="lede">Roll weapon is a plain attack. It never spends a spell slot.</p>
+      <label class="toggle"><input type="checkbox" id="surpriseDraw"${s.surpriseDraw ? " checked" : ""}> Surprise draw +2</label>
       <div class="toolbar">
         <select id="detailSpell" aria-label="Spell to cast">${spellOptions(s)}</select>
         <select id="detailSlot" aria-label="Shell or slot level">${slotOptions(s)}</select>
@@ -2755,12 +2756,16 @@ function decorateDetail(pid) {
     }
     const names = namesFor(pid);
     const label = (sel.selectedOptions && sel.selectedOptions[0] && sel.selectedOptions[0].textContent) || id;
-    await DM.pushCommand({ type: "reward_item", to: pid, payload: { text: label }, from: DM.state.uid });
+    await DM.pushCommand({ type: "reward_item", to: pid, payload: { text: label, id: id }, from: DM.state.uid });
     await DM.pushLedger(Object.assign({
       who: "DM", playerId: pid, type: "dm_push",
       what: "Item: " + label, oldVal: null, newVal: label, flag: false
     }, names));
     DM.toast("Sent " + label);
+  });
+  const surprise = $("#surpriseDraw");
+  if (surprise) surprise.addEventListener("change", async () => {
+    await DM.pushCommand({ type: "surprise_draw", to: pid, payload: { on: !!surprise.checked }, from: DM.state.uid });
   });
   $("#btnDetailItem").addEventListener("click", async () => {
     const text = ($("#detailItem").value || "").trim();
@@ -3419,7 +3424,9 @@ function combatTargets(attacker) {
       kind: row.kind || "enemy",
       group: targetGroup(row),
       card: row.card || null,
-      conditions: row.conditions || []
+      conditions: row.conditions || [],
+      takingCover: !!row.takingCover,
+      cover: row.cover || ""
     });
   });
   Object.keys(DM.state.players || {}).forEach((pid) => {
@@ -3433,7 +3440,9 @@ function combatTargets(attacker) {
       status: s.hpCurrent === 0 ? "Down" : "",
       kind: "player",
       group: "Party",
-      card: null
+      card: null,
+      takingCover: !!s.takingCover,
+      cover: s.cover || ""
     });
   });
   const groupRank = { Party: 0, Allies: 1, Enemies: 2 };
@@ -3513,6 +3522,8 @@ function resolveStrikeTarget(targetId) {
   if (!targetId) return null;
   const row = findCombatant({ targetId: targetId, id: targetId });
   if (row) {
+    const pid = row.playerId || (row.kind === "player" ? row.id : "");
+    const snap = pid && DM.state.players[pid] && DM.state.players[pid].snapshot;
     return {
       id: combatantKey(row),
       name: row.name || "Someone",
@@ -3523,7 +3534,9 @@ function resolveStrikeTarget(targetId) {
       fled: !!row.fled,
       group: targetGroup(row),
       card: row.card || null,
-      conditions: row.conditions || []
+      conditions: row.conditions || [],
+      takingCover: !!(row.takingCover || (snap && snap.takingCover)),
+      cover: row.cover || (snap && snap.cover) || ""
     };
   }
   return combatTargets(null).filter((p) => p.id === targetId)[0] || null;
@@ -3840,10 +3853,13 @@ async function cardStrike(i, n, opts) {
     return;
   }
   if (rangeShot && rangeShot.log) logTableAlert(rangeShot.log);
+  const coverDis = !!(rangedGun && window.SSDNSApplied && window.SSDNSApplied.takeCoverDisadvantage
+    && window.SSDNSApplied.takeCoverDisadvantage(target && target.takingCover, coverValue(target)));
   let n1 = d20();
   let n2 = null;
   let nat = n1;
-  if (rangeShot && rangeShot.apply && rangeShot.disadvantage) {
+  const rangeDis = !!(rangeShot && rangeShot.apply && rangeShot.disadvantage);
+  if (rangeDis || coverDis) {
     n2 = d20();
     nat = Math.min(n1, n2);
   }
@@ -3900,6 +3916,7 @@ async function cardStrike(i, n, opts) {
     : null;
   let detail = strikeCard ? strikeCard.dmText : (row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (miss ? " → MISS" : (nat === 20 ? " → CRIT" : " → HIT")) + (dmg ? " · " + dmg.detail + " = " + dmg.total : ""));
   if (rangeShot && rangeShot.note && rangeShot.disadvantage) detail += "\n" + rangeShot.note;
+  if (coverDis) detail += "\ndisadvantage: Take Cover";
   if (window.SSDNSAudio && window.SSDNSAudio.playOutcome) {
     window.SSDNSAudio.playOutcome({
       id: atk.weapon || atk.id || "",

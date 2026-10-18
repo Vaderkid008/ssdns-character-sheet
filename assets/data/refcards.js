@@ -1245,7 +1245,7 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Equipment",
-     "Fine clothes (threadbare flash), disguise kit, tools of the con (weighted dice, marked deck, fake assay papers), pouch with 1,500 ES"
+     "Fine clothes (threadbare flash), disguise kit, tools of the con (weighted dice, marked deck, fake ore papers), pouch with 1,500 ES"
     ]
    ],
    "feature": {
@@ -1689,13 +1689,13 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Equipment",
-     "Tinker’s tools (or chosen artisan’s tools), guild letter or assay scrap, traveler’s clothes with burn holes, pouch with 1,500 ES, tiny prototype (nonmagical gadget — DM defines)"
+     "Tinker’s tools (or chosen artisan’s tools), guild letter or ore sample, traveler’s clothes with burn holes, pouch with 1,500 ES, tiny prototype (nonmagical gadget — DM defines)"
     ]
    ],
    "feature": {
     "name": "Maker’s Mark",
     "twin5e": "Guild Membership",
-    "text": "Craft-folk and claim engineers offer bench space, parts leads, and introductions. Fancy spark-device work draws investors — and the wrong kind of interest. Unpaid “partners” may appear."
+    "text": "Craft-folk and claim engineers offer bench space, parts leads, and introductions. Fancy spark-device work draws investors — and the wrong kind of interest. Unpaid “partners” may appear. Guild-lingo: shop talk of gunsmiths, engineers and tinkers. Not a language, no slot. Without it others miss technical details; when the DM calls it, checks relying on that detail are at disadvantage or fail."
    },
    "moreInfo": "More information: SSDNS PHB p.56"
   }

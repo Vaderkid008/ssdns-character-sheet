@@ -173,7 +173,7 @@ check(src.indexOf("tactics-note") >= 0 && src.indexOf("On deck:") >= 0 && src.in
 check(read("docs/DM-PRINCIPLES.md").indexOf("eyes stay on the table") >= 0, "principles doc");
 check(read("docs/DM-PRINCIPLES.md").indexOf("Take Cover only") < 0 && read("docs/DM-PRINCIPLES.md").indexOf("three-quarters cover is +5") >= 0, "half and three-quarters cover stay in the checklist");
 check(read("index.html").indexOf("Kneeling or prone alone is not cover") >= 0 && read("assets/data/rules.js").indexOf("Half cover is +2 and three-quarters cover is +5") >= 0, "sheet and rules state the cover lock");
-check((read("assets/data/rules.js").match(/stacks on half \/ three-quarters cover/g) || []).length === 2, "Lead and Levers and Gunslinger note that Take Cover stacks");
+check((read("assets/data/rules.js").match(/doesn't stack with cover/g) || []).length >= 2, "Lead and Levers and Gunslinger note that Take Cover doesn't stack with cover");
 check(read("docs/SCHEMA.md").indexOf("`tactics`") >= 0, "schema documents tactics");
 const liveBeasts = beasts.filter((b) => b && !b.template);
 check(liveBeasts.length === 48, "48 enemies");
@@ -243,9 +243,9 @@ check(sandbox.__enemy.enemyPickerList(picker, "", false).some((b) => b.parked) =
 const menu = sandbox.__enemy.enemySelectHtml(sandbox.__enemy.enemyPickerList(picker, "", false));
 check(menu.indexOf('label="Creatures"') >= 0 && menu.indexOf('label="Folk"') >= 0 && menu.indexOf('label="Named"') >= 0 && menu.indexOf("Abigail Ellen") >= 0, "fight menu uses group headers");
 check(html.indexOf('id="enemyQ"') >= 0, "fight search box is in the page");
-check(version.dmcc === "0.2.46" && version.dmccBuild === "dmcc-playtest-v0246", "dmcc version");
-check(version.sheet === "0.3.33" && version.sheetBuild === "sheet-playtest-v0333", "sheet version");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.46"') >= 0, "dmcc.js version");
+check(version.dmcc === "0.2.47" && version.dmccBuild === "dmcc-playtest-v0247", "dmcc version");
+check(version.sheet === "0.3.34" && version.sheetBuild === "sheet-playtest-v0334", "sheet version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.47"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {

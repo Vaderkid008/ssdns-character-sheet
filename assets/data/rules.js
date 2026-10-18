@@ -582,7 +582,7 @@ window.SSDNS_RULES = {
     },
     {
      "name": "Lead & Levers: Firearms, Reloads & Cover",
-     "text": "Take Cover: anyone can, as a bonus action (see Take Cover in Equipment); stacks on half / three-quarters cover. Six-Shooters & Reloads: 6-shot capacity. Reloading takes an action. Extra Attack allows an extra trigger pull. Fury vs. Firearm: You can shoot any gun you're proficient with, but Dust Fury damage, All-In Swing, and Frenzy only work in melee. When cartridges click empty, closing with a buffalo axe ends shootouts immediately."
+     "text": "Take Cover: anyone can, as a bonus action (see Take Cover in Equipment); doesn't stack with cover. Six-Shooters & Reloads: 6-shot capacity. Reloading takes an action. Extra Attack allows an extra trigger pull. Fury vs. Firearm: You can shoot any gun you're proficient with, but Dust Fury damage, All-In Swing, and Frenzy only work in melee. When cartridges click empty, closing with a buffalo axe ends shootouts immediately."
     }
    ],
    "subclasses": [
@@ -1632,7 +1632,7 @@ window.SSDNS_RULES = {
     },
     {
      "name": "Fast-Draw & Reload Mechanics",
-     "text": "Reloading: A standard six-shooter holds 6 rounds. Reloading takes an action for most characters, but Gunslingers can reload as a bonus action starting at 3rd level (see Quick Reload). Take Cover: anyone can, as a bonus action (see Take Cover in Equipment); stacks on half / three-quarters cover."
+     "text": "Reloading: A standard six-shooter holds 6 rounds. Reloading takes an action for most characters, but Gunslingers can reload as a bonus action starting at 3rd level (see Quick Reload). Take Cover: anyone can, as a bonus action (see Take Cover in Equipment); doesn't stack with cover."
     }
    ],
    "subclasses": [
@@ -2662,7 +2662,7 @@ window.SSDNS_RULES = {
        "text": "Your Quick Hands bonus action can also be a Sleight of Hand check, a use of thieves' tools to disarm a trap or open a lock, or the Use an Object action. Reloading a gun and lighting and throwing dynamite are their own actions, not Use an Object."
       },
       {
-       "name": "Second-Story Claim (3rd level)",
+       "name": "Second-Story Work (3rd level)",
        "text": "Climbing costs you no extra movement. Your running jump grows by a number of feet equal to your Dex modifier."
       },
       {
@@ -3855,7 +3855,7 @@ window.SSDNS_RULES = {
    "skills": "Deception, Sleight of Hand",
    "tools": "Disguise kit, forgery kit",
    "languages": "",
-   "equipment": "Fine clothes (threadbare flash), disguise kit, tools of the con (weighted dice, marked deck, fake assay papers), pouch with 1,500 ES",
+   "equipment": "Fine clothes (threadbare flash), disguise kit, tools of the con (weighted dice, marked deck, fake ore papers), pouch with 1,500 ES",
    "feature": {
     "name": "Alias on the Felt",
     "twin5e": "False Identity",
@@ -4680,11 +4680,11 @@ window.SSDNS_RULES = {
    "skills": "Insight, Investigation",
    "tools": "Tinker’s tools or one artisan’s tools (smith’s / carpenter’s); forgery kit optional swap with DM",
    "languages": "One of your choice",
-   "equipment": "Tinker’s tools (or chosen artisan’s tools), guild letter or assay scrap, traveler’s clothes with burn holes, pouch with 1,500 ES, tiny prototype (nonmagical gadget — DM defines)",
+   "equipment": "Tinker’s tools (or chosen artisan’s tools), guild letter or ore sample, traveler’s clothes with burn holes, pouch with 1,500 ES, tiny prototype (nonmagical gadget — DM defines)",
    "feature": {
     "name": "Maker’s Mark",
     "twin5e": "Guild Membership",
-    "text": "Craft-folk and claim engineers offer bench space, parts leads, and introductions. Fancy spark-device work draws investors — and the wrong kind of interest. Unpaid “partners” may appear."
+    "text": "Craft-folk and claim engineers offer bench space, parts leads, and introductions. Fancy spark-device work draws investors — and the wrong kind of interest. Unpaid “partners” may appear. Guild-lingo: shop talk of gunsmiths, engineers and tinkers. Not a language, no slot. Without it others miss technical details; when the DM calls it, checks relying on that detail are at disadvantage or fail."
    },
    "traits": {
     "personality": [
@@ -5053,14 +5053,14 @@ window.SSDNS_RULES = {
    "load": "Cartridge",
    "capacity": 7,
    "tiers": {
-    "light": {
+     "light": {
      "damage": "1d4",
      "range": "10/30",
-     "misfire": "1–2"
+     "misfire": "1–4"
     }
    },
    "weight": "1 lb.",
-   "properties": "Close quarters, simple, chambered .22 LR or .32 rimfire",
+   "properties": "Close quarters, simple, chambered .22 LR",
    "src": "sheet lock 2026-10-09",
    "slow": false,
    "ability": "DEX",
@@ -5079,7 +5079,37 @@ window.SSDNS_RULES = {
    },
    "ammo": "cartridge"
   },
-
+  {
+   "id": "dullards-plinker-repeater",
+   "name": "Dullards Plinker Repeater",
+   "model": "Dullards Plinker Repeater",
+   "group": "rifle",
+   "cost": "1,800",
+   "action": "Lever (tube)",
+   "tr": true,
+   "load": "Cartridge",
+   "capacity": 7,
+   "tiers": {
+    "light": {
+     "damage": "1d4",
+     "range": "10/30",
+     "misfire": "1–4"
+    }
+   },
+   "weight": "5 lb.",
+   "properties": "Two-handed, simple, chambered .22 LR",
+   "src": "L0155 2026-10-17",
+   "slow": false,
+   "ability": "DEX",
+   "category": "simple",
+   "handy": false,
+   "rounds": {
+    "light": [
+     ".22 LR"
+    ]
+   },
+   "ammo": "cartridge"
+  },
   {
    "id": "pony-arms-chaosmaker-light",
    "name": "Pony Arms ChaosMaker (Light)",
@@ -5162,7 +5192,7 @@ window.SSDNS_RULES = {
    "properties": "chambered .45 Long, close quarters, martial",
    "src": "BOOK1.md line 3984",
    "slow": false,
-   "ability": "STR/DEX",
+   "ability": "DEX",
    "category": "martial",
    "rounds": {
     "heavy": [
@@ -5344,7 +5374,7 @@ window.SSDNS_RULES = {
    "name": "Lancaster Heavy Saddle Carbine",
    "model": "Lancaster Heavy Saddle Carbine",
    "group": "carbine",
-   "cost": "6,000",
+   "cost": "4,500",
    "action": "Lever (tube)",
    "tr": true,
    "load": "Cartridge",
@@ -5356,18 +5386,19 @@ window.SSDNS_RULES = {
      "misfire": "1"
     },
     "medium": {
-     "damage": "1d8",
-     "range": "20/60",
+     "damage": "1d6",
+     "range": "20/70",
      "misfire": "1"
     },
     "heavy": {
-     "damage": "1d10",
+     "damage": "1d8",
      "range": "30/90",
      "misfire": "1–2"
     }
    },
    "weight": "7 lb.",
-   "properties": "Two-handed, saddle, rugged, close quarters, martial",
+   "handy": true,
+   "properties": "Two-handed, saddle, rugged, close quarters, Handy, martial",
    "src": "BOOK1.md line 4006",
    "slow": false,
    "ability": "DEX",
@@ -5391,7 +5422,7 @@ window.SSDNS_RULES = {
    "name": "Henrietta Saddle Carbine",
    "model": "Henrietta Saddle Carbine",
    "group": "carbine",
-   "cost": "4,500",
+   "cost": "3,000",
    "action": "Lever (tube)",
    "tr": true,
    "load": "Cartridge",
@@ -5400,16 +5431,17 @@ window.SSDNS_RULES = {
     "light": {
      "damage": "1d6",
      "range": "10/30",
-     "misfire": "1"
+     "misfire": "1–2"
     },
     "medium": {
-     "damage": "1d8",
-     "range": "20/60",
+     "damage": "1d6",
+     "range": "20/70",
      "misfire": "1–2"
     }
    },
    "weight": "7 lb.",
-   "properties": "Two-handed, saddle, close quarters, martial",
+   "handy": true,
+   "properties": "Two-handed, saddle, close quarters, Handy, martial",
    "src": "BOOK1.md line 4007",
    "slow": false,
    "ability": "DEX",
@@ -5437,13 +5469,14 @@ window.SSDNS_RULES = {
    "capacity": 6,
    "tiers": {
     "light": {
-     "damage": "1d6",
+     "damage": "1d4",
      "range": "10/30",
      "misfire": "1–4"
     }
    },
    "weight": "6 lb.",
-   "properties": "Two-handed, saddle, close quarters, simple",
+   "handy": true,
+   "properties": "Two-handed, saddle, close quarters, Handy, simple",
    "src": "BOOK1.md line 4008",
    "slow": false,
    "ability": "DEX",
@@ -5660,7 +5693,7 @@ window.SSDNS_RULES = {
    "properties": "Two-handed, heavy, slow load, simple",
    "src": "BOOK1.md line 4022",
    "slow": true,
-   "ability": "STR/DEX",
+   "ability": "DEX",
    "category": "simple",
    "rounds": {},
    "ammo": "percussion"
@@ -5836,6 +5869,23 @@ window.SSDNS_RULES = {
   }
  ],
  "melee": [
+  {
+   "id": "baseball-bat",
+   "name": "Baseball bat",
+   "model": "Baseball bat",
+   "group": "simple-melee",
+   "cost": "300",
+   "damage": "1d6",
+   "dmgType": "Bludgeoning",
+   "range": "—",
+   "capacity": null,
+   "misfire": "—",
+   "weight": "2 lb.",
+   "properties": "—",
+   "src": "L0150 2026-10-17",
+   "category": "simple",
+   "ability": "STR"
+  },
   {
    "id": "baton-belaying-pin-club",
    "name": "Baton / belaying pin (club)",
@@ -6677,7 +6727,7 @@ window.SSDNS_RULES = {
    "firstShot": 0,
    "initText": "—",
    "firstShotText": "—",
-   "perk": "Hidden under a coat. Slow draw: no free quick-draw; drawing uses your object interaction, and you can't start combat with it in hand.",
+   "perk": "Hidden under a coat. Slow draw: no free quick-draw; drawing uses your object interaction, and you can't start combat with it in hand. Drawn on a creature that didn't know you were armed: +2 to your first shot.",
    "notes": "Leather straps under the arm and a long coat over it. Lawyers and bank detectives swear by it.",
    "src": "BOOK1.md line 4321",
    "isRig": true,
@@ -6982,7 +7032,7 @@ window.SSDNS_RULES = {
   {
    "phb5e": "Scholar’s pack",
    "name": "Book trunk",
-   "use": "Scholars, assay notes"
+   "use": "Scholars, ore notes"
   }
  ],
  "gear": [
@@ -7112,11 +7162,11 @@ window.SSDNS_RULES = {
   },
   {
    "phb5e": "Magnifying glass",
-   "name": "Assay glass"
+   "name": "Ore glass"
   },
   {
    "phb5e": "Scale, merchant’s",
-   "name": "Assay scale"
+   "name": "Ore scale"
   },
   {
    "phb5e": "Ink + quill",
@@ -7212,7 +7262,7 @@ window.SSDNS_RULES = {
   },
   {
    "phb5e": "Potion of healing",
-   "name": "Assay tonic / trail draught (consumable; handbook rules)"
+   "name": "Healing Libation (consumable; handbook rules)"
   },
   {
    "phb5e": "Robe",
@@ -7265,12 +7315,6 @@ window.SSDNS_RULES = {
    "src": "BOOK1.md line 4653"
   },
   {
-   "name": "Assayer's lead tin (hides a live shard's glow)",
-   "cost": "200",
-   "notes": "",
-   "src": "BOOK1.md line 4654"
-  },
-  {
    "name": "Harmonica",
    "cost": "100",
    "notes": "",
@@ -7319,7 +7363,7 @@ window.SSDNS_RULES = {
    "src": "BOOK1.md line 4662"
   },
   {
-   "name": "Breaking a bill: assayer or saloon",
+   "name": "Breaking a bill: ore buyer or saloon",
    "cost": "10%",
    "notes": "",
    "src": "BOOK1.md line 4663"
@@ -7332,7 +7376,7 @@ window.SSDNS_RULES = {
    "src": "BOOK1.md line 4637"
   },
   {
-   "name": "Assay glass (magnifying glass)",
+   "name": "Ore glass (magnifying glass)",
    "cost": "1,000",
    "notes": "Price isn't PHB ×100",
    "exception": true,
@@ -7385,7 +7429,7 @@ window.SSDNS_RULES = {
   },
   {
    "phb5e": "Forgery kit",
-   "note": "Assay forgeries — magistrates hang people for this"
+   "note": "Ore forgeries — magistrates hang people for this"
   },
   {
    "phb5e": "Gaming set",
@@ -7455,16 +7499,16 @@ window.SSDNS_RULES = {
    {
     "id": "dynamite-stick-standard-fuse",
     "name": "Dynamite stick (standard fuse)",
-    "cost": "500",
+    "cost": "2,500",
     "weight": "1 lb.",
-    "notes": "3d6 bludgeoning, 5-ft radius, DC 12 Dex",
+    "notes": "3d6 bludgeoning, 5-ft radius, DC 12 Dex half. Store stocks 1d4 sticks at a time; the company tracks buyers.",
     "src": "BOOK1.md line 4254",
     "trackable": true
    },
    {
     "id": "dynamite-stick-sweating-sold-cheap",
     "name": "Dynamite stick, sweating (sold cheap)",
-    "cost": "250",
+    "cost": "1,250",
     "weight": "1 lb.",
     "notes": "As above; misfires on 1–3",
     "src": "BOOK1.md line 4255",
@@ -7502,14 +7546,14 @@ window.SSDNS_RULES = {
     "name": "Blasting powder (1 lb)",
     "cost": "400",
     "weight": "1 lb.",
-    "notes": "Powder Man makes charges from it",
+    "notes": "1 Powder Man charge each, max 3/short rest",
     "src": "BOOK1.md line 4259",
     "trackable": true
    },
    {
     "id": "blasting-keg",
     "name": "Blasting keg",
-    "cost": "2,000",
+    "cost": "10,000",
     "weight": "20 lb.",
     "notes": "Placed only; 6d6, 20-ft radius, DC 13 Dex",
     "src": "BOOK1.md line 4260",
@@ -7820,11 +7864,11 @@ window.SSDNS_RULES = {
    },
    {
     "old": "Shortbow (+ 20 arrows); \"pocket pistol\" (Gambler kit)",
-    "frontier": "Player's choice: keep the Shortbow + 20 arrows, or a Herringer Light Pepperbox (Gambler: or the Pocket Pistol) + 20 Light cartridges"
+    "frontier": "One weapon: Shortbow + 20 arrows, or a Herringer Light Pepperbox, or the Pocket Pistol + 20 Light cartridges"
    },
    {
     "old": "Longbow (+ 20 arrows); \"hunting rifle\" (Frontier Scout kit)",
-    "frontier": "Player's choice: keep the Longbow + 20 arrows, or a Dullards Light Carbine + 20 Light cartridges"
+    "frontier": "One weapon (Scout): Longbow + 20 arrows, Dullards Light Carbine + 20 Light cartridges, or Dullards Tube Rifle chambered Light + 20 Light cartridges"
    },
    {
     "old": "Heavy crossbow (+ bolts)",
@@ -7840,11 +7884,11 @@ window.SSDNS_RULES = {
    },
    {
     "old": "“Repeater” (Gunslinger kit)",
-    "frontier": "Dullards Tube Rifle chambered Light + 20 Light cartridges"
+    "frontier": "One weapon: Dullards Tube Rifle chambered Light + 20 Light cartridges"
    },
    {
     "old": "“Twin pistols” / “twin revolvers” (Gunslinger kit)",
-    "frontier": "Two Herringer Light Pepperboxes + 20 Light cartridges, or one Navy / Army Ball n Cap + 20 loads"
+    "frontier": "One weapon: Navy / Army Ball n Cap + 20 loads"
    },
    {
     "old": "“Light rifle”",
@@ -8743,7 +8787,7 @@ window.SSDNS_RULES = {
   },
   {
    "phb": "Identify",
-   "alias": "Field Assay",
+   "alias": "Field Test",
    "level": 1
   },
   {
@@ -8788,7 +8832,7 @@ window.SSDNS_RULES = {
   },
   {
    "phb": "Arms of Hadar",
-   "alias": "Claim Tendrils",
+   "alias": "Dust Tendrils",
    "level": 1
   },
   {
@@ -8925,7 +8969,7 @@ window.SSDNS_RULES = {
      "Healing Word",
      "Heroism",
      "Hideous Laughter (Belly Laugh)",
-     "Identify (Field Assay)",
+     "Identify (Field Test)",
      "Illusory Script (Invisible Ink)",
      "Longstrider",
      "Silent Image (Magic Lantern)",
@@ -9745,7 +9789,7 @@ window.SSDNS_RULES = {
     ],
     "1": [
      "Armor of Agathys (Cold Iron Hide)",
-     "Arms of Hadar (Claim Tendrils)",
+     "Arms of Hadar (Dust Tendrils)",
      "Charm Person (Kindred Spirit)",
      "Comprehend Languages (Rosetta Key)",
      "Expeditious Retreat (Coca Tonic)",
@@ -9869,7 +9913,7 @@ window.SSDNS_RULES = {
      "Fog Cloud (Steam Valve)",
      "Grease (Axle Grease)",
      "Hideous Laughter (Belly Laugh)",
-     "Identify (Field Assay)",
+     "Identify (Field Test)",
      "Illusory Script (Invisible Ink)",
      "Jump (Spring Heels)",
      "Longstrider (Stride Tonic)",
@@ -9888,7 +9932,7 @@ window.SSDNS_RULES = {
      "Acid Arrow (Aqua Regia)",
      "Alter Self (Chameleon Serum)",
      "Arcane Lock (Patent Lock)",
-     "Arcanist's Magic Aura (False Assay)",
+     "Arcanist's Magic Aura (False Reading)",
      "Blindness/Deafness (Flashbang)",
      "Blur (Heat Shimmer)",
      "Cloud of Daggers (Shrapnel Cloud)",
@@ -13082,7 +13126,7 @@ window.SSDNS_RULES = {
   ]
  },
  "rulesText": {
-  "takeCover": "Half cover is +2 and three-quarters cover is +5 to AC and Dexterity saves. Take Cover stacks on that: anyone, as a bonus action, ducks behind solid cover. Ranged attacks against you have disadvantage until your next attack, and firing ends it. Kneeling or prone alone is not cover.",
+  "takeCover": "Half cover is +2 and three-quarters cover is +5 to AC and Dexterity saves. Take Cover doesn't stack with cover: anyone, as a bonus action, ducks behind solid cover. Ranged attacks against you have disadvantage until your next attack, and firing ends it. Kneeling or prone alone is not cover.",
   "reloading": "Reloading takes an action and fills the whole gun. Slow-load guns take a full turn. Tactical Reload (TR ✓): bonus action, load one round from a gun belt or bandolier. Quick Reload (Gunslinger) makes the reload a bonus action (not slow guns).",
   "reloadingFull": "A gun fires until its Capacity is spent. Reloading takes an action and fills the whole gun. You can reload a partly empty gun the same way. One gun per reload. Slow load. Some guns (percussion revolvers, muzzleloaders, the Big Fifty) take a full turn to reload: your action, bonus action, and movement. You can still take reactions, but not with that gun. Nothing shortens a slow load except the Muzzleloader feat, and nothing ever shortens the Big Fifty. Tactical Reload. With a revolver or a lever-action repeater (TR ✓), you can use your bonus action to load one round from a gun belt or bandolier. You can't do this on a turn when you make a bonus-action shot. Single-shot guns can't use it. Quick Reload (Gunslinger) turns the reload action into a bonus action. It doesn't work on slow guns, or on a Dulls Rolling-Block chambered for a Heavy round. Caster cylinder. A reload (or Tactical Reload) can load hex lead shells as well as cartridges, in any mix. Cantrips need neither (Callings p.31). Single-shot guns fire, then spend an action reloading (a full turn for slow guns). That's the price of the damage. Balance note: features that grant an extra action (e.g. Second Cylinder / Action Surge) can spend that action reloading; they don't shorten a slow load.",
   "misfire": "Every gun has a Misfire number. If your attack roll's natural d20 shows that number, the attack misses and the gun jams. That's the raw roll, before any modifiers: Misfire 1–5 means a natural 1 to 5. Base misfire by build quality. Light-only guns roll one step better than their base: Herringers 1–3 (pepperbox 1–4), Dullards carbine 1–4. Clearing a jam: spend your action, or use a bonus action and succeed on a DC 10 Dexterity check (add your proficiency bonus if you're proficient with tinker's tools or gunsmith's tools). A jammed gun can't fire. Dirty: quicksand, a river dunk, a dust storm, or whatever the DM calls for makes a gun Dirty. A Dirty gun misfires on at least 1–2. Cleaning it takes 10 minutes with gunsmith's tools or a gun cleaning kit. Fouled: if a Dirty gun gets dirty again, or you roll with advantage or disadvantage and both d20s show a misfire number, the gun is fouled. It can't be used until someone spends a short rest working on it with tinker's or gunsmith's tools (or pays a gunsmith 500 ES). Forcing a fouled gun to fire is at your own risk.",

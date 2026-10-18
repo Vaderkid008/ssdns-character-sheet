@@ -91,9 +91,25 @@
     }
     if (!sameTmp) dispatch(tmp);
     if (!sameCur) dispatch(cur);
-    if (Number(current) > 0) clearDowned();
+    syncDown(current);
   }
-  function clearDowned() {
+  function syncDown(hp) {
+    var c = ch();
+    if (!c) return;
+    if (hp == null || (typeof hp === "string" && String(hp).trim() === "")) return;
+    var n = Number(hp);
+    if (!isFinite(n)) return;
+    if (n > 0) {
+      clearDowned(true);
+      return;
+    }
+    if (root.SSDNSConditions && root.SSDNSConditions.ensureUnconscious) {
+      c.activeConditions = root.SSDNSConditions.ensureUnconscious(c.activeConditions || [], n, "self");
+      if (root.SSDNSConditions.listText) c.tableConditions = root.SSDNSConditions.listText(c.activeConditions);
+    }
+    if (typeof renderConds === "function") renderConds();
+  }
+  function clearDowned(force) {
     var c = ch();
     if (!c) return;
     var list = c.activeConditions || [];
@@ -103,7 +119,7 @@
     });
     var saves = c.deathSaves;
     var marked = saves && ((saves.success || []).some(Boolean) || (saves.fail || []).some(Boolean));
-    if (!already && !marked) return;
+    if (!force && !already && !marked) return;
     if (root.SSDNSConditions && root.SSDNSConditions.ensureUnconscious) {
       c.activeConditions = root.SSDNSConditions.ensureUnconscious(c.activeConditions || [], 1, "self");
       c.tableConditions = root.SSDNSConditions.listText ? root.SSDNSConditions.listText(c.activeConditions) : (c.tableConditions || "");
@@ -1818,6 +1834,11 @@
     var rolledView = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var gunStat = rolledView.guns && rolledView.guns[i];
     var parts = gunStat && gunStat.parts ? gunStat.parts.map(function (p) { return { label: p.label, value: Number(p.value) || 0 }; }) : [{ label: "bonus", value: atk }];
+    if (ch() && ch().surpriseDraw && ch().holster === "shoulder-rig") {
+      parts.push({ label: "Surprise draw", value: 2 });
+      ch().surpriseDraw = false;
+      addLog({ kind: "alert", text: "Surprise draw +2 (Shoulder Rig)" });
+    }
     var featList = (ch() && ch().feats) || [];
     if (wpn && wpn.group === "pistol" && featList.indexOf("pistolero") >= 0 && rangeShot && rangeShot.apply && rangeShot.band !== "long" && rangeShot.band !== "blocked") {
       parts.push({ label: "Pistolero", value: 1 });
@@ -2015,6 +2036,12 @@
 
   function setDeath(side, index, on) {
     var path = side === "fail" ? "fail" : "success";
+    var c = ch();
+    if (c) {
+      if (!c.deathSaves) c.deathSaves = { success: [false, false, false], fail: [false, false, false] };
+      if (!Array.isArray(c.deathSaves[path])) c.deathSaves[path] = [false, false, false];
+      if (index >= 0 && index < 3) c.deathSaves[path][index] = !!on;
+    }
     var box = document.querySelector('[data-f="character.deathSaves.' + path + '.' + index + '"]');
     if (!box) return;
     box.checked = !!on;
@@ -2028,6 +2055,7 @@
       var max = num(c.hpMax);
       if (max > 0) c.hpCurrent = max;
       c.hpTemp = 0;
+      if (max > 0) syncDown(max);
       if (c.deathSaves) {
         c.deathSaves.success = [false, false, false];
         c.deathSaves.fail = [false, false, false];
@@ -2489,6 +2517,92 @@
     addLog({ kind: "roll", text: line, nat: nat });
     toast(line);
   }
+  function gunMeleeProfile(w) {
+    if (!w) return null;
+    var g = String(w.group || "");
+    if (g === "pistol" || g === "caster") return { name: "Pistol Whip", expr: "1", twoHand: false };
+    if (g === "rifle" || g === "carbine" || g === "shotgun" || g === "bigbore") return { name: "Rifle Butt", expr: "1d4", twoHand: true };
+    return null;
+  }
+  function rollGunMelee(i) {
+    var c = ch();
+    var g = c && c.guns && c.guns[i];
+    if (!g || !g.weapon) { toast("Pick a gun first"); return; }
+    var wpn = catalogWeapon(g.weapon);
+    var profile = gunMeleeProfile(wpn);
+    if (!profile) { toast("That gun has no melee strike."); return; }
+    var ready = ensureAttackTarget;
+    if (!rollGunMelee._aimed) {
+      ready().then(function (ok) {
+        if (!ok) return;
+        rollGunMelee._aimed = true;
+        try { rollGunMelee(i); }
+        finally { rollGunMelee._aimed = false; }
+      });
+      return;
+    }
+    var gate = attackGate(currentTarget());
+    if (gate) { toast(gate); addLog({ kind: "alert", text: gate }); return; }
+    var host = root.SSDNSMapHost;
+    var rings = root.SSDNSRangeRings;
+    if (host && typeof host.armAttack === "function" && !(rings && rings.peek && rings.peek())) {
+      var tgt0 = currentTarget();
+      host.armAttack({
+        id: "gunmelee:" + i,
+        weapon: g.weapon,
+        name: profile.name,
+        kind: "melee",
+        group: "melee",
+        range: "5 ft",
+        properties: profile.twoHand ? "Two-handed" : ""
+      }, tgt0 && tgt0.id);
+    }
+    var peeked = rings && rings.peek ? rings.peek() : null;
+    if (peeked && peeked.apply && peeked.blocked) {
+      if (rings.take) rings.take();
+      toast(peeked.button || "Out of range");
+      return;
+    }
+    var rangeShot = rings && rings.take ? rings.take() : null;
+    if (rangeShot && rangeShot.apply && rangeShot.blocked) { toast(rangeShot.button || "Out of range"); return; }
+    var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : { mods: {}, prof: 0 };
+    var str = (v.mods && v.mods.STR) || 0;
+    var prof = v.prof || 0;
+    var fake = { group: "melee", category: "simple", properties: profile.twoHand ? "Two-handed" : "", ability: "STR" };
+    var style = root.SSDNSApp && root.SSDNSApp.styleAttackBonus ? (root.SSDNSApp.styleAttackBonus(fake) || 0) : 0;
+    var dmgStyle = root.SSDNSApp && root.SSDNSApp.styleDamageBonus ? (root.SSDNSApp.styleDamageBonus(fake) || 0) : 0;
+    var atk = str + prof + style;
+    var flat = str + dmgStyle + (profile.expr === "1" ? 1 : 0);
+    var expr = profile.expr === "1" ? ((flat >= 0 ? "+" : "") + flat).replace(/^\+/, "") : (profile.expr + (flat ? ((flat >= 0 ? "+" : "") + flat) : ""));
+    if (profile.expr === "1") expr = String(flat);
+    var chosen = gunChosen(i);
+    var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
+    var faced = attackRoll(atk, (c.activeConditions) || [], chosen, rangeNote);
+    var nat = faced.nat;
+    var tgt = currentTarget();
+    if (tgt) rememberEnemy(tgt);
+    var cover = coverFor(tgt, coverOptsFor("melee"));
+    var haveAc = !!(cover && cover.have);
+    var total = nat + atk;
+    var miss = nat === 1 || (haveAc && total < Number(cover.ac));
+    var dmg = null;
+    if (!miss) {
+      if (profile.expr === "1") dmg = { total: Math.max(0, flat), detail: String(flat), faces: [], flat: flat, formula: String(flat) };
+      else dmg = rollDamageExpr(profile.expr + (flat ? ((flat >= 0 ? "+" : "") + flat) : ""), nat === 20);
+    }
+    if (c) c.takingCover = false;
+    attackCue("whoosh");
+    var who = (c && c.name) || "You";
+    var report = attackReport({
+      who: who, target: tgt && tgt.name, nat: nat, atk: atk,
+      ac: haveAc ? cover.ac : (tgt && tgt.ac), miss: miss, dmg: dmg,
+      dice: faced.shown || String(nat), weapon: profile.name
+    });
+    addLog({ kind: "roll", text: report.player, nat: nat });
+    toast(report.player);
+    if (root.SSDNSSheet && root.SSDNSSheet.consumeRollMode) consumeRollMode();
+  }
+  root.SSDNSGunMelee = rollGunMelee;
   root.SSDNSSheet = {
     applyDelta: applyDelta,
     setHp: setHp,
@@ -2506,6 +2620,8 @@
     applyGunEvent: applyGunEvent,
     setDeath: setDeath,
     rollDeathSave: rollDeathSave,
+    syncDown: syncDown,
+    rollGunMelee: rollGunMelee,
     clearDowned: clearDowned,
     applyRest: applyRest,
     undoItem: undoItem,
