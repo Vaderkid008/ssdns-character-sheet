@@ -1,6 +1,9 @@
 /* SSDNS starter item catalog. One schema. New items are data only.
    Effect kinds: heal, castSpell, attack, save+condition, buff, text.
-   art is a site path. An empty art string uses the placeholder. */
+   art is a site path. An empty art string uses the placeholder.
+   A price here matches store-items.json. If that file has price_es for the
+   same id, the catalog uses the store price so the two cannot drift.
+   Story finds stay unpriced. */
 (function (root) {
   "use strict";
 
@@ -184,7 +187,7 @@
       effect: { kind: "attack", range: "30/60", damage: "3d6", damageType: "bludgeoning", radius: 5, save: "DEX", dc: 12, onSave: "half" },
       uses: { max: 1 },
       weight: 1,
-      price: 500,
+      price: 2500,
       forSale: true,
       art: "assets/img/weapons/dynamite-stick-standard-fuse.webp"
     },
@@ -196,7 +199,7 @@
       effect: { kind: "attack", range: "30/60", damage: "3d6", damageType: "bludgeoning", radius: 5, save: "DEX", dc: 12, onSave: "half", text: "Misfire on 1–3." },
       uses: { max: 1 },
       weight: 1,
-      price: 250,
+      price: 1250,
       forSale: true,
       art: "assets/img/weapons/dynamite-stick-sweating.webp"
     },
@@ -208,7 +211,7 @@
       effect: { kind: "attack", range: "", damage: "6d6", damageType: "bludgeoning", radius: 20, save: "DEX", dc: 13, onSave: "half", placed: true },
       uses: { max: 1 },
       weight: 20,
-      price: 2500,
+      price: 10000,
       forSale: true,
       art: "assets/img/weapons/blasting-keg.webp"
     },

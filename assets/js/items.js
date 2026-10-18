@@ -7,6 +7,7 @@
   var TYPES = { consumable: 1, scroll: 1, explosive: 1, gear: 1, weapon: 1, quest: 1 };
   var KINDS = { heal: 1, castSpell: 1, attack: 1, "save+condition": 1, buff: 1, text: 1 };
   var room = { weightOn: false, catalog: {} };
+  var storeById = {};
 
   function seeds() { return (root.SSDNS_ITEM_CATALOG || []).slice(); }
 
@@ -63,16 +64,51 @@
     return true;
   }
 
+  function storePriceOf(id) {
+    var row = storeById[String(id || "")];
+    if (!row || row.price_es == null || row.price_es === "") return null;
+    var n = Number(row.price_es);
+    return isFinite(n) ? n : null;
+  }
+
+  function setStore(list) {
+    storeById = {};
+    (Array.isArray(list) ? list : []).forEach(function (row) {
+      if (row && row.id) storeById[row.id] = row;
+    });
+    paintSheet();
+    paintDm();
+  }
+
+  function loadStore() {
+    if (Object.keys(storeById).length || !root.XMLHttpRequest) return;
+    var loc = "";
+    try { loc = (root.location && root.location.pathname) || ""; } catch (e) {}
+    var path = loc.indexOf("/dm/") >= 0 ? "assets/data/store-items.json" : "dm/assets/data/store-items.json";
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", path, false);
+      xhr.send(null);
+      if ((xhr.status >= 200 && xhr.status < 300) || xhr.status === 0) {
+        var data = JSON.parse(xhr.responseText || "null");
+        if (Array.isArray(data)) setStore(data);
+      }
+    } catch (err) {}
+  }
+
   function normalize(raw) {
     raw = raw || {};
+    var type = TYPES[raw.type] ? raw.type : "gear";
+    var explicitStory = !!raw.story;
     var price = raw.price == null || raw.price === "" ? null : Number(raw.price);
     if (price != null && !isFinite(price)) price = null;
-    var story = !!raw.story || price == null && raw.forSale === false;
+    var locked = storePriceOf(raw.id);
+    if (locked != null && !explicitStory && type !== "quest") price = locked;
+    var story = explicitStory || price == null && raw.forSale === false;
     var forSale = raw.forSale === false || price == null || story ? (raw.forSale === true && price != null && !story) : true;
     if (story || price == null) forSale = false;
     var weight = raw.weight == null || raw.weight === "" ? null : Number(raw.weight);
     if (weight != null && !isFinite(weight)) weight = null;
-    var type = TYPES[raw.type] ? raw.type : "gear";
     return {
       id: String(raw.id || "").trim(),
       name: String(raw.name || "Item").trim(),
@@ -998,6 +1034,7 @@
     weaponRecord: weaponRecord,
     landWeapon: landWeapon,
     setRoom: setRoom,
+    setStore: setStore,
     room: function () { return { weightOn: !!room.weightOn, catalog: room.catalog }; },
     useOnSheet: useOnSheet,
     applyCommand: applyCommand,
@@ -1015,6 +1052,7 @@
     bindSheet();
     bindDm();
   }
+  loadStore();
   if (root.document) {
     if (root.document.readyState === "loading") root.document.addEventListener("DOMContentLoaded", boot);
     else boot();

@@ -152,6 +152,27 @@ const custom = Items.normalize({ id: "room-tonic", name: "Room Tonic", type: "co
 Items.setRoom({ weightOn: false, catalog: { "room-tonic": custom } });
 check("catalog.room", Items.byId("room-tonic").name === "Room Tonic" && Items.catalog({ dm: true }).some((row) => row.id === "room-tonic"));
 check("catalog.shop", Items.catalog({ forSale: true }).every((row) => row.forSale) && !Items.catalog({ forSale: true }).some((row) => row.id === "eldorite-dust" || row.id === "hat-of-the-sharpshooter" || row.id === "bounty-warrant"));
+
+const store = JSON.parse(read("dm/assets/data/store-items.json"));
+Items.setStore(store);
+function storePrice(id) {
+  const row = store.find((item) => item.id === id);
+  return row && row.price_es != null && row.price_es !== "" ? row.price_es : null;
+}
+["dynamite-stick-standard-fuse", "dynamite-stick-sweating-sold-cheap", "blasting-keg", "fuse-cord-50-ft", "whiskey-bottle", "snakebite-antivenin-antitoxin", "field-glass-spyglass", "gun-cleaning-kit", "lariat-50-ft"].forEach((id) => {
+  const got = Items.byId(id);
+  check("price." + id, got.price === storePrice(id) && got.forSale === true && storePrice(id) != null, JSON.stringify(got && { price: got.price, forSale: got.forSale }));
+});
+check("price.l0164", Items.byId("dynamite-stick-standard-fuse").price === 2500 && Items.byId("dynamite-stick-sweating-sold-cheap").price === 1250 && Items.byId("blasting-keg").price === 10000);
+check("price.libation", Items.byId("assay-tonic-trail-draught").price === 5000 && Items.byId("assay-tonic-trail-draught").forSale === true);
+const drifted = store.map((row) => row.id === "dynamite-stick-standard-fuse" ? Object.assign({}, row, { price_es: 9999 }) : row);
+drifted.push({ id: "hat-of-the-sharpshooter", price_es: 50 }, { id: "bounty-warrant", price_es: 20 });
+Items.setStore(drifted);
+check("price.follow", Items.byId("dynamite-stick-standard-fuse").price === 9999);
+const pricedHat = Items.byId("hat-of-the-sharpshooter");
+const pricedWarrant = Items.byId("bounty-warrant");
+check("price.story", pricedHat.price == null && pricedHat.forSale === false && pricedWarrant.price == null && pricedWarrant.forSale === false);
+Items.setStore(store);
 check("catalog.questHidden", !Items.catalog({ dm: false }).some((row) => row.type === "quest") && Items.catalog({ dm: true }).some((row) => row.id === "black-shard"));
 
 const spendSheet = { name: "Ada", items: [], abilities: { STR: 10 }, level: 5 };

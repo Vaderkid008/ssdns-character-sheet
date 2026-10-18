@@ -5745,8 +5745,10 @@ async function bootV2() {
   } catch (e) {}
   try {
     const res = await fetch("assets/data/store-items.json?v=0.2.35-class");
-    if (res.ok) storeItems = await res.json();
-    else DM.toast("Store list failed to load");
+    if (res.ok) {
+      storeItems = await res.json();
+      if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
+    } else DM.toast("Store list failed to load");
   } catch (e) {
     DM.toast("Store list failed to load");
   }
