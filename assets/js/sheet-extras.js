@@ -225,6 +225,17 @@
   }
 
   function addLog(entry) {
+    entry = entry || {};
+    var mine = ch();
+    if (mine && !entry.characterName && !entry.playerName) {
+      var spoken = String(entry.text || "");
+      var character = String(mine.name || "").trim();
+      var player = String(mine.player || "").trim();
+      if ((character && spoken.indexOf(character) === 0) || (player && spoken.indexOf(player) === 0)) {
+        entry.characterName = character;
+        entry.playerName = player;
+      }
+    }
     entry.ts = entry.ts || new Date().toISOString();
     try {
       var cid = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc() && root.SSDNSApp.doc().id;
@@ -301,7 +312,7 @@
         var cut = text.indexOf(":");
         if (cut > 0) who = text.slice(0, cut);
       }
-      return { id: e.id, kind: e.kind, who: who, text: text, formula: e.formula || "", attack: !!e.attack, nat: e.nat, result: e.result, face: e.face, ts: e.ts, tag: face.tag, cls: face.cls };
+      return { id: e.id, kind: e.kind, who: who, text: text, characterName: e.characterName || "", playerName: e.playerName || "", formula: e.formula || "", attack: !!e.attack, nat: e.nat, result: e.result, face: e.face, ts: e.ts, tag: face.tag, cls: face.cls };
     });
   }
   function renderDock() {
@@ -321,7 +332,8 @@
       var whoName = String(e.text || "").split(/→|:/)[0].trim();
       var tokenC = root.SSDNSApplied && root.SSDNSApplied.tokenColorFor && root.SSDNSApplied.tokenColorFor(whoName);
       var chatColor = tokenC || (e.kind === "chat" ? speakerColor(whoName) : "");
-      var body = root.SSDNSApplied && root.SSDNSApplied.leadNameHtml ? root.SSDNSApplied.leadNameHtml(e.text || "") : esc(e.text || "");
+      var spoken = root.SSDNSApplied && root.SSDNSApplied.rewriteSpeaker ? root.SSDNSApplied.rewriteSpeaker(e.text || "", e) : (e.text || "");
+      var body = root.SSDNSApplied && root.SSDNSApplied.leadNameHtml ? root.SSDNSApplied.leadNameHtml(spoken) : esc(spoken);
       if (root.SSDNSDice && root.SSDNSDice.lead) body = root.SSDNSDice.lead(e, body);
       return '<div class="dock-item ' + face.cls + '"' + (chatColor ? ' style="border-left:4px solid ' + chatColor + '"' : "") + handoutAttrs(e) + '><div class="dock-meta">' + when + " · " + esc(dockBucket(e)) +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") +
@@ -363,9 +375,10 @@
       try { when = root.SSDNSClock ? root.SSDNSClock.format(e.ts, false) : new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (err) {}
       var face = rollFace(e);
       var hand = e.kind === "handout";
+      var spoken = root.SSDNSApplied && root.SSDNSApplied.rewriteSpeaker ? root.SSDNSApplied.rewriteSpeaker(e.text || "", e) : (e.text || "");
       var body = root.SSDNSApplied && root.SSDNSApplied.leadNameHtml
-        ? root.SSDNSApplied.leadNameHtml(e.text || "")
-        : String(e.text || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; });
+        ? root.SSDNSApplied.leadNameHtml(spoken)
+        : String(spoken || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; });
       if (root.SSDNSDice && root.SSDNSDice.lead) body = root.SSDNSDice.lead(e, body);
       return '<div class="log-item log-' + (e.kind || "all") + " " + face.cls + '"' + handoutAttrs(e) + '><div class="log-meta">' + when + " · " + (e.kind || "") +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") + '</div><div>' +
@@ -721,6 +734,8 @@
     var card = Applied.attackBreakdown({
       who: info.who,
       target: info.targetName,
+      weapon: info.weapon || "",
+      spell: info.spellName || "",
       nat: info.nat,
       n1: info.n1 != null ? info.n1 : info.nat,
       n2: info.n2,
@@ -767,8 +782,9 @@
       ac: null,
       targetId: info.targetId,
       targetName: info.targetName,
-      weapon: info.weapon || "",
-      private: !!info.quiet,
+        weapon: info.weapon || "",
+        spellName: info.spellName || "",
+        private: !!info.quiet,
       whisper: !!info.quiet
     });
     if (!info.quiet && root.SSDNSDmJoin.postAttack) {
@@ -1385,6 +1401,7 @@
         rollId: rollId,
         label: rolled.label,
         weapon: throughGun && i >= 0 ? gunName(i) : "",
+        spellName: spellName || "",
         sfx: spellCueName(),
         shots: rolled.shots || null,
         spell: true,
@@ -1404,10 +1421,12 @@
       if (isFinite(Number(v.prof))) spellParts.push({ label: "proficiency", value: Number(v.prof) || 0 });
       if (!spellParts.length) spellParts.push({ label: "spell attack", value: atk });
       var dmgTail = String(rolled.text || "").match(/on hit (.+)$/);
-      var spellCard = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
+        var spellCard = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
         ? root.SSDNSApplied.attackBreakdown({
           who: (c && c.name) || "You",
           target: tgt.name,
+          spell: spellName || "",
+          weapon: throughGun && i >= 0 ? gunName(i) : "",
           nat: rolled.nat,
           n1: rolled.n1,
           n2: rolled.n2,
@@ -1970,7 +1989,7 @@
     var caliber = (g.chamber && String(g.chamber).split("|")[1]) || (wpn && wpn.ammo) || "";
     var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
       ? root.SSDNSApplied.attackBreakdown({
-        who: who, target: tgt && tgt.name, nat: nat, n1: n1, n2: n2, parts: parts, total: total,
+        who: who, target: tgt && tgt.name, weapon: name, nat: nat, n1: n1, n2: n2, parts: parts, total: total,
         ac: haveAc ? gunCover.ac : (tgt && tgt.ac), revealAc: !acHidden(tgt), misfire: misfired, miss: miss, coverNote: gunCover.note,
         damage: dmg ? { faces: dmg.faces, parts: dmgParts, total: dmg.total, type: (gunStat && gunStat.dmgType) || "piercing" } : null
       })
@@ -2517,6 +2536,7 @@
       hear.hidden = true;
     });
     renderLog();
+    window.addEventListener("ssdns-name-mode", function () { renderLog(); });
     renderStore();
     setTimeout(renderConds, 400);
     document.addEventListener("click", function (e) {

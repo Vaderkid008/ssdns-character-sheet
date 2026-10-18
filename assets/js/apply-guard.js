@@ -314,10 +314,12 @@
       status: enemy ? coarseStatus(row) : (row.status || ""),
       kind: row.kind || "",
       playerId: row.playerId || "",
-      conditions: enemy ? conditionNames(conditions || row.conditions) : [],
+      conditions: conditionNames(conditions || row.conditions),
       cover: coverKey(row.cover),
       coverLock: !!row.coverLock
     };
+    var faction = factionName(row);
+    if (faction && (!enemy || flags.name)) out.faction = faction;
     if (enemy) out.side = combatantSide(row);
     if (!enemy) return out;
     var revealed = {};
@@ -408,13 +410,14 @@
     });
     var who = info.who || "Someone";
     var target = info.target || "enemy";
+    var named = attackTool(info);
     return {
       miss: !anyHit,
       crit: anyHit && anyCrit,
       verdict: anyHit ? (anyCrit ? "CRIT" : "HIT") : "MISS",
       sfx: anyHit ? (info.sfx || "attack") : "",
       amount: amount,
-      line: who + " → " + target + ": " + parts.join("; ")
+      line: who + (named ? " · " + named : "") + " → " + target + ": " + parts.join("; ")
     };
   }
   function attackPublicLine(info, verdict) {
@@ -422,9 +425,10 @@
     verdict = verdict || attackVerdict(info);
     var who = info.who || "Someone";
     var target = info.target || "enemy";
+    var named = attackTool(info);
     var dice = !verdict.miss && info.dice ? (" · " + info.dice) : "";
     var amount = !verdict.miss && info.amount != null && info.amount !== "" ? (" = " + info.amount) : "";
-    return who + " → " + target + ": " + attackRollCore(info) + " → " + verdict.verdict + dice + amount;
+    return who + (named ? " · " + named : "") + " → " + target + ": " + attackRollCore(info) + " → " + verdict.verdict + dice + amount;
   }
   /** Refuse an in-room LIVE line once the DM has left the table or the room has ended. */
   function liveStripAllowed(mode, text, info) {
@@ -882,6 +886,73 @@
     if (who) return who;
     return String(player || "").trim();
   }
+  var NAME_MODE_KEY = "ssdns.chat.nameMode";
+  function nameMode() {
+    try {
+      if (root.localStorage && root.localStorage.getItem(NAME_MODE_KEY) === "player") return "player";
+    } catch (e) {}
+    return "character";
+  }
+  function paintNameModes() {
+    if (!root.document || !root.document.querySelectorAll) return;
+    var mode = nameMode();
+    Array.prototype.forEach.call(root.document.querySelectorAll("[data-name-mode]"), function (btn) {
+      var on = btn.getAttribute("data-name-mode") === mode;
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+  function setNameMode(mode) {
+    var next = mode === "player" ? "player" : "character";
+    try { if (root.localStorage) root.localStorage.setItem(NAME_MODE_KEY, next); } catch (e) {}
+    paintNameModes();
+    try { root.dispatchEvent(new CustomEvent("ssdns-name-mode", { detail: next })); } catch (err) {}
+    return next;
+  }
+  function chosenName(entry) {
+    entry = entry || {};
+    var character = String(entry.characterName || "").trim();
+    var player = String(entry.playerName || "").trim();
+    if (neutralSpeaker(character) || neutralSpeaker(entry.who) || neutralSpeaker(entry.fromName)) return character || "";
+    if (nameMode() === "player") return player || character;
+    return character || player;
+  }
+  function escapeReg(s) {
+    return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  /** Swap a leading character/player name. DM and system lines stay as written. */
+  function rewriteSpeaker(text, entry) {
+    var raw = String(text || "");
+    entry = entry || {};
+    if (entry.kind === "dm" || neutralSpeaker(entry.who) || neutralSpeaker(entry.fromName) || neutralSpeaker(entry.characterName)) return raw;
+    var character = String(entry.characterName || "").trim();
+    var player = String(entry.playerName || "").trim();
+    if (!character || !player || character === player) return raw;
+    var from = nameMode() === "player" ? character : player;
+    var to = nameMode() === "player" ? player : character;
+    if (!from || !to || from === to) return raw;
+    var re = new RegExp("^(\\s*)" + escapeReg(from) + "(?=\\s*(?:→|:|·|\\n|$))");
+    if (!re.test(raw)) return raw;
+    return raw.replace(re, "$1" + to);
+  }
+  function attackTool(info) {
+    info = info || {};
+    var bits = [];
+    function add(raw) {
+      var text = String(raw || "").trim();
+      if (!text) return;
+      var named = weaponName(text) || text;
+      if (bits.indexOf(named) < 0) bits.push(named);
+    }
+    add(info.weapon);
+    add(info.spell);
+    return bits.join(" · ");
+  }
+  function factionName(row) {
+    if (!row) return "";
+    var card = row.card || {};
+    return String(row.faction || card.faction || "").trim();
+  }
   function stripGhostCombatants(order, playerIds) {
     var ids = playerIds || null;
     return (order || []).filter(function (row) {
@@ -1054,7 +1125,8 @@
     var verdict = misfire ? "misfire" : (miss ? "MISS" : (crit ? "CRIT" : "HIT"));
     var vs = (!hideVerdict && haveAc) ? (" vs AC " + Number(ac) + (info.coverNote ? " (" + info.coverNote + ")" : "")) : "";
     var who = info.who || "Someone";
-    var head = who + (info.target ? " → " + info.target : "");
+    var named = attackTool(info);
+    var head = who + (named ? " · " + named : "") + (info.target ? " → " + info.target : "");
     var math = diceLine + (bonusLine ? " · " + bonusLine : "") + " = " + total;
     var dmg = info.damage;
     var dmgLine = "";
@@ -1121,11 +1193,24 @@
     }
     return pick(raw) || pick(raw.split("(")[0]) || pick(raw.split("→")[0]) || pick(raw.split(":")[0]) || "";
   }
+  function tokenSwatch(name) {
+    var raw = String(name || "").trim();
+    if (!raw || neutralSpeaker(raw)) return "";
+    var bag = root.SSDNSTokenColors || {};
+    function pick(key) {
+      var hit = bag[String(key || "").trim().toLowerCase()];
+      return hit ? String(hit) : "";
+    }
+    var color = pick(raw) || pick(raw.split("(")[0]) || pick(raw.split("→")[0]) || pick(raw.split(":")[0]) || "";
+    if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)) return "";
+    return color;
+  }
   function whoHtml(name) {
     var raw = String(name || "");
     var color = tokenColorFor(raw);
     if (!color) return escHtml(raw);
-    return '<span class="ssm-who" style="color:' + color + '">' + escHtml(raw) + "</span>";
+    var swatch = tokenSwatch(raw) || color;
+    return '<span class="token-chip" style="background:' + swatch + '" aria-hidden="true"></span><span class="ssm-who" style="color:' + color + '">' + escHtml(raw) + "</span>";
   }
   function leadNameHtml(text) {
     var raw = String(text || "");
@@ -1257,10 +1342,17 @@
     attackBreakdown: attackBreakdown,
     readableOnDark: readableOnDark,
     tokenColorFor: tokenColorFor,
+    tokenSwatch: tokenSwatch,
     neutralSpeaker: neutralSpeaker,
     whoHtml: whoHtml,
     leadNameHtml: leadNameHtml,
     speakerName: speakerName,
+    nameMode: nameMode,
+    setNameMode: setNameMode,
+    chosenName: chosenName,
+    rewriteSpeaker: rewriteSpeaker,
+    attackTool: attackTool,
+    factionName: factionName,
     stripGhostCombatants: stripGhostCombatants,
     presenceShownOnline: presenceShownOnline
   };
@@ -1270,4 +1362,20 @@
     stampAge: stampAge,
     format: formatTime
   };
+  function bindNameMode() {
+    if (!root.document || bindNameMode.done) return;
+    bindNameMode.done = true;
+    root.document.addEventListener("click", function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest("[data-name-mode]") : null;
+      if (!btn) return;
+      e.preventDefault();
+      setNameMode(btn.getAttribute("data-name-mode"));
+    });
+    paintNameModes();
+  }
+  if (root.document && root.document.readyState === "loading") {
+    root.document.addEventListener("DOMContentLoaded", bindNameMode);
+  } else {
+    bindNameMode();
+  }
 })(typeof window !== "undefined" ? window : globalThis);

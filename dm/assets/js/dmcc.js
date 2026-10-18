@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.55"; // dmcc-playtest-v0255
+const VERSION = "0.2.56"; // dmcc-playtest-v0256
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1545,9 +1545,12 @@ function paintText(text) {
   return paintLine(null, text);
 }
 function paintLine(entry, text) {
+  const spoken = window.SSDNSApplied && window.SSDNSApplied.rewriteSpeaker
+    ? window.SSDNSApplied.rewriteSpeaker(text || "", entry || {})
+    : (text || "");
   const html = window.SSDNSApplied && window.SSDNSApplied.leadNameHtml
-    ? window.SSDNSApplied.leadNameHtml(text || "")
-    : esc(text || "");
+    ? window.SSDNSApplied.leadNameHtml(spoken)
+    : esc(spoken);
   if (window.SSDNSDice && window.SSDNSDice.lead) return window.SSDNSDice.lead(entry || { formula: text }, html);
   if (window.SSDNSDice && window.SSDNSDice.decorate) return window.SSDNSDice.decorate(html);
   return html;
@@ -2088,6 +2091,8 @@ function dockItems() {
       id: c && c.id,
       ts: c.ts, kind: "chat",
       who: (c.fromName || "Table") + (c.to && c.to !== "all" ? " → " + (c.toName || "one player") : ""),
+      characterName: (c && c.characterName) || "",
+      playerName: (c && c.playerName) || "",
       text: c.text || ""
     });
   });
@@ -2116,6 +2121,8 @@ function dockItems() {
       ts: r.ts,
       kind: (r.nat1 && r.isFirearm) ? "alerts" : "rolls",
       who: rollWho(r) || r.characterName || r.who || "",
+      characterName: r.characterName || "",
+      playerName: r.playerName || "",
       cls: (r.private ? "private " : "") + (face.cls || ""),
       tag: r.private ? "PRIVATE" : face.tag,
       text: rollBody(r),
@@ -2164,7 +2171,7 @@ function publishMapChat() {
     if (id && seen.has(id)) return;
     if (id) seen.add(id);
     const who = (c.fromName || "Table") + (c.to && c.to !== "all" ? " → " + (c.toName || "one player") : "");
-    items.push({ id: id, ts: c.ts, kind: "chat", who: who, text: c.text || "" });
+    items.push({ id: id, ts: c.ts, kind: "chat", who: who, characterName: c.characterName || "", playerName: c.playerName || "", text: c.text || "" });
   });
   (state.rolls || []).forEach((r) => {
     if (!r) return;
@@ -2174,6 +2181,8 @@ function publishMapChat() {
       ts: r.ts,
       kind: "rolls",
       who: rollWho(r) || r.characterName || r.who || "",
+      characterName: r.characterName || "",
+      playerName: r.playerName || "",
       cls: (r.private ? "private " : "") + (face.cls || ""),
       tag: r.private ? "PRIVATE" : face.tag,
       text: rollBody(r),
@@ -2253,7 +2262,11 @@ async function sendDockChat(text, to) {
 }
 
 function rollWho(r) {
-  if (r && r.characterName && r.playerName) return r.characterName + " (" + r.playerName + ")";
+  if (window.SSDNSApplied && window.SSDNSApplied.chosenName) {
+    const picked = window.SSDNSApplied.chosenName(r || {});
+    if (picked) return picked;
+  }
+  if (r && r.characterName) return r.characterName;
   return (r && r.who) || "";
 }
 function renderRolls() {
@@ -3155,5 +3168,10 @@ async function boot() {
     }
   }
 }
+
+window.addEventListener("ssdns-name-mode", () => {
+  try { renderRolls(); } catch (e) {}
+  try { renderLiveDock(); } catch (e) {}
+});
 
 boot();

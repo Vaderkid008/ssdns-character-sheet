@@ -29,3 +29,12 @@ button.d20 {
   color: #1a120c;
   text-shadow: 0 0 2px #fff6e4;
 }
+@media (max-width: 700px) {
+  .dice-bar, .dice-bar-row { flex-wrap: wrap; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .dice-bar-btn { min-width: 40px; min-height: 40px; }
+}
+@media (max-width: 520px) {
+  .dice-bar { padding-left: 8px; padding-right: 8px; }
+  .dice-stage { flex-wrap: wrap; max-width: 100%; }
+  .die-face { width: 64px; height: 64px; }
+}

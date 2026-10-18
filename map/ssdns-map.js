@@ -393,7 +393,7 @@ on(document, 'keydown', e => {
 });
 const chatdock = document.createElement('div');
 chatdock.className = 'ssdns-chatdock';
-chatdock.innerHTML = `<div class="ssdns-chathead"><button type="button" data-act="chatToggle" aria-expanded="true" title="Minimize chat">Chat <span data-act="chatCaret" aria-hidden="true">▾</span> <span data-act="chatBadge" class="ssm-chatbadge" hidden>0</span></button><span data-act="chatFilters"><button type="button" data-chat-filter="all" class="on">All</button><button type="button" data-chat-filter="rolls">Rolls</button><button type="button" data-chat-filter="talk">Talk</button></span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatWindow" class="ssm-chat-tab">Open in new tab</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden></p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
+chatdock.innerHTML = `<div class="ssdns-chathead"><button type="button" data-act="chatToggle" aria-expanded="true" title="Minimize chat">Chat <span data-act="chatCaret" aria-hidden="true">▾</span> <span data-act="chatBadge" class="ssm-chatbadge" hidden>0</span></button><span data-act="chatFilters"><button type="button" data-chat-filter="all" class="on">All</button><button type="button" data-chat-filter="rolls">Rolls</button><button type="button" data-chat-filter="talk">Talk</button></span><span class="name-mode" role="group" aria-label="Show names as"><button type="button" data-name-mode="character">Character</button><button type="button" data-name-mode="player">Player</button></span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatWindow" class="ssm-chat-tab">Open in new tab</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden></p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
 el.appendChild(chatdock);
 state.chatFilter = 'all';
 state.chatOpen = true;
@@ -470,13 +470,15 @@ function publishTokenColors() {
 }
 function chatLineHtml(row) {
   const name = chatName(row);
-  const text = String(row.text || '');
+  let text = String(row.text || '');
   const Applied = window.SSDNSApplied;
+  if (Applied && Applied.rewriteSpeaker) text = Applied.rewriteSpeaker(text, row || {});
+  const shown = (Applied && Applied.chosenName && row && !Applied.neutralSpeaker(name) && Applied.chosenName(row)) || name;
   const bucket = chatBucket(row);
-  const startsWithName = !!(name && (text === name || text.indexOf(name + ' ') === 0 || text.indexOf(name + ':') === 0 || text.indexOf(name + '\n') === 0));
-  if (Applied && Applied.leadNameHtml && (bucket === 'rolls' || startsWithName)) return Applied.leadNameHtml(name && text.indexOf(name) !== 0 ? (name + ': ' + text) : text);
-  if (Applied && Applied.whoHtml) return Applied.whoHtml(name) + ': ' + esc(text);
-  return esc(name + ': ' + text);
+  const startsWithName = !!(shown && (text === shown || text.indexOf(shown + ' ') === 0 || text.indexOf(shown + ':') === 0 || text.indexOf(shown + '\n') === 0));
+  if (Applied && Applied.leadNameHtml && (bucket === 'rolls' || startsWithName)) return Applied.leadNameHtml(shown && text.indexOf(shown) !== 0 ? (shown + ': ' + text) : text);
+  if (Applied && Applied.whoHtml) return Applied.whoHtml(shown) + ': ' + esc(text);
+  return esc(shown + ': ' + text);
 }
 function renderChat() {
   publishTokenColors();
@@ -510,6 +512,10 @@ function renderChat() {
     badge.textContent = String(unread);
   }
   syncChatPop();
+}
+if (!el._nameMode) {
+  el._nameMode = true;
+  window.addEventListener('ssdns-name-mode', () => { if (el.isConnected) renderChat(); });
 }
 paintRoleBadge();
 function pushFeed(row) {
@@ -3967,17 +3973,25 @@ async function loadSceneImage(sceneId) {
     if (!strip) {
       strip = document.createElement('div');
       strip.setAttribute('data-act', 'turnStrip');
-      strip.style.cssText = 'position:absolute;bottom:52px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:12;';
+      strip.className = 'ssm-turnstrip';
       el.appendChild(strip);
     }
     const order = (state.initiative && state.initiative.order) || [];
     const turn = (state.initiative && state.initiative.turn) || 0;
+    const len = order.length || 1;
     strip.innerHTML = '';
     order.forEach((c, i) => {
       if (role !== 'dm' && c && c.mapHidden) return;
       const b = document.createElement('span');
-      b.textContent = c.name || c.id;
-      b.style.cssText = 'padding:2px 6px;border-radius:4px;font-size:11px;background:' + (i === turn ? '#8a7040' : '#2a241c') + ';color:#e8dcc8;cursor:pointer;';
+      const friendly = c && (c.side === 'friendly' || c.side === 'ally');
+      const side = c && c.kind === 'player' ? 'side-pc player' : (friendly ? 'side-ally' : (c && c.kind === 'enemy' ? 'side-enemy enemy' : 'side-pc player'));
+      const dist = (i - turn + len) % len;
+      const stateCls = i === turn ? ' current' : (dist > 0 && dist <= 2 ? ' ondeck' : ' later');
+      b.className = 'turn-chip ' + side + stateCls;
+      const raw = String((c && (c.name || c.id)) || '');
+      const letters = raw.replace(/[^A-Za-z]/g, '');
+      const initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : '')).toUpperCase() || '?';
+      b.innerHTML = '<span class="chip-face">' + esc(initials) + '</span><span class="chip-name">' + esc(raw) + '</span>';
       if (role === 'dm') {
         b.addEventListener('click', () => {
           const t = state.tokens.find(tok => tok.combatantId === c.id || tok.id === c.id);
@@ -3987,12 +4001,18 @@ async function loadSceneImage(sceneId) {
       strip.appendChild(b);
     });
     if (role === 'dm') {
-      ['Prev','Next'].forEach(label => {
-        const b = document.createElement('button');
-        b.textContent = label;
-        b.addEventListener('click', () => emit(label === 'Next' ? 'initiative:next' : 'initiative:prev', {}));
-        strip.appendChild(b);
-      });
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.className = 'btn btn-primary btn-next';
+      next.textContent = 'Next';
+      next.addEventListener('click', () => emit('initiative:next', {}));
+      strip.appendChild(next);
+      const prev = document.createElement('button');
+      prev.type = 'button';
+      prev.className = 'btn sm';
+      prev.textContent = 'Previous';
+      prev.addEventListener('click', () => emit('initiative:prev', {}));
+      strip.appendChild(prev);
     }
   }
   function renderActions() {

@@ -92,15 +92,20 @@
       return /^[a-z0-9_-]+$/i.test(c);
     }).join(" ");
   }
-  function nameHtml(name) {
+  function nameHtml(name, item) {
     var Applied = root.SSDNSApplied;
     var raw = name || "Table";
+    if (Applied && Applied.chosenName && item && !Applied.neutralSpeaker(raw)) {
+      var picked = Applied.chosenName(item);
+      if (picked) raw = picked;
+    }
     if (!Applied || !Applied.tokenColorFor || !Applied.whoHtml) return esc(raw);
     return Applied.whoHtml(raw);
   }
   function textHtml(item) {
     var text = body(item);
     var Applied = root.SSDNSApplied;
+    if (Applied && Applied.rewriteSpeaker) text = Applied.rewriteSpeaker(text, item || {});
     var html = Applied && Applied.leadNameHtml ? Applied.leadNameHtml(text) : esc(text);
     if (root.SSDNSDice && root.SSDNSDice.lead) return root.SSDNSDice.lead(item, html);
     if (root.SSDNSDice && root.SSDNSDice.decorate) return root.SSDNSDice.decorate(html);
@@ -113,7 +118,7 @@
     feed.innerHTML = rows.map(function (item) {
       var tag = item.tag ? ' · <span class="roll-tag">' + esc(item.tag) + "</span>" : "";
       return '<div class="' + clsOf(item) + '" data-id="' + esc(keyOf(item)) + '"><div class="dock-meta">' +
-        nameHtml(item.who || "Table") + tag + '</div><div class="dock-text">' + textHtml(item) + "</div></div>";
+        nameHtml(item.who || "Table", item) + tag + '</div><div class="dock-text">' + textHtml(item) + "</div></div>";
     }).join("") || '<p class="fine">No messages yet.</p>';
     var host = feed.parentNode;
     if (host && host.querySelectorAll) {
@@ -130,7 +135,10 @@
     return '<span class="ssdns-chat-filters" data-act="chatFilters">' +
       '<button type="button" data-chat-filter="all">All</button>' +
       '<button type="button" data-chat-filter="rolls">Rolls</button>' +
-      '<button type="button" data-chat-filter="talk">Talk</button></span>';
+      '<button type="button" data-chat-filter="talk">Talk</button></span>' +
+      '<span class="name-mode" role="group" aria-label="Show names as">' +
+      '<button type="button" data-name-mode="character">Character</button>' +
+      '<button type="button" data-name-mode="player">Player</button></span>';
   }
   function viewItems(inst) {
     return merge([inst.mapItems, inst.dockItems]);
@@ -499,6 +507,10 @@
     var lastItems = [];
     var filter = readFilter();
     function paint() { render(feed, lastItems, filter); }
+    root.addEventListener("ssdns-name-mode", paint);
+    root.addEventListener("storage", function (e) {
+      if (e && e.key === "ssdns.chat.nameMode") paint();
+    });
     function post(op, extra) {
       if (!root.opener || root.opener.closed) return false;
       try {
@@ -545,6 +557,9 @@
     if (!post("hello") && note) note.hidden = false;
   }
 
+  root.addEventListener("ssdns-name-mode", function () {
+    if (lastDock) publish(lastDock);
+  });
   root.SSDNSMapChat = {
     attach: attach,
     publish: publish,
