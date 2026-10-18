@@ -351,10 +351,16 @@ toolbar.innerHTML = `
   ` : ``}
 `;
 el.appendChild(toolbar);
+const toolbarMain = document.createElement('div');
+toolbarMain.className = 'ssm-toolbar-main';
+const moveTools = toolbar.querySelector('[data-act="moveTools"]');
+while (toolbar.firstChild && toolbar.firstChild !== moveTools) toolbarMain.appendChild(toolbar.firstChild);
+toolbar.insertBefore(toolbarMain, toolbar.firstChild);
 if (window.SSDNSDice && window.SSDNSDice.mount) {
   const diceBar = document.createElement('div');
   diceBar.className = 'dice-bar dice-bar-map';
-  toolbar.appendChild(diceBar);
+  diceBar.setAttribute('data-act', 'diceLane');
+  el.appendChild(diceBar);
   window.SSDNSDice.mount(diceBar);
 }
 on(document, 'keydown', e => {
@@ -476,9 +482,12 @@ function chatLineHtml(row) {
   const shown = (Applied && Applied.chosenName && row && !Applied.neutralSpeaker(name) && Applied.chosenName(row)) || name;
   const bucket = chatBucket(row);
   const startsWithName = !!(shown && (text === shown || text.indexOf(shown + ' ') === 0 || text.indexOf(shown + ':') === 0 || text.indexOf(shown + '\n') === 0));
-  if (Applied && Applied.leadNameHtml && (bucket === 'rolls' || startsWithName)) return Applied.leadNameHtml(shown && text.indexOf(shown) !== 0 ? (shown + ': ' + text) : text);
-  if (Applied && Applied.whoHtml) return Applied.whoHtml(shown) + ': ' + esc(text);
-  return esc(shown + ': ' + text);
+  let html;
+  if (Applied && Applied.leadNameHtml && (bucket === 'rolls' || startsWithName)) html = Applied.leadNameHtml(shown && text.indexOf(shown) !== 0 ? (shown + ': ' + text) : text);
+  else if (Applied && Applied.whoHtml) html = Applied.whoHtml(shown) + ': ' + esc(text);
+  else html = esc(shown + ': ' + text);
+  if (window.SSDNSDice && window.SSDNSDice.lead) return window.SSDNSDice.lead(row, html);
+  return html;
 }
 function renderChat() {
   publishTokenColors();
@@ -3984,6 +3993,7 @@ async function loadSceneImage(sceneId) {
     const order = (state.initiative && state.initiative.order) || [];
     const turn = (state.initiative && state.initiative.turn) || 0;
     const len = order.length || 1;
+    strip.hidden = !order.length;
     strip.innerHTML = '';
     order.forEach((c, i) => {
       if (role !== 'dm' && c && c.mapHidden) return;

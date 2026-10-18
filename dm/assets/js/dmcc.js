@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.57"; // dmcc-playtest-v0257
+const VERSION = "0.2.58"; // dmcc-playtest-v0258
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -496,6 +496,9 @@ function attachLiveListeners() {
         renderRoomHero();
         if (window.DMCCEnhance && window.DMCCEnhance.fillAdds) window.DMCCEnhance.fillAdds();
         if (window.DMCCEnhance && window.DMCCEnhance.syncPlayers) window.DMCCEnhance.syncPlayers();
+        const overlay = $("#detailOverlay");
+        const typing = overlay && document.activeElement && overlay.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+        if (overlay && !overlay.hidden && overlay.dataset.pid && !typing) openDetail(overlay.dataset.pid);
       });
     });
   });
@@ -1100,6 +1103,7 @@ function applyDemoGun(playerId, payload) {
       g.pendingD4Rolls = null;
       g.pendingD4Step = 0;
       g.exploded = false;
+      g.cracked = false;
       g.condition = "ok";
     }
   } else if (payload.op === "fire") {
@@ -1964,7 +1968,8 @@ function openDetail(pid) {
       ${(s.guns || []).filter((g) => g && g.name).map((g, i) => {
         const sheetI = g.index != null && g.index !== "" ? g.index : i;
         const lockN = Array.isArray(g.lockedChambers) ? g.lockedChambers.length : 0;
-        return `<div class="gun-chip ${g.jammed ? "jammed" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}
+        const crossed = !!(g.ruined || g.broken || g.exploded);
+        return `<div class="gun-chip ${g.jammed ? "jammed" : ""}${crossed ? " gun-x" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}
         <p class="fine">Streak ${esc(g.misStreak || 0)}${g.pendingD4 ? " · d4 pending" : ""}${g.dirty ? " · Dirty" : ""}${g.fouled ? " · Fouled" : ""}${g.ruined ? " · Ruined" : ""}${lockN ? " · LOCKED UP ×" + lockN : ""}</p>
         <button type="button" class="btn sm" data-gun-op="reload" data-gun-i="${i}">Reload</button>
         <button type="button" class="btn sm" data-gun-op="unload" data-gun-i="${i}">Unload</button>
@@ -2026,6 +2031,10 @@ function openDetail(pid) {
       const snapGuns = (state.players[pid] && state.players[pid].snapshot && state.players[pid].snapshot.guns) || [];
       const gun = snapGuns.find((g) => g && g.index != null && Number(g.index) === index) || snapGuns[index];
       const gunName = (gun && gun.name) || "gun";
+      if (op === "repair") {
+        payload.weapon = (gun && gun.weapon) || "";
+        payload.name = gunName;
+      }
       const lockN = gun && Array.isArray(gun.lockedChambers) ? gun.lockedChambers.length : 0;
       if (op === "clear-locks" && !lockN) return;
       pushCommand({ type: "gun", to: pid, payload });
@@ -2039,7 +2048,7 @@ function openDetail(pid) {
         const which = payload.kind === "focus" ? "focus" : (payload.kind === "melee" ? ((s.melee || []).filter((m) => m && Number(m.index) === index)[0] || {}).name || "melee" : gunName);
         postDmAction("DM " + (payload.equipped ? "equipped" : "unequipped") + " " + which + ".", pid);
       }
-      if (state.demo) applyDemoGun(pid, payload);
+      if (state.demo || op === "repair") applyDemoGun(pid, payload);
     });
   });
   const badgeSel = $("#dmBadge");

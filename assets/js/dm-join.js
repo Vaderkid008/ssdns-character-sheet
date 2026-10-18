@@ -1570,7 +1570,7 @@
       app.clearLockedChambers(payload.index, payload.mode, payload.chamber);
       return;
     } else if (payload.op === "repair" && app.repairGun) {
-      app.repairGun(payload.index);
+      app.repairGun(payload.index, payload);
       return;
     } else if (payload.op === "take" && app.applyPatch) {
       var takenName = "";

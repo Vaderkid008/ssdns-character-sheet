@@ -559,7 +559,7 @@ async function testMaps(w) {
   const css = read("map/ssdns-map.css");
   const dmCss = read("dm/assets/css/dmcc.css");
   const dmHtml = read("dm/index.html");
-  check("map.layoutGrid", css.indexOf("grid-template-areas") >= 0 && /body\.map-fullscreen #mapMount \.ssdns-leftbar \{[\s\S]*?top: 60px;/.test(css), "embedded grid, fullscreen overlay kept");
+  check("map.layoutGrid", css.indexOf("grid-template-areas") >= 0 && css.indexOf('"dice dice dice"') >= 0 && css.indexOf('"strip strip strip"') >= 0 && /body\.map-fullscreen #mapMount \{[\s\S]*?display:\s*grid/.test(css) && !/top:\s*56px/.test(css) && !/top:\s*116px/.test(css), "dice lane, chat, and the turn strip keep their own rows");
   const dmcc = read("dm/assets/js/dmcc.js");
   check("map.roomCodeCopiesCode",
     dmcc.indexOf("function roomCodeString()") >= 0 &&

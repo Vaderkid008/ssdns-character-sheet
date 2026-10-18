@@ -1,6 +1,6 @@
 /**
  * Phone layout, initiative strip, chat names, and SFX variant pools.
- * Sheet 0.3.44 / DMCC 0.2.57.
+ * Sheet 0.3.45 / DMCC 0.2.58.
  */
 import fs from "fs";
 import path from "path";
@@ -13,11 +13,11 @@ function check(cond, msg) { if (!cond) failures.push(msg); }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.44" && version.sheetBuild === "sheet-playtest-v0344", "sheet 0.3.44");
-check(version.dmcc === "0.2.57" && version.dmccBuild === "dmcc-playtest-v0257", "dmcc 0.2.57");
-check(read("assets/js/app.js").includes('APP_VERSION = "0.3.44"'), "sheet banner");
-check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.57"'), "dmcc banner");
-check(!read("assets/data/rules.js").includes("0.3.44"), "rules.js was not regenerated for this bump");
+check(version.sheet === "0.3.45" && version.sheetBuild === "sheet-playtest-v0345", "sheet 0.3.45");
+check(version.dmcc === "0.2.58" && version.dmccBuild === "dmcc-playtest-v0258", "dmcc 0.2.58");
+check(read("assets/js/app.js").includes('APP_VERSION = "0.3.45"'), "sheet banner");
+check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.58"'), "dmcc banner");
+check(!read("assets/data/rules.js").includes("0.3.45"), "rules.js was not regenerated for this bump");
 
 const sheetCss = read("assets/css/sheet.css");
 const dmCss = read("dm/assets/css/dmcc.css");

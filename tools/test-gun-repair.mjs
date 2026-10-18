@@ -78,7 +78,18 @@ check("wire.player", joinSrc.includes('payload.op === "repair"') && joinSrc.incl
 check("wire.sync", joinSrc.includes("exploded: !!g.exploded") && hostSrc.includes("exploded: !!g.exploded"));
 check("wire.fire", sfxSrc.includes("d4-fire") && sfxSrc.includes("broadcastFire") && sfxSrc.includes("explosionText") && sfxSrc.includes("applyDelta(-fire") && sfxSrc.includes("catalogGunName") && sfxSrc.includes("SSDNSTestJammer"));
 check("wire.x", appSrc.includes('photo.classList.toggle("gun-x"') && sheetCss.includes(".g-photo.gun-x::after") && mapSrc.includes("function crossClass") && mapSrc.includes("gun-x") && mapCss.includes(".cylinder-row.gun-x"));
-check("wire.version", read("version.json").includes('"sheet": "0.3.44"') && read("version.json").includes('"dmcc": "0.2.57"') && appSrc.includes('APP_VERSION = "0.3.44"') && dmccSrc.includes('VERSION = "0.2.57"'));
+check("wire.version", read("version.json").includes('"sheet": "0.3.45"') && read("version.json").includes('"dmcc": "0.2.58"') && appSrc.includes('APP_VERSION = "0.3.45"') && dmccSrc.includes('VERSION = "0.2.58"'));
+check("repair.live", dmccSrc.includes('if (state.demo || op === "repair") applyDemoGun'));
+check("repair.hint", joinSrc.includes("repairGun(payload.index, payload)") && appSrc.includes("function repairGun(i, hint)"));
+check("repair.row", appSrc.includes("if (!row) return;"));
+check("repair.body", repairBody.includes("g.exploded = false") && repairBody.includes("g.lockedChambers") && repairBody.includes("g.fouled = false") && repairBody.includes("g.cracked = false"));
+const slot0 = { weapon: "", fouled: false, ruined: false, exploded: false, lockedChambers: [] };
+const slot2 = { weapon: "repeater", fouled: true, ruined: true, broken: true, exploded: true, dirty: true, jammed: true, misStreak: 3, lockedChambers: [1], pendingD4: true };
+const guns = [slot0, { weapon: "" }, slot2];
+const hinted = guns.filter((g) => g && g.weapon === "repeater")[0];
+const fixedSlot = M.repair(hinted);
+check("repair.slot", hinted.weapon === "repeater" && !fixedSlot.fouled && !fixedSlot.ruined && !fixedSlot.exploded && !fixedSlot.broken && fixedSlot.lockedChambers.length === 0 && !fixedSlot.pendingD4 && fixedSlot.misStreak === 0 && M.gunFace(fixedSlot).showX === false);
+check("repair.source", slot2.fouled && slot2.exploded && slot2.lockedChambers.join(",") === "1");
 check("rules.untouched", !read("assets/data/rules.js").includes("Repair gun") && !read("assets/data/rules.js").includes("explosionLine") && !read("database.rules.json").includes("repair") && !read("database.rules.json").includes("exploded"));
 
 if (failures.length) {

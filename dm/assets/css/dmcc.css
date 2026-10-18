@@ -255,6 +255,16 @@ main { padding: 0 12px 80px; }
   padding: 4px 8px; border-radius: 0 3px 3px 0;
 }
 .gun-chip.jammed { border-left-color: var(--danger); color: #ffcfc7; }
+.gun-chip.gun-x .chambers { position: relative; }
+.gun-chip.gun-x .chambers::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom right, transparent 46%, #c41212 46%, #c41212 54%, transparent 54%),
+    linear-gradient(to bottom left, transparent 46%, #c41212 46%, #c41212 54%, transparent 54%);
+  pointer-events: none;
+}
 .gun-chip.worn { border-left-color: var(--warn); }
 .gun-chip .chambers { margin-top: 6px; }
 .chambers { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
@@ -779,6 +789,47 @@ select:-webkit-autofill {
 #panel-fight .init-row.current.side-pc { box-shadow: inset 6px 0 0 var(--fight-pc), 0 0 0 2px #e2c56a; }
 #panel-fight .init-row.current.side-enemy { box-shadow: inset 6px 0 0 var(--fight-enemy), 0 0 0 2px #e2c56a; }
 #panel-fight .init-who b, #panel-fight .name-btn { color: #2a1c12; }
+/* Parchment cards: dark ink on the light field. WCAG AA is 4.5:1.
+   #2a1c12 on #f3e4e2 is 13.4:1. #4a2e12 on #f3e4e2 is 10.1:1.
+   The old parchment (#efe2c2) and ink (#e8efe9) labels were about 1.05:1. */
+#panel-fight .toggle,
+#panel-fight .reveal-bar,
+#panel-fight .reveal-bar .toggle,
+#panel-fight label.fine,
+#panel-fight .init-actions,
+#panel-fight .name-btn {
+  color: #2a1c12;
+}
+#panel-fight .btn,
+#panel-fight .btn.sm,
+#panel-fight .btn.ghost {
+  background: #fffaf0;
+  color: #2a1c12;
+  border-color: #5c3a22;
+}
+#panel-fight .btn:hover,
+#panel-fight .btn.sm:hover {
+  background: #f0e0c0;
+  color: #1a120c;
+  border-color: #3a2416;
+}
+#panel-fight .btn-danger {
+  color: #6e2430;
+  border-color: #6e2430;
+  background: #fffaf0;
+}
+#panel-fight .btn-primary,
+#panel-fight .fight-next-bar .btn-next {
+  background: #c9a227;
+  color: #2a1c12;
+  border-color: #5c3a22;
+}
+#panel-fight .tactics-note,
+#panel-fight .dc-call {
+  color: #4a2e12;
+}
+#panel-fight .atk-row h3,
+#panel-fight .init-who b { color: #2a1c12; }
 #panel-fight .init-score { color: #6e2430; }
 #panel-fight .fight-next-bar {
   display: flex;

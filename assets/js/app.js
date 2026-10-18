@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.44"; // sheet-playtest-v0344
+  var APP_VERSION = "0.3.45"; // sheet-playtest-v0345
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1409,6 +1409,7 @@
     fillCasterGunSelect();
     c.guns.forEach(function (g, i) {
       var s = v.guns[i], row = $('.gun[data-row="' + i + '"]'), w = s && s.w;
+      if (!row) return;
       var photo = row && row.querySelector(".g-photo");
       if (row && window.SSDNSWeaponArt) window.SSDNSWeaponArt.paint(photo, w || null);
       var crossed = !!(g.ruined || g.broken || g.exploded);
@@ -2749,8 +2750,8 @@
   }
   function refreshGunFace() {
     if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
-    renderCalc();
-    changed({ noRender: true });
+    try { renderCalc(); } catch (err) { console.warn("[sheet] gun face", err); }
+    try { changed({ noRender: true }); } catch (err2) {}
     publishGunCard();
   }
   function ammoChoices(i) {
@@ -2964,8 +2965,23 @@
     refreshGunFace();
     return true;
   }
-  function repairGun(i) {
-    var g = C().guns[i];
+  function repairGun(i, hint) {
+    var guns = C().guns || [];
+    var g = guns[i];
+    hint = hint || {};
+    if (!g || !g.weapon) {
+      var want = hint.weapon || "";
+      var wantName = hint.name || "";
+      for (var n = 0; n < guns.length; n++) {
+        var row = guns[n];
+        if (!row || !row.weapon) continue;
+        var rowName = WPN[row.weapon] ? WPN[row.weapon].name : "";
+        if ((want && row.weapon === want) || (wantName && rowName === wantName)) {
+          g = row;
+          break;
+        }
+      }
+    }
     if (!g) return false;
     var M = window.SSDNSMisfire;
     if (!M || !M.repair) return false;
@@ -2975,6 +2991,7 @@
     g.broken = false;
     g.jammed = false;
     g.dirty = false;
+    g.cracked = false;
     g.misStreak = 0;
     g.lockedChambers = (next.lockedChambers || []).slice();
     g.pendingD4 = false;
@@ -2982,7 +2999,7 @@
     g.pendingD4Step = 0;
     g.exploded = false;
     if (window.SSDNSD4 && window.SSDNSD4.cancel) window.SSDNSD4.cancel();
-    var name = WPN[g.weapon] ? WPN[g.weapon].name : "Gun";
+    var name = WPN[g.weapon] ? WPN[g.weapon].name : (hint.name || "Gun");
     var line = "DM repaired " + name + ".";
     if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
     refreshGunFace();
@@ -4242,7 +4259,7 @@
       unjamGun: function (i) { return unjamGun(i); },
       reopenChamber: function (i) { return reopenChamber(i); },
       clearLockedChambers: function (i, mode, chamber) { return clearLockedChambers(i, mode, chamber); },
-      repairGun: function (i) { return repairGun(i); },
+      repairGun: function (i, hint) { return repairGun(i, hint); },
       refreshGunFace: refreshGunFace,
       promptShortRestTools: function () { return promptShortRestTools(); },
       applyCleanOption: function (i, optionId) { return applyCleanOption(i, optionId); },
