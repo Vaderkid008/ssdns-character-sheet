@@ -1,0 +1,41 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="assets/css/ammo-display.css?v=s73">
+<style>body{margin:0;background:#1a1612;color:#f0e4cf;font:14px system-ui,sans-serif;padding:18px}
+h1{font-size:20px;margin:0 0 4px}h3{color:#c9a227;font-size:13px;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.05em}
+.g{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.c{background:#241e18;border:1px solid #5a4e40;border-radius:8px;padding:10px}
+.c b{display:block;color:#e2c56a;font-size:13px}.c i{display:block;color:#a8977a;font-size:11px;font-style:normal;margin-bottom:6px}
+.s{min-height:120px;flex-wrap:wrap;display:flex;align-items:center;justify-content:center;gap:10px}.ch,.c i.ch{color:#7ad07a}.z{zoom:3}.z2{zoom:2}</style></head><body>
+<h1>PR #73 sample: round art by ammo type</h1><div style="color:#a8977a">Sample only. <span class="ch">Green</span> = changed. Each card is the same component the sheet, DMCC and map drawer use.</div>
+<div id="b"></div>
+<script src="assets/data/rules.js"></script><script src="assets/js/ammo-display.js?v=s73"></script>
+<script>
+var A=SSDNSAmmoDisplay;
+var S=[
+["Cylinders",[
+ ["Ball n Cap (percussion)","unchanged",{weapon:"navy-army-ball-n-cap-revolver",name:"Ball n Cap",action:"Percussion revolver (slow)",ammo:"percussion",cap:6,size:"demo",chambers:[1,1,1,1,1,""]}],
+ [".44 cartridge revolver","unchanged",{weapon:"pony-arms-chaosmaker-medium",name:"Chaosmaker",action:"Revolver",ammo:"cartridge",tier:"medium",cap:6,size:"demo",chambers:[1,1,1,1,"",1]}],
+ [".22 plinker","unchanged",{weapon:"dullards-plinker-revolver",name:"Plinker",action:"Revolver",ammo:"cartridge",tier:"light",cap:7,size:"demo",loaded:6}],
+ ["Hex rounds (caster)","unchanged",{weapon:"blacksnake",name:"Blacksnake",action:"Caster cylinder",cap:6,size:"demo",chambers:["3","5",1,"","2",1]}]]],
+["Tubes",[
+ ["Lever rifle (cartridge)","CHANGED: brass + copper/red tip",{weapon:"lancaster-repeating-rifle",name:"Lever rifle",action:"Lever (tube)",ammo:"cartridge",tier:"medium",cap:6,size:"demo",loaded:5}],
+ ["Light carbine .22","CHANGED: copper tip",{weapon:"dullards-light-carbine",name:"Light carbine",action:"Lever (tube)",ammo:"cartridge",tier:"light",cap:6,size:"demo",loaded:6}],
+ ["Lever Shotgun, .410","CHANGED: slim black hull",{weapon:"lancaster-lever-shotgun",name:"Lancaster Lever Shotgun",group:"shotgun",ammo:"shell",action:"Lever (tube)",tier:"light",cap:4,size:"demo",loaded:4}],
+ ["Lever Shotgun, 12 ga","CHANGED: blue hull (was red)",{weapon:"lancaster-lever-shotgun",name:"Lancaster Lever Shotgun",group:"shotgun",ammo:"shell",action:"Lever (tube)",tier:"medium",cap:4,size:"demo",loaded:3}]]],
+["Loose rounds / break-action & muzzleloader",[
+ [".410 buck, farm shotgun","CHANGED: slim black",{weapon:"single-barrel-farm-shotgun",name:"Farm Shotgun",group:"shotgun",ammo:"shell",action:"Break-action",tier:"light",cap:1,size:"demo",loaded:1}],
+ ["12 ga buck + slug, coach gun","CHANGED: blue",{weapon:"double-barrel-coach-gun",name:"Coach Gun",group:"shotgun",ammo:"shell",action:"Break-action",tier:"medium",cap:2,size:"demo",chambers:[1,1]},{weapon:"double-barrel-coach-gun",name:"Coach Gun",group:"shotgun",ammo:"shell",load:"slug",action:"Break-action",tier:"medium",cap:2,size:"demo",chambers:[1,""]}],
+ ["10 ga buck, farm shotgun","CHANGED: larger brown",{weapon:"single-barrel-farm-shotgun",name:"Farm Shotgun",group:"shotgun",ammo:"shell",action:"Break-action",tier:"heavy",cap:1,size:"demo",loaded:1}],
+ ["Rifle-musket ball","CHANGED: big lead ball",{weapon:"dull-co-rifle-musket",name:"Rifle-Musket",action:"Muzzleloader (slow)",ammo:"percussion",cap:1,size:"demo",loaded:1}]]],
+["Shotgun shells in a chamber (end-on) and drawer size",[
+ [".410 / 12 / 10 end-on","CHANGED: hull ring by gauge",{name:"x",group:"shotgun",ammo:"shell",action:"Revolver",ammoDisplay:"cylinder",tier:"light",cap:4,size:"demo",loaded:4},{name:"x",group:"shotgun",ammo:"shell",action:"Revolver",ammoDisplay:"cylinder",tier:"medium",cap:4,size:"strip",loaded:4},{name:"x",group:"shotgun",ammo:"shell",action:"Revolver",ammoDisplay:"cylinder",tier:"heavy",cap:4,size:"strip",loaded:4}],
+ ["Drawer: shells by gauge","CHANGED",{name:"a",group:"shotgun",ammo:"shell",action:"Break-action",tier:"light",cap:2,size:"drawer",loaded:2},{name:"b",group:"shotgun",ammo:"shell",action:"Break-action",tier:"medium",cap:2,size:"drawer",loaded:2},{name:"c",group:"shotgun",ammo:"shell",action:"Break-action",tier:"heavy",cap:2,size:"drawer",loaded:2}],
+ ["Drawer: musket vs Ball n Cap","CHANGED: same ball size",{weapon:"dull-co-rifle-musket",name:"Rifle-Musket",action:"Muzzleloader (slow)",ammo:"percussion",cap:1,size:"drawer",loaded:1},{weapon:"navy-army-ball-n-cap-revolver",name:"Ball n Cap",action:"Percussion revolver (slow)",ammo:"percussion",cap:6,size:"drawer",loaded:6}],
+ ["Drawer: lever tube","CHANGED",{weapon:"lancaster-repeating-rifle",name:"Lever rifle",action:"Lever (tube)",ammo:"cartridge",tier:"medium",cap:6,size:"drawer",loaded:6}]]],
+["Close-ups (tubes)",[
+ ["Close-up: lever tube","CHANGED: brass + copper/red tip",{weapon:"lancaster-repeating-rifle",name:"Lever rifle",action:"Lever (tube)",ammo:"cartridge",tier:"medium",cap:6,size:"drawer",loaded:4}],
+ ["Close-up: shotgun tube .410","CHANGED",{weapon:"lancaster-lever-shotgun",name:"L",group:"shotgun",ammo:"shell",action:"Lever (tube)",tier:"light",cap:4,size:"drawer",loaded:3}],
+ ["Close-up: shotgun tube 12 ga","CHANGED: blue, red dropped",{weapon:"lancaster-lever-shotgun",name:"L",group:"shotgun",ammo:"shell",action:"Lever (tube)",tier:"medium",cap:4,size:"drawer",loaded:3}],
+ ["Close-up: shotgun tube 10 ga","CHANGED (no 10 ga tube gun in catalog)",{name:"L",group:"shotgun",ammo:"shell",action:"Lever (tube)",tier:"heavy",cap:4,size:"drawer",loaded:3}]]]];
+document.getElementById("b").innerHTML=S.map(function(sec){return"<h3>"+sec[0]+"</h3><div class=g>"+sec[1].map(function(c){var ch=/CHANGED/.test(c[1]);var z=/buck|Drawer: shells/.test(c[0])?' z':(/Close-up/.test(c[0])?' z2 cu':(/Drawer/.test(c[0])?' z2':''));return'<div class=c><b>'+c[0]+(z?' <span style="color:#a8977a">(close-up '+(z==' z'?3:2)+'x)</span>':'')+'</b><i class="'+(ch?"ch":"")+'">'+c[1]+'</i><div class="s'+z+'">'+c.slice(2).map(function(sp){return A.html(sp)}).join("")+"</div></div>"}).join("")+"</div>"}).join("");
+</script></body></html>
+<style>.c .s.cu{zoom:1.3;overflow:hidden}</style>
