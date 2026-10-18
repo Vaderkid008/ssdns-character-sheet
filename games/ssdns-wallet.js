@@ -15,6 +15,92 @@
  */
 (function () {
   "use strict";
+  var CHEAT_KEY = "ssdns.saloon.cheat";
+  var BAN_KEY = "ssdns.saloon.banned";
+  function storageGet(store, key) {
+    try { return store.getItem(key); } catch (e) { return null; }
+  }
+  function storageSet(store, key, val) {
+    try { store.setItem(key, val); } catch (e) {}
+  }
+  function insightDC(high) { return high ? 16 : 13; }
+  function sleightMod(wallet) {
+    var n = wallet && wallet.sleight != null ? Math.floor(Number(wallet.sleight)) : 0;
+    return isFinite(n) ? n : 0;
+  }
+  function rollD20(rng) {
+    var n = typeof rng === "function" ? Number(rng()) : (Math.floor(Math.random() * 20) + 1);
+    if (!isFinite(n)) n = 1;
+    n = Math.floor(n);
+    if (n < 1) n = 1;
+    if (n > 20) n = 20;
+    return n;
+  }
+  function attempt(opts) {
+    opts = opts || {};
+    var high = !!opts.high;
+    var dc = insightDC(high);
+    var mod = opts.mod != null ? Math.floor(Number(opts.mod)) : sleightMod(opts.wallet);
+    if (!isFinite(mod)) mod = 0;
+    var used = storageGet(sessionStorage, CHEAT_KEY) === "1";
+    var banned = storageGet(sessionStorage, BAN_KEY) === "1";
+    if (used || banned) return { ok: false, blocked: true, banned: banned, used: true, dc: dc, mod: mod };
+    var natural = rollD20(opts.roll);
+    var total = natural + mod;
+    var success = total >= dc;
+    var caught = !success && total <= dc - 5;
+    storageSet(sessionStorage, CHEAT_KEY, "1");
+    if (caught) storageSet(sessionStorage, BAN_KEY, "1");
+    return { ok: true, natural: natural, mod: mod, total: total, dc: dc, success: success, caught: caught, high: high, used: true };
+  }
+  function report(opts) {
+    opts = opts || {};
+    var id = "saloon_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var msg = {
+      type: "tableLine",
+      id: id,
+      text: String(opts.text || ""),
+      name: String(opts.name || ""),
+      color: String(opts.color || ""),
+      notice: opts.notice ? String(opts.notice) : ""
+    };
+    var bus = null;
+    try { bus = new BroadcastChannel("ssdns-saloon"); } catch (e) {}
+    if (bus) { try { bus.postMessage(msg); } catch (e2) {} }
+    if (window.opener && !window.opener.closed) {
+      try { window.opener.postMessage(msg, window.location.origin); } catch (e3) {}
+    }
+    return msg;
+  }
+  function line(name, verb, amount, game) {
+    var who = String(name || "Someone");
+    var n = Math.abs(Math.floor(Number(amount) || 0));
+    if (verb === "push") return who + " pushes at " + game;
+    if (verb === "win") return who + " wins " + n + " at " + game;
+    return who + " loses " + n + " at " + game;
+  }
+  function post(verb, amount, game, extra) {
+    extra = extra || {};
+    var w = window.SSDNSBridge && window.SSDNSBridge.readWallet && window.SSDNSBridge.readWallet();
+    var name = extra.name || (w && w.characterName) || "You";
+    var color = extra.color || (w && w.tokenColor) || "";
+    var text = extra.text || line(name, verb, amount, game);
+    return report({ text: text, name: name, color: color, notice: extra.notice || "" });
+  }
+  window.SSDNSSaloon = {
+    insightDC: insightDC,
+    sleightMod: sleightMod,
+    attempt: attempt,
+    report: report,
+    line: line,
+    post: post,
+    banned: function () { return storageGet(sessionStorage, BAN_KEY) === "1"; },
+    used: function () { return storageGet(sessionStorage, CHEAT_KEY) === "1"; }
+  };
+  if (typeof window.SSDNSSaloonReady === "function") {
+    try { window.SSDNSSaloonReady(); } catch (e) {}
+  }
+
   var B = window.SSDNSBridge, G = window.SSDNSGame;
   if (!B || !G) return;
   var STALE_MS = 3 * 60 * 1000;

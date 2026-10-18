@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.40"; // sheet-playtest-v0340
+  var APP_VERSION = "0.3.41"; // sheet-playtest-v0341
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -3559,7 +3559,24 @@
     } catch (e) {}
   }
   function pushWallet() {
-    try { Bridge.writeWallet({ characterId: S.doc.id, characterName: C().name, shards: S.doc.shards, updatedBy: "sheet" }); } catch (e) { console.warn(e); }
+    try {
+      var ch = C();
+      var skills = (ch && ch.skills) || {};
+      var soh = skills["Sleight of Hand"];
+      var color = "";
+      try {
+        var bag = window.SSDNSTokenColors || {};
+        color = bag[String((ch && ch.name) || "").trim().toLowerCase()] || "";
+      } catch (e2) {}
+      Bridge.writeWallet({
+        characterId: S.doc.id,
+        characterName: ch.name,
+        shards: S.doc.shards,
+        updatedBy: "sheet",
+        sleight: soh == null || soh === "" ? 0 : soh,
+        tokenColor: color
+      });
+    } catch (e) { console.warn(e); }
     beatAlive();
   }
   function onWallet(w) {

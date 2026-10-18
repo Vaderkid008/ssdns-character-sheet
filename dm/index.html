@@ -7,9 +7,9 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="assets/revolver.png">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.53-fire">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.54-fire">
 <link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.2.41-art">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.53-fire">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.54-fire">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -303,23 +303,31 @@
       </details>
     </section>
 
-    <section class="panel" id="panel-fight" role="tabpanel" aria-labelledby="tab-fight" hidden>
-      <h2>Fight</h2>
+    <section class="panel fight-board" id="panel-fight" role="tabpanel" aria-labelledby="tab-fight" hidden>
+      <header class="wanted-head">
+        <p class="wanted-kicker">Dead or alive</p>
+        <h2>Wanted</h2>
+        <p class="wanted-round" id="initRound">Round 1</p>
+      </header>
       <div class="insp-pool" id="inspPool">
         <b id="inspCount">0</b>
         <span>Party Inspiration</span>
         <button type="button" class="btn sm" id="btnInspGrant">Grant +1</button>
         <button type="button" class="btn sm" id="btnInspSpend">Spend −1</button>
       </div>
-      <p class="lede" id="initRound">Round 1</p>
       <p class="lede" id="turnSent"></p>
-      <div class="toolbar">
+      <div id="fightPortraits" class="fight-portraits" aria-label="Turn order"></div>
+      <div id="fightFocus" class="fight-focus"></div>
+      <div class="fight-next-bar">
         <button type="button" class="btn btn-primary btn-next" id="btnNextTurn">Next</button>
-        <button type="button" class="btn sm" id="btnPrevTurn">Previous</button>
-        <button type="button" class="btn sm" id="btnRollAll">Roll all</button>
-        <button type="button" class="btn sm" id="btnEndCombat">End combat</button>
-        <label class="fine">Damage <select id="damageMode" aria-label="Damage mode"><option value="auto">Auto-apply</option><option value="approve">Approve first</option></select></label>
+        <div class="fight-next-side">
+          <button type="button" class="btn sm" id="btnPrevTurn">Previous</button>
+          <button type="button" class="btn sm" id="btnRollAll">Roll Init</button>
+          <button type="button" class="btn sm" id="btnEndCombat">End combat</button>
+          <label class="fine">Damage <select id="damageMode" aria-label="Damage mode"><option value="auto">Auto-apply</option><option value="approve">Approve first</option></select></label>
+        </div>
       </div>
+      <div id="fightLog" class="fight-log" aria-label="Attack log"></div>
       <details class="fold" id="combatantMenu">
         <summary>Set order and add a combatant</summary>
       <div class="toolbar">
@@ -537,28 +545,28 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.53-fire"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.54-fire"></script>
 <script src="../assets/js/conditions.js?v=0.2.35"></script>
 <script src="assets/js/ui-tab.js?v=0.2.35"></script>
-<script src="../assets/js/sfx.js?v=0.2.53-fire"></script>
+<script src="../assets/js/sfx.js?v=0.2.54-fire"></script>
 <script src="../assets/data/rules.js?v=0.2.35-class"></script>
-<script src="../assets/js/equip.js?v=0.2.53-equip"></script>
+<script src="../assets/js/equip.js?v=0.2.54-equip"></script>
 <script src="../assets/js/spell-fx.js?v=0.2.35"></script>
 <script src="../assets/js/spell-cast.js?v=0.2.39-range"></script>
-<script src="../assets/js/misfire.js?v=0.2.53-fire"></script>
+<script src="../assets/js/misfire.js?v=0.2.54-fire"></script>
 <script src="../assets/js/firebase-config.js?v=0.2.35"></script>
 <script src="assets/js/store-stock.js?v=0.2.35"></script>
 <script src="assets/js/demo-data.js?v=0.2.35-guns"></script>
-<script src="../assets/js/test-jammer.js?v=0.2.53-fire"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.53-fire"></script>
-<script src="../assets/js/ammo-display.js?v=0.2.53-fire"></script>
-<script src="../assets/js/grab.js?v=0.2.53-grab"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.53-fire"></script>
+<script src="../assets/js/test-jammer.js?v=0.2.54-fire"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.54-fire"></script>
+<script src="../assets/js/ammo-display.js?v=0.2.54-fire"></script>
+<script src="../assets/js/grab.js?v=0.2.54-grab"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.54-fire"></script>
 <script src="../map/token-crop.js?v=0.2.38-card"></script>
 <script src="../assets/js/range-rings.js?v=0.2.42-dis"></script>
 <script src="../map/ssdns-map-chat.js?v=0.2.44-float"></script>
-<script src="../map/ssdns-map.js?v=0.2.53-fire"></script>
+<script src="../map/ssdns-map.js?v=0.2.54-fire"></script>
 <script src="../map/ssdns-map-firebase.js?v=0.2.36-sync"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.53-fire"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.54-fire"></script>
 </body>
 </html>

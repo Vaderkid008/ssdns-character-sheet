@@ -770,6 +770,22 @@
       saloonReply({ type: "unlinked", id: msg.id, ok: true });
       return;
     }
+    if (msg.type === "tableLine") {
+      var lineName = String(msg.name || "").slice(0, 48);
+      var lineText = String(msg.text || "").slice(0, 240);
+      if (msg.color && lineName) {
+        root.SSDNSTokenColors = root.SSDNSTokenColors || {};
+        root.SSDNSTokenColors[lineName.trim().toLowerCase()] = String(msg.color).slice(0, 32);
+      }
+      if (root.SSDNSSheet && root.SSDNSSheet.addLog) {
+        root.SSDNSSheet.addLog({ id: "saloon:" + msg.id, kind: "note", text: lineText });
+      }
+      if (state.joined && !state.left) {
+        postChat({ id: "saloon_" + String(msg.id).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40), fromName: lineName || undefined, text: lineText });
+        if (msg.notice) postLedger({ type: "alert", what: String(msg.notice).slice(0, 240), flag: true, who: lineName || "Saloon", characterName: lineName || "" });
+      }
+      return;
+    }
     if (msg.type !== "requestCredits") return;
     var amount = Math.floor(Number(msg.amount) || 0);
     if (amount < 1 || amount > 100000) {

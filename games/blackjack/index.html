@@ -78,6 +78,10 @@
       <button type="button" class="action-btn" id="standBtn" disabled>Stand</button>
       <button type="button" class="action-btn double" id="doubleBtn" disabled>Double</button>
     </div>
+    <div class="cheat-row">
+      <button type="button" class="action-btn" id="cheatBtn">Cheat</button>
+      <label class="high-roller"><input type="checkbox" id="highRoller"> High roller</label>
+    </div>
 
     <details class="paytable" aria-label="Payout table">
       <summary>Blackjack odds</summary>
@@ -87,10 +91,11 @@
         <li><span>Push</span><span class="gold">stake back</span> <em>tie — chips returned</em></li>
         <li><span>Bust / lose</span><span class="gold">stake lost</span></li>
         <li><span>Double down</span><span class="gold">2× stake</span> <em>first two cards only, one hit then stand</em></li>
+        <li><span>Cheat</span><span class="gold">once / session</span> <em>Sleight of Hand vs passive Insight 13, or 16 at a high-roller table</em></li>
       </ul>
       <p class="note">
-        Standard 52-card deck; reshuffles when low. Dealer hits until hard/soft 17+, then stands on all 17s.
-        No insurance in v1. Manual Set/Add Eldorite for table play. SFX synthesized in-browser.
+        Two-deck shoe (104 cards). Reshuffles at half, between hands, so a hand never rebuilds the shoe while cards remain. Naturals still pay 3:2. Dealer stands on all 17s.
+        No insurance. No bet cap. All In stays. One cheat per session; fail by 5 or more and the stake is lost, you are banned, and the DM is told.
       </p>
     </details>
   </main>

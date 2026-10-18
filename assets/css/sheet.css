@@ -445,7 +445,7 @@ input.big { font-family: var(--head); font-size: 28px !important; text-align: ce
 .game b { font-family: var(--head); font-weight: 400; font-size: 17px; color: var(--red); flex: 1; min-width: 180px; }
 .dlg-foot { display: flex; justify-content: flex-end; margin-top: 12px; }
 .shards.mini { flex-direction: row; flex-wrap: wrap; margin: 10px 0; }
-.shards.mini .shard { width: 118px; }
+.shards.mini .shard { width: auto; flex: 1 1 140px; max-width: 100%; min-width: 0; }
 .shards.mini .shard-total { width: 100%; }
 code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
 

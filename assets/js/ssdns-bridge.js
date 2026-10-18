@@ -61,6 +61,11 @@
       updatedAt: new Date().toISOString(),
       updatedBy: w.updatedBy || "unknown"
     };
+    if (w && w.sleight != null && w.sleight !== "") {
+      var mod = Math.floor(Number(w.sleight));
+      if (isFinite(mod)) out.sleight = mod;
+    }
+    if (w && w.tokenColor) out.tokenColor = String(w.tokenColor).slice(0, 32);
     var json = JSON.stringify(out);
     root.localStorage.setItem(KEY, json);
     try { root.localStorage.setItem(LEGACY, json); } catch (e) {}

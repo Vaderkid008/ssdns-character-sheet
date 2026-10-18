@@ -67,15 +67,7 @@
   function buildReelPool() {
     var tier = volatilityTier();
     // One Outlaw wild per reel at every stake. Low stakes are mostly clear/amber dust.
-    var weights = {
-      clear: [8, 7, 6, 6][tier],
-      amber: [6, 5, 5, 5][tier],
-      blue: 3,
-      green: 2,
-      violet: tier >= 2 ? 2 : 1,
-      crimson: 1,
-      bar: 1,
-    };
+    var weights = weightsForTier(tier);
     var pool = [];
     var map = {};
     for (var i = 0; i < CRYSTALS.length; i++) {
@@ -441,6 +433,60 @@
     playReelStop();
   }
 
+  var cheatArmed = false;
+  var cheatBtn = document.getElementById("cheatBtn");
+  var highRoller = document.getElementById("highRoller");
+  function symbolById(id) {
+    var i;
+    for (i = 0; i < CRYSTALS.length; i++) if (CRYSTALS[i].id === id) return CRYSTALS[i];
+    if (id === "bar") return OUTLAW_WILD;
+    return CRYSTALS[0];
+  }
+  function paintCheat() {
+    if (!cheatBtn) return;
+    var blocked = window.SSDNSSaloon && (window.SSDNSSaloon.used() || window.SSDNSSaloon.banned());
+    cheatBtn.disabled = !!blocked || spinning;
+    cheatBtn.textContent = window.SSDNSSaloon && window.SSDNSSaloon.banned() ? "Banned" : (blocked ? "Cheat used" : (cheatArmed ? "Cheat armed" : "Cheat this spin"));
+  }
+  function consumeCheat() {
+    if (!cheatArmed || !window.SSDNSSaloon) return null;
+    cheatArmed = false;
+    var w = window.SSDNSBridge && window.SSDNSBridge.readWallet && window.SSDNSBridge.readWallet();
+    var result = window.SSDNSSaloon.attempt({ wallet: w, high: !!(highRoller && highRoller.checked) });
+    paintCheat();
+    return result && result.blocked ? null : result;
+  }
+  function nudgeOneReel(results) {
+    var next = results.slice();
+    var rank = { blue: 1, green: 2, violet: 3, crimson: 4, bar: 5 };
+    var best = 0;
+    var bestId = "";
+    var i;
+    for (i = 0; i < next.length; i++) {
+      var r = rank[next[i].id] || 0;
+      if (r > best) { best = r; bestId = next[i].id; }
+    }
+    if (!bestId) {
+      next[0] = symbolById("blue");
+      return next;
+    }
+    evaluate._spinCost = evaluate._spinCost;
+    if (evaluate(next).payout > 0) return next;
+    for (i = 0; i < next.length; i++) {
+      if (next[i].id !== bestId) {
+        next[i] = symbolById(bestId);
+        return next;
+      }
+    }
+    return next;
+  }
+  if (cheatBtn) cheatBtn.addEventListener("click", function () {
+    if (spinning || (window.SSDNSSaloon && (window.SSDNSSaloon.used() || window.SSDNSSaloon.banned()))) return;
+    cheatArmed = !cheatArmed;
+    paintCheat();
+  });
+  window.SSDNSSaloonReady = paintCheat;
+
   function spin() {
     if (spinning) return;
 
@@ -494,7 +540,29 @@
       if (tickCount % 2 === 0) playReelTick();
     }, 80);
 
+    var cheat = consumeCheat();
+    if (cheat && cheat.caught) {
+      clearInterval(tick);
+      for (var c = 0; c < reelEls.length; c++) reelEls[c].classList.remove("spinning");
+      spinning = false;
+      evaluate._spinCost = null;
+      updateBalance();
+      setStatus("Caught. " + cost + " Eldorite stays. Banned this session.", "lose");
+      var caughtWho = (window.SSDNSBridge && window.SSDNSBridge.readWallet && window.SSDNSBridge.readWallet()) || {};
+      var caughtName = caughtWho.characterName || "You";
+      if (window.SSDNSSaloon) {
+        window.SSDNSSaloon.post("lose", cost, "Oscar Slots", {
+          name: caughtName,
+          text: caughtName + " was caught cheating at Oscar Slots",
+          notice: caughtName + " was caught cheating at Oscar Slots. Stake lost. Banned for this session."
+        });
+      }
+      paintCheat();
+      return;
+    }
+
     var results = [randomSymbol(), randomSymbol(), randomSymbol()];
+    if (cheat && cheat.success) results = nudgeOneReel(results);
 
     setTimeout(function () { stopReel(0, results[0]); }, 600);
     setTimeout(function () { stopReel(1, results[1]); }, 1000);
@@ -507,6 +575,11 @@
       evaluate._spinCost = null;
       updateBalance();
       setStatus(outcome.message, outcome.kind);
+      if (window.SSDNSSaloon) {
+        if (outcome.payout > cost) window.SSDNSSaloon.post("win", outcome.payout - cost, "Oscar Slots");
+        else if (outcome.payout === cost) window.SSDNSSaloon.post("push", 0, "Oscar Slots");
+        else window.SSDNSSaloon.post("lose", cost, "Oscar Slots");
+      }
 
       if (outcome.kind === "win") {
         highlightWins(results, outcome);
@@ -692,6 +765,54 @@
       setChipsFromInput();
     }
   });
+  function weightsForTier(tier) {
+    return {
+      clear: [8, 7, 6, 6][tier],
+      amber: [6, 5, 5, 5][tier],
+      blue: 3,
+      green: 2,
+      violet: tier >= 2 ? 2 : 1,
+      crimson: 1,
+      bar: 1
+    };
+  }
+  function enumerateRtp(tier) {
+    var weights = weightsForTier(tier);
+    var ids = Object.keys(weights);
+    var total = 0;
+    var k;
+    for (k = 0; k < ids.length; k++) total += weights[ids[k]];
+    var expected = 0;
+    function walk(depth, acc, prob) {
+      if (depth === 3) {
+        evaluate._spinCost = 1;
+        expected += prob * evaluate(acc).payout;
+        return;
+      }
+      var i;
+      for (i = 0; i < ids.length; i++) {
+        acc.push(symbolById(ids[i]));
+        walk(depth + 1, acc, prob * (weights[ids[i]] / total));
+        acc.pop();
+      }
+    }
+    walk(0, [], 1);
+    evaluate._spinCost = null;
+    return expected * 100;
+  }
+  window.SSDNSSlotsMath = {
+    weightsForTier: weightsForTier,
+    enumerateRtp: enumerateRtp,
+    payouts: {
+      two: PAYOUT_TWO_MULT,
+      three: PAYOUT_THREE_MULT,
+      cheapThree: CHEAP_THREE_MULT,
+      crimsonThree: CRIMSON_THREE_MULT,
+      wildTwo: WILD_TWO_MULT,
+      wildThree: WILD_THREE_MULT
+    }
+  };
+
   // SSDNS shards hook (v0.2.1): lets games/ssdns-wallet.js read/set the chip balance.
   window.SSDNSGame = { id: "slot-machine", get: function () { return balance; }, set: function (n) { balance = n; updateBalance(); }, busy: function () { return spinning; } };
 })();
