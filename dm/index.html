@@ -204,7 +204,7 @@
         </div>
         <div class="span-2">
           <label for="hoUrl">Image URL</label>
-          <input type="url" id="hoUrl" placeholder="https://… or upload below">
+          <input type="url" id="hoUrl" placeholder="Image link (Dropbox/Drive/any host) or upload below">
           <label class="fine">Upload picture <input type="file" accept="image/png,image/webp,image/jpeg" data-art-file data-art-target="#hoUrl"></label>
           <span class="fine" data-art-note>Best: 512×512 PNG or WEBP, under 1 MB. We crop to a square. Uploads go to Firebase Storage (optional).</span>
         </div>
@@ -535,8 +535,20 @@
           <p class="lede mx-status" data-mx-status></p>
         </div>
 
+      <details class="mx-upload" id="mxLink" open>
+        <summary>Add by link (no Storage needed)</summary>
+        <p class="lede">Paste a public link to an MP3/OGG. Dropbox and Google Drive share links are converted for you.</p>
+        <div class="toolbar">
+          <input type="url" id="mxLinkUrl" placeholder="https://www.dropbox.com/…?dl=0 or https://drive.google.com/file/d/…" aria-label="Audio link" style="min-width:320px">
+          <input type="text" id="mxLinkTitle" placeholder="Title" aria-label="Link track title">
+          <select id="mxLinkLayer" aria-label="Layer"><option value="music">Music</option><option value="ambient">Ambient</option></select>
+          <button type="button" class="btn sm" id="btnMxTest">Test</button>
+          <button type="button" class="btn btn-primary sm" id="btnMxAddLink">Add link</button>
+        </div>
+        <p class="lede" id="mxLinkMsg"></p>
+      </details>
       <details class="mx-upload" id="mxUpload">
-        <summary>Add audio (Firebase Storage)</summary>
+        <summary>Add audio by upload (optional · Firebase Storage)</summary>
         <p class="lede">MP3 or OGG, under 15 MB. Uploads use your Firebase project's free 5 GB. Only you (the DM) can upload. Players stream what you play.</p>
         <p class="lede warn">Only upload music you have the right to share with your table.</p>
         <div class="toolbar">

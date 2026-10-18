@@ -89,6 +89,53 @@
     return "";
   }
 
+
+  /* Share links -> direct links. Returns { url, host, warn }. */
+  function normalizeLink(raw) {
+    var s = String(raw || "").trim();
+    if (!s) return { url: "", host: "", warn: "" };
+    if (!/^https?:\/\//i.test(s)) return { url: "", host: "", warn: "Paste a full link that starts with https://" };
+    var u; try { u = new URL(s); } catch (e) { return { url: "", host: "", warn: "That link doesn't look right." }; }
+    var h = u.hostname.toLowerCase();
+    if (/(^|\.)dropbox\.com$/.test(h) || /dropboxusercontent\.com$/.test(h)) {
+      if (/dropboxusercontent\.com$/.test(h)) return { url: u.toString(), host: "dropbox", warn: "" };
+      u.searchParams.delete("dl"); u.searchParams.delete("raw");
+      u.hostname = "dl.dropboxusercontent.com";
+      return { url: u.toString(), host: "dropbox", warn: "" };
+    }
+    if (/(^|\.)drive\.google\.com$/.test(h) || /(^|\.)docs\.google\.com$/.test(h)) {
+      var m = /\/file\/d\/([A-Za-z0-9_-]+)/.exec(u.pathname), id = m ? m[1] : u.searchParams.get("id");
+      if (!id) return { url: "", host: "drive", warn: "That Drive link has no file id. Use Share → Copy link on the file itself." };
+      return { url: "https://drive.google.com/uc?export=download&id=" + id, host: "drive", warn: "Google Drive may block big files or streaming (virus-scan page, quota). If it won't play, use Dropbox, another host, or Storage." };
+    }
+    return { url: u.toString(), host: "direct", warn: "" };
+  }
+  /* Try to load an audio URL. Resolves { ok, error, duration }. */
+  function testAudio(url, timeoutMs) {
+    return new Promise(function (resolve) {
+      if (!url) { resolve({ ok: false, error: "No link." }); return; }
+      if (typeof root.Audio !== "function") { resolve({ ok: false, error: "This browser can't test audio." }); return; }
+      var a = new root.Audio(), done = false;
+      function fin(r) { if (done) return; done = true; try { a.removeAttribute("src"); a.load && a.load(); } catch (e) {} resolve(r); }
+      var t = setTimeout(function () { fin({ ok: false, error: "Timed out. The host may be slow, private, or blocking playback." }); }, timeoutMs || 15000);
+      a.preload = "metadata";
+      a.addEventListener("loadedmetadata", function () { clearTimeout(t); fin({ ok: true, duration: isFinite(a.duration) ? a.duration : 0 }); });
+      a.addEventListener("error", function () {
+        clearTimeout(t);
+        var code = a.error && a.error.code;
+        fin({ ok: false, error: code === 4 ? "Not playable audio. The link may open a web page (not public, or a share page) instead of the file, or the format isn't supported." : code === 2 ? "Network error. The file may not be public, or the host blocks other sites (CORS)." : "Couldn't load it. Check the file is public and is MP3/OGG." });
+      });
+      a.src = url;
+    });
+  }
+  /* Storage readiness as a hint, never an error. */
+  function storageHint() {
+    var cfg = root.SSDNS_FIREBASE_CONFIG || {};
+    if (!cfg.storageBucket) return "Uploads are optional and need Firebase Storage. You can paste a link instead.";
+    if (!dmCtx()) return "Uploads are optional. Open a live room to use Firebase Storage, or paste a link instead.";
+    return "";
+  }
+
   /* Art file inputs: [data-art-file] with data-art-target="<css selector of the text input to fill>". */
   function onArtFile(input) {
     var f = input.files && input.files[0]; if (!f) return;
@@ -114,8 +161,16 @@
     }).catch(function (err) { say(err.message || "Couldn't read that image."); });
   }
   if (typeof document !== "undefined") {
-    document.addEventListener("change", function (e) { var t = e.target; if (t && t.hasAttribute && t.hasAttribute("data-art-file")) onArtFile(t); });
+    document.addEventListener("change", function (e) {
+      var t = e.target; if (!t || !t.hasAttribute) return;
+      if (t.hasAttribute("data-art-file")) onArtFile(t);
+      // Art by link: share links become direct image links.
+      if ((t.hasAttribute("data-item-art") || t.id === "hoUrl") && /^https?:/i.test(t.value || "")) {
+        var n = normalizeLink(t.value);
+        if (n.url && n.url !== t.value) t.value = n.url;
+      }
+    });
   }
 
-  root.SSDNSMedia = { ART: ART, AUDIO: AUDIO, FREE_BYTES: FREE_BYTES, cropSquare: cropSquare, upload: upload, usage: usage, remove: remove, checkAudio: checkAudio, fmtBytes: fmtBytes, friendly: friendly, slug: slug, dmCtx: dmCtx };
+  root.SSDNSMedia = { ART: ART, AUDIO: AUDIO, FREE_BYTES: FREE_BYTES, cropSquare: cropSquare, upload: upload, usage: usage, remove: remove, checkAudio: checkAudio, normalizeLink: normalizeLink, testAudio: testAudio, storageHint: storageHint, fmtBytes: fmtBytes, friendly: friendly, slug: slug, dmCtx: dmCtx };
 })(typeof window !== "undefined" ? window : globalThis);

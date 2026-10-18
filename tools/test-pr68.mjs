@@ -23,7 +23,7 @@ class FakeAudio {
   removeAttribute() {} load() {}
 }
 const store = {};
-const sb = { console, Audio: FakeAudio, setInterval, clearInterval, Date, location: { pathname: "/" },
+const sb = { console, Audio: FakeAudio, setInterval, clearInterval, setTimeout, clearTimeout, URL, Date, location: { pathname: "/" },
   localStorage: { getItem: (k) => store[k] || null, setItem: (k, v) => { store[k] = v; } } };
 sb.window = sb; sb.globalThis = sb;
 vm.createContext(sb);
@@ -59,7 +59,28 @@ check("starter.pack", tracks.some((t) => t.layer === "ambient") && tracks.some((
 const rules = read("storage.rules");
 check("storage.rules", /request\.auth\.uid == uid/.test(rules) && /allow read, write: if false/.test(rules) && JSON.parse(read("firebase.json")).storage.rules === "storage.rules");
 const setup = read("setup/index.html");
-check("setup.firebase", /id="firebase"/.test(setup) && /don't need Firebase to play/.test(setup) && /on paper/.test(setup));
+check("setup.firebase", /id="firebase"/.test(setup) && /without any of this/.test(setup) && /on paper/.test(setup));
+
+// Links (0.3.50)
+const N = Med.normalizeLink;
+check("link.dropbox", N("https://www.dropbox.com/scl/fi/abc/theme.mp3?rlkey=xyz&dl=0").url === "https://dl.dropboxusercontent.com/scl/fi/abc/theme.mp3?rlkey=xyz" && N("https://www.dropbox.com/s/abc/a.mp3?dl=0").host === "dropbox");
+const dr = N("https://drive.google.com/file/d/1AbC_d-9/view?usp=sharing");
+check("link.drive", dr.url === "https://drive.google.com/uc?export=download&id=1AbC_d-9" && /may block/.test(dr.warn));
+check("link.drive.noid", N("https://drive.google.com/drive/folders").url === "");
+check("link.direct", N("https://example.com/a.mp3").url === "https://example.com/a.mp3" && N("ftp://x").url === "" && N("").url === "");
+class A2 extends FakeAudio { set src(v) { this._s = v; if (v) setTimeout(() => (this.l[/ok/.test(v) ? "loadedmetadata" : "error"] || []).forEach((f) => f()), 5); } get src() { return this._s; } }
+sb.Audio = A2; sb.setTimeout = setTimeout; sb.clearTimeout = clearTimeout;
+const okT = await Med.testAudio("https://x/ok.mp3"), badT = await Med.testAudio("https://x/bad.mp3");
+check("link.test", okT.ok === true && badT.ok === false && /public|audio|load/i.test(badT.error));
+sb.SSDNS_FIREBASE_CONFIG = { storageBucket: "b" };
+check("storage.hint", /optional/.test(Med.storageHint()) && /link/.test(Med.storageHint()));
+sb.DMCC = { state: { app: {}, uid: "u", demo: false } };
+check("storage.ready", Med.storageHint() === "");
+check("dm.link.ui", /id="btnMxTest"/.test(dm) && /id="btnMxAddLink"/.test(dm) && /Add audio by upload \(optional/.test(dm));
+check("dm.hint.code", /storageHint/.test(read("dm/assets/js/music-dm.js")));
+check("art.link", /image link or path/.test(read("assets/js/items.js")) && /Image link/.test(dm));
+const setup2 = read("setup/index.html");
+check("setup.methods", /\(a\) Built-in starter pack/.test(setup2) && /\(b\) Paste a link/.test(setup2) && /\(c\) Upload to Firebase Storage/.test(setup2) && /authorization hold/.test(setup2) && /alerts only, not caps/.test(setup2) && /firebase\.google\.com\/pricing/.test(setup2) && /storage\.rules/.test(setup2) && /location/.test(setup2));
 let dbSame = true;
 try { dbSame = execSync("git diff --quiet origin/main -- database.rules.json && echo same", { cwd: root }).toString().includes("same"); } catch (e) { dbSame = false; }
 check("db.rules.untouched", dbSame);

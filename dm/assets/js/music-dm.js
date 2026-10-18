@@ -26,11 +26,11 @@
     ["music", "ambient"].forEach(function (k) {
       var sel = $("[data-mx-track]", box(k)); if (!sel) return;
       var keep = sel.value, list = tracksFor(k);
-      sel.innerHTML = list.map(function (t) { return '<option value="' + esc(t.id) + '">' + esc(t.title) + (t.url ? " (uploaded)" : "") + "</option>"; }).join("") || '<option value="">No ' + k + " tracks yet</option>";
+      sel.innerHTML = list.map(function (t) { return '<option value="' + esc(t.id) + '">' + esc(t.title) + (t.linked ? " (link)" : t.url ? " (uploaded)" : "") + "</option>"; }).join("") || '<option value="">No ' + k + " tracks yet</option>";
       if (list.some(function (t) { return t.id === keep; })) sel.value = keep;
     });
     var ul = $("#mxMine");
-    if (ul) ul.innerHTML = mine.map(function (t) { return '<li>' + esc(t.title) + ' · ' + esc(t.layer) + ' · ' + esc(Media ? Media.fmtBytes(t.size) : "") + ' <button type="button" class="btn xs" data-mx-del="' + esc(t.id) + '">Delete</button></li>'; }).join("");
+    if (ul) ul.innerHTML = mine.map(function (t) { return '<li>' + esc(t.title) + ' · ' + esc(t.layer) + ' · ' + esc(t.linked ? "link" : (Media ? Media.fmtBytes(t.size) : "")) + ' <button type="button" class="btn xs" data-mx-del="' + esc(t.id) + '">' + (t.linked ? "Remove" : "Delete") + '</button></li>'; }).join("");
   }
   function step(k, dir) {
     var list = tracksFor(k), sel = $("[data-mx-track]", box(k)); if (!list.length) return null;
@@ -78,11 +78,14 @@
   function meter() {
     if (!Media) return;
     var out = $("#mxMeter"), bar = $("#mxMeterBar");
+    var hint = Media.storageHint && Media.storageHint();
+    if (hint) { if (out) out.textContent = hint; return; }
     Media.usage().then(function (u) { if (out) out.textContent = "Storage used: " + u.label + "."; if (bar) bar.style.width = Math.min(100, u.pct).toFixed(1) + "%"; },
-      function (err) { if (out) out.textContent = err.message; });
+      function (err) { if (out) out.textContent = "Uploads are optional. " + err.message + " You can paste a link instead."; });
   }
   function doUpload() {
     var f = $("#mxFile").files[0], title = ($("#mxTitle").value || "").trim(), layer = $("#mxLayer").value, out = $("#mxMeter");
+    var hint = Media.storageHint && Media.storageHint(); if (hint) { out.textContent = hint; return; }
     var bad = Media.checkAudio(f); if (bad) { out.textContent = bad; return; }
     if (!root.confirm("Upload " + f.name + " (" + Media.fmtBytes(f.size) + ") to your Firebase Storage? Players in your room can stream it. Only upload music you're allowed to share.")) return;
     out.textContent = "Uploading…";
@@ -92,18 +95,33 @@
     }, function (err) { out.textContent = err.message; });
   }
 
+  function linkAction(add) {
+    var msg = $("#mxLinkMsg"), raw = $("#mxLinkUrl").value, n = Media.normalizeLink(raw);
+    if (!n.url) { msg.textContent = n.warn || "Paste a link first."; return; }
+    msg.textContent = "Testing…" + (n.warn ? " " + n.warn : "");
+    Media.testAudio(n.url).then(function (r) {
+      if (!r.ok) { msg.textContent = "Not OK: " + r.error + (n.warn ? " " + n.warn : ""); return; }
+      if (!add) { msg.textContent = "OK" + (r.duration ? " (" + fmt(r.duration) + ")" : "") + ". " + (n.warn || ""); return; }
+      var title = ($("#mxLinkTitle").value || "").trim() || "Linked track";
+      mine.push({ id: "ln-" + Date.now().toString(36), title: title, url: n.url, source: n.host, layer: $("#mxLinkLayer").value, size: 0, linked: true });
+      localStorage.setItem(MINE_KEY, JSON.stringify(mine)); fill();
+      $("#mxLinkUrl").value = ""; $("#mxLinkTitle").value = "";
+      msg.textContent = "Added " + title + ". Pick it in the " + ($("#mxLinkLayer").value) + " list.";
+    });
+  }
   function init() {
     fetch("../assets/music/tracks.json").then(function (r) { return r.ok ? r.json() : { tracks: [] }; }).catch(function () { return { tracks: [] }; }).then(function (d) {
       starter = (d && d.tracks || []).filter(function (t) { return t && t.id && (t.file || t.url); }); fill();
     });
     document.addEventListener("click", function (e) {
-      var t = e.target.closest && e.target.closest("[data-mx],[data-mx-del],#btnMusicStopAll,#btnMxUpload");
+      var t = e.target.closest && e.target.closest("[data-mx],[data-mx-del],#btnMusicStopAll,#btnMxUpload,#btnMxTest,#btnMxAddLink");
       if (!t || !t.closest("#panel-music")) return;
       if (t.id === "btnMusicStopAll") { M.stopAll({ fade: 2 }); var D = root.DMCC; if (D && D.pushCommand) D.pushCommand({ type: "music", to: "all", payload: { action: "stop_all", sec: 2 }, from: D.state && D.state.uid }); return; }
       if (t.id === "btnMxUpload") { doUpload(); return; }
+      if (t.id === "btnMxTest" || t.id === "btnMxAddLink") { linkAction(t.id === "btnMxAddLink"); return; }
       if (t.hasAttribute("data-mx-del")) {
-        var id = t.getAttribute("data-mx-del"), row = mine.filter(function (x) { return x.id === id; })[0]; if (!row || !root.confirm("Delete " + row.title + " from Storage?")) return;
-        Media.remove(row.path).catch(function () {}).then(function () { mine = mine.filter(function (x) { return x.id !== id; }); localStorage.setItem(MINE_KEY, JSON.stringify(mine)); fill(); meter(); });
+        var id = t.getAttribute("data-mx-del"), row = mine.filter(function (x) { return x.id === id; })[0]; if (!row || !root.confirm(row.linked ? "Remove " + row.title + " from the list?" : "Delete " + row.title + " from Storage?")) return;
+        (row.linked || !row.path ? Promise.resolve() : Media.remove(row.path)).catch(function () {}).then(function () { mine = mine.filter(function (x) { return x.id !== id; }); localStorage.setItem(MINE_KEY, JSON.stringify(mine)); fill(); meter(); });
         return;
       }
       e.preventDefault(); e.stopImmediatePropagation();

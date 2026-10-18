@@ -988,9 +988,9 @@
       "</fieldset>" +
       '<label>Weight (lb) <input data-item-weight type="number" min="0" step="0.1"></label>' +
       '<label>Price ES (blank = not for sale) <input data-item-price type="number" min="0"></label>' +
-      '<label>Art path <input data-item-art type="text" placeholder="assets/img/items/….webp"></label>' +
+      '<label>Art: image link or path <input data-item-art type="text" placeholder="https://… (Dropbox/Drive/any host) or assets/img/items/….webp"></label>' +
       '<div class="art-upload"><label>Upload art <input type="file" accept="image/png,image/webp,image/jpeg" data-art-file data-art-target="[data-item-art]"></label>' +
-      '<p class="fine" data-art-note>Best: 512×512 PNG or WEBP, under 1 MB. We crop to a square. No art? The item uses its type picture.</p></div>' +
+      '<p class="fine" data-art-note>Paste an image link above, or upload. Best: 512×512 PNG or WEBP, under 1 MB. Uploads are cropped to a square and saved in the character file. No art? The item uses its type picture.</p></div>' +
       '<label>Addressed to <input data-item-address type="text" placeholder="Blank = anyone"></label>' +
       (dm ? '<label class="chk"><input type="checkbox" data-item-allow-drop> DM allows drop</label><label class="chk"><input type="checkbox" data-item-allow-rob> DM allows rob</label>' : "") +
       '<div class="item-form-actions"><button type="button" class="btn sm" data-item-add>' + (dm ? "Give item" : "Add item") + "</button>" +
