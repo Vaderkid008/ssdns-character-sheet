@@ -64,7 +64,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.36"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.37"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -413,6 +413,38 @@
     }
     if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "roll", text: text });
   }
+  function wielderName() {
+    var app = root.SSDNSApp;
+    var doc = app && app.doc && app.doc();
+    var c = doc && doc.character;
+    return (c && (c.name || c.player)) || "You";
+  }
+  function catalogGunName(g) {
+    if (!g) return "Gun";
+    var id = g.weapon || g.id || "";
+    var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
+    var w = lists.filter(function (x) { return x && (x.id === id || x.name === g.name); })[0];
+    if (!w && root.SSDNSTestJammer && root.SSDNSTestJammer.lookup) w = root.SSDNSTestJammer.lookup(id || g.name);
+    if (w && w.name) return w.name;
+    if (g.name && g.name !== id) return g.name;
+    return g.name || id || "Gun";
+  }
+  function explosionText(gunName, damage) {
+    var who = wielderName();
+    var gun = gunName || "Gun";
+    if (root.SSDNSMisfire && root.SSDNSMisfire.explosionLine) return root.SSDNSMisfire.explosionLine(who, gun, damage);
+    return who + " · " + gun + " · " + damage + " fire";
+  }
+  function broadcastFire(text, damage) {
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.postFeed) {
+      root.SSDNSDmJoin.postFeed({ kind: "d4", text: text, result: damage, formula: "1d4" });
+    }
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "roll", text: text, formula: "1d4", result: damage });
+  }
+  function rollFire() {
+    if (root.SSDNSMisfire && root.SSDNSMisfire.fireRoll) return root.SSDNSMisfire.fireRoll();
+    return 1 + Math.floor(Math.random() * 4);
+  }
   function armDirty(index) {
     var g = gunAt(index);
     if (!g) return Promise.resolve(0);
@@ -422,7 +454,7 @@
     }
     g.pendingD4 = true;
     persistDoc();
-    var name = optsName(g);
+    var name = catalogGunName(g);
     return revealDie({ sides: 4, index: index, gun: name, title: "Dirty d4", rolls: g.pendingD4Rolls, step: g.pendingD4Step || 0 });
   }
   function optsName(g) {
@@ -436,10 +468,14 @@
       var dlg = root.document.createElement("dialog");
       dlg.className = "dlg d4-reveal";
       var title = opts.title || (sides === 6 ? "Roll the d6" : "Dirty d4");
-      dlg.innerHTML = "<form method='dialog'><h2></h2><p class='d4-face' id='d4Face'>Click the die</p><button type='button' class='btn btn-primary d4-die' id='d4Btn'>d" + sides + "</button></form>";
+      dlg.innerHTML = "<form method='dialog'><h2></h2><p class='d4-face' id='d4Face'>Click the die</p><p class='d4-fire' id='d4Fire' hidden></p><button type='button' class='btn btn-primary d4-die' id='d4Btn'>d" + sides + "</button></form>";
       dlg.querySelector("h2").textContent = title;
       var face = dlg.querySelector("#d4Face");
+      var fireLine = dlg.querySelector("#d4Fire");
       var btn = dlg.querySelector("#d4Btn");
+      var token = { live: true };
+      revealDie._open = revealDie._open || [];
+      revealDie._open.push(token);
       var sheet = root.document.getElementById("sheet");
       root.document.body.classList.add("ask-open");
       if (sheet) sheet.setAttribute("inert", "");
@@ -467,6 +503,13 @@
         return 1 + Math.floor(Math.random() * sides);
       }
       function finish(n) {
+        if (!token.live) {
+          if (!settled) {
+            settled = true;
+            resolve(0);
+          }
+          return;
+        }
         if (settled) return;
         settled = true;
         root.document.body.classList.remove("ask-open");
@@ -480,11 +523,32 @@
       btn.addEventListener("click", function () {
         var n = savedRoll();
         var label = words(n);
-        if (root.SSDNSAudio) root.SSDNSAudio.play(n === 1 && sides === 4 ? "roll" : "roll");
+        var gunNow = opts.index != null ? gunAt(opts.index) : null;
+        var rugged = root.SSDNSMisfire && root.SSDNSMisfire.isRugged && root.SSDNSMisfire.isRugged(gunNow || {});
+        var result = sides === 4 && root.SSDNSMisfire && root.SSDNSMisfire.d4Result
+          ? root.SSDNSMisfire.d4Result(n, rugged)
+          : null;
+        if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
         face.textContent = n + " — " + label;
         btn.textContent = String(n);
         broadcastD4(title, n, label);
-        setTimeout(function () { finish(n); }, 900);
+        var hold = 900;
+        if (result && result.explode) {
+          var damage = rollFire();
+          var gunName = opts.gun || catalogGunName(gunNow);
+          var line = explosionText(gunName, damage);
+          opts.fireDamage = damage;
+          opts.fireLine = line;
+          opts.fireTold = true;
+          if (fireLine) {
+            fireLine.hidden = false;
+            fireLine.textContent = line;
+          }
+          btn.textContent = String(damage);
+          broadcastFire(line, damage);
+          hold = 1600;
+        }
+        setTimeout(function () { finish(n); }, hold);
       });
       dlg.addEventListener("cancel", function (e) { e.preventDefault(); });
       root.document.body.appendChild(dlg);
@@ -520,20 +584,34 @@
       g.broken = !!next.broken;
       g.misStreak = Number(next.misStreak) || 0;
       g.lockedChambers = (next.lockedChambers || []).slice();
+      g.exploded = !!next.exploded;
       if (next.lockIndex != null && Array.isArray(g.chambers)) {
         g.chambers[next.lockIndex] = "";
         g.loaded = g.chambers.filter(Boolean).length;
       }
     }
     if (face && face.explode) {
-      var fire = 1 + Math.floor(Math.random() * 4);
-      if (root.SSDNSSheet && root.SSDNSSheet.applyDelta) root.SSDNSSheet.applyDelta(-fire, (opts.gun || "Gun") + " explodes: " + fire + " fire");
+      var fire = opts.fireDamage != null && isFinite(Number(opts.fireDamage)) ? Number(opts.fireDamage) : rollFire();
+      var boom = opts.fireLine || explosionText(opts.gun || catalogGunName(g), fire);
+      g.exploded = true;
+      if (!opts.fireTold) broadcastFire(boom, fire);
+      if (root.SSDNSSheet && root.SSDNSSheet.applyDelta) root.SSDNSSheet.applyDelta(-fire, boom);
     }
     if (face && (face.wild || face.wildShot) && root.SSDNSOfferWildShot) root.SSDNSOfferWildShot(opts.index, { gunName: opts.gun });
     if (app && app.refreshGunFace) app.refreshGunFace();
     else if (app && app.applyPatch) app.applyPatch(function () {});
   }
-  root.SSDNSD4 = { reveal: revealDie, plan: planDirtyRolls, arm: armDirty };
+  function cancelReveal() {
+    (revealDie._open || []).forEach(function (token) { token.live = false; });
+    revealDie._open = [];
+    if (!root.document) return;
+    var dlg = root.document.querySelector("dialog.d4-reveal");
+    if (dlg && dlg.parentNode) dlg.parentNode.removeChild(dlg);
+    if (root.document.body) root.document.body.classList.remove("ask-open");
+    var sheet = root.document.getElementById("sheet");
+    if (sheet) sheet.removeAttribute("inert");
+  }
+  root.SSDNSD4 = { reveal: revealDie, plan: planDirtyRolls, arm: armDirty, cancel: cancelReveal };
   root.SSDNSAsk = { confirm: askConfirm };
   root.SSDNSTestRoll = forcedD20;
   root.SSDNSAudio = {

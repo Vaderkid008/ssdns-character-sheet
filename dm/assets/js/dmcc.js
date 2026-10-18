@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.49"; // dmcc-playtest-v0249
+const VERSION = "0.2.50"; // dmcc-playtest-v0250
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1028,6 +1028,22 @@ function applyDemoGun(playerId, payload) {
       ? window.SSDNSMisfire.clearLocks(g, payload.mode, payload.chamber)
       : null;
     if (next && next.cleared && next.cleared.length) g.lockedChambers = next.lockedChambers.slice();
+  } else if (payload.op === "repair") {
+    const next = window.SSDNSMisfire && window.SSDNSMisfire.repair ? window.SSDNSMisfire.repair(g) : null;
+    if (next) {
+      g.dirty = false;
+      g.fouled = false;
+      g.ruined = false;
+      g.broken = false;
+      g.jammed = false;
+      g.misStreak = 0;
+      g.lockedChambers = [];
+      g.pendingD4 = false;
+      g.pendingD4Rolls = null;
+      g.pendingD4Step = 0;
+      g.exploded = false;
+      g.condition = "ok";
+    }
   } else if (payload.op === "fire") {
     const chambers = Array.isArray(g.chambers) ? g.chambers : [];
     const k = Number(payload.chamber);
@@ -1896,6 +1912,7 @@ function openDetail(pid) {
         <span class="fine">Clear locked chambers</span>
         <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="one" data-gun-i="${sheetI}">Clear one</button>
         <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="all" data-gun-i="${sheetI}">Clear all</button>
+        <button type="button" class="btn sm" data-gun-op="repair" data-gun-i="${sheetI}">Repair gun</button>
         <input type="number" data-gun-loaded="${i}" value="${esc(g.loaded)}" aria-label="Loaded chambers">
       </div>`;
       }).join("") || "<p>—</p>"}
@@ -1944,6 +1961,7 @@ function openDetail(pid) {
         const which = payload.mode === "one" ? "one locked chamber" : "all locked chambers";
         postDmAction("DM cleared " + which + " on " + gunName + ".", pid);
       }
+      if (op === "repair") postDmAction("DM repaired " + gunName + ".", pid);
       if (state.demo) applyDemoGun(pid, payload);
     });
   });

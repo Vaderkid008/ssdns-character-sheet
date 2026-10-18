@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.36"; // sheet-playtest-v0336
+  var APP_VERSION = "0.3.37"; // sheet-playtest-v0337
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1392,7 +1392,10 @@
     fillCasterGunSelect();
     c.guns.forEach(function (g, i) {
       var s = v.guns[i], row = $('.gun[data-row="' + i + '"]'), w = s && s.w;
-      if (row && window.SSDNSWeaponArt) window.SSDNSWeaponArt.paint(row.querySelector(".g-photo"), w || null);
+      var photo = row && row.querySelector(".g-photo");
+      if (row && window.SSDNSWeaponArt) window.SSDNSWeaponArt.paint(photo, w || null);
+      var crossed = !!(g.ruined || g.broken || g.exploded);
+      if (photo) photo.classList.toggle("gun-x", crossed);
       row.classList.toggle("empty", !s);
       row.classList.toggle("is-shotgun", !!(w && w.scatter));
       row.classList.toggle("is-caster", !!(w && w.hexShells));
@@ -2849,6 +2852,30 @@
     refreshGunFace();
     return true;
   }
+  function repairGun(i) {
+    var g = C().guns[i];
+    if (!g) return false;
+    var M = window.SSDNSMisfire;
+    if (!M || !M.repair) return false;
+    var next = M.repair(g);
+    g.fouled = false;
+    g.ruined = false;
+    g.broken = false;
+    g.jammed = false;
+    g.dirty = false;
+    g.misStreak = 0;
+    g.lockedChambers = (next.lockedChambers || []).slice();
+    g.pendingD4 = false;
+    g.pendingD4Rolls = null;
+    g.pendingD4Step = 0;
+    g.exploded = false;
+    if (window.SSDNSD4 && window.SSDNSD4.cancel) window.SSDNSD4.cancel();
+    var name = WPN[g.weapon] ? WPN[g.weapon].name : "Gun";
+    var line = "DM repaired " + name + ".";
+    if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
+    refreshGunFace();
+    return true;
+  }
   function promptShortRestTools() {
     var guns = (C().guns || []).filter(Boolean);
     guns.forEach(function (g) { g.misStreak = 0; });
@@ -3997,6 +4024,7 @@
       unjamGun: function (i) { return unjamGun(i); },
       reopenChamber: function (i) { return reopenChamber(i); },
       clearLockedChambers: function (i, mode, chamber) { return clearLockedChambers(i, mode, chamber); },
+      repairGun: function (i) { return repairGun(i); },
       refreshGunFace: refreshGunFace,
       promptShortRestTools: function () { return promptShortRestTools(); },
       applyCleanOption: function (i, optionId) { return applyCleanOption(i, optionId); },
