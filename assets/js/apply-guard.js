@@ -964,6 +964,8 @@
         g.jammed ? 1 : 0,
         g.misStreak || 0,
         g.pendingD4 ? 1 : 0,
+        g.exploded ? 1 : 0,
+        Array.isArray(g.lockedChambers) ? g.lockedChambers.join(",") : "",
         g.ammoPool == null ? "" : g.ammoPool,
         g.attackMode || "",
         Array.isArray(g.pools) ? g.pools.map(function (p) { return (p && p.idx != null ? p.idx : "") + "=" + (p && p.count != null ? p.count : ""); }).join(",") : ""

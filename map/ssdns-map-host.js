@@ -298,6 +298,7 @@
         fouled: !!g.fouled,
         ruined: !!(g.ruined || g.broken),
         broken: !!g.broken,
+        exploded: !!g.exploded,
         jammed: !!g.jammed,
         misStreak: Number(g.misStreak) || 0,
         pendingD4: !!g.pendingD4,

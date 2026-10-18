@@ -148,6 +148,7 @@
         fouled: !!g.fouled,
         dirty: !!g.dirty,
         ruined: !!(g.ruined || g.broken),
+        exploded: !!g.exploded,
         misStreak: Number(g.misStreak) || 0,
         pendingD4: !!g.pendingD4,
         weapon: g.weapon || "",
@@ -1457,6 +1458,9 @@
       return;
     } else if (payload.op === "clear-locks" && app.clearLockedChambers) {
       app.clearLockedChambers(payload.index, payload.mode, payload.chamber);
+      return;
+    } else if (payload.op === "repair" && app.repairGun) {
+      app.repairGun(payload.index);
       return;
     }
     if (payload.op === "test-gun" && app.grantTestGun) {

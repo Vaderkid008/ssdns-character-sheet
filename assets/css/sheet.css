@@ -273,7 +273,8 @@ input.big { font-family: var(--head); font-size: 28px !important; text-align: ce
 .gun-head { display: none; }
 .gun { display: flex; flex-direction: column; gap: 8px; padding: 10px; margin: 0 0 10px; border: 1px solid var(--line); background: #fffaf3; border-radius: 4px; }
 .g-card-top { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; align-items: start; }
-.g-photo { width: 76px; height: 76px; display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--label); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #6b5438; border: 1px dashed #8a7040; background: repeating-linear-gradient(45deg, #f6efe2, #f6efe2 6px, #efe4d0 6px, #efe4d0 12px); overflow: hidden; }
+.g-photo { position: relative; width: 76px; height: 76px; display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--label); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #6b5438; border: 1px dashed #8a7040; background: repeating-linear-gradient(45deg, #f6efe2, #f6efe2 6px, #efe4d0 6px, #efe4d0 12px); overflow: hidden; }
+.g-photo.gun-x::after { content: ""; position: absolute; inset: 8%; background: linear-gradient(to bottom right, transparent 46%, #c41212 46%, #c41212 54%, transparent 54%), linear-gradient(to bottom left, transparent 46%, #c41212 46%, #c41212 54%, transparent 54%); pointer-events: none; z-index: 2; }
 .g-card-top:has(.g-photo.has-art) { grid-template-columns: minmax(0, 1fr); }
 .g-photo.has-art { width: 100%; height: auto; aspect-ratio: 3 / 1; border-style: solid; border-color: #c4b497; background: #fffaf3; }
 .g-photo.has-art img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
@@ -844,6 +845,7 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .d4-reveal { width: min(28rem, 92vw); text-align: center; }
 .d4-reveal h2 { font-size: 1.7rem; }
 .d4-face { font-size: 2.2rem; min-height: 3rem; }
+.d4-fire { font-size: 1.7rem; font-weight: 700; color: #8a1c14; margin: 0.35rem 0 0.6rem; }
 .d4-die { font-size: 4rem; min-width: 7rem; min-height: 7rem; }
 #badgeState, #dmBadge { font: inherit; margin-left: 4px; }
 .gun-status { display: block; font-weight: 700; }

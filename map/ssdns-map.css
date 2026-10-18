@@ -765,6 +765,9 @@ body.map-fullscreen #mapMount .ssm-cropper canvas {
   cursor: pointer;
 }
 .cylinder-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.cylinder-row.gun-x .ssdns-ammo::after,
+.cylinder-row.gun-x .chamber-dots::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom right, transparent 46%, #c41212 46%, #c41212 54%, transparent 54%), linear-gradient(to bottom left, transparent 46%, #c41212 46%, #c41212 54%, transparent 54%); pointer-events: none; z-index: 3; }
+.cylinder-row.gun-x .chamber-dots { position: relative; }
 .ssm-drawer .cylinder-row { flex-wrap: wrap; min-width: 0; width: 100%; align-items: center; }
 .ssm-drawer .cylinder-row .cyl-name {
   flex: 1 1 auto;

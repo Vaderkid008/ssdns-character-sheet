@@ -10,6 +10,8 @@
  * Dirty starts the streak at 1. Both dice misfiring on a Dirty gun opens the d4 immediately.
  * On a clean gun, both dice misfiring count as one misfire.
  * Fouled and Ruined are one state. The sheet does not clear that state.
+ * A DM repair clears Fouled, Ruined, Jammed, Dirty, locked chambers, the streak, and an explosion mark. No ES.
+ * An exploding d4 (1) deals 1d4 fire to the wielder. The sheet shows and logs that roll.
  */
 (function (root) {
   "use strict";
@@ -82,6 +84,7 @@
       pendingD4Step: Number(gun.pendingD4Step) || 0,
       rugged: isRugged(gun),
       lockedChambers: copyLocks(gun.lockedChambers),
+      exploded: !!gun.exploded,
       capacity: gunCapacity(gun),
       mod: gun.mod || "",
       feats: gun.feats || [],
@@ -419,6 +422,7 @@
     next.pendingD4Step = 0;
     next.jammed = !!face.jammed;
     next.explode = !!face.explode;
+    next.exploded = !!(face.explode || gun.exploded);
     next.fire = face.fire || "";
     next.wild = !!(face.wild || face.wildShot);
     next.lock = false;
@@ -461,6 +465,8 @@
       fouled: !!next.fouled,
       dirty: !!next.dirty,
       ruined: !!next.ruined,
+      exploded: !!next.exploded,
+      showX: !!(next.ruined || next.exploded),
       misStreak: next.misStreak,
       pendingD4: !!next.pendingD4,
       lockedChambers: next.lockedChambers.slice(),
@@ -489,6 +495,38 @@
       next.lockedChambers = [];
     }
     return next;
+  }
+  /** DM repair. Clears fouling, ruin, jam, dirt, locks, the streak, and the explosion mark. Free. */
+  function repair(gun) {
+    var next = copyGun(gun);
+    next.fouled = false;
+    next.ruined = false;
+    next.broken = false;
+    next.jammed = false;
+    next.dirty = false;
+    next.misStreak = 0;
+    next.lockedChambers = [];
+    next.pendingD4 = false;
+    next.pendingD4Rolls = null;
+    next.pendingD4Step = 0;
+    next.exploded = false;
+    next.cost = 0;
+    return next;
+  }
+  function fireRoll(rng) {
+    var n = typeof rng === "function" ? Number(rng()) : (1 + Math.floor(Math.random() * 4));
+    if (!isFinite(n)) n = 1;
+    n = Math.floor(n);
+    if (n < 1) n = 1;
+    if (n > 4) n = 4;
+    return n;
+  }
+  function explosionLine(who, gun, damage) {
+    who = String(who || "You");
+    gun = String(gun || "Gun");
+    damage = Number(damage);
+    if (!isFinite(damage)) damage = 0;
+    return who + " · " + gun + " · " + damage + " fire";
   }
   function shortRest(guns, withTools) {
     return (guns || []).map(function (g) {
@@ -523,6 +561,9 @@
     lockupLabel: lockupLabel,
     gunFace: gunFace,
     clearLocks: clearLocks,
+    repair: repair,
+    fireRoll: fireRoll,
+    explosionLine: explosionLine,
     shortRest: shortRest,
     WILD_TEXT: "Wild shot! DM picks a random creature in normal range (allies included); roll a new attack"
   };
