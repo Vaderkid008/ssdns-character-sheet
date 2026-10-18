@@ -568,6 +568,25 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
 .cyl-target { max-width: 140px; font-size: 12px; }
 .chamber-dot.full { background: #e2c56a; }
 .turn-chip.ondeck { opacity: .45; }
+.turn-chip.later { opacity: .32; }
+.turn-chip.side-enemy { background: #6e2430; color: #fff; }
+.turn-chip.side-pc { background: #2f5f73; color: #fff; }
+.turn-chip.side-ally { background: #3d6b4f; color: #fff; }
+.turn-chip .chip-face { width: 36px; height: 36px; }
+.strip-next { flex: 0 0 auto; align-self: center; margin-left: 4px; }
+.token-chip { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; box-shadow: inset 0 0 0 1px rgba(0,0,0,.45); }
+.name-mode { display: inline-flex; gap: 4px; align-items: center; }
+.name-mode button.on, .name-mode .chip.on { box-shadow: inset 0 0 0 2px currentColor; }
+.status-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.status-chips .chip, .status-chips .status { border-radius: 999px; padding: 2px 8px; font-size: 12px; }
+.status-chips .faction { background: #2f5f73; color: #fff; }
+.status-chips .cond, .status-chips .status-down { background: #6e2430; color: #fff; }
+.status-chips .status-bloodied { background: #8a3b12; color: #fff; }
+.status-chips .status-hurt { background: #a36b2a; color: #fff; }
+.status-chips .status-unhurt { background: #3d6b4f; color: #fff; }
+.status-chips .status-fled { background: #4a4038; color: #fff; }
+#panel-fight .fight-portrait .status-chips { justify-content: center; max-width: 92px; }
+#panel-fight .fight-portrait .chip { font-size: 10px; line-height: 1.2; }
 .turn-chip.friendly { border-color: var(--eld); color: var(--eld); }
 .turn-chip.ondeck { border-color: var(--ochre); }
 .ondeck-line, .tactics-note { color: var(--ochre); font-weight: 700; letter-spacing: 0; text-transform: none; }
@@ -825,4 +844,28 @@ select:-webkit-autofill {
 @media (max-width: 640px) {
   #panel-fight .wanted-head h2 { font-size: 32px; }
   #panel-fight .fight-next-bar .btn-next { flex-basis: 100%; }
+}
+@media (max-width: 700px) {
+  html, body { overflow-x: hidden; max-width: 100%; }
+  .appbar, .bar-actions, .toolbar, .statusbar, .dock-head, .dock-filters, .dock-compose, .fight-next-bar, .town-bar, .store-picks {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .tab, .btn, .btn.sm, .chip, .dock-filters .chip, .dock-filters .btn, .name-mode button, .room-code { min-height: 40px; }
+  .header-roll input, .field-inline input, .form-grid input, .form-grid select { min-height: 40px; }
+  .turn-strip, .fight-portraits { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .player-grid, .handout-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  img, video { max-width: 100%; }
+  input, select, textarea { max-width: 100%; }
+  .drawer, .overlay { max-width: 100%; }
+}
+@media (max-width: 520px) {
+  .appbar, .brand { flex-wrap: wrap; }
+  .header-roll { width: 100%; }
+  .header-roll input { min-width: 0; flex: 1; }
+  .bar-actions { width: 100%; }
+  main, .panel { padding-left: 8px; padding-right: 8px; }
+  .abil-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

@@ -21,8 +21,10 @@
   } catch (e) {}
 
   var sfxMap = null;
+  var sfxPools = {};
   var weaponOverrides = {};
   var outcomeMap = { categories: {}, weapons: {} };
+  var lastVariant = {};
   var musicEl = null;
   var pendingMusic = null;
   var liveSfx = [];
@@ -64,17 +66,18 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.42"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.43"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
+        sfxPools = (j && j.pools) || {};
         weaponOverrides = (j && j.weapons) || {};
         outcomeMap = (j && j.outcomes) || { categories: {}, weapons: {} };
         if (!outcomeMap.categories) outcomeMap.categories = {};
         if (!outcomeMap.weapons) outcomeMap.weapons = {};
         return sfxMap;
       })
-      .catch(function () { sfxMap = {}; weaponOverrides = {}; outcomeMap = { categories: {}, weapons: {} }; return sfxMap; });
+      .catch(function () { sfxMap = {}; sfxPools = {}; weaponOverrides = {}; outcomeMap = { categories: {}, weapons: {} }; return sfxMap; });
   }
 
   function playUrl(url, loop) {
@@ -96,8 +99,53 @@
     lightning: "spellcast", electric: "spellcast", teleport: "spellcast", heal: "spellcast",
     "reload-lever": "reload", "reload-revolver": "reload", "empty-click": "jam", cock: "holster"
   };
-  function startSfx(map, eventName, depth) {
+  function hasPool(eventName) {
+    return !!(sfxPools && Object.prototype.hasOwnProperty.call(sfxPools, eventName));
+  }
+  function eventFiles(map, eventName) {
+    if (hasPool(eventName)) {
+      var listed = sfxPools[eventName];
+      if (!Array.isArray(listed)) return [];
+      return listed.map(function (file) { return String(file || ""); }).filter(Boolean);
+    }
     var file = map && map[eventName];
+    if (Array.isArray(file)) return file.map(function (one) { return String(one || ""); }).filter(Boolean);
+    if (file) return [String(file)];
+    return null;
+  }
+  /** Pick a pool slot at random and skip the slot that just played. */
+  function pickVariant(eventName, files, rnd) {
+    var list = (files || []).filter(Boolean);
+    if (!list.length) return "";
+    var roll = typeof rnd === "function" ? Number(rnd()) : Math.random();
+    if (!isFinite(roll)) roll = Math.random();
+    if (list.length === 1) {
+      lastVariant[eventName] = 0;
+      return list[0];
+    }
+    var last = lastVariant[eventName];
+    var choices = [];
+    for (var i = 0; i < list.length; i++) if (i !== last) choices.push(i);
+    if (!choices.length) choices = list.map(function (_, i) { return i; });
+    var n = Math.floor(Math.abs(roll) * choices.length) % choices.length;
+    var idx = choices[n];
+    lastVariant[eventName] = idx;
+    return list[idx];
+  }
+  /** Small pitch and volume swing so repeated placeholders do not sound identical. */
+  function playbackJitter(rnd) {
+    var roll = typeof rnd === "function" ? rnd : function () { return Math.random(); };
+    var rate = 0.97 + (Number(roll()) || 0) * 0.06;
+    var gain = 0.92 + (Number(roll()) || 0) * 0.16;
+    return {
+      playbackRate: Math.max(0.5, Math.min(2, rate)),
+      gain: Math.max(0.5, Math.min(1.5, gain))
+    };
+  }
+  function startSfx(map, eventName, depth) {
+    var listed = eventFiles(map, eventName);
+    if (listed && !listed.length) return;
+    var file = listed && listed.length ? pickVariant(eventName, listed) : "";
     if ((!file || missingFiles[file]) && CUE_FALLBACK[eventName] && !depth) {
       startSfx(map, CUE_FALLBACK[eventName], 1);
       return;
@@ -105,9 +153,10 @@
     if (!file || missingFiles[file] || prefs.muted || volume() <= 0) return;
     var audio = playUrl(fileUrl("sfx", file), false);
     if (!audio) return;
-    if (eventName === "jam") {
-      try { audio.volume = Math.min(volume(), 0.45); } catch (e) {}
-    }
+    var swing = playbackJitter();
+    var base = eventName === "jam" ? Math.min(volume(), 0.45) : volume();
+    try { audio.playbackRate = swing.playbackRate; } catch (e) {}
+    try { audio.volume = Math.max(0, Math.min(1, base * swing.gain)); } catch (e2) {}
     audio.addEventListener("error", function () {
       missingFiles[file] = 1;
       try { audio.pause(); } catch (e2) {}
@@ -640,7 +689,11 @@
     setVolume: function (v) { prefs.volume = v; save(); },
     isMuted: function () { return !!prefs.muted; },
     volume: volume,
-    fileUrl: fileUrl
+    fileUrl: fileUrl,
+    poolFiles: function (name) { return eventFiles(sfxMap, name); },
+    pickVariant: pickVariant,
+    playbackJitter: playbackJitter,
+    resetVariants: function () { lastVariant = {}; }
   };
 
   loadMap();

@@ -9,6 +9,11 @@
   var LOG_OLD = "ssdns.v1.tableLog";
 
   function $(s) { return document.querySelector(s); }
+  function escHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
   function doc() { return root.SSDNSApp && root.SSDNSApp.doc ? root.SSDNSApp.doc() : null; }
   function ch() { var d = doc(); return d && d.character; }
   function rules() { return root.SSDNS_RULES || {}; }
@@ -547,7 +552,7 @@
     var modeWord = chosen === "dis" ? " · disadvantage" : (chosen === "adv" ? " · advantage" : "");
     var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
       ? root.SSDNSApplied.attackBreakdown({
-        who: who, target: tgt && tgt.name, nat: nat, n1: faced.n1, n2: faced.n2,
+        who: who, target: tgt && tgt.name, weapon: name, nat: nat, n1: faced.n1, n2: faced.n2,
         parts: [{ label: "bonus", value: atk }], total: hitTotal, ac: haveAc ? meleeCover.ac : null, coverNote: meleeCover.note,
         revealAc: !(root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt)),
         miss: miss, crit: crit && !miss,
@@ -916,6 +921,8 @@
       banner = document.createElement("div");
       banner.id = "yourTurnBanner";
       banner.className = "your-turn-box";
+      banner.setAttribute("role", "status");
+      banner.setAttribute("aria-live", "assertive");
       banner.textContent = "Your turn";
       document.body.appendChild(banner);
     }
@@ -1082,8 +1089,22 @@
           var letters = raw.replace(/[^A-Za-z]/g, "");
           var initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
           var dist = (i - turn + order.length) % order.length;
-          var cls = "turn-chip" + (i === turn ? " current" : "") + (dist > 0 && dist <= 2 ? " ondeck" : "") + (row.kind === "enemy" ? " enemy" : " player");
-          return "<span class='" + cls + "' title='" + raw.replace(/'/g, "") + "'><b>" + initials + "</b> " + raw + "</span>";
+          var friendly = row.kind === "enemy" && (row.side === "friendly" || row.side === "ally");
+          var side = row.kind === "player" ? "side-pc player" : (friendly ? "side-ally" : "side-enemy enemy");
+          var state = i === turn ? " current" : (dist > 0 && dist <= 2 ? " ondeck" : " later");
+          var pub = lastTargets[row.id] || {};
+          var faction = row.faction || pub.faction || "";
+          var status = stripStatus(row) || row.status || pub.status || "";
+          var conds = row.conditions || pub.conditions || [];
+          var chips = [];
+          if (faction) chips.push("<span class='chip faction'>" + escHtml(faction) + "</span>");
+          if (status && row.kind !== "player") chips.push("<span class='chip status status-" + escHtml(String(status).toLowerCase()) + "'>" + escHtml(status) + "</span>");
+          (Array.isArray(conds) ? conds : []).forEach(function (c) {
+            var name = typeof c === "string" ? c : (c && c.name) || "";
+            if (name) chips.push("<span class='chip cond'>" + escHtml(name) + "</span>");
+          });
+          var chipHtml = chips.length ? "<span class='status-chips'>" + chips.join("") + "</span>" : "";
+          return "<span class='turn-chip " + side + state + "' title='" + escHtml(raw) + "'><span class='chip-face'>" + escHtml(initials) + "</span><span class='chip-name'>" + escHtml(raw) + "</span>" + chipHtml + "</span>";
         }).join("");
       }
       var detail = $("#turnDetail");

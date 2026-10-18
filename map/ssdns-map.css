@@ -144,7 +144,7 @@ body.ssdns-chat-pop {
   color: #e8dcc8;
   font: 15px/1.35 system-ui, sans-serif;
 }
-body.ssdns-chat-pop { position: static; min-height: 100vh; height: 100vh; }
+body.ssdns-chat-pop { position: static; min-height: 100vh; height: 100vh; margin: 0; }
 .ssdns-chat-overlay-bar,
 body.ssdns-chat-pop .ssdns-chat-overlay-bar {
   display: flex;
@@ -887,4 +887,65 @@ body.map-fullscreen #mapMount > .ssm-drawer {
     right: auto;
     bottom: auto;
   }
+}
+.ssm-turnstrip {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 56px;
+  z-index: 12;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  align-items: center;
+  overflow-x: auto;
+  max-width: calc(100% - 16px);
+  -webkit-overflow-scrolling: touch;
+}
+.ssm-turnstrip .turn-chip { cursor: pointer; flex: 0 0 auto; }
+.ssm-turnstrip .btn-next { flex: 0 0 auto; min-height: 40px; }
+.token-chip { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.name-mode { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.name-mode button.on { box-shadow: inset 0 0 0 2px #e8c36a; }
+.turn-chip { display: inline-flex; gap: 6px; align-items: center; border-radius: 999px; padding: 4px 8px; background: #2a241c; color: #f0e4cf; }
+.turn-chip .chip-face { width: 28px; height: 28px; border-radius: 50%; display: inline-grid; place-items: center; background: rgba(0,0,0,.25); }
+.turn-chip.current { box-shadow: 0 0 0 3px #e2c56a; opacity: 1; }
+.turn-chip.ondeck { opacity: .55; }
+.turn-chip.later { opacity: .32; }
+.turn-chip.side-enemy, .turn-chip.enemy { background: #6e2430; }
+.turn-chip.side-pc, .turn-chip.player { background: #2f5f73; }
+.turn-chip.side-ally { background: #3d6b4f; }
+@media (max-width: 700px) {
+  html, body { overflow-x: hidden; max-width: 100%; }
+  .ssdns-map, .ssdns-toolbar, .ssdns-chathead, .ssdns-chat-overlay-bar, .ssdns-chat-overlay-form {
+    max-width: 100%;
+  }
+  .ssdns-toolbar, .ssdns-chathead, .ssm-tools, .ssdns-leftbar, .ssdns-rightbar {
+    flex-wrap: wrap;
+  }
+  .ssdns-toolbar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ssdns-map button, .ssdns-chathead button, .name-mode button, .ssdns-chat-overlay-bar button, .ssdns-chat-overlay-form button, .ssm-turnstrip .btn,
+  .ssdns-chat-filters button, .ssm-chat-tab, body.ssdns-chat-pop button {
+    min-height: 40px;
+    min-width: 40px;
+  }
+  .turn-chip .chip-face { width: 40px; height: 40px; }
+  .ssdns-playercard, .ssm-drawer {
+    width: min(100% - 16px, 360px);
+    max-width: calc(100% - 16px);
+    left: 8px;
+    right: 8px;
+  }
+  .ssdns-playercard .ssm-tools button, .ssm-drawer button, .ssm-cond-x { min-height: 40px; min-width: 40px; }
+  .ssdns-playercard .chamber-dots .chamber-dot,
+  .ssm-drawer .chamber-dots .chamber-dot { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
+  .ssdns-chat-float, .ssdns-chat-overlay {
+    max-width: calc(100% - 8px);
+  }
+  img, canvas { max-width: 100%; }
+}
+@media (max-width: 520px) {
+  .ssdns-playercard { top: 8px; width: calc(100% - 16px); }
+  .ssdns-chat-overlay, body.ssdns-chat-pop { width: 100%; }
+  .ssm-turnstrip { bottom: 8px; }
 }

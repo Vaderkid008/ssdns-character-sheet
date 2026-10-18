@@ -495,7 +495,7 @@
     if (!quiet) {
       var feed = {
         id: id, ts: entry.ts, from: state.uid,
-        fromName: entry.characterName || entry.who, text: rollText(entry), kind: "roll", who: entry.characterName || entry.who
+        fromName: entry.characterName || entry.who, characterName: entry.characterName || "", playerName: entry.playerName || "", weapon: entry.weapon || "", spellName: entry.spellName || "", text: rollText(entry), kind: "roll", who: entry.characterName || entry.who
       };
       try { await fb.set(fb.ref(state.db, roomPath("tableFeed/" + id)), feed); }
       catch (err) { console.warn("[DM Join] table feed", err); }
@@ -567,6 +567,7 @@
       dice: entry.dice || "",
       formula: entry.formula || "",
       weapon: entry.weapon || "",
+      spellName: entry.spellName || "",
       gun: !!entry.gun,
       spell: !!entry.spell,
       cover: entry.cover || "",
@@ -1650,6 +1651,8 @@
       ts: new Date().toISOString(),
       from: state.uid,
       fromName: (entry && entry.fromName) || (c && (root.SSDNSApplied && root.SSDNSApplied.speakerName ? root.SSDNSApplied.speakerName(c.name, c.player) : (c.name || c.player))) || "Player",
+      characterName: (c && c.name) || (entry && entry.characterName) || "",
+      playerName: (c && c.player) || (entry && entry.playerName) || "",
       text: (entry && entry.text) || ""
     };
     return fb.set(fb.ref(state.db, roomPath("chat/" + id)), row);
@@ -1776,7 +1779,7 @@
         if (row.to && row.to !== "all") who += " (to you)";
         var chatText = row.text || "";
         if (chatText.indexOf(who) !== 0) chatText = who + ": " + chatText;
-        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "chat:" + id, kind: "chat", text: chatText, ts: row.ts });
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "chat:" + id, kind: "chat", text: chatText, ts: row.ts, characterName: row.characterName || "", playerName: row.playerName || "", who: row.fromName || "" });
       });
       chatPrimed = true;
     });
@@ -1806,6 +1809,10 @@
           kind: row.kind === "roll" ? "roll" : "chat",
           text: text,
           ts: row.ts,
+          characterName: row.characterName || "",
+          playerName: row.playerName || "",
+          who: row.who || row.fromName || "",
+          weapon: row.weapon || "",
           replace: row.kind === "roll" && /→\s*(HIT|MISS|CRIT)/.test(text)
         });
       });

@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Table chat</title>
-<link rel="stylesheet" href="ssdns-map.css?v=0.3.42-float">
-<link rel="stylesheet" href="../assets/css/dice.css?v=0.3.42-dice">
+<link rel="stylesheet" href="ssdns-map.css?v=0.3.43-float">
+<link rel="stylesheet" href="../assets/css/dice.css?v=0.3.43-dice">
 </head>
 <body class="ssdns-chat-pop">
 <header class="ssdns-chat-overlay-bar">
@@ -14,6 +14,10 @@
     <button type="button" data-chat-filter="all">All</button>
     <button type="button" data-chat-filter="rolls">Rolls</button>
     <button type="button" data-chat-filter="talk">Talk</button>
+  </span>
+  <span class="name-mode" role="group" aria-label="Show names as">
+    <button type="button" data-name-mode="character">Character</button>
+    <button type="button" data-name-mode="player">Player</button>
   </span>
   <button type="button" id="popCollapse">Hide</button>
   <button type="button" id="popDock">Dock</button>
@@ -24,9 +28,9 @@
   <input id="popText" placeholder="Chat or /roll" autocomplete="off" aria-label="Chat message">
   <button type="submit">Send</button>
 </form>
-<script src="../assets/js/apply-guard.js?v=0.3.42-float"></script>
-<script src="../assets/js/dice-art.js?v=0.3.42-dice"></script>
-<script src="ssdns-map-chat.js?v=0.3.42-float"></script>
+<script src="../assets/js/apply-guard.js?v=0.3.43-float"></script>
+<script src="../assets/js/dice-art.js?v=0.3.43-dice"></script>
+<script src="ssdns-map-chat.js?v=0.3.43-float"></script>
 <script>SSDNSMapChat.bootPopup();</script>
 </body>
 </html>

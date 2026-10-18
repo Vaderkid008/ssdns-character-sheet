@@ -387,6 +387,8 @@ function buildPublish() {
         initFrom: row.initFrom || "",
         mapHidden: hidden,
         side: row.kind === "player" ? "" : (window.SSDNSApplied && window.SSDNSApplied.combatantSide ? window.SSDNSApplied.combatantSide(row) : (isFriendly(row) ? "friendly" : "enemy")),
+        faction: hidden ? "" : (shown.faction || ""),
+        conditions: hidden ? [] : (shown.conditions || []),
         guns: hidden ? [] : publicGuns(row)
       };
     });
@@ -951,6 +953,7 @@ function turnRowHtml(row, i) {
       <span class="init-who" title="${esc(row.name || "Someone")}">        <span class="who-name">${row.kind === "enemy" ? `<button type="button" class="name-btn" data-open-enemy="${esc(row.id || "")}">${esc(row.name || "Someone")}</button>` : `<b>${esc(row.name || "Someone")}</b>`}${sideBadge}</span>
         <span class="fine">${esc(sideWord)}${row.tie ? " · tie" : ""}${status ? " · " + esc(status) : ""}${detail ? " · " + esc(detail) : ""}${esc(turnAckLabel(row))}</span>
         ${downBadge}
+        ${statusChipsHtml(row)}
         ${window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled() ? stripGuns(row, i) : ""}
         ${conditionChips(row)}
         ${tactics ? `<span class="tactics-note">Tactics. ${esc(tactics)}</span>` : ""}
@@ -1028,6 +1031,21 @@ function absorbFightInputs() {
   if (atkI != null) row.atkBonus = active.value === "" ? "" : Number(active.value);
   if (dmgI != null) row.damage = active.value;
 }
+function factionOf(row) {
+  if (window.SSDNSApplied && window.SSDNSApplied.factionName) return window.SSDNSApplied.factionName(row);
+  return String((row && (row.faction || (row.card && row.card.faction))) || "").trim();
+}
+function statusClass(label) {
+  return "status-" + String(label || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+function statusChipsHtml(row) {
+  const bits = [];
+  const faction = factionOf(row);
+  if (faction) bits.push(`<span class="chip faction">${esc(faction)}</span>`);
+  const status = row && row.kind === "enemy" ? enemyStatus(row) : ((row && row.status) || "");
+  if (status) bits.push(`<span class="chip status ${statusClass(status)}">${esc(status)}</span>`);
+  return bits.length ? `<span class="status-chips">${bits.join("")}</span>` : "";
+}
 function portraitHtml(row, i) {
   const len = fight.order.length || 1;
   const dist = fight.started ? (i - fight.turn + len) % len : 99;
@@ -1039,7 +1057,7 @@ function portraitHtml(row, i) {
   const letters = String(row.name || "?").replace(/[^A-Za-z]/g, "");
   const initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
   const cls = "fight-portrait side-" + side + (current ? " current" : "") + (ondeck ? " ondeck" : "") + (later ? " later" : "");
-  return `<button type="button" class="${cls}" data-fight-portrait="${i}" title="${esc(row.name || "")}"><span class="portrait-face">${esc(initials)}</span><span class="portrait-name">${esc(row.name || "")}</span><span class="portrait-init">${esc(row.init == null || row.init === "" ? "—" : row.init)}</span></button>`;
+  return `<button type="button" class="${cls}" data-fight-portrait="${i}" title="${esc(row.name || "")}"><span class="portrait-face">${esc(initials)}</span><span class="portrait-name">${esc(row.name || "")}</span><span class="portrait-init">${esc(row.init == null || row.init === "" ? "—" : row.init)}</span>${statusChipsHtml(row)}</button>`;
 }
 function fightLogCards() {
   const box = $("#fightLog");
@@ -1103,18 +1121,21 @@ function renderFight() {
     fightLogCards();
     if (strip) {
       const len = fight.order.length;
-      strip.innerHTML = fight.order.map((row, i) => {
+      const chips = fight.order.map((row, i) => {
         const dist = fight.started ? (i - fight.turn + len) % len : 99;
         const current = fight.started && i === fight.turn ? " current" : "";
         const ondeck = fight.started && dist > 0 && dist <= 2 ? " ondeck" : "";
-        const side = row.kind === "enemy" ? " enemy" : " player";
+        const later = fight.started && dist > 2 ? " later" : "";
+        const friendly = row.kind === "enemy" && isFriendly(row);
+        const side = row.kind === "player" ? " side-pc player" : (friendly ? " side-ally" : " side-enemy enemy");
         const letters = String(row.name || "?").replace(/[^A-Za-z]/g, "");
         const initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
-        const face = `<span class="chip-face">${esc(initials)}</span><b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> ${esc(row.name || "")}`;
+        const face = `<span class="chip-face">${esc(initials)}</span><b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> <span class="chip-name">${esc(row.name || "")}</span>${statusChipsHtml(row)}`;
         const guns = stripGuns(row, i);
-        if (row.kind === "enemy") return `<div class="turn-chip${current}${ondeck}${side}"><button type="button" class="chip-open" data-open-enemy="${esc(row.id || "")}">${face}</button>${guns}</div>`;
-        return `<div class="turn-chip${current}${ondeck}${side}">${face}${guns}</div>`;
+        if (row.kind === "enemy") return `<div class="turn-chip${current}${ondeck}${later}${side}"><button type="button" class="chip-open" data-open-enemy="${esc(row.id || "")}">${face}</button>${guns}</div>`;
+        return `<div class="turn-chip${current}${ondeck}${later}${side}">${face}${guns}</div>`;
       }).join("");
+      strip.innerHTML = chips + (fight.order.length ? '<button type="button" class="btn btn-primary btn-next strip-next" data-strip-next="1">Next</button>' : "");
     }
     syncTurnState();
     pushMapInitiative();
@@ -3997,6 +4018,7 @@ async function cardStrike(i, n, opts) {
     ? window.SSDNSApplied.attackBreakdown({
       who: row.name || "Someone",
       target: target.name || "someone",
+      weapon: atk.name || "",
       nat: nat,
       n1: n1,
       n2: n2,
@@ -4689,7 +4711,9 @@ function resolveIncomingAttack(req, reqId) {
       ac: ac,
       sfx: req.sfx,
       who: req.characterName || "Someone",
-      target: shown.name || req.targetName || "enemy"
+      target: shown.name || req.targetName || "enemy",
+      weapon: req.spell ? "" : (req.weapon || ""),
+      spell: req.spellName || (req.spell ? (req.weapon || "") : "")
     });
     verdict = packed;
     line = packed.line;
@@ -4702,6 +4726,8 @@ function resolveIncomingAttack(req, reqId) {
       ? window.SSDNSApplied.attackBreakdown({
         who: req.characterName || "Someone",
         target: shown.name || req.targetName || "enemy",
+        weapon: req.spell ? "" : (req.weapon || ""),
+        spell: req.spellName || (req.spell ? (req.weapon || "") : ""),
         nat: req.nat,
         n1: req.n1,
         n2: req.n2,
@@ -4723,6 +4749,8 @@ function resolveIncomingAttack(req, reqId) {
       ? window.SSDNSApplied.attackPublicLine({
         who: req.characterName || "Someone",
         target: shown.name || req.targetName || "enemy",
+        weapon: req.spell ? "" : (req.weapon || ""),
+        spell: req.spellName || (req.spell ? (req.weapon || "") : ""),
         nat: req.nat,
         total: req.hitTotal,
         dice: req.dice || "",
@@ -4896,8 +4924,9 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
+    const t = e.target.closest && e.target.closest("[data-strip-next],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
     if (!t) return;
+    if (t.hasAttribute("data-strip-next")) { nextTurn(); return; }
     if (t.hasAttribute("data-fight-portrait")) {
       const card = document.querySelector('[data-fight-card="' + t.getAttribute("data-fight-portrait") + '"]');
       if (card && card.scrollIntoView) card.scrollIntoView({ block: "nearest" });
