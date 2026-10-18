@@ -30,6 +30,10 @@
       if (id && row.id === id) return row;
       if (name && String(row.name || "").toLowerCase() === name) return row;
     }
+    if (root.SSDNSPeaceMaker && root.SSDNSPeaceMaker.lookup) {
+      var peace = root.SSDNSPeaceMaker.lookup(id || name);
+      if (peace) return peace;
+    }
     return null;
   }
 

@@ -84,6 +84,19 @@
   });
   byName[normName("Dynamite stick, sweating (sold cheap)")] = "dynamite-stick-sweating";
 
+  /* DM-only art. Kept out of NAMES so slugs() stays the player weapon list. */
+  var DM_ID = {
+    "the-peace-maker": "the-peace-maker",
+    "peace-maker": "the-peace-maker",
+    "hell-maker": "hell-maker",
+    "borrowed-iron-crossroads-note-hell-maker": "hell-maker"
+  };
+  var DM_NAME = {
+    "the peace maker": "the-peace-maker",
+    "peace maker": "the-peace-maker",
+    "hell maker": "hell-maker"
+  };
+
   function normName(s) {
     return String(s || "")
       .toLowerCase()
@@ -99,13 +112,32 @@
     var name = typeof weapon === "string" ? "" : (weapon.name || "");
     if (id && bySlug[id]) return id;
     if (id && ID_ALIAS[id]) return ID_ALIAS[id];
+    if (id && DM_ID[id]) return DM_ID[id];
     var key = normName(name);
+    if (key && DM_NAME[key]) return DM_NAME[key];
     return (key && byName[key]) || "";
   }
 
-  function srcFor(weapon) {
+  function isDmOnly(slug) {
+    return slug === "the-peace-maker" || slug === "hell-maker";
+  }
+
+  function pagePrefix() {
+    try {
+      var path = (root.location && root.location.pathname) || "";
+      if (path.indexOf("/dm/") >= 0) return "../";
+    } catch (e) {}
+    return "";
+  }
+
+  function srcFor(weapon, opts) {
     var slug = slugFor(weapon);
-    return slug ? "assets/img/weapons/" + slug + ".webp" : "";
+    if (!slug) return "";
+    if (isDmOnly(slug)) {
+      if (!opts || !opts.dm) return "";
+      return pagePrefix() + "assets/img/dm-only/" + slug + ".webp";
+    }
+    return "assets/img/weapons/" + slug + ".webp";
   }
 
   function clearPhoto(box) {
@@ -121,10 +153,11 @@
     if (failed) box.setAttribute("data-art-failed", failed);
   }
 
-  function paint(box, weapon) {
+  function paint(box, weapon, opts) {
     if (!box) return "";
     var slug = slugFor(weapon);
-    if (!slug) {
+    var src = srcFor(weapon, opts);
+    if (!slug || !src) {
       box.removeAttribute("data-art-failed");
       clearPhoto(box);
       return "";
@@ -156,7 +189,7 @@
       box.setAttribute("data-art-failed", slug);
     });
     box.appendChild(img);
-    img.src = "assets/img/weapons/" + slug + ".webp";
+    img.src = src;
     return slug;
   }
 

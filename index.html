@@ -6,9 +6,10 @@
 <meta name="color-scheme" content="light">
 <title>SSDNS Character Sheet · Six-Shooters &amp; Sorcery: Dust and Shadows</title>
 <link rel="icon" href="assets/images/revolver.png">
-<link rel="stylesheet" href="map/ssdns-map.css?v=0.3.41-fire">
+<link rel="stylesheet" href="map/ssdns-map.css?v=0.3.42-fire">
 <link rel="stylesheet" href="assets/css/ammo-display.css?v=0.3.28-art">
-<link rel="stylesheet" href="assets/css/sheet.css?v=0.3.41-art">
+<link rel="stylesheet" href="assets/css/sheet.css?v=0.3.42-art">
+<link rel="stylesheet" href="assets/css/dice.css?v=0.3.42-dice">
 <link rel="stylesheet" href="assets/css/print.css?v=0.3.22" media="print">
 </head>
 <body>
@@ -34,6 +35,8 @@
     <input type="file" id="fileInput" accept=".ssdns,application/json,.json" hidden>
   </nav>
 </header>
+<div id="diceBar" data-dice-bar></div>
+<div id="diceStage" class="dice-stage" hidden></div>
 
 <div class="savebar" id="saveBar" role="status" aria-live="polite">
   <span class="savebar-dot"></span><span id="saveText">Loading…</span>
@@ -299,6 +302,7 @@
           </div>
           <textarea data-f="character.equipment" rows="9" id="taEquip"></textarea>
           <label class="box-title bottom" for="taEquip">Equipment</label>
+          <div id="gearArtStrip" class="gear-art-strip" hidden></div>
           <div class="storyteller-kit" id="storytellerKit" hidden>
             <div class="sub-head"><h3>Calling instrument</h3><span class="fine">Storyteller focus · see Storyteller Gear</span></div>
             <div class="storyteller-row">
@@ -334,6 +338,7 @@
                 </select>
               </label>
             </div>
+            <div class="g-photo focus-photo" id="focusPhoto">Focus</div>
             <label class="chk" id="focusEquipLabel"><input type="checkbox" id="focusEquipped" aria-label="Focus equipped"> Equipped focus</label>
             <p class="fine" id="instrumentInfo"></p>
           </div>
@@ -527,32 +532,36 @@
 <script src="assets/data/rules.js?v=0.3.22-class"></script>
 <script src="assets/js/spell-fx.js?v=0.3.22"></script>
 <script src="assets/js/spell-cast.js?v=0.3.26-range"></script>
-<script src="assets/js/misfire.js?v=0.3.41-fire"></script>
+<script src="assets/js/misfire.js?v=0.3.42-fire"></script>
 <script src="assets/js/ssdns-bridge.js?v=0.3.22"></script>
 <script src="assets/js/storage.js?v=0.3.22"></script>
 <script src="assets/js/firebase-config.js?v=0.3.22"></script>
-<script src="assets/js/sfx.js?v=0.3.41-fire"></script>
-<script src="assets/js/ammo-display.js?v=0.3.41-fire"></script>
-<script src="assets/js/weapon-art.js?v=0.3.41-art"></script>
-<script src="assets/js/test-jammer.js?v=0.3.41-fire"></script>
-<script src="assets/js/equip.js?v=0.3.41-equip"></script>
-<script src="assets/js/app.js?v=0.3.41-fire"></script>
+<script src="assets/js/sfx.js?v=0.3.42-fire"></script>
+<script src="assets/js/ammo-display.js?v=0.3.42-fire"></script>
+<script src="assets/js/weapon-art.js?v=0.3.42-art"></script>
+<script src="assets/js/instrument-art.js?v=0.3.42-art"></script>
+<script src="assets/js/item-art.js?v=0.3.42-art"></script>
+<script src="assets/js/peace-maker.js?v=0.3.42-art"></script>
+<script src="assets/js/dice-art.js?v=0.3.42-dice"></script>
+<script src="assets/js/test-jammer.js?v=0.3.42-fire"></script>
+<script src="assets/js/equip.js?v=0.3.42-equip"></script>
+<script src="assets/js/app.js?v=0.3.42-fire"></script>
 <script src="dm/assets/js/store-stock.js?v=0.3.22"></script>
 <script src="map/ssdns-map-chat.js?v=0.3.31-float"></script>
-<script src="assets/js/sheet-extras.js?v=0.3.41-fire"></script>
-<script src="assets/js/grab.js?v=0.3.41-grab"></script>
-<script src="assets/js/dm-join.js?v=0.3.41-fire"></script>
+<script src="assets/js/sheet-extras.js?v=0.3.42-fire"></script>
+<script src="assets/js/grab.js?v=0.3.42-grab"></script>
+<script src="assets/js/dm-join.js?v=0.3.42-fire"></script>
 <script src="assets/js/kits.js?v=0.3.22"></script>
-<script src="assets/js/apply-guard.js?v=0.3.41-fire"></script>
+<script src="assets/js/apply-guard.js?v=0.3.42-fire"></script>
 <script src="assets/js/conditions.js?v=0.3.22"></script>
 <script src="assets/js/creator.js?v=0.3.22-kit"></script>
-<script src="assets/js/sheet-playtest.js?v=0.3.41-fire"></script>
+<script src="assets/js/sheet-playtest.js?v=0.3.42-fire"></script>
 <script src="assets/data/refcards.js?v=0.3.22"></script>
-<script src="assets/js/table-ux.js?v=0.3.41-fire"></script>
+<script src="assets/js/table-ux.js?v=0.3.42-fire"></script>
 <script src="map/token-crop.js?v=0.3.25-card"></script>
 <script src="assets/js/range-rings.js?v=0.3.29-dis"></script>
-<script src="map/ssdns-map.js?v=0.3.41-fire"></script>
+<script src="map/ssdns-map.js?v=0.3.42-fire"></script>
 <script src="map/ssdns-map-firebase.js?v=0.3.23-sync"></script>
-<script src="map/ssdns-map-host.js?v=0.3.41-fire"></script>
+<script src="map/ssdns-map-host.js?v=0.3.42-fire"></script>
 </body>
 </html>

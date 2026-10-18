@@ -101,8 +101,10 @@
   function textHtml(item) {
     var text = body(item);
     var Applied = root.SSDNSApplied;
-    if (Applied && Applied.leadNameHtml) return Applied.leadNameHtml(text);
-    return esc(text);
+    var html = Applied && Applied.leadNameHtml ? Applied.leadNameHtml(text) : esc(text);
+    if (root.SSDNSDice && root.SSDNSDice.lead) return root.SSDNSDice.lead(item, html);
+    if (root.SSDNSDice && root.SSDNSDice.decorate) return root.SSDNSDice.decorate(html);
+    return html;
   }
   function render(feed, items, mode) {
     if (!feed) return;
