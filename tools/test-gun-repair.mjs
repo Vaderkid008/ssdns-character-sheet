@@ -78,7 +78,7 @@ check("wire.player", joinSrc.includes('payload.op === "repair"') && joinSrc.incl
 check("wire.sync", joinSrc.includes("exploded: !!g.exploded") && hostSrc.includes("exploded: !!g.exploded"));
 check("wire.fire", sfxSrc.includes("d4-fire") && sfxSrc.includes("broadcastFire") && sfxSrc.includes("explosionText") && sfxSrc.includes("applyDelta(-fire") && sfxSrc.includes("catalogGunName") && sfxSrc.includes("SSDNSTestJammer"));
 check("wire.x", appSrc.includes('photo.classList.toggle("gun-x"') && sheetCss.includes(".g-photo.gun-x::after") && mapSrc.includes("function crossClass") && mapSrc.includes("gun-x") && mapCss.includes(".cylinder-row.gun-x"));
-check("wire.version", read("version.json").includes('"sheet": "0.3.47"') && read("version.json").includes('"dmcc": "0.2.60"') && appSrc.includes('APP_VERSION = "0.3.47"') && dmccSrc.includes('VERSION = "0.2.60"'));
+check("wire.version", read("version.json").includes('"sheet": "0.3.48"') && read("version.json").includes('"dmcc": "0.2.61"') && appSrc.includes('APP_VERSION = "0.3.48"') && dmccSrc.includes('VERSION = "0.2.61"'));
 check("repair.live", dmccSrc.includes('if (state.demo || op === "repair") applyDemoGun'));
 check("repair.hint", joinSrc.includes("repairGun(payload.index, payload)") && appSrc.includes("function repairGun(i, hint)"));
 check("repair.row", appSrc.includes("if (!row) return;"));

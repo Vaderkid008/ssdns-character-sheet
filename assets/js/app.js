@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.47"; // sheet-playtest-v0347
+  var APP_VERSION = "0.3.48"; // sheet-playtest-v0348
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -644,6 +644,14 @@
       else if (belt) { if (!c.seated && !c.mounted) v.holsterFirst = num(hol.firstShot); }
       else v.holsterFirst = num(hol.firstShot);
     }
+    // Paper doll (0.3.48): only slotted gear counts. Rigs don't stack; scores cap at 20.
+    var DB = window.SSDNSDoll && window.SSDNSDoll.bonuses ? window.SSDNSDoll.bonuses(c) : null;
+    v.doll = DB;
+    if (DB) {
+      AB.forEach(function (a) { if (DB.abilities[a]) v.scores[a] = window.SSDNSDoll.capped(v.scores[a], DB.abilities[a]); });
+      if (DB.holsterDex) { v.holsterDex = DB.holsterDex; v.scores.DEX = window.SSDNSDoll.capped(v.scores.DEX, DB.holsterDex); }
+      if (DB.holsterInit > v.holsterInit) v.holsterInit = DB.holsterInit;
+    }
     AB.forEach(function (a) { v.mods[a] = mod(v.scores[a]); });
     v.prof = profBonus(c.level);
     v.saves = {}; AB.forEach(function (a) { v.saves[a] = v.mods[a] + (c.saveProf[a] ? v.prof : 0); });
@@ -660,7 +668,8 @@
     else if (c.calling === "tribal-warrior") v.ac = 10 + v.mods.DEX + v.mods.CON;
     else if (c.calling === "martial-artist" && !wearing) v.ac = 10 + v.mods.DEX + v.mods.WIS;
     else v.ac = 10 + v.mods.DEX;
-    if (c.shield && !(c.calling === "martial-artist" && !wearing)) v.ac += 2;
+    if (c.shield && !(c.calling === "martial-artist" && !wearing) && !(DB && DB.shieldOff)) v.ac += 2;
+    if (DB) { v.ac += DB.ac; v.initiative += DB.init; }
     if (c.fightingStyle === "point-blank") v.ac += 1;
     if (c.fightingStyle === "defense" && wearing) v.ac += 1;
     var cal = currentCalling();
@@ -1334,6 +1343,7 @@
     suppress = false;
     renderCalc();
     if (window.SSDNSItems && window.SSDNSItems.paintSheet) window.SSDNSItems.paintSheet();
+    if (window.SSDNSDoll && window.SSDNSDoll.paint) window.SSDNSDoll.paint();
   }
   function out(key, text) { $$('[data-out="' + key + '"], [data-calc-out="' + key + '"]').forEach(function (e) { e.textContent = text; }); }
   function calcValue(key, v) {
@@ -1824,7 +1834,7 @@
     });
     if (focus) { var f = box.querySelector('[data-f="' + focus + '"]'); if (f) f.focus(); }
   }
-  /* 0.3.47: explosives live in Items (one list). This box shows the explosive
+  /* 0.3.48: explosives live in Items (one list). This box shows the explosive
      items with a count and the same Use button as the Items list. */
   function renderExplosives() {
     var box = $("#explosiveList"); if (!box) return;
