@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.43 / DMCC 0.2.56: snapshot sync and Disarm / Rob.
+ * Sheet 0.3.44 / DMCC 0.2.57: snapshot sync and Disarm / Rob.
  *   node tools/test-sync-grab.mjs
  */
 import fs from "node:fs";
@@ -16,10 +16,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.43" && version.sheetBuild === "sheet-playtest-v0343");
-check("ver.dmcc", version.dmcc === "0.2.56" && version.dmccBuild === "dmcc-playtest-v0256");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.43"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.56"'));
+check("ver.sheet", version.sheet === "0.3.44" && version.sheetBuild === "sheet-playtest-v0344");
+check("ver.dmcc", version.dmcc === "0.2.57" && version.dmccBuild === "dmcc-playtest-v0257");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.44"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.57"'));
 check("ver.notice", !read("dm/assets/js/v2.js").includes("slight delay") && !read("map/ssdns-map.js").includes("slight delay"));
 
 const join = read("assets/js/dm-join.js");
@@ -44,8 +44,8 @@ check("sync.cardHp", v2.includes("function snapshotCardSig") && v2.includes("s.h
 check("sync.grabBeforeJoin", sheetHtml.indexOf("assets/js/grab.js") < sheetHtml.indexOf("assets/js/dm-join.js") && sheetHtml.indexOf("assets/js/grab.js") >= 0);
 check("sync.grabBeforeV2", dmHtml.indexOf("assets/js/grab.js") < dmHtml.indexOf("assets/js/v2.js") && dmHtml.indexOf("assets/js/grab.js") >= 0);
 
-check("ui.fight", v2.includes('data-grab="disarm"') && v2.includes('data-grab="rob"') && v2.includes("function runGrabFromMap"));
-check("ui.map", map.includes('data-act="disarmBtn"') && map.includes('data-act="robBtn"') && map.includes("drawer:disarm") && map.includes("drawer:rob"));
+check("ui.fight", v2.includes(">Rob/Disarm<") && v2.includes('data-grab="rob"') && v2.includes("function runGrabFromMap") && v2.includes("No automatic reputation tracking"));
+check("ui.map", map.includes(">Rob/Disarm<") && map.includes('data-act="robBtn"') && map.includes("drawer:rob") && map.includes("No automatic reputation tracking"));
 check("ui.host", host.includes('"drawer:disarm": "disarm"') && host.includes('"drawer:rob": "rob"') && host.includes("feetBetween:"));
 check("ui.ops", join.includes('payload.op === "take"') && join.includes('payload.op === "receive"') && join.includes('case "take_gear"'));
 check("ui.demo", dmcc.includes('payload.op === "take"') && dmcc.includes('payload.op === "receive"'));
@@ -74,12 +74,12 @@ check("contest.tie", tie.ok === false && tie.tie === true, JSON.stringify(tie));
 
 const win = Grab.contest({
   mode: "disarm",
-  attackMod: 5,
+  actor: { skills: { Athletics: 5 } },
   target: { mods: { STR: 0 } },
   feet: 5,
   rng: seq([face(10), face(8)])
 });
-check("contest.win", win.ok === true && win.attack.total === 15 && win.defense.total === 8 && win.defense.skill === "Athletics", JSON.stringify(win));
+check("contest.win", win.ok === true && win.attack.skill === "Athletics" && win.attack.total === 15 && win.defense.total === 8 && win.defense.skill === "Athletics" && win.line.indexOf("Attack ") < 0, JSON.stringify(win));
 
 const acro = Grab.contest({
   mode: "disarm",
@@ -93,7 +93,7 @@ check("contest.acro", acro.ok === true && acro.defense.skill === "Acrobatics" &&
 
 const two = Grab.contest({
   mode: "disarm",
-  attackMod: 2,
+  actor: { skills: { Athletics: 2 } },
   weapon: { group: "rifle" },
   target: { mods: { STR: 0 } },
   feet: 5,
@@ -196,16 +196,28 @@ const gear = Grab.plan({
   mode: "rob",
   take: "gear",
   success: true,
+  combat: true,
   actor: { id: "a", kind: "player", name: "Ada", calling: "gambler" },
   target: { id: "b", kind: "player", name: "Bea" },
   gearText: "• Wanted poster"
 });
 check("plan.gear", gear.commands[0].type === "take_gear" && gear.commands[1].type === "reward_item" && /DM approved/.test(gear.chat) && /bonus action/.test(gear.chat));
+const gearOut = Grab.plan({
+  mode: "rob",
+  take: "gear",
+  success: true,
+  combat: false,
+  actor: { id: "a", kind: "player", name: "Ada", calling: "gambler" },
+  target: { id: "b", kind: "player", name: "Bea" },
+  gearText: "• Wanted poster"
+});
+check("plan.gearOut", /no action/.test(gearOut.chat));
 
 const es = Grab.plan({
   mode: "rob",
   take: "es",
   success: true,
+  combat: true,
   es: 4,
   actor: { id: "a", kind: "player", name: "Ada", calling: "gambler-burglar" },
   target: { id: "b", kind: "player", name: "Bea" }
@@ -220,6 +232,27 @@ const miss = Grab.plan({
   weapon: { name: "Peacemaker" }
 });
 check("plan.fail", miss.commands.length === 0 && /fails to disarm/.test(miss.chat));
+const wrest = Grab.plan({
+  mode: "rob",
+  take: "weapon",
+  success: true,
+  combat: true,
+  actor: { id: "a", kind: "player", name: "Ada" },
+  target: { id: "b", kind: "player", name: "Bea" },
+  weapon: { kind: "gun", index: 0, name: "Navy" }
+});
+check("plan.wrest", /replaces one attack/.test(wrest.chat));
+const questBlock = Grab.plan({
+  mode: "rob",
+  take: "item",
+  success: true,
+  quest: true,
+  itemUid: "it1",
+  item: { uid: "it1", name: "Bounty Warrant", type: "quest" },
+  actor: { id: "a", kind: "player", name: "Ada" },
+  target: { id: "b", kind: "player", name: "Bea" }
+});
+check("plan.quest", questBlock.blocked === true && questBlock.commands.length === 0);
 
 let calls = 0;
 let release;

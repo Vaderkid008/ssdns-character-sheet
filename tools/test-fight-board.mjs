@@ -125,7 +125,7 @@ const pcHtml = api.turnRowHtml(pc, 0);
 check(allyHtml.indexOf("data-row-atk") >= 0 && allyHtml.indexOf("Saber +4") >= 0 && allyHtml.indexOf("Old Knife") < 0, "ally attacks, dropped weapons stay off the card");
 check(allyHtml.indexOf(" side-ally") >= 0 && allyHtml.indexOf(" friendly") >= 0, "ally frame");
 check(foeHtml.indexOf("side-enemy") >= 0 && foeHtml.indexOf("init-row friendly") < 0 && foeHtml.indexOf("Mark friendly") >= 0, "enemy frame is not the friendly row");
-check(pcHtml.indexOf("side-pc") >= 0 && pcHtml.indexOf("data-grab=\"disarm\"") >= 0 && pcHtml.indexOf("data-grab=\"rob\"") >= 0, "PC card keeps Disarm and Rob");
+check(pcHtml.indexOf("side-pc") >= 0 && pcHtml.indexOf("data-grab=\"rob\"") >= 0 && pcHtml.indexOf(">Rob/Disarm<") >= 0 && pcHtml.indexOf("data-grab=\"disarm\"") < 0, "PC card has one Rob/Disarm button");
 check(foeHtml.indexOf("DM roll vs this AC") >= 0 && foeHtml.indexOf("data-cover-val") >= 0, "cover and the AC roll stay");
 
 sandbox.DMCC.state.players.pc1 = {

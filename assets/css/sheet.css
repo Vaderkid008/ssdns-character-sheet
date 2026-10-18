@@ -902,3 +902,12 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
   main { padding-left: 8px; padding-right: 8px; }
   .your-turn-box { left: 8px; right: 8px; transform: none; width: auto; }
 }
+.item-gear { margin: 8px 0 12px; }
+.item-row { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; }
+.item-row .art-thumb { width: 96px; height: 36px; object-fit: cover; border-radius: 3px; }
+.art-ph { display: inline-flex; width: 72px; height: 36px; align-items: center; justify-content: center; border: 1px dashed var(--line, #8a7560); font-size: 11px; color: var(--muted, #8a7560); }
+.item-tag { font-size: 11px; border: 1px solid var(--line, #8a7560); padding: 0 4px; margin-right: 4px; }
+.item-form label { display: block; margin: 4px 0; font-size: 13px; }
+.item-form input, .item-form select { max-width: 100%; }
+.item-form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.weight-line { font-weight: 600; }

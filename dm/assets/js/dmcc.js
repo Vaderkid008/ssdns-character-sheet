@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.56"; // dmcc-playtest-v0256
+const VERSION = "0.2.57"; // dmcc-playtest-v0257
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -395,7 +395,7 @@ function attachLiveListeners() {
   state._listenCode = state.roomCode;
   addictionReady = false;
   const bind = (path, handler) => listenRef(path, handler);
-  bind("meta", (v) => { if (v) { state.meta = v; guardFocus(() => renderRoomHero()); } });
+  bind("meta", (v) => { if (v) { state.meta = v; if (window.SSDNSItems && window.SSDNSItems.setRoom) window.SSDNSItems.setRoom({ weightOn: !!v.weightOn, catalog: v.itemCatalog || {} }); if (window.SSDNSItems && window.SSDNSItems.paintDm) window.SSDNSItems.paintDm(); guardFocus(() => renderRoomHero()); } });
   bind("encounter/requests", (v) => {
     const rows = v || {};
     state.bankReqs = rows;
@@ -1413,6 +1413,7 @@ function fillTargetSelects() {
     const next = keep || remembered || "";
     if (next && [...el.options].some((o) => o.value === next)) el.value = next;
   });
+  if (window.SSDNSItems && window.SSDNSItems.paintDm) window.SSDNSItems.paintDm();
 }
 
 /* ---------- render tabs ---------- */

@@ -1,0 +1,1022 @@
+/* Shared item catalog, inventory, and the Add Item form.
+   Effect kinds are heal, castSpell, attack, save+condition, buff, and text.
+   A new item is data. A new effect kind is the only reason to change this file. */
+(function (root) {
+  "use strict";
+
+  var TYPES = { consumable: 1, scroll: 1, explosive: 1, gear: 1, weapon: 1, quest: 1 };
+  var KINDS = { heal: 1, castSpell: 1, attack: 1, "save+condition": 1, buff: 1, text: 1 };
+  var room = { weightOn: false, catalog: {} };
+
+  function seeds() { return (root.SSDNS_ITEM_CATALOG || []).slice(); }
+
+  function clone(obj) {
+    return JSON.parse(JSON.stringify(obj || null));
+  }
+
+  function num(v) {
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  function signed(n) {
+    n = Number(n) || 0;
+    return (n >= 0 ? "+" : "") + n;
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function normName(s) {
+    return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function usesOf(raw) {
+    if (raw == null) return { max: null, recharge: "" };
+    if (typeof raw === "number") return { max: raw, recharge: "" };
+    return { max: raw.max == null || raw.max === "" ? null : Number(raw.max), recharge: raw.recharge || "" };
+  }
+
+  function effectOf(raw) {
+    raw = raw || {};
+    var kind = raw.kind === "save" ? "save+condition" : (raw.kind || "text");
+    if (!KINDS[kind]) kind = "text";
+    var out = { kind: kind };
+    ["dice", "spell", "text", "save", "condition", "duration", "damage", "damageType", "range", "onSave", "temp", "extraDamage", "extraType"].forEach(function (k) {
+      if (raw[k] != null && raw[k] !== "") out[k] = raw[k];
+    });
+    ["level", "dc", "attack", "radius", "bonus", "spellMod"].forEach(function (k) {
+      if (raw[k] != null && raw[k] !== "" && isFinite(Number(raw[k]))) out[k] = Number(raw[k]);
+    });
+    if (raw.placed) out.placed = true;
+    return out;
+  }
+
+  function valid(item) {
+    if (!item || typeof item !== "object") return false;
+    if (!item.id || !item.name) return false;
+    if (!TYPES[item.type]) return false;
+    if (!item.effect || !KINDS[item.effect.kind]) return false;
+    if (item.art != null && typeof item.art !== "string") return false;
+    return true;
+  }
+
+  function normalize(raw) {
+    raw = raw || {};
+    var price = raw.price == null || raw.price === "" ? null : Number(raw.price);
+    if (price != null && !isFinite(price)) price = null;
+    var story = !!raw.story || price == null && raw.forSale === false;
+    var forSale = raw.forSale === false || price == null || story ? (raw.forSale === true && price != null && !story) : true;
+    if (story || price == null) forSale = false;
+    var weight = raw.weight == null || raw.weight === "" ? null : Number(raw.weight);
+    if (weight != null && !isFinite(weight)) weight = null;
+    var type = TYPES[raw.type] ? raw.type : "gear";
+    return {
+      id: String(raw.id || "").trim(),
+      name: String(raw.name || "Item").trim(),
+      type: type,
+      description: String(raw.description || ""),
+      effect: effectOf(raw.effect),
+      uses: usesOf(raw.uses),
+      weight: weight,
+      price: forSale ? price : null,
+      forSale: !!forSale,
+      story: !!story || (!forSale && type !== "quest"),
+      art: String(raw.art || ""),
+      weaponId: raw.weaponId || "",
+      slot: raw.slot || "",
+      group: raw.group || "",
+      properties: raw.properties || "",
+      dmOnly: type === "quest" || !!raw.dmOnly
+    };
+  }
+
+  function byId(id) {
+    var key = String(id || "");
+    var custom = room.catalog && room.catalog[key];
+    if (custom) return normalize(custom);
+    var list = seeds();
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === key) return normalize(list[i]);
+    return null;
+  }
+
+  function catalog(opts) {
+    opts = opts || {};
+    var map = {};
+    seeds().forEach(function (row) {
+      if (!valid(normalize(row))) return;
+      map[row.id] = normalize(row);
+    });
+    var extra = room.catalog || {};
+    Object.keys(extra).forEach(function (id) {
+      var row = normalize(extra[id]);
+      row.id = row.id || id;
+      if (valid(row)) map[row.id] = row;
+    });
+    return Object.keys(map).map(function (id) { return map[id]; }).filter(function (row) {
+      if (!opts.dm && row.type === "quest") return false;
+      if (opts.forSale && !row.forSale) return false;
+      return true;
+    });
+  }
+
+  function uid() {
+    return "it_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function instanceFrom(raw, opts) {
+    opts = opts || {};
+    var base = raw && raw.effect ? normalize(raw) : (byId(raw && (raw.catalogId || raw.id)) || normalize(raw));
+    var uses = usesOf(raw && raw.uses != null ? raw.uses : base.uses);
+    var count = raw && raw.count != null ? Math.max(1, Number(raw.count) || 1) : 1;
+    var charges = raw && raw.chargesLeft != null ? Number(raw.chargesLeft) : (uses.max == null ? null : uses.max);
+    return {
+      uid: (raw && raw.uid) || uid(),
+      catalogId: base.id || (raw && raw.catalogId) || "",
+      name: (raw && raw.name) || base.name,
+      type: base.type,
+      description: base.description,
+      effect: base.effect,
+      uses: uses,
+      weight: base.weight,
+      price: base.price,
+      forSale: base.forSale,
+      story: !!base.story,
+      art: base.art,
+      weaponId: base.weaponId,
+      slot: base.slot,
+      group: base.group,
+      properties: base.properties,
+      dmOnly: !!base.dmOnly,
+      count: count,
+      chargesLeft: charges,
+      playerAdded: !!(raw && raw.playerAdded) || !!opts.player,
+      approved: opts.player ? false : (raw && raw.approved != null ? !!raw.approved : true),
+      addressedTo: (raw && raw.addressedTo) || opts.addressedTo || "",
+      dmAllowDrop: !!(raw && raw.dmAllowDrop),
+      dmAllowRob: !!(raw && raw.dmAllowRob)
+    };
+  }
+
+  function listOf(character) {
+    if (!character) return [];
+    if (!Array.isArray(character.items)) character.items = [];
+    return character.items;
+  }
+
+  function find(character, id) {
+    var list = listOf(character);
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && (list[i].uid === id || list[i].catalogId === id)) return list[i];
+    }
+    return null;
+  }
+
+  function questItem(item) {
+    return !!(item && (item.type === "quest" || item.dmOnly));
+  }
+
+  function canDrop(item, opts) {
+    opts = opts || {};
+    if (!item) return false;
+    if (opts.inventoryLocked && !opts.dm) return false;
+    if (!questItem(item)) return true;
+    return !!(opts.dm && (opts.allow || opts.override || item.dmAllowDrop));
+  }
+
+  function canRob(item, opts) {
+    opts = opts || {};
+    if (!item) return true;
+    if (opts.inventoryLocked && !opts.override) return false;
+    if (!questItem(item)) return true;
+    return !!(opts.override || opts.dmAllow || item.dmAllowRob);
+  }
+
+  function addressedBlank(item, viewer) {
+    viewer = viewer || {};
+    if (!item) return false;
+    if (viewer.dm) return false;
+    var to = String(item.addressedTo || "").trim();
+    if (!to) return false;
+    return normName(to) !== normName(viewer.name);
+  }
+
+  function present(item, viewer) {
+    if (!addressedBlank(item, viewer)) return item;
+    var copy = clone(item) || {};
+    copy.name = "Blank paper";
+    copy.description = "Blank paper. The seal doesn't answer to you.";
+    copy.effect = { kind: "text", text: "Blank paper." };
+    copy.blank = true;
+    return copy;
+  }
+
+  function rollD20(rng) {
+    var roll = rng || Math.random;
+    var n = 1 + Math.floor(roll() * 20);
+    if (n < 1) n = 1;
+    if (n > 20) n = 20;
+    return n;
+  }
+
+  function rollDice(expr, rng) {
+    var roll = rng || Math.random;
+    var s = String(expr || "").replace(/\s/g, "");
+    if (!s) return { formula: "0", total: 0, detail: "0" };
+    if (/^[+-]?\d+$/.test(s)) {
+      var flatOnly = parseInt(s, 10);
+      return { formula: String(flatOnly), total: flatOnly, detail: String(flatOnly) };
+    }
+    var re = /([+-]?)(\d*)d(\d+)|([+-]?\d+)/gi;
+    var m;
+    var total = 0;
+    var bits = [];
+    var formula = [];
+    while ((m = re.exec(s))) {
+      if (m[3]) {
+        var count = parseInt(m[2] || "1", 10);
+        var sides = parseInt(m[3], 10);
+        var sign = m[1] === "-" ? -1 : 1;
+        var faces = [];
+        var sub = 0;
+        for (var i = 0; i < count; i++) {
+          var face = 1 + Math.floor(roll() * sides);
+          faces.push(face);
+          sub += face;
+        }
+        total += sign * sub;
+        formula.push((sign < 0 ? "-" : (formula.length ? "+" : "")) + count + "d" + sides);
+        bits.push((sign < 0 ? "-" : "") + faces.join("+"));
+      } else if (m[4] != null && m[4] !== "") {
+        var flat = parseInt(m[4], 10);
+        total += flat;
+        formula.push((flat >= 0 && formula.length ? "+" : "") + flat);
+        bits.push((flat >= 0 ? "+" : "") + flat);
+      }
+    }
+    return { formula: formula.join("") || s, total: total, detail: bits.join(" ") + " = " + total };
+  }
+
+  function scrollTable(level) {
+    var lv = Number(level) || 0;
+    if (lv <= 2) return { dc: 13, attack: 5 };
+    if (lv <= 4) return { dc: 15, attack: 7 };
+    if (lv <= 6) return { dc: 17, attack: 9 };
+    if (lv <= 8) return { dc: 18, attack: 10 };
+    return { dc: 19, attack: 11 };
+  }
+
+  function consumes(item) {
+    if (!item || !item.uses) return false;
+    return item.uses.max != null && isFinite(Number(item.uses.max));
+  }
+
+  function ringSpec(item) {
+    if (!item || !item.effect) return null;
+    var effect = item.effect;
+    var kind = effect.kind;
+    if (kind !== "attack" && item.type !== "explosive" && item.type !== "weapon") return null;
+    if (effect.placed || (!effect.range && effect.radius)) {
+      var ft = Number(effect.radius) || 0;
+      if (!ft) return null;
+      return { id: "item:" + (item.uid || item.id), name: item.name, kind: "spell", spell: true, spellKind: "save", range: ft + " ft" };
+    }
+    if (!effect.range) return null;
+    var range = String(effect.range);
+    if (/^\d+$/.test(range)) range = range + "/" + range;
+    return {
+      id: "item:" + (item.uid || item.id),
+      name: item.name,
+      range: range,
+      properties: item.properties || (item.type === "explosive" ? "thrown" : ""),
+      group: item.group || (item.type === "explosive" ? "explosive" : ""),
+      kind: /thrown/i.test(item.properties || "") || item.type === "explosive" ? "thrown" : (item.slot === "melee" ? "melee" : "weapon")
+    };
+  }
+
+  function use(item, ctx) {
+    ctx = ctx || {};
+    if (!item) return { ok: false, reason: "No item." };
+    var viewer = ctx.viewer || { name: ctx.name || "", dm: !!ctx.dm };
+    if (addressedBlank(item, viewer)) {
+      return { ok: false, blank: true, kind: "text", reason: "Blank paper.", chat: "Blank paper." };
+    }
+    var effect = item.effect || { kind: "text" };
+    var who = ctx.name || "Someone";
+    if (effect.kind === "heal") {
+      var healed = rollDice(effect.dice || "0", ctx.rng);
+      return {
+        ok: true, kind: "heal", formula: healed.formula, total: healed.total, detail: healed.detail,
+        consume: consumes(item), hp: healed.total,
+        chat: who + " uses " + item.name + ": heals " + healed.total + " (" + healed.detail + ")."
+      };
+    }
+    if (effect.kind === "castSpell") {
+      var level = Number(effect.level) || 0;
+      var table = scrollTable(level);
+      var dc = effect.dc != null ? effect.dc : table.dc;
+      var attack = effect.attack != null ? effect.attack : table.attack;
+      if (!effect.spell) return { ok: false, kind: "castSpell", reason: "This letter has no spell yet." };
+      var charLv = Number(ctx.level) || 1;
+      if (level > 0 && level > charLv) {
+        var mod = ctx.spellMod != null && ctx.spellMod !== "" ? Number(ctx.spellMod) : (Number(ctx.intMod) || 0);
+        var checkDc = 10 + level;
+        var face = rollD20(ctx.rng);
+        var checkTotal = face + mod;
+        if (checkTotal < checkDc) {
+          return {
+            ok: false, kind: "castSpell", check: true, consume: false, total: checkTotal, dc: checkDc,
+            reason: "Spell check " + face + signed(mod) + " = " + checkTotal + " vs DC " + checkDc + ". The letter stays sealed.",
+            chat: who + " fails to open " + item.name + " (DC " + checkDc + ")."
+          };
+        }
+      }
+      var cast = null;
+      if (ctx.cast !== false && root.SSDNSSpellCast && root.SSDNSSpellCast.rollCast) {
+        cast = root.SSDNSSpellCast.rollCast({
+          spellName: effect.spell,
+          slotLevel: level,
+          attackBonus: attack,
+          dc: dc,
+          spellMod: effect.spellMod != null ? effect.spellMod : 0,
+          characterLevel: charLv
+        });
+      }
+      var chat = (cast && cast.text) || (who + " reads " + item.name + " and casts " + effect.spell + ".");
+      var hp = 0;
+      if (cast && /heal/i.test(String(cast.text || "")) && cast.result != null && isFinite(Number(cast.result))) hp = Number(cast.result);
+      return {
+        ok: true, kind: "castSpell", spell: effect.spell, level: level, dc: dc, attack: attack,
+        cast: cast, consume: true, hp: hp, chat: who + " — " + chat, rings: ringSpec(item)
+      };
+    }
+    if (effect.kind === "attack") {
+      var dmg = rollDice(effect.damage || "0", ctx.rng);
+      var extra = effect.extraDamage ? rollDice(effect.extraDamage, ctx.rng) : null;
+      var total = dmg.total + (extra ? extra.total : 0);
+      var bits = dmg.detail + (effect.damageType ? " " + effect.damageType : "");
+      if (extra) bits += " + " + extra.detail + (effect.extraType ? " " + effect.extraType : "");
+      var saveBit = effect.save ? (" " + effect.save + " save DC " + (effect.dc != null ? effect.dc : "?") + (effect.onSave === "half" ? " (half)" : "") + (effect.radius ? ", " + effect.radius + " ft" : "")) : "";
+      return {
+        ok: true, kind: "attack", total: total, formula: dmg.formula, detail: bits, save: effect.save || "",
+        dc: effect.dc, radius: effect.radius || 0, range: effect.range || "", consume: consumes(item),
+        rings: ringSpec(item),
+        chat: who + " uses " + item.name + ": " + bits + " = " + total + saveBit + "."
+      };
+    }
+    if (effect.kind === "save+condition") {
+      var temp = effect.temp ? rollDice(effect.temp, ctx.rng) : null;
+      var poison = effect.damage ? rollDice(effect.damage, ctx.rng) : null;
+      var line = (effect.save || "Save") + " DC " + (effect.dc != null ? effect.dc : "?");
+      if (effect.condition) line += " or " + effect.condition;
+      if (effect.duration) line += ", " + effect.duration;
+      if (poison) line += ". " + poison.detail + (effect.damageType ? " " + effect.damageType : "");
+      if (effect.text) line += ". " + effect.text;
+      return {
+        ok: true, kind: "save+condition", save: effect.save || "", dc: effect.dc, condition: effect.condition || "",
+        duration: effect.duration || "", tempHp: temp ? temp.total : 0, total: poison ? poison.total : 0,
+        consume: consumes(item),
+        chat: who + " uses " + item.name + ": " + line + (temp ? ". Temp HP " + temp.total + " (" + temp.detail + ")" : "") + "."
+      };
+    }
+    if (effect.kind === "buff") {
+      return {
+        ok: true, kind: "buff", text: effect.text || item.description || item.name,
+        duration: effect.duration || "", consume: consumes(item),
+        chat: who + " uses " + item.name + ": " + (effect.text || item.name) + (effect.duration ? " (" + effect.duration + ")" : "") + "."
+      };
+    }
+    return {
+      ok: true, kind: "text", text: effect.text || item.description || item.name, consume: consumes(item),
+      chat: who + " uses " + item.name + ": " + (effect.text || item.description || item.name) + "."
+    };
+  }
+
+  function spend(item) {
+    if (!item) return false;
+    if (item.count != null && Number(item.count) > 1 && item.uses && item.uses.max === 1) {
+      item.count = Number(item.count) - 1;
+      return true;
+    }
+    if (item.chargesLeft != null && isFinite(Number(item.chargesLeft))) {
+      item.chargesLeft = Math.max(0, Number(item.chargesLeft) - 1);
+      if (item.chargesLeft <= 0 && item.uses && item.uses.max != null && !item.uses.recharge) {
+        item.count = Math.max(0, (Number(item.count) || 1) - 1);
+        if (item.count > 0) item.chargesLeft = item.uses.max;
+      }
+      return true;
+    }
+    if (consumes(item)) {
+      item.count = Math.max(0, (Number(item.count) || 1) - 1);
+      return true;
+    }
+    return false;
+  }
+
+  function prune(character) {
+    character.items = listOf(character).filter(function (item) {
+      if (!item) return false;
+      if (item.count != null && Number(item.count) <= 0) return false;
+      return true;
+    });
+  }
+
+  function carryCapacity(str) {
+    var score = Number(str);
+    if (!isFinite(score)) score = 10;
+    return score * 15;
+  }
+
+  function totalWeight(items) {
+    var sum = 0;
+    (items || []).forEach(function (item) {
+      var w = num(item && item.weight);
+      if (w == null) return;
+      var n = Number(item.count);
+      if (!isFinite(n) || n < 1) n = 1;
+      sum += w * n;
+    });
+    return Math.round(sum * 100) / 100;
+  }
+
+  function weightReport(character) {
+    var str = character && character.abilities ? character.abilities.STR : 10;
+    var carried = totalWeight(listOf(character));
+    var cap = carryCapacity(str);
+    return { on: !!room.weightOn, carried: carried, capacity: cap, over: carried > cap };
+  }
+
+  function recharge(character, kind) {
+    listOf(character).forEach(function (item) {
+      if (!item || !item.uses || item.uses.max == null) return;
+      var when = item.uses.recharge || "";
+      if (!when) return;
+      if (kind === "long" || (kind !== "long" && when === "short") || (when === "dawn" && kind === "long")) {
+        item.chargesLeft = item.uses.max;
+      }
+    });
+  }
+
+  function weaponRecord(id) {
+    var row = byId(id);
+    if (!row || row.type !== "weapon") return null;
+    return { id: row.id, name: row.name, group: row.group || "simple-melee", properties: row.properties || "", range: (row.effect && row.effect.range) || "" };
+  }
+
+  function landWeapon(character, item) {
+    if (!character || !item || item.type !== "weapon") return null;
+    if (item.weaponId && root.SSDNSApp && root.SSDNSApp.grantListedWeapon) {
+      var granted = root.SSDNSApp.grantListedWeapon(item.weaponId);
+      if (granted) return granted;
+    }
+    var melee = item.slot !== "long" && item.slot !== "pistol";
+    var list = melee ? (character.melee || (character.melee = [])) : (character.guns || (character.guns = []));
+    var slot = null;
+    var i;
+    for (i = 0; i < list.length; i++) if (list[i] && !list[i].weapon) { slot = list[i]; break; }
+    if (!slot) {
+      slot = melee ? { weapon: "", proficient: true, equipped: false } : { weapon: "", proficient: true, equipped: false, loaded: 0, chambers: [] };
+      list.push(slot);
+    }
+    slot.weapon = item.weaponId || item.catalogId || item.id;
+    slot.proficient = true;
+    slot.equipped = false;
+    var index = list.indexOf(slot);
+    if (root.SSDNSEquip && root.SSDNSEquip.tryAutoEquip) {
+      root.SSDNSEquip.tryAutoEquip(character, { kind: melee ? "melee" : "gun", index: index, lookup: function (key) {
+        return weaponRecord(key) || (root.SSDNSEquip.lookupWeapon ? root.SSDNSEquip.lookupWeapon(key) : null);
+      } });
+    }
+    return { ok: true, melee: melee, index: index, equipped: slot.equipped === true, name: item.name };
+  }
+
+  function add(character, raw, opts) {
+    opts = opts || {};
+    if (!character) return { ok: false, reason: "No character." };
+    if (character.inventoryLocked && !opts.dm) return { ok: false, reason: "Inventory is locked." };
+    var item = instanceFrom(raw, opts);
+    if (!item.name) return { ok: false, reason: "Name the item." };
+    if (item.type === "quest" && !opts.dm) return { ok: false, reason: "Quest items are DM-only." };
+    if (!KINDS[item.effect.kind]) item.effect = { kind: "text", text: item.description || item.name };
+    listOf(character).push(item);
+    var landed = null;
+    if (item.type === "weapon") landed = landWeapon(character, item);
+    if (item.type === "explosive") {
+      character.explosives = character.explosives || [];
+      character.explosives.push({ item: item.catalogId || item.id, count: item.count || 1 });
+    }
+    return { ok: true, item: item, landed: landed };
+  }
+
+  function drop(character, id, opts) {
+    opts = opts || {};
+    var item = find(character, id);
+    if (!item) return { ok: false, reason: "No item." };
+    if (character.inventoryLocked && !opts.dm) return { ok: false, reason: "Inventory is locked." };
+    if (!canDrop(item, opts)) return { ok: false, reason: "Quest items stay unless the DM allows it." };
+    item.count = 0;
+    prune(character);
+    return { ok: true, item: item };
+  }
+
+  function setRoom(next) {
+    next = next || {};
+    room.weightOn = !!next.weightOn;
+    if (next.catalog && typeof next.catalog === "object") room.catalog = next.catalog;
+    paintSheet();
+    paintWeight();
+  }
+
+  function showUse(item, viewer) {
+    if (!item || addressedBlank(item, viewer)) return false;
+    var kind = item.effect && item.effect.kind;
+    if (item.type === "consumable" || item.type === "scroll" || item.type === "explosive") return true;
+    if (item.type === "weapon" && kind === "attack" && !consumes(item)) return false;
+    if (kind === "heal" || kind === "castSpell" || kind === "attack" || kind === "save+condition" || kind === "buff") return true;
+    return consumes(item);
+  }
+
+  function artSrc(item) {
+    var path = item && item.art ? String(item.art) : "";
+    if (!path && root.SSDNSItemArt && root.SSDNSItemArt.srcFor) return root.SSDNSItemArt.srcFor(item) || "";
+    if (!path) return "";
+    var prefix = "";
+    try {
+      var loc = (root.location && root.location.pathname) || "";
+      if (loc.indexOf("/dm/") >= 0) prefix = "../";
+    } catch (e) {}
+    if (/^(https?:|data:|\.\.)/.test(path)) return path;
+    return prefix + path.replace(/^\//, "");
+  }
+
+  function thumb(item) {
+    var src = artSrc(item);
+    if (!src) return '<span class="art-ph" title="Art placeholder">Item</span>';
+    return '<img class="art-thumb" alt="" src="' + esc(src) + '">';
+  }
+
+  function tags(item) {
+    var bits = [];
+    if (item.playerAdded && !item.approved) bits.push("player-added");
+    else if (item.playerAdded) bits.push("player-added · approved");
+    if (questItem(item)) bits.push("quest");
+    if (item.story || item.forSale === false) bits.push("not for sale");
+    if (item.addressedTo) bits.push("addressed");
+    return bits;
+  }
+
+  function character() {
+    var doc = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc();
+    return doc && doc.character;
+  }
+
+  function viewerOf(c) {
+    c = c || character() || {};
+    return { name: c.name || "", dm: false };
+  }
+
+  function commit() {
+    if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
+      root.SSDNSApp.applyPatch(function () {});
+    }
+  }
+
+  function post(text) {
+    if (!text) return;
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "item", text: text });
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.postChat) root.SSDNSDmJoin.postChat({ text: text });
+  }
+
+  function applyHp(plan) {
+    if (!plan || !plan.hp) return;
+    if (root.SSDNSSheet && root.SSDNSSheet.applyDelta) root.SSDNSSheet.applyDelta(plan.hp, plan.chat || "");
+  }
+
+  function applyTemp(plan) {
+    if (!plan || !plan.tempHp) return;
+    var c = character();
+    if (!c) return;
+    c.hpTemp = (Number(c.hpTemp) || 0) + plan.tempHp;
+    var box = document.getElementById("inHPTemp");
+    if (box) {
+      box.value = String(c.hpTemp);
+      try { box.dispatchEvent(new Event("input", { bubbles: true })); } catch (e) {}
+    }
+  }
+
+  function showRings(spec) {
+    if (!spec) return;
+    var sel = document.querySelector('[data-act="rangeWeapon"]');
+    var box = document.querySelector('[data-act="showRange"]');
+    if (box && !box.checked) {
+      box.checked = true;
+      try { box.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {}
+    }
+    if (sel && spec.id) {
+      if (sel.querySelector('option[value="' + spec.id.replace(/"/g, "") + '"]')) sel.value = spec.id;
+      try { sel.dispatchEvent(new Event("change", { bubbles: true })); } catch (e2) {}
+    }
+  }
+
+  function useOnSheet(id) {
+    var c = character();
+    var item = find(c, id);
+    if (!item) return { ok: false, reason: "No item." };
+    var computed = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+    var plan = use(item, {
+      name: c.name || "Someone",
+      level: c.level || 1,
+      spellMod: computed.spellMod,
+      intMod: computed.mods && computed.mods.INT,
+      viewer: viewerOf(c)
+    });
+    if (!plan.ok) {
+      if (plan.chat || plan.reason) post(plan.chat || plan.reason);
+      return plan;
+    }
+    if (plan.consume) {
+      spend(item);
+      prune(c);
+    }
+    if (plan.hp) applyHp(plan);
+    if (plan.tempHp) applyTemp(plan);
+    if (plan.rings) showRings(plan.rings);
+    post(plan.chat);
+    commit();
+    paintSheet();
+    return plan;
+  }
+
+  function paintWeight() {
+    var line = document.getElementById("weightLine");
+    if (!line) return;
+    var report = weightReport(character() || { abilities: { STR: 10 }, items: [] });
+    if (!report.on) { line.hidden = true; line.textContent = ""; return; }
+    line.hidden = false;
+    line.textContent = "Carried " + report.carried + " / " + report.capacity + " lb" + (report.over ? " (over capacity)" : "");
+  }
+
+  function rowHtml(item, c) {
+    var view = present(item, viewerOf(c));
+    var tag = tags(item).map(function (t) { return '<span class="item-tag">' + esc(t) + "</span>"; }).join(" ");
+    var count = item.count && Number(item.count) > 1 ? " ×" + item.count : "";
+    var charges = item.chargesLeft != null && item.uses && item.uses.max != null ? " (" + item.chargesLeft + "/" + item.uses.max + ")" : "";
+    var useBtn = showUse(item, viewerOf(c)) && !view.blank
+      ? '<button type="button" class="btn xs" data-item-use="' + esc(item.uid) + '">Use</button>'
+      : "";
+    var dropBtn = canDrop(item, { dm: false, inventoryLocked: !!(c && c.inventoryLocked) })
+      ? '<button type="button" class="btn xs ghost" data-item-drop="' + esc(item.uid) + '">Drop</button>'
+      : "";
+    var lock = c && c.inventoryLocked ? '<span class="item-tag">locked</span>' : "";
+    return '<div class="item-row">' + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b> " + tag + " " + lock +
+      '<div class="fine">' + esc(view.description || (view.effect && view.effect.text) || "") + "</div>" +
+      useBtn + " " + dropBtn + "</div></div>";
+  }
+
+  function formHtml(opts) {
+    opts = opts || {};
+    var dm = !!opts.dm;
+    var rows = catalog({ dm: dm });
+    var options = '<option value="">Custom item…</option>' + rows.map(function (row) {
+      return '<option value="' + esc(row.id) + '">' + esc(row.name) + "</option>";
+    }).join("");
+    var types = ["consumable", "scroll", "explosive", "gear", "weapon"].concat(dm ? ["quest"] : []);
+    return '<form class="item-form" data-item-form>' +
+      '<label>Catalog <select data-item-catalog>' + options + "</select></label>" +
+      '<label>Name <input data-item-name type="text" aria-label="Item name"></label>' +
+      '<label>Type <select data-item-type>' + types.map(function (t) { return '<option value="' + t + '">' + t + "</option>"; }).join("") + "</select></label>" +
+      '<label>Effect <select data-item-effect>' +
+        '<option value="heal">heal</option><option value="castSpell">castSpell</option><option value="attack">attack</option>' +
+        '<option value="save+condition">save+condition</option><option value="buff">buff</option><option value="text">text</option>' +
+      "</select></label>" +
+      '<label>Dice / damage <input data-item-dice type="text" placeholder="2d4+2"></label>' +
+      '<label>Spell <input data-item-spell type="text" placeholder="Cure Wounds"></label>' +
+      '<label>Spell level <input data-item-level type="number" min="0" max="9" value="1"></label>' +
+      '<label>Save <input data-item-save type="text" placeholder="DEX"></label>' +
+      '<label>DC <input data-item-dc type="number" min="0"></label>' +
+      '<label>Condition <input data-item-condition type="text" placeholder="Poisoned"></label>' +
+      '<label>Range <input data-item-range type="text" placeholder="30/60"></label>' +
+      '<label>Radius (ft) <input data-item-radius type="number" min="0"></label>' +
+      '<label>Text <input data-item-text type="text"></label>' +
+      '<label>Uses (blank = unlimited) <input data-item-uses type="number" min="0"></label>' +
+      '<label>Weight (lb) <input data-item-weight type="number" min="0" step="0.1"></label>' +
+      '<label>Price ES (blank = not for sale) <input data-item-price type="number" min="0"></label>' +
+      '<label>Art path <input data-item-art type="text" placeholder="assets/img/items/….webp"></label>' +
+      '<label>Addressed to <input data-item-address type="text" placeholder="Blank = anyone"></label>' +
+      (dm ? '<label class="chk"><input type="checkbox" data-item-allow-drop> DM allows drop</label><label class="chk"><input type="checkbox" data-item-allow-rob> DM allows rob</label>' : "") +
+      '<div class="item-form-actions"><button type="button" class="btn sm" data-item-add>' + (dm ? "Give item" : "Add item") + "</button>" +
+      (dm ? '<button type="button" class="btn sm" data-item-catalog-save>Save to room catalog</button>' : "") +
+      "</div></form>";
+  }
+
+  function readForm(form) {
+    function val(name) {
+      var el = form.querySelector("[data-item-" + name + "]");
+      return el ? el.value : "";
+    }
+    function on(name) {
+      var el = form.querySelector("[data-item-" + name + "]");
+      return !!(el && el.checked);
+    }
+    var kind = val("effect") || "text";
+    var usesRaw = val("uses");
+    var priceRaw = val("price");
+    var weightRaw = val("weight");
+    var effect = { kind: kind };
+    if (val("dice")) {
+      if (kind === "heal") effect.dice = val("dice");
+      else effect.damage = val("dice");
+    }
+    if (val("spell")) effect.spell = val("spell");
+    if (val("level") !== "") effect.level = Number(val("level"));
+    if (val("save")) effect.save = val("save");
+    if (val("dc") !== "") effect.dc = Number(val("dc"));
+    if (val("condition")) effect.condition = val("condition");
+    if (val("range")) effect.range = val("range");
+    if (val("radius") !== "") effect.radius = Number(val("radius"));
+    if (val("text")) effect.text = val("text");
+    var id = val("catalog") || ("custom-" + normName(val("name")).replace(/\s+/g, "-"));
+    return normalize({
+      id: id,
+      name: val("name") || "Item",
+      type: val("type") || "gear",
+      description: val("text") || "",
+      effect: effect,
+      uses: usesRaw === "" ? { max: null } : { max: Number(usesRaw) },
+      weight: weightRaw === "" ? null : Number(weightRaw),
+      price: priceRaw === "" ? null : Number(priceRaw),
+      forSale: priceRaw !== "",
+      art: val("art") || "",
+      dmAllowDrop: on("allow-drop"),
+      dmAllowRob: on("allow-rob")
+    });
+  }
+
+  function fillForm(form, id) {
+    var row = byId(id);
+    if (!row || !form) return;
+    function set(name, value) {
+      var el = form.querySelector("[data-item-" + name + "]");
+      if (el) el.value = value == null ? "" : String(value);
+    }
+    set("name", row.name);
+    set("type", row.type);
+    set("effect", row.effect.kind);
+    set("dice", row.effect.dice || row.effect.damage || "");
+    set("spell", row.effect.spell || "");
+    set("level", row.effect.level != null ? row.effect.level : "");
+    set("save", row.effect.save || "");
+    set("dc", row.effect.dc != null ? row.effect.dc : "");
+    set("condition", row.effect.condition || "");
+    set("range", row.effect.range || "");
+    set("radius", row.effect.radius != null ? row.effect.radius : "");
+    set("text", row.effect.text || row.description || "");
+    set("uses", row.uses.max == null ? "" : row.uses.max);
+    set("weight", row.weight == null ? "" : row.weight);
+    set("price", row.price == null ? "" : row.price);
+    set("art", row.art || "");
+  }
+
+  function paintSheet() {
+    var list = document.getElementById("itemList");
+    var slot = document.getElementById("itemFormSlot");
+    if (!list) return;
+    var c = character();
+    var items = c ? listOf(c) : [];
+    list.innerHTML = items.length ? items.map(function (item) { return rowHtml(item, c); }).join("") : '<p class="fine">No catalog items yet.</p>';
+    if (slot && !slot.querySelector("[data-item-form]")) slot.innerHTML = formHtml({ dm: false });
+    if (c && c.inventoryLocked && slot) slot.querySelectorAll("button, input, select").forEach(function (el) { el.disabled = true; });
+    paintWeight();
+  }
+
+  function onSheetClick(e) {
+    var t = e.target;
+    if (!t || !t.getAttribute) return;
+    var useId = t.getAttribute("data-item-use");
+    if (useId) { useOnSheet(useId); return; }
+    var dropId = t.getAttribute("data-item-drop");
+    if (dropId) {
+      var result = drop(character(), dropId, { dm: false, inventoryLocked: !!(character() && character().inventoryLocked) });
+      if (!result.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(result.reason);
+      else commit();
+      paintSheet();
+      return;
+    }
+    if (t.hasAttribute("data-item-add")) {
+      var form = t.closest("[data-item-form]");
+      var made = readForm(form);
+      made.addressedTo = (form.querySelector("[data-item-address]") || {}).value || "";
+      var added = add(character(), Object.assign(made, { addressedTo: made.addressedTo }), { player: true });
+      if (!added.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(added.reason);
+      else commit();
+      paintSheet();
+    }
+  }
+
+  function onSheetChange(e) {
+    var t = e.target;
+    if (!t || !t.hasAttribute || !t.hasAttribute("data-item-catalog")) return;
+    fillForm(t.closest("[data-item-form]"), t.value);
+  }
+
+  function bindSheet() {
+    var box = document.getElementById("itemGear");
+    if (!box || box.getAttribute("data-bound")) return;
+    box.setAttribute("data-bound", "1");
+    box.addEventListener("click", onSheetClick);
+    box.addEventListener("change", onSheetChange);
+    paintSheet();
+  }
+
+  function rangeChoices(character) {
+    return listOf(character).map(ringSpec).filter(Boolean);
+  }
+
+  function drawerRows(items, viewer) {
+    return (items || []).map(function (item) {
+      var view = present(item, viewer || {});
+      var btn = showUse(item, viewer) && !view.blank
+        ? '<button type="button" data-act="useItem" data-uid="' + esc(item.uid) + '">Use</button>'
+        : "";
+      return '<div class="ssm-item">' + esc(view.name) + (item.count > 1 ? " ×" + item.count : "") + " " + btn + "</div>";
+    }).join("");
+  }
+
+  function applyCommand(character, payload) {
+    payload = payload || {};
+    var op = payload.op || "";
+    if (op === "lock") {
+      character.inventoryLocked = !!payload.locked;
+      return { ok: true };
+    }
+    if (op === "add") return add(character, payload.item || payload, { dm: true, addressedTo: (payload.item && payload.item.addressedTo) || payload.addressedTo || "" });
+    if (op === "remove") return drop(character, payload.uid, { dm: true, allow: true, override: true });
+    var item = find(character, payload.uid);
+    if (!item) return { ok: false, reason: "No item." };
+    if (op === "approve") { item.approved = true; return { ok: true, item: item }; }
+    if (op === "edit") {
+      var next = payload.item || {};
+      ["name", "description", "addressedTo", "art"].forEach(function (k) { if (next[k] != null) item[k] = next[k]; });
+      if (next.effect) item.effect = effectOf(next.effect);
+      if (next.dmAllowDrop != null) item.dmAllowDrop = !!next.dmAllowDrop;
+      if (next.dmAllowRob != null) item.dmAllowRob = !!next.dmAllowRob;
+      if (next.count != null) item.count = Number(next.count) || 0;
+      prune(character);
+      return { ok: true, item: item };
+    }
+    return { ok: false, reason: "Unknown item change." };
+  }
+
+  function saveMeta(patch) {
+    var DM = root.DMCC;
+    if (!DM || !DM.state) return Promise.resolve(false);
+    DM.state.meta = Object.assign({}, DM.state.meta || {}, patch);
+    room.weightOn = !!DM.state.meta.weightOn;
+    room.catalog = DM.state.meta.itemCatalog || room.catalog;
+    if (DM.state.demo || !DM.state._fb || !DM.roomRef) return Promise.resolve(true);
+    return DM.state._fb.update(DM.roomRef("meta"), patch).then(function () { return true; }).catch(function () { return false; });
+  }
+
+  function paintDm() {
+    var box = document.getElementById("dmItemTools");
+    if (!box) return;
+    var DM = root.DMCC;
+    var players = (DM && DM.state && DM.state.players) || {};
+    var pending = [];
+    Object.keys(players).forEach(function (pid) {
+      var snap = players[pid] && players[pid].snapshot;
+      var items = (snap && snap.items) || [];
+      items.forEach(function (item) {
+        if (item && item.playerAdded && !item.approved) pending.push({ pid: pid, name: (snap && snap.name) || pid, item: item });
+      });
+    });
+    var list = document.getElementById("dmPendingItems");
+    if (list) {
+      list.innerHTML = pending.length ? pending.map(function (row) {
+        return '<div class="item-row"><span>' + esc(row.name) + " · " + esc(row.item.name) + ' <span class="item-tag">player-added</span></span> ' +
+          '<button type="button" class="btn xs" data-dm-item="approve" data-pid="' + esc(row.pid) + '" data-uid="' + esc(row.item.uid) + '">Approve</button> ' +
+          '<button type="button" class="btn xs" data-dm-item="remove" data-pid="' + esc(row.pid) + '" data-uid="' + esc(row.item.uid) + '">Remove</button></div>';
+      }).join("") : '<p class="fine">No player-added items waiting.</p>';
+    }
+    var weight = document.getElementById("chkWeight");
+    if (weight && document.activeElement !== weight) weight.checked = !!(DM && DM.state && DM.state.meta && DM.state.meta.weightOn) || !!room.weightOn;
+    var from = document.getElementById("rewTarget");
+    var to = document.getElementById("itemGiveTarget");
+    if (from && to) {
+      var keep = to.value;
+      to.innerHTML = from.innerHTML;
+      if (keep) to.value = keep;
+    }
+  }
+
+  function bindDm() {
+    var box = document.getElementById("dmItemTools");
+    if (!box || box.getAttribute("data-bound")) return;
+    box.setAttribute("data-bound", "1");
+    var slot = document.getElementById("dmItemForm");
+    if (slot) slot.innerHTML = formHtml({ dm: true });
+    box.addEventListener("change", function (e) {
+      var t = e.target;
+      if (t && t.hasAttribute("data-item-catalog")) fillForm(t.closest("[data-item-form]"), t.value);
+    });
+    var weightBox = document.getElementById("chkWeight");
+    if (weightBox && !weightBox.getAttribute("data-bound")) {
+      weightBox.setAttribute("data-bound", "1");
+      weightBox.addEventListener("change", function () { saveMeta({ weightOn: !!weightBox.checked }); });
+    }
+    box.addEventListener("click", function (e) {
+      var t = e.target;
+      if (!t || !t.getAttribute) return;
+      if (t.hasAttribute("data-item-catalog-save")) {
+        var form = t.closest("[data-item-form]");
+        var made = readForm(form);
+        var catalogNow = Object.assign({}, (root.DMCC && root.DMCC.state && root.DMCC.state.meta && root.DMCC.state.meta.itemCatalog) || {});
+        catalogNow[made.id] = made;
+        saveMeta({ itemCatalog: catalogNow });
+        if (root.DMCC && root.DMCC.toast) root.DMCC.toast("Saved " + made.name + " to the room catalog");
+        return;
+      }
+      if (t.hasAttribute("data-item-add")) {
+        var giveForm = t.closest("[data-item-form]");
+        var give = readForm(giveForm);
+        give.addressedTo = (giveForm.querySelector("[data-item-address]") || {}).value || "";
+        give.dmAllowDrop = !!(giveForm.querySelector("[data-item-allow-drop]") && giveForm.querySelector("[data-item-allow-drop]").checked);
+        give.dmAllowRob = !!(giveForm.querySelector("[data-item-allow-rob]") && giveForm.querySelector("[data-item-allow-rob]").checked);
+        var sel = document.getElementById("rewTarget") || document.getElementById("itemGiveTarget");
+        var pid = sel ? sel.value : "";
+        if (!pid || !root.DMCC || !root.DMCC.pushCommand) {
+          if (root.DMCC && root.DMCC.toast) root.DMCC.toast("Pick a player");
+          return;
+        }
+        root.DMCC.pushCommand({ type: "item_mod", to: pid, payload: { op: "add", item: give } });
+        if (root.DMCC.toast) root.DMCC.toast("Sent " + give.name);
+        return;
+      }
+      var op = t.getAttribute("data-dm-item");
+      if (!op || !root.DMCC || !root.DMCC.pushCommand) return;
+      root.DMCC.pushCommand({ type: "item_mod", to: t.getAttribute("data-pid"), payload: { op: op, uid: t.getAttribute("data-uid") } });
+    });
+    var lockBtn = document.getElementById("btnLockInventory");
+    if (lockBtn) lockBtn.addEventListener("click", function () {
+      var sel = document.getElementById("itemGiveTarget") || document.getElementById("rewTarget");
+      var pid = sel ? sel.value : "";
+      if (!pid || !root.DMCC) return;
+      var snap = root.DMCC.state.players[pid] && root.DMCC.state.players[pid].snapshot;
+      var locked = !(snap && snap.inventoryLocked);
+      if (snap) snap.inventoryLocked = locked;
+      root.DMCC.pushCommand({ type: "inventory_lock", to: pid, payload: { locked: locked } });
+      lockBtn.textContent = locked ? "Unlock inventory" : "Lock inventory";
+    });
+    paintDm();
+  }
+
+  root.SSDNSItems = {
+    SCHEMA: { types: Object.keys(TYPES), effects: Object.keys(KINDS) },
+    seeds: seeds,
+    valid: valid,
+    normalize: normalize,
+    byId: byId,
+    catalog: catalog,
+    instanceFrom: instanceFrom,
+    present: present,
+    addressedBlank: addressedBlank,
+    canDrop: canDrop,
+    canRob: canRob,
+    use: use,
+    spend: spend,
+    add: add,
+    drop: drop,
+    carryCapacity: carryCapacity,
+    totalWeight: totalWeight,
+    weightReport: weightReport,
+    recharge: recharge,
+    scrollTable: scrollTable,
+    ringSpec: ringSpec,
+    rangeChoices: rangeChoices,
+    weaponRecord: weaponRecord,
+    landWeapon: landWeapon,
+    setRoom: setRoom,
+    room: function () { return { weightOn: !!room.weightOn, catalog: room.catalog }; },
+    useOnSheet: useOnSheet,
+    applyCommand: applyCommand,
+    drawerRows: drawerRows,
+    formHtml: formHtml,
+    readForm: readForm,
+    paintSheet: paintSheet,
+    paintWeight: paintWeight,
+    paintDm: paintDm,
+    artSrc: artSrc,
+    showUse: showUse
+  };
+
+  function boot() {
+    bindSheet();
+    bindDm();
+  }
+  if (root.document) {
+    if (root.document.readyState === "loading") root.document.addEventListener("DOMContentLoaded", boot);
+    else boot();
+  }
+})(typeof window !== "undefined" ? window : globalThis);

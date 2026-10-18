@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.43"; // sheet-playtest-v0343
+  var APP_VERSION = "0.3.44"; // sheet-playtest-v0344
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -126,7 +126,7 @@
       featureUses: {},
       kitStamp: "",
       tableConditions: "",
-      ammo: [], explosives: [], holster: "", holsterActive: false, seated: false, mounted: false, gunBelt: false, attackNotes: "",
+      ammo: [], explosives: [], items: [], inventoryLocked: false, holster: "", holsterActive: false, seated: false, mounted: false, gunBelt: false, attackNotes: "",
       instrument: "", instrumentQuality: "cheap", instrumentStrings: "plain", instrumentCase: "none", instrumentWear: "ok",
       proficienciesLanguages: "", equipment: "", personality: "", ideals: "", bonds: "", flaws: "", feats: [], features: "",
       age: "", height: "", weight: "", eyes: "", skin: "", hair: "", portrait: "", appearance: "", gangName: "", gangSymbol: "",
@@ -1315,6 +1315,7 @@
     });
     suppress = false;
     renderCalc();
+    if (window.SSDNSItems && window.SSDNSItems.paintSheet) window.SSDNSItems.paintSheet();
   }
   function out(key, text) { $$('[data-out="' + key + '"], [data-calc-out="' + key + '"]').forEach(function (e) { e.textContent = text; }); }
   function calcValue(key, v) {

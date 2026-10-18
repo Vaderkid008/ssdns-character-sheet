@@ -1115,6 +1115,11 @@ function currentRangeChoices() {
     const choice = choiceFromAttack(a, feats);
     if (choice) list.push(choice);
   });
+  (card.items || []).forEach(item => {
+    if (!window.SSDNSItems || !window.SSDNSItems.ringSpec) return;
+    const spec = window.SSDNSItems.ringSpec(item);
+    if (spec) list.push(spec);
+  });
   (card.spells || []).forEach(s => {
     if (!s) return;
     const range = s.range || (window.SSDNSSpellCast && window.SSDNSSpellCast.rangeOf && window.SSDNSSpellCast.rangeOf(s.name)) || '';
@@ -4599,11 +4604,20 @@ async function loadSceneImage(sceneId) {
         esc(s.name || s.id) + (s.level != null && s.level !== '' ? ' (L' + esc(s.level) + ')' : '') + (meta ? ' · ' + esc(meta) : '') + esc(extra) + disMark(verdict) + '</button>';
     });
     const spells = spellsBlock(spellButtons, (card.spells || []).length);
+    const itemRows = window.SSDNSItems && card.items && card.items.length
+      ? '<div class="ssm-section">Items</div>' + window.SSDNSItems.drawerRows(card.items, { name: card.name || '' })
+      : '';
     slot.innerHTML =
       (attacks ? '<div class="ssm-section">Attacks</div>' + attacks : '') +
       (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
-      spells;
+      spells +
+      itemRows;
     bindSpellFold(slot);
+    slot.querySelectorAll('[data-act="useItem"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (window.SSDNSItems && window.SSDNSItems.useOnSheet) window.SSDNSItems.useOnSheet(b.getAttribute('data-uid'));
+      });
+    });
     slot.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"], [data-act="playerClean"], [data-act="playerUnjam"], [data-act="playerReopen"], [data-act="playerUnload"]').forEach(b => {
       b.addEventListener('click', () => runPlayer(b.getAttribute('data-id') || b.getAttribute('data-wid')));
     });
@@ -4956,8 +4970,8 @@ async function loadSceneImage(sceneId) {
     const grabTitle = !aimId
       ? 'Pick a target within 5 ft.'
       : (grabFar
-        ? ('Out of reach (' + grabFt + ' ft). Disarm and Rob need to be within 5 ft.')
-        : 'Robbing is frowned on in town and by lawmen and can lead to a confrontation. The DM decides whether it counts as a robbery or a disarm.');
+        ? ('Out of reach (' + grabFt + ' ft). Rob/Disarm needs to be within 5 ft.')
+        : 'Robbing is frowned on in town and by lawmen and can lead to a confrontation. The DM decides whether it counts as a robbery or a disarm. No automatic reputation tracking.');
     const grabAttr = (grabDisabled ? ' disabled' : '') + ' title="' + esc(grabTitle) + '"';
     const detail = (extra) => Object.assign({ tokenId: tokenId, combatantId: tokenCombatant(tokenId) }, extra || {});
     const maxHp = Number(hp.max);
@@ -5020,9 +5034,9 @@ async function loadSceneImage(sceneId) {
         '<button type="button" data-act="reloadBtn">Reload</button><button type="button" data-act="unloadBtn">Unload</button>' +
         '<button type="button" data-act="deathBtn">Death save</button><button type="button" data-act="undoBtnD">Undo</button>' +
       '</div>' +
+      (window.SSDNSItems && card.items && card.items.length ? '<div class="ssm-section">Items</div>' + window.SSDNSItems.drawerRows(card.items, { name: card.name || '', dm: role === 'dm' }) : '') +
       '<div class="ssm-row">' +
-        '<button type="button" data-act="disarmBtn"' + grabAttr + '>Disarm</button>' +
-        '<button type="button" data-act="robBtn"' + grabAttr + '>Rob</button>' +
+        '<button type="button" data-act="robBtn"' + grabAttr + '>Rob/Disarm</button>' +
       '</div>' +
       '<button type="button" data-act="imageBtn">Replace image</button>' +
       (state.pendingTarget ? '<div class="ssm-pending">Click a token to target, Esc to cancel</div>' : '') +
@@ -5226,10 +5240,15 @@ async function loadSceneImage(sceneId) {
         feet: grabFt
       }));
     };
-    const disarmBtn = d.querySelector('[data-act="disarmBtn"]');
     const robBtn = d.querySelector('[data-act="robBtn"]');
-    if (disarmBtn) disarmBtn.addEventListener('click', () => emitGrab('drawer:disarm'));
     if (robBtn) robBtn.addEventListener('click', () => emitGrab('drawer:rob'));
+    d.querySelectorAll('[data-act="useItem"]').forEach(b => {
+      b.addEventListener('click', () => {
+        const uid = b.getAttribute('data-uid');
+        if (role === 'player' && window.SSDNSItems && window.SSDNSItems.useOnSheet) window.SSDNSItems.useOnSheet(uid);
+        else emit('drawer:useitem', detail({ itemUid: uid }));
+      });
+    });
     d.querySelector('[data-act="deathBtn"]').addEventListener('click', () => emit('drawer:deathsave', detail()));
     d.querySelector('[data-act="undoBtnD"]').addEventListener('click', () => emit('drawer:undo', detail()));
   }

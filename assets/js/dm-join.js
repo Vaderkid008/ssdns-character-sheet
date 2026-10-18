@@ -223,6 +223,29 @@
       skills: skills,
       saves: saves,
       equipment: c.equipment || "",
+      items: (c.items || []).map(function (item) {
+        if (!item) return null;
+        return {
+          uid: item.uid || "",
+          catalogId: item.catalogId || "",
+          name: item.name || "",
+          type: item.type || "",
+          count: item.count == null ? 1 : item.count,
+          weight: item.weight == null ? null : item.weight,
+          effect: item.effect || { kind: "text" },
+          art: item.art || "",
+          playerAdded: !!item.playerAdded,
+          approved: item.approved !== false,
+          addressedTo: item.addressedTo || "",
+          dmAllowDrop: !!item.dmAllowDrop,
+          dmAllowRob: !!item.dmAllowRob,
+          dmOnly: !!item.dmOnly,
+          description: item.description || "",
+          uses: item.uses || { max: null },
+          chargesLeft: item.chargesLeft == null ? null : item.chargesLeft
+        };
+      }).filter(Boolean),
+      inventoryLocked: !!c.inventoryLocked,
       features: c.features || "",
       personality: c.personality || "",
       guns: guns,
@@ -925,6 +948,26 @@
         break;
       case "gun":
         applyGunCommand(payload, payload.grantId || cmd.id);
+        break;
+      case "inventory_lock":
+        if (root.SSDNSItems && root.SSDNSApp && root.SSDNSApp.applyPatch) {
+          root.SSDNSApp.applyPatch(function (doc) {
+            if (doc.character) doc.character.inventoryLocked = !!payload.locked;
+          });
+        }
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: payload.locked ? "DM locked your inventory." : "DM unlocked your inventory." });
+        break;
+      case "item_use":
+        if (root.SSDNSItems && root.SSDNSItems.useOnSheet) root.SSDNSItems.useOnSheet(payload.uid || "");
+        break;
+      case "item_mod":
+        if (root.SSDNSItems && root.SSDNSApp && root.SSDNSApp.applyPatch) {
+          var itemResult = { ok: false };
+          root.SSDNSApp.applyPatch(function (doc) {
+            if (doc.character) itemResult = root.SSDNSItems.applyCommand(doc.character, payload);
+          });
+          if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "item", text: itemResult.ok ? "DM updated an item." : (itemResult.reason || "DM item change failed.") });
+        }
         break;
       case "take_gear":
         if (root.SSDNSApp && root.SSDNSApp.removeGearLine) {
@@ -1761,6 +1804,9 @@
     });
     var moveSeen = "";
     bind("meta", function (val) {
+      if (root.SSDNSItems && root.SSDNSItems.setRoom) {
+        root.SSDNSItems.setRoom({ weightOn: !!(val && val.weightOn), catalog: (val && val.itemCatalog) || {} });
+      }
       var dest = val && val.movedTo ? String(val.movedTo).trim().toUpperCase() : "";
       if (!dest || val.status !== "moved" || dest === moveSeen) return;
       moveSeen = dest;

@@ -969,8 +969,7 @@ function turnRowHtml(row, i) {
         ${row.kind === "enemy" ? compactAttackButtons(row, i) : `<button type="button" class="btn sm" data-your-turn="${i}">Your turn</button>`}
         <button type="button" class="btn sm" data-init-cond="${i}">Conditions</button>
         <button type="button" class="btn sm" data-init-hit="${i}" title="Rolls against this row's AC using the Damage box dice">DM roll vs this AC</button>
-        <button type="button" class="btn sm" data-grab="disarm" data-grab-i="${i}" title="Disarm an equipped weapon: attack vs Athletics or Acrobatics. Within 5 ft.">Disarm</button>
-        <button type="button" class="btn sm" data-grab="rob" data-grab-i="${i}" title="Rob an item or ES. The DM approves the take. Within 5 ft. Robbing is frowned on in town and by lawmen.">Rob</button>
+        <button type="button" class="btn sm" data-grab="rob" data-grab-i="${i}" title="Robbing is frowned on in town and by lawmen and can lead to a confrontation. The DM decides whether it counts as a robbery or a disarm. No automatic reputation tracking.">Rob/Disarm</button>
         <button type="button" class="btn sm" data-init-dmg="${i}">Damage</button>
         <button type="button" class="btn sm" data-init-heal="${i}">Heal</button>
         <button type="button" class="btn sm" data-init-down="${i}">Down</button>
@@ -4994,8 +4993,7 @@ function wireClicks() {
     if (t.hasAttribute("data-init-hit")) { attackThis(parseInt(t.getAttribute("data-init-hit"), 10)); return; }
     if (t.hasAttribute("data-grab")) {
       const i = parseInt(t.getAttribute("data-grab-i"), 10);
-      const grabMode = t.getAttribute("data-grab") === "rob" ? "rob" : "disarm";
-      runGrab(fight.order[i], grabMode, {});
+      runGrab(fight.order[i], "rob", {});
       return;
     }
     if (t.hasAttribute("data-init-strike")) { enemyStrike(parseInt(t.getAttribute("data-init-strike"), 10)); return; }
@@ -5517,6 +5515,9 @@ function syncPlayerVitals() {
     const dex = dexFromSnapshot(snap);
     if (row.dex !== dex) { row.dex = dex; tableChanged = true; }
     if (snap.hpMax != null && row.maxHp !== snap.hpMax) row.maxHp = snap.hpMax;
+    row.card = row.card || {};
+    row.card.items = Array.isArray(snap.items) ? snap.items : [];
+    row.inventoryLocked = !!snap.inventoryLocked;
     if (Applied && Applied.gunsSignature) {
       const sig = Applied.gunsSignature(snap.guns);
       if (row._gunSig !== sig) {
@@ -6748,9 +6749,11 @@ function grabView(row) {
       group: "melee", properties: "", toHit: ""
     }));
     const gear = String(s.equipment || "").split("\n").map((line) => line.trim()).filter(Boolean);
+    const items = (s.items || []).map((item) => item).filter(Boolean);
     return {
-      weapons: guns.concat(melee), gear: gear, es: Number(s.es) || 0, calling: s.calling || s.callingId || "",
-      skills: s.skills || {}, mods: s.mods || {}, abilities: s.abilities || {}
+      weapons: guns.concat(melee), gear: gear, items: items, es: Number(s.es) || 0, calling: s.calling || s.callingId || "",
+      skills: s.skills || {}, mods: s.mods || {}, abilities: s.abilities || {},
+      inventoryLocked: !!s.inventoryLocked
     };
   }
   const attacks = ((row.card && row.card.attacks) || []).filter((a) => a && a.dropped !== true && a.equipped !== false);
@@ -6856,9 +6859,9 @@ function askGrab(actor, mode, preset) {
     const targets = combatTargets(actor);
     const dlg = document.createElement("dialog");
     dlg.className = "dlg";
-    const title = mode === "rob" ? "Rob" : "Disarm";
+    const title = "Rob/Disarm";
     const tip = "Robbing is frowned on in town and by lawmen and can lead to a confrontation. The DM decides whether it counts as a robbery or a disarm. No automatic reputation tracking.";
-    dlg.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2><p class="fine">${esc(actor.name || "Someone")} · ${esc(tip)}</p><label>Target <select id="grabTarget">${targetMenu(targets, preset.targetId || "")}</select></label><div id="grabBody"></div><label class="toggle"><input type="checkbox" id="grabOverride"> DM override (skip the roll)</label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit" id="grabGo">${esc(title)}</button></div></form>`;
+    dlg.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2><p class="fine">${esc(actor.name || "Someone")} · ${esc(tip)}</p><label>Target <select id="grabTarget">${targetMenu(targets, preset.targetId || "")}</select></label><div id="grabBody"></div><label class="toggle"><input type="checkbox" id="grabOverride"> DM override (skip the roll)</label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit" id="grabGo">Rob/Disarm</button></div></form>`;
     const body = dlg.querySelector("#grabBody");
     const targetSel = dlg.querySelector("#grabTarget");
     const go = dlg.querySelector("#grabGo");
@@ -6867,19 +6870,19 @@ function askGrab(actor, mode, preset) {
       const view = grabView(target);
       const feet = grabFeet(actor, target, preset.feet);
       const far = feet != null && Grab && !Grab.inReach(feet).ok;
-      const weapons = view.weapons.map((w, n) => `<option value="weapon:${n}">${esc(w.name || "Weapon")} (equipped)</option>`).join("");
-      const gear = mode === "rob" ? view.gear.map((line, n) => `<option value="gear:${n}">${esc(line.replace(/^•\s*/, ""))}</option>`).join("") : "";
-      const es = mode === "rob" ? `<option value="es">ES${view.es ? " (" + esc(view.es) + " on hand)" : ""}</option>` : "";
+      const weapons = view.weapons.map((w, n) => `<option value="weapon:${n}">${esc(w.name || "Weapon")} (held)</option>`).join("");
+      const gear = (view.gear || []).map((line, n) => `<option value="gear:${n}">${esc(line.replace(/^•\s*/, ""))} (holstered)</option>`).join("");
+      const items = (view.items || []).map((item, n) => `<option value="item:${n}">${esc(item.name || "Item")}${item.type === "quest" ? " (quest)" : ""}</option>`).join("");
+      const es = `<option value="es">ES${view.es ? " (" + esc(view.es) + " on hand)" : ""}</option>`;
       const reach = feet == null ? "Range not measured." : (far ? ("Out of reach (" + feet + " ft).") : (feet + " ft."));
-      body.innerHTML = `<p class="fine" id="grabReach">${esc(reach)}</p><label>Take <select id="grabWhat">${weapons}${gear}${es}${weapons || gear || es ? "" : "<option value=\"\">Nothing equipped</option>"}</select></label><label id="grabEsWrap" hidden>ES <input id="grabEs" type="number" min="0" value="0"></label>`;
+      body.innerHTML = `<p class="fine" id="grabReach">${esc(reach)} Held weapon: Athletics vs Athletics or Acrobatics, replaces one attack. Holstered: Sleight of Hand vs passive Perception.</p><label>Take <select id="grabWhat">${weapons}${gear}${items}${es}${weapons || gear || items || es ? "" : "<option value=\"\">Nothing to take</option>"}</select></label><label>Target defends with <select id="grabDef"><option value="">Their choice</option><option value="Athletics">Athletics</option><option value="Acrobatics">Acrobatics</option></select></label><label id="grabEsWrap" hidden>ES <input id="grabEs" type="number" min="0" value="0"></label>`;
       const what = body.querySelector("#grabWhat");
       const esWrap = body.querySelector("#grabEsWrap");
       const sync = () => { if (esWrap) esWrap.hidden = !what || what.value !== "es"; };
       if (what) what.addEventListener("change", sync);
       sync();
-      if (go) go.disabled = !!(far && !dlg.querySelector("#grabOverride").checked) || !(view.weapons.length || (mode === "rob" && (view.gear.length || true)));
-      if (go && far && !dlg.querySelector("#grabOverride").checked) go.disabled = true;
-      if (go && !far && (view.weapons.length || mode === "rob")) go.disabled = false;
+      const overrideOn = !!dlg.querySelector("#grabOverride").checked;
+      if (go) go.disabled = !!(far && !overrideOn);
     };
     targetSel.addEventListener("change", paint);
     dlg.querySelector("#grabOverride").addEventListener("change", paint);
@@ -6890,15 +6893,19 @@ function askGrab(actor, mode, preset) {
       const what = body.querySelector("#grabWhat");
       const choice = what ? what.value : "";
       let picked = null;
+      const defSel = body.querySelector("#grabDef");
       if (choice.indexOf("weapon:") === 0) picked = { take: "weapon", weapon: view.weapons[Number(choice.slice(7))] || null };
       else if (choice.indexOf("gear:") === 0) picked = { take: "gear", gearText: view.gear[Number(choice.slice(5))] || "" };
+      else if (choice.indexOf("item:") === 0) picked = { take: "item", item: (view.items || [])[Number(choice.slice(5))] || null };
       else if (choice === "es") picked = { take: "es", es: Number(body.querySelector("#grabEs") && body.querySelector("#grabEs").value) || 0 };
       const payload = ok && target && picked ? {
         target: target,
         take: picked.take,
         weapon: picked.weapon || null,
-        gearText: picked.gearText || "",
+        item: picked.item || null,
+        gearText: picked.gearText || (picked.item && picked.item.name) || "",
         es: picked.es || 0,
+        defenseSkill: defSel ? defSel.value : "",
         override: !!dlg.querySelector("#grabOverride").checked,
         feet: grabFeet(actor, target, preset.feet)
       } : null;
@@ -6919,23 +6926,30 @@ async function runGrab(actor, mode, preset) {
   if (!actor) { DM.toast("No creature"); return false; }
   const picked = await askGrab(actor, mode, preset || {});
   if (!picked || !picked.target) { DM.toast("No target"); return false; }
-  if ((mode === "disarm" || picked.take === "weapon") && !picked.weapon) { DM.toast("Nothing equipped to take"); return false; }
+  if (picked.take === "weapon" && !picked.weapon) { DM.toast("Nothing equipped to take"); return false; }
   if (picked.take === "gear" && !String(picked.gearText || "").trim()) { DM.toast("Pick an item"); return false; }
+  if (picked.take === "item" && !picked.item) { DM.toast("Pick an item"); return false; }
   if (picked.take === "es" && !(Number(picked.es) > 0)) { DM.toast("Enter an ES amount"); return false; }
   if (picked.target.id === actor.id || (actor.playerId && picked.target.id === actor.playerId)) { DM.toast("Pick a different creature"); return false; }
   const downed = grabDowned(picked.target);
   if (downed && actor._grabRound === fight.round) { DM.toast("One item from a downed target this turn"); return false; }
   const actorView = grabView(actor);
   const targetView = grabView(picked.target);
+  const Items = window.SSDNSItems;
+  if (picked.item && Items && Items.canRob && !Items.canRob(picked.item, { override: picked.override, inventoryLocked: !!targetView.inventoryLocked, dmAllow: !!picked.item.dmAllowRob })) {
+    DM.toast(picked.item.type === "quest" ? "Quest items stay unless you allow the rob" : "Inventory is locked");
+    return false;
+  }
   const contestMode = mode === "disarm" || picked.take === "weapon" ? "disarm" : (picked.take === "es" ? "rob-es" : "rob-pocket");
   const rolled = Grab.contest({
     mode: contestMode,
     actor: actorView,
     target: targetView,
     weapon: picked.weapon || {},
-    attackMod: grabAttackMod(actorView, actor),
+    defenseSkill: picked.defenseSkill || "",
     feet: picked.feet,
     downed: downed,
+    downedTaken: !!(downed && actor._grabRound === fight.round),
     override: picked.override,
     twoHanded: picked.weapon ? Grab.twoHanded(picked.weapon) : false
   });
@@ -6956,7 +6970,12 @@ async function runGrab(actor, mode, preset) {
     target: { id: picked.target.kind === "player" ? (picked.target.playerId || picked.target.id) : picked.target.id, kind: picked.target.kind === "player" ? "player" : "enemy", name: picked.target.name || "" },
     weapon: picked.weapon || {},
     gearText: picked.gearText || "",
-    es: picked.es || 0
+    es: picked.es || 0,
+    item: picked.item || null,
+    itemUid: picked.item && picked.item.uid,
+    quest: !!(picked.item && (picked.item.type === "quest" || picked.item.dmOnly)),
+    dmAllowRob: !!(picked.item && picked.item.dmAllowRob),
+    inventoryLocked: !!targetView.inventoryLocked
   });
   for (let n = 0; n < moved.commands.length; n++) await sendGrabCommand(moved.commands[n]);
   applyEnemyGrab(actor, picked.target, moved);
@@ -7114,8 +7133,16 @@ window.SSDNSMapFight = {
     const mode = detail && (detail.mode === "adv" || detail.mode === "dis") ? detail.mode : "";
     return mapGunChoice(detail, "mode", { mode: mode });
   },
-  disarm(detail) { return runGrabFromMap(detail, "disarm"); },
+  disarm(detail) { return runGrabFromMap(detail, "rob"); },
   rob(detail) { return runGrabFromMap(detail, "rob"); },
+  useitem(detail) {
+    detail = detail || {};
+    const i = mapFightIndex(detail);
+    const row = i >= 0 ? fight.order[i] : null;
+    const pid = row && row.kind === "player" ? (row.playerId || row.id) : "";
+    if (!pid || !detail.itemUid) { DM.toast("No item"); return Promise.resolve(false); }
+    return DM.pushCommand({ type: "item_use", to: pid, payload: { uid: detail.itemUid }, from: DM.state.uid });
+  },
   async deathsave(detail) {
     const i = mapFightIndex(detail || {});
     if (i < 0) { DM.toast("No card linked"); return false; }
