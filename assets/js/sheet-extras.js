@@ -1870,6 +1870,7 @@
         g.loaded = g.chambers.filter(Boolean).length;
       }
       if (resolved.ruined || resolved.fouled) { g.ruined = true; g.broken = true; g.fouled = true; }
+      if (root.SSDNSApp && root.SSDNSApp.refreshGunFace) root.SSDNSApp.refreshGunFace();
     }
     var misfired = !!resolved.misfire;
     function syncFlag(flag) {

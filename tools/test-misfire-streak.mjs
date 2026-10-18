@@ -110,6 +110,39 @@ check("reopen", M.reopenIndex({ capacity: 6, lockedChambers: [4, 1] }) === 4);
 const grown = M.activeLocks({ lockedChambers: [1, 8] }, 9);
 check("locksPersist", grown.join(",") === "1,8");
 
+const beforeFace = M.gunFace({ misStreak: 2, jammed: true, capacity: 6, lockedChambers: [] });
+const locked = shot({ misStreak: 2, jammed: true, capacity: 6 }, 1, { chamber: 0 });
+const afterFace = M.gunFace(locked);
+check("lockup0", beforeFace.lockup === 0 && !beforeFace.lockupChecked && beforeFace.lockupLabel === "LOCKED UP ×0" && beforeFace.chamberMarks.indexOf("X") < 0);
+check("lockupCount", afterFace.lockup === 1 && afterFace.lockupLabel === "LOCKED UP ×1" && afterFace.lockedChambers.join(",") === "1");
+check("rerender", afterFace.lockupChecked && !afterFace.jammed && afterFace.chamberMarks[1] === "X" && beforeFace.chamberMarks[1] === "" && afterFace.misStreak === 3, JSON.stringify(afterFace));
+
+const fouledFace = M.gunFace(shot({ misStreak: 2, capacity: 1 }, 1, { capacity: 1 }));
+check("rerenderFoul", fouledFace.fouled && fouledFace.lockup === 0 && !fouledFace.lockupChecked && fouledFace.lockupLabel === "LOCKED UP ×0");
+
+const d4Face = M.gunFace(M.applyD4({ misStreak: 4, capacity: 6, lockedChambers: [1], pendingD4: true }, 3, { capacity: 6, chamber: 0 }).gun);
+check("rerenderD4", d4Face.lockup === 2 && d4Face.chamberMarks[1] === "X" && d4Face.chamberMarks[2] === "X" && !d4Face.pendingD4 && !d4Face.fouled);
+
+const held = { misStreak: 3, jammed: false, fouled: false, dirty: true, capacity: 6, lockedChambers: [1, 4] };
+const once = M.clearLocks(held, "one");
+check("clearOne", once.lockedChambers.join(",") === "4" && once.cleared.join(",") === "1" && once.misStreak === 3 && once.dirty && !once.fouled && M.gunFace(once).lockup === 1 && M.gunFace(once).chamberMarks[1] === "");
+const gone = M.clearLocks(held, "all");
+check("clearAll", gone.lockedChambers.length === 0 && gone.misStreak === 3 && gone.dirty && M.gunFace(gone).lockup === 0 && !M.gunFace(gone).lockupChecked);
+const picked = M.clearLocks(held, "one", 4);
+check("clearPicked", picked.lockedChambers.join(",") === "1" && picked.cleared.join(",") === "4" && picked.misStreak === 3);
+
+const appSrc = fs.readFileSync(path.join(root, "assets/js/app.js"), "utf8");
+const extraSrc = fs.readFileSync(path.join(root, "assets/js/sheet-extras.js"), "utf8");
+const sfxSrc = fs.readFileSync(path.join(root, "assets/js/sfx.js"), "utf8");
+const joinSrc = fs.readFileSync(path.join(root, "assets/js/dm-join.js"), "utf8");
+const dmccSrc = fs.readFileSync(path.join(root, "dm/assets/js/dmcc.js"), "utf8");
+const mapSrc = fs.readFileSync(path.join(root, "map/ssdns-map.js"), "utf8");
+check("wire.refresh", appSrc.includes("function refreshGunFace") && appSrc.includes("publishGunCard()") && extraSrc.includes("root.SSDNSApp.refreshGunFace()"));
+check("wire.d4", sfxSrc.includes("app.refreshGunFace"));
+check("wire.mark", appSrc.includes("LOCKED UP ×") && appSrc.includes("data-lockup-n") && mapSrc.includes("LOCKED UP ×") && mapSrc.includes("function lockupMark"));
+check("wire.clear", joinSrc.includes('payload.op === "clear-locks"') && dmccSrc.includes('data-gun-op="clear-locks"') && dmccSrc.includes("Clear locked chambers") && dmccSrc.includes("postDmAction"));
+check("rules.untouched", !fs.readFileSync(path.join(root, "assets/data/rules.js"), "utf8").includes("LOCKED UP") && !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("clear-locks"));
+
 if (failures.length) {
   console.error(failures.length + " failed");
   process.exit(1);

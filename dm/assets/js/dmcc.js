@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.48"; // dmcc-playtest-v0248
+const VERSION = "0.2.49"; // dmcc-playtest-v0249
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1023,6 +1023,11 @@ function applyDemoGun(playerId, payload) {
     if (g.ruined) g.condition = "ruined";
     else if (g.fouled) g.condition = "fouled";
     else if (g.dirty) g.condition = "dirty";
+  } else if (payload.op === "clear-locks") {
+    const next = window.SSDNSMisfire && window.SSDNSMisfire.clearLocks
+      ? window.SSDNSMisfire.clearLocks(g, payload.mode, payload.chamber)
+      : null;
+    if (next && next.cleared && next.cleared.length) g.lockedChambers = next.lockedChambers.slice();
   } else if (payload.op === "fire") {
     const chambers = Array.isArray(g.chambers) ? g.chambers : [];
     const k = Number(payload.chamber);
@@ -1871,8 +1876,11 @@ function openDetail(pid) {
     <div class="detail-section"><h3>HP and guns</h3>
       <label>Set HP <input type="number" id="dmSetHp" value="${esc(s.hpCurrent)}" aria-label="Set player hit points"></label>
       <button type="button" class="btn sm" id="btnDmSetHp">Set HP</button>
-      ${(s.guns || []).filter((g) => g && g.name).map((g, i) => `<div class="gun-chip ${g.jammed ? "jammed" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}
-        <p class="fine">Streak ${esc(g.misStreak || 0)}${g.pendingD4 ? " · d4 pending" : ""}${g.dirty ? " · Dirty" : ""}${g.fouled ? " · Fouled" : ""}${g.ruined ? " · Ruined" : ""}</p>
+      ${(s.guns || []).filter((g) => g && g.name).map((g, i) => {
+        const sheetI = g.index != null && g.index !== "" ? g.index : i;
+        const lockN = Array.isArray(g.lockedChambers) ? g.lockedChambers.length : 0;
+        return `<div class="gun-chip ${g.jammed ? "jammed" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}
+        <p class="fine">Streak ${esc(g.misStreak || 0)}${g.pendingD4 ? " · d4 pending" : ""}${g.dirty ? " · Dirty" : ""}${g.fouled ? " · Fouled" : ""}${g.ruined ? " · Ruined" : ""}${lockN ? " · LOCKED UP ×" + lockN : ""}</p>
         <button type="button" class="btn sm" data-gun-op="reload" data-gun-i="${i}">Reload</button>
         <button type="button" class="btn sm" data-gun-op="unload" data-gun-i="${i}">Unload</button>
         <button type="button" class="btn sm" data-gun-op="dirty-d4" data-gun-i="${i}">Dirty d4</button>
@@ -1885,8 +1893,12 @@ function openDetail(pid) {
         <button type="button" class="btn sm" data-gun-op="misfire" data-mf="ruined" data-mf-on="1" data-gun-i="${i}">Set Ruined</button>
         <button type="button" class="btn sm" data-gun-op="misfire" data-mf="ruined" data-mf-on="0" data-gun-i="${i}">Clear Ruined</button>
         <button type="button" class="btn sm" data-gun-op="misfire" data-mf="cancel" data-gun-i="${i}">Cancel d4</button>
+        <span class="fine">Clear locked chambers</span>
+        <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="one" data-gun-i="${sheetI}">Clear one</button>
+        <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="all" data-gun-i="${sheetI}">Clear all</button>
         <input type="number" data-gun-loaded="${i}" value="${esc(g.loaded)}" aria-label="Loaded chambers">
-      </div>`).join("") || "<p>—</p>"}
+      </div>`;
+      }).join("") || "<p>—</p>"}
     </div>
     <div class="detail-section"><h3>Equipment</h3><pre>${esc(s.equipment || "—")}</pre></div>
     <div class="detail-section"><h3>Features</h3><pre>${esc(s.features || "—")}</pre></div>
@@ -1920,9 +1932,18 @@ function openDetail(pid) {
         else if (key === "cancel") payload.cancelD4 = true;
         else if (key) payload[key] = btn.getAttribute("data-mf-on") === "1";
       }
+      if (op === "clear-locks") payload.mode = btn.getAttribute("data-lock-mode") === "one" ? "one" : "all";
+      const snapGuns = (state.players[pid] && state.players[pid].snapshot && state.players[pid].snapshot.guns) || [];
+      const gun = snapGuns.find((g) => g && g.index != null && Number(g.index) === index) || snapGuns[index];
+      const gunName = (gun && gun.name) || "gun";
+      const lockN = gun && Array.isArray(gun.lockedChambers) ? gun.lockedChambers.length : 0;
+      if (op === "clear-locks" && !lockN) return;
       pushCommand({ type: "gun", to: pid, payload });
-      const gunName = (state.players[pid] && state.players[pid].snapshot && state.players[pid].snapshot.guns && state.players[pid].snapshot.guns[index] && state.players[pid].snapshot.guns[index].name) || "gun";
       if (op === "misfire") postDmAction("DM override on " + gunName + ": " + misfireOverrideWords(payload) + ".", pid);
+      if (op === "clear-locks") {
+        const which = payload.mode === "one" ? "one locked chamber" : "all locked chambers";
+        postDmAction("DM cleared " + which + " on " + gunName + ".", pid);
+      }
       if (state.demo) applyDemoGun(pid, payload);
     });
   });

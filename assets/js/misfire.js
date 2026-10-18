@@ -441,6 +441,55 @@
     var locks = activeLocks(gun, cap);
     return locks.length ? locks[0] : null;
   }
+  function lockupCount(gun) {
+    return activeLocks(gun, gunCapacity(gun)).length;
+  }
+  function lockupLabel(n) {
+    return "LOCKED UP ×" + (Number(n) || 0);
+  }
+  /** Checkbox and cylinder marks a re-render paints from the gun as it stands. */
+  function gunFace(gun) {
+    var next = copyGun(gun);
+    var n = lockupCount(next);
+    var cap = next.capacity;
+    var locks = activeLocks(next, cap);
+    var marks = [];
+    var k;
+    for (k = 0; k < cap; k++) marks.push(locks.indexOf(k) >= 0 ? "X" : "");
+    return {
+      jammed: !!next.jammed,
+      fouled: !!next.fouled,
+      dirty: !!next.dirty,
+      ruined: !!next.ruined,
+      misStreak: next.misStreak,
+      pendingD4: !!next.pendingD4,
+      lockedChambers: next.lockedChambers.slice(),
+      lockup: n,
+      lockupLabel: lockupLabel(n),
+      lockupChecked: n > 0,
+      chamberMarks: marks
+    };
+  }
+  /** Reopen one locked chamber, or every locked chamber. Streak and fouling stay. */
+  function clearLocks(gun, mode, chamber) {
+    var next = copyGun(gun);
+    var all = copyLocks(next.lockedChambers);
+    var locks = activeLocks(next, next.capacity);
+    if (mode === "one") {
+      var idx = null;
+      if (chamber != null && chamber !== "" && isFinite(Number(chamber))) {
+        var picked = Math.floor(Number(chamber));
+        if (all.indexOf(picked) >= 0) idx = picked;
+      }
+      if (idx == null) idx = locks.length ? locks[0] : (all.length ? all[0] : null);
+      next.cleared = idx == null ? [] : [idx];
+      next.lockedChambers = idx == null ? all : all.filter(function (n) { return n !== idx; });
+    } else {
+      next.cleared = all.slice();
+      next.lockedChambers = [];
+    }
+    return next;
+  }
   function shortRest(guns, withTools) {
     return (guns || []).map(function (g) {
       var next = copyGun(g);
@@ -470,6 +519,10 @@
     applyD4: applyD4,
     markDirty: markDirty,
     reopenIndex: reopenIndex,
+    lockupCount: lockupCount,
+    lockupLabel: lockupLabel,
+    gunFace: gunFace,
+    clearLocks: clearLocks,
     shortRest: shortRest,
     WILD_TEXT: "Wild shot! DM picks a random creature in normal range (allies included); roll a new attack"
   };

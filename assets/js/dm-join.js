@@ -1455,6 +1455,9 @@
       }
       if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM override: " + (notes.join(", ") || "gun") + "." });
       return;
+    } else if (payload.op === "clear-locks" && app.clearLockedChambers) {
+      app.clearLockedChambers(payload.index, payload.mode, payload.chamber);
+      return;
     }
     if (payload.op === "test-gun" && app.grantTestGun) {
       app.grantTestGun(payload.index);
