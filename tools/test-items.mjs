@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.48 / DMCC 0.2.61 item catalog, effect kinds, weight, quest rob.
+ * Sheet 0.3.49 / DMCC 0.2.62 item catalog, effect kinds, weight, quest rob.
  *   node tools/test-items.mjs
  */
 import fs from "node:fs";
@@ -33,10 +33,10 @@ const Grab = sandbox.SSDNSGrab;
 
 const KINDS = ["heal", "castSpell", "attack", "save+condition", "buff", "text"];
 const seeds = Items.seeds();
-check("schema.count", seeds.length === 40, "got " + seeds.length);
+check("schema.count", seeds.length === 43, "got " + seeds.length);
 check("schema.effects", Items.SCHEMA.effects.join(",") === KINDS.join(","));
 const ids = seeds.map((row) => row.id);
-check("schema.unique", new Set(ids).size === 40);
+check("schema.unique", new Set(ids).size === 43);
 check("schema.valid", seeds.every((row) => Items.valid(Items.normalize(row))));
 const seen = {};
 seeds.forEach((row) => { seen[row.effect.kind] = true; });
@@ -84,7 +84,7 @@ check("effect.castBlank", sealed.ok === false && /no spell/.test(sealed.reason))
 const tooHigh = Items.use(letter, { name: "Ada", level: 1, intMod: 0, rng: function () { return face(1); } });
 check("effect.castCheck", tooHigh.ok === false && tooHigh.consume === false && tooHigh.dc === 13, JSON.stringify(tooHigh));
 
-const stick = Items.use(Items.instanceFrom(Items.byId("dynamite-stick-standard-fuse")), { name: "Ada", rng: zero });
+const stick = Items.use(Items.instanceFrom(Items.byId("dynamite-stick-standard-fuse")), { name: "Ada", rng: (() => { let first = true; return () => (first ? (first = false, 0.06) : 0); })() });
 check("effect.attack", stick.ok && stick.kind === "attack" && stick.total === 3 && stick.dc === 12 && stick.radius === 5 && stick.rings && stick.rings.kind === "thrown", JSON.stringify({ total: stick.total, rings: stick.rings }));
 
 const keg = Items.ringSpec(Items.byId("blasting-keg"));

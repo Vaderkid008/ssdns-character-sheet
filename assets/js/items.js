@@ -362,6 +362,68 @@
     };
   }
 
+
+  /* Explosives per DND Bot 2026-10-18 (PHB p.63-64). Save only, never an attack roll.
+     ctx: { distance (ft), powderMan, rng }. Hard-to-simulate parts go to chat as notes. */
+  var DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  function explosiveRules(effect, ctx) {
+    var sweating = !!effect.misfire || !!effect.sweating;
+    var pm = !!ctx.powderMan;
+    return { sweating: sweating, misfireOn: sweating ? (pm ? 1 : 3) : (pm ? 0 : 1) };
+  }
+  function useExplosive(item, effect, ctx, who) {
+    var rng = ctx.rng;
+    var placed = !!effect.placed;
+    var dist = ctx.distance != null && ctx.distance !== "" ? Number(ctx.distance) : null;
+    var notes = [];
+    if (!placed && dist != null && isFinite(dist) && dist > 60) {
+      return { ok: false, kind: "attack", consume: false, reason: "Too far. Throw range is 30/60 ft.", chat: who + " can't throw " + item.name + " that far (30/60 ft)." };
+    }
+    var rules = explosiveRules(effect, ctx);
+    var fuse = rollD20(rng);
+    var head = who + (placed ? " places and lights " : " lights and throws ") + item.name + (ctx.target && !placed ? " at " + ctx.target : "") + ". Fuse d20 " + fuse;
+    var dmg = rollDice(effect.damage || "0", rng);
+    var half = Math.floor(dmg.total / 2);
+    var dc = effect.dc != null ? effect.dc : "?";
+    function boomText(where) {
+      return " " + dmg.detail + " " + (effect.damageType || "") + " = " + dmg.total + " in " + effect.radius + " ft" + (where ? " " + where : "") +
+        ". DEX save DC " + dc + ": fail " + dmg.total + ", success " + half + ". Objects take double (" + (dmg.total * 2) + "); flammable things catch fire.";
+    }
+    var base = { ok: true, kind: "attack", rings: ringSpec(item), save: "DEX", dc: effect.dc, radius: effect.radius, range: effect.range || "", fuseFace: fuse,
+      total: dmg.total, half: half, objects: dmg.total * 2, formula: dmg.formula, detail: dmg.detail, consume: true, noAttackRoll: true };
+    // Sweating natural 1: goes off in hand, centered on the thrower.
+    if (rules.sweating && fuse === 1) {
+      return Object.assign(base, { misfire: true, inHand: true, selfDamage: dmg.total,
+        chat: head + ": sweating stick goes off in hand, centered on " + who + "!" + boomText("around " + who) + " " + who + " saves too (half on success)." });
+    }
+    var where = "";
+    if (!placed && dist != null && isFinite(dist) && dist > 30) {
+      var dir = 1 + Math.floor((rng || Math.random)() * 8); if (dir > 8) dir = 8;
+      base.scatter = { feet: 10, d8: dir, dir: DIRS[dir - 1] };
+      where = "(scattered 10 ft " + DIRS[dir - 1] + ", d8 " + dir + ")";
+    }
+    var timing = placed ? "Goes off when the fuse burns down (fuse cord burns 10 ft per round)." : (effect.fuse === "long" || /long/i.test(item.name) ? "Long fuse: goes off at the start of your next turn." : "Standard fuse: goes off at the end of your turn.");
+    if (fuse <= rules.misfireOn) {
+      var d6 = 1 + Math.floor((rng || Math.random)() * 6); if (d6 > 6) d6 = 6;
+      base.misfire = true; base.misfireD6 = d6;
+      if (d6 <= 3) {
+        return Object.assign(base, { dud: true, consume: false, total: 0, half: 0, objects: 0,
+          chat: head + " (misfires on " + (rules.misfireOn === 1 ? "1" : "1–" + rules.misfireOn) + "). Misfire d6 " + d6 + ": dud. It doesn't go off. Relighting is an action." });
+      }
+      if (d6 <= 5) {
+        base.fast = true;
+        return Object.assign(base, { chat: head + ". Misfire d6 " + d6 + ": fast fuse! It goes off halfway" + (placed ? " through the fuse" : " to the target") + "." + boomText("") });
+      }
+      base.slow = true;
+      return Object.assign(base, { chat: head + ". Misfire d6 " + d6 + ": slow burn. It goes off on your next turn." + boomText(where) });
+    }
+    notes.push(timing);
+    if (!placed) notes.push("Light + throw is 1 action; Extra Attack doesn't add throws.");
+    if (!placed) notes.push("Optional reaction: anyone can shoot the stick (attack vs AC 15); on a hit it goes off halfway.");
+    if (placed) notes.push("Not throwable. Placing is an action, then light it or run fuse cord. Also goes off if it takes fire damage or a gun crit.");
+    return Object.assign(base, { chat: head + ", fuse holds." + boomText(where) + " " + notes.join(" ") });
+  }
+
   function use(item, ctx) {
     ctx = ctx || {};
     if (!item) return { ok: false, reason: "No item." };
@@ -418,6 +480,7 @@
         cast: cast, consume: true, hp: hp, chat: who + " — " + chat, rings: ringSpec(item)
       };
     }
+    if (item.type === "explosive" && effect.kind === "attack" && effect.save && effect.radius) return useExplosive(item, effect, ctx, who);
     if (effect.kind === "attack" && effect.misfire) {
       var mfMax = parseInt(String(effect.misfire).split(/[-–]/).pop(), 10) || 0;
       var mfFace = rollD20(ctx.rng);
@@ -604,7 +667,7 @@
     return { ok: true, item: item, landed: landed };
   }
 
-  /* 0.3.48: the old character.explosives[] rows move into items (one list). */
+  /* 0.3.49: the old character.explosives[] rows move into items (one list). */
   function mergeExplosives(character) {
     if (!character || !Array.isArray(character.explosives) || !character.explosives.length) return 0;
     var moved = 0;
@@ -808,7 +871,10 @@
     }
     var tgt = item.type === "explosive" && root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo ? root.SSDNSPlaytest.targetInfo() : null;
     var computed = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+    var distSel = typeof document !== "undefined" ? document.getElementById("explosiveDist") : null;
     var plan = use(item, {
+      distance: opts.distance != null ? opts.distance : (distSel && distSel.value ? Number(distSel.value) : null),
+      powderMan: Array.isArray(c.feats) && c.feats.indexOf("powder-man") >= 0,
       name: c.name || "Someone",
       level: c.level || 1,
       spellMod: computed.spellMod,
@@ -1313,6 +1379,8 @@
     weaponRecord: weaponRecord,
     landWeapon: landWeapon,
     mergeExplosives: mergeExplosives,
+    useExplosive: useExplosive,
+    explosiveRules: explosiveRules,
     parseBonus: parseBonus,
     artSrc: artSrc,
     attuneCap: attuneCap,
