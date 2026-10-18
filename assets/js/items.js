@@ -48,6 +48,7 @@
     ["dice", "spell", "text", "save", "condition", "duration", "damage", "damageType", "range", "onSave", "temp", "extraDamage", "extraType"].forEach(function (k) {
       if (raw[k] != null && raw[k] !== "") out[k] = raw[k];
     });
+    if (raw.misfire != null && raw.misfire !== "") out.misfire = String(raw.misfire);
     ["level", "dc", "attack", "radius", "bonus", "spellMod"].forEach(function (k) {
       if (raw[k] != null && raw[k] !== "" && isFinite(Number(raw[k]))) out[k] = Number(raw[k]);
     });
@@ -125,6 +126,12 @@
       slot: raw.slot || "",
       group: raw.group || "",
       properties: raw.properties || "",
+      weapon: raw.weapon && typeof raw.weapon === "object" ? clone(raw.weapon) : null,
+      attune: !!raw.attune,
+      rarity: String(raw.rarity || ""),
+      bonuses: raw.bonuses && typeof raw.bonuses === "object" ? clone(raw.bonuses) : null,
+      wear: String(raw.wear || ""),
+      dmPlace: !!raw.dmPlace,
       dmOnly: type === "quest" || !!raw.dmOnly
     };
   }
@@ -153,6 +160,7 @@
     });
     return Object.keys(map).map(function (id) { return map[id]; }).filter(function (row) {
       if (!opts.dm && row.type === "quest") return false;
+      if (!opts.dm && row.dmPlace) return false;
       if (opts.forSale && !row.forSale) return false;
       return true;
     });
@@ -185,6 +193,12 @@
       slot: base.slot,
       group: base.group,
       properties: base.properties,
+      weapon: base.weapon || (raw && raw.weapon) || null,
+      attune: !!(base.attune || (raw && raw.attune)),
+      attuned: !!(raw && raw.attuned),
+      rarity: base.rarity || "",
+      bonuses: base.bonuses || null,
+      wear: base.wear || "",
       dmOnly: !!base.dmOnly,
       count: count,
       chargesLeft: charges,
@@ -388,6 +402,22 @@
         cast: cast, consume: true, hp: hp, chat: who + " — " + chat, rings: ringSpec(item)
       };
     }
+    if (effect.kind === "attack" && effect.misfire) {
+      var mfMax = parseInt(String(effect.misfire).split(/[-–]/).pop(), 10) || 0;
+      var mfFace = rollD20(ctx.rng);
+      if (mfFace <= mfMax) {
+        var inHand = mfFace === 1;
+        var boom = inHand ? rollDice(effect.damage || "0", ctx.rng) : null;
+        return {
+          ok: true, kind: "attack", misfire: true, inHand: inHand, face: mfFace, consume: true,
+          total: boom ? boom.total : 0, formula: boom ? boom.formula : "", detail: boom ? boom.detail : "",
+          save: effect.save || "", dc: effect.dc, radius: effect.radius || 0, selfDamage: boom ? boom.total : 0,
+          chat: inHand
+            ? who + "'s " + item.name + " goes off in hand! (misfire d20 " + mfFace + ") " + boom.detail + (effect.damageType ? " " + effect.damageType : "") + " = " + boom.total + " to " + who + " and everyone within " + (effect.radius || 5) + " ft" + (effect.save ? " (" + effect.save + " save DC " + (effect.dc != null ? effect.dc : "?") + (effect.onSave === "half" ? " half" : "") + ")" : "") + "."
+            : who + "'s " + item.name + " fizzles. Misfire (d20 " + mfFace + ", misfires on " + effect.misfire + "). The stick is lost."
+        };
+      }
+    }
     if (effect.kind === "attack") {
       var dmg = rollDice(effect.damage || "0", ctx.rng);
       var extra = effect.extraDamage ? rollDice(effect.extraDamage, ctx.rng) : null;
@@ -399,7 +429,8 @@
         ok: true, kind: "attack", total: total, formula: dmg.formula, detail: bits, save: effect.save || "",
         dc: effect.dc, radius: effect.radius || 0, range: effect.range || "", consume: consumes(item),
         rings: ringSpec(item),
-        chat: who + " uses " + item.name + ": " + bits + " = " + total + saveBit + "."
+        misfireRoll: effect.misfire ? "clean" : "",
+        chat: who + " uses " + item.name + (ctx.target ? " on " + ctx.target : "") + ": " + bits + " = " + total + saveBit + "."
       };
     }
     if (effect.kind === "save+condition") {
@@ -503,11 +534,17 @@
 
   function landWeapon(character, item) {
     if (!character || !item || item.type !== "weapon") return null;
-    if (item.weaponId && root.SSDNSApp && root.SSDNSApp.grantListedWeapon) {
+    if (item.weaponId && !item.weapon && root.SSDNSApp && root.SSDNSApp.grantListedWeapon) {
       var granted = root.SSDNSApp.grantListedWeapon(item.weaponId);
       if (granted) return granted;
     }
-    var melee = item.slot !== "long" && item.slot !== "pistol";
+    var rec = item.weapon && root.SSDNSCustomWeapons ? root.SSDNSCustomWeapons.registerItem(item) : null;
+    if (rec) item.weaponId = rec.id;
+    var melee = rec ? rec.kind !== "firearm" : (item.slot !== "long" && item.slot !== "pistol");
+    if (rec && rec.kind === "firearm" && root.SSDNSApp && root.SSDNSApp.grantListedWeapon) {
+      var gunLanded = root.SSDNSApp.grantListedWeapon(rec.id);
+      if (gunLanded) return gunLanded;
+    }
     var list = melee ? (character.melee || (character.melee = [])) : (character.guns || (character.guns = []));
     var slot = null;
     var i;
@@ -536,14 +573,92 @@
     if (!item.name) return { ok: false, reason: "Name the item." };
     if (item.type === "quest" && !opts.dm) return { ok: false, reason: "Quest items are DM-only." };
     if (!KINDS[item.effect.kind]) item.effect = { kind: "text", text: item.description || item.name };
+    if (item.type === "explosive" || item.type === "consumable") {
+      var same = listOf(character).filter(function (row) {
+        return row && row.type === item.type && row.catalogId && row.catalogId === item.catalogId && !row.addressedTo && !item.addressedTo;
+      })[0];
+      if (same) {
+        same.count = (Number(same.count) || 1) + (Number(item.count) || 1);
+        return { ok: true, item: same, merged: true };
+      }
+    }
     listOf(character).push(item);
     var landed = null;
     if (item.type === "weapon") landed = landWeapon(character, item);
-    if (item.type === "explosive") {
-      character.explosives = character.explosives || [];
-      character.explosives.push({ item: item.catalogId || item.id, count: item.count || 1 });
-    }
     return { ok: true, item: item, landed: landed };
+  }
+
+  /* 0.3.47: the old character.explosives[] rows move into items (one list). */
+  function mergeExplosives(character) {
+    if (!character || !Array.isArray(character.explosives) || !character.explosives.length) return 0;
+    var moved = 0;
+    var R = root.SSDNS_RULES || {};
+    var old = (R.explosives && R.explosives.items) || [];
+    character.items = listOf(character);
+    character.explosives.forEach(function (row) {
+      if (!row || !row.item) return;
+      var n = Number(row.count);
+      if (!isFinite(n) || n <= 0) return;
+      var have = character.items.filter(function (it) { return it && it.catalogId === row.item; })[0];
+      if (have) {
+        have.count = Math.max(Number(have.count) || 1, n);
+        moved++;
+        return;
+      }
+      var base = byId(row.item);
+      if (!base) {
+        var o = old.filter(function (x) { return x && x.id === row.item; })[0];
+        if (!o) return;
+        base = normalize({ id: o.id, name: o.name, type: "gear", description: o.notes || "", effect: { kind: "text", text: o.notes || o.name } });
+      }
+      var inst = instanceFrom(Object.assign({}, base, { count: n }), {});
+      character.items.push(inst);
+      moved++;
+    });
+    character.explosives = [];
+    return moved;
+  }
+
+  /* Attunement (DND Bot 2026-10-18): cap 3 per character; the DM can override the cap. */
+  function attuneCap(character) {
+    var n = Number(character && character.attuneCap);
+    return isFinite(n) && n > 0 ? n : 3;
+  }
+  function attunedCount(character) {
+    return listOf(character).filter(function (it) { return it && it.attuned; }).length;
+  }
+  function setAttuned(character, id, on, opts) {
+    opts = opts || {};
+    var item = find(character, id);
+    if (!item) return { ok: false, reason: "No item." };
+    if (!item.attune && !opts.dm) return { ok: false, reason: item.name + " doesn't need attunement." };
+    if (on && !item.attuned && !opts.dm && attunedCount(character) >= attuneCap(character)) {
+      return { ok: false, reason: "You can attune to " + attuneCap(character) + " items. End one first." };
+    }
+    if (item.cursed && !on && !opts.dm) return { ok: false, reason: "Cursed. It won't let go." };
+    item.attuned = !!on;
+    return { ok: true, item: item, count: attunedCount(character) };
+  }
+
+  /* DM reward text -> where it belongs. instrument | explosive | consumable | item | weapon | "" */
+  function classifyReward(text, id) {
+    var raw = String(id || text || "").replace(/^\s*\d+\s*x\s+/i, "").trim();
+    var low = normName(raw);
+    if (!low) return { kind: "" };
+    var R = root.SSDNS_RULES || {};
+    var inst = ((R.storytellerGear && R.storytellerGear.instruments) || []).filter(function (g) {
+      if (!g || g.id === "voice") return false;
+      var n = normName(g.name);
+      return low === n || low === normName(g.id) || low.indexOf(n) >= 0;
+    })[0];
+    if (inst) return { kind: "instrument", id: inst.id, name: inst.name, quality: /quality|fine/i.test(raw) ? "quality" : "cheap" };
+    var rows = catalog({ dm: true });
+    var hit = rows.filter(function (r) { return normName(r.id) === low || normName(r.name) === low; })[0] ||
+      rows.filter(function (r) { var n = normName(r.name); return n.length > 4 && low.indexOf(n) >= 0; })[0];
+    if (hit) return { kind: hit.type === "explosive" ? "explosive" : (hit.type === "consumable" || hit.type === "scroll" ? "consumable" : "item"), id: hit.id, name: hit.name, row: hit };
+    var oldExp = ((R.explosives && R.explosives.items) || []).filter(function (x) { return normName(x.name) === low || normName(x.id) === low || low.indexOf(normName(x.name)) >= 0; })[0];
+    if (oldExp) return { kind: "explosive", id: oldExp.id, name: oldExp.name, legacy: oldExp };
+    return { kind: "" };
   }
 
   function drop(character, id, opts) {
@@ -594,6 +709,13 @@
   }
 
   function tags(item) {
+    var extra = [];
+    if (item && item.rarity) extra.push(item.rarity);
+    if (item && item.attune) extra.push(item.attuned ? "attuned" : "requires attunement");
+    if (item && item.type === "weapon" && item.weapon) extra.push("weapon · on Gear");
+    return extra.concat(tagsBase(item));
+  }
+  function tagsBase(item) {
     var bits = [];
     if (item.playerAdded && !item.approved) bits.push("player-added");
     else if (item.playerAdded) bits.push("player-added · approved");
@@ -656,17 +778,27 @@
     }
   }
 
-  function useOnSheet(id) {
+  function useOnSheet(id, opts) {
+    opts = opts || {};
     var c = character();
     var item = find(c, id);
     if (!item) return { ok: false, reason: "No item." };
+    var aim = root.SSDNSSheet && root.SSDNSSheet.ensureAttackTarget;
+    if (item.type === "explosive" && item.effect && item.effect.kind === "attack" && !item.effect.placed && aim && !opts.aimed) {
+      return Promise.resolve(aim()).then(function (ok) {
+        if (!ok) return { ok: false, reason: "No target." };
+        return useOnSheet(id, { aimed: true });
+      });
+    }
+    var tgt = item.type === "explosive" && root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo ? root.SSDNSPlaytest.targetInfo() : null;
     var computed = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var plan = use(item, {
       name: c.name || "Someone",
       level: c.level || 1,
       spellMod: computed.spellMod,
       intMod: computed.mods && computed.mods.INT,
-      viewer: viewerOf(c)
+      viewer: viewerOf(c),
+      target: tgt && tgt.name ? tgt.name : ""
     });
     if (!plan.ok) {
       if (plan.chat || plan.reason) post(plan.chat || plan.reason);
@@ -675,6 +807,13 @@
     if (plan.consume) {
       spend(item);
       prune(c);
+    }
+    if (plan.selfDamage && root.SSDNSApp && root.SSDNSApp.applyPatch) {
+      root.SSDNSApp.applyPatch(function (d) {
+        var ch = d.character;
+        var cur = Number(ch.hpCurrent);
+        if (isFinite(cur)) ch.hpCurrent = Math.max(0, cur - plan.selfDamage);
+      });
     }
     if (plan.hp) applyHp(plan);
     if (plan.tempHp) applyTemp(plan);
@@ -706,6 +845,9 @@
       ? '<button type="button" class="btn xs ghost" data-item-drop="' + esc(item.uid) + '">Drop</button>'
       : "";
     var lock = c && c.inventoryLocked ? '<span class="item-tag">locked</span>' : "";
+    if (item.attune) {
+      lock += ' <button type="button" class="btn xs' + (item.attuned ? " btn-primary" : "") + '" data-item-attune="' + esc(item.uid) + '" title="Attunement: up to ' + attuneCap(c) + ' items">' + (item.attuned ? "Attuned ✓" : "Attune") + "</button>";
+    }
     return '<div class="item-row">' + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b> " + tag + " " + lock +
       '<div class="fine">' + esc(view.description || (view.effect && view.effect.text) || "") + "</div>" +
       useBtn + " " + dropBtn + "</div></div>";
@@ -737,6 +879,25 @@
       '<label>Radius (ft) <input data-item-radius type="number" min="0"></label>' +
       '<label>Text <input data-item-text type="text"></label>' +
       '<label>Uses (blank = unlimited) <input data-item-uses type="number" min="0"></label>' +
+      '<label>Recharge <select data-item-recharge><option value="">Never (used up)</option><option value="short">Short rest</option><option value="long">Long rest</option><option value="dawn">Dawn</option></select></label>' +
+      '<label>Rarity <select data-item-rarity><option value="">—</option><option>Common</option><option>Uncommon</option><option>Rare</option><option>Very Rare</option></select></label>' +
+      '<label class="chk"><input type="checkbox" data-item-attune> Requires attunement</label>' +
+      '<fieldset class="item-weapon-fields" data-item-weapon-fields hidden><legend>Weapon</legend>' +
+        '<label>Kind <select data-item-wkind><option value="melee">Melee</option><option value="firearm">Firearm</option><option value="thrown">Thrown</option><option value="bow">Bow</option></select></label>' +
+        '<label>Ability <select data-item-wability><option value="STR">STR</option><option value="DEX">DEX</option><option value="finesse">Finesse (best of STR/DEX)</option></select></label>' +
+        '<label>Proficiency <select data-item-wcat><option value="simple">Simple</option><option value="martial">Martial</option></select></label>' +
+        '<label>Gun type <select data-item-wgroup><option value="pistol">Pistol</option><option value="rifle">Rifle</option><option value="carbine">Carbine</option><option value="shotgun">Shotgun</option></select></label>' +
+        '<label>Damage <input data-item-wdmg type="text" placeholder="1d8"></label>' +
+        '<label>Damage type <select data-item-wtype><option>bludgeoning</option><option>piercing</option><option>slashing</option><option>fire</option></select></label>' +
+        '<label>Magic bonus <input data-item-wmagic type="number" min="0" max="3" value="0"></label>' +
+        '<label>Range <input data-item-wrange type="text" placeholder="20/60 or —"></label>' +
+        '<label>Properties <input data-item-wprops type="text" placeholder="light, two-handed, close quarters"></label>' +
+        '<label>Caliber <input data-item-wcal type="text" placeholder=".44-40"></label>' +
+        '<label>Capacity <input data-item-wcap type="number" min="1" max="20" value="6"></label>' +
+        '<label>Misfire <input data-item-wmf type="text" placeholder="1 or 1–2" value="1"></label>' +
+        '<label>Load <select data-item-wload><option value="cartridge">Cartridge</option><option value="percussion">Cap &amp; ball</option></select></label>' +
+        '<label class="chk"><input type="checkbox" data-item-wslow> Slow reload</label>' +
+      "</fieldset>" +
       '<label>Weight (lb) <input data-item-weight type="number" min="0" step="0.1"></label>' +
       '<label>Price ES (blank = not for sale) <input data-item-price type="number" min="0"></label>' +
       '<label>Art path <input data-item-art type="text" placeholder="assets/img/items/….webp"></label>' +
@@ -774,13 +935,38 @@
     if (val("radius") !== "") effect.radius = Number(val("radius"));
     if (val("text")) effect.text = val("text");
     var id = val("catalog") || ("custom-" + normName(val("name")).replace(/\s+/g, "-"));
+    var type = val("type") || "gear";
+    var weapon = null;
+    if (type === "weapon" && !val("catalog")) {
+      weapon = {
+        kind: val("wkind") || "melee",
+        ability: val("wability") || "STR",
+        category: val("wcat") || "simple",
+        group: val("wgroup") || "pistol",
+        damage: val("wdmg") || val("dice") || "1d6",
+        dmgType: val("wtype") || "bludgeoning",
+        magic: Number(val("wmagic")) || 0,
+        range: val("wrange") || (val("range") || ""),
+        properties: val("wprops") || "",
+        caliber: val("wcal") || "",
+        capacity: Number(val("wcap")) || 6,
+        misfire: val("wmf") || "1",
+        load: val("wload") || "cartridge",
+        slow: on("wslow")
+      };
+      effect = { kind: "attack", damage: weapon.damage, damageType: weapon.dmgType, range: weapon.range };
+    }
+    var recharge = val("recharge");
     return normalize({
+      weapon: weapon,
+      attune: on("attune"),
+      rarity: val("rarity"),
       id: id,
       name: val("name") || "Item",
-      type: val("type") || "gear",
+      type: type,
       description: val("text") || "",
       effect: effect,
-      uses: usesRaw === "" ? { max: null } : { max: Number(usesRaw) },
+      uses: usesRaw === "" ? { max: null } : { max: Number(usesRaw), recharge: recharge },
       weight: weightRaw === "" ? null : Number(weightRaw),
       price: priceRaw === "" ? null : Number(priceRaw),
       forSale: priceRaw !== "",
@@ -813,6 +999,18 @@
     set("weight", row.weight == null ? "" : row.weight);
     set("price", row.price == null ? "" : row.price);
     set("art", row.art || "");
+    set("recharge", (row.uses && row.uses.recharge) || "");
+    set("rarity", row.rarity || "");
+    var att = form.querySelector("[data-item-attune]");
+    if (att) att.checked = !!row.attune;
+    toggleWeaponFields(form);
+  }
+  function toggleWeaponFields(form) {
+    if (!form) return;
+    var type = form.querySelector("[data-item-type]");
+    var cat = form.querySelector("[data-item-catalog]");
+    var box = form.querySelector("[data-item-weapon-fields]");
+    if (box) box.hidden = !(type && type.value === "weapon" && !(cat && cat.value));
   }
 
   function paintSheet() {
@@ -821,7 +1019,9 @@
     if (!list) return;
     var c = character();
     var items = c ? listOf(c) : [];
-    list.innerHTML = items.length ? items.map(function (item) { return rowHtml(item, c); }).join("") : '<p class="fine">No catalog items yet.</p>';
+    var attuneLine = c && items.some(function (it) { return it && it.attune; })
+      ? '<p class="fine attune-line">Attuned ' + attunedCount(c) + " / " + attuneCap(c) + "</p>" : "";
+    list.innerHTML = attuneLine + (items.length ? items.map(function (item) { return rowHtml(item, c); }).join("") : '<p class="fine">No catalog items yet.</p>');
     if (slot && !slot.querySelector("[data-item-form]")) slot.innerHTML = formHtml({ dm: false });
     if (c && c.inventoryLocked && slot) slot.querySelectorAll("button, input, select").forEach(function (el) { el.disabled = true; });
     paintWeight();
@@ -832,6 +1032,15 @@
     if (!t || !t.getAttribute) return;
     var useId = t.getAttribute("data-item-use");
     if (useId) { useOnSheet(useId); return; }
+    var attId = t.getAttribute("data-item-attune");
+    if (attId) {
+      var cur = find(character(), attId);
+      var res = setAttuned(character(), attId, !(cur && cur.attuned), {});
+      if (!res.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(res.reason);
+      else commit();
+      paintSheet();
+      return;
+    }
     var dropId = t.getAttribute("data-item-drop");
     if (dropId) {
       var result = drop(character(), dropId, { dm: false, inventoryLocked: !!(character() && character().inventoryLocked) });
@@ -853,6 +1062,7 @@
 
   function onSheetChange(e) {
     var t = e.target;
+    if (t && t.hasAttribute && t.hasAttribute("data-item-type")) { toggleWeaponFields(t.closest("[data-item-form]")); return; }
     if (!t || !t.hasAttribute || !t.hasAttribute("data-item-catalog")) return;
     fillForm(t.closest("[data-item-form]"), t.value);
   }
@@ -863,6 +1073,14 @@
     box.setAttribute("data-bound", "1");
     box.addEventListener("click", onSheetClick);
     box.addEventListener("change", onSheetChange);
+    var exp = document.getElementById("explosiveList");
+    if (exp && !exp.getAttribute("data-bound")) {
+      exp.setAttribute("data-bound", "1");
+      exp.addEventListener("click", function (e) {
+        var b = e.target && e.target.closest ? e.target.closest("[data-item-use]") : null;
+        if (b) useOnSheet(b.getAttribute("data-item-use"));
+      });
+    }
     paintSheet();
   }
 
@@ -889,6 +1107,12 @@
     }
     if (op === "add") return add(character, payload.item || payload, { dm: true, addressedTo: (payload.item && payload.item.addressedTo) || payload.addressedTo || "" });
     if (op === "remove") return drop(character, payload.uid, { dm: true, allow: true, override: true });
+    if (op === "attuneCap") {
+      var capN = Number(payload.cap);
+      character.attuneCap = isFinite(capN) && capN > 0 ? capN : "";
+      return { ok: true };
+    }
+    if (op === "attune") return setAttuned(character, payload.uid, payload.on !== false, { dm: true });
     var item = find(character, payload.uid);
     if (!item) return { ok: false, reason: "No item." };
     if (op === "approve") { item.approved = true; return { ok: true, item: item }; }
@@ -899,6 +1123,12 @@
       if (next.dmAllowDrop != null) item.dmAllowDrop = !!next.dmAllowDrop;
       if (next.dmAllowRob != null) item.dmAllowRob = !!next.dmAllowRob;
       if (next.count != null) item.count = Number(next.count) || 0;
+      if (next.uses != null) item.uses = usesOf(next.uses);
+      if (next.chargesLeft != null) item.chargesLeft = Number(next.chargesLeft) || 0;
+      ["attune", "attuned", "cursed", "hidden"].forEach(function (k) { if (next[k] != null) item[k] = !!next[k]; });
+      if (next.rarity != null) item.rarity = String(next.rarity);
+      if (next.bonuses != null) item.bonuses = clone(next.bonuses);
+      if (next.weapon != null) { item.weapon = clone(next.weapon); if (root.SSDNSCustomWeapons) root.SSDNSCustomWeapons.registerItem(item); }
       prune(character);
       return { ok: true, item: item };
     }
@@ -936,6 +1166,28 @@
           '<button type="button" class="btn xs" data-dm-item="remove" data-pid="' + esc(row.pid) + '" data-uid="' + esc(row.item.uid) + '">Remove</button></div>';
       }).join("") : '<p class="fine">No player-added items waiting.</p>';
     }
+    var att = document.getElementById("dmAttuneList");
+    if (!att && list && list.parentNode) {
+      att = document.createElement("div");
+      att.id = "dmAttuneList";
+      att.className = "dm-attune";
+      list.parentNode.insertBefore(att, list.nextSibling);
+    }
+    if (att) {
+      var rowsA = [];
+      Object.keys(players).forEach(function (pid) {
+        var snap = players[pid] && players[pid].snapshot;
+        var its = ((snap && snap.items) || []).filter(function (it) { return it && it.attune; });
+        if (!its.length) return;
+        var cap = Number(snap.attuneCap) > 0 ? Number(snap.attuneCap) : 3;
+        rowsA.push('<div class="item-row"><b>' + esc((snap && snap.name) || pid) + '</b> attuned ' + its.filter(function (it) { return it.attuned; }).length + " / " + cap +
+          ' <label class="fine">Cap <input type="number" min="1" max="9" value="' + cap + '" data-dm-attune-cap="' + esc(pid) + '" style="width:48px"></label> ' +
+          its.map(function (it) {
+            return '<button type="button" class="btn xs' + (it.attuned ? " btn-primary" : "") + '" data-dm-item="attune" data-on="' + (it.attuned ? "0" : "1") + '" data-pid="' + esc(pid) + '" data-uid="' + esc(it.uid) + '" title="DM override: ignores the cap">' + esc(it.name) + (it.attuned ? " ✓" : "") + "</button>";
+          }).join(" ") + "</div>");
+      });
+      att.innerHTML = rowsA.length ? '<p class="fine">Attunement (DM override, ignores the cap)</p>' + rowsA.join("") : "";
+    }
     var weight = document.getElementById("chkWeight");
     if (weight && document.activeElement !== weight) weight.checked = !!(DM && DM.state && DM.state.meta && DM.state.meta.weightOn) || !!room.weightOn;
     var from = document.getElementById("rewTarget");
@@ -955,6 +1207,11 @@
     if (slot) slot.innerHTML = formHtml({ dm: true });
     box.addEventListener("change", function (e) {
       var t = e.target;
+      if (t && t.hasAttribute && t.hasAttribute("data-dm-attune-cap") && root.DMCC && root.DMCC.pushCommand) {
+        root.DMCC.pushCommand({ type: "item_mod", to: t.getAttribute("data-dm-attune-cap"), payload: { op: "attuneCap", cap: Number(t.value) || 3 } });
+        return;
+      }
+      if (t && t.hasAttribute("data-item-type")) toggleWeaponFields(t.closest("[data-item-form]"));
       if (t && t.hasAttribute("data-item-catalog")) fillForm(t.closest("[data-item-form]"), t.value);
     });
     var weightBox = document.getElementById("chkWeight");
@@ -992,7 +1249,9 @@
       }
       var op = t.getAttribute("data-dm-item");
       if (!op || !root.DMCC || !root.DMCC.pushCommand) return;
-      root.DMCC.pushCommand({ type: "item_mod", to: t.getAttribute("data-pid"), payload: { op: op, uid: t.getAttribute("data-uid") } });
+      var pl = { op: op, uid: t.getAttribute("data-uid") };
+      if (op === "attune") pl.on = t.getAttribute("data-on") !== "0";
+      root.DMCC.pushCommand({ type: "item_mod", to: t.getAttribute("data-pid"), payload: pl });
     });
     var lockBtn = document.getElementById("btnLockInventory");
     if (lockBtn) lockBtn.addEventListener("click", function () {
@@ -1033,6 +1292,11 @@
     rangeChoices: rangeChoices,
     weaponRecord: weaponRecord,
     landWeapon: landWeapon,
+    mergeExplosives: mergeExplosives,
+    attuneCap: attuneCap,
+    attunedCount: attunedCount,
+    setAttuned: setAttuned,
+    classifyReward: classifyReward,
     setRoom: setRoom,
     setStore: setStore,
     room: function () { return { weightOn: !!room.weightOn, catalog: room.catalog }; },

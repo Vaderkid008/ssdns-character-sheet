@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.46 Gear tab layout and weapon art. DMCC 0.2.59.
+ * Sheet 0.3.47 Gear tab layout and weapon art. DMCC 0.2.60.
  *   node tools/test-gear-tab.mjs
  */
 import fs from "node:fs";
@@ -24,9 +24,9 @@ const play = read("assets/js/sheet-playtest.js");
 const css = read("assets/css/sheet.css");
 const version = JSON.parse(read("version.json"));
 
-check("ver.sheet", version.sheet === "0.3.46" && version.sheetBuild === "sheet-playtest-v0346");
-check("ver.dmcc", version.dmcc === "0.2.59" && version.dmccBuild === "dmcc-playtest-v0259");
-check("ver.app", app.includes('APP_VERSION = "0.3.46"'));
+check("ver.sheet", version.sheet === "0.3.47" && version.sheetBuild === "sheet-playtest-v0347");
+check("ver.dmcc", version.dmcc === "0.2.60" && version.dmccBuild === "dmcc-playtest-v0260");
+check("ver.app", app.includes('APP_VERSION = "0.3.47"'));
 check("target.banner", equip.includes('id="gearTarget"') && equip.includes("gear-bullseye") && equip.includes('id="gearTargetSlot"'));
 check("target.mount", play.includes('id=\'atkTarget\'') && play.includes('$("#gearTargetSlot")'));
 check("columns", equip.includes("gear-weapons") && equip.includes("gear-kit") && css.includes(".gear-columns"));
@@ -40,7 +40,7 @@ check("card.photo", app.includes("g-photo") && css.includes(".g-photo"));
 check("melee.card", play.includes("data-melee-roll") && play.includes("data-melee-rng") && play.includes("Melee, bow, or thrown"));
 check("phone", css.includes("max-width: 760px") && css.includes(".gear-columns { grid-template-columns: 1fr; }"));
 check("attack.shared", play.includes("rollMeleeNow") && app.includes("function reload("));
-check("html.art", html.includes('assets/js/weapon-art.js?v=0.3.46-art'));
+check("html.art", html.includes('assets/js/weapon-art.js?v=0.3.47-art'));
 check("css.ratio", css.includes("aspect-ratio: 3 / 1") && css.includes(".g-photo.has-art img") && css.includes("object-fit: contain"));
 check("app.paint", app.includes("SSDNSWeaponArt.paint"));
 check("melee.paint", play.includes("data-melee-photo") && play.includes("SSDNSWeaponArt.paint"));

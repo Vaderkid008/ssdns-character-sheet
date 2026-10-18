@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.46 / DMCC 0.2.59 item catalog, effect kinds, weight, quest rob.
+ * Sheet 0.3.47 / DMCC 0.2.60 item catalog, effect kinds, weight, quest rob.
  *   node tools/test-items.mjs
  */
 import fs from "node:fs";
@@ -33,10 +33,10 @@ const Grab = sandbox.SSDNSGrab;
 
 const KINDS = ["heal", "castSpell", "attack", "save+condition", "buff", "text"];
 const seeds = Items.seeds();
-check("schema.count", seeds.length === 35, "got " + seeds.length);
+check("schema.count", seeds.length === 40, "got " + seeds.length);
 check("schema.effects", Items.SCHEMA.effects.join(",") === KINDS.join(","));
 const ids = seeds.map((row) => row.id);
-check("schema.unique", new Set(ids).size === 35);
+check("schema.unique", new Set(ids).size === 40);
 check("schema.valid", seeds.every((row) => Items.valid(Items.normalize(row))));
 const seen = {};
 seeds.forEach((row) => { seen[row.effect.kind] = true; });
@@ -194,7 +194,7 @@ const axe = Items.add(weaponSheet, Items.byId("lightning-tomahawk"), { dm: true 
 check("weapon.land", axe.ok && axe.landed && axe.landed.melee === true && weaponSheet.melee.length === 1 && weaponSheet.melee[0].weapon === "lightning-tomahawk" && Items.showUse(axe.item) === false);
 check("weapon.use", Items.showUse(Items.instanceFrom(Items.byId("lasso-of-binding"))) === true && Items.showUse(Items.instanceFrom(Items.byId("assay-tonic-trail-draught"))) === true);
 const boom = Items.add(weaponSheet, Items.byId("dynamite-stick-standard-fuse"), { dm: true });
-check("explosive.land", boom.ok && weaponSheet.explosives.length === 1 && weaponSheet.explosives[0].item === "dynamite-stick-standard-fuse");
+check("explosive.land", boom.ok && !(weaponSheet.explosives||[]).length && weaponSheet.items.some((i) => i.catalogId === "dynamite-stick-standard-fuse" || i.id === "dynamite-stick-standard-fuse" || i.item === "dynamite-stick-standard-fuse"));
 
 const ART = [
   "glowing-letter.webp",

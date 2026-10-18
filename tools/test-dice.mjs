@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.46 dice art, DM-only Peace Maker, and item/instrument art.
+ * Sheet 0.3.47 dice art, DM-only Peace Maker, and item/instrument art.
  *   node tools/test-dice.mjs
  */
 import fs from "node:fs";
@@ -23,8 +23,8 @@ function load(rel, name) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.46" && version.sheetBuild === "sheet-playtest-v0346");
-check("ver.dmcc", version.dmcc === "0.2.59" && version.dmccBuild === "dmcc-playtest-v0259");
+check("ver.sheet", version.sheet === "0.3.47" && version.sheetBuild === "sheet-playtest-v0347");
+check("ver.dmcc", version.dmcc === "0.2.60" && version.dmccBuild === "dmcc-playtest-v0260");
 
 [4, 6, 8, 10, 12, 20, 50, 100].forEach((n) => {
   check("file.d" + n, fs.existsSync(path.join(root, "assets/img/dice", "d" + n + ".webp")));
@@ -78,7 +78,7 @@ check("guitar.quality", inst.srcFor({ name: "Guitar", quality: "quality" }).ends
 
 const peace = load("assets/js/peace-maker.js", "SSDNSPeaceMaker");
 const gun = peace.weapon();
-check("peace.flag", peace.placeholder === true && gun.dmOnly === true && gun.notForSale === true && gun.id === "the-peace-maker");
+check("peace.flag", peace.placeholder === false && gun.dmOnly === true && gun.notForSale === true && gun.id === "the-peace-maker");
 check("peace.note", String(gun.src).includes("act1-special-finds-tables.md"));
 check("peace.lookup", peace.lookup("Peace Maker") && peace.lookup("peace-maker") && !peace.lookup("revolver"));
 

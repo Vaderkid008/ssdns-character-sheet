@@ -245,6 +245,7 @@
       skills: skills,
       saves: saves,
       equipment: c.equipment || "",
+      attuneCap: c.attuneCap || "",
       items: (c.items || []).map(function (item) {
         if (!item) return null;
         return {
@@ -259,6 +260,11 @@
           playerAdded: !!item.playerAdded,
           approved: item.approved !== false,
           addressedTo: item.addressedTo || "",
+          attune: !!item.attune,
+          attuned: !!item.attuned,
+          rarity: item.rarity || "",
+          wear: item.wear || "",
+          equipSlot: item.equipSlot || "",
           dmAllowDrop: !!item.dmAllowDrop,
           dmAllowRob: !!item.dmAllowRob,
           dmOnly: !!item.dmOnly,
@@ -866,6 +872,59 @@
     onSaloonMessage(ev);
   });
 
+  /* 0.3.47 reward routing: instruments go to the focus slot, explosives and
+     consumables become real items with a Use button. Anything else stays a line
+     in Equipment, as before. Returns true when the reward was routed. */
+  function routeReward(payload, cmd) {
+    var Items = root.SSDNSItems;
+    var text = String(payload.text || "");
+    var qtyMatch = text.match(/^\s*(\d+)\s*x\s+/i);
+    var qty = Math.max(1, Number(payload.qty) || (qtyMatch ? parseInt(qtyMatch[1], 10) : 1) || 1);
+    var kind = payload.kind || "";
+    var hit = Items && Items.classifyReward ? Items.classifyReward(text, payload.itemId || "") : { kind: "" };
+    if (!kind) kind = hit.kind;
+    if (!kind || kind === "weapon") return false;
+    var logId = "item:" + (payload.grantId || cmd.id || "");
+    var app = root.SSDNSApp;
+    if (!app || !app.applyPatch) return false;
+    if (kind === "instrument") {
+      var instId = payload.instrument || hit.id;
+      if (!instId) return false;
+      var placed = "";
+      app.applyPatch(function (d) {
+        var ch = d.character;
+        if (!ch.instrument) {
+          ch.instrument = instId;
+          ch.instrumentQuality = hit.quality || payload.quality || "cheap";
+          placed = "focus";
+        } else if (Items && Items.add) {
+          Items.add(ch, { id: "instrument-" + instId, name: hit.name || text, type: "gear", description: "Instrument (focus). Swap it into the focus slot on Gear.", effect: { kind: "text", text: "Spellcasting focus (Storyteller)." } }, { dm: true });
+          placed = "item";
+        }
+      });
+      if (!placed) return false;
+      toast("DM sent " + (hit.name || text) + (placed === "focus" ? " (in your focus slot)" : " (in Items)"));
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: logId, kind: "item", text: "Instrument: " + (hit.name || text) + (placed === "focus" ? " → focus slot" : " → Items") });
+      return true;
+    }
+    if ((kind === "explosive" || kind === "consumable" || kind === "item") && Items && Items.add) {
+      var raw = hit.row || (payload.itemId && Items.byId ? Items.byId(payload.itemId) : null);
+      if (!raw && hit.legacy) raw = { id: hit.legacy.id, name: hit.legacy.name, type: "explosive", description: hit.legacy.notes || "", effect: { kind: "text", text: hit.legacy.notes || hit.legacy.name } };
+      if (!raw) return false;
+      var ok = false;
+      app.applyPatch(function (d) {
+        var res = Items.add(d.character, Object.assign({}, raw, { count: qty }), { dm: true });
+        ok = !!(res && res.ok);
+      });
+      if (!ok) return false;
+      toast("DM sent " + (qty > 1 ? qty + "× " : "") + raw.name);
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: logId, kind: "item", text: "Item: " + (qty > 1 ? qty + "× " : "") + raw.name });
+      if (Items.paintSheet) Items.paintSheet();
+      return true;
+    }
+    return false;
+  }
+
   function handleCommand(cmd) {
     var payload = cmd.payload || {};
     switch (cmd.type) {
@@ -901,6 +960,7 @@
           if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Weapon: " + listed.name });
           break;
         }
+        if (routeReward(payload, cmd)) break;
         appendEquipment(payload.text || "");
         toast("DM sent item: " + (payload.text || ""));
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Item: " + (payload.text || "") });
@@ -991,7 +1051,7 @@
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: payload.locked ? "DM locked your inventory." : "DM unlocked your inventory." });
         break;
       case "item_use":
-        if (root.SSDNSItems && root.SSDNSItems.useOnSheet) root.SSDNSItems.useOnSheet(payload.uid || "");
+        if (root.SSDNSItems && root.SSDNSItems.useOnSheet) root.SSDNSItems.useOnSheet(payload.uid || "", { aimed: true });
         break;
       case "item_mod":
         if (root.SSDNSItems && root.SSDNSApp && root.SSDNSApp.applyPatch) {

@@ -925,9 +925,13 @@ select:-webkit-autofill {
 .item-tag { font-size: 11px; border: 1px solid var(--line, #8a7560); padding: 0 4px; }
 .item-form label { display: block; margin: 4px 0; }
 .art-ph { display: inline-flex; min-width: 48px; padding: 4px; border: 1px dashed var(--line, #8a7560); font-size: 11px; }
-/* 0.2.59 Fight tab: + Enemy and one big Roll Initiative */
+/* 0.2.60 Fight tab: + Enemy and one big Roll Initiative */
 #panel-fight .wanted-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
 #panel-fight .btn-roll-init { font-size: 18px; padding: 10px 22px; letter-spacing: .04em; }
 #panel-fight .btn-roll-init[hidden] { display: none; }
 #panel-fight .btn-add-enemy { font-size: 16px; padding: 8px 16px; background: #6b2a1c; color: #fff4dc; border-color: #3e160d; }
 #panel-fight #rollInitStatus:empty { display: none; }
+/* 0.2.60 Give tab */
+#panel-rewards .give-types { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+#panel-rewards .give-section { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line, #5a4e40); }
+.dm-attune .item-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
