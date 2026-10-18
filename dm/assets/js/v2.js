@@ -956,6 +956,8 @@ function turnRowHtml(row, i) {
         ${row.kind === "enemy" ? compactAttackButtons(row, i) : `<button type="button" class="btn sm" data-your-turn="${i}">Your turn</button>`}
         <button type="button" class="btn sm" data-init-cond="${i}">Conditions</button>
         <button type="button" class="btn sm" data-init-hit="${i}" title="Rolls against this row's AC using the Damage box dice">DM roll vs this AC</button>
+        <button type="button" class="btn sm" data-grab="disarm" data-grab-i="${i}" title="Disarm an equipped weapon: attack vs Athletics or Acrobatics. Within 5 ft.">Disarm</button>
+        <button type="button" class="btn sm" data-grab="rob" data-grab-i="${i}" title="Rob an item or ES. The DM approves the take. Within 5 ft. Robbing is frowned on in town and by lawmen.">Rob</button>
         <button type="button" class="btn sm" data-init-dmg="${i}">Damage</button>
         <button type="button" class="btn sm" data-init-heal="${i}">Heal</button>
         <button type="button" class="btn sm" data-init-down="${i}">Down</button>
@@ -4805,7 +4807,7 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all]");
+    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab]");
     if (!t) return;
     if (t.hasAttribute("data-side-toggle")) {
       const row = fight.order[parseInt(t.getAttribute("data-side-toggle"), 10)];
@@ -4863,6 +4865,12 @@ function wireClicks() {
       return;
     }
     if (t.hasAttribute("data-init-hit")) { attackThis(parseInt(t.getAttribute("data-init-hit"), 10)); return; }
+    if (t.hasAttribute("data-grab")) {
+      const i = parseInt(t.getAttribute("data-grab-i"), 10);
+      const grabMode = t.getAttribute("data-grab") === "rob" ? "rob" : "disarm";
+      runGrab(fight.order[i], grabMode, {});
+      return;
+    }
     if (t.hasAttribute("data-init-strike")) { enemyStrike(parseInt(t.getAttribute("data-init-strike"), 10)); return; }
     if (t.hasAttribute("data-cyl-fire")) {
       const rowId = t.getAttribute("data-cyl-fire");
@@ -5333,6 +5341,21 @@ function noteInitiativeRolls(rows) {
   saveRemoteTable();
   renderFight();
 }
+let playerCardSig = "";
+function snapshotCardSig() {
+  const Applied = window.SSDNSApplied;
+  return Object.keys((DM.state && DM.state.players) || {}).map((id) => {
+    const s = (DM.state.players[id] && DM.state.players[id].snapshot) || {};
+    const guns = Applied && Applied.gunsSignature ? Applied.gunsSignature(s.guns) : "";
+    const melee = (s.melee || []).map((m) => (m && (m.weapon || m.name) || "") + (m && m.equipped === false ? ":0" : ":1")).join(",");
+    return id + "=" + [s.hpCurrent, s.hpMax, s.hpTemp, s.ac, s.cover, guns, melee].join(":");
+  }).join("|");
+}
+function refreshOpenCard() {
+  if (window.SSDNSMapHost && window.SSDNSMapHost.refreshCard) {
+    try { window.SSDNSMapHost.refreshCard(); } catch (e) {}
+  }
+}
 function syncPlayerVitals() {
   let tableChanged = false;
   let gunsChanged = false;
@@ -5378,15 +5401,15 @@ function syncPlayerVitals() {
   });
   ensurePlayers();
   paintTurnAck();
-  if (gunsChanged) {
-    renderFight();
-    if (window.SSDNSMapHost && window.SSDNSMapHost.refreshCard) {
-      try { window.SSDNSMapHost.refreshCard(); } catch (e) {}
-    }
-  }
+  const nextCard = snapshotCardSig();
+  const cardChanged = nextCard !== playerCardSig;
+  playerCardSig = nextCard;
+  if (gunsChanged || cardChanged) refreshOpenCard();
+  if (gunsChanged) renderFight();
   if (!tableChanged) return;
   saveRemoteTable();
   renderFight();
+  if (!gunsChanged && !cardChanged) refreshOpenCard();
 }
 function paintTurnAck() {
   const sent = $("#turnSent");
@@ -6584,6 +6607,248 @@ function setTokenHidden(detail) {
   renderFight();
   return true;
 }
+function grabView(row) {
+  if (!row) return { weapons: [], gear: [], es: 0 };
+  if (row.kind === "player") {
+    const s = playerSnapshot(row.playerId || row.id) || {};
+    const guns = (s.guns || []).filter((g) => g && (g.weapon || g.name) && g.equipped !== false).map((g) => ({
+      take: "weapon", kind: "gun", index: g.index, name: g.name || g.weapon, weaponId: g.weapon || "",
+      group: g.group || "", properties: g.properties || "", toHit: g.atk
+    }));
+    const melee = (s.melee || []).filter((m) => m && m.weapon && m.equipped !== false).map((m) => ({
+      take: "weapon", kind: "melee", index: m.index, name: m.name || m.weapon, weaponId: m.weapon,
+      group: "melee", properties: "", toHit: ""
+    }));
+    const gear = String(s.equipment || "").split("\n").map((line) => line.trim()).filter(Boolean);
+    return {
+      weapons: guns.concat(melee), gear: gear, es: Number(s.es) || 0, calling: s.calling || s.callingId || "",
+      skills: s.skills || {}, mods: s.mods || {}, abilities: s.abilities || {}
+    };
+  }
+  const attacks = ((row.card && row.card.attacks) || []).filter((a) => a && a.dropped !== true && a.equipped !== false);
+  return {
+    weapons: attacks.map((a, n) => ({
+      take: "weapon", kind: "attack", index: n, id: a.id || a.name || ("atk-" + n), name: a.name || "Attack",
+      weaponId: a.weapon || "", group: a.group || "", properties: a.properties || "", toHit: a.toHit, damage: a.damage || ""
+    })),
+    gear: [], es: 0, calling: "", skills: (row.card && row.card.skills) || {}, scores: (row.card && row.card.scores) || {},
+    mods: {}
+  };
+}
+function grabAttackMod(view, row) {
+  const weapon = (view.weapons || [])[0];
+  if (weapon && weapon.toHit != null && weapon.toHit !== "") {
+    const m = String(weapon.toHit).match(/-?\d+/);
+    if (m) return Number(m[0]);
+  }
+  if (row && row.atkBonus != null && row.atkBonus !== "" && isFinite(Number(row.atkBonus))) return Number(row.atkBonus);
+  const mods = view.mods || {};
+  if (mods.STR != null && mods.STR !== "") return Number(mods.STR) || 0;
+  return 0;
+}
+function grabFeet(actor, target, hinted) {
+  if (hinted != null && hinted !== "" && isFinite(Number(hinted))) return Number(hinted);
+  const host = window.SSDNSMapHost;
+  if (!host || typeof host.feetBetween !== "function" || !actor || !target) return null;
+  const a = actor.mapTokenId || actor.playerId || actor.id;
+  const b = target.mapTokenId || target.playerId || target.id;
+  const n = host.feetBetween(a, b);
+  return n == null || n === "" || !isFinite(Number(n)) ? null : Number(n);
+}
+function grabDowned(row) {
+  if (!row) return false;
+  const hp = knownNumber(row.hp);
+  if (hp != null && hp <= 0) return true;
+  return /down|unconscious|dying/i.test(String(row.status || ""));
+}
+function grabSlotFree(actor, weapon) {
+  const Equip = window.SSDNSEquip;
+  if (!Equip || !actor || actor.kind !== "player") return true;
+  const snap = playerSnapshot(actor.playerId || actor.id) || {};
+  const character = { guns: snap.guns || [], melee: snap.melee || [], holster: snap.holster || "", instrument: "", focusEquipped: false };
+  const kind = weapon && weapon.kind === "melee" ? "melee" : "gun";
+  const lookup = function (id) { return Equip.lookupWeapon ? Equip.lookupWeapon(id) : null; };
+  const slot = kind === "melee" ? "melee" : (Equip.slotOf ? Equip.slotOf(lookup(weapon && weapon.weaponId) || { group: weapon && weapon.group }) : "");
+  if (!slot || !Equip.countSlots || !Equip.LIMITS) return true;
+  const used = Equip.countSlots(character, lookup);
+  return (used[slot] || 0) < Equip.LIMITS[slot];
+}
+function applyEnemyGrab(actor, target, plan) {
+  const enemy = (plan && plan.enemy) || {};
+  if (target && target.kind === "enemy" && target.card && Array.isArray(target.card.attacks)) {
+    const dropId = enemy.dropAttackId || enemy.removeAttackId || "";
+    if (dropId) {
+      const atk = target.card.attacks.find((a) => a && (a.id === dropId || a.name === dropId));
+      if (atk && enemy.dropAttackId) { atk.equipped = false; atk.dropped = true; }
+      if (atk && enemy.removeAttackId) target.card.attacks = target.card.attacks.filter((a) => a !== atk);
+    }
+  }
+  if (actor && actor.kind === "enemy" && enemy.give) {
+    actor.card = actor.card || {};
+    actor.card.attacks = actor.card.attacks || [];
+    actor.card.attacks.push(Object.assign({ id: DM.uid("atk"), equipped: false }, enemy.give));
+  }
+  if (actor && actor.kind === "enemy" && enemy.gear) {
+    actor.card = actor.card || {};
+    actor.card.gear = actor.card.gear || [];
+    actor.card.gear.push(enemy.gear);
+  }
+}
+async function sendGrabCommand(cmd) {
+  if (!cmd) return;
+  if (DM.state && DM.state.demo && cmd.type === "gun" && DM.applyDemoGun) DM.applyDemoGun(cmd.to, cmd.payload || {});
+  if (DM.state && DM.state.demo && cmd.type === "reward_es") {
+    const p = DM.state.players && DM.state.players[cmd.to];
+    const delta = Number(cmd.payload && cmd.payload.delta) || 0;
+    if (p && p.snapshot) p.snapshot.es = Math.max(0, (Number(p.snapshot.es) || 0) + delta);
+  }
+  if (DM.state && DM.state.demo && cmd.type === "take_gear") {
+    const p = DM.state.players && DM.state.players[cmd.to];
+    if (p && p.snapshot) {
+      const needle = String((cmd.payload && cmd.payload.text) || "");
+      const lines = String(p.snapshot.equipment || "").split("\n");
+      const idx = lines.findIndex((line) => needle && line.indexOf(needle) >= 0);
+      if (idx >= 0) lines.splice(idx, 1);
+      p.snapshot.equipment = lines.join("\n");
+    }
+  }
+  if (DM.state && DM.state.demo && cmd.type === "reward_item") {
+    const p = DM.state.players && DM.state.players[cmd.to];
+    if (p && p.snapshot) {
+      const line = "• " + String((cmd.payload && cmd.payload.text) || "");
+      p.snapshot.equipment = (p.snapshot.equipment ? p.snapshot.equipment + "\n" : "") + line;
+    }
+  }
+  if (DM.pushCommand) await DM.pushCommand(Object.assign({ from: DM.state && DM.state.uid, quiet: true }, cmd));
+}
+function askGrab(actor, mode, preset) {
+  preset = preset || {};
+  const Grab = window.SSDNSGrab;
+  return new Promise((resolve) => {
+    const targets = combatTargets(actor);
+    const dlg = document.createElement("dialog");
+    dlg.className = "dlg";
+    const title = mode === "rob" ? "Rob" : "Disarm";
+    const tip = "Robbing is frowned on in town and by lawmen and can lead to a confrontation. The DM decides whether it counts as a robbery or a disarm. No automatic reputation tracking.";
+    dlg.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2><p class="fine">${esc(actor.name || "Someone")} · ${esc(tip)}</p><label>Target <select id="grabTarget">${targetMenu(targets, preset.targetId || "")}</select></label><div id="grabBody"></div><label class="toggle"><input type="checkbox" id="grabOverride"> DM override (skip the roll)</label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit" id="grabGo">${esc(title)}</button></div></form>`;
+    const body = dlg.querySelector("#grabBody");
+    const targetSel = dlg.querySelector("#grabTarget");
+    const go = dlg.querySelector("#grabGo");
+    const paint = () => {
+      const target = resolveStrikeTarget(targetSel.value);
+      const view = grabView(target);
+      const feet = grabFeet(actor, target, preset.feet);
+      const far = feet != null && Grab && !Grab.inReach(feet).ok;
+      const weapons = view.weapons.map((w, n) => `<option value="weapon:${n}">${esc(w.name || "Weapon")} (equipped)</option>`).join("");
+      const gear = mode === "rob" ? view.gear.map((line, n) => `<option value="gear:${n}">${esc(line.replace(/^•\s*/, ""))}</option>`).join("") : "";
+      const es = mode === "rob" ? `<option value="es">ES${view.es ? " (" + esc(view.es) + " on hand)" : ""}</option>` : "";
+      const reach = feet == null ? "Range not measured." : (far ? ("Out of reach (" + feet + " ft).") : (feet + " ft."));
+      body.innerHTML = `<p class="fine" id="grabReach">${esc(reach)}</p><label>Take <select id="grabWhat">${weapons}${gear}${es}${weapons || gear || es ? "" : "<option value=\"\">Nothing equipped</option>"}</select></label><label id="grabEsWrap" hidden>ES <input id="grabEs" type="number" min="0" value="0"></label>`;
+      const what = body.querySelector("#grabWhat");
+      const esWrap = body.querySelector("#grabEsWrap");
+      const sync = () => { if (esWrap) esWrap.hidden = !what || what.value !== "es"; };
+      if (what) what.addEventListener("change", sync);
+      sync();
+      if (go) go.disabled = !!(far && !dlg.querySelector("#grabOverride").checked) || !(view.weapons.length || (mode === "rob" && (view.gear.length || true)));
+      if (go && far && !dlg.querySelector("#grabOverride").checked) go.disabled = true;
+      if (go && !far && (view.weapons.length || mode === "rob")) go.disabled = false;
+    };
+    targetSel.addEventListener("change", paint);
+    dlg.querySelector("#grabOverride").addEventListener("change", paint);
+    paint();
+    const finish = (ok) => {
+      const target = resolveStrikeTarget(targetSel.value);
+      const view = grabView(target);
+      const what = body.querySelector("#grabWhat");
+      const choice = what ? what.value : "";
+      let picked = null;
+      if (choice.indexOf("weapon:") === 0) picked = { take: "weapon", weapon: view.weapons[Number(choice.slice(7))] || null };
+      else if (choice.indexOf("gear:") === 0) picked = { take: "gear", gearText: view.gear[Number(choice.slice(5))] || "" };
+      else if (choice === "es") picked = { take: "es", es: Number(body.querySelector("#grabEs") && body.querySelector("#grabEs").value) || 0 };
+      const payload = ok && target && picked ? {
+        target: target,
+        take: picked.take,
+        weapon: picked.weapon || null,
+        gearText: picked.gearText || "",
+        es: picked.es || 0,
+        override: !!dlg.querySelector("#grabOverride").checked,
+        feet: grabFeet(actor, target, preset.feet)
+      } : null;
+      if (dlg.close) dlg.close();
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      resolve(payload);
+    };
+    dlg.querySelector("[value=no]").addEventListener("click", () => finish(false));
+    dlg.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); finish(true); });
+    dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(false); });
+    document.body.appendChild(dlg);
+    openDialog(dlg);
+  });
+}
+async function runGrab(actor, mode, preset) {
+  const Grab = window.SSDNSGrab;
+  if (!Grab) { DM.toast("Disarm isn't loaded"); return false; }
+  if (!actor) { DM.toast("No creature"); return false; }
+  const picked = await askGrab(actor, mode, preset || {});
+  if (!picked || !picked.target) { DM.toast("No target"); return false; }
+  if ((mode === "disarm" || picked.take === "weapon") && !picked.weapon) { DM.toast("Nothing equipped to take"); return false; }
+  if (picked.take === "gear" && !String(picked.gearText || "").trim()) { DM.toast("Pick an item"); return false; }
+  if (picked.take === "es" && !(Number(picked.es) > 0)) { DM.toast("Enter an ES amount"); return false; }
+  if (picked.target.id === actor.id || (actor.playerId && picked.target.id === actor.playerId)) { DM.toast("Pick a different creature"); return false; }
+  const downed = grabDowned(picked.target);
+  if (downed && actor._grabRound === fight.round) { DM.toast("One item from a downed target this turn"); return false; }
+  const actorView = grabView(actor);
+  const targetView = grabView(picked.target);
+  const contestMode = mode === "disarm" || picked.take === "weapon" ? "disarm" : (picked.take === "es" ? "rob-es" : "rob-pocket");
+  const rolled = Grab.contest({
+    mode: contestMode,
+    actor: actorView,
+    target: targetView,
+    weapon: picked.weapon || {},
+    attackMod: grabAttackMod(actorView, actor),
+    feet: picked.feet,
+    downed: downed,
+    override: picked.override,
+    twoHanded: picked.weapon ? Grab.twoHanded(picked.weapon) : false
+  });
+  if (!rolled.ok) {
+    logTableAlert((actor.name || "Someone") + " · " + rolled.line);
+    return false;
+  }
+  const moved = Grab.plan({
+    mode: mode,
+    take: picked.take,
+    success: true,
+    override: !!rolled.override,
+    downed: downed,
+    contestLine: rolled.line,
+    combat: !!(fight.started && (fight.order || []).length),
+    slotFree: grabSlotFree(actor, picked.weapon),
+    actor: { id: actor.kind === "player" ? (actor.playerId || actor.id) : actor.id, kind: actor.kind === "player" ? "player" : "enemy", name: actor.name || "", calling: actorView.calling || "" },
+    target: { id: picked.target.kind === "player" ? (picked.target.playerId || picked.target.id) : picked.target.id, kind: picked.target.kind === "player" ? "player" : "enemy", name: picked.target.name || "" },
+    weapon: picked.weapon || {},
+    gearText: picked.gearText || "",
+    es: picked.es || 0
+  });
+  for (let n = 0; n < moved.commands.length; n++) await sendGrabCommand(moved.commands[n]);
+  applyEnemyGrab(actor, picked.target, moved);
+  if (downed) actor._grabRound = fight.round;
+  logTableAlert(moved.chat);
+  saveRemoteTable();
+  renderFight();
+  refreshOpenCard();
+  return true;
+}
+function runGrabFromMap(detail, mode) {
+  detail = detail || {};
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No card linked"); return Promise.resolve(false); }
+  const actor = fight.order[i];
+  const targetIndex = mapFightIndex({ combatantId: detail.targetCombatantId, tokenId: detail.targetTokenId });
+  const target = targetIndex >= 0 ? fight.order[targetIndex] : null;
+  const targetId = target ? combatantKey(target) : (detail.targetCombatantId || detail.targetTokenId || "");
+  return runGrab(actor, mode, { targetId: targetId, feet: detail.feet });
+}
 window.SSDNSMapFight = {
   duplicate(detail) { return duplicateCombatant(detail); },
   hidden(detail) { return setTokenHidden(detail); },
@@ -6721,6 +6986,8 @@ window.SSDNSMapFight = {
     const mode = detail && (detail.mode === "adv" || detail.mode === "dis") ? detail.mode : "";
     return mapGunChoice(detail, "mode", { mode: mode });
   },
+  disarm(detail) { return runGrabFromMap(detail, "disarm"); },
+  rob(detail) { return runGrabFromMap(detail, "rob"); },
   async deathsave(detail) {
     const i = mapFightIndex(detail || {});
     if (i < 0) { DM.toast("No card linked"); return false; }

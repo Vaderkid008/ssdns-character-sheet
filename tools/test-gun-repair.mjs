@@ -78,7 +78,7 @@ check("wire.player", joinSrc.includes('payload.op === "repair"') && joinSrc.incl
 check("wire.sync", joinSrc.includes("exploded: !!g.exploded") && hostSrc.includes("exploded: !!g.exploded"));
 check("wire.fire", sfxSrc.includes("d4-fire") && sfxSrc.includes("broadcastFire") && sfxSrc.includes("explosionText") && sfxSrc.includes("applyDelta(-fire") && sfxSrc.includes("catalogGunName") && sfxSrc.includes("SSDNSTestJammer"));
 check("wire.x", appSrc.includes('photo.classList.toggle("gun-x"') && sheetCss.includes(".g-photo.gun-x::after") && mapSrc.includes("function crossClass") && mapSrc.includes("gun-x") && mapCss.includes(".cylinder-row.gun-x"));
-check("wire.version", read("version.json").includes('"sheet": "0.3.39"') && read("version.json").includes('"dmcc": "0.2.52"') && appSrc.includes('APP_VERSION = "0.3.39"') && dmccSrc.includes('VERSION = "0.2.52"'));
+check("wire.version", read("version.json").includes('"sheet": "0.3.40"') && read("version.json").includes('"dmcc": "0.2.53"') && appSrc.includes('APP_VERSION = "0.3.40"') && dmccSrc.includes('VERSION = "0.2.53"'));
 check("rules.untouched", !read("assets/data/rules.js").includes("Repair gun") && !read("assets/data/rules.js").includes("explosionLine") && !read("database.rules.json").includes("repair") && !read("database.rules.json").includes("exploded"));
 
 if (failures.length) {

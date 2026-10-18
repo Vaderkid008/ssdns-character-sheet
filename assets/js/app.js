@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.39"; // sheet-playtest-v0339
+  var APP_VERSION = "0.3.40"; // sheet-playtest-v0340
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -2317,6 +2317,7 @@
     });
     g.loaded = 0;
     changed();
+    publishGunCard();
     var bits = Object.keys(bags).map(function (k) { return bags[k] + " " + k; });
     if (bits.length && window.SSDNSAudio) window.SSDNSAudio.play("holster");
     toast(bits.length ? ("Unloaded " + bits.join(", ") + " back to your pile.") : "Already empty.");
@@ -2402,11 +2403,13 @@
       a[k] = "";
       g.loaded = a.filter(Boolean).length;
       changed({ quiet: true });
+      publishGunCard();
       return { ok: true, left: g.loaded, hex: "", chamber: k, was: was };
     }
     if (num(g.loaded) <= 0) return { ok: false, reason: "Out of rounds, Reload" };
     g.loaded = num(g.loaded) - 1;
     changed();
+    publishGunCard();
     return { ok: true, left: g.loaded };
   }
   function spendHexChamber(i, level) {
@@ -2445,6 +2448,7 @@
       if (before) g.chambers = before;
       g.loaded = num(beforeN);
       changed();
+      publishGunCard();
     });
   }
   function spendHexSlot(level) {
@@ -2607,6 +2611,7 @@
     var picks = $('[data-loadpick="' + i + '"]');
     if (picks) { picks.innerHTML = ""; picks.hidden = true; }
     changed();
+    publishGunCard();
     if (window.SSDNSAudio) window.SSDNSAudio.play(window.SSDNSAudio.reloadCue ? window.SSDNSAudio.reloadCue(w) : "reload");
     var tierNote = pool.caliber && w.tiers ? " Chambered " + (TIER_LABEL[g.tier] || g.tier || "") + " " + pool.caliber + "." : "";
     var how = max ? "Tactical Reload +" + take : "Reloaded " + take + (take < need ? " (all you had)" : "") + (w.slow ? " (slow load: full turn)" : " (action)");
@@ -2665,6 +2670,7 @@
       return;
     }
     changed();
+    publishGunCard();
     if (window.SSDNSAudio) window.SSDNSAudio.play(window.SSDNSAudio.reloadCue ? window.SSDNSAudio.reloadCue(w) : "reload");
     toast("Loaded a level-" + lvl + " hex shell. The slot is spent. Cast through gun fires it as a spell attack.");
   }
@@ -3000,12 +3006,62 @@
     }
     changed();
   }
+  function receiveWeapon(payload) {
+    payload = payload || {};
+    var kind = payload.kind === "melee" ? "melee" : "gun";
+    var list = kind === "melee" ? (C().melee || (C().melee = [])) : (C().guns || []);
+    var slot = -1;
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i] && !list[i].weapon) { slot = i; break; }
+    }
+    var label = payload.name || payload.weapon || "weapon";
+    if (slot < 0 || !payload.weapon) {
+      var note = "• " + label + " (taken)";
+      var cur = C().equipment || "";
+      if (cur.indexOf(note) < 0) C().equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + note;
+      var ta = document.querySelector('[data-f="character.equipment"]');
+      if (ta) ta.value = C().equipment;
+      changed();
+      publishGunCard();
+      return { ok: false, parked: true, name: label, equipped: false };
+    }
+    list[slot].weapon = payload.weapon;
+    list[slot].equipped = false;
+    list[slot].loaded = 0;
+    list[slot].chambers = [];
+    if (payload.equipped && window.SSDNSEquip && window.SSDNSEquip.setEquipped) {
+      window.SSDNSEquip.setEquipped(C(), { kind: kind, index: slot, equipped: true, dm: !!payload.dm, combat: false });
+    }
+    renderFields();
+    changed();
+    publishGunCard();
+    return { ok: true, index: slot, name: label, equipped: list[slot].equipped === true };
+  }
+  function removeGearLine(text) {
+    var needle = String(text || "").trim().replace(/^•\s*/, "");
+    if (!needle) return false;
+    var lines = String(C().equipment || "").split("\n");
+    var idx = -1;
+    var n;
+    for (n = 0; n < lines.length; n++) {
+      if (String(lines[n] || "").indexOf(needle) >= 0) { idx = n; break; }
+    }
+    if (idx < 0) return false;
+    lines.splice(idx, 1);
+    C().equipment = lines.join("\n").replace(/^\n+|\n+$/g, "");
+    var box = document.querySelector('[data-f="character.equipment"]');
+    if (box) box.value = C().equipment;
+    changed();
+    publishGunCard();
+    return true;
+  }
   function setEquipped(opts) {
     var Equip = window.SSDNSEquip;
     if (!Equip) return { ok: false, reason: "Equip rules aren't loaded." };
     opts = opts || {};
     var result = Equip.setEquipped(C(), opts);
-    if (result && result.ok) changed();
+    if (result && result.ok) { changed(); publishGunCard(); }
     else renderFields();
     return result;
   }
@@ -4097,8 +4153,10 @@
       styleDamageBonus: styleDamageBonus,
       applyPatch: function (fn) {
         if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
-        if (fn) fn(S.doc); renderFields(); changed();
+        if (fn) fn(S.doc); renderFields(); changed(); publishGunCard();
       },
+      receiveWeapon: function (payload) { return receiveWeapon(payload); },
+      removeGearLine: function (text) { return removeGearLine(text); },
       applyAutoHp: function () { applyAutoHp(); renderFields(); changed(); },
       slotsLeft: slotsLeft,
       misfireCeiling: misfireCeiling,

@@ -334,43 +334,73 @@
   function stillHere(epoch) {
     return epoch === state.joinEpoch && state.joined && !state.left && !!state.roomCode;
   }
-  async function publishSnapshot() {
-    if (!state.joined || state.left || !state.db || state.publishing) return;
+  var portraitCache = { src: "", out: "" };
+  function cachedPortrait(src) {
+    src = src || "";
+    if (src === portraitCache.src) return portraitCache.out;
+    if (!src || String(src).indexOf("data:") !== 0 || src.length < 12000) {
+      var plain = String(src).indexOf("data:") === 0 ? src : "";
+      portraitCache = { src: src, out: plain };
+      return plain;
+    }
+    var pending = src;
+    shrinkPortrait(pending).then(function (out) {
+      if (portraitCache.src === pending && portraitCache.out === out) return;
+      portraitCache = { src: pending, out: out || "" };
+      publishSnapshot();
+    }).catch(function () {});
+    return portraitCache.out || "";
+  }
+  var publishNow = (root.SSDNSGrab && root.SSDNSGrab.coalesce ? root.SSDNSGrab.coalesce : function (work) {
+    var busy = false;
+    var again = false;
+    var run = function () {
+      if (busy) { again = true; return Promise.resolve(false); }
+      busy = true;
+      var loop = function () {
+        again = false;
+        return Promise.resolve().then(work).then(function () { if (again) return loop(); });
+      };
+      return loop().then(function () { busy = false; if (again) return run(); return true; }, function (err) {
+        busy = false;
+        if (again) run();
+        return Promise.reject(err);
+      });
+    };
+    return run;
+  })(function () {
+    if (!state.joined || state.left || !state.db) return;
     var epoch = state.joinEpoch;
     var snap = buildSnapshot();
     if (!snap) return;
-    state.publishing = true;
-    try {
-      var c = doc() && doc().character;
-      snap.portrait = await shrinkPortrait(c && c.portrait);
-      if (!stillHere(epoch)) return;
-      var fb = state._fb;
-      var playerRef = fb.ref(state.db, roomPath("players/" + state.uid));
-      await fb.update(playerRef, {
-        id: state.uid,
-        uid: state.uid,
-        snapshot: snap
-      });
+    var c = doc() && doc().character;
+    snap.portrait = cachedPortrait(c && c.portrait);
+    if (!stillHere(epoch)) return;
+    var fb = state._fb;
+    var playerRef = fb.ref(state.db, roomPath("players/" + state.uid));
+    return fb.update(playerRef, {
+      id: state.uid,
+      uid: state.uid,
+      snapshot: snap
+    }).then(function () {
       if (!stillHere(epoch)) return;
       var connRef = fb.ref(state.db, roomPath("players/" + state.uid + "/presence/conns/" + state.connId));
-      await fb.set(connRef, { online: true, lastSeen: new Date().toISOString() });
-      if (!stillHere(epoch)) {
-        try { await fb.remove(connRef); } catch (err) {}
-        return;
-      }
+      fb.set(connRef, { online: true, lastSeen: new Date().toISOString() }).catch(function () {});
       state.lastEs = snap.es;
       if (!state.toldVisible) {
         state.toldVisible = true;
         toast("DM can see you");
       }
-      try {
-        fb.onDisconnect(connRef).remove();
-      } catch (err) { console.warn("[DM Join] presence watch", err); }
-    } catch (e) {
+      try { fb.onDisconnect(connRef).remove(); }
+      catch (err) { console.warn("[DM Join] presence watch", err); }
+    });
+  });
+  function publishSnapshot() {
+    if (!state.joined || state.left || !state.db) return Promise.resolve(false);
+    return publishNow().catch(function (e) {
       console.warn("[DM Join] snapshot failed", e);
-    } finally {
-      state.publishing = false;
-    }
+      return false;
+    });
   }
 
   async function postLedger(entry) {
@@ -878,6 +908,13 @@
         break;
       case "gun":
         applyGunCommand(payload, payload.grantId || cmd.id);
+        break;
+      case "take_gear":
+        if (root.SSDNSApp && root.SSDNSApp.removeGearLine) {
+          var took = root.SSDNSApp.removeGearLine(payload.text || "");
+          var tookLine = took ? ("DM took " + (payload.text || "an item") + ".") : ("DM could not find " + (payload.text || "that item") + ".");
+          if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gear:" + (cmd.id || ""), kind: "alert", text: tookLine });
+        }
         break;
       case "badge":
         if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
@@ -1475,6 +1512,38 @@
     } else if (payload.op === "repair" && app.repairGun) {
       app.repairGun(payload.index);
       return;
+    } else if (payload.op === "take" && app.applyPatch) {
+      var takenName = "";
+      app.applyPatch(function (doc) {
+        var list = payload.kind === "melee" ? (doc.character && doc.character.melee) : (doc.character && doc.character.guns);
+        var row = list && list[payload.index];
+        if (!row) return;
+        takenName = row.name || row.weapon || "a weapon";
+        row.equipped = false;
+        row.weapon = "";
+        row.name = "";
+        row.loaded = 0;
+        row.chambers = [];
+        row.lockedChambers = [];
+        row.tier = "";
+        row.mod = "";
+        row.jammed = false;
+        row.fouled = false;
+        row.dirty = false;
+        row.ruined = false;
+        row.broken = false;
+        row.exploded = false;
+      });
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM took " + (takenName || "a weapon") + "." });
+      return;
+    } else if (payload.op === "receive" && app.receiveWeapon) {
+      var received = app.receiveWeapon(payload);
+      var recvName = (received && received.name) || payload.name || "a weapon";
+      var recvText = received && received.ok
+        ? ("Received " + recvName + (received.equipped ? " (equipped)." : " (stowed)."))
+        : ("Received " + recvName + " into gear (no open weapon slot).");
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: recvText });
+      return;
     } else if (payload.op === "equip" && app.setEquipped) {
       var equipResult = app.setEquipped({
         kind: payload.kind || "gun",
@@ -2050,7 +2119,7 @@
         document.addEventListener("change", function () {
           if (!state.joined) return;
           clearTimeout(pubTimer);
-          pubTimer = setTimeout(publishSnapshot, 500);
+          pubTimer = setTimeout(publishSnapshot, 0);
         });
       }
       // heartbeat

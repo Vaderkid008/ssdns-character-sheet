@@ -512,7 +512,9 @@
       "drawer:chamber": "chamber",
       "drawer:down": "down",
       "drawer:act": "act",
-      "drawer:cover": "cover"
+      "drawer:cover": "cover",
+      "drawer:disarm": "disarm",
+      "drawer:rob": "rob"
     }[name];
     if (name === "drawer:target") fightCall = detail.spellId ? "cast" : "attack";
     if (!fightCall) return;
@@ -745,6 +747,11 @@
     },
     refreshCard: function (tokenId) {
       if (map && map.refreshCard) map.refreshCard(tokenId || "");
+    },
+    feetBetween: function (idA, idB) {
+      if (!map || typeof map.feetBetween !== "function") return null;
+      try { return map.feetBetween(idA, idB); }
+      catch (e) { return null; }
     },
     rounds: roundsLabel,
     sheetCylinder: gunCylinder,
