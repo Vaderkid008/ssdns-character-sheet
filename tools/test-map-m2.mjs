@@ -449,7 +449,7 @@ async function testMaps(w) {
     },
     options: { scene, assetBase: "", players, room: { table: { initiative: { order: [{ id: "p_jolene", name: "Jolene" }], turn: 0 } } } }
   });
-  check("map.player.boot", act(pl.el, "roleBadge").textContent.indexOf("PLAYER") === 0 && act(pl.el, "roleBadge").textContent.indexOf("p_jolene") >= 0, act(pl.el, "roleBadge").textContent);
+  check("map.player.boot", act(pl.el, "roleBadge").textContent === "Jolene" && act(pl.el, "roleBadge").textContent.indexOf("p_jolene") < 0, act(pl.el, "roleBadge").textContent);
   const plCanvas = pl.el.querySelector("canvas");
   const ownMark = plAd.log.length;
   pointer(w, plCanvas, "pointerdown", 400, 300);

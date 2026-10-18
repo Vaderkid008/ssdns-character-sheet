@@ -164,6 +164,7 @@
         rugged: !!(st && st.w && /rugged/i.test(st.w.properties || "")),
         note: st && st.note ? st.note : "",
         chambers: (g.chambers || []).slice(),
+        lockedChambers: Array.isArray(g.lockedChambers) ? g.lockedChambers.slice() : [],
         caliber: (st && st.w && st.w.ammo) || g.caliber || "",
         index: i,
         tr: !!(st && st.w && st.w.tr),

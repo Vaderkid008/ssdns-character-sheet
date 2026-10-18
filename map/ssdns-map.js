@@ -3,6 +3,7 @@ window.SSDNSMap = { create(opts) {
   const el = opts.el;
   if (!el) throw new Error('SSDNSMap: el required');
   const role = opts.role === 'dm' ? 'dm' : 'player';
+  el.classList.add(role === 'player' ? 'ssdns-role-player' : 'ssdns-role-dm');
   const uid = opts.uid;
   if (!uid) throw new Error('SSDNSMap: uid required');
   const adapter = opts.adapter;
@@ -264,7 +265,7 @@ el.appendChild(canvas);
 const toolbar = document.createElement('div');
 toolbar.className = 'ssdns-toolbar';
 toolbar.innerHTML = `
-  <span data-act="roleBadge">${role.toUpperCase()}${role === 'player' ? ' · ' + uid : ''}</span>
+  <span data-act="roleBadge">${role === 'player' ? 'Player' : role.toUpperCase()}</span>
   <label>Grid <input data-act="strength" type="range" min="1" max="3" step="0.1" value="1"></label>
   <button data-act="helpBtn">?</button>
   <span data-act="zoomLabel">1.00×</span>
@@ -339,6 +340,39 @@ function chatBucket(row) {
   if (/\bd20\b/.test(text) || /→\s*(HIT|MISS|CRIT)/.test(text)) return 'rolls';
   return 'talk';
 }
+function paintRoleBadge() {
+  const badge = q('roleBadge');
+  if (!badge) return;
+  if (role !== 'player') {
+    badge.textContent = 'DM';
+    return;
+  }
+  let player = '';
+  let character = '';
+  try {
+    const doc = window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc();
+    const c = doc && doc.character;
+    if (c) {
+      player = String(c.player || '').trim();
+      character = String(c.name || '').trim();
+    }
+  } catch (e) {}
+  if (!character && host.displayName) {
+    const shown = String(host.displayName(uid) || '').trim();
+    if (shown && shown !== uid) character = shown;
+  }
+  if (!player && Array.isArray(options.players)) {
+    const row = options.players.filter(p => p && (p.uid === uid || p.id === uid))[0];
+    const named = row && String(row.name || '').trim();
+    if (named && named !== uid) player = named;
+  }
+  const bits = [];
+  [player, character].forEach(bit => {
+    if (!bit || bit === uid) return;
+    if (bits.indexOf(bit) < 0) bits.push(bit);
+  });
+  badge.textContent = bits.join(' · ') || 'Player';
+}
 function chatName(row) {
   return row.fromName || row.who || (host.displayName ? host.displayName(row.from) : row.from) || '';
 }
@@ -391,6 +425,7 @@ function renderChat() {
   }
   syncChatPop();
 }
+paintRoleBadge();
 function pushFeed(row) {
   if (!row || row.kind === 'sfx') { if (row && host.sfx) host.sfx(row); return; }
   state.chat = state.chat || [];
@@ -4056,6 +4091,11 @@ async function loadSceneImage(sceneId) {
           broken: !!a.broken,
           misStreak: Number(a.misStreak) || 0,
           pendingD4: !!a.pendingD4,
+          lockedChambers: a.lockedChambers || (a.ammo && a.ammo.locked) || [],
+          mod: a.mod || '',
+          muzzleloader: !!a.muzzleloader,
+          reopenUsed: !!a.reopenUsed,
+          feats: a.feats || [],
           gunIndex: a.gunIndex
         });
       }
@@ -4158,6 +4198,53 @@ async function loadSceneImage(sceneId) {
       idAttr = ' data-wid="' + esc(a.id || '') + '"';
     }
     return '<button type="button" data-act="' + act + '"' + idAttr + (gun.pendingD4 ? ' disabled' : '') + '>Clean</button>';
+  }
+  function gunFlags(a) {
+    const ammo = (a && a.ammo) || {};
+    return {
+      dirty: !!(a && (a.dirty || ammo.dirty)),
+      fouled: !!(a && (a.fouled || ammo.fouled)),
+      ruined: !!(a && (a.ruined || a.broken || ammo.ruined || ammo.broken)),
+      broken: !!(a && (a.broken || ammo.broken)),
+      jammed: !!(a && (a.jammed || ammo.jammed)),
+      pendingD4: !!(a && (a.pendingD4 || ammo.pendingD4)),
+      mod: (a && a.mod) || '',
+      weapon: (a && a.weapon) || '',
+      name: (a && a.name) || '',
+      feats: (a && a.feats) || [],
+      muzzleloader: !!(a && a.muzzleloader),
+      properties: (a && a.properties) || '',
+      rugged: !!(a && a.rugged)
+    };
+  }
+  function lockList(a) {
+    if (!a) return [];
+    if (Array.isArray(a.lockedChambers)) return a.lockedChambers;
+    if (a.ammo && Array.isArray(a.ammo.locked)) return a.ammo.locked;
+    return [];
+  }
+  function sideButton(a, act, idPrefix, label) {
+    const gi = gunIndexOf(a);
+    let idAttr = '';
+    if (act.indexOf('player') === 0) {
+      if (gi === '') return '';
+      idAttr = ' data-id="' + esc(idPrefix + ':' + gi) + '"';
+    } else {
+      idAttr = ' data-wid="' + esc(a.id || '') + '" data-gun="' + esc(gi) + '"';
+    }
+    return '<button type="button" data-act="' + act + '"' + idAttr + '>' + esc(label) + '</button>';
+  }
+  function unjamControl(a, act) {
+    const gun = gunFlags(a);
+    if (!gun.jammed || gun.fouled || gun.ruined) return '';
+    const M = window.SSDNSMisfire;
+    const free = M && M.unjamIsFree && M.unjamIsFree(gun);
+    return sideButton(a, act, 'unjam', free ? 'Unjam (free action)' : 'Unjam (bonus action)');
+  }
+  function reopenControl(a, act) {
+    if (!a || !a.muzzleloader || !lockList(a).length) return '';
+    const used = !!a.reopenUsed;
+    return sideButton(a, act, 'reopen', used ? 'Reopen chamber (used)' : 'Reopen chamber');
   }
   function gunIndexOf(a) {
     if (a && a.gunIndex != null && a.gunIndex !== '') return String(a.gunIndex);
@@ -4263,6 +4350,8 @@ async function loadSceneImage(sceneId) {
     const reload = a.reloadId ? '<button type="button" data-act="playerReload" data-id="' + esc(a.reloadId) + '">' + esc(reloadLabel) + '</button>' : '';
     const tr = a.trId ? '<button type="button" data-act="playerTr" data-id="' + esc(a.trId) + '">TR</button>' : '';
     const clean = cleanControl(a, 'playerClean');
+    const unjam = unjamControl(a, 'playerUnjam');
+    const reopen = reopenControl(a, 'playerReopen');
     const extras = gunExtras(a, 'player');
     const select = '<select data-act="cylTarget" aria-label="Target">' + targetHtml + '</select>';
     const graphic = cap && window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
@@ -4280,21 +4369,24 @@ async function loadSceneImage(sceneId) {
         loaded: loaded,
         chambers: flags || undefined,
         jammed: !!a.jammed,
+        locked: lockList(a),
         size: 'drawer',
         attr: 'data-act="playerChamber" data-wid="' + esc(a.id) + '"',
         attrs: function (k) { return { 'data-k': String(k) }; }
       });
       return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture +
-        '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + select + reload + tr + clean + extras + '</div>';
+        '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + select + reload + tr + clean + unjam + reopen + extras + '</div>';
     }
     let dots = '';
+    const locks = lockList(a);
     for (let k = 0; k < cap; k++) {
-      const full = flags ? !!flags[k] : k < loaded;
-      dots += '<button type="button" class="chamber-dot' + (full ? ' full' : '') + '" data-act="playerChamber" data-wid="' + esc(a.id) + '" data-k="' + k + '" aria-label="Chamber ' + (k + 1) + '"></button>';
+      const locked = locks.some(n => Number(n) === k);
+      const full = !locked && (flags ? !!flags[k] : k < loaded);
+      dots += '<button type="button" class="chamber-dot' + (locked ? ' locked' : (full ? ' full' : '')) + '" data-act="playerChamber" data-wid="' + esc(a.id) + '" data-k="' + k + '" aria-label="' + (locked ? 'Locked chamber ' : 'Chamber ') + (k + 1) + '">' + (locked ? 'X' : '') + '</button>';
     }
     const dotsHtml = cap ? '<span class="chamber-dots">' + dots + '</span>' : '';
     const rounds = cap ? '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' : '';
-    return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + dotsHtml + rounds + select + reload + tr + clean + extras + '</div>';
+    return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + dotsHtml + rounds + select + reload + tr + clean + unjam + reopen + extras + '</div>';
   }
   function paintPlayerFight() {
     const slot = q('actionSlot');
@@ -4302,6 +4394,7 @@ async function loadSceneImage(sceneId) {
     const card = playerFightModel();
     const nameEl = q('playerName');
     if (nameEl && card.name) nameEl.textContent = card.name;
+    paintRoleBadge();
     const stats = q('playerStats');
     if (stats) {
       const hp = card.hp || {};
@@ -4359,7 +4452,7 @@ async function loadSceneImage(sceneId) {
       (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       spells;
     bindSpellFold(slot);
-    slot.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"], [data-act="playerClean"], [data-act="playerUnload"]').forEach(b => {
+    slot.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"], [data-act="playerClean"], [data-act="playerUnjam"], [data-act="playerReopen"], [data-act="playerUnload"]').forEach(b => {
       b.addEventListener('click', () => runPlayer(b.getAttribute('data-id') || b.getAttribute('data-wid')));
     });
     const appGun = () => window.SSDNSApp || null;
@@ -4513,6 +4606,8 @@ async function loadSceneImage(sceneId) {
       const loaded = Number(a.ammo.loaded) || 0;
       const flags = Array.isArray(a.ammo.chambers) ? a.ammo.chambers : null;
       const rowClean = (isPc && canAct) ? cleanControl(a, 'rowClean') : '';
+      const rowUnjam = (isPc && canAct) ? unjamControl(a, 'rowUnjam') : '';
+      const rowReopen = (isPc && canAct) ? reopenControl(a, 'rowReopen') : '';
       const graphic = window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
       if (graphic) {
         const picture = window.SSDNSAmmoDisplay.html({
@@ -4528,6 +4623,7 @@ async function loadSceneImage(sceneId) {
           loaded: loaded,
           chambers: flags || undefined,
           jammed: !!(a.jammed || (a.ammo && a.ammo.jammed)),
+          locked: lockList(a),
           size: 'drawer',
           attr: 'data-act="chamber" data-wid="' + esc(a.id) + '"',
           attrs: function (k) { return { 'data-k': String(k) }; }
@@ -4535,17 +4631,19 @@ async function loadSceneImage(sceneId) {
         const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
         const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
         const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : '';
-        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + rowExtras + '</div>';
+        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
       }
       let dots = '';
+      const locks = lockList(a);
       for (let k = 0; k < cap; k++) {
-        const full = flags ? !!flags[k] : k < loaded;
-        dots += '<button type="button" class="chamber-dot' + (full ? ' full' : '') + '" data-act="chamber" data-wid="' + esc(a.id) + '" data-k="' + k + '" aria-label="Chamber ' + (k + 1) + '"></button>';
+        const locked = locks.some(n => Number(n) === k);
+        const full = !locked && (flags ? !!flags[k] : k < loaded);
+        dots += '<button type="button" class="chamber-dot' + (locked ? ' locked' : (full ? ' full' : '')) + '" data-act="chamber" data-wid="' + esc(a.id) + '" data-k="' + k + '" aria-label="' + (locked ? 'Locked chamber ' : 'Chamber ') + (k + 1) + '">' + (locked ? 'X' : '') + '</button>';
       }
       const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
       const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
       const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : '';
-      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + rowExtras + '</div>';
+      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
     }).join('');
     const spellButtons = groupedSpells(card.spells || [], s => {
       const meta = [
@@ -4750,6 +4848,18 @@ async function loadSceneImage(sceneId) {
         if (b.disabled) return;
         if (!canAct) { toast('The player acts for themselves'); return; }
         emit('drawer:clean', detail({ weaponId: b.getAttribute('data-wid') }));
+      });
+    });
+    d.querySelectorAll('[data-act="rowUnjam"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (!canAct) { toast('The player acts for themselves'); return; }
+        emit('drawer:unjam', detail({ weaponId: b.getAttribute('data-wid'), gunIndex: b.getAttribute('data-gun') }));
+      });
+    });
+    d.querySelectorAll('[data-act="rowReopen"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (!canAct) { toast('The player acts for themselves'); return; }
+        emit('drawer:reopen', detail({ weaponId: b.getAttribute('data-wid'), gunIndex: b.getAttribute('data-gun') }));
       });
     });
     const actGate = () => {

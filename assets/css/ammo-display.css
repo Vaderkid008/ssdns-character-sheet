@@ -59,6 +59,12 @@
   background: radial-gradient(circle at 50% 40%, #3a342c, #120e0b 72%);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
 }
+.ssdns-ammo .ammo-round.is-locked {
+  background: #2a2420;
+  color: #e23b32;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px #e23b32;
+}
 .ssdns-ammo .ammo-round.is-jam {
   background: radial-gradient(circle at 38% 32%, #ffb0a8, #c4322a 46%, #4a100c 80%);
   border-color: #e23b32;

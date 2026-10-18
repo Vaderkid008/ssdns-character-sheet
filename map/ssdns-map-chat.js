@@ -317,6 +317,7 @@
     if (!popup) return;
     try { popup.postMessage({ type: TYPE, op: "close" }, origin()); } catch (e) {}
     try { popup.close(); } catch (e) {}
+    if (!inst.open && inst.onMode) inst.onMode(false, "");
   }
   function panelShell(dockAct) {
     return '<header class="ssdns-chat-float-bar" data-act="chatFloatHead"><strong>Table chat</strong>' + filterBar() +
@@ -389,12 +390,14 @@
       return;
     }
     inst.popup = win;
+    if (!inst.open && inst.onMode) inst.onMode(true, "window");
     if (inst.tabTimer) clearInterval(inst.tabTimer);
     inst.tabTimer = root.setInterval(function () {
       if (!inst.popup || inst.popup.closed) {
         clearInterval(inst.tabTimer);
         inst.tabTimer = 0;
         inst.popup = null;
+        if (!inst.open && inst.onMode) inst.onMode(false, "");
       }
     }, 500);
     pushItems(inst);
@@ -477,7 +480,20 @@
     var form = doc.getElementById("popSend");
     var input = doc.getElementById("popText");
     var dockBtn = doc.getElementById("popDock");
+    var collapseBtn = doc.getElementById("popCollapse");
     var note = doc.getElementById("popNote");
+    var collapsed = false;
+    try { collapsed = root.localStorage.getItem("ssdns.map.chatTabOpen") === "0"; } catch (e) {}
+    function paintCollapse() {
+      doc.body.classList.toggle("ssdns-chat-collapsed", collapsed);
+      if (collapseBtn) collapseBtn.textContent = collapsed ? "Show" : "Hide";
+    }
+    paintCollapse();
+    if (collapseBtn) collapseBtn.addEventListener("click", function () {
+      collapsed = !collapsed;
+      try { root.localStorage.setItem("ssdns.map.chatTabOpen", collapsed ? "0" : "1"); } catch (e) {}
+      paintCollapse();
+    });
     var lastItems = [];
     var filter = readFilter();
     function paint() { render(feed, lastItems, filter); }

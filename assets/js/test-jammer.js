@@ -1,7 +1,7 @@
-/* Debug revolver for jam, streak, d4, and Clean checks.
+/* Debug revolver for the misfire streak ladder.
    Not part of the PHB catalog. The DM grants it.
    Ceiling 20 puts every kept d20 in the misfire range.
-   A spark is still not a misfire. Both dice still foul and reset the streak. */
+   It uses the shared streak path. A spark is still not a misfire. */
 (function (root) {
   "use strict";
   var WEAPON = {
@@ -19,6 +19,7 @@
     },
     weight: "3 lb.",
     properties: "TEST, close quarters, simple",
+    description: "This gun always misfires",
     slow: true,
     ability: "DEX",
     category: "simple",
