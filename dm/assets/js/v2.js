@@ -4452,7 +4452,7 @@ function rollAllEnemies() {
   renderFight();
   announce("Rolled initiative", "initiative");
 }
-/* 0.2.64: one big Roll Initiative. Enemies roll now; players get a prompt and
+/* 0.2.65: one big Roll Initiative. Enemies roll now; players get a prompt and
    anyone who hasn't rolled in INIT_WAIT_MS (or is offline) is auto-rolled with
    their own init bonus. Each player gets a fading "Initiative: N" toast. */
 const INIT_WAIT_MS = 8000;
@@ -4517,7 +4517,7 @@ function rollInitiativeForAll(opts) {
   if (!players.length || wait <= 0) return Promise.resolve(finish());
   return new Promise((resolve) => setTimeout(() => resolve(finish()), wait));
 }
-/* 0.2.64 Give tab: one recipient picker, type chips, handouts folded in. */
+/* 0.2.65 Give tab: one recipient picker, type chips, handouts folded in. */
 function wireGiveTab() {
   const panel = $("#panel-rewards");
   if (!panel || panel.getAttribute("data-give")) return;

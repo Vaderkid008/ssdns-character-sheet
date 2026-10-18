@@ -842,7 +842,7 @@
       body.appendChild(el("h2", { text: "Spells" }));
       var focus = focusFor(draft.calling);
       var lim = levelRow(cal);
-      /* 0.3.51: card-grid spell picker. Tap a card to pick it; "i" opens the full text. */
+      /* 0.3.52: card-grid spell picker. Tap a card to pick it; "i" opens the full text. */
       var spAbility = ({ "storyteller": "CHA", "frontier-preacher": "WIS", "nature-guide": "WIS", "lawman": "CHA", "scholar": "INT", "hexslinger": "CHA", "pact-seeker": "CHA", "frontier-scout": "WIS" })[draft.calling] || "CHA";
       var spScore = (draft.scores && draft.scores[spAbility]) || 10;
       var spMod = Math.floor((Number(spScore) - 10) / 2);

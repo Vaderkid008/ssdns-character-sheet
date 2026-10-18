@@ -302,7 +302,7 @@
     stage.hidden = false;
     var list = Array.isArray(info.dice) && info.dice.length ? info.dice : null;
     var faces = Array.isArray(info.faces) && info.faces.length ? info.faces : [info.face];
-    // 0.3.51: one locked die size (the 7-dice size). More dice wrap; nothing shrinks.
+    // 0.3.52: one locked die size (the 7-dice size). More dice wrap; nothing shrinks.
     var px = LOCKED_PX;
     var parts = list ? list.map(function (d) { return faceHtml(d.sides, d.face, px); })
       : faces.map(function (n) { return faceHtml(sides, n, px); });

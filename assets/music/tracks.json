@@ -8,15 +8,16 @@
     },
     {
       "id": "ssdns-theme",
-      "title": "SSDNS theme (starter)",
+      "title": "Dust and Shadows (theme, draft)",
       "file": "starter/ssdns-theme.mp3",
       "layer": "music"
     },
     {
       "id": "ssdns-ambient",
-      "title": "Prairie ambience (starter)",
+      "title": "Dusty Main Street (loop)",
       "file": "starter/ssdns-ambient.mp3",
-      "layer": "ambient"
+      "layer": "ambient",
+      "loop": true
     },
     {
       "id": "saloon",

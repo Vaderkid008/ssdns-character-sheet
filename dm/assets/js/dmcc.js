@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.64"; // dmcc-playtest-v0264
+const VERSION = "0.2.65"; // dmcc-playtest-v0265
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2393,7 +2393,7 @@ function dedupeById(list) {
   });
   return out;
 }
-/* 0.2.64: tell the sheet what kind of reward this is (instrument id + quality) so it
+/* 0.2.65: tell the sheet what kind of reward this is (instrument id + quality) so it
    never has to guess from the text. */
 function rewardPayload(type, labeled, id, qty) {
   const payload = { text: labeled, grantId: id, qty: qty };
@@ -2543,6 +2543,16 @@ async function sendHandoutCommand(h) {
   const who = h.to === "all" ? "table" : ((state.players[h.to] && state.players[h.to].snapshot && (state.players[h.to].snapshot.name || state.players[h.to].snapshot.player)) || "a player");
   toast("Handout sent to " + who);
 }
+
+/* 0.2.65: the map menu pushes World maps as handouts through the normal handout flow. */
+window.SSDNSPushHandout = async function (entry, send) {
+  const h = { name: String(entry.name || "Map"), url: String(entry.url || ""), text: String(entry.text || ""), to: entry.to || "all", sent: !!send };
+  await pushHandout(h);
+  await pushLedger({ who: "DM", playerId: h.to, type: "handout", what: "Handout: " + h.name + (h.to === "all" ? " (table)" : ""), oldVal: null, newVal: "sent", flag: false, handoutId: h.id });
+  if (send) await sendHandoutCommand(h);
+  if (state.demo) toast("Demo: not sent to players");
+  return true;
+};
 
 async function doForce(kind, custom) {
   const to = $("#selForcePlayer").value || "all";
