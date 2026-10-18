@@ -6089,11 +6089,18 @@ function ensurePlayerAttacks(row) {
   if (!row || row.kind !== "player") return;
   const pid = row.playerId || row.id;
   const snap = playerSnapshot(pid);
-  const guns = ((snap && snap.guns) || []).filter((g) => g && (g.name || g.weapon));
-  if (!guns.length) return;
+  const named = ((snap && snap.guns) || []).filter((g) => g && (g.name || g.weapon));
+  const guns = named.filter((g) => g.equipped !== false);
+  if (!named.length) return;
+  if (!guns.length) {
+    row.card = row.card || {};
+    row.card.attacks = [];
+    return;
+  }
   const prev = (row.card && row.card.attacks) || [];
   row.card = row.card || {};
-  row.card.attacks = guns.map((g, n) => {
+  row.card.attacks = guns.map((g) => {
+    const n = Math.max(0, named.indexOf(g));
     const id = g.id || ("gun-" + n);
     const name = g.name || g.weapon || ("Gun " + (n + 1));
     const old = prev.filter((a) => a && (a.id === id || a.name === name))[0] || {};
@@ -6133,6 +6140,7 @@ function ensurePlayerAttacks(row) {
       range: g.range || "",
       properties: g.properties || "",
       group: g.group || "",
+      equipped: true,
       action: g.action || "",
       mod: g.mod || "",
       tier: g.tier || "",

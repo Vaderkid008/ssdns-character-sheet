@@ -336,7 +336,17 @@ state.chatSeen = 0;
 try {
   const savedFilter = localStorage.getItem('ssdns.map.chatFilter');
   if (savedFilter === 'rolls' || savedFilter === 'talk' || savedFilter === 'all') state.chatFilter = savedFilter;
-  if (localStorage.getItem('ssdns.map.chatOpen') === '0') state.chatOpen = false;
+  const Equip = window.SSDNSEquip;
+  const chatKey = role === 'dm' ? 'ssdns.map.chatOpen.dm' : 'ssdns.map.chatOpen.player';
+  if (Equip && Equip.readChatOpen) state.chatOpen = Equip.readChatOpen(localStorage, role);
+  else {
+    const specific = localStorage.getItem(chatKey);
+    if (specific === '0' || specific === '1') state.chatOpen = specific === '1';
+    else if (localStorage.getItem('ssdns.map.chatOpen') === '0' || localStorage.getItem('ssdns.map.chatOpen') === '1') {
+      state.chatOpen = localStorage.getItem('ssdns.map.chatOpen') === '1';
+      localStorage.setItem(chatKey, state.chatOpen ? '1' : '0');
+    }
+  }
 } catch (e) {}
 function chatBucket(row) {
   if (!row || row.kind === 'sfx') return '';
@@ -465,7 +475,11 @@ function setChatFilter(next) {
 function setChatOpen(open) {
   state.chatOpen = !!open;
   if (state.chatOpen) state.chatSeen = (state.chat || []).filter(chatBucket).length;
-  try { localStorage.setItem('ssdns.map.chatOpen', state.chatOpen ? '1' : '0'); } catch (e) {}
+  try {
+    const Equip = window.SSDNSEquip;
+    if (Equip && Equip.writeChatOpen) Equip.writeChatOpen(localStorage, role, state.chatOpen);
+    else localStorage.setItem(role === 'dm' ? 'ssdns.map.chatOpen.dm' : 'ssdns.map.chatOpen.player', state.chatOpen ? '1' : '0');
+  } catch (e) {}
   renderChat();
 }
 
@@ -1156,6 +1170,47 @@ function paintRangeRings() {
   }
   ctx.restore();
 }
+function paintAmmoColumn(ctx, s, r, rows) {
+  const rowH = 15;
+  const colX = s.x + r + 8;
+  let y = s.y - ((rows.length - 1) * rowH) / 2;
+  ctx.save();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = '11px system-ui';
+  rows.forEach(row => {
+    const loaded = row && row.loaded != null ? row.loaded : 0;
+    const cap = row && row.cap != null ? row.cap : 0;
+    const label = loaded + '/' + cap;
+    const tw = (ctx.measureText && ctx.measureText(label).width) || 22;
+    ctx.fillStyle = 'rgba(20,16,12,0.9)';
+    ctx.fillRect(colX - 2, y - 7, 16 + tw + 6, 14);
+    paintWeaponIcon(ctx, (row && row.icon) || 'pistol', colX, y - 5, 11);
+    ctx.fillStyle = '#e2c56a';
+    ctx.font = '11px system-ui';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, colX + 14, y);
+    y += rowH;
+  });
+  ctx.restore();
+}
+function paintWeaponIcon(ctx, kind, x, y, size) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = '#e2c56a';
+  if (kind === 'shotgun') {
+    ctx.fillRect(0, size * 0.22, size, size * 0.28);
+    ctx.fillRect(size * 0.18, size * 0.48, size * 0.16, size * 0.42);
+  } else if (kind === 'rifle') {
+    ctx.fillRect(0, size * 0.32, size, size * 0.16);
+    ctx.fillRect(size * 0.22, size * 0.48, size * 0.12, size * 0.4);
+  } else {
+    ctx.fillRect(0, size * 0.2, size * 0.7, size * 0.2);
+    ctx.fillRect(size * 0.28, size * 0.4, size * 0.16, size * 0.45);
+  }
+  ctx.restore();
+}
 function draw() {
   publishTokenColors();
   if (!state.scene) return;
@@ -1524,22 +1579,12 @@ function draw() {
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
     if (state.selected && state.selected.id === t.id && host.rounds) {
-      let badge = '';
-      try { badge = host.rounds(t) || ''; } catch (e) { badge = ''; }
-      if (badge) {
-        ctx.font = '11px system-ui';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        const measured = ctx.measureText ? ctx.measureText(badge) : null;
-        const bw = ((measured && measured.width) || (badge.length * 7)) + 8;
-        const bh = 14;
-        const bx = s.x - bw / 2;
-        const by = nameY - bh - 2;
-        ctx.fillStyle = 'rgba(20,16,12,0.9)';
-        ctx.fillRect(bx, by, bw, bh);
-        ctx.fillStyle = '#e2c56a';
-        ctx.fillText(badge, s.x, nameY - 3);
-      }
+      let rows = [];
+      try {
+        const raw = host.rounds(t);
+        if (Array.isArray(raw)) rows = raw;
+      } catch (e) { rows = []; }
+      if (rows.length) paintAmmoColumn(ctx, s, r, rows);
     }
     ctx.restore();
 

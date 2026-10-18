@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.51"; // dmcc-playtest-v0251
+const VERSION = "0.2.52"; // dmcc-playtest-v0252
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -981,6 +981,20 @@ function applyDemoGun(playerId, payload) {
   if (!p || !p.snapshot) return;
   payload = payload || {};
   if (payload.op === "test-gun") grantDemoTestGun(p.snapshot, payload);
+  if (payload.op === "equip" && payload.kind === "melee") {
+    const row = (p.snapshot.melee || []).find((m) => m && Number(m.index) === Number(payload.index));
+    if (row) row.equipped = payload.equipped !== false;
+    renderPlayers();
+    if ($("#detailOverlay") && !$("#detailOverlay").hidden) openDetail(playerId);
+    return;
+  }
+  if (payload.op === "equip" && payload.kind === "focus") {
+    p.snapshot.focus = p.snapshot.focus || { id: "focus" };
+    p.snapshot.focus.equipped = payload.equipped !== false;
+    renderPlayers();
+    if ($("#detailOverlay") && !$("#detailOverlay").hidden) openDetail(playerId);
+    return;
+  }
   const g = payload.op === "test-gun" ? null : demoGunAt(p.snapshot, payload.index);
   if (payload.op !== "test-gun" && !g) return;
   if (payload.op === "unload") { g.loaded = 0; g.chambers = (g.chambers || []).map(() => ""); }
@@ -1028,6 +1042,8 @@ function applyDemoGun(playerId, payload) {
       ? window.SSDNSMisfire.clearLocks(g, payload.mode, payload.chamber)
       : null;
     if (next && next.cleared && next.cleared.length) g.lockedChambers = next.lockedChambers.slice();
+  } else if (payload.op === "equip") {
+    g.equipped = payload.equipped !== false;
   } else if (payload.op === "repair") {
     const next = window.SSDNSMisfire && window.SSDNSMisfire.repair ? window.SSDNSMisfire.repair(g) : null;
     if (next) {
@@ -1913,9 +1929,12 @@ function openDetail(pid) {
         <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="one" data-gun-i="${sheetI}">Clear one</button>
         <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="all" data-gun-i="${sheetI}">Clear all</button>
         <button type="button" class="btn sm" data-gun-op="repair" data-gun-i="${sheetI}">Repair gun</button>
+        <button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${g.equipped === false ? "1" : "0"}" data-gun-kind="gun" data-gun-i="${sheetI}">${g.equipped === false ? "Equip" : "Unequip"}</button>
         <input type="number" data-gun-loaded="${i}" value="${esc(g.loaded)}" aria-label="Loaded chambers">
       </div>`;
       }).join("") || "<p>—</p>"}
+      ${(s.melee || []).map((m) => `<div class="gun-chip"><div>${esc(m.name)} · melee</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${m.equipped === false ? "1" : "0"}" data-gun-kind="melee" data-gun-i="${m.index}">${m.equipped === false ? "Equip" : "Unequip"}</button></div>`).join("")}
+      ${s.focus && s.focus.id ? `<div class="gun-chip"><div>Focus · ${esc(s.focus.id)}${s.focus.carry === "held" ? " · held" : (s.focus.carry === "free" ? " · strapped" : "")}</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${s.focus.equipped === false ? "1" : "0"}" data-gun-kind="focus" data-gun-i="0">${s.focus.equipped === false ? "Equip focus" : "Unequip focus"}</button></div>` : ""}
     </div>
     <div class="detail-section"><h3>Equipment</h3><pre>${esc(s.equipment || "—")}</pre></div>
     <div class="detail-section"><h3>Features</h3><pre>${esc(s.features || "—")}</pre></div>
@@ -1942,7 +1961,7 @@ function openDetail(pid) {
       const index = Number(btn.getAttribute("data-gun-i"));
       const op = btn.getAttribute("data-gun-op");
       const loadedEl = $("#detailBody").querySelector("[data-gun-loaded='" + index + "']");
-      const payload = { index, op, loaded: loadedEl ? Number(loadedEl.value) : null };
+      const payload = { index, op, loaded: loadedEl ? Number(loadedEl.value) : null, kind: btn.getAttribute("data-gun-kind") || "gun" };
       if (op === "misfire") {
         const key = btn.getAttribute("data-mf");
         if (key === "reset") payload.resetStreak = true;
@@ -1950,6 +1969,7 @@ function openDetail(pid) {
         else if (key) payload[key] = btn.getAttribute("data-mf-on") === "1";
       }
       if (op === "clear-locks") payload.mode = btn.getAttribute("data-lock-mode") === "one" ? "one" : "all";
+      if (op === "equip") payload.equipped = btn.getAttribute("data-gun-on") === "1";
       const snapGuns = (state.players[pid] && state.players[pid].snapshot && state.players[pid].snapshot.guns) || [];
       const gun = snapGuns.find((g) => g && g.index != null && Number(g.index) === index) || snapGuns[index];
       const gunName = (gun && gun.name) || "gun";
@@ -1962,6 +1982,10 @@ function openDetail(pid) {
         postDmAction("DM cleared " + which + " on " + gunName + ".", pid);
       }
       if (op === "repair") postDmAction("DM repaired " + gunName + ".", pid);
+      if (op === "equip") {
+        const which = payload.kind === "focus" ? "focus" : (payload.kind === "melee" ? ((s.melee || []).filter((m) => m && Number(m.index) === index)[0] || {}).name || "melee" : gunName);
+        postDmAction("DM " + (payload.equipped ? "equipped" : "unequipped") + " " + which + ".", pid);
+      }
       if (state.demo) applyDemoGun(pid, payload);
     });
   });

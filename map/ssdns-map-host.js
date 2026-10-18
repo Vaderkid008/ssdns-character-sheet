@@ -86,19 +86,36 @@
     var loaded = chambers ? chambers.filter(Boolean).length : (Number(g.loaded) || 0);
     return { index: Number(i), loaded: loaded, cap: cap, chambers: chambers, locked: Array.isArray(g.lockedChambers) ? g.lockedChambers.slice() : [] };
   }
+  function gunRows(list) {
+    var Equip = root.SSDNSEquip;
+    var computed = null;
+    try { computed = root.SSDNSApp && root.SSDNSApp.compute && root.SSDNSApp.compute(); } catch (e) { computed = null; }
+    var rows = (list || []).map(function (g, i) {
+      if (!g) return null;
+      var cap = Number(g.cap != null ? g.cap : g.capacity) || (Array.isArray(g.chambers) ? g.chambers.length : 0);
+      var loaded = Array.isArray(g.chambers) && g.chambers.length ? g.chambers.filter(Boolean).length : (Number(g.loaded) || 0);
+      var group = g.group || "";
+      if (!group && g.weapon && computed) {
+        var st = (computed.guns || []).filter(function (x) { return x && x.w && x.w.id === g.weapon; })[0];
+        group = st && st.w && st.w.group || "";
+      }
+      return {
+        index: g.index != null ? g.index : i,
+        name: g.name || "",
+        group: group,
+        loaded: loaded,
+        cap: cap,
+        equipped: g.equipped
+      };
+    }).filter(Boolean);
+    if (Equip && Equip.badgeRowsForToken) return Equip.badgeRowsForToken(rows);
+    return rows.filter(function (g) { return g.equipped !== false && g.cap; });
+  }
   function ownRounds() {
     var app = root.SSDNSApp;
     var doc = app && app.doc && app.doc();
     var guns = doc && doc.character && doc.character.guns || [];
-    var bits = [];
-    guns.forEach(function (g) {
-      if (!g || !(g.weapon || g.name)) return;
-      var cap = Number(g.capacity) || (Array.isArray(g.chambers) ? g.chambers.length : 0);
-      if (!cap) return;
-      var loaded = Array.isArray(g.chambers) && g.chambers.length ? g.chambers.filter(Boolean).length : (Number(g.loaded) || 0);
-      bits.push(loaded + "/" + cap);
-    });
-    return bits.join(" ");
+    return gunRows(guns);
   }
   function viewerUid() {
     if (mountedUid) return mountedUid;
@@ -110,20 +127,30 @@
     return (st && st.uid) || "";
   }
   function roundsLabel(token) {
-    if (!token) return "";
+    if (!token) return [];
     if (!isDmPage()) {
-      if (!token.ownerUid || token.ownerUid !== viewerUid()) return "";
+      if (!token.ownerUid || token.ownerUid !== viewerUid()) return [];
       return ownRounds();
     }
     var api = root.SSDNSMapCards;
-    if (!api || typeof api.get !== "function") return "";
+    if (!api || typeof api.get !== "function") return [];
     var card = null;
     try {
       card = api.get(token.id) || (token.combatantId && api.get(token.combatantId)) || (token.ownerUid && api.get(token.ownerUid)) || null;
     } catch (e) { card = null; }
-    if (!card) return "";
-    var guns = (card.attacks || []).filter(function (a) { return a && a.ammo && a.ammo.cap; });
-    return guns.map(function (a) { return (Number(a.ammo.loaded) || 0) + "/" + a.ammo.cap; }).join(" ");
+    if (!card) return [];
+    var guns = (card.attacks || []).filter(function (a) { return a && a.ammo && a.ammo.cap; }).map(function (a) {
+      return {
+        name: a.name || "",
+        group: a.group || "",
+        loaded: Number(a.ammo.loaded) || 0,
+        cap: Number(a.ammo.cap) || 0,
+        equipped: a.equipped,
+        index: a.sheetIndex != null ? a.sheetIndex : a.gunIndex
+      };
+    });
+    if (root.SSDNSEquip && root.SSDNSEquip.badgeRowsForToken) return root.SSDNSEquip.badgeRowsForToken(guns);
+    return guns.filter(function (g) { return g.equipped !== false; });
   }
   function rangeWeapons() {
     if (isDmPage()) return [];
@@ -137,7 +164,7 @@
     var sharpshooter = feats.indexOf("sharpshooter") >= 0;
     var list = [];
     (c.guns || []).forEach(function (g, i) {
-      if (!g || !g.weapon) return;
+      if (!g || !g.weapon || g.equipped === false) return;
       var st = ((computed && computed.guns) || []).filter(function (x) { return x && x.w && x.w.id === g.weapon; })[0];
       var w = st && st.w;
       list.push({
@@ -159,7 +186,7 @@
       });
     });
     (c.melee || []).forEach(function (m, i) {
-      if (!m || !m.weapon) return;
+      if (!m || !m.weapon || m.equipped === false) return;
       list.push({
         id: "melee:" + i,
         name: meleeName(i),
@@ -265,7 +292,7 @@
     var c = doc.character;
     var attacks = [];
     (c.guns || []).forEach(function (g, i) {
-      if (!g || !g.weapon) return;
+      if (!g || !g.weapon || g.equipped === false) return;
       var st = ((computed.guns) || []).filter(function (x) { return x && x.w && x.w.id === g.weapon; })[0];
       var w = st && st.w;
       var name = tidyName((w && w.name) || "");
@@ -314,7 +341,7 @@
     });
     var meleeList = (root.SSDNSRules && root.SSDNSRules.melee) || [];
     (c.melee || []).forEach(function (m, i) {
-      if (!m || !m.weapon) return;
+      if (!m || !m.weapon || m.equipped === false) return;
       var w = meleeList.filter(function (x) { return x.id === m.weapon; })[0];
       var name = tidyName((w && w.name) || "");
       if (!name || /^Melee \d+$/i.test(name)) return;

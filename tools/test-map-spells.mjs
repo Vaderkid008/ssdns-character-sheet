@@ -22,7 +22,11 @@ const hostSrc = read("map/ssdns-map-host.js");
 check("src.spellEvent", mapSrc.includes("drawer:spell") && mapSrc.includes("data-sid") && hostSrc.includes('detail.spellId ? "cast"'));
 check("src.cylinder", mapSrc.includes('data-act="chamber"') && mapSrc.includes("ssm-cyl-btn") && hostSrc.includes("gunCylinder"));
 check("src.publicNoAmmo", !/function publicToken[\s\S]{0,800}\b(loaded|capacity|chambers|ammo)\b/.test(mapSrc));
-check("src.playerRounds", /if \(!isDmPage\(\)\) \{[\s\S]{0,180}return "";[\s\S]{0,80}return ownRounds\(\)/.test(hostSrc));
+check("src.playerRounds", /if \(!isDmPage\(\)\) \{[\s\S]{0,180}return \[\];[\s\S]{0,80}return ownRounds\(\)/.test(hostSrc));
+function ammoLabel(rows) {
+  if (!Array.isArray(rows) || !rows.length) return "";
+  return rows.map((r) => (r && r.loaded != null ? r.loaded : 0) + "/" + (r && r.cap != null ? r.cap : 0)).join(",");
+}
 
 function makeWindow() {
   const dom = new JSDOM("<!doctype html><html><body><div id=\"mapMount\" data-map-role=\"player\"></div><div id=\"initList\"></div></body></html>", {
@@ -149,10 +153,15 @@ function addScript(code) {
   w.document.body.appendChild(s);
 }
 addScript(read("map/ssdns-map-host.js"));
-check("player.enemyAmmoHidden", w.SSDNSMapHost.rounds({ id: "tok_enemy", ownerUid: "enemy", kind: "enemy" }) === "");
-check("player.ownRounds", w.SSDNSMapHost.rounds({ id: "tok_me", ownerUid: "p1", kind: "player" }) === "4/6");
+check("player.enemyAmmoHidden", ammoLabel(w.SSDNSMapHost.rounds({ id: "tok_enemy", ownerUid: "enemy", kind: "enemy" })) === "");
+const ownRows = w.SSDNSMapHost.rounds({ id: "tok_me", ownerUid: "p1", kind: "player" });
+check("player.ownRounds", ammoLabel(ownRows) === "4/6" && ownRows[0] && ownRows[0].loaded === 4 && ownRows[0].cap === 6, ammoLabel(ownRows));
+const savedDoc = w.SSDNSApp.doc;
+w.SSDNSApp.doc = () => ({ character: { guns: [{ weapon: "revolver", name: "Revolver", capacity: 6, loaded: 4, chambers: ["a", "a", "a", "a", "", ""], equipped: false, group: "pistol" }] } });
+check("player.packedHidden", ammoLabel(w.SSDNSMapHost.rounds({ id: "tok_me", ownerUid: "p1" })) === "");
+w.SSDNSApp.doc = savedDoc;
 w.SSDNSMapCards = { get() { return { attacks: [{ name: "Enemy gun", ammo: { loaded: 2, cap: 6 } }] }; } };
-check("player.ignoresEnemyCard", w.SSDNSMapHost.rounds({ id: "tok_enemy", ownerUid: "enemy" }) === "" && w.SSDNSMapHost.rounds({ id: "tok_me", ownerUid: "p1" }) === "4/6");
+check("player.ignoresEnemyCard", ammoLabel(w.SSDNSMapHost.rounds({ id: "tok_enemy", ownerUid: "enemy" })) === "" && ammoLabel(w.SSDNSMapHost.rounds({ id: "tok_me", ownerUid: "p1" })) === "4/6");
 
 addScript(read("assets/js/spell-cast.js"));
 addScript(read("assets/js/apply-guard.js"));
@@ -291,7 +300,7 @@ check("cyl.dots", dots.length === 6 && gunDrawer.textContent.includes("6/6"), "d
 const dotWrap = gunDrawer && gunDrawer.querySelector(".cylinder-row .chamber-dots");
 check("cyl.oneRow", !!(dotWrap && dotWrap.querySelectorAll('[data-act="chamber"]').length === 6));
 check("cyl.wrap", /\.ssm-drawer \.cylinder-row \{[^}]*flex-wrap:\s*wrap/.test(read("map/ssdns-map.css")));
-check("cyl.dmBadge", w.SSDNSMapHost.rounds({ id: bandit.mapTokenId, combatantId: bandit.id, ownerUid: "" }) === "6/6", w.SSDNSMapHost.rounds({ id: bandit.mapTokenId, combatantId: bandit.id }));
+check("cyl.dmBadge", ammoLabel(w.SSDNSMapHost.rounds({ id: bandit.mapTokenId, combatantId: bandit.id, ownerUid: "" })) === "6/6", ammoLabel(w.SSDNSMapHost.rounds({ id: bandit.mapTokenId, combatantId: bandit.id })));
 w.SSDNSTestRoll = () => 15;
 const livePc = () => w.__fightTest.order().find((row) => row && row.playerId === "p1");
 livePc().hp = 20;
@@ -314,8 +323,8 @@ const pubJson = JSON.stringify(pub && pub.value);
 check("ammo.publicToken", !!(pub && pub.value && !("loaded" in pub.value) && !("capacity" in pub.value) && !("chambers" in pub.value) && !("ammo" in pub.value)), pubJson);
 check("ammo.publicView", !JSON.stringify(w.__fightTest.publicView() || {}).includes('"loaded"'));
 w.document.getElementById("mapMount").setAttribute("data-map-role", "player");
-check("ammo.playerStillBlind", w.SSDNSMapHost.rounds({ id: bandit.mapTokenId, combatantId: bandit.id, ownerUid: "" }) === "");
-check("ammo.playerOwn", w.SSDNSMapHost.rounds({ id: "tok_me", ownerUid: "p1" }) === "4/6");
+check("ammo.playerStillBlind", ammoLabel(w.SSDNSMapHost.rounds({ id: bandit.mapTokenId, combatantId: bandit.id, ownerUid: "" })) === "");
+check("ammo.playerOwn", ammoLabel(w.SSDNSMapHost.rounds({ id: "tok_me", ownerUid: "p1" })) === "4/6");
 
 const playerEl = w.document.createElement("div");
 w.document.body.appendChild(playerEl);
