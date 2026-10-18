@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.52"; // dmcc-playtest-v0252
+const VERSION = "0.2.53"; // dmcc-playtest-v0253
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -894,12 +894,17 @@ async function pushCommand(cmd) {
     return;
   }
   const to = cmd.to || "all";
+  const copy = to && to !== "all" ? "inbox/" + to + "/" + cmd.id : "broadcast/" + cmd.id;
   try {
-    await state._fb.set(roomRef("commands/" + cmd.id), cmd);
-    const copy = to && to !== "all" ? "inbox/" + to + "/" + cmd.id : "broadcast/" + cmd.id;
-    try { await state._fb.set(roomRef(copy), cmd); }
-    catch (err) { writeFailed(err, "Couldn't sync to players"); }
-    if (!cmd.quiet) toast("Sent: " + cmd.type);
+    const results = await Promise.allSettled([
+      state._fb.set(roomRef("commands/" + cmd.id), cmd),
+      state._fb.set(roomRef(copy), cmd)
+    ]);
+    const inboxFailed = results[1] && results[1].status === "rejected";
+    const logFailed = results[0] && results[0].status === "rejected";
+    if (inboxFailed) writeFailed(results[1].reason, "Couldn't sync to players");
+    else if (logFailed) writeFailed(results[0].reason, "Command failed");
+    else if (!cmd.quiet) toast("Sent: " + cmd.type);
   } catch (e) { writeFailed(e, "Command failed"); }
 }
 
@@ -995,6 +1000,34 @@ function applyDemoGun(playerId, payload) {
     if ($("#detailOverlay") && !$("#detailOverlay").hidden) openDetail(playerId);
     return;
   }
+  if (payload.op === "receive") {
+    const guns = p.snapshot.guns || (p.snapshot.guns = []);
+    const melee = p.snapshot.melee || (p.snapshot.melee = []);
+    const list = payload.kind === "melee" ? melee : guns;
+    let slot = list.find((row) => row && !row.weapon && !row.name);
+    if (!slot) {
+      slot = { index: list.length };
+      list.push(slot);
+    }
+    slot.weapon = payload.weapon || "";
+    slot.name = payload.name || payload.weapon || "Taken weapon";
+    slot.equipped = payload.equipped === true;
+    slot.loaded = 0;
+    renderPlayers();
+    if ($("#detailOverlay") && !$("#detailOverlay").hidden) openDetail(playerId);
+    return;
+  }
+  if (payload.op === "take" && payload.kind === "melee") {
+    const row = (p.snapshot.melee || []).find((m) => m && Number(m.index) === Number(payload.index));
+    if (row) {
+      row.equipped = false;
+      row.weapon = "";
+      row.name = "";
+    }
+    renderPlayers();
+    if ($("#detailOverlay") && !$("#detailOverlay").hidden) openDetail(playerId);
+    return;
+  }
   const g = payload.op === "test-gun" ? null : demoGunAt(p.snapshot, payload.index);
   if (payload.op !== "test-gun" && !g) return;
   if (payload.op === "unload") { g.loaded = 0; g.chambers = (g.chambers || []).map(() => ""); }
@@ -1044,6 +1077,12 @@ function applyDemoGun(playerId, payload) {
     if (next && next.cleared && next.cleared.length) g.lockedChambers = next.lockedChambers.slice();
   } else if (payload.op === "equip") {
     g.equipped = payload.equipped !== false;
+  } else if (payload.op === "take") {
+    g.equipped = false;
+    g.weapon = "";
+    g.name = "";
+    g.loaded = 0;
+    g.chambers = [];
   } else if (payload.op === "repair") {
     const next = window.SSDNSMisfire && window.SSDNSMisfire.repair ? window.SSDNSMisfire.repair(g) : null;
     if (next) {

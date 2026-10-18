@@ -4859,6 +4859,17 @@ async function loadSceneImage(sceneId) {
     }).join(' ');
     const condOptions = conditionNames().map(name => '<option value="' + esc(name) + '">' + esc(name) + '</option>').join('');
     const weaponOptions = (card.attacks || []).map(a => '<option value="' + esc(a.id || a.name || '') + '">' + esc(a.name || a.id || 'Weapon') + '</option>').join('') || '<option value="">No weapon</option>';
+    const selfTok = tokenByRef(tokenId) || tokenByRef(tokenCombatant(tokenId));
+    const aimTok = aimId ? (tokenByRef(aimId) || (state.tokens || []).find(tok => tok && tokenCombatant(tok.id) === aimId) || null) : null;
+    const grabFt = (selfTok && aimTok) ? feetBetween(selfTok, aimTok) : null;
+    const grabFar = grabFt != null && grabFt > 5;
+    const grabDisabled = !aimId || grabFar;
+    const grabTitle = !aimId
+      ? 'Pick a target within 5 ft.'
+      : (grabFar
+        ? ('Out of reach (' + grabFt + ' ft). Disarm and Rob need to be within 5 ft.')
+        : 'Robbing is frowned on in town and by lawmen and can lead to a confrontation. The DM decides whether it counts as a robbery or a disarm.');
+    const grabAttr = (grabDisabled ? ' disabled' : '') + ' title="' + esc(grabTitle) + '"';
     const detail = (extra) => Object.assign({ tokenId: tokenId, combatantId: tokenCombatant(tokenId) }, extra || {});
     const maxHp = Number(hp.max);
     const haveCur = hp.cur !== "" && hp.cur != null && isFinite(Number(hp.cur));
@@ -4919,6 +4930,10 @@ async function loadSceneImage(sceneId) {
         '<select data-act="weaponPick" aria-label="Weapon">' + weaponOptions + '</select>' +
         '<button type="button" data-act="reloadBtn">Reload</button><button type="button" data-act="unloadBtn">Unload</button>' +
         '<button type="button" data-act="deathBtn">Death save</button><button type="button" data-act="undoBtnD">Undo</button>' +
+      '</div>' +
+      '<div class="ssm-row">' +
+        '<button type="button" data-act="disarmBtn"' + grabAttr + '>Disarm</button>' +
+        '<button type="button" data-act="robBtn"' + grabAttr + '>Rob</button>' +
       '</div>' +
       '<button type="button" data-act="imageBtn">Replace image</button>' +
       (state.pendingTarget ? '<div class="ssm-pending">Click a token to target, Esc to cancel</div>' : '') +
@@ -5114,6 +5129,18 @@ async function loadSceneImage(sceneId) {
     });
     d.querySelector('[data-act="reloadBtn"]').addEventListener('click', () => emit('drawer:reload', detail({ weaponId: pickedWeapon() })));
     d.querySelector('[data-act="unloadBtn"]').addEventListener('click', () => emit('drawer:unload', detail({ weaponId: pickedWeapon() })));
+    const emitGrab = (name) => {
+      if (grabDisabled) return;
+      emit(name, detail({
+        targetTokenId: aimTok ? aimTok.id : '',
+        targetCombatantId: aimId,
+        feet: grabFt
+      }));
+    };
+    const disarmBtn = d.querySelector('[data-act="disarmBtn"]');
+    const robBtn = d.querySelector('[data-act="robBtn"]');
+    if (disarmBtn) disarmBtn.addEventListener('click', () => emitGrab('drawer:disarm'));
+    if (robBtn) robBtn.addEventListener('click', () => emitGrab('drawer:rob'));
     d.querySelector('[data-act="deathBtn"]').addEventListener('click', () => emit('drawer:deathsave', detail()));
     d.querySelector('[data-act="undoBtnD"]').addEventListener('click', () => emit('drawer:undo', detail()));
   }
@@ -5406,6 +5433,9 @@ return {
   pushFeed,
   requestDraw,
   refreshCard,
+  feetBetween: function (idA, idB) {
+    return feetBetween(tokenByRef(idA), tokenByRef(idB));
+  },
   refreshPlayers: function () {
     fillGrant();
     ensurePartyTokens();

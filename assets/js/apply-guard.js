@@ -955,6 +955,7 @@
       var ch = Array.isArray(g.chambers) ? g.chambers.map(function (x) { return x ? String(x) : ""; }).join(",") : "";
       return [
         g.weapon || g.name || "",
+        g.equipped === false ? 0 : 1,
         g.loaded == null ? "" : g.loaded,
         ch,
         g.spare == null ? "" : g.spare,
