@@ -1,4 +1,4 @@
-/* SSDNS paper doll (sheet 0.3.48). Art Bot take B6: frame + silhouette + 25 slot boxes.
+/* SSDNS paper doll (sheet 0.3.49). Art Bot take B6: frame + silhouette + 25 slot boxes.
    Worn slots hold Items (item.equipSlot). Weapon slots mirror the Gear tab.
    Only slotted (and, if needed, attuned) items give bonuses. Holster rigs don't stack. Dex caps at 20. */
 (function (root) {

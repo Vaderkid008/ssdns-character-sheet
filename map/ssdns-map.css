@@ -1063,11 +1063,11 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
   body.map-fullscreen #mapMount { padding: 4px; gap: 4px; }
 }
 
-/* 0.2.61: Lock / Undo / Redo live in the DM Tools panel, clear of Exit full screen. */
+/* 0.2.62: Lock / Undo / Redo live in the DM Tools panel, clear of Exit full screen. */
 .ssdns-map .ssdns-rightbar .ssm-move-tools { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; padding: 0; background: none; }
 .ssdns-map .ssdns-rightbar .ssm-move-tools button { flex: 1 1 auto; width: auto; white-space: nowrap; }
 
-/* 0.2.61: DM bottom chat resize grip + true Minimize (thin "Chat ▲ (3 new)" bar). */
+/* 0.2.62: DM bottom chat resize grip + true Minimize (thin "Chat ▲ (3 new)" bar). */
 .ssdns-map .ssm-chat-grip { height: 8px; margin: -4px 0 4px; cursor: ns-resize; border-radius: 4px; background: linear-gradient(#5a4e40, #5a4e40) center / 40px 2px no-repeat; touch-action: none; }
 .ssdns-map .ssm-chat-grip:hover { background-color: rgba(201,162,74,.18); }
 .ssdns-map .ssdns-chatdock.ssm-chat-shut .ssm-chat-grip { display: none; }
