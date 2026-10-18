@@ -121,7 +121,7 @@
 .ssdns-ammo-dots .ammo-round.is-cart svg { width: 100%; height: 100%; display: block; pointer-events: none; }
 .ssdns-ammo-dots .ammo-round.is-shell { width: 26px; height: 12px; margin-right: 3px; }
 .ssdns-ammo .ammo-round.is-shell.is-gauge-410 { width: 36px; height: 6px; }
-.ssdns-ammo .ammo-round.is-shell.is-gauge-12 { width: 36px; height: 12px; }
+.ssdns-ammo .ammo-round.is-shell.is-gauge-12 { width: 34px; height: 12px; }
 .ssdns-ammo .ammo-round.is-shell.is-gauge-10 { width: 43px; height: 16px; }
 .ssdns-ammo-tube.is-compact .ammo-tube { height: 44px; border-radius: 8px; }
 .ssdns-ammo-tube.is-compact .ammo-round.is-cart { width: 16px; height: 8px; }
@@ -225,15 +225,15 @@
 }
 
 /* 0.3.53 sample: shells seen end-on in a chamber = brass head + primer, hull colour ring by gauge. */
-.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell { --hull: #2f74d0; --hull-d: #1b4a8c;
+.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell { --hull: #e0574f; --hull-d: #8e241f;
   border-color: var(--hull-d);
   background:
     radial-gradient(circle at 50% 50%, #c6b07a 0 12%, #8a6a2c 14% 18%, transparent 20%),
     radial-gradient(circle at 36% 30%, #fff1c2, #e3b54a 28%, #a8741c 46%, #6b4810 54%, transparent 56%),
     radial-gradient(circle at 36% 30%, var(--hull), var(--hull-d) 92%);
 }
-.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-410 { --hull: #3a3a3e; --hull-d: #000; }
-.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-10 { --hull: #8a4a3b; --hull-d: #3e1e17; }
+.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-410 { --hull: #5aa3ec; --hull-d: #1f5a9c; }
+.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-10 { --hull: #45a052; --hull-d: #1a4a22; }
 /* 0.3.53 sample: the single rifle-musket ball is as big as a Ball n Cap chamber ball. */
 .ssdns-ammo-dots .ammo-round.rt-ball { width: 30px; height: 30px; }
 .ssdns-ammo-dots.is-demo .ammo-round.rt-ball { width: 47px; height: 47px; }
