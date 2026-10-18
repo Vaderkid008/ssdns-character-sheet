@@ -1796,8 +1796,9 @@ function renderCatalog() {
   box.innerHTML = `<table class="gear-table"><thead><tr><th>Name</th><th>Type</th><th>Price</th><th></th></tr></thead><tbody>`
     + rows.map((item) => {
       const price = item.price == null ? "—" : (item.price + " ES");
+      const thumb = window.SSDNSItemArt && window.SSDNSItemArt.thumbHtml ? window.SSDNSItemArt.thumbHtml(item) : "";
       return `<tr>
-        <td data-label="Name">${esc(item.name)}</td>
+        <td data-label="Name">${thumb}${esc(item.name)}</td>
         <td data-label="Type">${esc(item.kind)}</td>
         <td data-label="Price">${esc(price)}</td>
         <td><button type="button" class="btn sm" data-cat-add="1" data-cat-name="${esc(item.name)}" data-cat-price="${item.price == null ? "" : item.price}">Add</button></td>
@@ -2724,6 +2725,8 @@ function grantWeaponOptions() {
   });
   const jam = window.SSDNSTestJammer && window.SSDNSTestJammer.weapon ? window.SSDNSTestJammer.weapon() : null;
   if (jam) add(jam.id || "test-jammer", jam.name || "TEST Jammer");
+  const peace = window.SSDNSPeaceMaker && window.SSDNSPeaceMaker.weapon ? window.SSDNSPeaceMaker.weapon() : null;
+  if (peace) add(peace.id || "the-peace-maker", (peace.name || "The Peace Maker") + " · DM");
   return `<option value="">Pick a weapon</option>` + rows.join("");
 }
 async function giveTestJammer(pid, s) {
@@ -2766,6 +2769,17 @@ function decorateDetail(pid) {
         <input type="text" id="detailItem" placeholder="Item that lands in their equipment">
         <button type="button" class="btn sm" id="btnDetailItem">Add to sheet</button>
       </div>
+      <div class="dm-only-art">
+        <figure>
+          <img src="../assets/img/dm-only/hell-maker.webp" alt="Hell Maker">
+          <figcaption>Hell Maker · DM only · not on player lists</figcaption>
+        </figure>
+        <figure>
+          <img src="../assets/img/dm-only/the-peace-maker.webp" alt="The Peace Maker">
+          <figcaption>The Peace Maker · DM give list</figcaption>
+        </figure>
+      </div>
+      <p class="fine">The Peace Maker is a placeholder revolver (1d8, 20/60, 6 rounds, misfire 1). act1-special-finds-tables.md was not in the repo. Type over the attack or damage box to edit.</p>
     </div>
     <details class="detail-section" id="detailTesting"${testingSectionOpen() ? " open" : ""}>
       <summary>Testing</summary>

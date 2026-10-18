@@ -31,6 +31,10 @@
       var jam = root.SSDNSTestJammer.lookup(key);
       if (jam) return jam;
     }
+    if (root.SSDNSPeaceMaker && root.SSDNSPeaceMaker.lookup) {
+      var peace = root.SSDNSPeaceMaker.lookup(key);
+      if (peace) return peace;
+    }
     if (key === "test-jammer" || key === "TEST Jammer") return { id: "test-jammer", name: "TEST Jammer", group: "pistol", capacity: 6 };
     return null;
   }

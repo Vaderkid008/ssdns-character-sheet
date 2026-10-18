@@ -246,6 +246,9 @@
     log.unshift(entry);
     if (log.length > 200) log.length = 200;
     sortLog();
+    if (entry.kind === "roll" && !entry.replace && root.SSDNSDice && root.SSDNSDice.showRoll) {
+      try { root.SSDNSDice.showRoll(entry); } catch (err) {}
+    }
     renderLog();
   }
   function sortLog() {
@@ -298,7 +301,7 @@
         var cut = text.indexOf(":");
         if (cut > 0) who = text.slice(0, cut);
       }
-      return { id: e.id, kind: e.kind, who: who, text: text, ts: e.ts, tag: face.tag, cls: face.cls };
+      return { id: e.id, kind: e.kind, who: who, text: text, formula: e.formula || "", attack: !!e.attack, nat: e.nat, result: e.result, face: e.face, ts: e.ts, tag: face.tag, cls: face.cls };
     });
   }
   function renderDock() {
@@ -319,6 +322,7 @@
       var tokenC = root.SSDNSApplied && root.SSDNSApplied.tokenColorFor && root.SSDNSApplied.tokenColorFor(whoName);
       var chatColor = tokenC || (e.kind === "chat" ? speakerColor(whoName) : "");
       var body = root.SSDNSApplied && root.SSDNSApplied.leadNameHtml ? root.SSDNSApplied.leadNameHtml(e.text || "") : esc(e.text || "");
+      if (root.SSDNSDice && root.SSDNSDice.lead) body = root.SSDNSDice.lead(e, body);
       return '<div class="dock-item ' + face.cls + '"' + (chatColor ? ' style="border-left:4px solid ' + chatColor + '"' : "") + handoutAttrs(e) + '><div class="dock-meta">' + when + " · " + esc(dockBucket(e)) +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") +
         '</div><div>' + body + (hand ? handoutBits(e) : "") + "</div></div>";
@@ -362,6 +366,7 @@
       var body = root.SSDNSApplied && root.SSDNSApplied.leadNameHtml
         ? root.SSDNSApplied.leadNameHtml(e.text || "")
         : String(e.text || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; });
+      if (root.SSDNSDice && root.SSDNSDice.lead) body = root.SSDNSDice.lead(e, body);
       return '<div class="log-item log-' + (e.kind || "all") + " " + face.cls + '"' + handoutAttrs(e) + '><div class="log-meta">' + when + " · " + (e.kind || "") +
         (face.tag ? ' · <span class="roll-tag">' + face.tag + "</span>" : "") + '</div><div>' +
         body +
@@ -480,7 +485,8 @@
       var sold = !!item.soldOut;
       var broke = es < price;
       var ref = item.ref ? ' <span class="ref-tag">ref</span>' : "";
-      return '<div class="store-row' + (sold ? " sold" : "") + '"><div><b>' + esc(item.name) + "</b>" + ref +
+      var thumb = root.SSDNSItemArt && root.SSDNSItemArt.thumbHtml ? root.SSDNSItemArt.thumbHtml(item) : "";
+      return '<div class="store-row' + (sold ? " sold" : "") + '"><div>' + thumb + '<b>' + esc(item.name) + "</b>" + ref +
         '<div class="fine">' + price.toLocaleString() + " ES" + (sold ? " · Sold out" : "") + "</div></div>" +
         '<button type="button" class="btn" data-buy="' + row.i + '" aria-label="Buy ' + esc(item.name) + '"' +
         (sold || broke ? " disabled" : "") + ">" + (sold ? "Sold out" : "Buy") + "</button></div>";
@@ -629,7 +635,7 @@
     var who = sheetSpeaker();
     var text = (who ? who + " · " : "") + label + " · " + formula + " = " + total + " (" + detail + ")";
     toast(label + " " + total + " (" + detail + ")");
-    addLog({ id: "roll:" + rollId, kind: "roll", text: text });
+    addLog({ id: "roll:" + rollId, kind: "roll", text: text, label: label, formula: formula, result: total, detail: detail });
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         id: rollId,
@@ -1690,6 +1696,8 @@
     var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
     var wpn = lists.filter(function (x) { return x && x.id === id; })[0];
     if (wpn) return wpn;
+    var peace = root.SSDNSPeaceMaker && root.SSDNSPeaceMaker.lookup && root.SSDNSPeaceMaker.lookup(id);
+    if (peace) return peace;
     return (root.SSDNSTestJammer && root.SSDNSTestJammer.lookup && root.SSDNSTestJammer.lookup(id)) || null;
   }
   function gunAttackSpec(i) {
@@ -2711,6 +2719,34 @@
       if (b) b.hidden = false;
     }
   };
+
+  if (root.SSDNSDice) {
+    root.SSDNSDice.onBarRoll = function (rolled) {
+      var who = sheetSpeaker();
+      var text = (who ? who + " · " : "") + rolled.formula + " = " + rolled.result;
+      addLog({
+        kind: "roll",
+        text: text,
+        label: "d" + rolled.sides,
+        formula: rolled.formula,
+        result: rolled.result,
+        face: rolled.face,
+        nat: rolled.sides === 20 ? rolled.face : undefined
+      });
+      if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
+        root.SSDNSDmJoin.postRoll({
+          label: "d" + rolled.sides,
+          formula: rolled.formula,
+          result: rolled.result,
+          detail: String(rolled.face),
+          face: rolled.face,
+          nat: rolled.sides === 20 ? rolled.face : undefined,
+          private: whisperOn(),
+          whisper: whisperOn()
+        });
+      }
+    };
+  }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
   else wire();

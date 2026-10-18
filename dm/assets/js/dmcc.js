@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.54"; // dmcc-playtest-v0254
+const VERSION = "0.2.55"; // dmcc-playtest-v0255
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -770,7 +770,10 @@ async function pushLedger(entry) {
 async function pushRoll(entry) {
   entry.id = entry.id || uid("r");
   entry.ts = entry.ts || new Date().toISOString();
-  if (state.demo) {
+  if (window.SSDNSDice && window.SSDNSDice.showRoll) {
+    try { window.SSDNSDice.showRoll(entry); } catch (err) {}
+  }
+  if (state.demo || !state.db || !state.roomCode) {
     state.rolls.unshift(entry);
     renderRolls();
     return;
@@ -1539,8 +1542,15 @@ function paintWho(name) {
   return esc(name);
 }
 function paintText(text) {
-  if (window.SSDNSApplied && window.SSDNSApplied.leadNameHtml) return window.SSDNSApplied.leadNameHtml(text);
-  return esc(text);
+  return paintLine(null, text);
+}
+function paintLine(entry, text) {
+  const html = window.SSDNSApplied && window.SSDNSApplied.leadNameHtml
+    ? window.SSDNSApplied.leadNameHtml(text || "")
+    : esc(text || "");
+  if (window.SSDNSDice && window.SSDNSDice.lead) return window.SSDNSDice.lead(entry || { formula: text }, html);
+  if (window.SSDNSDice && window.SSDNSDice.decorate) return window.SSDNSDice.decorate(html);
+  return html;
 }
 function rollBody(r) {
   const detail = rollDetail(r);
@@ -2109,6 +2119,12 @@ function dockItems() {
       cls: (r.private ? "private " : "") + (face.cls || ""),
       tag: r.private ? "PRIVATE" : face.tag,
       text: rollBody(r),
+      formula: r.formula || "",
+      attack: !!r.attack,
+      nat: r.nat,
+      result: r.result,
+      face: r.face,
+      rolls: r.rolls,
       applyHtml: hitApplyButton(r)
     });
   });
@@ -2160,7 +2176,12 @@ function publishMapChat() {
       who: rollWho(r) || r.characterName || r.who || "",
       cls: (r.private ? "private " : "") + (face.cls || ""),
       tag: r.private ? "PRIVATE" : face.tag,
-      text: rollBody(r)
+      text: rollBody(r),
+      formula: r.formula || "",
+      attack: !!r.attack,
+      nat: r.nat,
+      result: r.result,
+      face: r.face
     });
   });
   (state.messages || []).forEach((m) => {
@@ -2188,7 +2209,7 @@ function renderLiveDockNow() {
   const items = all.filter((row) => filter === "all" || row.kind === filter || (filter === "alerts" && row.kind === "alerts"));
   const stick = feed.dataset.stick !== "0";
   feed.innerHTML = items.slice(-80).map((row) =>
-    `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${paintWho(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${paintText(row.text || "")}${row.applyHtml || ""}</div></div>`
+    `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${paintWho(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${paintLine(row, row.text || "")}${row.applyHtml || ""}</div></div>`
   ).join("") || '<p class="lede">Nothing in this filter yet.</p>';
   if (stick) feed.scrollTop = feed.scrollHeight;
   publishMapChat();
@@ -2257,7 +2278,7 @@ function renderRolls() {
         ${face.tag ? '<span class="roll-tag">' + esc(face.tag) + "</span>" : ""}
         ${nat ? '<span class="badge danger">Nat 1 · firearm</span>' : ""}
       </div>
-      <div class="feed-what">${paintText(rollBody(r))} ${hitApplyButton(r)}</div>
+      <div class="feed-what">${paintLine(r, rollBody(r))} ${hitApplyButton(r)}</div>
     </div>`;
   }).join("");
   renderLiveDock();
@@ -2442,10 +2463,12 @@ async function doDmRoll() {
     const pub = $("#rollPublic") && $("#rollPublic").checked;
     const priv = pub ? false : ($("#rollPrivate") ? $("#rollPrivate").checked : true);
     const out = rollChecked(formula, mode, extra);
+    const face = out.rolls && out.rolls.length === 1 ? out.rolls[0] : null;
     await pushRoll({
       who: "DM", playerId: null, uid: state.uid || "demo_dm",
       label, formula, result: out.total, detail: out.detail,
-      nat1: out.nat1, isFirearm: false, private: priv
+      nat1: out.nat1, isFirearm: false, private: priv,
+      rolls: out.rolls, face: face
     });
     toast((priv ? "Private " : "Public ") + "roll: " + out.total);
   } finally { rolling = false; }
@@ -2680,6 +2703,24 @@ function wire() {
     if (name && state.meta && !state.demo) { state.meta.name = name; renderRoomHero(); }
   };
   $("#btnCreateRoom").addEventListener("click", createRoom);
+  if (window.SSDNSDice) {
+    window.SSDNSDice.onBarRoll = (rolled) => {
+      pushRoll({
+        who: "DM",
+        playerId: null,
+        uid: state.uid || "demo_dm",
+        label: "d" + rolled.sides,
+        formula: rolled.formula,
+        result: rolled.result,
+        face: rolled.face,
+        rolls: [rolled.face],
+        detail: String(rolled.face),
+        nat1: rolled.sides === 20 && rolled.face === 1,
+        isFirearm: false,
+        private: false
+      });
+    };
+  }
   const headerRoll = $("#headerRoll");
   if (headerRoll) headerRoll.addEventListener("submit", (e) => {
     e.preventDefault();

@@ -351,6 +351,12 @@ toolbar.innerHTML = `
   ` : ``}
 `;
 el.appendChild(toolbar);
+if (window.SSDNSDice && window.SSDNSDice.mount) {
+  const diceBar = document.createElement('div');
+  diceBar.className = 'dice-bar dice-bar-map';
+  toolbar.appendChild(diceBar);
+  window.SSDNSDice.mount(diceBar);
+}
 on(document, 'keydown', e => {
   if (role === 'dm' && e.key === 'Escape' && state.pendingTarget) {
     e.preventDefault();

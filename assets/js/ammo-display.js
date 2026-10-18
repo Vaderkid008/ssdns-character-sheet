@@ -53,6 +53,8 @@
     }
     var jam = root.SSDNSTestJammer && root.SSDNSTestJammer.lookup && root.SSDNSTestJammer.lookup(id || name);
     if (jam) return jam;
+    var peace = root.SSDNSPeaceMaker && root.SSDNSPeaceMaker.lookup && root.SSDNSPeaceMaker.lookup(id || name);
+    if (peace) return peace;
     return null;
   }
 

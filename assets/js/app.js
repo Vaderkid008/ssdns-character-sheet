@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.41"; // sheet-playtest-v0341
+  var APP_VERSION = "0.3.42"; // sheet-playtest-v0342
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -60,6 +60,12 @@
     jam.weapons().forEach(function (w) {
       if (w && w.debug && w.id && !WPN[w.id]) WPN[w.id] = w;
     });
+  })();
+  (function installDmOnlyGuns() {
+    var pm = window.SSDNSPeaceMaker;
+    if (!pm || !pm.weapon) return;
+    var w = pm.weapon();
+    if (w && w.dmOnly && w.id && !WPN[w.id]) WPN[w.id] = w;
   })();
   var SHARDS = R.currency; // [{id:"white", color:"White", equals:"1 ES", es:1}, ...] (PHB Currency — Eldorite)
   var SPELL_LINES = [8, 12, 13, 13, 13, 9, 9, 9, 7, 7]; // same number of lines as the 5e base sheet, page 3
@@ -1390,6 +1396,13 @@
       } else if (testOpt) {
         testOpt.parentNode.removeChild(testOpt);
       }
+      var dmOpt = sel.querySelector("option[data-dm-gun]");
+      var dmGun = cur && window.SSDNSPeaceMaker && window.SSDNSPeaceMaker.lookup ? window.SSDNSPeaceMaker.lookup(cur) : null;
+      if (dmGun) {
+        if (!dmOpt) sel.appendChild(el("option", { value: dmGun.id, text: dmGun.name + " · DM", "data-dm-gun": "1" }));
+      } else if (dmOpt) {
+        dmOpt.parentNode.removeChild(dmOpt);
+      }
       if (document.activeElement !== sel && sel.value !== cur) sel.value = cur;
     });
     fillCasterGunSelect();
@@ -1636,6 +1649,7 @@
     renderAmmo();
     renderExplosives();
     renderStorytellerKit();
+    renderGearArt();
     var h = HOL[c.holster];
     var holMsg;
     if (h) {
@@ -1835,6 +1849,15 @@
       if (carry && carry.text) parts.push(carry.text);
     }
     if (info) info.textContent = parts.join(" ");
+    var focusPhoto = $("#focusPhoto");
+    if (focusPhoto && window.SSDNSInstrumentArt) {
+      window.SSDNSInstrumentArt.paint(focusPhoto, {
+        id: c.instrument,
+        quality: c.instrumentQuality,
+        equipment: c.equipment,
+        name: inst ? inst.name : (c.instrument || "")
+      });
+    }
     var focusBox = $("#focusEquipped");
     if (focusBox) {
       var focusLock = !!(window.SSDNSEquip && window.SSDNSEquip.combatLocked && window.SSDNSEquip.combatLocked());
@@ -1844,6 +1867,21 @@
     }
     var q = $("#selInstrumentQuality");
     if (q) q.disabled = c.instrument === "voice" || c.instrument === "piano" || !c.instrument;
+  }
+
+  function renderGearArt() {
+    var strip = $("#gearArtStrip");
+    if (!strip || !window.SSDNSItemArt || !window.SSDNSItemArt.matchesIn) return;
+    var rows = window.SSDNSItemArt.matchesIn(C().equipment || "");
+    if (!rows.length) {
+      strip.hidden = true;
+      strip.innerHTML = "";
+      return;
+    }
+    strip.hidden = false;
+    strip.innerHTML = rows.map(function (row) {
+      return '<figure class="gear-art"><img alt="' + esc(row.name) + '" src="' + row.src + '"><figcaption>' + esc(row.name) + "</figcaption></figure>";
+    }).join("");
   }
 
   function renderRef() {
@@ -3125,6 +3163,7 @@
         if (String(row.id || "").toLowerCase() === low || String(row.name || "").toLowerCase() === low) w = row;
       });
     }
+    if (!w && window.SSDNSPeaceMaker && window.SSDNSPeaceMaker.lookup) w = window.SSDNSPeaceMaker.lookup(key);
     if (!w || !w.id) return false;
     var melee = (R.melee || []).some(function (row) { return row && row.id === w.id; });
     if (melee) {

@@ -64,7 +64,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.41"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.42"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -407,11 +407,11 @@
     else if (app && app.applyPatch) app.applyPatch(function () {});
   }
   function broadcastD4(title, n, label) {
-    var text = (title || "Dirty d4") + ": " + n + " — " + label;
+    var text = (title || "Dirty d4") + ": 1d4 = " + n + " — " + label;
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.postFeed) {
-      root.SSDNSDmJoin.postFeed({ kind: "d4", text: text, result: n, formula: "1d4" });
+      root.SSDNSDmJoin.postFeed({ kind: "d4", text: text, result: n, formula: "1d4", face: n });
     }
-    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "roll", text: text });
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "roll", text: text, formula: "1d4", result: n, face: n });
   }
   function wielderName() {
     var app = root.SSDNSApp;
@@ -425,6 +425,7 @@
     var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.firearms) || [], (root.SSDNS_RULES && root.SSDNS_RULES.casterGuns) || []);
     var w = lists.filter(function (x) { return x && (x.id === id || x.name === g.name); })[0];
     if (!w && root.SSDNSTestJammer && root.SSDNSTestJammer.lookup) w = root.SSDNSTestJammer.lookup(id || g.name);
+    if (!w && root.SSDNSPeaceMaker && root.SSDNSPeaceMaker.lookup) w = root.SSDNSPeaceMaker.lookup(id || g.name);
     if (w && w.name) return w.name;
     if (g.name && g.name !== id) return g.name;
     return g.name || id || "Gun";
@@ -436,10 +437,14 @@
     return who + " · " + gun + " · " + damage + " fire";
   }
   function broadcastFire(text, damage) {
-    if (root.SSDNSDmJoin && root.SSDNSDmJoin.postFeed) {
-      root.SSDNSDmJoin.postFeed({ kind: "d4", text: text, result: damage, formula: "1d4" });
+    var shown = String(text || "");
+    if (shown.indexOf("1d4") < 0 && /\d+\s+fire$/.test(shown)) {
+      shown = shown.replace(/(\d+)\s+fire$/, "1d4 fire = $1");
     }
-    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "roll", text: text, formula: "1d4", result: damage });
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.postFeed) {
+      root.SSDNSDmJoin.postFeed({ kind: "d4", text: shown, result: damage, formula: "1d4", face: damage });
+    }
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "roll", text: shown, formula: "1d4", result: damage, face: damage });
   }
   function rollFire() {
     if (root.SSDNSMisfire && root.SSDNSMisfire.fireRoll) return root.SSDNSMisfire.fireRoll();
@@ -473,6 +478,7 @@
       var face = dlg.querySelector("#d4Face");
       var fireLine = dlg.querySelector("#d4Fire");
       var btn = dlg.querySelector("#d4Btn");
+      if (root.SSDNSDice && root.SSDNSDice.paint) root.SSDNSDice.paint(btn, sides, null);
       var token = { live: true };
       revealDie._open = revealDie._open || [];
       revealDie._open.push(token);
@@ -530,7 +536,9 @@
           : null;
         if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
         face.textContent = n + " — " + label;
-        btn.textContent = String(n);
+        if (root.SSDNSDice && root.SSDNSDice.paint) root.SSDNSDice.paint(btn, sides, n);
+        else btn.textContent = String(n);
+        if (root.SSDNSDice && root.SSDNSDice.show) root.SSDNSDice.show({ sides: sides, face: n, formula: "1d" + sides, total: n });
         broadcastD4(title, n, label);
         var hold = 900;
         if (result && result.explode) {
@@ -544,7 +552,9 @@
             fireLine.hidden = false;
             fireLine.textContent = line;
           }
-          btn.textContent = String(damage);
+          if (root.SSDNSDice && root.SSDNSDice.paint) root.SSDNSDice.paint(btn, 4, damage);
+          else btn.textContent = String(damage);
+          if (root.SSDNSDice && root.SSDNSDice.show) root.SSDNSDice.show({ sides: 4, face: damage, formula: "1d4", total: damage });
           broadcastFire(line, damage);
           hold = 1600;
         }
