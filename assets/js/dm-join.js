@@ -65,6 +65,28 @@
     }
   }
 
+  /* Non-blocking toast that fades on its own (no click to dismiss). */
+  function fadeToast(msg, ms) {
+    var d = root.document;
+    if (!d || !d.body) return null;
+    var box = d.getElementById("ssdnsFadeToasts");
+    if (!box) {
+      box = d.createElement("div");
+      box.id = "ssdnsFadeToasts";
+      box.className = "fade-toasts";
+      box.setAttribute("aria-live", "polite");
+      d.body.appendChild(box);
+    }
+    var t = d.createElement("div");
+    t.className = "fade-toast";
+    t.textContent = String(msg || "");
+    box.appendChild(t);
+    var life = ms || 4000;
+    setTimeout(function () { t.classList.add("out"); }, Math.max(0, life - 700));
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, life);
+    return t;
+  }
+
   function saveLocal() {
     try {
       var d = doc();
@@ -518,7 +540,7 @@
     if (!quiet) {
       var feed = {
         id: id, ts: entry.ts, from: state.uid,
-        fromName: entry.characterName || entry.who, characterName: entry.characterName || "", playerName: entry.playerName || "", weapon: entry.weapon || "", spellName: entry.spellName || "", text: rollText(entry), kind: "roll", who: entry.characterName || entry.who
+        fromName: entry.characterName || entry.who, characterName: entry.characterName || "", playerName: entry.playerName || "", weapon: entry.weapon || "", spellName: entry.spellName || "", text: rollText(entry), kind: "roll", who: entry.characterName || entry.who, formula: entry.formula || "", dice: Array.isArray(entry.dice) ? entry.dice : null
       };
       try { await fb.set(fb.ref(state.db, roomPath("tableFeed/" + id)), feed); }
       catch (err) { console.warn("[DM Join] table feed", err); }
@@ -528,6 +550,7 @@
         await fb.set(fb.ref(state.db, roomPath("playerInit/" + state.uid)), {
           ts: entry.ts, init: Number(entry.result) || 0, name: entry.characterName || entry.who, from: state.uid
         });
+        fadeToast("Initiative: " + (Number(entry.result) || 0), 4500);
       } catch (err) { console.warn("[DM Join] initiative", err); }
     }
   }
@@ -846,6 +869,16 @@
   function handleCommand(cmd) {
     var payload = cmd.payload || {};
     switch (cmd.type) {
+      case "init_prompt":
+        fadeToast("Roll initiative!", 5000);
+        toast("Roll initiative!", "Roll", function () {
+          if (root.SSDNSSheet && root.SSDNSSheet.rollInitiative) root.SSDNSSheet.rollInitiative();
+        }, Math.max(3000, Number(payload.wait) || 8000));
+        break;
+      case "init_set":
+        fadeToast("Initiative: " + (payload.init != null ? payload.init : "?") + (payload.auto ? " (auto-rolled)" : ""), 5000);
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "init:" + (cmd.id || ""), kind: "alert", text: "Initiative: " + payload.init + (payload.auto ? " (auto-rolled by the DM)" : "") });
+        break;
       case "reward_es":
         var bankId = String(payload.grantId || "").indexOf("bank:") === 0 ? String(payload.grantId).slice(5) : "";
         var bankOk = applyEsReward(payload.delta || 0, payload.reason || "DM reward", payload.grantId || cmd.id);
@@ -2298,6 +2331,7 @@
       publishSnapshot: publishSnapshot,
       postLedger: postLedger,
       postRoll: postRoll,
+      fadeToast: fadeToast,
       postSfx: postSfx,
       postFeed: postFeed,
       postChat: postChat,

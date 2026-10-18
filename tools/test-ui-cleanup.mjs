@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.45 / DMCC 0.2.58 UI cleanup.
+ * Sheet 0.3.46 / DMCC 0.2.59 UI cleanup.
  * Toolbar move buttons, docked chat tuck, draggable DM card, gun melee order.
  *   node tools/test-ui-cleanup.mjs
  */
@@ -22,14 +22,15 @@ const app = read("assets/js/app.js");
 const mapSrc = read("map/ssdns-map.js");
 const css = read("map/ssdns-map.css");
 const sheetCss = read("assets/css/sheet.css");
-check("ver.sheet", version.sheet === "0.3.45" && version.sheetBuild === "sheet-playtest-v0345");
-check("ver.dmcc", version.dmcc === "0.2.58" && version.dmccBuild === "dmcc-playtest-v0258");
-check("ver.app", app.includes('APP_VERSION = "0.3.45"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.58"'));
+check("ver.sheet", version.sheet === "0.3.46" && version.sheetBuild === "sheet-playtest-v0346");
+check("ver.dmcc", version.dmcc === "0.2.59" && version.dmccBuild === "dmcc-playtest-v0259");
+check("ver.app", app.includes('APP_VERSION = "0.3.46"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.59"'));
 check("rules.untouched", !read("database.rules.json").includes("ssdns.dmCard") && !read("assets/data/rules.js").includes("g-gunmelee"));
 
 const toolbar = mapSrc.slice(mapSrc.indexOf("toolbar.innerHTML"), mapSrc.indexOf("el.appendChild(toolbar)"));
 const leftbar = mapSrc.slice(mapSrc.indexOf("leftbar.innerHTML"), mapSrc.indexOf("el.appendChild(leftbar)"));
-check("toolbar.moves", toolbar.includes('class="ssm-move-tools"') && toolbar.indexOf('data-act="lockBtn"') < toolbar.indexOf('data-act="undoBtn"') && toolbar.indexOf('data-act="undoBtn"') < toolbar.indexOf('data-act="redoBtn"'));
+const rightSrc = mapSrc.slice(mapSrc.indexOf("rightbar.innerHTML"), mapSrc.indexOf("el.appendChild(rightbar)"));
+check("toolbar.moves", !toolbar.includes('data-act="lockBtn"') && rightSrc.includes('class="ssm-move-tools"') && rightSrc.indexOf('data-act="lockBtn"') < rightSrc.indexOf('data-act="undoBtn"') && rightSrc.indexOf('data-act="undoBtn"') < rightSrc.indexOf('data-act="redoBtn"'));
 check("toolbar.notLeft", !leftbar.includes('data-act="lockBtn"') && !leftbar.includes("Undo Move") && !leftbar.includes("Redo Move"));
 check("chat.toggle", mapSrc.includes('data-act="chatToggle"') && mapSrc.includes("ssdns.map.chatOpen") && mapSrc.includes('data-act="chatPop">Pop out') && mapSrc.includes('data-act="chatWindow"'));
 check("card.drag", mapSrc.includes("ssdns.dmCard") && mapSrc.includes('data-act="drawerReset"') && css.includes(".ssm-drawer.placed"));
@@ -108,9 +109,10 @@ await flush(40);
 
 const bar = el.querySelector(".ssdns-toolbar");
 const left = el.querySelector(".ssdns-leftbar");
-const moves = bar && bar.querySelector(".ssm-move-tools");
+const right = el.querySelector(".ssdns-rightbar");
+const moves = right && right.querySelector(".ssm-move-tools");
 const moveActs = moves ? [...moves.querySelectorAll("button")].map((b) => b.getAttribute("data-act")) : [];
-check("dm.right", moveActs.join(",") === "lockBtn,undoBtn,redoBtn" && bar.contains(act(el, "lockBtn")) && !left.contains(act(el, "lockBtn")), moveActs.join(","));
+check("dm.right", moveActs.join(",") === "lockBtn,undoBtn,redoBtn" && right.contains(act(el, "lockBtn")) && !bar.contains(act(el, "lockBtn")) && !left.contains(act(el, "lockBtn")), moveActs.join(","));
 act(el, "lockBtn").click();
 check("lock.needsToken", act(el, "toast") && act(el, "toast").textContent === "Select a token first");
 act(el, "addTokenBtn").click();
@@ -124,7 +126,7 @@ check("undo.wired", !!act(el, "undoBtn") && !!act(el, "redoBtn"));
 const dock = el.querySelector(".ssdns-chatdock");
 check("chat.open", dock && !dock.classList.contains("ssm-chat-shut") && act(el, "chatCaret").textContent === "▾" && w.localStorage.getItem("ssdns.map.chatOpen.dm") === "1");
 act(el, "chatToggle").click();
-check("chat.tucked", dock.classList.contains("ssm-chat-shut") && act(el, "chatToggle").getAttribute("aria-expanded") === "false" && act(el, "chatCaret").textContent === "▸" && w.localStorage.getItem("ssdns.map.chatOpen.dm") === "0");
+check("chat.tucked", dock.classList.contains("ssm-chat-shut") && act(el, "chatToggle").getAttribute("aria-expanded") === "false" && act(el, "chatCaret").textContent === "▲" && w.localStorage.getItem("ssdns.map.chatOpen.dm") === "0");
 check("chat.popStays", act(el, "chatPop") && act(el, "chatPop").hidden === false && act(el, "chatWindow") && act(el, "chatWindow").hidden === false);
 act(el, "chatPop").click();
 const float = el.querySelector("[data-act=chatFloat]");

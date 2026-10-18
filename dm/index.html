@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="assets/revolver.png">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.58-fire">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.59-fire">
 <link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.2.41-art">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.58-fire">
-<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.58-dice">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.59-fire">
+<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.59-dice">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -35,8 +35,6 @@
     <button type="button" class="btn sm btn-danger" id="btnEndSession" hidden title="End session">End Session</button>
   </div>
 </header>
-<div id="diceBar" data-dice-bar></div>
-<div id="diceStage" class="dice-stage" hidden></div>
 
 <div class="statusbar" id="statusBar" role="status">
   <span class="status-dot demo" id="statusDot"></span>
@@ -50,6 +48,9 @@
     <input type="checkbox" data-sfx-mute checked> Sound
   </label>
 </div>
+<div id="diceBar" data-dice-bar></div>
+<div id="diceStage" class="dice-stage" hidden></div>
+
 <div id="addictionAlert" class="addiction-alert" hidden></div>
 <details class="shortcut-help">
   <summary>Keyboard shortcuts (Stream Deck)</summary>
@@ -325,6 +326,11 @@
         <p class="wanted-kicker">Dead or alive</p>
         <h2>Wanted</h2>
         <p class="wanted-round" id="initRound">Round 1</p>
+        <div class="wanted-actions">
+          <button type="button" class="btn btn-add-enemy" id="btnPlusEnemy" title="Add an enemy or a custom enemy">+ Enemy</button>
+          <button type="button" class="btn btn-primary btn-roll-init" id="btnRollInitAll" title="Rolls every enemy and asks every player to roll. Slow or offline players are auto-rolled with their own bonus.">Roll Initiative</button>
+        </div>
+        <p class="fine" id="rollInitStatus" aria-live="polite"></p>
       </header>
       <div class="insp-pool" id="inspPool">
         <b id="inspCount">0</b>
@@ -566,35 +572,35 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.58-fire"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.59-fire"></script>
 <script src="../assets/js/conditions.js?v=0.2.35"></script>
 <script src="assets/js/ui-tab.js?v=0.2.35"></script>
-<script src="../assets/js/sfx.js?v=0.2.58-fire"></script>
+<script src="../assets/js/sfx.js?v=0.2.59-fire"></script>
 <script src="../assets/data/rules.js?v=0.2.35-class"></script>
-<script src="../assets/js/equip.js?v=0.2.58-equip"></script>
+<script src="../assets/js/equip.js?v=0.2.59-equip"></script>
 <script src="../assets/js/spell-fx.js?v=0.2.35"></script>
 <script src="../assets/js/spell-cast.js?v=0.2.39-range"></script>
-<script src="../assets/js/misfire.js?v=0.2.58-fire"></script>
+<script src="../assets/js/misfire.js?v=0.2.59-fire"></script>
 <script src="../assets/js/firebase-config.js?v=0.2.35"></script>
 <script src="assets/js/store-stock.js?v=0.2.35"></script>
 <script src="assets/js/demo-data.js?v=0.2.35-guns"></script>
-<script src="../assets/js/test-jammer.js?v=0.2.58-fire"></script>
-<script src="../assets/js/weapon-art.js?v=0.2.58-art"></script>
-<script src="../assets/js/instrument-art.js?v=0.2.58-art"></script>
-<script src="../assets/data/item-catalog.js?v=0.2.58-items"></script>
-<script src="../assets/js/items.js?v=0.2.58-items"></script>
-<script src="../assets/js/item-art.js?v=0.2.58-art"></script>
-<script src="../assets/js/peace-maker.js?v=0.2.58-art"></script>
-<script src="../assets/js/dice-art.js?v=0.2.58-dice"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.58-fire"></script>
-<script src="../assets/js/ammo-display.js?v=0.2.58-fire"></script>
-<script src="../assets/js/grab.js?v=0.2.58-grab"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.58-fire"></script>
+<script src="../assets/js/test-jammer.js?v=0.2.59-fire"></script>
+<script src="../assets/js/weapon-art.js?v=0.2.59-art"></script>
+<script src="../assets/js/instrument-art.js?v=0.2.59-art"></script>
+<script src="../assets/data/item-catalog.js?v=0.2.59-items"></script>
+<script src="../assets/js/items.js?v=0.2.59-items"></script>
+<script src="../assets/js/item-art.js?v=0.2.59-art"></script>
+<script src="../assets/js/peace-maker.js?v=0.2.59-art"></script>
+<script src="../assets/js/dice-art.js?v=0.2.59-dice"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.59-fire"></script>
+<script src="../assets/js/ammo-display.js?v=0.2.59-fire"></script>
+<script src="../assets/js/grab.js?v=0.2.59-grab"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.59-fire"></script>
 <script src="../map/token-crop.js?v=0.2.38-card"></script>
 <script src="../assets/js/range-rings.js?v=0.2.42-dis"></script>
 <script src="../map/ssdns-map-chat.js?v=0.2.44-float"></script>
-<script src="../map/ssdns-map.js?v=0.2.58-fire"></script>
+<script src="../map/ssdns-map.js?v=0.2.59-fire"></script>
 <script src="../map/ssdns-map-firebase.js?v=0.2.36-sync"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.58-fire"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.59-fire"></script>
 </body>
 </html>

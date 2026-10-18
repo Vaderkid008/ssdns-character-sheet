@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.58"; // dmcc-playtest-v0258
+const VERSION = "0.2.59"; // dmcc-playtest-v0259
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -787,7 +787,8 @@ async function pushRoll(entry) {
       const text = (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result ?? "") + (entry.detail ? " (" + entry.detail + ")" : "");
       const feed = {
         id: entry.id, ts: entry.ts, from: state.uid || "dm", fromName: "DM",
-        text: text, kind: "roll", who: entry.who || "DM"
+        text: text, kind: "roll", who: entry.who || "DM",
+        formula: entry.formula || "", dice: Array.isArray(entry.dice) ? entry.dice : null
       };
       // One public copy. A roll command as well made the player log the same roll twice.
       try { await state._fb.set(roomRef("tableFeed/" + entry.id), feed); } catch (err) { writeFailed(err, "Couldn't sync to players"); }
@@ -2728,17 +2729,19 @@ function wire() {
   $("#btnCreateRoom").addEventListener("click", createRoom);
   if (window.SSDNSDice) {
     window.SSDNSDice.onBarRoll = (rolled) => {
+      const many = !!(rolled.pool && rolled.faces && (rolled.faces.length > 1 || rolled.mod));
       pushRoll({
         who: "DM",
         playerId: null,
         uid: state.uid || "demo_dm",
-        label: "d" + rolled.sides,
+        label: many ? "Roll" : "d" + rolled.sides,
         formula: rolled.formula,
         result: rolled.result,
         face: rolled.face,
-        rolls: [rolled.face],
-        detail: String(rolled.face),
-        nat1: rolled.sides === 20 && rolled.face === 1,
+        rolls: rolled.faces || [rolled.face],
+        dice: rolled.dice || null,
+        detail: many ? rolled.detail : String(rolled.face),
+        nat1: !many && rolled.sides === 20 && rolled.face === 1,
         isFirearm: false,
         private: false
       });

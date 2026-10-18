@@ -2702,6 +2702,7 @@
   }
   root.SSDNSGunMelee = rollGunMelee;
   root.SSDNSSheet = {
+    rollInitiative: rollInitiative,
     applyDelta: applyDelta,
     setHp: setHp,
     flashHp: flashHp,
@@ -2745,23 +2746,31 @@
     root.SSDNSDice.onBarRoll = function (rolled) {
       var who = sheetSpeaker();
       var text = (who ? who + " · " : "") + rolled.formula + " = " + rolled.result;
+      var many = !!(rolled.pool && rolled.faces && (rolled.faces.length > 1 || rolled.mod));
+      var label = many ? "Roll" : "d" + rolled.sides;
+      var natOne = rolled.sides === 20 && (!rolled.faces || rolled.faces.length === 1) ? rolled.face : undefined;
       addLog({
         kind: "roll",
         text: text,
-        label: "d" + rolled.sides,
+        label: label,
         formula: rolled.formula,
         result: rolled.result,
         face: rolled.face,
-        nat: rolled.sides === 20 ? rolled.face : undefined
+        rolls: rolled.faces || [rolled.face],
+        dice: rolled.dice || undefined,
+        detail: many ? rolled.detail : undefined,
+        nat: natOne
       });
       if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
         root.SSDNSDmJoin.postRoll({
-          label: "d" + rolled.sides,
+          label: label,
           formula: rolled.formula,
           result: rolled.result,
-          detail: String(rolled.face),
+          detail: many ? rolled.detail : String(rolled.face),
+          rolls: rolled.faces || [rolled.face],
+          dice: rolled.dice || null,
           face: rolled.face,
-          nat: rolled.sides === 20 ? rolled.face : undefined,
+          nat: natOne,
           private: whisperOn(),
           whisper: whisperOn()
         });

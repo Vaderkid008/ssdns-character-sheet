@@ -1095,6 +1095,8 @@ function renderFight() {
     renderInspiration();
     const rollAllBtn = $("#btnRollAll");
     if (rollAllBtn) rollAllBtn.hidden = !!fight.started;
+    const rollInitBig = $("#btnRollInitAll");
+    if (rollInitBig) rollInitBig.hidden = !!fight.started;
     if (!fight.order.length) {
       const empty = '<div class="empty"><b>No turn order</b>Add a player or an example creature. Initiative rolls from joined sheets land here.</div>';
       if (list && !(document.activeElement && list.contains(document.activeElement))) list.innerHTML = empty;
@@ -4447,6 +4449,78 @@ function rollAllEnemies() {
   renderFight();
   announce("Rolled initiative", "initiative");
 }
+/* 0.2.59: one big Roll Initiative. Enemies roll now; players get a prompt and
+   anyone who hasn't rolled in INIT_WAIT_MS (or is offline) is auto-rolled with
+   their own init bonus. Each player gets a fading "Initiative: N" toast. */
+const INIT_WAIT_MS = 8000;
+function playerInitBonus(snap) {
+  const n = knownNumber(snap && snap.initBonus);
+  if (n != null) return n;
+  return dexModOf(snap);
+}
+function freshInit(pid, since) {
+  const row = pid && DM.state.playerInit && DM.state.playerInit[pid];
+  const n = knownNumber(row && row.init);
+  if (n == null) return null;
+  if (since && row.ts && Date.parse(row.ts) && Date.parse(row.ts) < since - 1000) return null;
+  return n;
+}
+function rollInitiativeForAll(opts) {
+  opts = opts || {};
+  const wait = opts.wait != null ? opts.wait : INIT_WAIT_MS;
+  const since = Date.now();
+  fight.recruit = true;
+  ensurePlayers();
+  const status = $("#rollInitStatus");
+  const btn = $("#btnRollInitAll");
+  fight.order.forEach((row) => {
+    if (row.kind === "player") return;
+    row.init = d20() + (Number(row.initBonus) || 0);
+  });
+  const players = fight.order.filter((r) => r && r.kind === "player");
+  players.forEach((row) => {
+    const pid = row.playerId || row.id;
+    if (!playerIsOnline(pid)) return;
+    DM.pushCommand({ type: "init_prompt", to: pid, quiet: true, payload: { round: fight.round, wait: wait }, from: DM.state.uid });
+  });
+  if (status) status.textContent = players.length ? "Waiting for players to roll…" : "";
+  if (btn) btn.disabled = true;
+  saveRemoteTable();
+  renderFight();
+  const finish = () => {
+    const auto = [];
+    players.forEach((row) => {
+      const pid = row.playerId || row.id;
+      const posted = freshInit(pid, since);
+      if (posted != null) {
+        row.init = posted;
+        row.initFrom = "sheet";
+        return;
+      }
+      const snap = DM.state.players[pid] && DM.state.players[pid].snapshot;
+      row.init = d20() + playerInitBonus(snap);
+      row.initFrom = "auto";
+      auto.push(row.name || pid);
+      DM.pushCommand({ type: "init_set", to: pid, quiet: true, payload: { init: row.init, auto: true, name: row.name || "" }, from: DM.state.uid });
+    });
+    sortInitiative();
+    saveRemoteTable();
+    renderFight();
+    if (btn) btn.disabled = false;
+    if (status) status.textContent = auto.length ? "Auto-rolled: " + auto.join(", ") : "";
+    announce("Rolled initiative" + (auto.length ? " (auto: " + auto.join(", ") + ")" : ""), "initiative");
+    return auto;
+  };
+  if (!players.length || wait <= 0) return Promise.resolve(finish());
+  return new Promise((resolve) => setTimeout(() => resolve(finish()), wait));
+}
+function openAddEnemy() {
+  const menu = $("#combatantMenu");
+  if (menu) menu.open = true;
+  const q = $("#enemyQ") || $("#customName");
+  if (menu && menu.scrollIntoView) { try { menu.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) {} }
+  if (q && q.focus) q.focus();
+}
 function askEndCombat() {
   return new Promise((resolve) => {
     const dlg = document.createElement("dialog");
@@ -5892,10 +5966,16 @@ async function bootV2() {
     enterRoom: enterRoom,
     renderFight: renderFight,
     removeCombatant: removeCombatant,
+    rollInitiativeForAll: rollInitiativeForAll,
+    openAddEnemy: openAddEnemy,
     openAllStores: openAllStores
   };
   const rollAll = $("#btnRollAll");
   if (rollAll) rollAll.addEventListener("click", rollAllEnemies);
+  const rollInitAll = $("#btnRollInitAll");
+  if (rollInitAll) rollInitAll.addEventListener("click", () => { rollInitiativeForAll(); });
+  const plusEnemy = $("#btnPlusEnemy");
+  if (plusEnemy) plusEnemy.addEventListener("click", openAddEnemy);
   const endBtn = $("#btnEndCombat");
   if (endBtn) endBtn.addEventListener("click", endCombat);
   const addCustom = $("#btnAddCustom");
