@@ -69,6 +69,7 @@ window.SSDNSMap = { create(opts) {
   const host = opts.host || {};
   const options = opts.options || {};
   if (!options.scene) throw new Error('SSDNSMap: options.scene required');
+  const BASE_GRID = JSON.parse(JSON.stringify(options.scene.grid || { cols: 30, rows: 20, px: 70 }));
   function asset(src) {
     if (!src) return '';
     if (/^(https?:|data:|blob:|\/)/.test(src)) return src;
@@ -132,13 +133,16 @@ window.SSDNSMap = { create(opts) {
     if (pub) write('map/public/tokens/' + id, pub);
     else if (adapter && adapter.remove) adapter.remove('map/public/tokens/' + id);
     write('map/dm/tokens/' + id, JSON.parse(JSON.stringify(t, (k, v) => k === '_img' ? undefined : v)));
+    if (typeof autosave === 'function') autosave();
   }
   function saveScene(sceneId) {
     if (role !== 'dm') return;
-    const sid = sceneId || (state && state.scene && state.scene.id) || 'scn_dustyspur01';
+    // 0.3.52: default to the scene the DM is looking at (was always the Dusty Spur).
+    const sid = sceneId || (typeof activeSceneId === 'function' ? activeSceneId() : '') || (state && state.scene && state.scene.id) || 'scn_dustyspur01';
     const data = (shared.scenes && shared.scenes[sid]) || {};
     write('map/public/scenes/' + sid, data);
     write('map/dm/scenes/' + sid, data);
+    if (typeof autosave === 'function') autosave();
   }
   function saveShared() {
     // seed only
@@ -334,11 +338,8 @@ toolbar.innerHTML = `
     <button data-act="showFovBtn" class="active">Show Player FOV: ON</button>
     <button data-act="offlineBtn">Ghost Plan: OFF</button>
     <button data-act="cancelGhostBtn">Cancel plan</button>
-    <select data-act="folderSelect" style="background:#3a3228;color:#e8dcc8;border:1px solid #5a4e40;border-radius:4px;padding:2px 4px;">
-      <option value="town">Town</option>
-      <option value="all">All</option>
-    </select>
-    <select data-act="sceneSelect" style="background:#3a3228;color:#e8dcc8;border:1px solid #5a4e40;border-radius:4px;padding:2px 4px;"></select>
+    <button data-act="mapsBtn" class="ssm-maps-btn" title="Maps: built-in, my maps, world">Maps ▾</button>
+    <select data-act="sceneSelect" hidden aria-hidden="true"></select>
     <button data-act="myViewBtn">My view</button>
     <button data-act="setFloorBtn">Set floor</button>
     <button data-act="showSceneBtn">Show to players</button>
@@ -2299,7 +2300,7 @@ function makeToken(spec) {
       x: Math.max(0, Math.min((grid.cols || 30) - 1, spot.x)),
       y: Math.max(0, Math.min((grid.rows || 20) - 1, spot.y))
     },
-    sceneId: (state.scene && state.scene.id) || 'scn_dustyspur01',
+    sceneId: activeSceneId() || 'scn_dustyspur01',
     image: spec.image || '',
     sheetId: spec.sheetId || (spec.kind === 'player' ? owner : ''),
     combatantId: spec.combatantId || (spec.kind === 'player' ? owner : '')
@@ -3667,17 +3668,13 @@ if (role === 'dm') {
     q('showFovBtn').classList.toggle('active', state.showPlayerFov);
     draw();
   });
-  q('folderSelect').addEventListener('change', fillSceneSelect);
+  q('mapsBtn').addEventListener('click', () => {
+    if (window.SSDNSMapLibrary && window.SSDNSMapLibrary.open) window.SSDNSMapLibrary.open(libraryApi());
+    else toast('Map menu not loaded');
+  });
   q('myViewBtn').addEventListener('click', () => {
     const sel = q('sceneSelect');
-    state.dmView = sel.value;
-    loadSceneImage(state.dmView);
-    const sd = sceneData();
-    const fogBtn = q('fogBtn');
-    if (fogBtn) {
-      fogBtn.textContent = sd.fogRevealed ? 'Fog: OFF' : 'Fog: ON';
-      fogBtn.classList.toggle('active', !sd.fogRevealed);
-    }
+    swapScene(sel.value);
     flashBtn('myViewBtn');
     toast('My view: ' + sel.options[sel.selectedIndex].text);
   });
@@ -3901,22 +3898,159 @@ if (role === 'dm') {
 }
 
 // --- scene images ---
-const SCENES = [
-  { id: 'scn_dustyspur01', name: 'Dusty Spur', folder: 'town', img: 'dusty-spur-saloon_30x20_70px.webp' },
-  { id: 'scn_street', name: 'Main Street', folder: 'town', img: 'main-street.webp' },
-  { id: 'scn_upstairs', name: 'Upstairs', folder: 'town', img: 'upstairs.webp' }
+// 0.3.52: built-in packs (map/map-packs.js) + the DM's own library (map/dm/library).
+const LEGACY_SCENES = [
+  { id: 'scn_dustyspur01', name: 'Dusty Spur', folder: 'builtin', img: 'dusty-spur-saloon_30x20_70px.webp' },
+  { id: 'scn_street', name: 'Main Street', folder: 'builtin', img: 'main-street.webp' },
+  { id: 'scn_upstairs', name: 'Upstairs', folder: 'builtin', img: 'upstairs.webp' }
 ];
+let library = {};
+function builtinScenes() {
+  const pack = window.SSDNS_MAP_PACKS;
+  if (!pack || !Array.isArray(pack.scenes) || !pack.scenes.length) return LEGACY_SCENES;
+  return pack.scenes.map(sc => Object.assign({ folder: 'builtin' }, sc));
+}
+function worldMaps() {
+  const pack = window.SSDNS_MAP_PACKS;
+  return (pack && Array.isArray(pack.world) ? pack.world : []).map(w => Object.assign({ folder: 'world' }, w));
+}
+function libraryScenes() {
+  return Object.keys(library || {}).map(id => library[id]).filter(e => e && e.id && !e.deleted).map(e => Object.assign({}, e, { folder: 'mine' }));
+}
+function publicMetaScenes() {
+  const out = [];
+  Object.keys(shared.scenes || {}).forEach(id => {
+    const m = shared.scenes[id] && shared.scenes[id].meta;
+    if (m && m.src) out.push({ id, name: m.name || 'Map', folder: 'mine', src: m.src, grid: m.grid });
+  });
+  return out;
+}
+function allScenes() {
+  const seen = {};
+  const list = [];
+  builtinScenes().concat(libraryScenes(), publicMetaScenes()).forEach(sc => { if (sc && !seen[sc.id]) { seen[sc.id] = 1; list.push(sc); } });
+  return list;
+}
+const SCENES = { find: fn => allScenes().find(fn), filter: fn => allScenes().filter(fn) };
 function fillSceneSelect() {
-  const folder = q('folderSelect')?.value || 'all';
   const sel = q('sceneSelect');
   if (!sel) return;
+  const keep = sel.value || activeSceneId();
   sel.innerHTML = '';
-  SCENES.filter(s => folder === 'all' || s.folder === folder).forEach(s => {
+  allScenes().forEach(s => {
     const o = document.createElement('option');
     o.value = s.id;
     o.textContent = s.name;
     sel.appendChild(o);
   });
+  if (keep && allScenes().some(s => s.id === keep)) sel.value = keep;
+}
+function sceneGrid(sc) {
+  const base = BASE_GRID;
+  const g = (sc && sc.grid) || {};
+  return Object.assign({}, base, {
+    cols: Math.max(1, Math.round(Number(g.cols) || base.cols)),
+    rows: Math.max(1, Math.round(Number(g.rows) || base.rows)),
+    px: Number(g.px) || base.px || 70
+  });
+}
+function seedPackWalls(sc) {
+  if (role !== 'dm' || !sc || !Array.isArray(sc.walls) || !sc.walls.length) return false;
+  const sd = sceneData(sc.id);
+  if (sd.walls.length || sd.seededPack) return false;
+  sd.walls = sc.walls.map(w => Object.assign({}, w));
+  sd.seededPack = true;
+  saveScene(sc.id);
+  return true;
+}
+function restoreSnapshot(sid, snap, opts) {
+  if (role !== 'dm' || !snap) return false;
+  opts = opts || {};
+  const sd = sceneData(sid);
+  const empty = !sd.walls.length && !(sd.fogShapes || []).length;
+  if (!empty && !opts.force) return false;
+  if (Array.isArray(snap.walls)) sd.walls = snap.walls.map(w => Object.assign({}, w));
+  if (Array.isArray(snap.fogShapes)) sd.fogShapes = snap.fogShapes.map(f => JSON.parse(JSON.stringify(f)));
+  sd.fogRevealed = snap.fogRevealed === true;
+  sd.seededPack = true;
+  (snap.tokens || []).forEach(t => {
+    if (!t || !t.id || t.kind === 'player' || t.ownerUid) return;
+    if (shared.tokens[t.id] && !opts.force) return;
+    const tok = JSON.parse(JSON.stringify(t));
+    tok.sceneId = sid;
+    shared.tokens[tok.id] = tok;
+    const live = state.tokens.find(x => x.id === tok.id);
+    if (live) Object.assign(live, tok); else state.tokens.push(JSON.parse(JSON.stringify(tok)));
+    saveToken(tok.id);
+  });
+  saveScene(sid);
+  return true;
+}
+function snapshotScene(sid) {
+  const sd = sceneData(sid);
+  const toks = Object.keys(shared.tokens || {}).map(id => shared.tokens[id]).filter(t => t && (t.sceneId || 'scn_dustyspur01') === sid && t.kind !== 'player' && !t.ownerUid);
+  return {
+    walls: JSON.parse(JSON.stringify(sd.walls || [])),
+    fogShapes: JSON.parse(JSON.stringify(sd.fogShapes || [])),
+    fogRevealed: sd.fogRevealed === true,
+    tokens: JSON.parse(JSON.stringify(toks, (k, v) => k === '_img' ? undefined : v)),
+    savedAt: Date.now()
+  };
+}
+function saveLibraryEntry(entry) {
+  if (!entry || !entry.id) return;
+  library[entry.id] = JSON.parse(JSON.stringify(entry));
+  try { localStorage.setItem('ssdns.maps.v1', JSON.stringify(library)); } catch (e) {}
+  if (role === 'dm') write('map/dm/library/' + entry.id, library[entry.id]);
+  if (entry.src && role === 'dm') {
+    const sd = sceneData(entry.id);
+    sd.meta = { name: entry.name || 'Map', src: entry.src, grid: { cols: entry.grid.cols, rows: entry.grid.rows, px: entry.grid.px || 70 } };
+    saveScene(entry.id);
+  }
+}
+function removeLibraryEntry(id) {
+  if (!library[id]) return;
+  delete library[id];
+  try { localStorage.setItem('ssdns.maps.v1', JSON.stringify(library)); } catch (e) {}
+  if (adapter && adapter.remove) adapter.remove('map/dm/library/' + id);
+  if (shared.scenes && shared.scenes[id] && shared.scenes[id].meta) { delete shared.scenes[id].meta; saveScene(id); }
+}
+if (role === 'dm') {
+  try { library = JSON.parse(localStorage.getItem('ssdns.maps.v1') || '{}') || {}; } catch (e) { library = {}; }
+}
+let autosaveTimer = 0;
+function autosave() {
+  if (role !== 'dm') return;
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    const sid = activeSceneId();
+    const entry = library[sid];
+    if (!entry) return;
+    entry.snapshot = snapshotScene(sid);
+    entry.updatedAt = Date.now();
+    saveLibraryEntry(entry);
+  }, 1500);
+}
+function swapScene(id) {
+  const sc = allScenes().find(s => s.id === id);
+  if (!sc) return false;
+  if (role === 'dm') {
+    const cur = activeSceneId();
+    if (library[cur] && cur !== id) { library[cur].snapshot = snapshotScene(cur); saveLibraryEntry(library[cur]); }
+    state.dmView = id;
+    const sel = q('sceneSelect');
+    if (sel) { fillSceneSelect(); sel.value = id; }
+    if (!seedPackWalls(sc) && library[id] && library[id].snapshot) restoreSnapshot(id, library[id].snapshot);
+  }
+  loadSceneImage(id, { center: true });
+  const sd = sceneData();
+  const fogBtn = q('fogBtn');
+  if (fogBtn) {
+    fogBtn.textContent = sd.fogRevealed ? 'Fog: OFF' : 'Fog: ON';
+    fogBtn.classList.toggle('active', !sd.fogRevealed);
+  }
+  if (window.SSDNSMapLibrary && window.SSDNSMapLibrary.refresh) window.SSDNSMapLibrary.refresh();
+  return true;
 }
 function activeSceneId() {
   if (role === 'dm') return state.dmView || 'scn_dustyspur01';
@@ -3962,12 +4096,22 @@ function getPlayerScene() {
   const my = state.tokens.find(t => t.ownerUid === uid);
   return my?.sceneId || shared.playerScenes?.[uid] || 'scn_dustyspur01';
 }
-async function loadSceneImage(sceneId) {
-  const scene = SCENES.find(s => s.id === sceneId) || SCENES[0];
+async function loadSceneImage(sceneId, opts) {
+  const scene = SCENES.find(s => s.id === sceneId) || builtinScenes()[0];
+  if (state.scene) {
+    const before = state.scene.grid || {};
+    state.scene.grid = sceneGrid(scene);
+    state.scene.mapId = scene.id;
+    const g = state.scene.grid;
+    if ((opts && opts.center) || before.cols !== g.cols || before.rows !== g.rows) {
+      state.view.x = (g.cols * g.px) / 2;
+      state.view.y = (g.rows * g.px) / 2;
+    }
+  }
   const img = new Image();
-  img.src = asset(scene.img);
-  await img.decode();
-  if (state.scene) state.scene._img = img;
+  img.src = scene.src || asset(scene.img);
+  try { await img.decode(); } catch (e) { toast('Map image did not load: ' + (scene.name || scene.id)); }
+  if (state.scene && state.scene.mapId === scene.id) state.scene._img = img;
   draw();
 }
 
@@ -5460,7 +5604,9 @@ async function loadSceneImage(sceneId) {
         if (!Array.isArray(next.walls)) next.walls = [];
         if (!Array.isArray(next.fogRects)) next.fogRects = [];
         if (!Array.isArray(next.fogPolys)) next.fogPolys = [];
+        const hadMeta = JSON.stringify((shared.scenes[sid] || {}).meta || null);
         shared.scenes[sid] = next;
+        if (role === 'player' && state.scene && sid === getPlayerScene() && JSON.stringify(next.meta || null) !== hadMeta) loadSceneImage(sid);
         requestDraw();
       }
     }));
@@ -5491,6 +5637,13 @@ async function loadSceneImage(sceneId) {
           requestDraw();
         }
       }));
+      unsubs.push(adapter.subscribe('map/dm/library', (value) => {
+        if (!value || typeof value !== 'object') return;
+        Object.keys(value).forEach(id => { if (value[id] && value[id].id) library[id] = value[id]; });
+        try { localStorage.setItem('ssdns.maps.v1', JSON.stringify(library)); } catch (e) {}
+        fillSceneSelect();
+        if (window.SSDNSMapLibrary && window.SSDNSMapLibrary.refresh) window.SSDNSMapLibrary.refresh();
+      }));
       unsubs.push(adapter.subscribe('map/dm/dismissed', (value, meta) => {
         const path = (meta && meta.path) || '';
         const id = path.split('/').pop();
@@ -5505,6 +5658,31 @@ async function loadSceneImage(sceneId) {
     }
   }
 
+function libraryApi() {
+  return {
+    role,
+    list: allScenes,
+    builtins: builtinScenes,
+    world: worldMaps,
+    library: () => library,
+    current: activeSceneId,
+    swap: swapScene,
+    snapshot: snapshotScene,
+    restore: restoreSnapshot,
+    save: saveLibraryEntry,
+    remove: removeLibraryEntry,
+    asset,
+    toast,
+    gridOf: sceneGrid,
+    sceneState: sid => sceneData(sid),
+    pushHandout: (w) => {
+      const url = new URL(asset(w.img), location.href).href;
+      if (typeof window.SSDNSPushHandout === 'function') return window.SSDNSPushHandout({ name: w.name, url, text: w.text || '', to: 'all' }, true);
+      toast('Handouts need the DM Command Center');
+      return Promise.resolve(false);
+    }
+  };
+}
 async function boot() {
   try {
     const data = await load();
@@ -5605,6 +5783,7 @@ return {
     ensurePartyTokens();
   },
   ensureDefaultScene: ensureDefaultScene,
+  maps: function () { return libraryApi(); },
   placeLinkedToken,
   setTool,
   removeToken: function (id) { removeMapTokens([id], { silent: true }); },

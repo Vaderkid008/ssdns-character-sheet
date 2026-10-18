@@ -19,7 +19,13 @@ To add a track, add an object to the `tracks` array:
 
 Players only hear a track when the DM turns on **Also play on players' devices**. Their browsers may block autoplay until they tap **Tap to hear**.
 
-## Starter pack and layers (0.3.51)
+## Starter pack and layers (0.3.52)
 
 `tracks.json` rows can set `"layer": "music"` or `"layer": "ambient"`. The DMCC plays both layers at once.
 Starter files go in `assets/music/starter/` (`ssdns-theme.mp3`, `ssdns-ambient.mp3`). DMs can also upload their own audio from the Music tab (Firebase Storage, optional).
+
+## Starter tracks (0.3.52)
+
+- `starter/ssdns-theme.mp3`: **Dust and Shadows (theme, draft)**, from Jessey's WAV, 160 kbps MP3.
+- `starter/ssdns-ambient.mp3`: **Dusty Main Street (loop)**. Loop is on by default.
+- `starter/test-tone.mp3`: 2-second test tone.

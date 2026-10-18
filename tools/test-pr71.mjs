@@ -129,16 +129,16 @@ const musket = R.firearms.find((f) => f.id === "dull-co-rifle-musket");
 check("rounds.musketBall", A.roundType({ weapon: musket.id, name: "Anything" }) === "ball");
 check("rounds.byAmmoNotName", A.roundType({ id: "x", name: "Ball n Cap Revolver", ammo: "cartridge", tier: "medium" }) === "cart");
 check("rounds.22", A.roundType({ weapon: "dullards-plinker-revolver" }) === "rf22");
-check("rounds.buck", A.roundType({ weapon: "double-barrel-coach-gun" }) === "buck");
+check("rounds.buck", A.roundType({ weapon: "lancaster-lever-shotgun" }) === "buck");
 check("rounds.hex", A.roundType({ id: pistol.id }, { raw: "k:hex:2" }) === "hex");
 const ac = read("assets/css/ammo-display.css");
-check("rounds.css", ["rt-ball", "rt-cart", "rt-rf22", "rt-buck", "rt-hex"].every((k) => ac.includes(".is-primer.is-loaded." + k)) && /#33373b/.test(ac) && /#b8632e/.test(ac));
+check("rounds.css", ["rt-ball", "rt-cart", "rt-rf22", "rt-buck", "rt-hex"].every((k) => ac.includes(".is-primer.is-loaded." + k)) && /#2f3337/.test(ac));
 check("rounds.states", /\.ssdns-ammo \.ammo-round\.is-spent/.test(ac) && /\.ssdns-ammo \.ammo-round\.is-locked/.test(ac));
 check("rounds.everywhere", /ammo-display\.css/.test(dmIdx) && /ammo-display\.js/.test(dmIdx) && /SSDNSAmmoDisplay/.test(read("map/ssdns-map.js")));
 
 /* versions */
 const ver = JSON.parse(read("version.json"));
-check("version", JSON.stringify(ver).includes("0.3.51") && JSON.stringify(ver).includes("0.2.64"), JSON.stringify(ver));
+check("version", JSON.stringify(ver).includes("0.3.52") && JSON.stringify(ver).includes("0.2.65"), JSON.stringify(ver));
 
 if (failures.length) { console.log(failures.length + " failed"); process.exit(1); }
 console.log("pr71 ok");

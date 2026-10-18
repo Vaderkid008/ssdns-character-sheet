@@ -185,7 +185,7 @@
     return spec.label(chamber.index, chamber) || "";
   }
 
-  /* 0.3.51: what the round looks like, keyed off the ammo type (never the gun name).
+  /* 0.3.52: what the round looks like, keyed off the ammo type (never the gun name).
      ball = powder, ball & caps; cart = brass rim + primer; buck = red hull, brass base;
      rf22 = small brass (.22 / light); hex = dark lead with a green glow. */
   function roundType(spec, chamber) {
@@ -199,7 +199,12 @@
       else if (kn === "buck" || kn === "slug") ammo = "shell";
     }
     if (ammo === "percussion" || ammo === "ball" || ammo === "powder") return "ball";
-    if (ammo === "shell" || ammo === "buck" || ammo === "slug" || isShotgun(spec)) return "buck";
+    /* 0.3.52: shells keep the original look; only the shotgun repeater gets the red hull. */
+    if (ammo === "shell" || ammo === "buck" || ammo === "slug" || isShotgun(spec)) {
+      var sid = String((row && row.id) || spec.weapon || spec.weaponId || "");
+      var sact = String((row && row.action) || spec.action || "").toLowerCase();
+      return (sid === "lancaster-lever-shotgun" || /lever|repeat|pump|tube/.test(sact)) ? "buck" : "shell";
+    }
     var tier = String(spec.tier || "").toLowerCase();
     if (!tier && row && row.tiers) { var keys = Object.keys(row.tiers); if (keys.length === 1) tier = keys[0]; }
     if (tier === "light" || /\.22\b/.test(String(spec.caliber || ""))) return "rf22";

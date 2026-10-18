@@ -1,0 +1,14 @@
+/* 0.3.52: big, easy volume sliders (sheet + DMCC) */
+.vol-slider { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+.vol-slider input[type=range] { -webkit-appearance: none; appearance: none; width: 220px; min-width: 200px; height: 36px; margin: 0; background: transparent; cursor: pointer; touch-action: pan-y; }
+.vol-slider input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #c9a227 var(--vol-fill, 50%), #4a3f33 var(--vol-fill, 50%)); }
+.vol-slider input[type=range]::-moz-range-track { height: 8px; border-radius: 4px; background: #4a3f33; }
+.vol-slider input[type=range]::-moz-range-progress { height: 8px; border-radius: 4px; background: #c9a227; }
+.vol-slider input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -7px; border-radius: 50%; background: #f3e6c8; border: 2px solid #8a6a2c; box-shadow: 0 1px 3px rgba(0,0,0,.5); }
+.vol-slider input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #f3e6c8; border: 2px solid #8a6a2c; }
+.vol-slider .vol-step { min-width: 36px; min-height: 36px; padding: 0; border-radius: 6px; border: 1px solid #8a6a2c; background: #2b231b; color: #f3e6c8; font: 700 18px/1 system-ui, sans-serif; cursor: pointer; }
+.vol-slider .vol-pct { min-width: 3.2em; text-align: right; font: 700 14px/1 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .vol-slider { display: flex; width: 100%; }
+  .vol-slider input[type=range] { flex: 1 1 auto; width: auto; min-width: 0; }
+}

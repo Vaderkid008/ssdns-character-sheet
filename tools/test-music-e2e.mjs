@@ -1,5 +1,5 @@
 /**
- * Music end to end (sheet 0.3.51 / DMCC 0.2.64): starter pack, pasted link, Storage upload (mocked).
+ * Music end to end (sheet 0.3.52 / DMCC 0.2.65): starter pack, pasted link, Storage upload (mocked).
  * DM page (jsdom, real Music panel HTML + music-deck + media-upload + music-dm) pushes commands;
  * a player page (jsdom, music-deck) applies them. Every method must push the same shape and the
  * player must end in the same state.   node tools/test-music-e2e.mjs
@@ -130,7 +130,7 @@ PM.setMuted(true);
 const el = P.audios[P.audios.length - 1];
 check("player.mute", el.volume === 0);
 PM.setMuted(false); PM.setPref("music", 0.5);
-check("player.volume", Math.abs(el.volume - PM.snapshot().music.level * 0.5) < 1e-9);
+check("player.volume", Math.abs(el.volume - Math.pow(PM.snapshot().music.level * 0.5, 2)) < 1e-9);
 // Blocked autoplay -> tap prompt
 P.w.Audio.prototype.play = function () { const e = new Error("x"); e.name = "NotAllowedError"; return Promise.reject(e); };
 let tapped = false; PM.onBlocked(() => { tapped = true; });
