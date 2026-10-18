@@ -308,7 +308,7 @@ function stripGuns(row, i) {
     const list = (row.card && row.card.attacks && row.card.attacks.length) ? row.card.attacks : (row.attackList || []);
     const target = cylinderTargetHtml(row);
     return list.map((atk, n) => {
-      if (!atk || atk.capacity == null) return "";
+      if (!atk || atk.capacity == null || atk.dropped === true || atk.equipped === false) return "";
       return `<span class="cylinder-row">${esc(atk.name || "Gun")} ${dots(atk.capacity, atk.loaded, `data-cyl-fire="${esc(row.id)}" data-atk-n="${n}"`, null, atk)} ${target}</span>`;
     }).join("");
   }
@@ -330,24 +330,27 @@ function publicGuns(row) {
   if (!row) return [];
   if (row.kind === "player" && row.playerId && DM.state.players[row.playerId]) {
     const snap = DM.state.players[row.playerId].snapshot || {};
-    return (snap.guns || []).filter((g) => g && g.name).map((g) => ({
-      name: g.name,
-      weapon: g.weapon || "",
-      action: g.action || "",
-      ammoDisplay: g.ammoDisplay || "",
-      group: g.group || "",
-      ammo: g.ammo || "",
-      tier: g.tier || "",
-      scatter: !!g.scatter,
-      jammed: !!g.jammed,
-      ruined: !!(g.ruined || g.broken),
-      exploded: !!g.exploded,
-      capacity: g.capacity || 0,
-      loaded: g.loaded || 0,
-      index: g.index != null && g.index !== "" ? g.index : undefined,
-      chambers: chamberPicture(g.chambers) || [],
-      lockedChambers: Array.isArray(g.lockedChambers) ? g.lockedChambers.slice() : []
-    }));
+    return (snap.guns || []).map((g, gi) => {
+      if (!g || !g.name || g.dropped === true || g.equipped === false) return null;
+      return {
+        name: g.name,
+        weapon: g.weapon || "",
+        action: g.action || "",
+        ammoDisplay: g.ammoDisplay || "",
+        group: g.group || "",
+        ammo: g.ammo || "",
+        tier: g.tier || "",
+        scatter: !!g.scatter,
+        jammed: !!g.jammed,
+        ruined: !!(g.ruined || g.broken),
+        exploded: !!g.exploded,
+        capacity: g.capacity || 0,
+        loaded: g.loaded || 0,
+        index: g.index != null && g.index !== "" ? g.index : gi,
+        chambers: chamberPicture(g.chambers) || [],
+        lockedChambers: Array.isArray(g.lockedChambers) ? g.lockedChambers.slice() : []
+      };
+    }).filter(Boolean);
   }
   const attacks = (row.attackList || row.card && row.card.attacks || []).filter((a) => a && a.capacity);
   return attacks.map((a) => ({
@@ -908,11 +911,17 @@ function isFriendly(row) {
   const side = row && String(row.side || "").toLowerCase();
   return side === "friendly" || side === "ally" || !!(row && (row.ally === true || row.friendly === true));
 }
+function attackShown(atk) {
+  if (!atk || atk.dropped === true || atk.equipped === false) return false;
+  return true;
+}
 function compactAttackButtons(row, i) {
-  const list = (row.card && row.card.attacks && row.card.attacks.length) ? row.card.attacks : (row.attackList || []);
+  const raw = (row.card && row.card.attacks && row.card.attacks.length) ? row.card.attacks : (row.attackList || []);
+  const list = raw.filter(attackShown);
   const open = `<button type="button" class="btn sm" data-open-enemy="${esc(row.id || "")}">Open sheet</button>`;
   if (!list.length) return `<button type="button" class="btn sm" data-init-strike="${i}">Attack</button>${open}`;
-  return list.map((atk, n) => {
+  return raw.map((atk, n) => {
+    if (!attackShown(atk)) return "";
     const label = window.SSDNSApplied && window.SSDNSApplied.attackButtonLabel
       ? window.SSDNSApplied.attackButtonLabel(atk)
       : ((atk && atk.name) || "Attack");
@@ -931,12 +940,13 @@ function turnRowHtml(row, i) {
   const downBadge = fled ? `<span class="badge">Fled</span>` : (downed ? `<span class="badge danger">Unconscious · Down</span>` : (bloodied ? `<span class="badge warn">Bloodied</span>` : ""));
   const sideBadge = friendly ? `<span class="badge eld">Friendly</span>` : "";
   const sideWord = row.kind === "enemy" ? (friendly ? "Friendly" : "Enemy") : (row.kind || "combatant");
+  const sideClass = row.kind === "player" ? " side-pc" : (friendly ? " side-ally" : (row.kind === "enemy" ? " side-enemy" : ""));
   const tactics = row.kind === "enemy" ? rowTactics(row) : "";
   const enemyEdit = row.kind === "enemy"
     ? `<label class="fine">Atk <input type="number" data-atk-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.atkBonus == null ? "" : esc(row.atkBonus)}" aria-label="Attack bonus for ${esc(row.name || "enemy")}"></label>
       <label class="fine">Dmg <input class="cond-rounds" data-dmg-val="${i}" data-row-id="${esc(row.id || "")}" value="${esc(row.damage || "")}" placeholder="1d6+2" aria-label="Damage dice for ${esc(row.name || "enemy")}"></label>`
     : "";
-  return `<div class="init-row${current}${flash}${fled ? " fled" : ""}${friendly ? " friendly" : ""}">
+  return `<div class="init-row card-fight${current}${flash}${fled ? " fled" : ""}${friendly ? " friendly" : ""}${sideClass}" data-fight-card="${i}">
       <input class="init-score" type="number" data-init-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.init == null ? "" : esc(row.init)}" aria-label="Initiative for ${esc(row.name || "combatant")}">
       <span class="init-who" title="${esc(row.name || "Someone")}">        <span class="who-name">${row.kind === "enemy" ? `<button type="button" class="name-btn" data-open-enemy="${esc(row.id || "")}">${esc(row.name || "Someone")}</button>` : `<b>${esc(row.name || "Someone")}</b>`}${sideBadge}</span>
         <span class="fine">${esc(sideWord)}${row.tie ? " · tie" : ""}${status ? " · " + esc(status) : ""}${detail ? " · " + esc(detail) : ""}${esc(turnAckLabel(row))}</span>
@@ -1018,34 +1028,79 @@ function absorbFightInputs() {
   if (atkI != null) row.atkBonus = active.value === "" ? "" : Number(active.value);
   if (dmgI != null) row.damage = active.value;
 }
+function portraitHtml(row, i) {
+  const len = fight.order.length || 1;
+  const dist = fight.started ? (i - fight.turn + len) % len : 99;
+  const current = fight.started && i === fight.turn;
+  const ondeck = fight.started && dist > 0 && dist <= 2;
+  const later = fight.started && dist > 2;
+  const friendly = row.kind === "enemy" && isFriendly(row);
+  const side = row.kind === "player" ? "pc" : (friendly ? "ally" : "enemy");
+  const letters = String(row.name || "?").replace(/[^A-Za-z]/g, "");
+  const initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
+  const cls = "fight-portrait side-" + side + (current ? " current" : "") + (ondeck ? " ondeck" : "") + (later ? " later" : "");
+  return `<button type="button" class="${cls}" data-fight-portrait="${i}" title="${esc(row.name || "")}"><span class="portrait-face">${esc(initials)}</span><span class="portrait-name">${esc(row.name || "")}</span><span class="portrait-init">${esc(row.init == null || row.init === "" ? "—" : row.init)}</span></button>`;
+}
+function fightLogCards() {
+  const box = $("#fightLog");
+  if (!box) return;
+  const rows = (DM.state.rolls || []).filter((r) => r && (r.attack || r.weapon || r.crit || /\b(HIT|MISS|CRIT)\b/.test(String(r.detail || "")))).slice(-8).reverse();
+  if (!rows.length) {
+    box.innerHTML = '<p class="fine fight-log-empty">No attacks yet.</p>';
+    return;
+  }
+  box.innerHTML = rows.map((r) => {
+    const rawWeapon = r.weapon || r.label || "";
+    const named = window.SSDNSApplied && window.SSDNSApplied.weaponName ? window.SSDNSApplied.weaponName(rawWeapon) : "";
+    const weapon = named || rawWeapon || "Attack";
+    const who = r.characterName || r.who || "";
+    const detail = String(r.detail || "").replace(/\s+/g, " ").trim();
+    const tag = (r.crit || /\bCRIT\b/.test(detail)) ? "CRIT" : (/\bMISS\b/.test(detail) ? "MISS" : (/\bHIT\b/.test(detail) ? "HIT" : ""));
+    return `<article class="roll-card${tag ? " " + tag.toLowerCase() : ""}"><b>${esc(who)}</b><span class="roll-weapon">${esc(weapon)}</span><span class="roll-detail">${esc(detail)}</span>${tag ? `<span class="roll-tag">${tag}</span>` : ""}</article>`;
+  }).join("");
+}
 function renderFight() {
   const run = () => {
     syncDamageMode();
     absorbFightInputs();
     const list = $("#initList");
     const strip = $("#turnStrip");
+    const portraits = $("#fightPortraits");
+    const focus = $("#fightFocus");
     const label = $("#initRound");
     if (label) {
       const deck = onDeck();
       const cur = fight.started ? fight.order[fight.turn] : null;
       label.textContent = fight.started && fight.order.length
         ? ("Round " + fight.round + (cur && cur.name ? " · " + cur.name : "") + (deck && deck.name ? " · On deck: " + deck.name : ""))
-        : "";
+        : (fight.order.length ? "Round " + fight.round : "");
     }
     renderInspiration();
+    const rollAllBtn = $("#btnRollAll");
+    if (rollAllBtn) rollAllBtn.hidden = !!fight.started;
     if (!fight.order.length) {
       const empty = '<div class="empty"><b>No turn order</b>Add a player or an example creature. Initiative rolls from joined sheets land here.</div>';
       if (list && !(document.activeElement && list.contains(document.activeElement))) list.innerHTML = empty;
       if (strip) strip.innerHTML = "";
+      if (portraits) portraits.innerHTML = "";
+      if (focus) focus.innerHTML = '<p class="fight-focus-wait">Add a combatant, roll initiative, then Next.</p>';
+      fightLogCards();
       syncTurnState();
       pushMapInitiative();
       return;
     }
     if (fight.turn >= fight.order.length) fight.turn = 0;
-    const html = fight.order.map(turnRowHtml).join("");
-    if (list) list.innerHTML = html;
-    const rollAllBtn = $("#btnRollAll");
-    if (rollAllBtn) rollAllBtn.hidden = !!fight.started;
+    if (portraits) portraits.innerHTML = fight.order.map(portraitHtml).join("");
+    const parts = fight.order.map(turnRowHtml);
+    const started = !!fight.started;
+    if (started && focus) {
+      focus.innerHTML = parts[fight.turn] || "";
+      if (list) list.innerHTML = parts.filter((_, i) => i !== fight.turn).join("") || '<p class="fine">No one else in the order.</p>';
+    } else {
+      if (focus) focus.innerHTML = '<p class="fight-focus-wait">Roll Init, then Next. The active turn lands here.</p>';
+      if (list) list.innerHTML = parts.join("");
+    }
+    fightLogCards();
     if (strip) {
       const len = fight.order.length;
       strip.innerHTML = fight.order.map((row, i) => {
@@ -1261,7 +1316,27 @@ function conditionChips(row) {
   const Cond = window.SSDNSConditions;
   const list = conditionsForRow(row);
   if (!Cond || !list.length) return "";
-  return `<span class="cond-row">${list.map((c) => `<span class="cond-chip">${esc(Cond.label(c))}</span>`).join("")}</span>`;
+  const subject = row.kind === "player" ? (row.playerId || row.id) : row.id;
+  const kind = row.kind === "enemy" ? "enemy" : "player";
+  return `<span class="cond-row">${list.map((c) => {
+    const name = String((c && (c.name || c)) || "").trim();
+    const id = c && c.id ? String(c.id) : "";
+    return `<span class="cond-chip">${esc(Cond.label(c))}<button type="button" class="cond-x" data-cond-drop="${esc(subject)}" data-cond-kind="${esc(kind)}" data-cond-name="${esc(name)}" data-cond-id="${esc(id)}" aria-label="Remove ${esc(name)}">×</button></span>`;
+  }).join("")}</span>`;
+}
+function dropListedCondition(subjectId, kind, name, condId) {
+  const row = (fight.order || []).find((r) => {
+    const sid = r && (r.kind === "player" ? (r.playerId || r.id) : r.id);
+    return sid === subjectId;
+  });
+  const current = conditionsForRow(row || { id: subjectId, kind: kind, playerId: kind === "player" ? subjectId : "" });
+  const dropName = String(name || "").toLowerCase();
+  const names = current.filter((c) => {
+    if (condId && c && c.id === condId) return false;
+    return String((c && c.name) || "").toLowerCase() !== dropName;
+  }).map((c) => ({ name: c.name, rounds: c.rounds, level: c.level }));
+  const removeIds = current.filter((c) => (condId && c && c.id === condId) || String((c && c.name) || "").toLowerCase() === dropName).map((c) => c && c.id).filter(Boolean);
+  return writeSubjectConditions(subjectId, kind, names, (row && row.name) || "", 1, {}, removeIds);
 }
 function openDialog(dlg) {
   try {
@@ -4807,8 +4882,17 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab]");
+    const t = e.target.closest && e.target.closest("[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
     if (!t) return;
+    if (t.hasAttribute("data-fight-portrait")) {
+      const card = document.querySelector('[data-fight-card="' + t.getAttribute("data-fight-portrait") + '"]');
+      if (card && card.scrollIntoView) card.scrollIntoView({ block: "nearest" });
+      return;
+    }
+    if (t.hasAttribute("data-cond-drop")) {
+      dropListedCondition(t.getAttribute("data-cond-drop"), t.getAttribute("data-cond-kind") || "enemy", t.getAttribute("data-cond-name") || "", t.getAttribute("data-cond-id") || "");
+      return;
+    }
     if (t.hasAttribute("data-side-toggle")) {
       const row = fight.order[parseInt(t.getAttribute("data-side-toggle"), 10)];
       if (!row || row.kind !== "enemy") return;
@@ -5749,6 +5833,7 @@ async function bootV2() {
     onRolls: function (rows) {
       (rows || []).forEach(noteSaveRoll);
       noteInitiativeRolls(rows);
+      fightLogCards();
     },
     currentTurn: function () {
       return fight.started ? (fight.order[fight.turn] || null) : null;

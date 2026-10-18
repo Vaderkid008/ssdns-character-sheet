@@ -397,6 +397,40 @@
     return betType ? betType.charAt(0).toUpperCase() + betType.slice(1) : "—";
   }
 
+  var cheatArmed = false;
+  var cheatBtn = document.getElementById("cheatBtn");
+  var highRoller = document.getElementById("highRoller");
+  function walletName() {
+    var w = window.SSDNSBridge && window.SSDNSBridge.readWallet && window.SSDNSBridge.readWallet();
+    return (w && w.characterName) || "You";
+  }
+  function paintCheat() {
+    if (!cheatBtn) return;
+    var blocked = window.SSDNSSaloon && (window.SSDNSSaloon.used() || window.SSDNSSaloon.banned());
+    cheatBtn.disabled = !!blocked || spinning;
+    cheatBtn.textContent = window.SSDNSSaloon && window.SSDNSSaloon.banned() ? "Banned" : (blocked ? "Cheat used" : (cheatArmed ? "Cheat armed" : "Cheat this spin"));
+  }
+  function consumeCheat() {
+    if (!cheatArmed || !window.SSDNSSaloon) return null;
+    cheatArmed = false;
+    var w = window.SSDNSBridge && window.SSDNSBridge.readWallet && window.SSDNSBridge.readWallet();
+    var result = window.SSDNSSaloon.attempt({ wallet: w, high: !!(highRoller && highRoller.checked) });
+    paintCheat();
+    return result && result.blocked ? null : result;
+  }
+  function nudgedPocket(index) {
+    for (var i = 0; i < POCKETS.length; i++) {
+      if (resolveBet(POCKETS[i].n).won) return i;
+    }
+    return index;
+  }
+  if (cheatBtn) cheatBtn.addEventListener("click", function () {
+    if (spinning || (window.SSDNSSaloon && (window.SSDNSSaloon.used() || window.SSDNSSaloon.banned()))) return;
+    cheatArmed = !cheatArmed;
+    paintCheat();
+  });
+  window.SSDNSSaloonReady = paintCheat;
+
   function spin() {
     if (!canSpin()) return;
     ensureAudio();
@@ -410,8 +444,26 @@
     resultPip.textContent = "";
     setStatus("Ball’s rolling… " + wager + " on " + betLabel() + ".", "");
 
+    var cheat = consumeCheat();
+    if (cheat && cheat.caught) {
+      spinning = false;
+      updateSpinBtn();
+      setStatus("Caught. " + wager + " Eldorite stays. Banned this session.", "lose");
+      if (window.SSDNSSaloon) {
+        var caughtName = walletName();
+        window.SSDNSSaloon.post("lose", wager, "Dust Wheel", {
+          name: caughtName,
+          text: caughtName + " was caught cheating at Dust Wheel",
+          notice: caughtName + " was caught cheating at Dust Wheel. Stake lost. Banned for this session."
+        });
+      }
+      paintCheat();
+      return;
+    }
+
     // Fair random pocket first, then spin to it
     var index = Math.floor(Math.random() * POCKETS.length);
+    if (cheat && cheat.success) index = nudgedPocket(index);
     var result = POCKETS[index].n;
     var duration = 4200 + Math.floor(Math.random() * 800);
     var target = targetRotationForIndex(index, 5 + Math.floor(Math.random() * 2));
@@ -435,6 +487,7 @@
             betLabel() + " pays " + outcome.mult + "× → +" + payout + " Eldorite.",
           "win"
         );
+        if (window.SSDNSSaloon) window.SSDNSSaloon.post("win", payout - wager, "Dust Wheel");
       } else {
         sfxLose();
         setStatus(
@@ -442,6 +495,7 @@
             wager + " chips stay on the felt.",
           "lose"
         );
+        if (window.SSDNSSaloon) window.SSDNSSaloon.post("lose", wager, "Dust Wheel");
       }
 
       spinning = false;

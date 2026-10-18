@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.40 / DMCC 0.2.53: snapshot sync and Disarm / Rob.
+ * Sheet 0.3.41 / DMCC 0.2.54: snapshot sync and Disarm / Rob.
  *   node tools/test-sync-grab.mjs
  */
 import fs from "node:fs";
@@ -16,10 +16,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.40" && version.sheetBuild === "sheet-playtest-v0340");
-check("ver.dmcc", version.dmcc === "0.2.53" && version.dmccBuild === "dmcc-playtest-v0253");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.40"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.53"'));
+check("ver.sheet", version.sheet === "0.3.41" && version.sheetBuild === "sheet-playtest-v0341");
+check("ver.dmcc", version.dmcc === "0.2.54" && version.dmccBuild === "dmcc-playtest-v0254");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.41"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.54"'));
 check("ver.notice", !read("dm/assets/js/v2.js").includes("slight delay") && !read("map/ssdns-map.js").includes("slight delay"));
 
 const join = read("assets/js/dm-join.js");

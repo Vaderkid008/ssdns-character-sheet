@@ -9,7 +9,8 @@
   ];
   var RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
   var STAKE_PRESETS = [5, 10, 25, 50];
-  var RESHUFFLE_AT = 20;
+  var SHOE_DECKS = 2;
+  var RESHUFFLE_AT = 52; // half of a 104-card shoe, between hands only
 
   var PHASE = { IDLE: "idle", PLAYER: "player", DEALER: "dealer", DONE: "done" };
 
@@ -133,6 +134,12 @@
     return d;
   }
 
+  function buildShoe() {
+    var shoe = [];
+    for (var n = 0; n < SHOE_DECKS; n++) shoe = shoe.concat(buildDeck());
+    return shoe;
+  }
+
   function shuffle(arr) {
     for (var i = arr.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1));
@@ -143,18 +150,18 @@
     return arr;
   }
 
-  function ensureDeck() {
-    if (deck.length < RESHUFFLE_AT) {
-      deck = shuffle(buildDeck());
-      if (phase === PHASE.IDLE) {
-        // quiet reshuffle notice only between hands
-      }
-    }
+  function freshShoe() {
+    deck = shuffle(buildShoe());
+  }
+
+  function maybeReshuffle() {
+    if (deck.length > RESHUFFLE_AT) return;
+    var between = phase === PHASE.IDLE || phase === PHASE.DONE;
+    if (deck.length === 0 || between) freshShoe();
   }
 
   function drawCard() {
-    ensureDeck();
-    if (deck.length === 0) deck = shuffle(buildDeck());
+    if (deck.length === 0) freshShoe();
     return deck.pop();
   }
 
@@ -287,6 +294,7 @@
     var btns = stakeBtnsEl.querySelectorAll(".stake-btn");
     for (var i = 0; i < btns.length; i++) btns[i].disabled = stakeDisabled;
     customStake.disabled = stakeDisabled;
+    paintCheat();
   }
 
   /* ---------- payouts ---------- */
@@ -333,6 +341,22 @@
       setStatus("Push at " + p + ". Stake returned.", "push");
       sfxPush();
     }
+
+    var net = 0;
+    var verb = "lose";
+    if (isBust(playerHand) || (isBlackjack(dealerHand) && !isBlackjack(playerHand)) || (!isBust(playerHand) && !isBust(dealerHand) && p < d && !(isBlackjack(playerHand) && !isBlackjack(dealerHand)))) {
+      net = bet;
+      verb = "lose";
+    } else if (isBlackjack(playerHand) && !isBlackjack(dealerHand)) {
+      net = Math.max(0, Math.floor(bet * 2.5) - bet);
+      verb = "win";
+    } else if (isBust(dealerHand) || p > d) {
+      net = bet;
+      verb = "win";
+    } else {
+      verb = "push";
+    }
+    if (window.SSDNSSaloon) window.SSDNSSaloon.post(verb, net, "Blackjack");
 
     currentBet = 0;
     updateStakeDisplay();
@@ -388,9 +412,9 @@
     playerHand = [];
     dealerHand = [];
     holeHidden = true;
+    maybeReshuffle();
     phase = PHASE.PLAYER;
     busy = true;
-    ensureDeck();
     setStatus("Dealing…");
     syncButtons();
     renderHands();
@@ -598,8 +622,60 @@
   standBtn.addEventListener("click", doStand);
   doubleBtn.addEventListener("click", doDouble);
 
+  var cheatBtn = document.getElementById("cheatBtn");
+  var highRoller = document.getElementById("highRoller");
+  function cardRankValue(card) {
+    var r = card && card.rank;
+    if (r === "A") return 11;
+    if (r === "J" || r === "Q" || r === "K") return 10;
+    return parseInt(r, 10) || 0;
+  }
+  function paintCheat() {
+    if (!cheatBtn || !window.SSDNSSaloon) return;
+    var blocked = window.SSDNSSaloon.used() || window.SSDNSSaloon.banned();
+    cheatBtn.disabled = blocked || phase !== PHASE.PLAYER;
+    cheatBtn.textContent = window.SSDNSSaloon.banned() ? "Banned" : (window.SSDNSSaloon.used() ? "Cheat used" : "Cheat");
+  }
+  function doCheat() {
+    if (!window.SSDNSSaloon || phase !== PHASE.PLAYER || busy) return;
+    if (window.SSDNSSaloon.used() || window.SSDNSSaloon.banned()) return;
+    var w = window.SSDNSBridge && window.SSDNSBridge.readWallet && window.SSDNSBridge.readWallet();
+    var result = window.SSDNSSaloon.attempt({ wallet: w, high: !!(highRoller && highRoller.checked) });
+    paintCheat();
+    if (!result || result.blocked) return;
+    if (result.caught) {
+      phase = PHASE.DONE;
+      holeHidden = false;
+      var lost = currentBet;
+      currentBet = 0;
+      renderHands();
+      syncButtons();
+      setStatus("Caught palming a card. " + lost + " Eldorite stays with the house. Banned this session.", "lose");
+      window.SSDNSSaloon.post("lose", lost, "Blackjack", {
+        text: ((w && w.characterName) || "You") + " was caught cheating at Blackjack",
+        notice: ((w && w.characterName) || "You") + " was caught cheating at Blackjack. Stake lost. Banned for this session."
+      });
+      return;
+    }
+    if (result.success && playerHand.length) {
+      var worst = 0;
+      for (var i = 1; i < playerHand.length; i++) {
+        if (cardRankValue(playerHand[i]) < cardRankValue(playerHand[worst])) worst = i;
+      }
+      playerHand[worst] = drawCard();
+      renderHands();
+      setStatus("The card you wanted is the one in your hand. Sleight " + result.total + " vs " + result.dc + ".", "win");
+      if (isBust(playerHand)) settle();
+      return;
+    }
+    setStatus("The dealer didn't catch it, and the card didn't change. Sleight " + result.total + " vs " + result.dc + ".", "");
+  }
+  if (cheatBtn) cheatBtn.addEventListener("click", doCheat);
+  window.SSDNSSaloonReady = paintCheat;
+  paintCheat();
+
   // init
-  deck = shuffle(buildDeck());
+  freshShoe();
   buildStakeButtons();
   updateBalance();
   updateStakeDisplay();

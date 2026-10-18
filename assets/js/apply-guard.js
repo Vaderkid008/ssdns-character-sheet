@@ -1130,12 +1130,28 @@
   function leadNameHtml(text) {
     var raw = String(text || "");
     var m = raw.match(/^(\s*)([^\n:→]{1,48}?)(\s*(?:→|:|\n))/);
-    if (!m) return escHtml(raw);
-    var name = String(m[2] || "").trim();
-    if (!name || neutralSpeaker(name) || !tokenColorFor(name)) return escHtml(raw);
-    var start = m[1].length;
-    var nameEnd = start + m[2].length;
-    return escHtml(raw.slice(0, start)) + whoHtml(raw.slice(start, nameEnd)) + escHtml(raw.slice(nameEnd));
+    if (m) {
+      var name = String(m[2] || "").trim();
+      if (name && !neutralSpeaker(name) && tokenColorFor(name)) {
+        var start = m[1].length;
+        var nameEnd = start + m[2].length;
+        return escHtml(raw.slice(0, start)) + whoHtml(raw.slice(start, nameEnd)) + escHtml(raw.slice(nameEnd));
+      }
+    }
+    var bag = root.SSDNSTokenColors || {};
+    var keys = Object.keys(bag).filter(function (k) { return k && !neutralSpeaker(k); });
+    keys.sort(function (a, b) { return b.length - a.length; });
+    var lower = raw.toLowerCase();
+    var i;
+    for (i = 0; i < keys.length; i++) {
+      var key = String(keys[i]);
+      if (lower.indexOf(key) !== 0) continue;
+      var after = raw.charAt(key.length);
+      if (after && after !== " ") continue;
+      if (!tokenColorFor(raw.slice(0, key.length))) continue;
+      return whoHtml(raw.slice(0, key.length)) + escHtml(raw.slice(key.length));
+    }
+    return escHtml(raw);
   }
   function offset() { return offsetMs; }
   /** Age of a stamp against estimated server time. */

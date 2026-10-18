@@ -1,4 +1,63 @@
 /* SSDNS Map module. One global. No URL, no storage, no channel. */
+window.SSDNSTokenBorder = (function () {
+  function side(token) {
+    var kind = String((token && token.kind) || "").toLowerCase();
+    if (kind === "enemy") return "enemy";
+    if (kind === "friendly" || kind === "ally") return "friendly";
+    if (kind === "player" || (token && token.ownerUid)) return "player";
+    return "other";
+  }
+  function paint(ctx, token, x, y, r, color) {
+    if (!ctx || !r) return side(token);
+    var which = side(token);
+    if (which === "player") {
+      var gold = "#c9a227";
+      var hi = "#f6e7b2";
+      ctx.save();
+      ctx.strokeStyle = gold;
+      ctx.lineWidth = Math.max(3, r * 0.09);
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      var beads = Math.max(10, Math.round(r / 3.2));
+      var br = Math.max(1.4, r * 0.055);
+      var i;
+      for (i = 0; i < beads; i++) {
+        var a = (i / beads) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.fillStyle = i % 2 ? hi : gold;
+        ctx.arc(x + Math.cos(a) * r, y + Math.sin(a) * r, br, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.strokeStyle = hi;
+      ctx.lineWidth = Math.max(1.2, r * 0.035);
+      for (i = 0; i < 4; i++) {
+        var ang = (i / 4) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(ang) * (r - br), y + Math.sin(ang) * (r - br));
+        ctx.lineTo(x + Math.cos(ang) * (r + br * 1.8), y + Math.sin(ang) * (r + br * 1.8));
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(2, r - Math.max(5, r * 0.16)), 0, Math.PI * 2);
+      ctx.strokeStyle = color || "#4a90d9";
+      ctx.lineWidth = Math.max(1.25, r * 0.035);
+      ctx.stroke();
+      ctx.restore();
+      return which;
+    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.lineWidth = 3;
+    if (which === "enemy") ctx.strokeStyle = (token && token.color) ? token.color : "#6e2430";
+    else ctx.strokeStyle = color || "#888";
+    ctx.stroke();
+    ctx.restore();
+    return which;
+  }
+  return { side: side, paint: paint };
+})();
 window.SSDNSMap = { create(opts) {
   const el = opts.el;
   if (!el) throw new Error('SSDNSMap: el required');
@@ -408,7 +467,8 @@ function chatLineHtml(row) {
   const text = String(row.text || '');
   const Applied = window.SSDNSApplied;
   const bucket = chatBucket(row);
-  if (bucket === 'rolls' && Applied && Applied.leadNameHtml) return Applied.leadNameHtml(name && text.indexOf(name) !== 0 ? (name + ': ' + text) : text);
+  const startsWithName = !!(name && (text === name || text.indexOf(name + ' ') === 0 || text.indexOf(name + ':') === 0 || text.indexOf(name + '\n') === 0));
+  if (Applied && Applied.leadNameHtml && (bucket === 'rolls' || startsWithName)) return Applied.leadNameHtml(name && text.indexOf(name) !== 0 ? (name + ': ' + text) : text);
   if (Applied && Applied.whoHtml) return Applied.whoHtml(name) + ': ' + esc(text);
   return esc(name + ': ' + text);
 }
@@ -1485,11 +1545,14 @@ function draw() {
       ctx.drawImage(t._img, s.x - r, s.y - r, r * 2, r * 2);
       ctx.restore();
     }
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-    ctx.strokeStyle = ring;
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    if (window.SSDNSTokenBorder) window.SSDNSTokenBorder.paint(ctx, t, s.x, s.y, r, ring);
+    else {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+      ctx.strokeStyle = ring;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
 
     // lock icon
     if (t.locked) {
