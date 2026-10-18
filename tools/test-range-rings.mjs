@@ -38,9 +38,9 @@ check("pistol.noClose", pistol.close === 0 && pistol.normal > 0 && pistol.long >
 const carbine = api.bands({ weapon: "henrietta-saddle-carbine" });
 check("carbine.closeQuarters", carbine.close === 0, JSON.stringify(carbine));
 const scoped = api.bands({ weapon: "henrietta-saddle-carbine", scope: true, moved: false });
-check("scope.still", scoped.clearLong === true && scoped.close === 5, JSON.stringify(scoped));
+check("scope.still", scoped.clearLong === true && scoped.close === 0, JSON.stringify(scoped));
 const scopedMoved = api.bands({ weapon: "henrietta-saddle-carbine", scope: true, moved: true });
-check("scope.moved", scopedMoved.clearLong === false && scopedMoved.close === 5, JSON.stringify(scopedMoved));
+check("scope.moved", scopedMoved.clearLong === false && scopedMoved.close === 0, JSON.stringify(scopedMoved));
 
 const reach = api.bands({ weapon: "boarding-hook-poleaxe-halberd" });
 check("melee.reach", reach.melee === 10 && reach.meleeRed === 12.5 && reach.long === 0, JSON.stringify(reach));

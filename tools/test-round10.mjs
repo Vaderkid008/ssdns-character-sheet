@@ -84,22 +84,23 @@ Kits.callings.forEach((id) => {
   const built = Creator.buildSheet({ calling: id, name: id });
   const weapons = (built.character.melee || []).concat(built.character.guns || []).filter((row) => row && row.weapon);
   if (id === "pact-seeker") {
-    check(built.ok && built.character.casterGun === "borrowed-iron" && weapons.length > 0, "pact focus stays borrowed iron and the kit still has ordinary weapons");
+    check(built.ok && built.character.casterGun === "borrowed-iron" && weapons.length === 0, "pact focus stays Borrowed Iron and the kit has no sidearm");
     return;
   }
   if (id === "scholar") {
-    check(built.ok && weapons.length > 0, "scholar kit lists a trail staff or stiletto");
+    check(built.ok && weapons.length === 1 && weapons[0].weapon === "dullards-plinker-revolver", "scholar kit is one Plinker");
     return;
   }
   check(built.ok && weapons.length > 0, id + " kit puts a weapon on an attack row");
 });
-const preacher = Creator.buildSheet({ calling: "frontier-preacher", kit: { melee: "mace" } });
-check((preacher.character.melee || []).some((row) => row && row.weapon === "trail-mace-chapel-mace-mace"), "preacher trail mace is in melee");
+const preacher = Creator.buildSheet({ calling: "frontier-preacher", kit: { gun: "shotgun" } });
+check((preacher.character.guns || []).some((row) => row && row.weapon === "single-barrel-farm-shotgun"), "preacher kit is one .410 farm shotgun");
+check((preacher.character.melee || []).every((row) => !row || !row.weapon), "preacher kit has no second weapon");
 const guide = Creator.buildSheet({ calling: "nature-guide" });
 const guideMelee = (guide.character.melee || []).filter((row) => row && row.weapon);
 const machete = (box.SSDNS_RULES.melee || []).find((w) => w.id === "machete-scimitar");
-check(guide.ok && guideMelee.length === 1 && guideMelee[0].weapon === "machete-scimitar" && guideMelee[0].proficient === true, "nature guide wizard seeds a proficient machete");
-check(machete && machete.damage === "1d6" && machete.dmgType === "Slashing", "machete damage comes from the weapon table");
+check(guide.ok && guideMelee.length === 1 && guideMelee[0].weapon === "throwing-spear-javelin" && guideMelee[0].proficient === true, "nature guide wizard seeds one proficient javelin");
+check(machete && machete.damage === "1d6" && machete.dmgType === "Slashing", "machete damage stays on the weapon table");
 check(guide.character.shield === true, "nature guide wooden shield is equipped");
 ["Wooden shield", "Trail kit", "Herbalism kit", "Focus: Carved walking stick"].forEach((line) => {
   check(String(guide.character.equipment || "").indexOf(line) >= 0, "nature guide kit line " + line);
@@ -107,10 +108,10 @@ check(guide.character.shield === true, "nature guide wooden shield is equipped")
 check(guide.character.armor === "leather-jacket", "nature guide wears a leather jacket");
 
 const teller = Creator.buildSheet({ calling: "storyteller", name: "Jessey" });
-const tellerMelee = (teller.character.melee || []).filter((row) => row && row.weapon);
+const tellerGuns = (teller.character.guns || []).filter((row) => row && row.weapon);
 const bowie = (box.SSDNS_RULES.melee || []).find((w) => w.id === "bowie-shortsword");
 check(teller.ok && teller.character.kitStamp === "storyteller", "storyteller wizard marks the kit applied");
-check(tellerMelee.some((row) => row.weapon === "sword-cane-rapier" && row.proficient === true) && tellerMelee.some((row) => row.weapon === "stiletto-dagger"), "storyteller wizard seeds a proficient sword cane and a stiletto");
+check(tellerGuns.length === 1 && tellerGuns[0].weapon === "herringer-light-pepperbox" && tellerGuns[0].proficient === true, "storyteller wizard seeds one proficient pepperbox");
 check(bowie && bowie.name === "Bowie (shortsword)" && bowie.damage === "1d6" && bowie.dmgType === "Piercing" && /finesse/i.test(bowie.properties || ""), "Bowie attack stats come from the weapon table");
 check(teller.character.instrument === "fiddle" && teller.character.instrumentQuality === "cheap" && teller.character.instrumentStrings === "plain", "default storyteller instrument is a cheap fiddle");
 ["Fiddle with a strap and one spare set of strings", "Circuit trunk"].forEach((line) => {
@@ -119,10 +120,10 @@ check(teller.character.instrument === "fiddle" && teller.character.instrumentQua
 check(teller.character.armor === "leather-jacket", "storyteller wears a leather jacket");
 check(String(teller.character.equipment || "").indexOf("Boot knife") < 0, "boot knife is not a second gear line");
 const derringer = (box.SSDNS_RULES.firearms || []).find((w) => w.id === "herringer-light-double-derringer");
-const ironTeller = Creator.buildSheet({ calling: "storyteller", kit: { weapon: "derringer", voice: "fiddle", kit: "trunk" } });
-const tellerGun = (ironTeller.character.guns || []).find((row) => row && row.weapon === "herringer-light-double-derringer");
+const ironTeller = Creator.buildSheet({ calling: "storyteller", kit: { weapon: "pepper", voice: "fiddle", kit: "trunk" } });
+const tellerGun = (ironTeller.character.guns || []).find((row) => row && row.weapon === "herringer-light-pepperbox");
 const lightAmmo = (ironTeller.character.ammo || []).find((row) => row && row.type === "cartridge" && row.caliber === "Light");
-check(tellerGun && tellerGun.proficient === true && tellerGun.chamber === "light|.32 Long", "storyteller wizard chambers a Herringer Light Double Derringer");
+check(tellerGun && tellerGun.proficient === true && tellerGun.chamber === "light|.32 Long", "storyteller wizard chambers a Herringer Light Pepperbox");
 check(derringer && derringer.capacity === 2 && derringer.ability === "DEX" && derringer.tiers.light.damage === "1d6" && derringer.tiers.light.range === "10/30" && derringer.tiers.light.misfire === "1–3" && derringer.rounds.light[0] === ".32 Long", "derringer stats come from the weapon table");
 check(lightAmmo && lightAmmo.count === 20, "storyteller wizard carries 20 Light cartridges (.32 Long)");
 
@@ -131,11 +132,11 @@ check(saloon.ok && saloon.character.instrument === "banjo", "saloon storyteller 
 check(String(saloon.character.equipment || "").indexOf("Saloon kit") >= 0, "saloon kit choice is gear");
 check(String(saloon.character.equipment || "").indexOf("Banjo with a strap and one spare set of strings") >= 0, "banjo carries the strap and spare strings");
 check(String(saloon.character.equipment || "").indexOf("Circuit trunk") < 0 && String(saloon.character.equipment || "").indexOf("Diplomat trunk") < 0, "saloon choice replaces the circuit trunk");
-check((saloon.character.melee || []).some((row) => row && row.weapon === "stiletto-dagger"), "saloon storyteller still gets the stiletto");
-check((saloon.character.melee || []).some((row) => row && row.weapon === "sword-cane-rapier"), "saloon storyteller keeps the default sword cane");
+check((saloon.character.guns || []).some((row) => row && row.weapon === "herringer-light-pepperbox"), "saloon storyteller keeps one pepperbox");
+check((saloon.character.melee || []).every((row) => !row || !row.weapon), "saloon storyteller has no second weapon");
 
 const bare = Creator.buildSheet({ calling: "storyteller", kit: {} });
-check(bare.ok && bare.character.instrument === "fiddle" && (bare.character.melee || []).some((row) => row && row.weapon === "sword-cane-rapier") && (bare.character.melee || []).some((row) => row && row.weapon === "stiletto-dagger"), "an empty kit pick still receives the PHB default");
+check(bare.ok && bare.character.instrument === "fiddle" && (bare.character.guns || []).some((row) => row && row.weapon === "herringer-light-pepperbox") && (bare.character.melee || []).every((row) => !row || !row.weapon), "an empty kit pick still receives one pepperbox");
 check(String(bare.character.equipment || "").indexOf("Circuit trunk") >= 0 && bare.character.armor === "leather-jacket", "default trunk and leather jacket still land");
 
 const v2 = read("dm/assets/js/v2.js");
@@ -160,7 +161,7 @@ check(join.indexOf("seen: false") >= 0, "turn ack records delivered before seen"
 check(extras.indexOf("selfApplied") >= 0 && extras.indexOf("releaseHealTarget") >= 0, "self heals apply locally");
 check(play.indexOf("attackRoll") >= 0, "melee uses the shared attack dice");
 check(app.indexOf("details.box.wild") >= 0, "wild spark box can be hidden");
-check(read("version.json").indexOf('"sheet": "0.3.33"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.46"') >= 0, "current versions");
+check(read("version.json").indexOf('"sheet": "0.3.34"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.47"') >= 0, "current versions");
 
 if (failures.length) {
   console.error(failures.join("\n"));

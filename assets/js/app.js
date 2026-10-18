@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.33"; // sheet-playtest-v0333
+  var APP_VERSION = "0.3.34"; // sheet-playtest-v0334
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -672,7 +672,11 @@
         if (rr.misfire) s.misfire = rr.misfire;
         s.unwieldy = !!rr.unwieldy;
       }
-      if (longGun22(w, ch.round)) s.damage = "1d4";
+      if (longGun22(w, ch.round)) {
+        s.damage = "1d4";
+        s.range = "10/30";
+        s.misfire = "1–4";
+      }
       if (g.dirty && w.dirtyMisfire) s.misfire = w.dirtyMisfire;
       s.dmgType = w.scatter && g.load !== "slug" ? "piercing (cone)" : "piercing";
     } else {
@@ -981,6 +985,10 @@
         el("div", { class: "g-actions" }, [
           el("select", { class: "adv-sel", "data-adv": i, "aria-label": "Advantage or disadvantage", title: "Advantage or disadvantage. Both dice in the misfire range fouls the gun." }, [opt("", "—"), opt("adv", "Adv"), opt("dis", "Dis")]),
           el("button", { type: "button", class: "btn sm", "data-gunroll": i, title: "Plain attack. Never spends a spell slot. A natural roll in the gun's misfire range jams it. Dirty misfires on at least 1–2." }, ["Roll"]),
+          el("span", { class: "g-gunmelee" }, [
+            el("span", { class: "fine", "data-out": "gmelee." + i }),
+            el("button", { type: "button", class: "btn sm", "data-gunmelee": i, title: "Melee with the gun. Always proficient. No ammo and no misfire." }, ["Melee"])
+          ]),
           el("button", { type: "button", class: "btn sm tr", "data-tr": i, title: "Tactical Reload: bonus action, load one round from a gun belt or bandolier (TR ✓ guns only)" }, ["TR +1"]),
           el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Load one hex shell of this level. Loading spends the slot. Fire it later as a spell attack." }, ["+ Hex shell"])]),
           el("span", { class: "cast-through", "data-castwrap": i }, [
@@ -1495,6 +1503,10 @@
         rollBtn.hidden = !s;
         rollBtn.textContent = "Roll";
       }
+      var meleeLbl = gunMeleeLabel(w);
+      out("gmelee." + i, meleeLbl);
+      var meleeBtn = $('[data-gunmelee="' + i + '"]');
+      if (meleeBtn) meleeBtn.hidden = !meleeLbl;
       $('[data-tr="' + i + '"]').hidden = !(cap && w && w.tr);
       $('[data-hexwrap="' + i + '"]').hidden = !(cap && w && w.hexShells);
       var castWrap = $('[data-castwrap="' + i + '"]');
@@ -1861,6 +1873,7 @@
     if (path === "character.holster" && HOL[v] && HOL[v].feedsTR) C().gunBelt = true;
     $$('[data-mirror="' + path + '"]').forEach(function (m) { m.textContent = v; });
     if (path === "character.hpMax" && e.isTrusted && String(t.value).trim() !== "" && String(v) !== String(old)) C().hpAuto = false;
+    if (path === "character.hpCurrent" && window.SSDNSSheet && window.SSDNSSheet.syncDown) window.SSDNSSheet.syncDown(v);
     if (path === "character.speed" && e.isTrusted && String(t.value).trim() !== "" && String(v) !== String(old)) C().speedAuto = false;
     if (e.type === "change") {
       if (path === "character.calling") onCallingPicked();
@@ -2789,6 +2802,69 @@
     changed();
     return true;
   }
+  function grantListedWeapon(idOrName) {
+    var key = String(idOrName || "").trim();
+    if (!key) return false;
+    var w = WPN[key] || null;
+    if (!w) {
+      var low = key.toLowerCase();
+      WEAPON_LIST.forEach(function (row) {
+        if (w || !row) return;
+        if (String(row.id || "").toLowerCase() === low || String(row.name || "").toLowerCase() === low) w = row;
+      });
+    }
+    if (!w || !w.id) return false;
+    var melee = (R.melee || []).some(function (row) { return row && row.id === w.id; });
+    if (melee) {
+      var slots = C().melee || [];
+      while (slots.length < 4) slots.push({ weapon: "", proficient: true });
+      C().melee = slots;
+      var slot = null;
+      for (var n = 0; n < slots.length; n++) if (slots[n] && !slots[n].weapon) { slot = slots[n]; break; }
+      if (!slot) {
+        slot = { weapon: "", proficient: true };
+        slots.push(slot);
+      }
+      slot.weapon = w.id;
+      slot.proficient = true;
+      changed();
+      return { id: w.id, name: w.name || w.id, melee: true };
+    }
+    var guns = C().guns || [];
+    var i = -1;
+    for (var g = 0; g < guns.length; g++) if (!guns[g] || !guns[g].weapon) { i = g; break; }
+    if (i < 0) i = 0;
+    var gun = guns[i];
+    if (!gun) return false;
+    gun.weapon = w.id;
+    gun.proficient = true;
+    gun.loaded = 0;
+    gun.chambers = [];
+    gun.chamberSet = false;
+    gun.jammed = false;
+    gun.fouled = false;
+    gun.dirty = false;
+    gun.ruined = false;
+    gun.broken = false;
+    gun.pendingD4 = false;
+    if (w.tiers) {
+      var tier = firstTier(w);
+      var rounds = (w.rounds && w.rounds[tier]) || [];
+      gun.tier = tier;
+      gun.chamber = tier + "|" + (rounds[0] || "");
+      gun.chamberSet = !!tier;
+      gun.capacity = w.capacity || 0;
+    }
+    changed();
+    return { id: w.id, name: w.name || w.id, melee: false };
+  }
+  function gunMeleeLabel(w) {
+    if (!w) return "";
+    var g = String(w.group || "");
+    if (g === "pistol" || g === "caster") return "Melee: Pistol Whip, 5 ft";
+    if (g === "rifle" || g === "carbine" || g === "shotgun" || g === "bigbore") return "Melee: Rifle Butt, 5 ft";
+    return "";
+  }
   function misfireCeiling(text, dirty) {
     var s = String(text || "");
     var m = s.match(/(\d+)\s*[–-]\s*(\d+)/);
@@ -2825,6 +2901,7 @@
     if (!t) return;
     var d = t.dataset;
     if (d.gunroll !== undefined) { if (window.SSDNSGunRoll) window.SSDNSGunRoll(num(d.gunroll), d.k !== undefined ? num(d.k) : undefined); return; }
+    if (d.gunmelee !== undefined) { if (window.SSDNSGunMelee) window.SSDNSGunMelee(num(d.gunmelee)); return; }
     if (d.clean !== undefined) return cleanGun(num(d.clean));
     if (d.fire !== undefined) {
       var gi = num(d.fire), kk = d.k !== undefined ? num(d.k) : undefined;
@@ -3768,6 +3845,8 @@
       castList: function () { return castList(); },
       prepareGunCast: function (i, spell, slot) { prepareGunCast(i, spell, slot); },
       grantTestGun: function (i) { return grantTestGun(i); },
+      grantListedWeapon: function (idOrName) { return grantListedWeapon(idOrName); },
+      gunMeleeLabel: gunMeleeLabel,
       cleanGun: function (i) { return cleanGun(i); },
       applyCleanOption: function (i, optionId) { return applyCleanOption(i, optionId); },
       suggestedHp: function () { return suggestedHp(C()); }

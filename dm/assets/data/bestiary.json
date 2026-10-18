@@ -3228,7 +3228,7 @@
    "Deception": 4
   },
   "senses": "passive Perception 10",
-  "languages": "Common, Thieves’ cant",
+  "languages": "Common, Thieves’ lingo",
   "attacks": "Bowie +5 (1d6+3 piercing), Stiletto +5 (1d4+3 piercing, 20/60), ChaosMaker Revolver +5 (1d8+3 piercing, 20/60, 6 rds, MF 1)",
   "atkBonus": 5,
   "damage": "1d6+3",
@@ -3560,7 +3560,7 @@
    "Deception": 4
   },
   "senses": "passive Perception 10",
-  "languages": "Common, Thieves’ cant",
+  "languages": "Common, Thieves’ lingo",
   "attacks": "Bowie +5 (1d6+3 piercing), Stiletto +5 (1d4+3 piercing, 20/60), ChaosMaker Revolver +5 (1d8+3 piercing, 20/60, 6 rds, MF 1)",
   "atkBonus": 5,
   "damage": "1d6+3",
@@ -3802,7 +3802,7 @@
    "Stealth": 9
   },
   "senses": "passive Perception 13",
-  "languages": "Thieves’ cant, plus any two languages",
+  "languages": "Thieves’ lingo, plus any two languages",
   "damageResistances": "poison",
   "attacks": "Bowie +6 (1d6+3 piercing), ChaosMaker Revolver +6 (1d8+3 piercing, 20/60, 6 rds, MF 1)",
   "atkBonus": 6,
@@ -4204,7 +4204,7 @@
    "Deception": 4
   },
   "senses": "passive Perception 10",
-  "languages": "Common, Thieves’ cant",
+  "languages": "Common, Thieves’ lingo",
   "attacks": "Bowie +5 (1d6+3 piercing), Stiletto +5 (1d4+3 piercing, 20/60), Throwing Knives +5 (1d4+3 piercing, 20/60)",
   "atkBonus": 5,
   "damage": "1d6+3",

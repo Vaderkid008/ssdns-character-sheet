@@ -4573,12 +4573,13 @@ async function loadSceneImage(sceneId) {
     const weaponOptions = (card.attacks || []).map(a => '<option value="' + esc(a.id || a.name || '') + '">' + esc(a.name || a.id || 'Weapon') + '</option>').join('') || '<option value="">No weapon</option>';
     const detail = (extra) => Object.assign({ tokenId: tokenId, combatantId: tokenCombatant(tokenId) }, extra || {});
     const maxHp = Number(hp.max);
-    const curHp = Number(hp.cur);
-    const hpPct = isFinite(maxHp) && maxHp > 0 && isFinite(curHp) ? Math.max(0, Math.min(100, (curHp / maxHp) * 100)) : null;
+    const haveCur = hp.cur !== "" && hp.cur != null && isFinite(Number(hp.cur));
+    const curHp = haveCur ? Number(hp.cur) : NaN;
+    const hpPct = isFinite(maxHp) && maxHp > 0 && haveCur ? Math.max(0, Math.min(100, (curHp / maxHp) * 100)) : null;
     const hpBar = hpPct == null ? '' : '<div class="ssm-hpbar" role="meter" aria-label="HP" aria-valuenow="' + esc(curHp) + '" aria-valuemax="' + esc(maxHp) + '"><span style="width:' + hpPct + '%"></span></div>';
     const ds = card.deathSaves;
     const marks = (arr) => (Array.isArray(arr) ? arr : [false, false, false]).slice(0, 3).map(on => on ? '●' : '○').join('');
-    const deathLine = (isFinite(curHp) && curHp <= 0)
+    const deathLine = (haveCur && curHp <= 0)
       ? '<div class="ssm-deaths">Death saves · S ' + marks(ds && ds.success) + ' · F ' + marks(ds && ds.fail) + '</div>'
       : '';
     const actToggle = isPc

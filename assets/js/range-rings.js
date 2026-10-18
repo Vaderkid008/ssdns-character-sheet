@@ -116,8 +116,9 @@
     var reach = /reach/i.test(properties) ? 10 : 5;
     var scope = !!(spec.scope || /scope/i.test(String(spec.mod || "")));
     var carbine = group === "carbine" || /carbine/i.test(name);
+    var handy = !!(spec.handy || (cat && cat.handy) || /handy/i.test(properties));
     var closeQuarters = /close quarters/i.test(properties);
-    if (scope && carbine) closeQuarters = false;
+    if (scope && carbine && !handy) closeQuarters = false;
     var unwieldy = !!(spec.unwieldy || /unwieldy/i.test(properties) || /big fifty/i.test(name));
     var rifle = group === "rifle" || group === "carbine" || group === "bigbore" || /\brifle\b|\bcarbine\b/i.test(name);
     var roundName = String(spec.round || spec.caliber || "").toLowerCase();
@@ -136,6 +137,7 @@
     if (coneFt && !pair) bits.push(coneFt + " ft cone");
     else if (pair) bits.push(pair.normal + "/" + pair.long);
     if (close) bits.push("close " + close);
+    if (handy && !melee) bits.push("handy: no close-quarters disadvantage, no horseback penalty");
     if (clearLong) bits.push(sharp && !(scope && !spec.moved) ? "sharpshooter" : "scope");
     return {
       close: close,

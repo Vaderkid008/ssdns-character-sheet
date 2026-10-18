@@ -291,6 +291,12 @@
       title: meta.title
     };
   }
+  function takeCoverDisadvantage(takingCover, cover) {
+    if (!takingCover) return false;
+    var key = coverKey(cover);
+    if (key === "half" || key === "three" || key === "full") return false;
+    return true;
+  }
   function coverSaveBonus(cover, ability, opts) {
     var full = coverAdjust(0, cover, {});
     if (full.blocked) return full;
@@ -1187,6 +1193,7 @@
     publicEnemy: publicEnemy,
     coverKey: coverKey,
     coverAdjust: coverAdjust,
+    takeCoverDisadvantage: takeCoverDisadvantage,
     coverSaveBonus: coverSaveBonus,
     secretEnemy: secretEnemy,
     attackVerdict: attackVerdict,

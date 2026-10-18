@@ -861,28 +861,28 @@
     "id": "lancaster-heavy-saddle-carbine",
     "name": "Lancaster Heavy Saddle Carbine",
     "category": "gun",
-    "price_es": 6000,
+    "price_es": 4500,
     "stores": [
       "gun",
       "traveling"
     ],
     "rarity": "rare",
     "minTown": "city",
-    "notes": "Lever tube TR, cap 6, L/M/H, rugged. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
+    "notes": "Lever tube TR, cap 6. L 1d6 10/30 MF1; M 1d6 20/70 MF1; H 1d8 30/90 MF1-2. Handy: no close-quarters disadvantage, no horseback penalty. Martial. Scout kit only at 1st level.",
     "bookLine": 4006
   },
   {
     "id": "henrietta-saddle-carbine",
     "name": "Henrietta Saddle Carbine",
     "category": "gun",
-    "price_es": 4500,
+    "price_es": 3000,
     "stores": [
       "gun",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "Lever tube TR, cap 6, L/M. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
+    "notes": "Lever tube TR, cap 6. L 1d6 10/30 MF1-2; M 1d6 20/70 MF1-2. Handy: no close-quarters disadvantage, no horseback penalty. Martial.",
     "bookLine": 4007
   },
   {
@@ -896,7 +896,7 @@
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "Lever tube TR, cap 6, Light only. Starter/kit gun. Buyer picks the chambered round at purchase (Chambering).",
+    "notes": "Lever tube TR, cap 6. Light .22 LR: 1d4, 10/30, MF 1-4. Handy: no close-quarters disadvantage, no horseback penalty. Scout-only at 1st level.",
     "bookLine": 4008
   },
   {
@@ -1149,7 +1149,7 @@
     "id": "dynamite-stick-standard-fuse",
     "name": "Dynamite stick (standard fuse)",
     "category": "explosive",
-    "price_es": 500,
+    "price_es": 2500,
     "stores": [
       "general",
       "gun",
@@ -1157,14 +1157,14 @@
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "3d6 bludgeoning, 5-ft radius, DC 12 Dex.",
+    "notes": "3d6 bludgeoning, 5-ft radius, DC 12 Dex half. Store stocks 1d4 sticks at a time; the company tracks buyers.",
     "bookLine": 4254
   },
   {
     "id": "dynamite-stick-sweating-sold-cheap",
     "name": "Dynamite stick, sweating (sold cheap)",
     "category": "explosive",
-    "price_es": 250,
+    "price_es": 1250,
     "stores": [
       "general",
       "gun",
@@ -1232,14 +1232,14 @@
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "Powder Man makes charges from it.",
+    "notes": "1 Powder Man charge each, max 3/short rest.",
     "bookLine": 4259
   },
   {
     "id": "blasting-keg",
     "name": "Blasting keg",
     "category": "explosive",
-    "price_es": 2000,
+    "price_es": 10000,
     "stores": [
       "general",
       "gun",
@@ -1346,7 +1346,7 @@
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "",
+    "notes": "Hidden under a coat. Slow draw. Drawn on a creature that didn't know you were armed: +2 to your first shot.",
     "bookLine": 4321
   },
   {
@@ -1728,18 +1728,18 @@
     "bookLine": 4653
   },
   {
-    "id": "assayer-s-lead-tin",
-    "name": "Assayer's lead tin",
+    "id": "baseball-bat",
+    "name": "Baseball bat",
     "category": "gear",
-    "price_es": 200,
+    "price_es": 300,
     "stores": [
       "general",
       "traveling"
     ],
-    "rarity": "uncommon",
-    "minTown": "boomtown",
-    "notes": "Hides a live shard's glow.",
-    "bookLine": 4654
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Simple melee. 1d6 bludgeoning. 2 lb.",
+    "bookLine": ""
   },
   {
     "id": "whiskey-bottle",
@@ -1771,7 +1771,7 @@
   },
   {
     "id": "assay-glass-magnifying-glass",
-    "name": "Assay glass (magnifying glass)",
+    "name": "Ore glass (magnifying glass)",
     "category": "gear",
     "price_es": 1000,
     "stores": [
@@ -2218,7 +2218,7 @@
   },
   {
     "id": "assay-scale",
-    "name": "Assay scale",
+    "name": "Ore scale",
     "category": "gear",
     "price_es": null,
     "stores": [
@@ -2563,7 +2563,7 @@
   },
   {
     "id": "assay-tonic-trail-draught",
-    "name": "Assay tonic / trail draught",
+    "name": "Healing Libation",
     "category": "healing",
     "price_es": null,
     "stores": [
@@ -2863,7 +2863,7 @@
   },
   {
     "id": "forgery-kit-assay-forgeries",
-    "name": "Forgery kit (assay forgeries)",
+    "name": "Forgery kit (ore forgeries)",
     "category": "tool",
     "price_es": null,
     "stores": [
@@ -3428,6 +3428,20 @@
     "bookLine": 4609
   },
   {
+    "id": "dullards-plinker-repeater",
+    "name": "Dullards Plinker Repeater",
+    "category": "gun",
+    "price_es": 1800,
+    "stores": [
+      "gun",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "boomtown",
+    "notes": "Lever tube, TR, cap 7. Chambered .22 LR: 1d4, 10/30, MF 1-4. Two-handed, simple. Not Handy. Art pending.",
+    "bookLine": ""
+  },
+  {
     "id": "dullards-plinker-revolver",
     "name": "Dullards Plinker Revolver",
     "category": "gun",
@@ -3438,7 +3452,7 @@
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "Revolver, TR, cap 7. .22 LR is 1d4. A .32 rimfire rechamber is Light only and deals 1d6. Clean misfire 1-2. A found one is Dirty: misfire 1-4 until cleaned. Simple.",
+    "notes": "Revolver, TR, cap 7. Chambered .22 LR: 1d4, 10/30, misfire 1-4. A .32 rimfire rechamber is Light only and deals 1d6. Dirty misfire stays 1-4 until cleaned. Simple.",
     "bookLine": ""
   },
   {

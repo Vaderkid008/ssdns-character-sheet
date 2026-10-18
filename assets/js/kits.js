@@ -1,6 +1,7 @@
 /**
- * Starting kits from the 2026-10-07 kit scrub, with Jessey's locks:
- * Lawman gets a Ball n Cap and no javelins; Gunslinger gets no matched pair.
+ * Starting kits. L0156 (2026-10-17): one weapon per kit, 20 rounds or 10 shells,
+ * no fancy guns. A gun Calling may swap that weapon for one Plinker
+ * (Revolver or Repeater). The Dullards Light Carbine stays Scout-only.
  * Or-lines are player choices. Loaded before sheet-playtest.js.
  */
 (function (root) {
@@ -154,11 +155,51 @@
     chamberGun(slot, "light|.22 LR", { dirty: true });
     addAmmo(c, "cartridge", "Light", 20);
   }
-  function stilettos(c, n) {
-    putMelee(c, "stiletto-dagger");
-    var i;
-    for (i = 1; i < n; i++) putMelee(c, "stiletto-dagger", true);
-    if (n > 1) addLine(c, "Stilettos ×" + n);
+  function plinkerRepeater(c) {
+    var slot = putGun(c, "dullards-plinker-repeater");
+    chamberGun(slot, "light|.22 LR");
+    addAmmo(c, "cartridge", "Light", 20);
+  }
+  function farm410(c) {
+    var shot = putGun(c, "single-barrel-farm-shotgun");
+    chamberGun(shot, "light|.410");
+    addAmmo(c, "buck", ".410", 10);
+  }
+  function pocketPistol(c) {
+    var pocket = putGun(c, "herringer-light-pocket-pistol");
+    chamberGun(pocket, "light|.32 Long");
+    addAmmo(c, "cartridge", "Light", 20);
+  }
+  function pepperbox(c) {
+    var pep = putGun(c, "herringer-light-pepperbox");
+    chamberGun(pep, "light|.32 Long");
+    addAmmo(c, "cartridge", "Light", 20);
+  }
+  function longbow(c) {
+    putGun(c, "longbow");
+    addAmmo(c, "arrows", "", 20);
+    addLine(c, "Arrows ×20");
+  }
+  function shortbow(c) {
+    putGun(c, "shortbow");
+    addAmmo(c, "arrows", "", 20);
+    addLine(c, "Arrows ×20");
+  }
+  function oneJavelin(c) {
+    putMelee(c, "throwing-spear-javelin");
+  }
+  function staff(c) {
+    putMelee(c, "trail-staff-drover-s-staff-quarterstaff");
+  }
+  function baton(c) {
+    putMelee(c, "baton-belaying-pin-club");
+  }
+  var PLINKER_SWAP = [
+    { id: "plinker", label: "Dullards Plinker Revolver, .22 LR + 20 Light cartridges" },
+    { id: "repeater", label: "Dullards Plinker Repeater, .22 LR + 20 Light cartridges" }
+  ];
+  function withPlinker(options) {
+    return options.concat(PLINKER_SWAP);
   }
   function instrumentLine(voice) {
     var names = { fiddle: "Fiddle", banjo: "Banjo", guitar: "Guitar", accordion: "Accordion", harmonica: "Harmonica" };
@@ -168,6 +209,12 @@
   }
 
   var CHOICES = {
+    "tribal-warrior": [
+      { id: "weapon", prompt: "One melee weapon, or javelins?", options: [
+        { id: "staff", label: "Trail staff" },
+        { id: "javelin", label: "Javelin" }
+      ]}
+    ],
     storyteller: [
       { id: "voice", prompt: "Calling instrument (voice can be the focus; you still carry one)", options: [
         { id: "fiddle", label: "Fiddle" },
@@ -177,42 +224,38 @@
         { id: "harmonica", label: "Harmonica" },
         { id: "voice", label: "Voice (still carry a harmonica)" }
       ]},
-      { id: "weapon", prompt: "Sword cane, cavalry saber, derringer, or plinker?", options: [
-        { id: "cane", label: "Sword cane" },
-        { id: "saber", label: "Cavalry saber" },
-        { id: "derringer", label: "Herringer Light Double Derringer + 20 Light cartridges" },
-        { id: "plinker", label: "Dullards Plinker Revolver, .22 LR + 20 Light cartridges" }
-      ]},
+      { id: "weapon", prompt: "Pepperbox, or shortbow?", options: withPlinker([
+        { id: "pepper", label: "Herringer Light Pepperbox + 20 Light cartridges" },
+        { id: "bow", label: "Shortbow + 20 arrows" }
+      ])},
       { id: "kit", prompt: "Circuit trunk, or saloon kit?", options: [
         { id: "trunk", label: "Circuit trunk" },
         { id: "saloon", label: "Saloon kit" }
       ]}
     ],
     "frontier-preacher": [
-      { id: "melee", prompt: "Trail mace, or sledgehammer?", options: [
-        { id: "mace", label: "Trail mace" },
-        { id: "hammer", label: "Sledgehammer (if proficient)" }
-      ]},
       { id: "armor", prompt: "Scale coat, leather jacket, or mail duster?", options: [
         { id: "scale", label: "Scale coat" },
         { id: "leather", label: "Leather jacket" },
         { id: "mail", label: "Mail duster" }
       ]},
-      { id: "gun", prompt: "Tube rifle, carbine, farm shotgun, or plinker?", options: [
-        { id: "rifle", label: "Dullards Tube Rifle, Light + 20 Light cartridges" },
-        { id: "carbine", label: "Dullards Light Carbine, Light + 20 Light cartridges" },
+      { id: "gun", prompt: "Farm shotgun, or pepperbox?", options: withPlinker([
         { id: "shotgun", label: "Single-Barrel Farm Shotgun, .410 + 10 shells" },
-        { id: "plinker", label: "Dullards Plinker Revolver, .22 LR + 20 Light cartridges" }
-      ]},
+        { id: "pepper", label: "Herringer Light Pepperbox + 20 Light cartridges" }
+      ])},
       { id: "pack", prompt: "Circuit kit, or trail kit?", options: [
         { id: "circuit", label: "Circuit kit" },
         { id: "trail", label: "Trail kit" }
       ]}
     ],
     "nature-guide": [
-      { id: "shieldOr", prompt: "Wooden shield, or a throwing spear?", options: [
-        { id: "shield", label: "Wooden shield" },
-        { id: "spear", label: "Throwing spear" }
+      { id: "weapon", prompt: "Javelins, or a shortbow?", options: [
+        { id: "javelin", label: "Javelin" },
+        { id: "bow", label: "Shortbow + 20 arrows" }
+      ]},
+      { id: "shield", prompt: "Wooden shield?", options: [
+        { id: "yes", label: "Wooden shield" },
+        { id: "no", label: "No shield" }
       ]},
       { id: "focus", prompt: "Focus taken from the land?", options: [
         { id: "stick", label: "Carved walking stick" },
@@ -221,13 +264,13 @@
       ]}
     ],
     gunslinger: [
-      { id: "side", prompt: "Cavalry saber and shield, or one Ball n Cap?", options: [
-        { id: "saber", label: "Cavalry saber and shield" },
+      { id: "weapon", prompt: "Tube rifle, or Ball n Cap?", options: withPlinker([
+        { id: "tube", label: "Dullards Tube Rifle, Light + 20 Light cartridges" },
         { id: "revolver", label: "Navy / Army Ball n Cap + 20 loads" }
-      ]},
-      { id: "armor", prompt: "Mail duster, or leather jacket and a carbine?", options: [
+      ])},
+      { id: "armor", prompt: "Mail duster, or leather jacket?", options: [
         { id: "mail", label: "Mail duster" },
-        { id: "leather", label: "Leather jacket and Dullards Light Carbine + 20 Light cartridges" }
+        { id: "leather", label: "Leather jacket" }
       ]},
       { id: "pack", prompt: "Claim pack, or trail kit?", options: [
         { id: "claim", label: "Claim pack" },
@@ -235,22 +278,31 @@
       ]}
     ],
     "martial-artist": [
+      { id: "weapon", prompt: "Trail staff, or a hand weapon?", options: [
+        { id: "staff", label: "Trail staff" },
+        { id: "baton", label: "Baton (hand weapon)" }
+      ]},
       { id: "pack", prompt: "Claim pack, or trail kit?", options: [
         { id: "claim", label: "Claim pack" },
         { id: "trail", label: "Trail kit" }
       ]}
     ],
     lawman: [
+      { id: "weapon", prompt: "Ball n Cap, or a .410 farm shotgun?", options: withPlinker([
+        { id: "revolver", label: "Navy / Army Ball n Cap + 20 loads" },
+        { id: "shotgun", label: "Single-Barrel Farm Shotgun, .410 + 10 shells" }
+      ])},
       { id: "pack", prompt: "Circuit kit, or trail kit?", options: [
         { id: "circuit", label: "Circuit kit" },
         { id: "trail", label: "Trail kit" }
       ]}
     ],
     "frontier-scout": [
-      { id: "hunt", prompt: "Longbow, or a carbine?", options: [
-        { id: "bow", label: "Longbow + 20 arrows" },
-        { id: "carbine", label: "Dullards Light Carbine + 20 Light cartridges" }
-      ]},
+      { id: "hunt", prompt: "Carbine, tube rifle, or longbow?", options: withPlinker([
+        { id: "carbine", label: "Dullards Light Carbine + 20 Light cartridges" },
+        { id: "rifle", label: "Dullards Tube Rifle, Light + 20 Light cartridges" },
+        { id: "bow", label: "Longbow + 20 arrows" }
+      ])},
       { id: "armor", prompt: "Scale coat, or leather jacket?", options: [
         { id: "scale", label: "Scale coat" },
         { id: "leather", label: "Leather jacket" }
@@ -261,15 +313,10 @@
       ]}
     ],
     gambler: [
-      { id: "blade", prompt: "Sword cane, or Bowie?", options: [
-        { id: "iron", label: "Sword cane" },
-        { id: "bowie", label: "Bowie" }
-      ]},
-      { id: "ranged", prompt: "Pocket pistol, pepperbox, or shortbow?", options: [
+      { id: "ranged", prompt: "Pocket pistol, or pepperbox?", options: withPlinker([
         { id: "pistol", label: "Herringer Light Pocket Pistol + 20 Light cartridges" },
-        { id: "pepper", label: "Herringer Light Pepperbox + 20 Light cartridges" },
-        { id: "bow", label: "Shortbow + 20 arrows" }
-      ]},
+        { id: "pepper", label: "Herringer Light Pepperbox + 20 Light cartridges" }
+      ])},
       { id: "pack", prompt: "Alley kit, claim pack, or trail kit?", options: [
         { id: "alley", label: "Alley kit" },
         { id: "claim", label: "Claim pack" },
@@ -277,33 +324,26 @@
       ]}
     ],
     hexslinger: [
-      { id: "gun", prompt: "Blacksnake, or Hognose?", options: [
+      { id: "gun", prompt: "Blacksnake, or Hognose?", options: withPlinker([
         { id: "blacksnake", label: "Blacksnake caster gun" },
         { id: "hognose", label: "Hognose caster gun" }
-      ]},
+      ])},
       { id: "pack", prompt: "Trail kit, or claim pack?", options: [
         { id: "trail", label: "Trail kit" },
         { id: "claim", label: "Claim pack" }
       ]}
     ],
     "pact-seeker": [
-      { id: "gun", prompt: "A simple sidearm, plinker, or a hatchet?", options: [
-        { id: "pocket", label: "Herringer Light Pocket Pistol + 20 Light cartridges" },
-        { id: "double", label: "Herringer Light Double Derringer + 20 Light cartridges" },
-        { id: "pepper", label: "Herringer Light Pepperbox + 20 Light cartridges" },
-        { id: "plinker", label: "Dullards Plinker Revolver + 20 Light cartridges" },
-        { id: "simple", label: "Hatchet (simple weapon)" }
-      ]},
       { id: "pack", prompt: "Book trunk, or claim pack?", options: [
         { id: "book", label: "Book trunk" },
         { id: "claim", label: "Claim pack" }
       ]}
     ],
     scholar: [
-      { id: "weapon", prompt: "Trail staff, stiletto, or plinker?", options: [
-        { id: "cane", label: "Weighted walking cane (trail staff)" },
-        { id: "stiletto", label: "Stiletto" },
-        { id: "plinker", label: "Dullards Plinker Revolver + 20 Light cartridges" }
+      { id: "weapon", prompt: "Plinker, or pocket pistol?", options: [
+        { id: "plinker", label: "Dullards Plinker Revolver + 20 Light cartridges" },
+        { id: "repeater", label: "Dullards Plinker Repeater + 20 Light cartridges" },
+        { id: "pocket", label: "Herringer Light Pocket Pistol + 20 Light cartridges" }
       ]},
       { id: "pack", prompt: "Book trunk, or trail kit?", options: [
         { id: "book", label: "Book trunk" },
@@ -327,12 +367,71 @@
     };
   }
 
+  function oneWeapon(c, calling, p) {
+    p = p || {};
+    if (calling === "tribal-warrior") {
+      if (p.weapon === "javelin") oneJavelin(c);
+      else staff(c);
+    } else if (calling === "storyteller") {
+      if (p.weapon === "bow") shortbow(c);
+      else if (p.weapon === "plinker") plinker(c);
+      else if (p.weapon === "repeater") plinkerRepeater(c);
+      else pepperbox(c);
+    } else if (calling === "frontier-preacher") {
+      if (p.gun === "pepper") pepperbox(c);
+      else if (p.gun === "plinker") plinker(c);
+      else if (p.gun === "repeater") plinkerRepeater(c);
+      else farm410(c);
+    } else if (calling === "nature-guide") {
+      if (p.weapon === "bow") shortbow(c);
+      else oneJavelin(c);
+    } else if (calling === "gunslinger") {
+      if (p.weapon === "revolver") ballCap(c);
+      else if (p.weapon === "plinker") plinker(c);
+      else if (p.weapon === "repeater") plinkerRepeater(c);
+      else lightGun(c, "dullards-tube-rifle");
+    } else if (calling === "martial-artist") {
+      if (p.weapon === "baton") baton(c);
+      else staff(c);
+    } else if (calling === "lawman") {
+      if (p.weapon === "shotgun") farm410(c);
+      else if (p.weapon === "plinker") plinker(c);
+      else if (p.weapon === "repeater") plinkerRepeater(c);
+      else ballCap(c);
+    } else if (calling === "frontier-scout") {
+      if (p.hunt === "rifle") lightGun(c, "dullards-tube-rifle");
+      else if (p.hunt === "bow") longbow(c);
+      else if (p.hunt === "plinker") plinker(c);
+      else if (p.hunt === "repeater") plinkerRepeater(c);
+      else lightGun(c, "dullards-light-carbine");
+    } else if (calling === "gambler") {
+      if (p.ranged === "pepper") pepperbox(c);
+      else if (p.ranged === "plinker") plinker(c);
+      else if (p.ranged === "repeater") plinkerRepeater(c);
+      else pocketPistol(c);
+    } else if (calling === "hexslinger") {
+      if (p.gun === "plinker") plinker(c);
+      else if (p.gun === "repeater") plinkerRepeater(c);
+      else {
+        var hex = p.gun === "hognose" ? "hognose" : "blacksnake";
+        putGun(c, hex);
+        c.casterGun = hex;
+      }
+    } else if (calling === "pact-seeker") {
+      c.casterGun = "borrowed-iron";
+      c.pactFocus = "borrowed-iron";
+    } else if (calling === "scholar") {
+      if (p.weapon === "repeater") plinkerRepeater(c);
+      else if (p.weapon === "pocket") pocketPistol(c);
+      else plinker(c);
+    }
+  }
+
   function moduleStart(c, calling, p) {
     p = p || {};
     kitCalling = calling || "";
-    if (calling === "tribal-warrior") {
-      putMelee(c, "hatchet-handaxe");
-    } else if (calling === "storyteller") {
+    oneWeapon(c, calling, p);
+    if (calling === "storyteller") {
       var voice = p.voice || "fiddle";
       c.instrument = voice === "voice" ? "voice" : (voice === "harmonica" ? "harmonica" : "voice");
       if (voice === "harmonica" || voice === "voice") {
@@ -360,18 +459,10 @@
       addLine(c, "Badge (tin star, focus)");
       c.badgeState = "dull";
     } else if (calling === "frontier-scout") {
-      putMelee(c, "bowie-shortsword");
       addLine(c, "Keepsake (focus)");
     } else if (calling === "gambler") {
-      putMelee(c, "stiletto-dagger");
       addLine(c, "Thieves' tools");
-    } else if (calling === "hexslinger") {
-      var gun = p.gun === "hognose" ? "hognose" : "blacksnake";
-      putGun(c, gun);
-      c.casterGun = gun;
     } else if (calling === "pact-seeker") {
-      c.casterGun = "borrowed-iron";
-      c.pactFocus = "borrowed-iron";
       addLine(c, "Borrowed Iron (pact focus)");
     } else if (calling === "scholar") {
       addLine(c, "Chemical Field Ledger (focus)");
@@ -387,22 +478,11 @@
     opts = opts || {};
     kitCalling = calling || "";
     if (opts.start === "module" || p._start === "module") return moduleStart(c, calling, p);
+    oneWeapon(c, calling, p);
     if (calling === "tribal-warrior") {
-      putMelee(c, "buffalo-axe-greataxe");
-      putMelee(c, "hatchet-handaxe");
-      putMelee(c, "hatchet-handaxe", true);
-      putMelee(c, "throwing-spear-javelin");
-      putMelee(c, "throwing-spear-javelin", true);
-      putMelee(c, "throwing-spear-javelin", true);
-      putMelee(c, "throwing-spear-javelin", true);
       addLine(c, "Trail kit");
     } else if (calling === "storyteller") {
       var voice = p.voice || "fiddle";
-      if (p.weapon === "saber") putMelee(c, "cavalry-saber-longsword");
-      else if (p.weapon === "derringer") derringer(c);
-      else if (p.weapon === "plinker") plinker(c);
-      else putMelee(c, "sword-cane-rapier");
-      putMelee(c, "stiletto-dagger");
       c.armor = "leather-jacket";
       addLine(c, instrumentLine(voice));
       if (voice === "voice") addLine(c, "Harmonica (kit instrument)");
@@ -415,26 +495,13 @@
         if (!c.instrumentQuality) c.instrumentQuality = "cheap";
       }
     } else if (calling === "frontier-preacher") {
-      if (p.melee === "hammer") putMelee(c, "sledgehammer-warhammer");
-      else putMelee(c, "trail-mace-chapel-mace-mace");
-      if (p.gun === "shotgun") {
-        var shot = putGun(c, "single-barrel-farm-shotgun");
-        chamberGun(shot, "light|.410");
-        addAmmo(c, "buck", ".410", 10);
-      } else if (p.gun === "plinker") plinker(c);
-      else if (p.gun === "carbine") lightGun(c, "dullards-light-carbine");
-      else lightGun(c, "dullards-tube-rifle");
       c.armor = p.armor === "leather" ? "leather-jacket" : (p.armor === "mail" ? "mail-duster" : "scale-coat");
       c.shield = true;
       addLine(c, "Shield");
       addLine(c, packLine(p.pack === "trail" ? "trail" : "circuit"));
       addLine(c, "Holy symbol (focus)");
     } else if (calling === "nature-guide") {
-      putMelee(c, "machete-scimitar");
-      if (p.shieldOr === "spear") {
-        putMelee(c, "throwing-spear-javelin");
-        c.shield = false;
-      } else {
+      if (p.shield !== "no") {
         c.shield = true;
         addLine(c, "Wooden shield");
       }
@@ -444,104 +511,44 @@
       var focus = { stick: "Carved walking stick", pouch: "Medicine pouch", soil: "Pouch of home-spring soil" };
       addLine(c, "Focus: " + (focus[p.focus] || focus.stick));
     } else if (calling === "gunslinger") {
-      lightGun(c, "dullards-tube-rifle");
       c.holster = "mexican-loop";
       c.gunBelt = true;
       addLine(c, "Gun belt");
       addLine(c, "Mexican Loop holster");
       addLine(c, packLine(p.pack === "trail" ? "trail" : "claim"));
-      if (p.armor === "leather") {
-        c.armor = "leather-jacket";
-        lightGun(c, "dullards-light-carbine");
-      } else c.armor = "mail-duster";
-      if (p.side === "revolver") ballCap(c);
-      else {
-        putMelee(c, "cavalry-saber-longsword");
-        c.shield = true;
-        addLine(c, "Shield");
-      }
+      c.armor = p.armor === "leather" ? "leather-jacket" : "mail-duster";
     } else if (calling === "martial-artist") {
-      putMelee(c, "bowie-shortsword");
-      putGun(c, "throwing-knife-dart");
-      addLine(c, "Throwing knives ×10");
       addLine(c, packLine(p.pack === "trail" ? "trail" : "claim"));
       addLine(c, "Rough canvas shirt and heavy boots");
     } else if (calling === "lawman") {
-      putMelee(c, "cavalry-saber-longsword");
       c.shield = true;
       c.armor = "mail-duster";
       addLine(c, "Badge (tin star, focus)");
-      ballCap(c);
       addLine(c, "Mail Duster (chain mail)");
       addLine(c, packLine(p.pack === "trail" ? "trail" : "circuit"));
     } else if (calling === "frontier-scout") {
-      putMelee(c, "bowie-shortsword");
-      putMelee(c, "bowie-shortsword", true);
-      addLine(c, "Bowies ×2");
       c.armor = p.armor === "leather" ? "leather-jacket" : "scale-coat";
       c.gunBelt = true;
       addLine(c, "Gun belt");
       addLine(c, packLine(p.pack === "claim" ? "claim" : "trail"));
       addLine(c, "Keepsake (focus)");
-      if (p.hunt === "carbine") lightGun(c, "dullards-light-carbine");
-      else {
-        putGun(c, "longbow");
-        addAmmo(c, "arrows", "", 20);
-        addLine(c, "Arrows ×20");
-      }
     } else if (calling === "gambler") {
-      if (p.blade === "bowie") putMelee(c, "bowie-shortsword");
-      else putMelee(c, "sword-cane-rapier");
-      stilettos(c, 2);
       c.armor = "leather-jacket";
       addLine(c, "Thieves' tools");
       addLine(c, packLine(p.pack === "claim" ? "claim" : (p.pack === "trail" ? "trail" : "alley")));
-      if (p.ranged === "bow") {
-        putGun(c, "shortbow");
-        addAmmo(c, "arrows", "", 20);
-        addLine(c, "Arrows ×20");
-      } else if (p.ranged === "pepper") {
-        var pep = putGun(c, "herringer-light-pepperbox");
-        chamberGun(pep, "light|.32 Long");
-        addAmmo(c, "cartridge", "Light", 20);
-      } else {
-        var pocket = putGun(c, "herringer-light-pocket-pistol");
-        chamberGun(pocket, "light|.32 Long");
-        addAmmo(c, "cartridge", "Light", 20);
-      }
     } else if (calling === "hexslinger") {
-      var hex = p.gun === "hognose" ? "hognose" : "blacksnake";
-      putGun(c, hex);
-      c.casterGun = hex;
       c.gunBelt = true;
       addLine(c, "Gun belt");
-      addAmmo(c, "cartridge", "Light", 20);
-      addLine(c, "Light cartridges ×20 (plain rounds, not in the cylinder)");
-      stilettos(c, 2);
+      if (p.gun !== "plinker" && p.gun !== "repeater") {
+        addAmmo(c, "cartridge", "Light", 20);
+        addLine(c, "Light cartridges ×20 (plain rounds, not in the cylinder)");
+      }
       addLine(c, packLine(p.pack === "claim" ? "claim" : "trail"));
     } else if (calling === "pact-seeker") {
-      c.casterGun = "borrowed-iron";
-      c.pactFocus = "borrowed-iron";
       addLine(c, "Borrowed Iron (pact focus)");
-      if (p.gun === "simple") putMelee(c, "hatchet-handaxe");
-      else if (p.gun === "double") derringer(c);
-      else if (p.gun === "pepper") {
-        var pp = putGun(c, "herringer-light-pepperbox");
-        chamberGun(pp, "light|.32 Long");
-        addAmmo(c, "cartridge", "Light", 20);
-      } else if (p.gun === "plinker") plinker(c);
-      else {
-        var pk = putGun(c, "herringer-light-pocket-pistol");
-        chamberGun(pk, "light|.32 Long");
-        addAmmo(c, "cartridge", "Light", 20);
-      }
-      stilettos(c, 2);
       c.armor = "leather-jacket";
       addLine(c, packLine(p.pack === "claim" ? "claim" : "book"));
     } else if (calling === "scholar") {
-      if (p.weapon === "plinker") plinker(c);
-      else if (p.weapon === "stiletto") putMelee(c, "stiletto-dagger");
-      else putMelee(c, "trail-staff-drover-s-staff-quarterstaff");
       addLine(c, "Chemical Field Ledger");
       addLine(c, "Prism (focus)");
       addLine(c, "Galvanic reagents (component pouch)");

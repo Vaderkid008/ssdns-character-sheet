@@ -118,7 +118,7 @@ rulesLang.concat(refLang).forEach((line) => {
   check(!banned.test(line), "language field stays settler: " + line.slice(0, 80));
 });
 const playerText = read("assets/data/rules.js") + "\n" + read("assets/data/refcards.js");
-check(!/\bcant\b|-cant\b|\bLingo\b/i.test(playerText.replace(/cantrip/gi, "")), "player-facing text has no Lingo or cant");
+check(!/\bcant\b|-cant\b|\bLingo\b/i.test(playerText.replace(/cantrip/gi, "").replace(/Guild-lingo/g, "")), "player-facing text has no Lingo or cant besides Guild-lingo");
 check(playerText.indexOf("Pathfinder's Code") >= 0 && playerText.indexOf("Card Sharp's Tells") >= 0, "the two renames are in the data");
 check(playerText.indexOf("one extra language of your choice") >= 0 && playerText.indexOf("One of your choice") >= 0, "Demon Blood and Tinker grants");
 

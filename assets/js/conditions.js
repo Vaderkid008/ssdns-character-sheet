@@ -167,8 +167,10 @@
   }
   function ensureUnconscious(list, hp, subjectId) {
     var cur = (list || []).slice();
-    if (Number(hp) > 0) return removeName(cur, "Unconscious");
-    if (Number(hp) !== 0) return cur.map(normalize).filter(Boolean);
+    if (hp == null || (typeof hp === "string" && String(hp).trim() === "")) return cur.map(normalize).filter(Boolean);
+    var n = Number(hp);
+    if (!isFinite(n)) return cur.map(normalize).filter(Boolean);
+    if (n > 0) return removeName(cur, "Unconscious");
     if (cur.some(function (row) { return row && /^unconscious$/i.test(row.name); })) return cur.map(normalize).filter(Boolean);
     return upsert(cur, { name: "Unconscious", subjectId: subjectId || "", by: "hp" });
   }

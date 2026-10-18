@@ -439,6 +439,7 @@
     "street-folk": ["Italian", "Polish"]
   };
   var CHOICE_LANGS = ["Cantonese", "Dutch", "French", "German", "Irish Gaelic", "Italian", "Latin", "Norwegian", "Polish", "Russian", "Spanish", "Swedish", "Trail Tongue", "Welsh", "Dwarvish", "Elvish", "Halfling", "Gnomish", "Orc"];
+  var OLD_TONGUES = ["Dwarvish", "Elvish", "Halfling", "Gnomish", "Orc"];
   function needsExtraLang(draft) {
     if (!draft) return false;
     if (draft.lineage === "nomads" || draft.lineage === "diplomats") return true;
@@ -466,11 +467,13 @@
     if (lin.id === "nomads") {
       var nomad = ["Common", "Trail Tongue"];
       if (draft.extraLanguage) nomad.push(draft.extraLanguage);
+      if (draft.oldTongue && nomad.indexOf(draft.oldTongue) < 0) nomad.push(draft.oldTongue);
       return "You can speak, read, and write " + nomad.join(", ") + ".";
     }
     var parts = ["Common"];
     if (draft.settlerLanguage) parts.push(draft.settlerLanguage);
     if (draft.extraLanguage) parts.push(draft.extraLanguage);
+    if (draft.oldTongue && parts.indexOf(draft.oldTongue) < 0) parts.push(draft.oldTongue);
     if (parts.length < 2) return lin.languages || "";
     if (parts.length === 2) return "You can speak, read, and write " + parts[0] + " and " + parts[1] + ".";
     return "You can speak, read, and write " + parts.slice(0, -1).join(", ") + ", and " + parts[parts.length - 1] + ".";
@@ -585,6 +588,7 @@
         draft.sublineage = "";
         draft.settlerLanguage = "";
         draft.extraLanguage = "";
+        draft.oldTongue = "";
         fillSub();
         renderStep(body, draft, step);
       });
@@ -617,6 +621,10 @@
           body.appendChild(field("Extra language of your choice", extraSel));
           body.appendChild(el("p", { class: "fine", text: "A settler language or an Old Tongue. Infernal and Celestial are not offered." }));
         }
+        var oldSel = langSelect("wizOldTongue", draft.oldTongue, OLD_TONGUES, "Old Tongue (optional)…");
+        oldSel.addEventListener("change", function () { draft.oldTongue = oldSel.value; renderStep(body, draft, step); });
+        body.appendChild(field("Old Tongues (optional)", oldSel));
+        body.appendChild(el("p", { class: "fine", text: "Dwarvish, Elvish, Halfling, Gnomish, or Orc — nearly useless on the frontier." }));
       }
     } else if (step === "calling") {
       body.appendChild(el("h2", { text: "Calling" }));

@@ -227,6 +227,8 @@
       sharpshooter: (c.feats || []).indexOf("sharpshooter") >= 0,
       conditions: c.tableConditions || "",
       takingCover: !!c.takingCover,
+      surpriseDraw: !!c.surpriseDraw,
+      holster: c.holster || "",
       cover: c.cover || "",
       coverLock: !!c.coverLock,
       badgeState: c.badgeState || "",
@@ -775,6 +777,12 @@
           if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Weapon: TEST Jammer" });
           break;
         }
+        var listed = root.SSDNSApp && root.SSDNSApp.grantListedWeapon && root.SSDNSApp.grantListedWeapon(payload.id || payload.text);
+        if (listed && listed.name) {
+          toast("DM sent " + listed.name);
+          if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Weapon: " + listed.name });
+          break;
+        }
         appendEquipment(payload.text || "");
         toast("DM sent item: " + (payload.text || ""));
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Item: " + (payload.text || "") });
@@ -890,6 +898,14 @@
         break;
       case "death_save":
         if (root.SSDNSSheet) root.SSDNSSheet.setDeath(payload.side, payload.index, payload.on);
+        break;
+      case "surprise_draw":
+        if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
+          root.SSDNSApp.applyPatch(function (doc) {
+            if (doc.character) doc.character.surpriseDraw = !!payload.on;
+          });
+        }
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: payload.on ? "Surprise draw armed." : "Surprise draw cleared." });
         break;
       case "undo_item":
         if (root.SSDNSSheet) root.SSDNSSheet.undoItem(payload.text || "");
