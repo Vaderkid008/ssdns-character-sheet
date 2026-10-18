@@ -23,7 +23,7 @@ var S=[
  ["Lever Shotgun, 12 ga","pre-#71 red hull",{weapon:"lancaster-lever-shotgun",name:"Lancaster Lever Shotgun",group:"shotgun",ammo:"shell",action:"Lever (tube)",tier:"medium",cap:4,size:"demo",loaded:3}]]],
 ["Loose rounds / break-action & muzzleloader",[
  [".410 buck, farm shotgun","CHANGED: slim blue",{weapon:"single-barrel-farm-shotgun",name:"Farm Shotgun",group:"shotgun",ammo:"shell",action:"Break-action",tier:"light",cap:1,size:"demo",loaded:1}],
- ["12 ga buck + slug, coach gun","pre-#71 red buck + pre-#71 blue S slug",{weapon:"double-barrel-coach-gun",name:"Coach Gun",group:"shotgun",ammo:"shell",action:"Break-action",tier:"medium",cap:2,size:"demo",chambers:[1,1]},{weapon:"double-barrel-coach-gun",name:"Coach Gun",group:"shotgun",ammo:"shell",load:"slug",action:"Break-action",tier:"medium",cap:2,size:"demo",chambers:[1,""]}],
+ ["12 ga buck + slug, coach gun","pre-#71 red buck + slug (black band)",{weapon:"double-barrel-coach-gun",name:"Coach Gun",group:"shotgun",ammo:"shell",action:"Break-action",tier:"medium",cap:2,size:"demo",chambers:[1,1]},{weapon:"double-barrel-coach-gun",name:"Coach Gun",group:"shotgun",ammo:"shell",load:"slug",action:"Break-action",tier:"medium",cap:2,size:"demo",chambers:[1,""]}],
  ["10 ga buck, farm shotgun","CHANGED: larger green",{weapon:"single-barrel-farm-shotgun",name:"Farm Shotgun",group:"shotgun",ammo:"shell",action:"Break-action",tier:"heavy",cap:1,size:"demo",loaded:1}],
  ["Rifle-musket ball","CHANGED: big lead ball",{weapon:"dull-co-rifle-musket",name:"Rifle-Musket",action:"Muzzleloader (slow)",ammo:"percussion",cap:1,size:"demo",loaded:1}]]],
 ["Shotgun shells in a chamber (end-on) and drawer size",[
@@ -36,11 +36,11 @@ var S=[
  ["Close-up: shotgun tube .410","CHANGED",{weapon:"lancaster-lever-shotgun",name:"L",group:"shotgun",ammo:"shell",action:"Lever (tube)",tier:"light",cap:4,size:"drawer",loaded:3}],
  ["Close-up: shotgun tube 12 ga","pre-#71 red (repeater follows gauge)",{weapon:"lancaster-lever-shotgun",name:"L",group:"shotgun",ammo:"shell",action:"Lever (tube)",tier:"medium",cap:4,size:"drawer",loaded:3}],
  ["Close-up: shotgun tube 10 ga","CHANGED (no 10 ga tube gun in catalog)",{name:"L",group:"shotgun",ammo:"shell",action:"Lever (tube)",tier:"heavy",cap:4,size:"drawer",loaded:3}]]],
-["Slug options (blue slug vs blue .410)",[
- ["A: pre-#71 slug, 12 ga","whole hull blue + white S (as #47)",{name:"s",group:"shotgun",ammo:"shell",load:"slug",action:"Break-action",tier:"medium",cap:2,size:"demo",loaded:2},{name:"b",group:"shotgun",ammo:"shell",action:"Break-action",tier:"light",cap:2,size:"demo",loaded:2}],
- ["A: slug next to .410 buck","CLASH: both blue",{name:"s",group:"shotgun",ammo:"shell",load:"slug",action:"Break-action",tier:"light",cap:1,size:"demo",loaded:1},{name:"b",group:"shotgun",ammo:"shell",action:"Break-action",tier:"light",cap:1,size:"demo",loaded:1}],
- ["B: slug, gauge hull + blue S band, 12 ga","CHANGED option",{name:"s",group:"shotgun",ammo:"shell",load:"slug",slugStyle:"band",action:"Break-action",tier:"medium",cap:2,size:"demo",loaded:2}],
- ["B: .410 / 10 ga slug","CHANGED option",{name:"s",group:"shotgun",ammo:"shell",load:"slug",slugStyle:"band",action:"Break-action",tier:"light",cap:1,size:"demo",loaded:1},{name:"s",group:"shotgun",ammo:"shell",load:"slug",slugStyle:"band",action:"Break-action",tier:"heavy",cap:1,size:"demo",loaded:1}]]]];
+["Slugs (black band + white S on gauge hull)",[
+ [".410 slug","CHANGED: blue hull, black band",{name:"s",group:"shotgun",ammo:"shell",load:"slug",action:"Break-action",tier:"light",cap:1,size:"demo",loaded:1},{name:"b",group:"shotgun",ammo:"shell",action:"Break-action",tier:"light",cap:1,size:"demo",loaded:1}],
+ ["12 ga slug","CHANGED: red hull, black band",{name:"s",group:"shotgun",ammo:"shell",load:"slug",action:"Break-action",tier:"medium",cap:2,size:"demo",loaded:2}],
+ ["10 ga slug","CHANGED: green hull, black band",{name:"s",group:"shotgun",ammo:"shell",load:"slug",action:"Break-action",tier:"heavy",cap:1,size:"demo",loaded:1}],
+ ["Repeater slug tube 12 ga","CHANGED",{weapon:"lancaster-lever-shotgun",name:"L",group:"shotgun",ammo:"shell",load:"slug",action:"Lever (tube)",tier:"medium",cap:4,size:"drawer",loaded:3}]]]];
 document.getElementById("b").innerHTML=S.map(function(sec){return"<h3>"+sec[0]+"</h3><div class=g>"+sec[1].map(function(c){var ch=/CHANGED/.test(c[1]);var z=/buck|Drawer: shells|slug/i.test(c[0])?' z':(/Close-up/.test(c[0])?' z2 cu':(/Drawer/.test(c[0])?' z2':''));return'<div class=c><b>'+c[0]+(z?' <span style="color:#a8977a">(close-up '+(z==' z'?'3x':(/cu/.test(z)?'1.3x':'2x'))+')</span>':'')+'</b><i class="'+(ch?"ch":"")+'">'+c[1]+'</i><div class="s'+z+'">'+c.slice(2).map(function(sp){return A.html(sp)}).join("")+"</div></div>"}).join("")+"</div>"}).join("");
 </script></body></html>
 <style>.c .s.cu{zoom:1.3;overflow:hidden}</style>

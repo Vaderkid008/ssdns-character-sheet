@@ -269,12 +269,11 @@
     var gauge = shellGauge(spec);
     var slug = isSlug(spec);
     /* 0.3.53 sample: hull by gauge. 12 ga = the exact pre-#71 red shell; 10 ga green; .410 blue.
-       Slugs: pre-#71 look (#47) = whole hull blue #2a62b5 with a white S.
-       slugStyle "band" (sample option B) keeps the gauge hull and puts the white S on a blue band. */
+       Slugs (Jessey, option B): gauge hull colour with a black band and a white S. */
     var HULL = { "410": ["#3f8fe0", "#1f5a9c"], "12": ["#c4322e", "#8e241f"], "10": ["#2f7a3a", "#1a4a22"] };
-    var band = slug && String(spec.slugStyle || root.SSDNS_SLUG_STYLE || "") === "band";
-    var hull = slug && !band ? "#2a62b5" : HULL[gauge][0];
-    var hullDark = slug && !band ? "#1c457f" : HULL[gauge][1];
+    var band = slug;
+    var hull = HULL[gauge][0];
+    var hullDark = HULL[gauge][1];
     var brass = "#d7b15e";
     var brassEdge = "#8a6a32";
     var box = gauge === "410" ? { w: 64, h: 11 } : (gauge === "10" ? { w: 72, h: 26 } : { w: 56, h: 20 });
@@ -290,7 +289,7 @@
     var hullX = rimW + headW - 0.3;
     var hullW = Math.max(6, w - hullX - crimp - 1.2);
     var mark = band
-      ? '<rect x="' + (hullX + hullW * 0.22).toFixed(1) + '" y="' + yBody.toFixed(2) + '" width="' + (hullW * 0.48).toFixed(1) + '" height="' + bodyH.toFixed(2) + '" fill="#123a7a"/>' +
+      ? '<rect x="' + (hullX + hullW * 0.22).toFixed(1) + '" y="' + yBody.toFixed(2) + '" width="' + (hullW * 0.48).toFixed(1) + '" height="' + bodyH.toFixed(2) + '" fill="#111111"/>' +
         '<text x="' + (hullX + hullW * 0.46).toFixed(1) + '" y="' + (h * 0.68).toFixed(1) + '" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="' + (bodyH * 0.7).toFixed(1) + '" fill="#f4f7fb">S</text>'
       : slug
       ? '<text x="' + (hullX + hullW * 0.46).toFixed(1) + '" y="' + (h * 0.68).toFixed(1) + '" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="' + (bodyH * 0.7).toFixed(1) + '" fill="#f4f7fb">S</text>'
