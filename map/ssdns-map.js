@@ -4223,6 +4223,11 @@ async function loadSceneImage(sceneId) {
     if (a.ammo && Array.isArray(a.ammo.locked)) return a.ammo.locked;
     return [];
   }
+  function lockupMark(a) {
+    const n = lockList(a).length;
+    const checked = n > 0 ? ' checked' : '';
+    return '<label class="ssm-lockup"><input type="checkbox" disabled' + checked + ' aria-label="Locked up"> LOCKED UP ×' + n + '</label>';
+  }
   function sideButton(a, act, idPrefix, label) {
     const gi = gunIndexOf(a);
     let idAttr = '';
@@ -4349,6 +4354,7 @@ async function loadSceneImage(sceneId) {
     const reloadLabel = 'Reload' + (spareN != null && spareN !== '' ? ' · ' + spareN : '');
     const reload = a.reloadId ? '<button type="button" data-act="playerReload" data-id="' + esc(a.reloadId) + '">' + esc(reloadLabel) + '</button>' : '';
     const tr = a.trId ? '<button type="button" data-act="playerTr" data-id="' + esc(a.trId) + '">TR</button>' : '';
+    const lockup = lockupMark(a);
     const clean = cleanControl(a, 'playerClean');
     const unjam = unjamControl(a, 'playerUnjam');
     const reopen = reopenControl(a, 'playerReopen');
@@ -4375,7 +4381,7 @@ async function loadSceneImage(sceneId) {
         attrs: function (k) { return { 'data-k': String(k) }; }
       });
       return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture +
-        '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + select + reload + tr + clean + unjam + reopen + extras + '</div>';
+        '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + select + lockup + reload + tr + clean + unjam + reopen + extras + '</div>';
     }
     let dots = '';
     const locks = lockList(a);
@@ -4386,7 +4392,7 @@ async function loadSceneImage(sceneId) {
     }
     const dotsHtml = cap ? '<span class="chamber-dots">' + dots + '</span>' : '';
     const rounds = cap ? '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' : '';
-    return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + dotsHtml + rounds + select + reload + tr + clean + unjam + reopen + extras + '</div>';
+    return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + dotsHtml + rounds + select + lockup + reload + tr + clean + unjam + reopen + extras + '</div>';
   }
   function paintPlayerFight() {
     const slot = q('actionSlot');
@@ -4631,7 +4637,7 @@ async function loadSceneImage(sceneId) {
         const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
         const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
         const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : '';
-        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
+        return '<div class="cylinder-row cylinder-graphic"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + lockupMark(a) + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
       }
       let dots = '';
       const locks = lockList(a);
@@ -4643,7 +4649,7 @@ async function loadSceneImage(sceneId) {
       const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
       const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
       const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : '';
-      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
+      return '<div class="cylinder-row"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + lockupMark(a) + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
     }).join('');
     const spellButtons = groupedSpells(card.spells || [], s => {
       const meta = [

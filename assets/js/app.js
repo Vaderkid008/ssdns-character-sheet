@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.35"; // sheet-playtest-v0335
+  var APP_VERSION = "0.3.36"; // sheet-playtest-v0336
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1003,6 +1003,11 @@
             el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".jammed", disabled: "disabled" }), " jammed"]),
             el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".fouled", disabled: "disabled" }), " fouled"]),
             el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".dirty", disabled: "disabled" }), " dirty"]),
+            el("label", { class: "tiny jam", "data-lockup": i }, [
+              el("input", { type: "checkbox", "data-lockup-box": i, disabled: "disabled", "aria-label": "Locked up" }),
+              " LOCKED UP ×",
+              el("span", { "data-lockup-n": i, text: "0" })
+            ]),
             el("button", { type: "button", class: "btn xs", "data-clean": i, title: "Pick a clean before anything changes. Dirty: 10 minutes with gunsmith's tools or a gun cleaning kit. That removes Dirty and resets the streak. Jammed: Unjam, no check. Fouled stays until a gunsmith: pay a gunsmith 500 ES and a day (gunsmith repair, 500 ES and a day). The sheet does not clear Fouled." }, ["Clean"]),
             el("button", { type: "button", class: "btn xs", "data-unjam": i, hidden: "hidden", title: "Clear a jam. Bonus action, or a free action with Rugged, Smoothed, or the Muzzleloader feat." }, ["Unjam"]),
             el("button", { type: "button", class: "btn xs", "data-reopen": i, hidden: "hidden", title: "Muzzleloader feat. An action. Clears one locked chamber. Once per short rest." }, ["Reopen chamber"])
@@ -1397,6 +1402,16 @@
         if (box && document.activeElement !== box) box.checked = !!g[flag];
         if (box) box.disabled = true;
       });
+      var lockN = window.SSDNSMisfire && window.SSDNSMisfire.lockupCount
+        ? window.SSDNSMisfire.lockupCount(g)
+        : (Array.isArray(g.lockedChambers) ? g.lockedChambers.length : 0);
+      var lockBox = row.querySelector('[data-lockup-box="' + i + '"]');
+      var lockNum = row.querySelector('[data-lockup-n="' + i + '"]');
+      if (lockBox) {
+        lockBox.checked = lockN > 0;
+        lockBox.disabled = true;
+      }
+      if (lockNum) lockNum.textContent = String(lockN);
       var statusBits = [];
       if (g.dirty) statusBits.push("Dirty");
       if (g.fouled) statusBits.push("Fouled");
@@ -2617,6 +2632,12 @@
       try { window.SSDNSMapHost.refreshCard(); } catch (e) {}
     }
   }
+  function refreshGunFace() {
+    if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
+    renderCalc();
+    changed({ noRender: true });
+    publishGunCard();
+  }
   function ammoChoices(i) {
     var g = C().guns[i], w = g && WPN[g.weapon];
     if (!g || !w || !w.capacity) return [];
@@ -2808,6 +2829,24 @@
     toast(line);
     if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
     publishGunCard();
+    return true;
+  }
+  function clearLockedChambers(i, mode, chamber) {
+    var g = C().guns[i];
+    if (!g) return false;
+    var M = window.SSDNSMisfire;
+    if (!M || !M.clearLocks) return false;
+    var before = M.lockupCount ? M.lockupCount(g) : ((g.lockedChambers || []).length);
+    if (!before && !(g.lockedChambers && g.lockedChambers.length)) return false;
+    var next = M.clearLocks(g, mode === "one" ? "one" : "all", chamber);
+    if (!next.cleared || !next.cleared.length) return false;
+    g.lockedChambers = (next.lockedChambers || []).slice();
+    var name = WPN[g.weapon] ? WPN[g.weapon].name : "Gun";
+    var line = mode === "one"
+      ? "DM cleared one locked chamber on " + name + "."
+      : "DM cleared all locked chambers on " + name + ".";
+    if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
+    refreshGunFace();
     return true;
   }
   function promptShortRestTools() {
@@ -3957,6 +3996,8 @@
       cleanGun: function (i) { return cleanGun(i); },
       unjamGun: function (i) { return unjamGun(i); },
       reopenChamber: function (i) { return reopenChamber(i); },
+      clearLockedChambers: function (i, mode, chamber) { return clearLockedChambers(i, mode, chamber); },
+      refreshGunFace: refreshGunFace,
       promptShortRestTools: function () { return promptShortRestTools(); },
       applyCleanOption: function (i, optionId) { return applyCleanOption(i, optionId); },
       suggestedHp: function () { return suggestedHp(C()); }

@@ -64,7 +64,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.35"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.36"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -403,7 +403,8 @@
   }
   function persistDoc() {
     var app = root.SSDNSApp;
-    if (app && app.applyPatch) app.applyPatch(function () {});
+    if (app && app.refreshGunFace) app.refreshGunFace();
+    else if (app && app.applyPatch) app.applyPatch(function () {});
   }
   function broadcastD4(title, n, label) {
     var text = (title || "Dirty d4") + ": " + n + " — " + label;
@@ -529,7 +530,8 @@
       if (root.SSDNSSheet && root.SSDNSSheet.applyDelta) root.SSDNSSheet.applyDelta(-fire, (opts.gun || "Gun") + " explodes: " + fire + " fire");
     }
     if (face && (face.wild || face.wildShot) && root.SSDNSOfferWildShot) root.SSDNSOfferWildShot(opts.index, { gunName: opts.gun });
-    if (app && app.applyPatch) app.applyPatch(function () {});
+    if (app && app.refreshGunFace) app.refreshGunFace();
+    else if (app && app.applyPatch) app.applyPatch(function () {});
   }
   root.SSDNSD4 = { reveal: revealDie, plan: planDirtyRolls, arm: armDirty };
   root.SSDNSAsk = { confirm: askConfirm };
