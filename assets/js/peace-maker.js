@@ -1,31 +1,33 @@
-/* The Peace Maker. DM-only special weapon.
-   Not in the PHB, the store, or starting kits.
-   act1-special-finds-tables.md is not in this repo, so the stats are a
-   conservative revolver placeholder the DM can type over on the gun card. */
+/* The Peace Maker. DM-only special weapon (L0169 / L0171, DND Bot 2026-10-18).
+   Not in the PHB, the store, or starting kits. DM-place only.
+   Stats from book1-sources/act1-special-finds-tables.md (Placed Named Weapons):
+   +1 baseball bat, simple melee, 1d6+1 bludgeoning, 2 lb, Uncommon, no attunement,
+   no ammo or misfire, Str. Once per short rest after a hit: knockout (the target
+   drops to 0 HP and is stable). The DM can override anything. */
 (function (root) {
   "use strict";
+  var KNOCKOUT = "Once per short rest, after a hit: knockout. The target drops to 0 HP and is stable.";
   var WEAPON = {
     id: "the-peace-maker",
     name: "The Peace Maker",
     model: "The Peace Maker",
-    group: "pistol",
+    group: "simple-melee",
     cost: "—",
-    action: "Revolver",
-    tr: true,
-    load: "Cartridge",
-    capacity: 6,
-    tiers: {
-      medium: { damage: "1d8", range: "20/60", misfire: "1" }
-    },
-    weight: "3 lb.",
-    properties: "Close quarters, martial, DM special. Placeholder revolver stats.",
-    description: "DM-only. Not for sale. Placeholder: 1d8, 20/60, 6 rounds, misfire 1. Type over the attack or damage box to edit.",
-    src: "DM placeholder — act1-special-finds-tables.md was not in the repo",
-    slow: false,
-    ability: "DEX",
-    category: "martial",
-    rounds: { medium: [".44-40"] },
-    ammo: "cartridge",
+    damage: "1d6",
+    dmgType: "Bludgeoning",
+    range: "—",
+    capacity: null,
+    misfire: "—",
+    magic: 1,
+    weight: "2 lb.",
+    rarity: "Uncommon",
+    attunement: false,
+    properties: "+1 magic bat, simple melee. " + KNOCKOUT,
+    description: "DM-only. Not for sale. +1 baseball bat: +1 to hit, 1d6+1 bludgeoning. " + KNOCKOUT,
+    knockout: KNOCKOUT,
+    src: "act1-special-finds-tables.md (Placed Named Weapons), L0169/L0171",
+    category: "simple",
+    ability: "STR",
     dmOnly: true,
     notForSale: true
   };
@@ -40,6 +42,8 @@
     id: WEAPON.id,
     weapon: weapon,
     lookup: lookup,
-    placeholder: true
+    knockout: KNOCKOUT,
+    usesKey: "The Peace Maker knockout",
+    placeholder: false
   };
 })(typeof window !== "undefined" ? window : globalThis);

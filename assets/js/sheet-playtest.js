@@ -342,6 +342,7 @@
     var box = $("#meleeBox");
     var c = ch();
     if (!box || !c) return;
+    if (root.SSDNSCustomWeapons) root.SSDNSCustomWeapons.syncCharacter(c);
     var list = rules().melee || [];
     c.melee = c.melee || [{}, {}, {}, {}];
     var html = "";
@@ -356,11 +357,40 @@
         "<span data-label='Dmg' data-melee-dmg='" + i + "'></span>" +
         "<span data-label='Range' data-melee-rng='" + i + "'></span>" +
         "</div><label class='tiny equip-toggle' data-equip-wrap='melee:" + i + "'><input type='checkbox' data-equip='melee' data-equip-i='" + i + "' aria-label='Melee " + (i + 1) + " equipped'" + ((c.melee[i] && c.melee[i].weapon && c.melee[i].equipped !== false) ? " checked" : "") + (cur ? "" : " disabled") + "> Equipped</label></div></div>" +
-        "<div class='g-actions'><button type='button' class='btn sm' data-melee-roll='" + i + "'" + ((c.melee[i] && c.melee[i].weapon && c.melee[i].equipped === false) ? " hidden" : "") + ">Roll</button></div></div>";
+        "<div class='g-actions'><button type='button' class='btn sm' data-melee-roll='" + i + "'" + ((c.melee[i] && c.melee[i].weapon && c.melee[i].equipped === false) ? " hidden" : "") + ">Roll</button>" + knockoutBtn(c, i) + "</div></div>";
     }
     box.innerHTML = html;
     paintMelee();
     if (root.SSDNSEquip && root.SSDNSEquip.combatLocked && root.SSDNSEquip.combatLocked()) paintEquipLock(true);
+  }
+  /* The Peace Maker: once per short rest after a hit, knockout (0 HP, stable). */
+  function knockoutBtn(c, i) {
+    var row = c.melee[i];
+    var pm = root.SSDNSPeaceMaker;
+    if (!row || !pm || row.weapon !== pm.id) return "";
+    var u = (c.featureUses || {})[pm.usesKey] || { max: 1, used: 0 };
+    var spent = (u.used || 0) >= (u.max || 1);
+    return " <button type='button' class='btn sm' data-melee-ko='" + i + "'" + (spent ? " disabled" : "") + " title='" + pm.knockout.replace(/'/g, "") + "'>Knockout" + (spent ? " (used)" : " (1/short rest)") + "</button>";
+  }
+  function useKnockout(i) {
+    var c = ch();
+    var pm = root.SSDNSPeaceMaker;
+    if (!c || !pm || !c.melee || !c.melee[i] || c.melee[i].weapon !== pm.id) return false;
+    var u = (c.featureUses || {})[pm.usesKey] || { max: 1, used: 0, rest: "short" };
+    if ((u.used || 0) >= (u.max || 1)) { toast("Knockout is spent until a short rest."); return false; }
+    var tgt = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo && root.SSDNSPlaytest.targetInfo();
+    var name = (tgt && tgt.name) || "the target";
+    patch(function (d) {
+      d.character.featureUses = d.character.featureUses || {};
+      d.character.featureUses[pm.usesKey] = { max: u.max || 1, used: (u.used || 0) + 1, rest: "short" };
+    });
+    var line = (c.name || "Someone") + " lands The Peace Maker: knockout! " + name + " drops to 0 HP, stable.";
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: line });
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
+      root.SSDNSDmJoin.postRoll({ label: "Knockout · The Peace Maker", formula: "", result: 0, detail: line, weapon: "The Peace Maker", targetId: tgt && tgt.id, targetName: tgt && tgt.name });
+    }
+    renderMelee();
+    return true;
   }
   function paintMelee() {
     var c = ch();
@@ -385,8 +415,9 @@
       var ability = finesse ? Math.max(v.mods.STR || 0, v.mods.DEX || 0) : (v.mods.STR || 0);
       var usingDex = finesse && (v.mods.DEX || 0) > (v.mods.STR || 0);
       var prof = row.proficient || (root.SSDNSApp.callingProficient && root.SSDNSApp.callingProficient(w)) ? (v.prof || 0) : 0;
-      var bonus = ability + prof + ((root.SSDNSApp.styleAttackBonus && root.SSDNSApp.styleAttackBonus(w)) || 0);
-      var extra = (root.SSDNSApp.styleDamageBonus && root.SSDNSApp.styleDamageBonus(w)) || 0;
+      var magic = Number(w.magic) || 0;
+      var bonus = ability + prof + magic + ((root.SSDNSApp.styleAttackBonus && root.SSDNSApp.styleAttackBonus(w)) || 0);
+      var extra = magic + ((root.SSDNSApp.styleDamageBonus && root.SSDNSApp.styleDamageBonus(w)) || 0);
       if (c.raging && c.calling === "tribal-warrior" && !thrown && !usingDex) extra += 2;
       if (atk) atk.textContent = (bonus >= 0 ? "+" : "") + bonus;
       if (dmg) dmg.textContent = (w.damage || "") + " " + ((ability + extra) >= 0 ? "+" : "") + (ability + extra);
@@ -1335,6 +1366,8 @@
       if (t.id === "btnMainLong" && root.SSDNSSheet) root.SSDNSSheet.applyRest("long");
       var roll = t.getAttribute && t.getAttribute("data-melee-roll");
       if (roll != null) rollMelee(parseInt(roll, 10));
+      var ko = t.getAttribute && t.getAttribute("data-melee-ko");
+      if (ko != null) useKnockout(parseInt(ko, 10));
     });
     var saloon = $("#btnSaloon");
     if (saloon) saloon.addEventListener("click", function () {

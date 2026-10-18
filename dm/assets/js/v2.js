@@ -2801,7 +2801,7 @@ function decorateDetail(pid) {
           <figcaption>The Peace Maker · DM give list</figcaption>
         </figure>
       </div>
-      <p class="fine">The Peace Maker is a placeholder revolver (1d8, 20/60, 6 rounds, misfire 1). act1-special-finds-tables.md was not in the repo. Type over the attack or damage box to edit.</p>
+      <p class="fine">The Peace Maker: +1 baseball bat, 1d6+1 bludgeoning, Str. Once per short rest after a hit: knockout (0 HP, stable). DM-place only. Lands in a melee slot.</p>
     </div>
     <details class="detail-section" id="detailTesting"${testingSectionOpen() ? " open" : ""}>
       <summary>Testing</summary>
@@ -4449,7 +4449,7 @@ function rollAllEnemies() {
   renderFight();
   announce("Rolled initiative", "initiative");
 }
-/* 0.2.59: one big Roll Initiative. Enemies roll now; players get a prompt and
+/* 0.2.60: one big Roll Initiative. Enemies roll now; players get a prompt and
    anyone who hasn't rolled in INIT_WAIT_MS (or is offline) is auto-rolled with
    their own init bonus. Each player gets a fading "Initiative: N" toast. */
 const INIT_WAIT_MS = 8000;
@@ -4513,6 +4513,47 @@ function rollInitiativeForAll(opts) {
   };
   if (!players.length || wait <= 0) return Promise.resolve(finish());
   return new Promise((resolve) => setTimeout(() => resolve(finish()), wait));
+}
+/* 0.2.60 Give tab: one recipient picker, type chips, handouts folded in. */
+function wireGiveTab() {
+  const panel = $("#panel-rewards");
+  if (!panel || panel.getAttribute("data-give")) return;
+  panel.setAttribute("data-give", "1");
+  const who = $("#rewTarget");
+  const mirror = () => {
+    if (!who) return;
+    ["#hoTarget", "#itemGiveTarget", "#packTarget", "#msgTarget"].forEach((sel) => {
+      const el = $(sel);
+      if (!el) return;
+      const has = [...el.options].some((o) => o.value === who.value);
+      if (has) el.value = who.value;
+    });
+  };
+  if (who) who.addEventListener("change", mirror);
+  panel.addEventListener("click", (e) => {
+    const chip = e.target && e.target.closest ? e.target.closest("[data-give]") : null;
+    if (!chip) return;
+    const kind = chip.getAttribute("data-give");
+    panel.querySelectorAll("[data-give]").forEach((b) => b.classList.toggle("btn-primary", b === chip));
+    mirror();
+    const type = $("#rewType");
+    let focus = null;
+    if (kind === "es" || kind === "item" || kind === "note") {
+      if (type) { type.value = kind; type.dispatchEvent(new Event("change", { bubbles: true })); }
+      focus = kind === "es" ? $("#rewEs") : $("#rewText");
+    } else if (kind === "handout") {
+      focus = $("#hoName");
+    } else if (kind === "weapon") {
+      const form = $("#dmItemForm");
+      const t = form && form.querySelector("[data-item-type]");
+      if (t) { t.value = "weapon"; t.dispatchEvent(new Event("change", { bubbles: true })); }
+      focus = form && form.querySelector("[data-item-name]");
+    }
+    if (focus) {
+      try { focus.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (err) {}
+      focus.focus();
+    }
+  });
 }
 function openAddEnemy() {
   const menu = $("#combatantMenu");
@@ -5972,6 +6013,7 @@ async function bootV2() {
   };
   const rollAll = $("#btnRollAll");
   if (rollAll) rollAll.addEventListener("click", rollAllEnemies);
+  wireGiveTab();
   const rollInitAll = $("#btnRollInitAll");
   if (rollInitAll) rollInitAll.addEventListener("click", () => { rollInitiativeForAll(); });
   const plusEnemy = $("#btnPlusEnemy");

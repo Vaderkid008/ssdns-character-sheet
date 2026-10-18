@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="assets/revolver.png">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.59-fire">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.60-fire">
 <link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.2.41-art">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.59-fire">
-<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.59-dice">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.60-fire">
+<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.60-dice">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -97,10 +97,9 @@
 
   <nav class="tabs" role="tablist" aria-label="DMCC pages">
     <button type="button" role="tab" class="tab" id="tab-table" aria-controls="panel-table" aria-selected="true">Table</button>
-    <button type="button" role="tab" class="tab" id="tab-rewards" aria-controls="panel-rewards" aria-selected="false">Rewards</button>
+    <button type="button" role="tab" class="tab" id="tab-rewards" aria-controls="panel-rewards" aria-selected="false" title="Rewards and handouts">Give</button>
     <button type="button" role="tab" class="tab" id="tab-ledger" aria-controls="panel-ledger" aria-selected="false">Ledger (economy)</button>
     <button type="button" role="tab" class="tab" id="tab-rolls" aria-controls="panel-rolls" aria-selected="false">Rolls</button>
-    <button type="button" role="tab" class="tab" id="tab-handouts" aria-controls="panel-handouts" aria-selected="false">Handouts</button>
     <button type="button" role="tab" class="tab" id="tab-fight" aria-controls="panel-fight" aria-selected="false">Fight</button>
     <button type="button" role="tab" class="tab" id="tab-store" aria-controls="panel-store" aria-selected="false">Store</button>
     <button type="button" role="tab" class="tab" id="tab-lookup" aria-controls="panel-lookup" aria-selected="false">Lookup</button>
@@ -141,8 +140,15 @@
 
     <!-- REWARDS -->
     <section class="panel" id="panel-rewards" role="tabpanel" aria-labelledby="tab-rewards" hidden>
-      <h2>Rewards</h2>
-      <p class="lede">Push Eldorite shards, an item, or a note to one player or everyone.</p>
+      <h2>Give</h2>
+      <p class="lede">One place to give: Eldorite shards, an item, a note, an image handout, or a weapon. Pick who first.</p>
+      <div class="give-types" role="group" aria-label="What to give">
+        <button type="button" class="btn sm give-chip" data-give="es">Shards</button>
+        <button type="button" class="btn sm give-chip" data-give="item">Item</button>
+        <button type="button" class="btn sm give-chip" data-give="note">Note</button>
+        <button type="button" class="btn sm give-chip" data-give="handout">Image handout</button>
+        <button type="button" class="btn sm give-chip" data-give="weapon">Weapon</button>
+      </div>
       <div class="form-grid">
         <div>
           <label for="rewTarget">Target</label>
@@ -188,6 +194,55 @@
         <button type="button" class="btn btn-primary" id="btnPushReward">Push reward</button>
         <button type="button" class="btn sm" id="btnUndo" disabled>Undo last push</button>
       </div>
+    <div class="give-section" id="giveHandout">
+      <h2 style="font-size:18px;margin:16px 0 6px">Image handout</h2>
+      <p class="lede">Paste an image URL, name it, send to the table or one player.</p>
+      <div class="form-grid">
+        <div>
+          <label for="hoName">Name</label>
+          <input type="text" id="hoName" placeholder="Wanted poster">
+        </div>
+        <div class="span-2">
+          <label for="hoUrl">Image URL</label>
+          <input type="url" id="hoUrl" placeholder="https://…">
+        </div>
+        <div class="span-2">
+          <label for="hoText">Text (URL or text is enough)</label>
+          <textarea id="hoText" rows="3" placeholder="Read this aloud…"></textarea>
+        </div>
+        <div>
+          <label for="hoTarget">Send to</label>
+          <select id="hoTarget"></select>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button type="button" class="btn btn-primary" id="btnSendHandout">Send handout</button>
+        <button type="button" class="btn sm" id="btnSaveHandout">Save to list only</button>
+      </div>
+      <div class="handout-grid" id="handoutGrid" style="margin-top:14px"></div>
+      <details class="fold" open>
+        <summary>Handout packs</summary>
+        <p class="lede">A pack is a named set of links. One line each: <code>Name | https://…</code></p>
+        <div class="form-grid">
+          <div>
+            <label for="packName">Pack name</label>
+            <input type="text" id="packName" placeholder="Wanted set">
+          </div>
+          <div>
+            <label for="packTarget">Send packs to</label>
+            <select id="packTarget"></select>
+          </div>
+          <div class="span-2">
+            <label for="packLines">Links</label>
+            <textarea id="packLines" rows="4" placeholder="Wanted poster | https://…"></textarea>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="btn btn-primary" id="btnSavePack">Save pack</button>
+        </div>
+        <div id="packList"></div>
+      </details>
+    </div>
       <div class="toolbar" style="margin-top:20px;border-top:1px solid var(--line);padding-top:14px">
         <h2 style="font-size:18px;margin:0;width:100%">Private message</h2>
         <p class="lede" style="width:100%">DM → one player. Never broadcast.</p>
@@ -271,55 +326,7 @@
     </section>
 
     <!-- HANDOUTS -->
-    <section class="panel" id="panel-handouts" role="tabpanel" aria-labelledby="tab-handouts" hidden>
-      <h2>Handouts</h2>
-      <p class="lede">Paste an image URL, name it, send to the table or one player.</p>
-      <div class="form-grid">
-        <div>
-          <label for="hoName">Name</label>
-          <input type="text" id="hoName" placeholder="Wanted poster">
-        </div>
-        <div class="span-2">
-          <label for="hoUrl">Image URL</label>
-          <input type="url" id="hoUrl" placeholder="https://…">
-        </div>
-        <div class="span-2">
-          <label for="hoText">Text (URL or text is enough)</label>
-          <textarea id="hoText" rows="3" placeholder="Read this aloud…"></textarea>
-        </div>
-        <div>
-          <label for="hoTarget">Send to</label>
-          <select id="hoTarget"></select>
-        </div>
-      </div>
-      <div class="toolbar">
-        <button type="button" class="btn btn-primary" id="btnSendHandout">Send handout</button>
-        <button type="button" class="btn sm" id="btnSaveHandout">Save to list only</button>
-      </div>
-      <div class="handout-grid" id="handoutGrid" style="margin-top:14px"></div>
-      <details class="fold" open>
-        <summary>Handout packs</summary>
-        <p class="lede">A pack is a named set of links. One line each: <code>Name | https://…</code></p>
-        <div class="form-grid">
-          <div>
-            <label for="packName">Pack name</label>
-            <input type="text" id="packName" placeholder="Wanted set">
-          </div>
-          <div>
-            <label for="packTarget">Send packs to</label>
-            <select id="packTarget"></select>
-          </div>
-          <div class="span-2">
-            <label for="packLines">Links</label>
-            <textarea id="packLines" rows="4" placeholder="Wanted poster | https://…"></textarea>
-          </div>
-        </div>
-        <div class="toolbar">
-          <button type="button" class="btn btn-primary" id="btnSavePack">Save pack</button>
-        </div>
-        <div id="packList"></div>
-      </details>
-    </section>
+
 
     <section class="panel fight-board" id="panel-fight" role="tabpanel" aria-labelledby="tab-fight" hidden>
       <header class="wanted-head">
@@ -572,35 +579,36 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.59-fire"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.60-fire"></script>
 <script src="../assets/js/conditions.js?v=0.2.35"></script>
 <script src="assets/js/ui-tab.js?v=0.2.35"></script>
-<script src="../assets/js/sfx.js?v=0.2.59-fire"></script>
+<script src="../assets/js/sfx.js?v=0.2.60-fire"></script>
 <script src="../assets/data/rules.js?v=0.2.35-class"></script>
-<script src="../assets/js/equip.js?v=0.2.59-equip"></script>
+<script src="../assets/js/equip.js?v=0.2.60-equip"></script>
 <script src="../assets/js/spell-fx.js?v=0.2.35"></script>
 <script src="../assets/js/spell-cast.js?v=0.2.39-range"></script>
-<script src="../assets/js/misfire.js?v=0.2.59-fire"></script>
+<script src="../assets/js/misfire.js?v=0.2.60-fire"></script>
 <script src="../assets/js/firebase-config.js?v=0.2.35"></script>
 <script src="assets/js/store-stock.js?v=0.2.35"></script>
 <script src="assets/js/demo-data.js?v=0.2.35-guns"></script>
-<script src="../assets/js/test-jammer.js?v=0.2.59-fire"></script>
-<script src="../assets/js/weapon-art.js?v=0.2.59-art"></script>
-<script src="../assets/js/instrument-art.js?v=0.2.59-art"></script>
-<script src="../assets/data/item-catalog.js?v=0.2.59-items"></script>
-<script src="../assets/js/items.js?v=0.2.59-items"></script>
-<script src="../assets/js/item-art.js?v=0.2.59-art"></script>
-<script src="../assets/js/peace-maker.js?v=0.2.59-art"></script>
-<script src="../assets/js/dice-art.js?v=0.2.59-dice"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.59-fire"></script>
-<script src="../assets/js/ammo-display.js?v=0.2.59-fire"></script>
-<script src="../assets/js/grab.js?v=0.2.59-grab"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.59-fire"></script>
+<script src="../assets/js/test-jammer.js?v=0.2.60-fire"></script>
+<script src="../assets/js/weapon-art.js?v=0.2.60-art"></script>
+<script src="../assets/js/instrument-art.js?v=0.2.60-art"></script>
+<script src="../assets/data/item-catalog.js?v=0.2.60-items"></script>
+<script src="../assets/js/custom-weapons.js?v=0.3.47-items"></script>
+<script src="../assets/js/items.js?v=0.2.60-items"></script>
+<script src="../assets/js/item-art.js?v=0.2.60-art"></script>
+<script src="../assets/js/peace-maker.js?v=0.2.60-art"></script>
+<script src="../assets/js/dice-art.js?v=0.2.60-dice"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.60-fire"></script>
+<script src="../assets/js/ammo-display.js?v=0.2.60-fire"></script>
+<script src="../assets/js/grab.js?v=0.2.60-grab"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.60-fire"></script>
 <script src="../map/token-crop.js?v=0.2.38-card"></script>
 <script src="../assets/js/range-rings.js?v=0.2.42-dis"></script>
 <script src="../map/ssdns-map-chat.js?v=0.2.44-float"></script>
-<script src="../map/ssdns-map.js?v=0.2.59-fire"></script>
+<script src="../map/ssdns-map.js?v=0.2.60-fire"></script>
 <script src="../map/ssdns-map-firebase.js?v=0.2.36-sync"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.59-fire"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.60-fire"></script>
 </body>
 </html>

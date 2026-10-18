@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.46"; // sheet-playtest-v0346
+  var APP_VERSION = "0.3.47"; // sheet-playtest-v0347
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -66,6 +66,15 @@
     if (!pm || !pm.weapon) return;
     var w = pm.weapon();
     if (w && w.dmOnly && w.id && !WPN[w.id]) WPN[w.id] = w;
+  })();
+  (function installCustomWeapons() {
+    var cw = window.SSDNSCustomWeapons;
+    if (!cw || !cw.onRegister) return;
+    cw.onRegister(function (w) {
+      if (!w || !w.id) return;
+      WPN[w.id] = w;
+      if (WEAPON_LIST.indexOf(w) < 0) WEAPON_LIST.push(w);
+    });
   })();
   var SHARDS = R.currency; // [{id:"white", color:"White", equals:"1 ES", es:1}, ...] (PHB Currency — Eldorite)
   var SPELL_LINES = [8, 12, 13, 13, 13, 9, 9, 9, 7, 7]; // same number of lines as the 5e base sheet, page 3
@@ -179,6 +188,11 @@
     if (doc.character && doc.character.proficienciesLanguages) {
       doc.character.proficienciesLanguages = migrateSettlerLanguages(doc.character.proficienciesLanguages);
     }
+    if (doc.character && window.SSDNSItems && window.SSDNSItems.mergeExplosives) {
+      var merged = window.SSDNSItems.mergeExplosives(doc.character);
+      if (merged) notes.push("Moved " + merged + " explosive line(s) into Items (Use button).");
+    }
+    if (doc.character && window.SSDNSCustomWeapons) window.SSDNSCustomWeapons.syncCharacter(doc.character);
     if (doc.character && window.SSDNSEquip && window.SSDNSEquip.migrate) {
       var loadout = window.SSDNSEquip.migrate(doc.character);
       if (loadout && loadout.ok && !loadout.skipped) notes.push("Equipped current weapons up to the L0170 slot limits.");
@@ -662,6 +676,7 @@
     return v;
   }
   function gunStats(g, v) {
+    if (g && g.weapon && !WPN[g.weapon] && window.SSDNSCustomWeapons) window.SSDNSCustomWeapons.syncCharacter(C());
     var w = WPN[g.weapon];
     if (!w) return g.weapon ? { w: { id: g.weapon, name: g.weapon + " (not in the current PHB)", ammo: "" }, damage: "", range: "", capacity: 0, misfire: "", note: "This gun isn't in the current PHB. Pick its new name from the list.", atk: "", dmg: "", tier: "", rounds: [] } : null;
     var steps = capSteps(w), capUp = steps.filter(function (x) { return x.cap === num(g.capacity); })[0];
@@ -722,7 +737,8 @@
     var first = (v.holsterFirst && w.group === "pistol") ? v.holsterFirst : 0;
     if (mod && /hair trigger/i.test(mod.name) && w.group === "pistol") first = Math.min(2, first + 1); // PHB: counts toward the rig's +2 first-shot cap
     if (mod) notes.push("mod: " + mod.name);
-    s.atk = sign(m + (g.proficient ? v.prof : 0) + style);
+    var magicAtk = (g.magic != null && isFinite(Number(g.magic)) && Number(g.magic)) ? 0 : (Number(w.magic) || 0);
+    s.atk = sign(m + (g.proficient ? v.prof : 0) + style + magicAtk);
     var abilityLabel = ability === "STR/DEX" ? (v.mods.STR >= v.mods.DEX ? "STR" : "DEX") : ability;
     var styleLabels = { "long-gun": "Long Gun", archery: "Archery", sidearm: "Sidearm", dueling: "Dueling" };
     var styleLabel = styleLabels[C() && C().fightingStyle] || "style";
@@ -730,13 +746,15 @@
     if (g.proficient) s.parts.push({ label: "proficiency", value: v.prof || 0 });
     if (style) s.parts.push({ label: styleLabel, value: style });
     if (g.magic != null && isFinite(Number(g.magic)) && Number(g.magic)) s.parts.push({ label: "magic", value: Number(g.magic) });
+    else if (magicAtk) s.parts.push({ label: "magic", value: magicAtk });
     s.dmgParts = [];
     if (m) s.dmgParts.push({ label: abilityLabel, value: m });
     if (dmgStyle) s.dmgParts.push({ label: styleLabel, value: dmgStyle });
     if (style) notes.push((C().fightingStyle || "style") + " " + sign(style));
     if (dmgStyle) notes.push((C().fightingStyle || "style") + " damage " + sign(dmgStyle));
     if (first) notes.push("first shot from the rig " + sign(m + (g.proficient ? v.prof : 0) + style + first));
-    var dmgMod = m + dmgStyle;
+    var dmgMod = m + dmgStyle + magicAtk;
+    if (magicAtk) s.dmgParts.push({ label: "magic", value: magicAtk });
     s.dmg = s.damage ? s.damage + (dmgMod ? " " + sign(dmgMod) : "") + " " + (s.dmgType || "") : "";
     s.note = notes.join(" · ");
     return s;
@@ -1397,6 +1415,16 @@
       } else if (testOpt) {
         testOpt.parentNode.removeChild(testOpt);
       }
+      var cwOpt = sel.querySelector("option[data-custom-gun]");
+      var cwGun = cur && WPN[cur] && WPN[cur].custom ? WPN[cur] : null;
+      if (cwGun) {
+        if (!cwOpt || cwOpt.value !== cwGun.id) {
+          if (cwOpt) cwOpt.parentNode.removeChild(cwOpt);
+          sel.appendChild(el("option", { value: cwGun.id, text: cwGun.name + " · created", "data-custom-gun": "1" }));
+        }
+      } else if (cwOpt) {
+        cwOpt.parentNode.removeChild(cwOpt);
+      }
       var dmOpt = sel.querySelector("option[data-dm-gun]");
       var dmGun = cur && window.SSDNSPeaceMaker && window.SSDNSPeaceMaker.lookup ? window.SSDNSPeaceMaker.lookup(cur) : null;
       if (dmGun) {
@@ -1796,23 +1824,26 @@
     });
     if (focus) { var f = box.querySelector('[data-f="' + focus + '"]'); if (f) f.focus(); }
   }
+  /* 0.3.47: explosives live in Items (one list). This box shows the explosive
+     items with a count and the same Use button as the Items list. */
   function renderExplosives() {
     var box = $("#explosiveList"); if (!box) return;
     box.innerHTML = "";
     var c = C();
-    if (!c.explosives) c.explosives = [];
-    if (!c.explosives.length) box.appendChild(el("p", { class: "fine", text: "No explosives yet." }));
-    var items = (R.explosives && R.explosives.items) || [];
-    c.explosives.forEach(function (row, i) {
-      var sel = el("select", { "data-f": "character.explosives." + i + ".item", "aria-label": "Explosive" });
-      sel.appendChild(opt("", "Explosive…"));
-      items.forEach(function (it) { sel.appendChild(opt(it.id, it.name + (it.notes ? " — " + it.notes : ""))); });
-      sel.value = row.item || "";
-      var cnt = el("input", { type: "number", min: "0", "data-f": "character.explosives." + i + ".count", "aria-label": "Count", inputmode: "numeric" });
-      cnt.value = row.count == null ? 0 : row.count;
-      var rm = el("button", { type: "button", class: "btn sm", "data-exp-del": i, title: "Remove" }, ["×"]);
-      box.appendChild(el("div", { class: "ammo-row" }, [sel, cnt, rm]));
+    var Items = window.SSDNSItems;
+    if (Items && Items.mergeExplosives && Items.mergeExplosives(c)) changed({ noRender: true, quiet: true });
+    var rows = (c.items || []).filter(function (it) { return it && it.type === "explosive"; });
+    if (!rows.length) box.appendChild(el("p", { class: "fine", text: "No explosives yet." }));
+    rows.forEach(function (it) {
+      var label = el("span", { class: "exp-name", text: it.name + (it.effect && it.effect.damage ? " · " + it.effect.damage + (it.effect.radius ? ", " + it.effect.radius + " ft" : "") : "") });
+      var cnt = el("span", { class: "exp-count", text: "×" + (it.count == null ? 1 : it.count) });
+      var use = el("button", { type: "button", class: "btn sm", "data-item-use": it.uid, title: "Throw or set it. Rolls damage and the save, takes one from your count." }, ["Use"]);
+      box.appendChild(el("div", { class: "ammo-row exp-row" }, [label, cnt, use]));
     });
+    var pick = el("select", { id: "explosivePick", "aria-label": "Add an explosive" });
+    pick.appendChild(opt("", "Add an explosive…"));
+    ((Items && Items.catalog && Items.catalog({})) || []).filter(function (r) { return r.type === "explosive"; }).forEach(function (r) { pick.appendChild(opt(r.id, r.name)); });
+    box.appendChild(el("div", { class: "ammo-row exp-add", hidden: "" }, [pick]));
     var info = $("#explosiveInfo");
     if (info) {
       var bits = [];
@@ -3183,6 +3214,14 @@
     }
     if (!w && window.SSDNSPeaceMaker && window.SSDNSPeaceMaker.lookup) w = window.SSDNSPeaceMaker.lookup(key);
     if (!w || !w.id) return false;
+    if (w.custom || w.dmOnly && /melee/.test(String(w.group || ""))) {
+      if (window.SSDNSCustomWeapons && window.SSDNSCustomWeapons.register) window.SSDNSCustomWeapons.register(Object.assign({ kind: /melee/.test(String(w.group || "")) ? "melee" : (w.tiers ? "firearm" : "melee") }, w));
+    }
+    if (w.knockout && window.SSDNSPeaceMaker && w.id === window.SSDNSPeaceMaker.id) {
+      var fu = C().featureUses || (C().featureUses = {});
+      var ukey = window.SSDNSPeaceMaker.usesKey;
+      if (!fu[ukey]) fu[ukey] = { max: 1, used: 0, rest: "short" };
+    }
     var melee = (R.melee || []).some(function (row) { return row && row.id === w.id; });
     if (melee) {
       var slots = C().melee || [];
@@ -4100,10 +4139,23 @@
       var rows = $$("#ammoList .ammo-row"); if (rows.length) $("select", rows[rows.length - 1]).focus();
     };
     $("#btnAddExplosive").onclick = function () {
-      if (!C().explosives) C().explosives = [];
-      C().explosives.push({ item: "", count: 0 }); changed();
-      var rows = $$("#explosiveList .ammo-row"); if (rows.length) $("select", rows[rows.length - 1]).focus();
+      var wrap = $("#explosiveList .exp-add");
+      if (wrap) { wrap.hidden = false; var p = $("#explosivePick"); if (p) p.focus(); }
     };
+    document.addEventListener("change", function (e) {
+      var t = e.target;
+      if (!t || t.id !== "explosivePick" || !t.value) return;
+      var Items = window.SSDNSItems;
+      if (!Items || !Items.add) return;
+      var have = (C().items || []).filter(function (it) { return it && it.type === "explosive" && (it.catalogId === t.value || it.id === t.value); })[0];
+      if (have) have.count = (Number(have.count) || 1) + 1;
+      else {
+        var res = Items.add(C(), Items.byId ? Items.byId(t.value) : { id: t.value }, {});
+        if (res && !res.ok && res.reason) toast(res.reason);
+      }
+      t.value = "";
+      changed();
+    });
     $("#btnGearAdd").onclick = function () {
       var v = $("#gearAdd").value.trim(); if (!v) return;
       var c = C(); c.equipment = (c.equipment ? c.equipment.replace(/\s+$/, "") + "\n" : "") + "• " + v;
