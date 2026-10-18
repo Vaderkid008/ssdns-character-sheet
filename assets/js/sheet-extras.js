@@ -2159,6 +2159,7 @@
       else if (c.calling === "pact-seeker") word = "Pact slots";
       showNotice(shortHex ? "Short rest — pact slots refreshed. The misfire streak resets. Dirt and fouling stay." : "Short rest. Your " + word + " comes back on a long rest. The misfire streak resets. Dirt and fouling stay.");
     }
+    if (root.SSDNSItems && root.SSDNSItems.recharge) root.SSDNSItems.recharge(c, kind);
   }
 
   function syncRestFields(c) {

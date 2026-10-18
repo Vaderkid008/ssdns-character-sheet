@@ -35,6 +35,10 @@
       var peace = root.SSDNSPeaceMaker.lookup(key);
       if (peace) return peace;
     }
+    if (root.SSDNSItems && root.SSDNSItems.weaponRecord) {
+      var catalogWeapon = root.SSDNSItems.weaponRecord(key);
+      if (catalogWeapon) return catalogWeapon;
+    }
     if (key === "test-jammer" || key === "TEST Jammer") return { id: "test-jammer", name: "TEST Jammer", group: "pistol", capacity: 6 };
     return null;
   }

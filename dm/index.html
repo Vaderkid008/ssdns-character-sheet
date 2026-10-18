@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="assets/revolver.png">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.56-fire">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.57-fire">
 <link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.2.41-art">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.56-fire">
-<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.56-dice">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.57-fire">
+<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.57-dice">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -115,6 +115,9 @@
     <section class="panel" id="panel-table" role="tabpanel" aria-labelledby="tab-table">
       <h2>Table</h2>
       <p class="lede">Tap a card for the private read-only sheet (abilities, skills, gear, spells).</p>
+      <label class="toggle" title="Off unless the table wants carry weight. Shows carried pounds against Strength × 15 on the sheet.">
+        <input type="checkbox" id="chkWeight"> Track weight
+      </label>
       <div class="insp-pool" id="inspPoolTable">
         <b id="inspCountTable">0</b>
         <span>Party Inspiration</span>
@@ -168,6 +171,17 @@
           <label for="rewQty">Quantity</label>
           <input type="number" id="rewQty" min="1" value="1">
         </div>
+      </div>
+      <div id="dmItemTools" class="item-tools">
+        <h2 style="font-size:18px;margin:16px 0 6px">Items</h2>
+        <p class="lede">Same Add Item form as the sheet. Quest items are DM-only. Custom catalog rows stay in this room.</p>
+        <div id="dmItemForm"></div>
+        <div class="toolbar">
+          <label for="itemGiveTarget">Player</label>
+          <select id="itemGiveTarget"></select>
+          <button type="button" class="btn sm" id="btnLockInventory">Lock inventory</button>
+        </div>
+        <div id="dmPendingItems"></div>
       </div>
       <div class="toolbar">
         <button type="button" class="btn btn-primary" id="btnPushReward">Push reward</button>
@@ -552,33 +566,35 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.56-fire"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.57-fire"></script>
 <script src="../assets/js/conditions.js?v=0.2.35"></script>
 <script src="assets/js/ui-tab.js?v=0.2.35"></script>
-<script src="../assets/js/sfx.js?v=0.2.56-fire"></script>
+<script src="../assets/js/sfx.js?v=0.2.57-fire"></script>
 <script src="../assets/data/rules.js?v=0.2.35-class"></script>
-<script src="../assets/js/equip.js?v=0.2.56-equip"></script>
+<script src="../assets/js/equip.js?v=0.2.57-equip"></script>
 <script src="../assets/js/spell-fx.js?v=0.2.35"></script>
 <script src="../assets/js/spell-cast.js?v=0.2.39-range"></script>
-<script src="../assets/js/misfire.js?v=0.2.56-fire"></script>
+<script src="../assets/js/misfire.js?v=0.2.57-fire"></script>
 <script src="../assets/js/firebase-config.js?v=0.2.35"></script>
 <script src="assets/js/store-stock.js?v=0.2.35"></script>
 <script src="assets/js/demo-data.js?v=0.2.35-guns"></script>
-<script src="../assets/js/test-jammer.js?v=0.2.56-fire"></script>
-<script src="../assets/js/weapon-art.js?v=0.2.56-art"></script>
-<script src="../assets/js/instrument-art.js?v=0.2.56-art"></script>
-<script src="../assets/js/item-art.js?v=0.2.56-art"></script>
-<script src="../assets/js/peace-maker.js?v=0.2.56-art"></script>
-<script src="../assets/js/dice-art.js?v=0.2.56-dice"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.56-fire"></script>
-<script src="../assets/js/ammo-display.js?v=0.2.56-fire"></script>
-<script src="../assets/js/grab.js?v=0.2.56-grab"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.56-fire"></script>
+<script src="../assets/js/test-jammer.js?v=0.2.57-fire"></script>
+<script src="../assets/js/weapon-art.js?v=0.2.57-art"></script>
+<script src="../assets/js/instrument-art.js?v=0.2.57-art"></script>
+<script src="../assets/data/item-catalog.js?v=0.2.57-items"></script>
+<script src="../assets/js/items.js?v=0.2.57-items"></script>
+<script src="../assets/js/item-art.js?v=0.2.57-art"></script>
+<script src="../assets/js/peace-maker.js?v=0.2.57-art"></script>
+<script src="../assets/js/dice-art.js?v=0.2.57-dice"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.57-fire"></script>
+<script src="../assets/js/ammo-display.js?v=0.2.57-fire"></script>
+<script src="../assets/js/grab.js?v=0.2.57-grab"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.57-fire"></script>
 <script src="../map/token-crop.js?v=0.2.38-card"></script>
 <script src="../assets/js/range-rings.js?v=0.2.42-dis"></script>
 <script src="../map/ssdns-map-chat.js?v=0.2.44-float"></script>
-<script src="../map/ssdns-map.js?v=0.2.56-fire"></script>
+<script src="../map/ssdns-map.js?v=0.2.57-fire"></script>
 <script src="../map/ssdns-map-firebase.js?v=0.2.36-sync"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.56-fire"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.57-fire"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
-/* Disarm and Rob. The sheet rules have no contested-disarm entry, so this
-   follows the 5e contest: an attack roll against Athletics or Acrobatics.
-   Ties leave the weapon where it was. No book text lives here. */
+/* Rob/Disarm. Wresting a held weapon is Athletics vs Athletics or Acrobatics.
+   A pocket item is Sleight of Hand vs passive Perception. Ties leave the
+   item where it was. No book text lives here. */
 (function (root) {
   "use strict";
 
@@ -88,6 +88,7 @@
       return { ok: false, outOfRange: true, mode: mode, feet: reach.feet, line: "Out of reach (" + reach.feet + " ft)" };
     }
     if (opts.downed) {
+      if (opts.downedTaken) return { ok: false, downed: true, limited: true, mode: mode, line: "One item from a downed target this turn" };
       return { ok: true, downed: true, mode: mode, line: "Downed: no contest" };
     }
     if (mode === "rob-pocket" || mode === "rob-es") {
@@ -109,12 +110,13 @@
         line: "Sleight of Hand " + faceText(sneak.faces, sneak.kept) + signed(sohMod) + " = " + sneakTotal + " vs passive Perception " + passive + (sneaked ? " — success" : " — fail")
       };
     }
-    var atkMod = opts.attackMod != null && opts.attackMod !== "" && isFinite(Number(opts.attackMod)) ? Number(opts.attackMod) : 0;
+    var athRaw = skillBonus(opts.actor, "Athletics");
+    var athMod = athRaw == null ? 0 : athRaw;
     var def = defensePick(opts.target, opts.defenseSkill);
     var defAdv = (opts.twoHanded || twoHanded(opts.weapon)) ? "adv" : "";
     var atk = rollD20(opts.rng, opts.advantage || "");
     var defRoll = rollD20(opts.rng, defAdv);
-    var atkTotal = atk.kept + atkMod;
+    var atkTotal = atk.kept + athMod;
     var defTotal = defRoll.kept + def.mod;
     var success = atkTotal > defTotal;
     var advNote = defAdv ? " (advantage, two-handed)" : "";
@@ -122,9 +124,9 @@
       ok: success,
       tie: atkTotal === defTotal,
       mode: mode,
-      attack: { faces: atk.faces, kept: atk.kept, mod: atkMod, total: atkTotal },
+      attack: { faces: atk.faces, kept: atk.kept, mod: athMod, total: atkTotal, skill: "Athletics" },
       defense: { faces: defRoll.faces, kept: defRoll.kept, mod: def.mod, total: defTotal, skill: def.skill, advantage: defAdv === "adv" },
-      line: "Attack " + faceText(atk.faces, atk.kept) + signed(atkMod) + " = " + atkTotal + " vs " + def.skill + " " + faceText(defRoll.faces, defRoll.kept) + signed(def.mod) + " = " + defTotal + advNote + (success ? " — success" : " — fail")
+      line: "Athletics " + faceText(atk.faces, atk.kept) + signed(athMod) + " = " + atkTotal + " vs " + def.skill + " " + faceText(defRoll.faces, defRoll.kept) + signed(def.mod) + " = " + defTotal + advNote + (success ? " — success" : " — fail")
     };
   }
 
@@ -132,8 +134,12 @@
     opts = opts || {};
     if (opts.downed) return "free action";
     var take = opts.take || "weapon";
+    var held = !!opts.held || take === "weapon" || opts.mode === "disarm";
+    var combat = !!opts.combat;
+    if (held) return combat ? "replaces one attack" : "no action";
+    if (!combat) return "no action";
     var calling = String(opts.calling || "");
-    if (opts.mode === "rob" && (take === "gear" || take === "es") && (calling === "gambler" || calling === "gambler-burglar")) return "bonus action";
+    if (calling === "gambler" || calling === "gambler-burglar") return "bonus action";
     return "action";
   }
 
@@ -148,11 +154,17 @@
     var who = actor.name || "Someone";
     var whom = target.name || "someone";
     var itemName = take === "es" ? ((Math.max(0, Math.floor(Number(opts.es) || 0))) + " ES")
-      : (take === "gear" ? (String(opts.gearText || "an item").replace(/^•\s*/, "").trim() || "an item")
+      : (take === "gear" || take === "item" ? (String(opts.gearText || (opts.item && opts.item.name) || "an item").replace(/^•\s*/, "").trim() || "an item")
         : (weapon.name || "weapon"));
     var verb = mode === "rob" ? "robs" : "disarms";
     var failVerb = mode === "rob" ? "rob" : "disarm";
-    var cost = actionCost({ mode: mode, take: take, downed: opts.downed, calling: actor.calling });
+    var cost = actionCost({ mode: mode, take: take, downed: opts.downed, combat: opts.combat, calling: actor.calling });
+    if (opts.inventoryLocked && !opts.override) {
+      return { commands: [], blocked: true, enemy: {}, chat: who + " stops. Inventory is locked." };
+    }
+    if ((opts.quest || (opts.item && (opts.item.type === "quest" || opts.item.dmOnly))) && !opts.dmAllowRob && !opts.override) {
+      return { commands: [], blocked: true, enemy: {}, chat: itemName + " is a quest item. The DM has to allow it." };
+    }
     var head = success
       ? (who + " " + verb + " " + whom + (mode === "disarm" || take === "weapon" ? " of " + itemName : " (" + itemName + ")"))
       : (who + " fails to " + failVerb + " " + whom + (mode === "disarm" || take === "weapon" ? " of " + itemName : " (" + itemName + ")"));
@@ -195,9 +207,14 @@
       return { commands: commands, enemy: enemy, chat: chat };
     }
 
-    if (take === "gear") {
-      var text = String(opts.gearText || "").replace(/^•\s*/, "").trim();
+    if (take === "gear" || take === "item") {
+      var text = String(opts.gearText || (opts.item && opts.item.name) || "").replace(/^•\s*/, "").trim();
       chat += ". DM approved.";
+      if (take === "item" && opts.itemUid) {
+        if (target.kind === "player") commands.push({ type: "item_mod", to: target.id, payload: { op: "remove", uid: opts.itemUid } });
+        if (actor.kind === "player") commands.push({ type: "item_mod", to: actor.id, payload: { op: "add", item: opts.item || { name: text } } });
+        return { commands: commands, enemy: enemy, chat: chat };
+      }
       if (text && target.kind === "player") commands.push({ type: "take_gear", to: target.id, payload: { text: text } });
       if (text && actor.kind === "player") commands.push({ type: "reward_item", to: actor.id, payload: { text: text } });
       if (text && actor.kind !== "player") enemy.gear = text;

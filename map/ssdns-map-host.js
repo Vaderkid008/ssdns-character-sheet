@@ -213,6 +213,9 @@
         longRangeHex: longRangeHex
       });
     }
+    if (root.SSDNSItems && root.SSDNSItems.rangeChoices) {
+      root.SSDNSItems.rangeChoices(c).forEach(function (spec) { if (spec) list.push(spec); });
+    }
     (c.cantrips || []).forEach(addSpell);
     Object.keys(c.spells || {}).forEach(function (lvl) {
       (c.spells[lvl] || []).forEach(function (sp) {
@@ -382,7 +385,8 @@
       hp: { cur: c.hpCurrent, max: c.hpMax, temp: c.hpTemp || 0 },
       speed: c.speed || 30,
       attacks: attacks,
-      spells: spells
+      spells: spells,
+      items: c.items || []
     };
   }
   function runAction(id, ctx) {
@@ -514,7 +518,8 @@
       "drawer:act": "act",
       "drawer:cover": "cover",
       "drawer:disarm": "disarm",
-      "drawer:rob": "rob"
+      "drawer:rob": "rob",
+      "drawer:useitem": "useitem"
     }[name];
     if (name === "drawer:target") fightCall = detail.spellId ? "cast" : "attack";
     if (!fightCall) return;

@@ -869,3 +869,8 @@ select:-webkit-autofill {
   main, .panel { padding-left: 8px; padding-right: 8px; }
   .abil-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+.item-tools { margin-top: 12px; }
+.item-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+.item-tag { font-size: 11px; border: 1px solid var(--line, #8a7560); padding: 0 4px; }
+.item-form label { display: block; margin: 4px 0; }
+.art-ph { display: inline-flex; min-width: 48px; padding: 4px; border: 1px dashed var(--line, #8a7560); font-size: 11px; }

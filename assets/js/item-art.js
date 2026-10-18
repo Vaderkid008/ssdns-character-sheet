@@ -62,6 +62,11 @@
     return byName[norm(item.name || "")] || "";
   }
   function srcFor(item) {
+    var given = item && typeof item === "object" && item.art ? String(item.art) : "";
+    if (given) {
+      if (/^(https?:|data:|\.\.)/.test(given)) return given;
+      return prefix() + given.replace(/^\//, "");
+    }
     var slug = slugFor(item);
     if (slug) return prefix() + "assets/img/items/" + slug + ".webp";
     if (root.SSDNSInstrumentArt && root.SSDNSInstrumentArt.srcFor) return root.SSDNSInstrumentArt.srcFor(item) || "";
