@@ -56,6 +56,22 @@
     return out;
   }
 
+  /* "ac +1, init +1, dex +2" -> {ac:1, init:1, DEX:2} */
+  function parseBonus(text) {
+    var out = {}, any = false;
+    String(text || "").split(/[,;]/).forEach(function (part) {
+      var m = /^\s*([a-z]+)\s*([+-]?\s*\d+)\s*$/i.exec(part);
+      if (!m) return;
+      var k = m[1].toLowerCase(), n = Number(m[2].replace(/\s/g, ""));
+      if (!isFinite(n)) return;
+      if (/^(str|dex|con|int|wis|cha)$/.test(k)) k = k.toUpperCase();
+      else if (k === "initiative") k = "init";
+      else if (k !== "ac" && k !== "init" && k !== "speed") return;
+      out[k] = n; any = true;
+    });
+    return any ? out : null;
+  }
+
   function valid(item) {
     if (!item || typeof item !== "object") return false;
     if (!item.id || !item.name) return false;
@@ -588,7 +604,7 @@
     return { ok: true, item: item, landed: landed };
   }
 
-  /* 0.3.47: the old character.explosives[] rows move into items (one list). */
+  /* 0.3.48: the old character.explosives[] rows move into items (one list). */
   function mergeExplosives(character) {
     if (!character || !Array.isArray(character.explosives) || !character.explosives.length) return 0;
     var moved = 0;
@@ -880,6 +896,8 @@
       '<label>Text <input data-item-text type="text"></label>' +
       '<label>Uses (blank = unlimited) <input data-item-uses type="number" min="0"></label>' +
       '<label>Recharge <select data-item-recharge><option value="">Never (used up)</option><option value="short">Short rest</option><option value="long">Long rest</option><option value="dawn">Dawn</option></select></label>' +
+      '<label>Worn on <select data-item-wear><option value="">— (trinket / not worn)</option><option value="head">Head</option><option value="neck">Neck</option><option value="cloak">Cloak</option><option value="armor">Armor</option><option value="belt">Belt</option><option value="holster">Holster rig</option><option value="gloves">Gloves</option><option value="legs">Legs</option><option value="boots">Boots</option><option value="ring">Ring</option><option value="shield">Shield</option></select></label>' +
+      '<label>Worn bonus <input data-item-bonus type="text" placeholder="e.g. ac +1, init +1, dex +2"></label>' +
       '<label>Rarity <select data-item-rarity><option value="">—</option><option>Common</option><option>Uncommon</option><option>Rare</option><option>Very Rare</option></select></label>' +
       '<label class="chk"><input type="checkbox" data-item-attune> Requires attunement</label>' +
       '<fieldset class="item-weapon-fields" data-item-weapon-fields hidden><legend>Weapon</legend>' +
@@ -961,6 +979,8 @@
       weapon: weapon,
       attune: on("attune"),
       rarity: val("rarity"),
+      wear: val("wear") || "",
+      bonuses: parseBonus(val("bonus")),
       id: id,
       name: val("name") || "Item",
       type: type,
@@ -1293,6 +1313,8 @@
     weaponRecord: weaponRecord,
     landWeapon: landWeapon,
     mergeExplosives: mergeExplosives,
+    parseBonus: parseBonus,
+    artSrc: artSrc,
     attuneCap: attuneCap,
     attunedCount: attunedCount,
     setAttuned: setAttuned,
