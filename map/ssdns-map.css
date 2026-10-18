@@ -12,10 +12,12 @@
   font-family: system-ui, sans-serif;
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr) max-content;
-  grid-template-rows: auto minmax(120px, 1fr) auto;
+  grid-template-rows: auto auto minmax(120px, 1fr) auto auto;
   grid-template-areas:
     "bar bar bar"
+    "dice dice dice"
     "left stage right"
+    "strip strip strip"
     "dock dock dock";
   gap: 8px;
   padding: 8px;
@@ -25,14 +27,18 @@
   grid-template-columns: minmax(0, 1fr) max-content;
   grid-template-areas:
     "bar bar"
+    "dice dice"
     "stage right"
+    "strip strip"
     "dock dock";
 }
 .ssdns-map:not(:has(.ssdns-leftbar)):not(:has(.ssdns-rightbar)) {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     "bar"
+    "dice"
     "stage"
+    "strip"
     "dock";
 }
 .ssdns-map.hidden { visibility: hidden; }
@@ -60,14 +66,49 @@
   min-width: 0;
   padding: 8px 12px; border-radius: 6px;
   display: flex; gap: 8px; align-items: center; font-size: 13px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+.ssdns-map .ssdns-toolbar .ssm-toolbar-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+.ssdns-map .ssdns-toolbar .ssm-toolbar-main > * {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.ssdns-map .ssdns-toolbar .ssm-toolbar-main button,
+.ssdns-map .ssdns-toolbar .ssm-toolbar-main select {
+  width: auto;
+  max-width: none;
+  white-space: nowrap;
+}
+.ssdns-map .dice-bar.dice-bar-map {
+  grid-area: dice;
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  border-radius: 6px;
+  background: #16130f;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+.ssdns-map .dice-bar.dice-bar-map .dice-bar-row {
+  flex-wrap: nowrap;
 }
 .ssdns-map .ssdns-toolbar .ssm-move-tools {
-  margin-left: auto;
+  margin-left: 0;
   display: inline-flex;
   gap: 6px;
   align-items: center;
   flex: 0 0 auto;
+  background: #16130f;
+  padding: 2px 0 2px 8px;
 }
 .ssdns-map .ssdns-toolbar .ssm-move-tools button { width: auto; white-space: nowrap; }
 .ssdns-map .ssdns-leftbar {
@@ -96,6 +137,7 @@
   z-index: 2;
   min-width: 0;
   border-radius: 6px; padding: 6px; font-size: 12px;
+  background: #16130f;
 }
 .ssdns-map .ssdns-chathead { display: flex; align-items: center; gap: 6px; }
 .ssdns-map .ssdns-chathead .panel-title { margin: 0; flex: 1; }
@@ -319,64 +361,72 @@ body.ssdns-chat-pop .ssm-who,
   font: 12px/1.3 system-ui, sans-serif;
 }
 .ssdns-map button.active { background: #8a7040; border-color: #e8c36a; color: #fff; }
-/* Full screen keeps the original overlay. The grid above is only the embedded tab. */
+/* Full screen fills the viewport and keeps the embedded grid, so the toolbar,
+   dice lane, chat, and initiative strip each occupy their own row. */
 body.map-fullscreen #mapMount {
   position: fixed;
   inset: 0;
   z-index: 80;
-  display: block;
+  display: grid;
   width: 100vw;
   height: 100vh;
   min-height: 0;
-  padding: 0;
-  gap: 0;
+  padding: 8px;
+  gap: 8px;
   overflow: hidden;
 }
 body.map-fullscreen #mapMount > canvas {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  inset: auto;
   width: 100%;
   height: 100%;
 }
+body.map-fullscreen #mapMount .ssdns-toolbar,
+body.map-fullscreen #mapMount .dice-bar.dice-bar-map,
+body.map-fullscreen #mapMount .ssdns-leftbar,
+body.map-fullscreen #mapMount .ssdns-rightbar,
+body.map-fullscreen #mapMount .ssdns-chatdock,
+body.map-fullscreen #mapMount .ssm-turnstrip {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  max-width: none;
+}
 body.map-fullscreen #mapMount .ssdns-toolbar {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 10;
-  gap: 10px;
-  max-width: calc(100% - 16px);
+  z-index: 4;
+  flex-wrap: nowrap;
+  background: #16130f;
 }
-body.map-fullscreen #mapMount .ssdns-leftbar {
-  position: absolute;
-  top: 60px;
-  left: 8px;
-  z-index: 10;
-  max-height: none;
-  overflow: visible;
-  flex-direction: column;
+body.map-fullscreen #mapMount .dice-bar.dice-bar-map {
+  z-index: 3;
+  width: auto;
+  background: #16130f;
 }
+body.map-fullscreen #mapMount .ssdns-leftbar,
+body.map-fullscreen #mapMount .ssdns-rightbar {
+  z-index: 3;
+  max-height: 100%;
+  overflow: auto;
+  min-height: 0;
+}
+body.map-fullscreen #mapMount .ssdns-leftbar { flex-direction: column; }
 body.map-fullscreen #mapMount .ssdns-leftbar button,
 body.map-fullscreen #mapMount .ssdns-leftbar select { width: 100%; }
-body.map-fullscreen #mapMount .ssdns-rightbar {
-  position: absolute;
-  top: 60px;
-  right: 8px;
-  bottom: 12px;
-  width: 168px;
-  z-index: 10;
-  max-height: none;
-}
+body.map-fullscreen #mapMount .ssdns-rightbar { width: 168px; }
 body.map-fullscreen #mapMount .ssdns-chatdock {
-  position: absolute;
-  bottom: 8px;
-  left: 160px;
-  right: 186px;
-  z-index: 11;
+  z-index: 3;
+  background: #16130f;
+  max-height: 180px;
 }
 body.map-fullscreen #mapMount .ssdns-chatdock.ssm-chat-shut {
-  right: auto;
   width: max-content;
-  max-width: calc(100% - 176px);
+  max-width: 100%;
+}
+body.map-fullscreen #mapMount .ssm-turnstrip {
+  z-index: 4;
+  background: #16130f;
 }
 body.map-fullscreen #btnMapFull {
   position: fixed;
@@ -388,63 +438,98 @@ body.map-fullscreen #btnMapFull {
   body:not(.map-fullscreen) .ssdns-map { height: calc(100vh - 180px); min-height: 360px; }
   body:not(.map-fullscreen) .ssdns-map .ssdns-rightbar { width: 132px; }
   body.map-fullscreen #mapMount .ssdns-rightbar { width: 132px; }
-  body.map-fullscreen #mapMount .ssdns-chatdock { left: 8px; right: 8px; bottom: 8px; }
 }
 @media (max-width: 720px) {
   body:not(.map-fullscreen) .ssdns-map,
   body:not(.map-fullscreen) .ssdns-map:not(:has(.ssdns-leftbar)) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(220px, 1fr) auto auto;
+    grid-template-rows: auto auto auto minmax(220px, 1fr) auto auto auto;
     grid-template-areas:
       "bar"
+      "dice"
       "left"
       "stage"
       "right"
+      "strip"
       "dock";
     height: auto;
     min-height: calc(100vh - 180px);
     overflow: auto;
   }
-  body:not(.map-fullscreen) .ssdns-map:not(:has(.ssdns-leftbar)) {
-    grid-template-rows: auto minmax(220px, 1fr) auto auto;
+  body.map-fullscreen #mapMount,
+  body.map-fullscreen #mapMount:not(:has(.ssdns-leftbar)) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(120px, 1fr) auto auto auto;
     grid-template-areas:
       "bar"
+      "dice"
+      "left"
       "stage"
       "right"
+      "dock"
+      "strip";
+  }
+  body:not(.map-fullscreen) .ssdns-map:not(:has(.ssdns-leftbar)) {
+    grid-template-rows: auto auto minmax(220px, 1fr) auto auto auto;
+    grid-template-areas:
+      "bar"
+      "dice"
+      "stage"
+      "right"
+      "strip"
       "dock";
   }
-  body:not(.map-fullscreen) .ssdns-map .ssdns-leftbar {
+  body.map-fullscreen #mapMount:not(:has(.ssdns-leftbar)) {
+    grid-template-rows: auto auto minmax(120px, 1fr) auto auto auto;
+    grid-template-areas:
+      "bar"
+      "dice"
+      "stage"
+      "right"
+      "dock"
+      "strip";
+  }
+  body:not(.map-fullscreen) .ssdns-map .ssdns-leftbar,
+  body.map-fullscreen #mapMount .ssdns-leftbar {
     flex-direction: row;
     flex-wrap: wrap;
     max-height: 148px;
   }
   body:not(.map-fullscreen) .ssdns-map .ssdns-leftbar button,
-  body:not(.map-fullscreen) .ssdns-map .ssdns-leftbar select { width: auto; }
-  body:not(.map-fullscreen) .ssdns-map .ssdns-rightbar { width: auto; max-height: 180px; }
+  body:not(.map-fullscreen) .ssdns-map .ssdns-leftbar select,
+  body.map-fullscreen #mapMount .ssdns-leftbar button,
+  body.map-fullscreen #mapMount .ssdns-leftbar select { width: auto; }
+  body:not(.map-fullscreen) .ssdns-map .ssdns-rightbar,
+  body.map-fullscreen #mapMount .ssdns-rightbar { width: auto; max-height: 160px; }
   body:not(.map-fullscreen) .ssdns-map:not(:has(.ssdns-rightbar)) {
-    grid-template-rows: auto minmax(220px, 1fr) auto;
+    grid-template-rows: auto auto minmax(220px, 1fr) auto auto;
     grid-template-areas:
       "bar"
+      "dice"
       "stage"
+      "strip"
       "dock";
   }
 }
-body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right: 8px; }
+body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right: auto; }
 
 /* Player map keeps chat on the left. The DM map stays on the bottom row. */
 .ssdns-map.ssdns-role-player {
   grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) max-content;
+  grid-template-rows: auto auto minmax(120px, 1fr) auto;
   grid-template-areas:
     "bar bar bar"
+    "dice dice dice"
     "dock stage right"
-    "dock stage right";
+    "strip strip strip";
 }
 .ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)) {
   grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
   grid-template-areas:
     "bar bar"
+    "dice dice"
     "dock stage"
-    "dock stage";
+    "strip strip";
 }
 .ssdns-map.ssdns-role-player:has(.ssdns-chatdock.ssm-chat-shut) {
   grid-template-columns: 148px minmax(0, 1fr) max-content;
@@ -472,16 +557,17 @@ body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right
 .ssdns-map.ssdns-chat-popped > .ssdns-chatdock,
 .ssdns-map.ssdns-role-player.ssdns-chat-popped > .ssdns-chatdock { display: none; }
 body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock {
-  top: 60px;
-  bottom: 8px;
-  left: 8px;
+  top: auto;
+  bottom: auto;
+  left: auto;
   right: auto;
-  width: 240px;
+  width: auto;
+  max-height: none;
+  background: #16130f;
 }
 body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock.ssm-chat-shut {
   width: 148px;
   max-width: 148px;
-  bottom: auto;
   height: auto;
 }
 @media (max-width: 700px) {
@@ -490,25 +576,36 @@ body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock.ssm-chat-shut {
   body:not(.map-fullscreen) .ssdns-map.ssdns-role-player:has(.ssdns-chatdock.ssm-chat-shut),
   body:not(.map-fullscreen) .ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)):has(.ssdns-chatdock.ssm-chat-shut) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(220px, 1fr) auto;
+    grid-template-rows: auto auto minmax(220px, 1fr) auto auto;
     grid-template-areas:
       "bar"
+      "dice"
       "stage"
+      "strip"
       "dock";
   }
-  body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock {
-    top: auto;
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
-    width: auto;
+  body.map-fullscreen #mapMount.ssdns-role-player,
+  body.map-fullscreen #mapMount.ssdns-role-player:not(:has(.ssdns-rightbar)),
+  body.map-fullscreen #mapMount.ssdns-role-player:has(.ssdns-chatdock.ssm-chat-shut),
+  body.map-fullscreen #mapMount.ssdns-role-player:not(:has(.ssdns-rightbar)):has(.ssdns-chatdock.ssm-chat-shut) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(160px, 1fr) auto auto;
+    grid-template-areas:
+      "bar"
+      "dice"
+      "stage"
+      "dock"
+      "strip";
   }
+  body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock,
   body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock.ssm-chat-shut {
     top: auto;
+    left: auto;
     right: auto;
-    bottom: 8px;
-    width: max-content;
-    max-width: calc(100% - 16px);
+    bottom: auto;
+    width: auto;
+    max-width: 100%;
+    background: #16130f;
   }
 }
 body.ssdns-chat-pop.ssdns-chat-collapsed .ssdns-chat-overlay-feed { display: none; }
@@ -889,18 +986,33 @@ body.map-fullscreen #mapMount > .ssm-drawer {
   }
 }
 .ssm-turnstrip {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 56px;
-  z-index: 12;
+  position: relative;
+  grid-area: strip;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: 3;
   display: flex;
   flex-wrap: nowrap;
   gap: 6px;
   align-items: center;
   overflow-x: auto;
-  max-width: calc(100% - 16px);
+  max-width: 100%;
+  background: #16130f;
+  border-radius: 6px;
+  padding: 4px 8px;
   -webkit-overflow-scrolling: touch;
+}
+.ssm-turnstrip[hidden] { display: none !important; }
+body.map-fullscreen #mapMount .ssm-turnstrip {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  top: auto;
+  z-index: 4;
+  max-width: none;
+  background: #16130f;
 }
 .ssm-turnstrip .turn-chip { cursor: pointer; flex: 0 0 auto; }
 .ssm-turnstrip .btn-next { flex: 0 0 auto; min-height: 40px; }
@@ -920,10 +1032,11 @@ body.map-fullscreen #mapMount > .ssm-drawer {
   .ssdns-map, .ssdns-toolbar, .ssdns-chathead, .ssdns-chat-overlay-bar, .ssdns-chat-overlay-form {
     max-width: 100%;
   }
-  .ssdns-toolbar, .ssdns-chathead, .ssm-tools, .ssdns-leftbar, .ssdns-rightbar {
+  .ssdns-chathead, .ssm-tools, .ssdns-leftbar, .ssdns-rightbar {
     flex-wrap: wrap;
   }
-  .ssdns-toolbar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ssdns-map .ssdns-toolbar { flex-wrap: nowrap; overflow: hidden; }
+  .ssdns-map .ssdns-toolbar .ssm-toolbar-main { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .ssdns-map button, .ssdns-chathead button, .name-mode button, .ssdns-chat-overlay-bar button, .ssdns-chat-overlay-form button, .ssm-turnstrip .btn,
   .ssdns-chat-filters button, .ssm-chat-tab, body.ssdns-chat-pop button {
     min-height: 40px;
@@ -947,5 +1060,5 @@ body.map-fullscreen #mapMount > .ssm-drawer {
 @media (max-width: 520px) {
   .ssdns-playercard { top: 8px; width: calc(100% - 16px); }
   .ssdns-chat-overlay, body.ssdns-chat-pop { width: 100%; }
-  .ssm-turnstrip { bottom: 8px; }
+  body.map-fullscreen #mapMount { padding: 4px; gap: 4px; }
 }

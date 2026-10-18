@@ -312,7 +312,7 @@
         var cut = text.indexOf(":");
         if (cut > 0) who = text.slice(0, cut);
       }
-      return { id: e.id, kind: e.kind, who: who, text: text, characterName: e.characterName || "", playerName: e.playerName || "", formula: e.formula || "", attack: !!e.attack, nat: e.nat, result: e.result, face: e.face, ts: e.ts, tag: face.tag, cls: face.cls };
+      return { id: e.id, kind: e.kind, who: who, text: text, characterName: e.characterName || "", playerName: e.playerName || "", formula: e.formula || "", detail: e.detail || "", rolls: e.rolls || null, faces: e.faces || null, attack: !!e.attack, nat: e.nat, result: e.result, face: e.face, ts: e.ts, tag: face.tag, cls: face.cls };
     });
   }
   function renderDock() {

@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.44 / DMCC 0.2.57 item catalog, effect kinds, weight, quest rob.
+ * Sheet 0.3.45 / DMCC 0.2.58 item catalog, effect kinds, weight, quest rob.
  *   node tools/test-items.mjs
  */
 import fs from "node:fs";

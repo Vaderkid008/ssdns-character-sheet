@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.44 dice art, DM-only Peace Maker, and item/instrument art.
+ * Sheet 0.3.45 dice art, DM-only Peace Maker, and item/instrument art.
  *   node tools/test-dice.mjs
  */
 import fs from "node:fs";
@@ -23,8 +23,8 @@ function load(rel, name) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.44" && version.sheetBuild === "sheet-playtest-v0344");
-check("ver.dmcc", version.dmcc === "0.2.57" && version.dmccBuild === "dmcc-playtest-v0257");
+check("ver.sheet", version.sheet === "0.3.45" && version.sheetBuild === "sheet-playtest-v0345");
+check("ver.dmcc", version.dmcc === "0.2.58" && version.dmccBuild === "dmcc-playtest-v0258");
 
 [4, 6, 8, 10, 12, 20, 50, 100].forEach((n) => {
   check("file.d" + n, fs.existsSync(path.join(root, "assets/img/dice", "d" + n + ".webp")));
@@ -44,8 +44,14 @@ check("chat.d4", d4line.includes("die-inline") && d4line.includes("d4.webp") && 
 const d20line = dice.decorate("1d20+5 = 17");
 check("chat.d20", d20line.includes("d20.webp") && d20line.includes("1d20+5"));
 check("chat.once", (dice.decorate(d4line).match(/die-inline/g) || []).length === 1);
-const face = dice.faceHtml(20, 17);
-check("face.num", face.includes("die-num") && face.includes(">17<") && face.includes("d20.webp"));
+const pair = dice.lead({ formula: "2d6+1", detail: "4+3+1", result: 8 }, "Repeater fires, 2d6+1 = 8");
+check("chat.faces", pair.includes(">4<") && pair.includes(">3<") && pair.includes("2d6+1") && (pair.match(/die-face/g) || []).length === 2);
+const face = dice.faceHtml(20, 17, 128);
+check("face.num", face.includes("die-num") && face.includes(">17<") && face.includes("d20.webp") && face.includes("#4FDCCB") && face.includes("paint-order"));
+const small = dice.faceHtml(100, 100, 28);
+check("face.small", small.includes("die-sm") && small.includes(">100<") && small.includes("#FCFCFA"));
+const barFace = dice.faceHtml(6, 6, 40);
+check("face.bar", barFace.includes(">6<") && barFace.includes("#FCB92E"));
 const bar = dice.barHtml();
 [4, 6, 8, 10, 12, 20, 50, 100].forEach((n) => {
   check("bar." + n, bar.includes('data-die="' + n + '"'));

@@ -1076,7 +1076,9 @@
     return n;
   }
   function ammoFailText(who, gun) {
-    return (who || "Player") + ": no " + roundLabel(gun) + " rounds left to reload";
+    var label = roundLabel(gun);
+    var tail = /rounds$/i.test(String(label)) ? " left to reload" : " rounds left to reload";
+    return (who || "Player") + ": no " + label + tail;
   }
   function emptyShotText(who, gun) {
     var name = (gun && (gun.name || gun.weapon)) || "gun";

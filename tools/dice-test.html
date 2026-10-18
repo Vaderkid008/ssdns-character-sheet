@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dice number test</title>
+<link rel="stylesheet" href="../assets/css/dice.css">
+<style>
+  body { margin: 0; padding: 24px; background: #1a1612; color: #f3e6c8; font-family: system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { margin: 0 0 16px; color: #c9b89a; }
+  h2 { font-size: 14px; letter-spacing: .08em; text-transform: uppercase; margin: 20px 0 8px; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
+  figure { margin: 0; text-align: center; }
+  figcaption { font-size: 12px; margin-top: 4px; color: #e8dcc8; }
+</style>
+</head>
+<body>
+<h1>Dice numbers</h1>
+<p>Blank faces with the rolled number drawn in code. 128px uses the 512px face layout. 48px and 28px enlarge the number.</p>
+<div id="board"></div>
+<script src="../assets/js/dice-art.js"></script>
+<script>
+  var samples = [
+    [4, 3],
+    [6, 6],
+    [8, 8],
+    [10, 10],
+    [12, 12],
+    [20, 20],
+    [50, 50],
+    [100, 100]
+  ];
+  var sizes = [128, 48, 28];
+  var board = document.getElementById("board");
+  sizes.forEach(function (px) {
+    var h = document.createElement("h2");
+    h.textContent = px + "px";
+    board.appendChild(h);
+    var row = document.createElement("div");
+    row.className = "row";
+    samples.forEach(function (pair) {
+      var fig = document.createElement("figure");
+      fig.innerHTML = window.SSDNSDice.faceHtml(pair[0], pair[1], px) +
+        "<figcaption>d" + pair[0] + " · " + pair[1] + "</figcaption>";
+      row.appendChild(fig);
+    });
+    board.appendChild(row);
+  });
+</script>
+</body>
+</html>

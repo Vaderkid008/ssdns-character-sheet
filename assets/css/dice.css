@@ -1,16 +1,17 @@
 .dice-bar { display: flex; align-items: center; gap: 6px; padding: 4px 12px 6px; background: #1c1612; border-bottom: 1px solid #8a7040; }
 .dice-bar-row { display: flex; flex-wrap: wrap; gap: 4px; }
 .dice-bar-btn { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 36px; padding: 2px 4px; border: 1px solid #8a7040; border-radius: 3px; background: #2a2118; color: #f3e6c8; cursor: pointer; font-family: var(--label, inherit); font-size: 10px; letter-spacing: .04em; }
-.dice-bar-btn img { width: 22px; height: 22px; object-fit: contain; display: block; pointer-events: none; }
-.dice-bar-map { background: transparent; border: 0; padding: 0; }
+.dice-bar-btn .die-face { width: 40px; height: 40px; }
+.dice-bar-btn img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+.dice-bar-map { background: #16130f; border: 0; padding: 4px 8px; }
 .dice-bar-map .dice-bar-btn { background: #3a3228; }
 .dice-stage { display: flex; align-items: center; gap: 10px; padding: 6px 12px 8px; background: #241c16; color: #f3e6c8; }
 .dice-stage[hidden] { display: none; }
 .dice-stage-line { margin: 0; font-size: 14px; }
-.die-face { position: relative; display: inline-block; width: 84px; height: 84px; vertical-align: middle; }
+.die-face { position: relative; display: inline-block; width: 84px; height: 84px; vertical-align: middle; line-height: 0; }
 .die-face img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.die-num { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); min-width: 1.4em; text-align: center; font-weight: 800; font-size: 22px; line-height: 1; color: #1a120c; text-shadow: 0 0 2px #fff6e4; pointer-events: none; }
-.die-inline { width: 18px; height: 18px; object-fit: contain; vertical-align: -4px; display: inline-block; margin: 0 2px; }
+.die-face .die-num { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.die-inline { width: 36px; height: 36px; vertical-align: -12px; display: inline-block; margin: 0 2px; }
 .art-thumb { width: 72px; height: 24px; object-fit: contain; display: block; margin-bottom: 4px; background: #fffaf3; border: 1px solid #c4b497; }
 .gear-art-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .gear-art { margin: 0; width: 180px; }
@@ -23,7 +24,7 @@
 .dm-only-art figcaption { font-size: 12px; color: #c4b497; }
 .d4-die { background: transparent; border: 0; padding: 0; }
 .d4-die .die-face { width: 120px; height: 120px; }
-.ssdns-toolbar .dice-bar { flex: 1 1 100%; }
+.ssdns-map .dice-bar-map { flex: none; }
 button.d20 {
   background: transparent url("../img/dice/d20.webp") center / 28px 28px no-repeat;
   color: #1a120c;

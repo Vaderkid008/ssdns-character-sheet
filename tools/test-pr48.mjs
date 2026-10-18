@@ -77,6 +77,8 @@ check("guns.sig", A.gunsSignature(gunsA) !== A.gunsSignature(gunsB));
 check("spare.navy", A.spareCount({ name: "Navy/Army Ball n Cap Revolver", caliber: "Navy" }, [{ caliber: "Navy", count: 0 }]) === 0);
 check("spare.some", A.spareCount({ name: "Dullards Tube Rifle", caliber: ".44" }, [{ caliber: ".44", count: 6 }]) === 6);
 check("ammo.fail", A.ammoFailText("Steve", { name: "Navy/Army Ball n Cap Revolver" }) === "Steve: no Navy rounds left to reload");
+check("ammo.fail.plain", A.ammoFailText("Ada", { name: "Repeater", caliber: "" }) === "Ada: no rounds left to reload");
+check("ammo.fail.word", A.ammoFailText("Ada", { caliber: "rounds" }) === "Ada: no rounds left to reload");
 check("ammo.empty", A.emptyShotText("Steve", { name: "Navy revolver" }).includes("empty, reload first"));
 
 const long = R.resolve({ weapon: "dulls-rolling-block-rifle", tier: "medium" }, 100, { hasTarget: true, hostileFeet: 40 });
