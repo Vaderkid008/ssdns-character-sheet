@@ -935,3 +935,15 @@ select:-webkit-autofill {
 #panel-rewards .give-types { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
 #panel-rewards .give-section { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line, #5a4e40); }
 .dm-attune .item-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* Music tab (0.2.62) */
+.mx-layer { border: 1px solid rgba(0,0,0,.15); border-radius: 8px; padding: 8px 10px; margin: 10px 0; }
+.mx-layer h3 { margin: 0 0 6px; font-size: 16px; }
+.mx-row { align-items: center; }
+.mx-seek { flex: 1; min-width: 160px; }
+.mx-time { font-variant-numeric: tabular-nums; min-width: 90px; }
+.mx-upload { margin-top: 12px; }
+.mx-meter { height: 8px; background: rgba(0,0,0,.12); border-radius: 4px; overflow: hidden; max-width: 420px; }
+.mx-meter-bar { height: 100%; background: #8d1c14; }
+.mx-mine { padding-left: 18px; }
+.warn { color: #8d1c14; }

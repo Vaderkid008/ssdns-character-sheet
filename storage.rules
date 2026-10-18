@@ -1,0 +1,21 @@
+rules_version = '2';
+// SSDNS Firebase Storage (optional). Jessey OK'd 2026-10-18: DM-only uploads.
+// Each DM writes only under dm/{their uid}/. Anyone signed in to the table (anonymous auth) can stream.
+// Audio: under 15 MB. Images: under 1 MB, image/* only.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /dm/{uid}/audio/{file} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid
+        && (request.resource == null || (request.resource.size < 15 * 1024 * 1024 && request.resource.contentType.matches('audio/.*')));
+    }
+    match /dm/{uid}/images/{file} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid
+        && (request.resource == null || (request.resource.size < 1024 * 1024 && request.resource.contentType.matches('image/.*')));
+    }
+    match /{all=**} {
+      allow read, write: if false;
+    }
+  }
+}

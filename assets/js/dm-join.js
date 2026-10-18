@@ -1719,6 +1719,11 @@
     if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM " + (payload.op || "adjusted") + " a gun." });
   }
   function applyMusic(payload) {
+    if (root.SSDNSMusic) {
+      root.SSDNSMusic.onBlocked(function () { if (root.SSDNSSheet) root.SSDNSSheet.showTapHear(); });
+      root.SSDNSMusic.apply(payload || {});
+      return;
+    }
     if (!root.SSDNSAudio) return;
     if (!payload || payload.action === "stop") {
       root.SSDNSAudio.stopMusic();

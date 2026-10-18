@@ -946,3 +946,6 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .doll-mini .doll-name { font-size: 4cqw; }
 @media (max-width: 640px) { .doll-mini { width: 110px; } }
 @media print { .doll-wrap, .doll-mini { display: none; } }
+.mx-mine-ctl { display: inline-block; }
+.mx-mine-ctl[open] { background: rgba(255,255,255,.08); border-radius: 6px; padding: 2px 6px; }
+.art-upload .fine { margin: 2px 0 6px; }

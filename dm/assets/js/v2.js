@@ -2672,6 +2672,7 @@ function lookup(q) {
 }
 
 function renderTracks() {
+  if (window.SSDNSMusicDM) { window.SSDNSMusicDM.fill(); return; }
   const sel = $("#musicTrack");
   if (!sel) return;
   const keep = sel.value || fight.trackId;
@@ -2684,6 +2685,7 @@ function currentTrack() {
   return fight.tracks.filter((t) => t.id === id)[0] || null;
 }
 async function playTrack() {
+  if (window.SSDNSMusicDM) { fight.playing = true; return; }
   const t = currentTrack();
   if (!t) { DM.toast("No track selected"); return; }
   fight.playing = true;
@@ -2710,6 +2712,7 @@ async function playTrack() {
 }
 async function stopTrack() {
   fight.playing = false;
+  if (window.SSDNSMusicDM) return;
   if (window.SSDNSAudio) window.SSDNSAudio.stopMusic();
   const status = $("#musicStatus");
   if (status) status.textContent = "Stopped";
@@ -5513,7 +5516,8 @@ function shortcuts(e) {
   if (k === "n") { if (e.repeat) return; e.preventDefault(); nextTurn(); }
   else if (k === "m") {
     e.preventDefault();
-    if (fight.playing) stopTrack(); else playTrack();
+    if (window.SSDNSMusicDM) window.SSDNSMusicDM.toggle();
+    else if (fight.playing) stopTrack(); else playTrack();
   }
 }
 

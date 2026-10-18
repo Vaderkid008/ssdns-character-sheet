@@ -41,6 +41,7 @@
       <li><a href="#quick">Quick start</a></li>
       <li><a href="#fork">Fork and host</a></li>
       <li><a href="#session">Running a session</a></li>
+      <li><a href="#firebase">Setting up Firebase (optional)</a></li>
       <li><a href="#trouble">Troubleshooting</a></li>
       <li><a href="#privacy">Privacy</a></li>
     </ol>
@@ -309,7 +310,23 @@
 
     <h3>Sound and music</h3>
     <p>Gun, holster, reload, reward, jam, and spell-shot cues already sit in <code>assets/sfx/</code>. A missing file stays silent. Music tracks are named in <code>assets/music/tracks.json</code> (<code>saloon.mp3</code>, <code>trail.mp3</code>, <code>gunfight.mp3</code>, <code>hex.mp3</code>). Those music files are optional. Add them beside the README when you want table music. Each folder’s README says how to add another file.</p>
-    <p>Players hear a track when you turn on <strong>Also play on players' devices</strong>. Their browser may wait until they tap <strong>Tap to hear</strong>.</p>
+    <p>The Music tab has two layers that play together: <strong>Music</strong> and <strong>Ambient</strong>. Each has Play, Pause, Stop, Loop, Prev/Next, a seek bar, volume, Fade out / Fade in (3, 5 or 10 seconds) and Crossfade. Turn on <strong>Push to players</strong> to play it on every sheet. <strong>Stop for all</strong> stops both layers everywhere. Players set their own music and ambient volume under <strong>Table music</strong>. Their browser may wait until they tap <strong>Tap to enable sound</strong>.</p>
+  </section>
+
+  <section id="firebase">
+    <h2>Setting up Firebase (optional)</h2>
+    <p><strong>You don't need Firebase to play.</strong> The sheet works on its own, and the whole game works on paper. Firebase only adds the live table: rooms, the DM Command Center, pushed music, and uploads.</p>
+    <h3>Live table (Realtime Database)</h3>
+    <p>See <a href="#fork">Fork and host your own copy</a>. Paste your Web app config into <code>assets/js/firebase-config.js</code>. Turn on Anonymous sign-in and publish <code>database.rules.json</code>.</p>
+    <h3>Uploads (Firebase Storage) — optional</h3>
+    <p>Storage holds the audio and pictures you upload from the DMCC. Without it, the starter music and art still work, and players can still add pictures to their own items (kept inside the .ssdns file).</p>
+    <ol>
+      <li>Firebase console → your project → <strong>Build → Storage</strong> → <strong>Get started</strong>. New projects must be on the <strong>Blaze (pay as you go)</strong> plan to create a bucket. Blaze still has a no-cost tier for Storage (about 5 GB stored). Set a budget alert if you switch.</li>
+      <li>Pick a location and finish the wizard. Your bucket name must match <code>storageBucket</code> in <code>firebase-config.js</code>.</li>
+      <li>Publish <code>storage.rules</code> from this repo (console → Storage → Rules → paste → Publish, or <code>firebase deploy --only storage</code>). Only the DM's own folder <code>dm/&lt;uid&gt;/</code> can be written. Anyone at the table can stream.</li>
+    </ol>
+    <p><strong>Upload sizes:</strong> audio MP3/OGG under 15 MB. Pictures: 512×512 PNG or WEBP, under 1 MB. Bigger pictures are cropped to a square and shrunk for you. Items without a picture use a default picture for their type.</p>
+    <p>The Music tab shows a storage meter. Only upload music you have the right to share with your table.</p>
   </section>
 
   <section id="trouble">
