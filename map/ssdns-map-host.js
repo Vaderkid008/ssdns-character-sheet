@@ -84,7 +84,7 @@
       ? (root.SSDNSApplied && root.SSDNSApplied.chamberTokens ? root.SSDNSApplied.chamberTokens(g.chambers) : g.chambers.slice())
       : null;
     var loaded = chambers ? chambers.filter(Boolean).length : (Number(g.loaded) || 0);
-    return { index: Number(i), loaded: loaded, cap: cap, chambers: chambers };
+    return { index: Number(i), loaded: loaded, cap: cap, chambers: chambers, locked: Array.isArray(g.lockedChambers) ? g.lockedChambers.slice() : [] };
   }
   function ownRounds() {
     var app = root.SSDNSApp;
@@ -283,7 +283,7 @@
         ammoName: (w && w.ammo) || "",
         ammoDisplay: g.ammoDisplay || "",
         scatter: !!(w && w.scatter),
-        ammo: cyl ? { loaded: cyl.loaded, cap: cyl.cap, chambers: cyl.chambers, spare: spareForGun(g, w) } : null,
+        ammo: cyl ? { loaded: cyl.loaded, cap: cyl.cap, chambers: cyl.chambers, spare: spareForGun(g, w), locked: cyl.locked } : null,
         spare: spareForGun(g, w),
         reloadId: cyl ? ("reload:" + i) : "",
         trId: w && w.tr ? ("tr:" + i) : "",
@@ -301,6 +301,13 @@
         jammed: !!g.jammed,
         misStreak: Number(g.misStreak) || 0,
         pendingD4: !!g.pendingD4,
+        lockedChambers: Array.isArray(g.lockedChambers) ? g.lockedChambers.slice() : [],
+        mod: g.mod || "",
+        muzzleloader: ((c.feats || []).indexOf("muzzleloader") >= 0),
+        reopenUsed: !!c.muzzleReopenUsed,
+        feats: (c.feats || []).slice(),
+        rugged: !!(w && /rugged/i.test(w.properties || "")),
+        properties: (w && w.properties) || "",
         gunIndex: i
       });
     });
@@ -370,6 +377,16 @@
       var cleaner = root.SSDNSApp && root.SSDNSApp.cleanGun;
       if (typeof cleaner === "function") return cleaner(Number(id.slice(6)));
       btn = document.querySelector('[data-clean="' + cssEscape(id.slice(6)) + '"]');
+    }
+    else if (id.indexOf("unjam:") === 0) {
+      var unjam = root.SSDNSApp && root.SSDNSApp.unjamGun;
+      if (typeof unjam === "function") return unjam(Number(id.slice(6)));
+      btn = document.querySelector('[data-unjam="' + cssEscape(id.slice(6)) + '"]');
+    }
+    else if (id.indexOf("reopen:") === 0) {
+      var reopen = root.SSDNSApp && root.SSDNSApp.reopenChamber;
+      if (typeof reopen === "function") return reopen(Number(id.slice(7)));
+      btn = document.querySelector('[data-reopen="' + cssEscape(id.slice(7)) + '"]');
     }
     else if (id.indexOf("reload:") === 0) btn = document.querySelector('[data-reload="' + cssEscape(id.slice(7)) + '"]');
     else if (id.indexOf("unload:") === 0) {

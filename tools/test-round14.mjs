@@ -45,7 +45,7 @@ check(app.indexOf("IT BLOWS") < 0 && app.indexOf("rustyDamage") < 0, "the Rusty 
 check(app.indexOf("pay a gunsmith 500 ES") >= 0, "fouled pay-a-gunsmith option stays");
 check(app.indexOf("10 minutes with gunsmith's tools or a gun cleaning kit") >= 0, "dirty clean wording");
 check(app.indexOf("gunsmith repair, 500 ES and a day") >= 0, "ruined repair wording");
-check(read("assets/js/misfire.js").indexOf("a short rest working on it with tinker's or gunsmith's tools") >= 0, "fouled rest wording");
+check(app.indexOf("Short rest with tools? Reopen all locked chambers + reset streak") >= 0, "short rest prompts before reopening locked chambers");
 
 const box = load(["assets/data/rules.js", "assets/js/misfire.js", "assets/js/sfx.js"]);
 const M = box.SSDNSMisfire;
@@ -55,11 +55,11 @@ check(s.misfire && s.jammed && s.misStreak === 1 && !s.armD4, "a clean gun's fir
 s = M.resolveShot({ dirty: true, misStreak: 0 }, { n1: 3, nat: 3, ceiling: 4 });
 check(s.jammed && s.misStreak === 1 && !s.armD4, "dirty gun, odd misfire is a plain jam");
 s = M.resolveShot({ dirty: true, misStreak: 1 }, { n1: 2, nat: 2, ceiling: 4 });
-check(s.armD4 && !s.jammed && s.misStreak === 2, "dirty gun, second misfire opens the d4");
+check(s.jammed && !s.armD4 && s.misStreak === 2, "dirty gun, second misfire is still a jam");
 s = M.resolveShot({ dirty: true, misStreak: 2 }, { n1: 12, nat: 12, ceiling: 4 });
 check(!s.misfire && s.misStreak === 0, "a clean miss resets the streak");
 s = M.resolveShot({ dirty: true, misStreak: 1 }, { n1: 1, n2: 2, nat: 2, ceiling: 4 });
-check(s.both && s.fouled && s.misStreak === 0 && !s.armD4, "both dice in range foul the gun and reset the streak");
+check(s.both && s.armD4 && !s.fouled && s.misStreak === 2, "both dice on a dirty gun open the d4");
 s = M.resolveShot({ dirty: true, misStreak: 0 }, { n1: 1, n2: 18, nat: 18, ceiling: 4 });
 check(!s.misfire && s.misStreak === 0, "advantage keeps only the high die");
 s = M.resolveShot({ dirty: true, misStreak: 0 }, { n1: 1, n2: 18, nat: 1, ceiling: 4 });
@@ -68,15 +68,18 @@ s = M.resolveShot({ misStreak: 3, weapon: "lancaster-heavy-saddle-carbine" }, { 
 check(s.spark && !s.misfire && s.misStreak === 3, "a wild spark does not count as a misfire");
 check(M.isRugged({ weapon: "lancaster-heavy-saddle-carbine" }) && !M.isRugged({ weapon: "dullards-plinker-revolver" }), "only the Lancaster Heavy is Rugged");
 const face2 = M.d4Result(2, true);
-check(face2.jammed && !face2.fouled, "Rugged turns a d4 2 into a jam");
-check(M.d4Result(1, true).explode && M.d4Result(1, false).ruined, "a 1 still explodes, Rugged or not");
-check(M.d4Result(2, false).fouled && M.d4Result(3, false).jammed && M.d4Result(4, false).again, "d4 faces 2, 3, and 4");
+check(face2.lock && !face2.fouled, "Rugged turns a d4 2 into a lock-up");
+check(M.d4Result(1, true).explode && M.d4Result(1, true).lock && !M.d4Result(1, true).fouled, "Rugged 1 is fire plus a lock-up");
+check(M.d4Result(1, false).explode && M.d4Result(1, false).fouled, "a 1 explodes and fouls");
+check(M.d4Result(2, false).fouled && M.d4Result(3, false).lock && M.d4Result(4, false).wild, "d4 faces 2, 3, and 4");
 const dirtyOpts = M.cleanOptions({ dirty: true }).map((o) => o.label);
-check(dirtyOpts.length === 1 && dirtyOpts[0].indexOf("10 minutes") >= 0, "dirty clean offers the kit method");
-const foulOpts = M.cleanOptions({ fouled: true, dirty: true }).map((o) => o.id);
-check(foulOpts.indexOf("fouled-pay") >= 0 && foulOpts.indexOf("fouled-rest") >= 0, "fouled clean keeps the 500 ES payment");
+check(dirtyOpts.length === 1 && dirtyOpts[0].indexOf("removes Dirty") >= 0, "dirty clean offers the kit method");
+const jamOpts = M.cleanOptions({ jammed: true, dirty: true }).map((o) => o.id);
+check(jamOpts.length === 1 && jamOpts[0] === "unjam", "a jam offers only Unjam");
+const foulOpts = M.cleanOptions({ fouled: true, dirty: true });
+check(foulOpts.length === 0, "fouled has no player-side clear");
 const ruined = M.applyClean({ ruined: true, dirty: true, fouled: true, misStreak: 4 }, "ruined-gunsmith");
-check(ruined.ok && ruined.gun.ruined === false && ruined.gun.dirty === false && ruined.gun.misStreak === 0, "ruined repair comes back clean");
+check(!ruined.ok, "ruined repair is not a sheet button");
 const over = M.applyOverride({ misStreak: 4, pendingD4: true, pendingD4Rolls: [2], dirty: true }, { cancelD4: true, fouled: true });
 check(over.gun.pendingD4 === false && over.gun.misStreak === 0 && over.gun.fouled === true && over.gun.dirty === true, "DM override cancels the d4 and sets Fouled on its own");
 

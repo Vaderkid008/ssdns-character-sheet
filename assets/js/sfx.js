@@ -64,7 +64,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.34"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.35"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -392,15 +392,8 @@
     });
   }
   function planDirtyRolls(roll) {
-    var rolls = [];
-    var guard = 0;
-    var n = 4;
-    while (n === 4 && guard < 12) {
-      n = roll ? roll() : (1 + Math.floor(Math.random() * 4));
-      rolls.push(n);
-      guard++;
-    }
-    return rolls;
+    var n = roll ? roll() : (1 + Math.floor(Math.random() * 4));
+    return [n];
   }
   function gunAt(index) {
     var app = root.SSDNSApp;
@@ -458,10 +451,11 @@
           var face = root.SSDNSMisfire.d4Result(n, root.SSDNSMisfire.isRugged(gun || {}));
           if (face.explode) return "EXPLODES";
           if (face.fouled) return "FOULED";
+          if (face.lock) return "LOCK";
+          if (face.wild || face.wildShot) return "WILD SHOT";
           if (face.jammed) return "JAMMED";
-          if (face.again) return "Roll again!";
         }
-        if (sides === 4) return { 1: "EXPLODES", 2: "FOULED", 3: "JAMMED", 4: "Roll again!" }[n] || String(n);
+        if (sides === 4) return { 1: "EXPLODES", 2: "FOULED", 3: "LOCK", 4: "WILD SHOT" }[n] || String(n);
         return String(n);
       }
       function savedRoll() {
@@ -489,18 +483,6 @@
         face.textContent = n + " — " + label;
         btn.textContent = String(n);
         broadcastD4(title, n, label);
-        if (sides === 4 && n === 4) {
-          var g4 = opts.index != null ? gunAt(opts.index) : null;
-          if (g4) {
-            g4.pendingD4Step = (g4.pendingD4Step || 0) + 1;
-            if (!g4.pendingD4Rolls || g4.pendingD4Rolls[g4.pendingD4Step] == null) {
-              var next = planDirtyRolls();
-              g4.pendingD4Rolls = (g4.pendingD4Rolls || []).concat(next);
-            }
-            persistDoc();
-          } else step += 1;
-          return;
-        }
         setTimeout(function () { finish(n); }, 900);
       });
       dlg.addEventListener("cancel", function (e) { e.preventDefault(); });
@@ -522,34 +504,31 @@
     var guns = doc && doc.character && doc.character.guns;
     var g = guns && guns[opts.index];
     if (!g) return;
+    var applied = root.SSDNSMisfire && root.SSDNSMisfire.applyD4
+      ? root.SSDNSMisfire.applyD4(g, n, { capacity: g.capacity || (g.chambers && g.chambers.length) || 0, chamber: opts.chamber })
+      : null;
+    var next = applied && applied.gun;
+    var face = applied ? applied.face : (root.SSDNSMisfire ? root.SSDNSMisfire.d4Result(n, false) : null);
     g.pendingD4 = false;
     g.pendingD4Rolls = null;
     g.pendingD4Step = 0;
-    g.misStreak = 0;
-    var rugged = root.SSDNSMisfire
-      ? root.SSDNSMisfire.isRugged({ weapon: g.weapon, properties: weaponProps(g), rugged: opts.rugged })
-      : !!opts.rugged;
-    var face = root.SSDNSMisfire ? root.SSDNSMisfire.d4Result(n, rugged) : null;
+    if (next) {
+      g.jammed = !!next.jammed;
+      g.fouled = !!next.fouled;
+      g.ruined = !!next.ruined;
+      g.broken = !!next.broken;
+      g.misStreak = Number(next.misStreak) || 0;
+      g.lockedChambers = (next.lockedChambers || []).slice();
+      if (next.lockIndex != null && Array.isArray(g.chambers)) {
+        g.chambers[next.lockIndex] = "";
+        g.loaded = g.chambers.filter(Boolean).length;
+      }
+    }
     if (face && face.explode) {
-      g.ruined = true;
-      g.broken = true;
-      g.jammed = false;
-      g.fouled = false;
       var fire = 1 + Math.floor(Math.random() * 4);
       if (root.SSDNSSheet && root.SSDNSSheet.applyDelta) root.SSDNSSheet.applyDelta(-fire, (opts.gun || "Gun") + " explodes: " + fire + " fire");
-    } else if (face && face.fouled) {
-      g.fouled = true;
-      g.jammed = false;
-    } else if (face && face.jammed) {
-      g.jammed = true;
-    } else if (n === 1) {
-      g.ruined = true;
-      g.broken = true;
-      g.jammed = false;
-    } else if (n === 2) {
-      if (rugged) g.jammed = true;
-      else g.fouled = true;
-    } else if (n === 3) g.jammed = true;
+    }
+    if (face && (face.wild || face.wildShot) && root.SSDNSOfferWildShot) root.SSDNSOfferWildShot(opts.index, { gunName: opts.gun });
     if (app && app.applyPatch) app.applyPatch(function () {});
   }
   root.SSDNSD4 = { reveal: revealDie, plan: planDirtyRolls, arm: armDirty };

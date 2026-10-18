@@ -65,7 +65,8 @@
     ["Longbow", "longbow"],
     ["Dynamite stick (standard fuse)", "dynamite-stick-standard-fuse"],
     ["Dynamite stick, sweating", "dynamite-stick-sweating"],
-    ["Blasting keg", "blasting-keg"]
+    ["Blasting keg", "blasting-keg"],
+    ["TEST Jammer", "test-jammer"]
   ];
 
   /* Catalog ids that don't equal the art filename. */

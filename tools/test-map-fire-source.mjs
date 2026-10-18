@@ -65,10 +65,10 @@ const straight = M.resolveShot({ misStreak: 0 }, { n1: 15, nat: 15, ceiling: 20 
 check("jammer.straight", straight.misfire === true && straight.jammed === true && straight.misStreak === 1 && straight.armD4 === false);
 const spark = M.resolveShot({ misStreak: 2 }, { n1: 1, nat: 1, ceiling: 20, spark: true });
 check("jammer.spark", spark.misfire === false && spark.misStreak === 2 && spark.jammed === false);
-const both = M.resolveShot({ misStreak: 3 }, { n1: 8, n2: 19, nat: 8, ceiling: 20 });
-check("jammer.both", both.misfire === true && both.fouled === true && both.jammed === false && both.misStreak === 0 && both.armD4 === false);
-const d4 = M.resolveShot({ misStreak: 1, dirty: true }, { n1: 4, nat: 4, ceiling: 20 });
-check("jammer.d4", d4.misfire === true && d4.armD4 === true && d4.jammed === false && d4.misStreak === 2);
+const both = M.resolveShot({ misStreak: 3, capacity: 6 }, { n1: 8, n2: 19, nat: 8, ceiling: 20 });
+check("jammer.both", both.misfire === true && both.armD4 === true && both.fouled === false && both.jammed === false && both.misStreak === 4);
+const d4 = M.resolveShot({ misStreak: 1, dirty: true, capacity: 6 }, { n1: 4, nat: 4, ceiling: 20 });
+check("jammer.d4", d4.misfire === true && d4.jammed === true && d4.armD4 === false && d4.misStreak === 2);
 
 const commands = [];
 const rolls = [];
@@ -284,9 +284,9 @@ const granted = sandbox.DMCC.state.players.p_jolene.snapshot.guns.find((g) => g.
 check("demo.grant", !!granted && granted.name === "TEST Jammer" && granted.index === 3 && granted.chambers.every((st) => st === PERC) && granted.misfire === "1–20");
 granted.misStreak = 1;
 sandbox.DMCC.applyDemoGun("p_jolene", { op: "misfire", index: 3, dirty: true });
-check("demo.dirty", granted.dirty === true && granted.misStreak === 1);
+check("demo.dirty", granted.dirty === true && granted.misStreak === 2);
 sandbox.DMCC.applyDemoGun("p_jolene", { op: "misfire", index: 3, dirty: false });
-check("demo.clean", granted.dirty === false && granted.misStreak === 1);
+check("demo.clean", granted.dirty === false && granted.misStreak === 2);
 
 if (window.SSDNSMapHost && window.SSDNSMapHost.destroy) window.SSDNSMapHost.destroy();
 dom.window.close();

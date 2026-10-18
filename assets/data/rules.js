@@ -6943,7 +6943,7 @@ window.SSDNS_RULES = {
     "modification": "Smoothed action",
     "fits": "Any gun except the Big Fifty and Rugged guns",
     "cost": "400",
-    "effect": "Clear a jam as a bonus action with no check. A double misfire still fouls it.",
+    "effect": "Clear a jam as a free action.",
     "name": "Smoothed action"
    },
    {

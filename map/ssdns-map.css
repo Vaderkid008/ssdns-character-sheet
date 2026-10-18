@@ -411,6 +411,69 @@ body.map-fullscreen #btnMapFull {
 }
 body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right: 8px; }
 
+/* Player map keeps chat on the left. The DM map stays on the bottom row. */
+.ssdns-map.ssdns-role-player {
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) max-content;
+  grid-template-areas:
+    "bar bar bar"
+    "dock stage right"
+    "dock stage right";
+}
+.ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)) {
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  grid-template-areas:
+    "bar bar"
+    "dock stage"
+    "dock stage";
+}
+.ssdns-map.ssdns-role-player:has(.ssdns-chatdock.ssm-chat-shut) {
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+}
+.ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)):has(.ssdns-chatdock.ssm-chat-shut) {
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+.ssdns-map.ssdns-role-player .ssdns-chatdock {
+  align-self: stretch;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.ssdns-map.ssdns-role-player .ssdns-chatdock [data-act="chatlog"] {
+  flex: 1;
+  max-height: none;
+}
+.ssdns-map.ssdns-chat-popped > .ssdns-chatdock,
+.ssdns-map.ssdns-role-player.ssdns-chat-popped > .ssdns-chatdock { display: none; }
+body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock {
+  top: 60px;
+  bottom: 8px;
+  left: 8px;
+  right: auto;
+  width: 240px;
+}
+@media (max-width: 700px) {
+  body:not(.map-fullscreen) .ssdns-map.ssdns-role-player,
+  body:not(.map-fullscreen) .ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)),
+  body:not(.map-fullscreen) .ssdns-map.ssdns-role-player:has(.ssdns-chatdock.ssm-chat-shut),
+  body:not(.map-fullscreen) .ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)):has(.ssdns-chatdock.ssm-chat-shut) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(220px, 1fr) auto;
+    grid-template-areas:
+      "bar"
+      "stage"
+      "dock";
+  }
+  body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
+  }
+}
+body.ssdns-chat-pop.ssdns-chat-collapsed .ssdns-chat-overlay-feed { display: none; }
+
 /* DM combatant drawer. Sits in the stage cell so it does not cover the toolbars, turn strip, or chat. */
 .ssdns-map > .ssm-drawer {
   grid-area: stage;

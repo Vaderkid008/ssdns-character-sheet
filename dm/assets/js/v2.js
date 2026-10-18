@@ -289,15 +289,18 @@ function stripGuns(row, i) {
         loaded: fullN,
         chambers: flags || undefined,
         jammed: !!(gun && gun.jammed),
+        locked: (gun && gun.lockedChambers) || [],
         size: "strip",
         attr: attrs,
         attrs: function (k) { return { "data-gun-k": String(k), "data-k": String(k) }; }
       });
     }
     let html = "";
+    const locks = (gun && gun.lockedChambers) || [];
     for (let k = 0; k < n; k++) {
-      const full = flags ? !!flags[k] : k < fullN;
-      html += `<button type="button" class="chamber-dot${full ? " full" : ""}" ${attrs} data-gun-k="${k}" aria-label="Chamber ${k + 1}"></button>`;
+      const locked = locks.some((ix) => Number(ix) === k);
+      const full = !locked && (flags ? !!flags[k] : k < fullN);
+      html += `<button type="button" class="chamber-dot${locked ? " locked" : (full ? " full" : "")}" ${attrs} data-gun-k="${k}" aria-label="${locked ? "Locked chamber" : "Chamber"} ${k + 1}">${locked ? "X" : ""}</button>`;
     }
     return html;
   }
@@ -340,7 +343,8 @@ function publicGuns(row) {
       capacity: g.capacity || 0,
       loaded: g.loaded || 0,
       index: g.index != null && g.index !== "" ? g.index : undefined,
-      chambers: chamberPicture(g.chambers) || []
+      chambers: chamberPicture(g.chambers) || [],
+      lockedChambers: Array.isArray(g.lockedChambers) ? g.lockedChambers.slice() : []
     }));
   }
   const attacks = (row.attackList || row.card && row.card.attacks || []).filter((a) => a && a.capacity);
@@ -6108,6 +6112,7 @@ function ensurePlayerAttacks(row) {
       dirty: !!g.dirty,
       misStreak: Number(g.misStreak) || 0,
       chambers: chamberPicture(g.chambers),
+      lockedChambers: Array.isArray(g.lockedChambers) ? g.lockedChambers.slice() : [],
       ammoName: typeof g.ammo === "string" ? g.ammo : "",
       ammoDisplay: g.ammoDisplay || "",
       spare: window.SSDNSApplied && window.SSDNSApplied.spareCount ? window.SSDNSApplied.spareCount(Object.assign({}, g, { caliber: g.caliber || g.ammo }), (snap && snap.ammo) || []) : (g.spare || 0),

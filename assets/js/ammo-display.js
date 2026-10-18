@@ -109,10 +109,12 @@
     cap = Math.min(15, Math.floor(cap));
     var loadedN = Number(spec.loaded);
     if (!isFinite(loadedN)) loadedN = 0;
+    var locks = Array.isArray(spec.locked) ? spec.locked.map(function (n) { return Number(n); }) : [];
     var chambers = [];
     for (var k = 0; k < cap; k++) {
       var raw = flags ? flags[k] : (k < loadedN ? 1 : "");
-      chambers.push({ index: k, state: chamberState(raw), raw: raw });
+      var state = locks.indexOf(k) >= 0 ? "locked" : chamberState(raw);
+      chambers.push({ index: k, state: state, raw: raw });
     }
     var filled = chambers.filter(function (c) { return c.state !== "spent"; }).length;
     return { cap: cap, filled: filled, chambers: chambers, jammed: !!spec.jammed };
@@ -120,7 +122,7 @@
 
   function spendIndex(model) {
     for (var i = 0; i < model.chambers.length; i++) {
-      if (model.chambers[i].state !== "spent") return i;
+      if (model.chambers[i].state !== "spent" && model.chambers[i].state !== "locked") return i;
     }
     return -1;
   }
@@ -183,8 +185,13 @@
 
   function roundButton(spec, chamber, style, indexOverride, extraClass, inner) {
     var k = indexOverride == null ? chamber.index : indexOverride;
-    var word = chamber.state === "loaded" ? "Loaded" : (chamber.state === "jam" ? "Misfire" : "Spent");
+    var locked = chamber.state === "locked";
+    var word = locked ? "Locked" : (chamber.state === "loaded" ? "Loaded" : (chamber.state === "jam" ? "Misfire" : "Spent"));
     var next = spec.next === chamber.index ? " is-next" : "";
+    if (locked) {
+      extraClass = (extraClass ? extraClass + " " : "") + "is-locked";
+      inner = "X";
+    }
     var text = inner != null ? inner : esc(roundText(spec, chamber));
     var cls = extraClass ? " " + extraClass : "";
     return '<button type="button" class="ammo-round is-' + chamber.state + next + cls + '"' +

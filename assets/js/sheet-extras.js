@@ -1766,7 +1766,7 @@
       return;
     }
     var empty = root.SSDNSApplied && root.SSDNSApplied.gunEmpty ? root.SSDNSApplied.gunEmpty(g) : !num(g.loaded);
-    if (empty) {
+    if (empty && !rollGun._wild) {
       g.loaded = 0;
       if (root.SSDNSAudio) root.SSDNSAudio.play("empty-click");
       toast("Empty: reload", "Reload", function () {
@@ -1802,7 +1802,9 @@
       addLog({ kind: "alert", text: name0 + ": " + (rangeShot.button || "Out of range") });
       return;
     }
-    var spent = root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i, rollGun._chamber) : null;
+    var spent = rollGun._wild
+      ? { ok: true, left: num(g.loaded), chamber: null }
+      : (root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i, rollGun._chamber) : null);
     if (!spent || !spent.ok) {
       var reason = (spent && spent.reason) || "That gun can't fire.";
       toast(reason);
@@ -1849,28 +1851,46 @@
       parts.forEach(function (p) { bonus += Number(p.value) || 0; });
     }
     var total = nat + bonus;
+    var capNow = (gunStat && gunStat.capacity) || (wpn && wpn.capacity) || (g.chambers && g.chambers.length) || 0;
     var resolved = root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
       ? root.SSDNSMisfire.resolveShot({
         dirty: g.dirty, fouled: g.fouled, ruined: g.ruined || g.broken, jammed: g.jammed,
-        misStreak: g.misStreak, weapon: g.weapon, rugged: rugged, properties: wpn && wpn.properties
-      }, { n1: n1, n2: n2, nat: nat, ceiling: ceiling, spark: false })
-      : { misfire: both || bad(nat), both: both && !rugged, fouled: both && !rugged, jammed: !(both && !rugged) && bad(nat), armD4: false, misStreak: g.misStreak, reset: !(both || bad(nat)) };
-    g.misStreak = resolved.misStreak;
-    g.fouled = !!resolved.fouled;
-    g.jammed = !!resolved.jammed;
-    if (resolved.ruined) { g.ruined = true; g.broken = true; }
+        misStreak: g.misStreak, weapon: g.weapon, rugged: rugged, properties: wpn && wpn.properties,
+        lockedChambers: g.lockedChambers, capacity: capNow, mod: g.mod, name: name,
+        feats: (ch() && ch().feats) || []
+      }, { n1: n1, n2: n2, nat: nat, ceiling: ceiling, spark: false, chamber: spent.chamber, capacity: capNow, melee: false, wildAttack: !!rollGun._wild })
+      : { misfire: bad(nat), both: false, fouled: false, jammed: bad(nat) && !rollGun._wild, armD4: false, misStreak: rollGun._wild ? g.misStreak : (bad(nat) ? (Number(g.misStreak) || 0) + 1 : 0), reset: !bad(nat) && !rollGun._wild, lockedChambers: g.lockedChambers || [], streakIgnored: !!rollGun._wild };
+    if (!rollGun._wild) {
+      g.misStreak = resolved.misStreak;
+      g.fouled = !!resolved.fouled;
+      g.jammed = !!resolved.jammed;
+      if (resolved.lockedChambers) g.lockedChambers = resolved.lockedChambers.slice();
+      if (resolved.lockIndex != null && Array.isArray(g.chambers)) {
+        g.chambers[resolved.lockIndex] = "";
+        g.loaded = g.chambers.filter(Boolean).length;
+      }
+      if (resolved.ruined || resolved.fouled) { g.ruined = true; g.broken = true; g.fouled = true; }
+    }
     var misfired = !!resolved.misfire;
     function syncFlag(flag) {
       var box = document.querySelector('[data-f="character.guns.' + i + '.' + flag + '"]');
       if (box) { box.checked = !!g[flag]; dispatch(box); }
     }
-    if (resolved.fouled) {
+    if (resolved.fouled || resolved.ruined) {
       syncFlag("fouled");
-      postGunLedger(name + " fouled (double misfire)", "foul");
+      postGunLedger(name + " fouled", "foul");
+    } else if (resolved.lock) {
+      postGunLedger(name + " locked a chamber", "jam");
     } else if (resolved.jammed) {
       syncFlag("jammed");
       attackCue("jam");
       postGunLedger(name + " jammed (misfire)", "jam");
+      var freeUnjam = root.SSDNSMisfire && root.SSDNSMisfire.unjamIsFree && root.SSDNSMisfire.unjamIsFree({
+        weapon: g.weapon, rugged: rugged, properties: wpn && wpn.properties, mod: g.mod, feats: (ch() && ch().feats) || [], name: name
+      });
+      toast(name + " jammed. " + (freeUnjam ? "Unjam is a free action." : "Unjam is a bonus action."), "Unjam", function () {
+        if (root.SSDNSApp && root.SSDNSApp.unjamGun) root.SSDNSApp.unjamGun(i);
+      });
     }
     var quiet = whisperOn();
     var tgt = currentTarget();
@@ -1879,7 +1899,7 @@
     var haveAc = !!(gunCover && gunCover.have);
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
     if (!misfired) attackCue(cue);
-    if (!misfired && acHidden(tgt) && joined() && !quiet) {
+    if (!rollGun._wild && !misfired && acHidden(tgt) && joined() && !quiet) {
       var pendingDmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
       sendPendingAttack({
         who: who,
@@ -1934,6 +1954,7 @@
     var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
     var shownCard = card ? (acHidden(tgt) ? card.publicText : card.dmText) : report.player;
     var line = shownCard + (gunDice.note ? " · " + gunDice.note : "") + (chosen && gunDice.mode ? modeWord(chosen) : "") + ammoTxt;
+    if (rollGun._wild) line += " · wild-shot attack (not on the streak)";
     if (root.SSDNSAudio && root.SSDNSAudio.playOutcome && !misfired) {
       root.SSDNSAudio.playOutcome({ gun: true, id: g.weapon, name: name, group: wpn && wpn.group }, miss ? "miss" : (nat === 20 ? "crit" : "hit"));
     } else if (root.SSDNSAudio && root.SSDNSAudio.playOutcome && misfired) {
@@ -1969,7 +1990,7 @@
         targetName: tgt && tgt.name
       });
     }
-    if (!report.miss && dmg && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && !quiet) {
+    if (!rollGun._wild && !report.miss && dmg && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && !quiet) {
       root.SSDNSDmJoin.postDamage({ amount: dmg.total, label: name, weapon: name, type: "weapon", targetId: tgt && tgt.id, targetName: tgt && tgt.name, rollId: gunRollId });
     }
   }
@@ -2048,10 +2069,16 @@
     dispatch(box);
   }
 
-  function applyRest(kind) {
+  function applyRest(kind, opts) {
+    opts = opts || {};
     var c = ch();
     if (!c) return;
+    if (kind === "short" && !opts.prompted && root.SSDNSApp && root.SSDNSApp.promptShortRestTools) {
+      root.SSDNSApp.promptShortRestTools().then(function () { applyRest(kind, { prompted: true }); });
+      return;
+    }
     if (kind === "long") {
+      c.muzzleReopenUsed = false;
       var max = num(c.hpMax);
       if (max > 0) c.hpCurrent = max;
       c.hpTemp = 0;
@@ -2076,10 +2103,11 @@
         });
       }
       syncRestFields(c);
+      c.muzzleReopenUsed = false;
       var word = "spell slots";
       if (c.calling === "hexslinger") word = "Hex Lead";
       else if (c.calling === "pact-seeker") word = "Pact slots";
-      showNotice(shortHex ? "Short rest — pact slots refreshed. Guns, dirt, and fouling stay." : "Short rest. Your " + word + " comes back on a long rest. Guns, dirt, and fouling stay.");
+      showNotice(shortHex ? "Short rest — pact slots refreshed. The misfire streak resets. Dirt and fouling stay." : "Short rest. Your " + word + " comes back on a long rest. The misfire streak resets. Dirt and fouling stay.");
     }
   }
 
@@ -2465,7 +2493,20 @@
     });
   }
 
+  function offerWildShot(gunIndex, roll) {
+    var wildLine = (root.SSDNSMisfire && root.SSDNSMisfire.WILD_TEXT) || "Wild shot! DM picks a random creature in normal range (allies included); roll a new attack";
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.postFeed) root.SSDNSDmJoin.postFeed({ kind: "roll", text: wildLine });
+    addLog({ kind: "alert", text: wildLine });
+    toast(wildLine, "Roll wild-shot attack", function () {
+      rollGun._wild = true;
+      rollGun._aimed = true;
+      try { rollGun(gunIndex, null, roll); }
+      finally { rollGun._wild = false; rollGun._aimed = false; }
+    }, 0);
+  }
+
   root.SSDNSGunRoll = rollGun;
+  root.SSDNSOfferWildShot = offerWildShot;
   root.SSDNSGunCast = castThroughGun;
   root.SSDNSGunCastHex = castLoadedHex;
   function speakerColor(name) {

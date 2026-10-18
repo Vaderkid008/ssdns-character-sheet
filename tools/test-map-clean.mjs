@@ -23,7 +23,7 @@ const appSrc = read("assets/js/app.js");
 const joinSrc = read("assets/js/dm-join.js");
 const v2 = read("dm/assets/js/v2.js");
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.34" && version.dmcc === "0.2.47");
+check("ver.sheet", version.sheet === "0.3.35" && version.dmcc === "0.2.48");
 check("src.player", mapSrc.includes('data-act="playerClean"') && mapSrc.includes("cleanControl"));
 check("src.dm", mapSrc.includes('data-act="rowClean"') && mapSrc.includes("drawer:clean"));
 check("src.same", hostSrc.includes("SSDNSApp.cleanGun") || hostSrc.includes("root.SSDNSApp && root.SSDNSApp.cleanGun"));
@@ -105,14 +105,14 @@ async function choose(index) {
   if (btn) btn.click();
   await flush(0);
 }
-const dirtySeed = { dirty: true, jammed: true, misStreak: 3, pendingD4Rolls: [2, 4], pendingD4Step: 1, es: 2000 };
+const dirtySeed = { dirty: true, jammed: false, misStreak: 3, pendingD4Rolls: [2, 4], pendingD4Step: 1, es: 2000 };
 
 seed(dirtySeed);
 window.document.querySelector('[data-clean="0"]').click();
 await choose(0);
 const gearDirty = stamp(g);
 const gearLog = logs.filter((e) => e.kind === "alert").map((e) => e.text).join("|");
-check("gear.line", gearLog === "Navy / Army Ball n Cap Revolver: 10 minutes with gunsmith's tools or a gun cleaning kit.", gearLog);
+check("gear.line", gearLog === "Navy / Army Ball n Cap Revolver: Clean (removes Dirty, resets streak, clears jam).", gearLog);
 check("gear.cleared", gearDirty.includes('"dirty":false') && gearDirty.includes('"jammed":false') && gearDirty.includes('"misStreak":0') && gearDirty.includes('"pendingD4Rolls":null'));
 
 run("map/ssdns-map-firebase.js");
@@ -156,38 +156,28 @@ const cmdLog = logs.filter((e) => e.kind === "alert").map((e) => e.text).join("|
 check("command.matchesGear", cmdDirty === gearDirty && cmdLog === gearLog, cmdDirty);
 
 seed({ fouled: true, misStreak: 4, es: 2000 });
+const fouledBefore = stamp(g);
 window.document.querySelector('[data-clean="0"]').click();
-await choose(1);
-const gearPay = stamp(g);
-const gearPayLog = logs.filter((e) => e.kind === "alert").map((e) => e.text).join("|");
-check("gear.pay", gearPay.includes('"es":1500') && gearPay.includes('"fouled":false') && gearPay.includes('"misStreak":0'), gearPay);
-check("gear.payLine", gearPayLog.indexOf("pay a gunsmith 500 ES") >= 0, gearPayLog);
+await flush(0);
+check("gear.fouledStays", stamp(g) === fouledBefore && !window.document.querySelector("dialog.clean-modal"), stamp(g));
 
 seed({ fouled: true, misStreak: 4, es: 2000 });
 window.SSDNSMapHost.refreshCard();
 await flush(10);
-logs.length = 0;
-mount.querySelector('[data-act="playerClean"]').click();
-await choose(1);
-check("map.pay", stamp(g) === gearPay && logs.some((e) => e.kind === "alert" && e.text === gearPayLog), stamp(g));
+check("map.fouledHidden", !mount.querySelector('[data-act="playerClean"]'));
 
 seed({ fouled: true, misStreak: 4, es: 2000 });
-logs.length = 0;
 await app.applyCleanOption(0, "fouled-pay");
-check("command.pay", stamp(g) === gearPay && logs.some((e) => e.kind === "alert" && e.text.indexOf("pay a gunsmith 500 ES") >= 0));
+check("command.fouledStays", stamp(g) === fouledBefore);
 
-const random = window.Math.random;
-window.Math.random = function () { return 0; };
-seed({ jammed: true, misStreak: 2, es: 2000 });
-const jammedBefore = stamp(g);
+seed({ jammed: true, dirty: true, misStreak: 2, es: 2000 });
 window.document.querySelector('[data-clean="0"]').click();
-await choose(1);
+await choose(0);
 const gearJam = stamp(g);
-check("gear.jamStays", gearJam === jammedBefore, gearJam);
-seed({ jammed: true, misStreak: 2, es: 2000 });
-await app.applyCleanOption(0, "jam-bonus");
-check("command.jamStays", stamp(g) === gearJam);
-window.Math.random = random;
+check("gear.unjam", gearJam.includes('"jammed":false') && gearJam.includes('"dirty":true') && gearJam.includes('"misStreak":2'), gearJam);
+seed({ jammed: true, dirty: true, misStreak: 2, es: 2000 });
+await app.applyCleanOption(0, "unjam");
+check("command.unjam", stamp(g) === gearJam);
 
 seed({ pendingD4: true, dirty: true });
 const pendingBefore = stamp(g);
@@ -239,7 +229,7 @@ if (chip) chip.click();
 await flush(20);
 let drawer = dmEl.querySelector("[data-act=drawer]");
 let cleans = drawer ? drawer.querySelectorAll("[data-act=rowClean]") : [];
-check("dm.shown", cleans.length === 2 && drawer.textContent.includes("Navy") && drawer.textContent.includes("Henrietta"), drawer && drawer.textContent.replace(/\s+/g, " ").slice(0, 240));
+check("dm.shown", cleans.length === 1 && drawer.textContent.includes("Navy") && drawer.textContent.includes("Henrietta"), drawer && drawer.textContent.replace(/\s+/g, " ").slice(0, 240));
 const emitted = [];
 dm.on && dm.on("drawer:clean", (detail) => emitted.push(detail));
 if (!dm.on) {

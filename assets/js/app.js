@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.34"; // sheet-playtest-v0334
+  var APP_VERSION = "0.3.35"; // sheet-playtest-v0335
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1003,7 +1003,9 @@
             el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".jammed", disabled: "disabled" }), " jammed"]),
             el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".fouled", disabled: "disabled" }), " fouled"]),
             el("label", { class: "tiny jam" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".dirty", disabled: "disabled" }), " dirty"]),
-            el("button", { type: "button", class: "btn xs", "data-clean": i, title: "Pick a clean before anything changes. Dirty: 10 minutes with gunsmith's tools or a gun cleaning kit. Fouled: a short rest with tinker's or gunsmith's tools, or pay a gunsmith 500 ES. Ruined: gunsmith repair, 500 ES and a day." }, ["Clean"])
+            el("button", { type: "button", class: "btn xs", "data-clean": i, title: "Pick a clean before anything changes. Dirty: 10 minutes with gunsmith's tools or a gun cleaning kit. That removes Dirty and resets the streak. Jammed: Unjam, no check. Fouled stays until a gunsmith: pay a gunsmith 500 ES and a day (gunsmith repair, 500 ES and a day). The sheet does not clear Fouled." }, ["Clean"]),
+            el("button", { type: "button", class: "btn xs", "data-unjam": i, hidden: "hidden", title: "Clear a jam. Bonus action, or a free action with Rugged, Smoothed, or the Muzzleloader feat." }, ["Unjam"]),
+            el("button", { type: "button", class: "btn xs", "data-reopen": i, hidden: "hidden", title: "Muzzleloader feat. An action. Clears one locked chamber. Once per short rest." }, ["Reopen chamber"])
           ])
         ]),
         el("div", { class: "load-picks", "data-loadpick": i }),
@@ -1400,6 +1402,7 @@
       if (g.fouled) statusBits.push("Fouled");
       if (g.ruined || g.broken) statusBits.push("Ruined");
       if (g.jammed) statusBits.push("Jammed");
+      if (g.lockedChambers && g.lockedChambers.length) statusBits.push(g.lockedChambers.length + " locked");
       if (Number(g.misStreak)) statusBits.push("misfires " + g.misStreak);
       if (g.pendingD4) statusBits.push("d4 pending");
       out("gst." + i, statusBits.join(" · "));
@@ -1450,6 +1453,7 @@
           chambers: shells || undefined,
           loaded: shells ? undefined : num(g.loaded),
           jammed: !!g.jammed,
+          locked: g.lockedChambers || [],
           size: "gear",
           next: nextK,
           label: function (k) {
@@ -1462,14 +1466,15 @@
         var st = shells ? shells[k] : "";
         var parsed = parseChamber(st);
         var hex = parsed && parsed.kind === "hex";
+        var lockedDot = chamberLocked(g, k);
         var color = chamberColor(st, g, w);
-        var label = chamberLabel(st, g, w);
+        var label = lockedDot ? "Locked" : chamberLabel(st, g, w);
         var btn = el("button", {
           type: "button",
-          class: "chamber" + (st ? " loaded" : "") + (hex ? " hex" : "") + (k === nextK ? " next" : ""),
-          "data-fire": i, "data-k": k, text: hex ? parsed.level : "",
-          "aria-label": (label || "Empty") + " · chamber " + (k + 1) + (k === nextK ? " · next under the hammer" : ""),
-          title: label ? (label + (k === nextK ? " · next" : "") + (hex ? " · Cast through gun" : " · tap to fire")) : "Empty"
+          class: "chamber" + (lockedDot ? " locked" : (st ? " loaded" : "")) + (hex ? " hex" : "") + (k === nextK ? " next" : ""),
+          "data-fire": i, "data-k": k, text: lockedDot ? "X" : (hex ? parsed.level : ""),
+          "aria-label": (lockedDot ? "Locked" : (label || "Empty")) + " · chamber " + (k + 1) + (k === nextK ? " · next under the hammer" : ""),
+          title: lockedDot ? "Locked chamber" : (label ? (label + (k === nextK ? " · next" : "") + (hex ? " · Cast through gun" : " · tap to fire")) : "Empty")
         });
         if (st && hex) {
           btn.classList.add("tinted");
@@ -1493,6 +1498,25 @@
       paintAmmoPool(i, g, w, cap);
       var cleanBtn = $('[data-clean="' + i + '"]');
       if (cleanBtn) cleanBtn.disabled = !!g.pendingD4;
+      var unjamBtn = $('[data-unjam="' + i + '"]');
+      if (unjamBtn) {
+        var freeUnjam = window.SSDNSMisfire && window.SSDNSMisfire.unjamIsFree && window.SSDNSMisfire.unjamIsFree({
+          weapon: g.weapon, mod: g.mod, feats: C().feats || [], name: w && w.name, properties: w && w.properties, rugged: !!(w && /rugged/i.test(w.properties || ""))
+        });
+        unjamBtn.hidden = !g.jammed || !!(g.fouled || g.ruined || g.broken);
+        unjamBtn.disabled = !!g.pendingD4;
+        unjamBtn.textContent = freeUnjam ? "Unjam (free)" : "Unjam";
+      }
+      var reopenBtn = $('[data-reopen="' + i + '"]');
+      if (reopenBtn) {
+        var lockList = window.SSDNSMisfire && window.SSDNSMisfire.activeLocks
+          ? window.SSDNSMisfire.activeLocks(g, cap)
+          : (g.lockedChambers || []);
+        var hasLoader = (C().feats || []).indexOf("muzzleloader") >= 0;
+        reopenBtn.hidden = !(hasLoader && lockList.length);
+        reopenBtn.disabled = !!C().muzzleReopenUsed || !!g.pendingD4;
+        reopenBtn.title = C().muzzleReopenUsed ? "Used this rest" : "Action. Clears one locked chamber. Once per short rest.";
+      }
       var gunSel = $('[data-gun="' + i + '"]');
       if (gunSel) gunSel.disabled = !!g.pendingD4;
       if (cs) cs.disabled = !!g.pendingD4;
@@ -2086,10 +2110,28 @@
     return p || null;
   }
   function capOf(g, w) { var st = capSteps(w).filter(function (x) { return x.cap === num(g.capacity); })[0]; return st ? st.cap : (w.capacity || 0); }
+  function chamberLocked(g, k) {
+    var list = g && g.lockedChambers;
+    if (!Array.isArray(list)) return false;
+    return list.some(function (n) { return Number(n) === k; });
+  }
+  function openChamberCount(g, a) {
+    var n = 0;
+    for (var k = 0; k < a.length; k++) if (!a[k] && !chamberLocked(g, k)) n++;
+    return n;
+  }
+  function firstOpenChamber(g, a) {
+    for (var k = 0; k < a.length; k++) if (!a[k] && !chamberLocked(g, k)) return k;
+    return -1;
+  }
   function normChambers(g, w) {
     var cap = capOf(g, w), a = Array.isArray(g.chambers) ? g.chambers.slice(0, cap) : [];
     while (a.length < cap) a.push("");
-    if (!a.some(Boolean) && num(g.loaded) > 0) for (var k = 0; k < Math.min(cap, num(g.loaded)); k++) a[k] = "c";
+    for (var i = 0; i < cap; i++) if (chamberLocked(g, i)) a[i] = "";
+    if (!a.some(Boolean) && num(g.loaded) > 0) {
+      var fill = Math.min(openChamberCount(g, a), num(g.loaded));
+      for (var k = 0; k < cap && a.filter(Boolean).length < fill; k++) if (!chamberLocked(g, k)) a[k] = "c";
+    }
     g.chambers = a; g.loaded = a.filter(Boolean).length;
     return a;
   }
@@ -2223,7 +2265,7 @@
     unloadGun(g, prevW, what === "load" ? old : g.load, what === "chamber" ? old : g.chamber);
     g.loaded = 0; g.chambers = []; g.jammed = false;
     var w = WPN[g.weapon];
-    if (what === "weapon") { g.mod = ""; g.capacity = ""; g.misStreak = 0; g.pendingD4 = false; g.pendingD4Rolls = null; g.pendingD4Step = 0; }
+    if (what === "weapon") { g.mod = ""; g.capacity = ""; g.misStreak = 0; g.lockedChambers = []; g.pendingD4 = false; g.pendingD4Rolls = null; g.pendingD4Step = 0; }
     if (what === "weapon" && w) {
       g.proficient = callingProficient(w);
       if (w.scatter) g.load = "buck";
@@ -2259,11 +2301,20 @@
         : { action: clicked && !a[k] ? "empty" : (clicked && isHexChamber(a[k]) ? "hex" : "fire") };
       if (click.action === "empty") return { ok: false, empty: true, reason: "Click." };
       if (click.action === "hex" || (clicked && isHexChamber(a[k]))) return { ok: false, reason: "That's a hex shell. Use Cast through gun — Roll never spends a slot." };
+      if (clicked && chamberLocked(g, k)) return { ok: false, reason: "That chamber is locked." };
       if (!clicked) {
-        k = a.findIndex(Boolean);
+        k = -1;
+        for (var n = 0; n < a.length; n++) {
+          if (chamberLocked(g, n) || !a[n]) continue;
+          k = n;
+          break;
+        }
         if (k >= 0 && isHexChamber(a[k])) return { ok: false, reason: "That's a hex shell. Use Cast through gun — Roll never spends a cartridge." };
-        if (k < 0 || !isPlainChamber(a[k])) k = a.findIndex(isPlainChamber);
-      } else if (!isPlainChamber(a[k])) k = -1;
+        if (k < 0 || !isPlainChamber(a[k])) {
+          k = -1;
+          for (var p = 0; p < a.length; p++) if (!chamberLocked(g, p) && isPlainChamber(a[p])) { k = p; break; }
+        }
+      } else if (chamberLocked(g, k) || !isPlainChamber(a[k])) k = -1;
       if (k < 0) return { ok: false, reason: w.hexShells ? "No plain cartridge chambered. Cast through gun fires a hex shell." : "Out of rounds, Reload" };
       var was = a[k];
       a[k] = "";
@@ -2462,14 +2513,14 @@
     if (d4Pending(g)) { toast("Roll the d4 first."); return; }
     if (!w || !w.capacity || !pool) return;
     var a = normChambers(g, w);
-    var need = capOf(g, w) - a.filter(Boolean).length;
+    var need = openChamberCount(g, a);
     if (max) need = Math.min(need, max);
-    if (need <= 0) { toast("Already full."); return; }
+    if (need <= 0) { toast(a.some(function (st, k) { return !st && chamberLocked(g, k); }) ? "Locked chambers stay closed." : "Already full."); return; }
     if (num(pool.count) <= 0) { toast("That pile is empty."); return; }
     var take = Math.min(need, num(pool.count));
     var token = tokenForPool(pool, g, w);
     pool.count = num(pool.count) - take;
-    for (var k = 0, n = take; k < a.length && n > 0; k++) if (!a[k]) { a[k] = token; n--; }
+    for (var k = 0, n = take; k < a.length && n > 0; k++) if (!a[k] && !chamberLocked(g, k)) { a[k] = token; n--; }
     g.loaded = a.filter(Boolean).length;
     var picks = $('[data-loadpick="' + i + '"]');
     if (picks) { picks.innerHTML = ""; picks.hidden = true; }
@@ -2484,7 +2535,7 @@
     if (d4Pending(g)) { toast("Roll the d4 first."); return; }
     if (!w || !w.capacity) return;
     var a = normChambers(g, w);
-    var need = capOf(g, w) - a.filter(Boolean).length;
+    var need = openChamberCount(g, a);
     if (max) need = Math.min(need, max);
     if (need <= 0) { toast("Already full."); return; }
     var rows = poolsForGun(g, w);
@@ -2536,7 +2587,7 @@
   function loadHexShell(i) {
     var g = C().guns[i], w = WPN[g.weapon];
     if (!w || !w.hexShells) return;
-    var lvl = num($('[data-hexlvl="' + i + '"]').value, 1), a = normChambers(g, w), k = a.indexOf("");
+    var lvl = num($('[data-hexlvl="' + i + '"]').value, 1), a = normChambers(g, w), k = firstOpenChamber(g, a);
     if (k < 0) {
       var plain = -1;
       for (var p = 0; p < a.length; p++) if (isPlainChamber(a[p])) { plain = p; break; }
@@ -2735,6 +2786,48 @@
     applyCleanChoice(i, g, pick);
     return Promise.resolve(true);
   }
+  function unjamGun(i) {
+    var g = C().guns[i];
+    if (!g || !g.weapon) { toast("Pick a gun first."); return Promise.resolve(false); }
+    if (!g.jammed) { toast("This gun isn't jammed."); return Promise.resolve(false); }
+    return applyCleanOption(i, "unjam");
+  }
+  function reopenChamber(i) {
+    var g = C().guns[i];
+    if (!g || !g.weapon) { toast("Pick a gun first."); return false; }
+    if ((C().feats || []).indexOf("muzzleloader") < 0) { toast("Reopen chamber needs the Muzzleloader feat."); return false; }
+    if (C().muzzleReopenUsed) { toast("Reopen chamber is once per short rest."); return false; }
+    var M = window.SSDNSMisfire;
+    var idx = M && M.reopenIndex ? M.reopenIndex(g) : null;
+    if (idx == null) { toast("No locked chamber."); return false; }
+    g.lockedChambers = (g.lockedChambers || []).filter(function (n) { return Number(n) !== idx; });
+    C().muzzleReopenUsed = true;
+    changed();
+    var name = WPN[g.weapon] ? WPN[g.weapon].name : "Gun";
+    var line = name + ": reopened chamber " + (idx + 1) + " (action, once per short rest).";
+    toast(line);
+    if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
+    publishGunCard();
+    return true;
+  }
+  function promptShortRestTools() {
+    var guns = (C().guns || []).filter(Boolean);
+    guns.forEach(function (g) { g.misStreak = 0; });
+    C().muzzleReopenUsed = false;
+    var any = guns.some(function (g) { return g.lockedChambers && g.lockedChambers.length; });
+    if (!any) {
+      changed();
+      return Promise.resolve(false);
+    }
+    var ask = window.SSDNSAsk && window.SSDNSAsk.confirm
+      ? window.SSDNSAsk.confirm("Short rest with tools? Reopen all locked chambers + reset streak")
+      : Promise.resolve(false);
+    return ask.then(function (yes) {
+      if (yes) guns.forEach(function (g) { g.lockedChambers = []; g.misStreak = 0; });
+      changed();
+      return !!yes;
+    });
+  }
   function cleanGun(i) {
     var g = C().guns[i];
     if (!g || !g.weapon) { toast("Pick a gun first."); return Promise.resolve(false); }
@@ -2795,6 +2888,7 @@
     g.broken = false;
     g.cracked = false;
     g.misStreak = 0;
+    g.lockedChambers = [];
     g.pendingD4 = false;
     g.pendingD4Rolls = null;
     g.pendingD4Step = 0;
@@ -2903,6 +2997,8 @@
     if (d.gunroll !== undefined) { if (window.SSDNSGunRoll) window.SSDNSGunRoll(num(d.gunroll), d.k !== undefined ? num(d.k) : undefined); return; }
     if (d.gunmelee !== undefined) { if (window.SSDNSGunMelee) window.SSDNSGunMelee(num(d.gunmelee)); return; }
     if (d.clean !== undefined) return cleanGun(num(d.clean));
+    if (d.unjam !== undefined) return unjamGun(num(d.unjam));
+    if (d.reopen !== undefined) return reopenChamber(num(d.reopen));
     if (d.fire !== undefined) {
       var gi = num(d.fire), kk = d.k !== undefined ? num(d.k) : undefined;
       var gg = C().guns[gi];
@@ -3657,11 +3753,22 @@
 
   // ------------------------------------------------------------------ boot
   function rest(kind) {
-    if (window.SSDNSSheet && window.SSDNSSheet.applyRest) {
-      window.SSDNSSheet.applyRest(kind);
-      renderFields();
-      return;
+    var go = function () {
+      if (window.SSDNSSheet && window.SSDNSSheet.applyRest) {
+        window.SSDNSSheet.applyRest(kind, { prompted: true });
+        renderFields();
+        return;
+      }
+      finishRest(kind);
+    };
+    if (kind === "short") promptShortRestTools().then(go);
+    else {
+      C().muzzleReopenUsed = false;
+      go();
     }
+    return;
+  }
+  function finishRest(kind) {
     var ci = casterInfo(), r = C().hexRest || (ci ? ci.rest : "long");
     if (kind === "long" || r === "short") {
       for (var l = 1; l <= 9; l++) C().hexLead[l] = new Array(MAX_BOXES).fill(false);
@@ -3848,6 +3955,9 @@
       grantListedWeapon: function (idOrName) { return grantListedWeapon(idOrName); },
       gunMeleeLabel: gunMeleeLabel,
       cleanGun: function (i) { return cleanGun(i); },
+      unjamGun: function (i) { return unjamGun(i); },
+      reopenChamber: function (i) { return reopenChamber(i); },
+      promptShortRestTools: function () { return promptShortRestTools(); },
       applyCleanOption: function (i, optionId) { return applyCleanOption(i, optionId); },
       suggestedHp: function () { return suggestedHp(C()); }
     };
