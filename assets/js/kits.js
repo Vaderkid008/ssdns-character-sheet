@@ -34,6 +34,9 @@
     slot.weapon = id;
     slot.proficient = kitProficient(id);
     if (!slot.chambers) slot.chambers = [];
+    slot.equipped = false;
+    if (root.SSDNSEquip && root.SSDNSEquip.tryAutoEquip) root.SSDNSEquip.tryAutoEquip(c, { kind: "gun", index: guns.indexOf(slot) });
+    else slot.equipped = true;
     return slot;
   }
   function putMelee(c, id, allowDup) {
@@ -49,6 +52,9 @@
     }
     slot.weapon = id;
     slot.proficient = kitProficient(id);
+    slot.equipped = false;
+    if (root.SSDNSEquip && root.SSDNSEquip.tryAutoEquip) root.SSDNSEquip.tryAutoEquip(c, { kind: "melee", index: melee.indexOf(slot) });
+    else slot.equipped = true;
     return slot;
   }
   function chamberGun(slot, chamber, extra) {

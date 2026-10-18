@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.38"; // sheet-playtest-v0338
+  var APP_VERSION = "0.3.39"; // sheet-playtest-v0339
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -172,6 +172,10 @@
     Object.keys(raw).forEach(function (k) { if (!(k in doc)) doc[k] = raw[k]; });
     if (doc.character && doc.character.proficienciesLanguages) {
       doc.character.proficienciesLanguages = migrateSettlerLanguages(doc.character.proficienciesLanguages);
+    }
+    if (doc.character && window.SSDNSEquip && window.SSDNSEquip.migrate) {
+      var loadout = window.SSDNSEquip.migrate(doc.character);
+      if (loadout && loadout.ok && !loadout.skipped) notes.push("Equipped current weapons up to the L0170 slot limits.");
     }
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
@@ -969,6 +973,7 @@
             el("div", { class: "g-sub" }, [
               chamber, load,
               el("span", { class: "g-cal", "data-out": "cal." + i }),
+              el("label", { class: "tiny equip-toggle", "data-equip-wrap": "gun:" + i, title: "Equipped weapons can attack, reload, and show on the map." }, [el("input", { type: "checkbox", "data-equip": "gun", "data-equip-i": String(i), "aria-label": "Gun " + (i + 1) + " equipped" }), " Equipped"]),
               el("label", { class: "tiny" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".proficient" }), " prof."]),
               el("label", { class: "tiny", title: "Engraving and grips. It does not use the modification slot." }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".engraving" }), " engraving"])
             ])
@@ -1503,9 +1508,10 @@
       }
       var left = shells ? shells.filter(Boolean).length : num(g.loaded);
       out("left." + i, cap ? left + "/" + cap : "");
+      var packed = !!(g && g.weapon && g.equipped === false);
       var reloadBtn0 = $('[data-reload="' + i + '"]');
       if (reloadBtn0) {
-        reloadBtn0.hidden = !cap;
+        reloadBtn0.hidden = !cap || packed;
         reloadBtn0.disabled = !!g.pendingD4;
         var emptyNow = window.SSDNSApplied && window.SSDNSApplied.gunEmpty ? window.SSDNSApplied.gunEmpty(g) : !(num(g.loaded) > 0);
         var kitPool = w ? takePool(g, w, false).pool : null;
@@ -1540,17 +1546,33 @@
       if (unloadBtn) unloadBtn.hidden = !cap;
       var rollBtn = $('[data-gunroll="' + i + '"]');
       if (rollBtn) {
-        rollBtn.hidden = !s;
+        rollBtn.hidden = !s || packed;
         rollBtn.textContent = "Roll";
       }
       var meleeLbl = gunMeleeLabel(w);
       out("gmelee." + i, meleeLbl);
       var meleeBtn = $('[data-gunmelee="' + i + '"]');
-      if (meleeBtn) meleeBtn.hidden = !meleeLbl;
-      $('[data-tr="' + i + '"]').hidden = !(cap && w && w.tr);
-      $('[data-hexwrap="' + i + '"]').hidden = !(cap && w && w.hexShells);
+      if (meleeBtn) meleeBtn.hidden = !meleeLbl || packed;
+      var equipBox = $('[data-equip="gun"][data-equip-i="' + i + '"]');
+      if (equipBox) {
+        var Equip = window.SSDNSEquip;
+        var combatLock = !!(Equip && Equip.combatLocked && Equip.combatLocked());
+        equipBox.checked = !!(g && g.weapon && g.equipped !== false);
+        equipBox.disabled = !g.weapon || combatLock;
+        var equipTitle = !g.weapon ? "Pick a weapon first."
+          : (combatLock ? Equip.LOCK_TIP : "Equipped weapons can attack, reload, and show on the map.");
+        if (Equip && g.weapon && g.equipped === true) {
+          var draw = Equip.drawCheck(C(), i);
+          if (draw && draw.needed) equipTitle = draw.reason;
+        }
+        equipBox.title = equipTitle;
+        var equipWrap = $('[data-equip-wrap="gun:' + i + '"]');
+        if (equipWrap) equipWrap.title = equipTitle;
+      }
+      $('[data-tr="' + i + '"]').hidden = !(cap && w && w.tr) || packed;
+      $('[data-hexwrap="' + i + '"]').hidden = !(cap && w && w.hexShells) || packed;
       var castWrap = $('[data-castwrap="' + i + '"]');
-      if (castWrap) castWrap.hidden = !(cap && w && w.hexShells);
+      if (castWrap) castWrap.hidden = !(cap && w && w.hexShells) || packed;
       var castBtn = $('[data-cast="' + i + '"]');
       var spellSel = $('[data-castspell="' + i + '"]');
       var slotSel = $('[data-castslot="' + i + '"]');
@@ -1629,6 +1651,7 @@
     } else {
       holMsg = "No holster: no initiative or first-shot bonus; quick-draw needs a DC 12 Dex check. " + R.rulesText.holster;
     }
+    holMsg += " Loadout: 2 pistols, 1 long gun, 1 melee, 1 focus. A second pistol with no holster draws on a DC 12 Dex check.";
     $("#holsterInfo").textContent = holMsg;
     $$('[data-tr]').forEach(function (btn) {
       btn.title = hasGunBelt()
@@ -1807,7 +1830,18 @@
     } else {
       parts.push("Pick your Calling instrument (or Voice). Starting-kit instruments are cheap unless your Background says otherwise. " + ((R.storytellerGear && R.storytellerGear.note) || ""));
     }
+    if (window.SSDNSEquip && window.SSDNSEquip.focusCarry && c.instrument) {
+      var carry = window.SSDNSEquip.focusCarry(c);
+      if (carry && carry.text) parts.push(carry.text);
+    }
     if (info) info.textContent = parts.join(" ");
+    var focusBox = $("#focusEquipped");
+    if (focusBox) {
+      var focusLock = !!(window.SSDNSEquip && window.SSDNSEquip.combatLocked && window.SSDNSEquip.combatLocked());
+      focusBox.checked = !!(c.instrument && c.focusEquipped !== false);
+      focusBox.disabled = !c.instrument || focusLock;
+      focusBox.title = focusLock ? window.SSDNSEquip.LOCK_TIP : "Focus slot. Only an equipped instrument is your focus.";
+    }
     var q = $("#selInstrumentQuality");
     if (q) q.disabled = c.instrument === "voice" || c.instrument === "piano" || !c.instrument;
   }
@@ -1900,9 +1934,24 @@
       changed({ noRender: true });
       return;
     }
+    if (t.getAttribute && t.getAttribute("data-equip")) {
+      if (e.type !== "change") return;
+      applyEquipToggle(t);
+      return;
+    }
+    if (t.id === "focusEquipped") {
+      if (e.type !== "change") return;
+      applyEquipToggle(t);
+      return;
+    }
     var path = t.getAttribute("data-f");
     if (!path) return;
     var old = getPath(S.doc, path), v;
+    if (path === "character.instrument" && window.SSDNSEquip && window.SSDNSEquip.combatLocked && window.SSDNSEquip.combatLocked()) {
+      t.value = old == null ? "" : old;
+      toast(window.SSDNSEquip.LOCK_TIP);
+      return;
+    }
     if (t.type === "checkbox") v = t.checked;
     else if (t.type === "number") v = t.value === "" ? "" : Number(t.value);
     else v = t.value;
@@ -1921,6 +1970,10 @@
       else if (path === "character.sublineage") onSublineagePicked();
       else if (path === "character.background") onBackgroundPicked();
       else if (/^character\.guns\.\d+\.(weapon|load|chamber|capacity)$/.test(path)) onGunChanged(num(path.split(".")[2]), path.split(".")[3], old);
+      else if (path === "character.instrument" && window.SSDNSEquip && window.SSDNSEquip.tryAutoEquip) {
+        C().focusEquipped = false;
+        window.SSDNSEquip.tryAutoEquip(C(), { kind: "focus" });
+      }
     }
     if (C().hpAuto !== false && (path === "character.calling" || path === "character.level" || path === "character.abilities.CON")) applyAutoHp();
     if (path.indexOf("shards.") === 0) {
@@ -2270,6 +2323,12 @@
   }
   function onGunChanged(i, what, old) {
     var g = C().guns[i];
+    if (what === "weapon" && window.SSDNSEquip && window.SSDNSEquip.combatLocked && window.SSDNSEquip.combatLocked()) {
+      g.weapon = old;
+      toast(window.SSDNSEquip.LOCK_TIP);
+      renderFields();
+      return;
+    }
     if (d4Pending(g) && (what === "weapon" || what === "chamber")) {
       if (what === "weapon") g.weapon = old;
       if (what === "chamber") g.chamber = old;
@@ -2290,7 +2349,13 @@
       if (w.capacity) toast(w.name + ": " + st.damage + ", range " + st.range + ", capacity " + w.capacity + ", misfire " + st.misfire + (st.round ? ", chambered " + st.round : "") + ". Starts empty: hit Reload.");
       var ammoType = w.ammo === "shell" || w.scatter ? "buck" : (w.ammo === "arrows" ? "arrows" : (w.ammo === "percussion" ? "percussion" : "cartridge"));
       var cal = ammoType === "percussion" ? "" : ((st && st.round) || (w.tiers ? "Light" : ""));
+      g.equipped = false;
+      if (window.SSDNSEquip && window.SSDNSEquip.tryAutoEquip) {
+        var placed = window.SSDNSEquip.tryAutoEquip(C(), { kind: "gun", index: i });
+        if (placed && !placed.equipped && placed.reason) toast(w.name + " stayed in your pack. " + placed.reason);
+      }
     }
+    if (what === "weapon" && !w) g.equipped = false;
     if (what === "chamber" && w && w.tiers) {
       if (g.chamberSet && old && String(old) !== String(g.chamber)) {
         g.chamber = old;
@@ -2305,6 +2370,7 @@
   function spendRound(i, k) {
     var g = C().guns[i], w = g && WPN[g.weapon];
     if (!g || !g.weapon) return { ok: false, reason: "Pick a gun first." };
+    if (g.equipped === false) return { ok: false, reason: "Equip this weapon first." };
     if (g.ruined || g.broken) return { ok: false, reason: "Ruined. A gunsmith repairs it for 500 ES and a day. It comes back clean." };
     if (g.pendingD4) return { ok: false, reason: "Roll the d4 first." };
     if (g.jammed) return { ok: false, reason: "Jammed: clear it first" };
@@ -2548,6 +2614,7 @@
   }
   function reload(i, max) {
     var g = C().guns[i], w = WPN[g.weapon];
+    if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
     if (d4Pending(g)) { toast("Roll the d4 first."); return; }
     if (!w || !w.capacity) return;
     var a = normChambers(g, w);
@@ -2573,6 +2640,7 @@
   }
   function tacticalReload(i) {
     var g = C().guns[i], w = WPN[g.weapon];
+    if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
     if (d4Pending(g)) { toast("Roll the d4 first."); return; }
     if (!w || !w.tr) { toast("This gun can't Tactical Reload (TR —)."); return; }
     if (!hasGunBelt()) {
@@ -2602,6 +2670,7 @@
   }
   function loadHexShell(i) {
     var g = C().guns[i], w = WPN[g.weapon];
+    if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
     if (!w || !w.hexShells) return;
     var lvl = num($('[data-hexlvl="' + i + '"]').value, 1), a = normChambers(g, w), k = firstOpenChamber(g, a);
     if (k < 0) {
@@ -2916,6 +2985,33 @@
     if (!pick) { toast("This gun isn't jammed, dirty, fouled, or ruined."); return Promise.resolve(false); }
     return finishClean(i, g, pick);
   }
+  function applyEquipToggle(t) {
+    var Equip = window.SSDNSEquip;
+    if (!Equip) return;
+    var kind = t.id === "focusEquipped" ? "focus" : (t.getAttribute("data-equip") || "gun");
+    var index = t.getAttribute("data-equip-i");
+    var want = !!t.checked;
+    var result = Equip.setEquipped(C(), { kind: kind, index: index, equipped: want });
+    if (!result || !result.ok) {
+      t.checked = !want;
+      toast((result && result.reason) || Equip.LOCK_TIP);
+      renderFields();
+      return;
+    }
+    changed();
+  }
+  function setEquipped(opts) {
+    var Equip = window.SSDNSEquip;
+    if (!Equip) return { ok: false, reason: "Equip rules aren't loaded." };
+    opts = opts || {};
+    var result = Equip.setEquipped(C(), opts);
+    if (result && result.ok) changed();
+    else renderFields();
+    return result;
+  }
+  function clearDrawn() {
+    (C().guns || []).forEach(function (g) { if (g) g.drawn = false; });
+  }
   function grantTestGun(index) {
     var jam = window.SSDNSTestJammer && window.SSDNSTestJammer.weapon && window.SSDNSTestJammer.weapon();
     if (!jam || !jam.debug) return false;
@@ -2957,6 +3053,8 @@
     g.pendingD4Rolls = null;
     g.pendingD4Step = 0;
     g.proficient = true;
+    g.equipped = false;
+    if (window.SSDNSEquip && window.SSDNSEquip.tryAutoEquip) window.SSDNSEquip.tryAutoEquip(C(), { kind: "gun", index: i });
     changed();
     return true;
   }
@@ -2985,8 +3083,11 @@
       }
       slot.weapon = w.id;
       slot.proficient = true;
+      slot.equipped = false;
+      var meleeIndex = slots.indexOf(slot);
+      if (window.SSDNSEquip && window.SSDNSEquip.tryAutoEquip) window.SSDNSEquip.tryAutoEquip(C(), { kind: "melee", index: meleeIndex });
       changed();
-      return { id: w.id, name: w.name || w.id, melee: true };
+      return { id: w.id, name: w.name || w.id, melee: true, equipped: slot.equipped === true };
     }
     var guns = C().guns || [];
     var i = -1;
@@ -3005,6 +3106,8 @@
     gun.ruined = false;
     gun.broken = false;
     gun.pendingD4 = false;
+    gun.equipped = false;
+    if (window.SSDNSEquip && window.SSDNSEquip.tryAutoEquip) window.SSDNSEquip.tryAutoEquip(C(), { kind: "gun", index: i });
     if (w.tiers) {
       var tier = firstTier(w);
       var rounds = (w.rounds && w.rounds[tier]) || [];
@@ -3014,7 +3117,7 @@
       gun.capacity = w.capacity || 0;
     }
     changed();
-    return { id: w.id, name: w.name || w.id, melee: false };
+    return { id: w.id, name: w.name || w.id, melee: false, equipped: gun.equipped === true };
   }
   function gunMeleeLabel(w) {
     if (!w) return "";
@@ -4017,6 +4120,8 @@
       prepareGunCast: function (i, spell, slot) { prepareGunCast(i, spell, slot); },
       grantTestGun: function (i) { return grantTestGun(i); },
       grantListedWeapon: function (idOrName) { return grantListedWeapon(idOrName); },
+      setEquipped: function (opts) { return setEquipped(opts); },
+      clearDrawn: function () { return clearDrawn(); },
       gunMeleeLabel: gunMeleeLabel,
       cleanGun: function (i) { return cleanGun(i); },
       unjamGun: function (i) { return unjamGun(i); },

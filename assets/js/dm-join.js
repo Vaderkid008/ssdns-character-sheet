@@ -168,6 +168,7 @@
         lockedChambers: Array.isArray(g.lockedChambers) ? g.lockedChambers.slice() : [],
         caliber: (st && st.w && st.w.ammo) || g.caliber || "",
         index: i,
+        equipped: g.equipped !== false,
         tr: !!(st && st.w && st.w.tr),
         ammoPool: g.ammoPool == null ? "" : String(g.ammoPool),
         attackMode: g.attackMode === "adv" || g.attackMode === "dis" ? g.attackMode : "",
@@ -225,6 +226,18 @@
       features: c.features || "",
       personality: c.personality || "",
       guns: guns,
+      melee: (c.melee || []).map(function (m, i) {
+        if (!m || !m.weapon) return null;
+        var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.melee) || [], (root.SSDNS_RULES && root.SSDNS_RULES.otherRanged) || []);
+        var w = null;
+        lists.forEach(function (row) { if (row && row.id === m.weapon) w = row; });
+        return { index: i, weapon: m.weapon, name: (w && w.name) || m.weapon, equipped: m.equipped !== false };
+      }).filter(Boolean),
+      focus: c.instrument ? {
+        id: c.instrument,
+        equipped: c.focusEquipped !== false,
+        carry: (root.SSDNSEquip && root.SSDNSEquip.focusCarry) ? root.SSDNSEquip.focusCarry(c).carry : ""
+      } : null,
       longRangeHex: (c.feats || []).indexOf("long-range-hex") >= 0,
       sharpshooter: (c.feats || []).indexOf("sharpshooter") >= 0,
       conditions: c.tableConditions || "",
@@ -1461,6 +1474,20 @@
       return;
     } else if (payload.op === "repair" && app.repairGun) {
       app.repairGun(payload.index);
+      return;
+    } else if (payload.op === "equip" && app.setEquipped) {
+      var equipResult = app.setEquipped({
+        kind: payload.kind || "gun",
+        index: payload.index,
+        equipped: payload.equipped !== false,
+        dm: true
+      });
+      var equipWord = payload.equipped !== false ? "equipped" : "unequipped";
+      var equipName = (equipResult && equipResult.name) || "a weapon";
+      var equipText = equipResult && equipResult.ok
+        ? ("DM " + equipWord + " " + equipName + ".")
+        : ("DM could not " + equipWord + " " + equipName + (equipResult && equipResult.reason ? ": " + equipResult.reason : "") + ".");
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: equipText });
       return;
     }
     if (payload.op === "test-gun" && app.grantTestGun) {

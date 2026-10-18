@@ -350,11 +350,12 @@
         "<span data-label='Atk' data-melee-atk='" + i + "'></span>" +
         "<span data-label='Dmg' data-melee-dmg='" + i + "'></span>" +
         "<span data-label='Range' data-melee-rng='" + i + "'></span>" +
-        "</div></div></div>" +
-        "<div class='g-actions'><button type='button' class='btn sm' data-melee-roll='" + i + "'>Roll</button></div></div>";
+        "</div><label class='tiny equip-toggle' data-equip-wrap='melee:" + i + "'><input type='checkbox' data-equip='melee' data-equip-i='" + i + "' aria-label='Melee " + (i + 1) + " equipped'" + ((c.melee[i] && c.melee[i].weapon && c.melee[i].equipped !== false) ? " checked" : "") + (cur ? "" : " disabled") + "> Equipped</label></div></div>" +
+        "<div class='g-actions'><button type='button' class='btn sm' data-melee-roll='" + i + "'" + ((c.melee[i] && c.melee[i].weapon && c.melee[i].equipped === false) ? " hidden" : "") + ">Roll</button></div></div>";
     }
     box.innerHTML = html;
     paintMelee();
+    if (root.SSDNSEquip && root.SSDNSEquip.combatLocked && root.SSDNSEquip.combatLocked()) paintEquipLock(true);
   }
   function paintMelee() {
     var c = ch();
@@ -399,6 +400,7 @@
   function rollMelee(i) {
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
+    if (c.melee[i].equipped === false) { toast("Equip this weapon first."); return; }
     var ready = root.SSDNSSheet && root.SSDNSSheet.ensureAttackTarget;
     if (ready && !rollMelee._aimed) {
       ready().then(function (ok) {
@@ -999,10 +1001,40 @@
     renderUses();
     paintPact();
   }
+  function paintEquipLock(active) {
+    var tip = (root.SSDNSEquip && root.SSDNSEquip.LOCK_TIP) || "Change loadout outside combat";
+    document.querySelectorAll("[data-equip], #focusEquipped").forEach(function (box) {
+      var wrap = box.closest ? box.closest("[data-equip-wrap], label") : null;
+      if (active) {
+        box.disabled = true;
+        box.title = tip;
+        if (wrap) wrap.title = tip;
+        return;
+      }
+      if (box.id === "focusEquipped") {
+        box.disabled = !(ch() && ch().instrument);
+        box.title = "Focus slot. Only an equipped instrument is your focus.";
+        return;
+      }
+      var kind = box.getAttribute("data-equip");
+      var idx = Number(box.getAttribute("data-equip-i"));
+      var row = kind === "melee" ? ((ch() && ch().melee) || [])[idx] : ((ch() && ch().guns) || [])[idx];
+      box.disabled = !(row && row.weapon);
+      box.title = "Equipped weapons can attack, reload, and show on the map.";
+      if (wrap) wrap.title = box.title;
+    });
+  }
   root.SSDNSPlaytest = {
     syncSheet: syncSheet,
     showYourTurn: showYourTurn,
     showTurn: function (init) {
+      if (root.SSDNSEquip && root.SSDNSEquip.setCombat) {
+        var active = root.SSDNSEquip.combatActive(init);
+        var was = root.SSDNSEquip.combatLocked && root.SSDNSEquip.combatLocked();
+        root.SSDNSEquip.setCombat(active);
+        if (was && !active && root.SSDNSApp && root.SSDNSApp.clearDrawn) root.SSDNSApp.clearDrawn();
+        if (was !== active) paintEquipLock(active);
+      }
       var panel = $("#turnPanel");
       if (!panel) return;
       var order = (init && Array.isArray(init.order) && init.order) || [];
@@ -1246,13 +1278,23 @@
       if (t.id === "taFeatures") patch(function (d) { d.character.featuresCustom = true; });
       var melee = t.getAttribute && t.getAttribute("data-melee");
       if (melee != null) {
+        if (root.SSDNSEquip && root.SSDNSEquip.combatLocked && root.SSDNSEquip.combatLocked()) {
+          var prev = ch() && ch().melee && ch().melee[melee];
+          t.value = (prev && prev.weapon) || "";
+          toast(root.SSDNSEquip.LOCK_TIP);
+          return;
+        }
         patch(function (d) {
           d.character.melee = d.character.melee || [{}, {}, {}, {}];
           d.character.melee[melee] = d.character.melee[melee] || {};
           d.character.melee[melee].weapon = t.value;
           d.character.melee[melee].proficient = true;
+          d.character.melee[melee].equipped = false;
+          if (t.value && root.SSDNSEquip && root.SSDNSEquip.tryAutoEquip) {
+            root.SSDNSEquip.tryAutoEquip(d.character, { kind: "melee", index: Number(melee) });
+          }
         });
-        paintMelee();
+        renderMelee();
       }
       var fuse = t.getAttribute && t.getAttribute("data-fuse");
       if (fuse) patch(function (d) {

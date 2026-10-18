@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.38 / DMCC 0.2.51 UI cleanup.
+ * Sheet 0.3.39 / DMCC 0.2.52 UI cleanup.
  * Toolbar move buttons, docked chat tuck, draggable DM card, gun melee order.
  *   node tools/test-ui-cleanup.mjs
  */
@@ -22,9 +22,9 @@ const app = read("assets/js/app.js");
 const mapSrc = read("map/ssdns-map.js");
 const css = read("map/ssdns-map.css");
 const sheetCss = read("assets/css/sheet.css");
-check("ver.sheet", version.sheet === "0.3.38" && version.sheetBuild === "sheet-playtest-v0338");
-check("ver.dmcc", version.dmcc === "0.2.51" && version.dmccBuild === "dmcc-playtest-v0251");
-check("ver.app", app.includes('APP_VERSION = "0.3.38"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.51"'));
+check("ver.sheet", version.sheet === "0.3.39" && version.sheetBuild === "sheet-playtest-v0339");
+check("ver.dmcc", version.dmcc === "0.2.52" && version.dmccBuild === "dmcc-playtest-v0252");
+check("ver.app", app.includes('APP_VERSION = "0.3.39"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.52"'));
 check("rules.untouched", !read("database.rules.json").includes("ssdns.dmCard") && !read("assets/data/rules.js").includes("g-gunmelee"));
 
 const toolbar = mapSrc.slice(mapSrc.indexOf("toolbar.innerHTML"), mapSrc.indexOf("el.appendChild(toolbar)"));
@@ -122,15 +122,15 @@ act(el, "redoBtn").click();
 check("undo.wired", !!act(el, "undoBtn") && !!act(el, "redoBtn"));
 
 const dock = el.querySelector(".ssdns-chatdock");
-check("chat.open", dock && !dock.classList.contains("ssm-chat-shut") && act(el, "chatCaret").textContent === "▾" && w.localStorage.getItem("ssdns.map.chatOpen") === "1");
+check("chat.open", dock && !dock.classList.contains("ssm-chat-shut") && act(el, "chatCaret").textContent === "▾" && w.localStorage.getItem("ssdns.map.chatOpen.dm") === "1");
 act(el, "chatToggle").click();
-check("chat.tucked", dock.classList.contains("ssm-chat-shut") && act(el, "chatToggle").getAttribute("aria-expanded") === "false" && act(el, "chatCaret").textContent === "▸" && w.localStorage.getItem("ssdns.map.chatOpen") === "0");
+check("chat.tucked", dock.classList.contains("ssm-chat-shut") && act(el, "chatToggle").getAttribute("aria-expanded") === "false" && act(el, "chatCaret").textContent === "▸" && w.localStorage.getItem("ssdns.map.chatOpen.dm") === "0");
 check("chat.popStays", act(el, "chatPop") && act(el, "chatPop").hidden === false && act(el, "chatWindow") && act(el, "chatWindow").hidden === false);
 act(el, "chatPop").click();
 const float = el.querySelector("[data-act=chatFloat]");
 check("chat.popped", !!float && el.classList.contains("ssdns-chat-popped") && dock.classList.contains("ssm-chat-shut"));
 float.querySelector("[data-act=floatDock]").click();
-check("chat.dockedShut", !el.querySelector("[data-act=chatFloat]") && !el.classList.contains("ssdns-chat-popped") && dock.classList.contains("ssm-chat-shut") && w.localStorage.getItem("ssdns.map.chatOpen") === "0");
+check("chat.dockedShut", !el.querySelector("[data-act=chatFloat]") && !el.classList.contains("ssdns-chat-popped") && dock.classList.contains("ssm-chat-shut") && w.localStorage.getItem("ssdns.map.chatOpen.dm") === "0");
 const opened = [];
 w.open = function (url, name, features) {
   opened.push({ url: String(url), name: name, features: String(features || "") });
@@ -138,9 +138,9 @@ w.open = function (url, name, features) {
 };
 act(el, "chatWindow").click();
 check("chat.tab", opened.length === 1 && opened[0].name === "ssdns-map-chat" && opened[0].url.indexOf("chat-pop.html") >= 0, JSON.stringify(opened));
-check("chat.tabStillShut", dock.classList.contains("ssm-chat-shut") && w.localStorage.getItem("ssdns.map.chatOpen") === "0");
+check("chat.tabStillShut", dock.classList.contains("ssm-chat-shut") && w.localStorage.getItem("ssdns.map.chatOpen.dm") === "0");
 act(el, "chatToggle").click();
-check("chat.restored", !dock.classList.contains("ssm-chat-shut") && act(el, "chatToggle").title === "Minimize chat" && w.localStorage.getItem("ssdns.map.chatOpen") === "1");
+check("chat.restored", !dock.classList.contains("ssm-chat-shut") && act(el, "chatToggle").title === "Minimize chat" && w.localStorage.getItem("ssdns.map.chatOpen.dm") === "1");
 
 const head = el.querySelector(".ssm-drawer-head");
 check("card.reset", !!act(el, "drawerReset") && head && head.textContent.includes("No card linked"));
@@ -188,9 +188,9 @@ const pdock = pel.querySelector(".ssdns-chatdock");
 check("player.noMoves", !pel.querySelector(".ssm-move-tools") && !act(pel, "lockBtn"));
 check("player.rememberedShut", pdock && pdock.classList.contains("ssm-chat-shut") && act(pel, "chatPop") && act(pel, "chatWindow"));
 act(pel, "chatToggle").click();
-check("player.restored", !pdock.classList.contains("ssm-chat-shut") && pw.localStorage.getItem("ssdns.map.chatOpen") === "1");
+check("player.restored", !pdock.classList.contains("ssm-chat-shut") && pw.localStorage.getItem("ssdns.map.chatOpen.player") === "1" && pw.localStorage.getItem("ssdns.map.chatOpen") === "0");
 act(pel, "chatToggle").click();
-check("player.tucked", pdock.classList.contains("ssm-chat-shut") && pw.localStorage.getItem("ssdns.map.chatOpen") === "0");
+check("player.tucked", pdock.classList.contains("ssm-chat-shut") && pw.localStorage.getItem("ssdns.map.chatOpen.player") === "0");
 
 if (failures.length) {
   console.error(failures.length + " failed");

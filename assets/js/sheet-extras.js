@@ -1753,11 +1753,31 @@
       return !!ok;
     });
   }
+  function pistolDraw(i) {
+    var Equip = root.SSDNSEquip;
+    var c = ch();
+    var g = c && c.guns && c.guns[i];
+    if (!Equip || !g || g.equipped !== true || g.drawn) return "";
+    var info = Equip.drawCheck(c, i);
+    if (!info || !info.needed) return "";
+    var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+    var mod = v && v.mods ? (Number(v.mods.DEX) || 0) : 0;
+    var nat = 1 + Math.floor(Math.random() * 20);
+    var total = nat + mod;
+    var ok = total >= (info.dc || 12);
+    var line = ((c && c.name) || "You") + " draws a second pistol: d20 " + nat + (mod ? ((mod > 0 ? "+" : "") + mod) : "") + " = " + total + " vs DC 12 " + (ok ? "success" : "fail");
+    addLog({ kind: "roll", text: line });
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.postChat) root.SSDNSDmJoin.postChat({ text: line });
+    if (!ok) return "DC 12 Dex draw failed (" + total + ")";
+    g.drawn = true;
+    return "";
+  }
   function rollGun(i, chamber) {
     if (chamber != null) rollGun._chamber = chamber;
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
     var g = c.guns[i];
+    if (g.equipped === false) { toast("Equip this weapon first."); return; }
     var name0 = gunName(i);
     if (/borrowed iron/i.test(name0) || g.weapon === "borrowed-iron") {
       var msg = "Borrowed Iron has no weapon stats. Use Pact Shot.";
@@ -1796,6 +1816,8 @@
       if (root.SSDNSRangeRings && root.SSDNSRangeRings.clear) root.SSDNSRangeRings.clear();
       toast(gate); addLog({ kind: "alert", text: gate }); return;
     }
+    var drawFail = pistolDraw(i);
+    if (drawFail) { toast(drawFail); addLog({ kind: "alert", text: drawFail }); return; }
     var rangeShot = root.SSDNSRangeRings && root.SSDNSRangeRings.take ? root.SSDNSRangeRings.take() : null;
     if (rangeShot && rangeShot.apply && rangeShot.blocked) {
       toast(rangeShot.button || "Out of range");
@@ -2216,6 +2238,8 @@
   function castPicked(i, sp) {
     var c = ch();
     if (!sp) return;
+    var held = c && c.guns && c.guns[i];
+    if (held && held.weapon && held.equipped === false) { toast("Equip this weapon first."); return; }
     var looked = root.SSDNSSpellCast && root.SSDNSSpellCast.lookup && root.SSDNSSpellCast.lookup(sp.name);
     chooseCastTarget(sp.name, looked, sp.slot || 0).then(function (choice) {
       if (!choice) return;
@@ -2570,6 +2594,7 @@
     var c = ch();
     var g = c && c.guns && c.guns[i];
     if (!g || !g.weapon) { toast("Pick a gun first"); return; }
+    if (g.equipped === false) { toast("Equip this weapon first."); return; }
     var wpn = catalogWeapon(g.weapon);
     var profile = gunMeleeProfile(wpn);
     if (!profile) { toast("That gun has no melee strike."); return; }
@@ -2585,6 +2610,8 @@
     }
     var gate = attackGate(currentTarget());
     if (gate) { toast(gate); addLog({ kind: "alert", text: gate }); return; }
+    var drawFail = pistolDraw(i);
+    if (drawFail) { toast(drawFail); addLog({ kind: "alert", text: drawFail }); return; }
     var host = root.SSDNSMapHost;
     var rings = root.SSDNSRangeRings;
     if (host && typeof host.armAttack === "function" && !(rings && rings.peek && rings.peek())) {
