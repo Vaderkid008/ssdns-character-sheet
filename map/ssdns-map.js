@@ -284,6 +284,11 @@ toolbar.innerHTML = `
     <button data-act="setFloorBtn">Set floor</button>
     <button data-act="showSceneBtn">Show to players</button>
     <button data-act="importWallsBtn">Import Walls</button>
+    <span class="ssm-move-tools" data-act="moveTools">
+      <button type="button" data-act="lockBtn">Lock</button>
+      <button type="button" data-act="undoBtn">Undo Move</button>
+      <button type="button" data-act="redoBtn">Redo Move</button>
+    </span>
   ` : ``}
 `;
 el.appendChild(toolbar);
@@ -323,7 +328,7 @@ on(document, 'keydown', e => {
 });
 const chatdock = document.createElement('div');
 chatdock.className = 'ssdns-chatdock';
-chatdock.innerHTML = `<div class="ssdns-chathead"><button type="button" data-act="chatToggle" aria-expanded="true">Chat <span data-act="chatBadge" class="ssm-chatbadge" hidden>0</span></button><span data-act="chatFilters"><button type="button" data-chat-filter="all" class="on">All</button><button type="button" data-chat-filter="rolls">Rolls</button><button type="button" data-chat-filter="talk">Talk</button></span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatWindow" class="ssm-chat-tab">Open in new tab</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden></p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
+chatdock.innerHTML = `<div class="ssdns-chathead"><button type="button" data-act="chatToggle" aria-expanded="true" title="Minimize chat">Chat <span data-act="chatCaret" aria-hidden="true">▾</span> <span data-act="chatBadge" class="ssm-chatbadge" hidden>0</span></button><span data-act="chatFilters"><button type="button" data-chat-filter="all" class="on">All</button><button type="button" data-chat-filter="rolls">Rolls</button><button type="button" data-chat-filter="talk">Talk</button></span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatWindow" class="ssm-chat-tab">Open in new tab</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden></p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
 el.appendChild(chatdock);
 state.chatFilter = 'all';
 state.chatOpen = true;
@@ -412,7 +417,12 @@ function renderChat() {
   log.scrollTop = log.scrollHeight;
   chatdock.classList.toggle('ssm-chat-shut', !state.chatOpen);
   const toggle = q('chatToggle');
-  if (toggle) toggle.setAttribute('aria-expanded', state.chatOpen ? 'true' : 'false');
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', state.chatOpen ? 'true' : 'false');
+    toggle.title = state.chatOpen ? 'Minimize chat' : 'Restore chat';
+  }
+  const caret = q('chatCaret');
+  if (caret) caret.textContent = state.chatOpen ? '▾' : '▸';
   document.querySelectorAll('[data-chat-filter]').forEach(btn => {
     if (btn.closest && btn.closest('.ssdns-map') !== el && !el.contains(btn)) return;
     btn.classList.toggle('on', btn.getAttribute('data-chat-filter') === state.chatFilter);
@@ -566,10 +576,6 @@ if (role === 'dm') {
     <button data-act="hideBtn">Hide/Reveal</button>
     <button data-act="hideAllBtn">Hide All</button>
     <button data-act="revealAllBtn">Reveal All</button>
-    <div style="height:12px"></div>
-    <button data-act="lockBtn">Lock</button>
-    <button data-act="undoBtn">Undo Move</button>
-    <button data-act="redoBtn">Redo Move</button>
     <div style="height:16px;border-top:1px solid #5a4e40;margin-top:8px;padding-top:8px"></div>
     <button data-act="wallBtn">Wall</button>
     <button data-act="roomBtn">Room</button>
@@ -4543,6 +4549,132 @@ async function loadSceneImage(sceneId) {
       });
     });
   }
+  const DM_CARD_KEY = 'ssdns.dmCard';
+  let dmCardResize = false;
+  function mapPad() {
+    const n = (v) => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
+    let cs = null;
+    try { cs = window.getComputedStyle(el); } catch (e) { cs = null; }
+    if (!cs) return { x: 0, y: 0, r: 0, b: 0 };
+    return {
+      x: n(cs.borderLeftWidth) + n(cs.paddingLeft),
+      y: n(cs.borderTopWidth) + n(cs.paddingTop),
+      r: n(cs.borderRightWidth) + n(cs.paddingRight),
+      b: n(cs.borderBottomWidth) + n(cs.paddingBottom)
+    };
+  }
+  function readDmCard() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(DM_CARD_KEY) || 'null');
+      if (saved && isFinite(saved.x) && isFinite(saved.y)) return saved;
+    } catch (e) {}
+    return null;
+  }
+  function cardLimits(d, host, pad) {
+    const rect = d.getBoundingClientRect();
+    const w = rect.width || d.offsetWidth || 260;
+    const h = rect.height || d.offsetHeight || 48;
+    const innerW = Math.max(0, host.width - pad.x - pad.r);
+    const innerH = Math.max(0, host.height - pad.y - pad.b);
+    const keepH = Math.min(Math.max(h, 36), innerH);
+    return {
+      maxX: Math.max(0, innerW - Math.min(w, innerW)),
+      maxY: Math.max(0, innerH - keepH)
+    };
+  }
+  function clampDmCard(d) {
+    if (!d || !d.classList.contains('placed')) return;
+    const host = el.getBoundingClientRect();
+    if (!host.width || !host.height) return;
+    const x = parseFloat(d.style.left);
+    const y = parseFloat(d.style.top);
+    if (!isFinite(x) || !isFinite(y)) return;
+    const limits = cardLimits(d, host, mapPad());
+    d.style.left = Math.round(Math.min(Math.max(0, x), limits.maxX)) + 'px';
+    d.style.top = Math.round(Math.min(Math.max(0, y), limits.maxY)) + 'px';
+    d.style.right = 'auto';
+    d.style.bottom = 'auto';
+  }
+  function saveDmCard(d) {
+    const x = parseFloat(d.style.left);
+    const y = parseFloat(d.style.top);
+    if (!isFinite(x) || !isFinite(y)) return;
+    try { localStorage.setItem(DM_CARD_KEY, JSON.stringify({ x: Math.round(x), y: Math.round(y) })); } catch (e) {}
+  }
+  function placeDmCard(d, pos) {
+    if (!d || !pos) return;
+    d.classList.add('placed');
+    d.style.right = 'auto';
+    d.style.bottom = 'auto';
+    d.style.left = pos.x + 'px';
+    d.style.top = pos.y + 'px';
+    clampDmCard(d);
+  }
+  function resetDmCard(d) {
+    if (!d) return;
+    d.classList.remove('placed');
+    d.style.left = '';
+    d.style.top = '';
+    d.style.right = '';
+    d.style.bottom = '';
+    try { localStorage.removeItem(DM_CARD_KEY); } catch (e) {}
+  }
+  function bindDmCard(d) {
+    placeDmCard(d, readDmCard());
+    let drag = null;
+    on(d, 'pointerdown', (e) => {
+      const head = e.target.closest && e.target.closest('.ssm-drawer-head');
+      if (!head || !d.contains(head)) return;
+      if (e.target.closest && e.target.closest('button, a, input, select, textarea')) return;
+      const rect = d.getBoundingClientRect();
+      const host = el.getBoundingClientRect();
+      const pad = mapPad();
+      drag = {
+        x0: e.clientX,
+        y0: e.clientY,
+        left: rect.left - host.left - pad.x,
+        top: rect.top - host.top - pad.y,
+        host: host,
+        pad: pad
+      };
+      d.classList.add('placed');
+      d.style.right = 'auto';
+      d.style.bottom = 'auto';
+      d.style.left = Math.round(drag.left) + 'px';
+      d.style.top = Math.round(drag.top) + 'px';
+      if (head.setPointerCapture) head.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    on(d, 'pointermove', (e) => {
+      if (!drag) return;
+      const limits = cardLimits(d, drag.host, drag.pad);
+      const x = Math.min(Math.max(0, drag.left + (e.clientX - drag.x0)), limits.maxX);
+      const y = Math.min(Math.max(0, drag.top + (e.clientY - drag.y0)), limits.maxY);
+      d.style.left = Math.round(x) + 'px';
+      d.style.top = Math.round(y) + 'px';
+    });
+    const endDrag = () => {
+      if (!drag) return;
+      drag = null;
+      clampDmCard(d);
+      saveDmCard(d);
+    };
+    on(d, 'pointerup', endDrag);
+    on(d, 'pointercancel', endDrag);
+    on(d, 'click', (e) => {
+      const btn = e.target.closest && e.target.closest('[data-act="drawerReset"]');
+      if (!btn || !d.contains(btn)) return;
+      e.preventDefault();
+      resetDmCard(d);
+    });
+    if (!dmCardResize) {
+      dmCardResize = true;
+      on(window, 'resize', () => {
+        const live = q('drawer');
+        if (live && live.classList.contains('placed')) clampDmCard(live);
+      });
+    }
+  }
   function renderDrawer() {
     if (role !== 'dm' || !state.drawerOpen) return;
     let d = q('drawer');
@@ -4553,6 +4685,7 @@ async function loadSceneImage(sceneId) {
       d.setAttribute('role', 'dialog');
       d.setAttribute('aria-label', 'Combatant card');
       el.appendChild(d);
+      bindDmCard(d);
     }
     const tokenId = state.drawerTokenId;
     const card = lookupCard(tokenId);
@@ -4564,7 +4697,7 @@ async function loadSceneImage(sceneId) {
       const enemies = (choices.enemies || []).map(row => option('enemy:' + (row.id || ''), row.label || row.name || row.id)).join('');
       const beasts = (choices.bestiary || []).map(g => group(g.label || 'Bestiary', (g.options || []).map(b => option('beast:' + (b.id || ''), b.name || b.id)).join(''))).join('');
       const custom = choices.customLabel || 'New custom enemy (Bandit)';
-      d.innerHTML = '<div class="ssm-drawer-head"><b>No card linked</b><button type="button" data-act="drawerClose">×</button></div>' +
+      d.innerHTML = '<div class="ssm-drawer-head"><b>No card linked</b><button type="button" data-act="drawerReset" title="Reset card position" aria-label="Reset card position">Reset</button><button type="button" data-act="drawerClose">×</button></div>' +
         '<div class="ssm-drawer-body">' +
         '<label class="ssm-section" for="ssm-link-pick">Link to…</label>' +
         '<select data-act="linkPick" id="ssm-link-pick" aria-label="Link to…">' +
@@ -4706,6 +4839,7 @@ async function loadSceneImage(sceneId) {
       '<label class="ssm-act" title="Lock cover so the player can\'t change it."><input type="checkbox" data-act="coverLock"' + (card.coverLock ? ' checked' : '') + '> Lock cover</label>';
     d.innerHTML =
       '<div class="ssm-drawer-head"><b>' + esc(card.name || tokenId) + '</b> <span class="ssm-kind">' + esc(card.kind || '') + '</span>' +
+      '<button type="button" data-act="drawerReset" title="Reset card position" aria-label="Reset card position">Reset</button>' +
       '<button type="button" data-act="drawerClose">×</button></div>' +
       '<div class="ssm-drawer-body">' +
       '<div>AC ' + esc(card.ac != null ? card.ac : '—') + ' · HP ' + esc(hp.cur != null ? hp.cur : '—') + '/' + esc(hp.max != null ? hp.max : '—') +
