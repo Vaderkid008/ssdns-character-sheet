@@ -872,7 +872,7 @@
     onSaloonMessage(ev);
   });
 
-  /* 0.3.49 reward routing: instruments go to the focus slot, explosives and
+  /* 0.3.50 reward routing: instruments go to the focus slot, explosives and
      consumables become real items with a Use button. Anything else stays a line
      in Equipment, as before. Returns true when the reward was routed. */
   function routeReward(payload, cmd) {
@@ -1719,6 +1719,11 @@
     if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM " + (payload.op || "adjusted") + " a gun." });
   }
   function applyMusic(payload) {
+    if (root.SSDNSMusic) {
+      root.SSDNSMusic.onBlocked(function () { if (root.SSDNSSheet) root.SSDNSSheet.showTapHear(); });
+      root.SSDNSMusic.apply(payload || {});
+      return;
+    }
     if (!root.SSDNSAudio) return;
     if (!payload || payload.action === "stop") {
       root.SSDNSAudio.stopMusic();

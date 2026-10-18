@@ -1,8 +1,46 @@
 {
   "tracks": [
-    { "id": "saloon", "title": "Saloon piano", "file": "saloon.mp3" },
-    { "id": "trail", "title": "Trail dusk", "file": "trail.mp3" },
-    { "id": "gunfight", "title": "Gunfight", "file": "gunfight.mp3" },
-    { "id": "hex", "title": "Hex wind", "file": "hex.mp3" }
+    {
+      "id": "test-tone",
+      "title": "Test tone (2 s)",
+      "file": "starter/test-tone.mp3",
+      "layer": "music"
+    },
+    {
+      "id": "ssdns-theme",
+      "title": "SSDNS theme (starter)",
+      "file": "starter/ssdns-theme.mp3",
+      "layer": "music"
+    },
+    {
+      "id": "ssdns-ambient",
+      "title": "Prairie ambience (starter)",
+      "file": "starter/ssdns-ambient.mp3",
+      "layer": "ambient"
+    },
+    {
+      "id": "saloon",
+      "title": "Saloon piano",
+      "file": "saloon.mp3",
+      "layer": "music"
+    },
+    {
+      "id": "trail",
+      "title": "Trail dusk",
+      "file": "trail.mp3",
+      "layer": "music"
+    },
+    {
+      "id": "gunfight",
+      "title": "Gunfight",
+      "file": "gunfight.mp3",
+      "layer": "music"
+    },
+    {
+      "id": "hex",
+      "title": "Hex wind",
+      "file": "hex.mp3",
+      "layer": "music"
+    }
   ]
 }

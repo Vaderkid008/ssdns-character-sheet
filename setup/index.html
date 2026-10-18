@@ -41,6 +41,7 @@
       <li><a href="#quick">Quick start</a></li>
       <li><a href="#fork">Fork and host</a></li>
       <li><a href="#session">Running a session</a></li>
+      <li><a href="#firebase">Setting up Firebase (optional)</a></li>
       <li><a href="#trouble">Troubleshooting</a></li>
       <li><a href="#privacy">Privacy</a></li>
     </ol>
@@ -309,7 +310,55 @@
 
     <h3>Sound and music</h3>
     <p>Gun, holster, reload, reward, jam, and spell-shot cues already sit in <code>assets/sfx/</code>. A missing file stays silent. Music tracks are named in <code>assets/music/tracks.json</code> (<code>saloon.mp3</code>, <code>trail.mp3</code>, <code>gunfight.mp3</code>, <code>hex.mp3</code>). Those music files are optional. Add them beside the README when you want table music. Each folder’s README says how to add another file.</p>
-    <p>Players hear a track when you turn on <strong>Also play on players' devices</strong>. Their browser may wait until they tap <strong>Tap to hear</strong>.</p>
+    <p>The Music tab has two layers that play together: <strong>Music</strong> and <strong>Ambient</strong>. Each has Play, Pause, Stop, Loop, Prev/Next, a seek bar, volume, Fade out / Fade in (3, 5 or 10 seconds) and Crossfade. Turn on <strong>Push to players</strong> to play it on every sheet. <strong>Stop for all</strong> stops both layers everywhere. Players set their own music and ambient volume under <strong>Table music</strong>. Their browser may wait until they tap <strong>Tap to enable sound</strong>.</p>
+  </section>
+
+  <section id="firebase">
+    <h2>Setting up Firebase (optional)</h2>
+    <p><strong>You can play the whole game with just the sheet, or on paper, without any of this.</strong> Firebase only adds the live table (rooms, the DM Command Center, pushed music) and uploads.</p>
+    <h3>Live table (Realtime Database)</h3>
+    <p>See <a href="#fork">Fork and host your own copy</a>. Paste your Web app config into <code>assets/js/firebase-config.js</code>, turn on Anonymous sign-in, and publish <code>database.rules.json</code>.</p>
+
+    <h3>Table music: three ways</h3>
+    <h4>(a) Built-in starter pack: nothing to set up</h4>
+    <ol>
+      <li>Open the DMCC → <strong>Music</strong>.</li>
+      <li>Pick a starter track in the Music or Ambient list and press <strong>Play</strong>.</li>
+      <li>Tick <strong>Push to players</strong> to play it on everyone's sheet.</li>
+    </ol>
+    <h4>(b) Paste a link: Dropbox, Google Drive, or any host</h4>
+    <ol>
+      <li>Upload your MP3 or OGG to the host.</li>
+      <li>Make it public:
+        <ul>
+          <li><strong>Dropbox:</strong> Share → <em>Copy link</em> (anyone with the link can view).</li>
+          <li><strong>Google Drive:</strong> Share → General access → <em>Anyone with the link</em> → Copy link. Drive can block big files or streaming; if a track won't play, use another host.</li>
+          <li><strong>Any other host:</strong> use a direct link to the file (it should end in .mp3 or .ogg and play when opened in a browser tab).</li>
+        </ul></li>
+      <li>DMCC → Music → <strong>Add by link</strong>: paste the link (share links are converted for you), give it a title, pick Music or Ambient.</li>
+      <li>Press <strong>Test</strong>. "OK" means it will play. Otherwise it says why (not public, a web page instead of the file, or the host blocks other sites).</li>
+      <li>Press <strong>Add link</strong>. It shows up in the track list and plays for players like any other track.</li>
+    </ol>
+    <h4>(c) Upload to Firebase Storage</h4>
+    <ol>
+      <li><strong>Plan:</strong> Storage needs the <strong>Blaze (pay as you go)</strong> plan with a card on file. Google may place a small temporary authorization hold on the card when you upgrade. Budgets in Google Cloud are <strong>alerts only, not caps</strong>: they email you, they don't stop charges. Small groups usually stay inside the no-cost tier. See <a href="https://firebase.google.com/pricing" target="_blank" rel="noopener">Firebase pricing</a> for current free amounts.</li>
+      <li>Firebase console → your project → <strong>Build → Storage → Get started</strong>.</li>
+      <li>Pick a <strong>location</strong> close to your players (this can't be changed later). Start in production mode.</li>
+      <li>Check the bucket name matches <code>storageBucket</code> in <code>assets/js/firebase-config.js</code>.</li>
+      <li><strong>Lock uploads to your DM uid.</strong> Uploads and deletes are allowed only for the uids listed in <code>storage.rules</code>; anyone at the table can still stream. To set yours: open the DMCC, open a live room, go to Music → <em>Add audio by upload</em>, and copy <strong>Your DM uid</strong>. In <code>storage.rules</code>, replace <code>REPLACE_WITH_DM_UID</code> with it (add more uids for co-DMs). Until you do, nobody can upload.</li>
+      <li>Storage → <strong>Rules</strong>: paste your edited <code>storage.rules</code> → <strong>Publish</strong> (or run <code>firebase deploy --only storage</code>). Limits: audio files under 15 MB (audio types only), images under 1 MB (image types only).</li>
+      <li>The DMCC signs in anonymously. If you clear that browser's site data or switch browsers, your uid changes; copy the new one into the rules and publish again.</li>
+      <li>DMCC → Music → <strong>Add audio by upload</strong>. MP3/OGG under 15 MB. The meter shows how much you've used.</li>
+    </ol>
+    <p>If Storage isn't set up, the DMCC just shows a hint. Starter tracks and links still work.</p>
+
+    <h3>Item and handout pictures</h3>
+    <ul>
+      <li><strong>Link:</strong> paste an image link (Dropbox/Drive share links are converted).</li>
+      <li><strong>Upload:</strong> pick a file. It's cropped to 512×512 and saved inside the character file (DM uploads go to Storage when it's set up). Best: 512×512 PNG or WEBP, under 1 MB.</li>
+      <li>No picture? Items use a default picture for their type.</li>
+    </ul>
+    <p>Only use music and pictures you have the right to share with your table.</p>
   </section>
 
   <section id="trouble">

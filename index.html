@@ -6,10 +6,10 @@
 <meta name="color-scheme" content="light">
 <title>SSDNS Character Sheet · Six-Shooters &amp; Sorcery: Dust and Shadows</title>
 <link rel="icon" href="assets/images/revolver.png">
-<link rel="stylesheet" href="map/ssdns-map.css?v=0.3.49-fire">
+<link rel="stylesheet" href="map/ssdns-map.css?v=0.3.50-fire">
 <link rel="stylesheet" href="assets/css/ammo-display.css?v=0.3.28-art">
-<link rel="stylesheet" href="assets/css/sheet.css?v=0.3.49-art">
-<link rel="stylesheet" href="assets/css/dice.css?v=0.3.49-dice">
+<link rel="stylesheet" href="assets/css/sheet.css?v=0.3.50-art">
+<link rel="stylesheet" href="assets/css/dice.css?v=0.3.50-dice">
 <link rel="stylesheet" href="assets/css/print.css?v=0.3.22" media="print">
 </head>
 <body>
@@ -50,7 +50,12 @@
   <span class="dm-join-status" id="dmJoinStatus">Not in a room</span>
   <label class="toggle audio-ctl"><input type="checkbox" data-sfx-mute checked> Sound</label>
   <label class="toggle audio-ctl">Vol <input type="range" data-sfx-volume min="0" max="100" value="80" aria-label="Sound volume"></label>
-  <button type="button" class="btn sm" id="btnTapHear" hidden>Tap to hear</button>
+  <details class="mx-mine-ctl audio-ctl"><summary>Table music</summary>
+    <label class="toggle"><input type="checkbox" data-mx-mute checked> Music on</label>
+    <label class="toggle">Music <input type="range" data-mx-pref="music" min="0" max="100" value="80" aria-label="My music volume"></label>
+    <label class="toggle">Ambient <input type="range" data-mx-pref="ambient" min="0" max="100" value="60" aria-label="My ambient volume"></label>
+  </details>
+  <button type="button" class="btn sm" id="btnTapHear" hidden>Tap to enable sound</button>
 </div>
 
 <div id="diceBar" data-dice-bar></div>
@@ -545,40 +550,42 @@
 <script src="assets/data/rules.js?v=0.3.22-class"></script>
 <script src="assets/js/spell-fx.js?v=0.3.22"></script>
 <script src="assets/js/spell-cast.js?v=0.3.26-range"></script>
-<script src="assets/js/misfire.js?v=0.3.49-fire"></script>
+<script src="assets/js/misfire.js?v=0.3.50-fire"></script>
 <script src="assets/js/ssdns-bridge.js?v=0.3.22"></script>
 <script src="assets/js/storage.js?v=0.3.22"></script>
 <script src="assets/js/firebase-config.js?v=0.3.22"></script>
-<script src="assets/js/sfx.js?v=0.3.49-fire"></script>
-<script src="assets/js/ammo-display.js?v=0.3.49-fire"></script>
-<script src="assets/js/weapon-art.js?v=0.3.49-art"></script>
-<script src="assets/js/instrument-art.js?v=0.3.49-art"></script>
-<script src="assets/data/item-catalog.js?v=0.3.49-items"></script>
-<script src="assets/js/custom-weapons.js?v=0.3.49-items"></script>
-<script src="assets/js/items.js?v=0.3.49-items"></script>
-<script src="assets/js/paper-doll.js?v=0.3.49-doll"></script>
-<script src="assets/js/item-art.js?v=0.3.49-art"></script>
-<script src="assets/js/peace-maker.js?v=0.3.49-art"></script>
-<script src="assets/js/dice-art.js?v=0.3.49-dice"></script>
-<script src="assets/js/test-jammer.js?v=0.3.49-fire"></script>
-<script src="assets/js/equip.js?v=0.3.49-equip"></script>
-<script src="assets/js/app.js?v=0.3.49-fire"></script>
+<script src="assets/js/sfx.js?v=0.3.50-fire"></script>
+<script src="assets/js/ammo-display.js?v=0.3.50-fire"></script>
+<script src="assets/js/weapon-art.js?v=0.3.50-art"></script>
+<script src="assets/js/instrument-art.js?v=0.3.50-art"></script>
+<script src="assets/data/item-catalog.js?v=0.3.50-items"></script>
+<script src="assets/js/custom-weapons.js?v=0.3.50-items"></script>
+<script src="assets/js/items.js?v=0.3.50-items"></script>
+<script src="assets/js/music-deck.js?v=0.3.50-music"></script>
+<script src="assets/js/media-upload.js?v=0.3.50-music"></script>
+<script src="assets/js/paper-doll.js?v=0.3.50-doll"></script>
+<script src="assets/js/item-art.js?v=0.3.50-art"></script>
+<script src="assets/js/peace-maker.js?v=0.3.50-art"></script>
+<script src="assets/js/dice-art.js?v=0.3.50-dice"></script>
+<script src="assets/js/test-jammer.js?v=0.3.50-fire"></script>
+<script src="assets/js/equip.js?v=0.3.50-equip"></script>
+<script src="assets/js/app.js?v=0.3.50-fire"></script>
 <script src="dm/assets/js/store-stock.js?v=0.3.22"></script>
 <script src="map/ssdns-map-chat.js?v=0.3.31-float"></script>
-<script src="assets/js/sheet-extras.js?v=0.3.49-fire"></script>
-<script src="assets/js/grab.js?v=0.3.49-grab"></script>
-<script src="assets/js/dm-join.js?v=0.3.49-fire"></script>
+<script src="assets/js/sheet-extras.js?v=0.3.50-fire"></script>
+<script src="assets/js/grab.js?v=0.3.50-grab"></script>
+<script src="assets/js/dm-join.js?v=0.3.50-fire"></script>
 <script src="assets/js/kits.js?v=0.3.22"></script>
-<script src="assets/js/apply-guard.js?v=0.3.49-fire"></script>
+<script src="assets/js/apply-guard.js?v=0.3.50-fire"></script>
 <script src="assets/js/conditions.js?v=0.3.22"></script>
 <script src="assets/js/creator.js?v=0.3.22-kit"></script>
-<script src="assets/js/sheet-playtest.js?v=0.3.49-fire"></script>
+<script src="assets/js/sheet-playtest.js?v=0.3.50-fire"></script>
 <script src="assets/data/refcards.js?v=0.3.22"></script>
-<script src="assets/js/table-ux.js?v=0.3.49-fire"></script>
+<script src="assets/js/table-ux.js?v=0.3.50-fire"></script>
 <script src="map/token-crop.js?v=0.3.25-card"></script>
 <script src="assets/js/range-rings.js?v=0.3.29-dis"></script>
-<script src="map/ssdns-map.js?v=0.3.49-fire"></script>
+<script src="map/ssdns-map.js?v=0.3.50-fire"></script>
 <script src="map/ssdns-map-firebase.js?v=0.3.23-sync"></script>
-<script src="map/ssdns-map-host.js?v=0.3.49-fire"></script>
+<script src="map/ssdns-map-host.js?v=0.3.50-fire"></script>
 </body>
 </html>
