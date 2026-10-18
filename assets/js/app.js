@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.37"; // sheet-playtest-v0337
+  var APP_VERSION = "0.3.38"; // sheet-playtest-v0338
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -985,10 +985,8 @@
         el("div", { class: "g-actions" }, [
           el("select", { class: "adv-sel", "data-adv": i, "aria-label": "Advantage or disadvantage", title: "Advantage or disadvantage. Both dice in the misfire range fouls the gun." }, [opt("", "—"), opt("adv", "Adv"), opt("dis", "Dis")]),
           el("button", { type: "button", class: "btn sm", "data-gunroll": i, title: "Plain attack. Never spends a spell slot. A natural roll in the gun's misfire range jams it. Dirty misfires on at least 1–2." }, ["Roll"]),
-          el("span", { class: "g-gunmelee" }, [
-            el("span", { class: "fine", "data-out": "gmelee." + i }),
-            el("button", { type: "button", class: "btn sm", "data-gunmelee": i, title: "Melee with the gun. Always proficient. No ammo and no misfire." }, ["Melee"])
-          ]),
+          el("button", { type: "button", class: "btn sm", "data-gunmelee": i, title: "Melee with the gun. Always proficient. No ammo and no misfire." }, ["Melee"]),
+          el("span", { class: "g-gunmelee fine", "data-out": "gmelee." + i }),
           el("button", { type: "button", class: "btn sm tr", "data-tr": i, title: "Tactical Reload: bonus action, load one round from a gun belt or bandolier (TR ✓ guns only)" }, ["TR +1"]),
           el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Load one hex shell of this level. Loading spends the slot. Fire it later as a spell attack." }, ["+ Hex shell"])]),
           el("span", { class: "cast-through", "data-castwrap": i }, [

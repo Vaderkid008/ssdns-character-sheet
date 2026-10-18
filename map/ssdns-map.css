@@ -62,6 +62,14 @@
   display: flex; gap: 8px; align-items: center; font-size: 13px;
   flex-wrap: wrap;
 }
+.ssdns-map .ssdns-toolbar .ssm-move-tools {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.ssdns-map .ssdns-toolbar .ssm-move-tools button { width: auto; white-space: nowrap; }
 .ssdns-map .ssdns-leftbar {
   grid-area: left;
   position: relative;
@@ -115,7 +123,14 @@
 .ssdns-map .ssm-who { font-weight: 700; }
 .ssdns-map .ssdns-chatdock.ssm-chat-shut [data-act="chatlog"],
 .ssdns-map .ssdns-chatdock.ssm-chat-shut [data-act="chatrow"],
-.ssdns-map .ssdns-chatdock.ssm-chat-shut [data-act="chatFilters"] { display: none; }
+.ssdns-map .ssdns-chatdock.ssm-chat-shut [data-act="chatFilters"],
+.ssdns-map .ssdns-chatdock.ssm-chat-shut [data-act="chatPopNote"] { display: none; }
+.ssdns-map.ssdns-role-dm .ssdns-chatdock.ssm-chat-shut {
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
+  padding: 4px 6px;
+}
 .ssdns-map .ssdns-chatdock [data-act="chatlog"] { max-height: 140px; overflow: auto; }
 .ssdns-map .ssm-chatline { white-space: pre-line; }
 .ssdns-chat-overlay,
@@ -358,6 +373,11 @@ body.map-fullscreen #mapMount .ssdns-chatdock {
   right: 186px;
   z-index: 11;
 }
+body.map-fullscreen #mapMount .ssdns-chatdock.ssm-chat-shut {
+  right: auto;
+  width: max-content;
+  max-width: calc(100% - 176px);
+}
 body.map-fullscreen #btnMapFull {
   position: fixed;
   top: 8px;
@@ -427,10 +447,16 @@ body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right
     "dock stage";
 }
 .ssdns-map.ssdns-role-player:has(.ssdns-chatdock.ssm-chat-shut) {
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  grid-template-columns: 148px minmax(0, 1fr) max-content;
 }
 .ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)):has(.ssdns-chatdock.ssm-chat-shut) {
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: 148px minmax(0, 1fr);
+}
+.ssdns-map.ssdns-role-player .ssdns-chatdock.ssm-chat-shut {
+  align-self: start;
+  width: 100%;
+  max-width: 148px;
+  padding: 4px 6px;
 }
 .ssdns-map.ssdns-role-player .ssdns-chatdock {
   align-self: stretch;
@@ -452,6 +478,12 @@ body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock {
   right: auto;
   width: 240px;
 }
+body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock.ssm-chat-shut {
+  width: 148px;
+  max-width: 148px;
+  bottom: auto;
+  height: auto;
+}
 @media (max-width: 700px) {
   body:not(.map-fullscreen) .ssdns-map.ssdns-role-player,
   body:not(.map-fullscreen) .ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)),
@@ -470,6 +502,13 @@ body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock {
     right: 8px;
     bottom: 8px;
     width: auto;
+  }
+  body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock.ssm-chat-shut {
+    top: auto;
+    right: auto;
+    bottom: 8px;
+    width: max-content;
+    max-width: calc(100% - 16px);
   }
 }
 body.ssdns-chat-pop.ssdns-chat-collapsed .ssdns-chat-overlay-feed { display: none; }
@@ -503,8 +542,19 @@ body.ssdns-chat-pop.ssdns-chat-collapsed .ssdns-chat-overlay-feed { display: non
   position: sticky;
   top: 0;
   background: #1c1814;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
-.ssm-drawer-head b { flex: 1; }
+.ssm-drawer-head:active { cursor: grabbing; }
+.ssm-drawer-head b { flex: 1; min-width: 0; }
+.ssdns-map > .ssm-drawer.placed,
+body.map-fullscreen #mapMount > .ssm-drawer.placed {
+  grid-area: auto;
+  right: auto;
+  bottom: auto;
+  width: min(260px, calc(100% - 16px));
+}
 .ssm-drawer-head button, .ssm-drawer button {
   min-height: 32px;
   padding: 4px 8px;
@@ -828,5 +878,13 @@ body.map-fullscreen #mapMount > .ssm-drawer {
     width: 100%;
     max-height: 60%;
     border-radius: 12px 12px 0 0;
+  }
+  .ssdns-map > .ssm-drawer.placed,
+  body.map-fullscreen #mapMount > .ssm-drawer.placed {
+    width: min(260px, calc(100% - 16px));
+    max-height: calc(100% - 16px);
+    border-radius: 8px;
+    right: auto;
+    bottom: auto;
   }
 }
