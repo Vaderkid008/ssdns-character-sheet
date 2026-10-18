@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#121618">
 <title>SSDNS · DM Command Center</title>
 <link rel="icon" href="assets/revolver.png">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.61-fire">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.62-fire">
 <link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.2.41-art">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.61-fire">
-<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.61-dice">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.62-fire">
+<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.62-dice">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -204,7 +204,9 @@
         </div>
         <div class="span-2">
           <label for="hoUrl">Image URL</label>
-          <input type="url" id="hoUrl" placeholder="https://…">
+          <input type="url" id="hoUrl" placeholder="https://… or upload below">
+          <label class="fine">Upload picture <input type="file" accept="image/png,image/webp,image/jpeg" data-art-file data-art-target="#hoUrl"></label>
+          <span class="fine" data-art-note>Best: 512×512 PNG or WEBP, under 1 MB. We crop to a square. Uploads go to Firebase Storage (optional).</span>
         </div>
         <div class="span-2">
           <label for="hoText">Text (URL or text is enough)</label>
@@ -478,16 +480,76 @@
 
     <section class="panel" id="panel-music" role="tabpanel" aria-labelledby="tab-music" hidden>
       <h2>Music</h2>
-      <p class="lede">Tracks come from <code>assets/music/tracks.json</code>. Drop the audio files in later. Missing files stay quiet.</p>
+      <p class="lede">Two layers play together: <b>Music</b> and <b>Ambient</b>. The starter pack ships with the site. Your uploads live in Firebase Storage (optional).</p>
       <div class="toolbar">
-        <select id="musicTrack" aria-label="Track"></select>
-        <label class="toggle"><input type="checkbox" id="musicLoop"> Loop</label>
-        <label class="toggle"><input type="checkbox" id="musicTable"> Also play on players' devices</label>
-        <button type="button" class="btn btn-primary" id="btnMusicPlay">Play</button>
-        <button type="button" class="btn sm" id="btnMusicStop">Stop</button>
+        <label class="toggle"><input type="checkbox" id="musicTable"> Push to players</label>
+        <button type="button" class="btn sm" id="btnMusicStopAll">Stop for all</button>
+        <span class="lede" id="musicStatus"></span>
       </div>
-      <p class="lede" id="musicStatus"></p>
-      <p class="lede">Sound on this browser: <label class="toggle"><input type="checkbox" data-sfx-mute checked> Sound on</label>
+        <div class="mx-layer" data-mx-layer="music">
+          <h3>Music</h3>
+          <div class="toolbar">
+            <select data-mx-track aria-label="Music track" id="musicTrack"></select>
+            <button type="button" class="btn sm" data-mx="prev" title="Previous">⏮</button>
+            <button type="button" class="btn btn-primary sm" data-mx="play" id="btnMusicPlay">Play</button>
+            <button type="button" class="btn sm" data-mx="pause">Pause</button>
+            <button type="button" class="btn sm" data-mx="stop" id="btnMusicStop">Stop</button>
+            <button type="button" class="btn sm" data-mx="next" title="Next">⏭</button>
+            <label class="toggle"><input type="checkbox" data-mx-loop id="musicLoop"> Loop</label>
+          </div>
+          <div class="toolbar mx-row">
+            <input type="range" data-mx-seek min="0" max="1000" value="0" aria-label="Music position" class="mx-seek">
+            <span class="mx-time" data-mx-time>0:00 / 0:00</span>
+          </div>
+          <div class="toolbar mx-row">
+            <label class="toggle">Volume <input type="range" data-mx-level min="0" max="100" value="80" aria-label="Music volume"></label>
+            <label class="toggle">Fade <select data-mx-sec aria-label="Fade seconds"><option value="3">3s</option><option value="5" selected>5s</option><option value="10">10s</option></select></label>
+            <button type="button" class="btn sm" data-mx="fade_out">Fade out</button>
+            <button type="button" class="btn sm" data-mx="fade_in">Fade in</button>
+            <button type="button" class="btn sm" data-mx="crossfade" title="Fade the playing track into the picked one">Crossfade to picked</button>
+          </div>
+          <p class="lede mx-status" data-mx-status></p>
+        </div>
+        <div class="mx-layer" data-mx-layer="ambient">
+          <h3>Ambient</h3>
+          <div class="toolbar">
+            <select data-mx-track aria-label="Ambient track"></select>
+            <button type="button" class="btn sm" data-mx="prev" title="Previous">⏮</button>
+            <button type="button" class="btn btn-primary sm" data-mx="play">Play</button>
+            <button type="button" class="btn sm" data-mx="pause">Pause</button>
+            <button type="button" class="btn sm" data-mx="stop">Stop</button>
+            <button type="button" class="btn sm" data-mx="next" title="Next">⏭</button>
+            <label class="toggle"><input type="checkbox" data-mx-loop checked> Loop</label>
+          </div>
+          <div class="toolbar mx-row">
+            <input type="range" data-mx-seek min="0" max="1000" value="0" aria-label="Ambient position" class="mx-seek">
+            <span class="mx-time" data-mx-time>0:00 / 0:00</span>
+          </div>
+          <div class="toolbar mx-row">
+            <label class="toggle">Volume <input type="range" data-mx-level min="0" max="100" value="60" aria-label="Ambient volume"></label>
+            <label class="toggle">Fade <select data-mx-sec aria-label="Fade seconds"><option value="3">3s</option><option value="5" selected>5s</option><option value="10">10s</option></select></label>
+            <button type="button" class="btn sm" data-mx="fade_out">Fade out</button>
+            <button type="button" class="btn sm" data-mx="fade_in">Fade in</button>
+            <button type="button" class="btn sm" data-mx="crossfade" title="Fade the playing track into the picked one">Crossfade to picked</button>
+          </div>
+          <p class="lede mx-status" data-mx-status></p>
+        </div>
+
+      <details class="mx-upload" id="mxUpload">
+        <summary>Add audio (Firebase Storage)</summary>
+        <p class="lede">MP3 or OGG, under 15 MB. Uploads use your Firebase project's free 5 GB. Only you (the DM) can upload. Players stream what you play.</p>
+        <p class="lede warn">Only upload music you have the right to share with your table.</p>
+        <div class="toolbar">
+          <input type="file" id="mxFile" accept="audio/mpeg,audio/ogg,audio/mp4,audio/wav,.mp3,.ogg,.m4a,.wav">
+          <input type="text" id="mxTitle" placeholder="Title" aria-label="Track title">
+          <select id="mxLayer" aria-label="Layer"><option value="music">Music</option><option value="ambient">Ambient</option></select>
+          <button type="button" class="btn btn-primary sm" id="btnMxUpload">Upload</button>
+        </div>
+        <div class="mx-meter" aria-label="Storage used"><div class="mx-meter-bar" id="mxMeterBar" style="width:0%"></div></div>
+        <p class="lede" id="mxMeter">Storage: open a live room to check.</p>
+        <ul class="mx-mine" id="mxMine"></ul>
+      </details>
+      <p class="lede">Sound effects on this browser: <label class="toggle"><input type="checkbox" data-sfx-mute checked> Sound on</label>
         <label class="toggle">Volume <input type="range" data-sfx-volume min="0" max="100" value="80"></label></p>
     </section>
 
@@ -579,36 +641,39 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.61-fire"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.62-fire"></script>
 <script src="../assets/js/conditions.js?v=0.2.35"></script>
 <script src="assets/js/ui-tab.js?v=0.2.35"></script>
-<script src="../assets/js/sfx.js?v=0.2.61-fire"></script>
+<script src="../assets/js/sfx.js?v=0.2.62-fire"></script>
+<script src="../assets/js/music-deck.js?v=0.2.62-music"></script>
+<script src="../assets/js/media-upload.js?v=0.2.62-music"></script>
+<script src="assets/js/music-dm.js?v=0.2.62-music"></script>
 <script src="../assets/data/rules.js?v=0.2.35-class"></script>
-<script src="../assets/js/equip.js?v=0.2.61-equip"></script>
+<script src="../assets/js/equip.js?v=0.2.62-equip"></script>
 <script src="../assets/js/spell-fx.js?v=0.2.35"></script>
 <script src="../assets/js/spell-cast.js?v=0.2.39-range"></script>
-<script src="../assets/js/misfire.js?v=0.2.61-fire"></script>
+<script src="../assets/js/misfire.js?v=0.2.62-fire"></script>
 <script src="../assets/js/firebase-config.js?v=0.2.35"></script>
 <script src="assets/js/store-stock.js?v=0.2.35"></script>
 <script src="assets/js/demo-data.js?v=0.2.35-guns"></script>
-<script src="../assets/js/test-jammer.js?v=0.2.61-fire"></script>
-<script src="../assets/js/weapon-art.js?v=0.2.61-art"></script>
-<script src="../assets/js/instrument-art.js?v=0.2.61-art"></script>
-<script src="../assets/data/item-catalog.js?v=0.2.61-items"></script>
-<script src="../assets/js/custom-weapons.js?v=0.3.48-items"></script>
-<script src="../assets/js/items.js?v=0.2.61-items"></script>
-<script src="../assets/js/item-art.js?v=0.2.61-art"></script>
-<script src="../assets/js/peace-maker.js?v=0.2.61-art"></script>
-<script src="../assets/js/dice-art.js?v=0.2.61-dice"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.61-fire"></script>
-<script src="../assets/js/ammo-display.js?v=0.2.61-fire"></script>
-<script src="../assets/js/grab.js?v=0.2.61-grab"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.61-fire"></script>
+<script src="../assets/js/test-jammer.js?v=0.2.62-fire"></script>
+<script src="../assets/js/weapon-art.js?v=0.2.62-art"></script>
+<script src="../assets/js/instrument-art.js?v=0.2.62-art"></script>
+<script src="../assets/data/item-catalog.js?v=0.2.62-items"></script>
+<script src="../assets/js/custom-weapons.js?v=0.3.49-items"></script>
+<script src="../assets/js/items.js?v=0.2.62-items"></script>
+<script src="../assets/js/item-art.js?v=0.2.62-art"></script>
+<script src="../assets/js/peace-maker.js?v=0.2.62-art"></script>
+<script src="../assets/js/dice-art.js?v=0.2.62-dice"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.62-fire"></script>
+<script src="../assets/js/ammo-display.js?v=0.2.62-fire"></script>
+<script src="../assets/js/grab.js?v=0.2.62-grab"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.62-fire"></script>
 <script src="../map/token-crop.js?v=0.2.38-card"></script>
 <script src="../assets/js/range-rings.js?v=0.2.42-dis"></script>
 <script src="../map/ssdns-map-chat.js?v=0.2.44-float"></script>
-<script src="../map/ssdns-map.js?v=0.2.61-fire"></script>
+<script src="../map/ssdns-map.js?v=0.2.62-fire"></script>
 <script src="../map/ssdns-map-firebase.js?v=0.2.36-sync"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.61-fire"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.62-fire"></script>
 </body>
 </html>

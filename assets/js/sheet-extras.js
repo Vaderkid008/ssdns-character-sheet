@@ -2529,11 +2529,25 @@
         if (collapse) collapse.textContent = "Show";
       }
     } catch (err) {}
+    // Table music (0.3.49): my own volume per layer + mute. Never synced.
+    if (root.SSDNSMusic) {
+      var mp = root.SSDNSMusic.prefs();
+      Array.prototype.forEach.call(document.querySelectorAll("[data-mx-pref]"), function (el) { el.value = String(Math.round((mp[el.getAttribute("data-mx-pref")] || 0) * 100)); });
+      Array.prototype.forEach.call(document.querySelectorAll("[data-mx-mute]"), function (el) { el.checked = !mp.muted; });
+      document.addEventListener("input", function (e) {
+        var t = e.target; if (!t || !t.hasAttribute) return;
+        if (t.hasAttribute("data-mx-pref")) root.SSDNSMusic.setPref(t.getAttribute("data-mx-pref"), Number(t.value) / 100);
+      });
+      document.addEventListener("change", function (e) {
+        var t = e.target; if (t && t.hasAttribute && t.hasAttribute("data-mx-mute")) root.SSDNSMusic.setMuted(!t.checked);
+      });
+    }
     var wh = $("#btnWhisper");
     if (wh) wh.addEventListener("click", whisper);
     var hear = $("#btnTapHear");
     if (hear) hear.addEventListener("click", function () {
       if (root.SSDNSAudio) root.SSDNSAudio.resumeMusic();
+      if (root.SSDNSMusic) root.SSDNSMusic.resumeBlocked();
       hear.hidden = true;
     });
     renderLog();

@@ -18,3 +18,8 @@ To add a track, add an object to the `tracks` array:
 `id` is a short key. `file` is the filename in this folder. Then refresh the DMCC Music tab.
 
 Players only hear a track when the DM turns on **Also play on players' devices**. Their browsers may block autoplay until they tap **Tap to hear**.
+
+## Starter pack and layers (0.3.49)
+
+`tracks.json` rows can set `"layer": "music"` or `"layer": "ambient"`. The DMCC plays both layers at once.
+Starter files go in `assets/music/starter/` (`ssdns-theme.mp3`, `ssdns-ambient.mp3`). DMs can also upload their own audio from the Music tab (Firebase Storage, optional).

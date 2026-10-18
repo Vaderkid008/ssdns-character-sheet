@@ -604,7 +604,7 @@
     return { ok: true, item: item, landed: landed };
   }
 
-  /* 0.3.48: the old character.explosives[] rows move into items (one list). */
+  /* 0.3.49: the old character.explosives[] rows move into items (one list). */
   function mergeExplosives(character) {
     if (!character || !Array.isArray(character.explosives) || !character.explosives.length) return 0;
     var moved = 0;
@@ -705,9 +705,13 @@
     return consumes(item);
   }
 
+  var DEFAULT_ART = { gear: "gear", consumable: "consumable", scroll: "scroll", explosive: "explosive", weapon: "weapon", wondrous: "quest", quest: "quest", story: "quest" };
   function artSrc(item) {
     var path = item && item.art ? String(item.art) : "";
-    if (!path && root.SSDNSItemArt && root.SSDNSItemArt.srcFor) return root.SSDNSItemArt.srcFor(item) || "";
+    if (!path && root.SSDNSItemArt && root.SSDNSItemArt.srcFor) path = root.SSDNSItemArt.srcFor(item) || "";
+    if (path && /^(https?:|data:|\.\.|blob:)/.test(path)) return path;
+    if (path && root.SSDNSItemArt && root.SSDNSItemArt.srcFor && path === root.SSDNSItemArt.srcFor(item)) return path;
+    if (!path && item && item.type) path = "assets/images/items/defaults/" + (DEFAULT_ART[item.type] || "gear") + ".svg";
     if (!path) return "";
     var prefix = "";
     try {
@@ -919,6 +923,8 @@
       '<label>Weight (lb) <input data-item-weight type="number" min="0" step="0.1"></label>' +
       '<label>Price ES (blank = not for sale) <input data-item-price type="number" min="0"></label>' +
       '<label>Art path <input data-item-art type="text" placeholder="assets/img/items/….webp"></label>' +
+      '<div class="art-upload"><label>Upload art <input type="file" accept="image/png,image/webp,image/jpeg" data-art-file data-art-target="[data-item-art]"></label>' +
+      '<p class="fine" data-art-note>Best: 512×512 PNG or WEBP, under 1 MB. We crop to a square. No art? The item uses its type picture.</p></div>' +
       '<label>Addressed to <input data-item-address type="text" placeholder="Blank = anyone"></label>' +
       (dm ? '<label class="chk"><input type="checkbox" data-item-allow-drop> DM allows drop</label><label class="chk"><input type="checkbox" data-item-allow-rob> DM allows rob</label>' : "") +
       '<div class="item-form-actions"><button type="button" class="btn sm" data-item-add>' + (dm ? "Give item" : "Add item") + "</button>" +

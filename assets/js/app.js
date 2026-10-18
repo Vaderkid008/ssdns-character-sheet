@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.48"; // sheet-playtest-v0348
+  var APP_VERSION = "0.3.49"; // sheet-playtest-v0349
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -644,7 +644,7 @@
       else if (belt) { if (!c.seated && !c.mounted) v.holsterFirst = num(hol.firstShot); }
       else v.holsterFirst = num(hol.firstShot);
     }
-    // Paper doll (0.3.48): only slotted gear counts. Rigs don't stack; scores cap at 20.
+    // Paper doll (0.3.49): only slotted gear counts. Rigs don't stack; scores cap at 20.
     var DB = window.SSDNSDoll && window.SSDNSDoll.bonuses ? window.SSDNSDoll.bonuses(c) : null;
     v.doll = DB;
     if (DB) {
@@ -1834,7 +1834,7 @@
     });
     if (focus) { var f = box.querySelector('[data-f="' + focus + '"]'); if (f) f.focus(); }
   }
-  /* 0.3.48: explosives live in Items (one list). This box shows the explosive
+  /* 0.3.49: explosives live in Items (one list). This box shows the explosive
      items with a count and the same Use button as the Items list. */
   function renderExplosives() {
     var box = $("#explosiveList"); if (!box) return;

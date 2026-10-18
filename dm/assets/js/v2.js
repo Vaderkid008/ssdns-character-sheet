@@ -2672,6 +2672,7 @@ function lookup(q) {
 }
 
 function renderTracks() {
+  if (window.SSDNSMusicDM) { window.SSDNSMusicDM.fill(); return; }
   const sel = $("#musicTrack");
   if (!sel) return;
   const keep = sel.value || fight.trackId;
@@ -2684,6 +2685,7 @@ function currentTrack() {
   return fight.tracks.filter((t) => t.id === id)[0] || null;
 }
 async function playTrack() {
+  if (window.SSDNSMusicDM) { fight.playing = true; return; }
   const t = currentTrack();
   if (!t) { DM.toast("No track selected"); return; }
   fight.playing = true;
@@ -2710,6 +2712,7 @@ async function playTrack() {
 }
 async function stopTrack() {
   fight.playing = false;
+  if (window.SSDNSMusicDM) return;
   if (window.SSDNSAudio) window.SSDNSAudio.stopMusic();
   const status = $("#musicStatus");
   if (status) status.textContent = "Stopped";
@@ -4449,7 +4452,7 @@ function rollAllEnemies() {
   renderFight();
   announce("Rolled initiative", "initiative");
 }
-/* 0.2.61: one big Roll Initiative. Enemies roll now; players get a prompt and
+/* 0.2.62: one big Roll Initiative. Enemies roll now; players get a prompt and
    anyone who hasn't rolled in INIT_WAIT_MS (or is offline) is auto-rolled with
    their own init bonus. Each player gets a fading "Initiative: N" toast. */
 const INIT_WAIT_MS = 8000;
@@ -4514,7 +4517,7 @@ function rollInitiativeForAll(opts) {
   if (!players.length || wait <= 0) return Promise.resolve(finish());
   return new Promise((resolve) => setTimeout(() => resolve(finish()), wait));
 }
-/* 0.2.61 Give tab: one recipient picker, type chips, handouts folded in. */
+/* 0.2.62 Give tab: one recipient picker, type chips, handouts folded in. */
 function wireGiveTab() {
   const panel = $("#panel-rewards");
   if (!panel || panel.getAttribute("data-give")) return;
@@ -5513,7 +5516,8 @@ function shortcuts(e) {
   if (k === "n") { if (e.repeat) return; e.preventDefault(); nextTurn(); }
   else if (k === "m") {
     e.preventDefault();
-    if (fight.playing) stopTrack(); else playTrack();
+    if (window.SSDNSMusicDM) window.SSDNSMusicDM.toggle();
+    else if (fight.playing) stopTrack(); else playTrack();
   }
 }
 
