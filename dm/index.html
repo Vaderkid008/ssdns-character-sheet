@@ -551,6 +551,7 @@
         <summary>Add audio by upload (optional · Firebase Storage)</summary>
         <p class="lede">MP3 or OGG, under 15 MB. Uploads use your Firebase project's free 5 GB. Only you (the DM) can upload. Players stream what you play.</p>
         <p class="lede warn">Only upload music you have the right to share with your table.</p>
+        <p class="lede">Uploads are locked to the DM uids in <code>storage.rules</code>. Your DM uid: <code id="mxUid">open a live room</code> <button type="button" class="btn xs" id="btnMxCopyUid">Copy</button></p>
         <div class="toolbar">
           <input type="file" id="mxFile" accept="audio/mpeg,audio/ogg,audio/mp4,audio/wav,.mp3,.ogg,.m4a,.wav">
           <input type="text" id="mxTitle" placeholder="Title" aria-label="Track title">

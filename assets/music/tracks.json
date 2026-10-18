@@ -1,6 +1,12 @@
 {
   "tracks": [
     {
+      "id": "test-tone",
+      "title": "Test tone (2 s)",
+      "file": "starter/test-tone.mp3",
+      "layer": "music"
+    },
+    {
       "id": "ssdns-theme",
       "title": "SSDNS theme (starter)",
       "file": "starter/ssdns-theme.mp3",

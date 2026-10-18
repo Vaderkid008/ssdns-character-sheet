@@ -75,7 +75,13 @@
   M.onChange(paint);
   M.onBlocked(function () { status("This browser blocked autoplay. Press Play again."); });
 
+  function showUid() {
+    var el = $("#mxUid"), D = root.DMCC, u = D && D.state && !D.state.demo && D.state.uid;
+    if (el) el.textContent = u || "open a live room";
+    return u || "";
+  }
   function meter() {
+    showUid();
     if (!Media) return;
     var out = $("#mxMeter"), bar = $("#mxMeterBar");
     var hint = Media.storageHint && Media.storageHint();
@@ -114,10 +120,11 @@
       starter = (d && d.tracks || []).filter(function (t) { return t && t.id && (t.file || t.url); }); fill();
     });
     document.addEventListener("click", function (e) {
-      var t = e.target.closest && e.target.closest("[data-mx],[data-mx-del],#btnMusicStopAll,#btnMxUpload,#btnMxTest,#btnMxAddLink");
+      var t = e.target.closest && e.target.closest("[data-mx],[data-mx-del],#btnMusicStopAll,#btnMxUpload,#btnMxTest,#btnMxAddLink,#btnMxCopyUid");
       if (!t || !t.closest("#panel-music")) return;
       if (t.id === "btnMusicStopAll") { M.stopAll({ fade: 2 }); var D = root.DMCC; if (D && D.pushCommand) D.pushCommand({ type: "music", to: "all", payload: { action: "stop_all", sec: 2 }, from: D.state && D.state.uid }); return; }
       if (t.id === "btnMxUpload") { doUpload(); return; }
+      if (t.id === "btnMxCopyUid") { var u = showUid(); if (u && navigator.clipboard) navigator.clipboard.writeText(u).catch(function () {}); return; }
       if (t.id === "btnMxTest" || t.id === "btnMxAddLink") { linkAction(t.id === "btnMxAddLink"); return; }
       if (t.hasAttribute("data-mx-del")) {
         var id = t.getAttribute("data-mx-del"), row = mine.filter(function (x) { return x.id === id; })[0]; if (!row || !root.confirm(row.linked ? "Remove " + row.title + " from the list?" : "Delete " + row.title + " from Storage?")) return;

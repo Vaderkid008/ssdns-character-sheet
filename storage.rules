@@ -1,18 +1,39 @@
 rules_version = '2';
-// SSDNS Firebase Storage (optional). Jessey OK'd 2026-10-18: DM-only uploads.
-// Each DM writes only under dm/{their uid}/. Anyone signed in to the table (anonymous auth) can stream.
-// Audio: under 15 MB. Images: under 1 MB, image/* only.
+// SSDNS Firebase Storage (optional). Uploads and deletes are locked to the DM allowlist below.
+// Anyone signed in to the table (anonymous auth is fine) can read/stream.
+//
+// HOW TO SET YOUR DM UID (every DM who forks this does this once):
+//   1. Open your DMCC (/dm/), open a live room, then Music -> "Add audio by upload".
+//   2. Copy the "Your DM uid" value shown there.
+//   3. Replace REPLACE_WITH_DM_UID below with it (keep the quotes). Add more uids to the list
+//      for co-DMs, e.g. ['uidA', 'uidB'].
+//   4. Firebase console -> Storage -> Rules -> paste this file -> Publish.
+// Note: the DMCC signs in anonymously. Clearing that browser's site data gives you a new uid;
+// if uploads start failing with "Storage said no", repeat steps 1-4.
+// Until a real uid is set, nobody can upload (safe default).
 service firebase.storage {
   match /b/{bucket}/o {
+    function dmAllowlist() {
+      return ['REPLACE_WITH_DM_UID'];
+    }
+    function isDm() {
+      return request.auth != null && request.auth.uid in dmAllowlist();
+    }
+    function audioOk() {
+      return request.resource.size < 15 * 1024 * 1024 && request.resource.contentType.matches('audio/.*');
+    }
+    function imageOk() {
+      return request.resource.size < 1 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+    }
     match /dm/{uid}/audio/{file} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid
-        && (request.resource == null || (request.resource.size < 15 * 1024 * 1024 && request.resource.contentType.matches('audio/.*')));
+      allow create, update: if isDm() && request.auth.uid == uid && audioOk();
+      allow delete: if isDm() && request.auth.uid == uid;
     }
     match /dm/{uid}/images/{file} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid
-        && (request.resource == null || (request.resource.size < 1024 * 1024 && request.resource.contentType.matches('image/.*')));
+      allow create, update: if isDm() && request.auth.uid == uid && imageOk();
+      allow delete: if isDm() && request.auth.uid == uid;
     }
     match /{all=**} {
       allow read, write: if false;

@@ -52,7 +52,7 @@
   }
   function friendly(err) {
     var code = String((err && err.code) || ""), msg = String((err && err.message) || err || "");
-    if (/unauthorized|permission/i.test(code + msg)) return "Storage said no. Turn on Storage and publish storage.rules (see /setup/ → Setting up Firebase).";
+    if (/unauthorized|permission/i.test(code + msg)) return "Storage said no. Uploads are locked to the DM uid in storage.rules. Put your DM uid (shown below) in storage.rules and publish it (see /setup/ → Setting up Firebase).";
     if (/bucket|not.?found|project-not|no-default-bucket|retry-limit/i.test(code + msg)) return "Firebase Storage isn't turned on for this project yet. It's optional. See /setup/ → Setting up Firebase.";
     return msg || "Upload failed.";
   }

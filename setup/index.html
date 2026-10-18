@@ -345,7 +345,9 @@
       <li>Firebase console → your project → <strong>Build → Storage → Get started</strong>.</li>
       <li>Pick a <strong>location</strong> close to your players (this can't be changed later). Start in production mode.</li>
       <li>Check the bucket name matches <code>storageBucket</code> in <code>assets/js/firebase-config.js</code>.</li>
-      <li>Storage → <strong>Rules</strong>: paste the contents of <code>storage.rules</code> from this repo → <strong>Publish</strong> (or run <code>firebase deploy --only storage</code>). Only the DM's own folder can be written; anyone at the table can stream.</li>
+      <li><strong>Lock uploads to your DM uid.</strong> Uploads and deletes are allowed only for the uids listed in <code>storage.rules</code>; anyone at the table can still stream. To set yours: open the DMCC, open a live room, go to Music → <em>Add audio by upload</em>, and copy <strong>Your DM uid</strong>. In <code>storage.rules</code>, replace <code>REPLACE_WITH_DM_UID</code> with it (add more uids for co-DMs). Until you do, nobody can upload.</li>
+      <li>Storage → <strong>Rules</strong>: paste your edited <code>storage.rules</code> → <strong>Publish</strong> (or run <code>firebase deploy --only storage</code>). Limits: audio files under 15 MB (audio types only), images under 1 MB (image types only).</li>
+      <li>The DMCC signs in anonymously. If you clear that browser's site data or switch browsers, your uid changes; copy the new one into the rules and publish again.</li>
       <li>DMCC → Music → <strong>Add audio by upload</strong>. MP3/OGG under 15 MB. The meter shows how much you've used.</li>
     </ol>
     <p>If Storage isn't set up, the DMCC just shows a hint. Starter tracks and links still work.</p>
