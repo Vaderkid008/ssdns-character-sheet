@@ -343,11 +343,6 @@ toolbar.innerHTML = `
     <button data-act="setFloorBtn">Set floor</button>
     <button data-act="showSceneBtn">Show to players</button>
     <button data-act="importWallsBtn">Import Walls</button>
-    <span class="ssm-move-tools" data-act="moveTools">
-      <button type="button" data-act="lockBtn">Lock</button>
-      <button type="button" data-act="undoBtn">Undo Move</button>
-      <button type="button" data-act="redoBtn">Redo Move</button>
-    </span>
   ` : ``}
 `;
 el.appendChild(toolbar);
@@ -401,6 +396,52 @@ const chatdock = document.createElement('div');
 chatdock.className = 'ssdns-chatdock';
 chatdock.innerHTML = `<div class="ssdns-chathead"><button type="button" data-act="chatToggle" aria-expanded="true" title="Minimize chat">Chat <span data-act="chatCaret" aria-hidden="true">▾</span> <span data-act="chatBadge" class="ssm-chatbadge" hidden>0</span></button><span data-act="chatFilters"><button type="button" data-chat-filter="all" class="on">All</button><button type="button" data-chat-filter="rolls">Rolls</button><button type="button" data-chat-filter="talk">Talk</button></span><span class="name-mode" role="group" aria-label="Show names as"><button type="button" data-name-mode="character">Character</button><button type="button" data-name-mode="player">Player</button></span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatWindow" class="ssm-chat-tab">Open in new tab</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden></p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
 el.appendChild(chatdock);
+/* DM bottom chat: drag the top edge to resize (saved per device). */
+const CHAT_H_KEY = 'ssdns.map.chatHeight.' + (role === 'dm' ? 'dm' : 'player');
+function applyChatHeight(px) {
+  const log = chatdock.querySelector('[data-act="chatlog"]');
+  if (!log) return;
+  const h = Math.max(60, Math.min(640, Math.round(Number(px) || 0)));
+  if (!Number(px)) { log.style.maxHeight = ''; log.style.height = ''; return; }
+  log.style.maxHeight = h + 'px';
+  log.style.height = h + 'px';
+  chatdock.setAttribute('data-chat-height', String(h));
+}
+if (role === 'dm') {
+  const grip = document.createElement('div');
+  grip.className = 'ssm-chat-grip';
+  grip.setAttribute('data-act', 'chatResize');
+  grip.setAttribute('role', 'separator');
+  grip.setAttribute('aria-label', 'Drag to resize chat');
+  grip.title = 'Drag to resize chat (double-click to reset)';
+  chatdock.insertBefore(grip, chatdock.firstChild);
+  try { const saved = Number(localStorage.getItem(CHAT_H_KEY)); if (saved) applyChatHeight(saved); } catch (e) {}
+  let dragY = null;
+  let startH = 0;
+  grip.addEventListener('pointerdown', (e) => {
+    const log = chatdock.querySelector('[data-act="chatlog"]');
+    dragY = e.clientY;
+    startH = (log && log.getBoundingClientRect().height) || Number(chatdock.getAttribute('data-chat-height')) || 140;
+    try { grip.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+  grip.addEventListener('pointermove', (e) => {
+    if (dragY == null) return;
+    applyChatHeight(startH + (dragY - e.clientY));
+  });
+  const endDrag = () => {
+    if (dragY == null) return;
+    dragY = null;
+    try { localStorage.setItem(CHAT_H_KEY, chatdock.getAttribute('data-chat-height') || ''); } catch (e) {}
+  };
+  grip.addEventListener('pointerup', endDrag);
+  grip.addEventListener('pointercancel', endDrag);
+  grip.addEventListener('dblclick', () => {
+    applyChatHeight(0);
+    chatdock.removeAttribute('data-chat-height');
+    try { localStorage.removeItem(CHAT_H_KEY); } catch (e) {}
+  });
+}
 state.chatFilter = 'all';
 state.chatOpen = true;
 state.chatSeen = 0;
@@ -509,7 +550,7 @@ function renderChat() {
     toggle.title = state.chatOpen ? 'Minimize chat' : 'Restore chat';
   }
   const caret = q('chatCaret');
-  if (caret) caret.textContent = state.chatOpen ? '▾' : '▸';
+  if (caret) caret.textContent = state.chatOpen ? '▾' : (role === 'dm' ? '▲' : '▸');
   document.querySelectorAll('[data-chat-filter]').forEach(btn => {
     if (btn.closest && btn.closest('.ssdns-map') !== el && !el.contains(btn)) return;
     btn.classList.toggle('on', btn.getAttribute('data-chat-filter') === state.chatFilter);
@@ -518,7 +559,7 @@ function renderChat() {
   const unread = state.chatOpen ? 0 : Math.max(0, (state.chat || []).filter(chatBucket).length - state.chatSeen);
   if (badge) {
     badge.hidden = unread < 1;
-    badge.textContent = String(unread);
+    badge.textContent = role === 'dm' && !state.chatOpen ? '(' + unread + ' new)' : String(unread);
   }
   syncChatPop();
 }
@@ -688,6 +729,11 @@ if (role === 'dm') {
   rightbar.className = 'ssdns-rightbar';
   rightbar.innerHTML = `
     <div class="panel-title">DM Tools</div>
+    <div class="ssm-move-tools" data-act="moveTools" role="group" aria-label="Token moves">
+      <button type="button" data-act="lockBtn">Lock</button>
+      <button type="button" data-act="undoBtn">Undo Move</button>
+      <button type="button" data-act="redoBtn">Redo Move</button>
+    </div>
     <button data-act="addTokenBtn">Add token</button>
     <button data-act="addPcBtn">Add player token</button>
     <button data-act="dupTokenBtn">Duplicate</button>

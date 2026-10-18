@@ -39,3 +39,19 @@ button.d20 {
   .dice-stage { flex-wrap: wrap; max-width: 100%; }
   .die-face { width: 64px; height: 64px; }
 }
+/* 0.3.46 roll builder: ×N and +M steppers, mixed pool. */
+.dice-builder { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #f3e6c8; font-size: 13px; }
+.dice-step { display: inline-flex; align-items: center; gap: 2px; font-weight: 700; }
+.dice-step button { width: 22px; height: 22px; padding: 0; border: 1px solid #8a7040; border-radius: 3px; background: #2a2118; color: #f3e6c8; cursor: pointer; font-size: 10px; line-height: 1; }
+.dice-step output { min-width: 22px; text-align: center; font-variant-numeric: tabular-nums; }
+.dice-pool { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1px dashed #c9a24a; border-radius: 4px; background: #2a2118; }
+.dice-pool[hidden] { display: none; }
+.dice-pool-roll, .dice-pool-clear { border: 1px solid #8a7040; border-radius: 3px; background: #6b2a1c; color: #fff4dc; cursor: pointer; padding: 1px 8px; font-size: 12px; }
+.dice-pool-clear { background: #2a2118; padding: 1px 6px; }
+.die-group { display: inline; }
+.die-group .die-extra { display: none; }
+.die-group.die-open .die-extra { display: inline-block; }
+.die-group.die-open .die-more { display: none; }
+.die-more { border: 1px solid #8a7040; border-radius: 10px; background: #2a2118; color: #f3e6c8; font-size: 11px; font-weight: 700; padding: 0 6px; margin: 0 2px; cursor: pointer; vertical-align: middle; }
+.dice-stage { flex-wrap: wrap; }
+@media (max-width: 520px) { .dice-builder { font-size: 12px; } .dice-step button { width: 28px; height: 28px; } }
