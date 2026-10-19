@@ -144,9 +144,12 @@
   /* L/R holsters (Jessey 2026-10-19). character.holster = Holster L (old single field, so old readers keep working),
      character.holsterR = Holster R, character.belt = gun belt / bandolier. A pair holster (row.holsterPair or
      row.slots with both sides) fills both sides with the same id. */
+  /* Pair holsters flagged in sheet JS (rules.js stays as generated). Jessey 2026-10-19: Pommel Holsters fill L and R. */
+  var PAIR_HOLSTERS = { "pommel-holsters-pair": true };
   function isPairHolster(holster) {
     var row = lookupHolster(holster);
-    if (!row) return false;
+    if (!row) return !!(typeof holster === "string" && PAIR_HOLSTERS[holster]);
+    if (PAIR_HOLSTERS[row.id]) return true;
     if (row.holsterPair === true) return true;
     var s = row.slots;
     return Array.isArray(s) && s.indexOf("holster_l") >= 0 && s.indexOf("holster_r") >= 0;
@@ -188,6 +191,9 @@
       changed = true;
     }
     if (character.holsterR && isBeltHolster(character.holsterR)) { if (!character.belt) character.belt = character.holsterR; character.holsterR = ""; changed = true; }
+    /* A pair holster covers both sides: an old single Pommel pick fills R too. */
+    if (character.holster && isPairHolster(character.holster) && character.holsterR !== character.holster) { character.holsterR = character.holster; changed = true; }
+    else if (character.holsterR && isPairHolster(character.holsterR) && !character.holster) { character.holster = character.holsterR; changed = true; }
     return { ok: true, changed: changed };
   }
   /* Which gun index rides on each side. Doll picks (dollWeapons.revolver_1/2) win; otherwise equipped pistols in order. */
@@ -384,6 +390,7 @@
     focusCarry: focusCarry,
     drawCheck: drawCheck,
     isPairHolster: isPairHolster,
+    PAIR_HOLSTERS: PAIR_HOLSTERS,
     isBeltHolster: isBeltHolster,
     holsterOf: holsterOf,
     setHolster: setHolster,

@@ -139,6 +139,21 @@ E.setHolster(c, "L", "");
 check("pair.unequipClearsBoth", c.holster === "" && c.holsterR === "");
 E.setHolster(c, "L", "test-twin-rig"); E.setHolster(c, "R", "slim-jim");
 check("pair.replaceOneSideClearsOther", c.holster === "" && c.holsterR === "slim-jim");
+/* Pommel Holsters: the first real pair (flagged in equip.js, not rules.js). */
+check("pommel.isPair", E.isPairHolster("pommel-holsters-pair") && !E.isPairHolster("mexican-loop") && !/holsterPair/.test(read("assets/data/rules.js")));
+c.holster = "slim-jim"; c.holsterR = "skeleton-rig";
+E.setHolster(c, "L", "pommel-holsters-pair");
+check("pommel.fillsBoth", c.holster === "pommel-holsters-pair" && c.holsterR === "pommel-holsters-pair");
+c.mounted = true; v = app.compute();
+check("pommel.mountedInitBothDrawFree", v.holsterInit === 1 && !E.drawCheck(c, 0).needed && !E.drawCheck(c, 1).needed);
+c.mounted = false;
+check("pommel.dollMirrored", (D.html(c, {}).match(/doll-pair-(l|r)/g) || []).length === 2);
+E.setHolster(c, "R", "");
+check("pommel.unequipClearsBoth", c.holster === "" && c.holsterR === "");
+let pm = load({ name: "Old Pommel", holster: "pommel-holsters-pair", guns: [] });
+check("migrate.pommelFillsR", pm.holster === "pommel-holsters-pair" && pm.holsterR === "pommel-holsters-pair");
+c = app.state.doc.character;
+c = load({ name: "Mixed2", holsterActive: true, holster: "", holsterR: "", guns: [{ weapon: pistols[0].id, equipped: true }, { weapon: pistols[1].id, equipped: true }] });
 /* Pair item (holsterPair on an Item, or slots: [holster_l, holster_r]). */
 c.holster = "mexican-loop"; c.holsterR = "slim-jim";
 c.items = [{ uid: "pp", name: "Twin Rig Item", wear: "holster", slots: ["holster_l", "holster_r"], bonuses: { init: 2 } }, { uid: "h1", name: "Plain Rig", wear: "holster" }];
