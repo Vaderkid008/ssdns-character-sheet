@@ -284,6 +284,9 @@ function applySharedToTokens() {
 }
 
 // --- map state ---
+/* 0.3.67: target picker values. 'Free shot' fires with no target; 'No target' is an explicit choice. */
+const FREE_SHOT = '__free';
+const NO_TARGET = '__none';
 const state = {
   scene: null,
   tokens: [],
@@ -362,8 +365,7 @@ if (window.SSDNSDice && window.SSDNSDice.mount) {
 on(document, 'keydown', e => {
   if (role === 'dm' && e.key === 'Escape' && state.pendingTarget) {
     e.preventDefault();
-    state.pendingTarget = null;
-    renderDrawer();
+    cancelPendingTarget();
     return;
   }
   if (!el.matches(':hover') && !el.contains(e.target)) return;
@@ -1860,6 +1862,8 @@ function draw() {
     ctx.stroke();
     ctx.restore();
   }
+  paintPendingTargets(px);
+  paintPendingBanner();
   refreshSelectedPanel();
 }
 
@@ -2229,7 +2233,7 @@ function rangeHighlightToken(shooter) {
   else {
     const box = q("drawer");
     const sel = box && box.querySelector('[data-act="cylTarget"]');
-    id = state.rangeTargetId || (sel && sel.value) || "";
+    id = state.rangeTargetId === NO_TARGET ? "" : (state.rangeTargetId || (sel && sel.value) || "");
     if (!id && state.selected && shooter && state.selected.id !== shooter.id) id = state.selected.id;
   }
   const tgt = tokenByRef(id);
@@ -2253,6 +2257,9 @@ function rangeButtonNote(attack, targetId, shooterId) {
 function armRange(attack, targetId, shooterId) {
   const verdict = rangeButtonNote(attack, targetId, shooterId);
   if (!verdict || !verdict.apply || !window.SSDNSRangeRings.arm) return verdict;
+  const tok = tokenByRef(targetId) || (state.tokens || []).find(t => t && tokenCombatant(t.id) === targetId) || null;
+  verdict.targetRefs = [targetId, tok && tok.id, tok && tok.combatantId, tok && tok.sheetId, tok && tok.ownerUid]
+    .filter(Boolean).map(String);
   window.SSDNSRangeRings.arm(verdict);
   return verdict;
 }
@@ -2266,6 +2273,88 @@ function disMark(verdict) {
 function armAttack(attack, targetId, shooterId) {
   const sid = shooterId || (role === 'player' ? uid : '');
   return armRange(attack || {}, targetId, sid);
+}
+/* 0.3.67: Attacks target pick. A clear banner (drawer top + over the map) with Cancel,
+   valid targets ringed on the map, Esc or Cancel ends it. */
+function pendingValidTokens() {
+  const pend = state.pendingTarget;
+  if (!pend) return [];
+  const ids = Array.isArray(state.pendingValid) ? state.pendingValid : [];
+  return (state.tokens || []).filter(t => {
+    if (!t || !t.pos) return false;
+    if (t.id === pend.tokenId) return pend.spellKind === 'heal';
+    if (!ids.length) return !t.hidden;
+    return ids.indexOf(tokenCombatant(t.id)) >= 0 || ids.indexOf(t.id) >= 0 || (t.ownerUid && ids.indexOf(t.ownerUid) >= 0);
+  });
+}
+function paintPendingTargets(px) {
+  if (role !== 'dm' || !state.pendingTarget) return;
+  const pulse = 0.55 + 0.45 * Math.sin(Date.now() / 220);
+  pendingValidTokens().forEach(t => {
+    const size = t.size || 1;
+    const c = worldToScreen((t.pos.x + size / 2) * px, (t.pos.y + size / 2) * px);
+    const r = (size * px * state.view.zoom) / 2 + 6;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = '#ffd34d';
+    ctx.globalAlpha = pulse;
+    ctx.lineWidth = 4;
+    ctx.setLineDash([8, 6]);
+    ctx.stroke();
+    ctx.restore();
+  });
+  if (!state._pendingPulse) {
+    state._pendingPulse = setInterval(() => {
+      if (!state.pendingTarget) { clearInterval(state._pendingPulse); state._pendingPulse = null; return; }
+      draw();
+    }, 120);
+  }
+}
+function pendingLabel() {
+  const pend = state.pendingTarget;
+  if (!pend) return '';
+  const card = lookupCard(pend.tokenId);
+  const wid = pend.weaponId || pend.spellId || '';
+  const hit = card && ((card.attacks || []).find(a => a && (a.id === wid || a.name === wid)) || (card.spells || []).find(s => s && (s.id === wid || s.name === wid)));
+  return (hit && hit.name) || wid;
+}
+function pendingBannerHtml(tokenId) {
+  if (!state.pendingTarget || state.pendingTarget.tokenId !== tokenId) return '';
+  const what = pendingLabel();
+  return '<div class="ssm-pending" role="status" aria-live="polite"><span class="ssm-pending-text"><b>Click a target</b>' +
+    (what ? ' for ' + esc(what) : '') + '. Highlighted tokens can be targeted. Esc cancels.</span>' +
+    '<button type="button" data-act="pendingCancel">Cancel</button></div>';
+}
+function paintPendingBanner() {
+  if (role !== 'dm') return;
+  let bar = el.querySelector('.ssm-pending-map');
+  if (!state.pendingTarget) {
+    if (bar) bar.hidden = true;
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.className = 'ssm-pending-map';
+    bar.setAttribute('role', 'status');
+    bar.innerHTML = '<span class="ssm-pending-text"></span><button type="button" data-act="pendingCancelMap">Cancel</button>';
+    bar.addEventListener('pointerdown', ev => ev.stopPropagation());
+    bar.querySelector('[data-act="pendingCancelMap"]').addEventListener('click', ev => { ev.stopPropagation(); cancelPendingTarget(); });
+    el.appendChild(bar);
+  }
+  const what = pendingLabel();
+  const txt = 'Click a target' + (what ? ' for ' + what : '') + ' · Esc cancels';
+  const span = bar.querySelector('.ssm-pending-text');
+  if (span.textContent !== txt) span.textContent = txt;
+  bar.hidden = false;
+}
+function cancelPendingTarget() {
+  if (!state.pendingTarget) return;
+  state.pendingTarget = null;
+  if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
+  paintPendingBanner();
+  renderDrawer();
+  draw();
 }
 function selectToken(token) {
   if (!token) return;
@@ -2282,15 +2371,21 @@ function selectToken(token) {
       noteOverride(verdict);
       if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
       toast(verdict.button || 'Out of range');
+      state.rangeTargetId = tokenCombatant(token.id);
       state.pendingTarget = null;
+      paintPendingBanner();
       renderDrawer();
+      draw();
       return;
     }
-    emit('drawer:target', { tokenId: state.pendingTarget.tokenId, weaponId: state.pendingTarget.weaponId || '', spellId: state.pendingTarget.spellId || '', targetTokenId: token.id, combatantId: tokenCombatant(state.pendingTarget.tokenId), targetCombatantId: tokenCombatant(token.id) });
-    state.rangeTargetId = token.id;
+    const shot = state.pendingTarget;
+    /* 0.3.67: store the combatant id (what the cylinder Target select uses) so the two stay in sync. */
+    state.rangeTargetId = tokenCombatant(token.id);
     state.pendingTarget = null;
-    toast('Target set');
+    paintPendingBanner();
     renderDrawer();
+    draw();
+    emit('drawer:target', { tokenId: shot.tokenId, weaponId: shot.weaponId || '', spellId: shot.spellId || '', targetTokenId: token.id, combatantId: tokenCombatant(shot.tokenId), targetCombatantId: tokenCombatant(token.id) });
     return;
   }
   state.selected = token;
@@ -2667,6 +2762,16 @@ function canDrag(token) {
 function onPointerDown(e) {
   pointers.set(e.pointerId, Object.assign({ t: Date.now() }, localXY(e)));
   if (pointers.size === 1) {
+    /* 0.3.67: a pending Attacks target pick wins over the active tool (ruler, ping, walls, fog...),
+       so the click on the target is never swallowed and the prompt never goes stale. */
+    if (role === 'dm' && state.pendingTarget && e.button === 0) {
+      const pw = pointerWorld(e);
+      const pickHit = hitTest(pw.x, pw.y);
+      e.preventDefault();
+      if (pickHit) selectToken(pickHit);
+      else toast('Click a highlighted token, or Cancel');
+      return;
+    }
     if (e.button === 1) {
       e.preventDefault();
       e.stopPropagation();
@@ -4628,11 +4733,11 @@ async function loadSceneImage(sceneId, opts) {
         rows = (state.tokens || []).filter(t => t && !t.hidden && !(t.ownerUid && t.ownerUid === uid)).map(t => ({ id: t.id, label: t.name || t.label || t.id }));
       }
     }
-    const options = [{ id: '', label: 'No target' }];
+    const options = [{ id: FREE_SHOT, label: 'Free shot' }, { id: '', label: 'No target' }];
     rows.forEach(o => {
       if (!o) return;
       const id = o.id != null ? String(o.id) : '';
-      if (!id || options.some(x => x.id === id)) return;
+      if (!id || id === FREE_SHOT || options.some(x => x.id === id)) return;
       options.push({ id: id, label: o.label || o.name || id });
     });
     return options;
@@ -4654,7 +4759,9 @@ async function loadSceneImage(sceneId, opts) {
     extra = extra || {};
     const tokenId = state.selected ? state.selected.id : null;
     const targetId = extra.targetId != null ? extra.targetId : ((state.rowTargets && state.rowTargets[id]) || state.playerTarget || '');
-    if (String(id).indexOf('gunroll:') === 0 || String(id).indexOf('melee:') === 0 || String(id).indexOf('spell:') === 0 || id === 'pact') {
+    if (targetId === FREE_SHOT) {
+      if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
+    } else if (String(id).indexOf('gunroll:') === 0 || String(id).indexOf('melee:') === 0 || String(id).indexOf('spell:') === 0 || id === 'pact') {
       const card = playerFightModel();
       const attack = ((card && card.attacks) || []).concat((card && card.spells) || []).find(a => a && a.id === id);
       const verdict = armRange(attack || { id: id }, targetId, uid);
@@ -5238,12 +5345,17 @@ async function loadSceneImage(sceneId, opts) {
       selectedTokenId: picked ? picked.id : '',
       selectedCombatantId: picked ? tokenCombatant(picked.id) : ''
     })) || { options: [], selected: '' };
-    const aimId = state.rangeTargetId || targetPack.selected || '';
-    const targetOptions = (targetPack.options || []).map(o => {
-      const id = o && (o.id || '');
-      const on = id && id === aimId ? ' selected' : '';
-      return '<option value="' + esc(id) + '"' + on + '>' + esc((o && (o.label || o.name)) || id) + '</option>';
-    }).join('') || '<option value="">No targets</option>';
+    const aimId = state.rangeTargetId === NO_TARGET ? '' : (state.rangeTargetId || targetPack.selected || '');
+    state.pendingValid = (targetPack.options || []).map(o => o && o.id).filter(Boolean);
+    /* 0.3.67: 'Free shot' is always the first entry: the gun fires with no target. */
+    const aimListed = aimId === FREE_SHOT || (targetPack.options || []).some(o => o && o.id === aimId);
+    const targetOptions = '<option value="' + FREE_SHOT + '"' + (aimId === FREE_SHOT ? ' selected' : '') + '>Free shot</option>' +
+      '<option value=""' + (aimListed ? '' : ' selected') + '>' + ((targetPack.options || []).length ? 'No target' : 'No targets') + '</option>' +
+      (targetPack.options || []).map(o => {
+        const id = o && (o.id || '');
+        const on = id && id === aimId ? ' selected' : '';
+        return '<option value="' + esc(id) + '"' + on + '>' + esc((o && (o.label || o.name)) || id) + '</option>';
+      }).join('');
     const attacks = (card.attacks || []).map(a => {
       const ammo = a.ammo ? ' [' + (a.ammo.loaded != null ? a.ammo.loaded : '—') + '/' + (a.ammo.cap != null ? a.ammo.cap : '—') + ']' : '';
       const base = (a.name || a.id) + ' +' + (a.toHit != null && a.toHit !== '' ? a.toHit : 0) + ' ' + (a.damage || '') + ammo;
@@ -5361,6 +5473,7 @@ async function loadSceneImage(sceneId, opts) {
       '<button type="button" data-act="drawerReset" title="Reset card position" aria-label="Reset card position">Reset</button>' +
       '<button type="button" data-act="drawerClose">×</button></div>' +
       '<div class="ssm-drawer-body">' +
+      pendingBannerHtml(tokenId) +
       '<div>AC ' + esc(card.ac != null ? card.ac : '—') + ' · HP ' + esc(hp.cur != null ? hp.cur : '—') + '/' + esc(hp.max != null ? hp.max : '—') +
       (hp.temp ? ' (+' + esc(hp.temp) + ')' : '') + ' · ' + esc(speedLabel(card.speed)) + '</div>' +
       hpBar +
@@ -5399,7 +5512,6 @@ async function loadSceneImage(sceneId, opts) {
         '<button type="button" data-act="robBtn"' + grabAttr + '>Rob/Disarm</button>' +
       '</div>' +
       '<button type="button" data-act="imageBtn">Replace image</button>' +
-      (state.pendingTarget ? '<div class="ssm-pending">Click a token to target, Esc to cancel</div>' : '') +
       '</div>';
     bindSpellFold(d);
     const readHp = () => {
@@ -5413,25 +5525,59 @@ async function loadSceneImage(sceneId, opts) {
       return sel && sel.value ? sel.value : null;
     };
     d.querySelector('[data-act="drawerClose"]').addEventListener('click', closeDrawer);
+    const chosenTarget = () => {
+      if (state.rangeTargetId === NO_TARGET) return '';
+      if (state.rangeTargetId) return state.rangeTargetId;
+      const cyl = d.querySelector('[data-act="cylTarget"]');
+      return (cyl && cyl.value) || '';
+    };
     d.querySelectorAll('.ssm-atk').forEach(b => {
       b.addEventListener('click', () => {
         if (b.disabled) return;
-        if (b.hasAttribute('data-sid')) {
-          const sid = b.getAttribute('data-sid');
-          emit('drawer:spell', detail({ spellId: sid }));
-          state.pendingTarget = { tokenId, spellId: sid, spellKind: b.getAttribute('data-skind') || '' };
-        } else {
-          const wid = b.getAttribute('data-wid');
-          emit('drawer:attack', detail({ weaponId: wid }));
-          state.pendingTarget = { tokenId, weaponId: wid };
+        const sid = b.hasAttribute('data-sid') ? b.getAttribute('data-sid') : '';
+        const wid = sid ? '' : b.getAttribute('data-wid');
+        const skind = sid ? (b.getAttribute('data-skind') || '') : '';
+        if (sid) emit('drawer:spell', detail({ spellId: sid }));
+        else emit('drawer:attack', detail({ weaponId: wid }));
+        /* 0.3.67: use the target already chosen in the cylinder menu / by clicking; ask only when none. */
+        const aim = chosenTarget();
+        if (aim === FREE_SHOT && !sid) {
+          state.pendingTarget = null;
+          paintPendingBanner();
+          emit('drawer:target', detail({ weaponId: wid, free: true, targetTokenId: '', targetCombatantId: FREE_SHOT }));
+          return;
         }
+        const aimTok = aim && aim !== FREE_SHOT ? (state.tokens || []).find(tok => tok && (tokenCombatant(tok.id) === aim || tok.id === aim)) : null;
+        if (aimTok && (aimTok.id !== tokenId || skind === 'heal')) {
+          const attack = sid
+            ? ((card.spells || []).find(s => s && (s.id === sid || s.name === sid)) || { id: sid })
+            : ((card.attacks || []).find(a => a && (a.id === wid || a.name === wid)) || { id: wid });
+          const verdict = armRange(attack, aimTok.id, tokenId);
+          if (verdict && verdict.blocked) {
+            noteOverride(verdict);
+            if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
+            toast(verdict.button || 'Out of range');
+            return;
+          }
+          state.pendingTarget = null;
+          paintPendingBanner();
+          emit('drawer:target', detail({ weaponId: wid || '', spellId: sid || '', targetTokenId: aimTok.id, targetCombatantId: tokenCombatant(aimTok.id) }));
+          return;
+        }
+        state.pendingTarget = sid ? { tokenId, spellId: sid, spellKind: skind, label: b.textContent || '' } : { tokenId, weaponId: wid, label: b.textContent || '' };
         renderDrawer();
+        paintPendingBanner();
+        draw();
       });
     });
+    const cancelBtn = d.querySelector('[data-act="pendingCancel"]');
+    if (cancelBtn) cancelBtn.addEventListener('click', (ev) => { ev.stopPropagation(); cancelPendingTarget(); });
     d.querySelectorAll('[data-act="cylTarget"]').forEach(sel => {
       sel.addEventListener('change', () => {
-        state.rangeTargetId = sel.value || '';
+        /* 0.3.67: 'No target' is a real choice; it must not snap back to the fight's default target */
+        state.rangeTargetId = sel.value || NO_TARGET;
         renderDrawer();
+        draw();
       });
     });
     d.querySelectorAll('[data-act="chamber"]').forEach(b => {
@@ -5442,6 +5588,10 @@ async function loadSceneImage(sceneId, opts) {
         const sel = row && row.querySelector('[data-act="cylTarget"]');
         const targetId = sel && sel.value;
         if (!targetId) { toast('Pick a target'); return; }
+        if (targetId === FREE_SHOT) {
+          emit('drawer:target', detail({ weaponId: b.getAttribute('data-wid'), chamber: Number(b.getAttribute('data-k')), free: true, targetTokenId: '', targetCombatantId: FREE_SHOT }));
+          return;
+        }
         const targetTok = state.tokens.find(tok => tok && (tokenCombatant(tok.id) === targetId || tok.id === targetId));
         const wid = b.getAttribute('data-wid');
         const attack = ((card.attacks || []).find(a => a && (a.id === wid || a.name === wid))) || { id: wid };

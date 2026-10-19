@@ -3689,7 +3689,7 @@ function askEnemyStrike(row, preset) {
   return new Promise((resolve) => {
     const dlg = document.createElement("dialog");
     dlg.className = "dlg";
-    const options = targetMenu(players, def);
+    const options = (freeShotGun(preset) ? `<option value="${FREE_SHOT_ID}">Free shot</option>` : "") + targetMenu(players, def);
     const grip = preset && preset.versatile
       ? `<label>Grip <select id="enemyGrip" aria-label="One or two hands"><option value="1">One-handed</option><option value="2">Two-handed</option></select></label>`
       : "";
@@ -3911,6 +3911,47 @@ async function publishCardRoll(row, detail, result, extra) {
     nat: extra && extra.nat
   }, extra || {}));
 }
+/* 0.2.80: Free shot. The gun just fires at nothing in particular: round spent, misfire rules,
+   sound, ammo update. No target, range, AC, hit/miss or damage. Chat: "<Name> shoots freely · 1d20+B = T". */
+const FREE_SHOT_ID = "__free";
+function freeShotGun(atk) {
+  return !!(atk && (atk.capacity != null || /\d+\s*\/\s*\d+/.test(String(atk.range || "")) || /pistol|rifle|shotgun|carbine|bow/i.test(String(atk.group || ""))));
+}
+async function cardFreeShot(row, atk, bonusIn) {
+  if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
+  const bonus = bonusIn != null && isFinite(Number(bonusIn)) ? Number(bonusIn) : (isFinite(Number(atk.toHit)) ? Number(atk.toHit) : 0);
+  const nat = d20();
+  const ceiling = window.SSDNSApplied && window.SSDNSApplied.misfireNumber
+    ? window.SSDNSApplied.misfireNumber(atk.misfire)
+    : null;
+  const resolved = (atk.misfire != null && atk.misfire !== "" && window.SSDNSMisfire)
+    ? window.SSDNSMisfire.resolveShot(atk, { n1: nat, nat: nat, ceiling: ceiling || 1, spark: false })
+    : null;
+  const misfire = resolved ? resolved.misfire : (window.SSDNSApplied && window.SSDNSApplied.isMisfire
+    ? window.SSDNSApplied.isMisfire(nat, atk.misfire)
+    : false);
+  if (resolved) {
+    atk.misStreak = resolved.misStreak;
+    atk.fouled = !!resolved.fouled;
+    atk.jammed = !!resolved.jammed;
+    atk.ruined = !!resolved.ruined;
+    if (resolved.armD4) atk.pendingD4 = true;
+  }
+  if (atk.capacity != null) atk.loaded = Math.max(0, Number(atk.loaded) - 1);
+  const total = nat + bonus;
+  let detail = (row.name || "Someone") + " shoots freely · 1d20" + signed(bonus) + " = " + total;
+  if (misfire) {
+    if (!resolved) atk.jammed = true;
+    detail += " · natural " + nat + " misfire, the round is spent";
+    if (!resolved || resolved.jammed) playTableSfx("misfire");
+  } else {
+    playTableSfx(strikeCue(atk));
+  }
+  await publishCardRoll(row, detail, total, { formula: "1d20" + signed(bonus), nat: nat, attack: false, freeShot: true, weapon: atk.name });
+  await saveRemoteTable();
+  renderFight();
+  DM.toast(detail + (atk.capacity != null ? " · " + atk.loaded + " left" : ""));
+}
 async function cardStrike(i, n, opts) {
   const row = fight.order[i];
   if (!row) return;
@@ -3928,6 +3969,7 @@ async function cardStrike(i, n, opts) {
     logTableAlert(emptyText);
     return;
   }
+  if (opts && opts.free) return cardFreeShot(row, atk);
   let picked;
   if (opts && opts.targetId) {
     const want = String(opts.targetId);
@@ -3941,6 +3983,7 @@ async function cardStrike(i, n, opts) {
   } else {
     picked = await askEnemyStrike(row, atk);
   }
+  if (picked && picked.targetId === FREE_SHOT_ID) return cardFreeShot(row, atk, picked.bonus);
   if (!picked || !picked.targetId) { DM.toast("No targets"); return; }
   const bonus = picked.bonus != null && isFinite(Number(picked.bonus)) ? Number(picked.bonus) : Number(atk.toHit);
   const dice = String((picked.dice || atk.damage || "")).trim();
@@ -3956,7 +3999,9 @@ async function cardStrike(i, n, opts) {
   if (!(opts && opts._rangeReady)) {
     const rings = window.SSDNSRangeRings;
     const host = window.SSDNSMapHost;
-    if (host && typeof host.armAttack === "function" && !(rings && rings.peek && rings.peek())) {
+    const aimRef = (target && (target.mapTokenId || target.id)) || picked.targetId;
+    const kept = rings ? (rings.peekFor ? rings.peekFor(aimRef) : (rings.peek ? rings.peek() : null)) : null;
+    if (host && typeof host.armAttack === "function" && !kept) {
       host.armAttack({
         id: atk.id || atk.name || "",
         weapon: atk.weapon || atk.id || "",
@@ -7281,6 +7326,31 @@ function runGrabFromMap(detail, mode) {
   const targetId = target ? combatantKey(target) : (detail.targetCombatantId || detail.targetTokenId || "");
   return runGrab(actor, mode, { targetId: targetId, feet: detail.feet });
 }
+/* 0.2.80: map Free shot. A PC the DM acts for fires through their own sheet (round, misfire, sound,
+   Action pip all happen there); an NPC fires off its card. Neither picks a target. */
+async function mapFreeShot(i, row, detail) {
+  if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
+  if (row.kind === "player") {
+    if (!row.dmActsAs) { DM.toast("The player acts for themselves"); return false; }
+    ensurePlayerAttacks(row);
+    const n = mapAttackIndex(row, detail.weaponId);
+    if (n < 0) { DM.toast("No attack"); return false; }
+    const atk = row.card && row.card.attacks && row.card.attacks[n];
+    if (!atk) { DM.toast("No attack"); return false; }
+    const pid = row.playerId || row.id;
+    const payload = { op: "fire", index: sheetSlot(atk, n), dm: true, free: true };
+    if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
+    await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+    if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+    ensurePlayerAttacks(row);
+    return true;
+  }
+  ensureCombatantCard(row);
+  const n = mapAttackIndex(row, detail.weaponId);
+  if (n < 0) { DM.toast("No attack"); return false; }
+  await cardStrike(i, n, { free: true });
+  return true;
+}
 window.SSDNSMapFight = {
   linkedTokenIds() { return linkedTokenIds(); },
   clearStale() { return clearStaleTokens(); },
@@ -7291,6 +7361,7 @@ window.SSDNSMapFight = {
     const i = mapFightIndex(detail);
     if (i < 0) { DM.toast("No card linked"); return false; }
     const row = fight.order[i];
+    if (detail.free || detail.targetCombatantId === FREE_SHOT_ID) return mapFreeShot(i, row, detail);
     const targetIndex = mapFightIndex({ combatantId: detail.targetCombatantId, tokenId: detail.targetTokenId });
     const target = targetIndex >= 0 ? fight.order[targetIndex] : null;
     const targetId = target ? combatantKey(target) : (detail.targetCombatantId || detail.targetTokenId || "");
@@ -7307,8 +7378,9 @@ window.SSDNSMapFight = {
       if (!atk) { DM.toast("No attack"); return false; }
       const pid = row.playerId || row.id;
       const gi = sheetSlot(atk, n);
+      /* 0.2.80: a cancelled shot must not leave its range verdict armed for the next one */
       const picked = await dmFireMode(pid, atk);
-      if (picked == null) return false;
+      if (picked == null) { if (window.SSDNSRangeRings) window.SSDNSRangeRings.clear(); return false; }
       const payload = { op: "fire", index: gi, dm: true };
       if (picked) payload.mode = picked;
       if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);

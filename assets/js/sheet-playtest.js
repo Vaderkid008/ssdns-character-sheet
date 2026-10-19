@@ -466,8 +466,9 @@
   function prepareMelee(i, meleeW, meleeRow) {
     var rings = root.SSDNSRangeRings;
     var host = root.SSDNSMapHost;
-    if (host && typeof host.armAttack === "function" && !(rings && rings.peek && rings.peek())) {
-      var tgt = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo && root.SSDNSPlaytest.targetInfo();
+    var tgt = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo && root.SSDNSPlaytest.targetInfo();
+    var keptVerdict = rings ? (rings.peekFor ? rings.peekFor(tgt && tgt.id) : (rings.peek ? rings.peek() : null)) : null;
+    if (host && typeof host.armAttack === "function" && !keptVerdict) {
       host.armAttack({
         id: "melee:" + i,
         weapon: meleeRow && meleeRow.weapon,
@@ -690,7 +691,7 @@
       wh.innerHTML = "<input type='checkbox' id='chkWhisper'> Whisper to DM";
       var tgt = document.createElement("label");
       tgt.className = "gear-target-label";
-      tgt.innerHTML = "Target <select id='atkTarget' aria-label='Attack target'><option value=''>No target</option></select> <span id='atkReveal' class='fine'></span>";
+      tgt.innerHTML = "Target <select id='atkTarget' aria-label='Attack target'><option value='__free'>Free shot</option><option value='' selected>No target</option></select> <span id='atkReveal' class='fine'></span>";
       var coverLab = document.createElement("label");
       coverLab.className = "fine";
       coverLab.innerHTML = "Cover <select id='coverPick' aria-label='Cover for the selected target'><option value=''>None</option><option value='half'>Half +2</option><option value='three'>3/4 +5</option><option value='full'>Total</option></select>";
@@ -1187,7 +1188,7 @@
     },
     targetInfo: function () {
       var sel = $("#atkTarget");
-      if (!sel || !sel.selectedOptions || !sel.selectedOptions[0] || !sel.value) return null;
+      if (!sel || !sel.selectedOptions || !sel.selectedOptions[0] || !sel.value || sel.value === "__free") return null;
       var opt = sel.selectedOptions[0];
       var acRaw = opt.getAttribute("data-ac");
       var ac = acRaw == null || acRaw === "" ? null : Number(acRaw);
@@ -1227,9 +1228,10 @@
         return 0;
       }
       rows.sort(function (a, b) { return rank(a) - rank(b); });
-      var html = "<option value=''>No target</option>";
+      /* 0.3.67: 'Free shot' is always the first entry: the gun fires with no target, no attack roll vs AC. */
+      var html = "<option value='__free'>Free shot</option><option value=''>No target</option>";
       rows.forEach(function (row) {
-        if (row.mapHidden) return;
+        if (row.mapHidden || String(row.id) === "__free") return;
         var revealed = row.revealed || {};
         var ac = revealed.ac == null || revealed.ac === "" ? "" : String(revealed.ac);
         var name = String(row.name || row.id);
@@ -1261,6 +1263,7 @@
       sel.innerHTML = html;
       var kept = keep && rows.some(function (row) { return String(row.id) === String(keep) && !unusableRow(row); });
       if (kept) sel.value = keep;
+      else if (keep === "__free") sel.value = "__free";
       else sel.value = "";
       var last = sel.getAttribute("data-last-enemy") || "";
       if (last && rows.some(function (row) { return String(row.id) === String(last) && unusableRow(row); })) sel.removeAttribute("data-last-enemy");
@@ -1290,7 +1293,7 @@
     var c = ch();
     var opt = sel && sel.selectedOptions && sel.selectedOptions[0];
     var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
-    var aimed = !!(opt && opt.value);
+    var aimed = !!(opt && opt.value && opt.value !== "__free");
     var mine = !aimed || (uid && opt.value === uid);
     var key = aimed ? (opt.getAttribute("data-cover") || "") : ((c && c.cover) || "");
     var locked = aimed ? opt.getAttribute("data-cover-lock") === "1" : !!(c && c.coverLock);
@@ -1308,7 +1311,7 @@
     var c = ch();
     var opt = sel && sel.selectedOptions && sel.selectedOptions[0];
     var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
-    if (opt && opt.value) opt.setAttribute("data-cover", key);
+    if (opt && opt.value && opt.value !== "__free") opt.setAttribute("data-cover", key);
     var mine = !opt || !opt.value || (uid && opt.value === uid);
     if (mine && c && !c.coverLock) {
       c.cover = key;

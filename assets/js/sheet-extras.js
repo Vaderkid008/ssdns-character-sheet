@@ -823,11 +823,17 @@
     }
     return line;
   }
+  /* 0.3.67: 'Free shot' in the target picker: the gun fires with no target. */
+  var FREE_SHOT = "__free";
+  function freeShotChosen() {
+    var sel = document.querySelector("#atkTarget");
+    return !!(sel && sel.value === FREE_SHOT);
+  }
   function currentTarget() {
     if (pendingBlind) return null;
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo) return root.SSDNSPlaytest.targetInfo();
     var sel = document.querySelector("#atkTarget");
-    if (!sel || !sel.value) return null;
+    if (!sel || !sel.value || sel.value === FREE_SHOT) return null;
     var opt = sel.selectedOptions && sel.selectedOptions[0];
     var coverRaw = opt && opt.getAttribute("data-cover");
     return { id: sel.value, name: (opt && (opt.getAttribute("data-name") || opt.textContent)) || "", ac: null, cover: coverRaw || "" };
@@ -996,7 +1002,7 @@
     if (!main || !id) return null;
     var op = null;
     Array.prototype.forEach.call(main.options, function (o) { if (o.value === id) op = o; });
-    if (!op || !op.value) return null;
+    if (!op || !op.value || op.value === FREE_SHOT) return null;
     var acRaw = op.getAttribute("data-ac");
     var ac = acRaw == null || acRaw === "" ? null : Number(acRaw);
     return {
@@ -1018,7 +1024,7 @@
     sel.appendChild(blank);
     if (main) {
       Array.prototype.forEach.call(main.options, function (op) {
-        if (!op.value) return;
+        if (!op.value || op.value === FREE_SHOT) return;
         var next = document.createElement("option");
         next.value = op.value;
         next.textContent = op.textContent || op.value;
@@ -1066,7 +1072,7 @@
     return null;
   }
   function targetMeta(opt) {
-    if (!opt || !opt.value) return null;
+    if (!opt || !opt.value || opt.value === FREE_SHOT) return null;
     var hp = opt.getAttribute("data-hp");
     return {
       id: opt.value,
@@ -1170,7 +1176,7 @@
     var main = document.querySelector("#atkTarget");
     if (main) {
       Array.prototype.forEach.call(main.options, function (op) {
-        if (!op.value) return;
+        if (!op.value || op.value === FREE_SHOT) return;
         var next = document.createElement("option");
         next.value = op.value;
         next.textContent = op.textContent || op.value;
@@ -1338,8 +1344,8 @@
     if (!castSpellAttackNow._ready) {
       var rings0 = root.SSDNSRangeRings;
       var host0 = root.SSDNSMapHost;
-      if (host0 && typeof host0.armAttack === "function" && !(rings0 && rings0.peek && rings0.peek())) {
-        var tgt0 = currentTarget();
+      var tgt0 = currentTarget();
+      if (host0 && typeof host0.armAttack === "function" && !(rings0 && freshVerdict(rings0, tgt0))) {
         host0.armAttack({ id: "spell:" + (spellName || ""), name: spellName || "", spell: true, kind: "spell", spellKind: (row && row.kind) || "attack" }, tgt0 && tgt0.id);
       }
       var peekedSpell = rings0 && rings0.peek ? rings0.peek() : null;
@@ -1749,12 +1755,19 @@
       scope: /scope/i.test(g.mod || "")
     };
   }
+  /* 0.3.67: reuse an armed range verdict only when it was measured against this target. */
+  function freshVerdict(rings, tgt) {
+    if (!rings) return null;
+    if (rings.peekFor) return rings.peekFor(tgt && tgt.id);
+    return rings.peek ? rings.peek() : null;
+  }
   function ensureGunRange(i) {
     var rings = root.SSDNSRangeRings;
-    if (rings && rings.peek && rings.peek()) return rings.peek();
+    var tgt = currentTarget();
+    var kept = rings ? freshVerdict(rings, tgt) : null;
+    if (kept) return kept;
     var host = root.SSDNSMapHost;
     if (!host || typeof host.armAttack !== "function") return null;
-    var tgt = currentTarget();
     return host.armAttack(gunAttackSpec(i), tgt && tgt.id);
   }
   function gunChosen(i) {
@@ -1834,6 +1847,14 @@
         if (reloadBtn && !reloadBtn.hidden) reloadBtn.click();
       });
       addLog({ kind: "alert", text: name0 + ": Empty: reload" });
+      return;
+    }
+    var freeNow = !!rollGun._free;
+    rollGun._free = null;
+    if (!rollGun._wild && !rollGun._aimed && (freeNow || freeShotChosen())) {
+      var freeChamber = rollGun._chamber;
+      rollGun._chamber = null;
+      fireFreeShot(i, freeChamber);
       return;
     }
     if (!rollGun._aimed) {
@@ -2068,6 +2089,110 @@
     }
   }
 
+  /* 0.3.67: Free shot. The gun fires at nothing in particular: the round is spent, misfire rules apply,
+     the sound plays, the Action pip is spent. No target, range, Adv/Dis ask, AC, hit/miss or damage.
+     Chat: "<Name> shoots freely · 1d20+B = T". The DM decides what it does. */
+  function fireFreeShot(i, chamber) {
+    var c = ch();
+    var g = c && c.guns && c.guns[i];
+    if (!g) return null;
+    if (root.SSDNSRangeRings && root.SSDNSRangeRings.clear) root.SSDNSRangeRings.clear();
+    var drawFail = pistolDraw(i);
+    if (drawFail) { toast(drawFail); addLog({ kind: "alert", text: drawFail }); return null; }
+    var spent = root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i, chamber) : null;
+    var name = gunName(i);
+    if (!spent || !spent.ok) {
+      var reason = (spent && spent.reason) || "That gun can't fire.";
+      toast(reason);
+      addLog({ kind: "alert", text: name + ": " + reason });
+      return null;
+    }
+    var atkEl = document.querySelector('[data-calc="gunAtk.' + i + '"]');
+    var bonus = parseInt(atkEl && String(atkEl.value).replace(/[^\d-]/g, ""), 10);
+    if (!isFinite(bonus)) bonus = 0;
+    var rolledView = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+    var gunStat = rolledView.guns && rolledView.guns[i];
+    if (gunStat && gunStat.parts) {
+      bonus = 0;
+      gunStat.parts.forEach(function (p) { bonus += Number(p.value) || 0; });
+    }
+    var misEl = document.querySelector('[data-out="mis.' + i + '"]');
+    var ceiling = root.SSDNSApp.misfireCeiling
+      ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
+      : 1;
+    var nat = d20();
+    var total = nat + bonus;
+    var wpn = catalogWeapon(g.weapon);
+    var rugged = !!(wpn && /rugged/i.test(wpn.properties || ""));
+    var capNow = (gunStat && gunStat.capacity) || (wpn && wpn.capacity) || (g.chambers && g.chambers.length) || 0;
+    var bad = function (n) { return n >= 1 && n <= ceiling; };
+    var resolved = root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
+      ? root.SSDNSMisfire.resolveShot({
+        dirty: g.dirty, fouled: g.fouled, ruined: g.ruined || g.broken, jammed: g.jammed,
+        misStreak: g.misStreak, weapon: g.weapon, rugged: rugged, properties: wpn && wpn.properties,
+        lockedChambers: g.lockedChambers, capacity: capNow, mod: g.mod, name: name,
+        feats: (c && c.feats) || []
+      }, { n1: nat, n2: null, nat: nat, ceiling: ceiling, spark: false, chamber: spent.chamber, capacity: capNow, melee: false, wildAttack: false })
+      : { misfire: bad(nat), fouled: false, jammed: bad(nat), armD4: false, misStreak: bad(nat) ? (Number(g.misStreak) || 0) + 1 : 0, lockedChambers: g.lockedChambers || [] };
+    g.misStreak = resolved.misStreak;
+    g.fouled = !!resolved.fouled;
+    g.jammed = !!resolved.jammed;
+    if (resolved.lockedChambers) g.lockedChambers = resolved.lockedChambers.slice();
+    if (resolved.lockIndex != null && Array.isArray(g.chambers)) {
+      g.chambers[resolved.lockIndex] = "";
+      g.loaded = g.chambers.filter(Boolean).length;
+    }
+    if (resolved.ruined || resolved.fouled) { g.ruined = true; g.broken = true; g.fouled = true; }
+    if (root.SSDNSApp && root.SSDNSApp.refreshGunFace) root.SSDNSApp.refreshGunFace();
+    var misfired = !!resolved.misfire;
+    function syncFlag(flag) {
+      var box = document.querySelector('[data-f="character.guns.' + i + '.' + flag + '"]');
+      if (box) { box.checked = !!g[flag]; dispatch(box); }
+    }
+    if (resolved.fouled || resolved.ruined) {
+      syncFlag("fouled");
+      postGunLedger(name + " fouled", "foul");
+    } else if (resolved.lock) {
+      postGunLedger(name + " locked a chamber", "jam");
+    } else if (resolved.jammed) {
+      syncFlag("jammed");
+      postGunLedger(name + " jammed (misfire)", "jam");
+    }
+    var cue = root.SSDNSAudio && root.SSDNSAudio.weaponCue
+      ? root.SSDNSAudio.weaponCue(Object.assign({ gun: true }, wpn || {}, { id: g.weapon, sfx: g.sfx || (wpn && wpn.sfx) || "" }))
+      : "attack";
+    attackCue(misfired ? "misfire" : cue);
+    if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(name + " free shot");
+    if (resolved.armD4 && window.SSDNSD4 && window.SSDNSD4.arm) window.SSDNSD4.arm(i);
+    var who = (c && c.name) || name;
+    var formula = "1d20" + signMod(bonus);
+    var line = who + " shoots freely · " + formula + " = " + total;
+    if (misfired) line += " · natural " + nat + " misfire, the round is spent";
+    var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
+    line += ammoTxt;
+    var quiet = whisperOn();
+    var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    toast(line);
+    addLog({ id: "roll:" + rollId, kind: "roll", text: line, label: who + " · free shot", formula: formula, attack: false, freeShot: true, nat: nat });
+    if (joined() && root.SSDNSDmJoin.postRoll) {
+      root.SSDNSDmJoin.postRoll({
+        id: rollId,
+        label: who + " · free shot",
+        formula: formula,
+        result: total,
+        detail: line,
+        nat1: false,
+        isFirearm: true,
+        attack: false,
+        freeShot: true,
+        nat: nat,
+        private: quiet,
+        whisper: quiet,
+        weapon: name
+      });
+    }
+    return { line: line, total: total, nat: nat, misfire: misfired };
+  }
   function postGunLedger(what, type) {
     var c = ch();
     addLog({ kind: "dm", text: what });
@@ -2608,6 +2733,7 @@
   }
 
   root.SSDNSGunRoll = rollGun;
+  root.SSDNSFreeShot = fireFreeShot;
   root.SSDNSOfferWildShot = offerWildShot;
   root.SSDNSGunCast = castThroughGun;
   root.SSDNSGunCastHex = castLoadedHex;
@@ -2691,8 +2817,8 @@
     if (drawFail) { toast(drawFail); addLog({ kind: "alert", text: drawFail }); return; }
     var host = root.SSDNSMapHost;
     var rings = root.SSDNSRangeRings;
-    if (host && typeof host.armAttack === "function" && !(rings && rings.peek && rings.peek())) {
-      var tgt0 = currentTarget();
+    var tgt0 = currentTarget();
+    if (host && typeof host.armAttack === "function" && !(rings && freshVerdict(rings, tgt0))) {
       host.armAttack({
         id: "gunmelee:" + i,
         weapon: g.weapon,

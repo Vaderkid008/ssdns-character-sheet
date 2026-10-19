@@ -250,6 +250,7 @@
       attuneCap: c.attuneCap || "",
       items: (c.items || []).map(function (item) {
         if (!item) return null;
+        if (root.SSDNSItems && root.SSDNSItems.unlimitedFix) root.SSDNSItems.unlimitedFix(item);
         return {
           uid: item.uid || "",
           catalogId: item.catalogId || "",
@@ -514,6 +515,7 @@
   function rollText(entry) {
     var detail = String((entry && entry.detail) || "");
     if (entry && (entry.heal || /\bheals\b/i.test(detail))) return detail;
+    if (entry && entry.freeShot && detail) return detail; /* 0.3.67: one line for a Free shot */
     if (/→\s*(HIT|MISS)/.test(detail)) return detail;
     if (/\bd20\b/.test(detail) && detail.indexOf("=") >= 0) return detail;
     return (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result == null ? "" : entry.result) + (detail ? " (" + detail + ")" : "");
@@ -542,7 +544,7 @@
       if (String(entry.detail || "").indexOf("TEST") < 0) entry.detail = (entry.detail ? entry.detail + " · " : "") + "TEST";
     }
     var target = $("#atkTarget");
-    if (!entry.targetId && target && target.value) entry.targetId = target.value;
+    if (!entry.targetId && !entry.freeShot && target && target.value && target.value !== "__free") entry.targetId = target.value;
     await fb.set(fb.ref(state.db, roomPath("rolls/" + id)), entry);
     var quiet = !!(entry.private || entry.whisper);
     if (!quiet) {
@@ -577,6 +579,7 @@
   function postDamage(entry) {
     entry = entry || {};
     var target = entry.targetId || ($("#atkTarget") && $("#atkTarget").value);
+    if (target === "__free") target = "";
     if (!target || offlineNow()) return Promise.resolve({ ok: false });
     var c = doc() && doc().character;
     var id = "req_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -604,6 +607,7 @@
   function writeAttack(entry) {
     entry = entry || {};
     var target = entry.targetId || ($("#atkTarget") && $("#atkTarget").value);
+    if (target === "__free") target = "";
     if (!target) return Promise.resolve({ ok: false });
     var c = doc() && doc().character;
     var id = "atk_" + (entry.rollId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)));
@@ -1634,8 +1638,9 @@
         }
       }
       if (payload.dm) root.SSDNSGunRoll._dm = { mode: payload.mode === "adv" || payload.mode === "dis" ? payload.mode : "" };
+      if (payload.free) root.SSDNSGunRoll._free = true;
       try { root.SSDNSGunRoll(payload.index, payload.chamber); }
-      finally { root.SSDNSGunRoll._dm = null; }
+      finally { root.SSDNSGunRoll._dm = null; root.SSDNSGunRoll._free = null; }
       return;
     } else if (payload.op === "dirty-d4") {
       if (root.SSDNSD4 && root.SSDNSD4.arm) root.SSDNSD4.arm(payload.index);

@@ -899,7 +899,30 @@ body.map-fullscreen #mapMount .ssm-cropper canvas {
 }
 .ssm-crop-note { font-size: 11px; color: #e2c56a; min-height: 1em; }
 .ssm-tactics { font-style: italic; color: #c9b89a; }
-.ssm-pending { color: #e8c36a; font-weight: 600; }
+/* 0.3.67: Attacks target prompt, shown at the top of the card and over the map */
+.ssm-pending {
+  position: sticky; top: 0; z-index: 3;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0 0 6px; padding: 8px 10px;
+  background: #3a2a08; border: 2px solid #ffd34d; border-radius: 6px;
+  color: #ffe9a8; font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.ssm-pending .ssm-pending-text { flex: 1 1 auto; }
+.ssm-pending button, .ssm-pending-map button {
+  background: #1d1408; color: #ffe9a8; border: 1px solid #ffd34d; border-radius: 4px;
+  padding: 3px 10px; font-weight: 700; cursor: pointer;
+}
+.ssm-pending-map {
+  position: absolute; top: 72px; left: 50%; transform: translateX(-50%); z-index: 40;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; border-radius: 8px;
+  background: rgba(40,28,6,0.94); border: 2px solid #ffd34d;
+  color: #ffe9a8; font-weight: 700; font-size: 15px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+  pointer-events: auto;
+}
+.ssm-pending-map[hidden] { display: none; }
 .ssm-action { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .ssm-cyl-btn {
   display: inline-flex;

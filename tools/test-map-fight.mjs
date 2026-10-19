@@ -324,9 +324,9 @@ if (banditChip) banditChip.click();
 await flush(20);
 const atk = mount.querySelector(".ssm-atk");
 if (atk) atk.click();
-await flush(10);
-if (joleneChip) joleneChip.click();
+/* 0.3.67: the cylinder menu already aims at Jolene, so Attacks fires straight away (no pick). */
 await flush(30);
+check("drawer.directFire", fightCalls.length === 1 && !mount.querySelector(".ssm-pending"), JSON.stringify(fightCalls));
 const drawer = mount.querySelector("[data-act=drawer]");
 check("drawer.wired", fightCalls.length === 1 && fightCalls[0].weaponId === "ballncap" && fightCalls[0].targetCombatantId === "p_jolene" && fightCalls[0].combatantId === "en_bandit1", JSON.stringify(fightCalls[0]));
 check("drawer.refresh", !!(drawer && drawer.textContent.includes("5/6")), drawer && drawer.textContent.slice(0, 240));

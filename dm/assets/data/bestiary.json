@@ -2125,7 +2125,7 @@
    },
    {
     "name": "Bound Saddle",
-    "text": "Summoned only by the Saddle of the Phantom Steed (Story Find, L0172; 1/dawn) or the Hexslinger spell Phantom Steed (Iron Horse). Not for sale at corrals. While the saddle's charge or the spell lasts, the steed obeys the summoner."
+    "text": "Summoned only by the Saddle of the Phantom Steed (Story Find, L0172) or the Hexslinger spell Phantom Steed (Iron Horse). Not for sale at corrals. The saddle's summon is instant and unlimited (L0182). The saddle's owner controls the steed. Any check involving the steed is the rider's choice of DC 15 Arcana or DC 12 Animal Handling (L0181)."
    },
    {
     "name": "Illusory Gear",
@@ -2133,7 +2133,7 @@
    },
    {
     "name": "Duration",
-    "text": "Typically 1 hour, or until dismissed (1/dawn from the Saddle). When the summon ends (duration, dismissal, or dispel), the steed fades over 1 minute for a safe dismount. Act I override: damage does not end the summon — only dispel, saddle dismissal, or duration end removes it (L0172)."
+    "text": "Typically 1 hour, or until dismissed. The Saddle can summon it again at any time, with no limit (L0182). When the summon ends (duration, dismissal, or dispel), the steed fades over 1 minute for a safe dismount. Act I override: damage does not end the summon — only dispel, saddle dismissal, or duration end removes it (L0172)."
    }
   ],
   "actions": [],

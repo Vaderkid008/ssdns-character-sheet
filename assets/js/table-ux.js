@@ -169,6 +169,7 @@
     if (!amount) return;
     var sel = $("atkTarget");
     var target = sel && sel.value;
+    if (target === "__free") target = "";
     var joined = root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined();
     var mine = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
     c.mercySpent = (Number(c.mercySpent) || 0) + amount;
