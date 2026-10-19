@@ -1097,6 +1097,8 @@ function renderFight() {
     if (rollAllBtn) rollAllBtn.hidden = !!fight.started;
     const rollInitBig = $("#btnRollInitAll");
     if (rollInitBig) rollInitBig.hidden = !!fight.started;
+    const endHead = $("#btnEndCombatHead");
+    if (endHead) endHead.hidden = !(fight.started || (fight.order && fight.order.length));
     if (!fight.order.length) {
       const empty = '<div class="empty"><b>No turn order</b>Add a player or an example creature. Initiative rolls from joined sheets land here.</div>';
       if (list && !(document.activeElement && list.contains(document.activeElement))) list.innerHTML = empty;
@@ -6076,6 +6078,8 @@ async function bootV2() {
   if (plusEnemy) plusEnemy.addEventListener("click", openAddEnemy);
   const endBtn = $("#btnEndCombat");
   if (endBtn) endBtn.addEventListener("click", endCombat);
+  const endHead = $("#btnEndCombatHead");
+  if (endHead) endHead.addEventListener("click", endCombat);
   const addCustom = $("#btnAddCustom");
   if (addCustom) addCustom.addEventListener("click", () => { addCustomEnemy({ clear: true }); });
   const mode = $("#damageMode");
@@ -6301,7 +6305,8 @@ function mapDrawerCard(row) {
         loaded: isFinite(loaded) ? loaded : 0,
         cap: cap,
         spare: a.spare != null ? a.spare : (a.ammo && a.ammo.spare),
-        chambers: chambers
+        chambers: chambers,
+        locked: Array.isArray(a.lockedChambers) ? a.lockedChambers.slice() : (a.ammo && Array.isArray(a.ammo.locked) ? a.ammo.locked.slice() : [])
       };
     }
     return attack;
