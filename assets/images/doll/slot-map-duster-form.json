@@ -1,0 +1,188 @@
+{
+ "canvas": [
+  1080,
+  1350
+ ],
+ "eldorite_counter": [
+  80,
+  1196,
+  280,
+  92
+ ],
+ "compass_badge": [
+  480,
+  -10,
+  120,
+  120
+ ],
+ "silhouette": [
+  334,
+  116,
+  413,
+  1206
+ ],
+ "slots": {
+  "hat": [
+   485,
+   161,
+   110,
+   110
+  ],
+  "neck": [
+   485,
+   322,
+   110,
+   110
+  ],
+  "coat": [
+   404,
+   485,
+   110,
+   110
+  ],
+  "vest": [
+   567,
+   485,
+   110,
+   110
+  ],
+  "gloves": [
+   235,
+   485,
+   110,
+   110
+  ],
+  "accessory_8": [
+   735,
+   485,
+   110,
+   110
+  ],
+  "gunbelt": [
+   485,
+   647,
+   110,
+   110
+  ],
+  "holster_l": [
+   325,
+   647,
+   110,
+   110
+  ],
+  "holster_r": [
+   645,
+   647,
+   110,
+   110
+  ],
+  "chaps": [
+   485,
+   816,
+   110,
+   110
+  ],
+  "boots": [
+   485,
+   1166,
+   110,
+   110
+  ],
+  "accessory_1": [
+   80,
+   160,
+   120,
+   120
+  ],
+  "accessory_2": [
+   222,
+   160,
+   120,
+   120
+  ],
+  "accessory_3": [
+   80,
+   300,
+   120,
+   120
+  ],
+  "accessory_4": [
+   222,
+   300,
+   120,
+   120
+  ],
+  "accessory_5": [
+   738,
+   160,
+   120,
+   120
+  ],
+  "accessory_6": [
+   880,
+   160,
+   120,
+   120
+  ],
+  "accessory_7": [
+   880,
+   300,
+   120,
+   120
+  ],
+  "ring_1": [
+   80,
+   492,
+   120,
+   120
+  ],
+  "ring_2": [
+   880,
+   492,
+   120,
+   120
+  ],
+  "revolver_1": [
+   75,
+   676,
+   130,
+   130
+  ],
+  "revolver_2": [
+   875,
+   676,
+   130,
+   130
+  ],
+  "long_gun": [
+   75,
+   882,
+   130,
+   290
+  ],
+  "melee": [
+   230,
+   882,
+   130,
+   290
+  ],
+  "focus_borrowed_iron": [
+   735,
+   882,
+   270,
+   290
+  ]
+ },
+ "trinket_group_labels": [
+  [
+   211,
+   160
+  ],
+  [
+   869,
+   160
+  ]
+ ],
+ "label_band": 38,
+ "layout_note": "2026-10-19 v2 direction A 'Duster Form' (drop-in 1080x1350): solid saddle-leather mannequin with brass edge + stitching baked into the frame, blank interior. Same keys as B6. v2 lean build (~7.5 heads, slim waist, near-straight duster). Coat/Vest on the chest, Belt low on the waist, Holster L/R on the hips, Chaps on the thighs; Gloves/Shield beside the elbows; shield is accessory_8. Every box keeps >= 16px clear of every other box and plate (B6 had 1-6px). label_band 38 as before. silhouette = figure bbox; the figure is baked into the frame, so drop the separate .doll-sil <img> (or use figure-duster-form PNG at this rect instead of a figure-less frame)."
+}

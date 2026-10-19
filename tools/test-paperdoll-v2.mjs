@@ -24,8 +24,13 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
   vm.createContext(sb);
   vm.runInContext(read("assets/js/paper-doll.js"), sb);
   const D = sb.SSDNSDoll, BOX = D.BOX, BAND = D.PLATE_BAND;
-  const map = JSON.parse(read("assets/images/doll/slot-map-B6.json"));
-  check("layout.mapSynced", Object.keys(BOX).every((k) => JSON.stringify(map.slots[k]) === JSON.stringify(BOX[k])));
+  const map = JSON.parse(read("assets/images/doll/slot-map-duster-form.json"));
+  check("layout.mapSynced", Object.keys(BOX).length === 25 && Object.keys(BOX).every((k) => JSON.stringify(map.slots[k]) === JSON.stringify(BOX[k])) && JSON.stringify(map.trinket_group_labels) === JSON.stringify(D.TRINKET_HEADS) && JSON.stringify(map.eldorite_counter) === JSON.stringify(D.COUNTER));
+  /* Duster Form: figure baked into the frame, so there is exactly one figure (no separate silhouette layer). */
+  const dh = D.html({ items: [] }, {});
+  check("frame.dusterForm", D.FRAME === "frame-duster-form-1080x1350.webp" && dh.includes(D.FRAME) && fs.existsSync(path.join(root, "assets/images/doll", D.FRAME)));
+  check("frame.noSilhouette", !/doll-sil|silhouette-600x1100/.test(dh) && !/frame-B6/.test(read("assets/js/paper-doll.js")));
+  check("css.labelMinFont", /\.doll-cell > \.doll-label, \.doll > \.doll-group-label \{ font-size: max\(8px, 2\.1cqw\); \}/.test(read("assets/css/sheet.css")));
   /* Plate size in canvas units (1080 wide): font 2.1cqw = 22.7; Rye runs ~0.74em per glyph; padding 1em total + border. */
   const FONT = 22.7;
   const plateW = (t) => (t.length * 0.74 + 1.0) * FONT + 4;

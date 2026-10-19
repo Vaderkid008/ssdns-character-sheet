@@ -928,7 +928,6 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 /* Paper doll (0.3.54) — Art Bot B6 frame */
 .doll-wrap { max-width: 540px; margin: 0 auto 14px; }
 .doll { position: relative; width: 100%; aspect-ratio: 1080 / 1350; background-size: 100% 100%; background-repeat: no-repeat; container-type: inline-size; }
-.doll-sil { position: absolute; object-fit: contain; pointer-events: none; opacity: .55; }
 .doll-slot { position: absolute; padding: 0; border: 0; background-color: transparent; background-size: 100% 100%; cursor: pointer; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; font: inherit; color: #2b1d10; }
 .doll-ro .doll-slot { cursor: default; }
 .doll-slot:hover:not(div), .doll-slot:focus-visible { outline: 3px solid #8d1c14; outline-offset: -2px; }
@@ -1058,3 +1057,11 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 /* Worn-gear art (2026-10-19): contain inside the box; wide pieces (gun belt, bandolier, pair rig) get a little extra scale. */
 .doll-slot .doll-art { object-fit: contain; }
 .doll-slot.doll-wideart .doll-art { transform: scale(1.18); }
+/* Duster Form frame (2026-10-19): the figure is baked into the frame (no .doll-sil layer).
+   Plates never shrink below 8px, so they stay readable on a 390px phone. */
+.doll-cell > .doll-label, .doll > .doll-group-label { font-size: max(8px, 2.1cqw); }
+/* Caption: one small line in a strip under the art so the gear art isn't covered; the full name is in the tooltip. */
+.doll-slot.filled:not(.doll-tall):not(.doll-wide) .doll-art { inset: 6% 8% 25%; width: 84%; height: 69%; }
+.doll-slot.filled .doll-name { font-size: max(6.5px, 1.05cqw); line-height: 1.15; -webkit-line-clamp: 1; white-space: nowrap; text-overflow: ellipsis; display: block;
+  max-width: 88%; margin-bottom: 5%; padding: .05em .3em; box-shadow: none; background: rgba(246,234,207,.85); }
+.doll-tall.filled .doll-name, .doll-wide.filled .doll-name { margin-bottom: 4%; }

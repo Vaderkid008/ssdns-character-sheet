@@ -1,26 +1,25 @@
-/* SSDNS paper doll (sheet 0.3.54). Art Bot take B6: frame + silhouette + 25 slot boxes.
+/* SSDNS paper doll (sheet 0.3.54; Duster Form frame 2026-10-19). Frame with the figure baked in + 25 slot boxes.
    Worn slots hold Items (item.equipSlot). Weapon slots mirror the Gear tab.
    Only slotted (and, if needed, attuned) items give bonuses. Holster rigs don't stack. Dex caps at 20. */
 (function (root) {
   "use strict";
   var W = 1080, H = 1350;
-  /* 2026-10-19 layout: every slot's label plate sits centered directly above its box, so each box keeps a
+  /* 2026-10-19 Duster Form layout (assets/images/doll/slot-map-duster-form.json): every slot's label plate sits centered directly above its box, so each box keeps a
      clear band above it (>= 38 of 1350) that no other box or plate uses. Trinkets share one "Trinkets" plate per group. */
   var BOX = {
-    hat: [485, 150, 110, 110], neck: [485, 300, 110, 110], coat: [405, 455, 110, 110], vest: [565, 455, 110, 110],
-    gunbelt: [485, 605, 110, 110], holster_l: [330, 615, 110, 110], holster_r: [640, 615, 110, 110], gloves: [345, 770, 110, 110],
-    chaps: [485, 790, 110, 110], boots: [485, 1060, 110, 110],
-    accessory_1: [74, 110, 120, 120], accessory_2: [74, 240, 120, 120], accessory_3: [214, 110, 120, 120], accessory_4: [214, 240, 120, 120],
-    accessory_5: [876, 110, 120, 120], accessory_6: [806, 240, 120, 120], accessory_7: [736, 110, 120, 120], accessory_8: [736, 410, 120, 120],
-    ring_1: [74, 410, 120, 120], ring_2: [876, 410, 120, 120],
-    revolver_1: [74, 680, 130, 130], revolver_2: [876, 680, 130, 130], long_gun: [74, 860, 130, 290], melee: [214, 860, 130, 290],
-    focus_borrowed_iron: [736, 860, 270, 290]
+    hat: [485, 161, 110, 110], neck: [485, 322, 110, 110], coat: [404, 485, 110, 110], vest: [567, 485, 110, 110],
+    gloves: [235, 485, 110, 110], accessory_8: [735, 485, 110, 110], gunbelt: [485, 647, 110, 110], holster_l: [325, 647, 110, 110],
+    holster_r: [645, 647, 110, 110], chaps: [485, 816, 110, 110], boots: [485, 1166, 110, 110], accessory_1: [80, 160, 120, 120],
+    accessory_2: [222, 160, 120, 120], accessory_3: [80, 300, 120, 120], accessory_4: [222, 300, 120, 120], accessory_5: [738, 160, 120, 120],
+    accessory_6: [880, 160, 120, 120], accessory_7: [880, 300, 120, 120], ring_1: [80, 492, 120, 120], ring_2: [880, 492, 120, 120],
+    revolver_1: [75, 676, 130, 130], revolver_2: [875, 676, 130, 130], long_gun: [75, 882, 130, 290], melee: [230, 882, 130, 290],
+    focus_borrowed_iron: [735, 882, 270, 290]
   };
   /* One shared plate over each trinket group: [centerX, topOfGroup]. */
-  var TRINKET_HEADS = [[204, 110], [866, 110]];
+  var TRINKET_HEADS = [[211, 160], [869, 160]];
   var PLATE_BAND = 38;
-  var COUNTER = [240, 1158, 235, 174];
-  var SIL = [310, 118, 460, 1080];
+  var FRAME = "frame-duster-form-1080x1350.webp";
+  var COUNTER = [80, 1196, 280, 92];
   /* label, accepted item.wear values, kind */
   var SLOTS = {
     hat: ["Head", ["head", "hat", "helm"]], neck: ["Neck", ["neck", "amulet"]], coat: ["Cloak", ["cloak", "coat"]],
@@ -403,8 +402,8 @@
   function html(c, opts) {
     opts = opts || {};
     var ro = !!opts.readOnly;
-    var parts = ['<div class="doll' + (ro ? " doll-ro" : "") + '" style="background-image:url(' + img("frame-B6-clean-1080x1350.webp") + ')">',
-      '<img class="doll-sil" alt="" src="' + img("silhouette-600x1100.webp") + '" style="' + pct(SIL) + '">'];
+    /* Duster Form frame (Art Bot, Jessey-approved 2026-10-19): the figure is baked into the frame, so there is no separate silhouette layer. */
+    var parts = ['<div class="doll' + (ro ? " doll-ro" : "") + '" style="background-image:url(' + img(FRAME) + ')">'];
     var rr = R(), E = root.SSDNSEquip;
     var isBelt = function (h) { return !!h && (E && E.isBeltHolster ? E.isBeltHolster(h) : /belt|bandolier/i.test(h.id)); };
     var isPair = function (h) { return !!h && !!(E && E.isPairHolster && E.isPairHolster(h)); };
@@ -578,5 +577,5 @@
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
+  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
 })(typeof window !== "undefined" ? window : globalThis);
