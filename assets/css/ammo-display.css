@@ -259,3 +259,14 @@
 .ssdns-ammo-dots.is-drawer .ammo-round.rt-ball { width: 25px; height: 25px; }
 .ssdns-ammo-dots.is-gear .ammo-round.rt-ball { width: 23px; height: 23px; }
 .ssdns-ammo-dots.is-strip .ammo-round.rt-ball { width: 17px; height: 17px; }
+/* 0.3.53 sample: a misfired powder & ball chamber keeps the lead ball and gets a red ring + red X,
+   so the ball itself never reads as red. */
+.ssdns-ammo .ammo-round.is-jam.rt-ball {
+  border: 2px solid #e23b32;
+  background:
+    linear-gradient(45deg, transparent 0 43%, #e23b32 43% 57%, transparent 57%),
+    linear-gradient(-45deg, transparent 0 43%, #e23b32 43% 57%, transparent 57%),
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55) 0 6%, rgba(220, 224, 228, 0.35) 14%, transparent 34%),
+    radial-gradient(circle at 42% 38%, #a3a8ad, #7c8288 34%, #555b61 66%, #2f3337 92%);
+  box-shadow: 0 0 0 1px #4a100c, inset 0 -2px 3px rgba(0, 0, 0, 0.45);
+}
