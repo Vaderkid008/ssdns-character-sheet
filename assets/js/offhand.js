@@ -1,5 +1,5 @@
 /**
- * Off-hand attack (two-weapon fighting), sheet 0.3.70.
+ * Off-hand attack (two-weapon fighting), sheet 0.3.72.
  * Rules (BOOK1.md Property Key "light: as PHB"; Feats › Dual Wielder, campaign house rule):
  *  - Without Dual Wielder: PHB two-weapon fighting. Both weapons are LIGHT one-handed MELEE weapons.
  *  - Pistols are one-handed but NOT light (Dual Wielder note), so twin irons need Dual Wielder.
@@ -49,6 +49,8 @@
     var out = { ok: false, dualWielder: hasDualWielder(c), list: [], reason: "" };
     if (!c) { out.reason = "No character."; return out; }
     var dw = out.dualWielder;
+    /* A shield fills the other hand: no weapon in each hand, no two-weapon fighting (PHB). */
+    if (c.shield) { out.reason = "Off-hand needs a weapon in each hand; the shield fills one."; return out; }
     var v = view();
     (c.guns || []).forEach(function (g, i) {
       if (!g || !g.weapon || g.equipped === false || g.weapon === "borrowed-iron") return;
@@ -60,6 +62,7 @@
       if (!m || !m.weapon || m.equipped === false) return;
       var w = meleeRow(m.weapon);
       if (!w || twoHanded(w)) return;
+      if (m.twoHand && /versatile/i.test(props(w))) return; /* swung two-handed (Versatile grip): not a one-hand weapon now */
       var light = lightMelee(w);
       out.list.push({ kind: "melee", index: i, id: "melee:" + i, name: labelName(w, m.weapon), side: "", light: light, pistol: false, caster: false, counts: dw || light });
     });

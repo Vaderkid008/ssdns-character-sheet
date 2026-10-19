@@ -1,5 +1,5 @@
 /**
- * 0.3.70: Off-hand attack (two-weapon fighting).
+ * 0.3.72 / DMCC 0.2.85: Off-hand attack (two-weapon fighting).
  * Rules: PHB two-weapon fighting (two LIGHT one-handed melee weapons); Dual Wielder (campaign house rule) lets
  * any pistol, one-handed Caster Gun or one-handed blade pair work; pistols are one-handed but not light.
  * Bonus action after the Attack action, normal attack path, no positive ability mod to damage, chat tagged off-hand.
@@ -39,6 +39,63 @@ const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
   check("wire.dmccMap", (v2.match(/if \(detail\.offhand\) payload\.offhand = true/g) || []).length === 2);
   check("wire.dmccDetail", /id="detailOffhand"/.test(v2) && /payload\.offhand = true; ohBox\.checked = false/.test(v2));
   check("wire.dmJoin", /if \(payload\.offhand\) root\.SSDNSGunRoll\._offhand = true/.test(join) && /SSDNSGunRoll\._offhand = null/.test(join));
+}
+
+/* DM map drawer (acting for a PC): the Off-hand toggle rides on the next weapon shot, then clears */
+{
+  const { JSDOM } = await import("jsdom");
+  const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true, runScripts: "dangerously" });
+  const w = dom.window;
+  const proto = w.HTMLElement.prototype;
+  Object.defineProperty(proto, "clientWidth", { configurable: true, get() { return 800; } });
+  Object.defineProperty(proto, "clientHeight", { configurable: true, get() { return 600; } });
+  proto.getBoundingClientRect = function () { return { x: 0, y: 0, left: 0, top: 0, right: 800, bottom: 600, width: 800, height: 600, toJSON() { return {}; } }; };
+  w.HTMLCanvasElement.prototype.getContext = function () { const bag = {}; return new Proxy(bag, { get(t, p) { if (p in t) return t[p]; if (typeof p !== "string") return undefined; return function () { return bag; }; }, set(t, p, v) { t[p] = v; return true; } }); };
+  w.HTMLImageElement.prototype.decode = function () { return Promise.resolve(); };
+  w.ResizeObserver = class { observe() {} disconnect() {} unobserve() {} };
+  const add = (rel) => { const sc = w.document.createElement("script"); sc.textContent = read(rel); w.document.body.appendChild(sc); };
+  add("assets/js/range-rings.js"); add("map/ssdns-map-firebase.js"); add("map/ssdns-map.js");
+  const scene = JSON.parse(read("map/scene-dusty-spur.json"));
+  const tokens = { tokens: {
+    ply_p_d: { id: "ply_p_d", kind: "player", name: "Dust", combatantId: "p_d", ownerUid: "p_d", size: 1, pos: { x: 12, y: 8 } },
+    tok_en: { id: "tok_en", kind: "enemy", name: "Bandit", combatantId: "en_b", size: 1, pos: { x: 16, y: 8 } }
+  } };
+  const pcCard = { kind: "pc", name: "Dust", dmActsAs: true, ac: 14, hp: { cur: 20, max: 20 },
+    attacks: [{ id: "gun-0", name: "ChaosMaker", toHit: 6, damage: "1d8+3", range: "20/60", group: "pistol", ammo: { cap: 6, loaded: 6 } },
+      { id: "gun-1", name: "ChaosMaker", toHit: 6, damage: "1d8+3", range: "20/60", group: "pistol", ammo: { cap: 6, loaded: 6 } }] };
+  const events = [];
+  const host = {
+    on(name, detail) { events.push({ name, detail }); },
+    getCard(id) { return (id === "ply_p_d" || id === "p_d") ? pcCard : { kind: "enemy", name: "Bandit", ac: 12, hp: { cur: 10, max: 10 }, attacks: [] }; },
+    combatTargets() { return { selected: "en_b", options: [{ id: "en_b", name: "Bandit", label: "Bandit · AC 12" }] }; },
+    actions: { get() { return []; }, run() { return Promise.resolve(); } },
+    players() { return []; }
+  };
+  const el = w.document.createElement("div"); w.document.body.appendChild(el);
+  w.SSDNSMap.create({ el, role: "dm", uid: "dm", adapter: w.SSDNSMapFirebase.memory({ role: "dm" }), host, options: { scene, tokens, assetBase: "", players: () => [], room: { table: { initiative: { order: [], turn: 0 } } } } });
+  await new Promise((r) => setTimeout(r, 80));
+  const canvas = el.querySelector("canvas");
+  const at = { x: (12 + 0.5) * 70 - 650, y: (8 + 0.5) * 70 - 400 };
+  const Ev = w.PointerEvent || w.MouseEvent;
+  for (const type of ["pointerdown", "pointerup"]) { const ev = new Ev(type, { bubbles: true, cancelable: true, clientX: at.x, clientY: at.y, button: 0, buttons: 1 }); try { Object.defineProperty(ev, "pointerId", { value: 1 }); } catch (e) {} canvas.dispatchEvent(ev); }
+  await new Promise((r) => setTimeout(r, 30));
+  const drawer = () => el.querySelector('[data-act="drawer"]');
+  const box = () => drawer() && drawer().querySelector('[data-act="offhandToggle"]');
+  check("drawer.toggleShown", !!box(), (drawer() && drawer().textContent.slice(0, 60)));
+  if (box()) {
+    box().checked = true; box().dispatchEvent(new w.Event("change", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    check("drawer.toggleKept", !!box() && box().checked);
+    drawer().querySelector('.ssm-atk[data-wid="gun-1"]').click();
+    await new Promise((r) => setTimeout(r, 30));
+    const shots = events.filter((e) => e.name === "drawer:target");
+    check("drawer.offhandSent", shots.length === 1 && shots[0].detail.offhand === true && shots[0].detail.weaponId === "gun-1" && shots[0].detail.targetCombatantId === "en_b", J(shots.map((e) => e.detail)));
+    check("drawer.clearsAfter", !!box() && !box().checked);
+    drawer().querySelector('.ssm-atk[data-wid="gun-0"]').click();
+    await new Promise((r) => setTimeout(r, 30));
+    const shots2 = events.filter((e) => e.name === "drawer:target");
+    check("drawer.nextShotPlain", shots2.length === 2 && !shots2[1].detail.offhand, J(shots2.map((e) => e.detail)));
+  }
 }
 
 function portOpen(port, host) { return new Promise((r) => { const s = net.connect({ port, host }, () => { s.end(); r(true); }); s.on("error", () => r(false)); }); }
@@ -135,6 +192,13 @@ try {
       c.melee = [{ weapon: "cavalry-saber-longsword", equipped: true, proficient: true }, { weapon: "" }, { weapon: "" }, { weapon: "" }]; });
     await wait(400);
     out.mix = { ok: O.options().ok, kinds: O.options().list.map((x) => x.kind) };
+    /* a shield fills the other hand; a Versatile blade gripped two-handed isn't a one-hand weapon */
+    load((c) => { c.feats = ["dual-wielder"]; c.shield = true; }); await wait(300);
+    out.shield = { ok: O.options().ok, reason: O.options().reason };
+    load((c) => { c.feats = ["dual-wielder"]; c.shield = false; c.guns = [gunRow("pony-arms-chaosmaker-medium", 6), { weapon: "" }, { weapon: "" }, { weapon: "" }];
+      c.melee = [{ weapon: "cavalry-saber-longsword", equipped: true, proficient: true, twoHand: true }, { weapon: "" }, { weapon: "" }, { weapon: "" }]; });
+    await wait(300);
+    out.grip = { ok: O.options().ok };
     Math.random = realRandom;
     return out;
   });
@@ -160,6 +224,8 @@ try {
   check("melee.noMod", /Damage: d4 \d+ = \d+/.test(res.meleeOff.log) && !/\(mod\)/.test(res.meleeOff.log) && /\+ 3 \(mod\)/.test(res.meleeOff.main), J(res.meleeOff));
   check("melee.nonLightNeedsDW", !res.saber.ok, J(res.saber));
   check("mix.pistolBlade", res.mix.ok && J(res.mix.kinds) === J(["gun", "melee"]), J(res.mix));
+  check("rules.shieldBlocks", !res.shield.ok && /shield/.test(res.shield.reason), J(res.shield));
+  check("rules.twoHandGripBlocks", !res.grip.ok, J(res.grip));
   check("sheet.noPageErrors", errs.length === 0, errs.join(" | "));
 
   /* DMCC demo loads clean with the new drawer toggle and detail checkbox */

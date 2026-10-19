@@ -1858,7 +1858,7 @@
        Adv/Dis mode and answered the disadvantage confirm, so this sheet never prompts for it. */
     var dmNow = rollGun._dm || null;
     rollGun._dm = null;
-    /* 0.3.70: off-hand attack (bonus action, no positive ability mod to damage). Kept through the target/range asks. */
+    /* 0.3.72: off-hand attack (bonus action, no positive ability mod to damage). Kept through the target/range asks. */
     var offNow = !!rollGun._offhand;
     rollGun._offhand = null;
     var OH = offNow ? root.SSDNSOffhand : null;

@@ -1642,7 +1642,7 @@
       }
       if (payload.dm) root.SSDNSGunRoll._dm = { mode: payload.mode === "adv" || payload.mode === "dis" ? payload.mode : "" };
       if (payload.free) root.SSDNSGunRoll._free = true;
-      /* 0.3.70: DM-sent off-hand shot: Bonus pip, no positive ability mod to damage, chat tagged off-hand */
+      /* 0.3.72: DM-sent off-hand shot: Bonus pip, no positive ability mod to damage, chat tagged off-hand */
       if (payload.offhand) root.SSDNSGunRoll._offhand = true;
       try { root.SSDNSGunRoll(payload.index, payload.chamber); }
       finally { root.SSDNSGunRoll._dm = null; root.SSDNSGunRoll._free = null; root.SSDNSGunRoll._offhand = null; }

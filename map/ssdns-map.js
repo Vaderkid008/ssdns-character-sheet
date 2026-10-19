@@ -2282,7 +2282,7 @@ function armRange(attack, targetId, shooterId) {
 function noteOverride(verdict) {
   if (verdict && verdict.log && role === 'dm') emit('chat:send', { text: verdict.log });
 }
-/* 0.3.70: DM drawer 'Off-hand' toggle: the next PC weapon shot is the off-hand (bonus action) attack. */
+/* 0.3.72: DM drawer 'Off-hand' toggle: the next PC weapon shot is the off-hand (bonus action) attack. */
 function offhandToggle(show) {
   if (!show) return '';
   return '<label class="ssm-offhand" title="Bonus action after the Attack action. The sheet spends their Bonus pip and drops a positive ability mod from damage.">' +
@@ -5475,7 +5475,7 @@ async function loadSceneImage(sceneId, opts) {
         : 'Robbing is frowned on in town and by lawmen and can lead to a confrontation. The DM decides whether it counts as a robbery or a disarm. No automatic reputation tracking.');
     const grabAttr = (grabDisabled ? ' disabled' : '') + ' title="' + esc(grabTitle) + '"';
     const detail = (extra) => Object.assign({ tokenId: tokenId, combatantId: tokenCombatant(tokenId) }, extra || {});
-    /* 0.3.70: off-hand flag for the next PC weapon shot the DM sends (one shot, then it clears) */
+    /* 0.3.72: off-hand flag for the next PC weapon shot the DM sends (one shot, then it clears) */
     const shotDetail = (extra) => detail(Object.assign(state.drawerOffhand ? { offhand: true } : {}, extra || {}));
     const maxHp = Number(hp.max);
     const haveCur = hp.cur !== "" && hp.cur != null && isFinite(Number(hp.cur));

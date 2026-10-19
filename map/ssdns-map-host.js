@@ -383,7 +383,7 @@
         damage: dmgEl ? String(dmgEl.textContent || "").trim() : ((w && w.damage) || "")
       });
     });
-    /* 0.3.70: off-hand attacks (bonus action). Same weapon, own button; no ammo row so cylinders stay single. */
+    /* 0.3.72: off-hand attacks (bonus action). Same weapon, own button; no ammo row so cylinders stay single. */
     var OH = root.SSDNSOffhand;
     var oh = OH && OH.options ? OH.options(c) : null;
     if (oh && oh.ok) {

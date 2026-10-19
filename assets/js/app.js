@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.71"; // sheet-playtest-v0371
+  var APP_VERSION = "0.3.72"; // sheet-playtest-v0372
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1019,7 +1019,7 @@
     var longGun = g === "rifle" || g === "carbine" || g === "bigbore";
     var bow = g === "bow" || /bow/.test(g);
     if (st === "long-gun" && longGun) return 2;
-    /* 0.3.71 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
+    /* 0.3.72 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
     if (st === "archery" && (bow || longGun || !isMeleeWeapon(w) || (opts && opts.thrown))) return 2;
     return 0;
   }
@@ -2680,7 +2680,7 @@
     if (g.fouled) return { ok: false, reason: "Fouled. It can't fire until it's cleaned." };
     if (w && w.capacity) {
       var a = normChambers(g, w);
-      /* 0.3.70: null (no chamber picked; rollGun resets its chamber to null after each shot) is not a click.
+      /* 0.3.72: null (no chamber picked; rollGun resets its chamber to null after each shot) is not a click.
          Before this, every Roll after the first one answered "Click." and didn't fire. */
       var clicked = k !== undefined && k !== null;
       var click = window.SSDNSApplied && window.SSDNSApplied.chamberClick

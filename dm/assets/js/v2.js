@@ -3165,7 +3165,7 @@ async function rollGunAttack(pid) {
   const payload = { op: "fire", index: gi, dm: true };
   if (mode === "adv" || mode === "dis") payload.mode = mode;
   const ohBox = $("#detailOffhand");
-  if (ohBox && ohBox.checked) { payload.offhand = true; ohBox.checked = false; } /* 0.2.83: off-hand, one shot */
+  if (ohBox && ohBox.checked) { payload.offhand = true; ohBox.checked = false; } /* 0.2.85: off-hand, one shot */
   await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
   if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
   const whoName = namesFor(pid).characterName || s.name || "them";
@@ -5976,7 +5976,7 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.84-mounts");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.85-mounts");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
@@ -7369,7 +7369,7 @@ async function mapFreeShot(i, row, detail) {
     if (!atk) { DM.toast("No attack"); return false; }
     const pid = row.playerId || row.id;
     const payload = { op: "fire", index: sheetSlot(atk, n), dm: true, free: true };
-    if (detail.offhand) payload.offhand = true; /* 0.2.83: off-hand (bonus action) shot */
+    if (detail.offhand) payload.offhand = true; /* 0.2.85: off-hand (bonus action) shot */
     if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
     await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
     if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
@@ -7413,7 +7413,7 @@ window.SSDNSMapFight = {
       const picked = await dmFireMode(pid, atk);
       if (picked == null) { if (window.SSDNSRangeRings) window.SSDNSRangeRings.clear(); return false; }
       const payload = { op: "fire", index: gi, dm: true };
-      if (detail.offhand) payload.offhand = true; /* 0.2.83: off-hand (bonus action) shot */
+      if (detail.offhand) payload.offhand = true; /* 0.2.85: off-hand (bonus action) shot */
       if (picked) payload.mode = picked;
       if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
       if (targetId) payload.targetId = targetId;
