@@ -633,6 +633,14 @@
       sfx: entry.sfx || "attack"
     };
     if (entry.shots && typeof entry.shots === "object") row.shots = entry.shots;
+    /* 0.3.60: carry the card breakdown so the DM's card shows the d20 and damage die faces */
+    if (entry.n1 != null && isFinite(Number(entry.n1))) row.n1 = Number(entry.n1);
+    if (entry.n2 != null && isFinite(Number(entry.n2))) row.n2 = Number(entry.n2);
+    if (Array.isArray(entry.parts) && entry.parts.length) row.parts = entry.parts.map(function (p) { return { label: String((p && p.label) || ""), value: Number(p && p.value) || 0 }; });
+    if (Array.isArray(entry.dmgFaces) && entry.dmgFaces.length) row.dmgFaces = entry.dmgFaces.map(function (n) { return Number(n) || 0; });
+    if (Array.isArray(entry.dmgParts) && entry.dmgParts.length) row.dmgParts = entry.dmgParts.map(function (p) { return { label: String((p && p.label) || ""), value: Number(p && p.value) || 0 }; });
+    if (entry.dmgFormula) row.dmgFormula = String(entry.dmgFormula);
+    if (entry.dmgType) row.dmgType = String(entry.dmgType);
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row);
   }
   function postAttack(entry) {

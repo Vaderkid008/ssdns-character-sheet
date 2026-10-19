@@ -66,7 +66,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.59"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.60"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -378,14 +378,14 @@
      - Misfire-type cues are immediate; other colliding cues are spaced SFX_GAP_MS apart.
      - No cue waits more than MAX_WAIT_MS from its request. */
   var SFX_GAP_MS = 250;
-  var RESULT_AFTER_SHOT_MS = 550;
+  var RESULT_AFTER_SHOT_MS = 750;
   var DOWNED_AFTER_RESULT_MS = 450;
   var CRIT_LEAD_MS = 150;
   var CRIT_BEFORE_SHOT = false;
   var JITTER_MS = 20;
-  var MAX_WAIT_MS = 1500;
+  var MAX_WAIT_MS = 1800;
   var SHOT_START_TIMEOUT_MS = 1000;
-  var ANCHOR_WINDOW_MS = 1500;
+  var ANCHOR_WINDOW_MS = 1800;
   var RESULT_DELAY_MS = RESULT_AFTER_SHOT_MS;
   var IMMEDIATE = { misfire: 1, jam: 1, "empty-click": 1 };
   var SHOT_CUES = { attack: 1, rifle: 1, revolver: 1, plinker: 1, "lever-fire": 1, shotgun: 1, buffalo: 1, silenced: 1, gatling: 1,

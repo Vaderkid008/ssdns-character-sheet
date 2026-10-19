@@ -745,6 +745,7 @@
       hideVerdict: true,
       damage: hasDmg ? {
         faces: info.dmgFaces || null,
+        formula: info.dmgFormula || "",
         parts: info.dmgParts || null,
         total: info.damage,
         type: info.dmgType || "",
@@ -801,6 +802,7 @@
         n2: info.n2,
         parts: info.parts || null,
         dmgFaces: info.dmgFaces || null,
+        dmgFormula: info.dmgFormula || "",
         dmgParts: info.dmgParts || null,
         dmgType: info.dmgType || "",
         crit: Number(info.nat) === 20,
@@ -1964,6 +1966,7 @@
         damage: pendingDmg ? pendingDmg.total : 0,
         dice: pendingDmg ? pendingDmg.detail : "",
         dmgFaces: pendingDmg ? pendingDmg.faces : null,
+        dmgFormula: pendingDmg ? pendingDmg.formula : "",
         dmgParts: gunStat && gunStat.dmgParts,
         dmgType: gunStat && gunStat.dmgType,
         formula: (n2 == null ? "1d20" : "2d20") + ((bonus >= 0 ? "+" : "") + bonus),
@@ -1992,7 +1995,7 @@
       ? root.SSDNSApplied.attackBreakdown({
         who: who, target: tgt && tgt.name, weapon: name, nat: nat, n1: n1, n2: n2, parts: parts, total: total,
         ac: haveAc ? gunCover.ac : (tgt && tgt.ac), revealAc: !acHidden(tgt), misfire: misfired, miss: miss, coverNote: gunCover.note,
-        damage: dmg ? { faces: dmg.faces, parts: dmgParts, total: dmg.total, type: (gunStat && gunStat.dmgType) || "piercing" } : null
+        damage: dmg ? { faces: dmg.faces, formula: dmg.formula, parts: dmgParts, total: dmg.total, type: (gunStat && gunStat.dmgType) || "piercing" } : null
       })
       : null;
     var report = attackReport({

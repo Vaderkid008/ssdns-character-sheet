@@ -1151,7 +1151,14 @@
     if (!miss && dmg && typeof dmg === "object") {
       var dFaces = Array.isArray(dmg.faces) ? dmg.faces.filter(function (n) { return n != null && n !== ""; }) : [];
       var dParts = Array.isArray(dmg.parts) ? dmg.parts.filter(function (p) { return p && Number(p.value); }) : [];
-      var faceTxt = damageDice(dmg.dice, dFaces) || (dFaces.length ? dFaces.join("+") : String(dmg.dice || ""));
+      /* 0.3.60: live callers pass the faces plus a formula ("1d8+2"); "dice" is often the face detail ("4+2"), not a formula */
+      var dFormula = dmg.formula || dmg.expr || (/\d*d\d+/i.test(String(dmg.dice || "")) ? dmg.dice : "");
+      if (!dParts.length && dFormula) {
+        var flatM = String(dFormula).replace(/\s+/g, "").replace(/\d*d\d+/gi, "").match(/[+-]\d+/g);
+        var flatN = flatM ? flatM.reduce(function (a, t) { return a + (parseInt(t, 10) || 0); }, 0) : 0;
+        if (flatN) dParts = [{ label: "mod", value: flatN }];
+      }
+      var faceTxt = damageDice(dFormula, dFaces) || (dFaces.length ? dFaces.join("+") : String(dmg.dice || ""));
       var extra = dParts.map(function (p) { var v = Number(p.value); return (v < 0 ? "- " + Math.abs(v) : "+ " + v) + " (" + (p.label || "mod") + ")"; }).join(" ");
       var dTotal = dmg.total != null && dmg.total !== "" ? dmg.total : "";
       var type = dmg.type ? (" " + dmg.type) : "";

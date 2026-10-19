@@ -588,7 +588,7 @@
         parts: [{ label: "bonus", value: atk }], total: hitTotal, ac: haveAc ? meleeCover.ac : null, coverNote: meleeCover.note,
         revealAc: !(root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt)),
         miss: miss, crit: crit && !miss,
-        damage: !miss ? { faces: rolls, parts: flat ? [{ label: "mod", value: flat }] : [], total: total, type: "" } : null
+        damage: !miss ? { faces: rolls, formula: formula, parts: flat ? [{ label: "mod", value: flat }] : [], total: total, type: "" } : null
       })
       : null;
     var line = (card ? card.text : ((tgt && tgt.name ? (who + " → " + tgt.name) : who) + ": " + name + " · " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt)) + (faced.note ? " · " + faced.note : "") + modeWord;
