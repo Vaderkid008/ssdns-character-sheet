@@ -246,7 +246,7 @@ const pcHtml = w.SSDNSMapCards.get(jolene.id);
 const spellBtn = drawer.querySelector('[data-sid="fireball"]');
 check("enemy.castReady", !!spellBtn && !spellBtn.disabled);
 click(spellBtn);
-check("spell.targetMode", !!(act("drawer") && act("drawer").textContent.includes("Click a token to target")));
+check("spell.targetMode", !!(act("drawer") && act("drawer").textContent.includes("Click a target")));
 await w.SSDNSMapFight.cast({ tokenId: caster.mapTokenId, combatantId: caster.id, spellId: "fireball", targetTokenId: "p1", targetCombatantId: "p1" });
 check("spell.noDialog", !w.__prompted);
 check("spell.damage", jolene.hp === 12, "hp " + jolene.hp);

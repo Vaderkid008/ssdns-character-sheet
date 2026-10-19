@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.79"; // dmcc-playtest-v0279
+const VERSION = "0.2.80"; // dmcc-playtest-v0280
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -784,7 +784,7 @@ async function pushRoll(entry) {
   try {
     await state._fb.set(roomRef("rolls/" + entry.id), entry);
     if (!entry.private) {
-      const text = (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result ?? "") + (entry.detail ? " (" + entry.detail + ")" : "");
+      const text = entry.freeShot && entry.detail ? entry.detail : (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result ?? "") + (entry.detail ? " (" + entry.detail + ")" : "");
       const feed = {
         id: entry.id, ts: entry.ts, from: state.uid || "dm", fromName: "DM",
         text: text, kind: "roll", who: entry.who || "DM",
@@ -1642,6 +1642,8 @@ function paintLine(entry, text) {
 }
 function rollBody(r) {
   const detail = rollDetail(r);
+  /* 0.2.80: a Free shot is one line, "<Name> shoots freely · 1d20+B = T" (no label + formula head) */
+  if (r && r.freeShot && detail) return detail;
   if (detail && /\bd20\b/.test(detail) && detail.indexOf("=") >= 0 && !/→\s*(HIT|MISS|CRIT|misfire)/i.test(detail)) return detail;
   let out;
   if (r && (r.heal || /\bheals\b/i.test(detail))) out = detail;

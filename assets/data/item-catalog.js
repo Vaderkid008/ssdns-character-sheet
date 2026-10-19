@@ -367,7 +367,6 @@
       type: "gear",
       description: "A black saddle from the Whispering Pines den. Act I story find. Not for sale. The steed does not phase through walls.",
       effect: { kind: "castSpell", spell: "Phantom Steed", level: 3 },
-      uses: { max: 1, recharge: "dawn" },
       weight: 25,
       price: null,
       forSale: false,

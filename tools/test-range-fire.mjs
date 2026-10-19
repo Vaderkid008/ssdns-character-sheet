@@ -288,9 +288,11 @@ const dmTubePeek = dw.SSDNSRangeRings.peek();
 check("dm.tube.dis", tubeEv && tubeEv.detail.targetCombatantId === "en_long" && dmTubePeek && dmTubePeek.disadvantage, JSON.stringify(tubeEv && tubeEv.detail));
 dw.SSDNSRangeRings.clear();
 const atkEvents = dmEvents.filter((e) => e.name === "drawer:attack").length;
+const navyTargetsBefore = dmEvents.filter((e) => e.name === "drawer:target" && e.detail.weaponId === "navy").length;
 dmAttack("navy").click();
+/* 0.3.67: Attacks uses the target already chosen in the cylinder menu and fires straight away. */
 check("dm.attack.pending", dmEvents.filter((e) => e.name === "drawer:attack").length === atkEvents + 1);
-chip("Long").click();
+check("dm.attack.direct", dmEvents.filter((e) => e.name === "drawer:target" && e.detail.weaponId === "navy").length === navyTargetsBefore + 1 && !dmEl.querySelector(".ssm-pending"));
 const aimed = dmEvents.filter((e) => e.name === "drawer:target" && e.detail.weaponId === "navy").pop();
 const aimedPeek = dw.SSDNSRangeRings.peek();
 check("dm.attack.dis", aimed && aimed.detail.targetTokenId === "tok_long" && aimedPeek && aimedPeek.disadvantage, JSON.stringify(aimed && aimed.detail));

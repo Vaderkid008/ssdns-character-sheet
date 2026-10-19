@@ -34,6 +34,17 @@
     return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
   }
 
+  /* 0.3.67 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
+     so an old character never shows a counter for them or gets blocked. */
+  var UNLIMITED_USES = { "saddle-of-the-phantom-steed": 1 };
+  function unlimitedFix(item) {
+    if (!item) return item;
+    var id = item.catalogId || item.id || "";
+    if (!UNLIMITED_USES[id]) return item;
+    item.uses = { max: null, recharge: "" };
+    item.chargesLeft = null;
+    return item;
+  }
   function usesOf(raw) {
     if (raw == null) return { max: null, recharge: "" };
     if (typeof raw === "number") return { max: raw, recharge: "" };
@@ -189,7 +200,7 @@
   function instanceFrom(raw, opts) {
     opts = opts || {};
     var base = raw && raw.effect ? normalize(raw) : (byId(raw && (raw.catalogId || raw.id)) || normalize(raw));
-    var uses = usesOf(raw && raw.uses != null ? raw.uses : base.uses);
+    var uses = UNLIMITED_USES[base.id || (raw && raw.catalogId) || ""] ? usesOf(null) : usesOf(raw && raw.uses != null ? raw.uses : base.uses);
     var count = raw && raw.count != null ? Math.max(1, Number(raw.count) || 1) : 1;
     var charges = raw && raw.chargesLeft != null ? Number(raw.chargesLeft) : (uses.max == null ? null : uses.max);
     return {
@@ -217,7 +228,7 @@
       wear: base.wear || "",
       dmOnly: !!base.dmOnly,
       count: count,
-      chargesLeft: charges,
+      chargesLeft: UNLIMITED_USES[base.id || (raw && raw.catalogId) || ""] ? null : charges,
       playerAdded: !!(raw && raw.playerAdded) || !!opts.player,
       approved: opts.player ? false : (raw && raw.approved != null ? !!raw.approved : true),
       addressedTo: (raw && raw.addressedTo) || opts.addressedTo || "",
@@ -231,6 +242,7 @@
   function listOf(character) {
     if (!character) return [];
     if (!Array.isArray(character.items)) character.items = [];
+    character.items.forEach(unlimitedFix);
     return character.items;
   }
 
@@ -1401,6 +1413,7 @@
     useOnSheet: useOnSheet,
     applyCommand: applyCommand,
     drawerRows: drawerRows,
+    unlimitedFix: unlimitedFix,
     formHtml: formHtml,
     readForm: readForm,
     paintSheet: paintSheet,

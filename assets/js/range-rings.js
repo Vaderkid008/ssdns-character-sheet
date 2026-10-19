@@ -204,6 +204,16 @@
   function peek() { return armed; }
   function take() { var v = armed; armed = null; return v; }
   function clearArm() { armed = null; }
+  /* 0.3.67: an armed verdict belongs to the target it was measured against. Asking for a different
+     target drops the stale verdict so the caller re-measures (a cancelled shot can't leak its
+     verdict onto the next, farther target). No ref given: same as peek(). */
+  function peekFor(ref) {
+    if (!armed) return null;
+    if (ref == null || ref === "") return armed;
+    var refs = armed.targetRefs;
+    if (refs && refs.length && refs.indexOf(String(ref)) < 0) { armed = null; return null; }
+    return armed;
+  }
 
   var CONFIRM_TEXT = "This attack is with Disadvantage.  Continue?";
 
@@ -313,7 +323,7 @@
   }
 
   root.SSDNSRangeRings = {
-    bands: bands, rings: rings, resolve: resolve, arm: arm, peek: peek, take: take, clear: clearArm,
+    bands: bands, rings: rings, resolve: resolve, arm: arm, peek: peek, peekFor: peekFor, take: take, clear: clearArm,
     confirmDisadvantage: confirmDisadvantage, confirmText: CONFIRM_TEXT
   };
 })(typeof window !== "undefined" ? window : globalThis);
