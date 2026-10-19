@@ -171,6 +171,11 @@
     if (root.SSDNSEquip && root.SSDNSEquip.badgeRowsForToken) return root.SSDNSEquip.badgeRowsForToken(guns);
     return guns.filter(function (g) { return g.equipped !== false; });
   }
+  /* 0.3.69: Muzzleloader Powder Hands lets percussion revolvers / muzzleloaders Tactical Reload */
+  function canTr(w) {
+    var A = root.SSDNSApp;
+    return A && A.canTacticalReload ? A.canTacticalReload(w) : !!(w && w.tr);
+  }
   function rangeWeapons() {
     if (isDmPage()) return [];
     var app = root.SSDNSApp;
@@ -337,8 +342,8 @@
         ammo: cyl ? { loaded: cyl.loaded, cap: cyl.cap, chambers: cyl.chambers, spare: spareForGun(g, w), locked: cyl.locked } : null,
         spare: spareForGun(g, w),
         reloadId: cyl ? ("reload:" + i) : "",
-        trId: w && w.tr ? ("tr:" + i) : "",
-        tr: !!(w && w.tr),
+        trId: w && canTr(w) ? ("tr:" + i) : "",
+        tr: !!(w && canTr(w)),
         caster: !!(w && w.hexShells),
         calling: c.calling || "",
         ammoPool: g.ammoPool == null ? "" : String(g.ammoPool),

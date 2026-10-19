@@ -641,6 +641,52 @@
     else out.first = num(hol.firstShot);
     return out;
   }
+  /* 0.3.69: the rig a gun is drawn from. Today a character has ONE holster (character.holster), so every
+     gun reads it. The paper-doll PR adds Holster L/R (character.holster = L, holsterR, belt): swap only
+     this helper to pick the side the gun sits on (gunIndex) and the first-shot math follows. */
+  function holsterFor(c, gunIndex) {
+    if (window.SSDNSHolsterFor) { try { var id = window.SSDNSHolsterFor(c, gunIndex); if (id !== undefined) return HOL[id] || null; } catch (e) {} }
+    // Paper doll v2 (L/R): the gun's side picks the rig; no side reads the left holster as before.
+    var side = gunIndex != null && window.SSDNSEquip && window.SSDNSEquip.pistolSide ? window.SSDNSEquip.pistolSide(c, gunIndex) : "";
+    return HOL[c && (side === "R" ? c.holsterR : c.holster)] || null;
+  }
+  /* 0.3.69: Dust Fury (Rage) damage: +2 at levels 1-8, +3 at 9-15, +4 at 16-20. Melee only (callers pass melee rows). */
+  function rageDamageBonus(c) {
+    c = c || C();
+    if (!c || !c.raging || c.calling !== "tribal-warrior") return 0;
+    var lv = num(c.level, 1);
+    return lv >= 16 ? 4 : (lv >= 9 ? 3 : 2);
+  }
+  /* 0.3.69: Muzzleloader Powder Hands: Tactical Reload with percussion revolvers and muzzleloaders
+     (Ball n Cap, Rifle-Musket), overriding their TR flag. Never the Big Fifty. */
+  function canTacticalReload(w, c) {
+    if (!w) return false;
+    if (w.tr) return true;
+    c = c || C();
+    if (!c || (c.feats || []).indexOf("muzzleloader") < 0) return false;
+    if (/big-fifty/.test(String(w.id || ""))) return false;
+    return /percussion|muzzleloader/i.test(String(w.action || ""));
+  }
+  /* 0.3.69: item bonuses that reach the roll. Hat of the Sharpshooter (+1 ranged attack while worn) comes
+     from the paper doll; Old Henry's Rifle (+1 attack) marks the first Henrietta slot unless a slot is tagged. */
+  function itemAtkBonus(c, g, gunIndex) {
+    var out = [];
+    var items = (c && Array.isArray(c.items)) ? c.items : [];
+    var henry = items.filter(function (it) { return it && it.catalogId === "old-henrys-rifle"; })[0];
+    if (henry && g && g.weapon === "henrietta-repeating-rifle") {
+      var tagged = (c.guns || []).some(function (x) { return x && x.itemId === "old-henrys-rifle"; });
+      var first = (c.guns || []).map(function (x) { return x && x.weapon; }).indexOf("henrietta-repeating-rifle");
+      if (tagged ? g.itemId === "old-henrys-rifle" : first === gunIndex) out.push({ label: "Old Henry's Rifle", value: 1 });
+    }
+    return out;
+  }
+  /* 0.3.69: timed buffs (Eldorite Dust: +1d4 damage on one weapon for 1 hour). */
+  function activeBuffs(c, key) {
+    var now = Date.now();
+    return ((c && Array.isArray(c.buffs)) ? c.buffs : []).filter(function (b) {
+      return b && (!b.until || Number(b.until) > now) && (!key || !b.weapon || b.weapon === key);
+    });
+  }
   function compute() {
     var c = C(), v = {};
     syncLineageAsi(c);
@@ -695,7 +741,8 @@
     v.guns = c.guns.map(function (g, i) { return gunStats(g, v, i); });
     return v;
   }
-  function gunStats(g, v, gi) {
+  function gunStats(g, v, gunIndex) {
+    var gi = gunIndex;
     if (g && g.weapon && !WPN[g.weapon] && window.SSDNSCustomWeapons) window.SSDNSCustomWeapons.syncCharacter(C());
     var w = WPN[g.weapon];
     if (!w) return g.weapon ? { w: { id: g.weapon, name: g.weapon + " (not in the current PHB)", ammo: "" }, damage: "", range: "", capacity: 0, misfire: "", note: "This gun isn't in the current PHB. Pick its new name from the list.", atk: "", dmg: "", tier: "", rounds: [] } : null;
@@ -734,6 +781,7 @@
     if (w.action) notes.push(w.action + (w.load ? " · " + w.load : ""));
     if (w.slow) notes.push("slow load: reload takes a full turn");
     if (w.tr) notes.push("TR ✓");
+    else if (canTacticalReload(w)) notes.push("TR ✓ (Powder Hands)");
     if (w.scatter && g.load !== "slug") notes.push("buckshot: 15-ft cone");
     var m;
     if (w.ability === "SPELL") {
@@ -741,10 +789,16 @@
       s.atk = sign(m + (g.proficient ? v.prof : 0));
       s.parts = [{ label: "CHA", value: m }];
       if (g.proficient) s.parts.push({ label: "proficiency", value: v.prof || 0 });
-      if (g.magic != null && isFinite(Number(g.magic)) && Number(g.magic)) s.parts.push({ label: "magic", value: Number(g.magic) });
+      /* 0.3.69: a gun's magic bonus counts in the shown number and the damage, not only the roll parts */
+      var castMagic = (g.magic != null && isFinite(Number(g.magic)) && Number(g.magic)) ? Number(g.magic) : (Number(w.magic) || 0);
+      if (castMagic) {
+        s.parts.push({ label: "magic", value: castMagic });
+        s.atk = sign(m + (g.proficient ? v.prof : 0) + castMagic);
+      }
       s.dmgParts = m ? [{ label: "CHA", value: m }] : [];
+      if (castMagic) s.dmgParts.push({ label: "magic", value: castMagic });
       s.dmgType = s.dmgType || "piercing";
-      s.dmg = s.damage + (m ? " " + sign(m) : "") + " piercing";
+      s.dmg = s.damage + ((m + castMagic) ? " " + sign(m + castMagic) : "") + " piercing";
       notes.push("hex lead shells: spell attack " + (v.caster ? v.spellAtk : "—"));
       s.note = notes.join(" · ");
       return s;
@@ -759,26 +813,37 @@
     var first = (sideFirst && w.group === "pistol") ? sideFirst : 0;
     if (mod && /hair trigger/i.test(mod.name) && w.group === "pistol") first = Math.min(2, first + 1); // PHB: counts toward the rig's +2 first-shot cap
     if (mod) notes.push("mod: " + mod.name);
-    var magicAtk = (g.magic != null && isFinite(Number(g.magic)) && Number(g.magic)) ? 0 : (Number(w.magic) || 0);
-    s.atk = sign(m + (g.proficient ? v.prof : 0) + style + magicAtk);
+    /* 0.3.69: per-gun magic (g.magic) wins over the weapon's own; both now count in the shown number and damage */
+    var magicAtk = (g.magic != null && isFinite(Number(g.magic)) && Number(g.magic)) ? Number(g.magic) : (Number(w.magic) || 0);
+    var itemParts = itemAtkBonus(C(), g, gunIndex);
+    var hat = (v.doll && v.doll.rangedAtk) || 0;
+    if (hat) itemParts.push({ label: "Hat of the Sharpshooter", value: hat });
+    var itemAtk = 0;
+    itemParts.forEach(function (p) { itemAtk += p.value; });
+    s.atk = sign(m + (g.proficient ? v.prof : 0) + style + magicAtk + itemAtk);
     var abilityLabel = ability === "STR/DEX" ? (v.mods.STR >= v.mods.DEX ? "STR" : "DEX") : ability;
     var styleLabels = { "long-gun": "Long Gun", archery: "Archery", sidearm: "Sidearm", dueling: "Dueling" };
     var styleLabel = styleLabels[C() && C().fightingStyle] || "style";
     s.parts = [{ label: abilityLabel, value: m }];
     if (g.proficient) s.parts.push({ label: "proficiency", value: v.prof || 0 });
     if (style) s.parts.push({ label: styleLabel, value: style });
-    if (g.magic != null && isFinite(Number(g.magic)) && Number(g.magic)) s.parts.push({ label: "magic", value: Number(g.magic) });
-    else if (magicAtk) s.parts.push({ label: "magic", value: magicAtk });
+    if (magicAtk) s.parts.push({ label: "magic", value: magicAtk });
+    itemParts.forEach(function (p) { s.parts.push(p); });
+    /* 0.3.69: the rig / Hair trigger first-shot bonus is a real roll part until the first pistol shot of a combat */
+    s.first = first;
+    if (first && !C().firstShotSpent) s.parts.push({ label: "first shot", value: first });
     s.dmgParts = [];
     if (m) s.dmgParts.push({ label: abilityLabel, value: m });
     if (dmgStyle) s.dmgParts.push({ label: styleLabel, value: dmgStyle });
     if (style) notes.push((C().fightingStyle || "style") + " " + sign(style));
     if (dmgStyle) notes.push((C().fightingStyle || "style") + " damage " + sign(dmgStyle));
     s.firstShot = first; s.drawSide = side;
-    if (first) notes.push("first shot from the rig " + sign(m + (g.proficient ? v.prof : 0) + style + first));
+    if (first) notes.push(C().firstShotSpent ? "first shot of this combat used" : ("first shot from the rig " + sign(m + (g.proficient ? v.prof : 0) + style + magicAtk + itemAtk + first)));
     var dmgMod = m + dmgStyle + magicAtk;
     if (magicAtk) s.dmgParts.push({ label: "magic", value: magicAtk });
-    s.dmg = s.damage ? s.damage + (dmgMod ? " " + sign(dmgMod) : "") + " " + (s.dmgType || "") : "";
+    var buffDice = activeBuffs(C(), "gun:" + gunIndex).map(function (b) { return b.dmgDice; }).filter(Boolean);
+    s.buffDice = buffDice;
+    s.dmg = s.damage ? s.damage + (dmgMod ? " " + sign(dmgMod) : "") + buffDice.map(function (d) { return " +" + d; }).join("") + " " + (s.dmgType || "") : "";
     s.note = notes.join(" · ");
     return s;
   }
@@ -865,14 +930,15 @@
     if (c.calling === "lawman" || c.calling === "frontier-scout") return lv >= 2;
     return false;
   }
-  function styleAttackBonus(w) {
+  function styleAttackBonus(w, opts) {
     var st = (C() && C().fightingStyle) || "";
     if (!w || !st || !styleReady()) return 0;
     var g = String(w.group || "");
     var longGun = g === "rifle" || g === "carbine" || g === "bigbore";
     var bow = g === "bow" || /bow/.test(g);
     if (st === "long-gun" && longGun) return 2;
-    if (st === "archery" && (bow || longGun)) return 2;
+    /* 0.3.69 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
+    if (st === "archery" && (bow || longGun || !isMeleeWeapon(w) || (opts && opts.thrown))) return 2;
     return 0;
   }
   function styleDamageBonus(w) {
@@ -1496,7 +1562,7 @@
       if (Number(g.misStreak)) statusBits.push("misfires " + g.misStreak);
       if (g.pendingD4) statusBits.push("d4 pending");
       out("gst." + i, statusBits.join(" · "));
-      if (hasGunBelt() || !(w && w.tr)) row.classList.remove("tr-warn");
+      if (hasGunBelt() || !canTacticalReload(w)) row.classList.remove("tr-warn");
       var cs = row.querySelector(".chamber-sel");
       if (cs.getAttribute("data-for") !== (g.weapon || "")) {
         cs.setAttribute("data-for", g.weapon || "");
@@ -1649,7 +1715,7 @@
         var equipWrap = $('[data-equip-wrap="gun:' + i + '"]');
         if (equipWrap) equipWrap.title = equipTitle;
       }
-      $('[data-tr="' + i + '"]').hidden = !(cap && w && w.tr) || packed;
+      $('[data-tr="' + i + '"]').hidden = !(cap && canTacticalReload(w)) || packed;
       $('[data-hexwrap="' + i + '"]').hidden = !(cap && w && w.hexShells) || packed;
       var castWrap = $('[data-castwrap="' + i + '"]');
       if (castWrap) castWrap.hidden = !(cap && w && w.hexShells) || packed;
@@ -1883,10 +1949,15 @@
     if (rows.length) {
       var keepDist = window.__ssdnsExpDist || "";
       var dist = el("select", { id: "explosiveDist", "aria-label": "Throw distance" });
-      [["", "Throw distance…"], ["30", "Up to 30 ft"], ["60", "31–60 ft (scatters 10 ft)"]].forEach(function (o) { dist.appendChild(opt(o[0], o[1])); });
-      dist.value = keepDist;
+      /* 0.3.69: Powder Man Long Arm throws 50/100 ft (scatters past 50) */
+      var longArm = (C().feats || []).indexOf("powder-man") >= 0;
+      var distOpts = longArm
+        ? [["", "Throw distance…"], ["50", "Up to 50 ft"], ["100", "51–100 ft (scatters 10 ft)"]]
+        : [["", "Throw distance…"], ["30", "Up to 30 ft"], ["60", "31–60 ft (scatters 10 ft)"]];
+      distOpts.forEach(function (o) { dist.appendChild(opt(o[0], o[1])); });
+      dist.value = distOpts.some(function (o) { return o[0] === keepDist; }) ? keepDist : "";
       dist.addEventListener("change", function () { window.__ssdnsExpDist = dist.value; });
-      box.appendChild(el("div", { class: "ammo-row exp-dist" }, [dist, el("span", { class: "fine", text: "Save only (no attack roll). Throw 30/60." })]));
+      box.appendChild(el("div", { class: "ammo-row exp-dist" }, [dist, el("span", { class: "fine", text: "Save only (no attack roll). Throw " + (longArm ? "50/100 (Powder Man Long Arm)" : "30/60") + "." })]));
     }
     var pick = el("select", { id: "explosivePick", "aria-label": "Add an explosive" });
     pick.appendChild(opt("", "Add an explosive…"));
@@ -2807,7 +2878,7 @@
     var g = C().guns[i], w = WPN[g.weapon];
     if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
     if (d4Pending(g)) { toast("Roll the d4 first."); return; }
-    if (!w || !w.tr) { toast("This gun can't Tactical Reload (TR —)."); return; }
+    if (!canTacticalReload(w)) { toast("This gun can't Tactical Reload (TR —)."); return; }
     if (!hasGunBelt()) {
       // v0.2.1: soft requirement (PHB Reloading: TR loads from a gun belt or bandolier). Warn; the player can override.
       $('.gun[data-row="' + i + '"]').classList.add("tr-warn");
@@ -4296,6 +4367,7 @@
     return;
   }
   function finishRest(kind) {
+    C().firstShotSpent = false; /* 0.3.69: a rest ends the combat; the rig's first shot is ready again */
     var ci = casterInfo(), r = C().hexRest || (ci ? ci.rest : "long");
     if (kind === "long" || r === "short") {
       for (var l = 1; l <= 9; l++) C().hexLead[l] = new Array(MAX_BOXES).fill(false);
@@ -4468,6 +4540,10 @@
       callingProficient: callingProficient,
       styleAttackBonus: styleAttackBonus,
       styleDamageBonus: styleDamageBonus,
+      rageDamageBonus: function (c) { return rageDamageBonus(c); },
+      canTacticalReload: function (w, c) { return canTacticalReload(w, c); },
+      holsterFor: function (c, i) { return holsterFor(c, i); },
+      activeBuffs: function (c, key) { return activeBuffs(c, key); },
       applyPatch: function (fn) {
         if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
         if (fn) fn(S.doc); renderFields(); changed(); publishGunCard();
@@ -4504,7 +4580,8 @@
       gunMeleeLabel: gunMeleeLabel,
       cleanGun: function (i) { return cleanGun(i); },
       unjamGun: function (i) { return unjamGun(i); },
-      reopenChamber: function (i) { return reopenChamber(i); },
+      /* 0.3.69: Reopen chamber is an action (once per short rest) on every path, the DM-acting one included */
+      reopenChamber: function (i) { return withCost(i, "action", "Reopen chamber", function () { return reopenChamber(i); }); },
       clearLockedChambers: function (i, mode, chamber) { return clearLockedChambers(i, mode, chamber); },
       repairGun: function (i, hint) { return repairGun(i, hint); },
       refreshGunFace: refreshGunFace,

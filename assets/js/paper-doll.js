@@ -364,11 +364,16 @@
   function num(x) { var n = Number(x); return isFinite(n) ? n : 0; }
   /* Bonus math from slotted gear. Returned to compute() in app.js. */
   function bonuses(c) {
-    var out = { abilities: {}, ac: 0, init: 0, speed: 0, holsterDex: 0, holsterInit: 0, shieldOff: false, sources: [] };
+    var out = { abilities: {}, ac: 0, init: 0, speed: 0, rangedAtk: 0, holsterDex: 0, holsterInit: 0, shieldOff: false, sources: [] };
     var twoHanded = false;
     items(c).forEach(function (it) {
       if (!active(it)) return;
       var b = it.bonuses || {};
+      /* 0.3.69: items saved before their catalog row grew a bonuses block (Hat of the Sharpshooter) read the catalog's */
+      if (!it.bonuses && it.catalogId && root.SSDNSItems && root.SSDNSItems.catalogItem) {
+        var cat = root.SSDNSItems.catalogItem(it.catalogId);
+        if (cat && cat.bonuses) b = cat.bonuses;
+      }
       var rig = /^holster_/.test(it.equipSlot);
       if (rig) {
         out.holsterDex = Math.max(out.holsterDex, num(b.dex || b.DEX));
@@ -376,6 +381,7 @@
       } else {
         AB.forEach(function (k) { var n = num(b[k] || b[k.toLowerCase()]); if (n) out.abilities[k] = (out.abilities[k] || 0) + n; });
         out.ac += num(b.ac || b.AC); out.init += num(b.init || b.initiative); out.speed += num(b.speed);
+        out.rangedAtk += num(b.rangedAtk);
       }
       if (it.weapon && /two-handed/i.test(String(it.weapon.properties || ""))) twoHanded = true;
       out.sources.push(it.name);
