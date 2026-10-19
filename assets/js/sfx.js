@@ -66,7 +66,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.57"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.58"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -75,14 +75,38 @@
         outcomeMap = (j && j.outcomes) || { categories: {}, weapons: {} };
         if (!outcomeMap.categories) outcomeMap.categories = {};
         if (!outcomeMap.weapons) outcomeMap.weapons = {};
+        try { preloadSfx(); } catch (e) {}
         return sfxMap;
       })
       .catch(function () { sfxMap = {}; sfxPools = {}; weaponOverrides = {}; outcomeMap = { categories: {}, weapons: {} }; return sfxMap; });
   }
 
+  /* 0.3.58: warm every sfx file so a shot does not wait on fetch and decode. */
+  var warm = {};
+  function preloadSfx() {
+    var files = {};
+    Object.keys(sfxPools || {}).forEach(function (k) { (Array.isArray(sfxPools[k]) ? sfxPools[k] : []).forEach(function (f) { if (f) files[f] = 1; }); });
+    Object.keys(sfxMap || {}).forEach(function (k) { [].concat(sfxMap[k] || []).forEach(function (f) { if (f) files[String(f)] = 1; }); });
+    Object.keys(files).forEach(function (f) {
+      var url = fileUrl("sfx", f);
+      if (warm[url]) return;
+      try {
+        var el = new Audio();
+        el.preload = "auto";
+        el.addEventListener("error", function () { missingFiles[f] = 1; });
+        el.src = url;
+        if (el.load) el.load();
+        warm[url] = el;
+      } catch (e) {}
+    });
+  }
   function playUrl(url, loop) {
     var audio;
-    try { audio = new Audio(url); } catch (e) { return null; }
+    try {
+      var w = warm[url];
+      audio = w && w.cloneNode ? w.cloneNode(true) : new Audio(url);
+      if (!audio || typeof audio.play !== "function") audio = new Audio(url);
+    } catch (e) { try { audio = new Audio(url); } catch (e2) { return null; } }
     audio.loop = !!loop;
     audio.volume = volume();
     audio.addEventListener("error", function () { /* missing file: stay quiet */ });
@@ -149,15 +173,14 @@
   }
   function startSfx(map, eventName, depth) {
     var listed = eventFiles(map, eventName);
-    if (listed && !listed.length) return;
+    if (listed && !listed.length) return null;
     var file = listed && listed.length ? pickVariant(eventName, listed) : "";
     if ((!file || missingFiles[file]) && CUE_FALLBACK[eventName] && !depth) {
-      startSfx(map, CUE_FALLBACK[eventName], 1);
-      return;
+      return startSfx(map, CUE_FALLBACK[eventName], 1);
     }
-    if (!file || missingFiles[file] || prefs.muted || volume() <= 0) return;
+    if (!file || missingFiles[file] || prefs.muted || volume() <= 0) return null;
     var audio = playUrl(fileUrl("sfx", file), false);
-    if (!audio) return;
+    if (!audio) return null;
     var swing = playbackJitter();
     var base = eventName === "jam" ? Math.min(volume(), 0.45) : volume();
     try { audio.playbackRate = swing.playbackRate; } catch (e) {}
@@ -172,6 +195,7 @@
       var i = liveSfx.indexOf(audio);
       if (i >= 0) liveSfx.splice(i, 1);
     });
+    return audio;
   }
 
   function forcedD20() {
@@ -322,23 +346,46 @@
     var cue = outcomeCue(info, result);
     try { root.dispatchEvent(new CustomEvent("ssdns-sfx-outcome", { detail: { cue: cue, result: outcomeSlot(result), category: outcomeCategory(info) } })); } catch (e) {}
     if (!cue || prefs.muted || volume() <= 0) return cue;
+    var slot = outcomeSlot(result);
+    var hitCue = slot === "crit" && STING_CUES[cue] ? outcomeCue(info, "hit") : "";
+    if (slot === "crit" && hitCue && hitCue !== cue) {
+      /* crit = sting + the hit sound. Default: sting CRIT_LEAD_MS before the hit, both after the shot. */
+      if (CRIT_BEFORE_SHOT) { nextFreeAt = Math.max(nextFreeAt, nowMs() + SFX_GAP_MS); startNow(cue); }
+      else play(cue, { kind: "crit" });
+      play(hitCue, { kind: "result" });
+      return cue;
+    }
     play(cue, { kind: "result" });
     return cue;
   }
-  /* 0.3.57 play queue: smooth, consistent timing.
-     - The shot / swing / roll / cast is t = 0 and plays at once.
-     - Its result (hit, miss/ricochet, crit, nat 1, nat 20) plays RESULT_AFTER_SHOT_MS after the
-       shot's onset (not after the click that reports it), so it always lands at the same spot.
-     - Enemy downed plays DOWNED_AFTER_RESULT_MS after the result (or after shot + result offset).
-     - Misfire-type cues are immediate. Any other cues that collide are spaced SFX_GAP_MS apart.
-     - A small fixed jitter (+/- JITTER_MS) keeps repeats natural; no wait ever exceeds MAX_WAIT_MS.
-     Broadcast cues from the table come in through play(), so they get the same timing. */
-  var SFX_GAP_MS = 150;
-  var RESULT_AFTER_SHOT_MS = 300;
-  var DOWNED_AFTER_RESULT_MS = 300;
+  /* 0.3.58 play queue: results follow the shot the ear actually hears.
+     Root cause fixed here (0.3.57 heard hits before the shot): the shot played through a fresh
+     new Audio(url) per shot, so it waited on network fetch and decode, and its result was timed
+     from when the shot was SCHEDULED, not when it started. A cached hit could beat a slow shot.
+     The DMCC also queued enemy hits before the strike cue, and a DM-side verdict could arrive
+     before the player's broadcast shot.
+     Now:
+     - Every sfx file is preloaded; a play clones the warm element.
+     - Each shot / swing / roll / cast opens a "shot" record. Its real start comes from the
+       'playing' event (less audio.currentTime). If it errors or does not start within
+       SHOT_START_TIMEOUT_MS, the record is released anyway so the result still plays.
+     - A result (hit, miss/ricochet, crit, nat 1, nat 20) plays RESULT_AFTER_SHOT_MS after that
+       real start. A result with no shot yet waits up to RESULT_AFTER_SHOT_MS for one to arrive
+       (broadcast order), then plays anyway.
+     - A crit layers a sting CRIT_LEAD_MS before the hit sound. CRIT_BEFORE_SHOT = true plays the
+       sting at once instead (the shot has already been fired by then; see README).
+     - Enemy downed plays DOWNED_AFTER_RESULT_MS after the result's real start.
+     - Misfire-type cues are immediate; other colliding cues are spaced SFX_GAP_MS apart.
+     - No cue waits more than MAX_WAIT_MS from its request. */
+  var SFX_GAP_MS = 250;
+  var RESULT_AFTER_SHOT_MS = 550;
+  var DOWNED_AFTER_RESULT_MS = 450;
+  var CRIT_LEAD_MS = 150;
+  var CRIT_BEFORE_SHOT = false;
   var JITTER_MS = 20;
-  var MAX_WAIT_MS = 800;
-  var ANCHOR_WINDOW_MS = 1200;
+  var MAX_WAIT_MS = 1500;
+  var SHOT_START_TIMEOUT_MS = 1000;
+  var ANCHOR_WINDOW_MS = 1500;
   var RESULT_DELAY_MS = RESULT_AFTER_SHOT_MS;
   var IMMEDIATE = { misfire: 1, jam: 1, "empty-click": 1 };
   var SHOT_CUES = { attack: 1, rifle: 1, revolver: 1, plinker: 1, "lever-fire": 1, shotgun: 1, buffalo: 1, silenced: 1, gatling: 1,
@@ -347,51 +394,119 @@
   var RESULT_CUES = { "hit-gun": 1, ricochet: 1, "hit-melee": 1, "crit-melee": 1, "miss-melee": 1, "miss-blunt": 1, "sword-hit": 1,
     spear: 1, axe: 1, "hit-arrow": 1, "miss-arrow": 1, nat1: 1, nat20: 1 };
   var DOWNED_CUES = { "enemy-downed": 1 };
-  var nextFreeAt = 0, lastShotAt = -1e15, lastResultAt = -1e15;
+  var STING_CUES = { nat20: 1 };
+  var nextFreeAt = 0;
   var pendingTimers = [];
+  var lastShot = null, lastResult = null, orphanResults = [];
   var jitterRnd = function () { return Math.random(); };
   function nowMs() { return Date.now(); }
   function jitter() { return JITTER_MS ? Math.round((jitterRnd() * 2 - 1) * JITTER_MS) : 0; }
-  function slotFor(eventName, delayMs, kindHint) {
-    var now = nowMs();
-    if (IMMEDIATE[eventName]) { nextFreeAt = Math.max(nextFreeAt, now + SFX_GAP_MS); return 0; }
-    var kind = kindHint || (RESULT_CUES[eventName] ? "result" : DOWNED_CUES[eventName] ? "downed" : SHOT_CUES[eventName] ? "shot" : "other");
-    var at;
-    if (kind === "result") {
-      var shot = now - lastShotAt < ANCHOR_WINDOW_MS ? lastShotAt : now;
-      at = Math.max(now, shot + RESULT_AFTER_SHOT_MS + jitter());
-      lastResultAt = at;
-    } else if (kind === "downed") {
-      var base = now - lastResultAt < ANCHOR_WINDOW_MS ? lastResultAt
-        : (now - lastShotAt < ANCHOR_WINDOW_MS ? lastShotAt + RESULT_AFTER_SHOT_MS : now);
-      at = Math.max(now, base + DOWNED_AFTER_RESULT_MS + jitter());
-    } else {
-      at = Math.max(now + (Number(delayMs) || 0), nextFreeAt);
-      if (kind === "shot") lastShotAt = at;
+  function later(fn, ms) {
+    if (typeof setTimeout !== "function") { fn(); return null; }
+    var t = setTimeout(function () { var k = pendingTimers.indexOf(t); if (k >= 0) pendingTimers.splice(k, 1); fn(); }, Math.max(0, ms));
+    pendingTimers.push(t);
+    return t;
+  }
+  /* An anchor is a cue whose real start other cues wait on. */
+  function makeAnchor(noTimeout) {
+    var a = { at: nowMs(), startAt: null, waiters: [] };
+    if (!noTimeout) a.timeout = later(function () { anchorStarted(a, null); }, SHOT_START_TIMEOUT_MS);
+    return a;
+  }
+  function anchorStarted(a, startAt) {
+    if (!a || a.startAt != null) return;
+    a.startAt = startAt == null ? nowMs() : startAt;
+    if (a.timeout) { try { clearTimeout(a.timeout); } catch (e) {} }
+    var list = a.waiters; a.waiters = [];
+    list.forEach(function (fn) { fn(a.startAt); });
+  }
+  function whenStarted(a, fn) { if (a.startAt != null) fn(a.startAt); else a.waiters.push(fn); }
+  function recent(a) { return a && nowMs() - a.at < ANCHOR_WINDOW_MS; }
+  function watchStart(audio, a) {
+    if (!a) return;
+    if (!audio) { anchorStarted(a, null); return; }
+    var done = function () {
+      var lag = 0;
+      try { lag = (Number(audio.currentTime) || 0) * 1000 / (Number(audio.playbackRate) || 1); } catch (e) {}
+      anchorStarted(a, nowMs() - lag);
+    };
+    try {
+      audio.addEventListener("playing", done);
+      audio.addEventListener("error", function () { anchorStarted(a, null); });
+    } catch (e) { anchorStarted(a, null); }
+  }
+  /* Fire fn at absolute time `at`, but never later than `deadline`. */
+  function fireAt(at, deadline, fn) {
+    var t = Math.min(at, deadline) - nowMs();
+    if (t <= 0) fn(); else later(fn, t);
+  }
+  function once(fn) { var ran = false; return function () { if (ran) return; ran = true; fn(); }; }
+  function queueResult(eventName, offset) {
+    var asked = nowMs(), deadline = asked + MAX_WAIT_MS;
+    var anchor = makeAnchor(true); /* the result's own start, for a downed cue */
+    lastResult = anchor;
+    var go = once(function () { startNow(eventName, anchor); });
+    later(go, MAX_WAIT_MS);
+    var onShot = function (shot) { whenStarted(shot, function (s) { fireAt(s + offset + jitter(), deadline, go); }); };
+    if (recent(lastShot)) { onShot(lastShot); return offset; }
+    /* No shot yet: the strike may still be on its way (broadcast). Wait for one, then play anyway. */
+    var orphan = { take: onShot, done: go };
+    orphanResults.push(orphan);
+    later(function () {
+      var i = orphanResults.indexOf(orphan);
+      if (i >= 0) { orphanResults.splice(i, 1); go(); }
+    }, offset);
+    return offset;
+  }
+  function queueDowned(eventName) {
+    var asked = nowMs(), deadline = asked + MAX_WAIT_MS;
+    var go = once(function () { startNow(eventName); });
+    later(go, MAX_WAIT_MS);
+    if (recent(lastResult)) {
+      whenStarted(lastResult, function (r) { fireAt(r + DOWNED_AFTER_RESULT_MS + jitter(), deadline, go); });
+      return DOWNED_AFTER_RESULT_MS;
     }
+    return queueGap(eventName, 0, false, go);
+  }
+  function queueGap(eventName, delayMs, isShot, go) {
+    var now = nowMs();
+    var at = Math.max(now + (Number(delayMs) || 0), nextFreeAt);
     if (at - now > MAX_WAIT_MS) at = now + MAX_WAIT_MS;
-    if (kind !== "result" && kind !== "downed") nextFreeAt = Math.max(nextFreeAt, at) + SFX_GAP_MS;
+    nextFreeAt = at + SFX_GAP_MS;
+    var anchor = null;
+    if (isShot) {
+      anchor = makeAnchor();
+      lastShot = anchor;
+      var waiting = orphanResults; orphanResults = [];
+      waiting.forEach(function (o) { o.take(anchor); });
+    }
+    var run = go || function () { startNow(eventName, anchor); };
+    if (at - now <= 0) run(); else later(run, at - now);
     return at - now;
   }
-  function startNow(eventName) {
-    if (prefs.muted || volume() <= 0) return;
+  function schedule(eventName, delayMs, kindHint) {
+    if (IMMEDIATE[eventName]) { nextFreeAt = Math.max(nextFreeAt, nowMs() + SFX_GAP_MS); startNow(eventName); return 0; }
+    var kind = kindHint || (RESULT_CUES[eventName] ? "result" : DOWNED_CUES[eventName] ? "downed" : SHOT_CUES[eventName] ? "shot" : "other");
+    if (kind === "result") return queueResult(eventName, RESULT_AFTER_SHOT_MS);
+    if (kind === "crit") return queueResult(eventName, RESULT_AFTER_SHOT_MS - CRIT_LEAD_MS);
+    if (kind === "downed") return queueDowned(eventName);
+    return queueGap(eventName, delayMs, kind === "shot");
+  }
+  function startNow(eventName, anchor) {
+    if (prefs.muted || volume() <= 0) { anchorStarted(anchor, null); return; }
     // Play in this turn when the map is already loaded so a button click is still a user gesture.
-    if (sfxMap) { startSfx(sfxMap, eventName); return; }
-    loadMap().then(function (map) { startSfx(map, eventName); });
+    if (sfxMap) { watchStart(startSfx(sfxMap, eventName), anchor); return; }
+    loadMap().then(function (map) { watchStart(startSfx(map, eventName), anchor); });
   }
   function play(eventName, opts) {
     try { root.dispatchEvent(new CustomEvent("ssdns-sfx", { detail: eventName })); } catch (e) {}
     if (prefs.muted || volume() <= 0) return 0;
-    var wait = slotFor(String(eventName || ""), opts && opts.delay, opts && opts.kind);
-    if (wait <= 0 || typeof setTimeout !== "function") { startNow(eventName); return 0; }
-    var t = setTimeout(function () {
-      var k = pendingTimers.indexOf(t); if (k >= 0) pendingTimers.splice(k, 1);
-      startNow(eventName);
-    }, wait);
-    pendingTimers.push(t);
-    return wait;
+    return schedule(String(eventName || ""), opts && opts.delay, opts && opts.kind);
   }
-  function resetQueue() { pendingTimers.forEach(function (t) { try { clearTimeout(t); } catch (e) {} }); pendingTimers = []; nextFreeAt = 0; lastShotAt = -1e15; lastResultAt = -1e15; }
+  function resetQueue() {
+    pendingTimers.forEach(function (t) { try { clearTimeout(t); } catch (e) {} });
+    pendingTimers = []; nextFreeAt = 0; lastShot = null; lastResult = null; orphanResults = [];
+  }
 
   function stopMusic() {
     pendingMusic = null;
@@ -773,7 +888,8 @@
     playbackJitter: playbackJitter,
     resetVariants: function () { lastVariant = {}; },
     resetQueue: resetQueue, SFX_GAP_MS: SFX_GAP_MS, RESULT_DELAY_MS: RESULT_DELAY_MS,
-    TIMING: { gap: SFX_GAP_MS, resultAfterShot: RESULT_AFTER_SHOT_MS, downedAfterResult: DOWNED_AFTER_RESULT_MS, jitter: JITTER_MS, maxWait: MAX_WAIT_MS },
+    TIMING: { gap: SFX_GAP_MS, resultAfterShot: RESULT_AFTER_SHOT_MS, downedAfterResult: DOWNED_AFTER_RESULT_MS, critLead: CRIT_LEAD_MS,
+      critBeforeShot: CRIT_BEFORE_SHOT, jitter: JITTER_MS, maxWait: MAX_WAIT_MS, shotStartTimeout: SHOT_START_TIMEOUT_MS },
     setJitterSource: function (fn) { jitterRnd = typeof fn === "function" ? fn : function () { return Math.random(); }; }
   };
 

@@ -395,5 +395,5 @@
   "quality-strings-bow": "bow",
   "cheap-strings-bow": "bow"
  },
- "_note": "0.3.57: Jessey's approved set (sfx-inventory/final manifest). Pools pick randomly among a primary and its -alt-NN files."
+ "_note": "0.3.58: Jessey's approved set (sfx-inventory/final manifest). Pools pick randomly among a primary and its -alt-NN files."
 }

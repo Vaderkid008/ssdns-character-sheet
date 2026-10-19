@@ -4044,6 +4044,10 @@ async function cardStrike(i, n, opts) {
   let detail = strikeCard ? strikeCard.dmText : (row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (miss ? " → MISS" : (nat === 20 ? " → CRIT" : " → HIT")) + (dmg ? " · " + dmg.detail + " = " + dmg.total : ""));
   if (rangeShot && rangeShot.note && rangeShot.disadvantage) detail += "\n" + rangeShot.note;
   if (coverDis) detail += "\ndisadvantage: Take Cover";
+  const id = DM.uid("enatk");
+  atk.lastRoll = { id: id, damage: dmg ? dmg.total : null, targetId: target.id, targetName: target.name, hit: hit };
+  playTableSfx(strikeCue(atk));
+  /* 0.3.58: the strike cue opens the anchor first; the result follows it. */
   if (window.SSDNSAudio && window.SSDNSAudio.playOutcome) {
     window.SSDNSAudio.playOutcome({
       id: atk.weapon || atk.id || "",
@@ -4054,9 +4058,6 @@ async function cardStrike(i, n, opts) {
       kind: atk.kind || ""
     }, miss ? "miss" : (nat === 20 && hit ? "crit" : "hit"));
   }
-  const id = DM.uid("enatk");
-  atk.lastRoll = { id: id, damage: dmg ? dmg.total : null, targetId: target.id, targetName: target.name, hit: hit };
-  playTableSfx(strikeCue(atk));
   await publishCardRoll(row, detail, total, {
     id: id, formula: "1d20" + bonusTxt, attack: true, nat: nat, crit: nat === 20 && hit,
     targetId: target.id, targetName: target.name, damage: dmg ? dmg.total : null, weapon: atk.name
