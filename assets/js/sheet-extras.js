@@ -1808,6 +1808,13 @@
       return !!ok;
     });
   }
+  /* L/R holsters: the Shoulder Rig surprise draw counts only for the pistol drawn from that side. */
+  function shoulderRigFor(c, i) {
+    var E = root.SSDNSEquip, side = E && E.pistolSide ? E.pistolSide(c, i) : "";
+    if (side === "R") return c.holsterR === "shoulder-rig";
+    if (side === "L") return c.holster === "shoulder-rig";
+    return c.holster === "shoulder-rig" || c.holsterR === "shoulder-rig";
+  }
   function pistolDraw(i) {
     var Equip = root.SSDNSEquip;
     var c = ch();
@@ -1935,7 +1942,7 @@
     var rolledView = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var gunStat = rolledView.guns && rolledView.guns[i];
     var parts = gunStat && gunStat.parts ? gunStat.parts.map(function (p) { return { label: p.label, value: Number(p.value) || 0 }; }) : [{ label: "bonus", value: atk }];
-    if (ch() && ch().surpriseDraw && ch().holster === "shoulder-rig") {
+    if (ch() && ch().surpriseDraw && shoulderRigFor(ch(), i)) {
       parts.push({ label: "Surprise draw", value: 2 });
       ch().surpriseDraw = false;
       addLog({ kind: "alert", text: "Surprise draw +2 (Shoulder Rig)" });

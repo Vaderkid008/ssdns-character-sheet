@@ -141,14 +141,89 @@
     return { carry: "held", text: "Unstrapped: this is the held focus." };
   }
 
+  /* L/R holsters (Jessey 2026-10-19). character.holster = Holster L (old single field, so old readers keep working),
+     character.holsterR = Holster R, character.belt = gun belt / bandolier. A pair holster (row.holsterPair or
+     row.slots with both sides) fills both sides with the same id. */
+  function isPairHolster(holster) {
+    var row = lookupHolster(holster);
+    if (!row) return false;
+    if (row.holsterPair === true) return true;
+    var s = row.slots;
+    return Array.isArray(s) && s.indexOf("holster_l") >= 0 && s.indexOf("holster_r") >= 0;
+  }
+  function isBeltHolster(holster) {
+    var row = lookupHolster(holster);
+    return !!row && row.isRig === false && (!!row.feedsTR || /belt|bandolier/i.test(row.id || ""));
+  }
+  function holsterOf(character, side) {
+    if (!character) return "";
+    return String((side === "R" ? character.holsterR : character.holster) || "");
+  }
+  /* Set one side. A pair fills both sides; leaving a pair clears its other half. Belt types go to character.belt. */
+  function setHolster(character, side, id) {
+    if (!character) return { ok: false, reason: "No character." };
+    id = String(id || "");
+    if (id && isBeltHolster(id)) { character.belt = id; character.gunBelt = true; return { ok: true, belt: id }; }
+    var key = side === "R" ? "holsterR" : "holster", other = side === "R" ? "holster" : "holsterR";
+    var cur = String(character[key] || "");
+    /* A picked PHB rig replaces a worn pair-holster item (it covers both sides). */
+    (character.items || []).forEach(function (it) {
+      if (it && it.equipSlot === "holster_l" && (it.holsterPair === true || (Array.isArray(it.slots) && it.slots.indexOf("holster_r") >= 0)) && id) it.equipSlot = "";
+    });
+    if (id && isPairHolster(id)) { character.holster = id; character.holsterR = id; return { ok: true, pair: true }; }
+    if (cur && isPairHolster(cur) && String(character[other] || "") === cur) character[other] = "";
+    character[key] = id;
+    return { ok: true };
+  }
+  /* Old saves: one holster value. Belt types move to the Belt; anything else stays as Holster L. R starts empty. */
+  function migrateHolsters(character) {
+    if (!character) return { ok: false };
+    var changed = false;
+    if (character.holsterR == null) { character.holsterR = ""; changed = true; }
+    if (character.belt == null) { character.belt = ""; changed = true; }
+    if (character.holster && isBeltHolster(character.holster)) {
+      if (!character.belt) character.belt = character.holster;
+      character.gunBelt = true;
+      character.holster = "";
+      changed = true;
+    }
+    if (character.holsterR && isBeltHolster(character.holsterR)) { if (!character.belt) character.belt = character.holsterR; character.holsterR = ""; changed = true; }
+    return { ok: true, changed: changed };
+  }
+  /* Which gun index rides on each side. Doll picks (dollWeapons.revolver_1/2) win; otherwise equipped pistols in order. */
+  function pistolSides(character, lookup) {
+    var list = equippedPistols(character, lookup), map = (character && character.dollWeapons) || {};
+    var out = { L: null, R: null };
+    function pin(key) {
+      var v = map[key];
+      if (v == null || v === "") return null;
+      var n = Number(v);
+      return list.indexOf(n) >= 0 ? n : null;
+    }
+    out.L = pin("revolver_1");
+    var r = pin("revolver_2");
+    if (r != null && r !== out.L) out.R = r;
+    list.forEach(function (i) {
+      if (i === out.L || i === out.R) return;
+      if (out.L == null) out.L = i; else if (out.R == null) out.R = i;
+    });
+    return out;
+  }
+  function pistolSide(character, gunIndex, lookup) {
+    var s = pistolSides(character, lookup), n = Number(gunIndex);
+    return s.L === n ? "L" : (s.R === n ? "R" : "");
+  }
+  function sideCovers(character, side) { return pistolCovers(holsterOf(character, side)) > 0; }
+  /* Each pistol draws from its own side. A side with a pistol holster draws free. One pistol with no holster
+     is a free hand draw (as before); the next one needs the DC 12 Dex check. */
   function drawCheck(character, gunIndex, lookup) {
-    var covers = pistolCovers(character && character.holster);
-    var freeDraws = Math.min(2, 1 + covers);
-    var list = equippedPistols(character, lookup);
-    var rank = list.indexOf(Number(gunIndex));
-    if (rank < 0) return { needed: false };
-    if (rank < freeDraws) return { needed: false, covered: covers > 0 && rank > 0 };
-    return { needed: true, dc: 12, ability: "DEX", reason: "Second pistol, no holster: DC 12 Dex check to draw." };
+    var sides = pistolSides(character, lookup), n = Number(gunIndex);
+    var side = sides.L === n ? "L" : (sides.R === n ? "R" : "");
+    if (!side) return { needed: false };
+    if (sideCovers(character, side)) return { needed: false, covered: true, side: side };
+    var hand = (sides.L != null && !sideCovers(character, "L")) ? "L" : "R";
+    if (side === hand) return { needed: false, side: side };
+    return { needed: true, dc: 12, ability: "DEX", side: side, reason: "Pistol " + side + ", no holster on that side: DC 12 Dex check to draw." };
   }
 
   function setEquipped(character, opts) {
@@ -308,6 +383,13 @@
     setCombat: function (on) { combatOn = !!on; return combatOn; },
     focusCarry: focusCarry,
     drawCheck: drawCheck,
+    isPairHolster: isPairHolster,
+    isBeltHolster: isBeltHolster,
+    holsterOf: holsterOf,
+    setHolster: setHolster,
+    migrateHolsters: migrateHolsters,
+    pistolSides: pistolSides,
+    pistolSide: pistolSide,
     setEquipped: setEquipped,
     tryAutoEquip: tryAutoEquip,
     migrate: migrate,

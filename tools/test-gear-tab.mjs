@@ -32,7 +32,7 @@ check("target.mount", play.includes('id=\'atkTarget\'') && play.includes('$("#ge
 check("columns", equip.includes("gear-weapons") && equip.includes("gear-kit") && css.includes(".gear-columns"));
 check("armor.right", equip.indexOf('id="selArmor"') > equip.indexOf("gear-kit") && equip.indexOf("Shield") > equip.indexOf("gear-kit"));
 check("armor.leftMain", !main.includes('id="selArmor"'));
-check("order.kit", equip.indexOf(">Armor<") < equip.indexOf(">Ammo<") && equip.indexOf(">Ammo<") < equip.indexOf(">Holster<") && equip.indexOf(">Holster<") < equip.indexOf('id="taAttackNotes"'));
+check("order.kit", equip.indexOf(">Armor<") < equip.indexOf(">Ammo<") && equip.indexOf(">Ammo<") < equip.indexOf(">Holsters<") && equip.indexOf(">Holsters<") < equip.indexOf('id="taAttackNotes"'));
 check("weapons.left", equip.indexOf('id="guns"') < equip.indexOf('id="explosiveList"') && equip.indexOf('id="explosiveList"') < equip.indexOf("gear-kit"));
 check("card.ammo", app.includes('data-ammopool') && app.includes("function chosenAmmoPool") && app.includes("reloadFromPool(i, picked, max)"));
 check("card.roll", app.includes('data-gunroll') && app.includes('data-tr') && app.includes('data-hexload') && app.includes('data-cast'));

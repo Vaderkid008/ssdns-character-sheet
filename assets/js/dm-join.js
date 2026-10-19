@@ -298,6 +298,8 @@
       takingCover: !!c.takingCover,
       surpriseDraw: !!c.surpriseDraw,
       holster: c.holster || "",
+      holsterR: c.holsterR || "",
+      belt: c.belt || "",
       cover: c.cover || "",
       coverLock: !!c.coverLock,
       badgeState: c.badgeState || "",

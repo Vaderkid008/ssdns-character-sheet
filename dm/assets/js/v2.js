@@ -7152,7 +7152,7 @@ function grabSlotFree(actor, weapon) {
   const Equip = window.SSDNSEquip;
   if (!Equip || !actor || actor.kind !== "player") return true;
   const snap = playerSnapshot(actor.playerId || actor.id) || {};
-  const character = { guns: snap.guns || [], melee: snap.melee || [], holster: snap.holster || "", instrument: "", focusEquipped: false };
+  const character = { guns: snap.guns || [], melee: snap.melee || [], holster: snap.holster || "", holsterR: snap.holsterR || "", belt: snap.belt || "", dollWeapons: snap.dollWeapons || {}, instrument: "", focusEquipped: false };
   const kind = weapon && weapon.kind === "melee" ? "melee" : "gun";
   const lookup = function (id) { return Equip.lookupWeapon ? Equip.lookupWeapon(id) : null; };
   const slot = kind === "melee" ? "melee" : (Equip.slotOf ? Equip.slotOf(lookup(weapon && weapon.weaponId) || { group: weapon && weapon.group }) : "");

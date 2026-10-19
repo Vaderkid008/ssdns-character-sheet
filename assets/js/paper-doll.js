@@ -4,16 +4,21 @@
 (function (root) {
   "use strict";
   var W = 1080, H = 1350;
+  /* 2026-10-19 layout: every slot's label plate sits centered directly above its box, so each box keeps a
+     clear band above it (>= 38 of 1350) that no other box or plate uses. Trinkets share one "Trinkets" plate per group. */
   var BOX = {
-    hat: [485, 125, 120, 120], neck: [485, 255, 120, 120], coat: [410, 380, 120, 120], vest: [560, 380, 120, 120],
-    gunbelt: [485, 505, 120, 120], holster_l: [340, 530, 120, 120], holster_r: [630, 530, 120, 120], gloves: [282, 660, 120, 120],
-    chaps: [485, 800, 120, 120], boots: [485, 1070, 120, 120],
-    accessory_1: [74, 110, 130, 130], accessory_2: [74, 270, 130, 130], accessory_3: [214, 110, 130, 130], accessory_4: [214, 270, 130, 130],
-    accessory_5: [876, 110, 130, 130], accessory_6: [876, 270, 130, 130], accessory_7: [736, 110, 130, 130], accessory_8: [736, 270, 130, 130],
-    ring_1: [74, 430, 130, 130], ring_2: [876, 430, 130, 130],
-    revolver_1: [74, 690, 130, 130], revolver_2: [876, 690, 130, 130], long_gun: [74, 850, 130, 300], melee: [214, 850, 130, 300],
-    focus_borrowed_iron: [736, 850, 270, 300]
+    hat: [485, 150, 110, 110], neck: [485, 300, 110, 110], coat: [405, 455, 110, 110], vest: [565, 455, 110, 110],
+    gunbelt: [485, 605, 110, 110], holster_l: [330, 615, 110, 110], holster_r: [640, 615, 110, 110], gloves: [345, 770, 110, 110],
+    chaps: [485, 790, 110, 110], boots: [485, 1060, 110, 110],
+    accessory_1: [74, 110, 120, 120], accessory_2: [74, 240, 120, 120], accessory_3: [214, 110, 120, 120], accessory_4: [214, 240, 120, 120],
+    accessory_5: [876, 110, 120, 120], accessory_6: [806, 240, 120, 120], accessory_7: [736, 110, 120, 120], accessory_8: [736, 410, 120, 120],
+    ring_1: [74, 410, 120, 120], ring_2: [876, 410, 120, 120],
+    revolver_1: [74, 680, 130, 130], revolver_2: [876, 680, 130, 130], long_gun: [74, 860, 130, 290], melee: [214, 860, 130, 290],
+    focus_borrowed_iron: [736, 860, 270, 290]
   };
+  /* One shared plate over each trinket group: [centerX, topOfGroup]. */
+  var TRINKET_HEADS = [[204, 110], [866, 110]];
+  var PLATE_BAND = 38;
   var COUNTER = [240, 1158, 235, 174];
   var SIL = [310, 118, 460, 1080];
   /* label, accepted item.wear values, kind */
@@ -25,14 +30,15 @@
     ring_1: ["Ring", ["ring"]], ring_2: ["Ring", ["ring"]], accessory_8: ["Shield", ["shield"]]
   };
   for (var a = 1; a <= 7; a++) SLOTS["accessory_" + a] = ["Trinket", ["trinket", "accessory", ""]];
-  var WEAPON_SLOTS = { revolver_1: "Pistol 1", revolver_2: "Pistol 2", long_gun: "Long gun", melee: "Melee", focus_borrowed_iron: "Focus" };
+  var WEAPON_SLOTS = { revolver_1: "Pistol L", revolver_2: "Pistol R", long_gun: "Long gun", melee: "Melee", focus_borrowed_iron: "Focus" };
   /* pd-labels: the plate shown on each box (display only; SLOTS[k][0] stays for messages). */
   var LABELS = {
     hat: "Hat", neck: "Neck", coat: "Coat", vest: "Vest/Armor", gunbelt: "Belt", holster_l: "Holster L", holster_r: "Holster R",
     gloves: "Gloves", chaps: "Chaps", boots: "Boots", ring_1: "Ring 1", ring_2: "Ring 2", accessory_8: "Shield",
     revolver_1: "Pistol L", revolver_2: "Pistol R", long_gun: "Long gun", melee: "Melee", focus_borrowed_iron: "Focus"
   };
-  for (var t = 1; t <= 7; t++) LABELS["accessory_" + t] = "Trinket";
+  for (var t = 1; t <= 7; t++) LABELS["accessory_" + t] = "";  /* covered by the shared Trinkets plate */
+  function isTrinket(key) { return /^accessory_[1-7]$/.test(key); }
   /* Faint line glyphs for empty slots (and filled slots with no art yet). viewBox 0 0 48 48, stroke = currentColor. */
   var G = {
     hat: "M6 32c6 3 30 3 36 0M12 31c0-9 2-17 6-18 3-1 4 2 6 2s3-3 6-2c4 1 6 9 6 18",
@@ -52,8 +58,6 @@
     melee: "M24 4l3 6v22h-6V10zM16 32h16M22 32h4v10h-4z",
     focus: "M30 6l6 6-8 8M28 20a8 8 0 1 1-12 0 9 9 0 1 1 12 0zM20 26h.1"
   };
-  /* Plates sit on the top edge; these crowded center slots put theirs elsewhere so they don't cover a neighbor. */
-  var LABEL_POS = { neck: "side-r", coat: "top-l", vest: "top-r", gunbelt: "below" };
   function glyphKey(key) {
     if (/^accessory_[1-7]$/.test(key)) return "trinket";
     return { holster_l: "holster", holster_r: "holster", ring_1: "ring", ring_2: "ring", accessory_8: "shield", revolver_1: "pistol", revolver_2: "pistol", long_gun: "long", focus_borrowed_iron: "focus" }[key] || key;
@@ -71,7 +75,19 @@
   function R() { return root.SSDNS_RULES || {}; }
   function byId(list, id) { return (list || []).filter(function (x) { return x && x.id === id; })[0] || null; }
   function items(c) { return (c && Array.isArray(c.items)) ? c.items : []; }
-  function inSlot(c, key) { return items(c).filter(function (it) { return it && it.equipSlot === key; })[0] || null; }
+  /* A pair holster item (holsterPair: true, or slots: [holster_l, holster_r]) sits in holster_l and covers both sides. */
+  function isPairItem(it) {
+    if (!it) return false;
+    if (it.holsterPair === true) return true;
+    var s = it.slots;
+    return Array.isArray(s) && s.indexOf("holster_l") >= 0 && s.indexOf("holster_r") >= 0;
+  }
+  function inSlot(c, key) {
+    var list = items(c);
+    var hit = list.filter(function (it) { return it && it.equipSlot === key; })[0] || null;
+    if (!hit && key === "holster_r") hit = list.filter(function (it) { return it && it.equipSlot === "holster_l" && isPairItem(it); })[0] || null;
+    return hit;
+  }
   function base() {
     try { if ((root.location && root.location.pathname || "").indexOf("/dm/") >= 0) return "../"; } catch (e) {}
     return "";
@@ -93,9 +109,64 @@
     var it = items(c).filter(function (x) { return x && x.uid === uid; })[0];
     if (!it) return { ok: false, reason: "No item." };
     if (!fits(it, key)) return { ok: false, reason: it.name + " doesn't go in the " + SLOTS[key][0] + " slot." };
+    if (isPairItem(it) && (key === "holster_l" || key === "holster_r")) {
+      /* Pair: clear both sides (items and PHB pickers), then sit in holster_l covering both. */
+      var l = inSlot(c, "holster_l"), r = inSlot(c, "holster_r");
+      if ((l && l !== it && l.cursed) || (r && r !== it && r.cursed)) return { ok: false, reason: "Cursed. It won't come off." };
+      if (l && l !== it) l.equipSlot = "";
+      if (r && r !== it) r.equipSlot = "";
+      c.holster = ""; c.holsterR = "";
+      it.equipSlot = "holster_l";
+      return { ok: true, item: it, pair: true };
+    }
     if (cur && cur !== it) { if (cur.cursed) return { ok: false, reason: "Cursed. It won't come off." }; cur.equipSlot = ""; }
     it.equipSlot = key;
     return { ok: true, item: it };
+  }
+
+  /* Gear "Wear" toggle (2026-10-19). Shown for items with a worn place (item.wear) or already in a slot. */
+  function wearable(it) {
+    if (!it) return false;
+    if (it.equipSlot) return true;
+    if (!wearOf(it)) return false;
+    return Object.keys(SLOTS).some(function (k) { return fits(it, k); });
+  }
+  function slotName(key) {
+    if (isTrinket(key)) return "Trinket";
+    return LABELS[key] || (SLOTS[key] && SLOTS[key][0]) || key;
+  }
+  /* First empty slot the item fits (pairs prefer holster_l); if all are full, the first slot it fits. */
+  function wearSlot(c, it) {
+    var keys = Object.keys(SLOTS).filter(function (k) { return fits(it, k); });
+    if (isPairItem(it)) keys = keys.filter(function (k) { return k === "holster_l"; });
+    var free = keys.filter(function (k) {
+      if (inSlot(c, k)) return false;
+      if (k === "holster_l" && c && c.holster) return false;
+      if (k === "holster_r" && c && c.holsterR) return false;
+      if (k === "vest" && c && c.armor) return false;
+      if (k === "accessory_8" && c && c.shield) return false;
+      return true;
+    });
+    return free[0] || keys[0] || "";
+  }
+  function toggleWear(c, uid) {
+    var it = items(c).filter(function (x) { return x && x.uid === uid; })[0];
+    if (!it) return { ok: false, reason: "No item." };
+    if (it.equipSlot) {
+      if (it.cursed) return { ok: false, reason: "Cursed. It won't come off." };
+      it.equipSlot = "";
+      return { ok: true, worn: false };
+    }
+    var key = wearSlot(c, it);
+    if (!key) return { ok: false, reason: it.name + " has no slot on the paper doll." };
+    var r = equip(c, key, uid);
+    if (r.ok) r.slot = key;
+    return r;
+  }
+  function wornLabel(c, it) {
+    if (!it || !it.equipSlot) return "";
+    if (isPairItem(it) && it.equipSlot === "holster_l") return "Holster L + R";
+    return slotName(it.equipSlot);
   }
 
   /* 0.3.54: weapon slots are pickers. c.dollWeapons maps slot -> gun/melee index. */
@@ -125,6 +196,12 @@
   function weaponRow(c, key) {
     var map = (c && c.dollWeapons) || {};
     var opts = weaponOptions(c, key);
+    /* Pistol L / R follow the same side map the draw check and first-shot bonus use. */
+    var E = root.SSDNSEquip;
+    if ((key === "revolver_1" || key === "revolver_2") && E && E.pistolSides) {
+      var sides = E.pistolSides(c), want = key === "revolver_1" ? sides.L : sides.R;
+      return want == null ? null : (opts.filter(function (x) { return x.i === want; })[0] || null);
+    }
     if (map[key] != null && map[key] !== "") {
       var hit = opts.filter(function (x) { return String(x.i) === String(map[key]); })[0];
       if (hit) return hit.equipped ? hit : null;
@@ -268,11 +345,19 @@
   function html(c, opts) {
     opts = opts || {};
     var ro = !!opts.readOnly;
-    var parts = ['<div class="doll' + (ro ? " doll-ro" : "") + '" style="background-image:url(' + img("frame-B6-1080x1350.webp") + ')">',
+    var parts = ['<div class="doll' + (ro ? " doll-ro" : "") + '" style="background-image:url(' + img("frame-B6-clean-1080x1350.webp") + ')">',
       '<img class="doll-sil" alt="" src="' + img("silhouette-600x1100.webp") + '" style="' + pct(SIL) + '">'];
-    var rr = R(), hol = c && c.holster ? byId(rr.holsters, c.holster) : null, beltRig = hol && /belt|bandolier/i.test(hol.id);
+    var rr = R(), E = root.SSDNSEquip;
+    var isBelt = function (h) { return !!h && (E && E.isBeltHolster ? E.isBeltHolster(h) : /belt|bandolier/i.test(h.id)); };
+    var isPair = function (h) { return !!h && !!(E && E.isPairHolster && E.isPairHolster(h)); };
+    var holL = c && c.holster ? byId(rr.holsters, c.holster) : null, holR = c && c.holsterR ? byId(rr.holsters, c.holsterR) : null;
+    /* Old saves not yet migrated may still keep a belt in c.holster. */
+    var beltRow = (c && c.belt ? byId(rr.holsters, c.belt) : null) || (isBelt(holL) ? holL : null);
+    if (isBelt(holL)) holL = null;
+    var pairWorn = inSlot(c, "holster_l");
+    pairWorn = pairWorn && isPairItem(pairWorn);
     Object.keys(BOX).forEach(function (key) {
-      var b = BOX[key], tall = b[3] > 200, label = LABELS[key] || (SLOTS[key] ? SLOTS[key][0] : WEAPON_SLOTS[key]), name = "", art = "", filled = false, cls = "", src = "";
+      var b = BOX[key], tall = b[3] > 200, label = isTrinket(key) ? "" : (LABELS[key] || (SLOTS[key] ? SLOTS[key][0] : WEAPON_SLOTS[key])), name = "", art = "", filled = false, cls = "", src = "";
       if (WEAPON_SLOTS[key]) {
         name = weaponName(c, key); filled = !!name; cls = " doll-weapon"; art = filled ? weaponArt(c, key) : "";
         src = key === "focus_borrowed_iron" ? "Gear: Focus" : "Gear: Weapons";
@@ -280,9 +365,11 @@
         var it = inSlot(c, key);
         if (key === "vest" && !it && c && c.armor) { var ar = byId(rr.armor, c.armor); if (ar && ar.category !== "shield") { name = ar.name; src = "Gear: Armor"; } }
         if (key === "accessory_8" && !it && c && c.shield) { name = "Shield"; src = "Gear: Shield"; }
-        /* pd-labels: Holster on Gear fills Holster L; a belt/bandolier rig (or the Gun belt box) fills Belt. */
-        if (key === "holster_l" && !it && hol && !beltRig) { name = hol.name; src = "Gear: Holster"; }
-        if (key === "gunbelt" && !it && (beltRig || (c && c.gunBelt))) { name = beltRig ? hol.name : "Gun belt"; src = beltRig ? "Gear: Holster" : "Gear: Gun belt box"; }
+        /* Holster L / Holster R mirror the two Gear pickers; Belt mirrors the Belt picker (or the Gun belt box). */
+        if (key === "holster_l" && !it && holL) { name = holL.name; src = "Gear: Holster L"; if (isPair(holL) && holR === holL) cls += " doll-pair doll-pair-l"; }
+        if (key === "holster_r" && !it && holR) { name = holR.name; src = "Gear: Holster R"; if (isPair(holR) && holR === holL) cls += " doll-pair doll-pair-r"; }
+        if ((key === "holster_l" || key === "holster_r") && it && pairWorn) cls += " doll-pair doll-pair-" + (key === "holster_l" ? "l" : "r");
+        if (key === "gunbelt" && !it && (beltRow || (c && c.gunBelt))) { name = beltRow ? beltRow.name : "Gun belt"; src = beltRow ? "Gear: Belt" : "Gear: Gun belt box"; }
         if (it) { name = it.name; art = artFor(it); src = "Item"; if (it.attune && !it.attuned) cls += " doll-unattuned"; }
         if (isDefaultArt(art)) art = "";
         filled = !!name;
@@ -292,13 +379,18 @@
       var tile = filled ? "slot-256-filled.webp" : "slot-256.webp";
       if (tall) cls += b[2] > 200 ? " doll-wide" : " doll-tall";
       if (filled && !art) cls += " doll-noart";
-      var tip = label + (name ? ": " + name + (src ? " (" + src + ")" : "") : " (empty)");
-      parts.push('<div class="doll-cell' + (LABEL_POS[key] ? " lab-" + LABEL_POS[key] : "") + '" style="' + pct(b) + '">' +
+      var tip = (label || "Trinket") + (name ? ": " + name + (src ? " (" + src + ")" : "") : " (empty)");
+      if (key === "revolver_1") tip += " · draws from Holster L";
+      if (key === "revolver_2") tip += " · draws from Holster R";
+      parts.push('<div class="doll-cell' + (isTrinket(key) ? " doll-trinket" : "") + '" style="' + pct(b) + '">' +
         '<' + (ro ? "div" : "button type=\"button\"") + ' class="doll-slot doll-9' + (filled ? " filled" : "") + cls + '" data-doll-slot="' + key + '" style="border-image-source:url(' + img(tile) + ')" title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' +
         (art ? '<img class="doll-art" alt="" src="' + esc(art) + '">' : glyph(key)) +
         (filled ? '<span class="doll-name">' + esc(shortName(name)) + "</span>" : "") +
         "</" + (ro ? "div" : "button") + ">" +
-        '<span class="doll-label" aria-hidden="true">' + esc(label) + "</span></div>");
+        (label ? '<span class="doll-label" aria-hidden="true">' + esc(label) + "</span>" : "") + "</div>");
+    });
+    TRINKET_HEADS.forEach(function (h) {
+      parts.push('<span class="doll-label doll-group-label" aria-hidden="true" style="left:' + (h[0] / W * 100) + "%;top:" + (h[1] / H * 100) + '%">Trinkets</span>');
     });
     var es = opts.es != null ? opts.es : "";
     parts.push('<div class="doll-counter" style="' + pct(COUNTER) + '"><span class="doll-es">' + esc(es) + '</span><span class="doll-es-unit">ES</span></div>');
@@ -342,10 +434,14 @@
       extra = '<label class="tiny">PHB armor <select data-doll-armor>' + opt("", "None", c.armor) + (rr.armor || []).filter(function (a) { return a && a.category !== "shield"; }).map(function (a) { return opt(a.id, a.name, c.armor); }).join("") + "</select></label>";
     } else if (key === "accessory_8") {
       extra = '<button type="button" class="btn sm' + (c.shield ? " btn-primary" : "") + '" data-doll-shield>' + (c.shield ? "PHB shield: on" : "PHB shield: off") + "</button>";
-    } else if (key === "holster_l") {
-      extra = '<label class="tiny">PHB holster <select data-doll-holster>' + opt("", "None", c.holster) + (rr.holsters || []).map(function (h) { return opt(h.id, h.name, c.holster); }).join("") + "</select></label>";
+    } else if (key === "holster_l" || key === "holster_r") {
+      var fld = key === "holster_r" ? "holsterR" : "holster", E0 = root.SSDNSEquip;
+      extra = '<label class="tiny">' + (key === "holster_r" ? "Holster R" : "Holster L") + ' <select data-doll-holster="' + fld + '">' + opt("", "None", c[fld]) +
+        (rr.holsters || []).filter(function (h) { return h.isRig !== false; }).map(function (h) { return opt(h.id, h.name + (E0 && E0.isPairHolster && E0.isPairHolster(h) ? " (fills L + R)" : ""), c[fld]); }).join("") + "</select></label>";
+    } else if (key === "gunbelt") {
+      extra = '<label class="tiny">Belt <select data-doll-belt>' + opt("", "None", c.belt) + (rr.holsters || []).filter(function (h) { return h.isRig === false; }).map(function (h) { return opt(h.id, h.name, c.belt); }).join("") + "</select></label>";
     }
-    var hint = key === "vest" ? "Same as Armor on Gear; either one updates the other." : key === "accessory_8" ? "Same as the Shield box on Gear. A two-handed weapon turns a shield off." : key === "holster_l" ? "Same as Holster on Gear. Rig bonuses don't stack: best Dex and best Init count." : "";
+    var hint = key === "vest" ? "Same as Armor on Gear; either one updates the other." : key === "accessory_8" ? "Same as the Shield box on Gear. A two-handed weapon turns a shield off." : key === "holster_l" ? "Same as Holster L on Gear. Pistol L draws from it and gets its first-shot bonus." : key === "holster_r" ? "Same as Holster R on Gear. Pistol R draws from it and gets its first-shot bonus." : key === "gunbelt" ? "Same as Belt on Gear. A gun belt or bandolier feeds Tactical Reload." : "";
     return '<div class="doll-pick" data-doll-pick="' + key + '"><b>' + esc(label) + "</b> " + (extra ? extra + " " : "") + (rows || (extra ? "" : '<span class="fine">Nothing you carry fits here.</span>')) +
       (cur ? ' <button type="button" class="btn sm" data-doll-put="">Take off</button>' : "") +
       ' <button type="button" class="btn sm" data-doll-close>Close</button>' +
@@ -405,14 +501,18 @@
     document.addEventListener("change", function (e) {
       var host = document.getElementById("dollHost");
       if (!host || !host.contains(e.target)) return;
-      var t = e.target, f = t.hasAttribute("data-doll-armor") ? "armor" : t.hasAttribute("data-doll-holster") ? "holster" : "";
+      var t = e.target, f = t.hasAttribute("data-doll-armor") ? "armor" : t.hasAttribute("data-doll-holster") ? (t.getAttribute("data-doll-holster") || "holster") : t.hasAttribute("data-doll-belt") ? "belt" : "";
       if (!f) return;
-      commit(function () { character()[f] = t.value; });
+      commit(function () {
+        var ch = character(), E = root.SSDNSEquip;
+        if ((f === "holster" || f === "holsterR") && E && E.setHolster) E.setHolster(ch, f === "holsterR" ? "R" : "L", t.value);
+        else { ch[f] = t.value; if (f === "belt" && t.value) ch.gunBelt = true; }
+      });
       openKey = ""; paint();
     });
   }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
+  root.SSDNSDoll = { BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
 })(typeof window !== "undefined" ? window : globalThis);

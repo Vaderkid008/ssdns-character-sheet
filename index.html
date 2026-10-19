@@ -292,8 +292,12 @@
             <div id="ammoList" class="ammo-list"></div>
           </div>
           <div class="holster">
-            <div class="sub-head"><h3>Holster</h3></div>
-            <select data-f="character.holster" id="selHolster" aria-label="Holster"></select>
+            <div class="sub-head"><h3>Holsters</h3></div>
+            <div class="holster-sides">
+              <label class="holster-side">Holster L <select data-f="character.holster" id="selHolster" aria-label="Holster L (Pistol L draws from it)"></select></label>
+              <label class="holster-side">Holster R <select data-f="character.holsterR" id="selHolsterR" aria-label="Holster R (Pistol R draws from it)"></select></label>
+            </div>
+            <label class="holster-side holster-belt">Belt <select data-f="character.belt" id="selBelt" aria-label="Gun belt or bandolier"></select></label>
             <label class="chk"><input type="checkbox" data-f="character.holsterActive"> Pistol rides in the rig (applies Init. and first shot)</label>
             <label class="chk"><input type="checkbox" data-f="character.seated"> Seated or driving</label>
             <label class="chk"><input type="checkbox" data-f="character.mounted"> Mounted</label>

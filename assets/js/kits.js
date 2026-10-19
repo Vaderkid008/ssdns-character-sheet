@@ -365,6 +365,8 @@
       ammo: [],
       equipment: "",
       holster: "",
+      holsterR: "",
+      belt: "",
       gunBelt: false,
       shield: false,
       armor: "",
