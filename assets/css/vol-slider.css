@@ -1,4 +1,4 @@
-/* 0.3.52: big, easy volume sliders (sheet + DMCC) */
+/* 0.3.53: big, easy volume sliders (sheet + DMCC) */
 .vol-slider { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
 .vol-slider input[type=range] { -webkit-appearance: none; appearance: none; width: 220px; min-width: 200px; height: 36px; margin: 0; background: transparent; cursor: pointer; touch-action: pan-y; }
 .vol-slider input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #c9a227 var(--vol-fill, 50%), #4a3f33 var(--vol-fill, 50%)); }

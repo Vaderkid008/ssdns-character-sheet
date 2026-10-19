@@ -914,18 +914,18 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .item-form input, .item-form select { max-width: 100%; }
 .item-form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .weight-line { font-weight: 600; }
-/* 0.3.52 fading, non-blocking toasts */
+/* 0.3.53 fading, non-blocking toasts */
 .fade-toasts { position: fixed; top: 72px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
 .fade-toast { background: rgba(28,22,18,.94); color: #f3e6c8; border: 1px solid #c9a24a; border-radius: 8px; padding: 10px 18px; font-size: 18px; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.4); transition: opacity .7s ease, transform .7s ease; }
 .fade-toast.out { opacity: 0; transform: translateY(-8px); }
-/* 0.3.52 items: attunement, created weapons, explosives in Items */
+/* 0.3.53 items: attunement, created weapons, explosives in Items */
 .attune-line { margin: 0 0 6px; font-weight: 700; }
 .item-weapon-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; border: 1px dashed #c4b497; padding: 6px 8px; margin: 6px 0; }
 .item-weapon-fields[hidden] { display: none; }
 .exp-row { display: flex; gap: 8px; align-items: center; }
 .exp-row .exp-name { flex: 1; }
 
-/* Paper doll (0.3.52) — Art Bot B6 frame */
+/* Paper doll (0.3.53) — Art Bot B6 frame */
 .doll-wrap { max-width: 540px; margin: 0 auto 14px; }
 .doll { position: relative; width: 100%; aspect-ratio: 1080 / 1350; background-size: 100% 100%; background-repeat: no-repeat; container-type: inline-size; }
 .doll-sil { position: absolute; object-fit: contain; pointer-events: none; opacity: .55; }
@@ -944,7 +944,7 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .doll-pick { margin-top: 8px; padding: 8px; border: 1px solid #b39a6a; border-radius: 6px; background: #f6ecd6; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .doll-pick .fine { flex-basis: 100%; margin: 0; }
 @media print { .doll-wrap { display: none; } }
-/* 0.3.52: doll lives in the Gear right column; tiles are 9-sliced so tall/wide slots keep square corners. */
+/* 0.3.53: doll lives in the Gear right column; tiles are 9-sliced so tall/wide slots keep square corners. */
 .doll-wrap.doll-in-col { max-width: 100%; width: 100%; margin: 0 0 12px; }
 .doll-slot.doll-9 { background: none; border-style: solid; border-width: 0; border-image-slice: 34 fill; border-image-width: 2.8cqw; border-image-repeat: stretch; border-image-outset: 0; }
 .doll-tall .doll-art, .doll-wide .doll-art { inset: 10% 8%; width: 84%; height: 80%; }
@@ -953,14 +953,14 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .mx-mine-ctl[open] { background: rgba(255,255,255,.08); border-radius: 6px; padding: 2px 6px; }
 .art-upload .fine { margin: 2px 0 6px; }
 
-/* 0.3.52: lineage description gets its own full-width row (no gap under Background/Player) */
+/* 0.3.53: lineage description gets its own full-width row (no gap under Background/Player) */
 .topgrid .lineage-row { grid-column: 1 / -1; margin: 0; padding: 2px 0 4px; }
 .topgrid .lineage-row:empty { display: none; }
 .instrument-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .instrument-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border: 1px solid #b39a6a; border-radius: 6px; background: rgba(246,236,214,.6); }
 .instrument-row.is-focus { border-color: #8d1c14; }
 
-/* 0.3.52: wizard spell picker (card grid) */
+/* 0.3.53: wizard spell picker (card grid) */
 .spell-info-strip { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 12px; margin: 4px 0 10px; border: 1px solid #b39a6a; border-left: 4px solid #8d1c14; border-radius: 6px; background: linear-gradient(180deg, #f6ecd6, #ead9b4); color: #2b1d10; font-size: 13px; }
 .spell-info-strip .sis-cell b { font-variant: small-caps; letter-spacing: .03em; color: #6b3f12; margin-right: 2px; }
 .spell-info-strip .sis-focus { flex-basis: 100%; font-size: 12px; opacity: .9; }

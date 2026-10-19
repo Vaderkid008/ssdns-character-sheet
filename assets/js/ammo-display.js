@@ -185,7 +185,7 @@
     return spec.label(chamber.index, chamber) || "";
   }
 
-  /* 0.3.52: what the round looks like, keyed off the ammo type (never the gun name).
+  /* 0.3.53: what the round looks like, keyed off the ammo type (never the gun name).
      ball = powder, ball & caps; cart = brass rim + primer; buck = red hull, brass base;
      rf22 = small brass (.22 / light); hex = dark lead with a green glow. */
   function roundType(spec, chamber) {
@@ -199,7 +199,7 @@
       else if (kn === "buck" || kn === "slug") ammo = "shell";
     }
     if (ammo === "percussion" || ammo === "ball" || ammo === "powder") return "ball";
-    /* 0.3.52: shells keep the original look; only the shotgun repeater gets the red hull. */
+    /* 0.3.53: shells keep the original look; only the shotgun repeater gets the red hull. */
     if (ammo === "shell" || ammo === "buck" || ammo === "slug" || isShotgun(spec)) {
       var sid = String((row && row.id) || spec.weapon || spec.weaponId || "");
       var sact = String((row && row.action) || spec.action || "").toLowerCase();

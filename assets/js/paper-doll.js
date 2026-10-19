@@ -1,4 +1,4 @@
-/* SSDNS paper doll (sheet 0.3.52). Art Bot take B6: frame + silhouette + 25 slot boxes.
+/* SSDNS paper doll (sheet 0.3.53). Art Bot take B6: frame + silhouette + 25 slot boxes.
    Worn slots hold Items (item.equipSlot). Weapon slots mirror the Gear tab.
    Only slotted (and, if needed, attuned) items give bonuses. Holster rigs don't stack. Dex caps at 20. */
 (function (root) {
@@ -59,7 +59,7 @@
     return { ok: true, item: it };
   }
 
-  /* 0.3.52: weapon slots are pickers. c.dollWeapons maps slot -> gun/melee index. */
+  /* 0.3.53: weapon slots are pickers. c.dollWeapons maps slot -> gun/melee index. */
   function gunRows(c) {
     var rr = R();
     return ((c && c.guns) || []).map(function (g, i) {
@@ -244,7 +244,7 @@
         filled = !!name;
         if (key === "accessory_8" && filled && bonuses(c).shieldOff) cls += " doll-off";
       }
-      /* 0.3.52: 9-slice the square tile so tall/wide slots keep true corners. */
+      /* 0.3.53: 9-slice the square tile so tall/wide slots keep true corners. */
       var tile = filled ? "slot-256-filled.webp" : "slot-256.webp";
       if (tall) cls += b[2] > 200 ? " doll-wide" : " doll-tall";
       parts.push('<' + (ro ? "div" : "button type=\"button\"") + ' class="doll-slot doll-9' + (filled ? " filled" : "") + cls + '" data-doll-slot="' + key + '" style="' + pct(b) + ';border-image-source:url(' + img(tile) + ')" title="' + esc(label + (name ? ": " + name : " (empty)")) + '" aria-label="' + esc(label + (name ? ": " + name : " empty")) + '">' +

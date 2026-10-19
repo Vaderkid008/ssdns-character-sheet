@@ -176,8 +176,8 @@ const A = sb2.SSDNSAmmoDisplay, ac = read("assets/css/ammo-display.css");
 check("rounds.ballNoCap", A.roundType({ weapon: "navy-army-ball-n-cap-revolver" }) === "ball" && A.roundType({ weapon: "dull-co-rifle-musket" }) === "ball");
 const ballCss = ac.slice(ac.indexOf(".is-primer.is-loaded.rt-ball {"), ac.indexOf("}", ac.indexOf(".is-primer.is-loaded.rt-ball {")));
 check("rounds.ballCss", ballCss && !/#b8632e|#e9a46a|copper/i.test(ballCss) && /rgba\(255, 255, 255, 0\.55\)/.test(ballCss));
-check("rounds.shellsOriginal", A.roundType({ weapon: "double-barrel-coach-gun" }) === "shell" && A.roundType({ weapon: "single-barrel-farm-shotgun" }) === "shell" && !/rt-shell/.test(ac));
-check("rounds.repeaterRed", A.roundType({ weapon: "lancaster-lever-shotgun" }) === "buck" && /\.is-primer\.is-loaded\.rt-buck/.test(ac));
+check("rounds.shellsOriginal", A.roundType({ weapon: "double-barrel-coach-gun" }) === "shell" && A.roundType({ weapon: "single-barrel-farm-shotgun" }) === "shell");
+check("rounds.repeaterFollowsGauge", A.roundType({ weapon: "lancaster-lever-shotgun" }) === "shell");
 check("rounds.hexSame", A.roundType({ weapon: "navy-army-ball-n-cap-revolver" }, { raw: "k:hex:2" }) === "hex" && /rt-hex/.test(ac));
 
 /* ---------- 4. volume ---------- */

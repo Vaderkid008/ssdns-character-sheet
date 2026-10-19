@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.65"; // dmcc-playtest-v0265
+const VERSION = "0.2.66"; // dmcc-playtest-v0266
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2393,7 +2393,7 @@ function dedupeById(list) {
   });
   return out;
 }
-/* 0.2.65: tell the sheet what kind of reward this is (instrument id + quality) so it
+/* 0.2.66: tell the sheet what kind of reward this is (instrument id + quality) so it
    never has to guess from the text. */
 function rewardPayload(type, labeled, id, qty) {
   const payload = { text: labeled, grantId: id, qty: qty };
@@ -2544,7 +2544,7 @@ async function sendHandoutCommand(h) {
   toast("Handout sent to " + who);
 }
 
-/* 0.2.65: the map menu pushes World maps as handouts through the normal handout flow. */
+/* 0.2.66: the map menu pushes World maps as handouts through the normal handout flow. */
 window.SSDNSPushHandout = async function (entry, send) {
   const h = { name: String(entry.name || "Map"), url: String(entry.url || ""), text: String(entry.text || ""), to: entry.to || "all", sent: !!send };
   await pushHandout(h);

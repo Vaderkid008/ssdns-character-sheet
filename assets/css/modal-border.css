@@ -1,4 +1,4 @@
-/* 0.3.52: burnt-parchment border on every popup and modal (sheet + DMCC).
+/* 0.3.53: burnt-parchment border on every popup and modal (sheet + DMCC).
    Scorched edge vignette (inner shadow + blotchy corners) and a thin brass/dark rule.
    Drawn on ::after so it never steals clicks or fights each dialog's own borders. */
 dialog[open], .drawer[role="dialog"], .clean-modal, .ssdns-modal {

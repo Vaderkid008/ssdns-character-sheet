@@ -1,5 +1,5 @@
 /**
- * Music end to end (sheet 0.3.52 / DMCC 0.2.65): starter pack, pasted link, Storage upload (mocked).
+ * Music end to end (sheet 0.3.53 / DMCC 0.2.66): starter pack, pasted link, Storage upload (mocked).
  * DM page (jsdom, real Music panel HTML + music-deck + media-upload + music-dm) pushes commands;
  * a player page (jsdom, music-deck) applies them. Every method must push the same shape and the
  * player must end in the same state.   node tools/test-music-e2e.mjs

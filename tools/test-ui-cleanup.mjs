@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.52 / DMCC 0.2.65 UI cleanup.
+ * Sheet 0.3.53 / DMCC 0.2.66 UI cleanup.
  * Toolbar move buttons, docked chat tuck, draggable DM card, gun melee order.
  *   node tools/test-ui-cleanup.mjs
  */
@@ -22,9 +22,9 @@ const app = read("assets/js/app.js");
 const mapSrc = read("map/ssdns-map.js");
 const css = read("map/ssdns-map.css");
 const sheetCss = read("assets/css/sheet.css");
-check("ver.sheet", version.sheet === "0.3.52" && version.sheetBuild === "sheet-playtest-v0352");
-check("ver.dmcc", version.dmcc === "0.2.65" && version.dmccBuild === "dmcc-playtest-v0265");
-check("ver.app", app.includes('APP_VERSION = "0.3.52"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.65"'));
+check("ver.sheet", version.sheet === "0.3.53" && version.sheetBuild === "sheet-playtest-v0353");
+check("ver.dmcc", version.dmcc === "0.2.66" && version.dmccBuild === "dmcc-playtest-v0266");
+check("ver.app", app.includes('APP_VERSION = "0.3.53"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.66"'));
 check("rules.untouched", !read("database.rules.json").includes("ssdns.dmCard") && !read("assets/data/rules.js").includes("g-gunmelee"));
 
 const toolbar = mapSrc.slice(mapSrc.indexOf("toolbar.innerHTML"), mapSrc.indexOf("el.appendChild(toolbar)"));

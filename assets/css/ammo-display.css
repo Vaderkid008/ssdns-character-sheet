@@ -186,8 +186,8 @@
 .init-who .cylinder-row { flex-basis: 100%; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
 .turn-strip .cylinder-row { flex-wrap: wrap; }
 
-/* 0.3.52 round art by ammo type (drawn in CSS). Empty / fired / X states above still win. */
-/* 0.3.52: powder & ball = a plain round lead ball. No cap, no primer; soft highlight. */
+/* 0.3.53 round art by ammo type (drawn in CSS). Empty / fired / X states above still win. */
+/* 0.3.53: powder & ball = a plain round lead ball. No cap, no primer; soft highlight. */
 .ssdns-ammo .ammo-round.is-primer.is-loaded.rt-ball {
   border-color: #3b3d40;
   background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55) 0 6%, rgba(220, 224, 228, 0.35) 14%, transparent 34%),
