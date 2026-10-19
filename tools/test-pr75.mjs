@@ -179,14 +179,14 @@ check("mx.player.noAutoplayCode", !/SSDNSMusic\.(play|fadeIn|crossfade)\(/.test(
   const made = MD.scenes().find((s) => s.name === "Showdown");
   check("sc.create", made && made.music.level === 0.9 && JSON.parse(W.localStorage.getItem("ssdns.dmcc.scenes.v1")).some((s) => s.name === "Showdown"));
   q("#mxSceneName").value = "Showdown 2"; q("#btnMxSceneSave").click();
-  check("sc.edit", MD.scenes().filter((s) => s.id === made.id)[0].name === "Showdown 2" && MD.scenes().length === 3);
+  check("sc.edit", MD.scenes().filter((s) => s.id === made.id)[0].name === "Showdown 2" && MD.scenes().length === 4);
   pushed.length = 0;
   MD.applyScene(made.id);
   check("sc.emptyFadesAmbient", pushed.some((c) => c.payload.layer === "ambient" && c.payload.action === "fade_out"));
   q("#btnMxSceneDel").click();
   check("sc.delete", !MD.scenes().some((s) => s.id === made.id));
   /* stingers */
-  check("st.defaults", MD.stingers().map((s) => s.event).join() === "explode,lightning" && W.document.querySelectorAll("[data-mx-sting]").length === 2);
+  check("st.defaults", MD.stingers().map((s) => s.event).join() === "sting-tension,sting-reveal,explode" && W.document.querySelectorAll("[data-mx-sting]").length === 3);
   pushed.length = 0;
   const before = M2.snapshot();
   q('[data-mx-sting="explode"]').click();
@@ -194,9 +194,9 @@ check("mx.player.noAutoplayCode", !/SSDNSMusic\.(play|fadeIn|crossfade)\(/.test(
   const after = M2.snapshot();
   check("st.layersKeep", after.music.track && after.music.track.title === before.music.track.title && !!after.ambient.track === !!before.ambient.track);
   q("#mxStingerAdd").value = "attack"; q("#mxStingerLabel").value = "Gunshot"; q("#btnMxStingerAdd").click();
-  check("st.add", MD.stingers().length === 3 && /Gunshot/.test(q("#mxStingerList").textContent));
-  q('[data-mx-sting-del="2"]').click();
-  check("st.del", MD.stingers().length === 2);
+  check("st.add", MD.stingers().length === 4 && /Gunshot/.test(q("#mxStingerList").textContent));
+  q('[data-mx-sting-del="3"]').click();
+  check("st.del", MD.stingers().length === 3);
   check("sfx.dmMaster", !!q("[data-sfx-volume]"));
 }
 const sheetHtml = read("index.html");
@@ -206,7 +206,7 @@ check("np.personal", /data-mx-pref="music"/.test(sheetHtml));
 check("sfx.noReplay", /cmd\.type === "music" \|\| cmd\.type === "sfx"/.test(djs));
 check("vol.bigStyle", /data-mx-scene-level/.test(read("assets/js/vol-slider.js")));
 
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.55" && JSON.parse(read("version.json")).dmcc === "0.2.68");
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.56" && JSON.parse(read("version.json")).dmcc === "0.2.69");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED: " + failures.join(", ") : "\nAll PR75 checks passed.");
 process.exit(failures.length ? 1 : 0);

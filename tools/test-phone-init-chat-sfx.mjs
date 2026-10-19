@@ -13,11 +13,11 @@ function check(cond, msg) { if (!cond) failures.push(msg); }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.55" && version.sheetBuild === "sheet-playtest-v0355", "sheet 0.3.55");
-check(version.dmcc === "0.2.68" && version.dmccBuild === "dmcc-playtest-v0268", "dmcc 0.2.68");
-check(read("assets/js/app.js").includes('APP_VERSION = "0.3.55"'), "sheet banner");
-check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.68"'), "dmcc banner");
-check(!read("assets/data/rules.js").includes("0.3.55"), "rules.js was not regenerated for this bump");
+check(version.sheet === "0.3.56" && version.sheetBuild === "sheet-playtest-v0356", "sheet 0.3.55");
+check(version.dmcc === "0.2.69" && version.dmccBuild === "dmcc-playtest-v0269", "dmcc 0.2.68");
+check(read("assets/js/app.js").includes('APP_VERSION = "0.3.56"'), "sheet banner");
+check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.69"'), "dmcc banner");
+check(!read("assets/data/rules.js").includes("0.3.56"), "rules.js was not regenerated for this bump");
 
 const sheetCss = read("assets/css/sheet.css");
 const dmCss = read("dm/assets/css/dmcc.css");
@@ -94,13 +94,13 @@ check(!noFaction.faction, "missing faction data adds no chip");
 
 const map = JSON.parse(read("assets/sfx/sfx.json"));
 const pools = map.pools || {};
-check(Array.isArray(pools.ricochet) && pools.ricochet.length === 0, "ricochet pool is empty");
+check(Array.isArray(pools.ricochet) && pools.ricochet.length === 5, "ricochet pool has the primary + 4 alts (0.3.56)");
 check(map.outcomes.categories.gun.miss === "ricochet", "a gun miss cues ricochet");
-check(map.outcomes.categories.arrow.miss === "" && map.outcomes.categories.melee.miss === "", "arrow and melee misses stay silent");
+check(map.outcomes.categories.arrow.miss === "miss-arrow" && map.outcomes.categories.melee.miss === "miss-melee", "arrow and melee misses have sounds (0.3.56)");
 Object.keys(map.events).forEach((cue) => {
   const pool = pools[cue];
-  check(Array.isArray(pool) && pool.length >= 3 && pool.length <= 5, cue + " pool is 3 to 5 files");
-  check(pool && pool.every((file) => file === map.events[cue]), cue + " pool uses the current file as a placeholder");
+  check(Array.isArray(pool) && pool.length >= 1 && pool.length <= 5, cue + " pool is 1 to 5 files");
+  check(pool && pool[0] === map.events[cue] && pool.every((file) => fs.existsSync(path.join(root, "assets/sfx", file))), cue + " pool starts with the primary and every file exists");
 });
 
 const made = [];
@@ -128,11 +128,11 @@ vm.runInNewContext(read("assets/js/sfx.js"), sfxBox, { filename: "assets/js/sfx.
 await new Promise((resolve) => setTimeout(resolve, 40));
 const audio = sfxBox.SSDNSAudio;
 check(audio.outcomeCue({ gun: true, name: "Navy revolver" }, "miss") === "ricochet", "gun miss resolves to ricochet");
-check(audio.outcomeCue({ id: "shortbow", name: "Shortbow", group: "bow" }, "miss") === "", "shortbow miss stays silent");
-check(audio.poolFiles("ricochet").length === 0, "loaded ricochet pool is empty");
+check(audio.outcomeCue({ id: "shortbow", name: "Shortbow", group: "bow" }, "miss") === "miss-arrow", "shortbow miss plays the arrow miss");
+check(audio.poolFiles("ricochet").length === 5, "loaded ricochet pool has 5 files");
 const before = made.length;
 audio.play("ricochet");
-check(made.length === before, "an empty ricochet pool does not construct Audio");
+check(made.length === before + 1, "a ricochet plays one file");
 
 audio.resetVariants();
 const files = ["a.mp3", "b.mp3", "c.mp3", "d.mp3"];
@@ -151,7 +151,7 @@ check(Math.abs(swing.playbackRate - 1) < 0.001 && Math.abs(swing.gain - 1) < 0.0
 const n0 = made.length;
 audio.play("attack");
 const heard = made[made.length - 1];
-check(made.length === n0 + 1 && heard && heard.url.endsWith("attack.mp3"), "attack still plays the placeholder file");
+check(made.length === n0 + 1 && heard && heard.url.endsWith("rifle.mp3"), "attack plays the approved rifle shot");
 check(heard && heard.playbackRate >= 0.97 && heard.playbackRate <= 1.03, "pitch jitter stays small: " + (heard && heard.playbackRate));
 check(heard && heard.volume >= 0.8 * 0.92 - 0.001 && heard.volume <= 0.8 * 1.08 + 0.001, "volume jitter stays small: " + (heard && heard.volume));
 const jamBefore = made.length;

@@ -111,9 +111,9 @@ check("sfx.gun", audio.outcomeCategory({ gun: true, name: "Navy revolver" }) ===
 check("sfx.arrow", audio.outcomeCategory({ name: "Throwing spear", properties: "thrown" }) === "arrow");
 check("sfx.melee", audio.outcomeCategory({ name: "Bowie knife", dmgType: "Slashing" }) === "melee");
 check("sfx.spell", audio.outcomeCategory({ spell: true, name: "Fire Bolt" }) === "spell");
-check("sfx.silent", audio.outcomeCue({ name: "Machete" }, "hit") === "");
-check("sfx.override", audio.outcomeCue({ id: "shortbow", name: "Shortbow", group: "bow" }, "hit") === "bow");
-check("sfx.missFall", audio.outcomeCue({ id: "shortbow", name: "Shortbow", group: "bow" }, "miss") === "");
+check("sfx.silent", audio.outcomeCue({ name: "Machete" }, "hit") === "sword-hit");
+check("sfx.override", audio.outcomeCue({ id: "shortbow", name: "Shortbow", group: "bow" }, "hit") === "hit-arrow");
+check("sfx.missFall", audio.outcomeCue({ id: "shortbow", name: "Shortbow", group: "bow" }, "miss") === "miss-arrow");
 const before = played.length;
 audio.setMuted(true);
 audio.playOutcome({ id: "shortbow", name: "Shortbow", group: "bow" }, "hit");

@@ -66,7 +66,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.55"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.56"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -97,7 +97,12 @@
     revolver: "attack", "lever-fire": "attack", plinker: "attack", shotgun: "attack", buffalo: "attack", silenced: "attack",
     bow: "twang", spear: "twang", axe: "slash",
     lightning: "spellcast", electric: "spellcast", teleport: "spellcast", heal: "spellcast",
-    "reload-lever": "reload", "reload-revolver": "reload", "empty-click": "jam", cock: "holster"
+    "reload-lever": "reload", "reload-revolver": "reload", "empty-click": "misfire", jam: "misfire", cock: "holster",
+    /* 0.3.56 approved set: a missing file falls back to its nearest neighbour */
+    rifle: "attack", gatling: "attack", "gatling-ellen-manor": "gatling", "spear-throw": "spear", "bow-long": "bow",
+    "sword-hit": "hit-melee", "crit-melee": "hit-melee", "miss-blunt": "miss-melee", "lightning-ultimate": "lightning",
+    "ice-storm": "spellcast", "magic-whoosh": "spellcast", "end-turn": "holster", unjam: "cock", rechamber: "revolver-spin",
+    "roll-d20": "roll", "roll-dice": "roll"
   };
   function hasPool(eventName) {
     return !!(sfxPools && Object.prototype.hasOwnProperty.call(sfxPools, eventName));
@@ -191,7 +196,10 @@
   var SHARED_CUES = {
     attack: 1, jam: 1, spellshot: 1, pactshot: 1, spellcast: 1, explode: 1, slash: 1, thud: 1, twang: 1, whoosh: 1,
     revolver: 1, "lever-fire": 1, plinker: 1, shotgun: 1, buffalo: 1, bow: 1, spear: 1, axe: 1, silenced: 1,
-    lightning: 1, electric: 1
+    lightning: 1, electric: 1,
+    /* 0.3.56 */
+    misfire: 1, rifle: 1, gatling: 1, "gatling-ellen-manor": 1, "spear-throw": 1, "bow-long": 1, "lightning-ultimate": 1, "ice-storm": 1,
+    "sting-tension": 1, "sting-reveal": 1, fuse: 1, "grapple-fire": 1, "grapple-retract": 1, "magic-whoosh": 1, "enemy-downed": 1
   };
   function sharedCue(eventName, fromUid, selfUid) {
     var name = String(eventName || "");
@@ -231,8 +239,9 @@
     if (slug && weaponOverrides[slug]) return String(weaponOverrides[slug]);
     var kind = classifyWeapon(info);
     if (kind === "gun") return "attack";
-    if (kind === "axe") return "axe";
-    if (kind === "spear") return "spear";
+    /* 0.3.56: axes and melee spears swing at the roll; their hit sound plays on the hit outcome. */
+    if (kind === "axe") return "whoosh";
+    if (kind === "spear") return /javelin|throw/.test(String(info.name || info.weapon || "").toLowerCase()) ? "spear-throw" : "whoosh";
     if (kind === "blade") return "slash";
     if (kind === "bludgeon") return "thud";
     if (kind === "bow" || kind === "thrown") return "twang";
@@ -253,6 +262,8 @@
     var kind = String(info.kind || "").toLowerCase();
     if (kind === "heal" || /\b(heal|healing|cure)\b/.test(name)) return "heal";
     if (/shock|galvanic|electric/.test(name)) return "electric";
+    if (/chain lightning|call lightning|lightning bolt|storm of vengeance/.test(name)) return "lightning-ultimate";
+    if (/ice storm|sleet storm|cone of cold/.test(name)) return "ice-storm";
     if (/lightning|thunder/.test(name)) return "lightning";
     if (/teleport|misty step/.test(name)) return "teleport";
     if (info.calling === "pact-seeker") return "pactshot";
@@ -296,6 +307,13 @@
     }
     if (row && row[slot]) return String(row[slot]);
     var cat = outcomeCategory(info);
+    /* 0.3.56: a nat 1 on a non-gun roll plays the nat 1 sting (a gun's nat 1 is its misfire). */
+    if (Number(info.nat) === 1 && slot === "miss" && cat !== "gun" && (tables.categories || {}).nat1 !== false && hasPool("nat1")) return "nat1";
+    /* melee splits by weapon kind (blade, blunt, spear, axe) when the table has that row */
+    if (cat === "melee") {
+      var k = classifyWeapon(info), sub = k === "bludgeon" ? "blunt" : k;
+      if ((tables.categories || {})[sub]) cat = sub;
+    }
     var def = (tables.categories || {})[cat] || {};
     if (def[slot]) return String(def[slot]);
     return "";

@@ -1447,7 +1447,7 @@
       acForRoll = spellCover.have ? spellCover.ac : null;
       if (root.SSDNSAudio && root.SSDNSAudio.playOutcome) {
         var spellMiss = rolled.nat === 1 || (acForRoll != null && (Number(rolled.nat) + atk) < acForRoll);
-        root.SSDNSAudio.playOutcome({ spell: true, name: spellName, kind: "spell" }, spellMiss ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"));
+        root.SSDNSAudio.playOutcome({ spell: true, name: spellName, kind: "spell", nat: Number(rolled.nat) }, spellMiss ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"));
       }
     } else if (row && row.kind === "auto" && rolled.darts && pendingDarts && pendingDarts.length) {
       var dartNotes = [];
@@ -1934,7 +1934,6 @@
       postGunLedger(name + " locked a chamber", "jam");
     } else if (resolved.jammed) {
       syncFlag("jammed");
-      attackCue("jam");
       postGunLedger(name + " jammed (misfire)", "jam");
       var freeUnjam = root.SSDNSMisfire && root.SSDNSMisfire.unjamIsFree && root.SSDNSMisfire.unjamIsFree({
         weapon: g.weapon, rugged: rugged, properties: wpn && wpn.properties, mod: g.mod, feats: (ch() && ch().feats) || [], name: name
@@ -1950,6 +1949,7 @@
     var haveAc = !!(gunCover && gunCover.have);
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
     if (!misfired) attackCue(cue);
+    else attackCue("misfire"); /* 0.3.56: misfire (jam, foul, lock, dud) has its own sound; no shot, no ricochet */
     if (!rollGun._wild && !misfired && acHidden(tgt) && joined() && !quiet) {
       var pendingDmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
       sendPendingAttack({
@@ -2008,9 +2008,7 @@
     var line = shownCard + (gunDice.note ? " · " + gunDice.note : "") + (chosen && gunDice.mode ? modeWord(chosen) : "") + ammoTxt;
     if (rollGun._wild) line += " · wild-shot attack (not on the streak)";
     if (root.SSDNSAudio && root.SSDNSAudio.playOutcome && !misfired) {
-      root.SSDNSAudio.playOutcome({ gun: true, id: g.weapon, name: name, group: wpn && wpn.group }, miss ? "miss" : (nat === 20 ? "crit" : "hit"));
-    } else if (root.SSDNSAudio && root.SSDNSAudio.playOutcome && misfired) {
-      root.SSDNSAudio.playOutcome({ gun: true, id: g.weapon, name: name }, "miss");
+      root.SSDNSAudio.playOutcome({ gun: true, id: g.weapon, name: name, group: wpn && wpn.group, nat: nat }, miss ? "miss" : (nat === 20 ? "crit" : "hit"));
     }
     consumeRollMode();
     toast(line);

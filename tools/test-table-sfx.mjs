@@ -99,7 +99,7 @@ const gun = fnBody(sheet, "rollGun");
 const spell = fnBody(sheet, "castSpellAttackNow");
 const checkRoll = fnBody(sheet, "rollCheck");
 const initRoll = fnBody(sheet, "rollInitiative");
-check(gun.indexOf('attackCue("jam")') >= 0, "a gun misfire shares jam");
+check(gun.indexOf('attackCue("misfire")') >= 0, "a gun misfire shares the misfire sound");
 check(gun.indexOf("weaponCue") >= 0, "a gun attack asks the weapon cue");
 check(spell.indexOf("attackCue(spellCueName())") >= 0, "a spell attack shares its cue");
 check(spell.indexOf("rolled.attack) attackCue") >= 0, "only attack spells are shared");
@@ -119,7 +119,7 @@ check(fnBody(join, "handleCommand").indexOf("payload.sfx") < 0, "the hit verdict
 
 const v2 = read("dm/assets/js/v2.js");
 check(fnBody(v2, "enemyStrike").indexOf("strikeCue") >= 0, "an enemy strike uses the weapon cue");
-check(fnBody(v2, "cardStrike").indexOf('playTableSfx("jam")') >= 0, "an enemy gun misfire shares jam");
+check(fnBody(v2, "cardStrike").indexOf('playTableSfx("misfire")') >= 0, "an enemy gun misfire shares the misfire sound");
 check(fnBody(v2, "cardStrike").indexOf("strikeCue") >= 0, "an enemy weapon roll uses the weapon cue");
 check(fnBody(v2, "cardCast").indexOf('playTableSfx("spellcast")') >= 0, "an enemy spell attack shares spellcast");
 check(fnBody(v2, "rollGunAttack").indexOf('op: "fire"') >= 0, "DM weapon roll sends one fire command");

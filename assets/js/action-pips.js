@@ -153,6 +153,7 @@
     st[kind] = !st[kind];
     if (kind === "action") { st.actionBy = st.action ? "manual" : ""; st.attacks = 0; }
     save(); paint();
+    if (root.SSDNSAudio) root.SSDNSAudio.play("ui-tick");
     if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "note", quiet: true, text: NAME[kind] + (st[kind] ? " marked used" : " marked ready") + " (manual)." });
     return st[kind];
   }

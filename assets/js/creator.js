@@ -670,7 +670,7 @@
       if (draft.method === "roll") {
         var rollBtn = el("button", { type: "button", class: "btn", text: "Roll six scores" });
         rollBtn.addEventListener("click", function () {
-          if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
+          if (root.SSDNSAudio) root.SSDNSAudio.play("roll-dice");
           var rolled = [];
           for (var n = 0; n < 6; n++) {
             var dice = [0, 0, 0, 0].map(function () { return 1 + Math.floor(Math.random() * 6); }).sort(function (a, b) { return a - b; });

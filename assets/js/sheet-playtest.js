@@ -594,7 +594,7 @@
     var line = (card ? card.text : ((tgt && tgt.name ? (who + " → " + tgt.name) : who) + ": " + name + " · " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt)) + (faced.note ? " · " + faced.note : "") + modeWord;
     if (root.SSDNSAudio && root.SSDNSAudio.playOutcome) {
       var meleeId = c.melee && c.melee[i] && c.melee[i].weapon;
-      root.SSDNSAudio.playOutcome({ id: meleeId || "", name: name, kind: "melee" }, miss ? "miss" : (crit ? "crit" : "hit"));
+      root.SSDNSAudio.playOutcome({ id: meleeId || "", name: name, kind: "melee", nat: nat }, miss ? "miss" : (crit ? "crit" : "hit"));
     }
     if (root.SSDNSSheet && root.SSDNSSheet.consumeRollMode) root.SSDNSSheet.consumeRollMode();
     toast(line);
@@ -959,6 +959,7 @@
       document.body.appendChild(banner);
     }
     banner.hidden = false;
+    if (root.SSDNSAudio) root.SSDNSAudio.play("turn");
     toast("Your turn", "Go", function () {
       var panel = $("#turnPanel");
       if (panel) { try { panel.scrollIntoView({ block: "center" }); } catch (err) {} }
@@ -997,6 +998,7 @@
     var btn = $("#btnEndTurn");
     if (!at || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postEndTurn) { toast("It isn't your turn."); return; }
     if (btn) btn.disabled = true;
+    if (root.SSDNSAudio) root.SSDNSAudio.play("end-turn");
     root.SSDNSDmJoin.postEndTurn(at).then(function () {
       if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "note", text: "Ended my turn (round " + at.round + ")." });
       toast("Turn passed. Waiting on the DM's turn order.");

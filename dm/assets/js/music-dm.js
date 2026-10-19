@@ -76,8 +76,9 @@
      (like the DM's track list); nothing new in Firebase, so no rules change. ---- */
   var SCENE_KEY = "ssdns.dmcc.scenes.v1";
   var DEFAULT_SCENES = [
-    { id: "sc-saloon", name: "Saloon", music: { track: "ssdns-theme", level: 0.7 }, ambient: { track: "ssdns-ambient", level: 0.45 }, sec: 3 },
-    { id: "sc-trail", name: "Quiet trail", music: { track: "", level: 0 }, ambient: { track: "ssdns-ambient", level: 0.6 }, sec: 5 }
+    { id: "sc-saloon", name: "Saloon", music: { track: "ssdns-theme", level: 0.7 }, ambient: { track: "amb-town-horses", level: 0.45 }, sec: 3 },
+    { id: "sc-trail", name: "Quiet trail", music: { track: "", level: 0 }, ambient: { track: "amb-cold-mountain-wind", level: 0.6 }, sec: 5 },
+    { id: "sc-cemetery", name: "Cemetery", music: { track: "", level: 0 }, ambient: { track: "amb-haunted-cemetery", level: 0.55 }, sec: 5 }
   ];
   var scenes;
   try { scenes = JSON.parse(localStorage.getItem(SCENE_KEY) || "null"); } catch (e) { scenes = null; }
@@ -153,7 +154,7 @@
   /* ---- 0.2.68 Stingers: one-shot SFX-pack cues over the music (never stop a layer). They go
      through the SFX engine, so every listener's SFX volume applies. Shared to players as "sfx". ---- */
   var STING_KEY = "ssdns.dmcc.stingers.v1";
-  var DEFAULT_STINGERS = [{ event: "explode", label: "Dynamite" }, { event: "lightning", label: "Thunder" }];
+  var DEFAULT_STINGERS = [{ event: "sting-tension", label: "Tension" }, { event: "sting-reveal", label: "Reveal" }, { event: "explode", label: "Dynamite" }];
   var stingers;
   try { stingers = JSON.parse(localStorage.getItem(STING_KEY) || "null"); } catch (e) { stingers = null; }
   if (!Array.isArray(stingers)) stingers = DEFAULT_STINGERS.slice();
@@ -165,7 +166,7 @@
     if (toTable() && D && D.pushCommand) { try { var pr = D.pushCommand({ type: "sfx", to: "all", payload: { event: ev, stinger: true }, from: D.state && D.state.uid }); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} }
     return true;
   }
-  var SFX_EVENTS = ["attack", "jam", "spellshot", "pactshot", "spellcast", "explode", "slash", "thud", "twang", "whoosh", "revolver", "lever-fire", "plinker", "shotgun", "buffalo", "bow", "spear", "axe", "silenced", "lightning", "electric"];
+  var SFX_EVENTS = ["sting-tension", "sting-reveal", "gatling-ellen-manor", "gatling", "fuse", "lightning-ultimate", "ice-storm", "magic-whoosh", "grapple-fire", "grapple-retract", "enemy-downed", "rifle", "misfire", "spear-throw", "bow-long", "attack", "jam", "spellshot", "pactshot", "spellcast", "explode", "slash", "thud", "twang", "whoosh", "revolver", "lever-fire", "plinker", "shotgun", "buffalo", "bow", "spear", "axe", "silenced", "lightning", "electric"];
   function paintStingers() {
     var list = $("#mxStingerList");
     if (list) list.innerHTML = stingers.map(function (s, i) { return '<span class="mx-sting"><button type="button" class="btn sm" data-mx-sting="' + esc(s.event) + '">' + esc(s.label || s.event) + '</button><button type="button" class="btn xs" data-mx-sting-del="' + i + '" title="Remove this stinger" aria-label="Remove ' + esc(s.label || s.event) + '">×</button></span>'; }).join("");
