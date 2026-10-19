@@ -1804,6 +1804,10 @@
   }
   function rollGun(i, chamber) {
     if (chamber != null) rollGun._chamber = chamber;
+    /* 0.3.61: a shot the DM sent while acting for this player. The DM already picked the target and the
+       Adv/Dis mode and answered the disadvantage confirm, so this sheet never prompts for it. */
+    var dmNow = rollGun._dm || null;
+    rollGun._dm = null;
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
     var g = c.guns[i];
@@ -1828,6 +1832,13 @@
     }
     if (!rollGun._aimed) {
       var keepChamber = rollGun._chamber;
+      if (dmNow) {
+        rollGun._aimed = true;
+        rollGun._dmShot = { mode: dmNow.mode || "" };
+        try { rollGun(i, keepChamber); }
+        finally { rollGun._aimed = false; rollGun._chamber = null; rollGun._dmShot = null; }
+        return;
+      }
       ensureAttackTarget().then(function (ok) {
         if (!ok) { rollGun._chamber = null; return; }
         rollGun._chamber = keepChamber;
@@ -1873,7 +1884,10 @@
     var chosen = gunChosen(i);
     var gunRollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
-    var gunDice = attackRoll(atk, (ch() && ch().activeConditions) || [], chosen, rangeNote);
+    var gunDice = rollGun._dmShot
+      ? attackRoll(atk, [], rollGun._dmShot.mode, "")
+      : attackRoll(atk, (ch() && ch().activeConditions) || [], chosen, rangeNote);
+    if (rollGun._dmShot) chosen = rollGun._dmShot.mode;
     var n1 = gunDice.n1, n2 = gunDice.n2, nat = gunDice.nat;
     var bad = function (n) { return n >= 1 && n <= ceiling; };
     var both = n2 != null && bad(n1) && bad(n2);

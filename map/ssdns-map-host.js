@@ -509,6 +509,8 @@
       "drawer:reload": "reload",
       "drawer:unload": "unload",
       "drawer:clean": "clean",
+      "drawer:unjam": "unjam",
+      "drawer:reopen": "reopen",
       "drawer:pool": "pool",
       "drawer:tr": "tr",
       "drawer:hex": "hex",

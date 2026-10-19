@@ -1633,7 +1633,9 @@
           if (aimed) aim.value = wantId;
         }
       }
-      root.SSDNSGunRoll(payload.index, payload.chamber);
+      if (payload.dm) root.SSDNSGunRoll._dm = { mode: payload.mode === "adv" || payload.mode === "dis" ? payload.mode : "" };
+      try { root.SSDNSGunRoll(payload.index, payload.chamber); }
+      finally { root.SSDNSGunRoll._dm = null; }
       return;
     } else if (payload.op === "dirty-d4") {
       if (root.SSDNSD4 && root.SSDNSD4.arm) root.SSDNSD4.arm(payload.index);
@@ -1653,6 +1655,9 @@
     } else if (payload.op === "cast") {
       if (app.prepareGunCast) app.prepareGunCast(payload.index, payload.spell, payload.slot);
       if (root.SSDNSGunCast) root.SSDNSGunCast(payload.index);
+      return;
+    } else if (payload.op === "reopen" && app.reopenChamber) {
+      app.reopenChamber(payload.index);
       return;
     } else if (payload.op === "mode" && app.setAttackMode) {
       app.setAttackMode(payload.index, payload.mode);

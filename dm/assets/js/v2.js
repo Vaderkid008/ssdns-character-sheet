@@ -3150,7 +3150,7 @@ async function rollGunAttack(pid) {
   }
   if (rings && rings.clear) rings.clear();
   const gi = g.index != null && g.index !== "" ? Number(g.index) : idx;
-  const payload = { op: "fire", index: gi };
+  const payload = { op: "fire", index: gi, dm: true };
   if (mode === "adv" || mode === "dis") payload.mode = mode;
   await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
   if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
@@ -5162,9 +5162,14 @@ function wireClicks() {
     }
     if (t.hasAttribute("data-strip-fire")) {
       const pid = t.getAttribute("data-strip-fire");
-      const payload = { op: "fire", index: Number(t.getAttribute("data-gun-i")), chamber: Number(t.getAttribute("data-gun-k")) };
-      DM.pushCommand({ type: "gun", to: pid, payload: payload });
-      if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+      const payload = { op: "fire", index: Number(t.getAttribute("data-gun-i")), chamber: Number(t.getAttribute("data-gun-k")), dm: true };
+      const snapG = ((playerSnapshot(pid) || {}).guns || []).find((g) => g && Number(g.index) === payload.index) || {};
+      dmFireMode(pid, snapG).then((picked) => {
+        if (picked == null) return;
+        if (picked) payload.mode = picked;
+        DM.pushCommand({ type: "gun", to: pid, payload: payload });
+        if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+      });
       return;
     }
     if (t.hasAttribute("data-row-atk")) { cardStrike(parseInt(t.getAttribute("data-row-atk"), 10), parseInt(t.getAttribute("data-atk-n"), 10)); return; }
@@ -5183,6 +5188,13 @@ function wireClicks() {
       else override[op] = t.getAttribute("data-mf-on") === "1";
       const applied = window.SSDNSMisfire.applyOverride(atk, override);
       Object.assign(atk, applied.gun);
+      /* 0.3.61: on a PC row the sheet owns the gun; send the override or the next snapshot undoes it. */
+      if (row.kind === "player") {
+        const pidO = row.playerId || row.id;
+        const payloadO = Object.assign({ op: "misfire", index: sheetSlot(atk, parseInt(t.getAttribute("data-atk-n"), 10)) }, override);
+        DM.pushCommand({ type: "gun", to: pidO, payload: payloadO, from: DM.state.uid });
+        if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pidO, payloadO);
+      }
       const line = "DM override on " + (row.name || "combatant") + " · " + (atk.name || "gun") + ": " + (applied.notes || []).join(", ") + ".";
       saveRemoteTable();
       if (DM.postDmAction) DM.postDmAction(line, row.id || "all");
@@ -5196,6 +5208,12 @@ function wireClicks() {
       const atk = row && row.card && row.card.attacks[parseInt(t.getAttribute("data-atk-n"), 10)];
       if (atk) {
         atk.jammed = false;
+        if (row.kind === "player") {
+          const pidJ = row.playerId || row.id;
+          const payloadJ = { op: "clean", index: sheetSlot(atk, parseInt(t.getAttribute("data-atk-n"), 10)), optionId: "unjam" };
+          DM.pushCommand({ type: "gun", to: pidJ, payload: payloadJ, from: DM.state.uid });
+          if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pidJ, payloadJ);
+        }
         const line = (row.name || "Enemy") + " cleared the jam on " + (atk.name || "the gun");
         saveRemoteTable();
         DM.pushLedger({ who: "DM", playerId: row.id || "all", type: "jam", what: line, oldVal: "jammed", newVal: "clear", flag: false, characterName: row.name || "" });
@@ -6582,7 +6600,7 @@ async function mapGunLoad(detail, unload) {
         return false;
       }
     }
-    const payload = { op: unload ? "unload" : "reload", index: atk.gunIndex != null ? atk.gunIndex : n };
+    const payload = { op: unload ? "unload" : "reload", index: sheetSlot(atk, n) };
     await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
     if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
     ensurePlayerAttacks(row);
@@ -6609,6 +6627,36 @@ async function mapGunLoad(detail, unload) {
   DM.toast((unload ? "Unloaded " : "Reloaded ") + (atk.name || "weapon"));
   return true;
 }
+/* 0.3.61: the sheet slot a DM gun command must hit. gunIndex is only the position among named guns. */
+function sheetSlot(atk, n) {
+  if (atk && atk.sheetIndex != null && atk.sheetIndex !== "") return Number(atk.sheetIndex);
+  if (atk && atk.gunIndex != null) return Number(atk.gunIndex);
+  return n;
+}
+/* 0.3.61: the DM picks Adv/Dis and answers the disadvantage confirm on the DM screen; the player's sheet
+   never prompts for a DM-sent shot. Returns "adv" / "dis" / "" (straight), or null when the DM cancels. */
+async function dmFireMode(pid, atk) {
+  const snap = playerSnapshot(pid);
+  const chosen = atk && (atk.attackMode === "adv" || atk.attackMode === "dis") ? atk.attackMode : "";
+  const rings = window.SSDNSRangeRings;
+  const peeked = rings && rings.peek ? rings.peek() : null;
+  if (peeked && peeked.apply && peeked.blocked) {
+    if (rings.take) rings.take();
+    DM.toast(peeked.button || "Out of range");
+    return null;
+  }
+  const rangeNote = peeked && peeked.apply && peeked.disadvantage ? (peeked.note || "disadvantage: range") : "";
+  const Cond = window.SSDNSConditions;
+  const mode = Cond && Cond.attackMode
+    ? Cond.attackMode((snap && snap.activeConditions) || [], chosen, rangeNote)
+    : (chosen === "adv" && rangeNote ? "" : (rangeNote ? "dis" : chosen));
+  if (mode === "dis") {
+    const ask = rings && rings.confirmDisadvantage;
+    const ok = ask ? await ask() : true;
+    if (!ok) { if (rings && rings.clear) rings.clear(); return null; }
+  }
+  return mode;
+}
 async function mapGunChoice(detail, op, extra) {
   const i = mapFightIndex(detail);
   if (i < 0) { DM.toast("No card linked"); return false; }
@@ -6633,7 +6681,7 @@ async function mapGunChoice(detail, op, extra) {
       return false;
     }
   }
-  const gi = atk.sheetIndex != null ? atk.sheetIndex : (atk.gunIndex != null ? atk.gunIndex : n);
+  const gi = sheetSlot(atk, n);
   const payload = Object.assign({ op: op, index: gi }, extra || {});
   await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
   if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
@@ -6659,16 +6707,51 @@ async function mapGunClean(detail) {
   if (g.pendingD4) { DM.toast("Roll the d4 first."); return false; }
   const M = window.SSDNSMisfire;
   const opts = M && M.cleanOptions ? M.cleanOptions(g) : [];
-  if (!opts.length) { DM.toast("This gun isn't jammed, dirty, fouled, or ruined."); return false; }
+  if (!opts.length) {
+    DM.toast((g.fouled || g.ruined || g.broken) ? (g.name || atk.name || "Gun") + " is Fouled. It needs a gunsmith or a DM Repair." : "This gun isn't jammed or dirty.");
+    return false;
+  }
   const pick = M.pickClean ? await M.pickClean(g.name || atk.name || "gun", opts) : null;
   if (!pick) return false;
-  const payload = { op: "clean", index: gi, optionId: pick.id };
+  const payload = { op: "clean", index: sheetSlot(atk, n), optionId: pick.id };
   await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
   if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
   ensurePlayerAttacks(row);
   await saveRemoteTable();
   renderFight();
   if (!pick.check) DM.toast((g.name || atk.name || "Gun") + ": " + pick.label + ".");
+  return true;
+}
+/* 0.3.61: map drawer Unjam / Reopen chamber while the DM acts for a player (they were never routed). */
+async function mapGunFix(detail, op) {
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No card linked"); return false; }
+  const row = fight.order[i];
+  if (!row || row.kind !== "player" || !row.dmActsAs) { DM.toast("The player acts for themselves"); return false; }
+  ensurePlayerAttacks(row);
+  const n = mapAttackIndex(row, detail && detail.weaponId);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk) { DM.toast("No weapon"); return false; }
+  const pid = row.playerId || row.id;
+  const snap = playerSnapshot(pid);
+  const g = snap && snap.guns && snap.guns[atk.gunIndex != null ? atk.gunIndex : n];
+  if (!g) { DM.toast("No weapon"); return false; }
+  const name = g.name || atk.name || "Gun";
+  if (op === "unjam") {
+    if (!g.jammed) { DM.toast(name + " isn't jammed."); return false; }
+    if (g.fouled || g.ruined || g.broken) { DM.toast(name + " is Fouled. It needs a gunsmith or a DM Repair."); return false; }
+    if (g.pendingD4) { DM.toast("Roll the d4 first."); return false; }
+  } else if (!(Array.isArray(g.lockedChambers) && g.lockedChambers.length)) {
+    DM.toast(name + " has no locked chamber."); return false;
+  }
+  const payload = op === "unjam" ? { op: "clean", index: sheetSlot(atk, n), optionId: "unjam" } : { op: "reopen", index: sheetSlot(atk, n) };
+  await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+  if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+  if (op === "unjam") { g.jammed = false; atk.jammed = false; }
+  ensurePlayerAttacks(row);
+  await saveRemoteTable();
+  renderFight();
+  DM.toast(op === "unjam" ? name + ": unjammed." : name + ": reopen chamber sent.");
   return true;
 }
 function mapSpellIndex(row, spellId) {
@@ -7207,8 +7290,11 @@ window.SSDNSMapFight = {
       const atk = row.card && row.card.attacks && row.card.attacks[n];
       if (!atk) { DM.toast("No attack"); return false; }
       const pid = row.playerId || row.id;
-      const gi = atk.sheetIndex != null ? atk.sheetIndex : (atk.gunIndex != null ? atk.gunIndex : n);
-      const payload = { op: "fire", index: gi };
+      const gi = sheetSlot(atk, n);
+      const picked = await dmFireMode(pid, atk);
+      if (picked == null) return false;
+      const payload = { op: "fire", index: gi, dm: true };
+      if (picked) payload.mode = picked;
       if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
       if (targetId) payload.targetId = targetId;
       await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
@@ -7313,6 +7399,8 @@ window.SSDNSMapFight = {
   reload(detail) { return mapGunLoad(detail, false); },
   unload(detail) { return mapGunLoad(detail, true); },
   clean(detail) { return mapGunClean(detail); },
+  unjam(detail) { return mapGunFix(detail, "unjam"); },
+  reopen(detail) { return mapGunFix(detail, "reopen"); },
   pool(detail) { return mapGunChoice(detail, "pool", { pool: detail && detail.pool != null ? detail.pool : "" }); },
   tr(detail) { return mapGunChoice(detail, "tr", {}); },
   hex(detail) { return mapGunChoice(detail, "hex", { level: detail && detail.level }); },
