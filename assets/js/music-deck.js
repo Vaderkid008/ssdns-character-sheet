@@ -48,6 +48,7 @@
   }
   function kill(L) {
     clearFade(L);
+    if (L.el && pending.indexOf(L.el) >= 0) pending.splice(pending.indexOf(L.el), 1);
     if (L.el) { try { L.el.pause(); L.el.removeAttribute("src"); L.el.load && L.el.load(); } catch (e) {} }
     L.el = null; L.paused = false;
   }
@@ -100,7 +101,16 @@
   }
   function stopAll(opts) { LAYERS.forEach(function (k) { stop(k, opts); }); }
   function fadeOut(k, sec) { stop(k, { fade: Number(sec) || 3 }); }
-  function fadeIn(k, sec) { var L = layerOf(k); if (!L.el) return; if (L.paused) resume(k); ramp(k, 0, 1, Number(sec) || 3); }
+  /* 0.3.55: Fade in with a track starts it from silence (0:00) and fades it up. Without one it fades
+     up whatever is loaded on that layer. */
+  function fadeIn(k, sec, track, opts) {
+    var s = Number(sec) || 3;
+    if (track) return play(k, track, Object.assign({}, opts || {}, { fadeIn: s, at: 0 }));
+    var L = layerOf(k); if (!L.el) return false;
+    if (L.paused) resume(k);
+    ramp(k, 0, 1, s);
+    return true;
+  }
   /* Crossfade the layer to another track over sec seconds. */
   function crossfade(k, track, sec, opts) {
     opts = opts || {};
@@ -157,11 +167,11 @@
     var track = payload.file || payload.url ? { file: payload.file || "", url: payload.url || "", title: payload.title || "" } : null;
     switch (payload.action) {
       case "play": if (payload.level != null) setLevel(k, payload.level); return play(k, track, { loop: !!payload.loop, fadeIn: payload.fadeIn || 0, at: payload.at || 0, onmissing: opts.onmissing });
-      case "crossfade": return crossfade(k, track, payload.sec, { loop: !!payload.loop, onmissing: opts.onmissing });
+      case "crossfade": if (payload.level != null) setLevel(k, payload.level); return crossfade(k, track, payload.sec, { loop: !!payload.loop, onmissing: opts.onmissing });
       case "pause": return pause(k);
       case "resume": return resume(k);
       case "fade_out": return fadeOut(k, payload.sec);
-      case "fade_in": return fadeIn(k, payload.sec);
+      case "fade_in": if (payload.level != null) setLevel(k, payload.level); return fadeIn(k, payload.sec, track, { loop: !!payload.loop, onmissing: opts.onmissing });
       case "seek": return seek(k, payload.at);
       case "level": return setLevel(k, payload.level);
       case "loop": return setLoop(k, payload.loop);

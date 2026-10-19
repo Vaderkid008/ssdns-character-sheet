@@ -33,6 +33,7 @@
       cover.addEventListener("click", function () {
         var c = ch();
         if (!c) return;
+        if (!c.takingCover && root.SSDNSActionPips) root.SSDNSActionPips.spend(root.SSDNSActionPips.rulesCost("takeCover") || "bonus", "Take Cover");
         c.takingCover = true;
         paintCover();
         if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "Taking cover. Incoming ranged attacks have disadvantage until your next attack." });
@@ -186,6 +187,7 @@
       if (used >= 2) return;
       c.raging = true;
       c.rageUsed = used + 1;
+      if (root.SSDNSActionPips) root.SSDNSActionPips.feature("Dust Fury (Rage - 1st lvl)");
     } else c.raging = false;
     paintCallingChips();
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.syncSheet) root.SSDNSPlaytest.syncSheet();

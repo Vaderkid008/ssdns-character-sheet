@@ -2,7 +2,7 @@
    -/+ buttons (5% steps) and a live % readout. Works on the sheet and in DMCC. */
 (function (root) {
   "use strict";
-  var SEL = "input[type=range][data-mx-level], input[type=range][data-mx-pref], input[type=range][data-sfx-volume]";
+  var SEL = "input[type=range][data-mx-level], input[type=range][data-mx-pref], input[type=range][data-sfx-volume], input[type=range][data-mx-scene-level]";
   var STEP = 5;
   function pct(input) { return Math.round(Number(input.value) || 0) + "%"; }
   function fire(input) {

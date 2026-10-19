@@ -682,6 +682,7 @@
     state.marker = ts;
     writeStore(markerKey(), String(ts));
   }
+  var MUSIC_LIVE_MS = 15000;
   function cmdTime(cmd) {
     var t = Date.parse(cmd && cmd.ts);
     return isFinite(t) ? t : 0;
@@ -708,6 +709,13 @@
         if (cmd.to && cmd.to !== "all" && cmd.to !== state.uid) return;
         if (state.lastCmdSeen[id]) { noteReplayHp(id, cmd); return; }
         var ts = cmdTime(cmd);
+        /* 0.3.55: no automatic playback. A music command is only heard live, as the DM pushes it;
+           an old one replayed on load or join (or after a reconnect) is skipped, never started. */
+        if ((cmd.type === "music" || cmd.type === "sfx") && (!ts || Date.now() - ts > MUSIC_LIVE_MS)) {
+          state.lastCmdSeen[id] = 1;
+          if (ts > (state.marker || 0)) saveMarker(ts);
+          return;
+        }
         if (!ts || ts <= (state.marker || 0)) {
           state.lastCmdSeen[id] = 1;
           noteReplayHp(id, cmd);
@@ -2085,6 +2093,28 @@
     };
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row);
   }
+  /**
+   * 0.3.55 End turn. Players can't write table/initiative (DM-only in database.rules.json), so the
+   * player posts a one-shot request to encounter/requests (players may create their own rows) and
+   * the DMCC runs its own Next for it, only if that player's row is still the current turn.
+   */
+  function postEndTurn(at) {
+    at = at || {};
+    if (!state.joined || !state._fb || !state.db) return Promise.resolve({ ok: false });
+    var id = "endturn_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var c = doc() && doc().character;
+    var row = {
+      ts: new Date().toISOString(),
+      from: state.uid,
+      targetId: String(at.rowId || ""),
+      amount: 0,
+      type: "endTurn",
+      round: Number(at.round) || 1,
+      turn: Number(at.turn) || 0,
+      characterName: (c && c.name) || ""
+    };
+    return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row);
+  }
   function watchEs() {
     if (state._esTimer) return;
     state._esTimer = setInterval(function () {
@@ -2401,6 +2431,7 @@
       roomCode: function () { return state.roomCode; },
       uid: function () { return state.uid; },
       publishSnapshot: publishSnapshot,
+      postEndTurn: postEndTurn,
       postLedger: postLedger,
       postRoll: postRoll,
       fadeToast: fadeToast,
