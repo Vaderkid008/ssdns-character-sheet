@@ -34,7 +34,7 @@
     return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
   }
 
-  /* 0.3.69 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
+  /* 0.3.70 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
      so an old character never shows a counter for them or gets blocked. */
   var UNLIMITED_USES = { "saddle-of-the-phantom-steed": 1 };
   function unlimitedFix(item) {
@@ -56,11 +56,11 @@
     var kind = raw.kind === "save" ? "save+condition" : (raw.kind || "text");
     if (!KINDS[kind]) kind = "text";
     var out = { kind: kind };
-    ["dice", "spell", "text", "save", "condition", "duration", "damage", "damageType", "range", "onSave", "temp", "extraDamage", "extraType"].forEach(function (k) {
+    ["dice", "spell", "text", "save", "condition", "duration", "damage", "damageType", "range", "onSave", "temp", "extraDamage", "extraType", "dmgDice"].forEach(function (k) {
       if (raw[k] != null && raw[k] !== "") out[k] = raw[k];
     });
     if (raw.misfire != null && raw.misfire !== "") out.misfire = String(raw.misfire);
-    ["level", "dc", "attack", "radius", "bonus", "spellMod"].forEach(function (k) {
+    ["level", "dc", "attack", "radius", "bonus", "spellMod", "hours"].forEach(function (k) {
       if (raw[k] != null && raw[k] !== "" && isFinite(Number(raw[k]))) out[k] = Number(raw[k]);
     });
     if (raw.placed) out.placed = true;
@@ -353,7 +353,10 @@
     return item.uses.max != null && isFinite(Number(item.uses.max));
   }
 
-  function ringSpec(item) {
+  /* 0.3.70 Powder Man Long Arm (DND Bot, PHB): explosive throws are 50/100 ft for that character (scatter past 50).
+     Everyone else 30/60. Placed charges (the blasting keg) are never thrown. */
+  function throwBands(powderMan) { return powderMan ? { normal: 50, max: 100 } : { normal: 30, max: 60 }; }
+  function ringSpec(item, opts) {
     if (!item || !item.effect) return null;
     var effect = item.effect;
     var kind = effect.kind;
@@ -365,6 +368,7 @@
     }
     if (!effect.range) return null;
     var range = String(effect.range);
+    if (item.type === "explosive" && opts && opts.powderMan && /^30\s*\/\s*60$/.test(range)) range = "50/100";
     if (/^\d+$/.test(range)) range = range + "/" + range;
     return {
       id: "item:" + (item.uid || item.id),
@@ -390,8 +394,10 @@
     var placed = !!effect.placed;
     var dist = ctx.distance != null && ctx.distance !== "" ? Number(ctx.distance) : null;
     var notes = [];
-    if (!placed && dist != null && isFinite(dist) && dist > 60) {
-      return { ok: false, kind: "attack", consume: false, reason: "Too far. Throw range is 30/60 ft.", chat: who + " can't throw " + item.name + " that far (30/60 ft)." };
+    var bands = throwBands(!!ctx.powderMan);
+    var bandTxt = bands.normal + "/" + bands.max + " ft";
+    if (!placed && dist != null && isFinite(dist) && dist > bands.max) {
+      return { ok: false, kind: "attack", consume: false, reason: "Too far. Throw range is " + bandTxt + ".", chat: who + " can't throw " + item.name + " that far (" + bandTxt + ")." };
     }
     var rules = explosiveRules(effect, ctx);
     var fuse = rollD20(rng);
@@ -403,7 +409,7 @@
       return " " + dmg.detail + " " + (effect.damageType || "") + " = " + dmg.total + " in " + effect.radius + " ft" + (where ? " " + where : "") +
         ". DEX save DC " + dc + ": fail " + dmg.total + ", success " + half + ". Objects take double (" + (dmg.total * 2) + "); flammable things catch fire.";
     }
-    var base = { ok: true, kind: "attack", rings: ringSpec(item), save: "DEX", dc: effect.dc, radius: effect.radius, range: effect.range || "", fuseFace: fuse,
+    var base = { ok: true, kind: "attack", rings: ringSpec(item, { powderMan: !!ctx.powderMan }), save: "DEX", dc: effect.dc, radius: effect.radius, range: effect.range || "", fuseFace: fuse,
       total: dmg.total, half: half, objects: dmg.total * 2, formula: dmg.formula, detail: dmg.detail, consume: true, noAttackRoll: true };
     // Sweating natural 1: goes off in hand, centered on the thrower.
     if (rules.sweating && fuse === 1) {
@@ -411,7 +417,7 @@
         chat: head + ": sweating stick goes off in hand, centered on " + who + "!" + boomText("around " + who) + " " + who + " saves too (half on success)." });
     }
     var where = "";
-    if (!placed && dist != null && isFinite(dist) && dist > 30) {
+    if (!placed && dist != null && isFinite(dist) && dist > bands.normal) {
       var dir = 1 + Math.floor((rng || Math.random)() * 8); if (dir > 8) dir = 8;
       base.scatter = { feet: 10, d8: dir, dir: DIRS[dir - 1] };
       where = "(scattered 10 ft " + DIRS[dir - 1] + ", d8 " + dir + ")";
@@ -545,6 +551,8 @@
       return {
         ok: true, kind: "buff", text: effect.text || item.description || item.name,
         duration: effect.duration || "", consume: consumes(item),
+        /* 0.3.69: a damage buff (Eldorite Dust +1d4 for 1 hour) lands on one weapon and reaches its damage roll */
+        buff: effect.dmgDice ? { id: item.catalogId || item.id || "", name: item.name, dmgDice: String(effect.dmgDice), hours: Number(effect.hours) || 1 } : null,
         chat: who + " uses " + item.name + ": " + (effect.text || item.name) + (effect.duration ? " (" + effect.duration + ")" : "") + "."
       };
     }
@@ -622,7 +630,10 @@
   function weaponRecord(id) {
     var row = byId(id);
     if (!row || row.type !== "weapon") return null;
-    return { id: row.id, name: row.name, group: row.group || "simple-melee", properties: row.properties || "", range: (row.effect && row.effect.range) || "" };
+    var eff = row.effect || {};
+    /* 0.3.69: damage and the +N to hit travel with the record so a melee slot can paint and roll it */
+    return { id: row.id, name: row.name, group: row.group || "simple-melee", properties: row.properties || "", range: eff.range || "",
+      damage: eff.damage || "", damageType: eff.damageType || "", itemAtk: Number(eff.bonus) || 0 };
   }
 
   function landWeapon(character, item) {
@@ -849,6 +860,26 @@
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.postChat) root.SSDNSDmJoin.postChat({ text: text });
   }
 
+  /* 0.3.69: the buff goes on your first equipped gun (else your first equipped melee weapon) for its hours.
+     The sheet adds the dice to that weapon's damage while it lasts. */
+  function applyBuff(c, buff) {
+    if (!c || !buff) return "";
+    var key = "";
+    var label = "";
+    (c.guns || []).forEach(function (g, gi) { if (!key && g && g.weapon && g.equipped !== false) { key = "gun:" + gi; label = g.weapon; } });
+    if (!key) (c.melee || []).forEach(function (m, mi) { if (!key && m && m.weapon && m.equipped !== false) { key = "melee:" + mi; label = m.weapon; } });
+    if (!key) return " No weapon in hand to dust.";
+    var until = Date.now() + buff.hours * 3600 * 1000;
+    var now = Date.now();
+    c.buffs = (Array.isArray(c.buffs) ? c.buffs : []).filter(function (b) { return b && (!b.until || Number(b.until) > now) && !(b.id === buff.id && b.weapon === key); });
+    c.buffs.push({ id: buff.id, name: buff.name, dmgDice: buff.dmgDice, weapon: key, until: until });
+    var R = root.SSDNS_RULES || {};
+    var hit = [].concat(R.firearms || [], R.melee || [], R.otherRanged || []).filter(function (w) { return w && w.id === label; })[0] || byId(label);
+    var rec = hit && hit.name ? hit.name : "";
+    var at = new Date(until);
+    var hh = at.getHours(), mm = at.getMinutes();
+    return " +" + buff.dmgDice + " damage on " + (rec || label) + " until " + ((hh % 12) || 12) + ":" + (mm < 10 ? "0" : "") + mm + (hh < 12 ? " AM" : " PM") + ".";
+  }
   function applyHp(plan) {
     if (!plan || !plan.hp) return;
     if (root.SSDNSSheet && root.SSDNSSheet.applyDelta) root.SSDNSSheet.applyDelta(plan.hp, plan.chat || "");
@@ -922,6 +953,7 @@
     }
     if (plan.hp) applyHp(plan);
     if (plan.tempHp) applyTemp(plan);
+    if (plan.buff) plan.chat += applyBuff(c, plan.buff);
     if (plan.rings) showRings(plan.rings);
     post(plan.chat);
     commit();
@@ -1211,7 +1243,8 @@
   }
 
   function rangeChoices(character) {
-    return listOf(character).map(ringSpec).filter(Boolean);
+    var pm = !!(character && Array.isArray(character.feats) && character.feats.indexOf("powder-man") >= 0);
+    return listOf(character).map(function (it) { return ringSpec(it, { powderMan: pm }); }).filter(Boolean);
   }
 
   function drawerRows(items, viewer) {
@@ -1417,6 +1450,8 @@
     ringSpec: ringSpec,
     rangeChoices: rangeChoices,
     weaponRecord: weaponRecord,
+    throwBands: throwBands,
+    catalogItem: function (id) { return byId(id); },
     landWeapon: landWeapon,
     mergeExplosives: mergeExplosives,
     useExplosive: useExplosive,

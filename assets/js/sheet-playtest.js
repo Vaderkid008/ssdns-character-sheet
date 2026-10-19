@@ -318,7 +318,8 @@
     if (!c) return [];
     var lv = c.level || 1;
     if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"]];
-    if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"]];
+    /* 0.3.70 (DND Bot, PHB): Lawman takes a Fighting Style at 2nd level from the Paladin list. Dueling and GWF are melee only. */
+    if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"], ["great-weapon", "Great Weapon Fighting (reroll 1s and 2s on two-handed melee damage)"], ["protection", "Protection (reaction: impose disadvantage on an attack vs an ally within 5 ft; needs a shield)"]];
     if (c.calling === "frontier-scout" && lv >= 2) return [["archery", "Archery (+2 ranged to hit)"]];
     return [];
   }
@@ -338,6 +339,13 @@
     }
   }
 
+  /* 0.3.69: a catalog weapon in the slot (Cutlass of the Sun's Fury) shows its own name in the picker */
+  function catalogMeleeOption(list, cur) {
+    if (!cur || (list || []).some(function (w) { return w.id === cur; })) return "";
+    var rec = meleeRecord(list, cur);
+    if (!rec) return "";
+    return "<option value='" + String(rec.id).replace(/'/g, "") + "' selected>" + String(rec.name || rec.id).replace(/[<>&]/g, "") + "</option>";
+  }
   function renderMelee() {
     var box = $("#meleeBox");
     var c = ch();
@@ -352,6 +360,7 @@
         "<div class='g-card-top'><div class='g-photo' data-melee-photo='" + i + "' title='Weapon photo later'>Photo</div><div class='g-name'>" +
         "<select data-melee='" + i + "' aria-label='Melee " + (i + 1) + "'><option value=''>Melee, bow, or thrown…</option>" +
         list.map(function (w) { return "<option value='" + w.id + "'" + (w.id === cur ? " selected" : "") + ">" + w.name + "</option>"; }).join("") +
+        catalogMeleeOption(list, cur) +
         "</select><div class='g-stats'>" +
         "<span data-label='Atk' data-melee-atk='" + i + "'></span>" +
         "<span data-label='Dmg' data-melee-dmg='" + i + "'></span>" +
@@ -392,13 +401,27 @@
     renderMelee();
     return true;
   }
+  /* 0.3.69: a melee slot can hold a catalog weapon (Cutlass of the Sun's Fury) that isn't in rules.js melee */
+  function meleeRecord(list, id) {
+    if (!id) return null;
+    var w = (list || []).filter(function (x) { return x.id === id; })[0];
+    if (w) return w;
+    var rec = root.SSDNSItems && root.SSDNSItems.weaponRecord ? root.SSDNSItems.weaponRecord(id) : null;
+    return rec && rec.damage ? rec : null;
+  }
+  function meleeGwf(c, i) {
+    if (!c || c.fightingStyle !== "great-weapon" || c.calling !== "lawman" || (Number(c.level) || 1) < 2) return false;
+    var row = c.melee && c.melee[i];
+    var w = row && meleeRecord(rules().melee || [], row.weapon);
+    return !!(w && /two-handed/i.test(w.properties || ""));
+  }
   function paintMelee() {
     var c = ch();
     var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     if (!c) return;
     var list = rules().melee || [];
     (c.melee || []).forEach(function (row, i) {
-      var w = list.filter(function (x) { return x.id === row.weapon; })[0];
+      var w = meleeRecord(list, row && row.weapon);
       var photo = document.querySelector("[data-melee-photo='" + i + "']");
       if (photo && root.SSDNSWeaponArt) root.SSDNSWeaponArt.paint(photo, w || (row && row.weapon ? { id: row.weapon } : null));
       var atk = $("#meleeBox [data-melee-atk='" + i + "']") || document.querySelector("[data-melee-atk='" + i + "']");
@@ -416,11 +439,15 @@
       var usingDex = finesse && (v.mods.DEX || 0) > (v.mods.STR || 0);
       var prof = row.proficient || (root.SSDNSApp.callingProficient && root.SSDNSApp.callingProficient(w)) ? (v.prof || 0) : 0;
       var magic = Number(w.magic) || 0;
-      var bonus = ability + prof + magic + ((root.SSDNSApp.styleAttackBonus && root.SSDNSApp.styleAttackBonus(w)) || 0);
+      /* 0.3.69: a catalog weapon's +N to hit (Cutlass of the Sun's Fury +1; its damage die already says 1d6+1) */
+      var itemAtk = Number(w.itemAtk) || 0;
+      var bonus = ability + prof + magic + itemAtk + ((root.SSDNSApp.styleAttackBonus && root.SSDNSApp.styleAttackBonus(w)) || 0);
       var extra = magic + ((root.SSDNSApp.styleDamageBonus && root.SSDNSApp.styleDamageBonus(w)) || 0);
-      if (c.raging && c.calling === "tribal-warrior" && !thrown && !usingDex) extra += 2;
+      /* 0.3.69: Dust Fury +2/+3/+4 by level, melee Str only (not thrown, not finesse-with-Dex) */
+      if (!thrown && !usingDex) extra += (root.SSDNSApp.rageDamageBonus ? root.SSDNSApp.rageDamageBonus(c) : 0) || 0;
+      var buffDice = root.SSDNSApp.activeBuffs ? root.SSDNSApp.activeBuffs(c, "melee:" + i).map(function (b) { return b.dmgDice; }).filter(Boolean) : [];
       if (atk) atk.textContent = (bonus >= 0 ? "+" : "") + bonus;
-      if (dmg) dmg.textContent = (w.damage || "") + " " + ((ability + extra) >= 0 ? "+" : "") + (ability + extra);
+      if (dmg) dmg.textContent = (w.damage || "") + " " + ((ability + extra) >= 0 ? "+" : "") + (ability + extra) + buffDice.map(function (d) { return " +" + d; }).join("");
       var rng = document.querySelector("[data-melee-rng='" + i + "']");
       var rangeText = w.range && !/^[\u2014-]$/.test(String(w.range).trim()) ? w.range : "";
       if (rng) rng.textContent = rangeText || w.properties || "";
@@ -526,20 +553,43 @@
     var nat = faced.nat;
     var miss = nat === 1;
     var crit = nat === 20;
-    var n = 1, sides = 4;
-    var m = String(expr).match(/(\d*)d(\d+)/i);
-    if (m) { n = Math.max(1, parseInt(m[1] || "1", 10)); sides = parseInt(m[2], 10); }
-    var flatM = String(expr).replace(/(\d*)d(\d+)/i, " ").match(/([+-]\s*\d+)/);
-    var flat = flatM ? parseInt(flatM[1].replace(/\s/g, ""), 10) : 0;
-    var diceN = crit ? n * 2 : n;
-    var formula = diceN + "d" + sides + (flat ? ((flat >= 0 ? "+" : "") + flat) : "");
+    /* 0.3.69: every dice term and flat counts ("1d6+1 +3", "+1d4" Eldorite Dust). Great Weapon Fighting
+       (Lawman 2+) rerolls a 1 or 2 once on a two-handed melee weapon's damage dice. */
+    var parsed = root.SSDNSSheet && root.SSDNSSheet.parseDamage ? root.SSDNSSheet.parseDamage(expr) : null;
+    var terms = parsed && parsed.terms.length ? parsed.terms : [{ n: 1, sides: 4, neg: false }];
+    var flat = parsed ? parsed.flat : 0;
+    if (!parsed) {
+      var m0 = String(expr).match(/(\d*)d(\d+)/i);
+      if (m0) terms = [{ n: Math.max(1, parseInt(m0[1] || "1", 10)), sides: parseInt(m0[2], 10), neg: false }];
+      var flatM = String(expr).replace(/(\d*)d(\d+)/i, " ").match(/([+-]\s*\d+)/);
+      flat = flatM ? parseInt(flatM[1].replace(/\s/g, ""), 10) : 0;
+    }
+    var gwf = meleeGwf(c, i);
+    var formula = terms.map(function (t, ti) { return (t.neg ? "-" : (ti ? "+" : "")) + (crit ? t.n * 2 : t.n) + "d" + t.sides; }).join("") + (flat ? ((flat >= 0 ? "+" : "") + flat) : "");
+    var diceN = 0;
+    terms.forEach(function (t) { diceN += crit ? t.n * 2 : t.n; });
+    function rollTerms() {
+      var faces = [];
+      var sum = 0;
+      terms.forEach(function (t) {
+        var k = crit ? t.n * 2 : t.n;
+        for (var q = 0; q < k; q++) {
+          var r = 1 + Math.floor(Math.random() * t.sides);
+          if (gwf && r <= 2) r = 1 + Math.floor(Math.random() * t.sides);
+          faces.push(r);
+          sum += t.neg ? -r : r;
+        }
+      });
+      return { faces: faces, total: sum + flat, detail: faces.join("+") + (flat ? ((flat >= 0 ? "+" : "") + flat) : "") };
+    }
     var rolls = [];
     var total = 0;
     var detail = "";
     if (!miss) {
-      for (var k = 0; k < diceN; k++) rolls.push(1 + Math.floor(Math.random() * sides));
-      total = rolls.reduce(function (a, b) { return a + b; }, 0) + flat;
-      detail = rolls.join("+") + (flat ? ((flat >= 0 ? "+" : "") + flat) : "");
+      var rolledDmg = rollTerms();
+      rolls = rolledDmg.faces;
+      total = rolledDmg.total;
+      detail = rolledDmg.detail + (gwf ? " (GWF)" : "");
     }
     var name = (document.querySelector("[data-melee='" + i + "']") || {}).selectedOptions;
     name = name && name[0] ? name[0].text : "Melee";
@@ -552,11 +602,9 @@
     var joined = root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined();
     var quiet = $("#chkWhisper") && $("#chkWhisper").checked;
     if (joined && !quiet && root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt) && root.SSDNSSheet.sendPendingAttack) {
-      var pendingRolls = [];
-      var pendingTotal = 0;
-      for (var p = 0; p < diceN; p++) pendingRolls.push(1 + Math.floor(Math.random() * sides));
-      pendingTotal = pendingRolls.reduce(function (a, b) { return a + b; }, 0) + flat;
-      var pendingDetail = pendingRolls.join("+") + (flat ? ((flat >= 0 ? "+" : "") + flat) : "");
+      var pendingRoll = rollTerms();
+      var pendingTotal = pendingRoll.total;
+      var pendingDetail = pendingRoll.detail;
       root.SSDNSSheet.sendPendingAttack({
         who: who,
         targetName: tgt.name,

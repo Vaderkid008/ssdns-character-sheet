@@ -977,6 +977,8 @@
     }
     if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
     var rolled = rollAdv(bonus || 0);
+    /* 0.3.69: a new combat: the rig's first-shot bonus is ready again */
+    if (ch() && ch().firstShotSpent) { ch().firstShotSpent = false; if (root.SSDNSApp && root.SSDNSApp.refreshGunFace) root.SSDNSApp.refreshGunFace(); }
     postCheck("Initiative", rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false);
   }
   function wildSparkLine(nat) {
@@ -1700,20 +1702,35 @@
     }
     return 1 + Math.floor(Math.random() * 20);
   }
+  /* 0.3.69: every dice term and every flat counts ("1d6+1 +3", "1d8 +3 +1d4 piercing"). One-term strings roll
+     exactly as before. A crit doubles every die. */
+  function parseDamage(expr) {
+    var s = String(expr || "").replace(/\([^)]*\)/g, " ");
+    var terms = [];
+    var rest = s.replace(/([+-]?)\s*(\d*)d(\d+)/gi, function (all, sg, n, d) {
+      terms.push({ n: Math.max(1, parseInt(n || "1", 10)), sides: parseInt(d, 10), neg: sg === "-" });
+      return " ";
+    });
+    var flat = 0;
+    var flatHit = false;
+    rest.replace(/([+-])\s*(\d+)/g, function (all, sg, n) { flat += (sg === "-" ? -1 : 1) * parseInt(n, 10); flatHit = true; return " "; });
+    return { terms: terms, flat: flatHit ? flat : 0 };
+  }
   function rollDamageExpr(expr, crit) {
-    var s = String(expr || "");
-    var m = s.match(/(\d*)d(\d+)/i);
-    if (!m) return null;
-    var n = Math.max(1, parseInt(m[1] || "1", 10));
-    var sides = parseInt(m[2], 10);
-    var flatM = s.replace(/(\d*)d(\d+)/i, " ").match(/([+-]\s*\d+)/);
-    var flat = flatM ? parseInt(flatM[1].replace(/\s/g, ""), 10) : 0;
-    if (crit) n = n * 2;
+    var p = parseDamage(expr);
+    if (!p.terms.length) return null;
     var rolls = [];
-    for (var k = 0; k < Math.abs(n); k++) rolls.push(1 + Math.floor(Math.random() * sides));
-    var sum = rolls.reduce(function (a, b) { return a + b; }, 0) + (flat || 0);
+    var sum = 0;
+    var formula = [];
+    p.terms.forEach(function (t) {
+      var n = crit ? t.n * 2 : t.n;
+      for (var k = 0; k < n; k++) { var r = 1 + Math.floor(Math.random() * t.sides); rolls.push(r); sum += t.neg ? -r : r; }
+      formula.push((t.neg ? "-" : (formula.length ? "+" : "")) + n + "d" + t.sides);
+    });
+    var flat = p.flat || 0;
+    sum += flat;
     var detail = rolls.join("+") + (flat ? ((flat >= 0 ? "+" : "") + flat) : "");
-    return { total: sum, detail: detail, faces: rolls, flat: flat || 0, formula: n + "d" + sides + (flat ? ((flat >= 0 ? "+" : "") + flat) : "") };
+    return { total: sum, detail: detail, faces: rolls, flat: flat, formula: formula.join("") + (flat ? ((flat >= 0 ? "+" : "") + flat) : "") };
   }
   function whisperOn() {
     var box = document.querySelector("#chkWhisper");
@@ -1947,6 +1964,11 @@
       ch().surpriseDraw = false;
       addLog({ kind: "alert", text: "Surprise draw +2 (Shoulder Rig)" });
     }
+    /* 0.3.69: the rig / Hair trigger first-shot bonus is spent by the first pistol attack of a combat
+       (reset when you roll initiative or rest) */
+    if (!rollGun._free && gunStat && gunStat.first && ch() && !ch().firstShotSpent && parts.some(function (p) { return p.label === "first shot"; })) {
+      ch().firstShotSpent = true;
+    }
     var featList = (ch() && ch().feats) || [];
     if (wpn && wpn.group === "pistol" && featList.indexOf("pistolero") >= 0 && rangeShot && rangeShot.apply && rangeShot.band !== "long" && rangeShot.band !== "blocked") {
       parts.push({ label: "Pistolero", value: 1 });
@@ -2127,7 +2149,7 @@
     var gunStat = rolledView.guns && rolledView.guns[i];
     if (gunStat && gunStat.parts) {
       bonus = 0;
-      gunStat.parts.forEach(function (p) { bonus += Number(p.value) || 0; });
+      gunStat.parts.forEach(function (p) { if (p.label !== "first shot") bonus += Number(p.value) || 0; });
     }
     var misEl = document.querySelector('[data-out="mis.' + i + '"]');
     var ceiling = root.SSDNSApp.misfireCeiling
@@ -2857,7 +2879,8 @@
     var style = root.SSDNSApp && root.SSDNSApp.styleAttackBonus ? (root.SSDNSApp.styleAttackBonus(fake) || 0) : 0;
     var dmgStyle = root.SSDNSApp && root.SSDNSApp.styleDamageBonus ? (root.SSDNSApp.styleDamageBonus(fake) || 0) : 0;
     var atk = str + prof + style;
-    var flat = str + dmgStyle + (profile.expr === "1" ? 1 : 0);
+    var rage = root.SSDNSApp && root.SSDNSApp.rageDamageBonus ? (root.SSDNSApp.rageDamageBonus(ch()) || 0) : 0;
+    var flat = str + dmgStyle + rage + (profile.expr === "1" ? 1 : 0);
     var expr = profile.expr === "1" ? ((flat >= 0 ? "+" : "") + flat).replace(/^\+/, "") : (profile.expr + (flat ? ((flat >= 0 ? "+" : "") + flat) : ""));
     if (profile.expr === "1") expr = String(flat);
     var chosen = rangeMode(gunChosen(i), rangeShot);
@@ -2902,6 +2925,7 @@
     clearLog: clearLog,
     mergeLog: mergeLog,
     rollDamageExpr: rollDamageExpr,
+    parseDamage: parseDamage,
     openStore: openStore,
     setStock: setStock,
     applyGunEvent: applyGunEvent,

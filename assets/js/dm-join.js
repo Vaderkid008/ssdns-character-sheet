@@ -191,7 +191,7 @@
         caliber: (st && st.w && st.w.ammo) || g.caliber || "",
         index: i,
         equipped: g.equipped !== false,
-        tr: !!(st && st.w && st.w.tr),
+        tr: !!(st && st.w && (root.SSDNSApp && root.SSDNSApp.canTacticalReload ? root.SSDNSApp.canTacticalReload(st.w, c) : st.w.tr)),
         ammoPool: g.ammoPool == null ? "" : String(g.ammoPool),
         attackMode: g.attackMode === "adv" || g.attackMode === "dis" ? g.attackMode : "",
         pools: (root.SSDNSApp && root.SSDNSApp.ammoChoices) ? root.SSDNSApp.ammoChoices(i) : [],

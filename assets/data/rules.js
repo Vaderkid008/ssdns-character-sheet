@@ -8360,12 +8360,13 @@ window.SSDNS_RULES = {
    "id": "muzzleloader",
    "name": "Muzzleloader",
    "phb5e": "— (new, house rule)",
-   "gist": "+1 Dex/Str; Tactical Reload for percussion and muzzleloaders; bonus-action jam clear",
+   "gist": "+1 Dex/Str; Tactical Reload for percussion and muzzleloaders; free-action jam clear; reopen a locked chamber",
    "prereq": "",
    "bullets": [
     "Increase your Dexterity or Strength by 1 (max 20).",
     "Powder Hands. You can use Tactical Reload (bonus action: load 1 round) with your percussion revolvers and muzzleloaders (Ball n Cap, Rifle-Musket), even though the Rifle-Musket is single-shot. Never the Big Fifty.",
-    "Clear the Jam. When one of your guns misfires, you can clear it as a bonus action, with no check."
+    "Clear the Jam. When one of your guns misfires, you can clear it as a free action, with no check.",
+    "Reopen. As an action, you can clear one locked chamber on one of your guns. Once per short rest."
    ],
    "src": "BOOK1.md line 5048"
   },
