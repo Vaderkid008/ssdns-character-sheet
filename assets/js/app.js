@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.69"; // sheet-playtest-v0369
+  var APP_VERSION = "0.3.70"; // sheet-playtest-v0370
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -937,7 +937,7 @@
     var longGun = g === "rifle" || g === "carbine" || g === "bigbore";
     var bow = g === "bow" || /bow/.test(g);
     if (st === "long-gun" && longGun) return 2;
-    /* 0.3.69 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
+    /* 0.3.70 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
     if (st === "archery" && (bow || longGun || !isMeleeWeapon(w) || (opts && opts.thrown))) return 2;
     return 0;
   }
