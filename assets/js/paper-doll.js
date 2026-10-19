@@ -26,6 +26,45 @@
   };
   for (var a = 1; a <= 7; a++) SLOTS["accessory_" + a] = ["Trinket", ["trinket", "accessory", ""]];
   var WEAPON_SLOTS = { revolver_1: "Pistol 1", revolver_2: "Pistol 2", long_gun: "Long gun", melee: "Melee", focus_borrowed_iron: "Focus" };
+  /* pd-labels: the plate shown on each box (display only; SLOTS[k][0] stays for messages). */
+  var LABELS = {
+    hat: "Hat", neck: "Neck", coat: "Coat", vest: "Vest/Armor", gunbelt: "Belt", holster_l: "Holster L", holster_r: "Holster R",
+    gloves: "Gloves", chaps: "Chaps", boots: "Boots", ring_1: "Ring 1", ring_2: "Ring 2", accessory_8: "Shield",
+    revolver_1: "Pistol L", revolver_2: "Pistol R", long_gun: "Long gun", melee: "Melee", focus_borrowed_iron: "Focus"
+  };
+  for (var t = 1; t <= 7; t++) LABELS["accessory_" + t] = "Trinket";
+  /* Faint line glyphs for empty slots (and filled slots with no art yet). viewBox 0 0 48 48, stroke = currentColor. */
+  var G = {
+    hat: "M6 32c6 3 30 3 36 0M12 31c0-9 2-17 6-18 3-1 4 2 6 2s3-3 6-2c4 1 6 9 6 18",
+    neck: "M10 12c4 10 24 10 28 0M14 18l10 18 10-18M20 26h8",
+    coat: "M16 8l-8 6v26h10V20l6 8 6-8v20h10V14l-8-6-8 10z",
+    vest: "M17 8l-5 6v24l12 4 12-4V14l-5-6-7 12z M24 20v20",
+    gunbelt: "M6 20h36v8H6zM20 18h8v12h-8zM10 28v6M14 28v6M34 28v6M38 28v6",
+    holster: "M18 8h12v8l-2 22-5 4-3-4-2-22zM16 16h16",
+    gloves: "M14 40V22l-3-6 3-2 4 5V8h3v12V6h3v14V8h3v14l4-8 3 2-5 13v11z",
+    chaps: "M14 8h20l2 32h-8l-4-22-4 22h-8z",
+    boots: "M16 6h10v24l12 4v6H12l2-10zM12 40h26",
+    ring: "M24 18a10 10 0 1 0 .1 0zM19 14l5-6 5 6",
+    trinket: "M24 8a14 14 0 1 0 .1 0zM24 15a7 7 0 1 0 .1 0z",
+    shield: "M24 6l14 5v12c0 9-6 15-14 19C16 38 10 32 10 23V11z",
+    pistol: "M6 18h28l4-3h4v6l-6 2-4 9h-7l2-8H6z",
+    long: "M24 4v40M21 8h6v6h-6zM20 30h8l-2 12h-4z",
+    melee: "M24 4l3 6v22h-6V10zM16 32h16M22 32h4v10h-4z",
+    focus: "M30 6l6 6-8 8M28 20a8 8 0 1 1-12 0 9 9 0 1 1 12 0zM20 26h.1"
+  };
+  /* Plates sit on the top edge; these crowded center slots put theirs elsewhere so they don't cover a neighbor. */
+  var LABEL_POS = { neck: "side-r", coat: "top-l", vest: "top-r", gunbelt: "below" };
+  function glyphKey(key) {
+    if (/^accessory_[1-7]$/.test(key)) return "trinket";
+    return { holster_l: "holster", holster_r: "holster", ring_1: "ring", ring_2: "ring", accessory_8: "shield", revolver_1: "pistol", revolver_2: "pistol", long_gun: "long", focus_borrowed_iron: "focus" }[key] || key;
+  }
+  function glyph(key) {
+    var d = G[glyphKey(key)] || G.trinket;
+    return '<svg class="doll-glyph" viewBox="0 0 48 48" aria-hidden="true"><path d="' + d + '"/></svg>';
+  }
+  /* Short display name: drop the PHB parenthetical, e.g. "Bowie (shortsword)" -> "Bowie". */
+  function shortName(n) { return String(n || "").replace(/\s*\([^)]*\)\s*$/, "").replace(/^Navy \/ Army /, "") || String(n || ""); }
+  function isDefaultArt(src) { return /items\/defaults\//.test(String(src || "")); }
   var AB = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (ch) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]; }); }
@@ -63,8 +102,9 @@
   function gunRows(c) {
     var rr = R();
     return ((c && c.guns) || []).map(function (g, i) {
-      var w = g && g.weapon && (byId(rr.firearms, g.weapon) || byId(rr.otherRanged, g.weapon));
-      return w ? { kind: "gun", i: i, w: w, g: g, id: g.weapon, name: w.name, pistol: w.group === "pistol", equipped: g.equipped !== false } : null;
+      var w = g && g.weapon && (byId(rr.firearms, g.weapon) || byId(rr.casterGuns, g.weapon) || byId(rr.otherRanged, g.weapon));
+      /* pd-labels: caster guns (Blacksnake, Hognose) ride in the pistol slots. */
+      return w ? { kind: "gun", i: i, w: w, g: g, id: g.weapon, name: w.name, pistol: w.group === "pistol" || w.group === "caster", equipped: g.equipped !== false } : null;
     }).filter(Boolean);
   }
   function meleeRows(c) {
@@ -230,28 +270,35 @@
     var ro = !!opts.readOnly;
     var parts = ['<div class="doll' + (ro ? " doll-ro" : "") + '" style="background-image:url(' + img("frame-B6-1080x1350.webp") + ')">',
       '<img class="doll-sil" alt="" src="' + img("silhouette-600x1100.webp") + '" style="' + pct(SIL) + '">'];
+    var rr = R(), hol = c && c.holster ? byId(rr.holsters, c.holster) : null, beltRig = hol && /belt|bandolier/i.test(hol.id);
     Object.keys(BOX).forEach(function (key) {
-      var b = BOX[key], tall = b[3] > 200, label, name = "", art = "", filled = false, cls = "";
+      var b = BOX[key], tall = b[3] > 200, label = LABELS[key] || (SLOTS[key] ? SLOTS[key][0] : WEAPON_SLOTS[key]), name = "", art = "", filled = false, cls = "", src = "";
       if (WEAPON_SLOTS[key]) {
-        label = WEAPON_SLOTS[key]; name = weaponName(c, key); filled = !!name; cls = " doll-weapon"; art = filled ? weaponArt(c, key) : "";
+        name = weaponName(c, key); filled = !!name; cls = " doll-weapon"; art = filled ? weaponArt(c, key) : "";
+        src = key === "focus_borrowed_iron" ? "Gear: Focus" : "Gear: Weapons";
       } else {
-        label = SLOTS[key][0];
         var it = inSlot(c, key);
-        if (key === "vest" && !it && c && c.armor) { var ar = byId(R().armor, c.armor); if (ar && ar.category !== "shield") name = ar.name; }
-        if (key === "accessory_8" && !it && c && c.shield) name = "Shield";
-        if (key === "holster_l" && !it && c && c.holster) { var h = byId(R().holsters, c.holster); if (h) name = h.name; }
-        if (it) { name = it.name; art = artFor(it); if (it.attune && !it.attuned) cls += " doll-unattuned"; }
+        if (key === "vest" && !it && c && c.armor) { var ar = byId(rr.armor, c.armor); if (ar && ar.category !== "shield") { name = ar.name; src = "Gear: Armor"; } }
+        if (key === "accessory_8" && !it && c && c.shield) { name = "Shield"; src = "Gear: Shield"; }
+        /* pd-labels: Holster on Gear fills Holster L; a belt/bandolier rig (or the Gun belt box) fills Belt. */
+        if (key === "holster_l" && !it && hol && !beltRig) { name = hol.name; src = "Gear: Holster"; }
+        if (key === "gunbelt" && !it && (beltRig || (c && c.gunBelt))) { name = beltRig ? hol.name : "Gun belt"; src = beltRig ? "Gear: Holster" : "Gear: Gun belt box"; }
+        if (it) { name = it.name; art = artFor(it); src = "Item"; if (it.attune && !it.attuned) cls += " doll-unattuned"; }
+        if (isDefaultArt(art)) art = "";
         filled = !!name;
         if (key === "accessory_8" && filled && bonuses(c).shieldOff) cls += " doll-off";
       }
       /* 0.3.54: 9-slice the square tile so tall/wide slots keep true corners. */
       var tile = filled ? "slot-256-filled.webp" : "slot-256.webp";
       if (tall) cls += b[2] > 200 ? " doll-wide" : " doll-tall";
-      parts.push('<' + (ro ? "div" : "button type=\"button\"") + ' class="doll-slot doll-9' + (filled ? " filled" : "") + cls + '" data-doll-slot="' + key + '" style="' + pct(b) + ';border-image-source:url(' + img(tile) + ')" title="' + esc(label + (name ? ": " + name : " (empty)")) + '" aria-label="' + esc(label + (name ? ": " + name : " empty")) + '">' +
-        (art ? '<img class="doll-art" alt="" src="' + esc(art) + '">' : "") +
-        (filled ? '<span class="doll-name">' + esc(name) + "</span>" : "") +
-        (ro ? "" : '<span class="doll-label">' + esc(label) + "</span>") +
-        "</" + (ro ? "div" : "button") + ">");
+      if (filled && !art) cls += " doll-noart";
+      var tip = label + (name ? ": " + name + (src ? " (" + src + ")" : "") : " (empty)");
+      parts.push('<div class="doll-cell' + (LABEL_POS[key] ? " lab-" + LABEL_POS[key] : "") + '" style="' + pct(b) + '">' +
+        '<' + (ro ? "div" : "button type=\"button\"") + ' class="doll-slot doll-9' + (filled ? " filled" : "") + cls + '" data-doll-slot="' + key + '" style="border-image-source:url(' + img(tile) + ')" title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' +
+        (art ? '<img class="doll-art" alt="" src="' + esc(art) + '">' : glyph(key)) +
+        (filled ? '<span class="doll-name">' + esc(shortName(name)) + "</span>" : "") +
+        "</" + (ro ? "div" : "button") + ">" +
+        '<span class="doll-label" aria-hidden="true">' + esc(label) + "</span></div>");
     });
     var es = opts.es != null ? opts.es : "";
     parts.push('<div class="doll-counter" style="' + pct(COUNTER) + '"><span class="doll-es">' + esc(es) + '</span><span class="doll-es-unit">ES</span></div>');
@@ -367,5 +414,5 @@
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { BOX: BOX, SLOTS: SLOTS, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
+  root.SSDNSDoll = { BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
 })(typeof window !== "undefined" ? window : globalThis);

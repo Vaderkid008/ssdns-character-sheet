@@ -1025,3 +1025,27 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .mx-now { font: 600 12px/1.2 system-ui, sans-serif; color: #b9ab8f; max-width: 48ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mx-now.on { color: #f3d27a; }
 .mx-mine-ctl label, .mx-mine-ctl .vol-pct { color: #f3e6c8; }
+/* pd-labels: a branded plate on every slot, names always shown, faint glyph when empty. */
+.doll-cell { position: absolute; }
+.doll-cell > .doll-slot { position: absolute; inset: 0; width: 100%; height: 100%; }
+.doll-cell > .doll-label { position: absolute; z-index: 5; left: 50%; top: 0; transform: translate(-50%, -74%); opacity: 1; right: auto;
+  font-family: var(--title, "Rye", serif); font-size: clamp(7px, 1.3cqw, 12px); line-height: 1; letter-spacing: .05em; text-transform: none; white-space: nowrap;
+  color: #f4e6c4; background: linear-gradient(#4a2e18, #2e1b0d); border: 1px solid #b08a4a; border-radius: 3px; padding: .22em .5em .16em;
+  box-shadow: 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,230,180,.08); pointer-events: none; text-shadow: 0 1px 0 #000; }
+.doll-cell:hover > .doll-label { background: linear-gradient(#8d1c14, #5e110b); }
+.doll-slot .doll-glyph { position: absolute; left: 50%; top: 50%; width: 56%; height: 56%; transform: translate(-50%, -54%); fill: none; stroke: #5a3f22; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .2; pointer-events: none; }
+.doll-tall .doll-glyph, .doll-wide .doll-glyph { width: 70%; height: 40%; }
+.doll-slot.doll-noart .doll-glyph { opacity: .55; stroke: #6b4320; top: 36%; width: 46%; height: 46%; }
+.doll-slot .doll-name { font-family: Georgia, "Times New Roman", serif; font-size: clamp(6.5px, 1.2cqw, 11px); font-weight: 600; line-height: 1.22; max-width: 90%; margin-bottom: 6%;
+  padding: 0 .25em; box-shadow: 0 0 0 .18em rgba(246,234,207,.92); background: rgba(246,234,207,.92); border: 1px solid rgba(120,88,48,.45); border-radius: 2px; color: #2b1d10;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: normal; text-align: center; }
+.doll-weapon .doll-art ~ .doll-name { display: -webkit-box; }
+.doll-tall.doll-weapon .doll-art { top: 44%; }
+.doll-slot.filled .doll-art { inset: 9% 6% 34%; width: 88%; height: 57%; }
+.doll-tall.doll-weapon.filled .doll-art { inset: auto; left: 50%; top: 44%; width: 230%; height: 40%; }
+.doll-wide.filled .doll-art { inset: 8% 8% 20%; width: 84%; height: 72%; }
+.doll-cell.lab-below > .doll-label { top: 100%; transform: translate(-50%, -26%); }
+.doll-cell.lab-top-l > .doll-label { left: 0; transform: translate(-62%, -74%); }
+.doll-cell.lab-top-r > .doll-label { left: 100%; transform: translate(-56%, -74%); }
+.doll-cell.lab-side-r > .doll-label { left: 100%; top: 50%; transform: translate(10%, -50%); }
+.doll-slot .doll-art { max-width: none; max-height: none; }
