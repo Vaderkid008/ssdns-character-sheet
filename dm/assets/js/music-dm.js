@@ -1,4 +1,4 @@
-/* DMCC Music tab (0.2.65): two layers, transport, fades, crossfade, seek, push to players, uploads. */
+/* DMCC Music tab (0.2.66): two layers, transport, fades, crossfade, seek, push to players, uploads. */
 (function (root) {
   "use strict";
   var M = root.SSDNSMusic, Media = root.SSDNSMedia;

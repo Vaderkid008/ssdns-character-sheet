@@ -116,7 +116,7 @@ const tubeSpendDoc = doc(tubeSpend);
 const tubeKeys = Array.from(tubeSpendDoc.querySelectorAll(".ammo-round, .ammo-tube-fire")).map((b) => b.getAttribute("data-k"));
 check("tube.leftmost", tubeSpendDoc.querySelector(".ssdns-ammo-tube").getAttribute("data-ammo-spend") === "1" && tubeKeys.length >= 2 && tubeKeys.every((k) => k === "1"), tubeKeys.join(","));
 check("tube.cart", !!tubeSpendDoc.querySelector("svg.ammo-cart"));
-check("tube.tip", (tubeSpendDoc.querySelector(".ammo-tip") || {}).getAttribute("fill") === "#7a5828" && !tubeSpend.includes("#1c1612"));
+check("tube.tip", (tubeSpendDoc.querySelector(".ammo-tip") || {}).getAttribute("fill") === "url(#ammoTipCu)" && !tubeSpend.includes("#1c1612"));
 const tubeWide = doc(api.html({ action: "Lever (tube)", cap: 12, loaded: 12, tier: "medium" }));
 check("tube.compact", !!tubeWide.querySelector(".ssdns-ammo-tube.is-compact") && tubeWide.querySelectorAll(".ammo-round").length === 12);
 
@@ -134,7 +134,7 @@ const slug12 = shellOf({ action: "Break-action", group: "shotgun", ammo: "shell"
 check("shell.red", !!buck12 && buck12.className.includes("is-gauge-12") && buck12.className.includes("is-buck") && buck12.innerHTML.includes('fill="#c4322e"') && buck12.innerHTML.includes('fill="#d7b15e"'));
 check("shell.410", !!buck410 && buck410.className.includes("is-gauge-410") && !buck410.className.includes("is-gauge-12"));
 check("shell.10", !!buck10 && buck10.className.includes("is-gauge-10"));
-check("shell.slug", !!slug12 && slug12.className.includes("is-slug") && slug12.innerHTML.includes(">S<") && slug12.innerHTML.includes('fill="#2a62b5"') && !slug12.innerHTML.includes('fill="#c4322e"'));
+check("shell.slug", !!slug12 && slug12.className.includes("is-slug") && slug12.innerHTML.includes(">S<") && slug12.innerHTML.includes('fill="#111111"') && slug12.innerHTML.includes('fill="#c4322e"'));
 function holes(cap) {
   return [...doc(api.html({ action: "Revolver", cap: cap, loaded: cap })).querySelectorAll(".ammo-round")].map((b) => {
     const s = b.getAttribute("style") || "";

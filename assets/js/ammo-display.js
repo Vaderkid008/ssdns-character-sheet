@@ -185,7 +185,7 @@
     return spec.label(chamber.index, chamber) || "";
   }
 
-  /* 0.3.52: what the round looks like, keyed off the ammo type (never the gun name).
+  /* 0.3.53: what the round looks like, keyed off the ammo type (never the gun name).
      ball = powder, ball & caps; cart = brass rim + primer; buck = red hull, brass base;
      rf22 = small brass (.22 / light); hex = dark lead with a green glow. */
   function roundType(spec, chamber) {
@@ -199,11 +199,14 @@
       else if (kn === "buck" || kn === "slug") ammo = "shell";
     }
     if (ammo === "percussion" || ammo === "ball" || ammo === "powder") return "ball";
-    /* 0.3.52: shells keep the original look; only the shotgun repeater gets the red hull. */
+    /* 0.3.53: shells keep the original look; only the shotgun repeater gets the red hull. */
     if (ammo === "shell" || ammo === "buck" || ammo === "slug" || isShotgun(spec)) {
       var sid = String((row && row.id) || spec.weapon || spec.weaponId || "");
       var sact = String((row && row.action) || spec.action || "").toLowerCase();
-      return (sid === "lancaster-lever-shotgun" || /lever|repeat|pump|tube/.test(sact)) ? "buck" : "shell";
+      /* 0.3.53 sample: hull colour comes from the gauge. The repeater's red hull only survives
+         for a gauge with no colour of its own, and .410 / 12 / 10 all have one, so it is unused. */
+      void sid; void sact;
+      return "shell";
     }
     var tier = String(spec.tier || "").toLowerCase();
     if (!tier && row && row.tiers) { var keys = Object.keys(row.tiers); if (keys.length === 1) tier = keys[0]; }
@@ -213,7 +216,8 @@
 
   function roundButton(spec, chamber, style, indexOverride, extraClass, inner) {
     var k = indexOverride == null ? chamber.index : indexOverride;
-    extraClass = (extraClass ? extraClass + " " : "") + "rt-" + roundType(spec, chamber);
+    var rt = roundType(spec, chamber);
+    extraClass = (extraClass ? extraClass + " " : "") + "rt-" + rt + (rt === "shell" && !/is-gauge-/.test(extraClass || "") ? " is-gauge-" + shellGauge(spec) + (isSlug(spec) ? " is-slug" : "") : "");
     var locked = chamber.state === "locked";
     var word = locked ? "Locked" : (chamber.state === "loaded" ? "Loaded" : (chamber.state === "jam" ? "Misfire" : "Spent"));
     var next = spec.next === chamber.index ? " is-next" : "";
@@ -235,10 +239,12 @@
 
   function cartSvg() {
     return '<svg class="ammo-cart" viewBox="0 0 48 16" aria-hidden="true">' +
+      '<defs><linearGradient id="ammoTipCu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f08a5e"/><stop offset=".45" stop-color="#c2421f"/><stop offset="1" stop-color="#6e1d0e"/></linearGradient></defs>' +
       '<rect x="1" y="3" width="27" height="10" rx="1.4" fill="var(--case,#e0b44a)" stroke="#5c4316" stroke-width="0.6"/>' +
       '<circle cx="6.2" cy="8" r="2.2" fill="#f4f0e8"/>' +
       '<circle cx="6.2" cy="8" r="1.05" fill="#a86b3c"/>' +
-      '<path class="ammo-tip" d="M27.5 4.1 H39.5 L46 8 L39.5 11.9 H27.5 Z" fill="#7a5828"/>' +
+      '<path class="ammo-tip" d="M27.5 4.1 H38.5 Q46 5.2 46.6 8 Q46 10.8 38.5 11.9 H27.5 Z" fill="url(#ammoTipCu)" stroke="#5a1c10" stroke-width="0.5"/>' +
+      '<path d="M29 5.2 H38 Q43 6 44 7.2" fill="none" stroke="rgba(255,214,190,.65)" stroke-width="0.9" stroke-linecap="round"/>' +
       "</svg>";
   }
 
@@ -262,11 +268,15 @@
   function shellSvg(spec) {
     var gauge = shellGauge(spec);
     var slug = isSlug(spec);
-    var hull = slug ? "#2a62b5" : "#c4322e";
-    var hullDark = slug ? "#1c457f" : "#8e241f";
+    /* 0.3.53 sample: hull by gauge. 12 ga = the exact pre-#71 red shell; 10 ga green; .410 blue.
+       Slugs (Jessey, option B): gauge hull colour with a black band and a white S. */
+    var HULL = { "410": ["#3f8fe0", "#1f5a9c"], "12": ["#c4322e", "#8e241f"], "10": ["#2f7a3a", "#1a4a22"] };
+    var band = slug;
+    var hull = HULL[gauge][0];
+    var hullDark = HULL[gauge][1];
     var brass = "#d7b15e";
     var brassEdge = "#8a6a32";
-    var box = gauge === "410" ? { w: 78, h: 14 } : (gauge === "10" ? { w: 62, h: 26 } : { w: 56, h: 20 });
+    var box = gauge === "410" ? { w: 64, h: 11 } : (gauge === "10" ? { w: 72, h: 26 } : { w: 56, h: 20 });
     var w = box.w;
     var h = box.h;
     var bodyH = h - 4.4;
@@ -278,7 +288,10 @@
     var crimp = Math.max(2.2, h * 0.16);
     var hullX = rimW + headW - 0.3;
     var hullW = Math.max(6, w - hullX - crimp - 1.2);
-    var mark = slug
+    var mark = band
+      ? '<rect x="' + (hullX + hullW * 0.22).toFixed(1) + '" y="' + yBody.toFixed(2) + '" width="' + (hullW * 0.48).toFixed(1) + '" height="' + bodyH.toFixed(2) + '" fill="#111111"/>' +
+        '<text x="' + (hullX + hullW * 0.46).toFixed(1) + '" y="' + (h * 0.68).toFixed(1) + '" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="' + (bodyH * 0.7).toFixed(1) + '" fill="#f4f7fb">S</text>'
+      : slug
       ? '<text x="' + (hullX + hullW * 0.46).toFixed(1) + '" y="' + (h * 0.68).toFixed(1) + '" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="' + (bodyH * 0.7).toFixed(1) + '" fill="#f4f7fb">S</text>'
       : "";
     return '<svg class="ammo-shell" viewBox="0 0 ' + w + " " + h + '" aria-hidden="true">' +

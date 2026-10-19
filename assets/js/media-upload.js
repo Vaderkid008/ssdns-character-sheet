@@ -1,4 +1,4 @@
-/* SSDNS media uploads (sheet 0.3.52 / DMCC 0.2.65).
+/* SSDNS media uploads (sheet 0.3.53 / DMCC 0.2.66).
    Art: any image -> center-cropped square WEBP (512x512 default). Players keep it inside the
    .ssdns file. The DM uploads to Firebase Storage when the project has Storage turned on.
    Audio: DM-only "Add audio" to Firebase Storage. Firebase is optional: without it the game

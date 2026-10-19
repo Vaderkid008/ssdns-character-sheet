@@ -184,7 +184,7 @@
     img.decoding = "async";
     img.setAttribute("data-slug", slug);
     img.addEventListener("error", function () {
-      /* 0.3.52: one retry with a cache-buster before we give up for the session. */
+      /* 0.3.53: one retry with a cache-buster before we give up for the session. */
       if (!img.getAttribute("data-retried")) {
         img.setAttribute("data-retried", "1");
         img.src = src + (src.indexOf("?") >= 0 ? "&" : "?") + "r=" + Date.now().toString(36);
