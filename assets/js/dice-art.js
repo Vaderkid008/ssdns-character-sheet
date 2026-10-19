@@ -240,7 +240,7 @@
   }
   function cardBadges(html) {
     html = String(html || "");
-    if (html.indexOf("roll-total") >= 0) return html;
+    if (html.indexOf("roll-total") >= 0) return html; /* also covers roll-total-atk */
     var parts = html.split(/(\n|<br\s*\/?>)/);
     var whole = parts.join("");
     var isCard = CARD_LINE.test(whole) || /^\s*Damage(?: \(crit\))?:/m.test(whole) || /(^|\n|<br\s*\/?>)\s*Damage(?: \(crit\))?:/.test(whole);
@@ -252,7 +252,8 @@
       if (/^(\n|<br)/.test(line)) return line;
       if (CARD_LINE.test(line) || /\bd20\b/.test(line)) {
         line = faceRun(line);
-        return line.replace(/=\s*(-?\d+)(?=\s*(?:vs\b|→|\(|$|<))/, function (m, n) { return "= " + totalBadge(n, tone); });
+        /* 0.3.60: the attack total is plain text in the d20 face colour (no ring); only damage gets the badge */
+        return line.replace(/=\s*(-?\d+)(?=\s*(?:vs\b|→|\(|$|<))/, function (m, n) { return '= <span class="roll-total-atk' + (tone ? " " + tone : "") + '">' + n + "</span>"; });
       }
       if (/^\s*Damage/.test(line.replace(/<[^>]+>/g, ""))) {
         line = faceRun(line);

@@ -49,41 +49,41 @@ function advance(ms) { const end = clock + ms; for (;;) { timers.sort((a, b) => 
 function run(fn, ms = 3000) { A.resetQueue(); timers.length = 0; started.length = 0; const t0 = clock; fn(t0); advance(ms); return started.map((s) => s.n + "@" + (s.t - t0)).join(" "); }
 
 const T = A.TIMING;
-check("const", T.gap === 250 && T.resultAfterShot === 550 && T.downedAfterResult === 450 && T.critLead === 150 && T.critBeforeShot === false && T.maxWait === 1500 && T.shotStartTimeout === 1000 && T.jitter === 20, JSON.stringify(T));
+check("const", T.gap === 250 && T.resultAfterShot === 750 && T.downedAfterResult === 450 && T.critLead === 150 && T.critBeforeShot === false && T.maxWait === 1800 && T.shotStartTimeout === 1000 && T.jitter === 20, JSON.stringify(T));
 
 latency = {};
-check("hit.basic", run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "hit"); }) === "S@0 hit-gun@550");
+check("hit.basic", run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "hit"); }) === "S@0 hit-gun@750");
 /* the 0.3.59 bug: slow shot (300 ms load) used to lose to a cached hit */
 latency = { S: 300 };
 let r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "hit"); });
-check("hit.afterSlowShot", r === "S@300 hit-gun@850", r);
+check("hit.afterSlowShot", r === "S@300 hit-gun@1050", r);
 latency = { S: 700 };
 r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "hit"); });
-check("hit.veryslow.capped", r === "S@700 hit-gun@1250", r);
+check("hit.veryslow.capped", r === "S@700 hit-gun@1450", r);
 latency = { S: Infinity };
 r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "hit"); });
-check("shot.never.resultAnyway", r === "hit-gun@1500", r);
+check("shot.never.resultAnyway", r === "hit-gun@1750", r);
 latency = {};
 /* result first (DMCC verdict before the player's broadcast shot): it waits for the shot */
 r = run(() => { A.playOutcome({ gun: true, name: "Navy" }, "hit"); advance(200); A.play("revolver"); });
-check("result.beforeShot.waits", r === "S@200 hit-gun@750", r);
+check("result.beforeShot.waits", r === "S@200 hit-gun@950", r);
 r = run(() => { A.playOutcome({ name: "Machete" }, "hit"); });
-check("result.noShot.playsAnyway", r === "sword-hit@550", r);
+check("result.noShot.playsAnyway", r === "sword-hit@750", r);
 /* crit: sting 150 ms before the hit, both after the shot */
 r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy", nat: 20 }, "crit"); });
-check("crit.gun.layered", r === "S@0 nat20@400 hit-gun@550", r);
+check("crit.gun.layered", r === "S@0 nat20@600 hit-gun@750", r);
 latency = { S: 250 };
 r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy", nat: 20 }, "crit"); });
-check("crit.neverBeforeShot", r === "S@250 nat20@650 hit-gun@800", r);
+check("crit.neverBeforeShot", r === "S@250 nat20@850 hit-gun@1000", r);
 latency = {};
 r = run(() => { A.play("slash"); A.playOutcome({ name: "Machete" }, "crit"); });
-check("crit.melee", r === "S@0 crit-melee@550", r);
+check("crit.melee", r === "S@0 crit-melee@750", r);
 /* downed: 450 ms after the result's real start */
 r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "hit"); A.play("enemy-downed"); });
-check("chain", r === "S@0 hit-gun@550 enemy-downed@1000", r);
+check("chain", r === "S@0 hit-gun@750 enemy-downed@1200", r);
 latency = { "hit-gun": 100 };
 r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "hit"); A.play("enemy-downed"); });
-check("chain.slowHit", r === "S@0 hit-gun@650 enemy-downed@1100", r);
+check("chain.slowHit", r === "S@0 hit-gun@850 enemy-downed@1300", r);
 latency = {};
 r = run(() => { A.play("enemy-downed"); });
 check("downed.alone", r === "enemy-downed@0", r);
@@ -93,11 +93,11 @@ check("gap", r === "S@0 S@250 S@500", r);
 r = run(() => { A.play("revolver"); A.play("shotgun"); A.play("misfire"); });
 check("misfire.now", r.startsWith("S@0 misfire@0"), r);
 r = run(() => { for (let k = 0; k < 12; k++) A.play("revolver"); });
-check("cap", Math.max(...r.split(" ").map((x) => +x.split("@")[1])) <= 1500, r);
+check("cap", Math.max(...r.split(" ").map((x) => +x.split("@")[1])) <= 1800, r);
 for (const j of [0, 1]) {
   A.setJitterSource(() => j);
   r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "miss"); });
-  check("jitter." + j, Math.abs(+r.split("@").pop() - 550) === 20, r);
+  check("jitter." + j, Math.abs(+r.split("@").pop() - 750) === 20, r);
 }
 A.setJitterSource(() => 0.5);
 /* broadcast cues come in through play() */
@@ -117,9 +117,9 @@ check("preload", /function preloadSfx\(\)/.test(sx) && /cloneNode/.test(sx));
 /* last: a failed file is marked missing for the session */
 latency = { S: "error" };
 r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "miss"); });
-check("shot.error.resultAnyway", r === "ricochet@555", r);
+check("shot.error.resultAnyway", r === "ricochet@755", r);
 latency = {};
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.59" && ver.dmcc === "0.2.72");
+check("ver", ver.sheet === "0.3.60" && ver.dmcc === "0.2.73");
 console.log(failures.length ? "\n" + failures.length + " FAILED: " + failures.join(", ") : "\nAll PR78 checks passed.");
 process.exit(failures.length ? 1 : 0);

@@ -4038,7 +4038,7 @@ async function cardStrike(i, n, opts) {
       misfire: false,
       miss: miss,
       crit: nat === 20 && hit,
-      damage: dmg ? { faces: dmg.rolls, parts: [], total: dmg.total, dice: dmg.detail, type: atk.damageType || "" } : null
+      damage: dmg ? { faces: dmg.rolls, formula: dice, parts: [], total: dmg.total, dice: dmg.detail, type: atk.damageType || "" } : null
     })
     : null;
   let detail = strikeCard ? strikeCard.dmText : (row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (miss ? " → MISS" : (nat === 20 ? " → CRIT" : " → HIT")) + (dmg ? " · " + dmg.detail + " = " + dmg.total : ""));
@@ -4863,6 +4863,7 @@ function resolveIncomingAttack(req, reqId) {
           parts: req.dmgParts,
           total: req.amount,
           type: req.dmgType || "",
+          formula: req.dmgFormula || "",
           dice: req.dice || ""
         }
       })

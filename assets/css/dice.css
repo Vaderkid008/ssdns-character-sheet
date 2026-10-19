@@ -71,3 +71,6 @@ button.d20 {
 .roll-total.crit { border-color: #ffcf4a; color: #fff2c4; box-shadow: 0 0 0 1px #1A1A1A, 0 0 15px rgba(255, 207, 74, .8); }
 .roll-total.miss { border-color: #8b7a5c; color: #d9ccb0; box-shadow: 0 0 0 1px #1A1A1A; }
 .die-used { display: inline-block; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255, 207, 74, .55); }
+/* 0.3.60: attack (d20) total: no ring, the d20 face's light blue */
+.roll-total-atk { color: #4FDCCB; font-weight: 800; }
+.roll-total-atk.crit { color: #7ff3e6; }
