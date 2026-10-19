@@ -13,11 +13,11 @@ function check(cond, msg) { if (!cond) failures.push(msg); }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.56" && version.sheetBuild === "sheet-playtest-v0356", "sheet 0.3.55");
-check(version.dmcc === "0.2.69" && version.dmccBuild === "dmcc-playtest-v0269", "dmcc 0.2.68");
-check(read("assets/js/app.js").includes('APP_VERSION = "0.3.56"'), "sheet banner");
-check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.69"'), "dmcc banner");
-check(!read("assets/data/rules.js").includes("0.3.56"), "rules.js was not regenerated for this bump");
+check(version.sheet === "0.3.57" && version.sheetBuild === "sheet-playtest-v0357", "sheet 0.3.55");
+check(version.dmcc === "0.2.70" && version.dmccBuild === "dmcc-playtest-v0270", "dmcc 0.2.68");
+check(read("assets/js/app.js").includes('APP_VERSION = "0.3.57"'), "sheet banner");
+check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.70"'), "dmcc banner");
+check(!read("assets/data/rules.js").includes("0.3.57"), "rules.js was not regenerated for this bump");
 
 const sheetCss = read("assets/css/sheet.css");
 const dmCss = read("dm/assets/css/dmcc.css");
@@ -132,6 +132,7 @@ check(audio.outcomeCue({ id: "shortbow", name: "Shortbow", group: "bow" }, "miss
 check(audio.poolFiles("ricochet").length === 5, "loaded ricochet pool has 5 files");
 const before = made.length;
 audio.play("ricochet");
+await new Promise((resolve) => setTimeout(resolve, 400)); /* results wait ~300 ms (0.3.57) */
 check(made.length === before + 1, "a ricochet plays one file");
 
 audio.resetVariants();
@@ -148,6 +149,7 @@ check(repeats === 0, "variant picks do not repeat the last slot");
 sfxBox.Math.random = () => 0.5;
 const swing = audio.playbackJitter();
 check(Math.abs(swing.playbackRate - 1) < 0.001 && Math.abs(swing.gain - 1) < 0.001, "a mid roll lands inside the pitch and volume window");
+if (audio.resetQueue) audio.resetQueue();
 const n0 = made.length;
 audio.play("attack");
 const heard = made[made.length - 1];
