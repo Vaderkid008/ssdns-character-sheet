@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.73"; // dmcc-playtest-v0273
+const VERSION = "0.2.74"; // dmcc-playtest-v0274
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1103,6 +1103,9 @@ function applyDemoGun(playerId, payload) {
     if (g.ruined) g.condition = "ruined";
     else if (g.fouled) g.condition = "fouled";
     else if (g.dirty) g.condition = "dirty";
+  } else if (payload.op === "reopen") {
+    const locks = Array.isArray(g.lockedChambers) ? g.lockedChambers.slice() : [];
+    if (locks.length) g.lockedChambers = locks.slice(1);
   } else if (payload.op === "clear-locks") {
     const next = window.SSDNSMisfire && window.SSDNSMisfire.clearLocks
       ? window.SSDNSMisfire.clearLocks(g, payload.mode, payload.chamber)
@@ -1998,18 +2001,18 @@ function openDetail(pid) {
         const crossed = !!(g.ruined || g.broken || g.exploded);
         return `<div class="gun-chip ${g.jammed ? "jammed" : ""}${crossed ? " gun-x" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}
         <p class="fine">Streak ${esc(g.misStreak || 0)}${g.pendingD4 ? " · d4 pending" : ""}${g.dirty ? " · Dirty" : ""}${g.fouled ? " · Fouled" : ""}${g.ruined ? " · Ruined" : ""}${lockN ? " · LOCKED UP ×" + lockN : ""}</p>
-        <button type="button" class="btn sm" data-gun-op="reload" data-gun-i="${i}">Reload</button>
-        <button type="button" class="btn sm" data-gun-op="unload" data-gun-i="${i}">Unload</button>
-        <button type="button" class="btn sm" data-gun-op="dirty-d4" data-gun-i="${i}">Dirty d4</button>
-        <button type="button" class="btn sm" data-gun-op="set" data-gun-i="${i}">Set loaded</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="reset" data-gun-i="${i}">Reset streak</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="dirty" data-mf-on="1" data-gun-i="${i}">Set Dirty</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="dirty" data-mf-on="0" data-gun-i="${i}">Clear Dirty</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="fouled" data-mf-on="1" data-gun-i="${i}">Set Fouled</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="fouled" data-mf-on="0" data-gun-i="${i}">Clear Fouled</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="ruined" data-mf-on="1" data-gun-i="${i}">Set Ruined</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="ruined" data-mf-on="0" data-gun-i="${i}">Clear Ruined</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="cancel" data-gun-i="${i}">Cancel d4</button>
+        <button type="button" class="btn sm" data-gun-op="reload" data-gun-i="${sheetI}">Reload</button>
+        <button type="button" class="btn sm" data-gun-op="unload" data-gun-i="${sheetI}">Unload</button>
+        <button type="button" class="btn sm" data-gun-op="dirty-d4" data-gun-i="${sheetI}">Dirty d4</button>
+        <button type="button" class="btn sm" data-gun-op="set" data-gun-i="${sheetI}">Set loaded</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="reset" data-gun-i="${sheetI}">Reset streak</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="dirty" data-mf-on="1" data-gun-i="${sheetI}">Set Dirty</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="dirty" data-mf-on="0" data-gun-i="${sheetI}">Clear Dirty</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="fouled" data-mf-on="1" data-gun-i="${sheetI}">Set Fouled</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="fouled" data-mf-on="0" data-gun-i="${sheetI}">Clear Fouled</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="ruined" data-mf-on="1" data-gun-i="${sheetI}">Set Ruined</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="ruined" data-mf-on="0" data-gun-i="${sheetI}">Clear Ruined</button>
+        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="cancel" data-gun-i="${sheetI}">Cancel d4</button>
         <span class="fine">Clear locked chambers</span>
         <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="one" data-gun-i="${sheetI}">Clear one</button>
         <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="all" data-gun-i="${sheetI}">Clear all</button>
@@ -2018,7 +2021,7 @@ function openDetail(pid) {
         <select data-gun-rechamber="${sheetI}" aria-label="New chambering">${g.rechamber.map((o) => `<option value="${esc(o.value)}">${esc(o.label)} · gunsmith ${esc(o.cost)} ES${o.allowed ? "" : " (off-path)"}</option>`).join("")}</select>
         <button type="button" class="btn sm" data-gun-op="rechamber" data-gun-i="${sheetI}">Rechamber</button>` : ""}
         <button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${g.equipped === false ? "1" : "0"}" data-gun-kind="gun" data-gun-i="${sheetI}">${g.equipped === false ? "Equip" : "Unequip"}</button>
-        <input type="number" data-gun-loaded="${i}" value="${esc(g.loaded)}" aria-label="Loaded chambers">
+        <input type="number" data-gun-loaded="${sheetI}" value="${esc(g.loaded)}" aria-label="Loaded chambers">
       </div>`;
       }).join("") || "<p>—</p>"}
       ${(s.melee || []).map((m) => `<div class="gun-chip"><div>${esc(m.name)} · melee</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${m.equipped === false ? "1" : "0"}" data-gun-kind="melee" data-gun-i="${m.index}">${m.equipped === false ? "Equip" : "Unequip"}</button></div>`).join("")}
@@ -2072,7 +2075,11 @@ function openDetail(pid) {
         payload.name = gunName;
       }
       const lockN = gun && Array.isArray(gun.lockedChambers) ? gun.lockedChambers.length : 0;
-      if (op === "clear-locks" && !lockN) return;
+      if (op === "clear-locks" && !lockN) {
+        /* 0.3.61: never a silent no-op. Locks are the only thing this button clears. */
+        toast(gunName + " has no locked chambers." + ((gun && (gun.jammed || gun.dirty || gun.fouled || gun.ruined)) ? " Use Repair gun to clear the jam, dirt or fouling." : ""));
+        return;
+      }
       pushCommand({ type: "gun", to: pid, payload });
       if (op === "misfire") postDmAction("DM override on " + gunName + ": " + misfireOverrideWords(payload) + ".", pid);
       if (op === "clear-locks") {
