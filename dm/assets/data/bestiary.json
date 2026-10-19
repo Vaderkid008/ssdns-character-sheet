@@ -47,25 +47,30 @@
   "skills": {},
   "senses": "passive Perception 10",
   "languages": "Common",
-  "attacks": "ChaosMaker Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1), Bowie +3 (1d6+1 piercing)",
+  "attacks": "Ball n Cap Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1-4), Bowie +3 (1d6+1 piercing)",
   "atkBonus": 3,
   "damage": "1d8+1",
   "attackList": [
    {
-    "id": "revolver",
-    "name": "ChaosMaker Revolver",
+    "id": "ball-n-cap-revolver",
+    "name": "Ball n Cap Revolver",
     "kind": "ranged",
-    "toHit": 3,
-    "damage": "1d8+1",
     "damageType": "piercing",
     "range": "20/60",
+    "target": "one target",
+    "weaponClass": "simple",
     "capacity": 6,
-    "misfire": 1,
-    "notes": "Pony Arms ChaosMaker, Medium (.44-40). Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action.",
+    "misfire": 4,
+    "properties": [
+     "close quarters",
+     "slow load",
+     "simple"
+    ],
+    "weapon": "Navy / Army Ball n Cap Revolver",
+    "notes": "Navy / Army Ball n Cap Revolver (Ball & Cap). Simple. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1-4: miss, jam, and the round is still spent. Slow load (PHB).",
+    "toHit": 3,
     "bonus": 3,
-    "weaponClass": "martial",
-    "weapon": "Pony Arms ChaosMaker, Medium (.44-40)",
-    "target": "one target"
+    "damage": "1d8+1"
    },
    {
     "id": "bowie",
@@ -97,7 +102,7 @@
   "tactics": "Surrenders when wounded or outnumbered; lookouts ride off to warn the gang.",
   "tacticsSource": "IDEAS Ch2 robber/lookouts + playtest Morale trait",
   "tacticsDraft": false,
-  "loot": "Pockets: roll d6 on the outlaw drop table (IDEAS draft, average 250 ES). A gun taken off the dead is Dirty. Keepable gun (one per encounter): the ChaosMaker Medium he fired (2,500 ES list; gear, not cash).",
+  "loot": "Pockets: roll d6 on the outlaw drop table (IDEAS draft, average 250 ES). A gun taken off the dead is Dirty. Keepable gun (one per encounter): the Ball n Cap Revolver he fired (2,000 ES list; gear, not cash).",
   "lootSource": "playtest bestiary.json (drop table §1.1) + DND Bot lock pass S23 gun",
   "description": "Basic gunman: trail outlaw with a six-gun and a Bowie (Gunslinger Outlaw block).",
   "group": "generic-folk",
@@ -603,6 +608,70 @@
   "description": "Calf-sized bug from a Dark Gift that rusts six-guns and shovel heads.",
   "group": "creature",
   "source": "six-shooters/drafts/monster-manual/CLAIM-RUST-BUG.md"
+ },
+ {
+  "id": "draft-horse",
+  "name": "Draft Horse",
+  "aka": "Freight Horse",
+  "size": "Large",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 10,
+  "hp": 19,
+  "hitDice": "3d10+3",
+  "hpDice": "3d10+3",
+  "speed": "40 ft.",
+  "dex": 10,
+  "initBonus": 0,
+  "cr": "1/4",
+  "xp": 50,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 18,
+   "DEX": 10,
+   "CON": 12,
+   "INT": 2,
+   "WIS": 11,
+   "CHA": 7
+  },
+  "str": 18,
+  "con": 12,
+  "int": 2,
+  "wis": 11,
+  "cha": 7,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 10",
+  "languages": "—",
+  "attacks": "Hooves +6 (2d4+4 bludgeoning)",
+  "atkBonus": 6,
+  "damage": "2d4+4",
+  "attackList": [
+   {
+    "id": "hooves",
+    "name": "Hooves",
+    "kind": "melee",
+    "toHit": 6,
+    "bonus": 6,
+    "damage": "2d4+4",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Spooked teams bolt; a calm draft horse kicks only when cornered. Gunshots within 60 ft. frighten it (DC 12 Animal Handling to soothe). Double riding halves speed. Death is permanent. Theft is a hanging offense in Tierra Verde (L0178).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Not harvested. Caught draft horse ~5,000 ES (L0178). Brand means heat.",
+  "lootSource": "L0178 mount prices",
+  "description": "Freight / coach-team horse: slow, strong, feathered hooves.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/DRAFT-HORSE.md"
  },
  {
   "id": "dust-devil",
@@ -1331,7 +1400,7 @@
  {
   "id": "megalodon",
   "name": "Megalodon",
-  "size": "Huge",
+  "size": "Gargantuan",
   "type": "beast",
   "alignment": "unaligned",
   "ac": 13,
@@ -1483,6 +1552,78 @@
   "description": "Giant rimrock rattler that wraps and squeezes.",
   "group": "creature",
   "source": "six-shooters/drafts/monster-manual/MESA-RATTLER.md"
+ },
+ {
+  "id": "mule",
+  "name": "Mule",
+  "size": "Medium",
+  "type": "beast",
+  "alignment": "unaligned",
+  "ac": 10,
+  "hp": 11,
+  "hitDice": "2d8+2",
+  "hpDice": "2d8+2",
+  "speed": "40 ft.",
+  "dex": 10,
+  "initBonus": 0,
+  "cr": "1/8",
+  "xp": 25,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 14,
+   "DEX": 10,
+   "CON": 13,
+   "INT": 2,
+   "WIS": 10,
+   "CHA": 5
+  },
+  "str": 14,
+  "con": 13,
+  "int": 2,
+  "wis": 10,
+  "cha": 5,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 10",
+  "languages": "—",
+  "attacks": "Hooves +2 (1d4+2 bludgeoning)",
+  "atkBonus": 2,
+  "damage": "1d4+2",
+  "attackList": [
+   {
+    "id": "hooves",
+    "name": "Hooves",
+    "kind": "melee",
+    "toHit": 2,
+    "bonus": 2,
+    "damage": "1d4+2",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": "MM as-written +2 (not STR+PB)."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Beast of Burden",
+    "text": "The mule is considered to be a Large animal for the purpose of determining its carrying capacity."
+   },
+   {
+    "name": "Sure-Footed",
+    "text": "The mule has advantage on Strength and Dexterity saving throws made against effects that would knock it prone."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Stands its ground more than a horse; kicks when crowded. Spooks from gunfire, then digs in once soothed. Gunshots within 60 ft. frighten it (DC 12 Animal Handling to soothe). Double riding halves speed. Death is permanent. Theft is a hanging offense in Tierra Verde (L0178).",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "Not harvested. Caught mule ~800 ES (L0178). Brand means heat.",
+  "lootSource": "L0178 mount prices",
+  "description": "Prospector pack stock: long ears, sure feet, stubborn.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/MULE.md"
  },
  {
   "id": "prairie-coyote",
@@ -1926,14 +2067,87 @@
   "actions": [],
   "reactions": [],
   "legendary": [],
-  "tactics": "Bolts from gunfire unless a rider calms it; kicks only when cornered.",
+  "tactics": "Bolts from gunfire unless a rider calms it; kicks only when cornered. Gunshots within 60 ft. frighten it (DC 12 Animal Handling to soothe). Double riding halves speed. Death is permanent. Theft is a hanging offense in Tierra Verde (L0178).",
   "tacticsSource": "DRAFT",
   "tacticsDraft": true,
-  "loot": "Not harvested. A caught horse can be kept or sold, but a brand means heat.",
-  "lootSource": "drop table §1.8",
+  "loot": "Not harvested. Caught mount ~7,500 ES (L0178). Brand means heat.",
+  "lootSource": "L0178 mount prices",
   "description": "Ordinary trail stock: bay, roan, paint, or scrub mustang.",
   "group": "creature",
   "source": "six-shooters/drafts/monster-manual/RIDING-HORSE.md"
+ },
+ {
+  "id": "spectral-horse",
+  "name": "Spectral Horse",
+  "size": "Large",
+  "type": "beast (spectral)",
+  "alignment": "unaligned",
+  "ac": 10,
+  "hp": 0,
+  "hitDice": "—",
+  "hpDice": "—",
+  "speed": "100 ft.",
+  "dex": 10,
+  "initBonus": 0,
+  "cr": "—",
+  "xp": 0,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 16,
+   "DEX": 10,
+   "CON": 12,
+   "INT": 2,
+   "WIS": 11,
+   "CHA": 7
+  },
+  "str": 16,
+  "con": 12,
+  "int": 2,
+  "wis": 11,
+  "cha": 7,
+  "saves": {},
+  "skills": {},
+  "damageImmunities": "all damage",
+  "senses": "passive Perception 10",
+  "languages": "—",
+  "attacks": "— (can't attack)",
+  "atkBonus": 0,
+  "damage": "—",
+  "attackList": [],
+  "traits": [
+   {
+    "name": "Spectral Mount",
+    "text": "The steed takes no damage. Bullets and blades pass through it; it has no hit points to lose and does not vanish from hit-point loss. It can't attack or trample. Solid objects block it — it does not phase through walls, doors, or earth (L0172 / L0178)."
+   },
+   {
+    "name": "Never Spooked",
+    "text": "Immune to the living-mount gunfire spook (L0178). Gunshots and similar frighten effects that would bolt a Riding Horse do nothing — no Animal Handling soothe needed. It never gets scared."
+   },
+   {
+    "name": "Bound Saddle",
+    "text": "Summoned only by the Saddle of the Phantom Steed (Story Find, L0172; 1/dawn) or the Hexslinger spell Phantom Steed (Iron Horse). Not for sale at corrals. While the saddle's charge or the spell lasts, the steed obeys the summoner."
+   },
+   {
+    "name": "Illusory Gear",
+    "text": "Appears with a black phantom saddle, bit, and bridle. Equipment created with the steed vanishes if carried more than 10 feet away from it. Real gear the rider brings stays real."
+   },
+   {
+    "name": "Duration",
+    "text": "Typically 1 hour, or until dismissed (1/dawn from the Saddle). When the summon ends (duration, dismissal, or dispel), the steed fades over 1 minute for a safe dismount. Act I override: damage does not end the summon — only dispel, saddle dismissal, or duration end removes it (L0172)."
+   }
+  ],
+  "actions": [],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Ally transport only. Speed 100 ft. / travel 10 mi/hr (13 fast). Won't fight, charge, or kick. Never spooked by gunfire (L0178 exempt). Stops at solid matter — no wall-phase. Town reaction: riding it in settled towns freaks locals — preachers call it an abomination; shopkeepers may refuse service; folk may demand it gone or raise a posse. Prefer trail use; dismiss before Main Street. DM guidance hooks on SPECTRAL-HORSE.md.",
+  "tacticsSource": "DRAFT",
+  "tacticsDraft": true,
+  "loot": "None. Not harvested, not sold. Illusory tack vanishes when the summon ends; the Story Find saddle remains.",
+  "lootSource": "L0172 Story Find summon",
+  "description": "Pale moonlight / tintype ghost horse from the Saddle of the Phantom Steed; ally summon (not for sale). Never spooked; riding in town freaks locals.",
+  "group": "creature",
+  "allySummon": true,
+  "source": "six-shooters/drafts/monster-manual/SPECTRAL-HORSE.md"
  },
  {
   "id": "sandie",
@@ -2010,6 +2224,310 @@
   "description": "Raised dead with a spark of hunger left, made by Eldorite or Eldorite-powered necromancy; goes for shards.",
   "group": "creature",
   "source": "six-shooters/drafts/monster-manual/SANDIES.md"
+ },
+ {
+  "id": "slumber-ghoul",
+  "name": "Slumber Ghoul",
+  "size": "Medium",
+  "type": "undead",
+  "alignment": "neutral evil",
+  "ac": 9,
+  "hp": 26,
+  "hitDice": "4d8+8",
+  "hpDice": "4d8+8",
+  "speed": "25 ft.",
+  "initBonus": -1,
+  "cr": "1/2",
+  "xp": 100,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 12,
+   "DEX": 8,
+   "CON": 14,
+   "INT": 5,
+   "WIS": 8,
+   "CHA": 12
+  },
+  "str": 12,
+  "dex": 8,
+  "con": 14,
+  "int": 5,
+  "wis": 8,
+  "cha": 12,
+  "saves": {
+   "WIS": 1
+  },
+  "skills": {},
+  "senses": "darkvision 60 ft., passive Perception 9",
+  "languages": "understands the languages it knew in life but can't speak",
+  "damageImmunities": "poison",
+  "conditionImmunities": "poisoned",
+  "attacks": "Slam +3 (1d6+1 bludgeoning); Sleep Gaze DC 11 Wis (Recharge 5-6)",
+  "atkBonus": 3,
+  "damage": "1d6+1",
+  "attackList": [
+   {
+    "id": "slam",
+    "name": "Slam",
+    "kind": "melee",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d6+1",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Eldorite Hunger",
+    "text": "The Slumber Ghoul has advantage on Wisdom (Perception) checks to notice Eldorite, Eldorite glow, or creatures carrying visible Eldorite within 60 feet."
+   },
+   {
+    "name": "Glow-Eyed",
+    "text": "The Slumber Ghoul's eyes shed dim light in a 5-foot radius, a sick green-gold shimmer brighter than a Sandie's. It can't hide in darkness, and it can see and use Sleep Gaze there."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Sleep Gaze",
+    "text": "The Slumber Ghoul fixes its glowing stare on one creature within 30 feet that can see it. The target must succeed on a DC 11 Wisdom saving throw or fall asleep (unconscious) for 1 minute: it drops whatever it's holding and falls prone. It wakes if it takes damage or if another creature uses an action to shake it awake. On a success, the target is immune to this Slumber Ghoul's gaze for 24 hours. This is a magical effect; undead, constructs, Aristocrats and Diplomats are immune.",
+    "recharge": "5-6",
+    "rider": {
+     "save": "WIS",
+     "dc": 11,
+     "condition": "Unconscious",
+     "rounds": 10,
+     "onSave": "none",
+     "text": "Asleep 1 minute; wakes on damage or a shake (action). Magical: Aristocrats and Diplomats immune."
+    },
+    "notes": "Unconscious: attacks against a sleeper have advantage, and any attack that hits it from within 5 feet is a critical hit (a Sandie Slam crit does 2d6+1 and wakes it). It automatically fails Strength and Dexterity saves. A sleeper on a ledge or in a saddle falls off: 1d6 bludgeoning per 10 feet fallen, landing prone. The gaze reaches the C3-1 ledge, so the ledge stops being safe once a Slumber Ghoul is in the fight."
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Hangs back about 15 ft. and opens its gaze on whoever carries the most Eldorite or the best gun, then lets the Sandies chew on the sleeper. Keeps out of fire and radiant light, but never flees. One per fight; Ch3 (L3+) only; never in the same fight as a Sand Devourer at L3.",
+  "tacticsSource": "SANDIE-VARIANTS v2 + DND Bot lock check G1-G9; Jessey 2026-10-08",
+  "tacticsDraft": false,
+  "loot": "Gut pouch as a Sandie, rolled d8+1 (max 8). Plus a live Blue shard (10 ES) lodged and grown into the bone behind its eyes (Medicine or Investigation DC 12 to pry it loose). Average about 27 ES. No guns or gear.",
+  "lootSource": "SANDIE-VARIANTS v2 (G6)",
+  "description": "A Sandie with a live shard lodged behind its eyes; its green-gold stare puts the living to sleep. Ch3 (L3+) only.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/SLUMBER-GHOUL.md"
+ },
+ {
+  "id": "sand-devourer",
+  "name": "Sand Devourer",
+  "size": "Large",
+  "type": "undead",
+  "alignment": "neutral evil",
+  "ac": 13,
+  "armor": "sand-crusted hide",
+  "hp": 68,
+  "hitDice": "8d10+24",
+  "hpDice": "8d10+24",
+  "speed": "30 ft.",
+  "initBonus": 0,
+  "cr": "2",
+  "xp": 450,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 17,
+   "DEX": 10,
+   "CON": 16,
+   "INT": 8,
+   "WIS": 10,
+   "CHA": 12
+  },
+  "str": 17,
+  "dex": 10,
+  "con": 16,
+  "int": 8,
+  "wis": 10,
+  "cha": 12,
+  "saves": {
+   "CON": 5,
+   "WIS": 2
+  },
+  "skills": {},
+  "senses": "darkvision 60 ft., passive Perception 10",
+  "languages": "understands the languages it knew in life; speaks only in stolen scraps of words",
+  "damageResistances": "necrotic",
+  "damageImmunities": "poison",
+  "conditionImmunities": "exhaustion, poisoned",
+  "attacks": "Multiattack: 2 Claws, or Claw + Cage Grab, or Claw + Cage. Claw +5 (2d6+3 slashing). Cage Grab +5 (grapple, escape DC 13). Cage: DC 13 Str save.",
+  "atkBonus": 5,
+  "damage": "2d6+3",
+  "attackList": [
+   {
+    "id": "claw",
+    "name": "Claw",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "2d6+3",
+    "damageType": "slashing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   },
+   {
+    "id": "cage-grab",
+    "name": "Cage Grab",
+    "kind": "melee",
+    "toHit": 5,
+    "bonus": 5,
+    "damage": "0",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one Medium or smaller creature",
+    "notes": "Hit: the target is Grappled (escape DC 13). No damage.",
+    "rider": {
+     "condition": "Grappled",
+     "text": "Grappled; escape DC 13 (Athletics or Acrobatics)."
+    }
+   }
+  ],
+  "traits": [
+   {
+    "name": "Eldorite Hunger",
+    "text": "The Sand Devourer has advantage on Wisdom (Perception) checks to notice Eldorite, Eldorite glow, or creatures carrying visible Eldorite within 120 feet."
+   },
+   {
+    "name": "Gut Cage",
+    "text": "Its split ribs can hold one Medium or smaller creature. A caged creature is restrained and has three-quarters cover against attacks from outside the Devourer. It can attack only the Devourer (with disadvantage from being restrained), and the Devourer can't Claw it. At the start of each of the Devourer's turns, a living caged creature takes 7 (2d6) necrotic damage, and the Devourer gains temporary hit points equal to half the damage dealt; these don't stack (it keeps the higher amount). Undead and constructs give it nothing. It only feeds on the living: a caged creature at 0 hit points takes no cage damage and is spat out prone in an adjacent space at the start of the Devourer's next turn. Escape: the caged creature can use its action on a DC 13 Strength (Athletics) or Dexterity (Acrobatics) check, or an ally within 5 feet can use an action on a DC 13 Strength check to pry the ribs open. If the Devourer takes 10 or more damage from a single hit, it must succeed on a DC 13 Constitution saving throw or spit the creature out prone. The cage opens when the Devourer dies.",
+    "notes": "DMCC: use Restrained for the caged creature (Grappled for Cage Grab); start-of-turn 2d6 necrotic reminder."
+   },
+   {
+    "name": "Shard-Fed",
+    "text": "If the Sand Devourer drops to 0 hit points from damage that isn't radiant or a critical hit, it drops to 1 hit point instead.",
+    "uses": 1,
+    "recharge": "long rest"
+   },
+   {
+    "name": "Glow",
+    "text": "A sick green-gold Eldorite shimmer leaks from its split chest and eyes."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The Sand Devourer makes two Claw attacks, or one Claw and one Cage Grab, or one Claw and uses Cage."
+   },
+   {
+    "name": "Cage",
+    "text": "One Medium or smaller creature the Sand Devourer is grappling must succeed on a DC 13 Strength saving throw or be pulled into the Gut Cage (Restrained).",
+    "rider": {
+     "save": "STR",
+     "dc": 13,
+     "condition": "Restrained",
+     "onSave": "none",
+     "text": "Caged: Restrained, three-quarters cover, 2d6 necrotic at the start of the Devourer's turn."
+    }
+   },
+   {
+    "name": "Wake the Buried (Bonus Action)",
+    "text": "The Devourer can use this only while bloodied (34 hit points or fewer). One dormant Sandie within 30 feet (lying in an open grave or among the bones, placed by the DM at scene setup and counted in the XP budget) claws free and acts on the Devourer's initiative. No more than 2 woken Sandies at once. It can't wake a creature that died during this fight. It works whether or not Wakan Takan is alive or talked down.",
+    "recharge": "6"
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Grabs and cages the nearest caster or wounded PC, then claws whoever tries to pry them free. Once bloodied it wakes the buried. Never runs. A thrown shard: a creature can use its action to throw a live shard within 30 ft. of it; the Devourer loses its next Cage Grab and Cage going after it, and the shard is destroyed. Ch3 (L3+) only; not with a Slumber Ghoul at L3; not in Wakan's C3-2 fight below L4.",
+  "tacticsSource": "SANDIE-VARIANTS v2 + DND Bot lock check D1-D13; Jessey locks L0086-L0088",
+  "tacticsDraft": false,
+  "loot": "1d4 live Yellow (100 ES each) the hunger hadn't finished, plus 1d6 Black (0 ES). Its crust and chest shards go Black (0 ES) when it falls. 1 Story Find: a ring, letter or badge from someone lost in Deadwood (generic). No guns.",
+  "lootSource": "SANDIE-VARIANTS v2 (D9-D11)",
+  "description": "A Sandie gone huge and hollow on shards; cages the living in its ribs. Den boss, Ch3 (L3+) only.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/SAND-DEVOURER.md"
+ },
+ {
+  "id": "elite-sandie-brute",
+  "name": "Elite Sandie Brute",
+  "size": "Medium",
+  "type": "undead",
+  "alignment": "neutral evil",
+  "ac": 10,
+  "armor": "sand-crusted hide",
+  "hp": 32,
+  "hitDice": "5d8+10",
+  "hpDice": "5d8+10",
+  "speed": "25 ft.",
+  "initBonus": -1,
+  "cr": "1/4",
+  "xp": 50,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 15,
+   "DEX": 8,
+   "CON": 15,
+   "INT": 5,
+   "WIS": 6,
+   "CHA": 5
+  },
+  "str": 15,
+  "dex": 8,
+  "con": 15,
+  "int": 5,
+  "wis": 6,
+  "cha": 5,
+  "saves": {
+   "WIS": 0
+  },
+  "skills": {},
+  "senses": "darkvision 60 ft., passive Perception 8",
+  "languages": "understands the languages it knew in life but speaks only in broken whispers, howls, and stolen scraps of words",
+  "damageImmunities": "poison",
+  "conditionImmunities": "poisoned",
+  "attacks": "Slam +4 (1d8+2 bludgeoning)",
+  "atkBonus": 4,
+  "damage": "1d8+2",
+  "attackList": [
+   {
+    "id": "slam",
+    "name": "Slam",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d8+2",
+    "damageType": "bludgeoning",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": ""
+   }
+  ],
+  "traits": [
+   {
+    "name": "Undead Fortitude",
+    "text": "If damage reduces the Brute to 0 hit points, it must make a Constitution saving throw with a DC of 5 + the damage taken, unless the damage is radiant or from a critical hit. On a success, the Brute drops to 1 hit point instead."
+   },
+   {
+    "name": "Eldorite Hunger",
+    "text": "The Brute has advantage on Wisdom (Perception) checks to notice Eldorite, Eldorite glow, or creatures carrying visible Eldorite within 60 feet."
+   },
+   {
+    "name": "Glow",
+    "text": "Its eyes hold a sick green-gold Eldorite shimmer."
+   }
+  ],
+  "actions": [],
+  "reactions": [
+   {
+    "name": "Guard the Master",
+    "text": "When a creature the Brute can see attacks Wakan Takan while the Brute is within 5 feet of him, the Brute imposes disadvantage on the attack roll."
+   }
+  ],
+  "legendary": [],
+  "tactics": "Mindless and relentless. Stays within 10 ft. of Wakan Takan, steps into the path of whoever closes on him, and slams whoever hurts him. Never runs. Ch3 only; Wakan's C3-2 fight is L4+ (Wakan + 3 Brutes = Hard for 4 PCs at L4, top of Hard because Guard the Master protects Wakan).",
+  "tacticsSource": "Jessey lock L0089; REWARDS §4 (Wakan + 3 Brutes); C3-2 note",
+  "tacticsDraft": false,
+  "loot": "Gut pouch as a Sandie, rolled d8+2 (max 8): 3-4 1d4 Black (0 ES); 5-6 1d4 Black + 1d4 White (about 2 ES); 7 one Blue + Black (10 ES); 8 a half-eaten Green (50 ES), or on a d4 roll of 4 a live Yellow (100 ES). Average about 25 ES. No guns or gear.",
+  "lootSource": "Sandie drop table §1.7, scaled",
+  "description": "Wakan Takan's guard: a heavier raised Sandie that shields him. No raising, no resistances. Ch3 only.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/ELITE-SANDIE-BRUTE.md"
  },
  {
   "id": "scorpion",
@@ -2177,7 +2695,7 @@
   "tacticsDraft": true,
   "loot": "Nothing to harvest.",
   "lootSource": "drop table §1.8",
-  "description": "Storm-scaled mesa dragon wearing eagle myth; breathes lightning.",
+  "description": "Jagged-feathered storm bird of Thunder Mesa; breathes lightning (stats unchanged, re-skin draft 2026-10-15).",
   "group": "creature",
   "source": "six-shooters/drafts/monster-manual/THUNDER-EAGLE.md"
  },
@@ -2241,11 +2759,11 @@
   "actions": [],
   "reactions": [],
   "legendary": [],
-  "tactics": "Trampling Charge at whatever its rider points it at; riderless, it bolts unless cornered.",
+  "tactics": "Trampling Charge at whatever its rider points it at; riderless, it bolts unless cornered. Gunshots within 60 ft. frighten it (DC 12 Animal Handling to soothe). Double riding halves speed. Death is permanent. Theft is a hanging offense in Tierra Verde (L0178).",
   "tacticsSource": "DRAFT",
   "tacticsDraft": true,
-  "loot": "Not harvested. A caught horse can be kept or sold, but a brand means heat.",
-  "lootSource": "drop table §1.8",
+  "loot": "Not harvested. Caught mount ~40,000 ES (L0178). Brand means heat.",
+  "lootSource": "L0178 mount prices",
   "description": "Heavy combat charger used to powder and shouting.",
   "group": "creature",
   "source": "six-shooters/drafts/monster-manual/WARHORSE.md"
@@ -2353,13 +2871,13 @@
   },
   "senses": "passive Perception 10",
   "languages": "Common",
-  "attacks": "Trail Mace +4 (1d6+2 bludgeoning), Lancaster Rifle +2 (1d10 piercing, 30/120, 6 rds, MF 1)",
+  "attacks": "Pick Handle +4 (1d6+2 bludgeoning), Lancaster Rifle +2 (1d10 piercing, 30/120, 6 rds, MF 1)",
   "atkBonus": 4,
   "damage": "1d6+2",
   "attackList": [
    {
-    "id": "trail-mace",
-    "name": "Trail Mace",
+    "id": "pick-handle",
+    "name": "Pick Handle",
     "kind": "melee",
     "toHit": 4,
     "bonus": 4,
@@ -2525,7 +3043,7 @@
   "type": "humanoid (human)",
   "alignment": "any alignment",
   "ac": 16,
-  "armor": "Mail Undershirt, shield",
+  "armor": "Steel-plated Vest, barrel-lid shield",
   "hp": 11,
   "hitDice": "2d8+2",
   "hpDice": "2d8+2",
@@ -2554,13 +3072,13 @@
   },
   "senses": "passive Perception 12",
   "languages": "Common",
-  "attacks": "Trail Spear +3 (1d6+1 piercing, 20/60)",
+  "attacks": "Pitchfork +3 (1d6+1 piercing, 20/60)",
   "atkBonus": 3,
   "damage": "1d6+1",
   "attackList": [
    {
-    "id": "trail-spear",
-    "name": "Trail Spear",
+    "id": "pitchfork",
+    "name": "Pitchfork",
     "kind": "melee",
     "toHit": 3,
     "bonus": 3,
@@ -2581,7 +3099,7 @@
   "actions": [],
   "reactions": [],
   "legendary": [],
-  "tactics": "Holds the line with the trail spear; breaks once the foreman or half the crew falls.",
+  "tactics": "Holds the line with the pitchfork; breaks once the foreman or half the crew falls.",
   "tacticsSource": "DRAFT",
   "tacticsDraft": true,
   "loot": "Day wages, about 40 ES, and a contractor's chit (paper, story).",
@@ -2730,7 +3248,7 @@
   "skills": {},
   "senses": "passive Perception 10",
   "languages": "Common",
-  "attacks": "Bowie +3 (1d6+1 piercing), ChaosMaker Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1)",
+  "attacks": "Bowie +3 (1d6+1 piercing), Ball n Cap Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1-4)",
   "atkBonus": 3,
   "damage": "1d6+1",
   "attackList": [
@@ -2752,25 +3270,25 @@
     "notes": "Martial. Finesse, light."
    },
    {
-    "id": "chaosmaker-revolver",
-    "name": "ChaosMaker Revolver",
+    "id": "ball-n-cap-revolver",
+    "name": "Ball n Cap Revolver",
     "kind": "ranged",
-    "toHit": 3,
-    "bonus": 3,
-    "damage": "1d8+1",
     "damageType": "piercing",
     "range": "20/60",
     "target": "one target",
-    "weaponClass": "martial",
+    "weaponClass": "simple",
     "capacity": 6,
-    "misfire": 1,
+    "misfire": 4,
     "properties": [
      "close quarters",
-     "Tactical Reload",
-     "martial"
+     "slow load",
+     "simple"
     ],
-    "weapon": "Pony Arms ChaosMaker, Medium (.44-40)",
-    "notes": "Pony Arms ChaosMaker, Medium (.44-40). Martial. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+    "weapon": "Navy / Army Ball n Cap Revolver",
+    "notes": "Navy / Army Ball n Cap Revolver (Ball & Cap). Simple. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1-4: miss, jam, and the round is still spent. Slow load (PHB).",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d8+1"
    }
   ],
   "traits": [],
@@ -2780,9 +3298,9 @@
   "tactics": "Never surrenders, but can be bribed.",
   "tacticsSource": "IDEAS C5-1",
   "tacticsDraft": false,
-  "loot": "Pockets: roll d6 on the rustler drop table (average about 265 ES). A lariat and a running iron (evidence of rustling). Keepable gun (one per encounter): the ChaosMaker Medium he fired (2,500 ES list; gear, not cash).",
+  "loot": "Pockets: roll d6 on the rustler drop table (average about 265 ES). A lariat and a running iron (evidence of rustling). Keepable gun (one per encounter): the Ball n Cap Revolver he fired (2,000 ES list; gear, not cash).",
   "lootSource": "drop table §1.4 (+ DND Bot lock pass S23 gun)",
-  "description": "Rustler Syndicate rider out of Bottle Neck with a Bowie and a ChaosMaker.",
+  "description": "Rustler Syndicate rider out of Bottle Neck with a Bowie and a Ball n Cap Revolver.",
   "group": "generic-folk",
   "source": "six-shooters/drafts/monster-manual/RUSTLER.md"
  },
@@ -2822,13 +3340,13 @@
   },
   "senses": "passive Perception 10",
   "languages": "Common",
-  "attacks": "Trail Mace +4 (1d6+2 bludgeoning), Heavy ChaosMaker +4 (1d10+2 piercing, 30/90, 6 rds, MF 1-2, recoil)",
+  "attacks": "Blackjack +4 (1d6+2 bludgeoning), Heavy ChaosMaker +2 (1d10 piercing, 30/90, 6 rds, MF 1-2), Farm Shotgun +2 (slug 1d10 piercing, 20/60, or buckshot 2d6 in a 15-ft cone (Buckshot Cone: one roll, others in cone hit take half); 1 rd, MF 1-3)",
   "atkBonus": 4,
   "damage": "1d6+2",
   "attackList": [
    {
-    "id": "trail-mace",
-    "name": "Trail Mace",
+    "id": "blackjack",
+    "name": "Blackjack",
     "kind": "melee",
     "toHit": 4,
     "bonus": 4,
@@ -2843,9 +3361,9 @@
     "id": "heavy-chaosmaker",
     "name": "Heavy ChaosMaker",
     "kind": "ranged",
-    "toHit": 4,
-    "bonus": 4,
-    "damage": "1d10+2",
+    "toHit": 2,
+    "bonus": 2,
+    "damage": "1d10",
     "damageType": "piercing",
     "range": "30/90",
     "target": "one target",
@@ -2853,7 +3371,6 @@
     "capacity": 6,
     "misfire": 2,
     "properties": [
-     "recoil",
      "close quarters",
      "loud",
      "Tactical Reload",
@@ -2861,6 +3378,28 @@
     ],
     "weapon": "Pony Arms ChaosMaker, Heavy (.45 Long)",
     "notes": "Pony Arms ChaosMaker, Heavy (.45 Long). Martial. Loud. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1-2: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+   },
+   {
+    "id": "farm-shotgun-medium",
+    "name": "Farm Shotgun (Medium shell)",
+    "kind": "ranged",
+    "toHit": 2,
+    "bonus": 2,
+    "damage": "1d10",
+    "damageType": "piercing",
+    "range": "20/60",
+    "target": "one target (slug) or 15-ft cone (buckshot)",
+    "weaponClass": "simple",
+    "capacity": 1,
+    "misfire": 3,
+    "properties": [
+     "two-handed",
+     "scatter",
+     "close quarters",
+     "simple"
+    ],
+    "weapon": "Single-Barrel Farm Shotgun, Medium shell (12-ga)",
+    "notes": "Single-Barrel Farm Shotgun, Medium shell. Simple. Slug 1d10 piercing 20/60. Buckshot (Buckshot Cone, PHB): one ranged attack roll (+2) against a main target in a 15-ft. cone; on a hit, 7 (2d6) piercing damage. Every other creature in the cone, allies included, whose AC that same roll meets or beats takes half that damage (rounded down); cover adds to their AC. Point Blank: no spread if a hostile is within 5 ft. Misfire on a natural 1-3."
    }
   ],
   "traits": [
@@ -2882,9 +3421,10 @@
   "tacticsDraft": true,
   "loot": "Collection bag, about 120 ES in debts collected for Viper Trent. Spending it marks you to the Scorps.",
   "lootSource": "DRAFT",
-  "description": "Scorps debt collector with a trail mace and a Heavy ChaosMaker.",
+  "description": "Scorps debt collector with a blackjack and a Heavy ChaosMaker (farm shotgun as backup).",
   "group": "generic-folk",
-  "source": "six-shooters/drafts/monster-manual/SCORPS-ENFORCER.md"
+  "source": "six-shooters/drafts/monster-manual/SCORPS-ENFORCER.md",
+  "act": "Act II (maybe)"
  },
  {
   "id": "town-deputy",
@@ -3464,7 +4004,7 @@
   "skills": {},
   "senses": "passive Perception 10",
   "languages": "Common",
-  "attacks": "Bowie +3 (1d6+1 piercing), ChaosMaker Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1)",
+  "attacks": "Bowie +3 (1d6+1 piercing), Ball n Cap Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1-4)",
   "atkBonus": 3,
   "damage": "1d6+1",
   "attackList": [
@@ -3486,25 +4026,25 @@
     "notes": "Martial. Finesse, light."
    },
    {
-    "id": "chaosmaker-revolver",
-    "name": "ChaosMaker Revolver",
+    "id": "ball-n-cap-revolver",
+    "name": "Ball n Cap Revolver",
     "kind": "ranged",
-    "toHit": 3,
-    "bonus": 3,
-    "damage": "1d8+1",
     "damageType": "piercing",
     "range": "20/60",
     "target": "one target",
-    "weaponClass": "martial",
+    "weaponClass": "simple",
     "capacity": 6,
-    "misfire": 1,
+    "misfire": 4,
     "properties": [
      "close quarters",
-     "Tactical Reload",
-     "martial"
+     "slow load",
+     "simple"
     ],
-    "weapon": "Pony Arms ChaosMaker, Medium (.44-40)",
-    "notes": "Pony Arms ChaosMaker, Medium (.44-40). Martial. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+    "weapon": "Navy / Army Ball n Cap Revolver",
+    "notes": "Navy / Army Ball n Cap Revolver (Ball & Cap). Simple. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1-4: miss, jam, and the round is still spent. Slow load (PHB).",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d8+1"
    }
   ],
   "traits": [],
@@ -3891,7 +4431,8 @@
   "lootSource": "DRAFT (named faces use chapter loot files)",
   "description": "Nina \"Black Widow\" Vasquez: Scorps assassin with venom on her Bowie and in her bullets.",
   "group": "named",
-  "source": "six-shooters/drafts/monster-manual/NINA-BLACK-WIDOW.md"
+  "source": "six-shooters/drafts/monster-manual/NINA-BLACK-WIDOW.md",
+  "act": "Act II (maybe)"
  },
  {
   "id": "prospector-moe",
@@ -4108,7 +4649,7 @@
   "skills": {},
   "senses": "passive Perception 10",
   "languages": "Common",
-  "attacks": "Bowie +3 (1d6+1 piercing), ChaosMaker Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1)",
+  "attacks": "Bowie +3 (1d6+1 piercing), Ball n Cap Revolver +3 (1d8+1 piercing, 20/60, 6 rds, MF 1-4)",
   "atkBonus": 3,
   "damage": "1d6+1",
   "attackList": [
@@ -4130,32 +4671,32 @@
     "notes": "Martial. Finesse, light."
    },
    {
-    "id": "chaosmaker-revolver",
-    "name": "ChaosMaker Revolver",
+    "id": "ball-n-cap-revolver",
+    "name": "Ball n Cap Revolver",
     "kind": "ranged",
-    "toHit": 3,
-    "bonus": 3,
-    "damage": "1d8+1",
     "damageType": "piercing",
     "range": "20/60",
     "target": "one target",
-    "weaponClass": "martial",
+    "weaponClass": "simple",
     "capacity": 6,
-    "misfire": 1,
+    "misfire": 4,
     "properties": [
      "close quarters",
-     "Tactical Reload",
-     "martial"
+     "slow load",
+     "simple"
     ],
-    "weapon": "Pony Arms ChaosMaker, Medium (.44-40)",
-    "notes": "Pony Arms ChaosMaker, Medium (.44-40). Martial. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1: miss, jam, and the round is still spent. Reload is an action; Tactical Reload loads 1 round as a bonus action."
+    "weapon": "Navy / Army Ball n Cap Revolver",
+    "notes": "Navy / Army Ball n Cap Revolver (Ball & Cap). Simple. Close quarters: no disadvantage with a hostile within 5 ft. Misfire on a natural 1-4: miss, jam, and the round is still spent. Slow load (PHB).",
+    "toHit": 3,
+    "bonus": 3,
+    "damage": "1d8+1"
    }
   ],
   "traits": [],
   "actions": [],
   "reactions": [],
   "legendary": [],
-  "tactics": "Shoots with his ChaosMaker; no explosives in close quarters.",
+  "tactics": "Shoots with his Ball n Cap; no explosives in close quarters.",
   "tacticsSource": "IDEAS C3-3 / C4-3",
   "tacticsDraft": false,
   "loot": "Ally: not looted. If it ever comes to that, about 30 ES on them; story items per the chapter loot file.",
@@ -4527,7 +5068,8 @@
   "lootSource": "DRAFT (named faces use chapter loot files)",
   "description": "Alchemist turned crime boss who leads the Scorps.",
   "group": "named",
-  "source": "six-shooters/drafts/monster-manual/VIPER-TRENT.md"
+  "source": "six-shooters/drafts/monster-manual/VIPER-TRENT.md",
+  "act": "Act II (maybe)"
  },
  {
   "id": "wakan-takan",
