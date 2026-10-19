@@ -1093,6 +1093,22 @@
    * Chat attack card. DM text includes AC. publicText hides AC.
    * Both dice show for advantage and disadvantage; the used face is marked « ».
    */
+  /* 0.3.59: "1d8" + [1] -> "d8 «1»"; "2d6+1d4" + [4,5,2] -> "2d6 «4» «5» + 1d4 «2»".
+     Crit (faces double the dice): "1d8" + [6,3] -> "2d8 «6» «3»". Unknown dice: "". */
+  function damageDice(dice, faces) {
+    var text = String(dice || "").replace(/\s+/g, "");
+    var terms = [];
+    text.replace(/(\d*)d(\d+)/gi, function (m, c, sides) { terms.push({ count: Math.max(1, parseInt(c || "1", 10) || 1), sides: Number(sides) }); return m; });
+    if (!terms.length || !faces || !faces.length) return "";
+    var want = terms.reduce(function (a, t) { return a + t.count; }, 0);
+    if (faces.length === want * 2) terms.forEach(function (t) { t.count *= 2; });
+    else if (faces.length !== want) return "";
+    var i = 0;
+    return terms.map(function (t) {
+      var own = faces.slice(i, i + t.count); i += t.count;
+      return (t.count === 1 ? "" : t.count) + "d" + t.sides + " " + own.map(function (n) { return "«" + n + "»"; }).join(" ");
+    }).join(" + ");
+  }
   function attackBreakdown(info) {
     info = info || {};
     var faces = [];
@@ -1135,8 +1151,8 @@
     if (!miss && dmg && typeof dmg === "object") {
       var dFaces = Array.isArray(dmg.faces) ? dmg.faces.filter(function (n) { return n != null && n !== ""; }) : [];
       var dParts = Array.isArray(dmg.parts) ? dmg.parts.filter(function (p) { return p && Number(p.value); }) : [];
-      var faceTxt = dFaces.length ? dFaces.join("+") : String(dmg.dice || "");
-      var extra = dParts.map(function (p) { return signNum(p.value) + " (" + (p.label || "mod") + ")"; }).join(" ");
+      var faceTxt = damageDice(dmg.dice, dFaces) || (dFaces.length ? dFaces.join("+") : String(dmg.dice || ""));
+      var extra = dParts.map(function (p) { var v = Number(p.value); return (v < 0 ? "- " + Math.abs(v) : "+ " + v) + " (" + (p.label || "mod") + ")"; }).join(" ");
       var dTotal = dmg.total != null && dmg.total !== "" ? dmg.total : "";
       var type = dmg.type ? (" " + dmg.type) : "";
       dmgLine = "Damage: " + [faceTxt, extra].filter(Boolean).join(" ") + (dTotal !== "" ? " = " + dTotal : "") + type;

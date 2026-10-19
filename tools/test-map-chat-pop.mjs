@@ -23,10 +23,10 @@ function flush(ms) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.58" && version.sheetBuild === "sheet-playtest-v0358");
-check("ver.dmcc", version.dmcc === "0.2.71" && version.dmccBuild === "dmcc-playtest-v0271");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.58"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.71"'));
+check("ver.sheet", version.sheet === "0.3.59" && version.sheetBuild === "sheet-playtest-v0359");
+check("ver.dmcc", version.dmcc === "0.2.72" && version.dmccBuild === "dmcc-playtest-v0272");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.59"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.72"'));
 
 const mapSrc = read("map/ssdns-map.js");
 const chatSrc = read("map/ssdns-map-chat.js");

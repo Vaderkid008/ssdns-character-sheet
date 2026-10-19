@@ -5376,6 +5376,10 @@ function bindNewToken(row) {
   if (row.mapTokenId && tokenStillThere(row.mapTokenId)) return;
   const host = window.SSDNSMapHost;
   if (!host || typeof host.placeToken !== "function") return;
+  /* 0.3.59: never stack a second token before the room's tokens have loaded */
+  if (typeof host.tokensLoaded === "function" && !host.tokensLoaded()) return;
+  const had = typeof host.tokenForCombatant === "function" ? host.tokenForCombatant(row.id) : "";
+  if (had) { assignMapToken(row, had); return; }
   const patch = tokenPatchForRow(row);
   const tokenId = host.placeToken(Object.assign({ combatantId: row.id }, patch));
   if (tokenId) assignMapToken(row, tokenId);
@@ -5947,6 +5951,7 @@ async function bootV2() {
     });
   }
   $("#btnNextTurn") && $("#btnNextTurn").addEventListener("click", nextTurn);
+  $("#btnClearStale") && $("#btnClearStale").addEventListener("click", () => { clearStaleTokens(); });
   $("#btnPrevTurn") && $("#btnPrevTurn").addEventListener("click", () => {
     if (!fight.order.length) return;
     fight.turn -= 1;
@@ -6797,7 +6802,10 @@ function unlinkMapToken(detail) {
   if (linkBusy) return;
   const tokenId = detail && detail.tokenId;
   if (!tokenId) return;
-  const row = (fight.order || []).find((r) => r && r.mapTokenId === tokenId);
+  const cid = detail.combatantId || "";
+  /* 0.3.59: also match by combatantId, but only when that row has no other live token */
+  const row = (fight.order || []).find((r) => r && r.mapTokenId === tokenId)
+    || (cid ? (fight.order || []).find((r) => r && r.id === cid && (!r.mapTokenId || !tokenStillThere(r.mapTokenId))) : null);
   if (!row) return;
   delete row.mapTokenId;
   if (row.kind === "player") {
@@ -6809,8 +6817,29 @@ function unlinkMapToken(detail) {
   try { removeCombatant(row.id); }
   finally { linkBusy = false; }
 }
+function linkedTokenIds() {
+  const keep = {};
+  (fight.order || []).forEach((r) => { if (r && r.kind !== "player" && r.mapTokenId) keep[r.id] = r.mapTokenId; });
+  return keep;
+}
+/* 0.3.59: DM "Clear stale tokens": duplicate copies of one combatant, and linked tokens whose combatant left the fight. */
+async function clearStaleTokens() {
+  const host = window.SSDNSMapHost;
+  if (!host || typeof host.staleTokenIds !== "function") { DM.toast("Open the map first"); return 0; }
+  const live = (fight.order || []).filter((r) => r && r.kind !== "player").map((r) => r.id);
+  const ids = host.staleTokenIds(live, linkedTokenIds());
+  if (!ids.length) { DM.toast("No stale tokens"); return 0; }
+  const msg = "Clear " + ids.length + " stale token" + (ids.length === 1 ? "" : "s") + " from the map? Duplicates and tokens for combatants no longer in the fight are removed. Players and current enemies stay.";
+  const ok = window.SSDNSAsk && window.SSDNSAsk.confirm ? await window.SSDNSAsk.confirm(msg) : window.confirm(msg);
+  if (!ok) return 0;
+  const n = host.clearStaleTokens(live, linkedTokenIds());
+  DM.toast("Cleared " + n + " stale token" + (n === 1 ? "" : "s"));
+  return n;
+}
 function syncMapTokens() {
   if (linkBusy) return;
+  const hostNow = window.SSDNSMapHost;
+  if (hostNow && typeof hostNow.tokensLoaded === "function" && !hostNow.tokensLoaded()) return;
   let dirty = false;
   (fight.order || []).slice().forEach((row) => {
     if (!row) return;
@@ -7153,6 +7182,8 @@ function runGrabFromMap(detail, mode) {
   return runGrab(actor, mode, { targetId: targetId, feet: detail.feet });
 }
 window.SSDNSMapFight = {
+  linkedTokenIds() { return linkedTokenIds(); },
+  clearStale() { return clearStaleTokens(); },
   duplicate(detail) { return duplicateCombatant(detail); },
   hidden(detail) { return setTokenHidden(detail); },
   async attack(detail) {

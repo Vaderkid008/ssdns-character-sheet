@@ -217,8 +217,52 @@
     });
     return out;
   }
-  function decorate(html) {
+  /* 0.3.59 chat totals: attack and damage cards show every die face as a die icon and
+     the FINAL numbers as gold-ringed badges.
+       "d20 «14» · DEX +3 = 19 vs AC 15 → HIT"  -> [d20 14] · DEX +3 = (19) vs AC 15 → HIT
+       "Damage: d8 «1» +2 (DEX) = 3 piercing"   -> Damage: d8 [d8 1] +2 (DEX) = (3) piercing
+     A run of faces after "NdS" ("2d6 «4» «5»", or "d20 8 / «17»" for advantage) becomes icons;
+     the used advantage face keeps a ring. */
+  var CARD_LINE = /→\s*(HIT|MISS|CRIT|misfire)\b/i;
+  function totalBadge(n, cls) { return '<span class="roll-total' + (cls ? " " + cls : "") + '">' + n + "</span>"; }
+  function faceRun(html) {
+    return html.replace(/(^|[\s>(:·])(\d*)d(4|6|8|10|12|20|50|100)\s+((?:«\d+»|\d+)(?:\s*(?:\/|\s)\s*(?:«\d+»|\d+))*)(?=$|[\s<·)+=-])/g,
+      function (all, lead0, count, sides, run) {
+        if (run.indexOf("«") < 0) return all;
+        var bits = run.split(/\s*\/\s*|\s+/).filter(Boolean);
+        var icons = bits.map(function (b) {
+          var used = b.indexOf("«") >= 0, n = Number(b.replace(/[«»]/g, ""));
+          var icon = iconHtml(Number(sides), n);
+          return used && bits.length > 1 && Number(sides) === 20 ? '<span class="die-used">' + icon + "</span>" : icon;
+        }).join("");
+        return lead0 + (count || "") + "d" + sides + " " + icons;
+      });
+  }
+  function cardBadges(html) {
     html = String(html || "");
+    if (html.indexOf("roll-total") >= 0) return html;
+    var parts = html.split(/(\n|<br\s*\/?>)/);
+    var whole = parts.join("");
+    var isCard = CARD_LINE.test(whole) || /^\s*Damage(?: \(crit\))?:/m.test(whole) || /(^|\n|<br\s*\/?>)\s*Damage(?: \(crit\))?:/.test(whole);
+    if (!isCard) return html;
+    var verdict = (whole.match(CARD_LINE) || [])[1] || "";
+    var v = verdict.toUpperCase();
+    var tone = v === "CRIT" ? "crit" : (v === "MISS" || v === "MISFIRE" ? "miss" : "");
+    return parts.map(function (line) {
+      if (/^(\n|<br)/.test(line)) return line;
+      if (CARD_LINE.test(line) || /\bd20\b/.test(line)) {
+        line = faceRun(line);
+        return line.replace(/=\s*(-?\d+)(?=\s*(?:vs\b|→|\(|$|<))/, function (m, n) { return "= " + totalBadge(n, tone); });
+      }
+      if (/^\s*Damage/.test(line.replace(/<[^>]+>/g, ""))) {
+        line = faceRun(line);
+        return line.replace(/=\s*(-?\d+)(?![\d])/, function (m, n) { return "= " + totalBadge(n, "dmg" + (tone === "crit" ? " crit" : "")); });
+      }
+      return line;
+    }).join("");
+  }
+  function decorate(html) {
+    html = cardBadges(String(html || ""));
     if (!html || html.indexOf("die-face") >= 0 || html.indexOf("die-inline") >= 0) return html;
     return html.replace(/(\d*)d(4|6|8|10|12|20|50|100)(?![0-9])([+-]\d+)?/i, function (formula, count, sides, mod) {
       var spec = { count: Math.max(1, parseInt(count || "1", 10) || 1), sides: Number(sides), mod: mod || "" };
@@ -228,7 +272,7 @@
     });
   }
   function lead(entry, html) {
-    html = String(html || "");
+    html = cardBadges(String(html || ""));
     if (html.indexOf("die-face") >= 0 || html.indexOf("die-inline") >= 0) return html;
     var mixed = diceFromEntry(entry, html);
     if (mixed && mixed.length) {
@@ -463,6 +507,7 @@
     paint: paint,
     decorate: decorate,
     lead: lead,
+    cardBadges: cardBadges,
     roll: roll,
     rollPool: rollPool,
     poolOf: poolOf,
