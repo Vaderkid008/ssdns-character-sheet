@@ -140,7 +140,7 @@ const mapSrc = fs.readFileSync(path.join(root, "map/ssdns-map.js"), "utf8");
 check("wire.refresh", appSrc.includes("function refreshGunFace") && appSrc.includes("publishGunCard()") && extraSrc.includes("root.SSDNSApp.refreshGunFace()"));
 check("wire.d4", sfxSrc.includes("app.refreshGunFace"));
 check("wire.mark", appSrc.includes("LOCKED UP ×") && appSrc.includes("data-lockup-n") && mapSrc.includes("LOCKED UP ×") && mapSrc.includes("function lockupMark"));
-check("wire.clear", joinSrc.includes('payload.op === "clear-locks"') && dmccSrc.includes('data-gun-op="clear-locks"') && dmccSrc.includes("Clear locked chambers") && dmccSrc.includes("postDmAction"));
+check("wire.clear", joinSrc.includes('payload.op === "clear-locks"') && dmccSrc.includes('data-gun-op="clear-locks"') && dmccSrc.includes("Reopen all locked chambers") && dmccSrc.includes("Reopen 1 locked chamber") && dmccSrc.includes("postDmAction"));
 check("rules.untouched", !fs.readFileSync(path.join(root, "assets/data/rules.js"), "utf8").includes("LOCKED UP") && !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("clear-locks"));
 
 if (failures.length) {
