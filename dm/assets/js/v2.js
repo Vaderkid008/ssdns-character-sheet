@@ -3148,6 +3148,8 @@ async function rollGunAttack(pid) {
   const rangeDis = !!(peeked && peeked.apply && peeked.disadvantage);
   if (rangeDis && mode !== "adv" && mode !== "dis") mode = "dis";
   if (mode === "adv" && rangeDis) mode = "";
+  /* 0.3.68: DM "Force ADV" range override */
+  if (window.SSDNSRangeRings && window.SSDNSRangeRings.modeWith) mode = window.SSDNSRangeRings.modeWith(mode, peeked);
   const willDis = mode === "dis";
   if (willDis) {
     const ask = rings && rings.confirmDisadvantage;
@@ -3882,7 +3884,7 @@ function logTableAlert(text) {
   } else if (DM.state._fb && DM.roomRef) {
     DM.state._fb.set(DM.roomRef("chat/" + row.id), row).catch(() => {});
   }
-  DM.pushLedger({ who: "DM", playerId: "all", type: "alert", what: text, oldVal: null, newVal: text, flag: false });
+  DM.pushLedger({ who: "DM", playerId: "all", type: "alert", what: text, oldVal: null, newVal: text, flag: false, chatId: row.id });
 }
 function withDmActing(row, detail) {
   if (!row || row.kind !== "player" || !row.dmActsAs) return detail;
@@ -4021,7 +4023,7 @@ async function cardStrike(i, n, opts) {
       logTableAlert((row.name || "Someone") + ": " + (peeked.button || "Out of range"));
       return;
     }
-    const willDis = !!(peeked && peeked.apply && peeked.disadvantage);
+    const willDis = !!(peeked && peeked.apply && peeked.disadvantage) && !(peeked.advantage);
     if (willDis) {
       const ask = rings && rings.confirmDisadvantage;
       const ok = ask ? await ask() : true;
@@ -4043,7 +4045,12 @@ async function cardStrike(i, n, opts) {
   let n2 = null;
   let nat = n1;
   const rangeDis = !!(rangeShot && rangeShot.apply && rangeShot.disadvantage);
-  if (rangeDis || coverDis) {
+  /* 0.3.68: DM "Force ADV" rolls two and keeps the higher; Take Cover disadvantage cancels it to one die */
+  const rangeAdv = !!(rangeShot && rangeShot.apply && !rangeShot.blocked && rangeShot.advantage);
+  if (rangeAdv && !coverDis) {
+    n2 = d20();
+    nat = Math.max(n1, n2);
+  } else if (!rangeAdv && (rangeDis || coverDis)) {
     n2 = d20();
     nat = Math.min(n1, n2);
   }
@@ -4101,7 +4108,8 @@ async function cardStrike(i, n, opts) {
     : null;
   let detail = strikeCard ? strikeCard.dmText : (row.name + " attacks " + (target.name || "someone") + " with " + atk.name + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (miss ? " → MISS" : (nat === 20 ? " → CRIT" : " → HIT")) + (dmg ? " · " + dmg.detail + " = " + dmg.total : ""));
   if (rangeShot && rangeShot.note && rangeShot.disadvantage) detail += "\n" + rangeShot.note;
-  if (coverDis) detail += "\ndisadvantage: Take Cover";
+  if (rangeAdv) detail += "\n" + (coverDis ? "ADV (DM forced) cancels Take Cover disadvantage" : (rangeShot.note || "ADV: DM forced advantage"));
+  else if (coverDis) detail += "\ndisadvantage: Take Cover";
   const id = DM.uid("enatk");
   atk.lastRoll = { id: id, damage: dmg ? dmg.total : null, targetId: target.id, targetName: target.name, hit: hit };
   playTableSfx(strikeCue(atk));
@@ -5964,7 +5972,7 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.80-mounts");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.81-mounts");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
@@ -6143,6 +6151,7 @@ async function bootV2() {
     fight.damageMode = mode.value || "auto";
     saveRemoteTable();
   });
+  bindFightRangeOverride();
   document.addEventListener("change", (ev) => {
     const t = ev.target;
     if (!t || !t.getAttribute) return;
@@ -6696,6 +6705,21 @@ function sheetSlot(atk, n) {
 }
 /* 0.3.61: the DM picks Adv/Dis and answers the disadvantage confirm on the DM screen; the player's sheet
    never prompts for a DM-sent shot. Returns "adv" / "dis" / "" (straight), or null when the DM cancels. */
+/* 0.3.68: Fight tab "Range:" picker. Same per-session setting as the map drawer's Range select
+   (SSDNSRangeRings keeps it in sessionStorage), so the two always match. */
+function bindFightRangeOverride() {
+  const sel = $("#fightRangeOverride");
+  const R = window.SSDNSRangeRings;
+  if (!sel || !R || !R.getOverride) return;
+  const paint = (v) => {
+    if (sel.value !== v) sel.value = v;
+    sel.classList.toggle("is-override", v !== "auto");
+  };
+  paint(R.getOverride());
+  sel.addEventListener("change", () => { paint(R.setOverride(sel.value || "auto")); });
+  if (R.onOverride) R.onOverride(paint);
+}
+
 async function dmFireMode(pid, atk) {
   const snap = playerSnapshot(pid);
   const chosen = atk && (atk.attackMode === "adv" || atk.attackMode === "dis") ? atk.attackMode : "";
@@ -6708,9 +6732,11 @@ async function dmFireMode(pid, atk) {
   }
   const rangeNote = peeked && peeked.apply && peeked.disadvantage ? (peeked.note || "disadvantage: range") : "";
   const Cond = window.SSDNSConditions;
+  /* 0.3.68: the DM's "Force ADV" override reaches the PC roll the DM fires (payload.mode "adv") */
+  const chosenNow = window.SSDNSRangeRings && window.SSDNSRangeRings.modeWith ? window.SSDNSRangeRings.modeWith(chosen, peeked) : chosen;
   const mode = Cond && Cond.attackMode
-    ? Cond.attackMode((snap && snap.activeConditions) || [], chosen, rangeNote)
-    : (chosen === "adv" && rangeNote ? "" : (rangeNote ? "dis" : chosen));
+    ? Cond.attackMode((snap && snap.activeConditions) || [], chosenNow, rangeNote)
+    : (chosenNow === "adv" && rangeNote ? "" : (rangeNote ? "dis" : chosenNow));
   if (mode === "dis") {
     const ask = rings && rings.confirmDisadvantage;
     const ok = ask ? await ask() : true;

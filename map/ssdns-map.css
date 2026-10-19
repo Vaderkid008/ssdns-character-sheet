@@ -667,6 +667,7 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
 .ssm-atk { width: 100%; text-align: left; }
 .ssm-atk:disabled, .cylinder-row button[data-act="playerClean"]:disabled, .cylinder-row button[data-act="rowClean"]:disabled { opacity: 0.4; cursor: not-allowed; }
 .ssm-dis { color: #ff3b30; font-weight: 700; }
+.ssm-adv { color: #34c759; font-weight: 700; }
 .ssdns-playercard label,
 .ssm-drawer label { color: #f0e4cf; }
 .ssdns-playercard label.ssm-mode:has(input[data-act="playerAdv"]),

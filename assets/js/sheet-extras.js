@@ -838,6 +838,11 @@
     var coverRaw = opt && opt.getAttribute("data-cover");
     return { id: sel.value, name: (opt && (opt.getAttribute("data-name") || opt.textContent)) || "", ac: null, cover: coverRaw || "" };
   }
+  /* 0.3.68: DM "Force ADV" range override turns the roll into advantage (or cancels a DIS pick) */
+  function rangeMode(chosen, verdict) {
+    var R = root.SSDNSRangeRings;
+    return R && R.modeWith ? R.modeWith(chosen, verdict) : (chosen || "");
+  }
   function attackRoll(mod, conditions, chosen, extraDis) {
     var mode = root.SSDNSConditions && root.SSDNSConditions.attackMode
       ? root.SSDNSConditions.attackMode(conditions || [], chosen || "", extraDis)
@@ -1356,7 +1361,7 @@
         return;
       }
       var peekNote = peekedSpell && peekedSpell.apply && peekedSpell.disadvantage ? (peekedSpell.note || "disadvantage: range") : "";
-      if (attackWouldDis(conds, chosenMode, peekNote)) {
+      if (attackWouldDis(conds, rangeMode(chosenMode, peekedSpell), peekNote)) {
         confirmIfDis(true).then(function (ok) {
           if (!ok) { if (rings0 && rings0.clear) rings0.clear(); return; }
           castSpellAttackNow._ready = true;
@@ -1373,6 +1378,7 @@
       return;
     }
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
+    chosenMode = rangeMode(chosenMode, rangeShot);
     var atkMode = root.SSDNSConditions && root.SSDNSConditions.attackMode
       ? root.SSDNSConditions.attackMode(conds, chosenMode, rangeNote)
       : (chosenMode === "adv" && rangeNote ? "" : (rangeNote ? "dis" : chosenMode));
@@ -1795,7 +1801,7 @@
       return Promise.resolve(false);
     }
     var rangeNote = peeked && peeked.apply && peeked.disadvantage ? (peeked.note || "disadvantage: range") : "";
-    var willDis = attackWouldDis((ch() && ch().activeConditions) || [], gunChosen(i), rangeNote);
+    var willDis = attackWouldDis((ch() && ch().activeConditions) || [], rangeMode(gunChosen(i), peeked), rangeNote);
     if (!willDis) return Promise.resolve(true);
     return confirmIfDis(true).then(function (ok) {
       if (!ok && rings && rings.clear) rings.clear();
@@ -1908,7 +1914,7 @@
     var ceiling = root.SSDNSApp.misfireCeiling
       ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
       : 1;
-    var chosen = gunChosen(i);
+    var chosen = rollGun._dmShot ? gunChosen(i) : rangeMode(gunChosen(i), rangeShot);
     var gunRollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     var gunDice = rollGun._dmShot
@@ -2847,7 +2853,7 @@
     var flat = str + dmgStyle + (profile.expr === "1" ? 1 : 0);
     var expr = profile.expr === "1" ? ((flat >= 0 ? "+" : "") + flat).replace(/^\+/, "") : (profile.expr + (flat ? ((flat >= 0 ? "+" : "") + flat) : ""));
     if (profile.expr === "1") expr = String(flat);
-    var chosen = gunChosen(i);
+    var chosen = rangeMode(gunChosen(i), rangeShot);
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     var faced = attackRoll(atk, (c.activeConditions) || [], chosen, rangeNote);
     var nat = faced.nat;

@@ -276,14 +276,15 @@
    * Map attack with a target. No target: apply false (today's roll).
    * override "ignore" skips the block and the range disadvantage.
    * override "force" adds disadvantage and still blocks past the limit.
+   * override "adv" (0.3.68) forces advantage: it clears range disadvantage and still blocks past the limit.
    */
   function resolve(spec, feet, opts) {
     opts = opts || {};
     var hasTarget = opts.hasTarget !== false && feet != null && feet !== "" && isFinite(Number(feet));
-    if (!hasTarget) return { apply: false, blocked: false, disadvantage: false, band: "", feet: null, note: "", button: "", spell: false, override: opts.override || "auto" };
+    if (!hasTarget) return { apply: false, blocked: false, disadvantage: false, advantage: false, band: "", feet: null, note: "", button: "", spell: false, override: opts.override || "auto" };
     var dist = Math.round(Number(feet));
     var b = bands(spec || {});
-    var override = opts.override === "ignore" || opts.override === "force" ? opts.override : "auto";
+    var override = OVERRIDES[opts.override] ? opts.override : "auto";
     var spell = !!b.spell;
     var limit = b.long || b.melee || 0;
     var past = limit > 0 && dist > limit;
@@ -295,35 +296,70 @@
     var closeBand = !spell && b.close > 0 && hostileN != null && hostileN <= b.close;
     var spellWarn = spell && hostileN != null && hostileN <= 5 && !b.self;
     var disadvantage = !blocked && (longBand || closeBand || spellWarn || override === "force");
-    if (override === "ignore") disadvantage = false;
+    if (override === "ignore" || override === "adv") disadvantage = false;
+    var advantage = !blocked && override === "adv";
     var notes = [];
     if (disadvantage && longBand) notes.push("DIS: long range (" + dist + " ft)");
     if (disadvantage && closeBand) notes.push("DIS: close quarters (" + Math.round(hostileN) + " ft)");
     if (disadvantage && spellWarn) notes.push("DIS: hostile within 5 ft");
     if (disadvantage && override === "force" && !notes.length) notes.push("DIS: DM forced disadvantage");
+    if (advantage) notes.push("ADV: DM forced advantage");
     var button = "";
     if (blocked) button = spell ? "out of range" : "Out of range";
     else if (longBand && disadvantage) button = "DIS · long range";
     else if (closeBand && disadvantage) button = "DIS · close quarters";
     else if (spellWarn && disadvantage) button = "DIS · hostile within 5 ft";
     else if (override === "force" && disadvantage) button = "DIS · forced";
+    else if (advantage) button = "ADV · forced";
     var band = blocked ? "blocked" : (longBand ? "long" : (closeBand ? "close" : (spellWarn ? "warn" : "normal")));
     return {
       apply: true,
       blocked: blocked,
       disadvantage: disadvantage,
+      advantage: advantage,
       band: band,
       feet: dist,
       note: notes.join(" · "),
       button: button,
       spell: spell,
       override: override,
-      log: override === "ignore" ? "DM override: range ignored" : (override === "force" ? "DM override: disadvantage forced" : "")
+      log: override === "ignore" ? "DM override: range ignored" : (override === "force" ? "DM override: disadvantage forced" : (override === "adv" ? "DM override: advantage forced" : ""))
     };
+  }
+
+  /* 0.3.68: one DM range override for the whole DM page (map drawer + DMCC Fight tab), kept for the
+     browser session. Players never set it; the map passes "auto" for them. */
+  var OVERRIDES = { auto: 1, ignore: 1, force: 1, adv: 1 };
+  var OVERRIDE_KEY = "ssdns.dm.rangeOverride";
+  var overrideNow = "auto";
+  try {
+    var stored = root.sessionStorage && root.sessionStorage.getItem(OVERRIDE_KEY);
+    if (stored && OVERRIDES[stored]) overrideNow = stored;
+  } catch (e) {}
+  var overrideFns = [];
+  function getOverride() { return overrideNow; }
+  function setOverride(v) {
+    var next = OVERRIDES[v] ? v : "auto";
+    if (next === overrideNow) return overrideNow;
+    overrideNow = next;
+    try { if (root.sessionStorage) root.sessionStorage.setItem(OVERRIDE_KEY, next); } catch (e) {}
+    overrideFns.slice().forEach(function (fn) { try { fn(next); } catch (e) {} });
+    return overrideNow;
+  }
+  function onOverride(fn) {
+    if (typeof fn !== "function") return function () {};
+    overrideFns.push(fn);
+    return function () { overrideFns = overrideFns.filter(function (f) { return f !== fn; }); };
+  }
+  /** Roll mode after a range verdict: forced advantage turns a straight roll into "adv" and cancels a "dis" pick. */
+  function modeWith(chosen, verdict) {
+    if (!verdict || !verdict.apply || verdict.blocked || !verdict.advantage) return chosen || "";
+    return chosen === "dis" ? "" : "adv";
   }
 
   root.SSDNSRangeRings = {
     bands: bands, rings: rings, resolve: resolve, arm: arm, peek: peek, peekFor: peekFor, take: take, clear: clearArm,
-    confirmDisadvantage: confirmDisadvantage, confirmText: CONFIRM_TEXT
+    confirmDisadvantage: confirmDisadvantage, confirmText: CONFIRM_TEXT,
+    getOverride: getOverride, setOverride: setOverride, onOverride: onOverride, modeWith: modeWith
   };
 })(typeof window !== "undefined" ? window : globalThis);

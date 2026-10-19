@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.80"; // dmcc-playtest-v0280
+const VERSION = "0.2.81"; // dmcc-playtest-v0281
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2211,6 +2211,9 @@ function dockItems() {
   });
   dedupeById(state.ledger || []).forEach((e) => {
     if (e.type === "addiction") return;
+    /* 0.2.81: a DM table alert (e.g. "DM override: advantage forced") is a chat line plus a ledger
+       record; the feed shows it once (the chat line). The Ledger tab keeps the record. */
+    if (e.chatId && seenChat.has(e.chatId)) return;
     const money = MONEY_TYPES.test(String(e.type || ""));
     const alert = ALERT_TYPES.test(String(e.type || "")) || !!e.flag;
     const rollIds = new Set((state.rolls || []).map((r) => r && r.id).filter(Boolean));
@@ -2331,7 +2334,7 @@ function renderLiveDockNow() {
   const items = all.filter((row) => filter === "all" || row.kind === filter || (filter === "alerts" && row.kind === "alerts"));
   const stick = feed.dataset.stick !== "0";
   feed.innerHTML = items.slice(-80).map((row) =>
-    `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${paintWho(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${paintLine(row, row.text || "")}${row.applyHtml || ""}</div></div>`
+    `<div class="dock-item dock-${esc(row.kind)} ${esc(row.cls || "")}"><div class="dock-meta">${esc(fmtTime(row.ts))} · ${paintWho(row.who)}${row.tag ? ' · <span class="roll-tag">' + esc(row.tag) + "</span>" : ""}</div><div>${paintLine(row, row.text || "")}${row.applyHtml ? '<div class="dock-apply">' + row.applyHtml + "</div>" : ""}</div></div>`
   ).join("") || '<p class="lede">Nothing in this filter yet.</p>';
   if (stick) feed.scrollTop = feed.scrollHeight;
   publishMapChat();
