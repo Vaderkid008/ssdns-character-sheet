@@ -74,7 +74,9 @@
 
   function faceText(faces, kept) {
     if (!faces || faces.length < 2) return String(kept);
-    return faces[0] + "/" + faces[1] + " keep " + kept;
+    /* 0.3.63: "d20 5 / «14»" so chat draws both dice with the kept one ringed */
+    var a = Number(faces[0]), b = Number(faces[1]), k = Number(kept);
+    return "d20 " + (a === k ? "«" + a + "» / " + b : a + " / «" + b + "»");
   }
 
   function contest(opts) {

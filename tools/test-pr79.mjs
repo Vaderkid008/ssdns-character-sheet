@@ -30,7 +30,7 @@ check("crit.doubled", h.includes("2d8 [d8:6][d8:3]") && h.includes('roll-total-a
 const multi = B({ who: "J", target: "W", faces: [8, 17], nat: 17, atk: 7, damage: { dice: "2d6+1d4", faces: [4, 5, 2], parts: [{ label: "DEX", value: 4 }], total: 15, type: "piercing" } });
 h = L({ attack: true }, multi.text);
 check("multi.dice", h.includes("2d6 [d6:4][d6:5] + d4 [d4:2]") && h.includes('roll-total dmg">15'), h);
-check("adv.used", h.includes('[d20:8]<span class="die-used">[d20:17]</span>'), h);
+check("adv.used", /<span class="die-dropped"[^>]*>\[d20:8\]<\/span><span class="die-used die-kept adv"[^>]*>\[d20:17\]<\/span>/.test(h), h);
 const miss = B({ who: "Outlaw", target: "Jessey", nat: 9, atk: 4, ac: 15 });
 h = L({ attack: true }, miss.dmText);
 check("enemy.miss", h.includes('roll-total-atk miss">13') && !h.includes("Damage"), h);
