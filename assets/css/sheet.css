@@ -1065,3 +1065,10 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .doll-slot.filled .doll-name { font-size: max(6.5px, 1.05cqw); line-height: 1.15; -webkit-line-clamp: 1; white-space: nowrap; text-overflow: ellipsis; display: block;
   max-width: 88%; margin-bottom: 5%; padding: .05em .3em; box-shadow: none; background: rgba(246,234,207,.85); }
 .doll-tall.filled .doll-name, .doll-wide.filled .doll-name { margin-bottom: 4%; }
+
+/* 0.3.70: Off-hand attack card (Gear tab, under the weapons) */
+.offhand-card { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 8px 0 4px; padding: 8px 10px; border: 2px dashed #8a6a12; border-radius: 8px; background: rgba(226,179,58,.12); }
+.offhand-card b { font-family: "Rye", serif; letter-spacing: .02em; }
+.offhand-card .pip-tag { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; border: 2px solid #8a6a12; background: #e2b33a; color: #fff; font: 800 10px/1 system-ui, sans-serif; text-transform: uppercase; }
+.offhand-card select { max-width: 100%; }
+.offhand-card .offhand-note { flex-basis: 100%; }

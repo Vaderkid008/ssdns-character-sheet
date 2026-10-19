@@ -383,6 +383,24 @@
         damage: dmgEl ? String(dmgEl.textContent || "").trim() : ((w && w.damage) || "")
       });
     });
+    /* 0.3.70: off-hand attacks (bonus action). Same weapon, own button; no ammo row so cylinders stay single. */
+    var OH = root.SSDNSOffhand;
+    var oh = OH && OH.options ? OH.options(c) : null;
+    if (oh && oh.ok) {
+      oh.list.forEach(function (o) {
+        var base = attacks.filter(function (a) { return a.id === o.id; })[0];
+        if (!base) return;
+        var copy = {};
+        Object.keys(base).forEach(function (k) { copy[k] = base[k]; });
+        delete copy.ammo; copy.reloadId = ""; copy.trId = ""; copy.pools = []; copy.castSpells = [];
+        copy.id = "offhand:" + o.kind + ":" + o.index;
+        copy.name = base.name + (o.side ? " (" + o.side + ")" : "") + " · off-hand";
+        copy.damage = OH.stripMod(base.damage, OH.abilityMod(c, o.kind, o.index));
+        copy.offhand = true;
+        copy.kind = o.kind === "melee" ? "melee" : (copy.kind || "");
+        attacks.push(copy);
+      });
+    }
     var spells = [];
     function pushSpell(level, name) {
       if (!name) return;
@@ -424,6 +442,10 @@
       var chamber = document.querySelector('[data-fire="' + cssEscape(gi) + '"][data-k="' + cssEscape(k) + '"]')
         || document.querySelector('[data-gunroll="' + cssEscape(gi) + '"][data-k="' + cssEscape(k) + '"]');
       if (chamber && !chamber.hidden) { chamber.click(); return; }
+    }
+    if (id.indexOf("offhand:") === 0 && root.SSDNSOffhand) {
+      var ohId = root.SSDNSOffhand.parseId(id);
+      if (ohId) return root.SSDNSOffhand.fire(ohId.kind, ohId.index, { chamber: ctx.chamber });
     }
     var btn = null;
     if (id.indexOf("gunroll:") === 0) btn = document.querySelector('[data-gunroll="' + cssEscape(id.slice(8)) + '"]:not([data-k])');
@@ -818,6 +840,8 @@
     },
     rounds: roundsLabel,
     sheetCylinder: gunCylinder,
+    ownCard: ownCard,
+    runAction: runAction,
     armAttack: function (attack, targetId, shooterId) {
       if (!map || typeof map.armAttack !== "function") return null;
       try { return map.armAttack(attack, targetId, shooterId); }

@@ -1,0 +1,179 @@
+/**
+ * 0.3.70: Off-hand attack (two-weapon fighting).
+ * Rules: PHB two-weapon fighting (two LIGHT one-handed melee weapons); Dual Wielder (campaign house rule) lets
+ * any pistol, one-handed Caster Gun or one-handed blade pair work; pistols are one-handed but not light.
+ * Bonus action after the Attack action, normal attack path, no positive ability mod to damage, chat tagged off-hand.
+ * Needs the static server on 127.0.0.1:8765 and Chrome (ssdns-test-all starts the server).
+ *   node tools/test-offhand.mjs
+ */
+import fs from "node:fs";
+import net from "node:net";
+import path from "node:path";
+import vm from "node:vm";
+import { fileURLToPath } from "node:url";
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ORIGIN = process.env.SSDNS_ORIGIN || "http://127.0.0.1:8765";
+const failures = [];
+const J = (x) => JSON.stringify(x);
+function check(id, cond, detail) { if (!cond) failures.push(id); console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : "")); }
+const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
+
+/* ---- part 0: pure helpers ---- */
+{
+  const ctx = { window: {} }; ctx.window.window = ctx.window; vm.createContext(ctx);
+  vm.runInContext(read("assets/js/offhand.js"), ctx);
+  const O = ctx.window.SSDNSOffhand;
+  check("strip.gun", O.stripMod("1d8 +3 piercing", 3) === "1d8 piercing", O.stripMod("1d8 +3 piercing", 3));
+  check("strip.keepsStyle", O.stripMod("1d8 +5 piercing", 3) === "1d8 +2 piercing", O.stripMod("1d8 +5 piercing", 3));
+  check("strip.melee", O.stripMod("1d6 +3", 3) === "1d6", O.stripMod("1d6 +3", 3));
+  check("strip.negativeStays", O.stripMod("1d4 -1", -1) === "1d4 -1", O.stripMod("1d4 -1", -1));
+  check("strip.parts", J(O.stripParts([{ label: "DEX", value: 3 }, { label: "Sidearm", value: 2 }])) === J([{ label: "Sidearm", value: 2 }]));
+  check("light.parse", O.lightMelee({ properties: "Finesse, light" }) && !O.lightMelee({ properties: "Versatile (1d10)" }) && !O.lightMelee({ properties: "Light, two-handed" }));
+}
+/* static wiring: map host, DM drawer, DMCC detail, dm-join */
+{
+  const host = read("map/ssdns-map-host.js"), map = read("map/ssdns-map.js"), v2 = read("dm/assets/js/v2.js"), join = read("assets/js/dm-join.js"), html = read("index.html");
+  check("wire.script", /assets\/js\/offhand\.js\?v=/.test(html) && html.indexOf("offhand.js") < html.indexOf("sheet-playtest.js"));
+  check("wire.hostRun", /id\.indexOf\("offhand:"\) === 0/.test(host) && /"offhand:" \+ o\.kind/.test(host));
+  check("wire.drawerToggle", /data-act="offhandToggle"/.test(map) && /shotDetail\(/.test(map) && /shot\.offhand/.test(map));
+  check("wire.dmccMap", (v2.match(/if \(detail\.offhand\) payload\.offhand = true/g) || []).length === 2);
+  check("wire.dmccDetail", /id="detailOffhand"/.test(v2) && /payload\.offhand = true; ohBox\.checked = false/.test(v2));
+  check("wire.dmJoin", /if \(payload\.offhand\) root\.SSDNSGunRoll\._offhand = true/.test(join) && /SSDNSGunRoll\._offhand = null/.test(join));
+}
+
+function portOpen(port, host) { return new Promise((r) => { const s = net.connect({ port, host }, () => { s.end(); r(true); }); s.on("error", () => r(false)); }); }
+const u = new URL(ORIGIN);
+if (!(await portOpen(Number(u.port), u.hostname))) { console.log("Static server is not listening on " + ORIGIN + " (run via ssdns-test-all)"); process.exit(1); }
+const puppeteer = (await import("/tmp/pup/node_modules/puppeteer-core/lib/esm/puppeteer/puppeteer-core.js")).default;
+const browser = await puppeteer.launch({ executablePath: "/opt/google/chrome/chrome", headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+try {
+  const pg = await browser.newPage();
+  const errs = [];
+  pg.on("pageerror", (e) => errs.push(String(e)));
+  await pg.goto(ORIGIN + "/index.html", { waitUntil: "domcontentloaded" });
+  await pg.waitForFunction(() => window.SSDNSApp && window.SSDNSGunRoll && window.SSDNSOffhand && window.SSDNSApp.applyPatch && document.querySelector("#atkTarget"), { timeout: 20000 });
+  const res = await pg.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const A = window.SSDNSApp, O = window.SSDNSOffhand, P = window.SSDNSActionPips;
+    const gunRow = (id, n) => ({ weapon: id, equipped: true, proficient: true, loaded: n, chambers: Array(n).fill("c"), misStreak: 0, jammed: false, dirty: false, fouled: false, ruined: false, broken: false, attackMode: "" });
+    const load = (fn) => A.applyPatch((d) => {
+      const c = d.character;
+      c.name = "Dust"; c.calling = "gunslinger"; c.level = 5; c.feats = [];
+      c.abilities = Object.assign(c.abilities || {}, { STR: 10, DEX: 16 });
+      c.ammo = [{ type: "cartridge", caliber: "", count: 50 }];
+      c.guns = [gunRow("pony-arms-chaosmaker-medium", 6), gunRow("pony-arms-chaosmaker-medium", 6), { weapon: "" }, { weapon: "" }];
+      c.melee = [{ weapon: "" }, { weapon: "" }, { weapon: "" }, { weapon: "" }];
+      c.holster = "skeleton-rig"; c.holsterR = "bridgeport-rig-swivel"; c.holsterActive = true;
+      c.activeConditions = []; c.fightingStyle = "";
+      if (fn) fn(c);
+    });
+    const logs = () => [...document.querySelectorAll(".log-item")].map((n) => n.textContent);
+    const lastRoll = () => logs().find((t) => /→|shoots freely|Dust:/.test(t)) || "";
+    const sounds = [];
+    if (window.SSDNSAudio) window.SSDNSAudio.play = (n) => { sounds.push(n); };
+    const out = {};
+    await wait(1000);
+    const sel = document.querySelector("#atkTarget");
+    sel.value = ""; sel.dispatchEvent(new Event("change", { bubbles: true }));
+    /* no Dual Wielder: twin pistols don't qualify */
+    load(); await wait(400); O.paint();
+    const o0 = O.options();
+    out.noDW = { ok: o0.ok, reason: o0.reason, card: !!document.querySelector("#offhandCard") };
+    /* Dual Wielder: the card shows, R pistol is the default pick, each side keeps its own first-shot bonus */
+    load((c) => { c.feats = ["dual-wielder"]; }); await wait(400); O.paint();
+    const o1 = O.options();
+    const v = A.compute();
+    out.dw = { ok: o1.ok, n: o1.list.length, sides: o1.list.map((x) => x.side), card: !!document.querySelector("#offhandCard"), pick: (document.querySelector("#offhandPick") || {}).value,
+      firstL: v.guns[0].firstShot, firstR: v.guns[1].firstShot, sideL: v.guns[0].drawSide, sideR: v.guns[1].drawSide, dmg0: v.guns[0].dmg };
+    /* main attack (Action), then the off-hand (Bonus) from the card */
+    P.reset(true);
+    const realRandom = Math.random; Math.random = () => 0.6; /* d20 = 13, dice mid */
+    window.SSDNSGunRoll(0); await wait(700);
+    out.main = { log: lastRoll(), pips: P.state() };
+    sounds.length = 0;
+    const loadedR = Number(A.doc().character.guns[1].loaded);
+    document.querySelector("#btnOffhand").click(); await wait(700);
+    out.off = { log: lastRoll(), pips: P.state(), loaded: Number(A.doc().character.guns[1].loaded), loadedR, sounds: sounds.slice(), alerts: logs().filter((t) => /Attack action first/.test(t)).length };
+    /* off-hand before any Attack action warns (never blocks) */
+    P.reset(true);
+    O.fire("gun", 1); await wait(700);
+    out.early = { alerts: logs().filter((t) => /Attack action first/.test(t)).length, pips: P.state(), log: lastRoll() };
+    /* off-hand Free shot */
+    P.reset(true);
+    sel.value = "__free"; sel.dispatchEvent(new Event("change", { bubbles: true }));
+    O.fire("gun", 1); await wait(700);
+    out.free = { log: lastRoll(), pips: P.state() };
+    sel.value = ""; sel.dispatchEvent(new Event("change", { bubbles: true }));
+    /* DM acting for the player: dm-join sets _dm + _offhand */
+    P.reset(true);
+    window.SSDNSGunRoll._dm = { mode: "" }; window.SSDNSGunRoll._offhand = true;
+    window.SSDNSGunRoll(1); window.SSDNSGunRoll._dm = null; window.SSDNSGunRoll._offhand = null;
+    await wait(700);
+    out.dm = { log: lastRoll(), pips: P.state(), dialogs: document.querySelectorAll("dialog[open]").length, leak: window.SSDNSGunRoll._offhand };
+    /* map Fight card: off-hand buttons ride on the player's own card and run through the same path */
+    const card = window.SSDNSMapHost && window.SSDNSMapHost.ownCard ? window.SSDNSMapHost.ownCard() : null;
+    out.cardIds = card ? card.attacks.map((a) => a.id + "|" + a.name + "|" + a.damage + "|" + (a.ammo ? "ammo" : "")) : [];
+    P.reset(true);
+    window.SSDNSGunRoll(0); await wait(500);
+    window.SSDNSMapHost.runAction("offhand:gun:1", {}); await wait(700);
+    out.mapRun = { log: lastRoll(), pips: P.state() };
+    /* melee: two light blades without Dual Wielder qualify; a non-light one doesn't */
+    load((c) => { c.guns = [{ weapon: "" }, { weapon: "" }, { weapon: "" }, { weapon: "" }]; c.abilities.STR = 16; c.abilities.DEX = 10;
+      c.melee = [{ weapon: "hatchet-handaxe", equipped: true, proficient: true }, { weapon: "claim-hammer-light-hammer", equipped: true, proficient: true }, { weapon: "" }, { weapon: "" }]; });
+    await wait(500); O.paint();
+    out.melee = { ok: O.options().ok, card: !!document.querySelector("#offhandCard") };
+    P.reset(true);
+    window.SSDNSPlaytest.rollMelee(0); await wait(700);
+    const mainMelee = lastRoll();
+    O.fire("melee", 1); await wait(900);
+    out.meleeOff = { main: mainMelee, log: lastRoll(), pips: P.state() };
+    load((c) => { c.guns = [{ weapon: "" }, { weapon: "" }, { weapon: "" }, { weapon: "" }];
+      c.melee = [{ weapon: "cavalry-saber-longsword", equipped: true, proficient: true }, { weapon: "bowie-shortsword", equipped: true, proficient: true }, { weapon: "" }, { weapon: "" }]; });
+    await wait(400);
+    out.saber = { ok: O.options().ok, reason: O.options().reason };
+    load((c) => { c.feats = ["dual-wielder"]; c.guns = [gunRow("pony-arms-chaosmaker-medium", 6), { weapon: "" }, { weapon: "" }, { weapon: "" }];
+      c.melee = [{ weapon: "cavalry-saber-longsword", equipped: true, proficient: true }, { weapon: "" }, { weapon: "" }, { weapon: "" }]; });
+    await wait(400);
+    out.mix = { ok: O.options().ok, kinds: O.options().list.map((x) => x.kind) };
+    Math.random = realRandom;
+    return out;
+  });
+  check("rules.noDualWielder", !res.noDW.ok && /Dual Wielder/.test(res.noDW.reason) && !res.noDW.card, J(res.noDW));
+  check("rules.dualWielderPistols", res.dw.ok && res.dw.n === 2 && res.dw.card && res.dw.pick === "gun:1", J(res.dw));
+  check("holster.sides", J(res.dw.sides) === J(["L", "R"]) && res.dw.sideL === "L" && res.dw.sideR === "R", J(res.dw));
+  check("holster.ownBonus", res.dw.firstL === 1 && res.dw.firstR === 2, J(res.dw));
+  check("main.action", res.main.pips.action && !res.main.pips.bonus && !/off-hand/.test(res.main.log) && /\+ 3 \(DEX\)/.test(res.main.log), J(res.main));
+  check("off.bonusPip", res.off.pips.bonus === true, J(res.off.pips));
+  check("off.chatTag", /Dust · Pony Arms ChaosMaker \(off-hand\)/.test(res.off.log), res.off.log);
+  check("off.noMod", /Damage: d8 \d+ = \d+ piercing/.test(res.off.log) && !/\(DEX\) =/.test(res.off.log), res.off.log);
+  check("off.ammo", res.off.loaded === res.off.loadedR - 1, J(res.off));
+  check("off.sound", res.off.sounds.length > 0, J(res.off.sounds));
+  check("off.noEarlyWarn", res.off.alerts === 0, J(res.off));
+  check("early.warns", res.early.alerts >= 1 && res.early.pips.bonus && /off-hand/.test(res.early.log), J(res.early));
+  check("free.offhand", /shoots freely \(off-hand\)/.test(res.free.log) && res.free.pips.bonus && !res.free.pips.action, J(res.free));
+  check("dm.offhand", /off-hand/.test(res.dm.log) && res.dm.pips.bonus && res.dm.dialogs === 0 && !res.dm.leak, J(res.dm));
+  check("map.cardButtons", res.cardIds.some((x) => /^offhand:gun:1\|.*\(R\) · off-hand\|[^|]*\|$/.test(x)) && res.cardIds.some((x) => /^offhand:gun:0\|/.test(x)), J(res.cardIds));
+  check("map.cardNoMod", res.cardIds.some((x) => /^offhand:gun:1\|[^|]*\|1d8 piercing\|$/.test(x)), J(res.cardIds));
+  check("map.run", /off-hand/.test(res.mapRun.log) && res.mapRun.pips.bonus && res.mapRun.pips.action, J(res.mapRun));
+  check("melee.lightPair", res.melee.ok && res.melee.card, J(res.melee));
+  check("melee.offhand", /\(off-hand\)/.test(res.meleeOff.log) && res.meleeOff.pips.bonus && res.meleeOff.pips.action && !/off-hand/.test(res.meleeOff.main), J(res.meleeOff));
+  check("melee.noMod", /Damage: d4 \d+ = \d+/.test(res.meleeOff.log) && !/\(mod\)/.test(res.meleeOff.log) && /\+ 3 \(mod\)/.test(res.meleeOff.main), J(res.meleeOff));
+  check("melee.nonLightNeedsDW", !res.saber.ok, J(res.saber));
+  check("mix.pistolBlade", res.mix.ok && J(res.mix.kinds) === J(["gun", "melee"]), J(res.mix));
+  check("sheet.noPageErrors", errs.length === 0, errs.join(" | "));
+
+  /* DMCC demo loads clean with the new drawer toggle and detail checkbox */
+  const dm = await browser.newPage();
+  const dmErrs = [];
+  dm.on("pageerror", (e) => dmErrs.push(String(e)));
+  await dm.goto(ORIGIN + "/dm/index.html?demo=1", { waitUntil: "domcontentloaded" });
+  await dm.waitForFunction(() => window.DMCC && document.querySelector("#btnLoadDemo"), { timeout: 20000 });
+  await dm.evaluate(() => document.querySelector("#btnLoadDemo").click());
+  await dm.waitForFunction(() => window.DMCC.state.demo && window.SSDNSMapFight, { timeout: 20000 });
+  await new Promise((r) => setTimeout(r, 800));
+  check("dmcc.noPageErrors", dmErrs.length === 0, dmErrs.join(" | "));
+} finally {
+  await browser.close();
+}
+if (failures.length) { console.log("\n" + failures.length + " failed: " + failures.join(", ")); process.exit(1); }
+console.log("\nall off-hand checks passed");

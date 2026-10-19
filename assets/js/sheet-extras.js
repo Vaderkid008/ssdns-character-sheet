@@ -1858,6 +1858,10 @@
        Adv/Dis mode and answered the disadvantage confirm, so this sheet never prompts for it. */
     var dmNow = rollGun._dm || null;
     rollGun._dm = null;
+    /* 0.3.70: off-hand attack (bonus action, no positive ability mod to damage). Kept through the target/range asks. */
+    var offNow = !!rollGun._offhand;
+    rollGun._offhand = null;
+    var OH = offNow ? root.SSDNSOffhand : null;
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
     var g = c.guns[i];
@@ -1885,7 +1889,7 @@
     if (!rollGun._wild && !rollGun._aimed && (freeNow || freeShotChosen())) {
       var freeChamber = rollGun._chamber;
       rollGun._chamber = null;
-      fireFreeShot(i, freeChamber);
+      fireFreeShot(i, freeChamber, offNow);
       return;
     }
     if (!rollGun._aimed) {
@@ -1893,6 +1897,7 @@
       if (dmNow) {
         rollGun._aimed = true;
         rollGun._dmShot = { mode: dmNow.mode || "" };
+        rollGun._offhand = offNow;
         try { rollGun(i, keepChamber); }
         finally { rollGun._aimed = false; rollGun._chamber = null; rollGun._dmShot = null; }
         return;
@@ -1904,6 +1909,7 @@
           if (!go) { rollGun._chamber = null; return; }
           rollGun._aimed = true;
           rollGun._chamber = keepChamber;
+          rollGun._offhand = offNow;
           try { rollGun(i, keepChamber); }
           finally { rollGun._aimed = false; rollGun._chamber = null; }
         });
@@ -1914,6 +1920,10 @@
     if (gate) {
       if (root.SSDNSRangeRings && root.SSDNSRangeRings.clear) root.SSDNSRangeRings.clear();
       toast(gate); addLog({ kind: "alert", text: gate }); return;
+    }
+    if (OH && OH.qualifies) {
+      var ohq = OH.qualifies(ch(), "gun", i);
+      if (!ohq.ok) addLog({ kind: "alert", text: "Off-hand: " + (ohq.reason || "not a qualifying pair") + " Rolled anyway; the DM can allow it." });
     }
     var drawFail = pistolDraw(i);
     if (drawFail) { toast(drawFail); addLog({ kind: "alert", text: drawFail }); return; }
@@ -2032,10 +2042,14 @@
     var gunCover = coverFor(tgt, coverOptsFor("gun"));
     var haveAc = !!(gunCover && gunCover.have);
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
+    var dmgExpr = dmgEl && dmgEl.value;
+    if (OH && OH.stripMod) dmgExpr = OH.stripMod(dmgExpr, OH.abilityMod(ch(), "gun", i));
+    var ohTag = OH ? " · " + OH.TAG : "";
+    var ohWord = OH ? " (" + OH.TAG + ")" : "";
     if (!misfired) attackCue(cue);
     else attackCue("misfire"); /* 0.3.56: misfire (jam, foul, lock, dud) has its own sound; no shot, no ricochet */
     if (!rollGun._wild && !misfired && acHidden(tgt) && joined() && !quiet) {
-      var pendingDmg = rollDamageExpr(dmgEl && dmgEl.value, isCrit);
+      var pendingDmg = rollDamageExpr(dmgExpr, isCrit);
       sendPendingAttack({
         who: who,
         targetName: tgt.name,
@@ -2050,11 +2064,12 @@
         dice: pendingDmg ? pendingDmg.detail : "",
         dmgFaces: pendingDmg ? pendingDmg.faces : null,
         dmgFormula: pendingDmg ? pendingDmg.formula : "",
-        dmgParts: gunStat && gunStat.dmgParts,
+        dmgParts: gunStat && gunStat.dmgParts && OH ? OH.stripParts(gunStat.dmgParts) : (gunStat && gunStat.dmgParts),
         dmgType: gunStat && gunStat.dmgType,
         formula: (n2 == null ? "1d20" : "2d20") + ((bonus >= 0 ? "+" : "") + bonus),
         rollId: gunRollId,
-        label: who + (tgt.name ? " → " + tgt.name : ""),
+        label: who + (tgt.name ? " → " + tgt.name : "") + ohTag,
+        offhand: !!OH,
         weapon: name,
         weaponId: g.weapon,
         gun: true,
@@ -2066,17 +2081,18 @@
     }
     var miss = nat === 1 || misfired || (!isCrit && haveAc && total < Number(gunCover.ac));
     var dmg = null;
-    if (!miss) dmg = rollDamageExpr(dmgEl && dmgEl.value, isCrit);
+    if (!miss) dmg = rollDamageExpr(dmgExpr, isCrit);
     var dmgParts = [];
     if (dmg && gunStat && gunStat.dmgParts) {
       var partSum = 0;
-      gunStat.dmgParts.forEach(function (p) { partSum += Number(p.value) || 0; });
-      dmgParts = partSum === (dmg.flat || 0) ? gunStat.dmgParts : (dmg.flat ? [{ label: "mod", value: dmg.flat }] : []);
+      var shownParts = OH ? OH.stripParts(gunStat.dmgParts) : gunStat.dmgParts;
+      shownParts.forEach(function (p) { partSum += Number(p.value) || 0; });
+      dmgParts = partSum === (dmg.flat || 0) ? shownParts : (dmg.flat ? [{ label: "mod", value: dmg.flat }] : []);
     } else if (dmg && dmg.flat) dmgParts = [{ label: "mod", value: dmg.flat }];
     var caliber = (g.chamber && String(g.chamber).split("|")[1]) || (wpn && wpn.ammo) || "";
     var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
       ? root.SSDNSApplied.attackBreakdown({
-        who: who, target: tgt && tgt.name, weapon: name, nat: nat, n1: n1, n2: n2, parts: parts, total: total,
+        who: who, target: tgt && tgt.name, weapon: name, tag: OH ? OH.TAG : "", nat: nat, n1: n1, n2: n2, parts: parts, total: total,
         ac: haveAc ? gunCover.ac : (tgt && tgt.ac), revealAc: !acHidden(tgt), misfire: misfired, miss: miss, coverNote: gunCover.note,
         crit: isCrit && !miss, critMin: critAt,
         damage: dmg ? { faces: dmg.faces, formula: dmg.formula, parts: dmgParts, total: dmg.total, type: (gunStat && gunStat.dmgType) || "piercing" } : null
@@ -2085,10 +2101,11 @@
     var report = attackReport({
       who: who, target: tgt && tgt.name, nat: nat, atk: bonus,
       ac: haveAc ? gunCover.ac : (tgt && tgt.ac), miss: miss, misfire: misfired, dmg: dmg, crit: isCrit,
-      dice: dice, weapon: name, caliber: caliber
+      dice: dice, weapon: name + ohWord, caliber: caliber
     });
     if (ch()) ch().takingCover = false;
-    if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(name + " attack");
+    if (OH && OH.spendPip) OH.spendPip(name);
+    else if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(name + " attack");
     if (resolved.armD4 && window.SSDNSD4 && window.SSDNSD4.arm) window.SSDNSD4.arm(i);
     var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
     var shownCard = card ? (acHidden(tgt) ? card.publicText : card.dmText) : report.player;
@@ -2102,14 +2119,15 @@
     addLog({
       id: "roll:" + gunRollId,
       kind: "roll", text: line,
-      label: who + (tgt && tgt.name ? " → " + tgt.name : " attack"),
+      label: who + (tgt && tgt.name ? " → " + tgt.name : " attack") + ohTag,
       formula: (n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk) + (dmg && !report.miss ? " · " + dmg.formula : ""),
-      attack: true, nat: nat, crit: isCrit && !miss
+      attack: true, nat: nat, crit: isCrit && !miss, offhand: !!OH
     });
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         id: gunRollId,
-        label: who + (tgt && tgt.name ? " → " + tgt.name : ""),
+        label: who + (tgt && tgt.name ? " → " + tgt.name : "") + ohTag,
+        offhand: !!OH,
         formula: (n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk),
         result: total,
         detail: line,
@@ -2135,7 +2153,7 @@
   /* 0.3.67: Free shot. The gun fires at nothing in particular: the round is spent, misfire rules apply,
      the sound plays, the Action pip is spent. No target, range, Adv/Dis ask, AC, hit/miss or damage.
      Chat: "<Name> shoots freely · 1d20+B = T". The DM decides what it does. */
-  function fireFreeShot(i, chamber) {
+  function fireFreeShot(i, chamber, offhand) {
     var c = ch();
     var g = c && c.guns && c.guns[i];
     if (!g) return null;
@@ -2211,11 +2229,13 @@
       ? root.SSDNSAudio.weaponCue(Object.assign({ gun: true }, wpn || {}, { id: g.weapon, sfx: g.sfx || (wpn && wpn.sfx) || "" }))
       : "attack";
     attackCue(misfired ? "misfire" : cue);
-    if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(name + " free shot");
+    var OHF = offhand ? root.SSDNSOffhand : null;
+    if (OHF && OHF.spendPip) OHF.spendPip(name);
+    else if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(name + " free shot");
     if (resolved.armD4 && window.SSDNSD4 && window.SSDNSD4.arm) window.SSDNSD4.arm(i);
     var who = (c && c.name) || name;
     var formula = "1d20" + signMod(bonus);
-    var line = who + " shoots freely · " + formula + " = " + total;
+    var line = who + " shoots freely" + (OHF ? " (" + OHF.TAG + ")" : "") + " · " + formula + " = " + total;
     if (misfired) line += " · natural " + nat + " misfire, the round is spent";
     var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
     line += ammoTxt;

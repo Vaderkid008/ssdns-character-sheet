@@ -317,6 +317,7 @@ const state = {
   playerTarget: "",
   drawerOpen: false,
   drawerTokenId: null,
+  drawerOffhand: false,
   pendingTarget: null,
   role,
   uid,
@@ -2281,6 +2282,17 @@ function armRange(attack, targetId, shooterId) {
 function noteOverride(verdict) {
   if (verdict && verdict.log && role === 'dm') emit('chat:send', { text: verdict.log });
 }
+/* 0.3.70: DM drawer 'Off-hand' toggle: the next PC weapon shot is the off-hand (bonus action) attack. */
+function offhandToggle(show) {
+  if (!show) return '';
+  return '<label class="ssm-offhand" title="Bonus action after the Attack action. The sheet spends their Bonus pip and drops a positive ability mod from damage.">' +
+    '<input type="checkbox" data-act="offhandToggle"' + (state.drawerOffhand ? ' checked' : '') + '> Off-hand (bonus action) for the next shot</label>';
+}
+function clearOffhand() {
+  if (!state.drawerOffhand) return;
+  state.drawerOffhand = false;
+  if (state.drawerOpen) setTimeout(() => { try { renderDrawer(); } catch (e) {} }, 0);
+}
 function disMark(verdict) {
   if (verdict && !verdict.blocked && verdict.advantage) return ' <span class="ssm-adv">Advantage</span>';
   if (!verdict || verdict.blocked || !verdict.disadvantage) return '';
@@ -2401,7 +2413,8 @@ function selectToken(token) {
     paintPendingBanner();
     renderDrawer();
     draw();
-    emit('drawer:target', { tokenId: shot.tokenId, weaponId: shot.weaponId || '', spellId: shot.spellId || '', targetTokenId: token.id, combatantId: tokenCombatant(shot.tokenId), targetCombatantId: tokenCombatant(token.id) });
+    emit('drawer:target', Object.assign({ tokenId: shot.tokenId, weaponId: shot.weaponId || '', spellId: shot.spellId || '', targetTokenId: token.id, combatantId: tokenCombatant(shot.tokenId), targetCombatantId: tokenCombatant(token.id) }, shot.offhand && !shot.spellId ? { offhand: true } : {}));
+    if (shot.offhand && !shot.spellId) clearOffhand();
     return;
   }
   state.selected = token;
@@ -4777,7 +4790,7 @@ async function loadSceneImage(sceneId, opts) {
     const targetId = extra.targetId != null ? extra.targetId : ((state.rowTargets && state.rowTargets[id]) || state.playerTarget || '');
     if (targetId === FREE_SHOT) {
       if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
-    } else if (String(id).indexOf('gunroll:') === 0 || String(id).indexOf('melee:') === 0 || String(id).indexOf('spell:') === 0 || id === 'pact') {
+    } else if (String(id).indexOf('gunroll:') === 0 || String(id).indexOf('melee:') === 0 || String(id).indexOf('offhand:') === 0 || String(id).indexOf('spell:') === 0 || id === 'pact') {
       const card = playerFightModel();
       const attack = ((card && card.attacks) || []).concat((card && card.spells) || []).find(a => a && a.id === id);
       const verdict = armRange(attack || { id: id }, targetId, uid);
@@ -5462,6 +5475,8 @@ async function loadSceneImage(sceneId, opts) {
         : 'Robbing is frowned on in town and by lawmen and can lead to a confrontation. The DM decides whether it counts as a robbery or a disarm. No automatic reputation tracking.');
     const grabAttr = (grabDisabled ? ' disabled' : '') + ' title="' + esc(grabTitle) + '"';
     const detail = (extra) => Object.assign({ tokenId: tokenId, combatantId: tokenCombatant(tokenId) }, extra || {});
+    /* 0.3.70: off-hand flag for the next PC weapon shot the DM sends (one shot, then it clears) */
+    const shotDetail = (extra) => detail(Object.assign(state.drawerOffhand ? { offhand: true } : {}, extra || {}));
     const maxHp = Number(hp.max);
     const haveCur = hp.cur !== "" && hp.cur != null && isFinite(Number(hp.cur));
     const curHp = haveCur ? Number(hp.cur) : NaN;
@@ -5506,7 +5521,7 @@ async function loadSceneImage(sceneId, opts) {
       '<select data-act="drawerRangeWeapon" aria-label="Token weapon" hidden></select>' +
       (conds ? '<div class="ssm-conds">' + conds + '</div>' : '') +
       (card.tactics ? '<div class="ssm-tactics">' + esc(card.tactics) + '</div>' : '') +
-      '<div class="ssm-section">Attacks</div>' + attacks +
+      '<div class="ssm-section">Attacks</div>' + offhandToggle(isPc && canAct && (card.attacks || []).length) + attacks +
       (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       spells +
       '<div class="ssm-row">' +
@@ -5561,7 +5576,8 @@ async function loadSceneImage(sceneId, opts) {
         if (aim === FREE_SHOT && !sid) {
           state.pendingTarget = null;
           paintPendingBanner();
-          emit('drawer:target', detail({ weaponId: wid, free: true, targetTokenId: '', targetCombatantId: FREE_SHOT }));
+          emit('drawer:target', shotDetail({ weaponId: wid, free: true, targetTokenId: '', targetCombatantId: FREE_SHOT }));
+          clearOffhand();
           return;
         }
         const aimTok = aim && aim !== FREE_SHOT ? (state.tokens || []).find(tok => tok && (tokenCombatant(tok.id) === aim || tok.id === aim)) : null;
@@ -5578,15 +5594,18 @@ async function loadSceneImage(sceneId, opts) {
           }
           state.pendingTarget = null;
           paintPendingBanner();
-          emit('drawer:target', detail({ weaponId: wid || '', spellId: sid || '', targetTokenId: aimTok.id, targetCombatantId: tokenCombatant(aimTok.id) }));
+          emit('drawer:target', (sid ? detail : shotDetail)({ weaponId: wid || '', spellId: sid || '', targetTokenId: aimTok.id, targetCombatantId: tokenCombatant(aimTok.id) }));
+          if (!sid) clearOffhand();
           return;
         }
-        state.pendingTarget = sid ? { tokenId, spellId: sid, spellKind: skind, label: b.textContent || '' } : { tokenId, weaponId: wid, label: b.textContent || '' };
+        state.pendingTarget = sid ? { tokenId, spellId: sid, spellKind: skind, label: b.textContent || '' } : { tokenId, weaponId: wid, label: b.textContent || '', offhand: !!state.drawerOffhand };
         renderDrawer();
         paintPendingBanner();
         draw();
       });
     });
+    const ohBox = d.querySelector('[data-act="offhandToggle"]');
+    if (ohBox) ohBox.addEventListener('change', () => { state.drawerOffhand = !!ohBox.checked; renderDrawer(); });
     const cancelBtn = d.querySelector('[data-act="pendingCancel"]');
     if (cancelBtn) cancelBtn.addEventListener('click', (ev) => { ev.stopPropagation(); cancelPendingTarget(); });
     d.querySelectorAll('[data-act="cylTarget"]').forEach(sel => {
@@ -5606,7 +5625,8 @@ async function loadSceneImage(sceneId, opts) {
         const targetId = sel && sel.value;
         if (!targetId) { toast('Pick a target'); return; }
         if (targetId === FREE_SHOT) {
-          emit('drawer:target', detail({ weaponId: b.getAttribute('data-wid'), chamber: Number(b.getAttribute('data-k')), free: true, targetTokenId: '', targetCombatantId: FREE_SHOT }));
+          emit('drawer:target', shotDetail({ weaponId: b.getAttribute('data-wid'), chamber: Number(b.getAttribute('data-k')), free: true, targetTokenId: '', targetCombatantId: FREE_SHOT }));
+          clearOffhand();
           return;
         }
         const targetTok = state.tokens.find(tok => tok && (tokenCombatant(tok.id) === targetId || tok.id === targetId));
@@ -5619,12 +5639,13 @@ async function loadSceneImage(sceneId, opts) {
           toast(verdict.button || 'Out of range');
           return;
         }
-        emit('drawer:target', detail({
+        emit('drawer:target', shotDetail({
           weaponId: wid,
           chamber: Number(b.getAttribute('data-k')),
           targetTokenId: targetTok ? targetTok.id : '',
           targetCombatantId: targetId
         }));
+        clearOffhand();
       });
     });
     d.querySelector('[data-act="hpMinus"]').addEventListener('click', () => emit('drawer:hp', detail({ delta: -readHp() })));

@@ -2680,7 +2680,9 @@
     if (g.fouled) return { ok: false, reason: "Fouled. It can't fire until it's cleaned." };
     if (w && w.capacity) {
       var a = normChambers(g, w);
-      var clicked = k !== undefined;
+      /* 0.3.70: null (no chamber picked; rollGun resets its chamber to null after each shot) is not a click.
+         Before this, every Roll after the first one answered "Click." and didn't fire. */
+      var clicked = k !== undefined && k !== null;
       var click = window.SSDNSApplied && window.SSDNSApplied.chamberClick
         ? window.SSDNSApplied.chamberClick(a[k], clicked)
         : { action: clicked && !a[k] ? "empty" : (clicked && isHexChamber(a[k]) ? "hex" : "fire") };
