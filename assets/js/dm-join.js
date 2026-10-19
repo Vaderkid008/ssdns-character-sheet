@@ -194,7 +194,9 @@
         tr: !!(st && st.w && st.w.tr),
         ammoPool: g.ammoPool == null ? "" : String(g.ammoPool),
         attackMode: g.attackMode === "adv" || g.attackMode === "dis" ? g.attackMode : "",
-        pools: (root.SSDNSApp && root.SSDNSApp.ammoChoices) ? root.SSDNSApp.ammoChoices(i) : []
+        pools: (root.SSDNSApp && root.SSDNSApp.ammoChoices) ? root.SSDNSApp.ammoChoices(i) : [],
+        chamber: g.chamber || "",
+        rechamber: (root.SSDNSApp && root.SSDNSApp.rechamberOptions) ? root.SSDNSApp.rechamberOptions(i).map(function (o) { return { value: o.value, label: o.label, cost: o.cost, allowed: o.allowed }; }) : []
       };
     }).filter(Boolean);
 
@@ -872,7 +874,7 @@
     onSaloonMessage(ev);
   });
 
-  /* 0.3.53 reward routing: instruments go to the focus slot, explosives and
+  /* 0.3.54 reward routing: instruments go to the focus slot, explosives and
      consumables become real items with a Use button. Anything else stays a line
      in Equipment, as before. Returns true when the reward was routed. */
   function routeReward(payload, cmd) {
@@ -1569,6 +1571,11 @@
     if (!grant || !claimGrant(grant)) return;
     var app = root.SSDNSApp;
     if (!app) return;
+    if (payload.op === "rechamber" && app.rechamberGun) {
+      var rc = app.rechamberGun(payload.index, String(payload.chamber || ""), { free: true });
+      if (rc && !rc.ok && root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "DM rechamber failed: " + rc.reason });
+      return;
+    }
     if (payload.op === "unload" && app.unloadGunIndex) app.unloadGunIndex(payload.index);
     else if (payload.op === "reload" && app.reloadGun) {
       var docNow = app.doc && app.doc();

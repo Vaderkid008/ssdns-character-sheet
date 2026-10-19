@@ -1,4 +1,4 @@
-/* Created weapons become real Gear weapons (0.3.53).
+/* Created weapons become real Gear weapons (0.3.54).
    An item with type "weapon" and a `weapon` stats block becomes a weapon record
    in the same shape as rules.js rows, so Gear, the map and the roll code treat it
    like a built-in weapon. Records are added to the live rules lists only when a

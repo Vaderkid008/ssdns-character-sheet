@@ -185,7 +185,7 @@
     return spec.label(chamber.index, chamber) || "";
   }
 
-  /* 0.3.53: what the round looks like, keyed off the ammo type (never the gun name).
+  /* 0.3.54: what the round looks like, keyed off the ammo type (never the gun name).
      ball = powder, ball & caps; cart = brass rim + primer; buck = red hull, brass base;
      rf22 = small brass (.22 / light); hex = dark lead with a green glow. */
   function roundType(spec, chamber) {
@@ -199,11 +199,11 @@
       else if (kn === "buck" || kn === "slug") ammo = "shell";
     }
     if (ammo === "percussion" || ammo === "ball" || ammo === "powder") return "ball";
-    /* 0.3.53: shells keep the original look; only the shotgun repeater gets the red hull. */
+    /* 0.3.54: shells keep the original look; only the shotgun repeater gets the red hull. */
     if (ammo === "shell" || ammo === "buck" || ammo === "slug" || isShotgun(spec)) {
       var sid = String((row && row.id) || spec.weapon || spec.weaponId || "");
       var sact = String((row && row.action) || spec.action || "").toLowerCase();
-      /* 0.3.53 sample: hull colour comes from the gauge. The repeater's red hull only survives
+      /* 0.3.54 sample: hull colour comes from the gauge. The repeater's red hull only survives
          for a gauge with no colour of its own, and .410 / 12 / 10 all have one, so it is unused. */
       void sid; void sact;
       return "shell";
@@ -268,7 +268,7 @@
   function shellSvg(spec) {
     var gauge = shellGauge(spec);
     var slug = isSlug(spec);
-    /* 0.3.53 sample: hull by gauge. 12 ga = the exact pre-#71 red shell; 10 ga green; .410 blue.
+    /* 0.3.54 sample: hull by gauge. 12 ga = the exact pre-#71 red shell; 10 ga green; .410 blue.
        Slugs (Jessey, option B): gauge hull colour with a black band and a white S. */
     var HULL = { "410": ["#3f8fe0", "#1f5a9c"], "12": ["#c4322e", "#8e241f"], "10": ["#2f7a3a", "#1a4a22"] };
     var band = slug;

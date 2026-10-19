@@ -669,7 +669,7 @@
     return { ok: true, item: item, landed: landed };
   }
 
-  /* 0.3.53: the old character.explosives[] rows move into items (one list). */
+  /* 0.3.54: the old character.explosives[] rows move into items (one list). */
   function mergeExplosives(character) {
     if (!character || !Array.isArray(character.explosives) || !character.explosives.length) return 0;
     var moved = 0;

@@ -1063,11 +1063,11 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
   body.map-fullscreen #mapMount { padding: 4px; gap: 4px; }
 }
 
-/* 0.2.66: Lock / Undo / Redo live in the DM Tools panel, clear of Exit full screen. */
+/* 0.2.67: Lock / Undo / Redo live in the DM Tools panel, clear of Exit full screen. */
 .ssdns-map .ssdns-rightbar .ssm-move-tools { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; padding: 0; background: none; }
 .ssdns-map .ssdns-rightbar .ssm-move-tools button { flex: 1 1 auto; width: auto; white-space: nowrap; }
 
-/* 0.2.66: DM bottom chat resize grip + true Minimize (thin "Chat ▲ (3 new)" bar). */
+/* 0.2.67: DM bottom chat resize grip + true Minimize (thin "Chat ▲ (3 new)" bar). */
 .ssdns-map .ssm-chat-grip { height: 8px; margin: -4px 0 4px; cursor: ns-resize; border-radius: 4px; background: linear-gradient(#5a4e40, #5a4e40) center / 40px 2px no-repeat; touch-action: none; }
 .ssdns-map .ssm-chat-grip:hover { background-color: rgba(201,162,74,.18); }
 .ssdns-map .ssdns-chatdock.ssm-chat-shut .ssm-chat-grip { display: none; }
@@ -1075,7 +1075,7 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
 .ssdns-map.ssdns-role-dm .ssdns-chatdock.ssm-chat-shut { padding: 2px 8px; min-height: 0; }
 .ssdns-map.ssdns-role-dm .ssdns-chatdock.ssm-chat-shut .ssm-chatbadge { background: none; color: #f0c674; padding: 0; }
 
-/* 0.3.53: Maps menu (My Maps library) */
+/* 0.3.54: Maps menu (My Maps library) */
 .ssm-maps-btn { font-weight: 700; }
 .ml-dialog { width: min(980px, 96vw); max-height: 90vh; overflow: auto; padding: 0; background: #f3e6c8; color: #2b1d10; border: 1px solid #8a6a2c; border-radius: 10px; }
 .ml-dialog::backdrop { background: rgba(10, 6, 2, .6); }

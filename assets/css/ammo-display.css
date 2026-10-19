@@ -186,8 +186,8 @@
 .init-who .cylinder-row { flex-basis: 100%; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
 .turn-strip .cylinder-row { flex-wrap: wrap; }
 
-/* 0.3.53 round art by ammo type (drawn in CSS). Empty / fired / X states above still win. */
-/* 0.3.53: powder & ball = a plain round lead ball. No cap, no primer; soft highlight. */
+/* 0.3.54 round art by ammo type (drawn in CSS). Empty / fired / X states above still win. */
+/* 0.3.54: powder & ball = a plain round lead ball. No cap, no primer; soft highlight. */
 .ssdns-ammo .ammo-round.is-primer.is-loaded.rt-ball {
   border-color: #3b3d40;
   background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55) 0 6%, rgba(220, 224, 228, 0.35) 14%, transparent 34%),
@@ -216,7 +216,7 @@
     radial-gradient(circle at 50% 50%, transparent 0 62%, #b98b34 64% 92%, #6d4e16 94%),
     radial-gradient(circle at 36% 30%, #ff8a7a, #c4322a 50%, #6d120c 90%);
 }
-/* 0.3.53 sample: hex lead = dark round with a glowing green serpent-spiral rune (forked tongue). Strip size = plain spiral. */
+/* 0.3.54 sample: hex lead = dark round with a glowing green serpent-spiral rune (forked tongue). Strip size = plain spiral. */
 .ssdns-ammo .ammo-round.is-primer.is-loaded.rt-hex {
   border-color: #1b3d22;
   background:
@@ -232,7 +232,7 @@
     radial-gradient(circle at 36% 30%, #3a3f42, #1c2022 60%, #0d0f10 90%);
 }
 
-/* 0.3.53 sample: shell head seen end-on, all rings concentric (per Jessey's photo):
+/* 0.3.54 sample: shell head seen end-on, all rings concentric (per Jessey's photo):
    steel primer, copper primer ring, brass head, slight rim edge, then a bold gauge-colour ring.
    Slugs add a thin black ring between the brass and the gauge ring. Size scales by gauge. */
 .ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell { --hull: #c4322e; --hull-l: #e0574f; --slug: transparent;
@@ -253,13 +253,13 @@
 .ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-12 { --g: .9; }
 .ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-410 { --hull: #1f5a9c; --hull-l: #4a9ae8; --g: .74; }
 .ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-10 { --hull: #1a5a26; --hull-l: #3f9a4c; --g: 1; }
-/* 0.3.53 sample: the single rifle-musket ball is as big as a Ball n Cap chamber ball. */
+/* 0.3.54 sample: the single rifle-musket ball is as big as a Ball n Cap chamber ball. */
 .ssdns-ammo-dots .ammo-round.rt-ball { width: 30px; height: 30px; }
 .ssdns-ammo-dots.is-demo .ammo-round.rt-ball { width: 47px; height: 47px; }
 .ssdns-ammo-dots.is-drawer .ammo-round.rt-ball { width: 25px; height: 25px; }
 .ssdns-ammo-dots.is-gear .ammo-round.rt-ball { width: 23px; height: 23px; }
 .ssdns-ammo-dots.is-strip .ammo-round.rt-ball { width: 17px; height: 17px; }
-/* 0.3.53 sample: a misfired powder & ball chamber keeps the lead ball and gets a red ring + red X,
+/* 0.3.54 sample: a misfired powder & ball chamber keeps the lead ball and gets a red ring + red X,
    so the ball itself never reads as red. */
 .ssdns-ammo .ammo-round.is-jam.rt-ball {
   border: 2px solid #e23b32;

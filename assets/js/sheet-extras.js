@@ -2529,7 +2529,7 @@
         if (collapse) collapse.textContent = "Show";
       }
     } catch (err) {}
-    // Table music (0.3.53): my own volume per layer + mute. Never synced.
+    // Table music (0.3.54): my own volume per layer + mute. Never synced.
     if (root.SSDNSMusic) {
       var mp = root.SSDNSMusic.prefs();
       Array.prototype.forEach.call(document.querySelectorAll("[data-mx-pref]"), function (el) { el.value = String(Math.round((mp[el.getAttribute("data-mx-pref")] || 0) * 100)); });

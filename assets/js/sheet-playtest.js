@@ -1066,6 +1066,7 @@
     syncSheet: syncSheet,
     showYourTurn: showYourTurn,
     showTurn: function (init) {
+      if (root.SSDNSActionPips && root.SSDNSActionPips.onTurn) root.SSDNSActionPips.onTurn(init);
       if (root.SSDNSEquip && root.SSDNSEquip.setCombat) {
         var active = root.SSDNSEquip.combatActive(init);
         var was = root.SSDNSEquip.combatLocked && root.SSDNSEquip.combatLocked();

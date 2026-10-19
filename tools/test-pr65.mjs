@@ -1,5 +1,5 @@
 /**
- * PR #65 (sheet 0.3.53 / DMCC 0.2.66): DM tools + dice run.
+ * PR #65 (sheet 0.3.54 / DMCC 0.2.67): DM tools + dice run.
  *   node tools/test-pr65.mjs
  */
 import fs from "node:fs";

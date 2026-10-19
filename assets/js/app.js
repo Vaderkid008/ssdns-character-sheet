@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.53"; // sheet-playtest-v0353
+  var APP_VERSION = "0.3.54"; // sheet-playtest-v0354
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -644,7 +644,7 @@
       else if (belt) { if (!c.seated && !c.mounted) v.holsterFirst = num(hol.firstShot); }
       else v.holsterFirst = num(hol.firstShot);
     }
-    // Paper doll (0.3.53): only slotted gear counts. Rigs don't stack; scores cap at 20.
+    // Paper doll (0.3.54): only slotted gear counts. Rigs don't stack; scores cap at 20.
     var DB = window.SSDNSDoll && window.SSDNSDoll.bonuses ? window.SSDNSDoll.bonuses(c) : null;
     v.doll = DB;
     if (DB) {
@@ -1019,7 +1019,7 @@
           el("button", { type: "button", class: "btn sm", "data-unload": i, title: "Unload: put the chambered rounds back in your ammo, by type" }, ["Unload"]),
           ammoSel
         ]),
-        el("div", { class: "g-smith" }, [modSel, capSel]),
+        el("div", { class: "g-smith" }, [modSel, capSel, el("button", { type: "button", class: "btn xs", "data-rechamber": i, hidden: "hidden", title: "Pay a gunsmith to change the chambered round: 500 ES per tier step" }, ["Rechamber (gunsmith)"])]),
         el("div", { class: "g-actions" }, [
           el("select", { class: "adv-sel", "data-adv": i, "aria-label": "Advantage or disadvantage", title: "Advantage or disadvantage. Both dice in the misfire range fouls the gun." }, [opt("", "—"), opt("adv", "Adv"), opt("dis", "Dis")]),
           el("button", { type: "button", class: "btn sm", "data-gunroll": i, title: "Plain attack. Never spends a spell slot. A natural roll in the gun's misfire range jams it. Dirty misfires on at least 1–2." }, ["Roll"]),
@@ -1596,7 +1596,18 @@
       if (gunSel) gunSel.disabled = !!g.pendingD4;
       if (cs) cs.disabled = !!g.pendingD4;
       var unloadBtn = $('[data-unload="' + i + '"]');
-      if (unloadBtn) unloadBtn.hidden = !cap;
+      if (unloadBtn) { unloadBtn.hidden = !cap; unloadBtn.setAttribute("data-cost", "Action"); unloadBtn.title = "Unload (action): put the chambered rounds back in your ammo, by type"; }
+      if (reloadBtn0 && w) {
+        var rcost = reloadCost(g, w, 0);
+        reloadBtn0.setAttribute("data-cost", rcost === "full" ? "Full turn" : (rcost === "bonus" ? "Bonus" : "Action"));
+        reloadBtn0.title = "Reload (" + costWords(rcost) + (rcost === "bonus" ? ", Quick Reload" : "") + "): fills the gun. Uses the ammo selected on this card.";
+      }
+      var trBtn0 = $('[data-tr="' + i + '"]');
+      if (trBtn0) trBtn0.setAttribute("data-cost", "Bonus");
+      if (unjamBtn) unjamBtn.setAttribute("data-cost", unjamCost(i) === "free" ? "Free" : "Bonus");
+      if (reopenBtn) reopenBtn.setAttribute("data-cost", "Action");
+      var rcBtn = $('[data-rechamber="' + i + '"]');
+      if (rcBtn) rcBtn.hidden = !(w && w.tiers && !w.hexShells && g.chamberSet && rechamberOptions(i).length) || !!g.pendingD4;
       var rollBtn = $('[data-gunroll="' + i + '"]');
       if (rollBtn) {
         rollBtn.hidden = !s || packed;
@@ -1834,7 +1845,7 @@
     });
     if (focus) { var f = box.querySelector('[data-f="' + focus + '"]'); if (f) f.focus(); }
   }
-  /* 0.3.53: explosives live in Items (one list). This box shows the explosive
+  /* 0.3.54: explosives live in Items (one list). This box shows the explosive
      items with a count and the same Use button as the Items list. */
   function renderExplosives() {
     var box = $("#explosiveList"); if (!box) return;
@@ -2458,8 +2469,8 @@
     if (what === "chamber" && w && w.tiers) {
       if (g.chamberSet && old && String(old) !== String(g.chamber)) {
         g.chamber = old;
-        if (w && w.id === "dullards-plinker-revolver") toast("A gunsmith rechambers a Plinker from .22 to .32 rimfire. Light only. Never Medium.");
-        else toast("A gunsmith rechambers this: 500 ES per tier step. Light to Heavy is two steps.");
+        if (w && w.id === "dullards-plinker-revolver") toast("A gunsmith rechambers a Plinker from .22 to .32 rimfire. Light only. Never Medium. Use Rechamber (gunsmith).");
+        else toast("A gunsmith rechambers this: 500 ES per tier step. Light to Heavy is two steps. Use Rechamber (gunsmith).");
       } else {
         g.tier = chamberOf(g, w).tier;
         g.chamberSet = true;
@@ -2712,8 +2723,34 @@
     publishGunCard();
     if (window.SSDNSAudio) window.SSDNSAudio.play(window.SSDNSAudio.reloadCue ? window.SSDNSAudio.reloadCue(w) : "reload");
     var tierNote = pool.caliber && w.tiers ? " Chambered " + (TIER_LABEL[g.tier] || g.tier || "") + " " + pool.caliber + "." : "";
-    var how = max ? "Tactical Reload +" + take : "Reloaded " + take + (take < need ? " (all you had)" : "") + (w.slow ? " (slow load: full turn)" : " (action)");
+    var rc = reloadCost(g, w, max);
+    var how = max ? "Tactical Reload +" + take + " (bonus action)" : "Reloaded " + take + (take < need ? " (all you had)" : "") + " (" + costWords(rc) + (rc === "bonus" ? ", Quick Reload" : "") + ")";
     toast(how + ". " + pool.count + " " + (AMMO_LABEL[pool.type] || pool.type) + (pool.caliber ? " " + pool.caliber : "") + " left." + tierNote);
+  }
+  /* 0.3.54: what a reload costs. Slow guns take a full turn. Gunslinger Quick Reload (3rd level)
+     makes a reload a bonus action, except slow guns and a Rolling-Block chambered Heavy. */
+  function quickReload(g, w) {
+    var c = C();
+    if (!w || w.slow || c.calling !== "gunslinger" || num(c.level, 1) < 3) return false;
+    if (w.id === "dulls-rolling-block-rifle" && chamberOf(g, w).tier === "heavy") return false;
+    return true;
+  }
+  function reloadCost(g, w, max) {
+    if (max) return "bonus";
+    if (!w) return "action";
+    if (w.slow) return "full";
+    return quickReload(g, w) ? "bonus" : "action";
+  }
+  function costWords(cost) { return cost === "full" ? "slow load: full turn" : (cost === "bonus" ? "bonus action" : (cost === "free" ? "free action" : "action")); }
+  function gunKey(i) { var g = C().guns[i]; return g ? String(g.loaded) + ":" + (g.chambers || []).join("|") : ""; }
+  /** Player button press: run the gun action, spend pips only if something changed. */
+  function withCost(i, cost, what, fn) {
+    var before = gunKey(i);
+    var out = fn();
+    var spend = function (ok) { if (ok && window.SSDNSActionPips && cost !== "free") window.SSDNSActionPips.spend(cost, what); };
+    if (out && typeof out.then === "function") { out.then(function (v) { spend(!!v || gunKey(i) !== before); }); return out; }
+    spend(out === true || gunKey(i) !== before);
+    return out;
   }
   function reload(i, max) {
     var g = C().guns[i], w = WPN[g.weapon];
@@ -2980,6 +3017,100 @@
     }
     applyCleanChoice(i, g, pick);
     return Promise.resolve(true);
+  }
+  /* 0.3.54: Unload has no PHB cost; the sheet treats it like a reload: an action. */
+  var UNLOAD_COST = "action";
+  function unjamCost(i) {
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    var free = window.SSDNSMisfire && window.SSDNSMisfire.unjamIsFree && window.SSDNSMisfire.unjamIsFree({
+      weapon: g && g.weapon, mod: g && g.mod, feats: C().feats || [], name: w && w.name, properties: w && w.properties, rugged: !!(w && /rugged/i.test(w.properties || ""))
+    });
+    return free ? "free" : "bonus";
+  }
+  /* 0.3.54: gunsmith rechamber. 500 ES per tier step; a same-tier change (another round in the
+     same tier) is one gunsmith job, 500 ES. The Plinker only goes .22 LR -> .32 rimfire. */
+  var TIER_STEP = { light: 0, medium: 1, heavy: 2 };
+  function rechamberOptions(i) {
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    if (!g || !w || !w.tiers || w.hexShells) return [];
+    var cur = chamberOf(g, w);
+    var curKey = cur.tier + "|" + cur.round;
+    return chamberOptions(w).filter(function (o) { return o[0] !== curKey; }).map(function (o) {
+      var tier = o[0].split("|")[0], round = o[0].split("|")[1] || "";
+      var steps = Math.abs((TIER_STEP[tier] || 0) - (TIER_STEP[cur.tier] || 0));
+      var allowed = true, why = "";
+      if (w.id === "dullards-plinker-revolver") {
+        allowed = /\.22/.test(cur.round) && /\.32/.test(round);
+        why = allowed ? "" : "A Plinker only goes from .22 LR to .32 rimfire. Light only, never Medium.";
+      }
+      return { value: o[0], label: o[1], tier: tier, round: round, steps: steps, cost: 500 * Math.max(1, steps), allowed: allowed, why: why };
+    });
+  }
+  function rechamberGun(i, value, opts) {
+    opts = opts || {};
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    if (!g || !w) return { ok: false, reason: "Pick a gun first." };
+    if (d4Pending(g)) return { ok: false, reason: "Roll the d4 first." };
+    var opt = rechamberOptions(i).filter(function (o) { return o.value === value; })[0];
+    if (!opt) return { ok: false, reason: "That chambering isn't offered for this gun." };
+    if (!opt.allowed && !opts.free) return { ok: false, reason: opt.why };
+    var paid = 0;
+    if (!opts.free) {
+      var bill = chargeEs(opt.cost, "Gunsmith rechamber " + w.name + " to " + opt.label);
+      if (!bill.paid) return { ok: false, reason: "Not enough ES: the gunsmith wants " + opt.cost + " ES." };
+      paid = opt.cost;
+    }
+    unloadGun(g, w, g.load, g.chamber);
+    g.loaded = 0; g.chambers = [];
+    g.chamber = opt.value; g.tier = opt.tier; g.chamberSet = true;
+    renderFields(); changed(); publishGunCard();
+    var line = w.name + " rechambered to " + opt.label + (opts.free ? " (DM, free)." : " by a gunsmith for " + paid + " ES.") + " It's empty: hit Reload.";
+    toast(line);
+    if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
+    return { ok: true, paid: paid, chamber: opt.value };
+  }
+  function openRechamber(i) {
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    var list = rechamberOptions(i);
+    if (!list.length) { toast("This gun has no other chambering."); return; }
+    var old = document.querySelector(".rc-modal"); if (old) old.remove();
+    var cur = chamberOf(g, w);
+    var wallet = (typeof C().es === "number" && isFinite(C().es)) ? C().es : compute().cp;
+    var box = el("div", { class: "rc-modal", role: "dialog", "aria-modal": "true", "aria-label": "Rechamber (gunsmith)" });
+    var rows = list.map(function (o, n) {
+      var id = "rc-opt-" + n;
+      return el("label", { class: "rc-row" + (o.allowed ? "" : " rc-off"), for: id }, [
+        el("input", { type: "radio", name: "rc-pick", id: id, value: o.value, disabled: o.allowed ? null : "disabled" }),
+        el("span", { class: "rc-name", text: o.label }),
+        el("span", { class: "rc-cost", text: o.allowed ? (o.cost + " ES" + (o.steps > 1 ? " (" + o.steps + " tier steps)" : (o.steps === 1 ? " (1 tier step)" : " (same tier)"))) : o.why })
+      ]);
+    });
+    var msg = el("p", { class: "rc-msg fine" });
+    var ok = el("button", { type: "button", class: "btn", text: "Pay and rechamber", disabled: "disabled" });
+    var cancel = el("button", { type: "button", class: "btn", text: "Cancel" });
+    box.appendChild(el("div", { class: "rc-card" }, [
+      el("h3", { text: "Rechamber (gunsmith)" }),
+      el("p", { class: "fine", text: w.name + " is chambered " + (TIER_LABEL[cur.tier] || cur.tier) + (cur.round ? " " + cur.round : "") + ". A gunsmith charges 500 ES per tier step (Light to Heavy is two steps); another round in the same tier is one job, 500 ES. The gun comes back empty and your rounds go back to your ammo." }),
+      el("div", { class: "rc-list" }, rows),
+      el("p", { class: "fine rc-wallet", text: "You have " + num(wallet).toLocaleString() + " ES." }),
+      msg,
+      el("div", { class: "rc-btns" }, [cancel, ok])
+    ]));
+    document.body.appendChild(box);
+    box.addEventListener("change", function () {
+      var pick = box.querySelector("input[name=rc-pick]:checked");
+      var o = pick && list.filter(function (x) { return x.value === pick.value; })[0];
+      ok.disabled = !o;
+      msg.textContent = o ? (num(wallet) >= o.cost ? "Pays " + o.cost + " ES." : "You need " + o.cost + " ES; you have " + num(wallet) + ".") : "";
+    });
+    cancel.addEventListener("click", function () { box.remove(); });
+    ok.addEventListener("click", function () {
+      var pick = box.querySelector("input[name=rc-pick]:checked");
+      if (!pick) return;
+      var r = rechamberGun(i, pick.value);
+      if (!r.ok) { msg.textContent = r.reason; return; }
+      box.remove();
+    });
   }
   function unjamGun(i) {
     var g = C().guns[i];
@@ -3343,8 +3474,9 @@
     if (d.gunroll !== undefined) { if (window.SSDNSGunRoll) window.SSDNSGunRoll(num(d.gunroll), d.k !== undefined ? num(d.k) : undefined); return; }
     if (d.gunmelee !== undefined) { if (window.SSDNSGunMelee) window.SSDNSGunMelee(num(d.gunmelee)); return; }
     if (d.clean !== undefined) return cleanGun(num(d.clean));
-    if (d.unjam !== undefined) return unjamGun(num(d.unjam));
-    if (d.reopen !== undefined) return reopenChamber(num(d.reopen));
+    if (d.unjam !== undefined) { var ui = num(d.unjam); return withCost(ui, unjamCost(ui), "Unjam", function () { return unjamGun(ui); }); }
+    if (d.reopen !== undefined) { var ri = num(d.reopen); return withCost(ri, "action", "Reopen chamber", function () { return reopenChamber(ri); }); }
+    if (d.rechamber !== undefined) return openRechamber(num(d.rechamber));
     if (d.fire !== undefined) {
       var gi = num(d.fire), kk = d.k !== undefined ? num(d.k) : undefined;
       var gg = C().guns[gi];
@@ -3356,14 +3488,15 @@
       if (window.SSDNSGunRoll) return window.SSDNSGunRoll(gi, kk);
       return fire(gi, kk);
     }
-    if (d.unload !== undefined) return unloadLoaded(num(d.unload));
+    if (d.unload !== undefined) { var li = num(d.unload); return withCost(li, UNLOAD_COST, "Unload", function () { return unloadLoaded(li); }); }
     if (d.takepool !== undefined) {
       var bits = String(d.takepool).split(":");
       var pool = C().ammo[num(bits[1])];
-      return reloadFromPool(num(bits[0]), pool, num(bits[2]) || 0);
+      var pi = num(bits[0]), pmax = num(bits[2]) || 0, pg = C().guns[pi];
+      return withCost(pi, reloadCost(pg, pg && WPN[pg.weapon], pmax), pmax ? "Tactical Reload" : "Reload", function () { return reloadFromPool(pi, pool, pmax); });
     }
-    if (d.reload !== undefined) return reload(num(d.reload));
-    if (d.tr !== undefined) return tacticalReload(num(d.tr));
+    if (d.reload !== undefined) { var di = num(d.reload), dg = C().guns[di]; return withCost(di, reloadCost(dg, dg && WPN[dg.weapon], 0), "Reload", function () { return reload(di); }); }
+    if (d.tr !== undefined) { var ti = num(d.tr); return withCost(ti, "bonus", "Tactical Reload", function () { return tacticalReload(ti); }); }
     if (d.hexload !== undefined) return loadHexShell(num(d.hexload));
     if (d.skill) { C().skillProf[d.skill] = (num(C().skillProf[d.skill], 0) + 1) % 3; changed(); return; }
     if (d.ammoStep) { var q = d.ammoStep.split(":"), a = C().ammo[num(q[0])]; a.count = Math.max(0, num(a.count) + num(q[1])); changed(); return; }
@@ -4319,6 +4452,10 @@
         if (window.SSDNSD4 && window.SSDNSD4.arm) return window.SSDNSD4.arm(i);
       },
       reloadGun: function (i, max) { reload(i, max); },
+      reloadCost: function (i) { var g = C().guns[i]; return reloadCost(g, g && WPN[g.weapon], 0); },
+      rechamberOptions: function (i) { return rechamberOptions(i); },
+      rechamberGun: function (i, value, opts) { return rechamberGun(i, value, opts); },
+      openRechamber: function (i) { return openRechamber(i); },
       unloadGunIndex: function (i) { unloadLoaded(i); },
       tacticalReload: function (i) { tacticalReload(i); },
       loadHexShell: function (i) { loadHexShell(i); },

@@ -39,7 +39,7 @@ button.d20 {
   .dice-stage { flex-wrap: wrap; max-width: 100%; }
   .die-face { width: 64px; height: 64px; }
 }
-/* 0.3.53 roll builder: ×N and +M steppers, mixed pool. */
+/* 0.3.54 roll builder: ×N and +M steppers, mixed pool. */
 .dice-builder { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #f3e6c8; font-size: 13px; }
 .dice-step { display: inline-flex; align-items: center; gap: 2px; font-weight: 700; }
 .dice-step button { width: 22px; height: 22px; padding: 0; border: 1px solid #8a7040; border-radius: 3px; background: #2a2118; color: #f3e6c8; cursor: pointer; font-size: 10px; line-height: 1; }
@@ -56,7 +56,7 @@ button.d20 {
 .dice-stage { flex-wrap: wrap; }
 @media (max-width: 520px) { .dice-builder { font-size: 12px; } .dice-step button { width: 28px; height: 28px; } }
 
-/* 0.3.53: locked die size, wrap past it; big western roll line */
+/* 0.3.54: locked die size, wrap past it; big western roll line */
 .dice-stage { flex-wrap: wrap; align-items: center; }
 .dice-stage .die-face { flex: none; }
 .dice-stage-line { flex-basis: 100%; font-family: "Rye", "Smokum", "Rockwell", "Georgia", serif; font-size: 26px; line-height: 1.2; letter-spacing: .02em; color: #f6e7c1; text-shadow: 0 1px 0 #000; margin: 4px 0 0; }
