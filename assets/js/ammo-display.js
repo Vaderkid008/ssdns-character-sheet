@@ -217,7 +217,7 @@
   function roundButton(spec, chamber, style, indexOverride, extraClass, inner) {
     var k = indexOverride == null ? chamber.index : indexOverride;
     var rt = roundType(spec, chamber);
-    extraClass = (extraClass ? extraClass + " " : "") + "rt-" + rt + (rt === "shell" && !/is-gauge-/.test(extraClass || "") ? " is-gauge-" + shellGauge(spec) : "");
+    extraClass = (extraClass ? extraClass + " " : "") + "rt-" + rt + (rt === "shell" && !/is-gauge-/.test(extraClass || "") ? " is-gauge-" + shellGauge(spec) + (isSlug(spec) ? " is-slug" : "") : "");
     var locked = chamber.state === "locked";
     var word = locked ? "Locked" : (chamber.state === "loaded" ? "Loaded" : (chamber.state === "jam" ? "Misfire" : "Spent"));
     var next = spec.next === chamber.index ? " is-next" : "";

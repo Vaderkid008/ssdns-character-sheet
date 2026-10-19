@@ -224,16 +224,27 @@
   box-shadow: 0 0 6px 1px rgba(63, 211, 107, 0.7), inset 0 0 4px rgba(63, 211, 107, 0.55);
 }
 
-/* 0.3.53 sample: shells seen end-on in a chamber = brass head + primer, hull colour ring by gauge. */
-.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell { --hull: #e0574f; --hull-d: #8e241f;
-  border-color: var(--hull-d);
+/* 0.3.53 sample: shell head seen end-on, all rings concentric (per Jessey's photo):
+   steel primer, copper primer ring, brass head, slight rim edge, then a bold gauge-colour ring.
+   Slugs add a thin black ring between the brass and the gauge ring. Size scales by gauge. */
+.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell { --hull: #c4322e; --hull-l: #e0574f; --slug: transparent;
+  border: 0;
   background:
-    radial-gradient(circle at 50% 50%, #c6b07a 0 12%, #8a6a2c 14% 18%, transparent 20%),
-    radial-gradient(circle at 36% 30%, #fff1c2, #e3b54a 28%, #a8741c 46%, #6b4810 54%, transparent 56%),
-    radial-gradient(circle at 36% 30%, var(--hull), var(--hull-d) 92%);
+    radial-gradient(circle closest-side at 44% 40%, rgba(255,255,255,.9) 0 3%, transparent 8%),
+    radial-gradient(circle closest-side at 50% 50%,
+      #eef1f3 0, #b9c0c6 7%, #7e868d 12%, #3d3a36 13.5%,
+      #e39a6c 15%, #b8643a 19%, #7a3b1f 23%, #4a3218 24.5%,
+      #f4e2a0 26%, #dcbb62 36%, #c9a24a 48%, #a8822e 55%,
+      #7a5a1e 57%, #f0d88a 59%, #8a6a2a 61%,
+      var(--slug) 61.5%, var(--slug) 68%,
+      var(--hull-l) 68.5%, var(--hull) 86%, #1a120c 97%, transparent 100%);
+  box-shadow: none;
+  transform: translate(-50%, -50%) scale(var(--g, .9));
 }
-.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-410 { --hull: #5aa3ec; --hull-d: #1f5a9c; }
-.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-10 { --hull: #45a052; --hull-d: #1a4a22; }
+.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-slug { --slug: #0d0d0d; }
+.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-12 { --g: .9; }
+.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-410 { --hull: #1f5a9c; --hull-l: #4a9ae8; --g: .74; }
+.ssdns-ammo .ammo-round.is-primer.is-loaded.rt-shell.is-gauge-10 { --hull: #1a5a26; --hull-l: #3f9a4c; --g: 1; }
 /* 0.3.53 sample: the single rifle-musket ball is as big as a Ball n Cap chamber ball. */
 .ssdns-ammo-dots .ammo-round.rt-ball { width: 30px; height: 30px; }
 .ssdns-ammo-dots.is-demo .ammo-round.rt-ball { width: 47px; height: 47px; }
