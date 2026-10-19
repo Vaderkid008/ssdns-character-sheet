@@ -28,6 +28,8 @@ try {
     const out = {};
     const dialogs = () => document.querySelectorAll("dialog[open], dialog.ssm-dis-confirm, dialog[data-dis-confirm]").length;
     const lastRoll = () => { const it = [...document.querySelectorAll(".log-item")].find((n) => /ATTACK/.test(n.textContent)); return it ? it.innerHTML : ""; };
+    /* pin the dice (every d20 = 13) so a natural-1 misfire never changes the chat line under test */
+    const realRandom = Math.random; Math.random = () => 0.6;
     /* DM-sent shot, DM picked advantage: no prompt even though the player is Poisoned */
     window.SSDNSGunRoll._dm = { mode: "adv" };
     window.SSDNSGunRoll(0, 0); window.SSDNSGunRoll._dm = null;
@@ -48,6 +50,7 @@ try {
     window.SSDNSGunRoll(0, 2);
     await wait(600);
     out.playerDialogs = dialogs();
+    Math.random = realRandom;
     return out;
   });
   check("dm.advNoPrompt", res.dmAdvDialogs === 0, JSON.stringify(res));
