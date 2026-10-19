@@ -118,3 +118,7 @@ Ambient beds live in `assets/music/ambient/` and are listed in `tracks.json` (am
 | sting-tension | `sting-tension.mp3` |
 | sting-reveal | `sting-reveal.mp3` |
 | reward | `reward.mp3` |
+
+## 0.3.58 play order
+
+Results follow the shot you actually hear. Every sfx file is preloaded. A result plays 550 ms after the shot's real start (the `playing` event). If the shot fails or hasn't started after 1 s, the result plays anyway. A result that arrives before its shot waits up to 550 ms for one. A crit plays its sting (nat20) 150 ms before the hit sound. Set `CRIT_BEFORE_SHOT = true` in sfx.js to play the sting right away instead; the shot has already fired by then, so the sting lands together with the shot rather than truly ahead of it. Enemy downed plays 450 ms after the result. Other overlapping cues are spaced 250 ms apart. No cue waits more than 1.5 s.
