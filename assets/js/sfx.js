@@ -66,7 +66,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.56"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.57"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -322,16 +322,76 @@
     var cue = outcomeCue(info, result);
     try { root.dispatchEvent(new CustomEvent("ssdns-sfx-outcome", { detail: { cue: cue, result: outcomeSlot(result), category: outcomeCategory(info) } })); } catch (e) {}
     if (!cue || prefs.muted || volume() <= 0) return cue;
-    play(cue);
+    play(cue, { kind: "result" });
     return cue;
   }
-  function play(eventName) {
-    try { root.dispatchEvent(new CustomEvent("ssdns-sfx", { detail: eventName })); } catch (e) {}
+  /* 0.3.57 play queue: smooth, consistent timing.
+     - The shot / swing / roll / cast is t = 0 and plays at once.
+     - Its result (hit, miss/ricochet, crit, nat 1, nat 20) plays RESULT_AFTER_SHOT_MS after the
+       shot's onset (not after the click that reports it), so it always lands at the same spot.
+     - Enemy downed plays DOWNED_AFTER_RESULT_MS after the result (or after shot + result offset).
+     - Misfire-type cues are immediate. Any other cues that collide are spaced SFX_GAP_MS apart.
+     - A small fixed jitter (+/- JITTER_MS) keeps repeats natural; no wait ever exceeds MAX_WAIT_MS.
+     Broadcast cues from the table come in through play(), so they get the same timing. */
+  var SFX_GAP_MS = 150;
+  var RESULT_AFTER_SHOT_MS = 300;
+  var DOWNED_AFTER_RESULT_MS = 300;
+  var JITTER_MS = 20;
+  var MAX_WAIT_MS = 800;
+  var ANCHOR_WINDOW_MS = 1200;
+  var RESULT_DELAY_MS = RESULT_AFTER_SHOT_MS;
+  var IMMEDIATE = { misfire: 1, jam: 1, "empty-click": 1 };
+  var SHOT_CUES = { attack: 1, rifle: 1, revolver: 1, plinker: 1, "lever-fire": 1, shotgun: 1, buffalo: 1, silenced: 1, gatling: 1,
+    "gatling-ellen-manor": 1, bow: 1, "bow-long": 1, "spear-throw": 1, slash: 1, thud: 1, twang: 1, whoosh: 1, spellshot: 1,
+    pactshot: 1, lightning: 1, "lightning-ultimate": 1, electric: 1, "ice-storm": 1, spellcast: 1, "roll-d20": 1, roll: 1 };
+  var RESULT_CUES = { "hit-gun": 1, ricochet: 1, "hit-melee": 1, "crit-melee": 1, "miss-melee": 1, "miss-blunt": 1, "sword-hit": 1,
+    spear: 1, axe: 1, "hit-arrow": 1, "miss-arrow": 1, nat1: 1, nat20: 1 };
+  var DOWNED_CUES = { "enemy-downed": 1 };
+  var nextFreeAt = 0, lastShotAt = -1e15, lastResultAt = -1e15;
+  var pendingTimers = [];
+  var jitterRnd = function () { return Math.random(); };
+  function nowMs() { return Date.now(); }
+  function jitter() { return JITTER_MS ? Math.round((jitterRnd() * 2 - 1) * JITTER_MS) : 0; }
+  function slotFor(eventName, delayMs, kindHint) {
+    var now = nowMs();
+    if (IMMEDIATE[eventName]) { nextFreeAt = Math.max(nextFreeAt, now + SFX_GAP_MS); return 0; }
+    var kind = kindHint || (RESULT_CUES[eventName] ? "result" : DOWNED_CUES[eventName] ? "downed" : SHOT_CUES[eventName] ? "shot" : "other");
+    var at;
+    if (kind === "result") {
+      var shot = now - lastShotAt < ANCHOR_WINDOW_MS ? lastShotAt : now;
+      at = Math.max(now, shot + RESULT_AFTER_SHOT_MS + jitter());
+      lastResultAt = at;
+    } else if (kind === "downed") {
+      var base = now - lastResultAt < ANCHOR_WINDOW_MS ? lastResultAt
+        : (now - lastShotAt < ANCHOR_WINDOW_MS ? lastShotAt + RESULT_AFTER_SHOT_MS : now);
+      at = Math.max(now, base + DOWNED_AFTER_RESULT_MS + jitter());
+    } else {
+      at = Math.max(now + (Number(delayMs) || 0), nextFreeAt);
+      if (kind === "shot") lastShotAt = at;
+    }
+    if (at - now > MAX_WAIT_MS) at = now + MAX_WAIT_MS;
+    if (kind !== "result" && kind !== "downed") nextFreeAt = Math.max(nextFreeAt, at) + SFX_GAP_MS;
+    return at - now;
+  }
+  function startNow(eventName) {
     if (prefs.muted || volume() <= 0) return;
     // Play in this turn when the map is already loaded so a button click is still a user gesture.
     if (sfxMap) { startSfx(sfxMap, eventName); return; }
     loadMap().then(function (map) { startSfx(map, eventName); });
   }
+  function play(eventName, opts) {
+    try { root.dispatchEvent(new CustomEvent("ssdns-sfx", { detail: eventName })); } catch (e) {}
+    if (prefs.muted || volume() <= 0) return 0;
+    var wait = slotFor(String(eventName || ""), opts && opts.delay, opts && opts.kind);
+    if (wait <= 0 || typeof setTimeout !== "function") { startNow(eventName); return 0; }
+    var t = setTimeout(function () {
+      var k = pendingTimers.indexOf(t); if (k >= 0) pendingTimers.splice(k, 1);
+      startNow(eventName);
+    }, wait);
+    pendingTimers.push(t);
+    return wait;
+  }
+  function resetQueue() { pendingTimers.forEach(function (t) { try { clearTimeout(t); } catch (e) {} }); pendingTimers = []; nextFreeAt = 0; lastShotAt = -1e15; lastResultAt = -1e15; }
 
   function stopMusic() {
     pendingMusic = null;
@@ -711,7 +771,10 @@
     poolFiles: function (name) { return eventFiles(sfxMap, name); },
     pickVariant: pickVariant,
     playbackJitter: playbackJitter,
-    resetVariants: function () { lastVariant = {}; }
+    resetVariants: function () { lastVariant = {}; },
+    resetQueue: resetQueue, SFX_GAP_MS: SFX_GAP_MS, RESULT_DELAY_MS: RESULT_DELAY_MS,
+    TIMING: { gap: SFX_GAP_MS, resultAfterShot: RESULT_AFTER_SHOT_MS, downedAfterResult: DOWNED_AFTER_RESULT_MS, jitter: JITTER_MS, maxWait: MAX_WAIT_MS },
+    setJitterSource: function (fn) { jitterRnd = typeof fn === "function" ? fn : function () { return Math.random(); }; }
   };
 
   loadMap();
