@@ -66,8 +66,66 @@
     var d = G[glyphKey(key)] || G.trinket;
     return '<svg class="doll-glyph" viewBox="0 0 48 48" aria-hidden="true"><path d="' + d + '"/></svg>';
   }
+  /* Worn-gear art (Art Bot, Jessey-approved 2026-10-19): assets/img/items/gear/<file>.webp, 400x400 transparent.
+     Specific art by PHB/catalog id first, then by name keywords, then the generic art for the slot. */
+  var GEAR_ART_BY_ID = {
+    /* PHB armor (rules.armor) */
+    "thick-coat": "coat-duster", "leather-jacket": "armor-leather-vest", "studded-vest": "armor-studded-leather", "hide-wrap": "armor-leather-vest",
+    "mail-undershirt": "armor-chain-shirt", "scale-coat": "armor-chain-shirt", "steel-vest": "armor-studded-leather", "heavy-leather-duster": "armor-heavy-leather-duster",
+    "ring-coat": "armor-chain-shirt", "mail-duster": "armor-chain-shirt", "splint-harness": "armor-studded-leather", "iron-suit": "armor-chain-shirt",
+    "shield-badge-board-cavalry-shield-rifle-plate": "shield",
+    /* PHB holsters and belts (rules.holsters) */
+    "slim-jim": "holster-hip", "mexican-loop": "holster-mexican-loop", "skeleton-rig": "holster-hip", "bridgeport-rig-swivel": "holster-hip",
+    "concealed-vest-sleeve": "holster-shoulder-rig", "shoulder-rig": "holster-shoulder-rig", "cross-draw-holster": "holster-cross-draw",
+    "pocket-holster": "holster-hip", "boot-holster": "holster-hip", "saddle-scabbard": "holster-pommel", "pommel-holsters-pair": "holster-pommel",
+    "gun-belt-cartridge-loops": "belt-gun-belt", "bandolier": "belt-bandolier",
+    /* Item catalog wearables */
+    "ore-scholars-robe": "coat-cloak", "night-prospectors-cape": "coat-cloak", "ore-buyers-signet": "ring-eldorite", "prospectors-touch": "gloves-leather"
+  };
+  var GEAR_ART_WORDS = [
+    [/locket/i, "trinket-eldorite-locket"], [/amulet|pendant|talisman|medallion/i, "neck-amulet"], [/bandana|kerchief|scarf|neckerchief/i, "neck-bandana"],
+    [/duster/i, "coat-duster"], [/cloak|cape|robe|poncho|serape/i, "coat-cloak"], [/chain|mail/i, "armor-chain-shirt"], [/studded/i, "armor-studded-leather"],
+    [/bandolier/i, "belt-bandolier"], [/gun ?belt|cartridge belt/i, "belt-gun-belt"], [/cross[- ]?draw/i, "holster-cross-draw"], [/shoulder/i, "holster-shoulder-rig"],
+    [/mexican loop/i, "holster-mexican-loop"], [/pommel/i, "holster-pommel"], [/spur|boot/i, "boots-spurs"], [/chaps/i, "chaps-leather"], [/glove|gauntlet/i, "gloves-leather"],
+    [/\bhats?\b|stetson|sombrero|derby|bowler|cattleman/i, "hat-cattleman"], [/eldorite/i, "ring-eldorite"]
+  ];
+  var GEAR_ART_SLOT = {
+    hat: "hat-cattleman", neck: "neck-bandana", coat: "coat-duster", vest: "armor-leather-vest", gunbelt: "belt-gun-belt",
+    holster_l: "holster-hip", holster_r: "holster-hip", gloves: "gloves-leather", chaps: "chaps-leather", boots: "boots-spurs",
+    ring_1: "ring-plain", ring_2: "ring-plain", accessory_8: "shield"
+  };
+  var WIDE_GEAR_ART = { "belt-gun-belt": 1, "belt-bandolier": 1, "holster-pair-rig": 1 };
+  function gearArtBase() {
+    try { if ((root.location && root.location.pathname || "").indexOf("/dm/") >= 0) return "../"; } catch (e) {}
+    return "";
+  }
+  /* File stem for a worn thing: an Item, a PHB armor/holster row, or an id string. slotKey picks the generic fallback. */
+  function gearArtFile(thing, slotKey) {
+    var id = typeof thing === "string" ? thing : String((thing && (thing.catalogId || thing.id)) || "");
+    if (id && GEAR_ART_BY_ID[id]) return GEAR_ART_BY_ID[id];
+    if (thing && typeof thing === "object" && slotKey && /^holster_/.test(slotKey) && isPairItem(thing)) return "holster-pair-rig";
+    var name = typeof thing === "string" ? "" : String((thing && thing.name) || "");
+    var wear = typeof thing === "string" ? "" : wearOf(thing);
+    if (name) for (var i = 0; i < GEAR_ART_WORDS.length; i++) if (GEAR_ART_WORDS[i][0].test(name)) {
+      var f = GEAR_ART_WORDS[i][1];
+      /* keep a keyword hit inside the slot's family (e.g. "Eldorite locket" is a trinket, not a ring) */
+      if (!slotKey || f.split("-")[0] === (GEAR_ART_SLOT[slotKey] || "trinket").split("-")[0] || /^accessory_[1-7]$/.test(slotKey) && /^trinket/.test(f)) return f;
+    }
+    if (slotKey === "coat" && wear === "cloak") return "coat-cloak";
+    if (slotKey === "neck" && wear === "amulet") return "neck-amulet";
+    if (slotKey === "gunbelt" && wear === "bandolier") return "belt-bandolier";
+    if (slotKey && GEAR_ART_SLOT[slotKey]) return GEAR_ART_SLOT[slotKey];
+    if (slotKey && /^accessory_[1-7]$/.test(slotKey)) return "trinket-generic";
+    if (!slotKey && wear) { var k = Object.keys(SLOTS).filter(function (sk) { return fits(thing, sk); })[0]; if (k) return gearArtFile(thing, k); }
+    return "";
+  }
+  function gearArtSrc(thing, slotKey) {
+    var f = gearArtFile(thing, slotKey);
+    return f ? gearArtBase() + "assets/img/items/gear/" + f + ".webp" : "";
+  }
   /* Short display name: drop the PHB parenthetical, e.g. "Bowie (shortsword)" -> "Bowie". */
   function shortName(n) { return String(n || "").replace(/\s*\([^)]*\)\s*$/, "").replace(/^Navy \/ Army /, "") || String(n || ""); }
+  function filledName(n) { return !!n; }
   function isDefaultArt(src) { return /items\/defaults\//.test(String(src || "")); }
   var AB = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 
@@ -372,6 +430,12 @@
         if (key === "gunbelt" && !it && (beltRow || (c && c.gunBelt))) { name = beltRow ? beltRow.name : "Gun belt"; src = beltRow ? "Gear: Belt" : "Gear: Gun belt box"; }
         if (it) { name = it.name; art = artFor(it); src = "Item"; if (it.attune && !it.attuned) cls += " doll-unattuned"; }
         if (isDefaultArt(art)) art = "";
+        /* Worn-gear art: the item's own art wins; else the gear map (PHB row or item), else the slot's generic art. */
+        if (filledName(name) && !art) {
+          var row = it || (key === "vest" ? byId(rr.armor, c.armor) : key === "accessory_8" ? "shield-badge-board-cavalry-shield-rifle-plate" : key === "holster_l" ? holL : key === "holster_r" ? holR : key === "gunbelt" ? (beltRow || "gun-belt-cartridge-loops") : null);
+          art = gearArtSrc(row || "", key);
+          if (WIDE_GEAR_ART[gearArtFile(row || "", key)]) cls += " doll-wideart";
+        }
         filled = !!name;
         if (key === "accessory_8" && filled && bonuses(c).shieldOff) cls += " doll-off";
       }
@@ -514,5 +578,5 @@
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
+  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -788,6 +788,11 @@
     if (!path && root.SSDNSItemArt && root.SSDNSItemArt.srcFor) path = root.SSDNSItemArt.srcFor(item) || "";
     if (path && /^(https?:|data:|\.\.|blob:)/.test(path)) return path;
     if (path && root.SSDNSItemArt && root.SSDNSItemArt.srcFor && path === root.SSDNSItemArt.srcFor(item)) return path;
+    /* Worn gear (hats, armor, holsters, rings...) uses the paper-doll gear art before the generic default. */
+    if (!path && item && root.SSDNSDoll && root.SSDNSDoll.gearArtSrc && (item.wear || item.equipSlot || (root.SSDNSDoll.GEAR_ART_BY_ID || {})[item.catalogId || item.id])) {
+      var g = root.SSDNSDoll.gearArtSrc(item, item.equipSlot || "");
+      if (g) return g;
+    }
     if (!path && item && item.type) path = "assets/images/items/defaults/" + (DEFAULT_ART[item.type] || "gear") + ".svg";
     if (!path) return "";
     var prefix = "";

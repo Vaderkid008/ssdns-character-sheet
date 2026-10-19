@@ -1055,3 +1055,6 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 /* Pair holster: one rig over both sides, shown mirrored in Holster L and R. */
 .doll-slot.doll-pair { box-shadow: 0 0 0 .35cqw rgba(176,138,74,.55); }
 .doll-slot.doll-pair::after { content: "pair"; position: absolute; top: 4%; right: 4%; font: 700 1.3cqw/1 Georgia, serif; color: #f4e6c4; background: #6b4320; padding: .1em .3em; border-radius: 2px; }
+/* Worn-gear art (2026-10-19): contain inside the box; wide pieces (gun belt, bandolier, pair rig) get a little extra scale. */
+.doll-slot .doll-art { object-fit: contain; }
+.doll-slot.doll-wideart .doll-art { transform: scale(1.18); }

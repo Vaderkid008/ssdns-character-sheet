@@ -183,6 +183,26 @@ check("wear.dollToGear", !c.items[0].equipSlot && /data-item-wear-toggle="hat1"[
 rows().querySelector('[data-item-wear-toggle="rg1"]').click();
 check("wear.takeOff", !c.items[1].equipSlot);
 
+/* Worn-gear art (Art Bot set, assets/img/items/gear). */
+{
+  const files = new Set(fs.readdirSync(path.join(root, "assets/img/items/gear")).filter((f) => f.endsWith(".webp")).map((f) => f.replace(/\.webp$/, "")));
+  check("art.25files", files.size === 25);
+  const mapped = Object.values(D.GEAR_ART_BY_ID);
+  check("art.mapFilesExist", mapped.every((f) => files.has(f)), mapped.filter((f) => !files.has(f)).join(","));
+  const missing = [...R.armor.map((x) => x.id), ...R.holsters.filter((h) => h.id !== "test-twin-rig").map((h) => h.id)].filter((id) => !D.GEAR_ART_BY_ID[id]);
+  check("art.everyPhbArmorHolsterMapped", missing.length === 0, missing.join(","));
+  check("art.pommel", D.gearArtFile("pommel-holsters-pair", "holster_l") === "holster-pommel");
+  check("art.pairItem", D.gearArtFile({ name: "Twin", wear: "holster", holsterPair: true }, "holster_r") === "holster-pair-rig");
+  check("art.slotFallbacks", D.gearArtFile({ name: "Odd thing", wear: "" }, "accessory_3") === "trinket-generic" && D.gearArtFile({ name: "Band", wear: "ring" }, "ring_2") === "ring-plain" && D.gearArtFile({ name: "Topper", wear: "head" }, "hat") === "hat-cattleman");
+  check("art.keywords", D.gearArtFile({ name: "Eldorite locket" }, "accessory_1") === "trinket-eldorite-locket" && D.gearArtFile({ name: "Wool cloak", wear: "cloak" }, "coat") === "coat-cloak" && D.gearArtFile({ name: "Leather chaps", wear: "legs" }, "chaps") === "chaps-leather");
+  c.armor = "heavy-leather-duster"; c.holster = "mexican-loop"; c.holsterR = "cross-draw-holster"; c.belt = "gun-belt-cartridge-loops"; c.items = [{ uid: "h", name: "Stetson", type: "gear", wear: "head", equipSlot: "hat" }];
+  const h2 = D.html(c, {});
+  check("art.dollUsesGearArt", /gear\/armor-heavy-leather-duster\.webp/.test(h2) && /gear\/holster-mexican-loop\.webp/.test(h2) && /gear\/holster-cross-draw\.webp/.test(h2) && /gear\/belt-gun-belt\.webp/.test(h2) && /gear\/hat-cattleman\.webp/.test(h2));
+  check("art.wideBelt", /doll-wideart[^>]*data-doll-slot="gunbelt"/.test(h2));
+  check("art.gearRowThumb", /gear\/hat-cattleman\.webp/.test(window.SSDNSItems.artSrc(c.items[0])));
+  check("art.emptyKeepsOutline", /data-doll-slot="boots"[^>]*>[^<]*<svg class="doll-glyph"/.test(h2));
+}
+
 /* Caster guns ride in the pistol slots. */
 c.guns = [{ weapon: "blacksnake", equipped: true }]; c.dollWeapons = {};
 check("caster.pistolSlot", /title="Pistol L: Blacksnake/.test(D.html(c, {})));
