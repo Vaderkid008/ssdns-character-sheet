@@ -318,7 +318,7 @@
     if (!c) return [];
     var lv = c.level || 1;
     if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"]];
-    /* 0.3.70 (DND Bot, PHB): Lawman takes a Fighting Style at 2nd level from the Paladin list. Dueling and GWF are melee only. */
+    /* 0.3.71 (DND Bot, PHB): Lawman takes a Fighting Style at 2nd level from the Paladin list. Dueling and GWF are melee only. */
     if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"], ["great-weapon", "Great Weapon Fighting (reroll 1s and 2s on two-handed melee damage)"], ["protection", "Protection (reaction: impose disadvantage on an attack vs an ally within 5 ft; needs a shield)"]];
     if (c.calling === "frontier-scout" && lv >= 2) return [["archery", "Archery (+2 ranged to hit)"]];
     return [];
@@ -346,6 +346,35 @@
     if (!rec) return "";
     return "<option value='" + String(rec.id).replace(/'/g, "") + "' selected>" + String(rec.name || rec.id).replace(/[<>&]/g, "") + "</option>";
   }
+  /** Versatile (1d8) style die for two-handed grip, or "". */
+  function versatileDie(w) {
+    var m = String((w && w.properties) || "").match(/versatile\s*\(\s*(\d*d\d+)\s*\)/i);
+    return m ? m[1] : "";
+  }
+  /** True when this melee row is swung two-handed with a versatile weapon (no shield). */
+  function twoHandGrip(c, row, w) {
+    return !!(c && row && row.twoHand && versatileDie(w) && !c.shield);
+  }
+  function gripHtml(c, i, w) {
+    if (!versatileDie(w)) return "";
+    var row = c.melee[i] || {};
+    var blocked = !!c.shield;
+    return " <label class='tiny melee-grip' title='" + (blocked ? "Two-handed grip needs a free hand. Unequip the shield first." : "Versatile: swing it with both hands for " + versatileDie(w) + " damage.") + "'><input type='checkbox' data-melee-grip='" + i + "' aria-label='Melee " + (i + 1) + " two-handed'" + (row.twoHand && !blocked ? " checked" : "") + (blocked ? " disabled" : "") + "> Two hands (" + versatileDie(w) + ")</label>";
+  }
+  function paintPowerToggle() {
+    var c = ch();
+    var wrap = $("#powerAttackWrap");
+    var box = $("#chkPowerAttack");
+    if (!wrap || !box || !c) return;
+    var feats = c.feats || [];
+    var ss = feats.indexOf("sharpshooter") >= 0, gwm = feats.indexOf("great-weapon-master") >= 0;
+    wrap.hidden = !(ss || gwm);
+    box.checked = !!c.powerAttack && (ss || gwm);
+    var txt = wrap.querySelector("span");
+    if (txt) txt.textContent = (ss && gwm ? "Sharpshooter/GWM" : (ss ? "Sharpshooter" : "GWM")) + " −5/+10";
+    wrap.title = ss && gwm ? "−5 to hit, +10 damage: guns and bows (Sharpshooter), heavy melee (Great Weapon Master). Needs proficiency."
+      : (ss ? "−5 to hit, +10 damage with guns and bows you're proficient with." : "−5 to hit, +10 damage with heavy melee weapons you're proficient with.");
+  }
   function renderMelee() {
     var box = $("#meleeBox");
     var c = ch();
@@ -365,7 +394,7 @@
         "<span data-label='Atk' data-melee-atk='" + i + "'></span>" +
         "<span data-label='Dmg' data-melee-dmg='" + i + "'></span>" +
         "<span data-label='Range' data-melee-rng='" + i + "'></span>" +
-        "</div><label class='tiny equip-toggle' data-equip-wrap='melee:" + i + "'><input type='checkbox' data-equip='melee' data-equip-i='" + i + "' aria-label='Melee " + (i + 1) + " equipped'" + ((c.melee[i] && c.melee[i].weapon && c.melee[i].equipped !== false) ? " checked" : "") + (cur ? "" : " disabled") + "> Equipped</label></div></div>" +
+        "</div><label class='tiny equip-toggle' data-equip-wrap='melee:" + i + "'><input type='checkbox' data-equip='melee' data-equip-i='" + i + "' aria-label='Melee " + (i + 1) + " equipped'" + ((c.melee[i] && c.melee[i].weapon && c.melee[i].equipped !== false) ? " checked" : "") + (cur ? "" : " disabled") + "> Equipped</label>" + gripHtml(c, i, list.filter(function (w) { return w.id === cur; })[0]) + "</div></div>" +
         "<div class='g-actions'><button type='button' class='btn sm' data-melee-roll='" + i + "'" + ((c.melee[i] && c.melee[i].weapon && c.melee[i].equipped === false) ? " hidden" : "") + ">Roll</button>" + knockoutBtn(c, i) + "</div></div>";
     }
     box.innerHTML = html;
@@ -441,13 +470,25 @@
       var magic = Number(w.magic) || 0;
       /* 0.3.69: a catalog weapon's +N to hit (Cutlass of the Sun's Fury +1; its damage die already says 1d6+1) */
       var itemAtk = Number(w.itemAtk) || 0;
+      var twoHand = twoHandGrip(c, row, w);
+      var gripBox = document.querySelector("[data-melee-grip='" + i + "']");
+      if (gripBox) { gripBox.disabled = !!c.shield; gripBox.checked = twoHand; }
       var bonus = ability + prof + magic + itemAtk + ((root.SSDNSApp.styleAttackBonus && root.SSDNSApp.styleAttackBonus(w)) || 0);
-      var extra = magic + ((root.SSDNSApp.styleDamageBonus && root.SSDNSApp.styleDamageBonus(w)) || 0);
+      // Dueling is one-handed only, so a versatile weapon held in both hands loses it.
+      var styleDmg = (root.SSDNSApp.styleDamageBonus && root.SSDNSApp.styleDamageBonus(w)) || 0;
+      if (twoHand && c.fightingStyle === "dueling") styleDmg = 0;
+      var extra = magic + styleDmg;
       /* 0.3.69: Dust Fury +2/+3/+4 by level, melee Str only (not thrown, not finesse-with-Dex) */
       if (!thrown && !usingDex) extra += (root.SSDNSApp.rageDamageBonus ? root.SSDNSApp.rageDamageBonus(c) : 0) || 0;
       var buffDice = root.SSDNSApp.activeBuffs ? root.SSDNSApp.activeBuffs(c, "melee:" + i).map(function (b) { return b.dmgDice; }).filter(Boolean) : [];
-      if (atk) atk.textContent = (bonus >= 0 ? "+" : "") + bonus;
-      if (dmg) dmg.textContent = (w.damage || "") + " " + ((ability + extra) >= 0 ? "+" : "") + (ability + extra) + buffDice.map(function (d) { return " +" + d; }).join("");
+      var pa = root.SSDNSApp.powerAttack ? root.SSDNSApp.powerAttack(c, "melee", w, prof > 0) : null;
+      if (pa) { bonus += pa.atk; extra += pa.dmg; }
+      var die = twoHand ? versatileDie(w) : (w.damage || "");
+      if (atk) { atk.textContent = (bonus >= 0 ? "+" : "") + bonus; atk.title = pa ? pa.label + " −5 to hit" : ""; }
+      if (dmg) {
+        dmg.textContent = die + " " + ((ability + extra) >= 0 ? "+" : "") + (ability + extra) + buffDice.map(function (d) { return " +" + d; }).join("");
+        dmg.title = (twoHand ? "Two hands (versatile " + die + ")" : "") + (pa ? (twoHand ? " · " : "") + pa.label + " +10 damage" : "");
+      }
       var rng = document.querySelector("[data-melee-rng='" + i + "']");
       var rangeText = w.range && !/^[\u2014-]$/.test(String(w.range).trim()) ? w.range : "";
       if (rng) rng.textContent = rangeText || w.properties || "";
@@ -531,6 +572,11 @@
       return !!ok;
     });
   }
+  function meleeRecordFor(id) {
+    var hit = null;
+    [].concat((root.SSDNS_RULES && root.SSDNS_RULES.melee) || [], (root.SSDNS_RULES && root.SSDNS_RULES.otherRanged) || []).forEach(function (w) { if (w && w.id === id) hit = w; });
+    return hit;
+  }
   function rollMeleeNow(i) {
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
@@ -552,7 +598,9 @@
       : { nat: d20(), shown: "", note: "", n2: null };
     var nat = faced.nat;
     var miss = nat === 1;
-    var crit = nat === 20;
+    var critW = meleeRecordFor(c.melee[i] && c.melee[i].weapon);
+    var critAt = root.SSDNSApp && root.SSDNSApp.critMin ? root.SSDNSApp.critMin({ weapon: critW, melee: true }) : 20;
+    var crit = !miss && nat >= critAt;
     /* 0.3.69: every dice term and flat counts ("1d6+1 +3", "+1d4" Eldorite Dust). Great Weapon Fighting
        (Lawman 2+) rerolls a 1 or 2 once on a two-handed melee weapon's damage dice. */
     var parsed = root.SSDNSSheet && root.SSDNSSheet.parseDamage ? root.SSDNSSheet.parseDamage(expr) : null;
@@ -611,6 +659,7 @@
         targetId: tgt.id,
         nat: nat,
         hitTotal: nat + atk,
+        critMin: critAt,
         damage: nat === 1 ? 0 : pendingTotal,
         dice: nat === 1 ? "" : pendingDetail,
         formula: (faced.n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk),
@@ -633,7 +682,7 @@
       ? root.SSDNSSheet.coverFor(tgt, root.SSDNSSheet.coverOptsFor(meleeRanged ? "ranged" : "melee"))
       : { have: tgt && tgt.ac != null && isFinite(Number(tgt.ac)), ac: tgt && tgt.ac, note: "" };
     var haveAc = !!meleeCover.have;
-    if (haveAc && hitTotal < Number(meleeCover.ac)) miss = true;
+    if (haveAc && !crit && hitTotal < Number(meleeCover.ac)) miss = true;
     var dmgTxt = (!miss && detail) ? (" · " + formula + " = " + total) : "";
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
     var modeWord = chosen === "dis" ? " · disadvantage" : (chosen === "adv" ? " · advantage" : "");
@@ -743,6 +792,11 @@
       var wh = document.createElement("label");
       wh.className = "fine";
       wh.innerHTML = "<input type='checkbox' id='chkWhisper'> Whisper to DM";
+      var power = document.createElement("label");
+      power.className = "fine";
+      power.id = "powerAttackWrap";
+      power.hidden = true;
+      power.innerHTML = "<input type='checkbox' id='chkPowerAttack'> <span>Sharpshooter −5/+10</span>";
       var tgt = document.createElement("label");
       tgt.className = "gear-target-label";
       tgt.innerHTML = "Target <select id='atkTarget' aria-label='Attack target'><option value='__free'>Free shot</option><option value='' selected>No target</option></select> <span id='atkReveal' class='fine'></span>";
@@ -751,6 +805,7 @@
       coverLab.innerHTML = "Cover <select id='coverPick' aria-label='Cover for the selected target'><option value=''>None</option><option value='half'>Half +2</option><option value='three'>3/4 +5</option><option value='full'>Total</option></select>";
       init.parentNode.appendChild(adv);
       init.parentNode.appendChild(wh);
+      init.parentNode.appendChild(power);
       var slot = $("#gearTargetSlot");
       if (slot) { slot.appendChild(tgt); slot.appendChild(coverLab); }
       else { init.parentNode.appendChild(tgt); init.parentNode.appendChild(coverLab); }
@@ -1111,6 +1166,7 @@
     renderStyle();
     renderUses();
     paintPact();
+    paintPowerToggle();
   }
   function paintEquipLock(active) {
     var tip = (root.SSDNSEquip && root.SSDNSEquip.LOCK_TIP) || "Change loadout outside combat";
@@ -1137,6 +1193,8 @@
   }
   root.SSDNSPlaytest = {
     syncSheet: syncSheet,
+    paintMath: function () { paintPowerToggle(); paintMelee(); },
+    versatileDie: versatileDie,
     showYourTurn: showYourTurn,
     showTurn: function (init) {
       if (root.SSDNSActionPips && root.SSDNSActionPips.onTurn) root.SSDNSActionPips.onTurn(init);
@@ -1428,6 +1486,18 @@
           }
         });
         renderMelee();
+      }
+      var grip = t.getAttribute && t.getAttribute("data-melee-grip");
+      if (grip != null) {
+        patch(function (d) {
+          var rowG = d.character.melee && d.character.melee[Number(grip)];
+          if (rowG) rowG.twoHand = !!t.checked;
+        });
+        paintMelee();
+      }
+      if (t.id === "chkPowerAttack") {
+        patch(function (d) { d.character.powerAttack = !!t.checked; });
+        paintMelee();
       }
       var fuse = t.getAttribute && t.getAttribute("data-fuse");
       if (fuse) {

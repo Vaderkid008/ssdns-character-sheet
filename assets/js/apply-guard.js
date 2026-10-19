@@ -383,9 +383,12 @@
     var total = Number(info.total);
     var ac = info.ac;
     var have = ac != null && ac !== "" && isFinite(Number(ac));
+    var critAt = Number(info.critMin) || 20;
     var miss = nat === 1 || !!info.misfire;
-    if (!miss && have && isFinite(total) && total < Number(ac)) miss = true;
-    var crit = !miss && nat === 20;
+    var inRange = !miss && nat >= critAt;
+    // A natural roll inside the crit range (Champion, Dead Eye) is a crit, so it hits.
+    if (!miss && !inRange && have && isFinite(total) && total < Number(ac)) miss = true;
+    var crit = !miss && inRange;
     return {
       miss: miss,
       crit: crit,
@@ -1152,8 +1155,10 @@
     var haveAc = ac != null && ac !== "" && isFinite(Number(ac));
     var hideVerdict = !!info.hideVerdict;
     var misfire = !!info.misfire;
-    var miss = !hideVerdict && (misfire || used === 1 || !!info.miss || (haveAc && total < Number(ac)));
-    var crit = !miss && (used === 20 || !!info.crit);
+    var critAt = Number(info.critMin) || 20;
+    var critRoll = !misfire && used !== 1 && used >= critAt;
+    var miss = !hideVerdict && (misfire || used === 1 || !!info.miss || (!critRoll && !info.crit && haveAc && total < Number(ac)));
+    var crit = !miss && (critRoll || !!info.crit);
     var verdict = misfire ? "misfire" : (miss ? "MISS" : (crit ? "CRIT" : "HIT"));
     var vs = (!hideVerdict && haveAc) ? (" vs AC " + Number(ac) + (info.coverNote ? " (" + info.coverNote + ")" : "")) : "";
     var who = info.who || "Someone";

@@ -4908,8 +4908,8 @@ function resolveIncomingAttack(req, reqId) {
     applyAmount = Number(packed.amount) || 0;
   } else {
     verdict = window.SSDNSApplied && window.SSDNSApplied.attackVerdict
-      ? window.SSDNSApplied.attackVerdict({ nat: req.nat, total: req.hitTotal, ac: ac, sfx: req.sfx })
-      : { miss: Number(req.nat) === 1 || (ac != null && Number(req.hitTotal) < ac), crit: Number(req.nat) === 20, verdict: "HIT", sfx: req.sfx || "attack" };
+      ? window.SSDNSApplied.attackVerdict({ nat: req.nat, total: req.hitTotal, ac: ac, sfx: req.sfx, critMin: req.critMin })
+      : { miss: Number(req.nat) === 1 || (ac != null && Number(req.hitTotal) < ac), crit: Number(req.nat) >= (Number(req.critMin) || 20), verdict: "HIT", sfx: req.sfx || "attack" };
     const card = window.SSDNSApplied && window.SSDNSApplied.attackBreakdown
       ? window.SSDNSApplied.attackBreakdown({
         who: req.characterName || "Someone",
@@ -4923,6 +4923,7 @@ function resolveIncomingAttack(req, reqId) {
         total: req.hitTotal,
         ac: ac,
         revealAc: true,
+        critMin: req.critMin,
         misfire: !!req.misfire,
         damage: verdict.miss ? null : {
           faces: req.dmgFaces,
@@ -5972,7 +5973,7 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.83-mounts");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.84-mounts");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);

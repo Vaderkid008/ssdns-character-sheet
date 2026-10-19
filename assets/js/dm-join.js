@@ -638,6 +638,7 @@
       targetName: entry.targetName || "",
       sfx: entry.sfx || "attack"
     };
+    if (Number(entry.critMin) >= 2 && Number(entry.critMin) < 20) row.critMin = Number(entry.critMin); /* Champion / Dead Eye crit range */
     if (entry.shots && typeof entry.shots === "object") row.shots = entry.shots;
     /* 0.3.60: carry the card breakdown so the DM's card shows the d20 and damage die faces */
     if (entry.n1 != null && isFinite(Number(entry.n1))) row.n1 = Number(entry.n1);
