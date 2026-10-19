@@ -227,8 +227,18 @@
       block: !!src.block
     };
   }
+  /* 0.3.66: a creature with no hit-point pool (bestiary hp 0, e.g. the Spectral Horse, which takes no damage)
+     has nothing to lose, so it is never Down. Rows from the bestiary carry noHpPool; an older saved row with
+     a bestiary id and 0 / 0 HP counts too. A hand-added enemy with no HP set is not affected. */
+  function noHpPool(row) {
+    if (!row || row.kind === "player") return false;
+    if (row.noHpPool === true) return true;
+    if (row.noHpPool === false || !row.beastId) return false;
+    return Number(row.maxHp) === 0 && Number(row.hp) === 0 && row.maxHp !== "" && row.maxHp != null;
+  }
   function coarseStatus(row) {
     if (!row || row.kind === "player") return (row && row.status) || "";
+    if (noHpPool(row)) return row.fled || String(row.status || "") === "Fled" ? "Fled" : "";
     var status = String(row.status || "");
     if (row.fled || status === "Fled") return "Fled";
     var hp = Number(row.hp);
@@ -770,6 +780,10 @@
   /** HP wins over a sticky Down. Fled stays fled. A living creature is not Down. */
   function refreshCombatantStatus(row) {
     if (!row) return "";
+    if (noHpPool(row)) {
+      row.status = coarseStatus(row);
+      return row.status;
+    }
     if (row.fled || String(row.status || "") === "Fled") {
       row.status = "Fled";
       return "Fled";
@@ -1009,7 +1023,7 @@
   }
   /** Local Down flag from HP. Returns the new status only when it changed. */
   function syncDownStatus(row) {
-    if (!row) return "";
+    if (!row || noHpPool(row)) return "";
     var hp = hpNumber(row.hp);
     var prev = String(row.status || "");
     var next = prev;
@@ -1318,6 +1332,7 @@
     liveStripAllowed: liveStripAllowed,
     revealFlags: revealFlags,
     coarseStatus: coarseStatus,
+    noHpPool: noHpPool,
     combatantSide: combatantSide,
     publicEnemy: publicEnemy,
     coverKey: coverKey,
