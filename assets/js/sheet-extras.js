@@ -647,7 +647,7 @@
     var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var who = sheetSpeaker();
     var text = (who ? who + " · " : "") + label + " · " + formula + " = " + total + " (" + detail + ")";
-    toast(label + " " + total + " (" + detail + ")");
+    toast(label + " " + total + " (" + String(detail).replace(/[«»]/g, "") + ")");
     addLog({ id: "roll:" + rollId, kind: "roll", text: text, label: label, formula: formula, result: total, detail: detail });
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
@@ -857,7 +857,7 @@
       n1: n1,
       n2: n2,
       mode: mode,
-      shown: n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat),
+      shown: n2 == null ? String(nat) : advRunText([n1, n2], nat),
       note: notes.join(" · "),
       mod: mod || 0
     };
@@ -919,9 +919,14 @@
     if (!sel || (pin && pin.checked)) return;
     if (sel.value) sel.value = "";
   }
+  function advRunText(faces, kept) {
+    if (root.SSDNSDice && root.SSDNSDice.advRun) return root.SSDNSDice.advRun(faces, kept);
+    var marked = false;
+    return "d20 " + faces.map(function (n) { if (!marked && n === kept) { marked = true; return "«" + n + "»"; } return String(n); }).join(" / ");
+  }
   function modeWord(mode) {
-    if (mode === "dis") return " disadvantage";
-    if (mode === "adv") return " advantage";
+    if (mode === "dis") return " · disadvantage";
+    if (mode === "adv") return " · advantage";
     return "";
   }
   function rememberEnemy(tgt) {
@@ -946,7 +951,8 @@
       nat = mode === "adv" ? Math.max(n1, n2) : Math.min(n1, n2);
     }
     var formula = (n2 == null ? "1d20" : "2d20") + (mod ? signMod(mod) : "");
-    var dice = n2 == null ? String(nat) : (n1 + "/" + n2 + " → " + nat);
+    /* 0.3.63: "d20 5 / «14»" like the attack card, so chat shows both dice with the kept one ringed */
+    var dice = n2 == null ? String(nat) : advRunText([n1, n2], nat);
     var detail = dice + (mod ? signMod(mod) : "") + modeWord(mode);
     consumeRollMode();
     return { nat: nat, total: nat + (mod || 0), formula: formula, detail: detail };

@@ -30,7 +30,7 @@ check("crit.doubled", h.includes("2d8 [d8:6][d8:3]") && h.includes('roll-total-a
 const multi = B({ who: "J", target: "W", faces: [8, 17], nat: 17, atk: 7, damage: { dice: "2d6+1d4", faces: [4, 5, 2], parts: [{ label: "DEX", value: 4 }], total: 15, type: "piercing" } });
 h = L({ attack: true }, multi.text);
 check("multi.dice", h.includes("2d6 [d6:4][d6:5] + d4 [d4:2]") && h.includes('roll-total dmg">15'), h);
-check("adv.used", h.includes('[d20:8]<span class="die-used">[d20:17]</span>'), h);
+check("adv.used", /<span class="die-dropped"[^>]*>\[d20:8\]<\/span><span class="die-used die-kept adv"[^>]*>\[d20:17\]<\/span>/.test(h), h);
 const miss = B({ who: "Outlaw", target: "Jessey", nat: 9, atk: 4, ac: 15 });
 h = L({ attack: true }, miss.dmText);
 check("enemy.miss", h.includes('roll-total-atk miss">13') && !h.includes("Damage"), h);
@@ -81,6 +81,6 @@ check("v2.unlinkCid", /function unlinkMapToken[\s\S]{0,500}r\.id === cid && \(!r
 check("v2.clearConfirm", /Clear " \+ ids\.length \+ " stale token/.test(v2) && /SSDNSAsk\.confirm\(msg\)/.test(v2));
 check("dm.button", /id="btnClearStale"/.test(read("dm/index.html")) && /#btnClearStale/.test(v2));
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.62" && ver.dmcc === "0.2.75");
+check("ver", ver.sheet === "0.3.63" && ver.dmcc === "0.2.76");
 console.log(failures.length ? "\n" + failures.length + " FAILED: " + failures.join(", ") : "\nAll PR79 checks passed.");
 process.exit(failures.length ? 1 : 0);

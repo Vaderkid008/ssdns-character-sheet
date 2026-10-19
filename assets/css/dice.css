@@ -71,6 +71,14 @@ button.d20 {
 .roll-total.crit { border-color: #ffcf4a; color: #fff2c4; box-shadow: 0 0 0 1px #1A1A1A, 0 0 15px rgba(255, 207, 74, .8); }
 .roll-total.miss { border-color: #8b7a5c; color: #d9ccb0; box-shadow: 0 0 0 1px #1A1A1A; }
 .die-used { display: inline-block; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255, 207, 74, .55); }
+/* 0.3.60 advantage / disadvantage: kept d20 ringed green (adv) or red (dis); dropped d20 gets a thin faint red X */
+.die-kept.adv { box-shadow: 0 0 0 2px #46c46a, 0 0 6px rgba(70, 196, 106, .55); }
+.die-kept.dis { box-shadow: 0 0 0 2px #e0524a, 0 0 6px rgba(224, 82, 74, .55); }
+.die-dropped { position: relative; display: inline-block; opacity: .72; }
+.die-dropped::after { content: ""; position: absolute; inset: 4px; pointer-events: none;
+  background:
+    linear-gradient(45deg, transparent calc(50% - 1px), rgba(255, 140, 140, .75) calc(50% - 1px), rgba(255, 140, 140, .75) calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(-45deg, transparent calc(50% - 1px), rgba(255, 140, 140, .75) calc(50% - 1px), rgba(255, 140, 140, .75) calc(50% + 1px), transparent calc(50% + 1px)); }
 /* 0.3.60: attack (d20) total: no ring, the d20 face's light blue */
 .roll-total-atk { color: #4FDCCB; font-weight: 800; }
 .roll-total-atk.crit { color: #7ff3e6; }

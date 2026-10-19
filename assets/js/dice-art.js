@@ -224,16 +224,38 @@
      A run of faces after "NdS" ("2d6 «4» «5»", or "d20 8 / «17»" for advantage) becomes icons;
      the used advantage face keeps a ring. */
   var CARD_LINE = /→\s*(HIT|MISS|CRIT|misfire)\b/i;
+  var ADV_RUN = /\bd20\s+(?:«\d+»|\d+)\s*\/\s*(?:«\d+»|\d+)/;
+  /* "d20 5 / «14»": both faces, the kept one in « ». One face stays a plain number. */
+  function advRun(faces, kept) {
+    faces = (faces || []).map(Number);
+    if (faces.length < 2) return String(kept != null ? kept : faces[0]);
+    var marked = false;
+    return "d20 " + faces.map(function (n) { if (!marked && n === Number(kept)) { marked = true; return "«" + n + "»"; } return String(n); }).join(" / ");
+  }
   function totalBadge(n, cls) { return '<span class="roll-total' + (cls ? " " + cls : "") + '">' + n + "</span>"; }
   function faceRun(html) {
     return html.replace(/(^|[\s>(:·])(\d*)d(4|6|8|10|12|20|50|100)\s+((?:«\d+»|\d+)(?:\s*(?:\/|\s)\s*(?:«\d+»|\d+))*)(?=$|[\s<·)+=-])/g,
       function (all, lead0, count, sides, run) {
         if (run.indexOf("«") < 0) return all;
         var bits = run.split(/\s*\/\s*|\s+/).filter(Boolean);
-        var icons = bits.map(function (b) {
-          var used = b.indexOf("«") >= 0, n = Number(b.replace(/[«»]/g, ""));
-          var icon = iconHtml(Number(sides), n);
-          return used && bits.length > 1 && Number(sides) === 20 ? '<span class="die-used">' + icon + "</span>" : icon;
+        /* 0.3.63: advantage / disadvantage. Both d20s show; the kept one gets a green (adv) or red (dis) ring,
+           the dropped one a thin faint red X that leaves its number readable. The mode is read from the faces
+           (kept = highest -> adv, lowest -> dis); a tie falls back to the line's own wording. */
+        var pair = bits.length > 1 && Number(sides) === 20;
+        var nums = bits.map(function (b) { return Number(b.replace(/[«»]/g, "")); });
+        var keptAt = -1;
+        bits.forEach(function (b, k) { if (keptAt < 0 && b.indexOf("«") >= 0) keptAt = k; });
+        var mode = "adv";
+        if (pair && keptAt >= 0) {
+          var hi = Math.max.apply(null, nums), lo = Math.min.apply(null, nums), kv = nums[keptAt];
+          if (hi === lo) mode = /disadvantage/i.test(String(html)) ? "dis" : "adv";
+          else mode = kv === lo ? "dis" : "adv";
+        }
+        var icons = bits.map(function (b, k) {
+          var icon = iconHtml(Number(sides), nums[k]);
+          if (!pair || keptAt < 0) return icon;
+          if (k === keptAt) return '<span class="die-used die-kept ' + mode + '" title="kept (' + (mode === "dis" ? "disadvantage" : "advantage") + ')">' + icon + "</span>";
+          return '<span class="die-dropped" title="dropped">' + icon + "</span>";
         }).join("");
         return lead0 + (count || "") + "d" + sides + " " + icons;
       });
@@ -244,7 +266,8 @@
     var parts = html.split(/(\n|<br\s*\/?>)/);
     var whole = parts.join("");
     var isCard = CARD_LINE.test(whole) || /^\s*Damage(?: \(crit\))?:/m.test(whole) || /(^|\n|<br\s*\/?>)\s*Damage(?: \(crit\))?:/.test(whole);
-    if (!isCard) return html;
+    /* 0.3.63: checks, saves, initiative, contests and spell beams/rays write advantage as "d20 5 / «14»" too */
+    if (!isCard) return ADV_RUN.test(whole) ? faceRun(html) : html;
     var verdict = (whole.match(CARD_LINE) || [])[1] || "";
     var v = verdict.toUpperCase();
     var tone = v === "CRIT" ? "crit" : (v === "MISS" || v === "MISFIRE" ? "miss" : "");
@@ -509,6 +532,7 @@
     decorate: decorate,
     lead: lead,
     cardBadges: cardBadges,
+    advRun: advRun,
     roll: roll,
     rollPool: rollPool,
     poolOf: poolOf,

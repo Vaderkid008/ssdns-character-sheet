@@ -52,7 +52,10 @@
     if (mode === "adv" || mode === "dis") n2 = die(20);
     var nat = n1;
     if (n2 != null) nat = mode === "adv" ? Math.max(n1, n2) : Math.min(n1, n2);
-    return { nat: nat, shown: n2 == null ? String(n1) : (n1 + "/" + n2 + " → " + nat) };
+    /* 0.3.63: "d20 5 / «14»" (kept face in « ») so chat draws both dice with the kept one ringed */
+    var shown = String(n1);
+    if (n2 != null) shown = root.SSDNSDice && root.SSDNSDice.advRun ? root.SSDNSDice.advRun([n1, n2], nat) : "d20 " + (n1 === nat ? "«" + n1 + "» / " + n2 : n1 + " / «" + n2 + "»");
+    return { nat: nat, shown: shown };
   }
   function sign(n) {
     n = Number(n) || 0;
