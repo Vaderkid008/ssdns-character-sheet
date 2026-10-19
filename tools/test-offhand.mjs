@@ -199,6 +199,30 @@ try {
       c.melee = [{ weapon: "cavalry-saber-longsword", equipped: true, proficient: true, twoHand: true }, { weapon: "" }, { weapon: "" }, { weapon: "" }]; });
     await wait(300);
     out.grip = { ok: O.options().ok };
+    /* 0.3.72 (Jessey): Great Weapon Fighting rerolls also apply to a Versatile weapon held with "Two hands" */
+    const PT = window.SSDNSPlaytest, CH = () => A.doc().character;
+    const gwfLoad = (fn) => load((c) => { c.calling = "lawman"; c.level = 2; c.fightingStyle = "great-weapon"; c.shield = false;
+      c.guns = [{ weapon: "" }, { weapon: "" }, { weapon: "" }, { weapon: "" }];
+      c.melee = [{ weapon: "cavalry-saber-longsword", equipped: true, proficient: true, twoHand: true }, { weapon: "buffalo-axe-greataxe", equipped: true, proficient: true }, { weapon: "" }, { weapon: "" }];
+      if (fn) fn(c); });
+    gwfLoad(); await wait(300);
+    out.gwf = { versTwo: PT.meleeGwf(CH(), 0), heavy: PT.meleeGwf(CH(), 1) };
+    /* d20 17 hits, the first damage die shows 1; GWF rerolls it into a 10 (without GWF it stays 1) */
+    const seq = () => { const q = [0.8, 0.01, 0.95]; return () => (q.length ? q.shift() : 0.01); };
+    Math.random = seq();
+    PT.rollMelee(0); await wait(500);
+    Math.random = realRandom;
+    out.gwf.log = (document.querySelector(".log-item") || {}).textContent || "";
+    gwfLoad((c) => { c.melee[0].twoHand = false; }); await wait(200);
+    out.gwf.versOne = PT.meleeGwf(CH(), 0);
+    Math.random = seq();
+    PT.rollMelee(0); await wait(500);
+    Math.random = realRandom;
+    out.gwf.logOne = (document.querySelector(".log-item") || {}).textContent || "";
+    gwfLoad((c) => { c.shield = true; }); await wait(200);
+    out.gwf.versShield = PT.meleeGwf(CH(), 0);
+    gwfLoad((c) => { c.fightingStyle = "dueling"; }); await wait(200);
+    out.gwf.notStyle = PT.meleeGwf(CH(), 0);
     Math.random = realRandom;
     return out;
   });
@@ -226,6 +250,10 @@ try {
   check("mix.pistolBlade", res.mix.ok && J(res.mix.kinds) === J(["gun", "melee"]), J(res.mix));
   check("rules.shieldBlocks", !res.shield.ok && /shield/.test(res.shield.reason), J(res.shield));
   check("rules.twoHandGripBlocks", !res.grip.ok, J(res.grip));
+  check("gwf.versatileTwoHands", res.gwf.versTwo === true && res.gwf.heavy === true, J(res.gwf));
+  check("gwf.versatileRerolls", /Damage: d10 10 = 10/.test(res.gwf.log), res.gwf.log);
+  check("gwf.oneHandNoReroll", /Damage: d8 1 = 1/.test(res.gwf.logOne), res.gwf.logOne);
+  check("gwf.oneHandNo", res.gwf.versOne === false && res.gwf.versShield === false && res.gwf.notStyle === false, J(res.gwf));
   check("sheet.noPageErrors", errs.length === 0, errs.join(" | "));
 
   /* DMCC demo loads clean with the new drawer toggle and detail checkbox */

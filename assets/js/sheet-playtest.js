@@ -319,7 +319,7 @@
     var lv = c.level || 1;
     if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"]];
     /* 0.3.72 (DND Bot, PHB): Lawman takes a Fighting Style at 2nd level from the Paladin list. Dueling and GWF are melee only. */
-    if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"], ["great-weapon", "Great Weapon Fighting (reroll 1s and 2s on two-handed melee damage)"], ["protection", "Protection (reaction: impose disadvantage on an attack vs an ally within 5 ft; needs a shield)"]];
+    if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"], ["great-weapon", "Great Weapon Fighting (reroll 1s and 2s on two-handed melee damage, or a versatile weapon held in two hands)"], ["protection", "Protection (reaction: impose disadvantage on an attack vs an ally within 5 ft; needs a shield)"]];
     if (c.calling === "frontier-scout" && lv >= 2) return [["archery", "Archery (+2 ranged to hit)"]];
     return [];
   }
@@ -442,7 +442,8 @@
     if (!c || c.fightingStyle !== "great-weapon" || c.calling !== "lawman" || (Number(c.level) || 1) < 2) return false;
     var row = c.melee && c.melee[i];
     var w = row && meleeRecord(rules().melee || [], row.weapon);
-    return !!(w && /two-handed/i.test(w.properties || ""));
+    /* 0.3.72: a Versatile weapon swung with "Two hands" (twoHandGrip) also gets the GWF reroll (Jessey). */
+    return !!(w && (/two-handed/i.test(w.properties || "") || twoHandGrip(c, row, w)));
   }
   function paintMelee() {
     var c = ch();
@@ -1208,6 +1209,7 @@
     syncSheet: syncSheet,
     paintMath: function () { paintPowerToggle(); paintMelee(); },
     versatileDie: versatileDie,
+    meleeGwf: meleeGwf,
     showYourTurn: showYourTurn,
     showTurn: function (init) {
       if (root.SSDNSActionPips && root.SSDNSActionPips.onTurn) root.SSDNSActionPips.onTurn(init);
