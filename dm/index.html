@@ -10,12 +10,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Smokum&display=swap">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.67-maps">
-<link rel="stylesheet" href="../assets/css/vol-slider.css?v=0.2.67-vol">
-<link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.54-modal">
-<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.54-rounds">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.67-fire">
-<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.67-polish">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.68-maps">
+<link rel="stylesheet" href="../assets/css/vol-slider.css?v=0.2.68-vol">
+<link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.55-modal">
+<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.55-rounds">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.68-fire">
+<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.68-polish">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -491,6 +491,44 @@
         <button type="button" class="btn sm" id="btnMusicStopAll">Stop for all</button>
         <span class="lede" id="musicStatus"></span>
       </div>
+      <div class="mx-scenes" id="mxScenes">
+        <h3>Scenes</h3>
+        <p class="lede">One tap sets the Music and Ambient tracks at their volumes (fades over the scene's seconds). Saved on this browser.</p>
+        <div class="toolbar" id="mxSceneList"></div>
+        <details class="mx-scene-edit" id="mxSceneEdit">
+          <summary>New or edit scene</summary>
+          <div class="toolbar">
+            <select id="mxScenePick" aria-label="Scene to edit"></select>
+            <input type="text" id="mxSceneName" placeholder="Scene name, e.g. Saloon" aria-label="Scene name">
+          </div>
+          <div class="toolbar">
+            <label class="toggle">Music <select id="mxSceneMusic" aria-label="Scene music track"></select></label>
+            <label class="toggle">Volume <input type="range" id="mxSceneMusicLv" data-mx-scene-level min="0" max="100" value="80" aria-label="Scene music volume"></label>
+          </div>
+          <div class="toolbar">
+            <label class="toggle">Ambient <select id="mxSceneAmb" aria-label="Scene ambient track"></select></label>
+            <label class="toggle">Volume <input type="range" id="mxSceneAmbLv" data-mx-scene-level min="0" max="100" value="50" aria-label="Scene ambient volume"></label>
+          </div>
+          <div class="toolbar">
+            <label class="toggle">Fade <select id="mxSceneSec" aria-label="Scene fade seconds"><option value="2">2s</option><option value="3" selected>3s</option><option value="5">5s</option><option value="10">10s</option></select></label>
+            <button type="button" class="btn btn-primary sm" id="btnMxSceneSave">Save scene</button>
+            <button type="button" class="btn sm" id="btnMxSceneDel">Delete scene</button>
+            <span class="lede" id="mxSceneMsg"></span>
+          </div>
+        </details>
+      </div>
+      <div class="mx-stingers" id="mxStingers">
+        <h3>Stingers</h3>
+        <p class="lede">Short one-shot cues. They play over the music and ambient without stopping them, at each listener's SFX volume.</p>
+        <div class="toolbar" id="mxStingerList"></div>
+        <div class="toolbar">
+          <select id="mxStingerAdd" aria-label="Add a stinger from the SFX pack"></select>
+          <input type="text" id="mxStingerLabel" placeholder="Button label" aria-label="Stinger label">
+          <button type="button" class="btn sm" id="btnMxStingerAdd">Add stinger</button>
+        </div>
+      </div>
+      <p class="lede mx-sfx-master">SFX volume on this browser (gunshots and all sound effects): <label class="toggle"><input type="checkbox" data-sfx-mute checked> Sound on</label>
+        <label class="toggle">SFX <input type="range" data-sfx-volume min="0" max="100" value="80" aria-label="SFX volume, this browser"></label></p>
         <div class="mx-layer" data-mx-layer="music">
           <h3>Music</h3>
           <div class="toolbar">
@@ -567,8 +605,6 @@
         <p class="lede" id="mxMeter">Storage: open a live room to check.</p>
         <ul class="mx-mine" id="mxMine"></ul>
       </details>
-      <p class="lede">Sound effects on this browser: <label class="toggle"><input type="checkbox" data-sfx-mute checked> Sound on</label>
-        <label class="toggle">Volume <input type="range" data-sfx-volume min="0" max="100" value="80"></label></p>
     </section>
 
     <!-- NOTES -->
@@ -659,42 +695,42 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.67-fire"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.68-fire"></script>
 <script src="../assets/js/conditions.js?v=0.2.35"></script>
 <script src="assets/js/ui-tab.js?v=0.2.35"></script>
-<script src="../assets/js/sfx.js?v=0.2.67-fire"></script>
-<script src="../assets/js/vol-slider.js?v=0.2.67-vol"></script>
-<script src="../assets/js/music-deck.js?v=0.2.67-maps"></script>
-<script src="../assets/js/media-upload.js?v=0.2.67-music"></script>
-<script src="assets/js/music-dm.js?v=0.2.67-music"></script>
+<script src="../assets/js/sfx.js?v=0.2.68-fire"></script>
+<script src="../assets/js/vol-slider.js?v=0.2.68-vol"></script>
+<script src="../assets/js/music-deck.js?v=0.2.68-maps"></script>
+<script src="../assets/js/media-upload.js?v=0.2.68-music"></script>
+<script src="assets/js/music-dm.js?v=0.2.68-music"></script>
 <script src="../assets/data/rules.js?v=0.2.35-class"></script>
-<script src="../assets/js/equip.js?v=0.2.67-equip"></script>
+<script src="../assets/js/equip.js?v=0.2.68-equip"></script>
 <script src="../assets/js/spell-fx.js?v=0.2.35"></script>
 <script src="../assets/js/spell-cast.js?v=0.2.39-range"></script>
-<script src="../assets/js/misfire.js?v=0.2.67-fire"></script>
+<script src="../assets/js/misfire.js?v=0.2.68-fire"></script>
 <script src="../assets/js/firebase-config.js?v=0.2.35"></script>
 <script src="assets/js/store-stock.js?v=0.2.35"></script>
 <script src="assets/js/demo-data.js?v=0.2.35-guns"></script>
-<script src="../assets/js/test-jammer.js?v=0.2.67-fire"></script>
-<script src="../assets/js/weapon-art.js?v=0.2.67-polish"></script>
-<script src="../assets/js/instrument-art.js?v=0.2.67-art"></script>
-<script src="../assets/data/item-catalog.js?v=0.2.67-items"></script>
-<script src="../assets/js/custom-weapons.js?v=0.3.54-items"></script>
-<script src="../assets/js/items.js?v=0.2.67-polish"></script>
-<script src="../assets/js/item-art.js?v=0.2.67-art"></script>
-<script src="../assets/js/peace-maker.js?v=0.2.67-art"></script>
-<script src="../assets/js/dice-art.js?v=0.2.67-polish"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.67-reload"></script>
-<script src="../assets/js/ammo-display.js?v=0.3.54-rounds"></script>
-<script src="../assets/js/grab.js?v=0.2.67-grab"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.67-fire"></script>
+<script src="../assets/js/test-jammer.js?v=0.2.68-fire"></script>
+<script src="../assets/js/weapon-art.js?v=0.2.68-polish"></script>
+<script src="../assets/js/instrument-art.js?v=0.2.68-art"></script>
+<script src="../assets/data/item-catalog.js?v=0.2.68-items"></script>
+<script src="../assets/js/custom-weapons.js?v=0.3.55-items"></script>
+<script src="../assets/js/items.js?v=0.2.68-polish"></script>
+<script src="../assets/js/item-art.js?v=0.2.68-art"></script>
+<script src="../assets/js/peace-maker.js?v=0.2.68-art"></script>
+<script src="../assets/js/dice-art.js?v=0.2.68-polish"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.68-reload"></script>
+<script src="../assets/js/ammo-display.js?v=0.3.55-rounds"></script>
+<script src="../assets/js/grab.js?v=0.2.68-grab"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.68-fire"></script>
 <script src="../map/token-crop.js?v=0.2.38-card"></script>
 <script src="../assets/js/range-rings.js?v=0.2.42-dis"></script>
 <script src="../map/ssdns-map-chat.js?v=0.2.44-float"></script>
-<script src="../map/map-packs.js?v=0.2.67-maps"></script>
-<script src="../map/map-library.js?v=0.2.67-maps"></script>
-<script src="../map/ssdns-map.js?v=0.2.67-maps"></script>
+<script src="../map/map-packs.js?v=0.2.68-maps"></script>
+<script src="../map/map-library.js?v=0.2.68-maps"></script>
+<script src="../map/ssdns-map.js?v=0.2.68-maps"></script>
 <script src="../map/ssdns-map-firebase.js?v=0.2.36-sync"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.67-fire"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.68-fire"></script>
 </body>
 </html>

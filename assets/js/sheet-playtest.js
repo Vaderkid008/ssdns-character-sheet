@@ -503,6 +503,7 @@
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
     paintMelee();
     c.takingCover = false;
+    if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack((c.melee && c.melee[i] && c.melee[i].weapon ? "Melee" : "Melee") + " attack");
     var atk = parseInt((document.querySelector("[data-melee-atk='" + i + "']") || {}).textContent, 10) || 0;
     var expr = (document.querySelector("[data-melee-dmg='" + i + "']") || {}).textContent || "1d4";
     var chosen = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
@@ -654,7 +655,7 @@
         panel.id = "turnPanel";
         panel.className = "turn-panel";
         panel.hidden = true;
-        panel.innerHTML = "<b id='turnRound'>Round 1</b> <span id='turnWho'></span> <div id='turnNames' class='turn-order-strip'></div><div id='turnDetail'></div>";
+        panel.innerHTML = "<b id='turnRound'>Round 1</b> <span id='turnWho'></span> <button type='button' class='btn sm end-turn' id='btnEndTurn' hidden title='Pass the turn to the next combatant in the DM\'s turn order'>End turn</button> <div id='turnNames' class='turn-order-strip'></div><div id='turnDetail'></div>";
         bar.parentNode.insertBefore(panel, bar.nextSibling);
       }
     }
@@ -990,6 +991,21 @@
   }
 
   var shownTurn = "";
+  var endTurnAt = null;
+  function endTurn() {
+    var at = endTurnAt;
+    var btn = $("#btnEndTurn");
+    if (!at || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postEndTurn) { toast("It isn't your turn."); return; }
+    if (btn) btn.disabled = true;
+    root.SSDNSDmJoin.postEndTurn(at).then(function () {
+      if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "note", text: "Ended my turn (round " + at.round + ")." });
+      toast("Turn passed. Waiting on the DM's turn order.");
+    }).catch(function () {
+      if (btn) btn.disabled = false;
+      toast("Couldn't pass the turn. Ask the DM to press Next.");
+    });
+  }
+  root.SSDNSEndTurn = { run: endTurn, at: function () { return endTurnAt; } };
   var sawOrder = false;
   var lastTargets = {};
   function unusableRow(row) {
@@ -1091,6 +1107,8 @@
           }
         }
         panel.hidden = true;
+        endTurnAt = null;
+        if ($("#btnEndTurn")) $("#btnEndTurn").hidden = true;
         panel.classList.remove("your-turn");
         if (roundEl) roundEl.textContent = "";
         if (whoEl) whoEl.textContent = "";
@@ -1112,6 +1130,9 @@
       var c = ch();
       var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
       var mine = (uid && cur.playerId && cur.playerId === uid) || (c && c.name && cur.kind === "player" && cur.name === c.name && !cur.playerId);
+      endTurnAt = (uid && cur.playerId === uid) ? { round: round, turn: turn, rowId: cur.id || "" } : null;
+      var endBtn = $("#btnEndTurn");
+      if (endBtn) { endBtn.hidden = !endTurnAt; endBtn.disabled = false; }
       if (roundEl) roundEl.textContent = "Round " + round;
       if (whoEl) whoEl.textContent = cur.mapHidden ? "Hidden" : ((cur.name || "Someone") + " · " + (cur.kind === "enemy" ? (stripStatus(cur) || "") : (cur.kind === "player" ? "player" : "")));
       if (names) {
@@ -1350,14 +1371,20 @@
         renderMelee();
       }
       var fuse = t.getAttribute && t.getAttribute("data-fuse");
-      if (fuse) patch(function (d) {
-        if (d.character.featureUses && d.character.featureUses[fuse]) d.character.featureUses[fuse].used = parseInt(t.value, 10) || 0;
-      });
+      if (fuse) {
+        var prevUse = ((ch() && ch().featureUses && ch().featureUses[fuse]) || {}).used || 0;
+        patch(function (d) {
+          if (d.character.featureUses && d.character.featureUses[fuse]) d.character.featureUses[fuse].used = parseInt(t.value, 10) || 0;
+        });
+        /* 0.3.55: a use that costs a bonus action (or action/reaction) per rules.js spends the pip. */
+        if ((parseInt(t.value, 10) || 0) > prevUse && root.SSDNSActionPips && root.SSDNSActionPips.feature) root.SSDNSActionPips.feature(fuse);
+      }
     });
     document.addEventListener("click", function (e) {
       var t = e.target;
       if (!t) return;
       if (t.id === "btnApplyKit") applyKit(true);
+      if (t.id === "btnEndTurn") endTurn();
       if (t.id === "btnPactShot") {
         if (root.SSDNSSheet && root.SSDNSSheet.castNamed) root.SSDNSSheet.castNamed("Pact Shot");
         else toast("Pact Shot isn't ready.");

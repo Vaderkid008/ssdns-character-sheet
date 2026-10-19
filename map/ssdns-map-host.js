@@ -260,6 +260,8 @@
       var i = btn.getAttribute("data-tr");
       list.push({ id: "tr:" + i, label: gunName(i) + " · TR +1", group: "gear", enabled: !btn.disabled, title: btn.title || "" });
     });
+    var endBtn = $("btnEndTurn");
+    if (endBtn && !endBtn.hidden) list.push({ id: "endturn", label: "End turn", group: "gear", enabled: !endBtn.disabled, title: endBtn.title || "" });
     return list;
   }
   function tidyName(text) {
@@ -405,6 +407,7 @@
     else if (id.indexOf("cast:") === 0) btn = document.querySelector('[data-cast="' + cssEscape(id.slice(5)) + '"]');
     else if (id.indexOf("spell:") === 0) btn = document.querySelector('[data-spell-cast="' + cssEscape(id.slice(6)) + '"]');
     else if (id === "pact") btn = $("btnPactShot");
+    else if (id === "endturn") btn = $("btnEndTurn");
     else if (id.indexOf("clean:") === 0) {
       var cleaner = root.SSDNSApp && root.SSDNSApp.cleanGun;
       if (typeof cleaner === "function") return cleaner(Number(id.slice(6)));

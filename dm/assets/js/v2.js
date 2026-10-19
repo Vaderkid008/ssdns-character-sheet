@@ -4992,6 +4992,27 @@ function watchSecrets() {
   });
   if (typeof cb === "function") DM.state.unsubs.push(cb);
 }
+/**
+ * 0.2.68: a player's End turn button. Runs the DM's own Next only when the request names the turn
+ * that is current right now and the current row belongs to that player; a stale or doubled click
+ * does nothing. The DM's Next button is unchanged.
+ */
+function endTurnCheck(req) {
+  if (!req || !fight.started || !fight.order.length) return "no fight";
+  const turn = parseInt(fight.turn, 10) || 0;
+  const cur = fight.order[turn] || {};
+  if (Number(req.round) !== Number(fight.round) || Number(req.turn) !== turn) return "stale";
+  if (!cur.playerId || cur.playerId !== req.from) return "not their turn";
+  return "";
+}
+function endTurnRequest(req, id) {
+  const why = endTurnCheck(req);
+  if (DM.state._fb && DM.state.db) DM.state._fb.update(DM.roomRef("encounter/requests/" + id), { resolved: true, approved: !why }).catch(() => {});
+  if (why) return;
+  turnGate = 0;
+  nextTurn();
+  DM.toast((req.characterName || "A player") + " ended their turn");
+}
 function watchRequests() {
   if (fight._req || DM.state.demo || !DM.state.db || !DM.state.roomCode) return;
   fight._req = true;
@@ -5008,6 +5029,7 @@ function watchRequests() {
       const fresh = req && req.ts && (Date.now() - Date.parse(req.ts) < 120000);
       if (req && req.resolved) return;
       if (req && req.type === "bank") return;
+      if (req && req.type === "endTurn") { if (fresh) endTurnRequest(req, id); return; }
       if (!fight.reqPrimed && !fresh && !attack) return;
       applyRequest(req, id);
     });

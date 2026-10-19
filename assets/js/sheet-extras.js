@@ -1489,6 +1489,7 @@
       rolled.text += " · " + condNote;
       rolled.detail = rolled.text;
     }
+    if (root.SSDNSActionPips && root.SSDNSActionPips.spell) root.SSDNSActionPips.spell(spellName);
     toast(rolled.text);
     var spellDmg = null;
     var hitTail = String(rolled.text || "").split("→ HIT")[1] || "";
@@ -2000,6 +2001,7 @@
       dice: dice, weapon: name, caliber: caliber
     });
     if (ch()) ch().takingCover = false;
+    if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(name + " attack");
     if (resolved.armD4 && window.SSDNSD4 && window.SSDNSD4.arm) window.SSDNSD4.arm(i);
     var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
     var shownCard = card ? (acHidden(tgt) ? card.publicText : card.dmText) : report.player;
@@ -2531,6 +2533,17 @@
     } catch (err) {}
     // Table music (0.3.54): my own volume per layer + mute. Never synced.
     if (root.SSDNSMusic) {
+      /* 0.3.55 Now playing: whatever the DM pushed. The sheet never starts a track itself. */
+      var nowEl = $("#mxNowPlaying");
+      var paintNow = function (s) {
+        if (!nowEl) return;
+        var parts = [];
+        ["music", "ambient"].forEach(function (k) { var L = s[k]; if (L && L.track && (L.playing || L.paused || s.blocked)) parts.push((k === "ambient" ? "Ambient: " : "") + (L.track.title || "Untitled") + (L.paused ? " (paused)" : "")); });
+        nowEl.textContent = "♪ " + (parts.length ? parts.join(" · ") : "Nothing playing");
+        nowEl.classList.toggle("on", parts.length > 0);
+      };
+      root.SSDNSMusic.onChange(paintNow);
+      paintNow(root.SSDNSMusic.snapshot());
       var mp = root.SSDNSMusic.prefs();
       Array.prototype.forEach.call(document.querySelectorAll("[data-mx-pref]"), function (el) { el.value = String(Math.round((mp[el.getAttribute("data-mx-pref")] || 0) * 100)); });
       Array.prototype.forEach.call(document.querySelectorAll("[data-mx-mute]"), function (el) { el.checked = !mp.muted; });
@@ -2703,6 +2716,7 @@
       else dmg = rollDamageExpr(profile.expr + (flat ? ((flat >= 0 ? "+" : "") + flat) : ""), nat === 20);
     }
     if (c) c.takingCover = false;
+    if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(profile.name);
     attackCue("whoosh");
     var who = (c && c.name) || "You";
     var report = attackReport({

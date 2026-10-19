@@ -947,3 +947,10 @@ select:-webkit-autofill {
 .mx-meter-bar { height: 100%; background: #8d1c14; }
 .mx-mine { padding-left: 18px; }
 .warn { color: #8d1c14; }
+/* 0.2.68 scenes + stingers */
+.mx-scenes, .mx-stingers { border: 1px solid rgba(0,0,0,.15); border-radius: 8px; padding: 8px 10px; margin: 10px 0; }
+.mx-scenes h3, .mx-stingers h3 { margin: 0 0 6px; font-size: 16px; }
+.mx-scene { font-weight: 700; min-height: 40px; padding: 0 16px; }
+.mx-sting { display: inline-flex; gap: 2px; align-items: center; }
+.mx-sting .btn.sm { min-height: 40px; background: #5e1e13; color: #fff; border-color: #3b120b; font-weight: 700; }
+.mx-scene-edit { margin-top: 6px; }
