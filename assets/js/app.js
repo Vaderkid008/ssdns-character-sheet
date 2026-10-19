@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.68"; // sheet-playtest-v0368
+  var APP_VERSION = "0.3.69"; // sheet-playtest-v0369
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -135,7 +135,7 @@
       featureUses: {},
       kitStamp: "",
       tableConditions: "",
-      ammo: [], explosives: [], items: [], inventoryLocked: false, holster: "", holsterActive: false, seated: false, mounted: false, gunBelt: false, attackNotes: "",
+      ammo: [], explosives: [], items: [], inventoryLocked: false, holster: "", holsterR: "", belt: "", holsterActive: false, seated: false, mounted: false, gunBelt: false, attackNotes: "",
       instrument: "", instrumentQuality: "cheap", instrumentStrings: "plain", instrumentCase: "none", instrumentWear: "ok",
       proficienciesLanguages: "", equipment: "", personality: "", ideals: "", bonds: "", flaws: "", feats: [], features: "",
       age: "", height: "", weight: "", eyes: "", skin: "", hair: "", portrait: "", appearance: "", gangName: "", gangSymbol: "",
@@ -193,6 +193,11 @@
       if (merged) notes.push("Moved " + merged + " explosive line(s) into Items (Use button).");
     }
     if (doc.character && window.SSDNSCustomWeapons) window.SSDNSCustomWeapons.syncCharacter(doc.character);
+    if (doc.character && window.SSDNSEquip && window.SSDNSEquip.migrateHolsters) {
+      var hadBeltHolster = doc.character.holster && window.SSDNSEquip.isBeltHolster(doc.character.holster);
+      window.SSDNSEquip.migrateHolsters(doc.character);
+      if (hadBeltHolster) notes.push("Moved the gun belt / bandolier from Holster to Belt (Holster L and R are separate now).");
+    }
     if (doc.character && window.SSDNSEquip && window.SSDNSEquip.migrate) {
       var loadout = window.SSDNSEquip.migrate(doc.character);
       if (loadout && loadout.ok && !loadout.skipped) notes.push("Equipped current weapons up to the L0170 slot limits.");
@@ -621,29 +626,35 @@
     c.lineageAsi = want.fixed;
     return next.changed;
   }
+  function rigBonus(hol, c) {
+    var out = { init: 0, first: 0 };
+    if (!hol || !c.holsterActive || hol.isRig === false) return out;
+    var belt = /^belt rig/i.test(hol.perk || "");
+    var pommel = /†/.test(hol.initText || "") || /pommel/i.test(hol.name || "");
+    var cross = hol.id === "cross-draw-holster";
+    // character.seated is the existing "Seated or driving" toggle.
+    var posture = !!c.seated || !!c.mounted;
+    if (pommel) { if (c.mounted) out.init = num(hol.initBonus); }
+    else out.init = num(hol.initBonus);
+    if (cross) { if (posture) out.first = num(hol.firstShot); }
+    else if (belt) { if (!c.seated && !c.mounted) out.first = num(hol.firstShot); }
+    else out.first = num(hol.firstShot);
+    return out;
+  }
   function compute() {
     var c = C(), v = {};
     syncLineageAsi(c);
-    var hol = HOL[c.holster];
     v.scores = {}; v.mods = {};
     AB.forEach(function (a) { v.scores[a] = num(c.abilities[a], 10); });
-    // PHB Holsters: one rig. Cross-Draw's first shot only while seated, mounted, or driving.
+    // PHB Holsters, L and R (2026-10-19): each side is its own rig. Cross-Draw's first shot only while seated, mounted, or driving.
     // Pommel initiative only while mounted. Belt rigs lose the first-shot bonus while seated or mounted.
+    // Initiative uses the best side (rigs don't stack); each side's first-shot bonus goes only to the pistol drawn from it.
     v.holsterDex = 0;
-    v.holsterInit = 0;
-    v.holsterFirst = 0;
-    if (hol && c.holsterActive) {
-      var belt = /^belt rig/i.test(hol.perk || "");
-      var pommel = /†/.test(hol.initText || "") || /pommel/i.test(hol.name || "");
-      var cross = hol.id === "cross-draw-holster";
-      // character.seated is the existing "Seated or driving" toggle.
-      var posture = !!c.seated || !!c.mounted;
-      if (pommel) { if (c.mounted) v.holsterInit = num(hol.initBonus); }
-      else v.holsterInit = num(hol.initBonus);
-      if (cross) { if (posture) v.holsterFirst = num(hol.firstShot); }
-      else if (belt) { if (!c.seated && !c.mounted) v.holsterFirst = num(hol.firstShot); }
-      else v.holsterFirst = num(hol.firstShot);
-    }
+    var rigL = rigBonus(HOL[c.holster], c), rigR = rigBonus(HOL[c.holsterR], c);
+    v.holsterInit = Math.max(rigL.init, rigR.init);
+    v.holsterFirstL = rigL.first;
+    v.holsterFirstR = rigR.first;
+    v.holsterFirst = Math.max(rigL.first, rigR.first);
     // Paper doll (0.3.54): only slotted gear counts. Rigs don't stack; scores cap at 20.
     var DB = window.SSDNSDoll && window.SSDNSDoll.bonuses ? window.SSDNSDoll.bonuses(c) : null;
     v.doll = DB;
@@ -681,10 +692,10 @@
     v.spellAtk = ci ? sign(v.prof + v.spellMod) : "";
     v.hex = hexTotals();
     v.cp = Bridge.cpValue(S.doc.shards); // ES total (1 ES per white shard)
-    v.guns = c.guns.map(function (g) { return gunStats(g, v); });
+    v.guns = c.guns.map(function (g, i) { return gunStats(g, v, i); });
     return v;
   }
-  function gunStats(g, v) {
+  function gunStats(g, v, gi) {
     if (g && g.weapon && !WPN[g.weapon] && window.SSDNSCustomWeapons) window.SSDNSCustomWeapons.syncCharacter(C());
     var w = WPN[g.weapon];
     if (!w) return g.weapon ? { w: { id: g.weapon, name: g.weapon + " (not in the current PHB)", ammo: "" }, damage: "", range: "", capacity: 0, misfire: "", note: "This gun isn't in the current PHB. Pick its new name from the list.", atk: "", dmg: "", tier: "", rounds: [] } : null;
@@ -743,7 +754,9 @@
     m = ability === "STR/DEX" ? Math.max(v.mods.STR, v.mods.DEX) : (ability === "STR" ? v.mods.STR : v.mods.DEX);
     var style = styleAttackBonus(w);
     var dmgStyle = styleDamageBonus(w);
-    var first = (v.holsterFirst && w.group === "pistol") ? v.holsterFirst : 0;
+    var side = gi != null && window.SSDNSEquip && window.SSDNSEquip.pistolSide ? window.SSDNSEquip.pistolSide(C(), gi) : "";
+    var sideFirst = side === "L" ? num(v.holsterFirstL) : (side === "R" ? num(v.holsterFirstR) : num(v.holsterFirst));
+    var first = (sideFirst && w.group === "pistol") ? sideFirst : 0;
     if (mod && /hair trigger/i.test(mod.name) && w.group === "pistol") first = Math.min(2, first + 1); // PHB: counts toward the rig's +2 first-shot cap
     if (mod) notes.push("mod: " + mod.name);
     var magicAtk = (g.magic != null && isFinite(Number(g.magic)) && Number(g.magic)) ? 0 : (Number(w.magic) || 0);
@@ -761,6 +774,7 @@
     if (dmgStyle) s.dmgParts.push({ label: styleLabel, value: dmgStyle });
     if (style) notes.push((C().fightingStyle || "style") + " " + sign(style));
     if (dmgStyle) notes.push((C().fightingStyle || "style") + " damage " + sign(dmgStyle));
+    s.firstShot = first; s.drawSide = side;
     if (first) notes.push("first shot from the rig " + sign(m + (g.proficient ? v.prof : 0) + style + first));
     var dmgMod = m + dmgStyle + magicAtk;
     if (magicAtk) s.dmgParts.push({ label: "magic", value: magicAtk });
@@ -794,9 +808,11 @@
       }) };
     });
     fillSelect($("#selArmor"), armGroups, "None (10 + Dex)");
-    fillSelect($("#selHolster"), [
-      { group: "Rigs", items: R.holsters.filter(function (h) { return h.isRig; }).map(function (h) { return [h.id, h.name + (h.initText && h.initText !== "—" ? " · Init " + h.initText : "") + (h.firstShotText && h.firstShotText !== "—" ? " · 1st shot " + h.firstShotText : "")]; }) },
-      { group: "Not a rig", items: R.holsters.filter(function (h) { return !h.isRig; }).map(function (h) { return [h.id, h.name]; }) }], "No holster");
+    // 2026-10-19: Holster L and Holster R pick rigs on their own; the belt / bandolier has its own picker.
+    var rigRows = R.holsters.filter(function (h) { return h.isRig; }).map(function (h) { return [h.id, h.name + (h.initText && h.initText !== "—" ? " · Init " + h.initText : "") + (h.firstShotText && h.firstShotText !== "—" ? " · 1st shot " + h.firstShotText : "") + (window.SSDNSEquip && window.SSDNSEquip.isPairHolster && window.SSDNSEquip.isPairHolster(h) ? " · fills L + R" : "")]; });
+    fillSelect($("#selHolster"), rigRows, "No holster");
+    if ($("#selHolsterR")) fillSelect($("#selHolsterR"), rigRows, "No holster");
+    if ($("#selBelt")) fillSelect($("#selBelt"), R.holsters.filter(function (h) { return !h.isRig; }).map(function (h) { return [h.id, h.name]; }), "No belt");
     fillCasterGunSelect();
     fillSelect($("#selFeatAdd"), R.feats.map(function (f) { return [f.id, f.name + (f.prereq ? " *" : "")]; }), "+ Add a feat…");
     var gl = $("#gearList");
@@ -1701,22 +1717,25 @@
     renderExplosives();
     renderStorytellerKit();
     renderGearArt();
-    var h = HOL[c.holster];
-    var holMsg;
-    if (h) {
-      holMsg = h.name + ": holds " + h.holds + ". Init. " + (h.initText || "—") + ", first shot " + (h.firstShotText || "—") + ". " + h.perk + " ";
-      if (h.id === "cross-draw-holster") {
-        holMsg += (c.holsterActive && (c.seated || c.mounted)) ? "That bonus is on. " : "That bonus is off. ";
-      } else if (h.conditional) holMsg += "* ";
-      if (h.isRig) holMsg += c.holsterActive ? "(Applied: pistol in the rig.) " : "(Tick when a pistol rides in it to apply.) ";
-      if (c.seated) holMsg += "Seated or driving. ";
-      if (c.mounted) holMsg += "Mounted. ";
-      else if (h.feedsTR) holMsg += "(Feeds Tactical Reload.) ";
-      holMsg += R.rulesText.holster;
-    } else {
-      holMsg = "No holster: no initiative or first-shot bonus; quick-draw needs a DC 12 Dex check. " + R.rulesText.holster;
+    function holLine(side, h) {
+      if (!h) return "Holster " + side + ": none.";
+      var t = "Holster " + side + ": " + h.name + " (holds " + h.holds + "; Init. " + (h.initText || "—") + ", first shot " + (h.firstShotText || "—") + "). " + h.perk + " ";
+      if (h.id === "cross-draw-holster") t += (c.holsterActive && (c.seated || c.mounted)) ? "That bonus is on. " : "That bonus is off. ";
+      else if (h.conditional) t += "* ";
+      return t;
     }
-    holMsg += " Loadout: 2 pistols, 1 long gun, 1 melee, 1 focus. A second pistol with no holster draws on a DC 12 Dex check.";
+    var hL = HOL[c.holster], hR = HOL[c.holsterR], hB = HOL[c.belt];
+    var holMsg = "";
+    if (hL && hR && hL === hR && window.SSDNSEquip && window.SSDNSEquip.isPairHolster(hL)) holMsg = holLine("L + R (pair)", hL);
+    else holMsg = holLine("L", hL) + " " + holLine("R", hR);
+    holMsg += " Pistol L draws from Holster L and Pistol R from Holster R; each side's first-shot bonus goes to its own pistol. ";
+    if (hL || hR) holMsg += c.holsterActive ? "(Applied: pistols in the rigs.) " : "(Tick when pistols ride in them to apply.) ";
+    else holMsg += "No holster: no initiative or first-shot bonus; quick-draw needs a DC 12 Dex check. ";
+    if (hB) holMsg += "Belt: " + hB.name + " (feeds Tactical Reload). ";
+    if (c.seated) holMsg += "Seated or driving. ";
+    if (c.mounted) holMsg += "Mounted. ";
+    holMsg += R.rulesText.holster;
+    holMsg += " Loadout: 2 pistols, 1 long gun, 1 melee, 1 focus. A pistol on a side with no holster draws free only if it's your one hand draw; otherwise DC 12 Dex.";
     $("#holsterInfo").textContent = holMsg;
     $$('[data-tr]').forEach(function (btn) {
       btn.title = hasGunBelt()
@@ -2068,7 +2087,13 @@
     if (e.type === "input" && t.tagName === "SELECT") return; // handled on change
     setPath(S.doc, path, v);
     // v0.2.1: picking Gun Belt / Bandolier ticks the TR feed box (picking something else leaves it alone)
-    if (path === "character.holster" && HOL[v] && HOL[v].feedsTR) C().gunBelt = true;
+    if ((path === "character.holster" || path === "character.belt") && HOL[v] && HOL[v].feedsTR) C().gunBelt = true;
+    // 2026-10-19: L/R holsters. A pair fills both sides; leaving a pair clears its other half.
+    if ((path === "character.holster" || path === "character.holsterR") && window.SSDNSEquip && window.SSDNSEquip.setHolster) {
+      var sideKey = path === "character.holsterR" ? "R" : "L";
+      setPath(S.doc, path, old == null ? "" : old);
+      window.SSDNSEquip.setHolster(C(), sideKey, v);
+    }
     $$('[data-mirror="' + path + '"]').forEach(function (m) { m.textContent = v; });
     if (path === "character.hpMax" && e.isTrusted && String(t.value).trim() !== "" && String(v) !== String(old)) C().hpAuto = false;
     if (path === "character.hpCurrent" && window.SSDNSSheet && window.SSDNSSheet.syncDown) window.SSDNSSheet.syncDown(v);
@@ -2455,7 +2480,7 @@
       g.proficient = callingProficient(w);
       if (w.scatter) g.load = "buck";
       if (w.tiers) { g.chamber = ""; var cc = chamberOf(g, w); g.chamber = cc.tier + "|" + cc.round; g.tier = cc.tier; }
-      var st = gunStats(g, compute());
+      var st = gunStats(g, compute(), i);
       if (w.capacity) toast(w.name + ": " + st.damage + ", range " + st.range + ", capacity " + w.capacity + ", misfire " + st.misfire + (st.round ? ", chambered " + st.round : "") + ". Starts empty: hit Reload.");
       var ammoType = w.ammo === "shell" || w.scatter ? "buck" : (w.ammo === "arrows" ? "arrows" : (w.ammo === "percussion" ? "percussion" : "cartridge"));
       var cal = ammoType === "percussion" ? "" : ((st && st.round) || (w.tiers ? "Light" : ""));
@@ -2775,8 +2800,8 @@
     reloadFromPool(i, rows[0].a, max);
   }
   function hasGunBelt() {
-    var c = C(), h = HOL[c.holster];
-    return !!c.gunBelt || !!(h && h.feedsTR);
+    var c = C(), h = HOL[c.holster], b = HOL[c.belt];
+    return !!c.gunBelt || !!(h && h.feedsTR) || !!(b && b.feedsTR);
   }
   function tacticalReload(i) {
     var g = C().guns[i], w = WPN[g.weapon];

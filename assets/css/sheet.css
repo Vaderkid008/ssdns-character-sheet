@@ -266,7 +266,7 @@ input.big { font-family: var(--head); font-size: 28px !important; text-align: ce
 .gear-target-slot { flex: 1; min-width: 0; }
 .gear-target-label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: var(--label); font-size: 14px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: #6e1212; }
 .gear-target-label select { min-width: min(280px, 100%); font-weight: 700; border-color: #8d1c14; background: #fff8f6; }
-.gear-columns { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, .85fr); gap: 16px; align-items: start; }
+.gear-columns { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
 .gear-col { min-width: 0; }
 .gear-kit .equip-body { gap: 10px; }
 .gear-kit .armor-row { margin-bottom: 8px; }
@@ -928,7 +928,6 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 /* Paper doll (0.3.54) — Art Bot B6 frame */
 .doll-wrap { max-width: 540px; margin: 0 auto 14px; }
 .doll { position: relative; width: 100%; aspect-ratio: 1080 / 1350; background-size: 100% 100%; background-repeat: no-repeat; container-type: inline-size; }
-.doll-sil { position: absolute; object-fit: contain; pointer-events: none; opacity: .55; }
 .doll-slot { position: absolute; padding: 0; border: 0; background-color: transparent; background-size: 100% 100%; cursor: pointer; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; font: inherit; color: #2b1d10; }
 .doll-ro .doll-slot { cursor: default; }
 .doll-slot:hover:not(div), .doll-slot:focus-visible { outline: 3px solid #8d1c14; outline-offset: -2px; }
@@ -1025,3 +1024,44 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .mx-now { font: 600 12px/1.2 system-ui, sans-serif; color: #b9ab8f; max-width: 48ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mx-now.on { color: #f3d27a; }
 .mx-mine-ctl label, .mx-mine-ctl .vol-pct { color: #f3e6c8; }
+/* pd-labels: a branded plate on every slot, names always shown, faint glyph when empty. */
+.doll-cell { position: absolute; }
+.doll-cell > .doll-slot { position: absolute; inset: 0; width: 100%; height: 100%; }
+.doll-cell > .doll-label, .doll > .doll-group-label { position: absolute; z-index: 5; left: 50%; top: auto; bottom: calc(100% + .3cqw); transform: translateX(-50%); opacity: 1; right: auto;
+  font-family: var(--title, "Rye", serif); font-size: 2.1cqw; line-height: 1; letter-spacing: .05em; text-transform: none; white-space: nowrap;
+  color: #f4e6c4; background: linear-gradient(#4a2e18, #2e1b0d); border: 1px solid #b08a4a; border-radius: 3px; padding: .16em .5em .1em;
+  box-shadow: 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,230,180,.08); pointer-events: none; text-shadow: 0 1px 0 #000; }
+.doll > .doll-group-label { bottom: auto; transform: translate(-50%, calc(-100% - .3cqw)); letter-spacing: .12em; }
+.doll-cell:hover > .doll-label { background: linear-gradient(#8d1c14, #5e110b); }
+.doll-slot .doll-glyph { position: absolute; left: 50%; top: 50%; width: 56%; height: 56%; transform: translate(-50%, -54%); fill: none; stroke: #5a3f22; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .2; pointer-events: none; }
+.doll-tall .doll-glyph, .doll-wide .doll-glyph { width: 70%; height: 40%; }
+.doll-slot.doll-noart .doll-glyph { opacity: .55; stroke: #6b4320; top: 36%; width: 46%; height: 46%; }
+.doll-slot .doll-name { font-family: Georgia, "Times New Roman", serif; font-size: clamp(6.5px, 1.2cqw, 11px); font-weight: 600; line-height: 1.22; max-width: 90%; margin-bottom: 6%;
+  padding: 0 .25em; box-shadow: 0 0 0 .18em rgba(246,234,207,.92); background: rgba(246,234,207,.92); border: 1px solid rgba(120,88,48,.45); border-radius: 2px; color: #2b1d10;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: normal; text-align: center; }
+.doll-weapon .doll-art ~ .doll-name { display: -webkit-box; }
+.doll-tall.doll-weapon .doll-art { top: 44%; }
+.doll-slot.filled .doll-art { inset: 9% 6% 34%; width: 88%; height: 57%; }
+.doll-tall.doll-weapon.filled .doll-art { inset: auto; left: 50%; top: 44%; width: 230%; height: 40%; }
+.doll-wide.filled .doll-art { inset: 8% 8% 20%; width: 84%; height: 72%; }
+.doll-slot .doll-art { max-width: none; max-height: none; }
+/* 2026-10-19: Holster L / Holster R / Belt pickers. */
+.holster-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
+.holster-side { display: flex; flex-direction: column; gap: 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; min-width: 0; }
+.holster-side select { width: 100%; min-width: 0; }
+.holster-belt { margin-bottom: 6px; }
+@media (max-width: 420px) { .holster-sides { grid-template-columns: 1fr; } }
+/* Pair holster: one rig over both sides, shown mirrored in Holster L and R. */
+.doll-slot.doll-pair { box-shadow: 0 0 0 .35cqw rgba(176,138,74,.55); }
+.doll-slot.doll-pair::after { content: "pair"; position: absolute; top: 4%; right: 4%; font: 700 1.3cqw/1 Georgia, serif; color: #f4e6c4; background: #6b4320; padding: .1em .3em; border-radius: 2px; }
+/* Worn-gear art (2026-10-19): contain inside the box; wide pieces (gun belt, bandolier, pair rig) get a little extra scale. */
+.doll-slot .doll-art { object-fit: contain; }
+.doll-slot.doll-wideart .doll-art { transform: scale(1.18); }
+/* Duster Form frame (2026-10-19): the figure is baked into the frame (no .doll-sil layer).
+   Plates never shrink below 8px, so they stay readable on a 390px phone. */
+.doll-cell > .doll-label, .doll > .doll-group-label { font-size: max(8px, 2.1cqw); }
+/* Caption: one small line in a strip under the art so the gear art isn't covered; the full name is in the tooltip. */
+.doll-slot.filled:not(.doll-tall):not(.doll-wide) .doll-art { inset: 6% 8% 25%; width: 84%; height: 69%; }
+.doll-slot.filled .doll-name { font-size: max(6.5px, 1.05cqw); line-height: 1.15; -webkit-line-clamp: 1; white-space: nowrap; text-overflow: ellipsis; display: block;
+  max-width: 88%; margin-bottom: 5%; padding: .05em .3em; box-shadow: none; background: rgba(246,234,207,.85); }
+.doll-tall.filled .doll-name, .doll-wide.filled .doll-name { margin-bottom: 4%; }

@@ -33,7 +33,7 @@ const Grab = sandbox.SSDNSGrab;
 sandbox.SSDNS_RULES = { melee: [{ id: "maul", name: "Maul", properties: "heavy, two-handed" }], firearms: [], armor: [], holsters: [] };
 vm.runInContext(read("assets/js/paper-doll.js"), sandbox, { filename: "paper-doll.js" });
 const D = sandbox.SSDNSDoll;
-const map = JSON.parse(read("assets/images/doll/slot-map-B6.json"));
+const map = JSON.parse(read("assets/images/doll/slot-map-duster-form.json"));
 check("map.25", Object.keys(D.BOX).length === 25 && Object.keys(map.slots).every((k) => JSON.stringify(map.slots[k]) === JSON.stringify(D.BOX[k])));
 check("rings.2", Object.keys(D.BOX).filter((k) => /^ring_/.test(k)).length === 2);
 const c = { items: [

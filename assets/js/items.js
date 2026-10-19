@@ -34,7 +34,7 @@
     return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
   }
 
-  /* 0.3.68 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
+  /* 0.3.69 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
      so an old character never shows a counter for them or gets blocked. */
   var UNLIMITED_USES = { "saddle-of-the-phantom-steed": 1 };
   function unlimitedFix(item) {
@@ -788,6 +788,11 @@
     if (!path && root.SSDNSItemArt && root.SSDNSItemArt.srcFor) path = root.SSDNSItemArt.srcFor(item) || "";
     if (path && /^(https?:|data:|\.\.|blob:)/.test(path)) return path;
     if (path && root.SSDNSItemArt && root.SSDNSItemArt.srcFor && path === root.SSDNSItemArt.srcFor(item)) return path;
+    /* Worn gear (hats, armor, holsters, rings...) uses the paper-doll gear art before the generic default. */
+    if (!path && item && root.SSDNSDoll && root.SSDNSDoll.gearArtSrc && (item.wear || item.equipSlot || (root.SSDNSDoll.GEAR_ART_BY_ID || {})[item.catalogId || item.id])) {
+      var g = root.SSDNSDoll.gearArtSrc(item, item.equipSlot || "");
+      if (g) return g;
+    }
     if (!path && item && item.type) path = "assets/images/items/defaults/" + (DEFAULT_ART[item.type] || "gear") + ".svg";
     if (!path) return "";
     var prefix = "";
@@ -945,6 +950,11 @@
       ? '<button type="button" class="btn xs ghost" data-item-drop="' + esc(item.uid) + '">Drop</button>'
       : "";
     var lock = c && c.inventoryLocked ? '<span class="item-tag">locked</span>' : "";
+    var D = root.SSDNSDoll;
+    if (D && D.wearable && D.wearable(item)) {
+      var worn = D.wornLabel(c, item);
+      lock += ' <button type="button" class="btn xs' + (worn ? " btn-primary" : "") + '" data-item-wear-toggle="' + esc(item.uid) + '" title="' + esc(worn ? "Worn on the paper doll (" + worn + "). Click to take it off." : "Put it on its paper doll slot.") + '">' + esc(worn ? "Worn: " + worn + " ✓" : "Wear") + "</button>";
+    }
     if (item.attune) {
       lock += ' <button type="button" class="btn xs' + (item.attuned ? " btn-primary" : "") + '" data-item-attune="' + esc(item.uid) + '" title="Attunement: up to ' + attuneCap(c) + ' items">' + (item.attuned ? "Attuned ✓" : "Attune") + "</button>";
     }
@@ -1138,6 +1148,16 @@
     if (!t || !t.getAttribute) return;
     var useId = t.getAttribute("data-item-use");
     if (useId) { useOnSheet(useId); return; }
+    var wearId = t.getAttribute("data-item-wear-toggle");
+    if (wearId && root.SSDNSDoll && root.SSDNSDoll.toggleWear) {
+      var wr;
+      if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () { wr = root.SSDNSDoll.toggleWear(character(), wearId); });
+      else wr = root.SSDNSDoll.toggleWear(character(), wearId);
+      if (wr && !wr.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(wr.reason);
+      paintSheet();
+      if (root.SSDNSDoll.paint) root.SSDNSDoll.paint();
+      return;
+    }
     var attId = t.getAttribute("data-item-attune");
     if (attId) {
       var cur = find(character(), attId);
