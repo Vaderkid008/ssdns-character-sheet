@@ -123,10 +123,16 @@ function onDeck() {
   if (!step || step.index === fight.turn) return null;
   return fight.order[step.index] || null;
 }
+/* 0.2.79: no hit-point pool (Spectral Horse) means never Down; see SSDNSApplied.noHpPool */
+function noHpPoolRow(row) {
+  if (window.SSDNSApplied && window.SSDNSApplied.noHpPool) return window.SSDNSApplied.noHpPool(row);
+  return !!(row && row.kind !== "player" && row.noHpPool === true);
+}
 function enemyStatus(row) {
   if (window.SSDNSApplied && window.SSDNSApplied.coarseStatus) return window.SSDNSApplied.coarseStatus(row);
   if (!row || row.kind === "player") return row && row.status ? row.status : "";
   if (enemyFled(row)) return "Fled";
+  if (noHpPoolRow(row)) return "";
   const hp = knownNumber(row.hp);
   const max = knownNumber(row.maxHp);
   if (hp == null) return "";
@@ -2284,6 +2290,7 @@ function beastRow(b) {
     ac: stats.ac,
     hp: stats.hp,
     maxHp: stats.maxHp,
+    noHpPool: !(Number(b.hp) > 0),
     dex: stats.dex,
     initBonus: stats.initBonus,
     atkBonus: stats.atkBonus,
@@ -3341,6 +3348,10 @@ function clearDamageDice() {
   if (el) el.value = "";
 }
 function applyEnemyHp(row, delta) {
+  if (noHpPoolRow(row)) {
+    DM.toast((row.name || "It") + " has no hit points to lose or gain");
+    return null;
+  }
   const before = knownNumber(row && row.hp);
   if (before == null) {
     DM.toast((row && row.name ? row.name : "Enemy") + " has no HP set, so it is not marked Down");
@@ -3390,7 +3401,7 @@ async function rowHp(i, sign) {
 }
 const downCued = new Set();
 function noteUnconscious(row) {
-  if (!row) return;
+  if (!row || noHpPoolRow(row)) return;
   const hp = knownNumber(row.hp);
   if (hp != null && hp > 0) { downCued.delete(row.id); return; }
   /* 0.3.56 SFX: an enemy dropping to 0, once per drop (not saved anywhere). */
@@ -7061,7 +7072,7 @@ function grabFeet(actor, target, hinted) {
   return n == null || n === "" || !isFinite(Number(n)) ? null : Number(n);
 }
 function grabDowned(row) {
-  if (!row) return false;
+  if (!row || noHpPoolRow(row)) return false;
   const hp = knownNumber(row.hp);
   if (hp != null && hp <= 0) return true;
   return /down|unconscious|dying/i.test(String(row.status || ""));
