@@ -48,10 +48,10 @@ Object.keys(weapons).forEach((id) => {
 });
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.55" && version.sheetBuild === "sheet-playtest-v0355", "sheet 0.3.55");
-check(version.dmcc === "0.2.68" && version.dmccBuild === "dmcc-playtest-v0268", "dmcc 0.2.68");
-check(read("assets/js/sfx.js").indexOf('sfx.json?v=0.3.55') >= 0, "the sound map cache query matches the sheet version");
-check(read("assets/js/app.js").indexOf('APP_VERSION = "0.3.55"') >= 0, "the sheet banner is 0.3.55");
+check(version.sheet === "0.3.56" && version.sheetBuild === "sheet-playtest-v0356", "sheet 0.3.55");
+check(version.dmcc === "0.2.69" && version.dmccBuild === "dmcc-playtest-v0269", "dmcc 0.2.68");
+check(read("assets/js/sfx.js").indexOf('sfx.json?v=0.3.56') >= 0, "the sound map cache query matches the sheet version");
+check(read("assets/js/app.js").indexOf('APP_VERSION = "0.3.56"') >= 0, "the sheet banner is 0.3.55");
 
 let fetched = "";
 const sandbox = {
@@ -73,7 +73,7 @@ sandbox.window.dispatchEvent = () => {};
 vm.runInNewContext(read("assets/js/sfx.js"), sandbox, { filename: "assets/js/sfx.js" });
 await new Promise((resolve) => setTimeout(resolve, 30));
 const audio = sandbox.SSDNSAudio;
-check(fetched.indexOf("sfx.json?v=0.3.55") >= 0, "load fetches the bumped map");
+check(fetched.indexOf("sfx.json?v=0.3.56") >= 0, "load fetches the bumped map");
 
 check(audio.weaponCue({ gun: true, name: "Dullards Plinker" }) === "attack", "a Plinker without an id stays the rifle gunshot");
 check(audio.weaponCue({ gun: true, id: "dullards-plinker-revolver", name: "Dullards Plinker" }) === "plinker", "the Plinker id plays plinker");
@@ -83,9 +83,9 @@ check(audio.weaponCue({ gun: true, id: "dulls-rolling-block-rifle", name: "Dulls
 check(audio.weaponCue({ gun: true, id: "lancaster-lever-shotgun" }) === "lever-fire", "the lever shotgun is lever-fire");
 check(audio.weaponCue({ gun: true, id: "pony-arms-chaosmaker-heavy" }) === "revolver", "a Chaosmaker plays revolver");
 check(audio.weaponCue({ gun: true, id: "navy-army-ball-n-cap-revolver", sfx: "silenced" }) === "silenced", "an explicit sfx wins");
-check(audio.weaponCue({ id: "buffalo-axe-greataxe", name: "Buffalo axe" }) === "axe", "the buffalo axe plays axe");
+check(audio.weaponCue({ id: "buffalo-axe-greataxe", name: "Buffalo axe" }) === "whoosh", "the buffalo axe swings (its axe-hit plays on the hit, 0.3.56)");
 check(audio.weaponCue({ name: "Machete (scimitar)", dmgType: "Slashing" }) === "slash", "a machete stays slash");
-check(audio.weaponCue({ name: "Throwing spear (javelin)" }) === "spear", "a named javelin plays spear");
+check(audio.weaponCue({ name: "Throwing spear (javelin)" }) === "spear-throw", "a named javelin plays the spear throw");
 check(audio.weaponCue({ name: "Shortbow", group: "bow" }) === "twang", "a bow without an id stays twang");
 check(audio.weaponCue({ id: "shortbow", name: "Shortbow", group: "bow" }) === "bow", "the shortbow id plays bow");
 check(audio.weaponCue({ name: "Sledgehammer", dmgType: "Bludgeoning" }) === "thud", "a sledgehammer stays thud");
@@ -97,7 +97,7 @@ check(audio.reloadCue({ action: "Break-action", group: "shotgun", name: "Single-
 
 check(audio.spellCue({ name: "Fireball", kind: "attack", calling: "pact-seeker" }) === "pactshot", "a Pact Seeker attack is pactshot");
 check(audio.spellCue({ name: "Shocking Grasp", kind: "attack" }) === "electric", "Shocking Grasp is electric");
-check(audio.spellCue({ name: "Lightning Bolt", kind: "attack", calling: "pact-seeker" }) === "lightning", "lightning wins over the pact");
+check(audio.spellCue({ name: "Lightning Bolt", kind: "attack", calling: "pact-seeker" }) === "lightning-ultimate", "big lightning wins over the pact");
 check(audio.spellCue({ name: "Healing Word", kind: "heal", calling: "pact-seeker" }) === "heal", "a heal wins over the pact");
 check(audio.spellCue({ name: "Light", kind: "utility" }) === "spellcast", "Light is a plain cast");
 check(audio.spellCue({ name: "Misty Step" }) === "teleport", "Misty Step is teleport");

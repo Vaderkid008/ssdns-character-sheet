@@ -41,3 +41,80 @@ These cues are in the map and play when something sets `sfx` to that name. Nothi
 Gunshots, melee, bows, spears, axes, and the lightning and electric spell tags can be shared at the table. Reloads, the empty click, holster, turn, reward, heal, and teleport stay on the client that played them.
 
 The volume slider and the Sound checkbox scale every cue, including one that is already playing. Mute drops them to silence. A new cue does not cut off the previous one.
+
+
+## 0.3.56: Jessey's approved set
+
+Pools pick at random among the primary and its `-alt-NN` files and never repeat the last pick. Missing files fall back via `CUE_FALLBACK` in `sfx.js`. The SFX master slider scales every cue.
+Outcomes: gun hit `hit-gun`, miss `ricochet`, crit `nat20`. Melee splits by kind: blade (`sword-hit`), blunt (`miss-blunt` on a miss), spear, and axe; crit is `crit-melee`. Arrow hit and miss have their own cues. A nat 1 on a non-gun roll plays `nat1`; a gun's nat 1 plays its misfire.
+Ambient beds live in `assets/music/ambient/` and are listed in `tracks.json` (ambient layer, loop).
+
+| Event | Pool |
+|---|---|
+| attack | `rifle.mp3` |
+| rifle | `rifle.mp3` |
+| revolver | `revolver.mp3` |
+| plinker | `plinker.mp3` |
+| lever-fire | `lever-fire.mp3` · `lever-fire-alt-01.mp3` · `lever-fire-alt-02.mp3` · `rifle.mp3` |
+| shotgun | `shotgun.mp3` |
+| buffalo | `buffalo-rifle.mp3` |
+| silenced | `silenced.mp3` |
+| gatling | `gatling.mp3` |
+| gatling-ellen-manor | `gatling-ellen-manor.mp3` |
+| cock | `cock.mp3` |
+| revolver-spin | `revolver-spin.mp3` |
+| misfire | `misfire.mp3` · `misfire-alt-01.mp3` · `misfire-alt-02.mp3` |
+| jam | `misfire.mp3` · `misfire-alt-01.mp3` · `misfire-alt-02.mp3` |
+| empty-click | `misfire.mp3` · `misfire-alt-01.mp3` · `misfire-alt-02.mp3` |
+| unjam | `unjam.mp3` |
+| ricochet | `ricochet.mp3` · `ricochet-alt-01.mp3` · `ricochet-alt-02.mp3` · `ricochet-alt-03.mp3` · `ricochet-alt-04.mp3` |
+| hit-gun | `hit-gun.mp3` · `hit-gun-alt-01.mp3` · `hit-gun-alt-02.mp3` |
+| reload | `reload.mp3` |
+| reload-revolver | `reload-revolver.mp3` |
+| reload-lever | `reload-repeater.mp3` · `reload-repeater-alt-01.mp3` · `reload-repeater-alt-02.mp3` |
+| rechamber | `rechamber.mp3` |
+| clean | `clean.mp3` |
+| slash | `roll-blade.mp3` |
+| sword-hit | `sword-hit.mp3` |
+| thud | `thud.wav` |
+| twang | `twang.wav` |
+| whoosh | `whoosh.wav` |
+| axe | `axe-hit.mp3` |
+| spear | `spear-hit.mp3` · `sword-hit.mp3` |
+| spear-throw | `spear-throw.mp3` |
+| bow | `bow-short-fire.mp3` |
+| bow-long | `bow-long-draw.mp3` |
+| hit-melee | `hit-melee.mp3` · `hit-melee-alt-01.mp3` · `hit-gun-alt-02.mp3` |
+| crit-melee | `crit-melee.mp3` · `crit-melee-alt-01.mp3` |
+| miss-melee | `miss-melee.mp3` |
+| miss-blunt | `miss-melee-alt-01.mp3` · `miss-melee.mp3` |
+| hit-arrow | `hit-arrow.mp3` · `hit-arrow-alt-01.mp3` |
+| miss-arrow | `miss-arrow.mp3` · `miss-arrow-alt-01.mp3` |
+| spellcast | `spellcast.mp3` · `spellcast-alt-01.mp3` |
+| spellshot | `spellshot.mp3` |
+| pactshot | `pactshot.mp3` |
+| lightning | `lightning.mp3` |
+| lightning-ultimate | `lightning-ultimate.mp3` |
+| electric | `electric.mp3` |
+| ice-storm | `ice-storm.mp3` |
+| magic-whoosh | `magic-whoosh-soft.mp3` |
+| teleport | `teleport.mp3` · `teleport-alt-01.mp3` |
+| heal | `heal.mp3` |
+| holster | `holster.mp3` |
+| end-turn | `holster.mp3` |
+| grapple-fire | `grappling-gun-fire.mp3` |
+| grapple-retract | `grappling-gun-retract.mp3` |
+| explode | `explode.mp3` · `explode-alt-01.mp3` |
+| fuse | `fuse.mp3` |
+| roll | `roll-d20.mp3` |
+| roll-d20 | `roll-d20.mp3` |
+| roll-dice | `roll.mp3` |
+| turn | `turn.mp3` |
+| ui-back | `ui-back.mp3` |
+| ui-tick | `ui-tick.mp3` |
+| enemy-downed | `enemy-downed.mp3` |
+| nat20 | `nat20.mp3` |
+| nat1 | `nat1.mp3` |
+| sting-tension | `sting-tension.mp3` |
+| sting-reveal | `sting-reveal.mp3` |
+| reward | `reward.mp3` |

@@ -42,6 +42,34 @@
       "title": "Hex wind",
       "file": "hex.mp3",
       "layer": "music"
+    },
+    {
+      "id": "amb-town-horses",
+      "title": "Town with horses",
+      "file": "ambient/town-horses.mp3",
+      "layer": "ambient",
+      "loop": true
+    },
+    {
+      "id": "amb-cold-mountain-wind",
+      "title": "Cold mountain wind",
+      "file": "ambient/cold-mountain-wind.mp3",
+      "layer": "ambient",
+      "loop": true
+    },
+    {
+      "id": "amb-haunted-cemetery",
+      "title": "Haunted cemetery",
+      "file": "ambient/haunted-cemetery.mp3",
+      "layer": "ambient",
+      "loop": true
+    },
+    {
+      "id": "amb-sea",
+      "title": "Sea voyage",
+      "file": "ambient/sea.mp3",
+      "layer": "ambient",
+      "loop": true
     }
   ]
 }

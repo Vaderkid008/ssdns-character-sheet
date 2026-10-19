@@ -1606,6 +1606,7 @@ function nextTurn() {
     if (step.wrapped) fight.round += 1;
   }
   fight.flash = fight.turn;
+  if (window.SSDNSAudio) window.SSDNSAudio.play("turn");
   (fight.order || []).forEach((row) => {
     if (window.SSDNSApplied && window.SSDNSApplied.refreshCombatantStatus) window.SSDNSApplied.refreshCombatantStatus(row);
   });
@@ -3385,10 +3386,13 @@ async function rowHp(i, sign) {
   DM.toast(line);
   await DM.pushLedger({ who: "DM", playerId: "all", type: sign < 0 ? "damage" : "heal", what: line, oldVal: before, newVal: row.hp, flag: false });
 }
+const downCued = new Set();
 function noteUnconscious(row) {
   if (!row) return;
   const hp = knownNumber(row.hp);
-  if (hp != null && hp > 0) return;
+  if (hp != null && hp > 0) { downCued.delete(row.id); return; }
+  /* 0.3.56 SFX: an enemy dropping to 0, once per drop (not saved anywhere). */
+  if (row.kind === "enemy" && row.id && !downCued.has(row.id) && window.SSDNSAudio) { downCued.add(row.id); window.SSDNSAudio.play("enemy-downed"); }
   const Cond = window.SSDNSConditions;
   const subjectId = row.kind === "player" ? (row.playerId || row.id) : row.id;
   if (!subjectId) return;
@@ -4005,7 +4009,7 @@ async function cardStrike(i, n, opts) {
   if (misfire) {
     if (!resolved) atk.jammed = true;
     const detail = row.name + " fires " + atk.name + ": natural " + nat + " misfire. The round is spent.";
-    if (!resolved || resolved.jammed) playTableSfx("jam");
+    if (!resolved || resolved.jammed) playTableSfx("misfire");
     await publishCardRoll(row, detail, nat, { attack: true, nat: nat });
     await saveRemoteTable();
     renderFight();
@@ -5945,6 +5949,7 @@ async function bootV2() {
   $("#btnPrevTurn") && $("#btnPrevTurn").addEventListener("click", () => {
     if (!fight.order.length) return;
     fight.turn -= 1;
+    if (window.SSDNSAudio) window.SSDNSAudio.play("ui-back");
     if (fight.turn < 0) { fight.turn = fight.order.length - 1; fight.round = Math.max(1, fight.round - 1); }
     saveRemoteTable();
     renderFight();

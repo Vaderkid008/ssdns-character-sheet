@@ -1,114 +1,399 @@
 {
-  "events": {
-    "attack": "attack.mp3",
-    "reward": "reward.mp3",
-    "turn": "holster.mp3",
-    "holster": "holster.mp3",
-    "reload": "reload.mp3",
-    "spellshot": "spellshot.mp3",
-    "pactshot": "pactshot.mp3",
-    "spellcast": "spellcast.mp3",
-    "jam": "jam.mp3",
-    "explode": "explode.mp3",
-    "roll": "roll.mp3",
-    "slash": "slash.wav",
-    "thud": "thud.wav",
-    "twang": "twang.wav",
-    "whoosh": "whoosh.wav",
-    "revolver": "revolver.mp3",
-    "lever-fire": "lever-fire.mp3",
-    "plinker": "plinker.mp3",
-    "shotgun": "shotgun.mp3",
-    "buffalo": "buffalo-rifle.mp3",
-    "bow": "bow.mp3",
-    "spear": "spear.mp3",
-    "axe": "axe-hit.mp3",
-    "lightning": "lightning.mp3",
-    "electric": "electric.mp3",
-    "teleport": "teleport.mp3",
-    "heal": "heal.mp3",
-    "fuse": "fuse.mp3",
-    "empty-click": "empty-click.mp3",
-    "reload-lever": "reload-lever.mp3",
-    "reload-revolver": "reload-revolver.mp3",
-    "cock": "cock.mp3",
-    "revolver-spin": "revolver-spin.mp3",
-    "arrow-impact": "arrow-impact.mp3",
-    "silenced": "silenced.mp3"
-  },
-  "pools": {
-    "attack": ["attack.mp3", "attack.mp3", "attack.mp3"],
-    "reward": ["reward.mp3", "reward.mp3", "reward.mp3"],
-    "turn": ["holster.mp3", "holster.mp3", "holster.mp3"],
-    "holster": ["holster.mp3", "holster.mp3", "holster.mp3"],
-    "reload": ["reload.mp3", "reload.mp3", "reload.mp3"],
-    "spellshot": ["spellshot.mp3", "spellshot.mp3", "spellshot.mp3"],
-    "pactshot": ["pactshot.mp3", "pactshot.mp3", "pactshot.mp3"],
-    "spellcast": ["spellcast.mp3", "spellcast.mp3", "spellcast.mp3"],
-    "jam": ["jam.mp3", "jam.mp3", "jam.mp3"],
-    "explode": ["explode.mp3", "explode.mp3", "explode.mp3"],
-    "roll": ["roll.mp3", "roll.mp3", "roll.mp3"],
-    "slash": ["slash.wav", "slash.wav", "slash.wav"],
-    "thud": ["thud.wav", "thud.wav", "thud.wav"],
-    "twang": ["twang.wav", "twang.wav", "twang.wav"],
-    "whoosh": ["whoosh.wav", "whoosh.wav", "whoosh.wav"],
-    "revolver": ["revolver.mp3", "revolver.mp3", "revolver.mp3"],
-    "lever-fire": ["lever-fire.mp3", "lever-fire.mp3", "lever-fire.mp3"],
-    "plinker": ["plinker.mp3", "plinker.mp3", "plinker.mp3"],
-    "shotgun": ["shotgun.mp3", "shotgun.mp3", "shotgun.mp3"],
-    "buffalo": ["buffalo-rifle.mp3", "buffalo-rifle.mp3", "buffalo-rifle.mp3"],
-    "bow": ["bow.mp3", "bow.mp3", "bow.mp3"],
-    "spear": ["spear.mp3", "spear.mp3", "spear.mp3"],
-    "axe": ["axe-hit.mp3", "axe-hit.mp3", "axe-hit.mp3"],
-    "lightning": ["lightning.mp3", "lightning.mp3", "lightning.mp3"],
-    "electric": ["electric.mp3", "electric.mp3", "electric.mp3"],
-    "teleport": ["teleport.mp3", "teleport.mp3", "teleport.mp3"],
-    "heal": ["heal.mp3", "heal.mp3", "heal.mp3"],
-    "fuse": ["fuse.mp3", "fuse.mp3", "fuse.mp3"],
-    "empty-click": ["empty-click.mp3", "empty-click.mp3", "empty-click.mp3"],
-    "reload-lever": ["reload-lever.mp3", "reload-lever.mp3", "reload-lever.mp3"],
-    "reload-revolver": ["reload-revolver.mp3", "reload-revolver.mp3", "reload-revolver.mp3"],
-    "cock": ["cock.mp3", "cock.mp3", "cock.mp3"],
-    "revolver-spin": ["revolver-spin.mp3", "revolver-spin.mp3", "revolver-spin.mp3"],
-    "arrow-impact": ["arrow-impact.mp3", "arrow-impact.mp3", "arrow-impact.mp3"],
-    "silenced": ["silenced.mp3", "silenced.mp3", "silenced.mp3"],
-    "ricochet": []
-  },
-  "outcomes": {
-    "categories": {
-      "melee": { "hit": "", "miss": "", "crit": "" },
-      "gun": { "hit": "", "miss": "ricochet", "crit": "" },
-      "arrow": { "hit": "", "miss": "", "crit": "" },
-      "spell": { "hit": "", "miss": "", "crit": "" }
-    },
-    "weapons": {
-      "shortbow": { "hit": "bow", "miss": "", "crit": "bow" }
-    }
+ "events": {
+  "attack": "rifle.mp3",
+  "rifle": "rifle.mp3",
+  "revolver": "revolver.mp3",
+  "plinker": "plinker.mp3",
+  "lever-fire": "lever-fire.mp3",
+  "shotgun": "shotgun.mp3",
+  "buffalo": "buffalo-rifle.mp3",
+  "silenced": "silenced.mp3",
+  "gatling": "gatling.mp3",
+  "gatling-ellen-manor": "gatling-ellen-manor.mp3",
+  "cock": "cock.mp3",
+  "revolver-spin": "revolver-spin.mp3",
+  "misfire": "misfire.mp3",
+  "jam": "misfire.mp3",
+  "empty-click": "misfire.mp3",
+  "unjam": "unjam.mp3",
+  "ricochet": "ricochet.mp3",
+  "hit-gun": "hit-gun.mp3",
+  "reload": "reload.mp3",
+  "reload-revolver": "reload-revolver.mp3",
+  "reload-lever": "reload-repeater.mp3",
+  "rechamber": "rechamber.mp3",
+  "clean": "clean.mp3",
+  "slash": "roll-blade.mp3",
+  "sword-hit": "sword-hit.mp3",
+  "thud": "thud.wav",
+  "twang": "twang.wav",
+  "whoosh": "whoosh.wav",
+  "axe": "axe-hit.mp3",
+  "spear": "spear-hit.mp3",
+  "spear-throw": "spear-throw.mp3",
+  "bow": "bow-short-fire.mp3",
+  "bow-long": "bow-long-draw.mp3",
+  "hit-melee": "hit-melee.mp3",
+  "crit-melee": "crit-melee.mp3",
+  "miss-melee": "miss-melee.mp3",
+  "miss-blunt": "miss-melee-alt-01.mp3",
+  "hit-arrow": "hit-arrow.mp3",
+  "miss-arrow": "miss-arrow.mp3",
+  "spellcast": "spellcast.mp3",
+  "spellshot": "spellshot.mp3",
+  "pactshot": "pactshot.mp3",
+  "lightning": "lightning.mp3",
+  "lightning-ultimate": "lightning-ultimate.mp3",
+  "electric": "electric.mp3",
+  "ice-storm": "ice-storm.mp3",
+  "magic-whoosh": "magic-whoosh-soft.mp3",
+  "teleport": "teleport.mp3",
+  "heal": "heal.mp3",
+  "holster": "holster.mp3",
+  "end-turn": "holster.mp3",
+  "grapple-fire": "grappling-gun-fire.mp3",
+  "grapple-retract": "grappling-gun-retract.mp3",
+  "explode": "explode.mp3",
+  "fuse": "fuse.mp3",
+  "roll": "roll-d20.mp3",
+  "roll-d20": "roll-d20.mp3",
+  "roll-dice": "roll.mp3",
+  "turn": "turn.mp3",
+  "ui-back": "ui-back.mp3",
+  "ui-tick": "ui-tick.mp3",
+  "enemy-downed": "enemy-downed.mp3",
+  "nat20": "nat20.mp3",
+  "nat1": "nat1.mp3",
+  "sting-tension": "sting-tension.mp3",
+  "sting-reveal": "sting-reveal.mp3",
+  "reward": "reward.mp3"
+ },
+ "pools": {
+  "attack": [
+   "rifle.mp3"
+  ],
+  "rifle": [
+   "rifle.mp3"
+  ],
+  "revolver": [
+   "revolver.mp3"
+  ],
+  "plinker": [
+   "plinker.mp3"
+  ],
+  "lever-fire": [
+   "lever-fire.mp3",
+   "lever-fire-alt-01.mp3",
+   "lever-fire-alt-02.mp3",
+   "rifle.mp3"
+  ],
+  "shotgun": [
+   "shotgun.mp3"
+  ],
+  "buffalo": [
+   "buffalo-rifle.mp3"
+  ],
+  "silenced": [
+   "silenced.mp3"
+  ],
+  "gatling": [
+   "gatling.mp3"
+  ],
+  "gatling-ellen-manor": [
+   "gatling-ellen-manor.mp3"
+  ],
+  "cock": [
+   "cock.mp3"
+  ],
+  "revolver-spin": [
+   "revolver-spin.mp3"
+  ],
+  "misfire": [
+   "misfire.mp3",
+   "misfire-alt-01.mp3",
+   "misfire-alt-02.mp3"
+  ],
+  "jam": [
+   "misfire.mp3",
+   "misfire-alt-01.mp3",
+   "misfire-alt-02.mp3"
+  ],
+  "empty-click": [
+   "misfire.mp3",
+   "misfire-alt-01.mp3",
+   "misfire-alt-02.mp3"
+  ],
+  "unjam": [
+   "unjam.mp3"
+  ],
+  "ricochet": [
+   "ricochet.mp3",
+   "ricochet-alt-01.mp3",
+   "ricochet-alt-02.mp3",
+   "ricochet-alt-03.mp3",
+   "ricochet-alt-04.mp3"
+  ],
+  "hit-gun": [
+   "hit-gun.mp3",
+   "hit-gun-alt-01.mp3",
+   "hit-gun-alt-02.mp3"
+  ],
+  "reload": [
+   "reload.mp3"
+  ],
+  "reload-revolver": [
+   "reload-revolver.mp3"
+  ],
+  "reload-lever": [
+   "reload-repeater.mp3",
+   "reload-repeater-alt-01.mp3",
+   "reload-repeater-alt-02.mp3"
+  ],
+  "rechamber": [
+   "rechamber.mp3"
+  ],
+  "clean": [
+   "clean.mp3"
+  ],
+  "slash": [
+   "roll-blade.mp3"
+  ],
+  "sword-hit": [
+   "sword-hit.mp3"
+  ],
+  "thud": [
+   "thud.wav"
+  ],
+  "twang": [
+   "twang.wav"
+  ],
+  "whoosh": [
+   "whoosh.wav"
+  ],
+  "axe": [
+   "axe-hit.mp3"
+  ],
+  "spear": [
+   "spear-hit.mp3",
+   "sword-hit.mp3"
+  ],
+  "spear-throw": [
+   "spear-throw.mp3"
+  ],
+  "bow": [
+   "bow-short-fire.mp3"
+  ],
+  "bow-long": [
+   "bow-long-draw.mp3"
+  ],
+  "hit-melee": [
+   "hit-melee.mp3",
+   "hit-melee-alt-01.mp3",
+   "hit-gun-alt-02.mp3"
+  ],
+  "crit-melee": [
+   "crit-melee.mp3",
+   "crit-melee-alt-01.mp3"
+  ],
+  "miss-melee": [
+   "miss-melee.mp3"
+  ],
+  "miss-blunt": [
+   "miss-melee-alt-01.mp3",
+   "miss-melee.mp3"
+  ],
+  "hit-arrow": [
+   "hit-arrow.mp3",
+   "hit-arrow-alt-01.mp3"
+  ],
+  "miss-arrow": [
+   "miss-arrow.mp3",
+   "miss-arrow-alt-01.mp3"
+  ],
+  "spellcast": [
+   "spellcast.mp3",
+   "spellcast-alt-01.mp3"
+  ],
+  "spellshot": [
+   "spellshot.mp3"
+  ],
+  "pactshot": [
+   "pactshot.mp3"
+  ],
+  "lightning": [
+   "lightning.mp3"
+  ],
+  "lightning-ultimate": [
+   "lightning-ultimate.mp3"
+  ],
+  "electric": [
+   "electric.mp3"
+  ],
+  "ice-storm": [
+   "ice-storm.mp3"
+  ],
+  "magic-whoosh": [
+   "magic-whoosh-soft.mp3"
+  ],
+  "teleport": [
+   "teleport.mp3",
+   "teleport-alt-01.mp3"
+  ],
+  "heal": [
+   "heal.mp3"
+  ],
+  "holster": [
+   "holster.mp3"
+  ],
+  "end-turn": [
+   "holster.mp3"
+  ],
+  "grapple-fire": [
+   "grappling-gun-fire.mp3"
+  ],
+  "grapple-retract": [
+   "grappling-gun-retract.mp3"
+  ],
+  "explode": [
+   "explode.mp3",
+   "explode-alt-01.mp3"
+  ],
+  "fuse": [
+   "fuse.mp3"
+  ],
+  "roll": [
+   "roll-d20.mp3"
+  ],
+  "roll-d20": [
+   "roll-d20.mp3"
+  ],
+  "roll-dice": [
+   "roll.mp3"
+  ],
+  "turn": [
+   "turn.mp3"
+  ],
+  "ui-back": [
+   "ui-back.mp3"
+  ],
+  "ui-tick": [
+   "ui-tick.mp3"
+  ],
+  "enemy-downed": [
+   "enemy-downed.mp3"
+  ],
+  "nat20": [
+   "nat20.mp3"
+  ],
+  "nat1": [
+   "nat1.mp3"
+  ],
+  "sting-tension": [
+   "sting-tension.mp3"
+  ],
+  "sting-reveal": [
+   "sting-reveal.mp3"
+  ],
+  "reward": [
+   "reward.mp3"
+  ]
+ },
+ "outcomes": {
+  "categories": {
+   "melee": {
+    "hit": "hit-melee",
+    "miss": "miss-melee",
+    "crit": "crit-melee"
+   },
+   "blade": {
+    "hit": "sword-hit",
+    "miss": "miss-melee",
+    "crit": "crit-melee"
+   },
+   "blunt": {
+    "hit": "hit-melee",
+    "miss": "miss-blunt",
+    "crit": "crit-melee"
+   },
+   "spear": {
+    "hit": "spear",
+    "miss": "miss-melee",
+    "crit": "crit-melee"
+   },
+   "axe": {
+    "hit": "axe",
+    "miss": "miss-melee",
+    "crit": "crit-melee"
+   },
+   "gun": {
+    "hit": "hit-gun",
+    "miss": "ricochet",
+    "crit": "nat20"
+   },
+   "arrow": {
+    "hit": "hit-arrow",
+    "miss": "miss-arrow",
+    "crit": "nat20"
+   },
+   "spell": {
+    "hit": "",
+    "miss": "",
+    "crit": "nat20"
+   }
   },
   "weapons": {
-    "navy-army-ball-n-cap-revolver": "revolver",
-    "herringer-light-pocket-pistol": "revolver",
-    "herringer-light-double-derringer": "revolver",
-    "herringer-light-pepperbox": "revolver",
-    "pony-arms-chaosmaker-light": "revolver",
-    "pony-arms-chaosmaker-medium": "revolver",
-    "pony-arms-chaosmaker-heavy": "revolver",
-    "dullards-plinker-revolver": "plinker",
-    "henrietta-repeating-rifle": "lever-fire",
-    "lancaster-repeating-rifle": "lever-fire",
-    "dullards-tube-rifle": "lever-fire",
-    "lancaster-lever-shotgun": "lever-fire",
-    "single-barrel-farm-shotgun": "shotgun",
-    "double-barrel-coach-gun": "shotgun",
-    "bison-big-fifty-buffalo-rifle": "buffalo",
-    "hatchet-handaxe": "axe",
-    "buffalo-axe-greataxe": "axe",
-    "tomahawk-battleaxe": "axe",
-    "throwing-spear-javelin": "spear",
-    "trail-spear-spear": "spear",
-    "shortbow": "bow",
-    "longbow": "bow",
-    "quality-strings-bow": "bow",
-    "cheap-strings-bow": "bow"
+   "throwing-spear-javelin": {
+    "hit": "spear",
+    "miss": "miss-arrow",
+    "crit": "crit-melee"
+   },
+   "hatchet-handaxe": {
+    "hit": "axe",
+    "miss": "miss-melee",
+    "crit": "crit-melee"
+   },
+   "buffalo-axe-greataxe": {
+    "hit": "axe",
+    "miss": "miss-melee",
+    "crit": "crit-melee"
+   },
+   "tomahawk-battleaxe": {
+    "hit": "axe",
+    "miss": "miss-melee",
+    "crit": "crit-melee"
+   },
+   "trail-spear-spear": {
+    "hit": "spear",
+    "miss": "miss-melee",
+    "crit": "crit-melee"
+   }
   }
+ },
+ "weapons": {
+  "navy-army-ball-n-cap-revolver": "revolver",
+  "herringer-light-pocket-pistol": "revolver",
+  "herringer-light-double-derringer": "revolver",
+  "herringer-light-pepperbox": "revolver",
+  "pony-arms-chaosmaker-light": "revolver",
+  "pony-arms-chaosmaker-medium": "revolver",
+  "pony-arms-chaosmaker-heavy": "revolver",
+  "dullards-plinker-revolver": "plinker",
+  "henrietta-repeating-rifle": "lever-fire",
+  "lancaster-repeating-rifle": "lever-fire",
+  "dullards-tube-rifle": "lever-fire",
+  "lancaster-lever-shotgun": "lever-fire",
+  "single-barrel-farm-shotgun": "shotgun",
+  "double-barrel-coach-gun": "shotgun",
+  "bison-big-fifty-buffalo-rifle": "buffalo",
+  "hatchet-handaxe": "whoosh",
+  "buffalo-axe-greataxe": "whoosh",
+  "tomahawk-battleaxe": "whoosh",
+  "throwing-spear-javelin": "spear-throw",
+  "trail-spear-spear": "whoosh",
+  "shortbow": "bow",
+  "longbow": "bow-long",
+  "quality-strings-bow": "bow",
+  "cheap-strings-bow": "bow"
+ },
+ "_note": "0.3.56: Jessey's approved set (sfx-inventory/final manifest). Pools pick randomly among a primary and its -alt-NN files."
 }

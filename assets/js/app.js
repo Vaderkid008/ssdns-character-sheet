@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.55"; // sheet-playtest-v0355
+  var APP_VERSION = "0.3.56"; // sheet-playtest-v0356
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -3016,6 +3016,8 @@
       if (window.SSDNSSheet) window.SSDNSSheet.addLog({ kind: "roll", text: line + " — success" });
     }
     applyCleanChoice(i, g, pick);
+    /* 0.3.56 SFX: unjam has its own sound; every other clean option plays the cleaning sound. */
+    if (window.SSDNSAudio) window.SSDNSAudio.play(/unjam/i.test(String(pick.id || pick.key || pick.value || pick.label || "")) ? "unjam" : "clean");
     return Promise.resolve(true);
   }
   /* 0.3.54: Unload has no PHB cost; the sheet treats it like a reload: an action. */
@@ -3064,6 +3066,7 @@
     g.loaded = 0; g.chambers = [];
     g.chamber = opt.value; g.tier = opt.tier; g.chamberSet = true;
     renderFields(); changed(); publishGunCard();
+    if (window.SSDNSAudio) window.SSDNSAudio.play("rechamber");
     var line = w.name + " rechambered to " + opt.label + (opts.free ? " (DM, free)." : " by a gunsmith for " + paid + " ES.") + " It's empty: hit Reload.";
     toast(line);
     if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
@@ -3131,6 +3134,7 @@
     changed();
     var name = WPN[g.weapon] ? WPN[g.weapon].name : "Gun";
     var line = name + ": reopened chamber " + (idx + 1) + " (action, once per short rest).";
+    if (window.SSDNSAudio) window.SSDNSAudio.play("rechamber");
     toast(line);
     if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
     publishGunCard();
@@ -3190,6 +3194,8 @@
     if (window.SSDNSD4 && window.SSDNSD4.cancel) window.SSDNSD4.cancel();
     var name = WPN[g.weapon] ? WPN[g.weapon].name : (hint.name || "Gun");
     var line = "DM repaired " + name + ".";
+    if (window.SSDNSAudio) window.SSDNSAudio.play("rechamber");
+
     if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: line });
     refreshGunFace();
     return true;
