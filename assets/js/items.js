@@ -34,7 +34,7 @@
     return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
   }
 
-  /* 0.3.65 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
+  /* 0.3.67 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
      so an old character never shows a counter for them or gets blocked. */
   var UNLIMITED_USES = { "saddle-of-the-phantom-steed": 1 };
   function unlimitedFix(item) {
