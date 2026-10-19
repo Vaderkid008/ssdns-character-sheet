@@ -75,9 +75,10 @@ function rowFor(id) {
 const outlaw = rowFor("outlaw");
 const outlawHtml = htmlOf(outlaw, 0);
 check(outlaw.card.attacks.length === 2, "outlaw has two attacks");
-check(Applied.attackButtonLabel(outlaw.card.attacks[0]) === "ChaosMaker Revolver +3", "revolver label");
+/* 0.2.78: Act I ChaosMaker swap, the Outlaw carries a Ball n Cap Revolver (MF 1-4) */
+check(Applied.attackButtonLabel(outlaw.card.attacks[0]) === "Ball n Cap Revolver +3", "revolver label");
 check(Applied.attackButtonLabel(outlaw.card.attacks[1]) === "Bowie +3", "bowie label");
-check(outlawHtml.indexOf("Revolver") >= 0 && outlawHtml.indexOf("ranged") >= 0 && outlawHtml.indexOf("1d8+1 piercing") >= 0 && outlawHtml.indexOf("20/60") >= 0 && outlawHtml.indexOf("6/6") >= 0 && outlawHtml.indexOf("MF 1") >= 0, "outlaw revolver row " + outlawHtml.slice(0, 400));
+check(outlawHtml.indexOf("Revolver") >= 0 && outlawHtml.indexOf("ranged") >= 0 && outlawHtml.indexOf("1d8+1 piercing") >= 0 && outlawHtml.indexOf("20/60") >= 0 && outlawHtml.indexOf("6/6") >= 0 && outlawHtml.indexOf("MF 4") >= 0, "outlaw revolver row " + outlawHtml.slice(0, 400));
 check(outlawHtml.indexOf("Bowie") >= 0 && outlawHtml.indexOf("melee") >= 0 && outlawHtml.indexOf("1d6+1") >= 0, "outlaw bowie row");
 check(outlawHtml.indexOf(">Attack<") < 0 && outlawHtml.indexOf("Attack player") < 0, "no generic Attack button on the outlaw sheet");
 check((outlawHtml.match(/data-sheet-roll="1"/g) || []).length === 2, "one Roll per outlaw attack");
@@ -176,8 +177,9 @@ check(read("index.html").indexOf("Kneeling or prone alone is not cover") >= 0 &&
 check((read("assets/data/rules.js").match(/doesn't stack with cover/g) || []).length >= 2, "Lead and Levers and Gunslinger note that Take Cover doesn't stack with cover");
 check(read("docs/SCHEMA.md").indexOf("`tactics`") >= 0, "schema documents tactics");
 const liveBeasts = beasts.filter((b) => b && !b.template);
-check(liveBeasts.length === 48, "48 enemies");
-check(liveBeasts.filter((b) => b.group === "creature").length === 24 && liveBeasts.filter((b) => b.group === "generic-folk").length === 10 && liveBeasts.filter((b) => b.group === "named").length === 14, "creatures, folk, named");
+/* 0.2.78: Encounter Bot bestiary v1 adds draft-horse, mule, spectral-horse, elite-sandie-brute, sand-devourer, slumber-ghoul */
+check(liveBeasts.length === 54, "54 enemies");
+check(liveBeasts.filter((b) => b.group === "creature").length === 30 && liveBeasts.filter((b) => b.group === "generic-folk").length === 10 && liveBeasts.filter((b) => b.group === "named").length === 14, "creatures, folk, named");
 check(liveBeasts.filter((b) => b.parked).map((b) => b.id).join(",") === "captain-rhee-calder", "only Calder is parked");
 const wakan = beasts.filter((b) => b.id === "wakan-takan")[0];
 check(wakan && wakan.spellcasting.dc === 13 && wakan.spellcasting.attack === 5 && wakan.saves.INT === 5 && wakan.saves.WIS === 3 && wakan.attackList[0].toHit === 4 && wakan.proficiencyNote == null, "Wakan Takan uses proficiency +2");
@@ -243,9 +245,9 @@ check(sandbox.__enemy.enemyPickerList(picker, "", false).some((b) => b.parked) =
 const menu = sandbox.__enemy.enemySelectHtml(sandbox.__enemy.enemyPickerList(picker, "", false));
 check(menu.indexOf('label="Creatures"') >= 0 && menu.indexOf('label="Folk"') >= 0 && menu.indexOf('label="Named"') >= 0 && menu.indexOf("Abigail Ellen") >= 0, "fight menu uses group headers");
 check(html.indexOf('id="enemyQ"') >= 0, "fight search box is in the page");
-check(version.dmcc === "0.2.77" && version.dmccBuild === "dmcc-playtest-v0277", "dmcc version");
-check(version.sheet === "0.3.64" && version.sheetBuild === "sheet-playtest-v0364", "sheet version");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.77"') >= 0, "dmcc.js version");
+check(version.dmcc === "0.2.78" && version.dmccBuild === "dmcc-playtest-v0278", "dmcc version");
+check(version.sheet === "0.3.65" && version.sheetBuild === "sheet-playtest-v0365", "sheet version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.78"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {

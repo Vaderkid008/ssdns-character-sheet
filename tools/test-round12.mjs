@@ -72,8 +72,9 @@ check(Applied.settled("DUST", "hit-9", storage), "undone hits stay settled");
 
 const beasts = JSON.parse(read("dm/assets/data/bestiary.json"));
 const outlaw = beasts.filter((b) => b.id === "outlaw")[0];
-check(outlaw.attackList.map((a) => a.name).join(",") === "ChaosMaker Revolver,Bowie", "outlaw weapons are ChaosMaker Revolver and Bowie");
-check(outlaw.attackList[0].damage === "1d8+1" && outlaw.attackList[0].range === "20/60" && outlaw.attackList[0].capacity === 6 && outlaw.attackList[0].misfire === 1, "revolver keeps the canon stats");
+/* 0.2.78: Act I ChaosMaker swap (Encounter Bot, Oct 17): the Outlaw's revolver is a Ball n Cap, MF 1-4 */
+check(outlaw.attackList.map((a) => a.name).join(",") === "Ball n Cap Revolver,Bowie", "outlaw weapons are Ball n Cap Revolver and Bowie");
+check(outlaw.attackList[0].damage === "1d8+1" && outlaw.attackList[0].range === "20/60" && outlaw.attackList[0].capacity === 6 && outlaw.attackList[0].misfire === 4, "revolver keeps the canon stats, ball n cap misfire 1-4");
 check(outlaw.attackList[1].damage === "1d6+1", "bowie damage is 1d6+1");
 const stale = [{ id: "outlaw", name: "Outlaw", attackList: [{ name: "Scimitar", bonus: 3, damage: "1d6+1" }], attacks: "Scimitar" }];
 const mergedSrc = read("dm/assets/js/v2.js");
@@ -113,7 +114,7 @@ check(Creator.errorsFor({ calling: "gunslinger", fightingStyle: "", name: "Ada",
 
 check(read("dm/assets/js/dmcc.js").indexOf('await put("meta"') >= 0, "a moved room writes meta before its children");
 check(read("database.rules.json").indexOf("meta/dmUid').val() === auth.uid && (!data.exists() || !newData.exists())") >= 0, "the DM can copy chat into the new room");
-check(read("version.json").indexOf('"sheet": "0.3.64"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.77"') >= 0, "versions");
+check(read("version.json").indexOf('"sheet": "0.3.65"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.78"') >= 0, "versions");
 check(read("index.html").indexOf("favicon.ico") < 0 && read("dm/index.html").indexOf("favicon.ico") < 0, "favicon no longer 404s on a missing ico");
 check(read("dm/index.html").indexOf('id="headerRoll"') >= 0, "the header has a dice roller");
 
