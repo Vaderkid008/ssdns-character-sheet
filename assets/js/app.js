@@ -710,16 +710,22 @@
   /** Walking speed: lineage + calling + Mobile + slotted paper-doll gear. */
   function autoSpeed(c, DB) {
     c = c || C();
-    var base = baseSpeed(c), parts = [];
-    if (base === "") return { base: "", parts: parts, total: "" };
+    var base = baseSpeed(c), parts = [], off = [];
+    if (base === "") return { base: "", parts: parts, off: off, total: "" };
     var lv = levelOf(c), arm = ARM[c.armor];
     if (c.calling === "tribal-warrior" && lv >= 5 && !(arm && arm.category === "heavy")) parts.push({ label: "Fast Movement", value: 10 });
-    if (c.calling === "martial-artist" && dustRunnerBonus(lv)) parts.push({ label: "Dust Runner", value: dustRunnerBonus(lv) });
+    if (c.calling === "martial-artist" && dustRunnerBonus(lv)) {
+      // Jessey 2026-10-19: Dust Runner only with no armor and no shield (5e Unarmored Movement).
+      var armored = !!(arm && arm.category !== "shield");
+      var shielded = !!c.shield || !!(arm && arm.category === "shield");
+      if (armored || shielded) off.push({ label: "Dust Runner", value: dustRunnerBonus(lv), why: armored && shielded ? "armor and shield" : (armored ? "armor" : "shield") });
+      else parts.push({ label: "Dust Runner", value: dustRunnerBonus(lv) });
+    }
     if (hasFeat(c, "mobile")) parts.push({ label: "Mobile", value: 10 });
     if (DB === undefined) DB = window.SSDNSDoll && window.SSDNSDoll.bonuses ? window.SSDNSDoll.bonuses(c) : null;
     if (DB && num(DB.speed)) parts.push({ label: "gear", value: num(DB.speed) });
     var total = base + parts.reduce(function (a, p) { return a + p.value; }, 0);
-    return { base: base, parts: parts, total: Math.max(0, total) };
+    return { base: base, parts: parts, off: off, total: Math.max(0, total) };
   }
   /**
    * Lowest d20 face that crits. opts: { weapon, melee, band, rangeApply }.
@@ -1542,7 +1548,8 @@
     var speedEl = document.querySelector("[data-f='character.speed']");
     if (speedEl) {
       if (document.activeElement !== speedEl) speedEl.value = c.speed;
-      speedEl.title = a.parts.length ? "Speed " + a.base + " ft" + a.parts.map(function (p) { return " + " + p.value + " " + p.label; }).join("") + " = " + a.total + " ft. Type a number to override." : "";
+      var offTxt = (a.off || []).map(function (o) { return " " + o.label + " +" + o.value + " is off (" + o.why + " on)."; }).join("");
+      speedEl.title = (a.parts.length || offTxt) ? "Speed " + a.base + " ft" + a.parts.map(function (p) { return " + " + p.value + " " + p.label; }).join("") + " = " + a.total + " ft." + offTxt + " Type a number to override." : "";
     }
   }
   function renderCalc() {

@@ -125,6 +125,10 @@ try {
     set((c) => { c.armor = "ring-coat"; }); out.speed.tw5heavy = Number(C().speed);
     set((c) => { c.armor = ""; c.calling = "martial-artist"; c.level = 6; }); out.speed.ma6 = Number(C().speed);
     set((c) => { c.level = 18; }); out.speed.ma18 = Number(C().speed);
+    const spTitle = () => (document.querySelector("[data-f='character.speed']") || {}).title || "";
+    set((c) => { c.armor = "hide-wrap"; }); out.speed.maArmor = Number(C().speed); out.speed.maArmorTitle = spTitle();
+    set((c) => { c.armor = ""; c.shield = true; }); out.speed.maShield = Number(C().speed); out.speed.maShieldTitle = spTitle();
+    set((c) => { c.shield = false; }); out.speed.maBare = Number(C().speed); out.speed.maBareTitle = spTitle();
     set((c) => { c.calling = "gunslinger"; c.level = 1; c.feats = ["mobile"]; }); out.speed.mobile = Number(C().speed);
     out.speed.title = (document.querySelector("[data-f='character.speed']") || {}).title || "";
     set((c) => { c.feats = []; }); out.speed.back = Number(C().speed);
@@ -143,6 +147,17 @@ try {
     await wait(100);
     const g1 = A.compute().guns[0];
     out.power.gun = { atk0: g0.atk, atk1: g1.atk, dmg0: g0.dmg, dmg1: g1.dmg, stored: C().powerAttack, parts: g1.parts.map((p) => p.label + p.value).join(","), shownAtk: (document.querySelector("[data-calc='gunAtk.0']") || {}).value };
+    /* Free shot ignores the toggle: d20 + bonus without the -5 */
+    sel.value = "__free"; sel.dispatchEvent(new Event("change", { bubbles: true }));
+    set((c) => { c.guns[0].loaded = 6; c.guns[0].chambers = ["c", "c", "c", "c", "c", "c"]; c.guns[0].jammed = false; c.guns[0].misStreak = 0; });
+    const rr = Math.random; Math.random = () => 0.6; /* d20 = 13 */
+    window.SSDNSGunRoll(0, 0);
+    await wait(700);
+    Math.random = rr;
+    const fi = document.querySelector(".log-item");
+    out.power.free = fi ? fi.textContent : "";
+    out.power.freeToggle = C().powerAttack;
+    sel.value = ""; sel.dispatchEvent(new Event("change", { bubbles: true }));
     set((c) => { c.guns[0].proficient = false; });
     out.power.unproficient = A.compute().guns[0].atk;
     set((c) => { c.guns[0].proficient = true; });
@@ -183,6 +198,9 @@ try {
   check("crit.sheetGun19", /CRIT/.test(r.gunCrit) && !/MISS/.test(r.gunCrit), r.gunCrit);
   check("speed.fastMovement", r.speed.tw4 === 30 && r.speed.tw5 === 40 && r.speed.tw5heavy === 30, J(r.speed));
   check("speed.dustRunner", r.speed.ma6 === 45 && r.speed.ma18 === 60, J(r.speed));
+  check("speed.dustRunnerArmorOff", r.speed.maArmor === 30 && /Dust Runner \+30 is off \(armor on\)/.test(r.speed.maArmorTitle), J(r.speed));
+  check("speed.dustRunnerShieldOff", r.speed.maShield === 30 && /Dust Runner \+30 is off \(shield on\)/.test(r.speed.maShieldTitle), J(r.speed));
+  check("speed.dustRunnerBareOn", r.speed.maBare === 60 && /\+ 30 Dust Runner = 60 ft/.test(r.speed.maBareTitle) && !/is off/.test(r.speed.maBareTitle), J(r.speed));
   check("speed.mobile", r.speed.mobile === 40 && r.speed.back === 30 && /Mobile/.test(r.speed.title), J(r.speed));
   check("speed.overridesKept", r.speed.legacyKept === 25 && r.speed.typedKept === 45, J(r.speed));
   check("power.toggleGated", r.power.hiddenNoFeat && r.power.shown && /Sharpshooter/.test(r.power.label), J(r.power));
@@ -190,6 +208,8 @@ try {
   check("power.sharpshooterAtk", r.power.gun.stored === true && a1 === a0 - 5 && /Sharpshooter-5/.test(r.power.gun.parts) && parseInt(r.power.gun.shownAtk, 10) === a1, J(r.power.gun));
   const flat = (s) => { const m = String(s).match(/([+-]\s*\d+)/); return m ? parseInt(m[1].replace(/\s/g, ""), 10) : 0; };
   check("power.sharpshooterDmg", flat(r.power.gun.dmg1) === flat(r.power.gun.dmg0) + 10, J(r.power.gun));
+  { const want = a0; const m = String(r.power.free).match(/shoots freely · (?:13)?1d20([+-]\d+) = (\d+)/);
+    check("power.freeShotIgnoresToggle", r.power.freeToggle === true && !!m && parseInt(m[1], 10) === want && parseInt(m[2], 10) === 13 + want, J([a0, r.power.free])); }
   check("power.needsProficiency", parseInt(r.power.unproficient, 10) === a0 - 2, J([a0, r.power.unproficient]));
   check("gwm.heavyOnly", parseInt(r.gwm.on[0].atk, 10) === parseInt(r.gwm.off[0].atk, 10) - 5 && flat(r.gwm.on[0].dmg) === flat(r.gwm.off[0].dmg) + 10 && r.gwm.on[1].atk === r.gwm.off[1].atk && r.gwm.on[1].dmg === r.gwm.off[1].dmg, J(r.gwm));
   check("gwm.label", /GWM/.test(r.gwm.label), r.gwm.label);

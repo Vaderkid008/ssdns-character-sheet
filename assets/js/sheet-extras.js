@@ -2155,10 +2155,16 @@
     if (!isFinite(bonus)) bonus = 0;
     var rolledView = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var gunStat = rolledView.guns && rolledView.guns[i];
+    // Jessey 2026-10-19: a Free shot ignores the Sharpshooter/GWM -5/+10 toggle.
+    var powerOff = gunStat && gunStat.power;
     if (gunStat && gunStat.parts) {
       bonus = 0;
-      gunStat.parts.forEach(function (p) { if (p.label !== "first shot") bonus += Number(p.value) || 0; });
-    }
+      gunStat.parts.forEach(function (p) {
+        if (p.label === "first shot") return;
+        if (powerOff && p.label === powerOff.label) return;
+        bonus += Number(p.value) || 0;
+      });
+    } else if (powerOff) bonus -= Number(powerOff.atk) || 0;
     var misEl = document.querySelector('[data-out="mis.' + i + '"]');
     var ceiling = root.SSDNSApp.misfireCeiling
       ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
