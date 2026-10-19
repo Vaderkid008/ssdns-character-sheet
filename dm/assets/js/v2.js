@@ -3884,7 +3884,7 @@ function logTableAlert(text) {
   } else if (DM.state._fb && DM.roomRef) {
     DM.state._fb.set(DM.roomRef("chat/" + row.id), row).catch(() => {});
   }
-  DM.pushLedger({ who: "DM", playerId: "all", type: "alert", what: text, oldVal: null, newVal: text, flag: false });
+  DM.pushLedger({ who: "DM", playerId: "all", type: "alert", what: text, oldVal: null, newVal: text, flag: false, chatId: row.id });
 }
 function withDmActing(row, detail) {
   if (!row || row.kind !== "player" || !row.dmActsAs) return detail;

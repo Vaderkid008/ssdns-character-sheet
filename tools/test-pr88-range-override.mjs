@@ -253,6 +253,14 @@ try {
       break;
     }
     out.rolls = rolls.map((r) => ({ detail: r.detail || "", text: r.text || "" }));
+    await wait(500);
+    /* the table feed: the override alert once; the range note and "Applied …" on separate lines */
+    const items = [...document.querySelectorAll(".dock-item")];
+    out.alertCount = items.filter((n) => /DM override: advantage forced/.test(n.textContent)).length;
+    const strikeItem = items.filter((n) => /ADV: DM forced advantage/.test(n.textContent)).pop();
+    out.applyBlock = strikeItem ? !!strikeItem.querySelector(".dock-apply") : null;
+    out.strikeText = strikeItem ? strikeItem.innerText : "";
+    out.ledgerKept = (window.DMCC.state.ledger || []).filter((e) => e.type === "alert" && /advantage forced/.test(e.what || "") && e.chatId).length;
     out.peekAfter = Rg.peek();
     window.DMCC.pushRoll = realPush;
     Rg.setOverride("auto");
@@ -264,6 +272,9 @@ try {
   const hit = (d.rolls || []).find((r) => /d20/.test(r.detail) || /attacks/.test(r.detail));
   check("dmcc.strikeFired", !!d.fired && !!hit, J(d.rolls));
   check("dmcc.strikeKeepsHigh", !!hit && /«19»/.test(hit.detail) && /\b3\b/.test(hit.detail) && /ADV: DM forced advantage/.test(hit.detail), hit && hit.detail);
+  check("feed.alertOnce", d.alertCount === 1, J({ alertCount: d.alertCount }));
+  check("feed.ledgerKeepsRecord", d.ledgerKept >= 1, J({ ledgerKept: d.ledgerKept }));
+  check("feed.applySeparated", !/advantageApplied/.test(d.strikeText) && (d.applyBlock === true || !/Applied/.test(d.strikeText)), J({ applyBlock: d.applyBlock, text: d.strikeText }));
   check("dmcc.noPageErrors", dmErrs.length === 0, dmErrs.join(" | "));
 } finally { await browser.close(); }
 console.log(failures.length ? "\n" + failures.length + " FAILED: " + failures.join(", ") : "\nAll PR88 range override checks passed.");
