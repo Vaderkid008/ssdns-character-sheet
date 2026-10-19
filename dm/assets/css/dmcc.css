@@ -266,6 +266,17 @@ main { padding: 0 12px 80px; }
   pointer-events: none;
 }
 .gun-chip.worn { border-left-color: var(--warn); }
+/* 0.2.75: gun panel status line, state-matched fixes, folded DM overrides */
+.gun-chip .gun-status { margin: 6px 0 4px; font: 600 12px/1.3 var(--label, system-ui); letter-spacing: .04em; }
+.gun-chip .gun-status-ok { color: #9fd3a0; }
+.gun-chip .gun-status-warn { color: var(--warn); }
+.gun-chip .gun-status-bad { color: #ff9c8a; }
+.gun-chip .gun-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 4px 0; }
+.gun-chip .gun-row input[type=number] { width: 56px; }
+.gun-chip .gun-fix-row .btn-repair { margin-left: auto; border-color: var(--ochre); }
+.gun-chip details.gun-overrides { margin: 4px 0; }
+.gun-chip details.gun-overrides > summary { cursor: pointer; font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+
 .gun-chip .chambers { margin-top: 6px; }
 .chambers { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .chamber {

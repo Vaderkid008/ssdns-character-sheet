@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.74"; // dmcc-playtest-v0274
+const VERSION = "0.2.75"; // dmcc-playtest-v0275
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -915,6 +915,56 @@ async function pushCommand(cmd) {
   } catch (e) { writeFailed(e, "Command failed"); }
 }
 
+/* 0.2.75: DMCC gun panel. One status line, then only the fixes that apply to the gun right now,
+   then Repair (always), then the test toggles folded away. */
+function gunStatusParts(g) {
+  g = g || {};
+  const lockN = Array.isArray(g.lockedChambers) ? g.lockedChambers.length : 0;
+  const bits = [];
+  const streak = Number(g.misStreak) || 0;
+  if (streak) bits.push("Streak " + streak);
+  if (g.jammed) bits.push("Jammed");
+  if (g.dirty) bits.push("Dirty");
+  if (lockN) bits.push("LOCKED UP \u00d7" + lockN);
+  if (g.pendingD4) bits.push("d4 pending");
+  if (g.exploded) bits.push("Exploded");
+  if (g.ruined || g.broken) bits.push("Ruined");
+  else if (g.fouled) bits.push("Fouled");
+  return bits;
+}
+function gunStatusHtml(g) {
+  const bits = gunStatusParts(g);
+  const bad = bits.some((b) => b !== "Streak " + (Number(g && g.misStreak) || 0));
+  return `<p class="gun-status ${bits.length ? (bad ? "gun-status-bad" : "gun-status-warn") : "gun-status-ok"}" data-gun-status>${bits.length ? esc(bits.join(" \u00b7 ")) : "OK \u00b7 ready to fire"}</p>`;
+}
+function gunRepairList(g) {
+  g = g || {};
+  const lockN = Array.isArray(g.lockedChambers) ? g.lockedChambers.length : 0;
+  const list = [];
+  if (g.exploded) list.push("the explosion mark");
+  if (g.ruined || g.broken) list.push("Ruined");
+  else if (g.fouled) list.push("Fouled");
+  if (g.jammed) list.push("the jam");
+  if (g.dirty) list.push("Dirty");
+  if (lockN) list.push(lockN + " locked chamber" + (lockN === 1 ? "" : "s"));
+  if (g.pendingD4) list.push("the pending d4");
+  if (Number(g.misStreak) || 0) list.push("the misfire streak (" + Number(g.misStreak) + ")");
+  return list;
+}
+function gunFixButtonsHtml(g, sheetI) {
+  g = g || {};
+  const lockN = Array.isArray(g.lockedChambers) ? g.lockedChambers.length : 0;
+  const fouled = !!(g.fouled || g.ruined || g.broken);
+  const b = [];
+  if (g.jammed && !fouled && !g.pendingD4) b.push(`<button type="button" class="btn sm" data-gun-op="clean" data-clean="unjam" data-gun-i="${sheetI}">Unjam</button>`);
+  if (g.dirty && !fouled) b.push(`<button type="button" class="btn sm" data-gun-op="misfire" data-mf="clean-dirt" data-gun-i="${sheetI}" title="Clears Dirty and resets the streak, like a cleaning kit">Clean dirt</button>`);
+  if (lockN) b.push(`<button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="one" data-gun-i="${sheetI}">Reopen 1 locked chamber</button>`);
+  if (lockN > 1) b.push(`<button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="all" data-gun-i="${sheetI}">Reopen all locked chambers</button>`);
+  if (g.pendingD4) b.push(`<button type="button" class="btn sm" data-gun-op="misfire" data-mf="cancel" data-gun-i="${sheetI}" title="Drops the d4 roll and resets the streak">Cancel d4</button>`);
+  if (fouled) b.push(`<button type="button" class="btn sm" data-gun-op="misfire" data-mf="clear-foul" data-gun-i="${sheetI}" title="Clears Fouled and Ruined only">Clear Fouled</button>`);
+  b.push(`<button type="button" class="btn sm btn-repair" data-gun-op="repair" data-gun-i="${sheetI}" title="Clears every misfire state on this gun">Repair gun (clear everything)</button>`);
+  return `<div class="gun-row gun-fix-row">${b.join("")}</div>`;
+}
 function misfireOverrideWords(payload) {
   const bits = [];
   if (payload.resetStreak) bits.push("streak reset");
@@ -2000,28 +2050,27 @@ function openDetail(pid) {
         const lockN = Array.isArray(g.lockedChambers) ? g.lockedChambers.length : 0;
         const crossed = !!(g.ruined || g.broken || g.exploded);
         return `<div class="gun-chip ${g.jammed ? "jammed" : ""}${crossed ? " gun-x" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}
-        <p class="fine">Streak ${esc(g.misStreak || 0)}${g.pendingD4 ? " · d4 pending" : ""}${g.dirty ? " · Dirty" : ""}${g.fouled ? " · Fouled" : ""}${g.ruined ? " · Ruined" : ""}${lockN ? " · LOCKED UP ×" + lockN : ""}</p>
-        <button type="button" class="btn sm" data-gun-op="reload" data-gun-i="${sheetI}">Reload</button>
-        <button type="button" class="btn sm" data-gun-op="unload" data-gun-i="${sheetI}">Unload</button>
-        <button type="button" class="btn sm" data-gun-op="dirty-d4" data-gun-i="${sheetI}">Dirty d4</button>
-        <button type="button" class="btn sm" data-gun-op="set" data-gun-i="${sheetI}">Set loaded</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="reset" data-gun-i="${sheetI}">Reset streak</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="dirty" data-mf-on="1" data-gun-i="${sheetI}">Set Dirty</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="dirty" data-mf-on="0" data-gun-i="${sheetI}">Clear Dirty</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="fouled" data-mf-on="1" data-gun-i="${sheetI}">Set Fouled</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="fouled" data-mf-on="0" data-gun-i="${sheetI}">Clear Fouled</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="ruined" data-mf-on="1" data-gun-i="${sheetI}">Set Ruined</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="ruined" data-mf-on="0" data-gun-i="${sheetI}">Clear Ruined</button>
-        <button type="button" class="btn sm" data-gun-op="misfire" data-mf="cancel" data-gun-i="${sheetI}">Cancel d4</button>
-        <span class="fine">Clear locked chambers</span>
-        <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="one" data-gun-i="${sheetI}">Clear one</button>
-        <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="all" data-gun-i="${sheetI}">Clear all</button>
-        <button type="button" class="btn sm" data-gun-op="repair" data-gun-i="${sheetI}">Repair gun</button>
+        ${gunStatusHtml(g)}
+        <div class="gun-row gun-load-row">
+          <button type="button" class="btn sm" data-gun-op="reload" data-gun-i="${sheetI}">Reload</button>
+          <button type="button" class="btn sm" data-gun-op="unload" data-gun-i="${sheetI}">Unload</button>
+          <button type="button" class="btn sm" data-gun-op="set" data-gun-i="${sheetI}">Set loaded</button>
+          <input type="number" data-gun-loaded="${sheetI}" value="${esc(g.loaded)}" aria-label="Loaded chambers">
+        </div>
+        ${gunFixButtonsHtml(g, sheetI)}
+        <details class="gun-overrides"><summary>DM overrides (testing)</summary>
+          <div class="gun-row">
+            <button type="button" class="btn sm" data-gun-op="misfire" data-mf="reset" data-gun-i="${sheetI}">Reset streak</button>
+            <button type="button" class="btn sm" data-gun-op="dirty-d4" data-gun-i="${sheetI}">Dirty d4</button>
+            <button type="button" class="btn sm" data-gun-op="misfire" data-mf="dirty" data-mf-on="${g.dirty ? "0" : "1"}" data-gun-i="${sheetI}">${g.dirty ? "Clear Dirty" : "Set Dirty"}</button>
+            <button type="button" class="btn sm" data-gun-op="misfire" data-mf="fouled" data-mf-on="${g.fouled ? "0" : "1"}" data-gun-i="${sheetI}">${g.fouled ? "Clear Fouled" : "Set Fouled"}</button>
+            <button type="button" class="btn sm" data-gun-op="misfire" data-mf="ruined" data-mf-on="${(g.ruined || g.broken) ? "0" : "1"}" data-gun-i="${sheetI}">${(g.ruined || g.broken) ? "Clear Ruined" : "Set Ruined"}</button>
+          </div>
+        </details>
         ${Array.isArray(g.rechamber) && g.rechamber.length ? `<span class="fine">Rechamber (DM, free)</span>
         <select data-gun-rechamber="${sheetI}" aria-label="New chambering">${g.rechamber.map((o) => `<option value="${esc(o.value)}">${esc(o.label)} · gunsmith ${esc(o.cost)} ES${o.allowed ? "" : " (off-path)"}</option>`).join("")}</select>
         <button type="button" class="btn sm" data-gun-op="rechamber" data-gun-i="${sheetI}">Rechamber</button>` : ""}
         <button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${g.equipped === false ? "1" : "0"}" data-gun-kind="gun" data-gun-i="${sheetI}">${g.equipped === false ? "Equip" : "Unequip"}</button>
-        <input type="number" data-gun-loaded="${sheetI}" value="${esc(g.loaded)}" aria-label="Loaded chambers">
       </div>`;
       }).join("") || "<p>—</p>"}
       ${(s.melee || []).map((m) => `<div class="gun-chip"><div>${esc(m.name)} · melee</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${m.equipped === false ? "1" : "0"}" data-gun-kind="melee" data-gun-i="${m.index}">${m.equipped === false ? "Equip" : "Unequip"}</button></div>`).join("")}
@@ -2048,7 +2097,7 @@ function openDetail(pid) {
     }
   });
   $("#detailBody").querySelectorAll("[data-gun-op]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const index = Number(btn.getAttribute("data-gun-i"));
       const op = btn.getAttribute("data-gun-op");
       const loadedEl = $("#detailBody").querySelector("[data-gun-loaded='" + index + "']");
@@ -2057,9 +2106,12 @@ function openDetail(pid) {
         const key = btn.getAttribute("data-mf");
         if (key === "reset") payload.resetStreak = true;
         else if (key === "cancel") payload.cancelD4 = true;
+        else if (key === "clean-dirt") { payload.dirty = false; payload.resetStreak = true; }
+        else if (key === "clear-foul") { payload.fouled = false; payload.ruined = false; }
         else if (key) payload[key] = btn.getAttribute("data-mf-on") === "1";
       }
       if (op === "clear-locks") payload.mode = btn.getAttribute("data-lock-mode") === "one" ? "one" : "all";
+      if (op === "clean") payload.optionId = btn.getAttribute("data-clean") || "unjam";
       if (op === "equip") payload.equipped = btn.getAttribute("data-gun-on") === "1";
       if (op === "rechamber") {
         const sel = $("#detailBody").querySelector("[data-gun-rechamber='" + index + "']");
@@ -2073,6 +2125,10 @@ function openDetail(pid) {
       if (op === "repair") {
         payload.weapon = (gun && gun.weapon) || "";
         payload.name = gunName;
+        const clears = gunRepairList(gun);
+        const ask = "Repair " + gunName + "? This clears " + (clears.length ? clears.join(", ") : "every misfire state (nothing is wrong with it right now)") + ". Free, no gunsmith.";
+        const ok = window.SSDNSAsk && window.SSDNSAsk.confirm ? await window.SSDNSAsk.confirm(ask) : window.confirm(ask);
+        if (!ok) return;
       }
       const lockN = gun && Array.isArray(gun.lockedChambers) ? gun.lockedChambers.length : 0;
       if (op === "clear-locks" && !lockN) {
@@ -2084,8 +2140,9 @@ function openDetail(pid) {
       if (op === "misfire") postDmAction("DM override on " + gunName + ": " + misfireOverrideWords(payload) + ".", pid);
       if (op === "clear-locks") {
         const which = payload.mode === "one" ? "one locked chamber" : "all locked chambers";
-        postDmAction("DM cleared " + which + " on " + gunName + ".", pid);
+        postDmAction("DM reopened " + which + " on " + gunName + ".", pid);
       }
+      if (op === "clean") postDmAction("DM unjammed " + gunName + ".", pid);
       if (op === "repair") postDmAction("DM repaired " + gunName + ".", pid);
       if (op === "rechamber") postDmAction("DM rechambered " + gunName + " to " + payload.label + " (free).", pid);
       if (op === "equip") {
