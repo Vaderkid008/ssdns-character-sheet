@@ -940,6 +940,9 @@ select:-webkit-autofill {
 #panel-fight .wanted-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
 #panel-fight .btn-roll-init { font-size: 18px; padding: 10px 22px; letter-spacing: .04em; }
 #panel-fight .btn-roll-init[hidden] { display: none; }
+/* 0.2.77: End combat next to Roll Initiative while a fight runs */
+#panel-fight .wanted-actions .btn-end-combat { font-size: 18px; padding: 10px 22px; letter-spacing: .04em; border: 2px solid #c0392b; color: #ffd7cf; background: #3a1714; }
+#panel-fight .wanted-actions .btn-end-combat[hidden] { display: none; }
 #panel-fight .btn-add-enemy { font-size: 16px; padding: 8px 16px; background: #6b2a1c; color: #fff4dc; border-color: #3e160d; }
 #panel-fight #rollInitStatus:empty { display: none; }
 /* 0.2.67 Give tab */

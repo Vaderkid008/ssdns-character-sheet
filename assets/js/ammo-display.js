@@ -436,10 +436,57 @@
     return el.querySelector(".ssdns-ammo");
   }
 
+  /* 0.3.64: the round a token's ammo badge shows. It is the next round to fire in THAT gun (the first
+     loaded chamber that isn't locked), so mixed loads show what fires next. The chamber token
+     ("k:type:caliber:tier", hex "1".."9" / "k:hex:N") wins over the gun's own fields. An empty gun
+     falls back to its caliber/default round and reports empty so the count can go muted red.
+     Colours are the #73 round art: TONE / HEX case colours and the gauge hull colours. */
+  var HULL = { "410": ["#3f8fe0", "#1f5a9c"], "12": ["#c4322e", "#8e241f"], "10": ["#2f7a3a", "#1a4a22"] };
+  function roundLook(spec) {
+    spec = spec || {};
+    var flags = Array.isArray(spec.chambers) ? spec.chambers : [];
+    var locks = (Array.isArray(spec.locked) ? spec.locked : (Array.isArray(spec.lockedChambers) ? spec.lockedChambers : [])).map(Number);
+    var at = -1;
+    for (var i = 0; i < flags.length; i++) {
+      if (locks.indexOf(i) >= 0) continue;
+      if (chamberState(flags[i]) === "loaded") { at = i; break; }
+    }
+    if (at < 0 && !flags.length && Number(spec.loaded) > 0) at = 0;
+    var raw = at >= 0 && flags.length ? flags[at] : "";
+    var chamber = at >= 0 && typeof raw === "string" ? { index: at, raw: raw } : null;
+    var view = {};
+    Object.keys(spec).forEach(function (k) { view[k] = spec[k]; });
+    var kindName = "";
+    if (typeof raw === "string" && raw.indexOf("k:") === 0 && raw.indexOf("k:hex:") !== 0) {
+      var bits = raw.split(":");
+      kindName = bits[1] || "";
+      if (bits[2]) view.caliber = bits[2];
+      if (bits[3]) view.tier = bits[3];
+      if (kindName === "slug") view.load = "slug";
+      else if (kindName === "buck") view.load = "buck";
+      /* the loaded round, not the gun's default: a cartridge in a converted ball n cap draws as a cartridge */
+      else if (kindName === "cartridge" || kindName === "plain" || kindName === "bigfifty") view.ammo = "cartridge";
+    }
+    var type = roundType(view, chamber);
+    var look = { type: type, tone: toneOf(view, chamber), next: at, empty: at < 0 };
+    if (type === "hex") {
+      var lv = /^[1-9]$/.test(raw) ? Number(raw) : Number(String(raw).split(":")[2] || 1);
+      look.hexLevel = lv || 1;
+    }
+    if (type === "shell") {
+      look.gauge = shellGauge(view);
+      look.slug = isSlug(view);
+      look.hull = HULL[look.gauge][0];
+      look.hullDark = HULL[look.gauge][1];
+    }
+    return look;
+  }
+
   root.SSDNSAmmoDisplay = {
     enabled: enabled,
     kind: kind,
     roundType: roundType,
+    roundLook: roundLook,
     html: html,
     mount: mount
   };

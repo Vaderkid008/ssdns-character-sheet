@@ -1016,6 +1016,11 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
 }
 .ssm-turnstrip .turn-chip { cursor: pointer; flex: 0 0 auto; }
 .ssm-turnstrip .btn-next { flex: 0 0 auto; min-height: 40px; }
+/* 0.2.77: idle strip for the DM, and End combat pushed to the far end */
+.ssm-turnstrip .ssm-strip-idle { color: #b9a888; font-size: 13px; padding: 0 6px; flex: 0 0 auto; }
+.ssm-turnstrip .btn-roll-init { flex: 0 0 auto; min-height: 40px; }
+.ssm-turnstrip .ssm-strip-gap { flex: 1 1 auto; min-width: 12px; }
+.ssm-turnstrip .btn-end-combat { flex: 0 0 auto; border: 2px solid #c0392b; color: #ffd7cf; background: #3a1714; }
 .token-chip { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
 .name-mode { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .name-mode button.on { box-shadow: inset 0 0 0 2px #e8c36a; }

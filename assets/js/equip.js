@@ -253,7 +253,9 @@
         icon: iconFor(group),
         loaded: loaded,
         cap: cap,
-        svg: ICONS[iconFor(group)] || ICONS.pistol
+        svg: ICONS[iconFor(group)] || ICONS.pistol,
+        /* 0.3.64: the round that fires next in this gun (SSDNSAmmoDisplay.roundLook), for the token badge */
+        look: g.look || null
       });
     });
     return rows;
