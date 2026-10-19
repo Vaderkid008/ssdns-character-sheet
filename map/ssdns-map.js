@@ -362,6 +362,15 @@ if (window.SSDNSDice && window.SSDNSDice.mount) {
   el.appendChild(diceBar);
   window.SSDNSDice.mount(diceBar);
 }
+/* 0.3.68: the DMCC Fight tab's Range picker and this drawer's share one override */
+if (role === 'dm' && window.SSDNSRangeRings && window.SSDNSRangeRings.onOverride) {
+  const offOverride = window.SSDNSRangeRings.onOverride(next => {
+    if (!el.isConnected) { offOverride(); return; }
+    state.rangeOverride = next;
+    if (q('drawer')) renderDrawer();
+    draw();
+  });
+}
 on(document, 'keydown', e => {
   if (role === 'dm' && e.key === 'Escape' && state.pendingTarget) {
     e.preventDefault();
@@ -2251,8 +2260,14 @@ function rangeButtonNote(attack, targetId, shooterId) {
   return window.SSDNSRangeRings.resolve(Object.assign({}, attack, { spell: spell, kind: spell ? 'spell' : (attack.kind || '') }), feetBetween(shooter, tgt), {
     hasTarget: true,
     hostileFeet: nearestHostileFeet(shooter),
-    override: role === 'dm' ? (state.rangeOverride || 'auto') : 'auto'
+    override: role === 'dm' ? rangeOverrideNow() : 'auto'
   });
+}
+/* 0.3.68: the DM range override is shared with the DMCC Fight tab picker (SSDNSRangeRings keeps it). */
+function rangeOverrideNow() {
+  const R = window.SSDNSRangeRings;
+  if (R && R.getOverride) return R.getOverride();
+  return state.rangeOverride || 'auto';
 }
 function armRange(attack, targetId, shooterId) {
   const verdict = rangeButtonNote(attack, targetId, shooterId);
@@ -2267,6 +2282,7 @@ function noteOverride(verdict) {
   if (verdict && verdict.log && role === 'dm') emit('chat:send', { text: verdict.log });
 }
 function disMark(verdict) {
+  if (verdict && !verdict.blocked && verdict.advantage) return ' <span class="ssm-adv">Advantage</span>';
   if (!verdict || verdict.blocked || !verdict.disadvantage) return '';
   return ' <span class="ssm-dis">Disadvantage</span>';
 }
@@ -5482,9 +5498,10 @@ async function loadSceneImage(sceneId, opts) {
       coverRow +
       '<label class="ssm-act ssm-range"><input type="checkbox" data-act="drawerRange"' + (state.showRange ? ' checked' : '') + '> Show range</label>' +
       '<label class="ssm-act">Range: <select data-act="rangeOverride" aria-label="Range: Auto">' +
-        '<option value="auto"' + ((state.rangeOverride || 'auto') === 'auto' ? ' selected' : '') + '>Auto</option>' +
-        '<option value="ignore"' + (state.rangeOverride === 'ignore' ? ' selected' : '') + '>Ignore range</option>' +
-        '<option value="force"' + (state.rangeOverride === 'force' ? ' selected' : '') + '>Force DIS</option>' +
+        '<option value="auto"' + (rangeOverrideNow() === 'auto' ? ' selected' : '') + '>Auto</option>' +
+        '<option value="ignore"' + (rangeOverrideNow() === 'ignore' ? ' selected' : '') + '>Ignore range</option>' +
+        '<option value="force"' + (rangeOverrideNow() === 'force' ? ' selected' : '') + '>Force DIS</option>' +
+        '<option value="adv"' + (rangeOverrideNow() === 'adv' ? ' selected' : '') + '>Force ADV</option>' +
       '</select></label>' +
       '<select data-act="drawerRangeWeapon" aria-label="Token weapon" hidden></select>' +
       (conds ? '<div class="ssm-conds">' + conds + '</div>' : '') +
@@ -5738,6 +5755,7 @@ async function loadSceneImage(sceneId, opts) {
     const rangeMode = d.querySelector('[data-act="rangeOverride"]');
     if (rangeMode) rangeMode.addEventListener('change', () => {
       state.rangeOverride = rangeMode.value || 'auto';
+      if (window.SSDNSRangeRings && window.SSDNSRangeRings.setOverride) window.SSDNSRangeRings.setOverride(state.rangeOverride);
       renderDrawer();
     });
     d.querySelector('[data-act="reloadBtn"]').addEventListener('click', () => emit('drawer:reload', detail({ weaponId: pickedWeapon() })));

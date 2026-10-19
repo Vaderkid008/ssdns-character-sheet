@@ -968,3 +968,6 @@ select:-webkit-autofill {
 .mx-sting { display: inline-flex; gap: 2px; align-items: center; }
 .mx-sting .btn.sm { min-height: 40px; background: #5e1e13; color: #fff; border-color: #3b120b; font-weight: 700; }
 .mx-scene-edit { margin-top: 6px; }
+
+/* 0.2.81: Fight tab Range override picker shows when the DM has it off Auto */
+#fightRangeOverride.is-override { border-color: #e0a63a; box-shadow: 0 0 0 1px #e0a63a; }

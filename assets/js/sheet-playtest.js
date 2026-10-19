@@ -463,6 +463,11 @@
       rollMeleeNow(i);
     });
   }
+  /* 0.3.68: DM "Force ADV" range override turns the roll into advantage (or cancels a DIS pick) */
+  function rangeMode(chosen, verdict) {
+    var R = root.SSDNSRangeRings;
+    return R && R.modeWith ? R.modeWith(chosen, verdict) : (chosen || "");
+  }
   function prepareMelee(i, meleeW, meleeRow) {
     var rings = root.SSDNSRangeRings;
     var host = root.SSDNSMapHost;
@@ -485,7 +490,7 @@
       return Promise.resolve(false);
     }
     var note = peeked && peeked.apply && peeked.disadvantage ? (peeked.note || "disadvantage: range") : "";
-    var chosen = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
+    var chosen = rangeMode((document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "", peeked);
     var conds = (ch() && ch().activeConditions) || [];
     var willDis = root.SSDNSConditions && root.SSDNSConditions.attackMode
       ? root.SSDNSConditions.attackMode(conds, chosen, note) === "dis"
@@ -514,6 +519,7 @@
     if (root.SSDNSSheet && root.SSDNSSheet.attackCue) root.SSDNSSheet.attackCue(cueNow);
     else if (root.SSDNSAudio) root.SSDNSAudio.play(cueNow);
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
+    chosen = rangeMode(chosen, rangeShot);
     var faced = root.SSDNSSheet && root.SSDNSSheet.attackRoll
       ? root.SSDNSSheet.attackRoll(atk, (c && c.activeConditions) || [], chosen, rangeNote)
       : { nat: d20(), shown: "", note: "", n2: null };
