@@ -687,6 +687,62 @@
       return b && (!b.until || Number(b.until) > now) && (!key || !b.weapon || b.weapon === key);
     });
   }
+  // ---- PR "small math gaps": feats and callings that change numbers on the sheet.
+  function hasFeat(c, id) { return ((c && c.feats) || []).indexOf(id) >= 0; }
+  function levelOf(c) { return Math.max(1, Math.min(20, num(c && c.level, 1))); }
+  /** Hexslinger Demon Blood: Demon Hide (AC 13 + Dex unarmored, +1 HP per Hexslinger level). */
+  function demonHide(c) { return !!c && c.calling === "hexslinger" && c.subclass === "demon-blood-draconic"; }
+  /** Martial Artist Dust Runner (2nd lvl): +10 ft, scaling to +30 ft at 18th (5e Unarmored Movement steps). */
+  function dustRunnerBonus(lv) {
+    if (lv < 2) return 0;
+    if (lv >= 18) return 30;
+    if (lv >= 14) return 25;
+    if (lv >= 10) return 20;
+    if (lv >= 6) return 15;
+    return 10;
+  }
+  function baseSpeed(c) {
+    var lin = LIN[c.lineage];
+    var sub = lin && (lin.sublineages || []).filter(function (s) { return s.id === c.sublineage; })[0];
+    var sp = (sub && sub.speed) || (lin && lin.speed) || ((c.lineage || c.calling) ? 30 : "");
+    return sp === "" ? "" : num(sp, 30);
+  }
+  /** Walking speed: lineage + calling + Mobile + slotted paper-doll gear. */
+  function autoSpeed(c, DB) {
+    c = c || C();
+    var base = baseSpeed(c), parts = [];
+    if (base === "") return { base: "", parts: parts, total: "" };
+    var lv = levelOf(c), arm = ARM[c.armor];
+    if (c.calling === "tribal-warrior" && lv >= 5 && !(arm && arm.category === "heavy")) parts.push({ label: "Fast Movement", value: 10 });
+    if (c.calling === "martial-artist" && dustRunnerBonus(lv)) parts.push({ label: "Dust Runner", value: dustRunnerBonus(lv) });
+    if (hasFeat(c, "mobile")) parts.push({ label: "Mobile", value: 10 });
+    if (DB === undefined) DB = window.SSDNSDoll && window.SSDNSDoll.bonuses ? window.SSDNSDoll.bonuses(c) : null;
+    if (DB && num(DB.speed)) parts.push({ label: "gear", value: num(DB.speed) });
+    var total = base + parts.reduce(function (a, p) { return a + p.value; }, 0);
+    return { base: base, parts: parts, total: Math.max(0, total) };
+  }
+  /**
+   * Lowest d20 face that crits. opts: { weapon, melee, band, rangeApply }.
+   * Champion Improved Critical 19-20 (3rd), Superior Critical 18-20 (15th): every weapon attack.
+   * Pistolero Dead Eye 19-20: pistols, inside normal range (same gate as Steady Grip).
+   */
+  function critMin(opts) {
+    opts = opts || {};
+    var c = opts.character || C(), min = 20, lv = levelOf(c), w = opts.weapon || null;
+    if (c && c.calling === "gunslinger" && c.subclass === "deadeye-champion-champion") {
+      if (lv >= 15) min = 18; else if (lv >= 3) min = 19;
+    }
+    if (!opts.melee && w && w.group === "pistol" && hasFeat(c, "pistolero") && opts.rangeApply && opts.band !== "long" && opts.band !== "blocked") min = Math.min(min, 19);
+    return min;
+  }
+  /** Sharpshooter (guns, bows) / Great Weapon Master (heavy melee): -5 attack, +10 damage when the toggle is on. */
+  function powerAttack(c, kind, w, proficient) {
+    c = c || C();
+    if (!c || !c.powerAttack || proficient === false) return null;
+    if (kind === "ranged" && hasFeat(c, "sharpshooter")) return { label: "Sharpshooter", atk: -5, dmg: 10 };
+    if (kind === "melee" && hasFeat(c, "great-weapon-master") && w && /\bheavy\b/i.test(w.properties || "")) return { label: "Great Weapon Master", atk: -5, dmg: 10 };
+    return null;
+  }
   function compute() {
     var c = C(), v = {};
     syncLineageAsi(c);
@@ -715,15 +771,21 @@
     v.skills = {};
     R.skills.forEach(function (s) { var p = num(c.skillProf[s.name], 0); v.skills[s.name] = v.mods[s.ability] + p * v.prof; });
     v.passive = 10 + v.skills.Perception;
+    v.passiveInv = 10 + (v.skills.Investigation || 0);
+    if (hasFeat(c, "observant")) { v.passive += 5; v.passiveInv += 5; }
     v.initiative = v.mods.DEX + v.holsterInit;
+    if (hasFeat(c, "alert")) v.initiative += 5;
     var arm = ARM[c.armor];
     var wearing = arm && arm.category !== "shield";
     if (wearing) {
-      var dexAdd = arm.dexCap === 0 ? 0 : Math.min(v.mods.DEX, arm.dexCap == null ? v.mods.DEX : arm.dexCap);
+      var cap = arm.dexCap;
+      if (arm.category === "medium" && cap != null && cap > 0 && hasFeat(c, "medium-armor-master")) cap = 3;
+      var dexAdd = cap === 0 ? 0 : Math.min(v.mods.DEX, cap == null ? v.mods.DEX : cap);
       v.ac = arm.base + dexAdd;
     }
     else if (c.calling === "tribal-warrior") v.ac = 10 + v.mods.DEX + v.mods.CON;
     else if (c.calling === "martial-artist" && !wearing) v.ac = 10 + v.mods.DEX + v.mods.WIS;
+    else if (demonHide(c)) v.ac = 13 + v.mods.DEX;
     else v.ac = 10 + v.mods.DEX;
     if (c.shield && !(c.calling === "martial-artist" && !wearing) && !(DB && DB.shieldOff)) v.ac += 2;
     if (DB) { v.ac += DB.ac; v.initiative += DB.init; }
@@ -738,6 +800,7 @@
     v.spellAtk = ci ? sign(v.prof + v.spellMod) : "";
     v.hex = hexTotals();
     v.cp = Bridge.cpValue(S.doc.shards); // ES total (1 ES per white shard)
+    v.speed = autoSpeed(c, DB);
     v.guns = c.guns.map(function (g, i) { return gunStats(g, v, i); });
     return v;
   }
@@ -797,8 +860,17 @@
       }
       s.dmgParts = m ? [{ label: "CHA", value: m }] : [];
       if (castMagic) s.dmgParts.push({ label: "magic", value: castMagic });
+      var paC = powerAttack(C(), "ranged", w, !!g.proficient);
+      if (paC) {
+        s.atk = sign(m + (g.proficient ? v.prof : 0) + castMagic + paC.atk);
+        s.parts.push({ label: paC.label, value: paC.atk });
+        s.dmgParts.push({ label: paC.label, value: paC.dmg });
+        s.power = paC;
+        notes.push(paC.label + " −5/+10");
+      }
       s.dmgType = s.dmgType || "piercing";
-      s.dmg = s.damage + ((m + castMagic) ? " " + sign(m + castMagic) : "") + " piercing";
+      var castDmg = m + castMagic + (paC ? paC.dmg : 0);
+      s.dmg = s.damage + (castDmg ? " " + sign(castDmg) : "") + " piercing";
       notes.push("hex lead shells: spell attack " + (v.caster ? v.spellAtk : "—"));
       s.note = notes.join(" · ");
       return s;
@@ -820,7 +892,9 @@
     if (hat) itemParts.push({ label: "Hat of the Sharpshooter", value: hat });
     var itemAtk = 0;
     itemParts.forEach(function (p) { itemAtk += p.value; });
-    s.atk = sign(m + (g.proficient ? v.prof : 0) + style + magicAtk + itemAtk);
+    var pa = powerAttack(C(), "ranged", w, !!g.proficient);
+    s.power = pa;
+    s.atk = sign(m + (g.proficient ? v.prof : 0) + style + magicAtk + itemAtk + (pa ? pa.atk : 0));
     var abilityLabel = ability === "STR/DEX" ? (v.mods.STR >= v.mods.DEX ? "STR" : "DEX") : ability;
     var styleLabels = { "long-gun": "Long Gun", archery: "Archery", sidearm: "Sidearm", dueling: "Dueling" };
     var styleLabel = styleLabels[C() && C().fightingStyle] || "style";
@@ -829,6 +903,7 @@
     if (style) s.parts.push({ label: styleLabel, value: style });
     if (magicAtk) s.parts.push({ label: "magic", value: magicAtk });
     itemParts.forEach(function (p) { s.parts.push(p); });
+    if (pa) s.parts.push({ label: pa.label, value: pa.atk });
     /* 0.3.69: the rig / Hair trigger first-shot bonus is a real roll part until the first pistol shot of a combat */
     s.first = first;
     if (first && !C().firstShotSpent) s.parts.push({ label: "first shot", value: first });
@@ -838,9 +913,10 @@
     if (style) notes.push((C().fightingStyle || "style") + " " + sign(style));
     if (dmgStyle) notes.push((C().fightingStyle || "style") + " damage " + sign(dmgStyle));
     s.firstShot = first; s.drawSide = side;
-    if (first) notes.push(C().firstShotSpent ? "first shot of this combat used" : ("first shot from the rig " + sign(m + (g.proficient ? v.prof : 0) + style + magicAtk + itemAtk + first)));
-    var dmgMod = m + dmgStyle + magicAtk;
+    if (first) notes.push(C().firstShotSpent ? "first shot of this combat used" : ("first shot from the rig " + sign(m + (g.proficient ? v.prof : 0) + style + magicAtk + itemAtk + (pa ? pa.atk : 0) + first)));
+    var dmgMod = m + dmgStyle + magicAtk + (pa ? pa.dmg : 0);
     if (magicAtk) s.dmgParts.push({ label: "magic", value: magicAtk });
+    if (pa) { s.dmgParts.push({ label: pa.label, value: pa.dmg }); notes.push(pa.label + " −5/+10"); }
     var buffDice = activeBuffs(C(), "gun:" + gunIndex).map(function (b) { return b.dmgDice; }).filter(Boolean);
     s.buffDice = buffDice;
     s.dmg = s.damage ? s.damage + (dmgMod ? " " + sign(dmgMod) : "") + buffDice.map(function (d) { return " +" + d; }).join("") + " " + (s.dmgType || "") : "";
@@ -1433,6 +1509,7 @@
     switch (p[0]) {
       case "profBonus": return sign(v.prof);
       case "passive": return v.passive;
+      case "passiveInv": return v.passiveInv;
       case "ac": return v.ac;
       case "initiative": return sign(v.initiative);
       case "hitDiceTotal": return v.hitDiceTotal;
@@ -1447,20 +1524,31 @@
     return "";
   }
   function hasOv(c, k) { return Object.prototype.hasOwnProperty.call(c.overrides, k) && c.overrides[k] !== ""; }
+  /**
+   * Auto speed = lineage base + Fast Movement / Dust Runner / Mobile + gear.
+   * A typed speed (speedAuto false) always wins. A legacy saved speed that matches
+   * neither the base nor the last auto value is treated as hand-typed and kept.
+   */
   function ensureSpeed() {
     var c = C();
     if (!c || c.speedAuto === false) return;
-    if (String(c.speed || "").trim() !== "") return;
-    var lin = LIN[c.lineage];
-    var sub = lin && (lin.sublineages || []).filter(function (s) { return s.id === c.sublineage; })[0];
-    var sp = (sub && sub.speed) || (lin && lin.speed) || ((c.lineage || c.calling) ? 30 : "");
-    if (sp === "") return;
-    c.speed = sp;
+    var a = autoSpeed(c);
+    if (a.total === "") return;
+    var cur = String(c.speed == null ? "" : c.speed).trim();
+    var auto = cur === "" || cur === String(a.base) || (c.speedAutoValue != null && cur === String(c.speedAutoValue));
+    if (!auto) return;
+    c.speedAutoValue = a.total;
+    if (cur !== String(a.total)) c.speed = a.total;
     var speedEl = document.querySelector("[data-f='character.speed']");
-    if (speedEl && document.activeElement !== speedEl) speedEl.value = sp;
+    if (speedEl) {
+      if (document.activeElement !== speedEl) speedEl.value = c.speed;
+      speedEl.title = a.parts.length ? "Speed " + a.base + " ft" + a.parts.map(function (p) { return " + " + p.value + " " + p.label; }).join("") + " = " + a.total + " ft. Type a number to override." : "";
+    }
   }
   function renderCalc() {
     ensureSpeed();
+    // Melee Atk/Dmg, Two hands grip, and the Sharpshooter/GWM toggle follow feats, shield, and scores.
+    if (window.SSDNSPlaytest && window.SSDNSPlaytest.paintMath) { try { window.SSDNSPlaytest.paintMath(); } catch (e) { console.warn("[SSDNS] paintMath", e); } }
     var wild = document.querySelector("details.box.wild");
     if (wild) wild.hidden = C().calling !== "hexslinger";
     var c = C();
@@ -2211,6 +2299,8 @@
     var per = Math.max(1, Math.floor(die / 2) + 1 + con);
     for (var i = 1; i < lv; i++) hp += per;
     if (c.sublineage === "gold-miner") hp += lv;
+    if (hasFeat(c, "tough")) hp += 2 * lv;
+    if (demonHide(c)) hp += lv;
     return hp;
   }
   function applyAutoHp() {
@@ -4531,6 +4621,7 @@
     window.SSDNSToast = toast;
     window.SSDNSApp = {
       version: APP_VERSION, state: S, loadText: loadText, migrate: migrate, compute: compute,
+      critMin: critMin, powerAttack: powerAttack, autoSpeed: autoSpeed, hasFeat: hasFeat,
       doc: function () { return S.doc; },
       spendRound: spendRound,
       spendHexSlot: spendHexSlot,

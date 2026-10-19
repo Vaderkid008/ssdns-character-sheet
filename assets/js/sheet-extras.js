@@ -704,7 +704,7 @@
     var miss = !!opts.miss || !!opts.misfire;
     var ac = opts.ac;
     var haveAc = ac != null && ac !== "" && isFinite(Number(ac));
-    if (haveAc && !miss && total < Number(ac)) miss = true;
+    if (haveAc && !miss && !opts.crit && total < Number(ac)) miss = true;
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
     var dmg = (!miss && opts.dmg) ? (" · " + opts.dmg.formula + " = " + opts.dmg.total) : "";
     var face = opts.dice || String(nat);
@@ -805,7 +805,8 @@
         dmgFormula: info.dmgFormula || "",
         dmgParts: info.dmgParts || null,
         dmgType: info.dmgType || "",
-        crit: Number(info.nat) === 20,
+        crit: Number(info.nat) >= (Number(info.critMin) || 20),
+        critMin: Number(info.critMin) || 20,
         nat1: Number(info.nat) === 1,
         label: info.label || "",
         weapon: info.weapon || "",
@@ -1979,6 +1980,10 @@
       parts.forEach(function (p) { bonus += Number(p.value) || 0; });
     }
     var total = nat + bonus;
+    // Crit range (Champion 19-20 / 18-20, Pistolero Dead Eye inside normal range).
+    var critAt = root.SSDNSApp && root.SSDNSApp.critMin
+      ? root.SSDNSApp.critMin({ weapon: wpn, band: rangeShot && rangeShot.band, rangeApply: !!(rangeShot && rangeShot.apply) })
+      : 20;
     var capNow = (gunStat && gunStat.capacity) || (wpn && wpn.capacity) || (g.chambers && g.chambers.length) || 0;
     var resolved = root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
       ? root.SSDNSMisfire.resolveShot({
@@ -2001,6 +2006,7 @@
       if (root.SSDNSApp && root.SSDNSApp.refreshGunFace) root.SSDNSApp.refreshGunFace();
     }
     var misfired = !!resolved.misfire;
+    var isCrit = !misfired && nat >= critAt;
     function syncFlag(flag) {
       var box = document.querySelector('[data-f="character.guns.' + i + '.' + flag + '"]');
       if (box) { box.checked = !!g[flag]; dispatch(box); }
@@ -2029,7 +2035,7 @@
     if (!misfired) attackCue(cue);
     else attackCue("misfire"); /* 0.3.56: misfire (jam, foul, lock, dud) has its own sound; no shot, no ricochet */
     if (!rollGun._wild && !misfired && acHidden(tgt) && joined() && !quiet) {
-      var pendingDmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
+      var pendingDmg = rollDamageExpr(dmgEl && dmgEl.value, isCrit);
       sendPendingAttack({
         who: who,
         targetName: tgt.name,
@@ -2039,6 +2045,7 @@
         n2: n2,
         parts: parts,
         hitTotal: total,
+        critMin: critAt,
         damage: pendingDmg ? pendingDmg.total : 0,
         dice: pendingDmg ? pendingDmg.detail : "",
         dmgFaces: pendingDmg ? pendingDmg.faces : null,
@@ -2057,9 +2064,9 @@
       consumeRollMode();
       return;
     }
-    var miss = nat === 1 || misfired || (haveAc && total < Number(gunCover.ac));
+    var miss = nat === 1 || misfired || (!isCrit && haveAc && total < Number(gunCover.ac));
     var dmg = null;
-    if (!miss) dmg = rollDamageExpr(dmgEl && dmgEl.value, nat === 20);
+    if (!miss) dmg = rollDamageExpr(dmgEl && dmgEl.value, isCrit);
     var dmgParts = [];
     if (dmg && gunStat && gunStat.dmgParts) {
       var partSum = 0;
@@ -2071,12 +2078,13 @@
       ? root.SSDNSApplied.attackBreakdown({
         who: who, target: tgt && tgt.name, weapon: name, nat: nat, n1: n1, n2: n2, parts: parts, total: total,
         ac: haveAc ? gunCover.ac : (tgt && tgt.ac), revealAc: !acHidden(tgt), misfire: misfired, miss: miss, coverNote: gunCover.note,
+        crit: isCrit && !miss, critMin: critAt,
         damage: dmg ? { faces: dmg.faces, formula: dmg.formula, parts: dmgParts, total: dmg.total, type: (gunStat && gunStat.dmgType) || "piercing" } : null
       })
       : null;
     var report = attackReport({
       who: who, target: tgt && tgt.name, nat: nat, atk: bonus,
-      ac: haveAc ? gunCover.ac : (tgt && tgt.ac), miss: miss, misfire: misfired, dmg: dmg,
+      ac: haveAc ? gunCover.ac : (tgt && tgt.ac), miss: miss, misfire: misfired, dmg: dmg, crit: isCrit,
       dice: dice, weapon: name, caliber: caliber
     });
     if (ch()) ch().takingCover = false;
@@ -2087,7 +2095,7 @@
     var line = shownCard + (gunDice.note ? " · " + gunDice.note : "") + (chosen && gunDice.mode ? modeWord(chosen) : "") + ammoTxt;
     if (rollGun._wild) line += " · wild-shot attack (not on the streak)";
     if (root.SSDNSAudio && root.SSDNSAudio.playOutcome && !misfired) {
-      root.SSDNSAudio.playOutcome({ gun: true, id: g.weapon, name: name, group: wpn && wpn.group, nat: nat }, miss ? "miss" : (nat === 20 ? "crit" : "hit"));
+      root.SSDNSAudio.playOutcome({ gun: true, id: g.weapon, name: name, group: wpn && wpn.group, nat: nat }, miss ? "miss" : (isCrit ? "crit" : "hit"));
     }
     consumeRollMode();
     toast(line);
@@ -2096,7 +2104,7 @@
       kind: "roll", text: line,
       label: who + (tgt && tgt.name ? " → " + tgt.name : " attack"),
       formula: (n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk) + (dmg && !report.miss ? " · " + dmg.formula : ""),
-      attack: true, nat: nat, crit: nat === 20 && !misfired
+      attack: true, nat: nat, crit: isCrit && !miss
     });
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
@@ -2110,7 +2118,7 @@
         isFirearm: true,
         attack: true,
         nat: nat,
-        crit: nat === 20 && !report.miss,
+        crit: isCrit && !report.miss,
         private: quiet,
         whisper: quiet,
         damage: (!report.miss && dmg) ? dmg.total : null,
