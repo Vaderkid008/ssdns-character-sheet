@@ -1,5 +1,5 @@
 /**
- * Sheet 0.3.53 dice art, DM-only Peace Maker, and item/instrument art.
+ * Sheet 0.3.54 dice art, DM-only Peace Maker, and item/instrument art.
  *   node tools/test-dice.mjs
  */
 import fs from "node:fs";
@@ -23,8 +23,8 @@ function load(rel, name) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.53" && version.sheetBuild === "sheet-playtest-v0353");
-check("ver.dmcc", version.dmcc === "0.2.66" && version.dmccBuild === "dmcc-playtest-v0266");
+check("ver.sheet", version.sheet === "0.3.54" && version.sheetBuild === "sheet-playtest-v0354");
+check("ver.dmcc", version.dmcc === "0.2.67" && version.dmccBuild === "dmcc-playtest-v0267");
 
 [4, 6, 8, 10, 12, 20, 50, 100].forEach((n) => {
   check("file.d" + n, fs.existsSync(path.join(root, "assets/img/dice", "d" + n + ".webp")));

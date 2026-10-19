@@ -1,4 +1,4 @@
-/* SSDNS music deck (sheet 0.3.53 / DMCC 0.2.66). Two layers: music + ambient.
+/* SSDNS music deck (sheet 0.3.54 / DMCC 0.2.67). Two layers: music + ambient.
    Same engine on the DM page and the player sheet. The DM pushes "music" commands;
    players keep their own volume per layer and a mute (localStorage, never synced).
    Old payloads ({action:"play"|"stop", file, loop}) still work: they drive the music layer. */
@@ -25,7 +25,7 @@
     return prefix() + "assets/music/" + f;
   }
   function layerOf(k) { return layers[k === "ambient" ? "ambient" : "music"]; }
-  /* 0.3.53: perceptual volume. Sliders are linear 0..1; ears are logarithmic, so square it
+  /* 0.3.54: perceptual volume. Sliders are linear 0..1; ears are logarithmic, so square it
      (50% ≈ -12 dB, 10% ≈ -40 dB). Linear felt dead across the top half. */
   function curve(x) { x = clamp(x); return x * x; }
   function effective(k) { var L = layerOf(k); return prefs.muted ? 0 : curve(clamp(L.level) * clamp(prefs[k])) * clamp(L.gain); }

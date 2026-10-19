@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.66"; // dmcc-playtest-v0266
+const VERSION = "0.2.67"; // dmcc-playtest-v0267
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -938,6 +938,14 @@ async function postDmAction(text, playerId) {
   catch (err) { writeFailed(err, "Couldn't sync the DM action"); }
   return feed;
 }
+/** 0.2.67: the pile a demo reload draws from: the gun's chosen pool, else its only/first matching pool. */
+function demoReloadPool(snapshot, g) {
+  const pools = Array.isArray(g && g.pools) ? g.pools : [];
+  if (!pools.length) return null;
+  const want = g.ammoPool !== "" && g.ammoPool != null ? Number(g.ammoPool) : null;
+  const chosen = want != null ? pools.find((row) => Number(row.idx) === want) : null;
+  return chosen || pools.find((row) => (Number(row.count) || 0) > 0) || pools[0];
+}
 function demoGunAt(snapshot, index) {
   const guns = (snapshot && snapshot.guns) || [];
   const n = Number(index);
@@ -1042,12 +1050,30 @@ function applyDemoGun(playerId, payload) {
     const cap = Number(g.capacity) || 0;
     const max = payload.max != null && isFinite(Number(payload.max)) ? Number(payload.max) : cap;
     const chambers = Array.isArray(g.chambers) && g.chambers.length === cap ? g.chambers.slice() : Array.from({ length: cap }, (_, idx) => (idx < (Number(g.loaded) || 0) ? "round" : ""));
+    /* 0.2.67: demo reload uses the player's chosen ammo pile (g.ammoPool), like the live sheet. */
+    const pick = demoReloadPool(p.snapshot, g);
+    const locked = Array.isArray(g.lockedChambers) ? g.lockedChambers.map(Number) : [];
     let left = max;
+    if (pick) left = Math.min(left, Math.max(0, Number(pick.count) || 0));
+    const token = pick ? "k:" + (pick.type || "cartridge") + ":" + (pick.caliber || "") + ":" + (g.tier || "") : "round";
+    let took = 0;
     for (let k = 0; k < chambers.length && left > 0; k++) {
-      if (!chambers[k]) { chambers[k] = "round"; left -= 1; }
+      if (!chambers[k] && locked.indexOf(k) < 0) { chambers[k] = token; left -= 1; took += 1; }
+    }
+    if (pick) {
+      pick.count = (Number(pick.count) || 0) - took;
+      const pile = ((p.snapshot && p.snapshot.ammo) || []).find((a) => a && a.type === pick.type && String(a.caliber || "") === String(pick.caliber || ""));
+      if (pile && pile !== pick) pile.count = Math.max(0, (Number(pile.count) || 0) - took);
     }
     g.chambers = chambers;
     g.loaded = chambers.filter(Boolean).length;
+  } else if (payload.op === "rechamber" && payload.chamber) {
+    const parts = String(payload.chamber).split("|");
+    g.chambers = (g.chambers || []).map(() => "");
+    g.loaded = 0;
+    g.chamber = payload.chamber;
+    g.tier = parts[0] || g.tier;
+    if (Array.isArray(g.rechamber)) g.rechamber = g.rechamber.filter((o) => o.value !== payload.chamber);
   } else if (payload.op === "set" && payload.loaded != null && isFinite(payload.loaded)) {
     g.loaded = payload.loaded;
     if (Array.isArray(payload.chambers)) g.chambers = payload.chambers.slice();
@@ -1988,6 +2014,9 @@ function openDetail(pid) {
         <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="one" data-gun-i="${sheetI}">Clear one</button>
         <button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="all" data-gun-i="${sheetI}">Clear all</button>
         <button type="button" class="btn sm" data-gun-op="repair" data-gun-i="${sheetI}">Repair gun</button>
+        ${Array.isArray(g.rechamber) && g.rechamber.length ? `<span class="fine">Rechamber (DM, free)</span>
+        <select data-gun-rechamber="${sheetI}" aria-label="New chambering">${g.rechamber.map((o) => `<option value="${esc(o.value)}">${esc(o.label)} · gunsmith ${esc(o.cost)} ES${o.allowed ? "" : " (off-path)"}</option>`).join("")}</select>
+        <button type="button" class="btn sm" data-gun-op="rechamber" data-gun-i="${sheetI}">Rechamber</button>` : ""}
         <button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${g.equipped === false ? "1" : "0"}" data-gun-kind="gun" data-gun-i="${sheetI}">${g.equipped === false ? "Equip" : "Unequip"}</button>
         <input type="number" data-gun-loaded="${i}" value="${esc(g.loaded)}" aria-label="Loaded chambers">
       </div>`;
@@ -2029,6 +2058,12 @@ function openDetail(pid) {
       }
       if (op === "clear-locks") payload.mode = btn.getAttribute("data-lock-mode") === "one" ? "one" : "all";
       if (op === "equip") payload.equipped = btn.getAttribute("data-gun-on") === "1";
+      if (op === "rechamber") {
+        const sel = $("#detailBody").querySelector("[data-gun-rechamber='" + index + "']");
+        if (!sel || !sel.value) return;
+        payload.chamber = sel.value;
+        payload.label = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.split(" · ")[0] : sel.value;
+      }
       const snapGuns = (state.players[pid] && state.players[pid].snapshot && state.players[pid].snapshot.guns) || [];
       const gun = snapGuns.find((g) => g && g.index != null && Number(g.index) === index) || snapGuns[index];
       const gunName = (gun && gun.name) || "gun";
@@ -2045,6 +2080,7 @@ function openDetail(pid) {
         postDmAction("DM cleared " + which + " on " + gunName + ".", pid);
       }
       if (op === "repair") postDmAction("DM repaired " + gunName + ".", pid);
+      if (op === "rechamber") postDmAction("DM rechambered " + gunName + " to " + payload.label + " (free).", pid);
       if (op === "equip") {
         const which = payload.kind === "focus" ? "focus" : (payload.kind === "melee" ? ((s.melee || []).filter((m) => m && Number(m.index) === index)[0] || {}).name || "melee" : gunName);
         postDmAction("DM " + (payload.equipped ? "equipped" : "unequipped") + " " + which + ".", pid);
@@ -2393,7 +2429,7 @@ function dedupeById(list) {
   });
   return out;
 }
-/* 0.2.66: tell the sheet what kind of reward this is (instrument id + quality) so it
+/* 0.2.67: tell the sheet what kind of reward this is (instrument id + quality) so it
    never has to guess from the text. */
 function rewardPayload(type, labeled, id, qty) {
   const payload = { text: labeled, grantId: id, qty: qty };
@@ -2544,7 +2580,7 @@ async function sendHandoutCommand(h) {
   toast("Handout sent to " + who);
 }
 
-/* 0.2.66: the map menu pushes World maps as handouts through the normal handout flow. */
+/* 0.2.67: the map menu pushes World maps as handouts through the normal handout flow. */
 window.SSDNSPushHandout = async function (entry, send) {
   const h = { name: String(entry.name || "Map"), url: String(entry.url || ""), text: String(entry.text || ""), to: entry.to || "all", sent: !!send };
   await pushHandout(h);

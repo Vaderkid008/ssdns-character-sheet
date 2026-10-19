@@ -1,4 +1,4 @@
-/* 0.3.53: big volume sliders. Wraps every music/ambient/sfx volume range with
+/* 0.3.54: big volume sliders. Wraps every music/ambient/sfx volume range with
    -/+ buttons (5% steps) and a live % readout. Works on the sheet and in DMCC. */
 (function (root) {
   "use strict";

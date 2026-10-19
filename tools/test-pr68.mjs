@@ -61,7 +61,7 @@ check("storage.rules", /request\.auth\.uid == uid/.test(rules) && /allow read, w
 const setup = read("setup/index.html");
 check("setup.firebase", /id="firebase"/.test(setup) && /without any of this/.test(setup) && /on paper/.test(setup));
 
-// Links (0.3.53)
+// Links (0.3.54)
 const N = Med.normalizeLink;
 check("link.dropbox", N("https://www.dropbox.com/scl/fi/abc/theme.mp3?rlkey=xyz&dl=0").url === "https://dl.dropboxusercontent.com/scl/fi/abc/theme.mp3?rlkey=xyz" && N("https://www.dropbox.com/s/abc/a.mp3?dl=0").host === "dropbox");
 const dr = N("https://drive.google.com/file/d/1AbC_d-9/view?usp=sharing");

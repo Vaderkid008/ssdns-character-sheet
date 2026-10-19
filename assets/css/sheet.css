@@ -914,18 +914,18 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .item-form input, .item-form select { max-width: 100%; }
 .item-form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .weight-line { font-weight: 600; }
-/* 0.3.53 fading, non-blocking toasts */
+/* 0.3.54 fading, non-blocking toasts */
 .fade-toasts { position: fixed; top: 72px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
 .fade-toast { background: rgba(28,22,18,.94); color: #f3e6c8; border: 1px solid #c9a24a; border-radius: 8px; padding: 10px 18px; font-size: 18px; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.4); transition: opacity .7s ease, transform .7s ease; }
 .fade-toast.out { opacity: 0; transform: translateY(-8px); }
-/* 0.3.53 items: attunement, created weapons, explosives in Items */
+/* 0.3.54 items: attunement, created weapons, explosives in Items */
 .attune-line { margin: 0 0 6px; font-weight: 700; }
 .item-weapon-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; border: 1px dashed #c4b497; padding: 6px 8px; margin: 6px 0; }
 .item-weapon-fields[hidden] { display: none; }
 .exp-row { display: flex; gap: 8px; align-items: center; }
 .exp-row .exp-name { flex: 1; }
 
-/* Paper doll (0.3.53) — Art Bot B6 frame */
+/* Paper doll (0.3.54) — Art Bot B6 frame */
 .doll-wrap { max-width: 540px; margin: 0 auto 14px; }
 .doll { position: relative; width: 100%; aspect-ratio: 1080 / 1350; background-size: 100% 100%; background-repeat: no-repeat; container-type: inline-size; }
 .doll-sil { position: absolute; object-fit: contain; pointer-events: none; opacity: .55; }
@@ -944,7 +944,7 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .doll-pick { margin-top: 8px; padding: 8px; border: 1px solid #b39a6a; border-radius: 6px; background: #f6ecd6; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .doll-pick .fine { flex-basis: 100%; margin: 0; }
 @media print { .doll-wrap { display: none; } }
-/* 0.3.53: doll lives in the Gear right column; tiles are 9-sliced so tall/wide slots keep square corners. */
+/* 0.3.54: doll lives in the Gear right column; tiles are 9-sliced so tall/wide slots keep square corners. */
 .doll-wrap.doll-in-col { max-width: 100%; width: 100%; margin: 0 0 12px; }
 .doll-slot.doll-9 { background: none; border-style: solid; border-width: 0; border-image-slice: 34 fill; border-image-width: 2.8cqw; border-image-repeat: stretch; border-image-outset: 0; }
 .doll-tall .doll-art, .doll-wide .doll-art { inset: 10% 8%; width: 84%; height: 80%; }
@@ -953,14 +953,14 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .mx-mine-ctl[open] { background: rgba(255,255,255,.08); border-radius: 6px; padding: 2px 6px; }
 .art-upload .fine { margin: 2px 0 6px; }
 
-/* 0.3.53: lineage description gets its own full-width row (no gap under Background/Player) */
+/* 0.3.54: lineage description gets its own full-width row (no gap under Background/Player) */
 .topgrid .lineage-row { grid-column: 1 / -1; margin: 0; padding: 2px 0 4px; }
 .topgrid .lineage-row:empty { display: none; }
 .instrument-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .instrument-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border: 1px solid #b39a6a; border-radius: 6px; background: rgba(246,236,214,.6); }
 .instrument-row.is-focus { border-color: #8d1c14; }
 
-/* 0.3.53: wizard spell picker (card grid) */
+/* 0.3.54: wizard spell picker (card grid) */
 .spell-info-strip { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 12px; margin: 4px 0 10px; border: 1px solid #b39a6a; border-left: 4px solid #8d1c14; border-radius: 6px; background: linear-gradient(180deg, #f6ecd6, #ead9b4); color: #2b1d10; font-size: 13px; }
 .spell-info-strip .sis-cell b { font-variant: small-caps; letter-spacing: .03em; color: #6b3f12; margin-right: 2px; }
 .spell-info-strip .sis-focus { flex-basis: 100%; font-size: 12px; opacity: .9; }
@@ -988,3 +988,28 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .doll-weapon .doll-name { font-size: 1.6cqw; }
 .doll-tall.doll-weapon .doll-art { inset: auto; left: 50%; top: 46%; width: 230%; height: 40%; transform: translate(-50%, -50%) rotate(-90deg); }
 .doll-weapon .doll-art ~ .doll-name { display: none; }
+
+/* 0.3.54: per-turn action pips + cost tags on gun buttons + gunsmith rechamber dialog. */
+.act-pips { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; margin-right: 8px; font: 600 11px/1 system-ui, sans-serif; }
+.act-pips .pip-label { color: #7a5a2c; text-transform: uppercase; letter-spacing: .05em; }
+.act-pips .pip { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; border: 2px solid #3d6b2e; background: #6fbf4f; color: #fff; font-weight: 800; box-shadow: inset 0 -2px 3px rgba(0,0,0,.25); }
+.act-pips .pip-bonus { border-color: #8a6a12; background: #e2b33a; }
+.act-pips .pip.used { background: #d8d0c2; border-color: #a99d8a; color: #8a7f6c; text-decoration: line-through; box-shadow: none; }
+.gun button[data-cost]::after { content: attr(data-cost); display: inline-block; margin-left: 5px; padding: 1px 4px; border-radius: 3px; background: #efe4cc; color: #6b4f22; font: 700 9px/1.2 system-ui, sans-serif; text-transform: uppercase; letter-spacing: .03em; vertical-align: middle; }
+.gun button[data-cost="Bonus"]::after { background: #f6e2a8; }
+.gun button[data-cost="Full turn"]::after { background: #f2c9b8; color: #7a2a14; }
+.gun button[data-cost="Free"]::after { background: #d9eccf; color: #2f5a22; }
+.rc-modal { position: fixed; inset: 0; z-index: 9000; background: rgba(20, 14, 8, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.rc-card { background: #fbf5e8; color: #2a1e12; border: 2px solid #8a6a3a; border-radius: 10px; max-width: 480px; width: 100%; padding: 16px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.rc-card h3 { margin: 0 0 6px; font-size: 18px; }
+.rc-list { display: grid; gap: 6px; margin: 10px 0; }
+.rc-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid #d6c6a6; border-radius: 6px; background: #fff; cursor: pointer; }
+.rc-row:has(input:checked) { border-color: #8a6a3a; background: #f6ecd6; }
+.rc-row.rc-off { opacity: .55; cursor: not-allowed; }
+.rc-cost { font-weight: 700; color: #6b4f22; font-size: 13px; }
+.rc-off .rc-cost { font-weight: 400; font-size: 12px; }
+.rc-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.rc-msg { min-height: 1.2em; color: #8e241f; }
+.rc-btns .btn { background: #fff; color: #2a1e12; border: 1px solid #8a6a3a; opacity: 1; }
+.rc-btns .btn:last-child { background: #6b4f22; color: #fff8e6; border-color: #4a3414; }
+.rc-btns .btn:disabled { opacity: .5; }

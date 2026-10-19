@@ -137,7 +137,7 @@ window.SSDNSMap = { create(opts) {
   }
   function saveScene(sceneId) {
     if (role !== 'dm') return;
-    // 0.3.53: default to the scene the DM is looking at (was always the Dusty Spur).
+    // 0.3.54: default to the scene the DM is looking at (was always the Dusty Spur).
     const sid = sceneId || (typeof activeSceneId === 'function' ? activeSceneId() : '') || (state && state.scene && state.scene.id) || 'scn_dustyspur01';
     const data = (shared.scenes && shared.scenes[sid]) || {};
     write('map/public/scenes/' + sid, data);
@@ -3898,7 +3898,7 @@ if (role === 'dm') {
 }
 
 // --- scene images ---
-// 0.3.53: built-in packs (map/map-packs.js) + the DM's own library (map/dm/library).
+// 0.3.54: built-in packs (map/map-packs.js) + the DM's own library (map/dm/library).
 const LEGACY_SCENES = [
   { id: 'scn_dustyspur01', name: 'Dusty Spur', folder: 'builtin', img: 'dusty-spur-saloon_30x20_70px.webp' },
   { id: 'scn_street', name: 'Main Street', folder: 'builtin', img: 'main-street.webp' },

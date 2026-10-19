@@ -1,4 +1,4 @@
-/* SSDNS "My Maps" library (DMCC 0.2.66 / sheet 0.3.53).
+/* SSDNS "My Maps" library (DMCC 0.2.67 / sheet 0.3.54).
    Visual map menu: thumbnail cards, search, folders (Built-in / My maps / World).
    Add map (image link or optional Storage upload), grid size with live preview and auto-fit,
    Save / Save as / autosave per map, one-click swap, duplicate, rename, delete (confirm),
