@@ -1318,14 +1318,65 @@ function paintAmmoColumn(ctx, s, r, rows) {
     const tw = (ctx.measureText && ctx.measureText(label).width) || 22;
     ctx.fillStyle = 'rgba(20,16,12,0.9)';
     ctx.fillRect(colX - 2, y - 7, 16 + tw + 6, 14);
-    paintWeaponIcon(ctx, (row && row.icon) || 'pistol', colX, y - 5, 11);
-    ctx.fillStyle = '#e2c56a';
+    /* 0.3.64: the round that fires next in this gun (falls back to the old gun glyph with no look) */
+    if (row && row.look && row.look.type) paintRoundIcon(ctx, row.look, colX, y, 12);
+    else paintWeaponIcon(ctx, (row && row.icon) || 'pistol', colX, y - 5, 11);
+    /* empty gun: the count goes muted red */
+    ctx.fillStyle = loaded > 0 ? '#e2c56a' : '#c27a70';
     ctx.font = '11px system-ui';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, colX + 14, y);
     y += rowH;
   });
+  ctx.restore();
+}
+/* 0.3.64: token ammo badge round, drawn side-on in the #73 round art colours. look = SSDNSAmmoDisplay.roundLook().
+   cart = brass case + copper tip; rf22 = small brass .22; ball = lead ball + percussion cap;
+   shell = brass head + hull in the gauge colour (slug: black band); hex = purple round with its level. */
+function paintRoundIcon(ctx, look, x, y, w) {
+  const type = look.type;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.lineWidth = 0.6;
+  if (type === 'shell') {
+    const h = 7, head = 3.4;
+    ctx.fillStyle = '#d7b15e'; ctx.strokeStyle = '#8a6a32';
+    ctx.fillRect(0, -h / 2 - 0.6, 1.4, h + 1.2);
+    ctx.fillRect(1.4, -h / 2, head, h);
+    ctx.fillStyle = look.hull || '#c4322e'; ctx.strokeStyle = look.hullDark || '#8e241f';
+    ctx.fillRect(1.4 + head, -h / 2, w - 1.4 - head, h);
+    ctx.strokeRect(1.4 + head, -h / 2, w - 1.4 - head, h);
+    if (look.slug) { ctx.fillStyle = '#111111'; ctx.fillRect(1.4 + head + (w - head) * 0.3, -h / 2, (w - head) * 0.3, h); }
+  } else if (type === 'hex') {
+    ctx.fillStyle = look.tone || '#8b5cf6';
+    ctx.shadowColor = 'rgba(160,120,255,0.8)'; ctx.shadowBlur = 3;
+    ctx.beginPath(); ctx.arc(w / 2, 0, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 7px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(look.hexLevel || 1), w / 2, 0.5);
+  } else if (type === 'ball') {
+    ctx.fillStyle = '#b8862f';
+    ctx.fillRect(w - 3, -2, 3, 4);
+    ctx.fillStyle = look.tone || '#7d8b99';
+    ctx.beginPath(); ctx.arc(4.5, 0, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath(); ctx.arc(3.3, -1.3, 1.2, 0, Math.PI * 2); ctx.fill();
+  } else {
+    const small = type === 'rf22';
+    const h = small ? 3.6 : 5, cw = small ? w * 0.5 : w * 0.6;
+    ctx.fillStyle = look.tone || '#e0b44a'; ctx.strokeStyle = '#5c4316';
+    ctx.fillRect(0, -h / 2, cw, h);
+    ctx.strokeRect(0, -h / 2, cw, h);
+    ctx.fillStyle = '#c2421f';
+    ctx.beginPath();
+    ctx.moveTo(cw, -h / 2 + 0.4);
+    ctx.lineTo(cw + (small ? 3 : 3.4), -h / 2 + 0.4);
+    ctx.quadraticCurveTo(w - (small ? 2 : 0), 0, cw + (small ? 3 : 3.4), h / 2 - 0.4);
+    ctx.lineTo(cw, h / 2 - 0.4);
+    ctx.closePath();
+    ctx.fill();
+  }
   ctx.restore();
 }
 function paintWeaponIcon(ctx, kind, x, y, size) {
@@ -1610,6 +1661,9 @@ function draw() {
     ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(30,25,20,0.85)';
     ctx.fill();
+    /* 0.2.77: a token copied through JSON (demo table, patches) can carry a plain-object _img; one bad
+       portrait used to throw out of draw() and stop every later token (and its ammo badge) from drawing. */
+    if (t._img && !(typeof HTMLImageElement !== 'undefined' && t._img instanceof HTMLImageElement)) { t._img = null; if (t.image) loadTokenImage(t); }
     if (t.image && t._img) {
       ctx.save();
       ctx.beginPath();
@@ -4258,8 +4312,27 @@ async function loadSceneImage(sceneId, opts) {
     const order = (state.initiative && state.initiative.order) || [];
     const turn = (state.initiative && state.initiative.turn) || 0;
     const len = order.length || 1;
-    strip.hidden = !order.length;
+    /* 0.2.77: the DM keeps the strip with no fight running ("No fight running" + Roll Initiative);
+       players still see it only while there is a turn order. */
+    strip.hidden = !order.length && role !== 'dm';
     strip.innerHTML = '';
+    strip.classList.toggle('is-idle', !order.length);
+    if (!order.length) {
+      if (role === 'dm') {
+        const idle = document.createElement('span');
+        idle.className = 'ssm-strip-idle';
+        idle.textContent = 'No fight running';
+        strip.appendChild(idle);
+        const roll = document.createElement('button');
+        roll.type = 'button';
+        roll.className = 'btn btn-primary btn-roll-init';
+        roll.setAttribute('data-act', 'stripRollInit');
+        roll.textContent = 'Roll Initiative';
+        roll.addEventListener('click', () => emit('initiative:roll', {}));
+        strip.appendChild(roll);
+      }
+      return;
+    }
     order.forEach((c, i) => {
       if (role !== 'dm' && c && c.mapHidden) return;
       const b = document.createElement('span');
@@ -4293,6 +4366,18 @@ async function loadSceneImage(sceneId, opts) {
       prev.textContent = 'Previous';
       prev.addEventListener('click', () => emit('initiative:prev', {}));
       strip.appendChild(prev);
+      /* 0.2.77: End combat sits at the far end, set apart from Next / Previous; the DM page asks first. */
+      const gap = document.createElement('span');
+      gap.className = 'ssm-strip-gap';
+      strip.appendChild(gap);
+      const end = document.createElement('button');
+      end.type = 'button';
+      end.className = 'btn sm btn-end-combat';
+      end.setAttribute('data-act', 'stripEndCombat');
+      end.textContent = 'End combat';
+      end.title = 'End the fight (asks first)';
+      end.addEventListener('click', () => emit('initiative:end', {}));
+      strip.appendChild(end);
     }
   }
   function renderActions() {
@@ -5528,6 +5613,9 @@ async function loadSceneImage(sceneId, opts) {
     d.querySelector('[data-act="undoBtnD"]').addEventListener('click', () => emit('drawer:undo', detail()));
   }
   function refreshCard(tokenId) {
+    /* 0.3.64: the token ammo badge is drawn on the canvas from host.rounds(); the sheet's publishGunCard and the
+       DM's snapshot refresh both land here, so a reload, swap or spent round redraws it live. */
+    requestDraw();
     if (role === 'player') { paintPlayerFight(); return; }
     if (role !== 'dm') return;
     if (state.drawerOpen && (!tokenId || tokenId === state.drawerTokenId)) renderDrawer();

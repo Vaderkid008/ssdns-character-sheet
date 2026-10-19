@@ -105,11 +105,27 @@
         group: group,
         loaded: loaded,
         cap: cap,
-        equipped: g.equipped
+        equipped: g.equipped,
+        look: roundLookFor(g, g.chambers, g.lockedChambers, loaded)
       };
     }).filter(Boolean);
     if (Equip && Equip.badgeRowsForToken) return Equip.badgeRowsForToken(rows);
     return rows.filter(function (g) { return g.equipped !== false && g.cap; });
+  }
+  /* 0.3.64: token ammo badge = the round that fires next in that gun (art colours from ammo-display) */
+  function roundLookFor(g, chambers, locked, loaded) {
+    var AD = root.SSDNSAmmoDisplay;
+    if (!AD || !AD.roundLook || !g) return null;
+    var list = Array.isArray(chambers) && chambers.length
+      ? (root.SSDNSApplied && root.SSDNSApplied.chamberTokens ? root.SSDNSApplied.chamberTokens(chambers) : chambers.slice())
+      : [];
+    try {
+      return AD.roundLook({
+        weapon: g.weapon || g.weaponId || "", name: g.name || "", group: g.group || "", action: g.action || "",
+        tier: g.tier || "", load: g.load || "", scatter: !!g.scatter, caliber: g.caliber || g.ammoName || "",
+        chambers: list, locked: Array.isArray(locked) ? locked : [], loaded: loaded
+      });
+    } catch (e) { return null; }
   }
   function ownRounds() {
     var app = root.SSDNSApp;
@@ -136,7 +152,9 @@
     if (!api || typeof api.get !== "function") return [];
     var card = null;
     try {
-      card = api.get(token.id) || (token.combatantId && api.get(token.combatantId)) || (token.ownerUid && api.get(token.ownerUid)) || null;
+      card = api.get(token.id) || (token.combatantId && api.get(token.combatantId)) || (token.ownerUid && api.get(token.ownerUid)) ||
+        /* 0.2.77: party tokens are "ply_<player id>"; the owner uid is not always the player id */
+        (/^ply_/.test(String(token.id || "")) && api.get(String(token.id).slice(4))) || null;
     } catch (e) { card = null; }
     if (!card) return [];
     var guns = (card.attacks || []).filter(function (a) { return a && a.ammo && a.ammo.cap; }).map(function (a) {
@@ -146,7 +164,8 @@
         loaded: Number(a.ammo.loaded) || 0,
         cap: Number(a.ammo.cap) || 0,
         equipped: a.equipped,
-        index: a.sheetIndex != null ? a.sheetIndex : a.gunIndex
+        index: a.sheetIndex != null ? a.sheetIndex : a.gunIndex,
+        look: roundLookFor(a, a.ammo.chambers, a.ammo.locked, Number(a.ammo.loaded) || 0)
       };
     });
     if (root.SSDNSEquip && root.SSDNSEquip.badgeRowsForToken) return root.SSDNSEquip.badgeRowsForToken(guns);
@@ -459,6 +478,15 @@
     if (name === "initiative:prev") {
       var prev = $("btnPrevTurn");
       if (prev) prev.click();
+    }
+    /* 0.2.77: the strip's Roll Initiative / End combat press the Fight tab's own buttons (End combat asks first there) */
+    if (name === "initiative:roll") {
+      var rollAll = $("btnRollInitAll");
+      if (rollAll) rollAll.click();
+    }
+    if (name === "initiative:end") {
+      var endBtn = $("btnEndCombat");
+      if (endBtn) endBtn.click();
     }
     if (name === "party:sync") {
       var sync = root.SSDNSMapFight;

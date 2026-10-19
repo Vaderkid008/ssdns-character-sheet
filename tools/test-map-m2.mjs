@@ -523,8 +523,11 @@ async function testMaps(w) {
   pl.api.syncCombatants({ order: [{ id: "p_jolene", name: "Jolene" }, { id: "en_bandit2", name: "Bandit 2" }], turn: 1 });
   const strip = act(pl.el, "turnStrip").textContent;
   check("map.player.initiative", strip.indexOf("Jolene") >= 0 && strip.indexOf("Bandit 2") >= 0, strip);
-  const next = [...act(dm.el, "turnStrip").querySelectorAll("button")].find((b) => b.textContent === "Next");
+  /* 0.2.77: with no fight the DM strip shows "No fight running" + Roll Initiative, so Next appears once there is an order */
+  const idleStrip = act(dm.el, "turnStrip");
+  check("map.dm.idleStrip", idleStrip && !idleStrip.hidden && /No fight running/.test(idleStrip.textContent) && [...idleStrip.querySelectorAll("button")].some((b) => b.textContent === "Roll Initiative"), idleStrip && idleStrip.textContent);
   dm.api.syncCombatants({ order: [{ id: "a", name: "A" }], turn: 0 });
+  const next = [...act(dm.el, "turnStrip").querySelectorAll("button")].find((b) => b.textContent === "Next");
   if (next) next.click();
   check("map.dm.initiativeNext", hostEvents.indexOf("initiative:next") >= 0, hostEvents.join(","));
 
