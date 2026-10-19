@@ -53,7 +53,7 @@ check("const", T.gap === 250 && T.resultAfterShot === 550 && T.downedAfterResult
 
 latency = {};
 check("hit.basic", run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "hit"); }) === "S@0 hit-gun@550");
-/* the 0.3.58 bug: slow shot (300 ms load) used to lose to a cached hit */
+/* the 0.3.59 bug: slow shot (300 ms load) used to lose to a cached hit */
 latency = { S: 300 };
 let r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "hit"); });
 check("hit.afterSlowShot", r === "S@300 hit-gun@850", r);
@@ -120,6 +120,6 @@ r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "
 check("shot.error.resultAnyway", r === "ricochet@555", r);
 latency = {};
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.58" && ver.dmcc === "0.2.71");
+check("ver", ver.sheet === "0.3.59" && ver.dmcc === "0.2.72");
 console.log(failures.length ? "\n" + failures.length + " FAILED: " + failures.join(", ") : "\nAll PR78 checks passed.");
 process.exit(failures.length ? 1 : 0);

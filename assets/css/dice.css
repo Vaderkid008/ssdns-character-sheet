@@ -61,3 +61,13 @@ button.d20 {
 .dice-stage .die-face { flex: none; }
 .dice-stage-line { flex-basis: 100%; font-family: "Rye", "Smokum", "Rockwell", "Georgia", serif; font-size: 26px; line-height: 1.2; letter-spacing: .02em; color: #f6e7c1; text-shadow: 0 1px 0 #000; margin: 4px 0 0; }
 @media (max-width: 520px) { .dice-stage-line { font-size: 20px; } }
+
+/* 0.3.59 chat totals: final numbers as gold-ringed badges, same size as the inline die icon */
+.roll-total { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px; padding: 0 7px; box-sizing: border-box;
+  vertical-align: middle; margin: 0 3px; border-radius: 11px; border: 3px solid #e1b24a; background: radial-gradient(circle at 50% 35%, #3a2c18, #1a130b);
+  box-shadow: 0 0 0 1px #1A1A1A, 0 0 9px rgba(225, 178, 74, .45); font: 900 18px/1 "Arial Black", Arial, Helvetica, sans-serif; color: #ffe3a0;
+  text-shadow: -1.5px -1.5px 0 #1A1A1A, 1.5px -1.5px 0 #1A1A1A, -1.5px 1.5px 0 #1A1A1A, 1.5px 1.5px 0 #1A1A1A; }
+.roll-total.dmg { border-radius: 50%; }
+.roll-total.crit { border-color: #ffcf4a; color: #fff2c4; box-shadow: 0 0 0 1px #1A1A1A, 0 0 15px rgba(255, 207, 74, .8); }
+.roll-total.miss { border-color: #8b7a5c; color: #d9ccb0; box-shadow: 0 0 0 1px #1A1A1A; }
+.die-used { display: inline-block; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255, 207, 74, .55); }

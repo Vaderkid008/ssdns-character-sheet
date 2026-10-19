@@ -735,6 +735,22 @@
   function hasToken(id) {
     return !!(isDmPage() && map && typeof map.hasToken === "function" && map.hasToken(id));
   }
+  /* 0.3.59: linked-token hygiene */
+  function tokensLoaded() {
+    return !!(isDmPage() && map && (typeof map.tokensLoaded !== "function" || map.tokensLoaded()));
+  }
+  function tokenForCombatant(cid) {
+    if (!isDmPage() || !map || typeof map.tokenForCombatant !== "function") return "";
+    return map.tokenForCombatant(cid) || "";
+  }
+  function staleTokenIds(liveIds, keep) {
+    if (!isDmPage() || !map || typeof map.staleTokenIds !== "function") return [];
+    return map.staleTokenIds(liveIds, keep) || [];
+  }
+  function clearStaleTokens(liveIds, keep) {
+    if (!isDmPage() || !map || typeof map.clearStaleTokens !== "function") return 0;
+    return map.clearStaleTokens(liveIds, keep) || 0;
+  }
   function releaseToken(id) {
     if (!isDmPage() || !map || typeof map.releaseToken !== "function") return;
     map.releaseToken(id);
@@ -749,6 +765,10 @@
     tokenForPlayer: tokenForPlayer,
     hasToken: hasToken,
     releaseToken: releaseToken,
+    tokensLoaded: tokensLoaded,
+    tokenForCombatant: tokenForCombatant,
+    staleTokenIds: staleTokenIds,
+    clearStaleTokens: clearStaleTokens,
     patchToken: function (id, fields) {
       if (!isDmPage() || !map || typeof map.patchToken !== "function") return null;
       return map.patchToken(id, fields || {});

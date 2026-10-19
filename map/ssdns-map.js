@@ -2268,6 +2268,7 @@ function syncPartyFromSnapshot() {
   partySynced = true;
   adoptSharedTokens();
   dedupePlayerTokens();
+  dedupeLinkedTokens(fightKeepMap());
   ensurePartyTokens();
 }
 function makeToken(spec) {
@@ -3163,9 +3164,83 @@ function nextFreeCell() {
   }
   return null;
 }
+/* 0.3.59: a linked (enemy / NPC) token is one per combatant. Player tokens are keyed by ownerUid instead. */
+function linkedKind(t) { return !!(t && t.combatantId && !t.ownerUid && t.kind !== 'player'); }
+function tokenForCombatant(cid) {
+  if (!cid) return null;
+  const live = state.tokens.find(t => linkedKind(t) && t.combatantId === cid);
+  if (live) return live;
+  const id = Object.keys(shared.tokens || {}).find(k => linkedKind(shared.tokens[k]) && shared.tokens[k].combatantId === cid);
+  if (!id) return null;
+  const copy = JSON.parse(JSON.stringify(shared.tokens[id]));
+  copy.id = copy.id || id;
+  state.tokens.push(copy);
+  return copy;
+}
+function linkedGroups() {
+  const by = {};
+  const seen = {};
+  const add = (t, id) => {
+    if (!linkedKind(t) || seen[id]) return;
+    seen[id] = 1;
+    (by[t.combatantId] = by[t.combatantId] || []).push(id);
+  };
+  state.tokens.forEach(t => t && add(t, t.id));
+  Object.keys(shared.tokens || {}).forEach(id => add(shared.tokens[id], id));
+  return by;
+}
+/** Extra copies of one combatant's token. keep maps combatantId -> the token id to keep. */
+function duplicateLinkedIds(keep) {
+  keep = keep || {};
+  const groups = linkedGroups();
+  const out = [];
+  Object.keys(groups).forEach(cid => {
+    const ids = groups[cid];
+    if (ids.length < 2) return;
+    const want = keep[cid] && ids.indexOf(keep[cid]) >= 0 ? keep[cid] : ids[ids.length - 1];
+    ids.forEach(id => { if (id !== want) out.push(id); });
+  });
+  return out;
+}
+function dedupeLinkedTokens(keep) {
+  if (role !== 'dm') return 0;
+  const extra = duplicateLinkedIds(keep);
+  if (extra.length) removeMapTokens(extra, { silent: true });
+  return extra.length;
+}
+/** Duplicates plus linked tokens whose combatant is no longer in the fight (liveIds: combatant ids). */
+function staleTokenIds(liveIds, keep) {
+  const out = duplicateLinkedIds(keep);
+  if (Array.isArray(liveIds)) {
+    const live = {};
+    liveIds.forEach(id => { live[id] = 1; });
+    const groups = linkedGroups();
+    Object.keys(groups).forEach(cid => {
+      if (live[cid]) return;
+      groups[cid].forEach(id => { if (out.indexOf(id) < 0) out.push(id); });
+    });
+  }
+  return out;
+}
+function clearStaleTokens(liveIds, keep) {
+  if (role !== 'dm') return 0;
+  const ids = staleTokenIds(liveIds, keep);
+  if (ids.length) removeMapTokens(ids, { silent: true });
+  requestDraw();
+  return ids.length;
+}
+function fightKeepMap() {
+  try {
+    const f = window.SSDNSMapFight;
+    return f && typeof f.linkedTokenIds === 'function' ? (f.linkedTokenIds() || {}) : {};
+  } catch (e) { return {}; }
+}
 function placeLinkedToken(spec) {
   if (role !== 'dm' || !state.scene) return null;
   spec = spec || {};
+  /* 0.3.59: adopt this combatant's token if it already exists, instead of stacking a copy */
+  const had = spec.combatantId ? tokenForCombatant(spec.combatantId) : null;
+  if (had) return had;
   const spot = nextFreeCell();
   if (!spot) { toast('No open square'); return null; }
   return makeToken(Object.assign({}, spec, { pos: spot, kind: spec.kind || 'npc' }));
@@ -5792,7 +5867,12 @@ return {
   tokenForPlayer,
   hasToken,
   releaseToken,
-  armAttack
+  armAttack,
+  tokensLoaded: function () { return !!(tokensReady && state.scene); },
+  tokenForCombatant: function (cid) { const t = tokenForCombatant(cid); return t ? t.id : ''; },
+  dedupeLinkedTokens,
+  staleTokenIds,
+  clearStaleTokens
 };
 }
 };

@@ -243,9 +243,9 @@ check(sandbox.__enemy.enemyPickerList(picker, "", false).some((b) => b.parked) =
 const menu = sandbox.__enemy.enemySelectHtml(sandbox.__enemy.enemyPickerList(picker, "", false));
 check(menu.indexOf('label="Creatures"') >= 0 && menu.indexOf('label="Folk"') >= 0 && menu.indexOf('label="Named"') >= 0 && menu.indexOf("Abigail Ellen") >= 0, "fight menu uses group headers");
 check(html.indexOf('id="enemyQ"') >= 0, "fight search box is in the page");
-check(version.dmcc === "0.2.71" && version.dmccBuild === "dmcc-playtest-v0271", "dmcc version");
-check(version.sheet === "0.3.58" && version.sheetBuild === "sheet-playtest-v0358", "sheet version");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.71"') >= 0, "dmcc.js version");
+check(version.dmcc === "0.2.72" && version.dmccBuild === "dmcc-playtest-v0272", "dmcc version");
+check(version.sheet === "0.3.59" && version.sheetBuild === "sheet-playtest-v0359", "sheet version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.72"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {

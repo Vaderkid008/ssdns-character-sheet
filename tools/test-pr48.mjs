@@ -42,7 +42,7 @@ const adv = A.attackBreakdown({
 check("card.dice", adv.dmText.includes("8") && adv.dmText.includes("«17»"), adv.dmText);
 check("card.parts", adv.dmText.includes("DEX +3") && adv.dmText.includes("proficiency +2") && adv.dmText.includes("Pistolero +1"), adv.dmText);
 check("card.ac", adv.dmText.includes("vs AC 15") && adv.dmText.includes("→ HIT"), adv.dmText);
-check("card.dmg", adv.dmText.includes("6+4") && adv.dmText.includes("+3 (mod)") && adv.dmText.includes("= 13 piercing"), adv.dmText);
+check("card.dmg", adv.dmText.includes("6+4") && adv.dmText.includes("+ 3 (mod)") && adv.dmText.includes("= 13 piercing"), adv.dmText);
 const hidden = A.attackBreakdown({
   who: "Steve", target: "Bandit", nat: 14, n1: 14, parts: [{ label: "DEX", value: 3 }], ac: 18, revealAc: false
 });
