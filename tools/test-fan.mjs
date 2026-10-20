@@ -1,5 +1,5 @@
 /**
- * 0.3.77 / DMCC 0.2.90: Pistolero Fan the Hammer (Jessey's design pick, 2026-10-19).
+ * 0.3.78 / DMCC 0.2.91: Pistolero Fan the Hammer (Jessey's design pick, 2026-10-19).
  * Pistols only; lit after the Attack action AND a pistol attack this turn; bonus action through the normal gun path
  * with the ability modifier; same pistol (if it has a round) or a second held pistol; locks Tactical Reload for the turn;
  * shares the bonus action with the off-hand attack; chat "X fans the hammer"; sound = "fan-the-hammer" event if mapped,
@@ -135,7 +135,7 @@ try {
     /* Pistolero: pistols only (not the carbine, not the Hognose Caster Gun) */
     load(); await wait(300); P.reset(true); F.paint();
     out.feat = [0, 1, 2, 3].map(state);
-    /* compact gun card (0.3.77): Fan sits right after TR in the card's action row, visible and inside the card */
+    /* compact gun card (0.3.78): Fan sits right after TR in the card's action row, visible and inside the card */
     const onTab = document.querySelector('.tab[aria-selected="true"]');
     document.querySelector("#tab-equip").click(); await wait(200); F.paint();
     out.place = [0, 1].map((i) => { const b = btn(i), tr = document.querySelector('[data-tr="' + i + '"]'); const card = b && b.closest(".gun"); const r = b && b.getBoundingClientRect(), cr = card && card.getBoundingClientRect();

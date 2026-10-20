@@ -38,8 +38,8 @@ function hasLine(c, text) {
 
 function packName(id, fallback) {
   return ({
-    trail: "Trail kit", claim: "Claim pack", circuit: "Circuit kit",
-    trunk: "Circuit trunk", saloon: "Saloon kit", book: "Book trunk", alley: "Alley kit"
+    trail: "Trail kit", claim: "Claim pack", circuit: "Preacher's kit",
+    trunk: "Traveling trunk", saloon: "Saloon kit", book: "Book trunk", alley: "Alley kit"
   })[id] || fallback;
 }
 const expect = {
@@ -59,7 +59,7 @@ const expect = {
     else guns.push("herringer-light-pepperbox");
     const lines = [
       voice === "voice" ? "Voice — focus" : (voice === "harmonica" ? "Harmonica (rides in a pocket)" : (names[voice] + " with a strap and one spare set of strings")),
-      p.kit === "saloon" ? "Saloon kit" : "Circuit trunk"
+      p.kit === "saloon" ? "Saloon kit" : "Traveling trunk"
     ];
     if (voice === "voice") lines.splice(1, 0, "Harmonica (kit instrument)");
     if (p.weapon === "bow") lines.push("Arrows ×20");
@@ -81,7 +81,7 @@ const expect = {
     return {
       guns,
       melee: [],
-      lines: ["Shield", packName(p.pack === "trail" ? "trail" : "circuit", "Circuit kit"), "Holy symbol (focus)"],
+      lines: ["Shield", packName(p.pack === "trail" ? "trail" : "circuit", "Preacher's kit"), "Holy symbol (focus)"],
       armor: p.armor === "leather" ? "leather-jacket" : (p.armor === "mail" ? "mail-duster" : "scale-coat"),
       shield: true,
       ammo: (!p.gun || p.gun === "shotgun") ? ["buck", ".410", 10] : ["cartridge", "Light", 20]
@@ -129,7 +129,7 @@ const expect = {
   }),
   lawman: (p) => {
     const guns = [];
-    const lines = ["Badge (tin star, focus)", "Mail Duster (chain mail)", packName(p.pack === "trail" ? "trail" : "circuit", "Circuit kit")];
+    const lines = ["Badge (tin star, focus)", "Mail Duster (chain mail)", packName(p.pack === "trail" ? "trail" : "circuit", "Preacher's kit")];
     let ammoRow = null;
     let perc = 0;
     if (p.weapon === "shotgun") {

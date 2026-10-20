@@ -791,7 +791,7 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "1st level",
-     "Circuit Magic (spellcasting, ritual casting). Divine Domain: your faith decides which domains you can pick (Faiths of the Frontier, p.5). Crisis of Faith: break your creed and you can't cast above 1st level until you atone"
+     "Preacher's Magic (spellcasting, ritual casting). Divine Domain: your faith decides which domains you can pick (Faiths of the Frontier, p.5). Crisis of Faith: break your creed and you can't cast above 1st level until you atone"
     ],
     [
      "Spellcasting",
@@ -1217,11 +1217,11 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "Equipment",
-     "Holy symbol (saint-medal / Eldorite seal), prayer book or hymn folio, 5 incense sticks (or candle stubs), vestments (circuit coat), common clothes, pouch with 1,500 ES"
+     "Holy symbol (saint-medal / Eldorite seal), prayer book or hymn folio, 5 incense sticks (or candle stubs), vestments (long coat), common clothes, pouch with 1,500 ES"
     ]
    ],
    "feature": {
-    "name": "Circuit Welcome",
+    "name": "Chapel Welcome",
     "twin5e": "Shelter of the Faithful",
     "text": "Free modest lodging and meals at chapels, circuit camps, and friendly creed-houses. Priests aid with information and healing within reason — they won’t fight your battles unless their creed is on the line."
    },

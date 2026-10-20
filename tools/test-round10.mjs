@@ -114,7 +114,7 @@ check(teller.ok && teller.character.kitStamp === "storyteller", "storyteller wiz
 check(tellerGuns.length === 1 && tellerGuns[0].weapon === "herringer-light-pepperbox" && tellerGuns[0].proficient === true, "storyteller wizard seeds one proficient pepperbox");
 check(bowie && bowie.name === "Bowie (shortsword)" && bowie.damage === "1d6" && bowie.dmgType === "Piercing" && /finesse/i.test(bowie.properties || ""), "Bowie attack stats come from the weapon table");
 check(teller.character.instrument === "fiddle" && teller.character.instrumentQuality === "cheap" && teller.character.instrumentStrings === "plain", "default storyteller instrument is a cheap fiddle");
-["Fiddle with a strap and one spare set of strings", "Circuit trunk"].forEach((line) => {
+["Fiddle with a strap and one spare set of strings", "Traveling trunk"].forEach((line) => {
   check(String(teller.character.equipment || "").indexOf(line) >= 0, "storyteller kit line " + line);
 });
 check(teller.character.armor === "leather-jacket", "storyteller wears a leather jacket");
@@ -131,13 +131,13 @@ const saloon = Creator.buildSheet({ calling: "storyteller", kit: { kit: "saloon"
 check(saloon.ok && saloon.character.instrument === "banjo", "saloon storyteller keeps the chosen instrument");
 check(String(saloon.character.equipment || "").indexOf("Saloon kit") >= 0, "saloon kit choice is gear");
 check(String(saloon.character.equipment || "").indexOf("Banjo with a strap and one spare set of strings") >= 0, "banjo carries the strap and spare strings");
-check(String(saloon.character.equipment || "").indexOf("Circuit trunk") < 0 && String(saloon.character.equipment || "").indexOf("Diplomat trunk") < 0, "saloon choice replaces the circuit trunk");
+check(String(saloon.character.equipment || "").indexOf("Traveling trunk") < 0 && String(saloon.character.equipment || "").indexOf("Diplomat trunk") < 0, "saloon choice replaces the traveling trunk");
 check((saloon.character.guns || []).some((row) => row && row.weapon === "herringer-light-pepperbox"), "saloon storyteller keeps one pepperbox");
 check((saloon.character.melee || []).every((row) => !row || !row.weapon), "saloon storyteller has no second weapon");
 
 const bare = Creator.buildSheet({ calling: "storyteller", kit: {} });
 check(bare.ok && bare.character.instrument === "fiddle" && (bare.character.guns || []).some((row) => row && row.weapon === "herringer-light-pepperbox") && (bare.character.melee || []).every((row) => !row || !row.weapon), "an empty kit pick still receives one pepperbox");
-check(String(bare.character.equipment || "").indexOf("Circuit trunk") >= 0 && bare.character.armor === "leather-jacket", "default trunk and leather jacket still land");
+check(String(bare.character.equipment || "").indexOf("Traveling trunk") >= 0 && bare.character.armor === "leather-jacket", "default trunk and leather jacket still land");
 
 const v2 = read("dm/assets/js/v2.js");
 const dmcc = read("dm/assets/js/dmcc.js");
@@ -161,7 +161,7 @@ check(join.indexOf("seen: false") >= 0, "turn ack records delivered before seen"
 check(extras.indexOf("selfApplied") >= 0 && extras.indexOf("releaseHealTarget") >= 0, "self heals apply locally");
 check(play.indexOf("attackRoll") >= 0, "melee uses the shared attack dice");
 check(app.indexOf("details.box.wild") >= 0, "wild spark box can be hidden");
-check(read("version.json").indexOf('"sheet": "0.3.77"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.90"') >= 0, "current versions");
+check(read("version.json").indexOf('"sheet": "0.3.78"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.91"') >= 0, "current versions");
 
 if (failures.length) {
   console.error(failures.join("\n"));
