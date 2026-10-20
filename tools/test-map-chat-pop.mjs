@@ -41,8 +41,8 @@ check("src.window", chatSrc.includes("root.open(") && chatSrc.includes("chat-pop
 check("src.float", chatSrc.includes("ssdns-chat-float") && chatSrc.includes("ssdns.map.chatFloat") && mapSrc.includes('data-act="chatWindow"'));
 check("src.color", chatSrc.includes("tokenColorFor") && chatSrc.includes("leadNameHtml"));
 check("src.rules", !read("map/ssdns-map-chat.js").includes("database.rules") && !mapSrc.includes("database.rules"));
-check("html.player", read("index.html").includes("map/ssdns-map-chat.js?v=0.3.31-float"));
-check("html.dm", read("dm/index.html").includes("ssdns-map-chat.js?v=0.2.44-float"));
+check("html.player", read("index.html").includes("map/ssdns-map-chat.js?v=0.3.79-float"));
+check("html.dm", read("dm/index.html").includes("ssdns-map-chat.js?v=0.2.92-float"));
 check("html.pop", read("map/chat-pop.html").includes('id="popDock"') && read("map/chat-pop.html").includes("bootPopup") && read("map/chat-pop.html").includes("data-chat-filter") && read("map/chat-pop.html").includes("apply-guard.js"));
 
 function makeWindow() {

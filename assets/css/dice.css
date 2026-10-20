@@ -82,3 +82,28 @@ button.d20 {
 /* 0.3.60: attack (d20) total: no ring, the d20 face's light blue */
 .roll-total-atk { color: #4FDCCB; font-weight: 800; }
 .roll-total-atk.crit { color: #7ff3e6; }
+
+/* 0.3.79 (DMCC 0.2.92): one dice tray everywhere. The rolled die art and "1d4 = 4" sit inline to the right of the dice
+   buttons (Jessey's UI note 1, 2026-10-19), and the space is reserved so a roll never pushes anything down.
+   - .dice-tray: the DMCC and player-sheet top bar (#diceBar + #diceStage)
+   - .dice-stage-inline: the map's own dice lane (normal and full screen, DM and player) */
+.dice-tray { display: flex; align-items: center; background: #1c1612; border-bottom: 1px solid #8a7040; min-width: 0; }
+.dice-tray #diceBar { flex: none; }
+.dice-tray #diceBar.dice-bar { border-bottom: 0; background: transparent; }
+.dice-tray .dice-stage,
+.dice-bar .dice-stage-inline { flex: 1 1 0; align-self: stretch; min-width: 0; flex-wrap: nowrap; align-items: center; gap: 4px; padding: 0 12px; background: transparent; height: auto; max-height: none; overflow: hidden; margin: 0; }
+.dice-bar .dice-stage-inline { min-width: 120px; padding: 0 8px; }
+.dice-tray .dice-stage[hidden],
+.dice-bar .dice-stage-inline[hidden] { display: flex !important; visibility: hidden; }
+.dice-tray .dice-stage .die-face,
+.dice-bar .dice-stage-inline .die-face { width: 40px !important; height: 40px !important; flex: 0 1 40px; min-width: 16px; }
+.dice-tray .dice-stage .die-face img,
+.dice-bar .dice-stage-inline .die-face img { width: 100%; height: 100%; object-fit: contain; }
+.dice-tray .dice-stage-line,
+.dice-bar .dice-stage-inline .dice-stage-line { flex: none; flex-basis: auto; margin: 0 0 0 4px; font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 800px) {
+  .dice-tray { flex-wrap: wrap; }
+  .dice-tray .dice-stage { flex-basis: 100%; padding: 0 8px 4px; }
+  .dice-tray .dice-stage[hidden] { display: none !important; }
+  .dice-bar .dice-stage-inline .dice-stage-line { font-size: 18px; }
+}

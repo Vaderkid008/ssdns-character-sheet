@@ -532,6 +532,8 @@ function publishTokenColors() {
 function chatLineHtml(row) {
   const name = chatName(row);
   let text = String(row.text || '');
+  /* 0.3.79: an older single-die row "d4 1d4 = 4 (4)" shows as "1d4 = 4" (Jessey's UI notes) */
+  if (row && row.kind === 'roll' && window.SSDNSDice && window.SSDNSDice.tidySingle) text = window.SSDNSDice.tidySingle(text);
   const Applied = window.SSDNSApplied;
   if (Applied && Applied.rewriteSpeaker) text = Applied.rewriteSpeaker(text, row || {});
   const shown = (Applied && Applied.chosenName && row && !Applied.neutralSpeaker(name) && Applied.chosenName(row)) || name;

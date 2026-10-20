@@ -667,7 +667,7 @@ html, body { overflow-x: hidden; }
   body:not(.sheet-dock-collapsed) .dm-join-bar,
   body:not(.sheet-dock-collapsed) .tabs,
   body:not(.sheet-dock-collapsed) .turn-panel,
-  body:not(.sheet-dock-collapsed) .dice-stage,
+  body:not(.sheet-dock-collapsed) .dice-tray,
   body:not(.sheet-dock-collapsed) main { margin-right: 300px; }
   body:not(.sheet-dock-collapsed) .turn-panel { max-width: calc(100% - 324px); }
   body.sheet-dock-collapsed .sheet-dock { width: 48px; }

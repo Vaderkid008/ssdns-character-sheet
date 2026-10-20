@@ -64,8 +64,11 @@
   <button type="button" class="btn sm" id="btnTapHear" hidden>Tap to enable sound</button>
 </div>
 
-<div id="diceBar" data-dice-bar></div>
-<div id="diceStage" class="dice-stage" hidden></div>
+<!-- 0.3.79: the rolled die and "1d4 = 4" sit to the right of the dice buttons, same as the DMCC (Jessey's UI note 1) -->
+<div class="dice-tray" id="diceTray">
+  <div id="diceBar" data-dice-bar></div>
+  <div id="diceStage" class="dice-stage" hidden></div>
+</div>
 
 <nav class="tabs" role="tablist" aria-label="Sheet pages">
   <!-- 0.3.78: tab order per Jessey's UI notes; the old "1 · / 2 · / 3 ·" paper-page numbers are dropped -->
@@ -595,7 +598,7 @@
 <script src="assets/js/equip.js?v=0.3.79-equip"></script>
 <script src="assets/js/app.js?v=0.3.79-reload"></script>
 <script src="dm/assets/js/store-stock.js?v=0.3.22"></script>
-<script src="map/ssdns-map-chat.js?v=0.3.31-float"></script>
+<script src="map/ssdns-map-chat.js?v=0.3.79-float"></script>
 <script src="assets/js/sheet-extras.js?v=0.3.79-fire"></script>
 <script src="assets/js/grab.js?v=0.3.79-grab"></script>
 <script src="assets/js/dm-join.js?v=0.3.79-reload"></script>
