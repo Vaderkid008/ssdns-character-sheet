@@ -37,9 +37,11 @@ check("rules.ammo.rows", rows.join() === "arrows-20,arrows-broadhead-5,arrows-bl
 check("rules.ammo.noDynamite", !R.ammo.some((a) => /dynamite/.test(a.id || "")));
 check("rules.js untouched", !/broadhead/i.test(read("assets/data/rules.js")));
 /* recover rules */
-const rr = T.arrowRecover({ spentAmmo: 4 + 4 + 2 + 2 + 2 + 2 + 1, spentBy: { broadhead: 4, fire: 2, blunt: 2, whistler: 2, poison: 2, dynamite: 1 }, hitBy: { broadhead: 2 } });
+const rr = T.arrowRecover({ spentAmmo: 4 + 4 + 2 + 2 + 2 + 2 + 1, spentBy: { broadhead: 4, fire: 2, blunt: 2, whistler: 2, poison: 2, dynamite: 1 } });
 check("recover.legacyStandard", rr.by.standard === 4, JSON.stringify(rr.by));
-check("recover.rules", rr.back.standard === 2 + 1 && rr.back.broadhead === 1 && !rr.back.fire && rr.back.blunt === 1 && rr.back.whistler === 1 && !rr.back.dynamite && !rr.back.poison, JSON.stringify(rr.back));
+check("recover.lost", ["broadheads", "fire arrows", "dynamite arrows"].every((w) => rr.lost.includes(w)) && !rr.lost.includes("blunts"), rr.lost.join());
+check("weights.1lbPer20", T.ARROW_TYPES.filter((t) => !t.made).every((t) => Math.abs(parseFloat(t.weight.replace("¼", ".25").replace("1 lb.", "1")) - t.pack / 20) < 0.01), T.ARROW_TYPES.map((t) => t.weight).join());
+check("recover.rules", rr.back.standard === 2 + 1 && !rr.back.broadhead && !rr.back.fire && rr.back.blunt === 1 && rr.back.whistler === 1 && !rr.back.dynamite && !rr.back.poison, JSON.stringify(rr.back));
 /* store */
 const sb2 = { console }; sb2.window = sb2; sb2.globalThis = sb2; vm.createContext(sb2);
 vm.runInContext(read("dm/assets/js/store-stock.js"), sb2, { filename: "store-stock.js" });
@@ -89,14 +91,18 @@ else {
       out.nocked = C().guns[0].arrowType;
       out.nockedGrp = (document.querySelector(".trk-agrp.nocked") || {}).getAttribute && document.querySelector(".trk-agrp.nocked").getAttribute("data-arrow-grp");
       await roll(() => window.SSDNSGunRoll(0), 0.6);
-      out.fire = { left: pool("fire"), log: logs()[0] };
+      out.fire = { left: pool("fire"), log: logs()[0], lit: !!C().res.litUsed };
+      await roll(() => window.SSDNSGunRoll(0), 0.6); /* second lit arrow the same turn: blocked */
+      out.fire2 = { left: pool("fire"), log: logs()[0] };
+      window.SSDNSActionPips.reset(true); await wait(150);
+      out.litCleared = !C().res.litUsed;
       const s2 = document.querySelector('[data-trk-nock="0"]'); s2.value = "whistler"; s2.dispatchEvent(new Event("change", { bubbles: true })); await wait(150);
       await roll(() => window.SSDNSGunRoll(0), 0.6);
       out.whistler = { left: pool("whistler"), log: logs()[0] };
       const s3 = document.querySelector('[data-trk-nock="0"]'); s3.value = "broadhead"; s3.dispatchEvent(new Event("change", { bubbles: true })); await wait(150);
       out.beastBox = !!document.querySelector("[data-trk-beast]");
       await roll(() => window.SSDNSGunRoll(0), 0.6);
-      out.broad = { left: pool("broadhead"), hits: (C().guns[0].hitBy || {}).broadhead, log: logs()[0] };
+      out.broad = { left: pool("broadhead"), log: logs()[0] };
       out.spentBy = JSON.stringify(C().guns[0].spentBy);
       out.ghosts = document.querySelectorAll('.gun[data-row="0"] .trk-arrow.spent').length;
       const stdBefore = pool("");
@@ -109,9 +115,25 @@ else {
       const mk = document.querySelector('[data-trk-dyn-make="0"]'); out.makeEnabled = mk && !mk.disabled;
       const stdB = pool(""); mk.click(); await wait(250);
       out.made = { dyn: pool("dynamite"), std: stdB - pool(""), sticks: (C().items.find((x) => x.catalogId === "dynamite-stick-standard-fuse") || {}).count };
+      document.querySelector('[data-trk-dyn-make="0"]').click(); await wait(250);
+      out.made2 = pool("dynamite");
       const s4 = document.querySelector('[data-trk-nock="0"]'); s4.value = "dynamite"; s4.dispatchEvent(new Event("change", { bubbles: true })); await wait(150);
+      window.SSDNSActionPips.reset(true); await wait(150);
+      const atk0 = window.SSDNSActionPips.state().attacks;
       await roll(() => window.SSDNSGunRoll(0), 0.5);
-      out.dyn = { left: pool("dynamite"), log: logs()[0] };
+      out.dyn = { left: pool("dynamite"), log: logs().find((l) => /dynamite arrow/.test(l) && /Fuse/.test(l)) || "", attacks: window.SSDNSActionPips.state().attacks - atk0 };
+      out.dynLit = T.shootDynamite(0, { distance: 30 });
+      window.SSDNSActionPips.reset(true); await wait(150);
+      const rr2 = Math.random; Math.random = () => 0.5;
+      try { out.dynNear = T.shootDynamite(0, { distance: 30 }); } finally { Math.random = rr2; }
+      out.dynNear = { ok: out.dynNear && out.dynNear.ok, chat: out.dynNear && (out.dynNear.chat || out.dynNear.reason) };
+      A.applyPatch((d) => { d.character.ammo.push({ type: "arrows", caliber: "dynamite", count: 1 }); });
+      window.SSDNSActionPips.reset(true); await wait(150);
+      Math.random = () => 0.5;
+      try { out.dynFar = T.shootDynamite(0, { distance: 120 }); } finally { Math.random = rr2; }
+      out.dynFar = { ok: out.dynFar && out.dynFar.ok, chat: out.dynFar && (out.dynFar.chat || out.dynFar.reason), scatter: out.dynFar && out.dynFar.scatter };
+      window.SSDNSActionPips.reset(true); await wait(150);
+      out.dynTooFar = T.shootDynamite(0, { distance: 151 });
       out.errs = [];
       return out;
     });
@@ -120,13 +142,19 @@ else {
     check("b.store.pools", JSON.stringify(r.pools) === JSON.stringify({ fire: 5, broadhead: 5, whistler: 5, poison: 3, blunt: 5, std: 19 }), JSON.stringify(r.pools));
     check("b.quiver.groups", r.groups === "standard,broadhead,blunt,fire,whistler,poison", r.groups);
     check("b.picker", r.options === "standard,broadhead,blunt,fire,whistler,poison" && r.nocked === "fire" && r.nockedGrp === "fire", JSON.stringify(r));
+    check("b.lit.oneTurn", r.fire.lit && r.fire2.left === 4 && /One lit arrow per turn/.test(r.fire2.log) && r.litCleared, JSON.stringify([r.fire2, r.litCleared]));
     check("b.fire", r.fire.left === 4 && /fire arrow/i.test(r.fire.log) && /1d4/.test(r.fire.log) && /4 fire arrows/.test(r.fire.log), r.fire.log);
     check("b.whistler", r.whistler.left === 4 && /no damage/i.test(r.whistler.log), r.whistler.log);
-    check("b.broadhead", r.beastBox && r.broad.left === 4 && r.broad.hits === 1 && /beast/i.test(r.broad.log), JSON.stringify(r.broad));
+    check("b.broadhead", r.beastBox && r.broad.left === 4 && /beast/i.test(r.broad.log), JSON.stringify(r.broad));
     check("b.ghosts", r.ghosts >= 4, String(r.ghosts));
-    check("b.recover", r.recover.spent === 0 && r.recover.std === 0 && /fire arrows/.test(r.recover.log) && /don't come back/.test(r.recover.log), JSON.stringify(r.recover));
+    check("b.recover", r.recover.spent === 0 && r.recover.std === 0 && /broadheads/.test(r.recover.log) && /fire arrows/.test(r.recover.log) && /don't come back/.test(r.recover.log), JSON.stringify(r.recover));
     check("b.dyn.make", r.noPM && r.makeEnabled && r.made.dyn === 1 && r.made.std === 1 && r.made.sticks === 1, JSON.stringify(r.made));
-    check("b.dyn.shoot", r.dyn.left === 0 && /dynamite arrow/i.test(r.dyn.log) && /no attack roll/i.test(r.dyn.log) && /Fuse/.test(r.dyn.log) && /shoots a dynamite arrow/.test(r.dyn.log), r.dyn.log);
+    check("b.dyn.shoot", r.dyn.left === 1 && r.made2 === 2 && /no attack roll/i.test(r.dyn.log) && /Fuse/.test(r.dyn.log) && /shoots a dynamite arrow/.test(r.dyn.log) && /object interaction/.test(r.dyn.log), r.dyn.log);
+    check("b.dyn.attackPip", r.dyn.attacks === 1, String(r.dyn.attacks));
+    check("b.dyn.litBlocked", r.dynLit && !r.dynLit.ok && /One lit arrow/.test(r.dynLit.reason), JSON.stringify(r.dynLit));
+    check("b.dyn.near.noScatter", r.dynNear.ok && /lands on the point/.test(r.dynNear.chat) && !/scattered/.test(r.dynNear.chat), r.dynNear.chat);
+    check("b.dyn.far.scatter", r.dynFar.ok && /scattered 10 ft/.test(r.dynFar.chat) && r.dynFar.scatter && r.dynFar.scatter.feet === 10, r.dynFar.chat);
+    check("b.dyn.shortRange", r.dynTooFar && !r.dynTooFar.ok && /short range \(150 ft\)/.test(r.dynTooFar.reason), JSON.stringify(r.dynTooFar));
     check("b.noErrors", !errs.length, errs.join(" | "));
   } finally { await browser.close(); }
 }

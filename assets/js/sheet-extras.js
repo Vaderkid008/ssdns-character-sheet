@@ -2161,7 +2161,6 @@
     var dmg = null;
     if (!miss) dmg = rollDamageExpr(dmgExpr, isCrit);
     var arrowNow = miss ? null : arrowFx(dmg, spent); /* L0186 special arrows */
-    if (spent && spent.arrow && root.SSDNSTrackers && root.SSDNSTrackers.arrowLanded) root.SSDNSTrackers.arrowLanded(i, spent.arrow, !miss);
     if (arrowNow && arrowNow.none) dmg = null;
     var gunRide = takeRiders({ hit: !miss && !!dmg, crit: isCrit && !miss, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon, arrow: spent && spent.arrow });
     var dmgParts = [];

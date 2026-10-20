@@ -111,7 +111,7 @@
   var ARROW_TYPES = [
     { id: "standard", name: "Standard", word: "arrows", pack: 20, packId: "arrows-20", packName: "Arrows (20)", cost: "100", weight: "1 lb.", recover: "half", short: "",
       fx: "Weapon damage, piercing.", head: "#8f969d", fletch: "#5e8a55", src: "BOOK1 Ammunition table" },
-    { id: "broadhead", name: "Broadhead", word: "broadheads", pack: 5, packId: "arrows-broadhead-5", packName: "Broadhead arrows (5)", cost: "50", weight: "¼ lb.", recover: "misses", short: "+1 vs beasts",
+    { id: "broadhead", name: "Broadhead", word: "broadheads", pack: 5, packId: "arrows-broadhead-5", packName: "Broadhead arrows (5)", cost: "50", weight: "¼ lb.", recover: "none", short: "+1 vs beasts",
       beast: 1, fx: "+1 damage against beasts. Breaks on a hit.", head: "#4f565d", fletch: "#a33a2a", src: "BOOK1 L4218" },
     { id: "blunt", name: "Blunt", word: "blunts", pack: 5, packId: "arrows-blunt-5", packName: "Blunt arrows (5)", cost: "25", weight: "¼ lb.", recover: "half", short: "bludgeoning",
       dtype: "bludgeoning", fx: "Bludgeoning. Can knock a creature out at 0 HP instead of killing it.", head: "#b8894a", fletch: "#d8b23a", src: "BOOK1 L4219" },
@@ -119,8 +119,8 @@
       dice: "1d4", dtype: "fire", fx: "Lighting it takes your object interaction. +1d4 fire; sets hay, roofs, and wagons alight. Never recovered.", head: "#e0702a", fletch: "#c8541f", src: "BOOK1 L4220" },
     { id: "whistler", name: "Whistler", word: "whistlers", pack: 5, packId: "arrows-whistler-5", packName: "Whistler arrows (5)", cost: "50", weight: "¼ lb.", recover: "half", short: "no damage",
       noDamage: true, fx: "No damage. Heard about a mile off; used for signals.", head: "#3f6f9a", fletch: "#3f6f9a", src: "BOOK1 L4221" },
-    { id: "poison", name: "Poison", word: "poison arrows", pack: 3, packId: "arrows-poison-3", packName: "Poison arrows (3)", cost: "1,500", weight: "⅛ lb.", recover: "standard", short: "DC 10 Con",
-      poison: true, fx: "On a hit, DC 10 Con save or 1d4 poison. Coating lasts 1 minute once unwrapped. Illegal in most towns.", head: "#4f7a35", fletch: "#2f4a22", src: "BOOK1 L4222" },
+    { id: "poison", name: "Poison", word: "poison arrows", pack: 3, packId: "arrows-poison-3", packName: "Poison arrows (3)", cost: "1,500", weight: "0.15 lb.", recover: "standard", short: "DC 10 Con",
+      poison: true, fx: "On a hit, DC 10 Con save or 1d4 poison. Coating lasts 1 minute once unwrapped. Illegal in most towns.", head: "#7b3fa0", fletch: "#4b2468", src: "BOOK1 L4222" },
     { id: "dynamite", name: "Dynamite", word: "dynamite arrows", pack: 1, packId: "", packName: "", cost: "1 stick + 1 arrow", weight: "1 lb.", recover: "none", short: "no attack roll",
       made: true, fx: "Powder Man only. Aim at a point within the bow's short range; no attack roll. Works like a thrown stick, with the fuse and misfire rules.", head: "#a3221c", fletch: "#5e8a55", src: "BOOK1 L4223" }
   ];
@@ -173,29 +173,23 @@
     if (extra > 0) by.standard = (by.standard || 0) + extra;
     return by;
   }
-  /** Back after the fight. half = PHB; misses = broadhead (breaks on a hit, misses half back); none = fire, dynamite;
-      standard = poison (half back, the coating is gone, so they return as standard arrows). */
-  function recoverBack(t, n, hits) {
+  /** Back after the fight (DND Bot L0186): half = Standard, Blunt, Whistler; standard = Poison (half back, as standard
+      arrows: the coating is gone); none = Broadhead, Fire, Dynamite. */
+  function recoverBack(t, n) {
     if (t.recover === "none") return 0;
-    if (t.recover === "misses") return Math.floor(Math.max(0, n - num(hits)) / 2);
     return Math.floor(n / 2);
   }
   function arrowRecover(g) {
-    var by = spentByType(g), back = {}, total = 0, lost = [], hits = (g && g.hitBy) || {};
+    var by = spentByType(g), back = {}, total = 0, lost = [];
     Object.keys(by).forEach(function (k) {
-      var t = ARROW_BY_ID[k], b = recoverBack(t, by[k], hits[k]), to = t.recover === "standard" ? "standard" : k;
+      var t = ARROW_BY_ID[k], b = recoverBack(t, by[k]), to = t.recover === "standard" ? "standard" : k;
       back[to] = (back[to] || 0) + b; total += b;
-      if (t.recover === "none" || (t.recover === "misses" && num(hits[k]))) lost.push(t.word);
+      if (t.recover === "none") lost.push(t.word);
     });
     return { by: by, back: back, total: total, lost: lost };
   }
-  /** sheet-extras rollGun: a known hit marks the arrow (broadheads break on a hit). */
-  function arrowLanded(i, id, hit) {
-    var c = ch(), g = c && c.guns && c.guns[i];
-    if (!g || !id || !hit) return;
-    g.hitBy = g.hitBy || {};
-    g.hitBy[id] = num(g.hitBy[id]) + 1;
-  }
+  /** One lit arrow (fire or dynamite) per turn (DND Bot L0186). Cleared when the turn pips reset or on a rest. */
+  function litBlocked(c) { return c && c.res && c.res.litUsed ? "One lit arrow per turn (fire or dynamite). You already lit one this turn; Reset the turn pips on a new turn." : ""; }
   /** One arrow, point up. Line-art like the map bow icon; the head and fletching mark the type. */
   function arrowSvg(t, spent) {
     var head;
@@ -243,7 +237,7 @@
   function arrowExtras(c, g, i) {
     var cur = nocked(c, g), html = "";
     if (cur === "broadhead") html += '<label class="tiny trk-nock-l" title="Broadhead: +1 damage against beasts (tick before you shoot)"><input type="checkbox" data-trk-beast="1"' + (c.res && c.res.arrowBeast ? " checked" : "") + "> beast</label>";
-    if (cur === "dynamite") html += '<span class="fine trk-dyn-hint">Roll shoots it: no attack roll, lands within ' + (shortRange(weapon(g.weapon)) || "short") + " ft.</span>";
+    if (cur === "dynamite") html += '<span class="fine trk-dyn-hint">Roll shoots it at a point within ' + (shortRange(weapon(g.weapon)) || "short") + ' ft: no attack roll; past 50 ft it scatters.</span>';
     if (isPowderMan(c)) {
       var why = canMakeDynamite(c);
       html += '<button type="button" class="btn xs" data-trk-dyn-make="' + i + '"' + (why ? ' disabled title="' + esc(why) + '"' : ' title="Powder Man: tie 1 Dynamite Stick to 1 standard arrow."') + ">Make dynamite arrow</button>";
@@ -268,7 +262,7 @@
     if (t.noDamage) { out.none = true; out.note = "Whistler: no damage, heard about a mile off"; return out; }
     if (t.dtype && !t.dice) out.type = t.dtype;
     if (t.id === "blunt") out.note = "Blunt arrow: bludgeoning; at 0 HP you can knock it out instead";
-    if (t.id === "fire") out.note = "Fire arrow (lit: your object interaction); sets hay, roofs, and wagons alight";
+    if (t.id === "fire") out.note = "Fire arrow (lighting it was your object interaction; one lit arrow per turn); sets hay, roofs, and wagons alight";
     if (t.poison) { var pr = rollDice(1, 4); out.note = "Poison arrow: DC 10 Con save or " + pr.total + " poison (1d4 «" + pr.total + "»)"; out.poison = pr.total; }
     if (t.beast && dmg) {
       if (c.res && c.res.arrowBeast) {
@@ -306,6 +300,9 @@
     if (!g || !w || nocked(c, g) !== "dynamite") return null;
     if (!isPowderMan(c) && !opts.dm) return { ok: false, reason: "Dynamite arrows are Powder Man only." };
     if (arrowCount(c, "dynamite") <= 0) return { ok: false, reason: "No dynamite arrows. Make one on the bow card (1 stick + 1 arrow)." };
+    var lit = litBlocked(c);
+    if (lit && !opts.dm) return { ok: false, reason: lit };
+    if (lit) log("DM shot: " + lit + " Shot anyway.", "alert");
     var sr = shortRange(w), dist = opts.distance;
     if (dist == null && typeof document !== "undefined") { var ds = document.getElementById("explosiveDist"); if (ds && ds.value) dist = num(ds.value); }
     if (dist != null && sr && dist > sr) return { ok: false, reason: "Too far. A dynamite arrow lands within the bow's short range (" + sr + " ft)." };
@@ -313,18 +310,25 @@
     if (!stick || !I.use) return { ok: false, reason: "No dynamite rules loaded." };
     var tgt = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo ? root.SSDNSPlaytest.targetInfo() : null;
     var item = Object.assign({}, stick, { name: "a dynamite arrow" });
-    var plan = I.use(item, { distance: null, powderMan: isPowderMan(c), name: c.name || "Someone", target: tgt && tgt.name ? tgt.name : (opts.point || "") });
-    var chat = String(plan.chat || "").replace(" lights and throws ", " lights and shoots ").replace("Light + throw is 1 action; Extra Attack doesn't add throws.", "Light + shoot is 1 action; Extra Attack doesn't add shots.").replace(/ Optional reaction: anyone can shoot the stick[^.]*\.[^.]*\./, "") + " (" + w.name + ", no attack roll; lands within " + sr + " ft.)";
-    if (plan.dud) chat += " The arrow is spent.";
+    /* DND Bot L0186: inside 50 ft it lands on the point; past 50 ft it scatters as a thrown stick (items.js useExplosive
+       scatters past its 50 ft band for a Powder Man). The bow reaches further than a throw, so the distance handed to the
+       stick rules is capped at its 100 ft max; the scatter roll is the same. Fuse, misfire and dud rolls are the stick's. */
+    var pm = isPowderMan(c);
+    var useDist = dist == null ? null : (dist > 50 ? Math.min(dist, pm ? 100 : 60) : dist);
+    var plan = I.use(item, { distance: useDist, powderMan: pm, name: c.name || "Someone", target: tgt && tgt.name ? tgt.name : (opts.point || "") });
+    var chat = String(plan.chat || "").replace(" lights and throws ", " lights and shoots ").replace("Light + throw is 1 action; Extra Attack doesn't add throws.", "Lighting it is your object interaction; the shot is one attack of your Attack action.").replace(/ Optional reaction: anyone can shoot the stick[^.]*\.[^.]*\./, "") + " (" + w.name + ", no attack roll" + (dist != null ? ", aimed " + dist + " ft" + (dist > 50 ? ": past 50 ft it scatters" : ": lands on the point") : "") + ".)";
+    if (plan.dud) chat += " The dud lies where it landed.";
     patch(function (cc) {
       var dp = arrowPool(cc, "dynamite", false); if (dp) dp.count = Math.max(0, num(dp.count) - 1);
+      cc.res = cc.res || {}; cc.res.litUsed = true;
       var gg = cc.guns[i]; gg.spentAmmo = num(gg.spentAmmo) + 1; gg.spentBy = gg.spentBy || {}; gg.spentBy.dynamite = num(gg.spentBy.dynamite) + 1;
       if (plan.selfDamage && isFinite(Number(cc.hpCurrent))) cc.hpCurrent = Math.max(0, Number(cc.hpCurrent) - plan.selfDamage);
     });
     if (root.SSDNSAudio) root.SSDNSAudio.play("fuse");
     log(chat, "roll"); toast(chat);
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.postChat) root.SSDNSDmJoin.postChat({ text: chat });
-    /* like a thrown stick (items.js): the action is the player's call, no Attack pip is spent here */
+    /* DND Bot L0186: the shot replaces one attack of the Attack action (Extra Attack applies) */
+    if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(w.name + " dynamite arrow");
     paint();
     return Object.assign({ ok: true }, plan, { chat: chat });
   }
@@ -573,7 +577,7 @@
         '<span class="trk-count">' + ahave + " arrows</span>" +
         (ahave || g.arrowType ? nockPicker(c, g, i) : "") + arrowExtras(c, g, i) +
         (ashot ? '<span class="trk-shot" title="Shot this fight and lying around">' + ashot + " shot</span>" : "") +
-        '<button type="button" class="btn xs" data-trk-recover="' + i + '"' + (canRec ? "" : " disabled") + ' title="After the fight: recover half your spent arrows (PHB). Broadheads break on a hit (half the misses back); fire and dynamite arrows never come back; poison arrows come back as standard arrows. The rest are broken or lost.">Recover ' + (ar.total ? "½ (+" + ar.total + ")" : "½") + "</button>" +
+        '<button type="button" class="btn xs" data-trk-recover="' + i + '"' + (canRec ? "" : " disabled") + ' title="After the fight: Standard, blunt and whistler arrows: half back (PHB). Poison arrows: half back as standard arrows. Broadhead, fire and dynamite arrows never come back.">Recover ' + (ar.total ? "½ (+" + ar.total + ")" : "½") + "</button>" +
         (ahave ? "" : '<span class="fine trk-warn">Out of arrows. Add them under Ammo.</span>') + "</div>";
     }
     if (k === "quiver") {
@@ -665,11 +669,13 @@
         var ap2 = null; c.ammo.forEach(function (a) { if (!ap2 && a && a.type === "arrows" && arrowId(a.caliber) === nid && num(a.count) > 0) ap2 = a; });
         ap = ap2;
       }
+      if (nid === "fire" && litBlocked(c)) return { ok: false, reason: litBlocked(c) };
       if (!ap) return { ok: false, reason: arrowTotal(c) > 0 ? "No " + at.word + " left. Nock another type on the bow card." : "Out of arrows. Recover some after the fight, or buy more." };
       ap.count = num(ap.count) - 1;
       g.spentAmmo = num(g.spentAmmo) + 1;
       g.spentBy = g.spentBy || {};
       g.spentBy[nid] = num(g.spentBy[nid]) + 1;
+      if (nid === "fire") { c.res = c.res || {}; c.res.litUsed = true; } /* lighting it is the object interaction; one lit arrow per turn */
       return { ok: true, left: arrowCount(c, nid), unit: at.word, arrow: nid };
     }
     if (k === "quiver") {
@@ -882,7 +888,7 @@
         var rr0 = arrowRecover(g), shot0 = num(g.spentAmmo);
         patch(function (cc) {
           Object.keys(rr0.back).forEach(function (id) { if (rr0.back[id] > 0) { var ap = arrowPool(cc, id, true); ap.count = num(ap.count) + rr0.back[id]; } });
-          cc.guns[gi].spentAmmo = 0; cc.guns[gi].spentBy = {}; cc.guns[gi].hitBy = {};
+          cc.guns[gi].spentAmmo = 0; cc.guns[gi].spentBy = {};
         });
         paint();
         var parts0 = Object.keys(rr0.back).filter(function (id) { return rr0.back[id] > 0; }).map(function (id) { return rr0.back[id] + " " + ARROW_BY_ID[id].word; });
@@ -1112,6 +1118,7 @@
       cc.res.sneakUsed = false;
       cc.res.sneakArmed = false;
       cc.res.smiteArmed = 0;
+      cc.res.litUsed = false;
       if (cc.raging) cc.raging = false;
     });
     paint();
@@ -1201,12 +1208,13 @@
     root.addEventListener("ssdns:pips-reset", function () {
       var c = ch();
       if (c && c.res && c.res.sneakUsed) { patch(function (cc) { cc.res.sneakUsed = false; }); paint(); }
+      if (c && c.res && c.res.litUsed) { patch(function (cc) { cc.res.litUsed = false; }); paint(); } /* L0186: one lit arrow per turn */
     });
     var tries = 0;
     (function boot() { if (!wrapRest() && tries++ < 60) setTimeout(boot, 250); else paint(); })();
   }
   root.SSDNSTrackers = {
-    XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, ARROW_TYPES: ARROW_TYPES, arrowId: arrowId, arrowType: arrowType, arrowCount: arrowCount, arrowTotal: arrowTotal, nocked: nocked, arrowRecover: arrowRecover, arrowAdjust: arrowAdjust, arrowSvg: arrowSvg, arrowLanded: arrowLanded, shootDynamite: shootDynamite, makeDynamite: makeDynamite, canMakeDynamite: canMakeDynamite, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
+    XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, ARROW_TYPES: ARROW_TYPES, arrowId: arrowId, arrowType: arrowType, arrowCount: arrowCount, arrowTotal: arrowTotal, nocked: nocked, arrowRecover: arrowRecover, arrowAdjust: arrowAdjust, arrowSvg: arrowSvg, shootDynamite: shootDynamite, litBlocked: litBlocked, makeDynamite: makeDynamite, canMakeDynamite: canMakeDynamite, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
     spendShot: spendShot, onMeleeAttack: onMeleeAttack, itemPips: itemPips, tokenRows: tokenRows,
     snapshot: snapshot, dmHtml: dmHtml, paint: paint, onRest: onRest, resHtml: resHtml,
     toggle: toggle, rider: rider, riderText: riderText, refundPending: refundPending, mapActions: mapActions, canArm: canArm,
