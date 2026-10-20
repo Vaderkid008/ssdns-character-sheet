@@ -88,8 +88,8 @@
     return {
       trail: "Trail kit",
       claim: "Claim pack",
-      circuit: "Circuit kit",
-      trunk: "Circuit trunk",
+      circuit: "Preacher's kit",
+      trunk: "Traveling trunk",
       saloon: "Saloon kit",
       book: "Book trunk",
       alley: "Alley kit"
@@ -234,8 +234,8 @@
         { id: "pepper", label: "Herringer Light Pepperbox + 20 Light cartridges" },
         { id: "bow", label: "Shortbow + 20 arrows" }
       ])},
-      { id: "kit", prompt: "Circuit trunk, or saloon kit?", options: [
-        { id: "trunk", label: "Circuit trunk" },
+      { id: "kit", prompt: "Traveling trunk, or saloon kit?", options: [
+        { id: "trunk", label: "Traveling trunk" },
         { id: "saloon", label: "Saloon kit" }
       ]}
     ],
@@ -249,8 +249,8 @@
         { id: "shotgun", label: "Single-Barrel Farm Shotgun, .410 + 10 shells" },
         { id: "pepper", label: "Herringer Light Pepperbox + 20 Light cartridges" }
       ])},
-      { id: "pack", prompt: "Circuit kit, or trail kit?", options: [
-        { id: "circuit", label: "Circuit kit" },
+      { id: "pack", prompt: "Preacher's kit, or trail kit?", options: [
+        { id: "circuit", label: "Preacher's kit" },
         { id: "trail", label: "Trail kit" }
       ]}
     ],
@@ -298,8 +298,8 @@
         { id: "revolver", label: "Navy / Army Ball n Cap + 20 loads" },
         { id: "shotgun", label: "Single-Barrel Farm Shotgun, .410 + 10 shells" }
       ])},
-      { id: "pack", prompt: "Circuit kit, or trail kit?", options: [
-        { id: "circuit", label: "Circuit kit" },
+      { id: "pack", prompt: "Preacher's kit, or trail kit?", options: [
+        { id: "circuit", label: "Preacher's kit" },
         { id: "trail", label: "Trail kit" }
       ]}
     ],
@@ -494,7 +494,7 @@
       c.armor = "leather-jacket";
       addLine(c, instrumentLine(voice));
       if (voice === "voice") addLine(c, "Harmonica (kit instrument)");
-      addLine(c, p.kit === "saloon" ? "Saloon kit" : "Circuit trunk");
+      addLine(c, p.kit === "saloon" ? "Saloon kit" : "Traveling trunk");
       c.instrument = voice;
       if (voice !== "voice" && voice !== "harmonica") {
         if (!c.instrumentQuality) c.instrumentQuality = "cheap";

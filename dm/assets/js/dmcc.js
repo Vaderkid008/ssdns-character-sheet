@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.93"; // dmcc-playtest-v0293
+const VERSION = "0.2.94"; // dmcc-playtest-v0294
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -40,6 +40,8 @@ const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[c]));
+/* L0184: older player snapshots may still carry pre-PHB #6 labels (see renames.js); show the new names. */
+const relabel = (s) => (window.SSDNSRenames ? window.SSDNSRenames.text(s) : s);
 
 function uid(prefix) {
   return (prefix || "id") + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -2093,11 +2095,11 @@ function openDetail(pid) {
         <button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${g.equipped === false ? "1" : "0"}" data-gun-kind="gun" data-gun-i="${sheetI}">${g.equipped === false ? "Equip" : "Unequip"}</button>
       </div>`;
       }).join("") || "<p>—</p>"}
-      ${(s.melee || []).map((m) => `<div class="gun-chip"><div>${esc(m.name)} · melee</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${m.equipped === false ? "1" : "0"}" data-gun-kind="melee" data-gun-i="${m.index}">${m.equipped === false ? "Equip" : "Unequip"}</button></div>`).join("")}
+      ${(s.melee || []).map((m) => `<div class="gun-chip"><div>${esc(relabel(m.name))} · melee</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${m.equipped === false ? "1" : "0"}" data-gun-kind="melee" data-gun-i="${m.index}">${m.equipped === false ? "Equip" : "Unequip"}</button></div>`).join("")}
       ${s.focus && s.focus.id ? `<div class="gun-chip"><div>Focus · ${esc(s.focus.id)}${s.focus.carry === "held" ? " · held" : (s.focus.carry === "free" ? " · strapped" : "")}</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${s.focus.equipped === false ? "1" : "0"}" data-gun-kind="focus" data-gun-i="0">${s.focus.equipped === false ? "Equip focus" : "Unequip focus"}</button></div>` : ""}
     </div>
-    <div class="detail-section"><h3>Equipment</h3><pre>${esc(s.equipment || "—")}</pre></div>
-    <div class="detail-section"><h3>Features</h3><pre>${esc(s.features || "—")}</pre></div>
+    <div class="detail-section"><h3>Equipment</h3><pre>${esc(relabel(s.equipment) || "—")}</pre></div>
+    <div class="detail-section"><h3>Features</h3><pre>${esc(relabel(s.features) || "—")}</pre></div>
     <div class="detail-section"><h3>Spells</h3><p>${esc(slotLine(s) || "No shell slots")}${s.spellAtk ? " · attack " + esc(s.spellAtk) : ""}${s.spellDC ? " · DC " + esc(s.spellDC) : ""}</p><pre>${esc(spellTxt)}</pre></div>
     <div class="detail-section"><h3>Personality</h3><p>${esc(s.personality || "—")}</p></div>
     <div class="detail-section"><h3>Eldorite addiction</h3>${addictionDetail(pid)}</div>

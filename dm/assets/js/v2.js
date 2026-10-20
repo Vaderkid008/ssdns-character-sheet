@@ -1747,7 +1747,7 @@ function loadStorePreview() {
     if (!raw) return;
     if (raw.town) storeTown = raw.town;
     if (raw.on) Object.keys(storeOn).forEach((id) => { if (raw.on[id] != null) storeOn[id] = !!raw.on[id]; });
-    if (raw.draft) Object.keys(raw.draft).forEach((id) => { storeDraft[id] = raw.draft[id]; });
+    if (raw.draft) Object.keys(raw.draft).forEach((id) => { storeDraft[id] = raw.draft[id]; if (window.SSDNSRenames && raw.draft[id]) window.SSDNSRenames.lines(raw.draft[id].lines); });
   } catch (e) {}
 }
 function saveStorePreview() {
@@ -1967,7 +1967,7 @@ function previewLineHtml(storeId, line, i) {
   const price = line.price === "" || line.price == null ? "" : line.price;
   const ref = line.ref ? '<span class="ref-tag">ref</span>' : "";
   return `<div class="store-line">
-    <label class="store-line-name"><input type="checkbox" data-preview-check="${esc(storeId)}" data-line="${i}"${line.checked ? " checked" : ""}> <b>${esc(line.name || "Item")}</b> <span class="chip">${esc(line.rarity || "")}</span> ${ref}</label>
+    <label class="store-line-name"><input type="checkbox" data-preview-check="${esc(storeId)}" data-line="${i}"${line.checked ? " checked" : ""}> <b>${esc((window.SSDNSRenames ? window.SSDNSRenames.text(line.name) : line.name) || "Item")}</b> <span class="chip">${esc(line.rarity || "")}</span> ${ref}</label>
     <span class="store-line-meta">
       <input type="number" min="0" step="1" inputmode="numeric" data-preview-price="${esc(storeId)}" data-line="${i}" value="${esc(price)}" placeholder="${line.ref ? "ref" : "TBD"}" aria-label="Price for ${esc(line.name || "item")}">
       <button type="button" class="btn sm" data-line-info="${esc(storeId)}" data-line="${i}">Info</button>
@@ -2004,7 +2004,7 @@ function renderStorePanel() {
            <button type="button" class="btn btn-primary" data-store-open="${id}">Open Store</button>`;
     const body = live
       ? lines.map((row, i) => `<div class="store-line${row.soldOut ? " sold" : ""}">
-          <span class="store-line-name"><b>${esc(row.name || "Item")}</b>${row.ref ? ' <span class="ref-tag">ref</span>' : ""}</span>
+          <span class="store-line-name"><b>${esc((window.SSDNSRenames ? window.SSDNSRenames.text(row.name) : row.name) || "Item")}</b>${row.ref ? ' <span class="ref-tag">ref</span>' : ""}</span>
           <span class="store-line-meta"><span class="fine">${esc(row.price)} ES</span>
           <button type="button" class="btn${row.soldOut ? " on" : ""}" data-sold-out="${id}" data-line="${i}">${row.soldOut ? "Sold out" : "Mark sold out"}</button></span>
         </div>`).join("")
@@ -5986,14 +5986,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.93-mounts");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.94-mounts");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.35-class");
+    const res = await fetch("assets/data/store-items.json?v=0.2.94-preacher");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

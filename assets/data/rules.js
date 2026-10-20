@@ -836,7 +836,7 @@ window.SSDNS_RULES = {
      "text": "Charisma spellcasting channeled through ballads, harmonic riffs, and rhythmic tall tales. Focus: your Calling instrument. At character creation, pick ONE of your instruments (guitar, harmonica, fiddle, banjo, accordion, or your voice). Playing it is the somatic component. A Storyteller can also play any piano they find. To make a different instrument your Calling instrument, spend a long rest playing it. No outlet, no power: gagged, with a broken or lost instrument, you can't cast. See Storyteller Gear (Equipment) for straps, cases, strings and Wear & Tear. - Instrument: spells use their full range. Playing takes both hands, so you can't play and fire a weapon on the same turn. Once per short rest, add your Rally Word die to one target's save DC. - Voice: your hands stay free, but everyone knows you're the caster. A gag or Silence shuts you down, and spells that target a creature reach only 30 ft (area spells use their normal range). - Rally Word and Cutting Words always work by spoken word. If you aren't proficient with voice, roll the Inspiration die twice and use the lower result."
     },
     {
-     "name": "The Whisper Network & The Circuit",
+     "name": "The Whisper Network",
      "text": "On the frontier, Storytellers are the living press. While Blackwood company magistrates control telegraph lines and government officials publish sanitized notices, traveling saloon singers and rail fiddlers transmit the real truth—claim disputes, union strikes, outlaw movements, and vanishing settlements—long before ink dries on broadsheets."
     }
    ],
@@ -1105,7 +1105,7 @@ window.SSDNS_RULES = {
    "kit": "Mace or chapel hammer, plated duster or scale mail, light rifle or Single-Barrel Farm Shotgun (chambered .410), priest kit, carved holy symbol.",
    "features": [
     {
-     "name": "Circuit Magic (1st level)",
+     "name": "Preacher's Magic (1st level)",
      "text": "Wisdom spellcasting; ritual casting. Your power is faith in your god: miracles answered through prayer. It's the one Calling where an outside power can give it, or take it away. Focus: a holy symbol to fit your faith (trail Bible, rosary, cross, or medicine bundle)."
     },
     {
@@ -1125,7 +1125,7 @@ window.SSDNS_RULES = {
      "text": "Implore your patron deity or saint to intercede directly on the frontier."
     },
     {
-     "name": "The Circuit Rider's Code",
+     "name": "The Trail Preacher's Code",
      "text": "Frontier Preachers are rarely attached to a single chapel. They ride between remote mining camps and rail towns carrying sacramental whiskey, quinine, and a loaded farm shotgun to protect their flock from rustlers and dust-wights alike."
     }
    ],
@@ -1191,7 +1191,7 @@ window.SSDNS_RULES = {
      [
       "1st",
       "+2",
-      "Circuit Magic, Divine Domain",
+      "Preacher's Magic, Divine Domain",
       "3",
       "2 — — — —"
      ],
@@ -2121,7 +2121,7 @@ window.SSDNS_RULES = {
    "features": [
     {
      "name": "Oath Sense (Divine Sense - 1st lvl)",
-     "text": "Detect unquiet dead, hell-branded fiends, or sacred presence within 60 ft (1 + Cha mod times/day)."
+     "text": "Detect restless dead, hell-branded fiends, or sacred presence within 60 ft (1 + Cha mod times/day)."
     },
     {
      "name": "Mercy Hands (Lay on Hands - 1st lvl)",
@@ -3800,9 +3800,9 @@ window.SSDNS_RULES = {
    "skills": "Insight, Religion",
    "tools": "",
    "languages": "Two of your choice",
-   "equipment": "Holy symbol (saint-medal / Eldorite seal), prayer book or hymn folio, 5 incense sticks (or candle stubs), vestments (circuit coat), common clothes, pouch with 1,500 ES",
+   "equipment": "Holy symbol (saint-medal / Eldorite seal), prayer book or hymn folio, 5 incense sticks (or candle stubs), vestments (long coat), common clothes, pouch with 1,500 ES",
    "feature": {
-    "name": "Circuit Welcome",
+    "name": "Chapel Welcome",
     "twin5e": "Shelter of the Faithful",
     "text": "Free modest lodging and meals at chapels, circuit camps, and friendly creed-houses. Priests aid with information and healing within reason — they won’t fight your battles unless their creed is on the line."
    },
@@ -6041,8 +6041,8 @@ window.SSDNS_RULES = {
   },
   {
    "id": "trail-staff-drover-s-staff-quarterstaff",
-   "name": "Trail staff / drover's staff (quarterstaff)",
-   "model": "Trail staff / drover's staff (quarterstaff)",
+   "name": "Trail staff / cowhand's staff (quarterstaff)",
+   "model": "Trail staff / cowhand's staff (quarterstaff)",
    "group": "simple-melee",
    "cost": "20",
    "damage": "1d6",
@@ -7006,7 +7006,7 @@ window.SSDNS_RULES = {
   },
   {
    "phb5e": "Diplomat’s pack",
-   "name": "Circuit trunk",
+   "name": "Traveling trunk",
    "use": "Talkers, Magistrate guests"
   },
   {
@@ -7026,7 +7026,7 @@ window.SSDNS_RULES = {
   },
   {
    "phb5e": "Priest’s pack",
-   "name": "Circuit kit",
+   "name": "Preacher's kit",
    "use": "Preachers, oath-bearers"
   },
   {
@@ -7266,7 +7266,7 @@ window.SSDNS_RULES = {
   },
   {
    "phb5e": "Robe",
-   "name": "Circuit robe / coat"
+   "name": "Long robe / coat"
   },
   {
    "phb5e": "Sack",
@@ -8615,7 +8615,7 @@ window.SSDNS_RULES = {
   {
    "phb": "Dancing Lights",
    "alias": "Will-o' Claim",
-   "sketch": "Floating assay sparks",
+   "sketch": "Floating ore sparks",
    "level": 0
   },
   {

@@ -198,7 +198,7 @@
   },
   {
     "id": "fine-clothes-circuit-coat",
-    "name": "Fine clothes (circuit coat)",
+    "name": "Fine clothes (long coat)",
     "category": "clothing",
     "price_es": null,
     "stores": [
@@ -369,7 +369,7 @@
   },
   {
     "id": "trail-staff-drover-s-staff",
-    "name": "Trail staff / drover's staff",
+    "name": "Trail staff / cowhand's staff",
     "category": "melee",
     "price_es": 20,
     "stores": [
@@ -2578,7 +2578,7 @@
   },
   {
     "id": "circuit-robe-coat",
-    "name": "Circuit robe / coat",
+    "name": "Long robe / coat",
     "category": "clothing",
     "price_es": null,
     "stores": [
@@ -2698,7 +2698,7 @@
   },
   {
     "id": "circuit-trunk",
-    "name": "Circuit trunk",
+    "name": "Traveling trunk",
     "category": "pack",
     "price_es": null,
     "stores": [
@@ -2758,7 +2758,7 @@
   },
   {
     "id": "circuit-kit",
-    "name": "Circuit kit",
+    "name": "Preacher's kit",
     "category": "pack",
     "price_es": null,
     "stores": [

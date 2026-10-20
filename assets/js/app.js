@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.80"; // sheet-playtest-v0380
+  var APP_VERSION = "0.3.81"; // sheet-playtest-v0381
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -189,6 +189,10 @@
     Object.keys(raw).forEach(function (k) { if (!(k in doc)) doc[k] = raw[k]; });
     if (doc.character && doc.character.proficienciesLanguages) {
       doc.character.proficienciesLanguages = migrateSettlerLanguages(doc.character.proficienciesLanguages);
+    }
+    if (doc.character && window.SSDNSRenames) {
+      /* L0184: pre-PHB #6 labels (see renames.js) show the new names. Ids are unchanged. */
+      if (window.SSDNSRenames.character(doc.character)) notes.push("Renamed old Circuit labels to the PHB #6 names (Preacher's kit, Traveling trunk, Preacher's Magic...).");
     }
     if (doc.character && window.SSDNSItems && window.SSDNSItems.mergeExplosives) {
       var merged = window.SSDNSItems.mergeExplosives(doc.character);

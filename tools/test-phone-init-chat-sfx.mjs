@@ -13,11 +13,11 @@ function check(cond, msg) { if (!cond) failures.push(msg); }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.80" && version.sheetBuild === "sheet-playtest-v0380", "sheet 0.3.55");
-check(version.dmcc === "0.2.93" && version.dmccBuild === "dmcc-playtest-v0293", "dmcc 0.2.68");
-check(read("assets/js/app.js").includes('APP_VERSION = "0.3.80"'), "sheet banner");
-check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.93"'), "dmcc banner");
-check(!read("assets/data/rules.js").includes("0.3.80"), "rules.js was not regenerated for this bump");
+check(version.sheet === "0.3.81" && version.sheetBuild === "sheet-playtest-v0381", "sheet 0.3.55");
+check(version.dmcc === "0.2.94" && version.dmccBuild === "dmcc-playtest-v0294", "dmcc 0.2.68");
+check(read("assets/js/app.js").includes('APP_VERSION = "0.3.81"'), "sheet banner");
+check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.94"'), "dmcc banner");
+check(!read("assets/data/rules.js").includes("0.3.81"), "rules.js was not regenerated for this bump");
 
 const sheetCss = read("assets/css/sheet.css");
 const dmCss = read("dm/assets/css/dmcc.css");

@@ -614,6 +614,7 @@
 
   function setStock(list, open) {
     stock = Array.isArray(list) ? list : [];
+    if (window.SSDNSRenames) window.SSDNSRenames.lines(stock); /* L0165/L0184: old stock names show the PHB names */
     if (open === true || open === false) storeOpen = open;
     renderStore();
   }
