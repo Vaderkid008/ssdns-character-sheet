@@ -124,8 +124,19 @@ try {
     out.mapUnjam = { jammed: A.doc().character.guns[0].jammed, bonus: P.state().bonus };
     P.reset(true);
     A.applyPatch((d) => { d.character.guns[0].jammed = true; }); await wait(300);
-    await A.unjamGun(0); await wait(600); /* dm-join routes op "clean"/"unjam" here (wire check below) */
+    await A.applyCleanOption(0, "unjam"); await wait(600); /* dm-join op "clean"/"unjam": a DM unjam stays free (Jessey, 2026-10-19) */
     out.dmUnjam = { jammed: A.doc().character.guns[0].jammed, bonus: P.state().bonus };
+    /* jam pop-up "Unjam" button uses SSDNSApp.unjamGun: player path, costs the bonus action */
+    P.reset(true);
+    A.applyPatch((d) => { d.character.guns[0].jammed = true; }); await wait(300);
+    await A.unjamGun(0); await wait(600);
+    out.toastUnjam = { jammed: A.doc().character.guns[0].jammed, bonus: P.state().bonus };
+    /* free with Muzzleloader on the player path */
+    P.reset(true);
+    A.applyPatch((d) => { d.character.feats = ["muzzleloader"]; d.character.guns[0].jammed = true; }); await wait(300);
+    await A.unjamGun(0); await wait(600);
+    out.freeUnjam = { jammed: A.doc().character.guns[0].jammed, bonus: P.state().bonus };
+    A.applyPatch((d) => { d.character.feats = []; }); await wait(200);
     /* Reopen (Muzzleloader + a locked chamber): shows, costs the action, posts to chat */
     P.reset(true);
     A.applyPatch((d) => { const c = d.character; c.feats = ["muzzleloader"]; c.muzzleReopenUsed = false; c.guns[0].lockedChambers = [2]; }); await wait(400);
@@ -161,8 +172,10 @@ try {
   check("unjam.shownInRow", res.unjam.shown && res.unjam.inRow && /^Unjam/.test(res.unjam.text), J(res.unjam));
   check("unjam.worksCostChat", res.unjam.after.jammed === false && res.unjam.after.bonus === true && /unjam/i.test(res.unjam.after.log) && res.unjam.after.hidden, J(res.unjam.after));
   check("unjam.mapPath", res.mapUnjam.jammed === false && res.mapUnjam.bonus === true, J(res.mapUnjam));
-  check("unjam.dmJoinWire", /payload\.optionId === "unjam" && app\.unjamGun/.test(fs.readFileSync(new URL("../assets/js/dm-join.js", import.meta.url), "utf8")));
-  check("unjam.dmccPath", res.dmUnjam.jammed === false && res.dmUnjam.bonus === true, J(res.dmUnjam));
+  check("unjam.dmJoinStaysFree", !/payload\.optionId === "unjam" && app\.unjamGun/.test(fs.readFileSync(new URL("../assets/js/dm-join.js", import.meta.url), "utf8")) && /payload\.op === "clean" && app\.applyCleanOption/.test(fs.readFileSync(new URL("../assets/js/dm-join.js", import.meta.url), "utf8")));
+  check("unjam.dmccPathFree", res.dmUnjam.jammed === false && res.dmUnjam.bonus === false, J(res.dmUnjam));
+  check("unjam.jamPopupCosts", res.toastUnjam.jammed === false && res.toastUnjam.bonus === true, J(res.toastUnjam));
+  check("unjam.freeWithMuzzleloader", res.freeUnjam.jammed === false && res.freeUnjam.bonus === false, J(res.freeUnjam));
   check("reopen.shownInRow", res.reopen.shown && res.reopen.inRow && res.reopen.cost === "Action" && res.reopen.lockShown, J(res.reopen));
   check("reopen.worksCostChat", res.reopen.after.locks === 0 && res.reopen.after.action === true && /reopened chamber/i.test(res.reopen.after.log) && res.reopen.after.used, J(res.reopen.after));
   check("reopen.dmccPath", res.dmReopen.locks === 0 && res.dmReopen.action === true, J(res.dmReopen));

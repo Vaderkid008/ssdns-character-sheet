@@ -4744,7 +4744,8 @@
       clearDrawn: function () { return clearDrawn(); },
       gunMeleeLabel: gunMeleeLabel,
       cleanGun: function (i) { return cleanGun(i); },
-      /* 0.3.75: the map card, the jam toast and the DMCC unjam pay the same cost as the Gear button (bonus action, or free) */
+      /* 0.3.75: the map card and the jam pop-up pay the same cost as the Gear button (bonus action, or free).
+         A DM unjam (dm-join op "clean"/"unjam" -> applyCleanOption) stays free (Jessey, 2026-10-19). */
       unjamGun: function (i) { return withCost(i, unjamCost(i), "Unjam", function () { return unjamGun(i); }); },
       /* 0.3.69: Reopen chamber is an action (once per short rest) on every path, the DM-acting one included */
       reopenChamber: function (i) { return withCost(i, "action", "Reopen chamber", function () { return reopenChamber(i); }); },
