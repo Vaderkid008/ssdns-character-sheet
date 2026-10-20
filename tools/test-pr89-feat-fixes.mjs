@@ -1,5 +1,5 @@
 /**
- * PR89 (0.3.84): feat audit "looks wrong today" fixes.
+ * PR89 (0.3.85): feat audit "looks wrong today" fixes.
  *  first-shot (rig + Hair trigger) reaches the roll; per-gun magic in the shown number + damage;
  *  Hat of the Sharpshooter / Eldorite Dust / Cutlass / Old Henry reach the roll; Archery all ranged;
  *  Lawman Paladin styles at 2+ (+GWF); Dust Fury +2/+3/+4; Powder Hands TR; Reopen = action 1/short rest;

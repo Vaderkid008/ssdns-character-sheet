@@ -1010,3 +1010,17 @@ select:-webkit-autofill {
 }
 
 /* 0.2.93 dice tray: the shared rules now live in assets/css/dice.css (0.3.80), so the player sheet and the map lane match. */
+
+/* L0188 food & water panel */
+.supplies-panel .sup-modes { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.supplies-panel .sup-mode { border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; min-height: 36px; display: inline-flex; align-items: center; gap: 4px; }
+.supplies-panel .sup-mode.on { border-color: var(--eld); background: rgba(212, 175, 55, .15); font-weight: 700; }
+.supplies-panel .sup-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.supplies-panel .sup-day b { font-size: 1.2em; }
+.supplies-panel .sup-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.supplies-panel .sup-table th, .supplies-panel .sup-table td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; vertical-align: middle; }
+.supplies-panel .sup-table td.num { white-space: nowrap; }
+.supplies-panel .sup-table td.bad { color: #e06666; font-weight: 700; }
+.supplies-panel .btn.xs { padding: 0 6px; min-height: 24px; font-size: 12px; }
+.supplies-panel .sup-noshare { color: #e06666; font-weight: 700; }
+.supplies-panel .sup-summary { margin: 6px 0; padding: 6px 8px; border-left: 3px solid var(--eld); background: rgba(212, 175, 55, .08); }

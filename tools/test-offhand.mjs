@@ -1,5 +1,5 @@
 /**
- * 0.3.84 / DMCC 0.2.97: Off-hand attack (two-weapon fighting).
+ * 0.3.85 / DMCC 0.2.98: Off-hand attack (two-weapon fighting).
  * Rules: PHB two-weapon fighting (two LIGHT one-handed melee weapons); Dual Wielder (campaign house rule) lets
  * any pistol, one-handed Caster Gun or one-handed blade pair work; pistols are one-handed but not light.
  * Bonus action after the Attack action, normal attack path, no positive ability mod to damage, chat tagged off-hand.

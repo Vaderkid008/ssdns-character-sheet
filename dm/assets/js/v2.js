@@ -1715,6 +1715,10 @@ async function rest(kind) {
   for (let i = 0; i < ids.length; i++) {
     await DM.pushCommand({ type: "rest", to: ids[i], payload: { kind: kind }, from: DM.state.uid });
   }
+  /* L0188: when the DM picked "long rest" (or both) as the end of a day, the day passes for food & water */
+  if (kind === "long" && window.SSDNSSuppliesDm && window.SSDNSSuppliesDm.onLongRest) {
+    try { await window.SSDNSSuppliesDm.onLongRest(); } catch (e) { console.warn("[supplies] long rest", e); }
+  }
   await DM.pushLedger({
     who: "DM", playerId: "all", playerName: "Party", characterName: "Everyone",
     type: "rest", what: (kind === "long" ? "Long" : "Short") + " rest for the table",
@@ -1741,6 +1745,36 @@ let storeItems = [];
 let storeTown = "camp";
 const storeOn = { general: true, gun: false, music: false, traveling: false };
 const storeDraft = {};
+/* L0193: the campaign act the stores sell for. Room setting meta.act (missing = Act I). Before a room exists,
+   the pick is kept on this device so the store preview still follows it. */
+let localStoreAct = 1;
+function storeAct() {
+  const Stock = window.SSDNSStore;
+  const raw = DM.state && DM.state.meta && DM.state.meta.act != null ? DM.state.meta.act : localStoreAct;
+  return Stock && Stock.normAct ? Stock.normAct(raw) : 1;
+}
+function actItems() {
+  const Stock = window.SSDNSStore;
+  return Stock && Stock.forAct ? Stock.forAct(storeItems, storeAct()) : storeItems;
+}
+async function setStoreAct(act) {
+  const Stock = window.SSDNSStore;
+  const n = Stock.normAct(act);
+  localStoreAct = n;
+  if (DM.state.meta) {
+    DM.state.meta = Object.assign({}, DM.state.meta, { act: n });
+    if (!DM.state.demo && DM.state._fb && DM.state.db) {
+      try { await DM.state._fb.update(DM.roomRef("meta"), { act: n }); } catch (e) { DM.toast("Act not saved to the room"); }
+    }
+  }
+  Object.keys(storeDraft).forEach((id) => { if (storeDraft[id]) storeDraft[id].lines = Stock.gateLines(storeDraft[id].lines || [], n, storeItems); });
+  const before = (fight.stock || []).length;
+  fight.stock = Stock.gateLines(fight.stock || [], n, storeItems);
+  saveStorePreview();
+  if (fight.storeOpen || before) await saveRemoteTable();
+  DM.toast("Stores sell for " + Stock.actLabel(n) + (n === 1 ? ": Light ChaosMaker only, 4,000 ES" : ""));
+  renderStorePanel();
+}
 function loadStorePreview() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORE_PREVIEW_KEY) || "null");
@@ -1843,6 +1877,8 @@ function storeLabel(id) {
 }
 function syncTownControls() {
   document.querySelectorAll('input[name="townSize"]').forEach((el) => { el.checked = el.value === storeTown; });
+  const actSel = $("#storeAct");
+  if (actSel && document.activeElement !== actSel) actSel.value = String(storeAct());
   document.querySelectorAll("[data-store-pick]").forEach((el) => {
     const id = el.getAttribute("data-store-pick");
     el.checked = !!storeOn[id];
@@ -1859,7 +1895,7 @@ function previewStore(storeId, mode) {
   const draft = ensureDraft(storeId);
   let rows = [];
   if (storeId === "traveling" && (mode === "draw" || mode === "merchant")) {
-    rows = Stock.merchantStock(storeItems, Math.random).map((it) => {
+    rows = Stock.merchantStock(actItems(), Math.random).map((it) => {
       const line = Stock.lineFromItem(it, "traveling", false);
       line.price = it.price;
       line.checked = it.price != null && it.price !== "";
@@ -1868,17 +1904,17 @@ function previewStore(storeId, mode) {
     });
     draft.mode = "draw";
   } else if (mode === "random") {
-    rows = Stock.randomStock(storeItems, storeId, storeTown, Math.random).map((it) => Stock.lineFromItem(it, storeId, false));
+    rows = Stock.randomStock(actItems(), storeId, storeTown, Math.random).map((it) => Stock.lineFromItem(it, storeId, false));
     draft.mode = "random";
   } else if (mode === "rare") {
-    draft.lines = Stock.slipRare(draft.lines || [], storeItems, Math.random);
+    draft.lines = Stock.slipRare(draft.lines || [], actItems(), Math.random);
     draft.mode = draft.mode || "draw";
     draft.phase = "preview";
     saveStorePreview();
     renderStorePanel();
     return;
   } else {
-    rows = Stock.stockableCommons(storeItems, storeId, storeTown).map((it) => Stock.lineFromItem(it, storeId, false));
+    rows = Stock.stockableCommons(actItems(), storeId, storeTown).map((it) => Stock.lineFromItem(it, storeId, false));
     draft.mode = "default";
   }
   draft.lines = rows;
@@ -1892,6 +1928,7 @@ function liveLines(storeId) {
 async function openStoreCard(storeId) {
   const Stock = window.SSDNSStore;
   const draft = ensureDraft(storeId);
+  draft.lines = Stock.gateLines(draft.lines || [], storeAct(), storeItems);
   const lines = Stock.pricedLines(draft.lines, storeId);
   if (!lines.length) { DM.toast(storeLabel(storeId) + " has no priced items checked"); return; }
   fight.stock = (fight.stock || []).filter((row) => row && (row.store || "general") !== storeId).concat(lines);
@@ -1984,8 +2021,10 @@ function renderStorePanel() {
     box.innerHTML = '<p class="lede">Tick a store to stock it.</p>';
     return;
   }
+  const Gate = window.SSDNSStore;
   box.innerHTML = ids.map((id) => {
     const draft = ensureDraft(id);
+    if (Gate && Gate.gateLines && draft.phase !== "live") draft.lines = Gate.gateLines(draft.lines || [], storeAct(), storeItems);
     const live = draft.phase === "live";
     const lines = live ? liveLines(id) : (draft.lines || []);
     const priced = lines.filter((row) => row && row.checked !== false && row.price !== "" && row.price != null && isFinite(Number(row.price)));
@@ -2097,7 +2136,7 @@ function fillBlanks(storeId) {
   if (!blanks.length) { DM.toast("No blank prices"); return; }
   if (!window.confirm("Fill " + blanks.length + " blank prices from the handbook reference?")) return;
   const byId = {};
-  storeItems.forEach((it) => { if (it && it.id) byId[it.id] = it; });
+  actItems().forEach((it) => { if (it && it.id) byId[it.id] = it; });
   blanks.forEach((row) => {
     const src = byId[row.id];
     const ref = src && src.ref_price_es;
@@ -5986,14 +6025,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.97-mounts");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.98-mounts");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.97-preacher");
+    const res = await fetch("assets/data/store-items.json?v=0.2.98-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -6085,6 +6124,7 @@ async function bootV2() {
       renderStorePanel();
     });
   });
+  $("#storeAct") && $("#storeAct").addEventListener("change", (e) => { setStoreAct(e.target.value); });
   document.querySelectorAll("[data-store-pick]").forEach((el) => {
     el.addEventListener("change", () => {
       storeOn[el.getAttribute("data-store-pick")] = el.checked;
@@ -6108,6 +6148,8 @@ async function bootV2() {
   wireClicks();
   document.addEventListener("keydown", shortcuts);
   window.DMCCEnhance = {
+    /* L0188 food & water: the Supplies panel sets exhaustion through the same condition path */
+    writeSubjectConditions: writeSubjectConditions,
     decorateDetail: decorateDetail,
     afterRender: fillAdds,
     fillAdds: fillAdds,

@@ -127,7 +127,7 @@ for (let seed = 1; seed <= 1000; seed++) {
   });
 }
 const big = Store.grantPlan({ id: "big-fifty-cartridges-50-90-10", name: "Big Fifty cartridges, .50-90 (10)" });
-check(big.kind === "cartridge" && big.qty === 10 && big.caliber === ".50-90", "Big Fifty grants 10 of .50-90, not 50");
+check(big.kind === "ammo" && big.type === "bigfifty" && big.qty === 10 && big.caliber === ".50-90", "Big Fifty grants 10 of .50-90 to the Big Fifty pool (C1), not 50");
 const named = Store.grantPlan({ name: "Big Fifty cartridges, .50-90 (10)" });
 check(named.qty === 10 && named.caliber === ".50-90", "a trailing count beats the caliber number");
 check(!Store.stockableCommons(items, "music", "boomtown").some((it) => /^(Drum|Bugle|Tin whistle)$/.test(it.name)), "unpriced instruments stay off default stock");
@@ -158,7 +158,7 @@ check(buyFn.indexOf("soldOut") >= 0 && buyFn.indexOf("soldOut") < buyFn.indexOf(
 check(Store.playerTabs([{ store: "gun" }, { store: "general" }, { store: "gun" }], true).join() === "general,gun", "one tab per open store, in shop order");
 check(Store.playerTabs([{ store: "general" }], false).length === 0, "a closed store shows no tabs");
 
-check(read("version.json").indexOf('"sheet": "0.3.84"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.97"') >= 0, "versions");
+check(read("version.json").indexOf('"sheet": "0.3.85"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.98"') >= 0, "versions");
 
 function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 async function viewport() {
