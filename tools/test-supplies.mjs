@@ -139,6 +139,17 @@ const kit = c.items.find((i) => i.catalogId === "trail-kit");
 check("pack.mealsUsedCounts", kit.mealsUsed === 1 && S.rations(c) === 9 && Items.weightReport(c).carried === w0 - 2 - 8 - 2, J(kit));
 S.giveWater(c, 3);
 check("water.fillsContainersThenLoose", c.items.filter((i) => i.capacity).every((i) => i.fill === 0.5) && c.supplies.water === 2 && S.waterTotal(c) === 3, J([c.items.map((i) => i.fill), c.supplies.water]));
+/* #103 Unpack: only the meals and water still in the pack come out */
+kit.fill = 0.25;
+const beforeUnpack = [S.rations(c), S.waterTotal(c)];
+const ur = Items.unpack(c, kit.uid, { dm: true });
+const htRow = c.items.find((i) => i.catalogId === "hardtack-jerky-1-day");
+check("unpack.keepsMealsEaten", ur.ok && !c.items.some((i) => i.catalogId === "trail-kit") && htRow && htRow.count === 9 && S.rations(c) === beforeUnpack[0], J([beforeUnpack, S.rations(c), htRow && htRow.count]));
+check("unpack.keepsWaterDrunk", S.waterTotal(c) === beforeUnpack[1], J([beforeUnpack[1], S.waterTotal(c), c.items.filter((i) => i.capacity).map((i) => [i.name, i.count, i.fill])]));
+c = { abilities: { STR: 10 }, items: [] }; S.ensure(c);
+Items.add(c, Items.byId("trail-kit"));
+S.giveRations(c, -12);
+check("pack.emptyStaysAndWeighsLess", c.items.length === 1 && S.rations(c) === 0 && c.items[0].mealsUsed === 10 && Items.weightReport(c).carried === 59 - 20, J([c.items.map((i) => [i.name, i.mealsUsed]), Items.weightReport(c).carried]));
 c = { abilities: { STR: 10 }, items: [] }; S.ensure(c);
 Items.add(c, Items.normalize({ id: "custom-canteen-water", name: "Canteen of water", type: "consumable", tags: ["water"], water: 0.5, effect: { kind: "text", text: "x" } }), { dm: true });
 c.items[0].count = 3;

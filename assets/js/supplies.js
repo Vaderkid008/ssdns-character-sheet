@@ -92,15 +92,12 @@
           if (take >= have) c.items.splice(c.items.indexOf(it), 1);
           else it.count = have - take;
         } else {
+          /* a pack: count meals eaten out of the whole stack; the pack itself (rope, bedroll, ...) stays.
+             Its weight drops by mealWeight per meal, and Unpack hands out only the meals still in it. */
+          var all = m * Math.max(1, num(it.count, 1));
+          if (num(it.mealsUsed, 0) >= all) break;
           it.mealsUsed = num(it.mealsUsed, 0) + 1;
           left -= 1;
-          if (it.mealsUsed >= m) {
-            it.mealsUsed = 0;
-            var cnt = Math.max(1, num(it.count, 1));
-            /* the pack's food is gone; the pack itself stays, just without food */
-            if (cnt > 1) it.count = cnt - 1;
-            else { it.tags = (it.tags || []).filter(function (t) { return t !== "food"; }); it.meals = null; it.mealsUsed = 0; it.mealsGone = true; break; }
-          }
         }
       }
     }

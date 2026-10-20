@@ -936,12 +936,34 @@
     if (character.inventoryLocked && !opts.dm) return { ok: false, reason: "Inventory is locked." };
     var n = Number(item.count == null ? 1 : item.count) || 0;
     if (n <= 0) return { ok: false, reason: "No item." };
+    /* supplies (0.3.85): the unpacked pack takes the meals already eaten and the water already drunk with it,
+       so Unpack hands out only the hardtack and water still in the pack */
+    var mealsEach = Number(item.meals) || 0, used = Math.max(0, Number(item.mealsUsed) || 0);
+    var thisUsed = mealsEach > 0 ? Math.min(used, mealsEach) : 0;
+    if (mealsEach > 0) item.mealsUsed = used - thisUsed;
+    var cap = Number(item.capacity) || 0, thisFill = null;
+    if (cap > 0) {
+      var total = Math.max(0, Number(item.fill == null ? cap * n : item.fill) || 0);
+      thisFill = Math.max(0, Math.min(cap, total - (n - 1) * cap));
+      item.fill = Math.round((total - thisFill) * 1000) / 1000;
+    }
     item.count = n - 1;
     prune(character);
     var added = [];
     (pack.items || []).forEach(function (pair) {
-      var res = add(character, { catalogId: pair[0], count: pair[1] || 1 }, { dm: true });
-      if (res && res.ok) added.push(pair);
+      var want = pair[1] || 1;
+      var row = byId(pair[0]);
+      if (thisUsed > 0 && row && hasTag(row, "food")) { want -= thisUsed; if (want <= 0) return; }
+      var res = add(character, { catalogId: pair[0], count: want }, { dm: true });
+      if (res && res.ok) {
+        added.push([pair[0], want]);
+        var got = res.item || null;
+        if (thisFill != null && row && row.capacity && got && got.capacity) {
+          var miss = Math.max(0, row.capacity * want - thisFill);
+          got.fill = Math.max(0, Math.round(((Number(got.fill) || 0) - miss) * 1000) / 1000);
+          thisFill = Math.max(0, thisFill - row.capacity * want);
+        }
+      }
     });
     var notes = (pack.notes || []).slice();
     if (notes.length) {
