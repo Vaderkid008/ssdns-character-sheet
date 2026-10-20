@@ -4,6 +4,7 @@
     "name": "Thick Coat",
     "category": "armor",
     "price_es": 500,
+    "weight_lb": 8.0,
     "stores": [
       "general",
       "traveling"
@@ -18,6 +19,7 @@
     "name": "Leather Jacket",
     "category": "armor",
     "price_es": 1000,
+    "weight_lb": 10.0,
     "stores": [
       "general",
       "traveling"
@@ -32,6 +34,7 @@
     "name": "Studded Vest",
     "category": "armor",
     "price_es": 4500,
+    "weight_lb": 13.0,
     "stores": [
       "general",
       "traveling"
@@ -46,6 +49,7 @@
     "name": "Hide Wrap",
     "category": "armor",
     "price_es": 1000,
+    "weight_lb": 12.0,
     "stores": [
       "general",
       "traveling"
@@ -60,6 +64,7 @@
     "name": "Mail Undershirt",
     "category": "armor",
     "price_es": 5000,
+    "weight_lb": 20.0,
     "stores": [
       "general",
       "traveling"
@@ -74,6 +79,7 @@
     "name": "Scale Coat",
     "category": "armor",
     "price_es": 5000,
+    "weight_lb": 45.0,
     "stores": [
       "general",
       "traveling"
@@ -88,6 +94,7 @@
     "name": "Steel Vest",
     "category": "armor",
     "price_es": 40000,
+    "weight_lb": 20.0,
     "stores": [
       "general",
       "traveling"
@@ -102,6 +109,7 @@
     "name": "Heavy Leather Duster",
     "category": "armor",
     "price_es": 75000,
+    "weight_lb": 40.0,
     "stores": [
       "general",
       "traveling"
@@ -116,6 +124,7 @@
     "name": "Ring Coat",
     "category": "armor",
     "price_es": 3000,
+    "weight_lb": 40.0,
     "stores": [
       "general",
       "traveling"
@@ -130,6 +139,7 @@
     "name": "Mail Duster",
     "category": "armor",
     "price_es": 7500,
+    "weight_lb": 55.0,
     "stores": [
       "general",
       "traveling"
@@ -144,6 +154,7 @@
     "name": "Splint Harness",
     "category": "armor",
     "price_es": 20000,
+    "weight_lb": 60.0,
     "stores": [
       "general",
       "traveling"
@@ -158,6 +169,7 @@
     "name": "Iron Suit",
     "category": "armor",
     "price_es": 150000,
+    "weight_lb": 65.0,
     "stores": [
       "general",
       "traveling"
@@ -172,6 +184,7 @@
     "name": "Shield (badge board / cavalry shield / rifle plate)",
     "category": "shield",
     "price_es": 1000,
+    "weight_lb": 6,
     "stores": [
       "general",
       "traveling"
@@ -185,14 +198,15 @@
     "id": "common-clothes-trail-wear",
     "name": "Common clothes (trail wear)",
     "category": "clothing",
-    "price_es": null,
+    "price_es": 50,
+    "weight_lb": 3,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). Non-armor clothing. Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Non-armor clothing. Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 3875,
     "ref_price_es": 50
   },
@@ -200,14 +214,15 @@
     "id": "fine-clothes-circuit-coat",
     "name": "Fine clothes (long coat)",
     "category": "clothing",
-    "price_es": null,
+    "price_es": 1500,
+    "weight_lb": 6,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). Non-armor clothing. Reference only: PHB price x100 = 1,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Non-armor clothing. Reference only: PHB price x100 = 1,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 3875,
     "ref_price_es": 1500
   },
@@ -215,14 +230,15 @@
     "id": "costume-stage-coat",
     "name": "Costume (stage coat)",
     "category": "clothing",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 4,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). Non-armor clothing. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Non-armor clothing. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 3875,
     "ref_price_es": 500
   },
@@ -230,14 +246,15 @@
     "id": "traveler-s-clothes",
     "name": "Traveler's clothes",
     "category": "clothing",
-    "price_es": null,
+    "price_es": 200,
+    "weight_lb": 4,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). Non-armor clothing. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Non-armor clothing. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 3875,
     "ref_price_es": 200
   },
@@ -246,6 +263,7 @@
     "name": "Baton / belaying pin",
     "category": "melee",
     "price_es": 10,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -260,6 +278,7 @@
     "name": "Brush hook",
     "category": "melee",
     "price_es": 100,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -274,6 +293,7 @@
     "name": "Claim hammer",
     "category": "melee",
     "price_es": 200,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -288,6 +308,7 @@
     "name": "Fence post / mining timber",
     "category": "melee",
     "price_es": 20,
+    "weight_lb": 10.0,
     "stores": [
       "general",
       "traveling"
@@ -302,6 +323,7 @@
     "name": "Hatchet",
     "category": "melee",
     "price_es": 500,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -316,6 +338,7 @@
     "name": "Stiletto",
     "category": "melee",
     "price_es": 200,
+    "weight_lb": 1.0,
     "stores": [
       "general",
       "traveling"
@@ -330,6 +353,7 @@
     "name": "Throwing spear",
     "category": "melee",
     "price_es": 50,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -344,6 +368,7 @@
     "name": "Trail mace / chapel mace",
     "category": "melee",
     "price_es": 500,
+    "weight_lb": 4.0,
     "stores": [
       "general",
       "traveling"
@@ -358,6 +383,7 @@
     "name": "Trail spear",
     "category": "melee",
     "price_es": 100,
+    "weight_lb": 3.0,
     "stores": [
       "general",
       "traveling"
@@ -372,6 +398,7 @@
     "name": "Trail staff / cowhand's staff",
     "category": "melee",
     "price_es": 20,
+    "weight_lb": 4.0,
     "stores": [
       "general",
       "traveling"
@@ -386,6 +413,7 @@
     "name": "Boarding hook / poleaxe",
     "category": "melee",
     "price_es": 2000,
+    "weight_lb": 6.0,
     "stores": [
       "general",
       "traveling"
@@ -400,6 +428,7 @@
     "name": "Bowie",
     "category": "melee",
     "price_es": 1000,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
@@ -414,6 +443,7 @@
     "name": "Branding fork",
     "category": "melee",
     "price_es": 500,
+    "weight_lb": 4.0,
     "stores": [
       "general",
       "traveling"
@@ -428,6 +458,7 @@
     "name": "Buffalo axe",
     "category": "melee",
     "price_es": 3000,
+    "weight_lb": 7.0,
     "stores": [
       "general",
       "traveling"
@@ -442,6 +473,7 @@
     "name": "Bullwhip",
     "category": "melee",
     "price_es": 200,
+    "weight_lb": 3.0,
     "stores": [
       "general",
       "traveling"
@@ -456,6 +488,7 @@
     "name": "Cavalry lance",
     "category": "melee",
     "price_es": 1000,
+    "weight_lb": 6.0,
     "stores": [
       "general",
       "traveling"
@@ -470,6 +503,7 @@
     "name": "Cavalry Saber",
     "category": "melee",
     "price_es": 1500,
+    "weight_lb": 3.0,
     "stores": [
       "general",
       "traveling"
@@ -484,6 +518,7 @@
     "name": "Chain flail / weighted rein",
     "category": "melee",
     "price_es": 1000,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -498,6 +533,7 @@
     "name": "Cutlass",
     "category": "melee",
     "price_es": 2000,
+    "weight_lb": 3.0,
     "stores": [
       "general",
       "traveling"
@@ -512,6 +548,7 @@
     "name": "Heavy sledge",
     "category": "melee",
     "price_es": 1000,
+    "weight_lb": 10.0,
     "stores": [
       "general",
       "traveling"
@@ -526,6 +563,7 @@
     "name": "Machete",
     "category": "melee",
     "price_es": 2000,
+    "weight_lb": 3.0,
     "stores": [
       "general",
       "traveling"
@@ -540,6 +578,7 @@
     "name": "Miner’s pick",
     "category": "melee",
     "price_es": 500,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -554,6 +593,7 @@
     "name": "Pike",
     "category": "melee",
     "price_es": 500,
+    "weight_lb": 18.0,
     "stores": [
       "general",
       "traveling"
@@ -568,6 +608,7 @@
     "name": "Pole iron",
     "category": "melee",
     "price_es": 2000,
+    "weight_lb": 6.0,
     "stores": [
       "general",
       "traveling"
@@ -582,6 +623,7 @@
     "name": "Sledgehammer",
     "category": "melee",
     "price_es": 1500,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -596,6 +638,7 @@
     "name": "Spiked maul",
     "category": "melee",
     "price_es": 1500,
+    "weight_lb": 4.0,
     "stores": [
       "general",
       "traveling"
@@ -610,6 +653,7 @@
     "name": "Sword Cane",
     "category": "melee",
     "price_es": 2500,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -624,6 +668,7 @@
     "name": "Tomahawk",
     "category": "melee",
     "price_es": 1000,
+    "weight_lb": 4.0,
     "stores": [
       "general",
       "traveling"
@@ -638,6 +683,7 @@
     "name": "Shortbow",
     "category": "ranged",
     "price_es": 2500,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -652,6 +698,7 @@
     "name": "Sling",
     "category": "ranged",
     "price_es": 10,
+    "weight_lb": 0.0,
     "stores": [
       "general",
       "traveling"
@@ -666,6 +713,7 @@
     "name": "Throwing knife",
     "category": "ranged",
     "price_es": 5,
+    "weight_lb": 0.25,
     "stores": [
       "general",
       "traveling"
@@ -680,6 +728,7 @@
     "name": "Blowpipe",
     "category": "ranged",
     "price_es": 1000,
+    "weight_lb": 1.0,
     "stores": [
       "general",
       "traveling"
@@ -694,6 +743,7 @@
     "name": "Catch net",
     "category": "ranged",
     "price_es": 100,
+    "weight_lb": 3.0,
     "stores": [
       "general",
       "traveling"
@@ -708,6 +758,7 @@
     "name": "Longbow",
     "category": "ranged",
     "price_es": 5000,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -722,6 +773,7 @@
     "name": "Herringer Light Pocket Pistol",
     "category": "gun",
     "price_es": 900,
+    "weight_lb": 0.5,
     "stores": [
       "gun",
       "traveling"
@@ -736,6 +788,7 @@
     "name": "Herringer Light Double Derringer",
     "category": "gun",
     "price_es": 1500,
+    "weight_lb": 1.0,
     "stores": [
       "gun",
       "traveling"
@@ -750,6 +803,7 @@
     "name": "Herringer Light Pepperbox",
     "category": "gun",
     "price_es": 1500,
+    "weight_lb": 0.5,
     "stores": [
       "gun",
       "traveling"
@@ -764,6 +818,7 @@
     "name": "Navy / Army Ball n Cap Revolver",
     "category": "gun",
     "price_es": 2000,
+    "weight_lb": 3.0,
     "stores": [
       "gun",
       "traveling"
@@ -778,6 +833,7 @@
     "name": "Pony Arms ChaosMaker, Light",
     "category": "gun",
     "price_es": 2000,
+    "weight_lb": 2.5,
     "stores": [
       "gun",
       "traveling"
@@ -792,6 +848,7 @@
     "name": "Pony Arms ChaosMaker, Medium",
     "category": "gun",
     "price_es": 2500,
+    "weight_lb": 2.5,
     "stores": [
       "gun",
       "traveling"
@@ -806,6 +863,7 @@
     "name": "Pony Arms ChaosMaker, Heavy",
     "category": "gun",
     "price_es": 3000,
+    "weight_lb": 2.5,
     "stores": [
       "gun",
       "traveling"
@@ -820,6 +878,7 @@
     "name": "Single-Barrel Farm Shotgun",
     "category": "gun",
     "price_es": 1000,
+    "weight_lb": 6.0,
     "stores": [
       "gun",
       "traveling"
@@ -834,6 +893,7 @@
     "name": "Double-Barrel Coach Gun",
     "category": "gun",
     "price_es": 3000,
+    "weight_lb": 8.0,
     "stores": [
       "gun",
       "traveling"
@@ -848,6 +908,7 @@
     "name": "Lancaster Lever Shotgun",
     "category": "gun",
     "price_es": 4500,
+    "weight_lb": 8.0,
     "stores": [
       "gun",
       "traveling"
@@ -862,6 +923,7 @@
     "name": "Lancaster Heavy Saddle Carbine",
     "category": "gun",
     "price_es": 4500,
+    "weight_lb": 7.0,
     "stores": [
       "gun",
       "traveling"
@@ -876,6 +938,7 @@
     "name": "Henrietta Saddle Carbine",
     "category": "gun",
     "price_es": 3000,
+    "weight_lb": 7.0,
     "stores": [
       "gun",
       "traveling"
@@ -890,6 +953,7 @@
     "name": "Dullards Light Carbine",
     "category": "gun",
     "price_es": 1500,
+    "weight_lb": 6.0,
     "stores": [
       "gun",
       "traveling"
@@ -904,6 +968,7 @@
     "name": "Dulls Rolling-Block Rifle",
     "category": "gun",
     "price_es": 1200,
+    "weight_lb": 8.0,
     "stores": [
       "gun",
       "traveling"
@@ -918,6 +983,7 @@
     "name": "Dullards Tube Rifle",
     "category": "gun",
     "price_es": 2000,
+    "weight_lb": 9.0,
     "stores": [
       "gun",
       "traveling"
@@ -932,6 +998,7 @@
     "name": "Henrietta Repeating Rifle",
     "category": "gun",
     "price_es": 6500,
+    "weight_lb": 9.0,
     "stores": [
       "gun",
       "traveling"
@@ -946,6 +1013,7 @@
     "name": "Lancaster Repeating Rifle",
     "category": "gun",
     "price_es": 8000,
+    "weight_lb": 9.0,
     "stores": [
       "gun",
       "traveling"
@@ -960,6 +1028,7 @@
     "name": "Dull Co. Rifle-Musket",
     "category": "gun",
     "price_es": 1000,
+    "weight_lb": 9.0,
     "stores": [
       "gun",
       "traveling"
@@ -974,6 +1043,7 @@
     "name": "Bison Big Fifty Buffalo Rifle",
     "category": "gun",
     "price_es": 11000,
+    "weight_lb": 13.0,
     "stores": [
       "gun",
       "traveling"
@@ -988,6 +1058,7 @@
     "name": "Cartridges, Light (20)",
     "category": "ammo",
     "price_es": 50,
+    "weight_lb": 1.0,
     "stores": [
       "general",
       "gun",
@@ -1003,6 +1074,7 @@
     "name": "Cartridges, Medium (20)",
     "category": "ammo",
     "price_es": 100,
+    "weight_lb": 1.0,
     "stores": [
       "general",
       "gun",
@@ -1018,6 +1090,7 @@
     "name": "Cartridges, Heavy (20)",
     "category": "ammo",
     "price_es": 200,
+    "weight_lb": 1.0,
     "stores": [
       "gun",
       "traveling"
@@ -1032,6 +1105,7 @@
     "name": "Shells, .410 (10)",
     "category": "ammo",
     "price_es": 50,
+    "weight_lb": 1.0,
     "stores": [
       "general",
       "gun",
@@ -1047,6 +1121,7 @@
     "name": "Shells, 12 ga (10)",
     "category": "ammo",
     "price_es": 100,
+    "weight_lb": 1.0,
     "stores": [
       "general",
       "gun",
@@ -1062,6 +1137,7 @@
     "name": "Shells, 10 ga (10)",
     "category": "ammo",
     "price_es": 200,
+    "weight_lb": 1.0,
     "stores": [
       "gun",
       "traveling"
@@ -1076,6 +1152,7 @@
     "name": "Big Fifty cartridges, .50-90 (10)",
     "category": "ammo",
     "price_es": 200,
+    "weight_lb": 1.5,
     "stores": [
       "gun",
       "traveling"
@@ -1090,6 +1167,7 @@
     "name": "Powder, ball, and caps (20 shots)",
     "category": "ammo",
     "price_es": 100,
+    "weight_lb": 1.0,
     "stores": [
       "general",
       "gun",
@@ -1105,6 +1183,7 @@
     "name": "Arrows (20)",
     "category": "ammo",
     "price_es": 100,
+    "weight_lb": 1.0,
     "stores": [
       "general",
       "gun",
@@ -1119,14 +1198,15 @@
     "id": "blowpipe-needles-50",
     "name": "Blowpipe needles (50)",
     "category": "ammo",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "rare",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). BOOK1 names the ammo (needles) but prints no price. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). BOOK1 names the ammo (needles) but prints no price. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 3961,
     "ref_price_es": 100
   },
@@ -1134,14 +1214,15 @@
     "id": "sling-stones-20",
     "name": "Sling stones (20)",
     "category": "ammo",
-    "price_es": null,
+    "price_es": 4,
+    "weight_lb": 1.5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). BOOK1 names the ammo (sling stones) but prints no price. Reference only: PHB price x100 = 4 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). BOOK1 names the ammo (sling stones) but prints no price. Reference only: PHB price x100 = 4 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 3929,
     "ref_price_es": 4
   },
@@ -1150,6 +1231,7 @@
     "name": "Dynamite stick (standard fuse)",
     "category": "explosive",
     "price_es": 2500,
+    "weight_lb": 1,
     "stores": [
       "general",
       "gun",
@@ -1165,6 +1247,7 @@
     "name": "Dynamite stick, sweating (sold cheap)",
     "category": "explosive",
     "price_es": 1250,
+    "weight_lb": 1,
     "stores": [
       "general",
       "gun",
@@ -1180,6 +1263,7 @@
     "name": "Long fuse (per stick)",
     "category": "explosive",
     "price_es": 50,
+    "weight_lb": 0,
     "stores": [
       "general",
       "gun",
@@ -1195,6 +1279,7 @@
     "name": "Blasting caps (box of 5)",
     "category": "explosive",
     "price_es": 250,
+    "weight_lb": 0,
     "stores": [
       "general",
       "gun",
@@ -1210,6 +1295,7 @@
     "name": "Fuse cord (50 ft)",
     "category": "explosive",
     "price_es": 100,
+    "weight_lb": 1,
     "stores": [
       "general",
       "gun",
@@ -1225,6 +1311,7 @@
     "name": "Blasting powder (1 lb)",
     "category": "explosive",
     "price_es": 400,
+    "weight_lb": 1,
     "stores": [
       "general",
       "gun",
@@ -1240,6 +1327,7 @@
     "name": "Blasting keg",
     "category": "explosive",
     "price_es": 10000,
+    "weight_lb": 20,
     "stores": [
       "general",
       "gun",
@@ -1255,6 +1343,7 @@
     "name": "Padded powder crate (holds 12 sticks)",
     "category": "explosive",
     "price_es": 200,
+    "weight_lb": 5,
     "stores": [
       "general",
       "gun",
@@ -1270,6 +1359,7 @@
     "name": "Slim Jim",
     "category": "holster",
     "price_es": 200,
+    "weight_lb": 1,
     "stores": [
       "gun",
       "traveling"
@@ -1284,6 +1374,7 @@
     "name": "Mexican Loop",
     "category": "holster",
     "price_es": 500,
+    "weight_lb": 1,
     "stores": [
       "gun",
       "traveling"
@@ -1298,6 +1389,7 @@
     "name": "Skeleton Rig",
     "category": "holster",
     "price_es": 1000,
+    "weight_lb": 1,
     "stores": [
       "gun",
       "traveling"
@@ -1312,6 +1404,7 @@
     "name": "Bridgeport Rig (swivel)",
     "category": "holster",
     "price_es": 2500,
+    "weight_lb": 1,
     "stores": [
       "gun",
       "traveling"
@@ -1326,6 +1419,7 @@
     "name": "Concealed (vest / sleeve)",
     "category": "holster",
     "price_es": 1000,
+    "weight_lb": 0.5,
     "stores": [
       "gun",
       "traveling"
@@ -1340,6 +1434,7 @@
     "name": "Shoulder Rig",
     "category": "holster",
     "price_es": 800,
+    "weight_lb": 2,
     "stores": [
       "gun",
       "traveling"
@@ -1354,6 +1449,7 @@
     "name": "Cross-Draw Holster",
     "category": "holster",
     "price_es": 700,
+    "weight_lb": 1,
     "stores": [
       "gun",
       "traveling"
@@ -1368,6 +1464,7 @@
     "name": "Pocket Holster",
     "category": "holster",
     "price_es": 200,
+    "weight_lb": 0,
     "stores": [
       "gun",
       "traveling"
@@ -1382,6 +1479,7 @@
     "name": "Boot Holster",
     "category": "holster",
     "price_es": 200,
+    "weight_lb": 0.5,
     "stores": [
       "gun",
       "traveling"
@@ -1396,6 +1494,7 @@
     "name": "Gun Belt, cartridge loops",
     "category": "holster",
     "price_es": 200,
+    "weight_lb": 2,
     "stores": [
       "gun",
       "traveling"
@@ -1410,6 +1509,7 @@
     "name": "Bandolier",
     "category": "holster",
     "price_es": 200,
+    "weight_lb": 2,
     "stores": [
       "gun",
       "traveling"
@@ -1424,6 +1524,7 @@
     "name": "Saddle Scabbard",
     "category": "holster",
     "price_es": 500,
+    "weight_lb": 3,
     "stores": [
       "gun",
       "traveling"
@@ -1438,6 +1539,7 @@
     "name": "Pommel Holsters (pair)",
     "category": "holster",
     "price_es": 1500,
+    "weight_lb": 3,
     "stores": [
       "gun",
       "traveling"
@@ -1660,6 +1762,7 @@
     "name": "Gunsmith's tools",
     "category": "tool",
     "price_es": 2500,
+    "weight_lb": 8,
     "stores": [
       "gun",
       "general",
@@ -1675,6 +1778,7 @@
     "name": "Gun cleaning kit",
     "category": "gear",
     "price_es": 100,
+    "weight_lb": 1,
     "stores": [
       "gun",
       "general",
@@ -1690,6 +1794,7 @@
     "name": "Canvas tent (wall tent, sleeps 4)",
     "category": "gear",
     "price_es": 1000,
+    "weight_lb": 40,
     "stores": [
       "general",
       "traveling"
@@ -1704,6 +1809,7 @@
     "name": "Lariat (50 ft)",
     "category": "gear",
     "price_es": 200,
+    "weight_lb": 10,
     "stores": [
       "general",
       "traveling"
@@ -1718,6 +1824,7 @@
     "name": "Spurs",
     "category": "gear",
     "price_es": 100,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
@@ -1732,6 +1839,7 @@
     "name": "Baseball bat",
     "category": "gear",
     "price_es": 300,
+    "weight_lb": 2.0,
     "stores": [
       "general",
       "traveling"
@@ -1746,6 +1854,7 @@
     "name": "Whiskey (bottle)",
     "category": "food",
     "price_es": 100,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
@@ -1760,6 +1869,7 @@
     "name": "Field glass (spyglass)",
     "category": "gear",
     "price_es": 5000,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
@@ -1774,6 +1884,7 @@
     "name": "Ore glass (magnifying glass)",
     "category": "gear",
     "price_es": 1000,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
@@ -1788,6 +1899,7 @@
     "name": "Snakebite antivenin (antitoxin)",
     "category": "healing",
     "price_es": 2500,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
@@ -1802,6 +1914,7 @@
     "name": "Bottle, empty",
     "category": "gear",
     "price_es": 10,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
@@ -1815,14 +1928,15 @@
     "id": "trail-pack",
     "name": "Trail pack",
     "category": "gear",
-    "price_es": null,
+    "price_es": 200,
+    "weight_lb": 5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Backpack. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Backpack. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4530,
     "ref_price_es": 200
   },
@@ -1830,14 +1944,15 @@
     "id": "bedroll-trail-blankets",
     "name": "Bedroll / trail blankets",
     "category": "gear",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 7,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Bedroll. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Bedroll. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4531,
     "ref_price_es": 100
   },
@@ -1845,14 +1960,15 @@
     "id": "claim-pry-bar",
     "name": "Claim pry-bar",
     "category": "gear",
-    "price_es": null,
+    "price_es": 200,
+    "weight_lb": 5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Crowbar. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Crowbar. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4532,
     "ref_price_es": 200
   },
@@ -1860,14 +1976,15 @@
     "id": "hooded-lamp",
     "name": "Hooded lamp",
     "category": "gear",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Hooded lantern. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Hooded lantern. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4533,
     "ref_price_es": 500
   },
@@ -1875,14 +1992,15 @@
     "id": "lamp-oil",
     "name": "Lamp oil",
     "category": "gear",
-    "price_es": null,
+    "price_es": 10,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Oil (flask). Reference only: PHB price x100 = 10 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Oil (flask). Reference only: PHB price x100 = 10 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4534,
     "ref_price_es": 10
   },
@@ -1890,14 +2008,15 @@
     "id": "tinderbox-lucifers",
     "name": "Tinderbox / lucifers",
     "category": "gear",
-    "price_es": null,
+    "price_es": 50,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Tinderbox. Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Tinderbox. Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4536,
     "ref_price_es": 50
   },
@@ -1905,14 +2024,15 @@
     "id": "torch-pitch-stick",
     "name": "Torch / pitch stick",
     "category": "gear",
-    "price_es": null,
+    "price_es": 1,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Torch. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Torch. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4537,
     "ref_price_es": 1
   },
@@ -1920,14 +2040,15 @@
     "id": "iron-cuffs",
     "name": "Iron cuffs",
     "category": "gear",
-    "price_es": null,
+    "price_es": 200,
+    "weight_lb": 6,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Manacles. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Manacles. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4538,
     "ref_price_es": 200
   },
@@ -1935,14 +2056,15 @@
     "id": "field-medic-kit",
     "name": "Field medic kit",
     "category": "healing",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 3,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Healer’s kit. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Healer’s kit. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4540,
     "ref_price_es": 500
   },
@@ -1950,14 +2072,15 @@
     "id": "blessed-water-saint-s-wash",
     "name": "Blessed water / saint’s wash",
     "category": "gear",
-    "price_es": null,
+    "price_es": 2500,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Holy water. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Holy water. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4541,
     "ref_price_es": 2500
   },
@@ -1965,14 +2088,15 @@
     "id": "hex-pouch-dust-pouch",
     "name": "Hex pouch / dust pouch",
     "category": "focus",
-    "price_es": null,
+    "price_es": 2500,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Component pouch. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Component pouch. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4542,
     "ref_price_es": 2500
   },
@@ -1980,14 +2104,15 @@
     "id": "badge-saint-medal-carved-eldorite-hymn-book-holy-symbol",
     "name": "Badge, saint-medal, carved Eldorite, hymn-book (holy symbol)",
     "category": "focus",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Holy symbol. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Holy symbol. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4545,
     "ref_price_es": 500
   },
@@ -1995,14 +2120,15 @@
     "id": "chain-10-ft",
     "name": "Chain (10 ft)",
     "category": "gear",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 10,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Chain (10 ft). Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Chain (10 ft). Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4551,
     "ref_price_es": 500
   },
@@ -2010,14 +2136,15 @@
     "id": "grapnel",
     "name": "Grapnel",
     "category": "gear",
-    "price_es": null,
+    "price_es": 200,
+    "weight_lb": 4,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Grappling hook. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Grappling hook. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4552,
     "ref_price_es": 200
   },
@@ -2025,14 +2152,15 @@
     "id": "claim-hammer-tool",
     "name": "Claim hammer (tool)",
     "category": "gear",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 3,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Hammer. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Hammer. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4553,
     "ref_price_es": 100
   },
@@ -2040,14 +2168,15 @@
     "id": "spike",
     "name": "Spike",
     "category": "gear",
-    "price_es": null,
+    "price_es": 5,
+    "weight_lb": 0.25,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Piton. Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Piton. Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4554,
     "ref_price_es": 5
   },
@@ -2055,14 +2184,15 @@
     "id": "trail-pole",
     "name": "Trail pole",
     "category": "gear",
-    "price_es": null,
+    "price_es": 5,
+    "weight_lb": 7,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Pole (10 ft). Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Pole (10 ft). Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4555,
     "ref_price_es": 5
   },
@@ -2070,14 +2200,15 @@
     "id": "cook-pot",
     "name": "Cook pot",
     "category": "gear",
-    "price_es": null,
+    "price_es": 200,
+    "weight_lb": 10,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Pot, iron. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Pot, iron. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4556,
     "ref_price_es": 200
   },
@@ -2085,14 +2216,15 @@
     "id": "spade",
     "name": "Spade",
     "category": "gear",
-    "price_es": null,
+    "price_es": 200,
+    "weight_lb": 5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Shovel. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Shovel. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4557,
     "ref_price_es": 200
   },
@@ -2100,14 +2232,15 @@
     "id": "whistle",
     "name": "Whistle",
     "category": "gear",
-    "price_es": null,
+    "price_es": 5,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Signal whistle. Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Signal whistle. Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4558,
     "ref_price_es": 5
   },
@@ -2115,14 +2248,15 @@
     "id": "whetstone",
     "name": "Whetstone",
     "category": "gear",
-    "price_es": null,
+    "price_es": 1,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Whetstone. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Whetstone. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4559,
     "ref_price_es": 1
   },
@@ -2130,14 +2264,15 @@
     "id": "waterskin-canteen",
     "name": "Waterskin / canteen",
     "category": "gear",
-    "price_es": null,
+    "price_es": 20,
+    "weight_lb": 5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Waterskin. Reference only: PHB price x100 = 20 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Waterskin. Reference only: PHB price x100 = 20 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4560,
     "ref_price_es": 20
   },
@@ -2145,14 +2280,15 @@
     "id": "hardtack-jerky-1-day",
     "name": "Hardtack / jerky (1 day)",
     "category": "food",
-    "price_es": null,
+    "price_es": 50,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Rations (1 day). Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Rations (1 day). Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4561,
     "ref_price_es": 50
   },
@@ -2160,14 +2296,15 @@
     "id": "mess-kit",
     "name": "Mess kit",
     "category": "gear",
-    "price_es": null,
+    "price_es": 20,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Mess kit. Reference only: PHB price x100 = 20 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Mess kit. Reference only: PHB price x100 = 20 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4562,
     "ref_price_es": 20
   },
@@ -2175,14 +2312,15 @@
     "id": "cliff-kit",
     "name": "Cliff kit",
     "category": "gear",
-    "price_es": null,
+    "price_es": 2500,
+    "weight_lb": 12,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Climber’s kit. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Climber’s kit. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4563,
     "ref_price_es": 2500
   },
@@ -2190,14 +2328,15 @@
     "id": "river-kit",
     "name": "River kit",
     "category": "gear",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 4,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Fishing tackle. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Fishing tackle. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4564,
     "ref_price_es": 100
   },
@@ -2205,14 +2344,15 @@
     "id": "leg-hold-snare",
     "name": "Leg-hold / snare",
     "category": "gear",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 25,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Hunting trap. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Hunting trap. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4565,
     "ref_price_es": 500
   },
@@ -2220,14 +2360,15 @@
     "id": "assay-scale",
     "name": "Ore scale",
     "category": "gear",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 3,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Scale, merchant’s. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Scale, merchant’s. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4567,
     "ref_price_es": 500
   },
@@ -2235,14 +2376,15 @@
     "id": "ink-pen",
     "name": "Ink + pen",
     "category": "gear",
-    "price_es": null,
+    "price_es": 1002,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Ink + quill. Reference only: PHB price x100 = 1,002 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Ink + quill. Reference only: PHB price x100 = 1,002 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4568,
     "ref_price_es": 1002
   },
@@ -2250,14 +2392,15 @@
     "id": "claim-paper-sheet",
     "name": "Claim paper (sheet)",
     "category": "gear",
-    "price_es": null,
+    "price_es": 20,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Paper / parchment. Reference only: PHB price x100 = 20 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Paper / parchment. Reference only: PHB price x100 = 20 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4569,
     "ref_price_es": 20
   },
@@ -2265,14 +2408,15 @@
     "id": "sealing-wax",
     "name": "Sealing wax",
     "category": "gear",
-    "price_es": null,
+    "price_es": 50,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Sealing wax. Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Sealing wax. Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4570,
     "ref_price_es": 50
   },
@@ -2280,14 +2424,15 @@
     "id": "soap",
     "name": "Soap",
     "category": "gear",
-    "price_es": null,
+    "price_es": 2,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Soap. Reference only: PHB price x100 = 2 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Soap. Reference only: PHB price x100 = 2 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4571,
     "ref_price_es": 2
   },
@@ -2295,14 +2440,15 @@
     "id": "shaving-mirror",
     "name": "Shaving mirror",
     "category": "gear",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 0.5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Mirror, steel. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Mirror, steel. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4572,
     "ref_price_es": 500
   },
@@ -2310,14 +2456,15 @@
     "id": "bell",
     "name": "Bell",
     "category": "gear",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Bell. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Bell. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4573,
     "ref_price_es": 100
   },
@@ -2325,14 +2472,15 @@
     "id": "candle",
     "name": "Candle",
     "category": "gear",
-    "price_es": null,
+    "price_es": 1,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Candle. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Candle. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4574,
     "ref_price_es": 1
   },
@@ -2340,14 +2488,15 @@
     "id": "flask-tin-cup",
     "name": "Flask / tin cup",
     "category": "gear",
-    "price_es": null,
+    "price_es": 2,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Flask / tankard. Reference only: PHB price x100 = 2 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Flask / tankard. Reference only: PHB price x100 = 2 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4575,
     "ref_price_es": 2
   },
@@ -2355,14 +2504,15 @@
     "id": "jug",
     "name": "Jug",
     "category": "gear",
-    "price_es": null,
+    "price_es": 2,
+    "weight_lb": 4,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Jug / pitcher. Reference only: PHB price x100 = 2 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Jug / pitcher. Reference only: PHB price x100 = 2 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4576,
     "ref_price_es": 2
   },
@@ -2370,14 +2520,15 @@
     "id": "basket",
     "name": "Basket",
     "category": "gear",
-    "price_es": null,
+    "price_es": 40,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Basket. Reference only: PHB price x100 = 40 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Basket. Reference only: PHB price x100 = 40 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4577,
     "ref_price_es": 40
   },
@@ -2385,14 +2536,15 @@
     "id": "barrel",
     "name": "Barrel",
     "category": "gear",
-    "price_es": null,
+    "price_es": 200,
+    "weight_lb": 70,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Barrel. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Barrel. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4578,
     "ref_price_es": 200
   },
@@ -2400,14 +2552,15 @@
     "id": "bucket",
     "name": "Bucket",
     "category": "gear",
-    "price_es": null,
+    "price_es": 5,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Bucket. Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Bucket. Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4579,
     "ref_price_es": 5
   },
@@ -2415,14 +2568,15 @@
     "id": "strongbox-chest",
     "name": "Strongbox / chest",
     "category": "gear",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 25,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Chest. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Chest. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4580,
     "ref_price_es": 500
   },
@@ -2430,14 +2584,15 @@
     "id": "vial",
     "name": "Vial",
     "category": "gear",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Vial. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Vial. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4582,
     "ref_price_es": 100
   },
@@ -2445,14 +2600,15 @@
     "id": "block-and-tackle",
     "name": "Block and tackle",
     "category": "gear",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Block and tackle. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Block and tackle. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4583,
     "ref_price_es": 100
   },
@@ -2460,14 +2616,15 @@
     "id": "door-ram",
     "name": "Door ram",
     "category": "gear",
-    "price_es": null,
+    "price_es": 400,
+    "weight_lb": 35,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Portable ram. Reference only: PHB price x100 = 400 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Portable ram. Reference only: PHB price x100 = 400 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4584,
     "ref_price_es": 400
   },
@@ -2475,14 +2632,15 @@
     "id": "scatter-shot-nonweapon-bag-of-1-000",
     "name": "Scatter shot (nonweapon, bag of 1,000)",
     "category": "gear",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Ball bearings. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Ball bearings. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4585,
     "ref_price_es": 100
   },
@@ -2490,14 +2648,15 @@
     "id": "caltrops-jack-nails-bag-of-20",
     "name": "Caltrops / jack-nails (bag of 20)",
     "category": "gear",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Caltrops. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Caltrops. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4586,
     "ref_price_es": 100
   },
@@ -2505,14 +2664,15 @@
     "id": "ladder-10-ft",
     "name": "Ladder (10 ft)",
     "category": "gear",
-    "price_es": null,
+    "price_es": 10,
+    "weight_lb": 25,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Ladder. Reference only: PHB price x100 = 10 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Ladder. Reference only: PHB price x100 = 10 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4587,
     "ref_price_es": 10
   },
@@ -2520,14 +2680,15 @@
     "id": "padlock",
     "name": "Padlock",
     "category": "gear",
-    "price_es": null,
+    "price_es": 1000,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Lock. Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Lock. Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4588,
     "ref_price_es": 1000
   },
@@ -2535,14 +2696,15 @@
     "id": "bay-rum-scent",
     "name": "Bay rum / scent",
     "category": "gear",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Perfume. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Perfume. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4589,
     "ref_price_es": 500
   },
@@ -2550,14 +2712,15 @@
     "id": "trail-poison-illegal-in-most-towns",
     "name": "Trail poison (illegal in most towns)",
     "category": "gear",
-    "price_es": null,
+    "price_es": 10000,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "rare",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Poison (basic). Reference only: PHB price x100 = 10,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Poison (basic). Reference only: PHB price x100 = 10,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4590,
     "ref_price_es": 10000
   },
@@ -2565,14 +2728,15 @@
     "id": "assay-tonic-trail-draught",
     "name": "Healing Libation",
     "category": "healing",
-    "price_es": null,
+    "price_es": 5000,
+    "weight_lb": 0.5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Potion of healing. Reference only: PHB price x100 = 5,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Potion of healing. Reference only: PHB price x100 = 5,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4591,
     "ref_price_es": 5000
   },
@@ -2580,14 +2744,15 @@
     "id": "circuit-robe-coat",
     "name": "Long robe / coat",
     "category": "clothing",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 4,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Robe. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Robe. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4592,
     "ref_price_es": 100
   },
@@ -2595,14 +2760,15 @@
     "id": "sack-gunny",
     "name": "Sack / gunny",
     "category": "gear",
-    "price_es": null,
+    "price_es": 1,
+    "weight_lb": 0.5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Sack. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Sack. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4593,
     "ref_price_es": 1
   },
@@ -2610,14 +2776,15 @@
     "id": "trail-tent-two-person",
     "name": "Trail tent (two-person)",
     "category": "gear",
-    "price_es": null,
+    "price_es": 200,
+    "weight_lb": 20,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB item: Two-person tent. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Two-person tent. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4594,
     "ref_price_es": 200
   },
@@ -2625,14 +2792,15 @@
     "id": "hemp-rope-50-ft",
     "name": "Hemp rope (50 ft)",
     "category": "gear",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 10,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB hempen rope. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB hempen rope. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4535,
     "ref_price_es": 100
   },
@@ -2640,14 +2808,15 @@
     "id": "good-silk-rope-50-ft",
     "name": "Good silk rope (50 ft)",
     "category": "gear",
-    "price_es": null,
+    "price_es": 1000,
+    "weight_lb": 5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB silk rope. Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB silk rope. Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4535,
     "ref_price_es": 1000
   },
@@ -2655,14 +2824,15 @@
     "id": "eldorite-charm-bone-fetish-quill-case-lens-arcane-focus",
     "name": "Eldorite charm / bone fetish / quill-case lens (arcane focus)",
     "category": "focus",
-    "price_es": null,
+    "price_es": 1000,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB arcane focus price varies by form (5-20 gp). Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB arcane focus price varies by form (5-20 gp). Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1). Provisional: price 1,000 ES / 1 lb (5E arcane foci run 5-20 gp and 1-4 lb; used the crystal/wand line).",
     "bookLine": 4543,
     "ref_price_es": 1000
   },
@@ -2670,14 +2840,15 @@
     "id": "antler-eldorite-nodule-beast-charm-druidic-focus",
     "name": "Antler / Eldorite nodule / beast charm (druidic focus)",
     "category": "focus",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB druidic focus price varies by form (1-10 gp). Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB druidic focus price varies by form (1-10 gp). Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1). Provisional: price 100 ES / 0 lb (5E druidic foci run 1-10 gp; used the totem/mistletoe line).",
     "bookLine": 4544,
     "ref_price_es": 100
   },
@@ -2685,14 +2856,15 @@
     "id": "alley-kit",
     "name": "Alley kit",
     "category": "pack",
-    "price_es": null,
+    "price_es": 1600,
+    "weight_lb": 47.5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Burglar’s pack contents, western names. Reference only: PHB price x100 = 1,600 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Burglar’s pack contents, western names. Reference only: PHB price x100 = 1,600 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4512,
     "ref_price_es": 1600
   },
@@ -2700,14 +2872,15 @@
     "id": "circuit-trunk",
     "name": "Traveling trunk",
     "category": "pack",
-    "price_es": null,
+    "price_es": 3900,
+    "weight_lb": 36,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Diplomat’s pack contents, western names. Reference only: PHB price x100 = 3,900 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Diplomat’s pack contents, western names. Reference only: PHB price x100 = 3,900 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4513,
     "ref_price_es": 3900
   },
@@ -2715,14 +2888,15 @@
     "id": "claim-pack",
     "name": "Claim pack",
     "category": "pack",
-    "price_es": null,
+    "price_es": 1200,
+    "weight_lb": 61.5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Dungeoneer’s pack contents, western names. Reference only: PHB price x100 = 1,200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Dungeoneer’s pack contents, western names. Reference only: PHB price x100 = 1,200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4514,
     "ref_price_es": 1200
   },
@@ -2730,14 +2904,15 @@
     "id": "saloon-kit",
     "name": "Saloon kit",
     "category": "pack",
-    "price_es": null,
+    "price_es": 4000,
+    "weight_lb": 38,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Entertainer’s pack contents, western names. Reference only: PHB price x100 = 4,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Entertainer’s pack contents, western names. Reference only: PHB price x100 = 4,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4515,
     "ref_price_es": 4000
   },
@@ -2745,14 +2920,15 @@
     "id": "trail-kit",
     "name": "Trail kit",
     "category": "pack",
-    "price_es": null,
+    "price_es": 1000,
+    "weight_lb": 59,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Explorer’s pack contents, western names. Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Explorer’s pack contents, western names. Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4516,
     "ref_price_es": 1000
   },
@@ -2760,14 +2936,15 @@
     "id": "circuit-kit",
     "name": "Preacher's kit",
     "category": "pack",
-    "price_es": null,
+    "price_es": 1900,
+    "weight_lb": 22,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Priest’s pack contents, western names. Reference only: PHB price x100 = 1,900 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Priest’s pack contents, western names. Reference only: PHB price x100 = 1,900 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4517,
     "ref_price_es": 1900
   },
@@ -2775,14 +2952,15 @@
     "id": "book-trunk",
     "name": "Book trunk",
     "category": "pack",
-    "price_es": null,
+    "price_es": 4000,
+    "weight_lb": 10,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). PHB Scholar’s pack contents, western names. Reference only: PHB price x100 = 4,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Scholar’s pack contents, western names. Reference only: PHB price x100 = 4,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4518,
     "ref_price_es": 4000
   },
@@ -2790,14 +2968,15 @@
     "id": "tinker-s-tools",
     "name": "Tinker's tools",
     "category": "tool",
-    "price_es": null,
+    "price_es": 5000,
+    "weight_lb": 10,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). BOOK1 uses tinker's tools for jams, Fouled guns, dynamite charges (no price printed). Reference only: PHB price x100 = 5,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). BOOK1 uses tinker's tools for jams, Fouled guns, dynamite charges (no price printed). Reference only: PHB price x100 = 5,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4446,
     "ref_price_es": 5000
   },
@@ -2805,14 +2984,15 @@
     "id": "leatherworker-s-tools",
     "name": "Leatherworker's tools",
     "category": "tool",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). Artisan’s tools row mentions leatherwork. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Artisan’s tools row mentions leatherwork. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4604,
     "ref_price_es": 500
   },
@@ -2820,14 +3000,15 @@
     "id": "cook-s-utensils",
     "name": "Cook's utensils",
     "category": "tool",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 8,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). Artisan’s tools row mentions cookware. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Artisan’s tools row mentions cookware. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4604,
     "ref_price_es": 100
   },
@@ -2835,14 +3016,15 @@
     "id": "woodcarver-s-tools",
     "name": "Woodcarver's tools",
     "category": "tool",
-    "price_es": null,
+    "price_es": 100,
+    "weight_lb": 5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). Used to fix a Broken instrument (Wear & Tear). Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Used to fix a Broken instrument (Wear & Tear). Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4728,
     "ref_price_es": 100
   },
@@ -2850,14 +3032,15 @@
     "id": "disguise-kit-stage-paint",
     "name": "Disguise kit (stage paint)",
     "category": "tool",
-    "price_es": null,
+    "price_es": 2500,
+    "weight_lb": 3,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "city",
-    "notes": "PRICE TBD (Encounter Bot to price). Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4605,
     "ref_price_es": 2500
   },
@@ -2865,14 +3048,15 @@
     "id": "forgery-kit-assay-forgeries",
     "name": "Forgery kit (ore forgeries)",
     "category": "tool",
-    "price_es": null,
+    "price_es": 1500,
+    "weight_lb": 5,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "rare",
     "minTown": "city",
-    "notes": "PRICE TBD (Encounter Bot to price). Magistrates hang people for this. Reference only: PHB price x100 = 1,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Magistrates hang people for this. Reference only: PHB price x100 = 1,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4606,
     "ref_price_es": 1500
   },
@@ -2880,14 +3064,15 @@
     "id": "gaming-set-playing-cards",
     "name": "Gaming set: playing cards",
     "category": "tool",
-    "price_es": null,
+    "price_es": 50,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4607,
     "ref_price_es": 50
   },
@@ -2895,14 +3080,15 @@
     "id": "gaming-set-dice",
     "name": "Gaming set: dice",
     "category": "tool",
-    "price_es": null,
+    "price_es": 10,
+    "weight_lb": 0,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "PRICE TBD (Encounter Bot to price). Reference only: PHB price x100 = 10 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Reference only: PHB price x100 = 10 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4607,
     "ref_price_es": 10
   },
@@ -2910,14 +3096,15 @@
     "id": "herbalism-kit-herb-doctoring",
     "name": "Herbalism kit (herb doctoring)",
     "category": "tool",
-    "price_es": null,
+    "price_es": 500,
+    "weight_lb": 3,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4608,
     "ref_price_es": 500
   },
@@ -2925,14 +3112,15 @@
     "id": "navigator-s-tools",
     "name": "Navigator's tools",
     "category": "tool",
-    "price_es": null,
+    "price_es": 2500,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). River and desert navigation. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). River and desert navigation. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4610,
     "ref_price_es": 2500
   },
@@ -2940,14 +3128,15 @@
     "id": "poisoner-s-kit",
     "name": "Poisoner's kit",
     "category": "tool",
-    "price_es": null,
+    "price_es": 5000,
+    "weight_lb": 2,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "rare",
     "minTown": "city",
-    "notes": "PRICE TBD (Encounter Bot to price). Illegal in most towns. Reference only: PHB price x100 = 5,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Illegal in most towns. Reference only: PHB price x100 = 5,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4611,
     "ref_price_es": 5000
   },
@@ -2955,14 +3144,15 @@
     "id": "thieves-tools-lock-picks",
     "name": "Thieves' tools (lock picks)",
     "category": "tool",
-    "price_es": null,
+    "price_es": 2500,
+    "weight_lb": 1,
     "stores": [
       "general",
       "traveling"
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
     "bookLine": 4612,
     "ref_price_es": 2500
   },
@@ -2971,6 +3161,7 @@
     "name": "Standard strap (guitar, banjo)",
     "category": "storyteller",
     "price_es": 100,
+    "weight_lb": 0.5,
     "stores": [
       "music",
       "traveling"
@@ -2985,6 +3176,7 @@
     "name": "Violin strap",
     "category": "storyteller",
     "price_es": 100,
+    "weight_lb": 0.5,
     "stores": [
       "music",
       "traveling"
@@ -2999,6 +3191,7 @@
     "name": "Cartridge strap (guitar, banjo)",
     "category": "storyteller",
     "price_es": 1500,
+    "weight_lb": 1,
     "stores": [
       "music",
       "traveling"
@@ -3013,6 +3206,7 @@
     "name": "Soft travel case",
     "category": "storyteller",
     "price_es": 200,
+    "weight_lb": 2,
     "stores": [
       "music",
       "traveling"
@@ -3027,6 +3221,7 @@
     "name": "Hard travel case",
     "category": "storyteller",
     "price_es": 1000,
+    "weight_lb": 10,
     "stores": [
       "music",
       "traveling"
@@ -3041,6 +3236,7 @@
     "name": "Plain strings (set)",
     "category": "storyteller",
     "price_es": 25,
+    "weight_lb": 0,
     "stores": [
       "music",
       "general",
@@ -3056,6 +3252,7 @@
     "name": "Quality strings (set)",
     "category": "storyteller",
     "price_es": 50,
+    "weight_lb": 0,
     "stores": [
       "music",
       "traveling"
@@ -3070,6 +3267,7 @@
     "name": "Quality bow (fiddle)",
     "category": "storyteller",
     "price_es": 300,
+    "weight_lb": 0.5,
     "stores": [
       "music",
       "traveling"
@@ -3084,6 +3282,7 @@
     "name": "Cheap strings (set)",
     "category": "storyteller",
     "price_es": 10,
+    "weight_lb": 0,
     "stores": [
       "music",
       "traveling"
@@ -3098,6 +3297,7 @@
     "name": "Cheap bow (fiddle)",
     "category": "storyteller",
     "price_es": 50,
+    "weight_lb": 0.5,
     "stores": [
       "music",
       "traveling"
@@ -3112,6 +3312,7 @@
     "name": "Glass slide",
     "category": "storyteller",
     "price_es": 500,
+    "weight_lb": 0,
     "stores": [
       "music",
       "traveling"
@@ -3126,6 +3327,7 @@
     "name": "Fingerpicks",
     "category": "storyteller",
     "price_es": 2000,
+    "weight_lb": 0,
     "stores": [
       "music",
       "traveling"
@@ -3140,6 +3342,7 @@
     "name": "Tuning fork",
     "category": "storyteller",
     "price_es": 200,
+    "weight_lb": 0,
     "stores": [
       "music",
       "traveling"
@@ -3154,6 +3357,7 @@
     "name": "Harmonica rack",
     "category": "storyteller",
     "price_es": 300,
+    "weight_lb": 0.5,
     "stores": [
       "music",
       "traveling"
@@ -3168,6 +3372,7 @@
     "name": "Capo",
     "category": "storyteller",
     "price_es": 200,
+    "weight_lb": 0,
     "stores": [
       "music",
       "traveling"
@@ -3182,6 +3387,7 @@
     "name": "Songbook (blank)",
     "category": "storyteller",
     "price_es": 2500,
+    "weight_lb": 3,
     "stores": [
       "music",
       "traveling"
@@ -3196,6 +3402,7 @@
     "name": "Busking hat",
     "category": "storyteller",
     "price_es": 100,
+    "weight_lb": 1,
     "stores": [
       "music",
       "traveling"
@@ -3236,6 +3443,7 @@
     "name": "Fiddle (quality)",
     "category": "instrument",
     "price_es": 4000,
+    "weight_lb": 1,
     "stores": [
       "music",
       "traveling"
@@ -3250,6 +3458,7 @@
     "name": "Fiddle (cheap)",
     "category": "instrument",
     "price_es": 2000,
+    "weight_lb": 1,
     "stores": [
       "music",
       "traveling"
@@ -3264,6 +3473,7 @@
     "name": "Banjo (quality)",
     "category": "instrument",
     "price_es": 3000,
+    "weight_lb": 2,
     "stores": [
       "music",
       "traveling"
@@ -3278,6 +3488,7 @@
     "name": "Banjo (cheap)",
     "category": "instrument",
     "price_es": 1500,
+    "weight_lb": 2,
     "stores": [
       "music",
       "traveling"
@@ -3292,6 +3503,7 @@
     "name": "Guitar (quality)",
     "category": "instrument",
     "price_es": 7000,
+    "weight_lb": 2,
     "stores": [
       "music",
       "traveling"
@@ -3306,6 +3518,7 @@
     "name": "Guitar (cheap)",
     "category": "instrument",
     "price_es": 3500,
+    "weight_lb": 2,
     "stores": [
       "music",
       "traveling"
@@ -3320,6 +3533,7 @@
     "name": "Accordion (quality)",
     "category": "instrument",
     "price_es": 3000,
+    "weight_lb": 6,
     "stores": [
       "music",
       "traveling"
@@ -3334,6 +3548,7 @@
     "name": "Accordion (cheap)",
     "category": "instrument",
     "price_es": 1500,
+    "weight_lb": 6,
     "stores": [
       "music",
       "traveling"
@@ -3348,6 +3563,7 @@
     "name": "Harmonica (quality)",
     "category": "instrument",
     "price_es": 200,
+    "weight_lb": 0,
     "stores": [
       "music",
       "traveling"
@@ -3362,6 +3578,7 @@
     "name": "Harmonica (cheap)",
     "category": "instrument",
     "price_es": 100,
+    "weight_lb": 0,
     "stores": [
       "music",
       "traveling"
@@ -3376,6 +3593,7 @@
     "name": "Jaw harp",
     "category": "instrument",
     "price_es": 50,
+    "weight_lb": 0,
     "stores": [
       "music",
       "traveling"
@@ -3389,42 +3607,45 @@
     "id": "drum",
     "name": "Drum",
     "category": "instrument",
-    "price_es": null,
+    "price_es": 600,
+    "weight_lb": 3,
     "stores": [
       "music",
       "traveling"
     ],
-    "rarity": "common",
+    "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). Named in the Tools table only; no price in BOOK1.",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Named in the Tools table only; no price in BOOK1. Provisional: price 600 ES (5E drum 6 gp; BOOK1 prints none).",
     "bookLine": 4609
   },
   {
     "id": "bugle",
     "name": "Bugle",
     "category": "instrument",
-    "price_es": null,
+    "price_es": 300,
+    "weight_lb": 2,
     "stores": [
       "music",
       "traveling"
     ],
-    "rarity": "common",
+    "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). Named in the Tools table only; no price in BOOK1.",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Named in the Tools table only; no price in BOOK1. Provisional: price 300 ES / 2 lb (5E horn 3 gp; BOOK1 prints none).",
     "bookLine": 4609
   },
   {
     "id": "tin-whistle",
     "name": "Tin whistle",
     "category": "instrument",
-    "price_es": null,
+    "price_es": 200,
+    "weight_lb": 1,
     "stores": [
       "music",
       "traveling"
     ],
-    "rarity": "common",
+    "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "PRICE TBD (Encounter Bot to price). Named in the Tools table only; no price in BOOK1.",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Named in the Tools table only; no price in BOOK1. Provisional: price 200 ES / 1 lb (5E flute 2 gp; BOOK1 prints none).",
     "bookLine": 4609
   },
   {
@@ -3432,6 +3653,7 @@
     "name": "Dullards Plinker Repeater",
     "category": "gun",
     "price_es": 1800,
+    "weight_lb": 5.0,
     "stores": [
       "gun",
       "traveling"
@@ -3446,6 +3668,7 @@
     "name": "Dullards Plinker Revolver",
     "category": "gun",
     "price_es": 1000,
+    "weight_lb": 1.0,
     "stores": [
       "gun",
       "traveling"
@@ -3467,5 +3690,289 @@
     "minTown": "boomtown",
     "notes": "A day with a gunsmith. The gun comes back clean and in service. A tinker's tools action at DC 12 can also bring a blown Plinker back.",
     "bookLine": ""
+  },
+  {
+    "id": "riding-horse-cow-pony",
+    "name": "Riding horse / cow pony",
+    "category": "mount",
+    "price_es": 7500,
+    "weight_lb": 0,
+    "stores": [
+      "general"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 60 ft. Carries 480 lb. Doesn't count toward what you carry.",
+    "bookLine": 4632
+  },
+  {
+    "id": "draft-freight-horse",
+    "name": "Draft / freight horse",
+    "category": "mount",
+    "price_es": 5000,
+    "weight_lb": 0,
+    "stores": [
+      "general"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 40 ft. Carries 540 lb. Doesn't count toward what you carry.",
+    "bookLine": 4633
+  },
+  {
+    "id": "cavalry-horse",
+    "name": "Cavalry horse",
+    "category": "mount",
+    "price_es": 40000,
+    "weight_lb": 0,
+    "stores": [
+      "general"
+    ],
+    "rarity": "uncommon",
+    "minTown": "boomtown",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Warhorse. Speed 60 ft. Carries 540 lb. Doesn't spook at gunfire. Doesn't count toward what you carry.",
+    "bookLine": 4634
+  },
+  {
+    "id": "mule",
+    "name": "Mule",
+    "category": "mount",
+    "price_es": 800,
+    "weight_lb": 0,
+    "stores": [
+      "general"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 40 ft. Carries 420 lb. Wisdom in canyon country. Doesn't count toward what you carry.",
+    "bookLine": 4635
+  },
+  {
+    "id": "cart",
+    "name": "Cart",
+    "category": "mount",
+    "price_es": 1500,
+    "weight_lb": 200,
+    "stores": [
+      "general"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Drawn vehicle, 200 lb. Doesn't count toward what you carry.",
+    "bookLine": 4636
+  },
+  {
+    "id": "freight-wagon",
+    "name": "Freight wagon",
+    "category": "mount",
+    "price_es": 3500,
+    "weight_lb": 400,
+    "stores": [
+      "general"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Drawn vehicle, 400 lb. Doesn't count toward what you carry.",
+    "bookLine": 4636
+  },
+  {
+    "id": "coach",
+    "name": "Coach",
+    "category": "mount",
+    "price_es": 10000,
+    "weight_lb": 600,
+    "stores": [
+      "general"
+    ],
+    "rarity": "uncommon",
+    "minTown": "boomtown",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Carriage, 600 lb. Doesn't count toward what you carry.",
+    "bookLine": 4637
+  },
+  {
+    "id": "skiff",
+    "name": "Skiff (rowboat)",
+    "category": "mount",
+    "price_es": 5000,
+    "weight_lb": 100,
+    "stores": [
+      "general"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 1½ mph. Doesn't count toward what you carry.",
+    "bookLine": 4638
+  },
+  {
+    "id": "river-boat",
+    "name": "River boat (keelboat)",
+    "category": "mount",
+    "price_es": 300000,
+    "weight_lb": 0,
+    "stores": [
+      "general"
+    ],
+    "rarity": "rare",
+    "minTown": "city",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 1 mph. Doesn't count toward what you carry.",
+    "bookLine": 4638
+  },
+  {
+    "id": "coastal-schooner",
+    "name": "Coastal schooner (sailing ship)",
+    "category": "mount",
+    "price_es": 1000000,
+    "weight_lb": 0,
+    "stores": [
+      "general"
+    ],
+    "rarity": "rare",
+    "minTown": "city",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 2 mph. Doesn't count toward what you carry.",
+    "bookLine": 4639
+  },
+  {
+    "id": "riding-saddle",
+    "name": "Riding saddle",
+    "category": "mount",
+    "price_es": 1000,
+    "weight_lb": 25,
+    "stores": [
+      "general"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Rides on your mount; doesn't count toward what you carry.",
+    "bookLine": 4628
+  },
+  {
+    "id": "pack-saddle",
+    "name": "Pack saddle",
+    "category": "mount",
+    "price_es": 500,
+    "weight_lb": 15,
+    "stores": [
+      "general"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Rides on your mount; doesn't count toward what you carry.",
+    "bookLine": 4628
+  },
+  {
+    "id": "cavalry-saddle",
+    "name": "Cavalry saddle",
+    "category": "mount",
+    "price_es": 2000,
+    "weight_lb": 30,
+    "stores": [
+      "general"
+    ],
+    "rarity": "uncommon",
+    "minTown": "boomtown",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Military saddle: advantage on checks to stay mounted. Rides on your mount.",
+    "bookLine": 4628
+  },
+  {
+    "id": "saddlebags",
+    "name": "Saddlebags",
+    "category": "mount",
+    "price_es": 400,
+    "weight_lb": 8,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Ride on your mount; don't count toward what you carry.",
+    "bookLine": 4628
+  },
+  {
+    "id": "bit-and-bridle",
+    "name": "Bit and bridle",
+    "category": "mount",
+    "price_es": 200,
+    "weight_lb": 1,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Tack for a riding animal.",
+    "bookLine": 4628
+  },
+  {
+    "id": "feed-1-day",
+    "name": "Feed (1 day)",
+    "category": "mount",
+    "price_es": 5,
+    "weight_lb": 10,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). One day of feed for a mount.",
+    "bookLine": 4628
+  },
+  {
+    "id": "crossbow-bolts-20",
+    "name": "Crossbow bolts (20)",
+    "category": "ammo",
+    "price_es": 100,
+    "weight_lb": 1.5,
+    "stores": [
+      "gun",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "boomtown",
+    "notes": "Jessey lock 2026-10-19 (Encounter Bot price). One pack fits all three crossbows.",
+    "bookLine": 4483
+  },
+  {
+    "id": "hand-crossbow",
+    "name": "Hand crossbow",
+    "category": "ranged",
+    "price_es": 7500,
+    "weight_lb": 3,
+    "stores": [
+      "gun"
+    ],
+    "rarity": "uncommon",
+    "minTown": "boomtown",
+    "notes": "Jessey lock 2026-10-19: 5E PHB stats and price x100 (western name later). Ammunition (bolts), loading.",
+    "bookLine": 4472
+  },
+  {
+    "id": "light-crossbow",
+    "name": "Light crossbow",
+    "category": "ranged",
+    "price_es": 2500,
+    "weight_lb": 5,
+    "stores": [
+      "gun"
+    ],
+    "rarity": "uncommon",
+    "minTown": "boomtown",
+    "notes": "Jessey lock 2026-10-19: 5E PHB stats and price x100 (western name later). Ammunition (bolts), loading.",
+    "bookLine": 4473
+  },
+  {
+    "id": "heavy-crossbow",
+    "name": "Heavy crossbow",
+    "category": "ranged",
+    "price_es": 5000,
+    "weight_lb": 18,
+    "stores": [
+      "gun"
+    ],
+    "rarity": "uncommon",
+    "minTown": "boomtown",
+    "notes": "Jessey lock 2026-10-19: 5E PHB stats and price x100 (western name later). Ammunition (bolts), loading.",
+    "bookLine": 4476
   }
 ]

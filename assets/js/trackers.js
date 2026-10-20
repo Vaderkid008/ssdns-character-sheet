@@ -159,7 +159,7 @@
     }
     if (c.calling === "lawman" && L >= 2) {
       out.push({ id: "smite", kind: "smite", name: "Smite Lead", max: 0, rest: "long",
-        tip: "On a weapon hit (guns too), spend a spell slot: 2d8 radiant +1d8 per slot level above 1st (max 5d8), +1d8 vs unquiet dead or fiends." + (L >= 11 ? " Improved Smite Lead: +1d8 on every hit." : ""),
+        tip: "On a weapon hit (guns too), spend a spell slot: 2d8 radiant +1d8 per slot level above 1st (max 5d8), +1d8 vs undead or fiends." + (L >= 11 ? " Improved Smite Lead: +1d8 on every hit." : ""),
         src: "BOOK1 L1586-1587 (Smite Lead), L1611 (Improved, 11th), slots L1601-1620" });
     }
     classUses(c, L, out);
@@ -317,7 +317,7 @@
           return '<option value="' + s.level + '"' + (s.level === curLv ? " selected" : "") + ">" + ord(s.level) + " · " + Math.min(5, s.level + 1) + "d8</option>";
         }).join("") + "</select>";
         var why = badgeDull ? "Badge is Dull: no Smite Lead" : (!avail.length ? "No spell slot left" : "");
-        var arm = opts.ro ? "" : '<label class="tiny" title="+1d8 vs unquiet dead or fiends (set before the attack)"><input type="checkbox" data-trk-smite-undead="1"' + (c.res && c.res.smiteUndead ? " checked" : "") + "> unquiet / fiend</label>" +
+        var arm = opts.ro ? "" : '<label class="tiny" title="+1d8 vs undead or fiends (set before the attack)"><input type="checkbox" data-trk-smite-undead="1"' + (c.res && c.res.smiteUndead ? " checked" : "") + "> unquiet / fiend</label>" +
           '<button type="button" class="trk-arm' + (armedM ? " on" : "") + '" data-trk-arm="smite"' + (why && !armedM ? ' disabled title="' + esc(why) + '"' : ' title="Arm BEFORE you attack. On a weapon hit the ' + ord(curLv) + '-level slot is spent and ' + Math.min(5, curLv + 1) + 'd8 radiant rides in that attack\'s damage (crit doubles the dice). On a miss nothing is spent. Clears after one attack either way."') + ' aria-pressed="' + !!armedM + '">' +
           (armedM ? "Armed: smite next attack (" + ord(armedM) + ")" : "Smite next attack" + (avail.length === 1 ? " (" + ord(curLv) + ")" : "")) + "</button>";
         return '<div class="trk-res trk-smite">' + head + '<span class="trk-slots">' + slotHtml + "</span>" + pick + arm + '<span class="trk-rest">spends a slot on a hit</span></div>';
