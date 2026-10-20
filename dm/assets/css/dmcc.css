@@ -500,13 +500,15 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
 .slot-line { font-family: var(--label); font-size: 12px; letter-spacing: .04em; color: var(--eld); margin-top: 6px; }
 .catalog-table { max-height: 240px; overflow: auto; border: 1px solid var(--line); margin: 0 0 12px; }
 .live-dock {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 320px; z-index: 45;
+  position: fixed; top: 0; left: 0; bottom: 0; width: 320px; z-index: 45;
   display: flex; flex-direction: column;
-  background: #171c1f; border-left: 1px solid var(--line);
+  background: #171c1f; border-right: 1px solid var(--line);
 }
 .dock-head, .dock-filters, .dock-compose { padding: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .dock-head { border-bottom: 1px solid var(--line); justify-content: space-between; }
 .dock-head b { font-family: var(--head); color: var(--eld); font-weight: 400; }
+.dock-chevron { min-width: 36px; font-size: 20px; line-height: 1; padding: 2px 8px; }
+.dock-strip { display: none; }
 .dock-filters .chip, .dock-filters .btn { min-height: 32px; padding: 4px 8px; }
 .chip { border: 1px solid var(--line); background: var(--bg); color: var(--muted); cursor: pointer; border-radius: 99px; font-family: var(--label); font-size: 12px; letter-spacing: .04em; }
 .chip.on { background: var(--eld-dim); color: var(--parch); border-color: var(--eld); }
@@ -521,22 +523,39 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
   min-height: 44px; padding: 8px 14px; border-radius: 99px;
   background: var(--eld-dim); color: var(--parch); border: 1px solid var(--eld); cursor: pointer;
 }
+/* Desktop: the table feed docks on the LEFT, beside the map's left tool bar,
+   and the page reflows around it (320px open, 48px strip collapsed). */
 @media (min-width: 801px) {
+  body.in-room { --dock-w: 320px; }
+  body.in-room.dock-collapsed { --dock-w: 48px; }
   body.in-room .appbar,
   body.in-room .statusbar,
+  body.in-room #diceBar,
   body.in-room .shortcut-help,
   body.in-room #addictionAlert,
-  body.in-room #roomShell { margin-right: 320px; }
-  body.in-room.dock-collapsed .appbar,
-  body.in-room.dock-collapsed .statusbar,
-  body.in-room.dock-collapsed .shortcut-help,
-  body.in-room.dock-collapsed #addictionAlert,
-  body.in-room.dock-collapsed #roomShell { margin-right: 48px; }
+  body.in-room #roomShell { margin-left: var(--dock-w); }
   body.dock-collapsed .live-dock { width: 48px; }
   body.dock-collapsed .dock-filters,
   body.dock-collapsed .dock-feed,
   body.dock-collapsed .dock-compose,
   body.dock-collapsed .dock-head b { display: none; }
+  body.dock-collapsed .dock-head { justify-content: center; padding: 8px 4px; }
+  body.dock-collapsed .dock-strip {
+    display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 1;
+    width: 100%; padding: 14px 0; background: transparent; border: 0; color: var(--eld); cursor: pointer;
+  }
+  body.dock-collapsed .dock-strip:hover { background: #1e2529; }
+  .dock-strip-label { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--label); letter-spacing: .12em; text-transform: uppercase; font-size: 13px; }
+  .dock-strip-badge { min-width: 22px; padding: 2px 6px; border-radius: 99px; background: var(--eld-dim); color: var(--parch); font-size: 12px; text-align: center; }
+  /* Map full screen keeps the feed docked: the map starts right after it, so the
+     feed never covers the map's left tool bar. */
+  body.in-room.map-fullscreen #mapMount { left: var(--dock-w); width: calc(100vw - var(--dock-w)); }
+  /* keep the fixed Exit Full Screen button clear of the narrower tool row */
+  body.in-room.map-fullscreen #mapMount .ssdns-toolbar { padding-right: 176px; }
+  /* On the Map tab the panel drops the centred max width and sits against the
+     feed, so the map grows into the room the strip frees up. */
+  body.in-room.map-tab-active .tabs,
+  body.in-room.map-tab-active #panel-map { max-width: none; margin-left: 0; margin-right: 0; }
 }
 .town-bar, .store-picks { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
 .town-opt, .store-opt { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; border: 1px solid var(--line); background: var(--bg); }
@@ -561,11 +580,11 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
   body.in-room .appbar,
   body.in-room .statusbar,
   body.in-room .shortcut-help,
-  body.in-room #roomShell { margin-right: 0; }
+  body.in-room #roomShell { margin-right: 0; margin-left: 0; }
   body.in-room .dock-fab { display: inline-flex; align-items: center; gap: 6px; }
   .live-dock {
     top: auto; left: 0; right: 0; width: auto; height: min(70vh, 520px);
-    transform: translateY(110%); transition: transform .2s ease; border-left: 0; border-top: 1px solid var(--eld-dim);
+    transform: translateY(110%); transition: transform .2s ease; border-right: 0; border-top: 1px solid var(--eld-dim);
   }
   body.dock-open .live-dock { transform: none; }
 }

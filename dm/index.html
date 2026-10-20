@@ -676,8 +676,9 @@
 <aside class="live-dock" id="liveDock" hidden aria-label="Live table feed">
   <div class="dock-head">
     <b>Table feed</b>
-    <button type="button" class="btn sm" id="btnDockCollapse" aria-label="Hide the feed">Hide</button>
+    <button type="button" class="btn sm dock-chevron" id="btnDockCollapse" aria-label="Collapse the feed" aria-expanded="true" aria-controls="dockFeed" title="Collapse the feed">&#8249;</button>
   </div>
+  <button type="button" class="dock-strip" id="btnDockStrip" aria-label="Open the table feed" title="Open the table feed"><span class="dock-strip-label">Table feed</span><span class="dock-strip-badge" id="dockStripBadge" hidden>0</span></button>
   <div class="dock-filters">
     <button type="button" class="chip on" data-dock-filter="all">All</button>
     <button type="button" class="chip" data-dock-filter="chat">Chat</button>

@@ -1447,6 +1447,7 @@ function applyActiveTab() {
   const panel = document.getElementById(tab.getAttribute("aria-controls"));
   if (panel) panel.hidden = false;
   document.body.classList.toggle("store-tab-active", uiTab === "tab-store");
+  document.body.classList.toggle("map-tab-active", uiTab === "tab-map");
 }
 function rememberUi() {
   UI_FIELDS.forEach((id) => {
@@ -2342,6 +2343,8 @@ function renderLiveDockNow() {
   const unread = Math.max(0, all.length - dockSeen);
   const badge = $("#dockBadge");
   if (badge) { badge.hidden = unread < 1; badge.textContent = String(unread); }
+  const stripBadge = $("#dockStripBadge");
+  if (stripBadge) { stripBadge.hidden = unread < 1; stripBadge.textContent = String(unread); }
 }
 async function sendDockChat(text, to) {
   const row = {
@@ -2802,6 +2805,7 @@ function wireTabs() {
       uiTab = window.SSDNSUiTab ? window.SSDNSUiTab.nextTab(uiTab, { type: "click", tab: tab.id }) : tab.id;
       try { sessionStorage.setItem("ssdns.dm.uiTab", uiTab); } catch (err) {}
       document.body.classList.toggle("store-tab-active", tab.id === "tab-store");
+      document.body.classList.toggle("map-tab-active", tab.id === "tab-map");
       rememberUi();
     });
   });
@@ -3018,17 +3022,36 @@ function wire() {
     sendDockChat(text, $("#dockTo") && $("#dockTo").value);
   });
   const collapse = $("#btnDockCollapse");
+  /* Desktop: the feed docks on the left and collapses to a slim strip.
+     Default is open; the choice is remembered per browser. */
+  const paintDockToggle = () => {
+    const shut = document.body.classList.contains("dock-collapsed");
+    if (collapse) {
+      collapse.innerHTML = shut ? "&#8250;" : "&#8249;";
+      collapse.setAttribute("aria-expanded", shut ? "false" : "true");
+      collapse.setAttribute("aria-label", shut ? "Open the feed" : "Collapse the feed");
+      collapse.title = shut ? "Open the feed" : "Collapse the feed";
+    }
+  };
+  const setDockCollapsed = (shut) => {
+    document.body.classList.toggle("dock-collapsed", !!shut);
+    paintDockToggle();
+    try { localStorage.setItem("ssdns.dm.dock", shut ? "closed" : "open"); } catch (err) {}
+    if (!shut) dockSeen = dockItems().length;
+    renderLiveDock();
+    /* the map canvas measures its box, so let it reflow into the new width */
+    try { window.dispatchEvent(new Event("resize")); } catch (err) {}
+  };
   if (collapse) collapse.addEventListener("click", () => {
     if (window.matchMedia("(max-width: 800px)").matches) {
       document.body.classList.remove("dock-open");
       renderLiveDock();
       return;
     }
-    document.body.classList.toggle("dock-collapsed");
-    collapse.textContent = document.body.classList.contains("dock-collapsed") ? "Show" : "Hide";
-    try { localStorage.setItem("ssdns.dm.dock", document.body.classList.contains("dock-collapsed") ? "closed" : "open"); } catch (err) {}
-    renderLiveDock();
+    setDockCollapsed(!document.body.classList.contains("dock-collapsed"));
   });
+  const strip = $("#btnDockStrip");
+  if (strip) strip.addEventListener("click", () => setDockCollapsed(false));
   const fab = $("#btnDockFab");
   if (fab) fab.addEventListener("click", () => {
     document.body.classList.toggle("dock-open");
@@ -3063,9 +3086,9 @@ function wire() {
   try {
     if ((localStorage.getItem("ssdns.dm.dock") || localStorage.getItem("ssdns.dmcc.dock")) === "closed") {
       document.body.classList.add("dock-collapsed");
-      if (collapse) collapse.textContent = "Show";
     }
   } catch (err) {}
+  paintDockToggle();
 }
 
 let pendingResume = null;
