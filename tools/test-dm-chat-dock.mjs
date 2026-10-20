@@ -24,6 +24,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("wire.leftCss", /\.live-dock \{\s*position: fixed; top: 0; left: 0;/.test(css));
   check("wire.storageKey", /localStorage\.setItem\("ssdns\.dm\.dock"/.test(js));
   check("wire.playerSheetUntouched", !/btnDockStrip|dock-strip/.test(read("index.html")));
+  check("wire.mapChatHiddenDmOnly", /#mapMount \.ssdns-chatdock,\s*\.ssdns-chat-float,\s*\.ssdns-chat-overlay \{ display: none !important; \}/.test(css));
+  check("wire.mapChatCodeKept", /ssdns-map-chat\.js\?v=/.test(html) && /SSDNSMapChat\.attach/.test(read("map/ssdns-map.js")) && /className = 'ssdns-chatdock'|ssdns-chatdock/.test(read("map/ssdns-map.js")));
+  check("wire.mapCssUntouched", !/0\.2\.87|liveDock|dock-w/.test(read("map/ssdns-map.css")));
 }
 
 const puppeteer = (await import("/tmp/pup/node_modules/puppeteer-core/lib/esm/puppeteer/puppeteer-core.js")).default;
@@ -61,6 +64,25 @@ try {
   check("map.leftbarBeside", left && left.x >= dock.r && left.x - dock.r < 60, JSON.stringify({ left, dock }));
   check("map.noOverlap", !overlapX(dock, mount) && !overlapX(dock, tool) && !overlapX(dock, right), JSON.stringify({ mount, tool }));
   const openW = mount.w;
+  /* the map's own bottom chat bar + Pop out are hidden on the DM page; the board takes the space */
+  const mapChat = () => dm.evaluate(() => {
+    const dockEl = document.querySelector("#mapMount .ssdns-chatdock");
+    const pop = document.querySelector('#mapMount [data-act="chatPop"]');
+    const m = document.querySelector("#mapMount").getBoundingClientRect();
+    const cv = document.querySelector("#mapMount > canvas").getBoundingClientRect();
+    const strip = document.querySelector("#mapMount .ssm-turnstrip");
+    const sb = strip ? strip.getBoundingClientRect() : null;
+    return {
+      inDom: !!dockEl, shown: !!(dockEl && getComputedStyle(dockEl).display !== "none"),
+      popShown: !!(pop && pop.offsetParent), floatShown: [...document.querySelectorAll(".ssdns-chat-float, .ssdns-chat-overlay")].some((e) => getComputedStyle(e).display !== "none"),
+      api: !!(window.SSDNSMapChat && window.SSDNSMapChat.publish), gapBelow: sb ? Math.round(m.bottom - sb.bottom) : -1, canvasH: Math.round(cv.height)
+    };
+  });
+  const mc = await mapChat();
+  check("map.chatBarHidden", mc.inDom && !mc.shown && !mc.popShown && !mc.floatShown, JSON.stringify(mc));
+  check("map.chatCodeLive", mc.api, "SSDNSMapChat still loaded for the shared sync");
+  check("map.spaceReclaimed", mc.gapBelow >= 0 && mc.gapBelow <= 12, JSON.stringify(mc));
+  check("map.popRefused", await dm.evaluate(() => { const b = document.querySelector('#mapMount [data-act="chatPop"]'); if (b) b.click(); return ![...document.querySelectorAll(".ssdns-chat-float, .ssdns-chat-overlay")].some((e) => getComputedStyle(e).display !== "none"); }));
 
   /* collapse: slim strip, remembered, map grows */
   await dm.click("#btnDockCollapse");
@@ -82,13 +104,28 @@ try {
   check("strip.reopens", await dm.evaluate(() => !document.body.classList.contains("dock-collapsed") && localStorage.getItem("ssdns.dm.dock") === "open"));
   check("strip.width", Math.round((await box(dm, "#liveDock")).w) === 320);
 
-  /* map full screen keeps the feed docked and the map starts after it */
+  /* map full screen keeps the feed docked (and collapsible); no bottom chat bar there either */
   await dm.evaluate(() => document.querySelector("#tab-map").click());
   await sleep(600);
   await dm.evaluate(() => document.querySelector("#btnMapFull").click());
   await sleep(800);
   const fsMount = await box(dm, "#mapMount"), fsLeft = await box(dm, "#mapMount .ssdns-leftbar");
   check("fullscreen.besideDock", Math.round(fsMount.x) === 320 && fsLeft.x >= 320, JSON.stringify({ fsMount, fsLeft }));
+  const fmc = await mapChat();
+  check("fullscreen.chatBarHidden", !fmc.shown && !fmc.popShown && !fmc.floatShown, JSON.stringify(fmc));
+  check("fullscreen.spaceReclaimed", fmc.gapBelow >= 0 && fmc.gapBelow <= 12, JSON.stringify(fmc));
+  check("fullscreen.feedWorks", await dm.evaluate(() => { const f = document.querySelector("#dockFeed"); const r = f.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + 40, r.y + 40); return f.querySelectorAll(".dock-item").length > 0 && !!(hit && f.contains(hit)); }));
+  const chev = await box(dm, "#btnDockCollapse");
+  check("fullscreen.chevronOnTop", await dm.evaluate((x, y) => document.elementFromPoint(x, y) === document.querySelector("#btnDockCollapse"), chev.x + chev.w / 2, chev.y + chev.h / 2));
+  await dm.click("#btnDockCollapse");
+  await sleep(500);
+  const fsShut = await box(dm, "#mapMount");
+  check("fullscreen.collapse", Math.round((await box(dm, "#liveDock")).w) === 48 && Math.round(fsShut.x) === 48 && fsShut.w > fsMount.w + 200, JSON.stringify(fsShut));
+  const fsStrip = await box(dm, "#btnDockStrip");
+  check("fullscreen.stripOnTop", await dm.evaluate((x, y) => document.querySelector("#btnDockStrip").contains(document.elementFromPoint(x, y)), fsStrip.x + fsStrip.w / 2, fsStrip.y + fsStrip.h / 2));
+  await dm.click("#btnDockStrip");
+  await sleep(500);
+  check("fullscreen.reopen", Math.round((await box(dm, "#mapMount")).x) === 320 && !(await dm.evaluate(() => document.body.classList.contains("dock-collapsed"))));
   await dm.evaluate(() => document.querySelector("#btnMapFull").click());
   await sleep(300);
   check("desktop.noPageErrors", errs.length === 0, errs.join(" | "));

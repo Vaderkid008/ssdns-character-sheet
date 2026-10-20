@@ -991,3 +991,20 @@ select:-webkit-autofill {
 
 /* 0.2.81: Fight tab Range override picker shows when the DM has it off Auto */
 #fightRangeOverride.is-override { border-color: #e0a63a; box-shadow: 0 0 0 1px #e0a63a; }
+/* 0.3.74 / DMCC 0.2.87: the docked Table feed is the only chat on the DM page.
+   The map's own bottom chat bar (and its Pop out floating / overlay panel) is
+   hidden here only; the shared map chat code, data and player-side sync stay. */
+#mapMount .ssdns-chatdock,
+.ssdns-chat-float,
+.ssdns-chat-overlay { display: none !important; }
+@media (min-width: 801px) {
+  /* drop the empty chat row so the board takes its height */
+  #mapMount.ssdns-map:has(.ssdns-leftbar):has(.ssdns-rightbar) {
+    grid-template-rows: auto auto minmax(120px, 1fr) auto;
+    grid-template-areas:
+      "bar bar bar"
+      "dice dice dice"
+      "left stage right"
+      "strip strip strip";
+  }
+}
