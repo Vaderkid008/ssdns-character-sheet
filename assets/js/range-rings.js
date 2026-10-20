@@ -276,7 +276,7 @@
    * Map attack with a target. No target: apply false (today's roll).
    * override "ignore" skips the block and the range disadvantage.
    * override "force" adds disadvantage and still blocks past the limit.
-   * override "adv" (0.3.88) forces advantage: it clears range disadvantage and still blocks past the limit.
+   * override "adv" (0.3.89) forces advantage: it clears range disadvantage and still blocks past the limit.
    */
   function resolve(spec, feet, opts) {
     opts = opts || {};
