@@ -25,6 +25,13 @@
     { id: "heavy-crossbow", name: "Heavy crossbow", model: "Heavy crossbow", group: "martial-ranged", cost: "5,000", damage: "1d10", dmgType: "Piercing", range: "100/400", capacity: null, misfire: "—", weight: "18 lb.", properties: "Ammunition (bolts), heavy, loading, two-handed", category: "martial", ability: "DEX", ammo: "bolts", src: "Jessey lock 2026-10-19 (5e PHB stats; western name later)" }
   ];
   if (R.otherRanged) XBOWS.forEach(function (x) { if (!R.otherRanged.some(function (w) { return w && w.id === x.id; })) R.otherRanged.push(x); });
+  /* Bolt price (Encounter Bot, per Jessey 2026-10-19 9:50 PM CT): one pack shared by all three crossbows,
+     listed with the cartridge bundles in the gear list and the DM store (R.ammo), right after Arrows (20). */
+  var BOLTS = { id: "crossbow-bolts-20", name: "Crossbow bolts (20)", cost: "100", weight: "1½ lb.", src: "Encounter Bot via Jessey 2026-10-19 (sample; not yet in BOOK1)", pack: 20, type: "bolts", fits: ["hand-crossbow", "light-crossbow", "heavy-crossbow"] };
+  if (R.ammo && !R.ammo.some(function (a) { return a && a.id === BOLTS.id; })) {
+    var at = -1; R.ammo.forEach(function (a, k) { if (a && a.id === "arrows-20") at = k; });
+    if (at >= 0) R.ammo.splice(at + 1, 0, BOLTS); else R.ammo.push(BOLTS);
+  }
   /* extra ammo pool types for the Ammo list (arrows already exist) */
   var AMMO_EXTRA = [
     { id: "bolts", label: "Crossbow bolts" },
@@ -634,7 +641,7 @@
     (function boot() { if (!wrapRest() && tries++ < 60) setTimeout(boot, 250); else paint(); })();
   }
   root.SSDNSTrackers = {
-    XBOWS: XBOWS, AMMO_EXTRA: AMMO_EXTRA, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
+    XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
     spendShot: spendShot, onMeleeAttack: onMeleeAttack, itemPips: itemPips, tokenRows: tokenRows,
     snapshot: snapshot, dmHtml: dmHtml, paint: paint, onRest: onRest, resHtml: resHtml
   };
