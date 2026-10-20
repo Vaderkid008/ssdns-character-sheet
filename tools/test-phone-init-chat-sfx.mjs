@@ -13,11 +13,11 @@ function check(cond, msg) { if (!cond) failures.push(msg); }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.73" && version.sheetBuild === "sheet-playtest-v0373", "sheet 0.3.55");
-check(version.dmcc === "0.2.86" && version.dmccBuild === "dmcc-playtest-v0286", "dmcc 0.2.68");
-check(read("assets/js/app.js").includes('APP_VERSION = "0.3.73"'), "sheet banner");
-check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.86"'), "dmcc banner");
-check(!read("assets/data/rules.js").includes("0.3.73"), "rules.js was not regenerated for this bump");
+check(version.sheet === "0.3.74" && version.sheetBuild === "sheet-playtest-v0374", "sheet 0.3.55");
+check(version.dmcc === "0.2.87" && version.dmccBuild === "dmcc-playtest-v0287", "dmcc 0.2.68");
+check(read("assets/js/app.js").includes('APP_VERSION = "0.3.74"'), "sheet banner");
+check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.87"'), "dmcc banner");
+check(!read("assets/data/rules.js").includes("0.3.74"), "rules.js was not regenerated for this bump");
 
 const sheetCss = read("assets/css/sheet.css");
 const dmCss = read("dm/assets/css/dmcc.css");
@@ -132,7 +132,7 @@ check(audio.outcomeCue({ id: "shortbow", name: "Shortbow", group: "bow" }, "miss
 check(audio.poolFiles("ricochet").length === 5, "loaded ricochet pool has 5 files");
 const before = made.length;
 audio.play("ricochet");
-await new Promise((resolve) => setTimeout(resolve, 950)); /* results wait ~750 ms (0.3.73) */
+await new Promise((resolve) => setTimeout(resolve, 950)); /* results wait ~750 ms (0.3.74) */
 check(made.length === before + 1, "a ricochet plays one file");
 
 audio.resetVariants();
