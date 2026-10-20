@@ -764,6 +764,8 @@
     if (row.fled || row.left || row.departed) return true;
     var status = String(row.status || "");
     if (/^(fled|left|gone)$/i.test(status)) return true;
+    /* 0.3.88: a creature with no HP pool is never down from its HP number (status / conditions still count) */
+    if (noHpPool(row)) return /^(down|dead|unconscious|dying)$/i.test(status) || conditionNames(row.conditions).some(function (name) { return /unconscious|dead|dying/i.test(name); });
     var hp = row.hp;
     if ((hp == null || hp === "") && row.revealed && row.revealed.hp != null && row.revealed.hp !== "") hp = row.revealed.hp;
     var known = hp != null && hp !== "" && isFinite(Number(hp));

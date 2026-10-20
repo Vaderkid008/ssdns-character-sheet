@@ -1754,7 +1754,9 @@ function draw() {
       try {
         if (host.getCard) card = host.getCard(t.id) || (t.combatantId && host.getCard(t.combatantId)) || (t.ownerUid && host.getCard(t.ownerUid)) || null;
       } catch (e) { card = null; }
-      if (card && card.hp && card.hp.max != null && card.hp.cur != null && card.hp.max !== '') {
+      if (card && card.noHpPool === true) {
+        /* 0.3.88: no HP pool (Spectral Horse, hp 0 by design): never Down, no HP bar */
+      } else if (card && card.hp && card.hp.max != null && card.hp.cur != null && card.hp.max !== '') {
         hpCur = Number(card.hp.cur);
         hpMax = Number(card.hp.max);
       } else if (t.maxHp) {
@@ -5506,8 +5508,9 @@ async function loadSceneImage(sceneId, opts) {
     const detail = (extra) => Object.assign({ tokenId: tokenId, combatantId: tokenCombatant(tokenId) }, extra || {});
     /* 0.3.72: off-hand flag for the next PC weapon shot the DM sends (one shot, then it clears) */
     const shotDetail = (extra) => detail(Object.assign(state.drawerOffhand ? { offhand: true } : (state.drawerFan ? { fan: true } : {}), extra || {}));
-    const maxHp = Number(hp.max);
-    const haveCur = hp.cur !== "" && hp.cur != null && isFinite(Number(hp.cur));
+    const noHpPool = card.noHpPool === true;
+    const maxHp = noHpPool ? NaN : Number(hp.max);
+    const haveCur = !noHpPool && hp.cur !== "" && hp.cur != null && isFinite(Number(hp.cur));
     const curHp = haveCur ? Number(hp.cur) : NaN;
     const hpPct = isFinite(maxHp) && maxHp > 0 && haveCur ? Math.max(0, Math.min(100, (curHp / maxHp) * 100)) : null;
     const hpBar = hpPct == null ? '' : '<div class="ssm-hpbar" role="meter" aria-label="HP" aria-valuenow="' + esc(curHp) + '" aria-valuemax="' + esc(maxHp) + '"><span style="width:' + hpPct + '%"></span></div>';
@@ -5534,7 +5537,7 @@ async function loadSceneImage(sceneId, opts) {
       '<button type="button" data-act="drawerClose">×</button></div>' +
       '<div class="ssm-drawer-body">' +
       pendingBannerHtml(tokenId) +
-      '<div>AC ' + esc(card.ac != null ? card.ac : '—') + ' · HP ' + esc(hp.cur != null ? hp.cur : '—') + '/' + esc(hp.max != null ? hp.max : '—') +
+      '<div>AC ' + esc(card.ac != null ? card.ac : '—') + (noHpPool ? ' · No HP pool' : ' · HP ' + esc(hp.cur != null ? hp.cur : '—') + '/' + esc(hp.max != null ? hp.max : '—')) +
       (hp.temp ? ' (+' + esc(hp.temp) + ')' : '') + ' · ' + esc(speedLabel(card.speed)) + '</div>' +
       hpBar +
       deathLine +
