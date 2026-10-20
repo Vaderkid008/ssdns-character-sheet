@@ -1871,7 +1871,7 @@
     var g = c.guns[i];
     if (g.equipped === false) { toast("Equip this weapon first."); return; }
     var name0 = gunName(i);
-    /* 0.3.74 (Jessey): the off-hand attack needs the Attack action first; a DM-sent shot overrides. Checked once,
+    /* 0.3.75 (Jessey): the off-hand attack needs the Attack action first; a DM-sent shot overrides. Checked once,
        on the first pass (the target/range asks re-enter rollGun with _aimed set). */
     if (OH && OH.gate && !rollGun._aimed && !rollGun._wild && !OH.gate(name0, { dm: !!dmNow }).ok) { rollGun._chamber = null; return; }
     if (FAN && FAN.gate && !rollGun._aimed && !rollGun._wild && !FAN.gate(i, name0, { dm: !!dmNow }).ok) { rollGun._chamber = null; return; }

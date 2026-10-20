@@ -16,10 +16,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.74" && version.sheetBuild === "sheet-playtest-v0374");
-check("ver.dmcc", version.dmcc === "0.2.87" && version.dmccBuild === "dmcc-playtest-v0287");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.74"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.87"'));
+check("ver.sheet", version.sheet === "0.3.75" && version.sheetBuild === "sheet-playtest-v0375");
+check("ver.dmcc", version.dmcc === "0.2.88" && version.dmccBuild === "dmcc-playtest-v0288");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.75"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.88"'));
 check("ver.notice", !read("dm/assets/js/v2.js").includes("slight delay") && !read("map/ssdns-map.js").includes("slight delay"));
 
 const join = read("assets/js/dm-join.js");

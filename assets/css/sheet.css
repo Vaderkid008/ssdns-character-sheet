@@ -1080,3 +1080,48 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .btn.fan:disabled { opacity: .45; cursor: not-allowed; }
 .btn.fan.lit { box-shadow: 0 0 0 2px #e0a526, 0 0 8px rgba(224,165,38,.7); }
 .btn.tr.tr-locked { opacity: .45; text-decoration: line-through; }
+
+/* 0.3.75: compact gun card (Jessey's markup, 2026-10-19)
+   name row = weapon + mod + capacity · sub row adds ADV / DIS ticks · Roll / Melee on the cylinder row ·
+   misfire range, condition ticks and Clean / Unjam / Reopen as one horizontal row */
+.g-namerow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.g-namerow > select[data-gun] { flex: 1 1 200px; min-width: 0; width: auto; }
+.g-namerow .mod-sel, .g-namerow .cap-sel { flex: 0 1 140px; width: auto; max-width: 160px; min-width: 96px; font-size: 13px; }
+.g-namerow .mod-sel[hidden], .g-namerow .cap-sel[hidden] { display: none; }
+.g-advdis { display: inline-flex; align-items: center; gap: 8px; }
+.g-advdis .adv-sel { display: none !important; }
+/* ADV green / DIS red, the same hues as the kept-d20 chat rings (dice.css: #46c46a / #e0524a).
+   Text uses a darker shade of each so it reads on parchment; unchecked is a faint tint, checked is solid. */
+.g-advdis label { padding: 1px 6px; border-radius: 4px; border: 1px solid transparent; }
+.g-advdis .adv-tick { color: #2f7a46; background: rgba(70, 196, 106, .10); border-color: rgba(70, 196, 106, .35); }
+.g-advdis .dis-tick { color: #a8382f; background: rgba(224, 82, 74, .08); border-color: rgba(224, 82, 74, .32); }
+.g-advdis .adv-tick input { accent-color: #46c46a; }
+.g-advdis .dis-tick input { accent-color: #e0524a; }
+.g-advdis .adv-tick:has(input:checked) { color: #17602f; font-weight: 700; background: rgba(70, 196, 106, .24); border-color: #46c46a; box-shadow: 0 0 0 1px rgba(70, 196, 106, .45); }
+.g-advdis .dis-tick:has(input:checked) { color: #8f241c; font-weight: 700; background: rgba(224, 82, 74, .20); border-color: #e0524a; box-shadow: 0 0 0 1px rgba(224, 82, 74, .45); }
+.g-smith:not(:has(> :not([hidden]))) { display: none; }
+.g-rollbtns { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.g-chamber-row .g-gunmelee { flex: 0 1 auto; max-width: 100%; margin-left: 2px; line-height: 1.3; }
+.g-chamber-row .g-gunmelee:empty { display: none; margin: 0; }
+.g-chamber-row .ammo-pool { flex: 1 1 160px; }
+.g-actions:not(:has(> :not([hidden]):not(.g-mis))) { gap: 0; }
+.g-actions .g-mis { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; margin-left: 0; gap: 4px 12px; text-align: left; }
+/* Misfire 1–X badge: thin dark-brown border, ink tint, bold, set apart from the condition ticks (Jessey, 8:26 PM CT) */
+.g-actions .g-mis > [data-out^="mis."] { display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 8px; border: 1px solid #4a3220; border-radius: 4px;
+  background: rgba(59, 42, 26, .12); color: #2a1c10; font-weight: 700; font-size: 13.5px; line-height: 1.25; white-space: nowrap; }
+.g-actions .g-mis > [data-out^="mis."]::before { content: "Misfire"; font-family: var(--label); font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #3b2a1a; }
+.g-actions .g-mis > [data-out^="mis."]:empty::after { content: "—"; }
+.g-actions .g-mis .gun-status:empty { display: none; }
+@media screen and (max-width: 760px) {
+  .g-namerow .mod-sel, .g-namerow .cap-sel { flex: 1 1 140px; max-width: none; min-height: 40px; }
+  .g-actions .g-mis { gap: 2px 10px; }
+  .g-advdis label { min-height: 40px; }
+}
+/* 0.3.75: condition chips in the misfire row (Jessey, 8:42 PM CT). Each condition shows once; an active one is a bold
+   tinted chip (rust for Dirty / Fouled, red for Jammed / Locked up). The boxes are auto-set (disabled) but never dimmed. */
+.g-mis label.jam { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border: 1px solid transparent; border-radius: 4px; opacity: 1; }
+.g-mis label.jam input { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; margin: 0; border: 1.5px solid #8a7558; border-radius: 3px; background: #fffaf0; opacity: 1; cursor: default; flex: 0 0 auto; }
+.g-mis label.jam input:checked { background: var(--chip, #7a1f14) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7.2l2.6 2.6L11 4.4' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat; border-color: var(--chip, #7a1f14); }
+.g-mis label.jam.on { font-weight: 700; color: var(--chip-ink, #7a1f14); background: var(--chip-bg, rgba(163, 48, 31, .14)); border-color: var(--chip, #7a1f14); }
+.g-mis label.jam[data-cond="dirty"], .g-mis label.jam[data-cond="fouled"] { --chip: #b0611a; --chip-ink: #7a3d0c; --chip-bg: rgba(214, 135, 40, .20); }
+.g-mis label.jam[data-cond="jammed"], .g-mis label.jam[data-cond="lockup"] { --chip: #b3261e; --chip-ink: #8a1a13; --chip-bg: rgba(224, 82, 74, .17); }

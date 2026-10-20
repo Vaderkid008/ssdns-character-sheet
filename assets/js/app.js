@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.74"; // sheet-playtest-v0374
+  var APP_VERSION = "0.3.75"; // sheet-playtest-v0375
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -797,7 +797,7 @@
     if (DB) { v.ac += DB.ac; v.initiative += DB.init; }
     if (c.fightingStyle === "point-blank" || (stylesOf(c).indexOf("point-blank") >= 0)) v.ac += 1;
     if (c.fightingStyle === "defense" && wearing) v.ac += 1;
-    /* 0.3.74 (Jessey): Dual Wielder +1 AC while holding a qualifying weapon in each hand */
+    /* 0.3.75 (Jessey): Dual Wielder +1 AC while holding a qualifying weapon in each hand */
     v.dualWielderAc = window.SSDNSOffhand && window.SSDNSOffhand.dualWielderAc ? window.SSDNSOffhand.dualWielderAc(c) : 0;
     v.ac += v.dualWielderAc;
     var cal = currentCalling();
@@ -1043,7 +1043,7 @@
     var longGun = g === "rifle" || g === "carbine" || g === "bigbore";
     var bow = g === "bow" || /bow/.test(g);
     if (st === "long-gun" && longGun) return 2;
-    /* 0.3.74 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
+    /* 0.3.75 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
     if (st === "archery" && (bow || longGun || !isMeleeWeapon(w) || (opts && opts.thrown))) return 2;
     return 0;
   }
@@ -1054,7 +1054,7 @@
   }
   function styleDamageBonusFor(st, w) {
     if (!w || !st || !styleReady()) return 0;
-    /* 0.3.74 (Jessey): Sidearm Duelling is "+2 damage single iron": off while holding two weapons */
+    /* 0.3.75 (Jessey): Sidearm Duelling is "+2 damage single iron": off while holding two weapons */
     if (st === "sidearm" && w.group === "pistol") return (window.SSDNSOffhand && window.SSDNSOffhand.wieldingTwo && window.SSDNSOffhand.wieldingTwo(C())) ? 0 : 2;
     if (st === "dueling" && isMeleeWeapon(w) && !/two-handed/i.test(w.properties || "")) return 2;
     return 0;
@@ -1189,7 +1189,8 @@
         el("div", { class: "g-card-top" }, [
           el("div", { class: "g-photo", title: "Firearm photo later" }, ["Photo"]),
           el("div", { class: "g-name" }, [
-            sel,
+            /* 0.3.75 compact card: the gunsmith mod and capacity selects share the weapon-name row */
+            el("div", { class: "g-namerow" }, [sel, modSel, capSel]),
             el("div", { class: "g-stats" }, [
               el("div", { class: "g-atk", "data-label": "Atk" }, [el("input", { class: "calc", "data-calc": "gunAtk." + i, "aria-label": "Attack bonus" })]),
               el("div", { class: "g-dmg", "data-label": "Damage" }, [el("input", { class: "calc", "data-calc": "gunDmg." + i, "aria-label": "Damage" })]),
@@ -1201,7 +1202,13 @@
               el("span", { class: "g-cal", "data-out": "cal." + i }),
               el("label", { class: "tiny equip-toggle", "data-equip-wrap": "gun:" + i, title: "Equipped weapons can attack, reload, and show on the map." }, [el("input", { type: "checkbox", "data-equip": "gun", "data-equip-i": String(i), "aria-label": "Gun " + (i + 1) + " equipped" }), " Equipped"]),
               el("label", { class: "tiny" }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".proficient" }), " prof."]),
-              el("label", { class: "tiny", title: "Engraving and grips. It does not use the modification slot." }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".engraving" }), " engraving"])
+              el("label", { class: "tiny", title: "Engraving and grips. It does not use the modification slot." }, [el("input", { type: "checkbox", "data-f": "character.guns." + i + ".engraving" }), " engraving"]),
+              /* 0.3.75: ADV / DIS ticks (mutually exclusive; neither = normal). They drive the hidden [data-adv] select, same state. */
+              el("span", { class: "g-advdis", title: "Advantage or disadvantage. Both dice in the misfire range fouls the gun." }, [
+                el("label", { class: "tiny adv-tick" }, [el("input", { type: "checkbox", "data-advtick": i, value: "adv", "aria-label": "Advantage" }), " Adv"]),
+                el("label", { class: "tiny dis-tick" }, [el("input", { type: "checkbox", "data-advtick": i, value: "dis", "aria-label": "Disadvantage" }), " Dis"]),
+                el("select", { class: "adv-sel", "data-adv": i, hidden: "hidden", "aria-hidden": "true", tabindex: "-1", "aria-label": "Advantage or disadvantage" }, [opt("", "—"), opt("adv", "Adv"), opt("dis", "Dis")])
+              ])
             ])
           ])
         ]),
@@ -1210,14 +1217,16 @@
           el("span", { class: "g-count", "data-out": "left." + i }),
           el("button", { type: "button", class: "btn sm reload", "data-reload": i, title: "Reload: an action, fills the gun (slow guns: a full turn). Uses the ammo selected on this card." }, ["Reload"]),
           el("button", { type: "button", class: "btn sm", "data-unload": i, title: "Unload: put the chambered rounds back in your ammo, by type" }, ["Unload"]),
-          ammoSel
+          ammoSel,
+          /* 0.3.75: Roll / Melee share the cylinder row (wraps on narrow cards) */
+          el("span", { class: "g-rollbtns" }, [
+            el("button", { type: "button", class: "btn sm", "data-gunroll": i, title: "Plain attack. Never spends a spell slot. A natural roll in the gun's misfire range jams it. Dirty misfires on at least 1–2." }, ["Roll"]),
+            el("button", { type: "button", class: "btn sm", "data-gunmelee": i, title: "Melee with the gun. Always proficient. No ammo and no misfire." }, ["Melee"]),
+            el("span", { class: "g-gunmelee fine", "data-out": "gmelee." + i })
+          ])
         ]),
-        el("div", { class: "g-smith" }, [modSel, capSel, el("button", { type: "button", class: "btn xs", "data-rechamber": i, hidden: "hidden", title: "Pay a gunsmith to change the chambered round: 500 ES per tier step" }, ["Rechamber (gunsmith)"])]),
+        el("div", { class: "g-smith" }, [el("button", { type: "button", class: "btn xs", "data-rechamber": i, hidden: "hidden", title: "Pay a gunsmith to change the chambered round: 500 ES per tier step" }, ["Rechamber (gunsmith)"])]),
         el("div", { class: "g-actions" }, [
-          el("select", { class: "adv-sel", "data-adv": i, "aria-label": "Advantage or disadvantage", title: "Advantage or disadvantage. Both dice in the misfire range fouls the gun." }, [opt("", "—"), opt("adv", "Adv"), opt("dis", "Dis")]),
-          el("button", { type: "button", class: "btn sm", "data-gunroll": i, title: "Plain attack. Never spends a spell slot. A natural roll in the gun's misfire range jams it. Dirty misfires on at least 1–2." }, ["Roll"]),
-          el("button", { type: "button", class: "btn sm", "data-gunmelee": i, title: "Melee with the gun. Always proficient. No ammo and no misfire." }, ["Melee"]),
-          el("span", { class: "g-gunmelee fine", "data-out": "gmelee." + i }),
           el("button", { type: "button", class: "btn sm tr", "data-tr": i, title: "Tactical Reload: bonus action, load one round from a gun belt or bandolier (TR ✓ guns only)" }, ["TR +1"]),
           el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Load one hex shell of this level. Loading spends the slot. Fire it later as a spell attack." }, ["+ Hex shell"])]),
           el("span", { class: "cast-through", "data-castwrap": i }, [
@@ -1666,6 +1675,9 @@
         var box = row.querySelector('[data-f="character.guns.' + i + '.' + flag + '"]');
         if (box && document.activeElement !== box) box.checked = !!g[flag];
         if (box) box.disabled = true;
+        /* 0.3.75: an active condition chip is highlighted (auto-set, so disabled, but never dimmed) */
+        var chip = box && box.closest("label");
+        if (chip) { chip.setAttribute("data-cond", flag); chip.classList.toggle("on", !!g[flag]); }
       });
       var lockN = window.SSDNSMisfire && window.SSDNSMisfire.lockupCount
         ? window.SSDNSMisfire.lockupCount(g)
@@ -1677,12 +1689,11 @@
         lockBox.disabled = true;
       }
       if (lockNum) lockNum.textContent = String(lockN);
+      var lockChip = row.querySelector('[data-lockup="' + i + '"]');
+      if (lockChip) { lockChip.setAttribute("data-cond", "lockup"); lockChip.classList.toggle("on", lockN > 0); }
+      /* 0.3.75: Dirty / Fouled / Jammed / locked show once, as their highlighted chips; the status text keeps the rest */
       var statusBits = [];
-      if (g.dirty) statusBits.push("Dirty");
-      if (g.fouled) statusBits.push("Fouled");
       if (g.ruined || g.broken) statusBits.push("Ruined");
-      if (g.jammed) statusBits.push("Jammed");
-      if (g.lockedChambers && g.lockedChambers.length) statusBits.push(g.lockedChambers.length + " locked");
       if (Number(g.misStreak)) statusBits.push("misfires " + g.misStreak);
       if (g.pendingD4) statusBits.push("d4 pending");
       out("gst." + i, statusBits.join(" · "));
@@ -1777,6 +1788,10 @@
         reloadBtn0.textContent = (emptyNow && kitPool && num(kitPool.count) > 0) ? "Load from kit ammo" : "Reload";
       }
       paintAmmoPool(i, g, w, cap);
+      var modeNow = g.attackMode === "adv" || g.attackMode === "dis" ? g.attackMode : "";
+      paintAdvTicks(i, modeNow);
+      var advSel0 = $('[data-adv="' + i + '"]');
+      if (advSel0 && advSel0.value !== modeNow) advSel0.value = modeNow;
       var cleanBtn = $('[data-clean="' + i + '"]');
       if (cleanBtn) cleanBtn.disabled = !!g.pendingD4;
       var unjamBtn = $('[data-unjam="' + i + '"]');
@@ -2227,6 +2242,11 @@
     if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
     if (suppress || !t.getAttribute) return;
     if (t.hasAttribute("data-castspell") || t.hasAttribute("data-castslot")) { renderCalc(); return; }
+    if (t.hasAttribute("data-advtick")) {
+      if (e.type !== "change") return;
+      setGunAttackMode(num(t.getAttribute("data-advtick")), t.checked ? t.value : "");
+      return;
+    }
     if (t.hasAttribute("data-adv")) {
       if (e.type !== "change") return;
       setGunAttackMode(num(t.getAttribute("data-adv")), t.value);
@@ -3113,9 +3133,14 @@
     g.attackMode = next;
     var sel = $('[data-adv="' + i + '"]');
     if (sel && sel.value !== next) sel.value = next;
+    paintAdvTicks(i, next);
     changed();
     publishGunCard();
     return true;
+  }
+  function paintAdvTicks(i, mode) {
+    /* 0.3.75: the ADV / DIS ticks mirror the attack mode (one at most) */
+    $$('[data-advtick="' + i + '"]').forEach(function (b) { b.checked = b.value === mode; });
   }
   function gunAttackMode(i) {
     var g = C().guns[i];
@@ -4721,7 +4746,9 @@
       clearDrawn: function () { return clearDrawn(); },
       gunMeleeLabel: gunMeleeLabel,
       cleanGun: function (i) { return cleanGun(i); },
-      unjamGun: function (i) { return unjamGun(i); },
+      /* 0.3.75: the map card and the jam pop-up pay the same cost as the Gear button (bonus action, or free).
+         A DM unjam (dm-join op "clean"/"unjam" -> applyCleanOption) stays free (Jessey, 2026-10-19). */
+      unjamGun: function (i) { return withCost(i, unjamCost(i), "Unjam", function () { return unjamGun(i); }); },
       /* 0.3.69: Reopen chamber is an action (once per short rest) on every path, the DM-acting one included */
       reopenChamber: function (i) { return withCost(i, "action", "Reopen chamber", function () { return reopenChamber(i); }); },
       clearLockedChambers: function (i, mode, chamber) { return clearLockedChambers(i, mode, chamber); },

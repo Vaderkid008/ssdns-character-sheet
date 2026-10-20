@@ -1,5 +1,5 @@
 /**
- * 0.3.74 / DMCC 0.2.87: Pistolero Fan the Hammer (Jessey's design pick, 2026-10-19).
+ * 0.3.75 / DMCC 0.2.88: Pistolero Fan the Hammer (Jessey's design pick, 2026-10-19).
  * Pistols only; lit after the Attack action AND a pistol attack this turn; bonus action through the normal gun path
  * with the ability modifier; same pistol (if it has a round) or a second held pistol; locks Tactical Reload for the turn;
  * shares the bonus action with the off-hand attack; chat "X fans the hammer"; sound = "fan-the-hammer" event if mapped,
@@ -135,6 +135,12 @@ try {
     /* Pistolero: pistols only (not the carbine, not the Hognose Caster Gun) */
     load(); await wait(300); P.reset(true); F.paint();
     out.feat = [0, 1, 2, 3].map(state);
+    /* compact gun card (0.3.75): Fan sits right after TR in the card's action row, visible and inside the card */
+    const onTab = document.querySelector('.tab[aria-selected="true"]');
+    document.querySelector("#tab-equip").click(); await wait(200); F.paint();
+    out.place = [0, 1].map((i) => { const b = btn(i), tr = document.querySelector('[data-tr="' + i + '"]'); const card = b && b.closest(".gun"); const r = b && b.getBoundingClientRect(), cr = card && card.getBoundingClientRect();
+      return { afterTr: !!b && b.previousElementSibling === tr, row: !!(b && b.closest(".g-actions")), inCard: !!(r && cr && r.width > 0 && r.left >= cr.left - 1 && r.right <= cr.right + 1) }; });
+    if (onTab) { onTab.click(); await wait(200); }
     /* before any attack: dim, and a direct fire is blocked */
     const l0 = loaded(0);
     F.fire(0); await wait(500);
@@ -214,6 +220,7 @@ try {
   });
   check("button.needsPistolero", res.noFeat.every((s) => !s || !s.shown), J(res.noFeat));
   check("button.pistolsOnly", res.feat[0].shown && res.feat[1].shown && (!res.feat[2] || !res.feat[2].shown) && (!res.feat[3] || !res.feat[3].shown), J(res.feat));
+  check("button.afterTrInCompactCard", res.place.every((p) => p.afterTr && p.row && p.inCard), J(res.place));
   check("button.dimBeforeAttack", !res.feat[0].lit && /Attack action/.test(res.feat[0].title), J(res.feat[0]));
   check("fire.blockedBeforeAttack", res.early.loaded === res.early.before && /Attack action/.test(res.early.toast) && !res.early.bonus, J(res.early));
   check("button.litAfterPistolAttack", res.main.lit[0].lit && res.main.lit[1].lit && res.main.pips.action && !res.main.pips.bonus, J(res.main));
