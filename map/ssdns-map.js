@@ -1796,7 +1796,10 @@ function draw() {
       });
     }
     ctx.fillStyle = '#e8dcc8';
-    ctx.font = `${Math.max(11, r * 0.4)}px system-ui`;
+    /* token size: big tokens' names cap at 1.5x Medium (Medium unchanged) so labels stay in the row below */
+    const rMed = (px * state.view.zoom) / 2 * 0.85;
+    const nameFont = Math.max(11, Math.min(r, rMed * 1.5) * 0.4);
+    ctx.font = `${nameFont}px system-ui`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     const nameY = s.y + r + 4;
@@ -1815,7 +1818,7 @@ function draw() {
     if (role === 'dm' && hpMax) {
       const pct = Math.max(0, Math.min(1, (Number(hpCur) || 0) / hpMax));
       const bw = r * 1.8, bh = 5;
-      const barY = nameY + 14;
+      const barY = nameY + Math.max(14, nameFont + 2);
       ctx.fillStyle = '#333';
       ctx.fillRect(s.x - bw/2, barY, bw, bh);
       ctx.fillStyle = pct > 0.5 ? '#4caf50' : pct > 0.25 ? '#ff9800' : '#f44336';
@@ -1849,7 +1852,8 @@ function draw() {
     for (const m of state.pendingMoves) {
       const t = state.tokens.find(tok => tok.id === m.id);
       if (!t) continue;
-      const s = worldToScreen((m.x + 0.5) * px, (m.y + 0.5) * px);
+      const gs = (t.size || 1) / 2; /* token size: ghost centred on the whole footprint */
+      const s = worldToScreen((m.x + gs) * px, (m.y + gs) * px);
       if (m.path) drawPath(m.path, t.color || '#ccc');
       const r = ((t.size || 1) * px * state.view.zoom) / 2 * 0.85;
       ctx.beginPath();
@@ -2090,12 +2094,10 @@ function cloneToken(src, dx, dy) {
   clean.controlledBy = [];
   clean.combatantId = id;
   clean.label = (src.label || 'Tok') + '*';
-  clean.pos = {
-    x: Math.max(0, Math.min(state.scene.grid.cols - 1, src.pos.x + dx)),
-    y: Math.max(0, Math.min(state.scene.grid.rows - 1, src.pos.y + dy))
-  };
+  clean.size = tokSquares(src.size);
+  clean.pos = clampFootprint(src.pos.x + dx, src.pos.y + dy, clean.size);
   delete clean._img;
-  if (cellTaken(clean.pos.x, clean.pos.y)) {
+  if (areaTaken(clean.pos.x, clean.pos.y, clean.size)) {
     toast('That square is taken');
     return null;
   }
@@ -2489,6 +2491,8 @@ function makeToken(spec) {
   }
   const id = stable || ('tok_' + Date.now().toString(36) + Math.floor(Math.random() * 1000));
   const owner = spec.ownerUid || '';
+  const squares = tokSquares(spec.size); /* token size: Tiny-Medium 1, Large 2, Huge 3, Gargantuan 4; PCs default Medium */
+  const at = clampFootprint(spot.x, spot.y, squares, grid);
   const token = {
     id: id,
     kind: spec.kind || 'npc',
@@ -2497,16 +2501,13 @@ function makeToken(spec) {
     ownerUid: spec.ownerUid || '',
     controlledBy: spec.controlledBy ? spec.controlledBy.slice() : [],
     ownerCanMove: spec.ownerCanMove !== false,
-    size: 1,
+    size: squares,
     color: spec.color || '',
     status: '',
     conditions: [],
     locked: false,
     hidden: false,
-    pos: {
-      x: Math.max(0, Math.min((grid.cols || 30) - 1, spot.x)),
-      y: Math.max(0, Math.min((grid.rows || 20) - 1, spot.y))
-    },
+    pos: { x: at.x, y: at.y },
     sceneId: activeSceneId() || 'scn_dustyspur01',
     image: spec.image || '',
     sheetId: spec.sheetId || (spec.kind === 'player' ? owner : ''),
@@ -3068,7 +3069,9 @@ function onPointerDown(e) {
         state.selectedIds = [hit.id];
         state.selected = hit;
       }
-      state.drag = { token: hit, ox: hit.pos.x, oy: hit.pos.y, sx: e.clientX, sy: e.clientY, starts: {} };
+      /* token size: ox/oy is the grabbed square, so a 4x4 token grabbed by a corner does not jump */
+      const gpx = state.scene.grid.px;
+      state.drag = { token: hit, ox: Math.round(w.x / gpx - 0.5), oy: Math.round(w.y / gpx - 0.5), sx: e.clientX, sy: e.clientY, starts: {} };
       state.selectedIds.forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
         if (t) state.drag.starts[id] = { x: t.pos.x, y: t.pos.y };
@@ -3135,12 +3138,15 @@ function onPointerMove(e) {
         const start = state.drag.starts ? state.drag.starts[id] : { x: t.pos.x, y: t.pos.y };
         if (!state.drag.starts) state.drag.starts = {};
         if (!state.drag.starts[id]) state.drag.starts[id] = { x: t.pos.x - dx, y: t.pos.y - dy };
-        const newX = Math.max(0, Math.min(state.scene.grid.cols - 1, state.drag.starts[id].x + dx));
-        const newY = Math.max(0, Math.min(state.scene.grid.rows - 1, state.drag.starts[id].y + dy));
+        const tsz = tokSquares(t.size);
+        const snap = clampFootprint(state.drag.starts[id].x + dx, state.drag.starts[id].y + dy, tsz);
+        const newX = snap.x;
+        const newY = snap.y;
         const allowStack = role === 'dm' && e.shiftKey;
-        if (!allowStack && cellTaken(newX, newY, state.drag.starts)) {
+        const half = tsz / 2;
+        if (!allowStack && areaTaken(newX, newY, tsz, state.drag.starts)) {
           state.drag.blocked = true;
-        } else if (!crossesWall(t.pos.x + 0.5, t.pos.y + 0.5, newX + 0.5, newY + 0.5)) {
+        } else if (!crossesWall(t.pos.x + half, t.pos.y + half, newX + half, newY + half)) {
           if (state.offline) {
             state.drag.ghost = { x: newX, y: newY };
             const existing = state.pendingMoves.find(m => m.id === t.id);
@@ -3361,6 +3367,48 @@ function cellTaken(x, y, ignore) {
     return x >= t.pos.x && x < t.pos.x + size && y >= t.pos.y && y < t.pos.y + size;
   });
 }
+/* Token size (2026-10-20): footprint helpers. A token covers pos..pos+size squares on both axes. */
+function tokSquares(size) {
+  const T = window.SSDNSTokenSize;
+  if (T) return T.squares(size);
+  const n = Math.floor(Number(size));
+  return n >= 1 && n <= 4 ? n : 1;
+}
+function clampFootprint(x, y, size, grid) {
+  const g = grid || (state.scene && state.scene.grid) || { cols: 30, rows: 20 };
+  const s = tokSquares(size);
+  return {
+    x: Math.max(0, Math.min((g.cols || 30) - s, x)),
+    y: Math.max(0, Math.min((g.rows || 20) - s, y))
+  };
+}
+/** Tokens that block movement / placement for this viewer (players never collide with what they cannot see). */
+function blockingTokens(ignore) {
+  const skip = ignore || {};
+  return state.tokens.filter(t => t && t.pos && !skip[t.id] && !(role !== 'dm' && t.hidden));
+}
+function areaTaken(x, y, size, ignore) {
+  const s = tokSquares(size);
+  if (s === 1) return cellTaken(x, y, ignore);
+  const T = window.SSDNSTokenSize;
+  if (T) return T.areaTaken(x, y, s, blockingTokens(ignore));
+  for (let yy = y; yy < y + s; yy++) for (let xx = x; xx < x + s; xx++) if (cellTaken(xx, yy, ignore)) return true;
+  return false;
+}
+/** Auto-placement: nearest spot to the view centre where the whole footprint fits and no name label
+    (or DM HP bar) lands on another token or label. Falls back to footprint-only when the map is full. */
+function nextFreeSpot(size, label) {
+  if (!state.scene) return null;
+  const T = window.SSDNSTokenSize;
+  const s = tokSquares(size);
+  if (!T) return s === 1 ? nextFreeCell() : null;
+  const grid = state.scene.grid || { cols: 30, rows: 20 };
+  const sceneId = activeSceneId() || 'scn_dustyspur01';
+  const others = blockingTokens().filter(t => (t.sceneId || 'scn_dustyspur01') === sceneId);
+  /* labels are judged at the DM's current zoom (or zoom 1 if closer): names never draw under 11px */
+  const cellPx = (grid.px || 70) * Math.min(1, (state.view && state.view.zoom) || 1);
+  return T.findSpot(viewCenterCell(), s, label, others, grid, cellPx);
+}
 function nextFreeCell() {
   if (!state.scene) return null;
   const grid = state.scene.grid || { cols: 30, rows: 20 };
@@ -3457,7 +3505,7 @@ function placeLinkedToken(spec) {
   /* 0.3.59: adopt this combatant's token if it already exists, instead of stacking a copy */
   const had = spec.combatantId ? tokenForCombatant(spec.combatantId) : null;
   if (had) return had;
-  const spot = nextFreeCell();
+  const spot = nextFreeSpot(spec.size, String(spec.label || spec.name || '').slice(0, 16));
   if (!spot) { toast('No open square'); return null; }
   return makeToken(Object.assign({}, spec, { pos: spot, kind: spec.kind || 'npc' }));
 }
@@ -3548,6 +3596,16 @@ function removeMapTokens(ids, opts) {
     if (adapter && adapter.remove) adapter.remove('map/dm/dismissed/' + patch.ownerUid);
   }
   if (patch.kind) t.kind = patch.kind;
+  if (patch.size != null && patch.size !== '') {
+    /* token size: linking a token to a bestiary creature takes the creature's footprint */
+    const sq = tokSquares(patch.size);
+    if (sq !== tokSquares(t.size)) {
+      t.size = sq;
+      const fit = clampFootprint(t.pos.x, t.pos.y, sq);
+      t.pos = { x: fit.x, y: fit.y };
+      if (areaTaken(fit.x, fit.y, sq, { [t.id]: 1 })) toast('Bigger token overlaps another. Drag it to open ground.');
+    }
+  }
   if (patch.ownerUid != null) t.ownerUid = patch.ownerUid;
   if (patch.combatantId) t.combatantId = patch.combatantId;
   if (patch.sheetId != null) t.sheetId = patch.sheetId;
@@ -6180,6 +6238,18 @@ return {
   releaseToken,
   armAttack,
   tokensLoaded: function () { return !!(tokensReady && state.scene); },
+  /* token size: read-only footprints for tests/tools. Same visibility as drawing: players never get hidden tokens. */
+  tokenBoxes: function () {
+    const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+    return state.tokens.filter(t => t && t.pos && !(t.hidden && role !== 'dm')).map(t => {
+      const sz = t.size || 1;
+      const a = worldToScreen(t.pos.x * px, t.pos.y * px);
+      const b = worldToScreen((t.pos.x + sz) * px, (t.pos.y + sz) * px);
+      return { id: t.id, label: t.label || t.name || '', kind: t.kind || '', size: sz, x: t.pos.x, y: t.pos.y,
+        hidden: !!t.hidden, sceneId: t.sceneId || '', screen: { x1: a.x, y1: a.y, x2: b.x, y2: b.y } };
+    });
+  },
+  drawerTokenId: function () { return state.drawerOpen ? (state.drawerTokenId || '') : ''; },
   tokenForCombatant: function (cid) { const t = tokenForCombatant(cid); return t ? t.id : ''; },
   dedupeLinkedTokens,
   staleTokenIds,

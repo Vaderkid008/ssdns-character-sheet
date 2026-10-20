@@ -1,5 +1,5 @@
 /**
- * PR88 (0.3.91): DM range override parity.
+ * PR88 (0.3.92): DM range override parity.
  *  - resolve() override "adv": still blocks past max range, clears range DIS, sets advantage,
  *    log "DM override: advantage forced", button "ADV · forced".
  *  - One per-session DM override (SSDNSRangeRings.get/setOverride) shared by the map drawer's

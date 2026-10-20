@@ -863,6 +863,8 @@
     hasToken: hasToken,
     releaseToken: releaseToken,
     tokensLoaded: tokensLoaded,
+    tokenBoxes: function () { return map && typeof map.tokenBoxes === "function" ? map.tokenBoxes() : []; },
+    drawerTokenId: function () { return map && typeof map.drawerTokenId === "function" ? map.drawerTokenId() : ""; },
     tokenForCombatant: tokenForCombatant,
     staleTokenIds: staleTokenIds,
     clearStaleTokens: clearStaleTokens,

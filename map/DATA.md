@@ -38,3 +38,11 @@ The mock uses a separate BroadcastChannel (`ssdns-mock-dm-<room>`) for `map/dm/*
 `id, pos, color, torch, status, conditions, sceneId, image, ownerUid, controlledBy, ownerCanMove, locked, label, size, name`
 
 Never includes `hp`, `maxHp`, `ac`, `notes`, or `hidden`.
+
+## Token size (2026-10-20)
+
+`size` is squares per side: Tiny, Small and Medium are 1, Large 2, Huge 3, Gargantuan 4 (`map/token-size.js`).
+Placing a bestiary or custom enemy reads its `size` field; player tokens are Medium. `pos` is the top-left square.
+The footprint is the click target, the drag/collision box, and is kept inside the grid. Auto-placement keeps
+footprints apart and keeps each name label (the row under the token) off other tokens and labels. Hidden tokens
+never reach the public path, so players never get their size either.

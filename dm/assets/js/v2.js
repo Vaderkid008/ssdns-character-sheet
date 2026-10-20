@@ -2343,6 +2343,7 @@ function beastRow(b) {
     attackList: b.attackList || [],
     speed: b.speed,
     cr: b.cr,
+    size: b.size || "Medium", /* token size: Large 2x2, Huge 3x3, Gargantuan 4x4 on the map */
     beastId: b.id || "",
     card: window.SSDNSApplied && window.SSDNSApplied.enemyCardModel ? window.SSDNSApplied.enemyCardModel(b) : null
   };
@@ -5509,6 +5510,14 @@ function beastTokenImage(row) {
   const f = beastTokenFile(b);
   return f ? BEAST_TOKEN_DIR + f : "";
 }
+/* Token size (2026-10-20): the row's size field, else its bestiary entry's, else its card's; PCs are Medium. */
+function rowSize(row) {
+  if (!row) return "Medium";
+  if (row.size) return row.size;
+  const b = row.beastId ? (fight.bestiary || []).filter((x) => x && x.id === row.beastId)[0] : null;
+  if (b && b.size) return b.size;
+  return (row.card && row.card.size) || "Medium";
+}
 function tokenPatchForRow(row) {
   const name = publicTokenName(row);
   const player = !!(row && row.kind === "player");
@@ -5521,7 +5530,8 @@ function tokenPatchForRow(row) {
     kind: player ? "player" : "npc",
     ownerUid: player ? who : "",
     color: player ? "#4a90d9" : "#a33b3b",
-    ownerCanMove: player
+    ownerCanMove: player,
+    size: player ? "Medium" : rowSize(row) /* token size: footprint from the bestiary / enemy size field */
   };
   const beastArt = player ? "" : beastTokenImage(row);
   const preset = window.SSDNSTokenCrop && window.SSDNSTokenCrop.preset
@@ -6062,14 +6072,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.104-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.105-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.104-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.105-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
