@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.90"; // dmcc-playtest-v0290
+const VERSION = "0.2.91"; // dmcc-playtest-v0291
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -784,7 +784,8 @@ async function pushRoll(entry) {
   try {
     await state._fb.set(roomRef("rolls/" + entry.id), entry);
     if (!entry.private) {
-      const text = entry.freeShot && entry.detail ? entry.detail : (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result ?? "") + (entry.detail ? " (" + entry.detail + ")" : "");
+      const one = !(entry.freeShot || entry.heal || entry.attack) && !/→/.test(String(entry.detail || "")) ? singleDie(entry) : null;
+      const text = entry.freeShot && entry.detail ? entry.detail : one ? one.text : (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result ?? "") + (entry.detail ? " (" + entry.detail + ")" : "");
       const feed = {
         id: entry.id, ts: entry.ts, from: state.uid || "dm", fromName: "DM",
         text: text, kind: "roll", who: entry.who || "DM",
@@ -1641,8 +1642,23 @@ function paintLine(entry, text) {
   if (window.SSDNSDice && window.SSDNSDice.decorate) return window.SSDNSDice.decorate(html);
   return html;
 }
+/* 0.2.91: one plain die with no modifier ("1d4", "d20") reads "1d4 = 4": no "d4 ·" label echo, no "(4)" repeat.
+   Pools and modified rolls keep their breakdown, e.g. "2d6+1 = 9 (3, 5)". */
+function singleDie(r) {
+  const m = String((r && r.formula) || "").trim().match(/^(1?)d(4|6|8|10|12|20|50|100)$/i);
+  if (!m) return null;
+  const sides = Number(m[2]);
+  const detail = String((r && r.detail) == null ? "" : r.detail).trim();
+  const result = String((r && r.result) == null ? "" : r.result).trim();
+  if (detail && detail !== result) return null;
+  const label = String((r && r.label) || "").trim();
+  const echo = !label || /^roll$/i.test(label) || label.toLowerCase() === "d" + sides || label.toLowerCase() === "1d" + sides;
+  return { formula: "1d" + sides, text: (echo ? "" : label + " · ") + "1d" + sides + " = " + result };
+}
 function rollBody(r) {
   const detail = rollDetail(r);
+  const one = !(r && (r.freeShot || r.heal || r.attack)) ? singleDie(r) : null;
+  if (one && !/→/.test(detail)) return one.text;
   /* 0.2.80: a Free shot is one line, "<Name> shoots freely · 1d20+B = T" (no label + formula head) */
   if (r && r.freeShot && detail) return detail;
   if (detail && /\bd20\b/.test(detail) && detail.indexOf("=") >= 0 && !/→\s*(HIT|MISS|CRIT|misfire)/i.test(detail)) return detail;
