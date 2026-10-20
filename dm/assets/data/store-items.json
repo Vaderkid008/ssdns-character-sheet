@@ -840,8 +840,11 @@
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "Revolver TR, cap 6, chambered .32 Long. Martial. Not a kit gun (buy later). Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 3983
+    "notes": "Revolver TR, cap 6, chambered .32 Long. Martial. Not a kit gun (buy later). Buyer picks the chambered round at purchase (Chambering). Act I stores: 4,000 ES (L0193 store markup; PHB list 2,000).",
+    "bookLine": 3983,
+    "actPrices": {
+      "1": 4000
+    }
   },
   {
     "id": "pony-arms-chaosmaker-medium",
@@ -855,8 +858,9 @@
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "Revolver TR, cap 6, chambered .357 or .44-40. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 3984
+    "notes": "Revolver TR, cap 6, chambered .357 or .44-40. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering). Not in Act I stores (L0193).",
+    "bookLine": 3984,
+    "minAct": 2
   },
   {
     "id": "pony-arms-chaosmaker-heavy",
@@ -870,8 +874,9 @@
     ],
     "rarity": "uncommon",
     "minTown": "boomtown",
-    "notes": "Revolver TR, cap 6, chambered .45 Long. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 3985
+    "notes": "Revolver TR, cap 6, chambered .45 Long. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering). Not in Act I stores (L0193).",
+    "bookLine": 3985,
+    "minAct": 2
   },
   {
     "id": "single-barrel-farm-shotgun",

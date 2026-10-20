@@ -51,4 +51,12 @@ Catalog rows and inventory rows may carry these. `type` is unchanged.
 - `SSDNS_CARRY_WEIGHTS.ammoEach` keys are `type` or `type:caliber`. `arrows:dynamite` = 1.05 lb (1 lb stick + 0.05 lb arrow), so making a dynamite arrow leaves carried weight unchanged.
 - Ammo pool types: `buck` and `slug` are separate pools (0.1 lb a shell). Slug shells sell as their own store rows at the buckshot price (BOOK1 L4212). `bigfifty` (.50-90) is its own pool at 0.15 lb a round.
 
+## Room act (L0193, 2026-10-20)
+- `rooms/$room/meta/act` (1 | 2 | 3, missing = 1): the campaign act the stores sell for. Set by the DMCC Stores tab "Campaign act" select. No database.rules.json change: meta already accepts extra children and only the DM can write it.
+- Store rows (store-items.json) may carry optional act fields. A row without them sells in every act at `price_es`:
+  - `minAct` (number): not stocked before that act. The Medium and Heavy ChaosMakers have `minAct: 2`.
+  - `acts` (number[]): stocked only in those acts.
+  - `actPrices` ({"1": 4000}): store price in that act, with no traveling-merchant markup on top. The Light ChaosMaker has `{"1": 4000}`, a store markup. `price_es` stays the PHB list price (2,000), and so does rules.js.
+- `SSDNSStore.forAct(items, act)` applies them when stock is drawn. `gateLines(lines, act, items)` re-checks drafts and live lines on open and when the act changes. Ad-hoc lines with no store row pass through.
+
 See docs/supplies.md.

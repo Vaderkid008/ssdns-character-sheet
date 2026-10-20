@@ -47,6 +47,52 @@
     [/^blowpipe needles\b/i, "needles", ""], [/^powder, ball,? and caps\b/i, "percussion", ""]
   ];
 
+  /* L0193 (Jessey 2026-10-20, 10:23 AM): Act I stores sell only the Light ChaosMaker, at 4,000 ES. That is a store
+     markup; the PHB list price (price_es 2,000 in store-items.json, rules.js) stays. Medium and Heavy stay out of
+     Act I stores. Later acts are unchanged.
+     Data-driven, on the store rows (optional fields; a row without them sells in every act at price_es):
+       minAct: 2         -> not stocked before Act II
+       acts: [2, 3]      -> stocked only in those acts
+       actPrices: {"1": 4000} -> store price in that act (no traveling-merchant markup on top)
+     The act is the room setting meta.act (DMCC Stores tab "Campaign act"; missing = Act I). */
+  var ACT_MAX = 3;
+  function normAct(act) {
+    var n = parseInt(act, 10);
+    if (!isFinite(n) || n < 1) return 1;
+    return Math.min(ACT_MAX, n);
+  }
+  function inAct(it, act) {
+    if (!it) return false;
+    var n = normAct(act);
+    if (it.minAct != null && n < Number(it.minAct)) return false;
+    if (Array.isArray(it.acts) && it.acts.length && it.acts.map(Number).indexOf(n) < 0) return false;
+    return true;
+  }
+  function actPriceOf(it, act) {
+    var p = it && it.actPrices ? it.actPrices[String(normAct(act))] : null;
+    return p == null || p === "" || !isFinite(Number(p)) ? null : Number(p);
+  }
+  /** Store rows as this act's stores sell them: rows outside the act dropped, act prices set (actPriced: no merchant markup). */
+  function forAct(items, act) {
+    return (items || []).filter(function (it) { return inAct(it, act); }).map(function (it) {
+      var p = actPriceOf(it, act);
+      if (p == null) return it;
+      return Object.assign({}, it, { price_es: p, list_price_es: it.price_es, actPriced: true });
+    });
+  }
+  /** Draft or live store lines under this act, checked against the store rows by id: lines outside the act dropped,
+      act prices enforced. Lines with no matching row (ad-hoc DM lines) pass through. */
+  function gateLines(lines, act, items) {
+    var byId = {};
+    (items || []).forEach(function (it) { if (it && it.id) byId[it.id] = it; });
+    return (lines || []).filter(function (row) { return row && (!row.id || !byId[row.id] || inAct(byId[row.id], act)); }).map(function (row) {
+      var p = row.id && byId[row.id] ? actPriceOf(byId[row.id], act) : null;
+      if (p == null || Number(row.price) === p) return row;
+      return Object.assign({}, row, { price: p, ref: false });
+    });
+  }
+  function actLabel(act) { return "Act " + ["I", "II", "III"][normAct(act) - 1]; }
+
   function eligible(items, store, town) {
     var rank = TOWN_RANK[town];
     if (rank == null) rank = 0;
@@ -122,7 +168,7 @@
       if (idx < 0) break;
       var item = bag.splice(idx, 1)[0];
       if (item.rarity === "rare") rares += 1;
-      picked.push(Object.assign({}, item, { price: markup(item.price_es) }));
+      picked.push(Object.assign({}, item, { price: item.actPriced ? Number(item.price_es) : markup(item.price_es) }));
     }
     return picked;
   }
@@ -148,7 +194,7 @@
       price = it.ref_price_es;
       ref = true;
     }
-    if (merchant && price != null && price !== "") price = markup(price);
+    if (merchant && price != null && price !== "" && !it.actPriced) price = markup(price);
     var priced = price != null && price !== "" && isFinite(Number(price));
     return {
       id: it.id || "",
@@ -245,6 +291,12 @@
     TOWN_RANK: TOWN_RANK,
     STORE_ORDER: STORE_ORDER,
     STORE_LABEL: STORE_LABEL,
+    normAct: normAct,
+    inAct: inAct,
+    actPriceOf: actPriceOf,
+    forAct: forAct,
+    gateLines: gateLines,
+    actLabel: actLabel,
     eligible: eligible,
     defaultStock: defaultStock,
     randomStock: randomStock,
