@@ -78,7 +78,7 @@
     }
     pool.count = (parseInt(pool.count, 10) || 0) + count;
   }
-  /* inv2 (0.3.83): a kit gear line that is a real catalog item (Trail kit, Thieves' tools, ...) lands as that item,
+  /* inv2 (0.3.84): a kit gear line that is a real catalog item (Trail kit, Thieves' tools, ...) lands as that item,
      so it has weight and the pack can be unpacked. Never twice: skipped when the line or the item is already there.
      Without the item catalog (node tests, old pages) it stays a gear line as before. */
   function kitItem(c, text) {

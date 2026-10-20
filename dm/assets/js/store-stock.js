@@ -16,7 +16,7 @@
     "cartridges-medium-20": { kind: "cartridge", caliber: "Medium", qty: 20 },
     "cartridges-heavy-20": { kind: "cartridge", caliber: "Heavy", qty: 20 },
     "big-fifty-cartridges-50-90-10": { kind: "cartridge", caliber: ".50-90", qty: 10 },
-    /* inv2 (0.2.96): every other store ammo pack fills its sheet Ammo pool (the #100 quiver / bolt / pouch pools)
+    /* inv2 (0.2.97): every other store ammo pack fills its sheet Ammo pool (the #100 quiver / bolt / pouch pools)
        instead of writing a gear note line */
     "arrows-20": { kind: "ammo", type: "arrows", caliber: "", qty: 20 },
     "crossbow-bolts-20": { kind: "ammo", type: "bolts", caliber: "", qty: 20 },
@@ -25,9 +25,17 @@
     "powder-ball-and-caps-20-shots": { kind: "ammo", type: "percussion", caliber: "", qty: 20 },
     "shells-410-10": { kind: "ammo", type: "buck", caliber: ".410", qty: 10 },
     "shells-12-ga-10": { kind: "ammo", type: "buck", caliber: "12 ga", qty: 10 },
-    "shells-10-ga-10": { kind: "ammo", type: "buck", caliber: "10 ga", qty: 10 }
+    "shells-10-ga-10": { kind: "ammo", type: "buck", caliber: "10 ga", qty: 10 },
+    /* L0186 special arrows (2026-10-20): each type is its own arrows pool (caliber = type id); dynamite arrows are made, not sold */
+    "arrows-broadhead-5": { kind: "ammo", type: "arrows", caliber: "broadhead", qty: 5 },
+    "arrows-blunt-5": { kind: "ammo", type: "arrows", caliber: "blunt", qty: 5 },
+    "arrows-fire-5": { kind: "ammo", type: "arrows", caliber: "fire", qty: 5 },
+    "arrows-whistler-5": { kind: "ammo", type: "arrows", caliber: "whistler", qty: 5 },
+    "arrows-poison-3": { kind: "ammo", type: "arrows", caliber: "poison", qty: 3 }
   };
   var AMMO_BY_NAME = [
+    [/^broadhead( arrows)?\b/i, "arrows", "broadhead"], [/^blunt( arrows)?\b/i, "arrows", "blunt"], [/^fire arrows?\b/i, "arrows", "fire"],
+    [/^whistler( arrows)?\b/i, "arrows", "whistler"], [/^poison arrows?\b/i, "arrows", "poison"],
     [/^arrows\b/i, "arrows", ""], [/^crossbow bolts\b/i, "bolts", ""], [/^sling (stones|bullets)\b/i, "stones", ""],
     [/^blowpipe needles\b/i, "needles", ""], [/^powder, ball,? and caps\b/i, "percussion", ""]
   ];

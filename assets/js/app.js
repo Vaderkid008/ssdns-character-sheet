@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.83"; // sheet-playtest-v0383
+  var APP_VERSION = "0.3.84"; // sheet-playtest-v0384
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -851,6 +851,9 @@
       s.dmgType = w.scatter && g.load !== "slug" ? "piercing (cone)" : "piercing";
     } else {
       s.damage = w.damage; s.range = w.range; s.misfire = w.misfire; s.dmgType = String(w.dmgType || "").toLowerCase();
+      /* L0186: a nocked Blunt arrow makes the bow's damage bludgeoning (card, map attack list, rolls) */
+      var nockT = window.SSDNSTrackers && window.SSDNSTrackers.nockedDtype ? window.SSDNSTrackers.nockedDtype(g) : "";
+      if (nockT) s.dmgType = nockT;
     }
     var notes = [];
     if (w.category === "martial" || w.category === "simple" || w.category === "caster") notes.push(w.category);
@@ -2035,6 +2038,9 @@
   function caliberChoices(type) {
     var out = [];
     function add(name) { if (name && out.indexOf(name) < 0) out.push(name); }
+    /* Arrow types DRAFT (2026-10-20): an arrows line picks its arrow type; blank = Standard */
+    var AT = window.SSDNSTrackers && window.SSDNSTrackers.ARROW_TYPES;
+    if (type === "arrows" && AT) { AT.slice(1).forEach(function (t) { add(t.id); }); return out; }
     if (type === "cartridge" || !type) {
       ["Light", "Medium", "Heavy"].forEach(add);
     } else {
@@ -2060,11 +2066,12 @@
       sel.value = a.type;
       var cal = el("select", { "data-f": "character.ammo." + i + ".caliber", "aria-label": "Caliber" });
       var cals = caliberChoices(a.type);
-      cal.appendChild(opt("", "Any / tier"));
+      var AT2 = a.type === "arrows" && window.SSDNSTrackers && window.SSDNSTrackers.arrowType ? window.SSDNSTrackers : null;
+      cal.appendChild(opt("", AT2 ? "Standard" : "Any / tier"));
       cals.forEach(function (name) {
         var label = (a.type === "cartridge" && window.SSDNSApplied && window.SSDNSApplied.cartridgePoolLabel)
           ? (window.SSDNSApplied.cartridgePoolLabel(name) || name)
-          : name;
+          : (AT2 ? AT2.arrowType(name).name : name);
         cal.appendChild(opt(name, label));
       });
       if (a.caliber && !cals.some(function (name) { return name === a.caliber; })) cal.appendChild(opt(a.caliber, a.caliber));

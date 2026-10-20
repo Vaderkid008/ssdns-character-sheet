@@ -1195,6 +1195,80 @@
     "bookLine": 4205
   },
   {
+    "id": "arrows-broadhead-5",
+    "name": "Broadhead arrows (5)",
+    "category": "ammo",
+    "price_es": 50,
+    "weight_lb": 0.25,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "L0186. +1 damage against beasts. Breaks on a hit.",
+    "bookLine": 4218
+  },
+  {
+    "id": "arrows-blunt-5",
+    "name": "Blunt arrows (5)",
+    "category": "ammo",
+    "price_es": 25,
+    "weight_lb": 0.25,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "L0186. Bludgeoning. Can knock a creature out at 0 HP instead of killing it.",
+    "bookLine": 4219
+  },
+  {
+    "id": "arrows-fire-5",
+    "name": "Fire arrows (5)",
+    "category": "ammo",
+    "price_es": 100,
+    "weight_lb": 0.25,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "L0186. Lighting it takes your object interaction. +1d4 fire; sets hay, roofs, and wagons alight. Never recovered.",
+    "bookLine": 4220
+  },
+  {
+    "id": "arrows-whistler-5",
+    "name": "Whistler arrows (5)",
+    "category": "ammo",
+    "price_es": 50,
+    "weight_lb": 0.25,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "L0186. No damage. Heard about a mile off; used for signals.",
+    "bookLine": 4221
+  },
+  {
+    "id": "arrows-poison-3",
+    "name": "Poison arrows (3)",
+    "category": "ammo",
+    "price_es": 1500,
+    "weight_lb": 0.15,
+    "stores": [
+      "traveling"
+    ],
+    "rarity": "rare",
+    "minTown": "camp",
+    "notes": "L0186. On a hit, DC 10 Con save or 1d4 poison. Coating lasts 1 minute once unwrapped. Illegal in most towns.",
+    "bookLine": 4222
+  },
+  {
     "id": "blowpipe-needles-50",
     "name": "Blowpipe needles (50)",
     "category": "ammo",

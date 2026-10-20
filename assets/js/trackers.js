@@ -104,6 +104,241 @@
     if (!p && create) { p = { type: type, caliber: "", count: 0 }; c.ammo.push(p); }
     return p || null;
   }
+  /* ---------------------------------------------------------------- special arrows (L0186, Jessey + DND Bot 2026-10-20)
+     BOOK1 "##### Special arrows" (L4214-4223). Each type is its own Ammo pool: { type: "arrows", caliber: <id> }; a blank
+     caliber (every arrow pool saved before this) is Standard, which stays exactly as it was. The bow card picks which
+     type is nocked (guns[i].arrowType). Weight and recovery the table doesn't give use 5E defaults (see open questions). */
+  var ARROW_TYPES = [
+    { id: "standard", name: "Standard", word: "arrows", pack: 20, packId: "arrows-20", packName: "Arrows (20)", cost: "100", weight: "1 lb.", recover: "half", short: "",
+      fx: "Weapon damage, piercing.", head: "#8f969d", fletch: "#5e8a55", src: "BOOK1 Ammunition table" },
+    { id: "broadhead", name: "Broadhead", word: "broadheads", pack: 5, packId: "arrows-broadhead-5", packName: "Broadhead arrows (5)", cost: "50", weight: "¼ lb.", recover: "none", short: "+1 vs beasts",
+      beast: 1, fx: "+1 damage against beasts. Breaks on a hit.", head: "#4f565d", fletch: "#a33a2a", src: "BOOK1 L4218" },
+    { id: "blunt", name: "Blunt", word: "blunts", pack: 5, packId: "arrows-blunt-5", packName: "Blunt arrows (5)", cost: "25", weight: "¼ lb.", recover: "half", short: "bludgeoning",
+      dtype: "bludgeoning", fx: "Bludgeoning. Can knock a creature out at 0 HP instead of killing it.", head: "#b8894a", fletch: "#d8b23a", src: "BOOK1 L4219" },
+    { id: "fire", name: "Fire", word: "fire arrows", pack: 5, packId: "arrows-fire-5", packName: "Fire arrows (5)", cost: "100", weight: "¼ lb.", recover: "none", short: "+1d4 fire",
+      dice: "1d4", dtype: "fire", fx: "Lighting it takes your object interaction. +1d4 fire; sets hay, roofs, and wagons alight. Never recovered.", head: "#e0702a", fletch: "#c8541f", src: "BOOK1 L4220" },
+    { id: "whistler", name: "Whistler", word: "whistlers", pack: 5, packId: "arrows-whistler-5", packName: "Whistler arrows (5)", cost: "50", weight: "¼ lb.", recover: "half", short: "no damage",
+      noDamage: true, fx: "No damage. Heard about a mile off; used for signals.", head: "#3f6f9a", fletch: "#3f6f9a", src: "BOOK1 L4221" },
+    { id: "poison", name: "Poison", word: "poison arrows", pack: 3, packId: "arrows-poison-3", packName: "Poison arrows (3)", cost: "1,500", weight: "0.15 lb.", recover: "standard", short: "DC 10 Con",
+      poison: true, fx: "On a hit, DC 10 Con save or 1d4 poison. Coating lasts 1 minute once unwrapped. Illegal in most towns.", head: "#7b3fa0", fletch: "#4b2468", src: "BOOK1 L4222" },
+    { id: "dynamite", name: "Dynamite", word: "dynamite arrows", pack: 1, packId: "", packName: "", cost: "1 stick + 1 arrow", weight: "1 lb.", recover: "none", short: "no attack roll",
+      made: true, fx: "Powder Man only. Aim at a point within the bow's short range; no attack roll. Works like a thrown stick, with the fuse and misfire rules.", head: "#a3221c", fletch: "#5e8a55", src: "BOOK1 L4223" }
+  ];
+  var ARROW_BY_ID = {}; ARROW_TYPES.forEach(function (t) { ARROW_BY_ID[t.id] = t; });
+  if (R.ammo) {
+    var after = "arrows-20";
+    ARROW_TYPES.slice(1).forEach(function (t) {
+      if (t.made) return; /* dynamite arrows are made, never sold */
+      if (R.ammo.some(function (a) { return a && a.id === t.packId; })) { after = t.packId; return; }
+      var row = { id: t.packId, name: t.packName, cost: t.cost, weight: t.weight, src: "L0186 special arrows (" + t.src + ")", pack: t.pack, type: "arrows", arrow: t.id };
+      var k = -1; R.ammo.forEach(function (a, n) { if (a && a.id === after) k = n; });
+      if (k >= 0) R.ammo.splice(k + 1, 0, row); else R.ammo.push(row);
+      after = t.packId;
+    });
+  }
+  /** A pool caliber → arrow type id. Blank or unknown (older saves) = standard. */
+  function arrowId(cal) {
+    var s = String(cal == null ? "" : cal).trim().toLowerCase();
+    if (!s) return "standard";
+    if (ARROW_BY_ID[s]) return s;
+    for (var k = 0; k < ARROW_TYPES.length; k++) if (ARROW_TYPES[k].name.toLowerCase() === s) return ARROW_TYPES[k].id;
+    return "standard";
+  }
+  function arrowType(id) { return ARROW_BY_ID[arrowId(id)]; }
+  function arrowPool(c, id, create) {
+    c.ammo = c.ammo || [];
+    id = arrowId(id);
+    var p = c.ammo.filter(function (a) { return a && a.type === "arrows" && arrowId(a.caliber) === id; })[0];
+    if (!p && create) { p = { type: "arrows", caliber: id === "standard" ? "" : id, count: 0 }; c.ammo.push(p); }
+    return p || null;
+  }
+  function arrowCount(c, id) {
+    var n = 0; id = arrowId(id);
+    ((c && c.ammo) || []).forEach(function (a) { if (a && a.type === "arrows" && arrowId(a.caliber) === id) n += num(a.count); });
+    return n;
+  }
+  function arrowTotal(c) { var n = 0; ((c && c.ammo) || []).forEach(function (a) { if (a && a.type === "arrows") n += num(a.count); }); return n; }
+  /** The nocked type: the slot's pick, else Standard, else the first type you still have. */
+  function nocked(c, g) {
+    if (g && g.arrowType && ARROW_BY_ID[g.arrowType]) return g.arrowType;
+    if (arrowCount(c, "standard") > 0) return "standard";
+    for (var k = 1; k < ARROW_TYPES.length; k++) if (arrowCount(c, ARROW_TYPES[k].id) > 0) return ARROW_TYPES[k].id;
+    return "standard";
+  }
+  /** Shot this fight by type. Shots counted before types (spentAmmo only) are standard. */
+  function spentByType(g) {
+    var by = {}, sum = 0;
+    Object.keys((g && g.spentBy) || {}).forEach(function (k) { var n = num(g.spentBy[k]); if (n > 0 && ARROW_BY_ID[k]) { by[k] = n; sum += n; } });
+    var extra = num(g && g.spentAmmo) - sum;
+    if (extra > 0) by.standard = (by.standard || 0) + extra;
+    return by;
+  }
+  /** Back after the fight (DND Bot L0186): half = Standard, Blunt, Whistler; standard = Poison (half back, as standard
+      arrows: the coating is gone); none = Broadhead, Fire, Dynamite. */
+  function recoverBack(t, n) {
+    if (t.recover === "none") return 0;
+    return Math.floor(n / 2);
+  }
+  function arrowRecover(g) {
+    var by = spentByType(g), back = {}, total = 0, lost = [];
+    Object.keys(by).forEach(function (k) {
+      var t = ARROW_BY_ID[k], b = recoverBack(t, by[k]), to = t.recover === "standard" ? "standard" : k;
+      back[to] = (back[to] || 0) + b; total += b;
+      if (t.recover === "none") lost.push(t.word);
+    });
+    return { by: by, back: back, total: total, lost: lost };
+  }
+  /** One lit arrow (fire or dynamite) per turn (DND Bot L0186). Cleared when the turn pips reset or on a rest. */
+  function litBlocked(c) { return c && c.res && c.res.litUsed ? "One lit arrow per turn (fire or dynamite). You already lit one this turn; Reset the turn pips on a new turn." : ""; }
+  /** One arrow, point up. Line-art like the map bow icon; the head and fletching mark the type. */
+  function arrowSvg(t, spent) {
+    var head;
+    switch (t.id) {
+      case "broadhead": head = '<path d="M5 0 L9.5 7 L6.2 5.6 L5 7.6 L3.8 5.6 L.5 7 Z" fill="' + t.head + '"/>'; break;
+      case "blunt": head = '<rect x="2.6" y="1" width="4.8" height="5.4" rx="2" fill="' + t.head + '" stroke="#6d4c2a" stroke-width=".6"/>'; break;
+      case "fire": head = '<path d="M5 0 C7.6 2.4 7.4 4.6 5 6.2 C2.6 4.6 2.4 2.4 5 0 Z" fill="#f2a33a"/><path d="M5 2 C6.2 3.4 6 4.4 5 5.2 C4 4.4 3.8 3.4 5 2 Z" fill="#c8301f"/><rect x="3.4" y="6" width="3.2" height="3.4" rx="1" fill="#3b2a1c"/>'; break;
+      case "whistler": head = '<path d="M5 0 L7.4 4 L2.6 4 Z" fill="' + t.head + '"/><ellipse cx="5" cy="6.4" rx="2.6" ry="2.2" fill="' + t.head + '"/><circle cx="5" cy="6.4" r=".8" fill="#fff8e6"/>'; break;
+      case "poison": head = '<path d="M5 0 L8 6.4 L2 6.4 Z" fill="#8f969d"/><path d="M5 1.6 L6.9 5.6 L3.1 5.6 Z" fill="' + t.head + '"/><circle cx="5" cy="8.6" r="1.1" fill="' + t.head + '"/>'; break;
+      case "dynamite": head = '<path d="M5 0 L7.4 3.6 L2.6 3.6 Z" fill="#8f969d"/><rect x="2.4" y="3.4" width="5.2" height="8" rx="1" fill="' + t.head + '"/><path d="M7.2 4 Q9.6 2.6 9 .6" fill="none" stroke="#3d2a16" stroke-width=".7"/><circle cx="9" cy=".8" r=".8" fill="#f2a33a"/>'; break;
+      default: head = '<path d="M5 0 L8 6.4 L2 6.4 Z" fill="' + t.head + '"/>';
+    }
+    var fl = t.fletch;
+    return '<svg class="trk-arrow-svg" viewBox="0 0 10 28" width="10" height="28" aria-hidden="true" focusable="false">' +
+      '<line x1="5" y1="6" x2="5" y2="26" stroke="#6d4c2a" stroke-width="1.3"/>' + head +
+      '<path d="M5 18 L1.4 21.4 L1.4 25.6 L5 23 Z" fill="' + fl + '" stroke="rgba(0,0,0,.35)" stroke-width=".4"/>' +
+      '<path d="M5 18 L8.6 21.4 L8.6 25.6 L5 23 Z" fill="' + fl + '" stroke="rgba(0,0,0,.35)" stroke-width=".4"/>' +
+      '<path d="M3.6 28 L5 25.4 L6.4 28" fill="none" stroke="#3d2a16" stroke-width=".9"/></svg>';
+  }
+  /** The quiver: one group per type you carry (remaining, then this fight's spent as ghosts). Nocked group is ringed. */
+  function quiverArt(c, g, i) {
+    var cur = nocked(c, g), by = spentByType(g), html = "";
+    var groups = ARROW_TYPES.filter(function (t) { return arrowCount(c, t.id) || num(by[t.id]) || t.id === cur; });
+    var cap = groups.length > 1 ? 10 : 30; /* one type: up to 30 drawn as before; mixed: up to 10 per type */
+    groups.forEach(function (t) {
+      var have = arrowCount(c, t.id), sp = num(by[t.id]);
+      var n = Math.min(have, cap), ghosts = Math.min(sp, 6);
+      var inner = "";
+      for (var k = 0; k < n; k++) inner += '<span class="trk-arrow" data-arrow="' + t.id + '" role="img" aria-label="' + esc(t.name) + ' arrow">' + arrowSvg(t) + "</span>";
+      if (have > n) inner += '<span class="trk-more">+' + (have - n) + "</span>";
+      for (var s = 0; s < ghosts; s++) inner += '<span class="trk-arrow spent" data-arrow="' + t.id + '" title="Shot this fight">' + arrowSvg(t, true) + "</span>";
+      html += '<span class="trk-agrp' + (t.id === cur ? " nocked" : "") + '" data-arrow-grp="' + t.id + '" title="' + esc(t.name + ": " + have + " left. " + t.fx + " Recover: " + t.recover + ".") + '">' + inner +
+        (t.id === "standard" && ARROW_TYPES.every(function (x) { return x.id === "standard" || (!arrowCount(c, x.id) && !num(by[x.id])); }) ? "" : '<span class="trk-atag">' + esc(t.id === "standard" ? "std" : t.short) + "</span>") + "</span>";
+    });
+    return '<span class="trk-pips ammo arrows trk-arrows">' + html + "</span>";
+  }
+  function nockPicker(c, g, i, ro) {
+    var cur = nocked(c, g);
+    var opts = ARROW_TYPES.filter(function (t) { return t.id === cur || arrowCount(c, t.id) > 0; }).map(function (t) {
+      return '<option value="' + t.id + '"' + (t.id === cur ? " selected" : "") + ">" + esc(t.name) + " · " + arrowCount(c, t.id) + (t.short ? " (" + esc(t.short) + ")" : "") + "</option>";
+    }).join("");
+    return '<label class="trk-nock-l" title="' + esc(arrowType(cur).fx) + '">Nocked <select class="trk-nock" data-trk-nock="' + i + '" aria-label="Nocked arrow type"' + (ro ? " disabled" : "") + ">" + opts + "</select></label>";
+  }
+  /** The bow's damage type with the nocked arrow (Blunt: bludgeoning). "" = the weapon's own type. */
+  function nockedDtype(g, c) {
+    var w = g && weapon(g.weapon);
+    if (!w || kindOf(w) !== "quiver" || poolType(w) !== "arrows") return "";
+    var t = arrowType(nocked(c || ch() || {}, g));
+    return t.dtype && !t.dice ? t.dtype : "";
+  }
+  /** Bow card extras: broadhead "beast" tick, dynamite note, Powder Man's Make dynamite arrow. */
+  function arrowExtras(c, g, i) {
+    var cur = nocked(c, g), html = "";
+    if (cur === "broadhead") html += '<label class="tiny trk-nock-l" title="Broadhead: +1 damage against beasts (tick before you shoot)"><input type="checkbox" data-trk-beast="1"' + (c.res && c.res.arrowBeast ? " checked" : "") + "> beast</label>";
+    if (cur === "dynamite") html += '<span class="fine trk-dyn-hint">Roll shoots it at a point within ' + (shortRange(weapon(g.weapon)) || "short") + ' ft: no attack roll; past 50 ft it scatters.</span>';
+    if (isPowderMan(c)) {
+      var why = canMakeDynamite(c);
+      html += '<button type="button" class="btn xs" data-trk-dyn-make="' + i + '"' + (why ? ' disabled title="' + esc(why) + '"' : ' title="Powder Man: tie 1 Dynamite Stick to 1 standard arrow."') + ">Make dynamite arrow</button>";
+    }
+    return html;
+  }
+  /** rider() part: the nocked arrow's extra dice on a hit (crit doubles them). */
+  function arrowRiders(ctx) {
+    var t = ctx && ctx.arrow ? arrowType(ctx.arrow) : null;
+    if (!t || !t.dice || !(ctx.hit || ctx.pending)) return [];
+    var m = t.dice.match(/(\d+)d(\d+)/), n = num(m[1], 1), sides = num(m[2], 4);
+    if (ctx.crit) n *= 2;
+    var r = rollDice(n, sides);
+    return [{ label: t.id === "fire" ? "fire arrow" : t.name.toLowerCase(), formula: n + "d" + sides, faces: r.list, total: r.total, type: t.dtype || "", arrow: t.id }];
+  }
+  /** Gun-card damage hook: changes the base damage for the arrow that flew. Returns null for standard / no arrow. */
+  function arrowAdjust(dmg, id, ctx) {
+    if (!id) return null;
+    var t = arrowType(id), c = ch() || {};
+    if (t.id === "standard") return null;
+    var out = { id: t.id, name: t.name, note: t.name + " arrow" };
+    if (t.noDamage) { out.none = true; out.note = "Whistler: no damage, heard about a mile off"; return out; }
+    if (t.dtype && !t.dice) out.type = t.dtype;
+    if (t.id === "blunt") out.note = "Blunt arrow: bludgeoning; at 0 HP you can knock it out instead";
+    if (t.id === "fire") out.note = "Fire arrow (lighting it was your object interaction; one lit arrow per turn); sets hay, roofs, and wagons alight";
+    if (t.poison) { var pr = rollDice(1, 4); out.note = "Poison arrow: DC 10 Con save or " + pr.total + " poison (1d4 «" + pr.total + "»)"; out.poison = pr.total; }
+    if (t.beast && dmg) {
+      if (c.res && c.res.arrowBeast) {
+        dmg.total += 1; dmg.flat = (dmg.flat || 0) + 1;
+        dmg.formula = String(dmg.formula || "") + "+1"; dmg.detail = String(dmg.detail || "") + "+1";
+        out.part = { label: "broadhead vs beast", value: 1 }; out.note = "Broadhead: +1 vs a beast; breaks on a hit";
+      } else out.note = "Broadhead (+1 only vs a beast); breaks on a hit";
+    }
+    return out;
+  }
+  /* ---- dynamite arrows: Powder Man makes them (1 dynamite stick + 1 standard arrow), never sold */
+  var STICK_ID = "dynamite-stick-standard-fuse";
+  function isPowderMan(c) { return !!(c && Array.isArray(c.feats) && c.feats.indexOf("powder-man") >= 0); }
+  function stickItem(c) { return ((c && c.items) || []).filter(function (it) { return it && (it.catalogId === STICK_ID || it.id === STICK_ID) && num(it.count == null ? 1 : it.count) > 0; })[0] || null; }
+  function canMakeDynamite(c) {
+    if (!isPowderMan(c)) return "Powder Man only.";
+    if (!stickItem(c)) return "Needs a Dynamite Stick (standard fuse) in Items.";
+    if (arrowCount(c, "standard") <= 0) return "Needs a standard arrow.";
+    return "";
+  }
+  function makeDynamite(cc) {
+    var why = canMakeDynamite(cc);
+    if (why) return { ok: false, reason: why };
+    var st = stickItem(cc), n = num(st.count == null ? 1 : st.count);
+    if (n > 1) st.count = n - 1; else cc.items = cc.items.filter(function (x) { return x !== st; });
+    var sp = arrowPool(cc, "standard", false); sp.count = num(sp.count) - 1;
+    var dp = arrowPool(cc, "dynamite", true); dp.count = num(dp.count) + 1;
+    return { ok: true, count: dp.count };
+  }
+  function shortRange(w) { var m = String((w && w.range) || "").match(/(\d+)/); return m ? num(m[1]) : 0; }
+  /** Bow + dynamite nocked: no attack roll. Spends the arrow and resolves the stick at a point (fuse + misfire rules). */
+  function shootDynamite(i, opts) {
+    opts = opts || {};
+    var c = ch(), g = c && c.guns && c.guns[i], w = g && weapon(g.weapon);
+    if (!g || !w || nocked(c, g) !== "dynamite") return null;
+    if (!isPowderMan(c) && !opts.dm) return { ok: false, reason: "Dynamite arrows are Powder Man only." };
+    if (arrowCount(c, "dynamite") <= 0) return { ok: false, reason: "No dynamite arrows. Make one on the bow card (1 stick + 1 arrow)." };
+    var lit = litBlocked(c);
+    if (lit && !opts.dm) return { ok: false, reason: lit };
+    if (lit) log("DM shot: " + lit + " Shot anyway.", "alert");
+    var sr = shortRange(w), dist = opts.distance;
+    if (dist == null && typeof document !== "undefined") { var ds = document.getElementById("explosiveDist"); if (ds && ds.value) dist = num(ds.value); }
+    if (dist != null && sr && dist > sr) return { ok: false, reason: "Too far. A dynamite arrow lands within the bow's short range (" + sr + " ft)." };
+    var I = root.SSDNSItems, stick = I && I.byId ? I.byId(STICK_ID) : null;
+    if (!stick || !I.use) return { ok: false, reason: "No dynamite rules loaded." };
+    var tgt = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo ? root.SSDNSPlaytest.targetInfo() : null;
+    var item = Object.assign({}, stick, { name: "a dynamite arrow" });
+    /* DND Bot L0186: inside 50 ft it lands on the point; past 50 ft it scatters as a thrown stick (items.js useExplosive
+       scatters past its 50 ft band for a Powder Man). The bow reaches further than a throw, so the distance handed to the
+       stick rules is capped at its 100 ft max; the scatter roll is the same. Fuse, misfire and dud rolls are the stick's. */
+    var pm = isPowderMan(c);
+    var useDist = dist == null ? null : (dist > 50 ? Math.min(dist, pm ? 100 : 60) : dist);
+    var plan = I.use(item, { distance: useDist, powderMan: pm, name: c.name || "Someone", target: tgt && tgt.name ? tgt.name : (opts.point || "") });
+    var chat = String(plan.chat || "").replace(" lights and throws ", " lights and shoots ").replace("Light + throw is 1 action; Extra Attack doesn't add throws.", "Lighting it is your object interaction; the shot is one attack of your Attack action.").replace(/ Optional reaction: anyone can shoot the stick[^.]*\.[^.]*\./, "") + " (" + w.name + ", no attack roll" + (dist != null ? ", aimed " + dist + " ft" + (dist > 50 ? ": past 50 ft it scatters" : ": lands on the point") : "") + ".)";
+    if (plan.dud) chat += " The dud lies where it landed.";
+    patch(function (cc) {
+      var dp = arrowPool(cc, "dynamite", false); if (dp) dp.count = Math.max(0, num(dp.count) - 1);
+      cc.res = cc.res || {}; cc.res.litUsed = true;
+      var gg = cc.guns[i]; gg.spentAmmo = num(gg.spentAmmo) + 1; gg.spentBy = gg.spentBy || {}; gg.spentBy.dynamite = num(gg.spentBy.dynamite) + 1;
+      if (plan.selfDamage && isFinite(Number(cc.hpCurrent))) cc.hpCurrent = Math.max(0, Number(cc.hpCurrent) - plan.selfDamage);
+    });
+    if (root.SSDNSAudio) root.SSDNSAudio.play("fuse");
+    log(chat, "roll"); toast(chat);
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.postChat) root.SSDNSDmJoin.postChat({ text: chat });
+    /* DND Bot L0186: the shot replaces one attack of the Attack action (Extra Attack applies) */
+    if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(w.name + " dynamite arrow");
+    paint();
+    return Object.assign({ ok: true }, plan, { chat: chat });
+  }
   function pipsState() { var P = root.SSDNSActionPips; return P && P.state ? P.state() : {}; }
 
   /* ---------------------------------------------------------------- A) class resources */
@@ -340,6 +575,18 @@
   function gunTracker(c, i) {
     var g = c.guns && c.guns[i], w = g && weapon(g.weapon), k = kindOf(w);
     if (!g || !g.weapon || !w) return "";
+    if (k === "quiver" && poolType(w) === "arrows") {
+      /* Arrow types DRAFT (2026-10-20): drawn arrows per type, a Nocked picker, Recover by each type's rule */
+      var ahave = arrowTotal(c), ashot = num(g.spentAmmo), ar = arrowRecover(g);
+      var canRec = ar.total > 0 || (ashot > 0 && ar.lost.length > 0);
+      return '<div class="trk-weap trk-quiver" data-trk-gun="' + i + '"><span class="trk-label">Quiver</span>' +
+        quiverArt(c, g, i) +
+        '<span class="trk-count">' + ahave + " arrows</span>" +
+        (ahave || g.arrowType ? nockPicker(c, g, i) : "") + arrowExtras(c, g, i) +
+        (ashot ? '<span class="trk-shot" title="Shot this fight and lying around">' + ashot + " shot</span>" : "") +
+        '<button type="button" class="btn xs" data-trk-recover="' + i + '"' + (canRec ? "" : " disabled") + ' title="After the fight: Standard, blunt and whistler arrows: half back (PHB). Poison arrows: half back as standard arrows. Broadhead, fire and dynamite arrows never come back.">Recover ' + (ar.total ? "½ (+" + ar.total + ")" : "½") + "</button>" +
+        (ahave ? "" : '<span class="fine trk-warn">Out of arrows. Add them under Ammo.</span>') + "</div>";
+    }
     if (k === "quiver") {
       var t = poolType(w), p = pool(c, t, false), have = p ? num(p.count) : 0, shot = num(g.spentAmmo);
       var show = Math.min(have, 30);
@@ -422,6 +669,22 @@
     var g = c && c.guns && c.guns[i];
     var k = kindOf(w);
     if (!g || (k !== "quiver" && k !== "loaded" && k !== "thrown")) return null;
+    if (k === "quiver" && poolType(w) === "arrows") {
+      var nid = nocked(c, g), at = ARROW_BY_ID[nid], ap = arrowPool(c, nid, false);
+      if (nid === "dynamite") return { ok: false, reason: "A dynamite arrow has no attack roll. Use Roll on the bow card (it aims at a point)." };
+      if (!ap || num(ap.count) <= 0) {
+        var ap2 = null; c.ammo.forEach(function (a) { if (!ap2 && a && a.type === "arrows" && arrowId(a.caliber) === nid && num(a.count) > 0) ap2 = a; });
+        ap = ap2;
+      }
+      if (nid === "fire" && litBlocked(c)) return { ok: false, reason: litBlocked(c) };
+      if (!ap) return { ok: false, reason: arrowTotal(c) > 0 ? "No " + at.word + " left. Nock another type on the bow card." : "Out of arrows. Recover some after the fight, or buy more." };
+      ap.count = num(ap.count) - 1;
+      g.spentAmmo = num(g.spentAmmo) + 1;
+      g.spentBy = g.spentBy || {};
+      g.spentBy[nid] = num(g.spentBy[nid]) + 1;
+      if (nid === "fire") { c.res = c.res || {}; c.res.litUsed = true; } /* lighting it is the object interaction; one lit arrow per turn */
+      return { ok: true, left: arrowCount(c, nid), unit: at.word, arrow: nid };
+    }
     if (k === "quiver") {
       var t = poolType(w), p = pool(c, t, false);
       if (!p || num(p.count) <= 0) return { ok: false, reason: "Out of " + (POOL_WORD[t] || t) + ". Recover some after the fight, or buy more." };
@@ -504,7 +767,7 @@
     (c.guns || []).forEach(function (g, i) {
       if (!g || !g.weapon || g.equipped === false) return;
       var w = weapon(g.weapon), k = kindOf(w);
-      if (k === "quiver") { var p = pool(c, poolType(w), false); rows.push({ index: i, name: w.name, icon: "bow", text: String(p ? num(p.count) : 0), loaded: p ? num(p.count) : 0, cap: 0, kind: k }); }
+      if (k === "quiver") { var p = pool(c, poolType(w), false), qn = poolType(w) === "arrows" ? arrowTotal(c) : (p ? num(p.count) : 0); rows.push({ index: i, name: w.name, icon: "bow", text: String(qn), loaded: qn, cap: 0, kind: k, arrow: poolType(w) === "arrows" ? nocked(c, g) : "" }); }
       else if (k === "loaded") { var p2 = pool(c, poolType(w), false); rows.push({ index: i, name: w.name, icon: "xbow", text: (num(g.loaded) ? "1" : "0") + "·" + (p2 ? num(p2.count) : 0), loaded: num(g.loaded), cap: 1, kind: k }); }
       else if (k === "thrown") { var o = Math.max(1, num(g.count, 1)); rows.push({ index: i, name: w.name, icon: "thrown", text: (o - num(g.out)) + "/" + o, loaded: o - num(g.out), cap: o, kind: k }); }
     });
@@ -615,10 +878,30 @@
       if (rb) rb.click(); else patch(function (cc) { if (cc.raging) cc.raging = false; else { cc.raging = true; cc.rageUsed = num(cc.rageUsed) + 1; } });
       paint(); return;
     }
+    var dmk = t.getAttribute("data-trk-dyn-make");
+    if (dmk != null) {
+      var why0 = canMakeDynamite(c);
+      if (why0) { toast(why0); return; }
+      var made = null;
+      patch(function (cc) { made = makeDynamite(cc); });
+      if (made && made.ok) { log((c.name || "You") + " ties a Dynamite Stick to an arrow (" + made.count + " dynamite arrow" + (made.count === 1 ? "" : "s") + ")."); if (root.SSDNSItems && root.SSDNSItems.paintSheet) root.SSDNSItems.paintSheet(); }
+      paint(); return;
+    }
     var rec = t.getAttribute("data-trk-recover");
     if (rec != null) {
       var gi = num(rec), g = c.guns[gi], w = g && weapon(g.weapon);
       if (!g || !w) return;
+      if (kindOf(w) === "quiver" && poolType(w) === "arrows") {
+        var rr0 = arrowRecover(g), shot0 = num(g.spentAmmo);
+        patch(function (cc) {
+          Object.keys(rr0.back).forEach(function (id) { if (rr0.back[id] > 0) { var ap = arrowPool(cc, id, true); ap.count = num(ap.count) + rr0.back[id]; } });
+          cc.guns[gi].spentAmmo = 0; cc.guns[gi].spentBy = {};
+        });
+        paint();
+        var parts0 = Object.keys(rr0.back).filter(function (id) { return rr0.back[id] > 0; }).map(function (id) { return rr0.back[id] + " " + ARROW_BY_ID[id].word; });
+        log((c.name || "You") + " recovers " + (parts0.length ? parts0.join(", ") : "no arrows") + " after the fight (of " + shot0 + " shot)" + (rr0.lost.length ? "; " + rr0.lost.join(", ") + " don't come back" : "") + ".");
+        return;
+      }
       var back = Math.floor(num(g.spentAmmo) / 2), tp = poolType(w);
       patch(function (cc) { var gg = cc.guns[gi]; var p = pool(cc, tp, true); p.count = num(p.count) + back; gg.spentAmmo = 0; });
       paint();
@@ -744,12 +1027,17 @@
   function rider(ctx) {
     ctx = ctx || {};
     var c = ch();
-    if (!c || !c.res) return null;
-    var armS = !!c.res.sneakArmed, armM = num(c.res.smiteArmed);
-    if (!armS && !armM) return null;
+    if (!c) return null;
+    var arw = arrowRiders(ctx); /* Arrow types DRAFT: the nocked arrow's own dice (broadhead, fire) */
+    var armS = !!(c.res && c.res.sneakArmed), armM = num(c.res && c.res.smiteArmed);
+    if (!armS && !armM) {
+      if (!arw.length) return null;
+      var at0 = 0; arw.forEach(function (r) { at0 += r.total; });
+      return { riders: arw, total: at0, text: arw.map(function (r) { return "+" + r.formula + " " + r.label; }).join(" "), notes: [], spent: {} };
+    }
     var dm = !!(ctx.dm || c.res.armDm);
     var hit = !!(ctx.hit || ctx.pending), crit = !!ctx.crit && !ctx.pending;
-    var out = [], notes = [], spent = {};
+    var out = arw.slice(), notes = [], spent = {};
     if (armS) {
       var okWeapon = !ctx.melee || ctx.finesse || ctx.thrown;
       var okTurn = dm || !c.res.sneakUsed;
@@ -837,6 +1125,7 @@
       cc.res.sneakUsed = false;
       cc.res.sneakArmed = false;
       cc.res.smiteArmed = 0;
+      cc.res.litUsed = false;
       if (cc.raging) cc.raging = false;
     });
     paint();
@@ -874,6 +1163,12 @@
     ".trk-pip.thrown{width:12px;height:20px;border-radius:2px;clip-path:polygon(50% 0,100% 30%,70% 30%,70% 100%,30% 100%,30% 30%,0 30%)}.trk-pip.thrown.on{background:#6b6f75;border-color:#3b3e42}",
     ".trk-pip.charge{border-radius:3px;color:#7a5a2e}.trk-pip.charge.on{background:#2f6f8f;border-color:#18435a;color:#e8f6ff}",
     ".trk-pip.item{width:10px;height:14px;border-radius:3px 3px 5px 5px;cursor:default}.trk-pip.item.on{background:#a33a2a;border-color:#62201a}.trk-pip.item.explosive.on{background:#b0302a}.trk-pip.item.scroll.on{background:#c9b27a}",
+    ".trk-arrows{gap:6px}.trk-agrp{display:inline-flex;align-items:flex-end;gap:1px;padding:1px 3px 0;border-radius:4px;border:1px solid transparent}",
+    ".trk-agrp.nocked{border-color:#7a5a2e;background:rgba(181,131,42,.14)}",
+    ".trk-arrow{display:inline-block;width:10px;height:28px;line-height:0}.trk-arrow svg{display:block}.trk-arrow.spent{opacity:.22;filter:grayscale(1)}",
+    ".trk-atag{font-size:9.5px;font-weight:700;color:#5b2d0e;margin-left:2px;align-self:center;white-space:nowrap}",
+    ".trk-nock-l{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5b2d0e;margin:0}",
+    ".trk-weap select.trk-nock{width:auto!important;flex:0 0 auto;display:inline-block;padding:1px 4px;font-size:12px;text-transform:none;letter-spacing:0}",
     ".trk-count{font-variant-numeric:tabular-nums;font-weight:700;color:#3d2a16}",
     ".trk-rest{font-size:11px;color:#7a6a55;text-transform:uppercase;letter-spacing:.04em}",
     ".trk-turn{border:2px solid #6b4a14;border-radius:12px;padding:1px 9px;font-size:12px;background:#efe3c7;cursor:pointer}.trk-turn.on{background:#2e7d32;color:#fff;border-color:#1b5e20}",
@@ -901,7 +1196,15 @@
     document.addEventListener("change", function (e) {
       var t = e.target;
       if (!t || !t.getAttribute) return;
-      if (t.hasAttribute("data-trk-smite-lv")) {
+      if (t.hasAttribute("data-trk-beast")) {
+        var bv = !!t.checked;
+        patch(function (cc) { cc.res = cc.res || {}; cc.res.arrowBeast = bv; });
+      } else if (t.hasAttribute("data-trk-nock")) {
+        var ni = num(t.getAttribute("data-trk-nock")), nv = ARROW_BY_ID[t.value] ? t.value : "standard";
+        patch(function (cc) { if (cc.guns && cc.guns[ni]) cc.guns[ni].arrowType = nv; });
+        if (root.SSDNSAudio) root.SSDNSAudio.play("ui-tick");
+        paint(); refreshMap();
+      } else if (t.hasAttribute("data-trk-smite-lv")) {
         var lvl = num(t.value, 1);
         patch(function (cc) { cc.res = cc.res || {}; cc.res.smiteLevel = lvl; if (num(cc.res.smiteArmed)) cc.res.smiteArmed = lvl; }); paint();
       } else if (t.hasAttribute("data-trk-smite-undead")) {
@@ -912,12 +1215,13 @@
     root.addEventListener("ssdns:pips-reset", function () {
       var c = ch();
       if (c && c.res && c.res.sneakUsed) { patch(function (cc) { cc.res.sneakUsed = false; }); paint(); }
+      if (c && c.res && c.res.litUsed) { patch(function (cc) { cc.res.litUsed = false; }); paint(); } /* L0186: one lit arrow per turn */
     });
     var tries = 0;
     (function boot() { if (!wrapRest() && tries++ < 60) setTimeout(boot, 250); else paint(); })();
   }
   root.SSDNSTrackers = {
-    XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
+    XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, ARROW_TYPES: ARROW_TYPES, arrowId: arrowId, arrowType: arrowType, arrowCount: arrowCount, arrowTotal: arrowTotal, nocked: nocked, arrowRecover: arrowRecover, arrowAdjust: arrowAdjust, arrowSvg: arrowSvg, shootDynamite: shootDynamite, litBlocked: litBlocked, nockedDtype: nockedDtype, makeDynamite: makeDynamite, canMakeDynamite: canMakeDynamite, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
     spendShot: spendShot, onMeleeAttack: onMeleeAttack, itemPips: itemPips, tokenRows: tokenRows,
     snapshot: snapshot, dmHtml: dmHtml, paint: paint, onRest: onRest, resHtml: resHtml,
     toggle: toggle, rider: rider, riderText: riderText, refundPending: refundPending, mapActions: mapActions, canArm: canArm,
