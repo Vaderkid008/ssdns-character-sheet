@@ -81,6 +81,6 @@ check("v2.unlinkCid", /function unlinkMapToken[\s\S]{0,500}r\.id === cid && \(!r
 check("v2.clearConfirm", /Clear " \+ ids\.length \+ " stale token/.test(v2) && /SSDNSAsk\.confirm\(msg\)/.test(v2));
 check("dm.button", /id="btnClearStale"/.test(read("dm/index.html")) && /#btnClearStale/.test(v2));
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.80" && ver.dmcc === "0.2.93");
+check("ver", ver.sheet === "0.3.81" && ver.dmcc === "0.2.94");
 console.log(failures.length ? "\n" + failures.length + " FAILED: " + failures.join(", ") : "\nAll PR79 checks passed.");
 process.exit(failures.length ? 1 : 0);
