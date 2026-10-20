@@ -131,7 +131,9 @@
     var app = root.SSDNSApp;
     var doc = app && app.doc && app.doc();
     var guns = doc && doc.character && doc.character.guns || [];
-    return gunRows(guns);
+    /* SAMPLE trackers: quiver / loaded marker / thrown count rows ride under the gun rows */
+    var extra = root.SSDNSTrackers && root.SSDNSTrackers.tokenRows && doc && doc.character ? root.SSDNSTrackers.tokenRows(doc.character) : [];
+    return gunRows(guns).concat(extra);
   }
   function viewerUid() {
     if (mountedUid) return mountedUid;
@@ -168,8 +170,9 @@
         look: roundLookFor(a, a.ammo.chambers, a.ammo.locked, Number(a.ammo.loaded) || 0)
       };
     });
-    if (root.SSDNSEquip && root.SSDNSEquip.badgeRowsForToken) return root.SSDNSEquip.badgeRowsForToken(guns);
-    return guns.filter(function (g) { return g.equipped !== false; });
+    var extraRows = Array.isArray(card.trackRows) ? card.trackRows : []; /* SAMPLE trackers (from the player snapshot) */
+    if (root.SSDNSEquip && root.SSDNSEquip.badgeRowsForToken) return root.SSDNSEquip.badgeRowsForToken(guns).concat(extraRows);
+    return guns.filter(function (g) { return g.equipped !== false; }).concat(extraRows);
   }
   /* 0.3.69: Muzzleloader Powder Hands lets percussion revolvers / muzzleloaders Tactical Reload */
   function canTr(w) {

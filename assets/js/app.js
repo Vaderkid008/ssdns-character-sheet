@@ -89,6 +89,8 @@
     { id: "bigfifty", label: "Big Fifty .50-90" },
     { id: "arrows", label: "Arrows" }
   ];
+  /* SAMPLE trackers: bolts, sling stones/bullets and blowpipe needles get their own pools (assets/js/trackers.js) */
+  ((window.SSDNSTrackers && window.SSDNSTrackers.AMMO_EXTRA) || []).forEach(function (t) { AMMO_TYPES.push(t); });
   var AMMO_LABEL = {}; AMMO_TYPES.forEach(function (t) { AMMO_LABEL[t.id] = t.label; });
   var CALIBERS = [];
   function addCal(c) { if (c && CALIBERS.indexOf(c) < 0) CALIBERS.push(c); }
@@ -1721,7 +1723,8 @@
       }
       out("rng." + i, s ? s.range : "");
       out("cap." + i, s && s.capacity ? s.capacity : (s ? "—" : ""));
-      out("mis." + i, s ? misfireLabel(s.misfire, g.dirty) : "");
+      /* SAMPLE trackers: misfire is FIREARMS ONLY. Bows, crossbows, slings and thrown weapons never misfire. */
+      out("mis." + i, s && isFirearm(w) ? misfireLabel(s.misfire, g.dirty) : "");
       out("cal." + i, s ? (w.hexShells ? "any cartridge + hex lead" : (w.ammo === "percussion" ? "powder & ball" : (w.tiers ? "" : (w.caliber || "")))) : "");
       out("note." + i, s ? s.note : "");
       var ch = $('[data-chambers="' + i + '"]');
@@ -2021,6 +2024,8 @@
     renderSpellbook();
     renderConditionsTab();
     renderRef();
+    /* SAMPLE trackers: class resource pips + weapon trackers follow every change */
+    if (window.SSDNSTrackers && window.SSDNSTrackers.paint) { try { window.SSDNSTrackers.paint(); } catch (e) { console.warn("[SSDNS] trackers", e); } }
   }
   function ammoType(g, w) { return w.ammo === "shell" ? (g.load === "slug" ? "slug" : "buck") : w.ammo; }
   function caliberChoices(type) {
@@ -2758,6 +2763,12 @@
       changed({ quiet: true });
       publishGunCard();
       return { ok: true, left: g.loaded, hex: "", chamber: k, was: was };
+    }
+    /* SAMPLE trackers: bows / slings spend from the quiver, crossbows / blowpipe need the loaded marker,
+       thrown weapons in a gun slot spend a count pip (assets/js/trackers.js) */
+    if (window.SSDNSTrackers && w && !isFirearm(w)) {
+      var tk = window.SSDNSTrackers.spendShot(C(), i, w);
+      if (tk) { if (tk.ok) { changed(); publishGunCard(); } return tk; }
     }
     if (num(g.loaded) <= 0) return { ok: false, reason: "Out of rounds, Reload" };
     g.loaded = num(g.loaded) - 1;
@@ -3699,6 +3710,11 @@
     if (g === "pistol" || g === "caster") return "Melee: Pistol Whip, 5 ft";
     if (g === "rifle" || g === "carbine" || g === "shotgun" || g === "bigbore") return "Melee: Rifle Butt, 5 ft";
     return "";
+  }
+  /* SAMPLE trackers: one test for "can this weapon misfire" (firearms only) */
+  function isFirearm(w) {
+    if (window.SSDNSTrackers && window.SSDNSTrackers.isFirearm) return window.SSDNSTrackers.isFirearm(w);
+    return !!(w && (w.tiers || w.hexShells || w.debug || /^(pistol|rifle|carbine|shotgun|bigbore|caster)$/.test(String(w.group || ""))));
   }
   function misfireCeiling(text, dirty) {
     var s = String(text || "");
@@ -4720,6 +4736,7 @@
       applyAutoHp: function () { applyAutoHp(); renderFields(); changed(); },
       slotsLeft: slotsLeft,
       misfireCeiling: misfireCeiling,
+      isFirearm: isFirearm,
       migrateSettlerLanguages: migrateSettlerLanguages,
       longGun22: longGun22,
       armDirtyD4: function (i) {

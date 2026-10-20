@@ -6498,6 +6498,8 @@ function ensurePlayerAttacks(row) {
   if (!row || row.kind !== "player") return;
   const pid = row.playerId || row.id;
   const snap = playerSnapshot(pid);
+  /* SAMPLE trackers: quiver / loaded / thrown rows for the DM map token badge */
+  if (snap && snap.trackers) { row.card = row.card || {}; row.card.trackRows = snap.trackers.tokenRows || []; }
   const named = ((snap && snap.guns) || []).filter((g) => g && (g.name || g.weapon));
   const guns = named.filter((g) => g.equipped !== false);
   if (!named.length) return;

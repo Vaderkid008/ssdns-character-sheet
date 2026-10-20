@@ -1882,6 +1882,10 @@
       return;
     }
     var empty = root.SSDNSApplied && root.SSDNSApplied.gunEmpty ? root.SSDNSApplied.gunEmpty(g) : !num(g.loaded);
+    /* SAMPLE trackers: bows, slings, crossbows, the blowpipe and thrown weapons have no chambers. Before this they always
+       answered "Empty: reload" and could never fire. spendRound asks the tracker (quiver / loaded marker / count). */
+    var trkW = root.SSDNSTrackers && root.SSDNSTrackers.weapon ? root.SSDNSTrackers.weapon(g.weapon) : null;
+    if (trkW && /^(quiver|loaded|thrown)$/.test(root.SSDNSTrackers.kindOf(trkW))) empty = false;
     if (empty && !rollGun._wild) {
       g.loaded = 0;
       if (root.SSDNSAudio) root.SSDNSAudio.play("empty-click");
@@ -1956,9 +1960,11 @@
     var atk = parseInt(atkEl && String(atkEl.value).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(atk)) atk = 0;
     var misEl = document.querySelector('[data-out="mis.' + i + '"]');
-    var ceiling = root.SSDNSApp.misfireCeiling
+    /* SAMPLE trackers: misfire is firearms only (a bow, crossbow, sling or thrown weapon never misfires) */
+    var mfW = root.SSDNSApp.isFirearm ? (catalogWeapon(g.weapon) || (root.SSDNSTrackers && root.SSDNSTrackers.weapon ? root.SSDNSTrackers.weapon(g.weapon) : null)) : null;
+    var ceiling = (root.SSDNSApp.isFirearm && mfW && !root.SSDNSApp.isFirearm(mfW)) ? 0 : (root.SSDNSApp.misfireCeiling
       ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
-      : 1;
+      : 1);
     var chosen = rollGun._dmShot ? gunChosen(i) : rangeMode(gunChosen(i), rangeShot);
     var gunRollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
@@ -2005,7 +2011,8 @@
       ? root.SSDNSApp.critMin({ weapon: wpn, band: rangeShot && rangeShot.band, rangeApply: !!(rangeShot && rangeShot.apply) })
       : 20;
     var capNow = (gunStat && gunStat.capacity) || (wpn && wpn.capacity) || (g.chambers && g.chambers.length) || 0;
-    var resolved = root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
+    /* SAMPLE trackers: ceiling 0 = not a firearm; resolveShot floors the ceiling at 1, so skip it (fallback never misfires) */
+    var resolved = ceiling > 0 && root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
       ? root.SSDNSMisfire.resolveShot({
         dirty: g.dirty, fouled: g.fouled, ruined: g.ruined || g.broken, jammed: g.jammed,
         misStreak: g.misStreak, weapon: g.weapon, rugged: rugged, properties: wpn && wpn.properties,
@@ -2127,7 +2134,7 @@
       if (wpn && wpn.group === "pistol" && root.SSDNSFan && root.SSDNSFan.notePistolAttack) root.SSDNSFan.notePistolAttack();
     }
     if (resolved.armD4 && window.SSDNSD4 && window.SSDNSD4.arm) window.SSDNSD4.arm(i);
-    var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
+    var ammoTxt = spent.left == null ? "" : (spent.unit /* SAMPLE trackers: bows, crossbows, thrown */ ? (" · " + (/^empty/.test(spent.unit) ? "" : spent.left + " ") + spent.unit + ".") : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left.")));
     var shownCard = card ? (acHidden(tgt) ? card.publicText : card.dmText) : report.player;
     var line = shownCard + (gunDice.note ? " · " + gunDice.note : "") + (chosen && gunDice.mode ? modeWord(chosen) : "") + ammoTxt;
     if (rollGun._wild) line += " · wild-shot attack (not on the streak)";
@@ -2205,16 +2212,19 @@
       });
     } else if (powerOff) bonus -= Number(powerOff.atk) || 0;
     var misEl = document.querySelector('[data-out="mis.' + i + '"]');
-    var ceiling = root.SSDNSApp.misfireCeiling
+    /* SAMPLE trackers: misfire is firearms only (a bow, crossbow, sling or thrown weapon never misfires) */
+    var mfW = root.SSDNSApp.isFirearm ? (catalogWeapon(g.weapon) || (root.SSDNSTrackers && root.SSDNSTrackers.weapon ? root.SSDNSTrackers.weapon(g.weapon) : null)) : null;
+    var ceiling = (root.SSDNSApp.isFirearm && mfW && !root.SSDNSApp.isFirearm(mfW)) ? 0 : (root.SSDNSApp.misfireCeiling
       ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
-      : 1;
+      : 1);
     var nat = d20();
     var total = nat + bonus;
     var wpn = catalogWeapon(g.weapon);
     var rugged = !!(wpn && /rugged/i.test(wpn.properties || ""));
     var capNow = (gunStat && gunStat.capacity) || (wpn && wpn.capacity) || (g.chambers && g.chambers.length) || 0;
     var bad = function (n) { return n >= 1 && n <= ceiling; };
-    var resolved = root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
+    /* SAMPLE trackers: ceiling 0 = not a firearm; resolveShot floors the ceiling at 1, so skip it (fallback never misfires) */
+    var resolved = ceiling > 0 && root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
       ? root.SSDNSMisfire.resolveShot({
         dirty: g.dirty, fouled: g.fouled, ruined: g.ruined || g.broken, jammed: g.jammed,
         misStreak: g.misStreak, weapon: g.weapon, rugged: rugged, properties: wpn && wpn.properties,
@@ -2264,7 +2274,7 @@
     var formula = "1d20" + signMod(bonus);
     var line = who + (FANF ? " fans the hammer and" : "") + " shoots freely" + (OHF ? " (" + OHF.TAG + ")" : "") + " · " + formula + " = " + total;
     if (misfired) line += " · natural " + nat + " misfire, the round is spent";
-    var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
+    var ammoTxt = spent.left == null ? "" : (spent.unit /* SAMPLE trackers: bows, crossbows, thrown */ ? (" · " + (/^empty/.test(spent.unit) ? "" : spent.left + " ") + spent.unit + ".") : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left.")));
     line += ammoTxt;
     var quiet = whisperOn();
     var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);

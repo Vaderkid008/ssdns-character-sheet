@@ -1775,6 +1775,7 @@ function renderPlayers() {
       </div>
       ${dsHtml}
       ${guns}
+      ${window.SSDNSTrackers && window.SSDNSTrackers.dmHtml ? window.SSDNSTrackers.dmHtml(s) : ""}
       ${addictionLine(p.id)}
       ${slotLine(s) ? `<div class="slot-line">${esc(slotLine(s))}</div>` : ""}
     </button>`;

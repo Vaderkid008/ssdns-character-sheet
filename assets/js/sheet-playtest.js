@@ -422,6 +422,7 @@
     box.innerHTML = html;
     paintMelee();
     if (root.SSDNSEquip && root.SSDNSEquip.combatLocked && root.SSDNSEquip.combatLocked()) paintEquipLock(true);
+    if (root.SSDNSTrackers && root.SSDNSTrackers.paint) root.SSDNSTrackers.paint(); /* SAMPLE trackers: thrown / charge pips */
   }
   /* The Peace Maker: once per short rest after a hit, knockout (0 HP, stable). */
   function knockoutBtn(c, i) {
@@ -609,6 +610,11 @@
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
     paintMelee();
+    /* SAMPLE trackers: a Throw spends one thrown weapon (count pips); none left = no throw */
+    if (!off && root.SSDNSTrackers && root.SSDNSTrackers.onMeleeAttack) {
+      var tk = root.SSDNSTrackers.onMeleeAttack(c, i);
+      if (tk && !tk.ok) { toast(tk.reason); return; }
+    }
     c.takingCover = false;
     var OH = off ? root.SSDNSOffhand : null;
     var ohTag = OH ? " · " + OH.TAG : "";

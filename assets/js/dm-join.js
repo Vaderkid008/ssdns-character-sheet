@@ -183,7 +183,8 @@
         tier: st && st.tier ? st.tier : "",
         unwieldy: !!(st && st.unwieldy),
         scatter: !!(st && st.w && st.w.scatter),
-        misfire: st && st.misfire ? st.misfire : "",
+        /* SAMPLE trackers: firearms only, so the DMCC stops offering a misfire override on bows */
+        misfire: st && st.misfire && !(root.SSDNSApp && root.SSDNSApp.isFirearm && st.w && !root.SSDNSApp.isFirearm(st.w)) ? st.misfire : "",
         rugged: !!(st && st.w && /rugged/i.test(st.w.properties || "")),
         note: st && st.note ? st.note : "",
         chambers: (g.chambers || []).slice(),
@@ -319,6 +320,8 @@
         return { type: a.type || "", caliber: a.caliber || "", count: Number(a.count) || 0 };
       }),
       castSpells: (c.calling === "hexslinger" && root.SSDNSApp && root.SSDNSApp.castList) ? root.SSDNSApp.castList() : [],
+      /* SAMPLE trackers: class resources + non-gun weapon rows for the DMCC card and the DM map token badge */
+      trackers: root.SSDNSTrackers && root.SSDNSTrackers.snapshot ? root.SSDNSTrackers.snapshot(c) : null,
       updatedAt: new Date().toISOString()
     };
   }
