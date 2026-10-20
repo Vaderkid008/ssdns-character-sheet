@@ -1,5 +1,5 @@
 /**
- * PR87 (0.3.79): 'Free shot' in every target picker.
+ * PR87 (0.3.80): 'Free shot' in every target picker.
  * The gun just fires: round spent, misfire rules, sound, Action pip. No target, range, Adv/Dis ask,
  * AC, hit/miss or damage. Chat: "<Name> shoots freely · 1d20+B = T".
  * Needs the static server on 127.0.0.1:8765 and Chrome (ssdns-test-all starts the server).

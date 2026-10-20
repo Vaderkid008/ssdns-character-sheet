@@ -1180,6 +1180,11 @@
       }
       var faceTxt = damageDice(dFormula, dFaces) || (dFaces.length ? dFaces.join("+") : String(dmg.dice || ""));
       var extra = dParts.map(function (p) { var v = Number(p.value); return (v < 0 ? "- " + Math.abs(v) : "+ " + v) + " (" + (p.label || "mod") + ")"; }).join(" ");
+      /* SAMPLE trackers: armed Sneak Attack / Smite Lead dice, e.g. "+ 2d8 «3» «6» (smite)" */
+      var riderTxt = Array.isArray(dmg.riders) ? dmg.riders.map(function (r) {
+        return "+ " + r.formula + " " + (r.faces || []).map(function (n) { return "«" + n + "»"; }).join(" ") + " (" + r.label + ")";
+      }).join(" ") : "";
+      if (riderTxt) extra = [extra, riderTxt].filter(Boolean).join(" ");
       var dTotal = dmg.total != null && dmg.total !== "" ? dmg.total : "";
       var type = dmg.type ? (" " + dmg.type) : "";
       dmgLine = "Damage: " + [faceTxt, extra].filter(Boolean).join(" ") + (dTotal !== "" ? " = " + dTotal : "") + type;

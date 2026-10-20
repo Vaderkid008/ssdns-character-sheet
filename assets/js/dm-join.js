@@ -183,7 +183,8 @@
         tier: st && st.tier ? st.tier : "",
         unwieldy: !!(st && st.unwieldy),
         scatter: !!(st && st.w && st.w.scatter),
-        misfire: st && st.misfire ? st.misfire : "",
+        /* SAMPLE trackers: firearms only, so the DMCC stops offering a misfire override on bows */
+        misfire: st && st.misfire && !(root.SSDNSApp && root.SSDNSApp.isFirearm && st.w && !root.SSDNSApp.isFirearm(st.w)) ? st.misfire : "",
         rugged: !!(st && st.w && /rugged/i.test(st.w.properties || "")),
         note: st && st.note ? st.note : "",
         chambers: (g.chambers || []).slice(),
@@ -319,6 +320,8 @@
         return { type: a.type || "", caliber: a.caliber || "", count: Number(a.count) || 0 };
       }),
       castSpells: (c.calling === "hexslinger" && root.SSDNSApp && root.SSDNSApp.castList) ? root.SSDNSApp.castList() : [],
+      /* SAMPLE trackers: class resources + non-gun weapon rows for the DMCC card and the DM map token badge */
+      trackers: root.SSDNSTrackers && root.SSDNSTrackers.snapshot ? root.SSDNSTrackers.snapshot(c) : null,
       updatedAt: new Date().toISOString()
     };
   }
@@ -521,6 +524,14 @@
     if (entry && entry.freeShot && detail) return detail; /* 0.3.67: one line for a Free shot */
     if (/→\s*(HIT|MISS)/.test(detail)) return detail;
     if (/\bd20\b/.test(detail) && detail.indexOf("=") >= 0) return detail;
+    /* 0.3.80: one plain die (dice bar, map dice lane) reads "1d4 = 4", not "d4 1d4 = 4 (4)" (Jessey's UI notes) */
+    var one = String(entry.formula || "").trim().match(/^1?d(4|6|8|10|12|20|50|100)$/i);
+    var res = entry.result == null ? "" : String(entry.result);
+    if (one && !entry.attack && (!detail || detail === res)) {
+      var lab = String(entry.label || "").trim();
+      var echo = !lab || /^roll$/i.test(lab) || lab.toLowerCase() === "d" + one[1] || lab.toLowerCase() === "1d" + one[1];
+      return (echo ? "" : lab + " ") + "1d" + one[1] + " = " + res;
+    }
     return (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result == null ? "" : entry.result) + (detail ? " (" + detail + ")" : "");
   }
   async function writeRoll(entry) {
@@ -1646,6 +1657,12 @@
       /* 0.3.72: DM-sent off-hand shot: Bonus pip, no positive ability mod to damage, chat tagged off-hand */
       if (payload.offhand) root.SSDNSGunRoll._offhand = true;
       else if (payload.fan) root.SSDNSGunRoll._fan = true;
+      /* SAMPLE trackers: the DM armed Sneak Attack / Smite Lead for this one shot (DM override of turn / Dull checks) */
+      var TRK = root.SSDNSTrackers;
+      if (TRK && TRK.toggle && payload.dm) {
+        if (payload.sneak) TRK.toggle("sneak", { on: true, dm: true });
+        if (payload.smite) TRK.toggle("smite", { on: true, dm: true, level: Number(payload.smite) > 1 ? Number(payload.smite) : 0 });
+      }
       try { root.SSDNSGunRoll(payload.index, payload.chamber); }
       finally { root.SSDNSGunRoll._dm = null; root.SSDNSGunRoll._free = null; root.SSDNSGunRoll._offhand = null; root.SSDNSGunRoll._fan = null; }
       return;

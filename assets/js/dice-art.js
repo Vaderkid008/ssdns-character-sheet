@@ -297,13 +297,22 @@
   }
   /* 0.3.78: an older DMCC wrote one plain die as "d4 1d4 = 4 (4)" (label echo + repeated face).
      Tidy it to "1d4 = 4". Anything with a modifier, several dice, or a real label is left alone. */
+  function tidyCore(s) {
+    var m = s.match(/^\s*(?:(?:Roll|1?d(\d+))(?:\s*·)?\s+)?1?d(4|6|8|10|12|20|50|100) = (-?\d+)(?: \((-?\d+)\))?\s*$/i);
+    if (!m) return null;
+    if (m[1] && m[1] !== m[2]) return null;
+    if (m[4] != null && m[4] !== m[3]) return null;
+    return "1d" + m[2] + " = " + m[3];
+  }
+  /* 0.3.80: also after a speaker ("Ada: d4 1d4 = 3 (3)" -> "Ada: 1d4 = 3"), as the map chat shows player rolls */
   function tidySingle(text) {
     var s = String(text == null ? "" : text);
-    var m = s.match(/^\s*(?:(?:Roll|1?d(\d+))(?:\s*·)?\s+)?1?d(4|6|8|10|12|20|50|100) = (-?\d+)(?: \((-?\d+)\))?\s*$/i);
+    var whole = tidyCore(s);
+    if (whole != null) return whole;
+    var m = s.match(/^([\s\S]*?(?::|·)\s+)([^:·]*(?:·\s+)?[^:·]*)$/);
     if (!m) return s;
-    if (m[1] && m[1] !== m[2]) return s;
-    if (m[4] != null && m[4] !== m[3]) return s;
-    return "1d" + m[2] + " = " + m[3];
+    var core = tidyCore(m[2]);
+    return core == null ? s : m[1] + core;
   }
   function lead(entry, html) {
     html = cardBadges(String(html || ""));
@@ -371,15 +380,31 @@
     }
     return null;
   }
-  function stageNode() {
+  /* 0.3.80: where a roll shows. A bar with its own inline stage (the map's dice lane) shows its rolls there.
+     In map full screen the page tray is covered, so every roll (bar, sheet buttons, chat) goes to the map lane. */
+  function visibleInline(doc) {
+    var list = doc.querySelectorAll(".dice-stage-inline");
+    for (var i = 0; i < list.length; i++) {
+      var bar = list[i].parentElement;
+      if (bar && bar.getClientRects && bar.getClientRects().length) return list[i];
+    }
+    return null;
+  }
+  function stageNode(src) {
     var doc = root.document;
     if (!doc) return null;
+    var own = src && src.querySelector ? src.querySelector(".dice-stage-inline") : null;
+    if (own) return own;
+    if (doc.body && doc.body.classList && doc.body.classList.contains("map-fullscreen")) {
+      var lane = visibleInline(doc);
+      if (lane) return lane;
+    }
     return doc.getElementById("diceStage");
   }
-  function show(info) {
+  function show(info, src) {
     info = info || {};
     var doc = root.document;
-    var stage = stageNode();
+    var stage = stageNode(src);
     if (!doc || !stage) return info;
     var sides = Number(info.sides) || sidesOf(info.formula) || 20;
     stage.hidden = false;
@@ -456,20 +481,20 @@
     else b.pool.push({ sides: sides, count: b.count });
     paintBuilder(el);
   }
-  function fire(rolled) {
-    show(rolled);
+  function fire(rolled, el) {
+    show(rolled, el);
     if (typeof api.onBarRoll === "function") api.onBarRoll(rolled);
     return rolled;
   }
   function rollFromBar(el, sides) {
     var b = builderOf(el);
-    if (b.count === 1 && b.mod === 0) return fire(roll(sides));
-    return fire(rollPool([{ sides: sides, count: b.count }], b.mod));
+    if (b.count === 1 && b.mod === 0) return fire(roll(sides), el);
+    return fire(rollPool([{ sides: sides, count: b.count }], b.mod), el);
   }
   function rollPoolFromBar(el) {
     var b = builderOf(el);
     if (!b.pool.length) return null;
-    var out = fire(rollPool(b.pool, b.mod));
+    var out = fire(rollPool(b.pool, b.mod), el);
     b.pool = [];
     paintBuilder(el);
     return out;
@@ -477,7 +502,8 @@
   function mount(el) {
     if (!el) return;
     el.classList.add("dice-bar");
-    el.innerHTML = barHtml();
+    el.innerHTML = barHtml() + (el.classList.contains("dice-bar-map") || el.hasAttribute("data-dice-inline")
+      ? '<div class="dice-stage dice-stage-inline" data-dice-inline-stage aria-live="polite" hidden></div>' : "");
     paintBuilder(el);
     if (el.getAttribute("data-dice-wired") === "1") return;
     el.setAttribute("data-dice-wired", "1");

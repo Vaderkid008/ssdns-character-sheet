@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.92"; // dmcc-playtest-v0292
+const VERSION = "0.2.93"; // dmcc-playtest-v0293
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1777,6 +1777,7 @@ function renderPlayers() {
       </div>
       ${dsHtml}
       ${guns}
+      ${window.SSDNSTrackers && window.SSDNSTrackers.dmHtml ? window.SSDNSTrackers.dmHtml(s) : ""}
       ${addictionLine(p.id)}
       ${slotLine(s) ? `<div class="slot-line">${esc(slotLine(s))}</div>` : ""}
     </button>`;

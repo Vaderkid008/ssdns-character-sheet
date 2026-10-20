@@ -707,7 +707,7 @@
     var haveAc = ac != null && ac !== "" && isFinite(Number(ac));
     if (haveAc && !miss && !opts.crit && total < Number(ac)) miss = true;
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
-    var dmg = (!miss && opts.dmg) ? (" · " + opts.dmg.formula + " = " + opts.dmg.total) : "";
+    var dmg = (!miss && opts.dmg) ? (" · " + opts.dmg.formula + (opts.dmg.riderText ? " " + opts.dmg.riderText : "") + " = " + opts.dmg.total) : "";
     var face = opts.dice || String(nat);
     var weapon = opts.weapon ? (opts.weapon + (opts.caliber ? " (" + opts.caliber + ")" : "") + " · ") : "";
     var head = (target ? (who + " → " + target) : who) + ": " + weapon + face + bonus + " = " + total;
@@ -1718,6 +1718,21 @@
     rest.replace(/([+-])\s*(\d+)/g, function (all, sg, n) { flat += (sg === "-" ? -1 : 1) * parseInt(n, 10); flatHit = true; return " "; });
     return { terms: terms, flat: flatHit ? flat : 0 };
   }
+  /* SAMPLE trackers: Sneak Attack / Smite Lead are armed BEFORE the attack; SSDNSTrackers.rider() resolves them once per attack. */
+  function takeRiders(ctx) {
+    var T = root.SSDNSTrackers;
+    return T && T.rider ? T.rider(ctx) : null;
+  }
+  function addRiders(dmg, r) {
+    if (!dmg || !r || !r.riders || !r.riders.length) return dmg;
+    dmg.total += r.total;
+    dmg.riders = r.riders;
+    dmg.riderText = r.text;
+    return dmg;
+  }
+  function riderParts(r) {
+    return (r && r.riders || []).map(function (x) { return { label: x.formula + " " + x.label, value: x.total }; });
+  }
   function rollDamageExpr(expr, crit) {
     var p = parseDamage(expr);
     if (!p.terms.length) return null;
@@ -1872,7 +1887,7 @@
     var g = c.guns[i];
     if (g.equipped === false) { toast("Equip this weapon first."); return; }
     var name0 = gunName(i);
-    /* 0.3.78 (Jessey): the off-hand attack needs the Attack action first; a DM-sent shot overrides. Checked once,
+    /* 0.3.80 (Jessey): the off-hand attack needs the Attack action first; a DM-sent shot overrides. Checked once,
        on the first pass (the target/range asks re-enter rollGun with _aimed set). */
     if (OH && OH.gate && !rollGun._aimed && !rollGun._wild && !OH.gate(name0, { dm: !!dmNow }).ok) { rollGun._chamber = null; return; }
     if (FAN && FAN.gate && !rollGun._aimed && !rollGun._wild && !FAN.gate(i, name0, { dm: !!dmNow }).ok) { rollGun._chamber = null; return; }
@@ -1883,6 +1898,10 @@
       return;
     }
     var empty = root.SSDNSApplied && root.SSDNSApplied.gunEmpty ? root.SSDNSApplied.gunEmpty(g) : !num(g.loaded);
+    /* SAMPLE trackers: bows, slings, crossbows, the blowpipe and thrown weapons have no chambers. Before this they always
+       answered "Empty: reload" and could never fire. spendRound asks the tracker (quiver / loaded marker / count). */
+    var trkW = root.SSDNSTrackers && root.SSDNSTrackers.weapon ? root.SSDNSTrackers.weapon(g.weapon) : null;
+    if (trkW && /^(quiver|loaded|thrown)$/.test(root.SSDNSTrackers.kindOf(trkW))) empty = false;
     if (empty && !rollGun._wild) {
       g.loaded = 0;
       if (root.SSDNSAudio) root.SSDNSAudio.play("empty-click");
@@ -1957,9 +1976,11 @@
     var atk = parseInt(atkEl && String(atkEl.value).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(atk)) atk = 0;
     var misEl = document.querySelector('[data-out="mis.' + i + '"]');
-    var ceiling = root.SSDNSApp.misfireCeiling
+    /* SAMPLE trackers: misfire is firearms only (a bow, crossbow, sling or thrown weapon never misfires) */
+    var mfW = root.SSDNSApp.isFirearm ? (catalogWeapon(g.weapon) || (root.SSDNSTrackers && root.SSDNSTrackers.weapon ? root.SSDNSTrackers.weapon(g.weapon) : null)) : null;
+    var ceiling = (root.SSDNSApp.isFirearm && mfW && !root.SSDNSApp.isFirearm(mfW)) ? 0 : (root.SSDNSApp.misfireCeiling
       ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
-      : 1;
+      : 1);
     var chosen = rollGun._dmShot ? gunChosen(i) : rangeMode(gunChosen(i), rangeShot);
     var gunRollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
@@ -2006,7 +2027,8 @@
       ? root.SSDNSApp.critMin({ weapon: wpn, band: rangeShot && rangeShot.band, rangeApply: !!(rangeShot && rangeShot.apply) })
       : 20;
     var capNow = (gunStat && gunStat.capacity) || (wpn && wpn.capacity) || (g.chambers && g.chambers.length) || 0;
-    var resolved = root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
+    /* SAMPLE trackers: ceiling 0 = not a firearm; resolveShot floors the ceiling at 1, so skip it (fallback never misfires) */
+    var resolved = ceiling > 0 && root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
       ? root.SSDNSMisfire.resolveShot({
         dirty: g.dirty, fouled: g.fouled, ruined: g.ruined || g.broken, jammed: g.jammed,
         misStreak: g.misStreak, weapon: g.weapon, rugged: rugged, properties: wpn && wpn.properties,
@@ -2062,6 +2084,12 @@
     else attackCue("misfire"); /* 0.3.56: misfire (jam, foul, lock, dud) has its own sound; no shot, no ricochet */
     if (!rollGun._wild && !misfired && acHidden(tgt) && joined() && !quiet) {
       var pendingDmg = rollDamageExpr(dmgExpr, isCrit);
+      var pendRide = takeRiders({ pending: true, crit: isCrit, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon });
+      var pendParts = gunStat && gunStat.dmgParts && OH ? OH.stripParts(gunStat.dmgParts) : (gunStat && gunStat.dmgParts);
+      if (pendRide && pendRide.riders.length && pendingDmg) {
+        pendParts = (pendParts && pendParts.length ? pendParts.slice() : (pendingDmg.flat ? [{ label: "mod", value: pendingDmg.flat }] : [])).concat(riderParts(pendRide));
+        addRiders(pendingDmg, pendRide);
+      }
       sendPendingAttack({
         who: who,
         targetName: tgt.name,
@@ -2076,7 +2104,8 @@
         dice: pendingDmg ? pendingDmg.detail : "",
         dmgFaces: pendingDmg ? pendingDmg.faces : null,
         dmgFormula: pendingDmg ? pendingDmg.formula : "",
-        dmgParts: gunStat && gunStat.dmgParts && OH ? OH.stripParts(gunStat.dmgParts) : (gunStat && gunStat.dmgParts),
+        dmgParts: pendParts,
+        riders: pendRide && pendRide.riders,
         dmgType: gunStat && gunStat.dmgType,
         formula: (n2 == null ? "1d20" : "2d20") + ((bonus >= 0 ? "+" : "") + bonus),
         rollId: gunRollId,
@@ -2099,6 +2128,7 @@
     var miss = nat === 1 || misfired || (!isCrit && haveAc && total < Number(gunCover.ac));
     var dmg = null;
     if (!miss) dmg = rollDamageExpr(dmgExpr, isCrit);
+    var gunRide = takeRiders({ hit: !miss && !!dmg, crit: isCrit && !miss, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon });
     var dmgParts = [];
     if (dmg && gunStat && gunStat.dmgParts) {
       var partSum = 0;
@@ -2112,9 +2142,10 @@
         who: who, target: tgt && tgt.name, weapon: name, tag: OH ? OH.TAG : "", nat: nat, n1: n1, n2: n2, parts: parts, total: total,
         ac: haveAc ? gunCover.ac : (tgt && tgt.ac), revealAc: !acHidden(tgt), misfire: misfired, miss: miss, coverNote: gunCover.note,
         crit: isCrit && !miss, critMin: critAt,
-        damage: dmg ? { faces: dmg.faces, formula: dmg.formula, parts: dmgParts, total: dmg.total, type: (gunStat && gunStat.dmgType) || "piercing" } : null
+        damage: dmg ? { faces: dmg.faces, formula: dmg.formula, parts: dmgParts, riders: gunRide && gunRide.riders, total: dmg.total + (gunRide ? gunRide.total : 0), type: (gunStat && gunStat.dmgType) || "piercing" } : null
       })
       : null;
+    addRiders(dmg, gunRide);
     var report = attackReport({
       who: who, target: tgt && tgt.name, nat: nat, atk: bonus,
       ac: haveAc ? gunCover.ac : (tgt && tgt.ac), miss: miss, misfire: misfired, dmg: dmg, crit: isCrit,
@@ -2128,7 +2159,7 @@
       if (wpn && wpn.group === "pistol" && root.SSDNSFan && root.SSDNSFan.notePistolAttack) root.SSDNSFan.notePistolAttack();
     }
     if (resolved.armD4 && window.SSDNSD4 && window.SSDNSD4.arm) window.SSDNSD4.arm(i);
-    var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
+    var ammoTxt = spent.left == null ? "" : (spent.unit /* SAMPLE trackers: bows, crossbows, thrown */ ? (" · " + (/^empty/.test(spent.unit) ? "" : spent.left + " ") + spent.unit + ".") : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left.")));
     var shownCard = card ? (acHidden(tgt) ? card.publicText : card.dmText) : report.player;
     var line = shownCard + (gunDice.note ? " · " + gunDice.note : "") + (chosen && gunDice.mode ? modeWord(chosen) : "") + ammoTxt;
     if (rollGun._wild) line += " · wild-shot attack (not on the streak)";
@@ -2190,6 +2221,7 @@
       addLog({ kind: "alert", text: name + ": " + reason });
       return null;
     }
+    takeRiders({ hit: false }); /* SAMPLE trackers: a free shot has no target, so an armed Sneak Attack / Smite clears unspent */
     var atkEl = document.querySelector('[data-calc="gunAtk.' + i + '"]');
     var bonus = parseInt(atkEl && String(atkEl.value).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(bonus)) bonus = 0;
@@ -2206,16 +2238,19 @@
       });
     } else if (powerOff) bonus -= Number(powerOff.atk) || 0;
     var misEl = document.querySelector('[data-out="mis.' + i + '"]');
-    var ceiling = root.SSDNSApp.misfireCeiling
+    /* SAMPLE trackers: misfire is firearms only (a bow, crossbow, sling or thrown weapon never misfires) */
+    var mfW = root.SSDNSApp.isFirearm ? (catalogWeapon(g.weapon) || (root.SSDNSTrackers && root.SSDNSTrackers.weapon ? root.SSDNSTrackers.weapon(g.weapon) : null)) : null;
+    var ceiling = (root.SSDNSApp.isFirearm && mfW && !root.SSDNSApp.isFirearm(mfW)) ? 0 : (root.SSDNSApp.misfireCeiling
       ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
-      : 1;
+      : 1);
     var nat = d20();
     var total = nat + bonus;
     var wpn = catalogWeapon(g.weapon);
     var rugged = !!(wpn && /rugged/i.test(wpn.properties || ""));
     var capNow = (gunStat && gunStat.capacity) || (wpn && wpn.capacity) || (g.chambers && g.chambers.length) || 0;
     var bad = function (n) { return n >= 1 && n <= ceiling; };
-    var resolved = root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
+    /* SAMPLE trackers: ceiling 0 = not a firearm; resolveShot floors the ceiling at 1, so skip it (fallback never misfires) */
+    var resolved = ceiling > 0 && root.SSDNSMisfire && root.SSDNSMisfire.resolveShot
       ? root.SSDNSMisfire.resolveShot({
         dirty: g.dirty, fouled: g.fouled, ruined: g.ruined || g.broken, jammed: g.jammed,
         misStreak: g.misStreak, weapon: g.weapon, rugged: rugged, properties: wpn && wpn.properties,
@@ -2265,7 +2300,7 @@
     var formula = "1d20" + signMod(bonus);
     var line = who + (FANF ? " fans the hammer and" : "") + " shoots freely" + (OHF ? " (" + OHF.TAG + ")" : "") + " · " + formula + " = " + total;
     if (misfired) line += " · natural " + nat + " misfire, the round is spent";
-    var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
+    var ammoTxt = spent.left == null ? "" : (spent.unit /* SAMPLE trackers: bows, crossbows, thrown */ ? (" · " + (/^empty/.test(spent.unit) ? "" : spent.left + " ") + spent.unit + ".") : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left.")));
     line += ammoTxt;
     var quiet = whisperOn();
     var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -2960,6 +2995,7 @@
       if (profile.expr === "1") dmg = { total: Math.max(0, flat), detail: String(flat), faces: [], flat: flat, formula: String(flat) };
       else dmg = rollDamageExpr(profile.expr + (flat ? ((flat >= 0 ? "+" : "") + flat) : ""), nat === 20);
     }
+    addRiders(dmg, takeRiders({ hit: !miss && !!dmg, crit: !miss && nat === 20, melee: true, finesse: false }));
     if (c) c.takingCover = false;
     if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(profile.name);
     attackCue("whoosh");

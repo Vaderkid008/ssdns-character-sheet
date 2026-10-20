@@ -1,5 +1,5 @@
 /**
- * PR84 (sheet 0.3.79 / DMCC 0.2.92): fight controls and token ammo badges.
+ * PR84 (sheet 0.3.80 / DMCC 0.2.93): fight controls and token ammo badges.
  *  - Wanted header: End combat next to Roll Initiative while a fight is set up or running.
  *  - DM map strip: "No fight running" + Roll Initiative when there is no fight; End combat at the far end
  *    (asks first, through the Fight tab's own End combat).
@@ -67,7 +67,7 @@ try {
   const pg = await browser.newPage();
   await pg.setViewport({ width: 1400, height: 1000 });
   const errs = [];
-  /* 0.2.91 also fixes the demo map's token-portrait drawImage throw, so no page error is allowed */
+  /* 0.2.93 also fixes the demo map's token-portrait drawImage throw, so no page error is allowed */
   pg.on("pageerror", (e) => errs.push(String(e)));
   await pg.goto("http://127.0.0.1:8765/dm/index.html?demo=1", { waitUntil: "domcontentloaded" });
   await pg.waitForFunction(() => window.DMCC && document.querySelector("#btnLoadDemo"), { timeout: 20000 });
