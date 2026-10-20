@@ -59,7 +59,7 @@ check("out.arrow", A.outcomeCue({ id: "shortbow", name: "Shortbow", group: "bow"
 check("out.nat1", A.outcomeCue({ name: "Machete", nat: 1 }, "miss") === "nat1" && A.outcomeCue({ gun: true, name: "Navy", nat: 1 }, "miss") === "ricochet");
 check("spell.big", A.spellCue({ name: "Lightning Bolt" }) === "lightning-ultimate" && A.spellCue({ name: "Ice Storm" }) === "ice-storm");
 check("shared.new", ["misfire", "sting-tension", "sting-reveal", "enemy-downed", "gatling-ellen-manor"].every((c) => A.sharedCue(c) === c));
-const n = made.length; A.play("ricochet"); await new Promise((r) => setTimeout(r, 950)); /* results wait ~750 ms (0.3.78) */
+const n = made.length; A.play("ricochet"); await new Promise((r) => setTimeout(r, 950)); /* results wait ~750 ms (0.3.79) */
 check("play.alt", made.length === n + 1 && /ricochet(-alt-0\d)?\.mp3$/.test(made.at(-1).url));
 /* master volume still scales */
 A.setVolume(0.25); A.play("rifle");
