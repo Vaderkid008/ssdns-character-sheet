@@ -937,7 +937,7 @@
     return { ok: true, item: item };
   }
 
-  /* inv2 (0.3.85): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
+  /* inv2 (0.3.86): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
      unpack, so nothing is doubled; 5E parts with no catalog row land as one gear note line. */
   function packContents(item) {
     var map = root.SSDNS_PACK_CONTENTS || {};
@@ -953,7 +953,7 @@
     if (character.inventoryLocked && !opts.dm) return { ok: false, reason: "Inventory is locked." };
     var n = Number(item.count == null ? 1 : item.count) || 0;
     if (n <= 0) return { ok: false, reason: "No item." };
-    /* supplies (0.3.85): the unpacked pack takes the meals already eaten and the water already drunk with it,
+    /* supplies (0.3.86): the unpacked pack takes the meals already eaten and the water already drunk with it,
        so Unpack hands out only the hardtack and water still in the pack */
     var mealsEach = Number(item.meals) || 0, used = Math.max(0, Number(item.mealsUsed) || 0);
     var thisUsed = mealsEach > 0 ? Math.min(used, mealsEach) : 0;

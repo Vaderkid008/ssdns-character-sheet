@@ -1,5 +1,5 @@
 /**
- * Small math gaps (sheet 0.3.85 / DMCC 0.2.98):
+ * Small math gaps (sheet 0.3.86 / DMCC 0.2.99):
  * Alert (+5 init), Tough (+2 HP/level), Observant (+5 passive Perception and Investigation),
  * Medium Armor Master (Dex cap 3 in medium armor), Demon Hide (AC 13 + Dex unarmored, +1 HP/level),
  * crit range (Champion 19-20 / 18-20, Pistolero Dead Eye 19-20 in normal range) on the sheet and the DM verdict,
