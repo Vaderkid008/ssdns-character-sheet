@@ -119,6 +119,24 @@ try {
     if (kit) { kit.click(); await wait(600); }
     out.clean.dirtyAfter = A.doc().character.guns[1].dirty;
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await wait(100);
+    /* condition chips: each condition shows once, active ones highlighted (not dimmed) */
+    A.applyPatch((d) => { const g = d.character.guns[1]; g.dirty = true; g.fouled = false; g.jammed = false; }); await wait(400);
+    const chipInfo = (i, cond) => {
+      const c = card(i);
+      const l = cond === "lockup" ? c.querySelector('[data-lockup="' + i + '"]') : c.querySelector('[data-f="character.guns.' + i + '.' + cond + '"]').closest("label");
+      const inp = l.querySelector("input"), cs = getComputedStyle(l), ci = getComputedStyle(inp);
+      return { on: l.classList.contains("on"), cond: l.getAttribute("data-cond"), checked: inp.checked, disabled: inp.disabled, op: cs.opacity + "/" + ci.opacity, bg: cs.backgroundColor, border: cs.borderTopColor, weight: cs.fontWeight, boxBg: ci.backgroundColor };
+    };
+    out.cond = { dirty: chipInfo(1, "dirty"), fouledOff: chipInfo(1, "fouled"), status: card(1).querySelector('[data-out="gst.1"]').textContent, badge: card(1).querySelector('[data-out="mis.1"]').textContent,
+      dirtyWords: (card(1).querySelector(".g-mis").textContent.match(/dirty/gi) || []).length };
+    A.applyPatch((d) => { const g = d.character.guns[1]; g.dirty = false; g.fouled = true; }); await wait(400);
+    out.cond.fouled = chipInfo(1, "fouled");
+    A.applyPatch((d) => { const g = d.character.guns[1]; g.fouled = false; }); await wait(300);
+    A.applyPatch((d) => { const g = d.character.guns[0]; g.jammed = true; g.misStreak = 2; g.lockedChambers = [1]; }); await wait(400);
+    out.cond.jammed = chipInfo(0, "jammed"); out.cond.lock = chipInfo(0, "lockup");
+    out.cond.status0 = card(0).querySelector('[data-out="gst.0"]').textContent;
+    A.applyPatch((d) => { const g = d.character.guns[0]; g.jammed = false; g.misStreak = 0; g.lockedChambers = []; }); await wait(400);
+    out.cond.lockOff = chipInfo(0, "lockup"); out.cond.jamOff = chipInfo(0, "jammed");
     /* Unjam: shows when jammed, sits in the misfire row, costs the bonus action, posts to chat */
     P.reset(true);
     A.applyPatch((d) => { const g = d.character.guns[0]; g.jammed = true; g.misStreak = 1; }); await wait(400);
@@ -181,6 +199,16 @@ try {
   check("unload.works", res.unload === 0, J(res.unload));
   check("reload.works", res.reload === 6, J(res.reload));
   check("clean.picker", res.clean.picker > 0 && res.clean.dirtyAfter === false, J(res.clean));
+  {
+    const c = res.cond, lit = (x) => x.on && x.checked && x.op === "1/1" && Number(x.weight) >= 700 && !/rgba\(0, 0, 0, 0\)/.test(x.bg);
+    check("cond.dirtyOnce", c.dirtyWords === 2 && !/Dirty/.test(c.status) && /\(dirty\)/.test(c.badge), JSON.stringify(c)); /* chip label + the badge's "(dirty)" note */
+    check("cond.dirtyLit", lit(c.dirty) && c.dirty.disabled && /rgba\(214, 135, 40/.test(c.dirty.bg) && c.dirty.boxBg === "rgb(176, 97, 26)", JSON.stringify(c.dirty));
+    check("cond.fouledLit", lit(c.fouled) && /rgba\(214, 135, 40/.test(c.fouled.bg), JSON.stringify(c.fouled));
+    check("cond.jammedLit", lit(c.jammed) && /rgba\(224, 82, 74/.test(c.jammed.bg) && c.jammed.boxBg === "rgb(179, 38, 30)", JSON.stringify(c.jammed));
+    check("cond.lockupLit", lit(c.lock) && /rgba\(224, 82, 74/.test(c.lock.bg), JSON.stringify(c.lock));
+    check("cond.statusKeepsRest", /misfires 2/.test(c.status0) && !/Jammed|locked/.test(c.status0), c.status0);
+    check("cond.offPlain", !c.fouledOff.on && !c.lockOff.on && !c.jamOff.on && !c.lockOff.checked && c.lockOff.op === "1/1", JSON.stringify([c.fouledOff, c.lockOff, c.jamOff]));
+  }
   check("unjam.shownInRow", res.unjam.shown && res.unjam.inRow && /^Unjam/.test(res.unjam.text), J(res.unjam));
   check("unjam.worksCostChat", res.unjam.after.jammed === false && res.unjam.after.bonus === true && /unjam/i.test(res.unjam.after.log) && res.unjam.after.hidden, J(res.unjam.after));
   check("unjam.mapPath", res.mapUnjam.jammed === false && res.mapUnjam.bonus === true, J(res.mapUnjam));

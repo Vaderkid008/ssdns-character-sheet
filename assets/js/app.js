@@ -1675,6 +1675,9 @@
         var box = row.querySelector('[data-f="character.guns.' + i + '.' + flag + '"]');
         if (box && document.activeElement !== box) box.checked = !!g[flag];
         if (box) box.disabled = true;
+        /* 0.3.75: an active condition chip is highlighted (auto-set, so disabled, but never dimmed) */
+        var chip = box && box.closest("label");
+        if (chip) { chip.setAttribute("data-cond", flag); chip.classList.toggle("on", !!g[flag]); }
       });
       var lockN = window.SSDNSMisfire && window.SSDNSMisfire.lockupCount
         ? window.SSDNSMisfire.lockupCount(g)
@@ -1686,12 +1689,11 @@
         lockBox.disabled = true;
       }
       if (lockNum) lockNum.textContent = String(lockN);
+      var lockChip = row.querySelector('[data-lockup="' + i + '"]');
+      if (lockChip) { lockChip.setAttribute("data-cond", "lockup"); lockChip.classList.toggle("on", lockN > 0); }
+      /* 0.3.75: Dirty / Fouled / Jammed / locked show once, as their highlighted chips; the status text keeps the rest */
       var statusBits = [];
-      if (g.dirty) statusBits.push("Dirty");
-      if (g.fouled) statusBits.push("Fouled");
       if (g.ruined || g.broken) statusBits.push("Ruined");
-      if (g.jammed) statusBits.push("Jammed");
-      if (g.lockedChambers && g.lockedChambers.length) statusBits.push(g.lockedChambers.length + " locked");
       if (Number(g.misStreak)) statusBits.push("misfires " + g.misStreak);
       if (g.pendingD4) statusBits.push("d4 pending");
       out("gst." + i, statusBits.join(" · "));
