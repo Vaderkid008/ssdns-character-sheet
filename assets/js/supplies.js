@@ -3,11 +3,11 @@
  * Pure rules shared by the player sheet, the DM Command Center and the tests.
  *
  * Where the counts live (on the character, so old saves just get defaults):
- *   rations  = the real "Hardtack and Jerky" items in the inventory (catalog id
- *              hardtack-jerky-1-day, one day of food each), plus a half ration left
- *              open after a half-rations day (supplies.halfOpen).
- *   water    = supplies.water, in gallons (half-gallon steps). It weighs 8 lb a gallon
- *              in carried weight (items.js slotWeights "water").
+ *   rations  = meals in every food item (tag "food" + meals: hardtack 1, bread/cheese/meat ½,
+ *              DM-set big game), plus the meals still in a pack (derived from what it unpacks
+ *              into) and a half left open (supplies.halfOpen).
+ *   water    = container fill (capacity at 5e full) + drink items tagged water + loose
+ *              supplies.water gallons. 8 lb a gallon in carried weight.
  *   supplies = { mode, water, daysHungry, halfOpen, pendingSave, last, day }
  * The DM owns the counts. The sheet shows them read-only.
  */
@@ -51,7 +51,9 @@
   function tagged(item, tag) { return !!(item && Array.isArray(item.tags) && item.tags.indexOf(tag) >= 0); }
   function isFood(item) {
     if (!item) return false;
+    if (tagged(item, "feed")) return false; /* mount feed (animal-days) never feeds a PC */
     if (tagged(item, "food")) return true;
+    if (num(item.meals, 0) > 0) return true; /* a pack: meals come from what it unpacks into (no tag of its own) */
     if (item.catalogId === RATION_ID) return true;
     return !(item.tags && item.tags.length) && /^(rations?\b|hardtack)/i.test(String(item.name || ""));
   }
@@ -61,7 +63,7 @@
     return itemsOf(c).filter(isFood).sort(function (a, b) { return mealsEach(a) - mealsEach(b); });
   }
   function mealsEach(it) { var m = num(it && it.meals, 0); return m > 0 ? m : 1; }
-  function mealsIn(it) { return Math.max(0, mealsEach(it) * Math.max(1, num(it.count, 1)) - num(it.mealsUsed, 0)); }
+  function mealsIn(it) { return Math.max(0, Math.round((mealsEach(it) * Math.max(1, num(it.count, 1)) - num(it.mealsUsed, 0)) * 2) / 2); }
   /** Days of food in the bags (every food-tagged item) plus an open half. */
   function rations(c) {
     var n = 0;
@@ -77,9 +79,14 @@
       type: "consumable", description: "One day of trail food.", effect: { kind: "text", text: "Food for 1 day." },
       uses: { max: 1 }, chargesLeft: 1, weight: 2, price: 50, count: count, approved: true, tags: ["food"], meals: 1 };
   }
-  /** Eat n whole meals out of the food items. A multi-meal item (a pack) counts meals used. */
-  function removeWhole(c, n) {
-    var left = n;
+  /** Eat `amt` meals (half steps) out of the food items: an open half first, then the smallest items
+      (bread, cheese and meat are ½ meal each, hardtack 1), then multi-meal items (a DM-set deer, a pack's hardtack).
+      Breaking into a whole meal for half a meal leaves the other half open (supplies.halfOpen). Returns meals eaten. */
+  function eatMeals(c, amt) {
+    var s = ensure(c);
+    var left = half(amt);
+    if (left <= 0) return 0;
+    if (s.halfOpen) { s.halfOpen = false; left -= 0.5; }
     var list = foodItems(c);
     for (var i = 0; i < list.length && left > 0; i++) {
       var it = list[i];
@@ -87,21 +94,20 @@
         var m = mealsEach(it);
         if (m <= 1) {
           var have = Math.max(1, num(it.count, 1));
-          var take = Math.min(have, left);
-          left -= take;
-          if (take >= have) c.items.splice(c.items.indexOf(it), 1);
-          else it.count = have - take;
+          if (have > 1) it.count = have - 1; else c.items.splice(c.items.indexOf(it), 1);
+          left = half(left - m);
         } else {
-          /* a pack: count meals eaten out of the whole stack; the pack itself (rope, bedroll, ...) stays.
-             Its weight drops by mealWeight per meal, and Unpack hands out only the meals still in it. */
+          /* a multi-meal item: count meals eaten out of the whole stack; the item itself stays
+             (a pack keeps its rope and bedroll). Its weight drops by mealWeight per meal. */
           var all = m * Math.max(1, num(it.count, 1));
           if (num(it.mealsUsed, 0) >= all) break;
           it.mealsUsed = num(it.mealsUsed, 0) + 1;
-          left -= 1;
+          left = half(left - 1);
         }
       }
     }
-    return n - left;
+    if (left < 0) { s.halfOpen = true; left = 0; }
+    return half(amt) - left;
   }
   /** Add (n > 0) or take away (n < 0) rations, in half steps. Returns the new count. */
   function giveRations(c, n) {
@@ -115,13 +121,7 @@
       if (whole > 0) addWhole(c, whole);
       if (n - whole) s.halfOpen = true;
     } else if (n < 0) {
-      var take = -n;
-      if (take % 1) {
-        if (s.halfOpen) { s.halfOpen = false; take -= 0.5; }
-        else if (removeWhole(c, 1)) { s.halfOpen = true; take -= 0.5; }
-        else take = 0;
-      }
-      if (take > 0) removeWhole(c, Math.floor(take));
+      eatMeals(c, -n);
     }
     return rations(c);
   }
@@ -309,6 +309,7 @@
     waterTotal: waterTotal,
     spendWater: spendWater,
     giveRations: giveRations,
+    eatMeals: eatMeals,
     giveWater: giveWater,
     foodLimit: foodLimit,
     waterNeed: waterNeed,

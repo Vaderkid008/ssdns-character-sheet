@@ -168,14 +168,19 @@
       /* L0188-L0190 supplies schema: tags (keep type too), meals for food, water (gal) for drink,
          capacity (gal) + defaultFill ("full" | "empty") for water containers */
       tags: tagsOf(raw.tags),
-      meals: posNum(raw.meals),
-      water: posNum(raw.water),
-      capacity: posNum(raw.capacity),
-      defaultFill: raw.defaultFill === "full" ? "full" : (raw.capacity ? "empty" : ""),
+      meals: posNum(raw.meals != null ? raw.meals : (raw.food && typeof raw.food === "object" ? raw.food.meals : null)),
+      water: posNum(nestedWater(raw) ? null : raw.water) || (nestedWater(raw) && !isContainerRaw(raw) ? posNum(raw.water.gallons) : null),
+      capacity: posNum(raw.capacity) || (nestedWater(raw) && isContainerRaw(raw) ? posNum(raw.water.gallons) : null),
+      feedDays: posNum(raw.feedDays),
+      defaultFill: raw.defaultFill === "full" ? "full" : (raw.capacity || (nestedWater(raw) && isContainerRaw(raw)) ? "empty" : ""),
       fillIncluded: !!raw.fillIncluded, /* catalog weight already counts a full container (waterskin "5 lb full") */
       mealWeight: posNum(raw.mealWeight) /* lb per meal inside a multi-meal item (a pack's hardtack) */
     };
   }
+  /* Encounter Bot's scrub doc writes food: { meals } and water: { gallons }. Mapped onto this schema:
+     food.meals -> meals; water.gallons -> capacity for a container (its 5e full amount), or water for a drink. */
+  function nestedWater(raw) { return !!(raw && raw.water && typeof raw.water === "object"); }
+  function isContainerRaw(raw) { return tagsOf(raw.tags).indexOf("container") >= 0 || !!raw.water.container; }
   function tagsOf(list) {
     if (typeof list === "string") list = list.split(",");
     if (!Array.isArray(list)) return [];
@@ -306,10 +311,11 @@
       stack: !!(base.stack || (raw && raw.stack)),
       noCarry: !!(base.noCarry || (raw && raw.noCarry)),
       meals: posNum(raw && raw.meals != null ? raw.meals : base.meals),
-      water: posNum(raw && raw.water != null ? raw.water : base.water),
+      water: posNum(raw && raw.water != null && typeof raw.water !== "object" ? raw.water : base.water),
       capacity: posNum(raw && raw.capacity != null ? raw.capacity : base.capacity),
       fillIncluded: !!((raw && raw.fillIncluded) || base.fillIncluded),
       mealWeight: posNum(raw && raw.mealWeight != null ? raw.mealWeight : base.mealWeight),
+      feedDays: posNum(raw && raw.feedDays != null ? raw.feedDays : base.feedDays),
       fill: (function () {
         var cap = posNum(raw && raw.capacity != null ? raw.capacity : base.capacity);
         if (!cap) return null;

@@ -12,7 +12,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Light (padded). AC 11+Dex, Stealth disadv., 8 lb.",
-    "bookLine": 3840
+    "bookLine": 3839
   },
   {
     "id": "leather-jacket",
@@ -27,7 +27,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Light (leather). AC 11+Dex, 10 lb.",
-    "bookLine": 3841
+    "bookLine": 3840
   },
   {
     "id": "studded-vest",
@@ -42,7 +42,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Light (studded leather). AC 12+Dex, 13 lb.",
-    "bookLine": 3842
+    "bookLine": 3841
   },
   {
     "id": "hide-wrap",
@@ -57,7 +57,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Medium (hide). AC 12+Dex (max 2), 12 lb.",
-    "bookLine": 3848
+    "bookLine": 3847
   },
   {
     "id": "mail-undershirt",
@@ -72,7 +72,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Medium (chain shirt). AC 13+Dex (max 2), 20 lb.",
-    "bookLine": 3849
+    "bookLine": 3848
   },
   {
     "id": "scale-coat",
@@ -87,7 +87,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Medium (scale). AC 14+Dex (max 2), Stealth disadv., 45 lb.",
-    "bookLine": 3850
+    "bookLine": 3849
   },
   {
     "id": "steel-vest",
@@ -102,7 +102,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Medium (breastplate). AC 14+Dex (max 2), 20 lb.",
-    "bookLine": 3851
+    "bookLine": 3850
   },
   {
     "id": "heavy-leather-duster",
@@ -117,7 +117,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Medium (half plate). AC 15+Dex (max 2), Stealth disadv., 40 lb.",
-    "bookLine": 3852
+    "bookLine": 3851
   },
   {
     "id": "ring-coat",
@@ -132,7 +132,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Heavy (ring mail). AC 14, Stealth disadv., 40 lb.",
-    "bookLine": 3862
+    "bookLine": 3861
   },
   {
     "id": "mail-duster",
@@ -147,7 +147,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "Heavy (chain mail). AC 16, Str 13, Stealth disadv., 55 lb.",
-    "bookLine": 3863
+    "bookLine": 3862
   },
   {
     "id": "splint-harness",
@@ -162,7 +162,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Heavy (splint). AC 17, Str 15, Stealth disadv., 60 lb.",
-    "bookLine": 3864
+    "bookLine": 3863
   },
   {
     "id": "iron-suit",
@@ -177,7 +177,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Heavy (plate). AC 18, Str 15, Stealth disadv., 65 lb.",
-    "bookLine": 3865
+    "bookLine": 3864
   },
   {
     "id": "shield",
@@ -192,7 +192,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "+2 AC, 6 lb.",
-    "bookLine": 3871
+    "bookLine": 3870
   },
   {
     "id": "common-clothes-trail-wear",
@@ -207,7 +207,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Non-armor clothing. Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 3875,
+    "bookLine": 3874,
     "ref_price_es": 50
   },
   {
@@ -223,7 +223,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Non-armor clothing. Reference only: PHB price x100 = 1,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 3875,
+    "bookLine": 3874,
     "ref_price_es": 1500
   },
   {
@@ -239,7 +239,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Non-armor clothing. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 3875,
+    "bookLine": 3874,
     "ref_price_es": 500
   },
   {
@@ -255,7 +255,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Non-armor clothing. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 3875,
+    "bookLine": 3874,
     "ref_price_es": 200
   },
   {
@@ -271,7 +271,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Simple melee 1d4 bludgeoning, light.",
-    "bookLine": 3913
+    "bookLine": 3914
   },
   {
     "id": "brush-hook",
@@ -286,7 +286,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Simple melee 1d4 slashing, light.",
-    "bookLine": 3914
+    "bookLine": 3915
   },
   {
     "id": "claim-hammer-weapon",
@@ -301,7 +301,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Simple melee 1d4 bludgeoning, light, thrown 20/60. (Weapon; not the gear \"Claim hammer\" = PHB hammer.)",
-    "bookLine": 3915
+    "bookLine": 3916
   },
   {
     "id": "fence-post-mining-timber",
@@ -316,7 +316,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Simple melee 1d8 bludgeoning, two-handed.",
-    "bookLine": 3916
+    "bookLine": 3917
   },
   {
     "id": "hatchet",
@@ -331,7 +331,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Simple melee 1d6 slashing, light, thrown 20/60.",
-    "bookLine": 3917
+    "bookLine": 3918
   },
   {
     "id": "stiletto",
@@ -346,7 +346,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Simple melee 1d4 piercing, finesse, light, thrown.",
-    "bookLine": 3918
+    "bookLine": 3919
   },
   {
     "id": "throwing-spear",
@@ -361,7 +361,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Simple melee 1d6 piercing, thrown 30/120.",
-    "bookLine": 3919
+    "bookLine": 3920
   },
   {
     "id": "trail-mace-chapel-mace",
@@ -376,7 +376,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Simple melee 1d6 bludgeoning.",
-    "bookLine": 3920
+    "bookLine": 3921
   },
   {
     "id": "trail-spear",
@@ -421,7 +421,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Martial melee 1d10 slashing, heavy, reach, two-handed.",
-    "bookLine": 3938
+    "bookLine": 3939
   },
   {
     "id": "bowie",
@@ -436,7 +436,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Martial melee 1d6 piercing, finesse, light.",
-    "bookLine": 3939
+    "bookLine": 3940
   },
   {
     "id": "branding-fork",
@@ -451,7 +451,7 @@
     "rarity": "rare",
     "minTown": "boomtown",
     "notes": "Martial melee 1d6 piercing, thrown, versatile. BOOK1 labels it \"rare\".",
-    "bookLine": 3940
+    "bookLine": 3941
   },
   {
     "id": "buffalo-axe",
@@ -466,7 +466,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Martial melee 1d12 slashing, heavy, two-handed.",
-    "bookLine": 3941
+    "bookLine": 3942
   },
   {
     "id": "bullwhip",
@@ -481,7 +481,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Martial melee 1d4 slashing, finesse, reach.",
-    "bookLine": 3942
+    "bookLine": 3943
   },
   {
     "id": "cavalry-lance",
@@ -496,7 +496,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Martial melee 1d12 piercing, reach, special.",
-    "bookLine": 3943
+    "bookLine": 3944
   },
   {
     "id": "cavalry-saber",
@@ -526,7 +526,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Martial melee 1d8 bludgeoning.",
-    "bookLine": 3945
+    "bookLine": 3946
   },
   {
     "id": "cutlass",
@@ -541,7 +541,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Martial melee 1d6 slashing, finesse, light.",
-    "bookLine": 3946
+    "bookLine": 3947
   },
   {
     "id": "heavy-sledge",
@@ -556,7 +556,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Martial melee 2d6 bludgeoning, heavy, two-handed.",
-    "bookLine": 3947
+    "bookLine": 3948
   },
   {
     "id": "machete",
@@ -571,7 +571,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Martial melee 1d6 slashing, finesse, light.",
-    "bookLine": 3948
+    "bookLine": 3949
   },
   {
     "id": "miner-s-pick",
@@ -586,7 +586,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Martial melee 1d8 piercing.",
-    "bookLine": 3949
+    "bookLine": 3950
   },
   {
     "id": "pike",
@@ -601,7 +601,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Martial melee 1d10 piercing, heavy, reach, two-handed, 18 lb.",
-    "bookLine": 3950
+    "bookLine": 3951
   },
   {
     "id": "pole-iron",
@@ -616,7 +616,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Martial melee 1d10 slashing, heavy, reach, two-handed.",
-    "bookLine": 3951
+    "bookLine": 3952
   },
   {
     "id": "sledgehammer",
@@ -631,7 +631,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Martial melee 1d8 bludgeoning, versatile (1d10).",
-    "bookLine": 3952
+    "bookLine": 3953
   },
   {
     "id": "spiked-maul",
@@ -646,7 +646,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Martial melee 1d8 piercing.",
-    "bookLine": 3953
+    "bookLine": 3954
   },
   {
     "id": "sword-cane",
@@ -661,7 +661,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "Martial melee 1d8 piercing, finesse.",
-    "bookLine": 3954
+    "bookLine": 3955
   },
   {
     "id": "tomahawk",
@@ -676,7 +676,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Martial melee 1d8 slashing, versatile (1d10).",
-    "bookLine": 3955
+    "bookLine": 3956
   },
   {
     "id": "shortbow",
@@ -691,7 +691,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Simple ranged 1d6 piercing 80/320, arrows, two-handed.",
-    "bookLine": 3928
+    "bookLine": 3929
   },
   {
     "id": "sling",
@@ -706,7 +706,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Simple ranged 1d4 bludgeoning 30/120.",
-    "bookLine": 3929
+    "bookLine": 3930
   },
   {
     "id": "throwing-knife",
@@ -721,7 +721,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Simple ranged (dart) 1d4 piercing, finesse, thrown.",
-    "bookLine": 3930
+    "bookLine": 3931
   },
   {
     "id": "blowpipe",
@@ -736,7 +736,7 @@
     "rarity": "rare",
     "minTown": "boomtown",
     "notes": "Martial ranged (blowgun) 1 piercing 25/100, needles, loading.",
-    "bookLine": 3961
+    "bookLine": 3962
   },
   {
     "id": "catch-net",
@@ -751,7 +751,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Martial ranged (net), special, thrown 5/15.",
-    "bookLine": 3962
+    "bookLine": 3963
   },
   {
     "id": "longbow",
@@ -766,7 +766,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Martial ranged 1d8 piercing 150/600, arrows, heavy, two-handed.",
-    "bookLine": 3963
+    "bookLine": 3964
   },
   {
     "id": "herringer-light-pocket-pistol",
@@ -781,7 +781,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Derringer, cap 1, Light .32 Long. Starter/kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 3977
+    "bookLine": 3978
   },
   {
     "id": "herringer-light-double-derringer",
@@ -826,7 +826,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Percussion revolver (slow), cap 6, Medium. Starter/kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 3980
+    "bookLine": 3981
   },
   {
     "id": "pony-arms-chaosmaker-light",
@@ -856,7 +856,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Revolver TR, cap 6, chambered .357 or .44-40. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 3983
+    "bookLine": 3984
   },
   {
     "id": "pony-arms-chaosmaker-heavy",
@@ -871,7 +871,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Revolver TR, cap 6, chambered .45 Long. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 3984
+    "bookLine": 3985
   },
   {
     "id": "single-barrel-farm-shotgun",
@@ -886,7 +886,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Break-action, cap 1, .410/12 ga/10 ga. Starter/kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 3893
+    "bookLine": 3995
   },
   {
     "id": "double-barrel-coach-gun",
@@ -901,7 +901,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Break-action, cap 2, 12/10 ga. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 3995
+    "bookLine": 3996
   },
   {
     "id": "lancaster-lever-shotgun",
@@ -916,7 +916,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Lever tube TR, cap 4, .410/12 ga. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 3996
+    "bookLine": 3997
   },
   {
     "id": "lancaster-heavy-saddle-carbine",
@@ -931,7 +931,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Lever tube TR, cap 6. L 1d6 10/30 MF1; M 1d6 20/70 MF1; H 1d8 30/90 MF1-2. Handy: no close-quarters disadvantage, no horseback penalty. Martial. Scout kit only at 1st level.",
-    "bookLine": 4006
+    "bookLine": 4007
   },
   {
     "id": "henrietta-saddle-carbine",
@@ -946,7 +946,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Lever tube TR, cap 6. L 1d6 10/30 MF1-2; M 1d6 20/70 MF1-2. Handy: no close-quarters disadvantage, no horseback penalty. Martial.",
-    "bookLine": 4007
+    "bookLine": 4008
   },
   {
     "id": "dullards-light-carbine",
@@ -961,7 +961,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Lever tube TR, cap 6. Light .22 LR: 1d4, 10/30, MF 1-4. Handy: no close-quarters disadvantage, no horseback penalty. Scout-only at 1st level.",
-    "bookLine": 4008
+    "bookLine": 4009
   },
   {
     "id": "dulls-rolling-block-rifle",
@@ -976,7 +976,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Breechloader, cap 1, L/M/H. Starter/kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 4018
+    "bookLine": 4021
   },
   {
     "id": "dullards-tube-rifle",
@@ -991,7 +991,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Lever tube TR, cap 6, L/M. Starter/kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 4019
+    "bookLine": 4022
   },
   {
     "id": "henrietta-repeating-rifle",
@@ -1006,7 +1006,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Lever tube TR, cap 6, L/M/H. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 4020
+    "bookLine": 4024
   },
   {
     "id": "lancaster-repeating-rifle",
@@ -1021,7 +1021,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "Lever tube TR, cap 6, L/M/H. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 4021
+    "bookLine": 4025
   },
   {
     "id": "dull-co-rifle-musket",
@@ -1051,7 +1051,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Breechloader (slow), cap 1, Heavy .50-90 only, unwieldy. Martial. Not a kit gun. Buyer picks the chambered round at purchase (Chambering).",
-    "bookLine": 4032
+    "bookLine": 4036
   },
   {
     "id": "cartridges-light-20",
@@ -1067,7 +1067,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "",
-    "bookLine": 4197
+    "bookLine": 4201
   },
   {
     "id": "cartridges-medium-20",
@@ -1083,7 +1083,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "",
-    "bookLine": 4198
+    "bookLine": 4202
   },
   {
     "id": "cartridges-heavy-20",
@@ -1098,7 +1098,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4199
+    "bookLine": 4203
   },
   {
     "id": "shells-410-10",
@@ -1114,7 +1114,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Shells: buckshot or slugs, same price.",
-    "bookLine": 4200
+    "bookLine": 4204
   },
   {
     "id": "shells-12-ga-10",
@@ -1130,7 +1130,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Shells: buckshot or slugs, same price.",
-    "bookLine": 4201
+    "bookLine": 4205
   },
   {
     "id": "shells-10-ga-10",
@@ -1145,7 +1145,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Shells: buckshot or slugs, same price.",
-    "bookLine": 4202
+    "bookLine": 4206
   },
   {
     "id": "big-fifty-cartridges-50-90-10",
@@ -1160,7 +1160,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4203
+    "bookLine": 4207
   },
   {
     "id": "powder-ball-and-caps-20-shots",
@@ -1176,7 +1176,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "",
-    "bookLine": 4204
+    "bookLine": 4208
   },
   {
     "id": "arrows-20",
@@ -1192,7 +1192,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "",
-    "bookLine": 4205
+    "bookLine": 4209
   },
   {
     "id": "arrows-broadhead-5",
@@ -1281,7 +1281,7 @@
     "rarity": "rare",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). BOOK1 names the ammo (needles) but prints no price. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 3961,
+    "bookLine": 3962,
     "ref_price_es": 100
   },
   {
@@ -1297,7 +1297,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). BOOK1 names the ammo (sling stones) but prints no price. Reference only: PHB price x100 = 4 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 3929,
+    "bookLine": 3930,
     "ref_price_es": 4
   },
   {
@@ -1314,7 +1314,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "3d6 bludgeoning, 5-ft radius, DC 12 Dex half. Store stocks 1d4 sticks at a time; the company tracks buyers.",
-    "bookLine": 4254
+    "bookLine": 4271
   },
   {
     "id": "dynamite-stick-sweating-sold-cheap",
@@ -1330,7 +1330,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Misfires on 1-3. Sellers rarely say so.",
-    "bookLine": 4255
+    "bookLine": 4272
   },
   {
     "id": "long-fuse-per-stick",
@@ -1346,7 +1346,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "",
-    "bookLine": 4256
+    "bookLine": 4273
   },
   {
     "id": "blasting-caps-box-of-5",
@@ -1362,7 +1362,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Impact fuse; Powder Man only.",
-    "bookLine": 4257
+    "bookLine": 4274
   },
   {
     "id": "fuse-cord-50-ft",
@@ -1378,7 +1378,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "",
-    "bookLine": 4258
+    "bookLine": 4275
   },
   {
     "id": "blasting-powder-1-lb",
@@ -1394,7 +1394,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "1 Powder Man charge each, max 3/short rest.",
-    "bookLine": 4259
+    "bookLine": 4276
   },
   {
     "id": "blasting-keg",
@@ -1410,7 +1410,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Placed only; 6d6, 20-ft radius. 20 lb.",
-    "bookLine": 4260
+    "bookLine": 4277
   },
   {
     "id": "padded-powder-crate-holds-12-sticks",
@@ -1426,7 +1426,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Safe carry.",
-    "bookLine": 4261
+    "bookLine": 4278
   },
   {
     "id": "slim-jim",
@@ -1441,7 +1441,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4316
+    "bookLine": 4333
   },
   {
     "id": "mexican-loop",
@@ -1456,7 +1456,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4317
+    "bookLine": 4334
   },
   {
     "id": "skeleton-rig",
@@ -1471,7 +1471,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4318
+    "bookLine": 4335
   },
   {
     "id": "bridgeport-rig-swivel",
@@ -1486,7 +1486,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "",
-    "bookLine": 4319
+    "bookLine": 4336
   },
   {
     "id": "concealed-vest-sleeve",
@@ -1501,7 +1501,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4320
+    "bookLine": 4337
   },
   {
     "id": "shoulder-rig",
@@ -1516,7 +1516,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Hidden under a coat. Slow draw. Drawn on a creature that didn't know you were armed: +2 to your first shot.",
-    "bookLine": 4321
+    "bookLine": 4338
   },
   {
     "id": "cross-draw-holster",
@@ -1531,7 +1531,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "The +1 first-shot bonus applies only while seated, mounted, or driving. It does not apply on foot.",
-    "bookLine": 4322
+    "bookLine": 4339
   },
   {
     "id": "pocket-holster",
@@ -1546,7 +1546,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4323
+    "bookLine": 4340
   },
   {
     "id": "boot-holster",
@@ -1561,7 +1561,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4324
+    "bookLine": 4341
   },
   {
     "id": "gun-belt-cartridge-loops",
@@ -1576,7 +1576,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4325
+    "bookLine": 4342
   },
   {
     "id": "bandolier",
@@ -1591,7 +1591,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Bandolier is also listed at L4650 (same 200 ES).",
-    "bookLine": 4326
+    "bookLine": 4343
   },
   {
     "id": "saddle-scabbard",
@@ -1606,7 +1606,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4327
+    "bookLine": 4344
   },
   {
     "id": "pommel-holsters-pair",
@@ -1621,7 +1621,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4328
+    "bookLine": 4345
   },
   {
     "id": "svc-cylinder-machining-step-1-6-to-7",
@@ -1634,7 +1634,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Ball n Cap; ChaosMaker (L/M/H). Steps in order.",
-    "bookLine": 4365
+    "bookLine": 4384
   },
   {
     "id": "svc-cylinder-machining-step-2-7-to-8",
@@ -1647,7 +1647,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Ball n Cap; ChaosMaker (L/M/H). Needs step 1 first.",
-    "bookLine": 4365
+    "bookLine": 4384
   },
   {
     "id": "svc-rifle-tube-extension-step-1-6-to-8",
@@ -1660,7 +1660,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Dullards Tube Rifle; Henrietta and Lancaster Repeating Rifles.",
-    "bookLine": 4366
+    "bookLine": 4385
   },
   {
     "id": "svc-rifle-tube-extension-step-2-8-to-10",
@@ -1673,7 +1673,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Needs step 1 first.",
-    "bookLine": 4366
+    "bookLine": 4385
   },
   {
     "id": "svc-rifle-tube-extension-step-3-10-to-12",
@@ -1686,7 +1686,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Needs step 2 first.",
-    "bookLine": 4366
+    "bookLine": 4385
   },
   {
     "id": "svc-carbine-tube-extension-6-to-8",
@@ -1699,7 +1699,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Lancaster Heavy Saddle, Henrietta Saddle, Dullards Light Carbines.",
-    "bookLine": 4367
+    "bookLine": 4386
   },
   {
     "id": "svc-shotgun-tube-extension-4-to-6",
@@ -1712,7 +1712,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Lancaster Lever Shotgun.",
-    "bookLine": 4368
+    "bookLine": 4387
   },
   {
     "id": "svc-mod-scope",
@@ -1725,7 +1725,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Rifles, carbines, Big Fifty. Uses the mod slot; removal costs the same.",
-    "bookLine": 4380
+    "bookLine": 4399
   },
   {
     "id": "svc-mod-hair-trigger",
@@ -1738,7 +1738,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Pistols, revolvers. Uses the mod slot.",
-    "bookLine": 4381
+    "bookLine": 4400
   },
   {
     "id": "svc-mod-smoothed-action",
@@ -1751,7 +1751,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Any gun except Big Fifty and Rugged guns. Uses the mod slot.",
-    "bookLine": 4382
+    "bookLine": 4401
   },
   {
     "id": "svc-mod-rifled-slug-barrel",
@@ -1764,7 +1764,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Shotguns (not sawn-off). Uses the mod slot.",
-    "bookLine": 4383
+    "bookLine": 4402
   },
   {
     "id": "svc-engraving-and-grips",
@@ -1777,7 +1777,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Any gun. Does not use the mod slot.",
-    "bookLine": 4384
+    "bookLine": 4403
   },
   {
     "id": "svc-sawn-off-cut",
@@ -1790,7 +1790,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Farm Shotgun or Coach Gun only. Permanent.",
-    "bookLine": 4386
+    "bookLine": 4405
   },
   {
     "id": "svc-unfoul-a-gun",
@@ -1803,7 +1803,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Clears Fouled.",
-    "bookLine": 4395
+    "bookLine": 4414
   },
   {
     "id": "svc-rechamber-per-tier-step",
@@ -1816,7 +1816,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Light to Heavy is 2 steps (1,000 ES). Capacity stays. Also at L4206.",
-    "bookLine": 4396
+    "bookLine": 4415
   },
   {
     "id": "svc-replace-a-lost-or-broken-part",
@@ -1829,7 +1829,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service: a day in a town with a gunsmith. Sight, spring, hammer. DM's call.",
-    "bookLine": 4397
+    "bookLine": 4416
   },
   {
     "id": "gunsmith-s-tools",
@@ -1845,7 +1845,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Also cleans Dirty guns and unfouls on a short rest.",
-    "bookLine": 4648
+    "bookLine": 4672
   },
   {
     "id": "gun-cleaning-kit",
@@ -1861,7 +1861,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Cleans a Dirty gun in 10 minutes.",
-    "bookLine": 4649
+    "bookLine": 4673
   },
   {
     "id": "canvas-tent-wall-tent-sleeps-4",
@@ -1876,7 +1876,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "40 lb., needs a pack animal.",
-    "bookLine": 4651
+    "bookLine": 4675
   },
   {
     "id": "lariat-50-ft",
@@ -1891,7 +1891,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Hempen rope rules.",
-    "bookLine": 4652
+    "bookLine": 4676
   },
   {
     "id": "spurs",
@@ -1906,7 +1906,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "",
-    "bookLine": 4653
+    "bookLine": 4677
   },
   {
     "id": "baseball-bat",
@@ -1921,7 +1921,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Simple melee. 1d6 bludgeoning. 2 lb.",
-    "bookLine": ""
+    "bookLine": 3913
   },
   {
     "id": "whiskey-bottle",
@@ -1936,7 +1936,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Glass of rotgut (10 ES) is a saloon sale, not listed.",
-    "bookLine": 4658
+    "bookLine": 4681
   },
   {
     "id": "field-glass-spyglass",
@@ -1951,7 +1951,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "BOOK1 non-PHB price.",
-    "bookLine": 4637
+    "bookLine": 4661
   },
   {
     "id": "assay-glass-magnifying-glass",
@@ -1966,7 +1966,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "BOOK1 non-PHB price.",
-    "bookLine": 4638
+    "bookLine": 4662
   },
   {
     "id": "snakebite-antivenin-antitoxin",
@@ -1981,7 +1981,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "BOOK1 non-PHB price.",
-    "bookLine": 4639
+    "bookLine": 4663
   },
   {
     "id": "bottle-empty",
@@ -1996,7 +1996,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "BOOK1 non-PHB price (replaces PHB glass bottle).",
-    "bookLine": 4640
+    "bookLine": 4664
   },
   {
     "id": "trail-pack",
@@ -2011,7 +2011,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Backpack. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4530,
+    "bookLine": 4554,
     "ref_price_es": 200
   },
   {
@@ -2027,7 +2027,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Bedroll. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4531,
+    "bookLine": 4555,
     "ref_price_es": 100
   },
   {
@@ -2043,7 +2043,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Crowbar. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4532,
+    "bookLine": 4556,
     "ref_price_es": 200
   },
   {
@@ -2059,7 +2059,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Hooded lantern. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4533,
+    "bookLine": 4557,
     "ref_price_es": 500
   },
   {
@@ -2075,7 +2075,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Oil (flask). Reference only: PHB price x100 = 10 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4534,
+    "bookLine": 4558,
     "ref_price_es": 10
   },
   {
@@ -2091,7 +2091,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Tinderbox. Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4536,
+    "bookLine": 4560,
     "ref_price_es": 50
   },
   {
@@ -2107,7 +2107,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Torch. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4537,
+    "bookLine": 4561,
     "ref_price_es": 1
   },
   {
@@ -2123,7 +2123,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Manacles. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4538,
+    "bookLine": 4562,
     "ref_price_es": 200
   },
   {
@@ -2139,7 +2139,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Healer’s kit. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4540,
+    "bookLine": 4564,
     "ref_price_es": 500
   },
   {
@@ -2155,7 +2155,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Holy water. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4541,
+    "bookLine": 4565,
     "ref_price_es": 2500
   },
   {
@@ -2171,7 +2171,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Component pouch. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4542,
+    "bookLine": 4566,
     "ref_price_es": 2500
   },
   {
@@ -2187,7 +2187,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Holy symbol. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4545,
+    "bookLine": 4569,
     "ref_price_es": 500
   },
   {
@@ -2203,7 +2203,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Chain (10 ft). Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4551,
+    "bookLine": 4575,
     "ref_price_es": 500
   },
   {
@@ -2219,7 +2219,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Grappling hook. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4552,
+    "bookLine": 4576,
     "ref_price_es": 200
   },
   {
@@ -2235,7 +2235,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Hammer. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4553,
+    "bookLine": 4577,
     "ref_price_es": 100
   },
   {
@@ -2251,7 +2251,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Piton. Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4554,
+    "bookLine": 4578,
     "ref_price_es": 5
   },
   {
@@ -2267,7 +2267,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Pole (10 ft). Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4555,
+    "bookLine": 4579,
     "ref_price_es": 5
   },
   {
@@ -2283,7 +2283,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Pot, iron. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4556,
+    "bookLine": 4580,
     "ref_price_es": 200
   },
   {
@@ -2299,7 +2299,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Shovel. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4557,
+    "bookLine": 4581,
     "ref_price_es": 200
   },
   {
@@ -2315,7 +2315,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Signal whistle. Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4558,
+    "bookLine": 4582,
     "ref_price_es": 5
   },
   {
@@ -2331,7 +2331,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Whetstone. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4559,
+    "bookLine": 4583,
     "ref_price_es": 1
   },
   {
@@ -2347,7 +2347,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Waterskin. Reference only: PHB price x100 = 20 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4560,
+    "bookLine": 4584,
     "ref_price_es": 20
   },
   {
@@ -2363,8 +2363,53 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Rations (1 day). Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4561,
+    "bookLine": 4585,
     "ref_price_es": 50
+  },
+  {
+    "id": "bread-loaf",
+    "name": "Bread (loaf)",
+    "category": "food",
+    "price_es": 2,
+    "weight_lb": 0,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Half a day of food (1/2 meal). L0191 (c); price from Encounter Bot's scrub draft §1.12 (PHB x100); 5e gives food no weight.",
+    "bookLine": 4550
+  },
+  {
+    "id": "cheese-hunk",
+    "name": "Cheese (hunk)",
+    "category": "food",
+    "price_es": 10,
+    "weight_lb": 0,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Half a day of food (1/2 meal). L0191 (c); price from Encounter Bot's scrub draft §1.12 (PHB x100); 5e gives food no weight.",
+    "bookLine": 4550
+  },
+  {
+    "id": "meat-chunk",
+    "name": "Steak / meat (chunk)",
+    "category": "food",
+    "price_es": 30,
+    "weight_lb": 0,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Half a day of food (1/2 meal). L0191 (c); price from Encounter Bot's scrub draft §1.12 (PHB x100); 5e gives food no weight.",
+    "bookLine": 4550
   },
   {
     "id": "mess-kit",
@@ -2379,7 +2424,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Mess kit. Reference only: PHB price x100 = 20 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4562,
+    "bookLine": 4586,
     "ref_price_es": 20
   },
   {
@@ -2395,7 +2440,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Climber’s kit. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4563,
+    "bookLine": 4587,
     "ref_price_es": 2500
   },
   {
@@ -2411,7 +2456,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Fishing tackle. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4564,
+    "bookLine": 4588,
     "ref_price_es": 100
   },
   {
@@ -2427,7 +2472,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Hunting trap. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4565,
+    "bookLine": 4589,
     "ref_price_es": 500
   },
   {
@@ -2443,7 +2488,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Scale, merchant’s. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4567,
+    "bookLine": 4591,
     "ref_price_es": 500
   },
   {
@@ -2459,7 +2504,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Ink + quill. Reference only: PHB price x100 = 1,002 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4568,
+    "bookLine": 4592,
     "ref_price_es": 1002
   },
   {
@@ -2475,7 +2520,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Paper / parchment. Reference only: PHB price x100 = 20 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4569,
+    "bookLine": 4593,
     "ref_price_es": 20
   },
   {
@@ -2491,7 +2536,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Sealing wax. Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4570,
+    "bookLine": 4594,
     "ref_price_es": 50
   },
   {
@@ -2507,7 +2552,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Soap. Reference only: PHB price x100 = 2 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4571,
+    "bookLine": 4595,
     "ref_price_es": 2
   },
   {
@@ -2523,7 +2568,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Mirror, steel. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4572,
+    "bookLine": 4596,
     "ref_price_es": 500
   },
   {
@@ -2539,7 +2584,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Bell. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4573,
+    "bookLine": 4597,
     "ref_price_es": 100
   },
   {
@@ -2555,7 +2600,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Candle. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4574,
+    "bookLine": 4598,
     "ref_price_es": 1
   },
   {
@@ -2571,7 +2616,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Flask / tankard. Reference only: PHB price x100 = 2 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4575,
+    "bookLine": 4599,
     "ref_price_es": 2
   },
   {
@@ -2587,7 +2632,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Jug / pitcher. Reference only: PHB price x100 = 2 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4576,
+    "bookLine": 4600,
     "ref_price_es": 2
   },
   {
@@ -2603,7 +2648,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Basket. Reference only: PHB price x100 = 40 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4577,
+    "bookLine": 4601,
     "ref_price_es": 40
   },
   {
@@ -2619,7 +2664,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Barrel. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4578,
+    "bookLine": 4602,
     "ref_price_es": 200
   },
   {
@@ -2635,7 +2680,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Bucket. Reference only: PHB price x100 = 5 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4579,
+    "bookLine": 4603,
     "ref_price_es": 5
   },
   {
@@ -2651,7 +2696,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Chest. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4580,
+    "bookLine": 4604,
     "ref_price_es": 500
   },
   {
@@ -2667,7 +2712,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Vial. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4582,
+    "bookLine": 4606,
     "ref_price_es": 100
   },
   {
@@ -2683,7 +2728,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Block and tackle. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4583,
+    "bookLine": 4607,
     "ref_price_es": 100
   },
   {
@@ -2699,7 +2744,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Portable ram. Reference only: PHB price x100 = 400 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4584,
+    "bookLine": 4608,
     "ref_price_es": 400
   },
   {
@@ -2715,7 +2760,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Ball bearings. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4585,
+    "bookLine": 4609,
     "ref_price_es": 100
   },
   {
@@ -2731,7 +2776,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Caltrops. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4586,
+    "bookLine": 4610,
     "ref_price_es": 100
   },
   {
@@ -2747,7 +2792,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Ladder. Reference only: PHB price x100 = 10 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4587,
+    "bookLine": 4611,
     "ref_price_es": 10
   },
   {
@@ -2763,7 +2808,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Lock. Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4588,
+    "bookLine": 4612,
     "ref_price_es": 1000
   },
   {
@@ -2779,7 +2824,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Perfume. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4589,
+    "bookLine": 4613,
     "ref_price_es": 500
   },
   {
@@ -2795,7 +2840,7 @@
     "rarity": "rare",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Poison (basic). Reference only: PHB price x100 = 10,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4590,
+    "bookLine": 4614,
     "ref_price_es": 10000
   },
   {
@@ -2811,8 +2856,23 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19; matches the item catalog). PHB item: Potion of healing. Reference only: PHB price x100 = 5,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4591,
+    "bookLine": 4615,
     "ref_price_es": 5000
+  },
+  {
+    "id": "greater-healing-libation",
+    "name": "Greater Healing Libation",
+    "category": "healing",
+    "price_es": 15000,
+    "weight_lb": 0.5,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "rare",
+    "minTown": "boomtown",
+    "notes": "Heals 4d4+4. Price 15,000 ES kept (Jessey, L0192; no PHB or locked source, 3x the regular Healing Libation). 5e potion of greater healing: 1 use, 1/2 lb.",
+    "bookLine": 4615
   },
   {
     "id": "circuit-robe-coat",
@@ -2827,7 +2887,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Robe. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4592,
+    "bookLine": 4616,
     "ref_price_es": 100
   },
   {
@@ -2843,7 +2903,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Sack. Reference only: PHB price x100 = 1 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4593,
+    "bookLine": 4617,
     "ref_price_es": 1
   },
   {
@@ -2859,7 +2919,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB item: Two-person tent. Reference only: PHB price x100 = 200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4594,
+    "bookLine": 4618,
     "ref_price_es": 200
   },
   {
@@ -2875,7 +2935,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB hempen rope. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4535,
+    "bookLine": 4559,
     "ref_price_es": 100
   },
   {
@@ -2891,7 +2951,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB silk rope. Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4535,
+    "bookLine": 4559,
     "ref_price_es": 1000
   },
   {
@@ -2907,7 +2967,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB arcane focus price varies by form (5-20 gp). Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1). Provisional: price 1,000 ES / 1 lb (5E arcane foci run 5-20 gp and 1-4 lb; used the crystal/wand line).",
-    "bookLine": 4543,
+    "bookLine": 4567,
     "ref_price_es": 1000
   },
   {
@@ -2923,7 +2983,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB druidic focus price varies by form (1-10 gp). Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1). Provisional: price 100 ES / 0 lb (5E druidic foci run 1-10 gp; used the totem/mistletoe line).",
-    "bookLine": 4544,
+    "bookLine": 4568,
     "ref_price_es": 100
   },
   {
@@ -2939,7 +2999,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Burglar’s pack contents, western names. Reference only: PHB price x100 = 1,600 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4512,
+    "bookLine": 4536,
     "ref_price_es": 1600
   },
   {
@@ -2955,7 +3015,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Diplomat’s pack contents, western names. Reference only: PHB price x100 = 3,900 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4513,
+    "bookLine": 4537,
     "ref_price_es": 3900
   },
   {
@@ -2971,7 +3031,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Dungeoneer’s pack contents, western names. Reference only: PHB price x100 = 1,200 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4514,
+    "bookLine": 4538,
     "ref_price_es": 1200
   },
   {
@@ -2987,7 +3047,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Entertainer’s pack contents, western names. Reference only: PHB price x100 = 4,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4515,
+    "bookLine": 4539,
     "ref_price_es": 4000
   },
   {
@@ -3003,7 +3063,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Explorer’s pack contents, western names. Reference only: PHB price x100 = 1,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4516,
+    "bookLine": 4540,
     "ref_price_es": 1000
   },
   {
@@ -3019,7 +3079,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Priest’s pack contents, western names. Reference only: PHB price x100 = 1,900 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4517,
+    "bookLine": 4541,
     "ref_price_es": 1900
   },
   {
@@ -3035,7 +3095,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). PHB Scholar’s pack contents, western names. Reference only: PHB price x100 = 4,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4518,
+    "bookLine": 4542,
     "ref_price_es": 4000
   },
   {
@@ -3051,7 +3111,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). BOOK1 uses tinker's tools for jams, Fouled guns, dynamite charges (no price printed). Reference only: PHB price x100 = 5,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4446,
+    "bookLine": 4628,
     "ref_price_es": 5000
   },
   {
@@ -3067,7 +3127,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Artisan’s tools row mentions leatherwork. Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4604,
+    "bookLine": 4628,
     "ref_price_es": 500
   },
   {
@@ -3083,7 +3143,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Artisan’s tools row mentions cookware. Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4604,
+    "bookLine": 4628,
     "ref_price_es": 100
   },
   {
@@ -3099,7 +3159,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Used to fix a Broken instrument (Wear & Tear). Reference only: PHB price x100 = 100 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4728,
+    "bookLine": 4751,
     "ref_price_es": 100
   },
   {
@@ -3115,7 +3175,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4605,
+    "bookLine": 4629,
     "ref_price_es": 2500
   },
   {
@@ -3131,7 +3191,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Magistrates hang people for this. Reference only: PHB price x100 = 1,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4606,
+    "bookLine": 4630,
     "ref_price_es": 1500
   },
   {
@@ -3147,7 +3207,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Reference only: PHB price x100 = 50 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4607,
+    "bookLine": 4631,
     "ref_price_es": 50
   },
   {
@@ -3163,7 +3223,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Reference only: PHB price x100 = 10 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4607,
+    "bookLine": 4631,
     "ref_price_es": 10
   },
   {
@@ -3179,7 +3239,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Reference only: PHB price x100 = 500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4608,
+    "bookLine": 4632,
     "ref_price_es": 500
   },
   {
@@ -3195,7 +3255,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). River and desert navigation. Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4610,
+    "bookLine": 4634,
     "ref_price_es": 2500
   },
   {
@@ -3211,7 +3271,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Illegal in most towns. Reference only: PHB price x100 = 5,000 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4611,
+    "bookLine": 4635,
     "ref_price_es": 5000
   },
   {
@@ -3227,7 +3287,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Reference only: PHB price x100 = 2,500 ES (BOOK1 L4526 rule; not printed in BOOK1).",
-    "bookLine": 4612,
+    "bookLine": 4636,
     "ref_price_es": 2500
   },
   {
@@ -3243,7 +3303,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4688
+    "bookLine": 4711
   },
   {
     "id": "violin-strap",
@@ -3258,7 +3318,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4689
+    "bookLine": 4712
   },
   {
     "id": "cartridge-strap-guitar-banjo",
@@ -3273,7 +3333,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "BOOK1: WB only.",
-    "bookLine": 4690
+    "bookLine": 4713
   },
   {
     "id": "soft-travel-case",
@@ -3288,7 +3348,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "+1 Wear.",
-    "bookLine": 4691
+    "bookLine": 4714
   },
   {
     "id": "hard-travel-case",
@@ -3303,7 +3363,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "BOOK1: WB only. +2 Wear; heavy gear.",
-    "bookLine": 4692
+    "bookLine": 4715
   },
   {
     "id": "plain-strings-set",
@@ -3319,7 +3379,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "BOOK1: \"Sold at any store.\"",
-    "bookLine": 4693
+    "bookLine": 4716
   },
   {
     "id": "quality-strings-set",
@@ -3334,7 +3394,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "BOOK1: WB only. +1 Wear.",
-    "bookLine": 4694
+    "bookLine": 4717
   },
   {
     "id": "quality-bow-fiddle",
@@ -3349,7 +3409,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "BOOK1: WB only. +1 Wear.",
-    "bookLine": 4694
+    "bookLine": 4717
   },
   {
     "id": "cheap-strings-set",
@@ -3364,7 +3424,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "BOOK1: SS only. -1 Wear; snap on 1-2.",
-    "bookLine": 4695
+    "bookLine": 4718
   },
   {
     "id": "cheap-bow-fiddle",
@@ -3379,7 +3439,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "BOOK1: SS only. -1 Wear; snap on 1-2.",
-    "bookLine": 4695
+    "bookLine": 4718
   },
   {
     "id": "glass-slide",
@@ -3394,7 +3454,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "BOOK1: WB only.",
-    "bookLine": 4696
+    "bookLine": 4719
   },
   {
     "id": "fingerpicks",
@@ -3409,7 +3469,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "BOOK1: WB only.",
-    "bookLine": 4697
+    "bookLine": 4720
   },
   {
     "id": "tuning-fork",
@@ -3424,7 +3484,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4698
+    "bookLine": 4721
   },
   {
     "id": "harmonica-rack",
@@ -3439,7 +3499,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4699
+    "bookLine": 4722
   },
   {
     "id": "capo",
@@ -3454,7 +3514,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4700
+    "bookLine": 4723
   },
   {
     "id": "songbook-blank",
@@ -3469,7 +3529,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "BOOK1: WB only. Ritual book.",
-    "bookLine": 4701
+    "bookLine": 4724
   },
   {
     "id": "busking-hat",
@@ -3484,7 +3544,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "",
-    "bookLine": 4702
+    "bookLine": 4725
   },
   {
     "id": "svc-luthier-repair-quality-instrument",
@@ -3497,7 +3557,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "Service. BOOK1: Whiskey Bend fixes any.",
-    "bookLine": 4703
+    "bookLine": 4726
   },
   {
     "id": "svc-luthier-repair-cheap-instrument",
@@ -3510,7 +3570,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Service. BOOK1: Silver Springs fixes cheap ones only.",
-    "bookLine": 4703
+    "bookLine": 4726
   },
   {
     "id": "fiddle-quality",
@@ -3525,7 +3585,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "BOOK1: Whiskey Bend Music Store. Has a quality perk.",
-    "bookLine": 4712
+    "bookLine": 4735
   },
   {
     "id": "fiddle-cheap",
@@ -3540,7 +3600,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "BOOK1: Silver Springs Music Store. Half price, -2 Wear, no perk.",
-    "bookLine": 4712
+    "bookLine": 4735
   },
   {
     "id": "banjo-quality",
@@ -3585,7 +3645,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "BOOK1: Whiskey Bend Music Store. Has a quality perk.",
-    "bookLine": 4714
+    "bookLine": 4737
   },
   {
     "id": "guitar-cheap",
@@ -3600,7 +3660,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "BOOK1: Silver Springs Music Store. Half price, -2 Wear, no perk.",
-    "bookLine": 4714
+    "bookLine": 4737
   },
   {
     "id": "accordion-quality",
@@ -3615,7 +3675,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "BOOK1: Whiskey Bend Music Store. Has a quality perk.",
-    "bookLine": 4715
+    "bookLine": 4738
   },
   {
     "id": "accordion-cheap",
@@ -3630,7 +3690,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "BOOK1: Silver Springs Music Store. Half price, -2 Wear, no perk.",
-    "bookLine": 4715
+    "bookLine": 4738
   },
   {
     "id": "harmonica-quality",
@@ -3645,7 +3705,7 @@
     "rarity": "uncommon",
     "minTown": "city",
     "notes": "BOOK1: Whiskey Bend Music Store. Has a quality perk.",
-    "bookLine": 4716
+    "bookLine": 4739
   },
   {
     "id": "harmonica-cheap",
@@ -3660,7 +3720,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "BOOK1: Silver Springs Music Store. Half price, -2 Wear, no perk. Also L4655 (100 ES).",
-    "bookLine": 4716
+    "bookLine": 4739
   },
   {
     "id": "jaw-harp",
@@ -3675,7 +3735,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Frontier gear list.",
-    "bookLine": 4656
+    "bookLine": 4679
   },
   {
     "id": "drum",
@@ -3690,7 +3750,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Named in the Tools table only; no price in BOOK1. Provisional: price 600 ES (5E drum 6 gp; BOOK1 prints none).",
-    "bookLine": 4609
+    "bookLine": 4633
   },
   {
     "id": "bugle",
@@ -3705,7 +3765,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Named in the Tools table only; no price in BOOK1. Provisional: price 300 ES / 2 lb (5E horn 3 gp; BOOK1 prints none).",
-    "bookLine": 4609
+    "bookLine": 4633
   },
   {
     "id": "tin-whistle",
@@ -3720,7 +3780,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Named in the Tools table only; no price in BOOK1. Provisional: price 200 ES / 1 lb (5E flute 2 gp; BOOK1 prints none).",
-    "bookLine": 4609
+    "bookLine": 4633
   },
   {
     "id": "dullards-plinker-repeater",
@@ -3735,7 +3795,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Lever tube, TR, cap 7. Chambered .22 LR: 1d4, 10/30, MF 1-4. Two-handed, simple. Not Handy. Art pending.",
-    "bookLine": ""
+    "bookLine": 4023
   },
   {
     "id": "dullards-plinker-revolver",
@@ -3777,7 +3837,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 60 ft. Carries 480 lb. Doesn't count toward what you carry.",
-    "bookLine": 4632
+    "bookLine": 4645
   },
   {
     "id": "draft-freight-horse",
@@ -3791,7 +3851,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 40 ft. Carries 540 lb. Doesn't count toward what you carry.",
-    "bookLine": 4633
+    "bookLine": 4646
   },
   {
     "id": "cavalry-horse",
@@ -3805,7 +3865,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Warhorse. Speed 60 ft. Carries 540 lb. Doesn't spook at gunfire. Doesn't count toward what you carry.",
-    "bookLine": 4634
+    "bookLine": 4647
   },
   {
     "id": "mule",
@@ -3819,7 +3879,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 40 ft. Carries 420 lb. Wisdom in canyon country. Doesn't count toward what you carry.",
-    "bookLine": 4635
+    "bookLine": 4648
   },
   {
     "id": "cart",
@@ -3833,7 +3893,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Drawn vehicle, 200 lb. Doesn't count toward what you carry.",
-    "bookLine": 4636
+    "bookLine": 4649
   },
   {
     "id": "freight-wagon",
@@ -3847,7 +3907,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Drawn vehicle, 400 lb. Doesn't count toward what you carry.",
-    "bookLine": 4636
+    "bookLine": 4649
   },
   {
     "id": "coach",
@@ -3861,7 +3921,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Carriage, 600 lb. Doesn't count toward what you carry.",
-    "bookLine": 4637
+    "bookLine": 4650
   },
   {
     "id": "skiff",
@@ -3875,7 +3935,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 1½ mph. Doesn't count toward what you carry.",
-    "bookLine": 4638
+    "bookLine": 4651
   },
   {
     "id": "river-boat",
@@ -3889,7 +3949,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 1 mph. Doesn't count toward what you carry.",
-    "bookLine": 4638
+    "bookLine": 4651
   },
   {
     "id": "coastal-schooner",
@@ -3903,7 +3963,7 @@
     "rarity": "rare",
     "minTown": "city",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Speed 2 mph. Doesn't count toward what you carry.",
-    "bookLine": 4639
+    "bookLine": 4652
   },
   {
     "id": "riding-saddle",
@@ -3917,7 +3977,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Rides on your mount; doesn't count toward what you carry.",
-    "bookLine": 4628
+    "bookLine": 4641
   },
   {
     "id": "pack-saddle",
@@ -3931,7 +3991,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Rides on your mount; doesn't count toward what you carry.",
-    "bookLine": 4628
+    "bookLine": 4641
   },
   {
     "id": "cavalry-saddle",
@@ -3945,7 +4005,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Military saddle: advantage on checks to stay mounted. Rides on your mount.",
-    "bookLine": 4628
+    "bookLine": 4641
   },
   {
     "id": "saddlebags",
@@ -3960,7 +4020,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Ride on your mount; don't count toward what you carry.",
-    "bookLine": 4628
+    "bookLine": 4641
   },
   {
     "id": "bit-and-bridle",
@@ -3975,7 +4035,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). Tack for a riding animal.",
-    "bookLine": 4628
+    "bookLine": 4641
   },
   {
     "id": "feed-1-day",
@@ -3990,7 +4050,7 @@
     "rarity": "common",
     "minTown": "camp",
     "notes": "Priced 5E PHB x100 (inventory build 2026-10-19). One day of feed for a mount.",
-    "bookLine": 4628
+    "bookLine": 4641
   },
   {
     "id": "crossbow-bolts-20",
@@ -4005,7 +4065,7 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Jessey lock 2026-10-19 (Encounter Bot price). One pack fits all three crossbows.",
-    "bookLine": 4483
+    "bookLine": 4496
   },
   {
     "id": "hand-crossbow",
@@ -4019,7 +4079,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Jessey lock 2026-10-19: 5E PHB stats and price x100 (western name later). Ammunition (bolts), loading.",
-    "bookLine": 4472
+    "bookLine": 4485
   },
   {
     "id": "light-crossbow",
@@ -4033,7 +4093,7 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Jessey lock 2026-10-19: 5E PHB stats and price x100 (western name later). Ammunition (bolts), loading.",
-    "bookLine": 4473
+    "bookLine": 4486
   },
   {
     "id": "heavy-crossbow",
@@ -4047,6 +4107,6 @@
     "rarity": "uncommon",
     "minTown": "boomtown",
     "notes": "Jessey lock 2026-10-19: 5E PHB stats and price x100 (western name later). Ammunition (bolts), loading.",
-    "bookLine": 4476
+    "bookLine": 4489
   }
 ]

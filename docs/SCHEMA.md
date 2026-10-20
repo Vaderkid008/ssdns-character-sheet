@@ -42,7 +42,8 @@ Catalog rows and inventory rows may carry these. `type` is unchanged.
 - `meals` (days of food per item)
 - `water` (gal of drink per item)
 - `capacity` (gal a container holds), with `fill` (gal now in that inventory row)
-- `defaultFill` (`full` | `empty`), `fillIncluded`, `mealWeight`, `mealsUsed`
+- `defaultFill` (`full` | `empty`), `fillIncluded`, `mealWeight`, `mealsUsed`, `feedDays` (mount feed, animal-days)
+- Input also accepts the scrub doc form `food: { meals }` and `water: { gallons }` (container → capacity, drink → water). Packs carry no tags; their meals/capacity are derived from SSDNS_PACK_CONTENTS.
 - `character.supplies`: `{ mode: off|loose|strict, water (loose gal), daysHungry, halfOpen, pendingSave, last, day, share }`
 
 See docs/supplies.md.

@@ -98,11 +98,55 @@
       art: art("hardtack-jerky-1-day.webp")
     },
     {
+      id: "bread-loaf",
+      name: "Bread (loaf)",
+      type: "consumable",
+      description: "A loaf of camp or bakery bread.",
+      effect: { kind: "text", text: "Half a day of food." },
+      tags: ["food"],
+      meals: 0.5, /* L0191 (c): bread, cheese and meat chunk are 1/2 meal each; 5e gives food no weight */
+      uses: { max: 1 },
+      weight: 0,
+      price: 2,
+      forSale: true,
+      art: ""
+    },
+    {
+      id: "cheese-hunk",
+      name: "Cheese (hunk)",
+      type: "consumable",
+      description: "A hunk of hard cheese wrapped in cloth.",
+      effect: { kind: "text", text: "Half a day of food." },
+      tags: ["food"],
+      meals: 0.5, /* L0191 (c): bread, cheese and meat chunk are 1/2 meal each; 5e gives food no weight */
+      uses: { max: 1 },
+      weight: 0,
+      price: 10,
+      forSale: true,
+      art: ""
+    },
+    {
+      id: "meat-chunk",
+      name: "Steak / meat (chunk)",
+      type: "consumable",
+      description: "A chunk of cooked or salted meat.",
+      effect: { kind: "text", text: "Half a day of food." },
+      tags: ["food"],
+      meals: 0.5, /* L0191 (c): bread, cheese and meat chunk are 1/2 meal each; 5e gives food no weight */
+      uses: { max: 1 },
+      weight: 0,
+      price: 30,
+      forSale: true,
+      art: ""
+    },
+    {
       id: "whiskey-bottle",
       name: "Whiskey (bottle)",
       type: "consumable",
       description: "Honest-ish whiskey from the saloon. A rotgut glass is 10 ES.",
-      tags: ["drink", "alcohol"], /* L0188: a drink, but not water: it doesn't count toward the day's water */
+      tags: ["drink", "alcohol"], /* L0191 (d): liquor isn't water and isn't food: 0 meals, 0 gal, never counted */
+      meals: 0,
+      water: 0,
       effect: { kind: "save+condition", save: "CON", dc: 10, condition: "Poisoned", duration: "1 hour", temp: "1d4" },
       uses: { max: 4 },
       weight: 2,
@@ -214,7 +258,7 @@
       effect: { kind: "attack", range: "30/60", damage: "4d6", damageType: "bludgeoning", radius: 10, save: "DEX", dc: 12, onSave: "half", bundle: 2 },
       uses: { max: 1 },
       weight: 2,
-      price: 5000,
+      price: 5000, /* value reference only (NC6): made from sticks, never sold */
       forSale: false,
       art: "assets/img/weapons/dynamite-stick-standard-fuse.webp"
     },
@@ -226,7 +270,7 @@
       effect: { kind: "attack", range: "30/60", damage: "5d6", damageType: "bludgeoning", radius: 15, save: "DEX", dc: 13, onSave: "half", bundle: 3 },
       uses: { max: 1 },
       weight: 3,
-      price: 7500,
+      price: 7500, /* value reference only (NC6): made from sticks, never sold */
       forSale: false,
       art: "assets/img/weapons/dynamite-stick-standard-fuse.webp"
     },
@@ -238,7 +282,7 @@
       effect: { kind: "attack", range: "30/60", damage: "6d6", damageType: "bludgeoning", radius: 20, save: "DEX", dc: 13, onSave: "half", bundle: 4 },
       uses: { max: 1 },
       weight: 4,
-      price: 10000,
+      price: 10000, /* value reference only (NC6): made from sticks, never sold */
       forSale: false,
       art: "assets/img/weapons/dynamite-stick-standard-fuse.webp"
     },

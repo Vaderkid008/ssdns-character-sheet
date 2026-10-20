@@ -42,24 +42,23 @@ End of day finds **anything** tagged food or water in the inventory, whether it 
 - **Water** = water in containers (`fill`) + drink items (`water` × count) + loose gallons (`supplies.water`).
   Drinking empties containers first, then loose water, then drink items.
   DM-given water fills containers first, and any extra is kept as loose gallons. Water weighs 8 lb a gallon.
-- Tagged catalog items:
+- Tagged catalog items (final values L0191/L0192, Encounter Bot scrub v1.1):
 
 | Item | Tags | Values |
 |---|---|---|
-| Hardtack and Jerky | food | 1 meal each (overrides the old ½ default), 2 lb |
-| Waterskin / canteen | water, container | holds ½ gal (4 pints), starts full, "5 lb full" kept as the weight |
-| Flask / tin cup | water, container | 1 pint (0.125 gal), starts empty |
-| Bottle, empty | water, container | 1½ pints (0.1875 gal), starts empty |
-| Jug | water, container | 1 gal, empty |
-| Bucket | water, container | 3 gal, empty |
-| Barrel | water, container | 40 gal, empty |
-| Trail kit / Claim pack | pack, food, water, container | 10 meals + a full waterskin |
-| Saloon kit / Alley kit | pack, food, water, container | 5 meals + a full waterskin |
-| Preacher's kit | pack, food, water, container | 2 meals + a full waterskin |
-| Whiskey (bottle) | drink, alcohol | not water: it doesn't count toward the day's water |
-| Feed (1 day) | feed | mount feed, not people food |
+| Hardtack and Jerky (ration) | food | 1 meal, 2 lb |
+| Bread (loaf) / Cheese (hunk) / Steak / meat (chunk) | food | ½ meal each, 0 lb, 2 / 10 / 30 ES (new rows + store rows) |
+| Big game (deer, ...) | food | DM-set meals (a deer ≈ 6), given through the reward's Meals field; not a store item |
+| Waterskin / canteen | water, container | holds 0.5 gal, starts full, the "5 lb full" catalog weight is kept |
+| Jug / Bucket / Barrel / Cook pot | water, container | 1 / 3 / 40 / 1 gal, start empty |
+| Bottle, empty / Flask / tin cup | water, container | 0.1875 gal (1½ pt) / 0.125 gal (1 pt), start empty |
+| Whiskey (bottle) | drink, alcohol | 0 meals, 0 gal: never counted |
+| Feed (1 day) | feed | 1 animal-day (`feedDays`), never counted as player food |
+| Packs (Trail kit, Claim pack, Alley kit, Saloon kit, Preacher's kit, ...) | none | no tag of their own; the meals and water still inside come from what they unpack into (10 / 10 / 5 / 5 / 2 hardtack + one full waterskin) |
 
-  Not tagged: healing libations, antivenin, blessed water (holy water), lamp oil, trail poison, cook pot (a pot, not a canteen).
+  Not tagged: healing libations, antivenin, blessed water, lamp oil.
+- **Doc field mapping**: the scrub doc's `food: { meals }` maps to `meals`. Its `water: { gallons }` maps to `capacity` for a container (the 5e full amount, with per-row `fill`) and to `water` for a drink item. Both forms are accepted on input (`items.js normalize`).
+- **Half meals**: rows with ½ meal are eaten first. If a full meal has to be broken for the last half, the other half stays open (`supplies.halfOpen`).
 - **Old saves**: when items load, `items.js inferSupply` tags known catalog rows. Hand-typed rows named "rations / hardtack / jerky / pemmican" become food (1 meal), and rows named "waterskin / canteen" become ½-gal containers, starting full.
   Carried weight doesn't change.
 - **DM tools**:
