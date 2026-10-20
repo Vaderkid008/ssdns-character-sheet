@@ -23,6 +23,7 @@
   var sfxMap = null;
   var sfxPools = {};
   var weaponOverrides = {};
+  var arrowCues = {};
   var outcomeMap = { categories: {}, weapons: {} };
   var lastVariant = {};
   var musicEl = null;
@@ -72,13 +73,14 @@
         sfxMap = (j && j.events) || {};
         sfxPools = (j && j.pools) || {};
         weaponOverrides = (j && j.weapons) || {};
+        arrowCues = (j && j.arrows) || {};
         outcomeMap = (j && j.outcomes) || { categories: {}, weapons: {} };
         if (!outcomeMap.categories) outcomeMap.categories = {};
         if (!outcomeMap.weapons) outcomeMap.weapons = {};
         try { preloadSfx(); } catch (e) {}
         return sfxMap;
       })
-      .catch(function () { sfxMap = {}; sfxPools = {}; weaponOverrides = {}; outcomeMap = { categories: {}, weapons: {} }; return sfxMap; });
+      .catch(function () { sfxMap = {}; sfxPools = {}; weaponOverrides = {}; arrowCues = {}; outcomeMap = { categories: {}, weapons: {} }; return sfxMap; });
   }
 
   /* 0.3.58: warm every sfx file so a shot does not wait on fetch and decode. */
@@ -248,6 +250,14 @@
     if (/slash/.test(dmg) || /sword|saber|sabre|scimitar|machete|knife|dagger|rapier|blade|stiletto|bowie/.test(name)) return "blade";
     if (/bludgeon/.test(dmg) || /unarmed|fist|kick|club|mace|hammer|staff|baton/.test(name)) return "bludgeon";
     return "other";
+  }
+  /* Jessey 2026-10-20 8:40 AM: each special arrow type has its own sfx key (sfx.json "arrows": type -> key).
+     A key with no file listed in events / pools falls back to the bow's own shot cue (bow / bow-long). */
+  var ARROW_TYPES_SFX = ["standard", "broadhead", "blunt", "fire", "whistler", "poison", "dynamite"];
+  function arrowKey(type) { var t = String(type || "standard"); return String(arrowCues[t] || ("arrow-" + t)); }
+  function arrowCue(type, fallback) {
+    var key = arrowKey(type), files = eventFiles(sfxMap || {}, key);
+    return files && files.length ? key : String(fallback || "bow");
   }
   function weaponCue(info) {
     info = info || {};
@@ -869,6 +879,9 @@
   root.SSDNSAudio = {
     play: play,
     weaponCue: weaponCue,
+    arrowCue: arrowCue,
+    arrowKey: arrowKey,
+    ARROW_TYPES_SFX: ARROW_TYPES_SFX,
     outcomeCue: outcomeCue,
     outcomeCategory: outcomeCategory,
     playOutcome: playOutcome,

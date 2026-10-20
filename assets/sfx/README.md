@@ -126,3 +126,19 @@ Results follow the shot you actually hear. Every sfx file is preloaded. A result
 ## 0.3.60 timing
 
 Results play 750 ms after the shot's real start. A crit's sting plays at 600 ms (150 ms before the hit sound). Enemy downed plays 450 ms after the result. The cap is now 1.8 s, so the full chain isn't clipped.
+
+## 0.3.85: arrow types (L0186)
+
+`sfx.json` → `"arrows"` gives each arrow type its own shot key. `SSDNSAudio.arrowCue(type, bowCue)` plays the key when `events` / `pools` list a file for it, else the bow's own cue (`bow` / `bow-long`). The Powder Man dynamite arrow plays `fuse`, then `arrow-dynamite` (silent on a dud).
+
+| Arrow | Key | Plays now |
+|---|---|---|
+| Standard | `arrow-standard` | falls back to the bow's cue |
+| Broadhead | `arrow-broadhead` | falls back to the bow's cue |
+| Blunt | `arrow-blunt` | falls back to the bow's cue |
+| Fire | `arrow-fire` | `fuse.mp3` (reused) |
+| Whistler | `arrow-whistler` | falls back to the bow's cue |
+| Poison | `arrow-poison` | falls back to the bow's cue |
+| Dynamite | `arrow-dynamite` | `explode.mp3` · `explode-alt-01.mp3` (reused), after `fuse` |
+
+To give a type its own sound, add the file and list it under `events` and `pools` for its key. Timing (a whistle trailing the release, the blast landing after the fuse) is LATER: SFX PATCH, not built.

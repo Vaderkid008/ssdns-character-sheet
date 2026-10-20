@@ -209,6 +209,29 @@
       '<path d="M5 18 L8.6 21.4 L8.6 25.6 L5 23 Z" fill="' + fl + '" stroke="rgba(0,0,0,.35)" stroke-width=".4"/>' +
       '<path d="M3.6 28 L5 25.4 L6.4 28" fill="none" stroke="#3d2a16" stroke-width=".9"/></svg>';
   }
+  /* Jessey 2026-10-20 8:38 AM: click the quiver / bolt / pouch art to shoot, same as the card's Roll button.
+     One click = one shot of the nocked type (not per arrow). Keyboard: Enter / Space. Double-clicks fire once. */
+  function shootTip(c, g) { return "Click to shoot (nocked: " + arrowType(nocked(c, g)).name + ")"; }
+  function shootAttrs(i, tip) {
+    return ' data-trk-shoot="' + i + '" role="button" tabindex="0" title="' + esc(tip) + '" aria-label="' + esc(tip) + '"';
+  }
+  var lastShoot = {}, SHOOT_GAP = 600;
+  function shootFrom(i, ev, viaKey) {
+    if (ev && !viaKey && ev.detail > 1) return false; /* the second click of a double-click */
+    var now = Date.now();
+    if (lastShoot[i] && now - lastShoot[i] < SHOOT_GAP) return false;
+    lastShoot[i] = now;
+    var card = document.querySelector('.gun[data-row="' + i + '"]');
+    var btn = (card && card.querySelector('[data-gunroll="' + i + '"]')) || document.querySelector('[data-gunroll="' + i + '"]:not([data-k])');
+    if (!btn || btn.hidden || btn.disabled) return false;
+    btn.click(); /* the exact Roll path: target, Attack pips, lit-arrow rule, dynamite, ammo spend */
+    if (viaKey) setTimeout(function () {
+      var a = document.activeElement;
+      if (a && a !== document.body) return; /* a dialog (target picker) took focus: leave it */
+      var n = document.querySelector('[data-trk-shoot="' + i + '"]'); if (n) n.focus();
+    }, 350);
+    return true;
+  }
   /** The quiver: one group per type you carry (remaining, then this fight's spent as ghosts). Nocked group is ringed. */
   function quiverArt(c, g, i) {
     var cur = nocked(c, g), by = spentByType(g), html = "";
@@ -221,10 +244,10 @@
       for (var k = 0; k < n; k++) inner += '<span class="trk-arrow" data-arrow="' + t.id + '" role="img" aria-label="' + esc(t.name) + ' arrow">' + arrowSvg(t) + "</span>";
       if (have > n) inner += '<span class="trk-more">+' + (have - n) + "</span>";
       for (var s = 0; s < ghosts; s++) inner += '<span class="trk-arrow spent" data-arrow="' + t.id + '" title="Shot this fight">' + arrowSvg(t, true) + "</span>";
-      html += '<span class="trk-agrp' + (t.id === cur ? " nocked" : "") + '" data-arrow-grp="' + t.id + '" title="' + esc(t.name + ": " + have + " left. " + t.fx + " Recover: " + t.recover + ".") + '">' + inner +
+      html += '<span class="trk-agrp' + (t.id === cur ? " nocked" : "") + '" data-arrow-grp="' + t.id + '" title="' + esc(shootTip(c, g) + ". " + t.name + ": " + have + " left. " + t.fx + " Recover: " + t.recover + ".") + '">' + inner +
         (t.id === "standard" && ARROW_TYPES.every(function (x) { return x.id === "standard" || (!arrowCount(c, x.id) && !num(by[x.id])); }) ? "" : '<span class="trk-atag">' + esc(t.id === "standard" ? "std" : t.short) + "</span>") + "</span>";
     });
-    return '<span class="trk-pips ammo arrows trk-arrows">' + html + "</span>";
+    return '<span class="trk-pips ammo arrows trk-arrows"' + shootAttrs(i, shootTip(c, g)) + ">" + html + "</span>";
   }
   function nockPicker(c, g, i, ro) {
     var cur = nocked(c, g);
@@ -331,7 +354,11 @@
       var gg = cc.guns[i]; gg.spentAmmo = num(gg.spentAmmo) + 1; gg.spentBy = gg.spentBy || {}; gg.spentBy.dynamite = num(gg.spentBy.dynamite) + 1;
       if (plan.selfDamage && isFinite(Number(cc.hpCurrent))) cc.hpCurrent = Math.max(0, Number(cc.hpCurrent) - plan.selfDamage);
     });
-    if (root.SSDNSAudio) root.SSDNSAudio.play("fuse");
+    if (root.SSDNSAudio) {
+      root.SSDNSAudio.play("fuse");
+      /* sfx key arrow-dynamite (explode pool); a dud stays quiet. Timing (blast landing after the fuse) is LATER: SFX PATCH */
+      if (!plan.dud && root.SSDNSAudio.arrowCue) { var dc = root.SSDNSAudio.arrowCue("dynamite", ""); if (dc) root.SSDNSAudio.play(dc); }
+    }
     log(chat, "roll"); toast(chat);
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.postChat) root.SSDNSDmJoin.postChat({ text: chat });
     /* DND Bot L0186: the shot replaces one attack of the Attack action (Extra Attack applies) */
@@ -514,6 +541,8 @@
     var html = "";
     for (var k = 0; k < max; k++) {
       var on = k < have;
+      /* art-only pips inside a click-to-shoot row: plain spans (a disabled button swallows the click) */
+      if (opts.art) { html += '<span class="trk-pip' + (on ? " on" : "") + (opts.cls ? " " + opts.cls : "") + '" aria-hidden="true"></span>'; continue; }
       html += '<button type="button" class="trk-pip' + (on ? " on" : "") + (opts.cls ? " " + opts.cls : "") + '" data-trk-res="' + esc(id) + '" data-trk-on="' + (on ? 1 : 0) + '"' +
         (opts.ro ? " disabled" : "") + ' title="' + (on ? "Ready. Click to spend one." : "Spent. Click to get one back.") + '" aria-label="' + esc(opts.label || id) + " " + (k + 1) + (on ? " ready" : " spent") + '">' + (opts.glyph || "") + "</button>";
     }
@@ -593,7 +622,7 @@
       var word = POOL_WORD[t] || t;
       var rec = Math.floor(shot / 2);
       return '<div class="trk-weap trk-quiver" data-trk-gun="' + i + '"><span class="trk-label">' + (t === "stones" ? "Pouch" : "Quiver") + "</span>" +
-        '<span class="trk-pips ammo ' + esc(t) + '">' + pipRow("q" + i, show, show, { ro: true, cls: "ammo", label: word }) + (have > 30 ? '<span class="trk-more">+' + (have - 30) + "</span>" : "") + "</span>" +
+        '<span class="trk-pips ammo ' + esc(t) + '"' + shootAttrs(i, "Click to shoot (" + (t === "stones" ? "sling stone" : String(word).replace(/s$/, "")) + ")") + ">" + pipRow("q" + i, show, show, { ro: true, art: true, cls: "ammo", label: word }) + (have > 30 ? '<span class="trk-more">+' + (have - 30) + "</span>" : "") + "</span>" +
         '<span class="trk-count">' + have + " " + esc(word) + "</span>" +
         (shot ? '<span class="trk-shot" title="Shot this fight and lying around">' + shot + " shot</span>" : "") +
         '<button type="button" class="btn xs" data-trk-recover="' + i + '"' + (rec ? "" : " disabled") + ' title="After the fight: recover half your spent ' + esc(word) + ' (PHB). The rest are broken or lost.">Recover ' + (rec ? "½ (+" + rec + ")" : "½") + "</button>" +
@@ -603,7 +632,7 @@
       var t2 = poolType(w), p2 = pool(c, t2, false), have2 = p2 ? num(p2.count) : 0, loaded = num(g.loaded) > 0;
       var word2 = POOL_WORD[t2] || t2;
       return '<div class="trk-weap trk-loaded" data-trk-gun="' + i + '"><span class="trk-label">Loading</span>' +
-        '<span class="trk-bolt' + (loaded ? " on" : "") + '" title="' + (loaded ? "Loaded: one " + word2.replace(/s$/, "") + " ready" : "Empty") + '">' + (loaded ? "LOADED" : "EMPTY") + "</span>" +
+        '<span class="trk-bolt' + (loaded ? " on" : "") + '"' + shootAttrs(i, "Click to shoot (" + (loaded ? "loaded: one " + word2.replace(/s$/, "") : "empty: auto-loads 1 " + word2.replace(/s$/, "")) + ")") + ">" + (loaded ? "LOADED" : "EMPTY") + "</span>" +
         '<button type="button" class="btn xs" data-trk-load="' + i + '"' + (loaded || !have2 ? " disabled" : "") + ' data-cost="Free" title="Load one ' + esc(word2.replace(/s$/, "")) + '. Free. Loading: one shot per action, bonus action or reaction, even with Extra Attack.">Load (free)</button>' +
         '<span class="trk-count">' + have2 + " " + esc(word2) + " left</span>" +
         (num(g.spentAmmo) ? '<span class="trk-shot">' + num(g.spentAmmo) + ' shot</span><button type="button" class="btn xs" data-trk-recover="' + i + '" title="After the fight: recover half (PHB ammunition rule)">Recover ½ (+' + Math.floor(num(g.spentAmmo) / 2) + ")</button>" : "") + "</div>";
@@ -1183,6 +1212,11 @@
     ".trk-item{display:inline-flex;gap:2px;align-items:center;margin-left:6px;vertical-align:middle}.trk-sub{font-size:10px;color:#7a6a55;margin:0 2px 0 6px}",
     ".trk-dm{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}.trk-chip{font-size:11.5px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:1px 8px}.trk-chip.spent{opacity:.6}.trk-chip.weap{border-color:#5e8a55}.trk-dots{letter-spacing:1px;color:#e2c56a}",
     ".trk-arm{border:2px solid #7a1f1f;background:#fff8ef;color:#7a1f1f;border-radius:14px;padding:2px 10px;font-weight:700;font-size:12px;cursor:pointer}.trk-arm.on{background:#7a1f1f;color:#fff;box-shadow:0 0 0 2px rgba(122,31,31,.25)}.trk-arm:disabled{opacity:.45;cursor:not-allowed}",
+    "[data-trk-shoot]{cursor:pointer;border-radius:5px;transition:background .12s,box-shadow .12s;user-select:none;-webkit-user-select:none}",
+    "[data-trk-shoot]:hover{background:rgba(122,31,31,.09);box-shadow:0 0 0 1px rgba(122,31,31,.4)}",
+    "[data-trk-shoot]:focus-visible{outline:2px solid #7a1f1f;outline-offset:2px}",
+    "[data-trk-shoot]:active{background:rgba(122,31,31,.16)}",
+    "[data-trk-shoot].trk-arrows{min-height:30px;min-width:24px;padding:1px 3px}",
     ".trk-unl{font-weight:700;color:#7a5a2e;font-size:12px}",
     "@media (max-width:480px){.trk-name{min-width:0;width:100%}}"
   ].join("\n");
@@ -1193,6 +1227,22 @@
   if (typeof document !== "undefined") {
     injectCss();
     document.addEventListener("click", onClick);
+    document.addEventListener("click", function (e) {
+      var t = e.target && e.target.closest ? e.target.closest("[data-trk-shoot]") : null;
+      if (!t) return;
+      e.preventDefault();
+      shootFrom(num(t.getAttribute("data-trk-shoot")), e, false);
+    });
+    document.addEventListener("dblclick", function (e) {
+      if (e.target && e.target.closest && e.target.closest("[data-trk-shoot]")) e.preventDefault();
+    });
+    document.addEventListener("keydown", function (e) {
+      var t = e.target && e.target.closest ? e.target.closest("[data-trk-shoot]") : null;
+      if (!t || (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar")) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      shootFrom(num(t.getAttribute("data-trk-shoot")), e, true);
+    });
     document.addEventListener("change", function (e) {
       var t = e.target;
       if (!t || !t.getAttribute) return;
@@ -1221,7 +1271,7 @@
     (function boot() { if (!wrapRest() && tries++ < 60) setTimeout(boot, 250); else paint(); })();
   }
   root.SSDNSTrackers = {
-    XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, ARROW_TYPES: ARROW_TYPES, arrowId: arrowId, arrowType: arrowType, arrowCount: arrowCount, arrowTotal: arrowTotal, nocked: nocked, arrowRecover: arrowRecover, arrowAdjust: arrowAdjust, arrowSvg: arrowSvg, shootDynamite: shootDynamite, litBlocked: litBlocked, nockedDtype: nockedDtype, makeDynamite: makeDynamite, canMakeDynamite: canMakeDynamite, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
+    XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, ARROW_TYPES: ARROW_TYPES, arrowId: arrowId, arrowType: arrowType, arrowCount: arrowCount, arrowTotal: arrowTotal, nocked: nocked, arrowRecover: arrowRecover, arrowAdjust: arrowAdjust, arrowSvg: arrowSvg, shootDynamite: shootDynamite, litBlocked: litBlocked, nockedDtype: nockedDtype, shootFrom: shootFrom, makeDynamite: makeDynamite, canMakeDynamite: canMakeDynamite, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
     spendShot: spendShot, onMeleeAttack: onMeleeAttack, itemPips: itemPips, tokenRows: tokenRows,
     snapshot: snapshot, dmHtml: dmHtml, paint: paint, onRest: onRest, resHtml: resHtml,
     toggle: toggle, rider: rider, riderText: riderText, refundPending: refundPending, mapActions: mapActions, canArm: canArm,
