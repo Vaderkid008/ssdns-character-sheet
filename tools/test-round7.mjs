@@ -33,7 +33,17 @@ function ammo(c, type, cal) {
   return row ? row.count : 0;
 }
 function hasLine(c, text) {
-  return String(c.equipment || "").indexOf(text) >= 0;
+  if (String(c.equipment || "").indexOf(text) >= 0) return true;
+  /* 0.3.93 Equipment: a line the sheet now shows as a real thing (gun belt / holster rig, ammo pool, worn shield) */
+  const spec = (Kits.kitLines || {})[text];
+  if (!spec) return false;
+  if (spec.rig === "belt") return c.belt === spec.id && c.gunBelt === true;
+  if (spec.rig === "holster") return c.holster === spec.id || c.holsterR === spec.id;
+  if (spec.covered === "ammo") return (c.ammo || []).some((a) => a && a.count > 0);
+  if (spec.covered === "shield") return !!c.shield;
+  if (spec.covered === "armor") return !!c.armor;
+  if (spec.instrument && c.instrument === spec.instrument) return true;
+  return (spec.items || []).every((id) => (c.items || []).some((it) => it && it.catalogId === id));
 }
 
 function packName(id, fallback) {

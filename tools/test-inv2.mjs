@@ -86,14 +86,16 @@ check("unpack.notAPack", !I.unpack(c4, c4.items[0].uid).ok);
 const K = s2.SSDNSKits;
 const g = K.apply({ items: [], equipment: "" }, "gambler", {});
 check("kit.thievesToolsItem", g.items.some((x) => x.catalogId === "thieves-tools-lock-picks"), JSON.stringify(g.items.map((x) => x.catalogId)));
-check("kit.packItem", g.items.some((x) => /^(alley-kit|claim-pack|trail-kit)$/.test(x.catalogId)));
-check("kit.noLineForItems", !/Thieves' tools/.test(g.equipment || "") && !/Alley kit/.test(g.equipment || ""), g.equipment);
+/* 0.3.92: the kit's pack opens on apply: no pack row, its contents are rows, only its leftovers go to Notes */
+check("kit.packUnpacked", !g.items.some((x) => /^(alley-kit|claim-pack|trail-kit)$/.test(x.catalogId)) && g.items.length > 3, JSON.stringify(g.items.map((x) => x.catalogId)));
+check("kit.noLineForItems", !/Thieves' tools/.test(g.equipment || "") && !/^• Alley kit$/m.test(g.equipment || ""), g.equipment);
 K.apply(g, "gambler", {});
 check("kit.noDoubles", g.items.filter((x) => x.catalogId === "thieves-tools-lock-picks").length === 1);
 const old = { items: [], equipment: "• Trail kit\n• Herbalism kit" };
 K.apply(old, "nature-guide", {});
 check("kit.oldLinesNotDoubled", !old.items.some((x) => x.catalogId === "trail-kit" || x.catalogId === "herbalism-kit-herb-doctoring"), JSON.stringify(old.items.map((x) => x.catalogId)));
-check("kit.slotLinesStay", /Wooden shield/.test(old.equipment));
+/* 0.3.92: a slot line the sheet already shows (the worn shield row) is not repeated in Notes */
+check("kit.slotLinesCovered", !!old.shield && !/Wooden shield/.test(old.equipment), old.equipment);
 
 /* ---- wiring + rules untouched */
 check("wire.unpackBtn", /data-item-unpack/.test(read("assets/js/items.js")));
