@@ -727,7 +727,8 @@ function featureBlock(title, list, i, kind) {
     if (typeof item === "string") return `<p class="fine">${esc(item)}</p>`;
     const name = item.name || "";
     const text = item.text || "";
-    return `<p class="fine">${name ? `<b>${esc(name)}.</b> ` : ""}${esc(text)}</p>`;
+    const lair = item.lair && !/^lair actions?$/i.test(String(name).trim()) ? " (lair)" : ""; /* L0195: lair actions stay text-only */
+    return `<p class="fine">${name ? `<b>${esc(name)}${lair}.</b> ` : ""}${esc(text)}</p>`;
   }).join("");
   return `<div class="detail-section"><h3>${esc(title)}</h3>${paras}<p class="toolbar">${featureButtons(list, i, kind)}</p></div>`;
 }
@@ -2204,6 +2205,9 @@ function beastQuery() {
   const el = $("#beastQ");
   return el && el.value ? String(el.value).trim().toLowerCase() : "";
 }
+/* L0195 (2026-10-20): a draft stat block (draft: true, e.g. the Elder Thunderbird until Act IV is scoped) is kept out of
+   normal picking the same way a parked one is: hidden unless "Show parked & draft" is on, and badged "Draft". */
+function isParkedBeast(b) { return !!(b && (b.parked || b.draft)); }
 function showParkedBeasts() {
   const el = $("#beastParked");
   return !!(el && el.checked);
@@ -2213,7 +2217,7 @@ function visibleBeasts() {
   const parked = showParkedBeasts();
   return (fight.bestiary || []).filter((b) => {
     if (!b || b.template) return false;
-    if (b.parked && !parked) return false;
+    if (isParkedBeast(b) && !parked) return false;
     if (!q) return true;
     return [b.name, b.bookName, b.aka, b.id].join(" ").toLowerCase().indexOf(q) >= 0;
   });
@@ -2349,7 +2353,8 @@ function beastCard(b) {
     : (traits) => (Array.isArray(traits) ? traits.map((t) => (t && t.name) || "").join(", ") : String(traits || ""));
   const tactics = window.SSDNSApplied && window.SSDNSApplied.tacticsNote ? window.SSDNSApplied.tacticsNote(b) : "";
   return `<article class="bestiary-card" data-beast-card="${esc(b.id)}">
-      <h3><button type="button" class="name-btn" data-open-beast="${esc(b.id)}">${esc(b.name)}</button>${b.parked ? ' <span class="badge">Parked</span>' : ""}</h3>
+      <h3><button type="button" class="name-btn" data-open-beast="${esc(b.id)}">${esc(b.name)}</button>${b.parked ? ' <span class="badge">Parked</span>' : ""}${b.draft ? ' <span class="badge" title="' + esc(b.draftNote || "Draft numbers") + '">Draft</span>' : ""}</h3>
+      ${b.draft && b.draftNote ? `<p class="fine">${esc(b.draftNote)}</p>` : ""}
       <p>AC ${esc(b.ac)} · HP ${esc(b.hp)}${b.cr ? " · CR " + esc(b.cr) : ""}</p>
       ${tactics ? `<p class="tactics-note">Tactics. ${esc(tactics)}</p>` : ""}
       <p>${esc(b.attacks || "")}</p>
@@ -5656,7 +5661,7 @@ function enemyPickerList(list, query, parkedOn) {
   const q = String(query || "").trim().toLowerCase();
   return (list || []).filter((b) => {
     if (!b || b.template) return false;
-    if (b.parked && !parkedOn) return false;
+    if (isParkedBeast(b) && !parkedOn) return false;
     if (!q) return true;
     return [b.name, b.bookName, b.aka, b.id].join(" ").toLowerCase().indexOf(q) >= 0;
   });
@@ -6057,14 +6062,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.102-tokens");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.103-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.102-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.103-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -6530,7 +6535,7 @@ function linkChoiceList() {
   }));
   const buckets = {};
   (fight.bestiary || []).forEach((b) => {
-    if (!b || b.template || b.parked) return;
+    if (!b || b.template || isParkedBeast(b)) return;
     const key = BEAST_GROUPS.some((pair) => pair[0] === b.group) ? b.group : "other";
     (buckets[key] || (buckets[key] = [])).push({ id: b.id, name: b.name || b.id });
   });

@@ -160,7 +160,7 @@ else {
     check("b.picker", r.options === "standard,broadhead,blunt,fire,whistler,poison" && r.nocked === "fire" && r.nockedGrp === "fire", JSON.stringify(r));
     check("b.lit.oneTurn", r.fire.lit && r.fire2.left === 4 && /One lit arrow per turn/.test(r.fire2.log) && r.litCleared, JSON.stringify([r.fire2, r.litCleared]));
     check("b.fire", r.fire.left === 4 && /fire arrow/i.test(r.fire.log) && /1d4/.test(r.fire.log) && /4 fire arrows/.test(r.fire.log), r.fire.log);
-    check("b.whistler", r.whistler.left === 4 && /no damage/i.test(r.whistler.log), r.whistler.log);
+    check("b.whistler", r.whistler.left === 4 && /bludgeoning/.test(r.whistler.log) && /mile off/.test(r.whistler.log) && !/no damage/i.test(r.whistler.log), r.whistler.log);
     check("b.broadhead", r.beastBox && r.broad.left === 4 && /beast/i.test(r.broad.log), JSON.stringify(r.broad));
     check("b.ghosts", r.ghosts >= 4, String(r.ghosts));
     check("b.recover", r.recover.spent === 0 && r.recover.std === 0 && /broadheads/.test(r.recover.log) && /fire arrows/.test(r.recover.log) && /don't come back/.test(r.recover.log), JSON.stringify(r.recover));

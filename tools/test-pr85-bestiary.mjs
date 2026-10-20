@@ -1,5 +1,5 @@
 /**
- * PR85 (DMCC 0.2.102): Encounter Bot bestiary v1 (mounts, Spectral Horse, Oct 17 swaps).
+ * PR85 (DMCC 0.2.103): Encounter Bot bestiary v1 (mounts, Spectral Horse, Oct 17 swaps).
  * Every entry is valid and still builds an enemy card; the new and changed entries carry the approved stats.
  */
 import fs from "fs";
@@ -62,7 +62,7 @@ function rowFor(b) {
 const J = (x) => JSON.stringify(x).slice(0, 300);
 const live = beasts.filter((b) => b && !b.template);
 const ids = beasts.map((b) => b.id);
-check(beasts.length === 55 && live.length === 54, "55 entries (54 live + template) " + beasts.length);
+check(beasts.length === 60 && live.length === 59, "60 entries (59 live + template; L0195 adds 5 thunderbirds) " + beasts.length);
 check(new Set(ids).size === ids.length, "ids are unique");
 const REQ = ["id", "name", "size", "type", "ac", "hp", "speed", "cr", "xp", "abilities", "attackList", "traits", "actions", "group"];
 live.forEach((b) => {
@@ -97,6 +97,6 @@ check((by("outlaw").attackList || [])[0].name === "Ball n Cap Revolver", "Act I 
 check(JSON.stringify(beasts).indexOf("Thieves’ cant") < 0, "no Thieves' cant (lingo swap kept)");
 check(/tribal tongue/.test(by("sandie").languages || ""), "Sandie keeps its shipped languages line");
 check(live.filter((b) => b.parked).map((b) => b.id).join(",") === "captain-rhee-calder", "only Calder is parked");
-check(read("dm/assets/js/v2.js").indexOf('bestiary.json?v=0.2.102-tokens') >= 0, "bestiary cache key bumped so tables load the new data");
+check(read("dm/assets/js/v2.js").indexOf('bestiary.json?v=0.2.103-thunderbirds') >= 0, "bestiary cache key bumped so tables load the new data");
 console.log(failures.length ? failures.length + " FAILED:\n" + failures.join("\n") : "All PR85 bestiary checks passed (" + live.length + " entries).");
 if (failures.length) process.exitCode = 1;

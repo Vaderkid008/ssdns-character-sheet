@@ -117,8 +117,8 @@
       dtype: "bludgeoning", fx: "Bludgeoning. Can knock a creature out at 0 HP instead of killing it.", head: "#b8894a", fletch: "#d8b23a", src: "BOOK1 L4219" },
     { id: "fire", name: "Fire", word: "fire arrows", pack: 5, packId: "arrows-fire-5", packName: "Fire arrows (5)", cost: "100", weight: "¼ lb.", recover: "none", short: "+1d4 fire",
       dice: "1d4", dtype: "fire", fx: "Lighting it takes your object interaction. +1d4 fire; sets hay, roofs, and wagons alight. Never recovered.", head: "#e0702a", fletch: "#c8541f", src: "BOOK1 L4220" },
-    { id: "whistler", name: "Whistler", word: "whistlers", pack: 5, packId: "arrows-whistler-5", packName: "Whistler arrows (5)", cost: "50", weight: "¼ lb.", recover: "half", short: "no damage",
-      noDamage: true, fx: "No damage. Heard about a mile off; used for signals.", head: "#3f6f9a", fletch: "#3f6f9a", src: "BOOK1 L4221" },
+    { id: "whistler", name: "Whistler", word: "whistlers", pack: 5, packId: "arrows-whistler-5", packName: "Whistler arrows (5)", cost: "50", weight: "¼ lb.", recover: "half", short: "1d4+Dex bludg.",
+      die: "1d4", dtype: "bludgeoning", fx: "1d4 + Dex bludgeoning instead of the bow's die. Heard about a mile off; used for signals.", head: "#3f6f9a", fletch: "#3f6f9a", src: "BOOK1 L4221" },
     { id: "poison", name: "Poison", word: "poison arrows", pack: 3, packId: "arrows-poison-3", packName: "Poison arrows (3)", cost: "1,500", weight: "0.15 lb.", recover: "standard", short: "DC 10 Con",
       poison: true, fx: "On a hit, DC 10 Con save or 1d4 poison. Coating lasts 1 minute once unwrapped. Illegal in most towns.", head: "#7b3fa0", fletch: "#4b2468", src: "BOOK1 L4222" },
     { id: "dynamite", name: "Dynamite", word: "dynamite arrows", pack: 1, packId: "", packName: "", cost: "1 stick + 1 arrow", weight: "1 lb.", recover: "none", short: "no attack roll",
@@ -263,6 +263,23 @@
     var t = arrowType(nocked(c || ch() || {}, g));
     return t.dtype && !t.dice ? t.dtype : "";
   }
+  /** L0196 (Jessey 2026-10-20 12:15 PM): an arrow with its own die (Whistler: 1d4) replaces the bow's base weapon die.
+      Only the die changes: Dex, magic +X, style, buff dice and rider dice still add; a crit doubles the 1d4 as usual.
+      "" = the bow's own die (standard, blunt, fire, ... and every save before this). */
+  function nockedDie(g, c) {
+    var w = g && weapon(g.weapon);
+    if (!w || kindOf(w) !== "quiver" || poolType(w) !== "arrows") return "";
+    var t = arrowType(nocked(c || ch() || {}, g));
+    return t.die || "";
+  }
+  /** Swap the leading base die of a damage expression for the arrow's own die ("1d8 +3 ..." -> "1d4 +3 ...").
+      A crit doubles dice later in the roll, so this always takes the uncritted expression. No die on the arrow = unchanged. */
+  function arrowDieExpr(expr, id) {
+    if (!id || expr == null) return expr;
+    var t = arrowType(id);
+    if (!t || !t.die) return expr;
+    return String(expr).replace(/^(\s*)\d*d\d+/i, "$1" + t.die);
+  }
   /** Bow card extras: broadhead "beast" tick, dynamite note, Powder Man's Make dynamite arrow. */
   function arrowExtras(c, g, i) {
     var cur = nocked(c, g), html = "";
@@ -289,8 +306,9 @@
     var t = arrowType(id), c = ch() || {};
     if (t.id === "standard") return null;
     var out = { id: t.id, name: t.name, note: t.name + " arrow" };
-    if (t.noDamage) { out.none = true; out.note = "Whistler: no damage, heard about a mile off"; return out; }
+    if (t.noDamage) { out.none = true; out.note = t.name + ": no damage"; return out; }
     if (t.dtype && !t.dice) out.type = t.dtype;
+    if (t.die) { out.die = t.die; out.note = "Whistler arrow: " + t.die + " + Dex bludgeoning in place of the bow's die; heard about a mile off"; }
     if (t.id === "blunt") out.note = "Blunt arrow: bludgeoning; at 0 HP you can knock it out instead";
     if (t.id === "fire") out.note = "Fire arrow (lighting it was your object interaction; one lit arrow per turn); sets hay, roofs, and wagons alight";
     if (t.poison) { var pr = rollDice(1, 4); out.note = "Poison arrow: DC 10 Con save or " + pr.total + " poison (1d4 «" + pr.total + "»)"; out.poison = pr.total; }
@@ -1278,7 +1296,7 @@
     (function boot() { if (!wrapRest() && tries++ < 60) setTimeout(boot, 250); else paint(); })();
   }
   root.SSDNSTrackers = {
-    XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, ARROW_TYPES: ARROW_TYPES, arrowId: arrowId, arrowType: arrowType, arrowCount: arrowCount, arrowTotal: arrowTotal, nocked: nocked, arrowRecover: arrowRecover, arrowAdjust: arrowAdjust, arrowSvg: arrowSvg, shootDynamite: shootDynamite, litBlocked: litBlocked, nockedDtype: nockedDtype, shootFrom: shootFrom, makeDynamite: makeDynamite, canMakeDynamite: canMakeDynamite, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
+    XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, ARROW_TYPES: ARROW_TYPES, arrowId: arrowId, arrowType: arrowType, arrowCount: arrowCount, arrowTotal: arrowTotal, nocked: nocked, arrowRecover: arrowRecover, arrowAdjust: arrowAdjust, arrowSvg: arrowSvg, shootDynamite: shootDynamite, litBlocked: litBlocked, nockedDtype: nockedDtype, nockedDie: nockedDie, arrowDieExpr: arrowDieExpr, shootFrom: shootFrom, makeDynamite: makeDynamite, canMakeDynamite: canMakeDynamite, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
     spendShot: spendShot, onMeleeAttack: onMeleeAttack, itemPips: itemPips, tokenRows: tokenRows,
     snapshot: snapshot, dmHtml: dmHtml, paint: paint, onRest: onRest, resHtml: resHtml,
     toggle: toggle, rider: rider, riderText: riderText, refundPending: refundPending, mapActions: mapActions, canArm: canArm,
