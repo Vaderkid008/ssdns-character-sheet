@@ -89,6 +89,8 @@
       type: "consumable",
       description: "One day of trail food.",
       effect: { kind: "text", text: "Food for 1 day." },
+      tags: ["food"],
+      meals: 1, /* L0188-L0190: one meal = one day of food (overrides the old 1/2 default) */
       uses: { max: 1 },
       weight: 2,
       price: 50,
@@ -100,6 +102,7 @@
       name: "Whiskey (bottle)",
       type: "consumable",
       description: "Honest-ish whiskey from the saloon. A rotgut glass is 10 ES.",
+      tags: ["drink", "alcohol"], /* L0188: a drink, but not water: it doesn't count toward the day's water */
       effect: { kind: "save+condition", save: "CON", dc: 10, condition: "Poisoned", duration: "1 hour", temp: "1d4" },
       uses: { max: 4 },
       weight: 2,

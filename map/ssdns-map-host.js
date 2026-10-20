@@ -456,8 +456,9 @@
       name: (nameInput && nameInput.value) || c.name || "",
       kind: "pc",
       ac: computed.ac,
-      hp: { cur: c.hpCurrent, max: c.hpMax, temp: c.hpTemp || 0 },
-      speed: c.speed || 30,
+      /* L0188: exhaustion halves speed (2) / zeroes it (5) and halves HP max (4) */
+      hp: { cur: c.hpCurrent, max: (root.SSDNSSheet && root.SSDNSSheet.effHpMax && c.hpMax !== "" && c.hpMax != null) ? root.SSDNSSheet.effHpMax(Number(c.hpMax)) : c.hpMax, temp: c.hpTemp || 0 },
+      speed: root.SSDNSCondFx && root.SSDNSCondFx.speed && c.speed !== "" && c.speed != null ? root.SSDNSCondFx.speed(c) : (c.speed || 30),
       attacks: attacks,
       spells: spells,
       items: c.items || []

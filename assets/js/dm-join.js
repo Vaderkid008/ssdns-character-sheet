@@ -238,7 +238,12 @@
       pistolero: Array.isArray(c.feats) && c.feats.indexOf("pistolero") >= 0, /* 0.3.73: DM drawer Fan toggle */
       lineage: [c.lineage, c.sublineage].filter(Boolean).join(" · "),
       hpCurrent: c.hpCurrent,
-      hpMax: c.hpMax,
+      /* L0188: exhaustion 4+ halves HP max; the DM sees the max that counts. hpMaxBase is the typed one. */
+      hpMax: (root.SSDNSSheet && root.SSDNSSheet.effHpMax && c.hpMax !== "" && c.hpMax != null) ? root.SSDNSSheet.effHpMax(Number(c.hpMax)) : c.hpMax,
+      hpMaxBase: c.hpMax,
+      exhaustion: root.SSDNSSheet && root.SSDNSSheet.exhaustionLevel ? root.SSDNSSheet.exhaustionLevel() : 0,
+      speed: root.SSDNSCondFx && root.SSDNSCondFx.speed ? root.SSDNSCondFx.speed(c) : (c.speed || ""),
+      supplies: root.SSDNSSupplies ? root.SSDNSSupplies.view(c) : null,
       hpTemp: c.hpTemp || 0,
       ac: v.ac,
       initBonus: v.initiative,
@@ -811,7 +816,8 @@
           if (primed && row.by && row.by !== state.uid && root.SSDNSSheet) {
             var line = (row.byName || "DM") + " applied " + (root.SSDNSConditions ? root.SSDNSConditions.label(row) : row.name);
             root.SSDNSSheet.addLog({ id: "cond:" + stamp, kind: "alert", text: line });
-            toast(line);
+            /* L0188: the toast comes from SSDNSCondFx and says what the condition does */
+            if (!root.SSDNSCondFx) toast(line);
           }
           return;
         }
@@ -820,7 +826,7 @@
           if (primed && row.by && row.by !== state.uid && root.SSDNSSheet) {
             var changed = (row.byName || "DM") + " updated " + (root.SSDNSConditions ? root.SSDNSConditions.label(row) : row.name);
             root.SSDNSSheet.addLog({ id: "cond:" + stamp, kind: "alert", text: changed });
-            toast(changed);
+            if (!root.SSDNSCondFx) toast(changed);
           }
         }
       });
@@ -920,6 +926,32 @@
     var kind = payload.kind || "";
     var hit = Items && Items.classifyReward ? Items.classifyReward(text, payload.itemId || "") : { kind: "" };
     if (!kind) kind = hit.kind;
+    /* L0188-L0190: a reward with food / water values becomes a real tagged item (catalog row or DM-made) */
+    var sup = payload.supply && typeof payload.supply === "object" ? payload.supply : null;
+    if (sup && Items && Items.add && root.SSDNSApp && root.SSDNSApp.applyPatch && kind !== "instrument") {
+      var nameOnly = text.replace(/^\s*\d+\s*x\s+/i, "").trim() || "Supplies";
+      var base0 = hit.row || (payload.itemId && Items.byId ? Items.byId(payload.itemId) : null);
+      var made = Object.assign({}, base0 || {
+        id: "custom-" + nameOnly.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        name: nameOnly,
+        type: sup.meals || sup.water ? "consumable" : "gear",
+        description: "From the DM.",
+        effect: { kind: "text", text: nameOnly }
+      });
+      made.tags = (Items.tagsOf ? Items.tagsOf((base0 && base0.tags || []).concat(sup.tags || [])) : (sup.tags || []));
+      if (sup.meals) made.meals = sup.meals;
+      if (sup.water) made.water = sup.water;
+      if (sup.capacity) { made.capacity = sup.capacity; made.fill = sup.fill != null ? sup.fill : 0; }
+      made.count = qty;
+      var okSup = false;
+      root.SSDNSApp.applyPatch(function (d) { var res = Items.add(d.character, made, { dm: true }); okSup = !!(res && res.ok); });
+      if (okSup) {
+        toast("DM sent " + (qty > 1 ? qty + "× " : "") + made.name);
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Item: " + (qty > 1 ? qty + "× " : "") + made.name + " (" + made.tags.join(", ") + ")" });
+        if (Items.paintSheet) Items.paintSheet();
+        return true;
+      }
+    }
     if (!kind || kind === "weapon") return false;
     var logId = "item:" + (payload.grantId || cmd.id || "");
     var app = root.SSDNSApp;
@@ -1119,6 +1151,10 @@
         break;
       case "rest":
         if (root.SSDNSSheet) root.SSDNSSheet.applyRest(payload.kind || "short");
+        break;
+      case "supplies":
+        /* L0188 food & water: the DM gives/takes rations and water, ends a day, sets the mode */
+        if (root.SSDNSSuppliesSheet) root.SSDNSSuppliesSheet.command(payload);
         break;
       case "gun_event":
         if (root.SSDNSSheet) root.SSDNSSheet.applyGunEvent(payload);
@@ -1528,10 +1564,15 @@
         var forced = root.SSDNSTestRoll();
         if (forced) nat = forced;
       }
+      /* L0188: exhaustion 3+ gives disadvantage on saves */
+      var exDis = root.SSDNSSheet && root.SSDNSSheet.condRollMode && root.SSDNSSheet.condRollMode("save") === "dis";
+      var nat2 = null;
+      if (exDis) { nat2 = 1 + Math.floor(Math.random() * 20); nat = Math.min(nat, nat2); }
       var total = nat + mod;
       var dc = Number(payload.dc);
       var failed = isFinite(dc) ? total < dc : false;
       var line = ability + " save " + nat + sign + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (failed ? " FAIL" : " OK") + (nat === 20 ? " · natural 20" : "");
+      if (exDis) line += " · disadvantage (Exhaustion " + root.SSDNSSheet.exhaustionLevel() + ")";
       postRoll({
         id: "save_" + payload.id,
         saveRequestId: payload.id,
@@ -2474,6 +2515,8 @@
       roomCode: function () { return state.roomCode; },
       uid: function () { return state.uid; },
       publishSnapshot: publishSnapshot,
+      buildSnapshot: buildSnapshot,
+      _handle: handleCommand, /* test hook: run one DM command as if it arrived */
       postEndTurn: postEndTurn,
       postLedger: postLedger,
       postRoll: postRoll,

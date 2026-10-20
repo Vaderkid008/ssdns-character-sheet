@@ -16,7 +16,7 @@
     "cartridges-medium-20": { kind: "cartridge", caliber: "Medium", qty: 20 },
     "cartridges-heavy-20": { kind: "cartridge", caliber: "Heavy", qty: 20 },
     "big-fifty-cartridges-50-90-10": { kind: "cartridge", caliber: ".50-90", qty: 10 },
-    /* inv2 (0.2.97): every other store ammo pack fills its sheet Ammo pool (the #100 quiver / bolt / pouch pools)
+    /* inv2 (0.2.98): every other store ammo pack fills its sheet Ammo pool (the #100 quiver / bolt / pouch pools)
        instead of writing a gear note line */
     "arrows-20": { kind: "ammo", type: "arrows", caliber: "", qty: 20 },
     "crossbow-bolts-20": { kind: "ammo", type: "bolts", caliber: "", qty: 20 },

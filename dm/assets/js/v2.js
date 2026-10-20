@@ -1715,6 +1715,10 @@ async function rest(kind) {
   for (let i = 0; i < ids.length; i++) {
     await DM.pushCommand({ type: "rest", to: ids[i], payload: { kind: kind }, from: DM.state.uid });
   }
+  /* L0188: when the DM picked "long rest" (or both) as the end of a day, the day passes for food & water */
+  if (kind === "long" && window.SSDNSSuppliesDm && window.SSDNSSuppliesDm.onLongRest) {
+    try { await window.SSDNSSuppliesDm.onLongRest(); } catch (e) { console.warn("[supplies] long rest", e); }
+  }
   await DM.pushLedger({
     who: "DM", playerId: "all", playerName: "Party", characterName: "Everyone",
     type: "rest", what: (kind === "long" ? "Long" : "Short") + " rest for the table",
@@ -5986,14 +5990,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.97-mounts");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.98-mounts");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.97-preacher");
+    const res = await fetch("assets/data/store-items.json?v=0.2.98-preacher");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -6108,6 +6112,8 @@ async function bootV2() {
   wireClicks();
   document.addEventListener("keydown", shortcuts);
   window.DMCCEnhance = {
+    /* L0188 food & water: the Supplies panel sets exhaustion through the same condition path */
+    writeSubjectConditions: writeSubjectConditions,
     decorateDetail: decorateDetail,
     afterRender: fillAdds,
     fillAdds: fillAdds,

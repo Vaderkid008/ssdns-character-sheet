@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.97"; // dmcc-playtest-v0297
+const VERSION = "0.2.98"; // dmcc-playtest-v0298
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2530,6 +2530,17 @@ function rewardPayload(type, labeled, id, qty) {
   if (hit && hit.kind) payload.kind = hit.kind;
   if (hit && hit.kind === "instrument") { payload.instrument = hit.id; payload.quality = hit.quality || "cheap"; }
   else if (hit && hit.id) payload.itemId = hit.id;
+  /* L0188-L0190: the DM can make any reward food / water: tags, meals, water gal, container size */
+  const v = (id) => { const el = document.getElementById(id); return el ? String(el.value || "").trim() : ""; };
+  const supply = {};
+  if (v("rewTags")) supply.tags = v("rewTags").split(",").map((t) => t.trim()).filter(Boolean);
+  if (Number(v("rewMeals")) > 0) supply.meals = Number(v("rewMeals"));
+  if (Number(v("rewWater")) > 0) supply.water = Number(v("rewWater"));
+  if (Number(v("rewCapacity")) > 0) supply.capacity = Number(v("rewCapacity"));
+  if (supply.meals && !(supply.tags || []).includes("food")) supply.tags = (supply.tags || []).concat("food");
+  if ((supply.water || supply.capacity) && !(supply.tags || []).includes("water")) supply.tags = (supply.tags || []).concat("water");
+  if (supply.capacity && !(supply.tags || []).includes("container")) supply.tags = (supply.tags || []).concat("container");
+  if (Object.keys(supply).length) payload.supply = supply;
   return payload;
 }
 if (typeof window !== "undefined") window.__ssdnsRewardPayload = rewardPayload;
@@ -3000,6 +3011,8 @@ function wire() {
     $("#rewTextWrap").hidden = t === "es";
     const qty = $("#rewQtyWrap");
     if (qty) qty.hidden = t !== "item";
+    const sup = $("#rewSupplyWrap");
+    if (sup) sup.hidden = t !== "item";
   });
   $("#btnPushReward").addEventListener("click", doPushReward);
   $("#btnSendMsg").addEventListener("click", doSendMsg);

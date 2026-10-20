@@ -135,6 +135,28 @@
     {"id": "feed-1-day", "name": "Feed (1 day)", "type": "gear", "shelf": "Mounts & tack", "description": "One day of feed for a mount.", "effect": {"kind": "text", "text": "One day of feed for a mount."}, "uses": {"max": null}, "weight": 10, "price": 5, "forSale": true, "stack": true}
   ];
   GEAR.forEach(function (r) { if (!have[r.id]) { list.push(r); have[r.id] = r; } });
+  /* L0188-L0190 food & water schema (hand-added; carry this into gen.py if the file is regenerated).
+     tags keep `type`; meals = days of food per item; capacity = gallons a container holds;
+     fillIncluded = the listed weight is already the full container; mealWeight = lb per meal in a pack. */
+  var SUPPLY = {
+    "waterskin-canteen": { tags: ["water", "container"], capacity: 0.5, defaultFill: "full", fillIncluded: true },
+    "flask-tin-cup": { tags: ["water", "container"], capacity: 0.125 },
+    "jug": { tags: ["water", "container"], capacity: 1 },
+    "bucket": { tags: ["water", "container"], capacity: 3 },
+    "barrel": { tags: ["water", "container"], capacity: 40 },
+    "bottle-empty": { tags: ["water", "container"], capacity: 0.1875 },
+    "trail-kit": { tags: ["pack", "food", "water", "container"], meals: 10, mealWeight: 2, capacity: 0.5, defaultFill: "full", fillIncluded: true },
+    "claim-pack": { tags: ["pack", "food", "water", "container"], meals: 10, mealWeight: 2, capacity: 0.5, defaultFill: "full", fillIncluded: true },
+    "alley-kit": { tags: ["pack", "food", "water", "container"], meals: 5, mealWeight: 2, capacity: 0.5, defaultFill: "full", fillIncluded: true },
+    "saloon-kit": { tags: ["pack", "food", "water", "container"], meals: 5, mealWeight: 2, capacity: 0.5, defaultFill: "full", fillIncluded: true },
+    "circuit-kit": { tags: ["pack", "food", "water", "container"], meals: 2, mealWeight: 2, capacity: 0.5, defaultFill: "full", fillIncluded: true },
+    "feed-1-day": { tags: ["feed"] }
+  };
+  Object.keys(SUPPLY).forEach(function (id) {
+    var row = have[id];
+    if (!row) return;
+    Object.keys(SUPPLY[id]).forEach(function (k) { if (row[k] == null) row[k] = SUPPLY[id][k]; });
+  });
   root.SSDNS_CARRY_WEIGHTS = {"holsters": {"slim-jim": 1, "mexican-loop": 1, "skeleton-rig": 1, "bridgeport-rig-swivel": 1, "concealed-vest-sleeve": 0.5, "shoulder-rig": 2, "cross-draw-holster": 1, "pocket-holster": 0, "boot-holster": 0.5, "gun-belt-cartridge-loops": 2, "bandolier": 2, "saddle-scabbard": 3, "pommel-holsters-pair": 3}, "holstersNoCarry": ["saddle-scabbard", "pommel-holsters-pair"], "instruments": {"fiddle": 1, "banjo": 2, "guitar": 2, "accordion": 6, "harmonica": 0, "voice": 0, "piano": 0}, "ammoEach": {"cartridge": 0.05, "percussion": 0.05, "buck": 0.1, "slug": 0.1, "bigfifty": 0.15, "arrows": 0.05, "bolts": 0.075, "stones": 0.075, "needles": 0.02}, "shield": 6};
   /* inv2: Unpack turns a pack into these catalog items (+ a note line for parts with no catalog row) */
   root.SSDNS_PACK_CONTENTS = {"trail-kit": {"items": [["trail-pack", 1], ["bedroll-trail-blankets", 1], ["mess-kit", 1], ["tinderbox-lucifers", 1], ["torch-pitch-stick", 10], ["hardtack-jerky-1-day", 10], ["waterskin-canteen", 1], ["hemp-rope-50-ft", 1]], "notes": []}, "claim-pack": {"items": [["trail-pack", 1], ["claim-pry-bar", 1], ["claim-hammer-tool", 1], ["spike", 10], ["torch-pitch-stick", 10], ["tinderbox-lucifers", 1], ["hardtack-jerky-1-day", 10], ["waterskin-canteen", 1], ["hemp-rope-50-ft", 1]], "notes": []}, "alley-kit": {"items": [["trail-pack", 1], ["scatter-shot-nonweapon-bag-of-1-000", 1], ["bell", 1], ["candle", 5], ["claim-pry-bar", 1], ["claim-hammer-tool", 1], ["spike", 10], ["hooded-lamp", 1], ["lamp-oil", 2], ["hardtack-jerky-1-day", 5], ["tinderbox-lucifers", 1], ["waterskin-canteen", 1], ["hemp-rope-50-ft", 1]], "notes": ["10 ft of string"]}, "circuit-trunk": {"items": [["strongbox-chest", 1], ["fine-clothes-circuit-coat", 1], ["ink-pen", 1], ["hooded-lamp", 1], ["lamp-oil", 2], ["claim-paper-sheet", 5], ["bay-rum-scent", 1], ["sealing-wax", 1], ["soap", 1]], "notes": ["2 map cases"]}, "saloon-kit": {"items": [["trail-pack", 1], ["bedroll-trail-blankets", 1], ["costume-stage-coat", 2], ["candle", 5], ["hardtack-jerky-1-day", 5], ["waterskin-canteen", 1], ["disguise-kit-stage-paint", 1]], "notes": []}, "circuit-kit": {"items": [["trail-pack", 1], ["candle", 10], ["tinderbox-lucifers", 1], ["circuit-robe-coat", 1], ["hardtack-jerky-1-day", 2], ["waterskin-canteen", 1]], "notes": ["blanket", "alms box", "2 blocks of incense", "censer"]}, "book-trunk": {"items": [["trail-pack", 1], ["ink-pen", 1], ["claim-paper-sheet", 10]], "notes": ["book of lore", "little bag of sand", "small knife"]}};

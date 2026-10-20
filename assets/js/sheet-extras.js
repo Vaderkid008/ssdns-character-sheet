@@ -139,6 +139,8 @@
     var curEl = $("#inHPCur"), tmpEl = $("#inHPTemp"), maxEl = $("#inHPMax");
     if (!curEl) return;
     var cur = num(curEl.value), temp = num(tmpEl && tmpEl.value), max = num(maxEl && maxEl.value);
+    /* L0188: exhaustion 4+ halves HP max; heals stop at the halved max */
+    max = effHpMax(max);
     if (delta < 0) {
       var dmg = -delta;
       var use = Math.min(temp, dmg);
@@ -164,6 +166,27 @@
     if (root.SSDNSConditionsUi && root.SSDNSConditionsUi.paint) root.SSDNSConditionsUi.paint();
   }
 
+  function exhLevel() {
+    var c = ch();
+    var Cond = root.SSDNSConditions;
+    if (!c || !Cond || !Cond.exhaustionLevel) return 0;
+    var list = (c.activeConditions && c.activeConditions.length) ? c.activeConditions : String(c.tableConditions || "").split(",");
+    return Cond.exhaustionLevel(list);
+  }
+  function effHpMax(max) {
+    var Cond = root.SSDNSConditions;
+    if (!Cond || !Cond.exhaustedHpMax) return max;
+    var out = Cond.exhaustedHpMax(max, exhLevel());
+    return out === "" || out == null ? max : num(out);
+  }
+  /** L0188: roll mode for checks and saves with exhaustion (1+: checks, 3+: saves). */
+  function condRollMode(kind) {
+    var Cond = root.SSDNSConditions;
+    var c = ch();
+    if (!Cond || !Cond.rollMode || !c) return "";
+    var list = (c.activeConditions && c.activeConditions.length) ? c.activeConditions : String(c.tableConditions || "").split(",");
+    return Cond.rollMode(list, kind, "") === "dis" ? "dis" : "";
+  }
   function showNotice(text) {
     toast(text);
     var n = $("#hpNotice");
@@ -197,6 +220,10 @@
     var cur = num($("#inHPCur") && $("#inHPCur").value);
     var hp = $(".hp");
     if (hp) hp.classList.toggle("hp-down", cur <= 0);
+    /* L0188: exhaustion math on the sheet + a toast saying what a new condition does */
+    if (root.SSDNSCondFx && root.SSDNSCondFx.after) {
+      try { root.SSDNSCondFx.after(c); } catch (e) { console.warn("[conditions] fx", e); }
+    }
   }
 
   function setConditions(list, extra) {
@@ -538,7 +565,7 @@
     var name = String(item.name || "Item");
     var plan = root.SSDNSStore && root.SSDNSStore.grantPlan ? root.SSDNSStore.grantPlan(item) : { kind: "gear", qty: 1 };
     if (plan.kind === "cartridge" || plan.kind === "ammo") {
-      /* inv2 (0.3.84): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
+      /* inv2 (0.3.85): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
       var ptype = plan.kind === "ammo" ? String(plan.type || "") : "cartridge";
       d.character.ammo = d.character.ammo || [];
       var pool = null;
@@ -706,7 +733,9 @@
       label = rest;
     }
     if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
-    var rolled = rollAdv(mod);
+    var cm = condRollMode(kind === "save" ? "save" : "check");
+    var rolled = rollAdv(mod, cm);
+    if (cm) rolled.detail += " · Exhaustion " + exhLevel();
     postCheck(label, rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false);
   }
   function attackReport(opts) {
@@ -969,9 +998,11 @@
     var last = sel.getAttribute("data-last-enemy") || "";
     sel.value = last;
   }
-  function rollAdv(mod) {
+  function rollAdv(mod, condMode) {
     var globalAdv = document.querySelector("#globalAdv");
     var mode = (globalAdv && globalAdv.value) || "";
+    /* L0188: a condition's disadvantage (exhaustion) cancels a chosen advantage, like attacks do */
+    if (condMode === "dis") mode = mode === "adv" ? "" : "dis";
     var n1 = 1 + Math.floor(Math.random() * 20);
     var n2 = null;
     var nat = n1;
@@ -994,7 +1025,9 @@
       bonus = v.initiative || 0;
     }
     if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
-    var rolled = rollAdv(bonus || 0);
+    var im = condRollMode("check");
+    var rolled = rollAdv(bonus || 0, im);
+    if (im) rolled.detail += " · Exhaustion " + exhLevel();
     /* 0.3.69: a new combat: the rig's first-shot bonus is ready again */
     if (ch() && ch().firstShotSpent) { ch().firstShotSpent = false; if (root.SSDNSApp && root.SSDNSApp.refreshGunFace) root.SSDNSApp.refreshGunFace(); }
     postCheck("Initiative", rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false);
@@ -1880,6 +1913,8 @@
     var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var mod = v && v.mods ? (Number(v.mods.DEX) || 0) : 0;
     var nat = 1 + Math.floor(Math.random() * 20);
+    /* L0188: exhaustion 1+ gives disadvantage on ability checks (this is a Dex check) */
+    if (condRollMode("check") === "dis") nat = Math.min(nat, 1 + Math.floor(Math.random() * 20));
     var total = nat + mod;
     var ok = total >= (info.dc || 12);
     var line = ((c && c.name) || "You") + " draws a second pistol: d20 " + nat + (mod ? ((mod > 0 ? "+" : "") + mod) : "") + " = " + total + " vs DC 12 " + (ok ? "success" : "fail");
@@ -2445,7 +2480,7 @@
     }
     if (kind === "long") {
       c.muzzleReopenUsed = false;
-      var max = num(c.hpMax);
+      var max = effHpMax(num(c.hpMax));
       if (max > 0) c.hpCurrent = max;
       c.hpTemp = 0;
       if (max > 0) syncDown(max);
@@ -3051,6 +3086,13 @@
     rollInitiative: rollInitiative,
     applyDelta: applyDelta,
     setHp: setHp,
+    postCheck: postCheck,
+    rollAdv: rollAdv,
+    condRollMode: condRollMode,
+    rollCheck: rollCheck,
+    effHpMax: effHpMax,
+    exhaustionLevel: exhLevel,
+    renderConds: renderConds,
     flashHp: flashHp,
     logRows: function () { return log.slice(); },
     showNotice: showNotice,

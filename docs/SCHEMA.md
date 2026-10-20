@@ -35,3 +35,14 @@
 `database.rules.json` does not validate these fields. They live in the bestiary file and in the DM's local table, not as a new player-visible schema.
 
 In a live room the same numbers are copied to `encounter/dm`, which only the DM can read. `encounter/public` keeps the name (or Unknown gunman), turn slot, coarse status, visible conditions, and a `revealed` object for anything the DM turned on. Top-level AC, HP, saves, attacks, traits, tactics, and DCs are rejected on that public node.
+
+## Item supply fields (0.3.82, L0188-L0190)
+Catalog rows and inventory rows may carry these. `type` is unchanged.
+- `tags` (string[]): `food`, `water`, `container`, `drink`, `pack`, `feed`, …
+- `meals` (days of food per item)
+- `water` (gal of drink per item)
+- `capacity` (gal a container holds), with `fill` (gal now in that inventory row)
+- `defaultFill` (`full` | `empty`), `fillIncluded`, `mealWeight`, `mealsUsed`
+- `character.supplies`: `{ mode: off|loose|strict, water (loose gal), daysHungry, halfOpen, pendingSave, last, day, share }`
+
+See docs/supplies.md.

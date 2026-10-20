@@ -36,7 +36,7 @@
       return { name: row[0], text: row[1], exhaustion: false };
     }).concat([{
       name: "Exhaustion",
-      text: "Stacked fatigue, levels 1 through 6. The level is part of the condition.",
+      text: "Stacked fatigue, levels 1 through 6. Each level adds to the ones below: 1 disadvantage on ability checks; 2 speed halved; 3 disadvantage on attacks and saves; 4 HP max halved; 5 speed 0; 6 death.",
       exhaustion: true
     }]);
   }
@@ -129,8 +129,83 @@
     });
     return names;
   }
+  /* L0188 food & water: 5e exhaustion levels feed the sheet math. Each level keeps the ones below. */
+  var EXH_STEPS = [
+    "",
+    "disadvantage on ability checks",
+    "speed halved",
+    "disadvantage on attacks and saves",
+    "HP max halved",
+    "speed 0",
+    "death"
+  ];
+  function exhaustionLevel(list) {
+    var lv = 0;
+    (list || []).forEach(function (raw) {
+      if (!raw) return;
+      if (typeof raw === "string") {
+        var m = /^exhaustion\s*(\d+)?/i.exec(raw.trim());
+        if (m) lv = Math.max(lv, Math.min(6, parseInt(m[1] || "1", 10) || 1));
+        return;
+      }
+      var row = normalize(raw);
+      if (row && row.name === "Exhaustion") lv = Math.max(lv, row.level);
+    });
+    return lv;
+  }
+  /** What exhaustion at this level does, in plain words. */
+  function exhaustionEffects(level) {
+    var lv = Math.max(0, Math.min(6, parseInt(level, 10) || 0));
+    var out = {
+      level: lv,
+      checkDis: lv >= 1,
+      speedHalf: lv >= 2 && lv < 5,
+      attackDis: lv >= 3,
+      saveDis: lv >= 3,
+      hpHalf: lv >= 4,
+      speedZero: lv >= 5,
+      dead: lv >= 6,
+      steps: EXH_STEPS.slice(1, lv + 1)
+    };
+    out.text = lv >= 6 ? "You die of exhaustion." : out.steps.slice().reverse().join("; ");
+    return out;
+  }
+  /** Effective speed with exhaustion (2 halves it, 5 makes it 0). Base value is never changed. */
+  function exhaustedSpeed(speed, level) {
+    var n = Number(speed);
+    if (speed === "" || speed == null || !isFinite(n)) return speed;
+    var lv = parseInt(level, 10) || 0;
+    if (lv >= 5) return 0;
+    if (lv >= 2) return Math.floor(n / 2);
+    return n;
+  }
+  /** Effective HP max with exhaustion (4+ halves it, rounded down, min 1). */
+  function exhaustedHpMax(max, level) {
+    var n = Number(max);
+    if (max === "" || max == null || !isFinite(n)) return max;
+    if ((parseInt(level, 10) || 0) >= 4) return Math.max(1, Math.floor(n / 2));
+    return n;
+  }
+  /** One plain sentence for a condition toast: "Exhaustion 2: speed halved; disadvantage on ability checks." */
+  function effectText(entry) {
+    var row = normalize(entry);
+    if (!row) return "";
+    if (row.name === "Exhaustion") return label(row) + ": " + exhaustionEffects(row.level).text + ".";
+    return label(row) + ": " + textFor(row.name);
+  }
+  /** Ability check / save roll mode from conditions. kind is "check" or "save". */
+  function rollMode(list, kind, chosen) {
+    var fx = exhaustionEffects(exhaustionLevel(list));
+    var dis = kind === "save" ? fx.saveDis : fx.checkDis;
+    var pick = chosen === "adv" || chosen === "dis" ? chosen : "";
+    if (!dis) return pick;
+    if (pick === "adv") return "";
+    return "dis";
+  }
   function disadvantageNote(list) {
     var names = namesFrom(list, ATTACK_DISADV);
+    var lv = exhaustionLevel(list);
+    if (lv >= 3) names.push("Exhaustion " + lv);
     return names.length ? ("disadvantage: " + names.join(", ")) : "";
   }
   function advantageNote(list) {
@@ -189,6 +264,12 @@
     advantageNote: advantageNote,
     attackMode: attackMode,
     mergeById: mergeById,
-    ensureUnconscious: ensureUnconscious
+    ensureUnconscious: ensureUnconscious,
+    exhaustionLevel: exhaustionLevel,
+    exhaustionEffects: exhaustionEffects,
+    exhaustedSpeed: exhaustedSpeed,
+    exhaustedHpMax: exhaustedHpMax,
+    effectText: effectText,
+    rollMode: rollMode
   };
 })(typeof window !== "undefined" ? window : globalThis);

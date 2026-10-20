@@ -164,8 +164,69 @@
       shelf: String(raw.shelf || ""),
       stack: !!raw.stack,
       noCarry: !!raw.noCarry,
-      provisional: String(raw.provisional || "")
+      provisional: String(raw.provisional || ""),
+      /* L0188-L0190 supplies schema: tags (keep type too), meals for food, water (gal) for drink,
+         capacity (gal) + defaultFill ("full" | "empty") for water containers */
+      tags: tagsOf(raw.tags),
+      meals: posNum(raw.meals),
+      water: posNum(raw.water),
+      capacity: posNum(raw.capacity),
+      defaultFill: raw.defaultFill === "full" ? "full" : (raw.capacity ? "empty" : ""),
+      fillIncluded: !!raw.fillIncluded, /* catalog weight already counts a full container (waterskin "5 lb full") */
+      mealWeight: posNum(raw.mealWeight) /* lb per meal inside a multi-meal item (a pack's hardtack) */
     };
+  }
+  function tagsOf(list) {
+    if (typeof list === "string") list = list.split(",");
+    if (!Array.isArray(list)) return [];
+    var out = [];
+    list.forEach(function (t) {
+      var x = String(t == null ? "" : t).trim();
+      if (x && out.indexOf(x) < 0) out.push(x);
+    });
+    return out;
+  }
+  function posNum(v) {
+    if (v == null || v === "") return null;
+    var n = Number(v);
+    return isFinite(n) && n > 0 ? n : null;
+  }
+  function hasTag(item, tag) {
+    return !!(item && Array.isArray(item.tags) && item.tags.indexOf(tag) >= 0);
+  }
+  /* Old saves: rows made before the supplies schema get tags/meals/capacity from the catalog (or a
+     name match for hand-typed rations / waterskins). A waterskin's weight becomes its empty weight
+     and its water is counted as fill (8 lb a gallon), so carried weight stays the same. */
+  var SUPPLY_NAMES = [
+    { re: /\b(hardtack|jerky|rations?|pemmican|trail food)\b/i, tags: ["food"], meals: 1 },
+    { re: /\b(waterskin|canteen)\b/i, tags: ["water", "container"], capacity: 0.5, defaultFill: "full", fillIncluded: true }
+  ];
+  function inferSupply(item) {
+    if (!item || item._supplyChecked) return item;
+    var base = item.catalogId ? byId(item.catalogId) : null;
+    var src = null;
+    if (base && (base.tags.length || base.meals || base.capacity || base.water)) src = base;
+    else if ((!base || !base.tags.length) && !(Array.isArray(item.tags) && item.tags.length) && item.meals == null && item.water == null && item.capacity == null) {
+      for (var i = 0; i < SUPPLY_NAMES.length; i++) {
+        if (SUPPLY_NAMES[i].re.test(String(item.name || ""))) { src = SUPPLY_NAMES[i]; break; }
+      }
+    }
+    if (src) {
+      var tagsNow = tagsOf(item.tags);
+      (src.tags || []).forEach(function (t) { if (tagsNow.indexOf(t) < 0) tagsNow.push(t); });
+      item.tags = tagsNow;
+      if (item.meals == null && src.meals) item.meals = src.meals;
+      if (item.water == null && src.water) item.water = src.water;
+      if (item.mealWeight == null && src.mealWeight) item.mealWeight = src.mealWeight;
+      if (item.capacity == null && src.capacity) {
+        item.capacity = src.capacity;
+        if (src.fillIncluded) item.fillIncluded = true;
+        /* before this schema a waterskin weighed "5 lb full": it starts full so carried weight doesn't move */
+        if (item.fill == null) item.fill = src.defaultFill === "full" ? src.capacity * Math.max(1, Number(item.count) || 1) : 0;
+      }
+    }
+    try { Object.defineProperty(item, "_supplyChecked", { value: true, enumerable: false, configurable: true }); } catch (e) {}
+    return item;
   }
 
   function byId(id) {
@@ -239,11 +300,22 @@
       addressedTo: (raw && raw.addressedTo) || opts.addressedTo || "",
       dmAllowDrop: !!(raw && raw.dmAllowDrop),
       dmAllowRob: !!(raw && raw.dmAllowRob),
-      tags: (raw && Array.isArray(raw.tags)) ? raw.tags.slice() : (Array.isArray(base.tags) ? base.tags.slice() : []),
+      tags: tagsOf([].concat((raw && Array.isArray(raw.tags)) ? raw.tags : [], Array.isArray(base.tags) ? base.tags : [])),
       quality: (raw && raw.quality) || "",
       shelf: base.shelf || (raw && raw.shelf) || "",
       stack: !!(base.stack || (raw && raw.stack)),
-      noCarry: !!(base.noCarry || (raw && raw.noCarry))
+      noCarry: !!(base.noCarry || (raw && raw.noCarry)),
+      meals: posNum(raw && raw.meals != null ? raw.meals : base.meals),
+      water: posNum(raw && raw.water != null ? raw.water : base.water),
+      capacity: posNum(raw && raw.capacity != null ? raw.capacity : base.capacity),
+      fillIncluded: !!((raw && raw.fillIncluded) || base.fillIncluded),
+      mealWeight: posNum(raw && raw.mealWeight != null ? raw.mealWeight : base.mealWeight),
+      fill: (function () {
+        var cap = posNum(raw && raw.capacity != null ? raw.capacity : base.capacity);
+        if (!cap) return null;
+        if (raw && raw.fill != null && isFinite(Number(raw.fill))) return Math.max(0, Math.min(cap * count, Number(raw.fill)));
+        return ((raw && raw.defaultFill) || base.defaultFill) === "full" ? cap * count : 0;
+      })()
     };
   }
 
@@ -251,6 +323,7 @@
     if (!character) return [];
     if (!Array.isArray(character.items)) character.items = [];
     character.items.forEach(unlimitedFix);
+    character.items.forEach(inferSupply);
     return character.items;
   }
 
@@ -614,6 +687,14 @@
       var n = Number(item.count);
       if (!isFinite(n) || n < 1) n = 1;
       sum += w * n;
+      /* water in a container weighs 8 lb a gallon on top of the empty container
+         (fillIncluded: the listed weight is the full container, so only the missing water comes off) */
+      if (item.capacity) {
+        var fillGal = Math.max(0, Number(item.fill) || 0);
+        sum += (fillGal - (item.fillIncluded ? item.capacity * n : 0)) * 8;
+      }
+      /* meals already eaten out of a multi-meal item (a pack's hardtack) */
+      if (item.mealWeight && Number(item.mealsUsed) > 0) sum -= Number(item.mealsUsed) * item.mealWeight;
     });
     return Math.round(sum * 100) / 100;
   }
@@ -631,7 +712,7 @@
   function slotWeights(character) {
     var R = root.SSDNS_RULES || {};
     var CW = root.SSDNS_CARRY_WEIGHTS || {};
-    var out = { weapons: 0, armor: 0, rigs: 0, ammo: 0, instrument: 0 };
+    var out = { weapons: 0, armor: 0, rigs: 0, ammo: 0, instrument: 0, water: 0 };
     if (!character) return out;
     var lists = [].concat(R.firearms || [], R.casterGuns || [], R.otherRanged || [], R.melee || []);
     function rec(id) { for (var i = 0; i < lists.length; i++) if (lists[i] && lists[i].id === id) return lists[i]; return null; }
@@ -660,6 +741,9 @@
       out.ammo += n * (num(each[pool.type]) || 0);
     });
     if (character.instrument) out.instrument += num((CW.instruments || {})[character.instrument]) || 0;
+    /* L0188 food & water: the DM's water count (gallons) weighs 8 lb a gallon. */
+    var gal = character.supplies ? Number(character.supplies.water) : 0;
+    if (isFinite(gal) && gal > 0) out.water += gal * 8;
     Object.keys(out).forEach(function (k) { out[k] = Math.round(out[k] * 100) / 100; });
     return out;
   }
@@ -742,6 +826,7 @@
       })[0];
       if (same) {
         same.count = (Number(same.count) || 1) + (Number(item.count) || 1);
+        if (same.capacity) same.fill = (Number(same.fill) || 0) + (Number(item.fill) || 0);
         return { ok: true, item: same, merged: true };
       }
     }
@@ -835,7 +920,7 @@
     return { ok: true, item: item };
   }
 
-  /* inv2 (0.3.84): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
+  /* inv2 (0.3.85): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
      unpack, so nothing is doubled; 5E parts with no catalog row land as one gear note line. */
   function packContents(item) {
     var map = root.SSDNS_PACK_CONTENTS || {};
@@ -1060,7 +1145,7 @@
     line.hidden = false;
     line.textContent = "Carried " + report.carried + " / " + report.capacity + " lb" + (report.over ? " (over capacity)" : "");
     var sl = report.slots || {};
-    var parts = [["items", report.items], ["weapons", sl.weapons], ["armor", sl.armor], ["rigs", sl.rigs], ["ammo", sl.ammo], ["instrument", sl.instrument]]
+    var parts = [["items", report.items], ["weapons", sl.weapons], ["armor", sl.armor], ["rigs", sl.rigs], ["ammo", sl.ammo], ["instrument", sl.instrument], ["water", sl.water]]
       .filter(function (p) { return p[1]; }).map(function (p) { return p[0] + " " + p[1]; });
     line.title = parts.length ? "Carried: " + parts.join(" · ") + " lb. Mounts, saddles and saddlebags don't count." : "";
     if (parts.length) line.textContent += " · " + parts.join(" · ");
@@ -1158,6 +1243,13 @@
         '<label class="chk"><input type="checkbox" data-item-wslow> Slow reload</label>' +
       "</fieldset>" +
       '<label>Weight (lb) <input data-item-weight type="number" min="0" step="0.1"></label>' +
+      '<fieldset class="item-supply-fields"><legend>Food &amp; water</legend>' +
+        '<label>Tags <input data-item-tags type="text" placeholder="food, water, container"></label>' +
+        '<label>Meals (days of food each) <input data-item-meals type="number" min="0" step="0.5"></label>' +
+        '<label>Water (gal of drink each) <input data-item-water type="number" min="0" step="0.5"></label>' +
+        '<label>Holds (gal, container) <input data-item-capacity type="number" min="0" step="0.125"></label>' +
+        '<label class="chk"><input type="checkbox" data-item-fullfill> Starts full</label>' +
+      "</fieldset>" +
       '<label>Price ES (blank = not for sale) <input data-item-price type="number" min="0"></label>' +
       '<label>Art: image link or path <input data-item-art type="text" placeholder="https://… (Dropbox/Drive/any host) or assets/img/items/….webp"></label>' +
       '<div class="art-upload"><label>Upload art <input type="file" accept="image/png,image/webp,image/jpeg" data-art-file data-art-target="[data-item-art]"></label>' +
@@ -1235,7 +1327,12 @@
       forSale: priceRaw !== "",
       art: val("art") || "",
       dmAllowDrop: on("allow-drop"),
-      dmAllowRob: on("allow-rob")
+      dmAllowRob: on("allow-rob"),
+      tags: tagsOf(val("tags")),
+      meals: val("meals"),
+      water: val("water"),
+      capacity: val("capacity"),
+      defaultFill: on("fullfill") ? "full" : ""
     });
   }
 
@@ -1264,6 +1361,12 @@
     set("art", row.art || "");
     set("recharge", (row.uses && row.uses.recharge) || "");
     set("rarity", row.rarity || "");
+    set("tags", (row.tags || []).join(", "));
+    set("meals", row.meals == null ? "" : row.meals);
+    set("water", row.water == null ? "" : row.water);
+    set("capacity", row.capacity == null ? "" : row.capacity);
+    var ff = form.querySelector("[data-item-fullfill]");
+    if (ff) ff.checked = row.defaultFill === "full";
     var att = form.querySelector("[data-item-attune]");
     if (att) att.checked = !!row.attune;
     toggleWeaponFields(form);
@@ -1763,6 +1866,9 @@
     weightReport: weightReport,
     slotWeights: slotWeights,
     lbOf: lbOf,
+    hasTag: hasTag,
+    tagsOf: tagsOf,
+    inferSupply: inferSupply,
     recharge: recharge,
     scrollTable: scrollTable,
     ringSpec: ringSpec,

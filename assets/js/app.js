@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.84"; // sheet-playtest-v0384
+  var APP_VERSION = "0.3.85"; // sheet-playtest-v0385
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -4223,7 +4223,7 @@
     Restrained: "Speed is 0. Attacks against you have advantage; your attacks and Dexterity saves have disadvantage.",
     Stunned: "Incapacitated, can't move, and auto-fail Strength and Dexterity saves. Attacks against you have advantage.",
     Unconscious: "Incapacitated, prone, and unaware. You drop what you're holding and auto-fail Strength and Dexterity saves. Attacks against you have advantage, and a hit from within 5 feet is a critical.",
-    Exhaustion: "Stacked fatigue. The DM says which level is on you and what it takes away."
+    Exhaustion: "Stacked fatigue, levels 1 to 6; each keeps the ones below. 1: disadvantage on ability checks. 2: speed halved. 3: disadvantage on attacks and saves. 4: HP max halved. 5: speed 0. 6: death."
   };
   function activeCondList() {
     var c = C();
