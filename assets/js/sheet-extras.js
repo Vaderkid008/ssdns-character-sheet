@@ -571,7 +571,7 @@
     var name = String(item.name || "Item");
     var plan = root.SSDNSStore && root.SSDNSStore.grantPlan ? root.SSDNSStore.grantPlan(item) : { kind: "gear", qty: 1 };
     if (plan.kind === "cartridge" || plan.kind === "ammo") {
-      /* inv2 (0.3.89): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
+      /* inv2 (0.3.90): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
       var ptype = plan.kind === "ammo" ? String(plan.type || "") : "cartridge";
       d.character.ammo = d.character.ammo || [];
       var pool = null;
@@ -2148,6 +2148,8 @@
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
     var dmgExpr = dmgEl && dmgEl.value;
     if (OH && OH.stripMod) dmgExpr = OH.stripMod(dmgExpr, OH.abilityMod(ch(), "gun", i));
+    /* L0196: the arrow that flew decides the base die (Whistler 1d4), even if the card re-rendered after the last one left */
+    if (spent && spent.arrow && root.SSDNSTrackers && root.SSDNSTrackers.arrowDieExpr) dmgExpr = root.SSDNSTrackers.arrowDieExpr(dmgExpr, spent.arrow);
     var ohTag = OH ? " · " + OH.TAG : (FAN ? " · " + FAN.TAG : "");
     var ohWord = OH ? " (" + OH.TAG + ")" : "";
     if (!misfired && FAN && FAN.cue) FAN.cue(cue, attackCue);

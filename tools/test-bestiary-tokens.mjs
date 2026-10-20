@@ -28,7 +28,7 @@ function webpSize(file) {
 
 const DIR = path.join(root, "map/tokenImages/bestiary");
 const beasts = JSON.parse(read("dm/assets/data/bestiary.json")).filter((b) => b && !b.template);
-check("data.count", beasts.length === 54, String(beasts.length));
+check("data.count", beasts.length === 59, String(beasts.length));
 const noTok = beasts.filter((b) => !b.token).map((b) => b.id);
 check("data.everyToken", !noTok.length, noTok.join());
 const files = [];
@@ -41,10 +41,12 @@ const dims = all.map((f) => ({ f, d: webpSize(path.join(DIR, f)), kb: fs.statSyn
 check("files.small", dims.every((x) => x.d && x.d.w <= 256 && x.d.h <= 256 && x.d.w === x.d.h && x.kb < 64), JSON.stringify(dims.filter((x) => !x.d || x.d.w > 256 || x.kb >= 64)));
 check("files.noPng", !fs.readdirSync(DIR).some((f) => /\.png$/i.test(f)));
 check("spectral.alts", JSON.stringify(beasts.find((b) => b.id === "spectral-horse").tokenAlts) === JSON.stringify(["_alts/56-spectral-horse_alt-a-standing.webp", "_alts/56-spectral-horse_take-b-solid.webp", "_alts/56-spectral-horse_take-d-veiled.webp"]));
-/* copied, not wired: no bestiary entry yet */
-check("unwired.thunderbirds", ["52-tombstone-thunderbird.webp", "53-thunderbird-hatchling.webp"].every((f) => fs.existsSync(path.join(DIR, f)) && !files.includes(f)));
+/* L0195 (2026-10-20): the five thunderbirds use their own 57-61 tokens; the older 52/53 copies stay in place, unwired */
+const TB = { "thunderbird-hatchling": "57-thunderbird-hatchling.webp", "thunderbird-hatchling-brood": "58-thunderbird-hatchling-brood.webp", "young-thunderbird": "59-young-thunderbird.webp", "widower-thunderbird": "60-widower-thunderbird.webp", "elder-thunderbird": "61-elder-thunderbird.webp" };
+check("thunderbirds.tokens", Object.entries(TB).every(([id, f]) => (beasts.find((b) => b.id === id) || {}).token === f && fs.existsSync(path.join(DIR, f))), JSON.stringify(beasts.filter((b) => TB[b.id]).map((b) => b.token)));
+check("thunderbirds.legacyKept", ["52-tombstone-thunderbird.webp", "53-thunderbird-hatchling.webp"].every((f) => fs.existsSync(path.join(DIR, f)) && !files.includes(f)));
 const unused = all.filter((f) => !files.includes(f)).sort();
-check("unwired.onlyThunderbirds", unused.join() === "52-tombstone-thunderbird.webp,53-thunderbird-hatchling.webp", unused.join());
+check("unwired.onlyLegacyThunderbirds", unused.join() === "52-tombstone-thunderbird.webp,53-thunderbird-hatchling.webp", unused.join());
 /* code */
 const v2 = read("dm/assets/js/v2.js");
 check("code.dir", v2.includes('const BEAST_TOKEN_DIR = "tokenImages/bestiary/";') && /if \(\/\^tokenImages\\\/\/\.test\(src\)\)/.test(read("map/ssdns-map.js")));

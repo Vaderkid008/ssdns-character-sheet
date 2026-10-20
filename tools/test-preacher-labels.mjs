@@ -110,7 +110,7 @@ try {
     const C = window.SSDNSCreator; if (!C || !C.buildSheet) return null;
     const p = C.buildSheet({ calling: "frontier-preacher", kit: { pack: "circuit" } });
     const t = C.buildSheet({ calling: "storyteller", kit: { kit: "trunk" } });
-    /* inv2 (0.3.89): a kit line that is a catalog item (the pack) lands as a real item, so read items too */
+    /* inv2 (0.3.90): a kit line that is a catalog item (the pack) lands as a real item, so read items too */
     const gear = (b) => b && b.character ? [b.character.equipment || ""].concat((b.character.items || []).map((x) => "• " + x.name)).join("\n") : "";
     return { p: gear(p), t: gear(t) };
   });

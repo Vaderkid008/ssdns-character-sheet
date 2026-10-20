@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.89"; // sheet-playtest-v0389
+  var APP_VERSION = "0.3.90"; // sheet-playtest-v0390
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -215,7 +215,7 @@
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
   }
-  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.89 landed in a cartridge pool (caliber .50-90) that the
+  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.90 landed in a cartridge pool (caliber .50-90) that the
       Big Fifty never reads, weighing 0.05 lb a round. Move them to the bigfifty pool (0.15 lb). Returns rounds moved. */
   function moveBigFiftyPools(c) {
     if (!c || !Array.isArray(c.ammo)) return 0;
@@ -872,6 +872,9 @@
       /* L0186: a nocked Blunt arrow makes the bow's damage bludgeoning (card, map attack list, rolls) */
       var nockT = window.SSDNSTrackers && window.SSDNSTrackers.nockedDtype ? window.SSDNSTrackers.nockedDtype(g) : "";
       if (nockT) s.dmgType = nockT;
+      /* L0196: a nocked Whistler rolls 1d4 in place of the bow's die (everything else still adds) */
+      var nockD = window.SSDNSTrackers && window.SSDNSTrackers.nockedDie ? window.SSDNSTrackers.nockedDie(g) : "";
+      if (nockD && s.damage) { s.baseDamage = s.damage; s.damage = nockD; s.arrowDie = nockD; }
     }
     var notes = [];
     if (w.category === "martial" || w.category === "simple" || w.category === "caster") notes.push(w.category);

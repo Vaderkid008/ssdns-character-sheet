@@ -178,8 +178,8 @@ check((read("assets/data/rules.js").match(/doesn't stack with cover/g) || []).le
 check(read("docs/SCHEMA.md").indexOf("`tactics`") >= 0, "schema documents tactics");
 const liveBeasts = beasts.filter((b) => b && !b.template);
 /* 0.2.78: Encounter Bot bestiary v1 adds draft-horse, mule, spectral-horse, elite-sandie-brute, sand-devourer, slumber-ghoul */
-check(liveBeasts.length === 54, "54 enemies");
-check(liveBeasts.filter((b) => b.group === "creature").length === 30 && liveBeasts.filter((b) => b.group === "generic-folk").length === 10 && liveBeasts.filter((b) => b.group === "named").length === 14, "creatures, folk, named");
+check(liveBeasts.length === 59, "59 enemies (54 + 5 L0195 thunderbirds)");
+check(liveBeasts.filter((b) => b.group === "creature").length === 35 && liveBeasts.filter((b) => b.group === "generic-folk").length === 10 && liveBeasts.filter((b) => b.group === "named").length === 14, "creatures, folk, named");
 check(liveBeasts.filter((b) => b.parked).map((b) => b.id).join(",") === "captain-rhee-calder", "only Calder is parked");
 const wakan = beasts.filter((b) => b.id === "wakan-takan")[0];
 check(wakan && wakan.spellcasting.dc === 13 && wakan.spellcasting.attack === 5 && wakan.saves.INT === 5 && wakan.saves.WIS === 3 && wakan.attackList[0].toHit === 4 && wakan.proficiencyNote == null, "Wakan Takan uses proficiency +2");
@@ -245,9 +245,9 @@ check(sandbox.__enemy.enemyPickerList(picker, "", false).some((b) => b.parked) =
 const menu = sandbox.__enemy.enemySelectHtml(sandbox.__enemy.enemyPickerList(picker, "", false));
 check(menu.indexOf('label="Creatures"') >= 0 && menu.indexOf('label="Folk"') >= 0 && menu.indexOf('label="Named"') >= 0 && menu.indexOf("Abigail Ellen") >= 0, "fight menu uses group headers");
 check(html.indexOf('id="enemyQ"') >= 0, "fight search box is in the page");
-check(version.dmcc === "0.2.102" && version.dmccBuild === "dmcc-playtest-v02102", "dmcc version");
-check(version.sheet === "0.3.89" && version.sheetBuild === "sheet-playtest-v0389", "sheet version");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.102"') >= 0, "dmcc.js version");
+check(version.dmcc === "0.2.103" && version.dmccBuild === "dmcc-playtest-v02103", "dmcc version");
+check(version.sheet === "0.3.90" && version.sheetBuild === "sheet-playtest-v0390", "sheet version");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.103"') >= 0, "dmcc.js version");
 check(!fs.existsSync(path.join(root, "database.rules.json")) || read("database.rules.json").indexOf("enemySheet") < 0, "no rules change for the sheet");
 
 if (failures.length) {

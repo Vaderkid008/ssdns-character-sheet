@@ -5332,5 +5332,681 @@
   "description": "The Death Dealer of Deadwood Canyon: a Ten-Asi medicine man turned necromancer.",
   "group": "named",
   "source": "six-shooters/drafts/monster-manual/WAKAN-TAKAN.md"
+ },
+ {
+  "id": "thunderbird-hatchling",
+  "name": "Thunderbird Hatchling",
+  "token": "57-thunderbird-hatchling.webp",
+  "size": "Small",
+  "type": "monstrosity",
+  "alignment": "unaligned",
+  "ac": 12,
+  "hp": 22,
+  "hitDice": "5d6+5",
+  "hpDice": "5d6+5",
+  "speed": "20 ft., fly 40 ft.",
+  "dex": 14,
+  "initBonus": 2,
+  "cr": "1",
+  "xp": 200,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 12,
+   "DEX": 14,
+   "CON": 12,
+   "INT": 3,
+   "WIS": 10,
+   "CHA": 6
+  },
+  "str": 12,
+  "con": 12,
+  "int": 3,
+  "wis": 10,
+  "cha": 6,
+  "saves": {},
+  "skills": {
+   "Perception": 2
+  },
+  "senses": "passive Perception 12",
+  "languages": "—",
+  "attacks": "Peck +4 (1d6+2 piercing)",
+  "atkBonus": 4,
+  "damage": "1d6+2",
+  "attackList": [
+   {
+    "id": "peck",
+    "name": "Peck",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "1d6+2",
+    "damageType": "piercing",
+    "range": "5 ft",
+    "target": "one target",
+    "notes": "Two pecks per turn (Multiattack). Advantage from Pack Tactics when an ally is within 5 ft of the target."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Pack Tactics",
+    "text": "The hatchling has advantage on an attack roll against a creature if at least one of the hatchling’s allies is within 5 feet of the creature and the ally isn’t incapacitated."
+   },
+   {
+    "name": "Flyby",
+    "text": "The hatchling doesn’t provoke opportunity attacks when it flies out of an enemy’s reach."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The hatchling makes two Peck attacks."
+   },
+   {
+    "name": "Screech",
+    "recharge": "6",
+    "text": "The hatchling calls its parent. If the adult is within 1 mile, it arrives in 1d4 rounds. Each creature within 10 feet of the hatchling must succeed on a DC 11 Constitution saving throw or be deafened until the end of its next turn.",
+    "rider": {
+     "save": "CON",
+     "dc": 11,
+     "condition": "Deafened",
+     "rounds": 1,
+     "onSave": "none",
+     "text": "Deafened until the end of its next turn."
+    }
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Mobs the nearest target in threes. At half HP (11) it screeches and flutters back to the parent.",
+  "tacticsSource": "L0195 (THUNDERBIRD-DRAFT-v5)",
+  "tacticsDraft": false,
+  "loot": "Nothing worth harvesting. Bounty 500 ES per head, dead; a showman pays 1,500 ES for a live one (a rival bids up to 2,000).",
+  "lootSource": "L0195 (THUNDERBIRD-DRAFT-v5)",
+  "description": "Turkey-sized thunderbird chick: grey down, hooked beak, nub horns. Mobs in threes and screeches for Papa.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/THUNDERBIRD-HATCHLING.md",
+  "lock": "L0195",
+  "act": "Any act (nest guards, show-cage escapes, a pet hook)"
+ },
+ {
+  "id": "thunderbird-hatchling-brood",
+  "name": "Thunderbird Hatchling Brood",
+  "token": "58-thunderbird-hatchling-brood.webp",
+  "size": "Medium",
+  "type": "swarm of Small monstrosities",
+  "alignment": "unaligned",
+  "ac": 12,
+  "hp": 49,
+  "hitDice": "11d8",
+  "hpDice": "11d8",
+  "speed": "20 ft., fly 40 ft.",
+  "dex": 14,
+  "initBonus": 2,
+  "cr": "3",
+  "xp": 700,
+  "proficiencyBonus": 2,
+  "abilities": {
+   "STR": 12,
+   "DEX": 14,
+   "CON": 10,
+   "INT": 3,
+   "WIS": 10,
+   "CHA": 6
+  },
+  "str": 12,
+  "con": 10,
+  "int": 3,
+  "wis": 10,
+  "cha": 6,
+  "saves": {},
+  "skills": {},
+  "senses": "passive Perception 10",
+  "languages": "—",
+  "damageResistances": "bludgeoning, piercing, slashing",
+  "conditionImmunities": "charmed, frightened, grappled, paralyzed, petrified, prone, restrained, stunned",
+  "attacks": "Pecks +4 (4d6 piercing)",
+  "atkBonus": 4,
+  "damage": "4d6",
+  "attackList": [
+   {
+    "id": "pecks",
+    "name": "Pecks",
+    "kind": "melee",
+    "toHit": 4,
+    "bonus": 4,
+    "damage": "4d6",
+    "damageType": "piercing",
+    "range": "0 ft",
+    "target": "one creature in the swarm’s space",
+    "notes": "Damage drops to 2d6 (7) when the brood is at half HP (24) or less."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Swarm",
+    "text": "The brood can occupy another creature’s space and vice versa, and it can move through any opening large enough for a Small creature. It can’t regain hit points or gain temporary hit points. One brood is about 3 hatchlings."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Screech",
+    "recharge": "5–6",
+    "text": "Each creature within 10 feet of the brood must succeed on a DC 10 Constitution saving throw or be deafened until the end of its next turn. Papa, if within 1 mile, arrives in 1d4 rounds.",
+    "rider": {
+     "save": "CON",
+     "dc": 10,
+     "condition": "Deafened",
+     "rounds": 1,
+     "onSave": "none",
+     "text": "Deafened until the end of its next turn."
+    }
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Engulfs whoever is nearest Papa’s target. At half HP (24) it screeches (calling Papa) and splits into hatchlings that flee.",
+  "tacticsSource": "L0195 (THUNDERBIRD-DRAFT-v5)",
+  "tacticsDraft": false,
+  "loot": "Nothing worth harvesting. A showman pays 4,000 ES for a live brood; hatchling bounties are 500 ES per head, dead.",
+  "lootSource": "L0195 (THUNDERBIRD-DRAFT-v5)",
+  "description": "A churning knot of about three thunderbird hatchlings; engulfs one target and screeches for Papa.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/THUNDERBIRD-HATCHLING-BROOD.md",
+  "lock": "L0195",
+  "act": "Act II–III (nest waves, wagon-raid pests)",
+  "lockNote": "L0195 fix 2026-10-20: passive Perception 10, Screech DC 10 Con (DND Bot)."
+ },
+ {
+  "id": "young-thunderbird",
+  "name": "Young Thunderbird",
+  "token": "59-young-thunderbird.webp",
+  "size": "Large",
+  "type": "monstrosity",
+  "alignment": "unaligned",
+  "ac": 14,
+  "armor": "natural armor",
+  "hp": 110,
+  "hitDice": "13d10+39",
+  "hpDice": "13d10+39",
+  "speed": "20 ft., fly 80 ft.",
+  "dex": 14,
+  "initBonus": 2,
+  "cr": "6",
+  "xp": 2300,
+  "proficiencyBonus": 3,
+  "abilities": {
+   "STR": 19,
+   "DEX": 14,
+   "CON": 16,
+   "INT": 4,
+   "WIS": 12,
+   "CHA": 7
+  },
+  "str": 19,
+  "con": 16,
+  "int": 4,
+  "wis": 12,
+  "cha": 7,
+  "saves": {
+   "DEX": 5,
+   "CON": 6
+  },
+  "skills": {
+   "Perception": 4
+  },
+  "senses": "darkvision 60 ft., passive Perception 14",
+  "languages": "—",
+  "damageResistances": "lightning, thunder",
+  "attacks": "Beak +7 (2d8+4 piercing), Talons +7 (2d6+4 slashing)",
+  "atkBonus": 7,
+  "damage": "2d8+4",
+  "attackList": [
+   {
+    "id": "beak",
+    "name": "Beak",
+    "kind": "melee",
+    "toHit": 7,
+    "bonus": 7,
+    "damage": "2d8+4",
+    "damageType": "piercing",
+    "range": "10 ft",
+    "target": "one target",
+    "notes": "L5+ only. In Act I (L1–4) it never attacks."
+   },
+   {
+    "id": "talons",
+    "name": "Talons",
+    "kind": "melee",
+    "toHit": 7,
+    "bonus": 7,
+    "damage": "2d6+4",
+    "damageType": "slashing",
+    "range": "5 ft",
+    "target": "one target",
+    "grapple": {
+     "escapeDc": 15
+    },
+    "notes": "L5+ only. A Medium or smaller target is grappled (escape DC 15); the thunderbird can fly carrying it at half speed."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Act I Hazard (L1–4)",
+    "text": "Not a combat. It makes one fly-over: each rider makes a DC 12 Wisdom (Animal Handling) check or the mount bolts, and it snatches one unattended or picketed horse (or a lone steer) and leaves. Party gunfire just drives it off; it never fights back at these levels. Award no XP or loot; it is a story beat."
+   },
+   {
+    "name": "Flyby",
+    "text": "The thunderbird doesn’t provoke opportunity attacks when it flies out of an enemy’s reach."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The thunderbird makes one Beak attack and one Talons attack."
+   },
+   {
+    "name": "Drop Prey",
+    "text": "The thunderbird releases a creature it has grappled. The creature falls, taking 1d6 bludgeoning damage per 10 feet fallen."
+   },
+   {
+    "name": "Thunder Shriek",
+    "recharge": "5–6",
+    "text": "Each creature within 30 feet of the thunderbird must make a DC 14 Constitution saving throw, taking 27 (6d8) thunder damage and being deafened until the end of its next turn on a failed save, or half as much damage on a successful one. Mounts that fail bolt.",
+    "saveDamage": {
+     "save": "CON",
+     "dc": 14,
+     "damage": "6d8",
+     "damageType": "thunder",
+     "onSave": "half"
+    },
+    "rider": {
+     "save": "CON",
+     "dc": 14,
+     "condition": "Deafened",
+     "rounds": 1,
+     "onSave": "none",
+     "text": "Deafened until the end of its next turn; a mount that fails bolts."
+    }
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Act I (L1–4): hazard only, one fly-over and a horse snatch, never a fight. L5+: territorial and curious; buzzes the party and attacks only lone riders or livestock unless shot at. Flees at half HP (55).",
+  "tacticsSource": "L0195 (THUNDERBIRD-DRAFT-v5)",
+  "tacticsDraft": false,
+  "loot": "Only when fought (L5+): hide 3,000 ES; 2d4 quills × 200 ES; 1d6 gizzard stones × 400 ES (about 5,900 ES). Act I gives none (hazard only).",
+  "lootSource": "L0195 (THUNDERBIRD-DRAFT-v5)",
+  "description": "Half-grown thunderbird (9-ft wingspan). Act I: a fly-over horse-snatch hazard only, never a fight at L1–4; a sky threat from L5.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/YOUNG-THUNDERBIRD.md",
+  "lock": "L0195",
+  "act": "Act I: hazard only (never a fight at L1–4). A Medium fight from L5; standard Act II sky threat."
+ },
+ {
+  "id": "widower-thunderbird",
+  "name": "Widower Thunderbird",
+  "token": "60-widower-thunderbird.webp",
+  "size": "Huge",
+  "type": "monstrosity",
+  "alignment": "unaligned",
+  "ac": 15,
+  "armor": "natural armor",
+  "hp": 168,
+  "hitDice": "16d12+64",
+  "hpDice": "16d12+64",
+  "speed": "20 ft., fly 90 ft.",
+  "dex": 14,
+  "initBonus": 2,
+  "cr": "10",
+  "xp": 5900,
+  "proficiencyBonus": 4,
+  "abilities": {
+   "STR": 22,
+   "DEX": 14,
+   "CON": 18,
+   "INT": 5,
+   "WIS": 14,
+   "CHA": 8
+  },
+  "str": 22,
+  "con": 18,
+  "int": 5,
+  "wis": 14,
+  "cha": 8,
+  "saves": {
+   "DEX": 6,
+   "CON": 8,
+   "WIS": 6
+  },
+  "skills": {
+   "Perception": 6
+  },
+  "senses": "darkvision 60 ft., passive Perception 16",
+  "languages": "—",
+  "damageResistances": "lightning, thunder",
+  "attacks": "Beak +10 (3d8+6 piercing), Talons +10 (2d8+6 slashing)",
+  "atkBonus": 10,
+  "damage": "3d8+6",
+  "attackList": [
+   {
+    "id": "beak",
+    "name": "Beak",
+    "kind": "melee",
+    "toHit": 10,
+    "bonus": 10,
+    "damage": "3d8+6",
+    "damageType": "piercing",
+    "range": "10 ft",
+    "target": "one target",
+    "notes": "Grief-Rage: advantage and +1d8 damage (add by hand)."
+   },
+   {
+    "id": "talons",
+    "name": "Talons",
+    "kind": "melee",
+    "toHit": 10,
+    "bonus": 10,
+    "damage": "2d8+6",
+    "damageType": "slashing",
+    "range": "5 ft",
+    "target": "one target",
+    "grapple": {
+     "escapeDc": 18
+    },
+    "notes": "A Large or smaller target is grappled (escape DC 18); he can fly carrying it at half speed. Grief-Rage: advantage and +1d8 damage (add by hand)."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Flyby",
+    "text": "The thunderbird doesn’t provoke opportunity attacks when it flies out of an enemy’s reach."
+   },
+   {
+    "name": "Storm Rider",
+    "text": "In a thunderstorm or dust storm, his fly speed is 110 feet and ranged weapon attacks against him have disadvantage."
+   },
+   {
+    "name": "Provoked Only",
+    "text": "He ignores passersby. He attacks only if someone fires within 300 feet of him or the nest, approaches within 100 feet of the nest, harms a hatchling, or touches Mama’s body."
+   },
+   {
+    "name": "Grief-Rage",
+    "text": "While any of his brood is within 1 mile, he never flees or retreats. While a hatchling he can see is below half HP, or after one dies, he has advantage on attack rolls and deals an extra 1d8 damage on hits (the DM adds it by hand). Grief-Rage is a conditional story spike and isn’t counted toward his CR."
+   },
+   {
+    "name": "Gun Smoke Vengeance",
+    "text": "He has advantage on Wisdom (Perception) checks to locate anyone who fired a firearm within the last minute, and he targets the most recent shooter first. He knows the smell of the hunters and their kin."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The thunderbird makes one Beak attack and one Talons attack."
+   },
+   {
+    "name": "Drop Prey",
+    "text": "He releases a creature he has grappled. The creature falls, taking 1d6 bludgeoning damage per 10 feet fallen (max 20d6)."
+   },
+   {
+    "name": "Thunder Shriek",
+    "recharge": "5–6",
+    "text": "Each creature within 30 feet of him must make a DC 16 Constitution saving throw, taking 36 (8d8) thunder damage and being deafened until the end of its next turn on a failed save, or half as much damage and not deafened on a successful one. Mounts that fail bolt (the rider can rein in with a DC 14 Wisdom (Animal Handling) check). Hatchlings within 60 feet can use their reaction to move 20 feet.",
+    "saveDamage": {
+     "save": "CON",
+     "dc": 16,
+     "damage": "8d8",
+     "damageType": "thunder",
+     "onSave": "half"
+    },
+    "rider": {
+     "save": "CON",
+     "dc": 16,
+     "condition": "Deafened",
+     "rounds": 1,
+     "onSave": "none",
+     "text": "Deafened until the end of its next turn; a mount that fails bolts (rider DC 14 Animal Handling)."
+    }
+   }
+  ],
+  "reactions": [],
+  "legendary": [],
+  "tactics": "Leaves the party alone unless provoked. Once provoked, he shrieks to scatter the horses, then goes for the last shooter, snatching and dropping from 80+ ft. Near his brood he fights to the death; away from them he leaves at a quarter HP (42).",
+  "tacticsSource": "L0195 (THUNDERBIRD-DRAFT-v5)",
+  "tacticsDraft": false,
+  "loot": "Skyhide 8,000 ES; wing-bone quills 2d6 × 400 ES (avg 2,800); gizzard stones (Eldorite grit) 2d6 × 800 ES (avg 5,600). About 16,400 ES. Tombstone’s bounty on him is 15,000 ES dead (extra). No red Eldorite drop; red Eldorite is rumor only.",
+  "lootSource": "L0195 (THUNDERBIRD-DRAFT-v5)",
+  "description": "Papa thunderbird of the Crimson Badlands nest; widowed when hunters killed Mama. Attacks only when provoked; Grief-Rage near his brood.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/WIDOWER-THUNDERBIRD.md",
+  "lock": "L0195",
+  "act": "Act III (Tombstone nest, Crimson Badlands)",
+  "aka": "Papa; Old Thunder"
+ },
+ {
+  "id": "elder-thunderbird",
+  "name": "Elder Thunderbird",
+  "token": "61-elder-thunderbird.webp",
+  "size": "Gargantuan",
+  "type": "monstrosity",
+  "alignment": "unaligned",
+  "ac": 18,
+  "armor": "natural armor",
+  "hp": 296,
+  "hitDice": "16d20+128",
+  "hpDice": "16d20+128",
+  "speed": "30 ft., fly 120 ft.",
+  "dex": 12,
+  "initBonus": 1,
+  "cr": "16",
+  "xp": 15000,
+  "proficiencyBonus": 5,
+  "abilities": {
+   "STR": 26,
+   "DEX": 12,
+   "CON": 26,
+   "INT": 7,
+   "WIS": 16,
+   "CHA": 12
+  },
+  "str": 26,
+  "con": 26,
+  "int": 7,
+  "wis": 16,
+  "cha": 12,
+  "saves": {
+   "DEX": 6,
+   "CON": 13,
+   "WIS": 8
+  },
+  "skills": {
+   "Perception": 13
+  },
+  "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 23",
+  "languages": "understands Utaw but can’t speak",
+  "damageResistances": "thunder",
+  "damageImmunities": "lightning",
+  "attacks": "Beak +13 (4d8+8 piercing), Talons +13 (3d8+8 slashing)",
+  "atkBonus": 13,
+  "damage": "4d8+8",
+  "attackList": [
+   {
+    "id": "beak",
+    "name": "Beak",
+    "kind": "melee",
+    "toHit": 13,
+    "bonus": 13,
+    "damage": "4d8+8",
+    "damageType": "piercing",
+    "range": "15 ft",
+    "target": "one target",
+    "extraDamage": {
+     "damage": "2d8",
+     "damageType": "lightning"
+    },
+    "notes": "Plus 9 (2d8) lightning damage on a hit."
+   },
+   {
+    "id": "talons",
+    "name": "Talons",
+    "kind": "melee",
+    "toHit": 13,
+    "bonus": 13,
+    "damage": "3d8+8",
+    "damageType": "slashing",
+    "range": "10 ft",
+    "target": "one target",
+    "grapple": {
+     "escapeDc": 21
+    },
+    "notes": "A Huge or smaller target is grappled (escape DC 21). It can carry two grappled creatures."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Legendary Resistance (3/Day)",
+    "text": "If the thunderbird fails a saving throw, it can choose to succeed instead."
+   },
+   {
+    "name": "Storm-Born",
+    "text": "In a storm, ranged weapon attacks against it have disadvantage, and it regains 10 hit points at the start of its turn unless it took thunder or cold damage since its last turn (the DM tracks this)."
+   },
+   {
+    "name": "Regional Effects (6 miles)",
+    "text": "Dry-lightning storms every 1d4 days with no rain, which start brush fires. Compasses spin, and all firearms count as Dirty (Misfire Streak, L0147) while in the region. Horses are skittish (Wisdom (Animal Handling) checks at disadvantage). Raw Eldorite hums and glows faintly before strikes. When the Elder dies, the effects fade over 1d10 days."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Multiattack",
+    "text": "The thunderbird makes one Beak attack and two Talons attacks."
+   },
+   {
+    "name": "Thunder Shriek",
+    "recharge": "5–6",
+    "text": "Each creature within 60 feet of the thunderbird must make a DC 21 Constitution saving throw, taking 58 (13d8) thunder damage and being deafened for 1 minute on a failed save, or half as much damage and not deafened on a successful one. Structures in the area take double damage.",
+    "saveDamage": {
+     "save": "CON",
+     "dc": 21,
+     "damage": "13d8",
+     "damageType": "thunder",
+     "onSave": "half"
+    },
+    "rider": {
+     "save": "CON",
+     "dc": 21,
+     "condition": "Deafened",
+     "rounds": 10,
+     "onSave": "none",
+     "text": "Deafened for 1 minute."
+    }
+   },
+   {
+    "name": "Lightning Call",
+    "uses": "1/day",
+    "text": "Three bolts strike points the thunderbird chooses within 120 feet. Each creature within 10 feet of a point must make a DC 21 Dexterity saving throw, taking 33 (6d10) lightning damage on a failed save, or half as much damage on a successful one.",
+    "saveDamage": {
+     "save": "DEX",
+     "dc": 21,
+     "damage": "6d10",
+     "damageType": "lightning",
+     "onSave": "half"
+    }
+   },
+   {
+    "name": "Lair Actions",
+    "text": "Lair: a storm-crowned mesa (e.g. Thunder Mesa). On initiative count 20 (losing initiative ties), the thunderbird takes a lair action; it can’t use the same one two rounds in a row.",
+    "lair": true
+   },
+   {
+    "name": "Lightning Strike",
+    "text": "Lightning hits a point within 120 feet. Each creature within 20 feet of it must make a DC 15 Dexterity saving throw, taking 27 (6d8) lightning damage on a failed save, or half as much damage on a successful one.",
+    "saveDamage": {
+     "save": "DEX",
+     "dc": 15,
+     "damage": "6d8",
+     "damageType": "lightning",
+     "onSave": "half"
+    },
+    "lair": true
+   },
+   {
+    "name": "Rockfall",
+    "text": "A thunderclap shakes loose rockfall in a 10-foot square. Each creature there must make a DC 15 Dexterity saving throw, taking 14 (4d6) bludgeoning damage on a failed save, or half as much damage on a successful one. The area becomes difficult terrain.",
+    "saveDamage": {
+     "save": "DEX",
+     "dc": 15,
+     "damage": "4d6",
+     "damageType": "bludgeoning",
+     "onSave": "half"
+    },
+    "lair": true
+   },
+   {
+    "name": "Gale",
+    "text": "Ranged weapon attacks have disadvantage until the next initiative count 20, and each flier other than a thunderbird must succeed on a DC 15 Strength saving throw or be pushed 20 feet.",
+    "rider": {
+     "save": "STR",
+     "dc": 15,
+     "onSave": "none",
+     "text": "Pushed 20 feet (fliers other than thunderbirds)."
+    },
+    "lair": true
+   }
+  ],
+  "reactions": [],
+  "legendary": [
+   {
+    "name": "Legendary Actions",
+    "text": "The thunderbird can take 3 legendary actions, choosing from the options below. Only one legendary action can be used at a time and only at the end of another creature’s turn. It regains spent legendary actions at the start of its turn."
+   },
+   {
+    "name": "Detect",
+    "cost": 1,
+    "text": "The thunderbird makes a Wisdom (Perception) check."
+   },
+   {
+    "name": "Wing Gust (Costs 2 Actions)",
+    "cost": 2,
+    "text": "Each creature within 20 feet of the thunderbird must succeed on a DC 21 Dexterity saving throw or take 15 (2d6 + 8) bludgeoning damage and be knocked prone. The thunderbird can then fly up to half its flying speed.",
+    "saveDamage": {
+     "save": "DEX",
+     "dc": 21,
+     "damage": "2d6+8",
+     "damageType": "bludgeoning",
+     "onSave": "none"
+    },
+    "rider": {
+     "save": "DEX",
+     "dc": 21,
+     "condition": "Prone",
+     "onSave": "none",
+     "text": "Knocked prone."
+    }
+   },
+   {
+    "name": "Static Strike (Costs 2 Actions)",
+    "cost": 2,
+    "text": "One creature the thunderbird can see within 120 feet must make a DC 21 Dexterity saving throw, taking 22 (4d10) lightning damage on a failed save, or half as much damage on a successful one.",
+    "saveDamage": {
+     "save": "DEX",
+     "dc": 21,
+     "damage": "4d10",
+     "damageType": "lightning",
+     "onSave": "half"
+    }
+   }
+  ],
+  "tactics": "Ancient and patient. It parleys through Utaw signs and fights only for its range or its kin. Opens with Lightning Call on clustered gunmen and snatches the leader. Below a third of its HP (98) it retreats into the storm and returns with the next storm.",
+  "tacticsSource": "L0195 (THUNDERBIRD-DRAFT-v5)",
+  "tacticsDraft": false,
+  "loot": "DRAFT (Act IV pace, needs a check): Elder skyhide 30,000 ES; heart-stone (a fist-sized Eldorite gizzard core) 40,000 ES; quills 4d6 × 1,000 ES. About 84,000 ES total.",
+  "lootSource": "L0195 (THUNDERBIRD-DRAFT-v5) — DRAFT until Act IV",
+  "description": "DRAFT numbers until Act IV is scoped. The Papa grown vast: Act IV lair boss and region-shaping storm; a distant portent in Acts I–III.",
+  "group": "creature",
+  "source": "six-shooters/drafts/monster-manual/ELDER-THUNDERBIRD.md",
+  "lock": "L0195",
+  "act": "Act IV / finale (lair boss); seen distantly as a portent in Acts I–III. DRAFT numbers until Act IV is scoped.",
+  "draft": true,
+  "draftNote": "DRAFT: the Elder’s numbers (CR 16, 296 HP, about 84,000 ES loot) stay draft until Act IV is scoped (L0195). The Thunder Mesa tie is still open."
  }
 ]
