@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.77"; // sheet-playtest-v0377
+  var APP_VERSION = "0.3.78"; // sheet-playtest-v0378
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -797,7 +797,7 @@
     if (DB) { v.ac += DB.ac; v.initiative += DB.init; }
     if (c.fightingStyle === "point-blank" || (stylesOf(c).indexOf("point-blank") >= 0)) v.ac += 1;
     if (c.fightingStyle === "defense" && wearing) v.ac += 1;
-    /* 0.3.77 (Jessey): Dual Wielder +1 AC while holding a qualifying weapon in each hand */
+    /* 0.3.78 (Jessey): Dual Wielder +1 AC while holding a qualifying weapon in each hand */
     v.dualWielderAc = window.SSDNSOffhand && window.SSDNSOffhand.dualWielderAc ? window.SSDNSOffhand.dualWielderAc(c) : 0;
     v.ac += v.dualWielderAc;
     var cal = currentCalling();
@@ -1043,7 +1043,7 @@
     var longGun = g === "rifle" || g === "carbine" || g === "bigbore";
     var bow = g === "bow" || /bow/.test(g);
     if (st === "long-gun" && longGun) return 2;
-    /* 0.3.77 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
+    /* 0.3.78 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
     if (st === "archery" && (bow || longGun || !isMeleeWeapon(w) || (opts && opts.thrown))) return 2;
     return 0;
   }
@@ -1054,7 +1054,7 @@
   }
   function styleDamageBonusFor(st, w) {
     if (!w || !st || !styleReady()) return 0;
-    /* 0.3.77 (Jessey): Sidearm Duelling is "+2 damage single iron": off while holding two weapons */
+    /* 0.3.78 (Jessey): Sidearm Duelling is "+2 damage single iron": off while holding two weapons */
     if (st === "sidearm" && w.group === "pistol") return (window.SSDNSOffhand && window.SSDNSOffhand.wieldingTwo && window.SSDNSOffhand.wieldingTwo(C())) ? 0 : 2;
     if (st === "dueling" && isMeleeWeapon(w) && !/two-handed/i.test(w.properties || "")) return 2;
     return 0;
@@ -1189,7 +1189,7 @@
         el("div", { class: "g-card-top" }, [
           el("div", { class: "g-photo", title: "Firearm photo later" }, ["Photo"]),
           el("div", { class: "g-name" }, [
-            /* 0.3.77 compact card: the gunsmith mod and capacity selects share the weapon-name row */
+            /* 0.3.78 compact card: the gunsmith mod and capacity selects share the weapon-name row */
             el("div", { class: "g-namerow" }, [sel, modSel, capSel]),
             el("div", { class: "g-stats" }, [
               el("div", { class: "g-atk", "data-label": "Atk" }, [el("input", { class: "calc", "data-calc": "gunAtk." + i, "aria-label": "Attack bonus" })]),
@@ -1966,7 +1966,7 @@
     var word = slotWord();
     $$(".slot-word").forEach(function (n) { n.textContent = word; });
     var tabHex = $("#tab-hex");
-    if (tabHex) tabHex.textContent = "3 · Spells & " + word;
+    if (tabHex) tabHex.textContent = "Spells & " + word;
     var slotLab = $("#slotWord");
     if (slotLab) slotLab.textContent = word;
     var showCast = !!v.caster;

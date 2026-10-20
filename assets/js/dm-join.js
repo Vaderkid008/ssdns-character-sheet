@@ -1987,6 +1987,7 @@
         var speaker = row.who || row.fromName || "Table";
         if (speaker === "DM" && row.kind === "roll") speaker = "";
         var text = row.text || "";
+        if (row.kind === "roll" && root.SSDNSDice && root.SSDNSDice.tidySingle) text = root.SSDNSDice.tidySingle(text);
         if (speaker && !own && text.indexOf(speaker) !== 0 && text.indexOf("→") < 0) text = speaker + ": " + text;
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({
           id: (row.kind === "roll" ? "roll:" : "feed:") + id,
