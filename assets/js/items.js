@@ -835,7 +835,7 @@
     return { ok: true, item: item };
   }
 
-  /* inv2 (0.3.83): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
+  /* inv2 (0.3.84): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
      unpack, so nothing is doubled; 5E parts with no catalog row land as one gear note line. */
   function packContents(item) {
     var map = root.SSDNS_PACK_CONTENTS || {};

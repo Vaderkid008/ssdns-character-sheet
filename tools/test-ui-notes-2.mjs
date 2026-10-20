@@ -1,5 +1,5 @@
 /**
- * 0.3.83 / 0.2.96: Jessey 2026-10-19 10:13 PM CT, "98 didnt apply to the maps full screen side or the player side".
+ * 0.3.84 / 0.2.97: Jessey 2026-10-19 10:13 PM CT, "98 didnt apply to the maps full screen side or the player side".
  * The #98 dice + feed behaviour now also covers:
  *  - the map's own dice lane (DMCC map and player map, normal and full screen): the die art and "1d4 = 4" show inline
  *    to the right of the lane's buttons, the lane never grows, and in full screen every roll lands there (the page tray is covered)

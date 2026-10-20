@@ -1,5 +1,5 @@
 /**
- * 0.3.83 / DMCC 0.2.96: Pistolero Fan the Hammer (Jessey's design pick, 2026-10-19).
+ * 0.3.84 / DMCC 0.2.97: Pistolero Fan the Hammer (Jessey's design pick, 2026-10-19).
  * Pistols only; lit after the Attack action AND a pistol attack this turn; bonus action through the normal gun path
  * with the ability modifier; same pistol (if it has a round) or a second held pistol; locks Tactical Reload for the turn;
  * shares the bonus action with the off-hand attack; chat "X fans the hammer"; sound = "fan-the-hammer" event if mapped,
