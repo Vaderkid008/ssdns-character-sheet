@@ -524,7 +524,7 @@
     if (entry && entry.freeShot && detail) return detail; /* 0.3.67: one line for a Free shot */
     if (/→\s*(HIT|MISS)/.test(detail)) return detail;
     if (/\bd20\b/.test(detail) && detail.indexOf("=") >= 0) return detail;
-    /* 0.3.79: one plain die (dice bar, map dice lane) reads "1d4 = 4", not "d4 1d4 = 4 (4)" (Jessey's UI notes) */
+    /* 0.3.80: one plain die (dice bar, map dice lane) reads "1d4 = 4", not "d4 1d4 = 4 (4)" (Jessey's UI notes) */
     var one = String(entry.formula || "").trim().match(/^1?d(4|6|8|10|12|20|50|100)$/i);
     var res = entry.result == null ? "" : String(entry.result);
     if (one && !entry.attack && (!detail || detail === res)) {

@@ -56,7 +56,7 @@
   }
   function body(item) {
     var text = String(item.text || "");
-    /* 0.3.79: single-die rows read "1d4 = 4" in the popped-out chat too */
+    /* 0.3.80: single-die rows read "1d4 = 4" in the popped-out chat too */
     if ((item.kind === "roll" || item.kind === "rolls") && root.SSDNSDice && root.SSDNSDice.tidySingle) text = root.SSDNSDice.tidySingle(text);
     var who = String(item.who || "");
     if (!who || item.kind === "roll" || item.kind === "rolls") return text;

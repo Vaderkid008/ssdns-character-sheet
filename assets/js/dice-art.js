@@ -304,7 +304,7 @@
     if (m[4] != null && m[4] !== m[3]) return null;
     return "1d" + m[2] + " = " + m[3];
   }
-  /* 0.3.79: also after a speaker ("Ada: d4 1d4 = 3 (3)" -> "Ada: 1d4 = 3"), as the map chat shows player rolls */
+  /* 0.3.80: also after a speaker ("Ada: d4 1d4 = 3 (3)" -> "Ada: 1d4 = 3"), as the map chat shows player rolls */
   function tidySingle(text) {
     var s = String(text == null ? "" : text);
     var whole = tidyCore(s);
@@ -380,7 +380,7 @@
     }
     return null;
   }
-  /* 0.3.79: where a roll shows. A bar with its own inline stage (the map's dice lane) shows its rolls there.
+  /* 0.3.80: where a roll shows. A bar with its own inline stage (the map's dice lane) shows its rolls there.
      In map full screen the page tray is covered, so every roll (bar, sheet buttons, chat) goes to the map lane. */
   function visibleInline(doc) {
     var list = doc.querySelectorAll(".dice-stage-inline");

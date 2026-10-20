@@ -83,7 +83,7 @@ button.d20 {
 .roll-total-atk { color: #4FDCCB; font-weight: 800; }
 .roll-total-atk.crit { color: #7ff3e6; }
 
-/* 0.3.79 (DMCC 0.2.92): one dice tray everywhere. The rolled die art and "1d4 = 4" sit inline to the right of the dice
+/* 0.3.80 (DMCC 0.2.93): one dice tray everywhere. The rolled die art and "1d4 = 4" sit inline to the right of the dice
    buttons (Jessey's UI note 1, 2026-10-19), and the space is reserved so a roll never pushes anything down.
    - .dice-tray: the DMCC and player-sheet top bar (#diceBar + #diceStage)
    - .dice-stage-inline: the map's own dice lane (normal and full screen, DM and player) */
