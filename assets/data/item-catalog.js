@@ -389,6 +389,7 @@
       description: "A sweat-stained hat. Act I story find. Not for sale.",
       effect: { kind: "buff", text: "+1 ranged attack. Advantage on sight Perception for distant targets.", duration: "while worn" },
       bonuses: { rangedAtk: 1 },
+      wear: "head", /* 0.3.86: it had no worn slot, so the paper doll could never wear it and the +1 never applied */
       uses: { max: null },
       weight: 1,
       price: null,

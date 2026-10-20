@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.99"; // dmcc-playtest-v0299
+const VERSION = "0.2.100"; // dmcc-playtest-v02100
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2522,6 +2522,7 @@ function dedupeById(list) {
 }
 /* 0.2.67: tell the sheet what kind of reward this is (instrument id + quality) so it
    never has to guess from the text. */
+let rewTyped = null; /* 0.3.84 Give tab typed builder (SSDNSItems.typedGive) */
 function rewardPayload(type, labeled, id, qty) {
   const payload = { text: labeled, grantId: id, qty: qty };
   if (type !== "item") return payload;
@@ -2530,7 +2531,13 @@ function rewardPayload(type, labeled, id, qty) {
   if (hit && hit.kind) payload.kind = hit.kind;
   if (hit && hit.kind === "instrument") { payload.instrument = hit.id; payload.quality = hit.quality || "cheap"; }
   else if (hit && hit.id) payload.itemId = hit.id;
-  /* L0188-L0190: the DM can make any reward food / water: tags, meals, water gal, container size */
+  const supply = rewardSupply();
+  if (Object.keys(supply).length) payload.supply = supply;
+  return payload;
+}
+/* L0188-L0190: the DM can make any reward food / water: tags, meals, water gal, container size.
+   #107 merge: plus its weight in lb (required when the text matches no catalog item, like the typed builder). */
+function rewardSupply() {
   const v = (id) => { const el = document.getElementById(id); return el ? String(el.value || "").trim() : ""; };
   const supply = {};
   if (v("rewTags")) supply.tags = v("rewTags").split(",").map((t) => t.trim()).filter(Boolean);
@@ -2540,8 +2547,8 @@ function rewardPayload(type, labeled, id, qty) {
   if (supply.meals && !(supply.tags || []).includes("food")) supply.tags = (supply.tags || []).concat("food");
   if ((supply.water || supply.capacity) && !(supply.tags || []).includes("water")) supply.tags = (supply.tags || []).concat("water");
   if (supply.capacity && !(supply.tags || []).includes("container")) supply.tags = (supply.tags || []).concat("container");
-  if (Object.keys(supply).length) payload.supply = supply;
-  return payload;
+  if (Object.keys(supply).length && v("rewWeight") !== "" && isFinite(Number(v("rewWeight"))) && Number(v("rewWeight")) >= 0) supply.weight = Number(v("rewWeight"));
+  return supply;
 }
 if (typeof window !== "undefined") window.__ssdnsRewardPayload = rewardPayload;
 
@@ -2587,6 +2594,23 @@ async function doPushReward() {
     const text = ($("#rewText").value || "").trim();
     if (!text) { toast("Enter item or note text"); return; }
     const qty = Math.max(1, parseInt(($("#rewQty") && $("#rewQty").value) || "1", 10) || 1);
+    /* 0.3.86: typed builder / ammo pool / Dirty gun (default UI by type, C11), checked before anything is logged */
+    let more = type === "item" && rewTyped ? rewTyped.extra(text, qty) : {};
+    /* #105 + #107: a Food & water reward with no catalog match lands through the supplies path when its weight is
+       set; with the typed builder filled too, the supplies numbers fold into that item. */
+    const supNow = type === "item" ? rewardSupply() : {};
+    const hasSup = Object.keys(supNow).length > 0;
+    if (more.error && hasSup) {
+      if (supNow.weight == null) { toast("Enter its weight in lb (0 is fine)."); return; }
+      more = {};
+    }
+    if (more.item && hasSup) {
+      const it = more.item;
+      it.tags = Array.from(new Set([].concat(it.tags || [], supNow.tags || [])));
+      ["meals", "water", "capacity"].forEach((k) => { if (supNow[k] && !it[k]) it[k] = supNow[k]; });
+      if (supNow.weight != null && (it.weight == null || it.weight === "")) it.weight = supNow.weight;
+    }
+    if (more.error) { toast(more.error); return; }
     const labeled = type === "item" && qty > 1 && !/^\d+\s*x\b/i.test(text) ? (qty + "x " + text) : text;
     const to = target === "all" ? "all" : target;
     const id = uid("rew");
@@ -2597,6 +2621,7 @@ async function doPushReward() {
       oldVal: null, newVal: labeled, flag: false
     });
     const payload = rewardPayload(type, labeled, id, qty);
+    Object.assign(payload, more);
     await pushCommand({
       id: id,
       type: type === "item" ? "reward_item" : "reward_note",
@@ -3013,7 +3038,13 @@ function wire() {
     if (qty) qty.hidden = t !== "item";
     const sup = $("#rewSupplyWrap");
     if (sup) sup.hidden = t !== "item";
+    const typed = $("#rewItemWrap");
+    if (typed) typed.hidden = t !== "item";
+    if (t === "item" && rewTyped) rewTyped.refresh();
   });
+  if (window.SSDNSItems && window.SSDNSItems.typedGive && $("#rewItemWrap")) {
+    rewTyped = window.SSDNSItems.typedGive({ text: $("#rewText"), match: $("#rewMatch"), builder: $("#rewItemBuilder"), dirty: $("#rewDirtyWrap") });
+  }
   $("#btnPushReward").addEventListener("click", doPushReward);
   $("#btnSendMsg").addEventListener("click", doSendMsg);
   $("#btnDmRoll").addEventListener("click", doDmRoll);

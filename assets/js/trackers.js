@@ -862,12 +862,17 @@
       /* misfire row is firearms only (bows, crossbows, slings, thrown) */
       var mis = card.querySelector(".g-mis");
       if (mis) mis.hidden = !!(g && g.weapon && w && !isFirearm(w));
+      /* 0.3.84 Special UI hook: a registered renderer (item / weapon id or w.ui) can extend or replace this card;
+         per-card hooks (SSDNSItemUI.on("quiver", fn)) run here too, e.g. #106 click-to-shoot */
+      if (root.SSDNSItemUI && root.SSDNSItemUI.decorate) root.SSDNSItemUI.decorate(card, { card: "gun", kind: kindOf(w), index: i, weapon: w || null, character: c });
     }
     $$("#meleeBox .melee-card").forEach(function (card, idx) {
       var slot2 = card.querySelector(".trk-slot-melee");
       if (!slot2) { slot2 = document.createElement("div"); slot2.className = "trk-slot-melee"; var act = card.querySelector(".g-actions"); card.insertBefore(slot2, act || null); }
       var mh = meleeTracker(c, idx);
       if (slot2.getAttribute("data-sig") !== mh) { slot2.innerHTML = mh; slot2.setAttribute("data-sig", mh); }
+      var mrow = c.melee && c.melee[idx], mw = mrow && weapon(mrow.weapon);
+      if (root.SSDNSItemUI && root.SSDNSItemUI.decorate) root.SSDNSItemUI.decorate(card, { card: "melee", kind: kindOf(mw), index: idx, weapon: mw || null, character: c });
     });
   }
   function onClick(e) {

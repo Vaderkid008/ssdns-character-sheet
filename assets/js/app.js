@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.86"; // sheet-playtest-v0386
+  var APP_VERSION = "0.3.87"; // sheet-playtest-v0387
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -215,7 +215,7 @@
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
   }
-  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.86 landed in a cartridge pool (caliber .50-90) that the
+  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.87 landed in a cartridge pool (caliber .50-90) that the
       Big Fifty never reads, weighing 0.05 lb a round. Move them to the bigfifty pool (0.15 lb). Returns rounds moved. */
   function moveBigFiftyPools(c) {
     if (!c || !Array.isArray(c.ammo)) return 0;
@@ -3663,7 +3663,8 @@
     changed();
     return true;
   }
-  function grantListedWeapon(idOrName) {
+  /* opts.dirty (0.3.84, loot guns / C11): the gun lands Dirty (gunsmith's tools clean it on a short rest) */
+  function grantListedWeapon(idOrName, opts) {
     var key = String(idOrName || "").trim();
     if (!key) return false;
     var w = WPN[key] || null;
@@ -3716,7 +3717,7 @@
     gun.chamberSet = false;
     gun.jammed = false;
     gun.fouled = false;
-    gun.dirty = false;
+    gun.dirty = !!(opts && opts.dirty);
     gun.ruined = false;
     gun.broken = false;
     gun.pendingD4 = false;
@@ -3731,7 +3732,7 @@
       gun.capacity = w.capacity || 0;
     }
     changed();
-    return { id: w.id, name: w.name || w.id, melee: false, equipped: gun.equipped === true };
+    return { id: w.id, name: w.name || w.id, melee: false, equipped: gun.equipped === true, index: i, dirty: gun.dirty === true };
   }
   function gunMeleeLabel(w) {
     if (!w) return "";
@@ -4787,7 +4788,7 @@
       castList: function () { return castList(); },
       prepareGunCast: function (i, spell, slot) { prepareGunCast(i, spell, slot); },
       grantTestGun: function (i) { return grantTestGun(i); },
-      grantListedWeapon: function (idOrName) { return grantListedWeapon(idOrName); },
+      grantListedWeapon: function (idOrName, opts) { return grantListedWeapon(idOrName, opts); },
       setEquipped: function (opts) { return setEquipped(opts); },
       clearDrawn: function () { return clearDrawn(); },
       gunMeleeLabel: gunMeleeLabel,

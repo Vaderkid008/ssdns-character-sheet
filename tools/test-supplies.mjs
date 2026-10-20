@@ -203,7 +203,7 @@ check("oldsave.inferredTags", oldBag.items[0].tags.includes("container") && oldB
 check("oldsave.inferredCounts", S.rations(oldBag) === 4 && S.waterTotal(oldBag) === 1.5, J([S.rations(oldBag), S.waterTotal(oldBag)]));
 /* DM flows carry the fields */
 const itemsSrc = read("assets/js/items.js"), joinSrc = read("assets/js/dm-join.js"), dmccSrc = read("dm/assets/js/dmcc.js");
-check("dmForm.fields", ["data-item-tags", "data-item-meals", "data-item-water", "data-item-capacity"].every((k) => itemsSrc.includes(k)) && /meals: val\("meals"\)/.test(itemsSrc));
+check("dmForm.fields", ["data-item-tags", "data-item-meals", "data-item-water", "data-item-capacity"].every((k) => itemsSrc.includes(k)) && (/meals: val\("meals"\)/.test(itemsSrc) || /\["meals", "water", "capacity"\]\.forEach\(function \(k\) \{ if \(Number\(val\(k\)\) > 0\) extra\[k\]/.test(itemsSrc)) /* #107 form reads them in a loop */);
 check("reward.form.fields", ["rewTags", "rewMeals", "rewWater", "rewCapacity"].every((k) => dmHtmlSrc().includes('id="' + k + '"')) && /payload\.supply = supply/.test(dmccSrc));
 check("reward.route.supply", /payload\.supply && typeof payload\.supply === "object"/.test(joinSrc));
 function dmHtmlSrc() { return read("dm/index.html"); }

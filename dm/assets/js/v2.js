@@ -2837,12 +2837,16 @@ function decorateDetail(pid) {
     <div class="detail-section"><h3>Give equipment</h3>
       <div class="toolbar">
         <label class="fine">Weapon <select id="detailGrantWeapon" aria-label="Weapon to give">${grantWeaponOptions()}</select></label>
+        <label class="chk fine"><input type="checkbox" id="detailGrantDirty"> Dirty (loot gun)</label>
         <button type="button" class="btn sm" id="btnGrantWeapon">Give weapon</button>
       </div>
       <div class="toolbar">
-        <input type="text" id="detailItem" placeholder="Item that lands in their equipment">
+        <input type="text" id="detailItem" placeholder="Item, ammo (Arrows (20)) or a new item name">
         <button type="button" class="btn sm" id="btnDetailItem">Add to sheet</button>
       </div>
+      <p class="fine" id="detailItemMatch" aria-live="polite"></p>
+      <label class="chk fine" id="detailItemDirtyWrap" hidden><input type="checkbox" id="detailItemDirty"> Arrives Dirty (loot gun)</label>
+      <div id="detailItemBuilder" class="rew-typed" hidden></div>
       <div class="dm-only-art">
         <figure>
           <img src="../assets/img/dm-only/hell-maker.webp" alt="Hell Maker">
@@ -2931,13 +2935,19 @@ function decorateDetail(pid) {
     }
     const names = namesFor(pid);
     const label = (sel.selectedOptions && sel.selectedOptions[0] && sel.selectedOptions[0].textContent) || id;
-    await DM.pushCommand({ type: "reward_item", to: pid, payload: { text: label, id: id }, from: DM.state.uid });
+    const dirtyBox = $("#detailGrantDirty");
+    const wpay = { text: label, id: id };
+    if (dirtyBox && dirtyBox.checked) wpay.dirty = true; /* 0.3.84 loot guns arrive Dirty */
+    await DM.pushCommand({ type: "reward_item", to: pid, payload: wpay, from: DM.state.uid });
     await DM.pushLedger(Object.assign({
       who: "DM", playerId: pid, type: "dm_push",
       what: "Item: " + label, oldVal: null, newVal: label, flag: false
     }, names));
     DM.toast("Sent " + label);
   });
+  const detailTyped = window.SSDNSItems && window.SSDNSItems.typedGive
+    ? window.SSDNSItems.typedGive({ text: $("#detailItem"), match: $("#detailItemMatch"), builder: $("#detailItemBuilder"), dirty: $("#detailItemDirtyWrap") })
+    : null;
   const surprise = $("#surpriseDraw");
   if (surprise) surprise.addEventListener("change", async () => {
     await DM.pushCommand({ type: "surprise_draw", to: pid, payload: { on: !!surprise.checked }, from: DM.state.uid });
@@ -2950,23 +2960,28 @@ function decorateDetail(pid) {
       $("#detailItem").value = "";
       return;
     }
+    /* 0.3.84 default UI by type: ammo → pool, a catalog / rules match lands as itself, anything else needs a type + weight */
+    const more = detailTyped ? detailTyped.extra(text, 1) : {};
+    if (more.error) { DM.toast(more.error); return; }
+    const grantId = "rew_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const names = namesFor(pid);
     if (DM.state.demo && s) s.equipment = (s.equipment ? s.equipment + "\n" : "") + "• " + text + " (from DM)";
     await DM.pushLedger(Object.assign({
       who: "DM", playerId: pid, type: "dm_push",
       what: "Item: " + text, oldVal: null, newVal: text, flag: false
     }, names));
-    const cmd = { type: "reward_item", to: pid, payload: { text: text }, from: DM.state.uid };
+    const cmd = { type: "reward_item", to: pid, payload: Object.assign({ text: text, grantId: grantId }, more), from: DM.state.uid };
     await DM.pushCommand(cmd);
     rememberUndo({
       type: "item", playerId: pid, label: "item " + text,
-      command: { type: "undo_item", to: pid, payload: { text: text }, from: DM.state.uid },
+      command: { type: "undo_item", to: pid, payload: { text: text, grantId: grantId }, from: DM.state.uid },
       demo: function () {
         if (!s.equipment) return;
         s.equipment = s.equipment.split("\n").filter((line) => line !== "• " + text + " (from DM)").join("\n");
       }
     });
     $("#detailItem").value = "";
+    if (detailTyped) detailTyped.refresh();
     DM.toast("Item sent");
   });
   const dirtyBtn = $("#btnMakeDirty");
@@ -6025,14 +6040,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.99-mounts");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.100-mounts");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.99-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.100-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

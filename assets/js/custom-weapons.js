@@ -15,7 +15,12 @@
   }
   function num(v, d) { var n = Number(v); return isFinite(n) ? n : d; }
 
-  var GROUP_BY_KIND = { melee: "simple-melee", thrown: "simple-melee", bow: "simple-ranged", firearm: "pistol" };
+  var GROUP_BY_KIND = { melee: "simple-melee", thrown: "simple-melee", bow: "simple-ranged", firearm: "pistol",
+    crossbow: "simple-ranged", blowpipe: "martial-ranged", sling: "simple-ranged" };
+  /* 0.3.84 default UI by type: ranged kinds and the Ammo pool each one draws from (trackers.js POOL_FOR).
+     Crossbows and blowpipes are Loading (the "loaded" card); bows and slings draw from a quiver / pouch. */
+  var RANGED_AMMO = { bow: "arrows", crossbow: "bolts", blowpipe: "needles", sling: "sling stones" };
+  var RANGED_LOADING = { crossbow: true, blowpipe: true };
 
   /* item.weapon = { kind, ability, category, group, damage, dmgType, range, properties,
                      caliber, capacity, slow, misfire, load, magic } */
@@ -70,7 +75,12 @@
       rec.range = s.range || "—";
       rec.capacity = null;
       rec.misfire = "—";
-      if (kind === "bow") rec.ammo = "arrows";
+      if (RANGED_AMMO[kind]) {
+        rec.ammo = RANGED_AMMO[kind];
+        if (!/ammunition/i.test(rec.properties)) rec.properties = "Ammunition (" + rec.ammo + ")" + (rec.properties && rec.properties !== "—" ? ", " + rec.properties : "");
+        if (RANGED_LOADING[kind] && !/loading/i.test(rec.properties)) rec.properties += ", loading";
+        if (!s.ability) rec.ability = "DEX";
+      }
     }
     rec.kind = kind;
     return rec;
@@ -79,7 +89,7 @@
   function listFor(rec) {
     var R = rules();
     if (rec.kind === "firearm") return R.firearms || (R.firearms = []);
-    if (rec.kind === "bow") return R.otherRanged || (R.otherRanged = []);
+    if (RANGED_AMMO[rec.kind]) return R.otherRanged || (R.otherRanged = []);
     return R.melee || (R.melee = []);
   }
 

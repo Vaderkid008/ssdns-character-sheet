@@ -88,7 +88,7 @@ const dmcc = read("dm/assets/js/dmcc.js");
 check("inst.dmccPayload", /function rewardPayload\(/.test(dmcc) && /payload\.instrument = hit\.id; payload\.quality/.test(dmcc) && /Demo: not sent to players/.test(dmcc));
 {
   const fn = dmcc.slice(dmcc.indexOf("function rewardPayload("), dmcc.indexOf("if (typeof window !== \"undefined\") window.__ssdnsRewardPayload"));
-  const rp = vm.runInContext("(" + fn + ")", sandbox);
+  const rp = vm.runInContext(fn + "\n;rewardPayload", sandbox); /* #107 merge: the slice also holds rewardSupply() */
   const p = rp("item", "Quality " + guitar.name, "rew1", 1);
   check("inst.dmccPayload.run", p.kind === "instrument" && p.instrument === guitar.id && p.quality === "quality" && p.text && p.grantId === "rew1", JSON.stringify(p));
   const n = rp("note", "hello", "rew2", 1);
@@ -138,7 +138,7 @@ check("rounds.everywhere", /ammo-display\.css/.test(dmIdx) && /ammo-display\.js/
 
 /* versions */
 const ver = JSON.parse(read("version.json"));
-check("version", JSON.stringify(ver).includes("0.3.86") && JSON.stringify(ver).includes("0.2.99"), JSON.stringify(ver));
+check("version", JSON.stringify(ver).includes("0.3.87") && JSON.stringify(ver).includes("0.2.100"), JSON.stringify(ver));
 
 if (failures.length) { console.log(failures.length + " failed"); process.exit(1); }
 console.log("pr71 ok");

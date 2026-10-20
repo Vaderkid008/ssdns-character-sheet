@@ -23,10 +23,10 @@ function flush(ms) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.86" && version.sheetBuild === "sheet-playtest-v0386");
-check("ver.dmcc", version.dmcc === "0.2.99" && version.dmccBuild === "dmcc-playtest-v0299");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.86"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.99"'));
+check("ver.sheet", version.sheet === "0.3.87" && version.sheetBuild === "sheet-playtest-v0387");
+check("ver.dmcc", version.dmcc === "0.2.100" && version.dmccBuild === "dmcc-playtest-v02100");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.87"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.100"'));
 
 const mapSrc = read("map/ssdns-map.js");
 const chatSrc = read("map/ssdns-map-chat.js");
@@ -41,8 +41,8 @@ check("src.window", chatSrc.includes("root.open(") && chatSrc.includes("chat-pop
 check("src.float", chatSrc.includes("ssdns-chat-float") && chatSrc.includes("ssdns.map.chatFloat") && mapSrc.includes('data-act="chatWindow"'));
 check("src.color", chatSrc.includes("tokenColorFor") && chatSrc.includes("leadNameHtml"));
 check("src.rules", !read("map/ssdns-map-chat.js").includes("database.rules") && !mapSrc.includes("database.rules"));
-check("html.player", read("index.html").includes("map/ssdns-map-chat.js?v=0.3.86-float"));
-check("html.dm", read("dm/index.html").includes("ssdns-map-chat.js?v=0.2.99-float"));
+check("html.player", read("index.html").includes("map/ssdns-map-chat.js?v=0.3.87-float"));
+check("html.dm", read("dm/index.html").includes("ssdns-map-chat.js?v=0.2.100-float"));
 check("html.pop", read("map/chat-pop.html").includes('id="popDock"') && read("map/chat-pop.html").includes("bootPopup") && read("map/chat-pop.html").includes("data-chat-filter") && read("map/chat-pop.html").includes("apply-guard.js"));
 
 function makeWindow() {
