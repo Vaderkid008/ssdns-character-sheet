@@ -1649,6 +1649,12 @@
       /* 0.3.72: DM-sent off-hand shot: Bonus pip, no positive ability mod to damage, chat tagged off-hand */
       if (payload.offhand) root.SSDNSGunRoll._offhand = true;
       else if (payload.fan) root.SSDNSGunRoll._fan = true;
+      /* SAMPLE trackers: the DM armed Sneak Attack / Smite Lead for this one shot (DM override of turn / Dull checks) */
+      var TRK = root.SSDNSTrackers;
+      if (TRK && TRK.toggle && payload.dm) {
+        if (payload.sneak) TRK.toggle("sneak", { on: true, dm: true });
+        if (payload.smite) TRK.toggle("smite", { on: true, dm: true, level: Number(payload.smite) > 1 ? Number(payload.smite) : 0 });
+      }
       try { root.SSDNSGunRoll(payload.index, payload.chamber); }
       finally { root.SSDNSGunRoll._dm = null; root.SSDNSGunRoll._free = null; root.SSDNSGunRoll._offhand = null; root.SSDNSGunRoll._fan = null; }
       return;

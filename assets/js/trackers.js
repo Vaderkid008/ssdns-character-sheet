@@ -127,13 +127,13 @@
       var dice = progCol(c, "Sneak Attack") || (Math.ceil(L / 2) + "d6");
       out.push({ id: "sneak", kind: "sneak", name: "Sneak Attack", dice: dice, max: 1, rest: "turn",
         tip: "Suckerpunch / Dead Angle: once per turn, " + dice + " extra damage to one creature you hit with advantage (or an ally within 5 ft and no disadvantage).",
-        src: "BOOK1 L1792-1793 (feature), L1806-1827 (dice by level)" });
+        src: "BOOK1 L1790-1791 (feature), L1806-1827 (dice by level)" });
     }
     if (c.calling === "martial-artist" && L >= 2) {
       var ki = num(progCol(c, "Ki"), L);
       out.push({ id: "ki", kind: "pips", name: "Breath Coins (Ki)", max: ki, rest: "short",
-        tip: "Ki points equal to level. Flurry of Blows, Patient Defense, Step of the Wind, Stunning Strike (1). Rest: the PHB line doesn't say; 5e monk = short or long rest (assumed).",
-        src: "BOOK1 L1463-1464, L1473 (Stunning Strike), table L1480-1500" });
+        tip: "Ki points equal to level. Flurry of Blows, Patient Defense, Step of the Wind, Stunning Strike (1). Regain all on a short or long rest (PHB; SSDNS is silent, L899).",
+        src: "BOOK1 L1463-1464, L1473 (Stunning Strike), Ki column L1479-1500; rest per PHB (L899)" });
     }
     if (c.calling === "gunslinger" && c.subclass === "gun-whisperer-battle-master" && L >= 3) {
       var n = L >= 15 ? 6 : (L >= 7 ? 5 : 4);
@@ -162,11 +162,103 @@
         tip: "On a weapon hit (guns too), spend a spell slot: 2d8 radiant +1d8 per slot level above 1st (max 5d8), +1d8 vs unquiet dead or fiends." + (L >= 11 ? " Improved Smite Lead: +1d8 on every hit." : ""),
         src: "BOOK1 L1586-1587 (Smite Lead), L1611 (Improved, 11th), slots L1601-1620" });
     }
+    classUses(c, L, out);
     return out;
   }
-  function used(c, id) { return num(((c && c.res) || {})[id], 0); }
+  function abil(c, a) { return Math.floor((num(c && c.abilities && c.abilities[a], 10) - 10) / 2); }
+  function sub(c) { return String((c && c.subclass) || ""); }
+  /* Limited-use features (Callings, subclasses, lineages, feats). SSDNS line first; where it is silent the 5E PHB
+     value applies (BOOK1 L899: "Build yours with the PHB class rules in full"). rest: short | long | day | week. */
+  function u(out, id, name, max, rest, tip, src) {
+    if (max === Infinity) { out.push({ id: id, kind: "unlimited", name: name, max: 0, rest: rest, tip: tip, src: src }); return; }
+    if (max > 0) out.push({ id: id, kind: "pips", name: name, max: max, rest: rest, tip: tip, src: src });
+  }
+  function classUses(c, L, out) {
+    var cha = abil(c, "CHA"), wis = abil(c, "WIS"), cl = c.calling, sc = sub(c);
+    if (cl === "tribal-warrior") {
+      var rg = progCol(c, "Rages");
+      u(out, "rage", "Dust Fury (Rage)", /unlimited/i.test(rg) ? Infinity : num(rg, L >= 17 ? 6 : L >= 12 ? 5 : L >= 6 ? 4 : L >= 3 ? 3 : 2), "long",
+        "Bonus action to enter Dust Fury. Rages by level (table); regain all on a long rest (PHB). Unlimited at 20th.",
+        "BOOK1 L942-943, Rages column L964-985 (20th: Unlimited); rest per PHB (L899)");
+    }
+    if (cl === "storyteller") {
+      u(out, "rally", "Rally Word (Inspiration die " + (progCol(c, "Insp. Die") || "d6") + ")", Math.max(1, cha), L >= 5 ? "short" : "long",
+        "Bonus action: an ally within 60 ft adds your Inspiration die. Uses = Charisma modifier (min 1); regain on a long rest, on a short rest from 5th (Font of Inspiration, PHB). Cutting Words, Peerless Skill and Combat Inspiration spend these.",
+        "BOOK1 L1044-1045, L1078 (Font of Inspiration), L1110/L1112/L1119; count + rest per PHB (L899)");
+      if (c.instrument !== "voice") u(out, "instrumentDc", "Instrument: Rally die to a save DC", 1, "short",
+        "Playing your Calling instrument: once per short rest, add your Rally Word die to one target's save DC.", "BOOK1 L1059-1061");
+      var perk = { banjo: ["Banjo: +1d4 to a Rally die", "BOOK1 L4723"], guitar: ["Guitar: +1 to a spell save DC", "BOOK1 L4724"], accordion: ["Accordion: disadvantage on first save", "BOOK1 L4725"] }[c.instrument];
+      if (perk) u(out, "instrumentPerk", perk[0], 1, "short", "Instrument perk, once per short rest.", perk[1]);
+    }
+    if (cl === "frontier-preacher") {
+      if (L >= 2) u(out, "creed", "Channel the Creed", L >= 18 ? 3 : L >= 6 ? 2 : 1, "short",
+        "Turn the Unquiet or your Domain option (Preserve Life, Guided Strike). 1 per rest, 2 at 6th, 3 at 18th; short or long rest.",
+        "BOOK1 L1157-1158, table L1173 (1/rest), L1177 (2/rest), L1189 (3/rest)");
+      if (L >= 10) u(out, "intervene", "Divine Intervention", 1, "week",
+        "Call on your god. On a success you can't use it again for 7 days; on a failure, after a long rest (PHB). Tracked as 7 days: clear it by hand after a failure.",
+        "BOOK1 L1163, table L1181; timing per PHB (L899)");
+      if (sc === "shotgun-preacher-war") u(out, "warPriest", "War Priest", Math.max(1, wis), "long",
+        "Bonus action weapon attack after the Attack action, Wisdom modifier times (min 1) per long rest.", "BOOK1 L1213");
+    }
+    if (cl === "nature-guide") {
+      if (L >= 2) u(out, "wildShape", "Beast Mantle (Wild Shape)", L >= 20 ? Infinity : 2, "short",
+        "Assume a frontier beast's shape twice per short or long rest. Unlimited at 20th. Skinwalker: Elemental Wild Shape spends two.",
+        "BOOK1 L1254-1255, L1269 (unlimited, 20th), L1321 (two uses)");
+      if (sc === "circle-of-the-open-range-land" && L >= 2) u(out, "natRecovery", "Natural Recovery", 1, "day",
+        "On a short rest, recover spell slots totalling half your level (rounded up), once per day (PHB).", "BOOK1 L1309; once/day per PHB (L899)");
+    }
+    if (cl === "gunslinger") {
+      u(out, "secondWind", "Dust Breath (Second Wind)", 1, "short", "Bonus action: regain 1d10 + level HP. Once per short or long rest.", "BOOK1 L1354-1355");
+      if (L >= 2) u(out, "actionSurge", "Second Cylinder (Action Surge)", L >= 17 ? 2 : 1, "short",
+        "One extra action on your turn. 1 use, 2 at 17th; short rest (one per turn, PHB).", "BOOK1 L1357-1358, table L1376 (one use), L1391 (2 uses)");
+      if (L >= 9) u(out, "indomitable", "Iron Nerve (Indomitable)", L >= 17 ? 3 : L >= 13 ? 2 : 1, "long",
+        "Reroll a failed saving throw. 1 use at 9th, 2 at 13th, 3 at 17th; long rest.", "BOOK1 L1366-1367, table L1383 (1), L1387 (2), L1391 (3)");
+    }
+    if (cl === "martial-artist" && sc === "rough-and-tumble-brawler-open-hand" && L >= 6)
+      u(out, "whistle", "Whistle Recovery", 1, "long", "Action: heal 3 × your level HP. Once per long rest.", "BOOK1 L1514");
+    if (cl === "lawman") {
+      u(out, "oathSense", "Oath Sense", Math.max(1, 1 + cha), "long",
+        "Detect unquiet dead, hell-branded fiends or a sacred presence within 60 ft. 1 + Cha mod times per day; regain on a long rest (PHB).", "BOOK1 L1565-1566; rest per PHB (L899)");
+      if (L >= 3) u(out, "deputize", "Deputize", L >= 11 ? 2 : 1, "long",
+        "Once per long rest per deputy, your deputy adds your Charisma modifier to one d20 roll. 1 deputy, 2 at 11th.", "BOOK1 L1584, table L1603 / L1611");
+      if (L >= 3 && sc) u(out, "oathCreed", "Channel Creed (oath)", 1, "short",
+        "Your oath's Channel Creed option (Sacred Weapon, Turn the Corrupt, Vow of Enmity, Control Undead). Once per short or long rest (PHB). Not while the badge is Dull.",
+        "BOOK1 L1633-1634, L1641, L1652, L1577 (Dull); rest per PHB (L899)");
+    }
+    if (cl === "gambler" && L >= 20) u(out, "strokeLuck", "Stroke of Luck", 1, "short", "Turn a miss into a hit (or a failed check into a 20). Once per rest.", "BOOK1 L1799-1800");
+    if (cl === "hexslinger" && sc === "chaos-wild-magic") u(out, "tides", "Tides of Chaos", 1, "long",
+      "Advantage on one attack, check or save. Once per long rest (the DM can recharge it with a wild-spark roll).", "BOOK1 L1971");
+    if (cl === "pact-seeker") {
+      [[11, 6], [13, 7], [15, 8], [17, 9]].forEach(function (a) {
+        if (L >= a[0]) u(out, "arcanum" + a[1], "Mystic Arcanum (" + a[1] + "th)", 1, "long", "Cast your " + a[1] + "th-level arcanum once per long rest.", "BOOK1 L2019-2020, table L2038-2044");
+      });
+      if (L >= 20) u(out, "eldritchMaster", "Eldritch Master", 1, "long", "Spend 1 minute to regain all pact slots, once per long rest (PHB).", "BOOK1 L2020; rest per PHB (L899)");
+    }
+    if (cl === "scholar") {
+      u(out, "dustLamp", "Dust-Lamp Recovery", 1, "day", "During a short rest, recover slots totalling half your level (rounded up). Once per day.", "BOOK1 L2110-2111");
+      if (L >= 20) u(out, "signature", "Signature Spells (2 × 3rd)", 2, "short", "Cast each signature spell once at 3rd level without a slot; regain on a short or long rest (PHB).", "BOOK1 L2113-2114; per PHB (L899)");
+    }
+    /* lineage traits */
+    var lin = String(c.lineage || ""), subl = String(c.sublineage || "");
+    if (lin === "aristocrats" && subl === "night-house") {
+      if (L >= 3) u(out, "nhFaerie", "Night House: faerie fire", 1, "long", "Cast faerie fire once per long rest (3rd level).", "BOOK1 L494");
+      if (L >= 5) u(out, "nhDark", "Night House: darkness", 1, "long", "Cast darkness once per long rest (5th level).", "BOOK1 L494");
+    }
+    if (lin === "camp-kin") u(out, "breath", "Fire-Eater's Trick (breath)", 1, "long", "Breath weapon, once per long rest.", "BOOK1 L633, L662-663");
+    if (lin === "pioneers") u(out, "relentlessEnd", "Relentless Endurance", 1, "long", "Drop to 1 HP instead of 0, once per long rest.", "BOOK1 L832-833");
+    if (lin === "street-folk") {
+      if (L >= 3) u(out, "ilRebuke", "Infernal Legacy: hellish rebuke", 1, "long", "Cast hellish rebuke (2nd level) once per long rest.", "BOOK1 L879-880");
+      if (L >= 5) u(out, "ilDark", "Infernal Legacy: darkness", 1, "long", "Cast darkness once per long rest.", "BOOK1 L879-880");
+    }
+    if (hasFeat(c, "weave-touched")) u(out, "weaveSpell", "Weave-Touched 1st-level spell", 1, "long", "Cast the feat's 1st-level spell once per long rest.", "BOOK1 L5217");
+  }
+  /** The generic featureUses tracker (sheet-playtest useRule) must not double-count what the class panel tracks. */
+  var COVERED = /^(Dust Fury|Rally Word|Dying Weave Spellcasting|Channel the Creed|Divine Intervention|Beast Mantle|Dust Breath|Second Cylinder|Iron Nerve|Mystic Arcanum|Dust-Lamp Recovery|Oath Sense|Night House Magic|Relentless|Breath Weapon|Infernal Legacy|Reliable Talent)/i;
+  function coversFeature(name) { return COVERED.test(String(name || "").trim()); }
+  function rageMax(c) { var r = resourcesFor(c).filter(function (x) { return x.id === "rage"; })[0]; return !r ? 0 : (r.kind === "unlimited" ? Infinity : r.max); }
+  function used(c, id) { if (id === "rage") return num(c && c.rageUsed, 0); return num(((c && c.res) || {})[id], 0); }
   function left(c, r) { return Math.max(0, r.max - used(c, r.id)); }
-  function setUsed(id, n) { patch(function (c) { c.res = c.res || {}; c.res[id] = Math.max(0, n); }); paint(); }
+  function setUsed(id, n) { patch(function (c) { if (id === "rage") { c.rageUsed = Math.max(0, n); return; } c.res = c.res || {}; c.res[id] = Math.max(0, n); }); paint(); }
 
   function slotRows() {
     var A = app(), c = ch();
@@ -192,7 +284,10 @@
     }
     return html;
   }
-  function restTag(r) { return r.rest === "turn" ? "1 / turn" : (r.rest === "short" ? "short rest" : "long rest"); }
+  function rageBtn(c) {
+    return '<button type="button" class="btn xs' + (c.raging ? " btn-primary" : "") + '" data-trk-rage="1" title="' + (c.raging ? "End Dust Fury" : "Enter Dust Fury (bonus action, spends one)") + '">' + (c.raging ? "Raging: end" : "Enter Dust Fury") + "</button>";
+  }
+  function restTag(r) { return { turn: "1 / turn", short: "short rest", long: "long rest", day: "1 / day", week: "7 days" }[r.rest] || "long rest"; }
   function resHtml(c, opts) {
     opts = opts || {};
     var list = resourcesFor(c);
@@ -200,31 +295,40 @@
     var body = list.map(function (r) {
       var head = '<span class="trk-name" title="' + esc(r.tip + " · " + r.src) + '">' + esc(r.name) + (r.die ? ' <span class="trk-die">' + esc(r.die) + "</span>" : "") + "</span>";
       if (r.kind === "sneak") {
-        var spent = !!(c.res && c.res.sneakUsed);
+        var spent = !!(c.res && c.res.sneakUsed), armedS = !!(c.res && c.res.sneakArmed);
         return '<div class="trk-res trk-sneak' + (spent ? " spent" : "") + '">' + head +
           '<span class="trk-dice">' + esc(r.dice) + "</span>" +
-          '<button type="button" class="trk-turn' + (spent ? "" : " on") + '" data-trk-sneak="1" title="' + (spent ? "Used this turn. Click to clear (DM call)." : "Ready this turn") + '">' + (spent ? "Used this turn" : "Ready") + "</button>" +
-          (opts.ro ? "" : '<button type="button" class="btn xs" data-trk-sneak-roll="1"' + (spent ? " disabled" : "") + ' title="Roll the Sneak Attack dice and mark it used for this turn">Roll ' + esc(r.dice) + "</button>") +
+          (opts.ro ? "" : '<button type="button" class="trk-arm' + (armedS ? " on" : "") + '" data-trk-arm="sneak"' + (spent && !armedS ? " disabled" : "") + ' aria-pressed="' + armedS + '" title="Arm BEFORE you attack. On a hit the ' + esc(r.dice) + ' ride in that attack\'s damage and the once-per-turn use is spent; on a miss nothing is used. Clears after one attack either way.">' + (armedS ? "Armed: next attack" : "Sneak Attack next attack") + "</button>") +
+          '<button type="button" class="trk-turn' + (spent ? "" : " on") + '" data-trk-sneak="1"' + (opts.ro ? " disabled" : "") + ' title="' + (spent ? "Used this turn (clears on your next turn). Click to clear: DM call." : "Ready this turn") + '">' + (spent ? "Used this turn" : "Ready") + "</button>" +
           '<span class="trk-rest">' + restTag(r) + "</span></div>";
       }
       if (r.kind === "smite") {
         var rows = opts.slots || slotRows();
         var badgeDull = c.badgeState === "dull";
+        var avail = rows.filter(function (s) { return s.left > 0; });
+        var armedM = num(c.res && c.res.smiteArmed);
+        var ord = function (n) { return n + (n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"); };
         var slotHtml = rows.length ? rows.map(function (s) {
-          return '<span class="trk-slot"><span class="trk-slv">' + s.level + (s.level === 1 ? "st" : s.level === 2 ? "nd" : s.level === 3 ? "rd" : "th") + '</span>' +
+          return '<span class="trk-slot"><span class="trk-slv">' + ord(s.level) + '</span>' +
             pipRow("slot" + s.level, s.total, s.left, { ro: true, cls: "slot", label: "Level " + s.level + " slot" }) + "</span>";
         }).join("") : '<span class="fine">No spell slots yet.</span>';
-        var pick = opts.ro || !rows.length ? "" : '<select class="trk-smite-lv" data-trk-smite-lv="1" aria-label="Slot level">' + rows.map(function (s) {
-          return '<option value="' + s.level + '"' + (s.left ? "" : " disabled") + ">" + s.level + (s.level === 1 ? "st" : s.level === 2 ? "nd" : s.level === 3 ? "rd" : "th") + " · " + Math.min(5, s.level + 1) + "d8</option>";
-        }).join("") + "</select>" +
-          '<label class="tiny" title="+1d8 vs unquiet dead or fiends"><input type="checkbox" data-trk-smite-undead="1"> unquiet / fiend</label>' +
-          '<button type="button" class="btn xs" data-trk-smite="1"' + (badgeDull ? " disabled title=\"Badge is Dull: no Smite Lead\"" : ' title="After a weapon hit: spend the slot and roll the radiant damage"') + ">Smite</button>";
-        return '<div class="trk-res trk-smite">' + head + '<span class="trk-slots">' + slotHtml + "</span>" + pick + '<span class="trk-rest">spends a slot</span></div>';
+        var curLv = armedM || (avail[0] && avail[0].level) || 1;
+        var pick = opts.ro || avail.length < 2 ? "" : '<select class="trk-smite-lv" data-trk-smite-lv="1" aria-label="Smite slot level">' + avail.map(function (s) {
+          return '<option value="' + s.level + '"' + (s.level === curLv ? " selected" : "") + ">" + ord(s.level) + " · " + Math.min(5, s.level + 1) + "d8</option>";
+        }).join("") + "</select>";
+        var why = badgeDull ? "Badge is Dull: no Smite Lead" : (!avail.length ? "No spell slot left" : "");
+        var arm = opts.ro ? "" : '<label class="tiny" title="+1d8 vs unquiet dead or fiends (set before the attack)"><input type="checkbox" data-trk-smite-undead="1"' + (c.res && c.res.smiteUndead ? " checked" : "") + "> unquiet / fiend</label>" +
+          '<button type="button" class="trk-arm' + (armedM ? " on" : "") + '" data-trk-arm="smite"' + (why && !armedM ? ' disabled title="' + esc(why) + '"' : ' title="Arm BEFORE you attack. On a weapon hit the ' + ord(curLv) + '-level slot is spent and ' + Math.min(5, curLv + 1) + 'd8 radiant rides in that attack\'s damage (crit doubles the dice). On a miss nothing is spent. Clears after one attack either way."') + ' aria-pressed="' + !!armedM + '">' +
+          (armedM ? "Armed: smite next attack (" + ord(armedM) + ")" : "Smite next attack" + (avail.length === 1 ? " (" + ord(curLv) + ")" : "")) + "</button>";
+        return '<div class="trk-res trk-smite">' + head + '<span class="trk-slots">' + slotHtml + "</span>" + pick + arm + '<span class="trk-rest">spends a slot on a hit</span></div>';
+      }
+      if (r.kind === "unlimited") {
+        return '<div class="trk-res">' + head + '<span class="trk-unl">Unlimited</span>' + (r.id === "rage" && !opts.ro ? rageBtn(c) : "") + '<span class="trk-rest">' + restTag(r) + "</span></div>";
       }
       var have = opts.ro ? Math.max(0, r.max - num(((c.res || {})[r.id]), 0)) : left(c, r);
       var roll = r.roll && !opts.ro ? '<button type="button" class="btn xs" data-trk-spend-roll="' + esc(r.id) + '"' + (have ? "" : " disabled") + ' title="Spend one and roll it">Use ' + esc(r.roll) + "</button>" : "";
       return '<div class="trk-res">' + head + '<span class="trk-pips">' + pipRow(r.id, r.max, have, { ro: opts.ro, label: r.name }) + "</span>" +
-        '<span class="trk-count">' + have + "/" + r.max + "</span>" + roll + '<span class="trk-rest">' + restTag(r) + "</span></div>";
+        '<span class="trk-count">' + have + "/" + r.max + "</span>" + roll + (r.id === "rage" && !opts.ro ? rageBtn(c) : "") + '<span class="trk-rest">' + restTag(r) + "</span></div>";
     }).join("");
     return '<div class="trk-panel' + (opts.ro ? " ro" : "") + '"><div class="trk-title">Class resources</div>' + body + "</div>";
   }
@@ -260,8 +364,12 @@
     if (k === "thrown") return thrownHtml("gun", i, g, w);
     return "";
   }
+  /* Jessey 2026-10-19: javelins and spears are Recover ½ (5e ammunition rule applied to them); knives, hatchets and
+     nets stay Recover all. */
+  function halfBack(w) { return !!w && /javelin|spear/i.test(String(w.id || "") + " " + String(w.name || "")); }
   function thrownHtml(slot, i, row, w) {
     var owned = Math.max(1, num(row.count, 1)), out = Math.min(owned, num(row.out));
+    var half = halfBack(w), back = half ? Math.floor(out / 2) : out;
     var pips = "";
     for (var k = 0; k < owned; k++) {
       var gone = k >= owned - out;
@@ -273,7 +381,10 @@
       '<span class="trk-count">' + (owned - out) + "/" + owned + "</span>" +
       '<span class="trk-stepper"><button type="button" class="btn xs ghost" data-trk-own="' + slot + ":" + i + ':-1" title="Own one fewer">−</button><button type="button" class="btn xs ghost" data-trk-own="' + slot + ":" + i + ':1" title="Own one more">+</button></span>' +
       (slot === "melee" ? '<button type="button" class="btn xs" data-trk-throw="' + i + '"' + (owned - out > 0 ? "" : " disabled") + ' title="Throw one (ranged attack with the thrown property)">Throw</button>' : "") +
-      '<button type="button" class="btn xs" data-trk-recall="' + slot + ":" + i + '"' + (out ? "" : " disabled") + ' title="After the fight: pick them all back up (Jessey: all thrown knives, hatchets and spears are recovered)">Recover all</button></div>';
+      (half
+        ? '<button type="button" class="btn xs" data-trk-recall="' + slot + ":" + i + '"' + (out && !row.lost ? "" : " disabled") + ' title="After the fight: recover half the thrown javelins / spears, rounded down (Jessey: same rule as arrows and bolts). The rest are broken or lost.">Recover ½' + (out ? " (+" + back + ")" : "") + "</button>"
+        : '<button type="button" class="btn xs" data-trk-recall="' + slot + ":" + i + '"' + (out ? "" : " disabled") + ' title="After the fight: pick them all back up (Jessey: thrown knives and hatchets are all recovered)">Recover all</button>') +
+      (row.lost ? '<span class="fine trk-warn">All lost. Buy more, or use + to set how many you own.</span>' : "") + "</div>";
   }
   function chargeInfo(c, i) {
     var row = c.melee && c.melee[i], w = row && weapon(row.weapon);
@@ -319,7 +430,16 @@
       return { ok: true, left: num(p.count), unit: POOL_WORD[t] || t };
     }
     if (k === "loaded") {
-      if (num(g.loaded) <= 0) return { ok: false, reason: "Not loaded. Load one (free), then fire." };
+      var autoNote = "";
+      if (num(g.loaded) <= 0) {
+        /* Q4 fix (Jessey 2026-10-19): firing an empty crossbow / blowpipe loads one from the pool for free, so every
+           shot spends exactly one bolt and rolls attack and damage normally. No pool left = no shot. */
+        var pa = pool(c, poolType(w), false);
+        if (!pa || num(pa.count) <= 0) return { ok: false, reason: "Out of " + (POOL_WORD[poolType(w)] || "bolts") + ". Add them under Ammo." };
+        pa.count = num(pa.count) - 1;
+        g.loaded = 1;
+        autoNote = " (auto-loaded 1 " + String(POOL_WORD[poolType(w)] || "bolts").replace(/s$/, "") + ")";
+      }
       var st = pipsState();
       if (g.loadShotKey && g.loadShotKey === (st.turnKey || "") + "|" + (st.attacks || 0) && st.action) {
         /* Loading: never blocked (the DM can allow it), just warned like the action pips */
@@ -329,12 +449,19 @@
       g.spentAmmo = num(g.spentAmmo) + 1;
       g.loadShotKey = (st.turnKey || "") + "|" + ((st.attacks || 0) + 1);
       var pb = pool(c, poolType(w), false);
-      return { ok: true, left: 0, unit: "empty now; " + (pb ? num(pb.count) : 0) + " " + (POOL_WORD[poolType(w)] || "bolts") + " to load" };
+      return { ok: true, left: 0, unit: "empty now" + autoNote + "; " + (pb ? num(pb.count) : 0) + " " + (POOL_WORD[poolType(w)] || "bolts") + " left", autoLoaded: !!autoNote };
     }
     var owned = Math.max(1, num(g.count, 1));
-    if (num(g.out) >= owned) return { ok: false, reason: "All thrown. Recover them after the fight." };
+    if (num(g.out) >= owned) return { ok: false, reason: g.lost ? "None left: all lost. Buy more." : "All thrown. Recover them after the fight." };
     g.out = num(g.out) + 1;
     return { ok: true, left: owned - g.out, unit: "of " + owned + " still in hand" };
+  }
+  /** Recover ½ for javelins / spears: half the thrown ones come back (rounded down); the rest leave the count. */
+  function recoverHalfThrown(row) {
+    var owned = Math.max(1, num(row.count, 1)), out = Math.min(owned, num(row.out));
+    var back = Math.floor(out / 2), lostN = out - back, left = owned - lostN;
+    if (left <= 0) return { count: 1, out: 1, lost: true, back: 0, lostN: lostN };
+    return { count: left, out: 0, lost: false, back: back, lostN: lostN };
   }
   /** sheet-playtest rollMeleeNow hook: a Throw spends one thrown weapon. */
   var throwing = -1;
@@ -344,7 +471,7 @@
     var row = c.melee && c.melee[i];
     if (!row) return null;
     var owned = Math.max(1, num(row.count, 1));
-    if (num(row.out) >= owned) return { ok: false, reason: "All thrown. Recover them after the fight." };
+    if (num(row.out) >= owned) return { ok: false, reason: row.lost ? "None left: all lost. Buy more." : "All thrown. Recover them after the fight." };
     row.out = num(row.out) + 1;
     setTimeout(paint, 0);
     return { ok: true, thrown: true };
@@ -394,8 +521,9 @@
   function snapshot(c) {
     if (!c) return null;
     var res = resourcesFor(c).map(function (r) {
-      if (r.kind === "sneak") return { id: r.id, name: r.name, dice: r.dice, used: !!(c.res && c.res.sneakUsed), rest: r.rest };
-      if (r.kind === "smite") return { id: r.id, name: r.name, slots: true, rest: r.rest };
+      if (r.kind === "sneak") return { id: r.id, name: r.name, dice: r.dice, used: !!(c.res && c.res.sneakUsed), armed: !!(c.res && c.res.sneakArmed), rest: r.rest };
+      if (r.kind === "smite") return { id: r.id, name: r.name, slots: true, armed: num(c.res && c.res.smiteArmed), rest: r.rest };
+      if (r.kind === "unlimited") return { id: r.id, name: r.name, unlimited: true, rest: r.rest };
       return { id: r.id, name: r.name, max: r.max, left: left(c, r), die: r.die || "", rest: r.rest };
     });
     return { res: res, tokenRows: tokenRows(c) };
@@ -405,10 +533,11 @@
     var t = s && s.trackers;
     if (!t || (!(t.res || []).length && !(t.tokenRows || []).length)) return "";
     return '<div class="trk-dm">' + (t.res || []).map(function (r) {
-      if (r.dice) return '<span class="trk-chip' + (r.used ? " spent" : "") + '" title="Once per turn">' + esc(r.name) + " " + esc(r.dice) + " · " + (r.used ? "used" : "ready") + "</span>";
-      if (r.slots) return '<span class="trk-chip" title="Spends spell slots (see Shells line)">' + esc(r.name) + " · slots</span>";
+      if (r.dice) return '<span class="trk-chip' + (r.used ? " spent" : "") + '" title="Once per turn">' + esc(r.name) + " " + esc(r.dice) + " · " + (r.armed ? "ARMED" : (r.used ? "used" : "ready")) + "</span>";
+      if (r.slots) return '<span class="trk-chip" title="Spends a spell slot on a hit (see Shells line)">' + esc(r.name) + (r.armed ? " · ARMED (" + r.armed + ")" : " · slots") + "</span>";
+      if (r.unlimited) return '<span class="trk-chip">' + esc(r.name) + " · unlimited</span>";
       var dots = ""; for (var k = 0; k < r.max; k++) dots += k < r.left ? "●" : "○";
-      return '<span class="trk-chip" title="' + esc(r.rest === "short" ? "Short or long rest" : "Long rest") + '">' + esc(r.name) + (r.die ? " " + esc(r.die) : "") + ' <b class="trk-dots">' + dots + "</b> " + r.left + "/" + r.max + "</span>";
+      return '<span class="trk-chip" title="' + esc(r.rest === "short" ? "Short or long rest" : r.rest === "week" ? "Once per 7 days" : r.rest === "day" ? "Once per day (dawn / long rest)" : "Long rest") + '">' + esc(r.name) + (r.die ? " " + esc(r.die) : "") + ' <b class="trk-dots">' + dots + "</b> " + r.left + "/" + r.max + "</span>";
     }).join("") + ((t.tokenRows || []).length ? (t.tokenRows || []).map(function (row) {
       return '<span class="trk-chip weap">' + esc(row.name) + " " + esc(row.text) + "</span>";
     }).join("") : "") + "</div>";
@@ -476,30 +605,15 @@
       return;
     }
     if (t.hasAttribute("data-trk-sneak")) {
-      patch(function (cc) { cc.res = cc.res || {}; cc.res.sneakUsed = !cc.res.sneakUsed; }); paint(); return;
+      patch(function (cc) { cc.res = cc.res || {}; cc.res.sneakUsed = !cc.res.sneakUsed; if (cc.res.sneakUsed) cc.res.sneakArmed = false; }); paint(); return;
     }
-    if (t.hasAttribute("data-trk-sneak-roll")) {
-      var dice = progCol(c, "Sneak Attack") || (Math.ceil(lv(c) / 2) + "d6");
-      var m = dice.match(/(\d+)d(\d+)/); var got2 = rollDice(num(m && m[1], 1), num(m && m[2], 6));
-      patch(function (cc) { cc.res = cc.res || {}; cc.res.sneakUsed = true; }); paint();
-      log((c.name || "You") + " Sneak Attack: " + dice + " = " + got2.total + " extra damage (once this turn).", "roll");
-      post("Sneak Attack", dice, got2.total, got2.list.join("+"));
-      return;
-    }
-    if (t.hasAttribute("data-trk-smite")) {
-      if (c.badgeState === "dull") { toast("Your badge is Dull: no Smite Lead."); return; }
-      var lvSel = $("[data-trk-smite-lv]", t.parentNode), L = num(lvSel && lvSel.value, 1);
-      var A = app();
-      if (!A || !A.slotsLeft || A.slotsLeft(L) <= 0) { toast("No level-" + L + " slot left."); return; }
-      if (!A.spendHexSlot(L)) { toast("No level-" + L + " slot left."); return; }
-      var undead = !!($("[data-trk-smite-undead]", t.parentNode) || {}).checked;
-      var nd = Math.min(5, 1 + L) + (undead ? 1 : 0);
-      var got3 = rollDice(nd, 8);
-      A.applyPatch(function () {});
-      paint();
-      log((c.name || "You") + " Smite Lead (" + L + (L === 1 ? "st" : L === 2 ? "nd" : L === 3 ? "rd" : "th") + " slot): " + nd + "d8 = " + got3.total + " radiant" + (undead ? " (unquiet/fiend +1d8)" : "") + ".", "roll");
-      post("Smite Lead", nd + "d8", got3.total, got3.list.join("+") + " radiant");
-      return;
+    var armK = t.getAttribute("data-trk-arm");
+    if (armK) { toggle(armK); return; }
+    if (t.hasAttribute("data-trk-rage")) {
+      var rb = document.getElementById("btnRage");
+      if (!c.raging && rageMax(c) !== Infinity && used(c, "rage") >= rageMax(c)) { toast("No Dust Fury left until a long rest."); return; }
+      if (rb) rb.click(); else patch(function (cc) { if (cc.raging) cc.raging = false; else { cc.raging = true; cc.rageUsed = num(cc.rageUsed) + 1; } });
+      paint(); return;
     }
     var rec = t.getAttribute("data-trk-recover");
     if (rec != null) {
@@ -524,13 +638,24 @@
     var own = t.getAttribute("data-trk-own");
     if (own) {
       var parts = own.split(":"), list = parts[0] === "melee" ? "melee" : "guns", oi = num(parts[1]), d = num(parts[2]);
-      patch(function (cc) { var row = cc[list][oi]; row.count = Math.max(1, Math.min(20, Math.max(1, num(row.count, 1)) + d)); row.out = Math.min(num(row.out), row.count); });
+      patch(function (cc) {
+        var row = cc[list][oi];
+        if (row.lost) { row.lost = false; row.count = 1; row.out = 0; return; }
+        row.count = Math.max(1, Math.min(20, Math.max(1, num(row.count, 1)) + d)); row.out = Math.min(num(row.out), row.count);
+      });
       paint(); return;
     }
     var recall = t.getAttribute("data-trk-recall");
     if (recall) {
       var p2 = recall.split(":"), l2 = p2[0] === "melee" ? "melee" : "guns", ri = num(p2[1]);
-      var n2 = num(c[l2][ri] && c[l2][ri].out);
+      var rr = c[l2][ri], n2 = num(rr && rr.out), rw = rr && weapon(rr.weapon);
+      if (halfBack(rw)) {
+        var res2 = recoverHalfThrown(rr);
+        patch(function (cc) { var x = cc[l2][ri]; x.count = res2.count; x.out = res2.out; x.lost = res2.lost; });
+        paint();
+        log((c.name || "You") + " recovers " + res2.back + " of " + n2 + " thrown " + ((rw && rw.name) || "weapons") + " after the fight; " + res2.lostN + " broken or lost.");
+        return;
+      }
       patch(function (cc) { cc[l2][ri].out = 0; });
       paint();
       log((c.name || "You") + " picks up " + n2 + " thrown " + (n2 === 1 ? "weapon" : "weapons") + " after the fight.");
@@ -563,6 +688,140 @@
       paint();
     }
   }
+  /* ---------------------------------------------------------------- arm-before-attack riders (Jessey 2026-10-19 9:53 PM CT)
+     Sneak Attack and Smite Lead are armed BEFORE the attack roll. rider() is called once by every weapon-attack path
+     (Gear card gun / melee / pistol-whip, map token Attacks, DM-sent shots) after hit or miss is known. A hit spends and
+     adds the dice; a miss spends nothing; the arm always clears. Nothing can be added after the roll. */
+  /** The map's player Attacks list shows the arm state; repaint it after an arm flips or clears. */
+  function refreshMap() { var H = root.SSDNSMapHost; if (H && H.refreshCard) { try { H.refreshCard(""); } catch (e) {} } }
+  function ordinal(n) { return n + (n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"); }
+  function slotLevelsLeft() { return slotRows().filter(function (s) { return s.left > 0; }).map(function (s) { return s.level; }); }
+  function canArm(c, kind) {
+    if (kind === "sneak") {
+      if (!c || c.calling !== "gambler") return "Sneak Attack is a Gambler feature.";
+      if (c.res && c.res.sneakUsed) return "Sneak Attack is already used this turn.";
+      return "";
+    }
+    if (!c || c.calling !== "lawman" || lv(c) < 2) return "Smite Lead is a Lawman feature (2nd level).";
+    if (c.badgeState === "dull") return "Your badge is Dull: no Smite Lead.";
+    if (!slotLevelsLeft().length) return "No spell slot left.";
+    return "";
+  }
+  /** Flip an arm. opts.dm = DM override (ignores the once-per-turn / Dull checks); opts.on forces a state; opts.level picks the slot. */
+  function toggle(kind, opts) {
+    opts = opts || {};
+    var c = ch();
+    if (!c) return false;
+    var res = c.res || {};
+    var isOn = kind === "sneak" ? !!res.sneakArmed : !!num(res.smiteArmed);
+    var want = opts.on == null ? !isOn : !!opts.on;
+    if (want && !opts.dm) { var why = canArm(c, kind); if (why) { toast(why); return false; } }
+    var lvls = slotLevelsLeft();
+    var level = num(opts.level || res.smiteLevel, 0);
+    if (kind === "smite" && want && lvls.indexOf(level) < 0) level = lvls[0] || (opts.dm ? Math.max(1, level) : 0);
+    patch(function (cc) {
+      cc.res = cc.res || {};
+      if (kind === "sneak") cc.res.sneakArmed = want;
+      else { cc.res.smiteArmed = want ? level : 0; if (want) cc.res.smiteLevel = level; }
+      if (opts.dm) cc.res.armDm = true;
+    });
+    paint();
+    refreshMap();
+    if (root.SSDNSAudio) root.SSDNSAudio.play("ui-tick");
+    return want;
+  }
+  function refundSlot(c, level) {
+    var a = c.hexLead && c.hexLead[level];
+    if (!a) return false;
+    for (var k = a.length - 1; k >= 0; k--) if (a[k]) { a[k] = false; return true; }
+    return false;
+  }
+  /**
+   * ctx: { hit, crit, pending (hidden AC: the DM decides), melee, finesse, thrown, dm, weapon }
+   * Returns null when nothing was armed, else { riders:[{label, formula, faces, total, type}], total, text, notes }.
+   * Mutates the live character (the roll paths already do), then repaints on the next tick.
+   */
+  function rider(ctx) {
+    ctx = ctx || {};
+    var c = ch();
+    if (!c || !c.res) return null;
+    var armS = !!c.res.sneakArmed, armM = num(c.res.smiteArmed);
+    if (!armS && !armM) return null;
+    var dm = !!(ctx.dm || c.res.armDm);
+    var hit = !!(ctx.hit || ctx.pending), crit = !!ctx.crit && !ctx.pending;
+    var out = [], notes = [], spent = {};
+    if (armS) {
+      var okWeapon = !ctx.melee || ctx.finesse || ctx.thrown;
+      var okTurn = dm || !c.res.sneakUsed;
+      if (hit && c.calling === "gambler" && okWeapon && okTurn) {
+        var dice = progCol(c, "Sneak Attack") || (Math.ceil(lv(c) / 2) + "d6");
+        var m = dice.match(/(\d+)d(\d+)/), n = num(m && m[1], 1), sides = num(m && m[2], 6);
+        if (crit) n *= 2;
+        var g1 = rollDice(n, sides);
+        out.push({ label: "sneak", formula: n + "d" + sides, faces: g1.list, total: g1.total, type: "" });
+        c.res.sneakUsed = true; spent.sneak = true;
+      } else if (hit && !okWeapon) notes.push("Sneak Attack needs a finesse or ranged weapon (PHB): not added");
+      else if (hit && !okTurn) notes.push("Sneak Attack already used this turn: not added");
+    }
+    if (armM) {
+      var A = app(), L = armM;
+      var okBadge = dm || c.badgeState !== "dull";
+      if (hit && c.calling === "lawman" && okBadge) {
+        var paid = A && A.spendHexSlot ? A.spendHexSlot(L) : false;
+        if (!paid && A && A.spendHexSlot) { for (var up = L + 1; up <= 5 && !paid; up++) if (A.spendHexSlot(up)) { paid = true; L = up; } }
+        if (paid) {
+          var nd = Math.min(5, 1 + L) + (c.res.smiteUndead ? 1 : 0);
+          if (crit) nd *= 2;
+          var g2 = rollDice(nd, 8);
+          out.push({ label: "smite", formula: nd + "d8", faces: g2.list, total: g2.total, type: "radiant" });
+          spent.smite = L;
+        } else notes.push("Smite Lead: no slot left, not added");
+      } else if (hit && !okBadge) notes.push("Badge is Dull: no Smite Lead");
+    }
+    c.res.sneakArmed = false;
+    c.res.smiteArmed = 0;
+    c.res.smiteLevel = 0; /* next arm defaults to the lowest slot again */
+    c.res.armDm = false;
+    if (notes.length) setTimeout(function () { toast(notes.join(" · ")); log(notes.join(" · "), "alert"); }, 30);
+    var total = 0; out.forEach(function (r) { total += r.total; });
+    var text = out.map(function (r) { return "+" + r.formula + " " + r.label; }).join(" ");
+    if (ctx.pending && (spent.sneak || spent.smite)) {
+      c.res.pendingRefund = { sneak: !!spent.sneak, smite: spent.smite || 0, at: Date.now() };
+      setTimeout(function () {
+        if (root.SSDNSToast) root.SSDNSToast((text || "Rider") + " rides on this attack. If the DM calls a miss, refund it.", "Refund", function () { refundPending(); });
+      }, 50);
+    }
+    setTimeout(function () { var A2 = app(); if (A2 && A2.applyPatch) A2.applyPatch(function () {}); paint(); refreshMap(); }, 0);
+    return { riders: out, total: total, text: text, notes: notes, spent: spent };
+  }
+  /** Hidden-AC attacks only: the DM called a miss after the dice were sent. Gives back what rider() spent. */
+  function refundPending() {
+    var c = ch();
+    var pr = c && c.res && c.res.pendingRefund;
+    if (!pr) return false;
+    patch(function (cc) {
+      if (pr.sneak) cc.res.sneakUsed = false;
+      if (pr.smite) refundSlot(cc, pr.smite);
+      cc.res.pendingRefund = null;
+    });
+    log((c.name || "You") + ": the DM called a miss, refunded " + [pr.sneak ? "Sneak Attack" : "", pr.smite ? "a " + ordinal(pr.smite) + "-level slot" : ""].filter(Boolean).join(" and ") + ".");
+    paint();
+    return true;
+  }
+  /** Damage-text helper for the plain attack lines: "+2d8 smite «3» «6»". */
+  function riderText(r) {
+    if (!r || !r.riders || !r.riders.length) return "";
+    return r.riders.map(function (x) { return "+" + x.formula + " " + x.label + " " + x.faces.map(function (f) { return "«" + f + "»"; }).join(" "); }).join(" ");
+  }
+  /** Map token Attacks menu entries for the toggles. */
+  function mapActions() {
+    var c = ch(), list = [];
+    if (!c) return list;
+    var res = c.res || {};
+    if (c.calling === "gambler") list.push({ id: "trk:sneak", label: res.sneakArmed ? "Sneak Attack: ARMED (tap to disarm)" : "Sneak Attack next attack", group: "attack", enabled: !!res.sneakArmed || !canArm(c, "sneak"), title: "Arm before you attack; a hit adds the dice." });
+    if (c.calling === "lawman" && lv(c) >= 2) list.push({ id: "trk:smite", label: num(res.smiteArmed) ? "Smite: ARMED " + ordinal(num(res.smiteArmed)) + " (tap to disarm)" : "Smite next attack", group: "attack", enabled: !!num(res.smiteArmed) || !canArm(c, "smite"), title: "Arm before you attack; a hit spends the slot and adds the dice." });
+    return list;
+  }
   /* rests: short = short-rest resources (+4 sorcery at Hexslinger 20th), long = everything */
   function onRest(kind) {
     var c = ch();
@@ -571,10 +830,14 @@
       cc.res = cc.res || {};
       resourcesFor(cc).forEach(function (r) {
         if (r.kind !== "pips") return;
-        if (kind === "long" || r.rest === "short") cc.res[r.id] = 0;
+        if (r.rest === "week") return; /* Divine Intervention: 7 days, cleared by hand */
+        if (kind === "long" || r.rest === "short") { if (r.id === "rage") cc.rageUsed = 0; else cc.res[r.id] = 0; }
         else if (r.id === "sorc" && lv(cc) >= 20) cc.res[r.id] = Math.max(0, num(cc.res[r.id]) - 4);
       });
       cc.res.sneakUsed = false;
+      cc.res.sneakArmed = false;
+      cc.res.smiteArmed = 0;
+      if (cc.raging) cc.raging = false;
     });
     paint();
   }
@@ -624,6 +887,8 @@
     ".trk-more{font-size:11px;color:#5b2d0e;font-weight:700}",
     ".trk-item{display:inline-flex;gap:2px;align-items:center;margin-left:6px;vertical-align:middle}.trk-sub{font-size:10px;color:#7a6a55;margin:0 2px 0 6px}",
     ".trk-dm{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}.trk-chip{font-size:11.5px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:1px 8px}.trk-chip.spent{opacity:.6}.trk-chip.weap{border-color:#5e8a55}.trk-dots{letter-spacing:1px;color:#e2c56a}",
+    ".trk-arm{border:2px solid #7a1f1f;background:#fff8ef;color:#7a1f1f;border-radius:14px;padding:2px 10px;font-weight:700;font-size:12px;cursor:pointer}.trk-arm.on{background:#7a1f1f;color:#fff;box-shadow:0 0 0 2px rgba(122,31,31,.25)}.trk-arm:disabled{opacity:.45;cursor:not-allowed}",
+    ".trk-unl{font-weight:700;color:#7a5a2e;font-size:12px}",
     "@media (max-width:480px){.trk-name{min-width:0;width:100%}}"
   ].join("\n");
   function injectCss() {
@@ -633,6 +898,17 @@
   if (typeof document !== "undefined") {
     injectCss();
     document.addEventListener("click", onClick);
+    document.addEventListener("change", function (e) {
+      var t = e.target;
+      if (!t || !t.getAttribute) return;
+      if (t.hasAttribute("data-trk-smite-lv")) {
+        var lvl = num(t.value, 1);
+        patch(function (cc) { cc.res = cc.res || {}; cc.res.smiteLevel = lvl; if (num(cc.res.smiteArmed)) cc.res.smiteArmed = lvl; }); paint();
+      } else if (t.hasAttribute("data-trk-smite-undead")) {
+        var on = !!t.checked;
+        patch(function (cc) { cc.res = cc.res || {}; cc.res.smiteUndead = on; });
+      }
+    });
     root.addEventListener("ssdns:pips-reset", function () {
       var c = ch();
       if (c && c.res && c.res.sneakUsed) { patch(function (cc) { cc.res.sneakUsed = false; }); paint(); }
@@ -643,6 +919,8 @@
   root.SSDNSTrackers = {
     XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
     spendShot: spendShot, onMeleeAttack: onMeleeAttack, itemPips: itemPips, tokenRows: tokenRows,
-    snapshot: snapshot, dmHtml: dmHtml, paint: paint, onRest: onRest, resHtml: resHtml
+    snapshot: snapshot, dmHtml: dmHtml, paint: paint, onRest: onRest, resHtml: resHtml,
+    toggle: toggle, rider: rider, riderText: riderText, refundPending: refundPending, mapActions: mapActions, canArm: canArm,
+    coversFeature: coversFeature, rageMax: rageMax, recoverHalfThrown: recoverHalfThrown, halfBack: halfBack
   };
 })(typeof window !== "undefined" ? window : this);

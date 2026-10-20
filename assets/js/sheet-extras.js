@@ -706,7 +706,7 @@
     var haveAc = ac != null && ac !== "" && isFinite(Number(ac));
     if (haveAc && !miss && !opts.crit && total < Number(ac)) miss = true;
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
-    var dmg = (!miss && opts.dmg) ? (" · " + opts.dmg.formula + " = " + opts.dmg.total) : "";
+    var dmg = (!miss && opts.dmg) ? (" · " + opts.dmg.formula + (opts.dmg.riderText ? " " + opts.dmg.riderText : "") + " = " + opts.dmg.total) : "";
     var face = opts.dice || String(nat);
     var weapon = opts.weapon ? (opts.weapon + (opts.caliber ? " (" + opts.caliber + ")" : "") + " · ") : "";
     var head = (target ? (who + " → " + target) : who) + ": " + weapon + face + bonus + " = " + total;
@@ -1717,6 +1717,21 @@
     rest.replace(/([+-])\s*(\d+)/g, function (all, sg, n) { flat += (sg === "-" ? -1 : 1) * parseInt(n, 10); flatHit = true; return " "; });
     return { terms: terms, flat: flatHit ? flat : 0 };
   }
+  /* SAMPLE trackers: Sneak Attack / Smite Lead are armed BEFORE the attack; SSDNSTrackers.rider() resolves them once per attack. */
+  function takeRiders(ctx) {
+    var T = root.SSDNSTrackers;
+    return T && T.rider ? T.rider(ctx) : null;
+  }
+  function addRiders(dmg, r) {
+    if (!dmg || !r || !r.riders || !r.riders.length) return dmg;
+    dmg.total += r.total;
+    dmg.riders = r.riders;
+    dmg.riderText = r.text;
+    return dmg;
+  }
+  function riderParts(r) {
+    return (r && r.riders || []).map(function (x) { return { label: x.formula + " " + x.label, value: x.total }; });
+  }
   function rollDamageExpr(expr, crit) {
     var p = parseDamage(expr);
     if (!p.terms.length) return null;
@@ -2068,6 +2083,12 @@
     else attackCue("misfire"); /* 0.3.56: misfire (jam, foul, lock, dud) has its own sound; no shot, no ricochet */
     if (!rollGun._wild && !misfired && acHidden(tgt) && joined() && !quiet) {
       var pendingDmg = rollDamageExpr(dmgExpr, isCrit);
+      var pendRide = takeRiders({ pending: true, crit: isCrit, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon });
+      var pendParts = gunStat && gunStat.dmgParts && OH ? OH.stripParts(gunStat.dmgParts) : (gunStat && gunStat.dmgParts);
+      if (pendRide && pendRide.riders.length && pendingDmg) {
+        pendParts = (pendParts && pendParts.length ? pendParts.slice() : (pendingDmg.flat ? [{ label: "mod", value: pendingDmg.flat }] : [])).concat(riderParts(pendRide));
+        addRiders(pendingDmg, pendRide);
+      }
       sendPendingAttack({
         who: who,
         targetName: tgt.name,
@@ -2082,7 +2103,8 @@
         dice: pendingDmg ? pendingDmg.detail : "",
         dmgFaces: pendingDmg ? pendingDmg.faces : null,
         dmgFormula: pendingDmg ? pendingDmg.formula : "",
-        dmgParts: gunStat && gunStat.dmgParts && OH ? OH.stripParts(gunStat.dmgParts) : (gunStat && gunStat.dmgParts),
+        dmgParts: pendParts,
+        riders: pendRide && pendRide.riders,
         dmgType: gunStat && gunStat.dmgType,
         formula: (n2 == null ? "1d20" : "2d20") + ((bonus >= 0 ? "+" : "") + bonus),
         rollId: gunRollId,
@@ -2105,6 +2127,7 @@
     var miss = nat === 1 || misfired || (!isCrit && haveAc && total < Number(gunCover.ac));
     var dmg = null;
     if (!miss) dmg = rollDamageExpr(dmgExpr, isCrit);
+    var gunRide = takeRiders({ hit: !miss && !!dmg, crit: isCrit && !miss, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon });
     var dmgParts = [];
     if (dmg && gunStat && gunStat.dmgParts) {
       var partSum = 0;
@@ -2118,9 +2141,10 @@
         who: who, target: tgt && tgt.name, weapon: name, tag: OH ? OH.TAG : "", nat: nat, n1: n1, n2: n2, parts: parts, total: total,
         ac: haveAc ? gunCover.ac : (tgt && tgt.ac), revealAc: !acHidden(tgt), misfire: misfired, miss: miss, coverNote: gunCover.note,
         crit: isCrit && !miss, critMin: critAt,
-        damage: dmg ? { faces: dmg.faces, formula: dmg.formula, parts: dmgParts, total: dmg.total, type: (gunStat && gunStat.dmgType) || "piercing" } : null
+        damage: dmg ? { faces: dmg.faces, formula: dmg.formula, parts: dmgParts, riders: gunRide && gunRide.riders, total: dmg.total + (gunRide ? gunRide.total : 0), type: (gunStat && gunStat.dmgType) || "piercing" } : null
       })
       : null;
+    addRiders(dmg, gunRide);
     var report = attackReport({
       who: who, target: tgt && tgt.name, nat: nat, atk: bonus,
       ac: haveAc ? gunCover.ac : (tgt && tgt.ac), miss: miss, misfire: misfired, dmg: dmg, crit: isCrit,
@@ -2196,6 +2220,7 @@
       addLog({ kind: "alert", text: name + ": " + reason });
       return null;
     }
+    takeRiders({ hit: false }); /* SAMPLE trackers: a free shot has no target, so an armed Sneak Attack / Smite clears unspent */
     var atkEl = document.querySelector('[data-calc="gunAtk.' + i + '"]');
     var bonus = parseInt(atkEl && String(atkEl.value).replace(/[^\d-]/g, ""), 10);
     if (!isFinite(bonus)) bonus = 0;
@@ -2969,6 +2994,7 @@
       if (profile.expr === "1") dmg = { total: Math.max(0, flat), detail: String(flat), faces: [], flat: flat, formula: String(flat) };
       else dmg = rollDamageExpr(profile.expr + (flat ? ((flat >= 0 ? "+" : "") + flat) : ""), nat === 20);
     }
+    addRiders(dmg, takeRiders({ hit: !miss && !!dmg, crit: !miss && nat === 20, melee: true, finesse: false }));
     if (c) c.takingCover = false;
     if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(profile.name);
     attackCue("whoosh");

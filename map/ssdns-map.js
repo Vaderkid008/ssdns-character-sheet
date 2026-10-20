@@ -5099,6 +5099,7 @@ async function loadSceneImage(sceneId, opts) {
       else if (verdict && verdict.button) text = attackLine(a) + ' · ' + verdict.button;
       if (a.enabled === false) off = ' disabled'; /* 0.3.73: e.g. Fan before a pistol attack this turn */
       const tip = a.title ? ' title="' + esc(a.title) + '"' : '';
+      if (a.arm) return '<button type="button" class="ssm-atk ssm-arm' + (a.armed ? ' on' : '') + '" data-act="playerAttack" data-id="' + esc(a.id) + '" aria-pressed="' + (a.armed ? 'true' : 'false') + '"' + (a.enabled === false ? ' disabled' : '') + tip + '>' + esc(a.name || a.id) + '</button>';
       return '<button type="button" class="ssm-atk' + (a.fan ? ' ssm-fan' : '') + '" data-act="playerAttack" data-id="' + esc(a.id) + '"' + off + tip + '>' + esc(text) + disMark(verdict) + '</button>';
     }).join('');
     const cylinders = (card.attacks || []).filter(a => (a.ammo && a.ammo.cap) || a.reloadId || a.trId).map(a => {

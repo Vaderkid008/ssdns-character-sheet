@@ -287,6 +287,7 @@
       var i = btn.getAttribute("data-tr");
       list.push({ id: "tr:" + i, label: gunName(i) + " · TR +1", group: "gear", enabled: !btn.disabled, title: btn.title || "" });
     });
+    if (root.SSDNSTrackers && root.SSDNSTrackers.mapActions) list = root.SSDNSTrackers.mapActions().concat(list);
     var endBtn = $("btnEndTurn");
     if (endBtn && !endBtn.hidden) list.push({ id: "endturn", label: "End turn", group: "gear", enabled: !endBtn.disabled, title: endBtn.title || "" });
     return list;
@@ -423,6 +424,13 @@
         attacks.push(copy);
       });
     }
+    /* SAMPLE trackers (Jessey 2026-10-19): Sneak Attack / Smite arm-before-attack toggles at the top of Attacks */
+    var TRK = root.SSDNSTrackers;
+    if (TRK && TRK.mapActions) {
+      TRK.mapActions().reverse().forEach(function (t) {
+        attacks.unshift({ id: t.id, name: t.label, arm: true, armed: /ARMED/.test(t.label), enabled: t.enabled !== false, title: t.title || "", kind: "toggle" });
+      });
+    }
     var spells = [];
     function pushSpell(level, name) {
       if (!name) return;
@@ -457,6 +465,11 @@
   }
   function runAction(id, ctx) {
     ctx = ctx || {};
+    /* SAMPLE trackers: "trk:sneak" / "trk:smite" flip the arm on the sheet; no target, no roll */
+    if (String(id).indexOf("trk:") === 0) {
+      if (root.SSDNSTrackers && root.SSDNSTrackers.toggle) root.SSDNSTrackers.toggle(String(id).slice(4));
+      return;
+    }
     if (ctx.targetId) setSheetTarget(ctx.targetId);
     if (id.indexOf("gunroll:") === 0 && ctx.chamber != null && ctx.chamber !== "") {
       var gi = id.slice(8);

@@ -293,6 +293,9 @@
       text.split("\n\n").forEach(function (block) {
         var name = (block.split("\n")[0] || "").trim();
         var rule = useRule(block);
+        /* SAMPLE trackers: a feature with its own tracker row (Resources) is not counted twice here */
+        var T = root.SSDNSTrackers;
+        if (name && T && T.coversFeature && T.coversFeature(name)) { delete uses[name]; return; }
         if (!name || !rule) return;
         var prev = uses[name] || {};
         uses[name] = { max: rule.max, used: prev.used || 0, rest: rule.rest };
@@ -611,8 +614,9 @@
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
     paintMelee();
     /* SAMPLE trackers: a Throw spends one thrown weapon (count pips); none left = no throw */
+    var tk = null;
     if (!off && root.SSDNSTrackers && root.SSDNSTrackers.onMeleeAttack) {
-      var tk = root.SSDNSTrackers.onMeleeAttack(c, i);
+      tk = root.SSDNSTrackers.onMeleeAttack(c, i);
       if (tk && !tk.ok) { toast(tk.reason); return; }
     }
     c.takingCover = false;
@@ -642,6 +646,12 @@
     var critW = meleeRecordFor(c.melee[i] && c.melee[i].weapon);
     var critAt = root.SSDNSApp && root.SSDNSApp.critMin ? root.SSDNSApp.critMin({ weapon: critW, melee: true }) : 20;
     var crit = !miss && nat >= critAt;
+    var meleeProps = String((critW && critW.properties) || "");
+    function meleeRider(hit, pending) {
+      var T = root.SSDNSTrackers;
+      if (!T || !T.rider) return null;
+      return T.rider({ hit: !!hit && !pending, pending: !!pending, crit: !!hit && crit, melee: !(tk && tk.thrown), finesse: /finesse/i.test(meleeProps), thrown: !!(tk && tk.thrown), weapon: c.melee[i] && c.melee[i].weapon });
+    }
     /* 0.3.69: every dice term and flat counts ("1d6+1 +3", "+1d4" Eldorite Dust). Great Weapon Fighting
        (Lawman 2+) rerolls a 1 or 2 once on a two-handed melee weapon's damage dice. */
     var parsed = root.SSDNSSheet && root.SSDNSSheet.parseDamage ? root.SSDNSSheet.parseDamage(expr) : null;
@@ -694,6 +704,12 @@
       var pendingRoll = rollTerms();
       var pendingTotal = pendingRoll.total;
       var pendingDetail = pendingRoll.detail;
+      /* SAMPLE trackers: armed Sneak Attack / Smite Lead ride on the hidden-AC attack (refund toast if the DM calls a miss) */
+      var pendRide = nat === 1 ? meleeRider(false) : meleeRider(true, true);
+      if (pendRide && pendRide.riders.length) {
+        pendingTotal += pendRide.total;
+        pendingDetail += " " + pendRide.text;
+      }
       root.SSDNSSheet.sendPendingAttack({
         who: who,
         targetName: tgt.name,
@@ -703,6 +719,7 @@
         critMin: critAt,
         damage: nat === 1 ? 0 : pendingTotal,
         dice: nat === 1 ? "" : pendingDetail,
+        riders: pendRide && pendRide.riders,
         formula: (faced.n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk),
         rollId: "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         label: name + " attack" + ohTag,
@@ -725,7 +742,9 @@
       : { have: tgt && tgt.ac != null && isFinite(Number(tgt.ac)), ac: tgt && tgt.ac, note: "" };
     var haveAc = !!meleeCover.have;
     if (haveAc && !crit && hitTotal < Number(meleeCover.ac)) miss = true;
-    var dmgTxt = (!miss && detail) ? (" · " + formula + " = " + total) : "";
+    var ride = meleeRider(!miss);
+    if (ride && ride.riders.length && !miss) total += ride.total;
+    var dmgTxt = (!miss && detail) ? (" · " + formula + (ride && ride.text ? " " + ride.text : "") + " = " + total) : "";
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
     var modeWord = chosen === "dis" ? " · disadvantage" : (chosen === "adv" ? " · advantage" : "");
     var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
@@ -734,7 +753,7 @@
         parts: [{ label: "bonus", value: atk }], total: hitTotal, ac: haveAc ? meleeCover.ac : null, coverNote: meleeCover.note,
         revealAc: !(root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt)),
         miss: miss, crit: crit && !miss,
-        damage: !miss ? { faces: rolls, formula: formula, parts: flat ? [{ label: "mod", value: flat }] : [], total: total, type: "" } : null
+        damage: !miss ? { faces: rolls, formula: formula, parts: flat ? [{ label: "mod", value: flat }] : [], riders: ride && ride.riders, total: total, type: "" } : null
       })
       : null;
     var line = (card ? card.text : ((tgt && tgt.name ? (who + " → " + tgt.name) : who) + ": " + name + (OH ? " (" + OH.TAG + ")" : "") + " · " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt)) + (faced.note ? " · " + faced.note : "") + modeWord;
