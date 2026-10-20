@@ -66,7 +66,9 @@
   "nat1": "nat1.mp3",
   "sting-tension": "sting-tension.mp3",
   "sting-reveal": "sting-reveal.mp3",
-  "reward": "reward.mp3"
+  "reward": "reward.mp3",
+  "arrow-fire": "fuse.mp3",
+  "arrow-dynamite": "explode.mp3"
  },
  "pools": {
   "attack": [
@@ -296,6 +298,13 @@
   ],
   "reward": [
    "reward.mp3"
+  ],
+  "arrow-fire": [
+   "fuse.mp3"
+  ],
+  "arrow-dynamite": [
+   "explode.mp3",
+   "explode-alt-01.mp3"
   ]
  },
  "outcomes": {
@@ -395,5 +404,14 @@
   "quality-strings-bow": "bow",
   "cheap-strings-bow": "bow"
  },
- "_note": "0.3.58: Jessey's approved set (sfx-inventory/final manifest). Pools pick randomly among a primary and its -alt-NN files."
+ "_note": "0.3.58: Jessey's approved set (sfx-inventory/final manifest). Pools pick randomly among a primary and its -alt-NN files.",
+ "arrows": {
+  "standard": "arrow-standard",
+  "broadhead": "arrow-broadhead",
+  "blunt": "arrow-blunt",
+  "fire": "arrow-fire",
+  "whistler": "arrow-whistler",
+  "poison": "arrow-poison",
+  "dynamite": "arrow-dynamite"
+ }
 }

@@ -55,6 +55,12 @@
   function joined() {
     return root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined();
   }
+  /** L0186 arrows: the shot's sfx key by arrow type (sfx.json "arrows"); a key with no file keeps the bow's cue. */
+  function arrowShotCue(cue, spent) {
+    var a = spent && spent.arrow;
+    if (!a || !root.SSDNSAudio || !root.SSDNSAudio.arrowCue) return cue;
+    return root.SSDNSAudio.arrowCue(a, cue);
+  }
   function attackCue(name) {
     if (!name) return;
     if (root.SSDNSAudio) root.SSDNSAudio.play(name);
@@ -565,7 +571,7 @@
     var name = String(item.name || "Item");
     var plan = root.SSDNSStore && root.SSDNSStore.grantPlan ? root.SSDNSStore.grantPlan(item) : { kind: "gear", qty: 1 };
     if (plan.kind === "cartridge" || plan.kind === "ammo") {
-      /* inv2 (0.3.85): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
+      /* inv2 (0.3.86): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
       var ptype = plan.kind === "ammo" ? String(plan.type || "") : "cartridge";
       d.character.ammo = d.character.ammo || [];
       var pool = null;
@@ -2058,7 +2064,8 @@
     var wpn = catalogWeapon(g.weapon);
     var cue = root.SSDNSAudio && root.SSDNSAudio.weaponCue
       ? root.SSDNSAudio.weaponCue(Object.assign({ gun: true }, wpn || {}, { id: g.weapon, sfx: g.sfx || (wpn && wpn.sfx) || "" }))
-      : "attack";
+      : "attack"
+    cue = arrowShotCue(cue, spent); /* per-arrow-type sfx key, else the bow's own shot sound */
     var rugged = !!(wpn && /rugged/i.test(wpn.properties || ""));
     var name = gunName(i);
     var who = ((ch() && ch().name) || name) + (FAN ? " fans the hammer" : "");
@@ -2355,7 +2362,8 @@
     }
     var cue = root.SSDNSAudio && root.SSDNSAudio.weaponCue
       ? root.SSDNSAudio.weaponCue(Object.assign({ gun: true }, wpn || {}, { id: g.weapon, sfx: g.sfx || (wpn && wpn.sfx) || "" }))
-      : "attack";
+      : "attack"
+    cue = arrowShotCue(cue, spent); /* per-arrow-type sfx key, else the bow's own shot sound */
     var FANF = fan && !offhand ? root.SSDNSFan : null;
     if (!misfired && FANF && FANF.cue) FANF.cue(cue, attackCue);
     else attackCue(misfired ? "misfire" : cue);
