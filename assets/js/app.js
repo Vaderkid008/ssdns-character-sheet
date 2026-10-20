@@ -795,7 +795,7 @@
     else v.ac = 10 + v.mods.DEX;
     if (c.shield && !(c.calling === "martial-artist" && !wearing) && !(DB && DB.shieldOff)) v.ac += 2;
     if (DB) { v.ac += DB.ac; v.initiative += DB.init; }
-    if (c.fightingStyle === "point-blank") v.ac += 1;
+    if (c.fightingStyle === "point-blank" || (stylesOf(c).indexOf("point-blank") >= 0)) v.ac += 1;
     if (c.fightingStyle === "defense" && wearing) v.ac += 1;
     /* 0.3.73 (Jessey): Dual Wielder +1 AC while holding a qualifying weapon in each hand */
     v.dualWielderAc = window.SSDNSOffhand && window.SSDNSOffhand.dualWielderAc ? window.SSDNSOffhand.dualWielderAc(c) : 0;
@@ -906,7 +906,8 @@
     s.atk = sign(m + (g.proficient ? v.prof : 0) + style + magicAtk + itemAtk + (pa ? pa.atk : 0));
     var abilityLabel = ability === "STR/DEX" ? (v.mods.STR >= v.mods.DEX ? "STR" : "DEX") : ability;
     var styleLabels = { "long-gun": "Long Gun", archery: "Archery", sidearm: "Sidearm", dueling: "Dueling" };
-    var styleLabel = styleLabels[C() && C().fightingStyle] || "style";
+    var styleHit = stylesOf(C()).filter(function (one) { return styleAttackBonusFor(one, w) || styleDamageBonusFor(one, w); })[0] || (C() && C().fightingStyle);
+    var styleLabel = styleLabels[styleHit] || "style";
     s.parts = [{ label: abilityLabel, value: m }];
     if (g.proficient) s.parts.push({ label: "proficiency", value: v.prof || 0 });
     if (style) s.parts.push({ label: styleLabel, value: style });
@@ -919,8 +920,8 @@
     s.dmgParts = [];
     if (m) s.dmgParts.push({ label: abilityLabel, value: m });
     if (dmgStyle) s.dmgParts.push({ label: styleLabel, value: dmgStyle });
-    if (style) notes.push((C().fightingStyle || "style") + " " + sign(style));
-    if (dmgStyle) notes.push((C().fightingStyle || "style") + " damage " + sign(dmgStyle));
+    if (style) notes.push((styleHit || "style") + " " + sign(style));
+    if (dmgStyle) notes.push((styleHit || "style") + " damage " + sign(dmgStyle));
     s.firstShot = first; s.drawSide = side;
     if (first) notes.push(C().firstShotSpent ? "first shot of this combat used" : ("first shot from the rig " + sign(m + (g.proficient ? v.prof : 0) + style + magicAtk + itemAtk + (pa ? pa.atk : 0) + first)));
     var dmgMod = m + dmgStyle + magicAtk + (pa ? pa.dmg : 0);
@@ -1015,8 +1016,28 @@
     if (c.calling === "lawman" || c.calling === "frontier-scout") return lv >= 2;
     return false;
   }
+  /* 0.3.73: a character's fighting styles: the first, plus a Gunslinger's Additional Gun Style at 10th */
+  function stylesOf(c) {
+    if (!c) return [];
+    var out = [];
+    if (c.fightingStyle) out.push(c.fightingStyle);
+    if (c.calling === "gunslinger" && num(c.level, 1) >= 10 && c.fightingStyle2 && c.fightingStyle2 !== c.fightingStyle) out.push(c.fightingStyle2);
+    return out;
+  }
+  function hasStyle(c, id) {
+    c = c || C();
+    if (!c || !id) return false;
+    var lv = num(c.level, 1);
+    var ready = c.calling === "gunslinger" ? lv >= 1 : ((c.calling === "lawman" || c.calling === "frontier-scout") ? lv >= 2 : false);
+    if (id === "two-gun" && c.calling !== "gunslinger" && c.calling !== "frontier-scout") return false; /* not Lawman (L0183) */
+    return ready && stylesOf(c).indexOf(id) >= 0;
+  }
   function styleAttackBonus(w, opts) {
-    var st = (C() && C().fightingStyle) || "";
+    var sts = stylesOf(C());
+    if (sts.length > 1) return sts.reduce(function (t, one) { return t + styleAttackBonusFor(one, w, opts); }, 0);
+    return styleAttackBonusFor(sts[0] || "", w, opts);
+  }
+  function styleAttackBonusFor(st, w, opts) {
     if (!w || !st || !styleReady()) return 0;
     var g = String(w.group || "");
     var longGun = g === "rifle" || g === "carbine" || g === "bigbore";
@@ -1027,7 +1048,11 @@
     return 0;
   }
   function styleDamageBonus(w) {
-    var st = (C() && C().fightingStyle) || "";
+    var sts = stylesOf(C());
+    if (sts.length > 1) return sts.reduce(function (t, one) { return t + styleDamageBonusFor(one, w); }, 0);
+    return styleDamageBonusFor(sts[0] || "", w);
+  }
+  function styleDamageBonusFor(st, w) {
     if (!w || !st || !styleReady()) return 0;
     /* 0.3.73 (Jessey): Sidearm Duelling is "+2 damage single iron": off while holding two weapons */
     if (st === "sidearm" && w.group === "pistol") return (window.SSDNSOffhand && window.SSDNSOffhand.wieldingTwo && window.SSDNSOffhand.wieldingTwo(C())) ? 0 : 2;
@@ -4644,6 +4669,8 @@
       callingProficient: callingProficient,
       styleAttackBonus: styleAttackBonus,
       styleDamageBonus: styleDamageBonus,
+      hasStyle: function (id, c) { return hasStyle(c, id); },
+      stylesOf: function (c) { return stylesOf(c || C()); },
       rageDamageBonus: function (c) { return rageDamageBonus(c); },
       canTacticalReload: function (w, c) { return canTacticalReload(w, c); },
       holsterFor: function (c, i) { return holsterFor(c, i); },

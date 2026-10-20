@@ -37,6 +37,7 @@ const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
 /* static wiring: map host, DM drawer, DMCC detail, dm-join */
 {
   const host = read("map/ssdns-map-host.js"), map = read("map/ssdns-map.js"), v2 = read("dm/assets/js/v2.js"), join = read("assets/js/dm-join.js"), html = read("index.html");
+  check("twoGun.creator", /\["two-gun", "Two-Gun/.test(read("assets/js/creator.js")));
   check("wire.script", /assets\/js\/offhand\.js\?v=/.test(html) && html.indexOf("offhand.js") < html.indexOf("sheet-playtest.js"));
   check("wire.hostRun", /id\.indexOf\("offhand:"\) === 0/.test(host) && /"offhand:" \+ o\.kind/.test(host));
   check("wire.drawerToggle", /data-act="offhandToggle"/.test(map) && /shotDetail\(/.test(map) && /shot\.offhand/.test(map));
@@ -252,6 +253,32 @@ try {
     P.reset(true); window.SSDNSGunRoll(0); await wait(600);
     O.fire("gun", 1); await wait(700);
     out.neg = { log: lastRoll() };
+    /* 0.3.73 (Jessey L0183): Two-Gun fighting style */
+    const PT2 = window.SSDNSPlaytest;
+    const ids = (c) => PT2.styleOptions(c).map((o) => o[0]);
+    out.tg = {
+      gs: ids({ calling: "gunslinger", level: 1 }), scout: ids({ calling: "frontier-scout", level: 2 }), law: ids({ calling: "lawman", level: 2 })
+    };
+    load((c) => { c.feats = ["dual-wielder"]; c.fightingStyle = "two-gun"; c.abilities.DEX = 16; }); await wait(300);
+    P.reset(true); window.SSDNSGunRoll(0); await wait(600);
+    O.fire("gun", 1); await wait(700);
+    out.tg.log = lastRoll();
+    const tgCard = window.SSDNSMapHost.ownCard();
+    out.tg.card = (tgCard.attacks.filter((a) => a.id === "offhand:gun:1")[0] || {}).damage;
+    out.tg.note = ((document.querySelector("#offhandCard") || {}).textContent || "");
+    load((c) => { c.feats = ["dual-wielder"]; c.fightingStyle = "two-gun"; c.abilities.DEX = 8; }); await wait(300);
+    P.reset(true); window.SSDNSGunRoll(0); await wait(600);
+    O.fire("gun", 1); await wait(700);
+    out.tg.negLog = lastRoll();
+    /* Additional Gun Style at 10th: second pick */
+    load((c) => { c.level = 10; c.fightingStyle = "sidearm"; c.fightingStyle2 = "two-gun"; }); await wait(300);
+    PT2.renderStyle(); await wait(100);
+    const s2 = document.querySelector("#selFightingStyle2");
+    out.tg.l10 = { has: O.hasTwoGun(), sel2: !!s2 && !s2.closest("[hidden]"), opts2: s2 ? [...s2.options].map((o) => o.value) : [], val: s2 && s2.value };
+    load((c) => { c.level = 9; c.fightingStyle = "sidearm"; c.fightingStyle2 = "two-gun"; }); await wait(300);
+    out.tg.l9 = O.hasTwoGun();
+    load((c) => { c.calling = "lawman"; c.level = 5; c.fightingStyle = "two-gun"; }); await wait(300);
+    out.tg.lawman = O.hasTwoGun();
     window.SSDNSToast = realToast;
     /* 0.3.73 (Jessey): Great Weapon Fighting rerolls also apply to a Versatile weapon held with "Two hands" */
     const PT = window.SSDNSPlaytest, CH = () => A.doc().character;
@@ -315,6 +342,13 @@ try {
   check("dw.drawBoth", res.ac.drawn === res.ac.base + 1 && res.ac.drawLog, J(res.ac));
   check("dw.acNeedsFeat", res.ac.lightNoDW === res.ac.lightNoDWBase, J(res.ac));
   check("off.negativeModStays", /\(off-hand\)/.test(res.neg.log) && /-\s*1 \(DEX\)/.test(res.neg.log), res.neg.log);
+  check("twoGun.pickers", res.tg.gs.includes("two-gun") && J(res.tg.scout) === J(["archery", "two-gun"]) && !res.tg.law.includes("two-gun"), J(res.tg));
+  check("twoGun.addsMod", /\(off-hand\)/.test(res.tg.log) && /\+ 3 \(DEX\)/.test(res.tg.log), res.tg.log);
+  check("twoGun.mapCard", /^1d8 \+3 piercing$/.test(res.tg.card || ""), res.tg.card);
+  check("twoGun.cardNote", /Two-Gun: ability mod added/.test(res.tg.note), res.tg.note);
+  check("twoGun.negativeStays", /-\s*1 \(DEX\)/.test(res.tg.negLog), res.tg.negLog);
+  check("twoGun.additionalStyle10", res.tg.l10.has && res.tg.l10.sel2 && res.tg.l10.val === "two-gun" && !res.tg.l10.opts2.includes("sidearm") && res.tg.l9 === false, J([res.tg.l10, res.tg.l9]));
+  check("twoGun.notLawman", res.tg.lawman === false, J(res.tg));
   check("gwf.versatileTwoHands", res.gwf.versTwo === true && res.gwf.heavy === true, J(res.gwf));
   check("gwf.versatileRerolls", /Damage: d10 10 = 10/.test(res.gwf.log), res.gwf.log);
   check("gwf.oneHandNoReroll", /Damage: d8 1 = 1/.test(res.gwf.logOne), res.gwf.logOne);

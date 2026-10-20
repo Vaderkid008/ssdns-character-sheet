@@ -317,10 +317,12 @@
   function styleOptions(c) {
     if (!c) return [];
     var lv = c.level || 1;
-    if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"]];
+    /* 0.3.73 (Jessey, L0183): Two-Gun (5e Two-Weapon Fighting) is on the Gunfighter's Style list and the Frontier Scout
+       list next to Archery. Not Lawman. */
+    if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"], ["two-gun", "Two-Gun (two-weapon fighting: add your ability modifier to the off-hand attack's damage)"]];
     /* 0.3.73 (DND Bot, PHB): Lawman takes a Fighting Style at 2nd level from the Paladin list. Dueling and GWF are melee only. */
     if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"], ["great-weapon", "Great Weapon Fighting (reroll 1s and 2s on two-handed melee damage, or a versatile weapon held in two hands)"], ["protection", "Protection (reaction: impose disadvantage on an attack vs an ally within 5 ft; needs a shield)"]];
-    if (c.calling === "frontier-scout" && lv >= 2) return [["archery", "Archery (+2 ranged to hit)"]];
+    if (c.calling === "frontier-scout" && lv >= 2) return [["archery", "Archery (+2 ranged to hit)"], ["two-gun", "Two-Gun (two-weapon fighting: add your ability modifier to the off-hand attack's damage)"]];
     return [];
   }
   function renderStyle() {
@@ -336,6 +338,26 @@
     }).join("");
     if (keep && !opts.some(function (o) { return o[0] === keep; })) {
       patch(function (d) { d.character.fightingStyle = ""; });
+    }
+    /* 0.3.73: Gunslinger 10th, Additional Gun Style: a second Gunfighter's Style */
+    var sel2 = $("#selFightingStyle2");
+    var two = c.calling === "gunslinger" && (Number(c.level) || 1) >= 10;
+    if (!sel2 && wrap && two) {
+      var lab = document.createElement("span");
+      lab.id = "style2Wrap";
+      lab.innerHTML = " · 2nd <select id='selFightingStyle2' aria-label='Additional Gun Style (10th level)' title='Additional Gun Style (10th level): a second Gunfighter&#39;s Style'></select>";
+      wrap.appendChild(lab);
+      sel2 = $("#selFightingStyle2");
+    }
+    var w2 = $("#style2Wrap");
+    if (w2) w2.hidden = !two;
+    if (sel2) {
+      var keep2 = c.fightingStyle2 || "";
+      var opts2 = two ? opts.filter(function (o) { return o[0] !== keep; }) : [];
+      sel2.innerHTML = "<option value=''>Second style…</option>" + opts2.map(function (o) {
+        return "<option value='" + o[0] + "'" + (o[0] === keep2 ? " selected" : "") + ">" + o[1] + "</option>";
+      }).join("");
+      if (keep2 && !opts2.some(function (o) { return o[0] === keep2; })) patch(function (d) { d.character.fightingStyle2 = ""; });
     }
   }
 
@@ -1212,6 +1234,8 @@
     paintMath: function () { paintPowerToggle(); paintMelee(); },
     versatileDie: versatileDie,
     meleeGwf: meleeGwf,
+    styleOptions: styleOptions,
+    renderStyle: renderStyle,
     showYourTurn: showYourTurn,
     showTurn: function (init) {
       if (root.SSDNSActionPips && root.SSDNSActionPips.onTurn) root.SSDNSActionPips.onTurn(init);
@@ -1482,7 +1506,8 @@
       if (t.id === "selCalling" || t.id === "selLineage" || t.id === "selSublineage" || t.id === "inLevel") {
         setTimeout(function () { fillFeatures(); renderStyle(); }, 0);
       }
-      if (t.id === "selFightingStyle") patch(function (d) { d.character.fightingStyle = t.value; });
+      if (t.id === "selFightingStyle") { patch(function (d) { d.character.fightingStyle = t.value; }); setTimeout(renderStyle, 0); }
+      if (t.id === "selFightingStyle2") patch(function (d) { d.character.fightingStyle2 = t.value; });
       if (t.id === "taFeatures") patch(function (d) { d.character.featuresCustom = true; });
       var melee = t.getAttribute && t.getAttribute("data-melee");
       if (melee != null) {

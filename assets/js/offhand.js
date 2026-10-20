@@ -18,7 +18,9 @@
  *  - "Holding two weapons" (wieldingTwo): a qualifying off-hand pair is in hand (not stowed with Stow both). While it
  *    is, Sidearm Duelling's +2 "single iron" is off, and Dual Wielder gives +1 AC.
  *  - Dual Wielder draws or stows both weapons at once (Draw both / Stow both on the Off-hand card).
- *  - Off-hand damage: a positive ability mod is dropped, a negative one stays (no Two-Weapon Fighting style in SSDNS).
+ *  - Off-hand damage: a positive ability mod is dropped, a negative one stays. The Two-Gun fighting style
+ *    (Jessey L0183: 5e Two-Weapon Fighting; Gunslinger incl. Additional Gun Style at 10th, Frontier Scout; not Lawman)
+ *    adds the modifier back.
  */
 (function (root) {
   "use strict";
@@ -31,6 +33,11 @@
   function C() { try { var d = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc(); return d && d.character; } catch (e) { return null; } }
   function feats(c) { return (c && Array.isArray(c.feats)) ? c.feats : []; }
   function hasDualWielder(c) { return feats(c).indexOf("dual-wielder") >= 0; }
+  function hasTwoGun(c) {
+    c = c || C();
+    var A = root.SSDNSApp;
+    return !!(c && A && A.hasStyle && A.hasStyle("two-gun", c));
+  }
   function props(w) { return String((w && w.properties) || ""); }
   function twoHanded(w) { return /two-handed/i.test(props(w)); }
   function lightMelee(w) { return /(^|[\s,(])light([\s,)]|$)/i.test(props(w)) && !twoHanded(w); }
@@ -122,7 +129,7 @@
   /** "1d8 +3 piercing" with mod 3 -> "1d8 piercing". A negative mod stays (PHB). */
   function stripMod(expr, mod) {
     mod = Number(mod) || 0;
-    if (mod <= 0) return String(expr || "");
+    if (mod <= 0 || hasTwoGun()) return String(expr || "");
     var s = String(expr || "");
     var m = s.match(/(\d*)d(\d+)/i);
     if (!m) return s;
@@ -135,6 +142,7 @@
     return out.replace("\u0000", m[0]).replace(/\s{2,}/g, " ").trim();
   }
   function stripParts(parts) {
+    if (hasTwoGun()) return (parts || []).slice();
     return (parts || []).filter(function (p) { return !(p && /^(STR|DEX)$/.test(p.label) && Number(p.value) > 0); });
   }
   /* ---- holding two weapons: Sidearm Duelling off, Dual Wielder +1 AC ---- */
@@ -249,7 +257,7 @@
     return "<div class='offhand-card' id='offhandCard'>" +
       "<b>Off-hand</b> <span class='pip-tag'>Bonus</span> " + sel +
       " <button type='button' class='btn sm' id='btnOffhand'" + (stowed ? " disabled" : "") + " title='Bonus action after the Attack action. Rolls like a normal attack; no ability modifier on damage.'>Off-hand attack</button>" + hands +
-      "<span class='fine offhand-note'>" + esc(why) + " · needs the Attack action first · no ability mod to damage" + (c && c.fightingStyle === "sidearm" && !stowed ? " · Sidearm Duelling +2 is off while holding two" : "") + "</span></div>";
+      "<span class='fine offhand-note'>" + esc(why) + " · needs the Attack action first · " + (hasTwoGun(c) ? "Two-Gun: ability mod added to damage" : "no ability mod to damage") + (c && root.SSDNSApp && root.SSDNSApp.hasStyle && root.SSDNSApp.hasStyle("sidearm", c) && !stowed ? " · Sidearm Duelling +2 is off while holding two" : "") + "</span></div>";
   }
   function paint(force) {
     if (typeof document === "undefined") return;
@@ -290,7 +298,7 @@
   root.SSDNSOffhand = {
     TAG: TAG, options: options, defaultPick: defaultPick, qualifies: qualifies, abilityMod: abilityMod,
     stripMod: stripMod, stripParts: stripParts, spendPip: spendPip, fire: fire, parseId: parseId, paint: paint,
-    hasDualWielder: hasDualWielder, lightMelee: lightMelee, lightPistol: lightPistol, LIGHT_PISTOLS: LIGHT_PISTOLS,
+    hasDualWielder: hasDualWielder, hasTwoGun: hasTwoGun, lightMelee: lightMelee, lightPistol: lightPistol, LIGHT_PISTOLS: LIGHT_PISTOLS,
     wieldingTwo: wieldingTwo, dualWielderAc: dualWielderAc, gate: gate, attackTaken: attackTaken, bothHands: bothHands,
     BLOCK_MSG: BLOCK_MSG
   };
