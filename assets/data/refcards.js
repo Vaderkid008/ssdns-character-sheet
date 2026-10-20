@@ -967,7 +967,7 @@ window.SSDNS_REFCARDS = {
     ],
     [
      "1st level",
-     "Oath Sense: sense unquiet dead, hell-branded fiends, or sacred presence within 60 ft (1 + CHA mod times a day). Mercy Hands: a healing pool of 5 x your level"
+     "Oath Sense: sense restless dead, hell-branded fiends, or sacred presence within 60 ft (1 + CHA mod times a day). Mercy Hands: a healing pool of 5 x your level"
     ],
     [
      "Spellcasting",

@@ -35,6 +35,8 @@ check("static.rulesHeaderKept", rules.startsWith("/* SSDNS rules data. GENERATED
 /* L0185 */
 check("rules.staffRenamedIdKept", rules.indexOf('"id": "trail-staff-drover-s-staff-quarterstaff",\n   "name": "Trail staff / cowhand\'s staff (quarterstaff)"') >= 0);
 check("rules.restlessDead", rules.indexOf('"name": "Oath Sense (Divine Sense - 1st lvl)",\n     "text": "Detect restless dead,') >= 0);
+check("wording.restlessRefcard", read("assets/data/refcards.js").indexOf("sense restless dead") >= 0 && read("assets/data/refcards.js").indexOf("unquiet dead") < 0);
+check("wording.oreSparks", rules.indexOf('"sketch": "Floating ore sparks"') >= 0 && !/Floating assay/.test(rules));
 check("rules.primevalAwarenessKept", rules.indexOf("Primeval Awareness") >= 0);
 const ref = read("assets/data/refcards.js");
 ["Preacher's Magic (spellcasting", "vestments (long coat)", "\"name\": \"Chapel Welcome\""].forEach((s) => check("refcards.has " + s, ref.indexOf(s) >= 0));

@@ -8615,7 +8615,7 @@ window.SSDNS_RULES = {
   {
    "phb": "Dancing Lights",
    "alias": "Will-o' Claim",
-   "sketch": "Floating assay sparks",
+   "sketch": "Floating ore sparks",
    "level": 0
   },
   {
