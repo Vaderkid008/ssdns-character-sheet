@@ -67,7 +67,7 @@ try {
   const pg = await browser.newPage();
   await pg.setViewport({ width: 1400, height: 1000 });
   const errs = [];
-  /* 0.2.92 also fixes the demo map's token-portrait drawImage throw, so no page error is allowed */
+  /* 0.2.91 also fixes the demo map's token-portrait drawImage throw, so no page error is allowed */
   pg.on("pageerror", (e) => errs.push(String(e)));
   await pg.goto("http://127.0.0.1:8765/dm/index.html?demo=1", { waitUntil: "domcontentloaded" });
   await pg.waitForFunction(() => window.DMCC && document.querySelector("#btnLoadDemo"), { timeout: 20000 });
