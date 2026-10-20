@@ -318,8 +318,8 @@
     if (!c) return [];
     var lv = c.level || 1;
     if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"]];
-    /* 0.3.71 (DND Bot, PHB): Lawman takes a Fighting Style at 2nd level from the Paladin list. Dueling and GWF are melee only. */
-    if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"], ["great-weapon", "Great Weapon Fighting (reroll 1s and 2s on two-handed melee damage)"], ["protection", "Protection (reaction: impose disadvantage on an attack vs an ally within 5 ft; needs a shield)"]];
+    /* 0.3.72 (DND Bot, PHB): Lawman takes a Fighting Style at 2nd level from the Paladin list. Dueling and GWF are melee only. */
+    if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"], ["great-weapon", "Great Weapon Fighting (reroll 1s and 2s on two-handed melee damage, or a versatile weapon held in two hands)"], ["protection", "Protection (reaction: impose disadvantage on an attack vs an ally within 5 ft; needs a shield)"]];
     if (c.calling === "frontier-scout" && lv >= 2) return [["archery", "Archery (+2 ranged to hit)"]];
     return [];
   }
@@ -442,7 +442,8 @@
     if (!c || c.fightingStyle !== "great-weapon" || c.calling !== "lawman" || (Number(c.level) || 1) < 2) return false;
     var row = c.melee && c.melee[i];
     var w = row && meleeRecord(rules().melee || [], row.weapon);
-    return !!(w && /two-handed/i.test(w.properties || ""));
+    /* 0.3.72: a Versatile weapon swung with "Two hands" (twoHandGrip) also gets the GWF reroll (Jessey). */
+    return !!(w && (/two-handed/i.test(w.properties || "") || twoHandGrip(c, row, w)));
   }
   function paintMelee() {
     var c = ch();
@@ -493,6 +494,7 @@
       var rangeText = w.range && !/^[\u2014-]$/.test(String(w.range).trim()) ? w.range : "";
       if (rng) rng.textContent = rangeText || w.properties || "";
     });
+    if (root.SSDNSOffhand && root.SSDNSOffhand.paint) root.SSDNSOffhand.paint();
   }
   function d20() {
     if (root.SSDNSTestRoll) {
@@ -501,7 +503,9 @@
     }
     return 1 + Math.floor(Math.random() * 20);
   }
-  function rollMelee(i) {
+  function rollMelee(i, opts) {
+    /* 0.3.72: opts.offhand = off-hand attack (bonus action, no positive ability mod to damage) */
+    var off = !!(opts && opts.offhand);
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
     if (c.melee[i].equipped === false) { toast("Equip this weapon first."); return; }
@@ -510,7 +514,7 @@
       ready().then(function (ok) {
         if (!ok) return;
         rollMelee._aimed = true;
-        try { rollMelee(i); }
+        try { rollMelee(i, opts); }
         finally { rollMelee._aimed = false; }
       });
       return;
@@ -528,7 +532,7 @@
     rollMelee._cue = meleeCue;
     prepareMelee(i, meleeW, meleeRow).then(function (ok) {
       if (!ok) return;
-      rollMeleeNow(i);
+      rollMeleeNow(i, off);
     });
   }
   /* 0.3.68: DM "Force ADV" range override turns the roll into advantage (or cancels a DIS pick) */
@@ -577,14 +581,21 @@
     [].concat((root.SSDNS_RULES && root.SSDNS_RULES.melee) || [], (root.SSDNS_RULES && root.SSDNS_RULES.otherRanged) || []).forEach(function (w) { if (w && w.id === id) hit = w; });
     return hit;
   }
-  function rollMeleeNow(i) {
+  function rollMeleeNow(i, off) {
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
     paintMelee();
     c.takingCover = false;
-    if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack((c.melee && c.melee[i] && c.melee[i].weapon ? "Melee" : "Melee") + " attack");
+    var OH = off ? root.SSDNSOffhand : null;
+    var ohTag = OH ? " · " + OH.TAG : "";
+    if (OH) {
+      var ohq = OH.qualifies(c, "melee", i);
+      if (!ohq.ok && root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "Off-hand: " + (ohq.reason || "not a qualifying pair") + " Rolled anyway; the DM can allow it." });
+      OH.spendPip(((document.querySelector("[data-melee='" + i + "']") || {}).selectedOptions || [{}])[0].text || "Melee");
+    } else if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack((c.melee && c.melee[i] && c.melee[i].weapon ? "Melee" : "Melee") + " attack");
     var atk = parseInt((document.querySelector("[data-melee-atk='" + i + "']") || {}).textContent, 10) || 0;
     var expr = (document.querySelector("[data-melee-dmg='" + i + "']") || {}).textContent || "1d4";
+    if (OH) expr = OH.stripMod(expr, OH.abilityMod(c, "melee", i));
     var chosen = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
     var rangeShot = root.SSDNSRangeRings && root.SSDNSRangeRings.take ? root.SSDNSRangeRings.take() : null;
     if (rangeShot && rangeShot.apply && rangeShot.blocked) { toast(rangeShot.button || "Out of range"); return; }
@@ -664,7 +675,8 @@
         dice: nat === 1 ? "" : pendingDetail,
         formula: (faced.n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk),
         rollId: "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        label: name + " attack",
+        label: name + " attack" + ohTag,
+        offhand: !!OH,
         weapon: name,
         sfx: rollMelee._cue || "whoosh"
       });
@@ -688,14 +700,14 @@
     var modeWord = chosen === "dis" ? " · disadvantage" : (chosen === "adv" ? " · advantage" : "");
     var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
       ? root.SSDNSApplied.attackBreakdown({
-        who: who, target: tgt && tgt.name, weapon: name, nat: nat, n1: faced.n1, n2: faced.n2,
+        who: who, target: tgt && tgt.name, weapon: name, tag: OH ? OH.TAG : "", nat: nat, n1: faced.n1, n2: faced.n2,
         parts: [{ label: "bonus", value: atk }], total: hitTotal, ac: haveAc ? meleeCover.ac : null, coverNote: meleeCover.note,
         revealAc: !(root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt)),
         miss: miss, crit: crit && !miss,
         damage: !miss ? { faces: rolls, formula: formula, parts: flat ? [{ label: "mod", value: flat }] : [], total: total, type: "" } : null
       })
       : null;
-    var line = (card ? card.text : ((tgt && tgt.name ? (who + " → " + tgt.name) : who) + ": " + name + " · " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt)) + (faced.note ? " · " + faced.note : "") + modeWord;
+    var line = (card ? card.text : ((tgt && tgt.name ? (who + " → " + tgt.name) : who) + ": " + name + (OH ? " (" + OH.TAG + ")" : "") + " · " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt)) + (faced.note ? " · " + faced.note : "") + modeWord;
     if (root.SSDNSAudio && root.SSDNSAudio.playOutcome) {
       var meleeId = c.melee && c.melee[i] && c.melee[i].weapon;
       root.SSDNSAudio.playOutcome({ id: meleeId || "", name: name, kind: "melee", nat: nat }, miss ? "miss" : (crit ? "crit" : "hit"));
@@ -704,12 +716,13 @@
     toast(line);
     var Sheet = root.SSDNSSheet;
     var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    if (Sheet && Sheet.addLog) Sheet.addLog({ id: "roll:" + rollId, kind: "roll", text: line, attack: true, nat: nat, crit: crit && !miss, label: name + " attack" });
+    if (Sheet && Sheet.addLog) Sheet.addLog({ id: "roll:" + rollId, kind: "roll", text: line, attack: true, nat: nat, crit: crit && !miss, label: name + " attack" + ohTag, offhand: !!OH });
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined() && root.SSDNSDmJoin.postRoll) {
       var quiet = $("#chkWhisper") && $("#chkWhisper").checked;
       root.SSDNSDmJoin.postRoll({
         id: rollId,
-        label: (tgt && tgt.name ? who + " → " + tgt.name : name + " attack"),
+        label: (tgt && tgt.name ? who + " → " + tgt.name : name + " attack") + ohTag,
+        offhand: !!OH,
         formula: (faced.n2 == null ? "1d20" : "2d20") + bonusTxt,
         result: hitTotal,
         detail: line,
@@ -1192,9 +1205,11 @@
     });
   }
   root.SSDNSPlaytest = {
+    rollMelee: rollMelee,
     syncSheet: syncSheet,
     paintMath: function () { paintPowerToggle(); paintMelee(); },
     versatileDie: versatileDie,
+    meleeGwf: meleeGwf,
     showYourTurn: showYourTurn,
     showTurn: function (init) {
       if (root.SSDNSActionPips && root.SSDNSActionPips.onTurn) root.SSDNSActionPips.onTurn(init);

@@ -1163,7 +1163,8 @@
     var vs = (!hideVerdict && haveAc) ? (" vs AC " + Number(ac) + (info.coverNote ? " (" + info.coverNote + ")" : "")) : "";
     var who = info.who || "Someone";
     var named = attackTool(info);
-    var head = who + (named ? " · " + named : "") + (info.target ? " → " + info.target : "");
+    /* 0.3.72: info.tag, e.g. "off-hand", rides right after the weapon name */
+    var head = who + (named ? " · " + named : "") + (info.tag ? " (" + info.tag + ")" : "") + (info.target ? " → " + info.target : "");
     var math = diceLine + (bonusLine ? " · " + bonusLine : "") + " = " + total;
     var dmg = info.damage;
     var dmgLine = "";

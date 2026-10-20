@@ -2835,6 +2835,7 @@ function decorateDetail(pid) {
       <div class="toolbar">
         <select id="detailGun">${guns.map((g, i) => `<option value="${i}">${esc(g.name)} · ${esc(g.loaded ?? "?")}/${esc(g.capacity ?? "?")} rounds${g.atk ? " · " + esc(g.atk) : ""}${g.misfire ? " · MF " + esc(g.misfire) : ""}</option>`).join("") || '<option value="">No guns</option>'}</select>
         <select id="detailAdv" aria-label="Advantage or disadvantage"><option value="">Straight</option><option value="adv">Advantage</option><option value="dis">Disadvantage</option></select>
+        <label class="toggle" title="Bonus action after the Attack action: their sheet spends the Bonus pip and drops a positive ability mod from damage."><input type="checkbox" id="detailOffhand"> Off-hand</label>
         <button type="button" class="btn sm" id="btnDetailAttack">Roll weapon</button>
       </div>
       <p class="lede">Roll weapon is a plain attack. It never spends a spell slot.</p>
@@ -3163,10 +3164,12 @@ async function rollGunAttack(pid) {
   const gi = g.index != null && g.index !== "" ? Number(g.index) : idx;
   const payload = { op: "fire", index: gi, dm: true };
   if (mode === "adv" || mode === "dis") payload.mode = mode;
+  const ohBox = $("#detailOffhand");
+  if (ohBox && ohBox.checked) { payload.offhand = true; ohBox.checked = false; } /* 0.2.85: off-hand, one shot */
   await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
   if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
   const whoName = namesFor(pid).characterName || s.name || "them";
-  DM.toast("Asked " + whoName + " to fire " + g.name);
+  DM.toast("Asked " + whoName + " to fire " + g.name + (payload.offhand ? " (off-hand)" : ""));
 }
 async function rollSpell(pid) {
   const p = DM.state.players[pid];
@@ -5973,7 +5976,7 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.84-mounts");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.85-mounts");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
@@ -7366,6 +7369,7 @@ async function mapFreeShot(i, row, detail) {
     if (!atk) { DM.toast("No attack"); return false; }
     const pid = row.playerId || row.id;
     const payload = { op: "fire", index: sheetSlot(atk, n), dm: true, free: true };
+    if (detail.offhand) payload.offhand = true; /* 0.2.85: off-hand (bonus action) shot */
     if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
     await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
     if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
@@ -7409,6 +7413,7 @@ window.SSDNSMapFight = {
       const picked = await dmFireMode(pid, atk);
       if (picked == null) { if (window.SSDNSRangeRings) window.SSDNSRangeRings.clear(); return false; }
       const payload = { op: "fire", index: gi, dm: true };
+      if (detail.offhand) payload.offhand = true; /* 0.2.85: off-hand (bonus action) shot */
       if (picked) payload.mode = picked;
       if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
       if (targetId) payload.targetId = targetId;

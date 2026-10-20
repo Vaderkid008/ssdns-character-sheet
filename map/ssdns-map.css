@@ -1143,3 +1143,7 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
 .ml-dialog .btn.btn-primary { background: #6b3f12; color: #f6ecd6; border-color: #6b3f12; }
 .ml-dialog .btn.ml-danger { color: #8d1c14; border-color: #8d1c14; }
 .ml-dialog .ml-search, .ml-dialog input { background: #fffaf0; color: #2b1d10; border: 1px solid #b39a6a; }
+
+/* 0.3.72: DM drawer Off-hand toggle (next PC weapon shot is the bonus-action off-hand attack) */
+.ssm-offhand { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; padding: 4px 8px; border: 1px dashed #e2b33a; border-radius: 6px; font-size: 12px; color: #f3d98a; cursor: pointer; }
+.ssm-offhand input { margin: 0; }
