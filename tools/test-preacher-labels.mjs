@@ -58,6 +58,12 @@ check("renames.character", n === 4 && oc.equipment === "• Preacher's kit\n• 
 check("renames.idempotent", RN.character(oc) === 0);
 const om = { features: "Oath Sense (Divine Sense - 1st lvl)\nDetect unquiet dead, hell-branded fiends.", melee: [{ weapon: "trail-staff-drover-s-staff-quarterstaff", name: "Trail staff / drover's staff (quarterstaff)" }], equipment: "Every drover's first holster" };
 check("renames.l0185", RN.character(om) === 2 && /Detect restless dead/.test(om.features) && om.melee[0].name === "Trail staff / cowhand's staff (quarterstaff)" && om.melee[0].weapon === "trail-staff-drover-s-staff-quarterstaff" && om.equipment === "Every drover's first holster", JSON.stringify(om));
+/* L0165: store says Ore, never assay; ids kept; old names migrate */
+check("store.oreNames", byId["assay-glass-magnifying-glass"].name === "Ore glass (magnifying glass)" && byId["assay-scale"].name === "Ore scale" && byId["forgery-kit-assay-forgeries"].name === "Forgery kit (ore forgeries)");
+check("store.noAssayDisplay", store.every((r) => !/assay/i.test(String(r.name || "") + " " + String(r.notes || ""))), store.filter((r) => /assay/i.test(String(r.name) + " " + String(r.notes || ""))).map((r) => r.id).join(","));
+const st = [{ id: "assay-glass-magnifying-glass", name: "Assay glass (magnifying glass)" }, { id: "assay-scale", name: "Assay scale" }, { id: "forgery-kit-assay-forgeries", name: "Forgery kit (assay forgeries)" }, { id: "circuit-kit", name: "Circuit kit" }, { id: "trail-staff-drover-s-staff", name: "Trail staff / drover's staff" }];
+check("renames.stockLines", RN.lines(st) === 5 && st.map((r) => r.name).join("|") === "Ore glass (magnifying glass)|Ore scale|Forgery kit (ore forgeries)|Preacher's kit|Trail staff / cowhand's staff" && st[0].id === "assay-glass-magnifying-glass", st.map((r) => r.name).join("|"));
+check("wiring.stock", /SSDNSRenames\.lines\(stock\)/.test(read("assets/js/sheet-extras.js")) && /SSDNSRenames\.lines\(raw\.draft\[id\]\.lines\)/.test(read("dm/assets/js/v2.js")) && (read("dm/assets/js/v2.js").match(/SSDNSRenames\.text\((row|line)\.name\)/g) || []).length === 2);
 check("wiring.sheet", /renames\.js/.test(read("index.html")) && /SSDNSRenames\.character\(doc\.character\)/.test(read("assets/js/app.js")));
 check("wiring.dmcc", /renames\.js/.test(read("dm/index.html")) && /relabel\(s\.features\)/.test(read("dm/assets/js/dmcc.js")));
 
@@ -134,6 +140,14 @@ try {
   check("law.restlessDead", /Detect restless dead/.test(law.feat) && !/unquiet dead/.test(law.feat), law.feat);
   check("law.staffName", law.names.length && law.names.every((n) => n === "Trail staff / cowhand's staff"), JSON.stringify(law.names));
   check("law.staffArt", law.art === "n/a" || law.art === "trail-staff-drovers-staff-quarterstaff", law.art);
+  const stk = await page.evaluate(() => {
+    if (!window.SSDNSSheet || !window.SSDNSSheet.setStock) return null;
+    /* The sheet keeps this list as its stock (renders once joined to a table); names are fixed on receipt. */
+    const list = [{ id: "assay-scale", name: "Assay scale", price: 500, store: "general" }, { id: "circuit-kit", name: "Circuit kit", price: 100, store: "general" }];
+    window.SSDNSSheet.setStock(list, false);
+    return { ore: list[0].name === "Ore scale" && list[0].id === "assay-scale", kit: list[1].name === "Preacher's kit", old: false };
+  });
+  check("store.sheetOldStock", stk && stk.ore && stk.kit && !stk.old, JSON.stringify(stk));
   check("sheet.noPageErrors", errs.length === 0, errs.join(" | "));
   await ctx.close();
 
