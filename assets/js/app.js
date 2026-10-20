@@ -851,6 +851,9 @@
       s.dmgType = w.scatter && g.load !== "slug" ? "piercing (cone)" : "piercing";
     } else {
       s.damage = w.damage; s.range = w.range; s.misfire = w.misfire; s.dmgType = String(w.dmgType || "").toLowerCase();
+      /* L0186: a nocked Blunt arrow makes the bow's damage bludgeoning (card, map attack list, rolls) */
+      var nockT = window.SSDNSTrackers && window.SSDNSTrackers.nockedDtype ? window.SSDNSTrackers.nockedDtype(g) : "";
+      if (nockT) s.dmgType = nockT;
     }
     var notes = [];
     if (w.category === "martial" || w.category === "simple" || w.category === "caster") notes.push(w.category);

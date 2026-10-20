@@ -233,6 +233,13 @@
     }).join("");
     return '<label class="trk-nock-l" title="' + esc(arrowType(cur).fx) + '">Nocked <select class="trk-nock" data-trk-nock="' + i + '" aria-label="Nocked arrow type"' + (ro ? " disabled" : "") + ">" + opts + "</select></label>";
   }
+  /** The bow's damage type with the nocked arrow (Blunt: bludgeoning). "" = the weapon's own type. */
+  function nockedDtype(g, c) {
+    var w = g && weapon(g.weapon);
+    if (!w || kindOf(w) !== "quiver" || poolType(w) !== "arrows") return "";
+    var t = arrowType(nocked(c || ch() || {}, g));
+    return t.dtype && !t.dice ? t.dtype : "";
+  }
   /** Bow card extras: broadhead "beast" tick, dynamite note, Powder Man's Make dynamite arrow. */
   function arrowExtras(c, g, i) {
     var cur = nocked(c, g), html = "";
@@ -1214,7 +1221,7 @@
     (function boot() { if (!wrapRest() && tries++ < 60) setTimeout(boot, 250); else paint(); })();
   }
   root.SSDNSTrackers = {
-    XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, ARROW_TYPES: ARROW_TYPES, arrowId: arrowId, arrowType: arrowType, arrowCount: arrowCount, arrowTotal: arrowTotal, nocked: nocked, arrowRecover: arrowRecover, arrowAdjust: arrowAdjust, arrowSvg: arrowSvg, shootDynamite: shootDynamite, litBlocked: litBlocked, makeDynamite: makeDynamite, canMakeDynamite: canMakeDynamite, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
+    XBOWS: XBOWS, BOLTS: BOLTS, AMMO_EXTRA: AMMO_EXTRA, ARROW_TYPES: ARROW_TYPES, arrowId: arrowId, arrowType: arrowType, arrowCount: arrowCount, arrowTotal: arrowTotal, nocked: nocked, arrowRecover: arrowRecover, arrowAdjust: arrowAdjust, arrowSvg: arrowSvg, shootDynamite: shootDynamite, litBlocked: litBlocked, nockedDtype: nockedDtype, makeDynamite: makeDynamite, canMakeDynamite: canMakeDynamite, isFirearm: isFirearm, weapon: weapon, kindOf: kindOf, resourcesFor: resourcesFor,
     spendShot: spendShot, onMeleeAttack: onMeleeAttack, itemPips: itemPips, tokenRows: tokenRows,
     snapshot: snapshot, dmHtml: dmHtml, paint: paint, onRest: onRest, resHtml: resHtml,
     toggle: toggle, rider: rider, riderText: riderText, refundPending: refundPending, mapActions: mapActions, canArm: canArm,

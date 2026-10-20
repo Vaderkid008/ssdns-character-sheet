@@ -35,6 +35,7 @@ const R = sb.SSDNS_RULES;
 const rows = R.ammo.filter((a) => a && a.type === "arrows").map((a) => a.id);
 check("rules.ammo.rows", rows.join() === "arrows-20,arrows-broadhead-5,arrows-blunt-5,arrows-fire-5,arrows-whistler-5,arrows-poison-3", rows.join());
 check("rules.ammo.noDynamite", !R.ammo.some((a) => /dynamite/.test(a.id || "")));
+check("blunt.pendingType", /dmgType: \(pendArrow && pendArrow\.type\) \|\| \(gunStat && gunStat\.dmgType\)/.test(read("assets/js/sheet-extras.js")) && T.arrowAdjust({ total: 5, flat: 3, formula: "1d8+3", detail: "2+3" }, "blunt").type === "bludgeoning");
 check("rules.js untouched", !/broadhead/i.test(read("assets/data/rules.js")));
 /* recover rules */
 const rr = T.arrowRecover({ spentAmmo: 4 + 4 + 2 + 2 + 2 + 2 + 1, spentBy: { broadhead: 4, fire: 2, blunt: 2, whistler: 2, poison: 2, dynamite: 1 } });
@@ -108,6 +109,21 @@ else {
       const stdBefore = pool("");
       document.querySelector('[data-trk-recover="0"]').click(); await wait(200);
       out.recover = { std: pool("") - stdBefore, fire: pool("fire"), spent: C().guns[0].spentAmmo, log: logs()[0] };
+      /* Jessey 8:01 AM: Blunt rolls the bow's normal dice + mod, typed bludgeoning; crits double; KO note */
+      A.applyPatch((d) => { const c = d.character; c.ammo.push({ type: "arrows", caliber: "blunt", count: 6 });
+        c.guns[0].arrowType = "blunt"; c.guns[1] = { weapon: "shortbow", equipped: true, proficient: true, arrowType: "blunt" }; });
+      window.SSDNSActionPips.reset(true); await wait(300);
+      const card = (k) => (document.querySelector('[data-calc="gunDmg.' + k + '"]') || {}).value;
+      out.blunt = { cardL: card(0), cardS: card(1), view: A.compute().guns[0].dmgType };
+      await roll(() => window.SSDNSGunRoll(0), 0.5); out.blunt.long = logs()[0];
+      await roll(() => window.SSDNSGunRoll(1), 0.5); out.blunt.short = logs()[0];
+      await roll(() => window.SSDNSGunRoll(0), 0.99); out.blunt.crit = logs()[0];
+      window.SSDNSGunRoll._dm = { mode: "" };
+      try { await roll(() => window.SSDNSGunRoll(0), 0.5); } finally { window.SSDNSGunRoll._dm = null; }
+      out.blunt.dm = logs()[0];
+      const s5 = document.querySelector('[data-trk-nock="0"]'); s5.value = "standard"; s5.dispatchEvent(new Event("change", { bubbles: true })); await wait(300);
+      out.blunt.back = card(0);
+      A.applyPatch((d) => { d.character.guns[1] = { weapon: "" }; }); await wait(200);
       /* Powder Man dynamite arrow */
       out.noPM = !document.querySelector("[data-trk-dyn-make]");
       A.applyPatch((d) => { d.character.feats = ["powder-man"]; window.SSDNSItems.add(d.character, { catalogId: "dynamite-stick-standard-fuse", count: 2 }, { dm: true }); });
@@ -148,6 +164,12 @@ else {
     check("b.broadhead", r.beastBox && r.broad.left === 4 && /beast/i.test(r.broad.log), JSON.stringify(r.broad));
     check("b.ghosts", r.ghosts >= 4, String(r.ghosts));
     check("b.recover", r.recover.spent === 0 && r.recover.std === 0 && /broadheads/.test(r.recover.log) && /fire arrows/.test(r.recover.log) && /don't come back/.test(r.recover.log), JSON.stringify(r.recover));
+    const B = r.blunt;
+    check("b.blunt.card", /^1d8 \+3 bludgeoning$/.test(B.cardL) && /^1d6 \+3 bludgeoning$/.test(B.cardS) && B.view === "bludgeoning" && /piercing/.test(B.back), JSON.stringify([B.cardL, B.cardS, B.view, B.back]));
+    check("b.blunt.damage.longbow", /d8 5 \+ 3 \(DEX\) = 8 bludgeoning/.test(B.long) && !/piercing/.test(B.long) && /knock it out/.test(B.long), B.long);
+    check("b.blunt.damage.shortbow", /d6 4 \+ 3 \(DEX\) = 7 bludgeoning/.test(B.short) && !/piercing/.test(B.short), B.short);
+    check("b.blunt.crit", /2d8 .* = 19 bludgeoning/.test(B.crit), B.crit);
+    check("b.blunt.dmShot", /= 8 bludgeoning/.test(B.dm) && !/piercing/.test(B.dm), B.dm);
     check("b.dyn.make", r.noPM && r.makeEnabled && r.made.dyn === 1 && r.made.std === 1 && r.made.sticks === 1, JSON.stringify(r.made));
     check("b.dyn.shoot", r.dyn.left === 1 && r.made2 === 2 && /no attack roll/i.test(r.dyn.log) && /Fuse/.test(r.dyn.log) && /shoots a dynamite arrow/.test(r.dyn.log) && /object interaction/.test(r.dyn.log), r.dyn.log);
     check("b.dyn.attackPip", r.dyn.attacks === 1, String(r.dyn.attacks));
