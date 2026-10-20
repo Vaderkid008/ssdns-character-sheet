@@ -913,7 +913,7 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .item-form label { display: block; margin: 4px 0; font-size: 13px; }
 .item-form input, .item-form select { max-width: 100%; }
 .item-form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-/* 0.3.78 compact player "Add item ▾" menu */
+/* 0.3.79 compact player "Add item ▾" menu */
 .add-item-menu { position: relative; margin-top: 6px; }
 .add-item-bar { display: flex; gap: 8px; align-items: center; }
 .add-item-toggle { min-height: 36px; }
