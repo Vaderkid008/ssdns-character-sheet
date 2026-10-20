@@ -1,6 +1,6 @@
 /**
  * Misfire audit (2026-10-19). Part A: the state machine in assets/js/misfire.js (must pass today).
- * Part B: DM/player button wiring bugs found in the audit, fixed in 0.3.79. Strict by default
+ * Part B: DM/player button wiring bugs found in the audit, fixed in 0.3.80. Strict by default
  * (pass --report to only list them).
  *   node tools/test-misfire-audit.mjs
  */

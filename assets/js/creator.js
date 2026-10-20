@@ -787,7 +787,7 @@
         ["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"],
         ["sidearm", "Sidearm Duelling (+2 damage with one gun)"],
         ["point-blank", "Point-Blank Defense (+1 AC)"],
-        ["two-gun", "Two-Gun (two-weapon fighting: add your ability modifier to the off-hand attack's damage)"] /* 0.3.79 (Jessey, L0183) */
+        ["two-gun", "Two-Gun (two-weapon fighting: add your ability modifier to the off-hand attack's damage)"] /* 0.3.80 (Jessey, L0183) */
       ];
       styles.forEach(function (pair) {
         var box = el("label", { class: "wiz-check" });
