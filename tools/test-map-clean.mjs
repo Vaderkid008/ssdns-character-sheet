@@ -23,7 +23,7 @@ const appSrc = read("assets/js/app.js");
 const joinSrc = read("assets/js/dm-join.js");
 const v2 = read("dm/assets/js/v2.js");
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.75" && version.dmcc === "0.2.88");
+check("ver.sheet", version.sheet === "0.3.76" && version.dmcc === "0.2.89");
 check("src.player", mapSrc.includes('data-act="playerClean"') && mapSrc.includes("cleanControl"));
 check("src.dm", mapSrc.includes('data-act="rowClean"') && mapSrc.includes("drawer:clean"));
 check("src.same", hostSrc.includes("SSDNSApp.cleanGun") || hostSrc.includes("root.SSDNSApp && root.SSDNSApp.cleanGun"));

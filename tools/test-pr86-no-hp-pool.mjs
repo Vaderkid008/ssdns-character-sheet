@@ -1,5 +1,5 @@
 /**
- * PR86 (sheet 0.3.75 / DMCC 0.2.88): a creature with no hit-point pool (Spectral Horse: hp 0, immune to all damage)
+ * PR86 (sheet 0.3.76 / DMCC 0.2.89): a creature with no hit-point pool (Spectral Horse: hp 0, immune to all damage)
  * is never shown as Down, to the DM or to players. Ordinary enemies at 0 HP still go Down.
  */
 import fs from "fs";

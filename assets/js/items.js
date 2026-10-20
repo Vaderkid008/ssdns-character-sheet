@@ -34,7 +34,7 @@
     return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
   }
 
-  /* 0.3.75 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
+  /* 0.3.76 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
      so an old character never shows a counter for them or gets blocked. */
   var UNLIMITED_USES = { "saddle-of-the-phantom-steed": 1 };
   function unlimitedFix(item) {
@@ -353,7 +353,7 @@
     return item.uses.max != null && isFinite(Number(item.uses.max));
   }
 
-  /* 0.3.75 Powder Man Long Arm (DND Bot, PHB): explosive throws are 50/100 ft for that character (scatter past 50).
+  /* 0.3.76 Powder Man Long Arm (DND Bot, PHB): explosive throws are 50/100 ft for that character (scatter past 50).
      Everyone else 30/60. Placed charges (the blasting keg) are never thrown. */
   function throwBands(powderMan) { return powderMan ? { normal: 50, max: 100 } : { normal: 30, max: 60 }; }
   function ringSpec(item, opts) {
@@ -1170,9 +1170,131 @@
     var attuneLine = c && items.some(function (it) { return it && it.attune; })
       ? '<p class="fine attune-line">Attuned ' + attunedCount(c) + " / " + attuneCap(c) + "</p>" : "";
     list.innerHTML = attuneLine + (items.length ? items.map(function (item) { return rowHtml(item, c); }).join("") : '<p class="fine">No catalog items yet.</p>');
-    if (slot && !slot.querySelector("[data-item-form]")) slot.innerHTML = formHtml({ dm: false });
-    if (c && c.inventoryLocked && slot) slot.querySelectorAll("button, input, select").forEach(function (el) { el.disabled = true; });
+    var freeAdd = playerFreeAdd();
+    if (slot) {
+      var menuEl = slot.querySelector("[data-add-item-menu]");
+      if (!menuEl || menuEl.getAttribute("data-free-add") !== (freeAdd ? "1" : "0")) slot.innerHTML = addMenuHtml();
+    }
+    /* a locked inventory blocks the item-add parts only; the Equipment-notes entries stay usable */
+    var locked = !!(c && c.inventoryLocked);
+    if (slot) slot.querySelectorAll("[data-add-item-search], [data-add-item-pick], [data-add-item-custom], [data-add-item-formwrap] button, [data-add-item-formwrap] input, [data-add-item-formwrap] select").forEach(function (el) { el.disabled = locked; });
+    if (locked && slot) setAddForm(slot, false);
     paintWeight();
+  }
+
+  /* 0.3.76: the player's free-add item area is one compact "Add item ▾" menu.
+     Pick list grouped by type (with search when long); the custom-item form opens
+     from the menu. Picking a catalog row runs the exact same add path the old
+     always-open form used (catalog select + fillForm + readForm + add).
+     FINAL STRETCH: players will only get items from the store or the DM, so the
+     item-add parts (pick list, search, custom form) hide behind ONE flag:
+     window.SSDNS_PLAYER_FREE_ADD = false. The "PHB gear (notes)" and "Starting kit…"
+     entries stay either way: they only append text to the Equipment notes. */
+  var ADD_GROUPS = [
+    { type: "weapon", label: "Weapons" },
+    { type: "explosive", label: "Explosives" },
+    { type: "consumable", label: "Consumables" },
+    { type: "scroll", label: "Scrolls" },
+    { type: "gear", label: "Gear" }
+  ];
+  var ADD_SEARCH_MIN = 12;
+  function playerFreeAdd() { return root.SSDNS_PLAYER_FREE_ADD !== false; }
+  function addPickRows() {
+    return catalog({ dm: false }).slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+  }
+  function addGroupsHtml(rows, query) {
+    var q = normName(query || "");
+    var known = {};
+    ADD_GROUPS.forEach(function (g) { known[g.type] = 1; });
+    var groups = ADD_GROUPS.concat([{ type: "", label: "Other" }]);
+    var html = groups.map(function (g) {
+      var list = rows.filter(function (row) {
+        var inGroup = g.type ? row.type === g.type : !known[row.type];
+        return inGroup && (!q || normName(row.name + " " + row.type).indexOf(q) >= 0);
+      });
+      if (!list.length) return "";
+      return '<div class="add-item-group" data-add-item-group="' + esc(g.type || "other") + '"><div class="add-item-group-head">' + esc(g.label) + ' <span class="fine">' + list.length + "</span></div>" +
+        list.map(function (row) {
+          var bits = [];
+          if (row.effect && (row.effect.dice || row.effect.damage)) bits.push(row.effect.dice || row.effect.damage);
+          if (row.price != null && row.forSale) bits.push(row.price + " ES");
+          return '<button type="button" class="add-item-pick" data-add-item-pick="' + esc(row.id) + '" role="menuitem">' + esc(row.name) +
+            (bits.length ? ' <span class="fine">' + esc(bits.join(" · ")) + "</span>" : "") + "</button>";
+        }).join("") + "</div>";
+    }).join("");
+    return html || '<p class="fine add-item-empty">No items match.</p>';
+  }
+  function addNotesHtml() {
+    return '<div class="add-item-group add-item-group-notes" data-add-item-group="notes"><div class="add-item-group-head">Equipment notes</div>' +
+      '<button type="button" class="add-item-pick" data-add-notes="phb" role="menuitem">PHB gear (notes)… <span class="fine">writes to Equipment</span></button>' +
+      '<button type="button" class="add-item-pick" data-add-notes="kit" role="menuitem">Starting kit… <span class="fine">kit swap line</span></button></div>';
+  }
+  function addMenuHtml() {
+    var freeAdd = playerFreeAdd();
+    var rows = freeAdd ? addPickRows() : [];
+    return '<div class="add-item-menu" data-add-item-menu data-free-add="' + (freeAdd ? "1" : "0") + '">' +
+      '<div class="add-item-bar"><button type="button" class="btn sm add-item-toggle" data-add-item-toggle aria-haspopup="true" aria-expanded="false">' + (freeAdd ? "Add item ▾" : "Add to notes ▾") + "</button></div>" +
+      '<div class="add-item-pop" data-add-item-pop role="menu" aria-label="Add an item" hidden>' +
+        (freeAdd && rows.length >= ADD_SEARCH_MIN ? '<input type="search" class="add-item-search" data-add-item-search placeholder="Search items…" aria-label="Search items" autocomplete="off">' : "") +
+        (freeAdd ? '<div class="add-item-groups" data-add-item-groups>' + addGroupsHtml(rows, "") + "</div>" +
+          '<button type="button" class="btn sm add-item-custom" data-add-item-custom role="menuitem">Custom item…</button>' : "") +
+        addNotesHtml() +
+      "</div>" +
+      (freeAdd ? '<div class="add-item-formwrap" data-add-item-formwrap hidden>' +
+        '<div class="add-item-formhead"><b>Custom item</b> <button type="button" class="btn xs ghost" data-add-item-close>Close</button></div>' +
+        formHtml({ dm: false }) +
+      "</div>" : "") + "</div>";
+  }
+  function setNotesPanel(which) {
+    ["phb", "kit"].forEach(function (k) {
+      var p = document.querySelector('[data-add-notes-panel="' + k + '"]');
+      if (p) p.hidden = k !== which;
+    });
+    var focus = which === "phb" ? document.getElementById("gearAdd") : which === "kit" ? document.getElementById("selKitCrosswalk") : null;
+    if (focus) focus.focus();
+  }
+  function setAddMenu(slot, open) {
+    var menu = slot && slot.querySelector ? slot.querySelector("[data-add-item-menu]") : null;
+    if (!menu) return;
+    var pop = menu.querySelector("[data-add-item-pop]");
+    var btn = menu.querySelector("[data-add-item-toggle]");
+    if (open) {
+      var search = menu.querySelector("[data-add-item-search]");
+      var groups = menu.querySelector("[data-add-item-groups]");
+      if (groups) groups.innerHTML = addGroupsHtml(addPickRows(), search ? search.value : "");
+      var lockedNow = !!(character() && character().inventoryLocked);
+      if (groups) groups.querySelectorAll("button").forEach(function (el) { el.disabled = lockedNow; });
+    }
+    if (pop) pop.hidden = !open;
+    if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+    menu.classList.toggle("open", !!open);
+  }
+  function setAddForm(slot, open) {
+    var wrap = slot && slot.querySelector ? slot.querySelector("[data-add-item-formwrap]") : null;
+    if (wrap) wrap.hidden = !open;
+  }
+  function addFromForm(form) {
+    var made = readForm(form);
+    made.addressedTo = (form.querySelector("[data-item-address]") || {}).value || "";
+    var added = add(character(), Object.assign(made, { addressedTo: made.addressedTo }), { player: true });
+    if (!added.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(added.reason);
+    else commit();
+    return added;
+  }
+  function pickFromMenu(slot, id) {
+    var form = slot && slot.querySelector("[data-item-form]");
+    if (!form || !byId(id)) return null;
+    var cat = form.querySelector("[data-item-catalog]");
+    if (cat) cat.value = id;
+    fillForm(form, id);
+    var added = addFromForm(form);
+    if (cat) { cat.value = ""; toggleWeaponFields(form); }
+    if (added && added.ok) {
+      setAddMenu(slot, false);
+      if (root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice("Added " + ((added.item && added.item.name) || "item") + ".");
+    }
+    paintSheet();
+    return added;
   }
 
   function onSheetClick(e) {
@@ -1207,15 +1329,47 @@
       paintSheet();
       return;
     }
+    var slot = document.getElementById("itemFormSlot");
+    var notesClose = t.closest ? t.closest("[data-add-notes-close]") : null;
+    if (notesClose) { setNotesPanel(""); return; }
+    var hit = t.closest ? t.closest("[data-add-notes], [data-add-item-toggle], [data-add-item-pick], [data-add-item-custom], [data-add-item-close]") : null;
+    if (hit && slot && slot.contains(hit)) {
+      if (hit.hasAttribute("data-add-notes")) {
+        setAddMenu(slot, false);
+        setAddForm(slot, false);
+        setNotesPanel(hit.getAttribute("data-add-notes"));
+        return;
+      }
+      if (hit.hasAttribute("data-add-item-toggle")) {
+        var menu = slot.querySelector("[data-add-item-menu]");
+        var opening = !(menu && menu.classList.contains("open"));
+        setAddMenu(slot, opening);
+        if (opening) { var sb = slot.querySelector("[data-add-item-search]"); if (sb) sb.focus(); }
+      } else if (hit.hasAttribute("data-add-item-pick")) {
+        pickFromMenu(slot, hit.getAttribute("data-add-item-pick"));
+      } else if (hit.hasAttribute("data-add-item-custom")) {
+        setAddMenu(slot, false);
+        setNotesPanel("");
+        setAddForm(slot, true);
+        var nm = slot.querySelector("[data-item-name]"); if (nm) nm.focus();
+      } else if (hit.hasAttribute("data-add-item-close")) {
+        setAddForm(slot, false);
+      }
+      return;
+    }
     if (t.hasAttribute("data-item-add")) {
       var form = t.closest("[data-item-form]");
-      var made = readForm(form);
-      made.addressedTo = (form.querySelector("[data-item-address]") || {}).value || "";
-      var added = add(character(), Object.assign(made, { addressedTo: made.addressedTo }), { player: true });
-      if (!added.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(added.reason);
-      else commit();
+      var added = addFromForm(form);
+      if (added && added.ok && slot && slot.contains(form)) setAddForm(slot, false);
       paintSheet();
     }
+  }
+  function onSheetInput(e) {
+    var t = e.target;
+    if (!t || !t.hasAttribute || !t.hasAttribute("data-add-item-search")) return;
+    var menu = t.closest("[data-add-item-menu]");
+    var groups = menu && menu.querySelector("[data-add-item-groups]");
+    if (groups) groups.innerHTML = addGroupsHtml(addPickRows(), t.value);
   }
 
   function onSheetChange(e) {
@@ -1231,6 +1385,21 @@
     box.setAttribute("data-bound", "1");
     box.addEventListener("click", onSheetClick);
     box.addEventListener("change", onSheetChange);
+    box.addEventListener("input", onSheetInput);
+    box.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      var slot = document.getElementById("itemFormSlot");
+      var menu = slot && slot.querySelector("[data-add-item-menu].open");
+      if (!menu) return;
+      setAddMenu(slot, false);
+      var tg = menu.querySelector("[data-add-item-toggle]"); if (tg) tg.focus();
+    });
+    document.addEventListener("click", function (e) {
+      var slot = document.getElementById("itemFormSlot");
+      var menu = slot && slot.querySelector("[data-add-item-menu].open");
+      if (!menu || (e.target && menu.contains(e.target))) return;
+      setAddMenu(slot, false);
+    });
     var exp = document.getElementById("explosiveList");
     if (exp && !exp.getAttribute("data-bound")) {
       exp.setAttribute("data-bound", "1");
@@ -1472,6 +1641,8 @@
     formHtml: formHtml,
     readForm: readForm,
     paintSheet: paintSheet,
+    playerFreeAdd: playerFreeAdd,
+    addMenuHtml: addMenuHtml,
     paintWeight: paintWeight,
     paintDm: paintDm,
     artSrc: artSrc,
