@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.90"; // sheet-playtest-v0390
+  var APP_VERSION = "0.3.91"; // sheet-playtest-v0391
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -215,7 +215,7 @@
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
   }
-  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.90 landed in a cartridge pool (caliber .50-90) that the
+  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.91 landed in a cartridge pool (caliber .50-90) that the
       Big Fifty never reads, weighing 0.05 lb a round. Move them to the bigfifty pool (0.15 lb). Returns rounds moved. */
   function moveBigFiftyPools(c) {
     if (!c || !Array.isArray(c.ammo)) return 0;
@@ -4808,6 +4808,9 @@
       applyCleanOption: function (i, optionId) { return applyCleanOption(i, optionId); },
       suggestedHp: function () { return suggestedHp(C()); }
     };
+    /* 0.3.91: the paper doll reads the character through window.SSDNSApp, which did not exist yet when boot's
+       first renderFields ran, so the doll stayed empty until something else repainted (phones rarely do). */
+    if (window.SSDNSDoll && window.SSDNSDoll.paint) window.SSDNSDoll.paint();
   }
   boot();
 })();

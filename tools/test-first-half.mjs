@@ -38,8 +38,8 @@ const v2 = read("dm/assets/js/v2.js");
 const kits = read("assets/js/kits.js");
 const version = JSON.parse(read("version.json"));
 
-check(version.sheet === "0.3.90" && version.sheetBuild === "sheet-playtest-v0390", "sheet 0.3.55");
-check(version.dmcc === "0.2.103" && version.dmccBuild === "dmcc-playtest-v02103", "DMCC 0.2.68");
+check(version.sheet === "0.3.91" && version.sheetBuild === "sheet-playtest-v0391", "sheet 0.3.55");
+check(version.dmcc === "0.2.104" && version.dmccBuild === "dmcc-playtest-v02104", "DMCC 0.2.68");
 
 const heavy = gun("pony-arms-chaosmaker-heavy");
 const musket = gun("dull-co-rifle-musket");
