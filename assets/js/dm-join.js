@@ -1652,6 +1652,9 @@
     } else if (payload.op === "dirty-d4") {
       if (root.SSDNSD4 && root.SSDNSD4.arm) root.SSDNSD4.arm(payload.index);
       return;
+    } else if (payload.op === "clean" && payload.optionId === "unjam" && app.unjamGun) {
+      app.unjamGun(payload.index); /* 0.3.75: DM unjam pays the bonus action like the sheet button */
+      return;
     } else if (payload.op === "clean" && app.applyCleanOption) {
       app.applyCleanOption(payload.index, payload.optionId);
       return;
