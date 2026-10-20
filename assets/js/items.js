@@ -159,7 +159,12 @@
       bonuses: raw.bonuses && typeof raw.bonuses === "object" ? clone(raw.bonuses) : null,
       wear: String(raw.wear || ""),
       dmPlace: !!raw.dmPlace,
-      dmOnly: type === "quest" || !!raw.dmOnly
+      dmOnly: type === "quest" || !!raw.dmOnly,
+      /* 0.3.80 inventory build: shelf (Add item sub-group), stack (same gear stacks), noCarry (rides on the mount) */
+      shelf: String(raw.shelf || ""),
+      stack: !!raw.stack,
+      noCarry: !!raw.noCarry,
+      provisional: String(raw.provisional || "")
     };
   }
 
@@ -235,7 +240,10 @@
       dmAllowDrop: !!(raw && raw.dmAllowDrop),
       dmAllowRob: !!(raw && raw.dmAllowRob),
       tags: (raw && Array.isArray(raw.tags)) ? raw.tags.slice() : (Array.isArray(base.tags) ? base.tags.slice() : []),
-      quality: (raw && raw.quality) || ""
+      quality: (raw && raw.quality) || "",
+      shelf: base.shelf || (raw && raw.shelf) || "",
+      stack: !!(base.stack || (raw && raw.stack)),
+      noCarry: !!(base.noCarry || (raw && raw.noCarry))
     };
   }
 
@@ -600,6 +608,7 @@
   function totalWeight(items) {
     var sum = 0;
     (items || []).forEach(function (item) {
+      if (item && item.noCarry) return; /* 0.3.80: mounts, vehicles and saddle gear ride on the mount */
       var w = num(item && item.weight);
       if (w == null) return;
       var n = Number(item.count);
@@ -609,11 +618,61 @@
     return Math.round(sum * 100) / 100;
   }
 
+  /* 0.3.80 inventory build: weight of what lives outside the item list (weapon slots, armor, shield,
+     holster rigs / belt, ammo pools, the Calling instrument). rules.js weights are text ("2½ lb.");
+     holster, instrument and per-round ammo weights come from SSDNS_CARRY_WEIGHTS (item-catalog-gear.js). */
+  function lbOf(text) {
+    if (text == null) return 0;
+    if (typeof text === "number") return isFinite(text) ? text : 0;
+    var t = String(text).replace(/½/g, ".5").replace(/¼/g, ".25").replace(/¾/g, ".75");
+    var m = /(\d*\.?\d+)/.exec(t.replace(/(\d)\s+(\.\d)/, "$1$2"));
+    return m ? Number(m[1]) : 0;
+  }
+  function slotWeights(character) {
+    var R = root.SSDNS_RULES || {};
+    var CW = root.SSDNS_CARRY_WEIGHTS || {};
+    var out = { weapons: 0, armor: 0, rigs: 0, ammo: 0, instrument: 0 };
+    if (!character) return out;
+    var lists = [].concat(R.firearms || [], R.casterGuns || [], R.otherRanged || [], R.melee || []);
+    function rec(id) { for (var i = 0; i < lists.length; i++) if (lists[i] && lists[i].id === id) return lists[i]; return null; }
+    ["guns", "melee"].forEach(function (k) {
+      (Array.isArray(character[k]) ? character[k] : []).forEach(function (g) {
+        if (!g || !g.weapon) return;
+        var w = rec(g.weapon);
+        if (!w || w.custom) return; /* created weapons weigh in as their item */
+        out.weapons += lbOf(w.weight);
+      });
+    });
+    if (character.armor) {
+      var a = (R.armor || []).filter(function (x) { return x && x.id === character.armor; })[0];
+      if (a) out.armor += lbOf(a.weight);
+    }
+    if (character.shield) out.armor += num(CW.shield) || 6;
+    var hw = CW.holsters || {}, noCarry = CW.holstersNoCarry || [];
+    [character.holster, character.holsterR, character.belt].forEach(function (id) {
+      if (id && noCarry.indexOf(id) < 0) out.rigs += num(hw[id]) || 0;
+    });
+    var each = CW.ammoEach || {};
+    (Array.isArray(character.ammo) ? character.ammo : []).forEach(function (pool) {
+      if (!pool) return;
+      var n = Number(pool.count);
+      if (!isFinite(n) || n <= 0) return;
+      out.ammo += n * (num(each[pool.type]) || 0);
+    });
+    if (character.instrument) out.instrument += num((CW.instruments || {})[character.instrument]) || 0;
+    Object.keys(out).forEach(function (k) { out[k] = Math.round(out[k] * 100) / 100; });
+    return out;
+  }
+
   function weightReport(character) {
     var str = character && character.abilities ? character.abilities.STR : 10;
-    var carried = totalWeight(listOf(character));
+    var items = totalWeight(listOf(character));
+    var slots = slotWeights(character);
+    var carried = items;
+    Object.keys(slots).forEach(function (k) { carried += slots[k]; });
+    carried = Math.round(carried * 100) / 100;
     var cap = carryCapacity(str);
-    return { on: !!room.weightOn, carried: carried, capacity: cap, over: carried > cap };
+    return { on: !!room.weightOn, carried: carried, capacity: cap, over: carried > cap, items: items, slots: slots };
   }
 
   function recharge(character, kind) {
@@ -677,7 +736,7 @@
     if (!item.name) return { ok: false, reason: "Name the item." };
     if (item.type === "quest" && !opts.dm) return { ok: false, reason: "Quest items are DM-only." };
     if (!KINDS[item.effect.kind]) item.effect = { kind: "text", text: item.description || item.name };
-    if (item.type === "explosive" || item.type === "consumable") {
+    if (item.type === "explosive" || item.type === "consumable" || (item.type === "gear" && item.stack)) {
       var same = listOf(character).filter(function (row) {
         return row && row.type === item.type && row.catalogId && row.catalogId === item.catalogId && !row.addressedTo && !item.addressedTo;
       })[0];
@@ -968,6 +1027,11 @@
     if (!report.on) { line.hidden = true; line.textContent = ""; return; }
     line.hidden = false;
     line.textContent = "Carried " + report.carried + " / " + report.capacity + " lb" + (report.over ? " (over capacity)" : "");
+    var sl = report.slots || {};
+    var parts = [["items", report.items], ["weapons", sl.weapons], ["armor", sl.armor], ["rigs", sl.rigs], ["ammo", sl.ammo], ["instrument", sl.instrument]]
+      .filter(function (p) { return p[1]; }).map(function (p) { return p[0] + " " + p[1]; });
+    line.title = parts.length ? "Carried: " + parts.join(" · ") + " lb. Mounts, saddles and saddlebags don't count." : "";
+    if (parts.length) line.textContent += " · " + parts.join(" · ");
   }
 
   function rowHtml(item, c) {
@@ -991,7 +1055,8 @@
       lock += ' <button type="button" class="btn xs' + (item.attuned ? " btn-primary" : "") + '" data-item-attune="' + esc(item.uid) + '" title="Attunement: up to ' + attuneCap(c) + ' items">' + (item.attuned ? "Attuned ✓" : "Attune") + "</button>";
     }
     var pips = root.SSDNSTrackers && root.SSDNSTrackers.itemPips ? root.SSDNSTrackers.itemPips(item) : ""; /* SAMPLE trackers: count pips */
-    return '<div class="item-row">' + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b>" + pips + " " + tag + " " + lock +
+    var wt = item.weight != null && isFinite(Number(item.weight)) ? ' <span class="fine item-wt" title="' + (item.noCarry ? "Rides on your mount; not counted in what you carry" : "Weight each") + '">' + (item.noCarry && !Number(item.weight) ? "not carried" : esc(item.weight) + " lb" + (item.noCarry ? " · on mount" : "")) + "</span>" : "";
+    return '<div class="item-row">' + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b>" + wt + pips + " " + tag + " " + lock +
       '<div class="fine">' + esc(view.description || (view.effect && view.effect.text) || "") + "</div>" +
       useBtn + " " + dropBtn + "</div></div>";
   }
@@ -1000,8 +1065,22 @@
     opts = opts || {};
     var dm = !!opts.dm;
     var rows = catalog({ dm: dm });
-    var options = '<option value="">Custom item…</option>' + rows.map(function (row) {
-      return '<option value="' + esc(row.id) + '">' + esc(row.name) + "</option>";
+    /* 0.3.80: the catalog select is grouped (type, and shelf for gear) now that every PHB gear line is an item */
+    var groupsOf = {}, groupOrder = [];
+    rows.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); }).forEach(function (row) {
+      var label = row.type === "gear" ? (row.shelf || "Gear") : (row.type.charAt(0).toUpperCase() + row.type.slice(1));
+      if (!groupsOf[label]) { groupsOf[label] = []; groupOrder.push(label); }
+      groupsOf[label].push(row);
+    });
+    var TYPE_FIRST = ["Weapon", "Explosive", "Consumable", "Scroll", "Gear"].concat(SHELF_ORDER).concat(["Quest"]);
+    groupOrder.sort(function (a, b) {
+      var ia = TYPE_FIRST.indexOf(a), ib = TYPE_FIRST.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+    });
+    var options = '<option value="">Custom item…</option>' + groupOrder.map(function (label) {
+      return '<optgroup label="' + esc(label) + '">' + groupsOf[label].map(function (row) {
+        return '<option value="' + esc(row.id) + '">' + esc(row.name) + "</option>";
+      }).join("") + "</optgroup>";
     }).join("");
     var types = ["consumable", "scroll", "explosive", "gear", "weapon"].concat(dm ? ["quest"] : []);
     return '<form class="item-form" data-item-form>' +
@@ -1211,19 +1290,35 @@
     var html = groups.map(function (g) {
       var list = rows.filter(function (row) {
         var inGroup = g.type ? row.type === g.type : !known[row.type];
-        return inGroup && (!q || normName(row.name + " " + row.type).indexOf(q) >= 0);
+        return inGroup && (!q || normName(row.name + " " + row.type + " " + (row.shelf || "")).indexOf(q) >= 0);
       });
       if (!list.length) return "";
       return '<div class="add-item-group" data-add-item-group="' + esc(g.type || "other") + '"><div class="add-item-group-head">' + esc(g.label) + ' <span class="fine">' + list.length + "</span></div>" +
-        list.map(function (row) {
+        shelved(list, g.type).map(function (row) {
+          if (row.shelfHead) return '<div class="add-item-shelf-head" data-add-item-shelf="' + esc(row.shelfHead) + '">' + esc(row.shelfHead) + "</div>";
           var bits = [];
           if (row.effect && (row.effect.dice || row.effect.damage)) bits.push(row.effect.dice || row.effect.damage);
           if (row.price != null && row.forSale) bits.push(row.price + " ES");
+          if (row.weight != null) bits.push(row.weight + " lb");
           return '<button type="button" class="add-item-pick" data-add-item-pick="' + esc(row.id) + '" role="menuitem">' + esc(row.name) +
             (bits.length ? ' <span class="fine">' + esc(bits.join(" · ")) + "</span>" : "") + "</button>";
         }).join("") + "</div>";
     }).join("");
     return html || '<p class="fine add-item-empty">No items match.</p>';
+  }
+  /* 0.3.80 inventory build: Gear is one group, split by shelf (sub-heads only; picks stay in the gear group). */
+  var SHELF_ORDER = ["Adventuring gear", "Frontier gear", "Packs", "Tools", "Clothes", "Foci", "Instruments", "Storyteller gear", "Blasting gear", "Mounts & tack", "Special finds"];
+  function shelved(list, type) {
+    if (type !== "gear" || !list.some(function (r) { return r.shelf; })) return list;
+    var rank = function (r) { var i = SHELF_ORDER.indexOf(r.shelf || ""); return i < 0 ? (r.shelf ? SHELF_ORDER.length : SHELF_ORDER.length + 1) : i; };
+    var sorted = list.slice().sort(function (a, b) { return rank(a) - rank(b) || String(a.shelf || "").localeCompare(String(b.shelf || "")) || String(a.name).localeCompare(String(b.name)); });
+    var out = [], last = null;
+    sorted.forEach(function (r) {
+      var head = r.shelf || "Other gear";
+      if (head !== last) { out.push({ shelfHead: head }); last = head; }
+      out.push(r);
+    });
+    return out;
   }
   function addNotesHtml() {
     return '<div class="add-item-group add-item-group-notes" data-add-item-group="notes"><div class="add-item-group-head">Equipment notes</div>' +
@@ -1615,6 +1710,8 @@
     carryCapacity: carryCapacity,
     totalWeight: totalWeight,
     weightReport: weightReport,
+    slotWeights: slotWeights,
+    lbOf: lbOf,
     recharge: recharge,
     scrollTable: scrollTable,
     ringSpec: ringSpec,

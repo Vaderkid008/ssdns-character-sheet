@@ -521,6 +521,17 @@
     });
     return paid - owe;
   }
+  function boughtItem(c, item, plan) {
+    var I = root.SSDNSItems;
+    if (!I || !I.byId || !I.add || !item || !item.id) return false;
+    var row = I.byId(item.id);
+    if (!row || row.type === "quest" || row.type === "weapon") return false;
+    var qty = Math.max(1, parseInt(plan && plan.qty, 10) || 1);
+    if (/\(\d+\b/.test(String(row.name || ""))) qty = 1; /* "(bag of 20)", "(50 ft)": the item already is the pack */
+    var res = I.add(c, { catalogId: row.id, count: qty }, { dm: true });
+    if (res && res.ok && root.SSDNSItems.paintSheet) root.SSDNSItems.paintSheet();
+    return !!(res && res.ok);
+  }
   function grantBought(item) {
     var d = doc();
     if (!d || !d.character || !item) return;
@@ -534,6 +545,8 @@
       });
       if (!pool) { pool = { type: "cartridge", caliber: plan.caliber, count: 0 }; d.character.ammo.push(pool); }
       pool.count = (parseInt(pool.count, 10) || 0) + (plan.qty || 1);
+    } else if (boughtItem(d.character, item, plan)) {
+      /* 0.3.80 inventory build: a store line that matches a catalog item lands as a real item (weight, stacking) */
     } else {
       var line = "• " + name;
       var cur = d.character.equipment || "";

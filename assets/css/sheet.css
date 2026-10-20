@@ -928,6 +928,8 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .add-item-search { width: 100%; box-sizing: border-box; min-height: 36px; margin: 0 0 6px; padding: 4px 8px; }
 .add-item-group { margin: 4px 0 8px; }
 .add-item-group-head { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .8; border-bottom: 1px solid var(--line, #8a7560); margin-bottom: 2px; }
+.add-item-shelf-head { font-size: 11px; font-weight: 700; font-style: italic; opacity: .75; margin: 6px 0 1px 4px; }
+.item-row .item-wt { margin-left: 4px; font-weight: 400; }
 .add-item-pick {
   display: flex; justify-content: space-between; gap: 8px; width: 100%; text-align: left; min-height: 34px;
   padding: 4px 6px; background: transparent; border: 0; border-radius: 4px; color: inherit; font: inherit; cursor: pointer;
