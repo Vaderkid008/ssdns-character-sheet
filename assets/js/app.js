@@ -3663,7 +3663,8 @@
     changed();
     return true;
   }
-  function grantListedWeapon(idOrName) {
+  /* opts.dirty (0.3.84, loot guns / C11): the gun lands Dirty (gunsmith's tools clean it on a short rest) */
+  function grantListedWeapon(idOrName, opts) {
     var key = String(idOrName || "").trim();
     if (!key) return false;
     var w = WPN[key] || null;
@@ -3716,7 +3717,7 @@
     gun.chamberSet = false;
     gun.jammed = false;
     gun.fouled = false;
-    gun.dirty = false;
+    gun.dirty = !!(opts && opts.dirty);
     gun.ruined = false;
     gun.broken = false;
     gun.pendingD4 = false;
@@ -3731,7 +3732,7 @@
       gun.capacity = w.capacity || 0;
     }
     changed();
-    return { id: w.id, name: w.name || w.id, melee: false, equipped: gun.equipped === true };
+    return { id: w.id, name: w.name || w.id, melee: false, equipped: gun.equipped === true, index: i, dirty: gun.dirty === true };
   }
   function gunMeleeLabel(w) {
     if (!w) return "";
@@ -4787,7 +4788,7 @@
       castList: function () { return castList(); },
       prepareGunCast: function (i, spell, slot) { prepareGunCast(i, spell, slot); },
       grantTestGun: function (i) { return grantTestGun(i); },
-      grantListedWeapon: function (idOrName) { return grantListedWeapon(idOrName); },
+      grantListedWeapon: function (idOrName, opts) { return grantListedWeapon(idOrName, opts); },
       setEquipped: function (opts) { return setEquipped(opts); },
       clearDrawn: function () { return clearDrawn(); },
       gunMeleeLabel: gunMeleeLabel,

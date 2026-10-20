@@ -1231,3 +1231,15 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .cond-toast-card .ct-what { font-size: .95rem; }
 @keyframes ctIn { from { transform: translateY(-8px); opacity: 0; } to { transform: none; opacity: 1; } }
 .supplies-box .sup-share { display: inline-flex; align-items: center; gap: .3rem; margin-top: .35rem; font-weight: 700; font-size: .85rem; }
+
+/* 0.3.84 default UI by type: kind picker, kind fields, the "lives in" badge, Special UI hook slots */
+.item-form .item-kind-home { margin: 0 0 6px; }
+.item-form .item-kind-fields { border: 1px dashed var(--line, #8a7560); border-radius: 6px; padding: 4px 8px; margin: 6px 0; }
+.item-form .item-flags { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.item-tag.item-home { background: rgba(120, 90, 50, .12); }
+.item-tag.item-supply { background: rgba(60, 110, 160, .12); }
+.itemui-extra, .itemui-replace { margin-top: 4px; }
+.itemui-replaced > :not(.itemui-replace):not(.g-card-top) { display: none; }
+
+/* typeui: fields folded away for the picked kind */
+[data-item-form] [hidden] { display: none !important; }

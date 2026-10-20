@@ -84,6 +84,7 @@
       if (!isFinite(n)) return;
       if (/^(str|dex|con|int|wis|cha)$/.test(k)) k = k.toUpperCase();
       else if (k === "initiative") k = "init";
+      else if (k === "rangedatk" || k === "ranged") k = "rangedAtk"; /* 0.3.86: hat-style +N to ranged attacks */
       else if (k !== "ac" && k !== "init" && k !== "speed") return;
       out[k] = n; any = true;
     });
@@ -144,7 +145,7 @@
     if (story || price == null) forSale = false;
     var weight = raw.weight == null || raw.weight === "" ? null : Number(raw.weight);
     if (weight != null && !isFinite(weight)) weight = null;
-    return {
+    return typeFields({
       id: String(raw.id || "").trim(),
       name: String(raw.name || "Item").trim(),
       type: type,
@@ -182,7 +183,7 @@
       defaultFill: raw.defaultFill === "full" ? "full" : (raw.capacity || (nestedWater(raw) && isContainerRaw(raw)) ? "empty" : ""),
       fillIncluded: !!raw.fillIncluded, /* catalog weight already counts a full container (waterskin "5 lb full") */
       mealWeight: posNum(raw.mealWeight) /* lb per meal inside a multi-meal item (a pack's hardtack) */
-    };
+    }, raw);
   }
   /* Encounter Bot's scrub doc writes food: { meals } and water: { gallons }. Mapped onto this schema:
      food.meals -> meals; water.gallons -> capacity for a container (its 5e full amount), or water for a drink. */
@@ -241,6 +242,30 @@
     return item;
   }
 
+  /* 0.3.84 default UI by type (Jessey 2026-10-20): the optional fields that pick an item's default UI and feed
+     its math. itemKind = SSDNSItemUI kind (firearm, bow, armor, food, ...; blank = classified from the item),
+     ui = Special UI key (blank = default card), armorId = rules.js armor row (feeds AC), ammo = {type, caliber}
+     Ammo pool, contents = [[catalogId, n]] (Unpack), tags / meals / water / capacity (Supplies, #105 names).
+     Absent fields are left off, so old saves and catalog rows look exactly as before. */
+  function typeFields(out, raw) {
+    raw = raw || {};
+    ["itemKind", "ui", "armorId"].forEach(function (k) { if (raw[k]) out[k] = String(raw[k]); });
+    if (raw.dirty) out.dirty = true; /* a given gun lands Dirty (loot guns) */
+    if (raw.ammo && typeof raw.ammo === "object" && raw.ammo.type) {
+      out.ammo = { type: String(raw.ammo.type), caliber: String(raw.ammo.caliber || "") };
+      if (Number(raw.ammo.per) > 0) out.ammo.per = Number(raw.ammo.per);
+    }
+    if (Array.isArray(raw.contents) && raw.contents.length) {
+      out.contents = raw.contents.filter(function (p) { return Array.isArray(p) && p[0]; }).map(function (p) { return [String(p[0]), Math.max(1, Number(p[1]) || 1)]; });
+    }
+    /* #105 merge: normalize() already maps the supplies fields (incl. the doc form food:{meals} / water:{gallons});
+       only fill them here when that left them empty */
+    if (Array.isArray(raw.tags) && raw.tags.length && !(Array.isArray(out.tags) && out.tags.length)) out.tags = raw.tags.map(function (t) { return String(t).trim().toLowerCase(); }).filter(Boolean);
+    ["meals", "water", "capacity"].forEach(function (k) { var n = Number(raw[k]); if (out[k] == null && raw[k] != null && raw[k] !== "" && isFinite(n) && n > 0) out[k] = n; });
+    return out;
+  }
+  var TYPE_FIELDS = ["itemKind", "ui", "armorId", "ammo", "contents", "meals", "water", "capacity", "dirty"];
+
   function byId(id) {
     var key = String(id || "");
     var custom = room.catalog && room.catalog[key];
@@ -281,7 +306,7 @@
     var uses = UNLIMITED_USES[base.id || (raw && raw.catalogId) || ""] ? usesOf(null) : usesOf(raw && raw.uses != null ? raw.uses : base.uses);
     var count = raw && raw.count != null ? Math.max(1, Number(raw.count) || 1) : 1;
     var charges = raw && raw.chargesLeft != null ? Number(raw.chargesLeft) : (uses.max == null ? null : uses.max);
-    return {
+    var inst = {
       uid: (raw && raw.uid) || uid(),
       catalogId: base.id || (raw && raw.catalogId) || "",
       name: (raw && raw.name) || base.name,
@@ -331,6 +356,12 @@
         return ((raw && raw.defaultFill) || base.defaultFill) === "full" ? cap * count : 0;
       })()
     };
+    TYPE_FIELDS.forEach(function (k) {
+      var v = raw && raw[k] != null && raw[k] !== "" ? raw[k] : base[k];
+      if (v != null && v !== "") inst[k] = clone(v);
+    });
+    if (raw && raw.grantId) inst.grantId = String(raw.grantId);
+    return inst;
   }
 
   function listOf(character) {
@@ -764,9 +795,16 @@
     return out;
   }
 
+  function slotCarried(character, it) {
+    if (!it || !it.equipSlot || !character) return false;
+    if (it.equipSlot === "vest" && it.armorId && character.armor === it.armorId) return true;
+    if (it.equipSlot === "accessory_8" && character.shield && (it.wear === "shield" || it.itemKind === "shield")) return true;
+    return false;
+  }
   function weightReport(character) {
     var str = character && character.abilities ? character.abilities.STR : 10;
-    var items = totalWeight(listOf(character));
+    /* 0.3.86: a donned armor item / worn shield item weighs in through the armor slot (rules.js weight / 6 lb), once */
+    var items = totalWeight(listOf(character).filter(function (it) { return !slotCarried(character, it); }));
     var slots = slotWeights(character);
     var carried = items;
     Object.keys(slots).forEach(function (k) { carried += slots[k]; });
@@ -799,14 +837,18 @@
   function landWeapon(character, item) {
     if (!character || !item || item.type !== "weapon") return null;
     if (item.weaponId && !item.weapon && root.SSDNSApp && root.SSDNSApp.grantListedWeapon) {
-      var granted = root.SSDNSApp.grantListedWeapon(item.weaponId);
+      var granted = root.SSDNSApp.grantListedWeapon(item.weaponId, { dirty: !!item.dirty });
       if (granted) return granted;
     }
     var rec = item.weapon && root.SSDNSCustomWeapons ? root.SSDNSCustomWeapons.registerItem(item) : null;
     if (rec) item.weaponId = rec.id;
-    var melee = rec ? rec.kind !== "firearm" : (item.slot !== "long" && item.slot !== "pistol");
-    if (rec && rec.kind === "firearm" && root.SSDNSApp && root.SSDNSApp.grantListedWeapon) {
-      var gunLanded = root.SSDNSApp.grantListedWeapon(rec.id);
+    /* 0.3.86: bows, crossbows, blowpipes and slings use the gun-slot cards (quiver / loaded / pouch), like the
+       rules.js bows the gun picker lists under "Bows & thrown"; thrown and melee weapons use the melee card. */
+    var tk = rec && root.SSDNSTrackers && root.SSDNSTrackers.kindOf ? root.SSDNSTrackers.kindOf(rec) : "";
+    var gunSlot = rec && (rec.kind === "firearm" || tk === "quiver" || tk === "loaded");
+    var melee = rec ? !gunSlot : (item.slot !== "long" && item.slot !== "pistol");
+    if (gunSlot && root.SSDNSApp && root.SSDNSApp.grantListedWeapon) {
+      var gunLanded = root.SSDNSApp.grantListedWeapon(rec.id, { dirty: !!item.dirty });
       if (gunLanded) return gunLanded;
     }
     var list = melee ? (character.melee || (character.melee = [])) : (character.guns || (character.guns = []));
@@ -826,7 +868,40 @@
         return weaponRecord(key) || (root.SSDNSEquip.lookupWeapon ? root.SSDNSEquip.lookupWeapon(key) : null);
       } });
     }
+    if (melee && root.SSDNSPlaytest && root.SSDNSPlaytest.renderMelee) setTimeout(function () { try { root.SSDNSPlaytest.renderMelee(); } catch (e) {} }, 0);
     return { ok: true, melee: melee, index: index, equipped: slot.equipped === true, name: item.name };
+  }
+
+  /* 0.3.86: an ammo item fills its pool: { type, caliber } × (count × per-pack rounds) */
+  function landAmmo(character, item) {
+    var per = Number(item.ammo.per) || 0;
+    var m = /\((\d+)\b/.exec(String(item.name || ""));
+    if (!per) per = m ? Number(m[1]) : 1;
+    var n = (Number(item.count) || 1) * per;
+    var type = item.ammo.type, cal = String(item.ammo.caliber || "");
+    character.ammo = Array.isArray(character.ammo) ? character.ammo : [];
+    var pool = character.ammo.filter(function (a) { return a && a.type === type && String(a.caliber || "").toLowerCase() === cal.toLowerCase(); })[0];
+    if (!pool) { pool = { type: type, caliber: cal, count: 0 }; character.ammo.push(pool); }
+    pool.count = (parseInt(pool.count, 10) || 0) + n;
+    return { ok: true, item: item, pool: pool, ui: "ammo", rounds: n };
+  }
+  /* 0.3.86: armor, shields and apparel go to their paper-doll slot when it is free (same idea as weapons
+     auto-equipping). Armor with an armorId and a shield also set character.armor / character.shield, so AC uses
+     the rules.js row (base + Dex cap) and the shield +2; a magic +N rides on the item's bonuses (doll). */
+  function landWorn(character, item, kind) {
+    var D = root.SSDNSDoll;
+    if (!D || !D.toggleWear || item.attune || item.equipSlot) return null;
+    if (kind === "armor" && (character.armor || !item.armorId)) return item.armorId ? null : tryWear(character, item);
+    if (kind === "shield" && character.shield) return null;
+    return tryWear(character, item);
+  }
+  function tryWear(character, item) {
+    var D = root.SSDNSDoll;
+    var key = D.freeSlot ? D.freeSlot(character, item) : "";
+    if (!key || !D.equip) return null;
+    var r = D.equip(character, key, item.uid);
+    if (r && r.ok) r.slot = key;
+    return r && r.ok ? { worn: r.slot || key } : null;
   }
 
   function add(character, raw, opts) {
@@ -847,10 +922,15 @@
         return { ok: true, item: same, merged: true };
       }
     }
+    var UI = root.SSDNSItemUI;
+    var uiKind = UI && UI.classify ? UI.classify(item) : "";
+    /* 0.3.86: ammo lands in its Ammo pool (same pools the store fills), not as an item row */
+    if (uiKind === "ammo" && item.ammo && item.ammo.type) return landAmmo(character, item);
     listOf(character).push(item);
     var landed = null;
     if (item.type === "weapon") landed = landWeapon(character, item);
-    return { ok: true, item: item, landed: landed };
+    else if (uiKind === "armor" || uiKind === "shield" || uiKind === "apparel") landed = landWorn(character, item, uiKind);
+    return { ok: true, item: item, landed: landed, ui: uiKind };
   }
 
   /* 0.3.54: the old character.explosives[] rows move into items (one list). */
@@ -940,6 +1020,8 @@
   /* inv2 (0.3.86): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
      unpack, so nothing is doubled; 5E parts with no catalog row land as one gear note line. */
   function packContents(item) {
+    /* 0.3.86: a DM-made pack carries its own contents ([[catalogId, n]]) */
+    if (item && Array.isArray(item.contents) && item.contents.length) return { items: item.contents, notes: [] };
     var map = root.SSDNS_PACK_CONTENTS || {};
     var id = item && item.catalogId;
     return id && Object.prototype.hasOwnProperty.call(map, id) ? map[id] : null;
@@ -1230,14 +1312,222 @@
       lock += ' <button type="button" class="btn xs' + (item.attuned ? " btn-primary" : "") + '" data-item-attune="' + esc(item.uid) + '" title="Attunement: up to ' + attuneCap(c) + ' items">' + (item.attuned ? "Attuned ✓" : "Attune") + "</button>";
     }
     var pips = root.SSDNSTrackers && root.SSDNSTrackers.itemPips ? root.SSDNSTrackers.itemPips(item) : ""; /* SAMPLE trackers: count pips */
+    /* 0.3.84 default UI by type: where this item lives / what it feeds, plus its supplies numbers */
+    var homeTag = root.SSDNSItemUI && !view.blank ? '<span class="item-tag item-home" data-item-home="' + esc(root.SSDNSItemUI.classify(item)) + '" title="' + esc(root.SSDNSItemUI.homeText(item)) + '">' + esc(root.SSDNSItemUI.KINDS[root.SSDNSItemUI.classify(item)].label) + "</span>" : "";
+    var sup = [];
+    if (Number(item.meals) > 0) sup.push(item.meals + (Number(item.meals) === 1 ? " meal" : " meals"));
+    if (Number(item.water) > 0) sup.push(item.water + " gal water");
+    if (Number(item.capacity) > 0) sup.push("holds " + item.capacity + " gal");
+    if (item.armorId && root.SSDNSItemUI) { var arw = root.SSDNSItemUI.armorRow(item.armorId); if (arw) sup.push("AC " + arw.ac); }
+    if (item.dirty && item.type === "weapon") sup.push("Dirty");
+    var supTag = sup.length ? ' <span class="item-tag item-supply" data-item-supply>' + esc(sup.join(" · ")) + "</span>" : "";
     var off = carriedOff(item);
     var wt = item.weight != null && isFinite(Number(item.weight)) ? ' <span class="fine item-wt" title="' + (off ? "Rides on your mount; not counted in what you carry" : "Weight each") + '">' + (off && !Number(item.weight) ? "not carried" : esc(item.weight) + " lb" + (onSteed(item) ? " · on the " + SUMMON_SADDLE[item.catalogId || item.id] : (off ? " · on mount" : ""))) + "</span>" : "";
     var steedBtn = SUMMON_SADDLE[item.catalogId || item.id || ""] && !view.blank
       ? '<button type="button" class="btn xs' + (item.summoned ? " btn-primary" : "") + '" data-item-summon="' + esc(item.uid) + '" title="' + (item.summoned ? "The Spectral Horse is out and wears the saddle (not carried). Click to dismiss it: you carry the saddle again (25 lb)." : "Mark the Spectral Horse as summoned: the saddle rides on it and stops counting as carried.") + '">' + (item.summoned ? "Steed summoned ✓" : "Steed not summoned") + "</button> "
       : "";
-    return '<div class="item-row">' + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b>" + wt + pips + " " + tag + " " + lock +
+    return '<div class="item-row">' + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b>" + wt + pips + " " + homeTag + supTag + " " + tag + " " + lock +
       '<div class="fine">' + esc(view.description || (view.effect && view.effect.text) || "") + "</div>" +
       useBtn + " " + steedBtn + unpackBtn + dropBtn + "</div></div>";
+  }
+
+  /* 0.3.86: what a Give-tab / drawer text already matches (no builder needed): an Ammo pack (→ pool), a catalog item,
+     or a rules.js weapon. kind "" = nothing matches, so the DM picks a type + weight in the typed builder. */
+  function rewardMatch(text) {
+    var raw = String(text || "").replace(/^\s*\d+\s*x\s+/i, "").trim();
+    if (!raw) return { kind: "" };
+    var St = root.SSDNSStore;
+    var plan = St && St.grantPlan ? St.grantPlan({ name: raw }) : null;
+    if (plan && (plan.kind === "cartridge" || plan.kind === "ammo")) {
+      var type = plan.kind === "cartridge" ? "cartridge" : plan.type;
+      return { kind: "ammo", label: (plan.qty || 1) + " " + (plan.caliber ? plan.caliber + " " : "") + type + " → Ammo pool", ammo: { type: type, caliber: plan.caliber || "", qty: plan.qty || 1 } };
+    }
+    var hit = classifyReward(raw, "");
+    if (hit && hit.kind) return { kind: hit.kind, label: hit.name + " (catalog)", id: hit.id };
+    var R = root.SSDNS_RULES || {}, low = normName(raw);
+    var lists = [].concat(R.firearms || [], R.casterGuns || [], R.otherRanged || [], R.melee || []);
+    var w = lists.filter(function (x) { return x && (normName(x.id) === low || normName(x.name) === low); })[0];
+    if (w) {
+      var gun = !!(w.tiers || /^(pistol|rifle|carbine|shotgun|bigbore|caster)$/.test(String(w.group || "")));
+      return { kind: "weapon", label: w.name + (gun ? " (gun card)" : " (weapon)"), id: w.id, firearm: gun };
+    }
+    return { kind: "" };
+  }
+  /* The typed builder's item: the compact form + the Give text as its name. null + reason when it is not ready. */
+  function typedItem(form, name) {
+    if (!form) return { item: null, reason: "No builder." };
+    var kindSel = form.querySelector("[data-item-kind]");
+    if (!kindSel || !kindSel.value) return { item: null, reason: "Pick what it is (type) so it lands with its card." };
+    if (weightMissing(form)) return { item: null, reason: "Enter its weight in lb (0 is fine)." };
+    var made = readForm(form);
+    made.name = String(name || made.name || "Item").replace(/^\s*\d+\s*x\s+/i, "").trim() || "Item";
+    made.id = "custom-" + normName(made.name).replace(/\s+/g, "-");
+    if (made.type === "weapon" && made.weapon && root.SSDNSCustomWeapons) made.weaponId = made.id;
+    return { item: made, reason: "" };
+  }
+
+  /* 0.3.86: wires one DMCC give box (Give tab or the player drawer). els = { text, match, builder, dirty (checkbox
+     wrapper) }. extra(text, qty) returns the reward payload fields: { ammo } / { item } / { dirty }, or { error }. */
+  function typedGive(els) {
+    els = els || {};
+    function built() {
+      if (els.builder && !els.builder.querySelector("[data-item-form]")) {
+        els.builder.innerHTML = formHtml({ dm: true, compact: true });
+        els.builder.addEventListener("change", function (e) {
+          var t = e.target, f = t && t.closest ? t.closest("[data-item-form]") : null;
+          if (!f) return;
+          if (t.hasAttribute("data-item-kind")) applyKind(f);
+          if (t.hasAttribute("data-item-type")) toggleWeaponFields(f);
+          if (t.hasAttribute("data-item-armor")) { var aw = f.querySelector("[data-item-weight]"); if (aw) aw.value = ""; armorWeight(f, t.value); }
+          refresh();
+        });
+      }
+      return els.builder ? els.builder.querySelector("[data-item-form]") : null;
+    }
+    function refresh() {
+      var text = els.text ? String(els.text.value || "").trim() : "";
+      var m = rewardMatch(text);
+      var form = built();
+      var kindSel = form && form.querySelector("[data-item-kind]");
+      if (els.builder) els.builder.hidden = !text || !!m.kind;
+      if (els.match) els.match.textContent = !text ? "" : (m.kind ? "Lands as: " + m.label : "No catalog match: pick what it is and its weight. It lands as a real item with its card.");
+      var gun = m.kind ? !!m.firearm : !!(kindSel && kindSel.value === "firearm");
+      if (els.dirty) els.dirty.hidden = !gun;
+      return m;
+    }
+    function extra(text, qty) {
+      var m = rewardMatch(text);
+      var dirtyBox = els.dirty && els.dirty.querySelector("input");
+      var out = {};
+      if (m.kind === "ammo") { out.ammo = { type: m.ammo.type, caliber: m.ammo.caliber, qty: (m.ammo.qty || 1) * (Math.max(1, Number(qty) || 1)) }; return out; }
+      if (m.kind) { if (m.firearm && dirtyBox && dirtyBox.checked) out.dirty = true; return out; }
+      var t = typedItem(built(), text);
+      if (!t.item) return { error: t.reason };
+      if (t.item.type === "weapon" && dirtyBox && dirtyBox.checked) t.item.dirty = true;
+      out.item = t.item;
+      return out;
+    }
+    if (els.text && !els.text.getAttribute("data-typed-bound")) {
+      els.text.setAttribute("data-typed-bound", "1");
+      els.text.addEventListener("input", refresh);
+    }
+    return { refresh: refresh, extra: extra, form: built };
+  }
+
+  /* 0.3.84 default UI by type: "What is it?" picks the default UI (SSDNSItemUI kinds) and shows the fields that
+     kind needs. Blank = classified from Type / Worn on / tags, exactly as before. */
+  function kindPickerHtml(dm) {
+    var UI = root.SSDNSItemUI;
+    if (!UI) return "";
+    var groups = {}, order = [];
+    UI.ORDER.forEach(function (k) {
+      if (k === "quest" && !dm) return;
+      var g = UI.KINDS[k].group;
+      if (!groups[g]) { groups[g] = []; order.push(g); }
+      groups[g].push(k);
+    });
+    return '<label>What is it? <select data-item-kind aria-label="What kind of item"><option value="">Auto (from type)</option>' +
+      order.map(function (g) {
+        return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (k) { return '<option value="' + k + '">' + esc(UI.KINDS[k].label) + "</option>"; }).join("") + "</optgroup>";
+      }).join("") + "</select></label>" +
+      '<p class="fine item-kind-home" data-item-kind-home></p>';
+  }
+  function kindFieldsHtml(dm) {
+    var UI = root.SSDNSItemUI;
+    var R = root.SSDNS_RULES || {};
+    var armors = (R.armor || []).filter(function (a) { return a && a.category !== "shield"; });
+    var pools = UI ? UI.POOLS : [];
+    var arrows = (root.SSDNSTrackers && root.SSDNSTrackers.ARROW_TYPES) || [];
+    return '<fieldset class="item-kind-fields" data-item-kind-fields="armor" hidden><legend>Armor</legend>' +
+        '<label>Armor (AC math) <select data-item-armor>' + armors.map(function (a) {
+          return '<option value="' + esc(a.id) + '">' + esc(a.name + " · " + a.category + " · AC " + a.ac + (a.phb5e ? " (" + a.phb5e + ")" : "")) + "</option>";
+        }).join("") + "</select></label>" +
+        '<p class="fine">AC, Dex cap, Strength and Stealth come from this armor row. New armor stats need a lock (later PR).</p>' +
+      "</fieldset>" +
+      '<fieldset class="item-kind-fields" data-item-kind-fields="armor shield" hidden><legend>Magic AC</legend>' +
+        '<label>Extra AC (+N, magic) <input data-item-acbonus type="number" min="0" max="5" value="0"></label>' +
+      "</fieldset>" +
+      '<fieldset class="item-kind-fields" data-item-kind-fields="ammo" hidden><legend>Ammo</legend>' +
+        '<label>Ammo pool <select data-item-ammo-type>' + pools.map(function (p) { return '<option value="' + p[0] + '">' + esc(p[1]) + "</option>"; }).join("") + "</select></label>" +
+        '<label>Caliber / arrow type <input data-item-ammo-cal type="text" list="itemArrowTypes" placeholder="Light, .410, broadhead (blank = standard)"></label>' +
+        '<datalist id="itemArrowTypes">' + ["Light", "Medium", "Heavy", ".50-90", ".410", "12 ga", "10 ga"].concat(arrows.map(function (a) { return a.id; })).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + "</datalist>" +
+        '<label>Rounds each <input data-item-ammo-per type="number" min="1" value="20"></label>' +
+      "</fieldset>" +
+      '<fieldset class="item-kind-fields" data-item-kind-fields="food water pack" hidden><legend>Supplies</legend>' +
+        '<label>Tags <input data-item-tags type="text" placeholder="food, water, container"></label>' +
+        '<label>Meals (days of food each) <input data-item-meals type="number" min="0" step="0.5"></label>' +
+        '<label>Water (gal of drink each) <input data-item-water type="number" min="0" step="0.5"></label>' +
+        '<label>Holds (gal, container) <input data-item-capacity type="number" min="0" step="0.125"></label>' +
+        '<label class="chk"><input type="checkbox" data-item-fullfill> Starts full</label>' +
+      "</fieldset>" +
+      '<fieldset class="item-kind-fields" data-item-kind-fields="pack" hidden><legend>Pack contents</legend>' +
+        '<label>Contents (catalog ids) <input data-item-contents type="text" placeholder="hardtack-jerky-1-day x10, waterskin-canteen"></label>' +
+      "</fieldset>" +
+      '<div class="item-flags"><label class="chk"><input type="checkbox" data-item-stack> Same items stack</label>' +
+        '<label class="chk"><input type="checkbox" data-item-nocarry> Rides on the mount (not carried)</label>' +
+        (dm ? '<label class="chk"><input type="checkbox" data-item-dmonly> DM only</label>' : "") + "</div>" +
+      '<label data-item-show="explosive consumable">To-hit bonus (+N) <input data-item-ebonus type="number" min="0" max="5"></label>' +
+      '<label data-item-show="explosive consumable">Extra damage (Use attack) <input data-item-extra type="text" placeholder="1d6"></label>' +
+      '<label data-item-show="explosive consumable">Extra damage type <input data-item-extratype type="text" placeholder="lightning"></label>';
+  }
+  function parseContents(text) {
+    return String(text || "").split(/[,;\n]/).map(function (part) {
+      var m = /^\s*([a-z0-9-]+)\s*(?:[x×]\s*(\d+))?\s*$/i.exec(part);
+      return m ? [m[1].toLowerCase(), Math.max(1, Number(m[2]) || 1)] : null;
+    }).filter(Boolean);
+  }
+  /* Show the fields for the picked kind and preset Type / Worn on / weapon kind to its defaults. */
+  function applyKind(form, preset) {
+    if (!form) return;
+    var UI = root.SSDNSItemUI;
+    var sel = form.querySelector("[data-item-kind]");
+    var kind = sel ? sel.value : "";
+    var cat = form.querySelector("[data-item-catalog]");
+    var fromCatalog = !!(cat && cat.value);
+    Array.prototype.forEach.call(form.querySelectorAll("[data-item-kind-fields]"), function (fs) {
+      fs.hidden = fromCatalog || !kind || String(fs.getAttribute("data-item-kind-fields")).split(" ").indexOf(kind) < 0;
+    });
+    /* fields that don't apply to the picked kind fold away (blank kind = the full form, as before) */
+    Array.prototype.forEach.call(form.querySelectorAll("[data-item-show]"), function (el) {
+      el.hidden = !!kind && String(el.getAttribute("data-item-show")).split(" ").indexOf(kind) < 0;
+    });
+    var effSel = form.querySelector("[data-item-effect]");
+    if (effSel && effSel.parentNode) effSel.parentNode.hidden = !!kind && ["consumable", "scroll", "explosive", "food"].indexOf(kind) < 0;
+    var home = form.querySelector("[data-item-kind-home]");
+    if (home) home.textContent = kind && UI ? "Shows as: " + UI.KINDS[kind].homeText : "";
+    if (kind && UI && preset !== false) {
+      var d = UI.defaults(kind);
+      function set(name, v) { var el = form.querySelector("[data-item-" + name + "]"); if (el && v != null) el.value = v; }
+      set("type", d.type);
+      if (d.wear) set("wear", d.wear);
+      /* the effect a kind starts with: only consumables heal, explosives attack, scrolls cast; the rest are text */
+      set("effect", { consumable: "heal", explosive: "attack", scroll: "castSpell" }[kind] || (d.type === "weapon" ? "attack" : "text"));
+      if (d.wkind) {
+        set("wkind", d.wkind);
+        if (d.wkind !== "melee" && d.wkind !== "thrown") set("wability", "DEX");
+        if (d.wkind !== "firearm") set("wtype", "piercing");
+      }
+      var nc = form.querySelector("[data-item-nocarry]"); if (nc && d.noCarry) nc.checked = true;
+      var tg = form.querySelector("[data-item-tags]"); if (tg && !tg.value && d.tags.length) tg.value = d.tags.join(", ");
+      if (kind === "food") set("type", "consumable");
+      if (kind === "tool" || kind === "consumable") { var u = form.querySelector("[data-item-uses]"); if (u && !u.value) u.value = "1"; }
+      if (kind === "armor") { var ar = form.querySelector("[data-item-armor]"); armorWeight(form, ar && ar.value); }
+    }
+    toggleWeaponFields(form);
+  }
+  function armorWeight(form, id) {
+    var row = root.SSDNSItemUI && root.SSDNSItemUI.armorRow(id);
+    var w = form.querySelector("[data-item-weight]");
+    if (row && w && !w.value) w.value = String(lbOf(row.weight));
+    var nm = form.querySelector("[data-item-name]");
+    if (row && nm && !nm.value) nm.value = row.name;
+  }
+  /* Custom (non-catalog) items need a weight so they count in Carried (0 is fine). */
+  function weightMissing(form) {
+    var cat = form && form.querySelector("[data-item-catalog]");
+    if (cat && cat.value) return false;
+    var w = form && form.querySelector("[data-item-weight]");
+    return !(w && String(w.value).trim() !== "" && isFinite(Number(w.value)));
   }
 
   function formHtml(opts) {
@@ -1262,31 +1552,32 @@
       }).join("") + "</optgroup>";
     }).join("");
     var types = ["consumable", "scroll", "explosive", "gear", "weapon"].concat(dm ? ["quest"] : []);
-    return '<form class="item-form" data-item-form>' +
-      '<label>Catalog <select data-item-catalog>' + options + "</select></label>" +
-      '<label>Name <input data-item-name type="text" aria-label="Item name"></label>' +
+    return '<form class="item-form' + (opts.compact ? " compact" : "") + '" data-item-form' + (opts.compact ? " data-item-compact" : "") + '>' +
+      (opts.compact ? "" : '<label>Catalog <select data-item-catalog>' + options + "</select></label>") +
+      kindPickerHtml(dm) +
+      (opts.compact ? "" : '<label>Name <input data-item-name type="text" aria-label="Item name"></label>') +
       '<label>Type <select data-item-type>' + types.map(function (t) { return '<option value="' + t + '">' + t + "</option>"; }).join("") + "</select></label>" +
       '<label>Effect <select data-item-effect>' +
         '<option value="heal">heal</option><option value="castSpell">castSpell</option><option value="attack">attack</option>' +
         '<option value="save+condition">save+condition</option><option value="buff">buff</option><option value="text">text</option>' +
       "</select></label>" +
-      '<label>Dice / damage <input data-item-dice type="text" placeholder="2d4+2"></label>' +
-      '<label>Spell <input data-item-spell type="text" placeholder="Cure Wounds"></label>' +
-      '<label>Spell level <input data-item-level type="number" min="0" max="9" value="1"></label>' +
-      '<label>Save <input data-item-save type="text" placeholder="DEX"></label>' +
-      '<label>DC <input data-item-dc type="number" min="0"></label>' +
-      '<label>Condition <input data-item-condition type="text" placeholder="Poisoned"></label>' +
-      '<label>Range <input data-item-range type="text" placeholder="30/60"></label>' +
-      '<label>Radius (ft) <input data-item-radius type="number" min="0"></label>' +
+      '<label data-item-show="consumable scroll explosive">Dice / damage <input data-item-dice type="text" placeholder="2d4+2"></label>' +
+      '<label data-item-show="consumable scroll">Spell <input data-item-spell type="text" placeholder="Cure Wounds"></label>' +
+      '<label data-item-show="consumable scroll">Spell level <input data-item-level type="number" min="0" max="9" value="1"></label>' +
+      '<label data-item-show="consumable scroll explosive food">Save <input data-item-save type="text" placeholder="DEX"></label>' +
+      '<label data-item-show="consumable scroll explosive food">DC <input data-item-dc type="number" min="0"></label>' +
+      '<label data-item-show="consumable scroll explosive food">Condition <input data-item-condition type="text" placeholder="Poisoned"></label>' +
+      '<label data-item-show="explosive consumable">Range <input data-item-range type="text" placeholder="30/60"></label>' +
+      '<label data-item-show="explosive consumable">Radius (ft) <input data-item-radius type="number" min="0"></label>' +
       '<label>Text <input data-item-text type="text"></label>' +
-      '<label>Uses (blank = unlimited) <input data-item-uses type="number" min="0"></label>' +
-      '<label>Recharge <select data-item-recharge><option value="">Never (used up)</option><option value="short">Short rest</option><option value="long">Long rest</option><option value="dawn">Dawn</option></select></label>' +
-      '<label>Worn on <select data-item-wear><option value="">— (trinket / not worn)</option><option value="head">Head</option><option value="neck">Neck</option><option value="cloak">Cloak</option><option value="armor">Armor</option><option value="belt">Belt</option><option value="holster">Holster rig</option><option value="gloves">Gloves</option><option value="legs">Legs</option><option value="boots">Boots</option><option value="ring">Ring</option><option value="shield">Shield</option></select></label>' +
-      '<label>Worn bonus <input data-item-bonus type="text" placeholder="e.g. ac +1, init +1, dex +2"></label>' +
-      '<label>Rarity <select data-item-rarity><option value="">—</option><option>Common</option><option>Uncommon</option><option>Rare</option><option>Very Rare</option></select></label>' +
-      '<label class="chk"><input type="checkbox" data-item-attune> Requires attunement</label>' +
+      '<label data-item-show="consumable scroll explosive tool food apparel gear">Uses (blank = unlimited) <input data-item-uses type="number" min="0"></label>' +
+      '<label data-item-show="consumable scroll explosive tool apparel gear">Recharge <select data-item-recharge><option value="">Never (used up)</option><option value="short">Short rest</option><option value="long">Long rest</option><option value="dawn">Dawn</option></select></label>' +
+      '<label data-item-show="armor shield apparel">Worn on <select data-item-wear><option value="">— (trinket / not worn)</option><option value="head">Head</option><option value="neck">Neck</option><option value="cloak">Cloak</option><option value="armor">Armor</option><option value="belt">Belt</option><option value="holster">Holster rig</option><option value="gloves">Gloves</option><option value="legs">Legs</option><option value="boots">Boots</option><option value="ring">Ring</option><option value="shield">Shield</option></select></label>' +
+      '<label data-item-show="armor shield apparel">Worn bonus <input data-item-bonus type="text" placeholder="e.g. ac +1, init +1, dex +2"></label>' +
+      '<label data-item-show="firearm bow crossbow blowpipe sling thrown melee armor shield apparel consumable scroll tool gear">Rarity <select data-item-rarity><option value="">—</option><option>Common</option><option>Uncommon</option><option>Rare</option><option>Very Rare</option></select></label>' +
+      '<label data-item-show="firearm bow crossbow blowpipe sling thrown melee armor shield apparel tool gear" class="chk"><input type="checkbox" data-item-attune> Requires attunement</label>' +
       '<fieldset class="item-weapon-fields" data-item-weapon-fields hidden><legend>Weapon</legend>' +
-        '<label>Kind <select data-item-wkind><option value="melee">Melee</option><option value="firearm">Firearm</option><option value="thrown">Thrown</option><option value="bow">Bow</option></select></label>' +
+        '<label>Kind <select data-item-wkind><option value="melee">Melee</option><option value="firearm">Firearm</option><option value="thrown">Thrown</option><option value="bow">Bow</option><option value="crossbow">Crossbow</option><option value="blowpipe">Blowpipe</option><option value="sling">Sling</option></select></label>' +
         '<label>Ability <select data-item-wability><option value="STR">STR</option><option value="DEX">DEX</option><option value="finesse">Finesse (best of STR/DEX)</option></select></label>' +
         '<label>Proficiency <select data-item-wcat><option value="simple">Simple</option><option value="martial">Martial</option></select></label>' +
         '<label>Gun type <select data-item-wgroup><option value="pistol">Pistol</option><option value="rifle">Rifle</option><option value="carbine">Carbine</option><option value="shotgun">Shotgun</option></select></label>' +
@@ -1300,16 +1591,12 @@
         '<label>Misfire <input data-item-wmf type="text" placeholder="1 or 1–2" value="1"></label>' +
         '<label>Load <select data-item-wload><option value="cartridge">Cartridge</option><option value="percussion">Cap &amp; ball</option></select></label>' +
         '<label class="chk"><input type="checkbox" data-item-wslow> Slow reload</label>' +
+        '<label class="chk"><input type="checkbox" data-item-dirty> Arrives Dirty (loot gun)</label>' +
       "</fieldset>" +
-      '<label>Weight (lb) <input data-item-weight type="number" min="0" step="0.1"></label>' +
-      '<fieldset class="item-supply-fields"><legend>Food &amp; water</legend>' +
-        '<label>Tags <input data-item-tags type="text" placeholder="food, water, container"></label>' +
-        '<label>Meals (days of food each) <input data-item-meals type="number" min="0" step="0.5"></label>' +
-        '<label>Water (gal of drink each) <input data-item-water type="number" min="0" step="0.5"></label>' +
-        '<label>Holds (gal, container) <input data-item-capacity type="number" min="0" step="0.125"></label>' +
-        '<label class="chk"><input type="checkbox" data-item-fullfill> Starts full</label>' +
-      "</fieldset>" +
+      kindFieldsHtml(dm) +
+      '<label>Weight (lb) <input data-item-weight type="number" min="0" step="0.1" placeholder="required (0 is fine)"></label>' +
       '<label>Price ES (blank = not for sale) <input data-item-price type="number" min="0"></label>' +
+      (opts.compact ? "</form>" :
       '<label>Art: image link or path <input data-item-art type="text" placeholder="https://… (Dropbox/Drive/any host) or assets/img/items/….webp"></label>' +
       '<div class="art-upload"><label>Upload art <input type="file" accept="image/png,image/webp,image/jpeg" data-art-file data-art-target="[data-item-art]"></label>' +
       '<p class="fine" data-art-note>Paste an image link above, or upload. Best: 512×512 PNG or WEBP, under 1 MB. Uploads are cropped to a square and saved in the character file. No art? The item uses its type picture.</p></div>' +
@@ -1317,7 +1604,7 @@
       (dm ? '<label class="chk"><input type="checkbox" data-item-allow-drop> DM allows drop</label><label class="chk"><input type="checkbox" data-item-allow-rob> DM allows rob</label>' : "") +
       '<div class="item-form-actions"><button type="button" class="btn sm" data-item-add>' + (dm ? "Give item" : "Add item") + "</button>" +
       (dm ? '<button type="button" class="btn sm" data-item-catalog-save>Save to room catalog</button>' : "") +
-      "</div></form>";
+      "</div></form>");
   }
 
   function readForm(form) {
@@ -1346,6 +1633,8 @@
     if (val("range")) effect.range = val("range");
     if (val("radius") !== "") effect.radius = Number(val("radius"));
     if (val("text")) effect.text = val("text");
+    if (Number(val("ebonus")) > 0) effect.bonus = Number(val("ebonus"));
+    if (val("extra")) { effect.extraDamage = val("extra"); if (val("extratype")) effect.extraType = val("extratype"); }
     var id = val("catalog") || ("custom-" + normName(val("name")).replace(/\s+/g, "-"));
     var type = val("type") || "gear";
     var weapon = null;
@@ -1369,12 +1658,35 @@
       effect = { kind: "attack", damage: weapon.damage, damageType: weapon.dmgType, range: weapon.range };
     }
     var recharge = val("recharge");
-    return normalize({
+    /* 0.3.84 default UI by type: the kind's own fields (armor row, ammo pool, supplies, pack contents) */
+    var kind = val("kind");
+    var UI = root.SSDNSItemUI;
+    var d = kind && UI ? UI.defaults(kind) : null;
+    var extra = {};
+    if (kind && !val("catalog")) {
+      extra.itemKind = kind;
+      if (d.shelf) extra.shelf = d.shelf;
+      if (kind === "armor" && val("armor")) extra.armorId = val("armor");
+      if (kind === "ammo") extra.ammo = { type: val("ammo-type") || "cartridge", caliber: val("ammo-cal") || "", per: Number(val("ammo-per")) || 1 };
+      if (kind === "pack") extra.contents = parseContents(val("contents"));
+    }
+    var tagList = String(val("tags") || "").split(",").map(function (t) { return t.trim().toLowerCase(); }).filter(Boolean);
+    if (d && d.tags && kind !== "pack") d.tags.forEach(function (t) { if (tagList.indexOf(t) < 0) tagList.push(t); });
+    if (kind === "pack" && (Number(val("meals")) > 0 || Number(val("water")) > 0) && tagList.indexOf("pack") < 0) tagList.unshift("pack");
+    if (tagList.length) extra.tags = tagList;
+    ["meals", "water", "capacity"].forEach(function (k) { if (Number(val(k)) > 0) extra[k] = Number(val(k)); });
+    var bonuses = parseBonus(val("bonus"));
+    if (Number(val("acbonus")) > 0 && (kind === "armor" || kind === "shield")) { bonuses = bonuses || {}; bonuses.ac = (bonuses.ac || 0) + Number(val("acbonus")); }
+    return normalize(Object.assign({
+      stack: on("stack"),
+      dirty: type === "weapon" && on("dirty"),
+      noCarry: on("nocarry") || !!(d && d.noCarry),
+      dmOnly: on("dmonly"),
       weapon: weapon,
       attune: on("attune"),
       rarity: val("rarity"),
-      wear: val("wear") || "",
-      bonuses: parseBonus(val("bonus")),
+      wear: val("wear") || (d && d.wear) || "",
+      bonuses: bonuses,
       id: id,
       name: val("name") || "Item",
       type: type,
@@ -1386,13 +1698,8 @@
       forSale: priceRaw !== "",
       art: val("art") || "",
       dmAllowDrop: on("allow-drop"),
-      dmAllowRob: on("allow-rob"),
-      tags: tagsOf(val("tags")),
-      meals: val("meals"),
-      water: val("water"),
-      capacity: val("capacity"),
-      defaultFill: on("fullfill") ? "full" : ""
-    });
+      dmAllowRob: on("allow-rob")
+    }, extra, on("fullfill") ? { defaultFill: "full" } : {}));
   }
 
   function fillForm(form, id) {
@@ -1428,7 +1735,40 @@
     if (ff) ff.checked = row.defaultFill === "full";
     var att = form.querySelector("[data-item-attune]");
     if (att) att.checked = !!row.attune;
+    /* 0.3.86: Worn on, Worn bonus, the weapon block and the kind fields come back too (editing a room-catalog row) */
+    set("wear", row.wear || "");
+    set("bonus", bonusText(row.bonuses));
+    set("kind", row.itemKind || "");
+    set("ebonus", row.effect.bonus || "");
+    set("extra", row.effect.extraDamage || "");
+    set("extratype", row.effect.extraType || "");
+    set("tags", (row.tags || []).join(", "));
+    set("meals", row.meals || "");
+    set("water", row.water || "");
+    set("capacity", row.capacity || "");
+    if (row.armorId) set("armor", row.armorId);
+    if (row.ammo) { set("ammo-type", row.ammo.type); set("ammo-cal", row.ammo.caliber || ""); set("ammo-per", row.ammo.per || ""); }
+    if (row.contents) set("contents", row.contents.map(function (p) { return p[0] + (p[1] > 1 ? " x" + p[1] : ""); }).join(", "));
+    [["stack", row.stack], ["nocarry", row.noCarry], ["dmonly", row.dmOnly && row.type !== "quest"]].forEach(function (p) {
+      var el = form.querySelector("[data-item-" + p[0] + "]"); if (el) el.checked = !!p[1];
+    });
+    var wpn = row.weapon || {};
+    if (row.weapon) {
+      set("wkind", wpn.kind || "melee"); set("wability", wpn.ability || "STR"); set("wcat", wpn.category || "simple");
+      set("wgroup", wpn.group || "pistol"); set("wdmg", wpn.damage || ""); set("wtype", String(wpn.dmgType || "bludgeoning").toLowerCase());
+      set("wmagic", wpn.magic || 0); set("wrange", wpn.range || ""); set("wprops", wpn.properties || ""); set("wcal", wpn.caliber || "");
+      set("wcap", wpn.capacity || 6); set("wmf", wpn.misfire || "1"); set("wload", wpn.load || "cartridge");
+      var sl = form.querySelector("[data-item-wslow]"); if (sl) sl.checked = !!wpn.slow;
+    }
+    applyKind(form, false);
     toggleWeaponFields(form);
+  }
+  function bonusText(b) {
+    if (!b) return "";
+    return Object.keys(b).filter(function (k) { return Number(b[k]); }).map(function (k) {
+      var n = Number(b[k]);
+      return (k === "rangedAtk" ? "ranged" : k.toLowerCase()) + " " + (n >= 0 ? "+" : "") + n;
+    }).join(", ");
   }
   function toggleWeaponFields(form) {
     if (!form) return;
@@ -1567,6 +1907,10 @@
     if (wrap) wrap.hidden = !open;
   }
   function addFromForm(form) {
+    if (weightMissing(form)) {
+      if (root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice("Enter a weight in lb (0 is fine) so it counts in Carried.");
+      return { ok: false, reason: "Enter a weight in lb (0 is fine)." };
+    }
     var made = readForm(form);
     made.addressedTo = (form.querySelector("[data-item-address]") || {}).value || "";
     var added = add(character(), Object.assign(made, { addressedTo: made.addressedTo }), { player: true });
@@ -1684,6 +2028,8 @@
   function onSheetChange(e) {
     var t = e.target;
     if (t && t.hasAttribute && t.hasAttribute("data-item-type")) { toggleWeaponFields(t.closest("[data-item-form]")); return; }
+    if (t && t.hasAttribute && t.hasAttribute("data-item-kind")) { applyKind(t.closest("[data-item-form]")); return; }
+    if (t && t.hasAttribute && t.hasAttribute("data-item-armor")) { var af = t.closest("[data-item-form]"); var aw = af && af.querySelector("[data-item-weight]"); if (aw) aw.value = ""; armorWeight(af, t.value); return; }
     if (!t || !t.hasAttribute || !t.hasAttribute("data-item-catalog")) return;
     fillForm(t.closest("[data-item-form]"), t.value);
   }
@@ -1849,6 +2195,8 @@
         return;
       }
       if (t && t.hasAttribute("data-item-type")) toggleWeaponFields(t.closest("[data-item-form]"));
+      if (t && t.hasAttribute("data-item-kind")) applyKind(t.closest("[data-item-form]"));
+      if (t && t.hasAttribute("data-item-armor")) { var af = t.closest("[data-item-form]"); var aw = af && af.querySelector("[data-item-weight]"); if (aw) aw.value = ""; armorWeight(af, t.value); }
       if (t && t.hasAttribute("data-item-catalog")) fillForm(t.closest("[data-item-form]"), t.value);
     });
     var weightBox = document.getElementById("chkWeight");
@@ -1870,6 +2218,7 @@
       }
       if (t.hasAttribute("data-item-add")) {
         var giveForm = t.closest("[data-item-form]");
+        if (weightMissing(giveForm)) { if (root.DMCC && root.DMCC.toast) root.DMCC.toast("Enter a weight in lb (0 is fine)"); return; }
         var give = readForm(giveForm);
         give.addressedTo = (giveForm.querySelector("[data-item-address]") || {}).value || "";
         give.dmAllowDrop = !!(giveForm.querySelector("[data-item-allow-drop]") && giveForm.querySelector("[data-item-allow-drop]").checked);
@@ -1958,6 +2307,12 @@
     unlimitedFix: unlimitedFix,
     formHtml: formHtml,
     readForm: readForm,
+    applyKind: applyKind,
+    weightMissing: weightMissing,
+    rewardMatch: rewardMatch,
+    typedItem: typedItem,
+    typedGive: typedGive,
+    parseContents: parseContents,
     paintSheet: paintSheet,
     playerFreeAdd: playerFreeAdd,
     addMenuHtml: addMenuHtml,

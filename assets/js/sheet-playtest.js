@@ -1254,6 +1254,7 @@
     });
   }
   root.SSDNSPlaytest = {
+    renderMelee: renderMelee, /* 0.3.86: a melee / thrown weapon that lands from an item (Give, reward, Add Item) repaints its card */
     rollMelee: rollMelee,
     syncSheet: syncSheet,
     paintMath: function () { paintPowerToggle(); paintMelee(); },

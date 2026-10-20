@@ -158,11 +158,23 @@
   }
   function active(it) { return !!it && !!it.equipSlot && (!it.attune || !!it.attuned); }
 
+  /* 0.3.84 default UI by type: an armor item (armorId = a rules.js armor row) in the armor slot is the worn armor
+     (character.armor, so AC uses its base + Dex cap); a shield item in the shield slot is character.shield (+2).
+     Taking it off clears them again. Items without armorId / not a shield are untouched. */
+  function isShieldItem(it) { return !!it && (wearOf(it) === "shield" || it.itemKind === "shield"); }
+  function linkSlot(c, it, key, on) {
+    if (!c || !it) return;
+    if (key === "vest" && it.armorId) {
+      if (on) c.armor = it.armorId;
+      else if (c.armor === it.armorId) c.armor = "";
+    }
+    if (key === "accessory_8" && isShieldItem(it)) c.shield = !!on;
+  }
   /* Put item uid into slot key (or clear with uid ""). One item per slot. */
   function equip(c, key, uid) {
     if (!SLOTS[key]) return { ok: false, reason: "Not a worn slot." };
     var cur = inSlot(c, key);
-    if (!uid) { if (cur) { if (cur.cursed) return { ok: false, reason: "Cursed. It won't come off." }; cur.equipSlot = ""; } return { ok: true }; }
+    if (!uid) { if (cur) { if (cur.cursed) return { ok: false, reason: "Cursed. It won't come off." }; cur.equipSlot = ""; linkSlot(c, cur, key, false); } return { ok: true }; }
     var it = items(c).filter(function (x) { return x && x.uid === uid; })[0];
     if (!it) return { ok: false, reason: "No item." };
     if (!fits(it, key)) return { ok: false, reason: it.name + " doesn't go in the " + SLOTS[key][0] + " slot." };
@@ -176,8 +188,9 @@
       it.equipSlot = "holster_l";
       return { ok: true, item: it, pair: true };
     }
-    if (cur && cur !== it) { if (cur.cursed) return { ok: false, reason: "Cursed. It won't come off." }; cur.equipSlot = ""; }
+    if (cur && cur !== it) { if (cur.cursed) return { ok: false, reason: "Cursed. It won't come off." }; cur.equipSlot = ""; linkSlot(c, cur, key, false); }
     it.equipSlot = key;
+    linkSlot(c, it, key, true);
     return { ok: true, item: it };
   }
 
@@ -200,18 +213,30 @@
       if (inSlot(c, k)) return false;
       if (k === "holster_l" && c && c.holster) return false;
       if (k === "holster_r" && c && c.holsterR) return false;
-      if (k === "vest" && c && c.armor) return false;
+      if (k === "vest" && c && c.armor && !(it.armorId && c.armor === it.armorId)) return false;
       if (k === "accessory_8" && c && c.shield) return false;
       return true;
     });
     return free[0] || keys[0] || "";
+  }
+  /* 0.3.86: first free slot only ("" when every slot it fits is taken). New armor / shields / apparel use it to go
+     straight onto the doll without bumping what is already worn. */
+  function freeSlot(c, it) {
+    var key = wearSlot(c, it);
+    if (!key || inSlot(c, key)) return "";
+    if ((key === "holster_l" && c && c.holster) || (key === "holster_r" && c && c.holsterR)) return "";
+    if (key === "vest" && c && c.armor && !(it.armorId && c.armor === it.armorId)) return "";
+    if (key === "accessory_8" && c && c.shield) return "";
+    return key;
   }
   function toggleWear(c, uid) {
     var it = items(c).filter(function (x) { return x && x.uid === uid; })[0];
     if (!it) return { ok: false, reason: "No item." };
     if (it.equipSlot) {
       if (it.cursed) return { ok: false, reason: "Cursed. It won't come off." };
+      var was = it.equipSlot;
       it.equipSlot = "";
+      linkSlot(c, it, was, false);
       return { ok: true, worn: false };
     }
     var key = wearSlot(c, it);
@@ -583,5 +608,5 @@
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
+  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
 })(typeof window !== "undefined" ? window : globalThis);

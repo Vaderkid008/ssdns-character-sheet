@@ -942,6 +942,7 @@
       if (sup.meals) made.meals = sup.meals;
       if (sup.water) made.water = sup.water;
       if (sup.capacity) { made.capacity = sup.capacity; made.fill = sup.fill != null ? sup.fill : 0; }
+      if (sup.weight != null && isFinite(Number(sup.weight)) && Number(sup.weight) >= 0) made.weight = Number(sup.weight); /* #107: lb each */
       made.count = qty;
       var okSup = false;
       root.SSDNSApp.applyPatch(function (d) { var res = Items.add(d.character, made, { dm: true }); okSup = !!(res && res.ok); });
@@ -1009,6 +1010,68 @@
     return false;
   }
 
+  /* 0.3.86: payload.item = a full item from the DM's typed builder (kind, weight, fields). */
+  function rewardTyped(payload, cmd) {
+    var Items = root.SSDNSItems, app = root.SSDNSApp;
+    if (!payload.item || typeof payload.item !== "object" || !Items || !Items.add || !app || !app.applyPatch) return false;
+    var qty = Math.max(1, Number(payload.qty) || 1);
+    var gid = payload.grantId || cmd.id || "";
+    var res = null;
+    app.applyPatch(function (d) {
+      res = Items.add(d.character, Object.assign({}, payload.item, { count: qty, grantId: gid }), { dm: true });
+    });
+    if (!res || !res.ok) return false;
+    var name = (res.item && res.item.name) || payload.item.name || "item";
+    var where = res.pool ? " (" + res.rounds + " in Ammo)" : "";
+    toast("DM sent " + (qty > 1 ? qty + "× " : "") + name + where);
+    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + gid, kind: "item", text: "Item: " + (qty > 1 ? qty + "× " : "") + name + where });
+    if (Items.paintSheet) Items.paintSheet();
+    return true;
+  }
+  /* C11 (Encounter Bot review): "Arrows (20)", "2x Cartridges, Light (20)" or payload.ammo {type, caliber, qty} → Ammo pool */
+  function rewardAmmo(payload, cmd) {
+    var app = root.SSDNSApp, St = root.SSDNSStore;
+    var plan = payload.ammo && payload.ammo.type ? { kind: payload.ammo.type === "cartridge" ? "cartridge" : "ammo", type: payload.ammo.type, caliber: payload.ammo.caliber || "", qty: Number(payload.ammo.qty) || 1 } : null;
+    var text = String(payload.text || "");
+    var mult = 1;
+    if (!plan && St && St.grantPlan && text) {
+      var m = /^\s*(\d+)\s*x\s+/i.exec(text);
+      if (m) mult = parseInt(m[1], 10) || 1;
+      var p = St.grantPlan({ id: payload.itemId || "", name: text.replace(/^\s*\d+\s*x\s+/i, "") });
+      if (p && (p.kind === "cartridge" || p.kind === "ammo")) plan = p;
+    }
+    if (!plan || !app || !app.applyPatch) return false;
+    var type = plan.kind === "cartridge" ? "cartridge" : String(plan.type || "");
+    var n = (Number(plan.qty) || 1) * mult;
+    app.applyPatch(function (d) {
+      var c = d.character;
+      c.ammo = Array.isArray(c.ammo) ? c.ammo : [];
+      var pool = c.ammo.filter(function (a) { return a && a.type === type && String(a.caliber || "").toLowerCase() === String(plan.caliber || "").toLowerCase(); })[0];
+      if (!pool) { pool = { type: type, caliber: plan.caliber || "", count: 0 }; c.ammo.push(pool); }
+      pool.count = (parseInt(pool.count, 10) || 0) + n;
+    });
+    var label = n + " " + (plan.caliber ? plan.caliber + " " : "") + (type === "cartridge" ? "cartridges" : type);
+    toast("DM sent " + label + " (Ammo)");
+    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Ammo: " + label });
+    return true;
+  }
+  function undoTyped(grantId) {
+    var Items = root.SSDNSItems, app = root.SSDNSApp;
+    if (!Items || !app || !app.applyPatch) return false;
+    var hit = false;
+    app.applyPatch(function (d) {
+      var list = (d.character && d.character.items) || [];
+      for (var i = list.length - 1; i >= 0; i--) {
+        if (list[i] && list[i].grantId === grantId) {
+          if (list[i].equipSlot && root.SSDNSDoll && root.SSDNSDoll.equip) root.SSDNSDoll.equip(d.character, list[i].equipSlot, "");
+          list.splice(i, 1); hit = true; break;
+        }
+      }
+    });
+    if (hit && Items.paintSheet) Items.paintSheet();
+    return hit;
+  }
+
   function handleCommand(cmd) {
     var payload = cmd.payload || {};
     switch (cmd.type) {
@@ -1038,9 +1101,13 @@
           if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Weapon: TEST Jammer" });
           break;
         }
-        var listed = root.SSDNSApp && root.SSDNSApp.grantListedWeapon && root.SSDNSApp.grantListedWeapon(payload.id || payload.text);
+        /* 0.3.84 default UI by type: a typed item (Give tab / drawer builder) lands as that real item, and ammo
+           (typed text or a picked pack) fills its Ammo pool, so nothing given is a 0-lb text line (C11) */
+        if (rewardTyped(payload, cmd)) break;
+        if (rewardAmmo(payload, cmd)) break;
+        var listed = root.SSDNSApp && root.SSDNSApp.grantListedWeapon && root.SSDNSApp.grantListedWeapon(payload.id || payload.text, { dirty: !!payload.dirty });
         if (listed && listed.name) {
-          toast("DM sent " + listed.name);
+          toast("DM sent " + listed.name + (listed.dirty ? " (Dirty)" : ""));
           if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Weapon: " + listed.name });
           break;
         }
@@ -1201,6 +1268,7 @@
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: payload.on ? "Surprise draw armed." : "Surprise draw cleared." });
         break;
       case "undo_item":
+        if (payload.grantId && undoTyped(payload.grantId)) break;
         if (root.SSDNSSheet) root.SSDNSSheet.undoItem(payload.text || "");
         break;
       case "music":
@@ -2526,6 +2594,8 @@
   function hookRollHelper() {
     // Optional: expose for sheet to call when they add shared rolls later
     root.SSDNSDmJoin = {
+      /* 0.3.86: tests feed a DM command straight in (no room needed) */
+      _handle: function (cmd) { handleCommand(cmd || {}); },
       isJoined: function () { return !!state.joined; },
       roomCode: function () { return state.roomCode; },
       uid: function () { return state.uid; },

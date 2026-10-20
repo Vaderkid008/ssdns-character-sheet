@@ -197,8 +197,14 @@
             <input type="number" id="rewMeals" min="0" step="0.5" placeholder="meals each" style="width:100px" aria-label="Meals each">
             <input type="number" id="rewWater" min="0" step="0.5" placeholder="water gal each" style="width:110px" aria-label="Water gallons each">
             <input type="number" id="rewCapacity" min="0" step="0.125" placeholder="holds gal" style="width:90px" aria-label="Container holds gallons">
+            <input type="number" id="rewWeight" min="0" step="0.1" placeholder="lb each" style="width:90px" aria-label="Weight in lb each (required for a new item; 0 is fine)">
           </div>
           <p class="fine">Big game is yours to set: a deer is about 6 meals (item "Deer", meals 6). Bread, cheese and meat chunks are ½ meal; liquor is 0 meals and 0 gal.</p>
+        </div>
+        <div class="span-2 rew-typed" id="rewItemWrap" hidden>
+          <p class="fine" id="rewMatch" aria-live="polite"></p>
+          <label class="chk" id="rewDirtyWrap" hidden><input type="checkbox" id="rewDirty"> Arrives Dirty (loot gun)</label>
+          <div id="rewItemBuilder" hidden></div>
         </div>
       </div>
       <div id="dmItemTools" class="item-tools">
@@ -746,6 +752,7 @@
 <script src="../assets/js/test-jammer.js?v=0.2.99-fire"></script>
 <script src="../assets/js/weapon-art.js?v=0.2.99-polish"></script>
 <script src="../assets/js/instrument-art.js?v=0.2.99-art"></script>
+<script src="../assets/js/item-ui.js?v=0.2.99-typeui"></script>
 <script src="../assets/data/item-catalog.js?v=0.2.99-items"></script>
 <script src="../assets/data/item-catalog-gear.js?v=0.2.99-steed"></script>
 <script src="../assets/js/custom-weapons.js?v=0.3.86-items"></script>

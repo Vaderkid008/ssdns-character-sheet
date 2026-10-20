@@ -1024,3 +1024,13 @@ select:-webkit-autofill {
 .supplies-panel .btn.xs { padding: 0 6px; min-height: 24px; font-size: 12px; }
 .supplies-panel .sup-noshare { color: #e06666; font-weight: 700; }
 .supplies-panel .sup-summary { margin: 6px 0; padding: 6px 8px; border-left: 3px solid var(--eld); background: rgba(212, 175, 55, .08); }
+
+/* 0.3.84 default UI by type: Give tab / drawer typed builder */
+.rew-typed { border: 1px dashed var(--line, #8a7560); border-radius: 6px; padding: 6px 8px; margin-top: 6px; }
+.rew-typed .item-form.compact { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 2px 10px; }
+.rew-typed .item-form.compact fieldset { grid-column: 1 / -1; }
+.item-form .item-kind-fields { border: 1px dashed var(--line, #8a7560); border-radius: 6px; padding: 4px 8px; margin: 6px 0; }
+.item-form .item-flags { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+
+/* typeui: fields folded away for the picked kind */
+[data-item-form] [hidden] { display: none !important; }

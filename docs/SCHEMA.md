@@ -60,3 +60,74 @@ Catalog rows and inventory rows may carry these. `type` is unchanged.
 - `SSDNSStore.forAct(items, act)` applies them when stock is drawn. `gateLines(lines, act, items)` re-checks drafts and live lines on open and when the act changes. Ad-hoc lines with no store row pass through.
 
 See docs/supplies.md.
+
+## Item default UI and the Special UI hook (sheet 0.3.84 / DMCC 0.2.97)
+
+Every item lands with the existing card for its type and feeds the sheet math. No per-item code is needed.
+`SSDNSItemUI.classify(item)` (assets/js/item-ui.js) picks the kind, and the first rule that matches wins:
+
+1. A registered Special UI spec with `kind`.
+2. `itemKind`.
+3. `type: "weapon"`, read through `SSDNSTrackers.kindOf`:
+   - firearm → `firearm`
+   - loaded → `crossbow`, or `blowpipe` for needles
+   - quiver → `bow`, or `sling` for stones, or `crossbow` for bolts
+   - thrown → `thrown`
+   - anything else → `melee`
+4. `ammo.type` → `ammo`.
+5. `armorId` or `wear: armor` → `armor`. `wear: shield` → `shield`. Any other `wear` → `apparel`.
+6. Tags:
+   - `pack`, or pack contents → `pack`
+   - `food`, `drink`, or `meals` → `food`
+   - `water`, `container`, `water`, or `capacity` → `water`
+7. `noCarry`, or shelf "Mounts & tack" → `mount`. Shelf Tools, Instruments or Foci → `tool`.
+8. By `type`: `quest`, `scroll`, `explosive`. A `consumable` is `food` or `water` if its name says so, otherwise `consumable`.
+9. A gear item with `uses.max` → `tool`. Everything else → `gear` (a generic row with weight).
+
+| kind | Lands as / feeds |
+|---|---|
+| firearm | Gun card: chambers, misfire, ammo pool, jam/fouled/dirty |
+| bow / crossbow / blowpipe / sling | A gun-slot card: quiver + arrow types, or loaded + bolts/needles, or a stone pouch |
+| thrown / melee | Melee card (thrown pips, Recover) |
+| ammo | `character.ammo[{type, caliber, count}]`. There is no item row |
+| armor | `character.armor = armorId` (rules.js row: base, Dex cap, Str, stealth) + the paper-doll armor slot. A magic +N goes in `bonuses.ac` |
+| shield | `character.shield = true` (+2) + the doll shield slot |
+| apparel | Its paper-doll slot (`bonuses`: STR..CHA, ac, init, speed, rangedAtk) |
+| food / water | Supplies numbers (`tags`, `meals`, `water`, `capacity`; the #105 field names) |
+| tool / consumable / scroll / explosive | Uses + recharge, and Use (roll) |
+| pack | Unpack (`contents: [[catalogId, n]]`, or `SSDNS_PACK_CONTENTS`) |
+| mount | Not carried (`noCarry`) |
+| gear | A generic item row with its weight |
+
+New optional item fields. All of them are absent on old saves, so old saves load unchanged.
+
+| Field | Meaning |
+|---|---|
+| `itemKind` | A kind from the table above. Set by the Add Item form's "What is it?" picker. |
+| `ui` | **Special UI** key. Leave it blank for the default card. |
+| `armorId` | A rules.js armor id, which feeds AC. |
+| `ammo` | `{type, caliber, per}` |
+| `contents` | `[[catalogId, n]]` |
+| `dirty` | A given gun lands Dirty (loot guns). |
+| `grantId` | The DM reward id, used for undo. |
+
+**Special UI hook.** A special gun or item (later, e.g. the LeGloss Revolver; never "LeMat") can add controls to the standard card, or swap in its own card, without forking the gun card.
+
+```js
+SSDNSItemUI.register("<item id | weapon id | ui key>", {
+  kind: "firearm",                  // optional: force the default kind
+  extend: function (host, ctx) {},  // host = .itemui-extra inside the standard card
+  replace: function (host, ctx) {}  // host = .itemui-replace; the card gets .itemui-replaced
+});
+SSDNSItemUI.on("quiver", function (cardEl, ctx) {});  // per-card hook ("gun", "melee", "quiver", "loaded", "thrown", "firearm")
+```
+
+- The gun and melee card painters (`trackers.js paint`) call `SSDNSItemUI.decorate(card, ctx)` after every paint, so renderers must be idempotent.
+- `ctx` is `{card, kind, index, weapon, character, item}`.
+- A rules row or a runtime-pushed weapon row may also carry `ui`.
+
+**DMCC typed give.**
+- The Give tab (`#rewItemBuilder`) and the player drawer (`#detailItemBuilder`) handle text that matches nothing (no catalog row, no rules weapon, no ammo pack). For that text they show a compact Add Item form, and the DM must pick a kind and enter a weight. The command is `reward_item {text, item, qty, grantId}`.
+- Ammo text such as "Arrows (20)" is sent as `reward_item {ammo: {type, caliber, qty}}` and fills the pool (C11).
+- A firearm can be sent with `dirty: true`.
+- Older sheets ignore `item`/`ammo` and fall back to the text line.
