@@ -318,7 +318,7 @@
     if (!c) return [];
     var lv = c.level || 1;
     if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"]];
-    /* 0.3.72 (DND Bot, PHB): Lawman takes a Fighting Style at 2nd level from the Paladin list. Dueling and GWF are melee only. */
+    /* 0.3.73 (DND Bot, PHB): Lawman takes a Fighting Style at 2nd level from the Paladin list. Dueling and GWF are melee only. */
     if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"], ["great-weapon", "Great Weapon Fighting (reroll 1s and 2s on two-handed melee damage, or a versatile weapon held in two hands)"], ["protection", "Protection (reaction: impose disadvantage on an attack vs an ally within 5 ft; needs a shield)"]];
     if (c.calling === "frontier-scout" && lv >= 2) return [["archery", "Archery (+2 ranged to hit)"]];
     return [];
@@ -509,6 +509,8 @@
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
     if (c.melee[i].equipped === false) { toast("Equip this weapon first."); return; }
+    /* 0.3.73 (Jessey): off-hand needs the Attack action first (the DM can't roll melee for a player yet) */
+    if (off && !rollMelee._aimed && root.SSDNSOffhand && root.SSDNSOffhand.gate && !root.SSDNSOffhand.gate("Melee", { dm: !!(opts && opts.dm) }).ok) return;
     var ready = root.SSDNSSheet && root.SSDNSSheet.ensureAttackTarget;
     if (ready && !rollMelee._aimed) {
       ready().then(function (ok) {

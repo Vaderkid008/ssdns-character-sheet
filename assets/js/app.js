@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.72"; // sheet-playtest-v0372
+  var APP_VERSION = "0.3.73"; // sheet-playtest-v0373
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -797,6 +797,9 @@
     if (DB) { v.ac += DB.ac; v.initiative += DB.init; }
     if (c.fightingStyle === "point-blank") v.ac += 1;
     if (c.fightingStyle === "defense" && wearing) v.ac += 1;
+    /* 0.3.73 (Jessey): Dual Wielder +1 AC while holding a qualifying weapon in each hand */
+    v.dualWielderAc = window.SSDNSOffhand && window.SSDNSOffhand.dualWielderAc ? window.SSDNSOffhand.dualWielderAc(c) : 0;
+    v.ac += v.dualWielderAc;
     var cal = currentCalling();
     v.hitDiceTotal = cal ? num(c.level, 1) + cal.hitDie : "";
     var ci = casterInfo();
@@ -1019,14 +1022,15 @@
     var longGun = g === "rifle" || g === "carbine" || g === "bigbore";
     var bow = g === "bow" || /bow/.test(g);
     if (st === "long-gun" && longGun) return 2;
-    /* 0.3.72 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
+    /* 0.3.73 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
     if (st === "archery" && (bow || longGun || !isMeleeWeapon(w) || (opts && opts.thrown))) return 2;
     return 0;
   }
   function styleDamageBonus(w) {
     var st = (C() && C().fightingStyle) || "";
     if (!w || !st || !styleReady()) return 0;
-    if (st === "sidearm" && w.group === "pistol") return 2;
+    /* 0.3.73 (Jessey): Sidearm Duelling is "+2 damage single iron": off while holding two weapons */
+    if (st === "sidearm" && w.group === "pistol") return (window.SSDNSOffhand && window.SSDNSOffhand.wieldingTwo && window.SSDNSOffhand.wieldingTwo(C())) ? 0 : 2;
     if (st === "dueling" && isMeleeWeapon(w) && !/two-handed/i.test(w.properties || "")) return 2;
     return 0;
   }

@@ -1072,3 +1072,6 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .offhand-card .pip-tag { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; border: 2px solid #8a6a12; background: #e2b33a; color: #fff; font: 800 10px/1 system-ui, sans-serif; text-transform: uppercase; }
 .offhand-card select { max-width: 100%; }
 .offhand-card .offhand-note { flex-basis: 100%; }
+
+/* 0.3.73: stowed pair */
+.offhand-card button:disabled { opacity: .45 !important; cursor: not-allowed; filter: grayscale(1); }

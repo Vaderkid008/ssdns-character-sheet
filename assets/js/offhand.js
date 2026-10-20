@@ -1,5 +1,5 @@
 /**
- * Off-hand attack (two-weapon fighting), sheet 0.3.72.
+ * Off-hand attack (two-weapon fighting), sheet 0.3.73.
  * Rules (BOOK1.md Property Key "light: as PHB"; Feats › Dual Wielder, campaign house rule):
  *  - Without Dual Wielder: PHB two-weapon fighting. Both weapons are LIGHT one-handed MELEE weapons.
  *  - Pistols are one-handed but NOT light (Dual Wielder note), so twin irons need Dual Wielder.
@@ -9,11 +9,24 @@
  *    (target picker incl. Free shot, range, adv/dis, misfire, ammo, sound, chat), but a positive ability
  *    modifier is NOT added to its damage. SSDNS has no Two-Weapon Fighting style, so nothing restores it.
  *  - Pistols use their own side: the Holster L / Holster R first-shot bonus already rides on each gun's row.
- * Never blocks: like every pip, a used Bonus action or a missing Attack action only warns.
+ * 0.3.73 (Jessey's rulings):
+ *  - The Herringer Light Pocket Pistol, Light Double Derringer and Light Pepperbox ARE light weapons, so they pair
+ *    for the off-hand attack without Dual Wielder (with each other or a light melee weapon). Other pistols still need
+ *    Dual Wielder. Toggle: LIGHT_PISTOLS_ON below.
+ *  - The off-hand attack REQUIRES the Attack action first that turn: the sheet blocks it with a message. A shot the
+ *    DM sends while acting for the player overrides the block (logged).
+ *  - "Holding two weapons" (wieldingTwo): a qualifying off-hand pair is in hand (not stowed with Stow both). While it
+ *    is, Sidearm Duelling's +2 "single iron" is off, and Dual Wielder gives +1 AC.
+ *  - Dual Wielder draws or stows both weapons at once (Draw both / Stow both on the Off-hand card).
+ *  - Off-hand damage: a positive ability mod is dropped, a negative one stays (no Two-Weapon Fighting style in SSDNS).
  */
 (function (root) {
   "use strict";
   var TAG = "off-hand";
+  /* Jessey 2026-10-19: these three Herringer rows have the Light property and count as light weapons. */
+  var LIGHT_PISTOLS_ON = true;
+  var LIGHT_PISTOLS = ["herringer-light-pocket-pistol", "herringer-light-double-derringer", "herringer-light-pepperbox"];
+  function lightPistol(w) { return LIGHT_PISTOLS_ON && !!w && LIGHT_PISTOLS.indexOf(w.id) >= 0; }
   function R() { return root.SSDNS_RULES || root.SSDNSRules || {}; }
   function C() { try { var d = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc(); return d && d.character; } catch (e) { return null; } }
   function feats(c) { return (c && Array.isArray(c.feats)) ? c.feats : []; }
@@ -44,19 +57,20 @@
   }
   function labelName(w, fallback) { return String((w && w.name) || fallback || "").replace(/\s*\([^)]*\)\s*$/, ""); }
   /** Weapons that can make the off-hand attack right now, and why not when none can. */
-  function options(c) {
+  function options(c, lite) {
     c = c || C();
     var out = { ok: false, dualWielder: hasDualWielder(c), list: [], reason: "" };
     if (!c) { out.reason = "No character."; return out; }
     var dw = out.dualWielder;
     /* A shield fills the other hand: no weapon in each hand, no two-weapon fighting (PHB). */
     if (c.shield) { out.reason = "Off-hand needs a weapon in each hand; the shield fills one."; return out; }
-    var v = view();
+    var v = lite ? null : view(); /* lite: no compute() (called from inside compute for AC / style damage) */
     (c.guns || []).forEach(function (g, i) {
       if (!g || !g.weapon || g.equipped === false || g.weapon === "borrowed-iron") return;
       var w = gunRow(g.weapon, i, v);
       if (!w || !(isPistol(w) || isCasterGun(w))) return;
-      out.list.push({ kind: "gun", index: i, id: "gunroll:" + i, name: labelName(w, g.weapon), side: sideOf(c, i), light: false, pistol: isPistol(w), caster: isCasterGun(w), counts: dw });
+      var lp = lightPistol(w);
+      out.list.push({ kind: "gun", index: i, id: "gunroll:" + i, name: labelName(w, g.weapon), side: sideOf(c, i), light: lp, pistol: isPistol(w), caster: isCasterGun(w), counts: dw || lp });
     });
     (c.melee || []).forEach(function (m, i) {
       if (!m || !m.weapon || m.equipped === false) return;
@@ -70,9 +84,9 @@
     out.list = held.filter(function (o) { return o.counts; });
     out.ok = out.list.length >= 2;
     if (!out.ok) {
-      var pistols = held.filter(function (o) { return o.pistol || o.caster; }).length;
-      if (!dw && pistols >= 2) out.reason = "Twin pistols need the Dual Wielder feat (pistols are one-handed, not light).";
-      else if (!dw && held.length >= 2) out.reason = "Off-hand needs two light melee weapons, or the Dual Wielder feat.";
+      var pistols = held.filter(function (o) { return (o.pistol || o.caster) && !o.light; }).length;
+      if (!dw && pistols >= 1 && held.length >= 2) out.reason = "That pistol needs the Dual Wielder feat for off-hand (only the Herringer Light pistols are light).";
+      else if (!dw && held.length >= 2) out.reason = "Off-hand needs two light weapons, or the Dual Wielder feat.";
       else out.reason = "Off-hand needs a qualifying weapon in each hand.";
     }
     return out;
@@ -123,17 +137,63 @@
   function stripParts(parts) {
     return (parts || []).filter(function (p) { return !(p && /^(STR|DEX)$/.test(p.label) && Number(p.value) > 0); });
   }
+  /* ---- holding two weapons: Sidearm Duelling off, Dual Wielder +1 AC ---- */
+  function wieldingTwo(c) {
+    c = c || C();
+    if (!c || c.offhandStowed === true) return false;
+    return options(c, true).ok;
+  }
+  function dualWielderAc(c) {
+    c = c || C();
+    return hasDualWielder(c) && wieldingTwo(c) ? 1 : 0;
+  }
+  /* ---- the Attack-action gate (Jessey: required; the DM can override) ---- */
+  var BLOCK_MSG = "Off-hand attack: take the Attack action first this turn. The off-hand attack is the bonus action after it. (The DM can allow it.)";
+  function attackTaken() {
+    var P = root.SSDNSActionPips;
+    var st = P && P.state ? P.state() : null;
+    if (!st) return true; /* no pips loaded: nothing to check against */
+    return st.actionBy === "attack" || (st.action && st.actionBy === "manual");
+  }
+  /** opts.dm: the DM is acting for this player, so a missing Attack action is overridden (and logged). */
+  function gate(name, opts) {
+    opts = opts || {};
+    if (attackTaken()) return { ok: true };
+    var log = root.SSDNSSheet && root.SSDNSSheet.addLog;
+    if (opts.dm) {
+      if (log) log({ kind: "alert", text: "DM override: " + (name || "Off-hand") + " off-hand attack before the Attack action." });
+      return { ok: true, override: true };
+    }
+    if (root.SSDNSToast) root.SSDNSToast(BLOCK_MSG);
+    if (log) log({ kind: "alert", text: BLOCK_MSG });
+    return { ok: false, reason: BLOCK_MSG };
+  }
   /* ---- the pip: Bonus action, after the Attack action ---- */
   function spendPip(name) {
     var P = root.SSDNSActionPips;
     if (!P) return null;
-    var st = P.state ? P.state() : null;
-    if (st && st.actionBy !== "attack" && !(st.action && st.actionBy === "manual")) {
-      var msg = "Off-hand attack: take the Attack action first (PHB two-weapon fighting). Done anyway; the DM can allow it.";
-      if (root.SSDNSToast) root.SSDNSToast(msg);
-      if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: msg });
-    }
     return P.spend ? P.spend("bonus", (name || "Off-hand") + " off-hand attack") : null;
+  }
+  /* ---- Dual Wielder: draw or stow both weapons at once ---- */
+  function bothHands(draw) {
+    var c = C();
+    if (!c) return false;
+    var o = options(c, true);
+    var who = c.name || "You";
+    var names = o.list.slice(0, 2).map(function (x) { return x.name; }).join(" and ");
+    if (draw) {
+      c.offhandStowed = false;
+    } else {
+      c.offhandStowed = true;
+      (c.guns || []).forEach(function (g) { if (g) g.drawn = false; });
+    }
+    var line = who + (draw ? " draws " : " stows ") + (names || "both weapons") + " at once (Dual Wielder).";
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "roll", text: line });
+    if (root.SSDNSDmJoin && root.SSDNSDmJoin.postChat) root.SSDNSDmJoin.postChat({ text: line });
+    if (root.SSDNSApp && root.SSDNSApp.changed) root.SSDNSApp.changed();
+    else if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
+    paint(true);
+    return true;
   }
   /* ---- fire: the normal attack path with the off-hand flag set ---- */
   function fire(kind, index, opts) {
@@ -144,6 +204,11 @@
       var why = q.reason || "Not a qualifying off-hand weapon.";
       if (!opts.dm) { if (root.SSDNSToast) root.SSDNSToast(why); return false; }
       if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "DM off-hand: " + why + " Rolled anyway." });
+    }
+    if (c && c.offhandStowed === true && !opts.dm) {
+      var st = "Both weapons are stowed. Draw both first.";
+      if (root.SSDNSToast) root.SSDNSToast(st);
+      return false;
     }
     if (kind === "gun" && root.SSDNSGunRoll) {
       root.SSDNSGunRoll._offhand = true;
@@ -169,18 +234,24 @@
   function cardHtml(c) {
     var o = options(c);
     if (!o.ok) return "";
+    var stowed = c && c.offhandStowed === true;
+    var hands = o.dualWielder
+      ? (stowed
+        ? " <button type='button' class='btn sm' id='btnDrawBoth' title='Dual Wielder: draw both weapons at once.'>Draw both</button>"
+        : " <button type='button' class='btn sm' id='btnStowBoth' title='Dual Wielder: stow both weapons at once.'>Stow both</button>")
+      : "";
     var pick = defaultPick(o);
     var sel = "<select id='offhandPick' aria-label='Off-hand weapon'>" + o.list.map(function (x) {
       var v = x.kind + ":" + x.index;
       return "<option value='" + esc(v) + "'" + (pick && pick.kind === x.kind && pick.index === x.index ? " selected" : "") + ">" + esc(optionLabel(x)) + "</option>";
     }).join("") + "</select>";
-    var why = o.dualWielder ? "Dual Wielder" : "two light weapons";
+    var why = o.dualWielder ? (stowed ? "Dual Wielder · stowed" : "Dual Wielder · +1 AC while holding both") : "two light weapons";
     return "<div class='offhand-card' id='offhandCard'>" +
       "<b>Off-hand</b> <span class='pip-tag'>Bonus</span> " + sel +
-      " <button type='button' class='btn sm' id='btnOffhand' title='Bonus action after the Attack action. Rolls like a normal attack; no ability modifier on damage.'>Off-hand attack</button>" +
-      "<span class='fine offhand-note'>" + esc(why) + " · bonus action after you Attack · no ability mod to damage</span></div>";
+      " <button type='button' class='btn sm' id='btnOffhand'" + (stowed ? " disabled" : "") + " title='Bonus action after the Attack action. Rolls like a normal attack; no ability modifier on damage.'>Off-hand attack</button>" + hands +
+      "<span class='fine offhand-note'>" + esc(why) + " · needs the Attack action first · no ability mod to damage" + (c && c.fightingStyle === "sidearm" && !stowed ? " · Sidearm Duelling +2 is off while holding two" : "") + "</span></div>";
   }
-  function paint() {
+  function paint(force) {
     if (typeof document === "undefined") return;
     var box = document.querySelector("#meleeBox") || document.querySelector("#guns");
     if (!box) return;
@@ -194,7 +265,7 @@
     var keep = document.querySelector("#offhandPick");
     var was = keep && keep.value;
     var html = cardHtml(c);
-    if (host.getAttribute("data-html") === html) return;
+    if (!force && host.getAttribute("data-html") === html) return;
     host.setAttribute("data-html", html);
     host.innerHTML = html;
     var sel = document.querySelector("#offhandPick");
@@ -202,6 +273,8 @@
   }
   if (typeof document !== "undefined") {
     document.addEventListener("click", function (e) {
+      var hb = e.target && e.target.closest && e.target.closest("#btnDrawBoth, #btnStowBoth");
+      if (hb) { bothHands(hb.id === "btnDrawBoth"); return; }
       var b = e.target && e.target.closest && e.target.closest("#btnOffhand");
       if (!b) return;
       var sel = document.querySelector("#offhandPick");
@@ -217,6 +290,8 @@
   root.SSDNSOffhand = {
     TAG: TAG, options: options, defaultPick: defaultPick, qualifies: qualifies, abilityMod: abilityMod,
     stripMod: stripMod, stripParts: stripParts, spendPip: spendPip, fire: fire, parseId: parseId, paint: paint,
-    hasDualWielder: hasDualWielder, lightMelee: lightMelee
+    hasDualWielder: hasDualWielder, lightMelee: lightMelee, lightPistol: lightPistol, LIGHT_PISTOLS: LIGHT_PISTOLS,
+    wieldingTwo: wieldingTwo, dualWielderAc: dualWielderAc, gate: gate, attackTaken: attackTaken, bothHands: bothHands,
+    BLOCK_MSG: BLOCK_MSG
   };
 })(typeof window !== "undefined" ? window : this);

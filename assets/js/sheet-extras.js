@@ -1867,6 +1867,9 @@
     var g = c.guns[i];
     if (g.equipped === false) { toast("Equip this weapon first."); return; }
     var name0 = gunName(i);
+    /* 0.3.73 (Jessey): the off-hand attack needs the Attack action first; a DM-sent shot overrides. Checked once,
+       on the first pass (the target/range asks re-enter rollGun with _aimed set). */
+    if (OH && OH.gate && !rollGun._aimed && !rollGun._wild && !OH.gate(name0, { dm: !!dmNow }).ok) { rollGun._chamber = null; return; }
     if (/borrowed iron/i.test(name0) || g.weapon === "borrowed-iron") {
       var msg = "Borrowed Iron has no weapon stats. Use Pact Shot.";
       toast(msg);
