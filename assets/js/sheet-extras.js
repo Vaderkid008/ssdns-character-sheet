@@ -537,14 +537,17 @@
     if (!d || !d.character || !item) return;
     var name = String(item.name || "Item");
     var plan = root.SSDNSStore && root.SSDNSStore.grantPlan ? root.SSDNSStore.grantPlan(item) : { kind: "gear", qty: 1 };
-    if (plan.kind === "cartridge") {
+    if (plan.kind === "cartridge" || plan.kind === "ammo") {
+      /* inv2 (0.3.83): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
+      var ptype = plan.kind === "ammo" ? String(plan.type || "") : "cartridge";
       d.character.ammo = d.character.ammo || [];
       var pool = null;
       d.character.ammo.forEach(function (a) {
-        if (!pool && a.type === "cartridge" && String(a.caliber || "") === String(plan.caliber || "")) pool = a;
+        if (!pool && a && a.type === ptype && String(a.caliber || "").toLowerCase() === String(plan.caliber || "").toLowerCase()) pool = a;
       });
-      if (!pool) { pool = { type: "cartridge", caliber: plan.caliber, count: 0 }; d.character.ammo.push(pool); }
+      if (!pool) { pool = { type: ptype, caliber: plan.caliber || "", count: 0 }; d.character.ammo.push(pool); }
       pool.count = (parseInt(pool.count, 10) || 0) + (plan.qty || 1);
+      if (plan.kind === "ammo" && root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {}); /* repaint Ammo + quiver */
     } else if (boughtItem(d.character, item, plan)) {
       /* 0.3.80 inventory build: a store line that matches a catalog item lands as a real item (weight, stacking) */
     } else {
@@ -3024,6 +3027,7 @@
   }
   root.SSDNSGunMelee = rollGunMelee;
   root.SSDNSSheet = {
+    grantBought: grantBought,
     rollInitiative: rollInitiative,
     applyDelta: applyDelta,
     setHp: setHp,
