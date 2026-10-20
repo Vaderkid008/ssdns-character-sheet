@@ -1,5 +1,5 @@
 /**
- * 0.3.76 / DMCC 0.2.89: Off-hand attack (two-weapon fighting).
+ * 0.3.77 / DMCC 0.2.90: Off-hand attack (two-weapon fighting).
  * Rules: PHB two-weapon fighting (two LIGHT one-handed melee weapons); Dual Wielder (campaign house rule) lets
  * any pistol, one-handed Caster Gun or one-handed blade pair work; pistols are one-handed but not light.
  * Bonus action after the Attack action, normal attack path, no positive ability mod to damage, chat tagged off-hand.
@@ -156,7 +156,7 @@ try {
     const loadedR = Number(A.doc().character.guns[1].loaded);
     document.querySelector("#btnOffhand").click(); await wait(700);
     out.off = { log: lastRoll(), pips: P.state(), loaded: Number(A.doc().character.guns[1].loaded), loadedR, sounds: sounds.slice(), alerts: logs().filter((t) => /Attack action first/.test(t)).length };
-    /* 0.3.76 (Jessey): off-hand before the Attack action is BLOCKED with a message */
+    /* 0.3.77 (Jessey): off-hand before the Attack action is BLOCKED with a message */
     P.reset(true);
     const toasts = []; const realToast = window.SSDNSToast; window.SSDNSToast = function (m) { toasts.push(String(m)); return realToast && realToast.apply(this, arguments); };
     const earlyBefore = { loaded: Number(A.doc().character.guns[1].loaded), rolls: logs().filter((t) => /→/.test(t)).length };
@@ -210,7 +210,7 @@ try {
       c.melee = [{ weapon: "cavalry-saber-longsword", equipped: true, proficient: true, twoHand: true }, { weapon: "" }, { weapon: "" }, { weapon: "" }]; });
     await wait(300);
     out.grip = { ok: O.options().ok };
-    /* 0.3.76 (Jessey #1): the three Herringer Light pistols are light: they pair without Dual Wielder */
+    /* 0.3.77 (Jessey #1): the three Herringer Light pistols are light: they pair without Dual Wielder */
     const H = (id) => gunRow(id, 2);
     load((c) => { c.guns = [H("herringer-light-pocket-pistol"), H("herringer-light-double-derringer"), { weapon: "" }, { weapon: "" }]; }); await wait(300);
     out.lightPair = { ok: O.options().ok, n: O.options().list.length };
@@ -221,7 +221,7 @@ try {
     out.lightHeavy = { ok: O.options().ok, reason: O.options().reason };
     load((c) => { c.feats = ["dual-wielder"]; c.guns = [H("herringer-light-pocket-pistol"), gunRow("pony-arms-chaosmaker-medium", 6), { weapon: "" }, { weapon: "" }]; }); await wait(300);
     out.lightHeavyDW = { ok: O.options().ok };
-    /* 0.3.76 (Jessey #5): Sidearm Duelling +2 is off while holding two weapons */
+    /* 0.3.77 (Jessey #5): Sidearm Duelling +2 is off while holding two weapons */
     const dmgFlat = (t) => { const m = String(t || "").match(/[+-]\s*(\d+)/); return m ? Number(m[0].replace(/\s/g, "")) : 0; };
     load((c) => { c.fightingStyle = "sidearm"; c.guns = [gunRow("pony-arms-chaosmaker-medium", 6), { weapon: "" }, { weapon: "" }, { weapon: "" }]; c.feats = ["dual-wielder"]; }); await wait(300);
     out.sidearm = { single: dmgFlat(A.compute().guns[0].dmg) };
@@ -229,7 +229,7 @@ try {
     out.sidearm.two = dmgFlat(A.compute().guns[0].dmg); out.sidearm.twoWield = O.wieldingTwo();
     load((c) => { c.fightingStyle = "sidearm"; c.feats = []; }); await wait(300); /* twin irons without DW: not an off-hand pair */
     out.sidearm.noDW = dmgFlat(A.compute().guns[0].dmg);
-    /* 0.3.76 (Jessey #6): Dual Wielder +1 AC while holding two, Draw both / Stow both */
+    /* 0.3.77 (Jessey #6): Dual Wielder +1 AC while holding two, Draw both / Stow both */
     load((c) => { c.feats = []; c.guns = [gunRow("pony-arms-chaosmaker-medium", 6), { weapon: "" }, { weapon: "" }, { weapon: "" }]; }); await wait(300);
     const acBase = A.compute().ac;
     load((c) => { c.feats = ["dual-wielder"]; c.guns = [gunRow("pony-arms-chaosmaker-medium", 6), { weapon: "" }, { weapon: "" }, { weapon: "" }]; }); await wait(300);
@@ -253,7 +253,7 @@ try {
     P.reset(true); window.SSDNSGunRoll(0); await wait(600);
     O.fire("gun", 1); await wait(700);
     out.neg = { log: lastRoll() };
-    /* 0.3.76 (Jessey L0183): Two-Gun fighting style */
+    /* 0.3.77 (Jessey L0183): Two-Gun fighting style */
     const PT2 = window.SSDNSPlaytest;
     const ids = (c) => PT2.styleOptions(c).map((o) => o[0]);
     out.tg = {
@@ -280,7 +280,7 @@ try {
     load((c) => { c.calling = "lawman"; c.level = 5; c.fightingStyle = "two-gun"; }); await wait(300);
     out.tg.lawman = O.hasTwoGun();
     window.SSDNSToast = realToast;
-    /* 0.3.76 (Jessey): Great Weapon Fighting rerolls also apply to a Versatile weapon held with "Two hands" */
+    /* 0.3.77 (Jessey): Great Weapon Fighting rerolls also apply to a Versatile weapon held with "Two hands" */
     const PT = window.SSDNSPlaytest, CH = () => A.doc().character;
     const gwfLoad = (fn) => load((c) => { c.calling = "lawman"; c.level = 2; c.fightingStyle = "great-weapon"; c.shield = false;
       c.guns = [{ weapon: "" }, { weapon: "" }, { weapon: "" }, { weapon: "" }];

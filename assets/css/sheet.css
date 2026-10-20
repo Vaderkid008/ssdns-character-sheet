@@ -913,7 +913,7 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .item-form label { display: block; margin: 4px 0; font-size: 13px; }
 .item-form input, .item-form select { max-width: 100%; }
 .item-form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-/* 0.3.76 compact player "Add item ▾" menu */
+/* 0.3.77 compact player "Add item ▾" menu */
 .add-item-menu { position: relative; margin-top: 6px; }
 .add-item-bar { display: flex; gap: 8px; align-items: center; }
 .add-item-toggle { min-height: 36px; }
@@ -1157,3 +1157,48 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .g-mis label.jam.on { font-weight: 700; color: var(--chip-ink, #7a1f14); background: var(--chip-bg, rgba(163, 48, 31, .14)); border-color: var(--chip, #7a1f14); }
 .g-mis label.jam[data-cond="dirty"], .g-mis label.jam[data-cond="fouled"] { --chip: #b0611a; --chip-ink: #7a3d0c; --chip-bg: rgba(214, 135, 40, .20); }
 .g-mis label.jam[data-cond="jammed"], .g-mis label.jam[data-cond="lockup"] { --chip: #b3261e; --chip-ink: #8a1a13; --chip-bg: rgba(224, 82, 74, .17); }
+/* ---- SAMPLE main-tab layout (Jessey 2026-10-19 9:00 PM CT): portrait | identity fields (tight) | Eldorite ----
+   Scoped to #page-main so Backstory / Hexes top blocks (also .topblock / .topgrid) keep their layout. */
+#page-main .topblock { grid-template-columns: minmax(220px, 1fr) minmax(0, 1.45fr) minmax(250px, 1fr); align-items: start; }
+#page-main .identity { align-self: stretch; }
+#page-main .topgrid { grid-template-columns: 1fr 1fr; align-content: start; gap: 4px 12px; padding: 8px 12px 10px; }
+#page-main .topgrid .tf { justify-content: flex-start; }
+#page-main .topgrid .tf-calling, #page-main .topgrid .tf-lineage, #page-main .topgrid .lineage-row { grid-column: 1 / -1; }
+#page-main .topgrid .tf-calling .pair select { flex: 1 1 auto; min-width: 0; }
+#page-main .kit-actions { margin-top: 6px; }
+#page-main .tf-lineage .pair { flex-wrap: nowrap; }
+#page-main .tf-lineage .pair select { flex: 1 1 0; min-width: 0; }
+#page-main .topgrid .lineage-row { padding: 0 0 2px; line-height: 1.35; }
+#page-main .eldorite-col { margin: 0; min-width: 0; }
+#page-main .eldorite-col .shards { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; margin: 0; }
+#page-main .eldorite-col .shard { grid-template-columns: 18px minmax(52px, auto) minmax(0, 1fr) auto; grid-template-rows: auto; padding: 2px 8px 2px 6px; }
+#page-main .eldorite-col .shard .gem { grid-row: 1; }
+#page-main .eldorite-col .shard-name { grid-column: 2; }
+#page-main .eldorite-col .shard input { grid-column: 3; min-height: 24px; text-align: center; }
+#page-main .eldorite-col .shard-val { grid-column: 4; white-space: nowrap; }
+#page-main .eldorite-col .shard-total { margin-top: 2px; }
+#page-main .eldorite-col .shard-actions { gap: 6px; }
+#page-main .eldorite-col .shard-actions .es-total { font-size: 22px; min-width: 0; }
+#page-main .eldorite-col .shard-actions select { flex: 1 1 110px; min-width: 0; }
+/* tablet: portrait | fields, Eldorite runs full width under them with the five shards in a row */
+@media screen and (max-width: 1080px) {
+  #page-main .topblock { grid-template-columns: minmax(200px, 1fr) minmax(0, 1.6fr); }
+  #page-main .eldorite-col { grid-column: 1 / -1; }
+  #page-main .eldorite-col .shards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  #page-main .eldorite-col .shards-title, #page-main .eldorite-col .shard-total, #page-main .eldorite-col .shard-actions { grid-column: 1 / -1; }
+  #page-main .eldorite-col .shard { grid-template-columns: 18px minmax(0, 1fr); grid-template-rows: auto auto; }
+  #page-main .eldorite-col .shard .gem { grid-row: 1 / 3; }
+  #page-main .eldorite-col .shard input { grid-column: 2; grid-row: 2; }
+  #page-main .eldorite-col .shard-val { display: none; }
+}
+/* phones: everything stacks; shards two per row */
+@media screen and (max-width: 760px) {
+  #page-main .topblock { grid-template-columns: 1fr; }
+  #page-main .topgrid { grid-template-columns: 1fr 1fr; }
+  #page-main .eldorite-col .shards { grid-template-columns: 1fr 1fr; }
+  #page-main .eldorite-col .shard-val { display: block; grid-column: 2; }
+}
+@media screen and (max-width: 520px) {
+  #page-main .topgrid { grid-template-columns: 1fr; }
+}
+#page-main .tf-calling .pair { flex-wrap: nowrap; }
