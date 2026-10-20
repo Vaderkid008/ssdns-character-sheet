@@ -15,8 +15,22 @@
     "cartridges-light-20": { kind: "cartridge", caliber: "Light", qty: 20 },
     "cartridges-medium-20": { kind: "cartridge", caliber: "Medium", qty: 20 },
     "cartridges-heavy-20": { kind: "cartridge", caliber: "Heavy", qty: 20 },
-    "big-fifty-cartridges-50-90-10": { kind: "cartridge", caliber: ".50-90", qty: 10 }
+    "big-fifty-cartridges-50-90-10": { kind: "cartridge", caliber: ".50-90", qty: 10 },
+    /* inv2 (0.2.96): every other store ammo pack fills its sheet Ammo pool (the #100 quiver / bolt / pouch pools)
+       instead of writing a gear note line */
+    "arrows-20": { kind: "ammo", type: "arrows", caliber: "", qty: 20 },
+    "crossbow-bolts-20": { kind: "ammo", type: "bolts", caliber: "", qty: 20 },
+    "sling-stones-20": { kind: "ammo", type: "stones", caliber: "", qty: 20 },
+    "blowpipe-needles-50": { kind: "ammo", type: "needles", caliber: "", qty: 50 },
+    "powder-ball-and-caps-20-shots": { kind: "ammo", type: "percussion", caliber: "", qty: 20 },
+    "shells-410-10": { kind: "ammo", type: "buck", caliber: ".410", qty: 10 },
+    "shells-12-ga-10": { kind: "ammo", type: "buck", caliber: "12 ga", qty: 10 },
+    "shells-10-ga-10": { kind: "ammo", type: "buck", caliber: "10 ga", qty: 10 }
   };
+  var AMMO_BY_NAME = [
+    [/^arrows\b/i, "arrows", ""], [/^crossbow bolts\b/i, "bolts", ""], [/^sling (stones|bullets)\b/i, "stones", ""],
+    [/^blowpipe needles\b/i, "needles", ""], [/^powder, ball,? and caps\b/i, "percussion", ""]
+  ];
 
   function eligible(items, store, town) {
     var rank = TOWN_RANK[town];
@@ -199,6 +213,9 @@
       else if (/heavy/i.test(name)) caliber = "Heavy";
       else if (/medium/i.test(name)) caliber = "Medium";
       return { kind: "cartridge", caliber: caliber, qty: qty };
+    }
+    for (var k = 0; k < AMMO_BY_NAME.length; k++) {
+      if (AMMO_BY_NAME[k][0].test(name)) return { kind: "ammo", type: AMMO_BY_NAME[k][1], caliber: AMMO_BY_NAME[k][2], qty: item.qty || trailingQty(name) || 1 };
     }
     return { kind: "gear", qty: item.qty || 1 };
   }

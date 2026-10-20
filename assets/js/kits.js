@@ -78,8 +78,22 @@
     }
     pool.count = (parseInt(pool.count, 10) || 0) + count;
   }
+  /* inv2 (0.3.83): a kit gear line that is a real catalog item (Trail kit, Thieves' tools, ...) lands as that item,
+     so it has weight and the pack can be unpacked. Never twice: skipped when the line or the item is already there.
+     Without the item catalog (node tests, old pages) it stays a gear line as before. */
+  function kitItem(c, text) {
+    var I = root.SSDNSItems, map = root.SSDNS_KIT_LINE_ITEMS;
+    var id = map && Object.prototype.hasOwnProperty.call(map, text) ? map[text] : "";
+    if (!id || !I || !I.add || !I.byId || !I.byId(id)) return false;
+    if (String(c.equipment || "").indexOf(text) >= 0) return true;
+    var have = (Array.isArray(c.items) ? c.items : []).some(function (it) { return it && it.catalogId === id && Number(it.count == null ? 1 : it.count) > 0; });
+    if (have) return true;
+    var res = I.add(c, { catalogId: id, count: 1 }, { dm: true });
+    return !!(res && res.ok);
+  }
   function addLine(c, text) {
     if (!text) return;
+    if (kitItem(c, text)) return;
     var cur = c.equipment || "";
     if (cur.indexOf(text) >= 0) return;
     c.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + "• " + text;

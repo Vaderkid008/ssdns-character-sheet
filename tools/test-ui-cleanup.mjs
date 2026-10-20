@@ -22,9 +22,9 @@ const app = read("assets/js/app.js");
 const mapSrc = read("map/ssdns-map.js");
 const css = read("map/ssdns-map.css");
 const sheetCss = read("assets/css/sheet.css");
-check("ver.sheet", version.sheet === "0.3.82" && version.sheetBuild === "sheet-playtest-v0382");
-check("ver.dmcc", version.dmcc === "0.2.95" && version.dmccBuild === "dmcc-playtest-v0295");
-check("ver.app", app.includes('APP_VERSION = "0.3.82"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.95"'));
+check("ver.sheet", version.sheet === "0.3.83" && version.sheetBuild === "sheet-playtest-v0383");
+check("ver.dmcc", version.dmcc === "0.2.96" && version.dmccBuild === "dmcc-playtest-v0296");
+check("ver.app", app.includes('APP_VERSION = "0.3.83"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.96"'));
 check("rules.untouched", !read("database.rules.json").includes("ssdns.dmCard") && !read("assets/data/rules.js").includes("g-gunmelee"));
 
 const toolbar = mapSrc.slice(mapSrc.indexOf("toolbar.innerHTML"), mapSrc.indexOf("el.appendChild(toolbar)"));

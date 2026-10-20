@@ -835,6 +835,38 @@
     return { ok: true, item: item };
   }
 
+  /* inv2 (0.3.83): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
+     unpack, so nothing is doubled; 5E parts with no catalog row land as one gear note line. */
+  function packContents(item) {
+    var map = root.SSDNS_PACK_CONTENTS || {};
+    var id = item && item.catalogId;
+    return id && Object.prototype.hasOwnProperty.call(map, id) ? map[id] : null;
+  }
+  function unpack(character, id, opts) {
+    opts = opts || {};
+    var item = find(character, id);
+    if (!item) return { ok: false, reason: "No item." };
+    var pack = packContents(item);
+    if (!pack) return { ok: false, reason: "That isn't a pack." };
+    if (character.inventoryLocked && !opts.dm) return { ok: false, reason: "Inventory is locked." };
+    var n = Number(item.count == null ? 1 : item.count) || 0;
+    if (n <= 0) return { ok: false, reason: "No item." };
+    item.count = n - 1;
+    prune(character);
+    var added = [];
+    (pack.items || []).forEach(function (pair) {
+      var res = add(character, { catalogId: pair[0], count: pair[1] || 1 }, { dm: true });
+      if (res && res.ok) added.push(pair);
+    });
+    var notes = (pack.notes || []).slice();
+    if (notes.length) {
+      var line = "• From " + (item.name || "pack") + ": " + notes.join(", ");
+      var cur = character.equipment || "";
+      if (cur.indexOf(line) < 0) character.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + line;
+    }
+    return { ok: true, item: item, added: added, notes: notes };
+  }
+
   function setRoom(next) {
     next = next || {};
     room.weightOn = !!next.weightOn;
@@ -1042,6 +1074,9 @@
     var useBtn = showUse(item, viewerOf(c)) && !view.blank
       ? '<button type="button" class="btn xs" data-item-use="' + esc(item.uid) + '">Use</button>'
       : "";
+    var unpackBtn = packContents(item) && !(c && c.inventoryLocked) && !view.blank
+      ? '<button type="button" class="btn xs" data-item-unpack="' + esc(item.uid) + '" title="Take everything out: the pack becomes its real items (with their weights).">Unpack</button> '
+      : "";
     var dropBtn = canDrop(item, { dm: false, inventoryLocked: !!(c && c.inventoryLocked) })
       ? '<button type="button" class="btn xs ghost" data-item-drop="' + esc(item.uid) + '">Drop</button>'
       : "";
@@ -1058,7 +1093,7 @@
     var wt = item.weight != null && isFinite(Number(item.weight)) ? ' <span class="fine item-wt" title="' + (item.noCarry ? "Rides on your mount; not counted in what you carry" : "Weight each") + '">' + (item.noCarry && !Number(item.weight) ? "not carried" : esc(item.weight) + " lb" + (item.noCarry ? " · on mount" : "")) + "</span>" : "";
     return '<div class="item-row">' + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b>" + wt + pips + " " + tag + " " + lock +
       '<div class="fine">' + esc(view.description || (view.effect && view.effect.text) || "") + "</div>" +
-      useBtn + " " + dropBtn + "</div></div>";
+      useBtn + " " + unpackBtn + dropBtn + "</div></div>";
   }
 
   function formHtml(opts) {
@@ -1417,6 +1452,20 @@
       paintSheet();
       return;
     }
+    var unpackId = t.getAttribute("data-item-unpack");
+    if (unpackId) {
+      var ur = unpack(character(), unpackId, { dm: false });
+      if (ur && ur.ok) commit();
+      if (ur && !ur.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(ur.reason);
+      else if (ur && ur.ok) {
+        if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "item", text: "Unpacked " + (ur.item && ur.item.name || "pack") });
+        var ta = document.querySelector('[data-f="character.equipment"]');
+        if (ta && character()) ta.value = character().equipment || "";
+      }
+      paintSheet();
+      paintWeight();
+      return;
+    }
     var dropId = t.getAttribute("data-item-drop");
     if (dropId) {
       var result = drop(character(), dropId, { dm: false, inventoryLocked: !!(character() && character().inventoryLocked) });
@@ -1707,6 +1756,8 @@
     spend: spend,
     add: add,
     drop: drop,
+    unpack: unpack,
+    packContents: packContents,
     carryCapacity: carryCapacity,
     totalWeight: totalWeight,
     weightReport: weightReport,
