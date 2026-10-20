@@ -68,6 +68,16 @@ try {
         oldAdvGone: !c.querySelector('.g-actions [data-adv]')
       };
     });
+    /* ADV green / DIS red, the chat-ring hues (#46c46a / #e0524a) */
+    {
+      const al = document.querySelector('[data-advtick="0"][value="adv"]').closest("label"), dl = document.querySelector('[data-advtick="0"][value="dis"]').closest("label");
+      const cs = (n) => getComputedStyle(n);
+      out.colors = { advAccent: cs(al.querySelector("input")).accentColor, disAccent: cs(dl.querySelector("input")).accentColor, advText: cs(al).color, disText: cs(dl).color, advBg: cs(al).backgroundColor, disBg: cs(dl).backgroundColor };
+    }
+    {
+      const m = document.querySelector('[data-out="mis.0"]'), cs = getComputedStyle(m);
+      out.badge = { border: cs.borderTopStyle + " " + cs.borderTopWidth + " " + cs.borderTopColor, bg: cs.backgroundColor, weight: cs.fontWeight, pad: cs.paddingLeft, text: m.textContent };
+    }
     /* ADV / DIS ticks: mutually exclusive, same state as before */
     const adv = document.querySelector('[data-advtick="0"][value="adv"]'), dis = document.querySelector('[data-advtick="0"][value="dis"]');
     adv.click(); await wait(100);
@@ -159,6 +169,8 @@ try {
     check(n + ".misfireRowHorizontal", s.misRow && s.misLeft, J(s));
     check(n + ".noEmptySmithRow", s.noSmithRow, J(s));
   });
+  check("adv.colors", res.colors.advAccent === "rgb(70, 196, 106)" && res.colors.disAccent === "rgb(224, 82, 74)" && /^rgb\(\d+, 1[0-9]{2}, /.test(res.colors.advText) && /^rgb\(1[0-9]{2}, \d{1,2}, /.test(res.colors.disText) && /rgba\(70, 196, 106/.test(res.colors.advBg) && /rgba\(224, 82, 74/.test(res.colors.disBg), JSON.stringify(res.colors));
+  check("misfire.badge", /^solid 1px rgb\(74, 50, 32\)$/.test(res.badge.border) && /rgba\(59, 42, 26/.test(res.badge.bg) && Number(res.badge.weight) >= 700 && parseFloat(res.badge.pad) >= 6 && /\d/.test(res.badge.text), JSON.stringify(res.badge));
   check("adv.tickSetsMode", res.t1.mode === "adv" && res.t1.saved === "adv" && res.t1.sel === "adv" && res.t1.adv && !res.t1.dis, J(res.t1));
   check("adv.exclusive", res.t2.mode === "dis" && !res.t2.adv && res.t2.dis, J(res.t2));
   check("adv.neitherIsNormal", res.t3.mode === "" && !res.t3.adv && !res.t3.dis, J(res.t3));
