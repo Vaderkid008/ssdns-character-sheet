@@ -46,4 +46,9 @@ Catalog rows and inventory rows may carry these. `type` is unchanged.
 - Input also accepts the scrub doc form `food: { meals }` and `water: { gallons }` (container → capacity, drink → water). Packs carry no tags; their meals/capacity are derived from SSDNS_PACK_CONTENTS.
 - `character.supplies`: `{ mode: off|loose|strict, water (loose gal), daysHungry, halfOpen, pendingSave, last, day, share }`
 
+## Carry weight extras (item template review, 2026-10-20)
+- `summoned` (bool, inventory row of the Saddle of the Phantom Steed only): the Spectral Horse is out and wears the saddle, so the saddle counts as noCarry. Off = carried at 25 lb. Set by Use (casting Phantom Steed) or the row's Summon / Dismiss button; a long rest clears it. There was no summon state before this, so this flag is the summon state.
+- `SSDNS_CARRY_WEIGHTS.ammoEach` keys are `type` or `type:caliber`. `arrows:dynamite` = 1.05 lb (1 lb stick + 0.05 lb arrow), so making a dynamite arrow leaves carried weight unchanged.
+- Ammo pool types: `buck` and `slug` are separate pools (0.1 lb a shell). Slug shells sell as their own store rows at the buckshot price (BOOK1 L4212). `bigfifty` (.50-90) is its own pool at 0.15 lb a round.
+
 See docs/supplies.md.

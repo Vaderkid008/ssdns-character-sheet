@@ -15,7 +15,9 @@
     "cartridges-light-20": { kind: "cartridge", caliber: "Light", qty: 20 },
     "cartridges-medium-20": { kind: "cartridge", caliber: "Medium", qty: 20 },
     "cartridges-heavy-20": { kind: "cartridge", caliber: "Heavy", qty: 20 },
-    "big-fifty-cartridges-50-90-10": { kind: "cartridge", caliber: ".50-90", qty: 10 },
+    /* C1 (item template review, 2026-10-20): the Big Fifty reads ammo "bigfifty", so its rounds get their own pool
+       (0.15 lb each in SSDNS_CARRY_WEIGHTS.ammoEach), not a regular cartridge pool at 0.05 lb */
+    "big-fifty-cartridges-50-90-10": { kind: "ammo", type: "bigfifty", caliber: ".50-90", qty: 10 },
     /* inv2 (0.2.98): every other store ammo pack fills its sheet Ammo pool (the #100 quiver / bolt / pouch pools)
        instead of writing a gear note line */
     "arrows-20": { kind: "ammo", type: "arrows", caliber: "", qty: 20 },
@@ -26,6 +28,11 @@
     "shells-410-10": { kind: "ammo", type: "buck", caliber: ".410", qty: 10 },
     "shells-12-ga-10": { kind: "ammo", type: "buck", caliber: "12 ga", qty: 10 },
     "shells-10-ga-10": { kind: "ammo", type: "buck", caliber: "10 ga", qty: 10 },
+    /* Jessey 2026-10-20 (9:17 AM): slugs are bought as their own rows at the buckshot price (BOOK1 L4212:
+       "Shells come as buckshot or slugs at the same price") and fill the slug pool */
+    "slug-shells-410-10": { kind: "ammo", type: "slug", caliber: ".410", qty: 10 },
+    "slug-shells-12-ga-10": { kind: "ammo", type: "slug", caliber: "12 ga", qty: 10 },
+    "slug-shells-10-ga-10": { kind: "ammo", type: "slug", caliber: "10 ga", qty: 10 },
     /* L0186 special arrows (2026-10-20): each type is its own arrows pool (caliber = type id); dynamite arrows are made, not sold */
     "arrows-broadhead-5": { kind: "ammo", type: "arrows", caliber: "broadhead", qty: 5 },
     "arrows-blunt-5": { kind: "ammo", type: "arrows", caliber: "blunt", qty: 5 },
@@ -216,11 +223,17 @@
     var name = String(item.name || "");
     if (/cartridge/i.test(name) && !/belt|strap|loop/i.test(name)) {
       var qty = item.qty || trailingQty(name) || 1;
+      if (/\.50-90|big fifty/i.test(name)) return { kind: "ammo", type: "bigfifty", caliber: ".50-90", qty: qty };
       var caliber = "Light";
-      if (/\.50-90/i.test(name)) caliber = ".50-90";
-      else if (/heavy/i.test(name)) caliber = "Heavy";
+      if (/heavy/i.test(name)) caliber = "Heavy";
       else if (/medium/i.test(name)) caliber = "Medium";
       return { kind: "cartridge", caliber: caliber, qty: qty };
+    }
+    /* shells by name: "slug" in the name fills the slug pool, other shells the buckshot pool */
+    var ga = /\.410|12\s*ga|10\s*ga/i.exec(name);
+    if (/shell|slug|buckshot/i.test(name) && ga) {
+      var gauge = /410/.test(ga[0]) ? ".410" : (/12/.test(ga[0]) ? "12 ga" : "10 ga");
+      return { kind: "ammo", type: /slug/i.test(name) ? "slug" : "buck", caliber: gauge, qty: item.qty || trailingQty(name) || 1 };
     }
     for (var k = 0; k < AMMO_BY_NAME.length; k++) {
       if (AMMO_BY_NAME[k][0].test(name)) return { kind: "ammo", type: AMMO_BY_NAME[k][1], caliber: AMMO_BY_NAME[k][2], qty: item.qty || trailingQty(name) || 1 };

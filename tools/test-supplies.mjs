@@ -135,6 +135,7 @@ check("scrub.storeGreater", st["greater-healing-libation"] && st["greater-healin
 check("scrub.storeFood", st["bread-loaf"].price_es === 2 && st["cheese-hunk"].price_es === 10 && st["meat-chunk"].price_es === 30 && st["meat-chunk"].weight_lb === 0);
 check("scrub.storeArrows", [["arrows-broadhead-5", 50, 0.25], ["arrows-blunt-5", 25, 0.25], ["arrows-fire-5", 100, 0.25], ["arrows-whistler-5", 50, 0.25], ["arrows-poison-3", 1500, 0.15]].every(([id, p, w]) => st[id] && st[id].price_es === p && st[id].weight_lb === w));
 check("scrub.bookLinesPHB", st["trail-pack"].bookLine === 4554 && st["cartridges-light-20"].bookLine === 4201 && st["single-barrel-farm-shotgun"].bookLine === 3995);
+check("review.C5C6.bookLines", st["hardtack-jerky-1-day"].bookLine === 4585 && st["assay-tonic-trail-draught"].bookLine === 4615 && st["pony-arms-chaosmaker-light"].bookLine === 3983 && !storeRows.some((r) => /L4526/.test(r.notes || "")));
 check("scrub.provisionalCleared", ["gunsmith-s-tools", "eldorite-charm-bone-fetish-quill-case-lens-arcane-focus", "antler-eldorite-nodule-beast-charm-druidic-focus", "drum", "bugle", "tin-whistle"].every((id) => !Items.byId(id).provisional));
 check("scrub.bridleNoCarry", Items.byId("bit-and-bridle").noCarry === true);
 check("scrub.bundlesNotSold", ["dynamite-bundle-2", "dynamite-bundle-3", "dynamite-bundle-4"].every((id) => !Items.byId(id).forSale) && !st["dynamite-bundle-2"]);

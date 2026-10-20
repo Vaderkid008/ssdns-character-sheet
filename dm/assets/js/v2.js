@@ -5997,7 +5997,7 @@ async function bootV2() {
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.98-preacher");
+    const res = await fetch("assets/data/store-items.json?v=0.2.98-slugs");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

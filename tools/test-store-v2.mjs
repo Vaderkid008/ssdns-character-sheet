@@ -127,7 +127,7 @@ for (let seed = 1; seed <= 1000; seed++) {
   });
 }
 const big = Store.grantPlan({ id: "big-fifty-cartridges-50-90-10", name: "Big Fifty cartridges, .50-90 (10)" });
-check(big.kind === "cartridge" && big.qty === 10 && big.caliber === ".50-90", "Big Fifty grants 10 of .50-90, not 50");
+check(big.kind === "ammo" && big.type === "bigfifty" && big.qty === 10 && big.caliber === ".50-90", "Big Fifty grants 10 of .50-90 to the Big Fifty pool (C1), not 50");
 const named = Store.grantPlan({ name: "Big Fifty cartridges, .50-90 (10)" });
 check(named.qty === 10 && named.caliber === ".50-90", "a trailing count beats the caliber number");
 check(!Store.stockableCommons(items, "music", "boomtown").some((it) => /^(Drum|Bugle|Tin whistle)$/.test(it.name)), "unpriced instruments stay off default stock");

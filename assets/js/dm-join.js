@@ -952,6 +952,21 @@
         return true;
       }
     }
+    /* C1 (2026-10-20): Big Fifty rounds the DM gives go to the Big Fifty .50-90 pool (0.15 lb each), like store rounds */
+    var Store = root.SSDNSStore;
+    var plan50 = !kind && Store && Store.grantPlan ? Store.grantPlan({ id: payload.itemId || "", name: text.replace(/^\s*\d+\s*x\s+/i, "") }) : null;
+    if (plan50 && plan50.type === "bigfifty" && root.SSDNSApp && root.SSDNSApp.applyPatch) {
+      var rounds = Math.max(1, Number(plan50.qty) || 1) * qty;
+      root.SSDNSApp.applyPatch(function (d) {
+        var am = d.character.ammo = Array.isArray(d.character.ammo) ? d.character.ammo : [];
+        var pool = am.filter(function (a) { return a && a.type === "bigfifty" && String(a.caliber || "") === ".50-90"; })[0];
+        if (!pool) { pool = { type: "bigfifty", caliber: ".50-90", count: 0 }; am.push(pool); }
+        pool.count = (parseInt(pool.count, 10) || 0) + rounds;
+      });
+      toast("DM sent " + rounds + " Big Fifty rounds (.50-90)");
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Ammo: " + rounds + " Big Fifty .50-90" });
+      return true;
+    }
     if (!kind || kind === "weapon") return false;
     var logId = "item:" + (payload.grantId || cmd.id || "");
     var app = root.SSDNSApp;

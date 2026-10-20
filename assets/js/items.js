@@ -37,6 +37,13 @@
   /* 0.3.80 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
      so an old character never shows a counter for them or gets blocked. */
   var UNLIMITED_USES = { "saddle-of-the-phantom-steed": 1 };
+  /* Jessey 2026-10-20 (9:17 AM): the Saddle of the Phantom Steed is carried (25 lb) while the Spectral Horse isn't
+     summoned. While the horse is out, the saddle is on the mount and counts as noCarry like other tack.
+     There was no summon state in the code, so the saddle row carries its own flag: item.summoned (set by Use,
+     toggled by the row's Summon / Dismiss button, cleared on a long rest since Phantom Steed lasts 1 hour). */
+  var SUMMON_SADDLE = { "saddle-of-the-phantom-steed": "Spectral Horse" };
+  function onSteed(item) { return !!(item && SUMMON_SADDLE[item.catalogId || item.id || ""] && item.summoned); }
+  function carriedOff(item) { return !!(item && (item.noCarry || onSteed(item))); }
   function unlimitedFix(item) {
     if (!item) return item;
     var id = item.catalogId || item.id || "";
@@ -310,6 +317,7 @@
       shelf: base.shelf || (raw && raw.shelf) || "",
       stack: !!(base.stack || (raw && raw.stack)),
       noCarry: !!(base.noCarry || (raw && raw.noCarry)),
+      summoned: !!(raw && raw.summoned),
       meals: posNum(raw && raw.meals != null ? raw.meals : base.meals),
       water: posNum(raw && raw.water != null && typeof raw.water !== "object" ? raw.water : base.water),
       capacity: posNum(raw && raw.capacity != null ? raw.capacity : base.capacity),
@@ -687,7 +695,7 @@
   function totalWeight(items) {
     var sum = 0;
     (items || []).forEach(function (item) {
-      if (item && item.noCarry) return; /* 0.3.80: mounts, vehicles and saddle gear ride on the mount */
+      if (carriedOff(item)) return; /* 0.3.80: mounts, vehicles and saddle gear ride on the mount (and a summoned steed's saddle) */
       var w = num(item && item.weight);
       if (w == null) return;
       var n = Number(item.count);
@@ -744,7 +752,9 @@
       if (!pool) return;
       var n = Number(pool.count);
       if (!isFinite(n) || n <= 0) return;
-      out.ammo += n * (num(each[pool.type]) || 0);
+      var sub = pool.type + ":" + String(pool.caliber || "").toLowerCase().trim();
+      var per = each[sub] != null ? num(each[sub]) : num(each[pool.type]);
+      out.ammo += n * (per || 0);
     });
     if (character.instrument) out.instrument += num((CW.instruments || {})[character.instrument]) || 0;
     /* L0188 food & water: the DM's water count (gallons) weighs 8 lb a gallon. */
@@ -767,6 +777,7 @@
 
   function recharge(character, kind) {
     listOf(character).forEach(function (item) {
+      if (kind === "long" && item && item.summoned) item.summoned = false; /* Phantom Steed lasts 1 hour */
       if (!item || !item.uses || item.uses.max == null) return;
       var when = item.uses.recharge || "";
       if (!when) return;
@@ -1115,6 +1126,18 @@
     }
   }
 
+  /** Saddle of the Phantom Steed: on = true / false, or null to flip. Returns the new state. */
+  function setSummoned(id, on) {
+    var item = find(character(), id);
+    if (!item || !SUMMON_SADDLE[item.catalogId || item.id || ""]) return null;
+    var next = on == null ? !item.summoned : !!on;
+    if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () { item.summoned = next; });
+    else item.summoned = next;
+    commit();
+    paintSheet();
+    paintWeight();
+    return next;
+  }
   function useOnSheet(id, opts) {
     opts = opts || {};
     var c = character();
@@ -1147,6 +1170,10 @@
     if (plan.consume) {
       spend(item);
       prune(c);
+    }
+    if (SUMMON_SADDLE[item.catalogId || item.id || ""]) {
+      item.summoned = true;
+      plan.chat = (plan.chat || "") + " The " + SUMMON_SADDLE[item.catalogId || item.id] + " wears the saddle now (not carried).";
     }
     if (plan.selfDamage && root.SSDNSApp && root.SSDNSApp.applyPatch) {
       root.SSDNSApp.applyPatch(function (d) {
@@ -1203,10 +1230,14 @@
       lock += ' <button type="button" class="btn xs' + (item.attuned ? " btn-primary" : "") + '" data-item-attune="' + esc(item.uid) + '" title="Attunement: up to ' + attuneCap(c) + ' items">' + (item.attuned ? "Attuned ✓" : "Attune") + "</button>";
     }
     var pips = root.SSDNSTrackers && root.SSDNSTrackers.itemPips ? root.SSDNSTrackers.itemPips(item) : ""; /* SAMPLE trackers: count pips */
-    var wt = item.weight != null && isFinite(Number(item.weight)) ? ' <span class="fine item-wt" title="' + (item.noCarry ? "Rides on your mount; not counted in what you carry" : "Weight each") + '">' + (item.noCarry && !Number(item.weight) ? "not carried" : esc(item.weight) + " lb" + (item.noCarry ? " · on mount" : "")) + "</span>" : "";
+    var off = carriedOff(item);
+    var wt = item.weight != null && isFinite(Number(item.weight)) ? ' <span class="fine item-wt" title="' + (off ? "Rides on your mount; not counted in what you carry" : "Weight each") + '">' + (off && !Number(item.weight) ? "not carried" : esc(item.weight) + " lb" + (onSteed(item) ? " · on the " + SUMMON_SADDLE[item.catalogId || item.id] : (off ? " · on mount" : ""))) + "</span>" : "";
+    var steedBtn = SUMMON_SADDLE[item.catalogId || item.id || ""] && !view.blank
+      ? '<button type="button" class="btn xs' + (item.summoned ? " btn-primary" : "") + '" data-item-summon="' + esc(item.uid) + '" title="' + (item.summoned ? "The Spectral Horse is out and wears the saddle (not carried). Click to dismiss it: you carry the saddle again (25 lb)." : "Mark the Spectral Horse as summoned: the saddle rides on it and stops counting as carried.") + '">' + (item.summoned ? "Steed summoned ✓" : "Steed not summoned") + "</button> "
+      : "";
     return '<div class="item-row">' + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b>" + wt + pips + " " + tag + " " + lock +
       '<div class="fine">' + esc(view.description || (view.effect && view.effect.text) || "") + "</div>" +
-      useBtn + " " + unpackBtn + dropBtn + "</div></div>";
+      useBtn + " " + steedBtn + unpackBtn + dropBtn + "</div></div>";
   }
 
   function formHtml(opts) {
@@ -1564,6 +1595,8 @@
     if (!t || !t.getAttribute) return;
     var useId = t.getAttribute("data-item-use");
     if (useId) { useOnSheet(useId); return; }
+    var summonId = t.getAttribute("data-item-summon");
+    if (summonId) { setSummoned(summonId, null); return; }
     var wearId = t.getAttribute("data-item-wear-toggle");
     if (wearId && root.SSDNSDoll && root.SSDNSDoll.toggleWear) {
       var wr;
@@ -1892,6 +1925,8 @@
     carryCapacity: carryCapacity,
     totalWeight: totalWeight,
     weightReport: weightReport,
+    setSummoned: setSummoned,
+    onSteed: onSteed,
     slotWeights: slotWeights,
     lbOf: lbOf,
     hasTag: hasTag,

@@ -198,6 +198,10 @@
       var merged = window.SSDNSItems.mergeExplosives(doc.character);
       if (merged) notes.push("Moved " + merged + " explosive line(s) into Items (Use button).");
     }
+    if (doc.character) {
+      var moved50 = moveBigFiftyPools(doc.character);
+      if (moved50) notes.push("Moved " + moved50 + " Big Fifty round(s) from a cartridge pool to the Big Fifty .50-90 pool.");
+    }
     if (doc.character && window.SSDNSCustomWeapons) window.SSDNSCustomWeapons.syncCharacter(doc.character);
     if (doc.character && window.SSDNSEquip && window.SSDNSEquip.migrateHolsters) {
       var hadBeltHolster = doc.character.holster && window.SSDNSEquip.isBeltHolster(doc.character.holster);
@@ -210,6 +214,20 @@
     }
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
+  }
+  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.85 landed in a cartridge pool (caliber .50-90) that the
+      Big Fifty never reads, weighing 0.05 lb a round. Move them to the bigfifty pool (0.15 lb). Returns rounds moved. */
+  function moveBigFiftyPools(c) {
+    if (!c || !Array.isArray(c.ammo)) return 0;
+    var moved = 0;
+    /* converted in place (never removed), so guns that point at a pool by index (g.ammoPool) keep their pool */
+    c.ammo.forEach(function (a) {
+      if (!a || a.type !== "cartridge" || !/\.?50-90/.test(String(a.caliber || ""))) return;
+      a.type = "bigfifty";
+      a.caliber = ".50-90";
+      moved += Math.max(0, parseInt(a.count, 10) || 0);
+    });
+    return moved;
   }
   /** g.chamber = "tier|round" (PHB Chambering: pick the round when you buy the gun). Falls back to g.tier / first tier. */
   function chamberOf(g, w) {
