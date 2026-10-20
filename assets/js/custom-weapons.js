@@ -120,6 +120,13 @@
         if (rec) out.push(rec);
       }
     });
+    /* 0.3.86 Give: a created weapon handed over as a bare slot carries its record on the slot */
+    [].concat(c.guns || [], c.melee || []).forEach(function (slot) {
+      if (slot && slot.weapon && slot.record && slot.record.id === slot.weapon) {
+        var r2 = register(JSON.parse(JSON.stringify(slot.record)));
+        if (r2) out.push(r2);
+      }
+    });
     if (root.SSDNSPeaceMaker && root.SSDNSPeaceMaker.weapon) {
       var pm = root.SSDNSPeaceMaker.weapon();
       var owns = (c.melee || []).some(function (m) { return m && m.weapon === pm.id; }) ||

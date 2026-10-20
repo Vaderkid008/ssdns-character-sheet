@@ -420,6 +420,9 @@
       price: null,
       forSale: false,
       story: true,
+      /* 0.3.87: Rare, requires attunement (special-items.md, LOCKED 2026-10-17). The summon needs it attuned. */
+      rarity: "Rare",
+      attune: true,
       art: art("saddle-of-the-phantom-steed.webp")
     },
     {

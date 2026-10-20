@@ -131,3 +131,63 @@ SSDNSItemUI.on("quiver", function (cardEl, ctx) {});  // per-card hook ("gun", "
 - Ammo text such as "Arrows (20)" is sent as `reward_item {ammo: {type, caliber, qty}}` and fills the pool (C11).
 - A firearm can be sent with `dirty: true`.
 - Older sheets ignore `item`/`ammo` and fall back to the text line.
+
+## Player Give (sheet 0.3.86 / DMCC 0.2.99)
+
+Loot spec v1.1 §5.1 and §5.4 (K1, K3). The code is in `assets/js/give.js` (rules, broker and applies, which are pure), `assets/js/give-sheet.js` (sheet UI and watchers) and `dm/assets/js/give-dm.js` (DMCC post office, open-transfers list and the Give-tab inventory panel). **No database.rules.json change.**
+
+| Step | Who | Path (all create-only for players) | Key |
+|---|---|---|---|
+| Offer | giver sheet | `encounter/requests/<xferId>` `{ts, from, targetId, amount, kind:"give", xferId, give:item\|ammo\|es, qty, uid?, item?(snapshot), ammo?}` | `xfer_<time><rand>` |
+| Ledger row first | DMCC | `ledger/<xferId>` `{type:"transfer", via:"give", state, fromPlayer, toPlayer, what, legs{badd,arem}, item/ammo, qty}` | same ID |
+| Tell the receiver | DMCC | `inbox/<to>/xo_<xferId>` `{type:"give_offer", payload:{xferId}}` | |
+| Answer | receiver | `encounter/requests/<xferId>_reply_<uid>` `{answer: accept\|decline}` | |
+| Cancel | giver | `encounter/requests/<xferId>_cancel_<uid>` | |
+| Landed | receiver | `encounter/requests/<xferId>_badd_<uid>` | |
+| Removed | giver | `encounter/requests/<xferId>_arem_<uid>` | |
+| Table line | DMCC | `chat/xfer_<xferId>` "Dust gives Dolan 20 arrows" | |
+
+The states are `offered → accepted → added → done`, or `declined`, `cancelled` (by the giver, or by the DM while offered or accepted) or `rejected` (failed the DMCC check: locked inventory on either side, DM-only, still worn, not enough left, receiver not in the room).
+
+- The DMCC reads each ledger row fresh before acting, handles one ID at a time and re-checks every 15 s (repair).
+- The receiver adds only at `accepted`. The giver removes only at `added`, which is after the receiver applied.
+- Each apply is marked in `character.xfers[<xferId>].applied.{badd,arem,bundo}` in the same save as the item change. ES also goes through the sheet's claimGrant (`es:xfer:<id>:<leg>`), so a double tap, a refresh, a resent row or a second device changes nothing.
+- A DM cancel that races the receiver's apply rolls the add back (`bundo`).
+
+Character fields (all optional, so old saves load):
+
+- `character.xfers` is `{ <xferId>: {role: from|to, state, kind, qty, uid?, ammo?, other, otherName, what, label, answered?, cancelling?, applied:{}} }`. It keeps the last 40 entries.
+- An open outgoing transfer **holds** what it offers: the row shows "Offered to …", and Use, Drop, Unpack and Give are hidden.
+- A received item keeps every field (weight, Dirty, uses and chargesLeft, ammo, tags, quality…). Its uid is `x<xferId>`, and it lands through `SSDNSItems.add`, so it gets its default UI (a weapon goes to a slot). A given weapon frees the giver's weapon slot.
+- The snapshot drops `equipSlot`, `attuned` and `attunePending`.
+
+The player snapshot also gains `carry {carried, capacity, over, on}` and `giving [{id, kind, uid, qty, to, label, slotKind?, index?}]`, plus `attunePending`, `dirty` and `stack` on items and `dmOnly` on `guns[]` / `melee[]`. The DMCC uses them for the Give-tab inventory panel.
+
+### Slot gives (`give: "slot"`)
+
+A gun, melee, bow or thrown weapon whose card has **no inventory row** gets a Give button on its card on the Gear page. It uses the same transfer ID, ledger-first flow, holds and once-only applies.
+
+- Request and ledger rows carry `slot {slotKind: gun|melee, index, weapon, name, state, record?, dmOnly?, sig?}`. Each request is one weapon (`qty` 1).
+- **Loaded rounds go with the gun.** `state` is the whole slot: `chambers`, `loaded`, hex shells, `lockedChambers`, `dirty`, `jammed`, `fouled`, `cracked`, `ruined`, `misStreak`, `mod`, `capacity`, `chamber`, `tier`, `load`, `engraving`, conditions, arrow type, `ui`, and any custom field. Only the giver's own hand state stays behind: `equipped`, `drawn`, `twoHand`, `attackMode`, `ammoPool` (an index into the giver's pools) and the pending-d4 fields.
+- A created weapon's record rides along as `slot.record`. `SSDNSCustomWeapons.syncCharacter` re-registers it on load.
+- **Blocks:**
+  - a pending misfire d4 (`pendingD4`), the sheet's only mid-action jam state; a plain jam, Dirty or Fouled does not block;
+  - DM-only;
+  - Lock inventory, on either side;
+  - an equipped weapon while combat locks equipment.
+- `sig` covers the gun's loaded count, chambers and jam/Dirty/Foul/ruin/crack state. The DMCC rejects the accept if it changed after the offer (fired, reloaded or cleaned), so the offer has to be made again.
+- While the weapon is offered, the card shows "Offered to …" with a Cancel button, and its weapon picker is disabled.
+- **The receiver** gets the first free slot of the same kind (`gun` or `melee`, at most 4), with `equipped:false`, then the usual auto-equip. The slot is tagged `gotBy:<xferId>` for a cancel rollback.
+  - If every slot of that kind is full, it lands as an inventory row instead: `type:"weapon"`, `weaponId`, `parkedSlot:true`, `slotState{slotKind, state}`. **To a slot** puts it back into a free slot with its state.
+- **The giver's slot** goes back to blank. If the player moved the weapon, the first slot holding it is used.
+- **A weapon that has an inventory row** gives through that row; the card's Give opens the row's picker. When the last one goes, the row snapshot carries `slotState` (with `sig`), and the receiver's landed slot gets that state. If the receiver's slots are full, the row stays a row (`noLand`), instead of landing on top of slot 1.
+
+### Attunement (0.3.86)
+
+These are the existing `attune` / `attuned` / `attuneCap` (default 3) fields.
+
+- A player's **Attune** now sets `attunePending`, which counts toward the cap. The next short or long rest (`SSDNSSheet.applyRest`) finishes it.
+- Ending attunement is instant. The DM's `item_mod {op:"attune"}` stays instant.
+- An item with `attune: true` can't be **Used** until it is `attuned`. This applies to every catalog row with the flag. The Saddle of the Phantom Steed now has `attune: true, rarity: "Rare"`.
+- Attunement ends when the item changes hands.
+- The saddle's `summoned` toggle checks `attuned` the same way: the Spectral Horse can't be summoned (toggle or Use) until the saddle is attuned; dismissing always works. Ending attunement dismisses the horse, and a given saddle arrives with `summoned` cleared (give.js strips it with `attuned`).

@@ -577,6 +577,9 @@
     if (addressedBlank(item, viewer)) {
       return { ok: false, blank: true, kind: "text", reason: "Blank paper.", chat: "Blank paper." };
     }
+    if (item.attune && !item.attuned && !ctx.dm && !(viewer && viewer.dm)) {
+      return { ok: false, needsAttune: true, kind: (item.effect && item.effect.kind) || "text", reason: item.name + " needs attunement first: tap Attune, then take a short rest." };
+    }
     var effect = item.effect || { kind: "text" };
     var who = ctx.name || "Someone";
     if (effect.kind === "heal") {
@@ -928,7 +931,8 @@
     if (uiKind === "ammo" && item.ammo && item.ammo.type) return landAmmo(character, item);
     listOf(character).push(item);
     var landed = null;
-    if (item.type === "weapon") landed = landWeapon(character, item);
+    /* opts.noLand (Give, 0.3.86): a weapon parked as a row because every slot is full stays a row */
+    if (item.type === "weapon" && !opts.noLand) landed = landWeapon(character, item);
     else if (uiKind === "armor" || uiKind === "shield" || uiKind === "apparel") landed = landWorn(character, item, uiKind);
     return { ok: true, item: item, landed: landed, ui: uiKind };
   }
@@ -972,6 +976,40 @@
   function attunedCount(character) {
     return listOf(character).filter(function (it) { return it && it.attuned; }).length;
   }
+  /* 0.3.87: a player's Attune takes a short rest (5e). Tap Attune → "Attuning…" (counts toward the cap) → the next
+     short or long rest finishes it. Ending attunement is instant; the DM's attune op stays instant. An item that
+     needs attunement can't be Used until it is attuned, and attunement ends when the item changes hands. */
+  function pendingCount(character) {
+    return listOf(character).filter(function (it) { return it && it.attunePending && !it.attuned; }).length;
+  }
+  function startAttune(character, id) {
+    var item = find(character, id);
+    if (!item) return { ok: false, reason: "No item." };
+    if (!item.attune) return { ok: false, reason: item.name + " doesn't need attunement." };
+    if (item.attuned) {
+      var off = setAttuned(character, id, false, {});
+      if (off.ok) off.text = "Attunement to " + item.name + " ended.";
+      return off;
+    }
+    if (item.attunePending) { item.attunePending = false; return { ok: true, item: item, text: "Stopped attuning to " + item.name + "." }; }
+    if (attunedCount(character) + pendingCount(character) >= attuneCap(character)) {
+      return { ok: false, reason: "You can attune to " + attuneCap(character) + " items. End one first." };
+    }
+    item.attunePending = true;
+    return { ok: true, item: item, pending: true, text: "Attuning to " + item.name + ": it finishes on your next short rest." };
+  }
+  function finishAttune(character) {
+    var done = [];
+    listOf(character).forEach(function (it) {
+      if (!it || !it.attunePending) return;
+      it.attunePending = false;
+      if (!it.attune || it.attuned) return;
+      if (attunedCount(character) >= attuneCap(character)) return;
+      it.attuned = true;
+      done.push(it.name);
+    });
+    return done;
+  }
   function setAttuned(character, id, on, opts) {
     opts = opts || {};
     var item = find(character, id);
@@ -982,6 +1020,8 @@
     }
     if (item.cursed && !on && !opts.dm) return { ok: false, reason: "Cursed. It won't let go." };
     item.attuned = !!on;
+    if (on || opts.dm) item.attunePending = false;
+    if (!on && item.summoned && item.attune) item.summoned = false; /* #105 + #109: no attunement, no Spectral Horse */
     return { ok: true, item: item, count: attunedCount(character) };
   }
 
@@ -1017,7 +1057,7 @@
     return { ok: true, item: item };
   }
 
-  /* inv2 (0.3.88): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
+  /* inv2 (0.3.89): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
      unpack, so nothing is doubled; 5E parts with no catalog row land as one gear note line. */
   function packContents(item) {
     /* 0.3.86: a DM-made pack carries its own contents ([[catalogId, n]]) */
@@ -1035,7 +1075,7 @@
     if (character.inventoryLocked && !opts.dm) return { ok: false, reason: "Inventory is locked." };
     var n = Number(item.count == null ? 1 : item.count) || 0;
     if (n <= 0) return { ok: false, reason: "No item." };
-    /* supplies (0.3.88): the unpacked pack takes the meals already eaten and the water already drunk with it,
+    /* supplies (0.3.89): the unpacked pack takes the meals already eaten and the water already drunk with it,
        so Unpack hands out only the hardtack and water still in the pack */
     var mealsEach = Number(item.meals) || 0, used = Math.max(0, Number(item.mealsUsed) || 0);
     var thisUsed = mealsEach > 0 ? Math.min(used, mealsEach) : 0;
@@ -1213,6 +1253,12 @@
     var item = find(character(), id);
     if (!item || !SUMMON_SADDLE[item.catalogId || item.id || ""]) return null;
     var next = on == null ? !item.summoned : !!on;
+    /* #105 + #109: the saddle is Rare and needs attunement (special-items.md); the steed only comes when it's attuned.
+       Dismissing always works. */
+    if (next && item.attune && !item.attuned) {
+      post(item.name + " needs attunement first: tap Attune, then take a short rest.");
+      return false;
+    }
     if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () { item.summoned = next; });
     else item.summoned = next;
     commit();
@@ -1309,7 +1355,7 @@
       lock += ' <button type="button" class="btn xs' + (worn ? " btn-primary" : "") + '" data-item-wear-toggle="' + esc(item.uid) + '" title="' + esc(worn ? "Worn on the paper doll (" + worn + "). Click to take it off." : "Put it on its paper doll slot.") + '">' + esc(worn ? "Worn: " + worn + " ✓" : "Wear") + "</button>";
     }
     if (item.attune) {
-      lock += ' <button type="button" class="btn xs' + (item.attuned ? " btn-primary" : "") + '" data-item-attune="' + esc(item.uid) + '" title="Attunement: up to ' + attuneCap(c) + ' items">' + (item.attuned ? "Attuned ✓" : "Attune") + "</button>";
+      lock += ' <button type="button" class="btn xs' + (item.attuned ? " btn-primary" : "") + '" data-item-attune="' + esc(item.uid) + '" title="' + esc(item.attuned ? "Attuned. Click to end attunement." : (item.attunePending ? "Attuning: finishes on your next short rest. Click to stop." : "Attune: takes a short rest. Up to " + attuneCap(c) + " items.")) + '">' + (item.attuned ? "Attuned ✓" : (item.attunePending ? "Attuning… (short rest)" : "Attune")) + "</button>";
     }
     var pips = root.SSDNSTrackers && root.SSDNSTrackers.itemPips ? root.SSDNSTrackers.itemPips(item) : ""; /* SAMPLE trackers: count pips */
     /* 0.3.84 default UI by type: where this item lives / what it feeds, plus its supplies numbers */
@@ -1324,11 +1370,14 @@
     var off = carriedOff(item);
     var wt = item.weight != null && isFinite(Number(item.weight)) ? ' <span class="fine item-wt" title="' + (off ? "Rides on your mount; not counted in what you carry" : "Weight each") + '">' + (off && !Number(item.weight) ? "not carried" : esc(item.weight) + " lb" + (onSteed(item) ? " · on the " + SUMMON_SADDLE[item.catalogId || item.id] : (off ? " · on mount" : ""))) + "</span>" : "";
     var steedBtn = SUMMON_SADDLE[item.catalogId || item.id || ""] && !view.blank
-      ? '<button type="button" class="btn xs' + (item.summoned ? " btn-primary" : "") + '" data-item-summon="' + esc(item.uid) + '" title="' + (item.summoned ? "The Spectral Horse is out and wears the saddle (not carried). Click to dismiss it: you carry the saddle again (25 lb)." : "Mark the Spectral Horse as summoned: the saddle rides on it and stops counting as carried.") + '">' + (item.summoned ? "Steed summoned ✓" : "Steed not summoned") + "</button> "
+      ? '<button type="button" class="btn xs' + (item.summoned ? " btn-primary" : "") + '" data-item-summon="' + esc(item.uid) + '"' + (!item.summoned && item.attune && !item.attuned ? ' data-needs-attune="1"' : "") + ' title="' + (!item.summoned && item.attune && !item.attuned ? "Needs attunement first (Attune, then a short rest). " : "") + (item.summoned ? "The Spectral Horse is out and wears the saddle (not carried). Click to dismiss it: you carry the saddle again (25 lb)." : "Mark the Spectral Horse as summoned: the saddle rides on it and stops counting as carried.") + '">' + (item.summoned ? "Steed summoned ✓" : "Steed not summoned") + "</button> "
       : "";
-    return '<div class="item-row">' + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b>" + wt + pips + " " + homeTag + supTag + " " + tag + " " + lock +
+    /* 0.3.86 Player Give: an offered item stays here (held) until the other player accepts */
+    var giveCtl = root.SSDNSGiveSheet && root.SSDNSGiveSheet.rowControls ? root.SSDNSGiveSheet.rowControls(item, c) : "";
+    if (root.SSDNSGive && c && root.SSDNSGive.heldItem(c, item.uid)) { useBtn = ""; unpackBtn = ""; dropBtn = ""; }
+    return '<div class="item-row"' + (giveCtl && /give-held/.test(giveCtl) ? ' data-item-held="1"' : "") + ">" + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b>" + wt + pips + " " + homeTag + supTag + " " + tag + " " + lock +
       '<div class="fine">' + esc(view.description || (view.effect && view.effect.text) || "") + "</div>" +
-      useBtn + " " + steedBtn + unpackBtn + dropBtn + "</div></div>";
+      useBtn + " " + steedBtn + unpackBtn + dropBtn + giveCtl + "</div></div>";
   }
 
   /* 0.3.86: what a Give-tab / drawer text already matches (no builder needed): an Ammo pack (→ pool), a catalog item,
@@ -1784,9 +1833,11 @@
     if (!list) return;
     var c = character();
     var items = c ? listOf(c) : [];
+    var pend = c ? pendingCount(c) : 0;
     var attuneLine = c && items.some(function (it) { return it && it.attune; })
-      ? '<p class="fine attune-line">Attuned ' + attunedCount(c) + " / " + attuneCap(c) + "</p>" : "";
-    list.innerHTML = attuneLine + (items.length ? items.map(function (item) { return rowHtml(item, c); }).join("") : '<p class="fine">No catalog items yet.</p>');
+      ? '<p class="fine attune-line">Attuned ' + attunedCount(c) + " / " + attuneCap(c) + (pend ? " · attuning " + pend + " (finishes on a short rest)" : "") + "</p>" : "";
+    var giveBar = root.SSDNSGiveSheet && root.SSDNSGiveSheet.barHtml ? root.SSDNSGiveSheet.barHtml(c) : "";
+    list.innerHTML = giveBar + attuneLine + (items.length ? items.map(function (item) { return rowHtml(item, c); }).join("") : '<p class="fine">No catalog items yet.</p>');
     var freeAdd = playerFreeAdd();
     if (slot) {
       var menuEl = slot.querySelector("[data-add-item-menu]");
@@ -1953,10 +2004,9 @@
     }
     var attId = t.getAttribute("data-item-attune");
     if (attId) {
-      var cur = find(character(), attId);
-      var res = setAttuned(character(), attId, !(cur && cur.attuned), {});
+      var res = startAttune(character(), attId);
       if (!res.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(res.reason);
-      else commit();
+      else { commit(); if (res.text && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(res.text); }
       paintSheet();
       return;
     }
@@ -2297,6 +2347,9 @@
     attuneCap: attuneCap,
     attunedCount: attunedCount,
     setAttuned: setAttuned,
+    startAttune: startAttune,
+    finishAttune: finishAttune,
+    pendingCount: pendingCount,
     classifyReward: classifyReward,
     setRoom: setRoom,
     setStore: setStore,
@@ -2322,9 +2375,33 @@
     showUse: showUse
   };
 
+  /* 0.3.87: a short or long rest finishes any Attune the player started */
+  function wrapRestAttune() {
+    var S = root.SSDNSSheet;
+    if (!S || !S.applyRest) return false;
+    if (S.applyRest._attune) return true;
+    var orig = S.applyRest;
+    S.applyRest = function (kind, opts) {
+      var r = orig.apply(this, arguments);
+      var c = character();
+      if (c && pendingCount(c)) {
+        var done = finishAttune(c);
+        commit();
+        paintSheet();
+        if (root.SSDNSDoll && root.SSDNSDoll.paint) root.SSDNSDoll.paint();
+        if (done.length) post("Attuned to " + done.join(", ") + " (" + (kind === "long" ? "long" : "short") + " rest).");
+      }
+      return r;
+    };
+    Object.keys(orig).forEach(function (k) { S.applyRest[k] = orig[k]; });
+    S.applyRest._attune = true;
+    return true;
+  }
   function boot() {
     bindSheet();
     bindDm();
+    var tries = 0;
+    (function again() { if (!wrapRestAttune() && tries++ < 60 && typeof root.setTimeout === "function") root.setTimeout(again, 250); })();
   }
   loadStore();
   if (root.document) {

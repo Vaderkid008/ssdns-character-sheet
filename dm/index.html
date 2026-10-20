@@ -10,12 +10,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Smokum&display=swap">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.101-maps">
-<link rel="stylesheet" href="../assets/css/vol-slider.css?v=0.2.101-vol">
-<link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.88-modal">
-<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.88-rounds">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.101-fire">
-<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.101-polish">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.102-maps">
+<link rel="stylesheet" href="../assets/css/vol-slider.css?v=0.2.102-vol">
+<link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.89-modal">
+<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.89-rounds">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.102-fire">
+<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.102-polish">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -161,6 +161,7 @@
         <button type="button" class="btn sm give-chip" data-give="handout">Image handout</button>
         <button type="button" class="btn sm give-chip" data-give="weapon">Weapon</button>
       </div>
+      <div class="rew-split">
       <div class="form-grid">
         <div>
           <label for="rewTarget">Target</label>
@@ -207,6 +208,12 @@
           <div id="rewItemBuilder" hidden></div>
         </div>
       </div>
+      <!-- 0.2.100: the Target player's current inventory, read-only, live (give-dm.js) -->
+      <details class="rew-inv" id="rewInvPanel" open hidden>
+        <summary id="rewInvHead">Inventory</summary>
+        <div id="rewInvBody"></div>
+      </details>
+      </div>
       <div id="dmItemTools" class="item-tools">
         <h2 style="font-size:18px;margin:16px 0 6px">Items</h2>
         <p class="lede">Same Add Item form as the sheet. Quest items are DM-only. Custom catalog rows stay in this room.</p>
@@ -222,6 +229,8 @@
         <button type="button" class="btn btn-primary" id="btnPushReward">Push reward</button>
         <button type="button" class="btn sm" id="btnUndo" disabled>Undo last push</button>
       </div>
+      <!-- 0.2.99 Player Give: transfers between players that are still open (the DM can cancel) -->
+      <div class="xfer-pending" id="xferPending" hidden></div>
     <div class="give-section" id="giveHandout">
       <h2 style="font-size:18px;margin:16px 0 6px">Image handout</h2>
       <p class="lede">Paste an image URL, name it, send to the table or one player.</p>
@@ -731,48 +740,50 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/apply-guard.js?v=0.2.101-fire"></script>
-<script src="../assets/js/conditions.js?v=0.2.101-supplies"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.102-fire"></script>
+<script src="../assets/js/conditions.js?v=0.2.102-supplies"></script>
 <script src="assets/js/ui-tab.js?v=0.2.35"></script>
-<script src="../assets/js/sfx.js?v=0.2.101-fire"></script>
-<script src="../assets/js/vol-slider.js?v=0.2.101-vol"></script>
-<script src="../assets/js/music-deck.js?v=0.2.101-maps"></script>
-<script src="../assets/js/media-upload.js?v=0.2.101-music"></script>
-<script src="assets/js/music-dm.js?v=0.2.101-music"></script>
-<script src="../assets/data/rules.js?v=0.2.101-preacher"></script>
-<script src="../assets/js/renames.js?v=0.2.101-preacher"></script>
-<script src="../assets/js/trackers.js?v=0.2.101-trackers"></script>
-<script src="../assets/js/equip.js?v=0.2.101-equip"></script>
+<script src="../assets/js/sfx.js?v=0.2.102-fire"></script>
+<script src="../assets/js/vol-slider.js?v=0.2.102-vol"></script>
+<script src="../assets/js/music-deck.js?v=0.2.102-maps"></script>
+<script src="../assets/js/media-upload.js?v=0.2.102-music"></script>
+<script src="assets/js/music-dm.js?v=0.2.102-music"></script>
+<script src="../assets/data/rules.js?v=0.2.102-preacher"></script>
+<script src="../assets/js/renames.js?v=0.2.102-preacher"></script>
+<script src="../assets/js/trackers.js?v=0.2.102-trackers"></script>
+<script src="../assets/js/equip.js?v=0.2.102-equip"></script>
 <script src="../assets/js/spell-fx.js?v=0.2.35"></script>
 <script src="../assets/js/spell-cast.js?v=0.2.39-range"></script>
-<script src="../assets/js/misfire.js?v=0.2.101-fire"></script>
+<script src="../assets/js/misfire.js?v=0.2.102-fire"></script>
 <script src="../assets/js/firebase-config.js?v=0.2.35"></script>
-<script src="assets/js/store-stock.js?v=0.2.101-act1"></script>
+<script src="assets/js/store-stock.js?v=0.2.102-act1"></script>
 <script src="assets/js/demo-data.js?v=0.2.35-guns"></script>
-<script src="../assets/js/test-jammer.js?v=0.2.101-fire"></script>
-<script src="../assets/js/weapon-art.js?v=0.2.101-polish"></script>
-<script src="../assets/js/instrument-art.js?v=0.2.101-art"></script>
-<script src="../assets/js/item-ui.js?v=0.2.101-typeui"></script>
-<script src="../assets/data/item-catalog.js?v=0.2.101-items"></script>
-<script src="../assets/data/item-catalog-gear.js?v=0.2.101-steed"></script>
-<script src="../assets/js/custom-weapons.js?v=0.3.88-items"></script>
-<script src="../assets/js/items.js?v=0.2.101-steed"></script>
-<script src="../assets/js/item-art.js?v=0.2.101-art"></script>
-<script src="../assets/js/peace-maker.js?v=0.2.101-art"></script>
-<script src="../assets/js/dice-art.js?v=0.2.101-polish"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.101-reload"></script>
-<script src="../assets/js/ammo-display.js?v=0.3.88-rounds"></script>
-<script src="../assets/js/grab.js?v=0.2.101-grab"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.101-act1"></script>
-<script src="../assets/js/supplies.js?v=0.2.101-supplies"></script>
-<script type="module" src="assets/js/supplies-dm.js?v=0.2.101-supplies"></script>
+<script src="../assets/js/test-jammer.js?v=0.2.102-fire"></script>
+<script src="../assets/js/weapon-art.js?v=0.2.102-polish"></script>
+<script src="../assets/js/instrument-art.js?v=0.2.102-art"></script>
+<script src="../assets/js/item-ui.js?v=0.2.102-typeui"></script>
+<script src="../assets/js/give.js?v=0.3.89-give"></script>
+<script src="assets/js/give-dm.js?v=0.2.102-give"></script>
+<script src="../assets/data/item-catalog.js?v=0.2.102-items"></script>
+<script src="../assets/data/item-catalog-gear.js?v=0.2.102-steed"></script>
+<script src="../assets/js/custom-weapons.js?v=0.3.89-items"></script>
+<script src="../assets/js/items.js?v=0.2.102-steed"></script>
+<script src="../assets/js/item-art.js?v=0.2.102-art"></script>
+<script src="../assets/js/peace-maker.js?v=0.2.102-art"></script>
+<script src="../assets/js/dice-art.js?v=0.2.102-polish"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.102-reload"></script>
+<script src="../assets/js/ammo-display.js?v=0.3.89-rounds"></script>
+<script src="../assets/js/grab.js?v=0.2.102-grab"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.102-act1"></script>
+<script src="../assets/js/supplies.js?v=0.2.102-supplies"></script>
+<script type="module" src="assets/js/supplies-dm.js?v=0.2.102-supplies"></script>
 <script src="../map/token-crop.js?v=0.2.38-card"></script>
-<script src="../assets/js/range-rings.js?v=0.2.101-adv"></script>
-<script src="../map/ssdns-map-chat.js?v=0.2.101-float"></script>
-<script src="../map/map-packs.js?v=0.2.101-maps"></script>
-<script src="../map/map-library.js?v=0.2.101-maps"></script>
-<script src="../map/ssdns-map.js?v=0.2.101-maps"></script>
+<script src="../assets/js/range-rings.js?v=0.2.102-adv"></script>
+<script src="../map/ssdns-map-chat.js?v=0.2.102-float"></script>
+<script src="../map/map-packs.js?v=0.2.102-maps"></script>
+<script src="../map/map-library.js?v=0.2.102-maps"></script>
+<script src="../map/ssdns-map.js?v=0.2.102-maps"></script>
 <script src="../map/ssdns-map-firebase.js?v=0.2.36-sync"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.101-fire"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.102-fire"></script>
 </body>
 </html>

@@ -108,6 +108,14 @@ try {
     const saddle = () => c().items.find((x) => x.catalogId === "saddle-of-the-phantom-steed");
     out.s0 = wt();
     out.s0row = (document.querySelector("[data-item-summon]") || {}).textContent || null;
+    /* #105 + #109: the saddle needs attunement before the horse comes (toggle and Use both refuse) */
+    out.n0needs = !!document.querySelector("[data-item-summon][data-needs-attune]");
+    out.n0ret = I.setSummoned(saddle().uid, true); await wait(150);
+    out.n0flag = !!saddle().summoned; out.n0wt = wt();
+    const use0 = document.querySelector('[data-item-use="' + saddle().uid + '"]'); if (use0) use0.click(); await wait(250);
+    out.n0useFlag = !!saddle().summoned;
+    A.applyPatch((d) => { I.setAttuned(d.character, saddle().uid, true, {}); }); await wait(150);
+    out.n1needs = !!document.querySelector("[data-item-summon][data-needs-attune]");
     I.setSummoned(saddle().uid, true); await wait(200);
     out.s1 = wt();
     out.s1row = (document.querySelector("[data-item-summon]") || {}).textContent || null;
@@ -127,6 +135,9 @@ try {
     I.setSummoned(saddle().uid, true);
     const m = A.migrate(JSON.parse(JSON.stringify(A.doc())));
     out.migFlag = !!(m.character.items.find((x) => x.catalogId === "saddle-of-the-phantom-steed") || {}).summoned;
+    /* ending attunement sends the horse away */
+    A.applyPatch((d) => { I.setAttuned(d.character, saddle().uid, false, {}); }); await wait(150);
+    out.endFlag = !!saddle().summoned;
     I.setSummoned(saddle().uid, false);
     return out;
   });
@@ -139,6 +150,8 @@ try {
   check("b.made", r.made && r.made.ok && r.made.count === 1, J(r.made));
   check("b.weightSame", r.bDelta === 0, J({ delta: r.bDelta, ammo: r.bAmmo }));
   check("b.ammoSlot", Math.abs(r.bSlots - (4 * 0.05 + 1.05)) < 1e-9, String(r.bSlots));
+  check("c.needsAttune", r.n0needs && r.n0ret === false && r.n0flag === false && r.n0wt === r.s0 && r.n0useFlag === false && r.n1needs === false, J([r.n0needs, r.n0ret, r.n0flag, r.n0wt, r.n0useFlag, r.n1needs]));
+  check("c.endAttuneDismisses", r.endFlag === false);
   check("c.unsummoned25", r.s1 === r.s0 - 25, J([r.s0, r.s1]));
   check("c.rowToggle", /not summoned/i.test(r.s0row || "") && /summoned ✓/.test(r.s1row || "") && /Spectral Horse/.test(r.s1wt), J([r.s0row, r.s1row, r.s1wt]));
   check("c.dismissCarries", r.s2 === r.s0 && r.s2flag === false, J([r.s2, r.s2flag]));
