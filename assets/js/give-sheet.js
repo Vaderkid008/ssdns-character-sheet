@@ -218,9 +218,12 @@
   /* ---- the row button, the bar and the picker ---- */
   function rowControls(item, c) {
     if (!item || !c) return "";
-    /* a weapon parked because every slot was full: back into a free slot with its rounds and state */
-    var park = item.slotState && !G.heldItem(c, item.uid) ? ' <button type="button" class="btn xs" data-give-unpark="' + esc(item.uid) + '" title="Put it back in a free slot, rounds and all">To a slot</button>' : "";
-    return park + rowGive(item, c);
+    return parkControl(item, c) + rowGive(item, c);
+  }
+  /* a weapon parked because every slot was full: back into a free slot with its rounds and state */
+  function parkControl(item, c) {
+    if (!item || !c) return "";
+    return item.slotState && !G.heldItem(c, item.uid) ? ' <button type="button" class="btn xs" data-give-unpark="' + esc(item.uid) + '" title="Put it back in a free slot, rounds and all">To a slot</button>' : "";
   }
   function rowGive(item, c) {
     if (!joined()) return "";
@@ -248,6 +251,25 @@
     var c = ctx.character || char();
     var kind = ctx.card === "melee" ? "melee" : "gun";
     var i = Number(ctx.index);
+    var h = c && G.heldSlot(c, kind, i);
+    var html = slotGive(c, kind, i);
+    var host = card.querySelector(".give-slot");
+    if (!host && html) {
+      host = card.ownerDocument.createElement("span");
+      host.className = "give-slot";
+      var at = kind === "melee" ? card.querySelector(".g-actions") : card.querySelector(".g-sub");
+      (at || card).appendChild(host);
+    }
+    if (host && host.getAttribute("data-sig") !== html) { host.innerHTML = html; host.setAttribute("data-sig", html); host.hidden = !html; }
+    /* while it's offered the card can't swap to another weapon */
+    var sel = card.querySelector(kind === "melee" ? "select[data-melee]" : "select[data-gun]");
+    if (sel) {
+      if (h && !sel.disabled) { sel.disabled = true; sel.setAttribute("data-give-disabled", "1"); }
+      else if (!h && sel.getAttribute("data-give-disabled")) { sel.disabled = false; sel.removeAttribute("data-give-disabled"); }
+    }
+  }
+  /* the Give control for a weapon slot (gun / melee card, and the 0.3.93 Equipment list's Weapons rows) */
+  function slotGive(c, kind, i) {
     var slot = c && G.slotAt(c, kind, i);
     var html = "";
     var h = c && G.heldSlot(c, kind, i);
@@ -263,20 +285,7 @@
         html = '<button type="button" class="btn xs" data-give-slot="' + kind + ":" + i + '" title="Hand this weapon to someone in the party. Loaded rounds, Dirty, jams and mods go with it.">Give</button>';
       }
     }
-    var host = card.querySelector(".give-slot");
-    if (!host && html) {
-      host = card.ownerDocument.createElement("span");
-      host.className = "give-slot";
-      var at = kind === "melee" ? card.querySelector(".g-actions") : card.querySelector(".g-sub");
-      (at || card).appendChild(host);
-    }
-    if (host && host.getAttribute("data-sig") !== html) { host.innerHTML = html; host.setAttribute("data-sig", html); host.hidden = !html; }
-    /* while it's offered the card can't swap to another weapon */
-    var sel = card.querySelector(kind === "melee" ? "select[data-melee]" : "select[data-gun]");
-    if (sel) {
-      if (h && !sel.disabled) { sel.disabled = true; sel.setAttribute("data-give-disabled", "1"); }
-      else if (!h && sel.getAttribute("data-give-disabled")) { sel.disabled = false; sel.removeAttribute("data-give-disabled"); }
-    }
+    return html;
   }
   function unpark(uid) {
     var res = patch(function (ch) { return G.unparkSlot(ch, uid); });
@@ -400,6 +409,6 @@
 
   root.SSDNSGiveSheet = {
     offer: offer, cancel: cancel, reply: reply, onOffer: onOffer, onLedger: onLedger, watch: watch, resume: resume,
-    rowControls: rowControls, slotControls: slotControls, unpark: unpark, barHtml: barHtml, openPicker: openPicker, roster: roster, joined: joined
+    rowControls: rowControls, rowGive: rowGive, parkControl: parkControl, slotGive: slotGive, slotControls: slotControls, unpark: unpark, barHtml: barHtml, openPicker: openPicker, roster: roster, joined: joined
   };
 })(typeof window !== "undefined" ? window : globalThis);

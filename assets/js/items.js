@@ -249,7 +249,7 @@
      Absent fields are left off, so old saves and catalog rows look exactly as before. */
   function typeFields(out, raw) {
     raw = raw || {};
-    ["itemKind", "ui", "armorId"].forEach(function (k) { if (raw[k]) out[k] = String(raw[k]); });
+    ["itemKind", "ui", "armorId", "img"].forEach(function (k) { if (raw[k]) out[k] = String(raw[k]); }); /* img (0.3.93): optional thumbnail */
     if (raw.dirty) out.dirty = true; /* a given gun lands Dirty (loot guns) */
     if (raw.ammo && typeof raw.ammo === "object" && raw.ammo.type) {
       out.ammo = { type: String(raw.ammo.type), caliber: String(raw.ammo.caliber || "") };
@@ -264,7 +264,7 @@
     ["meals", "water", "capacity"].forEach(function (k) { var n = Number(raw[k]); if (out[k] == null && raw[k] != null && raw[k] !== "" && isFinite(n) && n > 0) out[k] = n; });
     return out;
   }
-  var TYPE_FIELDS = ["itemKind", "ui", "armorId", "ammo", "contents", "meals", "water", "capacity", "dirty"];
+  var TYPE_FIELDS = ["itemKind", "ui", "armorId", "ammo", "contents", "meals", "water", "capacity", "dirty", "img"];
 
   function byId(id) {
     var key = String(id || "");
@@ -1057,7 +1057,7 @@
     return { ok: true, item: item };
   }
 
-  /* inv2 (0.3.92): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
+  /* inv2 (0.3.93): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
      unpack, so nothing is doubled; 5E parts with no catalog row land as one gear note line. */
   function packContents(item) {
     /* 0.3.86: a DM-made pack carries its own contents ([[catalogId, n]]) */
@@ -1075,7 +1075,7 @@
     if (character.inventoryLocked && !opts.dm) return { ok: false, reason: "Inventory is locked." };
     var n = Number(item.count == null ? 1 : item.count) || 0;
     if (n <= 0) return { ok: false, reason: "No item." };
-    /* supplies (0.3.92): the unpacked pack takes the meals already eaten and the water already drunk with it,
+    /* supplies (0.3.93): the unpacked pack takes the meals already eaten and the water already drunk with it,
        so Unpack hands out only the hardtack and water still in the pack */
     var mealsEach = Number(item.meals) || 0, used = Math.max(0, Number(item.mealsUsed) || 0);
     var thisUsed = mealsEach > 0 ? Math.min(used, mealsEach) : 0;
@@ -1334,11 +1334,90 @@
     if (parts.length) line.textContent += " · " + parts.join(" · ");
   }
 
-  function rowHtml(item, c) {
+  /* 0.3.93 Equipment list (Jessey 2026-10-20, mockup approved 5:09 PM): one condensed, game-style list grouped by
+     category with filter chips. Each row: thumbnail, name + type line, qty, weight, Give (the #109 flow, unchanged),
+     and a dropdown with the description and the item's other buttons (Use, Unpack, Wear, Attune, Drop...).
+     Weapons come from the gun / melee slots, ammo from the pools, armor / shield / rigs from their slots (worn, no Give). */
+  var EQ_CATS = [["weapons", "Weapons"], ["ammo", "Ammo"], ["worn", "Worn"], ["focus", "Focus"], ["instruments", "Instruments"],
+    ["tools", "Tools"], ["supplies", "Supplies"], ["use", "Use"], ["packs", "Packs"], ["gear", "Gear"], ["mounts", "Mounts"], ["quest", "Quest"]];
+  var EQ_ALWAYS = { weapons: 1, focus: 1, instruments: 1 };
+  /* Thumbnails: an item's own art wins (the catalog row's optional `img` field, then its known art file); otherwise
+     its category tile below; otherwise default.webp. (window.SSDNS_ITEM_PLACEHOLDER / SSDNS_ITEM_CAT_ART override.) */
+  var ITEM_ART_DIR = "assets/img/items/default/";
+  var ITEM_PLACEHOLDER = root.SSDNS_ITEM_PLACEHOLDER || ITEM_ART_DIR + "default.webp";
+  /* Art Bot's category tiles (256x256 webp, parchment baked in; Jessey approved 2026-10-20 5:29 PM CT) */
+  var ITEM_CAT_ART = root.SSDNS_ITEM_CAT_ART || {
+    weapons: ITEM_ART_DIR + "weapon.webp", ammo: ITEM_ART_DIR + "ammo.webp", worn: ITEM_ART_DIR + "clothing-armor.webp",
+    focus: ITEM_ART_DIR + "focus.webp", instruments: ITEM_ART_DIR + "instrument.webp", tools: ITEM_ART_DIR + "tools-kit.webp",
+    supplies: ITEM_ART_DIR + "consumable-food.webp", use: ITEM_ART_DIR + "consumable-food.webp",
+    packs: ITEM_ART_DIR + "misc.webp", gear: ITEM_ART_DIR + "misc.webp"
+  };
+  var eq = { filter: "all", open: {}, html: "" };
+  var WEAPON_KINDS = { firearm: 1, bow: 1, crossbow: 1, blowpipe: 1, sling: 1, thrown: 1, melee: 1 };
+  function eqCat(item) {
+    if (!item) return "gear";
+    var UI = root.SSDNSItemUI;
+    var k = UI && UI.classify ? UI.classify(item) : "gear";
+    var row = item.catalogId ? byId(item.catalogId) : null;
+    var shelf = item.shelf || (row && row.shelf) || "";
+    var tg = tagsOf(item.tags);
+    if (item.type === "weapon" || WEAPON_KINDS[k]) return "weapons";
+    if (k === "ammo") return "ammo";
+    if (shelf === "Foci" || tg.indexOf("focus") >= 0) return "focus";
+    if (shelf === "Instruments" || shelf === "Storyteller gear" || tg.some(function (t) { return /^instrument/.test(t); })) return "instruments";
+    if (k === "armor" || k === "shield" || k === "apparel" || shelf === "Clothes") return "worn";
+    if (k === "tool") return "tools";
+    if (k === "food" || k === "water") return "supplies";
+    if (k === "consumable" || k === "scroll" || k === "explosive") return "use";
+    if (k === "pack" || packContents(item)) return "packs";
+    if (k === "mount") return "mounts";
+    if (k === "quest") return "quest";
+    return "gear";
+  }
+  function pagePrefix() {
+    try { return ((root.location && root.location.pathname) || "").indexOf("/dm/") >= 0 ? "../" : ""; } catch (e) { return ""; }
+  }
+  function withPrefix(src) {
+    if (!src) return "";
+    if (/^(https?:|data:|blob:|\.\.\/|\/)/.test(src)) return src;
+    return pagePrefix() + src;
+  }
+  function placeholderFor(cat) { return withPrefix(ITEM_CAT_ART[cat] || ITEM_PLACEHOLDER); }
+  /* real art (img / art / known art files) or "" */
+  function realArt(item) {
+    if (!item) return "";
+    var row = item.catalogId ? byId(item.catalogId) : null;
+    var img = item.img || (row && row.img) || "";
+    if (img) return withPrefix(img);
+    var src = artSrc(item);
+    return src && !/\/defaults\//.test(src) ? src : "";
+  }
+  function eqThumb(src, cat) {
+    var ph = placeholderFor(cat);
+    return '<span class="eq-thumb' + (src ? "" : " eq-ph") + '"><img loading="lazy" decoding="async" width="32" height="32" alt="" src="' + esc(src || ph) + '"' +
+      (src ? ' data-eq-ph="' + esc(ph) + '"' : "") + "></span>";
+  }
+  function lbText(n) {
+    var v = Math.round(Number(n) * 100) / 100;
+    return (isFinite(v) ? v : 0) + " lb";
+  }
+  function eqRowHtml(r) {
+    var open = !!eq.open[r.key];
+    return '<li class="eq-row' + (r.itemRow ? " item-row" : "") + (open ? " open" : "") + '" data-eq-key="' + esc(r.key) + '" data-eq-cat="' + esc(r.cat) + '"' + (r.held ? ' data-item-held="1"' : "") + ">" +
+      '<div class="eq-main" data-eq-toggle="' + esc(r.key) + '">' + eqThumb(r.src, r.cat) +
+        '<span class="eq-name"><b>' + esc(r.name) + '</b><span class="eq-sub">' + esc(r.sub || "") + "</span></span>" +
+        '<span class="eq-qty">' + (r.qty != null ? "×" + esc(r.qty) : "") + "</span>" +
+        '<span class="eq-wt' + (r.itemRow ? " item-wt" : "") + '">' + esc(r.wt == null ? "" : r.wt) + "</span>" +
+        '<span class="eq-give">' + (r.give || "") + "</span>" +
+        '<button type="button" class="eq-caret" data-eq-toggle="' + esc(r.key) + '" aria-expanded="' + (open ? "true" : "false") + '" aria-label="Details for ' + esc(r.name) + '">▼</button>' +
+      "</div>" +
+      '<div class="eq-more"' + (open ? "" : " hidden") + ">" + (r.detail || "") + "</div></li>";
+  }
+
+  function rowParts(item, c) {
     var view = present(item, viewerOf(c));
     var tag = tags(item).map(function (t) { return '<span class="item-tag">' + esc(t) + "</span>"; }).join(" ");
-    var count = item.count && Number(item.count) > 1 ? " ×" + item.count : "";
-    var charges = item.chargesLeft != null && item.uses && item.uses.max != null ? " (" + item.chargesLeft + "/" + item.uses.max + ")" : "";
+    var charges = item.chargesLeft != null && item.uses && item.uses.max != null && Number(item.uses.max) > 1 ? item.chargesLeft + "/" + item.uses.max + " left" : "";
     var useBtn = showUse(item, viewerOf(c)) && !view.blank
       ? '<button type="button" class="btn xs" data-item-use="' + esc(item.uid) + '">Use</button>'
       : "";
@@ -1350,8 +1429,9 @@
       : "";
     var lock = c && c.inventoryLocked ? '<span class="item-tag">locked</span>' : "";
     var D = root.SSDNSDoll;
+    var worn = "";
     if (D && D.wearable && D.wearable(item)) {
-      var worn = D.wornLabel(c, item);
+      worn = D.wornLabel(c, item);
       lock += ' <button type="button" class="btn xs' + (worn ? " btn-primary" : "") + '" data-item-wear-toggle="' + esc(item.uid) + '" title="' + esc(worn ? "Worn on the paper doll (" + worn + "). Click to take it off." : "Put it on its paper doll slot.") + '">' + esc(worn ? "Worn: " + worn + " ✓" : "Wear") + "</button>";
     }
     if (item.attune) {
@@ -1359,25 +1439,242 @@
     }
     var pips = root.SSDNSTrackers && root.SSDNSTrackers.itemPips ? root.SSDNSTrackers.itemPips(item) : ""; /* SAMPLE trackers: count pips */
     /* 0.3.84 default UI by type: where this item lives / what it feeds, plus its supplies numbers */
-    var homeTag = root.SSDNSItemUI && !view.blank ? '<span class="item-tag item-home" data-item-home="' + esc(root.SSDNSItemUI.classify(item)) + '" title="' + esc(root.SSDNSItemUI.homeText(item)) + '">' + esc(root.SSDNSItemUI.KINDS[root.SSDNSItemUI.classify(item)].label) + "</span>" : "";
+    var UI = root.SSDNSItemUI;
+    var kind = UI && !view.blank ? UI.classify(item) : "";
+    var kindLabel = kind && UI.KINDS[kind] ? UI.KINDS[kind].label : "";
+    var homeTag = kind ? '<span class="item-tag item-home" data-item-home="' + esc(kind) + '" title="' + esc(UI.homeText(item)) + '">' + esc(kindLabel) + "</span>" : "";
     var sup = [];
     if (Number(item.meals) > 0) sup.push(item.meals + (Number(item.meals) === 1 ? " meal" : " meals"));
     if (Number(item.water) > 0) sup.push(item.water + " gal water");
     if (Number(item.capacity) > 0) sup.push("holds " + item.capacity + " gal");
-    if (item.armorId && root.SSDNSItemUI) { var arw = root.SSDNSItemUI.armorRow(item.armorId); if (arw) sup.push("AC " + arw.ac); }
+    if (item.armorId && UI) { var arw = UI.armorRow(item.armorId); if (arw) sup.push("AC " + arw.ac); }
     if (item.dirty && item.type === "weapon") sup.push("Dirty");
     var supTag = sup.length ? ' <span class="item-tag item-supply" data-item-supply>' + esc(sup.join(" · ")) + "</span>" : "";
     var off = carriedOff(item);
-    var wt = item.weight != null && isFinite(Number(item.weight)) ? ' <span class="fine item-wt" title="' + (off ? "Rides on your mount; not counted in what you carry" : "Weight each") + '">' + (off && !Number(item.weight) ? "not carried" : esc(item.weight) + " lb" + (onSteed(item) ? " · on the " + SUMMON_SADDLE[item.catalogId || item.id] : (off ? " · on mount" : ""))) + "</span>" : "";
     var steedBtn = SUMMON_SADDLE[item.catalogId || item.id || ""] && !view.blank
       ? '<button type="button" class="btn xs' + (item.summoned ? " btn-primary" : "") + '" data-item-summon="' + esc(item.uid) + '"' + (!item.summoned && item.attune && !item.attuned ? ' data-needs-attune="1"' : "") + ' title="' + (!item.summoned && item.attune && !item.attuned ? "Needs attunement first (Attune, then a short rest). " : "") + (item.summoned ? "The Spectral Horse is out and wears the saddle (not carried). Click to dismiss it: you carry the saddle again (25 lb)." : "Mark the Spectral Horse as summoned: the saddle rides on it and stops counting as carried.") + '">' + (item.summoned ? "Steed summoned ✓" : "Steed not summoned") + "</button> "
       : "";
     /* 0.3.86 Player Give: an offered item stays here (held) until the other player accepts */
-    var giveCtl = root.SSDNSGiveSheet && root.SSDNSGiveSheet.rowControls ? root.SSDNSGiveSheet.rowControls(item, c) : "";
-    if (root.SSDNSGive && c && root.SSDNSGive.heldItem(c, item.uid)) { useBtn = ""; unpackBtn = ""; dropBtn = ""; }
-    return '<div class="item-row"' + (giveCtl && /give-held/.test(giveCtl) ? ' data-item-held="1"' : "") + ">" + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b>" + wt + pips + " " + homeTag + supTag + " " + tag + " " + lock +
-      '<div class="fine">' + esc(view.description || (view.effect && view.effect.text) || "") + "</div>" +
-      useBtn + " " + steedBtn + unpackBtn + dropBtn + giveCtl + "</div></div>";
+    var GS = root.SSDNSGiveSheet;
+    var give = GS && GS.rowGive && c ? GS.rowGive(item, c) : (GS && GS.rowControls ? GS.rowControls(item, c) : "");
+    var park = GS && GS.parkControl && c ? GS.parkControl(item, c) : "";
+    var held = !!(root.SSDNSGive && c && root.SSDNSGive.heldItem(c, item.uid));
+    if (held) { useBtn = ""; unpackBtn = ""; dropBtn = ""; }
+    var cat = view.blank ? "gear" : eqCat(item);
+    var n = Number(item.count) > 0 ? Number(item.count) : 1;
+    var w = item.weight != null && isFinite(Number(item.weight)) ? Number(item.weight) : null;
+    var wt = w == null ? "—" : (off ? (onSteed(item) ? "on " + SUMMON_SADDLE[item.catalogId || item.id] : "on mount") : lbText(w * n));
+    var subBits = [];
+    if (!view.blank) {
+      var shelfLabel = item.shelf === "Foci" ? "Focus" : item.shelf;
+      subBits.push(cat === "weapons" || cat === "use" || cat === "supplies" || cat === "ammo" || !shelfLabel ? (kindLabel === "Gear (other)" ? "Gear" : kindLabel) : shelfLabel);
+    }
+    if (worn) subBits.push("worn");
+    if (item.attuned) subBits.push("attuned");
+    else if (item.attunePending) subBits.push("attuning");
+    if (charges) subBits.push(charges);
+    if (sup.length) subBits.push(sup[0]);
+    if (item.playerAdded && !item.approved) subBits.push("player-added");
+    var desc = view.description || (view.effect && view.effect.text) || "";
+    var detail = (desc ? '<p class="eq-desc">' + esc(desc) + "</p>" : "") +
+      '<div class="eq-facts">' + homeTag + supTag + " " + tag + pips + (w != null ? ' <span class="item-tag item-wt" title="' + (off ? "Rides on your mount; not counted in what you carry" : "Weight each") + '">' + esc(w) + " lb each</span>" : "") + "</div>" +
+      '<div class="eq-acts">' + lock + " " + useBtn + " " + steedBtn + unpackBtn + dropBtn + park + "</div>";
+    return { key: "it:" + item.uid, itemRow: true, held: held || /give-held/.test(give), cat: cat, name: view.name, sub: subBits.filter(Boolean).join(" · "),
+      qty: n, wt: wt, give: give, detail: detail, src: view.blank ? "" : realArt(item) };
+  }
+  function rowHtml(item, c) { return eqRowHtml(rowParts(item, c)); }
+
+  function rulesWeapon(id) {
+    var R = root.SSDNS_RULES || {};
+    var lists = [].concat(R.firearms || [], R.casterGuns || [], R.otherRanged || [], R.melee || []);
+    for (var i = 0; i < lists.length; i++) if (lists[i] && lists[i].id === id) return lists[i];
+    var T = root.SSDNSTrackers;
+    return T && T.weapon ? T.weapon(id) : null;
+  }
+  function weaponFacts(w, g) {
+    var out = [];
+    if (!w) return out;
+    var tier = (g && (g.tier || String(g.chamber || "").split("|")[0])) || "";
+    var tiers = w.tiers || null;
+    var t = tiers ? (tiers[tier] || tiers.medium || tiers.light || tiers[Object.keys(tiers)[0]]) : null;
+    if (t) {
+      if (t.damage) out.push(t.damage + (t.range ? " · " + t.range : "") + (t.misfire ? " · misfire " + t.misfire : ""));
+      ["buck", "slug"].forEach(function (k) { if (t[k] && t[k].damage) out.push((k === "buck" ? "Buck " : "Slug ") + t[k].damage + (t[k].range ? " · " + t[k].range : "") + (t[k].misfire ? " · misfire " + t[k].misfire : "")); });
+    } else if (w.damage) out.push(w.damage + (w.damageType || w.dmgType ? " " + (w.damageType || w.dmgType) : "") + (w.range ? " · " + w.range : ""));
+    if (w.capacity) out.push("Holds " + w.capacity);
+    if (w.action) out.push(w.action);
+    return out;
+  }
+  function slotRows(c) {
+    var rows = [];
+    if (!c) return rows;
+    var G = root.SSDNSGive, GS = root.SSDNSGiveSheet;
+    var backing = {};
+    ["guns", "melee"].forEach(function (key) {
+      (Array.isArray(c[key]) ? c[key] : []).forEach(function (g, i) {
+        if (!g || !g.weapon) return;
+        var kind = key === "guns" ? "gun" : "melee";
+        var w = rulesWeapon(g.weapon);
+        var item = G && G.backingItem ? G.backingItem(c, g.weapon) : null;
+        if (item) backing[item.uid] = 1;
+        var name = (w && w.name) || (item && item.name) || String(g.weapon).replace(/-/g, " ");
+        var sub = [(kind === "gun" ? "Gun slot " : "Melee slot ") + (i + 1)];
+        var cal = String(g.chamber || "").split("|")[1];
+        if (kind === "gun" && w && w.tiers) {
+          if (cal) sub.push(cal);
+          sub.push((Number(g.loaded) || 0) + " loaded");
+        }
+        if (g.equipped) sub.push("in hand");
+        if (g.dirty) sub.push("Dirty");
+        if (g.jammed) sub.push("jammed");
+        var wt = w && !w.custom ? lbOf(w.weight) : (item ? Number(item.weight) || 0 : 0);
+        var src = "";
+        if (root.SSDNSWeaponArt && root.SSDNSWeaponArt.srcFor) src = root.SSDNSWeaponArt.srcFor(w || { id: g.weapon, name: name }) || "";
+        if (!src && item) src = realArt(item);
+        var facts = weaponFacts(w, g).map(function (f) { return '<span class="item-tag">' + esc(f) + "</span>"; }).join(" ");
+        var desc = (w && w.properties) || (item && item.description) || "";
+        var detail = (desc ? '<p class="eq-desc">' + esc(desc) + "</p>" : "") + '<div class="eq-facts">' + facts + ' <span class="item-tag">' + esc(lbText(wt)) + "</span></div>" +
+          '<div class="eq-acts"><button type="button" class="btn xs" data-eq-goto="' + kind + ":" + i + '">Open ' + (kind === "gun" ? "gun" : "melee") + " card</button></div>";
+        var give = GS && GS.slotGive ? GS.slotGive(c, kind, i) : "";
+        rows.push({ key: "slot:" + kind + ":" + i, cat: "weapons", name: name, sub: sub.join(" · "), qty: 1, wt: lbText(wt), give: give, detail: detail, src: withPrefix(src),
+          held: /give-held/.test(give) });
+      });
+    });
+    rows.backing = backing;
+    return rows;
+  }
+  function poolRows(c) {
+    var rows = [];
+    var G = root.SSDNSGive, GS = root.SSDNSGiveSheet;
+    var CW = root.SSDNS_CARRY_WEIGHTS || {}, each = CW.ammoEach || {};
+    var joined = !!(GS && GS.joined && GS.joined());
+    (Array.isArray(c && c.ammo) ? c.ammo : []).forEach(function (p, i) {
+      if (!p || !p.type) return;
+      var n = Number(p.count);
+      if (!isFinite(n) || n <= 0) return;
+      var sub = p.type + ":" + String(p.caliber || "").toLowerCase().trim();
+      var per = each[sub] != null ? num(each[sub]) : num(each[p.type]);
+      var label = G && G.ammoLabel ? G.ammoLabel(p) : (p.type + (p.caliber ? " " + p.caliber : ""));
+      var give = joined && !c.inventoryLocked ? '<button type="button" class="btn xs" data-give-pool title="Hand ammo to someone in the party">Give</button>' : "";
+      var detail = '<p class="eq-desc">Ammo pool. Reloading and firing take from here.</p><div class="eq-facts"><span class="item-tag">' + esc((per || 0) + " lb each") + "</span></div>";
+      rows.push({ key: "ammo:" + p.type + "|" + (p.caliber || "") + "|" + i, cat: "ammo", name: label, sub: "Ammo pool", qty: n, wt: lbText(n * (per || 0)), give: give, detail: detail, src: "" });
+    });
+    return rows;
+  }
+  function wornRows(c, items) {
+    var rows = [];
+    if (!c) return rows;
+    var R = root.SSDNS_RULES || {}, CW = root.SSDNS_CARRY_WEIGHTS || {};
+    var D = root.SSDNSDoll;
+    var art = function (id) { return D && D.gearArtSrc ? D.gearArtSrc(id) : ""; };
+    var wornTag = '<span class="eq-worn" title="Worn. Change it in the Armor / Holsters boxes.">worn</span>';
+    var armorItem = items.some(function (it) { return slotCarried(c, it) && it.armorId; });
+    var shieldItem = items.some(function (it) { return slotCarried(c, it) && !it.armorId; });
+    if (c.armor && !armorItem) {
+      var a = (R.armor || []).filter(function (x) { return x && x.id === c.armor; })[0];
+      if (a) rows.push({ key: "worn:armor", cat: "worn", name: a.name, sub: "Armor · " + (a.category || "") + " · worn", qty: 1, wt: lbText(lbOf(a.weight)), give: wornTag, src: art(a.id),
+        detail: '<p class="eq-desc">AC ' + esc(a.ac || "") + (a.stealth && a.stealth !== "—" ? ". Stealth: " + esc(a.stealth) : "") + (a.phb5e ? " (5e " + esc(a.phb5e) + ")" : "") + ".</p>" });
+    }
+    if (c.shield && !shieldItem) {
+      rows.push({ key: "worn:shield", cat: "worn", name: "Shield", sub: "Shield · +2 AC · worn", qty: 1, wt: lbText(num(CW.shield) || 6), give: wornTag,
+        src: art("shield-badge-board-cavalry-shield-rifle-plate"), detail: '<p class="eq-desc">Badge board, cavalry shield or rifle plate. +2 AC.</p>' });
+    }
+    var hw = CW.holsters || {}, noCarry = CW.holstersNoCarry || [];
+    [["holster", "Holster L"], ["holsterR", "Holster R"], ["belt", "Belt"]].forEach(function (pair) {
+      var id = c[pair[0]];
+      if (!id) return;
+      var h = (R.holsters || []).filter(function (x) { return x && x.id === id; })[0];
+      var off = noCarry.indexOf(id) >= 0;
+      rows.push({ key: "worn:" + pair[0], cat: "worn", name: (h && h.name) || String(id).replace(/-/g, " "), sub: pair[1] + " · worn", qty: 1,
+        wt: off ? "on mount" : lbText(num(hw[id]) || 0), give: wornTag, src: art(id),
+        detail: '<p class="eq-desc">' + esc((h && (h.perk || h.notes)) || "") + (h && h.feedsTR ? " Feeds Tactical Reload." : "") + "</p>" });
+    });
+    return rows;
+  }
+  function instrumentRows(c) {
+    if (!c || !c.instrument || c.instrument === "voice") return [];
+    var R = root.SSDNS_RULES || {}, CW = root.SSDNS_CARRY_WEIGHTS || {};
+    var row = ((R.storytellerGear && R.storytellerGear.instruments) || []).filter(function (g) { return g && g.id === c.instrument; })[0];
+    var name = (row && row.name) || c.instrument;
+    var q = c.instrumentQuality === "quality" ? "Quality" : "Cheap";
+    var src = root.SSDNSInstrumentArt && root.SSDNSInstrumentArt.srcFor ? root.SSDNSInstrumentArt.srcFor({ name: name, quality: c.instrumentQuality }) : "";
+    return [{ key: "instrument", cat: "instruments", name: name, sub: "Calling instrument · " + q + " · focus", qty: 1, wt: lbText(num((CW.instruments || {})[c.instrument]) || 0),
+      give: '<span class="eq-worn" title="Your Calling instrument lives on the Instrument tracker">tracker</span>', src: src,
+      detail: '<p class="eq-desc">Your Calling instrument and focus. Quality, strings, case and wear are on the Instruments tracker.</p>' }];
+  }
+  function eqRows(c) {
+    var items = c ? listOf(c) : [];
+    var slots = slotRows(c);
+    var backing = slots.backing || {};
+    var rows = slots.concat(poolRows(c), wornRows(c, items), instrumentRows(c));
+    items.forEach(function (item) {
+      if (backing[item.uid] && !item.slotState) return; /* a created weapon's item shows as its slot row */
+      rows.push(rowParts(item, c));
+    });
+    return rows;
+  }
+  function eqChipsHtml(rows) {
+    var count = {};
+    rows.forEach(function (r) { count[r.cat] = (count[r.cat] || 0) + 1; });
+    var html = '<button type="button" class="eq-chip" data-eq-filter="all" aria-pressed="' + (eq.filter === "all") + '">All <span class="n">' + rows.length + "</span></button>";
+    EQ_CATS.forEach(function (cat) {
+      var n = count[cat[0]] || 0;
+      if (!n && !EQ_ALWAYS[cat[0]] && eq.filter !== cat[0]) return;
+      html += '<button type="button" class="eq-chip' + (n ? "" : " empty") + '" data-eq-filter="' + cat[0] + '" aria-pressed="' + (eq.filter === cat[0]) + '">' + cat[1] + ' <span class="n">' + n + "</span></button>";
+    });
+    html += '<button type="button" class="eq-chip" data-eq-filter="notes" aria-pressed="' + (eq.filter === "notes") + '">Notes</button>';
+    return '<div class="eq-chips" role="toolbar" aria-label="Filter equipment">' + html + "</div>";
+  }
+  function eqListHtml(rows) {
+    if (eq.filter === "notes") return "";
+    var html = "";
+    EQ_CATS.forEach(function (cat) {
+      if (eq.filter !== "all" && eq.filter !== cat[0]) return;
+      var mine = rows.filter(function (r) { return r.cat === cat[0]; });
+      if (!mine.length) { if (eq.filter === cat[0]) html += '<p class="fine eq-empty">Nothing here yet.</p>'; return; }
+      html += '<div class="eq-cat" data-eq-cat-head="' + cat[0] + '"><h3>' + cat[1] + '</h3><span class="fine">' + mine.length + "</span></div>" +
+        '<ul class="eq-list">' + mine.map(eqRowHtml).join("") + "</ul>";
+    });
+    return html;
+  }
+  function setFilter(f) {
+    eq.filter = f || "all";
+    paintSheet();
+    var gear = document.getElementById("itemGear");
+    var chips = gear && gear.querySelector(".eq-chips");
+    var head = document.getElementById("eqHead");
+    if (head && chips && head.getBoundingClientRect().top < 0 && head.scrollIntoView) head.scrollIntoView({ block: "start" });
+  }
+  function toggleRow(key) {
+    if (!key) return;
+    eq.open[key] = !eq.open[key];
+    var row = null;
+    document.querySelectorAll("#itemList [data-eq-key]").forEach(function (el) { if (el.getAttribute("data-eq-key") === key) row = el; });
+    if (row) {
+      row.classList.toggle("open", !!eq.open[key]);
+      var more = row.querySelector(".eq-more");
+      if (more) more.hidden = !eq.open[key];
+      var car = row.querySelector(".eq-caret");
+      if (car) car.setAttribute("aria-expanded", eq.open[key] ? "true" : "false");
+      eq.html = "";
+    }
+  }
+  function gotoSlot(spec) {
+    var ps = String(spec || "").split(":");
+    var host = ps[0] === "gun" ? document.getElementById("guns") : document.getElementById("meleeList") || document.querySelector(".melee-list, #melee");
+    var cards = host ? host.querySelectorAll(ps[0] === "gun" ? ".gun" : ".melee-card, .melee") : [];
+    var el = cards[Number(ps[1])] || host;
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+  function stickyTop() {
+    var top = 0;
+    [".appbar", ".savebar"].forEach(function (sel) {
+      var el = document.querySelector(sel);
+      if (!el) return;
+      var cs = root.getComputedStyle ? root.getComputedStyle(el) : null;
+      if (cs && (cs.position === "sticky" || cs.position === "fixed") && cs.display !== "none") top += el.offsetHeight;
+    });
+    return top;
   }
 
   /* 0.3.86: what a Give-tab / drawer text already matches (no builder needed): an Ammo pack (→ pool), a catalog item,
@@ -1837,7 +2134,16 @@
     var attuneLine = c && items.some(function (it) { return it && it.attune; })
       ? '<p class="fine attune-line">Attuned ' + attunedCount(c) + " / " + attuneCap(c) + (pend ? " · attuning " + pend + " (finishes on a short rest)" : "") + "</p>" : "";
     var giveBar = root.SSDNSGiveSheet && root.SSDNSGiveSheet.barHtml ? root.SSDNSGiveSheet.barHtml(c) : "";
-    list.innerHTML = giveBar + attuneLine + (items.length ? items.map(function (item) { return rowHtml(item, c); }).join("") : '<p class="fine">No catalog items yet.</p>');
+    /* 0.3.93 Equipment: chips + category groups; repaint only when something changed (keeps scroll and open rows) */
+    var rows = eqRows(c);
+    var body = rows.length ? eqChipsHtml(rows) + eqListHtml(rows) : '<p class="fine">No equipment yet. Apply the starting kit, buy from the store, or use Add item.</p>';
+    var html = giveBar + attuneLine + body;
+    if (html !== eq.html || !list.firstChild) { list.innerHTML = html; eq.html = html; }
+    list.setAttribute("data-eq-view", eq.filter);
+    var chipsEl = list.querySelector(".eq-chips");
+    if (chipsEl) chipsEl.style.top = stickyTop() + "px";
+    var notesBox = document.getElementById("eqNotes");
+    if (notesBox) notesBox.hidden = !(eq.filter === "all" || eq.filter === "notes");
     var freeAdd = playerFreeAdd();
     if (slot) {
       var menuEl = slot.querySelector("[data-add-item-menu]");
@@ -1988,6 +2294,13 @@
   function onSheetClick(e) {
     var t = e.target;
     if (!t || !t.getAttribute) return;
+    /* 0.3.93 Equipment list: chips, row dropdowns, "Open gun card" */
+    var chip = t.closest ? t.closest(".eq-chip[data-eq-filter]") : null;
+    if (chip) { setFilter(chip.getAttribute("data-eq-filter")); if (chip.getAttribute("data-eq-filter") === "notes") { var ta0 = document.getElementById("taEquip"); if (ta0 && ta0.scrollIntoView) ta0.scrollIntoView({ block: "center" }); } return; }
+    var go = t.closest ? t.closest("[data-eq-goto]") : null;
+    if (go) { gotoSlot(go.getAttribute("data-eq-goto")); return; }
+    var tog = t.closest ? t.closest("[data-eq-toggle]") : null;
+    if (tog && !(t.closest(".eq-give") || (t.closest("button, a, input, select") && !t.closest(".eq-caret")))) { toggleRow(tog.getAttribute("data-eq-toggle")); return; }
     var useId = t.getAttribute("data-item-use");
     if (useId) { useOnSheet(useId); return; }
     var summonId = t.getAttribute("data-item-summon");
@@ -2089,6 +2402,13 @@
     if (!box || box.getAttribute("data-bound")) return;
     box.setAttribute("data-bound", "1");
     box.addEventListener("click", onSheetClick);
+    /* a missing thumbnail falls back to the category placeholder (images don't bubble error: use capture) */
+    box.addEventListener("error", function (e) {
+      var img = e.target;
+      if (!img || img.tagName !== "IMG" || !img.getAttribute("data-eq-ph")) return;
+      var ph = img.getAttribute("data-eq-ph"); img.removeAttribute("data-eq-ph"); img.src = ph;
+      if (img.parentNode && img.parentNode.classList) img.parentNode.classList.add("eq-ph");
+    }, true);
     box.addEventListener("change", onSheetChange);
     box.addEventListener("input", onSheetInput);
     box.addEventListener("keydown", function (e) {
@@ -2372,7 +2692,8 @@
     paintWeight: paintWeight,
     paintDm: paintDm,
     artSrc: artSrc,
-    showUse: showUse
+    showUse: showUse,
+    eqCat: eqCat, eqRows: eqRows, setEqFilter: setFilter, realArt: realArt, ITEM_PLACEHOLDER: ITEM_PLACEHOLDER, ITEM_CAT_ART: ITEM_CAT_ART, EQ_CATS: EQ_CATS
   };
 
   /* 0.3.87: a short or long rest finishes any Attune the player started */

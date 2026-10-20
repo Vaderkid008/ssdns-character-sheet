@@ -66,7 +66,27 @@
     }
     if (extra) Object.keys(extra).forEach(function (k) { slot[k] = extra[k]; });
   }
+  /* Equipment build (0.3.93, Jessey 2026-10-20): re-applying a kit (the "Apply starting kit" button, or a second
+     apply on a sheet whose kitStamp already matches) never adds countable things again: no ammo, no items, no
+     note lines. Weapons were already guarded (putGun / putMelee skip a weapon that is there). */
+  var quiet = false;
+  var preview = false;
+  /* What kits already gave this sheet (0.3.93): character.kitGrants.ammo {"type|caliber": n} and .items [catalog ids].
+     A kit applied again never gives the same ammo / item twice, but a new pick (another gun) still gets its own. */
+  function grants(c) {
+    var g = c.kitGrants && typeof c.kitGrants === "object" ? c.kitGrants : (c.kitGrants = {});
+    if (!g.ammo || typeof g.ammo !== "object") g.ammo = {};
+    if (!Array.isArray(g.items)) g.items = [];
+    return g;
+  }
   function addAmmo(c, type, caliber, count) {
+    if (quiet) return;
+    var key = String(type || "") + "|" + String(caliber || "").toLowerCase();
+    if (!preview) {
+      var g = grants(c);
+      if (g.ammo[key]) return;
+      g.ammo[key] = count;
+    }
     c.ammo = c.ammo || [];
     var pool = null;
     c.ammo.forEach(function (a) {
@@ -78,25 +98,117 @@
     }
     pool.count = (parseInt(pool.count, 10) || 0) + count;
   }
-  /* inv2 (0.3.92): a kit gear line that is a real catalog item (Trail kit, Thieves' tools, ...) lands as that item,
-     so it has weight and the pack can be unpacked. Never twice: skipped when the line or the item is already there.
-     Without the item catalog (node tests, old pages) it stays a gear line as before. */
-  function kitItem(c, text) {
-    var I = root.SSDNSItems, map = root.SSDNS_KIT_LINE_ITEMS;
-    var id = map && Object.prototype.hasOwnProperty.call(map, text) ? map[text] : "";
-    if (!id || !I || !I.add || !I.byId || !I.byId(id)) return false;
-    if (String(c.equipment || "").indexOf(text) >= 0) return true;
-    var have = (Array.isArray(c.items) ? c.items : []).some(function (it) { return it && it.catalogId === id && Number(it.count == null ? 1 : it.count) > 0; });
-    if (have) return true;
-    var res = I.add(c, { catalogId: id, count: 1 }, { dm: true });
-    return !!(res && res.ok);
+  /* Equipment build (0.3.93): what each kit gear line becomes.
+       items:   real catalog items (Jessey 5:09 PM: Badge = Holy symbol, walking stick / pouches = Druidic focus,
+                Prism = Arcane focus, Galvanic reagents = Hex pouch)
+       rig:     a holster / belt slot (rules.js holsters; weighs in through the rig slot, shows as a Worn row)
+       covered: already on the sheet as a pool / armor / shield / tracker, so the note line was a duplicate
+       instrument: covered by the Calling instrument tracker when character.instrument is that instrument
+     Lines not in this table (or with no catalog row loaded) stay Equipment note lines. */
+  var HOLY = "badge-saint-medal-carved-eldorite-hymn-book-holy-symbol";
+  var DRUID = "antler-eldorite-nodule-beast-charm-druidic-focus";
+  var ARCANE = "eldorite-charm-bone-fetish-quill-case-lens-arcane-focus";
+  var STRINGS = "plain-strings-set";
+  var KIT_LINES = {
+    "Holy symbol (focus)": { items: [HOLY] },
+    "Badge (tin star, focus)": { items: [HOLY] },
+    "Focus: Carved walking stick": { items: [DRUID] },
+    "Focus: Medicine pouch": { items: [DRUID] },
+    "Focus: Pouch of home-spring soil": { items: [DRUID] },
+    "Prism (focus)": { items: [ARCANE] },
+    "Galvanic reagents (component pouch)": { items: ["hex-pouch-dust-pouch"] },
+    "Harmonica (kit instrument)": { items: ["harmonica-cheap"] },
+    "Harmonica (rides in a pocket)": { items: ["harmonica-cheap"], instrument: "harmonica" },
+    "Harmonica (cheap, pocket)": { items: ["harmonica-cheap"], instrument: "harmonica" },
+    "Fiddle with a strap and one spare set of strings": { items: ["violin-strap", STRINGS] },
+    "Banjo with a strap and one spare set of strings": { items: ["standard-strap-guitar-banjo", STRINGS] },
+    "Guitar with a strap and one spare set of strings": { items: ["standard-strap-guitar-banjo", STRINGS] },
+    "Accordion with a strap and one spare set of strings": { items: ["standard-strap-guitar-banjo"] },
+    "Gun belt": { rig: "belt", id: "gun-belt-cartridge-loops" },
+    "Mexican Loop holster": { rig: "holster", id: "mexican-loop" },
+    "Mexican Loop holster (empty)": { rig: "holster", id: "mexican-loop" },
+    "Shield": { covered: "shield" },
+    "Wooden shield": { covered: "shield" },
+    "Mail Duster (chain mail)": { covered: "armor", id: "mail-duster" },
+    "Arrows ×20": { covered: "ammo" },
+    "Powder, ball, and caps ×20": { covered: "ammo" },
+    "Light cartridges ×20 (plain rounds, not in the cylinder)": { covered: "ammo" }
+  };
+  function lineSpec(text) {
+    if (Object.prototype.hasOwnProperty.call(KIT_LINES, text)) return KIT_LINES[text];
+    var map = root.SSDNS_KIT_LINE_ITEMS;
+    if (map && Object.prototype.hasOwnProperty.call(map, text)) return { items: [map[text]] };
+    return null;
+  }
+  function itemsApi() {
+    var I = root.SSDNSItems;
+    return I && I.add && I.byId ? I : null;
+  }
+  function hasItem(c, id) {
+    return (Array.isArray(c.items) ? c.items : []).some(function (it) { return it && it.catalogId === id && Number(it.count == null ? 1 : it.count) > 0; });
+  }
+  /* true = the line is handled (landed as items / rig, or covered); false = keep it as a note line */
+  function landLine(c, text, opts) {
+    opts = opts || {};
+    var spec = lineSpec(text);
+    if (!spec) return false;
+    if (spec.covered === "shield") return !!c.shield;
+    if (spec.covered === "armor") return !!c.armor && (!spec.id || c.armor === spec.id);
+    if (spec.covered === "ammo") return true;
+    if (spec.rig) {
+      if (spec.rig === "belt") {
+        if (!c.belt) c.belt = spec.id;
+        if (c.belt !== spec.id) return false;
+        c.gunBelt = true;
+        return true;
+      }
+      if (c.holster === spec.id || c.holsterR === spec.id) return true;
+      if (!c.holster) { c.holster = spec.id; return true; }
+      return false;
+    }
+    if (spec.instrument && c.instrument === spec.instrument) return true;
+    var I = itemsApi();
+    if (!I || !spec.items || !spec.items.every(function (id) { return !!I.byId(id); })) return false;
+    /* never twice: an old saved line for the same gear stays the record (it is not turned into a second copy) */
+    if (!opts.migrate && String(c.equipment || "").indexOf(text) >= 0) return true;
+    var g = preview ? { items: [] } : grants(c);
+    spec.items.forEach(function (id) {
+      if (hasItem(c, id) || g.items.indexOf(id) >= 0) return;
+      var res = I.add(c, { catalogId: id, count: 1 }, { dm: true });
+      if (!res || !res.ok) return;
+      g.items.push(id);
+      /* a pack opens straight away: its real items become rows and the pack row goes (its leftovers go to Notes) */
+      if (res.item && !preview && !opts.migrate && I.unpack && I.packContents && I.packContents(res.item)) I.unpack(c, res.item.uid, { dm: true });
+    });
+    return true;
   }
   function addLine(c, text) {
-    if (!text) return;
-    if (kitItem(c, text)) return;
+    if (!text || quiet) return;
+    if (landLine(c, text)) return;
     var cur = c.equipment || "";
     if (cur.indexOf(text) >= 0) return;
     c.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + "• " + text;
+  }
+  /* Saved characters (0.3.93): kit lines already sitting in the Equipment notes become the same items / rigs, and
+     the duplicate ammo / armor / shield lines go. Packs are left alone (they keep their Unpack button). The old notes
+     text is kept in character.equipmentBefore0392, so nothing is lost. Runs once (character.equipMigrated). */
+  function migrateEquipment(c) {
+    if (!c || c.equipMigrated >= 1) return 0;
+    if (!itemsApi()) return 0;
+    var text = String(c.equipment || "");
+    var moved = 0;
+    var keep = text.split("\n").filter(function (raw) {
+      var line = raw.replace(/^\s*•\s*/, "").trim();
+      if (!line || !Object.prototype.hasOwnProperty.call(KIT_LINES, line)) return true;
+      if (landLine(c, line, { migrate: true })) { moved++; return false; }
+      return true;
+    });
+    if (moved) {
+      if (c.equipmentBefore0392 == null) c.equipmentBefore0392 = text;
+      c.equipment = keep.join("\n");
+    }
+    c.equipMigrated = 1;
+    return moved;
   }
   function packLine(id) {
     return {
@@ -449,9 +561,15 @@
     }
   }
 
+  /* The same kit again on a sheet from before 0.3.93 (no kitGrants record of what it got): weapons / armor fields only,
+     nothing countable (no ammo, items or note lines), so nothing doubles. Newer sheets use the kitGrants record instead. */
+  function legacyAgain(c, calling) {
+    return !preview && !!calling && c.kitStamp === calling && !(c.kitGrants && c.kitGrants.v);
+  }
   function moduleStart(c, calling, p) {
     p = p || {};
     kitCalling = calling || "";
+    quiet = legacyAgain(c, calling);
     oneWeapon(c, calling, p);
     if (calling === "storyteller") {
       var voice = p.voice || "fiddle";
@@ -491,7 +609,9 @@
     }
     if (p.bedtime) addLine(c, "Bedtime item: " + p.bedtime);
     if (CALLINGS.indexOf(calling) >= 0) c.kitStamp = calling;
+    if (!preview) grants(c).v = 1;
     c.kitMode = "module";
+    quiet = false;
     return c;
   }
 
@@ -499,17 +619,19 @@
     p = p || {};
     opts = opts || {};
     kitCalling = calling || "";
-    if (opts.start === "module" || p._start === "module") return moduleStart(c, calling, p);
+    preview = !!opts.preview;
+    if (opts.start === "module" || p._start === "module") { var mc = moduleStart(c, calling, p); preview = false; return mc; }
+    quiet = legacyAgain(c, calling);
     oneWeapon(c, calling, p);
     if (calling === "tribal-warrior") {
       addLine(c, "Trail kit");
     } else if (calling === "storyteller") {
       var voice = p.voice || "fiddle";
       c.armor = "leather-jacket";
+      c.instrument = voice; /* set first: a harmonica pick is the tracker instrument, not a second harmonica item */
       addLine(c, instrumentLine(voice));
       if (voice === "voice") addLine(c, "Harmonica (kit instrument)");
       addLine(c, p.kit === "saloon" ? "Saloon kit" : "Traveling trunk");
-      c.instrument = voice;
       if (voice !== "voice" && voice !== "harmonica") {
         if (!c.instrumentQuality) c.instrumentQuality = "cheap";
         if (!c.instrumentStrings) c.instrumentStrings = "plain";
@@ -578,7 +700,10 @@
       addLine(c, "Duster (traveler's clothes)");
     }
     if (CALLINGS.indexOf(calling) >= 0) c.kitStamp = calling;
+    if (!preview) grants(c).v = 1;
     c.kitMode = "full";
+    quiet = false;
+    preview = false;
     return c;
   }
 
@@ -631,7 +756,7 @@
     return String(id || "").replace(/-/g, " ");
   }
   function describe(calling, picks, opts) {
-    var c = apply(blankCharacter(), calling, picks || {}, opts || {});
+    var c = apply(blankCharacter(), calling, picks || {}, Object.assign({}, opts || {}, { preview: true }));
     var lines = [];
     var worn = c.armor ? armorName(c.armor) : "";
     (c.melee || []).forEach(function (row) {
@@ -645,6 +770,16 @@
     (c.ammo || []).forEach(function (a) {
       if (!a || !a.count) return;
       lines.push(a.count + " " + a.type + (a.caliber ? " " + a.caliber : ""));
+    });
+    /* 0.3.92: rigs and kit items (packs are listed closed here; they open when the kit is applied) */
+    var hol = (root.SSDNS_RULES && root.SSDNS_RULES.holsters) || [];
+    [c.holster, c.holsterR, c.belt].forEach(function (id) {
+      if (!id) return;
+      var h = hol.filter(function (x) { return x && x.id === id; })[0];
+      lines.push(h && h.name ? h.name : String(id).replace(/-/g, " "));
+    });
+    (c.items || []).forEach(function (it) {
+      if (it && it.name) lines.push(it.name + (Number(it.count) > 1 ? " ×" + it.count : ""));
     });
     String(c.equipment || "").split("\n").forEach(function (line) {
       var text = line.replace(/^•\s*/, "").trim();
@@ -663,8 +798,27 @@
     firstChoices: firstChoices,
     openChoices: openChoices,
     branches: branches,
-    describe: describe
+    describe: describe,
+    kitLines: KIT_LINES,
+    migrateEquipment: migrateEquipment
   };
   root.SSDNSKits = api;
+  /* first boot: app.js migrated the saved sheet before this file loaded, so run the 0.3.93 kit-line step here */
+  function bootMigrate() {
+    var A = root.SSDNSApp;
+    var d = A && A.doc ? A.doc() : null;
+    var c = d && d.character;
+    if (!c || c.equipMigrated >= 1 || !itemsApi()) return;
+    var due = String(c.equipment || "").split("\n").some(function (raw) {
+      return Object.prototype.hasOwnProperty.call(KIT_LINES, raw.replace(/^\s*•\s*/, "").trim());
+    });
+    if (!due) { c.equipMigrated = 1; return; }
+    if (A.applyPatch) A.applyPatch(function (dd) { if (dd && dd.character) migrateEquipment(dd.character); });
+    if (root.SSDNSItems && root.SSDNSItems.paintSheet) root.SSDNSItems.paintSheet();
+  }
+  if (typeof document !== "undefined" && document.addEventListener) {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bootMigrate);
+    else if (typeof setTimeout === "function") setTimeout(bootMigrate, 0);
+  }
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

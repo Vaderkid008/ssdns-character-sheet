@@ -1,5 +1,5 @@
 /**
- * 0.3.92 / DMCC 0.2.105: the player's free-add item area is a compact "Add item ▾" menu
+ * 0.3.93 / DMCC 0.2.106: the player's free-add item area is a compact "Add item ▾" menu
  * (pick list grouped by type + search, custom form opens from the menu). Picking a catalog row
  * must produce exactly what the old always-open form produced. DMCC Give item is unchanged.
  * The PHB gear (notes) and Starting kit boxes moved into the menu (still write to Equipment notes).
@@ -46,7 +46,7 @@ try {
     const slot = document.querySelector("#itemFormSlot");
     const t = slot.querySelector("[data-add-item-toggle]");
     return { text: t && t.textContent, exp: t && t.getAttribute("aria-expanded"), popHidden: slot.querySelector("[data-add-item-pop]").hidden,
-      formHidden: slot.querySelector("[data-add-item-formwrap]").hidden, formInDom: !!slot.querySelector("[data-item-form]"), h: Math.round(document.querySelector("#itemGear").getBoundingClientRect().height) };
+      formHidden: slot.querySelector("[data-add-item-formwrap]").hidden, formInDom: !!slot.querySelector("[data-item-form]"), h: Math.round(document.querySelector("#itemGear").getBoundingClientRect().height - ((document.querySelector("#eqNotes") || { getBoundingClientRect: () => ({ height: 0 }) }).getBoundingClientRect().height)) };
   });
   check("closed.button", closed.text === "Add item ▾" && closed.exp === "false", JSON.stringify(closed));
   check("closed.noOpenForm", closed.popHidden && closed.formHidden && closed.formInDom, JSON.stringify(closed));

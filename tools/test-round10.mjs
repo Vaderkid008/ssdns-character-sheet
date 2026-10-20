@@ -102,7 +102,9 @@ const machete = (box.SSDNS_RULES.melee || []).find((w) => w.id === "machete-scim
 check(guide.ok && guideMelee.length === 1 && guideMelee[0].weapon === "throwing-spear-javelin" && guideMelee[0].proficient === true, "nature guide wizard seeds one proficient javelin");
 check(machete && machete.damage === "1d6" && machete.dmgType === "Slashing", "machete damage stays on the weapon table");
 check(guide.character.shield === true, "nature guide wooden shield is equipped");
-["Wooden shield", "Trail kit", "Herbalism kit", "Focus: Carved walking stick"].forEach((line) => {
+/* 0.3.92: the worn shield shows as an Equipment row, so its note line is no longer repeated */
+check(String(guide.character.equipment || "").indexOf("Wooden shield") < 0, "nature guide shield is not a duplicate note line");
+["Trail kit", "Herbalism kit", "Focus: Carved walking stick"].forEach((line) => {
   check(String(guide.character.equipment || "").indexOf(line) >= 0, "nature guide kit line " + line);
 });
 check(guide.character.armor === "leather-jacket", "nature guide wears a leather jacket");
@@ -161,7 +163,7 @@ check(join.indexOf("seen: false") >= 0, "turn ack records delivered before seen"
 check(extras.indexOf("selfApplied") >= 0 && extras.indexOf("releaseHealTarget") >= 0, "self heals apply locally");
 check(play.indexOf("attackRoll") >= 0, "melee uses the shared attack dice");
 check(app.indexOf("details.box.wild") >= 0, "wild spark box can be hidden");
-check(read("version.json").indexOf('"sheet": "0.3.92"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.105"') >= 0, "current versions");
+check(read("version.json").indexOf('"sheet": "0.3.93"') >= 0 && read("version.json").indexOf('"dmcc": "0.2.106"') >= 0, "current versions");
 
 if (failures.length) {
   console.error(failures.join("\n"));
