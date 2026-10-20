@@ -2,7 +2,8 @@
  * 0.3.76 / DMCC 0.2.89: the player's free-add item area is a compact "Add item ▾" menu
  * (pick list grouped by type + search, custom form opens from the menu). Picking a catalog row
  * must produce exactly what the old always-open form produced. DMCC Give item is unchanged.
- * One flag hides it later (FINAL STRETCH): window.SSDNS_PLAYER_FREE_ADD = false.
+ * The PHB gear (notes) and Starting kit boxes moved into the menu (still write to Equipment notes).
+ * One flag hides the item-add parts later (FINAL STRETCH): window.SSDNS_PLAYER_FREE_ADD = false; notes entries stay.
  * Needs the static server on 127.0.0.1:8765 and Chrome (ssdns-test-all starts the server).
  *   node tools/test-add-item-menu.mjs
  */
@@ -56,11 +57,11 @@ try {
   await sleep(200);
   const open = await pg.evaluate(() => {
     const slot = document.querySelector("#itemFormSlot");
-    const groups = [...slot.querySelectorAll("[data-add-item-group]")].map((g) => g.getAttribute("data-add-item-group"));
-    const picks = [...slot.querySelectorAll("[data-add-item-pick]")].map((b) => b.getAttribute("data-add-item-pick"));
+    const groups = [...slot.querySelectorAll("[data-add-item-groups] [data-add-item-group]")].map((g) => g.getAttribute("data-add-item-group"));
+    const picks = [...slot.querySelectorAll("[data-add-item-groups] [data-add-item-pick]")].map((b) => b.getAttribute("data-add-item-pick"));
     const cat = window.SSDNSItems.catalog({ dm: false });
     const types = [...new Set(cat.map((r) => r.type))];
-    const groupOk = [...slot.querySelectorAll("[data-add-item-group]")].every((g) => [...g.querySelectorAll("[data-add-item-pick]")].every((b) => { const row = cat.find((r) => r.id === b.getAttribute("data-add-item-pick")); return row && row.type === g.getAttribute("data-add-item-group"); }));
+    const groupOk = [...slot.querySelectorAll("[data-add-item-groups] [data-add-item-group]")].every((g) => [...g.querySelectorAll("[data-add-item-pick]")].every((b) => { const row = cat.find((r) => r.id === b.getAttribute("data-add-item-pick")); return row && row.type === g.getAttribute("data-add-item-group"); }));
     return { exp: slot.querySelector("[data-add-item-toggle]").getAttribute("aria-expanded"), popShown: !slot.querySelector("[data-add-item-pop]").hidden, groups, types,
       picks: picks.length, cat: cat.length, groupOk, search: !!slot.querySelector("[data-add-item-search]"), custom: !!slot.querySelector("[data-add-item-custom]"), quest: cat.some((r) => r.type === "quest") };
   });
@@ -71,8 +72,8 @@ try {
   check("open.searchAndCustom", open.search && open.custom && !open.quest);
   await pg.type("[data-add-item-search]", "dynamite");
   await sleep(150);
-  const srch = await pg.evaluate(() => ({ groups: [...document.querySelectorAll("#itemFormSlot [data-add-item-group]")].map((g) => g.getAttribute("data-add-item-group")), names: [...document.querySelectorAll("#itemFormSlot [data-add-item-pick]")].map((b) => b.textContent) }));
-  check("search.filters", srch.groups.join() === "explosive" && srch.names.length > 0 && srch.names.every((n) => /dynamite/i.test(n)), JSON.stringify(srch));
+  const srch = await pg.evaluate(() => ({ groups: [...document.querySelectorAll("#itemFormSlot [data-add-item-groups] [data-add-item-group]")].map((g) => g.getAttribute("data-add-item-group")), names: [...document.querySelectorAll("#itemFormSlot [data-add-item-groups] [data-add-item-pick]")].map((b) => b.textContent), notes: document.querySelectorAll("#itemFormSlot [data-add-notes]").length }));
+  check("search.filters", srch.groups.join() === "explosive" && srch.names.length > 0 && srch.names.every((n) => /dynamite/i.test(n)) && srch.notes === 2, JSON.stringify(srch));
   await pg.evaluate(() => { const s = document.querySelector("[data-add-item-search]"); s.value = "zzzz"; s.dispatchEvent(new Event("input", { bubbles: true })); });
   check("search.empty", await pg.evaluate(() => !!document.querySelector("#itemFormSlot .add-item-empty")));
   await pg.evaluate(() => { const s = document.querySelector("[data-add-item-search]"); s.value = ""; s.dispatchEvent(new Event("input", { bubbles: true })); });
@@ -170,36 +171,86 @@ try {
   /* weapon custom fields still toggle inside the custom form */
   check("custom.weaponFields", await pg.evaluate(() => { const slot = document.querySelector("#itemFormSlot"); slot.querySelector("[data-add-item-custom]").click(); const f = slot.querySelector("[data-item-form]"); const ty = f.querySelector("[data-item-type]"); ty.value = "weapon"; ty.dispatchEvent(new Event("change", { bubbles: true })); const shown = !f.querySelector("[data-item-weapon-fields]").hidden; ty.value = "gear"; ty.dispatchEvent(new Event("change", { bubbles: true })); slot.querySelector("[data-add-item-close]").click(); return shown; }));
 
-  /* locked inventory disables the menu; unlocking re-enables */
+  /* PHB gear (notes) + Starting kit… live in the menu and still write to the Equipment notes */
+  const notes = await pg.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const A = window.SSDNSApp;
+    const slot = document.querySelector("#itemFormSlot");
+    A.applyPatch((d) => { d.character.equipment = "Bedroll"; d.character.items = []; });
+    await wait(50);
+    const standalone = [...document.querySelectorAll("#page-equip .quickadd")].every((q) => q.closest("[data-add-notes-panel]"));
+    const panelsHidden = document.querySelector("#addNotesPhb").hidden && document.querySelector("#addNotesKit").hidden;
+    const entries = [...slot.querySelectorAll("[data-add-notes]")].map((b) => b.textContent);
+    slot.querySelector("[data-add-item-toggle]").click(); await wait(20);
+    slot.querySelector('[data-add-notes="phb"]').click();
+    const phbOpen = !document.querySelector("#addNotesPhb").hidden && document.querySelector("#addNotesKit").hidden && slot.querySelector("[data-add-item-pop]").hidden;
+    const gl = document.querySelectorAll("#gearList option").length;
+    const inp = document.querySelector("#gearAdd");
+    inp.value = "Rope, hempen (50 feet) (PHB p.153)";
+    document.querySelector("#btnGearAdd").click(); await wait(50);
+    const eq1 = A.doc().character.equipment;
+    inp.value = "Lantern, hooded";
+    inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await wait(50);
+    const eq2 = A.doc().character.equipment;
+    slot.querySelector("[data-add-item-toggle]").click(); await wait(20);
+    slot.querySelector('[data-add-notes="kit"]').click();
+    const kitOpen = !document.querySelector("#addNotesKit").hidden && document.querySelector("#addNotesPhb").hidden;
+    const ks = document.querySelector("#selKitCrosswalk");
+    const kitRows = ks.options.length - 1;
+    ks.value = "0"; document.querySelector("#btnKitAdd").click(); await wait(50);
+    const eq3 = A.doc().character.equipment;
+    document.querySelector("#addNotesKit [data-add-notes-close]").click();
+    const closed = document.querySelector("#addNotesKit").hidden;
+    return { standalone, panelsHidden, entries, phbOpen, gl, eq1, eq2, eq3, kitOpen, kitRows, closed, items: (A.doc().character.items || []).length };
+  });
+  check("notes.standaloneBoxesGone", notes.standalone && notes.panelsHidden, JSON.stringify(notes));
+  check("notes.menuEntries", notes.entries.length === 2 && /PHB gear \(notes\)/.test(notes.entries[0]) && /Starting kit/.test(notes.entries[1]), JSON.stringify(notes.entries));
+  check("notes.phbOpensFromMenu", notes.phbOpen && notes.gl > 20, JSON.stringify(notes));
+  check("notes.phbWritesEquipment", notes.eq1 === "Bedroll\n• Rope, hempen (50 feet) (PHB p.153)" && notes.eq2 === notes.eq1 + "\n• Lantern, hooded", JSON.stringify([notes.eq1, notes.eq2]));
+  check("notes.kitWritesEquipment", notes.kitOpen && notes.kitRows > 0 && /\n• Kit swap: .+ → .+$/.test(notes.eq3) && notes.eq3.indexOf(notes.eq2) === 0, notes.eq3);
+  check("notes.noInventoryItems", notes.items === 0 && notes.closed);
+
+  /* locked inventory blocks item-add parts only; notes entries still work; unlocking re-enables */
   const lock = await pg.evaluate(async () => {
     const A = window.SSDNSApp, I = window.SSDNSItems;
+    const slot = document.querySelector("#itemFormSlot");
     A.applyPatch((d) => { d.character.inventoryLocked = true; }); I.paintSheet();
-    const t = document.querySelector("[data-add-item-toggle]");
-    const off = t.disabled;
+    slot.querySelector("[data-add-item-toggle]").click();
+    const pick = slot.querySelector("[data-add-item-pick]:not([data-add-notes])");
+    const r = { toggle: !slot.querySelector("[data-add-item-toggle]").disabled, pickOff: pick.disabled, customOff: slot.querySelector("[data-add-item-custom]").disabled, searchOff: slot.querySelector("[data-add-item-search]").disabled, notesOn: [...slot.querySelectorAll("[data-add-notes]")].every((b) => !b.disabled) };
+    slot.querySelector("[data-add-item-toggle]").click();
     A.applyPatch((d) => { d.character.inventoryLocked = false; }); I.paintSheet();
-    return { off, on: !t.disabled };
+    slot.querySelector("[data-add-item-toggle]").click();
+    r.pickOn = !slot.querySelector("[data-add-item-pick]:not([data-add-notes])").disabled && !slot.querySelector("[data-add-item-custom]").disabled;
+    slot.querySelector("[data-add-item-toggle]").click();
+    return r;
   });
-  check("lock.disables", lock.off && lock.on, JSON.stringify(lock));
+  check("lock.itemPartsOnly", lock.toggle && lock.pickOff && lock.customOff && lock.searchOff && lock.notesOn, JSON.stringify(lock));
+  check("lock.unlockReenables", lock.pickOn, JSON.stringify(lock));
 
-  /* one flag hides the whole thing (not set now) */
+  /* one flag hides the item-add parts (not set now); the notes entries stay */
   const flag = await pg.evaluate(() => {
     const I = window.SSDNSItems, slot = document.querySelector("#itemFormSlot");
     const def = I.playerFreeAdd();
     window.SSDNS_PLAYER_FREE_ADD = false; I.paintSheet();
-    const hidden = !slot.querySelector("[data-add-item-menu]") && !slot.querySelector("[data-item-form]");
+    const off = { menu: !!slot.querySelector("[data-add-item-menu]"), label: slot.querySelector("[data-add-item-toggle]").textContent, picks: slot.querySelectorAll("[data-add-item-pick]:not([data-add-notes])").length, custom: !!slot.querySelector("[data-add-item-custom]"), form: !!slot.querySelector("[data-item-form]"), search: !!slot.querySelector("[data-add-item-search]"), notes: slot.querySelectorAll("[data-add-notes]").length };
     delete window.SSDNS_PLAYER_FREE_ADD; I.paintSheet();
-    return { def, hidden, back: !!slot.querySelector("[data-add-item-menu]") };
+    return { def, off, back: !!slot.querySelector("[data-add-item-custom]") && slot.querySelector("[data-add-item-toggle]").textContent === "Add item ▾" };
   });
-  check("flag.defaultOn", flag.def && flag.back);
-  check("flag.hides", flag.hidden);
+  check("flag.defaultOn", flag.def && flag.back, JSON.stringify(flag));
+  check("flag.hidesItemAdd", flag.off.menu && flag.off.picks === 0 && !flag.off.custom && !flag.off.form && !flag.off.search, JSON.stringify(flag.off));
+  check("flag.keepsNotes", flag.off.notes === 2 && flag.off.label === "Add to notes ▾", JSON.stringify(flag.off));
   check("sheet.noPageErrors", errs.length === 0, errs.join(" | "));
 
-  /* phone 390px: the menu fits */
-  const ph = await browser.newPage();
+  /* phone 390px: the menu fits (own browser context, so the desktop tab's multi-tab read-only lock can't interfere) */
+  await pg.close();
+  const phCtx = await browser.createBrowserContext();
+  const ph = await phCtx.newPage();
   const perrs = [];
   ph.on("pageerror", (e) => perrs.push(String(e)));
   await ph.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
   await openSheet(ph);
+  check("phone.notReadOnly", await ph.evaluate(() => !document.body.classList.contains("sheet-readonly")));
   await ph.evaluate(() => document.querySelector("[data-add-item-toggle]").scrollIntoView({ block: "center" }));
   await ph.tap("[data-add-item-toggle]");
   await sleep(200);

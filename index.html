@@ -311,18 +311,27 @@
             <div class="sub-head"><h3>Items</h3></div>
             <div id="itemList"></div>
             <div id="itemFormSlot"></div>
+            <!-- 0.3.76: opened from the "Add item ▾" menu; both write to the Equipment notes only -->
+            <div class="add-notes-panel" id="addNotesPhb" data-add-notes-panel="phb" hidden>
+              <div class="add-item-formhead"><b>PHB gear (notes)</b> <button type="button" class="btn xs ghost" data-add-notes-close>Close</button></div>
+              <div class="quickadd">
+                <input type="text" id="gearAdd" list="gearList" placeholder="Add gear from the PHB list…" aria-label="Add gear">
+                <button type="button" class="btn sm" id="btnGearAdd">Add</button>
+                <datalist id="gearList"></datalist>
+              </div>
+              <p class="fine">Adds a line to the Equipment notes (not an inventory item).</p>
+            </div>
+            <div class="add-notes-panel" id="addNotesKit" data-add-notes-panel="kit" hidden>
+              <div class="add-item-formhead"><b>Starting kit</b> <button type="button" class="btn xs ghost" data-add-notes-close>Close</button></div>
+              <div class="quickadd kit-crosswalk">
+                <select id="selKitCrosswalk" aria-label="Starting kit crosswalk">
+                  <option value="">Starting kit crosswalk…</option>
+                </select>
+                <button type="button" class="btn sm" id="btnKitAdd" title="Append this kit swap to Equipment">Add kit</button>
+              </div>
+              <p class="fine">Adds a kit-swap line to the Equipment notes.</p>
+            </div>
             <p id="weightLine" class="fine weight-line" hidden></p>
-          </div>
-          <div class="quickadd">
-            <input type="text" id="gearAdd" list="gearList" placeholder="Add gear from the PHB list…" aria-label="Add gear">
-            <button type="button" class="btn sm" id="btnGearAdd">Add</button>
-            <datalist id="gearList"></datalist>
-          </div>
-          <div class="quickadd kit-crosswalk">
-            <select id="selKitCrosswalk" aria-label="Starting kit crosswalk">
-              <option value="">Starting kit crosswalk…</option>
-            </select>
-            <button type="button" class="btn sm" id="btnKitAdd" title="Append this kit swap to Equipment">Add kit</button>
           </div>
           <textarea data-f="character.equipment" rows="9" id="taEquip"></textarea>
           <label class="box-title bottom" for="taEquip">Equipment</label>
