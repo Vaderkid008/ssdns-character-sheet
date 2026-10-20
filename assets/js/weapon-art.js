@@ -38,6 +38,8 @@
     ["Throwing spear (javelin)", "throwing-spear-javelin"],
     ["Trail mace / chapel mace (mace)", "trail-mace-chapel-mace-mace"],
     ["Trail spear (spear)", "trail-spear-spear"],
+    ["Trail staff / cowhand's staff (quarterstaff)", "trail-staff-drovers-staff-quarterstaff"],
+    /* L0185: pre-rename name, so older custom rows still find the art. */
     ["Trail staff / drover's staff (quarterstaff)", "trail-staff-drovers-staff-quarterstaff"],
     ["Shortbow", "shortbow"],
     ["Sling", "sling"],

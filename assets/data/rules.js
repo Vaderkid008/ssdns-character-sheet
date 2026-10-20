@@ -2121,7 +2121,7 @@ window.SSDNS_RULES = {
    "features": [
     {
      "name": "Oath Sense (Divine Sense - 1st lvl)",
-     "text": "Detect unquiet dead, hell-branded fiends, or sacred presence within 60 ft (1 + Cha mod times/day)."
+     "text": "Detect restless dead, hell-branded fiends, or sacred presence within 60 ft (1 + Cha mod times/day)."
     },
     {
      "name": "Mercy Hands (Lay on Hands - 1st lvl)",
@@ -6041,8 +6041,8 @@ window.SSDNS_RULES = {
   },
   {
    "id": "trail-staff-drover-s-staff-quarterstaff",
-   "name": "Trail staff / drover's staff (quarterstaff)",
-   "model": "Trail staff / drover's staff (quarterstaff)",
+   "name": "Trail staff / cowhand's staff (quarterstaff)",
+   "model": "Trail staff / cowhand's staff (quarterstaff)",
    "group": "simple-melee",
    "cost": "20",
    "damage": "1d6",

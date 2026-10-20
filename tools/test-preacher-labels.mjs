@@ -1,4 +1,4 @@
-/* L0184 (PHB package #6): "Circuit" labels renamed on the sheet and DMCC.
+/* L0184 + L0185 (PHB package #6): "Circuit" labels, drover's staff and Detect unquiet dead renamed on the sheet and DMCC.
  * Ids stay (pack ids circuit/trunk, store ids circuit-*); old saves migrate their display text on load.
  * Static checks + a browser load of an old save with "Circuit kit" and the Circuit Magic feature. */
 import fs from "node:fs";
@@ -11,8 +11,8 @@ const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
 let fails = 0;
 function check(name, ok, info) { if (ok) console.log("ok    " + name); else { fails++; console.log("FAIL  " + name + (info ? "  " + info : "")); } }
 
-const OLD = ["The Whisper Network & The Circuit", "Circuit Magic", "Circuit Welcome", "Circuit kit", "Circuit trunk", "circuit coat", "Circuit robe / coat", "The Circuit Rider's Code"];
-const NEW = ["The Whisper Network", "Preacher's Magic", "Chapel Welcome", "Preacher's kit", "Traveling trunk", "long coat", "Long robe / coat", "The Trail Preacher's Code"];
+const OLD = ["The Whisper Network & The Circuit", "Circuit Magic", "Circuit Welcome", "Circuit kit", "Circuit trunk", "circuit coat", "Circuit robe / coat", "The Circuit Rider's Code", "drover's staff", "Detect unquiet dead"];
+const NEW = ["The Whisper Network", "Preacher's Magic", "Chapel Welcome", "Preacher's kit", "Traveling trunk", "long coat", "Long robe / coat", "The Trail Preacher's Code", "cowhand's staff", "Detect restless dead"];
 
 /* ---------- static ---------- */
 const files = execSync("git ls-files", { cwd: root, encoding: "utf8" }).split("\n").filter((f) => f && !/\.(png|jpe?g|gif|webp|mp3|ogg|wav|woff2?|ttf|ico|pdf)$/i.test(f));
@@ -21,17 +21,26 @@ const leftovers = [];
 files.forEach((f) => {
   if (allow.has(f)) return;
   let s; try { s = read(f); } catch (e) { return; }
-  OLD.forEach((o) => { if (s.indexOf(o) >= 0) leftovers.push(f + ": " + o); });
+  OLD.forEach((o) => {
+    /* weapon-art.js keeps the old staff name as a second lookup row; test-gear-tab checks the old id/name slug. */
+    if (o === "drover's staff" && (f === "assets/js/weapon-art.js" || f === "tools/test-gear-tab.mjs")) return;
+    if (s.indexOf(o) >= 0) leftovers.push(f + ": " + o);
+  });
 });
 check("static.noOldLabels", leftovers.length === 0, leftovers.join(" | "));
 const rules = read("assets/data/rules.js");
 check("static.rulesHeaderKept", rules.startsWith("/* SSDNS rules data. GENERATED from BOOK1.md"));
 ["\"name\": \"The Whisper Network\"", "\"name\": \"Preacher's Magic (1st level)\"", "\"name\": \"The Trail Preacher's Code\"", "\"Preacher's Magic, Divine Domain\"", "vestments (long coat)",
   "\"name\": \"Chapel Welcome\"", "\"name\": \"Traveling trunk\"", "\"name\": \"Preacher's kit\"", "\"name\": \"Long robe / coat\""].forEach((s) => check("rules.has " + s, rules.indexOf(s) >= 0));
+/* L0185 */
+check("rules.staffRenamedIdKept", rules.indexOf('"id": "trail-staff-drover-s-staff-quarterstaff",\n   "name": "Trail staff / cowhand\'s staff (quarterstaff)"') >= 0);
+check("rules.restlessDead", rules.indexOf('"name": "Oath Sense (Divine Sense - 1st lvl)",\n     "text": "Detect restless dead,') >= 0);
+check("rules.primevalAwarenessKept", rules.indexOf("Primeval Awareness") >= 0);
 const ref = read("assets/data/refcards.js");
 ["Preacher's Magic (spellcasting", "vestments (long coat)", "\"name\": \"Chapel Welcome\""].forEach((s) => check("refcards.has " + s, ref.indexOf(s) >= 0));
 const store = JSON.parse(read("dm/assets/data/store-items.json"));
 const byId = Object.fromEntries(store.map((r) => [r.id, r]));
+check("store.staff", byId["trail-staff-drover-s-staff"] && byId["trail-staff-drover-s-staff"].name === "Trail staff / cowhand's staff");
 check("store.idsKept", ["circuit-kit", "circuit-trunk", "circuit-robe-coat", "fine-clothes-circuit-coat"].every((id) => byId[id]));
 check("store.names", byId["circuit-kit"].name === "Preacher's kit" && byId["circuit-trunk"].name === "Traveling trunk" && byId["circuit-robe-coat"].name === "Long robe / coat" && byId["fine-clothes-circuit-coat"].name === "Fine clothes (long coat)");
 const kits = read("assets/js/kits.js");
@@ -47,6 +56,8 @@ const oc = { equipment: "• Circuit kit\n• Circuit trunk", features: "Circuit
 const n = RN.character(oc);
 check("renames.character", n === 4 && oc.equipment === "• Preacher's kit\n• Traveling trunk" && /^Preacher's Magic/.test(oc.features) && oc.items[0].name === "Long robe / coat" && oc.items[0].catalogId === "circuit-robe-coat" && oc.featureUses["Chapel Welcome"].used === 1 && !("Circuit Welcome" in oc.featureUses), JSON.stringify(oc));
 check("renames.idempotent", RN.character(oc) === 0);
+const om = { features: "Oath Sense (Divine Sense - 1st lvl)\nDetect unquiet dead, hell-branded fiends.", melee: [{ weapon: "trail-staff-drover-s-staff-quarterstaff", name: "Trail staff / drover's staff (quarterstaff)" }], equipment: "Every drover's first holster" };
+check("renames.l0185", RN.character(om) === 2 && /Detect restless dead/.test(om.features) && om.melee[0].name === "Trail staff / cowhand's staff (quarterstaff)" && om.melee[0].weapon === "trail-staff-drover-s-staff-quarterstaff" && om.equipment === "Every drover's first holster", JSON.stringify(om));
 check("wiring.sheet", /renames\.js/.test(read("index.html")) && /SSDNSRenames\.character\(doc\.character\)/.test(read("assets/js/app.js")));
 check("wiring.dmcc", /renames\.js/.test(read("dm/index.html")) && /relabel\(s\.features\)/.test(read("dm/assets/js/dmcc.js")));
 
@@ -104,6 +115,25 @@ try {
   check("rules.preacherFeatures", /Preacher's Magic \(1st level\)/.test(calling.p) && /The Trail Preacher's Code/.test(calling.p) && calling.row === "Preacher's Magic, Divine Domain", JSON.stringify(calling));
   check("rules.storyteller", /The Whisper Network/.test(calling.s) && !/Circuit/.test(calling.s));
   check("rules.chapelHand", calling.bg === "Chapel Welcome" && /long coat/.test(calling.eq));
+  /* L0185: an old Lawman save with the staff and Oath Sense text. */
+  const law = await page.evaluate(() => {
+    const doc = { format: "ssdns-character", schemaVersion: 2, id: "old-lawman", shards: {}, character: {
+      name: "Old Lawman", calling: "lawman", level: 1, featuresCustom: true,
+      features: "Oath Sense (Divine Sense - 1st lvl)\nDetect unquiet dead, hell-branded fiends, or sacred presence within 60 ft (1 + Cha mod times/day).",
+      melee: [{ weapon: "trail-staff-drover-s-staff-quarterstaff", equipped: true }] } };
+    window.SSDNSApp.loadText(JSON.stringify(doc), { fileName: "law.ssdns" });
+    const c = window.SSDNSApp.state.doc.character; const v = window.SSDNSApp.compute();
+    document.querySelector("#tab-equip").click();
+    const row = (window.SSDNS_RULES.melee || []).find((m) => m.id === "trail-staff-drover-s-staff-quarterstaff");
+    const html = document.body.innerHTML;
+    const names = [row && row.name].concat(html.match(/Trail staff \/ [a-z']+ staff/g) || []).map((x) => String(x).replace(/ \(quarterstaff\)$/, ""));
+    return { name: c.name, feat: c.features, melee: c.melee && c.melee[0] && c.melee[0].weapon, names: [...new Set(names)],
+      art: window.SSDNSWeaponArt && window.SSDNSWeaponArt.slugFor ? window.SSDNSWeaponArt.slugFor({ id: "trail-staff-drover-s-staff-quarterstaff", name: "Trail staff / cowhand's staff (quarterstaff)" }) : "n/a" };
+  });
+  check("law.loads", law.name === "Old Lawman" && law.melee === "trail-staff-drover-s-staff-quarterstaff", JSON.stringify(law));
+  check("law.restlessDead", /Detect restless dead/.test(law.feat) && !/unquiet dead/.test(law.feat), law.feat);
+  check("law.staffName", law.names.length && law.names.every((n) => n === "Trail staff / cowhand's staff"), JSON.stringify(law.names));
+  check("law.staffArt", law.art === "n/a" || law.art === "trail-staff-drovers-staff-quarterstaff", law.art);
   check("sheet.noPageErrors", errs.length === 0, errs.join(" | "));
   await ctx.close();
 

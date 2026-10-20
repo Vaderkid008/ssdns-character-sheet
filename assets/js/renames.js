@@ -1,5 +1,5 @@
-/* L0184 label renames (PHB package #6: no more "Circuit"). Saved sheets keep their ids
-   (pack ids "circuit"/"trunk", store ids "circuit-kit", "circuit-trunk", "circuit-robe-coat",
+/* L0184 + L0185 label renames (PHB package #6: no more "Circuit"; cowhand's staff; Detect restless dead). Saved sheets keep their ids
+   (pack ids "circuit"/"trunk", store ids "circuit-kit", "circuit-trunk", "circuit-robe-coat", melee id "trail-staff-drover-s-staff-quarterstaff",
    "fine-clothes-circuit-coat"); only the old display text is swapped on load and on DMCC display. */
 (function (root) {
   "use strict";
@@ -13,10 +13,14 @@
     ["Circuit Magic", "Preacher's Magic"],
     ["Circuit trunk", "Traveling trunk"],
     ["Circuit kit", "Preacher's kit"],
-    ["circuit coat", "long coat"]
+    ["circuit coat", "long coat"],
+    /* L0185 */
+    ["drover's staff", "cowhand's staff"],
+    ["drover\u2019s staff", "cowhand's staff"],
+    ["Detect unquiet dead", "Detect restless dead"]
   ];
   function text(s) {
-    if (typeof s !== "string" || s.toLowerCase().indexOf("circuit") < 0) return s;
+    if (typeof s !== "string" || !/circuit|drover|unquiet dead/i.test(s)) return s;
     PAIRS.forEach(function (p) { if (s.indexOf(p[0]) >= 0) s = s.split(p[0]).join(p[1]); });
     return s;
   }
@@ -30,11 +34,11 @@
       var t = text(c[k]);
       if (t !== c[k]) { c[k] = t; n++; }
     });
-    if (Array.isArray(c.items)) c.items.forEach(function (it) {
+    ["items", "melee", "guns"].forEach(function (list) { if (Array.isArray(c[list])) c[list].forEach(function (it) {
       if (!it || typeof it.name !== "string") return;
       var t = text(it.name);
       if (t !== it.name) { it.name = t; n++; }
-    });
+    }); });
     if (c.featureUses && typeof c.featureUses === "object" && !Array.isArray(c.featureUses)) {
       Object.keys(c.featureUses).forEach(function (k) {
         var t = text(k);

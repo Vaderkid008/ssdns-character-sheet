@@ -2078,7 +2078,7 @@ function openDetail(pid) {
         <button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${g.equipped === false ? "1" : "0"}" data-gun-kind="gun" data-gun-i="${sheetI}">${g.equipped === false ? "Equip" : "Unequip"}</button>
       </div>`;
       }).join("") || "<p>—</p>"}
-      ${(s.melee || []).map((m) => `<div class="gun-chip"><div>${esc(m.name)} · melee</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${m.equipped === false ? "1" : "0"}" data-gun-kind="melee" data-gun-i="${m.index}">${m.equipped === false ? "Equip" : "Unequip"}</button></div>`).join("")}
+      ${(s.melee || []).map((m) => `<div class="gun-chip"><div>${esc(relabel(m.name))} · melee</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${m.equipped === false ? "1" : "0"}" data-gun-kind="melee" data-gun-i="${m.index}">${m.equipped === false ? "Equip" : "Unequip"}</button></div>`).join("")}
       ${s.focus && s.focus.id ? `<div class="gun-chip"><div>Focus · ${esc(s.focus.id)}${s.focus.carry === "held" ? " · held" : (s.focus.carry === "free" ? " · strapped" : "")}</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${s.focus.equipped === false ? "1" : "0"}" data-gun-kind="focus" data-gun-i="0">${s.focus.equipped === false ? "Equip focus" : "Unequip focus"}</button></div>` : ""}
     </div>
     <div class="detail-section"><h3>Equipment</h3><pre>${esc(relabel(s.equipment) || "—")}</pre></div>
