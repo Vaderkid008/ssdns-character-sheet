@@ -218,7 +218,7 @@
       u(out, "whistle", "Whistle Recovery", 1, "long", "Action: heal 3 × your level HP. Once per long rest.", "BOOK1 L1514");
     if (cl === "lawman") {
       u(out, "oathSense", "Oath Sense", Math.max(1, 1 + cha), "long",
-        "Detect unquiet dead, hell-branded fiends or a sacred presence within 60 ft. 1 + Cha mod times per day; regain on a long rest (PHB).", "BOOK1 L1565-1566; rest per PHB (L899)");
+        "Detect restless dead, hell-branded fiends or a sacred presence within 60 ft. 1 + Cha mod times per day; regain on a long rest (PHB).", "BOOK1 L1565-1566; rest per PHB (L899)");
       if (L >= 3) u(out, "deputize", "Deputize", L >= 11 ? 2 : 1, "long",
         "Once per long rest per deputy, your deputy adds your Charisma modifier to one d20 roll. 1 deputy, 2 at 11th.", "BOOK1 L1584, table L1603 / L1611");
       if (L >= 3 && sc) u(out, "oathCreed", "Channel Creed (oath)", 1, "short",
