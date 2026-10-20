@@ -1170,9 +1170,108 @@
     var attuneLine = c && items.some(function (it) { return it && it.attune; })
       ? '<p class="fine attune-line">Attuned ' + attunedCount(c) + " / " + attuneCap(c) + "</p>" : "";
     list.innerHTML = attuneLine + (items.length ? items.map(function (item) { return rowHtml(item, c); }).join("") : '<p class="fine">No catalog items yet.</p>');
-    if (slot && !slot.querySelector("[data-item-form]")) slot.innerHTML = formHtml({ dm: false });
-    if (c && c.inventoryLocked && slot) slot.querySelectorAll("button, input, select").forEach(function (el) { el.disabled = true; });
+    if (slot && !playerFreeAdd()) slot.innerHTML = "";
+    else if (slot && !slot.querySelector("[data-add-item-menu]")) slot.innerHTML = addMenuHtml();
+    var locked = !!(c && c.inventoryLocked);
+    if (slot) slot.querySelectorAll("button, input, select").forEach(function (el) { el.disabled = locked; });
+    if (locked) setAddMenu(slot, false);
     paintWeight();
+  }
+
+  /* 0.3.76: the player's free-add item area is one compact "Add item ▾" menu.
+     Pick list grouped by type (with search when long); the custom-item form opens
+     from the menu. Picking a catalog row runs the exact same add path the old
+     always-open form used (catalog select + fillForm + readForm + add).
+     FINAL STRETCH: players will only get items from the store or the DM, so the
+     whole menu hides behind ONE flag: window.SSDNS_PLAYER_FREE_ADD = false. */
+  var ADD_GROUPS = [
+    { type: "weapon", label: "Weapons" },
+    { type: "explosive", label: "Explosives" },
+    { type: "consumable", label: "Consumables" },
+    { type: "scroll", label: "Scrolls" },
+    { type: "gear", label: "Gear" }
+  ];
+  var ADD_SEARCH_MIN = 12;
+  function playerFreeAdd() { return root.SSDNS_PLAYER_FREE_ADD !== false; }
+  function addPickRows() {
+    return catalog({ dm: false }).slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+  }
+  function addGroupsHtml(rows, query) {
+    var q = normName(query || "");
+    var known = {};
+    ADD_GROUPS.forEach(function (g) { known[g.type] = 1; });
+    var groups = ADD_GROUPS.concat([{ type: "", label: "Other" }]);
+    var html = groups.map(function (g) {
+      var list = rows.filter(function (row) {
+        var inGroup = g.type ? row.type === g.type : !known[row.type];
+        return inGroup && (!q || normName(row.name + " " + row.type).indexOf(q) >= 0);
+      });
+      if (!list.length) return "";
+      return '<div class="add-item-group" data-add-item-group="' + esc(g.type || "other") + '"><div class="add-item-group-head">' + esc(g.label) + ' <span class="fine">' + list.length + "</span></div>" +
+        list.map(function (row) {
+          var bits = [];
+          if (row.effect && (row.effect.dice || row.effect.damage)) bits.push(row.effect.dice || row.effect.damage);
+          if (row.price != null && row.forSale) bits.push(row.price + " ES");
+          return '<button type="button" class="add-item-pick" data-add-item-pick="' + esc(row.id) + '" role="menuitem">' + esc(row.name) +
+            (bits.length ? ' <span class="fine">' + esc(bits.join(" · ")) + "</span>" : "") + "</button>";
+        }).join("") + "</div>";
+    }).join("");
+    return html || '<p class="fine add-item-empty">No items match.</p>';
+  }
+  function addMenuHtml() {
+    var rows = addPickRows();
+    return '<div class="add-item-menu" data-add-item-menu>' +
+      '<div class="add-item-bar"><button type="button" class="btn sm add-item-toggle" data-add-item-toggle aria-haspopup="true" aria-expanded="false">Add item ▾</button></div>' +
+      '<div class="add-item-pop" data-add-item-pop role="menu" aria-label="Add an item" hidden>' +
+        (rows.length >= ADD_SEARCH_MIN ? '<input type="search" class="add-item-search" data-add-item-search placeholder="Search items…" aria-label="Search items" autocomplete="off">' : "") +
+        '<div class="add-item-groups" data-add-item-groups>' + addGroupsHtml(rows, "") + "</div>" +
+        '<button type="button" class="btn sm add-item-custom" data-add-item-custom role="menuitem">Custom item…</button>' +
+      "</div>" +
+      '<div class="add-item-formwrap" data-add-item-formwrap hidden>' +
+        '<div class="add-item-formhead"><b>Custom item</b> <button type="button" class="btn xs ghost" data-add-item-close>Close</button></div>' +
+        formHtml({ dm: false }) +
+      "</div></div>";
+  }
+  function setAddMenu(slot, open) {
+    var menu = slot && slot.querySelector ? slot.querySelector("[data-add-item-menu]") : null;
+    if (!menu) return;
+    var pop = menu.querySelector("[data-add-item-pop]");
+    var btn = menu.querySelector("[data-add-item-toggle]");
+    if (open) {
+      var search = menu.querySelector("[data-add-item-search]");
+      var groups = menu.querySelector("[data-add-item-groups]");
+      if (groups) groups.innerHTML = addGroupsHtml(addPickRows(), search ? search.value : "");
+    }
+    if (pop) pop.hidden = !open;
+    if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+    menu.classList.toggle("open", !!open);
+  }
+  function setAddForm(slot, open) {
+    var wrap = slot && slot.querySelector ? slot.querySelector("[data-add-item-formwrap]") : null;
+    if (wrap) wrap.hidden = !open;
+  }
+  function addFromForm(form) {
+    var made = readForm(form);
+    made.addressedTo = (form.querySelector("[data-item-address]") || {}).value || "";
+    var added = add(character(), Object.assign(made, { addressedTo: made.addressedTo }), { player: true });
+    if (!added.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(added.reason);
+    else commit();
+    return added;
+  }
+  function pickFromMenu(slot, id) {
+    var form = slot && slot.querySelector("[data-item-form]");
+    if (!form || !byId(id)) return null;
+    var cat = form.querySelector("[data-item-catalog]");
+    if (cat) cat.value = id;
+    fillForm(form, id);
+    var added = addFromForm(form);
+    if (cat) { cat.value = ""; toggleWeaponFields(form); }
+    if (added && added.ok) {
+      setAddMenu(slot, false);
+      if (root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice("Added " + ((added.item && added.item.name) || "item") + ".");
+    }
+    paintSheet();
+    return added;
   }
 
   function onSheetClick(e) {
@@ -1207,15 +1306,38 @@
       paintSheet();
       return;
     }
+    var slot = document.getElementById("itemFormSlot");
+    var hit = t.closest ? t.closest("[data-add-item-toggle], [data-add-item-pick], [data-add-item-custom], [data-add-item-close]") : null;
+    if (hit && slot && slot.contains(hit)) {
+      if (hit.hasAttribute("data-add-item-toggle")) {
+        var menu = slot.querySelector("[data-add-item-menu]");
+        var opening = !(menu && menu.classList.contains("open"));
+        setAddMenu(slot, opening);
+        if (opening) { var sb = slot.querySelector("[data-add-item-search]"); if (sb) sb.focus(); }
+      } else if (hit.hasAttribute("data-add-item-pick")) {
+        pickFromMenu(slot, hit.getAttribute("data-add-item-pick"));
+      } else if (hit.hasAttribute("data-add-item-custom")) {
+        setAddMenu(slot, false);
+        setAddForm(slot, true);
+        var nm = slot.querySelector("[data-item-name]"); if (nm) nm.focus();
+      } else if (hit.hasAttribute("data-add-item-close")) {
+        setAddForm(slot, false);
+      }
+      return;
+    }
     if (t.hasAttribute("data-item-add")) {
       var form = t.closest("[data-item-form]");
-      var made = readForm(form);
-      made.addressedTo = (form.querySelector("[data-item-address]") || {}).value || "";
-      var added = add(character(), Object.assign(made, { addressedTo: made.addressedTo }), { player: true });
-      if (!added.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(added.reason);
-      else commit();
+      var added = addFromForm(form);
+      if (added && added.ok && slot && slot.contains(form)) setAddForm(slot, false);
       paintSheet();
     }
+  }
+  function onSheetInput(e) {
+    var t = e.target;
+    if (!t || !t.hasAttribute || !t.hasAttribute("data-add-item-search")) return;
+    var menu = t.closest("[data-add-item-menu]");
+    var groups = menu && menu.querySelector("[data-add-item-groups]");
+    if (groups) groups.innerHTML = addGroupsHtml(addPickRows(), t.value);
   }
 
   function onSheetChange(e) {
@@ -1231,6 +1353,21 @@
     box.setAttribute("data-bound", "1");
     box.addEventListener("click", onSheetClick);
     box.addEventListener("change", onSheetChange);
+    box.addEventListener("input", onSheetInput);
+    box.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      var slot = document.getElementById("itemFormSlot");
+      var menu = slot && slot.querySelector("[data-add-item-menu].open");
+      if (!menu) return;
+      setAddMenu(slot, false);
+      var tg = menu.querySelector("[data-add-item-toggle]"); if (tg) tg.focus();
+    });
+    document.addEventListener("click", function (e) {
+      var slot = document.getElementById("itemFormSlot");
+      var menu = slot && slot.querySelector("[data-add-item-menu].open");
+      if (!menu || (e.target && menu.contains(e.target))) return;
+      setAddMenu(slot, false);
+    });
     var exp = document.getElementById("explosiveList");
     if (exp && !exp.getAttribute("data-bound")) {
       exp.setAttribute("data-bound", "1");
@@ -1472,6 +1609,8 @@
     formHtml: formHtml,
     readForm: readForm,
     paintSheet: paintSheet,
+    playerFreeAdd: playerFreeAdd,
+    addMenuHtml: addMenuHtml,
     paintWeight: paintWeight,
     paintDm: paintDm,
     artSrc: artSrc,

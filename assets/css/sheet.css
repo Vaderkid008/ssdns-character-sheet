@@ -913,6 +913,31 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .item-form label { display: block; margin: 4px 0; font-size: 13px; }
 .item-form input, .item-form select { max-width: 100%; }
 .item-form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+/* 0.3.76 compact player "Add item ▾" menu */
+.add-item-menu { position: relative; margin-top: 6px; }
+.add-item-bar { display: flex; gap: 8px; align-items: center; }
+.add-item-toggle { min-height: 36px; }
+.add-item-pop {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 40;
+  max-height: min(60vh, 420px); overflow: auto; padding: 8px;
+  background: var(--paper, #f6ecd6); color: var(--ink, #2a1f16);
+  border: 1px solid var(--line, #8a7560); border-radius: 6px; box-shadow: 0 8px 22px rgba(0,0,0,.28);
+}
+.add-item-search { width: 100%; box-sizing: border-box; min-height: 36px; margin: 0 0 6px; padding: 4px 8px; }
+.add-item-group { margin: 4px 0 8px; }
+.add-item-group-head { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .8; border-bottom: 1px solid var(--line, #8a7560); margin-bottom: 2px; }
+.add-item-pick {
+  display: flex; justify-content: space-between; gap: 8px; width: 100%; text-align: left; min-height: 34px;
+  padding: 4px 6px; background: transparent; border: 0; border-radius: 4px; color: inherit; font: inherit; cursor: pointer;
+}
+.add-item-pick:hover, .add-item-pick:focus-visible { background: rgba(138,117,96,.2); }
+.add-item-custom { width: 100%; margin-top: 4px; }
+.add-item-formwrap { margin-top: 8px; padding: 8px; border: 1px dashed var(--line, #8a7560); border-radius: 6px; }
+.add-item-formhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+@media (max-width: 520px) {
+  .add-item-pick { min-height: 44px; }
+  .add-item-toggle { min-height: 44px; }
+}
 .weight-line { font-weight: 600; }
 /* 0.3.54 fading, non-blocking toasts */
 .fade-toasts { position: fixed; top: 72px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
