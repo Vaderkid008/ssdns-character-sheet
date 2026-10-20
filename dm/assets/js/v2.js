@@ -2836,6 +2836,7 @@ function decorateDetail(pid) {
         <select id="detailGun">${guns.map((g, i) => `<option value="${i}">${esc(g.name)} · ${esc(g.loaded ?? "?")}/${esc(g.capacity ?? "?")} rounds${g.atk ? " · " + esc(g.atk) : ""}${g.misfire ? " · MF " + esc(g.misfire) : ""}</option>`).join("") || '<option value="">No guns</option>'}</select>
         <select id="detailAdv" aria-label="Advantage or disadvantage"><option value="">Straight</option><option value="adv">Advantage</option><option value="dis">Disadvantage</option></select>
         <label class="toggle" title="Bonus action after the Attack action: their sheet spends the Bonus pip and drops a positive ability mod from damage."><input type="checkbox" id="detailOffhand"> Off-hand</label>
+        <label class="toggle" title="Pistolero: Fan the Hammer, one more pistol attack as a bonus action after the Attack action (ability mod added; no Tactical Reload this turn)."><input type="checkbox" id="detailFan"> Fan</label>
         <button type="button" class="btn sm" id="btnDetailAttack">Roll weapon</button>
       </div>
       <p class="lede">Roll weapon is a plain attack. It never spends a spell slot.</p>
@@ -3166,10 +3167,12 @@ async function rollGunAttack(pid) {
   if (mode === "adv" || mode === "dis") payload.mode = mode;
   const ohBox = $("#detailOffhand");
   if (ohBox && ohBox.checked) { payload.offhand = true; ohBox.checked = false; } /* 0.2.85: off-hand, one shot */
+  const fanBox = $("#detailFan");
+  if (fanBox && fanBox.checked) { if (!payload.offhand) payload.fan = true; fanBox.checked = false; } /* 0.2.86: Fan the Hammer, one shot */
   await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
   if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
   const whoName = namesFor(pid).characterName || s.name || "them";
-  DM.toast("Asked " + whoName + " to fire " + g.name + (payload.offhand ? " (off-hand)" : ""));
+  DM.toast("Asked " + whoName + " to fire " + g.name + (payload.offhand ? " (off-hand)" : (payload.fan ? " (fan the hammer)" : "")));
 }
 async function rollSpell(pid) {
   const p = DM.state.players[pid];
@@ -6505,6 +6508,7 @@ function ensurePlayerAttacks(row) {
   }
   const prev = (row.card && row.card.attacks) || [];
   row.card = row.card || {};
+  row.card.pistolero = !!(snap && snap.pistolero); /* 0.2.86: the drawer offers Fan the Hammer */
   row.card.attacks = guns.map((g) => {
     const n = Math.max(0, named.indexOf(g));
     const id = g.id || ("gun-" + n);
@@ -7370,6 +7374,7 @@ async function mapFreeShot(i, row, detail) {
     const pid = row.playerId || row.id;
     const payload = { op: "fire", index: sheetSlot(atk, n), dm: true, free: true };
     if (detail.offhand) payload.offhand = true; /* 0.2.85: off-hand (bonus action) shot */
+    else if (detail.fan) payload.fan = true; /* 0.2.86: Pistolero Fan the Hammer (bonus action) */
     if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
     await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
     if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
@@ -7414,6 +7419,7 @@ window.SSDNSMapFight = {
       if (picked == null) { if (window.SSDNSRangeRings) window.SSDNSRangeRings.clear(); return false; }
       const payload = { op: "fire", index: gi, dm: true };
       if (detail.offhand) payload.offhand = true; /* 0.2.85: off-hand (bonus action) shot */
+      else if (detail.fan) payload.fan = true; /* 0.2.86: Pistolero Fan the Hammer (bonus action) */
       if (picked) payload.mode = picked;
       if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
       if (targetId) payload.targetId = targetId;

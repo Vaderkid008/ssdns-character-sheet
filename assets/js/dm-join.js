@@ -234,6 +234,7 @@
       level: c.level || 1,
       subclass: c.subclass || "",
       background: c.background || "",
+      pistolero: Array.isArray(c.feats) && c.feats.indexOf("pistolero") >= 0, /* 0.3.73: DM drawer Fan toggle */
       lineage: [c.lineage, c.sublineage].filter(Boolean).join(" · "),
       hpCurrent: c.hpCurrent,
       hpMax: c.hpMax,
@@ -1644,8 +1645,9 @@
       if (payload.free) root.SSDNSGunRoll._free = true;
       /* 0.3.72: DM-sent off-hand shot: Bonus pip, no positive ability mod to damage, chat tagged off-hand */
       if (payload.offhand) root.SSDNSGunRoll._offhand = true;
+      else if (payload.fan) root.SSDNSGunRoll._fan = true;
       try { root.SSDNSGunRoll(payload.index, payload.chamber); }
-      finally { root.SSDNSGunRoll._dm = null; root.SSDNSGunRoll._free = null; root.SSDNSGunRoll._offhand = null; }
+      finally { root.SSDNSGunRoll._dm = null; root.SSDNSGunRoll._free = null; root.SSDNSGunRoll._offhand = null; root.SSDNSGunRoll._fan = null; }
       return;
     } else if (payload.op === "dirty-d4") {
       if (root.SSDNSD4 && root.SSDNSD4.arm) root.SSDNSD4.arm(payload.index);

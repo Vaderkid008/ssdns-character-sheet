@@ -1075,3 +1075,8 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 
 /* 0.3.73: stowed pair */
 .offhand-card button:disabled { opacity: .45 !important; cursor: not-allowed; filter: grayscale(1); }
+
+/* 0.3.73: Pistolero Fan the Hammer */
+.btn.fan:disabled { opacity: .45; cursor: not-allowed; }
+.btn.fan.lit { box-shadow: 0 0 0 2px #e0a526, 0 0 8px rgba(224,165,38,.7); }
+.btn.tr.tr-locked { opacity: .45; text-decoration: line-through; }

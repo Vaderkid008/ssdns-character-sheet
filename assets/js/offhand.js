@@ -166,8 +166,16 @@
   /** opts.dm: the DM is acting for this player, so a missing Attack action is overridden (and logged). */
   function gate(name, opts) {
     opts = opts || {};
-    if (attackTaken()) return { ok: true };
     var log = root.SSDNSSheet && root.SSDNSSheet.addLog;
+    /* 0.3.73: Fan the Hammer and the off-hand attack share the one bonus action */
+    if (root.SSDNSFan && root.SSDNSFan.usedThisTurn && root.SSDNSFan.usedThisTurn()) {
+      var fanMsg = "Off-hand attack: Fan the Hammer already used your bonus action this turn.";
+      if (opts.dm) { if (log) log({ kind: "alert", text: "DM override: " + fanMsg }); return { ok: true, override: true }; }
+      if (root.SSDNSToast) root.SSDNSToast(fanMsg);
+      if (log) log({ kind: "alert", text: fanMsg });
+      return { ok: false, reason: fanMsg };
+    }
+    if (attackTaken()) return { ok: true };
     if (opts.dm) {
       if (log) log({ kind: "alert", text: "DM override: " + (name || "Off-hand") + " off-hand attack before the Attack action." });
       return { ok: true, override: true };
@@ -180,6 +188,7 @@
   function spendPip(name) {
     var P = root.SSDNSActionPips;
     if (!P) return null;
+    if (root.SSDNSFan && root.SSDNSFan.noteOffhand) root.SSDNSFan.noteOffhand();
     return P.spend ? P.spend("bonus", (name || "Off-hand") + " off-hand attack") : null;
   }
   /* ---- Dual Wielder: draw or stow both weapons at once ---- */

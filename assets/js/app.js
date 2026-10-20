@@ -3002,7 +3002,16 @@
     var c = C(), h = HOL[c.holster], b = HOL[c.belt];
     return !!c.gunBelt || !!(h && h.feedsTR) || !!(b && b.feedsTR);
   }
+  function fanTrLocked() {
+    /* 0.3.73: Pistolero Fan the Hammer uses the bonus action: no Tactical Reload for the rest of that turn */
+    var F = window.SSDNSFan;
+    if (!F || !F.trLocked || !F.trLocked()) return false;
+    toast(F.TR_MSG);
+    if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: F.TR_MSG });
+    return true;
+  }
   function tacticalReload(i) {
+    if (fanTrLocked()) return;
     var g = C().guns[i], w = WPN[g.weapon];
     if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
     if (d4Pending(g)) { toast("Roll the d4 first."); return; }
@@ -3723,9 +3732,11 @@
       var bits = String(d.takepool).split(":");
       var pool = C().ammo[num(bits[1])];
       var pi = num(bits[0]), pmax = num(bits[2]) || 0, pg = C().guns[pi];
+      if (pmax && fanTrLocked()) return;
       return withCost(pi, reloadCost(pg, pg && WPN[pg.weapon], pmax), pmax ? "Tactical Reload" : "Reload", function () { return reloadFromPool(pi, pool, pmax); });
     }
     if (d.reload !== undefined) { var di = num(d.reload), dg = C().guns[di]; return withCost(di, reloadCost(dg, dg && WPN[dg.weapon], 0), "Reload", function () { return reload(di); }); }
+    if (d.tr !== undefined && fanTrLocked()) return;
     if (d.tr !== undefined) { var ti = num(d.tr); return withCost(ti, "bonus", "Tactical Reload", function () { return tacticalReload(ti); }); }
     if (d.hexload !== undefined) return loadHexShell(num(d.hexload));
     if (d.skill) { C().skillProf[d.skill] = (num(C().skillProf[d.skill], 0) + 1) % 3; changed(); return; }

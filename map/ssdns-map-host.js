@@ -401,6 +401,25 @@
         attacks.push(copy);
       });
     }
+    /* 0.3.73: Pistolero Fan the Hammer, one button per held pistol (bonus action; ability mod kept). */
+    var FAN = root.SSDNSFan;
+    if (FAN && FAN.status && FAN.hasPistolero(c)) {
+      (c.guns || []).forEach(function (g, i) {
+        var fs = FAN.status(i, c);
+        if (!fs.show) return;
+        var base = attacks.filter(function (a) { return a.id === "gunroll:" + i; })[0];
+        if (!base) return;
+        var copy = {};
+        Object.keys(base).forEach(function (k) { copy[k] = base[k]; });
+        delete copy.ammo; copy.reloadId = ""; copy.trId = ""; copy.pools = []; copy.castSpells = [];
+        copy.id = "fan:gun:" + i;
+        copy.name = base.name + " · Fan";
+        copy.fan = true;
+        copy.enabled = !!fs.ok;
+        copy.title = fs.ok ? "Fan the Hammer (bonus action)" : fs.reason;
+        attacks.push(copy);
+      });
+    }
     var spells = [];
     function pushSpell(level, name) {
       if (!name) return;
@@ -442,6 +461,10 @@
       var chamber = document.querySelector('[data-fire="' + cssEscape(gi) + '"][data-k="' + cssEscape(k) + '"]')
         || document.querySelector('[data-gunroll="' + cssEscape(gi) + '"][data-k="' + cssEscape(k) + '"]');
       if (chamber && !chamber.hidden) { chamber.click(); return; }
+    }
+    if (id.indexOf("fan:") === 0 && root.SSDNSFan) {
+      var fanI = root.SSDNSFan.parseId(id);
+      if (fanI != null) return root.SSDNSFan.fire(fanI, { chamber: ctx.chamber });
     }
     if (id.indexOf("offhand:") === 0 && root.SSDNSOffhand) {
       var ohId = root.SSDNSOffhand.parseId(id);

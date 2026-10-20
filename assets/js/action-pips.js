@@ -157,7 +157,9 @@
     if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "note", quiet: true, text: NAME[kind] + (st[kind] ? " marked used" : " marked ready") + " (manual)." });
     return st[kind];
   }
-  function reset(quiet) { st.action = false; st.bonus = false; st.reaction = false; st.attacks = 0; st.actionBy = ""; save(); paint(); if (!quiet) toast("Action, bonus action, and reaction are back."); }
+  function reset(quiet) { st.action = false; st.bonus = false; st.reaction = false; st.attacks = 0; st.actionBy = ""; save(); paint(); if (!quiet) toast("Action, bonus action, and reaction are back."); /* 0.3.73: tell per-turn trackers (Fan the Hammer) */
+    try { if (root.dispatchEvent && typeof root.CustomEvent === "function") root.dispatchEvent(new root.CustomEvent("ssdns:pips-reset")); } catch (e) {}
+  }
   function onTurn(init) {
     if (!init || !Array.isArray(init.order) || !init.order.length) return;
     var k = String(init.round || 1) + ":" + String(Number(init.turn) || 0);
