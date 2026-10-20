@@ -174,6 +174,7 @@
         misStreak: Number(g.misStreak) || 0,
         pendingD4: !!g.pendingD4,
         weapon: g.weapon || "",
+        dmOnly: !!(g.dmOnly || (st && st.w && st.w.dmOnly) || (g.record && g.record.dmOnly)),
         range: st && st.range ? st.range : "",
         properties: st && st.w && st.w.properties ? st.w.properties : "",
         group: st && st.w && st.w.group ? st.w.group : "",
@@ -280,10 +281,19 @@
           dmOnly: !!item.dmOnly,
           description: item.description || "",
           uses: item.uses || { max: null },
-          chargesLeft: item.chargesLeft == null ? null : item.chargesLeft
+          chargesLeft: item.chargesLeft == null ? null : item.chargesLeft,
+          attunePending: !!item.attunePending,
+          dirty: !!item.dirty,
+          stack: !!item.stack
         };
       }).filter(Boolean),
       inventoryLocked: !!c.inventoryLocked,
+      /* 0.3.87: carried / max for the DMCC Give-tab inventory panel, and what is on offer to another player */
+      carry: (function () {
+        if (!root.SSDNSItems || !root.SSDNSItems.weightReport) return null;
+        try { var wr = root.SSDNSItems.weightReport(c); return { carried: wr.carried, capacity: wr.capacity, over: !!wr.over, on: !!wr.on }; } catch (e) { return null; }
+      })(),
+      giving: root.SSDNSGive ? root.SSDNSGive.outgoing(c).map(function (r) { return { id: r.id, kind: r.kind, uid: r.uid || "", qty: r.qty, to: r.otherName || "", label: r.label || "", slotKind: r.slotKind || "", index: r.index == null ? null : r.index }; }) : [],
       features: c.features || "",
       personality: c.personality || "",
       guns: guns,
@@ -292,7 +302,7 @@
         var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.melee) || [], (root.SSDNS_RULES && root.SSDNS_RULES.otherRanged) || []);
         var w = null;
         lists.forEach(function (row) { if (row && row.id === m.weapon) w = row; });
-        return { index: i, weapon: m.weapon, name: (w && w.name) || m.weapon, equipped: m.equipped !== false };
+        return { index: i, weapon: m.weapon, name: (w && w.name) || m.weapon, equipped: m.equipped !== false, dmOnly: !!(m.dmOnly || (w && w.dmOnly) || (m.record && m.record.dmOnly)) };
       }).filter(Boolean),
       focus: c.instrument ? {
         id: c.instrument,
@@ -739,6 +749,13 @@
         var cmd = val[id];
         if (!cmd) return;
         if (cmd.to && cmd.to !== "all" && cmd.to !== state.uid) return;
+        /* 0.3.86 Player Give: an offer is state, not a one-shot. It is picked up whenever it is seen (also after a
+           refresh or on another device); the ledger row it points at decides what happens, once. */
+        if (cmd.type === "give_offer") {
+          state.lastCmdSeen[id] = 1;
+          if (root.SSDNSGiveSheet && cmd.payload && cmd.payload.xferId) root.SSDNSGiveSheet.onOffer(cmd.payload.xferId);
+          return;
+        }
         if (state.lastCmdSeen[id]) { noteReplayHp(id, cmd); return; }
         var ts = cmdTime(cmd);
         /* 0.3.55: no automatic playback. A music command is only heard live, as the DM pushes it;
@@ -1348,7 +1365,7 @@
     delete state.appliedRewards[id];
     saveApplied();
   }
-  function applyEsReward(delta, reason, id) {
+  function applyEsReward(delta, reason, id, label) {
     var Bridge = root.SSDNSBridge;
     var d = doc();
     if (!Bridge || !d || !delta) return;
@@ -1378,9 +1395,9 @@
       syncShardFields(w.shards);
       var neu = Bridge.cpValue(d.shards);
       state.lastEs = neu;
-      toast("DM " + (delta >= 0 ? "granted +" : "took ") + Math.abs(delta) + " ES");
+      toast(label ? label + ": " + (delta >= 0 ? "+" : "") + delta + " ES" : "DM " + (delta >= 0 ? "granted +" : "took ") + Math.abs(delta) + " ES");
       if (root.SSDNSAudio) root.SSDNSAudio.play("reward");
-      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: id ? "es:" + id : "", kind: "es", text: "DM " + (delta >= 0 ? "+" : "") + delta + " ES" });
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: id ? "es:" + id : "", kind: "es", text: (label ? label + " " : "DM ") + (delta >= 0 ? "+" : "") + delta + " ES" });
       publishSnapshot();
       return true;
     } finally {
@@ -2145,6 +2162,7 @@
     });
     bind("players", function (val) {
       var rows = [];
+      var roster = [];
       Object.keys(val || {}).forEach(function (id) {
         var p = val[id] || {};
         var s = p.snapshot || {};
@@ -2154,7 +2172,9 @@
         if (conns && typeof conns === "object") online = Object.keys(conns).some(function (cid) { return conns[cid] && conns[cid].online !== false; });
         else online = !!pres.online;
         rows.push({ name: s.name || "Someone", player: s.player || "", online: online });
+        roster.push({ uid: id, name: s.name || s.player || "Someone", player: s.player || "", online: online });
       });
+      state._roster = roster;
       if (root.SSDNSMapHost && root.SSDNSMapHost.setPlayers) {
         root.SSDNSMapHost.setPlayers(Object.keys(val || {}).map(function (id) {
           var p = val[id] || {};
@@ -2478,6 +2498,7 @@
       loadApplied();
       listenCommands();
       listenRoomFeeds();
+      if (root.SSDNSGiveSheet && root.SSDNSGiveSheet.resume) { try { root.SSDNSGiveSheet.resume(); } catch (e) { console.warn("[DM Join] give resume", e); } }
       pullRoomState();
       watchEs();
       dropPrejoinRolls();
@@ -2594,6 +2615,34 @@
   function hookRollHelper() {
     // Optional: expose for sheet to call when they add shared rolls later
     root.SSDNSDmJoin = {
+      /* 0.3.86 Player Give transport (give-sheet.js): create-only request rows + one ledger row per transfer */
+      give: {
+        me: function () { return state.joined && !state.left ? (state.uid || "") : ""; },
+        roster: function () { return (state._roster || []).slice(); },
+        es: function () { var d = doc(); return root.SSDNSBridge && d ? root.SSDNSBridge.cpValue(d.shards) : 0; },
+        publish: function () { publishSnapshot(); },
+        applyEs: function (delta, label, grant) { return applyEsReward(delta, label, grant, label); },
+        write: function (key, row) {
+          if (!state.joined || state.left || !state._fb || !state.db) return Promise.resolve({ ok: false });
+          var fb = state._fb;
+          var ref = fb.ref(state.db, roomPath("encounter/requests/" + key));
+          return fb.set(ref, row).then(function () { return { ok: true }; }, function () {
+            /* create-only: the row is already there (a double tap or a resend after a refresh) */
+            return fb.get(ref).then(function (snap) { return { ok: false, exists: !!(snap && snap.exists && snap.exists()) }; }, function () { return { ok: false, exists: true }; });
+          });
+        },
+        watch: function (path, cb) {
+          if (!state._fb || !state.db) return;
+          var fb = state._fb;
+          var r = fb.ref(state.db, roomPath(path));
+          var room = state.roomCode;
+          var unsub = fb.onValue(r, function (snap) {
+            if (!state.joined || state.roomCode !== room) return;
+            try { cb(snap.val()); } catch (e) { console.warn("[DM Join] give", e); }
+          }, function () {});
+          state.unsubs.push(typeof unsub === "function" ? unsub : function () { try { fb.off(r, "value", unsub); } catch (e) {} });
+        }
+      },
       /* 0.3.86: tests feed a DM command straight in (no room needed) */
       _handle: function (cmd) { handleCommand(cmd || {}); },
       isJoined: function () { return !!state.joined; },

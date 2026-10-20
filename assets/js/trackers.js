@@ -865,6 +865,7 @@
       /* 0.3.84 Special UI hook: a registered renderer (item / weapon id or w.ui) can extend or replace this card;
          per-card hooks (SSDNSItemUI.on("quiver", fn)) run here too, e.g. #106 click-to-shoot */
       if (root.SSDNSItemUI && root.SSDNSItemUI.decorate) root.SSDNSItemUI.decorate(card, { card: "gun", kind: kindOf(w), index: i, weapon: w || null, character: c });
+      if (root.SSDNSGiveSheet && root.SSDNSGiveSheet.slotControls) root.SSDNSGiveSheet.slotControls(card, { card: "gun", index: i, weapon: w || null, character: c });
     }
     $$("#meleeBox .melee-card").forEach(function (card, idx) {
       var slot2 = card.querySelector(".trk-slot-melee");
@@ -873,6 +874,7 @@
       if (slot2.getAttribute("data-sig") !== mh) { slot2.innerHTML = mh; slot2.setAttribute("data-sig", mh); }
       var mrow = c.melee && c.melee[idx], mw = mrow && weapon(mrow.weapon);
       if (root.SSDNSItemUI && root.SSDNSItemUI.decorate) root.SSDNSItemUI.decorate(card, { card: "melee", kind: kindOf(mw), index: idx, weapon: mw || null, character: c });
+      if (root.SSDNSGiveSheet && root.SSDNSGiveSheet.slotControls) root.SSDNSGiveSheet.slotControls(card, { card: "melee", index: idx, weapon: mw || null, character: c });
     });
   }
   function onClick(e) {

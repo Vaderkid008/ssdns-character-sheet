@@ -409,6 +409,8 @@ function attachLiveListeners() {
       toast((row.characterName || "A player") + " asks the bank for " + (Number(row.amount) || 0) + " ES");
     });
     renderBankReqs();
+    /* 0.2.99 Player Give: the DMCC brokers each transfer (ledger first, once-only legs) */
+    if (window.SSDNSGiveDM) window.SSDNSGiveDM.onRequests(rows);
     state._mercySeen = state._mercySeen || {};
     Object.keys(rows).forEach((id) => {
       const row = rows[id];
@@ -1478,6 +1480,7 @@ function holdUi(fn) {
   restoreUi();
 }
 function fillTargetSelects() {
+  setTimeout(() => { if (window.SSDNSGiveDM) window.SSDNSGiveDM.paintInv(); }, 0);
   const sig = Object.keys(state.players).map((id) => {
     const s = (state.players[id] && state.players[id].snapshot) || {};
     return id + ":" + (s.name || "");
@@ -1724,6 +1727,7 @@ async function markRollApplied(id, applied) {
   catch (e) { /* the roll row can already be gone */ }
 }
 function renderPlayers() {
+  if (window.SSDNSGiveDM) { try { window.SSDNSGiveDM.paintInv(); } catch (e) {} }
   const grid = $("#playerGrid");
   const list = Object.values(state.players);
   if (!list.length) {
@@ -2189,6 +2193,7 @@ function openDetail(pid) {
 }
 
 function renderLedger() {
+  if (window.SSDNSGiveDM) { try { window.SSDNSGiveDM.paintPending(); } catch (e) {} }
   const feed = $("#ledgerFeed");
   if (!state.ledger.length) {
     feed.innerHTML = '<div class="empty"><b>Ledger empty</b>ES changes and DM pushes show up here.</div>';

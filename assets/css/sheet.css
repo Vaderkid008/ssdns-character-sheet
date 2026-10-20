@@ -1243,3 +1243,11 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 
 /* typeui: fields folded away for the picked kind */
 [data-item-form] [hidden] { display: none !important; }
+
+/* 0.3.86 Player Give */
+.give-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 8px; }
+.item-tag.give-held { background: #f3e2b8; border-color: #b0873a; color: #5a3d10; }
+.item-row[data-item-held] { opacity: .85; }
+.give-picker label, .give-prompt label { display: block; margin: 8px 0; }
+.give-picker select, .give-picker input[type=number] { min-width: 12em; }
+.give-prompt .give-what { font-size: 1.15em; margin: 6px 0 10px; }

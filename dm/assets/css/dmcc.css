@@ -1034,3 +1034,16 @@ select:-webkit-autofill {
 
 /* typeui: fields folded away for the picked kind */
 [data-item-form] [hidden] { display: none !important; }
+
+/* 0.2.99 Player Give + Give-tab inventory panel */
+.rew-split { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.rew-split > .form-grid { flex: 1 1 520px; min-width: 0; }
+.rew-inv { flex: 0 1 300px; min-width: 240px; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; padding: 6px 10px; font-size: 13px; background: rgba(0,0,0,.18); max-height: 420px; overflow: auto; }
+.rew-inv summary { cursor: pointer; font-weight: 600; }
+.rew-inv-sum { margin: 6px 0; }
+.rew-inv-items { width: 100%; border-collapse: collapse; }
+.rew-inv-items td { padding: 2px 4px; border-bottom: 1px solid rgba(255,255,255,.06); vertical-align: top; }
+.rew-inv-items td.num { text-align: right; white-space: nowrap; }
+.rew-inv-ammo { margin: 2px 0 6px 16px; padding: 0; }
+.xfer-pending { margin: 10px 0; padding: 6px 10px; border: 1px dashed rgba(255,255,255,.2); border-radius: 8px; }
+.xfer-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
