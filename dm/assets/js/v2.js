@@ -865,6 +865,7 @@ function enemyCardHtml(row, i) {
       ${buttons}</div>`;
   }
   const maxHp = row.maxHp == null || row.maxHp === "" ? row.hp : row.maxHp;
+  const noHp = noHpPoolRow(row);
   const cur = Number(row.hp);
   const max = Number(maxHp);
   const pct = isFinite(cur) && isFinite(max) && max > 0 ? Math.max(0, Math.min(100, Math.round(cur / max * 100))) : 0;
@@ -878,11 +879,11 @@ function enemyCardHtml(row, i) {
   return `<div class="enemy-card">
     <div class="stat-row">
       <div class="stat"><b>${esc(row.ac == null ? "—" : row.ac)}</b><span>AC</span></div>
-      <div class="stat"><b>${esc(row.hp == null ? "—" : row.hp)}/${esc(maxHp == null ? "—" : maxHp)}</b><span>HP</span></div>
+      ${noHp ? `<div class="stat" title="No hit points to lose: it is never Down"><b>—</b><span>No HP pool</span></div>` : `<div class="stat"><b>${esc(row.hp == null ? "—" : row.hp)}/${esc(maxHp == null ? "—" : maxHp)}</b><span>HP</span></div>`}
       <div class="stat"><b>${esc(card.speed || "—")}</b><span>Speed</span></div>
       <div class="stat"><b>${esc(card.cr || "—")}</b><span>CR</span></div>
     </div>
-    <div class="hp-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>
+    ${noHp ? "" : `<div class="hp-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>`}
     <div class="toolbar">${hpFields}</div>
     ${tactics ? `<p class="tactics-note">Tactics. ${esc(tactics)}</p>` : ""}
     ${revealBar(row, i)}
@@ -943,7 +944,7 @@ function turnRowHtml(row, i) {
   const current = fight.started && i === fight.turn ? " current" : "";
   const detail = row.kind === "player" ? initSourceLabel(row) : tieLabel(row);
   const fled = enemyFled(row);
-  const downed = !fled && knownNumber(row.hp) === 0;
+  const downed = !fled && !noHpPoolRow(row) && knownNumber(row.hp) === 0; /* no HP pool is never Down */
   const bloodied = !fled && !downed && enemyStatus(row) === "Bloodied";
   const downBadge = fled ? `<span class="badge">Fled</span>` : (downed ? `<span class="badge danger">Unconscious · Down</span>` : (bloodied ? `<span class="badge warn">Bloodied</span>` : ""));
   const sideBadge = friendly ? `<span class="badge eld">Friendly</span>` : "";
@@ -5489,6 +5490,20 @@ function publicTokenName(row) {
   }
   return row.name || (row.kind === "player" ? "Player" : "Enemy");
 }
+/* Bestiary token art (Jessey 2026-10-20 10:30 AM CT): bestiary.json "token" is a file in map/tokenImages/bestiary/.
+   The map loads "tokenImages/..." paths as they are (no crop). No token, or a custom enemy: the old default. */
+const BEAST_TOKEN_DIR = "tokenImages/bestiary/";
+function beastTokenFile(b) {
+  const f = b && typeof b.token === "string" ? b.token.trim() : "";
+  return /^(_alts\/)?[a-z0-9][a-z0-9_.-]*\.(webp|png)$/i.test(f) && f.indexOf("..") < 0 ? f : "";
+}
+function beastTokenImage(row) {
+  const id = row && row.beastId;
+  if (!id) return "";
+  const b = (fight.bestiary || []).filter((x) => x && x.id === id)[0];
+  const f = beastTokenFile(b);
+  return f ? BEAST_TOKEN_DIR + f : "";
+}
 function tokenPatchForRow(row) {
   const name = publicTokenName(row);
   const player = !!(row && row.kind === "player");
@@ -5503,10 +5518,12 @@ function tokenPatchForRow(row) {
     color: player ? "#4a90d9" : "#a33b3b",
     ownerCanMove: player
   };
+  const beastArt = player ? "" : beastTokenImage(row);
   const preset = window.SSDNSTokenCrop && window.SSDNSTokenCrop.preset
     ? window.SSDNSTokenCrop.preset((row && (row.beastId || row.name)) || "")
     : "";
-  if (preset) patch.image = preset;
+  if (beastArt) patch.image = beastArt; /* bestiary token art (map/tokenImages/bestiary/<token>) */
+  else if (preset) patch.image = preset;
   else if (player) {
     const snap = playerSnapshot(who);
     if (snap && snap.portrait) patch.portrait = snap.portrait;
@@ -6040,7 +6057,7 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.100-mounts");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.100-tokens");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
@@ -6468,6 +6485,7 @@ function mapDrawerCard(row) {
     speed: speed == null || speed === "" ? 30 : speed,
     conditions: conds,
     portrait: row.portrait || null,
+    noHpPool: noHpPoolRow(row), /* 0.2.101: no HP pool (Spectral Horse): the map draws no down X / HP bar */
     attacks: attacks,
     spells: spells,
     longRangeHex: !!snapFeats.longRangeHex,

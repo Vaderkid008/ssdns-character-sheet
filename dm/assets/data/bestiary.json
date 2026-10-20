@@ -15,6 +15,7 @@
  {
   "id": "outlaw",
   "name": "Outlaw",
+  "token": "01-outlaw.webp",
   "bookName": "Gunslinger Outlaw",
   "size": "Medium",
   "type": "humanoid (human)",
@@ -111,6 +112,7 @@
  {
   "id": "switch-boss",
   "name": "Switch Boss",
+  "token": "02-switch-boss.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any non-lawful alignment",
@@ -226,6 +228,7 @@
  {
   "id": "buffalo-bull",
   "name": "Buffalo Bull",
+  "token": "03-buffalo-bull.webp",
   "size": "Large",
   "type": "beast",
   "alignment": "unaligned",
@@ -301,6 +304,7 @@
  {
   "id": "buffalo-spirit",
   "name": "Buffalo Spirit",
+  "token": "04-buffalo-spirit.webp",
   "aka": "Prairie Buffalo Spirit",
   "size": "Huge",
   "type": "beast (spirit)",
@@ -393,6 +397,7 @@
  {
   "id": "cactus-witch",
   "name": "Cactus Witch",
+  "token": "05-cactus-witch.webp",
   "aka": "Desert Witch",
   "size": "Medium",
   "type": "fey",
@@ -533,6 +538,7 @@
  {
   "id": "claim-rust-bug",
   "name": "Claim Rust Bug",
+  "token": "06-claim-rust-bug.webp",
   "aka": "Eldorite Rust Monster",
   "size": "Medium",
   "type": "monstrosity",
@@ -612,6 +618,7 @@
  {
   "id": "draft-horse",
   "name": "Draft Horse",
+  "token": "54-draft-horse.webp",
   "aka": "Freight Horse",
   "size": "Large",
   "type": "beast",
@@ -676,6 +683,7 @@
  {
   "id": "dust-devil",
   "name": "Dust Devil",
+  "token": "07-dust-devil.webp",
   "size": "Medium",
   "type": "beast",
   "alignment": "unaligned",
@@ -759,6 +767,7 @@
  {
   "id": "giant-crocodile",
   "name": "Giant Crocodile",
+  "token": "08-giant-crocodile.webp",
   "size": "Huge",
   "type": "beast",
   "alignment": "unaligned",
@@ -858,6 +867,7 @@
  {
   "id": "giant-octopus",
   "name": "Giant Octopus",
+  "token": "09-giant-octopus.webp",
   "size": "Large",
   "type": "beast",
   "alignment": "unaligned",
@@ -947,6 +957,7 @@
  {
   "id": "giant-scorpion",
   "name": "Giant Scorpion",
+  "token": "10-giant-scorpion.webp",
   "size": "Large",
   "type": "beast",
   "alignment": "unaligned",
@@ -1038,6 +1049,7 @@
  {
   "id": "giant-shark",
   "name": "Giant Shark",
+  "token": "11-giant-shark.webp",
   "size": "Huge",
   "type": "beast",
   "alignment": "unaligned",
@@ -1113,6 +1125,7 @@
  {
   "id": "hunter-shark",
   "name": "Hunter Shark",
+  "token": "12-hunter-shark.webp",
   "size": "Large",
   "type": "beast",
   "alignment": "unaligned",
@@ -1188,6 +1201,7 @@
  {
   "id": "killer-whale",
   "name": "Killer Whale",
+  "token": "13-killer-whale.webp",
   "aka": "Orca",
   "size": "Huge",
   "type": "beast",
@@ -1268,6 +1282,7 @@
  {
   "id": "kraken",
   "name": "The Kraken",
+  "token": "14-kraken.webp",
   "size": "Gargantuan",
   "type": "monstrosity (titan)",
   "alignment": "chaotic evil",
@@ -1400,6 +1415,7 @@
  {
   "id": "megalodon",
   "name": "Megalodon",
+  "token": "15-megalodon.webp",
   "size": "Gargantuan",
   "type": "beast",
   "alignment": "unaligned",
@@ -1475,6 +1491,7 @@
  {
   "id": "mesa-rattler",
   "name": "Mesa Rattler",
+  "token": "16-mesa-rattler.webp",
   "aka": "Gargantuan Rattlesnake",
   "size": "Huge",
   "type": "beast",
@@ -1556,6 +1573,7 @@
  {
   "id": "mule",
   "name": "Mule",
+  "token": "55-mule.webp",
   "size": "Medium",
   "type": "beast",
   "alignment": "unaligned",
@@ -1628,6 +1646,7 @@
  {
   "id": "prairie-coyote",
   "name": "Prairie Coyote",
+  "token": "17-prairie-coyote.webp",
   "size": "Small",
   "type": "beast",
   "alignment": "unaligned",
@@ -1702,6 +1721,7 @@
  {
   "id": "prairie-griffon",
   "name": "Prairie Griffon",
+  "token": "18-prairie-griffon.webp",
   "size": "Large",
   "type": "monstrosity",
   "alignment": "unaligned",
@@ -1789,6 +1809,7 @@
  {
   "id": "rattlesnake",
   "name": "Rattlesnake",
+  "token": "19-rattlesnake.webp",
   "size": "Tiny",
   "type": "beast",
   "alignment": "unaligned",
@@ -1859,6 +1880,7 @@
  {
   "id": "reef-shark",
   "name": "Reef Shark",
+  "token": "20-reef-shark.webp",
   "size": "Medium",
   "type": "beast",
   "alignment": "unaligned",
@@ -1934,6 +1956,7 @@
  {
   "id": "restless-pioneer",
   "name": "Restless Pioneer",
+  "token": "21-restless-pioneer.webp",
   "aka": "Trail Specter",
   "size": "Medium",
   "type": "undead",
@@ -2016,6 +2039,7 @@
  {
   "id": "riding-horse",
   "name": "Riding Horse",
+  "token": "22-riding-horse.webp",
   "size": "Large",
   "type": "beast",
   "alignment": "unaligned",
@@ -2079,6 +2103,12 @@
  {
   "id": "spectral-horse",
   "name": "Spectral Horse",
+  "token": "56-spectral-horse.webp",
+  "tokenAlts": [
+   "_alts/56-spectral-horse_alt-a-standing.webp",
+   "_alts/56-spectral-horse_take-b-solid.webp",
+   "_alts/56-spectral-horse_take-d-veiled.webp"
+  ],
   "size": "Large",
   "type": "beast (spectral)",
   "alignment": "unaligned",
@@ -2152,6 +2182,7 @@
  {
   "id": "sandie",
   "name": "Sandie",
+  "token": "23-sandie.webp",
   "size": "Medium",
   "type": "undead",
   "alignment": "neutral evil",
@@ -2228,6 +2259,7 @@
  {
   "id": "slumber-ghoul",
   "name": "Slumber Ghoul",
+  "token": "24-slumber-ghoul.webp",
   "size": "Medium",
   "type": "undead",
   "alignment": "neutral evil",
@@ -2319,6 +2351,7 @@
  {
   "id": "sand-devourer",
   "name": "Sand Devourer",
+  "token": "25-sand-devourer.webp",
   "size": "Large",
   "type": "undead",
   "alignment": "neutral evil",
@@ -2446,6 +2479,7 @@
  {
   "id": "elite-sandie-brute",
   "name": "Elite Sandie Brute",
+  "token": "26-elite-sandie-brute.webp",
   "size": "Medium",
   "type": "undead",
   "alignment": "neutral evil",
@@ -2532,6 +2566,7 @@
  {
   "id": "scorpion",
   "name": "Scorpion",
+  "token": "27-scorpion.webp",
   "size": "Tiny",
   "type": "beast",
   "alignment": "unaligned",
@@ -2603,6 +2638,7 @@
  {
   "id": "thunder-eagle",
   "name": "Thunder Eagle",
+  "token": "28-thunder-eagle.webp",
   "size": "Large",
   "type": "dragon",
   "alignment": "lawful evil",
@@ -2702,6 +2738,7 @@
  {
   "id": "warhorse",
   "name": "Warhorse",
+  "token": "29-warhorse.webp",
   "aka": "Cavalry Mount",
   "size": "Large",
   "type": "beast",
@@ -2771,6 +2808,7 @@
  {
   "id": "common-townsfolk",
   "name": "Common Townsfolk",
+  "token": "30-common-townsfolk.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
@@ -2838,6 +2876,7 @@
  {
   "id": "company-rider",
   "name": "Company Rider",
+  "token": "31-company-rider.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any non-good alignment",
@@ -2937,6 +2976,7 @@
  {
   "id": "frontier-ranger",
   "name": "Frontier Ranger",
+  "token": "32-frontier-ranger.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
@@ -3039,6 +3079,7 @@
  {
   "id": "iron-fist-contractor",
   "name": "Iron Fist Contractor",
+  "token": "33-iron-fist-contractor.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
@@ -3111,6 +3152,7 @@
  {
   "id": "rival-adventurer",
   "name": "Rival Adventurer",
+  "token": "34-rival-adventurer.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
@@ -3217,6 +3259,7 @@
  {
   "id": "rustler",
   "name": "Rustler",
+  "token": "35-rustler.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any non-lawful alignment",
@@ -3307,6 +3350,7 @@
  {
   "id": "scorps-enforcer",
   "name": "Scorps Enforcer",
+  "token": "36-scorps-enforcer.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any non-good alignment",
@@ -3429,6 +3473,7 @@
  {
   "id": "town-deputy",
   "name": "Town Deputy",
+  "token": "37-town-deputy.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
@@ -3520,6 +3565,7 @@
  {
   "id": "abigail-ellen",
   "name": "Abigail Ellen",
+  "token": "38-abigail-ellen.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
@@ -3619,6 +3665,7 @@
  {
   "id": "black-eyed-susan",
   "name": "Black-Eyed Susan",
+  "token": "39-black-eyed-susan.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
@@ -3731,6 +3778,7 @@
  {
   "id": "buddy-kidd",
   "name": "Buddy Kidd",
+  "token": "40-buddy-kidd.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any non-lawful alignment",
@@ -3856,6 +3904,7 @@
  {
   "id": "captain-rhee-calder",
   "name": "Captain Rhee Calder",
+  "token": "41-captain-rhee-calder.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
@@ -3973,6 +4022,7 @@
  {
   "id": "chavez",
   "name": "Chavez",
+  "token": "42-chavez.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any non-lawful alignment",
@@ -4063,6 +4113,7 @@
  {
   "id": "dolan-murphy",
   "name": "Dolan Murphy",
+  "token": "43-dolan-murphy.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any non-lawful alignment",
@@ -4188,6 +4239,7 @@
  {
   "id": "jasper-hargrove",
   "name": "Jasper “Iron Fist” Hargrove",
+  "token": "44-jasper-iron-fist.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
@@ -4304,6 +4356,7 @@
  {
   "id": "nina-vasquez",
   "name": "Nina “Black Widow” Vasquez",
+  "token": "45-nina-black-widow.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any non-good alignment",
@@ -4437,6 +4490,7 @@
  {
   "id": "prospector-moe",
   "name": "Prospector Moe",
+  "token": "46-prospector-moe.webp",
   "aka": "Trader Moe",
   "size": "Medium",
   "type": "humanoid (human)",
@@ -4515,6 +4569,7 @@
  {
   "id": "silas-oriley",
   "name": "Silas O’Riley",
+  "token": "47-silas-oriley.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
@@ -4618,6 +4673,7 @@
  {
   "id": "tommy-tenderfoot",
   "name": "Tommy Tenderfoot",
+  "token": "48-tommy-tenderfoot.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any non-lawful alignment",
@@ -4708,6 +4764,7 @@
  {
   "id": "two-finger-jack",
   "name": "Two-Finger Jack",
+  "token": "49-two-finger-jack.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any non-lawful alignment",
@@ -4830,6 +4887,7 @@
  {
   "id": "viper-trent",
   "name": "Viper Trent",
+  "token": "50-viper-trent.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
@@ -5074,6 +5132,7 @@
  {
   "id": "wakan-takan",
   "name": "Wakan Takan",
+  "token": "51-wakan-takan.webp",
   "size": "Medium",
   "type": "humanoid (human)",
   "alignment": "any alignment",
