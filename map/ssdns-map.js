@@ -318,6 +318,7 @@ const state = {
   drawerOpen: false,
   drawerTokenId: null,
   drawerOffhand: false,
+  drawerFan: false,
   pendingTarget: null,
   role,
   uid,
@@ -2288,9 +2289,16 @@ function offhandToggle(show) {
   return '<label class="ssm-offhand" title="Bonus action after the Attack action. The sheet spends their Bonus pip and drops a positive ability mod from damage.">' +
     '<input type="checkbox" data-act="offhandToggle"' + (state.drawerOffhand ? ' checked' : '') + '> Off-hand (bonus action) for the next shot</label>';
 }
+/* 0.3.73: DM drawer 'Fan the Hammer' toggle (Pistolero PCs): the next pistol shot is the Fan bonus attack. */
+function fanToggle(show) {
+  if (!show) return '';
+  return '<label class="ssm-offhand ssm-fan" title="Pistolero: one more pistol attack as a bonus action after the Attack action. Adds the ability modifier. No Tactical Reload this turn.">' +
+    '<input type="checkbox" data-act="fanToggle"' + (state.drawerFan ? ' checked' : '') + '> Fan the Hammer (bonus action) for the next shot</label>';
+}
 function clearOffhand() {
-  if (!state.drawerOffhand) return;
+  if (!state.drawerOffhand && !state.drawerFan) return;
   state.drawerOffhand = false;
+  state.drawerFan = false;
   if (state.drawerOpen) setTimeout(() => { try { renderDrawer(); } catch (e) {} }, 0);
 }
 function disMark(verdict) {
@@ -2413,8 +2421,8 @@ function selectToken(token) {
     paintPendingBanner();
     renderDrawer();
     draw();
-    emit('drawer:target', Object.assign({ tokenId: shot.tokenId, weaponId: shot.weaponId || '', spellId: shot.spellId || '', targetTokenId: token.id, combatantId: tokenCombatant(shot.tokenId), targetCombatantId: tokenCombatant(token.id) }, shot.offhand && !shot.spellId ? { offhand: true } : {}));
-    if (shot.offhand && !shot.spellId) clearOffhand();
+    emit('drawer:target', Object.assign({ tokenId: shot.tokenId, weaponId: shot.weaponId || '', spellId: shot.spellId || '', targetTokenId: token.id, combatantId: tokenCombatant(shot.tokenId), targetCombatantId: tokenCombatant(token.id) }, shot.offhand && !shot.spellId ? { offhand: true } : (shot.fan && !shot.spellId ? { fan: true } : {})));
+    if ((shot.offhand || shot.fan) && !shot.spellId) clearOffhand();
     return;
   }
   state.selected = token;
@@ -4790,7 +4798,7 @@ async function loadSceneImage(sceneId, opts) {
     const targetId = extra.targetId != null ? extra.targetId : ((state.rowTargets && state.rowTargets[id]) || state.playerTarget || '');
     if (targetId === FREE_SHOT) {
       if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
-    } else if (String(id).indexOf('gunroll:') === 0 || String(id).indexOf('melee:') === 0 || String(id).indexOf('offhand:') === 0 || String(id).indexOf('spell:') === 0 || id === 'pact') {
+    } else if (String(id).indexOf('gunroll:') === 0 || String(id).indexOf('melee:') === 0 || String(id).indexOf('offhand:') === 0 || String(id).indexOf('fan:') === 0 || String(id).indexOf('spell:') === 0 || id === 'pact') {
       const card = playerFightModel();
       const attack = ((card && card.attacks) || []).concat((card && card.spells) || []).find(a => a && a.id === id);
       const verdict = armRange(attack || { id: id }, targetId, uid);
@@ -5073,7 +5081,9 @@ async function loadSceneImage(sceneId, opts) {
       let off = '';
       if (verdict && verdict.blocked) { text = verdict.button || 'Out of range'; off = ' disabled'; }
       else if (verdict && verdict.button) text = attackLine(a) + ' · ' + verdict.button;
-      return '<button type="button" class="ssm-atk" data-act="playerAttack" data-id="' + esc(a.id) + '"' + off + '>' + esc(text) + disMark(verdict) + '</button>';
+      if (a.enabled === false) off = ' disabled'; /* 0.3.73: e.g. Fan before a pistol attack this turn */
+      const tip = a.title ? ' title="' + esc(a.title) + '"' : '';
+      return '<button type="button" class="ssm-atk' + (a.fan ? ' ssm-fan' : '') + '" data-act="playerAttack" data-id="' + esc(a.id) + '"' + off + tip + '>' + esc(text) + disMark(verdict) + '</button>';
     }).join('');
     const cylinders = (card.attacks || []).filter(a => (a.ammo && a.ammo.cap) || a.reloadId || a.trId).map(a => {
       const chosen = (state.rowTargets && (state.rowTargets[a.id] || state.rowTargets[a.reloadId])) || state.playerTarget || '';
@@ -5476,7 +5486,7 @@ async function loadSceneImage(sceneId, opts) {
     const grabAttr = (grabDisabled ? ' disabled' : '') + ' title="' + esc(grabTitle) + '"';
     const detail = (extra) => Object.assign({ tokenId: tokenId, combatantId: tokenCombatant(tokenId) }, extra || {});
     /* 0.3.72: off-hand flag for the next PC weapon shot the DM sends (one shot, then it clears) */
-    const shotDetail = (extra) => detail(Object.assign(state.drawerOffhand ? { offhand: true } : {}, extra || {}));
+    const shotDetail = (extra) => detail(Object.assign(state.drawerOffhand ? { offhand: true } : (state.drawerFan ? { fan: true } : {}), extra || {}));
     const maxHp = Number(hp.max);
     const haveCur = hp.cur !== "" && hp.cur != null && isFinite(Number(hp.cur));
     const curHp = haveCur ? Number(hp.cur) : NaN;
@@ -5521,7 +5531,7 @@ async function loadSceneImage(sceneId, opts) {
       '<select data-act="drawerRangeWeapon" aria-label="Token weapon" hidden></select>' +
       (conds ? '<div class="ssm-conds">' + conds + '</div>' : '') +
       (card.tactics ? '<div class="ssm-tactics">' + esc(card.tactics) + '</div>' : '') +
-      '<div class="ssm-section">Attacks</div>' + offhandToggle(isPc && canAct && (card.attacks || []).length) + attacks +
+      '<div class="ssm-section">Attacks</div>' + offhandToggle(isPc && canAct && (card.attacks || []).length) + fanToggle(isPc && canAct && card.pistolero === true && (card.attacks || []).length) + attacks +
       (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       spells +
       '<div class="ssm-row">' +
@@ -5598,14 +5608,16 @@ async function loadSceneImage(sceneId, opts) {
           if (!sid) clearOffhand();
           return;
         }
-        state.pendingTarget = sid ? { tokenId, spellId: sid, spellKind: skind, label: b.textContent || '' } : { tokenId, weaponId: wid, label: b.textContent || '', offhand: !!state.drawerOffhand };
+        state.pendingTarget = sid ? { tokenId, spellId: sid, spellKind: skind, label: b.textContent || '' } : { tokenId, weaponId: wid, label: b.textContent || '', offhand: !!state.drawerOffhand, fan: !state.drawerOffhand && !!state.drawerFan };
         renderDrawer();
         paintPendingBanner();
         draw();
       });
     });
     const ohBox = d.querySelector('[data-act="offhandToggle"]');
-    if (ohBox) ohBox.addEventListener('change', () => { state.drawerOffhand = !!ohBox.checked; renderDrawer(); });
+    if (ohBox) ohBox.addEventListener('change', () => { state.drawerOffhand = !!ohBox.checked; if (state.drawerOffhand) state.drawerFan = false; renderDrawer(); });
+    const fanBox = d.querySelector('[data-act="fanToggle"]');
+    if (fanBox) fanBox.addEventListener('change', () => { state.drawerFan = !!fanBox.checked; if (state.drawerFan) state.drawerOffhand = false; renderDrawer(); });
     const cancelBtn = d.querySelector('[data-act="pendingCancel"]');
     if (cancelBtn) cancelBtn.addEventListener('click', (ev) => { ev.stopPropagation(); cancelPendingTarget(); });
     d.querySelectorAll('[data-act="cylTarget"]').forEach(sel => {

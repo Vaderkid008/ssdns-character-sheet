@@ -1862,11 +1862,19 @@
     var offNow = !!rollGun._offhand;
     rollGun._offhand = null;
     var OH = offNow ? root.SSDNSOffhand : null;
+    /* 0.3.73: Pistolero Fan the Hammer (bonus action, ability mod kept). Kept through the target/range asks. */
+    var fanNow = !!rollGun._fan;
+    rollGun._fan = null;
+    var FAN = fanNow && !OH ? root.SSDNSFan : null;
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
     var g = c.guns[i];
     if (g.equipped === false) { toast("Equip this weapon first."); return; }
     var name0 = gunName(i);
+    /* 0.3.73 (Jessey): the off-hand attack needs the Attack action first; a DM-sent shot overrides. Checked once,
+       on the first pass (the target/range asks re-enter rollGun with _aimed set). */
+    if (OH && OH.gate && !rollGun._aimed && !rollGun._wild && !OH.gate(name0, { dm: !!dmNow }).ok) { rollGun._chamber = null; return; }
+    if (FAN && FAN.gate && !rollGun._aimed && !rollGun._wild && !FAN.gate(i, name0, { dm: !!dmNow }).ok) { rollGun._chamber = null; return; }
     if (/borrowed iron/i.test(name0) || g.weapon === "borrowed-iron") {
       var msg = "Borrowed Iron has no weapon stats. Use Pact Shot.";
       toast(msg);
@@ -1889,7 +1897,7 @@
     if (!rollGun._wild && !rollGun._aimed && (freeNow || freeShotChosen())) {
       var freeChamber = rollGun._chamber;
       rollGun._chamber = null;
-      fireFreeShot(i, freeChamber, offNow);
+      fireFreeShot(i, freeChamber, offNow, !!FAN);
       return;
     }
     if (!rollGun._aimed) {
@@ -1898,6 +1906,7 @@
         rollGun._aimed = true;
         rollGun._dmShot = { mode: dmNow.mode || "" };
         rollGun._offhand = offNow;
+        rollGun._fan = fanNow;
         try { rollGun(i, keepChamber); }
         finally { rollGun._aimed = false; rollGun._chamber = null; rollGun._dmShot = null; }
         return;
@@ -1910,6 +1919,7 @@
           rollGun._aimed = true;
           rollGun._chamber = keepChamber;
           rollGun._offhand = offNow;
+          rollGun._fan = fanNow;
           try { rollGun(i, keepChamber); }
           finally { rollGun._aimed = false; rollGun._chamber = null; }
         });
@@ -1965,7 +1975,7 @@
       : "attack";
     var rugged = !!(wpn && /rugged/i.test(wpn.properties || ""));
     var name = gunName(i);
-    var who = (ch() && ch().name) || name;
+    var who = ((ch() && ch().name) || name) + (FAN ? " fans the hammer" : "");
     var dice = gunDice.shown || String(nat);
     var rolledView = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var gunStat = rolledView.guns && rolledView.guns[i];
@@ -2044,9 +2054,10 @@
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
     var dmgExpr = dmgEl && dmgEl.value;
     if (OH && OH.stripMod) dmgExpr = OH.stripMod(dmgExpr, OH.abilityMod(ch(), "gun", i));
-    var ohTag = OH ? " · " + OH.TAG : "";
+    var ohTag = OH ? " · " + OH.TAG : (FAN ? " · " + FAN.TAG : "");
     var ohWord = OH ? " (" + OH.TAG + ")" : "";
-    if (!misfired) attackCue(cue);
+    if (!misfired && FAN && FAN.cue) FAN.cue(cue, attackCue);
+    else if (!misfired) attackCue(cue);
     else attackCue("misfire"); /* 0.3.56: misfire (jam, foul, lock, dud) has its own sound; no shot, no ricochet */
     if (!rollGun._wild && !misfired && acHidden(tgt) && joined() && !quiet) {
       var pendingDmg = rollDamageExpr(dmgExpr, isCrit);
@@ -2070,12 +2081,17 @@
         rollId: gunRollId,
         label: who + (tgt.name ? " → " + tgt.name : "") + ohTag,
         offhand: !!OH,
+        fan: !!FAN,
         weapon: name,
         weaponId: g.weapon,
         gun: true,
         sfx: cue,
         quiet: false
       });
+      /* 0.3.73: a pending (hidden-AC) shot still spends the bonus action for off-hand / Fan, and counts as a pistol attack */
+      if (OH && OH.spendPip) OH.spendPip(name);
+      else if (FAN && FAN.spend) FAN.spend(name);
+      else if (wpn && wpn.group === "pistol" && root.SSDNSFan && root.SSDNSFan.notePistolAttack) root.SSDNSFan.notePistolAttack();
       consumeRollMode();
       return;
     }
@@ -2105,7 +2121,11 @@
     });
     if (ch()) ch().takingCover = false;
     if (OH && OH.spendPip) OH.spendPip(name);
-    else if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(name + " attack");
+    else if (FAN && FAN.spend) FAN.spend(name);
+    else if (root.SSDNSActionPips && root.SSDNSActionPips.attack) {
+      root.SSDNSActionPips.attack(name + " attack");
+      if (wpn && wpn.group === "pistol" && root.SSDNSFan && root.SSDNSFan.notePistolAttack) root.SSDNSFan.notePistolAttack();
+    }
     if (resolved.armD4 && window.SSDNSD4 && window.SSDNSD4.arm) window.SSDNSD4.arm(i);
     var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
     var shownCard = card ? (acHidden(tgt) ? card.publicText : card.dmText) : report.player;
@@ -2121,13 +2141,14 @@
       kind: "roll", text: line,
       label: who + (tgt && tgt.name ? " → " + tgt.name : " attack") + ohTag,
       formula: (n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk) + (dmg && !report.miss ? " · " + dmg.formula : ""),
-      attack: true, nat: nat, crit: isCrit && !miss, offhand: !!OH
+      attack: true, nat: nat, crit: isCrit && !miss, offhand: !!OH, fan: !!FAN
     });
     if (joined() && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         id: gunRollId,
         label: who + (tgt && tgt.name ? " → " + tgt.name : "") + ohTag,
         offhand: !!OH,
+        fan: !!FAN,
         formula: (n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk),
         result: total,
         detail: line,
@@ -2153,7 +2174,7 @@
   /* 0.3.67: Free shot. The gun fires at nothing in particular: the round is spent, misfire rules apply,
      the sound plays, the Action pip is spent. No target, range, Adv/Dis ask, AC, hit/miss or damage.
      Chat: "<Name> shoots freely · 1d20+B = T". The DM decides what it does. */
-  function fireFreeShot(i, chamber, offhand) {
+  function fireFreeShot(i, chamber, offhand, fan) {
     var c = ch();
     var g = c && c.guns && c.guns[i];
     if (!g) return null;
@@ -2228,14 +2249,20 @@
     var cue = root.SSDNSAudio && root.SSDNSAudio.weaponCue
       ? root.SSDNSAudio.weaponCue(Object.assign({ gun: true }, wpn || {}, { id: g.weapon, sfx: g.sfx || (wpn && wpn.sfx) || "" }))
       : "attack";
-    attackCue(misfired ? "misfire" : cue);
+    var FANF = fan && !offhand ? root.SSDNSFan : null;
+    if (!misfired && FANF && FANF.cue) FANF.cue(cue, attackCue);
+    else attackCue(misfired ? "misfire" : cue);
     var OHF = offhand ? root.SSDNSOffhand : null;
     if (OHF && OHF.spendPip) OHF.spendPip(name);
-    else if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(name + " free shot");
+    else if (FANF && FANF.spend) FANF.spend(name);
+    else if (root.SSDNSActionPips && root.SSDNSActionPips.attack) {
+      root.SSDNSActionPips.attack(name + " free shot");
+      if (wpn && wpn.group === "pistol" && root.SSDNSFan && root.SSDNSFan.notePistolAttack) root.SSDNSFan.notePistolAttack();
+    }
     if (resolved.armD4 && window.SSDNSD4 && window.SSDNSD4.arm) window.SSDNSD4.arm(i);
     var who = (c && c.name) || name;
     var formula = "1d20" + signMod(bonus);
-    var line = who + " shoots freely" + (OHF ? " (" + OHF.TAG + ")" : "") + " · " + formula + " = " + total;
+    var line = who + (FANF ? " fans the hammer and" : "") + " shoots freely" + (OHF ? " (" + OHF.TAG + ")" : "") + " · " + formula + " = " + total;
     if (misfired) line += " · natural " + nat + " misfire, the round is spent";
     var ammoTxt = spent.left == null ? "" : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left."));
     line += ammoTxt;
