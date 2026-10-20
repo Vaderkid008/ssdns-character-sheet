@@ -53,8 +53,11 @@
     <input type="checkbox" data-sfx-mute checked> Sound
   </label>
 </div>
-<div id="diceBar" data-dice-bar></div>
-<div id="diceStage" class="dice-stage" hidden></div>
+<!-- 0.2.91: the rolled die and its "1d4 = 4" line sit to the right of the dice buttons (Jessey's UI note 1) -->
+<div class="dice-tray" id="diceTray">
+  <div id="diceBar" data-dice-bar></div>
+  <div id="diceStage" class="dice-stage" hidden></div>
+</div>
 
 <div id="addictionAlert" class="addiction-alert" hidden></div>
 <details class="shortcut-help">
@@ -103,7 +106,6 @@
   <nav class="tabs" role="tablist" aria-label="DMCC pages">
     <button type="button" role="tab" class="tab" id="tab-table" aria-controls="panel-table" aria-selected="true">Table</button>
     <button type="button" role="tab" class="tab" id="tab-rewards" aria-controls="panel-rewards" aria-selected="false" title="Rewards and handouts">Give</button>
-    <button type="button" role="tab" class="tab" id="tab-ledger" aria-controls="panel-ledger" aria-selected="false">Ledger (economy)</button>
     <button type="button" role="tab" class="tab" id="tab-rolls" aria-controls="panel-rolls" aria-selected="false">Rolls</button>
     <button type="button" role="tab" class="tab" id="tab-fight" aria-controls="panel-fight" aria-selected="false">Fight</button>
     <button type="button" role="tab" class="tab" id="tab-store" aria-controls="panel-store" aria-selected="false">Store</button>
@@ -111,6 +113,7 @@
     <button type="button" role="tab" class="tab" id="tab-music" aria-controls="panel-music" aria-selected="false">Music</button>
     <button type="button" role="tab" class="tab" id="tab-notes" aria-controls="panel-notes" aria-selected="false">Notes</button>
     <button type="button" role="tab" class="tab" id="tab-map" aria-controls="panel-map" aria-selected="false">Map</button>
+    <button type="button" role="tab" class="tab" id="tab-ledger" aria-controls="panel-ledger" aria-selected="false">Ledger (economy)</button>
   </nav>
 
   <div id="bankReqs" class="bank-reqs" hidden></div>

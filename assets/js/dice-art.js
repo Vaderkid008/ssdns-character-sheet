@@ -295,6 +295,16 @@
       return iconsFor(spec.sides, faces) + formula;
     });
   }
+  /* 0.3.78: an older DMCC wrote one plain die as "d4 1d4 = 4 (4)" (label echo + repeated face).
+     Tidy it to "1d4 = 4". Anything with a modifier, several dice, or a real label is left alone. */
+  function tidySingle(text) {
+    var s = String(text == null ? "" : text);
+    var m = s.match(/^\s*(?:(?:Roll|1?d(\d+))(?:\s*·)?\s+)?1?d(4|6|8|10|12|20|50|100) = (-?\d+)(?: \((-?\d+)\))?\s*$/i);
+    if (!m) return s;
+    if (m[1] && m[1] !== m[2]) return s;
+    if (m[4] != null && m[4] !== m[3]) return s;
+    return "1d" + m[2] + " = " + m[3];
+  }
   function lead(entry, html) {
     html = cardBadges(String(html || ""));
     if (html.indexOf("die-face") >= 0 || html.indexOf("die-inline") >= 0) return html;
@@ -354,6 +364,11 @@
       if (shown >= 1 && shown <= spec.sides) return shown;
     }
     if (spec.count === 1 && !spec.mod && entry.result != null && entry.result >= 1 && entry.result <= spec.sides) return Number(entry.result);
+    /* 0.3.78: a plain "1d4 = 4" line (no modifier) has its face as the total */
+    if (spec.count === 1 && !spec.mod) {
+      var plain = blob.match(new RegExp("(?:^|[\\s>:·])1?d" + spec.sides + " = (\\d+)\\s*$"));
+      if (plain && Number(plain[1]) >= 1 && Number(plain[1]) <= spec.sides) return Number(plain[1]);
+    }
     return null;
   }
   function stageNode() {
@@ -531,6 +546,7 @@
     paint: paint,
     decorate: decorate,
     lead: lead,
+    tidySingle: tidySingle,
     cardBadges: cardBadges,
     advRun: advRun,
     roll: roll,

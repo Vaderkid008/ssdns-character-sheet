@@ -76,7 +76,7 @@ function grab(src, name) {
   }
   return "";
 }
-const fnSrc = [grab(dm, "rollAc"), grab(dm, "rollDetail"), grab(dm, "rollBody"), grab(dm, "ledgerNames"), grab(dm, "realTargetName"), grab(dm, "hitApplyButton")].join("\n");
+const fnSrc = [grab(dm, "rollAc"), grab(dm, "rollDetail"), grab(dm, "singleDie"), grab(dm, "rollBody"), grab(dm, "ledgerNames"), grab(dm, "realTargetName"), grab(dm, "hitApplyButton")].join("\n");
 const fake = {
   window: { DMCCEnhance: { acFor: () => 13 } },
   namesFor: () => ({ playerName: "Eli", characterName: "Eli Hart" }),

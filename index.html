@@ -68,14 +68,15 @@
 <div id="diceStage" class="dice-stage" hidden></div>
 
 <nav class="tabs" role="tablist" aria-label="Sheet pages">
-  <button type="button" role="tab" class="tab" id="tab-main" aria-controls="page-main" aria-selected="true">1 · Main</button>
-  <button type="button" role="tab" class="tab" id="tab-story" aria-controls="page-story" aria-selected="false">2 · Backstory</button>
-  <button type="button" role="tab" class="tab" id="tab-hex" aria-controls="page-hex" aria-selected="false">3 · Spells</button>
+  <!-- 0.3.78: tab order per Jessey's UI notes; the old "1 · / 2 · / 3 ·" paper-page numbers are dropped -->
+  <button type="button" role="tab" class="tab" id="tab-main" aria-controls="page-main" aria-selected="true">Main</button>
+  <button type="button" role="tab" class="tab" id="tab-story" aria-controls="page-story" aria-selected="false">Backstory</button>
   <button type="button" role="tab" class="tab" id="tab-equip" aria-controls="page-equip" aria-selected="false">Gear</button>
+  <button type="button" role="tab" class="tab" id="tab-hex" aria-controls="page-hex" aria-selected="false">Spells</button>
   <button type="button" role="tab" class="tab" id="tab-cond" aria-controls="page-cond" aria-selected="false">Conditions</button>
+  <button type="button" role="tab" class="tab" id="tab-map" aria-controls="page-map" aria-selected="false">Map</button>
   <button type="button" role="tab" class="tab" id="tab-store" aria-controls="page-store" aria-selected="false">Store</button>
   <button type="button" role="tab" class="tab" id="tab-log" aria-controls="page-log" aria-selected="false">Log</button>
-  <button type="button" role="tab" class="tab" id="tab-map" aria-controls="page-map" aria-selected="false">Map</button>
 </nav>
 
 <main id="sheet">

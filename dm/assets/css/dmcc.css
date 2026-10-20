@@ -530,7 +530,7 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
   body.in-room.dock-collapsed { --dock-w: 48px; }
   body.in-room .appbar,
   body.in-room .statusbar,
-  body.in-room #diceBar,
+  body.in-room #diceTray,
   body.in-room .shortcut-help,
   body.in-room #addictionAlert,
   body.in-room #roomShell { margin-left: var(--dock-w); }
@@ -1007,4 +1007,21 @@ select:-webkit-autofill {
       "left stage right"
       "strip strip strip";
   }
+}
+
+/* 0.2.91: dice tray. The rolled die art and "1d4 = 4" render inline to the right of the dice buttons
+   (Jessey's UI note 1). The tray keeps the dice bar's height, so a roll never pushes the page down. */
+.dice-tray { display: flex; align-items: center; background: #1c1612; border-bottom: 1px solid #8a7040; min-width: 0; }
+.dice-tray #diceBar { flex: none; }
+.dice-tray #diceBar.dice-bar { border-bottom: 0; background: transparent; }
+.dice-tray .dice-stage { flex: 1 1 0; align-self: stretch; min-width: 0; flex-wrap: nowrap; align-items: center; gap: 4px; padding: 0 12px; background: transparent; height: auto; max-height: none; overflow: hidden; }
+.dice-tray .dice-stage[hidden] { display: flex !important; visibility: hidden; }
+.dice-tray .dice-stage .die-face { width: 40px !important; height: 40px !important; flex: 0 1 40px; min-width: 16px; }
+.dice-tray .dice-stage .die-face img { object-fit: contain; }
+.dice-tray .dice-stage .die-face img { width: 100%; height: 100%; }
+.dice-tray .dice-stage-line { flex: none; flex-basis: auto; margin: 0 0 0 4px; font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 800px) {
+  .dice-tray { flex-wrap: wrap; }
+  .dice-tray .dice-stage { flex-basis: 100%; padding: 0 8px 4px; }
+  .dice-tray .dice-stage[hidden] { display: none !important; }
 }

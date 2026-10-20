@@ -1970,7 +1970,7 @@
     var word = slotWord();
     $$(".slot-word").forEach(function (n) { n.textContent = word; });
     var tabHex = $("#tab-hex");
-    if (tabHex) tabHex.textContent = "3 · Spells & " + word;
+    if (tabHex) tabHex.textContent = "Spells & " + word;
     var slotLab = $("#slotWord");
     if (slotLab) slotLab.textContent = word;
     var showCast = !!v.caster;
