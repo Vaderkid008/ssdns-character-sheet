@@ -2035,6 +2035,9 @@
   function caliberChoices(type) {
     var out = [];
     function add(name) { if (name && out.indexOf(name) < 0) out.push(name); }
+    /* Arrow types DRAFT (2026-10-20): an arrows line picks its arrow type; blank = Standard */
+    var AT = window.SSDNSTrackers && window.SSDNSTrackers.ARROW_TYPES;
+    if (type === "arrows" && AT) { AT.slice(1).forEach(function (t) { add(t.id); }); return out; }
     if (type === "cartridge" || !type) {
       ["Light", "Medium", "Heavy"].forEach(add);
     } else {
@@ -2060,11 +2063,12 @@
       sel.value = a.type;
       var cal = el("select", { "data-f": "character.ammo." + i + ".caliber", "aria-label": "Caliber" });
       var cals = caliberChoices(a.type);
-      cal.appendChild(opt("", "Any / tier"));
+      var AT2 = a.type === "arrows" && window.SSDNSTrackers && window.SSDNSTrackers.arrowType ? window.SSDNSTrackers : null;
+      cal.appendChild(opt("", AT2 ? "Standard" : "Any / tier"));
       cals.forEach(function (name) {
         var label = (a.type === "cartridge" && window.SSDNSApplied && window.SSDNSApplied.cartridgePoolLabel)
           ? (window.SSDNSApplied.cartridgePoolLabel(name) || name)
-          : name;
+          : (AT2 ? AT2.arrowType(name).name : name);
         cal.appendChild(opt(name, label));
       });
       if (a.caliber && !cals.some(function (name) { return name === a.caliber; })) cal.appendChild(opt(a.caliber, a.caliber));

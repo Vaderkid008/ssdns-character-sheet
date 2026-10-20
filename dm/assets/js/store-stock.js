@@ -25,9 +25,17 @@
     "powder-ball-and-caps-20-shots": { kind: "ammo", type: "percussion", caliber: "", qty: 20 },
     "shells-410-10": { kind: "ammo", type: "buck", caliber: ".410", qty: 10 },
     "shells-12-ga-10": { kind: "ammo", type: "buck", caliber: "12 ga", qty: 10 },
-    "shells-10-ga-10": { kind: "ammo", type: "buck", caliber: "10 ga", qty: 10 }
+    "shells-10-ga-10": { kind: "ammo", type: "buck", caliber: "10 ga", qty: 10 },
+    /* L0186 special arrows (2026-10-20): each type is its own arrows pool (caliber = type id); dynamite arrows are made, not sold */
+    "arrows-broadhead-5": { kind: "ammo", type: "arrows", caliber: "broadhead", qty: 5 },
+    "arrows-blunt-5": { kind: "ammo", type: "arrows", caliber: "blunt", qty: 5 },
+    "arrows-fire-5": { kind: "ammo", type: "arrows", caliber: "fire", qty: 5 },
+    "arrows-whistler-5": { kind: "ammo", type: "arrows", caliber: "whistler", qty: 5 },
+    "arrows-poison-3": { kind: "ammo", type: "arrows", caliber: "poison", qty: 3 }
   };
   var AMMO_BY_NAME = [
+    [/^broadhead( arrows)?\b/i, "arrows", "broadhead"], [/^blunt( arrows)?\b/i, "arrows", "blunt"], [/^fire arrows?\b/i, "arrows", "fire"],
+    [/^whistler( arrows)?\b/i, "arrows", "whistler"], [/^poison arrows?\b/i, "arrows", "poison"],
     [/^arrows\b/i, "arrows", ""], [/^crossbow bolts\b/i, "bolts", ""], [/^sling (stones|bullets)\b/i, "stones", ""],
     [/^blowpipe needles\b/i, "needles", ""], [/^powder, ball,? and caps\b/i, "percussion", ""]
   ];

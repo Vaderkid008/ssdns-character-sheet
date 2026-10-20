@@ -1746,6 +1746,11 @@
     dmg.riderText = r.text;
     return dmg;
   }
+  /** L0186 special arrows (2026-10-20): the arrow that just flew can change the base damage (trackers.js arrowAdjust). */
+  function arrowFx(dmg, spent) {
+    var T = root.SSDNSTrackers;
+    return spent && spent.arrow && T && T.arrowAdjust ? T.arrowAdjust(dmg, spent.arrow) : null;
+  }
   function riderParts(r) {
     return (r && r.riders || []).map(function (x) { return { label: x.formula + " " + x.label, value: x.total }; });
   }
@@ -1902,6 +1907,14 @@
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
     var g = c.guns[i];
     if (g.equipped === false) { toast("Equip this weapon first."); return; }
+    /* L0186: a nocked dynamite arrow has no attack roll; it lands at a point like a thrown stick */
+    var TD = root.SSDNSTrackers;
+    if (TD && TD.shootDynamite && TD.nocked && TD.kindOf && TD.kindOf(TD.weapon(g.weapon)) === "quiver" && TD.nocked(c, g) === "dynamite") {
+      var dyn = TD.shootDynamite(i, { dm: !!dmNow });
+      if (dyn && !dyn.ok) { toast(dyn.reason); addLog({ kind: "alert", text: gunName(i) + ": " + dyn.reason }); }
+      rollGun._chamber = null; rollGun._aimed = false;
+      return;
+    }
     var name0 = gunName(i);
     /* 0.3.80 (Jessey): the off-hand attack needs the Attack action first; a DM-sent shot overrides. Checked once,
        on the first pass (the target/range asks re-enter rollGun with _aimed set). */
@@ -2100,7 +2113,9 @@
     else attackCue("misfire"); /* 0.3.56: misfire (jam, foul, lock, dud) has its own sound; no shot, no ricochet */
     if (!rollGun._wild && !misfired && acHidden(tgt) && joined() && !quiet) {
       var pendingDmg = rollDamageExpr(dmgExpr, isCrit);
-      var pendRide = takeRiders({ pending: true, crit: isCrit, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon });
+      var pendArrow = arrowFx(pendingDmg, spent); /* L0186 special arrows: whistler / blunt / broadhead change the base damage */
+      if (pendArrow && pendArrow.none) pendingDmg = null;
+      var pendRide = takeRiders({ pending: true, crit: isCrit, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon, arrow: spent && spent.arrow });
       var pendParts = gunStat && gunStat.dmgParts && OH ? OH.stripParts(gunStat.dmgParts) : (gunStat && gunStat.dmgParts);
       if (pendRide && pendRide.riders.length && pendingDmg) {
         pendParts = (pendParts && pendParts.length ? pendParts.slice() : (pendingDmg.flat ? [{ label: "mod", value: pendingDmg.flat }] : [])).concat(riderParts(pendRide));
@@ -2122,7 +2137,8 @@
         dmgFormula: pendingDmg ? pendingDmg.formula : "",
         dmgParts: pendParts,
         riders: pendRide && pendRide.riders,
-        dmgType: gunStat && gunStat.dmgType,
+        dmgType: (pendArrow && pendArrow.type) || (gunStat && gunStat.dmgType),
+        arrow: pendArrow ? pendArrow.note : "",
         formula: (n2 == null ? "1d20" : "2d20") + ((bonus >= 0 ? "+" : "") + bonus),
         rollId: gunRollId,
         label: who + (tgt.name ? " → " + tgt.name : "") + ohTag,
@@ -2144,13 +2160,17 @@
     var miss = nat === 1 || misfired || (!isCrit && haveAc && total < Number(gunCover.ac));
     var dmg = null;
     if (!miss) dmg = rollDamageExpr(dmgExpr, isCrit);
-    var gunRide = takeRiders({ hit: !miss && !!dmg, crit: isCrit && !miss, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon });
+    var arrowNow = miss ? null : arrowFx(dmg, spent); /* L0186 special arrows */
+    if (spent && spent.arrow && root.SSDNSTrackers && root.SSDNSTrackers.arrowLanded) root.SSDNSTrackers.arrowLanded(i, spent.arrow, !miss);
+    if (arrowNow && arrowNow.none) dmg = null;
+    var gunRide = takeRiders({ hit: !miss && !!dmg, crit: isCrit && !miss, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon, arrow: spent && spent.arrow });
     var dmgParts = [];
     if (dmg && gunStat && gunStat.dmgParts) {
       var partSum = 0;
       var shownParts = OH ? OH.stripParts(gunStat.dmgParts) : gunStat.dmgParts;
       shownParts.forEach(function (p) { partSum += Number(p.value) || 0; });
-      dmgParts = partSum === (dmg.flat || 0) ? shownParts : (dmg.flat ? [{ label: "mod", value: dmg.flat }] : []);
+      var arrowPart = arrowNow && arrowNow.part ? arrowNow.part.value : 0;
+      dmgParts = partSum === ((dmg.flat || 0) - arrowPart) ? shownParts.concat(arrowPart ? [arrowNow.part] : []) : (dmg.flat ? [{ label: "mod", value: dmg.flat }] : []);
     } else if (dmg && dmg.flat) dmgParts = [{ label: "mod", value: dmg.flat }];
     var caliber = (g.chamber && String(g.chamber).split("|")[1]) || (wpn && wpn.ammo) || "";
     var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
@@ -2158,7 +2178,7 @@
         who: who, target: tgt && tgt.name, weapon: name, tag: OH ? OH.TAG : "", nat: nat, n1: n1, n2: n2, parts: parts, total: total,
         ac: haveAc ? gunCover.ac : (tgt && tgt.ac), revealAc: !acHidden(tgt), misfire: misfired, miss: miss, coverNote: gunCover.note,
         crit: isCrit && !miss, critMin: critAt,
-        damage: dmg ? { faces: dmg.faces, formula: dmg.formula, parts: dmgParts, riders: gunRide && gunRide.riders, total: dmg.total + (gunRide ? gunRide.total : 0), type: (gunStat && gunStat.dmgType) || "piercing" } : null
+        damage: dmg ? { faces: dmg.faces, formula: dmg.formula, parts: dmgParts, riders: gunRide && gunRide.riders, total: dmg.total + (gunRide ? gunRide.total : 0), type: (arrowNow && arrowNow.type) || (gunStat && gunStat.dmgType) || "piercing" } : null
       })
       : null;
     addRiders(dmg, gunRide);
@@ -2178,6 +2198,7 @@
     var ammoTxt = spent.left == null ? "" : (spent.unit /* SAMPLE trackers: bows, crossbows, thrown */ ? (" · " + (/^empty/.test(spent.unit) ? "" : spent.left + " ") + spent.unit + ".") : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left.")));
     var shownCard = card ? (acHidden(tgt) ? card.publicText : card.dmText) : report.player;
     var line = shownCard + (gunDice.note ? " · " + gunDice.note : "") + (chosen && gunDice.mode ? modeWord(chosen) : "") + ammoTxt;
+    if (arrowNow && arrowNow.note) line += " · " + arrowNow.note;
     if (rollGun._wild) line += " · wild-shot attack (not on the streak)";
     if (root.SSDNSAudio && root.SSDNSAudio.playOutcome && !misfired) {
       root.SSDNSAudio.playOutcome({ gun: true, id: g.weapon, name: name, group: wpn && wpn.group, nat: nat }, miss ? "miss" : (isCrit ? "crit" : "hit"));
