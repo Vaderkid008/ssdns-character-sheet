@@ -1,5 +1,5 @@
 /**
- * 0.3.86: compact gun card (Jessey's markup, 2026-10-19).
+ * 0.3.87: compact gun card (Jessey's markup, 2026-10-19).
  *  - weapon mod + capacity share the weapon-name row
  *  - ADV / DIS ticks (mutually exclusive, neither = normal) on the sub row, same attackMode state as the old dropdown
  *  - Roll / Melee / gun-melee note on the cylinder / Reload / Unload / ammo row
