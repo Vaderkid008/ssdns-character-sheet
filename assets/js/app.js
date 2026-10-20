@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.78"; // sheet-playtest-v0378
+  var APP_VERSION = "0.3.79"; // sheet-playtest-v0379
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -89,6 +89,8 @@
     { id: "bigfifty", label: "Big Fifty .50-90" },
     { id: "arrows", label: "Arrows" }
   ];
+  /* SAMPLE trackers: bolts, sling stones/bullets and blowpipe needles get their own pools (assets/js/trackers.js) */
+  ((window.SSDNSTrackers && window.SSDNSTrackers.AMMO_EXTRA) || []).forEach(function (t) { AMMO_TYPES.push(t); });
   var AMMO_LABEL = {}; AMMO_TYPES.forEach(function (t) { AMMO_LABEL[t.id] = t.label; });
   var CALIBERS = [];
   function addCal(c) { if (c && CALIBERS.indexOf(c) < 0) CALIBERS.push(c); }
@@ -797,7 +799,7 @@
     if (DB) { v.ac += DB.ac; v.initiative += DB.init; }
     if (c.fightingStyle === "point-blank" || (stylesOf(c).indexOf("point-blank") >= 0)) v.ac += 1;
     if (c.fightingStyle === "defense" && wearing) v.ac += 1;
-    /* 0.3.78 (Jessey): Dual Wielder +1 AC while holding a qualifying weapon in each hand */
+    /* 0.3.79 (Jessey): Dual Wielder +1 AC while holding a qualifying weapon in each hand */
     v.dualWielderAc = window.SSDNSOffhand && window.SSDNSOffhand.dualWielderAc ? window.SSDNSOffhand.dualWielderAc(c) : 0;
     v.ac += v.dualWielderAc;
     var cal = currentCalling();
@@ -1043,7 +1045,7 @@
     var longGun = g === "rifle" || g === "carbine" || g === "bigbore";
     var bow = g === "bow" || /bow/.test(g);
     if (st === "long-gun" && longGun) return 2;
-    /* 0.3.78 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
+    /* 0.3.79 (DND Bot): Archery is +2 with ALL ranged weapons: pistols, shotguns, long guns, bows, thrown. */
     if (st === "archery" && (bow || longGun || !isMeleeWeapon(w) || (opts && opts.thrown))) return 2;
     return 0;
   }
@@ -1054,7 +1056,7 @@
   }
   function styleDamageBonusFor(st, w) {
     if (!w || !st || !styleReady()) return 0;
-    /* 0.3.78 (Jessey): Sidearm Duelling is "+2 damage single iron": off while holding two weapons */
+    /* 0.3.79 (Jessey): Sidearm Duelling is "+2 damage single iron": off while holding two weapons */
     if (st === "sidearm" && w.group === "pistol") return (window.SSDNSOffhand && window.SSDNSOffhand.wieldingTwo && window.SSDNSOffhand.wieldingTwo(C())) ? 0 : 2;
     if (st === "dueling" && isMeleeWeapon(w) && !/two-handed/i.test(w.properties || "")) return 2;
     return 0;
@@ -1189,7 +1191,7 @@
         el("div", { class: "g-card-top" }, [
           el("div", { class: "g-photo", title: "Firearm photo later" }, ["Photo"]),
           el("div", { class: "g-name" }, [
-            /* 0.3.78 compact card: the gunsmith mod and capacity selects share the weapon-name row */
+            /* 0.3.79 compact card: the gunsmith mod and capacity selects share the weapon-name row */
             el("div", { class: "g-namerow" }, [sel, modSel, capSel]),
             el("div", { class: "g-stats" }, [
               el("div", { class: "g-atk", "data-label": "Atk" }, [el("input", { class: "calc", "data-calc": "gunAtk." + i, "aria-label": "Attack bonus" })]),
@@ -1721,7 +1723,8 @@
       }
       out("rng." + i, s ? s.range : "");
       out("cap." + i, s && s.capacity ? s.capacity : (s ? "—" : ""));
-      out("mis." + i, s ? misfireLabel(s.misfire, g.dirty) : "");
+      /* SAMPLE trackers: misfire is FIREARMS ONLY. Bows, crossbows, slings and thrown weapons never misfire. */
+      out("mis." + i, s && isFirearm(w) ? misfireLabel(s.misfire, g.dirty) : "");
       out("cal." + i, s ? (w.hexShells ? "any cartridge + hex lead" : (w.ammo === "percussion" ? "powder & ball" : (w.tiers ? "" : (w.caliber || "")))) : "");
       out("note." + i, s ? s.note : "");
       var ch = $('[data-chambers="' + i + '"]');
@@ -2021,6 +2024,8 @@
     renderSpellbook();
     renderConditionsTab();
     renderRef();
+    /* SAMPLE trackers: class resource pips + weapon trackers follow every change */
+    if (window.SSDNSTrackers && window.SSDNSTrackers.paint) { try { window.SSDNSTrackers.paint(); } catch (e) { console.warn("[SSDNS] trackers", e); } }
   }
   function ammoType(g, w) { return w.ammo === "shell" ? (g.load === "slug" ? "slug" : "buck") : w.ammo; }
   function caliberChoices(type) {
@@ -2758,6 +2763,12 @@
       changed({ quiet: true });
       publishGunCard();
       return { ok: true, left: g.loaded, hex: "", chamber: k, was: was };
+    }
+    /* SAMPLE trackers: bows / slings spend from the quiver, crossbows / blowpipe need the loaded marker,
+       thrown weapons in a gun slot spend a count pip (assets/js/trackers.js) */
+    if (window.SSDNSTrackers && w && !isFirearm(w)) {
+      var tk = window.SSDNSTrackers.spendShot(C(), i, w);
+      if (tk) { if (tk.ok) { changed(); publishGunCard(); } return tk; }
     }
     if (num(g.loaded) <= 0) return { ok: false, reason: "Out of rounds, Reload" };
     g.loaded = num(g.loaded) - 1;
@@ -3699,6 +3710,11 @@
     if (g === "pistol" || g === "caster") return "Melee: Pistol Whip, 5 ft";
     if (g === "rifle" || g === "carbine" || g === "shotgun" || g === "bigbore") return "Melee: Rifle Butt, 5 ft";
     return "";
+  }
+  /* SAMPLE trackers: one test for "can this weapon misfire" (firearms only) */
+  function isFirearm(w) {
+    if (window.SSDNSTrackers && window.SSDNSTrackers.isFirearm) return window.SSDNSTrackers.isFirearm(w);
+    return !!(w && (w.tiers || w.hexShells || w.debug || /^(pistol|rifle|carbine|shotgun|bigbore|caster)$/.test(String(w.group || ""))));
   }
   function misfireCeiling(text, dirty) {
     var s = String(text || "");
@@ -4720,6 +4736,7 @@
       applyAutoHp: function () { applyAutoHp(); renderFields(); changed(); },
       slotsLeft: slotsLeft,
       misfireCeiling: misfireCeiling,
+      isFirearm: isFirearm,
       migrateSettlerLanguages: migrateSettlerLanguages,
       longGun22: longGun22,
       armDirtyD4: function (i) {

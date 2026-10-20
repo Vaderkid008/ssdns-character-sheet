@@ -1327,12 +1327,14 @@ function paintAmmoColumn(ctx, s, r, rows) {
   rows.forEach(row => {
     const loaded = row && row.loaded != null ? row.loaded : 0;
     const cap = row && row.cap != null ? row.cap : 0;
-    const label = loaded + '/' + cap;
+    /* SAMPLE trackers: non-gun rows bring their own text ("18" arrows, "1·9" loaded·bolts, "2/3" javelins) */
+    const label = row && row.text != null ? String(row.text) : loaded + '/' + cap;
     const tw = (ctx.measureText && ctx.measureText(label).width) || 22;
     ctx.fillStyle = 'rgba(20,16,12,0.9)';
     ctx.fillRect(colX - 2, y - 7, 16 + tw + 6, 14);
     /* 0.3.64: the round that fires next in this gun (falls back to the old gun glyph with no look) */
     if (row && row.look && row.look.type) paintRoundIcon(ctx, row.look, colX, y, 12);
+    else if (row && (row.icon === 'bow' || row.icon === 'xbow' || row.icon === 'thrown')) paintWeaponIcon(ctx, row.icon, colX, y - 6, 12);
     else paintWeaponIcon(ctx, (row && row.icon) || 'pistol', colX, y - 5, 11);
     /* empty gun: the count goes muted red */
     ctx.fillStyle = loaded > 0 ? '#e2c56a' : '#c27a70';
@@ -1402,6 +1404,20 @@ function paintWeaponIcon(ctx, kind, x, y, size) {
   } else if (kind === 'rifle') {
     ctx.fillRect(0, size * 0.32, size, size * 0.16);
     ctx.fillRect(size * 0.22, size * 0.48, size * 0.12, size * 0.4);
+  } else if (kind === 'xbow') {
+    /* SAMPLE trackers: crossbow = prod across the top of an upright stock */
+    ctx.strokeStyle = '#e2c56a'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(size * 0.5, size * 0.75, size * 0.55, -Math.PI * 0.82, -Math.PI * 0.18); ctx.stroke();
+    ctx.fillRect(size * 0.42, size * 0.1, size * 0.16, size * 0.9);
+  } else if (kind === 'bow') {
+    /* SAMPLE trackers: bow = arc + string + arrow */
+    ctx.strokeStyle = '#e2c56a'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(size * 0.15, size * 0.5, size * 0.5, -Math.PI / 2.6, Math.PI / 2.6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(size * 0.33, size * 0.05); ctx.lineTo(size * 0.33, size * 0.95); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, size * 0.5); ctx.lineTo(size, size * 0.5); ctx.stroke();
+  } else if (kind === 'thrown') {
+    ctx.beginPath(); ctx.moveTo(size, size * 0.1); ctx.lineTo(size * 0.62, size * 0.32); ctx.lineTo(size * 0.78, size * 0.48); ctx.closePath(); ctx.fill();
+    ctx.fillRect(size * 0.05, size * 0.42, size * 0.7, size * 0.14);
   } else {
     ctx.fillRect(0, size * 0.2, size * 0.7, size * 0.2);
     ctx.fillRect(size * 0.28, size * 0.4, size * 0.16, size * 0.45);
@@ -5083,6 +5099,7 @@ async function loadSceneImage(sceneId, opts) {
       else if (verdict && verdict.button) text = attackLine(a) + ' · ' + verdict.button;
       if (a.enabled === false) off = ' disabled'; /* 0.3.73: e.g. Fan before a pistol attack this turn */
       const tip = a.title ? ' title="' + esc(a.title) + '"' : '';
+      if (a.arm) return '<button type="button" class="ssm-atk ssm-arm' + (a.armed ? ' on' : '') + '" data-act="playerAttack" data-id="' + esc(a.id) + '" aria-pressed="' + (a.armed ? 'true' : 'false') + '"' + (a.enabled === false ? ' disabled' : '') + tip + '>' + esc(a.name || a.id) + '</button>';
       return '<button type="button" class="ssm-atk' + (a.fan ? ' ssm-fan' : '') + '" data-act="playerAttack" data-id="' + esc(a.id) + '"' + off + tip + '>' + esc(text) + disMark(verdict) + '</button>';
     }).join('');
     const cylinders = (card.attacks || []).filter(a => (a.ammo && a.ammo.cap) || a.reloadId || a.trId).map(a => {

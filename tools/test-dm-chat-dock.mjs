@@ -1,5 +1,5 @@
 /**
- * 0.3.78 / DMCC 0.2.91: DMCC table feed docks on the LEFT beside the map's left tool bar,
+ * 0.3.79 / DMCC 0.2.92: DMCC table feed docks on the LEFT beside the map's left tool bar,
  * starts open, collapses to a slim strip (remembered per browser in localStorage "ssdns.dm.dock"),
  * and the page / map reflow into the freed space. Phones keep the bottom-sheet + Feed button.
  * Needs the static server on 127.0.0.1:8765 and Chrome (ssdns-test-all starts the server).
@@ -26,7 +26,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("wire.playerSheetUntouched", !/btnDockStrip|dock-strip/.test(read("index.html")));
   check("wire.mapChatHiddenDmOnly", /#mapMount \.ssdns-chatdock,\s*\.ssdns-chat-float,\s*\.ssdns-chat-overlay \{ display: none !important; \}/.test(css));
   check("wire.mapChatCodeKept", /ssdns-map-chat\.js\?v=/.test(html) && /SSDNSMapChat\.attach/.test(read("map/ssdns-map.js")) && /className = 'ssdns-chatdock'|ssdns-chatdock/.test(read("map/ssdns-map.js")));
-  check("wire.mapCssUntouched", !/0\.2\.91|liveDock|dock-w/.test(read("map/ssdns-map.css")));
+  check("wire.mapCssUntouched", !/0\.2\.92|liveDock|dock-w/.test(read("map/ssdns-map.css")));
 }
 
 const puppeteer = (await import("/tmp/pup/node_modules/puppeteer-core/lib/esm/puppeteer/puppeteer-core.js")).default;

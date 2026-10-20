@@ -2837,9 +2837,11 @@ function decorateDetail(pid) {
         <select id="detailAdv" aria-label="Advantage or disadvantage"><option value="">Straight</option><option value="adv">Advantage</option><option value="dis">Disadvantage</option></select>
         <label class="toggle" title="Bonus action after the Attack action: their sheet spends the Bonus pip and drops a positive ability mod from damage."><input type="checkbox" id="detailOffhand"> Off-hand</label>
         <label class="toggle" title="Pistolero: Fan the Hammer, one more pistol attack as a bonus action after the Attack action (ability mod added; no Tactical Reload this turn)."><input type="checkbox" id="detailFan"> Fan</label>
+        ${(s.callingId === "gambler" || /gambler/i.test(s.calling || "")) ? '<label class="toggle" title="Arms Sneak Attack for this one attack. On a hit their sheet adds the dice and marks it used this turn; on a miss nothing is used. DM override: allowed even if already used."><input type="checkbox" id="detailSneak"> Sneak Attack</label>' : ""}
+        ${(s.callingId === "lawman" || /lawman/i.test(s.calling || "")) ? '<label class="toggle" title="Arms Smite Lead for this one attack (lowest slot they have). On a hit their sheet spends the slot and adds the dice; on a miss nothing is spent. DM override: allowed with a Dull badge."><input type="checkbox" id="detailSmite"> Smite</label>' : ""}
         <button type="button" class="btn sm" id="btnDetailAttack">Roll weapon</button>
       </div>
-      <p class="lede">Roll weapon is a plain attack. It never spends a spell slot.</p>
+      <p class="lede">Roll weapon is a plain attack. It never spends a spell slot unless Smite is ticked (then only on a hit).</p>
       <label class="toggle"><input type="checkbox" id="surpriseDraw"${s.surpriseDraw ? " checked" : ""}> Surprise draw +2</label>
       <div class="toolbar">
         <select id="detailSpell" aria-label="Spell to cast">${spellOptions(s)}</select>
@@ -3169,6 +3171,11 @@ async function rollGunAttack(pid) {
   if (ohBox && ohBox.checked) { payload.offhand = true; ohBox.checked = false; } /* 0.2.85: off-hand, one shot */
   const fanBox = $("#detailFan");
   if (fanBox && fanBox.checked) { if (!payload.offhand) payload.fan = true; fanBox.checked = false; } /* 0.2.86: Fan the Hammer, one shot */
+  /* SAMPLE trackers: arm-before-attack riders, one attack */
+  const sneakBox = $("#detailSneak");
+  if (sneakBox && sneakBox.checked) { payload.sneak = true; sneakBox.checked = false; }
+  const smiteBox = $("#detailSmite");
+  if (smiteBox && smiteBox.checked) { payload.smite = true; smiteBox.checked = false; }
   await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
   if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
   const whoName = namesFor(pid).characterName || s.name || "them";
@@ -5979,7 +5986,7 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.91-mounts");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.92-mounts");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
@@ -6498,6 +6505,8 @@ function ensurePlayerAttacks(row) {
   if (!row || row.kind !== "player") return;
   const pid = row.playerId || row.id;
   const snap = playerSnapshot(pid);
+  /* SAMPLE trackers: quiver / loaded / thrown rows for the DM map token badge */
+  if (snap && snap.trackers) { row.card = row.card || {}; row.card.trackRows = snap.trackers.tokenRows || []; }
   const named = ((snap && snap.guns) || []).filter((g) => g && (g.name || g.weapon));
   const guns = named.filter((g) => g.equipped !== false);
   if (!named.length) return;
@@ -7419,6 +7428,8 @@ window.SSDNSMapFight = {
       if (picked == null) { if (window.SSDNSRangeRings) window.SSDNSRangeRings.clear(); return false; }
       const payload = { op: "fire", index: gi, dm: true };
       if (detail.offhand) payload.offhand = true; /* 0.2.85: off-hand (bonus action) shot */
+      if (detail.sneak) payload.sneak = true; /* SAMPLE trackers: DM-armed riders */
+      if (detail.smite) payload.smite = true;
       else if (detail.fan) payload.fan = true; /* 0.2.86: Pistolero Fan the Hammer (bonus action) */
       if (picked) payload.mode = picked;
       if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);

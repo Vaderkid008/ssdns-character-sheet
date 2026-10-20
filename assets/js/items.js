@@ -34,7 +34,7 @@
     return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
   }
 
-  /* 0.3.78 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
+  /* 0.3.79 (Lock L0182): items whose summons are unlimited. Saved copies drop any stored uses / charges,
      so an old character never shows a counter for them or gets blocked. */
   var UNLIMITED_USES = { "saddle-of-the-phantom-steed": 1 };
   function unlimitedFix(item) {
@@ -353,7 +353,7 @@
     return item.uses.max != null && isFinite(Number(item.uses.max));
   }
 
-  /* 0.3.78 Powder Man Long Arm (DND Bot, PHB): explosive throws are 50/100 ft for that character (scatter past 50).
+  /* 0.3.79 Powder Man Long Arm (DND Bot, PHB): explosive throws are 50/100 ft for that character (scatter past 50).
      Everyone else 30/60. Placed charges (the blasting keg) are never thrown. */
   function throwBands(powderMan) { return powderMan ? { normal: 50, max: 100 } : { normal: 30, max: 60 }; }
   function ringSpec(item, opts) {
@@ -990,7 +990,8 @@
     if (item.attune) {
       lock += ' <button type="button" class="btn xs' + (item.attuned ? " btn-primary" : "") + '" data-item-attune="' + esc(item.uid) + '" title="Attunement: up to ' + attuneCap(c) + ' items">' + (item.attuned ? "Attuned ✓" : "Attune") + "</button>";
     }
-    return '<div class="item-row">' + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b> " + tag + " " + lock +
+    var pips = root.SSDNSTrackers && root.SSDNSTrackers.itemPips ? root.SSDNSTrackers.itemPips(item) : ""; /* SAMPLE trackers: count pips */
+    return '<div class="item-row">' + thumb(view) + '<div><b>' + esc(view.name) + esc(count) + esc(charges) + "</b>" + pips + " " + tag + " " + lock +
       '<div class="fine">' + esc(view.description || (view.effect && view.effect.text) || "") + "</div>" +
       useBtn + " " + dropBtn + "</div></div>";
   }

@@ -293,6 +293,9 @@
       text.split("\n\n").forEach(function (block) {
         var name = (block.split("\n")[0] || "").trim();
         var rule = useRule(block);
+        /* SAMPLE trackers: a feature with its own tracker row (Resources) is not counted twice here */
+        var T = root.SSDNSTrackers;
+        if (name && T && T.coversFeature && T.coversFeature(name)) { delete uses[name]; return; }
         if (!name || !rule) return;
         var prev = uses[name] || {};
         uses[name] = { max: rule.max, used: prev.used || 0, rest: rule.rest };
@@ -317,10 +320,10 @@
   function styleOptions(c) {
     if (!c) return [];
     var lv = c.level || 1;
-    /* 0.3.78 (Jessey, L0183): Two-Gun (5e Two-Weapon Fighting) is on the Gunfighter's Style list and the Frontier Scout
+    /* 0.3.79 (Jessey, L0183): Two-Gun (5e Two-Weapon Fighting) is on the Gunfighter's Style list and the Frontier Scout
        list next to Archery. Not Lawman. */
     if (c.calling === "gunslinger") return [["long-gun", "Long-Gun Marksmanship (+2 to hit with rifles and carbines, including Big Bore; not shotguns)"], ["sidearm", "Sidearm Duelling (+2 damage with one gun)"], ["point-blank", "Point-Blank Defense (+1 AC)"], ["two-gun", "Two-Gun (two-weapon fighting: add your ability modifier to the off-hand attack's damage)"]];
-    /* 0.3.78 (DND Bot, PHB): Lawman takes a Fighting Style at 2nd level from the Paladin list. Dueling and GWF are melee only. */
+    /* 0.3.79 (DND Bot, PHB): Lawman takes a Fighting Style at 2nd level from the Paladin list. Dueling and GWF are melee only. */
     if (c.calling === "lawman" && lv >= 2) return [["defense", "Defense (+1 AC in armor)"], ["dueling", "Dueling (+2 one-handed melee damage)"], ["great-weapon", "Great Weapon Fighting (reroll 1s and 2s on two-handed melee damage, or a versatile weapon held in two hands)"], ["protection", "Protection (reaction: impose disadvantage on an attack vs an ally within 5 ft; needs a shield)"]];
     if (c.calling === "frontier-scout" && lv >= 2) return [["archery", "Archery (+2 ranged to hit)"], ["two-gun", "Two-Gun (two-weapon fighting: add your ability modifier to the off-hand attack's damage)"]];
     return [];
@@ -422,6 +425,7 @@
     box.innerHTML = html;
     paintMelee();
     if (root.SSDNSEquip && root.SSDNSEquip.combatLocked && root.SSDNSEquip.combatLocked()) paintEquipLock(true);
+    if (root.SSDNSTrackers && root.SSDNSTrackers.paint) root.SSDNSTrackers.paint(); /* SAMPLE trackers: thrown / charge pips */
   }
   /* The Peace Maker: once per short rest after a hit, knockout (0 HP, stable). */
   function knockoutBtn(c, i) {
@@ -531,7 +535,7 @@
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
     if (c.melee[i].equipped === false) { toast("Equip this weapon first."); return; }
-    /* 0.3.78 (Jessey): off-hand needs the Attack action first (the DM can't roll melee for a player yet) */
+    /* 0.3.79 (Jessey): off-hand needs the Attack action first (the DM can't roll melee for a player yet) */
     if (off && !rollMelee._aimed && root.SSDNSOffhand && root.SSDNSOffhand.gate && !root.SSDNSOffhand.gate("Melee", { dm: !!(opts && opts.dm) }).ok) return;
     var ready = root.SSDNSSheet && root.SSDNSSheet.ensureAttackTarget;
     if (ready && !rollMelee._aimed) {
@@ -609,6 +613,12 @@
     var c = ch();
     if (!c || !c.melee || !c.melee[i] || !c.melee[i].weapon) { toast("Pick a melee weapon."); return; }
     paintMelee();
+    /* SAMPLE trackers: a Throw spends one thrown weapon (count pips); none left = no throw */
+    var tk = null;
+    if (!off && root.SSDNSTrackers && root.SSDNSTrackers.onMeleeAttack) {
+      tk = root.SSDNSTrackers.onMeleeAttack(c, i);
+      if (tk && !tk.ok) { toast(tk.reason); return; }
+    }
     c.takingCover = false;
     var OH = off ? root.SSDNSOffhand : null;
     var ohTag = OH ? " · " + OH.TAG : "";
@@ -636,6 +646,12 @@
     var critW = meleeRecordFor(c.melee[i] && c.melee[i].weapon);
     var critAt = root.SSDNSApp && root.SSDNSApp.critMin ? root.SSDNSApp.critMin({ weapon: critW, melee: true }) : 20;
     var crit = !miss && nat >= critAt;
+    var meleeProps = String((critW && critW.properties) || "");
+    function meleeRider(hit, pending) {
+      var T = root.SSDNSTrackers;
+      if (!T || !T.rider) return null;
+      return T.rider({ hit: !!hit && !pending, pending: !!pending, crit: !!hit && crit, melee: !(tk && tk.thrown), finesse: /finesse/i.test(meleeProps), thrown: !!(tk && tk.thrown), weapon: c.melee[i] && c.melee[i].weapon });
+    }
     /* 0.3.69: every dice term and flat counts ("1d6+1 +3", "+1d4" Eldorite Dust). Great Weapon Fighting
        (Lawman 2+) rerolls a 1 or 2 once on a two-handed melee weapon's damage dice. */
     var parsed = root.SSDNSSheet && root.SSDNSSheet.parseDamage ? root.SSDNSSheet.parseDamage(expr) : null;
@@ -688,6 +704,12 @@
       var pendingRoll = rollTerms();
       var pendingTotal = pendingRoll.total;
       var pendingDetail = pendingRoll.detail;
+      /* SAMPLE trackers: armed Sneak Attack / Smite Lead ride on the hidden-AC attack (refund toast if the DM calls a miss) */
+      var pendRide = nat === 1 ? meleeRider(false) : meleeRider(true, true);
+      if (pendRide && pendRide.riders.length) {
+        pendingTotal += pendRide.total;
+        pendingDetail += " " + pendRide.text;
+      }
       root.SSDNSSheet.sendPendingAttack({
         who: who,
         targetName: tgt.name,
@@ -697,6 +719,7 @@
         critMin: critAt,
         damage: nat === 1 ? 0 : pendingTotal,
         dice: nat === 1 ? "" : pendingDetail,
+        riders: pendRide && pendRide.riders,
         formula: (faced.n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk),
         rollId: "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         label: name + " attack" + ohTag,
@@ -719,7 +742,9 @@
       : { have: tgt && tgt.ac != null && isFinite(Number(tgt.ac)), ac: tgt && tgt.ac, note: "" };
     var haveAc = !!meleeCover.have;
     if (haveAc && !crit && hitTotal < Number(meleeCover.ac)) miss = true;
-    var dmgTxt = (!miss && detail) ? (" · " + formula + " = " + total) : "";
+    var ride = meleeRider(!miss);
+    if (ride && ride.riders.length && !miss) total += ride.total;
+    var dmgTxt = (!miss && detail) ? (" · " + formula + (ride && ride.text ? " " + ride.text : "") + " = " + total) : "";
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
     var modeWord = chosen === "dis" ? " · disadvantage" : (chosen === "adv" ? " · advantage" : "");
     var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
@@ -728,7 +753,7 @@
         parts: [{ label: "bonus", value: atk }], total: hitTotal, ac: haveAc ? meleeCover.ac : null, coverNote: meleeCover.note,
         revealAc: !(root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt)),
         miss: miss, crit: crit && !miss,
-        damage: !miss ? { faces: rolls, formula: formula, parts: flat ? [{ label: "mod", value: flat }] : [], total: total, type: "" } : null
+        damage: !miss ? { faces: rolls, formula: formula, parts: flat ? [{ label: "mod", value: flat }] : [], riders: ride && ride.riders, total: total, type: "" } : null
       })
       : null;
     var line = (card ? card.text : ((tgt && tgt.name ? (who + " → " + tgt.name) : who) + ": " + name + (OH ? " (" + OH.TAG + ")" : "") + " · " + face + bonusTxt + " = " + hitTotal + (verdict ? (" → " + verdict) : "") + dmgTxt)) + (faced.note ? " · " + faced.note : "") + modeWord;

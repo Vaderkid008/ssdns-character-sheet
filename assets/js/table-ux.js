@@ -185,7 +185,9 @@
     if (!c || c.calling !== "tribal-warrior") return;
     if (!c.raging) {
       var used = Number(c.rageUsed) || 0;
-      if (used >= 2) return;
+      /* SAMPLE trackers: Rages column from the Tribal Warrior table (2 → Unlimited at 20), not a flat 2 */
+      var cap = root.SSDNSTrackers && root.SSDNSTrackers.rageMax ? root.SSDNSTrackers.rageMax(c) : 2;
+      if (used >= cap) return;
       c.raging = true;
       c.rageUsed = used + 1;
       if (root.SSDNSActionPips) root.SSDNSActionPips.feature("Dust Fury (Rage - 1st lvl)");
