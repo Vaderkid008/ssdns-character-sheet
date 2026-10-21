@@ -192,7 +192,7 @@ These are the existing `attune` / `attuned` / `attuneCap` (default 3) fields.
 - Attunement ends when the item changes hands.
 - The saddle's `summoned` toggle checks `attuned` the same way: the Spectral Horse can't be summoned (toggle or Use) until the saddle is attuned; dismissing always works. Ending attunement dismisses the horse, and a given saddle arrives with `summoned` cleared (give.js strips it with `attuned`).
 
-### Focus slot by Calling (0.3.94, L0197)
+### Focus slot by Calling (0.3.95, L0197)
 
 - **`item.soulBound`** (catalog / item, boolean). The item never leaves its owner: no Drop (`canDrop` is false unless a DM override deletes it), no sell, no Give or trade (`SSDNSGive.canOffer` / `validate` refuse), no rob or loot (`canRob` and `SSDNSGrab.plan` refuse, even with a DM override). Its row shows a `soul-bound` tag and no Drop or Give button. Today only `borrowed-iron` has it.
 - **`borrowed-iron`** catalog item: `type: gear`, `shelf: Foci`, `category: focus`, `forSale: false`, `price: null`, `weight: 0` (BOOK1 gives none), `dmPlace: true` (not in the player Add Item list). No store row (never sold). Kits add it through the `"Borrowed Iron (pact focus)"` kit line.

@@ -67,7 +67,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.94"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.95"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -77,6 +77,8 @@
         outcomeMap = (j && j.outcomes) || { categories: {}, weapons: {} };
         if (!outcomeMap.categories) outcomeMap.categories = {};
         if (!outcomeMap.weapons) outcomeMap.weapons = {};
+        /* attack-fx: sfx.json "fx" timing overrides for the map's firing lines (one place for delays) */
+        try { if (j && j.fx && root.SSDNSMapFx && root.SSDNSMapFx.configure) root.SSDNSMapFx.configure(j.fx); } catch (e) {}
         try { preloadSfx(); } catch (e) {}
         return sfxMap;
       })
@@ -495,6 +497,8 @@
     return at - now;
   }
   function schedule(eventName, delayMs, kindHint) {
+    /* attack-fx: the map's effect layer times its own cues to the picture; "now" skips the queue */
+    if (kindHint === "now") { startNow(eventName); return 0; }
     if (IMMEDIATE[eventName]) { nextFreeAt = Math.max(nextFreeAt, nowMs() + SFX_GAP_MS); startNow(eventName); return 0; }
     var kind = kindHint || (RESULT_CUES[eventName] ? "result" : DOWNED_CUES[eventName] ? "downed" : SHOT_CUES[eventName] ? "shot" : "other");
     if (kind === "result") return queueResult(eventName, RESULT_AFTER_SHOT_MS);
@@ -898,6 +902,9 @@
     fileUrl: fileUrl,
     poolFiles: function (name) { return eventFiles(sfxMap, name); },
     pickVariant: pickVariant,
+    /** attack-fx: play at once, outside the shot/result queue (the map calls this on the frame it draws). */
+    playNow: function (name) { try { root.dispatchEvent(new CustomEvent("ssdns-sfx", { detail: name })); } catch (e) {} if (prefs.muted || volume() <= 0) return 0; startNow(String(name || "")); return 0; },
+    hasFile: function (name) { var f = eventFiles(sfxMap || {}, name); return !!(f && f.length); },
     playbackJitter: playbackJitter,
     resetVariants: function () { lastVariant = {}; },
     resetQueue: resetQueue, SFX_GAP_MS: SFX_GAP_MS, RESULT_DELAY_MS: RESULT_DELAY_MS,

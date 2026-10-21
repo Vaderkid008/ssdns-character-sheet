@@ -374,11 +374,21 @@
     });
     if (root.SSDNSAudio) {
       root.SSDNSAudio.play("fuse");
-      /* sfx key arrow-dynamite (explode pool); a dud stays quiet. Timing (blast landing after the fuse) is LATER: SFX PATCH */
-      if (!plan.dud && root.SSDNSAudio.arrowCue) { var dc = root.SSDNSAudio.arrowCue("dynamite", ""); if (dc) root.SSDNSAudio.play(dc); }
+      /* sfx key arrow-dynamite (explode pool); a dud stays quiet. attack-fx: the blast waits for the arrow to land
+         (sfx.json fx.boomFlight, same clock the map's arc uses) */
+      if (!plan.dud && root.SSDNSAudio.arrowCue) {
+        var dc = root.SSDNSAudio.arrowCue("dynamite", "");
+        var FXT = root.SSDNSMapFx && root.SSDNSMapFx.TIMING;
+        var land = FXT && isFinite(Number(FXT.boomFlight)) ? Number(FXT.boomFlight) : 560;
+        if (dc) setTimeout(function () { root.SSDNSAudio.play(dc); }, land);
+      }
     }
     log(chat, "roll"); toast(chat);
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.postChat) root.SSDNSDmJoin.postChat({ text: chat });
+    /* attack-fx: arc + boom on the map for everyone (the DM's map publishes it) */
+    if (tgt && tgt.id && root.SSDNSDmJoin && root.SSDNSDmJoin.postFx) {
+      root.SSDNSDmJoin.postFx({ type: "boom", arrow: "dynamite", target: tgt.id, result: plan.dud ? "dud" : "hit", weapon: w.name });
+    }
     /* DND Bot L0186: the shot replaces one attack of the Attack action (Extra Attack applies) */
     if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(w.name + " dynamite arrow");
     paint();

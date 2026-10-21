@@ -1150,3 +1150,13 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
 /* 0.3.72: DM drawer Off-hand toggle (next PC weapon shot is the bonus-action off-hand attack) */
 .ssm-offhand { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; padding: 4px 8px; border: 1px dashed #e2b33a; border-radius: 6px; font-size: 12px; color: #f3d98a; cursor: pointer; }
 .ssm-offhand input { margin: 0; }
+/* attack-fx overlay: sits exactly over the map canvas (JS sets left/top/size), never takes clicks */
+.ssdns-map > canvas.ssm-fx,
+body.map-fullscreen #mapMount > canvas.ssm-fx {
+  position: absolute;
+  grid-area: auto;
+  inset: auto;
+  pointer-events: none;
+  touch-action: auto;
+}
+.ssdns-map .ssm-fx-btn[aria-pressed="false"] { opacity: 0.75; }
