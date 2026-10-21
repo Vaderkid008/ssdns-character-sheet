@@ -1452,7 +1452,7 @@
       rows.sort(function (a, b) { return rank(a) - rank(b); });
       /* 0.3.67: 'Free shot' is always the first entry: the gun fires with no target, no attack roll vs AC. */
       var html = "<option value='__free'>Free shot</option><option value=''>No target</option>";
-      /* fog-aware targeting (0.3.98): on the map's scene with fog on, only what this player can see; past the
+      /* fog-aware targeting (0.3.99): on the map's scene with fog on, only what this player can see; past the
          picked weapon's long range stays listed but can't be picked. The map answers null when it can't tell. */
       var mapHost = root.SSDNSMapHost && typeof root.SSDNSMapHost.targetSight === "function" ? root.SSDNSMapHost : null;
       var sightOf = function (id) { try { return mapHost ? mapHost.targetSight(String(id)) : null; } catch (e) { return null; } };

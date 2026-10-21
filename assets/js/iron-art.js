@@ -75,7 +75,7 @@
     return weaponTile(item.weaponId || item.catalogId || "");
   }
 
-  /* 0.3.98 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus. The Focus slot always shows the patron's
+  /* 0.3.99 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus. The Focus slot always shows the patron's
      256 tile (assets/img/items/patron/<pact slug>.webp, Art Bot) and the Pact name. Not gated by the iron reveal: the Pact
      name is the player's own pick. A tile that isn't there yet falls back to the generic focus tile (the slot's name
      plate still shows the Pact name), so dropping the files in later just works. */

@@ -36,7 +36,7 @@
   byName[norm("Fuse cord")] = "fuse-cord-50-ft";
   byName[norm("Lariat")] = "lariat-50-ft";
 
-  /* 0.3.98 (Jessey 2026-10-20 11:10 PM, Art Bot): relic Caster Gun art (L0199 / L0202). DM Guide only: there are no
+  /* 0.3.99 (Jessey 2026-10-20 11:10 PM, Art Bot): relic Caster Gun art (L0199 / L0202). DM Guide only: there are no
      relic catalog items, store rows or Add item entries, and these slugs are kept out of list() / matchesIn(), so
      nothing player-facing offers them. The files live under assets/img/dm-only/. When a relic item or gun with one of
      these ids exists later (DM-placed), relicTile / relicEngraving (and so the doll, item rows, Weapons rows and gun

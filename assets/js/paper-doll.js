@@ -370,7 +370,7 @@
        Other Callings keep their focus (instrument) as before (returns null here). */
   var NO_CASTER = "No Caster Gun equipped, can't cast.";
   function isCasterWeapon(w) { return !!w && (w.group === "caster" || !!w.hexShells) && w.id !== "borrowed-iron"; }
-  /* 0.3.98 (Jessey 2026-10-20 9:53 PM): a weapon that is also a focus fills BOTH its weapon slot and the Focus slot.
+  /* 0.3.99 (Jessey 2026-10-20 9:53 PM): a weapon that is also a focus fills BOTH its weapon slot and the Focus slot.
      Flagged by the weapon row or its gun row / catalog item (weaponFocus or isFocus); Caster Guns always count. */
   var WEAPON_KEYS = ["revolver_1", "revolver_2", "long_gun", "melee"];
   function isFocusWeapon(w, g) {
@@ -414,7 +414,7 @@
     var base = gearArtBase();
     return base + "assets/img/items/borrowed-iron.webp";
   }
-  /* 0.3.98 (Jessey 2026-10-20 9:53 PM): the Borrowed Iron moves out of the Focus slot into a weapon slot (all the L0197
+  /* 0.3.99 (Jessey 2026-10-20 9:53 PM): the Borrowed Iron moves out of the Focus slot into a weapon slot (all the L0197
      mechanics stay: soul-bound, away until the start of the owner's next turn, no Pact casting while away). It's display
      only: character.ironSlot is the slot it prefers; if a gun sits there now it takes the next free one. No free slot ->
      it is still in hand (nothing changes), the Focus slot picker says so. */
