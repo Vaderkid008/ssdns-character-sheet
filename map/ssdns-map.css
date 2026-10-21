@@ -1160,3 +1160,27 @@ body.map-fullscreen #mapMount > canvas.ssm-fx {
   touch-action: auto;
 }
 .ssdns-map .ssm-fx-btn[aria-pressed="false"] { opacity: 0.75; }
+
+/* map token guns (2026-10-20): weapon + target pickers, Misfire badge, jam flags, active weapon */
+.ssm-drawer .ssm-weapon, .ssm-drawer .ssm-target { display: flex; align-items: center; gap: 6px; margin: 2px 0 4px; }
+.ssm-drawer .ssm-weapon select, .ssm-drawer .ssm-target select { flex: 1 1 auto; min-width: 0; }
+.ssm-drawer .ssm-atk.is-active { outline: 2px solid #e0b84a; outline-offset: -2px; }
+.ssm-drawer .cylinder-row.is-active { box-shadow: inset 3px 0 0 #e0b84a; }
+.ssm-mf { display: inline-flex; align-items: baseline; gap: 4px; padding: 1px 7px; border: 1px solid #8a6a3f; border-radius: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #e8dcc8; background: rgba(0,0,0,.25); }
+.ssm-mf b { font-size: 12px; letter-spacing: 0; }
+.ssm-gunflag { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: #6b5a2a; color: #fff3d6; }
+.ssm-gunflag.bad { background: #9b2c22; }
+/* bestiary panel */
+.ssm-bestiary { position: absolute; top: 48px; left: 8px; z-index: 40; width: 300px; max-height: calc(100% - 64px); display: flex; flex-direction: column; background: #1d140d; color: #e8dcc8; border: 1px solid #6b4f32; border-radius: 8px; box-shadow: 0 6px 22px rgba(0,0,0,.55); }
+.ssm-bestiary[hidden] { display: none; }
+.ssm-bestiary-head { display: flex; align-items: center; gap: 6px; padding: 8px; border-bottom: 1px solid #3c2b1c; }
+.ssm-bestiary-head b { flex: 1 1 auto; }
+.ssm-bestiary input[type=search] { margin: 8px; padding: 6px 8px; }
+.ssm-bestiary-list { overflow: auto; padding: 0 6px 8px; }
+.ssm-bestiary-group { margin: 8px 2px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #c9a66b; }
+.ssm-beast { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; margin: 2px 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; text-align: left; cursor: grab; }
+.ssm-beast:hover { background: rgba(255,255,255,.06); }
+.ssm-beast.is-armed { border-color: #e0b84a; background: rgba(224,184,74,.14); }
+.ssm-beast img, .ssm-beast .ssm-beast-ph { width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%; object-fit: cover; background: #3a2a1b; border: 1px solid #6b4f32; }
+.ssm-beast .ssm-beast-meta { display: block; font-size: 11px; opacity: .75; }
+.ssm-bestiary-hint { margin: 0; padding: 6px 10px 8px; font-size: 11.5px; opacity: .8; border-top: 1px solid #3c2b1c; }

@@ -33,7 +33,7 @@ const Grab = sandbox.SSDNSGrab;
 
 const KINDS = ["heal", "castSpell", "attack", "save+condition", "buff", "text"];
 const seeds = Items.seeds();
-check("schema.count", seeds.length === 47, "got " + seeds.length); /* 0.3.85: + bread, cheese, meat chunk (L0191); 0.3.97: + borrowed-iron (L0197) */
+check("schema.count", seeds.length === 47, "got " + seeds.length); /* 0.3.85: + bread, cheese, meat chunk (L0191); 0.3.98: + borrowed-iron (L0197) */
 check("schema.effects", Items.SCHEMA.effects.join(",") === KINDS.join(","));
 const ids = seeds.map((row) => row.id);
 check("schema.unique", new Set(ids).size === 47);

@@ -250,7 +250,29 @@
     return upsert(cur, { name: "Unconscious", subjectId: subjectId || "", by: "hp" });
   }
 
+  /* Condition symbols (Jessey 2026-10-20 9:22 PM): one small icon per condition, shared by map tokens,
+     the sheet portrait, the paper doll and the condition chips. Unknown names get a dot. */
+  var ICONS = {
+    blinded: "\u{1F648}", charmed: "\u{1F498}", deafened: "\u{1F507}", frightened: "\u{1F631}", grappled: "\u270A",
+    incapacitated: "\u{1F6AB}", invisible: "\u{1F47B}", paralyzed: "\u26A1", petrified: "\u{1F5FF}", poisoned: "\u2620\uFE0F",
+    prone: "\u2B07\uFE0F", restrained: "\u26D3\uFE0F", stunned: "\u{1F4AB}", unconscious: "\u{1F4A4}", exhaustion: "\u{1F629}",
+    bloodied: "\u{1FA78}", concentrating: "\u{1F9E0}"
+  };
+  function icon(raw) {
+    var name = String((raw && typeof raw === "object" ? (raw.name || raw.label) : raw) || "").trim().toLowerCase().replace(/\s+\d+r?$/, "");
+    if (/^exhaust/.test(name)) name = "exhaustion";
+    return ICONS[name] || "\u25CF";
+  }
+  function iconName(raw) {
+    var name = String((raw && typeof raw === "object" ? (raw.name || raw.label) : raw) || "").trim();
+    var lv = raw && typeof raw === "object" && /^exhaust/i.test(name) && raw.level ? " " + raw.level : "";
+    return name.replace(/\s+\d+r$/, "") + lv;
+  }
+
   root.SSDNSConditions = {
+    icon: icon,
+    iconName: iconName,
+    ICONS: ICONS,
     catalog: catalog,
     textFor: textFor,
     idFor: idFor,

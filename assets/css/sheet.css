@@ -1256,7 +1256,7 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .give-picker select, .give-picker input[type=number] { min-width: 12em; }
 .give-prompt .give-what { font-size: 1.15em; margin: 6px 0 10px; }
 
-/* ---------------- 0.3.97 Equipment list (Jessey 2026-10-20 mockup): grouped, filterable, dense rows */
+/* ---------------- 0.3.98 Equipment list (Jessey 2026-10-20 mockup): grouped, filterable, dense rows */
 .item-gear.eq { margin: 10px 0 12px; padding-top: 6px; border-top: 1px solid rgba(43,29,18,.35); }
 .eq-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .eq-head h2 { font-size: 22px; }
@@ -1315,7 +1315,7 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
   .eq-more { margin-left: 0; }
 }
 
-/* L0197 (0.3.97): Focus slot by Calling. Pact Seeker = Borrowed Iron (away = faded, returns next turn);
+/* L0197 (0.3.98): Focus slot by Calling. Pact Seeker = Borrowed Iron (away = faded, returns next turn);
    Hexslinger = read-only mirror of the Caster Gun in Pistol L / R, or the no-gun message. */
 .doll-slot .doll-focus-note { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 2; width: max-content; max-width: 86%; padding: .1em .45em; border-radius: 3px;
   font: 700 max(7px, 1.25cqw)/1.2 Georgia, "Times New Roman", serif; text-align: center; color: #f4e6c4; background: rgba(46,27,13,.86); border: 1px solid #b08a4a; pointer-events: none; }
@@ -1331,3 +1331,11 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .doll-slot.doll-iron.doll-away .doll-focus-note { font-size: max(7px, 1.1cqw); top: 3%; max-width: 94%; line-height: 1.15; }
 .focus-cast-note { color: #8d1c14; font-weight: 600; margin: 4px 0 0; }
 button.focus-blocked { opacity: .55; cursor: not-allowed; }
+
+/* Condition symbols on the character (2026-10-20): portrait corner + paper doll strip + chip icon */
+.portrait-slot { position: relative; }
+#portraitConds { position: absolute; top: 6px; left: 6px; z-index: 3; display: flex; flex-wrap: wrap; gap: 4px; max-width: calc(100% - 12px); pointer-events: auto; }
+#dollConds { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 0 0 6px; }
+.cond-badges[hidden] { display: none !important; }
+.cond-badge { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(20,12,6,.86); border: 1.5px solid #e8dcc8; font-size: 16px; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,.4); cursor: help; }
+.chip.cond .cond-sym { margin-right: 4px; }

@@ -138,7 +138,7 @@ check("rounds.everywhere", /ammo-display\.css/.test(dmIdx) && /ammo-display\.js/
 
 /* versions */
 const ver = JSON.parse(read("version.json"));
-check("version", JSON.stringify(ver).includes("0.3.97") && JSON.stringify(ver).includes("0.2.110"), JSON.stringify(ver));
+check("version", JSON.stringify(ver).includes("0.3.98") && JSON.stringify(ver).includes("0.2.111"), JSON.stringify(ver));
 
 if (failures.length) { console.log(failures.length + " failed"); process.exit(1); }
 console.log("pr71 ok");

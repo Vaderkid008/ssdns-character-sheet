@@ -1452,8 +1452,15 @@
       rows.sort(function (a, b) { return rank(a) - rank(b); });
       /* 0.3.67: 'Free shot' is always the first entry: the gun fires with no target, no attack roll vs AC. */
       var html = "<option value='__free'>Free shot</option><option value=''>No target</option>";
+      /* fog-aware targeting (0.3.98): on the map's scene with fog on, only what this player can see; past the
+         picked weapon's long range stays listed but can't be picked. The map answers null when it can't tell. */
+      var mapHost = root.SSDNSMapHost && typeof root.SSDNSMapHost.targetSight === "function" ? root.SSDNSMapHost : null;
+      var sightOf = function (id) { try { return mapHost ? mapHost.targetSight(String(id)) : null; } catch (e) { return null; } };
+      var blockedIds = {};
       rows.forEach(function (row) {
         if (row.mapHidden || String(row.id) === "__free") return;
+        var seen = sightOf(row.id);
+        if (seen && seen.visible === false) { blockedIds[row.id] = 1; return; }
         var revealed = row.revealed || {};
         var ac = revealed.ac == null || revealed.ac === "" ? "" : String(revealed.ac);
         var name = String(row.name || row.id);
@@ -1479,16 +1486,24 @@
           ].filter(Boolean).join(" · ");
         }
         var label = name + (bits.length ? " (" + bits.join(" · ") + ")" : "");
-        html += "<option value='" + String(row.id).replace(/'/g, "") + "' data-ac='" + ac.replace(/'/g, "") + "' data-hp='" + hpAttr.replace(/'/g, "") + "' data-status='" + String(row.status || "").replace(/'/g, "") + "' data-side='" + String(row.side || "").replace(/'/g, "") + "' data-fled='" + (row.fled || row.status === "Fled" ? "1" : "0") + "' data-conds='" + conds.replace(/'/g, "") + "' data-kind='" + String(row.kind || "").replace(/'/g, "") + "' data-name='" + name.replace(/[&<>"']/g, "") + "' data-reveal='" + blockNote.replace(/'/g, "") + "' data-cover='" + coverKey.replace(/'/g, "") + "' data-cover-lock='" + (row.coverLock ? "1" : "0") + "'>" +
-          label.replace(/[&<>]/g, "") + "</option>";
+        var far = seen && seen.outOfRange;
+        if (far) blockedIds[row.id] = 1;
+        html += "<option value='" + String(row.id).replace(/'/g, "") + "'" + (far ? " disabled data-out-of-range='1'" : "") + " data-label='" + label.replace(/[&<>"']/g, "") + "' data-ac='" + ac.replace(/'/g, "") + "' data-hp='" + hpAttr.replace(/'/g, "") + "' data-status='" + String(row.status || "").replace(/'/g, "") + "' data-side='" + String(row.side || "").replace(/'/g, "") + "' data-fled='" + (row.fled || row.status === "Fled" ? "1" : "0") + "' data-conds='" + conds.replace(/'/g, "") + "' data-kind='" + String(row.kind || "").replace(/'/g, "") + "' data-name='" + name.replace(/[&<>"']/g, "") + "' data-reveal='" + blockNote.replace(/'/g, "") + "' data-cover='" + coverKey.replace(/'/g, "") + "' data-cover-lock='" + (row.coverLock ? "1" : "0") + "'>" +
+          (label + (far ? " — out of range, " + (seen.feet != null ? seen.feet : "?") + " ft" : "")).replace(/[&<>]/g, "") + "</option>";
       });
       sel.innerHTML = html;
-      var kept = keep && rows.some(function (row) { return String(row.id) === String(keep) && !unusableRow(row); });
+      var kept = keep && !blockedIds[keep] && rows.some(function (row) { return String(row.id) === String(keep) && !unusableRow(row); });
       if (kept) sel.value = keep;
       else if (keep === "__free") sel.value = "__free";
       else sel.value = "";
       var last = sel.getAttribute("data-last-enemy") || "";
       if (last && rows.some(function (row) { return String(row.id) === String(last) && unusableRow(row); })) sel.removeAttribute("data-last-enemy");
+      if (!root.__ssdnsSightBound && root.addEventListener) {
+        root.__ssdnsSightBound = true;
+        root.addEventListener("ssdns-map-sight", function () {
+          if (root.SSDNSPlaytest && root.SSDNSPlaytest.setTargets) root.SSDNSPlaytest.setTargets(lastTargets);
+        });
+      }
       if (!sel._revealBound) {
         sel._revealBound = true;
         sel.addEventListener("change", function () {

@@ -269,7 +269,7 @@
       else if (!h && sel.getAttribute("data-give-disabled")) { sel.disabled = false; sel.removeAttribute("data-give-disabled"); }
     }
   }
-  /* the Give control for a weapon slot (gun / melee card, and the 0.3.97 Equipment list's Weapons rows) */
+  /* the Give control for a weapon slot (gun / melee card, and the 0.3.98 Equipment list's Weapons rows) */
   function slotGive(c, kind, i) {
     var slot = c && G.slotAt(c, kind, i);
     var html = "";

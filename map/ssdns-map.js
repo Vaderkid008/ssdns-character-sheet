@@ -760,6 +760,7 @@ if (role === 'dm') {
       <button type="button" data-act="redoBtn">Redo Move</button>
     </div>
     <button data-act="addTokenBtn">Add token</button>
+    <button type="button" data-act="bestiaryBtn" aria-expanded="false" title="Place a bestiary creature: it joins the fight already linked">Bestiary</button>
     <button data-act="addPcBtn">Add player token</button>
     <button data-act="dupTokenBtn">Duplicate</button>
     <button data-act="copyTokenBtn">Copy</button>
@@ -1361,6 +1362,100 @@ function fogCovers(x, y) {
   });
   return hidden;
 }
+/* fog-aware targeting (Jessey 2026-10-20 9:52 PM): one sight test for drawing and for targeting.
+   A player sees their own token's circle (2 squares, 8 with a torch) and every torch's 8 squares, when the scene's fog
+   is on; DM reveal / hide shapes then win, last one on top. Hidden tokens and other players' veiled tokens are never
+   seen. Party members' sight does not count. Walls do not block sight yet. Grid units (squares). */
+function playerSceneOf(viewerUid) {
+  if (role === 'player' && viewerUid === uid) return getPlayerScene();
+  const own = state.tokens.find(t => t && t.ownerUid === viewerUid);
+  return (own && own.sceneId) || (shared.playerScenes && shared.playerScenes[viewerUid]) || 'scn_dustyspur01';
+}
+function sightFor(viewerUid, sceneId) {
+  const sid = sceneId || playerSceneOf(viewerUid);
+  const sd = sceneData(sid);
+  const out = { uid: viewerUid, sceneId: sid, open: sd.fogRevealed === true, fogOn: sd.fogRevealed === false, center: null, radius: 2, lights: [], shapes: sd.fogShapes || [] };
+  for (const t of state.tokens) {
+    if (t && t.torch && t.pos) out.lights.push({ x: t.pos.x + (t.size || 1) / 2, y: t.pos.y + (t.size || 1) / 2, radius: 8 });
+  }
+  if (out.fogOn) {
+    const mine = state.tokens.find(t => t && t.ownerUid === viewerUid);
+    if (mine && mine.pos) {
+      out.center = { x: mine.pos.x + (mine.size || 1) / 2, y: mine.pos.y + (mine.size || 1) / 2 };
+      if (mine.torch) out.radius = 8;
+    }
+  }
+  return out;
+}
+function tokenSeenBy(t, sight) {
+  if (!t || !t.pos || !sight) return false;
+  if (t.hidden) return false;
+  if ((t.sceneId || 'scn_dustyspur01') !== sight.sceneId) return false;
+  const gx = t.pos.x + (t.size || 1) / 2;
+  const gy = t.pos.y + (t.size || 1) / 2;
+  let visible = sight.open;
+  if (!visible && sight.center && Math.hypot(gx - sight.center.x, gy - sight.center.y) <= sight.radius) visible = true;
+  if (!visible) {
+    for (const ls of sight.lights) {
+      if (Math.hypot(gx - ls.x, gy - ls.y) <= ls.radius) { visible = true; break; }
+    }
+  }
+  sight.shapes.forEach(shape => {
+    if (shapeContains(shape, gx, gy)) visible = shape.op !== 'hide';
+  });
+  if (!visible) return false;
+  if (t.veil && t.ownerUid !== sight.uid) return false;
+  return true;
+}
+/* the token a target id names (combatant id, token id, player uid, sheet id) */
+function targetToken(id) {
+  if (!id) return null;
+  return tokenByRef(id) || (state.tokens || []).find(t => t && (t.sheetId === id || t.playerId === id)) || null;
+}
+/* null = the map can't judge (no such token on the map): callers keep their old behaviour */
+function canPlayerSee(viewerUid, targetId) {
+  if (!viewerUid || !targetId || targetId === FREE_SHOT) return null;
+  const tok = targetToken(targetId);
+  if (!tok) return null;
+  if (tok.ownerUid && tok.ownerUid === viewerUid) return true;
+  return tokenSeenBy(tok, sightFor(viewerUid));
+}
+/* the weapon the player has picked on the map (the Range picker); first one when none picked */
+function playerSightWeapon() {
+  if (role !== 'player') return null;
+  let choices = state.rangeChoices && state.rangeChoices.length ? state.rangeChoices : null;
+  if (!choices) { try { choices = currentRangeChoices(); } catch (e) { choices = []; } }
+  return (choices || []).filter(c => c.id === state.rangeWeaponId)[0] || (choices || [])[0] || null;
+}
+/* { visible, outOfRange, feet, band } for this player and a target id, or null when the map can't judge */
+function targetSight(targetId) {
+  if (role !== 'player' || !targetId || targetId === FREE_SHOT) return null;
+  const tok = targetToken(targetId);
+  if (!tok) return null;
+  const mine = (state.tokens || []).find(t => t && t.ownerUid === uid);
+  if (mine && mine.id === tok.id) return { visible: true, outOfRange: false, feet: 0, band: '' };
+  const visible = tokenSeenBy(tok, sightFor(uid));
+  const weapon = playerSightWeapon();
+  const verdict = visible && weapon && mine ? rangeButtonNote(weapon, tok.id, mine.id) : null;
+  const feet = mine ? feetBetween(mine, tok) : null;
+  return { visible: visible, outOfRange: !!(verdict && verdict.band === 'blocked'), feet: feet, band: (verdict && verdict.band) || '', weapon: weapon ? (weapon.name || weapon.id) : '' };
+}
+let sightSig = '';
+/* the sheet's Target list rebuilds when what this player can see or reach changes */
+function noteSightChange() {
+  if (role !== 'player') return;
+  const sight = sightFor(uid);
+  const w = playerSightWeapon();
+  const sig = (state.tokens || []).filter(t => t && t.pos).map(t => {
+    const s = tokenSeenBy(t, sight) ? 1 : 0;
+    const r = s ? targetSight(t.id) : null;
+    return t.id + ':' + s + (r && r.outOfRange ? 'x' : '');
+  }).join('|') + '#' + (w ? w.id : '');
+  if (sig === sightSig) return;
+  sightSig = sig;
+  try { window.dispatchEvent(new CustomEvent('ssdns-map-sight', { detail: { uid: uid } })); } catch (e) {}
+  if (state.drawerOpen || q('actionSlot')) { try { paintPlayerFight(); } catch (e) {} }
+}
 function clipShape(shape) {
   const px = state.scene.grid.px;
   if (!shape) return false;
@@ -1535,6 +1630,40 @@ function currentRangeChoices() {
     });
   });
   return list;
+}
+const MAP_COND_ICONS = { unconscious: '\u{1F4A4}', paralyzed: '\u26A1', poisoned: '\u2620\uFE0F', stunned: '\u{1F4AB}', prone: '\u2B07\uFE0F' };
+function condIcon(name) {
+  const C = window.SSDNSConditions;
+  if (C && typeof C.icon === 'function') return C.icon(name);
+  return MAP_COND_ICONS[String(name || '').toLowerCase()] || '\u25CF';
+}
+/* Every condition on a token: the map's own toolbar list + the linked combatant's tracked conditions (initiative
+   copy; masked for hidden enemies on the player side) + the player's own sheet for their own token. */
+function tokenConditions(t) {
+  if (!t) return [];
+  const out = [];
+  const seen = {};
+  const add = (raw) => {
+    const name = String((raw && typeof raw === 'object' ? (raw.name || raw.label) : raw) || '').trim();
+    if (!name) return;
+    const key = name.toLowerCase().replace(/\s+\d+r?$/, '');
+    if (seen[key]) return;
+    seen[key] = 1;
+    out.push(name);
+  };
+  (t.conditions || []).forEach(add);
+  if (t.hidden && role !== 'dm') return out;
+  const order = (state.initiative && state.initiative.order) || [];
+  const row = order.find(o => o && ((t.combatantId && (o.id === t.combatantId || o.playerId === t.combatantId)) ||
+    (t.ownerUid && (o.playerId === t.ownerUid || o.id === t.ownerUid)) || o.id === t.id));
+  if (row && !(row.mapHidden && role !== 'dm')) (row.conditions || []).forEach(add);
+  if (role === 'player' && t.ownerUid && t.ownerUid === uid && window.SSDNSApp && window.SSDNSApp.doc) {
+    try {
+      const c = window.SSDNSApp.doc().character;
+      ((c && c.activeConditions) || []).forEach(add);
+    } catch (e) {}
+  }
+  return out;
 }
 function paintRangeControls() {
   const on = !!state.showRange;
@@ -1791,6 +1920,10 @@ function draw() {
     }
   }
 
+  const sight = role === 'player' ? sightFor(uid, getPlayerScene()) : null;
+  const sightGun = role === 'player' ? playerSightWeapon() : null;
+  const sightMine = role === 'player' ? state.tokens.find(t => t.ownerUid === uid) : null;
+  if (role === 'player') noteSightChange();
   // map image — for players with fog on, only draw inside vision/revealed areas
   if (img) {
     if (role === 'player' && sceneData().fogRevealed === false) {
@@ -1975,28 +2108,8 @@ function draw() {
     }
 
     if (role === 'player') {
-      const tcx = (t.pos.x + (t.size || 1) / 2) * px;
-      const tcy = (t.pos.y + (t.size || 1) / 2) * px;
-      let visible = sceneData().fogRevealed === true;
-      if (!visible && visionCenter) {
-        const dx = tcx - visionCenter.x;
-        const dy = tcy - visionCenter.y;
-        if (Math.hypot(dx, dy) <= visionRadiusSq * px) visible = true;
-      }
-      if (!visible) {
-        for (const ls of lightSources) {
-          const dx = tcx - ls.x;
-          const dy = tcy - ls.y;
-          if (Math.hypot(dx, dy) <= ls.radius * px) { visible = true; break; }
-        }
-      }
-      const gx = t.pos.x + (t.size || 1) / 2;
-      const gy = t.pos.y + (t.size || 1) / 2;
-      (sceneData().fogShapes || []).forEach(shape => {
-        if (shapeContains(shape, gx, gy)) visible = shape.op !== 'hide';
-      });
-      if (!visible) continue;
-      if (t.veil && t.ownerUid !== uid) continue;
+      /* same test the Target lists use (tokenSeenBy) */
+      if (!tokenSeenBy(t, sight)) continue;
     }
 
     const size = t.size || 1;
@@ -2016,6 +2129,13 @@ function draw() {
     ctx.save();
     if (isHidden && role === 'dm') ctx.globalAlpha = 0.4;
     if (t.veil && (role === 'dm' || t.ownerUid === uid)) ctx.globalAlpha = 0.45;
+    /* fog-aware targeting: seen but past the picked weapon's long range -> grey wash on this player's map */
+    let outOfReach = false;
+    if (role === 'player' && sightGun && sightMine && t.id !== sightMine.id) {
+      const v = rangeButtonNote(sightGun, t.id, sightMine.id);
+      outOfReach = !!(v && v.band === 'blocked');
+      if (outOfReach) { ctx.globalAlpha *= 0.6; try { ctx.filter = 'grayscale(1) brightness(0.75)'; } catch (e) {} }
+    }
 
     ctx.beginPath();
     ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
@@ -2093,6 +2213,37 @@ function draw() {
         hpMax = Number(t.maxHp);
       }
     }
+    // condition badges stay inside the token's alpha, so a hidden token stays dim
+    /* condition symbols (Jessey 2026-10-20 9:22 PM): the lit condition chips the sheet / DMCC track now reach the
+       token too (before, only the map toolbar's own Condition list did). Players read the masked initiative copy,
+       so a hidden enemy never shows them anything. */
+    const condList = tokenConditions(t);
+    if (condList.length) {
+      const size = Math.max(14, r * 0.62);
+      const shown = condList.slice(0, 4);
+      const extra = condList.length - shown.length;
+      ctx.font = `${Math.round(size * 0.78)}px system-ui, "Noto Color Emoji", "Apple Color Emoji", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const step = size * 1.02;
+      const count = shown.length + (extra > 0 ? 1 : 0);
+      let badgeX = s.x - ((count - 1) * step) / 2;
+      const badgeY = s.y - r + size * 0.15;
+      const disc = (txt) => {
+        ctx.fillStyle = 'rgba(20,12,6,0.82)';
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(232,220,200,0.85)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.fillText(txt, badgeX, badgeY + 1);
+        badgeX += step;
+      };
+      shown.forEach((c) => disc(condIcon(c)));
+      if (extra > 0) disc('+' + extra);
+    }
     const downMark = String(t.status || '').toLowerCase() === 'down' || (role === 'dm' && hpCur != null && hpCur <= 0);
     // red X if downed. Players only see it from the public status, never from an HP number.
     if (downMark) {
@@ -2106,24 +2257,6 @@ function draw() {
       ctx.stroke();
     }
 
-    // condition badges stay inside the token's alpha, so a hidden token stays dim
-    if (t.conditions && t.conditions.length) {
-      const icons = { unconscious: '💤', paralyzed: '⚡', poisoned: '☠️', stunned: '💫', prone: '⬇' };
-      const size = Math.max(28, r * 1.15);
-      ctx.font = `${size}px system-ui`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      let badgeX = s.x - ((t.conditions.length - 1) * size * 0.55);
-      t.conditions.forEach((c) => {
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.beginPath();
-        ctx.arc(badgeX, s.y - r - 6, size * 0.55, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.fillText(icons[c] || '●', badgeX, s.y - r - 6);
-        badgeX += size * 1.1;
-      });
-    }
     ctx.fillStyle = '#e8dcc8';
     /* token size: big tokens' names cap at 1.5x Medium (Medium unchanged) so labels stay in the row below */
     const rMed = (px * state.view.zoom) / 2 * 0.85;
@@ -2140,6 +2273,13 @@ function draw() {
         if (Array.isArray(raw)) rows = raw;
       } catch (e) { rows = []; }
       if (rows.length) paintAmmoColumn(ctx, s, r, rows);
+    }
+    if (outOfReach) {
+      try { ctx.filter = 'none'; } catch (e) {}
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(110,110,110,0.45)';
+      ctx.fill();
     }
     ctx.restore();
 
@@ -2937,6 +3077,108 @@ function ensurePartyTokens() {
     if (token) emit('party:sync', { playerId: who, tokenId: token.id });
   });
 }
+/* Map bestiary (Jessey approved 2026-10-20 9:28 PM): DM toolbar button -> searchable creature list with token art.
+   Click a creature then a square, or drag it onto a square. The DMCC adds it to the fight and links the new token
+   (same path as the Fight tab's "Add to initiative" + Link to...), so it is a combatant the moment it lands. */
+function bestiaryGroups() {
+  const choices = (typeof host.linkChoices === 'function' && host.linkChoices()) || {};
+  return choices.bestiary || [];
+}
+function placeBeastAt(beast, world) {
+  if (!beast || !beast.id || !state.scene) return;
+  const px = (state.scene.grid && state.scene.grid.px) || 70;
+  const cell = { x: Math.floor(world.x / px), y: Math.floor(world.y / px) };
+  const grid = state.scene.grid || {};
+  if (cell.x < 0 || cell.y < 0 || cell.x >= (grid.cols || 30) || cell.y >= (grid.rows || 20)) { toast('Drop it on a square'); return; }
+  emit('bestiary:place', { beastId: beast.id, name: beast.name || '', at: cell });
+  if (!state.beastKeep) armBeast(null);
+}
+function armBeast(beast) {
+  state.beastArmed = beast || null;
+  const panel = q('bestiaryPanel');
+  if (panel) panel.querySelectorAll('.ssm-beast').forEach(b => b.classList.toggle('is-armed', !!beast && b.getAttribute('data-beast') === beast.id));
+  const hint = q('bestiaryHint');
+  if (hint) hint.textContent = beast ? ('Click a square to place ' + (beast.name || 'it') + (state.beastKeep ? ' (keeps placing until you pick another or press Esc)' : '') + '.') : 'Click a creature, then a square. Or drag it onto the map.';
+  el.classList.toggle('ssm-placing', !!beast);
+}
+function paintBestiaryList() {
+  const panel = q('bestiaryPanel');
+  if (!panel) return;
+  const list = panel.querySelector('.ssm-bestiary-list');
+  const needle = String((panel.querySelector('input[type=search]') || {}).value || '').trim().toLowerCase();
+  const groups = bestiaryGroups();
+  let html = '';
+  groups.forEach(g => {
+    const rows = (g.options || []).filter(b => !needle || String(b.name || b.id).toLowerCase().indexOf(needle) >= 0 || String(g.label || '').toLowerCase().indexOf(needle) >= 0);
+    if (!rows.length) return;
+    html += '<div class="ssm-bestiary-group">' + esc(g.label || 'Bestiary') + '</div>';
+    rows.forEach(b => {
+      const art = b.token ? '<img alt="" loading="lazy" src="' + esc(asset(b.token)) + '">' : '<span class="ssm-beast-ph" aria-hidden="true"></span>';
+      const meta = [b.size || '', b.cr != null && b.cr !== '' ? 'CR ' + b.cr : ''].filter(Boolean).join(' · ');
+      html += '<button type="button" class="ssm-beast' + (state.beastArmed && state.beastArmed.id === b.id ? ' is-armed' : '') + '" draggable="true" data-beast="' + esc(b.id) + '" data-name="' + esc(b.name || b.id) + '">' + art +
+        '<span><b>' + esc(b.name || b.id) + '</b>' + (meta ? '<span class="ssm-beast-meta">' + esc(meta) + '</span>' : '') + '</span></button>';
+    });
+  });
+  list.innerHTML = html || '<p class="ssm-tactics">No creature matches.</p>';
+  list.querySelectorAll('.ssm-beast').forEach(b => {
+    const beast = { id: b.getAttribute('data-beast'), name: b.getAttribute('data-name') };
+    b.addEventListener('click', () => armBeast(state.beastArmed && state.beastArmed.id === beast.id ? null : beast));
+    b.addEventListener('dragstart', (ev) => {
+      try { ev.dataTransfer.setData('text/x-ssdns-beast', JSON.stringify(beast)); ev.dataTransfer.effectAllowed = 'copy'; } catch (e) {}
+      state.beastDrag = beast;
+    });
+    b.addEventListener('dragend', () => { state.beastDrag = null; });
+  });
+}
+function toggleBestiary(force) {
+  if (role !== 'dm') return;
+  let panel = q('bestiaryPanel');
+  const open = force != null ? !!force : !(panel && !panel.hidden);
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.setAttribute('data-act', 'bestiaryPanel');
+    panel.className = 'ssm-bestiary';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', 'Bestiary');
+    panel.innerHTML = '<div class="ssm-bestiary-head"><b>Bestiary</b>' +
+      '<label class="ssm-act" title="Keep placing the same creature (Bandit 1, Bandit 2, ...)"><input type="checkbox" data-act="bestiaryKeep"> Place several</label>' +
+      '<button type="button" data-act="bestiaryClose" aria-label="Close bestiary">×</button></div>' +
+      '<input type="search" data-act="bestiarySearch" placeholder="Search creatures" aria-label="Search creatures">' +
+      '<div class="ssm-bestiary-list"></div>' +
+      '<p class="ssm-bestiary-hint" data-act="bestiaryHint">Click a creature, then a square. Or drag it onto the map.</p>';
+    el.appendChild(panel);
+    panel.querySelector('[data-act="bestiaryClose"]').addEventListener('click', () => toggleBestiary(false));
+    panel.querySelector('[data-act="bestiarySearch"]').addEventListener('input', paintBestiaryList);
+    const keep = panel.querySelector('[data-act="bestiaryKeep"]');
+    keep.addEventListener('change', () => { state.beastKeep = !!keep.checked; armBeast(state.beastArmed); });
+    ['pointerdown', 'wheel'].forEach(ev => panel.addEventListener(ev, (e) => e.stopPropagation()));
+  }
+  panel.hidden = !open;
+  const btn = q('bestiaryBtn');
+  if (btn) { btn.setAttribute('aria-expanded', open ? 'true' : 'false'); btn.classList.toggle('active', open); }
+  if (open) { paintBestiaryList(); const sb = panel.querySelector('input[type=search]'); if (sb) sb.focus(); }
+  else armBeast(null);
+}
+function bindBestiaryDrop() {
+  on(canvas, 'dragover', (e) => {
+    if (role !== 'dm' || !state.beastDrag) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'copy'; } catch (err) {}
+  });
+  on(canvas, 'drop', (e) => {
+    if (role !== 'dm') return;
+    let beast = state.beastDrag;
+    try { const raw = e.dataTransfer.getData('text/x-ssdns-beast'); if (raw) beast = JSON.parse(raw); } catch (err) {}
+    if (!beast || !beast.id) return;
+    e.preventDefault();
+    state.beastDrag = null;
+    const keep = state.beastKeep;
+    state.beastKeep = true; /* a drop never disarms a click-armed creature */
+    placeBeastAt(beast, pointerWorld(e));
+    state.beastKeep = keep;
+  });
+  on(window, 'keydown', (e) => { if (e.key === 'Escape' && state.beastArmed) armBeast(null); });
+}
 function addEnemyToken() {
   const cell = viewCenterCell();
   const n = state.tokens.filter(t => t.kind === 'npc' || t.kind === 'enemy').length;
@@ -3144,6 +3386,12 @@ function canDrag(token) {
   if (!token) return false;
   if (token.locked) return false;
   if (!canControl(token)) return false;
+  return true;
+}
+function beastClick(e) {
+  if (role !== 'dm' || !state.beastArmed || e.button !== 0) return false;
+  e.preventDefault();
+  placeBeastAt(state.beastArmed, pointerWorld(e));
   return true;
 }
 function onPointerDown(e) {
@@ -3726,7 +3974,8 @@ function areaTaken(x, y, size, ignore) {
 }
 /** Auto-placement: nearest spot to the view centre where the whole footprint fits and no name label
     (or DM HP bar) lands on another token or label. Falls back to footprint-only when the map is full. */
-function nextFreeSpot(size, label) {
+function nextFreeSpot(size, label, preferred) {
+  if (preferred) return preferred; /* bestiary drop: the square the DM picked (already checked free) */
   if (!state.scene) return null;
   const T = window.SSDNSTokenSize;
   const s = tokSquares(size);
@@ -3737,6 +3986,21 @@ function nextFreeSpot(size, label) {
   /* labels are judged at the DM's current zoom (or zoom 1 if closer): names never draw under 11px */
   const cellPx = (grid.px || 70) * Math.min(1, (state.view && state.view.zoom) || 1);
   return T.findSpot(viewCenterCell(), s, label, others, grid, cellPx);
+}
+function spotNear(cell, size, label) {
+  if (!state.scene) return null;
+  const T = window.SSDNSTokenSize;
+  const grid = state.scene.grid || { cols: 30, rows: 20 };
+  const s = tokSquares(size);
+  const sceneId = activeSceneId() || 'scn_dustyspur01';
+  const others = blockingTokens().filter(t => (t.sceneId || 'scn_dustyspur01') === sceneId);
+  const cx = Math.max(0, Math.min((grid.cols || 30) - s, cell.x));
+  const cy = Math.max(0, Math.min((grid.rows || 20) - s, cell.y));
+  if (T && T.findSpot) {
+    const cellPx = (grid.px || 70) * Math.min(1, (state.view && state.view.zoom) || 1);
+    return T.findSpot({ x: cx, y: cy }, s, label, others, grid, cellPx);
+  }
+  return s === 1 && !cellTaken(cx, cy) ? { x: cx, y: cy } : nextFreeCell();
 }
 function nextFreeCell() {
   if (!state.scene) return null;
@@ -3834,9 +4098,14 @@ function placeLinkedToken(spec) {
   /* 0.3.59: adopt this combatant's token if it already exists, instead of stacking a copy */
   const had = spec.combatantId ? tokenForCombatant(spec.combatantId) : null;
   if (had) return had;
-  const spot = nextFreeSpot(spec.size, String(spec.label || spec.name || '').slice(0, 16));
+  const label = String(spec.label || spec.name || '').slice(0, 16);
+  /* map bestiary: a wanted square (click / drop) is used, or the nearest open spot for the creature's footprint */
+  const want = spec.at && isFinite(spec.at.x) && isFinite(spec.at.y) ? { x: Math.floor(spec.at.x), y: Math.floor(spec.at.y) } : null;
+  const spot = nextFreeSpot(spec.size, label, want ? spotNear(want, spec.size, label) : null);
   if (!spot) { toast('No open square'); return null; }
-  return makeToken(Object.assign({}, spec, { pos: spot, kind: spec.kind || 'npc' }));
+  const clean = Object.assign({}, spec);
+  delete clean.at;
+  return makeToken(Object.assign(clean, { pos: spot, kind: spec.kind || 'npc' }));
 }
 function hasToken(id) {
   return !!(id && state.tokens.some(t => t && t.id === id));
@@ -3976,7 +4245,8 @@ function swallowMiddle(e) {
   e.preventDefault();
   e.stopPropagation();
 }
-on(canvas, 'pointerdown', onPointerDown);
+/* bestiary: an armed creature lands on the clicked square before any tool sees the click */
+on(canvas, 'pointerdown', (e) => { if (pointers.size === 0 && beastClick(e)) return; onPointerDown(e); });
 on(el, 'pointerdown', e => { if (e.button === 1 && e.target !== canvas) swallowMiddle(e); });
 on(canvas, 'mousedown', swallowMiddle);
 on(el, 'mousedown', swallowMiddle);
@@ -4397,6 +4667,7 @@ if (role === 'dm') {
     toast('Floors pushed to players');
   });
   q('addTokenBtn').addEventListener('click', () => { addEnemyToken(); flashBtn('addTokenBtn'); });
+  if (q('bestiaryBtn')) { q('bestiaryBtn').addEventListener('click', () => toggleBestiary()); bindBestiaryDrop(); }
   q('addPcBtn').addEventListener('click', () => { addPlayerToken(); flashBtn('addPcBtn'); });
   q('dupTokenBtn').addEventListener('click', () => {
     const list = selectedTokens();
@@ -5030,6 +5301,12 @@ async function loadSceneImage(sceneId, opts) {
     state.drawerTokenId = tokenId;
     if (!same) state.rangeTargetId = '';
     if (!same) emit('drawer:open', { tokenId, combatantId: tokenCombatant(tokenId) });
+    /* map token guns: range rings start on the token's remembered weapon, not always the first (melee) one */
+    if (!same) {
+      const card0 = lookupCard(tokenId);
+      const wid0 = card0 ? activeWeaponId(card0, tokenId) : '';
+      if (wid0) state.rangeWeaponId = wid0;
+    }
     renderDrawer();
   }
   function closeDrawer() {
@@ -5191,7 +5468,7 @@ async function loadSceneImage(sceneId, opts) {
     } else {
       const sel = document.getElementById('atkTarget');
       if (sel && sel.options && sel.options.length) {
-        rows = Array.from(sel.options).map(o => ({ id: o.value, label: o.textContent || o.value }));
+        rows = Array.from(sel.options).map(o => ({ id: o.value, label: o.textContent || o.value, baseLabel: o.getAttribute('data-label') || '' }));
       } else {
         rows = (state.tokens || []).filter(t => t && !t.hidden && !(t.ownerUid && t.ownerUid === uid)).map(t => ({ id: t.id, label: t.name || t.label || t.id }));
       }
@@ -5201,7 +5478,12 @@ async function loadSceneImage(sceneId, opts) {
       if (!o) return;
       const id = o.id != null ? String(o.id) : '';
       if (!id || id === FREE_SHOT || options.some(x => x.id === id)) return;
-      options.push({ id: id, label: o.label || o.name || id });
+      /* fog-aware targeting: only what this player can see; past long range is listed but can't be picked */
+      const seen = targetSight(id);
+      if (seen && !seen.visible) return;
+      const label = o.baseLabel || o.label || o.name || id;
+      if (seen && seen.outOfRange) options.push({ id: id, label: label + ' — out of range, ' + (seen.feet != null ? seen.feet : '?') + ' ft', disabled: true });
+      else options.push({ id: id, label: label });
     });
     return options;
   }
@@ -5222,6 +5504,14 @@ async function loadSceneImage(sceneId, opts) {
     extra = extra || {};
     const tokenId = state.selected ? state.selected.id : null;
     const targetId = extra.targetId != null ? extra.targetId : ((state.rowTargets && state.rowTargets[id]) || state.playerTarget || '');
+    /* fog-aware targeting: the picked attack becomes the weapon the Target list and the grey wash measure */
+    const gunN = String(id).match(/^(?:gunroll|fan|offhand):(\d+)/);
+    const pickIds = gunN ? ['gun:' + gunN[1], id] : [id];
+    const choiceList = (() => { try { return currentRangeChoices() || []; } catch (e) { return []; } })();
+    const pickHit = pickIds.find(x => choiceList.some(c => c.id === x));
+    if (pickHit && pickHit !== state.rangeWeaponId) { state.rangeWeaponId = pickHit; requestDraw(); }
+    const seen = targetId && targetId !== FREE_SHOT ? targetSight(targetId) : null;
+    if (seen && !seen.visible) { toast("You can't see that target"); return; }
     if (targetId === FREE_SHOT) {
       if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
     } else if (String(id).indexOf('gunroll:') === 0 || String(id).indexOf('melee:') === 0 || String(id).indexOf('offhand:') === 0 || String(id).indexOf('fan:') === 0 || String(id).indexOf('spell:') === 0 || id === 'pact') {
@@ -5327,10 +5617,48 @@ async function loadSceneImage(sceneId, opts) {
     const free = M && M.unjamIsFree && M.unjamIsFree(gun);
     return sideButton(a, act, 'unjam', free ? 'Unjam (free action)' : 'Unjam (bonus action)');
   }
+  function npcUnjam(a) {
+    const gun = gunFlags(a);
+    if (!gun.jammed || gun.fouled || gun.ruined) return '';
+    return sideButton(a, 'rowUnjam', 'unjam', 'Unjam (free · DM)');
+  }
   function reopenControl(a, act) {
     if (!a || !a.muzzleloader || !lockList(a).length) return '';
     const used = !!a.reopenUsed;
     return sideButton(a, act, 'reopen', used ? 'Reopen chamber (used)' : 'Reopen chamber');
+  }
+  /* map token guns (Jessey 2026-10-20 9:21 PM): Misfire badge, same box as the player gun card's "MISFIRE 1–4". */
+  function misfireBadge(a) {
+    const raw = a && a.misfire != null && a.misfire !== '' ? String(a.misfire) : '';
+    if (!raw) return '';
+    const n = Number(raw);
+    const text = isFinite(n) && n > 1 ? '1–' + n : raw;
+    const streak = Number(a.misStreak) || 0;
+    return '<span class="ssm-mf" data-act="mfBadge" title="Misfire on a natural ' + esc(text) + '">Misfire <b>' + esc(text) + '</b>' +
+      (streak ? ' · streak ' + esc(streak) : '') + '</span>';
+  }
+  function jamBadge(a) {
+    const g = gunFlags(a);
+    if (g.ruined) return '<span class="ssm-gunflag bad">Ruined</span>';
+    if (g.fouled) return '<span class="ssm-gunflag bad">Fouled</span>';
+    if (g.jammed) return '<span class="ssm-gunflag bad" data-act="jamBadge">Jammed</span>';
+    if (g.dirty) return '<span class="ssm-gunflag">Dirty</span>';
+    return '';
+  }
+  /* The token's weapon: the one picked on this card this session, else the one it last used (card.lastWeaponId,
+     kept by the DMCC on the fight row), else the old default (the first weapon). */
+  function activeWeaponId(card, tokenId) {
+    const list = (card && card.attacks) || [];
+    const has = (id) => !!id && list.some(a => a && String(a.id) === String(id));
+    const picked = state.tokenWeapon && state.tokenWeapon[tokenId];
+    if (has(picked)) return String(picked);
+    if (has(card && card.lastWeaponId)) return String(card.lastWeaponId);
+    return list[0] ? String(list[0].id) : '';
+  }
+  function noteWeapon(tokenId, wid) {
+    if (!tokenId || !wid) return;
+    state.tokenWeapon = state.tokenWeapon || {};
+    state.tokenWeapon[tokenId] = String(wid);
   }
   function gunIndexOf(a) {
     if (a && a.gunIndex != null && a.gunIndex !== '') return String(a.gunIndex);
@@ -5419,6 +5747,10 @@ async function loadSceneImage(sceneId, opts) {
     const unload = side === 'player' && ((a && a.reloadId) || (a && a.ammo && a.ammo.cap))
       ? '<button type="button" data-act="playerUnload" data-id="unload:' + esc(gi) + '">Unload</button>'
       : '';
+    const npcUnload = side === 'npc' && a && a.ammo && a.ammo.cap
+      ? '<button type="button" data-act="rowUnload" data-wid="' + esc(a.id || '') + '">Unload</button>'
+      : '';
+    if (side === 'npc') return npcUnload + modeChecks(a, 'rowAdv', 'rowDis');
     const tr = side === 'row' && a && a.tr
       ? '<button type="button" data-act="rowTr" data-wid="' + esc(a.id || '') + '" data-gun="' + esc(gi) + '">TR</button>'
       : '';
@@ -5498,7 +5830,8 @@ async function loadSceneImage(sceneId, opts) {
     }
     const targetHtml = playerTargetOptions().map(o => {
       const on = String(o.id) === String(state.playerTarget || '') ? ' selected' : '';
-      return '<option value="' + esc(o.id) + '"' + on + '>' + esc(o.label || 'No target') + '</option>';
+      const off = o.disabled ? ' disabled' : '';
+      return '<option value="' + esc(o.id) + '"' + (o.disabled ? off : on) + '>' + esc(o.label || 'No target') + '</option>';
     }).join('');
     const attacks = (card.attacks || []).map(a => {
       const rowTarget = (state.rowTargets && state.rowTargets[a.id]) || state.playerTarget || '';
@@ -5516,7 +5849,8 @@ async function loadSceneImage(sceneId, opts) {
       const chosen = (state.rowTargets && (state.rowTargets[a.id] || state.rowTargets[a.reloadId])) || state.playerTarget || '';
       const html = playerTargetOptions().map(o => {
         const on = String(o.id) === String(chosen) ? ' selected' : '';
-        return '<option value="' + esc(o.id) + '"' + on + '>' + esc(o.label || 'No target') + '</option>';
+      const off = o.disabled ? ' disabled' : '';
+        return '<option value="' + esc(o.id) + '"' + (o.disabled ? off : on) + '>' + esc(o.label || 'No target') + '</option>';
       }).join('');
       return playerCylinderRow(a, html);
     }).join('');
@@ -5822,6 +6156,8 @@ async function loadSceneImage(sceneId, opts) {
         const on = id && id === aimId ? ' selected' : '';
         return '<option value="' + esc(id) + '"' + on + '>' + esc((o && (o.label || o.name)) || id) + '</option>';
       }).join('');
+    const activeWid = activeWeaponId(card, tokenId);
+    const npc = !isPc;
     const attacks = (card.attacks || []).map(a => {
       const ammo = a.ammo ? ' [' + (a.ammo.loaded != null ? a.ammo.loaded : '—') + '/' + (a.ammo.cap != null ? a.ammo.cap : '—') + ']' : '';
       const base = (a.name || a.id) + ' +' + (a.toHit != null && a.toHit !== '' ? a.toHit : 0) + ' ' + (a.damage || '') + ammo;
@@ -5830,15 +6166,22 @@ async function loadSceneImage(sceneId, opts) {
       let off = canAct ? '' : 'disabled';
       if (verdict && verdict.blocked) { text = verdict.button || 'Out of range'; off = 'disabled'; }
       else if (verdict && verdict.button) text = base + ' · ' + verdict.button;
-      return '<button type="button" class="ssm-atk" data-wid="' + esc(a.id) + '" ' + off + '>' + esc(text) + disMark(verdict) + '</button>';
+      const lit = String(a.id) === activeWid ? ' is-active' : '';
+      return '<button type="button" class="ssm-atk' + lit + '" data-wid="' + esc(a.id) + '" ' + off + '>' + esc(text) + disMark(verdict) + '</button>';
     }).join('');
-    const cylinders = (card.attacks || []).filter(a => a && a.ammo && a.ammo.cap).map(a => {
+    /* active weapon's gun card first, the rest after (same rows as before) */
+    const gunList = (card.attacks || []).filter(a => a && a.ammo && a.ammo.cap);
+    gunList.sort((x, y) => (String(y.id) === activeWid ? 1 : 0) - (String(x.id) === activeWid ? 1 : 0));
+    const cylinders = gunList.map(a => {
       const cap = Number(a.ammo.cap) || 0;
       const loaded = Number(a.ammo.loaded) || 0;
       const flags = Array.isArray(a.ammo.chambers) ? a.ammo.chambers : null;
       const rowClean = (isPc && canAct) ? cleanControl(a, 'rowClean') : '';
-      const rowUnjam = (isPc && canAct) ? unjamControl(a, 'rowUnjam') : '';
+      /* map token guns: the DM unjams an NPC's gun free, same as DM unjam for players */
+      const rowUnjam = (isPc && canAct) ? unjamControl(a, 'rowUnjam') : (npc ? npcUnjam(a) : '');
       const rowReopen = (isPc && canAct) ? reopenControl(a, 'rowReopen') : '';
+      const badges = misfireBadge(a) + jamBadge(a);
+      const lit = String(a.id) === activeWid ? ' is-active' : '';
       const graphic = window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
       if (graphic) {
         const picture = window.SSDNSAmmoDisplay.html({
@@ -5861,8 +6204,8 @@ async function loadSceneImage(sceneId, opts) {
         });
         const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
         const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
-        const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : '';
-        return '<div class="cylinder-row cylinder-graphic' + crossClass(a) + '"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + lockupMark(a) + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
+        const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : (npc ? gunExtras(a, 'npc') : '');
+        return '<div class="cylinder-row cylinder-graphic' + crossClass(a) + lit + '" data-gun-wid="' + esc(a.id) + '"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + badges + '<select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + lockupMark(a) + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
       }
       let dots = '';
       const locks = lockList(a);
@@ -5873,8 +6216,8 @@ async function loadSceneImage(sceneId, opts) {
       }
       const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
       const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
-      const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : '';
-      return '<div class="cylinder-row' + crossClass(a) + '"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span><select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + lockupMark(a) + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
+      const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : (npc ? gunExtras(a, 'npc') : '');
+      return '<div class="cylinder-row' + crossClass(a) + lit + '" data-gun-wid="' + esc(a.id) + '"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + badges + '<select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + lockupMark(a) + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
     }).join('');
     const spellButtons = groupedSpells(card.spells || [], s => {
       const meta = [
@@ -5899,7 +6242,16 @@ async function loadSceneImage(sceneId, opts) {
         '<button type="button" class="ssm-cond-x" data-act="condX" data-cond="' + esc(name) + '" aria-label="Remove ' + esc(name) + '">×</button></span>';
     }).join(' ');
     const condOptions = conditionNames().map(name => '<option value="' + esc(name) + '">' + esc(name) + '</option>').join('');
-    const weaponOptions = (card.attacks || []).map(a => '<option value="' + esc(a.id || a.name || '') + '">' + esc(a.name || a.id || 'Weapon') + '</option>').join('') || '<option value="">No weapon</option>';
+    const weaponOptions = (card.attacks || []).map(a => '<option value="' + esc(a.id || a.name || '') + '"' + (String(a.id) === activeWid ? ' selected' : '') + '>' + esc(a.name || a.id || 'Weapon') + '</option>').join('') || '<option value="">No weapon</option>';
+    /* map token guns + targets (Jessey 2026-10-20 9:21 / 9:24 PM): every token's card gets a Weapon picker and a
+       Target picker at the top of Attacks. Before this the only target menus sat on gun rows, so a token with
+       no gun (melee-only NPC, most bestiary beasts, a spellcaster) had no way to choose its target. */
+    const weaponBar = (card.attacks || []).length
+      ? '<label class="ssm-act ssm-weapon">Weapon <select data-act="tokenWeapon" aria-label="Weapon">' + weaponOptions + '</select></label>'
+      : '';
+    const targetBar = ((card.attacks || []).length || (card.spells || []).length)
+      ? '<label class="ssm-act ssm-target">Target <select data-act="cylTarget" data-main="1" aria-label="Target">' + targetOptions + '</select></label>'
+      : '';
     const selfTok = tokenByRef(tokenId) || tokenByRef(tokenCombatant(tokenId));
     const aimTok = aimId ? (tokenByRef(aimId) || (state.tokens || []).find(tok => tok && tokenCombatant(tok.id) === aimId) || null) : null;
     const grabFt = (selfTok && aimTok) ? feetBetween(selfTok, aimTok) : null;
@@ -5959,7 +6311,7 @@ async function loadSceneImage(sceneId, opts) {
       '<select data-act="drawerRangeWeapon" aria-label="Token weapon" hidden></select>' +
       (conds ? '<div class="ssm-conds">' + conds + '</div>' : '') +
       (card.tactics ? '<div class="ssm-tactics">' + esc(card.tactics) + '</div>' : '') +
-      '<div class="ssm-section">Attacks</div>' + offhandToggle(isPc && canAct && (card.attacks || []).length) + fanToggle(isPc && canAct && card.pistolero === true && (card.attacks || []).length) + attacks +
+      '<div class="ssm-section">Attacks</div>' + weaponBar + targetBar + offhandToggle(isPc && canAct && (card.attacks || []).length) + fanToggle(isPc && canAct && card.pistolero === true && (card.attacks || []).length) + attacks +
       (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       spells +
       '<div class="ssm-row">' +
@@ -6008,7 +6360,7 @@ async function loadSceneImage(sceneId, opts) {
         const wid = sid ? '' : b.getAttribute('data-wid');
         const skind = sid ? (b.getAttribute('data-skind') || '') : '';
         if (sid) emit('drawer:spell', detail({ spellId: sid }));
-        else emit('drawer:attack', detail({ weaponId: wid }));
+        else { noteWeapon(tokenId, wid); emit('drawer:attack', detail({ weaponId: wid })); }
         /* 0.3.67: use the target already chosen in the cylinder menu / by clicking; ask only when none. */
         const aim = chosenTarget();
         if (aim === FREE_SHOT && !sid) {
@@ -6071,6 +6423,7 @@ async function loadSceneImage(sceneId, opts) {
         }
         const targetTok = state.tokens.find(tok => tok && (tokenCombatant(tok.id) === targetId || tok.id === targetId));
         const wid = b.getAttribute('data-wid');
+        noteWeapon(tokenId, wid);
         const attack = ((card.attacks || []).find(a => a && (a.id === wid || a.name === wid))) || { id: wid };
         const verdict = armRange(attack, targetTok ? targetTok.id : targetId, tokenId);
         if (verdict && verdict.blocked) {
@@ -6138,7 +6491,20 @@ async function loadSceneImage(sceneId, opts) {
       emit('drawer:condition', detail({ condition: name, on: !already }));
     });
     d.querySelectorAll('[data-act="rowReload"]').forEach(b => {
-      b.addEventListener('click', () => emit('drawer:reload', detail({ weaponId: b.getAttribute('data-wid') })));
+      b.addEventListener('click', () => { noteWeapon(tokenId, b.getAttribute('data-wid')); emit('drawer:reload', detail({ weaponId: b.getAttribute('data-wid') })); });
+    });
+    d.querySelectorAll('[data-act="rowUnload"]').forEach(b => {
+      b.addEventListener('click', () => { noteWeapon(tokenId, b.getAttribute('data-wid')); emit('drawer:unload', detail({ weaponId: b.getAttribute('data-wid') })); });
+    });
+    const tokenWeaponSel = d.querySelector('[data-act="tokenWeapon"]');
+    if (tokenWeaponSel) tokenWeaponSel.addEventListener('change', () => {
+      const wid = tokenWeaponSel.value;
+      if (!wid) return;
+      noteWeapon(tokenId, wid);
+      if (state.showRange) state.rangeWeaponId = wid;
+      emit('drawer:weapon', detail({ weaponId: wid }));
+      renderDrawer();
+      requestDraw();
     });
     d.querySelectorAll('[data-act="rowClean"]').forEach(b => {
       b.addEventListener('click', () => {
@@ -6586,6 +6952,9 @@ return {
   hasToken,
   releaseToken,
   armAttack,
+  /* fog-aware targeting */
+  canPlayerSee: function (viewerUid, targetId) { return canPlayerSee(viewerUid, targetId); },
+  targetSight: function (targetId) { return targetSight(targetId); },
   /* attack-fx: DM -> draw + publish the cleaned row; player -> draw locally only. */
   fx: function (spec) {
     if (!spec) return null;

@@ -85,6 +85,42 @@
     var btn = $("btnTakeCover");
     if (btn) btn.classList.toggle("is-on", !!(c && c.takingCover));
   }
+  /* Condition symbols on the character (Jessey 2026-10-20 9:22 PM): the portrait and the paper doll carry one small
+     icon per active condition. Before this the conditions were text only (the chips and the Conditions tab). */
+  function condBadgeHtml(list) {
+    var Cond = root.SSDNSConditions;
+    return list.map(function (row) {
+      var name = Cond && Cond.iconName ? Cond.iconName(row) : String((row && row.name) || row || "");
+      var safe = String(name).replace(/[&<>"']/g, function (x) { return "&#" + x.charCodeAt(0) + ";"; });
+      return "<span class='cond-badge' title='" + safe + "' aria-label='" + safe + "'>" + (Cond && Cond.icon ? Cond.icon(row) : "\u25CF") + "</span>";
+    }).join("");
+  }
+  function condLayer(id, parent, before) {
+    var n = $(id);
+    if (!n && parent) {
+      n = root.document.createElement("div");
+      n.id = id;
+      n.className = "cond-badges";
+      n.setAttribute("role", "img");
+      if (before) parent.insertBefore(n, before);
+      else parent.appendChild(n);
+    }
+    return n;
+  }
+  function paintCondSymbols(c) {
+    var list = ((c && c.activeConditions) || []).filter(function (row) { return row && row.name; });
+    var label = list.length ? "Conditions: " + list.map(function (row) { return row.name; }).join(", ") : "";
+    var slot = root.document.querySelector(".portrait-slot");
+    var a = condLayer("portraitConds", slot, slot && slot.firstChild);
+    var doll = $("dollHost");
+    var b = condLayer("dollConds", doll && doll.parentNode, doll);
+    [a, b].forEach(function (n) {
+      if (!n) return;
+      n.innerHTML = condBadgeHtml(list);
+      n.hidden = !list.length;
+      if (label) n.setAttribute("aria-label", label); else n.removeAttribute("aria-label");
+    });
+  }
   function paintCallingChips() {
     var c = ch();
     var host = $("callingChips");
@@ -107,10 +143,13 @@
     if (c.raging) bits.push("<span class='chip rage'>Dust Fury</span>");
     if (c.calling === "lawman") bits.push("<label class='chip badge'>Badge <select id='badgeState' aria-label='Lawman badge'></select></label>");
     else if (c.badgeState) bits.push("<span class='chip badge'>" + c.badgeState + " badge</span>");
+    var Cond = root.SSDNSConditions;
+    var sym = function (row) { return Cond && Cond.icon ? Cond.icon(row) : ""; };
     (c.activeConditions || []).forEach(function (row) {
-      if (row && row.name) bits.push("<span class='chip cond'>" + row.name + "</span>");
+      if (row && row.name) bits.push("<span class='chip cond'><span class='cond-sym' aria-hidden='true'>" + sym(row) + "</span>" + row.name + "</span>");
     });
     host.innerHTML = bits.join("");
+    paintCondSymbols(c);
     var badgeSel = $("badgeState");
     if (badgeSel && c.calling === "lawman") {
       ["bright", "dull", "tarnished"].forEach(function (state) {

@@ -51,11 +51,38 @@
         if (name && row.name === name) return row;
       }
     }
+    var loose = looseRow(lists, id, name);
+    if (loose) return loose;
     var jam = root.SSDNSTestJammer && root.SSDNSTestJammer.lookup && root.SSDNSTestJammer.lookup(id || name);
     if (jam) return jam;
     var peace = root.SSDNSPeaceMaker && root.SSDNSPeaceMaker.lookup && root.SSDNSPeaceMaker.lookup(id || name);
     if (peace) return peace;
     return null;
+  }
+
+  /* map token guns (2026-10-20): NPC statblocks name their gun in prose ("Henrietta Repeating Rifle, Medium (.44-40)",
+     "Pony Arms ChaosMaker, Heavy (.45 Long)"), so the exact id/name lookup missed and a lever rifle drew as dots.
+     Match the catalog row whose every name word is in that text (longest wins), the same gun the player card draws. */
+  function words(text) {
+    return String(text || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter(Boolean);
+  }
+  function looseRow(lists, id, name) {
+    var have = {};
+    words(id + " " + name).forEach(function (w) { have[w] = 1; });
+    if (!Object.keys(have).length) return null;
+    var best = null, bestN = 0;
+    for (var n = 0; n < lists.length; n++) {
+      var list = lists[n];
+      for (var i = 0; i < list.length; i++) {
+        var row = list[i];
+        if (!row || !row.name) continue;
+        var need = words(row.name);
+        if (need.length < 2) continue;
+        var ok = need.every(function (w) { return have[w]; });
+        if (ok && need.length > bestN) { best = row; bestN = need.length; }
+      }
+    }
+    return best;
   }
 
   function catalogAction(weapon) {

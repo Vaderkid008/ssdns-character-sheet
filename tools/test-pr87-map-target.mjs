@@ -1,5 +1,5 @@
 /**
- * PR87 (0.3.97): the DM token card's Attacks button.
+ * PR87 (0.3.98): the DM token card's Attacks button.
  *  - uses the target already chosen in the cylinder menu and fires straight away;
  *  - with no target, shows a clear "Click a target" banner (top of the card and over the map) with Cancel; Esc cancels;
  *  - valid targets are ringed while picking; a click on a target works even with a map tool (ruler) active;
