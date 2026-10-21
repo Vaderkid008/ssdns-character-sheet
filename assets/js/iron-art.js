@@ -166,11 +166,10 @@
   }
   function typeFor(c) { return IRON_TYPE[shapeSlug(c)] || ""; }
   /* "Borrowed Iron — Lever-action carbine" (just "Borrowed Iron" before a Pact name is picked) */
-  /* "Borrowed Iron — Pact rifle (lever-action carbine)"; just "Borrowed Iron" before a Pact name is picked */
+  /* "Borrowed Iron — Pact rifle" (Jessey 5:13 PM: no look name in brackets); just "Borrowed Iron" before a Pact name */
   function labelFor(c) {
-    var k = classNameFor(c), t = typeFor(c);
-    if (!k) return t ? "Borrowed Iron — " + t : "Borrowed Iron";
-    return "Borrowed Iron — " + k + (t ? " (" + t.charAt(0).toLowerCase() + t.slice(1) + ")" : "");
+    var k = classNameFor(c);
+    return k ? "Borrowed Iron — " + k : "Borrowed Iron";
   }
   /* The paper-doll weapon slots this iron may ride in (L0201: weapon slots only). Long irons: Long gun.
      One-handed irons: Pistol R, then Pistol L. No Pact name yet: any gun slot. */

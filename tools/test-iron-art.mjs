@@ -74,7 +74,7 @@ const pact = (sub, rev) => { const c = K.apply(K.blankCharacter(), "pact-seeker"
 let f = D.focusState(pact("the-crossroads-note"));
 check("focus.patronNotGated", f.kind === "patron" && f.name === "The Crossroads Note" && /items\/patron\/crossroads-note\.webp$/.test(f.art) && f.locked === true, J(f));
 let ir = D.ironState(pact("the-crossroads-note"));
-check("iron.genericUntilRevealed", ir.key === "revolver_2" && /assets\/img\/items\/borrowed-iron\.webp$/.test(ir.art) && ir.note === "In hand · Double-action revolver" && ir.label === "Borrowed Iron — Pact revolver (double-action revolver)" && ir.ironName === "", J(ir));
+check("iron.genericUntilRevealed", ir.key === "revolver_2" && /assets\/img\/items\/borrowed-iron\.webp$/.test(ir.art) && ir.note === "In hand · Pact revolver" && ir.label === "Borrowed Iron — Pact revolver" && ir.ironName === "", J(ir));
 ir = D.ironState(pact("the-crossroads-note", true));
 check("iron.hellMaker", ir.key === "revolver_2" && /items\/borrowed-iron\/hell-maker\.webp$/.test(ir.art) && ir.note === "In hand · Hell Maker", J(ir));
 ir = D.ironState(pact("lass-o-lakes", true));
@@ -194,11 +194,11 @@ try {
     await waitImgs(pg); await sleep(300);
     let v = await pg.evaluate(info, "revolver_2");
     check("ui.hidden.focusPatron", /doll-focus-patron/.test(v.focusCls) && /items\/patron\/crossroads-note\.webp/.test(v.focusArt) && v.focusOk && /Crossroads Note/.test(v.focusName), J(v));
-    check("ui.hidden.ironInWeaponSlot", /doll-iron/.test(v.ironCls) && /assets\/img\/items\/borrowed-iron\.webp/.test(v.ironArt) && v.ironOk && /Double-action revolver/.test(v.ironNote) && !/Hell Maker/.test(v.ironNote), J(v));
+    check("ui.hidden.ironInWeaponSlot", /doll-iron/.test(v.ironCls) && /assets\/img\/items\/borrowed-iron\.webp/.test(v.ironArt) && v.ironOk && /Pact revolver/.test(v.ironNote) && !/Hell Maker/.test(v.ironNote), J(v));
     const r0 = ironRow(v.weaponRows);
     check("ui.hidden.rowGeneric", v.focusRows.length === 0 && !!r0 && /items\/borrowed-iron\.webp/.test(r0.src), J(v.weaponRows));
     /* 0.3.100: before the reveal the Weapons card shows the plain Borrowed Iron tile and the type label, no engraving */
-    check("ui.hidden.noEngraving", !!v.eng && /assets\/img\/items\/borrowed-iron\.webp$/.test(v.eng.src) && v.ironName === "" && /Borrowed Iron — Pact revolver \(double-action revolver\)/.test(v.cardHead), J(v));
+    check("ui.hidden.noEngraving", !!v.eng && /assets\/img\/items\/borrowed-iron\.webp$/.test(v.eng.src) && v.ironName === "" && v.cardHead === "Borrowed Iron — Pact revolver", J(v));
     await shot(pg, "#dollHost .doll", "iron-art-v2-pact-doll-hidden.png");
     /* the DM reveals it (same patch the iron_reveal command makes) */
     await pg.evaluate(() => window.SSDNSApp.applyPatch((d) => { d.character.ironRevealed = true; }));

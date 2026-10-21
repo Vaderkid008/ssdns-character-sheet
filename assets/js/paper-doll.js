@@ -458,7 +458,7 @@
     var IA = root.SSDNSIronArt, nm = IA && IA.nameFor ? IA.nameFor(c) : "", ty = IA && IA.typeFor ? IA.typeFor(c) : "";
     /* 0.3.100: the type shows from the Pact pick; the real name only once the DM reveals it */
     return { key: key, name: "Borrowed Iron", ironName: nm, ironType: ty, label: ironLabel(c), art: borrowedIronArt(c), away: away,
-      note: away ? "Away: returns at the start of your next turn" : "In hand · " + (nm || ty || "soul-bound") };
+      note: away ? "Away: returns at the start of your next turn" : "In hand · " + (nm || (IA && IA.classNameFor ? IA.classNameFor(c) : "") || ty || "soul-bound") };
   }
   function setIronSlot(c, key) {
     if (!c || c.calling !== "pact-seeker") return { ok: false, reason: "Only a Pact Seeker has a Borrowed Iron." };
