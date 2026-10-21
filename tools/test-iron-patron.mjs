@@ -28,15 +28,18 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const PACTS = [
-  ["the-crossroads-note", "hell-maker", "Hell Maker", "Double-action revolver", "revolver_2"],
-  ["the-sealed-orders", "lightslinger", "Lightslinger", "Single-action revolver", "revolver_2"],
-  ["lass-o-lakes", "butter-repeater", "Butter Repeater", "Lever-action carbine", "long_gun"],
-  ["the-last-round", "virgil", "Virgil", "Snub-nose belly gun", "revolver_2"],
-  ["the-sand-oath", "sirocco-long-rifle", "Sirocco Long-Rifle", "Long rifle", "long_gun"],
-  ["the-pine-box-contract", "pallbearer", "Pallbearer", "Sawed-off coach gun", "long_gun"],
-  ["the-drowned-breath", "revenge-of-the-sea", "Revenge of the Sea", "Harpoon gun", "long_gun"]
+  ["the-crossroads-note", "hell-maker", "Hell Maker", "Double-action revolver", "revolver_2", "pact-revolver", "Pact revolver"],
+  ["the-sealed-orders", "lightslinger", "Lightslinger", "Single-action revolver", "revolver_2", "pact-revolver", "Pact revolver"],
+  ["lass-o-lakes", "butter-repeater", "Butter Repeater", "Lever-action carbine", "long_gun", "pact-rifle", "Pact rifle"],
+  ["the-last-round", "virgil", "Virgil", "Snub-nose belly gun", "revolver_2", "pact-revolver", "Pact revolver"],
+  ["the-sand-oath", "sirocco-long-rifle", "Sirocco Long-Rifle", "Long rifle", "long_gun", "pact-rifle", "Pact rifle"],
+  ["the-pine-box-contract", "pallbearer", "Pallbearer", "Sawed-off coach gun", "long_gun", "pact-shotgun", "Pact shotgun"],
+  ["the-drowned-breath", "revenge-of-the-sea", "Revenge of the Sea", "Harpoon gun", "long_gun", "pact-harpoon-gun", "Pact harpoon gun"]
 ];
 const HELL = /hell-maker|Hell Maker/;
+/* 0.3.100 (Jessey 4:51 PM): every iron has a weapon class; the label reads "Borrowed Iron — Pact rifle (lever-action carbine)" */
+const PBY = Object.fromEntries(PACTS.map((p) => [p[1], p]));
+const L = (slug) => { const p = PBY[slug]; return "Borrowed Iron — " + p[6] + " (" + p[3].charAt(0).toLowerCase() + p[3].slice(1) + ")"; };
 /* 0.3.100 (Jessey 4:35 PM): hidden art = plain long-gun outline for a long iron, generic revolver tile for a pistol iron */
 const OUTLINE = /items\/borrowed-iron-long-outline\.svg$/, GENERIC = /items\/borrowed-iron\.webp$/;
 const hiddenRe = (slot) => (slot === "long_gun" ? OUTLINE : GENERIC);
@@ -54,10 +57,10 @@ const IA = sb.SSDNSIronArt, D = sb.SSDNSDoll, K = sb.SSDNSKits;
 const pact = (sub, rev) => { const c = K.apply(K.blankCharacter(), "pact-seeker", {}); c.calling = "pact-seeker"; c.subclass = sub; if (rev) c.ironRevealed = true; return c; };
 const irons = (c) => (c.items || []).filter((it) => it && it.catalogId === "borrowed-iron");
 
-for (const [sub, slug, nm, type, slot] of PACTS) {
+for (const [sub, slug, nm, type, slot, cls, clsName] of PACTS) {
   const hid = pact(sub), rev = pact(sub, true);
   check("pact." + slug + ".map", IA.pactSlug(hid) === slug && IA.slugFor(hid, { dm: true }) === slug);
-  check("pact." + slug + ".label", IA.labelFor(hid) === "Borrowed Iron — " + type && IA.typeFor(hid) === type, IA.labelFor(hid));
+  check("pact." + slug + ".label", IA.labelFor(hid) === L(slug) && IA.typeFor(hid) === type, IA.labelFor(hid));
   check("pact." + slug + ".hiddenName", IA.nameFor(hid) === "" && IA.tileSrc(hid) === "" && IA.engravingSrc(hid) === "");
   check("pact." + slug + ".revealedArt", IA.nameFor(rev) === nm && IA.tileSrc(rev) === "assets/img/items/borrowed-iron/" + slug + ".webp" &&
     IA.engravingSrc(rev) === (slug === "hell-maker" ? "assets/img/dm-only/hell-maker.webp" : "assets/img/weapons/borrowed-iron/" + slug + ".webp"));
@@ -72,12 +75,34 @@ for (const [sub, slug, nm, type, slot] of PACTS) {
   check("pact." + slug + ".slotsAllowed", slot === "long_gun" ? J(allowed) === J(["long_gun"]) : J(allowed) === J(["revolver_2", "revolver_1"]), J(allowed));
   const wrong = slot === "long_gun" ? "revolver_2" : "long_gun";
   const r1 = D.setIronSlot(pact(sub), wrong), r2 = D.setIronSlot(pact(sub), "melee");
-  check("pact." + slug + ".wrongSlotRefused", !r1.ok && /weapon slot only/.test(r1.reason) && r1.reason.indexOf(type) >= 0 && !r2.ok, J([r1, r2]));
+  check("pact." + slug + ".wrongSlotRefused", !r1.ok && /weapon slot only/.test(r1.reason) && r1.reason.toLowerCase().indexOf(type.toLowerCase()) >= 0 && r1.reason.indexOf(clsName) >= 0 && !r2.ok, J([r1, r2]));
   const it = irons(hid)[0];
   const r3 = D.equip(hid, "accessory_1", it.uid), r4 = D.equip(hid, "hat", it.uid);
   check("pact." + slug + ".wornSlotRefused", !r3.ok && !r4.ok && /weapon slot only/.test(r3.reason) && !it.equipSlot && !D.fits(it, "accessory_1"), J([r3, r4]));
   check("pact." + slug + ".noWearToggle", !D.wearable(it));
+  /* 0.3.100 (Jessey 4:51 PM): one weapon class field on the item drives slots, label, row and outline */
+  const st2 = pact(sub); D.syncIron(st2, { pactChanged: true });
+  const it2 = irons(st2)[0];
+  const wantSlots = cls === "pact-revolver" ? ["revolver_2", "revolver_1"] : ["long_gun"];
+  check("class." + slug + ".itemField", !!it2 && it2.ironClass === cls && IA.classFor(st2) === cls && IA.classNameFor(st2) === clsName && IA.IRON_CLASS[cls].name === clsName, J(it2));
+  check("class." + slug + ".slots", J(IA.allowedSlots(st2)) === J(wantSlots) && wantSlots.indexOf(D.ironSlot(st2)) >= 0 && D.ironSlot(st2) === slot &&
+    IA.isLongIron(st2) === (cls !== "pact-revolver"), J([IA.allowedSlots(st2), D.ironSlot(st2)]));
+  check("class." + slug + ".refusesOtherKind", ["revolver_1", "revolver_2", "long_gun", "melee"].filter((k) => wantSlots.indexOf(k) < 0).every((k) => !D.setIronSlot(pact(sub), k).ok) &&
+    wantSlots.every((k) => D.setIronSlot(pact(sub), k).ok), cls);
+  check("class." + slug + ".labelHidden", IA.labelFor(st2) === L(slug) && IA.labelFor(st2).indexOf(nm) < 0 && IA.nameFor(st2) === "", IA.labelFor(st2));
+  check("class." + slug + ".outlineFollowsClass", (cls === "pact-revolver") === (IA.hiddenArt(st2) === ""), IA.hiddenArt(st2));
+  /* a stale class on the item never outranks the Pact, and syncIron rewrites it */
+  const st3 = pact(sub); D.syncIron(st3); irons(st3)[0].ironClass = cls === "pact-revolver" ? "pact-rifle" : "pact-revolver";
+  check("class." + slug + ".staleField", IA.classFor(st3) === cls && D.ironNeedsFix(st3) && D.syncIron(st3) && irons(st3)[0].ironClass === cls && !D.ironNeedsFix(st3), J(irons(st3)[0]));
 }
+/* a Pact change swaps the class with the iron (revolver -> shotgun) */
+{
+  const sw = pact("the-sealed-orders"); D.syncIron(sw, { pactChanged: true });
+  const a = [irons(sw)[0].ironClass, D.ironSlot(sw)];
+  sw.subclass = "the-pine-box-contract"; D.syncIron(sw, { pactChanged: true });
+  check("class.pactChangeSwaps", J(a) === J(["pact-revolver", "revolver_2"]) && irons(sw).length === 1 && irons(sw)[0].ironClass === "pact-shotgun" && D.ironSlot(sw) === "long_gun", J([a, irons(sw)[0].ironClass, D.ironSlot(sw)]));
+}
+check("class.noPact", IA.classFor(pact("")) === "" && IA.classNameFor(pact("")) === "");
 /* no Pact name yet: plain Borrowed Iron, any gun slot, never melee or a worn slot */
 const none = pact("");
 check("nopact.label", IA.labelFor(none) === "Borrowed Iron" && J(IA.allowedSlots(none)) === J(["revolver_2", "revolver_1", "long_gun"]));
@@ -208,6 +233,7 @@ const view = (slot) => {
     slotCls: s ? s.className : "", slotArt: im ? im.getAttribute("src") : "", slotOk: !!(im && im.naturalWidth > 0), slotNote: s && s.querySelector(".doll-focus-note") ? s.querySelector(".doll-focus-note").textContent : "",
     rowName: row ? row.querySelector(".eq-name b").textContent : "", rowSub: row ? row.querySelector(".eq-sub").textContent : "", rowArt: ri ? ri.getAttribute("src") : "", rowOk: !!(ri && ri.naturalWidth > 0),
     rows: document.querySelectorAll('#itemList li[data-eq-cat="weapons"]').length,
+    rowClass: row ? row.getAttribute("data-iron-class") || "" : "", cardClass: card ? card.getAttribute("data-iron-class") || "" : "",
     ironRows: [...document.querySelectorAll("#itemList li")].filter((li) => /Borrowed Iron/.test((li.querySelector(".eq-name b") || {}).textContent || "")).length,
     cardShown: !!card && !card.hidden, cardHead: card ? (card.querySelector("b") || {}).textContent : "", cardArt: ci ? ci.getAttribute("src") : "", cardOk: !!(ci && ci.naturalWidth > 0),
     cardName: (document.querySelector("#pactIronName:not([hidden])") || {}).textContent || "",
@@ -222,10 +248,11 @@ try {
       const v = await pg.evaluate(view, slot);
       const tag = "ui." + slug + (rev ? ".revealed" : ".hidden");
       check(tag + ".slot", /doll-iron/.test(v.slotCls) && v.slotOk && (rev ? v.slotArt === (slot === "long_gun" ? "assets/img/weapons/borrowed-iron/" + slug + ".webp" : "assets/img/items/borrowed-iron/" + slug + ".webp") && v.slotNote.indexOf(nm) >= 0 : hiddenRe(slot).test(v.slotArt) && v.slotNote.indexOf(type) >= 0), J(v));
-      check(tag + ".row", v.rowName === "Borrowed Iron — " + type && /^Weapon · soul-bound/.test(v.rowSub) && !/Tool/.test(v.rowSub) && v.rowOk && v.ironRows === 1 &&
+      check(tag + ".row", v.rowName === L(slug) && v.rowSub.indexOf(PBY[slug][6] + " · soul-bound") === 0 && !/Tool/.test(v.rowSub) && v.rowOk && v.ironRows === 1 &&
         (rev ? new RegExp(slug === "hell-maker" ? "dm-only/hell-maker\\.webp" : "weapons/borrowed-iron/" + slug + "\\.webp").test(v.rowArt) && v.rowSub.indexOf(nm) >= 0 : hiddenRe(slot).test(v.rowArt) && v.rowSub.indexOf(nm) < 0), J(v));
-      check(tag + ".card", v.cardShown && v.cardHead === "Borrowed Iron — " + type && v.cardOk &&
+      check(tag + ".card", v.cardShown && v.cardHead === L(slug) && v.cardOk &&
         (rev ? new RegExp(slug === "hell-maker" ? "dm-only/hell-maker\\.webp" : "weapons/borrowed-iron/" + slug + "\\.webp").test(v.cardArt) && v.cardName.indexOf(nm) >= 0 : hiddenRe(slot).test(v.cardArt) && v.cardName === ""), J(v));
+      check(tag + ".classShown", v.rowClass === PBY[slug][5] && v.cardClass === PBY[slug][5], J({ row: v.rowClass, card: v.cardClass }));
       check(tag + ".noHellMaker", slug === "hell-maker" && rev ? true : !v.hellAnywhere, J(v));
       if (SHOTS && (slug === "butter-repeater" || slug === "lightslinger")) {
         await pg.evaluate(() => document.querySelector("#pactFocus").scrollIntoView());
@@ -243,7 +270,7 @@ try {
     await pg.evaluate(() => document.querySelector('#dollHost [data-doll-slot="accessory_1"]').click());
     await sleep(400);
     let m = await pg.evaluate(() => { const p = document.querySelector('.doll-pick[data-doll-pick="accessory_1"]'); return p ? { txt: p.textContent, iron: [...p.querySelectorAll("[data-doll-put]")].some((b) => /Borrowed Iron/.test(b.textContent)) } : null; });
-    check("ui.slots.trinketRefuses", !!m && !m.iron && /Borrowed Iron — Lever-action carbine goes in a weapon slot only: Long gun\./.test(m.txt), J(m));
+    check("ui.slots.trinketRefuses", !!m && !m.iron && /Borrowed Iron — Pact rifle \(lever-action carbine\) goes in a weapon slot only: Long gun\./.test(m.txt), J(m));
     await shot(pg, "#dollHost", "iron-patron-slot-restriction-trinket.png");
     await pg.evaluate(() => { document.querySelector("[data-doll-close]").click(); });
     await sleep(200);
@@ -312,8 +339,8 @@ try {
       const ir = c.items.filter((x) => x && x.catalogId === "borrowed-iron");
       return { opts, note, draftSub: d.subclass, sub: c.subclass, irons: ir.length, slot: window.SSDNSDoll.ironSlot(c), wantSlot: c.ironSlot, label: window.SSDNSIronArt.labelFor(c), name: window.SSDNSIronArt.nameFor(c) };
     }, sub);
-    check("wiz." + slug + ".pick", !w.err && w.opts.length === 7 && w.draftSub === sub && w.sub === sub && w.note.indexOf("Borrowed Iron — " + type) >= 0 && w.note.indexOf(nm) < 0, J(w));
-    check("wiz." + slug + ".oneIron", w.irons === 1 && w.slot === slot && w.wantSlot === slot && w.label === "Borrowed Iron — " + type && w.name === "", J(w));
+    check("wiz." + slug + ".pick", !w.err && w.opts.length === 7 && w.draftSub === sub && w.sub === sub && w.note.indexOf(L(slug)) >= 0 && w.note.indexOf(nm) < 0, J(w));
+    check("wiz." + slug + ".oneIron", w.irons === 1 && w.slot === slot && w.wantSlot === slot && w.label === L(slug) && w.name === "", J(w));
     if (slug === "butter-repeater" && SHOTS) {
       await pg.evaluate(() => { window.SSDNSCreator.open(true); });
       await sleep(200);
@@ -337,7 +364,7 @@ try {
       const c = window.SSDNSApp.doc().character;
       return { sub: c.subclass, irons: c.items.filter((x) => x && x.catalogId === "borrowed-iron").length, slot: window.SSDNSDoll.ironSlot(c), label: window.SSDNSIronArt.labelFor(c) };
     }, other[0]);
-    check("wiz." + slug + ".changePact", !s2.err && s2.sub === other[0] && s2.irons === 1 && s2.slot === other[4] && s2.label === "Borrowed Iron — " + other[3], J(s2));
+    check("wiz." + slug + ".changePact", !s2.err && s2.sub === other[0] && s2.irons === 1 && s2.slot === other[4] && s2.label === L(other[1]), J(s2));
     check("wiz." + slug + ".noPageErrors", errs.length === 0, errs.join(" | "));
     await ctx.close();
   }
@@ -479,7 +506,7 @@ try {
         hell: [...body.querySelectorAll("img")].filter((i) => /hell-maker/.test(i.getAttribute("src") || "")).length + (/Hell Maker/.test(body.innerText) ? 1 : 0) };
     });
     const tag = "dm." + slug;
-    check(tag + ".section", v.name === nm && v.type.indexOf(type) >= 0 && v.tile.endsWith("assets/img/items/borrowed-iron/" + slug + ".webp") && v.tileOk && v.engOk, J(v));
+    check(tag + ".section", v.name === nm && v.type.indexOf(type) >= 0 && v.type.indexOf(PBY[slug][6]) >= 0 && v.tile.endsWith("assets/img/items/borrowed-iron/" + slug + ".webp") && v.tileOk && v.engOk, J(v));
     check(tag + ".pactInSubtitle", v.sub.indexOf(IA.pactName({ calling: "pact-seeker", subclass: sub })) >= 0, J(v));
     check(tag + ".hellMakerOnlyForCrossroads", slug === "hell-maker" ? v.hell >= 1 : v.hell === 0, J(v));
     if (SHOTS && slug !== "hell-maker") {

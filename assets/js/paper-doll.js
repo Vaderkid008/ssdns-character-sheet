@@ -475,7 +475,8 @@
     if (!c || c.calling !== "pact-seeker") return false;
     var irons = items(c).filter(isIronItem);
     var IA = root.SSDNSIronArt;
-    return irons.length !== 1 || irons.some(function (it) { return !!it.equipSlot; }) || !!(IA && IA.fixStaleIron && IA.fixStaleIron(c, { dry: true }));
+    return irons.length !== 1 || irons.some(function (it) { return !!it.equipSlot; }) || !!(IA && IA.fixStaleIron && IA.fixStaleIron(c, { dry: true })) ||
+      !!(IA && IA.pactClass && irons[0] && (irons[0].ironClass || "") !== IA.pactClass(c));
   }
   function syncIron(c, opts) {
     if (!c || c.calling !== "pact-seeker") return false;
@@ -497,6 +498,8 @@
       if (it.equipSlot) { it.equipSlot = ""; changedAny = true; }
       if (Number(it.count == null ? 1 : it.count) !== 1) { it.count = 1; changedAny = true; }
     });
+    /* 0.3.100 (4:51 PM): the iron's weapon class (item.ironClass) follows the Pact */
+    if (IA && IA.stampClass && IA.stampClass(c)) changedAny = true;
     if (opts && opts.pactChanged && irons.length) {
       var free = function (k) { return !weaponRow(c, k); };
       var want = ironSlots(c).filter(free)[0] || "";

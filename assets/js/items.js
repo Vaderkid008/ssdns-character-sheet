@@ -1431,7 +1431,7 @@
   }
   function eqRowHtml(r) {
     var open = !!eq.open[r.key];
-    return '<li class="eq-row' + (r.itemRow ? " item-row" : "") + (open ? " open" : "") + '" data-eq-key="' + esc(r.key) + '" data-eq-cat="' + esc(r.cat) + '"' + (r.held ? ' data-item-held="1"' : "") + ">" +
+    return '<li class="eq-row' + (r.itemRow ? " item-row" : "") + (open ? " open" : "") + '" data-eq-key="' + esc(r.key) + '" data-eq-cat="' + esc(r.cat) + '"' + (r.ironClass ? ' data-iron-class="' + esc(r.ironClass) + '"' : "") + (r.held ? ' data-item-held="1"' : "") + ">" +
       '<div class="eq-main" data-eq-toggle="' + esc(r.key) + '">' + eqThumb(r.src, r.cat) +
         '<span class="eq-name"><b>' + esc(r.name) + '</b><span class="eq-sub">' + esc(r.sub || "") + "</span></span>" +
         '<span class="eq-qty">' + (r.qty != null ? "×" + esc(r.qty) : "") + "</span>" +
@@ -1504,7 +1504,9 @@
     if (ironRow) {
       rowName = IAr.labelFor ? IAr.labelFor(c) : view.name;
       var realNm = IAr.nameFor ? IAr.nameFor(c) : "";
-      subBits = ["Weapon", "soul-bound"].concat(realNm ? [realNm] : []);
+      /* 0.3.100 (4:51 PM): the subtitle leads with the iron's weapon class ("Pact rifle"), else plain "Weapon" */
+      var klass = IAr.classNameFor ? IAr.classNameFor(c) : "";
+      subBits = [klass || "Weapon", "soul-bound"].concat(realNm ? [realNm] : []);
     }
     if (worn) subBits.push("worn");
     if (item.attuned) subBits.push("attuned");
@@ -1517,7 +1519,7 @@
       '<div class="eq-facts">' + homeTag + supTag + " " + tag + pips + (w != null ? ' <span class="item-tag item-wt" title="' + (off ? "Rides on your mount; not counted in what you carry" : "Weight each") + '">' + esc(w) + " lb each</span>" : "") + "</div>" +
       '<div class="eq-acts">' + lock + " " + useBtn + " " + steedBtn + unpackBtn + dropBtn + park + "</div>";
     return { key: "it:" + item.uid, itemRow: true, held: held || /give-held/.test(give), cat: cat, name: rowName, sub: subBits.filter(Boolean).join(" · "),
-      qty: n, wt: wt, give: give, detail: detail, src: view.blank ? "" : (ironTile(item, c) || realArt(item)) };
+      qty: n, wt: wt, give: give, detail: detail, src: view.blank ? "" : (ironTile(item, c) || realArt(item)), ironClass: ironRow && IAr.classFor ? IAr.classFor(c) : "" };
   }
   function rowHtml(item, c) { return eqRowHtml(rowParts(item, c)); }
 

@@ -2232,7 +2232,7 @@ function ironSectionHtml(s) {
   if (!name) return `<div class="detail-section"><h3>Borrowed Iron</h3><p class="fine">No Pact name picked yet, so the sheet shows a plain Borrowed Iron.</p></div>`;
   return `<div class="detail-section dm-iron"><h3>Borrowed Iron</h3>
       <div class="dm-iron-row"><img class="dm-iron-tile" src="${esc(IA.tileSrc(c, { dm: true }))}" alt="" width="64" height="64">
-        <div><b>${esc(name)}</b>${IA.typeFor && IA.typeFor(c) ? ` <span class="fine dm-iron-type">· ${esc(IA.typeFor(c))}</span>` : ""}<p class="fine" id="dmIronState">${s.ironRevealed ? "Revealed: the player sees it." : "Hidden: the player sees a plain Borrowed Iron."}</p>
+        <div><b>${esc(name)}</b>${IA.typeFor && IA.typeFor(c) ? ` <span class="fine dm-iron-type">· ${esc((IA.classNameFor && IA.classNameFor(c) ? IA.classNameFor(c) + " · " : "") + IA.typeFor(c))}</span>` : ""}<p class="fine" id="dmIronState">${s.ironRevealed ? "Revealed: the player sees it." : "Hidden: the player sees a plain Borrowed Iron."}</p>
         <button type="button" class="btn sm" id="btnDmIronReveal">${s.ironRevealed ? "Hide again" : "Reveal to player"}</button></div></div>
       <img class="dm-iron-eng" src="${esc(IA.engravingSrc(c, { dm: true }))}" alt="${esc(name)}">
     </div>`;

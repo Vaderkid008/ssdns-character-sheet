@@ -74,7 +74,7 @@ const pact = (sub, rev) => { const c = K.apply(K.blankCharacter(), "pact-seeker"
 let f = D.focusState(pact("the-crossroads-note"));
 check("focus.patronNotGated", f.kind === "patron" && f.name === "The Crossroads Note" && /items\/patron\/crossroads-note\.webp$/.test(f.art) && f.locked === true, J(f));
 let ir = D.ironState(pact("the-crossroads-note"));
-check("iron.genericUntilRevealed", ir.key === "revolver_2" && /assets\/img\/items\/borrowed-iron\.webp$/.test(ir.art) && ir.note === "In hand · Double-action revolver" && ir.label === "Borrowed Iron — Double-action revolver" && ir.ironName === "", J(ir));
+check("iron.genericUntilRevealed", ir.key === "revolver_2" && /assets\/img\/items\/borrowed-iron\.webp$/.test(ir.art) && ir.note === "In hand · Double-action revolver" && ir.label === "Borrowed Iron — Pact revolver (double-action revolver)" && ir.ironName === "", J(ir));
 ir = D.ironState(pact("the-crossroads-note", true));
 check("iron.hellMaker", ir.key === "revolver_2" && /items\/borrowed-iron\/hell-maker\.webp$/.test(ir.art) && ir.note === "In hand · Hell Maker", J(ir));
 ir = D.ironState(pact("lass-o-lakes", true));
@@ -99,9 +99,11 @@ gs.guns[g0].weaponFocus = false;
 check("rule.unflaggedNoFocus", D.focusState(gs) === null);
 /* migration of an old save (Focus slot era): the iron moves to a free weapon slot, nothing else changes */
 const old = pact("the-sealed-orders"); delete old.ironSlot; old.equipMigrated = 2; old.guns = [{ weapon: "navy-army-ball-n-cap-revolver", proficient: true, chambers: [], equipped: true }];
-const oldItems = J(old.items), oldGuns = J(old.guns);
+/* 0.3.100 (4:51 PM): the only item change allowed is the iron's new weapon class field */
+const noCls = (items) => J((items || []).map((x) => { const y = Object.assign({}, x); delete y.ironClass; return y; }));
+const oldItems = noCls(old.items), oldGuns = J(old.guns);
 K.migrateEquipment(old);
-check("migrate.ironSlot", old.ironSlotMigrated === 1 && old.ironSlot === "revolver_2" && !old.ironSlotNote && J(old.items) === oldItems && J(old.guns) === oldGuns, J({ s: old.ironSlot, n: old.ironSlotNote }));
+check("migrate.ironSlot", old.ironSlotMigrated === 1 && old.ironSlot === "revolver_2" && !old.ironSlotNote && noCls(old.items) === oldItems && old.items.filter((x) => x.catalogId === "borrowed-iron").every((x) => x.ironClass === "pact-revolver") && J(old.guns) === oldGuns, J({ s: old.ironSlot, n: old.ironSlotNote }));
 const before = J(old); K.migrateEquipment(old);
 check("migrate.ironOnce", J(old) === before);
 const crowded = pact("the-sand-oath"); crowded.equipMigrated = 2;
@@ -196,7 +198,7 @@ try {
     const r0 = ironRow(v.weaponRows);
     check("ui.hidden.rowGeneric", v.focusRows.length === 0 && !!r0 && /items\/borrowed-iron\.webp/.test(r0.src), J(v.weaponRows));
     /* 0.3.100: before the reveal the Weapons card shows the plain Borrowed Iron tile and the type label, no engraving */
-    check("ui.hidden.noEngraving", !!v.eng && /assets\/img\/items\/borrowed-iron\.webp$/.test(v.eng.src) && v.ironName === "" && /Borrowed Iron — Double-action revolver/.test(v.cardHead), J(v));
+    check("ui.hidden.noEngraving", !!v.eng && /assets\/img\/items\/borrowed-iron\.webp$/.test(v.eng.src) && v.ironName === "" && /Borrowed Iron — Pact revolver \(double-action revolver\)/.test(v.cardHead), J(v));
     await shot(pg, "#dollHost .doll", "iron-art-v2-pact-doll-hidden.png");
     /* the DM reveals it (same patch the iron_reveal command makes) */
     await pg.evaluate(() => window.SSDNSApp.applyPatch((d) => { d.character.ironRevealed = true; }));
@@ -245,10 +247,11 @@ try {
       const c = d.character; c.name = "Old Save"; c.calling = "pact-seeker"; c.level = 3; c.abilities = Object.assign(c.abilities || {}, { CHA: 16 });
       window.SSDNSKits.apply(c, "pact-seeker", {}); c.kitStamp = "pact-seeker"; c.subclass = "the-pine-box-contract"; c.ironRevealed = true;
       c.equipMigrated = 2; delete c.ironSlot; delete c.ironSlotMigrated; delete c.ironSlotNote;
-      const before = { items: JSON.stringify(c.items), guns: JSON.stringify((c.guns || []).map((g) => g && g.weapon)) };
+      const strip = (a) => JSON.stringify((a || []).map((x) => { const y = Object.assign({}, x); delete y.ironClass; return y; }));
+      const before = { items: strip(c.items), guns: JSON.stringify((c.guns || []).map((g) => g && g.weapon)) };
       window.SSDNSApp.loadText(JSON.stringify(d), { name: "old-pact-save.json" });
       const n = window.SSDNSApp.doc().character;
-      return { slot: n.ironSlot, mig: n.ironSlotMigrated, note: n.ironSlotNote || "", itemsSame: JSON.stringify(n.items) === before.items, gunsSame: JSON.stringify((n.guns || []).map((g) => g && g.weapon)) === before.guns,
+      return { slot: n.ironSlot, mig: n.ironSlotMigrated, note: n.ironSlotNote || "", itemsSame: strip(n.items) === before.items && (n.items || []).filter((x) => x.catalogId === "borrowed-iron").every((x) => x.ironClass === "pact-shotgun"), gunsSame: JSON.stringify((n.guns || []).map((g) => g && g.weapon)) === before.guns,
         hasIron: (n.items || []).some((x) => x.catalogId === "borrowed-iron") };
     });
     await sleep(900);

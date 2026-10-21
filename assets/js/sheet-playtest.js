@@ -1277,6 +1277,9 @@
        card shows the plain Borrowed Iron tile. */
     var head = box.querySelector("b");
     if (head && IA && IA.labelFor) { var lbl = IA.labelFor(c); if (head.textContent !== lbl) head.textContent = lbl; }
+    /* 0.3.100 (4:51 PM): the card carries the iron's weapon class (public from the Pact pick) */
+    var klass = IA && IA.classFor ? IA.classFor(c) : "";
+    if ((box.getAttribute("data-iron-class") || "") !== klass) { if (klass) box.setAttribute("data-iron-class", klass); else box.removeAttribute("data-iron-class"); }
     var src = !box.hidden && IA ? IA.engravingSrc(c) : "", name = src ? IA.nameFor(c) : "";
     var generic = !src && !box.hidden && IA && IA.GENERIC_TILE && IA.labelFor && IA.labelFor(c) !== "Borrowed Iron";
     var art = $("#pactIronArt"), tag = $("#pactIronName");

@@ -106,8 +106,7 @@
     return missing[src] ? patronFallback() : src;
   }
   function markMissing(src) { if (src) missing[String(src).replace(/[?#].*$/, "")] = 1; }
-  /* The iron's shape, for the paper-doll weapon slot it prefers (only used once the iron is revealed). */
-  var LONG_IRON = { "butter-repeater": 1, "sirocco-long-rifle": 1, "pallbearer": 1, "revenge-of-the-sea": 1 };
+  /* (0.3.100: the old LONG_IRON lookup is replaced by the iron's weapon class, IRON_CLASS below.) */
   /* 0.3.100 (Jessey 2026-10-21 12:11 / 12:12 PM CT): the iron's weapon type shows from the Pact pick, not gated by the
      DM reveal (its real name and its own art stay behind ironRevealed). Types: the locked base looks (Jessey lock
      2026-10-03) in spark-review/PACT-SEEKER-PATRON-BALANCE-v2.md, one-/two-handed as written there. */
@@ -122,7 +121,43 @@
   };
   /* the pact's iron slug for shape/type only (never for its name or art) */
   function shapeSlug(c) { return isPact(c) ? pactSlug(c) : ""; }
-  function isLongIron(c) { return !!LONG_IRON[shapeSlug(c)]; }
+  /* 0.3.100 (Jessey 2026-10-21 4:51 PM: "Borrowed iron types need to have their own weapon type... Pact revolvers go in
+     the revolver slots, pact shotguns and rifles go in the long gun slot"): every Borrowed Iron carries one weapon class
+     on its item row (item.ironClass). That one field drives the paper-doll slots, the label, the Equipment row and the
+     hidden outline. It's public from the Pact pick (like the type), never the iron's name or art.
+     Classes from PACT-SEEKER-PATRON-BALANCE-v2.md looks. The harpoon gun has no class in the doc: "Pact harpoon gun",
+     long gun slot (flagged for Jessey). */
+  var IRON_CLASS = {
+    "pact-revolver": { name: "Pact revolver", slot: "pistol" },
+    "pact-rifle": { name: "Pact rifle", slot: "long" },
+    "pact-shotgun": { name: "Pact shotgun", slot: "long" },
+    "pact-harpoon-gun": { name: "Pact harpoon gun", slot: "long" }
+  };
+  var CLASS_BY_IRON = {
+    "hell-maker": "pact-revolver", "lightslinger": "pact-revolver", "virgil": "pact-revolver",
+    "butter-repeater": "pact-rifle", "sirocco-long-rifle": "pact-rifle",
+    "pallbearer": "pact-shotgun", "revenge-of-the-sea": "pact-harpoon-gun"
+  };
+  /* the class the Pact pick gives (what syncIron writes onto the item) */
+  function pactClass(c) { return CLASS_BY_IRON[shapeSlug(c)] || ""; }
+  function ironItemOf(c) { return ((c && c.items) || []).filter(function (it) { return isIronItem(it); })[0] || null; }
+  /* The iron's class: the item's ironClass field. A character with no iron row yet (or one not re-synced since a Pact
+     change) reads the class its Pact gives, so a stale field never outranks the Pact. */
+  function classFor(c) {
+    if (!isPact(c)) return "";
+    var it = ironItemOf(c), want = pactClass(c), have = it && IRON_CLASS[it.ironClass] ? it.ironClass : "";
+    return want && have !== want ? want : (have || want);
+  }
+  function classNameFor(c) { var k = classFor(c); return k ? IRON_CLASS[k].name : ""; }
+  function isLongIron(c) { var k = classFor(c); return !!k && IRON_CLASS[k].slot === "long"; }
+  /* Writes item.ironClass from the Pact (on load, on a Pact pick / change). Returns true when it changed. */
+  function stampClass(c) {
+    var it = ironItemOf(c), want = pactClass(c);
+    if (!it) return false;
+    if (want ? it.ironClass === want : it.ironClass == null) return false;
+    if (want) it.ironClass = want; else delete it.ironClass;
+    return true;
+  }
   /* The hidden-iron art for this viewer: the long-gun outline for a long iron not yet revealed, else "" (callers keep the
      generic tile; a revealed iron uses its own art). */
   function hiddenArt(c, opts) {
@@ -131,13 +166,18 @@
   }
   function typeFor(c) { return IRON_TYPE[shapeSlug(c)] || ""; }
   /* "Borrowed Iron — Lever-action carbine" (just "Borrowed Iron" before a Pact name is picked) */
-  function labelFor(c) { var t = typeFor(c); return t ? "Borrowed Iron — " + t : "Borrowed Iron"; }
+  /* "Borrowed Iron — Pact rifle (lever-action carbine)"; just "Borrowed Iron" before a Pact name is picked */
+  function labelFor(c) {
+    var k = classNameFor(c), t = typeFor(c);
+    if (!k) return t ? "Borrowed Iron — " + t : "Borrowed Iron";
+    return "Borrowed Iron — " + k + (t ? " (" + t.charAt(0).toLowerCase() + t.slice(1) + ")" : "");
+  }
   /* The paper-doll weapon slots this iron may ride in (L0201: weapon slots only). Long irons: Long gun.
      One-handed irons: Pistol R, then Pistol L. No Pact name yet: any gun slot. */
   function allowedSlots(c) {
-    var s = shapeSlug(c);
-    if (!s) return ["revolver_2", "revolver_1", "long_gun"];
-    return LONG_IRON[s] ? ["long_gun"] : ["revolver_2", "revolver_1"];
+    var k = classFor(c);
+    if (!k) return ["revolver_2", "revolver_1", "long_gun"];
+    return IRON_CLASS[k].slot === "long" ? ["long_gun"] : ["revolver_2", "revolver_1"];
   }
 
   /* 0.3.100 (Jessey 2026-10-21 12:06 PM: "Lass o lakes shows up with the hell maker pistol"): the Hell Maker is the
@@ -177,7 +217,7 @@
     PACT_SLUG: PACT_SLUG, IRON_NAME: IRON_NAME, GENERIC_TILE: GENERIC_TILE, HIDDEN_LONG: HIDDEN_LONG, hiddenArt: hiddenArt,
     pactSlug: pactSlug, revealed: revealed, slugFor: slugFor, nameFor: nameFor,
     tileSrc: tileSrc, engravingSrc: engravingSrc, weaponTile: weaponTile, itemTile: itemTile,
-    IRON_TYPE: IRON_TYPE, typeFor: typeFor, labelFor: labelFor, allowedSlots: allowedSlots,
+    IRON_TYPE: IRON_TYPE, typeFor: typeFor, IRON_CLASS: IRON_CLASS, CLASS_BY_IRON: CLASS_BY_IRON, classFor: classFor, classNameFor: classNameFor, pactClass: pactClass, stampClass: stampClass, labelFor: labelFor, allowedSlots: allowedSlots,
     isIronItem: isIronItem, safeIronArt: safeIronArt, fixStaleIron: fixStaleIron,
     slugs: function () { return Object.keys(IRON_NAME); }
   };
