@@ -1,5 +1,5 @@
 /**
- * PR82 (DMCC 0.2.108): the player-detail gun panel shows one status line and only the fixes that apply,
+ * PR82 (DMCC 0.2.109): the player-detail gun panel shows one status line and only the fixes that apply,
  * Repair (clear everything) always with a confirm, "Reopen all locked chambers" instead of "Clear all",
  * and the Set/Clear test toggles folded into "DM overrides". Every button targets the real sheet slot.
  * Needs the static server on 127.0.0.1:8765 and Chrome (ssdns-test-all starts the server).

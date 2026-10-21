@@ -1227,6 +1227,38 @@
     var c = ch();
     if (!box) return;
     box.hidden = !(c && c.calling === "pact-seeker");
+    paintIronArt(box, c);
+  }
+  /* 0.3.96: the Borrowed Iron card shows the pact's engraving (1200x400, muzzle right) once the DM has revealed it */
+  function paintIronArt(box, c) {
+    var IA = root.SSDNSIronArt;
+    var src = !box.hidden && IA ? IA.engravingSrc(c) : "", name = src ? IA.nameFor(c) : "";
+    var art = $("#pactIronArt"), tag = $("#pactIronName");
+    if (!src) {
+      if (art) art.hidden = true;
+      if (tag) tag.hidden = true;
+      box.classList.remove("has-iron");
+      return;
+    }
+    if (!art) {
+      art = document.createElement("div");
+      art.id = "pactIronArt";
+      art.className = "pact-iron-art";
+      box.insertBefore(art, box.firstChild);
+    }
+    if (!tag) {
+      tag = document.createElement("span");
+      tag.id = "pactIronName";
+      tag.className = "pact-iron-name";
+      var b = box.querySelector("b");
+      if (b && b.nextSibling) box.insertBefore(tag, b.nextSibling); else box.appendChild(tag);
+    }
+    art.hidden = false; tag.hidden = false;
+    box.classList.add("has-iron");
+    tag.textContent = "· " + name;
+    var img = art.querySelector("img");
+    if (!img) { img = document.createElement("img"); img.decoding = "async"; art.appendChild(img); }
+    if (img.getAttribute("src") !== src) { img.setAttribute("src", src); img.alt = name; art.title = name; }
   }
   function syncSheet() {
     renderMelee();
@@ -1262,7 +1294,8 @@
     renderMelee: renderMelee, /* 0.3.86: a melee / thrown weapon that lands from an item (Give, reward, Add Item) repaints its card */
     rollMelee: rollMelee,
     syncSheet: syncSheet,
-    paintMath: function () { paintPowerToggle(); paintMelee(); },
+    paintMath: function () { paintPowerToggle(); paintMelee(); paintPact(); }, /* 0.3.96: paintPact keeps the iron art in step with Pact name / reveal */
+    paintPact: paintPact,
     versatileDie: versatileDie,
     meleeGwf: meleeGwf,
     styleOptions: styleOptions,

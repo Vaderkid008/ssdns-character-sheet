@@ -1047,3 +1047,8 @@ select:-webkit-autofill {
 .rew-inv-ammo { margin: 2px 0 6px 16px; padding: 0; }
 .xfer-pending { margin: 10px 0; padding: 6px 10px; border: 1px dashed rgba(255,255,255,.2); border-radius: 8px; }
 .xfer-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+
+/* 0.3.96: Borrowed Iron section on the player card */
+.dm-iron-row { display: flex; gap: 10px; align-items: center; }
+.dm-iron-tile { width: 64px; height: 64px; border-radius: 4px; border: 1px solid rgba(43,29,18,.35); object-fit: cover; flex: none; }
+.dm-iron-eng { display: block; width: 100%; max-width: 420px; aspect-ratio: 3 / 1; object-fit: contain; margin-top: 6px; background: #fffaf3; border: 1px solid #c4b497; border-radius: 4px; }

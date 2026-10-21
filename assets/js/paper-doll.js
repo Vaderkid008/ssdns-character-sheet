@@ -382,6 +382,9 @@
     return items(c).filter(function (it) { return it && it.catalogId === "borrowed-iron" && Number(it.count == null ? 1 : it.count) > 0; })[0] || null;
   }
   function borrowedIronArt(c) {
+    /* 0.3.96: the pact's own iron tile once the DM has revealed it (iron-art.js); else the generic art below */
+    var IA = root.SSDNSIronArt, own = IA && IA.tileSrc ? IA.tileSrc(c) : "";
+    if (own) return own;
     var it = borrowedIronItem(c);
     var src = it ? artFor(it) : "";
     if (src && !isDefaultArt(src)) return src;
@@ -393,13 +396,14 @@
     if (calling === "pact-seeker") {
       var away = !!(c && c.borrowedIronAway);
       return { kind: "pact", name: "Borrowed Iron", art: borrowedIronArt(c), away: away, readOnly: true,
-        note: away ? "Away: returns at the start of your next turn" : "In hand · pact focus", canCast: !away };
+        note: away ? "Away: returns at the start of your next turn" : "In hand · " + ((root.SSDNSIronArt && root.SSDNSIronArt.nameFor(c)) || "pact focus"), canCast: !away };
     }
     if (calling === "hexslinger") {
       var cg = casterInHand(c);
       if (cg) {
         var A = root.SSDNSWeaponArt, art = "";
-        try { art = A && A.srcFor ? (A.srcFor({ id: cg.id, name: cg.name }) || "") : ""; } catch (e) { art = ""; }
+        /* 0.3.96: the square Caster Gun tile (the 3:1 engraving cropped to its middle in the square slot) */
+        try { art = (root.SSDNSIronArt && root.SSDNSIronArt.weaponTile(cg.id)) || (A && A.srcFor ? (A.srcFor({ id: cg.id, name: cg.name }) || "") : ""); } catch (e) { art = ""; }
         return { kind: "caster", name: cg.name, art: art, side: cg.side, gunIndex: cg.i, readOnly: true, mirror: true, note: "Mirrors " + cg.side + " · read-only", canCast: true };
       }
       return { kind: "nocaster", name: "", art: "", readOnly: true, note: NO_CASTER, canCast: false };

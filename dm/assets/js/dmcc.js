@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.108"; // dmcc-playtest-v02108
+const VERSION = "0.2.109"; // dmcc-playtest-v02109
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2068,6 +2068,7 @@ function openDetail(pid) {
       <button type="button" class="btn sm" id="btnDmBadge">Set badge</button>
       <p class="fine">Mercy Hands stays off while the badge is Dull. Swearing in sets it Bright.</p>
     </div>
+    ${ironSectionHtml(s)}
     <div class="detail-section"><h3>HP and guns</h3>
       <label>Set HP <input type="number" id="dmSetHp" value="${esc(s.hpCurrent)}" aria-label="Set player hit points"></label>
       <button type="button" class="btn sm" id="btnDmSetHp">Set HP</button>
@@ -2178,6 +2179,18 @@ function openDetail(pid) {
       if (state.demo || op === "repair") applyDemoGun(pid, payload);
     });
   });
+  /* 0.3.96: reveal (or hide again) this Pact Seeker's Borrowed Iron on their sheet */
+  const ironBtn = $("#btnDmIronReveal");
+  if (ironBtn) ironBtn.addEventListener("click", () => {
+    const on = !s.ironRevealed;
+    pushCommand({ type: "iron_reveal", to: pid, payload: { on } });
+    /* no table-feed line: the reveal is the DM's to make out loud, the other players don't see it here */
+    if (state.players[pid] && state.players[pid].snapshot) state.players[pid].snapshot.ironRevealed = on;
+    s.ironRevealed = on;
+    ironBtn.textContent = on ? "Hide again" : "Reveal to player";
+    const st = $("#dmIronState");
+    if (st) st.textContent = on ? "Revealed: the player sees it." : "Hidden: the player sees a plain Borrowed Iron.";
+  });
   const badgeSel = $("#dmBadge");
   if (badgeSel) badgeSel.value = s.badgeState || "dull";
   const badgeBtn = $("#btnDmBadge");
@@ -2190,6 +2203,21 @@ function openDetail(pid) {
     }
   });
   $("#detailOverlay").hidden = false;
+}
+
+/* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron (always shown to the DM) + Reveal toggle */
+function ironSectionHtml(s) {
+  const IA = window.SSDNSIronArt;
+  if (!IA || !s || (s.callingId || s.calling) !== "pact-seeker") return "";
+  const c = Object.assign({}, s, { calling: "pact-seeker" });
+  const name = IA.nameFor(c, { dm: true });
+  if (!name) return `<div class="detail-section"><h3>Borrowed Iron</h3><p class="fine">No Pact name picked yet, so the sheet shows a plain Borrowed Iron.</p></div>`;
+  return `<div class="detail-section dm-iron"><h3>Borrowed Iron</h3>
+      <div class="dm-iron-row"><img class="dm-iron-tile" src="${esc(IA.tileSrc(c, { dm: true }))}" alt="" width="64" height="64">
+        <div><b>${esc(name)}</b><p class="fine" id="dmIronState">${s.ironRevealed ? "Revealed: the player sees it." : "Hidden: the player sees a plain Borrowed Iron."}</p>
+        <button type="button" class="btn sm" id="btnDmIronReveal">${s.ironRevealed ? "Hide again" : "Reveal to player"}</button></div></div>
+      <img class="dm-iron-eng" src="${esc(IA.engravingSrc(c, { dm: true }))}" alt="${esc(name)}">
+    </div>`;
 }
 
 function renderLedger() {

@@ -1,5 +1,5 @@
 /**
- * 0.3.95 / DMCC 0.2.108: the player's free-add item area is a compact "Add item ▾" menu
+ * 0.3.96 / DMCC 0.2.109: the player's free-add item area is a compact "Add item ▾" menu
  * (pick list grouped by type + search, custom form opens from the menu). Picking a catalog row
  * must produce exactly what the old always-open form produced. DMCC Give item is unchanged.
  * The PHB gear (notes) and Starting kit boxes moved into the menu (still write to Equipment notes).
