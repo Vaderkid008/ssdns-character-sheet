@@ -1,5 +1,5 @@
 /**
- * Off-hand attack (two-weapon fighting), sheet 0.3.95.
+ * Off-hand attack (two-weapon fighting), sheet 0.3.96.
  * Rules (BOOK1.md Property Key "light: as PHB"; Feats › Dual Wielder, campaign house rule):
  *  - Without Dual Wielder: PHB two-weapon fighting. Both weapons are LIGHT one-handed MELEE weapons.
  *  - Pistols are one-handed but NOT light (Dual Wielder note), so twin irons need Dual Wielder.
@@ -9,7 +9,7 @@
  *    (target picker incl. Free shot, range, adv/dis, misfire, ammo, sound, chat), but a positive ability
  *    modifier is NOT added to its damage. SSDNS has no Two-Weapon Fighting style, so nothing restores it.
  *  - Pistols use their own side: the Holster L / Holster R first-shot bonus already rides on each gun's row.
- * 0.3.95 (Jessey's rulings):
+ * 0.3.96 (Jessey's rulings):
  *  - The Herringer Light Pocket Pistol, Light Double Derringer and Light Pepperbox ARE light weapons, so they pair
  *    for the off-hand attack without Dual Wielder (with each other or a light melee weapon). Other pistols still need
  *    Dual Wielder. Toggle: LIGHT_PISTOLS_ON below.

@@ -66,12 +66,12 @@
     }
     if (extra) Object.keys(extra).forEach(function (k) { slot[k] = extra[k]; });
   }
-  /* Equipment build (0.3.95, Jessey 2026-10-20): re-applying a kit (the "Apply starting kit" button, or a second
+  /* Equipment build (0.3.96, Jessey 2026-10-20): re-applying a kit (the "Apply starting kit" button, or a second
      apply on a sheet whose kitStamp already matches) never adds countable things again: no ammo, no items, no
      note lines. Weapons were already guarded (putGun / putMelee skip a weapon that is there). */
   var quiet = false;
   var preview = false;
-  /* What kits already gave this sheet (0.3.95): character.kitGrants.ammo {"type|caliber": n} and .items [catalog ids].
+  /* What kits already gave this sheet (0.3.96): character.kitGrants.ammo {"type|caliber": n} and .items [catalog ids].
      A kit applied again never gives the same ammo / item twice, but a new pick (another gun) still gets its own. */
   function grants(c) {
     var g = c.kitGrants && typeof c.kitGrants === "object" ? c.kitGrants : (c.kitGrants = {});
@@ -98,7 +98,7 @@
     }
     pool.count = (parseInt(pool.count, 10) || 0) + count;
   }
-  /* Equipment build (0.3.95): what each kit gear line becomes.
+  /* Equipment build (0.3.96): what each kit gear line becomes.
        items:   real catalog items (Jessey 5:09 PM: Badge = Holy symbol, walking stick / pouches = Druidic focus,
                 Prism = Arcane focus, Galvanic reagents = Hex pouch)
        rig:     a holster / belt slot (rules.js holsters; weighs in through the rig slot, shows as a Worn row)
@@ -136,7 +136,7 @@
     /* L0197 (Jessey 2026-10-20 7:10 PM): the Pact Seeker's Borrowed Iron is a real, soul-bound catalog item */
     "Borrowed Iron (pact focus)": { items: ["borrowed-iron"] }
   };
-  /* Lines added to KIT_LINES after a sheet already ran the 0.3.95 step (equipMigrated 1). Only these are converted
+  /* Lines added to KIT_LINES after a sheet already ran the 0.3.96 step (equipMigrated 1). Only these are converted
      the second time, so nothing else in the notes moves. */
   var MIGRATE_V2 = ["Borrowed Iron (pact focus)"];
   function lineSpec(text) {
@@ -194,14 +194,33 @@
     if (cur.indexOf(text) >= 0) return;
     c.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + "• " + text;
   }
-  /* Saved characters (0.3.95): kit lines already sitting in the Equipment notes become the same items / rigs, and
+  /* Saved characters (0.3.96): kit lines already sitting in the Equipment notes become the same items / rigs, and
      the duplicate ammo / armor / shield lines go. Packs are left alone (they keep their Unpack button). The old notes
      text is kept in character.equipmentBefore0392, so nothing is lost. Runs once (character.equipMigrated). */
-  /* L0197 (0.3.95): equipMigrated 2. A sheet already at 1 converts only the MIGRATE_V2 lines (the exact
+  /* L0197 (0.3.96): equipMigrated 2. A sheet already at 1 converts only the MIGRATE_V2 lines (the exact
      "Borrowed Iron (pact focus)" line PR #113 left in Notes); every other note line stays as it is. Its notes before
      this step are kept in character.equipmentBefore0394. A Pact Seeker with no line still gets the soul-bound item. */
   function migrateEquipment(c) {
-    if (!c || c.equipMigrated >= 2) return 0;
+    if (!c) return 0;
+    var n = c.equipMigrated >= 2 ? 0 : migrateNotes(c);
+    migrateIronSlot(c);
+    return n;
+  }
+  /* 0.3.96 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus now; the Borrowed Iron item moves out of
+     the Focus slot into a free paper-doll weapon slot (character.ironSlot). Only which slot draws it changes: the item,
+     its soul-bound rules, borrowedIronAway and the cast block are untouched. No free slot -> ironSlot "" and
+     character.ironSlotNote says so (it is still in hand). Runs once per save (character.ironSlotMigrated). */
+  function migrateIronSlot(c) {
+    if (!c || c.calling !== "pact-seeker" || c.ironSlotMigrated || preview) return false;
+    var D = root.SSDNSDoll;
+    if (!D || !D.ironSlot || !hasItem(c, "borrowed-iron")) return false;
+    var key = D.ironSlot(c);
+    c.ironSlot = key || "";
+    if (!key) c.ironSlotNote = D.IRON_NO_SLOT; else delete c.ironSlotNote;
+    c.ironSlotMigrated = 1;
+    return true;
+  }
+  function migrateNotes(c) {
     if (!itemsApi()) return 0;
     var only = c.equipMigrated >= 1 ? MIGRATE_V2 : null;
     var text = String(c.equipment || "");
@@ -582,7 +601,7 @@
     }
   }
 
-  /* The same kit again on a sheet from before 0.3.95 (no kitGrants record of what it got): weapons / armor fields only,
+  /* The same kit again on a sheet from before 0.3.96 (no kitGrants record of what it got): weapons / armor fields only,
      nothing countable (no ammo, items or note lines), so nothing doubles. Newer sheets use the kitGrants record instead. */
   function legacyAgain(c, calling) {
     return !preview && !!calling && c.kitStamp === calling && !(c.kitGrants && c.kitGrants.v);
@@ -819,15 +838,20 @@
     branches: branches,
     describe: describe,
     kitLines: KIT_LINES,
-    migrateEquipment: migrateEquipment,
+    migrateEquipment: migrateEquipment, migrateIronSlot: migrateIronSlot,
     ensureBorrowedIron: ensureBorrowedIron
   };
   root.SSDNSKits = api;
-  /* first boot: app.js migrated the saved sheet before this file loaded, so run the 0.3.95 kit-line step here */
+  /* first boot: app.js migrated the saved sheet before this file loaded, so run the 0.3.96 kit-line step here */
   function bootMigrate() {
     var A = root.SSDNSApp;
     var d = A && A.doc ? A.doc() : null;
     var c = d && d.character;
+    /* 0.3.96: the Borrowed Iron's weapon slot, for saves already past the kit-line step */
+    if (c && c.equipMigrated >= 2 && c.calling === "pact-seeker" && !c.ironSlotMigrated && A.applyPatch) {
+      A.applyPatch(function (dd) { if (dd && dd.character) migrateIronSlot(dd.character); });
+      return;
+    }
     if (!c || c.equipMigrated >= 2 || !itemsApi()) return;
     var only = c.equipMigrated >= 1 ? MIGRATE_V2 : null;
     var due = String(c.equipment || "").split("\n").some(function (raw) {

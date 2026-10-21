@@ -1,5 +1,5 @@
 /**
- * L0197 (Jessey 2026-10-20 7:10 PM CT, sheet 0.3.95): the Focus slot by Calling.
+ * L0197 (Jessey 2026-10-20 7:10 PM CT, sheet 0.3.96): the Focus slot by Calling.
  *  Pact Seeker: the Borrowed Iron is a real soul-bound catalog item (borrowed-iron, gear, shelf Foci, 0 lb, never sold) that kits
  *    add, always shown in the paper-doll Focus slot (not only when it's in c.guns). No drop / sell / trade / Give / loot.
  *    Lost or disarmed -> the slot shows it returning at the start of the owner's next turn, and Pact casting is blocked until then.
@@ -30,7 +30,7 @@ const sb = { console }; sb.window = sb; sb.globalThis = sb;
 sb.document = { readyState: "complete", getElementById: () => null, addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] };
 vm.createContext(sb);
 for (const f of ["assets/data/rules.js", "assets/data/item-catalog.js", "assets/data/item-catalog-gear.js", "assets/js/item-ui.js", "assets/js/items.js",
-  "assets/js/kits.js", "assets/js/equip.js", "assets/js/weapon-art.js", "assets/js/paper-doll.js", "assets/js/focus-slot.js", "assets/js/give.js", "assets/js/grab.js"]) {
+  "assets/js/kits.js", "assets/js/equip.js", "assets/js/weapon-art.js", "assets/js/iron-art.js", "assets/js/paper-doll.js", "assets/js/focus-slot.js", "assets/js/give.js", "assets/js/grab.js"]) {
   vm.runInContext(read(f), sb, { filename: f });
 }
 const I = sb.SSDNSItems, K = sb.SSDNSKits, D = sb.SSDNSDoll, F = sb.SSDNSFocus, G = sb.SSDNSGive, GR = sb.SSDNSGrab;
@@ -47,7 +47,8 @@ const row = I.byId("borrowed-iron");
 check("catalog.normalized", !!row && row.forSale === false && row.price == null && row.soulBound === true && row.weight === 0, J(row));
 check("catalog.notForSaleNoStoreRow", !JSON.parse(read("dm/assets/data/store-items.json")).some((r) => r.id === "borrowed-iron"));
 check("catalog.hiddenFromPlayerAdd", !I.catalog({}).some((r) => r.id === "borrowed-iron") && I.catalog({ dm: true }).some((r) => r.id === "borrowed-iron"));
-check("catalog.equipmentFocus", I.eqCat ? I.eqCat(I.instanceFrom(row)) === "focus" : true, I.eqCat && I.eqCat(I.instanceFrom(row)));
+/* 0.3.96: catalog row keeps shelf Foci; the Equipment list files it under Weapons (the patron is the focus now) */
+check("catalog.equipmentWeapons", I.eqCat ? I.eqCat(I.instanceFrom(row)) === "weapons" : true, I.eqCat && I.eqCat(I.instanceFrom(row)));
 
 /* 2. kits add the item (full and module starts), once */
 const pact = () => { const c = K.apply(K.blankCharacter(), "pact-seeker", {}); c.calling = "pact-seeker"; return c; };
@@ -63,15 +64,28 @@ const mod = K.apply(K.blankCharacter(), "pact-seeker", { _start: "module" });
 check("kit.moduleAddsItem", bi(mod).length === 1, J(mod.items));
 K.callings.filter((x) => x !== "pact-seeker").forEach((cal) => check("kit.othersNoIron." + cal, bi(K.apply(K.blankCharacter(), cal, {})).length === 0));
 
-/* 3. the Focus slot always shows the Borrowed Iron for a Pact Seeker */
+/* 3. 0.3.96 (Jessey 2026-10-20 9:53 PM): the Focus slot always shows the patron; the Borrowed Iron rides in a weapon slot */
+const ironCell = (html, key) => { const m = new RegExp('<div class="doll-cell"[^>]*>(?:(?!<div class="doll-cell").)*data-doll-slot="' + key + '"(?:(?!<div class="doll-cell").)*', "s").exec(html); return m ? m[0] : ""; };
 const fsP = D.focusState(ps);
-check("pact.slotState", fsP && fsP.kind === "pact" && fsP.name === "Borrowed Iron" && !fsP.away && /borrowed-iron\.webp$/.test(fsP.art), J(fsP));
-check("pact.weaponName", D.weaponName(ps, "focus_borrowed_iron") === "Borrowed Iron");
-const cellP = focusCell(D.html(ps, {}));
-check("pact.slotHtml", /filled/.test(cellP) && /doll-name">Borrowed Iron</.test(cellP) && /borrowed-iron\.webp/.test(cellP) && /In hand/.test(cellP), cellP.slice(0, 400));
+check("pact.slotState", fsP && fsP.kind === "patron" && fsP.locked === true && fsP.name === "Patron" && /items\/default\/focus\.webp$/.test(fsP.art), J(fsP));
+const psNamed = clone(ps); psNamed.subclass = "the-crossroads-note";
+const fsPN = D.focusState(psNamed);
+check("pact.patronNamed", fsPN.name === "The Crossroads Note" && /items\/patron\/crossroads-note\.webp$/.test(fsPN.art) && /items\/default\/focus\.webp$/.test(fsPN.fallback), J(fsPN));
+check("pact.weaponName", D.weaponName(psNamed, "focus_borrowed_iron") === "The Crossroads Note" && D.ironSlot(ps) === "revolver_2" && D.weaponName(ps, "revolver_2") === "Borrowed Iron");
+const cellP = ironCell(D.html(ps, {}), "revolver_2");
+check("pact.slotHtml", /filled/.test(cellP) && /doll-iron/.test(cellP) && /doll-name">Borrowed Iron</.test(cellP) && /borrowed-iron\.webp/.test(cellP) && /In hand/.test(cellP), cellP.slice(0, 400));
+check("pact.focusHtmlPatron", /doll-focus-patron/.test(focusCell(D.html(psNamed, {}))) && /data-fallback="[^"]*focus\.webp"/.test(focusCell(D.html(psNamed, {}))));
 const noItem = clone(ps); noItem.items = noItem.items.filter((x) => x.catalogId !== "borrowed-iron");
-check("pact.slotWithoutItemOrGuns", D.weaponName(noItem, "focus_borrowed_iron") === "Borrowed Iron");
-check("pact.pickerReadOnly", /Borrowed Iron · in hand/.test(D.pickerHtml(ps, "focus_borrowed_iron")) && !/data-doll-focus=/.test(D.pickerHtml(ps, "focus_borrowed_iron")) && /data-doll-iron="away"/.test(D.pickerHtml(ps, "focus_borrowed_iron")));
+check("pact.slotWithoutItemOrGuns", D.ironSlot(noItem) === "" && D.weaponName(noItem, "revolver_2") === "" && D.focusState(noItem).kind === "patron");
+check("pact.pickerReadOnly", /your patron/.test(D.pickerHtml(ps, "focus_borrowed_iron")) && /can(&#39;|')t be unequipped/.test(D.pickerHtml(ps, "focus_borrowed_iron")) && !/data-doll-iron=/.test(D.pickerHtml(ps, "focus_borrowed_iron")));
+check("pact.ironPicker", /Borrowed Iron · in hand/.test(D.pickerHtml(ps, "revolver_2")) && /data-doll-iron="away"/.test(D.pickerHtml(ps, "revolver_2")) && /data-doll-ironslot="long_gun"/.test(D.pickerHtml(ps, "revolver_2")));
+const moved = clone(ps); check("pact.moveIron", D.setIronSlot(moved, "long_gun").ok && D.ironSlot(moved) === "long_gun" && D.weaponName(moved, "revolver_2") === "");
+/* a gun taking the iron's slot pushes the iron to the next free slot (display only) */
+const gunIn = clone(ps); gunIn.ironSlot = "revolver_2"; gunIn.guns = [{ weapon: "dullards-plinker-revolver", proficient: true, chambers: [], equipped: true }, { weapon: "navy-army-ball-n-cap-revolver", proficient: true, chambers: [], equipped: true }];
+check("pact.ironYieldsToGuns", D.weaponName(gunIn, "revolver_1") !== "Borrowed Iron" && D.weaponName(gunIn, "revolver_2") !== "Borrowed Iron" && D.ironSlot(gunIn) === "long_gun", D.ironSlot(gunIn));
+const full = clone(gunIn); full.guns.push({ weapon: "dullards-tube-rifle", proficient: true, chambers: [], equipped: true }); full.melee = [{ weapon: "bowie-shortsword", equipped: true }];
+check("pact.noFreeSlot", D.ironSlot(full) === "" && D.pickerHtml(full, "focus_borrowed_iron").indexOf("No free weapon slot") >= 0 && F.castBlock(full) === "", D.ironSlot(full));
+check("pact.revealedLongIron", D.ironSlot(Object.assign(clone(ps), { subclass: "lass-o-lakes", ironRevealed: true })) === "long_gun");
 check("pact.setWeaponRefused", D.setWeapon(ps, "focus_borrowed_iron", 0).ok === false);
 check("pact.castOk", F.castBlock(ps) === "");
 
@@ -97,12 +111,12 @@ check("noStats.pactShotNoteKept", /Borrowed Iron has no weapon stats\. Use Pact 
 
 /* 5. lost / disarmed: the slot shows it returning; casting blocked; back at the start of the next turn */
 const away = F.markAway(ps, { combat: true, turn: "turn:2:pc1" });
-const fsA = D.focusState(ps);
-check("return.away", away.ok && away.away && !!ps.borrowedIronAway && fsA.away === true, J(away));
-check("return.note", /returns at the start of your next turn/i.test(fsA.note), fsA.note);
-const cellA = focusCell(D.html(ps, {}));
+const irA = D.ironState(ps);
+check("return.away", away.ok && away.away && !!ps.borrowedIronAway && irA.away === true && D.focusState(ps).ironAway === true, J(away));
+check("return.note", /returns at the start of your next turn/i.test(irA.note), irA.note);
+const cellA = ironCell(D.html(ps, {}), "revolver_2");
 check("return.slotHtml", /doll-away/.test(cellA) && /returns at the start of your next turn/i.test(cellA) && /Borrowed Iron/.test(cellA), cellA.slice(0, 400));
-check("return.pickerBack", /data-doll-iron="back"/.test(D.pickerHtml(ps, "focus_borrowed_iron")));
+check("return.pickerBack", /data-doll-iron="back"/.test(D.pickerHtml(ps, "revolver_2")));
 check("cast.pactBlocked", F.castBlock(ps) === F.NO_IRON && /Borrowed Iron isn't in your hand/.test(F.NO_IRON));
 check("return.sameTurnStays", F.turnStart(ps, "turn:2:pc1") === false && !!ps.borrowedIronAway);
 check("return.nextTurnBack", F.turnStart(ps, "turn:3:pc1") === true && !ps.borrowedIronAway && F.castBlock(ps) === "");
@@ -251,8 +265,8 @@ async function open(setup) {
   await sleep(500);
   return { pg, errs };
 }
-const focusInfo = () => {
-  const s = document.querySelector('#dollHost [data-doll-slot="focus_borrowed_iron"]');
+const focusInfo = (key) => {
+  const s = document.querySelector('#dollHost [data-doll-slot="' + (key || "focus_borrowed_iron") + '"]');
   const btn = (sel) => { const b = document.querySelector(sel); return b ? { disabled: !!b.disabled, title: b.title || "" } : null; };
   return {
     cls: s ? s.className : "", name: s && s.querySelector(".doll-name") ? s.querySelector(".doll-name").textContent : "",
@@ -272,7 +286,9 @@ try {
       window.SSDNSKits.apply(c, "pact-seeker", {}); c.kitStamp = "pact-seeker"; c.cantrips = ["Eldritch Blast"];
     }));
     let f = await pg.evaluate(focusInfo);
-    check("ui.pact.slot", /filled/.test(f.cls) && f.name === "Borrowed Iron" && /borrowed-iron\.webp/.test(f.art) && f.artOk && /In hand/.test(f.note), J(f));
+    const fp = f; f = await pg.evaluate(focusInfo, "revolver_2");
+    check("ui.pact.focusPatron", /doll-focus-patron/.test(fp.cls) && /focus\.webp/.test(fp.art) && fp.artOk, J(fp));
+    check("ui.pact.slot", /filled/.test(f.cls) && /doll-iron/.test(f.cls) && f.name === "Borrowed Iron" && /borrowed-iron\.webp/.test(f.art) && f.artOk && /In hand/.test(f.note), J(f));
     check("ui.pact.castOpen", f.pact && !f.pact.disabled && f.hexBtn && !f.hexBtn.disabled, J(f));
     const row = await pg.evaluate(() => {
       const c = window.SSDNSApp.doc().character, it = c.items.find((x) => x.catalogId === "borrowed-iron");
@@ -282,12 +298,12 @@ try {
     });
     check("ui.pact.itemRowNoDropNoGive", row.has && row.weight === 0 && !row.drop && !row.give, J(row));
     await shot(pg, "#dollHost .doll", "focus-pact-seeker-doll.png");
-    /* in combat: Lost / disarmed from the Focus slot picker */
-    await pg.evaluate(() => { window.SSDNSEquip.setCombat(true); document.querySelector('#dollHost [data-doll-slot="focus_borrowed_iron"]').click(); });
+    /* in combat: Lost / disarmed from the Borrowed Iron's weapon-slot picker */
+    await pg.evaluate(() => { window.SSDNSEquip.setCombat(true); document.querySelector('#dollHost [data-doll-slot="revolver_2"]').click(); });
     await sleep(300);
     await pg.evaluate(() => { const b = document.querySelector('#dollHost [data-doll-iron="away"]'); if (b) b.click(); });
     await sleep(600);
-    f = await pg.evaluate(focusInfo);
+    f = await pg.evaluate(focusInfo, "revolver_2");
     const awayState = await pg.evaluate(() => !!window.SSDNSApp.doc().character.borrowedIronAway);
     check("ui.pact.awayMarked", awayState && /doll-away/.test(f.cls) && /returns at the start of your next turn/i.test(f.note), J(f));
     check("ui.pact.castBlocked", f.pact && f.pact.disabled && /Borrowed Iron isn't in your hand/.test(f.pact.title) && f.hexBtn.disabled && /isn't in your hand/.test(f.pactNote), J(f));
@@ -300,7 +316,7 @@ try {
     /* the owner's next turn starts: it's back */
     await pg.evaluate(() => window.SSDNSFocus.onTurn("turn:9:next", true, true));
     await sleep(500);
-    f = await pg.evaluate(focusInfo);
+    f = await pg.evaluate(focusInfo, "revolver_2");
     check("ui.pact.backNextTurn", !/doll-away/.test(f.cls) && /In hand/.test(f.note) && f.pact && !f.pact.disabled && !f.hexBtn.disabled, J(f));
     check("ui.pact.noPageErrors", errs.length === 0, errs.join(" | "));
     await pg.browserContext().close();

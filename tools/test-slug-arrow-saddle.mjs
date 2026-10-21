@@ -40,7 +40,9 @@ const pn = Store.grantPlan({ name: "Slug shells, 12 ga (10)" });
 check("slug.planByName", pn.kind === "ammo" && pn.type === "slug" && pn.caliber === "12 ga" && pn.qty === 10, J(pn));
 const pbn = Store.grantPlan({ name: "Buckshot shells, .410 (10)" });
 check("buck.planByName", pbn.type === "buck" && pbn.caliber === ".410", J(pbn));
-if (book) check("book.L4212", /buckshot or slugs at the same price/i.test(book[4211] || ""), book[4211]);
+// The line number drifts as BOOK1 grows (it was L4212), so search the whole book for the sentence.
+const slugLine = book ? book.find(l => /buckshot or slugs at the same price/i.test(l)) : null;
+if (book) check("book.L4212", !!slugLine, slugLine || book[4211]);
 else console.log("skip  book.L4212 (no BOOK1.md on this machine)");
 const CW = ctx.SSDNS_CARRY_WEIGHTS.ammoEach;
 check("weights.dynamiteArrow", CW["arrows:dynamite"] === 1.05 && CW.arrows === 0.05 && CW.slug === 0.1, J(CW));
