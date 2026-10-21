@@ -31,6 +31,9 @@
   /* Square 256 tiles for guns whose only other art is the 3:1 engraving (a 32px square crops it). */
   var WEAPON_TILE = { blacksnake: "assets/img/items/caster/blacksnake.webp", hognose: "assets/img/items/caster/hognose.webp" };
   var GENERIC_TILE = "assets/img/items/borrowed-iron.webp";
+  /* 0.3.100 (Jessey 2026-10-21 4:35 PM): a hidden LONG iron shows a plain long-gun outline (1200x400 SVG, muzzle right,
+     empty-slot glyph style) instead of the revolver tile. It only says "long gun", which the type label already shows. */
+  var HIDDEN_LONG = "assets/img/items/borrowed-iron-long-outline.svg";
 
   function prefix() {
     try { return ((root.location && root.location.pathname) || "").indexOf("/dm/") >= 0 ? "../" : ""; } catch (e) { return ""; }
@@ -71,7 +74,7 @@
   /* Item tile for an inventory item on character c: the Borrowed Iron gets its pact tile; "" = keep the item's own art. */
   function itemTile(item, c, opts) {
     if (!item) return "";
-    if (isIronItem(item)) return tileSrc(c, opts);
+    if (isIronItem(item)) return tileSrc(c, opts) || hiddenArt(c, opts);
     return weaponTile(item.weaponId || item.catalogId || "");
   }
 
@@ -120,6 +123,12 @@
   /* the pact's iron slug for shape/type only (never for its name or art) */
   function shapeSlug(c) { return isPact(c) ? pactSlug(c) : ""; }
   function isLongIron(c) { return !!LONG_IRON[shapeSlug(c)]; }
+  /* The hidden-iron art for this viewer: the long-gun outline for a long iron not yet revealed, else "" (callers keep the
+     generic tile; a revealed iron uses its own art). */
+  function hiddenArt(c, opts) {
+    if (!isPact(c) || slugFor(c, opts) || !isLongIron(c)) return "";
+    return prefix() + HIDDEN_LONG;
+  }
   function typeFor(c) { return IRON_TYPE[shapeSlug(c)] || ""; }
   /* "Borrowed Iron — Lever-action carbine" (just "Borrowed Iron" before a Pact name is picked) */
   function labelFor(c) { var t = typeFor(c); return t ? "Borrowed Iron — " + t : "Borrowed Iron"; }
@@ -165,7 +174,7 @@
 
   root.SSDNSIronArt = {
     patronSlug: patronSlug, pactName: pactName, patronTile: patronTile, patronFallback: patronFallback, markMissing: markMissing, isLongIron: isLongIron,
-    PACT_SLUG: PACT_SLUG, IRON_NAME: IRON_NAME, GENERIC_TILE: GENERIC_TILE,
+    PACT_SLUG: PACT_SLUG, IRON_NAME: IRON_NAME, GENERIC_TILE: GENERIC_TILE, HIDDEN_LONG: HIDDEN_LONG, hiddenArt: hiddenArt,
     pactSlug: pactSlug, revealed: revealed, slugFor: slugFor, nameFor: nameFor,
     tileSrc: tileSrc, engravingSrc: engravingSrc, weaponTile: weaponTile, itemTile: itemTile,
     IRON_TYPE: IRON_TYPE, typeFor: typeFor, labelFor: labelFor, allowedSlots: allowedSlots,

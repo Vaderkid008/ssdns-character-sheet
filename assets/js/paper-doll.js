@@ -415,6 +415,9 @@
     /* 0.3.96: the pact's own iron tile once the DM has revealed it (iron-art.js); else the generic art below */
     var IA = root.SSDNSIronArt, own = IA && IA.tileSrc ? IA.tileSrc(c) : "";
     if (own) return own;
+    /* 0.3.100 (4:35 PM): hidden long iron -> plain long-gun outline, not the revolver tile */
+    var hid = IA && IA.hiddenArt ? IA.hiddenArt(c) : "";
+    if (hid) return hid;
     var it = borrowedIronItem(c);
     /* 0.3.100: never a fixed Hell Maker left on the item (that's the Crossroads Note's iron, and only once revealed) */
     var src = it ? artFor(it) : "";
@@ -570,7 +573,7 @@
      only a square tile, the square art is contained in the slot, unrotated. Other slots and the Focus mirror keep
      weaponArt() unchanged. */
   var TALL_WEAPON = { long_gun: 1, melee: 1 };
-  function isWideArt(src) { return !!src && !/\/items\//.test(src) && /assets\/img\/(weapons|dm-only)\//.test(src); }
+  function isWideArt(src) { return !!src && (/borrowed-iron-long-outline\.svg$/.test(src) || !/\/items\//.test(src) && /assets\/img\/(weapons|dm-only)\//.test(src)); }
   function slotArt(c, key) {
     if (!TALL_WEAPON[key]) return weaponArt(c, key);
     var IA = root.SSDNSIronArt, A = root.SSDNSWeaponArt;

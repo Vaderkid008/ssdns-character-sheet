@@ -1362,3 +1362,5 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
   object-fit: contain; transform: translate(-50%, -50%) rotate(-90deg); transform-origin: 50% 50%; }
 .doll-slot.doll-tall.doll-weapon.doll-squareart .doll-art { inset: auto; left: 10%; top: 14%; width: 80%; height: 66%; max-width: 80%; max-height: 66%;
   object-fit: contain; transform: none; }
+/* 0.3.100 (4:35 PM): a hidden long iron's card shows the plain long-gun outline at the engraving's 3:1 shape */
+.pact-iron-art.pact-iron-generic.pact-iron-outline { aspect-ratio: 3 / 1; height: auto; }

@@ -1288,7 +1288,10 @@
       box.classList.remove("has-iron");
       var gi = art.querySelector("img");
       if (!gi) { gi = document.createElement("img"); gi.decoding = "async"; art.appendChild(gi); }
-      if (gi.getAttribute("src") !== IA.GENERIC_TILE) { gi.setAttribute("src", IA.GENERIC_TILE); gi.alt = "Borrowed Iron"; art.title = IA.labelFor(c); }
+      /* 0.3.100 (4:35 PM): a hidden long iron shows the plain long-gun outline (wide, like an engraving) */
+      var gsrc = (IA.hiddenArt ? IA.hiddenArt(c) : "") || IA.GENERIC_TILE;
+      art.classList.toggle("pact-iron-outline", gsrc !== IA.GENERIC_TILE);
+      if (gi.getAttribute("src") !== gsrc) { gi.setAttribute("src", gsrc); gi.alt = "Borrowed Iron"; art.title = IA.labelFor(c); }
       return;
     }
     if (art) art.classList.remove("pact-iron-generic");

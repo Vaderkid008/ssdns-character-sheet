@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 120 40" fill="none" stroke="#6b4320" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".6">
+  <!-- Hidden long Borrowed Iron (L0201, Jessey 2026-10-21 4:35 PM): a plain long-gun outline, muzzle right, drawn in the
+       style of the paper-doll empty-slot glyphs. Generic on purpose: it says "long gun" and nothing about which iron. -->
+  <path d="M6 16.5 L31 14.5 L36 16 L36 22.5 L31 23.5 L8 30.5 Q4.5 31 4.5 27.5 L4.5 19 Q4.5 16.7 6 16.5 Z"/>
+  <path d="M36 14.5 H53 V23.5 H36 Z"/>
+  <path d="M53 15 H114 V18.5 H53"/>
+  <path d="M53 20.5 H98 V23 H53"/>
+  <path d="M112 15 V12.5"/>
+  <path d="M40 23.5 Q39 30.5 45.5 30.5 Q51.5 30.5 50.5 23.5"/>
+  <path d="M45 23.5 L44 27"/>
+</svg>

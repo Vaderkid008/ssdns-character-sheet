@@ -80,7 +80,7 @@ check("iron.hellMaker", ir.key === "revolver_2" && /items\/borrowed-iron\/hell-m
 ir = D.ironState(pact("lass-o-lakes", true));
 check("iron.butterRepeaterLongGun", ir.key === "long_gun" && /items\/borrowed-iron\/butter-repeater\.webp$/.test(ir.art), J(ir));
 /* 0.3.100 (Jessey 2026-10-21 12:12 PM): the iron's type (and so its slot) shows from the Pact pick; only its name and art wait for the reveal */
-check("iron.typeFromPickNameHidden", D.ironState(pact("lass-o-lakes")).key === "long_gun" && D.ironState(pact("lass-o-lakes")).ironName === "" && /items\/borrowed-iron\.webp$/.test(D.ironState(pact("lass-o-lakes")).art));
+check("iron.typeFromPickNameHidden", D.ironState(pact("lass-o-lakes")).key === "long_gun" && D.ironState(pact("lass-o-lakes")).ironName === "" && /items\/borrowed-iron-long-outline\.svg$/.test(D.ironState(pact("lass-o-lakes")).art) /* 0.3.100: hidden long iron -> outline */);
 f = D.focusState(pact("", true));
 check("focus.noPactFallback", f.kind === "patron" && f.name === "Patron" && /items\/default\/focus\.webp$/.test(f.art), J(f));
 check("patron.slugs", ["the-crossroads-note", "the-sealed-orders", "lass-o-lakes", "the-last-round", "the-sand-oath", "the-pine-box-contract", "the-drowned-breath"].map((x) => IA.patronSlug({ calling: "pact-seeker", subclass: x })).join(",") ===

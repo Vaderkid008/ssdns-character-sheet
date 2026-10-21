@@ -1415,11 +1415,11 @@
     if (!IA || !item) return "";
     try {
       /* 0.3.100: unrevealed -> the generic tile, never Hell Maker art left on an old item row */
-      if (IA.isIronItem ? IA.isIronItem(item) : item.catalogId === "borrowed-iron") return (IA.engravingSrc ? IA.engravingSrc(c) : "") || (IA.safeIronArt ? IA.safeIronArt(realArt(item)) || withPrefix(IA.GENERIC_TILE) : "");
+      if (IA.isIronItem ? IA.isIronItem(item) : item.catalogId === "borrowed-iron") return (IA.engravingSrc ? IA.engravingSrc(c) : "") || (IA.hiddenArt ? IA.hiddenArt(c) : "") || (IA.safeIronArt ? IA.safeIronArt(realArt(item)) || withPrefix(IA.GENERIC_TILE) : "");
       return IA.itemTile ? IA.itemTile(item, c) || "" : "";
     } catch (e) { return ""; }
   }
-  function isWideArt(src) { return /assets\/img\/(weapons\/|dm-only\/(?!items\/))/.test(String(src || "")); }
+  function isWideArt(src) { return /assets\/img\/(weapons\/|dm-only\/(?!items\/))|borrowed-iron-long-outline\.svg$/.test(String(src || "")); }
   function eqThumb(src, cat) {
     var ph = placeholderFor(cat);
     return '<span class="eq-thumb' + (src ? "" : " eq-ph") + (isWideArt(src) ? " eq-wide" : "") + '"><img loading="lazy" decoding="async" width="32" height="32" alt="" src="' + esc(src || ph) + '"' +
