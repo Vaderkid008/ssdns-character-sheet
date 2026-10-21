@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.112"; // dmcc-playtest-v02112
+const VERSION = "0.2.113"; // dmcc-playtest-v02113
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2034,7 +2034,9 @@ function openDetail(pid) {
   const overlay = $("#detailOverlay");
   if (overlay) overlay.dataset.pid = pid;
   $("#detailTitle").textContent = s.name || pid;
-  $("#detailSub").textContent = [s.calling, "L" + (s.level ?? "?"), s.subclass, s.lineage, "Player: " + (s.player || "?")].filter(Boolean).join(" · ");
+  /* 0.2.113: a Pact Seeker's subtitle names the Pact ("Lass O' Lakes"), the same pact the Borrowed Iron section reads */
+  const pactNm = window.SSDNSIronArt && (s.callingId || s.calling) === "pact-seeker" ? window.SSDNSIronArt.pactName(Object.assign({}, s, { calling: "pact-seeker" })) : "";
+  $("#detailSub").textContent = [s.calling, "L" + (s.level ?? "?"), pactNm || s.subclass, s.lineage, "Player: " + (s.player || "?")].filter(Boolean).join(" · ");
   const ab = s.abilities || {};
   const mods = s.mods || {};
   const abilHtml = ["STR", "DEX", "CON", "INT", "WIS", "CHA"].map((a) =>
@@ -2230,7 +2232,7 @@ function ironSectionHtml(s) {
   if (!name) return `<div class="detail-section"><h3>Borrowed Iron</h3><p class="fine">No Pact name picked yet, so the sheet shows a plain Borrowed Iron.</p></div>`;
   return `<div class="detail-section dm-iron"><h3>Borrowed Iron</h3>
       <div class="dm-iron-row"><img class="dm-iron-tile" src="${esc(IA.tileSrc(c, { dm: true }))}" alt="" width="64" height="64">
-        <div><b>${esc(name)}</b><p class="fine" id="dmIronState">${s.ironRevealed ? "Revealed: the player sees it." : "Hidden: the player sees a plain Borrowed Iron."}</p>
+        <div><b>${esc(name)}</b>${IA.typeFor && IA.typeFor(c) ? ` <span class="fine dm-iron-type">· ${esc(IA.typeFor(c))}</span>` : ""}<p class="fine" id="dmIronState">${s.ironRevealed ? "Revealed: the player sees it." : "Hidden: the player sees a plain Borrowed Iron."}</p>
         <button type="button" class="btn sm" id="btnDmIronReveal">${s.ironRevealed ? "Hide again" : "Reveal to player"}</button></div></div>
       <img class="dm-iron-eng" src="${esc(IA.engravingSrc(c, { dm: true }))}" alt="${esc(name)}">
     </div>`;

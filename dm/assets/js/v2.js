@@ -2878,10 +2878,8 @@ function decorateDetail(pid) {
       <label class="chk fine" id="detailItemDirtyWrap" hidden><input type="checkbox" id="detailItemDirty"> Arrives Dirty (loot gun)</label>
       <div id="detailItemBuilder" class="rew-typed" hidden></div>
       <div class="dm-only-art">
-        <figure>
-          <img src="../assets/img/dm-only/hell-maker.webp" alt="Hell Maker">
-          <figcaption>Hell Maker · DM only · not on player lists</figcaption>
-        </figure>
+        <!-- 0.2.113: no fixed Hell Maker here. It is the Crossroads Note's Borrowed Iron, so it sat on every player's card
+             (a Lass O' Lakes card showed it under the Butter Repeater). Each Pact Seeker's own iron is in the Borrowed Iron section. -->
         <figure>
           <img src="../assets/img/dm-only/the-peace-maker.webp" alt="The Peace Maker">
           <figcaption>The Peace Maker · DM give list</figcaption>
@@ -6178,14 +6176,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.112-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.113-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.112-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.113-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

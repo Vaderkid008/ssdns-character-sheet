@@ -69,6 +69,15 @@
     var ab = abilityModName(cal);
     return Math.max(1, mod(scores[ab]) + 1);
   }
+  /* 0.3.100 (Jessey 2026-10-21 12:22 PM): a Pact Seeker always knows Pact Shot for free (pact-shot.js); it's never a pick */
+  function freeCantrips(draft, names) {
+    var PS = root.SSDNSPactShot;
+    return PS && draft && draft.calling === "pact-seeker" ? PS.countable({ calling: "pact-seeker" }, names || []) : (names || []).filter(Boolean);
+  }
+  function pickPool(callingId, level) {
+    var list = spellEntries(callingId, level), PS = root.SSDNSPactShot;
+    return callingId === "pact-seeker" && level === 0 && PS ? list.filter(function (n) { return !PS.isPactShot(n); }) : list;
+  }
   function spellEntries(callingId, level) {
     var list = (rules().spellLists || {})[callingId];
     var rows = list && list.levels && list.levels[String(level)];
@@ -263,7 +272,7 @@
     }
     if ((step === "spells" || step === "review") && casterAtFirst(cal)) {
       var lim = levelRow(cal);
-      if ((draft.cantrips || []).length !== lim.cantrips) errs.push("Pick " + lim.cantrips + " cantrips.");
+      if (freeCantrips(draft, draft.cantrips).length !== lim.cantrips) errs.push("Pick " + lim.cantrips + " cantrips.");
       if (PREPARED[cal.id]) {
         var cap = preparedMax(cal, draft.scores || {});
         if ((draft.spells || []).length !== cap) errs.push("Prepare " + cap + " spells.");
@@ -283,6 +292,8 @@
     c.lineage = lin ? lin.id : "";
     c.sublineage = sub ? sub.id : "";
     c.calling = cal ? cal.id : "";
+    /* 0.3.100: the wizard's Pact name (Pact Seekers only) */
+    if (c.calling === "pact-seeker" && draft.subclass && (cal.subclasses || []).some(function (x) { return x && x.id === draft.subclass; })) c.subclass = draft.subclass;
     c.fightingStyle = draft.calling === "gunslinger" ? (draft.fightingStyle || "") : (c.fightingStyle || "");
     var level = Number(draft.level) || 1;
     if (level < 1) level = 1;
@@ -303,9 +314,14 @@
     if (draft.bedtime) kitPicks.bedtime = draft.bedtime;
     if (root.SSDNSKits && root.SSDNSKits.apply) root.SSDNSKits.apply(c, c.calling, kitPicks);
     var focus = focusFor(c.calling);
-    if (focus.kind === "borrowed-iron") c.casterGun = "borrowed-iron";
+    if (focus.kind === "borrowed-iron") {
+      c.casterGun = "borrowed-iron";
+      /* 0.3.100: exactly one Borrowed Iron, in the weapon slot its Pact's shape wants */
+      if (root.SSDNSDoll && root.SSDNSDoll.syncIron) { try { root.SSDNSDoll.syncIron(c, { pactChanged: true }); } catch (e) {} }
+    }
     else if (focus.kind !== "caster-gun") c.casterGun = "";
-    c.cantrips = (draft.cantrips || []).slice();
+    c.cantrips = (c.calling === "pact-seeker" ? freeCantrips(draft, draft.cantrips) : (draft.cantrips || [])).slice();
+    if (c.calling === "pact-seeker" && root.SSDNSPactShot) { root.SSDNSPactShot.ensure(c); c.pactShotFree = 1; delete c.pactShotSwap; }
     for (var lv = 1; lv <= 9; lv++) c.spells[lv] = [];
     var prepared = !!PREPARED[c.calling];
     (draft.spells || []).forEach(function (name) {
@@ -369,12 +385,9 @@
     if (draft.calling === "gunslinger" && !draft.fightingStyle) draft.fightingStyle = spec.fightingStyle || "long-gun";
     var lim = levelRow(cal);
     if (casterAtFirst(cal)) {
-      var cantripPool = spellEntries(cal.id, 0);
-      if (!spec.cantrips && cal.id === "pact-seeker") {
-        var pactName = cantripPool.filter(function (n) { return /pact shot|eldritch blast/i.test(n); })[0] || "Pact Shot";
-        var other = cantripPool.filter(function (n) { return n !== pactName; })[0];
-        draft.cantrips = [pactName, other].filter(Boolean).slice(0, lim.cantrips);
-      } else draft.cantrips = (spec.cantrips || cantripPool.slice(0, lim.cantrips)).slice();
+      var cantripPool = pickPool(cal.id, 0);
+      /* 0.3.100: a Pact Seeker's Pact Shot is free, so the picks are all other cantrips */
+      draft.cantrips = freeCantrips(draft, spec.cantrips || cantripPool.slice(0, lim.cantrips)).slice();
       var spellCount = PREPARED[cal.id] ? preparedMax(cal, draft.scores) : lim.known;
       draft.spells = (spec.spells || spellEntries(cal.id, 1).slice(0, spellCount)).slice();
     }
@@ -635,6 +648,7 @@
       });
       csel.addEventListener("change", function () {
         draft.calling = csel.value;
+        draft.subclass = "";
         draft.scores = assignStandard(callingById(draft.calling) || {});
         draft.kit = {};
         draft.fightingStyle = "";
@@ -653,6 +667,20 @@
         var callCard = refById("callings", cal.id);
         var firstLevel = callCard && (callCard.table || []).filter(function (row) { return row && /1st level/i.test(row[0] || ""); })[0];
         if (firstLevel) body.appendChild(el("p", { text: firstLevel[0] + ": " + firstLevel[1] }));
+        /* 0.3.100 (Jessey 2026-10-21 12:12 PM): a Pact Seeker picks the Pact name here (PHB: "Pick a pact name and tell
+           your DM"). The Borrowed Iron lands with it, labelled by its weapon type; its real name waits for the DM's reveal. */
+        if (cal.id === "pact-seeker") {
+          var psel = el("select", { id: "wizPact" });
+          psel.appendChild(option("", "Pick later…", !draft.subclass));
+          (cal.subclasses || []).filter(function (x) { return x && !x.dmOnly; }).forEach(function (x) {
+            psel.appendChild(option(x.id, x.name, x.id === draft.subclass));
+          });
+          psel.addEventListener("change", function () { draft.subclass = psel.value; renderStep(body, draft, step); });
+          body.appendChild(field("Pact name", psel));
+          var IA = root.SSDNSIronArt;
+          var ironLbl = IA && IA.labelFor ? IA.labelFor({ calling: "pact-seeker", subclass: draft.subclass || "" }) : "Borrowed Iron";
+          body.appendChild(el("p", { class: "fine", id: "wizPactIron", text: draft.subclass ? "Pact sealed: your iron takes shape. " + ironLbl + ". Your DM reveals what it really is." : "Your Borrowed Iron takes its shape when you pick a Pact name." }));
+        }
       }
     } else if (step === "abilities") {
       body.appendChild(el("h2", { text: "Ability scores" }));
@@ -864,7 +892,7 @@
         return out;
       }
       function paintCounter() {
-        var cn = (draft.cantrips || []).length, sn = (draft.spells || []).length;
+        var cn = freeCantrips(draft, draft.cantrips).length, sn = (draft.spells || []).length;
         counter.innerHTML = (lim.cantrips ? '<span class="sc-group' + (cn === lim.cantrips ? " full" : "") + '">Cantrips ' + cn + "/" + lim.cantrips + ' <span class="sc-dots">' + dots(cn, lim.cantrips) + "</span></span>" : "") +
           (spCap ? '<span class="sc-group' + (sn === spCap ? " full" : "") + '">1st level ' + sn + "/" + spCap + ' <span class="sc-dots">' + dots(sn, spCap) + "</span></span>" : "");
       }
@@ -878,7 +906,7 @@
         var grid = el("div", { class: "spell-grid", role: "list" });
         body.appendChild(grid);
         var Cast = root.SSDNSSpellCast;
-        spellEntries(draft.calling, level).forEach(function (name) {
+        pickPool(draft.calling, level).forEach(function (name) {
           var on = chosen.indexOf(name) >= 0;
           var row = Cast && Cast.lookup ? Cast.lookup(name) : null;
           var line = Cast && Cast.blurb ? (Cast.blurb(name) || "") : "";
@@ -912,10 +940,25 @@
           grid.appendChild(card);
         });
       }
-      picks("Cantrips", 0, draft.cantrips || [], lim.cantrips);
-      if (draft.calling === "pact-seeker" && !(draft.cantrips || []).some(function (n) { return /pact shot|eldritch blast/i.test(n); })) {
-        body.appendChild(el("p", { text: "Pact Shot counts as one of your cantrips. It is not a free extra." }));
+      /* 0.3.100: Pact Shot shows as already known and locked; it isn't one of the picks */
+      if (draft.calling === "pact-seeker" && root.SSDNSPactShot) {
+        draft.cantrips = freeCantrips(draft, draft.cantrips);
+        var PSw = root.SSDNSPactShot, CastW = root.SSDNSSpellCast;
+        var lockCard = el("div", { class: "spell-card is-picked is-locked", role: "note", id: "wizPactShot" });
+        var lockBtn = el("button", { type: "button", class: "spell-card-pick", disabled: "disabled", "aria-pressed": "true", "aria-disabled": "true", title: "Always known. Free: it doesn't use a cantrip pick." });
+        lockBtn.appendChild(el("span", { class: "spell-check", "aria-hidden": "true", text: "🔒" }));
+        lockBtn.appendChild(el("span", { class: "spell-name", text: PSw.NAME }));
+        lockBtn.appendChild(el("span", { class: "spell-tag", text: "Cantrip · " + PSw.FREE_TAG }));
+        var psLine = CastW && CastW.blurb ? (CastW.blurb(PSw.NAME) || "") : "";
+        if (psLine) lockBtn.appendChild(el("span", { class: "spell-line", text: psLine }));
+        lockCard.appendChild(lockBtn);
+        body.appendChild(el("h3", { class: "spell-section-head", text: "Always known" }));
+        var lockGrid = el("div", { class: "spell-grid", role: "list" });
+        lockGrid.appendChild(lockCard);
+        body.appendChild(lockGrid);
+        body.appendChild(el("p", { class: "fine", text: "Every Pact Seeker knows Pact Shot for free. It doesn't count against your cantrips." }));
       }
+      picks("Cantrips", 0, draft.cantrips || [], lim.cantrips);
       picks(PREPARED[draft.calling] ? "1st level · Prepared" : "1st level · Spells known", 1, draft.spells || [], spCap);
       paintCounter();
     } else if (step === "level") {
@@ -1098,6 +1141,7 @@
     open: open,
     maybeOpen: maybeOpen,
     close: close,
-    isOpen: function () { return ui.open; }
+    isOpen: function () { return ui.open; },
+    draft: function () { return ui.draft; } /* 0.3.100: read-only peek for tools/test-iron-patron.mjs */
   };
 })(typeof window !== "undefined" ? window : globalThis);

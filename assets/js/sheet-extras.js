@@ -571,7 +571,7 @@
     var name = String(item.name || "Item");
     var plan = root.SSDNSStore && root.SSDNSStore.grantPlan ? root.SSDNSStore.grantPlan(item) : { kind: "gear", qty: 1 };
     if (plan.kind === "cartridge" || plan.kind === "ammo") {
-      /* inv2 (0.3.99): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
+      /* inv2 (0.3.100): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
       var ptype = plan.kind === "ammo" ? String(plan.type || "") : "cartridge";
       d.character.ammo = d.character.ammo || [];
       var pool = null;
@@ -1127,7 +1127,8 @@
   function syncCastTargets() {
     var pact = document.querySelector("#btnPactShot");
     if (pact) mountCastTarget(pact);
-    document.querySelectorAll("[data-spell-cast], [data-cast]").forEach(function (btn) { mountCastTarget(btn); });
+    /* 0.3.100: the Borrowed Iron card's quick spell buttons share the Pact Shot button's target picker */
+    document.querySelectorAll("[data-spell-cast], [data-cast]").forEach(function (btn) { if (!btn.classList.contains("iron-spell")) mountCastTarget(btn); });
   }
   function sourceSelect() {
     var btn = castSource;

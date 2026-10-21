@@ -27,6 +27,7 @@
     var t = $("#toastText"), box = $("#toast");
     if (t && box) { t.textContent = msg; box.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(function () { box.hidden = true; }, 3200); }
   }
+  function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (ch0) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch0]; }); }
   function patch(fn) {
     if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(fn);
   }
@@ -1228,12 +1229,69 @@
     if (!box) return;
     box.hidden = !(c && c.calling === "pact-seeker");
     paintIronArt(box, c);
+    paintIronSpells(box, c);
+  }
+  /* 0.3.100 (Jessey approved 2026-10-21 12:22 PM CT): the Borrowed Iron fires only spells, so its card has no weapon
+     attack: quick spell buttons for the attack cantrips / spells this Pact Seeker knows, Pact Shot first (#btnPactShot).
+     They use the sheet's own cast path ([data-spell-cast]: target picker, log, map FX) and are blocked with the rest when
+     the iron isn't in hand (focus-slot.js). Fixed Bayonet (Pact of the Blade, BOOK1 L2017): the bayonet form keeps a
+     normal melee attack ([data-melee-roll], the Melee card's own roll). */
+  function paintIronSpells(box, c) {
+    var PS = root.SSDNSPactShot;
+    var wrap = $("#pactIronSpells");
+    if (box.hidden || !PS) { if (wrap) wrap.hidden = true; return; }
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.id = "pactIronSpells";
+      wrap.className = "pact-iron-spells";
+      box.appendChild(wrap);
+    }
+    wrap.hidden = false;
+    var pact = $("#btnPactShot");
+    if (pact) { pact.textContent = "Pact Shot"; pact.setAttribute("data-iron-spell", "pact"); }
+    var list = PS.quickSpells(c).filter(function (q) { return !q.pact; });
+    var html = list.map(function (q) {
+      return '<button type="button" class="btn sm iron-spell" data-spell-cast="' + esc(q.value) + '" title="Cast ' + esc(q.full || q.name) + (q.level ? " (level " + q.level + ")" : "") + ' through the Borrowed Iron">' + esc(q.name) + (q.level ? " · L" + q.level : "") + "</button>";
+    }).join(" ");
+    if (PS.boonOpen(c)) {
+      html += ' <label class="tiny pact-boon">Pact Boon <select data-pact-boon>' + PS.BOONS.map(function (b) {
+        return '<option value="' + esc(b[0]) + '"' + ((c.pactBoon || "") === b[0] ? " selected" : "") + ">" + esc(b[1]) + "</option>";
+      }).join("") + "</select></label>";
+    }
+    if (PS.bayonet(c)) {
+      var bi = PS.bayonetIndex(c), melee = ((root.SSDNS_RULES && root.SSDNS_RULES.melee) || []);
+      var cur = bi >= 0 ? c.melee[bi].weapon : "";
+      html += ' <label class="tiny pact-bayonet">Bayonet form <select data-pact-bayonet><option value="">Pick a PHB melee weapon…</option>' + melee.map(function (w) {
+        return '<option value="' + esc(w.id) + '"' + (w.id === cur ? " selected" : "") + ">" + esc(w.name) + "</option>";
+      }).join("") + "</select></label>";
+      if (bi >= 0) html += ' <button type="button" class="btn sm iron-bayonet" data-melee-roll="' + bi + '" title="Melee attack with the bayonet (a normal weapon attack; the gun part still fires only spells)">Bayonet attack</button>';
+    }
+    if (wrap.getAttribute("data-html") !== html) { wrap.innerHTML = html; wrap.setAttribute("data-html", html); }
+    if (root.SSDNSFocus && root.SSDNSFocus.paintCastBlock) { try { root.SSDNSFocus.paintCastBlock(); } catch (e) {} }
   }
   /* 0.3.96: the Borrowed Iron card shows the pact's engraving (1200x400, muzzle right) once the DM has revealed it */
   function paintIronArt(box, c) {
     var IA = root.SSDNSIronArt;
+    /* 0.3.100 (Jessey 2026-10-21 12:11 / 12:12 PM): the card is labelled by the iron's type from the Pact pick
+       ("Borrowed Iron — Lever-action carbine"). Its real name and engraving wait for the DM's reveal; until then the
+       card shows the plain Borrowed Iron tile. */
+    var head = box.querySelector("b");
+    if (head && IA && IA.labelFor) { var lbl = IA.labelFor(c); if (head.textContent !== lbl) head.textContent = lbl; }
     var src = !box.hidden && IA ? IA.engravingSrc(c) : "", name = src ? IA.nameFor(c) : "";
+    var generic = !src && !box.hidden && IA && IA.GENERIC_TILE && IA.labelFor && IA.labelFor(c) !== "Borrowed Iron";
     var art = $("#pactIronArt"), tag = $("#pactIronName");
+    if (!src && generic) {
+      if (tag) tag.hidden = true;
+      if (!art) { art = document.createElement("div"); art.id = "pactIronArt"; art.className = "pact-iron-art"; box.insertBefore(art, box.firstChild); }
+      art.hidden = false;
+      art.classList.add("pact-iron-generic");
+      box.classList.remove("has-iron");
+      var gi = art.querySelector("img");
+      if (!gi) { gi = document.createElement("img"); gi.decoding = "async"; art.appendChild(gi); }
+      if (gi.getAttribute("src") !== IA.GENERIC_TILE) { gi.setAttribute("src", IA.GENERIC_TILE); gi.alt = "Borrowed Iron"; art.title = IA.labelFor(c); }
+      return;
+    }
+    if (art) art.classList.remove("pact-iron-generic");
     if (!src) {
       if (art) art.hidden = true;
       if (tag) tag.hidden = true;
@@ -1452,7 +1510,7 @@
       rows.sort(function (a, b) { return rank(a) - rank(b); });
       /* 0.3.67: 'Free shot' is always the first entry: the gun fires with no target, no attack roll vs AC. */
       var html = "<option value='__free'>Free shot</option><option value=''>No target</option>";
-      /* fog-aware targeting (0.3.99): on the map's scene with fog on, only what this player can see; past the
+      /* fog-aware targeting (0.3.100): on the map's scene with fog on, only what this player can see; past the
          picked weapon's long range stays listed but can't be picked. The map answers null when it can't tell. */
       var mapHost = root.SSDNSMapHost && typeof root.SSDNSMapHost.targetSight === "function" ? root.SSDNSMapHost : null;
       var sightOf = function (id) { try { return mapHost ? mapHost.targetSight(String(id)) : null; } catch (e) { return null; } };
@@ -1577,6 +1635,20 @@
     document.addEventListener("change", function (e) {
       var t = e.target;
       if (!t) return;
+      /* 0.3.100: the Borrowed Iron card's Pact Boon pick and the Fixed Bayonet's melee form */
+      if (t.hasAttribute && t.hasAttribute("data-pact-boon")) {
+        var boon = t.value;
+        patch(function (d) { d.character.pactBoon = boon; if (boon !== "blade" && root.SSDNSPactShot) { var bi = root.SSDNSPactShot.bayonetIndex(d.character); if (bi >= 0) d.character.melee.splice(bi, 1); } });
+        syncSheet();
+        return;
+      }
+      if (t.hasAttribute && t.hasAttribute("data-pact-bayonet")) {
+        var form = t.value, res;
+        patch(function (d) { res = root.SSDNSPactShot ? root.SSDNSPactShot.setBayonetForm(d.character, form) : { ok: false, reason: "Not loaded." }; });
+        if (res && !res.ok) toast(res.reason);
+        syncSheet();
+        return;
+      }
       if (t.id === "selBackground") setTimeout(function () {
         var cnow = ch();
         var bg = cnow && byId(rules().backgrounds)[cnow.background];
@@ -1640,6 +1712,7 @@
       if (!t) return;
       if (t.id === "btnApplyKit") applyKit(true);
       if (t.id === "btnEndTurn") endTurn();
+      if (t.id === "btnPactShot" && t.disabled) return;
       if (t.id === "btnPactShot") {
         if (root.SSDNSSheet && root.SSDNSSheet.castNamed) root.SSDNSSheet.castNamed("Pact Shot");
         else toast("Pact Shot isn't ready.");

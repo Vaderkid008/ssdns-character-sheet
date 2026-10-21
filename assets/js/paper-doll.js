@@ -151,8 +151,14 @@
   }
   function img(name) { return base() + "assets/images/doll/" + name; }
   function wearOf(it) { return String((it && it.wear) || "").toLowerCase(); }
+  /* 0.3.100 (L0201; Jessey 2026-10-21 12:11 PM): the Borrowed Iron rides in a weapon slot only, never a worn slot */
+  function isIronItem(it) {
+    var IA = root.SSDNSIronArt;
+    return !!it && (IA && IA.isIronItem ? IA.isIronItem(it) : it.catalogId === "borrowed-iron");
+  }
   function fits(it, key) {
     var s = SLOTS[key]; if (!s || !it) return false;
+    if (isIronItem(it)) return false;
     if (it.type === "consumable" || it.type === "scroll" || it.type === "explosive" || it.type === "weapon" && key !== "accessory_8") return false;
     return s[1].indexOf(wearOf(it)) >= 0;
   }
@@ -177,6 +183,7 @@
     if (!uid) { if (cur) { if (cur.cursed) return { ok: false, reason: "Cursed. It won't come off." }; cur.equipSlot = ""; linkSlot(c, cur, key, false); } return { ok: true }; }
     var it = items(c).filter(function (x) { return x && x.uid === uid; })[0];
     if (!it) return { ok: false, reason: "No item." };
+    if (isIronItem(it)) return { ok: false, reason: ironOnlyMsg(c) };
     if (!fits(it, key)) return { ok: false, reason: it.name + " doesn't go in the " + SLOTS[key][0] + " slot." };
     if (isPairItem(it) && (key === "holster_l" || key === "holster_r")) {
       /* Pair: clear both sides (items and PHB pickers), then sit in holster_l covering both. */
@@ -370,7 +377,7 @@
        Other Callings keep their focus (instrument) as before (returns null here). */
   var NO_CASTER = "No Caster Gun equipped, can't cast.";
   function isCasterWeapon(w) { return !!w && (w.group === "caster" || !!w.hexShells) && w.id !== "borrowed-iron"; }
-  /* 0.3.99 (Jessey 2026-10-20 9:53 PM): a weapon that is also a focus fills BOTH its weapon slot and the Focus slot.
+  /* 0.3.100 (Jessey 2026-10-20 9:53 PM): a weapon that is also a focus fills BOTH its weapon slot and the Focus slot.
      Flagged by the weapon row or its gun row / catalog item (weaponFocus or isFocus); Caster Guns always count. */
   var WEAPON_KEYS = ["revolver_1", "revolver_2", "long_gun", "melee"];
   function isFocusWeapon(w, g) {
@@ -409,24 +416,35 @@
     var IA = root.SSDNSIronArt, own = IA && IA.tileSrc ? IA.tileSrc(c) : "";
     if (own) return own;
     var it = borrowedIronItem(c);
+    /* 0.3.100: never a fixed Hell Maker left on the item (that's the Crossroads Note's iron, and only once revealed) */
     var src = it ? artFor(it) : "";
+    if (IA && IA.safeIronArt) src = IA.safeIronArt(src);
     if (src && !isDefaultArt(src)) return src;
     var base = gearArtBase();
     return base + "assets/img/items/borrowed-iron.webp";
   }
-  /* 0.3.99 (Jessey 2026-10-20 9:53 PM): the Borrowed Iron moves out of the Focus slot into a weapon slot (all the L0197
+  /* 0.3.100 (Jessey 2026-10-20 9:53 PM): the Borrowed Iron moves out of the Focus slot into a weapon slot (all the L0197
      mechanics stay: soul-bound, away until the start of the owner's next turn, no Pact casting while away). It's display
      only: character.ironSlot is the slot it prefers; if a gun sits there now it takes the next free one. No free slot ->
      it is still in hand (nothing changes), the Focus slot picker says so. */
   var IRON_ORDER = ["revolver_2", "revolver_1", "long_gun", "melee"];
   var IRON_NO_SLOT = "No free weapon slot on the paper doll, so the Borrowed Iron isn't drawn there. It's still in your hand.";
+  /* 0.3.100 (L0201): weapon slots only, by the iron's shape (iron-art.js allowedSlots): a long iron rides in Long gun,
+     a one-handed iron in Pistol R / Pistol L. Before a Pact name: any gun slot. */
+  function ironSlots(c) {
+    var IA = root.SSDNSIronArt;
+    return IA && IA.allowedSlots ? IA.allowedSlots(c) : IRON_ORDER;
+  }
+  function ironLabel(c) { var IA = root.SSDNSIronArt; return IA && IA.labelFor ? IA.labelFor(c) : "Borrowed Iron"; }
+  function ironOnlyMsg(c) {
+    return ironLabel(c) + " goes in a weapon slot only: " + ironSlots(c).map(function (k) { return WEAPON_SLOTS[k]; }).join(" or ") + ".";
+  }
   function ironSlot(c) {
     if (!c || c.calling !== "pact-seeker" || !borrowedIronItem(c)) return "";
     var free = function (k) { return !weaponRow(c, k); };
+    var order = ironSlots(c);
     var want = c.ironSlot;
-    if (want && IRON_ORDER.indexOf(want) >= 0 && free(want)) return want;
-    var IA = root.SSDNSIronArt;
-    var order = IA && IA.isLongIron && IA.isLongIron(c) ? ["long_gun"].concat(IRON_ORDER.filter(function (k) { return k !== "long_gun"; })) : IRON_ORDER;
+    if (want && order.indexOf(want) >= 0 && free(want)) return want;
     for (var i = 0; i < order.length; i++) if (free(order[i])) return order[i];
     return "";
   }
@@ -434,16 +452,55 @@
     var key = ironSlot(c);
     if (!key && !(c && c.calling === "pact-seeker" && borrowedIronItem(c))) return null;
     var away = !!(c && c.borrowedIronAway);
-    var IA = root.SSDNSIronArt, nm = IA && IA.nameFor ? IA.nameFor(c) : "";
-    return { key: key, name: "Borrowed Iron", ironName: nm, art: borrowedIronArt(c), away: away,
-      note: away ? "Away: returns at the start of your next turn" : "In hand · " + (nm || "soul-bound") };
+    var IA = root.SSDNSIronArt, nm = IA && IA.nameFor ? IA.nameFor(c) : "", ty = IA && IA.typeFor ? IA.typeFor(c) : "";
+    /* 0.3.100: the type shows from the Pact pick; the real name only once the DM reveals it */
+    return { key: key, name: "Borrowed Iron", ironName: nm, ironType: ty, label: ironLabel(c), art: borrowedIronArt(c), away: away,
+      note: away ? "Away: returns at the start of your next turn" : "In hand · " + (nm || ty || "soul-bound") };
   }
   function setIronSlot(c, key) {
     if (!c || c.calling !== "pact-seeker") return { ok: false, reason: "Only a Pact Seeker has a Borrowed Iron." };
-    if (IRON_ORDER.indexOf(key) < 0) return { ok: false, reason: "Not a weapon slot." };
+    if (ironSlots(c).indexOf(key) < 0) return { ok: false, reason: ironOnlyMsg(c) };
     if (weaponRow(c, key)) return { ok: false, reason: "Unequip what's in " + WEAPON_SLOTS[key] + " first." };
     c.ironSlot = key;
     return { ok: true };
+  }
+  /* 0.3.100 (Jessey 2026-10-21 12:12 PM: "Needs to appear when they pick their patron"): a Pact Seeker always has
+     exactly one Borrowed Iron item, never in a worn slot. pactChanged (the wizard pick or the sheet's Pact name picker)
+     also moves it to the weapon slot its shape wants when that slot is free. Soul-bound rules, borrowedIronAway and the
+     cast block are untouched. Returns true when something changed. */
+  function ironNeedsFix(c) {
+    if (!c || c.calling !== "pact-seeker") return false;
+    var irons = items(c).filter(isIronItem);
+    var IA = root.SSDNSIronArt;
+    return irons.length !== 1 || irons.some(function (it) { return !!it.equipSlot; }) || !!(IA && IA.fixStaleIron && IA.fixStaleIron(c, { dry: true }));
+  }
+  function syncIron(c, opts) {
+    if (!c || c.calling !== "pact-seeker") return false;
+    var changedAny = false, IA = root.SSDNSIronArt;
+    if (IA && IA.fixStaleIron && IA.fixStaleIron(c)) changedAny = true;
+    var irons = items(c).filter(isIronItem);
+    if (irons.length > 1) {
+      var keep = irons[0];
+      c.items = items(c).filter(function (it) { return !isIronItem(it) || it === keep; });
+      irons = [keep];
+      changedAny = true;
+    }
+    if (!irons.length) {
+      var K = root.SSDNSKits;
+      if (K && K.ensureBorrowedIron && K.ensureBorrowedIron(c)) changedAny = true;
+      irons = items(c).filter(isIronItem);
+    }
+    irons.forEach(function (it) {
+      if (it.equipSlot) { it.equipSlot = ""; changedAny = true; }
+      if (Number(it.count == null ? 1 : it.count) !== 1) { it.count = 1; changedAny = true; }
+    });
+    if (opts && opts.pactChanged && irons.length) {
+      var free = function (k) { return !weaponRow(c, k); };
+      var want = ironSlots(c).filter(free)[0] || "";
+      if (c.ironSlot !== want) { c.ironSlot = want; changedAny = true; }
+      if (!want) c.ironSlotNote = IRON_NO_SLOT; else delete c.ironSlotNote;
+    }
+    return changedAny;
   }
   function focusState(c) {
     var calling = c && c.calling;
@@ -657,7 +714,7 @@
     } else if (irs) {
       rows = btn("data-doll-noop", "Borrowed Iron · " + (irs.away ? "away" : "in hand"), !irs.away) + " " +
         (irs.away ? btn('data-doll-iron="back"', "Back in hand", false) : btn('data-doll-iron="away"', "Lost / disarmed", false)) + " " +
-        IRON_ORDER.filter(function (k) { return k !== key && !weaponRow(c, k); }).map(function (k) { return btn('data-doll-ironslot="' + k + '"', "Move to " + WEAPON_SLOTS[k], false); }).join(" ");
+        ironSlots(c).filter(function (k) { return k !== key && !weaponRow(c, k); }).map(function (k) { return btn('data-doll-ironslot="' + k + '"', "Move to " + WEAPON_SLOTS[k], false); }).join(" ");
       var others = weaponOptions(c, key).map(function (x) { return btn('data-doll-weapon="' + x.i + '"', x.name + (x.equipped ? "" : " · packed"), false); }).join(" ");
       if (others) rows += " " + others;
       hint = ironHint;
@@ -679,7 +736,9 @@
       }).join(" ");
       if (cur) rows += " " + btn('data-doll-weapon=""', "Unequip", false);
       hint = "Picking a weapon here sets it Equipped on Gear.";
-      if (!cur && c && c.calling === "pact-seeker" && borrowedIronItem(c) && IRON_ORDER.indexOf(key) >= 0) rows += " " + btn('data-doll-ironslot="' + key + '"', "Borrowed Iron here", false);
+      if (!cur && c && c.calling === "pact-seeker" && borrowedIronItem(c) && ironSlots(c).indexOf(key) >= 0) rows += " " + btn('data-doll-ironslot="' + key + '"', "Borrowed Iron here", false);
+      /* 0.3.100: say why the iron isn't offered here */
+      else if (c && c.calling === "pact-seeker" && borrowedIronItem(c) && ironSlots(c).indexOf(key) < 0) hint += " " + ironOnlyMsg(c);
     }
     if (fpk && insRows) rows += " " + insRows;
     return '<div class="doll-pick" data-doll-pick="' + key + '"><b>' + esc(label) + "</b> " + (rows || '<span class="fine">Nothing you carry fits here.</span>') +
@@ -706,11 +765,13 @@
     } else if (key === "gunbelt") {
       extra = '<label class="tiny">Belt <select data-doll-belt>' + opt("", "None", c.belt) + (rr.holsters || []).filter(function (h) { return h.isRig === false; }).map(function (h) { return opt(h.id, h.name, c.belt); }).join("") + "</select></label>";
     }
+    var ironNote = c && c.calling === "pact-seeker" && borrowedIronItem(c) ? ironOnlyMsg(c) : "";
     var hint = key === "vest" ? "Same as Armor on Gear; either one updates the other." : key === "accessory_8" ? "Same as the Shield box on Gear. A two-handed weapon turns a shield off." : key === "holster_l" ? "Same as Holster L on Gear. Pistol L draws from it and gets its first-shot bonus." : key === "holster_r" ? "Same as Holster R on Gear. Pistol R draws from it and gets its first-shot bonus." : key === "gunbelt" ? "Same as Belt on Gear. A gun belt or bandolier feeds Tactical Reload." : "";
     return '<div class="doll-pick" data-doll-pick="' + key + '"><b>' + esc(label) + "</b> " + (extra ? extra + " " : "") + (rows || (extra ? "" : '<span class="fine">Nothing you carry fits here.</span>')) +
       (cur ? ' <button type="button" class="btn sm" data-doll-put="">Take off</button>' : "") +
       ' <button type="button" class="btn sm" data-doll-close>Close</button>' +
-      (hint ? '<p class="fine">' + esc(hint) + "</p>" : "") + (att ? '<p class="fine">Attuned ' + esc(att) + "</p>" : "") + "</div>";
+      (hint ? '<p class="fine">' + esc(hint) + "</p>" : "") + (att ? '<p class="fine">Attuned ' + esc(att) + "</p>" : "") +
+      (ironNote ? '<p class="fine doll-iron-only">' + esc(ironNote) + "</p>" : "") + "</div>";
   }
 
   var openKey = "";
@@ -798,5 +859,5 @@
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, weaponRow: weaponRow, setWeapon: setWeapon, focusState: focusState, casterInHand: casterInHand, ironSlot: ironSlot, ironState: ironState, setIronSlot: setIronSlot, IRON_NO_SLOT: IRON_NO_SLOT, isFocusWeapon: isFocusWeapon, focusWeaponInHand: focusWeaponInHand, isCasterWeapon: isCasterWeapon, NO_CASTER: NO_CASTER, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
+  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, weaponRow: weaponRow, setWeapon: setWeapon, focusState: focusState, casterInHand: casterInHand, ironSlot: ironSlot, ironState: ironState, setIronSlot: setIronSlot, IRON_NO_SLOT: IRON_NO_SLOT, ironSlots: ironSlots, ironOnlyMsg: ironOnlyMsg, syncIron: syncIron, ironNeedsFix: ironNeedsFix, isIronItem: isIronItem, isFocusWeapon: isFocusWeapon, focusWeaponInHand: focusWeaponInHand, isCasterWeapon: isCasterWeapon, NO_CASTER: NO_CASTER, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -23,8 +23,8 @@ function load(rel, name) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.99" && version.sheetBuild === "sheet-playtest-v0399");
-check("ver.dmcc", version.dmcc === "0.2.112" && version.dmccBuild === "dmcc-playtest-v02112");
+check("ver.sheet", version.sheet === "0.3.100" && version.sheetBuild === "sheet-playtest-v03100");
+check("ver.dmcc", version.dmcc === "0.2.113" && version.dmccBuild === "dmcc-playtest-v02113");
 
 [4, 6, 8, 10, 12, 20, 50, 100].forEach((n) => {
   check("file.d" + n, fs.existsSync(path.join(root, "assets/img/dice", "d" + n + ".webp")));
@@ -93,7 +93,9 @@ check("peace.sheet", !sheet.includes("assets/img/dm-only/"));
 const v2 = read("dm/assets/js/v2.js");
 const catalog = v2.slice(v2.indexOf("function catalog("), v2.indexOf("function fillCatalogCats"));
 check("peace.catalog", !catalog.includes("Peace") && !catalog.includes("SSDNSPeaceMaker"));
-check("peace.give", v2.includes("SSDNSPeaceMaker") && v2.includes("the-peace-maker.webp") && v2.includes("hell-maker.webp"));
+check("peace.give", v2.includes("SSDNSPeaceMaker") && v2.includes("the-peace-maker.webp"));
+/* 0.2.113: the fixed Hell Maker figure is gone from every player card (it is the Crossroads Note iron only) */
+check("hell.noFixedFigure", !v2.includes("dm-only/hell-maker.webp"));
 
 ["Ore Scholar's Robe", "True-Measure Ore Kit", "Night-Prospector's Cape", "Ore Buyer's Signet", "Prospector's Touch"].forEach((name) => {
   check("rename.absent." + name, !rules.includes(name) && !store.includes(name));

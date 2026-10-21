@@ -193,6 +193,8 @@ body.sheet-readonly .tab-warn button { pointer-events: auto; }
 .pact-iron-art { flex: 1 1 100%; aspect-ratio: 3 / 1; max-width: 520px; border: 1px solid #c4b497; background: #fffaf3; border-radius: 4px; overflow: hidden; }
 .pact-iron-art img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
 .pact-iron-name { font-weight: 600; }
+/* 0.3.100: before the DM reveals the iron, the card shows the plain square Borrowed Iron tile, centred */
+.pact-iron-art.pact-iron-generic { aspect-ratio: auto; height: 120px; }
 
 /* ---------------- page 1 grid */
 .main-grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; grid-template-areas: "c1 c2 c3" "c1 feat feat"; gap: 12px; align-items: start; }
@@ -1256,7 +1258,7 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .give-picker select, .give-picker input[type=number] { min-width: 12em; }
 .give-prompt .give-what { font-size: 1.15em; margin: 6px 0 10px; }
 
-/* ---------------- 0.3.99 Equipment list (Jessey 2026-10-20 mockup): grouped, filterable, dense rows */
+/* ---------------- 0.3.100 Equipment list (Jessey 2026-10-20 mockup): grouped, filterable, dense rows */
 .item-gear.eq { margin: 10px 0 12px; padding-top: 6px; border-top: 1px solid rgba(43,29,18,.35); }
 .eq-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .eq-head h2 { font-size: 22px; }
@@ -1315,7 +1317,7 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
   .eq-more { margin-left: 0; }
 }
 
-/* L0197 (0.3.99): Focus slot by Calling. Pact Seeker = Borrowed Iron (away = faded, returns next turn);
+/* L0197 (0.3.100): Focus slot by Calling. Pact Seeker = Borrowed Iron (away = faded, returns next turn);
    Hexslinger = read-only mirror of the Caster Gun in Pistol L / R, or the no-gun message. */
 .doll-slot .doll-focus-note { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 2; width: max-content; max-width: 86%; padding: .1em .45em; border-radius: 3px;
   font: 700 max(7px, 1.25cqw)/1.2 Georgia, "Times New Roman", serif; text-align: center; color: #f4e6c4; background: rgba(46,27,13,.86); border: 1px solid #b08a4a; pointer-events: none; }
@@ -1344,3 +1346,11 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
 .gun.is-wrecked .g-photo { filter: grayscale(.85) sepia(.3); }
 .gun.is-wrecked [data-reload], .gun.is-wrecked [data-roll] { opacity: .55; }
 .shell-note { display: block; color: #6b3d1e; font-style: italic; margin-top: 2px; }
+
+/* 0.3.100: Borrowed Iron card quick spells (Pact Shot first), Pact Boon / Fixed Bayonet, the free Pact Shot */
+.pact-iron-spells { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1 1 100%; }
+.pact-iron-spells .tiny select { max-width: 220px; }
+.pact-shot-swap { margin: 4px 0; padding: 6px 8px; border: 1px solid #8d1c14; background: #fff1e0; color: #6b1a12; font-size: 13px; }
+.sp-free-tag { color: #6b3f12; font-style: italic; }
+.spell-card.is-locked .spell-card-pick { cursor: default; }
+.spell-card.is-locked .spell-check { background: #6b3f12; border-color: #6b3f12; }

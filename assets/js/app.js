@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.99"; // sheet-playtest-v0399
+  var APP_VERSION = "0.3.100"; // sheet-playtest-v03100
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -198,11 +198,17 @@
       var merged = window.SSDNSItems.mergeExplosives(doc.character);
       if (merged) notes.push("Moved " + merged + " explosive line(s) into Items (Use button).");
     }
-    /* 0.3.99 Equipment: starting-kit lines in the notes become real items / rigs (kits.js; old notes kept in
+    /* 0.3.100 Equipment: starting-kit lines in the notes become real items / rigs (kits.js; old notes kept in
        character.equipmentBefore0392). At first boot kits.js isn't loaded yet; it runs the same step itself. */
     if (doc.character && window.SSDNSKits && window.SSDNSKits.migrateEquipment) {
       var kitMoved = window.SSDNSKits.migrateEquipment(doc.character);
       if (kitMoved) notes.push("Moved " + kitMoved + " starting-kit line(s) from the Equipment notes into Equipment items.");
+    }
+    /* 0.3.100 (Jessey 2026-10-21 12:22 PM): Pact Shot is free for every Pact Seeker (pact-shot.js) */
+    if (doc.character && window.SSDNSPactShot) {
+      var ps = window.SSDNSPactShot.migrate(doc.character);
+      if (ps === "swap") notes.push(window.SSDNSPactShot.SWAP_NOTE);
+      else if (ps === "added") notes.push("Pact Shot is free for every Pact Seeker: added to your cantrips (it doesn't count against cantrips known).");
     }
     if (doc.character) {
       var moved50 = moveBigFiftyPools(doc.character);
@@ -221,7 +227,7 @@
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
   }
-  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.99 landed in a cartridge pool (caliber .50-90) that the
+  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.100 landed in a cartridge pool (caliber .50-90) that the
       Big Fifty never reads, weighing 0.05 lb a round. Move them to the bigfifty pool (0.15 lb). Returns rounds moved. */
   function moveBigFiftyPools(c) {
     if (!c || !Array.isArray(c.ammo)) return 0;
@@ -553,6 +559,8 @@
     return out;
   }
   function countKnown(level) {
+    /* 0.3.100: a Pact Seeker's free Pact Shot doesn't count against cantrips known */
+    if (level === 0 && window.SSDNSPactShot) return window.SSDNSPactShot.countable(C(), knownCantrips().map(function (k) { return k.name; })).length;
     return level === 0 ? knownCantrips().length : knownSpellsAt(level).length;
   }
   function totalKnownSpells() {
@@ -602,6 +610,8 @@
     changed();
   }
   function removeKnownSpell(level, index) {
+    var PSr = window.SSDNSPactShot;
+    if (level === 0 && PSr && PSr.applies(C()) && PSr.isPactShot(C().cantrips[index])) { toast("Pact Shot is always known for a Pact Seeker. It's free and can't be removed."); return; }
     if (level === 0) C().cantrips[index] = "";
     else if (C().spells[level] && C().spells[level][index]) { C().spells[level][index].name = ""; C().spells[level][index].prepared = false; }
     changed();
@@ -1375,6 +1385,15 @@
       var over = (lim.cantrips != null && countKnown(0) > lim.cantrips) || (lim.known != null && totalKnownSpells() > lim.known);
       limEl.textContent = bits.join(" · ");
       limEl.classList.toggle("warn", !!over);
+      /* 0.3.100: the freed cantrip pick (Pact Shot is free now) stays asked for until it's spent */
+      var PSn = window.SSDNSPactShot, swapEl = $("#pactShotSwap");
+      if (PSn && C().pactShotSwap && lim.cantrips != null && !PSn.swapPending(C(), lim.cantrips)) delete C().pactShotSwap;
+      var askSwap = !!(PSn && PSn.swapPending(C(), lim.cantrips));
+      if (askSwap && !swapEl) {
+        swapEl = el("p", { id: "pactShotSwap", class: "pact-shot-swap", role: "status" });
+        limEl.parentNode.insertBefore(swapEl, limEl.nextSibling);
+      }
+      if (swapEl) { swapEl.hidden = !askSwap; swapEl.textContent = askSwap ? PSn.SWAP_NOTE + " Tap + Add from list." : ""; }
     }
     var q = (($("#spellSearch") && $("#spellSearch").value) || "").trim().toLowerCase();
     for (var l = 0; l <= 9; l++) {
@@ -1410,7 +1429,9 @@
         // keep a hidden data-f so save still has the name if edited elsewhere
         line.appendChild(el("input", { type: "hidden", "data-f": l === 0 ? ("character.cantrips." + row.i) : ("character.spells." + l + "." + row.i + ".name"), value: row.name }));
         line.appendChild(el("button", { type: "button", class: "btn xs", "data-spell-cast": l + ":" + row.name, "aria-label": "Cast " + parsed.label, title: "Cast " + parsed.label }, ["Cast"]));
-        line.appendChild(el("button", { type: "button", class: "btn xs ghost", "data-spell-del": l + ":" + row.i, "aria-label": "Remove " + parsed.label, title: "Remove" }, ["×"]));
+        var freePS = l === 0 && window.SSDNSPactShot && window.SSDNSPactShot.applies(C()) && window.SSDNSPactShot.isPactShot(row.name);
+        if (freePS) { line.classList.add("sp-free"); lab.appendChild(el("div", { class: "sp-phb sp-free-tag", text: window.SSDNSPactShot.FREE_TAG })); }
+        else line.appendChild(el("button", { type: "button", class: "btn xs ghost", "data-spell-del": l + ":" + row.i, "aria-label": "Remove " + parsed.label, title: "Remove" }, ["×"]));
         box.appendChild(line);
         // sync checkbox prepared state
         if (l > 0 && mode === "prepared") {
@@ -2366,6 +2387,11 @@
       else if (path === "character.lineage") onLineagePicked();
       else if (path === "character.sublineage") onSublineagePicked();
       else if (path === "character.background") onBackgroundPicked();
+      /* 0.3.100 (Jessey 2026-10-21 12:12 PM): picking or changing the Pact name sets up the Borrowed Iron (one iron, its type, its slot) */
+      else if (path === "character.subclass" && C().calling === "pact-seeker" && window.SSDNSDoll && window.SSDNSDoll.syncIron) {
+        window.SSDNSDoll.syncIron(C(), { pactChanged: true });
+        if (v && window.SSDNSIronArt && window.SSDNSIronArt.labelFor) toast("Pact sealed: your iron takes shape. " + window.SSDNSIronArt.labelFor(C()) + ".");
+      }
       else if (/^character\.guns\.\d+\.(weapon|load|chamber|capacity)$/.test(path)) onGunChanged(num(path.split(".")[2]), path.split(".")[3], old);
       else if (path === "character.instrument" && window.SSDNSEquip && window.SSDNSEquip.tryAutoEquip) {
         C().focusEquipped = false;
@@ -2443,7 +2469,11 @@
       var w = WPN[g.weapon];
       if (w) g.proficient = callingProficient(w);
     });
-    if (c.calling === "pact-seeker") c.casterGun = "borrowed-iron";
+    if (c.calling === "pact-seeker") {
+      c.casterGun = "borrowed-iron";
+      /* 0.3.100: Pact Shot comes free with the Calling */
+      if (window.SSDNSPactShot) { window.SSDNSPactShot.ensure(c); c.pactShotFree = 1; }
+    }
     else if (c.calling !== "hexslinger" && c.casterGun && R.casterGuns.some(function (g) { return g.id === c.casterGun; })) c.casterGun = "";
     toast("Saving throws set for " + cal.name + " (" + cal.saves.join(", ") + "). Hit die " + cal.hitDie + "." + (add.length ? " Armor and weapon proficiencies added." : ""));
   }
