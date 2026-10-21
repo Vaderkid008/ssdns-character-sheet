@@ -69,7 +69,7 @@ try {
     window.SSDNSDmJoin._handle({ id: "cmd_b50", type: "reward_item", payload: { text: "Big Fifty cartridges, .50-90 (10)", qty: 1, grantId: "g_b50_" + Date.now() } });
     await wait(300);
     out.afterGive = JSON.parse(JSON.stringify(c().ammo));
-    /* old save: a .50-90 cartridge pool from before 0.3.99 */
+    /* old save: a .50-90 cartridge pool from before 0.3.100 */
     const old = JSON.parse(JSON.stringify(A.doc()));
     old.character.ammo = [{ type: "cartridge", caliber: "Light", count: 5 }, { type: "cartridge", caliber: ".50-90", count: 7 }];
     const mig = A.migrate(old);

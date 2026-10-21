@@ -1,5 +1,5 @@
 /**
- * 0.3.99 (Jessey approved Art Bot's per-weapon art 2026-10-20 9:17 PM CT): Borrowed Iron + Caster Gun art.
+ * 0.3.100 (Jessey approved Art Bot's per-weapon art 2026-10-20 9:17 PM CT): Borrowed Iron + Caster Gun art.
  *  - Pact name (character.subclass) -> iron slug -> 256 item tile (Equipment row, Focus slot) + 1200x400 engraving (Gear card).
  *  - BOOK1 L2060: the DM reveals what the Borrowed Iron really is, so the player's sheet keeps the generic art until
  *    character.ironRevealed (DMCC "Reveal to player", command iron_reveal). The DM page always sees it.
@@ -74,12 +74,13 @@ const pact = (sub, rev) => { const c = K.apply(K.blankCharacter(), "pact-seeker"
 let f = D.focusState(pact("the-crossroads-note"));
 check("focus.patronNotGated", f.kind === "patron" && f.name === "The Crossroads Note" && /items\/patron\/crossroads-note\.webp$/.test(f.art) && f.locked === true, J(f));
 let ir = D.ironState(pact("the-crossroads-note"));
-check("iron.genericUntilRevealed", ir.key === "revolver_2" && /assets\/img\/items\/borrowed-iron\.webp$/.test(ir.art) && ir.note === "In hand · soul-bound", J(ir));
+check("iron.genericUntilRevealed", ir.key === "revolver_2" && /assets\/img\/items\/borrowed-iron\.webp$/.test(ir.art) && ir.note === "In hand · Pact revolver" && ir.label === "Borrowed Iron — Pact revolver" && ir.ironName === "", J(ir));
 ir = D.ironState(pact("the-crossroads-note", true));
 check("iron.hellMaker", ir.key === "revolver_2" && /items\/borrowed-iron\/hell-maker\.webp$/.test(ir.art) && ir.note === "In hand · Hell Maker", J(ir));
 ir = D.ironState(pact("lass-o-lakes", true));
 check("iron.butterRepeaterLongGun", ir.key === "long_gun" && /items\/borrowed-iron\/butter-repeater\.webp$/.test(ir.art), J(ir));
-check("iron.hiddenShapeNoLeak", D.ironState(pact("lass-o-lakes")).key === "revolver_2");
+/* 0.3.100 (Jessey 2026-10-21 12:12 PM): the iron's type (and so its slot) shows from the Pact pick; only its name and art wait for the reveal */
+check("iron.typeFromPickNameHidden", D.ironState(pact("lass-o-lakes")).key === "long_gun" && D.ironState(pact("lass-o-lakes")).ironName === "" && /items\/borrowed-iron-long-outline\.svg$/.test(D.ironState(pact("lass-o-lakes")).art) /* 0.3.100: hidden long iron -> outline */);
 f = D.focusState(pact("", true));
 check("focus.noPactFallback", f.kind === "patron" && f.name === "Patron" && /items\/default\/focus\.webp$/.test(f.art), J(f));
 check("patron.slugs", ["the-crossroads-note", "the-sealed-orders", "lass-o-lakes", "the-last-round", "the-sand-oath", "the-pine-box-contract", "the-drowned-breath"].map((x) => IA.patronSlug({ calling: "pact-seeker", subclass: x })).join(",") ===
@@ -98,9 +99,11 @@ gs.guns[g0].weaponFocus = false;
 check("rule.unflaggedNoFocus", D.focusState(gs) === null);
 /* migration of an old save (Focus slot era): the iron moves to a free weapon slot, nothing else changes */
 const old = pact("the-sealed-orders"); delete old.ironSlot; old.equipMigrated = 2; old.guns = [{ weapon: "navy-army-ball-n-cap-revolver", proficient: true, chambers: [], equipped: true }];
-const oldItems = J(old.items), oldGuns = J(old.guns);
+/* 0.3.100 (4:51 PM): the only item change allowed is the iron's new weapon class field */
+const noCls = (items) => J((items || []).map((x) => { const y = Object.assign({}, x); delete y.ironClass; return y; }));
+const oldItems = noCls(old.items), oldGuns = J(old.guns);
 K.migrateEquipment(old);
-check("migrate.ironSlot", old.ironSlotMigrated === 1 && old.ironSlot === "revolver_2" && !old.ironSlotNote && J(old.items) === oldItems && J(old.guns) === oldGuns, J({ s: old.ironSlot, n: old.ironSlotNote }));
+check("migrate.ironSlot", old.ironSlotMigrated === 1 && old.ironSlot === "revolver_2" && !old.ironSlotNote && noCls(old.items) === oldItems && old.items.filter((x) => x.catalogId === "borrowed-iron").every((x) => x.ironClass === "pact-revolver") && J(old.guns) === oldGuns, J({ s: old.ironSlot, n: old.ironSlotNote }));
 const before = J(old); K.migrateEquipment(old);
 check("migrate.ironOnce", J(old) === before);
 const crowded = pact("the-sand-oath"); crowded.equipMigrated = 2;
@@ -172,7 +175,8 @@ const info = (ironKey) => {
     ironNote: is && is.querySelector(".doll-focus-note") ? is.querySelector(".doll-focus-note").textContent : "",
     focusRows: thumb("focus"), weaponRows: thumb("weapons"),
     eng: eng && !eng.hidden && ei ? { src: ei.getAttribute("src"), ok: ei.naturalWidth === 1200 && ei.naturalHeight === 400 } : null,
-    ironName: (document.querySelector("#pactIronName:not([hidden])") || {}).textContent || ""
+    ironName: (document.querySelector("#pactIronName:not([hidden])") || {}).textContent || "",
+    cardHead: (document.querySelector("#pactFocus > b") || {}).textContent || ""
   };
 };
 const pactSetup = (o) => window.SSDNSApp.applyPatch((d) => {
@@ -190,10 +194,11 @@ try {
     await waitImgs(pg); await sleep(300);
     let v = await pg.evaluate(info, "revolver_2");
     check("ui.hidden.focusPatron", /doll-focus-patron/.test(v.focusCls) && /items\/patron\/crossroads-note\.webp/.test(v.focusArt) && v.focusOk && /Crossroads Note/.test(v.focusName), J(v));
-    check("ui.hidden.ironInWeaponSlot", /doll-iron/.test(v.ironCls) && /assets\/img\/items\/borrowed-iron\.webp/.test(v.ironArt) && v.ironOk && /soul-bound/.test(v.ironNote), J(v));
+    check("ui.hidden.ironInWeaponSlot", /doll-iron/.test(v.ironCls) && /assets\/img\/items\/borrowed-iron\.webp/.test(v.ironArt) && v.ironOk && /Pact revolver/.test(v.ironNote) && !/Hell Maker/.test(v.ironNote), J(v));
     const r0 = ironRow(v.weaponRows);
     check("ui.hidden.rowGeneric", v.focusRows.length === 0 && !!r0 && /items\/borrowed-iron\.webp/.test(r0.src), J(v.weaponRows));
-    check("ui.hidden.noEngraving", v.eng === null && v.ironName === "", J(v.eng));
+    /* 0.3.100: before the reveal the Weapons card shows the plain Borrowed Iron tile and the type label, no engraving */
+    check("ui.hidden.noEngraving", !!v.eng && /assets\/img\/items\/borrowed-iron\.webp$/.test(v.eng.src) && v.ironName === "" && v.cardHead === "Borrowed Iron — Pact revolver", J(v));
     await shot(pg, "#dollHost .doll", "iron-art-v2-pact-doll-hidden.png");
     /* the DM reveals it (same patch the iron_reveal command makes) */
     await pg.evaluate(() => window.SSDNSApp.applyPatch((d) => { d.character.ironRevealed = true; }));
@@ -223,7 +228,7 @@ try {
     await waitImgs(pg); await sleep(300);
     const v = await pg.evaluate(info, key);
     check("ui." + slug + ".focusPatron", /doll-focus-patron/.test(v.focusCls) && v.focusOk, J(v));
-    check("ui." + slug + ".ironSlot", new RegExp("items/borrowed-iron/" + slug + "\\.webp").test(v.ironArt) && v.ironOk && /doll-iron/.test(v.ironCls), J(v));
+    check("ui." + slug + ".ironSlot", new RegExp((key === "long_gun" ? "weapons" : "items") + "/borrowed-iron/" + slug + "\\.webp").test(v.ironArt) && v.ironOk && /doll-iron/.test(v.ironCls), J(v));
     const r = ironRow(v.weaponRows);
     check("ui." + slug + ".weaponsRowEngraving", !!r && new RegExp("weapons/borrowed-iron/" + slug + "\\.webp").test(r.src) && r.wide, J(v.weaponRows));
     check("ui." + slug + ".engraving", !!v.eng && new RegExp("weapons/borrowed-iron/" + slug + "\\.webp").test(v.eng.src) && v.eng.ok && v.ironName.indexOf(nm) >= 0, J(v.eng));
@@ -242,10 +247,11 @@ try {
       const c = d.character; c.name = "Old Save"; c.calling = "pact-seeker"; c.level = 3; c.abilities = Object.assign(c.abilities || {}, { CHA: 16 });
       window.SSDNSKits.apply(c, "pact-seeker", {}); c.kitStamp = "pact-seeker"; c.subclass = "the-pine-box-contract"; c.ironRevealed = true;
       c.equipMigrated = 2; delete c.ironSlot; delete c.ironSlotMigrated; delete c.ironSlotNote;
-      const before = { items: JSON.stringify(c.items), guns: JSON.stringify((c.guns || []).map((g) => g && g.weapon)) };
+      const strip = (a) => JSON.stringify((a || []).map((x) => { const y = Object.assign({}, x); delete y.ironClass; return y; }));
+      const before = { items: strip(c.items), guns: JSON.stringify((c.guns || []).map((g) => g && g.weapon)) };
       window.SSDNSApp.loadText(JSON.stringify(d), { name: "old-pact-save.json" });
       const n = window.SSDNSApp.doc().character;
-      return { slot: n.ironSlot, mig: n.ironSlotMigrated, note: n.ironSlotNote || "", itemsSame: JSON.stringify(n.items) === before.items, gunsSame: JSON.stringify((n.guns || []).map((g) => g && g.weapon)) === before.guns,
+      return { slot: n.ironSlot, mig: n.ironSlotMigrated, note: n.ironSlotNote || "", itemsSame: strip(n.items) === before.items && (n.items || []).filter((x) => x.catalogId === "borrowed-iron").every((x) => x.ironClass === "pact-shotgun"), gunsSame: JSON.stringify((n.guns || []).map((g) => g && g.weapon)) === before.guns,
         hasIron: (n.items || []).some((x) => x.catalogId === "borrowed-iron") };
     });
     await sleep(900);
@@ -253,7 +259,7 @@ try {
     await sleep(500); await waitImgs(pg);
     check("ui.migrate.oldSave", out.mig === 1 && out.slot === "long_gun" && !out.note && out.itemsSame && out.gunsSame && out.hasIron, J(out));
     const v = await pg.evaluate(info, "long_gun");
-    check("ui.migrate.dollAfter", /doll-focus-patron/.test(v.focusCls) && /Pine Box Contract/.test(v.focusName) && /items\/borrowed-iron\/pallbearer\.webp/.test(v.ironArt), J(v));
+    check("ui.migrate.dollAfter", /doll-focus-patron/.test(v.focusCls) && /Pine Box Contract/.test(v.focusName) && /weapons\/borrowed-iron\/pallbearer\.webp/.test(v.ironArt) /* 0.3.100: Long gun shows the engraving */, J(v));
     await shot(pg, "#dollHost .doll", "iron-art-v2-migration-old-save-after.png");
     check("ui.migrate.noPageErrors", errs.length === 0, errs.join(" | "));
     await pg.browserContext().close();
