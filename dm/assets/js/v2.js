@@ -156,6 +156,8 @@ function captureSecrets() {
       : { name: row.name, ac: row.ac, hp: row.hp, maxHp: row.maxHp, reveal: revealOf(row) };
     if (row.mapTokenId) secret.mapTokenId = String(row.mapTokenId);
     secret.mapHidden = !!row.mapHidden;
+    /* map token guns: the token's last-used weapon rides in the DM-only encounter/dm copy (players never read it) */
+    if (row.lastWeaponId) secret.lastWeaponId = String(row.lastWeaponId);
     fight.secrets[row.id] = secret;
   });
 }
@@ -173,6 +175,7 @@ function restoreSecrets() {
     if (secret.side === "friendly" || secret.side === "enemy") row.side = secret.side;
     if (secret.card && typeof secret.card === "object") row.card = Object.assign({}, row.card || {}, secret.card);
     row.mapHidden = !!secret.mapHidden;
+    if (secret.lastWeaponId && !row.lastWeaponId) row.lastWeaponId = String(secret.lastWeaponId);
   });
 }
 function playersSeeLine(row, i) {
@@ -417,19 +420,19 @@ function buildPublish() {
     fight.publicView = pub;
   return { order: order, hp: hp, pub: pub, secret: secret };
 }
-async function saveRemoteTable() {
-  syncDamageMode();
-  fight.updatedAt = new Date().toISOString();
-  saveLocalTable();
-  const published = buildPublish();
-  if (DM.state.demo || !DM.state.db) return;
+/* map blink fix (Jessey 2026-10-20 9:34 PM): saves used to run side by side, each holding the copy it built when it
+   started. A slow earlier save then wrote its old encounter/dm copy after a newer shot; Firebase echoed it straight
+   back to watchSecrets, restoreSecrets put the old HP and ammo on the row, the map redrew the old bar, and when that
+   flipped Hurt/Bloodied the listener saved again and the two copies traded places. Now one save runs at a time, every
+   write builds its copy at the moment it is sent, and calls made while a save is running fold into one more pass. */
+let remoteSaveBusy = null;
+let remoteSaveAgain = false;
+async function writeRemoteTableOnce() {
+  const fb = DM.state._fb;
   try {
-    const order = published.order;
-    const hp = published.hp;
-    const pub = published.pub;
-    const secret = published.secret;
-    await DM.state._fb.update(DM.roomRef("table"), {
-      initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: order },
+    const first = buildPublish();
+    await fb.update(DM.roomRef("table"), {
+      initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: first.order },
       store: fight.stock,
       packs: fight.packs,
       storeOpen: !!fight.storeOpen,
@@ -437,9 +440,9 @@ async function saveRemoteTable() {
       updatedAt: fight.updatedAt
     });
     try {
-      await DM.state._fb.set(DM.roomRef("encounter/hp"), hp);
-      await DM.state._fb.set(DM.roomRef("encounter/dm"), secret);
-      await DM.state._fb.set(DM.roomRef("encounter/public"), pub);
+      await fb.set(DM.roomRef("encounter/hp"), buildPublish().hp);
+      await fb.set(DM.roomRef("encounter/dm"), buildPublish().secret);
+      await fb.set(DM.roomRef("encounter/public"), buildPublish().pub);
     } catch (err) {
       if (DM.writeFailed) DM.writeFailed(err, "Couldn't sync to players");
       return;
@@ -447,6 +450,25 @@ async function saveRemoteTable() {
   } catch (e) {
     if (DM.writeFailed) DM.writeFailed(e, "Couldn't sync to players");
   }
+}
+async function saveRemoteTable() {
+  syncDamageMode();
+  fight.updatedAt = new Date().toISOString();
+  saveLocalTable();
+  buildPublish(); /* demo and offline still build the public view (fight.publicView) */
+  if (DM.state.demo || !DM.state.db) return;
+  if (remoteSaveBusy) { remoteSaveAgain = true; return remoteSaveBusy; }
+  remoteSaveBusy = (async () => {
+    try {
+      do {
+        remoteSaveAgain = false;
+        await writeRemoteTableOnce();
+      } while (remoteSaveAgain);
+    } finally {
+      remoteSaveBusy = null;
+    }
+  })();
+  return remoteSaveBusy;
 }
 let inspSeen = "";
 let inspPrimed = false;
@@ -4048,6 +4070,7 @@ async function cardStrike(i, n, opts) {
   ensureCombatantCard(row);
   const atk = row.card && row.card.attacks && row.card.attacks[n];
   if (!atk) return;
+  rememberWeapon(row, atk);
   if (atk.jammed) { DM.toast(atk.name + " is jammed"); return; }
   if (atk.fouled) { DM.toast(atk.name + " is fouled"); return; }
   if (atk.ruined) { DM.toast(atk.name + " is ruined"); return; }
@@ -4135,12 +4158,22 @@ async function cardStrike(i, n, opts) {
   const rangeDis = !!(rangeShot && rangeShot.apply && rangeShot.disadvantage);
   /* 0.3.68: DM "Force ADV" rolls two and keeps the higher; Take Cover disadvantage cancels it to one die */
   const rangeAdv = !!(rangeShot && rangeShot.apply && !rangeShot.blocked && rangeShot.advantage);
-  if (rangeAdv && !coverDis) {
-    n2 = d20();
-    nat = Math.max(n1, n2);
-  } else if (!rangeAdv && (rangeDis || coverDis)) {
-    n2 = d20();
-    nat = Math.min(n1, n2);
+  /* map token guns: the card's ADV / DIS tick (same ticks as the player gun card). No tick = the old rule exactly. */
+  const tickAdv = atk.attackMode === "adv";
+  const tickDis = atk.attackMode === "dis";
+  if (!tickAdv && !tickDis) {
+    if (rangeAdv && !coverDis) {
+      n2 = d20();
+      nat = Math.max(n1, n2);
+    } else if (!rangeAdv && (rangeDis || coverDis)) {
+      n2 = d20();
+      nat = Math.min(n1, n2);
+    }
+  } else {
+    const anyAdv = rangeAdv || tickAdv;
+    const anyDis = (!rangeAdv && rangeDis) || coverDis || tickDis;
+    if (anyAdv && !anyDis) { n2 = d20(); nat = Math.max(n1, n2); }
+    else if (anyDis && !anyAdv) { n2 = d20(); nat = Math.min(n1, n2); }
   }
   const ceiling = window.SSDNSApplied && window.SSDNSApplied.misfireNumber
     ? window.SSDNSApplied.misfireNumber(atk.misfire)
@@ -4977,6 +5010,21 @@ function resolveIncomingAttack(req, reqId) {
     DM.toast(line);
     return;
   }
+  /* fog-aware targeting (Jessey 2026-10-20 9:52 PM): the DM's map checks the shot too, so a hand-made request
+     can't hit a token the shooter can't see. The map answers null when it can't tell (no token, no map). */
+  const host = window.SSDNSMapHost;
+  const tgtKey = String(req.targetId || "");
+  const seen = fromId && tgtKey && tgtKey !== FREE_SHOT_ID && host && typeof host.playerCanSee === "function"
+    ? host.playerCanSee(fromId, tgtKey) : null;
+  if (seen === false) {
+    const who = req.characterName || "Someone";
+    const name = (row && row.name) || req.targetName || "that target";
+    const line = who + " → " + name + ": can't see that target (fog). Shot refused.";
+    markRequestResolved(reqId);
+    DM.toast(line);
+    DM.pushLedger({ who: who, playerId: fromId, type: "alert", what: line, oldVal: null, newVal: "refused", flag: true, characterName: who });
+    return;
+  }
   const ac = coverAdj.ac != null ? coverAdj.ac : knownNumber(row && row.ac);
   const shown = window.SSDNSApplied && window.SSDNSApplied.publicEnemy
     ? window.SSDNSApplied.publicEnemy(row || { name: req.targetName, kind: "enemy" }, "", [])
@@ -5543,6 +5591,38 @@ function rowSize(row) {
   if (b && b.size) return b.size;
   return (row.card && row.card.size) || "Medium";
 }
+/* 16-char token label that keeps a trailing number: "Thunderbird Hatchling 2" -> "Thunderbird Ha 2" */
+function tokenLabel(name) {
+  const text = String(name || "");
+  if (text.length <= 16) return text;
+  const m = text.match(/^(.*?)(\s+\d+)$/);
+  if (!m) return text.slice(0, 16);
+  return (m[1].slice(0, 16 - m[2].length).trim() + m[2]).slice(0, 16);
+}
+/* map bestiary: when a second copy joins, uniqueName renames the first ("Bandit" -> "Bandit 1"); relabel their tokens */
+function relabelSiblings(row) {
+  const host = window.SSDNSMapHost;
+  if (!row || !host || typeof host.patchToken !== "function") return;
+  const base = String(row.name || "").replace(/\s+\d+$/, "").trim();
+  (fight.order || []).forEach((r) => {
+    if (!r || r.kind !== "enemy" || !r.mapTokenId) return;
+    if (String(r.name || "").replace(/\s+\d+$/, "").trim() !== base) return;
+    const name = publicTokenName(r);
+    try { host.patchToken(r.mapTokenId, { label: tokenLabel(name), name: name }); } catch (e) {}
+  });
+}
+function mapPlaceBeast(detail) {
+  detail = detail || {};
+  const beast = (fight.bestiary || []).find((b) => b && b.id === detail.beastId && !b.template);
+  if (!beast) { DM.toast("Pick a creature"); return null; }
+  const at = detail.at && isFinite(Number(detail.at.x)) && isFinite(Number(detail.at.y)) ? { x: Number(detail.at.x), y: Number(detail.at.y) } : null;
+  const row = addBeastToFight(beast, { at: at });
+  if (!row) return null;
+  relabelSiblings(row);
+  saveRemoteTable();
+  renderFight();
+  return row.mapTokenId || null;
+}
 function tokenPatchForRow(row) {
   const name = publicTokenName(row);
   const player = !!(row && row.kind === "player");
@@ -5550,7 +5630,7 @@ function tokenPatchForRow(row) {
   const patch = {
     combatantId: who,
     sheetId: player ? who : "",
-    label: String(name).slice(0, 16),
+    label: tokenLabel(name),
     name: name,
     kind: player ? "player" : "npc",
     ownerUid: player ? who : "",
@@ -5581,7 +5661,7 @@ function tokenStillThere(tokenId) {
   if (!tokenId || !host || typeof host.hasToken !== "function") return !!tokenId;
   return !!host.hasToken(tokenId);
 }
-function bindNewToken(row) {
+function bindNewToken(row, at) {
   if (!row || row.kind === "player" || linkBusy) return;
   if (row.mapTokenId && tokenStillThere(row.mapTokenId)) return;
   const host = window.SSDNSMapHost;
@@ -5591,7 +5671,7 @@ function bindNewToken(row) {
   const had = typeof host.tokenForCombatant === "function" ? host.tokenForCombatant(row.id) : "";
   if (had) { assignMapToken(row, had); return; }
   const patch = tokenPatchForRow(row);
-  const tokenId = host.placeToken(Object.assign({ combatantId: row.id }, patch));
+  const tokenId = host.placeToken(Object.assign({ combatantId: row.id }, patch, at ? { at: at } : {}));
   if (tokenId) assignMapToken(row, tokenId);
 }
 function dropMapToken(row) {
@@ -5621,7 +5701,7 @@ function addBeastToFight(b, opts) {
     if (row) {
       announce("Added " + row.name + " to the turn order", "combat", row);
       if (opts && opts.tokenId) assignMapToken(row, opts.tokenId);
-      else bindNewToken(row);
+      else bindNewToken(row, opts && opts.at);
     }
     return row;
   } finally {
@@ -6477,6 +6557,7 @@ function mapDrawerCard(row) {
       exploded: !!a.exploded,
       jammed: !!a.jammed,
       misStreak: Number(a.misStreak) || 0,
+      misfire: a.misfire == null ? "" : a.misfire,
       pendingD4: !!a.pendingD4,
       gunIndex: a.gunIndex,
       sheetIndex: a.sheetIndex != null ? a.sheetIndex : a.gunIndex,
@@ -6533,6 +6614,7 @@ function mapDrawerCard(row) {
       tactics: (window.SSDNSApplied && window.SSDNSApplied.tacticsNote) ? (window.SSDNSApplied.tacticsNote(row) || "") : (row.tactics || ""),
       deathSaves: row.deathSaves || null,
       dmActsAs: row.kind === "player" ? !!row.dmActsAs : false,
+      lastWeaponId: row.lastWeaponId || "",
       calling: snapFeats.calling || snapFeats.callingId || ""
     };
 }
@@ -6572,7 +6654,8 @@ function linkChoiceList() {
   (fight.bestiary || []).forEach((b) => {
     if (!b || b.template || isParkedBeast(b)) return;
     const key = BEAST_GROUPS.some((pair) => pair[0] === b.group) ? b.group : "other";
-    (buckets[key] || (buckets[key] = [])).push({ id: b.id, name: b.name || b.id });
+    const art = beastTokenFile(b);
+    (buckets[key] || (buckets[key] = [])).push({ id: b.id, name: b.name || b.id, token: art ? BEAST_TOKEN_DIR + art : "", size: b.size || "", cr: b.cr == null ? "" : b.cr });
   });
   const order = BEAST_GROUPS.map((pair) => pair[0]).concat(buckets.other ? ["other"] : []);
   const bestiary = order.filter((key) => buckets[key] && buckets[key].length).map((key) => ({
@@ -6599,12 +6682,44 @@ window.SSDNSMapCards = {
         id: row.id || "",
         name: row.name || "",
         kind: row.kind || "",
-        playerId: row.playerId || ""
+        playerId: row.playerId || "",
+        /* map condition badges (DM map only; players read the masked table/initiative copy) */
+        conditions: conditionNamesForMap(row)
       }))
     };
   }
 };
 
+/* map token guns (Jessey 2026-10-20 9:21 PM): each token remembers the weapon it last used or the DM last picked.
+   Lives on the fight row (local table) and, for NPCs, in the DM-only encounter/dm secret. No new database path. */
+function rememberWeapon(row, atk) {
+  if (!row || !atk) return;
+  const id = String(atk.id || atk.name || "");
+  if (id) row.lastWeaponId = id;
+}
+function conditionNamesForMap(row) {
+  const Cond = window.SSDNSConditions;
+  let list = conditionsForRow(row);
+  if (!list.length && row && row.kind === "player") {
+    const snap = playerSnapshot(row.playerId || row.id);
+    list = (snap && snap.activeConditions) || [];
+  }
+  return list.map((c) => String((c && (c.name || c.label)) || c || "").trim() + (c && c.name === "Exhaustion" && c.level ? " " + c.level : "")).filter(Boolean);
+}
+async function mapPickWeapon(detail) {
+  detail = detail || {};
+  const i = mapFightIndex(detail);
+  if (i < 0) return false;
+  const row = fight.order[i];
+  if (row.kind === "player") ensurePlayerAttacks(row);
+  else ensureCombatantCard(row);
+  const n = mapAttackIndex(row, detail.weaponId);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk) return false;
+  rememberWeapon(row, atk);
+  await saveRemoteTable();
+  return true;
+}
 function mapFightIndex(detail) {
   const keys = [];
   if (detail && detail.combatantId) keys.push(detail.combatantId);
@@ -6784,6 +6899,7 @@ async function mapGunLoad(detail, unload) {
   const n = mapAttackIndex(row, detail && detail.weaponId);
   const atk = row.card && row.card.attacks && row.card.attacks[n];
   if (!atk) { DM.toast("No weapon"); return false; }
+  rememberWeapon(row, atk);
   if (row.kind === "player") {
     const pid = row.playerId || row.id;
     const snap = playerSnapshot(pid);
@@ -6946,6 +7062,7 @@ async function mapGunFix(detail, op) {
   const i = mapFightIndex(detail);
   if (i < 0) { DM.toast("No card linked"); return false; }
   const row = fight.order[i];
+  if (row && row.kind !== "player" && op === "unjam") return mapEnemyUnjam(row, detail);
   if (!row || row.kind !== "player" || !row.dmActsAs) { DM.toast("The player acts for themselves"); return false; }
   ensurePlayerAttacks(row);
   const n = mapAttackIndex(row, detail && detail.weaponId);
@@ -6971,6 +7088,38 @@ async function mapGunFix(detail, op) {
   await saveRemoteTable();
   renderFight();
   DM.toast(op === "unjam" ? name + ": unjammed." : name + ": reopen chamber sent.");
+  return true;
+}
+/* map token guns: DM Unjam on an NPC token. Free (same ruling as DM unjam for players); same state and
+   ledger line as the Fight tab's "Clear jam", so both views stay in sync. */
+async function mapEnemyUnjam(row, detail) {
+  ensureCombatantCard(row);
+  const n = mapAttackIndex(row, detail && detail.weaponId);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk) { DM.toast("No weapon"); return false; }
+  const name = atk.name || "Gun";
+  if (!atk.jammed) { DM.toast(name + " isn't jammed."); return false; }
+  if (atk.fouled || atk.ruined || atk.broken) { DM.toast(name + " is Fouled. It needs a gunsmith or a DM Repair."); return false; }
+  if (atk.pendingD4) { DM.toast("Roll the d4 first."); return false; }
+  atk.jammed = false;
+  rememberWeapon(row, atk);
+  const line = (row.name || "Enemy") + " cleared the jam on " + name;
+  await DM.pushLedger({ who: "DM", playerId: row.id || "all", type: "jam", what: line, oldVal: "jammed", newVal: "clear", flag: false, characterName: row.name || "" });
+  await saveRemoteTable();
+  renderFight();
+  DM.toast(line);
+  return true;
+}
+/* map token guns: ADV / DIS tick on an NPC gun (the player card's ticks). Read by cardStrike. */
+async function mapEnemyMode(row, detail, mode) {
+  ensureCombatantCard(row);
+  const n = mapAttackIndex(row, detail && detail.weaponId);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk) { DM.toast("No weapon"); return false; }
+  atk.attackMode = mode;
+  rememberWeapon(row, atk);
+  await saveRemoteTable();
+  renderFight();
   return true;
 }
 function mapSpellIndex(row, spellId) {
@@ -7659,8 +7808,12 @@ window.SSDNSMapFight = {
   castgun(detail) { return mapGunChoice(detail, "cast", { spell: detail && detail.spell, slot: detail && detail.slot }); },
   mode(detail) {
     const mode = detail && (detail.mode === "adv" || detail.mode === "dis") ? detail.mode : "";
+    const i = mapFightIndex(detail || {});
+    const row = i >= 0 ? fight.order[i] : null;
+    if (row && row.kind !== "player") return mapEnemyMode(row, detail, mode);
     return mapGunChoice(detail, "mode", { mode: mode });
   },
+  weapon(detail) { return mapPickWeapon(detail); },
   disarm(detail) { return runGrabFromMap(detail, "rob"); },
   rob(detail) { return runGrabFromMap(detail, "rob"); },
   useitem(detail) {
@@ -7756,6 +7909,7 @@ window.SSDNSMapFight = {
     return true;
   },
   link(detail) { return linkMapToken(detail); },
+  placeBeast(detail) { return mapPlaceBeast(detail); },
   onTokenRemoved(detail) { unlinkMapToken(detail); },
   syncMap() { syncMapTokens(); }
 };

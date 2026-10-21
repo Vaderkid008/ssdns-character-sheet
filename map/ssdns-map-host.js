@@ -591,6 +591,14 @@
       }
       return;
     }
+    /* map bestiary: place a creature; the DMCC adds it to the fight and links the new token */
+    if (name === "bestiary:place") {
+      var placer = root.SSDNSMapFight;
+      if (placer && typeof placer.placeBeast === "function") {
+        try { Promise.resolve(placer.placeBeast(detail)); } catch (e4) {}
+      }
+      return;
+    }
     if (name === "token:hidden") {
       var hideApi = root.SSDNSMapFight;
       if (hideApi && typeof hideApi.hidden === "function") {
@@ -611,6 +619,7 @@
       "drawer:hex": "hex",
       "drawer:castgun": "castgun",
       "drawer:mode": "mode",
+      "drawer:weapon": "weapon",
       "drawer:deathsave": "deathsave",
       "drawer:undo": "undo",
       "drawer:chamber": "chamber",
@@ -888,6 +897,18 @@
     fx: function (spec) {
       if (!map || typeof map.fx !== "function") return null;
       try { return map.fx(spec || {}); }
+      catch (e) { return null; }
+    },
+    /* fog-aware targeting: DM map -> can this player see that target (null when the map can't tell);
+       player sheet -> { visible, outOfRange, feet } for its own Target list */
+    playerCanSee: function (viewerUid, targetId) {
+      if (!isDmPage() || !map || typeof map.canPlayerSee !== "function") return null;
+      try { return map.canPlayerSee(viewerUid, targetId); }
+      catch (e) { return null; }
+    },
+    targetSight: function (targetId) {
+      if (isDmPage() || !map || typeof map.targetSight !== "function") return null;
+      try { return map.targetSight(targetId); }
       catch (e) { return null; }
     },
     armAttack: function (attack, targetId, shooterId) {
