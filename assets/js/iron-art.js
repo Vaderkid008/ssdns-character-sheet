@@ -4,9 +4,10 @@
  *  Engraving:   1200x400 transparent b/w, muzzle right (the gun-card art). Shown on the Gear tab Borrowed Iron card.
  *               assets/img/weapons/borrowed-iron/<slug>.webp (the Hell Maker reuses assets/img/dm-only/hell-maker.webp)
  *
- * Pact Seeker: the Pact name (character.subclass) picks the iron. BOOK1 L2060: "Your DM reveals who's on the other side
- * of it, and what your Borrowed Iron really is." So the player's sheet keeps the generic Borrowed Iron art until the DM
- * reveals it (character.ironRevealed, set from the DMCC player card). The DM page always sees the real iron.
+ * Pact Seeker: the Pact name (character.subclass) picks the iron.
+ * 0.3.101 (Jessey 2026-10-21 5:47 PM: "Can't you just show the actual gun here? We don't have to hide it."): no DM
+ * reveal any more. From the Pact pick on, the player's sheet shows the real iron (name, tile, engraving) everywhere.
+ * character.ironRevealed is left on old saves but nothing reads it.
  * No Pact name (or one not in the list) -> "" and callers keep the generic borrowed-iron.webp.
  */
 (function (root) {
@@ -31,7 +32,7 @@
   /* Square 256 tiles for guns whose only other art is the 3:1 engraving (a 32px square crops it). */
   var WEAPON_TILE = { blacksnake: "assets/img/items/caster/blacksnake.webp", hognose: "assets/img/items/caster/hognose.webp" };
   var GENERIC_TILE = "assets/img/items/borrowed-iron.webp";
-  /* 0.3.100 (Jessey 2026-10-21 4:35 PM): a hidden LONG iron shows a plain long-gun outline (1200x400 SVG, muzzle right,
+  /* 0.3.101 (Jessey 2026-10-21 4:35 PM): a hidden LONG iron shows a plain long-gun outline (1200x400 SVG, muzzle right,
      empty-slot glyph style) instead of the revolver tile. It only says "long gun", which the type label already shows. */
   var HIDDEN_LONG = "assets/img/items/borrowed-iron-long-outline.svg";
 
@@ -47,7 +48,8 @@
     return PACT_SLUG[k] || "";
   }
   function isPact(c) { return !!c && (c.calling === "pact-seeker" || c.callingId === "pact-seeker"); }
-  function revealed(c, opts) { return !!((opts && opts.dm) || isDmPage() || (c && c.ironRevealed === true)); }
+  /* 0.3.101: always shown (the old DM-reveal gate is gone; opts.dm and ironRevealed are ignored) */
+  function revealed() { return true; }
   /* The iron this character's sheet may show: slug or "" (no Pact name, or not revealed to this viewer yet). */
   function slugFor(c, opts) {
     if (!isPact(c)) return "";
@@ -78,7 +80,7 @@
     return weaponTile(item.weaponId || item.catalogId || "");
   }
 
-  /* 0.3.100 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus. The Focus slot always shows the patron's
+  /* 0.3.101 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus. The Focus slot always shows the patron's
      256 tile (assets/img/items/patron/<pact slug>.webp, Art Bot) and the Pact name. Not gated by the iron reveal: the Pact
      name is the player's own pick. A tile that isn't there yet falls back to the generic focus tile (the slot's name
      plate still shows the Pact name), so dropping the files in later just works. */
@@ -106,9 +108,9 @@
     return missing[src] ? patronFallback() : src;
   }
   function markMissing(src) { if (src) missing[String(src).replace(/[?#].*$/, "")] = 1; }
-  /* (0.3.100: the old LONG_IRON lookup is replaced by the iron's weapon class, IRON_CLASS below.) */
-  /* 0.3.100 (Jessey 2026-10-21 12:11 / 12:12 PM CT): the iron's weapon type shows from the Pact pick, not gated by the
-     DM reveal (its real name and its own art stay behind ironRevealed). Types: the locked base looks (Jessey lock
+  /* (0.3.101: the old LONG_IRON lookup is replaced by the iron's weapon class, IRON_CLASS below.) */
+  /* 0.3.101 (Jessey 2026-10-21 12:11 / 12:12 PM CT): the iron's weapon type shows from the Pact pick, not gated by the
+     DM reveal (0.3.101: the name and art now show from the pick too). Types: the locked base looks (Jessey lock
      2026-10-03) in spark-review/PACT-SEEKER-PATRON-BALANCE-v2.md, one-/two-handed as written there. */
   var IRON_TYPE = {
     "hell-maker": "Double-action revolver",      /* blued-steel double-action revolver (one-handed) */
@@ -121,7 +123,7 @@
   };
   /* the pact's iron slug for shape/type only (never for its name or art) */
   function shapeSlug(c) { return isPact(c) ? pactSlug(c) : ""; }
-  /* 0.3.100 (Jessey 2026-10-21 4:51 PM: "Borrowed iron types need to have their own weapon type... Pact revolvers go in
+  /* 0.3.101 (Jessey 2026-10-21 4:51 PM: "Borrowed iron types need to have their own weapon type... Pact revolvers go in
      the revolver slots, pact shotguns and rifles go in the long gun slot"): every Borrowed Iron carries one weapon class
      on its item row (item.ironClass). That one field drives the paper-doll slots, the label, the Equipment row and the
      hidden outline. It's public from the Pact pick (like the type), never the iron's name or art.
@@ -158,17 +160,19 @@
     if (want) it.ironClass = want; else delete it.ironClass;
     return true;
   }
-  /* The hidden-iron art for this viewer: the long-gun outline for a long iron not yet revealed, else "" (callers keep the
-     generic tile; a revealed iron uses its own art). */
+  /* The hidden-iron art: the long-gun outline for a long iron with no art of its own to show, else "". Since 0.3.101 a
+     picked Pact always shows its own iron and no Pact means no class, so this only answers "" today; it stays as the
+     fallback if a future iron ships without its art. */
   function hiddenArt(c, opts) {
     if (!isPact(c) || slugFor(c, opts) || !isLongIron(c)) return "";
     return prefix() + HIDDEN_LONG;
   }
   function typeFor(c) { return IRON_TYPE[shapeSlug(c)] || ""; }
-  /* "Borrowed Iron — Lever-action carbine" (just "Borrowed Iron" before a Pact name is picked) */
-  /* "Borrowed Iron — Pact rifle" (Jessey 5:13 PM: no look name in brackets); just "Borrowed Iron" before a Pact name */
+  /* 0.3.101: "Butter Repeater — Pact rifle" (the iron's name plus its class); just "Borrowed Iron" before a Pact pick.
+     "Borrowed Iron" stays on the soul-bound subtitle so it's clear what it is. */
   function labelFor(c) {
-    var k = classNameFor(c);
+    var k = classNameFor(c), n = nameFor(c);
+    if (n && k) return n + " — " + k;
     return k ? "Borrowed Iron — " + k : "Borrowed Iron";
   }
   /* The paper-doll weapon slots this iron may ride in (L0201: weapon slots only). Long irons: Long gun.
@@ -179,7 +183,7 @@
     return IRON_CLASS[k].slot === "long" ? ["long_gun"] : ["revolver_2", "revolver_1"];
   }
 
-  /* 0.3.100 (Jessey 2026-10-21 12:06 PM: "Lass o lakes shows up with the hell maker pistol"): the Hell Maker is the
+  /* 0.3.101 (Jessey 2026-10-21 12:06 PM: "Lass o lakes shows up with the hell maker pistol"): the Hell Maker is the
      Crossroads Note's iron only. Any Hell Maker art or name that ended up on a Borrowed Iron item (an older save, a
      hand-edited file, a DM-typed item) must never stand in for another pact's iron, and never leak the Crossroads reveal. */
   var STALE_IRON = /hell[\s_-]*maker|crossroads-note-hell/i;

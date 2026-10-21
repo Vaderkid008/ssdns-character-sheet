@@ -69,7 +69,7 @@
     var ab = abilityModName(cal);
     return Math.max(1, mod(scores[ab]) + 1);
   }
-  /* 0.3.100 (Jessey 2026-10-21 12:22 PM): a Pact Seeker always knows Pact Shot for free (pact-shot.js); it's never a pick */
+  /* 0.3.101 (Jessey 2026-10-21 12:22 PM): a Pact Seeker always knows Pact Shot for free (pact-shot.js); it's never a pick */
   function freeCantrips(draft, names) {
     var PS = root.SSDNSPactShot;
     return PS && draft && draft.calling === "pact-seeker" ? PS.countable({ calling: "pact-seeker" }, names || []) : (names || []).filter(Boolean);
@@ -667,7 +667,7 @@
         var callCard = refById("callings", cal.id);
         var firstLevel = callCard && (callCard.table || []).filter(function (row) { return row && /1st level/i.test(row[0] || ""); })[0];
         if (firstLevel) body.appendChild(el("p", { text: firstLevel[0] + ": " + firstLevel[1] }));
-        /* 0.3.100 (Jessey 2026-10-21 12:12 PM): a Pact Seeker picks the Pact name here (PHB: "Pick a pact name and tell
+        /* 0.3.101 (Jessey 2026-10-21 12:12 PM): a Pact Seeker picks the Pact name here (PHB: "Pick a pact name and tell
            your DM"). The Borrowed Iron lands with it, labelled by its weapon type; its real name waits for the DM's reveal. */
         if (cal.id === "pact-seeker") {
           var psel = el("select", { id: "wizPact" });
@@ -679,7 +679,7 @@
           body.appendChild(field("Pact name", psel));
           var IA = root.SSDNSIronArt;
           var ironLbl = IA && IA.labelFor ? IA.labelFor({ calling: "pact-seeker", subclass: draft.subclass || "" }) : "Borrowed Iron";
-          body.appendChild(el("p", { class: "fine", id: "wizPactIron", text: draft.subclass ? "Pact sealed: your iron takes shape. " + ironLbl + ". Your DM reveals what it really is." : "Your Borrowed Iron takes its shape when you pick a Pact name." }));
+          body.appendChild(el("p", { class: "fine", id: "wizPactIron", text: draft.subclass ? "Pact sealed: your iron takes shape. " + ironLbl + "." : "Your Borrowed Iron takes its shape when you pick a Pact name." }));
         }
       }
     } else if (step === "abilities") {

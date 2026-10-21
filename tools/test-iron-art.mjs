@@ -1,5 +1,5 @@
 /**
- * 0.3.100 (Jessey approved Art Bot's per-weapon art 2026-10-20 9:17 PM CT): Borrowed Iron + Caster Gun art.
+ * 0.3.101 (Jessey approved Art Bot's per-weapon art 2026-10-20 9:17 PM CT): Borrowed Iron + Caster Gun art.
  *  - Pact name (character.subclass) -> iron slug -> 256 item tile (Equipment row, Focus slot) + 1200x400 engraving (Gear card).
  *  - BOOK1 L2060: the DM reveals what the Borrowed Iron really is, so the player's sheet keeps the generic art until
  *    character.ironRevealed (DMCC "Reveal to player", command iron_reveal). The DM page always sees it.
@@ -58,9 +58,9 @@ check("file.hellMakerReused", IA.engravingSrc({ calling: "pact-seeker", subclass
   !fs.existsSync(path.join(root, "assets/img/weapons/borrowed-iron/hell-maker.webp")));
 ["blacksnake", "hognose"].forEach((g) => check("file.casterTile." + g, J(webpSize("assets/img/items/caster/" + g + ".webp")) === "[256,256]"));
 
-/* reveal gate (BOOK1 L2060) */
+/* 0.3.101 (Jessey 5:47 PM): no reveal gate; the Pact pick shows the real iron (sheet-only choice) */
 const ps = { calling: "pact-seeker", subclass: "the-crossroads-note" };
-check("gate.hiddenByDefault", IA.slugFor(ps) === "" && IA.tileSrc(ps) === "" && IA.engravingSrc(ps) === "" && IA.nameFor(ps) === "");
+check("gate.shownFromPick", IA.slugFor(ps) === "hell-maker" && IA.tileSrc(ps) === "assets/img/items/borrowed-iron/hell-maker.webp" && IA.engravingSrc(ps) === "assets/img/dm-only/hell-maker.webp" && IA.nameFor(ps) === "Hell Maker");
 check("gate.dmSees", IA.slugFor(ps, { dm: true }) === "hell-maker" && IA.nameFor(ps, { dm: true }) === "Hell Maker");
 check("gate.revealed", IA.tileSrc(Object.assign({}, ps, { ironRevealed: true })) === "assets/img/items/borrowed-iron/hell-maker.webp");
 check("gate.noPact", IA.slugFor({ calling: "pact-seeker", subclass: "", ironRevealed: true }) === "" && IA.slugFor({ calling: "pact-seeker", subclass: "made-up", ironRevealed: true }) === "");
@@ -74,13 +74,13 @@ const pact = (sub, rev) => { const c = K.apply(K.blankCharacter(), "pact-seeker"
 let f = D.focusState(pact("the-crossroads-note"));
 check("focus.patronNotGated", f.kind === "patron" && f.name === "The Crossroads Note" && /items\/patron\/crossroads-note\.webp$/.test(f.art) && f.locked === true, J(f));
 let ir = D.ironState(pact("the-crossroads-note"));
-check("iron.genericUntilRevealed", ir.key === "revolver_2" && /assets\/img\/items\/borrowed-iron\.webp$/.test(ir.art) && ir.note === "In hand · Pact revolver" && ir.label === "Borrowed Iron — Pact revolver" && ir.ironName === "", J(ir));
+check("iron.realWithoutReveal", ir.key === "revolver_2" && /items\/borrowed-iron\/hell-maker\.webp$/.test(ir.art) && ir.note === "In hand · Hell Maker" && ir.label === "Hell Maker — Pact revolver" && ir.ironName === "Hell Maker", J(ir));
 ir = D.ironState(pact("the-crossroads-note", true));
 check("iron.hellMaker", ir.key === "revolver_2" && /items\/borrowed-iron\/hell-maker\.webp$/.test(ir.art) && ir.note === "In hand · Hell Maker", J(ir));
 ir = D.ironState(pact("lass-o-lakes", true));
 check("iron.butterRepeaterLongGun", ir.key === "long_gun" && /items\/borrowed-iron\/butter-repeater\.webp$/.test(ir.art), J(ir));
-/* 0.3.100 (Jessey 2026-10-21 12:12 PM): the iron's type (and so its slot) shows from the Pact pick; only its name and art wait for the reveal */
-check("iron.typeFromPickNameHidden", D.ironState(pact("lass-o-lakes")).key === "long_gun" && D.ironState(pact("lass-o-lakes")).ironName === "" && /items\/borrowed-iron-long-outline\.svg$/.test(D.ironState(pact("lass-o-lakes")).art) /* 0.3.100: hidden long iron -> outline */);
+/* 0.3.101 (Jessey 2026-10-21 12:12 PM): the iron's type (and so its slot) shows from the Pact pick; only its name and art wait for the reveal */
+check("iron.lassFromPick", D.ironState(pact("lass-o-lakes")).key === "long_gun" && D.ironState(pact("lass-o-lakes")).ironName === "Butter Repeater" && /items\/borrowed-iron\/butter-repeater\.webp$/.test(D.ironState(pact("lass-o-lakes")).art));
 f = D.focusState(pact("", true));
 check("focus.noPactFallback", f.kind === "patron" && f.name === "Patron" && /items\/default\/focus\.webp$/.test(f.art), J(f));
 check("patron.slugs", ["the-crossroads-note", "the-sealed-orders", "lass-o-lakes", "the-last-round", "the-sand-oath", "the-pine-box-contract", "the-drowned-breath"].map((x) => IA.patronSlug({ calling: "pact-seeker", subclass: x })).join(",") ===
@@ -99,7 +99,7 @@ gs.guns[g0].weaponFocus = false;
 check("rule.unflaggedNoFocus", D.focusState(gs) === null);
 /* migration of an old save (Focus slot era): the iron moves to a free weapon slot, nothing else changes */
 const old = pact("the-sealed-orders"); delete old.ironSlot; old.equipMigrated = 2; old.guns = [{ weapon: "navy-army-ball-n-cap-revolver", proficient: true, chambers: [], equipped: true }];
-/* 0.3.100 (4:51 PM): the only item change allowed is the iron's new weapon class field */
+/* 0.3.101 (4:51 PM): the only item change allowed is the iron's new weapon class field */
 const noCls = (items) => J((items || []).map((x) => { const y = Object.assign({}, x); delete y.ironClass; return y; }));
 const oldItems = noCls(old.items), oldGuns = J(old.guns);
 K.migrateEquipment(old);
@@ -121,7 +121,7 @@ const dj = read("assets/js/dm-join.js");
 check("wire.revealCmd", /case "iron_reveal":[\s\S]{0,300}doc\.character\.ironRevealed = payload\.on !== false/.test(dj));
 check("wire.snapshot", /ironRevealed: !!c\.ironRevealed/.test(dj));
 const dm = read("dm/assets/js/dmcc.js");
-check("wire.dmccButton", /type: "iron_reveal", to: pid/.test(dm) && /function ironSectionHtml\(s\)/.test(dm));
+check("wire.dmccNoRevealButton", !/type: "iron_reveal", to: pid/.test(dm) && !/btnDmIronReveal/.test(dm) && /function ironSectionHtml\(s\)/.test(dm));
 check("wire.noPublicFeed", !/postDmAction\([^)]*Borrowed Iron/.test(dm));
 check("rules.untouched", !/ironRevealed|iron_reveal/.test(read("database.rules.json")));
 
@@ -194,11 +194,11 @@ try {
     await waitImgs(pg); await sleep(300);
     let v = await pg.evaluate(info, "revolver_2");
     check("ui.hidden.focusPatron", /doll-focus-patron/.test(v.focusCls) && /items\/patron\/crossroads-note\.webp/.test(v.focusArt) && v.focusOk && /Crossroads Note/.test(v.focusName), J(v));
-    check("ui.hidden.ironInWeaponSlot", /doll-iron/.test(v.ironCls) && /assets\/img\/items\/borrowed-iron\.webp/.test(v.ironArt) && v.ironOk && /Pact revolver/.test(v.ironNote) && !/Hell Maker/.test(v.ironNote), J(v));
+    check("ui.hidden.ironInWeaponSlot", /doll-iron/.test(v.ironCls) && /items\/borrowed-iron\/hell-maker\.webp/.test(v.ironArt) && v.ironOk && /Hell Maker/.test(v.ironNote), J(v));
     const r0 = ironRow(v.weaponRows);
-    check("ui.hidden.rowGeneric", v.focusRows.length === 0 && !!r0 && /items\/borrowed-iron\.webp/.test(r0.src), J(v.weaponRows));
+    check("ui.noReveal.rowEngraving", v.focusRows.length === 0 && !!r0 && /dm-only\/hell-maker\.webp/.test(r0.src), J(v.weaponRows));
     /* 0.3.100: before the reveal the Weapons card shows the plain Borrowed Iron tile and the type label, no engraving */
-    check("ui.hidden.noEngraving", !!v.eng && /assets\/img\/items\/borrowed-iron\.webp$/.test(v.eng.src) && v.ironName === "" && v.cardHead === "Borrowed Iron — Pact revolver", J(v));
+    check("ui.noReveal.engraving", !!v.eng && /dm-only\/hell-maker\.webp$/.test(v.eng.src) && v.ironName === "· Borrowed Iron" && v.cardHead === "Hell Maker — Pact revolver", J(v));
     await shot(pg, "#dollHost .doll", "iron-art-v2-pact-doll-hidden.png");
     /* the DM reveals it (same patch the iron_reveal command makes) */
     await pg.evaluate(() => window.SSDNSApp.applyPatch((d) => { d.character.ironRevealed = true; }));
@@ -208,7 +208,7 @@ try {
     check("ui.reveal.ironHellMaker", /items\/borrowed-iron\/hell-maker\.webp/.test(v.ironArt) && v.ironOk && /Hell Maker/.test(v.ironNote), J(v));
     const r1 = ironRow(v.weaponRows);
     check("ui.reveal.weaponsRowEngraving", !!r1 && /dm-only\/hell-maker\.webp/.test(r1.src) && r1.ok && r1.nw === 1200 && r1.wide && r1.fit === "contain", J(v.weaponRows));
-    check("ui.reveal.engraving", !!v.eng && /dm-only\/hell-maker\.webp/.test(v.eng.src) && v.eng.ok && /Hell Maker/.test(v.ironName), J(v.eng));
+    check("ui.reveal.engraving", !!v.eng && /dm-only\/hell-maker\.webp/.test(v.eng.src) && v.eng.ok && /Hell Maker/.test(v.cardHead), J(v.eng));
     await shot(pg, "#dollHost .doll", "iron-art-v2-pact-doll-crossroads.png");
     await shot(pg, ".gear-col.gear-weapons", "iron-art-v2-weapons-pact-crossroads.png");
     await shot(pg, "#itemList", "iron-art-v2-weapons-rows-pact-crossroads.png");
@@ -231,7 +231,7 @@ try {
     check("ui." + slug + ".ironSlot", new RegExp((key === "long_gun" ? "weapons" : "items") + "/borrowed-iron/" + slug + "\\.webp").test(v.ironArt) && v.ironOk && /doll-iron/.test(v.ironCls), J(v));
     const r = ironRow(v.weaponRows);
     check("ui." + slug + ".weaponsRowEngraving", !!r && new RegExp("weapons/borrowed-iron/" + slug + "\\.webp").test(r.src) && r.wide, J(v.weaponRows));
-    check("ui." + slug + ".engraving", !!v.eng && new RegExp("weapons/borrowed-iron/" + slug + "\\.webp").test(v.eng.src) && v.eng.ok && v.ironName.indexOf(nm) >= 0, J(v.eng));
+    check("ui." + slug + ".engraving", !!v.eng && new RegExp("weapons/borrowed-iron/" + slug + "\\.webp").test(v.eng.src) && v.eng.ok && v.cardHead.indexOf(nm) === 0, J(v.eng));
     if (slug !== "virgil") {
       await shot(pg, "#dollHost .doll", "iron-art-v2-pact-doll-" + slug + ".png");
       await shot(pg, ".gear-col.gear-weapons", "iron-art-v2-weapons-pact-" + slug + ".png");
@@ -284,7 +284,7 @@ try {
     check("ui.hex.noPageErrors", errs.length === 0, errs.join(" | "));
     await pg.browserContext().close();
   }
-  /* DMCC player card (demo): the DM always sees the iron; Reveal sends iron_reveal */
+  /* DMCC player card (demo): the DM sees the iron; 0.3.101: no Reveal toggle (the player sees it from the Pact pick) */
   {
     const ctx = await browser.createBrowserContext();
     const pg = await ctx.newPage();
@@ -299,11 +299,11 @@ try {
     await pg.evaluate((id) => document.querySelector('.pcard[data-pid="' + id + '"]').click(), pid);
     await sleep(900); await waitImgs(pg);
     const v = await pg.evaluate(() => { const s = document.querySelector(".dm-iron"); const im = s && [...s.querySelectorAll("img")];
-      return s ? { name: s.querySelector("b").textContent, tile: im[0].getAttribute("src"), tileOk: im[0].naturalWidth === 256, eng: im[1].getAttribute("src"), engOk: im[1].naturalWidth === 1200, btn: s.querySelector("#btnDmIronReveal").textContent } : null; });
-    check("dm.section", !!v && v.name === "Hell Maker" && /\.\.\/assets\/img\/items\/borrowed-iron\/hell-maker\.webp/.test(v.tile) && v.tileOk && /dm-only\/hell-maker\.webp/.test(v.eng) && v.engOk && v.btn === "Reveal to player", J(v));
+      return s ? { name: s.querySelector("b").textContent, tile: im[0].getAttribute("src"), tileOk: im[0].naturalWidth === 256, eng: im[1].getAttribute("src"), engOk: im[1].naturalWidth === 1200, btn: !!s.querySelector("#btnDmIronReveal") } : null; });
+    check("dm.section", !!v && v.name === "Hell Maker" && /\.\.\/assets\/img\/items\/borrowed-iron\/hell-maker\.webp/.test(v.tile) && v.tileOk && /dm-only\/hell-maker\.webp/.test(v.eng) && v.engOk && v.btn === false, J(v));
     await shot(pg, ".dm-iron", "iron-art-dmcc-reveal.png");
-    const after = await pg.evaluate((id) => { document.querySelector("#btnDmIronReveal").click(); return { btn: document.querySelector("#btnDmIronReveal").textContent, snap: window.DMCC.state.players[id].snapshot.ironRevealed }; }, pid);
-    check("dm.revealToggle", after.btn === "Hide again" && after.snap === true, J(after));
+    const after = await pg.evaluate(() => (document.querySelector("#dmIronState") || {}).textContent || "");
+    check("dm.noRevealToggle", /player sees it/.test(after) && !/Hidden|Revealed/.test(after), after);
     check("dm.noPageErrors", errs.length === 0, errs.join(" | "));
     await ctx.close();
   }

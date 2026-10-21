@@ -1231,7 +1231,7 @@
     paintIronArt(box, c);
     paintIronSpells(box, c);
   }
-  /* 0.3.100 (Jessey approved 2026-10-21 12:22 PM CT): the Borrowed Iron fires only spells, so its card has no weapon
+  /* 0.3.101 (Jessey approved 2026-10-21 12:22 PM CT): the Borrowed Iron fires only spells, so its card has no weapon
      attack: quick spell buttons for the attack cantrips / spells this Pact Seeker knows, Pact Shot first (#btnPactShot).
      They use the sheet's own cast path ([data-spell-cast]: target picker, log, map FX) and are blocked with the rest when
      the iron isn't in hand (focus-slot.js). Fixed Bayonet (Pact of the Blade, BOOK1 L2017): the bayonet form keeps a
@@ -1272,12 +1272,12 @@
   /* 0.3.96: the Borrowed Iron card shows the pact's engraving (1200x400, muzzle right) once the DM has revealed it */
   function paintIronArt(box, c) {
     var IA = root.SSDNSIronArt;
-    /* 0.3.100 (Jessey 2026-10-21 12:11 / 12:12 PM): the card is labelled by the iron's type from the Pact pick
+    /* 0.3.101 (Jessey 2026-10-21 12:11 / 12:12 PM): the card is labelled by the iron's type from the Pact pick
        ("Borrowed Iron — Lever-action carbine"). Its real name and engraving wait for the DM's reveal; until then the
        card shows the plain Borrowed Iron tile. */
     var head = box.querySelector("b");
     if (head && IA && IA.labelFor) { var lbl = IA.labelFor(c); if (head.textContent !== lbl) head.textContent = lbl; }
-    /* 0.3.100 (4:51 PM): the card carries the iron's weapon class (public from the Pact pick) */
+    /* 0.3.101 (4:51 PM): the card carries the iron's weapon class (public from the Pact pick) */
     var klass = IA && IA.classFor ? IA.classFor(c) : "";
     if ((box.getAttribute("data-iron-class") || "") !== klass) { if (klass) box.setAttribute("data-iron-class", klass); else box.removeAttribute("data-iron-class"); }
     var src = !box.hidden && IA ? IA.engravingSrc(c) : "", name = src ? IA.nameFor(c) : "";
@@ -1291,7 +1291,7 @@
       box.classList.remove("has-iron");
       var gi = art.querySelector("img");
       if (!gi) { gi = document.createElement("img"); gi.decoding = "async"; art.appendChild(gi); }
-      /* 0.3.100 (4:35 PM): a hidden long iron shows the plain long-gun outline (wide, like an engraving) */
+      /* 0.3.101 (4:35 PM): a hidden long iron shows the plain long-gun outline (wide, like an engraving) */
       var gsrc = (IA.hiddenArt ? IA.hiddenArt(c) : "") || IA.GENERIC_TILE;
       art.classList.toggle("pact-iron-outline", gsrc !== IA.GENERIC_TILE);
       if (gi.getAttribute("src") !== gsrc) { gi.setAttribute("src", gsrc); gi.alt = "Borrowed Iron"; art.title = IA.labelFor(c); }
@@ -1319,7 +1319,8 @@
     }
     art.hidden = false; tag.hidden = false;
     box.classList.add("has-iron");
-    tag.textContent = "· " + name;
+    /* 0.3.101: the head already reads "Butter Repeater — Pact rifle"; the tag says what it is */
+    tag.textContent = "· Borrowed Iron";
     var img = art.querySelector("img");
     if (!img) { img = document.createElement("img"); img.decoding = "async"; art.appendChild(img); }
     if (img.getAttribute("src") !== src) { img.setAttribute("src", src); img.alt = name; art.title = name; }
@@ -1516,7 +1517,7 @@
       rows.sort(function (a, b) { return rank(a) - rank(b); });
       /* 0.3.67: 'Free shot' is always the first entry: the gun fires with no target, no attack roll vs AC. */
       var html = "<option value='__free'>Free shot</option><option value=''>No target</option>";
-      /* fog-aware targeting (0.3.100): on the map's scene with fog on, only what this player can see; past the
+      /* fog-aware targeting (0.3.101): on the map's scene with fog on, only what this player can see; past the
          picked weapon's long range stays listed but can't be picked. The map answers null when it can't tell. */
       var mapHost = root.SSDNSMapHost && typeof root.SSDNSMapHost.targetSight === "function" ? root.SSDNSMapHost : null;
       var sightOf = function (id) { try { return mapHost ? mapHost.targetSight(String(id)) : null; } catch (e) { return null; } };

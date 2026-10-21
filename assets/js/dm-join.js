@@ -1255,7 +1255,7 @@
         }
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "Badge set to " + (payload.state || "bright") + "." });
         break;
-      case "iron_reveal": /* 0.3.96: the DM reveals (or hides again) what this Pact Seeker's Borrowed Iron really is */
+      case "iron_reveal": /* 0.3.96 reveal toggle; 0.3.101: no effect on what the sheet shows */
         if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
           root.SSDNSApp.applyPatch(function (doc) {
             if (doc.character) doc.character.ironRevealed = payload.on !== false;
@@ -1263,10 +1263,8 @@
         }
         if (root.SSDNSPlaytest && root.SSDNSPlaytest.paintPact) root.SSDNSPlaytest.paintPact();
         if (root.SSDNSDoll && root.SSDNSDoll.paint) root.SSDNSDoll.paint();
-        if (root.SSDNSSheet) {
-          var ironName = payload.on !== false && root.SSDNSIronArt && root.SSDNSApp && root.SSDNSApp.doc ? root.SSDNSIronArt.nameFor(root.SSDNSApp.doc().character) : "";
-          root.SSDNSSheet.addLog({ kind: "alert", text: payload.on !== false ? "Your DM revealed your Borrowed Iron" + (ironName ? ": " + ironName + "." : ".") : "Your DM hid your Borrowed Iron's true shape again." });
-        }
+        /* 0.3.101: the iron always shows from the Pact pick; an older DMCC may still send this. The field is saved
+           (harmless, nothing reads it) and no log line is written. */
         break;
       case "set_conditions":
         if (root.SSDNSSheet && root.SSDNSSheet.setConditions) root.SSDNSSheet.setConditions(payload.list || [], payload);
