@@ -1,5 +1,5 @@
 /**
- * Pistolero: Fan the Hammer, sheet 0.3.93 (Jessey 2026-10-19, design pick 7:41 PM CT).
+ * Pistolero: Fan the Hammer, sheet 0.3.94 (Jessey 2026-10-19, design pick 7:41 PM CT).
  * PHB (BOOK1.md, Feats › Pistolero, Crossbow Expert house rule; pistols only: Herringers, the Ball n Cap, the ChaosMaker):
  *   "Fan the Hammer. When you take the Attack action and attack with a pistol, you can use a bonus action to make one
  *    more attack, either with that pistol (if it has a round left) or with a second pistol you're holding."

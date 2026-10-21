@@ -18,7 +18,7 @@
     /* C1 (item template review, 2026-10-20): the Big Fifty reads ammo "bigfifty", so its rounds get their own pool
        (0.15 lb each in SSDNS_CARRY_WEIGHTS.ammoEach), not a regular cartridge pool at 0.05 lb */
     "big-fifty-cartridges-50-90-10": { kind: "ammo", type: "bigfifty", caliber: ".50-90", qty: 10 },
-    /* inv2 (0.2.106): every other store ammo pack fills its sheet Ammo pool (the #100 quiver / bolt / pouch pools)
+    /* inv2 (0.2.107): every other store ammo pack fills its sheet Ammo pool (the #100 quiver / bolt / pouch pools)
        instead of writing a gear note line */
     "arrows-20": { kind: "ammo", type: "arrows", caliber: "", qty: 20 },
     "crossbow-bolts-20": { kind: "ammo", type: "bolts", caliber: "", qty: 20 },

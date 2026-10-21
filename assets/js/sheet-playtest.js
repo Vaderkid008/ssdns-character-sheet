@@ -1263,6 +1263,7 @@
     styleOptions: styleOptions,
     renderStyle: renderStyle,
     showYourTurn: showYourTurn,
+    turnKey: function () { return shownTurn; },
     showTurn: function (init) {
       if (root.SSDNSActionPips && root.SSDNSActionPips.onTurn) root.SSDNSActionPips.onTurn(init);
       if (root.SSDNSEquip && root.SSDNSEquip.setCombat) {
@@ -1290,6 +1291,8 @@
         }
         panel.hidden = true;
         endTurnAt = null;
+        /* L0197: out of combat the Borrowed Iron is back a heartbeat later */
+        if (root.SSDNSFocus && root.SSDNSFocus.onTurn) { try { root.SSDNSFocus.onTurn("", false, false); } catch (e) {} }
         if ($("#btnEndTurn")) $("#btnEndTurn").hidden = true;
         panel.classList.remove("your-turn");
         if (roundEl) roundEl.textContent = "";
@@ -1359,6 +1362,8 @@
       }
       panel.classList.toggle("your-turn", !!mine);
       var sig = "turn:" + String(round) + ":" + String(cur.id || turn);
+      /* L0197: the Borrowed Iron returns at the start of its owner's next turn */
+      if (sig !== shownTurn && root.SSDNSFocus && root.SSDNSFocus.onTurn) { try { root.SSDNSFocus.onTurn(sig, !!mine, true); } catch (e) {} }
       if (sig !== shownTurn) {
         shownTurn = sig;
         if (mine && !loadTurnSeen()[sig]) { markTurnSeen(sig); showYourTurn(); }

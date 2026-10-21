@@ -66,12 +66,12 @@
     }
     if (extra) Object.keys(extra).forEach(function (k) { slot[k] = extra[k]; });
   }
-  /* Equipment build (0.3.93, Jessey 2026-10-20): re-applying a kit (the "Apply starting kit" button, or a second
+  /* Equipment build (0.3.94, Jessey 2026-10-20): re-applying a kit (the "Apply starting kit" button, or a second
      apply on a sheet whose kitStamp already matches) never adds countable things again: no ammo, no items, no
      note lines. Weapons were already guarded (putGun / putMelee skip a weapon that is there). */
   var quiet = false;
   var preview = false;
-  /* What kits already gave this sheet (0.3.93): character.kitGrants.ammo {"type|caliber": n} and .items [catalog ids].
+  /* What kits already gave this sheet (0.3.94): character.kitGrants.ammo {"type|caliber": n} and .items [catalog ids].
      A kit applied again never gives the same ammo / item twice, but a new pick (another gun) still gets its own. */
   function grants(c) {
     var g = c.kitGrants && typeof c.kitGrants === "object" ? c.kitGrants : (c.kitGrants = {});
@@ -98,7 +98,7 @@
     }
     pool.count = (parseInt(pool.count, 10) || 0) + count;
   }
-  /* Equipment build (0.3.93): what each kit gear line becomes.
+  /* Equipment build (0.3.94): what each kit gear line becomes.
        items:   real catalog items (Jessey 5:09 PM: Badge = Holy symbol, walking stick / pouches = Druidic focus,
                 Prism = Arcane focus, Galvanic reagents = Hex pouch)
        rig:     a holster / belt slot (rules.js holsters; weighs in through the rig slot, shows as a Worn row)
@@ -132,8 +132,13 @@
     "Mail Duster (chain mail)": { covered: "armor", id: "mail-duster" },
     "Arrows ×20": { covered: "ammo" },
     "Powder, ball, and caps ×20": { covered: "ammo" },
-    "Light cartridges ×20 (plain rounds, not in the cylinder)": { covered: "ammo" }
+    "Light cartridges ×20 (plain rounds, not in the cylinder)": { covered: "ammo" },
+    /* L0197 (Jessey 2026-10-20 7:10 PM): the Pact Seeker's Borrowed Iron is a real, soul-bound catalog item */
+    "Borrowed Iron (pact focus)": { items: ["borrowed-iron"] }
   };
+  /* Lines added to KIT_LINES after a sheet already ran the 0.3.94 step (equipMigrated 1). Only these are converted
+     the second time, so nothing else in the notes moves. */
+  var MIGRATE_V2 = ["Borrowed Iron (pact focus)"];
   function lineSpec(text) {
     if (Object.prototype.hasOwnProperty.call(KIT_LINES, text)) return KIT_LINES[text];
     var map = root.SSDNS_KIT_LINE_ITEMS;
@@ -189,26 +194,42 @@
     if (cur.indexOf(text) >= 0) return;
     c.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + "• " + text;
   }
-  /* Saved characters (0.3.93): kit lines already sitting in the Equipment notes become the same items / rigs, and
+  /* Saved characters (0.3.94): kit lines already sitting in the Equipment notes become the same items / rigs, and
      the duplicate ammo / armor / shield lines go. Packs are left alone (they keep their Unpack button). The old notes
      text is kept in character.equipmentBefore0392, so nothing is lost. Runs once (character.equipMigrated). */
+  /* L0197 (0.3.94): equipMigrated 2. A sheet already at 1 converts only the MIGRATE_V2 lines (the exact
+     "Borrowed Iron (pact focus)" line PR #113 left in Notes); every other note line stays as it is. Its notes before
+     this step are kept in character.equipmentBefore0394. A Pact Seeker with no line still gets the soul-bound item. */
   function migrateEquipment(c) {
-    if (!c || c.equipMigrated >= 1) return 0;
+    if (!c || c.equipMigrated >= 2) return 0;
     if (!itemsApi()) return 0;
+    var only = c.equipMigrated >= 1 ? MIGRATE_V2 : null;
     var text = String(c.equipment || "");
     var moved = 0;
     var keep = text.split("\n").filter(function (raw) {
       var line = raw.replace(/^\s*•\s*/, "").trim();
       if (!line || !Object.prototype.hasOwnProperty.call(KIT_LINES, line)) return true;
+      if (only && only.indexOf(line) < 0) return true;
       if (landLine(c, line, { migrate: true })) { moved++; return false; }
       return true;
     });
     if (moved) {
-      if (c.equipmentBefore0392 == null) c.equipmentBefore0392 = text;
+      if (only) { if (c.equipmentBefore0394 == null) c.equipmentBefore0394 = text; }
+      else if (c.equipmentBefore0392 == null) c.equipmentBefore0392 = text;
       c.equipment = keep.join("\n");
     }
-    c.equipMigrated = 1;
+    ensureBorrowedIron(c);
+    c.equipMigrated = 2;
     return moved;
+  }
+  /* L0197: every Pact Seeker owns exactly one Borrowed Iron item (soul-bound, 0 lb). Adds it when missing; never removes. */
+  function ensureBorrowedIron(c) {
+    if (!c || c.calling !== "pact-seeker" || preview) return false;
+    var I = itemsApi();
+    if (!I || !I.byId("borrowed-iron") || hasItem(c, "borrowed-iron")) return false;
+    var res = I.add(c, { catalogId: "borrowed-iron", count: 1 }, { dm: true });
+    if (res && res.ok && !preview) { var g = grants(c); if (g.items.indexOf("borrowed-iron") < 0) g.items.push("borrowed-iron"); }
+    return !!(res && res.ok);
   }
   function packLine(id) {
     return {
@@ -554,6 +575,7 @@
     } else if (calling === "pact-seeker") {
       c.casterGun = "borrowed-iron";
       c.pactFocus = "borrowed-iron";
+      /* L0197: the Borrowed Iron is a real item too (the "Borrowed Iron (pact focus)" kit line lands it) */
     } else if (calling === "scholar") {
       if (p.weapon === "repeater") plinkerRepeater(c);
       else if (p.weapon === "pocket") pocketPistol(c);
@@ -561,7 +583,7 @@
     }
   }
 
-  /* The same kit again on a sheet from before 0.3.93 (no kitGrants record of what it got): weapons / armor fields only,
+  /* The same kit again on a sheet from before 0.3.94 (no kitGrants record of what it got): weapons / armor fields only,
      nothing countable (no ammo, items or note lines), so nothing doubles. Newer sheets use the kitGrants record instead. */
   function legacyAgain(c, calling) {
     return !preview && !!calling && c.kitStamp === calling && !(c.kitGrants && c.kitGrants.v);
@@ -800,19 +822,22 @@
     branches: branches,
     describe: describe,
     kitLines: KIT_LINES,
-    migrateEquipment: migrateEquipment
+    migrateEquipment: migrateEquipment,
+    ensureBorrowedIron: ensureBorrowedIron
   };
   root.SSDNSKits = api;
-  /* first boot: app.js migrated the saved sheet before this file loaded, so run the 0.3.93 kit-line step here */
+  /* first boot: app.js migrated the saved sheet before this file loaded, so run the 0.3.94 kit-line step here */
   function bootMigrate() {
     var A = root.SSDNSApp;
     var d = A && A.doc ? A.doc() : null;
     var c = d && d.character;
-    if (!c || c.equipMigrated >= 1 || !itemsApi()) return;
+    if (!c || c.equipMigrated >= 2 || !itemsApi()) return;
+    var only = c.equipMigrated >= 1 ? MIGRATE_V2 : null;
     var due = String(c.equipment || "").split("\n").some(function (raw) {
-      return Object.prototype.hasOwnProperty.call(KIT_LINES, raw.replace(/^\s*•\s*/, "").trim());
-    });
-    if (!due) { c.equipMigrated = 1; return; }
+      var line = raw.replace(/^\s*•\s*/, "").trim();
+      return Object.prototype.hasOwnProperty.call(KIT_LINES, line) && (!only || only.indexOf(line) >= 0);
+    }) || (c.calling === "pact-seeker" && !hasItem(c, "borrowed-iron"));
+    if (!due) { c.equipMigrated = 2; return; }
     if (A.applyPatch) A.applyPatch(function (dd) { if (dd && dd.character) migrateEquipment(dd.character); });
     if (root.SSDNSItems && root.SSDNSItems.paintSheet) root.SSDNSItems.paintSheet();
   }

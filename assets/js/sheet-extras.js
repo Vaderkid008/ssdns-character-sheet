@@ -571,7 +571,7 @@
     var name = String(item.name || "Item");
     var plan = root.SSDNSStore && root.SSDNSStore.grantPlan ? root.SSDNSStore.grantPlan(item) : { kind: "gear", qty: 1 };
     if (plan.kind === "cartridge" || plan.kind === "ammo") {
-      /* inv2 (0.3.93): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
+      /* inv2 (0.3.94): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
       var ptype = plan.kind === "ammo" ? String(plan.type || "") : "cartridge";
       d.character.ammo = d.character.ammo || [];
       var pool = null;
@@ -1364,7 +1364,10 @@
     if (current) return Promise.resolve({ id: current });
     return askOneTarget(name);
   }
+  /* L0197: a Pact Seeker casts only with the Borrowed Iron in hand; a Hexslinger only through an equipped Caster Gun */
+  function focusBlocked() { return !!(root.SSDNSFocus && root.SSDNSFocus.gate && root.SSDNSFocus.gate()); }
   function castSpellAttack(i, spellName, slot, fromChamber) {
+    if (focusBlocked()) return;
     var Cast = root.SSDNSSpellCast;
     var looked = Cast && Cast.lookup && Cast.lookup(spellName);
     var start = castChoice ? Promise.resolve(castChoice) : chooseCastTarget(spellName, looked, slot);
@@ -1675,6 +1678,7 @@
     return { level: level, name: name, slot: slot };
   }
   function castThroughGun(i) {
+    if (focusBlocked()) return;
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
     var pick = selectedCast(i);
@@ -2627,6 +2631,7 @@
   function castPicked(i, sp) {
     var c = ch();
     if (!sp) return;
+    if (focusBlocked()) return;
     var held = c && c.guns && c.guns[i];
     if (held && held.weapon && held.equipped === false) { toast("Equip this weapon first."); return; }
     var looked = root.SSDNSSpellCast && root.SSDNSSpellCast.lookup && root.SSDNSSpellCast.lookup(sp.name);
@@ -2662,6 +2667,7 @@
     }
   }
   function openCastPrompt(level, onPick) {
+    if (focusBlocked()) return;
     var c = ch();
     var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     if (!v.caster && !(c && (c.calling === "hexslinger" || c.calling === "pact-seeker"))) {
@@ -2700,6 +2706,9 @@
   function gunIndexForCast() {
     var c = ch();
     var hit = -1;
+    /* L0197: a Hexslinger casts through the Caster Gun equipped in Pistol L / R (the Focus slot mirror) */
+    var cgI = root.SSDNSFocus && root.SSDNSFocus.castGunIndex ? root.SSDNSFocus.castGunIndex(c) : -1;
+    if (cgI >= 0) return cgI;
     (c && c.guns || []).forEach(function (g, i) {
       if (g && g.weapon) hit = i;
     });

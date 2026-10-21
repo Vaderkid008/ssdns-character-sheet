@@ -164,6 +164,10 @@
     if (opts.inventoryLocked && !opts.override) {
       return { commands: [], blocked: true, enemy: {}, chat: who + " stops. Inventory is locked." };
     }
+    /* L0197: a soul-bound item (Borrowed Iron) can't be taken at all, not even with a DM override */
+    if (opts.item && (opts.item.soulBound || opts.item.catalogId === "borrowed-iron")) {
+      return { commands: [], blocked: true, enemy: {}, chat: itemName + " is soul-bound. It can't be taken." };
+    }
     if ((opts.quest || (opts.item && (opts.item.type === "quest" || opts.item.dmOnly))) && !opts.dmAllowRob && !opts.override) {
       return { commands: [], blocked: true, enemy: {}, chat: itemName + " is a quest item. The DM has to allow it." };
     }
