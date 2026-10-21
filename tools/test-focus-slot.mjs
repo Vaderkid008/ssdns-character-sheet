@@ -148,7 +148,33 @@ check("hex.noGunHtml", /doll-focus-nocaster/.test(cellN) && cellN.indexOf("No Ca
 check("cast.hexBlocked", F.castBlock(ng) === NO_CASTER && F.castGunIndex(ng) === -1);
 check("hex.noGunKeepsData", J(ng) === ngBefore && ng.guns[0].weapon === "blacksnake");
 const plink = hex(); plink.guns[0].weapon = "dullards-plinker-revolver"; plink.casterGun = "ordinary-firearm";
-check("cast.hexOrdinaryGunBlocked", F.castBlock(plink) === NO_CASTER);
+check("cast.hexOrdinaryGunBlocked", F.castBlock(plink).indexOf(NO_CASTER) === 0);
+
+/* 6b. L0198 (Jessey 2026-10-20 7:48 PM, amends L0156; BOOK1 L4504): no Plinker kit swap for the Hexslinger */
+const hexOpts = (K.openChoices("hexslinger", {}) || []).flatMap((ch) => ch.options.map((o) => o.id));
+check("swap.hexHidden", hexOpts.indexOf("plinker") < 0 && hexOpts.indexOf("repeater") < 0 && hexOpts.indexOf("blacksnake") >= 0, J(hexOpts));
+check("swap.hexNoBranch", K.branches("hexslinger").every((p) => p.gun !== "plinker" && p.gun !== "repeater"), J(K.branches("hexslinger")));
+["plinker", "repeater"].forEach((g) => {
+  const c = K.apply(K.blankCharacter(), "hexslinger", { gun: g });
+  const gl = (c.guns || []).map((x) => x.weapon).filter(Boolean);
+  check("swap.hexBlocked." + g, J(gl) === J(["blacksnake"]) && c.casterGun === "blacksnake", J(gl));
+});
+["gunslinger", "lawman", "frontier-scout", "gambler", "storyteller", "frontier-preacher", "scholar"].forEach((cal) => {
+  const opts = (K.openChoices(cal, {}) || []).flatMap((ch) => ch.options.map((o) => o.id));
+  check("swap.othersKeep." + cal, opts.indexOf("plinker") >= 0 && opts.indexOf("repeater") >= 0, J(opts));
+});
+const oldSwap = { calling: "hexslinger", kitStamp: "hexslinger", casterGun: "", equipMigrated: 1, equipment: "• Gun belt notes",
+  guns: [{ weapon: "dullards-plinker-revolver", proficient: true, chambers: ["", ""], equipped: true, dirty: true, chamber: "light|.22 LR" }, { weapon: "" }],
+  ammo: [{ type: "cartridge", caliber: "Light", count: 20 }], items: [] };
+const oldBefore = J(oldSwap);
+check("swap.saveDetected", F.hexPlinkerSwap(oldSwap) === true && F.hexPlinkerSwap(hx) === false && F.hexPlinkerSwap(ps) === false);
+check("swap.saveCastNote", F.castBlock(oldSwap) === NO_CASTER + " " + F.SWAP_NOTE && /isn't allowed for the Hexslinger/.test(F.SWAP_NOTE) && /can't cast/.test(F.SWAP_NOTE), F.castBlock(oldSwap));
+D.html(oldSwap, {});
+check("swap.savePickerNote", D.pickerHtml(oldSwap, "focus_borrowed_iron").indexOf("isn&#39;t allowed for the Hexslinger") >= 0);
+K.migrateEquipment(oldSwap);
+check("swap.saveDataUntouched", J(Object.assign({}, oldSwap, { equipMigrated: 1 })) === oldBefore, J(oldSwap));
+const swapPlusCaster = clone(oldSwap); swapPlusCaster.guns[1] = { weapon: "hognose", equipped: false };
+check("swap.ownsCasterNoSwapNote", F.hexPlinkerSwap(swapPlusCaster) === false && F.castBlock(swapPlusCaster) === NO_CASTER);
 /* other Callings keep their focus */
 const st = K.apply(K.blankCharacter(), "storyteller", {}); st.calling = "storyteller";
 check("others.storytellerInstrument", D.focusState(st) === null && D.weaponName(st, "focus_borrowed_iron") !== "" && F.castBlock(st) === "");
@@ -315,6 +341,25 @@ try {
     f = await pg.evaluate(focusInfo);
     check("ui.hex.reopen", f.hexBtn && !f.hexBtn.disabled && f.hexBtn.title !== NO_CASTER && /doll-focus-caster/.test(f.cls), J(f));
     check("ui.hex.noPageErrors", errs.length === 0, errs.join(" | "));
+    await pg.browserContext().close();
+  }
+  /* L0198: an old Hexslinger save that took the Plinker swap: the note shows, nothing on the sheet changes */
+  {
+    const { pg, errs } = await open(() => window.SSDNSApp.applyPatch((d) => {
+      const c = d.character; c.name = "Swap"; c.calling = "hexslinger"; c.level = 2; c.kitStamp = "hexslinger"; c.casterGun = "";
+      c.guns = [{ weapon: "dullards-plinker-revolver", proficient: true, chambers: [], equipped: true, chamber: "light|.22 LR" }, { weapon: "" }, { weapon: "" }, { weapon: "" }];
+      c.ammo = [{ type: "cartridge", caliber: "Light", count: 20 }];
+    }));
+    await sleep(400);
+    const s = await pg.evaluate(() => {
+      const n = document.getElementById("hexSwapNote"), b = document.getElementById("btnHexRoll"), c = window.SSDNSApp.doc().character;
+      return { note: n && !n.hidden ? n.textContent : "", shown: !!(n && n.offsetParent), title: b ? b.title : "", disabled: b ? b.disabled : null, gun: c.guns[0].weapon, ammo: c.ammo[0].count };
+    });
+    check("ui.swap.gearNote", /Plinker kit swap isn't allowed for the Hexslinger/.test(s.note) && /can't cast/.test(s.note) && s.shown, J(s));
+    check("ui.swap.castBlocked", s.disabled === true && s.title.indexOf(NO_CASTER) === 0 && /isn't allowed/.test(s.title), J(s));
+    check("ui.swap.dataKept", s.gun === "dullards-plinker-revolver" && s.ammo === 20, J(s));
+    await shot(pg, "#hexSwapNote", "focus-hexslinger-swap-note.png");
+    check("ui.swap.noPageErrors", errs.length === 0, errs.join(" | "));
     await pg.browserContext().close();
   }
 } finally {

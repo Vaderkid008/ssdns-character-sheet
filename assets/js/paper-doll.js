@@ -569,6 +569,7 @@
     } else if (fpk && (fpk.kind === "caster" || fpk.kind === "nocaster")) {
       rows = fpk.kind === "caster" ? btn("data-doll-noop", fpk.name + " · mirrors " + fpk.side, true) : '<span class="fine doll-nocaster-msg">' + esc(NO_CASTER) + "</span>";
       hint = "Your Caster Gun is your focus (read-only here, no extra weight). Equip a Blacksnake or Hognose in Pistol L or Pistol R. Hex casting and shells need it.";
+      if (fpk.kind === "nocaster" && root.SSDNSFocus && root.SSDNSFocus.hexPlinkerSwap && root.SSDNSFocus.hexPlinkerSwap(c)) hint = root.SSDNSFocus.SWAP_NOTE + " " + hint;
     } else if (key === "focus_borrowed_iron") {
       var ins = instruments(c);
       rows = ins.map(function (x) {

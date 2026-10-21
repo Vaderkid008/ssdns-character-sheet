@@ -23,11 +23,29 @@
     var D = Doll();
     return D && D.casterInHand ? D.casterInHand(c) : null;
   }
+  /* L0198 (Jessey 2026-10-20 7:48 PM; BOOK1 L4504): the Plinker kit swap isn't allowed for the Hexslinger. A save that
+     already took it (a Plinker gun, no Caster Gun owned) keeps every bit of its data; it only gets this note. */
+  var SWAP_NOTE = "The Plinker kit swap isn't allowed for the Hexslinger. Without a Caster Gun you can't cast. Your Plinker stays on the sheet.";
+  var PLINKERS = { "dullards-plinker-revolver": 1, "dullards-plinker-repeater": 1 };
+  function hexPlinkerSwap(c) {
+    if (!c || c.calling !== "hexslinger") return false;
+    var guns = (Array.isArray(c.guns) ? c.guns : []).filter(function (g) { return g && g.weapon; });
+    var D = Doll(), R = root.SSDNS_RULES || {};
+    var casterIds = {};
+    (R.casterGuns || []).forEach(function (w) { if (w && w.id && (!D || !D.isCasterWeapon || D.isCasterWeapon(w))) casterIds[w.id] = 1; });
+    if (!Object.keys(casterIds).length) casterIds = { blacksnake: 1, hognose: 1 };
+    var ownsCaster = guns.some(function (g) { return casterIds[g.weapon]; });
+    return !ownsCaster && guns.some(function (g) { return PLINKERS[g.weapon]; });
+  }
   /* "" = can cast; else the reason the cast buttons are blocked. */
   function castBlock(c) {
     if (!c) return "";
     if (c.calling === "pact-seeker") return c.borrowedIronAway ? NO_IRON : "";
-    if (c.calling === "hexslinger") return casterGun(c) ? "" : ((Doll() && Doll().NO_CASTER) || "No Caster Gun equipped, can't cast.");
+    if (c.calling === "hexslinger") {
+      if (casterGun(c)) return "";
+      var msg = (Doll() && Doll().NO_CASTER) || "No Caster Gun equipped, can't cast.";
+      return hexPlinkerSwap(c) ? msg + " " + SWAP_NOTE : msg;
+    }
     return "";
   }
   /* Hexslinger: the gun index a cast goes through (the equipped Caster Gun), or -1. */
@@ -117,6 +135,22 @@
     });
     note(document.querySelector(".hex-roll"), "focusCastNote", why);
     note(document.getElementById("pactFocus"), "pactFocusNote", why);
+    swapNote(hexPlinkerSwap(ch()) ? SWAP_NOTE : "");
+  }
+  /* L0198: Gear-tab note above the weapon cards for a Hexslinger save that took the Plinker swap */
+  function swapNote(text) {
+    var guns = document.getElementById("guns");
+    var el = document.getElementById("hexSwapNote");
+    if (!el && text && guns && guns.parentNode) {
+      el = document.createElement("p");
+      el.id = "hexSwapNote";
+      el.className = "fine focus-cast-note";
+      el.setAttribute("role", "status");
+      guns.parentNode.insertBefore(el, guns);
+    }
+    if (!el) return;
+    el.textContent = text || "";
+    el.hidden = !text;
   }
   function note(host, id, text) {
     if (!host) return;
@@ -140,7 +174,7 @@
   }
 
   root.SSDNSFocus = {
-    NO_IRON: NO_IRON,
+    NO_IRON: NO_IRON, SWAP_NOTE: SWAP_NOTE, hexPlinkerSwap: hexPlinkerSwap,
     castBlock: castBlock, casterGun: casterGun, castGunIndex: castGunIndex,
     markAway: markAway, markBack: markBack, turnStart: turnStart,
     ironAway: ironAway, ironBack: ironBack, onTurn: onTurn,

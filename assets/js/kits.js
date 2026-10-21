@@ -476,11 +476,13 @@
         { id: "trail", label: "Trail kit" }
       ]}
     ],
+    /* L0198 (Jessey 2026-10-20 7:48 PM, amends L0156; BOOK1 L4504): no Plinker swap for the Hexslinger. The Caster Gun
+       is their focus, so the kit always gives one. */
     hexslinger: [
-      { id: "gun", prompt: "Blacksnake, or Hognose?", options: withPlinker([
+      { id: "gun", prompt: "Blacksnake, or Hognose?", options: [
         { id: "blacksnake", label: "Blacksnake caster gun" },
         { id: "hognose", label: "Hognose caster gun" }
-      ])},
+      ]},
       { id: "pack", prompt: "Trail kit, or claim pack?", options: [
         { id: "trail", label: "Trail kit" },
         { id: "claim", label: "Claim pack" }
@@ -565,13 +567,10 @@
       else if (p.ranged === "repeater") plinkerRepeater(c);
       else pocketPistol(c);
     } else if (calling === "hexslinger") {
-      if (p.gun === "plinker") plinker(c);
-      else if (p.gun === "repeater") plinkerRepeater(c);
-      else {
-        var hex = p.gun === "hognose" ? "hognose" : "blacksnake";
-        putGun(c, hex);
-        c.casterGun = hex;
-      }
+      /* L0198: a Plinker pick (old link / saved picks) is blocked and gets the Blacksnake, as the PHB kit says */
+      var hex = p.gun === "hognose" ? "hognose" : "blacksnake";
+      putGun(c, hex);
+      c.casterGun = hex;
     } else if (calling === "pact-seeker") {
       c.casterGun = "borrowed-iron";
       c.pactFocus = "borrowed-iron";
@@ -705,10 +704,8 @@
     } else if (calling === "hexslinger") {
       c.gunBelt = true;
       addLine(c, "Gun belt");
-      if (p.gun !== "plinker" && p.gun !== "repeater") {
-        addAmmo(c, "cartridge", "Light", 20);
-        addLine(c, "Light cartridges ×20 (plain rounds, not in the cylinder)");
-      }
+      addAmmo(c, "cartridge", "Light", 20);
+      addLine(c, "Light cartridges ×20 (plain rounds, not in the cylinder)");
       addLine(c, packLine(p.pack === "claim" ? "claim" : "trail"));
     } else if (calling === "pact-seeker") {
       addLine(c, "Borrowed Iron (pact focus)");
