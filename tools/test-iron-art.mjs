@@ -189,7 +189,7 @@ try {
     await pg.evaluate(() => document.querySelector("#dollHost").scrollIntoView());
     await waitImgs(pg); await sleep(300);
     let v = await pg.evaluate(info, "revolver_2");
-    check("ui.hidden.focusPatron", /doll-focus-patron/.test(v.focusCls) && /items\/default\/focus\.webp/.test(v.focusArt) && v.focusOk && /Crossroads Note/.test(v.focusName), J(v));
+    check("ui.hidden.focusPatron", /doll-focus-patron/.test(v.focusCls) && /items\/patron\/crossroads-note\.webp/.test(v.focusArt) && v.focusOk && /Crossroads Note/.test(v.focusName), J(v));
     check("ui.hidden.ironInWeaponSlot", /doll-iron/.test(v.ironCls) && /assets\/img\/items\/borrowed-iron\.webp/.test(v.ironArt) && v.ironOk && /soul-bound/.test(v.ironNote), J(v));
     const r0 = ironRow(v.weaponRows);
     check("ui.hidden.rowGeneric", v.focusRows.length === 0 && !!r0 && /items\/borrowed-iron\.webp/.test(r0.src), J(v.weaponRows));

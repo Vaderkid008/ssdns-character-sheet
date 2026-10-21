@@ -115,10 +115,16 @@
     if (id && bySlug[id]) return id;
     if (id && ID_ALIAS[id]) return ID_ALIAS[id];
     if (id && DM_ID[id]) return DM_ID[id];
+    var R = relicArt();
+    if (id && R && R.relicSlug(id)) return R.relicSlug(id);
     var key = normName(name);
     if (key && DM_NAME[key]) return DM_NAME[key];
     return (key && byName[key]) || "";
   }
+
+  /* 0.3.99: relic Caster Guns (DM Guide only) live in SSDNSItemArt's relic map; their engravings sit under
+     assets/img/dm-only/weapons/caster/. Not in NAMES, so slugs() stays the player weapon list. */
+  function relicArt() { return root.SSDNSItemArt && root.SSDNSItemArt.relicSlug ? root.SSDNSItemArt : null; }
 
   function isDmOnly(slug) {
     return slug === "the-peace-maker" || slug === "hell-maker";
@@ -135,6 +141,8 @@
   function srcFor(weapon, opts) {
     var slug = slugFor(weapon);
     if (!slug) return "";
+    var R = relicArt();
+    if (R && R.relicSlug(slug) === slug) return R.relicEngraving(slug);
     if (isDmOnly(slug)) {
       if (!opts || !opts.dm) return "";
       return pagePrefix() + "assets/img/dm-only/" + slug + ".webp";

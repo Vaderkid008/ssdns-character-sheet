@@ -63,7 +63,10 @@
     if (!WEAPON_TILE[id] && root.SSDNSWeaponArt && root.SSDNSWeaponArt.slugFor) {
       try { id = root.SSDNSWeaponArt.slugFor(w) || id; } catch (e) {}
     }
-    return WEAPON_TILE[id] ? prefix() + WEAPON_TILE[id] : "";
+    if (WEAPON_TILE[id]) return prefix() + WEAPON_TILE[id];
+    /* 0.3.99: relic Caster Guns (DM-placed only) get their square tile from the relic map in item-art.js */
+    var R = root.SSDNSItemArt;
+    return R && R.relicTile ? R.relicTile(typeof w === "string" ? w : (w && w.id) || id) || "" : "";
   }
   /* Item tile for an inventory item on character c: the Borrowed Iron gets its pact tile; "" = keep the item's own art. */
   function itemTile(item, c, opts) {

@@ -36,6 +36,30 @@
   byName[norm("Fuse cord")] = "fuse-cord-50-ft";
   byName[norm("Lariat")] = "lariat-50-ft";
 
+  /* 0.3.96 (Jessey 2026-10-20 11:10 PM, Art Bot): relic Caster Gun art (L0199 / L0202). DM Guide only: there are no
+     relic catalog items, store rows or Add item entries, and these slugs are kept out of list() / matchesIn(), so
+     nothing player-facing offers them. The files live under assets/img/dm-only/. When a relic item or gun with one of
+     these ids exists later (DM-placed), relicTile / relicEngraving (and so the doll, item rows, Weapons rows and gun
+     cards) pick the art up by id. The Twin Puff Adders are two items, one per hand; the old combined
+     "twin-puff-adders" slug is retired and maps to nothing. */
+  var RELIC_CASTER = ["viper", "python", "boa", "cobra", "cotton-mouth", "fer-de-lance", "cascabel", "timber-rat",
+    "massasauga", "twin-puff-adder-left", "twin-puff-adder-right"];
+  var relicIds = {};
+  RELIC_CASTER.forEach(function (slug) { relicIds[slug] = slug; });
+  /* Spellings a future catalog id might use. */
+  relicIds.cottonmouth = "cotton-mouth";
+  relicIds["timber-rattler"] = "timber-rat";
+  relicIds["puff-adder-left"] = "twin-puff-adder-left";
+  relicIds["puff-adder-right"] = "twin-puff-adder-right";
+  function relicSlug(x) {
+    var id = typeof x === "string" ? x : String((x && (x.weaponId || x.catalogId || x.id || x.weapon)) || "");
+    id = id.toLowerCase().replace(/^relic-/, "").replace(/-caster-gun$/, "");
+    return relicIds[id] || "";
+  }
+  function relicTile(x) { var s = relicSlug(x); return s ? prefix() + "assets/img/dm-only/items/caster/" + s + ".webp" : ""; }
+  function relicEngraving(x) { var s = relicSlug(x); return s ? prefix() + "assets/img/dm-only/weapons/caster/" + s + ".webp" : ""; }
+  function relics() { return RELIC_CASTER.map(function (s) { return { slug: s, tile: relicTile(s), engraving: relicEngraving(s) }; }); }
+
   function norm(s) {
     return String(s || "")
       .toLowerCase()
@@ -69,6 +93,8 @@
     }
     var slug = slugFor(item);
     if (slug) return prefix() + "assets/img/items/" + slug + ".webp";
+    var relic = relicTile(item);
+    if (relic) return relic;
     if (root.SSDNSInstrumentArt && root.SSDNSInstrumentArt.srcFor) return root.SSDNSInstrumentArt.srcFor(item) || "";
     return "";
   }
@@ -110,6 +136,10 @@
     srcFor: srcFor,
     list: list,
     matchesIn: matchesIn,
-    thumbHtml: thumbHtml
+    thumbHtml: thumbHtml,
+    relicSlug: relicSlug,
+    relicTile: relicTile,
+    relicEngraving: relicEngraving,
+    relics: relics
   };
 })(typeof window !== "undefined" ? window : globalThis);

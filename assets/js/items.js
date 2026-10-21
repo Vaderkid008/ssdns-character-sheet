@@ -1418,7 +1418,7 @@
       return IA.itemTile ? IA.itemTile(item, c) || "" : "";
     } catch (e) { return ""; }
   }
-  function isWideArt(src) { return /assets\/img\/(weapons|dm-only)\//.test(String(src || "")); }
+  function isWideArt(src) { return /assets\/img\/(weapons\/|dm-only\/(?!items\/))/.test(String(src || "")); }
   function eqThumb(src, cat) {
     var ph = placeholderFor(cat);
     return '<span class="eq-thumb' + (src ? "" : " eq-ph") + (isWideArt(src) ? " eq-wide" : "") + '"><img loading="lazy" decoding="async" width="32" height="32" alt="" src="' + esc(src || ph) + '"' +
