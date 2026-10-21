@@ -171,6 +171,7 @@
         dirty: !!g.dirty,
         ruined: !!(g.ruined || g.broken),
         exploded: !!g.exploded,
+        wrecked: !!g.wrecked,
         misStreak: Number(g.misStreak) || 0,
         pendingD4: !!g.pendingD4,
         weapon: g.weapon || "",
@@ -1885,6 +1886,10 @@
     } else if (payload.op === "repair" && app.repairGun) {
       app.repairGun(payload.index, payload);
       return;
+    } else if (payload.op === "merchant" && root.SSDNSCasterRules) {
+      /* L0200: traveling merchant repair (DM) clears Wrecked */
+      root.SSDNSCasterRules.merchantRepairGun(payload.index, payload);
+      return;
     } else if (payload.op === "take" && app.applyPatch) {
       var takenName = "";
       app.applyPatch(function (doc) {
@@ -1906,6 +1911,7 @@
         row.ruined = false;
         row.broken = false;
         row.exploded = false;
+        row.wrecked = false;
       });
       if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM took " + (takenName || "a weapon") + "." });
       return;

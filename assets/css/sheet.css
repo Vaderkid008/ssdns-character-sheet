@@ -1339,3 +1339,8 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
 .cond-badges[hidden] { display: none !important; }
 .cond-badge { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(20,12,6,.86); border: 1.5px solid #e8dcc8; font-size: 16px; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,.4); cursor: help; }
 .chip.cond .cond-sym { margin-right: 4px; }
+/* L0200: Wrecked Caster Gun line + the no-shells note on a Caster Gun card */
+.gun-wrecked { display: block; margin: 4px 0 2px; padding: 3px 8px; border: 1px solid #8b1e1e; border-radius: 4px; background: #f6e0d8; color: #7a1414; font-weight: 600; font-size: .85em; }
+.gun.is-wrecked .g-photo { filter: grayscale(.85) sepia(.3); }
+.gun.is-wrecked [data-reload], .gun.is-wrecked [data-roll] { opacity: .55; }
+.shell-note { display: block; color: #6b3d1e; font-style: italic; margin-top: 2px; }

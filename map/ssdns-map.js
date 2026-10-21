@@ -5591,7 +5591,7 @@ async function loadSceneImage(sceneId, opts) {
   }
   function crossClass(a) {
     const ammo = (a && a.ammo) || {};
-    const on = !!(a && (a.ruined || a.broken || a.exploded || ammo.ruined || ammo.broken || ammo.exploded));
+    const on = !!(a && (a.ruined || a.broken || a.exploded || a.wrecked || ammo.ruined || ammo.broken || ammo.exploded));
     return on ? " gun-x" : "";
   }
   function lockupMark(a) {

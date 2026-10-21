@@ -933,6 +933,7 @@ function gunStatusParts(g) {
   if (lockN) bits.push("LOCKED UP \u00d7" + lockN);
   if (g.pendingD4) bits.push("d4 pending");
   if (g.exploded) bits.push("Exploded");
+  if (g.wrecked) bits.push("Wrecked (traveling merchant only)");
   if (g.ruined || g.broken) bits.push("Ruined");
   else if (g.fouled) bits.push("Fouled");
   return bits;
@@ -967,7 +968,9 @@ function gunFixButtonsHtml(g, sheetI) {
   if (lockN > 1) b.push(`<button type="button" class="btn sm" data-gun-op="clear-locks" data-lock-mode="all" data-gun-i="${sheetI}">Reopen all locked chambers</button>`);
   if (g.pendingD4) b.push(`<button type="button" class="btn sm" data-gun-op="misfire" data-mf="cancel" data-gun-i="${sheetI}" title="Drops the d4 roll and resets the streak">Cancel d4</button>`);
   if (fouled) b.push(`<button type="button" class="btn sm" data-gun-op="misfire" data-mf="clear-foul" data-gun-i="${sheetI}" title="Clears Fouled and Ruined only">Clear Fouled</button>`);
-  b.push(`<button type="button" class="btn sm btn-repair" data-gun-op="repair" data-gun-i="${sheetI}" title="Clears every misfire state on this gun">Repair gun (clear everything)</button>`);
+  /* L0200: Wrecked (Big Fifty explosion in a Caster Gun): only a traveling merchant repairs it, never a gunsmith */
+  if (g.wrecked) b.push(`<button type="button" class="btn sm btn-repair btn-merchant" data-gun-op="merchant" data-gun-i="${sheetI}" title="Traveling merchant repair: clears Wrecked and every misfire state">Merchant repair (clears Wrecked)</button>`);
+  b.push(`<button type="button" class="btn sm btn-repair" data-gun-op="repair" data-gun-i="${sheetI}" title="Clears every misfire state on this gun${g.wrecked ? ". Wrecked stays: use Merchant repair" : ""}">Repair gun (clear everything)</button>`);
   return `<div class="gun-row gun-fix-row">${b.join("")}</div>`;
 }
 function misfireOverrideWords(payload) {
@@ -1174,6 +1177,11 @@ function applyDemoGun(playerId, payload) {
     g.name = "";
     g.loaded = 0;
     g.chambers = [];
+  } else if (payload.op === "merchant") {
+    g.wrecked = false;
+    g.dirty = false; g.fouled = false; g.ruined = false; g.broken = false; g.jammed = false; g.misStreak = 0;
+    g.lockedChambers = []; g.pendingD4 = false; g.pendingD4Rolls = null; g.pendingD4Step = 0; g.exploded = false; g.cracked = false;
+    g.condition = "ok";
   } else if (payload.op === "repair") {
     const next = window.SSDNSMisfire && window.SSDNSMisfire.repair ? window.SSDNSMisfire.repair(g) : null;
     if (next) {
@@ -2075,7 +2083,7 @@ function openDetail(pid) {
       ${(s.guns || []).filter((g) => g && g.name).map((g, i) => {
         const sheetI = g.index != null && g.index !== "" ? g.index : i;
         const lockN = Array.isArray(g.lockedChambers) ? g.lockedChambers.length : 0;
-        const crossed = !!(g.ruined || g.broken || g.exploded);
+        const crossed = !!(g.ruined || g.broken || g.exploded || g.wrecked);
         return `<div class="gun-chip ${g.jammed ? "jammed" : ""}${crossed ? " gun-x" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}
         ${gunStatusHtml(g)}
         <div class="gun-row gun-load-row">
@@ -2149,11 +2157,17 @@ function openDetail(pid) {
       const snapGuns = (state.players[pid] && state.players[pid].snapshot && state.players[pid].snapshot.guns) || [];
       const gun = snapGuns.find((g) => g && g.index != null && Number(g.index) === index) || snapGuns[index];
       const gunName = (gun && gun.name) || "gun";
+      if (op === "merchant") {
+        payload.weapon = (gun && gun.weapon) || "";
+        payload.name = gunName;
+        const okM = window.SSDNSAsk && window.SSDNSAsk.confirm ? await window.SSDNSAsk.confirm("Traveling merchant repairs " + gunName + "? This clears Wrecked and every misfire state.") : window.confirm("Merchant repair " + gunName + "?");
+        if (!okM) return;
+      }
       if (op === "repair") {
         payload.weapon = (gun && gun.weapon) || "";
         payload.name = gunName;
         const clears = gunRepairList(gun);
-        const ask = "Repair " + gunName + "? This clears " + (clears.length ? clears.join(", ") : "every misfire state (nothing is wrong with it right now)") + ". Free, no gunsmith.";
+        const ask = "Repair " + gunName + "? This clears " + (clears.length ? clears.join(", ") : "every misfire state (nothing is wrong with it right now)") + ". Free, no gunsmith." + (gun && gun.wrecked ? " Wrecked stays: only a traveling merchant repairs it (Merchant repair)." : "");
         const ok = window.SSDNSAsk && window.SSDNSAsk.confirm ? await window.SSDNSAsk.confirm(ask) : window.confirm(ask);
         if (!ok) return;
       }
@@ -2171,12 +2185,14 @@ function openDetail(pid) {
       }
       if (op === "clean") postDmAction("DM unjammed " + gunName + ".", pid);
       if (op === "repair") postDmAction("DM repaired " + gunName + ".", pid);
+      if (op === "merchant") postDmAction("A traveling merchant repaired " + gunName + " (no longer Wrecked).", pid);
       if (op === "rechamber") postDmAction("DM rechambered " + gunName + " to " + payload.label + " (free).", pid);
       if (op === "equip") {
         const which = payload.kind === "focus" ? "focus" : (payload.kind === "melee" ? ((s.melee || []).filter((m) => m && Number(m.index) === index)[0] || {}).name || "melee" : gunName);
         postDmAction("DM " + (payload.equipped ? "equipped" : "unequipped") + " " + which + ".", pid);
       }
       if (state.demo || op === "repair") applyDemoGun(pid, payload);
+      else if (op === "merchant") applyDemoGun(pid, payload);
     });
   });
   /* 0.3.96: reveal (or hide again) this Pact Seeker's Borrowed Iron on their sheet */

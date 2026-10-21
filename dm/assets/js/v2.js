@@ -353,6 +353,7 @@ function publicGuns(row) {
         jammed: !!g.jammed,
         ruined: !!(g.ruined || g.broken),
         exploded: !!g.exploded,
+        wrecked: !!g.wrecked,
         capacity: g.capacity || 0,
         loaded: g.loaded || 0,
         index: g.index != null && g.index !== "" ? g.index : gi,

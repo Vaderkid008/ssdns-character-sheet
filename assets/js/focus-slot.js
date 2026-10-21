@@ -42,7 +42,10 @@
     if (!c) return "";
     if (c.calling === "pact-seeker") return c.borrowedIronAway ? NO_IRON : "";
     if (c.calling === "hexslinger") {
-      if (casterGun(c)) return "";
+      var cgW = casterGun(c);
+      /* L0200: the equipped Caster Gun is Wrecked (no working one in the other pistol slot) */
+      if (cgW && cgW.wrecked) return (root.SSDNSCasterRules && root.SSDNSCasterRules.CANT_CAST) || "Your Caster Gun is Wrecked, so you can't cast through it.";
+      if (cgW) return "";
       var msg = (Doll() && Doll().NO_CASTER) || "No Caster Gun equipped, can't cast.";
       return hexPlinkerSwap(c) ? msg + " " + SWAP_NOTE : msg;
     }
@@ -51,7 +54,7 @@
   /* Hexslinger: the gun index a cast goes through (the equipped Caster Gun), or -1. */
   function castGunIndex(c) {
     var cg = c && c.calling === "hexslinger" ? casterGun(c) : null;
-    return cg ? cg.i : -1;
+    return cg && !cg.wrecked ? cg.i : -1;
   }
 
   /* Lost / disarmed. opts.combat overrides the live combat check (tests); opts.turn = the current turn key. */
