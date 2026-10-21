@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.96"; // sheet-playtest-v0396
+  var APP_VERSION = "0.3.97"; // sheet-playtest-v0397
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -198,7 +198,7 @@
       var merged = window.SSDNSItems.mergeExplosives(doc.character);
       if (merged) notes.push("Moved " + merged + " explosive line(s) into Items (Use button).");
     }
-    /* 0.3.96 Equipment: starting-kit lines in the notes become real items / rigs (kits.js; old notes kept in
+    /* 0.3.97 Equipment: starting-kit lines in the notes become real items / rigs (kits.js; old notes kept in
        character.equipmentBefore0392). At first boot kits.js isn't loaded yet; it runs the same step itself. */
     if (doc.character && window.SSDNSKits && window.SSDNSKits.migrateEquipment) {
       var kitMoved = window.SSDNSKits.migrateEquipment(doc.character);
@@ -221,7 +221,7 @@
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
   }
-  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.96 landed in a cartridge pool (caliber .50-90) that the
+  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.97 landed in a cartridge pool (caliber .50-90) that the
       Big Fifty never reads, weighing 0.05 lb a round. Move them to the bigfifty pool (0.15 lb). Returns rounds moved. */
   function moveBigFiftyPools(c) {
     if (!c || !Array.isArray(c.ammo)) return 0;

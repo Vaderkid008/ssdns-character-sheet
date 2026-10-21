@@ -63,7 +63,10 @@
     if (!WEAPON_TILE[id] && root.SSDNSWeaponArt && root.SSDNSWeaponArt.slugFor) {
       try { id = root.SSDNSWeaponArt.slugFor(w) || id; } catch (e) {}
     }
-    return WEAPON_TILE[id] ? prefix() + WEAPON_TILE[id] : "";
+    if (WEAPON_TILE[id]) return prefix() + WEAPON_TILE[id];
+    /* 0.3.99: relic Caster Guns (DM-placed only) get their square tile from the relic map in item-art.js */
+    var R = root.SSDNSItemArt;
+    return R && R.relicTile ? R.relicTile(typeof w === "string" ? w : (w && w.id) || id) || "" : "";
   }
   /* Item tile for an inventory item on character c: the Borrowed Iron gets its pact tile; "" = keep the item's own art. */
   function itemTile(item, c, opts) {
@@ -72,7 +75,7 @@
     return weaponTile(item.weaponId || item.catalogId || "");
   }
 
-  /* 0.3.96 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus. The Focus slot always shows the patron's
+  /* 0.3.97 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus. The Focus slot always shows the patron's
      256 tile (assets/img/items/patron/<pact slug>.webp, Art Bot) and the Pact name. Not gated by the iron reveal: the Pact
      name is the player's own pick. A tile that isn't there yet falls back to the generic focus tile (the slot's name
      plate still shows the Pact name), so dropping the files in later just works. */
