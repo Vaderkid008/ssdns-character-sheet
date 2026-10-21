@@ -191,3 +191,12 @@ These are the existing `attune` / `attuned` / `attuneCap` (default 3) fields.
 - An item with `attune: true` can't be **Used** until it is `attuned`. This applies to every catalog row with the flag. The Saddle of the Phantom Steed now has `attune: true, rarity: "Rare"`.
 - Attunement ends when the item changes hands.
 - The saddle's `summoned` toggle checks `attuned` the same way: the Spectral Horse can't be summoned (toggle or Use) until the saddle is attuned; dismissing always works. Ending attunement dismisses the horse, and a given saddle arrives with `summoned` cleared (give.js strips it with `attuned`).
+
+### Focus slot by Calling (0.3.94, L0197)
+
+- **`item.soulBound`** (catalog / item, boolean). The item never leaves its owner: no Drop (`canDrop` is false unless a DM override deletes it), no sell, no Give or trade (`SSDNSGive.canOffer` / `validate` refuse), no rob or loot (`canRob` and `SSDNSGrab.plan` refuse, even with a DM override). Its row shows a `soul-bound` tag and no Drop or Give button. Today only `borrowed-iron` has it.
+- **`borrowed-iron`** catalog item: `type: gear`, `shelf: Foci`, `category: focus`, `forSale: false`, `price: null`, `weight: 0` (BOOK1 gives none), `dmPlace: true` (not in the player Add Item list). No store row (never sold). Kits add it through the `"Borrowed Iron (pact focus)"` kit line.
+- **`character.borrowedIronAway`** `{at, turn}`: the Borrowed Iron is lost or disarmed (Focus slot picker, in combat). Pact Seeker casting is blocked until the start of the owner's next turn (`SSDNSFocus.onTurn`), or when combat ends. Out of combat it never stays away ("a heartbeat later").
+- **`character.equipMigrated: 2`**: a sheet already at 1 converts only the exact `"Borrowed Iron (pact focus)"` Notes line, and its notes before that are kept in `character.equipmentBefore0394`. Every Pact Seeker gets one Borrowed Iron item if it has none.
+- **Focus slot (`focus_borrowed_iron`)**, `SSDNSDoll.focusState(c)`: a Pact Seeker always shows the Borrowed Iron. A Hexslinger shows a read-only mirror of the Caster Gun (Blacksnake / Hognose) equipped in Pistol L, else Pistol R. It is not a second copy and adds no weight. With none equipped it reads "No Caster Gun equipped, can't cast." Other Callings are unchanged (their instrument focus).
+- **Cast block** (`SSDNSFocus.castBlock(c)`): it disables only `#btnHexRoll`, `#btnPactShot`, `[data-cast]` and `[data-spell-cast]`, with the reason as the title and a short note line. Every sheet cast path checks it too. No sheet data is changed.

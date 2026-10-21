@@ -233,6 +233,7 @@
         (h.cancelling ? "" : ' <button type="button" class="btn xs ghost" data-give-cancel="' + esc(h.id) + '">Cancel</button>');
     }
     if (c.inventoryLocked || item.dmOnly) return "";
+    if (item.soulBound || item.catalogId === "borrowed-iron") return ""; /* L0197: soul-bound, no Give */
     return ' <button type="button" class="btn xs" data-give-item="' + esc(item.uid) + '" title="Hand it to someone in the party">Give</button>';
   }
   function barHtml(c) {
@@ -268,7 +269,7 @@
       else if (!h && sel.getAttribute("data-give-disabled")) { sel.disabled = false; sel.removeAttribute("data-give-disabled"); }
     }
   }
-  /* the Give control for a weapon slot (gun / melee card, and the 0.3.93 Equipment list's Weapons rows) */
+  /* the Give control for a weapon slot (gun / melee card, and the 0.3.94 Equipment list's Weapons rows) */
   function slotGive(c, kind, i) {
     var slot = c && G.slotAt(c, kind, i);
     var html = "";
@@ -280,7 +281,7 @@
         html = '<span class="item-tag give-held" data-give-held="' + esc(h.id) + '">' + (h.cancelling ? "Cancelling…" : "Offered to " + esc(h.otherName || "a player")) + "</span>" +
           (h.cancelling ? "" : ' <button type="button" class="btn xs ghost" data-give-cancel="' + esc(h.id) + '">Cancel</button>');
       } else if (item) {
-        html = G.heldItem(c, item.uid) || c.inventoryLocked || item.dmOnly ? "" : '<button type="button" class="btn xs" data-give-item="' + esc(item.uid) + '" title="Hand it to someone in the party">Give</button>';
+        html = G.heldItem(c, item.uid) || c.inventoryLocked || item.dmOnly || item.soulBound ? "" : '<button type="button" class="btn xs" data-give-item="' + esc(item.uid) + '" title="Hand it to someone in the party">Give</button>';
       } else if (!c.inventoryLocked && !(slot.dmOnly || (rec && rec.dmOnly) || (slot.record && slot.record.dmOnly))) {
         html = '<button type="button" class="btn xs" data-give-slot="' + kind + ":" + i + '" title="Hand this weapon to someone in the party. Loaded rounds, Dirty, jams and mods go with it.">Give</button>';
       }

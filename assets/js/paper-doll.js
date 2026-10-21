@@ -362,9 +362,55 @@
     c.dollWeapons[key] = pick.i;
     return { ok: true, row: pick };
   }
+  /* L0197 (Jessey 2026-10-20 7:10 PM) Focus slot by Calling. Read-only views, never a second copy, no weight:
+       Pact Seeker  -> the Borrowed Iron, always (BOOK1 L2005 / L3770); "away" while lost or disarmed, back at the
+                       start of the owner's next turn (character.borrowedIronAway, set by focus-slot.js).
+       Hexslinger   -> mirrors the Caster Gun (Blacksnake / Hognose) equipped in Pistol L, else Pistol R
+                       (BOOK1 L1884: "Your Caster Gun is your focus"); none -> "No Caster Gun equipped, can't cast."
+       Other Callings keep their focus (instrument) as before (returns null here). */
+  var NO_CASTER = "No Caster Gun equipped, can't cast.";
+  function isCasterWeapon(w) { return !!w && (w.group === "caster" || !!w.hexShells) && w.id !== "borrowed-iron"; }
+  function casterInHand(c) {
+    var keys = ["revolver_1", "revolver_2"];
+    for (var k = 0; k < keys.length; k++) {
+      var row = weaponRow(c, keys[k]);
+      if (row && row.kind === "gun" && row.equipped && isCasterWeapon(row.w)) return { key: keys[k], side: WEAPON_SLOTS[keys[k]], i: row.i, id: row.id, name: row.name, row: row };
+    }
+    return null;
+  }
+  function borrowedIronItem(c) {
+    return items(c).filter(function (it) { return it && it.catalogId === "borrowed-iron" && Number(it.count == null ? 1 : it.count) > 0; })[0] || null;
+  }
+  function borrowedIronArt(c) {
+    var it = borrowedIronItem(c);
+    var src = it ? artFor(it) : "";
+    if (src && !isDefaultArt(src)) return src;
+    var base = gearArtBase();
+    return base + "assets/img/items/borrowed-iron.webp";
+  }
+  function focusState(c) {
+    var calling = c && c.calling;
+    if (calling === "pact-seeker") {
+      var away = !!(c && c.borrowedIronAway);
+      return { kind: "pact", name: "Borrowed Iron", art: borrowedIronArt(c), away: away, readOnly: true,
+        note: away ? "Away: returns at the start of your next turn" : "In hand · pact focus", canCast: !away };
+    }
+    if (calling === "hexslinger") {
+      var cg = casterInHand(c);
+      if (cg) {
+        var A = root.SSDNSWeaponArt, art = "";
+        try { art = A && A.srcFor ? (A.srcFor({ id: cg.id, name: cg.name }) || "") : ""; } catch (e) { art = ""; }
+        return { kind: "caster", name: cg.name, art: art, side: cg.side, gunIndex: cg.i, readOnly: true, mirror: true, note: "Mirrors " + cg.side + " · read-only", canCast: true };
+      }
+      return { kind: "nocaster", name: "", art: "", readOnly: true, note: NO_CASTER, canCast: false };
+    }
+    return null;
+  }
   function weaponName(c, key) {
     var guns = (c && c.guns) || [];
     if (key === "focus_borrowed_iron") {
+      var fs = focusState(c);
+      if (fs) return fs.name;
       if (guns.some(function (g) { return g && g.weapon === "borrowed-iron"; })) return "Borrowed Iron";
       var ins = c && c.instrument && byId(R().storytellerGear && R().storytellerGear.instruments, c.instrument);
       return ins ? ins.name : "";
@@ -375,6 +421,8 @@
   function weaponArt(c, key) {
     var A = root.SSDNSWeaponArt;
     if (key === "focus_borrowed_iron") {
+      var fs = focusState(c);
+      if (fs) return fs.art || "";
       var guns = (c && c.guns) || [];
       if (guns.some(function (g) { return g && g.weapon === "borrowed-iron"; })) return A && A.srcFor ? (A.srcFor({ id: "borrowed-iron", name: "Borrowed Iron" }) || "") : "";
       var IA = root.SSDNSInstrumentArt;
@@ -445,10 +493,19 @@
     var pairWorn = inSlot(c, "holster_l");
     pairWorn = pairWorn && isPairItem(pairWorn);
     Object.keys(BOX).forEach(function (key) {
+      var focusNote = "";
       var b = BOX[key], tall = b[3] > 200, label = isTrinket(key) ? "" : (LABELS[key] || (SLOTS[key] ? SLOTS[key][0] : WEAPON_SLOTS[key])), name = "", art = "", filled = false, cls = "", src = "";
       if (WEAPON_SLOTS[key]) {
         name = weaponName(c, key); filled = !!name; cls = " doll-weapon"; art = filled ? weaponArt(c, key) : "";
         src = key === "focus_borrowed_iron" ? "Gear: Focus" : "Gear: Weapons";
+        if (key === "focus_borrowed_iron") {
+          var fst = focusState(c);
+          if (fst) {
+            focusNote = fst.note || "";
+            cls += " doll-focus-" + fst.kind + (fst.away ? " doll-away" : "");
+            src = fst.kind === "caster" ? "mirrors " + fst.side + ", read-only" : (fst.kind === "pact" ? "soul-bound pact focus" : "");
+          }
+        }
       } else {
         var it = inSlot(c, key);
         if (key === "vest" && !it && c && c.armor) { var ar = byId(rr.armor, c.armor); if (ar && ar.category !== "shield") { name = ar.name; src = "Gear: Armor"; } }
@@ -473,13 +530,15 @@
       var tile = filled ? "slot-256-filled.webp" : "slot-256.webp";
       if (tall) cls += b[2] > 200 ? " doll-wide" : " doll-tall";
       if (filled && !art) cls += " doll-noart";
-      var tip = (label || "Trinket") + (name ? ": " + name + (src ? " (" + src + ")" : "") : " (empty)");
+      var tip = (label || "Trinket") + (name ? ": " + name + (src ? " (" + src + ")" : "") : (focusNote ? ": " + focusNote : " (empty)"));
+      if (name && focusNote) tip += " · " + focusNote;
       if (key === "revolver_1") tip += " · draws from Holster L";
       if (key === "revolver_2") tip += " · draws from Holster R";
       parts.push('<div class="doll-cell' + (isTrinket(key) ? " doll-trinket" : "") + '" style="' + pct(b) + '">' +
         '<' + (ro ? "div" : "button type=\"button\"") + ' class="doll-slot doll-9' + (filled ? " filled" : "") + cls + '" data-doll-slot="' + key + '" style="border-image-source:url(' + img(tile) + ')" title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' +
         (art ? '<img class="doll-art" alt="" src="' + esc(art) + '">' : glyph(key)) +
         (filled ? '<span class="doll-name">' + esc(shortName(name)) + "</span>" : "") +
+        (focusNote ? '<span class="doll-focus-note">' + esc(focusNote) + "</span>" : "") +
         "</" + (ro ? "div" : "button") + ">" +
         (label ? '<span class="doll-label" aria-hidden="true">' + esc(label) + "</span>" : "") + "</div>");
     });
@@ -496,7 +555,22 @@
   function weaponPicker(c, key) {
     var label = WEAPON_SLOTS[key], btn = function (attr, text, on) { return '<button type="button" class="btn sm' + (on ? " btn-primary" : "") + '" ' + attr + ">" + esc(text) + "</button>"; };
     var rows = "", hint = "";
-    if (key === "focus_borrowed_iron") {
+    var fpk = key === "focus_borrowed_iron" ? focusState(c) : null;
+    /* owned instruments keep their "Make focus" buttons (unchanged mechanic), under the Calling focus */
+    var insRows = fpk ? instruments(c).map(function (x) {
+      return x.focus ? btn("data-doll-noop", x.name + " · instrument", false) : btn('data-doll-focus="' + esc(x.uid) + '"', "Make focus: " + x.name + (x.quality === "quality" ? " (quality)" : ""), false);
+    }).join(" ") : "";
+    if (fpk && fpk.kind === "pact") {
+      var combat = !!(root.SSDNSEquip && root.SSDNSEquip.combatLocked && root.SSDNSEquip.combatLocked());
+      rows = btn("data-doll-noop", "Borrowed Iron · " + (fpk.away ? "away" : "in hand"), !fpk.away) + " " +
+        (fpk.away ? btn('data-doll-iron="back"', "Back in hand", false) : btn('data-doll-iron="away"', "Lost / disarmed", false));
+      hint = "Soul-bound pact focus: it can't be dropped, sold, traded, given or looted. No Borrowed Iron in hand, no Pact Seeker spells. " +
+        "Lost or disarmed, it returns at the start of your next turn" + (combat ? "." : " (out of combat, a heartbeat later).");
+    } else if (fpk && (fpk.kind === "caster" || fpk.kind === "nocaster")) {
+      rows = fpk.kind === "caster" ? btn("data-doll-noop", fpk.name + " · mirrors " + fpk.side, true) : '<span class="fine doll-nocaster-msg">' + esc(NO_CASTER) + "</span>";
+      hint = "Your Caster Gun is your focus (read-only here, no extra weight). Equip a Blacksnake or Hognose in Pistol L or Pistol R. Hex casting and shells need it.";
+      if (fpk.kind === "nocaster" && root.SSDNSFocus && root.SSDNSFocus.hexPlinkerSwap && root.SSDNSFocus.hexPlinkerSwap(c)) hint = root.SSDNSFocus.SWAP_NOTE + " " + hint;
+    } else if (key === "focus_borrowed_iron") {
       var ins = instruments(c);
       rows = ins.map(function (x) {
         return x.focus ? btn("data-doll-noop", x.name + " · focus", true) : btn('data-doll-focus="' + esc(x.uid) + '"', "Make focus: " + x.name + (x.quality === "quality" ? " (quality)" : ""), false);
@@ -511,6 +585,7 @@
       if (cur) rows += " " + btn('data-doll-weapon=""', "Unequip", false);
       hint = "Picking a weapon here sets it Equipped on Gear.";
     }
+    if (fpk && insRows) rows += " " + insRows;
     return '<div class="doll-pick" data-doll-pick="' + key + '"><b>' + esc(label) + "</b> " + (rows || '<span class="fine">Nothing you carry fits here.</span>') +
       ' <button type="button" class="btn sm" data-doll-close>Close</button><p class="fine">' + esc(hint) + "</p></div>";
   }
@@ -569,7 +644,7 @@
       }
       var host = document.getElementById("dollHost");
       if (!host || !host.contains(e.target)) return;
-      var t = e.target.closest("[data-doll-slot],[data-doll-put],[data-doll-close],[data-doll-weapon],[data-doll-focus],[data-doll-shield]");
+      var t = e.target.closest("[data-doll-slot],[data-doll-put],[data-doll-close],[data-doll-weapon],[data-doll-focus],[data-doll-shield],[data-doll-iron]");
       if (!t) return;
       if (t.hasAttribute("data-doll-close")) { openKey = ""; paint(); return; }
       var res, key = openKey;
@@ -582,6 +657,10 @@
       } else if (t.hasAttribute("data-doll-focus")) {
         var fu = t.getAttribute("data-doll-focus");
         commit(function () { res = makeFocus(character(), fu); });
+      } else if (t.hasAttribute("data-doll-iron")) {
+        var F = root.SSDNSFocus, how = t.getAttribute("data-doll-iron");
+        res = F ? (how === "back" ? F.ironBack({ toast: true }) : F.ironAway({ toast: true })) : { ok: false, reason: "Focus tools aren't loaded." };
+        if (res && res.ok) { paint(); return; }
       } else if (t.hasAttribute("data-doll-shield")) {
         commit(function () { var ch = character(); ch.shield = !ch.shield; res = { ok: true }; });
       }
@@ -608,5 +687,5 @@
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, setWeapon: setWeapon, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
+  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, weaponRow: weaponRow, setWeapon: setWeapon, focusState: focusState, casterInHand: casterInHand, isCasterWeapon: isCasterWeapon, NO_CASTER: NO_CASTER, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
 })(typeof window !== "undefined" ? window : globalThis);

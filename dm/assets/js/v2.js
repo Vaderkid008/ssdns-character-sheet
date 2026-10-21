@@ -6072,14 +6072,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.106-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.107-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.106-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.107-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -7400,7 +7400,7 @@ async function runGrab(actor, mode, preset) {
   const targetView = grabView(picked.target);
   const Items = window.SSDNSItems;
   if (picked.item && Items && Items.canRob && !Items.canRob(picked.item, { override: picked.override, inventoryLocked: !!targetView.inventoryLocked, dmAllow: !!picked.item.dmAllowRob })) {
-    DM.toast(picked.item.type === "quest" ? "Quest items stay unless you allow the rob" : "Inventory is locked");
+    DM.toast(Items.soulBound && Items.soulBound(picked.item) ? Items.soulBoundReason(picked.item) : (picked.item.type === "quest" ? "Quest items stay unless you allow the rob" : "Inventory is locked"));
     return false;
   }
   const contestMode = mode === "disarm" || picked.take === "weapon" ? "disarm" : (picked.take === "es" ? "rob-es" : "rob-pocket");

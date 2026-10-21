@@ -110,6 +110,8 @@
   function backingItem(c, wid) {
     return ((c && c.items) || []).filter(function (it) { return it && num(it.count == null ? 1 : it.count, 1) > 0 && (it.weaponId || it.catalogId) === wid; })[0] || null;
   }
+  /* L0197: the Borrowed Iron (soul-bound) never changes hands */
+  function soulBoundItem(it) { return !!(it && (it.soulBound || it.catalogId === "borrowed-iron")); }
   function slotDmOnly(slot, rec) { return !!((slot && slot.dmOnly) || (rec && rec.dmOnly) || (slot && slot.record && slot.record.dmOnly)); }
   /* what the receiver gets: the whole slot minus the giver's hand state, plus the created weapon's record */
   function snapshotSlot(c, kind, i) {
@@ -185,6 +187,7 @@
       var it = findItem(c, spec.uid);
       if (!it) return { ok: false, reason: "That item is gone." };
       if (it.dmOnly) return { ok: false, reason: it.name + " is DM-only. Only the DM can move it." };
+      if (soulBoundItem(it)) return { ok: false, reason: it.name + " is soul-bound. It can't be given or traded." };
       if (it.cursed) return { ok: false, reason: it.name + " is cursed. It won't let go." };
       if (it.equipSlot) return { ok: false, worn: true, reason: "Take " + it.name + " off first (it's worn on your paper doll)." };
     } else if (spec.kind === "slot") {
@@ -240,6 +243,7 @@
       var it = (g.items || []).filter(function (x) { return x && x.uid === r.uid; })[0];
       if (!it) return "The item is gone from " + (g.name || "the giver") + "'s sheet.";
       if (it.dmOnly) return it.name + " is DM-only.";
+      if (soulBoundItem(it)) return it.name + " is soul-bound.";
       if (it.equipSlot) return it.name + " is still worn.";
       if (num(it.count == null ? 1 : it.count, 1) < qty) return "Not enough " + it.name + " left.";
       var iss = r.item && r.item.slotState;

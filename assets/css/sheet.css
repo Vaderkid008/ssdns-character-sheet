@@ -1252,7 +1252,7 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .give-picker select, .give-picker input[type=number] { min-width: 12em; }
 .give-prompt .give-what { font-size: 1.15em; margin: 6px 0 10px; }
 
-/* ---------------- 0.3.93 Equipment list (Jessey 2026-10-20 mockup): grouped, filterable, dense rows */
+/* ---------------- 0.3.94 Equipment list (Jessey 2026-10-20 mockup): grouped, filterable, dense rows */
 .item-gear.eq { margin: 10px 0 12px; padding-top: 6px; border-top: 1px solid rgba(43,29,18,.35); }
 .eq-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .eq-head h2 { font-size: 22px; }
@@ -1305,3 +1305,15 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
   .eq-wt { min-width: 36px; } .eq-qty { min-width: 24px; } .eq-give { min-width: 44px; }
   .eq-more { margin-left: 0; }
 }
+
+/* L0197 (0.3.94): Focus slot by Calling. Pact Seeker = Borrowed Iron (away = faded, returns next turn);
+   Hexslinger = read-only mirror of the Caster Gun in Pistol L / R, or the no-gun message. */
+.doll-slot .doll-focus-note { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 2; width: max-content; max-width: 86%; padding: .1em .45em; border-radius: 3px;
+  font: 700 max(7px, 1.25cqw)/1.2 Georgia, "Times New Roman", serif; text-align: center; color: #f4e6c4; background: rgba(46,27,13,.86); border: 1px solid #b08a4a; pointer-events: none; }
+.doll-slot.doll-focus-nocaster .doll-focus-note { top: 50%; transform: translate(-50%, -50%); max-width: 80%; font-size: max(8px, 1.7cqw); line-height: 1.25; padding: .35em .6em; color: #fff; background: rgba(141,28,20,.92); border-color: #e2b33a; }
+.doll-slot.doll-focus-nocaster .doll-glyph { opacity: .12; }
+.doll-slot.doll-away .doll-art { filter: grayscale(1) brightness(.75); opacity: .45; }
+.doll-slot.doll-away .doll-focus-note { background: rgba(141,28,20,.9); color: #fff; }
+.doll-slot.doll-focus-caster { box-shadow: 0 0 0 .35cqw rgba(176,138,74,.55); }
+.focus-cast-note { color: #8d1c14; font-weight: 600; margin: 4px 0 0; }
+button.focus-blocked { opacity: .55; cursor: not-allowed; }

@@ -249,8 +249,9 @@
      Absent fields are left off, so old saves and catalog rows look exactly as before. */
   function typeFields(out, raw) {
     raw = raw || {};
-    ["itemKind", "ui", "armorId", "img"].forEach(function (k) { if (raw[k]) out[k] = String(raw[k]); }); /* img (0.3.93): optional thumbnail */
+    ["itemKind", "ui", "armorId", "img"].forEach(function (k) { if (raw[k]) out[k] = String(raw[k]); }); /* img (0.3.94): optional thumbnail */
     if (raw.dirty) out.dirty = true; /* a given gun lands Dirty (loot guns) */
+    if (raw.soulBound) out.soulBound = true; /* L0197: Borrowed Iron (no drop / sell / trade / Give / loot) */
     if (raw.ammo && typeof raw.ammo === "object" && raw.ammo.type) {
       out.ammo = { type: String(raw.ammo.type), caliber: String(raw.ammo.caliber || "") };
       if (Number(raw.ammo.per) > 0) out.ammo.per = Number(raw.ammo.per);
@@ -264,7 +265,7 @@
     ["meals", "water", "capacity"].forEach(function (k) { var n = Number(raw[k]); if (out[k] == null && raw[k] != null && raw[k] !== "" && isFinite(n) && n > 0) out[k] = n; });
     return out;
   }
-  var TYPE_FIELDS = ["itemKind", "ui", "armorId", "ammo", "contents", "meals", "water", "capacity", "dirty", "img"];
+  var TYPE_FIELDS = ["itemKind", "ui", "armorId", "ammo", "contents", "meals", "water", "capacity", "dirty", "img", "soulBound"];
 
   function byId(id) {
     var key = String(id || "");
@@ -384,9 +385,20 @@
     return !!(item && (item.type === "quest" || item.dmOnly));
   }
 
+  /* L0197 (Jessey 2026-10-20): a soul-bound item (the Pact Seeker's Borrowed Iron, BOOK1 L2005 "it can't be lost or
+     sold") never leaves its owner: no drop, sell, trade, Give or loot. Only a DM override can delete it. */
+  var SOUL_BOUND_IDS = { "borrowed-iron": 1 };
+  function soulBound(item) {
+    return !!(item && (item.soulBound || SOUL_BOUND_IDS[item.catalogId] || SOUL_BOUND_IDS[item.id]));
+  }
+  function soulBoundReason(item) {
+    return ((item && item.name) || "It") + " is soul-bound. It can't be dropped, sold, traded, given or looted.";
+  }
+
   function canDrop(item, opts) {
     opts = opts || {};
     if (!item) return false;
+    if (soulBound(item)) return !!(opts.dm && opts.override);
     if (opts.inventoryLocked && !opts.dm) return false;
     if (!questItem(item)) return true;
     return !!(opts.dm && (opts.allow || opts.override || item.dmAllowDrop));
@@ -395,6 +407,7 @@
   function canRob(item, opts) {
     opts = opts || {};
     if (!item) return true;
+    if (soulBound(item)) return false;
     if (opts.inventoryLocked && !opts.override) return false;
     if (!questItem(item)) return true;
     return !!(opts.override || opts.dmAllow || item.dmAllowRob);
@@ -1051,13 +1064,13 @@
     var item = find(character, id);
     if (!item) return { ok: false, reason: "No item." };
     if (character.inventoryLocked && !opts.dm) return { ok: false, reason: "Inventory is locked." };
-    if (!canDrop(item, opts)) return { ok: false, reason: "Quest items stay unless the DM allows it." };
+    if (!canDrop(item, opts)) return { ok: false, reason: soulBound(item) ? soulBoundReason(item) : "Quest items stay unless the DM allows it." };
     item.count = 0;
     prune(character);
     return { ok: true, item: item };
   }
 
-  /* inv2 (0.3.93): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
+  /* inv2 (0.3.94): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
      unpack, so nothing is doubled; 5E parts with no catalog row land as one gear note line. */
   function packContents(item) {
     /* 0.3.86: a DM-made pack carries its own contents ([[catalogId, n]]) */
@@ -1075,7 +1088,7 @@
     if (character.inventoryLocked && !opts.dm) return { ok: false, reason: "Inventory is locked." };
     var n = Number(item.count == null ? 1 : item.count) || 0;
     if (n <= 0) return { ok: false, reason: "No item." };
-    /* supplies (0.3.93): the unpacked pack takes the meals already eaten and the water already drunk with it,
+    /* supplies (0.3.94): the unpacked pack takes the meals already eaten and the water already drunk with it,
        so Unpack hands out only the hardtack and water still in the pack */
     var mealsEach = Number(item.meals) || 0, used = Math.max(0, Number(item.mealsUsed) || 0);
     var thisUsed = mealsEach > 0 ? Math.min(used, mealsEach) : 0;
@@ -1170,6 +1183,7 @@
     if (item.playerAdded && !item.approved) bits.push("player-added");
     else if (item.playerAdded) bits.push("player-added · approved");
     if (questItem(item)) bits.push("quest");
+    if (soulBound(item)) bits.push("soul-bound");
     if (item.story || item.forSale === false) bits.push("not for sale");
     if (item.addressedTo) bits.push("addressed");
     return bits;
@@ -1334,7 +1348,7 @@
     if (parts.length) line.textContent += " · " + parts.join(" · ");
   }
 
-  /* 0.3.93 Equipment list (Jessey 2026-10-20, mockup approved 5:09 PM): one condensed, game-style list grouped by
+  /* 0.3.94 Equipment list (Jessey 2026-10-20, mockup approved 5:09 PM): one condensed, game-style list grouped by
      category with filter chips. Each row: thumbnail, name + type line, qty, weight, Give (the #109 flow, unchanged),
      and a dropdown with the description and the item's other buttons (Use, Unpack, Wear, Attune, Drop...).
      Weapons come from the gun / melee slots, ammo from the pools, armor / shield / rigs from their slots (worn, no Give). */
@@ -2134,7 +2148,7 @@
     var attuneLine = c && items.some(function (it) { return it && it.attune; })
       ? '<p class="fine attune-line">Attuned ' + attunedCount(c) + " / " + attuneCap(c) + (pend ? " · attuning " + pend + " (finishes on a short rest)" : "") + "</p>" : "";
     var giveBar = root.SSDNSGiveSheet && root.SSDNSGiveSheet.barHtml ? root.SSDNSGiveSheet.barHtml(c) : "";
-    /* 0.3.93 Equipment: chips + category groups; repaint only when something changed (keeps scroll and open rows) */
+    /* 0.3.94 Equipment: chips + category groups; repaint only when something changed (keeps scroll and open rows) */
     var rows = eqRows(c);
     var body = rows.length ? eqChipsHtml(rows) + eqListHtml(rows) : '<p class="fine">No equipment yet. Apply the starting kit, buy from the store, or use Add item.</p>';
     var html = giveBar + attuneLine + body;
@@ -2294,7 +2308,7 @@
   function onSheetClick(e) {
     var t = e.target;
     if (!t || !t.getAttribute) return;
-    /* 0.3.93 Equipment list: chips, row dropdowns, "Open gun card" */
+    /* 0.3.94 Equipment list: chips, row dropdowns, "Open gun card" */
     var chip = t.closest ? t.closest(".eq-chip[data-eq-filter]") : null;
     if (chip) { setFilter(chip.getAttribute("data-eq-filter")); if (chip.getAttribute("data-eq-filter") === "notes") { var ta0 = document.getElementById("taEquip"); if (ta0 && ta0.scrollIntoView) ta0.scrollIntoView({ block: "center" }); } return; }
     var go = t.closest ? t.closest("[data-eq-goto]") : null;
@@ -2635,6 +2649,8 @@
     addressedBlank: addressedBlank,
     canDrop: canDrop,
     canRob: canRob,
+    soulBound: soulBound,
+    soulBoundReason: soulBoundReason,
     use: use,
     spend: spend,
     add: add,

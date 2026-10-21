@@ -627,6 +627,27 @@
       story: true,
       dmPlace: true,
       art: ""
+    },
+    {
+      /* L0197 (Jessey 2026-10-20 7:10 PM): the Pact Seeker's pact focus as a real item. BOOK1 L2005 / L3770 / L4186.
+         Shelf Foci, store category focus, never sold (no store row), weight 0 (BOOK1 gives none).
+         Soul-bound: no drop, sell, trade, Give or loot (items.js soulBound). It always sits in the paper-doll
+         Focus slot (focus_borrowed_iron) for a Pact Seeker. No weapon stats; it fires only spells (Pact Shot). */
+      id: "borrowed-iron",
+      name: "Borrowed Iron",
+      type: "gear",
+      shelf: "Foci",
+      category: "focus",
+      description: "Your pact focus, the weapon your patron grants. No weapon stats, ammo or reload: it fires only spells, like Pact Shot. Soul-bound: it can't be dropped, sold, traded, given or looted. Lost or disarmed, it returns to your hand at the start of your next turn.",
+      effect: { kind: "text", text: "Pact focus. No Borrowed Iron in hand, no Pact Seeker spells." },
+      uses: { max: null },
+      weight: 0,
+      price: null,
+      forSale: false,
+      story: true, /* a Calling feature, never a shop item (keeps it out of the priced-gear / store lists) */
+      soulBound: true,
+      dmPlace: true,
+      art: art("borrowed-iron.webp")
     }
   ];
 })(typeof window !== "undefined" ? window : globalThis);
