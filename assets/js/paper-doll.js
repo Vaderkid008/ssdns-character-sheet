@@ -370,7 +370,7 @@
        Other Callings keep their focus (instrument) as before (returns null here). */
   var NO_CASTER = "No Caster Gun equipped, can't cast.";
   function isCasterWeapon(w) { return !!w && (w.group === "caster" || !!w.hexShells) && w.id !== "borrowed-iron"; }
-  /* 0.3.98 (Jessey 2026-10-20 9:53 PM): a weapon that is also a focus fills BOTH its weapon slot and the Focus slot.
+  /* 0.3.99 (Jessey 2026-10-20 9:53 PM): a weapon that is also a focus fills BOTH its weapon slot and the Focus slot.
      Flagged by the weapon row or its gun row / catalog item (weaponFocus or isFocus); Caster Guns always count. */
   var WEAPON_KEYS = ["revolver_1", "revolver_2", "long_gun", "melee"];
   function isFocusWeapon(w, g) {
@@ -386,13 +386,20 @@
     }
     return null;
   }
+  /* L0200: a Wrecked Caster Gun can't be cast through. A working one in the other pistol slot wins; if only Wrecked
+     ones are equipped, the first comes back with wrecked: true (the cast is blocked, the Focus slot says why). */
   function casterInHand(c) {
-    var keys = ["revolver_1", "revolver_2"];
+    var keys = ["revolver_1", "revolver_2"], broken = null;
     for (var k = 0; k < keys.length; k++) {
       var row = weaponRow(c, keys[k]);
-      if (row && row.kind === "gun" && row.equipped && isCasterWeapon(row.w)) return { key: keys[k], side: WEAPON_SLOTS[keys[k]], i: row.i, id: row.id, name: row.name, row: row };
+      if (row && row.kind === "gun" && row.equipped && isCasterWeapon(row.w)) {
+        var hit = { key: keys[k], side: WEAPON_SLOTS[keys[k]], i: row.i, id: row.id, name: row.name, row: row };
+        var g = c && c.guns && c.guns[row.i];
+        if (g && g.wrecked) { if (!broken) { hit.wrecked = true; broken = hit; } continue; }
+        return hit;
+      }
     }
-    return null;
+    return broken;
   }
   function borrowedIronItem(c) {
     return items(c).filter(function (it) { return it && it.catalogId === "borrowed-iron" && Number(it.count == null ? 1 : it.count) > 0; })[0] || null;
@@ -407,7 +414,7 @@
     var base = gearArtBase();
     return base + "assets/img/items/borrowed-iron.webp";
   }
-  /* 0.3.98 (Jessey 2026-10-20 9:53 PM): the Borrowed Iron moves out of the Focus slot into a weapon slot (all the L0197
+  /* 0.3.99 (Jessey 2026-10-20 9:53 PM): the Borrowed Iron moves out of the Focus slot into a weapon slot (all the L0197
      mechanics stay: soul-bound, away until the start of the owner's next turn, no Pact casting while away). It's display
      only: character.ironSlot is the slot it prefers; if a gun sits there now it takes the next free one. No free slot ->
      it is still in hand (nothing changes), the Focus slot picker says so. */
@@ -454,6 +461,7 @@
         var A = root.SSDNSWeaponArt, art = "";
         /* 0.3.96: the square Caster Gun tile (the 3:1 engraving cropped to its middle in the square slot) */
         try { art = (root.SSDNSIronArt && root.SSDNSIronArt.weaponTile(cg.id)) || (A && A.srcFor ? (A.srcFor({ id: cg.id, name: cg.name }) || "") : ""); } catch (e) { art = ""; }
+        if (cg.wrecked) return { kind: "caster", name: cg.name, art: art, side: cg.side, gunIndex: cg.i, readOnly: true, mirror: true, wrecked: true, note: "Wrecked · repair: traveling merchant only", canCast: false };
         return { kind: "caster", name: cg.name, art: art, side: cg.side, gunIndex: cg.i, readOnly: true, mirror: true, note: "Mirrors " + cg.side + " · read-only", canCast: true };
       }
       return { kind: "nocaster", name: "", art: "", readOnly: true, note: NO_CASTER, canCast: false };

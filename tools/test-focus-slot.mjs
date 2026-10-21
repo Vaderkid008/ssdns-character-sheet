@@ -1,5 +1,5 @@
 /**
- * L0197 (Jessey 2026-10-20 7:10 PM CT, sheet 0.3.98): the Focus slot by Calling.
+ * L0197 (Jessey 2026-10-20 7:10 PM CT, sheet 0.3.99): the Focus slot by Calling.
  *  Pact Seeker: the Borrowed Iron is a real soul-bound catalog item (borrowed-iron, gear, shelf Foci, 0 lb, never sold) that kits
  *    add, always shown in the paper-doll Focus slot (not only when it's in c.guns). No drop / sell / trade / Give / loot.
  *    Lost or disarmed -> the slot shows it returning at the start of the owner's next turn, and Pact casting is blocked until then.
@@ -64,7 +64,7 @@ const mod = K.apply(K.blankCharacter(), "pact-seeker", { _start: "module" });
 check("kit.moduleAddsItem", bi(mod).length === 1, J(mod.items));
 K.callings.filter((x) => x !== "pact-seeker").forEach((cal) => check("kit.othersNoIron." + cal, bi(K.apply(K.blankCharacter(), cal, {})).length === 0));
 
-/* 3. 0.3.98 (Jessey 2026-10-20 9:53 PM): the Focus slot always shows the patron; the Borrowed Iron rides in a weapon slot */
+/* 3. 0.3.99 (Jessey 2026-10-20 9:53 PM): the Focus slot always shows the patron; the Borrowed Iron rides in a weapon slot */
 const ironCell = (html, key) => { const m = new RegExp('<div class="doll-cell"[^>]*>(?:(?!<div class="doll-cell").)*data-doll-slot="' + key + '"(?:(?!<div class="doll-cell").)*', "s").exec(html); return m ? m[0] : ""; };
 const fsP = D.focusState(ps);
 check("pact.slotState", fsP && fsP.kind === "patron" && fsP.locked === true && fsP.name === "Patron" && /items\/default\/focus\.webp$/.test(fsP.art), J(fsP));

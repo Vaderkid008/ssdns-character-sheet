@@ -571,7 +571,7 @@
     var name = String(item.name || "Item");
     var plan = root.SSDNSStore && root.SSDNSStore.grantPlan ? root.SSDNSStore.grantPlan(item) : { kind: "gear", qty: 1 };
     if (plan.kind === "cartridge" || plan.kind === "ammo") {
-      /* inv2 (0.3.98): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
+      /* inv2 (0.3.99): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
       var ptype = plan.kind === "ammo" ? String(plan.type || "") : "cartridge";
       d.character.ammo = d.character.ammo || [];
       var pool = null;
@@ -1688,6 +1688,8 @@
     if (focusBlocked()) return;
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
+    /* L0200: a Wrecked Caster Gun can't be cast through */
+    if (c.guns[i].wrecked && root.SSDNSCasterRules) { toast(root.SSDNSCasterRules.CANT_CAST); addLog({ kind: "alert", text: root.SSDNSCasterRules.CANT_CAST }); return; }
     var pick = selectedCast(i);
     if (!pick) { toast("Pick a spell from your list."); return; }
     var looked = root.SSDNSSpellCast && root.SSDNSSpellCast.lookup && root.SSDNSSpellCast.lookup(pick.name);
@@ -1972,6 +1974,13 @@
        on the first pass (the target/range asks re-enter rollGun with _aimed set). */
     if (OH && OH.gate && !rollGun._aimed && !rollGun._wild && !OH.gate(name0, { dm: !!dmNow }).ok) { rollGun._chamber = null; return; }
     if (FAN && FAN.gate && !rollGun._aimed && !rollGun._wild && !FAN.gate(i, name0, { dm: !!dmNow }).ok) { rollGun._chamber = null; return; }
+    /* L0200: a Wrecked gun can't fire (no target ask, no round spent) */
+    if (g.wrecked && root.SSDNSCasterRules) {
+      toast(root.SSDNSCasterRules.CANT_FIRE);
+      addLog({ kind: "alert", text: name0 + ": " + root.SSDNSCasterRules.CANT_FIRE });
+      rollGun._chamber = null; rollGun._aimed = false;
+      return;
+    }
     if (/borrowed iron/i.test(name0) || g.weapon === "borrowed-iron") {
       var msg = "Borrowed Iron has no weapon stats. Use Pact Shot.";
       toast(msg);
@@ -2062,6 +2071,8 @@
     var ceiling = (root.SSDNSApp.isFirearm && mfW && !root.SSDNSApp.isFirearm(mfW)) ? 0 : (root.SSDNSApp.misfireCeiling
       ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
       : 1);
+    /* L0200: a Big Fifty .50-90 round fired from a Caster Gun misfires on 1-5 */
+    if (ceiling > 0 && root.SSDNSCasterRules) ceiling = root.SSDNSCasterRules.misfireCeiling(mfW || catalogWeapon(g.weapon), g, spent && spent.was, ceiling);
     var chosen = rollGun._dmShot ? gunChosen(i) : rangeMode(gunChosen(i), rangeShot);
     var gunRollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
@@ -2128,6 +2139,9 @@
         g.loaded = g.chambers.filter(Boolean).length;
       }
       if (resolved.ruined || resolved.fouled) { g.ruined = true; g.broken = true; g.fouled = true; }
+      /* L0200: each Big Fifty misfire in a Caster Gun rolls 1d6; a 1 explodes it (2d6 fire to the shooter, Wrecked) */
+      var boom = root.SSDNSCasterRules ? root.SSDNSCasterRules.afterMisfire(g, spent.was, !!resolved.misfire, { w: wpn, who: (ch() && ch().name) || "You", gunName: name }) : null;
+      if (boom && boom.exploded) { resolved.armD4 = false; resolved.jammed = false; resolved.lock = false; }
       if (root.SSDNSApp && root.SSDNSApp.refreshGunFace) root.SSDNSApp.refreshGunFace();
     }
     var misfired = !!resolved.misfire;
@@ -2339,6 +2353,8 @@
     var ceiling = (root.SSDNSApp.isFirearm && mfW && !root.SSDNSApp.isFirearm(mfW)) ? 0 : (root.SSDNSApp.misfireCeiling
       ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
       : 1);
+    /* L0200: a Big Fifty .50-90 round fired from a Caster Gun misfires on 1-5 */
+    if (ceiling > 0 && root.SSDNSCasterRules) ceiling = root.SSDNSCasterRules.misfireCeiling(mfW || catalogWeapon(g.weapon), g, spent && spent.was, ceiling);
     var nat = d20();
     var total = nat + bonus;
     var wpn = catalogWeapon(g.weapon);
@@ -2363,6 +2379,9 @@
       g.loaded = g.chambers.filter(Boolean).length;
     }
     if (resolved.ruined || resolved.fouled) { g.ruined = true; g.broken = true; g.fouled = true; }
+    /* L0200: Big Fifty misfire in a Caster Gun -> 1d6; a 1 explodes it */
+    var boomF = root.SSDNSCasterRules ? root.SSDNSCasterRules.afterMisfire(g, spent.was, !!resolved.misfire, { w: wpn, who: (c && c.name) || "You", gunName: name }) : null;
+    if (boomF && boomF.exploded) { resolved.armD4 = false; resolved.jammed = false; resolved.lock = false; }
     if (root.SSDNSApp && root.SSDNSApp.refreshGunFace) root.SSDNSApp.refreshGunFace();
     var misfired = !!resolved.misfire;
     function syncFlag(flag) {

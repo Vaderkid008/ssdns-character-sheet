@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.98"; // sheet-playtest-v0398
+  var APP_VERSION = "0.3.99"; // sheet-playtest-v0399
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -198,7 +198,7 @@
       var merged = window.SSDNSItems.mergeExplosives(doc.character);
       if (merged) notes.push("Moved " + merged + " explosive line(s) into Items (Use button).");
     }
-    /* 0.3.98 Equipment: starting-kit lines in the notes become real items / rigs (kits.js; old notes kept in
+    /* 0.3.99 Equipment: starting-kit lines in the notes become real items / rigs (kits.js; old notes kept in
        character.equipmentBefore0392). At first boot kits.js isn't loaded yet; it runs the same step itself. */
     if (doc.character && window.SSDNSKits && window.SSDNSKits.migrateEquipment) {
       var kitMoved = window.SSDNSKits.migrateEquipment(doc.character);
@@ -221,7 +221,7 @@
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
   }
-  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.98 landed in a cartridge pool (caliber .50-90) that the
+  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.99 landed in a cartridge pool (caliber .50-90) that the
       Big Fifty never reads, weighing 0.05 lb a round. Move them to the bigfifty pool (0.15 lb). Returns rounds moved. */
   function moveBigFiftyPools(c) {
     if (!c || !Array.isArray(c.ammo)) return 0;
@@ -1701,8 +1701,10 @@
       if (!row) return;
       var photo = row && row.querySelector(".g-photo");
       if (row && window.SSDNSWeaponArt) window.SSDNSWeaponArt.paint(photo, w || null);
-      var crossed = !!(g.ruined || g.broken || g.exploded);
+      var crossed = !!(g.ruined || g.broken || g.exploded || g.wrecked);
       if (photo) photo.classList.toggle("gun-x", crossed);
+      row.classList.toggle("is-wrecked", !!g.wrecked);
+      paintWrecked(row, i, g);
       row.classList.toggle("empty", !s);
       row.classList.toggle("is-shotgun", !!(w && w.scatter));
       row.classList.toggle("is-caster", !!(w && w.hexShells));
@@ -1729,6 +1731,7 @@
       if (lockChip) { lockChip.setAttribute("data-cond", "lockup"); lockChip.classList.toggle("on", lockN > 0); }
       /* 0.3.75: Dirty / Fouled / Jammed / locked show once, as their highlighted chips; the status text keeps the rest */
       var statusBits = [];
+      if (g.wrecked) statusBits.push("Wrecked");
       if (g.ruined || g.broken) statusBits.push("Ruined");
       if (Number(g.misStreak)) statusBits.push("misfires " + g.misStreak);
       if (g.pendingD4) statusBits.push("d4 pending");
@@ -2768,6 +2771,7 @@
     var g = C().guns[i], w = g && WPN[g.weapon];
     if (!g || !g.weapon) return { ok: false, reason: "Pick a gun first." };
     if (g.equipped === false) return { ok: false, reason: "Equip this weapon first." };
+    if (g.wrecked && window.SSDNSCasterRules) return { ok: false, wrecked: true, reason: window.SSDNSCasterRules.CANT_FIRE };
     if (g.ruined || g.broken) return { ok: false, reason: "Ruined. A gunsmith repairs it for 500 ES and a day. It comes back clean." };
     if (g.pendingD4) return { ok: false, reason: "Roll the d4 first." };
     if (g.jammed) return { ok: false, reason: "Jammed: clear it first" };
@@ -2919,7 +2923,13 @@
         if (!gauge) return true;
         return norm(a.caliber) === norm(gauge) || !norm(a.caliber);
       }
-      if (w.hexShells) return a.type === "cartridge";
+      /* L0200: a Caster Gun takes any cartridge, the Big Fifty .50-90 pool included; never shotgun shells
+         (unless a relic shotgun caster overrides it, assets/js/caster-rules.js) */
+      if (w.hexShells) {
+        if (a.type === "cartridge" || a.type === "bigfifty") return true;
+        var CRp = window.SSDNSCasterRules;
+        return !!(CRp && CRp.isShellType(a.type) && CRp.takesShells(w, g));
+      }
       if (a.type !== want) return false;
       if (!round) return true;
       if (!norm(a.caliber)) return !g.chamberSet;
@@ -2947,14 +2957,43 @@
     var name = AMMO_LABEL[a.type] || a.type || "Ammo";
     if (a.type === "cartridge" && a.caliber && window.SSDNSApplied && window.SSDNSApplied.cartridgePoolLabel) {
       name = window.SSDNSApplied.cartridgePoolLabel(a.caliber) || a.caliber;
-    } else if (a.caliber) name += " " + a.caliber;
+    } else if (a.caliber && name.indexOf(a.caliber) < 0) name += " " + a.caliber; /* L0200: no "Big Fifty .50-90 .50-90" */
     return name + " (" + num(a.count) + ")";
+  }
+  /* L0200: the Wrecked line on the gun card (assets/js/caster-rules.js) */
+  function paintWrecked(row, i, g) {
+    var CR = window.SSDNSCasterRules;
+    var note = row.querySelector('[data-wrecked="' + i + '"]');
+    var on = !!(g && g.wrecked && CR);
+    if (!note && on) {
+      note = el("span", { class: "gun-wrecked", "data-wrecked": i, role: "status" });
+      var st = row.querySelector('[data-out="gst.' + i + '"]');
+      if (st && st.parentNode) st.parentNode.insertBefore(note, st.nextSibling); else row.appendChild(note);
+    }
+    if (!note) return;
+    note.textContent = on ? CR.WRECKED_NOTE : "";
+    note.hidden = !on;
+  }
+  /* L0200: a Caster Gun card says why shotgun shells on hand aren't in its ammo list */
+  function paintShellNote(i, g, w, sel) {
+    var CR = window.SSDNSCasterRules;
+    var id = "shellNote" + i;
+    var note = document.getElementById(id);
+    var on = !!(CR && w && sel && !sel.hidden && (C().ammo || []).some(function (a) { return num(a.count) > 0 && CR.shellBlock(w, g, a); }));
+    if (!note && on && sel.parentNode) {
+      note = el("span", { class: "fine shell-note", id: id, role: "note" });
+      sel.parentNode.insertBefore(note, sel.nextSibling);
+    }
+    if (!note) return;
+    note.textContent = on ? CR.SHELL_NOTE : "";
+    note.hidden = !on;
   }
   function paintAmmoPool(i, g, w, cap) {
     var sel = $('[data-ammopool="' + i + '"]');
     if (!sel) return;
-    if (!cap || !w) { sel.hidden = true; sel.innerHTML = ""; sel.removeAttribute("data-sig"); return; }
+    if (!cap || !w) { sel.hidden = true; sel.innerHTML = ""; sel.removeAttribute("data-sig"); paintShellNote(i, g, w, sel); return; }
     sel.hidden = false;
+    paintShellNote(i, g, w, sel);
     var rows = poolsForGun(g, w);
     var keep = (g && g.ammoPool !== "" && g.ammoPool != null) ? String(g.ammoPool) : sel.value;
     var sig = rows.map(function (row) { return row.idx + ":" + row.a.type + ":" + (row.a.caliber || "") + ":" + num(row.a.count); }).join("|");
@@ -3002,6 +3041,8 @@
     var g = C().guns[i], w = WPN[g.weapon];
     if (d4Pending(g)) { toast("Roll the d4 first."); return; }
     if (!w || !w.capacity || !pool) return;
+    var CRb = window.SSDNSCasterRules, shellNo = CRb ? CRb.shellBlock(w, g, pool) : "";
+    if (shellNo) { toast(shellNo); if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: (w.name || "Gun") + ": " + shellNo }); return; }
     var a = normChambers(g, w);
     var need = openChamberCount(g, a);
     if (max) need = Math.min(need, max);
@@ -3060,6 +3101,9 @@
     if (!rows.length) {
       var tp = takePool(g, w, false);
       var msg = "No ammo for this caliber";
+      /* L0200: shells on hand but this is a Caster Gun -> say why they don't show */
+      var CRr = window.SSDNSCasterRules;
+      if (CRr && (C().ammo || []).some(function (a) { return num(a.count) > 0 && CRr.shellBlock(w, g, a); })) msg += ". " + CRr.SHELL_NOTE;
       toast(msg);
       if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: (w.name || "Gun") + ": " + msg });
       return;
