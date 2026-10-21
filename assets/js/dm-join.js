@@ -574,6 +574,9 @@
     }
     var target = $("#atkTarget");
     if (!entry.targetId && !entry.freeShot && target && target.value && target.value !== "__free") entry.targetId = target.value;
+    /* attack-fx: the map request rides on the public feed row only (never on rolls/), and only for rolls the sheet resolved itself */
+    var fxReq = entry.fxReq;
+    delete entry.fxReq;
     await fb.set(fb.ref(state.db, roomPath("rolls/" + id)), entry);
     var quiet = !!(entry.private || entry.whisper);
     if (!quiet) {
@@ -581,6 +584,9 @@
         id: id, ts: entry.ts, from: state.uid,
         fromName: entry.characterName || entry.who, characterName: entry.characterName || "", playerName: entry.playerName || "", weapon: entry.weapon || "", spellName: entry.spellName || "", text: rollText(entry), kind: "roll", who: entry.characterName || entry.who, formula: entry.formula || "", dice: Array.isArray(entry.dice) ? entry.dice : null
       };
+      if (fxReq && !entry.awaitDm && root.SSDNSMapFx && root.SSDNSMapFx.request) {
+        try { feed.fxReq = root.SSDNSMapFx.request(fxReq); } catch (e) {}
+      }
       try { await fb.set(fb.ref(state.db, roomPath("tableFeed/" + id)), feed); }
       catch (err) { console.warn("[DM Join] table feed", err); }
     }
@@ -663,7 +669,9 @@
       playerName: (c && c.player) || "",
       rollId: entry.rollId || "",
       targetName: entry.targetName || "",
-      sfx: entry.sfx || "attack"
+      sfx: entry.sfx || "attack",
+      weaponId: entry.weaponId || "",
+      arrow: String(entry.arrow || "").slice(0, 160)
     };
     if (Number(entry.critMin) >= 2 && Number(entry.critMin) < 20) row.critMin = Number(entry.critMin); /* Champion / Dead Eye crit range */
     if (entry.shots && typeof entry.shots === "object") row.shots = entry.shots;
@@ -2007,6 +2015,27 @@
       return { ok: false, queued: true };
     });
   }
+  /* attack-fx: a visual-only request for the DM's map (dynamite arrows and other no-roll shots).
+     Same tableFeed row shape the DM's map publishes (kind 'sfx', event 'fx'), so every feed reader skips it. */
+  function postFx(req) {
+    if (!state.joined || state.left || offlineNow() || !state.uid || !state._fb || !state.db) {
+      return Promise.resolve({ ok: false, skipped: true });
+    }
+    var wh = $("#chkWhisper");
+    if (wh && wh.checked) return Promise.resolve({ ok: false, skipped: true });
+    var FX = root.SSDNSMapFx;
+    if (!FX || !FX.request) return Promise.resolve({ ok: false, skipped: true });
+    var fb = state._fb;
+    var id = "fxr_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var c = doc() && doc().character;
+    var row = {
+      id: id, ts: new Date().toISOString(), from: state.uid,
+      fromName: (c && (c.name || c.player)) || "Player",
+      text: "fx", kind: "sfx", event: "fx", fxReq: FX.request(req || {})
+    };
+    return fb.set(fb.ref(state.db, roomPath("tableFeed/" + id)), row).then(function () { return { ok: true }; })
+      .catch(function (e) { console.warn("[DM Join] fx", e); return { ok: false }; });
+  }
   function postFeed(entry) {
     entry = entry || {};
     if (!state.joined || state.left || offlineNow() || !state.uid || !state._fb || !state.db) {
@@ -2657,6 +2686,7 @@
       fadeToast: fadeToast,
       postSfx: postSfx,
       postFeed: postFeed,
+      postFx: postFx,
       postChat: postChat,
       postDamage: postDamage,
       postMercy: postMercy,

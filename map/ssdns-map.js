@@ -329,6 +329,13 @@ const state = {
 const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d');
 el.appendChild(canvas);
+/* attack-fx: overlay above the tokens; pointer events pass through to the map canvas */
+const fxCanvas = document.createElement('canvas');
+fxCanvas.className = 'ssm-fx';
+fxCanvas.setAttribute('aria-hidden', 'true');
+let fxCtx = null;
+try { fxCtx = fxCanvas.getContext('2d'); } catch (e) { fxCtx = null; }
+el.appendChild(fxCanvas);
 
 const toolbar = document.createElement('div');
 toolbar.className = 'ssdns-toolbar';
@@ -338,6 +345,7 @@ toolbar.innerHTML = `
   <button data-act="helpBtn">?</button>
   <span data-act="zoomLabel">1.00×</span>
   <button data-act="reset">Reset view</button>
+  <button data-act="fxBtn" type="button" class="ssm-fx-btn" title="Attack effects on the map (firing lines). Saved for you on this device.">Effects: ON</button>
   ${role === 'dm' ? `
     <button data-act="fogBtn" class="active">Fog: ON</button>
     <button data-act="showFovBtn" class="active">Show Player FOV: ON</button>
@@ -585,6 +593,7 @@ if (!el._nameMode) {
 }
 paintRoleBadge();
 function pushFeed(row) {
+  if (row && (row.fx || row.fxReq)) { try { fxFromFeed(row); } catch (e) {} }
   if (!row || row.kind === 'sfx') { if (row && host.sfx) host.sfx(row); return; }
   state.chat = state.chat || [];
   state.chat.push(row);
@@ -821,6 +830,312 @@ if (role === 'dm') {
   el.appendChild(card);
 }
 
+// --- attack effects (firing lines) ---
+/* Jessey 2026-10-20: every client draws attack effects on its own overlay canvas (above the tokens).
+   The DM's client is the only publisher: it resolves token positions, strips anything hidden, and writes one
+   public row (tableFeed, kind "sfx", event "fx") that the sheet and DMCC sound handlers already ignore.
+   Players never get a hidden token's id or position: a hidden shooter becomes a fog-edge start point, or no row. */
+const FXA = window.SSDNSMapFx || null;
+const fxBoot = Date.now();
+const fxLive = [];
+const fxTimers = [];
+let fxRaf = 0;
+state.fxLog = [];
+function fxOn() { return !!(FXA && FXA.enabled()); }
+function fxPx() { return (state.scene && state.scene.grid && state.scene.grid.px) || 70; }
+function fxCenter(t) { const s = t.size || 1; return { x: t.pos.x + s / 2, y: t.pos.y + s / 2 }; }
+function fxRadius(t) { return (t.size || 1) / 2 * 0.85; }
+function fxSceneOk(t) {
+  if (!t || role !== 'player') return true;
+  return (t.sceneId || 'scn_dustyspur01') === getPlayerScene();
+}
+/* Same test the token pass in draw() uses, for any grid point. The DM sees everything. */
+function playerSees(gx, gy) {
+  if (role !== 'player') return true;
+  let sd = null;
+  try { sd = sceneData(); } catch (e) { return false; }
+  let visible = sd.fogRevealed === true;
+  if (!visible) {
+    const me = state.tokens.find(t => t && t.ownerUid === uid && t.pos);
+    if (me) {
+      const c = fxCenter(me), r = me.torch ? 8 : 2;
+      if (Math.hypot(gx - c.x, gy - c.y) <= r) visible = true;
+    }
+  }
+  if (!visible) {
+    for (const t of state.tokens) {
+      if (!t || !t.torch || !t.pos) continue;
+      const c = fxCenter(t);
+      if (Math.hypot(gx - c.x, gy - c.y) <= 8) { visible = true; break; }
+    }
+  }
+  (sd.fogShapes || []).forEach(shape => { if (shapeContains(shape, gx, gy)) visible = shape.op !== 'hide'; });
+  return visible;
+}
+function tokenSeen(t) {
+  if (!t || !t.pos) return false;
+  if (role !== 'player') return true;
+  if (t.hidden || !fxSceneOk(t)) return false;
+  if (t.veil && t.ownerUid !== uid) return false;
+  const c = fxCenter(t);
+  return playerSees(c.x, c.y);
+}
+/* DM: could any player see this grid point? Same rules as the player map: fog off, a player token's own sight
+   (2 sq, torch 8), a torch-bearer's light (8), then Reveal/Hide shapes (last match wins). Hidden tokens never light. */
+function fxPublicSees(gx, gy, sid) {
+  let sd = null;
+  try { sd = sceneData(sid); } catch (e) { return false; }
+  let visible = sd.fogRevealed === true;
+  if (!visible) {
+    for (const t of state.tokens || []) {
+      if (!t || !t.pos || t.hidden || (t.sceneId || 'scn_dustyspur01') !== sid) continue;
+      const r = t.torch ? 8 : (t.ownerUid ? 2 : 0);
+      if (!r) continue;
+      const c = fxCenter(t);
+      if (Math.hypot(gx - c.x, gy - c.y) <= r) { visible = true; break; }
+    }
+  }
+  (sd.fogShapes || []).forEach(shape => { if (shapeContains(shape, gx, gy)) visible = shape.op !== 'hide'; });
+  return visible;
+}
+/* First point on a→b that passes test(), searching in 0.05-square steps. */
+function fxWalk(a, b, test) {
+  const d = Math.hypot(b.x - a.x, b.y - a.y);
+  if (!d) return test(a.x, a.y) ? { x: a.x, y: a.y, at: 0 } : null;
+  const steps = Math.ceil(d / 0.05);
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps, x = a.x + (b.x - a.x) * u, y = a.y + (b.y - a.y) * u;
+    if (test(x, y)) return { x, y, at: d * u };
+  }
+  return null;
+}
+function fxRef(ref) {
+  if (!ref) return null;
+  const t = tokenByRef(String(ref)); /* id, combatantId (DM only: public tokens carry none) or ownerUid */
+  if (!t || !t.pos) return null;
+  if (role === 'player' && t.hidden) return null;
+  return t;
+}
+/* A free shot has no target: it fires toward the shooter's last target if there is one, else the nearest other side. */
+function fxFacing(S, spec) {
+  if (spec && spec.dir && isFinite(spec.dir.x) && isFinite(spec.dir.y) && (spec.dir.x || spec.dir.y)) return spec.dir;
+  const c = fxCenter(S);
+  let best = null, bestD = Infinity;
+  (state.tokens || []).forEach(t => {
+    if (!t || t === S || !t.pos || t.hidden || t.kind === 'marker') return;
+    if (!!t.ownerUid === !!S.ownerUid && t.kind === S.kind) return;
+    const o = fxCenter(t), d = Math.hypot(o.x - c.x, o.y - c.y);
+    if (d < bestD) { bestD = d; best = o; }
+  });
+  if (!best) return { x: 1, y: 0 };
+  const d = Math.hypot(best.x - c.x, best.y - c.y) || 1;
+  return { x: (best.x - c.x) / d, y: (best.y - c.y) / d };
+}
+/** Work out what this client may draw. Returns null when it must draw nothing. */
+function fxGeometry(spec) {
+  const type = FXA ? FXA.classify(spec) : 'gun';
+  const S = fxRef(spec.shooter), T = fxRef(spec.target);
+  const melee = type === 'blade' || type === 'blunt';
+  const geo = { type, S: null, T: null, rS: 0.42, rT: 0.42, src: null, srcHidden: false, dir: null };
+  if (spec.target && !T) return null;
+  if (T) {
+    if (!tokenSeen(T)) return null; /* never draw at something this player can't see */
+    geo.T = fxCenter(T); geo.rT = fxRadius(T); geo.tokT = T;
+  }
+  if (S && tokenSeen(S)) { geo.S = fxCenter(S); geo.rS = fxRadius(S); geo.tokS = S; }
+  else if (S && role === 'player' && T) {
+    /* shooter is in this player's dark: start where the line comes out of it, no muzzle flash */
+    const edge = fxWalk(fxCenter(S), geo.T, playerSees);
+    if (!edge) return null;
+    geo.src = { x: edge.x, y: edge.y }; geo.srcHidden = true;
+  } else if (!S && spec.src && T) {
+    const from = { x: Number(spec.src.x), y: Number(spec.src.y) };
+    if (!isFinite(from.x) || !isFinite(from.y)) return null;
+    const edge = role === 'player' ? fxWalk(from, geo.T, playerSees) : { x: from.x, y: from.y };
+    if (!edge) return null;
+    geo.src = { x: edge.x, y: edge.y }; geo.srcHidden = true;
+  } else return null;
+  if (type === 'free') {
+    if (!geo.S) return null;
+    geo.dir = fxFacing(S, spec);
+  } else if (!geo.T) return null;
+  if (melee && !geo.S && !geo.src) return null;
+  return geo;
+}
+function fxOutcomeInfo(spec, type) {
+  return {
+    id: spec.weaponId || '', name: spec.weapon || '', weapon: spec.weapon || '',
+    gun: type === 'gun' || type === 'buck', spell: type === 'spell', kind: type === 'spell' ? 'spell' : (type === 'thrown' ? 'thrown' : ''),
+    group: type === 'arrow' || type === 'bolt' ? 'bow' : '', dmgType: type === 'blunt' ? 'bludgeoning' : (type === 'blade' ? 'slashing' : ''),
+    nat: spec.nat
+  };
+}
+/* Sound layers this client plays on the frame it draws. The shot/strike cue is never played here: the existing
+   queue already plays and shares it. `heard` lists clients that already played the hit/miss (resolver/shooter). */
+function fxCues(spec, plan) {
+  const A = window.SSDNSAudio;
+  if (!A || !plan) return [];
+  const heard = Array.isArray(spec.heard) ? spec.heard : [];
+  const mine = heard.indexOf(uid) >= 0;
+  const out = [];
+  (plan.cues || []).forEach(c => {
+    let cue = '';
+    if (c.layer === 'result') {
+      if (mine || !plan.result || !A.outcomeCue) return;
+      cue = A.outcomeCue(fxOutcomeInfo(spec, plan.type), plan.result === 'crit' ? 'crit' : plan.result);
+    } else if (c.layer === 'trail') {
+      const key = A.arrowKey ? A.arrowKey(String(c.cue).split(':')[1] || '') : '';
+      if (key && A.hasFile && A.hasFile(key)) cue = key; /* silent until a whistle file is listed in sfx.json */
+    } else if (c.layer === 'boom') {
+      if (mine) return;
+      const key = spec.arrow === 'dynamite' && A.arrowCue ? A.arrowCue('dynamite', 'explode') : 'explode';
+      cue = key || 'explode';
+    }
+    if (cue) out.push({ at: c.at, cue: cue, layer: c.layer });
+  });
+  return out;
+}
+function fxPlay(spec, geo, opts) {
+  opts = opts || {};
+  const type = geo.type;
+  const plan = FXA.plan(type, spec.result, spec);
+  const cues = fxCues(spec, plan);
+  const seed = FXA.hash(String(spec.id || '') + type + (spec.shooter || '') + (spec.target || '')) || 7;
+  const entry = { spec: Object.assign({}, spec, { type: type, seed: seed }), geo, plan, cues, t0: 0 };
+  const log = { type, result: plan.result, srcHidden: !!geo.srcHidden, cues: cues.map(c => c.layer + ':' + c.cue + '@' + c.at), local: !!opts.local, nat: spec.nat == null ? null : spec.nat, crit: !!spec.crit };
+  state.fxLog.push(log);
+  if (state.fxLog.length > 30) state.fxLog.shift();
+  const ev = FXA.effectEvent(Object.assign({}, spec, { type: type }), { local: !!opts.local });
+  try { el.dispatchEvent(new CustomEvent('ssdns-map-fx', { detail: ev })); } catch (e) {}
+  return FXA.beforeEffect(ev).then(() => {
+    if (dead || !fxOn()) return false;
+    entry.t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    fxLive.push(entry);
+    cues.forEach(c => {
+      const t = setTimeout(() => {
+        const i = fxTimers.indexOf(t); if (i >= 0) fxTimers.splice(i, 1);
+        if (dead || !fxOn() || !window.SSDNSAudio) return;
+        if (window.SSDNSAudio.playNow) window.SSDNSAudio.playNow(c.cue);
+        else window.SSDNSAudio.play(c.cue);
+      }, Math.max(0, c.at));
+      fxTimers.push(t);
+    });
+    if (!fxRaf) fxRaf = requestAnimationFrame(fxFrame);
+    return true;
+  });
+}
+/** Draw an effect on this client. Returns the promise from fxPlay, or null when nothing may be drawn. */
+function startFx(spec, opts) {
+  if (!FXA || !spec || !fxOn() || !state.scene) return null;
+  const geo = fxGeometry(spec);
+  if (!geo) return null;
+  return fxPlay(spec, geo, opts);
+}
+function fxScreen(entry) {
+  const px = fxPx(), z = state.view.zoom, cell = px * z;
+  const g = entry.geo, type = entry.spec.type;
+  /* follow tokens that move while the effect plays (cheap: two lookups) */
+  if (g.tokS && g.tokS.pos) g.S = fxCenter(g.tokS);
+  if (g.tokT && g.tokT.pos) g.T = fxCenter(g.tokT);
+  const S = g.S ? worldToScreen(g.S.x * px, g.S.y * px) : null;
+  const T = g.T ? worldToScreen(g.T.x * px, g.T.y * px) : null;
+  const src = g.src ? worldToScreen(g.src.x * px, g.src.y * px) : null;
+  const rS = g.rS * cell, rT = g.rT * cell;
+  let dir;
+  if (type === 'free') dir = g.dir;
+  else {
+    const from = src || S;
+    const dx = T.x - from.x, dy = T.y - from.y, d = Math.hypot(dx, dy) || 1;
+    dir = { x: dx / d, y: dy / d };
+  }
+  const A = src ? src : { x: S.x + dir.x * (rS + 3), y: S.y + dir.y * (rS + 3) };
+  const B = T ? { x: T.x - dir.x * rT * 0.55, y: T.y - dir.y * rT * 0.55 } : null;
+  return { A, B: B || A, S, T, rS, rT, cell, dir, srcHidden: !!g.srcHidden };
+}
+function fxFrame() {
+  fxRaf = 0;
+  if (dead || !fxCtx) { fxLive.length = 0; return; }
+  const box = viewBox();
+  fxCtx.clearRect(0, 0, box.w, box.h);
+  const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  for (let i = fxLive.length - 1; i >= 0; i--) {
+    const e = fxLive[i], lt = now - e.t0;
+    if (lt > e.plan.duration) { fxLive.splice(i, 1); continue; }
+    try { FXA.paint(fxCtx, e.spec, lt, fxScreen(e)); } catch (err) { fxLive.splice(i, 1); }
+  }
+  if (fxLive.length) fxRaf = requestAnimationFrame(fxFrame);
+  else fxCtx.clearRect(0, 0, box.w, box.h);
+}
+function fxStopAll() {
+  fxLive.length = 0;
+  fxTimers.splice(0).forEach(t => { try { clearTimeout(t); } catch (e) {} });
+  if (fxRaf) { cancelAnimationFrame(fxRaf); fxRaf = 0; }
+  if (fxCtx) { const box = viewBox(); fxCtx.clearRect(0, 0, box.w, box.h); }
+}
+/** DM only: what players may receive for this effect. null = players get nothing. Never carries a hidden token. */
+function fxPublic(spec) {
+  if (role !== 'dm' || !FXA || !spec) return null;
+  const type = FXA.classify(spec);
+  const S = fxRef(spec.shooter), T = fxRef(spec.target);
+  if (!S) return null;
+  if (spec.target && !T) return null;
+  if (T && T.hidden) return null;
+  const pub = {
+    type, result: spec.result, arrow: spec.arrow, sfx: spec.sfx, weapon: spec.weapon, weaponId: spec.weaponId,
+    nat: spec.nat, crit: spec.crit, critMin: spec.critMin, heard: spec.heard, scene: S.sceneId || ''
+  };
+  if (T) pub.target = T.id;
+  const sc = fxCenter(S);
+  const sid = S.sceneId || 'scn_dustyspur01';
+  const seen = (x, y) => fxPublicSees(x, y, sid);
+  if (S.hidden || !seen(sc.x, sc.y)) {
+    if (!T || type === 'free') return null;
+    const tc = fxCenter(T);
+    const edge = fxWalk(sc, tc, seen);
+    /* a hidden token standing in the open has no fog edge to fire from: players see nothing */
+    if (!edge || edge.at < 1) return null;
+    pub.src = { x: edge.x, y: edge.y };
+  } else pub.shooter = S.id;
+  if (type === 'free') pub.dir = fxFacing(S, spec);
+  return FXA.sanitize(pub);
+}
+/** DM: draw locally with full knowledge, then publish the cleaned row. Returns the public fx (or null). */
+function dmFx(spec, rowId) {
+  if (role !== 'dm' || !FXA || !spec) return null;
+  startFx(spec, { local: true });
+  const pub = fxPublic(spec);
+  if (!pub) return null;
+  const id = 'fx_' + String(rowId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6))).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60);
+  const row = { id, ts: new Date().toISOString(), from: uid, fromName: 'DM', text: 'fx', kind: 'sfx', event: 'fx', fx: pub };
+  try {
+    if (adapter && adapter.write) {
+      const p = adapter.write('tableFeed/' + id, row, { by: uid });
+      if (p && p.catch) p.catch(() => {}); /* a second DM tab writing the same id is refused by the rules: fine */
+    }
+  } catch (e) {}
+  return pub;
+}
+/* Feed rows: public fx rows draw here; a player's fxReq is turned into a public row by the DM's map only. */
+function fxFromFeed(row) {
+  if (!FXA || !row) return;
+  const ts = Date.parse(row.ts || '');
+  if (ts && ts < fxBoot - FXA.TIMING.stale) return; /* history replayed on load */
+  if (ts && Date.now() - ts > 60000) return; /* late replay after a reconnect (60 s leaves room for clock skew) */
+  if (row.fx && typeof row.fx === 'object') {
+    if (row.from === uid) return; /* drew it locally */
+    startFx(Object.assign({}, row.fx, { id: row.id }), { local: false });
+    return;
+  }
+  if (row.fxReq && typeof row.fxReq === 'object' && role === 'dm' && row.from && row.from !== uid) {
+    const req = row.fxReq;
+    dmFx({
+      id: row.id, type: req.type, result: req.result, target: req.target, shooter: row.from, sfx: req.sfx,
+      weapon: req.weapon, weaponId: req.weaponId, arrow: req.arrow, nat: req.nat, crit: req.crit,
+      heard: req.heard === false ? [] : [row.from]
+    }, row.id);
+  }
+}
+
 // --- render ---
 function viewBox() {
   const w = canvas.clientWidth || el.clientWidth || 1;
@@ -835,7 +1150,21 @@ function resize() {
     canvas.height = box.h * dpr;
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  sizeFxCanvas(dpr, box);
   draw();
+}
+function sizeFxCanvas(dpr, box) {
+  if (!fxCanvas) return;
+  const st = fxCanvas.style;
+  st.left = (canvas.offsetLeft || 0) + 'px';
+  st.top = (canvas.offsetTop || 0) + 'px';
+  st.width = box.w + 'px';
+  st.height = box.h + 'px';
+  if (fxCanvas.width !== Math.round(box.w * dpr) || fxCanvas.height !== Math.round(box.h * dpr)) {
+    fxCanvas.width = box.w * dpr;
+    fxCanvas.height = box.h * dpr;
+  }
+  if (fxCtx && fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 const ro = new ResizeObserver(resize);
 ro.observe(el);
@@ -3722,6 +4051,25 @@ q('strength').addEventListener('input', e => {
   if (options.setGrid) options.setGrid(state.gridStrength);
   draw();
 });
+function paintFxBtn() {
+  const b = q('fxBtn');
+  if (!b) return;
+  const on = fxOn();
+  b.textContent = 'Effects: ' + (on ? 'ON' : 'OFF');
+  b.classList.toggle('active', on);
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  b.hidden = !FXA;
+}
+if (q('fxBtn')) {
+  q('fxBtn').addEventListener('click', () => {
+    if (!FXA) return;
+    FXA.setEnabled(!FXA.enabled());
+    if (!FXA.enabled()) fxStopAll();
+    paintFxBtn();
+  });
+  on(window, 'ssdns-map-fx-pref', () => { if (!fxOn()) fxStopAll(); paintFxBtn(); });
+  paintFxBtn();
+}
 q('reset').addEventListener('click', () => {
   const { cols, rows, px } = state.scene.grid;
   state.view.x = (cols * px) / 2;
@@ -5909,6 +6257,7 @@ async function loadSceneImage(sceneId, opts) {
     state.pendingTarget = null;
     if (raf) cancelAnimationFrame(raf);
     if (animRaf) cancelAnimationFrame(animRaf);
+    fxStopAll();
     if (ro) ro.disconnect();
     listeners.forEach(([t, ev, fn, opt]) => t.removeEventListener(ev, fn, opt));
     listeners.length = 0;
@@ -6237,6 +6586,17 @@ return {
   hasToken,
   releaseToken,
   armAttack,
+  /* attack-fx: DM -> draw + publish the cleaned row; player -> draw locally only. */
+  fx: function (spec) {
+    if (!spec) return null;
+    if (role === 'dm') return dmFx(spec, spec.id || '');
+    startFx(spec, { local: true });
+    return null;
+  },
+  fxPublic: function (spec) { return fxPublic(spec || {}); },
+  fxActive: function () { return fxLive.length; },
+  fxLog: function () { return (state.fxLog || []).slice(); },
+  fxAnimating: function () { return !!fxRaf; },
   tokensLoaded: function () { return !!(tokensReady && state.scene); },
   /* token size: read-only footprints for tests/tools. Same visibility as drawing: players never get hidden tokens. */
   tokenBoxes: function () {

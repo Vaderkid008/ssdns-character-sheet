@@ -783,7 +783,12 @@
         targetId: tgt && tgt.id,
         targetName: tgt && tgt.name,
         private: !!quiet,
-        whisper: !!quiet
+        whisper: !!quiet,
+        /* attack-fx: slash / pulse on the map (only when the sheet knows hit or miss) */
+        fxReq: (tgt && tgt.id && (haveAc || miss || crit)) ? {
+          target: tgt.id, result: miss ? "miss" : (crit ? "crit" : "hit"), weapon: name,
+          weaponId: (c.melee && c.melee[i] && c.melee[i].weapon) || "", nat: nat, crit: crit && !miss
+        } : null
       });
       if (!miss && total && tgt && tgt.id && !quiet && root.SSDNSDmJoin.postDamage) {
         root.SSDNSDmJoin.postDamage({ amount: total, label: name, type: "weapon", targetId: tgt.id, targetName: tgt.name, rollId: rollId });

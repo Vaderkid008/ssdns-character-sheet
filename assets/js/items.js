@@ -249,7 +249,7 @@
      Absent fields are left off, so old saves and catalog rows look exactly as before. */
   function typeFields(out, raw) {
     raw = raw || {};
-    ["itemKind", "ui", "armorId", "img"].forEach(function (k) { if (raw[k]) out[k] = String(raw[k]); }); /* img (0.3.94): optional thumbnail */
+    ["itemKind", "ui", "armorId", "img"].forEach(function (k) { if (raw[k]) out[k] = String(raw[k]); }); /* img (0.3.95): optional thumbnail */
     if (raw.dirty) out.dirty = true; /* a given gun lands Dirty (loot guns) */
     if (raw.soulBound) out.soulBound = true; /* L0197: Borrowed Iron (no drop / sell / trade / Give / loot) */
     if (raw.ammo && typeof raw.ammo === "object" && raw.ammo.type) {
@@ -1070,7 +1070,7 @@
     return { ok: true, item: item };
   }
 
-  /* inv2 (0.3.94): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
+  /* inv2 (0.3.95): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
      unpack, so nothing is doubled; 5E parts with no catalog row land as one gear note line. */
   function packContents(item) {
     /* 0.3.86: a DM-made pack carries its own contents ([[catalogId, n]]) */
@@ -1088,7 +1088,7 @@
     if (character.inventoryLocked && !opts.dm) return { ok: false, reason: "Inventory is locked." };
     var n = Number(item.count == null ? 1 : item.count) || 0;
     if (n <= 0) return { ok: false, reason: "No item." };
-    /* supplies (0.3.94): the unpacked pack takes the meals already eaten and the water already drunk with it,
+    /* supplies (0.3.95): the unpacked pack takes the meals already eaten and the water already drunk with it,
        so Unpack hands out only the hardtack and water still in the pack */
     var mealsEach = Number(item.meals) || 0, used = Math.max(0, Number(item.mealsUsed) || 0);
     var thisUsed = mealsEach > 0 ? Math.min(used, mealsEach) : 0;
@@ -1348,7 +1348,7 @@
     if (parts.length) line.textContent += " · " + parts.join(" · ");
   }
 
-  /* 0.3.94 Equipment list (Jessey 2026-10-20, mockup approved 5:09 PM): one condensed, game-style list grouped by
+  /* 0.3.95 Equipment list (Jessey 2026-10-20, mockup approved 5:09 PM): one condensed, game-style list grouped by
      category with filter chips. Each row: thumbnail, name + type line, qty, weight, Give (the #109 flow, unchanged),
      and a dropdown with the description and the item's other buttons (Use, Unpack, Wear, Attune, Drop...).
      Weapons come from the gun / melee slots, ammo from the pools, armor / shield / rigs from their slots (worn, no Give). */
@@ -2148,7 +2148,7 @@
     var attuneLine = c && items.some(function (it) { return it && it.attune; })
       ? '<p class="fine attune-line">Attuned ' + attunedCount(c) + " / " + attuneCap(c) + (pend ? " · attuning " + pend + " (finishes on a short rest)" : "") + "</p>" : "";
     var giveBar = root.SSDNSGiveSheet && root.SSDNSGiveSheet.barHtml ? root.SSDNSGiveSheet.barHtml(c) : "";
-    /* 0.3.94 Equipment: chips + category groups; repaint only when something changed (keeps scroll and open rows) */
+    /* 0.3.95 Equipment: chips + category groups; repaint only when something changed (keeps scroll and open rows) */
     var rows = eqRows(c);
     var body = rows.length ? eqChipsHtml(rows) + eqListHtml(rows) : '<p class="fine">No equipment yet. Apply the starting kit, buy from the store, or use Add item.</p>';
     var html = giveBar + attuneLine + body;
@@ -2308,7 +2308,7 @@
   function onSheetClick(e) {
     var t = e.target;
     if (!t || !t.getAttribute) return;
-    /* 0.3.94 Equipment list: chips, row dropdowns, "Open gun card" */
+    /* 0.3.95 Equipment list: chips, row dropdowns, "Open gun card" */
     var chip = t.closest ? t.closest(".eq-chip[data-eq-filter]") : null;
     if (chip) { setFilter(chip.getAttribute("data-eq-filter")); if (chip.getAttribute("data-eq-filter") === "notes") { var ta0 = document.getElementById("taEquip"); if (ta0 && ta0.scrollIntoView) ta0.scrollIntoView({ block: "center" }); } return; }
     var go = t.closest ? t.closest("[data-eq-goto]") : null;

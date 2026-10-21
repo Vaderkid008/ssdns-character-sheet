@@ -1,5 +1,5 @@
 /**
- * L0197 (Jessey 2026-10-20 7:10 PM CT, sheet 0.3.94): the Focus slot by Calling.
+ * L0197 (Jessey 2026-10-20 7:10 PM CT, sheet 0.3.95): the Focus slot by Calling.
  *  Pact Seeker: the Borrowed Iron is a real soul-bound catalog item (borrowed-iron, gear, shelf Foci, 0 lb, never sold) that kits
  *    add, always shown in the paper-doll Focus slot (not only when it's in c.guns). No drop / sell / trade / Give / loot.
  *    Lost or disarmed -> the slot shows it returning at the start of the owner's next turn, and Pact casting is blocked until then.

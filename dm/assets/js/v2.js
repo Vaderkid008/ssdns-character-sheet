@@ -3121,6 +3121,16 @@ function strikeCue(info) {
   if (window.SSDNSAudio && window.SSDNSAudio.weaponCue) return window.SSDNSAudio.weaponCue(info || {});
   return "whoosh";
 }
+/* attack-fx: hand a resolved attack to the map (draws here, publishes a cleaned row for players). Visual only. */
+function mapFx(spec) {
+  const host = window.SSDNSMapHost;
+  if (!host || typeof host.fx !== "function" || !spec) return null;
+  try { return host.fx(spec); } catch (e) { return null; }
+}
+function fxArrowType(note) {
+  const m = String(note || "").toLowerCase().match(/whistler|broadhead|blunt|fire|poison|dynamite/);
+  return m ? m[0] : "";
+}
 function playTableSfx(eventName) {
   const name = window.SSDNSAudio && window.SSDNSAudio.sharedCue
     ? window.SSDNSAudio.sharedCue(eventName)
@@ -3826,6 +3836,9 @@ async function enemyStrike(i, preset) {
   const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (adj.note ? " (" + adj.note + ")" : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   const id = DM.uid("enatk");
   playTableSfx(strikeCue(preset || { name: attackName }));
+  mapFx({ id: id, shooter: row.id, target: target.id, result: miss ? "miss" : (nat === 20 ? "crit" : "hit"), nat: nat, crit: nat === 20 && hit,
+    weapon: attackName || row.name || "", sfx: strikeCue(preset || { name: attackName }), group: (preset && preset.group) || "",
+    gun: !!(preset && (preset.capacity != null || /\d+\s*\/\s*\d+/.test(String(preset.range || "")))), heard: [] });
   await DM.pushRoll({
     id: id, who: row.name, uid: DM.state.uid, label: row.name + " attacks " + (target.name || ""), formula: "1d20" + bonusTxt,
     result: total, detail: detail, private: false, attack: true, nat: nat, crit: nat === 20 && hit,
@@ -4022,6 +4035,7 @@ async function cardFreeShot(row, atk, bonusIn) {
     if (!resolved || resolved.jammed) playTableSfx("misfire");
   } else {
     playTableSfx(strikeCue(atk));
+    mapFx({ type: "free", shooter: row.id, weapon: atk.name || "", weaponId: atk.weapon || atk.id || "", sfx: strikeCue(atk), nat: nat, heard: [] });
   }
   await publishCardRoll(row, detail, total, { formula: "1d20" + signed(bonus), nat: nat, attack: false, freeShot: true, weapon: atk.name });
   await saveRemoteTable();
@@ -4187,6 +4201,9 @@ async function cardStrike(i, n, opts) {
   const id = DM.uid("enatk");
   atk.lastRoll = { id: id, damage: dmg ? dmg.total : null, targetId: target.id, targetName: target.name, hit: hit };
   playTableSfx(strikeCue(atk));
+  mapFx({ id: id, shooter: row.id, target: target.id, result: miss ? "miss" : (nat === 20 ? "crit" : "hit"), nat: nat, crit: nat === 20 && hit,
+    weapon: atk.name || "", weaponId: atk.weapon || atk.id || "", group: atk.group || "", scatter: !!atk.scatter, properties: atk.properties || "",
+    gun: atk.capacity != null, kind: atk.kind || "", dmgType: atk.damageType || "", sfx: strikeCue(atk), heard: [DM.state.uid] });
   /* 0.3.58: the strike cue opens the anchor first; the result follows it. */
   if (window.SSDNSAudio && window.SSDNSAudio.playOutcome) {
     window.SSDNSAudio.playOutcome({
@@ -4541,6 +4558,8 @@ async function cardCast(i, n, opts) {
   }
   if (spellConcentrates(spell, known)) detail += noteConcentration(row, name);
   playCue();
+  mapFx({ id: rollId, type: "spell", shooter: row.id, target: target.id, result: hit ? (nat === 20 ? "crit" : "hit") : "miss", nat: nat, crit: nat === 20 && hit,
+    weapon: name, spell: true, heard: [] });
   await publishCardRoll(row, detail, total, { id: rollId, attack: true, nat: nat, damage: dmg ? dmg.total : null, targetId: target.id, spell: true, formula: "1d20" + signed(bonus) });
   await saveRemoteTable();
   renderFight();
@@ -5026,6 +5045,12 @@ function resolveIncomingAttack(req, reqId) {
   }
   const feedId = rollId || reqId || DM.uid("hit");
   verdictFeed(feedId, line, req.characterName || shown.name || "");
+  if (req.from) {
+    mapFx({ id: feedId, shooter: req.from, target: req.targetId, result: verdict.miss ? "miss" : (verdict.crit ? "crit" : "hit"),
+      nat: req.nat, crit: !!verdict.crit, critMin: req.critMin, weapon: req.spell ? (req.spellName || req.weapon || "") : (req.weapon || ""),
+      weaponId: req.weaponId || "", gun: !!req.gun, spell: !!req.spell, sfx: req.sfx || "", arrow: fxArrowType(req.arrow),
+      dmgType: req.dmgType || "", heard: [DM.state.uid] });
+  }
   if (window.SSDNSAudio && window.SSDNSAudio.playOutcome) {
     const outcome = verdict.miss ? "miss" : (verdict.crit ? "crit" : "hit");
     window.SSDNSAudio.playOutcome({
@@ -6072,14 +6097,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.107-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.108-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.107-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.108-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

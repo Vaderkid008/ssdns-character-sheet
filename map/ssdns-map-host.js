@@ -884,6 +884,12 @@
     sheetCylinder: gunCylinder,
     ownCard: ownCard,
     runAction: runAction,
+    /* attack-fx: DMCC hands every resolved attack here; the DM's map draws it and publishes the cleaned row */
+    fx: function (spec) {
+      if (!map || typeof map.fx !== "function") return null;
+      try { return map.fx(spec || {}); }
+      catch (e) { return null; }
+    },
     armAttack: function (attack, targetId, shooterId) {
       if (!map || typeof map.armAttack !== "function") return null;
       try { return map.armAttack(attack, targetId, shooterId); }

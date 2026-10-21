@@ -15,7 +15,7 @@ The module talks only to the adapter. Paths are hierarchical. A subscribe to a p
 | `map/public/events/ping` | ping object | |
 | `table/initiative` | `{round, turn, started, order[]}` | Live turn strip. |
 | `chat` | `[{id, ts, from, fromName, text, to?}]` | |
-| `tableFeed` | `{id, ts, from, fromName?, text, kind?, event?}` | |
+| `tableFeed` | `{id, ts, from, fromName?, text, kind?, event?}` | Attack effects ride here too, see below. |
 
 ## DM-only (players never receive)
 
@@ -46,3 +46,14 @@ Placing a bestiary or custom enemy reads its `size` field; player tokens are Med
 The footprint is the click target, the drag/collision box, and is kept inside the grid. Auto-placement keeps
 footprints apart and keeps each name label (the row under the token) off other tokens and labels. Hidden tokens
 never reach the public path, so players never get their size either.
+
+## Attack effects (firing lines), sheet 0.3.95 / DMCC 0.2.108
+
+Visual only. No new path, no rules change.
+
+- **DM-published row** `tableFeed/fx_<rollId>`: `{id, ts, from: dmUid, fromName: 'DM', text: 'fx', kind: 'sfx', event: 'fx', fx}`.
+  `fx` is `SSDNSMapFx.sanitize()` output only: `v, type, result, shooter?, target?, src?, dir?, arrow, sfx, weapon, weaponId, scene, nat, crit, critMin, heard`.
+  `shooter`/`target` are **public token ids**. A hidden shooter is never named: the row carries `src` (the first point on the line any player can see, at least 1 square from the shooter) or no row at all. A hidden target means no row.
+- **Player request** `fxReq` on the player's own `tableFeed/<rollId>` roll row (or a `kind: 'sfx', event: 'fx'` row for no-roll shots such as dynamite arrows). Only the DM's map reads it and turns it into the public row above. Never written to `rolls/`.
+- Every feed reader already skips `kind: 'sfx'` rows whose `event` isn't a shared cue, so chat and sound handlers ignore both.
+

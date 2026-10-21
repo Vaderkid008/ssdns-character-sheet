@@ -571,7 +571,7 @@
     var name = String(item.name || "Item");
     var plan = root.SSDNSStore && root.SSDNSStore.grantPlan ? root.SSDNSStore.grantPlan(item) : { kind: "gear", qty: 1 };
     if (plan.kind === "cartridge" || plan.kind === "ammo") {
-      /* inv2 (0.3.94): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
+      /* inv2 (0.3.95): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
       var ptype = plan.kind === "ammo" ? String(plan.type || "") : "cartridge";
       d.character.ammo = d.character.ammo || [];
       var pool = null;
@@ -871,7 +871,8 @@
         dice: info.dice || "",
         formula: info.formula || "",
         sfx: info.sfx || "attack",
-        shots: info.shots || null
+        shots: info.shots || null,
+        arrow: info.arrow || "" /* attack-fx: the map draws the arrow type (Whistler trail) */
       });
     }
     return line;
@@ -1602,7 +1603,13 @@
         targetName: rolled.selfHeal ? ((c && c.name) || "You") : (tgt && tgt.name),
         damage: rolled.selfHeal ? null : (rolled.heal ? Number(rolled.result) || 0 : spellDmg),
         selfApplied: !!rolled.selfHeal,
-        weapon: throughGun && i >= 0 ? gunName(i) : ""
+        weapon: throughGun && i >= 0 ? gunName(i) : "",
+        /* attack-fx: spell line on the map when the sheet resolved the attack itself */
+        fxReq: (rolled.attack && !rolled.multi && tgt && tgt.id && !blankTarget(tgt) && rolled.nat != null) ? {
+          type: "spell", target: tgt.id, weapon: spellName || "", sfx: spellCueName(), nat: rolled.nat,
+          result: (rolled.nat === 1 || (acForRoll != null && (Number(rolled.nat) + atk) < acForRoll)) ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"),
+          crit: Number(rolled.nat) === 20
+        } : null
       });
       if (rolled.heal && rolled.selfHeal) {
         if (root.SSDNSDmJoin.claimGrant) root.SSDNSDmJoin.claimGrant("hp:" + rollId);
@@ -2279,7 +2286,12 @@
         damage: (!report.miss && dmg) ? dmg.total : null,
         weapon: name,
         targetId: tgt && tgt.id,
-        targetName: tgt && tgt.name
+        targetName: tgt && tgt.name,
+        /* attack-fx: the DM's map turns this into the firing line everyone sees (visual only) */
+        fxReq: misfired || !tgt ? null : {
+          target: tgt.id, result: report.miss ? "miss" : (isCrit ? "crit" : "hit"), sfx: cue, weapon: name, weaponId: g.weapon,
+          group: wpn && wpn.group, scatter: !!(wpn && wpn.scatter), gun: true, arrow: spent && spent.arrow, nat: nat, crit: isCrit && !report.miss
+        }
       });
     }
     if (!rollGun._wild && !report.miss && dmg && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && !quiet) {
@@ -2405,7 +2417,8 @@
         nat: nat,
         private: quiet,
         whisper: quiet,
-        weapon: name
+        weapon: name,
+        fxReq: misfired ? null : { type: "free", sfx: cue, weapon: name, weaponId: g.weapon, nat: nat } /* attack-fx: short line where you face */
       });
     }
     return { line: line, total: total, nat: nat, misfire: misfired };

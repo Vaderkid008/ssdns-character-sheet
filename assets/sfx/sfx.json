@@ -413,5 +413,25 @@
   "whistler": "arrow-whistler",
   "poison": "arrow-poison",
   "dynamite": "arrow-dynamite"
+ },
+ "fx": {
+  "_note": "Map firing lines (attack-fx). Milliseconds. The map plays the impact/result cue at impactAt, the Whistler whistle whistleAfter the release, and the explosion boomFlight after a dynamite throw or arrow.",
+  "tracerGrow": 120,
+  "tracerFade": 400,
+  "missGrow": 160,
+  "missFade": 420,
+  "coneFlash": 330,
+  "pelletGrow": 90,
+  "arrowFlight": 300,
+  "boltFlight": 220,
+  "thrownFlight": 380,
+  "whistleAfter": 120,
+  "spellGrow": 180,
+  "spellHold": 120,
+  "spellFade": 450,
+  "boomFlight": 560,
+  "boomFade": 700,
+  "meleeStrike": 90,
+  "meleeFade": 420
  }
 }
