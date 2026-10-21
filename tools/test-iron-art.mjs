@@ -226,7 +226,7 @@ try {
     await waitImgs(pg); await sleep(300);
     const v = await pg.evaluate(info, key);
     check("ui." + slug + ".focusPatron", /doll-focus-patron/.test(v.focusCls) && v.focusOk, J(v));
-    check("ui." + slug + ".ironSlot", new RegExp("items/borrowed-iron/" + slug + "\\.webp").test(v.ironArt) && v.ironOk && /doll-iron/.test(v.ironCls), J(v));
+    check("ui." + slug + ".ironSlot", new RegExp((key === "long_gun" ? "weapons" : "items") + "/borrowed-iron/" + slug + "\\.webp").test(v.ironArt) && v.ironOk && /doll-iron/.test(v.ironCls), J(v));
     const r = ironRow(v.weaponRows);
     check("ui." + slug + ".weaponsRowEngraving", !!r && new RegExp("weapons/borrowed-iron/" + slug + "\\.webp").test(r.src) && r.wide, J(v.weaponRows));
     check("ui." + slug + ".engraving", !!v.eng && new RegExp("weapons/borrowed-iron/" + slug + "\\.webp").test(v.eng.src) && v.eng.ok && v.ironName.indexOf(nm) >= 0, J(v.eng));
@@ -256,7 +256,7 @@ try {
     await sleep(500); await waitImgs(pg);
     check("ui.migrate.oldSave", out.mig === 1 && out.slot === "long_gun" && !out.note && out.itemsSame && out.gunsSame && out.hasIron, J(out));
     const v = await pg.evaluate(info, "long_gun");
-    check("ui.migrate.dollAfter", /doll-focus-patron/.test(v.focusCls) && /Pine Box Contract/.test(v.focusName) && /items\/borrowed-iron\/pallbearer\.webp/.test(v.ironArt), J(v));
+    check("ui.migrate.dollAfter", /doll-focus-patron/.test(v.focusCls) && /Pine Box Contract/.test(v.focusName) && /weapons\/borrowed-iron\/pallbearer\.webp/.test(v.ironArt) /* 0.3.100: Long gun shows the engraving */, J(v));
     await shot(pg, "#dollHost .doll", "iron-art-v2-migration-old-save-after.png");
     check("ui.migrate.noPageErrors", errs.length === 0, errs.join(" | "));
     await pg.browserContext().close();

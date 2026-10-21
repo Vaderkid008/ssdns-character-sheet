@@ -564,6 +564,25 @@
     try { return A.srcFor({ id: row.id, name: row.name }) || ""; } catch (e) { return ""; }
   }
 
+  /* 0.3.100 (Jessey 2026-10-21 4:07 PM: the long gun "doesn't fit in the paper doll correctly"): the tall weapon slots
+     (Long gun, Melee) draw a gun's 1200x400 engraving turned muzzle-up to fill the slot height. The Borrowed Iron uses
+     its pact engraving once revealed (iron-art.js engravingSrc, same reveal gate); before that, and for anything with
+     only a square tile, the square art is contained in the slot, unrotated. Other slots and the Focus mirror keep
+     weaponArt() unchanged. */
+  var TALL_WEAPON = { long_gun: 1, melee: 1 };
+  function isWideArt(src) { return !!src && !/\/items\//.test(src) && /assets\/img\/(weapons|dm-only)\//.test(src); }
+  function slotArt(c, key) {
+    if (!TALL_WEAPON[key]) return weaponArt(c, key);
+    var IA = root.SSDNSIronArt, A = root.SSDNSWeaponArt;
+    if (ironSlot(c) === key) {
+      var eng = IA && IA.engravingSrc ? IA.engravingSrc(c) : "";
+      return eng || borrowedIronArt(c);
+    }
+    var row = weaponRow(c, key);
+    if (row && A && A.srcFor) { try { var s = A.srcFor({ id: row.id, name: row.name }) || ""; if (s) return s; } catch (e) {} }
+    return weaponArt(c, key);
+  }
+
   function num(x) { var n = Number(x); return isFinite(n) ? n : 0; }
   /* Bonus math from slotted gear. Returned to compute() in app.js. */
   function bonuses(c) {
@@ -626,7 +645,8 @@
       var focusNote = "", fallback = "";
       var b = BOX[key], tall = b[3] > 200, label = isTrinket(key) ? "" : (LABELS[key] || (SLOTS[key] ? SLOTS[key][0] : WEAPON_SLOTS[key])), name = "", art = "", filled = false, cls = "", src = "";
       if (WEAPON_SLOTS[key]) {
-        name = weaponName(c, key); filled = !!name; cls = " doll-weapon"; art = filled ? weaponArt(c, key) : "";
+        name = weaponName(c, key); filled = !!name; cls = " doll-weapon"; art = filled ? slotArt(c, key) : "";
+        if (art && TALL_WEAPON[key]) cls += isWideArt(art) ? " doll-longart" : " doll-squareart";
         src = key === "focus_borrowed_iron" ? "Gear: Focus" : "Gear: Weapons";
         if (key === "focus_borrowed_iron") {
           var fst = focusState(c);
@@ -642,6 +662,8 @@
             focusNote = irs.note;
             cls += " doll-iron" + (irs.away ? " doll-away" : "");
             src = "soul-bound Borrowed Iron";
+            /* a missing engraving falls back to the square tile (still contained, see doll-longart) */
+            if (TALL_WEAPON[key] && art && art !== irs.art) fallback = irs.art;
           } else if (filled) {
             /* a weapon that is also the focus shows here and in the Focus slot */
             var fsw = focusState(c);
@@ -859,5 +881,5 @@
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, weaponOptions: weaponOptions, weaponRow: weaponRow, setWeapon: setWeapon, focusState: focusState, casterInHand: casterInHand, ironSlot: ironSlot, ironState: ironState, setIronSlot: setIronSlot, IRON_NO_SLOT: IRON_NO_SLOT, ironSlots: ironSlots, ironOnlyMsg: ironOnlyMsg, syncIron: syncIron, ironNeedsFix: ironNeedsFix, isIronItem: isIronItem, isFocusWeapon: isFocusWeapon, focusWeaponInHand: focusWeaponInHand, isCasterWeapon: isCasterWeapon, NO_CASTER: NO_CASTER, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
+  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, slotArt: slotArt, isWideArt: isWideArt, weaponOptions: weaponOptions, weaponRow: weaponRow, setWeapon: setWeapon, focusState: focusState, casterInHand: casterInHand, ironSlot: ironSlot, ironState: ironState, setIronSlot: setIronSlot, IRON_NO_SLOT: IRON_NO_SLOT, ironSlots: ironSlots, ironOnlyMsg: ironOnlyMsg, syncIron: syncIron, ironNeedsFix: ironNeedsFix, isIronItem: isIronItem, isFocusWeapon: isFocusWeapon, focusWeaponInHand: focusWeaponInHand, isCasterWeapon: isCasterWeapon, NO_CASTER: NO_CASTER, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
 })(typeof window !== "undefined" ? window : globalThis);

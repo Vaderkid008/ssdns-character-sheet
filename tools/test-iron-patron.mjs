@@ -216,7 +216,7 @@ try {
       const { pg, errs, ctx } = await sheet({ name: "Pact " + nm, sub, rev });
       const v = await pg.evaluate(view, slot);
       const tag = "ui." + slug + (rev ? ".revealed" : ".hidden");
-      check(tag + ".slot", /doll-iron/.test(v.slotCls) && v.slotOk && (rev ? v.slotArt === "assets/img/items/borrowed-iron/" + slug + ".webp" && v.slotNote.indexOf(nm) >= 0 : /items\/borrowed-iron\.webp$/.test(v.slotArt) && v.slotNote.indexOf(type) >= 0), J(v));
+      check(tag + ".slot", /doll-iron/.test(v.slotCls) && v.slotOk && (rev ? v.slotArt === (slot === "long_gun" ? "assets/img/weapons/borrowed-iron/" + slug + ".webp" : "assets/img/items/borrowed-iron/" + slug + ".webp") && v.slotNote.indexOf(nm) >= 0 : /items\/borrowed-iron\.webp$/.test(v.slotArt) && v.slotNote.indexOf(type) >= 0), J(v));
       check(tag + ".row", v.rowName === "Borrowed Iron — " + type && /^Weapon · soul-bound/.test(v.rowSub) && !/Tool/.test(v.rowSub) && v.rowOk && v.ironRows === 1 &&
         (rev ? new RegExp(slug === "hell-maker" ? "dm-only/hell-maker\\.webp" : "weapons/borrowed-iron/" + slug + "\\.webp").test(v.rowArt) && v.rowSub.indexOf(nm) >= 0 : /items\/borrowed-iron\.webp$/.test(v.rowArt) && v.rowSub.indexOf(nm) < 0), J(v));
       check(tag + ".card", v.cardShown && v.cardHead === "Borrowed Iron — " + type && v.cardOk &&
@@ -485,6 +485,102 @@ try {
     check(tag + ".noPageErrors", errs.length === 0, errs.join(" | "));
     await ctx.close();
   }
+  /* ---------- 0.3.100: tall weapon slots (Jessey 4:07 PM: the long gun "doesn't fit in the paper doll correctly") ---------- */
+  const geo = (key) => {
+    const s = document.querySelector('#dollHost [data-doll-slot="' + key + '"]');
+    const im = s && s.querySelector(".doll-art"), nm = s && s.querySelector(".doll-name");
+    if (!s || !im) return { key, cls: s ? s.className : "", none: true };
+    const r = s.getBoundingClientRect(), a = im.getBoundingClientRect(), n = nm ? nm.getBoundingClientRect() : null;
+    /* the drawn picture inside an object-fit: contain box (pre-rotation), then turned when rotated */
+    const bw = im.offsetWidth, bh = im.offsetHeight, ir = im.naturalWidth / im.naturalHeight, br = bw / bh;
+    const cw = ir > br ? bw : bh * ir, ch = ir > br ? bw / ir : bh;
+    const rot = getComputedStyle(im).transform !== "none";
+    const vw = rot ? ch : cw, vh = rot ? cw : ch, cx = a.left + a.width / 2, cy = a.top + a.height / 2;
+    const pic = { l: cx - vw / 2, r: cx + vw / 2, t: cy - vh / 2, b: cy + vh / 2 };
+    return { key, cls: s.className, src: im.getAttribute("src"), ok: im.naturalWidth > 0, nw: im.naturalWidth, nh: im.naturalHeight, rot,
+      slot: { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height },
+      inside: pic.l >= r.left - 1 && pic.r <= r.right + 1 && pic.t >= r.top - 1 && pic.b <= r.bottom + 1,
+      hFrac: vh / r.height, wFrac: vw / r.width, aboveName: !n || pic.b <= n.top + 2, nameShown: !!nm && nm.offsetHeight > 0 };
+  };
+  const tallOk = (tag, g, wantLong) => {
+    check(tag + ".art", !g.none && g.ok, J(g));
+    check(tag + ".inside", !!g.inside, J(g));
+    check(tag + ".nameBelow", g.aboveName && g.nameShown, J(g));
+    if (wantLong) check(tag + ".longFill", /doll-longart/.test(g.cls) && g.rot && g.nw === 1200 && g.nh === 400 && g.hFrac >= 0.68, J(g));
+    else check(tag + ".squareContained", /doll-squareart/.test(g.cls) && !g.rot && g.wFrac <= 0.85, J(g));
+  };
+  for (const [sub, slug, nm, label] of [["lass-o-lakes", "butter-repeater", "Butter Repeater", "butter-repeater"], ["the-sand-oath", "sirocco-long-rifle", "Sirocco Long-Rifle", "sirocco"]]) {
+    for (const rev of [true, false]) {
+      const { pg, errs, ctx } = await sheet({ name: "Pact " + nm, sub, rev });
+      const g = await pg.evaluate(geo, "long_gun");
+      const tag = "tall." + label + (rev ? ".revealed" : ".hidden");
+      check(tag + ".src", rev ? g.src === "assets/img/weapons/borrowed-iron/" + slug + ".webp" : /items\/borrowed-iron\.webp$/.test(g.src), J(g));
+      tallOk(tag, g, rev);
+      await shot(pg, "#dollHost .doll", "iron-patron-v2-doll-" + label + "-" + (rev ? "revealed" : "hidden") + ".png");
+      check(tag + ".noPageErrors", errs.length === 0, errs.join(" | "));
+      await ctx.close();
+    }
+  }
+  /* Lightslinger (a one-handed iron) stays in Pistol R, square tile, unchanged; a catalog rifle + melee weapon share the tall treatment */
+  for (const rev of [true, false]) {
+    const { pg, errs, ctx } = await sheet({ name: "Pact Lightslinger", sub: "the-sealed-orders", rev });
+    const p = await pg.evaluate(() => {
+      const s = document.querySelector('#dollHost [data-doll-slot="revolver_2"]'), im = s && s.querySelector(".doll-art");
+      return { cls: s ? s.className : "", src: im ? im.getAttribute("src") : "", ok: !!(im && im.naturalWidth > 0), tf: im ? getComputedStyle(im).transform : "" };
+    });
+    const tag = "tall.lightslinger" + (rev ? ".revealed" : ".hidden");
+    check(tag + ".pistolUnchanged", /doll-iron/.test(p.cls) && !/doll-longart|doll-squareart/.test(p.cls) && p.ok && p.tf === "none" &&
+      (rev ? /items\/borrowed-iron\/lightslinger\.webp$/.test(p.src) : /items\/borrowed-iron\.webp$/.test(p.src)), J(p));
+    await shot(pg, "#dollHost .doll", "iron-patron-v2-doll-lightslinger-" + (rev ? "revealed" : "hidden") + ".png");
+    if (rev) {
+      const added = await pg.evaluate(() => {
+        const A = window.SSDNSWeaponArt, RR = window.SSDNS_RULES || {};
+        const find = (list, file) => (list || []).find((w) => /weapons\//.test(A.srcFor(w) || "") && (A.srcFor(w) || "").endsWith(file));
+        const rifle = find(RR.firearms, "henrietta-repeating-rifle.webp") || (RR.firearms || []).find((w) => w.group !== "pistol" && /weapons\//.test(A.srcFor(w) || ""));
+        const mel = (RR.melee || []).find((w) => /weapons\/[a-z]/.test(A.srcFor(w) || "") && !/dm-only/.test(A.srcFor(w) || ""));
+        window.SSDNSApp.applyPatch((d) => { const c = d.character; c.guns = (c.guns || []).filter((g) => g && g.weapon);
+          c.guns.push({ weapon: rifle.id, proficient: true, chambers: [], equipped: true });
+          c.melee = [{ weapon: mel.id, proficient: true, equipped: true }]; });
+        return { rifle: rifle.id, rifleSrc: A.srcFor(rifle), mel: mel.id };
+      });
+      await sleep(400);
+      await pg.evaluate(() => { if (window.SSDNSPlaytest && window.SSDNSPlaytest.syncSheet) window.SSDNSPlaytest.syncSheet(); window.SSDNSItems.paintSheet(); });
+      await sleep(600); await waitImgs(pg);
+      const g = await pg.evaluate(geo, "long_gun"), m = await pg.evaluate(geo, "melee");
+      check("tall.catalogRifle.src", g.src === added.rifleSrc && /weapons\//.test(g.src), J({ g, added }));
+      tallOk("tall.catalogRifle", g, true);
+      tallOk("tall.melee", m, true);
+      const p2 = await pg.evaluate(() => { const im = document.querySelector('#dollHost [data-doll-slot="revolver_2"] .doll-art'); return im ? getComputedStyle(im).transform : "x"; });
+      check("tall.pistolStillUpright", p2 === "none", p2);
+      /* clicking the (rotated) art still opens the slot picker */
+      await pg.evaluate(() => document.querySelector('#dollHost [data-doll-slot="long_gun"] .doll-art').click());
+      await sleep(300);
+      const pick = await pg.evaluate(() => { const p = document.querySelector("#dollHost .doll-pick"); return p ? p.textContent.slice(0, 200) : ""; });
+      check("tall.clickOpensPicker", /Long gun/i.test(pick), pick);
+      await shot(pg, "#dollHost .doll", "iron-patron-v2-doll-a-catalog-rifle-" + added.rifle + ".png");
+    }
+    check(tag + ".noPageErrors", errs.length === 0, errs.join(" | "));
+    await ctx.close();
+  }
+  /* mobile (390 px phone) */
+  {
+    const P = await page("/index.html?nowizard=1&fresh=" + Date.now());
+    await P.pg.setViewport({ width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+    await P.pg.waitForFunction(() => window.SSDNSApp && window.SSDNSDoll && window.SSDNSKits && document.querySelector("#dollHost"), { timeout: 20000 });
+    await sleep(900);
+    await P.pg.evaluate(() => window.SSDNSApp.applyPatch((d) => { const c = d.character; c.name = "Pact Lass"; c.calling = "pact-seeker"; c.level = 3; c.abilities = Object.assign(c.abilities || {}, { CHA: 16 });
+      window.SSDNSKits.apply(c, "pact-seeker", {}); c.kitStamp = "pact-seeker"; c.cantrips = ["Eldritch Blast"]; c.subclass = "lass-o-lakes"; c.ironRevealed = true; window.SSDNSDoll.syncIron(c, { pactChanged: true }); }));
+    await sleep(500);
+    await P.pg.evaluate(() => { if (window.SSDNSPlaytest && window.SSDNSPlaytest.syncSheet) window.SSDNSPlaytest.syncSheet(); document.querySelector("#tab-equip").click(); window.SSDNSItems.paintSheet(); });
+    await sleep(700); await waitImgs(P.pg);
+    const g = await P.pg.evaluate(geo, "long_gun");
+    tallOk("tall.mobile.butterRepeater", g, true);
+    await P.pg.evaluate(() => document.querySelector("#dollHost .doll").scrollIntoView());
+    await shot(P.pg, "#dollHost .doll", "iron-patron-v2-doll-butter-repeater-revealed-mobile.png");
+    check("tall.mobile.noPageErrors", P.errs.length === 0, P.errs.join(" | "));
+    await P.ctx.close();
+  }
+
 } finally {
   await browser.close();
 }
