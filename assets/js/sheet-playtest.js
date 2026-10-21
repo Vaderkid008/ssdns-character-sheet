@@ -815,7 +815,7 @@
         pact.id = "pactFocus";
         pact.className = "pact-focus";
         pact.hidden = true;
-        pact.innerHTML = "<b>Borrowed Iron</b> <span class='fine'>pact focus · no weapon stats</span> <button type='button' class='btn sm' id='btnPactShot'>Pact Shot</button>";
+        pact.innerHTML = "<b>Borrowed Iron</b> <span class='fine'>soul-bound · no weapon stats</span> <button type='button' class='btn sm' id='btnPactShot'>Pact Shot</button>";
         guns.parentNode.insertBefore(pact, guns);
       }
     }

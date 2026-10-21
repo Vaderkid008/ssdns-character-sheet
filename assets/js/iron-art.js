@@ -72,7 +72,40 @@
     return weaponTile(item.weaponId || item.catalogId || "");
   }
 
+  /* 0.3.96 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus. The Focus slot always shows the patron's
+     256 tile (assets/img/items/patron/<pact slug>.webp, Art Bot) and the Pact name. Not gated by the iron reveal: the Pact
+     name is the player's own pick. A tile that isn't there yet falls back to the generic focus tile (the slot's name
+     plate still shows the Pact name), so dropping the files in later just works. */
+  var PATRON_FALLBACK = "assets/img/items/default/focus.webp";
+  var missing = {};
+  function pactId(c) {
+    var id = String((c && (c.subclass || c.pact)) || "").toLowerCase().trim();
+    if (PACT_SLUG[id]) return id;
+    var k = id.replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return PACT_SLUG[k] ? k : "";
+  }
+  function patronSlug(c) { var id = isPact(c) ? pactId(c) : ""; return id ? id.replace(/^the-/, "") : ""; }
+  function pactName(c) {
+    var id = isPact(c) ? pactId(c) : "";
+    if (!id) return "";
+    var cal = ((root.SSDNS_RULES && root.SSDNS_RULES.callings) || []).filter(function (x) { return x && x.id === "pact-seeker"; })[0];
+    var row = cal && (cal.subclasses || []).filter(function (x) { return x && x.id === id; })[0];
+    return (row && row.name) || id.replace(/-/g, " ").replace(/\b\w/g, function (m) { return m.toUpperCase(); }).replace(/ O /, " O' ");
+  }
+  function patronFallback() { return prefix() + PATRON_FALLBACK; }
+  function patronTile(c) {
+    var s = patronSlug(c);
+    if (!s) return patronFallback();
+    var src = prefix() + "assets/img/items/patron/" + s + ".webp";
+    return missing[src] ? patronFallback() : src;
+  }
+  function markMissing(src) { if (src) missing[String(src).replace(/[?#].*$/, "")] = 1; }
+  /* The iron's shape, for the paper-doll weapon slot it prefers (only used once the iron is revealed). */
+  var LONG_IRON = { "butter-repeater": 1, "sirocco-long-rifle": 1, "pallbearer": 1, "revenge-of-the-sea": 1 };
+  function isLongIron(c, opts) { return !!LONG_IRON[slugFor(c, opts)]; }
+
   root.SSDNSIronArt = {
+    patronSlug: patronSlug, pactName: pactName, patronTile: patronTile, patronFallback: patronFallback, markMissing: markMissing, isLongIron: isLongIron,
     PACT_SLUG: PACT_SLUG, IRON_NAME: IRON_NAME, GENERIC_TILE: GENERIC_TILE,
     pactSlug: pactSlug, revealed: revealed, slugFor: slugFor, nameFor: nameFor,
     tileSrc: tileSrc, engravingSrc: engravingSrc, weaponTile: weaponTile, itemTile: itemTile,

@@ -1280,6 +1280,11 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .eq-main:hover { background: rgba(255,250,238,.45); }
 .eq-thumb { width: 32px; height: 32px; border-radius: 4px; overflow: hidden; background: #d9c8a4; border: 1px solid rgba(43,29,18,.35); display: block; }
 .eq-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 0.3.96: Weapons rows: the 3:1 engraving letterboxed on parchment, not cropped to its middle */
+.eq-thumb.eq-wide { width: 72px; height: 32px; background: #fffaf3; border-color: #c4b497; }
+.eq-thumb.eq-wide img { object-fit: contain; padding: 1px 2px; box-sizing: border-box; }
+.eq-row[data-eq-cat="weapons"] .eq-main { grid-template-columns: 72px minmax(0,1fr) auto auto auto 26px; }
+@media (max-width: 640px) { .eq-row[data-eq-cat="weapons"] .eq-main { grid-template-columns: 66px minmax(0,1fr) auto auto auto 22px; } .eq-thumb.eq-wide { width: 66px; height: 30px; } }
 .eq-name { min-width: 0; line-height: 1.15; }
 .eq-name b { display: block; font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .eq-sub { display: block; font-family: var(--label); font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1319,5 +1324,10 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .doll-slot.doll-away .doll-art { filter: grayscale(1) brightness(.75); opacity: .45; }
 .doll-slot.doll-away .doll-focus-note { background: rgba(141,28,20,.9); color: #fff; }
 .doll-slot.doll-focus-caster { box-shadow: 0 0 0 .35cqw rgba(176,138,74,.55); }
+/* 0.3.96: patron in the Focus slot; a weapon that is also the focus glows in both of its slots */
+.doll-slot.doll-focus-patron, .doll-slot.doll-focus-weapon, .doll-slot.doll-focus-weapon-src { box-shadow: 0 0 0 .35cqw rgba(176,138,74,.55); }
+/* the Borrowed Iron in a weapon slot: art + name plate only while in hand; a small red note while it's away */
+.doll-slot.doll-iron:not(.doll-away) .doll-focus-note { display: none; }
+.doll-slot.doll-iron.doll-away .doll-focus-note { font-size: max(7px, 1.1cqw); top: 3%; max-width: 94%; line-height: 1.15; }
 .focus-cast-note { color: #8d1c14; font-weight: 600; margin: 4px 0 0; }
 button.focus-blocked { opacity: .55; cursor: not-allowed; }

@@ -201,7 +201,26 @@
      "Borrowed Iron (pact focus)" line PR #113 left in Notes); every other note line stays as it is. Its notes before
      this step are kept in character.equipmentBefore0394. A Pact Seeker with no line still gets the soul-bound item. */
   function migrateEquipment(c) {
-    if (!c || c.equipMigrated >= 2) return 0;
+    if (!c) return 0;
+    var n = c.equipMigrated >= 2 ? 0 : migrateNotes(c);
+    migrateIronSlot(c);
+    return n;
+  }
+  /* 0.3.96 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus now; the Borrowed Iron item moves out of
+     the Focus slot into a free paper-doll weapon slot (character.ironSlot). Only which slot draws it changes: the item,
+     its soul-bound rules, borrowedIronAway and the cast block are untouched. No free slot -> ironSlot "" and
+     character.ironSlotNote says so (it is still in hand). Runs once per save (character.ironSlotMigrated). */
+  function migrateIronSlot(c) {
+    if (!c || c.calling !== "pact-seeker" || c.ironSlotMigrated || preview) return false;
+    var D = root.SSDNSDoll;
+    if (!D || !D.ironSlot || !hasItem(c, "borrowed-iron")) return false;
+    var key = D.ironSlot(c);
+    c.ironSlot = key || "";
+    if (!key) c.ironSlotNote = D.IRON_NO_SLOT; else delete c.ironSlotNote;
+    c.ironSlotMigrated = 1;
+    return true;
+  }
+  function migrateNotes(c) {
     if (!itemsApi()) return 0;
     var only = c.equipMigrated >= 1 ? MIGRATE_V2 : null;
     var text = String(c.equipment || "");
@@ -819,7 +838,7 @@
     branches: branches,
     describe: describe,
     kitLines: KIT_LINES,
-    migrateEquipment: migrateEquipment,
+    migrateEquipment: migrateEquipment, migrateIronSlot: migrateIronSlot,
     ensureBorrowedIron: ensureBorrowedIron
   };
   root.SSDNSKits = api;
@@ -828,6 +847,11 @@
     var A = root.SSDNSApp;
     var d = A && A.doc ? A.doc() : null;
     var c = d && d.character;
+    /* 0.3.96: the Borrowed Iron's weapon slot, for saves already past the kit-line step */
+    if (c && c.equipMigrated >= 2 && c.calling === "pact-seeker" && !c.ironSlotMigrated && A.applyPatch) {
+      A.applyPatch(function (dd) { if (dd && dd.character) migrateIronSlot(dd.character); });
+      return;
+    }
     if (!c || c.equipMigrated >= 2 || !itemsApi()) return;
     var only = c.equipMigrated >= 1 ? MIGRATE_V2 : null;
     var due = String(c.equipment || "").split("\n").some(function (raw) {

@@ -1376,6 +1376,8 @@
     var shelf = item.shelf || (row && row.shelf) || "";
     var tg = tagsOf(item.tags);
     if (item.type === "weapon" || WEAPON_KINDS[k]) return "weapons";
+    /* 0.3.96 (Jessey 9:53 PM): the Borrowed Iron is a soul-bound weapon now (the patron is the focus) */
+    if (item.catalogId === "borrowed-iron") return "weapons";
     if (k === "ammo") return "ammo";
     if (shelf === "Foci" || tg.indexOf("focus") >= 0) return "focus";
     if (shelf === "Instruments" || shelf === "Storyteller gear" || tg.some(function (t) { return /^instrument/.test(t); })) return "instruments";
@@ -1406,22 +1408,20 @@
     var src = artSrc(item);
     return src && !/\/defaults\//.test(src) ? src : "";
   }
-  /* 0.3.96 (iron-art.js): the Borrowed Iron's pact tile once revealed, a Caster Gun's square tile; "" = keep the item's art */
+  /* 0.3.96 (iron-art.js; Jessey 9:55 PM): Weapons rows show the black-and-white engraving for every gun, the Borrowed
+     Iron included once the DM has revealed it (letterboxed, never cropped). Other item rows keep their colour tile. */
   function ironTile(item, c) {
     var IA = root.SSDNSIronArt;
-    try { return IA && IA.itemTile ? IA.itemTile(item, c) || "" : ""; } catch (e) { return ""; }
+    if (!IA || !item) return "";
+    try {
+      if (item.catalogId === "borrowed-iron") return IA.engravingSrc ? IA.engravingSrc(c) || "" : "";
+      return IA.itemTile ? IA.itemTile(item, c) || "" : "";
+    } catch (e) { return ""; }
   }
-  function squareTile(w, item) {
-    var IA = root.SSDNSIronArt, t = "";
-    try { t = IA && IA.weaponTile ? IA.weaponTile(w) || "" : ""; } catch (e) { t = ""; }
-    if (t) return t;
-    var row = item && item.catalogId ? byId(item.catalogId) : null;
-    var img = (item && item.img) || (row && row.img) || "";
-    return img ? withPrefix(img) : "";
-  }
+  function isWideArt(src) { return /assets\/img\/(weapons|dm-only)\//.test(String(src || "")); }
   function eqThumb(src, cat) {
     var ph = placeholderFor(cat);
-    return '<span class="eq-thumb' + (src ? "" : " eq-ph") + '"><img loading="lazy" decoding="async" width="32" height="32" alt="" src="' + esc(src || ph) + '"' +
+    return '<span class="eq-thumb' + (src ? "" : " eq-ph") + (isWideArt(src) ? " eq-wide" : "") + '"><img loading="lazy" decoding="async" width="32" height="32" alt="" src="' + esc(src || ph) + '"' +
       (src ? ' data-eq-ph="' + esc(ph) + '"' : "") + "></span>";
   }
   function lbText(n) {
@@ -1555,10 +1555,9 @@
         if (g.dirty) sub.push("Dirty");
         if (g.jammed) sub.push("jammed");
         var wt = w && !w.custom ? lbOf(w.weight) : (item ? Number(item.weight) || 0 : 0);
-        /* 0.3.96: a square tile wins over the 3:1 gun art (a 32px square crops it to its middle): the gun's own
-           256 tile (Caster Guns), then the backing item's catalog `img`, then the 3:1 art, then the item's art. */
-        var src = squareTile(w || { id: g.weapon, name: name }, item);
-        if (!src && root.SSDNSWeaponArt && root.SSDNSWeaponArt.srcFor) src = root.SSDNSWeaponArt.srcFor(w || { id: g.weapon, name: name }) || "";
+        /* 0.3.96: the 3:1 engraving, letterboxed in a wide thumb (eq-wide), never cropped */
+        var src = "";
+        if (root.SSDNSWeaponArt && root.SSDNSWeaponArt.srcFor) src = root.SSDNSWeaponArt.srcFor(w || { id: g.weapon, name: name }) || "";
         if (!src && item) src = realArt(item);
         var facts = weaponFacts(w, g).map(function (f) { return '<span class="item-tag">' + esc(f) + "</span>"; }).join(" ");
         var desc = (w && w.properties) || (item && item.description) || "";
