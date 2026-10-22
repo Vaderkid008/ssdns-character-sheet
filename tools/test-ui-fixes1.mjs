@@ -9,6 +9,7 @@
  *   U7 HP on the paper doll: 25/37, +temp only when above 0
  *   U8 DMCC portraits use pictures   U9 DMCC turn order folds to one line per combatant
  *   U10 the sheet's turn strip is one slim row; tap a chip for its details
+ *   U11 the "D20" label on the d20 roll buttons is warm tan (#d9c29a) on the dark die; the die art is unchanged
  *   node tools/test-ui-fixes1.mjs   (browser part needs ssdns-test-all's static server on 127.0.0.1:8765)
  */
 import fs from "node:fs";
@@ -85,6 +86,7 @@ check("u8.faceArt", /function faceArt\(row\)/.test(v2) && /faceHtml\(row, "portr
 check("u9.fold", /function foldRowHtml/.test(v2) && /\.turn-line/.test(dmCss));
 check("u9.v2TailIntact", /\nwireLookupNow\(\);\s*\nbootV2\(\);\s*$/.test(v2));
 check("u10.strip", /function paintTurnStrip/.test(pt) && /id='btnEndTurn' hidden/.test(pt) && /#turnPanel \.turn-order-strip \{[^}]*scrollbar-width:\s*none/.test(sheetCss), "");
+check("u11.d20Css", /button\.d20 \{[^}]*url\("\.\.\/img\/dice\/d20\.webp"\)[^}]*color: #d9c29a/.test(read("assets/css/dice.css")));
 check("u10.noRulesTouch", !/Bedtime|harpoon/i.test(read("database.rules.json")));
 
 /* ---------- browser part ---------- */
@@ -188,6 +190,10 @@ try {
     await sleep(500);
     const h2 = await hp();
     check("ui.u7.tempGone", h2 && h2.t === "25/37", J(h2));
+    await pg.evaluate(() => document.querySelector("#tab-main, [data-tab=main]") && document.querySelector("#tab-main, [data-tab=main]").click()); await sleep(300);
+    const d20 = await pg.evaluate(() => { const bs = [...document.querySelectorAll("button.d20")]; const cs = bs[0] ? getComputedStyle(bs[0]) : null;
+      return { n: bs.length, colors: [...new Set(bs.map((x) => getComputedStyle(x).color))], bg: cs ? cs.backgroundImage : "", text: bs[0] ? bs[0].textContent.trim().toUpperCase() : "" }; });
+    check("ui.u11.d20Label", d20.n >= 30 && d20.colors.length === 1 && d20.colors[0] === "rgb(217, 194, 154)" && /dice\/d20\.webp/.test(d20.bg) && d20.text === "D20", J(d20));
     check("ui.pact.noPageErrors", errs.length === 0, errs.join(" | "));
     await ctx.close();
   }

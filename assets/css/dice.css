@@ -27,8 +27,11 @@
 .ssdns-map .dice-bar-map { flex: none; }
 button.d20 {
   background: transparent url("../img/dice/d20.webp") center / 28px 28px no-repeat;
-  color: #1a120c;
-  text-shadow: 0 0 2px #fff6e4;
+  /* UI fixes 1 / U11 (Jessey 2026-10-21 10:24 PM CT): the "D20" label sat dark-on-dark on the die. Warm tan parchment
+     text with a thin dark edge reads clearly; the die art is unchanged. */
+  color: #d9c29a;
+  font-weight: 700;
+  text-shadow: 0 0 2px #1a120c, 0 1px 1px #1a120c;
 }
 @media (max-width: 700px) {
   .dice-bar, .dice-bar-row { flex-wrap: wrap; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
