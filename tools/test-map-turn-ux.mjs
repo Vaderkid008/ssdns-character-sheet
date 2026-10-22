@@ -1,5 +1,5 @@
 /**
- * Turn UX on the map (Jessey's notes 2026-10-22 2:28 PM CT, sheet 0.3.107 / DMCC 0.2.120).
+ * Turn UX on the map (Jessey's notes 2026-10-22 2:28 PM CT, sheet 0.3.108 / DMCC 0.2.121).
  *   1 Dash / Disengage / Dodge can be cancelled during the turn: tapping it again ("✕ Cancel Dash") gives the Action
  *     back (when it paid for it) and Dash's extra feet go away; feet already walked past normal speed block the
  *     cancel. Anything that spends the Action afterwards closes the cancel. Off turn it stays locked (PR 2 rules).
@@ -8,13 +8,14 @@
  *     the top too and shows the current player's markers (the DM card's marker row).
  *   node tools/test-map-turn-ux.mjs   (browser part needs a static server, SSDNS_ORIGIN or 127.0.0.1:8765; the live
  *   part needs ssdns-test-all's emulators on :9000 / :9099 and is skipped without them or with SKIP_LIVE=1)
- * DMCC pages open with ?demo=1 and are checked offline (no database) before anything runs; the live part uses ?emu=1.
+ * DMCC pages open through tools/dmcc-offline.mjs (dmccUrl adds ?demo=1, dmccOffline checks) (no database) before anything runs; the live part uses ?emu=1.
  */
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -113,13 +114,6 @@ async function waitFor(fn, ms, label) {
   while (Date.now() - t0 < ms) { try { const v = await fn(); if (v) return v; last = J(v); } catch (e) { last = e.message; } await sleep(200); }
   throw new Error("timeout: " + label + " (" + last + ")");
 }
-/* the DMCC offline guard (same rule as tools/dmcc-offline.mjs): demo mode, no database, or refuse to run */
-async function dmccOffline(pg) {
-  await pg.waitForFunction(() => window.DMCC && window.DMCC.state, { timeout: 25000 });
-  const st = await pg.evaluate(() => ({ demo: window.DMCC.state.demo, db: !!window.DMCC.state.db, fb: !!window.DMCC.state.firebaseReady, url: location.href }));
-  if (!/[?&]demo=1/.test(st.url) || st.db || st.fb) throw new Error("DMCC is not offline: refusing to run (" + J(st) + ")");
-  return st;
-}
 const tab = (pg, name) => pg.evaluate((n) => [...document.querySelectorAll("[role=tab],.tab")].find((t) => t.textContent.trim() === n).click(), name);
 const PHONE = { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const order = [
@@ -209,7 +203,7 @@ try {
 
   /* ---- DMCC demo: the map strip sits at the top and shows the current player's markers ---- */
   for (const [vp, sfx] of [[{ width: 1400, height: 950 }, "desktop"], [PHONE, "phone"]]) {
-    const { pg, errs, ctx } = await page("/dm/index.html?demo=1&fresh=" + Date.now(), vp);
+    const { pg, errs, ctx } = await page(dmccUrl("/dm/index.html?fresh=" + Date.now()), vp);
     await dmccOffline(pg);
     await pg.waitForFunction(() => window.DMCCEnhance && document.querySelector("#btnLoadDemo"), { timeout: 25000 });
     await pg.evaluate(() => document.querySelector("#btnLoadDemo").click());

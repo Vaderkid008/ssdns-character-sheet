@@ -8,6 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ORIGIN = process.env.SSDNS_ORIGIN || "http://127.0.0.1:8765";
 const failures = [];
@@ -34,7 +35,8 @@ const browser = await puppeteer.launch({ executablePath: "/opt/google/chrome/chr
 const box = (page, sel) => page.evaluate((s) => { const e = document.querySelector(s); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, r: r.right, b: r.bottom }; }, sel);
 const overlapX = (a, b) => a && b && a.x < b.r - 0.5 && b.x < a.r - 0.5;
 async function openDemo(page, clear) {
-  await page.goto(ORIGIN + "/dm/index.html?demo=1", { waitUntil: "domcontentloaded" });
+  await page.goto(ORIGIN + dmccUrl("/dm/index.html"), { waitUntil: "domcontentloaded" });
+  await dmccOffline(page);
   if (clear) { await page.evaluate(() => { localStorage.removeItem("ssdns.dm.dock"); localStorage.removeItem("ssdns.dmcc.dock"); }); await page.reload({ waitUntil: "domcontentloaded" }); }
   await page.waitForFunction(() => window.DMCC && document.querySelector("#btnLoadDemo"), { timeout: 20000 });
   await page.evaluate(() => document.querySelector("#btnLoadDemo").click());
