@@ -214,7 +214,7 @@
     return slug;
   }
 
-  /* 0.3.107 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT, Art Bot): a 256x256 colour square tile for every player
+  /* 0.3.108 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT, Art Bot): a 256x256 colour square tile for every player
      weapon, at assets/img/items/weapons/<slug>.webp. Jessey 2026-10-21 7:47 PM CT: colour tiles everywhere in the
      inventory (every Equipment row, Weapons rows included; item rows; list squares); the weapons cards and the paper doll
      keep the 1200x400 b/w engraving (srcFor).

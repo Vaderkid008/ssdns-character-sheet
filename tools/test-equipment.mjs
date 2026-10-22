@@ -1,5 +1,5 @@
 /**
- * Equipment list (0.3.107, Jessey 2026-10-20 5:09 PM): starting kits unpack into real Equipment rows (the pack row
+ * Equipment list (0.3.108, Jessey 2026-10-20 5:09 PM): starting kits unpack into real Equipment rows (the pack row
  * goes, its leftovers go to Notes), the approved guessed matches (Badge = Holy symbol, walking stick / pouches =
  * Druidic focus, Prism = Arcane focus, Galvanic reagents = Hex pouch), instruments / gun belt / holster become real
  * things, no duplicate ammo lines, a kit applied again never doubles anything, saved sheets migrate once with the
@@ -121,7 +121,7 @@ if (twoGuns) {
   const same = before.every((b) => c.ammo.find((a) => a.type === b.type && a.caliber === b.caliber).count === b.count);
   check("again.newPickGetsOwnAmmoOnly", same && c.ammo.length >= before.length, JSON.stringify(before) + " -> " + JSON.stringify(c.ammo));
 }
-/* a sheet from before 0.3.107 (kit stamped, no kitGrants record): the same kit again adds nothing countable */
+/* a sheet from before 0.3.108 (kit stamped, no kitGrants record): the same kit again adds nothing countable */
 const legacy = { ...K.blankCharacter(), kitStamp: "frontier-preacher", ammo: [{ type: "buck", caliber: ".410", count: 10 }], equipment: "• Holy symbol (focus)" };
 K.apply(legacy, "frontier-preacher", {});
 check("again.legacyQuiet", legacy.ammo[0].count === 10 && (legacy.items || []).length === 0 && legacy.equipment === "• Holy symbol (focus)", JSON.stringify(legacy.ammo) + " " + JSON.stringify(ids(legacy)));

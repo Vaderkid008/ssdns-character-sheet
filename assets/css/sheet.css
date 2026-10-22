@@ -1277,7 +1277,7 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .give-picker select, .give-picker input[type=number] { min-width: 12em; }
 .give-prompt .give-what { font-size: 1.15em; margin: 6px 0 10px; }
 
-/* ---------------- 0.3.107 Equipment list (Jessey 2026-10-20 mockup): grouped, filterable, dense rows */
+/* ---------------- 0.3.108 Equipment list (Jessey 2026-10-20 mockup): grouped, filterable, dense rows */
 .item-gear.eq { margin: 10px 0 12px; padding-top: 6px; border-top: 1px solid rgba(43,29,18,.35); }
 .eq-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .eq-head h2 { font-size: 22px; }
@@ -1337,7 +1337,7 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
   .eq-more { margin-left: 0; }
 }
 
-/* L0197 (0.3.107): Focus slot by Calling. Pact Seeker = Borrowed Iron (away = faded, returns next turn);
+/* L0197 (0.3.108): Focus slot by Calling. Pact Seeker = Borrowed Iron (away = faded, returns next turn);
    Hexslinger = read-only mirror of the Caster Gun in Pistol L / R, or the no-gun message. */
 .doll-slot .doll-focus-note { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 2; width: max-content; max-width: 86%; padding: .1em .45em; border-radius: 3px;
   font: 700 max(7px, 1.25cqw)/1.2 Georgia, "Times New Roman", serif; text-align: center; color: #f4e6c4; background: rgba(46,27,13,.86); border: 1px solid #b08a4a; pointer-events: none; }
@@ -1374,7 +1374,7 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
 .sp-free-tag { color: #6b3f12; font-style: italic; }
 .spell-card.is-locked .spell-card-pick { cursor: default; }
 .spell-card.is-locked .spell-check { background: #6b3f12; border-color: #6b3f12; }
-/* 0.3.107 (Jessey 2026-10-21 4:07 PM): tall weapon slots (Long gun, Melee). A 1200x400 engraving turns muzzle-up and
+/* 0.3.108 (Jessey 2026-10-21 4:07 PM): tall weapon slots (Long gun, Melee). A 1200x400 engraving turns muzzle-up and
    fills the slot height inside the border; the box below is pre-rotation (width = visual height ~76% of the slot,
    height = visual width ~26% of the slot height ≈ 58% of the slot width), centred above the name plate.
    Square tiles (hidden Borrowed Iron, tile-only guns) stay upright and contained. */
@@ -1382,10 +1382,10 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
   object-fit: contain; transform: translate(-50%, -50%) rotate(-90deg); transform-origin: 50% 50%; }
 .doll-slot.doll-tall.doll-weapon.doll-squareart .doll-art { inset: auto; left: 10%; top: 14%; width: 80%; height: 66%; max-width: 80%; max-height: 66%;
   object-fit: contain; transform: none; }
-/* 0.3.107 (4:35 PM): a hidden long iron's card shows the plain long-gun outline at the engraving's 3:1 shape */
+/* 0.3.108 (4:35 PM): a hidden long iron's card shows the plain long-gun outline at the engraving's 3:1 shape */
 .pact-iron-art.pact-iron-generic.pact-iron-outline { aspect-ratio: 3 / 1; height: auto; }
 
-/* 0.3.107 (art batch 1): Pact Shot tile on the Borrowed Iron card's Pact Shot button (icon + label, same button height) */
+/* 0.3.108 (art batch 1): Pact Shot tile on the Borrowed Iron card's Pact Shot button (icon + label, same button height) */
 #btnPactShot { display: inline-flex; align-items: center; gap: 5px; }
 #btnPactShot .iron-spell-art { width: 20px; height: 20px; margin: -3px 0 -3px -3px; border-radius: 3px; object-fit: cover; flex: 0 0 20px; display: block; }
 

@@ -1,5 +1,5 @@
 /**
- * 0.3.107 (Jessey 2026-10-21 5:47 / 5:50 PM CT): "Can't you just show the actual gun here? We don't have to hide it."
+ * 0.3.108 (Jessey 2026-10-21 5:47 / 5:50 PM CT): "Can't you just show the actual gun here? We don't have to hide it."
  * Sheet-only choice: from the Pact pick on, the player's sheet shows the real Borrowed Iron (name, tile, engraving)
  * everywhere, with no DM reveal (this intentionally differs from BOOK1 L2060). No Pact yet: the plain Borrowed Iron.
  * The DMCC player card has no Reveal toggle; character.ironRevealed stays on old saves and is ignored.
@@ -51,7 +51,7 @@ for (const [sub, slug, nm, slot, cls] of PACTS) {
     const st = D.ironState(c);
     check(tag + ".realIron", IA.nameFor(c) === nm && IA.tileSrc(c) === tile(slug) && IA.engravingSrc(c) === eng(slug) && IA.labelFor(c) === nm + " — " + cls, J([IA.nameFor(c), IA.labelFor(c)]));
     check(tag + ".doll", st.key === slot && st.art === tile(slug) && st.note === "In hand · " + nm && D.weaponName(c, slot) === nm, J(st));
-    check(tag + ".slotArt", D.slotArt(c, slot) === eng(slug) /* 0.3.107 (Jessey 7:47 PM): engraving in every doll slot */ && IA.hiddenArt(c) === "", D.slotArt(c, slot));
+    check(tag + ".slotArt", D.slotArt(c, slot) === eng(slug) /* 0.3.108 (Jessey 7:47 PM): engraving in every doll slot */ && IA.hiddenArt(c) === "", D.slotArt(c, slot));
   }
 }
 const none = pact("");

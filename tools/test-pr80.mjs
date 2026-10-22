@@ -61,6 +61,6 @@ for (const s of [4, 6, 8, 10, 12, 20]) check("art.d" + s, fs.existsSync(path.joi
 check("css.atk", /\.roll-total-atk \{ color: #4FDCCB/.test(read("assets/css/dice.css")));
 check("rules.untouched", !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("dmgFormula"));
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.107" && ver.dmcc === "0.2.120");
+check("ver", ver.sheet === "0.3.108" && ver.dmcc === "0.2.121");
 console.log(failures.length ? "\n" + failures.length + " FAILED: " + failures.join(", ") : "\nAll PR80 checks passed.");
 process.exit(failures.length ? 1 : 0);
