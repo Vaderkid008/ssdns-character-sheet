@@ -132,7 +132,7 @@ check("stick.focus", fs0 && fs0.kind === "weapon" && fs0.name === "Cottonwood Wa
 {
   const e = D.html({ items: [], guns: [], melee: [] }, {});
   const svg = (k) => (e.match(new RegExp('data-doll-slot="' + k + '"[^>]*>\\s*(<svg[^>]*>[\\s\\S]*?</svg>)')) || [])[1] || "";
-  check("glyph.longRifle", /data-glyph="long" viewBox="0 0 24 96"/.test(svg("long_gun")), svg("long_gun"));
+  check("glyph.longRifle", /data-glyph="long" viewBox="6 0 22 96"/.test(svg("long_gun")), svg("long_gun"));
   check("glyph.pistolR", /data-glyph="pistol" viewBox="0 0 48 48"/.test(svg("revolver_2")) && !/scale\(-1 1\)/.test(svg("revolver_2")), svg("revolver_2"));
   check("glyph.pistolLMirrored", /data-glyph="pistol"/.test(svg("revolver_1")) && /transform="translate\(48 0\) scale\(-1 1\)"/.test(svg("revolver_1")), svg("revolver_1"));
   check("glyph.focusCrystal", /data-glyph="focus"/.test(svg("focus_borrowed_iron")) && svg("focus_borrowed_iron").includes("M24 6l9 11-9 25-9-25z"));

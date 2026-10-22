@@ -1446,7 +1446,7 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
 #turnPanel .turn-fold .chamber-dot { border-color: #e8d9b8; }
 /* Paper Doll v2.1 r2 (Jessey 2026-10-22 6:02 AM): empty-slot outlines. The Long gun is an upright rifle (tall viewBox),
    the pistols a revolver side view. Same faded stroke as the other outlines. */
-.doll-slot .doll-glyph[data-glyph="long"] { width: 34%; height: 74%; transform: translate(-50%, -52%); stroke-width: 1.4; }
+.doll-slot .doll-glyph[data-glyph="long"] { width: 50%; height: 82%; transform: translate(-50%, -52%); stroke-width: 1.05; }
 .doll-slot .doll-glyph[data-glyph="pistol"] { width: 66%; height: 66%; stroke-width: 1.9; }
 /* r2: the Melee slot draws its upright engraving bigger (about 84% of the slot height, above the name plate) */
 .doll-slot.doll-tall.doll-weapon.doll-longart[data-doll-slot="melee"] .doll-art { top: 46%; width: 192%; height: 32%; }
