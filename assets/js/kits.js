@@ -2,7 +2,8 @@
  * Starting kits. L0156 (2026-10-17): one weapon per kit, 20 rounds or 10 shells,
  * no fancy guns. A gun Calling may swap that weapon for one Plinker
  * (Revolver or Repeater). At 1st level only the Frontier Scout and the Lawman can start
- * with the Dullards Light Carbine (PHB; Mech PR A M6).
+ * with the Dullards Light Carbine (PHB; Mech PR A M6). The Lawman also gets a Cavalry Saber
+ * alongside whichever gun he picks.
  * Or-lines are player choices. Loaded before sheet-playtest.js.
  */
 (function (root) {
@@ -596,6 +597,9 @@
       else if (p.weapon === "plinker") plinker(c);
       else if (p.weapon === "repeater") plinkerRepeater(c);
       else ballCap(c);
+      /* Mech PR A (Jessey 2026-10-22, reverses the #53 drop): a Cavalry Saber comes with whichever gun.
+         putMelee skips it when the sheet already has one, so an old Lawman sheet never gets a second saber. */
+      putMelee(c, "cavalry-saber-longsword");
     } else if (calling === "frontier-scout") {
       if (p.hunt === "rifle") lightGun(c, "dullards-tube-rifle");
       else if (p.hunt === "bow") longbow(c);

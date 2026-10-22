@@ -43,7 +43,10 @@ check(read("assets/js/app.js").indexOf('sub.id === "variant-human"') >= 0, "vari
 const kits = read("assets/js/kits.js");
 const lawStart = kits.lastIndexOf('} else if (calling === "lawman")');
 const lawman = kits.slice(lawStart, kits.indexOf('} else if (calling === "frontier-scout")', lawStart));
-check(lawman.indexOf("javelin") < 0 && lawman.indexOf("cavalry-saber") < 0 && lawman.indexOf("c.shield = true") >= 0, "lawman kit keeps the shield and drops the saber");
+/* Mech PR A (Jessey 2026-10-22): the saber is back, seeded once in the weapon block; the gear block stays saber-free */
+const lawWeapon = kits.slice(kits.indexOf('} else if (calling === "lawman")'), kits.indexOf('} else if (calling === "frontier-scout")', kits.indexOf('} else if (calling === "lawman")')));
+check(lawman.indexOf("javelin") < 0 && lawman.indexOf("cavalry-saber") < 0 && lawman.indexOf("c.shield = true") >= 0, "lawman gear keeps the shield, no javelins, no second saber");
+check((lawWeapon.match(/putMelee\(c, "cavalry-saber-longsword"\)/g) || []).length === 1, "lawman weapon block seeds one Cavalry Saber");
 check(kits.indexOf('calling === "lawman"') >= 0 && kits.indexOf("ballCap(c)") >= 0, "lawman default weapon is one Ball n Cap");
 check(read("version.json").indexOf("0.3.107") >= 0 && read("version.json").indexOf("0.2.120") >= 0, "versions bumped");
 check(!/database\.rules\.json/.test("") , "placeholder");

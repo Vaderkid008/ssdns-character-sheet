@@ -4,7 +4,7 @@
  *  M2  DM Clean / Reopen chamber on enemy guns (DMCC enemy card + map token); enemy 3rd-misfire locks stick
  *  M4  DM Add rounds on enemy guns: silent (no chat, no log, no ledger), fills open chambers / the spare
  *  M5  DMCC "Grant full kit": confirm first; the sheet unpacks the wizard's Full kit, nothing doubles
- *  M6  Lawman picks ONE gun: Ball n Cap, Light carbine + 20 Light, or the .410
+ *  M6  Lawman picks ONE gun: Ball n Cap, Light carbine + 20 Light, or the .410; a Cavalry Saber comes with any of them
  *   node tools/test-mech-pr-a.mjs                 (node + browser; SSDNS_ORIGIN=http://127.0.0.1:PORT for the browser part)
  *   NODE_ONLY=1 node tools/test-mech-pr-a.mjs     (skip the browser part)
  */
@@ -230,16 +230,28 @@ async function browserPart() {
           const snap2 = JSON.stringify({ items: c.items, ammo: c.ammo, guns: c.guns, melee: c.melee });
           return { id, ok: r1 && r1.ok, added: r1 && r1.added && r1.added.length, grew: c.items.length >= items0, es1: r1 && r1.es, again: r2 && r2.already, es2: r2 && r2.es, same: snap1 === snap2, mode: c.kitMode };
         });
-        const law = (pick) => { const c = fresh(); c.calling = "lawman"; c.guns = c.guns.map((g) => Object.assign({}, g, { weapon: "", loaded: 0, chambers: [] })); c.items = []; c.ammo = []; K.apply(c, "lawman", { weapon: pick }); return { guns: c.guns.filter((g) => g.weapon).map((g) => g.weapon + "|" + (g.chamber || "")), ammo: (c.ammo || []).map((a) => a.type + ":" + a.caliber + ":" + a.count) }; };
+        const law = (pick) => { const c = fresh(); c.calling = "lawman"; c.guns = c.guns.map((g) => Object.assign({}, g, { weapon: "", loaded: 0, chambers: [] })); c.items = []; c.ammo = []; K.apply(c, "lawman", { weapon: pick }); return { guns: c.guns.filter((g) => g.weapon).map((g) => g.weapon + "|" + (g.chamber || "")), melee: (c.melee || []).filter((m) => m && m.weapon).map((m) => m.weapon), ammo: (c.ammo || []).map((a) => a.type + ":" + a.caliber + ":" + a.count) }; };
         out.law = { revolver: law("revolver"), carbine: law("carbine"), shotgun: law("shotgun"), def: law(undefined) };
         const ch = (K.choices.lawman || []).find((x) => x.id === "weapon");
         out.lawOpts = ch ? ch.options.map((o) => o.id) : [];
+        /* old Lawman sheets: one saber already (any slot) or none; Grant full kit twice never makes a second */
+        const sabers = (c) => (c.melee || []).filter((m) => m && m.weapon === "cavalry-saber-longsword").length;
+        const oldWith = fresh(); oldWith.calling = "lawman"; oldWith.items = []; oldWith.ammo = []; oldWith.guns = oldWith.guns.map((g) => Object.assign({}, g, { weapon: "", loaded: 0, chambers: [] }));
+        oldWith.guns[0] = Object.assign({}, oldWith.guns[0], { weapon: "navy-army-ball-n-cap-revolver" });
+        oldWith.melee = [{ weapon: "", proficient: true }, { weapon: "cavalry-saber-longsword", proficient: true, equipped: true }];
+        K.grantFull(oldWith); K.grantFull(oldWith);
+        const oldNone = fresh(); oldNone.calling = "lawman"; oldNone.items = []; oldNone.ammo = []; oldNone.melee = []; oldNone.guns = oldNone.guns.map((g) => Object.assign({}, g, { weapon: "", loaded: 0, chambers: [] }));
+        oldNone.guns[0] = Object.assign({}, oldNone.guns[0], { weapon: "navy-army-ball-n-cap-revolver" });
+        K.grantFull(oldNone); K.grantFull(oldNone);
+        out.oldSabers = { withSaber: sabers(oldWith), without: sabers(oldNone), guns: oldNone.guns.filter((g) => g.weapon).map((g) => g.weapon) };
         out.lawPrompt = ch ? ch.prompt : "";
         return out;
       });
       for (const r of k.calls) check("m5.grantFull." + r.id, r.ok && r.added > 0 && r.grew && r.again && !r.es2 && r.same && r.mode === "full", J(r));
       check("m6.options", k.lawOpts[0] === "revolver" && k.lawOpts.indexOf("carbine") > 0 && k.lawOpts.indexOf("shotgun") > 0 && /carbine/.test(k.lawPrompt), J(k.lawOpts));
       check("m6.oneGun", ["revolver", "carbine", "shotgun"].every((p) => k.law[p].guns.length === 1), J(k.law));
+      check("m6.saberWithEveryGun", ["revolver", "carbine", "shotgun", "def"].every((p) => k.law[p].melee.join(",") === "cavalry-saber-longsword"), J(k.law));
+      check("m6.oldSheetNoDoubleSaber", k.oldSabers.withSaber === 1 && k.oldSabers.without === 1 && k.oldSabers.guns.join(",") === "navy-army-ball-n-cap-revolver", J(k.oldSabers));
       check("m6.carbine", /^dullards-light-carbine\|light/.test(k.law.carbine.guns[0] || "") && k.law.carbine.ammo.some((a) => /:20$/.test(a) && /cartridge/.test(a)), J(k.law.carbine));
       check("m6.defaultIsBallnCap", k.law.def.guns.length === 1 && k.law.def.guns[0] === k.law.revolver.guns[0], J(k.law));
       /* dm-join kit_grant: once per grant id */
@@ -254,13 +266,14 @@ async function browserPart() {
         J2._handle({ id: "c1", type: "kit_grant", ts: new Date().toISOString(), payload: { mode: "full", grantId: "kit-t1" } });
         await new Promise((r) => setTimeout(r, 300));
         const c = A.doc().character;
-        return { n0, n1, n2: c.items.length, es0, es1, es2: window.SSDNSBridge.cpValue(A.doc().shards), mode: c.kitMode, guns: c.guns.filter((x) => x.weapon).map((x) => x.weapon),
+        return { n0, n1, n2: c.items.length, es0, es1, es2: window.SSDNSBridge.cpValue(A.doc().shards), mode: c.kitMode, guns: c.guns.filter((x) => x.weapon).map((x) => x.weapon), sabers: (c.melee || []).filter((m) => m && m.weapon === "cavalry-saber-longsword").length,
           log: Array.from(document.querySelectorAll(".log-item")).map((x) => x.textContent).find((t) => /granted your Full kit/.test(t)) || "",
           snap: J2.buildSnapshot ? { kitMode: J2.buildSnapshot().kitMode, kitFull: J2.buildSnapshot().kitFull } : null };
       });
       check("m5.join.grants", g.n1 > g.n0 && g.mode === "full" && /granted your Full kit/.test(g.log), J(g));
       check("m5.join.oncePerId", g.n2 === g.n1 && g.es2 === g.es1, J(g));
       check("m5.join.keepsPickedGun", g.guns.length === 1 && g.guns[0] === "dullards-light-carbine", J(g.guns));
+      check("m5.join.oneSaber", g.sabers === 1, String(g.sabers));
       check("m5.join.snapshot", g.snap && g.snap.kitMode === "full" && g.snap.kitFull === true, J(g.snap));
       check("sheet.noPageErrors", errs.length === 0, errs.join(" | "));
       await ctx.close();
@@ -290,6 +303,7 @@ async function browserPart() {
       });
       check("m6.wizard.options", !w.err && w.opts.some((o) => /^revolver=/.test(o)) && w.opts.some((o) => /^carbine=Dullards Light Carbine \+ 20 Light cartridges$/.test(o)) && w.opts.some((o) => /^shotgun=/.test(o)), J(w));
       check("m6.wizard.pick", w.draftPick === "carbine" && w.lines.some((l) => /Light Carbine/i.test(l)) && !w.lines.some((l) => /Ball n Cap/i.test(l)), J(w));
+      check("m6.wizard.saber", w.lines.some((l) => /Cavalry Saber/i.test(l)), J(w.lines));
       check("m6.wizard.plainWords", !w.opts.some((o) => /LeMat/.test(o)), J(w.opts));
       check("wizard.noPageErrors", errs.length === 0, errs.join(" | "));
       await ctx.close();
