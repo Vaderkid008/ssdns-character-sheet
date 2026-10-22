@@ -853,7 +853,46 @@
     v.guns = c.guns.map(function (g, i) { return gunStats(g, v, i); });
     return v;
   }
-  function gunStats(g, v, gunIndex) {
+  /* M1 (Mech PR A): the round a plain Roll fires next, picked the same way spendRound picks it with no chamber
+     clicked (first open, loaded chamber; a hex shell there means Roll won't fire). Read only: never edits g. */
+  function nextRoundToken(g, w) {
+    if (!g || !w || !w.capacity) return "";
+    var cap = capOf(g, w), a = Array.isArray(g.chambers) ? g.chambers.slice(0, cap) : [];
+    for (var n = 0; n < a.length; n++) {
+      if (chamberLocked(g, n) || !a[n]) continue;
+      return isPlainChamber(a[n]) ? String(a[n]) : "";
+    }
+    if (num(g.loaded) > 0 && !a.some(Boolean)) return "c"; /* legacy count-only load: plain rounds */
+    return "";
+  }
+  /* M1: a Caster Gun takes any cartridge (no chambering lock), so its stats follow the round actually loaded, not the
+     chamber picker. Other guns are chamber-locked: their loaded rounds already match the picker, so they keep it. */
+  function loadedChamber(g, w, ch, token) {
+    var CR = window.SSDNSCasterRules;
+    if (!token || !w || !w.tiers || !CR || !CR.isCaster(w, g)) return ch;
+    var p = parseChamber(token);
+    if (!p || p.kind === "hex") return ch;
+    var cal = p.caliber || (p.kind === "bigfifty" ? ".50-90" : "");
+    if (!cal) return ch;
+    var tier = "";
+    TIERS.forEach(function (t) { if (!tier && w.tiers[t] && ((w.rounds && w.rounds[t]) || []).indexOf(cal) >= 0) tier = t; });
+    if (!tier && /\.22\s*lr/i.test(cal) && w.tiers.light) tier = "light";
+    if (!tier && p.tier && w.tiers[p.tier]) tier = p.tier;
+    if (!tier) return ch;
+    return { tier: tier, round: cal, loaded: true };
+  }
+  /* M1: stats for one gun as a given round would fire (token "" / undefined = the next round a plain Roll fires). */
+  function gunStatsFor(i, token) {
+    var g = C().guns[i];
+    if (!g) return null;
+    var v = compute();
+    return gunStats(g, v, i, token == null ? undefined : token);
+  }
+  function misfireTextFor(i, token) {
+    var g = C().guns[i], s = gunStatsFor(i, token);
+    return s && s.misfire ? misfireLabel(s.misfire, g && g.dirty) : "";
+  }
+  function gunStats(g, v, gunIndex, roundToken) {
     var gi = gunIndex;
     if (g && g.weapon && !WPN[g.weapon] && window.SSDNSCustomWeapons) window.SSDNSCustomWeapons.syncCharacter(C());
     var w = WPN[g.weapon];
@@ -863,7 +902,9 @@
     var mod = (R.gunsmithing && R.gunsmithing.mods || []).filter(function (m) { return m.name === g.mod; })[0];
     s.mod = mod || null;
     if (w.tiers) {
-      var ch = chamberOf(g, w), tier = ch.tier, t = w.tiers[tier] || {};
+      var tok = roundToken === undefined ? nextRoundToken(g, w) : roundToken;
+      var ch = loadedChamber(g, w, chamberOf(g, w), tok), tier = ch.tier, t = w.tiers[tier] || {};
+      s.loadedRound = ch.loaded ? ch.round : "";
       s.tier = tier; s.rounds = (w.rounds && w.rounds[tier]) || []; s.round = ch.round;
       if (w.scatter) {
         var ld = t[g.load === "slug" ? "slug" : "buck"] || t.buck || t.slug || {};
@@ -882,6 +923,12 @@
         s.misfire = "1–4";
       }
       if (g.dirty && w.dirtyMisfire) s.misfire = w.dirtyMisfire;
+      /* M1: the badge uses the shot's own rule (caster-rules.js): a Big Fifty .50-90 from a Caster Gun misfires on 1-5 */
+      var CRm = window.SSDNSCasterRules;
+      if (CRm && tok) {
+        var baseHi = misfireCeiling(s.misfire, false), hiM = CRm.misfireCeiling(w, g, tok, baseHi);
+        if (hiM > baseHi) { s.misfire = "1–" + hiM; s.bigFifty = true; }
+      }
       s.dmgType = w.scatter && g.load !== "slug" ? "piercing (cone)" : "piercing";
     } else {
       s.damage = w.damage; s.range = w.range; s.misfire = w.misfire; s.dmgType = String(w.dmgType || "").toLowerCase();
@@ -4853,6 +4900,9 @@
       applyAutoHp: function () { applyAutoHp(); renderFields(); changed(); },
       slotsLeft: slotsLeft,
       misfireCeiling: misfireCeiling,
+      gunStatsFor: gunStatsFor,
+      misfireTextFor: misfireTextFor,
+      nextRoundToken: function (i) { var g = C().guns[i]; return g ? nextRoundToken(g, WPN[g.weapon]) : ""; },
       isFirearm: isFirearm,
       migrateSettlerLanguages: migrateSettlerLanguages,
       longGun22: longGun22,
