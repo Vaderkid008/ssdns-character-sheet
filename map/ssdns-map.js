@@ -5202,13 +5202,8 @@ async function loadSceneImage(sceneId, opts) {
       }
       strip.appendChild(b);
     });
+    if (role === 'dm') appendStripMarkers(strip); /* Turn UX on the map: the current player's markers, before Next */
     if (role === 'dm') {
-      /* Turn UX on the map: the current player's Action / Bonus / R / movement (the DM card's markers) on the strip */
-      const marks = document.createElement('span');
-      marks.className = 'ssm-strip-markers';
-      marks.setAttribute('data-act', 'stripMarkers');
-      strip.appendChild(marks);
-      fillStripMarkers();
       const next = document.createElement('button');
       next.type = 'button';
       next.className = 'btn btn-primary btn-next';
@@ -5240,6 +5235,13 @@ async function loadSceneImage(sceneId, opts) {
   }
   /* Turn UX on the map: markers for the combatant whose turn it is (DM page only; the host returns the same HTML as the
      DM card's marker row, and the DM page's own click handler edits them) */
+  function appendStripMarkers(strip) {
+    const marks = document.createElement('span');
+    marks.className = 'ssm-strip-markers';
+    marks.setAttribute('data-act', 'stripMarkers');
+    strip.appendChild(marks);
+    fillStripMarkers();
+  }
   function fillStripMarkers() {
     const slot = q('stripMarkers');
     if (!slot) return;

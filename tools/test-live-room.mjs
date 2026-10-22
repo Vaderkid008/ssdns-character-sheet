@@ -235,6 +235,7 @@ async function main() {
     }
     await useTool("ping", "pingBtn");
     const canvasBox = await dm.$eval("#mapMount canvas", (el) => {
+      el.scrollIntoView({ block: "center" }); /* 0.3.108: the turn strip sits above the board now, so it can start below the fold */
       const r = el.getBoundingClientRect();
       return { x: r.left + r.width * 0.45, y: r.top + r.height * 0.45 };
     });
