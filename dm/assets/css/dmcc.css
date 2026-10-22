@@ -1136,9 +1136,9 @@ select:-webkit-autofill {
 .give-recent { margin: 6px 0 12px; }
 .give-recent-list { list-style: none; margin: 0; padding: 0; }
 .give-row { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 14px; }
-.give-row .give-tick { width: 1em; color: var(--muted); font-weight: 700; }
-.give-row.ok .give-tick { color: var(--eld); }
-.give-row.undone > span { text-decoration: line-through; opacity: .7; }
+.give-row .give-txt { flex: 1 1 260px; min-width: 0; }
+.give-row .give-tick { color: var(--eld); font-weight: 700; }
+.give-row.undone .give-what { text-decoration: line-through; opacity: .7; }
 .give-row .give-state { color: var(--muted); }
 .give-row.ok .give-state { color: var(--eld); }
 .give-row .btn.xs { margin-left: auto; }
@@ -1152,4 +1152,5 @@ select:-webkit-autofill {
   .give-who-card { flex: 1 1 calc(50% - 8px); min-width: 0; }
   .give-row .btn.xs { margin-left: 0; }
 }
-#panel-rewards .form-grid label.chk { display: inline-flex; gap: 6px; align-items: center; text-transform: none; letter-spacing: 0; font-family: var(--body); font-size: 14px; color: var(--ink); margin: 6px 12px 0 0; }
+#panel-rewards label.chk input[type=checkbox] { width: 20px; height: 20px; min-height: 0; flex: 0 0 auto; margin: 0; padding: 0; }
+#panel-rewards label.chk, #panel-rewards .form-grid label.chk { display: inline-flex; gap: 6px; align-items: center; text-transform: none; letter-spacing: 0; font-family: var(--body); font-size: 14px; color: var(--ink); margin: 6px 12px 0 0; }

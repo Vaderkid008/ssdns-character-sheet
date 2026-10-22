@@ -507,8 +507,9 @@
       var state = r.undone ? ("undone" + (u && u.of ? (u.seen === u.of ? " · ✓ off their sheet" : " · undo sent") : "")) :
         (demo ? "sent (demo: no sheet to confirm)" : (ok ? "✓ on " + (a.of > 1 ? "all " + a.of + " sheets" : "their sheet") : (a.seen ? "✓ " + a.seen + " of " + a.of + " sheets" : "sent, waiting for their sheet")));
       var undo = r.undone ? "" : (r.undo ? '<button type="button" class="btn xs" data-give-undo="' + esc(r.id) + '">Undo</button>' : '<span class="fine">' + esc(r.noUndo || "no undo") + "</span>");
-      return '<li class="give-row' + (ok && !r.undone ? " ok" : "") + (r.undone ? " undone" : "") + '" data-give-row="' + esc(r.id) + '"><span class="give-tick" aria-hidden="true">' + (ok && !r.undone ? "✓" : "·") + "</span> " +
-        "<span>" + esc(timeOf(r.ts)) + " · " + esc(r.text) + ' · <span class="give-state">' + esc(state) + "</span></span> " + undo + "</li>";
+      return '<li class="give-row' + (ok && !r.undone ? " ok" : "") + (r.undone ? " undone" : "") + '" data-give-row="' + esc(r.id) + '"><span class="give-txt">' +
+        (ok && !r.undone ? '<span class="give-tick" aria-hidden="true">✓</span> ' : "") +
+        '<span class="give-what">' + esc(timeOf(r.ts)) + " · " + esc(r.text) + '</span> · <span class="give-state">' + esc(state) + "</span></span> " + undo + "</li>";
     }).join("") + "</ul>";
   }
   function recLine(rec) {

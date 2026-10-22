@@ -124,7 +124,7 @@
     var ammo = (s.ammo || []).filter(function (a) { return a && a.type && Number(a.count) > 0; }).map(function (a) {
       var o = GT ? GT.ammoCatalog().filter(function (x) { return GT.samePool(a, x); })[0] : null;
       var fits = o ? (s.guns || []).filter(function (g) { return g && g.name && GT.gunKeys(g).indexOf(o.key) >= 0; }).map(function (g) { return g.name; }) : [];
-      return '<tr data-ammo-pool="' + esc(a.type + "|" + (a.caliber || "")) + '"><td>' + esc(o ? o.label : G.ammoLabel(a)) + (fits.length ? ' <span class="fine">fits ' + esc(fits.join(", ")) + "</span>" : "") + '</td><td class="num">' + esc(a.count) + "</td></tr>";
+      return '<tr data-ammo-pool="' + esc(a.type + "|" + (a.caliber || "")) + '"><td>' + esc(o ? o.label : G.ammoLabel(a)) + (fits.length ? ' <span class="fine">· fits ' + esc(fits.join(", ")) + "</span>" : "") + '</td><td class="num">' + esc(a.count) + "</td></tr>";
     }).join("");
     var carry = s.carry || null;
     var slotGive = {};
