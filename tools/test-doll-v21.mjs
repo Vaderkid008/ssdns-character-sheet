@@ -3,7 +3,7 @@
  *  - 22 worn items: a 256 colour tile at assets/img/items/<slug>.webp (Equipment list / item rows) and a 400x400 b/w
  *    engraving at assets/img/items/gear/<slug>.webp (paper doll). Mapped by future catalog id (= slug) and, for custom
  *    items, by name (item-art.js gearV21). The four plain store rows (Cattleman hat, Bandana, Work gloves, Leather chaps)
- *    match by id only; their generic art stays.
+ *    match their exact plain name (r2); other hats / bandanas / gloves / chaps keep the generic art.
  *  - Cottonwood Walking Stick: a melee weapon with a 1200x400 engraving (cards, doll) and a 256 tile (Equipment list).
  *  - The three new belts draw wide on the doll (WIDE_GEAR_ART).
  *   node tools/test-doll-v21.mjs
@@ -84,9 +84,15 @@ for (const [name, wear, slot, slug] of NAMED) {
 check("name.focusItems", Items.artSrc({ uid: "h", name: "Brass-Bound Hymn-Book", type: "gear" }) === "assets/img/items/brass-bound-hymn-book.webp" &&
   Items.artSrc({ uid: "m", name: "Brass Magnifying Glass", type: "gear" }) === "assets/img/items/brass-magnifying-glass.webp");
 check("name.wrongSlotFamily", D.gearArtFile({ name: "Rattler-Hide Chaps", wear: "legs" }, "hat") === "hat-cattleman");
-/* the generic rows keep the generic art; existing named art is untouched */
-check("generic.kept", D.gearArtFile({ name: "Leather chaps", wear: "legs" }, "chaps") === "chaps-leather" && D.gearArtFile({ name: "Cattleman hat", wear: "head" }, "hat") === "hat-cattleman" &&
-  D.gearArtFile({ name: "Bandana", wear: "neck" }, "neck") === "neck-bandana" && D.gearArtFile({ name: "Work gloves", wear: "gloves" }, "gloves") === "gloves-leather");
+/* r2 (Jessey 2026-10-22 6:02 AM): the four plain store names take the new art; other hats / gloves / chaps keep the generic */
+const PLAIN = [["Leather chaps", "legs", "chaps", "leather-chaps"], ["Cattleman hat", "head", "hat", "cattleman-hat"], ["Bandana", "neck", "neck", "bandana"], ["Work gloves", "gloves", "gloves", "work-gloves"]];
+for (const [name, wear, slot, slug] of PLAIN) {
+  const it = { uid: "p-" + slug, name, type: "gear", wear, equipSlot: slot };
+  check("plain." + slug, D.gearArtFile(it, slot) === slug && Items.artSrc(it) === "assets/img/items/" + slug + ".webp" && D.gearArtFile({ name: " " + name.toUpperCase() + " ", wear }, slot) === slug, J([D.gearArtFile(it, slot), Items.artSrc(it)]));
+}
+check("generic.kept", D.gearArtFile({ name: "Batwing chaps", wear: "legs" }, "chaps") === "chaps-leather" && D.gearArtFile({ name: "Stetson hat", wear: "head" }, "hat") === "hat-cattleman" &&
+  D.gearArtFile({ name: "Red bandana", wear: "neck" }, "neck") === "neck-bandana" && D.gearArtFile({ name: "Leather gloves", wear: "gloves" }, "gloves") === "gloves-leather" &&
+  D.gearArtFile({ name: "Old cattleman hat", wear: "head" }, "hat") === "hat-cattleman");
 check("generic.oreSignet", D.gearArtFile({ id: "ore-buyers-signet", name: "Ore Buyer's Signet", wear: "ring" }, "ring_1") === "ring-eldorite");
 check("generic.badgeHoly", !IT.gearV21({ id: "badge-saint-medal-carved-eldorite-hymn-book-holy-symbol", name: "Holy symbol (badge, saint-medal, carved Eldorite, hymn-book)" }));
 check("generic.oreGlass", !IT.gearV21({ id: "assay-glass-magnifying-glass", name: "Ore glass (magnifying glass)" }));
@@ -121,6 +127,21 @@ const fs0 = D.focusState(c);
 check("stick.melee", /doll-longart[^>]*data-doll-slot="melee"[^>]*>\s*<img class="doll-art" alt="" src="assets\/img\/weapons\/cottonwood-walking-stick\.webp"/.test(h), (h.match(/data-doll-slot="melee"[^>]*>[^>]*>/) || [""])[0]);
 check("stick.focus", fs0 && fs0.kind === "weapon" && fs0.name === "Cottonwood Walking Stick" && fs0.art === "assets/img/weapons/cottonwood-walking-stick.webp" &&
   /data-doll-slot="focus_borrowed_iron"[^>]*>\s*<img class="doll-art" alt="" src="assets\/img\/weapons\/cottonwood-walking-stick\.webp"/.test(h), J(fs0));
+
+/* r2 (Jessey 2026-10-22 6:02 AM): empty-slot outlines, the bigger Melee art, the centred Focus mirror */
+{
+  const e = D.html({ items: [], guns: [], melee: [] }, {});
+  const svg = (k) => (e.match(new RegExp('data-doll-slot="' + k + '"[^>]*>\\s*(<svg[^>]*>[\\s\\S]*?</svg>)')) || [])[1] || "";
+  check("glyph.longRifle", /data-glyph="long" viewBox="0 0 24 96"/.test(svg("long_gun")), svg("long_gun"));
+  check("glyph.pistolR", /data-glyph="pistol" viewBox="0 0 48 48"/.test(svg("revolver_2")) && !/scale\(-1 1\)/.test(svg("revolver_2")), svg("revolver_2"));
+  check("glyph.pistolLMirrored", /data-glyph="pistol"/.test(svg("revolver_1")) && /transform="translate\(48 0\) scale\(-1 1\)"/.test(svg("revolver_1")), svg("revolver_1"));
+  check("glyph.focusCrystal", /data-glyph="focus"/.test(svg("focus_borrowed_iron")) && svg("focus_borrowed_iron").includes("M24 6l9 11-9 25-9-25z"));
+  check("glyph.classKept", /data-doll-slot="boots"[^>]*>[^<]*<svg class="doll-glyph"/.test(e));
+  const css = read("assets/css/sheet.css");
+  check("css.meleeBigger", /\.doll-longart\[data-doll-slot="melee"\] \.doll-art \{[^}]*width: 192%/.test(css));
+  check("css.focusCentred", /\.doll-wide\.doll-focus-weapon\.filled \.doll-art \{ inset: 24% 8% 15%/.test(css));
+  check("css.glyphLong", /\.doll-glyph\[data-glyph="long"\]/.test(css));
+}
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nALL PASS");
 process.exit(failures.length ? 1 : 0);

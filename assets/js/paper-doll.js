@@ -70,7 +70,7 @@
   var G = {
     hat: "M6 32c6 3 30 3 36 0M12 31c0-9 2-17 6-18 3-1 4 2 6 2s3-3 6-2c4 1 6 9 6 18",
     neck: "M10 12c4 10 24 10 28 0M14 18l10 18 10-18M20 26h8",
-    coat: "M16 8l-8 6v26h10V20l6 8 6-8v20h10V14l-8-6-8 10z",
+    coat: "M18 7L10 10 6 30h5l2-12v24h22V18l2 12h5L38 10l-8-3-6 11zM24 18v24M18 7l3 8M30 7l-3 8",
     vest: "M17 8l-5 6v24l12 4 12-4V14l-5-6-7 12z M24 20v20",
     gunbelt: "M6 20h36v8H6zM20 18h8v12h-8zM10 28v6M14 28v6M34 28v6M38 28v6",
     holster: "M18 8h12v8l-2 22-5 4-3-4-2-22zM16 16h16",
@@ -78,20 +78,26 @@
     chaps: "M14 8h20l2 32h-8l-4-22-4 22h-8z",
     boots: "M16 6h10v24l12 4v6H12l2-10zM12 40h26",
     ring: "M24 18a10 10 0 1 0 .1 0zM19 14l5-6 5 6",
-    trinket: "M24 8a14 14 0 1 0 .1 0zM24 15a7 7 0 1 0 .1 0z",
+    trinket: "M24 15a12 12 0 1 0 .1 0zM24 15v-4M21 8h6M24 21v6l4 3",
     shield: "M24 6l14 5v12c0 9-6 15-14 19C16 38 10 32 10 23V11z",
-    pistol: "M6 18h28l4-3h4v6l-6 2-4 9h-7l2-8H6z",
-    long: "M24 4v40M21 8h6v6h-6zM20 30h8l-2 12h-4z",
+    /* r2 (Jessey 2026-10-22 6:02 AM): a revolver side view, muzzle right (Pistol L mirrors it, muzzle out) */
+    pistol: "M26 15h16v4H26M40 15v-2M16 14h10v10H16zM16 17.5h10M16 20.5h10M16 14l-2-3h-3l3 4M16 24l-6 12c-1 2 0 4 2 4h4c1.5 0 2.5-1 3-2l4-14M21 24c-1 5 6 6 7 0M23.5 24l.6 3",
+    /* r2: an upright lever rifle, muzzle up (viewBox 0 0 24 96, see GLYPH_BOX) */
+    long: "M11 3h2v21h-2zM12 3V1M10 24h4v16h-4zM9.5 40h5.5v14H9.5zM10 54c-4 1-5 8 0 9h3M12 54v3M10 54L5 88c0 2 1 4 3 4h7c1.5 0 2.5-1 2.5-2.5L15 54M5 88h12.5",
     melee: "M24 4l3 6v22h-6V10zM16 32h16M22 32h4v10h-4z",
-    focus: "M30 6l6 6-8 8M28 20a8 8 0 1 1-12 0 9 9 0 1 1 12 0zM20 26h.1"
+    /* r2: a faceted focus crystal (was a blob that read as an "8") */
+    focus: "M24 6l9 11-9 25-9-25zM15 17h18M21 17l3 25M27 17l-3 25M20 11l1 6M28 11l-1 6"
   };
   function glyphKey(key) {
     if (/^accessory_[1-7]$/.test(key)) return "trinket";
     return { holster_l: "holster", holster_r: "holster", ring_1: "ring", ring_2: "ring", accessory_8: "shield", revolver_1: "pistol", revolver_2: "pistol", long_gun: "long", focus_borrowed_iron: "focus" }[key] || key;
   }
+  var GLYPH_BOX = { long: "0 0 24 96" };
   function glyph(key) {
-    var d = G[glyphKey(key)] || G.trinket;
-    return '<svg class="doll-glyph" viewBox="0 0 48 48" aria-hidden="true"><path d="' + d + '"/></svg>';
+    var gk = glyphKey(key), d = G[gk] || G.trinket;
+    /* Pistol L points its muzzle outward (left) */
+    var path = key === "revolver_1" ? '<path transform="translate(48 0) scale(-1 1)" d="' + d + '"/>' : '<path d="' + d + '"/>';
+    return '<svg class="doll-glyph" data-glyph="' + gk + '" viewBox="' + (GLYPH_BOX[gk] || "0 0 48 48") + '" aria-hidden="true">' + path + "</svg>";
   }
   /* Worn-gear art (Art Bot, Jessey-approved 2026-10-19): assets/img/items/gear/<file>.webp, 400x400 transparent.
      Specific art by PHB/catalog id first, then by name keywords, then the generic art for the slot. */

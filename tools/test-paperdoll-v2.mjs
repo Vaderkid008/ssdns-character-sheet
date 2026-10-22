@@ -199,7 +199,7 @@ check("wear.takeOff", !c.items[1].equipSlot);
   check("art.pommel", D.gearArtFile("pommel-holsters-pair", "holster_l") === "holster-pommel");
   check("art.pairItem", D.gearArtFile({ name: "Twin", wear: "holster", holsterPair: true }, "holster_r") === "holster-pair-rig");
   check("art.slotFallbacks", D.gearArtFile({ name: "Odd thing", wear: "" }, "accessory_3") === "trinket-generic" && D.gearArtFile({ name: "Band", wear: "ring" }, "ring_2") === "ring-plain" && D.gearArtFile({ name: "Topper", wear: "head" }, "hat") === "hat-cattleman");
-  check("art.keywords", D.gearArtFile({ name: "Eldorite locket" }, "accessory_1") === "trinket-eldorite-locket" && D.gearArtFile({ name: "Wool cloak", wear: "cloak" }, "coat") === "coat-cloak" && D.gearArtFile({ name: "Leather chaps", wear: "legs" }, "chaps") === "chaps-leather");
+  check("art.keywords", D.gearArtFile({ name: "Eldorite locket" }, "accessory_1") === "trinket-eldorite-locket" && D.gearArtFile({ name: "Wool cloak", wear: "cloak" }, "coat") === "coat-cloak" && D.gearArtFile({ name: "Batwing chaps", wear: "legs" }, "chaps") === "chaps-leather");  /* v2.1 r2: plain "Leather chaps" now has its own art (test-doll-v21) */
   c.armor = "heavy-leather-duster"; c.holster = "mexican-loop"; c.holsterR = "cross-draw-holster"; c.belt = "gun-belt-cartridge-loops"; c.items = [{ uid: "h", name: "Stetson", type: "gear", wear: "head", equipSlot: "hat" }];
   const h2 = D.html(c, {});
   check("art.dollUsesGearArt", /gear\/armor-heavy-leather-duster\.webp/.test(h2) && /gear\/holster-mexican-loop\.webp/.test(h2) && /gear\/holster-cross-draw\.webp/.test(h2) && /gear\/belt-gun-belt\.webp/.test(h2) && /gear\/hat-cattleman\.webp/.test(h2));

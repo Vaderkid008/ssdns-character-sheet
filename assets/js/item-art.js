@@ -64,16 +64,16 @@
      assets/img/items/<slug>.webp (inventory: Equipment rows, item rows) and a 400x400 b/w engraving at
      assets/img/items/gear/<slug>.webp (the paper doll; paper-doll.js swaps the tile for the engraving).
      None of these is a catalog item yet, so the slugs double as future ids, and custom items find their art by name.
-     Rows: [slug, doll family (paper-doll.js slot check), name pattern or null]. The four plain store rows (Cattleman hat,
-     Bandana, Work gloves, Leather chaps) match by id only: a plain "Leather chaps" keeps the generic chaps-leather art
-     until Jessey picks which art those rows use. The Cottonwood Walking Stick is a weapon (weapon-art.js). */
+     Rows: [slug, doll family (paper-doll.js slot check), name pattern]. The four plain store rows (Cattleman hat,
+     Bandana, Work gloves, Leather chaps) match their exact plain name (Jessey 2026-10-22 6:02 AM: yes, the new art);
+     other hats, bandanas, gloves and chaps keep the generic gear art. The Cottonwood Walking Stick is a weapon (weapon-art.js). */
   var GEAR_V21 = [
-    ["cattleman-hat", "hat", null],
-    ["bandana", "neck", null],
+    ["cattleman-hat", "hat", /^\s*cattleman hat\s*$/i],
+    ["bandana", "neck", /^\s*bandana\s*$/i],
     ["pocket-watch", "trinket", /pocket[- ]?watch/i],
     ["signet-ring", "ring", /\bsignet ring\b/i],
-    ["work-gloves", "gloves", null],
-    ["leather-chaps", "chaps", null],
+    ["work-gloves", "gloves", /^\s*work gloves\s*$/i],
+    ["leather-chaps", "chaps", /^\s*leather chaps\s*$/i],
     ["rail-gang-rifle-plate", "shield", /rail[- ]?gang/i],
     ["tin-star-board", "shield", /tin[- ]?star board/i],
     ["lost-troop-cavalry-shield", "shield", /lost troop/i],
