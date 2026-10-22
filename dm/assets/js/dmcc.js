@@ -2731,7 +2731,8 @@ async function doPushReward() {
   } else if (type === "kit") {
     /* fix 9: the same Grant full kit as the player card (#127): the sheet unpacks it, nothing doubles */
     for (const pid of ids) {
-      const gid = await grantFullKit(pid, { asked: true });
+      /* one player: #127's own confirm; Everyone already said yes once above */
+      const gid = await grantFullKit(pid, { asked: target === "all" });
       if (gid) rec.grants.push({ pid: pid, gid: gid });
     }
     rec.undo = null;
