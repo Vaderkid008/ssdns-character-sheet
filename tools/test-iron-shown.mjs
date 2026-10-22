@@ -1,5 +1,5 @@
 /**
- * 0.3.106 (Jessey 2026-10-21 5:47 / 5:50 PM CT): "Can't you just show the actual gun here? We don't have to hide it."
+ * 0.3.107 (Jessey 2026-10-21 5:47 / 5:50 PM CT): "Can't you just show the actual gun here? We don't have to hide it."
  * Sheet-only choice: from the Pact pick on, the player's sheet shows the real Borrowed Iron (name, tile, engraving)
  * everywhere, with no DM reveal (this intentionally differs from BOOK1 L2060). No Pact yet: the plain Borrowed Iron.
  * The DMCC player card has no Reveal toggle; character.ironRevealed stays on old saves and is ignored.
@@ -11,6 +11,7 @@ import path from "node:path";
 import vm from "node:vm";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -50,7 +51,7 @@ for (const [sub, slug, nm, slot, cls] of PACTS) {
     const st = D.ironState(c);
     check(tag + ".realIron", IA.nameFor(c) === nm && IA.tileSrc(c) === tile(slug) && IA.engravingSrc(c) === eng(slug) && IA.labelFor(c) === nm + " — " + cls, J([IA.nameFor(c), IA.labelFor(c)]));
     check(tag + ".doll", st.key === slot && st.art === tile(slug) && st.note === "In hand · " + nm && D.weaponName(c, slot) === nm, J(st));
-    check(tag + ".slotArt", D.slotArt(c, slot) === eng(slug) /* 0.3.106 (Jessey 7:47 PM): engraving in every doll slot */ && IA.hiddenArt(c) === "", D.slotArt(c, slot));
+    check(tag + ".slotArt", D.slotArt(c, slot) === eng(slug) /* 0.3.107 (Jessey 7:47 PM): engraving in every doll slot */ && IA.hiddenArt(c) === "", D.slotArt(c, slot));
   }
 }
 const none = pact("");
@@ -171,7 +172,8 @@ try {
   }
   /* DMCC player card: the iron, its class, no Reveal toggle */
   for (const [sub, slug, nm, slot, cls] of [PACTS[2], PACTS[1]]) {
-    const { pg, errs, ctx } = await page("/dm/index.html");
+    const { pg, errs, ctx } = await page(dmccUrl("/dm/index.html"));
+    await dmccOffline(pg); /* never the live ssdns-dm-hub database */
     await pg.setViewport({ width: 1300, height: 1100, deviceScaleFactor: 2 });
     await pg.waitForFunction(() => window.DMCC && window.SSDNSIronArt && document.querySelector("#btnLoadDemo"), { timeout: 20000 });
     await pg.evaluate(() => document.querySelector("#btnLoadDemo").click());

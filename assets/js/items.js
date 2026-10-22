@@ -249,7 +249,7 @@
      Absent fields are left off, so old saves and catalog rows look exactly as before. */
   function typeFields(out, raw) {
     raw = raw || {};
-    ["itemKind", "ui", "armorId", "img"].forEach(function (k) { if (raw[k]) out[k] = String(raw[k]); }); /* img (0.3.106): optional thumbnail */
+    ["itemKind", "ui", "armorId", "img"].forEach(function (k) { if (raw[k]) out[k] = String(raw[k]); }); /* img (0.3.107): optional thumbnail */
     if (raw.dirty) out.dirty = true; /* a given gun lands Dirty (loot guns) */
     if (raw.soulBound) out.soulBound = true; /* L0197: Borrowed Iron (no drop / sell / trade / Give / loot) */
     if (raw.ammo && typeof raw.ammo === "object" && raw.ammo.type) {
@@ -1070,7 +1070,7 @@
     return { ok: true, item: item };
   }
 
-  /* inv2 (0.3.106): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
+  /* inv2 (0.3.107): Unpack a pack (Trail kit, Claim pack, ...) into its real catalog items. One pack is used up per
      unpack, so nothing is doubled; 5E parts with no catalog row land as one gear note line. */
   function packContents(item) {
     /* 0.3.86: a DM-made pack carries its own contents ([[catalogId, n]]) */
@@ -1088,7 +1088,7 @@
     if (character.inventoryLocked && !opts.dm) return { ok: false, reason: "Inventory is locked." };
     var n = Number(item.count == null ? 1 : item.count) || 0;
     if (n <= 0) return { ok: false, reason: "No item." };
-    /* supplies (0.3.106): the unpacked pack takes the meals already eaten and the water already drunk with it,
+    /* supplies (0.3.107): the unpacked pack takes the meals already eaten and the water already drunk with it,
        so Unpack hands out only the hardtack and water still in the pack */
     var mealsEach = Number(item.meals) || 0, used = Math.max(0, Number(item.mealsUsed) || 0);
     var thisUsed = mealsEach > 0 ? Math.min(used, mealsEach) : 0;
@@ -1144,7 +1144,7 @@
   }
 
   var DEFAULT_ART = { gear: "gear", consumable: "consumable", scroll: "scroll", explosive: "explosive", weapon: "weapon", wondrous: "quest", quest: "quest", story: "quest" };
-  /* 0.3.106 (art batch 1): item slots (Equipment rows, the paper doll) take the 256 square tile: a kept 1200x400 banner or a
+  /* 0.3.107 (art batch 1): item slots (Equipment rows, the paper doll) take the 256 square tile: a kept 1200x400 banner or a
      weapon engraving on an item row maps to its square (item-art.js squareSrc). Wide boxes (Store, DMCC gear table, the
      Equipment-notes strip) don't come through here. */
   function artSrc(item) {
@@ -1355,7 +1355,7 @@
     if (parts.length) line.textContent += " · " + parts.join(" · ");
   }
 
-  /* 0.3.106 Equipment list (Jessey 2026-10-20, mockup approved 5:09 PM): one condensed, game-style list grouped by
+  /* 0.3.107 Equipment list (Jessey 2026-10-20, mockup approved 5:09 PM): one condensed, game-style list grouped by
      category with filter chips. Each row: thumbnail, name + type line, qty, weight, Give (the #109 flow, unchanged),
      and a dropdown with the description and the item's other buttons (Use, Unpack, Wear, Attune, Drop...).
      Weapons come from the gun / melee slots, ammo from the pools, armor / shield / rigs from their slots (worn, no Give). */
@@ -1383,7 +1383,7 @@
     var shelf = item.shelf || (row && row.shelf) || "";
     var tg = tagsOf(item.tags);
     if (item.type === "weapon" || WEAPON_KINDS[k]) return "weapons";
-    /* 0.3.106 (Jessey 9:53 PM): the Borrowed Iron is a soul-bound weapon now (the patron is the focus) */
+    /* 0.3.107 (Jessey 9:53 PM): the Borrowed Iron is a soul-bound weapon now (the patron is the focus) */
     if (item.catalogId === "borrowed-iron") return "weapons";
     if (k === "ammo") return "ammo";
     if (shelf === "Foci" || tg.indexOf("focus") >= 0) return "focus";
@@ -1415,14 +1415,14 @@
     var src = artSrc(item);
     return src && !/\/defaults\//.test(src) ? src : "";
   }
-  /* 0.3.106 (Jessey 2026-10-21 7:47 PM CT, replaces the 9:55 PM / #116 rule): every Equipment row, Weapons rows and the
+  /* 0.3.107 (Jessey 2026-10-21 7:47 PM CT, replaces the 9:55 PM / #116 rule): every Equipment row, Weapons rows and the
      Borrowed Iron included, shows a colour square tile; engravings only on the weapons cards and the paper doll. */
   function ironTile(item, c) {
     var IA = root.SSDNSIronArt;
     if (!IA || !item) return "";
     try {
       /* 0.3.100: unrevealed -> the generic tile, never Hell Maker art left on an old item row */
-      /* 0.3.106 (Jessey 7:47 PM): the Equipment row shows the iron's colour 256 tile (items/borrowed-iron/<slug>.webp), or the
+      /* 0.3.107 (Jessey 7:47 PM): the Equipment row shows the iron's colour 256 tile (items/borrowed-iron/<slug>.webp), or the
          generic 256 tile before a Pact pick; the engraving stays on its card and the doll */
       if (IA.isIronItem ? IA.isIronItem(item) : item.catalogId === "borrowed-iron") {
         var ownIron = IA.safeIronArt ? IA.safeIronArt(realArt(item)) : "";
@@ -1514,16 +1514,16 @@
       var shelfLabel = item.shelf === "Foci" ? "Focus" : item.shelf;
       subBits.push(cat === "weapons" || cat === "use" || cat === "supplies" || cat === "ammo" || !shelfLabel ? (kindLabel === "Gear (other)" ? "Gear" : kindLabel) : shelfLabel);
     }
-    /* 0.3.106 (Jessey 2026-10-21 12:11 PM): the Borrowed Iron is a weapon, labelled by its type from the Pact pick
+    /* 0.3.107 (Jessey 2026-10-21 12:11 PM): the Borrowed Iron is a weapon, labelled by its type from the Pact pick
        ("Borrowed Iron — Lever-action carbine"), not "Tool / kit". Its real name only once the DM reveals it. */
     var IAr = root.SSDNSIronArt, ironRow = !view.blank && IAr && IAr.isIronItem && IAr.isIronItem(item);
     var rowName = view.name;
     if (ironRow) {
       rowName = IAr.labelFor ? IAr.labelFor(c) : view.name;
       var realNm = IAr.nameFor ? IAr.nameFor(c) : "";
-      /* 0.3.106 (4:51 PM): the subtitle leads with the iron's weapon class ("Pact rifle"), else plain "Weapon" */
+      /* 0.3.107 (4:51 PM): the subtitle leads with the iron's weapon class ("Pact rifle"), else plain "Weapon" */
       var klass = IAr.classNameFor ? IAr.classNameFor(c) : "";
-      /* 0.3.106 (Jessey 5:47 PM): the name reads "Butter Repeater — Pact rifle"; "Borrowed Iron" stays on the subtitle */
+      /* 0.3.107 (Jessey 5:47 PM): the name reads "Butter Repeater — Pact rifle"; "Borrowed Iron" stays on the subtitle */
       subBits = realNm ? ["Borrowed Iron", "soul-bound"] : [klass || "Weapon", "soul-bound"];
     }
     if (worn) subBits.push("worn");
@@ -1589,7 +1589,7 @@
         if (g.dirty) sub.push("Dirty");
         if (g.jammed) sub.push("jammed");
         var wt = w && !w.custom ? lbOf(w.weight) : (item ? Number(item.weight) || 0 : 0);
-        /* 0.3.106 (Jessey 2026-10-21 7:47 PM CT: colour square tiles everywhere in the inventory): a slotted gun / melee
+        /* 0.3.107 (Jessey 2026-10-21 7:47 PM CT: colour square tiles everywhere in the inventory): a slotted gun / melee
            weapon's row shows the backing item's own art (Old Henry's Rifle) or the weapon's 256 tile; the 3:1 engraving
            (letterboxed, eq-wide) only when there is no tile. Cards and the doll keep the engravings. */
         var src = "";
@@ -2204,7 +2204,7 @@
     var attuneLine = c && items.some(function (it) { return it && it.attune; })
       ? '<p class="fine attune-line">Attuned ' + attunedCount(c) + " / " + attuneCap(c) + (pend ? " · attuning " + pend + " (finishes on a short rest)" : "") + "</p>" : "";
     var giveBar = root.SSDNSGiveSheet && root.SSDNSGiveSheet.barHtml ? root.SSDNSGiveSheet.barHtml(c) : "";
-    /* 0.3.106 Equipment: chips + category groups; repaint only when something changed (keeps scroll and open rows) */
+    /* 0.3.107 Equipment: chips + category groups; repaint only when something changed (keeps scroll and open rows) */
     var rows = eqRows(c);
     var body = rows.length ? eqChipsHtml(rows) + eqListHtml(rows) : '<p class="fine">No equipment yet. Apply the starting kit, buy from the store, or use Add item.</p>';
     var html = giveBar + attuneLine + body;
@@ -2364,7 +2364,7 @@
   function onSheetClick(e) {
     var t = e.target;
     if (!t || !t.getAttribute) return;
-    /* 0.3.106 Equipment list: chips, row dropdowns, "Open gun card" */
+    /* 0.3.107 Equipment list: chips, row dropdowns, "Open gun card" */
     var chip = t.closest ? t.closest(".eq-chip[data-eq-filter]") : null;
     if (chip) { setFilter(chip.getAttribute("data-eq-filter")); if (chip.getAttribute("data-eq-filter") === "notes") { var ta0 = document.getElementById("taEquip"); if (ta0 && ta0.scrollIntoView) ta0.scrollIntoView({ block: "center" }); } return; }
     var go = t.closest ? t.closest("[data-eq-goto]") : null;

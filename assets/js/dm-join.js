@@ -322,6 +322,9 @@
       cover: c.cover || "",
       coverLock: !!c.coverLock,
       badgeState: c.badgeState || "",
+      /* M5: the DMCC's Starting kit line + Grant full kit button read these */
+      kitMode: c.kitMode || "",
+      kitFull: !!(c.kitGrants && c.kitGrants.full),
       activeConditions: c.activeConditions || [],
       deathSaves: c.deathSaves || { success: [false, false, false], fail: [false, false, false] },
       spellAtk: v.spellAtk || "",
@@ -1257,6 +1260,12 @@
           if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gear:" + (cmd.id || ""), kind: "alert", text: tookLine });
         }
         break;
+      case "kit_grant":
+        /* M5 (Mech PR A): the DM grants the Full kit later (DMCC player card). Same unpack as the wizard's Full kit;
+           nothing the sheet already has is given twice (kits.js grantFull). Runs once per grant id. */
+        if (!claimGrant("kit:" + (payload.grantId || cmd.id || ""))) break;
+        grantFullKit(payload);
+        break;
       case "badge":
         if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
           root.SSDNSApp.applyPatch(function (doc) {
@@ -1265,7 +1274,7 @@
         }
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "Badge set to " + (payload.state || "bright") + "." });
         break;
-      case "iron_reveal": /* 0.3.96 reveal toggle; 0.3.106: no effect on what the sheet shows */
+      case "iron_reveal": /* 0.3.96 reveal toggle; 0.3.107: no effect on what the sheet shows */
         if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
           root.SSDNSApp.applyPatch(function (doc) {
             if (doc.character) doc.character.ironRevealed = payload.on !== false;
@@ -1381,6 +1390,30 @@
     var keys = Object.keys(state.appliedRewards || {});
     if (keys.length > 400) keys.slice(0, keys.length - 300).forEach(function (k) { delete state.appliedRewards[k]; });
     writeStore(appliedKey(), JSON.stringify(state.appliedRewards || {}));
+  }
+  function grantFullKit(payload) {
+    var K = root.SSDNSKits, A = root.SSDNSApp;
+    if (!K || !K.grantFull || !A || !A.applyPatch) return null;
+    var res = null;
+    A.applyPatch(function (d) {
+      if (!d || !d.character) return;
+      res = K.grantFull(d.character);
+      if (res && res.ok && res.es && root.SSDNSBridge && root.SSDNSBridge.breakdown) {
+        var add = root.SSDNSBridge.breakdown(res.es);
+        d.shards = d.shards || {};
+        Object.keys(add).forEach(function (k) { d.shards[k] = (parseInt(d.shards[k], 10) || 0) + add[k]; });
+      }
+    });
+    if (!res) return null;
+    var line = !res.ok ? ("The DM's Full kit didn't land: " + (res.reason || "no calling")) :
+      (res.already ? "The DM granted your Full kit. You already had all of it, so nothing was added." :
+        "The DM granted your Full kit: " + res.added.join(", ") + "." + (res.keptArmor ? " You kept the armor you wear (" + res.keptArmor + " not swapped in)." : ""));
+    if (root.SSDNSItems && root.SSDNSItems.paintSheet) { try { root.SSDNSItems.paintSheet(); } catch (e) {} }
+    if (root.SSDNSDoll && root.SSDNSDoll.paint) { try { root.SSDNSDoll.paint(); } catch (e) {} }
+    if (root.SSDNSPlaytest && root.SSDNSPlaytest.syncSheet) { try { root.SSDNSPlaytest.syncSheet(); } catch (e) {} }
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: line });
+    toast(res.ok ? "Full kit granted." : line);
+    return res;
   }
   function claimGrant(id) {
     if (!id) return true;

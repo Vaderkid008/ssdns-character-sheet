@@ -630,6 +630,7 @@
       "drawer:clean": "clean",
       "drawer:unjam": "unjam",
       "drawer:reopen": "reopen",
+      "drawer:addrounds": "addrounds",
       "drawer:pool": "pool",
       "drawer:tr": "tr",
       "drawer:hex": "hex",

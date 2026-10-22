@@ -1,5 +1,5 @@
 /**
- * UI fixes 1 (0.3.106 / DMCC 0.2.119), Jessey's UI notes of 2026-10-20 / 21:
+ * UI fixes 1 (0.3.107 / DMCC 0.2.120), Jessey's UI notes of 2026-10-20 / 21:
  *   U1 wizard: the dialog no longer scrolls itself (the burnt frame stays put, no dark "bubble"); an inner .wiz-body scrolls
  *   U2 map drawers: padding and a sticky head that stays on top (CSS only, checked by source)
  *   U3 the wizard opens on Module start; Full kit is still offered
@@ -17,6 +17,7 @@ import path from "node:path";
 import vm from "node:vm";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -225,7 +226,8 @@ try {
   }
   /* U8 + U9: DMCC */
   for (const [vp, sfx] of [[{ width: 1400, height: 1000 }, "desktop"], [PHONE, "phone"]]) {
-    const { pg, errs, ctx } = await page("/dm/index.html?fresh=" + Date.now(), vp);
+    const { pg, errs, ctx } = await page(dmccUrl("/dm/index.html?fresh=" + Date.now()), vp);
+    await dmccOffline(pg); /* never the live ssdns-dm-hub database */
     await pg.waitForFunction(() => window.DMCC && document.querySelector("#btnLoadDemo"), { timeout: 25000 });
     await pg.evaluate(() => document.querySelector("#btnLoadDemo").click());
     await pg.waitForFunction(() => window.DMCC.state.demo && Object.keys(window.DMCC.state.players || {}).length, { timeout: 20000 });

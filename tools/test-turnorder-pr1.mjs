@@ -1,5 +1,5 @@
 /**
- * Turn order PR 1 (T1 + T2 + T6; Jessey's rulings 2026-10-21 9:07 PM CT, sheet 0.3.106 / DMCC 0.2.119):
+ * Turn order PR 1 (T1 + T2 + T6; Jessey's rulings 2026-10-21 9:07 PM CT, sheet 0.3.107 / DMCC 0.2.120):
  *   T1 one Next / Roll Initiative / End combat per surface (DMCC Fight tab, map strip); the sheet only has End turn
  *   T2 turn state on table/initiative (seq, turnStarts, undo); a player's markers on players/{uid}/turnMarkers.
  *      Markers come back only at the start of that combatant's OWN turn (reaction too, ruling 5).
@@ -13,6 +13,7 @@ import path from "node:path";
 import vm from "node:vm";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -135,7 +136,8 @@ const visible = (sel, re) => [...document.querySelectorAll(sel)].filter((b) => b
 try {
   /* DMCC: a demo fight with two players and an enemy */
   for (const [vp, sfx] of [[{ width: 1400, height: 1000 }, "desktop"], [{ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, "phone"]]) {
-    const { pg, errs, ctx } = await page("/dm/index.html?fresh=" + Date.now(), vp);
+    const { pg, errs, ctx } = await page(dmccUrl("/dm/index.html?fresh=" + Date.now()), vp);
+    await dmccOffline(pg); /* never the live ssdns-dm-hub database */
     let answer = false; const asked = [];
     pg.on("dialog", (d) => { asked.push(d.message()); if (answer) d.accept(); else d.dismiss(); });
     await pg.waitForFunction(() => window.DMCC && window.DMCCEnhance && window.SSDNSTurn && document.querySelector("#btnLoadDemo"), { timeout: 25000 });

@@ -1,7 +1,9 @@
 /**
  * Starting kits. L0156 (2026-10-17): one weapon per kit, 20 rounds or 10 shells,
  * no fancy guns. A gun Calling may swap that weapon for one Plinker
- * (Revolver or Repeater). The Dullards Light Carbine stays Scout-only.
+ * (Revolver or Repeater). At 1st level only the Frontier Scout and the Lawman can start
+ * with the Dullards Light Carbine (PHB; Mech PR A M6). The Lawman also gets a Cavalry Saber
+ * alongside whichever gun he picks.
  * Or-lines are player choices. Loaded before sheet-playtest.js.
  */
 (function (root) {
@@ -66,12 +68,12 @@
     }
     if (extra) Object.keys(extra).forEach(function (k) { slot[k] = extra[k]; });
   }
-  /* Equipment build (0.3.106, Jessey 2026-10-20): re-applying a kit (the "Apply starting kit" button, or a second
+  /* Equipment build (0.3.107, Jessey 2026-10-20): re-applying a kit (the "Apply starting kit" button, or a second
      apply on a sheet whose kitStamp already matches) never adds countable things again: no ammo, no items, no
      note lines. Weapons were already guarded (putGun / putMelee skip a weapon that is there). */
   var quiet = false;
   var preview = false;
-  /* What kits already gave this sheet (0.3.106): character.kitGrants.ammo {"type|caliber": n} and .items [catalog ids].
+  /* What kits already gave this sheet (0.3.107): character.kitGrants.ammo {"type|caliber": n} and .items [catalog ids].
      A kit applied again never gives the same ammo / item twice, but a new pick (another gun) still gets its own. */
   function grants(c) {
     var g = c.kitGrants && typeof c.kitGrants === "object" ? c.kitGrants : (c.kitGrants = {});
@@ -98,7 +100,7 @@
     }
     pool.count = (parseInt(pool.count, 10) || 0) + count;
   }
-  /* Equipment build (0.3.106): what each kit gear line becomes.
+  /* Equipment build (0.3.107): what each kit gear line becomes.
        items:   real catalog items (Jessey 5:09 PM: Badge = Holy symbol, walking stick / pouches = Druidic focus,
                 Prism = Arcane focus, Galvanic reagents = Hex pouch)
        rig:     a holster / belt slot (rules.js holsters; weighs in through the rig slot, shows as a Worn row)
@@ -136,7 +138,7 @@
     /* L0197 (Jessey 2026-10-20 7:10 PM): the Pact Seeker's Borrowed Iron is a real, soul-bound catalog item */
     "Borrowed Iron (pact focus)": { items: ["borrowed-iron"] }
   };
-  /* Lines added to KIT_LINES after a sheet already ran the 0.3.106 step (equipMigrated 1). Only these are converted
+  /* Lines added to KIT_LINES after a sheet already ran the 0.3.107 step (equipMigrated 1). Only these are converted
      the second time, so nothing else in the notes moves. */
   var MIGRATE_V2 = ["Borrowed Iron (pact focus)"];
   function lineSpec(text) {
@@ -194,10 +196,10 @@
     if (cur.indexOf(text) >= 0) return;
     c.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + "• " + text;
   }
-  /* Saved characters (0.3.106): kit lines already sitting in the Equipment notes become the same items / rigs, and
+  /* Saved characters (0.3.107): kit lines already sitting in the Equipment notes become the same items / rigs, and
      the duplicate ammo / armor / shield lines go. Packs are left alone (they keep their Unpack button). The old notes
      text is kept in character.equipmentBefore0392, so nothing is lost. Runs once (character.equipMigrated). */
-  /* L0197 (0.3.106): equipMigrated 2. A sheet already at 1 converts only the MIGRATE_V2 lines (the exact
+  /* L0197 (0.3.107): equipMigrated 2. A sheet already at 1 converts only the MIGRATE_V2 lines (the exact
      "Borrowed Iron (pact focus)" line PR #113 left in Notes); every other note line stays as it is. Its notes before
      this step are kept in character.equipmentBefore0394. A Pact Seeker with no line still gets the soul-bound item. */
   function migrateEquipment(c) {
@@ -223,7 +225,7 @@
     c.equipment = keep.join("\n");
     return lines.length - keep.length;
   }
-  /* 0.3.106 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus now; the Borrowed Iron item moves out of
+  /* 0.3.107 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus now; the Borrowed Iron item moves out of
      the Focus slot into a free paper-doll weapon slot (character.ironSlot). Only which slot draws it changes: the item,
      its soul-bound rules, borrowedIronAway and the cast block are untouched. No free slot -> ironSlot "" and
      character.ironSlotNote says so (it is still in hand). Runs once per save (character.ironSlotMigrated). */
@@ -477,8 +479,11 @@
       ]}
     ],
     lawman: [
-      { id: "weapon", prompt: "Ball n Cap, or a .410 farm shotgun?", options: withPlinker([
+      /* M6 (Jessey 2026-10-21 7:35 / 7:41 PM): the Lawman picks ONE gun: Ball n Cap, a carbine + 20 Light, or the .410.
+         Ball n Cap stays first, so it is still the default pick and old saves without a pick keep it. */
+      { id: "weapon", prompt: "Ball n Cap, a carbine, or a .410 farm shotgun?", options: withPlinker([
         { id: "revolver", label: "Navy / Army Ball n Cap + 20 loads" },
+        { id: "carbine", label: "Dullards Light Carbine + 20 Light cartridges" },
         { id: "shotgun", label: "Single-Barrel Farm Shotgun, .410 + 10 shells" }
       ])},
       { id: "pack", prompt: "Preacher's kit, or trail kit?", options: [
@@ -588,9 +593,13 @@
       else staff(c);
     } else if (calling === "lawman") {
       if (p.weapon === "shotgun") farm410(c);
+      else if (p.weapon === "carbine") lightGun(c, "dullards-light-carbine");
       else if (p.weapon === "plinker") plinker(c);
       else if (p.weapon === "repeater") plinkerRepeater(c);
       else ballCap(c);
+      /* Mech PR A (Jessey 2026-10-22, reverses the #53 drop): a Cavalry Saber comes with whichever gun.
+         putMelee skips it when the sheet already has one, so an old Lawman sheet never gets a second saber. */
+      putMelee(c, "cavalry-saber-longsword");
     } else if (calling === "frontier-scout") {
       if (p.hunt === "rifle") lightGun(c, "dullards-tube-rifle");
       else if (p.hunt === "bow") longbow(c);
@@ -618,7 +627,7 @@
     }
   }
 
-  /* The same kit again on a sheet from before 0.3.106 (no kitGrants record of what it got): weapons / armor fields only,
+  /* The same kit again on a sheet from before 0.3.107 (no kitGrants record of what it got): weapons / armor fields only,
      nothing countable (no ammo, items or note lines), so nothing doubles. Newer sheets use the kitGrants record instead. */
   function legacyAgain(c, calling) {
     return !preview && !!calling && c.kitStamp === calling && !(c.kitGrants && c.kitGrants.v);
@@ -761,6 +770,107 @@
     return c;
   }
 
+  /* ---- M5 (Mech PR A): the DM grants the Full kit to a Module start character later (DMCC "Grant full kit") ----
+     Same unpack as the wizard's Full kit (apply() above, plus the background's gear line and pouch ES), on the sheet the
+     character already has. Nothing doubles: weapons skip ones already there (putGun / putMelee), ammo and items go
+     through the kitGrants record, note lines skip text already in Equipment, and the pouch ES is paid once.
+     Picks: the wizard's own picks (character.kitPicks, saved from this PR on); an older sheet gets the pick whose weapon
+     it already holds, else the first (default) option. Worn armor the player already has is kept. */
+  function samePicks(p) {
+    var out = {};
+    Object.keys(p || {}).forEach(function (k) { if (k.charAt(0) !== "_" && p[k] != null && p[k] !== "") out[k] = p[k]; });
+    return out;
+  }
+  function weaponsOf(c) {
+    return [].concat(c.guns || [], c.melee || []).map(function (g) { return g && g.weapon; }).filter(Boolean);
+  }
+  function fullKitPicks(c) {
+    var calling = c && c.calling;
+    if (!calling || CALLINGS.indexOf(calling) < 0) return {};
+    var saved = samePicks(c.kitPicks);
+    var have = weaponsOf(c);
+    var all = branches(calling);
+    var fits = all.filter(function (p) {
+      var keys = Object.keys(saved);
+      for (var k = 0; k < keys.length; k++) if (p[keys[k]] != null && p[keys[k]] !== saved[keys[k]]) return false;
+      return true;
+    });
+    if (!fits.length) fits = all;
+    /* the branch whose module-start weapon this sheet already holds (so the grant never adds a second gun) */
+    var held = fits.filter(function (p) {
+      var probe = apply(blankCharacter(), calling, p, { start: "module", preview: true });
+      var want = weaponsOf(probe);
+      return want.length && want.every(function (id) { return have.indexOf(id) >= 0; });
+    })[0];
+    return Object.assign({}, held || fits[0] || {}, saved);
+  }
+  function backgroundGear(c) {
+    var cards = (root.SSDNS_REFCARDS && root.SSDNS_REFCARDS.backgrounds) || [];
+    var card = cards.filter(function (row) { return row && row.id === c.background; })[0];
+    var gear = card && (card.table || []).filter(function (row) { return row && /equipment/i.test(row[0] || ""); })[0];
+    var line = gear && gear[1] ? String(gear[1]) : "";
+    var pouch = line.match(/([\d,]+)\s*ES/);
+    return { line: line, es: pouch ? (parseInt(pouch[1].replace(/,/g, ""), 10) || 0) : 0 };
+  }
+  /** M5: give c the Full kit for its calling. Returns { ok, reason, already, picks, added: [lines], es, keptArmor }.
+      opts.dryRun: work on a copy and only report what would change. */
+  function grantFull(c, opts) {
+    opts = opts || {};
+    if (!c || !c.calling || CALLINGS.indexOf(c.calling) < 0) return { ok: false, reason: "Pick a Calling first." };
+    var target = opts.dryRun ? JSON.parse(JSON.stringify(c)) : c;
+    var before = { weapons: weaponsOf(target), ammo: JSON.stringify(target.ammo || []), items: (target.items || []).map(function (it) { return it && it.name; }),
+      equipment: String(target.equipment || ""), armor: target.armor || "", shield: !!target.shield, holster: target.holster || "", belt: target.belt || "" };
+    var picks = fullKitPicks(target);
+    var g = grants(target);
+    /* a Module start sheet from before kitGrants: record what its module kit already gave, so none of it doubles */
+    if (!g.v) {
+      var probe = apply(blankCharacter(), target.calling, picks, { start: "module" });
+      var pg = probe.kitGrants || {};
+      Object.keys(pg.ammo || {}).forEach(function (k) { if (!g.ammo[k]) g.ammo[k] = pg.ammo[k]; });
+      (pg.items || []).forEach(function (id) { if (g.items.indexOf(id) < 0) g.items.push(id); });
+      g.v = 1;
+    }
+    var keepArmor = before.armor;
+    apply(target, target.calling, picks);
+    var keptArmor = "";
+    if (keepArmor && target.armor !== keepArmor) { keptArmor = target.armor; target.armor = keepArmor; }
+    var bg = backgroundGear(target);
+    var es = 0;
+    if (bg.line) {
+      var cur = target.equipment || "";
+      if (cur.indexOf(bg.line) < 0) target.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + "\u2022 " + bg.line;
+    }
+    if (bg.es && g.es !== target.background && !g.pouchFull) { es = bg.es; g.es = target.background; }
+    g.pouchFull = 1;
+    g.full = 1;
+    target.kitMode = "full";
+    target.kitPicks = samePicks(picks);
+    var added = [];
+    weaponsOf(target).forEach(function (id) { if (before.weapons.indexOf(id) < 0) added.push(weaponLabel(id)); });
+    if (target.armor !== before.armor) added.push("Armor: " + armorName(target.armor));
+    if (target.shield && !before.shield) added.push("Shield");
+    (target.ammo || []).forEach(function (a) {
+      var old = (JSON.parse(before.ammo) || []).filter(function (b) { return b.type === a.type && String(b.caliber || "") === String(a.caliber || ""); })[0];
+      var n = (parseInt(a.count, 10) || 0) - (old ? (parseInt(old.count, 10) || 0) : 0);
+      if (n > 0) added.push(n + " " + a.type + (a.caliber ? " " + a.caliber : ""));
+    });
+    var oldItems = before.items.slice();
+    (target.items || []).forEach(function (it) {
+      if (!it || !it.name) return;
+      var k = oldItems.indexOf(it.name);
+      if (k >= 0) { oldItems.splice(k, 1); return; }
+      added.push(it.name);
+    });
+    String(target.equipment || "").split("\n").forEach(function (line) {
+      var t = line.replace(/^\s*\u2022\s*/, "").trim();
+      if (t && before.equipment.indexOf(t) < 0) added.push(t);
+    });
+    if (target.holster && target.holster !== before.holster) added.push("Holster: " + String(target.holster).replace(/-/g, " "));
+    if (target.belt && target.belt !== before.belt) added.push("Gun belt");
+    if (es) added.push(es + " ES (background pouch)");
+    return { ok: true, picks: target.kitPicks, added: added, es: es, keptArmor: keptArmor ? armorName(keptArmor) : "", already: !added.length };
+  }
+
   var CALLINGS = [
     "tribal-warrior", "storyteller", "frontier-preacher", "nature-guide", "gunslinger",
     "martial-artist", "lawman", "frontier-scout", "gambler", "hexslinger", "pact-seeker", "scholar"
@@ -855,10 +965,11 @@
     describe: describe,
     kitLines: KIT_LINES,
     migrateEquipment: migrateEquipment, migrateIronSlot: migrateIronSlot, stripBedtime: stripBedtime,
-    ensureBorrowedIron: ensureBorrowedIron
+    ensureBorrowedIron: ensureBorrowedIron,
+    grantFull: grantFull, fullKitPicks: fullKitPicks
   };
   root.SSDNSKits = api;
-  /* first boot: app.js migrated the saved sheet before this file loaded, so run the 0.3.106 kit-line step here */
+  /* first boot: app.js migrated the saved sheet before this file loaded, so run the 0.3.107 kit-line step here */
   function bootMigrate() {
     var A = root.SSDNSApp;
     var d = A && A.doc ? A.doc() : null;

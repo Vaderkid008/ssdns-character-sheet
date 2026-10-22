@@ -34,7 +34,7 @@ function ammo(c, type, cal) {
 }
 function hasLine(c, text) {
   if (String(c.equipment || "").indexOf(text) >= 0) return true;
-  /* 0.3.106 Equipment: a line the sheet now shows as a real thing (gun belt / holster rig, ammo pool, worn shield) */
+  /* 0.3.107 Equipment: a line the sheet now shows as a real thing (gun belt / holster rig, ammo pool, worn shield) */
   const spec = (Kits.kitLines || {})[text];
   if (!spec) return false;
   if (spec.rig === "belt") return c.belt === spec.id && c.gunBelt === true;
@@ -151,13 +151,18 @@ const expect = {
     } else if (p.weapon === "repeater") {
       guns.push("dullards-plinker-repeater");
       ammoRow = ["cartridge", "Light", 20];
+    } else if (p.weapon === "carbine") {
+      /* Mech PR A M6 (Jessey 2026-10-21): the Lawman may take the Light carbine + 20 Light */
+      guns.push("dullards-light-carbine");
+      ammoRow = ["cartridge", "Light", 20];
     } else {
       guns.push("navy-army-ball-n-cap-revolver");
       perc = 20;
       lines.splice(1, 0, "Powder, ball, and caps ×20");
     }
     return {
-      melee: [], guns, shield: true, armor: "mail-duster", perc, ammo: ammoRow, lines
+      /* Mech PR A (Jessey 2026-10-22): a Cavalry Saber with whichever gun */
+      melee: ["cavalry-saber-longsword"], guns, shield: true, armor: "mail-duster", perc, ammo: ammoRow, lines
     };
   },
   "frontier-scout": (p) => {
@@ -220,9 +225,9 @@ Kits.callings.forEach((calling) => {
     check(JSON.stringify(guns(c)) === JSON.stringify(want.guns || []), calling + " guns " + JSON.stringify(p) + " → " + JSON.stringify(guns(c)));
     check(JSON.stringify(melee(c)) === JSON.stringify(want.melee || []), calling + " melee " + JSON.stringify(p) + " → " + JSON.stringify(melee(c)));
     const count = guns(c).length + melee(c).length;
-    check(calling === "pact-seeker" ? count === 0 : count === 1, calling + " weapon count " + count);
-    cut.forEach((id) => check(guns(c).indexOf(id) < 0 && melee(c).indexOf(id) < 0, calling + " still has cut weapon " + id));
-    if (calling !== "frontier-scout") check(guns(c).indexOf("dullards-light-carbine") < 0, calling + " took the Scout carbine");
+    check(calling === "pact-seeker" ? count === 0 : (calling === "lawman" ? count === 2 : count === 1), calling + " weapon count " + count);
+    cut.filter((id) => !(calling === "lawman" && id === "cavalry-saber-longsword")).forEach((id) => check(guns(c).indexOf(id) < 0 && melee(c).indexOf(id) < 0, calling + " still has cut weapon " + id));
+    if (calling !== "frontier-scout" && !(calling === "lawman" && p.weapon === "carbine")) check(guns(c).indexOf("dullards-light-carbine") < 0, calling + " took the Scout carbine");
     (want.lines || []).forEach((line) => check(hasLine(c, line), calling + " missing line " + line + " for " + JSON.stringify(p)));
     if (want.armor) check(c.armor === want.armor, calling + " armor " + c.armor);
     if (want.holster) check(c.holster === want.holster, calling + " holster");
@@ -254,7 +259,7 @@ check(gunslingerBranches.some((p) => p.weapon === "tube" && p.armor === "mail"),
 check(gunslingerBranches.some((p) => p.weapon === "revolver" && p.armor === "leather"), "ball n cap and leather branch");
 check(!gunslingerBranches.some((p) => p.side === "twins" || p.irons || p.side === "saber"), "no twin or saber branch");
 const lawman = Kits.apply(Kits.blankCharacter(), "lawman", {});
-check(melee(lawman).length === 0, "lawman starts with no melee");
+check(melee(lawman).join(",") === "cavalry-saber-longsword", "lawman starts with one Cavalry Saber");
 check(guns(lawman).join(",") === "navy-army-ball-n-cap-revolver", "lawman carries one Ball n Cap");
 const mod = Kits.apply(Kits.blankCharacter(), "lawman", { _start: "module" });
 check(mod.badgeState === "dull" && guns(mod).join(",") === "navy-army-ball-n-cap-revolver", "module-start lawman badge is dull and carries one Ball n Cap");

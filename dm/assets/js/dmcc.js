@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.119"; // dmcc-playtest-v02119
+const VERSION = "0.2.120"; // dmcc-playtest-v02120
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2130,6 +2130,7 @@ function openDetail(pid) {
       ${(s.melee || []).map((m) => `<div class="gun-chip"><div>${esc(relabel(m.name))} · melee</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${m.equipped === false ? "1" : "0"}" data-gun-kind="melee" data-gun-i="${m.index}">${m.equipped === false ? "Equip" : "Unequip"}</button></div>`).join("")}
       ${s.focus && s.focus.id ? `<div class="gun-chip"><div>Focus · ${esc(s.focus.id)}${s.focus.carry === "held" ? " · held" : (s.focus.carry === "free" ? " · strapped" : "")}</div><button type="button" class="btn sm" data-gun-op="equip" data-gun-on="${s.focus.equipped === false ? "1" : "0"}" data-gun-kind="focus" data-gun-i="0">${s.focus.equipped === false ? "Equip focus" : "Unequip focus"}</button></div>` : ""}
     </div>
+    ${kitSectionHtml(s)}
     <div class="detail-section"><h3>Equipment</h3><pre>${esc(relabel(s.equipment) || "—")}</pre></div>
     <div class="detail-section"><h3>Features</h3><pre>${esc(relabel(s.features) || "—")}</pre></div>
     <div class="detail-section"><h3>Spells</h3><p>${esc(slotLine(s) || "No shell slots")}${s.spellAtk ? " · attack " + esc(s.spellAtk) : ""}${s.spellDC ? " · DC " + esc(s.spellDC) : ""}</p><pre>${esc(spellTxt)}</pre></div>
@@ -2214,7 +2215,9 @@ function openDetail(pid) {
       else if (op === "merchant") applyDemoGun(pid, payload);
     });
   });
-  /* 0.3.106 (Jessey 2026-10-21 5:47 PM): the Reveal toggle is gone; the player sees the real iron from the Pact pick */
+  const kitBtn = $("#btnGrantFullKit");
+  if (kitBtn) kitBtn.addEventListener("click", () => grantFullKit(pid));
+  /* 0.3.107 (Jessey 2026-10-21 5:47 PM): the Reveal toggle is gone; the player sees the real iron from the Pact pick */
   const badgeSel = $("#dmBadge");
   if (badgeSel) badgeSel.value = s.badgeState || "dull";
   const badgeBtn = $("#btnDmBadge");
@@ -2229,7 +2232,36 @@ function openDetail(pid) {
   $("#detailOverlay").hidden = false;
 }
 
-/* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.106: no Reveal toggle (the player sees it too). */
+/* M5 (Mech PR A): new characters start on Module start; the DM grants the Full kit later from the player card.
+   The sheet does the unpack (kits.js grantFull, dm-join "kit_grant"), so nothing it already has doubles. */
+function kitSectionHtml(s) {
+  if (!s || !(s.callingId || s.calling)) return "";
+  const full = s.kitMode === "full" || s.kitFull;
+  const now = s.kitFull ? "Full kit (granted by the DM)" : (s.kitMode === "full" ? "Full kit" : (s.kitMode === "module" ? "Module start" : "Not recorded"));
+  return `<div class="detail-section kit-grant"><h3>Starting kit</h3>
+    <p>Kit: <b>${esc(now)}</b></p>
+    <button type="button" class="btn sm" id="btnGrantFullKit">${full ? "Grant full kit again" : "Grant full kit"}</button>
+    <p class="fine">Gives the Full kit for their calling (armor, pack, kit gear, background gear and pouch ES). Anything they already have isn't given twice.</p>
+  </div>`;
+}
+async function grantFullKit(pid) {
+  const p = state.players && state.players[pid];
+  if (!p) return false;
+  const s = p.snapshot || {};
+  const who = s.name || s.player || pid;
+  const full = s.kitMode === "full" || s.kitFull;
+  const msg = "Gives " + who + " the Full kit for " + (s.calling || "their calling") + ". Their Module start gear stays, and nothing they already have is given twice." +
+    (full ? " Their sheet says they already have the Full kit, so this may add nothing." : "");
+  const ask = await askText("Grant the Full kit to " + who + "?", msg);
+  if (!ask) return false;
+  const grantId = "kit-" + pid + "-" + Date.now().toString(36);
+  await pushCommand({ type: "kit_grant", to: pid, payload: { mode: "full", grantId: grantId }, from: state.uid });
+  postDmAction("DM granted the Full kit to " + who + ".", pid);
+  if (state.demo && s) { s.kitMode = "full"; s.kitFull = true; renderPlayers(); }
+  toast("Full kit sent to " + who + ".");
+  return true;
+}
+/* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.107: no Reveal toggle (the player sees it too). */
 function ironSectionHtml(s) {
   const IA = window.SSDNSIronArt;
   if (!IA || !s || (s.callingId || s.calling) !== "pact-seeker") return "";

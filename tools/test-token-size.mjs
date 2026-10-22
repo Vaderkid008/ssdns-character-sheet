@@ -10,6 +10,7 @@ import path from "node:path";
 import net from "node:net";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -119,7 +120,8 @@ else {
     const pg = await browser.newPage(); const errs = [];
     pg.on("pageerror", (e) => errs.push(String(e)));
     await pg.setViewport({ width: 1600, height: 1100 });
-    await pg.goto(ORIGIN + "/dm/index.html", { waitUntil: "domcontentloaded" });
+    await pg.goto(ORIGIN + dmccUrl("/dm/index.html"), { waitUntil: "domcontentloaded" });
+    await dmccOffline(pg); /* never the live ssdns-dm-hub database */
     await pg.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => /load demo table/i.test(b.textContent)), { timeout: 25000 });
     await sleep(1500);
     await pg.evaluate(() => [...document.querySelectorAll("button")].find((b) => /load demo table/i.test(b.textContent)).click());

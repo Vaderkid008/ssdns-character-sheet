@@ -23,7 +23,7 @@ const appSrc = read("assets/js/app.js");
 const joinSrc = read("assets/js/dm-join.js");
 const v2 = read("dm/assets/js/v2.js");
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.106" && version.dmcc === "0.2.119");
+check("ver.sheet", version.sheet === "0.3.107" && version.dmcc === "0.2.120");
 check("src.player", mapSrc.includes('data-act="playerClean"') && mapSrc.includes("cleanControl"));
 check("src.dm", mapSrc.includes('data-act="rowClean"') && mapSrc.includes("drawer:clean"));
 check("src.same", hostSrc.includes("SSDNSApp.cleanGun") || hostSrc.includes("root.SSDNSApp && root.SSDNSApp.cleanGun"));
@@ -245,7 +245,8 @@ dmKind = "enemy";
 dm.refreshCard("jolene");
 await flush(10);
 drawer = dmEl.querySelector("[data-act=drawer]");
-check("dm.enemyHidden", drawer && !drawer.querySelector("[data-act=rowClean]"));
+/* Mech PR A M2 (Jessey 2026-10-21): the DM cleans enemy / NPC guns from the token too */
+check("dm.enemyShowsClean", drawer && !!drawer.querySelector("[data-act=rowClean]"));
 dm.destroy();
 if (window.SSDNSMapHost && window.SSDNSMapHost.destroy) window.SSDNSMapHost.destroy();
 dom.window.close();

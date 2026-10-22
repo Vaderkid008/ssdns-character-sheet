@@ -571,7 +571,7 @@
     var name = String(item.name || "Item");
     var plan = root.SSDNSStore && root.SSDNSStore.grantPlan ? root.SSDNSStore.grantPlan(item) : { kind: "gear", qty: 1 };
     if (plan.kind === "cartridge" || plan.kind === "ammo") {
-      /* inv2 (0.3.106): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
+      /* inv2 (0.3.107): arrows, bolts, sling stones, needles, powder & caps and shells fill their Ammo pool too */
       var ptype = plan.kind === "ammo" ? String(plan.type || "") : "cartridge";
       d.character.ammo = d.character.ammo || [];
       var pool = null;
@@ -1944,6 +1944,13 @@
     g.drawn = true;
     return "";
   }
+  /* M1 (Mech PR A): the misfire text for the round that actually fired. The card re-renders right after spendRound,
+     so it already shows the NEXT round; read the spent round's own value (same rule the card badge uses). */
+  function spentMisfireText(i, spent, misEl) {
+    var A = root.SSDNSApp;
+    if (spent && spent.was && A && A.misfireTextFor) { var t = A.misfireTextFor(i, spent.was); if (t) return t; }
+    return misEl && misEl.textContent;
+  }
   function rollGun(i, chamber) {
     if (chamber != null) rollGun._chamber = chamber;
     /* 0.3.61: a shot the DM sent while acting for this player. The DM already picked the target and the
@@ -2070,7 +2077,7 @@
     /* SAMPLE trackers: misfire is firearms only (a bow, crossbow, sling or thrown weapon never misfires) */
     var mfW = root.SSDNSApp.isFirearm ? (catalogWeapon(g.weapon) || (root.SSDNSTrackers && root.SSDNSTrackers.weapon ? root.SSDNSTrackers.weapon(g.weapon) : null)) : null;
     var ceiling = (root.SSDNSApp.isFirearm && mfW && !root.SSDNSApp.isFirearm(mfW)) ? 0 : (root.SSDNSApp.misfireCeiling
-      ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
+      ? root.SSDNSApp.misfireCeiling(spentMisfireText(i, spent, misEl), !!g.dirty)
       : 1);
     /* L0200: a Big Fifty .50-90 round fired from a Caster Gun misfires on 1-5 */
     if (ceiling > 0 && root.SSDNSCasterRules) ceiling = root.SSDNSCasterRules.misfireCeiling(mfW || catalogWeapon(g.weapon), g, spent && spent.was, ceiling);
@@ -2173,6 +2180,9 @@
     var haveAc = !!(gunCover && gunCover.have);
     var dmgEl = document.querySelector('[data-calc="gunDmg.' + i + '"]');
     var dmgExpr = dmgEl && dmgEl.value;
+    /* M1: a Caster Gun's damage follows the round that just fired (the card already shows the next one) */
+    var spentStat = spent && spent.was && root.SSDNSApp && root.SSDNSApp.gunStatsFor ? root.SSDNSApp.gunStatsFor(i, spent.was) : null;
+    if (spentStat && spentStat.loadedRound && spentStat.dmg) dmgExpr = spentStat.dmg;
     if (OH && OH.stripMod) dmgExpr = OH.stripMod(dmgExpr, OH.abilityMod(ch(), "gun", i));
     /* L0196: the arrow that flew decides the base die (Whistler 1d4), even if the card re-rendered after the last one left */
     if (spent && spent.arrow && root.SSDNSTrackers && root.SSDNSTrackers.arrowDieExpr) dmgExpr = root.SSDNSTrackers.arrowDieExpr(dmgExpr, spent.arrow);
@@ -2352,7 +2362,7 @@
     /* SAMPLE trackers: misfire is firearms only (a bow, crossbow, sling or thrown weapon never misfires) */
     var mfW = root.SSDNSApp.isFirearm ? (catalogWeapon(g.weapon) || (root.SSDNSTrackers && root.SSDNSTrackers.weapon ? root.SSDNSTrackers.weapon(g.weapon) : null)) : null;
     var ceiling = (root.SSDNSApp.isFirearm && mfW && !root.SSDNSApp.isFirearm(mfW)) ? 0 : (root.SSDNSApp.misfireCeiling
-      ? root.SSDNSApp.misfireCeiling(misEl && misEl.textContent, !!g.dirty)
+      ? root.SSDNSApp.misfireCeiling(spentMisfireText(i, spent, misEl), !!g.dirty)
       : 1);
     /* L0200: a Big Fifty .50-90 round fired from a Caster Gun misfires on 1-5 */
     if (ceiling > 0 && root.SSDNSCasterRules) ceiling = root.SSDNSCasterRules.misfireCeiling(mfW || catalogWeapon(g.weapon), g, spent && spent.was, ceiling);
