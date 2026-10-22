@@ -1722,7 +1722,8 @@ function hitApplyButton(r) {
   if (window.SSDNSApplied && window.SSDNSApplied.undone && window.SSDNSApplied.undone(roomCode, r.id)) {
     return `<span class="fine">Undone</span>`;
   }
-  const outOfTurn = rollOutOfTurn(r);
+  /* typeof guard: some tests lift this function out on its own */
+  const outOfTurn = typeof rollOutOfTurn === "function" ? rollOutOfTurn(r) : !!r.outOfTurn;
   const gated = Object.assign({}, r, { outOfTurn: outOfTurn });
   if (window.SSDNSApplied && window.SSDNSApplied.showHitApply && !window.SSDNSApplied.showHitApply(gated)) return "";
   if (!window.SSDNSApplied && !heal && !r.targetId && !name) return "";

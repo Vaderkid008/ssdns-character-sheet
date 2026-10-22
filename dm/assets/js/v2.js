@@ -4953,6 +4953,7 @@ async function clearCombatConditions() {
 async function endCombat() {
   const choice = await askEndCombat();
   if (!choice || !choice.ok) { DM.toast("Declined ending combat."); return; }
+  if (window.SSDNSTurn) window.SSDNSTurn.clearTurnState(fight);
   fight.recruit = false;
   if (choice.clear) await clearCombatConditions();
   fight.order = [];
@@ -4960,7 +4961,6 @@ async function endCombat() {
   fight.turnCmd = null;
   fight.round = 1;
   fight.turn = 0;
-  if (window.SSDNSTurn) window.SSDNSTurn.clearTurnState(fight);
   const sent = $("#turnSent");
   if (sent) sent.textContent = "";
   await saveRemoteTable();
