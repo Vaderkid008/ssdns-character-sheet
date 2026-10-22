@@ -1090,9 +1090,11 @@
       if (!pool) { pool = { type: type, caliber: plan.caliber || "", count: 0 }; c.ammo.push(pool); }
       pool.count = (parseInt(pool.count, 10) || 0) + n;
     });
-    var label = n + " " + (plan.caliber ? plan.caliber + " " : "") + (type === "cartridge" ? "cartridges" : type);
+    var WORD = { bigfifty: "Big Fifty rounds", buck: "buckshot shells", slug: "slug shells", percussion: "powder, ball & cap shots", arrows: "arrows", bolts: "crossbow bolts", stones: "sling stones", needles: "blowpipe needles" };
+    var cal = plan.caliber && !(type === "bigfifty") ? plan.caliber + " " : "";
+    var label = n + " " + cal + (type === "cartridge" ? "cartridges" : (WORD[type] || type)) + (type === "bigfifty" ? " (.50-90)" : "");
     toast("DM sent " + label + " (Ammo)");
-    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Ammo: " + label });
+    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "item:" + (payload.grantId || cmd.id || ""), kind: "item", text: "Ammo: " + label + (payload.reason ? " (" + payload.reason + ")" : "") });
     return true;
   }
   function undoTyped(grantId) {
@@ -1112,7 +1114,133 @@
     return hit;
   }
 
+  /* ---- Give tab rework (sheet 0.3.108 / DMCC 0.2.121) ----
+     Every DM give (reward_item / reward_es / kit_grant) is remembered as what it changed on this sheet (item counts,
+     Ammo pools, weapon slots), so the DMCC's per-give Undo takes back exactly that, and the sheet writes a small
+     ack at players/<uid>/grantAcks/<grant id> (the player's own node, like handoutAck) so the DMCC can show a check. */
+  function grantStoreKey() { return "grants." + (((doc() || {}).id) || "local") + "." + (state.roomCode || "none"); }
+  function loadGrants() { try { var g = JSON.parse(readStore(grantStoreKey()) || "{}"); return g && typeof g === "object" ? g : {}; } catch (e) { return {}; } }
+  function saveGrants(g) {
+    var keys = Object.keys(g);
+    if (keys.length > 80) keys.sort(function (a, b) { return (g[a].ts || 0) - (g[b].ts || 0); }).slice(0, keys.length - 60).forEach(function (k) { delete g[k]; });
+    writeStore(grantStoreKey(), JSON.stringify(g));
+  }
+  function ammoKeyOf(a) { return String(a.type || "") + "|" + String(a.caliber || "").trim().toLowerCase(); }
+  function grantShape() {
+    var d = doc(), c = d && d.character;
+    if (!c) return null;
+    var items = {};
+    (c.items || []).forEach(function (it) { if (it && it.uid) items[it.uid] = it.count == null ? 1 : (Number(it.count) || 0); });
+    var ammo = {};
+    (c.ammo || []).forEach(function (a) { if (a && a.type) ammo[ammoKeyOf(a)] = (ammo[ammoKeyOf(a)] || 0) + (parseInt(a.count, 10) || 0); });
+    return { items: items, ammo: ammo, guns: (c.guns || []).map(function (g) { return (g && g.weapon) || ""; }), melee: (c.melee || []).map(function (m) { return (m && m.weapon) || ""; }), equipment: String(c.equipment || "") };
+  }
+  function grantDiff(a, b) {
+    if (!a || !b) return null;
+    var out = { items: {}, ammo: {}, guns: [], melee: [], line: "" }, any = false;
+    Object.keys(b.items).forEach(function (uid) { var n = b.items[uid] - (a.items[uid] || 0); if (n > 0) { out.items[uid] = n; any = true; } });
+    Object.keys(b.ammo).forEach(function (k) { var n = b.ammo[k] - (a.ammo[k] || 0); if (n > 0) { out.ammo[k] = n; any = true; } });
+    b.guns.forEach(function (w, i) { if (w && w !== a.guns[i]) { out.guns.push({ i: i, w: w }); any = true; } });
+    b.melee.forEach(function (w, i) { if (w && w !== a.melee[i]) { out.melee.push({ i: i, w: w }); any = true; } });
+    if (b.equipment.length > a.equipment.length && b.equipment.indexOf(a.equipment) === 0) { out.line = b.equipment.slice(a.equipment.length).replace(/^\n+/, ""); if (out.line) any = true; }
+    return any ? out : null;
+  }
+  /** Take back exactly what one DM give added. true when this sheet had a record of it. */
+  function undoGrant(grantId) {
+    var g = loadGrants(), rec = g[grantId];
+    var A = root.SSDNSApp;
+    if (!rec || !rec.diff || !A || !A.applyPatch) return false;
+    var diff = rec.diff, took = [];
+    A.applyPatch(function (d) {
+      var c = d.character;
+      if (!c) return;
+      var list = c.items || [];
+      Object.keys(diff.items || {}).forEach(function (uid) {
+        for (var i = list.length - 1; i >= 0; i--) {
+          var it = list[i];
+          if (!it || it.uid !== uid) continue;
+          var left = (it.count == null ? 1 : Number(it.count) || 0) - diff.items[uid];
+          if (left > 0) it.count = left;
+          else {
+            if (it.equipSlot && root.SSDNSDoll && root.SSDNSDoll.equip) root.SSDNSDoll.equip(c, it.equipSlot, "");
+            list.splice(i, 1);
+          }
+          took.push(it.name || "item");
+          break;
+        }
+      });
+      Object.keys(diff.ammo || {}).forEach(function (k) {
+        var need = diff.ammo[k];
+        (c.ammo || []).forEach(function (a) {
+          if (need <= 0 || !a || ammoKeyOf(a) !== k) return;
+          var have = parseInt(a.count, 10) || 0, n = Math.min(have, need);
+          a.count = have - n; need -= n;
+        });
+        took.push(diff.ammo[k] + " rounds");
+      });
+      (diff.guns || []).forEach(function (x) {
+        var sl = (c.guns || [])[x.i];
+        if (sl && sl.weapon === x.w) { c.guns[x.i] = { weapon: "", tier: "", chamber: "", mod: "", engraving: false, capacity: "", load: "buck", loaded: 0, chambers: [], proficient: false, jammed: false, cracked: false, fouled: false, dirty: false }; took.push(x.w); }
+      });
+      (diff.melee || []).forEach(function (x) {
+        var sl = (c.melee || [])[x.i];
+        if (sl && sl.weapon === x.w) { c.melee[x.i] = { weapon: "", proficient: false }; took.push(x.w); }
+      });
+      if (diff.line) {
+        var eq = String(c.equipment || ""), at = eq.lastIndexOf(diff.line);
+        if (at >= 0) { c.equipment = (eq.slice(0, at) + eq.slice(at + diff.line.length)).replace(/\n{2,}/g, "\n").replace(/^\n+|\n+$/g, ""); took.push("a gear line"); var ta = document.querySelector('[data-f="character.equipment"]'); if (ta) ta.value = c.equipment; }
+      }
+    });
+    delete g[grantId];
+    saveGrants(g);
+    if (root.SSDNSItems && root.SSDNSItems.paintSheet) { try { root.SSDNSItems.paintSheet(); } catch (e) {} }
+    if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "undo:" + grantId, kind: "item", text: "The DM took back " + (rec.text || "a give") + "." });
+    toast("The DM took back " + (rec.text || "a give"));
+    publishSnapshot();
+    return true;
+  }
+  function ackGrant(id, kind, ok) {
+    if (!id || !state.joined || state.left || !state.db || !state.uid || !state._fb) return;
+    var key = String(id).replace(/[.#$\[\]\/]/g, "_");
+    var row = {}; row[key] = { ok: ok !== false, kind: kind || "", ts: new Date().toISOString() };
+    var fb = state._fb;
+    fb.update(fb.ref(state.db, roomPath("players/" + state.uid + "/grantAcks")), row).catch(function () {});
+  }
   function handleCommand(cmd) {
+    cmd = cmd || {};
+    var payload = cmd.payload || {};
+    var gid = payload.grantId || cmd.id || "";
+    var pre = cmd.type === "reward_item" ? grantShape() : null;
+    var undone = false;
+    if (cmd.type === "undo_item" && payload.grantId) {
+      if (!claimGrant("undo:" + payload.grantId)) { ackGrant(payload.undoId || ("undo_" + payload.grantId), "undo", true); return; }
+      undone = undoGrant(payload.grantId);
+      if (undone) { ackGrant(payload.undoId || ("undo_" + payload.grantId), "undo", true); return; }
+      /* a new-style undo (undoId) for a give this sheet never got: nothing to take back (no guessing at old lines) */
+      if (payload.undoId && !(state.appliedRewards && state.appliedRewards["item:" + payload.grantId])) {
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "undo:" + payload.grantId, kind: "alert", text: "The DM undid a give that never reached this sheet." });
+        ackGrant(payload.undoId, "undo", true);
+        return;
+      }
+    }
+    handleCommandInner(cmd);
+    if (cmd.type === "reward_item" && gid) {
+      var diff = grantDiff(pre, grantShape());
+      if (diff) {
+        var g = loadGrants();
+        g[gid] = { ts: Date.now(), diff: diff, text: String(payload.text || "").replace(/^\s*(\d+)\s*x\s+/i, "$1 ") };
+        saveGrants(g);
+      }
+      ackGrant(gid, "item", !!(state.appliedRewards && state.appliedRewards["item:" + gid]));
+    } else if (cmd.type === "reward_es" && gid) {
+      ackGrant(gid, "es", !!(state.appliedRewards && state.appliedRewards["es:" + gid]));
+    } else if (cmd.type === "kit_grant" && gid) {
+      ackGrant(gid, "kit", !!(state.appliedRewards && state.appliedRewards["kit:" + gid]));
+    } else if (cmd.type === "undo_item" && payload.grantId) {
+      ackGrant(payload.undoId || ("undo_" + payload.grantId), "undo", true);
+    }
+  }
+  function handleCommandInner(cmd) {
     var payload = cmd.payload || {};
     switch (cmd.type) {
       case "init_prompt":
@@ -1459,9 +1587,11 @@
       syncShardFields(w.shards);
       var neu = Bridge.cpValue(d.shards);
       state.lastEs = neu;
-      toast(label ? label + ": " + (delta >= 0 ? "+" : "") + delta + " ES" : "DM " + (delta >= 0 ? "granted +" : "took ") + Math.abs(delta) + " ES");
+      toast(label ? label + ": " + (delta >= 0 ? "+" : "") + delta + " ES" : "DM " + (delta >= 0 ? "granted +" : "took ") + Math.abs(delta) + " ES" + (reason && reason !== "DM reward" ? " (" + reason + ")" : ""));
       if (root.SSDNSAudio) root.SSDNSAudio.play("reward");
-      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: id ? "es:" + id : "", kind: "es", text: (label ? label + " " : "DM ") + (delta >= 0 ? "+" : "") + delta + " ES" });
+      /* Give tab fix 10: the log keeps the DM's reason, "DM +25 ES (Bounty)" */
+      var why = !label && reason && reason !== "DM reward" ? " (" + reason + ")" : "";
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: id ? "es:" + id : "", kind: "es", text: (label ? label + " " : "DM ") + (delta >= 0 ? "+" : "") + delta + " ES" + why });
       publishSnapshot();
       return true;
     } finally {

@@ -263,26 +263,69 @@
     return STORE_ORDER.filter(function (id) { return seen[id]; });
   }
 
+  /* Give tab fix 13 (2026-10-22): every caliber the guns use, so a typed round lands in the pool that gun reads
+     (cartridges: the Light / Medium / Heavy tier pool; .50-90: the Big Fifty pool). Tiers match rules.js rounds. */
+  var CARTRIDGE_CALIBERS = [
+    [".22 LR", "Light"], [".32 Long", "Light"], [".32 rimfire", "Light"], [".44 rimfire", "Light"],
+    [".357", "Medium"], [".44-40", "Medium"], [".45 Long", "Heavy"], [".45-70", "Heavy"]
+  ];
+  function calRe(cal) { return new RegExp("(^|[^0-9a-z])" + cal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s*") + "(?![0-9a-z])", "i"); }
+  function caliberTier(name) {
+    for (var i = 0; i < CARTRIDGE_CALIBERS.length; i++) if (calRe(CARTRIDGE_CALIBERS[i][0]).test(name)) return CARTRIDGE_CALIBERS[i][1];
+    return "";
+  }
+  function calOnly(cal, bare) {
+    var esc = cal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s*");
+    return new RegExp("^" + esc + "(\\s+(rimfire|rounds?|cartridges?|ammo|bullets?))*$", "i").test(String(bare || "").trim());
+  }
+  var AMMO_WORD = /\b(rounds?|cartridges?|ammo|ammunition|bullets?)\b/i;
+  /* "20 Light cartridges" / "12 Big Fifty": a leading count is the quantity (not "10 ga" / "12 gauge") */
+  function leadQty(name) {
+    var m = /^\s*(\d+)(?:\s*x)?\s+(?!(?:ga|gauge)\b)(\S.*)$/i.exec(String(name || ""));
+    return m ? { qty: parseInt(m[1], 10), rest: m[2] } : null;
+  }
   function grantPlan(item) {
     item = item || {};
     if (item.id && AMMO_BY_ID[item.id]) return Object.assign({}, AMMO_BY_ID[item.id]);
     var name = String(item.name || "");
+    var lead = leadQty(name);
+    if (lead) name = lead.rest;
+    var qty0 = item.qty || trailingQty(name) || (lead && lead.qty) || 1;
+    var bare = name.replace(/\(\d+\b[^)]*\)\s*$/, "").replace(/[,\s]+$/, "").trim();
+    /* Big Fifty rounds by name alone: "Big Fifty", ".50-90", "Big Fifty rounds" (never the Big Fifty rifle itself) */
+    if (/^(big\s*fifty|\.50-90)(\s+(\.50-90|rounds?|cartridges?|ammo))*$/i.test(bare) || (/\.50-90|big\s*fifty/i.test(name) && AMMO_WORD.test(name) && !/rifle|carbine|gun/i.test(name))) {
+      return { kind: "ammo", type: "bigfifty", caliber: ".50-90", qty: qty0 };
+    }
     if (/cartridge/i.test(name) && !/belt|strap|loop/i.test(name)) {
-      var qty = item.qty || trailingQty(name) || 1;
+      var qty = qty0;
       if (/\.50-90|big fifty/i.test(name)) return { kind: "ammo", type: "bigfifty", caliber: ".50-90", qty: qty };
-      var caliber = "Light";
+      var caliber = caliberTier(name) || "Light";
       if (/heavy/i.test(name)) caliber = "Heavy";
       else if (/medium/i.test(name)) caliber = "Medium";
+      else if (/light/i.test(name)) caliber = "Light";
       return { kind: "cartridge", caliber: caliber, qty: qty };
     }
+    /* a caliber on its own (".44 rimfire", ".45-70 rounds"), never a gun named after its round */
+    var tierOf = caliberTier(name);
+    if (tierOf && !/rifle|carbine|revolver|pistol|derringer|pepperbox|repeater|shotgun|chaosmaker|plinker|musket|gun\b/i.test(name)) {
+      var only = CARTRIDGE_CALIBERS.some(function (c) { return calOnly(c[0], bare); });
+      if (only || AMMO_WORD.test(name)) return { kind: "cartridge", caliber: tierOf, qty: qty0 };
+    }
+    /* shells with no gauge ("Buckshot", "Slugs"): the 12 ga pool, the common gauge (the Give tab's Ammo list names it) */
+    if (/^(buck\s*shot|buckshot shells?|shotgun shells?|shells?)$/i.test(bare)) return { kind: "ammo", type: "buck", caliber: "12 ga", qty: qty0 };
+    if (/^(slugs?|slug shells?)$/i.test(bare)) return { kind: "ammo", type: "slug", caliber: "12 ga", qty: qty0 };
+    /* "Percussion caps", "Caps", "Ball n cap", "Powder and ball": the cap & ball pool */
+    if (/^(percussion\s+caps?|caps|cap\s*(and|&|n)\s*ball|ball\s*(and|&|n'?)\s*caps?|powder\s*(and|&)\s*ball|powder,?\s*ball,?\s*(and|&)\s*caps?)(\s+\(.*\))?$/i.test(bare)) {
+      return { kind: "ammo", type: "percussion", caliber: "", qty: qty0 };
+    }
     /* shells by name: "slug" in the name fills the slug pool, other shells the buckshot pool */
-    var ga = /\.410|12\s*ga|10\s*ga/i.exec(name);
+    var ga = /\.410|12\s*(ga|gauge)\b|10\s*(ga|gauge)\b/i.exec(name);
     if (/shell|slug|buckshot/i.test(name) && ga) {
       var gauge = /410/.test(ga[0]) ? ".410" : (/12/.test(ga[0]) ? "12 ga" : "10 ga");
-      return { kind: "ammo", type: /slug/i.test(name) ? "slug" : "buck", caliber: gauge, qty: item.qty || trailingQty(name) || 1 };
+      return { kind: "ammo", type: /slug/i.test(name) ? "slug" : "buck", caliber: gauge, qty: qty0 };
     }
     for (var k = 0; k < AMMO_BY_NAME.length; k++) {
-      if (AMMO_BY_NAME[k][0].test(name)) return { kind: "ammo", type: AMMO_BY_NAME[k][1], caliber: AMMO_BY_NAME[k][2], qty: item.qty || trailingQty(name) || 1 };
+      if (AMMO_BY_NAME[k][0].test(name)) return { kind: "ammo", type: AMMO_BY_NAME[k][1], caliber: AMMO_BY_NAME[k][2], qty: qty0 };
     }
     return { kind: "gear", qty: item.qty || 1 };
   }
@@ -311,6 +354,8 @@
     pricedLines: pricedLines,
     townStores: townStores,
     playerTabs: playerTabs,
-    grantPlan: grantPlan
+    grantPlan: grantPlan,
+    CARTRIDGE_CALIBERS: CARTRIDGE_CALIBERS,
+    caliberTier: caliberTier
   };
 })(typeof window !== "undefined" ? window : globalThis);

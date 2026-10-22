@@ -119,8 +119,12 @@
       if (giving[it.uid]) tags.push("offered to " + giving[it.uid].to);
       return "<tr><td>" + esc(it.name) + (n > 1 ? " ×" + n : "") + (tags.length ? ' <span class="fine">' + esc(tags.join(" · ")) + "</span>" : "") + '</td><td class="num">' + esc(w) + "</td></tr>";
     }).join("");
+    /* Give tab fix 11 (0.2.121): the Ammo pools as their own table, with the guns each one fits */
+    var GT = root.SSDNSGiveTab && root.SSDNSGiveTab.pure;
     var ammo = (s.ammo || []).filter(function (a) { return a && a.type && Number(a.count) > 0; }).map(function (a) {
-      return "<li>" + esc(G.ammoLabel(a)) + " " + esc(a.count) + "</li>";
+      var o = GT ? GT.ammoCatalog().filter(function (x) { return GT.samePool(a, x); })[0] : null;
+      var fits = o ? (s.guns || []).filter(function (g) { return g && g.name && GT.gunKeys(g).indexOf(o.key) >= 0; }).map(function (g) { return g.name; }) : [];
+      return '<tr data-ammo-pool="' + esc(a.type + "|" + (a.caliber || "")) + '"><td>' + esc(o ? o.label : G.ammoLabel(a)) + (fits.length ? ' <span class="fine">fits ' + esc(fits.join(", ")) + "</span>" : "") + '</td><td class="num">' + esc(a.count) + "</td></tr>";
     }).join("");
     var carry = s.carry || null;
     var slotGive = {};
@@ -139,7 +143,7 @@
       (carry ? " · carried " + esc(lb(carry.carried)) + " / " + esc(lb(carry.capacity)) + (carry.over ? ' <span class="badge warn">over</span>' : "") + (carry.on ? "" : ' <span class="fine">(weight rule off)</span>') : "") +
       (s.inventoryLocked ? ' · <span class="badge warn">locked</span>' : "") + "</p>" +
       (items.length ? '<table class="rew-inv-items"><tbody>' + rows + "</tbody></table>" : '<p class="fine">No items.</p>') +
-      (ammo ? '<p class="fine">Ammo</p><ul class="rew-inv-ammo">' + ammo + "</ul>" : '<p class="fine">No ammo.</p>') +
+      '<p class="fine rew-inv-h">Ammo pools</p>' + (ammo ? '<table class="rew-inv-items rew-inv-ammo"><tbody>' + ammo + "</tbody></table>" : '<p class="fine">No ammo.</p>') +
       (guns || melee ? '<p class="fine">Weapons: ' + [guns, melee].filter(Boolean).join(" · ") + "</p>" : "");
   }
   function paintInv() {

@@ -1763,11 +1763,22 @@
     var R = root.SSDNS_RULES || {}, low = normName(raw);
     var lists = [].concat(R.firearms || [], R.casterGuns || [], R.otherRanged || [], R.melee || []);
     var w = lists.filter(function (x) { return x && (normName(x.id) === low || normName(x.name) === low); })[0];
+    /* Give tab fix 13: plain names find their weapon ("Bowie" / "Bowie knife" = Bowie (shortsword)) */
+    if (!w) w = lists.filter(function (x) { return x && weaponAliases(x).indexOf(low) >= 0; })[0];
     if (w) {
       var gun = !!(w.tiers || /^(pistol|rifle|carbine|shotgun|bigbore|caster)$/.test(String(w.group || "")));
       return { kind: "weapon", label: w.name + (gun ? " (gun card)" : " (weapon)"), id: w.id, firearm: gun };
     }
     return { kind: "" };
+  }
+  /* "Bowie (shortsword)" → "bowie", "bowie knife"; "Stiletto (dagger)" → "stiletto", "stiletto dagger" */
+  var WEAPON_ALIAS = { "bowie-shortsword": ["bowie knife", "bowie"] };
+  function weaponAliases(x) {
+    var out = (WEAPON_ALIAS[x.id] || []).slice();
+    var name = String(x.name || "");
+    var m = /^(.*?)\s*\(([^)]+)\)\s*$/.exec(name);
+    if (m && m[1]) { out.push(normName(m[1])); out.push(normName(m[1] + " " + m[2])); }
+    return out;
   }
   /* The typed builder's item: the compact form + the Give text as its name. null + reason when it is not ready. */
   function typedItem(form, name) {
@@ -1816,7 +1827,11 @@
       var dirtyBox = els.dirty && els.dirty.querySelector("input");
       var out = {};
       if (m.kind === "ammo") { out.ammo = { type: m.ammo.type, caliber: m.ammo.caliber, qty: (m.ammo.qty || 1) * (Math.max(1, Number(qty) || 1)) }; return out; }
-      if (m.kind) { if (m.firearm && dirtyBox && dirtyBox.checked) out.dirty = true; return out; }
+      if (m.kind) {
+        if (m.firearm && dirtyBox && dirtyBox.checked) out.dirty = true;
+        if (m.kind === "weapon" && m.id) out.id = m.id; /* the sheet lands the listed weapon by id (fix 13: "Bowie knife") */
+        return out;
+      }
       var t = typedItem(built(), text);
       if (!t.item) return { error: t.reason };
       if (t.item.type === "weapon" && dirtyBox && dirtyBox.checked) t.item.dirty = true;
