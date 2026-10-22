@@ -109,6 +109,15 @@
     /* Item catalog wearables */
     "ore-scholars-robe": "coat-cloak", "night-prospectors-cape": "coat-cloak", "ore-buyers-signet": "ring-eldorite", "prospectors-touch": "gloves-leather"
   };
+  /* Paper Doll v2.1 b/w engravings (Art Bot, Jessey approved 2026-10-22 4:25 AM CT): assets/img/items/gear/<slug>.webp.
+     The slugs are the future catalog ids; custom items match by name (item-art.js gearV21, which also gives the colour
+     tile for the Equipment list). The generic hat-cattleman / neck-bandana / gloves-leather / chaps-leather art stays. */
+  var GEAR_V21 = ["cattleman-hat", "bandana", "pocket-watch", "signet-ring", "work-gloves", "leather-chaps", "rail-gang-rifle-plate", "tin-star-board",
+    "lost-troop-cavalry-shield", "hushwire-shoulder-rig", "rattlers-skeleton-rig", "last-word-cross-draw", "dry-powder-bandolier", "rodeo-champions-buckle",
+    "gravediggers-gun-belt", "brush-buster-chaps", "rattler-hide-chaps", "saddle-glue-woolies", "brass-bound-hymn-book", "brass-magnifying-glass",
+    "tight-lip-ring", "reinforced-trail-leathers"];
+  var isGearV21 = {};
+  GEAR_V21.forEach(function (slug) { GEAR_ART_BY_ID[slug] = slug; isGearV21[slug] = 1; });
   var GEAR_ART_WORDS = [
     [/locket/i, "trinket-eldorite-locket"], [/amulet|pendant|talisman|medallion/i, "neck-amulet"], [/bandana|kerchief|scarf|neckerchief/i, "neck-bandana"],
     [/duster/i, "coat-duster"], [/cloak|cape|robe|poncho|serape/i, "coat-cloak"], [/chain|mail/i, "armor-chain-shirt"], [/studded/i, "armor-studded-leather"],
@@ -121,7 +130,7 @@
     holster_l: "holster-hip", holster_r: "holster-hip", gloves: "gloves-leather", chaps: "chaps-leather", boots: "boots-spurs",
     ring_1: "ring-plain", ring_2: "ring-plain", accessory_8: "shield"
   };
-  var WIDE_GEAR_ART = { "belt-gun-belt": 1, "belt-bandolier": 1, "holster-pair-rig": 1 };
+  var WIDE_GEAR_ART = { "belt-gun-belt": 1, "belt-bandolier": 1, "holster-pair-rig": 1, "dry-powder-bandolier": 1, "rodeo-champions-buckle": 1, "gravediggers-gun-belt": 1 };
   function gearArtBase() {
     try { if ((root.location && root.location.pathname || "").indexOf("/dm/") >= 0) return "../"; } catch (e) {}
     return "";
@@ -133,6 +142,9 @@
     if (thing && typeof thing === "object" && slotKey && /^holster_/.test(slotKey) && isPairItem(thing)) return "holster-pair-rig";
     var name = typeof thing === "string" ? "" : String((thing && thing.name) || "");
     var wear = typeof thing === "string" ? "" : wearOf(thing);
+    /* v2.1 named gear by name (Rodeo Champion's Buckle...), kept inside the slot's family like the keywords below */
+    var v21 = name && root.SSDNSItemArt && root.SSDNSItemArt.gearV21 ? root.SSDNSItemArt.gearV21({ name: name }) : null;
+    if (v21 && isGearV21[v21.slug] && (!slotKey || v21.family === (GEAR_ART_SLOT[slotKey] || "trinket").split("-")[0])) return v21.slug;
     if (name) for (var i = 0; i < GEAR_ART_WORDS.length; i++) if (GEAR_ART_WORDS[i][0].test(name)) {
       var f = GEAR_ART_WORDS[i][1];
       /* keep a keyword hit inside the slot's family (e.g. "Eldorite locket" is a trinket, not a ring) */
@@ -179,7 +191,7 @@
   }
   function img(name) { return base() + "assets/images/doll/" + name; }
   function wearOf(it) { return String((it && it.wear) || "").toLowerCase(); }
-  /* 0.3.104 (L0201; Jessey 2026-10-21 12:11 PM): the Borrowed Iron rides in a weapon slot only, never a worn slot */
+  /* 0.3.105 (L0201; Jessey 2026-10-21 12:11 PM): the Borrowed Iron rides in a weapon slot only, never a worn slot */
   function isIronItem(it) {
     var IA = root.SSDNSIronArt;
     return !!it && (IA && IA.isIronItem ? IA.isIronItem(it) : it.catalogId === "borrowed-iron");
@@ -405,7 +417,7 @@
        Other Callings keep their focus (instrument) as before (returns null here). */
   var NO_CASTER = "No Caster Gun equipped, can't cast.";
   function isCasterWeapon(w) { return !!w && (w.group === "caster" || !!w.hexShells) && w.id !== "borrowed-iron"; }
-  /* 0.3.104 (Jessey 2026-10-20 9:53 PM): a weapon that is also a focus fills BOTH its weapon slot and the Focus slot.
+  /* 0.3.105 (Jessey 2026-10-20 9:53 PM): a weapon that is also a focus fills BOTH its weapon slot and the Focus slot.
      Flagged by the weapon row or its gun row / catalog item (weaponFocus or isFocus); Caster Guns always count. */
   var WEAPON_KEYS = ["revolver_1", "revolver_2", "long_gun", "melee"];
   function isFocusWeapon(w, g) {
@@ -443,7 +455,7 @@
     /* 0.3.96: the pact's own iron tile once the DM has revealed it (iron-art.js); else the generic art below */
     var IA = root.SSDNSIronArt, own = IA && IA.tileSrc ? IA.tileSrc(c) : "";
     if (own) return own;
-    /* 0.3.104 (4:35 PM): hidden long iron -> plain long-gun outline, not the revolver tile */
+    /* 0.3.105 (4:35 PM): hidden long iron -> plain long-gun outline, not the revolver tile */
     var hid = IA && IA.hiddenArt ? IA.hiddenArt(c) : "";
     if (hid) return hid;
     var it = borrowedIronItem(c);
@@ -454,13 +466,13 @@
     var base = gearArtBase();
     return base + "assets/img/items/borrowed-iron.webp";
   }
-  /* 0.3.104 (Jessey 2026-10-20 9:53 PM): the Borrowed Iron moves out of the Focus slot into a weapon slot (all the L0197
+  /* 0.3.105 (Jessey 2026-10-20 9:53 PM): the Borrowed Iron moves out of the Focus slot into a weapon slot (all the L0197
      mechanics stay: soul-bound, away until the start of the owner's next turn, no Pact casting while away). It's display
      only: character.ironSlot is the slot it prefers; if a gun sits there now it takes the next free one. No free slot ->
      it is still in hand (nothing changes), the Focus slot picker says so. */
   var IRON_ORDER = ["revolver_2", "revolver_1", "long_gun", "melee"];
   var IRON_NO_SLOT = "No free weapon slot on the paper doll, so the Borrowed Iron isn't drawn there. It's still in your hand.";
-  /* 0.3.104 (L0201): weapon slots only, by the iron's shape (iron-art.js allowedSlots): a long iron rides in Long gun,
+  /* 0.3.105 (L0201): weapon slots only, by the iron's shape (iron-art.js allowedSlots): a long iron rides in Long gun,
      a one-handed iron in Pistol R / Pistol L. Before a Pact name: any gun slot. */
   function ironSlots(c) {
     var IA = root.SSDNSIronArt;
@@ -495,7 +507,7 @@
     c.ironSlot = key;
     return { ok: true };
   }
-  /* 0.3.104 (Jessey 2026-10-21 12:12 PM: "Needs to appear when they pick their patron"): a Pact Seeker always has
+  /* 0.3.105 (Jessey 2026-10-21 12:12 PM: "Needs to appear when they pick their patron"): a Pact Seeker always has
      exactly one Borrowed Iron item, never in a worn slot. pactChanged (the wizard pick or the sheet's Pact name picker)
      also moves it to the weapon slot its shape wants when that slot is free. Soul-bound rules, borrowedIronAway and the
      cast block are untouched. Returns true when something changed. */
@@ -526,7 +538,7 @@
       if (it.equipSlot) { it.equipSlot = ""; changedAny = true; }
       if (Number(it.count == null ? 1 : it.count) !== 1) { it.count = 1; changedAny = true; }
     });
-    /* 0.3.104 (4:51 PM): the iron's weapon class (item.ironClass) follows the Pact */
+    /* 0.3.105 (4:51 PM): the iron's weapon class (item.ironClass) follows the Pact */
     if (IA && IA.stampClass && IA.stampClass(c)) changedAny = true;
     if (opts && opts.pactChanged && irons.length) {
       var free = function (k) { return !weaponRow(c, k); };
@@ -550,7 +562,7 @@
       var cg = casterInHand(c);
       if (cg) {
         var A = root.SSDNSWeaponArt, art = "";
-        /* 0.3.104 (Jessey 7:47 PM: engravings on the doll): the Caster Gun's engraving, contained in the Focus slot; its
+        /* 0.3.105 (Jessey 7:47 PM: engravings on the doll): the Caster Gun's engraving, contained in the Focus slot; its
            square tile only if there's no engraving */
         try { art = (A && A.srcFor ? (A.srcFor({ id: cg.id, name: cg.name }) || "") : "") || (root.SSDNSIronArt && root.SSDNSIronArt.weaponTile(cg.id)) || ""; } catch (e) { art = ""; }
         if (cg.wrecked) return { kind: "caster", name: cg.name, art: art, side: cg.side, gunIndex: cg.i, readOnly: true, mirror: true, wrecked: true, note: "Wrecked · repair: traveling merchant only", canCast: false };
@@ -591,7 +603,7 @@
       if (c && c.instrument && IA && IA.srcFor) { try { return IA.srcFor({ id: c.instrument, quality: c.instrumentQuality, name: weaponName(c, key) }) || ""; } catch (e) { return ""; } }
       return "";
     }
-    /* 0.3.104 (Jessey 2026-10-21 7:47 PM CT: colour tiles in the inventory, b/w engravings on the weapons cards and the
+    /* 0.3.105 (Jessey 2026-10-21 7:47 PM CT: colour tiles in the inventory, b/w engravings on the weapons cards and the
        paper doll): every doll weapon slot draws the 1200x400 engraving (contained in the square Pistol slots, upright in
        Long gun / Melee). The colour 256 tile is only the fallback for a gun with no engraving. */
     if (ironSlot(c) === key) { var IAe = root.SSDNSIronArt, ie = IAe && IAe.engravingSrc ? IAe.engravingSrc(c) : ""; return ie || borrowedIronArt(c); }
@@ -603,7 +615,7 @@
     return root.SSDNSIronArt && root.SSDNSIronArt.weaponTile ? root.SSDNSIronArt.weaponTile(row.id) || "" : "";
   }
 
-  /* 0.3.104 (Jessey 2026-10-21 4:07 PM: the long gun "doesn't fit in the paper doll correctly"): the tall weapon slots
+  /* 0.3.105 (Jessey 2026-10-21 4:07 PM: the long gun "doesn't fit in the paper doll correctly"): the tall weapon slots
      (Long gun, Melee) draw a gun's 1200x400 engraving turned muzzle-up to fill the slot height. The Borrowed Iron uses
      its pact engraving once revealed (iron-art.js engravingSrc, same reveal gate); before that, and for anything with
      only a square tile, the square art is contained in the slot, unrotated. Other slots and the Focus mirror keep
@@ -663,9 +675,16 @@
 
   function pct(b) { return "left:" + (b[0] / W * 100) + "%;top:" + (b[1] / H * 100) + "%;width:" + (b[2] / W * 100) + "%;height:" + (b[3] / H * 100) + "%"; }
   function artFor(it) {
-    if (root.SSDNSItems && root.SSDNSItems.artSrc) { var s = root.SSDNSItems.artSrc(it); if (s) return s; }
+    if (root.SSDNSItems && root.SSDNSItems.artSrc) {
+      var s = root.SSDNSItems.artSrc(it);
+      /* v2.1 (Jessey's art rule): the Equipment list shows the colour tile, the doll the b/w engraving */
+      var m = s && /^((?:\.\.\/)*)assets\/img\/items\/([a-z0-9-]+)\.webp(?:[?#].*)?$/.exec(s);
+      if (m && isGearV21[m[2]]) return m[1] + "assets/img/items/gear/" + m[2] + ".webp";
+      if (s) return s;
+    }
     return "";
   }
+  function wideGearSrc(src) { var m = /assets\/img\/items\/gear\/([a-z0-9-]+)\.webp/.exec(String(src || "")); return !!(m && WIDE_GEAR_ART[m[1]]); }
   function html(c, opts) {
     opts = opts || {};
     var ro = !!opts.readOnly;
@@ -718,7 +737,7 @@
         if (key === "holster_r" && !it && holR) { name = holR.name; src = "Gear: Holster R"; if (isPair(holR) && holR === holL) cls += " doll-pair doll-pair-r"; }
         if ((key === "holster_l" || key === "holster_r") && it && pairWorn) cls += " doll-pair doll-pair-" + (key === "holster_l" ? "l" : "r");
         if (key === "gunbelt" && !it && (beltRow || (c && c.gunBelt))) { name = beltRow ? beltRow.name : "Gun belt"; src = beltRow ? "Gear: Belt" : "Gear: Gun belt box"; }
-        if (it) { name = it.name; art = artFor(it); src = "Item"; if (it.attune && !it.attuned) cls += " doll-unattuned"; }
+        if (it) { name = it.name; art = artFor(it); src = "Item"; if (it.attune && !it.attuned) cls += " doll-unattuned"; if (wideGearSrc(art)) cls += " doll-wideart"; }
         if (isDefaultArt(art)) art = "";
         /* Worn-gear art: the item's own art wins; else the gear map (PHB row or item), else the slot's generic art. */
         if (filledName(name) && !art) {
@@ -921,5 +940,5 @@
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, slotArt: slotArt, isWideArt: isWideArt, weaponOptions: weaponOptions, weaponRow: weaponRow, setWeapon: setWeapon, focusState: focusState, casterInHand: casterInHand, ironSlot: ironSlot, ironState: ironState, setIronSlot: setIronSlot, IRON_NO_SLOT: IRON_NO_SLOT, ironSlots: ironSlots, ironOnlyMsg: ironOnlyMsg, syncIron: syncIron, ironNeedsFix: ironNeedsFix, isIronItem: isIronItem, isFocusWeapon: isFocusWeapon, focusWeaponInHand: focusWeaponInHand, isCasterWeapon: isCasterWeapon, NO_CASTER: NO_CASTER, HP_BOX: HP_BOX, hpInner: hpInner, paintHp: paintHp, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
+  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, GEAR_V21: GEAR_V21, WIDE_GEAR_ART: WIDE_GEAR_ART, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, slotArt: slotArt, isWideArt: isWideArt, weaponOptions: weaponOptions, weaponRow: weaponRow, setWeapon: setWeapon, focusState: focusState, casterInHand: casterInHand, ironSlot: ironSlot, ironState: ironState, setIronSlot: setIronSlot, IRON_NO_SLOT: IRON_NO_SLOT, ironSlots: ironSlots, ironOnlyMsg: ironOnlyMsg, syncIron: syncIron, ironNeedsFix: ironNeedsFix, isIronItem: isIronItem, isFocusWeapon: isFocusWeapon, focusWeaponInHand: focusWeaponInHand, isCasterWeapon: isCasterWeapon, NO_CASTER: NO_CASTER, HP_BOX: HP_BOX, hpInner: hpInner, paintHp: paintHp, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
 })(typeof window !== "undefined" ? window : globalThis);

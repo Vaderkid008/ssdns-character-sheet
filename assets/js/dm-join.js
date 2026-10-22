@@ -1255,7 +1255,7 @@
         }
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "Badge set to " + (payload.state || "bright") + "." });
         break;
-      case "iron_reveal": /* 0.3.96 reveal toggle; 0.3.104: no effect on what the sheet shows */
+      case "iron_reveal": /* 0.3.96 reveal toggle; 0.3.105: no effect on what the sheet shows */
         if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
           root.SSDNSApp.applyPatch(function (doc) {
             if (doc.character) doc.character.ironRevealed = payload.on !== false;

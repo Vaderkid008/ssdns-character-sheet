@@ -68,7 +68,11 @@
     ["Dynamite stick (standard fuse)", "dynamite-stick-standard-fuse"],
     ["Dynamite stick, sweating", "dynamite-stick-sweating"],
     ["Blasting keg", "blasting-keg"],
-    ["TEST Jammer", "test-jammer"]
+    ["TEST Jammer", "test-jammer"],
+    /* Paper Doll v2.1 (Art Bot, Jessey approved 2026-10-22 4:25 AM CT): Fine druidic focus, a melee weapon flagged isFocus.
+       No catalog row yet; a created weapon with this name finds its engraving and its 256 tile. Head on the right, so the
+       upright Melee slot shows it head-up. */
+    ["Cottonwood Walking Stick", "cottonwood-walking-stick"]
   ];
 
   /* Catalog ids that don't equal the art filename. */
@@ -85,6 +89,7 @@
     byName[normName(row[0])] = row[1];
   });
   byName[normName("Dynamite stick, sweating (sold cheap)")] = "dynamite-stick-sweating";
+  byName[normName("Cottonwood Walking Stick (Fine druidic focus)")] = "cottonwood-walking-stick";
 
   /* DM-only art. Kept out of NAMES so slugs() stays the player weapon list. */
   var DM_ID = {
@@ -209,7 +214,7 @@
     return slug;
   }
 
-  /* 0.3.104 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT, Art Bot): a 256x256 colour square tile for every player
+  /* 0.3.105 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT, Art Bot): a 256x256 colour square tile for every player
      weapon, at assets/img/items/weapons/<slug>.webp. Jessey 2026-10-21 7:47 PM CT: colour tiles everywhere in the
      inventory (every Equipment row, Weapons rows included; item rows; list squares); the weapons cards and the paper doll
      keep the 1200x400 b/w engraving (srcFor).

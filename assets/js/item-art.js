@@ -36,7 +36,7 @@
   byName[norm("Fuse cord")] = "fuse-cord-50-ft";
   byName[norm("Lariat")] = "lariat-50-ft";
 
-  /* 0.3.104 (Jessey 2026-10-20 11:10 PM, Art Bot): relic Caster Gun art (L0199 / L0202). DM Guide only: there are no
+  /* 0.3.105 (Jessey 2026-10-20 11:10 PM, Art Bot): relic Caster Gun art (L0199 / L0202). DM Guide only: there are no
      relic catalog items, store rows or Add item entries, and these slugs are kept out of list() / matchesIn(), so
      nothing player-facing offers them. The files live under assets/img/dm-only/. When a relic item or gun with one of
      these ids exists later (DM-placed), relicTile / relicEngraving (and so the doll, item rows, Weapons rows and gun
@@ -59,6 +59,52 @@
   function relicTile(x) { var s = relicSlug(x); return s ? prefix() + "assets/img/dm-only/items/caster/" + s + ".webp" : ""; }
   function relicEngraving(x) { var s = relicSlug(x); return s ? prefix() + "assets/img/dm-only/weapons/caster/" + s + ".webp" : ""; }
   function relics() { return RELIC_CASTER.map(function (s) { return { slug: s, tile: relicTile(s), engraving: relicEngraving(s) }; }); }
+
+  /* Paper Doll v2.1 item art (Art Bot, Jessey approved 2026-10-22 4:25 AM CT). Each item has a 256 colour tile at
+     assets/img/items/<slug>.webp (inventory: Equipment rows, item rows) and a 400x400 b/w engraving at
+     assets/img/items/gear/<slug>.webp (the paper doll; paper-doll.js swaps the tile for the engraving).
+     None of these is a catalog item yet, so the slugs double as future ids, and custom items find their art by name.
+     Rows: [slug, doll family (paper-doll.js slot check), name pattern or null]. The four plain store rows (Cattleman hat,
+     Bandana, Work gloves, Leather chaps) match by id only: a plain "Leather chaps" keeps the generic chaps-leather art
+     until Jessey picks which art those rows use. The Cottonwood Walking Stick is a weapon (weapon-art.js). */
+  var GEAR_V21 = [
+    ["cattleman-hat", "hat", null],
+    ["bandana", "neck", null],
+    ["pocket-watch", "trinket", /pocket[- ]?watch/i],
+    ["signet-ring", "ring", /\bsignet ring\b/i],
+    ["work-gloves", "gloves", null],
+    ["leather-chaps", "chaps", null],
+    ["rail-gang-rifle-plate", "shield", /rail[- ]?gang/i],
+    ["tin-star-board", "shield", /tin[- ]?star board/i],
+    ["lost-troop-cavalry-shield", "shield", /lost troop/i],
+    ["hushwire-shoulder-rig", "holster", /hushwire/i],
+    ["rattlers-skeleton-rig", "holster", /rattler[’']?s skeleton/i],
+    ["last-word-cross-draw", "holster", /last word/i],
+    ["dry-powder-bandolier", "belt", /dry[- ]?powder/i],
+    ["rodeo-champions-buckle", "belt", /rodeo champion/i],
+    ["gravediggers-gun-belt", "belt", /gravedigger/i],
+    ["brush-buster-chaps", "chaps", /brush[- ]?buster/i],
+    ["rattler-hide-chaps", "chaps", /rattler[- ]?hide/i],
+    ["saddle-glue-woolies", "chaps", /saddle[- ]?glue|woolies/i],
+    ["brass-bound-hymn-book", "focus", /brass[- ]?bound hymn/i],
+    ["brass-magnifying-glass", "focus", /brass magnifying/i],
+    ["tight-lip-ring", "ring", /tight[- ]?lip/i],
+    ["reinforced-trail-leathers", "armor", /reinforced trail leathers/i]
+  ];
+  var v21Ids = {};
+  GEAR_V21.forEach(function (row) { v21Ids[row[0]] = row; });
+  /* {slug, family} for an item / id, or null. An item's own art is not checked here (srcFor does that first). */
+  function gearV21(x) {
+    if (!x) return null;
+    var id = typeof x === "string" ? x : String(x.catalogId || x.id || "");
+    var row = id && v21Ids[id];
+    if (!row && typeof x === "object") {
+      var name = String(x.name || "");
+      if (name) row = GEAR_V21.filter(function (r) { return r[2] && r[2].test(name); })[0];
+    }
+    return row ? { slug: row[0], family: row[1] } : null;
+  }
+  function gearV21Tile(x) { var g = gearV21(x); return g ? prefix() + "assets/img/items/" + g.slug + ".webp" : ""; }
 
   function norm(s) {
     return String(s || "")
@@ -93,6 +139,8 @@
     }
     var slug = slugFor(item);
     if (slug) return prefix() + "assets/img/items/" + slug + ".webp";
+    var v21 = gearV21Tile(item);
+    if (v21) return v21;
     var relic = relicTile(item);
     if (relic) return relic;
     if (root.SSDNSInstrumentArt && root.SSDNSInstrumentArt.srcFor) return root.SSDNSInstrumentArt.srcFor(item) || "";
@@ -124,7 +172,7 @@
     });
     return out;
   }
-  /* 0.3.104 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT, Art Bot): 256x256 square tiles for the catalog items whose
+  /* 0.3.105 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT, Art Bot): 256x256 square tiles for the catalog items whose
      only art was a 1200x400 banner. The ROWS items above keep their banner at assets/img/items/<slug>.webp because the
      Store tab rows, the DMCC gear table and the Equipment-notes art strip draw it in a 3:1 box; their square tile is
      added at assets/img/items/square/<slug>.webp for item slots (Equipment rows, paper doll, list squares). The other
@@ -168,6 +216,9 @@
     relicSlug: relicSlug,
     relicTile: relicTile,
     relicEngraving: relicEngraving,
-    relics: relics
+    relics: relics,
+    gearV21: gearV21,
+    gearV21Tile: gearV21Tile,
+    gearV21Slugs: function () { return GEAR_V21.map(function (row) { return row[0]; }); }
   };
 })(typeof window !== "undefined" ? window : globalThis);

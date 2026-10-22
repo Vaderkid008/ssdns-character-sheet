@@ -1,5 +1,5 @@
 /**
- * 0.3.104 — Art Bot's item art batch 1 (Jessey approved 2026-10-21 6:40 PM CT).
+ * 0.3.105 — Art Bot's item art batch 1 (Jessey approved 2026-10-21 6:40 PM CT).
  *  - 59 player weapon square tiles at assets/img/items/weapons/<slug>.webp. Jessey 7:47 PM CT rule: colour tiles everywhere in
  *    the inventory (Equipment list, Weapons rows included, and item rows); b/w engravings on the weapons cards and the doll.
  *  - The Peace Maker's tile is DM-only (assets/img/dm-only/items/the-peace-maker.webp), never on a player page.
@@ -47,7 +47,7 @@ const REPLACED = ["black-shard", "bounty-warrant", "claim-deed", "cutlass-of-the
 
 /* ---------- files ---------- */
 const tileFiles = fs.readdirSync(path.join(root, "assets/img/items/weapons")).sort();
-check("file.weapons.count", tileFiles.length === 59, tileFiles.length);
+check("file.weapons.count", tileFiles.length === 60, tileFiles.length);  /* 59 + the v2.1 Cottonwood Walking Stick */
 check("file.weapons.allSquareWebp", tileFiles.every((f) => /\.webp$/.test(f) && sq("assets/img/items/weapons/" + f)), J(tileFiles.filter((f) => !sq("assets/img/items/weapons/" + f))));
 check("file.peaceMaker.dmOnly", sq("assets/img/dm-only/items/the-peace-maker.webp") && !exists("assets/img/items/weapons/the-peace-maker.webp") && !exists("assets/img/items/the-peace-maker.webp"));
 check("file.replaced.square", REPLACED.every((s) => sq("assets/img/items/" + s + ".webp")), J(REPLACED.filter((s) => !sq("assets/img/items/" + s + ".webp"))));
