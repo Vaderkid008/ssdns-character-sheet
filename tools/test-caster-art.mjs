@@ -1,5 +1,5 @@
 /**
- * 0.3.101 (Jessey approved Art Bot's caster art 2026-10-20 11:10 PM CT):
+ * 0.3.102 (Jessey approved Art Bot's caster art 2026-10-20 11:10 PM CT):
  *  - Blacksnake / Hognose restyled: 1200x400 engravings (Weapons rows, gun cards) + 256 tiles (doll slots, item rows).
  *  - Patron Focus tiles (assets/img/items/patron/<pact slug>.webp) replace #116's fallback.
  *  - Relic Caster Guns (L0199 / L0202): art only, under assets/img/dm-only/, mapped by slug in item-art.js. No catalog,
@@ -82,7 +82,7 @@ const pact = (sub) => { const c = K.apply(K.blankCharacter(), "pact-seeker", {})
   const f = D.focusState(pact(s.id));
   check("patron." + s.id, f.kind === "patron" && exists(f.art), J(f && f.art));
 });
-check("rules.untouched", !/viper|twin-puff/.test(read("database.rules.json")) && !read("assets/data/rules.js").includes("0.3.101"));
+check("rules.untouched", !/viper|twin-puff/.test(read("database.rules.json")) && !read("assets/data/rules.js").includes("0.3.102"));
 
 /* ---------- browser part ---------- */
 const ORIGIN = process.env.SSDNS_ORIGIN || "http://127.0.0.1:8765";
@@ -145,9 +145,10 @@ try {
     });
     check("ui.hex.servedNewArt", v.hash.be === sha("assets/img/weapons/blacksnake.webp") && v.hash.he === sha("assets/img/weapons/hognose.webp") && v.hash.bt === sha("assets/img/items/caster/blacksnake.webp") && v.hash.ht === sha("assets/img/items/caster/hognose.webp"), J(v.hash));
     const slots = [v.l, v.r].filter(Boolean).map((x) => x.src).join(" ");
-    check("ui.hex.dollTiles", /items\/caster\/blacksnake\.webp/.test(slots) && /items\/caster\/hognose\.webp/.test(slots) && [v.l, v.r].every((x) => x && x.nw === 256), J([v.l, v.r]));
-    check("ui.hex.focusTile", v.focus && /items\/caster\/blacksnake\.webp/.test(v.focus.src) && v.focus.nw === 256, J(v.focus));
-    check("ui.hex.weaponsRows", v.rows.some((r) => /weapons\/blacksnake\.webp/.test(r.src) && r.wide && r.nw === 1200) && v.rows.some((r) => /weapons\/hognose\.webp/.test(r.src) && r.wide && r.nw === 1200), J(v.rows));
+    /* 0.3.102 (Jessey 2026-10-21 7:47 PM CT): engravings on the doll and cards, colour tiles in the Equipment list */
+    check("ui.hex.dollEngravings", /assets\/img\/weapons\/blacksnake\.webp/.test(slots) && /assets\/img\/weapons\/hognose\.webp/.test(slots) && [v.l, v.r].every((x) => x && x.nw === 1200), J([v.l, v.r]));
+    check("ui.hex.focusEngraving", v.focus && /assets\/img\/weapons\/blacksnake\.webp/.test(v.focus.src) && v.focus.nw === 1200, J(v.focus));
+    check("ui.hex.weaponsRowsTiles", v.rows.some((r) => /items\/caster\/blacksnake\.webp/.test(r.src) && !r.wide && r.nw === 256) && v.rows.some((r) => /items\/caster\/hognose\.webp/.test(r.src) && !r.wide && r.nw === 256), J(v.rows));
     check("ui.hex.gunCards", v.cards.some((r) => /weapons\/blacksnake\.webp/.test(r.src) && r.nw === 1200) && v.cards.some((r) => /weapons\/hognose\.webp/.test(r.src) && r.nw === 1200), J(v.cards));
     await shot(pg, "#dollHost .doll", "caster-art-hexslinger-doll.png");
     await shot(pg, ".gear-col.gear-weapons", "caster-art-hexslinger-weapons.png");

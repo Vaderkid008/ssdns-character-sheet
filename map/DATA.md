@@ -47,7 +47,7 @@ The footprint is the click target, the drag/collision box, and is kept inside th
 footprints apart and keeps each name label (the row under the token) off other tokens and labels. Hidden tokens
 never reach the public path, so players never get their size either.
 
-## Attack effects (firing lines), sheet 0.3.101 / DMCC 0.2.114
+## Attack effects (firing lines), sheet 0.3.102 / DMCC 0.2.115
 
 Visual only. No new path, no rules change.
 

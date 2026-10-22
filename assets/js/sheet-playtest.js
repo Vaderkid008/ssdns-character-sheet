@@ -1231,11 +1231,12 @@
     paintIronArt(box, c);
     paintIronSpells(box, c);
   }
-  /* 0.3.101 (Jessey approved 2026-10-21 12:22 PM CT): the Borrowed Iron fires only spells, so its card has no weapon
+  /* 0.3.102 (Jessey approved 2026-10-21 12:22 PM CT): the Borrowed Iron fires only spells, so its card has no weapon
      attack: quick spell buttons for the attack cantrips / spells this Pact Seeker knows, Pact Shot first (#btnPactShot).
      They use the sheet's own cast path ([data-spell-cast]: target picker, log, map FX) and are blocked with the rest when
      the iron isn't in hand (focus-slot.js). Fixed Bayonet (Pact of the Blade, BOOK1 L2017): the bayonet form keeps a
      normal melee attack ([data-melee-roll], the Melee card's own roll). */
+  var PACT_SHOT_ART = "assets/img/spells/pact-shot.webp";
   function paintIronSpells(box, c) {
     var PS = root.SSDNSPactShot;
     var wrap = $("#pactIronSpells");
@@ -1248,7 +1249,12 @@
     }
     wrap.hidden = false;
     var pact = $("#btnPactShot");
-    if (pact) { pact.textContent = "Pact Shot"; pact.setAttribute("data-iron-spell", "pact"); }
+    /* 0.3.102 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT): the Pact Shot tile (assets/img/spells/pact-shot.webp)
+       sits as a small icon at the start of the button; the label stays "Pact Shot". */
+    if (pact) {
+      if (!pact.querySelector(".iron-spell-art")) pact.innerHTML = '<img class="iron-spell-art" src="' + PACT_SHOT_ART + '" alt="" width="20" height="20" decoding="async"><span class="iron-spell-label">Pact Shot</span>';
+      pact.setAttribute("data-iron-spell", "pact");
+    }
     var list = PS.quickSpells(c).filter(function (q) { return !q.pact; });
     var html = list.map(function (q) {
       return '<button type="button" class="btn sm iron-spell" data-spell-cast="' + esc(q.value) + '" title="Cast ' + esc(q.full || q.name) + (q.level ? " (level " + q.level + ")" : "") + ' through the Borrowed Iron">' + esc(q.name) + (q.level ? " · L" + q.level : "") + "</button>";
@@ -1272,12 +1278,12 @@
   /* 0.3.96: the Borrowed Iron card shows the pact's engraving (1200x400, muzzle right) once the DM has revealed it */
   function paintIronArt(box, c) {
     var IA = root.SSDNSIronArt;
-    /* 0.3.101 (Jessey 2026-10-21 12:11 / 12:12 PM): the card is labelled by the iron's type from the Pact pick
+    /* 0.3.102 (Jessey 2026-10-21 12:11 / 12:12 PM): the card is labelled by the iron's type from the Pact pick
        ("Borrowed Iron — Lever-action carbine"). Its real name and engraving wait for the DM's reveal; until then the
        card shows the plain Borrowed Iron tile. */
     var head = box.querySelector("b");
     if (head && IA && IA.labelFor) { var lbl = IA.labelFor(c); if (head.textContent !== lbl) head.textContent = lbl; }
-    /* 0.3.101 (4:51 PM): the card carries the iron's weapon class (public from the Pact pick) */
+    /* 0.3.102 (4:51 PM): the card carries the iron's weapon class (public from the Pact pick) */
     var klass = IA && IA.classFor ? IA.classFor(c) : "";
     if ((box.getAttribute("data-iron-class") || "") !== klass) { if (klass) box.setAttribute("data-iron-class", klass); else box.removeAttribute("data-iron-class"); }
     var src = !box.hidden && IA ? IA.engravingSrc(c) : "", name = src ? IA.nameFor(c) : "";
@@ -1291,7 +1297,7 @@
       box.classList.remove("has-iron");
       var gi = art.querySelector("img");
       if (!gi) { gi = document.createElement("img"); gi.decoding = "async"; art.appendChild(gi); }
-      /* 0.3.101 (4:35 PM): a hidden long iron shows the plain long-gun outline (wide, like an engraving) */
+      /* 0.3.102 (4:35 PM): a hidden long iron shows the plain long-gun outline (wide, like an engraving) */
       var gsrc = (IA.hiddenArt ? IA.hiddenArt(c) : "") || IA.GENERIC_TILE;
       art.classList.toggle("pact-iron-outline", gsrc !== IA.GENERIC_TILE);
       if (gi.getAttribute("src") !== gsrc) { gi.setAttribute("src", gsrc); gi.alt = "Borrowed Iron"; art.title = IA.labelFor(c); }
@@ -1517,7 +1523,7 @@
       rows.sort(function (a, b) { return rank(a) - rank(b); });
       /* 0.3.67: 'Free shot' is always the first entry: the gun fires with no target, no attack roll vs AC. */
       var html = "<option value='__free'>Free shot</option><option value=''>No target</option>";
-      /* fog-aware targeting (0.3.101): on the map's scene with fog on, only what this player can see; past the
+      /* fog-aware targeting (0.3.102): on the map's scene with fog on, only what this player can see; past the
          picked weapon's long range stays listed but can't be picked. The map answers null when it can't tell. */
       var mapHost = root.SSDNSMapHost && typeof root.SSDNSMapHost.targetSight === "function" ? root.SSDNSMapHost : null;
       var sightOf = function (id) { try { return mapHost ? mapHost.targetSight(String(id)) : null; } catch (e) { return null; } };

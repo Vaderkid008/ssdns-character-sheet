@@ -1,5 +1,5 @@
 /**
- * PR84 (sheet 0.3.101 / DMCC 0.2.114): fight controls and token ammo badges.
+ * PR84 (sheet 0.3.102 / DMCC 0.2.115): fight controls and token ammo badges.
  *  - Wanted header: End combat next to Roll Initiative while a fight is set up or running.
  *  - DM map strip: "No fight running" + Roll Initiative when there is no fight; End combat at the far end
  *    (asks first, through the Fight tab's own End combat).
