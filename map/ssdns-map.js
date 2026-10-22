@@ -5640,6 +5640,17 @@ async function loadSceneImage(sceneId, opts) {
     const used = !!a.reopenUsed;
     return sideButton(a, act, 'reopen', used ? 'Reopen chamber (used)' : 'Reopen chamber');
   }
+  /* Mech PR A (M2): the DM reopens a locked chamber on an enemy / NPC gun. Free, no feat needed (DM tool). */
+  function npcReopen(a) {
+    const n = lockList(a).length;
+    if (!a || !n) return '';
+    return sideButton(a, 'rowReopen', 'reopen', 'Reopen chamber (DM) · ' + n + ' locked');
+  }
+  /* Mech PR A (M4): the DM adds rounds to an enemy / NPC gun. Silent: no chat or log line. */
+  function npcAddRounds(a) {
+    if (!a || !a.ammo || !a.ammo.cap) return '';
+    return '<button type="button" data-act="rowAddRounds" data-wid="' + esc(a.id || '') + '">Add rounds</button>';
+  }
   /* map token guns (Jessey 2026-10-20 9:21 PM): Misfire badge, same box as the player gun card's "MISFIRE 1–4". */
   function misfireBadge(a) {
     const raw = a && a.misfire != null && a.misfire !== '' ? String(a.misfire) : '';
@@ -6192,10 +6203,10 @@ async function loadSceneImage(sceneId, opts) {
       const cap = Number(a.ammo.cap) || 0;
       const loaded = Number(a.ammo.loaded) || 0;
       const flags = Array.isArray(a.ammo.chambers) ? a.ammo.chambers : null;
-      const rowClean = (isPc && canAct) ? cleanControl(a, 'rowClean') : '';
+      const rowClean = (isPc && canAct) ? cleanControl(a, 'rowClean') : (npc ? cleanControl(a, 'rowClean') : '');
       /* map token guns: the DM unjams an NPC's gun free, same as DM unjam for players */
       const rowUnjam = (isPc && canAct) ? unjamControl(a, 'rowUnjam') : (npc ? npcUnjam(a) : '');
-      const rowReopen = (isPc && canAct) ? reopenControl(a, 'rowReopen') : '';
+      const rowReopen = (isPc && canAct) ? reopenControl(a, 'rowReopen') : (npc ? npcReopen(a) + npcAddRounds(a) : '');
       const badges = misfireBadge(a) + jamBadge(a);
       const lit = String(a.id) === activeWid ? ' is-active' : '';
       const graphic = window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
@@ -6538,6 +6549,13 @@ async function loadSceneImage(sceneId, opts) {
       b.addEventListener('click', () => {
         if (!canAct) { toast('The player acts for themselves'); return; }
         emit('drawer:unjam', detail({ weaponId: b.getAttribute('data-wid'), gunIndex: b.getAttribute('data-gun') }));
+      });
+    });
+    d.querySelectorAll('[data-act="rowAddRounds"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (isPc) return;
+        noteWeapon(tokenId, b.getAttribute('data-wid'));
+        emit('drawer:addrounds', detail({ weaponId: b.getAttribute('data-wid') }));
       });
     });
     d.querySelectorAll('[data-act="rowReopen"]').forEach(b => {
