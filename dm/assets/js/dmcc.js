@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.117"; // dmcc-playtest-v02117
+const VERSION = "0.2.118"; // dmcc-playtest-v02118
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2203,7 +2203,7 @@ function openDetail(pid) {
       else if (op === "merchant") applyDemoGun(pid, payload);
     });
   });
-  /* 0.3.104 (Jessey 2026-10-21 5:47 PM): the Reveal toggle is gone; the player sees the real iron from the Pact pick */
+  /* 0.3.105 (Jessey 2026-10-21 5:47 PM): the Reveal toggle is gone; the player sees the real iron from the Pact pick */
   const badgeSel = $("#dmBadge");
   if (badgeSel) badgeSel.value = s.badgeState || "dull";
   const badgeBtn = $("#btnDmBadge");
@@ -2218,7 +2218,7 @@ function openDetail(pid) {
   $("#detailOverlay").hidden = false;
 }
 
-/* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.104: no Reveal toggle (the player sees it too). */
+/* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.105: no Reveal toggle (the player sees it too). */
 function ironSectionHtml(s) {
   const IA = window.SSDNSIronArt;
   if (!IA || !s || (s.callingId || s.calling) !== "pact-seeker") return "";

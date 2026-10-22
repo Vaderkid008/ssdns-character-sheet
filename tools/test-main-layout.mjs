@@ -1,5 +1,5 @@
 /**
- * 0.3.104: Main tab top block (Jessey 2026-10-19 9:00 PM CT, approved 9:10 PM): portrait | identity fields stacked tight | Eldorite.
+ * 0.3.105: Main tab top block (Jessey 2026-10-19 9:00 PM CT, approved 9:10 PM): portrait | identity fields stacked tight | Eldorite.
  *  - desktop: three columns, Eldorite on the right, no dead gaps in the middle column
  *  - 390 px: the columns stack (portrait, fields, Eldorite), nothing overflows
  *  - the dropdowns still work: Lineage fills Sublineage and the blurb; fields save and load

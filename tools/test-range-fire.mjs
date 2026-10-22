@@ -134,7 +134,7 @@ async function putToken(id, x, extra) {
     id: id, pos: { x: x, y: 0 }, name: id, size: 1
   }, extra || {}), { seq: seq, by: "dm" });
 }
-/* fog off for these range checks (0.3.104 fog-aware targeting only lists what the player can see) */
+/* fog off for these range checks (0.3.105 fog-aware targeting only lists what the player can see) */
 await playerAdapter.write("map/public/scenes/scn_dustyspur01", { walls: [], fogRects: [], fogRevealed: true }, { seq: 2, by: "dm" });
 await putToken("tok_me", 0, { ownerUid: "p1", name: "Jolene" });
 await putToken("tok_long", 8, { name: "Long" });
