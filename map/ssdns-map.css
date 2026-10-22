@@ -1023,7 +1023,7 @@ body.map-fullscreen #mapMount > .ssm-drawer {
   flex-wrap: nowrap;
   gap: 6px;
   align-items: center;
-  overflow-x: auto;
+  overflow: hidden; /* the chip lane scrolls; Next / Undo / End combat stay in view */
   max-width: 100%;
   background: #16130f;
   border-radius: 6px;
@@ -1046,7 +1046,27 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
 /* 0.2.77: idle strip for the DM, and End combat pushed to the far end */
 .ssm-turnstrip .ssm-strip-idle { color: #b9a888; font-size: 13px; padding: 0 6px; flex: 0 0 auto; }
 .ssm-turnstrip .btn-roll-init { flex: 0 0 auto; min-height: 40px; }
-.ssm-turnstrip .ssm-strip-gap { flex: 1 1 auto; min-width: 12px; }
+.ssm-turnstrip .ssm-strip-gap { flex: 0 0 12px; min-width: 12px; }
+/* Many combatants: chips scroll in their own lane. Markers, Next, Undo last Next and End combat are siblings
+   after the lane, so they stay pinned on the right. Past about 6, chips shrink to initials + a short name. */
+.ssm-turnstrip .ssm-strip-chips {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+.ssm-turnstrip .btn-next,
+.ssm-turnstrip [data-act="stripUndoNext"],
+.ssm-turnstrip .btn-end-combat,
+.ssm-turnstrip .ssm-strip-markers { flex: 0 0 auto; }
+.ssm-turnstrip.is-crowded .ssm-strip-chips { gap: 4px; }
+.ssm-turnstrip.is-crowded .turn-chip { gap: 4px; padding: 2px 6px 2px 2px; font-size: 12px; }
+.ssm-turnstrip.is-crowded .turn-chip .chip-face { width: 22px; height: 22px; font-size: 10px; }
+.ssm-turnstrip.is-crowded .turn-chip .chip-name { max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ssm-turnstrip .btn-end-combat { flex: 0 0 auto; border: 2px solid #c0392b; color: #ffd7cf; background: #3a1714; }
 .token-chip { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
 .name-mode { display: inline-flex; gap: 4px; flex-wrap: wrap; }
@@ -1075,6 +1095,21 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
     min-width: 40px;
   }
   .turn-chip .chip-face { width: 40px; height: 40px; }
+  /* Phone: the chip lane takes the full width and wraps, so a chip is never sliced off the edge.
+     Markers / Next / Undo / End combat sit on the next row, still pinned to the right. */
+  .ssm-turnstrip:not(.is-idle) { flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; }
+  .ssm-turnstrip .ssm-strip-chips {
+    flex: 1 0 100%;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 3px;
+    justify-content: flex-start;
+  }
+  .ssm-turnstrip .ssm-strip-chips .turn-chip { max-width: 100%; padding: 2px 4px 2px 2px; gap: 3px; }
+  .ssm-turnstrip.is-crowded .turn-chip .chip-face { width: 22px; height: 22px; }
+  .ssm-turnstrip .ssm-strip-markers { max-width: 100%; }
+  .ssm-turnstrip .ssm-strip-markers .ssm-markers { flex-wrap: wrap; white-space: normal; }
   .ssdns-playercard, .ssm-drawer {
     width: min(100% - 16px, 360px);
     max-width: calc(100% - 16px);

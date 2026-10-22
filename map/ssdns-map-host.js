@@ -30,6 +30,28 @@
      place under the table bar when another tab opens or the map closes. One element, so the two can't differ. */
   var turnHome = null;
   function turnPanelEl() { return $("turnPanel"); }
+  /* While the strip is docked, a break before #turnSlot puts the turn order on its own row and the
+     tracker (Action / Bonus / R, Move, Dash / Disengage / Dodge, End turn) on the next. Off the map the
+     break is display:none, and undock removes it so the main-page strip stays one row. */
+  function clearTurnBreak() {
+    var panel = turnPanelEl();
+    if (!panel) return;
+    var br = panel.querySelector(":scope > .ssm-turn-break");
+    if (br && br.parentNode) br.parentNode.removeChild(br);
+  }
+  function ensureTurnBreak() {
+    var panel = turnPanelEl();
+    if (!panel) return;
+    var slot = panel.querySelector(":scope > #turnSlot");
+    if (!slot) return;
+    var br = panel.querySelector(":scope > .ssm-turn-break");
+    if (!br) {
+      br = document.createElement("span");
+      br.className = "ssm-turn-break";
+      br.setAttribute("aria-hidden", "true");
+    }
+    if (br.nextSibling !== slot) slot.parentNode.insertBefore(br, slot);
+  }
   function mapTabOpen() {
     var pageEl = $("page-map");
     return !!(pageEl && !pageEl.hidden && !document.body.classList.contains("printing"));
@@ -39,6 +61,7 @@
     var el = mountEl();
     if (el) { el.classList.remove("has-sheet-turn"); el.style.removeProperty("--ssm-strip-h"); }
     if (document.body) document.body.classList.remove("map-turn-docked");
+    clearTurnBreak();
     if (!panel || !turnHome || !turnHome.parentNode) return;
     if (panel.parentNode && panel.parentNode.classList && panel.parentNode.classList.contains("ssm-turnhost")) {
       turnHome.parentNode.insertBefore(panel, turnHome);
@@ -64,6 +87,7 @@
     }
     el.classList.add("has-sheet-turn");
     document.body.classList.add("map-turn-docked");
+    ensureTurnBreak();
     watchStripHeight(slot);
     setTimeout(stripHeight, 60); /* after a full-screen switch settles */
     if (map.requestDraw) map.requestDraw();

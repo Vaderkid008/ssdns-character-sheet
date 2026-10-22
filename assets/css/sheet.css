@@ -1467,6 +1467,9 @@ button.turn-locked, .btn.turn-locked { opacity: .42; filter: grayscale(.85); cur
 button.turn-locked:hover, .btn.turn-locked:hover { filter: grayscale(.85); outline: none; }
 #turnPanel .turn-slot { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; }
 #turnPanel .tl-box { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 12px; line-height: 1; }
+/* Off the map the Dash / Disengage / Dodge buttons stay direct flex items (display:contents). Docked, they are one
+   nowrap group so Dodge cannot drop onto a line of its own. */
+#turnPanel .tl-acts { display: contents; }
 #turnPanel .tl-move { white-space: nowrap; padding: 3px 7px; border-radius: 999px; background: rgba(0,0,0,.28); border: 1px solid rgba(201,162,39,.5); color: var(--parch, #efe6d4); }
 #turnPanel .tl-move b { color: #e2c56a; font-size: 13px; }
 #turnPanel .tl-box .btn.xs { height: 24px; padding: 0 8px; font-size: 11px; }
@@ -1501,3 +1504,26 @@ button.turn-locked:hover, .btn.turn-locked:hover { filter: grayscale(.85); outli
    steps aside and the strip's round label says it instead (the "Your turn · Go" toast still pops up). */
 body.map-turn-docked .your-turn-box { display: none !important; }
 .ssm-turnhost #turnPanel.your-turn .turn-round::after { content: " · Your turn"; color: #fff; background: #b42318; border-radius: 3px; padding: 1px 5px; margin-left: 4px; letter-spacing: .06em; text-transform: uppercase; font-size: 10px; }
+/* Many combatants, only while #turnPanel is docked on the map. The host inserts .ssm-turn-break before #turnSlot:
+   row 1 is the round + the full turn order, row 2 is Action / Bonus / R, Move, Dash / Disengage / Dodge, End turn.
+   Off the map the break is display:none and these rules do not apply, so the main-page strip is unchanged. */
+#turnPanel > .ssm-turn-break { display: none; }
+.ssm-turnhost #turnPanel.turn-panel { flex-wrap: wrap; align-items: center; row-gap: 4px; padding: 4px 6px; }
+.ssm-turnhost #turnPanel > .ssm-turn-break { display: block; flex: 0 0 100%; width: 100%; height: 0; min-height: 0; margin: 0; padding: 0; overflow: hidden; }
+.ssm-turnhost #turnPanel .turn-order-strip { flex: 1 1 auto; min-width: 0; width: auto; max-width: 100%; gap: 3px; }
+.ssm-turnhost #turnPanel .turn-slot { order: 0; flex: 1 1 auto; min-width: 0; }
+.ssm-turnhost #turnPanel .end-turn { order: 0; margin-left: auto; }
+.ssm-turnhost #turnPanel .turn-chip { gap: 3px; padding: 0 5px 0 2px; }
+.ssm-turnhost #turnPanel .turn-chip .chip-face { width: 18px; height: 18px; }
+.ssm-turnhost #turnPanel .tl-box { flex-wrap: nowrap; }
+.ssm-turnhost #turnPanel .tl-acts { display: inline-flex; flex: 0 0 auto; flex-wrap: nowrap; align-items: center; gap: 4px; }
+@media (min-width: 701px) {
+  .ssm-turnhost #turnPanel .turn-chip .chip-name { max-width: none; overflow: visible; text-overflow: clip; }
+}
+@media (max-width: 700px) {
+  .ssm-turnhost #turnPanel.turn-panel { gap: 3px; padding: 3px 4px; }
+  .ssm-turnhost #turnPanel .turn-order-strip { flex-wrap: wrap; overflow: visible; gap: 3px; }
+  .ssm-turnhost #turnPanel .turn-chip { max-width: 100%; padding: 0 4px 0 1px; gap: 2px; }
+  .ssm-turnhost #turnPanel .tl-box { flex-wrap: wrap; }
+  .ssm-turnhost #turnPanel .tl-acts { flex-wrap: nowrap; }
+}

@@ -139,7 +139,7 @@
       '<span class="tl-move" data-tl-left="' + mv.left + '" title="Feet of movement left this turn (Speed ' + speed() + ' ft' + (m.dash ? ", doubled by Dash" : "") + '). It refills at the start of your own turn.">Move <b>' + mv.left + '</b>/' + mv.max + ' ft</span>' +
       '<button type="button" class="btn xs tl-step" data-tl-move="5" title="I moved 5 ft">−</button>' +
       '<button type="button" class="btn xs tl-step" data-tl-move="-5" title="Give back 5 ft">+</button>' +
-      ['dash', 'disengage', 'dodge'].map(function (k) {
+      '<span class="tl-acts">' + ['dash', 'disengage', 'dodge'].map(function (k) {
         var label = ACT_LABEL[k];
         var tip = k === "dash" ? "Uses your Action: doubles your movement this turn." : (k === "disengage" ? "Uses your Action: your movement doesn't provoke opportunity attacks this turn." : "Uses your Action: attacks against you have disadvantage and you have advantage on Dex saves until your next turn.");
         /* a Dash / Disengage / Dodge taken this turn turns into its own Cancel button until the Action goes elsewhere */
@@ -151,7 +151,7 @@
         }
         if (m[k]) tip = label + " is on this turn. It can't be cancelled now (your Action went to something else); the DM can change your markers.";
         return '<button type="button" class="btn xs tl-act' + (m[k] ? " on" : "") + '" data-tl-act="' + k + '" aria-pressed="' + !!m[k] + '" title="' + tip + '">' + label + "</button>";
-      }).join("");
+      }).join("") + "</span>";
     if (!mine) {
       var t = T(), i = init();
       var ask = m.oaReq ? t.oaEntry(i, m.oaReq) : null;

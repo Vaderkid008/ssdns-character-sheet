@@ -91,6 +91,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("src.dmRepaint", /SSDNSMapHost\.refreshStrip\(\)/.test(v2));
   check("src.noRulesChange", !/actUndo/.test(read("database.rules.json")));
   check("src.v2TailIntact", /\nwireLookupNow\(\);\s*\nbootV2\(\);\s*$/.test(v2));
+  const addPc = mapJs.slice(mapJs.indexOf("function addPlayerToken()"), mapJs.indexOf("let defaultSceneDone"));
+  check("src.playerTokenFreeSpot", /nextFreeSpot\(1,\s*label\)/.test(addPc) && /pos: spot/.test(addPc) && !/pos:\s*cell\b/.test(addPc));
+  check("src.dmChipsScroll", /className = 'ssm-strip-chips'/.test(mapJs) && /chipCount > 6/.test(mapJs) && /function shortStripName/.test(mapJs) && /chips\.appendChild\(b\)/.test(mapJs));
+  check("src.dockBreak", /function ensureTurnBreak\(\)/.test(host) && /function clearTurnBreak\(\)/.test(host) && /ensureTurnBreak\(\);/.test(host) && /clearTurnBreak\(\);/.test(host));
+  const sheet = read("assets/css/sheet.css");
+  check("src.dockedTwoRows", /\.ssm-turnhost #turnPanel > \.ssm-turn-break \{ display: block/.test(sheet) && /#turnPanel > \.ssm-turn-break \{ display: none/.test(sheet));
+  check("src.dodgeGroup", /<span class="tl-acts">/.test(lock) && /#turnPanel \.tl-acts \{ display: contents/.test(sheet) && /\.ssm-turnhost #turnPanel \.tl-box \{[^}]*flex-wrap:\s*nowrap/.test(sheet));
+  check("src.namesUncutWhenDocked", /min-width: 701px\) \{\s*\n\s*\.ssm-turnhost #turnPanel \.turn-chip \.chip-name \{ max-width: none/.test(sheet));
+  check("src.phoneChipWrap", /\.ssm-turnstrip \.ssm-strip-chips \{[^}]*flex-wrap: wrap/.test(css) && /\.ssm-turnhost #turnPanel \.turn-order-strip \{ flex-wrap: wrap/.test(sheet));
 }
 
 /* ---------- browser part ---------- */
@@ -201,6 +210,119 @@ try {
     await ctx.close();
   }
 
+  /* ---- many combatants: docked player strip is two rows; off the map it stays one row ---- */
+  const crowdOrder = [
+    { id: "e1", name: "Outlaw 1", kind: "enemy" },
+    { id: "e2", name: "Prairie Coyote", kind: "enemy" },
+    { id: "e3", name: "Rattlesnake", kind: "enemy" },
+    { id: "e4", name: "Outlaw 2", kind: "enemy" },
+    { id: "p1", name: "Wade", kind: "player", playerId: "u1" },
+    { id: "p2", name: "Clementine Rourke", kind: "player", playerId: "u2" },
+    { id: "p3", name: "Ezra Blackwood", kind: "player", playerId: "u3" },
+    { id: "p4", name: "Silas", kind: "player", playerId: "u4" }
+  ];
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  for (const [vp, sfx] of [[{ width: 1280, height: 900 }, "desktop"], [PHONE, "phone"]]) {
+    const { pg, errs, ctx } = await page("/index.html?nowizard=1&fresh=" + Date.now(), vp);
+    await pg.waitForFunction(() => window.SSDNSApp && window.SSDNSPlaytest && window.SSDNSActionPips && window.SSDNSTurnLock && window.SSDNSDmJoin, { timeout: 25000 });
+    await sleep(500);
+    await pg.evaluate(() => {
+      window.SSDNSDmJoin.uid = () => "u1";
+      const gr = (id, n) => ({ weapon: id, equipped: true, proficient: true, loaded: n, chambers: Array(n).fill("c"), misStreak: 0, jammed: false, dirty: false, fouled: false, ruined: false, broken: false, attackMode: "" });
+      window.SSDNSApp.applyPatch((d) => { const c = d.character; c.name = "Wade"; c.calling = "gunslinger"; c.level = 5; c.speed = 30; c.ammo = [{ type: "cartridge", caliber: "", count: 50 }]; c.guns = [gr("pony-arms-chaosmaker-medium", 6), { weapon: "" }, { weapon: "" }, { weapon: "" }]; });
+    });
+    await pg.evaluate((o) => window.SSDNSPlaytest.showTurn(o), { round: 1, turn: 4, started: true, order: crowdOrder, seq: 9, turnStarts: { e1: 1, e2: 1, e3: 1, e4: 1, p1: 9, p2: 1, p3: 1, p4: 1 } });
+    await pg.evaluate(frame);
+    const measure = () => pg.evaluate(() => {
+      const panel = document.getElementById("turnPanel");
+      const round = document.getElementById("turnRound").getBoundingClientRect();
+      const slot = document.getElementById("turnSlot").getBoundingClientRect();
+      const names = document.getElementById("turnNames");
+      const box = (e) => { const r = e.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: r.width, h: r.height }; };
+      const pr = box(panel);
+      const inside = (e) => { const r = box(e); return r.w > 2 && r.h > 2 && r.left >= pr.left - 1 && r.right <= pr.right + 1 && r.top >= pr.top - 1 && r.bottom <= pr.bottom + 1; };
+      const chips = [...names.querySelectorAll(".turn-chip")];
+      const nameOf = (el) => el.querySelector(".chip-name");
+      const uncut = chips.every((el) => {
+        const n = nameOf(el);
+        if (!n || getComputedStyle(n).display === "none") return true;
+        return n.scrollWidth <= n.clientWidth + 1;
+      });
+      const full = chips.map((el) => nameOf(el).textContent);
+      const btn = (k) => document.querySelector('#turnSlot [data-tl-act="' + k + '"]');
+      const dash = btn("dash"), dis = btn("disengage"), dodge = btn("dodge"), end = document.getElementById("btnEndTurn");
+      const sameLine = (a, b) => a && b && Math.abs(a.getBoundingClientRect().top - b.getBoundingClientRect().top) < 8;
+      return {
+        inMap: !!(panel && panel.closest(".ssm-turnhost")),
+        breakOn: !!(panel.querySelector(":scope > .ssm-turn-break") && getComputedStyle(panel.querySelector(":scope > .ssm-turn-break")).display !== "none"),
+        acts: getComputedStyle(document.querySelector("#turnSlot .tl-acts")).display,
+        sameRow: round.top < slot.bottom - 2 && slot.top < round.bottom - 2,
+        slotBelow: slot.top >= round.bottom - 4,
+        chipsIn: chips.every(inside),
+        n: chips.length,
+        uncut, full,
+        dodgeWithDash: sameLine(dash, dodge) && sameLine(dash, dis),
+        endWithDodge: !!(end && !end.hidden && sameLine(end, dodge)),
+        endIn: !!(end && inside(end)),
+        dodgeIn: !!(dodge && inside(dodge)),
+        over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        panelW: Math.round(pr.w), vw: innerWidth
+      };
+    });
+    let home = await measure();
+    check("crowd." + sfx + ".offMapOneStrip", !home.inMap && !home.breakOn && home.acts === "contents" && home.n === 8, J(home));
+    if (sfx === "desktop") check("crowd.desktop.offMapSameRow", home.sameRow && !home.slotBelow, J(home));
+    await tab(pg, "Map");
+    await pg.evaluate(() => {
+      const el = document.getElementById("mapMount");
+      el.hidden = false;
+      el.classList.remove("hidden");
+      let slot = el.querySelector(":scope > .ssm-turnhost");
+      if (!slot) {
+        slot = document.createElement("div");
+        slot.className = "ssm-turnhost";
+        el.insertBefore(slot, el.firstChild);
+      }
+      const panel = document.getElementById("turnPanel");
+      panel._homeParent = null;
+      slot.appendChild(panel);
+      let br = panel.querySelector(":scope > .ssm-turn-break");
+      if (!br) {
+        br = document.createElement("span");
+        br.className = "ssm-turn-break";
+        br.setAttribute("aria-hidden", "true");
+      }
+      const turnSlot = panel.querySelector(":scope > #turnSlot");
+      turnSlot.parentNode.insertBefore(br, turnSlot);
+      el.classList.add("has-sheet-turn");
+      document.body.classList.add("map-turn-docked");
+    });
+    await pg.evaluate(frame);
+    const docked = await measure();
+    check("crowd." + sfx + ".dockedTwoRows", docked.inMap && docked.breakOn && docked.slotBelow && !docked.sameRow, J(docked));
+    check("crowd." + sfx + ".chipsInside", docked.chipsIn && docked.n === 8 && docked.over <= 2, J(docked));
+    /* a flex item blockifies inline-flex, so the used display is "flex" */
+    check("crowd." + sfx + ".dodgeOnDashLine", docked.dodgeWithDash && docked.dodgeIn && docked.acts === "flex", J(docked));
+    if (sfx === "desktop") {
+      check("crowd.desktop.namesUncut", docked.uncut && docked.full.join("|") === crowdOrder.map((c) => c.name).join("|") && docked.endWithDodge, J(docked));
+    } else {
+      check("crowd.phone.controlsInside", docked.endIn && docked.dodgeIn, J(docked));
+    }
+    /* back home: the two-row rules drop away with the host */
+    await pg.evaluate(() => {
+      const panel = document.getElementById("turnPanel");
+      const bar = document.getElementById("dmJoinBar");
+      const br = panel.querySelector(":scope > .ssm-turn-break");
+      if (br) br.remove();
+      bar.parentNode.insertBefore(panel, bar.nextSibling);
+    });
+    await pg.evaluate(frame);
+    home = await measure();
+    check("crowd." + sfx + ".undockRestores", !home.inMap && !home.breakOn && home.acts === "contents" && (sfx === "phone" || home.sameRow), J(home));
+    check("crowd." + sfx + ".noPageErrors", errs.length === 0, errs.join(" | "));
+    await ctx.close();
+  }
+
   /* ---- DMCC demo: the map strip sits at the top and shows the current player's markers ---- */
   for (const [vp, sfx] of [[{ width: 1400, height: 950 }, "desktop"], [PHONE, "phone"]]) {
     const { pg, errs, ctx } = await page(dmccUrl("/dm/index.html?fresh=" + Date.now()), vp);
@@ -246,6 +368,77 @@ try {
     check("dm." + sfx + ".fullStripOnTop", g.strip && g.bar && g.strip.top >= 0 && g.strip.bottom <= g.bar.top + 1 && g.strip.top < 80, J(g));
     check("dm." + sfx + ".fullButtonClear", g.full && (g.strip.right <= g.full.left + 2 || g.strip.top >= g.full.bottom), J(g));
     await pg.evaluate(() => document.querySelector("#btnMapFull").click());
+    /* 8 combatants: controls stay pinned; past 6, chips shrink to initials + a short name. Phone: no chip is sliced. */
+    await tab(pg, "Fight");
+    await sleep(250);
+    await pg.evaluate(() => { const m = document.querySelector("#combatantMenu"); if (m) m.open = true; });
+    const addBeast = async (id) => pg.evaluate((bid) => { const b = document.querySelector('[data-add-beast="' + bid + '"]'); if (!b) return false; b.click(); return true; }, id);
+    let chipsNow = await pg.evaluate(() => document.querySelectorAll("#mapMount .ssm-turnstrip .turn-chip").length);
+    const toSix = ["prairie-coyote", "rattlesnake", "cactus-witch"];
+    for (const id of toSix) {
+      if (chipsNow >= 6) break;
+      check("dm." + sfx + ".add." + id, await addBeast(id));
+      await sleep(400);
+      chipsNow = await pg.evaluate(() => document.querySelectorAll("#mapMount .ssm-turnstrip .turn-chip").length);
+    }
+    const atSix = await pg.evaluate(() => {
+      const strip = document.querySelector("#mapMount .ssm-turnstrip");
+      const name = (t) => { const c = [...strip.querySelectorAll(".turn-chip")].find((el) => (el.querySelector(".chip-name") || {}).textContent === t || el.title === t); return c ? c.querySelector(".chip-name").textContent : ""; };
+      return { n: strip.querySelectorAll(".turn-chip").length, crowded: strip.classList.contains("is-crowded"), prairie: name("Prairie Coyote") };
+    });
+    check("dm." + sfx + ".sixFullNames", atSix.n === 6 && !atSix.crowded && atSix.prairie === "Prairie Coyote", J(atSix));
+    check("dm." + sfx + ".add.giant", await addBeast("giant-scorpion"));
+    await sleep(450);
+    await tab(pg, "Map");
+    await sleep(400);
+    const crowd = await pg.evaluate(() => {
+      const strip = document.querySelector("#mapMount .ssm-turnstrip");
+      const lane = strip.querySelector(".ssm-strip-chips");
+      const box = (e) => { const r = e.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: r.width, h: r.height }; };
+      const sr = box(strip), lr = box(lane);
+      const inside = (e, host) => { const r = box(e); return r.w > 2 && r.h > 2 && r.left >= host.left - 1 && r.right <= host.right + 1 && r.top >= host.top - 1 && r.bottom <= host.bottom + 1; };
+      const next = strip.querySelector('[data-act="stripNext"]');
+      const undo = strip.querySelector('[data-act="stripUndoNext"]');
+      const end = strip.querySelector('[data-act="stripEndCombat"]');
+      const marks = strip.querySelector('[data-act="stripMarkers"]');
+      const chips = [...lane.querySelectorAll(".turn-chip")];
+      const byTitle = (t) => chips.find((el) => el.title === t);
+      const prairie = byTitle("Prairie Coyote"), rattle = byTitle("Rattlesnake");
+      const tops = [next, undo, end].map((e) => box(e).top);
+      return {
+        n: chips.length, crowded: strip.classList.contains("is-crowded"),
+        prairie: prairie ? prairie.querySelector(".chip-name").textContent : "",
+        face: prairie ? prairie.querySelector(".chip-face").textContent : "",
+        rattle: rattle ? rattle.querySelector(".chip-name").textContent : "",
+        controlsIn: [next, undo, end].every((e) => e && !lane.contains(e) && inside(e, sr)),
+        marksOut: !!(marks && !lane.contains(marks)),
+        chipsIn: chips.every((c) => inside(c, sr)),
+        laneFitsChip: !!(chips[0] && lr.w + 1 >= chips[0].getBoundingClientRect().width),
+        oneRow: Math.max(...tops) - Math.min(...tops) < 12,
+        pinnedRight: box(next).left + 1 >= lr.right - 1 || box(next).top + 1 >= lr.bottom - 1,
+        laneW: Math.round(lr.w), stripW: Math.round(sr.w)
+      };
+    });
+    check("dm." + sfx + ".crowdedShortName", crowd.n >= 7 && crowd.crowded && crowd.prairie === "Prairie" && crowd.face === "PE" && crowd.rattle === "Rattles\u2026", J(crowd));
+    check("dm." + sfx + ".controlsPinned", crowd.controlsIn && crowd.marksOut && crowd.laneFitsChip && crowd.pinnedRight, J(crowd));
+    if (sfx === "desktop") check("dm.desktop.controlsOneRow", crowd.oneRow, J(crowd));
+    if (sfx === "phone") check("dm.phone.noChipCut", crowd.chipsIn && crowd.controlsIn, J(crowd));
+    /* Add player token uses the enemy next-free square, so two players do not share a cell */
+    const placed = await pg.evaluate(() => {
+      const host = window.SSDNSMapHost;
+      const overlap = (a, b) => a.x < b.x + (b.size || 1) && b.x < a.x + (a.size || 1) && a.y < b.y + (b.size || 1) && b.y < a.y + (a.size || 1);
+      host.tokenBoxes().filter((t) => t.kind === "player").forEach((t) => host.removeToken(t.id));
+      const sel = document.querySelector('[data-act="grantUid"]');
+      const ids = [...sel.options].map((o) => o.value).filter(Boolean).slice(0, 2);
+      ids.forEach((id) => { sel.value = id; document.querySelector('[data-act="addPcBtn"]').click(); });
+      const pcs = host.tokenBoxes().filter((t) => t.kind === "player");
+      const all = host.tokenBoxes();
+      let clash = [];
+      pcs.forEach((a) => all.forEach((b) => { if (a.id !== b.id && overlap(a, b)) clash.push(a.label + "/" + b.label); }));
+      const same = pcs.length >= 2 && pcs[0].x === pcs[1].x && pcs[0].y === pcs[1].y;
+      return { ids, pcs: pcs.map((p) => ({ id: p.id, x: p.x, y: p.y, label: p.label })), clash, same };
+    });
+    check("dm." + sfx + ".playerTokensFree", placed.pcs.length === 2 && !placed.same && placed.clash.length === 0, J(placed));
     check("dm." + sfx + ".noPageErrors", errs.length === 0, errs.join(" | "));
     await ctx.close();
   }
@@ -301,6 +494,15 @@ try {
       check("live." + sfx + ".mapShowsMarkersMove", g.pips === 3 && /Move 30\/30 ft/.test(g.move), J(g));
       check("live." + sfx + ".noDoubleStrip", !g.ownStripShown, J(g));
       check("live." + sfx + ".fitsWidth", g.panel.right <= g.vw + 1, J(g));
+      check("live." + sfx + ".dockedTwoRows", await pl.evaluate(() => {
+        const panel = document.getElementById("turnPanel");
+        const br = panel && panel.querySelector(":scope > .ssm-turn-break");
+        const round = document.getElementById("turnRound").getBoundingClientRect();
+        const slot = document.getElementById("turnSlot").getBoundingClientRect();
+        const dash = document.querySelector('#turnSlot [data-tl-act="dash"]');
+        const dodge = document.querySelector('#turnSlot [data-tl-act="dodge"]');
+        return !!(br && getComputedStyle(br).display !== "none" && slot.top >= round.bottom - 4 && dash && dodge && Math.abs(dash.getBoundingClientRect().top - dodge.getBoundingClientRect().top) < 8);
+      }));
       /* Dash on the map and cancel it; the DM sees both */
       await pl.evaluate(() => document.querySelector('#mapMount [data-tl-act="dash"]').click()); await sleep(200);
       const d1 = await pl.evaluate(() => ({ st: window.SSDNSActionPips.state(), btn: document.querySelector('#mapMount [data-tl-act="dash"]').textContent }));
@@ -328,6 +530,7 @@ try {
       await tab(pl, "Main"); await sleep(400);
       const back = await pl.evaluate(() => { const p = document.getElementById("turnPanel"); const bar = document.getElementById("dmJoinBar"); return { home: !!p && !p.closest("#mapMount"), afterBar: !!(bar && p && bar.nextSibling === p), count: document.querySelectorAll("#turnPanel").length, has: document.querySelector("#mapMount").classList.contains("has-sheet-turn") }; });
       check("live." + sfx + ".stripGoesHome", back.home && back.afterBar && back.count === 1 && !back.has, J(back));
+      check("live." + sfx + ".breakClearedAtHome", await pl.evaluate(() => !document.querySelector(".ssm-turn-break")));
       /* the DM map: strip on top with the player's markers; a DM tap reaches the sheet */
       await tab(dm, "Map");
       await waitFor(() => dm.evaluate(() => !!document.querySelector("#mapMount canvas") && /Action/.test((document.querySelector('#mapMount [data-act="stripMarkers"]') || {}).textContent || "")), 20000, "dm map markers");
