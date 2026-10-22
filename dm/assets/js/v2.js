@@ -2644,7 +2644,10 @@ function gunMemory(attacks) {
     misStreak: Number(atk.misStreak) || 0,
     pendingD4: !!atk.pendingD4,
     pendingD4Rolls: atk.pendingD4Rolls || null,
-    lastRoll: atk.lastRoll || null
+    lastRoll: atk.lastRoll || null,
+    /* Mech PR A: a rebuilt card keeps the DM's added spare rounds and the chambers a 3rd misfire locked */
+    spare: atk.spare,
+    lockedChambers: Array.isArray(atk.lockedChambers) ? atk.lockedChambers.slice() : null
   })).filter(Boolean);
 }
 function restoreGuns(attacks, prev) {
@@ -2660,6 +2663,8 @@ function restoreGuns(attacks, prev) {
     if (old.misStreak) atk.misStreak = old.misStreak;
     if (old.pendingD4) { atk.pendingD4 = true; atk.pendingD4Rolls = old.pendingD4Rolls; }
     if (old.lastRoll) atk.lastRoll = old.lastRoll;
+    if (atk.capacity != null && old.spare != null && old.spare !== "" && isFinite(Number(old.spare))) atk.spare = Number(old.spare);
+    if (atk.capacity != null && Array.isArray(old.lockedChambers) && old.lockedChambers.length) atk.lockedChambers = old.lockedChambers.slice();
   });
 }
 function normalizeAttackMisfires(attacks) {
