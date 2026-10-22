@@ -5196,13 +5196,16 @@ async function loadSceneImage(sceneId, opts) {
       const next = document.createElement('button');
       next.type = 'button';
       next.className = 'btn btn-primary btn-next';
+      next.setAttribute('data-act', 'stripNext');
       next.textContent = 'Next';
       next.addEventListener('click', () => emit('initiative:next', {}));
       strip.appendChild(next);
       const prev = document.createElement('button');
       prev.type = 'button';
       prev.className = 'btn sm';
-      prev.textContent = 'Previous';
+      prev.setAttribute('data-act', 'stripUndoNext');
+      prev.textContent = 'Undo last Next'; /* turn order PR 1: the DM page asks first and restores, never refreshes markers */
+      prev.title = 'Undo the last Next (the DM page asks first)';
       prev.addEventListener('click', () => emit('initiative:prev', {}));
       strip.appendChild(prev);
       /* 0.2.77: End combat sits at the far end, set apart from Next / Previous; the DM page asks first. */

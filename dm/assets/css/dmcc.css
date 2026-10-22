@@ -1087,3 +1087,11 @@ select:-webkit-autofill {
   #panel-fight .turn-line .status-chips { flex-wrap: wrap; }
 }
 #panel-fight .turn-line .status-chips .chip { min-height: 0; height: auto; padding: 2px 8px; line-height: 1.2; font-size: 11px; display: inline-block; white-space: nowrap; }
+/* turn order PR 1 (T2 / ruling 10): the current combatant's Action / Bonus / Reaction markers on the focus card */
+.dm-turn-markers { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; flex-wrap: wrap; }
+.dm-turn-markers .pip-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b5438; margin-right: 2px; }
+.dm-turn-markers .pip { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; min-height: 24px; padding: 1px 10px; border-radius: 12px;
+  border: 1px solid #b8913f; background: #e6b84a; color: #2a1d0c; font-size: 12px; font-weight: 700; }
+.dm-turn-markers button.pip { cursor: pointer; }
+.dm-turn-markers .pip.used { background: #d8cfbf; border-color: #a99a80; color: #7b6e5a; text-decoration: line-through; }
+#panel-fight .fight-portrait .status-chips .chip { min-height: 0; height: auto; padding: 1px 6px; line-height: 1.2; font-size: 10px; white-space: nowrap; }

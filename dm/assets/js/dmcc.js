@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.116"; // dmcc-playtest-v02116
+const VERSION = "0.2.117"; // dmcc-playtest-v02117
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1702,6 +1702,16 @@ function undoHitButton(rollId) {
   if (!applied) return "";
   return `<button type="button" class="btn sm" data-undo-hit="${esc(rollId)}">Undo</button>`;
 }
+/* T6 (turn order PR 1): one out-of-turn rule for the feed badge and the Apply check (SSDNSTurn.outOfTurn). A player's
+   roll while it isn't their row's turn (enemy turns included) is out of turn; DM rolls never are (ruling 10). */
+function rollOutOfTurn(r) {
+  if (!r) return false;
+  const cur = window.DMCCEnhance && window.DMCCEnhance.currentTurn ? window.DMCCEnhance.currentTurn() : null;
+  const started = typeof state !== "undefined" && state ? !!state.turnEngaged : false;
+  const dmUid = typeof state !== "undefined" && state ? state.uid : "";
+  if (window.SSDNSTurn) return window.SSDNSTurn.outOfTurn(r, { started: started, current: cur, dmUid: dmUid });
+  return !!(started && r.playerId && r.uid !== dmUid && cur && !(cur.kind === "player" && (cur.playerId || cur.id) === r.playerId));
+}
 function hitApplyButton(r) {
   const amt = Number(r && r.damage);
   if (!r || !r.id || !isFinite(amt) || amt <= 0) return "";
@@ -1712,12 +1722,7 @@ function hitApplyButton(r) {
   if (window.SSDNSApplied && window.SSDNSApplied.undone && window.SSDNSApplied.undone(roomCode, r.id)) {
     return `<span class="fine">Undone</span>`;
   }
-  let outOfTurn = !!r.outOfTurn;
-  const dmRoll = typeof state !== "undefined" && state && r.uid === state.uid;
-  if (!outOfTurn && r.playerId && !dmRoll && window.DMCCEnhance && window.DMCCEnhance.currentTurn) {
-    const cur = window.DMCCEnhance.currentTurn();
-    outOfTurn = !!(cur && cur.playerId && r.playerId !== cur.playerId);
-  }
+  const outOfTurn = rollOutOfTurn(r);
   const gated = Object.assign({}, r, { outOfTurn: outOfTurn });
   if (window.SSDNSApplied && window.SSDNSApplied.showHitApply && !window.SSDNSApplied.showHitApply(gated)) return "";
   if (!window.SSDNSApplied && !heal && !r.targetId && !name) return "";
@@ -2197,7 +2202,7 @@ function openDetail(pid) {
       else if (op === "merchant") applyDemoGun(pid, payload);
     });
   });
-  /* 0.3.103 (Jessey 2026-10-21 5:47 PM): the Reveal toggle is gone; the player sees the real iron from the Pact pick */
+  /* 0.3.104 (Jessey 2026-10-21 5:47 PM): the Reveal toggle is gone; the player sees the real iron from the Pact pick */
   const badgeSel = $("#dmBadge");
   if (badgeSel) badgeSel.value = s.badgeState || "dull";
   const badgeBtn = $("#btnDmBadge");
@@ -2212,7 +2217,7 @@ function openDetail(pid) {
   $("#detailOverlay").hidden = false;
 }
 
-/* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.103: no Reveal toggle (the player sees it too). */
+/* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.104: no Reveal toggle (the player sees it too). */
 function ironSectionHtml(s) {
   const IA = window.SSDNSIronArt;
   if (!IA || !s || (s.callingId || s.calling) !== "pact-seeker") return "";
@@ -2463,7 +2468,7 @@ function renderRolls() {
       <div class="feed-meta">
         <span>${esc(fmtTime(r.ts))}</span>
         <span>${paintWho(rollWho(r))}</span>
-        ${state.turnEngaged && r.playerId && r.uid !== state.uid && r.playerId !== state.turnPlayerId ? '<span class="badge">out of turn</span>' : ""}
+        ${rollOutOfTurn(r) ? '<span class="badge">out of turn</span>' : ""}
         ${r.private ? '<span class="badge">Private</span>' : ""}${r.whisper ? '<span class="badge">Whisper</span>' : ""}
         ${face.tag ? '<span class="roll-tag">' + esc(face.tag) + "</span>" : ""}
         ${nat ? '<span class="badge danger">Nat 1 · firearm</span>' : ""}
@@ -3331,6 +3336,8 @@ async function resumeLiveRoom() {
 window.DMCC = {
   version: VERSION,
   state: state,
+  rollOutOfTurn: rollOutOfTurn,
+  hitApplyButton: hitApplyButton,
   $: $,
   $$: $$,
   esc: esc,

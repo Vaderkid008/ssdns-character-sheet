@@ -553,7 +553,7 @@
       if (rollAll) rollAll.click();
     }
     if (name === "initiative:end") {
-      var endBtn = $("btnEndCombat");
+      var endBtn = $("btnEndCombatHead") || $("btnEndCombat"); /* turn order PR 1: one End combat, in the Fight header */
       if (endBtn) endBtn.click();
     }
     if (name === "party:sync") {

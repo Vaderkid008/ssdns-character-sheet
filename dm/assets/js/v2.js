@@ -46,8 +46,32 @@ const fight = {
   removed: {},
   appliedHits: {},
   turnCmd: null,
-  condMap: {}
+  condMap: {},
+  /* turn order PR 1 (T2): shared turn state on table/initiative, see assets/js/turn-rules.js */
+  seq: 0,
+  turnStarts: {},
+  undo: [],
+  markers: {}
 };
+function turnFields(src) {
+  const T = window.SSDNSTurn;
+  if (!src || typeof src !== "object") return;
+  const n = parseInt(src.seq, 10);
+  if (isFinite(n)) {
+    /* Firebase drops empty objects / lists, so a saved seq with no undo or turnStarts means they are empty */
+    fight.seq = n;
+    fight.turnStarts = {};
+    fight.undo = [];
+    fight.markers = {};
+  }
+  if (src.turnStarts && typeof src.turnStarts === "object") fight.turnStarts = Object.assign({}, src.turnStarts);
+  if (Array.isArray(src.undo)) fight.undo = src.undo.slice(0, (T && T.UNDO_MAX) || 5);
+  else if (src.undo && typeof src.undo === "object") fight.undo = Object.keys(src.undo).sort().map((k) => src.undo[k]).slice(0, (T && T.UNDO_MAX) || 5);
+  if (src.markers && typeof src.markers === "object") fight.markers = Object.assign({}, src.markers);
+}
+function turnState() {
+  return { round: fight.round, turn: fight.turn, started: !!fight.started, order: fight.order, seq: fight.seq || 0, turnStarts: fight.turnStarts || {} };
+}
 
 function tableKey() {
   const next = TABLE_KEY + "." + (DM.state.roomCode || "demo");
@@ -81,6 +105,7 @@ function loadLocalTable() {
       return !(fight.departed && fight.departed[id]);
     });
     if (raw.undos && typeof raw.undos === "object") fight.undos = raw.undos;
+    turnFields(raw);
     if (raw.damageMode === "approve" || raw.damageMode === "auto") fight.damageMode = raw.damageMode;
   } catch (e) {}
   try {
@@ -92,7 +117,8 @@ function saveLocalTable() {
   try {
     localStorage.setItem(tableKey(), JSON.stringify({
       round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: fight.order, inspiration: fight.inspiration,
-      stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, removed: fight.removed || {}, departed: fight.departed || {}, undos: fight.undos || {}, damageMode: fight.damageMode === "approve" ? "approve" : "auto", updatedAt: fight.updatedAt
+      stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, removed: fight.removed || {}, departed: fight.departed || {}, undos: fight.undos || {}, damageMode: fight.damageMode === "approve" ? "approve" : "auto", updatedAt: fight.updatedAt,
+      seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {}
     }));
     localStorage.setItem(PACK_KEY, JSON.stringify(fight.packs));
   } catch (e) {}
@@ -433,7 +459,8 @@ async function writeRemoteTableOnce() {
   try {
     const first = buildPublish();
     await fb.update(DM.roomRef("table"), {
-      initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: first.order },
+      initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: first.order,
+        seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {} },
       store: fight.stock,
       packs: fight.packs,
       storeOpen: !!fight.storeOpen,
@@ -510,6 +537,7 @@ function applyRemoteTable(v) {
     if (init.turn != null) fight.turn = init.turn;
     if (init.started != null) fight.started = !!init.started;
     if (init.recruit != null) fight.recruit = !!init.recruit;
+    turnFields(init);
     if (Array.isArray(v.store)) fight.stock = v.store;
     if (Array.isArray(v.packs)) fight.packs = v.packs;
     if (v.updatedAt) fight.updatedAt = v.updatedAt;
@@ -1204,10 +1232,10 @@ function renderFight() {
     const parts = fight.order.map(turnRowHtml);
     const started = !!fight.started;
     if (started && focus) {
-      focus.innerHTML = parts[fight.turn] || "";
+      focus.innerHTML = turnMarkersHtml(fight.order[fight.turn]) + (parts[fight.turn] || "");
       if (list) list.innerHTML = parts.map((html, i) => (i === fight.turn ? "" : foldRowHtml(fight.order[i], i, html))).join("") || '<p class="fine">No one else in the order.</p>';
     } else {
-      if (focus) focus.innerHTML = '<p class="fight-focus-wait">Roll Init, then Next. The active turn lands here.</p>';
+      if (focus) focus.innerHTML = '<p class="fight-focus-wait">Roll Initiative, then Next. The active turn lands here.</p>';
       if (list) list.innerHTML = parts.join("");
     }
     fightLogCards();
@@ -1227,7 +1255,8 @@ function renderFight() {
         if (row.kind === "enemy") return `<div class="turn-chip${current}${ondeck}${later}${side}"><button type="button" class="chip-open" data-open-enemy="${esc(row.id || "")}">${face}</button>${guns}</div>`;
         return `<div class="turn-chip${current}${ondeck}${later}${side}">${face}${guns}</div>`;
       }).join("");
-      strip.innerHTML = chips + (fight.order.length ? '<button type="button" class="btn btn-primary btn-next strip-next" data-strip-next="1">Next</button>' : "");
+      /* T1 (turn order PR 1): one Next per surface. The Fight tab's Next is the DMCC's; this Table-tab strip shows the order only. */
+      strip.innerHTML = chips;
     }
     syncTurnState();
     pushMapInitiative();
@@ -1678,6 +1707,7 @@ function nextTurn() {
   syncDamageMode();
   if (!fight.order.length) { DM.toast("Add someone to the turn order first"); return; }
   turnGate = now;
+  const before = window.SSDNSTurn ? window.SSDNSTurn.snapshot(fight) : null;
   fight.recruit = true;
   ensurePlayers();
   fight.turn = parseInt(fight.turn, 10);
@@ -1697,6 +1727,8 @@ function nextTurn() {
     if (step.wrapped) fight.round += 1;
   }
   fight.flash = fight.turn;
+  /* T2: stamp the new current combatant's own turn start; Undo last Next can put this back */
+  if (window.SSDNSTurn) window.SSDNSTurn.beginTurn(fight, before);
   if (window.SSDNSAudio) window.SSDNSAudio.play("turn");
   (fight.order || []).forEach((row) => {
     if (window.SSDNSApplied && window.SSDNSApplied.refreshCombatantStatus) window.SSDNSApplied.refreshCombatantStatus(row);
@@ -1710,6 +1742,65 @@ function nextTurn() {
   DM.pushLedger({ who: "DM", playerId: (cur && (cur.playerId || cur.id)) || "all", type: "combat", what: turnLine, oldVal: null, newVal: "round " + fight.round, flag: false });
   sendYourTurn(cur, false);
   tickConditions(cur);
+}
+
+/**
+ * Turn order PR 1 (ruling 3): Previous is the DM's "Undo last Next", behind a confirm. It puts back the round, turn
+ * and turn-start stamps from before the last Next, so nobody gets a second set of fresh markers (the redo Next gives
+ * the same combatant the same turn key). DM-only: the button lives on the DMCC and the DM map strip only.
+ */
+function undoLastNext(opts) {
+  const T = window.SSDNSTurn;
+  if (!fight.order.length || !T) return false;
+  if (!T.canUndo(fight)) { DM.toast("Nothing to undo: no Next since the fight started or since the last undo"); return false; }
+  const back = fight.undo[0] || {};
+  const backRow = back.started ? fight.order[parseInt(back.turn, 10) || 0] : null;
+  const ask = "Undo the last Next? The turn goes back to " + (back.started ? ((backRow && backRow.name) || "the previous combatant") + " (round " + (back.round || 1) + ")" : "before the fight started") +
+    ". Nobody's action, bonus action or reaction is given back.";
+  const yes = opts && opts.confirmed ? true : (typeof window.confirm === "function" ? window.confirm(ask) : false);
+  if (!yes) { DM.toast("Kept the turn as it is"); return false; }
+  T.undoNext(fight);
+  turnGate = 0;
+  if (window.SSDNSAudio) window.SSDNSAudio.play("ui-back");
+  saveRemoteTable();
+  renderFight();
+  const cur = fight.started ? fight.order[fight.turn] : null;
+  const line = "DM undid the last Next · " + (fight.started ? "Round " + fight.round + " · " + ((cur && cur.name) || "someone") + "'s turn" : "fight not started");
+  DM.toast(line);
+  DM.pushLedger({ who: "DM", playerId: (cur && (cur.playerId || cur.id)) || "all", type: "combat", what: line, oldVal: null, newVal: "undo", flag: false });
+  return true;
+}
+/* T2 / ruling 10: the current combatant's markers on the DMCC focus card. A player's come from their sheet
+   (players/{uid}/turnMarkers, read only here); an enemy's are the DM's own toggles, kept on table/initiative.
+   Enemy markers never warn. */
+function turnMarkersFor(row) {
+  const T = window.SSDNSTurn;
+  if (!T || !row) return null;
+  const init = turnState();
+  if (row.kind === "player") {
+    const p = DM.state.players && DM.state.players[row.playerId || row.id];
+    return { mine: false, m: T.markersFor(p && p.turnMarkers, init, row).markers };
+  }
+  return { mine: true, m: T.markersFor((fight.markers || {})[row.id], init, row).markers };
+}
+function turnMarkersHtml(row) {
+  const got = turnMarkersFor(row);
+  if (!got) return "";
+  const m = got.m;
+  const pip = (k, label) => got.mine
+    ? `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}" aria-pressed="${!!m[k]}" title="${label} ${m[k] ? "used" : "ready"} (click to mark ${m[k] ? "ready" : "used"})">${label}</button>`
+    : `<span class="pip pip-${k}${m[k] ? " used" : ""}" title="${label} ${m[k] ? "used" : "ready"} (from the player's sheet)">${label}</span>`;
+  return `<div class="dm-turn-markers act-pips" data-turn-markers="${esc(row.id || "")}"><span class="pip-label">${got.mine ? "This turn" : "Player's turn"}</span>${pip("action", "Action")}${pip("bonus", "Bonus")}${pip("reaction", "R")}</div>`;
+}
+function toggleEnemyMarker(kind) {
+  const T = window.SSDNSTurn;
+  const cur = fight.started ? fight.order[fight.turn] : null;
+  if (!T || !cur || cur.kind === "player" || ["action", "bonus", "reaction"].indexOf(kind) < 0) return;
+  const m = T.markersFor((fight.markers || {})[cur.id], turnState(), cur).markers;
+  m[kind] = !m[kind];
+  fight.markers = Object.assign({}, fight.markers || {}, { [cur.id]: m });
+  saveRemoteTable();
+  renderFight();
 }
 
 async function pushHp(kind) {
@@ -4869,6 +4960,7 @@ async function endCombat() {
   fight.turnCmd = null;
   fight.round = 1;
   fight.turn = 0;
+  if (window.SSDNSTurn) window.SSDNSTurn.clearTurnState(fight);
   const sent = $("#turnSent");
   if (sent) sent.textContent = "";
   await saveRemoteTable();
@@ -5340,9 +5432,10 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-strip-next],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
+    const t = e.target.closest && e.target.closest("[data-strip-next],[data-dm-pip],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
     if (!t) return;
     if (t.hasAttribute("data-strip-next")) { nextTurn(); return; }
+    if (t.hasAttribute("data-dm-pip")) { toggleEnemyMarker(t.getAttribute("data-dm-pip")); return; }
     if (t.hasAttribute("data-fight-portrait")) {
       const pi = t.getAttribute("data-fight-portrait");
       const fold = document.querySelector('[data-turn-fold][data-fold-i="' + pi + '"]');
@@ -6063,6 +6156,7 @@ function notePresence(id, on) {
   }
 }
 function clearFight() {
+  if (window.SSDNSTurn) window.SSDNSTurn.clearTurnState(fight);
   fight.order = [];
   fight.departed = {};
   fight.started = false;
@@ -6237,14 +6331,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.116-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.117-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.116-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.117-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -6302,14 +6396,7 @@ async function bootV2() {
   }
   $("#btnNextTurn") && $("#btnNextTurn").addEventListener("click", nextTurn);
   $("#btnClearStale") && $("#btnClearStale").addEventListener("click", () => { clearStaleTokens(); });
-  $("#btnPrevTurn") && $("#btnPrevTurn").addEventListener("click", () => {
-    if (!fight.order.length) return;
-    fight.turn -= 1;
-    if (window.SSDNSAudio) window.SSDNSAudio.play("ui-back");
-    if (fight.turn < 0) { fight.turn = fight.order.length - 1; fight.round = Math.max(1, fight.round - 1); }
-    saveRemoteTable();
-    renderFight();
-  });
+  $("#btnPrevTurn") && $("#btnPrevTurn").addEventListener("click", () => { undoLastNext(); });
   $("#btnDmg") && $("#btnDmg").addEventListener("click", () => pushHp("damage"));
   $("#btnHeal") && $("#btnHeal").addEventListener("click", () => pushHp("heal"));
   $("#btnShortRest") && $("#btnShortRest").addEventListener("click", () => rest("short"));
@@ -6389,6 +6476,10 @@ async function bootV2() {
     currentTurn: function () {
       return fight.started ? (fight.order[fight.turn] || null) : null;
     },
+    turnState: turnState,
+    undoLastNext: undoLastNext,
+    nextTurn: nextTurn,
+    turnMarkersFor: turnMarkersFor,
     syncPlayers: syncPlayerVitals,
     onPlayerInit: onPlayerInit,
     notePresence: notePresence,

@@ -1,7 +1,7 @@
 /**
  * Per-turn action economy (0.3.54 guns, 0.3.55 attacks, spells, features).
  * Pips: Action, Bonus, Reaction. Spending a used pip only warns (the DM can allow it); nothing is
- * ever blocked. Pips reset when the DM's turn order moves to a new turn, or with Reset.
+ * ever blocked. Pips reset when your own turn starts in the DM's turn order (turn order PR 1), or with Reset.
  * Costs: "action", "bonus", "reaction", "full" (slow load = action + bonus), "free" (no pip).
  * Attacks: the first attack spends the Action; Extra Attack (from the Calling's feature text in
  * rules.js) makes the next attacks in that Attack action free, up to the limit.
@@ -15,7 +15,12 @@
     try { var v = JSON.parse(root.localStorage.getItem(KEY) || "null"); if (v && typeof v === "object") return Object.assign(blank(), v); } catch (e) {}
     return blank();
   }
-  function save() { try { root.localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  function save() {
+    try { root.localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    /* T2: the markers also go to the room so the DM sees them and a reload keeps them */
+    try { if (root.SSDNSDmJoin && root.SSDNSDmJoin.pushTurnMarkers) root.SSDNSDmJoin.pushTurnMarkers(stateCopy()); } catch (e) {}
+  }
+  function stateCopy() { return { action: !!st.action, bonus: !!st.bonus, reaction: !!st.reaction, attacks: st.attacks || 0, actionBy: st.actionBy || "", turnKey: st.turnKey || "" }; }
   var LABEL = { action: "an action", bonus: "a bonus action", reaction: "a reaction", full: "a full turn (action + bonus)", free: "a free action" };
   var WORD = { action: "your action", bonus: "your bonus action", reaction: "your reaction" };
   function needs(cost) {
@@ -160,12 +165,48 @@
   function reset(quiet) { st.action = false; st.bonus = false; st.reaction = false; st.attacks = 0; st.actionBy = ""; save(); paint(); if (!quiet) toast("Action, bonus action, and reaction are back."); /* 0.3.73: tell per-turn trackers (Fan the Hammer) */
     try { if (root.dispatchEvent && typeof root.CustomEvent === "function") root.dispatchEvent(new root.CustomEvent("ssdns:pips-reset")); } catch (e) {}
   }
+  /* Turn order PR 1 (T2, Jessey's rulings 2026-10-21 9:07 PM CT): markers come back only when MY own turn starts
+     (reaction too), never on someone else's turn, and the DM's Undo never hands out a second set. The rule lives in
+     SSDNSTurn (turn-rules.js), shared with the DMCC. If my row can't be found in the order (e.g. a name mismatch
+     offline), the markers come back once per round instead of on every turn. */
+  var lastInit = null;
+  function myRow(init) {
+    var T = root.SSDNSTurn;
+    if (!T || !init) return null;
+    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    var c = character();
+    return T.rowFor(init, uid || "", (c && c.name) || "");
+  }
   function onTurn(init) {
     if (!init || !Array.isArray(init.order) || !init.order.length) return;
-    var k = String(init.round || 1) + ":" + String(Number(init.turn) || 0);
+    lastInit = init;
+    var T = root.SSDNSTurn;
+    var row = myRow(init);
+    if (T && row) {
+      var got = T.markersFor(st, init, row);
+      if (!got.reset) return;
+      st.turnKey = got.markers.turnKey;
+      reset(true);
+      return;
+    }
+    var k = "round:" + String(init.round || 1);
     if (k === st.turnKey) return;
     st.turnKey = k;
     reset(true);
+  }
+  /** Room copy (rooms/{code}/players/{uid}/turnMarkers) wins when it belongs to a newer or the same turn. */
+  function adopt(v) {
+    if (!v || typeof v !== "object") return false;
+    var keep = blank();
+    ["action", "bonus", "reaction"].forEach(function (k) { keep[k] = !!v[k]; });
+    keep.attacks = Math.max(0, parseInt(v.attacks, 10) || 0);
+    keep.actionBy = String(v.actionBy || "");
+    keep.turnKey = String(v.turnKey || "");
+    st = keep;
+    try { root.localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    if (lastInit) onTurn(lastInit);
+    paint();
+    return true;
   }
   function costTag(cost) { return cost === "full" ? "Full turn" : (cost === "bonus" ? "Bonus" : (cost === "free" ? "Free" : (cost === "reaction" ? "Reaction" : "Action"))); }
   function actionText() {
@@ -212,6 +253,7 @@
     spend: spend, toggle: toggle, attack: attack, spell: spell, feature: feature, reset: reset, onTurn: onTurn, paint: paint,
     attacksPerAction: attacksPerAction, spellCost: spellCost, featureCost: featureCost, rulesCost: rulesCost,
     state: function () { return { action: st.action, bonus: st.bonus, reaction: st.reaction, attacks: st.attacks, actionBy: st.actionBy, turnKey: st.turnKey }; },
+    adopt: adopt,
     costTag: costTag, needs: needs
   };
 })(typeof window !== "undefined" ? window : this);

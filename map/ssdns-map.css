@@ -1200,3 +1200,5 @@ body.map-fullscreen #mapMount > canvas.ssm-fx {
 @media (max-width: 480px) {
   .ssdns-map > .ssm-drawer, body.map-fullscreen #mapMount > .ssm-drawer { padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
+/* turn order PR 1: "Undo last Next" stays on one line in the DM strip */
+.ssm-turnstrip [data-act="stripUndoNext"] { white-space: nowrap; flex: none; }
