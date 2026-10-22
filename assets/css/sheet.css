@@ -1363,8 +1363,8 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .doll-badge-state-dull { color: #f1ece2; background: rgba(92,88,82,.92); border-color: #a39c90; }
 .doll-badge-state-tarnished { color: #f4e6c4; background: rgba(78,22,14,.94); border-color: #8d1c14; }
 .doll-badge-state .doll-lawless, .chip .chip-lawless { font-variant: small-caps; color: #ffb59e; margin-left: .25em; }
-.doll-slot.doll-badge-dull .doll-art { filter: grayscale(1) brightness(.85); opacity: .7; }
-.doll-slot.doll-badge-tarnished .doll-art { filter: sepia(.9) hue-rotate(-25deg) saturate(1.6) brightness(.7); }
+.doll-slot.doll-badge-dull.doll-badge-fb .doll-art { filter: grayscale(1) brightness(.85); opacity: .7; }
+.doll-slot.doll-badge-tarnished.doll-badge-fb .doll-art { filter: sepia(.9) hue-rotate(-25deg) saturate(1.6) brightness(.7); }
 .doll-slot.doll-badge-tarnished { box-shadow: 0 0 0 .35cqw rgba(141,28,20,.6); }
 .chip.badge.badge-bright { background: linear-gradient(#f3d98b, #d7ad4c); color: #2e1b0d; }
 .chip.badge.badge-dull { background: #5c5852; color: #f1ece2; }

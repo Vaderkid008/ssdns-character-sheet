@@ -812,7 +812,7 @@
             cls += " doll-focus-" + fst.kind + (fst.away ? " doll-away" : "");
             src = fst.kind === "caster" || fst.kind === "weapon" ? "mirrors " + fst.side + ", read-only" : (fst.kind === "patron" ? "your patron, always your focus" : (fst.kind === "item" ? "your focus item" : ""));
             if (fst.lost) cls += " doll-focus-lost";
-            if (fst.badge) cls += " doll-badge doll-badge-" + fst.badge;
+            if (fst.badge) cls += " doll-badge doll-badge-" + fst.badge + (fst.art && fst.art === fst.fallback ? " doll-badge-fb" : "");
             if (fst.fallback) fallback = fst.fallback;
             if (fst.badge) fstBadge = fst.badge;
           }
@@ -1045,6 +1045,9 @@
       if (root.SSDNSIronArt && root.SSDNSIronArt.markMissing) root.SSDNSIronArt.markMissing(im.getAttribute("src"));
       artMissing[String(im.getAttribute("src") || "").replace(/[?#].*$/, "")] = 1;
       im.removeAttribute("data-fallback");
+      /* the per-state badge art is missing: tint the shared tin-star fallback by state instead (sheet.css doll-badge-fb) */
+      var slot = im.closest ? im.closest(".doll-badge") : null;
+      if (slot && slot.classList) slot.classList.add("doll-badge-fb");
       if (fb && im.getAttribute("src") !== fb) im.setAttribute("src", fb);
     }, true);
   }

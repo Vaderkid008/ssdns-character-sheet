@@ -737,7 +737,7 @@
       forSale: false,
       story: true,
       dmPlace: true,
-      art: art("tin-star-board.webp")
+      art: art("lawman-badge-bright.webp")
     },
     {
       /* L0197 (Jessey 2026-10-20 7:10 PM): the Pact Seeker's pact focus as a real item. BOOK1 L2005 / L3770 / L4186.

@@ -176,6 +176,13 @@ check("same.bareCharacter", D.focusState({ calling: "scholar", items: [] }) === 
     check("badge." + st + ".slot", fs_.badge === st && fs_.itemId === "tin-star-badge" && new RegExp("lawman-badge-" + st + "\\.webp$").test(fs_.art) && /tin-star-board\.webp$/.test(fs_.fallback) && (st === "tarnished") === !!fs_.lawless, J(fs_));
     check("badge." + st + ".html", new RegExp('data-badge-state="' + st + '"').test(per[st].cell) && /data-fallback="[^"]*tin-star-board\.webp"/.test(per[st].cell) && (st === "tarnished") === /Lawless/.test(per[st].cell) && new RegExp("doll-badge-" + st).test(per[st].cell), per[st].cell.slice(0, 600));
   }
+  for (const st of ["bright", "dull", "tarnished"]) {
+    c.badgeState = st;
+    const row = I.eqRows(c).find((r) => r.name === "Tin star badge");
+    check("badge." + st + ".equipTile", !!row && new RegExp("assets/img/items/lawman-badge-" + st + "\\.webp$").test(row.src) && /tin-star-board\.webp$/.test(row.fallback), J(row && [row.src, row.fallback]));
+    check("badge." + st + ".artFiles", fs.existsSync(path.join(root, "assets/img/items/lawman-badge-" + st + ".webp")) && fs.existsSync(path.join(root, "assets/img/items/gear/lawman-badge-" + st + ".webp")));
+  }
+  check("badge.tileOnlyForBadge", I.badgeTile(I.instanceFrom(I.byId(HOLY)), c) === "");
   check("badge.otherCallingsNeverBlocked", ["dull", "tarnished"].every((st) => !F.badgeBlock({ calling: "frontier-preacher", badgeState: st }, "spells") && !F.castBlock({ calling: "frontier-preacher", badgeState: st })));
   check("badge.lawlessFlag", F.lawless({ calling: "lawman", badgeState: "tarnished" }) && !F.lawless({ calling: "lawman", badgeState: "dull" }) && !F.lawless({ calling: "scholar", badgeState: "tarnished" }));
   check("badge.oathHookNull", F.lawlessOathHook({ calling: "lawman", badgeState: "tarnished" }) === null && typeof sb.SSDNS_LAWLESS.oathFeatures === "function");
@@ -256,12 +263,21 @@ try {
     check("ui.bright.mercyOpen", b.mercy && !b.mercy.hidden && !b.mercy.disabled, J(b.mercy));
     await send("dull"); await sleep(500);
     b = await pg.evaluate(slotInfo);
+    const artCheck = async (st) => { await pg.evaluate(() => document.querySelector("#tab-equip").click()); await sleep(500);
+      const a = await pg.evaluate(() => { const im = document.querySelector('#dollHost [data-doll-slot="focus_borrowed_iron"] .doll-art');
+        const row = [...document.querySelectorAll("#itemList .eq-row, #itemList [data-eq-toggle]")].find((r) => /Tin star badge/.test(r.textContent));
+        const t = row ? row.querySelector(".eq-thumb img") : null;
+        return { doll: im ? im.getAttribute("src") : "", dollOk: !!(im && im.complete && im.naturalWidth), tile: t ? t.getAttribute("src") : "", tileOk: !!(t && t.complete && t.naturalWidth), fb: t ? t.getAttribute("data-eq-ph") : "" }; });
+      check("ui." + st + ".art", new RegExp("gear/lawman-badge-" + st + "\\.webp$").test(a.doll) && a.dollOk && new RegExp("items/lawman-badge-" + st + "\\.webp$").test(a.tile) && /tin-star-board/.test(a.fb || ""), J(a));
+      await pg.evaluate(() => document.querySelector("#tab-hex").click()); await sleep(300); };
+    await artCheck("dull");
     check("ui.dull.slot", /doll-badge-dull/.test(b.cls) && /^Dull/.test(b.pill) && !/Lawless/.test(b.pill), J(b));
     check("ui.dull.spellsGreyed", b.cast.length > 0 && b.cast.every((x) => x.disabled && /Dull/.test(x.title)) && /Dull/.test(b.spellNote), J(b.cast) + b.spellNote);
     check("ui.dull.mercySmiteCreed", b.mercy.disabled && b.arm && b.arm.disabled && /Dull/.test(b.arm.title) && b.creed && b.creed.off, J([b.mercy, b.arm, b.creed]));
     check("ui.dull.sameList", b.choices.includes("Bless") && !b.book, J(b.choices));
     await send("tarnished"); await sleep(500);
     b = await pg.evaluate(slotInfo);
+    await artCheck("tarnished");
     check("ui.tarnished.slot", /doll-badge-tarnished/.test(b.cls) && /Tarnished/.test(b.pill) && /Lawless/.test(b.pill), J(b));
     check("ui.tarnished.chipLawless", /Lawless/.test(b.chip), b.chip);
     check("ui.tarnished.listSwapped", !b.choices.includes("Bless") && b.choices.includes("Hellish Rebuke (Hell's Answer)") && b.choices.includes("Darkness (Lights Out)") && !b.choices.some((n) => /Animate Dead/.test(n)) &&
@@ -272,6 +288,7 @@ try {
     check("ui.tarnished.westernNames", names.includes("Hell's Answer") && names.includes("Gut Shot") && !names.includes("Trail Medicine"), J(names));
     await send("bright"); await sleep(500);
     b = await pg.evaluate(slotInfo);
+    await artCheck("bright");
     check("ui.restore.bright", /^Bright/.test(b.pill) && b.choices.includes("Bless") && b.choices.includes("Cure Wounds (Trail Medicine)") && !b.choices.some((n) => /Hellish/.test(n)) && b.catalog.includes("Bless") && !b.lawlessNote, J(b.choices));
     check("ui.restore.lawlessBookKept", !!b.book && b.book.seeded === true, J(b.book));
     await send("tarnished"); await sleep(300); await send("dull"); await sleep(400);
