@@ -10,16 +10,19 @@
 (function (root) {
   "use strict";
   var KEY = "ssdns.actionPips.v1";
+  var ACTS = ["dash", "disengage", "dodge"];
   var st = load();
   /* turn order PR 2: moveUsed (feet), dash / disengage / dodge, the opportunity-attack window (oaReq asked, oaArmed
      approved and not used yet, oaUsed spent) and deathKey (the turn a death save was rolled) */
-  function blank() { return { action: false, bonus: false, reaction: false, attacks: 0, actionBy: "", turnKey: "", moveUsed: 0, dash: false, disengage: false, dodge: false, oaReq: "", oaArmed: "", oaUsed: "", oaUsedAt: 0, deathKey: "" }; }
+  function blank() { return { action: false, bonus: false, reaction: false, attacks: 0, actionBy: "", turnKey: "", moveUsed: 0, dash: false, disengage: false, dodge: false, oaReq: "", oaArmed: "", oaUsed: "", oaUsedAt: 0, deathKey: "", actUndo: "" }; }
   function extras(src, out) {
     src = src || {};
     out.moveUsed = Math.max(0, parseInt(src.moveUsed, 10) || 0);
     out.dash = !!src.dash; out.disengage = !!src.disengage; out.dodge = !!src.dodge;
     out.oaReq = String(src.oaReq || ""); out.oaArmed = String(src.oaArmed || ""); out.oaUsed = String(src.oaUsed || "");
     out.oaUsedAt = Number(src.oaUsedAt) || 0; out.deathKey = String(src.deathKey || "");
+    /* Turn UX on the map: the Dash / Disengage / Dodge that can still be cancelled this turn ("" = none) */
+    out.actUndo = ACTS.indexOf(String(src.actUndo || "")) >= 0 ? String(src.actUndo) : "";
     return out;
   }
   function load() {
@@ -58,6 +61,7 @@
     var used = list.filter(function (k) { return st[k]; });
     list.forEach(function (k) { st[k] = true; });
     if (list.indexOf("action") >= 0 && !used.length) st.actionBy = "other";
+    if (list.indexOf("action") >= 0) st.actUndo = ""; /* Turn UX on the map: the Action went to something else, so no cancel */
     save(); paint();
     if (used.length) warn(what, cost, used);
     return { over: used.length > 0, cost: cost };
@@ -101,6 +105,7 @@
       if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "note", text: label + " · opportunity attack (reaction)." });
       return { over: false, attacks: st.attacks, limit: limit, oa: st.oaUsed };
     }
+    st.actUndo = ""; /* Turn UX on the map: an attack after Dash / Disengage / Dodge ends its cancel */
     if (!st.action) { st.action = true; st.actionBy = "attack"; st.attacks = 1; }
     else if (st.actionBy === "attack" && st.attacks < limit) { st.attacks += 1; }
     else {
@@ -184,7 +189,7 @@
       return st[kind];
     }
     st[kind] = !st[kind];
-    if (kind === "action") { st.actionBy = st.action ? "manual" : ""; st.attacks = 0; }
+    if (kind === "action") { st.actionBy = st.action ? "manual" : ""; st.attacks = 0; st.actUndo = ""; }
     save(); paint();
     if (root.SSDNSAudio) root.SSDNSAudio.play("ui-tick");
     if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "note", quiet: true, text: NAME[kind] + (st[kind] ? " marked used" : " marked ready") + " (manual)." });
@@ -249,6 +254,30 @@
     save();
     return st.moveUsed;
   }
+  /* Turn UX on the map (Jessey 2026-10-22 2:28 PM): Dash / Disengage / Dodge can be cancelled during the turn.
+     takeAct spends the Action (warning if it was used, as before) and remembers which act paid for it; cancelAct
+     gives that Action back and turns the act off. Anything that spends the Action afterwards (an attack, a spell,
+     a reload, a manual or DM toggle) closes the cancel. Movement rules live in turn-lock.js. */
+  function takeAct(k, label) {
+    if (ACTS.indexOf(k) < 0) return null;
+    var fresh = !st.action;
+    var r = spend("action", label);
+    if (fresh) { st.actionBy = k; st.attacks = 0; }
+    st[k] = true;
+    st.actUndo = k;
+    save(); paint();
+    return r;
+  }
+  function canCancelAct(k) { return ACTS.indexOf(k) >= 0 && !!st[k] && st.actUndo === k; }
+  function cancelAct(k) {
+    if (!canCancelAct(k)) return null;
+    var refund = !!st.action && st.actionBy === k;
+    st[k] = false;
+    st.actUndo = "";
+    if (refund) { st.action = false; st.actionBy = ""; st.attacks = 0; }
+    save(); paint();
+    return { refunded: refund };
+  }
   function setFlag(k, on) { if (["dash", "disengage", "dodge"].indexOf(k) < 0) return; st[k] = on !== false; save(); }
   function setOa(field, id) { if (["oaReq", "oaArmed", "oaUsed"].indexOf(field) < 0) return; st[field] = String(id || ""); save(); paint(); }
   /** The approved opportunity attack's id, for the rolls of the attack that just used it (a short window). */
@@ -300,7 +329,7 @@
     attacksPerAction: attacksPerAction, spellCost: spellCost, featureCost: featureCost, rulesCost: rulesCost,
     state: function () { return extras(st, { action: st.action, bonus: st.bonus, reaction: st.reaction, attacks: st.attacks, actionBy: st.actionBy, turnKey: st.turnKey }); },
     adopt: adopt,
-    move: move, setFlag: setFlag, setOa: setOa, oaTag: oaTag, markDeath: markDeath, inFight: inFight, lastInit: function () { return lastInit; },
+    move: move, setFlag: setFlag, takeAct: takeAct, cancelAct: cancelAct, canCancelAct: canCancelAct, html: html, setOa: setOa, oaTag: oaTag, markDeath: markDeath, inFight: inFight, lastInit: function () { return lastInit; },
     costTag: costTag, needs: needs
   };
 })(typeof window !== "undefined" ? window : this);

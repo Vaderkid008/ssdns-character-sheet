@@ -24,7 +24,48 @@
     }
     if (el && text) el.hidden = true;
   }
+  /* ---- Turn UX on the map (Jessey 2026-10-22 2:28 PM): the sheet's turn strip on the map ----
+     The sheet's #turnPanel (round, turn order, Action / Bonus / R, movement, Dash / Disengage / Dodge, End turn) is
+     moved, as the same element, into a slot at the top of the map while the Map tab is open, and put back in its
+     place under the table bar when another tab opens or the map closes. One element, so the two can't differ. */
+  var turnHome = null;
+  function turnPanelEl() { return $("turnPanel"); }
+  function mapTabOpen() {
+    var pageEl = $("page-map");
+    return !!(pageEl && !pageEl.hidden && !document.body.classList.contains("printing"));
+  }
+  function undockTurnPanel() {
+    var panel = turnPanelEl();
+    var el = mountEl();
+    if (el) el.classList.remove("has-sheet-turn");
+    if (!panel || !turnHome || !turnHome.parentNode) return;
+    if (panel.parentNode && panel.parentNode.classList && panel.parentNode.classList.contains("ssm-turnhost")) {
+      turnHome.parentNode.insertBefore(panel, turnHome);
+    }
+  }
+  function dockTurnPanel() {
+    if (isDmPage()) return;
+    var el = mountEl();
+    var panel = turnPanelEl();
+    if (!el || !panel) return;
+    if (!map || el.hidden || !mapTabOpen()) { undockTurnPanel(); return; }
+    var slot = el.querySelector(":scope > .ssm-turnhost");
+    if (!slot) {
+      slot = document.createElement("div");
+      slot.className = "ssm-turnhost";
+      slot.setAttribute("data-act", "turnHost");
+      el.insertBefore(slot, el.firstChild);
+    }
+    if (panel.parentNode !== slot) {
+      if (!turnHome) turnHome = document.createComment("turnPanel home");
+      if (!turnHome.parentNode) panel.parentNode.insertBefore(turnHome, panel);
+      slot.appendChild(panel);
+    }
+    el.classList.add("has-sheet-turn");
+    if (map.requestDraw) map.requestDraw();
+  }
   function destroyMap() {
+    undockTurnPanel(); /* map.destroy() empties the mount; the strip goes home first */
     generation += 1;
     mountedKey = "";
     if (map && map.destroy) {
@@ -756,7 +797,13 @@
             if (!isDmPage() || !api || typeof api.choices !== "function") return null;
             try { return api.choices(); } catch (e) { return null; }
           },
-          rangeWeapons: rangeWeapons
+          rangeWeapons: rangeWeapons,
+          /* Turn UX on the map: the DM strip shows the current player's markers, the same HTML as the DM card */
+          turnMarkers: function (cid) {
+            var E = root.DMCCEnhance;
+            if (!isDmPage() || !E || typeof E.mapMarkersHtml !== "function") return "";
+            try { return E.mapMarkersHtml(cid) || ""; } catch (e) { return ""; }
+          }
         },
         options: {
           scene: pair[0],
@@ -772,6 +819,7 @@
         }
       });
       mountedKey = key;
+      dockTurnPanel();
       if (map.refreshPlayers) map.refreshPlayers();
       syncInitiative();
       if (!ctx.demo && ctx.fb && ctx.fb.get && ctx.db) {
@@ -839,6 +887,12 @@
         if (tab.id === "tab-map" && map && map.requestDraw) setTimeout(function () { map.requestDraw(); }, 30);
       });
     });
+    /* Turn UX on the map: follow the Map tab (the sheet shows / hides #page-map) */
+    var pageMap = $("page-map");
+    if (pageMap && !isDmPage() && typeof MutationObserver === "function" && !pageMap.dataset.turnDock) {
+      pageMap.dataset.turnDock = "1";
+      try { new MutationObserver(function () { dockTurnPanel(); }).observe(pageMap, { attributes: true, attributeFilter: ["hidden"] }); } catch (e) {}
+    }
     syncRoom();
   }
   function placeToken(spec) {
@@ -901,6 +955,11 @@
     refreshCard: function (tokenId) {
       if (map && map.refreshCard) map.refreshCard(tokenId || "");
     },
+    /* Turn UX on the map: the DM page repaints the strip's markers when a player's markers change */
+    refreshStrip: function () {
+      if (map && map.refreshStrip) map.refreshStrip();
+    },
+    dockTurnPanel: dockTurnPanel,
     feetBetween: function (idA, idB) {
       if (!map || typeof map.feetBetween !== "function") return null;
       try { return map.feetBetween(idA, idB); }

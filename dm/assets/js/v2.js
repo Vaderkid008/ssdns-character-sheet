@@ -1992,6 +1992,8 @@ function paintTurnRules() {
   const html = turnRulesHtml();
   box.hidden = !html;
   if (box.innerHTML !== html) box.innerHTML = html;
+  /* Turn UX on the map: the map's turn strip shows the current player's markers; keep it in step */
+  if (window.SSDNSMapHost && window.SSDNSMapHost.refreshStrip) { try { window.SSDNSMapHost.refreshStrip(); } catch (e) {} }
 }
 /** Map DM drawer (item 8/9): the same markers + Reset for a player's token, by combatant id. */
 function mapMarkersHtml(combatantId) {

@@ -1000,12 +1000,12 @@ select:-webkit-autofill {
 @media (min-width: 801px) {
   /* drop the empty chat row so the board takes its height */
   #mapMount.ssdns-map:has(.ssdns-leftbar):has(.ssdns-rightbar) {
-    grid-template-rows: auto auto minmax(120px, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(120px, 1fr);
     grid-template-areas:
+      "strip strip strip"
       "bar bar bar"
       "dice dice dice"
-      "left stage right"
-      "strip strip strip";
+      "left stage right";
   }
 }
 

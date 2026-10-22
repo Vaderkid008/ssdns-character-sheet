@@ -5203,6 +5203,12 @@ async function loadSceneImage(sceneId, opts) {
       strip.appendChild(b);
     });
     if (role === 'dm') {
+      /* Turn UX on the map: the current player's Action / Bonus / R / movement (the DM card's markers) on the strip */
+      const marks = document.createElement('span');
+      marks.className = 'ssm-strip-markers';
+      marks.setAttribute('data-act', 'stripMarkers');
+      strip.appendChild(marks);
+      fillStripMarkers();
       const next = document.createElement('button');
       next.type = 'button';
       next.className = 'btn btn-primary btn-next';
@@ -5231,6 +5237,17 @@ async function loadSceneImage(sceneId, opts) {
       end.addEventListener('click', () => emit('initiative:end', {}));
       strip.appendChild(end);
     }
+  }
+  /* Turn UX on the map: markers for the combatant whose turn it is (DM page only; the host returns the same HTML as the
+     DM card's marker row, and the DM page's own click handler edits them) */
+  function fillStripMarkers() {
+    const slot = q('stripMarkers');
+    if (!slot) return;
+    let html = '';
+    if (role === 'dm' && state.currentTurnId && host.turnMarkers) {
+      try { html = host.turnMarkers(state.currentTurnId) || ''; } catch (e) { html = ''; }
+    }
+    if (slot.innerHTML !== html) slot.innerHTML = html;
   }
   function renderActions() {
     if (role === 'player') { paintPlayerFight(); return; }
@@ -6652,6 +6669,7 @@ async function loadSceneImage(sceneId, opts) {
     requestDraw();
     if (role === 'player') { paintPlayerFight(); return; }
     if (role !== 'dm') return;
+    fillStripMarkers();
     if (state.drawerOpen && (!tokenId || tokenId === state.drawerTokenId)) renderDrawer();
   }
 
@@ -6973,6 +6991,7 @@ return {
   pushFeed,
   requestDraw,
   refreshCard,
+  refreshStrip: fillStripMarkers,
   feetBetween: function (idA, idB) {
     return feetBetween(tokenByRef(idA), tokenByRef(idB));
   },
