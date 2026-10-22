@@ -477,8 +477,11 @@
       ]}
     ],
     lawman: [
-      { id: "weapon", prompt: "Ball n Cap, or a .410 farm shotgun?", options: withPlinker([
+      /* M6 (Jessey 2026-10-21 7:35 / 7:41 PM): the Lawman picks ONE gun: Ball n Cap, a carbine + 20 Light, or the .410.
+         Ball n Cap stays first, so it is still the default pick and old saves without a pick keep it. */
+      { id: "weapon", prompt: "Ball n Cap, a carbine, or a .410 farm shotgun?", options: withPlinker([
         { id: "revolver", label: "Navy / Army Ball n Cap + 20 loads" },
+        { id: "carbine", label: "Dullards Light Carbine + 20 Light cartridges" },
         { id: "shotgun", label: "Single-Barrel Farm Shotgun, .410 + 10 shells" }
       ])},
       { id: "pack", prompt: "Preacher's kit, or trail kit?", options: [
@@ -588,6 +591,7 @@
       else staff(c);
     } else if (calling === "lawman") {
       if (p.weapon === "shotgun") farm410(c);
+      else if (p.weapon === "carbine") lightGun(c, "dullards-light-carbine");
       else if (p.weapon === "plinker") plinker(c);
       else if (p.weapon === "repeater") plinkerRepeater(c);
       else ballCap(c);
