@@ -51,7 +51,12 @@ const fight = {
   seq: 0,
   turnStarts: {},
   undo: [],
-  markers: {}
+  markers: {},
+  /* turn order PR 2: the DM's override (unlock { playerId: seq }) and opportunity attacks (oa { reqId: {...} }) ride on
+     table/initiative too; held { rollId: meta } is out-of-turn damage / healing waiting for the DM's OK (DM-only, local) */
+  unlock: {},
+  oa: {},
+  held: {}
 };
 function turnFields(src) {
   const T = window.SSDNSTurn;
@@ -63,14 +68,19 @@ function turnFields(src) {
     fight.turnStarts = {};
     fight.undo = [];
     fight.markers = {};
+    fight.unlock = {};
+    fight.oa = {};
   }
   if (src.turnStarts && typeof src.turnStarts === "object") fight.turnStarts = Object.assign({}, src.turnStarts);
   if (Array.isArray(src.undo)) fight.undo = src.undo.slice(0, (T && T.UNDO_MAX) || 5);
   else if (src.undo && typeof src.undo === "object") fight.undo = Object.keys(src.undo).sort().map((k) => src.undo[k]).slice(0, (T && T.UNDO_MAX) || 5);
   if (src.markers && typeof src.markers === "object") fight.markers = Object.assign({}, src.markers);
+  if (src.unlock && typeof src.unlock === "object") fight.unlock = Object.assign({}, src.unlock);
+  if (src.oa && typeof src.oa === "object") fight.oa = Object.assign({}, src.oa);
 }
 function turnState() {
-  return { round: fight.round, turn: fight.turn, started: !!fight.started, order: fight.order, seq: fight.seq || 0, turnStarts: fight.turnStarts || {} };
+  return { round: fight.round, turn: fight.turn, started: !!fight.started, order: fight.order, seq: fight.seq || 0, turnStarts: fight.turnStarts || {},
+    unlock: fight.unlock || {}, oa: fight.oa || {} };
 }
 
 function tableKey() {
@@ -106,6 +116,7 @@ function loadLocalTable() {
     });
     if (raw.undos && typeof raw.undos === "object") fight.undos = raw.undos;
     turnFields(raw);
+    if (raw.held && typeof raw.held === "object") fight.held = Object.assign({}, raw.held);
     if (raw.damageMode === "approve" || raw.damageMode === "auto") fight.damageMode = raw.damageMode;
   } catch (e) {}
   try {
@@ -118,7 +129,8 @@ function saveLocalTable() {
     localStorage.setItem(tableKey(), JSON.stringify({
       round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: fight.order, inspiration: fight.inspiration,
       stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, removed: fight.removed || {}, departed: fight.departed || {}, undos: fight.undos || {}, damageMode: fight.damageMode === "approve" ? "approve" : "auto", updatedAt: fight.updatedAt,
-      seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {}
+      seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
+      unlock: fight.unlock || {}, oa: fight.oa || {}, held: fight.held || {}
     }));
     localStorage.setItem(PACK_KEY, JSON.stringify(fight.packs));
   } catch (e) {}
@@ -460,7 +472,8 @@ async function writeRemoteTableOnce() {
     const first = buildPublish();
     await fb.update(DM.roomRef("table"), {
       initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: first.order,
-        seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {} },
+        seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
+        unlock: fight.unlock || {}, oa: fight.oa || {} },
       store: fight.stock,
       packs: fight.packs,
       storeOpen: !!fight.storeOpen,
@@ -1223,6 +1236,7 @@ function renderFight() {
       if (portraits) portraits.innerHTML = "";
       if (focus) focus.innerHTML = '<p class="fight-focus-wait">Add a combatant, roll initiative, then Next.</p>';
       fightLogCards();
+      paintTurnRules();
       syncTurnState();
       pushMapInitiative();
       return;
@@ -1239,6 +1253,7 @@ function renderFight() {
       if (list) list.innerHTML = parts.join("");
     }
     fightLogCards();
+    paintTurnRules();
     if (strip) {
       const len = fight.order.length;
       const chips = fight.order.map((row, i) => {
@@ -1729,6 +1744,7 @@ function nextTurn() {
   fight.flash = fight.turn;
   /* T2: stamp the new current combatant's own turn start; Undo last Next can put this back */
   if (window.SSDNSTurn) window.SSDNSTurn.beginTurn(fight, before);
+  if (window.SSDNSTurn && window.SSDNSTurn.pruneOa) window.SSDNSTurn.pruneOa(fight);
   if (window.SSDNSAudio) window.SSDNSAudio.play("turn");
   (fight.order || []).forEach((row) => {
     if (window.SSDNSApplied && window.SSDNSApplied.refreshCombatantStatus) window.SSDNSApplied.refreshCombatantStatus(row);
@@ -1787,10 +1803,194 @@ function turnMarkersHtml(row) {
   const got = turnMarkersFor(row);
   if (!got) return "";
   const m = got.m;
+  /* turn order PR 2 (item 8): the DM taps a player's markers too; those edits go to the player's sheet */
+  const pid = row.kind === "player" ? (row.playerId || row.id || "") : "";
   const pip = (k, label) => got.mine
     ? `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}" aria-pressed="${!!m[k]}" title="${label} ${m[k] ? "used" : "ready"} (click to mark ${m[k] ? "ready" : "used"})">${label}</button>`
-    : `<span class="pip pip-${k}${m[k] ? " used" : ""}" title="${label} ${m[k] ? "used" : "ready"} (from the player's sheet)">${label}</span>`;
-  return `<div class="dm-turn-markers act-pips" data-turn-markers="${esc(row.id || "")}"><span class="pip-label">${got.mine ? "This turn" : "Player's turn"}</span>${pip("action", "Action")}${pip("bonus", "Bonus")}${pip("reaction", "R")}</div>`;
+    : `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}" data-pip-pid="${esc(pid)}" aria-pressed="${!!m[k]}" title="${label} ${m[k] ? "used" : "ready"} on the player's sheet (click to mark ${m[k] ? "ready" : "used"})">${label}</button>`;
+  const extra = got.mine ? "" : markerExtrasHtml(row, m) + `<button type="button" class="btn xs" data-pip-reset="${esc(pid)}" title="Give back this player's action, bonus action, reaction and movement">Reset</button>`;
+  return `<div class="dm-turn-markers act-pips" data-turn-markers="${esc(row.id || "")}"><span class="pip-label">${got.mine ? "This turn" : "Player's turn"}</span>${pip("action", "Action")}${pip("bonus", "Bonus")}${pip("reaction", "R")}${extra}</div>`;
+}
+/* ---- turn order PR 2 (Jessey's rulings 2026-10-21 / 2026-10-22 4:32 AM CT): DMCC side ----
+   item 1  "Unlock this turn": fight.unlock[playerId] = seq; the sheet's off-turn lock opens until the DM's next Next
+   item 4  opportunity attacks: a player's ask (encounter/requests type "oa") lands in fight.oa; Approve / Deny here
+   item 7  out-of-turn damage / healing waits in fight.held for the DM's Apply instead of applying on its own
+   items 8, 9  the DM edits or resets any player's Action / Bonus / R (players/{uid}/turnMarkers, by: "dm") */
+function playerSpeed(pid) {
+  const snap = playerSnapshot(pid) || {};
+  const n = parseInt(snap.speed, 10);
+  return isFinite(n) && n >= 0 ? n : 30;
+}
+function markerExtrasHtml(row, m) {
+  const T = window.SSDNSTurn;
+  if (!T || !row || row.kind !== "player") return "";
+  const mv = T.moveLeft(m, playerSpeed(row.playerId || row.id));
+  const flags = ["dash", "disengage", "dodge"].filter((k) => m[k]).map((k) => `<span class="badge eld">${k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge")}</span>`).join("");
+  return `<span class="fine tr-move" title="Movement left this turn">Move ${mv.left}/${mv.max} ft</span>${flags}`;
+}
+function playerRowFor(pid) {
+  return (fight.order || []).find((r) => r && r.kind === "player" && (r.playerId === pid || (!r.playerId && r.id === pid))) || null;
+}
+function playerMarkers(pid) {
+  const T = window.SSDNSTurn;
+  const row = playerRowFor(pid);
+  if (!T || !row) return null;
+  const p = DM.state.players && DM.state.players[pid];
+  return T.markersFor(p && p.turnMarkers, turnState(), row).markers;
+}
+function writePlayerMarkers(pid, m, note) {
+  const out = Object.assign({}, m, { by: "dm", dmAt: new Date().toISOString(), dmNote: note || "", updatedAt: new Date().toISOString() });
+  DM.state.players = DM.state.players || {};
+  if (DM.state.players[pid]) DM.state.players[pid].turnMarkers = out;
+  if (!DM.state.demo && DM.state.db && DM.state._fb) {
+    DM.state._fb.set(DM.roomRef("players/" + pid + "/turnMarkers"), out).catch((err) => { if (DM.writeFailed) DM.writeFailed(err, "Couldn't change the player's markers"); });
+  }
+  renderFight();
+  /* the map's DM card shows the same markers: redraw it if it is open */
+  if (window.SSDNSMapHost && window.SSDNSMapHost.refreshCard) { try { window.SSDNSMapHost.refreshCard(""); } catch (e) {} }
+  return out;
+}
+const PIP_NAME = { action: "Action", bonus: "Bonus action", reaction: "Reaction" };
+function editPlayerMarker(pid, kind) {
+  const m = playerMarkers(pid);
+  if (!m || !PIP_NAME[kind]) return null;
+  m[kind] = !m[kind];
+  if (kind === "action") { m.attacks = 0; m.actionBy = m.action ? "manual" : ""; }
+  const who = (playerRowFor(pid) || {}).name || "the player";
+  const note = "The DM marked your " + PIP_NAME[kind].toLowerCase() + " " + (m[kind] ? "used" : "ready") + ".";
+  DM.toast(PIP_NAME[kind] + " marked " + (m[kind] ? "used" : "ready") + " for " + who);
+  return writePlayerMarkers(pid, m, note);
+}
+function resetPlayerMarkers(pid) {
+  const T = window.SSDNSTurn;
+  const row = playerRowFor(pid);
+  if (!T || !row) return null;
+  const m = T.fresh(T.keyFor(turnState(), row) || ((playerMarkers(pid) || {}).turnKey || ""));
+  DM.toast("Markers reset for " + (row.name || "the player"));
+  DM.pushLedger({ who: "DM", playerId: pid, type: "combat", what: "DM reset " + (row.name || "a player") + "'s action, bonus action, reaction and movement", oldVal: null, newVal: "reset", flag: false });
+  return writePlayerMarkers(pid, m, "The DM gave back your action, bonus action, reaction and movement.");
+}
+function toggleUnlock(pid) {
+  const T = window.SSDNSTurn;
+  if (!T || !pid) return false;
+  const on = T.unlocked(turnState(), pid);
+  fight.unlock = Object.assign({}, fight.unlock || {});
+  if (on) delete fight.unlock[pid]; else fight.unlock[pid] = fight.seq || 0;
+  const who = (playerRowFor(pid) || {}).name || "a player";
+  const line = on ? "DM locked " + who + " to their own turn again" : "DM unlocked " + who + " for this turn";
+  DM.toast(line);
+  DM.pushLedger({ who: "DM", playerId: pid, type: "combat", what: line, oldVal: null, newVal: on ? "locked" : "unlocked", flag: false });
+  saveRemoteTable();
+  renderFight();
+  return !on;
+}
+function noteOaRequest(req, id) {
+  if (!req || !id || (fight.oa && fight.oa[id])) return false;
+  const who = req.characterName || ((playerRowFor(req.from) || {}).name) || "A player";
+  fight.oa = Object.assign({}, fight.oa || {});
+  fight.oa[id] = { from: req.from || "", name: who, target: req.targetName || "", targetId: req.targetId || "", status: "ask", seq: fight.seq || 0, ts: req.ts || new Date().toISOString() };
+  if (!DM.state.demo && DM.state._fb && DM.state.db) DM.state._fb.update(DM.roomRef("encounter/requests/" + id), { resolved: true }).catch(() => {});
+  if (window.SSDNSAudio) window.SSDNSAudio.play("ui-tick");
+  DM.toast(who + " asks for an opportunity attack" + (req.targetName ? " on " + req.targetName : ""));
+  saveRemoteTable();
+  renderFight();
+  return true;
+}
+function answerOa(id, yes) {
+  const e = fight.oa && fight.oa[id];
+  if (!e || e.status !== "ask") return false;
+  fight.oa = Object.assign({}, fight.oa, { [id]: Object.assign({}, e, { status: yes ? "approved" : "denied", at: new Date().toISOString() }) });
+  const line = "DM " + (yes ? "approved" : "denied") + " " + (e.name || "a player") + "'s opportunity attack" + (e.target ? " on " + e.target : "");
+  DM.toast(line);
+  DM.pushLedger({ who: "DM", playerId: e.from || "all", type: "combat", what: line, oldVal: null, newVal: yes ? "approved" : "denied", flag: false });
+  saveRemoteTable();
+  renderFight();
+  return true;
+}
+/* item 7: a hit / heal from someone acting out of turn waits for the DM instead of applying on its own */
+function heldOutOfTurn(src) {
+  const T = window.SSDNSTurn;
+  if (!T || !src || !fight.started) return false;
+  const from = src.from || src.playerId || src.uid || "";
+  const roll = { playerId: from, uid: src.uid || from, oa: src.oa || "" };
+  return T.outOfTurn(roll, { started: !!fight.started, current: fight.order[fight.turn] || null, dmUid: DM.state.uid, oa: fight.oa || {} });
+}
+function holdHit(meta, line) {
+  const key = meta.rollId || DM.uid("held");
+  if (fight.appliedHits[key]) return false;
+  fight.held = Object.assign({}, fight.held || {});
+  if (fight.held[key]) return false;
+  fight.held[key] = Object.assign({}, meta, { rollId: meta.rollId || "", line: line || "", ts: new Date().toISOString() });
+  DM.toast((line || "Out-of-turn hit") + " · out of turn: waiting for your OK");
+  saveLocalTable();
+  renderFight();
+  return true;
+}
+function releaseHeld(key, apply) {
+  const meta = fight.held && fight.held[key];
+  if (!meta) return false;
+  fight.held = Object.assign({}, fight.held);
+  delete fight.held[key];
+  saveLocalTable();
+  if (apply) applyPlayerHit(meta);
+  else DM.toast("Skipped: " + (meta.line || "out-of-turn hit"));
+  renderFight();
+  return true;
+}
+function turnRulesHtml() {
+  const T = window.SSDNSTurn;
+  if (!T || !fight.started || !fight.order.length) return "";
+  const init = turnState();
+  const asks = Object.keys(fight.oa || {}).map((id) => Object.assign({ id: id }, fight.oa[id])).filter((e) => e.status === "ask");
+  const held = Object.keys(fight.held || {}).map((k) => Object.assign({ key: k }, fight.held[k]));
+  let h = "";
+  if (asks.length) {
+    h += `<div class="tr-sec tr-oa"><b class="tr-head">Opportunity attacks to approve</b>` + asks.map((e) =>
+      `<div class="tr-row" data-oa-row="${esc(e.id)}"><span><b>${esc(e.name || "A player")}</b> → ${esc(e.target || "no target picked")}</span>
+        <button type="button" class="btn sm btn-primary" data-oa-ok="${esc(e.id)}">Approve</button>
+        <button type="button" class="btn sm" data-oa-no="${esc(e.id)}">Deny</button></div>`).join("") + `</div>`;
+  }
+  if (held.length) {
+    h += `<div class="tr-sec tr-held"><b class="tr-head">Out of turn, waiting for your OK</b>` + held.map((x) =>
+      `<div class="tr-row" data-held-row="${esc(x.key)}"><span>${esc(x.line || ((x.characterName || "Someone") + (x.heal ? " heals " : " hits ") + (x.targetName || "a target") + " for " + x.amount))}</span>
+        <button type="button" class="btn sm btn-primary" data-held-ok="${esc(x.key)}">Apply ${esc(x.amount)}</button>
+        <button type="button" class="btn sm" data-held-no="${esc(x.key)}">Skip</button></div>`).join("") + `</div>`;
+  }
+  const players = fight.order.filter((r) => r && r.kind === "player");
+  if (players.length) {
+    h += `<div class="tr-sec tr-players"><b class="tr-head">Players' markers <span class="fine">(tap to change)</span></b>` + players.map((row) => {
+      const pid = row.playerId || row.id || "";
+      const m = playerMarkers(pid) || T.fresh("");
+      const mine = T.isTurnOf(init, row);
+      const open = T.unlocked(init, pid);
+      return `<div class="tr-row act-pips${mine ? " is-turn" : ""}" data-tr-pid="${esc(pid)}" data-turn-markers="${esc(row.id || "")}">
+        <span class="tr-name"><b>${esc(row.name || "Player")}</b> <span class="fine">${mine ? "their turn" : (open ? "unlocked this turn" : "waiting")}</span></span>
+        ${["action", "bonus", "reaction"].map((k) => `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}" data-pip-pid="${esc(pid)}" aria-pressed="${!!m[k]}" title="${PIP_NAME[k]} ${m[k] ? "used" : "ready"} (click to mark ${m[k] ? "ready" : "used"})">${k === "action" ? "Action" : (k === "bonus" ? "Bonus" : "R")}</button>`).join("")}
+        ${markerExtrasHtml(row, m)}
+        <button type="button" class="btn xs" data-pip-reset="${esc(pid)}" title="Give back this player's action, bonus action, reaction and movement">Reset</button>
+        ${mine ? "" : `<button type="button" class="btn xs${open ? " on" : ""}" data-turn-unlock="${esc(pid)}" aria-pressed="${open}" title="${open ? "Lock this player to their own turn again" : "Let this player use their attacks, spells and actions until your next Next"}">${open ? "Lock again" : "Unlock this turn"}</button>`}
+      </div>`;
+    }).join("") + `</div>`;
+  }
+  return h;
+}
+function paintTurnRules() {
+  const box = $("#turnRules");
+  if (!box) return;
+  const html = turnRulesHtml();
+  box.hidden = !html;
+  if (box.innerHTML !== html) box.innerHTML = html;
+}
+/** Map DM drawer (item 8/9): the same markers + Reset for a player's token, by combatant id. */
+function mapMarkersHtml(combatantId) {
+  const row = (fight.order || []).find((r) => r && (r.id === combatantId || r.playerId === combatantId));
+  if (!row || row.kind !== "player" || !fight.started || !window.SSDNSTurn) return "";
+  const pid = row.playerId || row.id || "";
+  const m = playerMarkers(pid) || window.SSDNSTurn.fresh("");
+  return `<div class="ssm-markers act-pips" data-turn-markers="${esc(row.id || "")}" data-tr-pid="${esc(pid)}"><span class="pip-label">Markers</span>` +
+    ["action", "bonus", "reaction"].map((k) => `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}" data-pip-pid="${esc(pid)}" aria-pressed="${!!m[k]}" title="${PIP_NAME[k]} ${m[k] ? "used" : "ready"} (click to mark ${m[k] ? "ready" : "used"})">${k === "action" ? "Action" : (k === "bonus" ? "Bonus" : "R")}</button>`).join("") +
+    markerExtrasHtml(row, m) +
+    `<button type="button" class="btn xs" data-pip-reset="${esc(pid)}" title="Give back this player's action, bonus action, reaction and movement">Reset</button></div>`;
 }
 function toggleEnemyMarker(kind) {
   const T = window.SSDNSTurn;
@@ -4954,6 +5154,7 @@ async function endCombat() {
   const choice = await askEndCombat();
   if (!choice || !choice.ok) { DM.toast("Declined ending combat."); return; }
   if (window.SSDNSTurn) window.SSDNSTurn.clearTurnState(fight);
+  fight.held = {};
   fight.recruit = false;
   if (choice.clear) await clearCombatConditions();
   fight.order = [];
@@ -5276,7 +5477,11 @@ function resolveIncomingAttack(req, reqId) {
     });
   }
   DM.toast((verdict.dmText || line) + (verdict.dmText ? "" : (ac == null ? "" : " · AC " + ac)));
-  if (!verdict.miss && applyAmount > 0) {
+  if (!verdict.miss && applyAmount > 0 && heldOutOfTurn(req)) {
+    holdHit({ rollId: rollId, targetId: req.targetId, targetName: (row && row.name) || req.targetName, amount: applyAmount, from: req.from,
+      characterName: req.characterName || "Someone", label: req.label, weapon: req.weapon || req.label, dice: req.dice || "", type: "attack", heal: false },
+      (req.characterName || "Someone") + " → " + ((row && row.name) || req.targetName || "target") + " for " + applyAmount);
+  } else if (!verdict.miss && applyAmount > 0) {
     applyPlayerHit({
       rollId: rollId,
       targetId: req.targetId,
@@ -5303,6 +5508,8 @@ function markRequestResolved(reqId) {
 }
 function applyRequest(req, reqId) {
   if (!req || req.resolved || req.type === "bank") return;
+  /* turn order PR 2 (item 6): Mercy Hands rows belong to dmcc.js (it heals, or holds an out-of-turn cast); this path read them as damage */
+  if (req.type === "mercy") return;
   const attack = req.type === "attack" || (req.hitTotal != null && req.hitTotal !== "" && req.type !== "heal");
   if (attack) {
     resolveIncomingAttack(req, reqId);
@@ -5320,6 +5527,11 @@ function applyRequest(req, reqId) {
     : (window.SSDNSApplied ? window.SSDNSApplied.hitLine(who, name, req.weapon || req.label, amt) : (who + " hits " + name + " for " + amt));
   if (!row && !req.targetId && blankLabel(req.targetName)) {
     DM.toast("Pick a target");
+    return;
+  }
+  if (heldOutOfTurn(req)) {
+    holdHit({ rollId: rollId, targetId: req.targetId, targetName: req.targetName || name, amount: amt, from: req.from, characterName: who, label: req.label,
+      weapon: req.weapon || req.label, dice: req.dice || "", type: req.type || "", heal: heal }, line);
     return;
   }
   if (fight.damageMode === "approve") {
@@ -5399,6 +5611,7 @@ function watchRequests() {
       if (req && req.resolved) return;
       if (req && req.type === "bank") return;
       if (req && req.type === "endTurn") { if (fresh) endTurnRequest(req, id); return; }
+      if (req && req.type === "oa") { if (fresh) noteOaRequest(req, id); return; }
       if (!fight.reqPrimed && !fresh && !attack) return;
       applyRequest(req, id);
     });
@@ -5432,10 +5645,19 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-strip-next],[data-dm-pip],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
+    const t = e.target.closest && e.target.closest("[data-strip-next],[data-dm-pip],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
     if (!t) return;
     if (t.hasAttribute("data-strip-next")) { nextTurn(); return; }
-    if (t.hasAttribute("data-dm-pip")) { toggleEnemyMarker(t.getAttribute("data-dm-pip")); return; }
+    if (t.hasAttribute("data-dm-pip")) {
+      if (t.hasAttribute("data-pip-pid")) { editPlayerMarker(t.getAttribute("data-pip-pid"), t.getAttribute("data-dm-pip")); return; }
+      toggleEnemyMarker(t.getAttribute("data-dm-pip")); return;
+    }
+    if (t.hasAttribute("data-pip-reset")) { resetPlayerMarkers(t.getAttribute("data-pip-reset")); return; }
+    if (t.hasAttribute("data-turn-unlock")) { toggleUnlock(t.getAttribute("data-turn-unlock")); return; }
+    if (t.hasAttribute("data-oa-ok")) { answerOa(t.getAttribute("data-oa-ok"), true); return; }
+    if (t.hasAttribute("data-oa-no")) { answerOa(t.getAttribute("data-oa-no"), false); return; }
+    if (t.hasAttribute("data-held-ok")) { releaseHeld(t.getAttribute("data-held-ok"), true); return; }
+    if (t.hasAttribute("data-held-no")) { releaseHeld(t.getAttribute("data-held-no"), false); return; }
     if (t.hasAttribute("data-fight-portrait")) {
       const pi = t.getAttribute("data-fight-portrait");
       const fold = document.querySelector('[data-turn-fold][data-fold-i="' + pi + '"]');
@@ -5999,9 +6221,12 @@ const seenInit = {};
 let rollsReady = false;
 const seenDamage = {};
 function noteDamageRolls(rows) {
-  if (fight.damageMode === "approve") return;
+  /* turn order PR 2 (item 7): with Approve first, out-of-turn hits still go to the waiting list (their feed Apply is hidden) */
+  const approve = fight.damageMode === "approve";
   (rows || []).forEach((r) => {
+    if (approve && !(r && r.id && !seenDamage[r.id] && !r.applied && !fight.appliedHits[r.id] && !r.awaitDm && heldOutOfTurn(r))) return;
     if (!r || !r.id || seenDamage[r.id] || r.applied || fight.appliedHits[r.id] || r.selfApplied || r.awaitDm) return;
+    if (fight.held && fight.held[r.id]) { seenDamage[r.id] = 1; return; }
     if (window.SSDNSApplied && (window.SSDNSApplied.settled ? window.SSDNSApplied.settled(DM.state.roomCode, r.id) : window.SSDNSApplied.has(DM.state.roomCode, r.id))) { seenDamage[r.id] = 1; return; }
     const amt = Number(r.damage) || 0;
     if (amt <= 0) return;
@@ -6012,6 +6237,12 @@ function noteDamageRolls(rows) {
     if (!rollsReady && (!isFinite(age) || age > 20000)) { seenDamage[r.id] = 1; return; }
     if (!fresh || !findCombatant({ targetId: r.targetId, targetName: r.targetName })) return;
     seenDamage[r.id] = 1;
+    if (heldOutOfTurn(r)) {
+      holdHit({ rollId: r.id, targetId: r.targetId, targetName: r.targetName, amount: amt, from: r.playerId || r.uid, characterName: r.characterName || r.who,
+        label: r.weapon || r.label, weapon: r.weapon || "", dice: r.dice || "", type: r.heal ? "heal" : (r.type || ""), heal: !!r.heal },
+        (r.characterName || r.who || "Someone") + (r.heal ? " heals " : " → ") + (r.targetName || "target") + " for " + amt);
+      return;
+    }
     applyPlayerHit({
       rollId: r.id,
       targetId: r.targetId,
@@ -6122,6 +6353,7 @@ function syncPlayerVitals() {
   });
   ensurePlayers();
   paintTurnAck();
+  paintTurnRules();
   const nextCard = snapshotCardSig();
   const cardChanged = nextCard !== playerCardSig;
   playerCardSig = nextCard;
@@ -6157,6 +6389,7 @@ function notePresence(id, on) {
 }
 function clearFight() {
   if (window.SSDNSTurn) window.SSDNSTurn.clearTurnState(fight);
+  fight.held = {};
   fight.order = [];
   fight.departed = {};
   fight.started = false;
@@ -6331,14 +6564,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.118-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.119-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.118-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.119-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -6480,6 +6713,19 @@ async function bootV2() {
     undoLastNext: undoLastNext,
     nextTurn: nextTurn,
     turnMarkersFor: turnMarkersFor,
+    /* turn order PR 2 */
+    editPlayerMarker: editPlayerMarker,
+    resetPlayerMarkers: resetPlayerMarkers,
+    playerMarkers: playerMarkers,
+    toggleUnlock: toggleUnlock,
+    noteOaRequest: noteOaRequest,
+    answerOa: answerOa,
+    holdHit: holdHit,
+    releaseHeld: releaseHeld,
+    heldOutOfTurn: heldOutOfTurn,
+    heldHits: function () { return Object.assign({}, fight.held || {}); },
+    mapMarkersHtml: mapMarkersHtml,
+    paintTurnRules: paintTurnRules,
     syncPlayers: syncPlayerVitals,
     onPlayerInit: onPlayerInit,
     notePresence: notePresence,

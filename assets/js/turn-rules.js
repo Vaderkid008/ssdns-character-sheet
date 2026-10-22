@@ -50,7 +50,12 @@
     if (isTurnOf(init, row) && !(starts && typeof starts === "object" && init.seq != null)) return "r" + num(init.round, 1) + ":" + num(init.turn, 0);
     return "";
   }
-  function fresh(key) { return { action: false, bonus: false, reaction: false, attacks: 0, actionBy: "", turnKey: key || "" }; }
+  /* turn order PR 2: movement used this turn (feet), Dash / Disengage / Dodge, the opportunity-attack window and
+     the turn a death save was rolled ride on the same markers, so they also come back only on your own turn */
+  function fresh(key) {
+    return { action: false, bonus: false, reaction: false, attacks: 0, actionBy: "", turnKey: key || "",
+      moveUsed: 0, dash: false, disengage: false, dodge: false, oaReq: "", oaArmed: "", oaUsed: "", deathKey: "" };
+  }
   /**
    * Markers for a combatant right now. A stored set is kept unless the combatant has started a newer own turn.
    * Returns { markers, reset } where reset says a new own turn began since the stored set.
@@ -95,7 +100,7 @@
     return snap;
   }
   function canUndo(st) { return !!(st && Array.isArray(st.undo) && st.undo.length); }
-  function clearTurnState(st) { if (st) { st.seq = 0; st.turnStarts = {}; st.undo = []; st.markers = {}; } return st; }
+  function clearTurnState(st) { if (st) { st.seq = 0; st.turnStarts = {}; st.undo = []; st.markers = {}; st.unlock = {}; st.oa = {}; } return st; }
   /** Ruling 2: the DM's Next works any time; a player's End Turn only on their own turn. */
   function canEndTurn(init, uid) {
     var cur = current(init);
@@ -112,6 +117,8 @@
     if (!roll) return false;
     var started = ctx.init ? !!ctx.init.started : !!ctx.started;
     if (!started) return false;
+    /* PR 2 (item 4): an opportunity attack the DM approved is never out of turn */
+    if (roll.oa && oaApproved(ctx.init || { oa: ctx.oa }, roll.oa)) return false;
     if (roll.outOfTurn) return true;
     if (!roll.playerId) return false;
     if (ctx.dmUid && roll.uid && roll.uid === ctx.dmUid) return false;
@@ -120,7 +127,52 @@
     if (cur.kind === "player" && (cur.playerId || cur.id) === roll.playerId) return false;
     return true;
   }
+  /* ---- Turn order PR 2 (Jessey's rulings 2026-10-21 / 2026-10-22 4:32 AM CT) ----
+   * init.unlock { uid: seq }  the DM's override: that player's buttons are open for the turn that has this seq
+   *                           (the DM's next Next closes it again). Old rooms with no seq: true = open.
+   * init.oa { reqId: { from, name, target, status: "ask" | "approved" | "denied", seq, ts } }  opportunity attacks
+   *                           the DM approves or denies (item 4). Other reactions need no approval.
+   * Both are new fields on table/initiative (DM-written, readable by everyone in the room), no rules change. */
+  function unlocked(init, uid) {
+    if (!init || !uid || !init.unlock || typeof init.unlock !== "object") return false;
+    var v = init.unlock[uid];
+    if (v == null || v === false || v === "") return false;
+    if (v === true) return init.seq == null;
+    return num(v, -1) === num(init.seq, 0);
+  }
+  function inFight(init) { return !!(init && init.started && order(init).length); }
+  /**
+   * Item 1: is this player locked out of turn right now? True only during initiative, when the player has a row in
+   * the order, it isn't that row's turn, and the DM hasn't unlocked them. A player with no row is never locked.
+   */
+  function lockedFor(init, uid, name) {
+    if (!inFight(init)) return false;
+    var row = rowFor(init, uid, name);
+    if (!row) return false;
+    if (isTurnOf(init, row)) return false;
+    return !unlocked(init, uid);
+  }
+  /** Item 5: a player may drag their token outside combat, on their own turn, or while the DM has unlocked them. */
+  function canMoveToken(init, uid, name) { return !lockedFor(init, uid, name); }
+  function oaEntry(init, id) { return (init && init.oa && typeof init.oa === "object" && id && init.oa[id]) || null; }
+  function oaApproved(init, id) { var e = oaEntry(init, id); return !!(e && e.status === "approved"); }
+  /** Movement left this turn: speed (feet), doubled by Dash, minus what was used. */
+  function moveLeft(markers, speed) {
+    var sp = Math.max(0, num(speed, 30));
+    var m = markers || {};
+    var max = m.dash ? sp * 2 : sp;
+    return { max: max, used: Math.max(0, num(m.moveUsed, 0)), left: Math.max(0, max - Math.max(0, num(m.moveUsed, 0))) };
+  }
+  /** Prune OA entries older than a few turns so table/initiative stays small. */
+  function pruneOa(st, keep) {
+    if (!st || !st.oa || typeof st.oa !== "object") return st;
+    var now = num(st.seq, 0), k = keep == null ? 6 : keep;
+    Object.keys(st.oa).forEach(function (id) { var e = st.oa[id]; if (!e || now - num(e.seq, now) > k) delete st.oa[id]; });
+    return st;
+  }
   root.SSDNSTurn = {
+    unlocked: unlocked, inFight: inFight, lockedFor: lockedFor, canMoveToken: canMoveToken, oaEntry: oaEntry, oaApproved: oaApproved,
+    moveLeft: moveLeft, pruneOa: pruneOa,
     UNDO_MAX: UNDO_MAX, current: current, rowFor: rowFor, isTurnOf: isTurnOf, keyFor: keyFor, fresh: fresh, markersFor: markersFor,
     snapshot: snapshot, beginTurn: beginTurn, undoNext: undoNext, canUndo: canUndo, clearTurnState: clearTurnState,
     canEndTurn: canEndTurn, outOfTurn: outOfTurn

@@ -206,6 +206,8 @@
     if (pool <= 0) return;
     var amount = Math.min(pool, Math.max(1, Number(window.prompt("Mercy Hands. Pool " + pool + ". How many?", "1")) || 0));
     if (!amount) return;
+    /* turn order PR 2 (item 6): Mercy Hands uses your Action (the off-turn lock in turn-lock.js keeps it to your turn) */
+    if (root.SSDNSActionPips && root.SSDNSActionPips.spend) root.SSDNSActionPips.spend("action", "Mercy Hands");
     var sel = $("atkTarget");
     var target = sel && sel.value;
     if (target === "__free") target = "";

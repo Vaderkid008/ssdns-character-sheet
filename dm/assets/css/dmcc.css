@@ -1095,3 +1095,22 @@ select:-webkit-autofill {
 .dm-turn-markers button.pip { cursor: pointer; }
 .dm-turn-markers .pip.used { background: #d8cfbf; border-color: #a99a80; color: #7b6e5a; text-decoration: line-through; }
 #panel-fight .fight-portrait .status-chips .chip { min-height: 0; height: auto; padding: 1px 6px; line-height: 1.2; font-size: 10px; white-space: nowrap; }
+/* turn order PR 2: Fight tab turn rules (OA approvals, out-of-turn hits waiting, every player's markers + Reset +
+   Unlock this turn) and the same markers on the map's DM card. Markers use the PR 1 pip look. */
+.turn-rules { margin: 6px 0 10px; display: grid; gap: 8px; }
+.turn-rules[hidden] { display: none; }
+.turn-rules .tr-sec { border: 1px solid #b8913f; border-radius: 6px; background: rgba(255,248,230,.6); padding: 6px 8px; display: grid; gap: 5px; }
+.turn-rules .tr-oa { border-color: #2f5f86; background: rgba(92,155,209,.14); }
+.turn-rules .tr-held { border-color: #a33a22; background: rgba(212,86,28,.1); }
+.turn-rules .tr-head { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b5438; }
+.turn-rules .tr-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.turn-rules .tr-row.is-turn .tr-name b { color: #8a2d16; }
+.turn-rules .tr-name { min-width: 10em; }
+.turn-rules .pip, .ssm-markers .pip { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; min-height: 24px; padding: 1px 10px; border-radius: 12px;
+  border: 1px solid #b8913f; background: #e6b84a; color: #2a1d0c; font-size: 12px; font-weight: 700; cursor: pointer; }
+.turn-rules .pip.used, .ssm-markers .pip.used { background: #d8cfbf; border-color: #a99a80; color: #7b6e5a; text-decoration: line-through; }
+.turn-rules .btn.xs, .dm-turn-markers .btn.xs, .ssm-markers .btn.xs { min-height: 24px; padding: 1px 8px; font-size: 11px; }
+.turn-rules [data-turn-unlock].on { background: #6fbf4f; color: #fff; border-color: #3d6b2e; }
+.ssm-markers { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: 4px 0; }
+.ssm-markers .pip-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+@media (max-width: 600px) { .turn-rules .tr-name { min-width: 0; flex: 1 0 100%; } }

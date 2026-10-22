@@ -1,5 +1,5 @@
 /**
- * UI fixes 1 (0.3.105 / DMCC 0.2.118), Jessey's UI notes of 2026-10-20 / 21:
+ * UI fixes 1 (0.3.106 / DMCC 0.2.119), Jessey's UI notes of 2026-10-20 / 21:
  *   U1 wizard: the dialog no longer scrolls itself (the burnt frame stays put, no dark "bubble"); an inner .wiz-body scrolls
  *   U2 map drawers: padding and a sticky head that stays on top (CSS only, checked by source)
  *   U3 the wizard opens on Module start; Full kit is still offered
