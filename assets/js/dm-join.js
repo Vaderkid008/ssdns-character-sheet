@@ -795,7 +795,7 @@
         }
         state.lastCmdSeen[id] = 1;
         saveSeen();
-        try { handleCommand(cmd); } catch (err) { console.warn("[DM Join] command", err); }
+        try { handleCommandAcked(cmd); } catch (err) { console.warn("[DM Join] command", err); }
         if (cmd.type === "hp") state._hpNoted[id] = 1;
         if (ts > (state.marker || 0)) saveMarker(ts);
       });
@@ -1206,7 +1206,7 @@
     var fb = state._fb;
     fb.update(fb.ref(state.db, roomPath("players/" + state.uid + "/grantAcks")), row).catch(function () {});
   }
-  function handleCommand(cmd) {
+  function handleCommandAcked(cmd) {
     cmd = cmd || {};
     var payload = cmd.payload || {};
     var gid = payload.grantId || cmd.id || "";
@@ -1223,7 +1223,7 @@
         return;
       }
     }
-    handleCommandInner(cmd);
+    handleCommand(cmd);
     if (cmd.type === "reward_item" && gid) {
       var diff = grantDiff(pre, grantShape());
       if (diff) {
@@ -1240,7 +1240,7 @@
       ackGrant(payload.undoId || ("undo_" + payload.grantId), "undo", true);
     }
   }
-  function handleCommandInner(cmd) {
+  function handleCommand(cmd) {
     var payload = cmd.payload || {};
     switch (cmd.type) {
       case "init_prompt":
@@ -2929,13 +2929,13 @@
         }
       },
       /* 0.3.86: tests feed a DM command straight in (no room needed) */
-      _handle: function (cmd) { handleCommand(cmd || {}); },
+      _handle: function (cmd) { handleCommandAcked(cmd || {}); },
       isJoined: function () { return !!state.joined; },
       roomCode: function () { return state.roomCode; },
       uid: function () { return state.uid; },
       publishSnapshot: publishSnapshot,
       buildSnapshot: buildSnapshot,
-      _handle: handleCommand, /* test hook: run one DM command as if it arrived */
+      _handle: handleCommandAcked, /* test hook: run one DM command as if it arrived */
       postEndTurn: postEndTurn,
       postOaRequest: postOaRequest,
       pushTurnMarkers: pushTurnMarkers,
