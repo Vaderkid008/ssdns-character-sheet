@@ -1,5 +1,5 @@
 /**
- * 0.3.103 / 0.2.116: Jessey's UI notes (2026-10-19 9:36 PM CT, steering 9:38 PM CT).
+ * 0.3.104 / 0.2.117: Jessey's UI notes (2026-10-19 9:36 PM CT, steering 9:38 PM CT).
  *  1. DMCC dice tray: the rolled die art and "1d4 = 4" sit inline to the right of the dice buttons; a roll never
  *     changes the dice bar / tray height (no new row below the bar).
  *  2. DMCC tabs: Ledger (economy) is the last tab, after Map.

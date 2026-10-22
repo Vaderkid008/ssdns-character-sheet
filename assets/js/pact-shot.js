@@ -1,4 +1,4 @@
-/* 0.3.103 (Jessey approved 2026-10-21 12:22 PM CT, DND Bot's recommendation): every Pact Seeker always knows Pact Shot
+/* 0.3.104 (Jessey approved 2026-10-21 12:22 PM CT, DND Bot's recommendation): every Pact Seeker always knows Pact Shot
  * (Eldritch Blast) for free. It is auto-granted and does NOT count against cantrips known. JS only: rules.js is untouched
  * (the spell-list entry "Eldritch Blast (Pact Shot)" stays where it is; this file decides it's free for a Pact Seeker).
  *  - ensure(c): the sheet's cantrip list always has it (cast dropdown, spell list, cast paths all keep working).

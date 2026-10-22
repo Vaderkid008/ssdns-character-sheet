@@ -1255,7 +1255,7 @@
         }
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "Badge set to " + (payload.state || "bright") + "." });
         break;
-      case "iron_reveal": /* 0.3.96 reveal toggle; 0.3.103: no effect on what the sheet shows */
+      case "iron_reveal": /* 0.3.96 reveal toggle; 0.3.104: no effect on what the sheet shows */
         if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
           root.SSDNSApp.applyPatch(function (doc) {
             if (doc.character) doc.character.ironRevealed = payload.on !== false;
@@ -1564,6 +1564,36 @@
     state._fb.update(state._fb.ref(state.db, roomPath("players/" + state.uid + "/turnAck")), {
       seen: true, delivered: true, ts: new Date().toISOString()
     }).catch(function () {});
+  }
+  /* Turn order PR 1 (T2): the sheet's Action / Bonus / Reaction markers live on the player's own room row
+     (players/{uid}/turnMarkers, already writable by that player), so the DM sees them and a reload keeps them. */
+  var markerTimer = null;
+  var markerPending = null;
+  function pushTurnMarkers(m) {
+    if (!m || !state.joined || state.left || !state.db || !state.uid || !state._fb) return;
+    markerPending = m;
+    if (markerTimer) return;
+    markerTimer = setTimeout(function () {
+      markerTimer = null;
+      var v = markerPending;
+      markerPending = null;
+      if (!v || !state.joined || state.left || !state.db) return;
+      var fb = state._fb;
+      fb.update(fb.ref(state.db, roomPath("players/" + state.uid)), {
+        turnMarkers: Object.assign({}, v, { updatedAt: new Date().toISOString() })
+      }).catch(function (err) { console.warn("[DM Join] turn markers", err); });
+    }, 250);
+  }
+  function pullTurnMarkers() {
+    if (!state.joined || state.left || !state.db || !state.uid || !state._fb) return Promise.resolve(false);
+    var fb = state._fb;
+    var P = root.SSDNSActionPips;
+    return fb.get(fb.ref(state.db, roomPath("players/" + state.uid + "/turnMarkers"))).then(function (snap) {
+      var v = snap && snap.val ? snap.val() : null;
+      if (v && P && P.adopt) { P.adopt(v); return true; }
+      if (P && P.state) pushTurnMarkers(P.state());
+      return false;
+    }).catch(function () { return false; });
   }
   function ackHandout(id) {
     if (!id || !state.joined || state.left || !state.db || !state.uid || !state._fb) return;
@@ -2542,6 +2572,7 @@
       watchConnection();
       await publishSnapshot();
       if (epoch !== state.joinEpoch || state.left || !state.joined) return;
+      pullTurnMarkers();
       loadApplied();
       listenCommands();
       listenRoomFeeds();
@@ -2699,6 +2730,8 @@
       buildSnapshot: buildSnapshot,
       _handle: handleCommand, /* test hook: run one DM command as if it arrived */
       postEndTurn: postEndTurn,
+      pushTurnMarkers: pushTurnMarkers,
+      pullTurnMarkers: pullTurnMarkers,
       postLedger: postLedger,
       postRoll: postRoll,
       fadeToast: fadeToast,

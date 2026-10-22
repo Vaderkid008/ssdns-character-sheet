@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.103"; // sheet-playtest-v03103
+  var APP_VERSION = "0.3.104"; // sheet-playtest-v03104
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -198,13 +198,13 @@
       var merged = window.SSDNSItems.mergeExplosives(doc.character);
       if (merged) notes.push("Moved " + merged + " explosive line(s) into Items (Use button).");
     }
-    /* 0.3.103 Equipment: starting-kit lines in the notes become real items / rigs (kits.js; old notes kept in
+    /* 0.3.104 Equipment: starting-kit lines in the notes become real items / rigs (kits.js; old notes kept in
        character.equipmentBefore0392). At first boot kits.js isn't loaded yet; it runs the same step itself. */
     if (doc.character && window.SSDNSKits && window.SSDNSKits.migrateEquipment) {
       var kitMoved = window.SSDNSKits.migrateEquipment(doc.character);
       if (kitMoved) notes.push("Moved " + kitMoved + " starting-kit line(s) from the Equipment notes into Equipment items.");
     }
-    /* 0.3.103 (Jessey 2026-10-21 12:22 PM): Pact Shot is free for every Pact Seeker (pact-shot.js) */
+    /* 0.3.104 (Jessey 2026-10-21 12:22 PM): Pact Shot is free for every Pact Seeker (pact-shot.js) */
     if (doc.character && window.SSDNSPactShot) {
       var ps = window.SSDNSPactShot.migrate(doc.character);
       if (ps === "swap") notes.push(window.SSDNSPactShot.SWAP_NOTE);
@@ -227,7 +227,7 @@
     if (notes.length) { doc.migrationNotes = (raw.migrationNotes || []).concat(notes); S.migrated = notes; }
     return doc;
   }
-  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.103 landed in a cartridge pool (caliber .50-90) that the
+  /** C1 (2026-10-20): Big Fifty rounds bought before 0.3.104 landed in a cartridge pool (caliber .50-90) that the
       Big Fifty never reads, weighing 0.05 lb a round. Move them to the bigfifty pool (0.15 lb). Returns rounds moved. */
   function moveBigFiftyPools(c) {
     if (!c || !Array.isArray(c.ammo)) return 0;
@@ -2389,7 +2389,7 @@
       else if (path === "character.lineage") onLineagePicked();
       else if (path === "character.sublineage") onSublineagePicked();
       else if (path === "character.background") onBackgroundPicked();
-      /* 0.3.103 (Jessey 2026-10-21 12:12 PM): picking or changing the Pact name sets up the Borrowed Iron (one iron, its type, its slot) */
+      /* 0.3.104 (Jessey 2026-10-21 12:12 PM): picking or changing the Pact name sets up the Borrowed Iron (one iron, its type, its slot) */
       else if (path === "character.subclass" && C().calling === "pact-seeker" && window.SSDNSDoll && window.SSDNSDoll.syncIron) {
         window.SSDNSDoll.syncIron(C(), { pactChanged: true });
         if (v && window.SSDNSIronArt && window.SSDNSIronArt.labelFor) toast("Pact sealed: your iron takes shape. " + window.SSDNSIronArt.labelFor(C()) + ".");

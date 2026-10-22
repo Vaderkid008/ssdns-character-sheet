@@ -17,7 +17,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 const html = read("dm/index.html");
 check(html.includes('class="wanted-head"') && html.includes(">Wanted<"), "Wanted header");
 check(html.includes('id="fightPortraits"') && html.includes('id="fightFocus"') && html.includes('id="fightLog"'), "portrait, focus, and log mounts");
-check(html.includes('id="btnNextTurn"') && html.includes('id="btnRollAll">Roll Init<'), "one Next and a Roll Init button");
+/* turn order PR 1 (T1): one Next, one Roll Initiative (header), one End combat (header); Previous is "Undo last Next" */
+check(html.includes('id="btnNextTurn"') && html.includes('id="btnRollInitAll"') && !html.includes('id="btnRollAll"') && html.includes('id="btnEndCombatHead"') && !html.includes('id="btnEndCombat"') && html.includes('id="btnPrevTurn"'), "one Next, one Roll Initiative and one End combat");
 check(html.includes('id="combatantMenu"') && html.includes("Set order and add a combatant"), "one combatant menu");
 check(html.includes('id="turnStrip"'), "table turn strip stays");
 

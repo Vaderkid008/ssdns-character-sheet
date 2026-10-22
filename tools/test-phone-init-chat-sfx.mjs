@@ -13,11 +13,11 @@ function check(cond, msg) { if (!cond) failures.push(msg); }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.103" && version.sheetBuild === "sheet-playtest-v03103", "sheet 0.3.55");
-check(version.dmcc === "0.2.116" && version.dmccBuild === "dmcc-playtest-v02116", "dmcc 0.2.68");
-check(read("assets/js/app.js").includes('APP_VERSION = "0.3.103"'), "sheet banner");
-check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.116"'), "dmcc banner");
-check(!read("assets/data/rules.js").includes("0.3.103"), "rules.js was not regenerated for this bump");
+check(version.sheet === "0.3.104" && version.sheetBuild === "sheet-playtest-v03104", "sheet 0.3.55");
+check(version.dmcc === "0.2.117" && version.dmccBuild === "dmcc-playtest-v02117", "dmcc 0.2.68");
+check(read("assets/js/app.js").includes('APP_VERSION = "0.3.104"'), "sheet banner");
+check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.117"'), "dmcc banner");
+check(!read("assets/data/rules.js").includes("0.3.104"), "rules.js was not regenerated for this bump");
 
 const sheetCss = read("assets/css/sheet.css");
 const dmCss = read("dm/assets/css/dmcc.css");
@@ -41,14 +41,14 @@ check(!/showTurn[\s\S]{0,2500}Next</.test(play), "the player strip does not grow
 
 const v2 = read("dm/assets/js/v2.js");
 const dmHtml = read("dm/index.html");
-check(v2.includes("data-strip-next") && v2.includes(">Next</button>"), "DMCC strip has one Next");
+check(!v2.includes('data-strip-next="1">Next</button>') && v2.includes("strip.innerHTML = chips;"), "DMCC Table strip shows the order only; the Fight tab's Next is the one Next (turn order PR 1)");
 check(v2.includes("rollAllBtn.hidden = !!fight.started"), "Roll Init hides once combat starts");
-check(dmHtml.includes('id="combatantMenu"') && dmHtml.includes('id="btnRollAll"') && dmHtml.includes('id="btnNextTurn"'), "Fight keeps Roll Init, Next, and one combatant menu");
+check(dmHtml.includes('id="combatantMenu"') && dmHtml.includes('id="btnRollInitAll"') && !dmHtml.includes('id="btnRollAll"') && dmHtml.includes('id="btnNextTurn"'), "Fight keeps one Roll Initiative, one Next, and one combatant menu");
 check(v2.includes("side-pc") && v2.includes("ondeck") && v2.includes("chip-face") && v2.includes("statusChipsHtml"), "table strip matches the fight portraits");
 check(v2.includes("function factionOf") && v2.includes('class="chip faction"'), "faction chips render only from faction data");
 
 const mapJs = read("map/ssdns-map.js");
-check(mapJs.includes("ssm-turnstrip") && mapJs.includes("chip-name") && mapJs.includes("textContent = 'Next'") && mapJs.includes("textContent = 'Previous'"), "map strip stays left to right with Next and Previous");
+check(mapJs.includes("ssm-turnstrip") && mapJs.includes("chip-name") && mapJs.includes("textContent = 'Next'") && mapJs.includes("textContent = 'Undo last Next'"), "map strip stays left to right with Next and Undo last Next");
 check(mapJs.includes("data-name-mode=\"character\"") && mapJs.includes("data-name-mode=\"player\""), "map chat has the name toggle");
 
 const guardBox = {
