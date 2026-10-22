@@ -20,6 +20,34 @@
   var PLATE_BAND = 38;
   var FRAME = "frame-duster-form-1080x1350.webp";
   var COUNTER = [80, 1196, 280, 92];
+  /* UI fixes 1 / U7 (Jessey 2026-10-20 10:38 / 10:45 AM): current / max HP in the doll's bottom-right corner, mirroring
+     the ES counter, with temp HP beside it only when above 0 ("25/37 +5"). Display only; reads the same HP fields. */
+  var HP_BOX = [720, 1196, 280, 92];
+  function hpNum(v) { var n = parseInt(v, 10); return isFinite(n) ? n : null; }
+  function hpInner(c) {
+    var cur = hpNum(c && c.hpCurrent), max = hpNum(c && c.hpMax), temp = hpNum(c && c.hpTemp);
+    if (cur == null && max == null) return "";
+    return '<span class="doll-hp-cur">' + (cur == null ? "—" : cur) + '</span><span class="doll-hp-max">/' + (max == null ? "—" : max) + "</span>" +
+      (temp > 0 ? '<span class="doll-hp-temp">+' + temp + "</span>" : "");
+  }
+  function hpTitle(c) {
+    var cur = hpNum(c && c.hpCurrent), max = hpNum(c && c.hpMax), temp = hpNum(c && c.hpTemp);
+    return "HP " + (cur == null ? "—" : cur) + " of " + (max == null ? "—" : max) + (temp > 0 ? " (+" + temp + " temp)" : "");
+  }
+  function hpHtml(c) {
+    var inner = hpInner(c);
+    return '<div class="doll-counter doll-hp" data-doll-hp style="' + pct(HP_BOX) + '" title="' + esc(hpTitle(c)) + '" aria-label="' + esc(hpTitle(c)) + '"' + (inner ? "" : " hidden") + ">" + inner + "</div>";
+  }
+  function paintHp() {
+    if (typeof document === "undefined") return;
+    var c = character(); if (!c) return;
+    var el = document.querySelector("#dollHost [data-doll-hp]");
+    if (!el) return;
+    var inner = hpInner(c);
+    if (el.innerHTML !== inner) el.innerHTML = inner;
+    el.hidden = !inner;
+    el.title = hpTitle(c); el.setAttribute("aria-label", el.title);
+  }
   /* label, accepted item.wear values, kind */
   var SLOTS = {
     hat: ["Head", ["head", "hat", "helm"]], neck: ["Neck", ["neck", "amulet"]], coat: ["Cloak", ["cloak", "coat"]],
@@ -151,7 +179,7 @@
   }
   function img(name) { return base() + "assets/images/doll/" + name; }
   function wearOf(it) { return String((it && it.wear) || "").toLowerCase(); }
-  /* 0.3.102 (L0201; Jessey 2026-10-21 12:11 PM): the Borrowed Iron rides in a weapon slot only, never a worn slot */
+  /* 0.3.103 (L0201; Jessey 2026-10-21 12:11 PM): the Borrowed Iron rides in a weapon slot only, never a worn slot */
   function isIronItem(it) {
     var IA = root.SSDNSIronArt;
     return !!it && (IA && IA.isIronItem ? IA.isIronItem(it) : it.catalogId === "borrowed-iron");
@@ -377,7 +405,7 @@
        Other Callings keep their focus (instrument) as before (returns null here). */
   var NO_CASTER = "No Caster Gun equipped, can't cast.";
   function isCasterWeapon(w) { return !!w && (w.group === "caster" || !!w.hexShells) && w.id !== "borrowed-iron"; }
-  /* 0.3.102 (Jessey 2026-10-20 9:53 PM): a weapon that is also a focus fills BOTH its weapon slot and the Focus slot.
+  /* 0.3.103 (Jessey 2026-10-20 9:53 PM): a weapon that is also a focus fills BOTH its weapon slot and the Focus slot.
      Flagged by the weapon row or its gun row / catalog item (weaponFocus or isFocus); Caster Guns always count. */
   var WEAPON_KEYS = ["revolver_1", "revolver_2", "long_gun", "melee"];
   function isFocusWeapon(w, g) {
@@ -415,7 +443,7 @@
     /* 0.3.96: the pact's own iron tile once the DM has revealed it (iron-art.js); else the generic art below */
     var IA = root.SSDNSIronArt, own = IA && IA.tileSrc ? IA.tileSrc(c) : "";
     if (own) return own;
-    /* 0.3.102 (4:35 PM): hidden long iron -> plain long-gun outline, not the revolver tile */
+    /* 0.3.103 (4:35 PM): hidden long iron -> plain long-gun outline, not the revolver tile */
     var hid = IA && IA.hiddenArt ? IA.hiddenArt(c) : "";
     if (hid) return hid;
     var it = borrowedIronItem(c);
@@ -426,13 +454,13 @@
     var base = gearArtBase();
     return base + "assets/img/items/borrowed-iron.webp";
   }
-  /* 0.3.102 (Jessey 2026-10-20 9:53 PM): the Borrowed Iron moves out of the Focus slot into a weapon slot (all the L0197
+  /* 0.3.103 (Jessey 2026-10-20 9:53 PM): the Borrowed Iron moves out of the Focus slot into a weapon slot (all the L0197
      mechanics stay: soul-bound, away until the start of the owner's next turn, no Pact casting while away). It's display
      only: character.ironSlot is the slot it prefers; if a gun sits there now it takes the next free one. No free slot ->
      it is still in hand (nothing changes), the Focus slot picker says so. */
   var IRON_ORDER = ["revolver_2", "revolver_1", "long_gun", "melee"];
   var IRON_NO_SLOT = "No free weapon slot on the paper doll, so the Borrowed Iron isn't drawn there. It's still in your hand.";
-  /* 0.3.102 (L0201): weapon slots only, by the iron's shape (iron-art.js allowedSlots): a long iron rides in Long gun,
+  /* 0.3.103 (L0201): weapon slots only, by the iron's shape (iron-art.js allowedSlots): a long iron rides in Long gun,
      a one-handed iron in Pistol R / Pistol L. Before a Pact name: any gun slot. */
   function ironSlots(c) {
     var IA = root.SSDNSIronArt;
@@ -467,7 +495,7 @@
     c.ironSlot = key;
     return { ok: true };
   }
-  /* 0.3.102 (Jessey 2026-10-21 12:12 PM: "Needs to appear when they pick their patron"): a Pact Seeker always has
+  /* 0.3.103 (Jessey 2026-10-21 12:12 PM: "Needs to appear when they pick their patron"): a Pact Seeker always has
      exactly one Borrowed Iron item, never in a worn slot. pactChanged (the wizard pick or the sheet's Pact name picker)
      also moves it to the weapon slot its shape wants when that slot is free. Soul-bound rules, borrowedIronAway and the
      cast block are untouched. Returns true when something changed. */
@@ -498,7 +526,7 @@
       if (it.equipSlot) { it.equipSlot = ""; changedAny = true; }
       if (Number(it.count == null ? 1 : it.count) !== 1) { it.count = 1; changedAny = true; }
     });
-    /* 0.3.102 (4:51 PM): the iron's weapon class (item.ironClass) follows the Pact */
+    /* 0.3.103 (4:51 PM): the iron's weapon class (item.ironClass) follows the Pact */
     if (IA && IA.stampClass && IA.stampClass(c)) changedAny = true;
     if (opts && opts.pactChanged && irons.length) {
       var free = function (k) { return !weaponRow(c, k); };
@@ -522,7 +550,7 @@
       var cg = casterInHand(c);
       if (cg) {
         var A = root.SSDNSWeaponArt, art = "";
-        /* 0.3.102 (Jessey 7:47 PM: engravings on the doll): the Caster Gun's engraving, contained in the Focus slot; its
+        /* 0.3.103 (Jessey 7:47 PM: engravings on the doll): the Caster Gun's engraving, contained in the Focus slot; its
            square tile only if there's no engraving */
         try { art = (A && A.srcFor ? (A.srcFor({ id: cg.id, name: cg.name }) || "") : "") || (root.SSDNSIronArt && root.SSDNSIronArt.weaponTile(cg.id)) || ""; } catch (e) { art = ""; }
         if (cg.wrecked) return { kind: "caster", name: cg.name, art: art, side: cg.side, gunIndex: cg.i, readOnly: true, mirror: true, wrecked: true, note: "Wrecked · repair: traveling merchant only", canCast: false };
@@ -563,7 +591,7 @@
       if (c && c.instrument && IA && IA.srcFor) { try { return IA.srcFor({ id: c.instrument, quality: c.instrumentQuality, name: weaponName(c, key) }) || ""; } catch (e) { return ""; } }
       return "";
     }
-    /* 0.3.102 (Jessey 2026-10-21 7:47 PM CT: colour tiles in the inventory, b/w engravings on the weapons cards and the
+    /* 0.3.103 (Jessey 2026-10-21 7:47 PM CT: colour tiles in the inventory, b/w engravings on the weapons cards and the
        paper doll): every doll weapon slot draws the 1200x400 engraving (contained in the square Pistol slots, upright in
        Long gun / Melee). The colour 256 tile is only the fallback for a gun with no engraving. */
     if (ironSlot(c) === key) { var IAe = root.SSDNSIronArt, ie = IAe && IAe.engravingSrc ? IAe.engravingSrc(c) : ""; return ie || borrowedIronArt(c); }
@@ -575,7 +603,7 @@
     return root.SSDNSIronArt && root.SSDNSIronArt.weaponTile ? root.SSDNSIronArt.weaponTile(row.id) || "" : "";
   }
 
-  /* 0.3.102 (Jessey 2026-10-21 4:07 PM: the long gun "doesn't fit in the paper doll correctly"): the tall weapon slots
+  /* 0.3.103 (Jessey 2026-10-21 4:07 PM: the long gun "doesn't fit in the paper doll correctly"): the tall weapon slots
      (Long gun, Melee) draw a gun's 1200x400 engraving turned muzzle-up to fill the slot height. The Borrowed Iron uses
      its pact engraving once revealed (iron-art.js engravingSrc, same reveal gate); before that, and for anything with
      only a square tile, the square art is contained in the slot, unrotated. Other slots and the Focus mirror keep
@@ -722,6 +750,7 @@
     });
     var es = opts.es != null ? opts.es : "";
     parts.push('<div class="doll-counter" style="' + pct(COUNTER) + '"><span class="doll-es">' + esc(es) + '</span><span class="doll-es-unit">ES</span></div>');
+    parts.push(hpHtml(c));
     parts.push("</div>");
     return parts.join("");
   }
@@ -892,5 +921,5 @@
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, slotArt: slotArt, isWideArt: isWideArt, weaponOptions: weaponOptions, weaponRow: weaponRow, setWeapon: setWeapon, focusState: focusState, casterInHand: casterInHand, ironSlot: ironSlot, ironState: ironState, setIronSlot: setIronSlot, IRON_NO_SLOT: IRON_NO_SLOT, ironSlots: ironSlots, ironOnlyMsg: ironOnlyMsg, syncIron: syncIron, ironNeedsFix: ironNeedsFix, isIronItem: isIronItem, isFocusWeapon: isFocusWeapon, focusWeaponInHand: focusWeaponInHand, isCasterWeapon: isCasterWeapon, NO_CASTER: NO_CASTER, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
+  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, slotArt: slotArt, isWideArt: isWideArt, weaponOptions: weaponOptions, weaponRow: weaponRow, setWeapon: setWeapon, focusState: focusState, casterInHand: casterInHand, ironSlot: ironSlot, ironState: ironState, setIronSlot: setIronSlot, IRON_NO_SLOT: IRON_NO_SLOT, ironSlots: ironSlots, ironOnlyMsg: ironOnlyMsg, syncIron: syncIron, ironNeedsFix: ironNeedsFix, isIronItem: isIronItem, isFocusWeapon: isFocusWeapon, focusWeaponInHand: focusWeaponInHand, isCasterWeapon: isCasterWeapon, NO_CASTER: NO_CASTER, HP_BOX: HP_BOX, hpInner: hpInner, paintHp: paintHp, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
 })(typeof window !== "undefined" ? window : globalThis);

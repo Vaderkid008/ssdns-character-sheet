@@ -1,5 +1,5 @@
 /**
- * 0.3.102 (Jessey 2026-10-21 5:47 / 5:50 PM CT): "Can't you just show the actual gun here? We don't have to hide it."
+ * 0.3.103 (Jessey 2026-10-21 5:47 / 5:50 PM CT): "Can't you just show the actual gun here? We don't have to hide it."
  * Sheet-only choice: from the Pact pick on, the player's sheet shows the real Borrowed Iron (name, tile, engraving)
  * everywhere, with no DM reveal (this intentionally differs from BOOK1 L2060). No Pact yet: the plain Borrowed Iron.
  * The DMCC player card has no Reveal toggle; character.ironRevealed stays on old saves and is ignored.
@@ -28,7 +28,7 @@ const PACTS = [
   ["the-last-round", "virgil", "Virgil", "revolver_2", "Pact revolver"],
   ["the-sand-oath", "sirocco-long-rifle", "Sirocco Long-Rifle", "long_gun", "Pact rifle"],
   ["the-pine-box-contract", "pallbearer", "Pallbearer", "long_gun", "Pact shotgun"],
-  ["the-drowned-breath", "revenge-of-the-sea", "Revenge of the Sea", "long_gun", "Pact harpoon gun"]
+  ["the-drowned-breath", "revenge-of-the-sea", "Revenge of the Sea", "long_gun", "Pact rifle"] /* U6 (Jessey 7:34 PM): was "Pact harpoon gun" */
 ];
 const eng = (slug) => (slug === "hell-maker" ? "assets/img/dm-only/hell-maker.webp" : "assets/img/weapons/borrowed-iron/" + slug + ".webp");
 const tile = (slug) => "assets/img/items/borrowed-iron/" + slug + ".webp";
@@ -50,7 +50,7 @@ for (const [sub, slug, nm, slot, cls] of PACTS) {
     const st = D.ironState(c);
     check(tag + ".realIron", IA.nameFor(c) === nm && IA.tileSrc(c) === tile(slug) && IA.engravingSrc(c) === eng(slug) && IA.labelFor(c) === nm + " — " + cls, J([IA.nameFor(c), IA.labelFor(c)]));
     check(tag + ".doll", st.key === slot && st.art === tile(slug) && st.note === "In hand · " + nm && D.weaponName(c, slot) === nm, J(st));
-    check(tag + ".slotArt", D.slotArt(c, slot) === eng(slug) /* 0.3.102 (Jessey 7:47 PM): engraving in every doll slot */ && IA.hiddenArt(c) === "", D.slotArt(c, slot));
+    check(tag + ".slotArt", D.slotArt(c, slot) === eng(slug) /* 0.3.103 (Jessey 7:47 PM): engraving in every doll slot */ && IA.hiddenArt(c) === "", D.slotArt(c, slot));
   }
 }
 const none = pact("");

@@ -1052,3 +1052,38 @@ select:-webkit-autofill {
 .dm-iron-row { display: flex; gap: 10px; align-items: center; }
 .dm-iron-tile { width: 64px; height: 64px; border-radius: 4px; border: 1px solid rgba(43,29,18,.35); object-fit: cover; flex: none; }
 .dm-iron-eng { display: block; width: 100%; max-width: 420px; aspect-ratio: 3 / 1; object-fit: contain; margin-top: 6px; background: #fffaf3; border: 1px solid #c4b497; border-radius: 4px; }
+
+/* UI fixes 1 / U8: pictures on the fight portraits and the turn strip (initials stay underneath as the fallback) */
+.portrait-face, .chip-face, .tl-face { position: relative; overflow: hidden; }
+.face-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 22%; border-radius: inherit; display: block; }
+.has-art > .face-initials { visibility: hidden; }
+#panel-fight .fight-portrait .portrait-face.has-art { background: #2a1c12; }
+#panel-fight .fight-portrait .portrait-face .face-art { z-index: 0; }
+#panel-fight .fight-portrait.side-pc .portrait-face.has-art::after,
+#panel-fight .fight-portrait.side-ally .portrait-face.has-art::after,
+#panel-fight .fight-portrait.side-enemy .portrait-face.has-art::after { content: ""; position: absolute; inset: 0; box-shadow: inherit; pointer-events: none; z-index: 1; }
+
+/* UI fixes 1 / U9: waiting combatants are one line each; tap opens the full card */
+#panel-fight .turn-fold { margin: 0 0 6px; }
+#panel-fight .turn-fold > .turn-line { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 10px 4px 8px; list-style: none; cursor: pointer;
+  background: #f7efe0; color: var(--fight-ink); border: 2px solid #8a6a3a; border-radius: 4px; font-size: 14px; }
+#panel-fight .turn-fold > .turn-line::-webkit-details-marker { display: none; }
+#panel-fight .turn-line.side-pc { border-color: var(--fight-pc); box-shadow: inset 6px 0 0 var(--fight-pc); }
+#panel-fight .turn-line.side-ally { border-color: var(--fight-ally); box-shadow: inset 6px 0 0 var(--fight-ally); background: #e7f3ee; }
+#panel-fight .turn-line.side-enemy { border-color: var(--fight-enemy); box-shadow: inset 6px 0 0 var(--fight-enemy); background: #f3e4e2; }
+#panel-fight .turn-line .tl-init { min-width: 2.2em; text-align: center; font-family: var(--head); font-size: 18px; margin-left: 4px; }
+#panel-fight .turn-line .tl-face { flex: none; width: 30px; height: 30px; border-radius: 50%; display: inline-grid; place-items: center; background: rgba(0,0,0,.12); font-size: 11px; font-weight: 700; }
+#panel-fight .turn-line .tl-name { flex: 0 1 auto; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#panel-fight .turn-line .tl-hp { flex: none; font-family: var(--label); font-size: 12px; color: #4a2e12; }
+#panel-fight .turn-line .status-chips { margin-top: 0; flex-wrap: nowrap; }
+#panel-fight .turn-line .tl-conds { display: inline-flex; gap: 2px; font-size: 14px; }
+#panel-fight .turn-line .tl-more { font-size: 11px; font-weight: 700; padding: 1px 5px; border-radius: 999px; background: rgba(0,0,0,.12); }
+#panel-fight .turn-line .tl-caret { margin-left: auto; font-size: 12px; transition: transform .15s; }
+#panel-fight .turn-fold[open] > .turn-line { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+#panel-fight .turn-fold[open] > .turn-line .tl-caret { transform: rotate(180deg); }
+#panel-fight .turn-fold > .init-row { margin-top: 0; border-top-width: 0; }
+@media (max-width: 600px) {
+  #panel-fight .turn-fold > .turn-line { gap: 6px; font-size: 13px; padding: 4px 8px 4px 6px; flex-wrap: wrap; }
+  #panel-fight .turn-line .status-chips { flex-wrap: wrap; }
+}
+#panel-fight .turn-line .status-chips .chip { min-height: 0; height: auto; padding: 2px 8px; line-height: 1.2; font-size: 11px; display: inline-block; white-space: nowrap; }
