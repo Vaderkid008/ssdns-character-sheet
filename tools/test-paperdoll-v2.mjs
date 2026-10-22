@@ -191,7 +191,7 @@ check("wear.takeOff", !c.items[1].equipSlot);
 /* Worn-gear art (Art Bot set, assets/img/items/gear). */
 {
   const files = new Set(fs.readdirSync(path.join(root, "assets/img/items/gear")).filter((f) => f.endsWith(".webp")).map((f) => f.replace(/\.webp$/, "")));
-  check("art.47files", files.size === 47);  /* 25 + the 22 Paper Doll v2.1 engravings */
+  check("art.50files", files.size === 50);  /* 25 + the 22 Paper Doll v2.1 engravings + 3 Lawman badge states (0.3.108 focus fix, Art Bot) */
   const mapped = Object.values(D.GEAR_ART_BY_ID);
   check("art.mapFilesExist", mapped.every((f) => files.has(f)), mapped.filter((f) => !files.has(f)).join(","));
   const missing = [...R.armor.map((x) => x.id), ...R.holsters.filter((h) => h.id !== "test-twin-rig").map((h) => h.id)].filter((id) => !D.GEAR_ART_BY_ID[id]);

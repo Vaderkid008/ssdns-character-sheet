@@ -58,11 +58,14 @@ check("unpack.leftoversToNotes", /• From [^:]+: .*blanket/.test(pre.equipment)
 check("match.preacherHolySymbol", ids(pre).includes(HOLY) && !/Holy symbol/.test(pre.equipment));
 const lawBranch = all.find(([cal]) => cal === "lawman");
 const law = fresh("lawman", lawBranch[1]);
-check("match.badgeIsHolySymbol", ids(law).includes(HOLY) && !/Badge/.test(law.equipment || ""), JSON.stringify(ids(law)) + " " + law.equipment);
+/* 0.3.108 focus fix (Jessey 2026-10-22 2:41 PM CT): the Lawman's badge is its own focus item (Tin star badge), not a Holy symbol */
+check("match.badgeIsTinStar", ids(law).includes("tin-star-badge") && !ids(law).includes(HOLY) && !/Badge/.test(law.equipment || ""), JSON.stringify(ids(law)) + " " + law.equipment);
 const druidLines = ["Focus: Carved walking stick", "Focus: Medicine pouch", "Focus: Pouch of home-spring soil"];
-check("match.druidTable", druidLines.every((l) => K.kitLines[l] && K.kitLines[l].items[0] === DRUID));
+/* 0.3.108 focus fix: each Nature Guide pick is its own focus item (the walking stick is also the Shillelagh target) */
+const NG_FOCUS = ["carved-walking-stick", "medicine-pouch", "home-spring-soil-pouch"];
+check("match.natureGuideFocusTable", druidLines.every((l, i) => K.kitLines[l] && K.kitLines[l].items[0] === NG_FOCUS[i]));
 const ngAll = all.filter(([cal]) => cal === "nature-guide").map(([cal, p]) => fresh(cal, p));
-check("match.natureGuideDruidic", ngAll.every((c) => ids(c).includes(DRUID) && !/Focus: (Carved|Medicine|Pouch of home)/.test(c.equipment || "")), ngAll.map((c) => c.equipment).join(" | "));
+check("match.natureGuideFocusItem", ngAll.every((c) => ids(c).filter((x) => NG_FOCUS.includes(x)).length === 1 && !ids(c).includes(DRUID) && !/Focus: (Carved|Medicine|Pouch of home)/.test(c.equipment || "")), ngAll.map((c) => c.equipment + " " + JSON.stringify(ids(c))).join(" | "));
 const schAll = all.filter(([cal]) => cal === "scholar").map(([cal, p]) => fresh(cal, p));
 const prism = schAll.filter((c) => ids(c).includes(ARCANE)), galv = schAll.filter((c) => ids(c).includes(HEX));
 check("match.prismArcane", K.kitLines["Prism (focus)"].items[0] === ARCANE && schAll.every((c) => !/Prism/.test(c.equipment || "")));
@@ -85,7 +88,8 @@ const arrowKit = all.map(([cal, p]) => fresh(cal, p)).find((c) => (c.ammo || [])
 check("notes.ammoStillInPool", !!arrowKit && arrowKit.ammo.find((a) => a.type === "arrows").count === 20);
 
 /* 4. unmatched lines stay in Notes */
-const keep = { "pact-seeker": /Borrowed Iron|Keepsake/, scholar: /Chemical Field Ledger|Keepsake|Focus worn on a cord/ };
+/* 0.3.108 focus fix: the Ledger / Keepsake / cord-focus lines are real items now; the Book trunk leftovers still stay in Notes */
+const keep = { "pact-seeker": /Book trunk|book of lore/, scholar: /Book trunk|book of lore/ };
 const kept = all.filter(([cal]) => keep[cal]).map(([cal, p]) => [cal, fresh(cal, p)]);
 check("notes.unmatchedKept", kept.some(([cal, c]) => keep[cal].test(c.equipment || "")), kept.map(([cal, c]) => cal + ":" + c.equipment).slice(0, 4).join(" | "));
 /* UI fixes 1 / U4 (Jessey 2026-10-21 12:03 PM: "No bedtime ritual on the sheet period."): replaces notes.bedtimeKept.
@@ -133,9 +137,9 @@ check("describe.ok", /Mexican Loop/i.test(lines) && /belt/i.test(lines), lines);
 const oldNotes = "• Holy symbol (focus)\n• Gun belt\n• Mexican Loop holster\n• Arrows ×20\n• Keepsake (focus)\n• Fiddle with a strap and one spare set of strings\nMy lucky coin\n• Prism (focus)";
 const old = { items: [{ uid: "p1", catalogId: "trail-kit", name: "Trail kit", count: 1 }, { uid: "h1", catalogId: HOLY, name: "Holy symbol", count: 1 }], equipment: oldNotes, ammo: [{ type: "arrows", caliber: "", count: 20 }], instrument: "fiddle", belt: "", holster: "" };
 const moved = K.migrateEquipment(old);
-check("migrate.moved", moved === 6, String(moved));
+check("migrate.moved", moved === 7, String(moved)); /* 0.3.108 focus fix: the Keepsake line is an item now (6 -> 7) */
 check("migrate.backup", old.equipmentBefore0392 === oldNotes);
-check("migrate.keepsUnmatched", /Keepsake \(focus\)/.test(old.equipment) && /My lucky coin/.test(old.equipment), old.equipment);
+check("migrate.keepsUnmatched", /My lucky coin/.test(old.equipment) && !/Keepsake \(focus\)/.test(old.equipment) && ids(old).includes("frontier-keepsake"), old.equipment);
 check("migrate.removedKitLines", !/Holy symbol|Gun belt|Mexican Loop|Arrows|Fiddle|Prism/.test(old.equipment), old.equipment);
 check("migrate.items", ids(old).filter((x) => x === HOLY).length === 1 && ids(old).includes(ARCANE) && ids(old).includes("violin-strap") && ids(old).includes("plain-strings-set"), JSON.stringify(ids(old)));
 check("migrate.packLeftAlone", ids(old).includes("trail-kit"));
@@ -145,7 +149,7 @@ const once = JSON.stringify(old);
 check("migrate.once", K.migrateEquipment(old) === 0 && JSON.stringify(old) === once);
 const otherBelt = { items: [], equipment: "• Gun belt\n• Badge (tin star, focus)", belt: "bandolier" };
 K.migrateEquipment(otherBelt);
-check("migrate.conflictStaysNote", otherBelt.belt === "bandolier" && /Gun belt/.test(otherBelt.equipment) && ids(otherBelt).includes(HOLY), otherBelt.equipment);
+check("migrate.conflictStaysNote", otherBelt.belt === "bandolier" && /Gun belt/.test(otherBelt.equipment) && ids(otherBelt).includes("tin-star-badge"), otherBelt.equipment);
 const nothing = { items: [], equipment: "Just my notes" };
 check("migrate.noKitLinesNoChange", K.migrateEquipment(nothing) === 0 && nothing.equipment === "Just my notes" && nothing.equipmentBefore0392 == null);
 check("migrate.appHook", /SSDNSKits\.migrateEquipment\(doc\.character\)/.test(read("assets/js/app.js")));

@@ -193,7 +193,8 @@ check("swap.ownsCasterNoSwapNote", F.hexPlinkerSwap(swapPlusCaster) === false &&
 const st = K.apply(K.blankCharacter(), "storyteller", {}); st.calling = "storyteller";
 check("others.storytellerInstrument", D.focusState(st) === null && D.weaponName(st, "focus_borrowed_iron") !== "" && F.castBlock(st) === "");
 const pr = K.apply(K.blankCharacter(), "frontier-preacher", {}); pr.calling = "frontier-preacher";
-check("others.preacherNoBlock", D.focusState(pr) === null && F.castBlock(pr) === "");
+/* 0.3.108 focus fix (Jessey 2026-10-22 2:41 PM CT): the Preacher's holy symbol now shows in the Focus slot; still never blocked */
+check("others.preacherNoBlock", D.focusState(pr) && D.focusState(pr).kind === "item" && F.castBlock(pr) === "", JSON.stringify(D.focusState(pr)));
 
 /* 7. cast paths gated in sheet-extras (picker, through-gun, named / Pact Shot, prompt) */
 const sx = read("assets/js/sheet-extras.js");
