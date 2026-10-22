@@ -1,5 +1,5 @@
 /**
- * 0.3.106 — Art Bot's item art batch 1 (Jessey approved 2026-10-21 6:40 PM CT).
+ * 0.3.107 — Art Bot's item art batch 1 (Jessey approved 2026-10-21 6:40 PM CT).
  *  - 59 player weapon square tiles at assets/img/items/weapons/<slug>.webp. Jessey 7:47 PM CT rule: colour tiles everywhere in
  *    the inventory (Equipment list, Weapons rows included, and item rows); b/w engravings on the weapons cards and the doll.
  *  - The Peace Maker's tile is DM-only (assets/img/dm-only/items/the-peace-maker.webp), never on a player page.

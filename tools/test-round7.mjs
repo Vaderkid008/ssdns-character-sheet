@@ -34,7 +34,7 @@ function ammo(c, type, cal) {
 }
 function hasLine(c, text) {
   if (String(c.equipment || "").indexOf(text) >= 0) return true;
-  /* 0.3.106 Equipment: a line the sheet now shows as a real thing (gun belt / holster rig, ammo pool, worn shield) */
+  /* 0.3.107 Equipment: a line the sheet now shows as a real thing (gun belt / holster rig, ammo pool, worn shield) */
   const spec = (Kits.kitLines || {})[text];
   if (!spec) return false;
   if (spec.rig === "belt") return c.belt === spec.id && c.gunBelt === true;

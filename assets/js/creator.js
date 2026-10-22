@@ -69,7 +69,7 @@
     var ab = abilityModName(cal);
     return Math.max(1, mod(scores[ab]) + 1);
   }
-  /* 0.3.106 (Jessey 2026-10-21 12:22 PM): a Pact Seeker always knows Pact Shot for free (pact-shot.js); it's never a pick */
+  /* 0.3.107 (Jessey 2026-10-21 12:22 PM): a Pact Seeker always knows Pact Shot for free (pact-shot.js); it's never a pick */
   function freeCantrips(draft, names) {
     var PS = root.SSDNSPactShot;
     return PS && draft && draft.calling === "pact-seeker" ? PS.countable({ calling: "pact-seeker" }, names || []) : (names || []).filter(Boolean);
@@ -674,7 +674,7 @@
         var callCard = refById("callings", cal.id);
         var firstLevel = callCard && (callCard.table || []).filter(function (row) { return row && /1st level/i.test(row[0] || ""); })[0];
         if (firstLevel) body.appendChild(el("p", { text: firstLevel[0] + ": " + firstLevel[1] }));
-        /* 0.3.106 (Jessey 2026-10-21 12:12 PM): a Pact Seeker picks the Pact name here (PHB: "Pick a pact name and tell
+        /* 0.3.107 (Jessey 2026-10-21 12:12 PM): a Pact Seeker picks the Pact name here (PHB: "Pick a pact name and tell
            your DM"). The Borrowed Iron lands with it, labelled by its weapon type; its real name waits for the DM's reveal. */
         if (cal.id === "pact-seeker") {
           var psel = el("select", { id: "wizPact" });

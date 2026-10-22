@@ -1,5 +1,5 @@
 /**
- * Turn order PR 1 (T1 + T2 + T6; Jessey's rulings 2026-10-21 9:07 PM CT, sheet 0.3.106 / DMCC 0.2.119):
+ * Turn order PR 1 (T1 + T2 + T6; Jessey's rulings 2026-10-21 9:07 PM CT, sheet 0.3.107 / DMCC 0.2.120):
  *   T1 one Next / Roll Initiative / End combat per surface (DMCC Fight tab, map strip); the sheet only has End turn
  *   T2 turn state on table/initiative (seq, turnStarts, undo); a player's markers on players/{uid}/turnMarkers.
  *      Markers come back only at the start of that combatant's OWN turn (reaction too, ruling 5).

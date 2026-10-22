@@ -1,10 +1,10 @@
 /**
- * 0.3.106 (Jessey 2026-10-21 12:06 / 12:11 / 12:12 PM CT): the Borrowed Iron belongs to its patron.
+ * 0.3.107 (Jessey 2026-10-21 12:06 / 12:11 / 12:12 PM CT): the Borrowed Iron belongs to its patron.
  *  - Bug: "Lass o lakes shows up with the hell maker pistol". Root cause: the DMCC player card's Give equipment section
  *    drew a fixed Hell Maker figure (the Crossroads Note's iron) on every player's card. Removed. Every view of the iron
  *    (item tile, Weapons card, Equipment row, paper-doll slot, DMCC) comes from the character's own Pact (iron-art.js).
  *  - Old saves: Hell Maker art / name left on another pact's iron item is put back on load (fixStaleIron).
- *  - The iron shows under Weapons as its real iron from the Pact pick ("Butter Repeater — Pact rifle", 0.3.106:
+ *  - The iron shows under Weapons as its real iron from the Pact pick ("Butter Repeater — Pact rifle", 0.3.107:
  *    no DM reveal any more, Jessey 2026-10-21 5:47 PM CT).
  *  - L0201: weapon slots only (long irons: Long gun; one-handed: Pistol R / Pistol L). Worn slots refuse it.
  *  - Picking the Pact (wizard or sheet) makes exactly one iron and seats it; changing the Pact swaps it (no duplicates).
@@ -37,11 +37,11 @@ const PACTS = [
   ["the-drowned-breath", "revenge-of-the-sea", "Revenge of the Sea", "Harpoon gun", "long_gun", "pact-rifle", "Pact rifle"] /* U6 (Jessey 7:34 PM): was pact-harpoon-gun / Pact harpoon gun */
 ];
 const HELL = /hell-maker|Hell Maker/;
-/* 0.3.106 (Jessey 4:51 / 5:13 PM): every iron has a weapon class; the label reads "Borrowed Iron — Pact rifle" (no look name in brackets) */
+/* 0.3.107 (Jessey 4:51 / 5:13 PM): every iron has a weapon class; the label reads "Borrowed Iron — Pact rifle" (no look name in brackets) */
 const PBY = Object.fromEntries(PACTS.map((p) => [p[1], p]));
-/* 0.3.106 (Jessey 5:47 PM): the real iron shows from the Pact pick, no DM reveal: "Butter Repeater — Pact rifle" */
+/* 0.3.107 (Jessey 5:47 PM): the real iron shows from the Pact pick, no DM reveal: "Butter Repeater — Pact rifle" */
 const L = (slug) => PBY[slug][2] + " — " + PBY[slug][6];
-/* 0.3.106 (Jessey 4:35 PM): hidden art = plain long-gun outline for a long iron, generic revolver tile for a pistol iron */
+/* 0.3.107 (Jessey 4:35 PM): hidden art = plain long-gun outline for a long iron, generic revolver tile for a pistol iron */
 const OUTLINE = /items\/borrowed-iron-long-outline\.svg$/, GENERIC = /items\/borrowed-iron\.webp$/;
 const hiddenRe = (slot) => (slot === "long_gun" ? OUTLINE : GENERIC);
 
@@ -81,7 +81,7 @@ for (const [sub, slug, nm, type, slot, cls, clsName] of PACTS) {
   const r3 = D.equip(hid, "accessory_1", it.uid), r4 = D.equip(hid, "hat", it.uid);
   check("pact." + slug + ".wornSlotRefused", !r3.ok && !r4.ok && /weapon slot only/.test(r3.reason) && !it.equipSlot && !D.fits(it, "accessory_1"), J([r3, r4]));
   check("pact." + slug + ".noWearToggle", !D.wearable(it));
-  /* 0.3.106 (Jessey 4:51 PM): one weapon class field on the item drives slots, label, row and outline */
+  /* 0.3.107 (Jessey 4:51 PM): one weapon class field on the item drives slots, label, row and outline */
   const st2 = pact(sub); D.syncIron(st2, { pactChanged: true });
   const it2 = irons(st2)[0];
   const wantSlots = cls === "pact-revolver" ? ["revolver_2", "revolver_1"] : ["long_gun"];
@@ -253,7 +253,7 @@ try {
       const tag = "ui." + slug + (rev ? ".revealed" : ".hidden");
       check(tag + ".slot", /doll-iron/.test(v.slotCls) && v.slotOk && v.slotArt === (slug === "hell-maker" ? "assets/img/dm-only/hell-maker.webp" : "assets/img/weapons/borrowed-iron/" + slug + ".webp") && v.slotNote.indexOf(nm) >= 0 && v.slotName === nm, J(v));
       check(tag + ".row", v.rowName === L(slug) && v.rowSub.indexOf("Borrowed Iron · soul-bound") === 0 && !/Tool/.test(v.rowSub) && v.rowOk && v.ironRows === 1 &&
-        /* 0.3.106 (Jessey 7:47 PM): the Equipment row shows the iron's colour tile */
+        /* 0.3.107 (Jessey 7:47 PM): the Equipment row shows the iron's colour tile */
         new RegExp("items/borrowed-iron/" + slug + "\\.webp").test(v.rowArt), J(v));
       check(tag + ".card", v.cardShown && v.cardHead === L(slug) && v.cardOk &&
         new RegExp(slug === "hell-maker" ? "dm-only/hell-maker\\.webp" : "weapons/borrowed-iron/" + slug + "\\.webp").test(v.cardArt) && v.cardName === "· Borrowed Iron", J(v));
@@ -529,7 +529,7 @@ try {
     check(tag + ".noPageErrors", errs.length === 0, errs.join(" | "));
     await ctx.close();
   }
-  /* ---------- 0.3.106: tall weapon slots (Jessey 4:07 PM: the long gun "doesn't fit in the paper doll correctly") ---------- */
+  /* ---------- 0.3.107: tall weapon slots (Jessey 4:07 PM: the long gun "doesn't fit in the paper doll correctly") ---------- */
   const geo = (key) => {
     const s = document.querySelector('#dollHost [data-doll-slot="' + key + '"]');
     const im = s && s.querySelector(".doll-art"), nm = s && s.querySelector(".doll-name");

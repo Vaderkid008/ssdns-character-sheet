@@ -1,4 +1,4 @@
-/* L0200 Caster Gun rules (DND Bot lock; Jessey rulings 2026-10-20 8:20-8:25 PM CT; sheet 0.3.106 / DMCC 0.2.119).
+/* L0200 Caster Gun rules (DND Bot lock; Jessey rulings 2026-10-20 8:20-8:25 PM CT; sheet 0.3.107 / DMCC 0.2.120).
    BOOK1: Caster Guns / How channeling works, Plain rounds, Big Fifty, Wrecked.
    1. Shells: a Caster Gun (Blacksnake, Hognose, or any gun tagged caster) takes any cartridge, never shotgun shells.
       Override path for a later relic shotgun caster (DM Guide, L0199, not statted yet), checked in this order:

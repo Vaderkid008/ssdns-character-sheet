@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.119"; // dmcc-playtest-v02119
+const VERSION = "0.2.120"; // dmcc-playtest-v02120
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2217,7 +2217,7 @@ function openDetail(pid) {
   });
   const kitBtn = $("#btnGrantFullKit");
   if (kitBtn) kitBtn.addEventListener("click", () => grantFullKit(pid));
-  /* 0.3.106 (Jessey 2026-10-21 5:47 PM): the Reveal toggle is gone; the player sees the real iron from the Pact pick */
+  /* 0.3.107 (Jessey 2026-10-21 5:47 PM): the Reveal toggle is gone; the player sees the real iron from the Pact pick */
   const badgeSel = $("#dmBadge");
   if (badgeSel) badgeSel.value = s.badgeState || "dull";
   const badgeBtn = $("#btnDmBadge");
@@ -2261,7 +2261,7 @@ async function grantFullKit(pid) {
   toast("Full kit sent to " + who + ".");
   return true;
 }
-/* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.106: no Reveal toggle (the player sees it too). */
+/* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.107: no Reveal toggle (the player sees it too). */
 function ironSectionHtml(s) {
   const IA = window.SSDNSIronArt;
   if (!IA || !s || (s.callingId || s.calling) !== "pact-seeker") return "";
