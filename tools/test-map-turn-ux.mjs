@@ -317,12 +317,18 @@ try {
       check("live." + sfx + ".mapCancel", !d2.st.dash && !d2.st.action && d2.btn.trim() === "Dash", J(d2));
       check("live." + sfx + ".dmSeesCancel", !!(await waitFor(() => dm.evaluate((pid) => { const r = document.querySelector(`#turnRules [data-tr-pid="${pid}"]`); return r && !/Dash/.test(r.textContent) && /Move 30\/30 ft/.test(r.textContent); }, uid), 15000, "dm cancel").catch(() => false)));
       /* the player card's action list still offers Dash (same button) */
-      check("live." + sfx + ".cardActionKept", await pl.evaluate(() => { const h = window.SSDNSMapHost; return !!h; }));
+      const cardGeo = () => pl.evaluate(() => { const c = document.querySelector("#mapMount .ssdns-playercard"); const p = document.getElementById("turnPanel"); const b = document.getElementById("yourTurnBanner"); const r = (e) => e && e.getBoundingClientRect(); const cr = r(c), pr = r(p);
+        return { card: !!c, cardTop: cr && cr.top, panelBottom: pr && pr.bottom, bannerShown: !!(b && getComputedStyle(b).display !== "none" && b.getBoundingClientRect().height > 0), badge: p ? getComputedStyle(p.querySelector(".turn-round"), "::after").content : "" }; });
+      let cg = await cardGeo();
+      check("live." + sfx + ".cardBelowStrip", cg.card && cg.cardTop >= cg.panelBottom - 1, J(cg));
+      check("live." + sfx + ".bannerHiddenWhileDocked", !cg.bannerShown && /Your turn/.test(cg.badge), J(cg));
       /* full screen: the strip stays on top, clear of the Exit button */
       await pl.evaluate(() => document.querySelector("#btnMapFull").click()); await sleep(500);
       g = await pgeo();
       check("live." + sfx + ".fullStripOnTop", g.inMap && g.panel.top >= 0 && g.panel.top < 60 && g.panel.bottom <= g.bar.top + 1, J(g));
       check("live." + sfx + ".fullClearOfExit", g.full && (g.panel.right <= g.full.left + 2 || g.panel.top >= g.full.bottom), J(g));
+      cg = await cardGeo();
+      check("live." + sfx + ".fullCardBelowStrip", cg.card && cg.cardTop >= cg.panelBottom - 1 && !cg.bannerShown, J(cg));
       await pl.evaluate(() => document.querySelector("#btnMapFull").click()); await sleep(300);
       /* back to another tab: the strip goes home, still one element */
       await tab(pl, "Main"); await sleep(400);
