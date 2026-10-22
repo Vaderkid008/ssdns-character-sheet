@@ -1497,3 +1497,7 @@ button.turn-locked:hover, .btn.turn-locked:hover { filter: grayscale(.85); outli
 @media (max-width: 760px) {
   #turnPanel .tl-pips .pip { height: 28px; min-width: 28px; }
 }
+/* While the strip is on the map, it is the "your turn" sign: the big red banner would sit right on top of it, so it
+   steps aside and the strip's round label says it instead (the "Your turn · Go" toast still pops up). */
+body.map-turn-docked .your-turn-box { display: none !important; }
+.ssm-turnhost #turnPanel.your-turn .turn-round::after { content: " · Your turn"; color: #fff; background: #b42318; border-radius: 3px; padding: 1px 5px; margin-left: 4px; letter-spacing: .06em; text-transform: uppercase; font-size: 10px; }

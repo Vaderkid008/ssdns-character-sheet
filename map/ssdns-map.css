@@ -1223,3 +1223,13 @@ body.map-fullscreen #mapMount > .ssm-turnstrip:not([hidden]),
 body.map-fullscreen #mapMount > .ssm-turnhost { margin-right: 150px; }
 body.map-fullscreen #mapMount:has(> .ssm-turnhost #turnPanel:not([hidden])) .ssdns-toolbar,
 body.map-fullscreen #mapMount:has(> .ssm-turnstrip:not([hidden])) .ssdns-toolbar { padding-right: 12px; }
+/* the player card floats over the board: with the strip on top it starts just below it (host sets --ssm-strip-h) */
+.ssdns-map.has-sheet-turn > .ssdns-playercard:not([style*="top"]) { top: calc(var(--ssm-strip-h, 0px) + 44px); max-height: calc(100% - 62px - var(--ssm-strip-h, 0px)); }
+@media (max-width: 520px) {
+  .ssdns-map.has-sheet-turn > .ssdns-playercard:not([style*="top"]) { top: calc(var(--ssm-strip-h, 0px) + 8px); max-height: calc(100% - 16px - var(--ssm-strip-h, 0px)); }
+}
+@media (max-width: 700px) {
+  /* phones: the strip keeps the full width and starts under the Exit full screen button instead of beside it */
+  body.map-fullscreen #mapMount > .ssm-turnstrip:not([hidden]),
+  body.map-fullscreen #mapMount > .ssm-turnhost { margin-right: 0; margin-top: 46px; }
+}

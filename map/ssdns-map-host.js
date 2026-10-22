@@ -37,7 +37,8 @@
   function undockTurnPanel() {
     var panel = turnPanelEl();
     var el = mountEl();
-    if (el) el.classList.remove("has-sheet-turn");
+    if (el) { el.classList.remove("has-sheet-turn"); el.style.removeProperty("--ssm-strip-h"); }
+    if (document.body) document.body.classList.remove("map-turn-docked");
     if (!panel || !turnHome || !turnHome.parentNode) return;
     if (panel.parentNode && panel.parentNode.classList && panel.parentNode.classList.contains("ssm-turnhost")) {
       turnHome.parentNode.insertBefore(panel, turnHome);
@@ -62,7 +63,26 @@
       slot.appendChild(panel);
     }
     el.classList.add("has-sheet-turn");
+    document.body.classList.add("map-turn-docked");
+    watchStripHeight(slot);
+    setTimeout(stripHeight, 60); /* after a full-screen switch settles */
     if (map.requestDraw) map.requestDraw();
+  }
+  /* the player card floats over the board; it starts below the strip (CSS var --ssm-strip-h on the mount) */
+  var stripRo = null, stripRoFor = null;
+  function stripHeight() {
+    var el = mountEl();
+    var slot = el && el.querySelector(":scope > .ssm-turnhost");
+    if (!el || !slot) return;
+    var h = slot.offsetHeight || 0;
+    el.style.setProperty("--ssm-strip-h", (h ? slot.offsetTop + h : 0) + "px"); /* bottom edge of the strip in the map */
+  }
+  function watchStripHeight(slot) {
+    stripHeight();
+    if (stripRoFor === slot || typeof ResizeObserver !== "function") return;
+    if (stripRo) { try { stripRo.disconnect(); } catch (e) {} }
+    stripRoFor = slot;
+    try { stripRo = new ResizeObserver(function () { stripHeight(); }); stripRo.observe(slot); } catch (e) { stripRo = null; }
   }
   function destroyMap() {
     undockTurnPanel(); /* map.destroy() empties the mount; the strip goes home first */
@@ -880,6 +900,7 @@
         var on = document.body.classList.contains("map-fullscreen");
         full.textContent = on ? "Exit full screen" : "Full screen";
         if (map && map.requestDraw) map.requestDraw();
+        setTimeout(stripHeight, 60); /* Turn UX on the map: the strip moves; the player card follows */
       });
     }
     document.querySelectorAll(".tab").forEach(function (tab) {
