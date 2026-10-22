@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -63,7 +64,8 @@ else {
     pg.on("pageerror", (e) => errs.push(String(e)));
     pg.on("response", (r) => { if (/tokenImages\/bestiary\//.test(r.url())) imgs.push(r.status() + " " + r.url().replace(/^.*tokenImages\/bestiary\//, "")); });
     await pg.setViewport({ width: 1400, height: 1000 });
-    await pg.goto(ORIGIN + "/dm/index.html", { waitUntil: "domcontentloaded" });
+    await pg.goto(ORIGIN + dmccUrl("/dm/index.html"), { waitUntil: "domcontentloaded" });
+    await dmccOffline(pg); /* never the live ssdns-dm-hub database */
     await pg.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => /load demo table/i.test(b.textContent)), { timeout: 25000 });
     await sleep(1500);
     await pg.evaluate(() => [...document.querySelectorAll("button")].find((b) => /load demo table/i.test(b.textContent)).click());

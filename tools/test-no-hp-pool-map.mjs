@@ -9,6 +9,7 @@ import path from "node:path";
 import vm from "node:vm";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -57,7 +58,8 @@ else {
       P.moveTo = function (x, y) { if (String(this.strokeStyle).toLowerCase() === "#e74c3c" && this.lineWidth === 3) this.__x = true; return mt.call(this, x, y); };
       P.fillText = function (t) { if (this.__x) { window.__xed.add(String(t)); this.__x = false; } window.__labels.add(String(t)); return ft.apply(this, arguments); };
     });
-    await pg.goto(ORIGIN + "/dm/index.html", { waitUntil: "domcontentloaded" });
+    await pg.goto(ORIGIN + dmccUrl("/dm/index.html"), { waitUntil: "domcontentloaded" });
+    await dmccOffline(pg); /* never the live ssdns-dm-hub database */
     await pg.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => /load demo table/i.test(b.textContent)), { timeout: 25000 });
     await sleep(1500);
     await pg.evaluate(() => [...document.querySelectorAll("button")].find((b) => /load demo table/i.test(b.textContent)).click());

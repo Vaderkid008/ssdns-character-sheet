@@ -11,6 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ORIGIN = process.env.SSDNS_ORIGIN || "http://127.0.0.1:8765";
 const SHOTS = process.env.SSDNS_SHOTS || "";
@@ -266,7 +267,8 @@ try {
   const dmErrs = [];
   dm.on("pageerror", (e) => dmErrs.push(String(e)));
   await dm.setViewport({ width: 1440, height: 1100 });
-  await dm.goto(ORIGIN + "/dm/index.html", { waitUntil: "domcontentloaded" });
+  await dm.goto(ORIGIN + dmccUrl("/dm/index.html"), { waitUntil: "domcontentloaded" });
+  await dmccOffline(dm); /* never the live ssdns-dm-hub database */
   await dm.waitForFunction(() => window.SSDNSItems && document.querySelector("#rewType") && document.querySelector("#rewItemBuilder"), { timeout: 20000 });
   await sleep(800);
   await dm.evaluate(() => { const d = document.querySelector("#btnLoadDemo"); if (d) d.click(); });

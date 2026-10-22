@@ -22,6 +22,7 @@ import vm from "node:vm";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -319,7 +320,8 @@ try {
 
   /* ---- DMCC demo: items 1, 4, 7, 8, 9 on the Fight tab; Table tab still no Next; map card markers ---- */
   for (const [vp, sfx] of [[{ width: 1400, height: 1000 }, "desktop"], [{ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, "phone"]]) {
-    const { pg, errs, ctx } = await page("/dm/index.html?fresh=" + Date.now(), vp);
+    const { pg, errs, ctx } = await page(dmccUrl("/dm/index.html?fresh=" + Date.now()), vp);
+    await dmccOffline(pg); /* never the live ssdns-dm-hub database */
     await pg.waitForFunction(() => window.DMCC && window.DMCCEnhance && window.SSDNSTurn && document.querySelector("#btnLoadDemo"), { timeout: 25000 });
     await pg.evaluate(() => document.querySelector("#btnLoadDemo").click());
     await pg.waitForFunction(() => window.DMCC.state.demo && Object.keys(window.DMCC.state.players || {}).length >= 2, { timeout: 20000 });

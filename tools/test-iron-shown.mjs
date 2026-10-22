@@ -11,6 +11,7 @@ import path from "node:path";
 import vm from "node:vm";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -171,7 +172,8 @@ try {
   }
   /* DMCC player card: the iron, its class, no Reveal toggle */
   for (const [sub, slug, nm, slot, cls] of [PACTS[2], PACTS[1]]) {
-    const { pg, errs, ctx } = await page("/dm/index.html");
+    const { pg, errs, ctx } = await page(dmccUrl("/dm/index.html"));
+    await dmccOffline(pg); /* never the live ssdns-dm-hub database */
     await pg.setViewport({ width: 1300, height: 1100, deviceScaleFactor: 2 });
     await pg.waitForFunction(() => window.DMCC && window.SSDNSIronArt && document.querySelector("#btnLoadDemo"), { timeout: 20000 });
     await pg.evaluate(() => document.querySelector("#btnLoadDemo").click());
