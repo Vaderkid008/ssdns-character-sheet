@@ -315,6 +315,8 @@
     var kitPicks = Object.assign({}, draft.kit || {});
     if (draft.kitMode !== "full") kitPicks._start = "module";
     if (root.SSDNSKits && root.SSDNSKits.apply) root.SSDNSKits.apply(c, c.calling, kitPicks);
+    /* M5: keep the kit picks, so a DM "Grant full kit" later gives the armor / pack / gun this player picked */
+    c.kitPicks = Object.assign({}, draft.kit || {});
     var focus = focusFor(c.calling);
     if (focus.kind === "borrowed-iron") {
       c.casterGun = "borrowed-iron";
