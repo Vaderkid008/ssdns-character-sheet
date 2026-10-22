@@ -576,6 +576,7 @@
     }
     var target = $("#atkTarget");
     if (!entry.targetId && !entry.freeShot && target && target.value && target.value !== "__free") entry.targetId = target.value;
+    oaTagOn(entry);
     /* attack-fx: the map request rides on the public feed row only (never on rolls/), and only for rolls the sheet resolved itself */
     var fxReq = entry.fxReq;
     delete entry.fxReq;
@@ -685,7 +686,16 @@
     if (Array.isArray(entry.dmgParts) && entry.dmgParts.length) row.dmgParts = entry.dmgParts.map(function (p) { return { label: String((p && p.label) || ""), value: Number(p && p.value) || 0 }; });
     if (entry.dmgFormula) row.dmgFormula = String(entry.dmgFormula);
     if (entry.dmgType) row.dmgType = String(entry.dmgType);
+    oaTagOn(row, entry);
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row);
+  }
+  /* turn order PR 2 (item 4): the rolls of an attack that used a DM-approved opportunity attack carry its id, so the
+     DMCC never treats them as out of turn */
+  function oaTagOn(row, src) {
+    var tag = (src && src.oa) || (row && row.oa) || "";
+    if (!tag && root.SSDNSActionPips && root.SSDNSActionPips.oaTag) tag = root.SSDNSActionPips.oaTag();
+    if (tag && row) row.oa = String(tag);
+    return row;
   }
   function postAttack(entry) {
     entry = entry || {};
@@ -1255,7 +1265,7 @@
         }
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "Badge set to " + (payload.state || "bright") + "." });
         break;
-      case "iron_reveal": /* 0.3.96 reveal toggle; 0.3.105: no effect on what the sheet shows */
+      case "iron_reveal": /* 0.3.96 reveal toggle; 0.3.106: no effect on what the sheet shows */
         if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
           root.SSDNSApp.applyPatch(function (doc) {
             if (doc.character) doc.character.ironRevealed = payload.on !== false;
@@ -2145,6 +2155,19 @@
       }, function () {});
       state.unsubs.push(typeof unsub === "function" ? unsub : function () { try { fb.off(r, "value", unsub); } catch (e) {} });
     }
+    /* turn order PR 2 (items 8, 9): the DM can edit or reset my Action / Bonus / R from the DMCC or the map; those
+       writes carry by: "dm" + dmAt. My own pushes drop both, so only a fresh DM edit is taken. */
+    var markPrimed = false;
+    bind("players/" + state.uid + "/turnMarkers", function (val) {
+      var P = root.SSDNSActionPips;
+      var at = val && val.by === "dm" ? String(val.dmAt || "") : "";
+      if (at && at !== state._dmMarkAt && P && P.adopt) {
+        state._dmMarkAt = at;
+        P.adopt(val);
+        if (markPrimed) toast(val.dmNote || "The DM changed your action markers.");
+      }
+      markPrimed = true;
+    });
     var inspPrimed = false;
     var inspSeen = "";
     bind("table", function (val) {
@@ -2378,6 +2401,27 @@
       characterName: (c && c.name) || ""
     };
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row);
+  }
+  /**
+   * Turn order PR 2 (item 4): ask the DM for an opportunity attack. Same one-shot request row as End turn
+   * (encounter/requests, players create their own rows); the DM's Approve / Deny lands on table/initiative/oa.
+   */
+  function postOaRequest(info) {
+    info = info || {};
+    if (!state.joined || !state._fb || !state.db) return Promise.resolve({ ok: false });
+    var id = "oa_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var c = doc() && doc().character;
+    var row = {
+      ts: new Date().toISOString(),
+      from: state.uid,
+      targetId: String(info.targetId || ""),
+      targetName: String(info.targetName || ""),
+      amount: 0,
+      type: "oa",
+      weapon: String(info.weapon || ""),
+      characterName: (c && c.name) || ""
+    };
+    return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () { return { ok: true, id: id }; });
   }
   function watchEs() {
     if (state._esTimer) return;
@@ -2730,6 +2774,7 @@
       buildSnapshot: buildSnapshot,
       _handle: handleCommand, /* test hook: run one DM command as if it arrived */
       postEndTurn: postEndTurn,
+      postOaRequest: postOaRequest,
       pushTurnMarkers: pushTurnMarkers,
       pullTurnMarkers: pullTurnMarkers,
       postLedger: postLedger,

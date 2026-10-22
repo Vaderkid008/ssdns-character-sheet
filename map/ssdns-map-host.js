@@ -251,43 +251,50 @@
     });
     return list;
   }
+  /* turn order PR 2 (item 1): a sheet button greyed out off-turn (turn-lock.js) is greyed out on the map card too */
+  function usable(btn) { return !!btn && !btn.disabled && !(btn.classList && btn.classList.contains("turn-locked")); }
   function sheetActions() {
     if (isDmPage()) return [];
     var list = [];
     document.querySelectorAll("[data-gunroll]").forEach(function (btn) {
       if (btn.hasAttribute("data-k") || btn.hidden) return;
       var i = btn.getAttribute("data-gunroll");
-      list.push({ id: "gunroll:" + i, label: gunName(i) + " · Attack", group: "attack", enabled: !btn.disabled, title: btn.title || "", cylinder: gunCylinder(i) });
+      list.push({ id: "gunroll:" + i, label: gunName(i) + " · Attack", group: "attack", enabled: usable(btn), title: btn.title || "", cylinder: gunCylinder(i) });
     });
     document.querySelectorAll("[data-melee-roll]").forEach(function (btn) {
       if (btn.hidden) return;
       var i = btn.getAttribute("data-melee-roll");
-      list.push({ id: "melee:" + i, label: meleeName(i) + " · Attack", group: "attack", enabled: !btn.disabled, title: btn.title || "" });
+      list.push({ id: "melee:" + i, label: meleeName(i) + " · Attack", group: "attack", enabled: usable(btn), title: btn.title || "" });
     });
     document.querySelectorAll("[data-cast]").forEach(function (btn) {
       if (btn.hidden) return;
       var i = btn.getAttribute("data-cast");
-      list.push({ id: "cast:" + i, label: gunName(i) + " · Cast", group: "spell", enabled: !btn.disabled, title: btn.title || "" });
+      list.push({ id: "cast:" + i, label: gunName(i) + " · Cast", group: "spell", enabled: usable(btn), title: btn.title || "" });
     });
     document.querySelectorAll("[data-spell-cast]").forEach(function (btn) {
       if (btn.hidden) return;
       var raw = btn.getAttribute("data-spell-cast") || "";
       var name = raw.slice(raw.indexOf(":") + 1) || "Spell";
-      list.push({ id: "spell:" + raw, label: "Cast " + name, group: "spell", enabled: !btn.disabled, title: btn.title || "" });
+      list.push({ id: "spell:" + raw, label: "Cast " + name, group: "spell", enabled: usable(btn), title: btn.title || "" });
     });
     var pact = $("btnPactShot");
-    if (pact && !pact.hidden) list.push({ id: "pact", label: "Pact Shot", group: "spell", enabled: !pact.disabled, title: pact.title || "" });
+    if (pact && !pact.hidden) list.push({ id: "pact", label: "Pact Shot", group: "spell", enabled: usable(pact), title: pact.title || "" });
     document.querySelectorAll("[data-reload]").forEach(function (btn) {
       if (btn.hidden) return;
       var i = btn.getAttribute("data-reload");
-      list.push({ id: "reload:" + i, label: gunName(i) + " · Reload", group: "gear", enabled: !btn.disabled, title: btn.title || "" });
+      list.push({ id: "reload:" + i, label: gunName(i) + " · Reload", group: "gear", enabled: usable(btn), title: btn.title || "" });
     });
     document.querySelectorAll("[data-tr]").forEach(function (btn) {
       if (btn.hidden) return;
       var i = btn.getAttribute("data-tr");
-      list.push({ id: "tr:" + i, label: gunName(i) + " · TR +1", group: "gear", enabled: !btn.disabled, title: btn.title || "" });
+      list.push({ id: "tr:" + i, label: gunName(i) + " · TR +1", group: "gear", enabled: usable(btn), title: btn.title || "" });
     });
     if (root.SSDNSTrackers && root.SSDNSTrackers.mapActions) list = root.SSDNSTrackers.mapActions().concat(list);
+    /* turn order PR 2: Dash / Disengage / Dodge and the opportunity-attack ask, from the sheet's turn strip */
+    document.querySelectorAll("#turnSlot [data-tl-act], #turnSlot [data-tl-oa]").forEach(function (btn) {
+      var k = btn.getAttribute("data-tl-act") || "oa";
+      list.push({ id: "turn:" + k, label: btn.textContent.trim(), group: "gear", enabled: usable(btn), title: btn.title || "" });
+    });
     var endBtn = $("btnEndTurn");
     if (endBtn && !endBtn.hidden) list.push({ id: "endturn", label: "End turn", group: "gear", enabled: !endBtn.disabled, title: endBtn.title || "" });
     return list;
@@ -467,6 +474,14 @@
   }
   function runAction(id, ctx) {
     ctx = ctx || {};
+    /* turn order PR 2 (item 1): the same off-turn lock as the sheet, also for the actions that call the sheet directly */
+    if (root.SSDNSTurnLock && root.SSDNSTurnLock.blockedAction && root.SSDNSTurnLock.blockedAction(id)) return;
+    if (String(id).indexOf("turn:") === 0) {
+      var tk = String(id).slice(5);
+      var tb = tk === "oa" ? document.querySelector("#turnSlot [data-tl-oa]") : document.querySelector('#turnSlot [data-tl-act="' + cssEscape(tk) + '"]');
+      if (tb && !tb.disabled) tb.click();
+      return;
+    }
     /* SAMPLE trackers: "trk:sneak" / "trk:smite" flip the arm on the sheet; no target, no roll */
     if (String(id).indexOf("trk:") === 0) {
       if (root.SSDNSTrackers && root.SSDNSTrackers.toggle) root.SSDNSTrackers.toggle(String(id).slice(4));

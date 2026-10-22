@@ -10,12 +10,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Smokum&display=swap">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.118-maps">
-<link rel="stylesheet" href="../assets/css/vol-slider.css?v=0.2.118-vol">
-<link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.105-modal">
-<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.105-rounds">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.118-fire">
-<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.118-polish">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.119-maps">
+<link rel="stylesheet" href="../assets/css/vol-slider.css?v=0.2.119-vol">
+<link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.106-modal">
+<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.106-rounds">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.119-turn2">
+<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.119-polish">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -388,6 +388,9 @@
       <p class="lede" id="turnSent"></p>
       <div id="fightPortraits" class="fight-portraits" aria-label="Turn order"></div>
       <div id="fightFocus" class="fight-focus"></div>
+      <!-- turn order PR 2: opportunity attacks to approve, out-of-turn hits waiting, every player's markers (tap to edit),
+           Reset and "Unlock this turn" (the DM's override). Painted by v2.js paintTurnRules(). -->
+      <div id="turnRules" class="turn-rules" hidden></div>
       <div class="fight-next-bar">
         <button type="button" class="btn btn-primary btn-next" id="btnNextTurn">Next</button>
         <div class="fight-next-side">
@@ -740,54 +743,54 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/turn-rules.js?v=0.2.118"></script>
-<script src="../assets/js/apply-guard.js?v=0.2.118-fire"></script>
-<script src="../assets/js/conditions.js?v=0.2.118-supplies"></script>
+<script src="../assets/js/turn-rules.js?v=0.2.119-turn2"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.119-fire"></script>
+<script src="../assets/js/conditions.js?v=0.2.119-supplies"></script>
 <script src="assets/js/ui-tab.js?v=0.2.35"></script>
-<script src="../assets/js/sfx.js?v=0.2.118-fire"></script>
-<script src="../assets/js/vol-slider.js?v=0.2.118-vol"></script>
-<script src="../assets/js/music-deck.js?v=0.2.118-maps"></script>
-<script src="../assets/js/media-upload.js?v=0.2.118-music"></script>
-<script src="assets/js/music-dm.js?v=0.2.118-music"></script>
-<script src="../assets/data/rules.js?v=0.2.118-preacher"></script>
-<script src="../assets/js/renames.js?v=0.2.118-preacher"></script>
-<script src="../assets/js/trackers.js?v=0.2.118-trackers"></script>
-<script src="../assets/js/equip.js?v=0.2.118-equip"></script>
+<script src="../assets/js/sfx.js?v=0.2.119-fire"></script>
+<script src="../assets/js/vol-slider.js?v=0.2.119-vol"></script>
+<script src="../assets/js/music-deck.js?v=0.2.119-maps"></script>
+<script src="../assets/js/media-upload.js?v=0.2.119-music"></script>
+<script src="assets/js/music-dm.js?v=0.2.119-music"></script>
+<script src="../assets/data/rules.js?v=0.2.119-preacher"></script>
+<script src="../assets/js/renames.js?v=0.2.119-preacher"></script>
+<script src="../assets/js/trackers.js?v=0.2.119-trackers"></script>
+<script src="../assets/js/equip.js?v=0.2.119-equip"></script>
 <script src="../assets/js/spell-fx.js?v=0.2.35"></script>
 <script src="../assets/js/spell-cast.js?v=0.2.39-range"></script>
-<script src="../assets/js/misfire.js?v=0.2.118-fire"></script>
+<script src="../assets/js/misfire.js?v=0.2.119-fire"></script>
 <script src="../assets/js/firebase-config.js?v=0.2.35"></script>
-<script src="assets/js/store-stock.js?v=0.2.118-act1"></script>
+<script src="assets/js/store-stock.js?v=0.2.119-act1"></script>
 <script src="assets/js/demo-data.js?v=0.2.35-guns"></script>
-<script src="../assets/js/test-jammer.js?v=0.2.118-fire"></script>
-<script src="../assets/js/weapon-art.js?v=0.2.118-polish"></script>
-<script src="../assets/js/iron-art.js?v=0.2.118-iron"></script>
-<script src="../assets/js/instrument-art.js?v=0.2.118-art"></script>
-<script src="../assets/js/item-ui.js?v=0.2.118-typeui"></script>
-<script src="../assets/js/give.js?v=0.3.105-give"></script>
-<script src="assets/js/give-dm.js?v=0.2.118-give"></script>
-<script src="../assets/data/item-catalog.js?v=0.2.118-items"></script>
-<script src="../assets/data/item-catalog-gear.js?v=0.2.118-steed"></script>
-<script src="../assets/js/custom-weapons.js?v=0.3.105-items"></script>
-<script src="../assets/js/items.js?v=0.2.118-steed"></script>
-<script src="../assets/js/item-art.js?v=0.2.118-art"></script>
-<script src="../assets/js/peace-maker.js?v=0.2.118-art"></script>
-<script src="../assets/js/dice-art.js?v=0.2.118-polish"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.118-reload"></script>
-<script src="../assets/js/ammo-display.js?v=0.3.105-rounds"></script>
-<script src="../assets/js/grab.js?v=0.2.118-grab"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.118-act1"></script>
-<script src="../assets/js/supplies.js?v=0.2.118-supplies"></script>
-<script type="module" src="assets/js/supplies-dm.js?v=0.2.118-supplies"></script>
+<script src="../assets/js/test-jammer.js?v=0.2.119-fire"></script>
+<script src="../assets/js/weapon-art.js?v=0.2.119-polish"></script>
+<script src="../assets/js/iron-art.js?v=0.2.119-iron"></script>
+<script src="../assets/js/instrument-art.js?v=0.2.119-art"></script>
+<script src="../assets/js/item-ui.js?v=0.2.119-typeui"></script>
+<script src="../assets/js/give.js?v=0.3.106-give"></script>
+<script src="assets/js/give-dm.js?v=0.2.119-give"></script>
+<script src="../assets/data/item-catalog.js?v=0.2.119-items"></script>
+<script src="../assets/data/item-catalog-gear.js?v=0.2.119-steed"></script>
+<script src="../assets/js/custom-weapons.js?v=0.3.106-items"></script>
+<script src="../assets/js/items.js?v=0.2.119-steed"></script>
+<script src="../assets/js/item-art.js?v=0.2.119-art"></script>
+<script src="../assets/js/peace-maker.js?v=0.2.119-art"></script>
+<script src="../assets/js/dice-art.js?v=0.2.119-polish"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.119-turn2"></script>
+<script src="../assets/js/ammo-display.js?v=0.3.106-rounds"></script>
+<script src="../assets/js/grab.js?v=0.2.119-grab"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.119-turn2"></script>
+<script src="../assets/js/supplies.js?v=0.2.119-supplies"></script>
+<script type="module" src="assets/js/supplies-dm.js?v=0.2.119-supplies"></script>
 <script src="../map/token-crop.js?v=0.2.38-card"></script>
-<script src="../assets/js/range-rings.js?v=0.2.118-adv"></script>
-<script src="../map/ssdns-map-chat.js?v=0.2.118-float"></script>
-<script src="../map/map-packs.js?v=0.2.118-maps"></script>
-<script src="../map/map-library.js?v=0.2.118-maps"></script>
-<script src="../map/token-size.js?v=0.2.118-size"></script>
-<script src="../map/ssdns-map-fx.js?v=0.2.118-fx"></script>
-<script src="../map/ssdns-map.js?v=0.2.118-maps"></script>
+<script src="../assets/js/range-rings.js?v=0.2.119-adv"></script>
+<script src="../map/ssdns-map-chat.js?v=0.2.119-float"></script>
+<script src="../map/map-packs.js?v=0.2.119-maps"></script>
+<script src="../map/map-library.js?v=0.2.119-maps"></script>
+<script src="../map/token-size.js?v=0.2.119-size"></script>
+<script src="../map/ssdns-map-fx.js?v=0.2.119-fx"></script>
+<script src="../map/ssdns-map.js?v=0.2.119-turn2"></script>
 <script src="../map/ssdns-map-firebase.js?v=0.2.36-sync"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.118-fire"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.119-turn2"></script>
 </body>
 </html>

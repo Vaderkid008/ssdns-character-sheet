@@ -3382,10 +3382,19 @@ function fillGrant() {
   });
   if (prev) sel.value = prev;
 }
+/* turn order PR 2 (item 5, Jessey 2026-10-21): during initiative a player drags their own token only on their own turn
+   (or while the DM has unlocked them, table/initiative/unlock). The DM always can; outside combat everyone moves freely. */
+function turnBlocksMove() {
+  if (role === 'dm') return false;
+  const T = window.SSDNSTurn;
+  if (!T || !T.lockedFor) return false;
+  return T.lockedFor(state.initiative, uid, '');
+}
 function canDrag(token) {
   if (!token) return false;
   if (token.locked) return false;
   if (!canControl(token)) return false;
+  if (turnBlocksMove()) return false;
   return true;
 }
 function beastClick(e) {
@@ -3656,6 +3665,7 @@ function onPointerDown(e) {
       if (role === 'dm') openDrawer(hit.id);
     } else if (hit && role === 'player') {
       if (hit.locked) toast('That token is locked');
+      else if (canControl(hit) && turnBlocksMove()) toast("It isn't your turn. Your token moves on your turn.");
       else toast('No permission to move that token');
     } else {
       if (e.button === 1 || e.altKey) {
@@ -6080,6 +6090,9 @@ async function loadSceneImage(sceneId, opts) {
     on(d, 'pointerup', endDrag);
     on(d, 'pointercancel', endDrag);
     on(d, 'click', (e) => {
+      /* turn order PR 2 (items 8, 9): the DM page's own handler changes the player's markers; repaint after it */
+      const pip = e.target.closest && e.target.closest('[data-dm-pip], [data-pip-reset]');
+      if (pip && d.contains(pip)) { setTimeout(() => renderDrawer(), 30); return; }
       const btn = e.target.closest && e.target.closest('[data-act="drawerReset"]');
       if (!btn || !d.contains(btn)) return;
       e.preventDefault();
@@ -6283,6 +6296,10 @@ async function loadSceneImage(sceneId, opts) {
     const actToggle = isPc
       ? '<label class="ssm-act"><input type="checkbox" data-act="actFor"' + (card.dmActsAs ? ' checked' : '') + '> Act for player</label>'
       : '';
+    /* turn order PR 2 (items 8, 9): a player's Action / Bonus / R (tap to change) and Reset, from the DM page */
+    const markerRow = isPc && window.DMCCEnhance && typeof window.DMCCEnhance.mapMarkersHtml === 'function'
+      ? (window.DMCCEnhance.mapMarkersHtml(tokenCombatant(tokenId)) || '')
+      : '';
     const coverKey = (window.SSDNSApplied && window.SSDNSApplied.coverKey)
       ? window.SSDNSApplied.coverKey(card.cover)
       : (card.cover || '');
@@ -6302,6 +6319,7 @@ async function loadSceneImage(sceneId, opts) {
       (hp.temp ? ' (+' + esc(hp.temp) + ')' : '') + ' · ' + esc(speedLabel(card.speed)) + '</div>' +
       hpBar +
       deathLine +
+      markerRow +
       actToggle +
       coverRow +
       '<label class="ssm-act ssm-range"><input type="checkbox" data-act="drawerRange"' + (state.showRange ? ' checked' : '') + '> Show range</label>' +

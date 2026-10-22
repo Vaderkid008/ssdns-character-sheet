@@ -1,7 +1,8 @@
 /**
  * Per-turn action economy (0.3.54 guns, 0.3.55 attacks, spells, features).
  * Pips: Action, Bonus, Reaction. Spending a used pip only warns (the DM can allow it); nothing is
- * ever blocked. Pips reset when your own turn starts in the DM's turn order (turn order PR 1), or with Reset.
+ * ever blocked. Pips reset when your own turn starts in the DM's turn order (turn order PR 1). Turn order PR 2: the
+ * player's Reset is gone (the DM resets from the DMCC and the map), and in a fight only the DM marks a used pip ready.
  * Costs: "action", "bonus", "reaction", "full" (slow load = action + bonus), "free" (no pip).
  * Attacks: the first attack spends the Action; Extra Attack (from the Calling's feature text in
  * rules.js) makes the next attacks in that Attack action free, up to the limit.
@@ -10,7 +11,17 @@
   "use strict";
   var KEY = "ssdns.actionPips.v1";
   var st = load();
-  function blank() { return { action: false, bonus: false, reaction: false, attacks: 0, actionBy: "", turnKey: "" }; }
+  /* turn order PR 2: moveUsed (feet), dash / disengage / dodge, the opportunity-attack window (oaReq asked, oaArmed
+     approved and not used yet, oaUsed spent) and deathKey (the turn a death save was rolled) */
+  function blank() { return { action: false, bonus: false, reaction: false, attacks: 0, actionBy: "", turnKey: "", moveUsed: 0, dash: false, disengage: false, dodge: false, oaReq: "", oaArmed: "", oaUsed: "", oaUsedAt: 0, deathKey: "" }; }
+  function extras(src, out) {
+    src = src || {};
+    out.moveUsed = Math.max(0, parseInt(src.moveUsed, 10) || 0);
+    out.dash = !!src.dash; out.disengage = !!src.disengage; out.dodge = !!src.dodge;
+    out.oaReq = String(src.oaReq || ""); out.oaArmed = String(src.oaArmed || ""); out.oaUsed = String(src.oaUsed || "");
+    out.oaUsedAt = Number(src.oaUsedAt) || 0; out.deathKey = String(src.deathKey || "");
+    return out;
+  }
   function load() {
     try { var v = JSON.parse(root.localStorage.getItem(KEY) || "null"); if (v && typeof v === "object") return Object.assign(blank(), v); } catch (e) {}
     return blank();
@@ -19,8 +30,13 @@
     try { root.localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
     /* T2: the markers also go to the room so the DM sees them and a reload keeps them */
     try { if (root.SSDNSDmJoin && root.SSDNSDmJoin.pushTurnMarkers) root.SSDNSDmJoin.pushTurnMarkers(stateCopy()); } catch (e) {}
+    changed();
   }
-  function stateCopy() { return { action: !!st.action, bonus: !!st.bonus, reaction: !!st.reaction, attacks: st.attacks || 0, actionBy: st.actionBy || "", turnKey: st.turnKey || "" }; }
+  /* turn order PR 2: the off-turn lock and the movement tracker repaint when the markers change */
+  function changed() {
+    try { if (root.dispatchEvent && typeof root.CustomEvent === "function") root.dispatchEvent(new root.CustomEvent("ssdns:pips-change")); } catch (e) {}
+  }
+  function stateCopy() { return extras(st, { action: !!st.action, bonus: !!st.bonus, reaction: !!st.reaction, attacks: st.attacks || 0, actionBy: st.actionBy || "", turnKey: st.turnKey || "" }); }
   var LABEL = { action: "an action", bonus: "a bonus action", reaction: "a reaction", full: "a full turn (action + bonus)", free: "a free action" };
   var WORD = { action: "your action", bonus: "your bonus action", reaction: "your reaction" };
   function needs(cost) {
@@ -78,6 +94,13 @@
     var limit = attacksPerAction();
     var label = what || "Attack";
     var over = false;
+    /* turn order PR 2 (item 4): an opportunity attack the DM approved spends the Reaction, not the Action, once */
+    if (st.oaArmed) {
+      st.reaction = true; st.oaUsed = st.oaArmed; st.oaUsedAt = Date.now(); st.oaArmed = "";
+      save(); paint();
+      if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "note", text: label + " · opportunity attack (reaction)." });
+      return { over: false, attacks: st.attacks, limit: limit, oa: st.oaUsed };
+    }
     if (!st.action) { st.action = true; st.actionBy = "attack"; st.attacks = 1; }
     else if (st.actionBy === "attack" && st.attacks < limit) { st.attacks += 1; }
     else {
@@ -155,6 +178,11 @@
   var NAME = { action: "Action", bonus: "Bonus action", reaction: "Reaction" };
   function toggle(kind) {
     if (!NAME[kind]) return null;
+    /* turn order PR 2 (item 9): in a fight only the DM gives a used pip back (DMCC or map); marking one used is fine */
+    if (st[kind] && inFight()) {
+      toast("Only the DM can give back your " + NAME[kind].toLowerCase() + " during a fight.");
+      return st[kind];
+    }
     st[kind] = !st[kind];
     if (kind === "action") { st.actionBy = st.action ? "manual" : ""; st.attacks = 0; }
     save(); paint();
@@ -162,7 +190,7 @@
     if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "note", quiet: true, text: NAME[kind] + (st[kind] ? " marked used" : " marked ready") + " (manual)." });
     return st[kind];
   }
-  function reset(quiet) { st.action = false; st.bonus = false; st.reaction = false; st.attacks = 0; st.actionBy = ""; save(); paint(); if (!quiet) toast("Action, bonus action, and reaction are back."); /* 0.3.73: tell per-turn trackers (Fan the Hammer) */
+  function reset(quiet) { st.action = false; st.bonus = false; st.reaction = false; st.attacks = 0; st.actionBy = ""; extras({}, st); save(); paint(); if (!quiet) toast("Action, bonus action, and reaction are back."); /* 0.3.73: tell per-turn trackers (Fan the Hammer) */
     try { if (root.dispatchEvent && typeof root.CustomEvent === "function") root.dispatchEvent(new root.CustomEvent("ssdns:pips-reset")); } catch (e) {}
   }
   /* Turn order PR 1 (T2, Jessey's rulings 2026-10-21 9:07 PM CT): markers come back only when MY own turn starts
@@ -184,9 +212,11 @@
     var row = myRow(init);
     if (T && row) {
       var got = T.markersFor(st, init, row);
-      if (!got.reset) return;
+      if (!got.reset) { changed(); return; }
       st.turnKey = got.markers.turnKey;
       reset(true);
+      /* turn order PR 2: tell the turn rules (death save at the start of my own turn) */
+      try { if (root.dispatchEvent && typeof root.CustomEvent === "function") root.dispatchEvent(new root.CustomEvent("ssdns:own-turn", { detail: { turnKey: st.turnKey } })); } catch (e) {}
       return;
     }
     var k = "round:" + String(init.round || 1);
@@ -202,12 +232,28 @@
     keep.attacks = Math.max(0, parseInt(v.attacks, 10) || 0);
     keep.actionBy = String(v.actionBy || "");
     keep.turnKey = String(v.turnKey || "");
+    extras(v, keep);
     st = keep;
     try { root.localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
     if (lastInit) onTurn(lastInit);
     paint();
+    changed();
     return true;
   }
+  /* ---- turn order PR 2 helpers (the rules live in turn-rules.js / turn-lock.js) ---- */
+  function inFight() { var T = root.SSDNSTurn; return !!(T && lastInit && T.inFight(lastInit) && myRow(lastInit)); }
+  /** Movement: spend (delta > 0) or give back (delta < 0) feet this turn. */
+  function move(delta) {
+    var d = parseInt(delta, 10) || 0;
+    st.moveUsed = Math.max(0, (parseInt(st.moveUsed, 10) || 0) + d);
+    save();
+    return st.moveUsed;
+  }
+  function setFlag(k, on) { if (["dash", "disengage", "dodge"].indexOf(k) < 0) return; st[k] = on !== false; save(); }
+  function setOa(field, id) { if (["oaReq", "oaArmed", "oaUsed"].indexOf(field) < 0) return; st[field] = String(id || ""); save(); paint(); }
+  /** The approved opportunity attack's id, for the rolls of the attack that just used it (a short window). */
+  function oaTag() { return st.oaUsed && st.oaUsedAt && Date.now() - st.oaUsedAt < 20000 ? st.oaUsed : ""; }
+  function markDeath(key) { st.deathKey = String(key || ""); save(); }
   function costTag(cost) { return cost === "full" ? "Full turn" : (cost === "bonus" ? "Bonus" : (cost === "free" ? "Free" : (cost === "reaction" ? "Reaction" : "Action"))); }
   function actionText() {
     var limit = attacksPerAction();
@@ -221,16 +267,17 @@
       : "Action ready. Attacks, spells, Reload, Unload, and Reopen spend it." + (limit > 1 ? " Extra Attack: " + limit + " attacks per Attack action." : "");
     aTip += " Click to mark it " + (st.action ? "ready" : "used") + ".";
     var bTip = st.bonus ? "Bonus action used this turn." : "Bonus action ready. Tactical Reload, Quick Reload, Unjam, Take Cover, bonus-action spells and features spend it.";
-    var rTip = st.reaction ? "Reaction used this round." : "Reaction ready. Reaction spells spend it.";
+    var rTip = st.reaction ? "Reaction used. It comes back at the start of your own turn." : "Reaction ready. Reaction spells and an approved opportunity attack spend it.";
     bTip += " Click to mark it " + (st.bonus ? "ready" : "used") + ".";
     rTip += " Click to mark it " + (st.reaction ? "ready" : "used") + ".";
+    if (inFight()) { aTip += " In a fight only the DM marks it ready."; bTip += " In a fight only the DM marks it ready."; rTip += " In a fight only the DM marks it ready."; }
     var partial = st.actionBy === "attack" && st.attacks < limit ? " partial" : "";
     return '<span class="act-pips" data-act-pips>' +
       '<span class="pip-label">This turn</span>' +
       '<button type="button" data-pip="action" aria-pressed="' + st.action + '" class="pip pip-action' + (st.action ? " used" : "") + partial + '" title="' + aTip + '">' + actionText() + '</button>' +
       '<button type="button" data-pip="bonus" aria-pressed="' + st.bonus + '" class="pip pip-bonus' + (st.bonus ? " used" : "") + '" title="' + bTip + '">Bonus</button>' +
       '<button type="button" data-pip="reaction" aria-pressed="' + st.reaction + '" class="pip pip-reaction' + (st.reaction ? " used" : "") + '" title="' + rTip + '">R</button>' +
-      '<button type="button" class="btn xs pip-reset" data-pips-reset title="New turn: give back the action, bonus action, and reaction">Reset</button></span>';
+      '</span>'; /* turn order PR 2 (item 9): no player Reset; the DM resets from the DMCC and the map */
   }
   function paint() {
     if (typeof document === "undefined") return;
@@ -243,7 +290,6 @@
   }
   if (typeof document !== "undefined") {
     document.addEventListener("click", function (e) {
-      if (e.target && e.target.closest && e.target.closest("[data-pips-reset]")) reset(false);
       var pip = e.target && e.target.closest && e.target.closest("[data-pip]");
       if (pip) toggle(pip.getAttribute("data-pip"));
     });
@@ -252,8 +298,9 @@
   root.SSDNSActionPips = {
     spend: spend, toggle: toggle, attack: attack, spell: spell, feature: feature, reset: reset, onTurn: onTurn, paint: paint,
     attacksPerAction: attacksPerAction, spellCost: spellCost, featureCost: featureCost, rulesCost: rulesCost,
-    state: function () { return { action: st.action, bonus: st.bonus, reaction: st.reaction, attacks: st.attacks, actionBy: st.actionBy, turnKey: st.turnKey }; },
+    state: function () { return extras(st, { action: st.action, bonus: st.bonus, reaction: st.reaction, attacks: st.attacks, actionBy: st.actionBy, turnKey: st.turnKey }); },
     adopt: adopt,
+    move: move, setFlag: setFlag, setOa: setOa, oaTag: oaTag, markDeath: markDeath, inFight: inFight, lastInit: function () { return lastInit; },
     costTag: costTag, needs: needs
   };
 })(typeof window !== "undefined" ? window : this);

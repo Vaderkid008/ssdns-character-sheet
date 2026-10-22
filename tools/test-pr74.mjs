@@ -114,7 +114,8 @@ btn({ "data-unload": "0" });
 check("pips.noChangeNoSpend", !P.state().action && g.loaded === before);
 check("pips.fullTurn", P.needs("full").join(",") === "action,bonus" && P.needs("free").length === 0);
 P.paint();
-check("pips.ui", !!doc.querySelector(".firearms [data-act-pips] .pip-action") && !!doc.querySelector("[data-pips-reset]"));
+/* turn order PR 2 (Jessey 2026-10-22, ruling 9): the player's Reset is gone; the DM resets markers from the DMCC / map */
+check("pips.ui", !!doc.querySelector(".firearms [data-act-pips] .pip-action") && !doc.querySelector("[data-pips-reset]"));
 
 /* cost tags + unload shown */
 const appSrc = read("assets/js/app.js"), css = read("assets/css/sheet.css");

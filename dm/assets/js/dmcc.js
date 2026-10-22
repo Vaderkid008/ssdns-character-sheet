@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.118"; // dmcc-playtest-v02118
+const VERSION = "0.2.119"; // dmcc-playtest-v02119
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -418,6 +418,15 @@ function attachLiveListeners() {
       state._mercySeen[id] = 1;
       const amount = Number(row.amount) || 0;
       if (!amount || !row.targetId) return;
+      /* turn order PR 2 (items 6 + 7): Mercy Hands cast out of turn waits on the Fight tab for the DM's Apply */
+      const E = window.DMCCEnhance;
+      if (E && E.heldOutOfTurn && E.holdHit && E.heldOutOfTurn(row)) {
+        const pl = state.players && state.players[row.targetId];
+        const tname = (pl && pl.snapshot && pl.snapshot.name) || row.targetName || "an ally";
+        E.holdHit({ rollId: "mercy:" + id, targetId: row.targetId, targetName: tname, amount: amount, from: row.from, characterName: row.characterName || "Mercy Hands",
+          label: "Mercy Hands", weapon: "", dice: "", type: "heal", heal: true }, (row.characterName || "Mercy Hands") + " heals " + tname + " " + amount + " (Mercy Hands)");
+        return;
+      }
       pushCommand({
         type: "hp",
         to: row.targetId,
@@ -1709,7 +1718,9 @@ function rollOutOfTurn(r) {
   const cur = window.DMCCEnhance && window.DMCCEnhance.currentTurn ? window.DMCCEnhance.currentTurn() : null;
   const started = typeof state !== "undefined" && state ? !!state.turnEngaged : false;
   const dmUid = typeof state !== "undefined" && state ? state.uid : "";
-  if (window.SSDNSTurn) return window.SSDNSTurn.outOfTurn(r, { started: started, current: cur, dmUid: dmUid });
+  /* turn order PR 2 (item 4): an approved opportunity attack (r.oa) is never out of turn */
+  const ts = window.DMCCEnhance && window.DMCCEnhance.turnState ? window.DMCCEnhance.turnState() : null;
+  if (window.SSDNSTurn) return window.SSDNSTurn.outOfTurn(r, { started: started, current: cur, dmUid: dmUid, oa: (ts && ts.oa) || {} });
   return !!(started && r.playerId && r.uid !== dmUid && cur && !(cur.kind === "player" && (cur.playerId || cur.id) === r.playerId));
 }
 function hitApplyButton(r) {
@@ -2203,7 +2214,7 @@ function openDetail(pid) {
       else if (op === "merchant") applyDemoGun(pid, payload);
     });
   });
-  /* 0.3.105 (Jessey 2026-10-21 5:47 PM): the Reveal toggle is gone; the player sees the real iron from the Pact pick */
+  /* 0.3.106 (Jessey 2026-10-21 5:47 PM): the Reveal toggle is gone; the player sees the real iron from the Pact pick */
   const badgeSel = $("#dmBadge");
   if (badgeSel) badgeSel.value = s.badgeState || "dull";
   const badgeBtn = $("#btnDmBadge");
@@ -2218,7 +2229,7 @@ function openDetail(pid) {
   $("#detailOverlay").hidden = false;
 }
 
-/* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.105: no Reveal toggle (the player sees it too). */
+/* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.106: no Reveal toggle (the player sees it too). */
 function ironSectionHtml(s) {
   const IA = window.SSDNSIronArt;
   if (!IA || !s || (s.callingId || s.calling) !== "pact-seeker") return "";

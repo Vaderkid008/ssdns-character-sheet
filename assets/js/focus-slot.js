@@ -1,4 +1,4 @@
-/* SSDNS focus rules (L0197, Jessey 2026-10-20 7:10 PM; sheet 0.3.105).
+/* SSDNS focus rules (L0197, Jessey 2026-10-20 7:10 PM; sheet 0.3.106).
    Pact Seeker: no Borrowed Iron in hand, no Pact Seeker spells (cantrips and Pact Shot included; BOOK1 L2005 / L3770).
      Lost or disarmed -> character.borrowedIronAway; it returns at the start of the owner's next turn (out of combat,
      a heartbeat later, so it never stays away outside a fight).
