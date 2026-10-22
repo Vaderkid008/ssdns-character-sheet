@@ -1285,8 +1285,9 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 /* 0.3.96: Weapons rows: the 3:1 engraving letterboxed on parchment, not cropped to its middle */
 .eq-thumb.eq-wide { width: 72px; height: 32px; background: #fffaf3; border-color: #c4b497; }
 .eq-thumb.eq-wide img { object-fit: contain; padding: 1px 2px; box-sizing: border-box; }
-.eq-row[data-eq-cat="weapons"] .eq-main { grid-template-columns: 72px minmax(0,1fr) auto auto auto 26px; }
-@media (max-width: 640px) { .eq-row[data-eq-cat="weapons"] .eq-main { grid-template-columns: 66px minmax(0,1fr) auto auto auto 22px; } .eq-thumb.eq-wide { width: 66px; height: 30px; } }
+/* 0.3.102: only a row that still shows a 3:1 engraving (a gun with no square tile) gets the wide thumb column */
+.eq-row[data-eq-cat="weapons"] .eq-main:has(.eq-wide) { grid-template-columns: 72px minmax(0,1fr) auto auto auto 26px; }
+@media (max-width: 640px) { .eq-row[data-eq-cat="weapons"] .eq-main:has(.eq-wide) { grid-template-columns: 66px minmax(0,1fr) auto auto auto 22px; } .eq-thumb.eq-wide { width: 66px; height: 30px; } }
 .eq-name { min-width: 0; line-height: 1.15; }
 .eq-name b { display: block; font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .eq-sub { display: block; font-family: var(--label); font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -1,7 +1,7 @@
 /**
  * 0.3.102 — Art Bot's item art batch 1 (Jessey approved 2026-10-21 6:40 PM CT).
- *  - 59 player weapon square tiles at assets/img/items/weapons/<slug>.webp: paper-doll weapon slots, item rows, list squares.
- *    The Weapons tab, gun cards and the Equipment list's Weapons rows keep the 1200x400 b/w engravings.
+ *  - 59 player weapon square tiles at assets/img/items/weapons/<slug>.webp. Jessey 7:47 PM CT rule: colour tiles everywhere in
+ *    the inventory (Equipment list, Weapons rows included, and item rows); b/w engravings on the weapons cards and the doll.
  *  - The Peace Maker's tile is DM-only (assets/img/dm-only/items/the-peace-maker.webp), never on a player page.
  *  - 32 banner fixes: 18 replaced in place (no wide use); 14 kept as banners (Store / DMCC gear table / notes strip draw
  *    them 3:1) with the square added at assets/img/items/square/<slug>.webp.
@@ -186,11 +186,15 @@ try {
     await waitImgs(pg); await sleep(300);
     const v = await pg.evaluate(pageInfo);
     const pistol = [v.r1, v.r2].find((x) => x && /navy-army/.test(x.src));
-    check("ui.doll.pistolTile", pistol && pistol.src === "assets/img/items/weapons/navy-army-ball-n-cap-revolver.webp" && pistol.nw === 256, J([v.r1, v.r2]));
+    /* Jessey 7:47 PM: engravings on the doll, pistol slots included */
+    check("ui.doll.pistolEngraving", pistol && pistol.src === "assets/img/weapons/navy-army-ball-n-cap-revolver.webp" && pistol.nw === 1200, J([v.r1, v.r2]));
+    check("ui.doll.noTiles", ![v.r1, v.r2, v.long, v.melee].some((x) => x && /items\/weapons\//.test(x.src)), J([v.r1, v.r2, v.long, v.melee]));
     check("ui.doll.longGun", v.long && /henrietta-repeating-rifle\.webp$/.test(v.long.src) && v.long.nw > 0, J(v.long));
     check("ui.doll.melee", v.melee && /cutlass\.webp$/.test(v.melee.src) && v.melee.nw > 0, J(v.melee));
     const slotRow = (re) => v.rows.find((r) => /^slot:/.test(r.key) && re.test(r.src));
-    check("ui.eq.weaponRowsEngraving", ["navy-army-ball-n-cap-revolver", "henrietta-repeating-rifle", "cutlass"].every((s) => { const r = slotRow(new RegExp("assets/img/weapons/" + s + "\\.webp$")); return r && r.wide && r.nw === 1200; }), J(v.rows.filter((r) => /^slot:/.test(r.key))));
+    /* Jessey 7:47 PM: colour tiles everywhere in the inventory, Weapons rows included (replaces #116's engraving rows) */
+    check("ui.eq.weaponRowsTile", ["navy-army-ball-n-cap-revolver", "henrietta-repeating-rifle", "cutlass"].every((s) => { const r = slotRow(new RegExp("assets/img/items/weapons/" + s + "\\.webp$")); return r && !r.wide && r.nw === 256; }), J(v.rows.filter((r) => /^slot:/.test(r.key))));
+    check("ui.eq.noEngravingRows", !v.rows.some((r) => r.wide || r.nw === 1200), J(v.rows));
     const itemRow = (src) => v.rows.find((r) => r.src === src);
     const want = { "dynamite-stick-standard-fuse": "assets/img/items/weapons/dynamite-stick-standard-fuse.webp", "dynamite-bundle-3": "assets/img/items/weapons/dynamite-stick-standard-fuse.webp",
       "lamp-oil": "assets/img/items/square/lamp-oil.webp", "whiskey-bottle": "assets/img/items/square/whiskey-bottle.webp", "black-shard": "assets/img/items/black-shard.webp",
@@ -268,6 +272,13 @@ try {
         overflow: document.documentElement.scrollWidth > window.innerWidth + 1, shown: !!(btn && btn.offsetParent) };
     });
     const tag = mobile ? "ui.pactShot.mobile" : "ui.pactShot";
+    const ir = await pg.evaluate(() => {
+      const row = document.querySelector('#itemList li[data-eq-cat="weapons"][data-iron-class]'), ri = row && row.querySelector(".eq-thumb img");
+      const s = document.querySelector("#dollHost .doll-iron .doll-art"), card = document.querySelector("#pactIronArt:not([hidden]) img");
+      return { row: ri ? ri.getAttribute("src") : "", rowWide: !!(ri && ri.closest(".eq-thumb").classList.contains("eq-wide")), doll: s ? s.getAttribute("src") : "", card: card ? card.getAttribute("src") : "" };
+    });
+    check(tag + ".ironRowTile", ir.row === "assets/img/items/borrowed-iron/butter-repeater.webp" && !ir.rowWide, J(ir));
+    check(tag + ".ironDollAndCardEngraving", ir.doll === "assets/img/weapons/borrowed-iron/butter-repeater.webp" && ir.card === "assets/img/weapons/borrowed-iron/butter-repeater.webp", J(ir));
     check(tag + ".art", b.shown && b.src === "assets/img/spells/pact-shot.webp" && b.nw === 256 && b.text === "Pact Shot" && b.iw >= 18 && b.iw <= 22, J(b));
     check(tag + ".layout", b.inside && b.h > 0 && b.h <= 40 && (!b.oh || Math.abs(b.h - b.oh) <= 4) && !b.overflow, J(b));
     await shot(pg, "#pactFocus", mobile ? "art-batch1-mobile-iron-card.png" : "art-batch1-iron-card-pact-shot.png");

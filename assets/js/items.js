@@ -1415,14 +1415,20 @@
     var src = artSrc(item);
     return src && !/\/defaults\//.test(src) ? src : "";
   }
-  /* 0.3.102 (iron-art.js; Jessey 9:55 PM): Weapons rows show the black-and-white engraving for every gun, the Borrowed
-     Iron included once the DM has revealed it (letterboxed, never cropped). Other item rows keep their colour tile. */
+  /* 0.3.102 (Jessey 2026-10-21 7:47 PM CT, replaces the 9:55 PM / #116 rule): every Equipment row, Weapons rows and the
+     Borrowed Iron included, shows a colour square tile; engravings only on the weapons cards and the paper doll. */
   function ironTile(item, c) {
     var IA = root.SSDNSIronArt;
     if (!IA || !item) return "";
     try {
       /* 0.3.100: unrevealed -> the generic tile, never Hell Maker art left on an old item row */
-      if (IA.isIronItem ? IA.isIronItem(item) : item.catalogId === "borrowed-iron") return (IA.engravingSrc ? IA.engravingSrc(c) : "") || (IA.hiddenArt ? IA.hiddenArt(c) : "") || (IA.safeIronArt ? IA.safeIronArt(realArt(item)) || withPrefix(IA.GENERIC_TILE) : "");
+      /* 0.3.102 (Jessey 7:47 PM): the Equipment row shows the iron's colour 256 tile (items/borrowed-iron/<slug>.webp), or the
+         generic 256 tile before a Pact pick; the engraving stays on its card and the doll */
+      if (IA.isIronItem ? IA.isIronItem(item) : item.catalogId === "borrowed-iron") {
+        var ownIron = IA.safeIronArt ? IA.safeIronArt(realArt(item)) : "";
+        if (ownIron && (isWideArt(ownIron) || /\/items\/default\//.test(ownIron))) ownIron = "";
+        return (IA.tileSrc ? IA.tileSrc(c) : "") || ownIron || withPrefix(IA.GENERIC_TILE) || (IA.engravingSrc ? IA.engravingSrc(c) : "");
+      }
       /* 0.3.102: an item with its own art (Old Henry's Rifle, Lightning Tomahawk...) keeps it; a plain weapon item takes its
          weapon's square tile (weapon-art.js tileFor) */
       var own = realArt(item);
@@ -1579,9 +1585,14 @@
         if (g.dirty) sub.push("Dirty");
         if (g.jammed) sub.push("jammed");
         var wt = w && !w.custom ? lbOf(w.weight) : (item ? Number(item.weight) || 0 : 0);
-        /* 0.3.96: the 3:1 engraving, letterboxed in a wide thumb (eq-wide), never cropped */
+        /* 0.3.102 (Jessey 2026-10-21 7:47 PM CT: colour square tiles everywhere in the inventory): a slotted gun / melee
+           weapon's row shows the backing item's own art (Old Henry's Rifle) or the weapon's 256 tile; the 3:1 engraving
+           (letterboxed, eq-wide) only when there is no tile. Cards and the doll keep the engravings. */
         var src = "";
-        if (root.SSDNSWeaponArt && root.SSDNSWeaponArt.srcFor) src = root.SSDNSWeaponArt.srcFor(w || { id: g.weapon, name: name }) || "";
+        var own = item ? realArt(item) : "";
+        if (own && !isWideArt(own) && !/\/items\/default\//.test(own)) src = own;
+        if (!src && root.SSDNSIronArt && root.SSDNSIronArt.weaponTile) { try { src = root.SSDNSIronArt.weaponTile(w || { id: g.weapon, name: name }) || ""; } catch (e) { src = ""; } }
+        if (!src && root.SSDNSWeaponArt && root.SSDNSWeaponArt.srcFor) src = root.SSDNSWeaponArt.srcFor(w || { id: g.weapon, name: name }) || "";
         if (!src && item) src = realArt(item);
         var facts = weaponFacts(w, g).map(function (f) { return '<span class="item-tag">' + esc(f) + "</span>"; }).join(" ");
         var desc = (w && w.properties) || (item && item.description) || "";

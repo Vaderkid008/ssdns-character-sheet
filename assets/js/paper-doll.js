@@ -522,8 +522,9 @@
       var cg = casterInHand(c);
       if (cg) {
         var A = root.SSDNSWeaponArt, art = "";
-        /* 0.3.96: the square Caster Gun tile (the 3:1 engraving cropped to its middle in the square slot) */
-        try { art = (root.SSDNSIronArt && root.SSDNSIronArt.weaponTile(cg.id)) || (A && A.srcFor ? (A.srcFor({ id: cg.id, name: cg.name }) || "") : ""); } catch (e) { art = ""; }
+        /* 0.3.102 (Jessey 7:47 PM: engravings on the doll): the Caster Gun's engraving, contained in the Focus slot; its
+           square tile only if there's no engraving */
+        try { art = (A && A.srcFor ? (A.srcFor({ id: cg.id, name: cg.name }) || "") : "") || (root.SSDNSIronArt && root.SSDNSIronArt.weaponTile(cg.id)) || ""; } catch (e) { art = ""; }
         if (cg.wrecked) return { kind: "caster", name: cg.name, art: art, side: cg.side, gunIndex: cg.i, readOnly: true, mirror: true, wrecked: true, note: "Wrecked · repair: traveling merchant only", canCast: false };
         return { kind: "caster", name: cg.name, art: art, side: cg.side, gunIndex: cg.i, readOnly: true, mirror: true, note: "Mirrors " + cg.side + " · read-only", canCast: true };
       }
@@ -562,13 +563,16 @@
       if (c && c.instrument && IA && IA.srcFor) { try { return IA.srcFor({ id: c.instrument, quality: c.instrumentQuality, name: weaponName(c, key) }) || ""; } catch (e) { return ""; } }
       return "";
     }
-    if (ironSlot(c) === key) return borrowedIronArt(c);
+    /* 0.3.102 (Jessey 2026-10-21 7:47 PM CT: colour tiles in the inventory, b/w engravings on the weapons cards and the
+       paper doll): every doll weapon slot draws the 1200x400 engraving (contained in the square Pistol slots, upright in
+       Long gun / Melee). The colour 256 tile is only the fallback for a gun with no engraving. */
+    if (ironSlot(c) === key) { var IAe = root.SSDNSIronArt, ie = IAe && IAe.engravingSrc ? IAe.engravingSrc(c) : ""; return ie || borrowedIronArt(c); }
     var row = weaponRow(c, key);
     if (!row || !A || !A.srcFor) return "";
-    /* 0.3.96: paper-doll slots are item slots: a gun's colour 256 tile wins when it has one (Caster Guns) */
-    var tile = root.SSDNSIronArt && root.SSDNSIronArt.weaponTile ? root.SSDNSIronArt.weaponTile(row.id) : "";
-    if (tile) return tile;
-    try { return A.srcFor({ id: row.id, name: row.name }) || ""; } catch (e) { return ""; }
+    var eng = "";
+    try { eng = A.srcFor({ id: row.id, name: row.name }) || ""; } catch (e) { eng = ""; }
+    if (eng) return eng;
+    return root.SSDNSIronArt && root.SSDNSIronArt.weaponTile ? root.SSDNSIronArt.weaponTile(row.id) || "" : "";
   }
 
   /* 0.3.102 (Jessey 2026-10-21 4:07 PM: the long gun "doesn't fit in the paper doll correctly"): the tall weapon slots
@@ -670,7 +674,7 @@
             cls += " doll-iron" + (irs.away ? " doll-away" : "");
             src = "soul-bound Borrowed Iron";
             /* a missing engraving falls back to the square tile (still contained, see doll-longart) */
-            if (TALL_WEAPON[key] && art && art !== irs.art) fallback = irs.art;
+            if (art && art !== irs.art) fallback = irs.art;
           } else if (filled) {
             /* a weapon that is also the focus shows here and in the Focus slot */
             var fsw = focusState(c);

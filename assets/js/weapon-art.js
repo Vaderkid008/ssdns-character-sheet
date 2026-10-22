@@ -210,8 +210,9 @@
   }
 
   /* 0.3.102 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT, Art Bot): a 256x256 colour square tile for every player
-     weapon, at assets/img/items/weapons/<slug>.webp. Item slots only: paper-doll weapon slots, item rows, list squares.
-     The Weapons tab, gun cards and the Equipment list's Weapons rows keep the 1200x400 b/w engraving (srcFor).
+     weapon, at assets/img/items/weapons/<slug>.webp. Jessey 2026-10-21 7:47 PM CT: colour tiles everywhere in the
+     inventory (every Equipment row, Weapons rows included; item rows; list squares); the weapons cards and the paper doll
+     keep the 1200x400 b/w engraving (srcFor).
      Blacksnake / Hognose keep their own tiles (items/caster/, iron-art.js WEAPON_TILE). The test gun has none.
      The Peace Maker's tile is DM-only (assets/img/dm-only/items/the-peace-maker.webp) and is never returned on a player
      page, the same as its engraving. */

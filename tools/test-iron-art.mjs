@@ -87,8 +87,9 @@ check("patron.slugs", ["the-crossroads-note", "the-sealed-orders", "lass-o-lakes
   "crossroads-note,sealed-orders,lass-o-lakes,last-round,sand-oath,pine-box-contract,drowned-breath");
 const hx = K.apply(K.blankCharacter(), "hexslinger", {}); hx.calling = "hexslinger";
 f = D.focusState(hx);
-check("focus.hexSquareTile", f && f.kind === "caster" && /items\/caster\/blacksnake\.webp$/.test(f.art), J(f));
-check("hex.bothSlots", D.weaponName(hx, "revolver_1") === "Blacksnake" && /items\/caster\/blacksnake\.webp$/.test(D.weaponArt(hx, "revolver_1")) && /doll-focus-weapon-src/.test(D.html(hx, {})));
+/* 0.3.102 (Jessey 2026-10-21 7:47 PM CT): engravings on the doll and cards, colour tiles in the Equipment list */
+check("focus.hexEngraving", f && f.kind === "caster" && /assets\/img\/weapons\/blacksnake\.webp$/.test(f.art), J(f));
+check("hex.bothSlots", D.weaponName(hx, "revolver_1") === "Blacksnake" && /assets\/img\/weapons\/blacksnake\.webp$/.test(D.weaponArt(hx, "revolver_1")) && /doll-focus-weapon-src/.test(D.html(hx, {})));
 /* the general rule: any weapon flagged weaponFocus fills its slot and the Focus slot (no instrument Calling) */
 const gs = K.apply(K.blankCharacter(), "gunslinger", {}); gs.calling = "gunslinger";
 const g0 = (gs.guns || []).findIndex((g) => g && g.weapon);
@@ -196,9 +197,9 @@ try {
     await waitImgs(pg); await sleep(300);
     let v = await pg.evaluate(info, "revolver_2");
     check("ui.hidden.focusPatron", /doll-focus-patron/.test(v.focusCls) && /items\/patron\/crossroads-note\.webp/.test(v.focusArt) && v.focusOk && /Crossroads Note/.test(v.focusName), J(v));
-    check("ui.hidden.ironInWeaponSlot", /doll-iron/.test(v.ironCls) && /items\/borrowed-iron\/hell-maker\.webp/.test(v.ironArt) && v.ironOk && /Hell Maker/.test(v.ironNote), J(v));
+    check("ui.hidden.ironInWeaponSlot", /doll-iron/.test(v.ironCls) && /dm-only\/hell-maker\.webp/.test(v.ironArt) && v.ironOk && /Hell Maker/.test(v.ironNote), J(v));
     const r0 = ironRow(v.weaponRows);
-    check("ui.noReveal.rowEngraving", v.focusRows.length === 0 && !!r0 && /dm-only\/hell-maker\.webp/.test(r0.src), J(v.weaponRows));
+    check("ui.noReveal.rowTile", v.focusRows.length === 0 && !!r0 && /items\/borrowed-iron\/hell-maker\.webp/.test(r0.src) && !r0.wide, J(v.weaponRows));
     /* 0.3.100: before the reveal the Weapons card shows the plain Borrowed Iron tile and the type label, no engraving */
     check("ui.noReveal.engraving", !!v.eng && /dm-only\/hell-maker\.webp$/.test(v.eng.src) && v.ironName === "· Borrowed Iron" && v.cardHead === "Hell Maker — Pact revolver", J(v));
     await shot(pg, "#dollHost .doll", "iron-art-v2-pact-doll-hidden.png");
@@ -207,9 +208,9 @@ try {
     await sleep(700); await waitImgs(pg);
     v = await pg.evaluate(info, "revolver_2");
     check("ui.reveal.focusStillPatron", /doll-focus-patron/.test(v.focusCls) && /Crossroads Note/.test(v.focusName), J(v));
-    check("ui.reveal.ironHellMaker", /items\/borrowed-iron\/hell-maker\.webp/.test(v.ironArt) && v.ironOk && /Hell Maker/.test(v.ironNote), J(v));
+    check("ui.reveal.ironHellMaker", /dm-only\/hell-maker\.webp/.test(v.ironArt) && v.ironOk && /Hell Maker/.test(v.ironNote), J(v));
     const r1 = ironRow(v.weaponRows);
-    check("ui.reveal.weaponsRowEngraving", !!r1 && /dm-only\/hell-maker\.webp/.test(r1.src) && r1.ok && r1.nw === 1200 && r1.wide && r1.fit === "contain", J(v.weaponRows));
+    check("ui.reveal.weaponsRowTile", !!r1 && /items\/borrowed-iron\/hell-maker\.webp/.test(r1.src) && r1.ok && r1.nw === 256 && !r1.wide, J(v.weaponRows));
     check("ui.reveal.engraving", !!v.eng && /dm-only\/hell-maker\.webp/.test(v.eng.src) && v.eng.ok && /Hell Maker/.test(v.cardHead), J(v.eng));
     await shot(pg, "#dollHost .doll", "iron-art-v2-pact-doll-crossroads.png");
     await shot(pg, ".gear-col.gear-weapons", "iron-art-v2-weapons-pact-crossroads.png");
@@ -230,9 +231,9 @@ try {
     await waitImgs(pg); await sleep(300);
     const v = await pg.evaluate(info, key);
     check("ui." + slug + ".focusPatron", /doll-focus-patron/.test(v.focusCls) && v.focusOk, J(v));
-    check("ui." + slug + ".ironSlot", new RegExp((key === "long_gun" ? "weapons" : "items") + "/borrowed-iron/" + slug + "\\.webp").test(v.ironArt) && v.ironOk && /doll-iron/.test(v.ironCls), J(v));
+    check("ui." + slug + ".ironSlot", new RegExp("weapons/borrowed-iron/" + slug + "\\.webp").test(v.ironArt) && v.ironOk && /doll-iron/.test(v.ironCls), J(v));
     const r = ironRow(v.weaponRows);
-    check("ui." + slug + ".weaponsRowEngraving", !!r && new RegExp("weapons/borrowed-iron/" + slug + "\\.webp").test(r.src) && r.wide, J(v.weaponRows));
+    check("ui." + slug + ".weaponsRowTile", !!r && new RegExp("items/borrowed-iron/" + slug + "\\.webp").test(r.src) && !r.wide, J(v.weaponRows));
     check("ui." + slug + ".engraving", !!v.eng && new RegExp("weapons/borrowed-iron/" + slug + "\\.webp").test(v.eng.src) && v.eng.ok && v.cardHead.indexOf(nm) === 0, J(v.eng));
     if (slug !== "virgil") {
       await shot(pg, "#dollHost .doll", "iron-art-v2-pact-doll-" + slug + ".png");
@@ -275,10 +276,10 @@ try {
     }));
     await waitImgs(pg); await sleep(300);
     const v = await pg.evaluate(info, "revolver_1");
-    check("ui.hex.focusTile", /items\/caster\/blacksnake\.webp/.test(v.focusArt) && v.focusOk, J(v));
-    check("ui.hex.weaponSlotTile", /items\/caster\/blacksnake\.webp/.test(v.ironArt) && v.ironOk && /doll-focus-weapon-src/.test(v.ironCls), J(v));
+    check("ui.hex.focusEngraving", /assets\/img\/weapons\/blacksnake\.webp/.test(v.focusArt) && v.focusOk, J(v));
+    check("ui.hex.weaponSlotEngraving", /assets\/img\/weapons\/blacksnake\.webp/.test(v.ironArt) && v.ironOk && /doll-focus-weapon-src/.test(v.ironCls), J(v));
     const bs = v.weaponRows.find((r) => /blacksnake/.test(r.src)), hn = v.weaponRows.find((r) => /hognose/.test(r.src));
-    check("ui.hex.weaponsRowsEngraving", !!bs && !!hn && /assets\/img\/weapons\/blacksnake\.webp/.test(bs.src) && /assets\/img\/weapons\/hognose\.webp/.test(hn.src) && bs.ok && bs.nw === 1200 && bs.wide && bs.fit === "contain" && hn.wide, J(v.weaponRows));
+    check("ui.hex.weaponsRowsTile", !!bs && !!hn && /items\/caster\/blacksnake\.webp/.test(bs.src) && /items\/caster\/hognose\.webp/.test(hn.src) && bs.ok && bs.nw === 256 && !bs.wide && !hn.wide, J(v.weaponRows));
     check("ui.hex.gunCardStill3x1", await pg.evaluate(() => { const i = document.querySelector('.gun[data-row="0"] .g-photo img'); return !!i && /assets\/img\/weapons\/blacksnake\.webp/.test(i.getAttribute("src")); }));
     await shot(pg, "#dollHost .doll", "iron-art-v2-hexslinger-doll.png");
     await shot(pg, ".gear-col.gear-weapons", "iron-art-v2-weapons-hexslinger.png");

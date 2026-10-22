@@ -251,9 +251,10 @@ try {
       const { pg, errs, ctx } = await sheet({ name: "Pact " + nm, sub, rev });
       const v = await pg.evaluate(view, slot);
       const tag = "ui." + slug + (rev ? ".revealed" : ".hidden");
-      check(tag + ".slot", /doll-iron/.test(v.slotCls) && v.slotOk && v.slotArt === (slot === "long_gun" ? "assets/img/weapons/borrowed-iron/" + slug + ".webp" : "assets/img/items/borrowed-iron/" + slug + ".webp") && v.slotNote.indexOf(nm) >= 0 && v.slotName === nm, J(v));
+      check(tag + ".slot", /doll-iron/.test(v.slotCls) && v.slotOk && v.slotArt === (slug === "hell-maker" ? "assets/img/dm-only/hell-maker.webp" : "assets/img/weapons/borrowed-iron/" + slug + ".webp") && v.slotNote.indexOf(nm) >= 0 && v.slotName === nm, J(v));
       check(tag + ".row", v.rowName === L(slug) && v.rowSub.indexOf("Borrowed Iron · soul-bound") === 0 && !/Tool/.test(v.rowSub) && v.rowOk && v.ironRows === 1 &&
-        new RegExp(slug === "hell-maker" ? "dm-only/hell-maker\\.webp" : "weapons/borrowed-iron/" + slug + "\\.webp").test(v.rowArt), J(v));
+        /* 0.3.102 (Jessey 7:47 PM): the Equipment row shows the iron's colour tile */
+        new RegExp("items/borrowed-iron/" + slug + "\\.webp").test(v.rowArt), J(v));
       check(tag + ".card", v.cardShown && v.cardHead === L(slug) && v.cardOk &&
         new RegExp(slug === "hell-maker" ? "dm-only/hell-maker\\.webp" : "weapons/borrowed-iron/" + slug + "\\.webp").test(v.cardArt) && v.cardName === "· Borrowed Iron", J(v));
       check(tag + ".focusPatron", /doll-focus-patron/.test(v.focusCls) && v.focusName === IA.pactName({ calling: "pact-seeker", subclass: sub }), J({ c: v.focusCls, n: v.focusName }));
@@ -571,7 +572,7 @@ try {
             text: document.body.innerText };
         });
         check(tag + ".cardEngraving", w.card === "assets/img/weapons/borrowed-iron/" + slug + ".webp" && w.cardOk && !/pact-iron-outline|pact-iron-generic/.test(w.cardCls), J({ card: w.card, cls: w.cardCls }));
-        check(tag + ".rowEngraving", w.row === "assets/img/weapons/borrowed-iron/" + slug + ".webp" && w.rowOk && w.rowWide, J({ row: w.row }));
+        check(tag + ".rowTile", w.row === "assets/img/items/borrowed-iron/" + slug + ".webp" && w.rowOk && !w.rowWide, J({ row: w.row }));
         check(tag + ".nameShown", w.text.indexOf(nm) >= 0, nm);
         await shot(pg, ".gear-col.gear-weapons", "iron-patron-v3-weapons-" + label + "-hidden.png");
       }
@@ -587,8 +588,8 @@ try {
       return { cls: s ? s.className : "", src: im ? im.getAttribute("src") : "", ok: !!(im && im.naturalWidth > 0), tf: im ? getComputedStyle(im).transform : "" };
     });
     const tag = "tall.lightslinger" + (rev ? ".revealed" : ".hidden");
-    check(tag + ".pistolUnchanged", /doll-iron/.test(p.cls) && !/doll-longart|doll-squareart/.test(p.cls) && p.ok && p.tf === "none" &&
-      /items\/borrowed-iron\/lightslinger\.webp$/.test(p.src), J(p));
+    check(tag + ".pistolEngraving", /doll-iron/.test(p.cls) && !/doll-longart|doll-squareart/.test(p.cls) && p.ok && p.tf === "none" &&
+      /weapons\/borrowed-iron\/lightslinger\.webp$/.test(p.src), J(p));
     await shot(pg, "#dollHost .doll", "iron-patron-v2-doll-lightslinger-" + (rev ? "revealed" : "hidden") + ".png");
     if (!rev) {
       await shot(pg, "#dollHost .doll", "iron-patron-v3-doll-lightslinger-hidden.png");
@@ -598,7 +599,7 @@ try {
         const ri = row && row.querySelector(".eq-thumb img");
         return { card: ci ? ci.getAttribute("src") : "", cardCls: box ? box.className : "", row: ri ? ri.getAttribute("src") : "" };
       });
-      check("tall.lightslinger.noReveal.realIron", w.card === "assets/img/weapons/borrowed-iron/lightslinger.webp" && !/pact-iron-generic|pact-iron-outline/.test(w.cardCls) && w.row === "assets/img/weapons/borrowed-iron/lightslinger.webp" && !OUTLINE.test(p.src), J(w));
+      check("tall.lightslinger.noReveal.realIron", w.card === "assets/img/weapons/borrowed-iron/lightslinger.webp" && !/pact-iron-generic|pact-iron-outline/.test(w.cardCls) && w.row === "assets/img/items/borrowed-iron/lightslinger.webp" && !OUTLINE.test(p.src), J(w));
     }
     if (rev) {
       const added = await pg.evaluate(() => {

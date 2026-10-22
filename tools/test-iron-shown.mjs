@@ -50,7 +50,7 @@ for (const [sub, slug, nm, slot, cls] of PACTS) {
     const st = D.ironState(c);
     check(tag + ".realIron", IA.nameFor(c) === nm && IA.tileSrc(c) === tile(slug) && IA.engravingSrc(c) === eng(slug) && IA.labelFor(c) === nm + " — " + cls, J([IA.nameFor(c), IA.labelFor(c)]));
     check(tag + ".doll", st.key === slot && st.art === tile(slug) && st.note === "In hand · " + nm && D.weaponName(c, slot) === nm, J(st));
-    check(tag + ".slotArt", D.slotArt(c, slot) === (slot === "long_gun" ? eng(slug) : tile(slug)) && IA.hiddenArt(c) === "", D.slotArt(c, slot));
+    check(tag + ".slotArt", D.slotArt(c, slot) === eng(slug) /* 0.3.102 (Jessey 7:47 PM): engraving in every doll slot */ && IA.hiddenArt(c) === "", D.slotArt(c, slot));
   }
 }
 const none = pact("");
@@ -130,8 +130,8 @@ try {
     const { pg, errs, ctx } = await sheet(sub);
     const v = await pg.evaluate(view, slot);
     const tag = "ui." + slug;
-    check(tag + ".slot", v.slot === slot && v.slotOk && v.slotArt === (slot === "long_gun" ? eng(slug) : tile(slug)) && v.slotName === nm, J(v.slotArt + " " + v.slotName));
-    check(tag + ".row", v.rowName === nm + " — " + cls && /^Borrowed Iron · soul-bound/.test(v.rowSub) && v.rowArt === eng(slug) && v.rowOk, J([v.rowName, v.rowSub, v.rowArt]));
+    check(tag + ".slot", v.slot === slot && v.slotOk && v.slotArt === eng(slug) && v.slotName === nm, J(v.slotArt + " " + v.slotName));
+    check(tag + ".row", v.rowName === nm + " — " + cls && /^Borrowed Iron · soul-bound/.test(v.rowSub) && v.rowArt === tile(slug) && v.rowOk, J([v.rowName, v.rowSub, v.rowArt]));
     check(tag + ".card", v.cardHead === nm + " — " + cls && v.cardArt === eng(slug) && v.cardOk && v.cardTag === "· Borrowed Iron", J([v.cardHead, v.cardArt, v.cardTag]));
     check(tag + ".pactShotButton", !!v.pactShot && v.pactShot.shown && !v.pactShot.disabled, J([v.pactShot, v.spells]));
     check(tag + ".focusPatron", v.focusPatron);
