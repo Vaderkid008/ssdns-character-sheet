@@ -1,7 +1,8 @@
 /**
  * Starting kits. L0156 (2026-10-17): one weapon per kit, 20 rounds or 10 shells,
  * no fancy guns. A gun Calling may swap that weapon for one Plinker
- * (Revolver or Repeater). The Dullards Light Carbine stays Scout-only.
+ * (Revolver or Repeater). At 1st level only the Frontier Scout and the Lawman can start
+ * with the Dullards Light Carbine (PHB; Mech PR A M6).
  * Or-lines are player choices. Loaded before sheet-playtest.js.
  */
 (function (root) {
