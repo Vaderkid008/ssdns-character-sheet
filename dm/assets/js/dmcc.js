@@ -2086,17 +2086,7 @@ function openDetail(pid) {
     <div class="detail-section"><h3>Abilities</h3><div class="abil-grid">${abilHtml}</div></div>
     <div class="detail-section"><h3>Saves</h3><p>${saves}</p></div>
     <div class="detail-section"><h3>Skills</h3><p>${skills}</p></div>
-    <div class="detail-section"><h3>Badge</h3>
-      <label>Lawman badge
-        <select id="dmBadge" aria-label="Lawman badge">
-          <option value="bright">Bright (sworn in)</option>
-          <option value="dull">Dull</option>
-          <option value="tarnished">Tarnished</option>
-        </select>
-      </label>
-      <button type="button" class="btn sm" id="btnDmBadge">Set badge</button>
-      <p class="fine">Mercy Hands stays off while the badge is Dull. Swearing in sets it Bright.</p>
-    </div>
+    ${badgeSectionHtml(s)}
     ${ironSectionHtml(s)}
     <div class="detail-section"><h3>HP and guns</h3>
       <label>Set HP <input type="number" id="dmSetHp" value="${esc(s.hpCurrent)}" aria-label="Set player hit points"></label>
@@ -2220,17 +2210,16 @@ function openDetail(pid) {
   const kitBtn = $("#btnGrantFullKit");
   if (kitBtn) kitBtn.addEventListener("click", () => grantFullKit(pid));
   /* 0.3.108 (Jessey 2026-10-21 5:47 PM): the Reveal toggle is gone; the player sees the real iron from the Pact pick */
-  const badgeSel = $("#dmBadge");
-  if (badgeSel) badgeSel.value = s.badgeState || "dull";
-  const badgeBtn = $("#btnDmBadge");
-  if (badgeBtn) badgeBtn.addEventListener("click", () => {
-    const stateName = (badgeSel && badgeSel.value) || "bright";
+  /* 0.2.121 Badge Bound (Jessey 2026-10-22 2:48 PM CT): one tap sets the Lawman's badge; the sheet updates live */
+  document.querySelectorAll("#dmBadge [data-dm-badge]").forEach((b) => b.addEventListener("click", () => {
+    const stateName = b.getAttribute("data-dm-badge") || "bright";
     pushCommand({ type: "badge", to: pid, payload: { state: stateName } });
-    if (state.demo && state.players[pid] && state.players[pid].snapshot) {
-      state.players[pid].snapshot.badgeState = stateName;
-      renderPlayers();
-    }
-  });
+    document.querySelectorAll("#dmBadge [data-dm-badge]").forEach((x) => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on ? "true" : "false"); });
+    const now = $("#dmBadgeNow");
+    if (now) now.textContent = BADGE_NOW[stateName] || "";
+    if (state.players[pid] && state.players[pid].snapshot) state.players[pid].snapshot.badgeState = stateName;
+    if (state.demo) renderPlayers();
+  }));
   $("#detailOverlay").hidden = false;
 }
 
@@ -2265,6 +2254,24 @@ async function grantFullKit(pid, opts) {
   toast("Full kit sent to " + who + ".");
   return grantId;
 }
+/* 0.2.121 Badge Bound (BOOK1 L1561-1567): the Lawman's badge toggle on the player card. Lawmen only. The state lives on
+   the sheet (character.badgeState, the "badge" inbox command). Missing reads Bright, as the sheet does. */
+const BADGE_NOW = {
+  bright: "Bright: full power.",
+  dull: "Dull: no spells, Smite Lead, Mercy Hands or Channel Creed.",
+  tarnished: "Tarnished (Lawless): spells swap to the Lawless list; Smite Lead, Mercy Hands and Channel Creed stay off."
+};
+function badgeSectionHtml(s) {
+  if (!s || (s.callingId || s.calling) !== "lawman") return "";
+  const cur = ({ bright: 1, dull: 1, tarnished: 1 })[s.badgeState] ? s.badgeState : "bright";
+  const btn = (id, label) => `<button type="button" class="btn sm dm-badge-btn dm-badge-${id}${cur === id ? " on" : ""}" data-dm-badge="${id}" aria-pressed="${cur === id}">${label}</button>`;
+  return `<div class="detail-section dm-badge-sec"><h3>Badge</h3>
+      <div class="dm-badge-toggle" id="dmBadge" role="group" aria-label="Lawman badge">${btn("bright", "Bright")}${btn("dull", "Dull")}${btn("tarnished", "Tarnished")}</div>
+      <p class="fine" id="dmBadgeNow">${esc(BADGE_NOW[cur])}</p>
+      <p class="fine">Swearing in sets it Bright. The Lawless list is yours: the player sees it only once the badge is Tarnished.</p>
+    </div>`;
+}
+
 /* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.108: no Reveal toggle (the player sees it too). */
 function ironSectionHtml(s) {
   const IA = window.SSDNSIronArt;

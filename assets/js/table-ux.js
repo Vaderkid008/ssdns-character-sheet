@@ -141,7 +141,13 @@
     else if (c.cover === "full") bits.push("<span class='chip cover' title=\"Total cover: can't be targeted.\">Total cover</span>");
     if (c.takingCover) bits.push("<span class='chip cover'>Cover</span>");
     if (c.raging) bits.push("<span class='chip rage'>Dust Fury</span>");
-    if (c.calling === "lawman") bits.push("<label class='chip badge'>Badge <select id='badgeState' aria-label='Lawman badge'></select></label>");
+    /* 0.3.108 Badge Bound (Jessey 2026-10-22 2:48 PM CT): at the table the DM sets the badge (DMCC Badge toggle), so a
+       joined sheet shows it read-only; a solo sheet keeps the picker. Tarnished adds the "Lawless" label. */
+    var Fb = root.SSDNSFocus, bst = Fb && Fb.badge ? Fb.badge(c) : (c.badgeState || "bright");
+    var dmRoom = !!(root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined());
+    var lawlessTag = c.calling === "lawman" && bst === "tarnished" ? " <b class='chip-lawless'>Lawless</b>" : "";
+    if (c.calling === "lawman" && dmRoom) bits.push("<span class='chip badge badge-" + bst + "' id='badgeChip' title='Your DM sets your badge (Bright, Dull or Tarnished).'>Badge: " + ({ bright: "Bright", dull: "Dull", tarnished: "Tarnished" }[bst] || bst) + lawlessTag + "</span>");
+    else if (c.calling === "lawman") bits.push("<label class='chip badge badge-" + bst + "'>Badge <select id='badgeState' aria-label='Lawman badge'></select>" + lawlessTag + "</label>");
     else if (c.badgeState) bits.push("<span class='chip badge'>" + c.badgeState + " badge</span>");
     var Cond = root.SSDNSConditions;
     var sym = function (row) { return Cond && Cond.icon ? Cond.icon(row) : ""; };
@@ -161,6 +167,7 @@
       });
       badgeSel.addEventListener("change", function () {
         c.badgeState = badgeSel.value;
+        if (c.badgeState === "tarnished" && root.SSDNSApp && root.SSDNSApp.ensureLawlessBook) root.SSDNSApp.ensureLawlessBook(c);
         if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
         paintCallingChips();
       });
@@ -168,7 +175,9 @@
     var mercy = $("btnMercy");
     if (mercy) {
       mercy.hidden = c.calling !== "lawman";
-      mercy.disabled = c.badgeState === "dull";
+      var mercyWhy = root.SSDNSFocus && root.SSDNSFocus.badgeBlock ? root.SSDNSFocus.badgeBlock(c, "mercy") : (c.badgeState === "dull" ? "Your badge is Dull: no Mercy Hands." : "");
+      mercy.disabled = !!mercyWhy;
+      if (mercyWhy) mercy.title = mercyWhy; else if (mercy.title && /badge is/.test(mercy.title)) mercy.removeAttribute("title");
     }
     var rage = $("btnRage");
     if (rage) rage.hidden = c.calling !== "tribal-warrior";
@@ -201,7 +210,7 @@
   function castMercy() {
     var c = ch();
     if (!c || c.calling !== "lawman") return;
-    if (c.badgeState === "dull") return;
+    if (root.SSDNSFocus && root.SSDNSFocus.badgeBlock ? root.SSDNSFocus.badgeBlock(c, "mercy") : c.badgeState === "dull") return;
     var pool = mercyPool(c);
     if (pool <= 0) return;
     var amount = Math.min(pool, Math.max(1, Number(window.prompt("Mercy Hands. Pool " + pool + ". How many?", "1")) || 0));
@@ -236,6 +245,7 @@
     paintCallingChips();
     if (root.SSDNSPlaytest && root.SSDNSPlaytest.syncSheet) root.SSDNSPlaytest.syncSheet();
   }
+  root.SSDNSTableUx = { paintCallingChips: function () { try { paintCallingChips(); } catch (e) {} } };
   if (root.document && root.document.readyState === "loading") root.document.addEventListener("DOMContentLoaded", boot);
   else boot();
 })(window);

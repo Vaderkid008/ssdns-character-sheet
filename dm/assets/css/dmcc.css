@@ -1154,3 +1154,10 @@ select:-webkit-autofill {
 }
 #panel-rewards label.chk input[type=checkbox] { width: 20px; height: 20px; min-height: 0; flex: 0 0 auto; margin: 0; padding: 0; }
 #panel-rewards label.chk, #panel-rewards .form-grid label.chk { display: inline-flex; gap: 6px; align-items: center; text-transform: none; letter-spacing: 0; font-family: var(--body); font-size: 14px; color: var(--ink); margin: 6px 12px 0 0; }
+/* 0.2.121 Badge Bound: the Lawman badge toggle on the player card (one tap sets it; the sheet updates live) */
+.dm-badge-toggle { display: inline-flex; gap: 0; border: 1px solid #b08a4a; border-radius: 6px; overflow: hidden; }
+.dm-badge-toggle .dm-badge-btn { border: 0; border-radius: 0; margin: 0; min-width: 84px; }
+.dm-badge-toggle .dm-badge-btn + .dm-badge-btn { border-left: 1px solid #b08a4a; }
+.dm-badge-toggle .dm-badge-bright.on { background: linear-gradient(#f3d98b, #d7ad4c); color: #2e1b0d; }
+.dm-badge-toggle .dm-badge-dull.on { background: #5c5852; color: #f1ece2; }
+.dm-badge-toggle .dm-badge-tarnished.on { background: #4e160e; color: #f4e6c4; }

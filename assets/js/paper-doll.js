@@ -553,6 +553,99 @@
     }
     return changedAny;
   }
+  /* Focus fix (sheet 0.3.108, Jessey 2026-10-22 2:41 PM CT; DND Bot rules check): the Callings whose focus is a real
+     carried item. The Focus slot shows the first one owned (character.focusItemUid picks another), read-only, no second
+     copy. Order = priority. Storyteller (instrument), Hexslinger (Caster Gun) and Pact Seeker (patron) are unchanged above.
+       Scholar        -> Chemical Field Ledger (focus and spellbook, BOOK1 L2100); the Full kit's arcane focus is an extra
+       Frontier Scout -> Keepsake of home (BOOK1 L1697); lost -> character.focusLost, remade at a long rest (focus-slot.js)
+       Nature Guide   -> the kit pick: carved walking stick, medicine pouch or home-spring soil (BOOK1 L1244 / L1252)
+       Lawman         -> Tin star badge, labelled by character.badgeState (Badge Bound, BOOK1 L1561-1567)
+       Preacher       -> the holy symbol (BOOK1 L1145) */
+  var HOLY_ID = "badge-saint-medal-carved-eldorite-hymn-book-holy-symbol";
+  var DRUID_ID = "antler-eldorite-nodule-beast-charm-druidic-focus";
+  var ARCANE_ID = "eldorite-charm-bone-fetish-quill-case-lens-arcane-focus";
+  var CALLING_FOCUS = {
+    scholar: ["chemical-field-ledger", ARCANE_ID],
+    "frontier-scout": ["frontier-keepsake"],
+    "nature-guide": ["carved-walking-stick", "medicine-pouch", "home-spring-soil-pouch", DRUID_ID],
+    lawman: ["tin-star-badge", HOLY_ID],
+    "frontier-preacher": [HOLY_ID]
+  };
+  /* b/w engravings for the doll (colour tiles stay in the inventory). Reused art until Art Bot draws their own. */
+  var FOCUS_DOLL_ART = {
+    "chemical-field-ledger": "assets/img/items/gear/brass-bound-hymn-book.webp",
+    "frontier-keepsake": "assets/img/items/gear/trinket-eldorite-locket.webp",
+    "carved-walking-stick": "assets/img/weapons/cottonwood-walking-stick.webp",
+    "medicine-pouch": "assets/img/items/gear/trinket-generic.webp",
+    "home-spring-soil-pouch": "assets/img/items/gear/trinket-generic.webp",
+    "tin-star-badge": "assets/img/items/gear/tin-star-board.webp"
+  };
+  FOCUS_DOLL_ART[HOLY_ID] = "assets/img/items/gear/neck-amulet.webp";
+  FOCUS_DOLL_ART[DRUID_ID] = "assets/img/items/gear/trinket-generic.webp";
+  FOCUS_DOLL_ART[ARCANE_ID] = "assets/img/items/gear/trinket-eldorite-locket.webp";
+  /* Lawman badge art per state: placeholder slugs Art Bot fills later (assets/img/items/gear/lawman-badge-<state>.webp).
+     A file that isn't in the repo yet falls back to the tin star art (data-fallback; remembered for the session). */
+  var BADGE_LABEL = { bright: "Bright", dull: "Dull", tarnished: "Tarnished" };
+  var artMissing = {};
+  function badgeArt(state) {
+    var b = gearArtBase(), want = b + "assets/img/items/gear/lawman-badge-" + (BADGE_LABEL[state] ? state : "bright") + ".webp";
+    var fb = b + FOCUS_DOLL_ART["tin-star-badge"];
+    return { art: artMissing[want] ? fb : want, fallback: fb };
+  }
+  function badgeOf(c) {
+    var F = root.SSDNSFocus;
+    if (F && F.badge) return F.badge(c);
+    var st = String((c && c.badgeState) || "bright").toLowerCase();
+    return BADGE_LABEL[st] ? st : "bright";
+  }
+  function focusIds(calling) { return CALLING_FOCUS[calling] || null; }
+  function isFocusItemFor(calling, it) {
+    var ids = focusIds(calling);
+    return !!(ids && it && ids.indexOf(it.catalogId) >= 0 && Number(it.count == null ? 1 : it.count) > 0);
+  }
+  /* The focus items this character owns, in priority order (the picked one first). */
+  function focusItems(c) {
+    var ids = focusIds(c && c.calling);
+    if (!ids) return [];
+    var own = items(c).filter(function (it) { return isFocusItemFor(c.calling, it); });
+    own.sort(function (a, b) { return ids.indexOf(a.catalogId) - ids.indexOf(b.catalogId); });
+    var pick = c.focusItemUid ? own.filter(function (it) { return it.uid === c.focusItemUid; })[0] : null;
+    if (pick) own = [pick].concat(own.filter(function (it) { return it !== pick; }));
+    return own;
+  }
+  function focusItemArt(it) {
+    var b = gearArtBase();
+    if (FOCUS_DOLL_ART[it.catalogId]) return b + FOCUS_DOLL_ART[it.catalogId];
+    var a = artFor(it);
+    return a && !isDefaultArt(a) ? a : b + "assets/img/items/default/focus.webp";
+  }
+  function setFocusItem(c, uid) {
+    if (!c) return { ok: false, reason: "No character." };
+    var it = items(c).filter(function (x) { return x && x.uid === uid; })[0];
+    if (!it || !isFocusItemFor(c.calling, it)) return { ok: false, reason: "That isn't a focus for your Calling." };
+    c.focusItemUid = uid;
+    return { ok: true };
+  }
+  function itemFocusState(c) {
+    var calling = c && c.calling;
+    if (!focusIds(calling)) return null;
+    var lost = c.focusLost && calling === "frontier-scout" ? c.focusLost : null;
+    if (lost) {
+      return { kind: "item", lost: true, name: "", art: "", readOnly: true, canCast: false,
+        note: "Lost · make a new one at a long rest", itemId: lost.catalogId || "frontier-keepsake" };
+    }
+    var it = focusItems(c)[0];
+    if (!it) return null;
+    var st = { kind: "item", name: it.name, art: focusItemArt(it), uid: it.uid, itemId: it.catalogId, readOnly: true, canCast: true,
+      note: it.catalogId === "chemical-field-ledger" ? "Your focus · your spellbook" : "Your focus" };
+    if (it.catalogId === "tin-star-badge") {
+      var b = badgeOf(c), ba = badgeArt(b);
+      st.badge = b; st.badgeLabel = BADGE_LABEL[b]; st.art = ba.art; st.fallback = ba.fallback;
+      st.note = "Badge: " + BADGE_LABEL[b] + (b === "tarnished" ? " · Lawless" : "");
+      st.lawless = b === "tarnished";
+    }
+    return st;
+  }
   function focusState(c) {
     var calling = c && c.calling;
     if (calling === "pact-seeker") {
@@ -581,7 +674,8 @@
       var fw = focusWeaponInHand(c, function (row) { return isFocusWeapon(row.w, row.g); });
       if (fw) return { kind: "weapon", name: fw.name, art: weaponArt(c, fw.key), side: fw.side, gunIndex: fw.i, readOnly: true, mirror: true, note: "Mirrors " + fw.side + " · read-only", canCast: true };
     }
-    return null;
+    /* 0.3.108: a real focus item (holy symbol, Ledger, keepsake, badge, land focus) */
+    return itemFocusState(c);
   }
   function weaponName(c, key) {
     var guns = (c && c.guns) || [];
@@ -705,7 +799,7 @@
     var pairWorn = inSlot(c, "holster_l");
     pairWorn = pairWorn && isPairItem(pairWorn);
     Object.keys(BOX).forEach(function (key) {
-      var focusNote = "", fallback = "";
+      var focusNote = "", fallback = "", fstBadge = "";
       var b = BOX[key], tall = b[3] > 200, label = isTrinket(key) ? "" : (LABELS[key] || (SLOTS[key] ? SLOTS[key][0] : WEAPON_SLOTS[key])), name = "", art = "", filled = false, cls = "", src = "";
       if (WEAPON_SLOTS[key]) {
         name = weaponName(c, key); filled = !!name; cls = " doll-weapon"; art = filled ? slotArt(c, key) : "";
@@ -716,8 +810,11 @@
           if (fst) {
             focusNote = fst.note || "";
             cls += " doll-focus-" + fst.kind + (fst.away ? " doll-away" : "");
-            src = fst.kind === "caster" || fst.kind === "weapon" ? "mirrors " + fst.side + ", read-only" : (fst.kind === "patron" ? "your patron, always your focus" : "");
+            src = fst.kind === "caster" || fst.kind === "weapon" ? "mirrors " + fst.side + ", read-only" : (fst.kind === "patron" ? "your patron, always your focus" : (fst.kind === "item" ? "your focus item" : ""));
+            if (fst.lost) cls += " doll-focus-lost";
+            if (fst.badge) cls += " doll-badge doll-badge-" + fst.badge;
             if (fst.fallback) fallback = fst.fallback;
+            if (fst.badge) fstBadge = fst.badge;
           }
         } else {
           var irs = ironSlot(c) === key ? ironState(c) : null;
@@ -766,6 +863,7 @@
         (art ? '<img class="doll-art" alt="" src="' + esc(art) + '"' + (fallback && fallback !== art ? ' data-fallback="' + esc(fallback) + '"' : "") + ">" : glyph(key)) +
         (filled ? '<span class="doll-name">' + esc(shortName(name)) + "</span>" : "") +
         (focusNote ? '<span class="doll-focus-note">' + esc(focusNote) + "</span>" : "") +
+        (key === "focus_borrowed_iron" && fstBadge ? '<span class="doll-badge-state doll-badge-state-' + esc(fstBadge) + '" data-badge-state="' + esc(fstBadge) + '">' + esc(BADGE_LABEL[fstBadge]) + (fstBadge === "tarnished" ? ' <b class="doll-lawless">Lawless</b>' : "") + "</span>" : "") +
         "</" + (ro ? "div" : "button") + ">" +
         (label ? '<span class="doll-label" aria-hidden="true">' + esc(label) + "</span>" : "") + "</div>");
     });
@@ -808,6 +906,21 @@
       rows = fpk.kind === "caster" ? btn("data-doll-noop", fpk.name + " · mirrors " + fpk.side, true) : '<span class="fine doll-nocaster-msg">' + esc(NO_CASTER) + "</span>";
       hint = "Your Caster Gun is your focus (read-only here, no extra weight). Equip a Blacksnake or Hognose in Pistol L or Pistol R. Hex casting and shells need it.";
       if (fpk.kind === "nocaster" && root.SSDNSFocus && root.SSDNSFocus.hexPlinkerSwap && root.SSDNSFocus.hexPlinkerSwap(c)) hint = root.SSDNSFocus.SWAP_NOTE + " " + hint;
+    } else if (fpk && fpk.kind === "item") {
+      /* 0.3.108: the Calling's own focus item (read-only: no extra weight, it stays in Equipment) */
+      if (fpk.lost) {
+        rows = '<span class="fine doll-focus-lost-msg">Your keepsake is lost. You can\'t cast until you make a new one.</span> ' +
+          btn('data-doll-focusremake="1"', "Make a new one (long rest)", false);
+        hint = "BOOK1 L1697: make a new keepsake at a long rest in that kind of country. Press this once that rest is done.";
+      } else {
+        rows = focusItems(c).map(function (it) {
+          return it.uid === fpk.uid ? btn("data-doll-noop", it.name + " · your focus", true) : btn('data-doll-focusitem="' + esc(it.uid) + '"', "Use as focus: " + it.name, false);
+        }).join(" ");
+        if (c.calling === "frontier-scout") rows += " " + btn('data-doll-focuslost="1"', "Lost it", false);
+        hint = fpk.itemId === "chemical-field-ledger" ? "Your Ledger is your focus and your spellbook. It stays in Equipment (read-only here, no extra weight)." :
+          fpk.badge ? "Your badge is your focus (Badge Bound). Your DM sets it Bright, Dull or Tarnished. Now: " + fpk.badgeLabel + (fpk.lawless ? " (Lawless)." : ".") :
+          "Your focus item. It stays in Equipment (read-only here, no extra weight).";
+      }
     } else if (key === "focus_borrowed_iron") {
       var ins = instruments(c);
       rows = ins.map(function (x) {
@@ -887,7 +1000,7 @@
       }
       var host = document.getElementById("dollHost");
       if (!host || !host.contains(e.target)) return;
-      var t = e.target.closest("[data-doll-slot],[data-doll-put],[data-doll-close],[data-doll-weapon],[data-doll-focus],[data-doll-shield],[data-doll-iron],[data-doll-ironslot]");
+      var t = e.target.closest("[data-doll-slot],[data-doll-put],[data-doll-close],[data-doll-weapon],[data-doll-focus],[data-doll-shield],[data-doll-iron],[data-doll-ironslot],[data-doll-focusitem],[data-doll-focuslost],[data-doll-focusremake]");
       if (!t) return;
       if (t.hasAttribute("data-doll-close")) { openKey = ""; paint(); return; }
       var res, key = openKey;
@@ -904,6 +1017,13 @@
         var F = root.SSDNSFocus, how = t.getAttribute("data-doll-iron");
         res = F ? (how === "back" ? F.ironBack({ toast: true }) : F.ironAway({ toast: true })) : { ok: false, reason: "Focus tools aren't loaded." };
         if (res && res.ok) { paint(); return; }
+      } else if (t.hasAttribute("data-doll-focusitem")) {
+        var fiu = t.getAttribute("data-doll-focusitem");
+        commit(function () { res = setFocusItem(character(), fiu); });
+      } else if (t.hasAttribute("data-doll-focuslost") || t.hasAttribute("data-doll-focusremake")) {
+        var FL = root.SSDNSFocus, lostIt = t.hasAttribute("data-doll-focuslost");
+        res = FL ? (lostIt ? FL.focusLostAct({ toast: true }) : FL.focusRemakeAct({ toast: true })) : { ok: false, reason: "Focus tools aren't loaded." };
+        if (res && res.ok) { openKey = ""; paint(); return; }
       } else if (t.hasAttribute("data-doll-ironslot")) {
         var isk = t.getAttribute("data-doll-ironslot");
         commit(function () { res = setIronSlot(character(), isk); });
@@ -923,6 +1043,7 @@
       if (!im || im.tagName !== "IMG" || !im.getAttribute("data-fallback")) return;
       var fb = im.getAttribute("data-fallback");
       if (root.SSDNSIronArt && root.SSDNSIronArt.markMissing) root.SSDNSIronArt.markMissing(im.getAttribute("src"));
+      artMissing[String(im.getAttribute("src") || "").replace(/[?#].*$/, "")] = 1;
       im.removeAttribute("data-fallback");
       if (fb && im.getAttribute("src") !== fb) im.setAttribute("src", fb);
     }, true);
@@ -945,5 +1066,6 @@
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireChange); else wireChange(); }
   if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire(); }
 
-  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, GEAR_V21: GEAR_V21, WIDE_GEAR_ART: WIDE_GEAR_ART, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, slotArt: slotArt, isWideArt: isWideArt, weaponOptions: weaponOptions, weaponRow: weaponRow, setWeapon: setWeapon, focusState: focusState, casterInHand: casterInHand, ironSlot: ironSlot, ironState: ironState, setIronSlot: setIronSlot, IRON_NO_SLOT: IRON_NO_SLOT, ironSlots: ironSlots, ironOnlyMsg: ironOnlyMsg, syncIron: syncIron, ironNeedsFix: ironNeedsFix, isIronItem: isIronItem, isFocusWeapon: isFocusWeapon, focusWeaponInHand: focusWeaponInHand, isCasterWeapon: isCasterWeapon, NO_CASTER: NO_CASTER, HP_BOX: HP_BOX, hpInner: hpInner, paintHp: paintHp, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus };
+  root.SSDNSDoll = { gearArtSrc: gearArtSrc, gearArtFile: gearArtFile, GEAR_ART_BY_ID: GEAR_ART_BY_ID, GEAR_V21: GEAR_V21, WIDE_GEAR_ART: WIDE_GEAR_ART, BOX: BOX, SLOTS: SLOTS, LABELS: LABELS, TRINKET_HEADS: TRINKET_HEADS, FRAME: FRAME, COUNTER: COUNTER, PLATE_BAND: PLATE_BAND, isPairItem: isPairItem, wearable: wearable, wearSlot: wearSlot, freeSlot: freeSlot, isShieldItem: isShieldItem, toggleWear: toggleWear, wornLabel: wornLabel, WEAPON_SLOTS: WEAPON_SLOTS, equip: equip, fits: fits, inSlot: inSlot, bonuses: bonuses, capped: capped, html: html, pickerHtml: pickerHtml, paint: paint, weaponName: weaponName, weaponArt: weaponArt, slotArt: slotArt, isWideArt: isWideArt, weaponOptions: weaponOptions, weaponRow: weaponRow, setWeapon: setWeapon, focusState: focusState, casterInHand: casterInHand, ironSlot: ironSlot, ironState: ironState, setIronSlot: setIronSlot, IRON_NO_SLOT: IRON_NO_SLOT, ironSlots: ironSlots, ironOnlyMsg: ironOnlyMsg, syncIron: syncIron, ironNeedsFix: ironNeedsFix, isIronItem: isIronItem, isFocusWeapon: isFocusWeapon, focusWeaponInHand: focusWeaponInHand, isCasterWeapon: isCasterWeapon, NO_CASTER: NO_CASTER, HP_BOX: HP_BOX, hpInner: hpInner, paintHp: paintHp, instruments: instruments, instrumentId: instrumentId, makeFocus: makeFocus,
+    CALLING_FOCUS: CALLING_FOCUS, FOCUS_DOLL_ART: FOCUS_DOLL_ART, focusItems: focusItems, isFocusItemFor: isFocusItemFor, setFocusItem: setFocusItem, badgeArt: badgeArt, BADGE_LABEL: BADGE_LABEL };
 })(typeof window !== "undefined" ? window : globalThis);

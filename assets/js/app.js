@@ -428,8 +428,51 @@
     return { phb: phb, alias: alias, label: label, shell: shell, level: level, raw: t, key: (level + ":" + phb + (shell ? ":shell" : "")).toLowerCase() };
   }
   function callingSpellList(id) {
+    /* 0.3.108 (L0214; Jessey 2026-10-22 2:48 PM CT): a Tarnished Lawman's list is the Lawless list (assets/data/lawless-spells.js) */
+    if (!id && lawlessNow()) return window.SSDNS_LAWLESS;
     id = id || (C().calling || "");
     return (R.spellLists && R.spellLists[id]) || null;
+  }
+  /* 0.3.108 Badge Bound: while the badge is Tarnished the Lawman's spells live in character.lawlessSpells (same shape as
+     character.spells); their Lawman spells stay untouched in character.spells and come back when the badge is Bright or
+     Dull again. The first time the badge tarnishes, the Lawless book gets every Lawless spell the Lawman has slots for,
+     ready (they fall into the list, like oath spells). */
+  function lawlessNow(c) {
+    c = c || C();
+    return !!(c && c.calling === "lawman" && window.SSDNS_LAWLESS && window.SSDNSFocus && window.SSDNSFocus.lawless && window.SSDNSFocus.lawless(c));
+  }
+  function bookKey() { return lawlessNow() ? "lawlessSpells" : "spells"; }
+  function spellBook() {
+    var k = bookKey();
+    if (!C()[k] || typeof C()[k] !== "object") C()[k] = {};
+    return C()[k];
+  }
+  function ensureLawlessBook(c) {
+    c = c || C();
+    if (!c || c.calling !== "lawman" || !window.SSDNS_LAWLESS || (c.lawlessSpells && c.lawlessSpells.seeded)) return false;
+    var book = c.lawlessSpells = c.lawlessSpells && typeof c.lawlessSpells === "object" ? c.lawlessSpells : {};
+    var lv = Math.max(1, num(c.level, 1));
+    var cal = currentCalling();
+    var rows = cal && cal.progression && cal.progression.rows ? cal.progression.rows : [];
+    var top = 0;
+    rows.forEach(function (r) {
+      if (parseInt(String(r[0]), 10) !== lv) return;
+      var slots = String(r[r.length - 1] || "").split(/\s+/);
+      slots.forEach(function (x, i) { if (/^\d+$/.test(x) && num(x) > 0) top = Math.max(top, i + 1); });
+    });
+    if (!top && lv >= 2) top = Math.min(5, Math.ceil(lv / 4));
+    var levels = window.SSDNS_LAWLESS.levels || {};
+    Object.keys(levels).forEach(function (lk) {
+      var L = num(lk, 0);
+      if (!L || L > top) return;
+      var list = book[L] = Array.isArray(book[L]) ? book[L] : [];
+      (levels[lk] || []).forEach(function (raw) {
+        if (list.some(function (x) { return x && x.name === raw; })) return;
+        list.push({ name: raw, prepared: true });
+      });
+    });
+    book.seeded = true;
+    return true;
   }
   var SPELL_LEVEL_OF = null;
   function spellLevelOf(phb) {
@@ -531,7 +574,8 @@
     return (C().cantrips || []).map(function (n, i) { return n ? { i: i, name: n, level: 0 } : null; }).filter(Boolean);
   }
   function knownSpellsAt(level) {
-    return ((C().spells && C().spells[level]) || []).map(function (s, i) {
+    var bk = C()[bookKey()];
+    return ((bk && bk[level]) || []).map(function (s, i) {
       return s && s.name ? { i: i, name: s.name, prepared: !!s.prepared, level: level } : null;
     }).filter(Boolean);
   }
@@ -599,8 +643,9 @@
       if (slot < 0) { arr.push(label); slot = arr.length - 1; }
       else arr[slot] = label;
     } else {
-      if (!C().spells[sp.level]) C().spells[sp.level] = [];
-      var list = C().spells[sp.level];
+      var book = spellBook();
+      if (!book[sp.level]) book[sp.level] = [];
+      var list = book[sp.level];
       var slot2 = list.findIndex(function (x) { return !x || !x.name; });
       var mode = prepareMode();
       var row = { name: label, prepared: mode === "known" || sp.gainAt != null }; // known casters stay ready; domain and oath spells are always prepared
@@ -613,7 +658,7 @@
     var PSr = window.SSDNSPactShot;
     if (level === 0 && PSr && PSr.applies(C()) && PSr.isPactShot(C().cantrips[index])) { toast("Pact Shot is always known for a Pact Seeker. It's free and can't be removed."); return; }
     if (level === 0) C().cantrips[index] = "";
-    else if (C().spells[level] && C().spells[level][index]) { C().spells[level][index].name = ""; C().spells[level][index].prepared = false; }
+    else { var bkR = spellBook(); if (bkR[level] && bkR[level][index]) { bkR[level][index].name = ""; bkR[level][index].prepared = false; } }
     changed();
   }
   function warnSpellLimits() {
@@ -1415,10 +1460,12 @@
     if (empty) empty.hidden = true;
     if (bar) bar.hidden = false;
     if (grid) grid.hidden = false;
+    if (lawlessNow()) ensureLawlessBook(C()); /* 0.3.108: an older Tarnished save gets its Lawless book once */
     var lim = spellLimits(), mode = lim.mode;
     var limEl = $("#spellLimits");
     if (limEl) {
       var bits = [];
+      if (lawlessNow()) bits.push("Lawless list (badge Tarnished)");
       bits.push(mode === "prepared" ? "Prepared caster (mark what you have ready today)" : "Spells known (from your Calling list)");
       var capN = preparedCap();
       if (capN) {
@@ -1456,7 +1503,7 @@
         shown++;
         var line = el("div", { class: "sp-line known" });
         if (l > 0 && mode === "prepared") {
-          line.appendChild(chk("character.spells." + l + "." + row.i + ".prepared", "Prepared"));
+          line.appendChild(chk("character." + bookKey() + "." + l + "." + row.i + ".prepared", "Prepared"));
         } else if (l > 0 && mode === "known") {
           line.appendChild(el("span", { class: "fine", text: "known" }));
         }
@@ -1474,7 +1521,7 @@
         if (aboutKnown) lab.appendChild(aboutKnown);
         line.appendChild(lab);
         // keep a hidden data-f so save still has the name if edited elsewhere
-        line.appendChild(el("input", { type: "hidden", "data-f": l === 0 ? ("character.cantrips." + row.i) : ("character.spells." + l + "." + row.i + ".name"), value: row.name }));
+        line.appendChild(el("input", { type: "hidden", "data-f": l === 0 ? ("character.cantrips." + row.i) : ("character." + bookKey() + "." + l + "." + row.i + ".name"), value: row.name }));
         line.appendChild(el("button", { type: "button", class: "btn xs", "data-spell-cast": l + ":" + row.name, "aria-label": "Cast " + parsed.label, title: "Cast " + parsed.label }, ["Cast"]));
         var freePS = l === 0 && window.SSDNSPactShot && window.SSDNSPactShot.applies(C()) && window.SSDNSPactShot.isPactShot(row.name);
         if (freePS) { line.classList.add("sp-free"); lab.appendChild(el("div", { class: "sp-phb sp-free-tag", text: window.SSDNSPactShot.FREE_TAG })); }
@@ -4874,6 +4921,7 @@
     }
     window.SSDNSToast = toast;
     window.SSDNSApp = {
+      lawlessNow: lawlessNow, ensureLawlessBook: ensureLawlessBook, callingCatalog: function () { return callingCatalog(); }, castChoices: function () { return castChoices(); },
       version: APP_VERSION, state: S, loadText: loadText, migrate: migrate, compute: compute,
       critMin: critMin, powerAttack: powerAttack, autoSpeed: autoSpeed, hasFeat: hasFeat,
       doc: function () { return S.doc; },

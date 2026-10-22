@@ -1571,6 +1571,11 @@
     if (!c) return rows;
     var G = root.SSDNSGive, GS = root.SSDNSGiveSheet;
     var backing = {};
+    var Dm = root.SSDNSDoll, focusMirror = null;
+    try {
+      var fsm = Dm && Dm.focusState ? Dm.focusState(c) : null;
+      if (fsm && fsm.mirror && fsm.gunIndex != null) focusMirror = { gunIndex: Number(fsm.gunIndex), melee: fsm.side === "Melee" };
+    } catch (e) { focusMirror = null; }
     ["guns", "melee"].forEach(function (key) {
       (Array.isArray(c[key]) ? c[key] : []).forEach(function (g, i) {
         if (!g || !g.weapon) return;
@@ -1603,8 +1608,12 @@
         var detail = (desc ? '<p class="eq-desc">' + esc(desc) + "</p>" : "") + '<div class="eq-facts">' + facts + ' <span class="item-tag">' + esc(lbText(wt)) + "</span></div>" +
           '<div class="eq-acts"><button type="button" class="btn xs" data-eq-goto="' + kind + ":" + i + '">Open ' + (kind === "gun" ? "gun" : "melee") + " card</button></div>";
         var give = GS && GS.slotGive ? GS.slotGive(c, kind, i) : "";
+        /* 0.3.108 (focus fix 7): the weapon the paper-doll Focus slot mirrors (a Hexslinger's Caster Gun) also counts under
+           the Focus chip, so the chip agrees with the slot. Still one row (Weapons in All), like the Borrowed Iron. */
+        var alsoF = focusMirror && focusMirror.gunIndex === i && (focusMirror.melee ? kind === "melee" : kind === "gun") ? ["focus"] : [];
+        if (alsoF.length) sub.push("your focus");
         rows.push({ key: "slot:" + kind + ":" + i, cat: "weapons", name: name, sub: sub.join(" · "), qty: 1, wt: lbText(wt), give: give, detail: detail, src: withPrefix(src),
-          held: /give-held/.test(give) });
+          held: /give-held/.test(give), also: alsoF });
       });
     });
     rows.backing = backing;
