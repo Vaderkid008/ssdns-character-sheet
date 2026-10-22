@@ -245,7 +245,8 @@ dmKind = "enemy";
 dm.refreshCard("jolene");
 await flush(10);
 drawer = dmEl.querySelector("[data-act=drawer]");
-check("dm.enemyHidden", drawer && !drawer.querySelector("[data-act=rowClean]"));
+/* Mech PR A M2 (Jessey 2026-10-21): the DM cleans enemy / NPC guns from the token too */
+check("dm.enemyShowsClean", drawer && !!drawer.querySelector("[data-act=rowClean]"));
 dm.destroy();
 if (window.SSDNSMapHost && window.SSDNSMapHost.destroy) window.SSDNSMapHost.destroy();
 dom.window.close();

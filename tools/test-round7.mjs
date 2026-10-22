@@ -151,6 +151,10 @@ const expect = {
     } else if (p.weapon === "repeater") {
       guns.push("dullards-plinker-repeater");
       ammoRow = ["cartridge", "Light", 20];
+    } else if (p.weapon === "carbine") {
+      /* Mech PR A M6 (Jessey 2026-10-21): the Lawman may take the Light carbine + 20 Light */
+      guns.push("dullards-light-carbine");
+      ammoRow = ["cartridge", "Light", 20];
     } else {
       guns.push("navy-army-ball-n-cap-revolver");
       perc = 20;
@@ -222,7 +226,7 @@ Kits.callings.forEach((calling) => {
     const count = guns(c).length + melee(c).length;
     check(calling === "pact-seeker" ? count === 0 : count === 1, calling + " weapon count " + count);
     cut.forEach((id) => check(guns(c).indexOf(id) < 0 && melee(c).indexOf(id) < 0, calling + " still has cut weapon " + id));
-    if (calling !== "frontier-scout") check(guns(c).indexOf("dullards-light-carbine") < 0, calling + " took the Scout carbine");
+    if (calling !== "frontier-scout" && !(calling === "lawman" && p.weapon === "carbine")) check(guns(c).indexOf("dullards-light-carbine") < 0, calling + " took the Scout carbine");
     (want.lines || []).forEach((line) => check(hasLine(c, line), calling + " missing line " + line + " for " + JSON.stringify(p)));
     if (want.armor) check(c.armor === want.armor, calling + " armor " + c.armor);
     if (want.holster) check(c.holster === want.holster, calling + " holster");
