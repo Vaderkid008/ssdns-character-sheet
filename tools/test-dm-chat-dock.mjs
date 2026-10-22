@@ -75,7 +75,7 @@ try {
     return {
       inDom: !!dockEl, shown: !!(dockEl && getComputedStyle(dockEl).display !== "none"),
       popShown: !!(pop && pop.offsetParent), floatShown: [...document.querySelectorAll(".ssdns-chat-float, .ssdns-chat-overlay")].some((e) => getComputedStyle(e).display !== "none"),
-      api: !!(window.SSDNSMapChat && window.SSDNSMapChat.publish), gapBelow: sb ? Math.round(m.bottom - sb.bottom) : -1, canvasH: Math.round(cv.height)
+      api: !!(window.SSDNSMapChat && window.SSDNSMapChat.publish), gapBelow: Math.round(m.bottom - cv.bottom), stripOnTop: !!(sb && sb.bottom <= cv.top), /* Turn UX on the map: the strip is the top row now, so the board is the bottom row */ canvasH: Math.round(cv.height)
     };
   });
   const mc = await mapChat();
