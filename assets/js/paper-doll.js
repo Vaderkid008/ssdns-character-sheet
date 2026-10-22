@@ -79,29 +79,24 @@
     boots: "M16 6h10v24l12 4v6H12l2-10zM12 40h26",
     ring: "M24 18a10 10 0 1 0 .1 0zM19 14l5-6 5 6",
     trinket: "M24 15a12 12 0 1 0 .1 0zM24 15v-4M21 8h6M24 21v6l4 3",
-    shield: "M24 6l14 5v12c0 9-6 15-14 19C16 38 10 32 10 23V11z",
-    /* r2 (Jessey 2026-10-22 6:02 AM): a revolver side view, muzzle right (Pistol L mirrors it, muzzle out) */
-    pistol: "M26 15h16v4H26M40 15v-2M16 14h10v10H16zM16 17.5h10M16 20.5h10M16 14l-2-3h-3l3 4M16 24l-6 12c-1 2 0 4 2 4h4c1.5 0 2.5-1 3-2l4-14M21 24c-1 5 6 6 7 0M23.5 24l.6 3",
-    /* r3 (Jessey 2026-10-22 7:07 AM: "looks like a broomstick"): an upright Winchester-style lever repeater, muzzle up
-       (viewBox 6 0 22 96, see GLYPH_BOX). Top to bottom: front sight, barrel with the tube magazine beside it (two
-       lines) and a barrel band, wood fore-end, receiver with loading gate, saddle ring and hammer, the lever loop /
-       trigger guard on the underside, then the narrow wrist and a buttstock that drops toward the lever side (straight comb,
-       concave underside) to a crescent butt plate. */
-    long: "M14 3l.6-2.4.6 2.4M13 3h2.4v31H13zM16.4 9h2.2v25h-2.2zM12.4 12h6.8M12 34h7.6l-.4 16h-6.8zM11.6 50h8.4v13.5h-8.4zM17 53h1.6v5H17M10.2 55a1.4 1.4 0 1 0 .1 0M11.6 63.5l-2-1.6M20 56c4.5 0 6.5 2.5 6.5 6.5s-2.5 7-6.5 7h-1.5M20 59.5c2 0 3 1.2 3 3s-1.2 3.2-3 3.2M20 57.5l1.8 1.4M12.2 63.5c.8 2 1.2 4 1.2 6.5 0 7.5-.5 15-1.4 22.5 4.5 1.5 9 1.3 13.6.3-3.5-5-6.6-13-7.8-22.8 0-2.5.8-4.5 2.2-6.5",
-    melee: "M24 4l3 6v22h-6V10zM16 32h16M22 32h4v10h-4z",
-    /* r2: a faceted focus crystal (was a blob that read as an "8") */
-    focus: "M24 6l9 11-9 25-9-25zM15 17h18M21 17l3 25M27 17l-3 25M20 11l1 6M28 11l-1 6"
+    shield: "M24 6l14 5v12c0 9-6 15-14 19C16 38 10 32 10 23V11z"
+    /* r4: the weapon slots (pistol, long gun, melee, focus) use Art Bot's image outlines, see OUTLINE below */
   };
   function glyphKey(key) {
     if (/^accessory_[1-7]$/.test(key)) return "trinket";
     return { holster_l: "holster", holster_r: "holster", ring_1: "ring", ring_2: "ring", accessory_8: "shield", revolver_1: "pistol", revolver_2: "pistol", long_gun: "long", focus_borrowed_iron: "focus" }[key] || key;
   }
-  var GLYPH_BOX = { long: "6 0 22 96" };
+  /* r4: weapon-slot outlines from Art Bot (assets/img/doll/outlines/, byte-identical to the locked keepers in
+     campaign-art/_drafts/doll-repeater-glyph/weapon-outlines-v1/keepers/). Shown as images so each keeps its own
+     viewBox and stroke weight (#6b4320, round caps, no fill). The Long gun is Jessey's own drawing (transparent PNG,
+     muzzle up). Pistol L is mirrored so both muzzles point outward. Same class / data-glyph as the drawn outlines. */
+  var OUTLINE = { long: "repeater-outline-jessey-up.png", pistol: "pistol-outline-c.svg", melee: "melee-outline-b-up.svg", focus: "focus-outline-a.svg" };
   function glyph(key) {
-    var gk = glyphKey(key), d = G[gk] || G.trinket;
-    /* Pistol L points its muzzle outward (left) */
-    var path = key === "revolver_1" ? '<path transform="translate(48 0) scale(-1 1)" d="' + d + '"/>' : '<path d="' + d + '"/>';
-    return '<svg class="doll-glyph" data-glyph="' + gk + '" viewBox="' + (GLYPH_BOX[gk] || "0 0 48 48") + '" aria-hidden="true">' + path + "</svg>";
+    var gk = glyphKey(key);
+    if (OUTLINE[gk]) return '<img class="doll-glyph doll-outline" data-glyph="' + gk + '"' + (key === "revolver_1" ? ' data-mirror="1"' : "") +
+      ' alt="" aria-hidden="true" draggable="false" src="' + base() + "assets/img/doll/outlines/" + OUTLINE[gk] + '">';
+    var d = G[gk] || G.trinket;
+    return '<svg class="doll-glyph" data-glyph="' + gk + '" viewBox="0 0 48 48" aria-hidden="true"><path d="' + d + '"/></svg>';
   }
   /* Worn-gear art (Art Bot, Jessey-approved 2026-10-19): assets/img/items/gear/<file>.webp, 400x400 transparent.
      Specific art by PHB/catalog id first, then by name keywords, then the generic art for the slot. */

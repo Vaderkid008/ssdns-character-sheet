@@ -131,16 +131,26 @@ check("stick.focus", fs0 && fs0.kind === "weapon" && fs0.name === "Cottonwood Wa
 /* r2 (Jessey 2026-10-22 6:02 AM): empty-slot outlines, the bigger Melee art, the centred Focus mirror */
 {
   const e = D.html({ items: [], guns: [], melee: [] }, {});
-  const svg = (k) => (e.match(new RegExp('data-doll-slot="' + k + '"[^>]*>\\s*(<svg[^>]*>[\\s\\S]*?</svg>)')) || [])[1] || "";
-  check("glyph.longRifle", /data-glyph="long" viewBox="6 0 22 96"/.test(svg("long_gun")), svg("long_gun"));
-  check("glyph.pistolR", /data-glyph="pistol" viewBox="0 0 48 48"/.test(svg("revolver_2")) && !/scale\(-1 1\)/.test(svg("revolver_2")), svg("revolver_2"));
-  check("glyph.pistolLMirrored", /data-glyph="pistol"/.test(svg("revolver_1")) && /transform="translate\(48 0\) scale\(-1 1\)"/.test(svg("revolver_1")), svg("revolver_1"));
-  check("glyph.focusCrystal", /data-glyph="focus"/.test(svg("focus_borrowed_iron")) && svg("focus_borrowed_iron").includes("M24 6l9 11-9 25-9-25z"));
+  const glyphOf = (k) => (e.match(new RegExp('data-doll-slot="' + k + '"[^>]*>\\s*(<(?:svg|img)[^>]*>)')) || [])[1] || "";
+  /* r4: Art Bot's image outlines (Jessey picks 10:23 / 10:53 AM CT), byte-identical to the locked keepers */
+  const K = "/workspace/campaign-art/_drafts/doll-repeater-glyph/weapon-outlines-v1/keepers/";
+  const OUT = { long_gun: ["long", "repeater-outline-jessey-up.png"], revolver_1: ["pistol", "pistol-outline-c.svg"], revolver_2: ["pistol", "pistol-outline-c.svg"],
+    melee: ["melee", "melee-outline-b-up.svg"], focus_borrowed_iron: ["focus", "focus-outline-a.svg"] };
+  for (const [slot, [gk, file]] of Object.entries(OUT)) {
+    const g = glyphOf(slot);
+    check("outline." + slot, /^<img class="doll-glyph doll-outline"/.test(g) && g.includes('data-glyph="' + gk + '"') && g.includes('src="assets/img/doll/outlines/' + file + '"') &&
+      exists("assets/img/doll/outlines/" + file), g);
+  }
+  check("outline.pistolLMirrored", /data-mirror="1"/.test(glyphOf("revolver_1")) && !/data-mirror/.test(glyphOf("revolver_2")));
+  check("outline.noOtherSvgPaths", !/data-glyph="(long|pistol|melee|focus)" viewBox/.test(e));
+  const files = ["repeater-outline-jessey-up.png", "repeater-outline-jessey.png", "pistol-outline-c.svg", "pistol-outline-c.png", "melee-outline-b-up.svg", "melee-outline-b.svg", "focus-outline-a.svg"];
+  if (fs.existsSync(K)) check("outline.byteIdentical", files.every((f) => fs.readFileSync(path.join(root, "assets/img/doll/outlines", f)).equals(fs.readFileSync(K + f.replace(/\.(png|svg)$/, "-locked.$1")))));
+  check("glyph.coatTrinketKept", /data-glyph="coat" viewBox="0 0 48 48"/.test(e) && /data-glyph="trinket"/.test(e));
   check("glyph.classKept", /data-doll-slot="boots"[^>]*>[^<]*<svg class="doll-glyph"/.test(e));
   const css = read("assets/css/sheet.css");
   check("css.meleeBigger", /\.doll-longart\[data-doll-slot="melee"\] \.doll-art \{[^}]*width: 192%/.test(css));
   check("css.focusCentred", /\.doll-wide\.doll-focus-weapon\.filled \.doll-art \{ inset: 24% 8% 15%/.test(css));
-  check("css.glyphLong", /\.doll-glyph\[data-glyph="long"\]/.test(css));
+  check("css.outlineOpacity", /\.doll-glyph\.doll-outline \{[^}]*opacity: \.45;/.test(css) && /data-mirror="1"\] \{[^}]*scaleX\(-1\)/.test(css));
 }
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nALL PASS");

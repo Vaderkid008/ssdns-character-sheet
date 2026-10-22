@@ -1444,12 +1444,19 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
 #turnPanel .turn-fold .status-chips .chip.status-unhurt { background: #3d6b4f; color: #fff; }
 #turnPanel .turn-fold .status-chips .chip.status-fled { background: #4a4038; color: #fff; }
 #turnPanel .turn-fold .chamber-dot { border-color: #e8d9b8; }
-/* Paper Doll v2.1 r2 (Jessey 2026-10-22 6:02 AM): empty-slot outlines. The Long gun is an upright rifle (tall viewBox),
-   the pistols a revolver side view. Same faded stroke as the other outlines. */
-.doll-slot .doll-glyph[data-glyph="long"] { width: 50%; height: 82%; transform: translate(-50%, -52%); stroke-width: 1.05; }
-.doll-slot .doll-glyph[data-glyph="pistol"] { width: 66%; height: 66%; stroke-width: 1.9; }
+/* Paper Doll v2.1 r4 (Art Bot outlines, Jessey picks 2026-10-22 10:23 / 10:53 AM CT): the four weapon slots show image
+   outlines (assets/img/doll/outlines/) that keep their own stroke weight and #6b4320 colour. At .45 (Art Bot suggested .35-.45; .4 left
+   Jessey's thin repeater lines too faint), still subdued next to filled art. Pistol L is mirrored (muzzle out). */
+.doll-slot .doll-glyph.doll-outline { object-fit: contain; opacity: .45; stroke: none; }
+.doll-slot .doll-glyph[data-glyph="pistol"] { width: 74%; height: 56%; transform: translate(-50%, -56%); }
+.doll-slot .doll-glyph[data-glyph="pistol"][data-mirror="1"] { transform: translate(-50%, -56%) scaleX(-1); }
+.doll-slot .doll-glyph[data-glyph="long"] { width: 50%; height: 88%; transform: translate(-50%, -53%); }
+.doll-slot .doll-glyph[data-glyph="melee"] { width: 44%; height: 82%; transform: translate(-50%, -52%); }
+.doll-slot .doll-glyph[data-glyph="focus"] { width: 56%; height: 52%; transform: translate(-50%, -52%); }
+.doll-slot.doll-noart .doll-glyph.doll-outline { opacity: .55; }
 /* r2: the Melee slot draws its upright engraving bigger (about 84% of the slot height, above the name plate) */
 .doll-slot.doll-tall.doll-weapon.doll-longart[data-doll-slot="melee"] .doll-art { top: 46%; width: 192%; height: 32%; }
 /* r2: a weapon mirrored in the Focus slot (Cottonwood Walking Stick) sits centred in the art area between the
    "Mirrors ... · read-only" note and the name plate */
 .doll-slot.doll-wide.doll-focus-weapon.filled .doll-art { inset: 24% 8% 15%; width: 84%; height: 61%; object-position: 50% 50%; transform: none; }
+.doll-slot.doll-focus-nocaster .doll-glyph.doll-outline { opacity: .12; }
