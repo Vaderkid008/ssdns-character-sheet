@@ -160,6 +160,20 @@ input:focus, select:focus, textarea:focus { outline: none; background: var(--fil
 body.ask-open #sheet, body.wizard-open #sheet, body.ask-open .appbar, body.wizard-open .appbar { pointer-events: none; }
 body.ask-open dialog, body.wizard-open dialog { pointer-events: auto; }
 .ssdns-wizard { width: min(640px, 94vw); max-height: 86vh; overflow: auto; }
+/* UI fixes 1 / U1 (Jessey 2026-10-21 12:00 + 7:14 PM): the wizard and its reference card scroll their inner body, not the
+   dialog. A scrolling dialog dragged its burnt-edge frame (modal-border.css ::after) up through the cantrip grid (the
+   "bubble"), and with no inner padding the text sat on the border ("very Pact Seeker", "ANTRIPS"). Next / Back stay in view. */
+.ssdns-wizard[open], .wiz-ref[open] { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+.ssdns-wizard > .wiz-body, .wiz-ref > .wiz-body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 16px 20px 12px; }
+.ssdns-wizard > .wiz-err { margin: 0 20px; }
+.ssdns-wizard > .dlg-foot, .wiz-ref > .dlg-foot { flex: none; margin: 0; padding: 10px 20px 14px; gap: 8px; border-top: 1px solid rgba(138,106,44,.45); }
+.ssdns-wizard .wiz-body .spell-counter { top: -16px; }
+@media (max-width: 560px) {
+  .ssdns-wizard > .wiz-body, .wiz-ref > .wiz-body { padding: 14px 14px 10px; }
+  .ssdns-wizard > .wiz-err { margin: 0 14px; }
+  .ssdns-wizard > .dlg-foot, .wiz-ref > .dlg-foot { padding: 8px 14px 12px; }
+  .ssdns-wizard .wiz-body .spell-counter { top: -14px; }
+}
 .wiz-body { display: flex; flex-direction: column; gap: 8px; }
 .wiz-field { display: flex; flex-direction: column; gap: 4px; }
 .wiz-err { color: #8d2b22; }
@@ -980,6 +994,11 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .doll-off::after { content: "off: two-handed"; position: absolute; top: 40%; font-size: 1.8cqw; background: #8d1c14; color: #fff; padding: 1px 4px; border-radius: 3px; }
 .doll-counter { position: absolute; display: flex; align-items: center; justify-content: center; gap: .3em; font-weight: 700; color: #2b1d10; font-size: 4.2cqw; }
 .doll-es-unit { font-size: .6em; opacity: .75; }
+/* U7: HP in the doll's bottom-right corner (same plate size as the ES counter) */
+.doll-hp { gap: .15em; font-variant-numeric: tabular-nums; }
+.doll-hp[hidden] { display: none; }
+.doll-hp .doll-hp-max { font-size: .7em; opacity: .75; }
+.doll-hp .doll-hp-temp { font-size: .62em; margin-left: .35em; padding: .05em .35em; border-radius: 999px; background: #2f5f73; color: #fff; }
 .doll-pick { margin-top: 8px; padding: 8px; border: 1px solid #b39a6a; border-radius: 6px; background: #f6ecd6; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .doll-pick .fine { flex-basis: 100%; margin: 0; }
 @media print { .doll-wrap { display: none; } }
@@ -1258,7 +1277,7 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .give-picker select, .give-picker input[type=number] { min-width: 12em; }
 .give-prompt .give-what { font-size: 1.15em; margin: 6px 0 10px; }
 
-/* ---------------- 0.3.102 Equipment list (Jessey 2026-10-20 mockup): grouped, filterable, dense rows */
+/* ---------------- 0.3.103 Equipment list (Jessey 2026-10-20 mockup): grouped, filterable, dense rows */
 .item-gear.eq { margin: 10px 0 12px; padding-top: 6px; border-top: 1px solid rgba(43,29,18,.35); }
 .eq-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .eq-head h2 { font-size: 22px; }
@@ -1318,7 +1337,7 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
   .eq-more { margin-left: 0; }
 }
 
-/* L0197 (0.3.102): Focus slot by Calling. Pact Seeker = Borrowed Iron (away = faded, returns next turn);
+/* L0197 (0.3.103): Focus slot by Calling. Pact Seeker = Borrowed Iron (away = faded, returns next turn);
    Hexslinger = read-only mirror of the Caster Gun in Pistol L / R, or the no-gun message. */
 .doll-slot .doll-focus-note { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 2; width: max-content; max-width: 86%; padding: .1em .45em; border-radius: 3px;
   font: 700 max(7px, 1.25cqw)/1.2 Georgia, "Times New Roman", serif; text-align: center; color: #f4e6c4; background: rgba(46,27,13,.86); border: 1px solid #b08a4a; pointer-events: none; }
@@ -1355,7 +1374,7 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
 .sp-free-tag { color: #6b3f12; font-style: italic; }
 .spell-card.is-locked .spell-card-pick { cursor: default; }
 .spell-card.is-locked .spell-check { background: #6b3f12; border-color: #6b3f12; }
-/* 0.3.102 (Jessey 2026-10-21 4:07 PM): tall weapon slots (Long gun, Melee). A 1200x400 engraving turns muzzle-up and
+/* 0.3.103 (Jessey 2026-10-21 4:07 PM): tall weapon slots (Long gun, Melee). A 1200x400 engraving turns muzzle-up and
    fills the slot height inside the border; the box below is pre-rotation (width = visual height ~76% of the slot,
    height = visual width ~26% of the slot height ≈ 58% of the slot width), centred above the name plate.
    Square tiles (hidden Borrowed Iron, tile-only guns) stay upright and contained. */
@@ -1363,9 +1382,65 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
   object-fit: contain; transform: translate(-50%, -50%) rotate(-90deg); transform-origin: 50% 50%; }
 .doll-slot.doll-tall.doll-weapon.doll-squareart .doll-art { inset: auto; left: 10%; top: 14%; width: 80%; height: 66%; max-width: 80%; max-height: 66%;
   object-fit: contain; transform: none; }
-/* 0.3.102 (4:35 PM): a hidden long iron's card shows the plain long-gun outline at the engraving's 3:1 shape */
+/* 0.3.103 (4:35 PM): a hidden long iron's card shows the plain long-gun outline at the engraving's 3:1 shape */
 .pact-iron-art.pact-iron-generic.pact-iron-outline { aspect-ratio: 3 / 1; height: auto; }
 
-/* 0.3.102 (art batch 1): Pact Shot tile on the Borrowed Iron card's Pact Shot button (icon + label, same button height) */
+/* 0.3.103 (art batch 1): Pact Shot tile on the Borrowed Iron card's Pact Shot button (icon + label, same button height) */
 #btnPactShot { display: inline-flex; align-items: center; gap: 5px; }
 #btnPactShot .iron-spell-art { width: 20px; height: 20px; margin: -3px 0 -3px -3px; border-radius: 3px; object-fit: cover; flex: 0 0 20px; display: block; }
+
+/* UI fixes 1 / U10 (Jessey 2026-10-21 8:53 PM, specs/turn-strip-2026-10-21.png): the sheet's turn order is one slim row.
+   Small chips (initials + short name), conditions as small icons (+N past two), the status as a dot, no scrollbar
+   (swipe, or the arrows on a mouse), one header line, and the current gun's chambers as mini dots in the current chip.
+   Tapping a chip opens one fold-down line with the full list (and, on your turn, the clickable chambers).
+   Scoped to #turnPanel: the map and DMCC strips keep their own .turn-chip look. */
+#turnPanel.turn-panel { flex-wrap: nowrap; gap: 6px; padding: 4px 8px; align-items: center; }
+#turnPanel .turn-round { flex: none; font-size: 12px; letter-spacing: .02em; white-space: nowrap; color: var(--eld, #e2c56a); }
+#turnPanel .turn-who, #turnPanel .tc-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+#turnPanel .turn-order-strip { flex: 1 1 auto; min-width: 0; gap: 4px; padding: 3px 2px; scrollbar-width: none; scroll-behavior: smooth; overscroll-behavior-x: contain; }
+#turnPanel .turn-order-strip::-webkit-scrollbar { display: none; }
+#turnPanel .turn-scroll { flex: none; width: 22px; height: 26px; padding: 0; border: 1px solid rgba(201,162,39,.45); border-radius: 4px; background: rgba(0,0,0,.25); color: var(--parch); font-size: 16px; line-height: 1; cursor: pointer; }
+#turnPanel .turn-scroll[hidden] { display: none; }
+#turnPanel .turn-slot:empty { display: none; }
+#turnPanel .end-turn { margin-left: 2px; flex: none; }
+#turnPanel .turn-chip { flex: none; gap: 4px; height: 26px; padding: 0 7px 0 2px; border-width: 1px; font-size: 12px; line-height: 1; position: relative; cursor: default; }
+#turnPanel .turn-chip[aria-expanded] { cursor: pointer; }
+#turnPanel .turn-chip.current { box-shadow: 0 0 0 2px #e2c56a; }
+#turnPanel .turn-chip.open { outline: 1px dashed #e2c56a; outline-offset: 2px; }
+#turnPanel .turn-chip .chip-face { width: 20px; height: 20px; font-size: 9px; letter-spacing: -.02em; }
+#turnPanel .turn-chip .chip-name { max-width: 8.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#turnPanel .tc-icons { display: inline-flex; align-items: center; gap: 1px; font-size: 11px; }
+#turnPanel .tc-status { width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(255,255,255,.85); background: #efe6d4; margin-right: 2px; }
+#turnPanel .tc-status.status-down, #turnPanel .tc-status.status-unconscious { background: #1d0d0b; border-color: #ff8a7a; }
+#turnPanel .tc-status.status-bloodied { background: #d4561c; }
+#turnPanel .tc-status.status-hurt { background: #e0a33a; }
+#turnPanel .tc-status.status-unhurt { background: #59b36f; }
+#turnPanel .tc-status.status-fled { background: #8d8376; }
+#turnPanel .tc-more { font-size: 10px; font-weight: 700; padding: 1px 4px; border-radius: 999px; background: rgba(0,0,0,.35); }
+#turnPanel .tc-gun { display: inline-flex; gap: 2px; padding-left: 4px; margin-left: 1px; border-left: 1px solid rgba(255,255,255,.35); }
+#turnPanel .tc-dot { width: 6px; height: 6px; border-radius: 50%; border: 1px solid rgba(255,255,255,.8); display: inline-block; }
+#turnPanel .tc-dot.full { background: #e2c56a; border-color: #e2c56a; }
+#turnPanel #turnDetail { position: absolute; left: 8px; right: 8px; top: 100%; margin-top: 2px; z-index: 30; }
+#turnPanel #turnDetail:empty { display: none; }
+#turnPanel { position: relative; }
+#turnPanel .turn-fold { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 6px 30px 6px 10px; border: 1px solid var(--ochre); background: #1d140d; color: var(--parch); box-shadow: 0 6px 18px rgba(0,0,0,.45); position: relative; font-size: 13px; }
+#turnPanel .turn-fold .status-chips { margin-top: 0; }
+#turnPanel .turn-fold .cylinder-row { flex: 1 0 100%; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#turnPanel .turn-fold-x { position: absolute; top: 2px; right: 4px; width: 24px; height: 24px; border: 0; background: none; color: var(--parch); font-size: 18px; cursor: pointer; }
+@media (max-width: 600px) {
+  #turnPanel.turn-panel { margin: 6px 6px 0; max-width: calc(100% - 12px); padding: 4px 6px; gap: 4px; }
+  #turnPanel .turn-round { font-size: 11px; }
+  #turnPanel .turn-chip:not(.current) .chip-name { display: none; }
+  #turnPanel .turn-chip:not(.current) { padding-right: 3px; }
+  #turnPanel .turn-chip .chip-name { max-width: 6.5em; }
+  #turnPanel .turn-chip { height: 28px; }
+  #turnPanel .turn-scroll { display: none; }
+  #turnPanel .turn-fold .chamber-dot { width: 28px; height: 28px; }
+}
+@media (pointer: coarse) { #turnPanel .turn-scroll { display: none; } }
+#turnPanel .turn-fold .status-chips .chip.status-down, #turnPanel .turn-fold .status-chips .chip.status-unconscious { background: #6e2430; color: #fff; }
+#turnPanel .turn-fold .status-chips .chip.status-bloodied { background: #8a3b12; color: #fff; }
+#turnPanel .turn-fold .status-chips .chip.status-hurt { background: #a36b2a; color: #fff; }
+#turnPanel .turn-fold .status-chips .chip.status-unhurt { background: #3d6b4f; color: #fff; }
+#turnPanel .turn-fold .status-chips .chip.status-fled { background: #4a4038; color: #fff; }
+#turnPanel .turn-fold .chamber-dot { border-color: #e8d9b8; }

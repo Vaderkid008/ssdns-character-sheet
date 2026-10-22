@@ -66,12 +66,12 @@
     }
     if (extra) Object.keys(extra).forEach(function (k) { slot[k] = extra[k]; });
   }
-  /* Equipment build (0.3.102, Jessey 2026-10-20): re-applying a kit (the "Apply starting kit" button, or a second
+  /* Equipment build (0.3.103, Jessey 2026-10-20): re-applying a kit (the "Apply starting kit" button, or a second
      apply on a sheet whose kitStamp already matches) never adds countable things again: no ammo, no items, no
      note lines. Weapons were already guarded (putGun / putMelee skip a weapon that is there). */
   var quiet = false;
   var preview = false;
-  /* What kits already gave this sheet (0.3.102): character.kitGrants.ammo {"type|caliber": n} and .items [catalog ids].
+  /* What kits already gave this sheet (0.3.103): character.kitGrants.ammo {"type|caliber": n} and .items [catalog ids].
      A kit applied again never gives the same ammo / item twice, but a new pick (another gun) still gets its own. */
   function grants(c) {
     var g = c.kitGrants && typeof c.kitGrants === "object" ? c.kitGrants : (c.kitGrants = {});
@@ -98,7 +98,7 @@
     }
     pool.count = (parseInt(pool.count, 10) || 0) + count;
   }
-  /* Equipment build (0.3.102): what each kit gear line becomes.
+  /* Equipment build (0.3.103): what each kit gear line becomes.
        items:   real catalog items (Jessey 5:09 PM: Badge = Holy symbol, walking stick / pouches = Druidic focus,
                 Prism = Arcane focus, Galvanic reagents = Hex pouch)
        rig:     a holster / belt slot (rules.js holsters; weighs in through the rig slot, shows as a Worn row)
@@ -136,7 +136,7 @@
     /* L0197 (Jessey 2026-10-20 7:10 PM): the Pact Seeker's Borrowed Iron is a real, soul-bound catalog item */
     "Borrowed Iron (pact focus)": { items: ["borrowed-iron"] }
   };
-  /* Lines added to KIT_LINES after a sheet already ran the 0.3.102 step (equipMigrated 1). Only these are converted
+  /* Lines added to KIT_LINES after a sheet already ran the 0.3.103 step (equipMigrated 1). Only these are converted
      the second time, so nothing else in the notes moves. */
   var MIGRATE_V2 = ["Borrowed Iron (pact focus)"];
   function lineSpec(text) {
@@ -194,14 +194,15 @@
     if (cur.indexOf(text) >= 0) return;
     c.equipment = (cur ? cur.replace(/\s+$/, "") + "\n" : "") + "• " + text;
   }
-  /* Saved characters (0.3.102): kit lines already sitting in the Equipment notes become the same items / rigs, and
+  /* Saved characters (0.3.103): kit lines already sitting in the Equipment notes become the same items / rigs, and
      the duplicate ammo / armor / shield lines go. Packs are left alone (they keep their Unpack button). The old notes
      text is kept in character.equipmentBefore0392, so nothing is lost. Runs once (character.equipMigrated). */
-  /* L0197 (0.3.102): equipMigrated 2. A sheet already at 1 converts only the MIGRATE_V2 lines (the exact
+  /* L0197 (0.3.103): equipMigrated 2. A sheet already at 1 converts only the MIGRATE_V2 lines (the exact
      "Borrowed Iron (pact focus)" line PR #113 left in Notes); every other note line stays as it is. Its notes before
      this step are kept in character.equipmentBefore0394. A Pact Seeker with no line still gets the soul-bound item. */
   function migrateEquipment(c) {
     if (!c) return 0;
+    stripBedtime(c);
     var n = c.equipMigrated >= 2 ? 0 : migrateNotes(c);
     /* 0.3.100: one Borrowed Iron, never in a worn slot, and a non-Crossroads Pact Seeker's iron never keeps Hell Maker
        art or name (paper-doll.js syncIron, iron-art.js fixStaleIron) */
@@ -210,7 +211,19 @@
     migrateIronSlot(c);
     return n;
   }
-  /* 0.3.102 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus now; the Borrowed Iron item moves out of
+  /* UI fixes 1 / U4 (Jessey 2026-10-21 12:03 PM: "No bedtime ritual on the sheet period."): the Module start "Bedtime
+     item: ..." line an older wizard wrote into the Equipment notes goes on load. Only that exact line kind; every other
+     note line stays. Runs every load (cheap, idempotent). Returns how many lines went. */
+  var BEDTIME_LINE = /^\s*(?:•\s*)?Bedtime item:/i;
+  function stripBedtime(c) {
+    if (!c || typeof c.equipment !== "string" || !/bedtime item:/i.test(c.equipment)) return 0;
+    var lines = c.equipment.split("\n");
+    var keep = lines.filter(function (line) { return !BEDTIME_LINE.test(line); });
+    if (keep.length === lines.length) return 0;
+    c.equipment = keep.join("\n");
+    return lines.length - keep.length;
+  }
+  /* 0.3.103 (Jessey 2026-10-20 9:53 PM): the patron is the Pact Seeker's focus now; the Borrowed Iron item moves out of
      the Focus slot into a free paper-doll weapon slot (character.ironSlot). Only which slot draws it changes: the item,
      its soul-bound rules, borrowedIronAway and the cast block are untouched. No free slot -> ironSlot "" and
      character.ironSlotNote says so (it is still in hand). Runs once per save (character.ironSlotMigrated). */
@@ -605,7 +618,7 @@
     }
   }
 
-  /* The same kit again on a sheet from before 0.3.102 (no kitGrants record of what it got): weapons / armor fields only,
+  /* The same kit again on a sheet from before 0.3.103 (no kitGrants record of what it got): weapons / armor fields only,
      nothing countable (no ammo, items or note lines), so nothing doubles. Newer sheets use the kitGrants record instead. */
   function legacyAgain(c, calling) {
     return !preview && !!calling && c.kitStamp === calling && !(c.kitGrants && c.kitGrants.v);
@@ -651,7 +664,6 @@
     } else if (calling === "scholar") {
       addLine(c, "Chemical Field Ledger (focus)");
     }
-    if (p.bedtime) addLine(c, "Bedtime item: " + p.bedtime);
     if (CALLINGS.indexOf(calling) >= 0) c.kitStamp = calling;
     if (!preview) grants(c).v = 1;
     c.kitMode = "module";
@@ -842,15 +854,20 @@
     branches: branches,
     describe: describe,
     kitLines: KIT_LINES,
-    migrateEquipment: migrateEquipment, migrateIronSlot: migrateIronSlot,
+    migrateEquipment: migrateEquipment, migrateIronSlot: migrateIronSlot, stripBedtime: stripBedtime,
     ensureBorrowedIron: ensureBorrowedIron
   };
   root.SSDNSKits = api;
-  /* first boot: app.js migrated the saved sheet before this file loaded, so run the 0.3.102 kit-line step here */
+  /* first boot: app.js migrated the saved sheet before this file loaded, so run the 0.3.103 kit-line step here */
   function bootMigrate() {
     var A = root.SSDNSApp;
     var d = A && A.doc ? A.doc() : null;
     var c = d && d.character;
+    /* U4: an old Module start "Bedtime item: ..." note line goes (app.js ran its migrate before this file loaded) */
+    if (c && typeof c.equipment === "string" && /bedtime item:/i.test(c.equipment) && A.applyPatch) {
+      A.applyPatch(function (dd) { if (dd && dd.character) stripBedtime(dd.character); });
+      c = A.doc().character;
+    }
     /* 0.3.100: an old save with Hell Maker art on another pact's iron, a duplicate iron, or the iron in a worn slot */
     if (c && c.equipMigrated >= 2 && c.calling === "pact-seeker" && root.SSDNSDoll && root.SSDNSDoll.ironNeedsFix && root.SSDNSDoll.ironNeedsFix(c) && A.applyPatch) {
       A.applyPatch(function (dd) { if (dd && dd.character && root.SSDNSDoll.syncIron) root.SSDNSDoll.syncIron(dd.character); });

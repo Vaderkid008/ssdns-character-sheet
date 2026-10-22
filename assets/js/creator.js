@@ -69,7 +69,7 @@
     var ab = abilityModName(cal);
     return Math.max(1, mod(scores[ab]) + 1);
   }
-  /* 0.3.102 (Jessey 2026-10-21 12:22 PM): a Pact Seeker always knows Pact Shot for free (pact-shot.js); it's never a pick */
+  /* 0.3.103 (Jessey 2026-10-21 12:22 PM): a Pact Seeker always knows Pact Shot for free (pact-shot.js); it's never a pick */
   function freeCantrips(draft, names) {
     var PS = root.SSDNSPactShot;
     return PS && draft && draft.calling === "pact-seeker" ? PS.countable({ calling: "pact-seeker" }, names || []) : (names || []).filter(Boolean);
@@ -205,6 +205,9 @@
       background: "",
       skills: [],
       kit: {},
+      /* UI fixes 1 / U3 (Jessey 2026-10-21 7:34 PM): every new character starts on Module start; Full kit stays in the
+         picker, and the DM can grant the full kit later. */
+      kitMode: "module",
       fightingStyle: "",
       level: 1,
       cantrips: [],
@@ -310,8 +313,7 @@
     c.speed = (sub && sub.speed) || (lin && lin.speed) || 30;
     ensureKitDefaults(draft);
     var kitPicks = Object.assign({}, draft.kit || {});
-    if (draft.kitMode === "module") kitPicks._start = "module";
-    if (draft.bedtime) kitPicks.bedtime = draft.bedtime;
+    if (draft.kitMode !== "full") kitPicks._start = "module";
     if (root.SSDNSKits && root.SSDNSKits.apply) root.SSDNSKits.apply(c, c.calling, kitPicks);
     var focus = focusFor(c.calling);
     if (focus.kind === "borrowed-iron") {
@@ -345,7 +347,7 @@
     if (bg && bg.feature && bg.feature.name) {
       c.features = bg.feature.name + ": " + (bg.feature.text || "");
     }
-    if (draft.kitMode !== "module") {
+    if (draft.kitMode === "full") {
       var card = refById("backgrounds", c.background);
       var gear = card && (card.table || []).filter(function (row) { return row && /equipment/i.test(row[0] || ""); })[0];
       if (gear && gear[1]) addGearLine(c, gear[1]);
@@ -380,6 +382,9 @@
     draft.background = bg.id;
     draft.skills = (spec.skills || skillList(bg)).slice();
     draft.kit = spec.kit || kitPick(cal.id);
+    /* buildSheet is the test / tools builder: it keeps building the Full kit unless spec.kitMode is "module", so the
+       kit tests still cover every Full kit. The wizard itself opens on Module start (blankDraft). */
+    draft.kitMode = spec.kitMode === "module" ? "module" : "full";
     ensureKitDefaults(draft);
     draft.level = spec.level || 1;
     if (draft.calling === "gunslinger" && !draft.fightingStyle) draft.fightingStyle = spec.fightingStyle || "long-gun";
@@ -667,7 +672,7 @@
         var callCard = refById("callings", cal.id);
         var firstLevel = callCard && (callCard.table || []).filter(function (row) { return row && /1st level/i.test(row[0] || ""); })[0];
         if (firstLevel) body.appendChild(el("p", { text: firstLevel[0] + ": " + firstLevel[1] }));
-        /* 0.3.102 (Jessey 2026-10-21 12:12 PM): a Pact Seeker picks the Pact name here (PHB: "Pick a pact name and tell
+        /* 0.3.103 (Jessey 2026-10-21 12:12 PM): a Pact Seeker picks the Pact name here (PHB: "Pick a pact name and tell
            your DM"). The Borrowed Iron lands with it, labelled by its weapon type; its real name waits for the DM's reveal. */
         if (cal.id === "pact-seeker") {
           var psel = el("select", { id: "wizPact" });
@@ -832,15 +837,11 @@
       var kits = root.SSDNSKits;
       var choices = (kits && kits.choices && kits.choices[draft.calling]) || [];
       var mode = el("select", { id: "wizKitMode" });
-      mode.appendChild(option("full", "Full kit", draft.kitMode !== "module"));
-      mode.appendChild(option("module", "Module start", draft.kitMode === "module"));
+      /* U3: Module start first and picked unless Full kit was chosen (U4: no Bedtime item field, Jessey 12:03 PM) */
+      mode.appendChild(option("module", "Module start", draft.kitMode !== "full"));
+      mode.appendChild(option("full", "Full kit", draft.kitMode === "full"));
       mode.addEventListener("change", function () { draft.kitMode = mode.value; renderStep(body, draft, step); });
       body.appendChild(field("Start", mode));
-      if (draft.kitMode === "module") {
-        var bed = el("input", { id: "wizBedtime", value: draft.bedtime || "", placeholder: "Bedtime item the DM approved" });
-        bed.addEventListener("input", function () { draft.bedtime = bed.value; });
-        body.appendChild(field("Bedtime item", bed));
-      }
       body.appendChild(el("h3", { text: "Your starting kit" }));
       if (!choices.length) body.appendChild(el("p", { text: "No choices to make; this is your kit." }));
       choices.forEach(function (ch) {
@@ -858,7 +859,7 @@
         body.appendChild(field(ch.prompt, ksel));
       });
       var kitLines = root.SSDNSKits && root.SSDNSKits.describe
-        ? root.SSDNSKits.describe(draft.calling, Object.assign({}, draft.kit || {}, draft.kitMode === "module" ? { _start: "module", bedtime: draft.bedtime || "" } : {}))
+        ? root.SSDNSKits.describe(draft.calling, Object.assign({}, draft.kit || {}, draft.kitMode !== "full" ? { _start: "module" } : {}))
         : [];
       if (kitLines.length) {
         var list = el("ul", { class: "wiz-kit" });
@@ -1085,7 +1086,7 @@
       app.applyPatch(function (doc) {
         applyDraft(doc.character, ui.draft);
         var pouch = doc.character && doc.character._pouchEs;
-        if (pouch && ui.draft.kitMode !== "module" && root.SSDNSBridge && root.SSDNSBridge.breakdown) {
+        if (pouch && ui.draft.kitMode === "full" && root.SSDNSBridge && root.SSDNSBridge.breakdown) {
           var add = root.SSDNSBridge.breakdown(pouch);
           doc.shards = doc.shards || {};
           Object.keys(add).forEach(function (k) { doc.shards[k] = (parseInt(doc.shards[k], 10) || 0) + add[k]; });

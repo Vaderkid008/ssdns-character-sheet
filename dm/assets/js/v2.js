@@ -1076,6 +1076,64 @@ function statusChipsHtml(row) {
   if (status) bits.push(`<span class="chip status ${statusClass(status)}">${esc(status)}</span>`);
   return bits.length ? `<span class="status-chips">${bits.join("")}</span>` : "";
 }
+/* UI fixes 1 / U8 (plan 2026-10-21): the fight portraits and the turn strip show the picture when there is one: a
+   player's sheet portrait (the snapshot the player card already uses), an enemy's bestiary token art. Initials
+   otherwise, and when a picture fails to load (the capture listener below fightOpen drops it). */
+function faceArt(row) {
+  if (!row) return "";
+  if (row.kind === "player") {
+    const snap = playerSnapshot(row.playerId || row.id);
+    return String((snap && snap.portrait) || row.portrait || "");
+  }
+  const beast = beastTokenImage(row);
+  return beast ? "../map/" + beast : "";
+}
+function faceHtml(row, cls, initials) {
+  const src = faceArt(row);
+  return `<span class="${cls}${src ? " has-art" : ""}">${src ? `<img class="face-art" src="${esc(src)}" alt="" loading="lazy" decoding="async">` : ""}<span class="face-initials">${esc(initials)}</span></span>`;
+}
+function rowInitials(row) {
+  const letters = String((row && row.name) || "?").replace(/[^A-Za-z]/g, "");
+  return (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
+}
+/* UI fixes 1 / U9: once combat starts, each waiting combatant is one line (init, face, name, HP, status, conditions)
+   that opens to its full card on tap. Open state is kept per row id across repaints (fightOpen). */
+const fightOpen = {};
+if (typeof document !== "undefined" && document.addEventListener) {
+  document.addEventListener("toggle", (e) => {
+    const d = e.target;
+    if (d && d.matches && d.matches("details[data-turn-fold]")) fightOpen[d.getAttribute("data-turn-fold")] = !!d.open;
+  }, true);
+  document.addEventListener("error", (e) => {
+    const im = e.target;
+    if (!im || !im.classList || !im.classList.contains("face-art")) return;
+    if (im.parentNode && im.parentNode.classList) im.parentNode.classList.remove("has-art");
+    if (im.parentNode) im.parentNode.removeChild(im);
+  }, true);
+}
+function foldKey(row, i) { return String((row && row.id) || ("i" + i)); }
+function turnLineHtml(row, i) {
+  const friendly = row.kind === "enemy" && isFriendly(row);
+  const side = row.kind === "player" ? "pc" : (friendly ? "ally" : "enemy");
+  const max = row.maxHp != null && row.maxHp !== "" ? row.maxHp : "";
+  const hp = row.hp == null || row.hp === "" ? "—" : row.hp;
+  const conds = conditionsForRow(row);
+  const condNames = conds.map((c) => String((c && (c.name || c)) || "").trim()).filter(Boolean);
+  const Cond = window.SSDNSConditions;
+  const icons = condNames.slice(0, 3).map((n) => `<span class="tl-cond" title="${esc(n)}">${esc(Cond && Cond.icon ? Cond.icon(n) : "\u25CF")}</span>`).join("") + (condNames.length > 3 ? `<span class="tl-more">+${condNames.length - 3}</span>` : "");
+  return `<summary class="turn-line side-${side}" title="${esc((row.name || "") + (condNames.length ? " · " + condNames.join(", ") : ""))}">` +
+    `<span class="tl-init">${esc(row.init == null || row.init === "" ? "—" : row.init)}</span>` +
+    faceHtml(row, "tl-face", rowInitials(row)) +
+    `<span class="tl-name">${esc(row.name || "Someone")}</span>` +
+    `<span class="tl-hp">HP ${esc(hp)}${max !== "" ? "/" + esc(max) : ""}</span>` +
+    statusChipsHtml(row) +
+    (icons ? `<span class="tl-conds" aria-label="${esc(condNames.join(", "))}">${icons}</span>` : "") +
+    `<span class="tl-caret" aria-hidden="true">▾</span></summary>`;
+}
+function foldRowHtml(row, i, full) {
+  const key = foldKey(row, i);
+  return `<details class="turn-fold" data-turn-fold="${esc(key)}" data-fold-i="${i}"${fightOpen[key] ? " open" : ""}>${turnLineHtml(row, i)}${full}</details>`;
+}
 function portraitHtml(row, i) {
   const len = fight.order.length || 1;
   const dist = fight.started ? (i - fight.turn + len) % len : 99;
@@ -1087,7 +1145,7 @@ function portraitHtml(row, i) {
   const letters = String(row.name || "?").replace(/[^A-Za-z]/g, "");
   const initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
   const cls = "fight-portrait side-" + side + (current ? " current" : "") + (ondeck ? " ondeck" : "") + (later ? " later" : "");
-  return `<button type="button" class="${cls}" data-fight-portrait="${i}" title="${esc(row.name || "")}"><span class="portrait-face">${esc(initials)}</span><span class="portrait-name">${esc(row.name || "")}</span><span class="portrait-init">${esc(row.init == null || row.init === "" ? "—" : row.init)}</span>${statusChipsHtml(row)}</button>`;
+  return `<button type="button" class="${cls}" data-fight-portrait="${i}" title="${esc(row.name || "")}">${faceHtml(row, "portrait-face", initials)}<span class="portrait-name">${esc(row.name || "")}</span><span class="portrait-init">${esc(row.init == null || row.init === "" ? "—" : row.init)}</span>${statusChipsHtml(row)}</button>`;
 }
 function fightLogCards() {
   const box = $("#fightLog");
@@ -1147,7 +1205,7 @@ function renderFight() {
     const started = !!fight.started;
     if (started && focus) {
       focus.innerHTML = parts[fight.turn] || "";
-      if (list) list.innerHTML = parts.filter((_, i) => i !== fight.turn).join("") || '<p class="fine">No one else in the order.</p>';
+      if (list) list.innerHTML = parts.map((html, i) => (i === fight.turn ? "" : foldRowHtml(fight.order[i], i, html))).join("") || '<p class="fine">No one else in the order.</p>';
     } else {
       if (focus) focus.innerHTML = '<p class="fight-focus-wait">Roll Init, then Next. The active turn lands here.</p>';
       if (list) list.innerHTML = parts.join("");
@@ -1164,7 +1222,7 @@ function renderFight() {
         const side = row.kind === "player" ? " side-pc player" : (friendly ? " side-ally" : " side-enemy enemy");
         const letters = String(row.name || "?").replace(/[^A-Za-z]/g, "");
         const initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
-        const face = `<span class="chip-face">${esc(initials)}</span><b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> <span class="chip-name">${esc(row.name || "")}</span>${statusChipsHtml(row)}`;
+        const face = `${faceHtml(row, "chip-face", initials)}<b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> <span class="chip-name">${esc(row.name || "")}</span>${statusChipsHtml(row)}`;
         const guns = stripGuns(row, i);
         if (row.kind === "enemy") return `<div class="turn-chip${current}${ondeck}${later}${side}"><button type="button" class="chip-open" data-open-enemy="${esc(row.id || "")}">${face}</button>${guns}</div>`;
         return `<div class="turn-chip${current}${ondeck}${later}${side}">${face}${guns}</div>`;
@@ -5286,7 +5344,10 @@ function wireClicks() {
     if (!t) return;
     if (t.hasAttribute("data-strip-next")) { nextTurn(); return; }
     if (t.hasAttribute("data-fight-portrait")) {
-      const card = document.querySelector('[data-fight-card="' + t.getAttribute("data-fight-portrait") + '"]');
+      const pi = t.getAttribute("data-fight-portrait");
+      const fold = document.querySelector('[data-turn-fold][data-fold-i="' + pi + '"]');
+      if (fold && !fold.open) { fold.open = true; fightOpen[fold.getAttribute("data-turn-fold")] = true; }
+      const card = document.querySelector('[data-fight-card="' + pi + '"]');
       if (card && card.scrollIntoView) card.scrollIntoView({ block: "nearest" });
       return;
     }
@@ -6176,14 +6237,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.115-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.116-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.115-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.116-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

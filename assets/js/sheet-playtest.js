@@ -827,8 +827,17 @@
         panel.id = "turnPanel";
         panel.className = "turn-panel";
         panel.hidden = true;
-        panel.innerHTML = "<b id='turnRound'>Round 1</b> <span id='turnWho'></span> <button type='button' class='btn sm end-turn' id='btnEndTurn' hidden title='Pass the turn to the next combatant in the DM\'s turn order'>End turn</button> <div id='turnNames' class='turn-order-strip'></div><div id='turnDetail'></div>";
+        /* UI fixes 1 / U10 (Jessey 2026-10-21 8:53 PM): one slim row. Round, the chip strip (no scrollbar; swipe or the
+           arrows), a slot the turn-order PR fills (action tracker), End turn. #turnWho stays for screen readers only;
+           #turnDetail is the fold-down line a tapped chip opens (full conditions, and its gun's chambers). */
+        panel.innerHTML = "<b id='turnRound' class='turn-round'>Round 1</b><span id='turnWho' class='turn-who' aria-live='polite'></span>" +
+          "<button type='button' class='turn-scroll' data-turn-scroll='-1' aria-label='Scroll the turn order left' hidden>\u2039</button>" +
+          "<div id='turnNames' class='turn-order-strip' role='list' aria-label='Turn order'></div>" +
+          "<button type='button' class='turn-scroll' data-turn-scroll='1' aria-label='Scroll the turn order right' hidden>\u203a</button>" +
+          "<span id='turnSlot' class='turn-slot'></span>" +
+          "<button type='button' class='btn sm end-turn' id='btnEndTurn' hidden title='Pass the turn to the next combatant in the DM\'s turn order'>End turn</button><div id='turnDetail'></div>";
         bar.parentNode.insertBefore(panel, bar.nextSibling);
+        wireTurnStrip(panel);
       }
     }
     if (calling && !$("#styleWrap")) {
@@ -1231,7 +1240,7 @@
     paintIronArt(box, c);
     paintIronSpells(box, c);
   }
-  /* 0.3.102 (Jessey approved 2026-10-21 12:22 PM CT): the Borrowed Iron fires only spells, so its card has no weapon
+  /* 0.3.103 (Jessey approved 2026-10-21 12:22 PM CT): the Borrowed Iron fires only spells, so its card has no weapon
      attack: quick spell buttons for the attack cantrips / spells this Pact Seeker knows, Pact Shot first (#btnPactShot).
      They use the sheet's own cast path ([data-spell-cast]: target picker, log, map FX) and are blocked with the rest when
      the iron isn't in hand (focus-slot.js). Fixed Bayonet (Pact of the Blade, BOOK1 L2017): the bayonet form keeps a
@@ -1249,7 +1258,7 @@
     }
     wrap.hidden = false;
     var pact = $("#btnPactShot");
-    /* 0.3.102 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT): the Pact Shot tile (assets/img/spells/pact-shot.webp)
+    /* 0.3.103 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT): the Pact Shot tile (assets/img/spells/pact-shot.webp)
        sits as a small icon at the start of the button; the label stays "Pact Shot". */
     if (pact) {
       if (!pact.querySelector(".iron-spell-art")) pact.innerHTML = '<img class="iron-spell-art" src="' + PACT_SHOT_ART + '" alt="" width="20" height="20" decoding="async"><span class="iron-spell-label">Pact Shot</span>';
@@ -1278,12 +1287,12 @@
   /* 0.3.96: the Borrowed Iron card shows the pact's engraving (1200x400, muzzle right) once the DM has revealed it */
   function paintIronArt(box, c) {
     var IA = root.SSDNSIronArt;
-    /* 0.3.102 (Jessey 2026-10-21 12:11 / 12:12 PM): the card is labelled by the iron's type from the Pact pick
+    /* 0.3.103 (Jessey 2026-10-21 12:11 / 12:12 PM): the card is labelled by the iron's type from the Pact pick
        ("Borrowed Iron — Lever-action carbine"). Its real name and engraving wait for the DM's reveal; until then the
        card shows the plain Borrowed Iron tile. */
     var head = box.querySelector("b");
     if (head && IA && IA.labelFor) { var lbl = IA.labelFor(c); if (head.textContent !== lbl) head.textContent = lbl; }
-    /* 0.3.102 (4:51 PM): the card carries the iron's weapon class (public from the Pact pick) */
+    /* 0.3.103 (4:51 PM): the card carries the iron's weapon class (public from the Pact pick) */
     var klass = IA && IA.classFor ? IA.classFor(c) : "";
     if ((box.getAttribute("data-iron-class") || "") !== klass) { if (klass) box.setAttribute("data-iron-class", klass); else box.removeAttribute("data-iron-class"); }
     var src = !box.hidden && IA ? IA.engravingSrc(c) : "", name = src ? IA.nameFor(c) : "";
@@ -1297,7 +1306,7 @@
       box.classList.remove("has-iron");
       var gi = art.querySelector("img");
       if (!gi) { gi = document.createElement("img"); gi.decoding = "async"; art.appendChild(gi); }
-      /* 0.3.102 (4:35 PM): a hidden long iron shows the plain long-gun outline (wide, like an engraving) */
+      /* 0.3.103 (4:35 PM): a hidden long iron shows the plain long-gun outline (wide, like an engraving) */
       var gsrc = (IA.hiddenArt ? IA.hiddenArt(c) : "") || IA.GENERIC_TILE;
       art.classList.toggle("pact-iron-outline", gsrc !== IA.GENERIC_TILE);
       if (gi.getAttribute("src") !== gsrc) { gi.setAttribute("src", gsrc); gi.alt = "Borrowed Iron"; art.title = IA.labelFor(c); }
@@ -1361,6 +1370,135 @@
       if (wrap) wrap.title = box.title;
     });
   }
+  /* ---- UI fixes 1 / U10: compact sheet turn strip ---- */
+  var lastStrip = null;
+  var turnOpen = "";
+  var stripSig = "";
+  function chipInitials(raw) {
+    var letters = String(raw || "").replace(/[^A-Za-z]/g, "");
+    return (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
+  }
+  function condName(c) { return typeof c === "string" ? c : (c && (c.name || c.label)) || ""; }
+  function condIcon(name) {
+    var C = root.SSDNSConditions;
+    return C && C.icon ? C.icon(name) : "\u25CF";
+  }
+  /* what one chip carries: status (enemies), faction, conditions */
+  function chipFacts(row) {
+    var pub = lastTargets[row.id] || {};
+    var faction = row.faction || pub.faction || "";
+    var status = stripStatus(row) || row.status || pub.status || "";
+    if (row.kind === "player") status = "";
+    var conds = (Array.isArray(row.conditions || pub.conditions) ? (row.conditions || pub.conditions) : []).map(condName).filter(Boolean);
+    return { faction: faction, status: status, conds: conds };
+  }
+  function chipKey(row, i) { return String(row.id || ("i" + i)); }
+  function turnGuns(st) {
+    var c = ch();
+    var list = st.mine && c && c.guns ? c.guns : (st.cur.guns || []);
+    return list.map(function (g, i) { return { g: g, i: i }; }).filter(function (x) { return x.g && (x.g.name || x.g.weapon); });
+  }
+  function gunLabel(g) {
+    if (g.name) return g.name;
+    var R = rules(), id = g.weapon;
+    var w = [].concat(R.firearms || [], R.casterGuns || [], R.otherRanged || []).filter(function (x) { return x && x.id === id; })[0];
+    return (w && w.name) || id;
+  }
+  function paintTurnStrip() {
+    var st = lastStrip, names = $("#turnNames"), detail = $("#turnDetail");
+    if (!st || !names) return;
+    var order = st.order, turn = st.turn;
+    var openRow = null;
+    names.innerHTML = order.map(function (row, i) {
+      if (row.mapHidden) return "";
+      var raw = String(row.name || "Someone");
+      var dist = (i - turn + order.length) % order.length;
+      var friendly = row.kind === "enemy" && (row.side === "friendly" || row.side === "ally");
+      var side = row.kind === "player" ? "side-pc player" : (friendly ? "side-ally" : "side-enemy enemy");
+      var state = i === turn ? " current" : (dist > 0 && dist <= 2 ? " ondeck" : " later");
+      var f = chipFacts(row);
+      var key = chipKey(row, i);
+      var open = turnOpen === key;
+      if (open) openRow = { row: row, i: i, f: f };
+      var icons = "";
+      if (f.status) icons += "<span class='tc-status status-" + escHtml(String(f.status).toLowerCase().replace(/[^a-z0-9]+/g, "-")) + "' title='" + escHtml(f.status) + "'></span>";
+      f.conds.slice(0, 2).forEach(function (n) { icons += "<span class='tc-cond' title='" + escHtml(n) + "'>" + escHtml(condIcon(n)) + "</span>"; });
+      if (f.conds.length > 2) icons += "<span class='tc-more' title='" + escHtml(f.conds.slice(2).join(", ")) + "'>+" + (f.conds.length - 2) + "</span>";
+      var gun = "";
+      if (i === turn) {
+        gun = turnGuns(st).map(function (x) {
+          var dots = (x.g.chambers || []).map(function (c0) { return "<i class='tc-dot" + (c0 ? " full" : "") + "'></i>"; }).join("");
+          return dots ? "<span class='tc-gun' title='" + escHtml(gunLabel(x.g)) + "'>" + dots + "</span>" : "";
+        }).join("");
+      }
+      var said = [raw].concat(f.status ? [f.status] : [], f.conds, f.faction ? [f.faction] : []).join(" · ");
+      var has = !!(f.status || f.conds.length || f.faction || gun);
+      return "<span class='turn-chip " + side + state + (open ? " open" : "") + "' role='listitem' data-turn-chip='" + escHtml(key) + "'" +
+        (has ? " tabindex='0' aria-expanded='" + (open ? "true" : "false") + "'" : "") + " title='" + escHtml(said) + "'>" +
+        "<span class='chip-face' aria-hidden='true'>" + escHtml(chipInitials(raw)) + "</span><span class='chip-name'>" + escHtml(raw) + "</span>" +
+        (icons ? "<span class='tc-icons' aria-hidden='true'>" + icons + "</span>" : "") + gun +
+        "<span class='tc-sr'>" + escHtml(said.slice(raw.length)) + "</span></span>";
+    }).join("");
+    if (detail) {
+      if (!openRow) { detail.innerHTML = ""; }
+      else {
+        var r = openRow.row, f = openRow.f, cur = openRow.i === turn, bits = [];
+        if (f.status) bits.push("<span class='chip status status-" + escHtml(String(f.status).toLowerCase().replace(/[^a-z0-9]+/g, "-")) + "'>" + escHtml(f.status) + "</span>");
+        f.conds.forEach(function (n) { bits.push("<span class='chip cond'><span class='cond-sym' aria-hidden='true'>" + escHtml(condIcon(n)) + "</span>" + escHtml(n) + "</span>"); });
+        if (f.faction) bits.push("<span class='chip faction'>" + escHtml(f.faction) + "</span>");
+        var guns = cur ? turnGuns(st).map(function (x) {
+          var dots = (x.g.chambers || []).map(function (c0, k) {
+            if (st.mine) return "<button type='button' class='chamber-dot" + (c0 ? " full" : "") + "' data-gunroll='" + x.i + "' data-k='" + k + "' aria-label='Chamber " + (k + 1) + "'></button>";
+            return "<span class='chamber-dot" + (c0 ? " full" : "") + "'></span>";
+          }).join("");
+          return "<div class='cylinder-row'><span>" + escHtml(gunLabel(x.g)) + "</span> " + dots + "</div>";
+        }).join("") : "";
+        detail.innerHTML = "<div class='turn-fold'><b>" + escHtml(r.name || "Someone") + "</b>" + (bits.length ? "<span class='status-chips'>" + bits.join("") + "</span>" : "") +
+          "<button type='button' class='turn-fold-x' data-turn-fold-close aria-label='Close'>\u00d7</button>" + guns + "</div>";
+      }
+    }
+    var sig = String(st.round) + ":" + String(turn) + ":" + order.length;
+    var follow = sig !== stripSig;
+    stripSig = sig;
+    var fit = function () {
+      var curEl = names.querySelector(".turn-chip.current");
+      /* a new turn brings the current chip into view, with the one before it still showing */
+      var lead = curEl && curEl.previousElementSibling && curEl.previousElementSibling.classList.contains("turn-chip") ? curEl.previousElementSibling : curEl;
+      if (follow && lead) names.scrollLeft = Math.max(0, lead.offsetLeft - names.offsetLeft - 4);
+      var over = names.scrollWidth > names.clientWidth + 2;
+      var panel = $("#turnPanel");
+      if (panel) panel.querySelectorAll("[data-turn-scroll]").forEach(function (b) { b.hidden = !over; });
+    };
+    if (root.requestAnimationFrame) root.requestAnimationFrame(fit); else fit();
+  }
+  function wireTurnStrip(panel) {
+    if (!panel || panel._turnWired) return;
+    panel._turnWired = true;
+    panel.addEventListener("click", function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var sc = t.closest("[data-turn-scroll]");
+      if (sc) {
+        var strip = $("#turnNames");
+        if (strip) { var by = Math.round(strip.clientWidth * 0.6) * Number(sc.getAttribute("data-turn-scroll")); if (strip.scrollBy) strip.scrollBy({ left: by, behavior: "smooth" }); else strip.scrollLeft += by; }
+        return;
+      }
+      if (t.closest("[data-turn-fold-close]")) { turnOpen = ""; paintTurnStrip(); return; }
+      if (t.closest("[data-gunroll]")) return;
+      var chip = t.closest("[data-turn-chip]");
+      if (!chip || !chip.hasAttribute("aria-expanded")) return;
+      var key = chip.getAttribute("data-turn-chip");
+      turnOpen = turnOpen === key ? "" : key;
+      paintTurnStrip();
+    });
+    panel.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      var chip = e.target && e.target.closest && e.target.closest("[data-turn-chip][aria-expanded]");
+      if (!chip) return;
+      e.preventDefault();
+      chip.click();
+    });
+  }
   root.SSDNSPlaytest = {
     renderMelee: renderMelee, /* 0.3.86: a melee / thrown weapon that lands from an item (Give, reward, Add Item) repaints its card */
     rollMelee: rollMelee,
@@ -1407,6 +1545,9 @@
         if (roundEl) roundEl.textContent = "";
         if (whoEl) whoEl.textContent = "";
         if (names) names.textContent = "";
+        var detail0 = $("#turnDetail");
+        if (detail0) detail0.innerHTML = "";
+        lastStrip = null; turnOpen = ""; stripSig = "";
         shownTurn = "";
         sawOrder = false;
         hideYourTurn();
@@ -1429,46 +1570,8 @@
       if (endBtn) { endBtn.hidden = !endTurnAt; endBtn.disabled = false; }
       if (roundEl) roundEl.textContent = "Round " + round;
       if (whoEl) whoEl.textContent = cur.mapHidden ? "Hidden" : ((cur.name || "Someone") + " · " + (cur.kind === "enemy" ? (stripStatus(cur) || "") : (cur.kind === "player" ? "player" : "")));
-      if (names) {
-        names.innerHTML = order.map(function (row, i) {
-          if (row.mapHidden) return "";
-          var raw = String(row.name || "Someone");
-          var letters = raw.replace(/[^A-Za-z]/g, "");
-          var initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
-          var dist = (i - turn + order.length) % order.length;
-          var friendly = row.kind === "enemy" && (row.side === "friendly" || row.side === "ally");
-          var side = row.kind === "player" ? "side-pc player" : (friendly ? "side-ally" : "side-enemy enemy");
-          var state = i === turn ? " current" : (dist > 0 && dist <= 2 ? " ondeck" : " later");
-          var pub = lastTargets[row.id] || {};
-          var faction = row.faction || pub.faction || "";
-          var status = stripStatus(row) || row.status || pub.status || "";
-          var conds = row.conditions || pub.conditions || [];
-          var chips = [];
-          if (faction) chips.push("<span class='chip faction'>" + escHtml(faction) + "</span>");
-          if (status && row.kind !== "player") chips.push("<span class='chip status status-" + escHtml(String(status).toLowerCase()) + "'>" + escHtml(status) + "</span>");
-          (Array.isArray(conds) ? conds : []).forEach(function (c) {
-            var name = typeof c === "string" ? c : (c && c.name) || "";
-            if (name) chips.push("<span class='chip cond'>" + escHtml(name) + "</span>");
-          });
-          var chipHtml = chips.length ? "<span class='status-chips'>" + chips.join("") + "</span>" : "";
-          return "<span class='turn-chip " + side + state + "' title='" + escHtml(raw) + "'><span class='chip-face'>" + escHtml(initials) + "</span><span class='chip-name'>" + escHtml(raw) + "</span>" + chipHtml + "</span>";
-        }).join("");
-      }
-      var detail = $("#turnDetail");
-      if (detail) {
-        var guns = cur.guns || [];
-        var mineGuns = mine && ch() && ch().guns;
-        detail.innerHTML = "<p class='fine'>" + (cur.name || "") + (mine ? " — your turn" : "") + "</p>" + (mineGuns || guns).map(function (g, i) {
-          if (!g || !(g.name || g.weapon)) return "";
-          var chambers = g.chambers || [];
-          var dots = chambers.map(function (st, k) {
-            var full = !!st;
-            if (mine) return "<button type='button' class='chamber-dot" + (full ? " full" : "") + "' data-gunroll='" + i + "' data-k='" + k + "' aria-label='Chamber " + (k + 1) + "'></button>";
-            return "<span class='chamber-dot" + (full ? " full" : "") + "'></span>";
-          }).join("");
-          return "<div class='cylinder-row'><span>" + (g.name || g.weapon) + "</span> " + dots + "</div>";
-        }).join("");
-      }
+      lastStrip = { order: order, turn: turn, mine: !!mine, cur: cur, round: round };
+      paintTurnStrip();
       panel.classList.toggle("your-turn", !!mine);
       var sig = "turn:" + String(round) + ":" + String(cur.id || turn);
       /* L0197: the Borrowed Iron returns at the start of its owner's next turn */
@@ -1523,7 +1626,7 @@
       rows.sort(function (a, b) { return rank(a) - rank(b); });
       /* 0.3.67: 'Free shot' is always the first entry: the gun fires with no target, no attack roll vs AC. */
       var html = "<option value='__free'>Free shot</option><option value=''>No target</option>";
-      /* fog-aware targeting (0.3.102): on the map's scene with fog on, only what this player can see; past the
+      /* fog-aware targeting (0.3.103): on the map's scene with fog on, only what this player can see; past the
          picked weapon's long range stays listed but can't be picked. The map answers null when it can't tell. */
       var mapHost = root.SSDNSMapHost && typeof root.SSDNSMapHost.targetSight === "function" ? root.SSDNSMapHost : null;
       var sightOf = function (id) { try { return mapHost ? mapHost.targetSight(String(id)) : null; } catch (e) { return null; } };
