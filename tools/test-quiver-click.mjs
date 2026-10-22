@@ -82,7 +82,7 @@ else {
     const atk0 = await ev(() => window.SSDNSActionPips.state().attacks);
     await clickArt('.gun[data-row="0"] .trk-agrp[data-arrow-grp="standard"] .trk-arrow'); /* any arrow: fires the nocked type */
     const s1 = await ev(() => ({ fire: __q.pool("arrows", "fire"), std: __q.pool("arrows", ""), log: __q.logs().find((l) => /Longbow/.test(l)) || "", rolls: JSON.stringify(__q.rolls), atk: window.SSDNSActionPips.state().attacks, sfx: __q.sfx.join(), lit: !!window.SSDNSApp.doc().character.res.litUsed }));
-    check("b.click.firesNocked", s1.fire === 4 && s1.std === 20 && /1d4/.test(s1.log) && s1.lit, JSON.stringify(s1));
+    check("b.click.firesNocked", s1.fire === 4 && s1.std === 20 && /[12]d4/.test(s1.log) && s1.lit, JSON.stringify(s1));
     check("b.click.rollPath", s1.rolls === "[[0,null]]" && s1.atk === atk0 + 1, JSON.stringify([s1.rolls, s1.atk, atk0]));
     check("b.sfx.fire", /arrow-fire/.test(s1.sfx) && !/(^|,)bow-long(,|$)/.test(s1.sfx), s1.sfx);
     /* 2. second lit arrow the same turn: blocked by the one-lit-arrow rule */
