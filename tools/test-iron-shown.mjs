@@ -1,5 +1,5 @@
 /**
- * 0.3.101 (Jessey 2026-10-21 5:47 / 5:50 PM CT): "Can't you just show the actual gun here? We don't have to hide it."
+ * 0.3.102 (Jessey 2026-10-21 5:47 / 5:50 PM CT): "Can't you just show the actual gun here? We don't have to hide it."
  * Sheet-only choice: from the Pact pick on, the player's sheet shows the real Borrowed Iron (name, tile, engraving)
  * everywhere, with no DM reveal (this intentionally differs from BOOK1 L2060). No Pact yet: the plain Borrowed Iron.
  * The DMCC player card has no Reveal toggle; character.ironRevealed stays on old saves and is ignored.

@@ -209,9 +209,42 @@
     return slug;
   }
 
+  /* 0.3.102 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT, Art Bot): a 256x256 colour square tile for every player
+     weapon, at assets/img/items/weapons/<slug>.webp. Item slots only: paper-doll weapon slots, item rows, list squares.
+     The Weapons tab, gun cards and the Equipment list's Weapons rows keep the 1200x400 b/w engraving (srcFor).
+     Blacksnake / Hognose keep their own tiles (items/caster/, iron-art.js WEAPON_TILE). The test gun has none.
+     The Peace Maker's tile is DM-only (assets/img/dm-only/items/the-peace-maker.webp) and is never returned on a player
+     page, the same as its engraving. */
+  var NO_TILE = { "test-jammer": 1, blacksnake: 1, hognose: 1 };
+  /* catalog ids that share another weapon's tile (the audit: bundles reuse the standard-fuse art) */
+  var TILE_ALIAS = { "dynamite-bundle-2": "dynamite-stick-standard-fuse", "dynamite-bundle-3": "dynamite-stick-standard-fuse", "dynamite-bundle-4": "dynamite-stick-standard-fuse" };
+  function tileSlug(weapon) {
+    var id = typeof weapon === "string" ? weapon : String((weapon && (weapon.weaponId || weapon.catalogId || weapon.id)) || "");
+    if (TILE_ALIAS[id]) return TILE_ALIAS[id];
+    var slug = slugFor(typeof weapon === "string" ? weapon : { id: id, name: weapon && weapon.name });
+    if (!slug && weapon && typeof weapon === "object" && weapon.id && weapon.id !== id) slug = slugFor(weapon);
+    return slug && !NO_TILE[slug] && (bySlug[slug] || slug === "the-peace-maker") ? slug : "";
+  }
+  function onDmPage() { return pagePrefix() === "../"; }
+  function tileFor(weapon, opts) {
+    var slug = tileSlug(weapon);
+    if (!slug) return "";
+    if (slug === "the-peace-maker") return (opts && opts.dm) || onDmPage() ? pagePrefix() + "assets/img/dm-only/items/the-peace-maker.webp" : "";
+    return pagePrefix() + "assets/img/items/weapons/" + slug + ".webp";
+  }
+  /* "assets/img/weapons/<slug>.webp" (an engraving path on an item row, e.g. an explosive's catalog art) -> its tile, or "" */
+  function tileForEngraving(src) {
+    var m = /(?:^|\/)assets\/img\/weapons\/([a-z0-9-]+)\.webp(?:[?#].*)?$/.exec(String(src || ""));
+    return m && bySlug[m[1]] && !NO_TILE[m[1]] ? pagePrefix() + "assets/img/items/weapons/" + m[1] + ".webp" : "";
+  }
+
   root.SSDNSWeaponArt = {
     slugFor: slugFor,
     srcFor: srcFor,
+    tileFor: tileFor,
+    tileSlug: tileSlug,
+    tileForEngraving: tileForEngraving,
+    tileSlugs: function () { return NAMES.map(function (row) { return row[1]; }).filter(function (s, i, a) { return !NO_TILE[s] && a.indexOf(s) === i; }); },
     paint: paint,
     slugs: function () { return NAMES.map(function (row) { return row[1]; }); }
   };

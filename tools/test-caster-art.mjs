@@ -1,5 +1,5 @@
 /**
- * 0.3.101 (Jessey approved Art Bot's caster art 2026-10-20 11:10 PM CT):
+ * 0.3.102 (Jessey approved Art Bot's caster art 2026-10-20 11:10 PM CT):
  *  - Blacksnake / Hognose restyled: 1200x400 engravings (Weapons rows, gun cards) + 256 tiles (doll slots, item rows).
  *  - Patron Focus tiles (assets/img/items/patron/<pact slug>.webp) replace #116's fallback.
  *  - Relic Caster Guns (L0199 / L0202): art only, under assets/img/dm-only/, mapped by slug in item-art.js. No catalog,
@@ -82,7 +82,7 @@ const pact = (sub) => { const c = K.apply(K.blankCharacter(), "pact-seeker", {})
   const f = D.focusState(pact(s.id));
   check("patron." + s.id, f.kind === "patron" && exists(f.art), J(f && f.art));
 });
-check("rules.untouched", !/viper|twin-puff/.test(read("database.rules.json")) && !read("assets/data/rules.js").includes("0.3.101"));
+check("rules.untouched", !/viper|twin-puff/.test(read("database.rules.json")) && !read("assets/data/rules.js").includes("0.3.102"));
 
 /* ---------- browser part ---------- */
 const ORIGIN = process.env.SSDNS_ORIGIN || "http://127.0.0.1:8765";

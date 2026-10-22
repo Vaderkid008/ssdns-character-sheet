@@ -1,5 +1,5 @@
 /**
- * PR81 (0.3.101): a shot the DM sends while acting for a player never prompts on the player's sheet,
+ * PR81 (0.3.102): a shot the DM sends while acting for a player never prompts on the player's sheet,
  * and uses the DM's Adv/Dis pick. A shot the player takes still asks as before.
  * Needs the static server on 127.0.0.1:8765 and Chrome (ssdns-test-all starts the server).
  *   node tools/test-pr81-dm-acting.mjs
