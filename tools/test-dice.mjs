@@ -23,8 +23,8 @@ function load(rel, name) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.118" && version.sheetBuild === "sheet-playtest-v03118");
-check("ver.dmcc", version.dmcc === "0.2.131" && version.dmccBuild === "dmcc-playtest-v02131");
+check("ver.sheet", version.sheet === "0.3.120" && version.sheetBuild === "sheet-playtest-v03120");
+check("ver.dmcc", version.dmcc === "0.2.133" && version.dmccBuild === "dmcc-playtest-v02133");
 
 [4, 6, 8, 10, 12, 20, 50, 100].forEach((n) => {
   check("file.d" + n, fs.existsSync(path.join(root, "assets/img/dice", "d" + n + ".webp")));

@@ -1064,6 +1064,22 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
 /* 0.2.77: idle strip for the DM, and End combat pushed to the far end */
 .ssm-turnstrip .ssm-strip-idle { color: #b9a888; font-size: 13px; padding: 0 6px; flex: 0 0 auto; }
 .ssm-turnstrip .btn-roll-init { flex: 0 0 auto; min-height: 40px; }
+.ssm-turnstrip .ssm-move-readout { flex: none; color: #e8dcc8; font-size: 12px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+.ssm-turnpop {
+  position: absolute; left: 50%; top: 16%; transform: translateX(-50%);
+  z-index: 30; pointer-events: none; opacity: 0;
+  background: #b42318; color: #fff; font-weight: 800; letter-spacing: .12em;
+  text-transform: uppercase; padding: 12px 18px; border: 2px solid #ffd0c8; border-radius: 6px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.45); font-family: "Oswald", "Arial Narrow", sans-serif;
+}
+.ssm-turnpop.is-on { animation: ssm-turnpop 1.8s ease forwards; }
+@keyframes ssm-turnpop {
+  0% { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.ssdns-map.ssm-oa-flash { box-shadow: inset 0 0 0 4px rgba(180, 40, 40, .9); }
 .ssm-turnstrip .ssm-strip-gap { flex: 0 0 12px; min-width: 12px; }
 /* Many combatants: chips scroll in their own lane. Markers, Next, Undo last Next and End combat are siblings
    after the lane, so they stay pinned on the right. Past about 6, chips shrink to initials + a short name. */

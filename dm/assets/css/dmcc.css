@@ -1127,7 +1127,7 @@ select:-webkit-autofill {
 .ssm-markers .pip-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
 @media (max-width: 600px) { .turn-rules .tr-name { min-width: 0; flex: 1 0 100%; } }
 
-/* 0.2.131: Table turn strip matches the player strip (teal frame, pill chips, oval markers, heavy type).
+/* 0.2.133: Table turn strip matches the player strip (teal frame, pill chips, oval markers, heavy type).
    Fight-tab cards and the other pages keep their own layout. */
 #turnStrip.turn-strip {
   display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;

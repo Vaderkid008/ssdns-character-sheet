@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>SSDNS Map — M2 v4 demo</title>
-<link rel="stylesheet" href="ssdns-map.css?v=0.3.118-maps">
-<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.118-rounds">
+<link rel="stylesheet" href="ssdns-map.css?v=0.3.120-maps">
+<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.120-rounds">
 <style>
   html, body { margin: 0; height: 100%; background: #1a1612; color: #e8dcc8; font-family: system-ui, sans-serif; }
   .ssdns-map { position: relative; width: 100vw; height: 100vh; overflow: hidden; touch-action: none; background: #1a1612; }
@@ -28,12 +28,14 @@
 </head>
 <body>
 <div id="mount" class="ssdns-map hidden"></div>
-<script src="../assets/js/range-rings.js?v=0.3.118-adv"></script>
-<script src="../assets/js/ammo-display.js?v=0.3.118-rounds"></script>
+<script src="../assets/js/range-rings.js?v=0.3.120-adv"></script>
+<script src="../assets/js/ammo-display.js?v=0.3.120-rounds"></script>
 <script src="ssdns-map-chat.js?v=0.3.31-float"></script>
-<script src="token-size.js?v=0.3.118-size"></script>
-<script src="ssdns-map-fx.js?v=0.3.118-fx"></script>
-<script src="ssdns-map.js?v=0.3.118-maps"></script>
+<script src="token-size.js?v=0.3.120-size"></script>
+<script src="ssdns-map-fx.js?v=0.3.120-fx"></script>
+<script src="../assets/js/turn-rules.js?v=0.3.120-turn2"></script>
+<script src="ssdns-map-move.js?v=0.3.120-move"></script>
+<script src="ssdns-map.js?v=0.3.120-maps"></script>
 <script>
 // demo.html is the only file allowed to read the URL, localStorage, and BroadcastChannel.
 const params = new URLSearchParams(location.search);
@@ -199,10 +201,29 @@ const host = {
   if (role === 'dm') {
     options.tokens = await fetch('tokens.json').then(r => r.json());
     window.__cards = await fetch('cards.json').then(r => r.json()).catch(() => ({}));
-    options.room = { table: { initiative: { round: 1, turn: 0, started: true, order: [
-      { id: 'p_jolene', name: 'Jolene', kind: 'player' },
-      { id: 'en_bandit1', name: 'Bandit', kind: 'enemy' }
-    ] } } };
+  }
+  if (role === 'dm' || params.get('fight') === '1') {
+    const enemyTurn = params.get('turn') === 'enemy';
+    const init = { round: 1, turn: enemyTurn ? 1 : 0, started: true, seq: 1, order: [
+      { id: 'p_jolene', playerId: 'p_jolene', name: 'Jolene', kind: 'player', speed: 30 },
+      { id: 'en_bandit2', name: 'Bandit', kind: 'enemy', speed: 30 }
+    ] };
+    if (params.get('dash') === '1') {
+      init.markers = { p_jolene: { dash: true, action: true, actionBy: 'dash', moveUsed: 0, turnKey: 's1' }, en_bandit2: { dash: true, action: true, actionBy: 'dash', moveUsed: 0, turnKey: 's1' } };
+    }
+    options.room = { table: { initiative: init } };
+  }
+  if (role === 'player' && params.get('fight') === '1') {
+    const pack = await fetch('tokens.json').then(r => r.json());
+    const pub = {};
+    Object.keys(pack.tokens || {}).forEach((id) => {
+      const t = pack.tokens[id];
+      if (!t || t.hidden) return;
+      const copy = Object.assign({}, t);
+      delete copy.hp; delete copy.maxHp; delete copy.ac; delete copy.notes;
+      pub['map/public/tokens/' + id] = { value: copy, seq: 1, by: 'demo' };
+    });
+    try { localStorage.setItem('ssdns.map.pub.' + room, JSON.stringify(pub)); } catch (e) {}
   }
   const el = document.getElementById('mount');
   window.map = SSDNSMap.create({

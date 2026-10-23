@@ -470,17 +470,7 @@ async function testMaps(w) {
   pointer(w, plCanvas, "pointerup", 820, 1000);
   check("map.player.R7cannotMoveOther", writesSince(plAd.log, otherMark).length === 0, writesSince(plAd.log, otherMark).map((e) => e.path).join(","));
 
-  act(pl.el, "playerGhostBtn").click();
-  const ghostMark = plAd.log.length;
-  pointer(w, plCanvas, "pointerdown", 400, 370);
-  pointer(w, plCanvas, "pointermove", 470, 370);
-  pointer(w, plCanvas, "pointerup", 470, 370);
-  const ghostDuring = writesSince(plAd.log, ghostMark);
-  check("map.player.R10ghostSilent", ghostDuring.length === 0 && act(pl.el, "playerGhostBtn").textContent.indexOf("ON") >= 0, "writes " + ghostDuring.length + " btn " + act(pl.el, "playerGhostBtn").textContent);
-  act(pl.el, "playerGhostBtn").click();
-  await flush(40);
-  const ghostCommit = writesSince(plAd.log, ghostMark);
-  check("map.player.R10commit", ghostCommit.some((e) => e.path === "map/public/events/slide"), ghostCommit.map((e) => e.path).join(", "));
+  check("map.player.R10ghostRetired", !act(pl.el, "playerGhostBtn") && !act(pl.el, "playerCancelBtn") && pl.el.textContent.indexOf("Ghost Plan") < 0, pl.el.textContent.slice(0, 180));
 
   const colorMark = plAd.log.length;
   const colorSel = act(pl.el, "playerColorBtn");

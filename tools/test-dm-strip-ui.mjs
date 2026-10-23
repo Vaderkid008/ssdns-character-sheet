@@ -1,5 +1,5 @@
 /**
- * DM strip matches the player strip look (sheet 0.3.118 / DMCC 0.2.131).
+ * DM strip matches the player strip look (sheet 0.3.120 / DMCC 0.2.133).
  * Round, whose-turn pill, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge.
  * The Table strip still has no Next button. rules.js and database.rules.json stay out of this.
  *   node tools/test-dm-strip-ui.mjs
@@ -33,7 +33,7 @@ check("pips.colors", dm.includes(".pip-action:not(.used)") && dm.includes("#6fbf
 check("src.noTableNext", !/strip\.innerHTML = [^;]*Next/.test(v2) && v2.includes("data-dm-scroll") && v2.includes("stripActsHtml"));
 check("src.mapRound", mapJs.includes("roundEl.className = 'turn-round'") && mapJs.includes("textContent = 'Next'"));
 check("src.playerDock", mapCss.includes(".ssdns-map.has-sheet-turn > .ssm-turnstrip { display: none !important; }"));
-check("src.rulesUntouched", !rules.includes("dm-strip") && !rulesJs.includes("0.3.118") && !rulesJs.includes("stripActsHtml"));
+check("src.rulesUntouched", !rules.includes("dm-strip") && !rulesJs.includes("0.3.120") && !rulesJs.includes("stripActsHtml"));
 check("src.namesUncut", /min-width: 701px\) \{\s*\n\s*\.ssm-turnhost #turnPanel \.turn-chip \.chip-name \{ max-width: none/.test(sheet));
 
 const bag = {};
@@ -109,7 +109,7 @@ check("render.enemyOpen", html.includes('data-open-enemy="ban"'));
 api.setFight(true, 1, 7);
 api.renderFight();
 const enemy = bag.turnStrip.innerHTML;
-check("render.enemyTurn", enemy.includes("Bandit") && enemy.includes('data-dm-pip="action"') && !/Move \d+\/\d+ ft/.test(enemy));
+check("render.enemyTurn", enemy.includes("Bandit") && enemy.includes('data-dm-pip="action"') && /Move 30\/30 ft/.test(enemy) && enemy.includes('data-dm-act="dash"'));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
