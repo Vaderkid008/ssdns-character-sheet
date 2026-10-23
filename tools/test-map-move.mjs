@@ -84,6 +84,11 @@ const hostSrc = fs.readFileSync(path.join(root, "map/ssdns-map-host.js"), "utf8"
 check("sheet.spendFallsThrough", hostSrc.indexOf('return E.spendMove(token, feet) === true') >= 0 && hostSrc.indexOf("return false") >= 0);
 const dmSrc = fs.readFileSync(path.join(root, "dm/assets/js/v2.js"), "utf8");
 check("dm.enemyMapStrip", dmSrc.indexOf("Enemy turn on the DM map") >= 0 && dmSrc.indexOf("function spendMoveForToken") >= 0 && dmSrc.indexOf("return true;") >= 0);
+const paintReach = mapSrc.slice(mapSrc.indexOf("function paintMoveReach"), mapSrc.indexOf("function paintMoveHover"));
+const clickMove = mapSrc.slice(mapSrc.indexOf("function tryClickMove"), mapSrc.indexOf("function paintMoveReach"));
+check("reach.toggle", mapSrc.includes('data-act="showMoveReach"') && mapSrc.includes("Show move reach") && mapSrc.includes("showMoveReach: true"));
+check("reach.hidesFill", paintReach.includes("showMoveReach === false"));
+check("reach.rulesStay", clickMove.indexOf("showMoveReach") < 0);
 check("rules.untouched", !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("ssdns-map-move"));
 
 if (failures.length) {

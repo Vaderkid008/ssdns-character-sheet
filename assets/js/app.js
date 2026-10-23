@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.119"; // sheet-playtest-v03119
+  var APP_VERSION = "0.3.120"; // sheet-playtest-v03120
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;

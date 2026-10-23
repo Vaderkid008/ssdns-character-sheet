@@ -339,6 +339,8 @@ const state = {
   minStrength: 1.0,
   currentTurnId: null,
   showRange: false,
+  /* Green movement wash. On by default in a fight. The checkbox only hides the fill; Move feet still limit the walk. */
+  showMoveReach: true,
   rangeWeaponId: "",
   rangeChoices: [],
   rangeMoved: {},
@@ -810,6 +812,7 @@ if (role === 'dm') {
     <div class="panel-title">Selected</div>
     <div data-act="targetList" class="panel-list">None</div>
     <label class="ssm-range"><input type="checkbox" data-act="showRange"> Show range</label>
+    <label class="ssm-range"><input type="checkbox" data-act="showMoveReach" checked> Show move reach</label>
     <select data-act="rangeWeapon" aria-label="Token weapon" hidden></select>
     <input data-act="dmLabel" placeholder="Label" style="width:100%;background:#3a3228;color:#e8dcc8;border:1px solid #5a4e40;border-radius:4px;padding:4px;">
     <div class="panel-title">Actions</div>
@@ -858,6 +861,7 @@ if (role === 'dm') {
         <div class="ssm-lights" data-act="playerLights">No light in hand</div>
       </div>
       <label class="ssm-range"><input type="checkbox" data-act="showRange"> Show my range</label>
+      <label class="ssm-range"><input type="checkbox" data-act="showMoveReach" checked> Show move reach</label>
       <select data-act="rangeWeapon" aria-label="Equipped weapon" hidden></select>
       <div class="ssm-stat" data-act="playerStats"></div>
       <div data-act="actionSlot"></div>
@@ -1764,6 +1768,24 @@ function onRangeToggle(on) {
   const choices = state.rangeChoices || [];
   if (state.showRange && !choices.length) toast(role === 'player' ? 'No equipped weapon' : 'No equipped weapon on this token');
   requestDraw();
+}
+function paintMoveReachToggle() {
+  const on = state.showMoveReach !== false;
+  [q('showMoveReach'), q('drawerMoveReach')].forEach(box => {
+    if (box && box.checked !== on) box.checked = on;
+  });
+}
+function onMoveReachToggle(on) {
+  state.showMoveReach = !!on;
+  paintMoveReachToggle();
+  requestDraw();
+}
+function bindMoveReachUi() {
+  const box = q('showMoveReach');
+  if (!box || box.dataset.bound) return;
+  box.dataset.bound = '1';
+  box.checked = state.showMoveReach !== false;
+  box.addEventListener('change', () => onMoveReachToggle(box.checked));
 }
 function bindRangeUi() {
   const box = q('showRange');
@@ -3668,6 +3690,8 @@ function tryClickMove(cell) {
 function paintMoveReach() {
   const hover = state.moveHover;
   const mover = activeMover();
+  /* Show move reach is visual only. Off hides the green fill. The walk still stops at the feet you have left. */
+  if (state.showMoveReach === false) return;
   if (!mover || !fightOn()) return;
   const budget = budgetFor(mover);
   if (budget.free || budget.left <= 0) return;
@@ -4894,7 +4918,7 @@ q('helpBtn').addEventListener('click', () => {
   box.style.cssText = 'position:absolute;top:48px;right:16px;width:320px;max-height:70vh;overflow:auto;background:#1c1814;color:#e8dcc8;border:1px solid #5a4e40;border-radius:8px;padding:12px;z-index:20;font:13px system-ui;';
   const dm = role === 'dm';
   box.innerHTML = `<b>How to use the map</b><br><br>
-<b>Move</b> Click a square. In a fight the green squares are the feet you have left (every square is 5 ft, diagonals too). Hover shows the path and the cost. Esc or right-click clears the preview. Outside a fight, click-to-move has no green cage. Drag still slides a token when you are not spending combat movement. Walls block the path. You can walk through an ally, and you cannot stop on an occupied square.<br>
+<b>Move</b> Click a square. In a fight the green squares are the feet you have left (every square is 5 ft, diagonals too). Show move reach hides that green fill. The path, the cost, and the foot limit stay. Hover shows the path and the cost. Esc or right-click clears the preview. Outside a fight, click-to-move has no green cage. Drag still slides a token when you are not spending combat movement. Walls block the path. You can walk through an ally, and you cannot stop on an occupied square.<br>
 <b>Middle mouse</b> Pans the map. It does not zoom.<br>
 <b>X</b> Show the last path for the selected token.<br>
 <b>Ping</b> Click the map. Color matches your token.<br>
@@ -5365,6 +5389,7 @@ if (role === 'dm') {
   });
   renderActions();
   bindRangeUi();
+  bindMoveReachUi();
 } else {
   fillColorSelect(q('playerColorBtn'));
   (function placePlayerCard() {
@@ -5486,6 +5511,7 @@ if (role === 'dm') {
   });
   renderActions();
   bindRangeUi();
+  bindMoveReachUi();
 }
 
 // --- scene images ---
@@ -7030,6 +7056,7 @@ async function loadSceneImage(sceneId, opts) {
       actToggle +
       coverRow +
       '<label class="ssm-act ssm-range"><input type="checkbox" data-act="drawerRange"' + (state.showRange ? ' checked' : '') + '> Show range</label>' +
+      '<label class="ssm-act ssm-range"><input type="checkbox" data-act="drawerMoveReach"' + (state.showMoveReach !== false ? ' checked' : '') + '> Show move reach</label>' +
       '<label class="ssm-act">Range: <select data-act="rangeOverride" aria-label="Range: Auto">' +
         '<option value="auto"' + (rangeOverrideNow() === 'auto' ? ' selected' : '') + '>Auto</option>' +
         '<option value="ignore"' + (rangeOverrideNow() === 'ignore' ? ' selected' : '') + '>Ignore range</option>' +
@@ -7192,6 +7219,8 @@ async function loadSceneImage(sceneId, opts) {
     if (coverLock) coverLock.addEventListener('change', emitCover);
     const rangeBox = d.querySelector('[data-act="drawerRange"]');
     if (rangeBox) rangeBox.addEventListener('change', () => onRangeToggle(rangeBox.checked));
+    const moveReachBox = d.querySelector('[data-act="drawerMoveReach"]');
+    if (moveReachBox) moveReachBox.addEventListener('change', () => onMoveReachToggle(moveReachBox.checked));
     const rangeSel = d.querySelector('[data-act="drawerRangeWeapon"]');
     if (rangeSel) rangeSel.addEventListener('change', () => {
       state.rangeWeaponId = rangeSel.value;
