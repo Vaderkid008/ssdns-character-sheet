@@ -125,7 +125,14 @@ window.SSDNSMap = { create(opts) {
       veil: !!t.veil,
       ownerUid: t.ownerUid || '', controlledBy: t.controlledBy || [],
       ownerCanMove: t.ownerCanMove !== false, locked: !!t.locked,
-      label: t.label || t.name || '', size: t.size || 1, name: t.name || ''
+      label: t.label || t.name || '', size: t.size || 1, name: t.name || '',
+      kind: t.kind || '', lootBoxId: t.lootBoxId || '',
+      lootLock: t.kind === 'chest' && t.loot ? {
+        name: t.loot.name || '', boxType: t.loot.boxType || '',
+        lock: t.loot.lock || null, barrier: t.loot.barrier || null,
+        hidden: !!t.loot.hidden, found: t.loot.found !== false, hideDc: t.loot.hideDc || 0,
+        trap: t.loot.trap || null
+      } : null
     };
   }
   function saveToken(id) {
@@ -290,6 +297,9 @@ function applySharedToTokens() {
       if (s.combatantId) t.combatantId = s.combatantId;
       if (s.kind) t.kind = s.kind;
       if (s.name) t.name = s.name;
+      if (s.lootBoxId) t.lootBoxId = s.lootBoxId;
+      if (s.lootLock && (!t.loot || !t.loot.id)) t.loot = Object.assign({ id: s.lootBoxId || t.lootBoxId || '' }, s.lootLock);
+      else if (s.loot && s.loot.id && (!t.loot || !t.loot.id)) t.loot = s.loot;
       if (t.image && !t._img) loadTokenImage(t);
     }
   }
@@ -2913,6 +2923,113 @@ function cancelPendingTarget() {
   renderDrawer();
   draw();
 }
+function hideChestMenu() {
+  const menu = el.querySelector('[data-act="chestMenu"]');
+  if (menu) menu.hidden = true;
+}
+function lootStub(token) {
+  if (!token) return null;
+  if (token.loot && token.loot.lock) return token.loot;
+  const lock = token.lootLock;
+  if (!lock) return null;
+  return {
+    id: token.lootBoxId || token.id,
+    name: lock.name || token.name || 'Chest',
+    boxType: lock.boxType || '',
+    lock: lock.lock || { dc: 0, unlocked: true, method: [], jammed: false },
+    barrier: lock.barrier || null,
+    hidden: !!lock.hidden,
+    found: lock.found !== false,
+    hideDc: lock.hideDc || 0,
+    trap: lock.trap || null,
+    log: token.loot && token.loot.log || []
+  };
+}
+function showChestMenu(token) {
+  let menu = el.querySelector('[data-act="chestMenu"]');
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.className = 'ssm-chest-menu';
+    menu.setAttribute('data-act', 'chestMenu');
+    menu.addEventListener('pointerdown', ev => ev.stopPropagation());
+    menu.addEventListener('click', ev => {
+      const act = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-chest');
+      if (!act) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const boxId = menu.getAttribute('data-box') || '';
+      const Give = window.SSDNSLootGive;
+      if (Give && Give.chestAct) {
+        Promise.resolve(Give.chestAct(boxId, act)).then(() => {
+          if (Give.menuHtml) menu.innerHTML = Give.menuHtml(boxId);
+        });
+        return;
+      }
+      const Loot = window.SSDNSLoot;
+      const live = state.tokens.find(t => t && t.lootBoxId === boxId) || token;
+      const box = lootStub(live);
+      if (!Loot || !box || !Loot.playCheck) return;
+      let sheet = {};
+      try { sheet = (window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character) || {}; } catch (e) { sheet = {}; }
+      const res = Loot.playCheck(box, act, sheet);
+      if (live) live.loot = box;
+      if (adapter && adapter.write) adapter.write('map/public/events/loot', {
+        boxId: boxId, action: act, nat: res && res.nat, total: res && res.total,
+        success: !!(res && res.success), seq: Date.now()
+      }, { seq: Date.now(), by: uid });
+      menu.innerHTML = chestMenuHtml(box);
+      if (res && res.notice) toast(res.notice);
+    });
+    el.appendChild(menu);
+  }
+  menu.setAttribute('data-box', token.lootBoxId || (token.loot && token.loot.id) || '');
+  menu.hidden = false;
+  const Give = window.SSDNSLootGive;
+  if (Give && Give.menuHtml && Give.box && Give.box(token.lootBoxId)) menu.innerHTML = Give.menuHtml(token.lootBoxId);
+  else menu.innerHTML = chestMenuHtml(lootStub(token));
+}
+function chestMenuHtml(box) {
+  const Loot = window.SSDNSLoot;
+  if (!Loot || !Loot.menu || !box) return '<p>Chest</p>';
+  let sheet = {};
+  try { sheet = (window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character) || {}; } catch (e) { sheet = {}; }
+  const opts = Loot.menu(box, sheet);
+  return '<p><b>' + (box.name || 'Chest') + '</b></p>' + opts.map(o => {
+    if (o.disabled) return '<p>' + o.label + '</p>';
+    return '<button type="button" data-chest="' + o.id + '">' + o.label + '</button> ';
+  }).join('');
+}
+function pinLootChest(box) {
+  if (role !== 'dm' || !box || !state.scene) return null;
+  const spot = nextFreeSpot(1, box.name || 'Chest');
+  const token = makeToken({
+    kind: 'chest',
+    name: box.name || 'Chest',
+    label: String(box.boxType || 'chest').replace('supply-crate', 'Crate').replace('outlaw-stash', 'Stash').replace('saddlebag', 'Saddlebag').replace('strongbox', 'Strongbox').replace('sealed-crate', 'Sealed').slice(0, 16),
+    color: '#8a5a2b',
+    ownerCanMove: false,
+    pos: spot || undefined
+  });
+  if (!token) return null;
+  token.kind = 'chest';
+  token.lootBoxId = box.id;
+  token.loot = box;
+  if (shared.tokens[token.id]) {
+    shared.tokens[token.id].kind = 'chest';
+    shared.tokens[token.id].lootBoxId = box.id;
+    shared.tokens[token.id].loot = box;
+  }
+  box.tokenId = token.id;
+  saveToken(token.id);
+  selectToken(token);
+  return token;
+}
+function focusLootChest(boxId) {
+  const token = state.tokens.find(t => t && (t.lootBoxId === boxId || (t.loot && t.loot.id === boxId)));
+  if (!token) return "";
+  selectToken(token);
+  return token.id;
+}
 function selectToken(token) {
   if (!token) return;
   if (state.pendingTarget && role === 'dm') {
@@ -2949,6 +3066,11 @@ function selectToken(token) {
   state.selected = token;
   state.selectedIds = [token.id];
   refreshSelectedPanel();
+  if (token && (token.kind === 'chest' || token.lootBoxId)) {
+    showChestMenu(token);
+    const Give = window.SSDNSLootGive;
+    if (Give && Give.selectBox && token.lootBoxId) Give.selectBox(token.lootBoxId);
+  } else hideChestMenu();
   if (role === 'dm') openDrawer(token.id);
   draw();
 }
@@ -3662,6 +3784,10 @@ function onPointerDown(e) {
     }
     const w = pointerWorld(e);
     const hit = hitTest(w.x, w.y);
+    if (hit && (hit.kind === 'chest' || hit.lootBoxId) && !e.shiftKey) {
+      selectToken(hit);
+      return;
+    }
     if (hit && state.pendingTarget && role === 'dm') {
       selectToken(hit);
       return;
@@ -7004,6 +7130,10 @@ async function loadSceneImage(sceneId, opts) {
       ensureAnim();
       requestDraw();
     }));
+    unsubs.push(adapter.subscribe('map/public/events/loot', (value) => {
+      if (!value || role !== 'dm') return;
+      if (window.SSDNSLootGive && window.SSDNSLootGive.applyRemote) window.SSDNSLootGive.applyRemote(value);
+    }));
     unsubs.push(adapter.subscribe('table/initiative', (value) => syncCombatants(value)));
     unsubs.push(adapter.subscribe('chat', (value) => { if (Array.isArray(value)) setChat(value); }));
     unsubs.push(adapter.subscribe('tableFeed', (value) => { if (value) pushFeed(value); }));
@@ -7166,6 +7296,8 @@ return {
   ensureDefaultScene: ensureDefaultScene,
   maps: function () { return libraryApi(); },
   placeLinkedToken,
+  pinLootChest,
+  focusLootChest,
   setTool,
   removeToken: function (id) { removeMapTokens([id], { silent: true }); },
   applyLink,

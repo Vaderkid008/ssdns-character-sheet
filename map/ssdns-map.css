@@ -929,6 +929,13 @@ body.map-fullscreen #mapMount .ssm-cropper canvas {
   pointer-events: auto;
 }
 .ssm-pending-map[hidden] { display: none; }
+.ssm-chest-menu {
+  position: absolute; z-index: 24; left: 12px; bottom: 12px; max-width: 280px;
+  padding: 8px 10px; border: 1px solid #c4a35a; border-radius: 6px;
+  background: rgba(28, 18, 8, .94); color: #f3e6c8;
+}
+.ssm-chest-menu[hidden] { display: none; }
+.ssm-chest-menu button { margin: 0 6px 6px 0; }
 .ssm-action { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .ssm-cyl-btn {
   display: inline-flex;

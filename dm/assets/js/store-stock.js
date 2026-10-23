@@ -33,6 +33,11 @@
     "slug-shells-410-10": { kind: "ammo", type: "slug", caliber: ".410", qty: 10 },
     "slug-shells-12-ga-10": { kind: "ammo", type: "slug", caliber: "12 ga", qty: 10 },
     "slug-shells-10-ga-10": { kind: "ammo", type: "slug", caliber: "10 ga", qty: 10 },
+    /* v1.2 loot ids (same pools). shells-*-10 stay buck. 10 ga slugs are store / boomtown, not an Act I chest row. */
+    "slugs-410-10": { kind: "ammo", type: "slug", caliber: ".410", qty: 10 },
+    "slugs-12-ga-10": { kind: "ammo", type: "slug", caliber: "12 ga", qty: 10 },
+    "slugs-10-ga-10": { kind: "ammo", type: "slug", caliber: "10 ga", qty: 10 },
+    "arrows-dynamite-1": { kind: "ammo", type: "arrows", caliber: "dynamite", qty: 1 },
     /* L0186 special arrows (2026-10-20): each type is its own arrows pool (caliber = type id); dynamite arrows are made, not sold */
     "arrows-broadhead-5": { kind: "ammo", type: "arrows", caliber: "broadhead", qty: 5 },
     "arrows-blunt-5": { kind: "ammo", type: "arrows", caliber: "blunt", qty: 5 },
@@ -41,6 +46,7 @@
     "arrows-poison-3": { kind: "ammo", type: "arrows", caliber: "poison", qty: 3 }
   };
   var AMMO_BY_NAME = [
+    [/^dynamite arrows?\b/i, "arrows", "dynamite"],
     [/^broadhead( arrows)?\b/i, "arrows", "broadhead"], [/^blunt( arrows)?\b/i, "arrows", "blunt"], [/^fire arrows?\b/i, "arrows", "fire"],
     [/^whistler( arrows)?\b/i, "arrows", "whistler"], [/^poison arrows?\b/i, "arrows", "poison"],
     [/^arrows\b/i, "arrows", ""], [/^crossbow bolts\b/i, "bolts", ""], [/^sling (stones|bullets)\b/i, "stones", ""],
