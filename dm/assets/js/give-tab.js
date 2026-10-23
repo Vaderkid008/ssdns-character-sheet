@@ -252,7 +252,7 @@
       out.done = "a note";
       return out;
     }
-    if (mode === "loot") { out.error = "Loot is coming later"; out.button = "Loot is coming later"; out.line = ""; return out; }
+    if (mode === "loot") { out.error = "Use the Loot section"; out.button = "Use the Loot section"; out.line = "Place a box, then Take or Take all from the card."; return out; }
     out.error = "Pick what to give"; out.button = "Pick what to give";
     return out;
   }

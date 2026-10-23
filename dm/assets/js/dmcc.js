@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.126"; // dmcc-playtest-v02126
+const VERSION = "0.2.127"; // dmcc-playtest-v02127
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2665,7 +2665,7 @@ async function doPushReward() {
   const type = $("#rewType").value;
   if (!target) { toast("Pick who gets it first"); if (GT && GT.flashWho) GT.flashWho(); return; }
   if (!type) { toast("Pick what to give"); return; }
-  if (type === "loot") { toast("Loot is coming later. Give found items with Item, Ammo or Money for now."); return; }
+  if (type === "loot") { toast("Use Place box in the Loot section."); return; }
   const ids = target === "all" ? Object.keys(state.players) : targetsFor(target);
   if (!ids.length) { toast(target === "all" ? "Nobody is at the table yet" : "Pick who gets it first"); return; }
   const plan = GT && GT.plan ? GT.plan() : null;

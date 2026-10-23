@@ -1,0 +1,229 @@
+{
+  "id": "act1-outlaw-stash",
+  "name": "Outlaw Stash (Act I)",
+  "boxType": "outlaw-stash",
+  "act": 1,
+  "picks": "2",
+  "bands": {
+    "common": 80,
+    "uncommon": 17,
+    "rare": 3
+  },
+  "rows": {
+    "common": [
+      {
+        "id": "hardtack-jerky-1-day",
+        "w": 10,
+        "qty": "1d4"
+      },
+      {
+        "id": "waterskin-canteen",
+        "w": 5,
+        "qty": "1"
+      },
+      {
+        "id": "lamp-oil",
+        "w": 5,
+        "qty": "1d2"
+      },
+      {
+        "id": "torch-pitch-stick",
+        "w": 5,
+        "qty": "1d4"
+      },
+      {
+        "id": "tinderbox-lucifers",
+        "w": 3,
+        "qty": "1"
+      },
+      {
+        "id": "hemp-rope-50-ft",
+        "w": 3,
+        "qty": "1"
+      },
+      {
+        "id": "bedroll-trail-blankets",
+        "w": 3,
+        "qty": "1"
+      },
+      {
+        "id": "whiskey-bottle",
+        "w": 8,
+        "qty": "1"
+      },
+      {
+        "id": "gun-cleaning-kit",
+        "w": 4,
+        "qty": "1"
+      },
+      {
+        "id": "field-medic-kit",
+        "w": 3,
+        "qty": "1"
+      },
+      {
+        "id": "cartridges-light-20",
+        "w": 7,
+        "qty": "1"
+      },
+      {
+        "id": "cartridges-medium-20",
+        "w": 7,
+        "qty": "1"
+      },
+      {
+        "id": "cartridges-heavy-20",
+        "w": 4,
+        "qty": "1"
+      },
+      {
+        "id": "shells-12-ga-10",
+        "w": 5,
+        "qty": "1"
+      },
+      {
+        "id": "powder-ball-and-caps-20-shots",
+        "w": 3,
+        "qty": "1"
+      },
+      {
+        "id": "arrows-20",
+        "w": 3,
+        "qty": "1"
+      },
+      {
+        "id": "crossbow-bolts-20",
+        "w": 2,
+        "qty": "1"
+      },
+      {
+        "id": "arrows-fire-5",
+        "w": 2,
+        "qty": "1"
+      },
+      {
+        "id": "iron-cuffs",
+        "w": 3,
+        "qty": "1"
+      },
+      {
+        "id": "caltrops-jack-nails-bag-of-20",
+        "w": 3,
+        "qty": "1"
+      },
+      {
+        "id": "claim-pry-bar",
+        "w": 3,
+        "qty": "1"
+      },
+      {
+        "id": "dynamite-stick-sweating-sold-cheap",
+        "w": 2,
+        "qty": "1"
+      },
+      {
+        "id": "dynamite-stick-standard-fuse",
+        "w": 1,
+        "qty": "1"
+      },
+      {
+        "id": "assay-tonic-trail-draught",
+        "w": 2,
+        "qty": "1"
+      },
+      {
+        "id": "#gun-act1",
+        "w": 4,
+        "qty": "1",
+        "dirty": true
+      }
+    ],
+    "uncommon": [
+      {
+        "id": "greater-healing-libation",
+        "w": 10,
+        "qty": "1"
+      },
+      {
+        "id": "snakebite-antivenin-antitoxin",
+        "w": 25,
+        "qty": "1"
+      },
+      {
+        "id": "blessed-water-saint-s-wash",
+        "w": 25,
+        "qty": "1"
+      },
+      {
+        "id": "field-glass-spyglass",
+        "w": 15,
+        "qty": "1"
+      },
+      {
+        "id": "good-silk-rope-50-ft",
+        "w": 20,
+        "qty": "1"
+      },
+      {
+        "id": "blasting-keg",
+        "w": 5,
+        "qty": "1"
+      }
+    ],
+    "rare": [
+      {
+        "id": "arrows-poison-3",
+        "w": 75,
+        "qty": "1"
+      },
+      {
+        "id": "trail-poison-illegal-in-most-towns",
+        "w": 25,
+        "qty": "1"
+      }
+    ]
+  },
+  "subTables": {
+    "#gun-act1": {
+      "die": "pct",
+      "rows": [
+        {
+          "w": 20,
+          "id": "herringer-light-pocket-pistol"
+        },
+        {
+          "w": 20,
+          "id": "single-barrel-farm-shotgun"
+        },
+        {
+          "w": 20,
+          "id": "dulls-rolling-block-rifle"
+        },
+        {
+          "w": 20,
+          "id": "dullards-light-carbine"
+        },
+        {
+          "w": 20,
+          "id": "navy-army-ball-n-cap-revolver"
+        }
+      ]
+    }
+  },
+  "cash": {
+    "dice": "1d6x50",
+    "blackOn": [
+      1
+    ],
+    "blackDice": "1d4",
+    "blackId": "black-shard-junk"
+  },
+  "caps": {
+    "gun": 1,
+    "explosive": 1,
+    "noDupePermanent": true
+  },
+  "rareLimit": "room",
+  "fallback": "dropBand",
+  "draft": true
+}
