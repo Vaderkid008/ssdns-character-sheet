@@ -42,7 +42,7 @@
   var CHAPTER = { 1: 465, 2: 2490, 3: 2490, 4: 4140, 5: 0 };
   var TABLES = {};
   var SEALED = {
-    id: "act1-sealed-crate", name: "Sealed Crate", boxType: "sealed-crate", act: 1, actMin: 2,
+    id: "act1-sealed-crate", name: "Sealed Crate", boxType: "sealed-crate", act: 1, actMin: 2, draft: false,
     picks: "0", bands: {}, rows: {}, subTables: {}, cash: null,
     label: "DO NOT OPEN, Act I", caps: {}, rareLimit: "room", fallback: "dropBand"
   };

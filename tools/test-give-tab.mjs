@@ -252,7 +252,7 @@ async function browserPart() {
       check("dm.fix9.kitSent", kc.c.type === "kit_grant" && kc.c.to === "p_caleb" && /Caleb got the Full kit/.test(kc.row) && /no undo/.test(kc.row), J(kc));
       await pg.click('[data-give-mode="loot"]'); await sleep(100);
       const loot = await pg.evaluate(() => ({ text: document.querySelector("#giveLootWrap").textContent.replace(/\s+/g, " "), shown: !document.querySelector("#giveLootWrap").hidden, dis: document.querySelector("#btnPushReward").disabled }));
-      check("dm.loot.placeholder", loot.shown && loot.dis && /DRAFT/.test(loot.text) && /Place box/.test(loot.text) && /btnLootPlace|Place box/.test(loot.text), J(loot));
+      check("dm.loot.placeholder", loot.shown && loot.dis && /v1\.4/.test(loot.text) && !/DRAFT/.test(loot.text) && /Place box/.test(loot.text) && /btnLootPlace|Place box/.test(loot.text), J(loot));
 
       /* fix 2: handouts, packs and private messages give to the Who pick */
       const more = await pg.evaluate(() => ({ ho: document.querySelector("#hoTarget").value, msg: document.querySelector("#msgTarget").value, pack: document.querySelector("#packTarget").value, hoBtn: document.querySelector("#btnSendHandout").textContent, msgBtn: document.querySelector("#btnSendMsg").textContent, hidden: document.querySelector("#hoTarget").closest("div").hidden }));

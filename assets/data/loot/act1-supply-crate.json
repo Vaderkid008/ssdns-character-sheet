@@ -212,7 +212,7 @@
   },
   "rareLimit": "room",
   "fallback": "dropBand",
-  "draft": true,
+  "draft": false,
   "budgetEs": 465,
   "letterChance": {
     "first": 65,
