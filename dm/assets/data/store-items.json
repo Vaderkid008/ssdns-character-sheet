@@ -1118,7 +1118,7 @@
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "Buckshot. Slugs sell as their own row at the same price (BOOK1 L4212).",
+    "notes": "Buckshot only. Slugs are slugs-410-10 at the same price.",
     "bookLine": 4204
   },
   {
@@ -1150,7 +1150,7 @@
     ],
     "rarity": "common",
     "minTown": "camp",
-    "notes": "Buckshot. Slugs sell as their own row at the same price (BOOK1 L4212).",
+    "notes": "Buckshot only. Slugs are slugs-12-ga-10 at the same price.",
     "bookLine": 4205
   },
   {
@@ -1181,7 +1181,7 @@
     ],
     "rarity": "common",
     "minTown": "boomtown",
-    "notes": "Buckshot. Slugs sell as their own row at the same price (BOOK1 L4212).",
+    "notes": "Buckshot only. Slugs are slugs-10-ga-10 at the same price.",
     "bookLine": 4206
   },
   {
@@ -1197,6 +1197,53 @@
     "rarity": "common",
     "minTown": "boomtown",
     "notes": "Slugs, same price as buckshot (BOOK1 L4212). Fills the slug pool.",
+    "bookLine": 4212
+  },
+  {
+    "id": "slugs-410-10",
+    "name": "Slugs, .410 (10)",
+    "category": "ammo",
+    "price_es": 50,
+    "weight_lb": 1.0,
+    "stores": [
+      "general",
+      "gun",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Slug pool, .410. Buckshot stays on shells-410-10.",
+    "bookLine": 4212
+  },
+  {
+    "id": "slugs-12-ga-10",
+    "name": "Slugs, 12 ga (10)",
+    "category": "ammo",
+    "price_es": 100,
+    "weight_lb": 1.0,
+    "stores": [
+      "general",
+      "gun",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Slug pool, 12 ga. Buckshot stays on shells-12-ga-10.",
+    "bookLine": 4212
+  },
+  {
+    "id": "slugs-10-ga-10",
+    "name": "Slugs, 10 ga (10)",
+    "category": "ammo",
+    "price_es": 200,
+    "weight_lb": 1.0,
+    "stores": [
+      "gun",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "boomtown",
+    "notes": "Slug pool, 10 ga. Store and boomtown. Not an Act I chest row.",
     "bookLine": 4212
   },
   {

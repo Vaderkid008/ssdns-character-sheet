@@ -73,7 +73,7 @@ try {
   await pg.type("[data-add-item-search]", "dynamite");
   await sleep(150);
   const srch = await pg.evaluate(() => ({ groups: [...document.querySelectorAll("#itemFormSlot [data-add-item-groups] [data-add-item-group]")].map((g) => g.getAttribute("data-add-item-group")), names: [...document.querySelectorAll("#itemFormSlot [data-add-item-groups] [data-add-item-pick]")].map((b) => b.textContent), notes: document.querySelectorAll("#itemFormSlot [data-add-notes]").length }));
-  check("search.filters", srch.groups.join() === "explosive" && srch.names.length > 0 && srch.names.every((n) => /dynamite/i.test(n)) && srch.notes === 2, JSON.stringify(srch));
+  check("search.filters", srch.groups.join() === "explosive,gear" && srch.names.length > 0 && srch.names.every((n) => /dynamite/i.test(n)) && srch.names.some((n) => /Dynamite arrow/.test(n)) && srch.notes === 2, JSON.stringify(srch));
   await pg.evaluate(() => { const s = document.querySelector("[data-add-item-search]"); s.value = "zzzz"; s.dispatchEvent(new Event("input", { bubbles: true })); });
   check("search.empty", await pg.evaluate(() => !!document.querySelector("#itemFormSlot .add-item-empty")));
   await pg.evaluate(() => { const s = document.querySelector("[data-add-item-search]"); s.value = ""; s.dispatchEvent(new Event("input", { bubbles: true })); });

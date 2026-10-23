@@ -1,7 +1,7 @@
-/* Act I chest roller (DRAFT v1.1 tables). Order: picks → band % → row % → qty → ES/Black → caps → band fallback.
+/* Act I chest roller (DRAFT v1.2 tables). Order: picks → band % → row % → qty → ES/Black → caps → band fallback.
    Locked: #gun-act1 is 20% each of five guns. Outlaw Stash Black is blackOn [1] on 1d6×50 → 1d4 black-shard-junk.
-   storyOnly, ChaosMakers in Act I, city guns (actMin 2), and magic Rare over the room limit never roll.
-   DM hand-pick and a Rare-limit override always win and are logged. */
+   v1.2: slugs and dynamite arrows on Common; Glowing Letters are 5% of Uncommon. Other Story Finds stay never-roll.
+   RNG percentages are the balance floor. The chapter budget warns only. DM hand-pick and Rare override always win. */
 (function (root) {
   "use strict";
   var BANDS = ["rare", "uncommon", "common"];
@@ -17,11 +17,22 @@
     "cartridges-medium-20": { type: "cartridge", caliber: "Medium", each: 20, name: "Medium cartridges" },
     "cartridges-heavy-20": { type: "cartridge", caliber: "Heavy", each: 20, name: "Heavy cartridges" },
     "shells-12-ga-10": { type: "buck", caliber: "12 ga", each: 10, name: "12 ga buckshot" },
+    "slugs-12-ga-10": { type: "slug", caliber: "12 ga", each: 10, name: "Slugs, 12 ga" },
+    "slugs-410-10": { type: "slug", caliber: ".410", each: 10, name: "Slugs, .410" },
+    "slugs-10-ga-10": { type: "slug", caliber: "10 ga", each: 10, name: "Slugs, 10 ga" },
+    "arrows-dynamite-1": { type: "arrows", caliber: "dynamite", each: 1, name: "Dynamite arrow", lb: 1.05 },
     "powder-ball-and-caps-20-shots": { type: "percussion", caliber: "", each: 20, name: "powder, ball and caps" },
     "arrows-20": { type: "arrows", caliber: "", each: 20, name: "arrows" },
     "crossbow-bolts-20": { type: "bolts", caliber: "", each: 20, name: "crossbow bolts" },
     "arrows-fire-5": { type: "arrows", caliber: "fire", each: 5, name: "fire arrows" },
     "arrows-poison-3": { type: "arrows", caliber: "poison", each: 3, name: "poison arrows" }
+  };
+  var LETTERS = {
+    "glowing-letter": "Glowing Letter (sealed)",
+    "glowing-letter-cure-wounds": "Glowing Letter: Cure Wounds",
+    "glowing-letter-shield": "Glowing Letter: Shield",
+    "glowing-letter-fireball": "Glowing Letter: Fireball",
+    "glowing-letter-revivify": "Glowing Letter: Revivify"
   };
   var BUDGET = { saddlebag: 450, "supply-crate": 465, "outlaw-stash": 1125, strongbox: 2115, "sealed-crate": 0 };
   var CHAPTER = { 1: 465, 2: 2035, 3: 1365, 4: 3685, 5: 0 };
@@ -76,9 +87,10 @@
     return o;
   }
   function isGun(id) { return !!GUNS[id] || /^pony-arms-chaosmaker|^lancaster-|^bison-big-fifty/.test(id); }
+  function isLetter(id) { return /^glowing-letter/.test(id); }
   function isExplosive(id) {
     var t = tagOf(id);
-    return t.tags.indexOf("explosive") >= 0 || /^dynamite-|^blasting-keg$/.test(id);
+    return id === "arrows-dynamite-1" || t.tags.indexOf("explosive") >= 0 || /^dynamite-|^blasting-keg$/.test(id);
   }
   function isConsumable(id) {
     var t = tagOf(id);
@@ -110,6 +122,7 @@
     if (magicRare(id) && ((ctx.rareMagicHeld || 0) + (state.magicRare || 0)) >= rareCap(ctx)) return "rare limit";
     if ((isGun(id)) && state.guns >= ((state.caps && state.caps.gun) || 1)) return "gun cap";
     if (isExplosive(id) && state.explosives >= ((state.caps && state.caps.explosive) || 1)) return "explosive cap";
+    if (isLetter(id) && state.letters >= ((state.caps && state.caps.glowingLetter) || 1)) return "letter cap";
     if (!isConsumable(id) && state.seen[id]) return "duplicate permanent";
     if (t.maxPerBox != null && (state.counts[id] || 0) >= Number(t.maxPerBox)) return "maxPerBox";
     return "";
@@ -117,10 +130,9 @@
   function legalRows(rows, state, ctx) {
     return (rows || []).filter(function (row) {
       if (!row || !row.id) return false;
-      if (row.id === "#gun-act1" || (row.id.charAt(0) === "#" )) {
-        if (state.guns >= ((state.caps && state.caps.gun) || 1)) return false;
-        return true;
-      }
+      if (row.id === "#gun-act1") return state.guns < ((state.caps && state.caps.gun) || 1);
+      if (row.id === "#glowing-letter-act1") return state.letters < ((state.caps && state.caps.glowingLetter) || 1);
+      if (row.id.charAt(0) === "#") return true;
       return !illegalReason(row.id, state, ctx);
     });
   }
@@ -130,13 +142,14 @@
     return BANDS[i + 1] || null;
   }
   function blankState(table) {
-    return { guns: 0, explosives: 0, magicRare: 0, seen: {}, counts: {}, caps: table.caps || { gun: 1, explosive: 1, noDupePermanent: true }, picks: [] };
+    return { guns: 0, explosives: 0, letters: 0, magicRare: 0, seen: {}, counts: {}, caps: table.caps || { gun: 1, explosive: 1, glowingLetter: 1, noDupePermanent: true }, picks: [] };
   }
   function notePick(state, id) {
     state.counts[id] = (state.counts[id] || 0) + 1;
     if (!isConsumable(id)) state.seen[id] = 1;
     if (isGun(id)) state.guns += 1;
     if (isExplosive(id)) state.explosives += 1;
+    if (isLetter(id)) state.letters += 1;
     if (magicRare(id)) state.magicRare += 1;
   }
   function onePick(table, state, ctx, rng) {
@@ -152,6 +165,7 @@
       if (!row) { band = dropBand(band); continue; }
       var id = row.id;
       var dirty = !!row.dirty;
+      var fromGun = id === "#gun-act1";
       if (id.charAt(0) === "#") {
         var sub = (table.subTables || {})[id];
         var grown = legalRows(sub && sub.rows, state, ctx);
@@ -159,7 +173,7 @@
         var g = pickWeighted(grown, rng);
         if (!g) { band = dropBand(band); continue; }
         id = g.id;
-        dirty = true;
+        if (fromGun) dirty = true;
       }
       if (illegalReason(id, state, ctx)) { band = dropBand(band); continue; }
       var qty = rollQty(row.qty || "1", rng).total;
@@ -184,7 +198,8 @@
   }
   function nameOf(id) {
     if (GUNS[id]) return GUNS[id];
-    if (AMMO[id]) return AMMO[id].name + " (" + AMMO[id].each + ")";
+    if (AMMO[id]) return AMMO[id].each > 1 ? AMMO[id].name + " (" + AMMO[id].each + ")" : AMMO[id].name;
+    if (LETTERS[id]) return LETTERS[id];
     if (id === "black-shard-junk") return "Black shard (drained)";
     if (id === "assay-tonic-trail-draught") return "Healing Libation";
     try {
@@ -368,6 +383,7 @@
       if (p.ammo) {
         var each = 0.05;
         if (p.ammo.type === "buck" || p.ammo.type === "slug") each = 0.1;
+        if (p.ammo.type === "arrows" && p.ammo.caliber === "dynamite") each = 1.05;
         extra += (Number(p.ammo.qty) || 0) * each;
       } else if (p.id && GUNS[p.id]) extra += 3;
       else if (p.itemId && Items.byId) {

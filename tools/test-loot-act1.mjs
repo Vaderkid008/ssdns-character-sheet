@@ -1,5 +1,6 @@
 /**
- * Act I Give-tab loot (DRAFT v1.1). Locked: gun mix 20% each, Outlaw Stash Black on d6 = 1 only.
+ * Act I Give-tab loot (DRAFT v1.2). Locked: gun mix 20% each, Outlaw Stash Black on d6 = 1 only.
+ * v1.2: slug packs, dynamite arrow, Glowing Letters at 5% of Uncommon. Budget warns only.
  *   node tools/test-loot-act1.mjs
  */
 import fs from "node:fs";
@@ -57,10 +58,18 @@ Object.entries(tables).forEach(([id, t]) => {
 check("lock.guns20", tables["act1-saddlebag"].subTables["#gun-act1"].rows.every((r) => r.w === 20) && GUNS.length === 5);
 check("lock.blackOn", JSON.stringify(tables["act1-outlaw-stash"].cash.blackOn) === "[1]" && tables["act1-outlaw-stash"].cash.blackId === "black-shard-junk" && tables["act1-outlaw-stash"].cash.dice === "1d6x50");
 check("supply.noGun", !JSON.stringify(tables["act1-supply-crate"].rows).includes("#gun-act1"));
-check("supply.silk", tables["act1-saddlebag"].rows.uncommon.find((r) => r.id === "good-silk-rope-50-ft").w === 25 && !tables["act1-saddlebag"].rows.uncommon.some((r) => r.id === "blasting-keg"));
+check("supply.silk", tables["act1-saddlebag"].rows.uncommon.find((r) => r.id === "good-silk-rope-50-ft").w === 24 && !tables["act1-saddlebag"].rows.uncommon.some((r) => r.id === "blasting-keg"));
 check("stash.keg", tables["act1-outlaw-stash"].rows.uncommon.some((r) => r.id === "blasting-keg" && r.w === 5));
-
+check("v12.slugs", tables["act1-saddlebag"].rows.common.find((r) => r.id === "slugs-12-ga-10").w === 3 && tables["act1-saddlebag"].rows.common.find((r) => r.id === "slugs-410-10").w === 1);
+check("v12.dynamiteArrow", tables["act1-saddlebag"].rows.common.find((r) => r.id === "arrows-dynamite-1").w === 2);
+check("v12.buckOnly", tables["act1-saddlebag"].rows.common.some((r) => r.id === "shells-12-ga-10" && r.w === 5) && !JSON.stringify(tables).includes("slugs-10-ga-10") && !JSON.stringify(tables).includes("slug-shells"));
+check("v12.letters", tables["act1-outlaw-stash"].rows.uncommon.find((r) => r.id === "#glowing-letter-act1").w === 5 && tables["act1-outlaw-stash"].subTables["#glowing-letter-act1"].rows.map((r) => r.w).join() === "40,25,25,7,3");
+check("v12.supply", ["hardtack-jerky-1-day", "whiskey-bottle", "cartridges-medium-20", "assay-tonic-trail-draught"].map((id) => tables["act1-supply-crate"].rows.common.find((r) => r.id === id).w).join() === "9,7,8,3");
 const gear = read("assets/data/item-catalog-gear.js");
+check("catalog.slugs", /"id": "slugs-410-10"/.test(gear) && /"price": 50/.test(gear) && /"id": "slugs-12-ga-10"/.test(gear) && /"price": 100/.test(gear) && /"id": "slugs-10-ga-10"/.test(gear) && /"price": 200/.test(gear));
+check("catalog.dynamiteArrow", /"id": "arrows-dynamite-1"/.test(gear) && /"weight": 1\.05/.test(gear) && /"forSale": false/.test(gear));
+check("catalog.noChaosAmmo", !/chaosmaker-(ammo|cartridge|round)/i.test(gear) && !/chaosmaker-ammo/.test(read("dm/assets/data/store-items.json")));
+
 check("catalog.junk", /"id": "black-shard-junk"/.test(gear) && /Worthless as money/.test(gear) && /"forSale": false/.test(gear) && /"weight": 0/.test(gear) && /"price": 0/.test(gear) && /\["junk"\]/.test(gear));
 check("catalog.notQuest", !/"id": "black-shard-junk"[\s\S]{0,200}"type": "quest"/.test(gear));
 
@@ -73,6 +82,9 @@ check("saddle.uncommon", uncommon > 0.02 && uncommon < 0.1, uncommon.toFixed(3) 
 check("saddle.noChaos", !picks.some((p) => /chaosmaker/i.test(p.id)));
 check("saddle.noStory", !picks.some((p) => STORY.includes(p.id)));
 check("saddle.oneGun", saddles.every((b) => b.picks.filter((p) => L.GUNS[p.id]).length <= 1));
+check("saddle.oneExplosive", saddles.every((b) => b.picks.filter((p) => /dynamite|blasting-keg|arrows-dynamite/.test(p.id)).length <= 1));
+check("saddle.oneLetter", saddles.every((b) => b.picks.filter((p) => /^glowing-letter/.test(p.id)).length <= 1));
+check("saddle.noOtherStory", !picks.some((p) => p.id === "hat-of-the-sharpshooter" || p.id === "legloss-revolver"));
 check("saddle.dirty", picks.filter((p) => L.GUNS[p.id]).every((p) => p.dirty === true));
 check("saddle.es", saddles.every((b) => b.cash.branch === "es" && b.cash.es > 0));
 
@@ -212,7 +224,92 @@ check("sealed.shut", shut.ok === false && /Act 2/.test(shut.reason), shut.reason
 const open = L.openBox(sealed, L.SEALED, { act: 2 });
 check("sealed.open", open.ok === true);
 
-check("rules.untouched", !read("assets/data/rules.js").includes("black-shard-junk") && !read("database.rules.json").includes("loot_take"));
+/* v1.2 Common rates and Glowing Letter mix */
+const commonOnly = {
+  id: "common-only", name: "Common", boxType: "saddlebag", picks: "1", draft: true,
+  bands: { common: 100 }, rows: { common: tables["act1-saddlebag"].rows.common },
+  subTables: tables["act1-saddlebag"].subTables,
+  caps: tables["act1-saddlebag"].caps, cash: null
+};
+const commonN = 8000;
+const commonCounts = {};
+for (let i = 0; i < commonN; i++) {
+  const p = L.rollBox(commonOnly, { act: 1, partyLevel: 1 }, mulberry32(12000 + i)).picks[0];
+  if (p) commonCounts[p.id] = (commonCounts[p.id] || 0) + 1;
+}
+function near(id, pct, tol) {
+  const got = (commonCounts[id] || 0) / commonN;
+  check("common." + id, Math.abs(got - pct) <= tol, (got * 100).toFixed(2) + "%");
+}
+near("slugs-12-ga-10", 0.03, 0.015);
+near("slugs-410-10", 0.01, 0.015);
+near("arrows-dynamite-1", 0.02, 0.015);
+check("common.no10ga", !commonCounts["slugs-10-ga-10"]);
+
+const letterTable = {
+  id: "letters", name: "Letters", boxType: "outlaw-stash", picks: "1",
+  bands: { uncommon: 100 },
+  rows: { uncommon: [{ id: "#glowing-letter-act1", w: 100, qty: "1" }] },
+  subTables: tables["act1-outlaw-stash"].subTables,
+  caps: { gun: 1, explosive: 1, glowingLetter: 1, noDupePermanent: true }, cash: null
+};
+const letterN = 2000;
+const letterCounts = {};
+for (let i = 0; i < letterN; i++) {
+  const p = L.rollBox(letterTable, { act: 1, partyLevel: 1 }, mulberry32(20000 + i)).picks[0];
+  if (p) letterCounts[p.id] = (letterCounts[p.id] || 0) + 1;
+}
+[["glowing-letter", 0.40], ["glowing-letter-cure-wounds", 0.25], ["glowing-letter-shield", 0.25], ["glowing-letter-fireball", 0.07], ["glowing-letter-revivify", 0.03]].forEach(([id, pct]) => {
+  const got = (letterCounts[id] || 0) / letterN;
+  check("letter." + id, Math.abs(got - pct) < 0.04, (got * 100).toFixed(1) + "%");
+});
+const uncommonOnly = {
+  id: "unc", name: "Uncommon", boxType: "outlaw-stash", picks: "1",
+  bands: { uncommon: 100 }, rows: { uncommon: tables["act1-outlaw-stash"].rows.uncommon },
+  subTables: tables["act1-outlaw-stash"].subTables, caps: tables["act1-outlaw-stash"].caps, cash: null
+};
+let letterPicks = 0;
+const uncN = 4000;
+for (let i = 0; i < uncN; i++) {
+  const p = L.rollBox(uncommonOnly, { act: 1, partyLevel: 1 }, mulberry32(30000 + i)).picks[0];
+  if (p && /^glowing-letter/.test(p.id)) letterPicks++;
+}
+check("letter.row5", Math.abs(letterPicks / uncN - 0.05) < 0.02, (letterPicks / uncN).toFixed(3));
+check("overlay.letters", ["glowing-letter", "glowing-letter-cure-wounds", "glowing-letter-shield", "glowing-letter-fireball", "glowing-letter-revivify"].every((id) => {
+  const t = L.tagOf(id);
+  return t.lootable === true && t.storyOnly === false && t.rarity === "uncommon";
+}));
+check("overlay.storyStays", L.tagOf("hat-of-the-sharpshooter").storyOnly === true && L.tagOf("legloss-revolver").storyOnly === true && L.illegalReason("hat-of-the-sharpshooter", { guns: 0, explosives: 0, letters: 0, magicRare: 0, seen: {}, counts: {}, caps: {} }, { act: 1 }) === "storyOnly");
+check("overlay.slug10", L.illegalReason("slugs-10-ga-10", { guns: 0, explosives: 0, letters: 0, magicRare: 0, seen: {}, counts: {}, caps: { gun: 1, explosive: 1, glowingLetter: 1 } }, { act: 1 }) === "actMin");
+check("overlay.chaosWeapon", L.tagOf("pony-arms-chaosmaker-light").actMin === 2 && L.tagOf("pony-arms-chaosmaker-medium").lootable === false);
+
+const pools = { es: 0, ammo: [], items: [], guns: [] };
+const mixed = {
+  id: "box_mix", name: "Saddlebag", opener: "p_a", reveal: "opener", taken: false,
+  contents: [
+    { id: "shells-12-ga-10", qty: 1 },
+    { id: "slugs-12-ga-10", qty: 1 },
+    { id: "arrows-dynamite-1", qty: 1 }
+  ],
+  cash: { es: 10, black: 0, branch: "es" }, log: []
+};
+const mixTake = L.takeAll(mixed, "p_a", pools);
+L.applyTake(pools, mixTake);
+const poolOf = (type, cal) => pools.ammo.find((a) => a.type === type && a.caliber === cal);
+check("take.buck", poolOf("buck", "12 ga") && poolOf("buck", "12 ga").count === 10, JSON.stringify(pools.ammo));
+check("take.slug", poolOf("slug", "12 ga") && poolOf("slug", "12 ga").count === 10, JSON.stringify(pools.ammo));
+check("take.dynamiteArrow", poolOf("arrows", "dynamite") && poolOf("arrows", "dynamite").count === 1, JSON.stringify(pools.ammo));
+ctx.SSDNSItems = { weightReport: () => ({ carried: 149, capacity: 150 }), byId: () => null };
+const dynWho = { es: 0, ammo: [], items: [], guns: [] };
+const dynHaul = { id: "box_dyn", name: "Saddlebag", opener: "p_a", reveal: "opener", taken: false, contents: [{ id: "arrows-dynamite-1", qty: 1 }], cash: { es: 0, black: 0, branch: "none" }, log: [] };
+const dynTake = L.takeAll(dynHaul, "p_a", dynWho);
+check("take.dynamiteWeight", /150\.1 \/ 150/.test(dynTake.warning || ""), dynTake.warning);
+const heavy = L.budget([{ boxType: "strongbox" }, { boxType: "strongbox" }], 1);
+const still = L.place(tables["act1-saddlebag"], { act: 1, partyLevel: 1, opener: "p_a", rollMode: "preroll" }, mulberry32(3));
+check("budget.warns", heavy.over === true && /does not block/.test(heavy.text) && still.rolled === true && !/block/.test(read("dm/assets/js/loot-give.js").split("function placeBox")[1].split("function openCurrent")[0]));
+check("shells.buckPlan", /"shells-12-ga-10": \{ kind: "ammo", type: "buck"/.test(read("dm/assets/js/store-stock.js")) && /"slugs-12-ga-10": \{ kind: "ammo", type: "slug"/.test(read("dm/assets/js/store-stock.js")));
+
+check("rules.untouched", !read("assets/data/rules.js").includes("black-shard-junk") && !read("assets/data/rules.js").includes("slugs-12-ga-10") && !read("database.rules.json").includes("loot_take"));
 check("ui.insideGive", /id="giveLootWrap"/.test(read("dm/index.html")) && /data-give-mode="loot"/.test(read("dm/index.html")) && !/role="tab"[^>]*>Loot/.test(read("dm/index.html")));
 
 if (failures.length) {

@@ -121,7 +121,7 @@
       die: "1d4", dtype: "bludgeoning", fx: "1d4 + Dex bludgeoning instead of the bow's die. Heard about a mile off; used for signals.", head: "#3f6f9a", fletch: "#3f6f9a", src: "BOOK1 L4221" },
     { id: "poison", name: "Poison", word: "poison arrows", pack: 3, packId: "arrows-poison-3", packName: "Poison arrows (3)", cost: "1,500", weight: "0.15 lb.", recover: "standard", short: "DC 10 Con",
       poison: true, fx: "On a hit, DC 10 Con save or 1d4 poison. Coating lasts 1 minute once unwrapped. Illegal in most towns.", head: "#7b3fa0", fletch: "#4b2468", src: "BOOK1 L4222" },
-    { id: "dynamite", name: "Dynamite", word: "dynamite arrows", pack: 1, packId: "", packName: "", cost: "1 stick + 1 arrow", weight: "1 lb.", recover: "none", short: "no attack roll",
+    { id: "dynamite", name: "Dynamite", word: "dynamite arrows", pack: 1, packId: "arrows-dynamite-1", packName: "Dynamite arrow", cost: "1 stick + 1 arrow", weight: "1.05 lb.", recover: "none", short: "no attack roll",
       made: true, fx: "Powder Man only. Aim at a point within the bow's short range; no attack roll. Works like a thrown stick, with the fuse and misfire rules.", head: "#a3221c", fletch: "#5e8a55", src: "BOOK1 L4223" }
   ];
   var ARROW_BY_ID = {}; ARROW_TYPES.forEach(function (t) { ARROW_BY_ID[t.id] = t; });

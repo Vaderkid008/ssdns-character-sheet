@@ -1,6 +1,7 @@
-/* Act I loot overlay (LOOT-BOX-AND-TRADE-SPEC shape, L0209 tables v1.1).
-   Loaded after the catalogs. Does not edit a catalog row except by id lookup.
-   Percentages outside the locked gun mix and the Outlaw Stash Black rate are DRAFT. */
+/* Act I loot overlay (DRAFT v1.2). Loaded after the catalogs. Does not rewrite a catalog row.
+   Locked: gun mix 20% each, Outlaw Stash Black 1-in-6. Other percentages are the balance floor (DRAFT).
+   Glowing Letters are the only Story Finds the roller may select. ChaosMaker weapons stay actMin 2.
+   There is no ChaosMaker-ammo row: those guns fire the same Light / Medium / Heavy cartridges. */
 (function (root) {
   "use strict";
   var story = [
@@ -10,7 +11,8 @@
     "chemical-field-ledger", "frontier-keepsake", "carved-walking-stick", "medicine-pouch", "home-spring-soil-pouch",
     "tin-star-badge", "borrowed-iron", "legloss-revolver"
   ];
-  var quest = ["bounty-warrant", "claim-deed", "strongbox-key", "black-shard", "glowing-letter", "glowing-letter-cure-wounds", "glowing-letter-shield", "glowing-letter-fireball", "glowing-letter-revivify"];
+  var quest = ["bounty-warrant", "claim-deed", "strongbox-key", "black-shard"];
+  var letters = ["glowing-letter", "glowing-letter-cure-wounds", "glowing-letter-shield", "glowing-letter-fireball", "glowing-letter-revivify"];
   var tags = {
     "assay-tonic-trail-draught": { rarity: "common", lootable: true, stack: true },
     "greater-healing-libation": { rarity: "uncommon", lootable: true, stack: true },
@@ -18,6 +20,10 @@
     "blessed-water-saint-s-wash": { rarity: "uncommon", lootable: true, stack: true },
     "trail-poison-illegal-in-most-towns": { rarity: "rare", magic: false, mundane: true, lootable: true, stack: true },
     "arrows-poison-3": { rarity: "rare", magic: false, mundane: true, lootable: true, tags: ["ammo"] },
+    "slugs-410-10": { rarity: "common", lootable: true, tags: ["ammo"], stack: true },
+    "slugs-12-ga-10": { rarity: "common", lootable: true, tags: ["ammo"], stack: true },
+    "slugs-10-ga-10": { rarity: "common", lootable: true, actMin: 2, tags: ["ammo"], stack: true },
+    "arrows-dynamite-1": { rarity: "common", lootable: true, tags: ["explosive", "ammo"], stack: true },
     "pony-arms-chaosmaker-light": { rarity: "common", actMin: 2, lootable: false },
     "pony-arms-chaosmaker-medium": { actMin: 2, lootable: false },
     "pony-arms-chaosmaker-heavy": { actMin: 2, lootable: false },
@@ -37,5 +43,9 @@
   };
   story.forEach(function (id) { tags[id] = Object.assign({ storyOnly: true, lootable: false }, tags[id] || {}); });
   quest.forEach(function (id) { tags[id] = Object.assign({ storyOnly: true, noTrade: true, lootable: false }, tags[id] || {}); });
+  /* Jessey 10:22 PM CT: these five override storyOnly. They are Uncommon scrolls, not the Rare-magic limit. */
+  letters.forEach(function (id) {
+    tags[id] = { rarity: "uncommon", lootable: true, storyOnly: false, maxPerBox: 1, tags: ["scroll"] };
+  });
   root.SSDNS_LOOT_TAGS = tags;
 })(typeof window !== "undefined" ? window : globalThis);

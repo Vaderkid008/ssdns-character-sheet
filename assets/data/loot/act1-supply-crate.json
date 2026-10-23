@@ -13,7 +13,7 @@
     "common": [
       {
         "id": "hardtack-jerky-1-day",
-        "w": 11,
+        "w": 9,
         "qty": "1d4"
       },
       {
@@ -23,12 +23,12 @@
       },
       {
         "id": "lamp-oil",
-        "w": 5,
+        "w": 4,
         "qty": "1d2"
       },
       {
         "id": "torch-pitch-stick",
-        "w": 5,
+        "w": 4,
         "qty": "1d4"
       },
       {
@@ -48,7 +48,7 @@
       },
       {
         "id": "whiskey-bottle",
-        "w": 9,
+        "w": 7,
         "qty": "1"
       },
       {
@@ -82,6 +82,16 @@
         "qty": "1"
       },
       {
+        "id": "slugs-12-ga-10",
+        "w": 3,
+        "qty": "1"
+      },
+      {
+        "id": "slugs-410-10",
+        "w": 1,
+        "qty": "1"
+      },
+      {
         "id": "powder-ball-and-caps-20-shots",
         "w": 3,
         "qty": "1"
@@ -100,6 +110,12 @@
         "id": "arrows-fire-5",
         "w": 2,
         "qty": "1"
+      },
+      {
+        "id": "arrows-dynamite-1",
+        "w": 2,
+        "qty": "1",
+        "explosive": true
       },
       {
         "id": "iron-cuffs",
@@ -140,12 +156,12 @@
       },
       {
         "id": "snakebite-antivenin-antitoxin",
-        "w": 25,
+        "w": 23,
         "qty": "1"
       },
       {
         "id": "blessed-water-saint-s-wash",
-        "w": 25,
+        "w": 23,
         "qty": "1"
       },
       {
@@ -155,20 +171,53 @@
       },
       {
         "id": "good-silk-rope-50-ft",
-        "w": 25,
+        "w": 24,
         "qty": "1"
+      },
+      {
+        "id": "#glowing-letter-act1",
+        "w": 5,
+        "qty": "1",
+        "maxPerBox": 1
       }
-    ],
-    "rare": []
+    ]
   },
-  "subTables": {},
+  "subTables": {
+    "#glowing-letter-act1": {
+      "die": "pct",
+      "rows": [
+        {
+          "w": 40,
+          "id": "glowing-letter"
+        },
+        {
+          "w": 25,
+          "id": "glowing-letter-cure-wounds"
+        },
+        {
+          "w": 25,
+          "id": "glowing-letter-shield"
+        },
+        {
+          "w": 7,
+          "id": "glowing-letter-fireball"
+        },
+        {
+          "w": 3,
+          "id": "glowing-letter-revivify"
+        }
+      ]
+    }
+  },
   "cash": null,
   "caps": {
     "gun": 1,
     "explosive": 1,
+    "glowingLetter": 1,
     "noDupePermanent": true
   },
   "rareLimit": "room",
   "fallback": "dropBand",
-  "draft": true
+  "draft": true,
+  "budgetEs": 465
 }
