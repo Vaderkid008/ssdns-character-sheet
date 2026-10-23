@@ -152,6 +152,30 @@ async function give(ids, rations, water) {
   await DM.pushLedger({ who: "DM", playerId: ids.length > 1 ? "all" : ids[0], type: "supplies", what: "Supplies " + bits.join(", ") + " → " + names, oldVal: null, newVal: bits.join(", "), flag: false });
   paint();
 }
+function survivalOf(r) {
+  const sk = (r && r.snap && r.snap.skills) || {};
+  if (sk.Survival != null) return Number(sk.Survival) || 0;
+  if (sk.survival != null) return Number(sk.survival) || 0;
+  return 0;
+}
+/** ASSUMED: a successful forage or hunt grants 1 ration. The DM sets the DC. */
+async function forage(id, dc, mod) {
+  if (cfg.mode === "off") { DM.toast("Food & water is off."); return; }
+  if (!id) { DM.toast("Pick a player to forage."); return; }
+  dc = Number(dc);
+  if (!isFinite(dc)) dc = 15;
+  mod = Number(mod) || 0;
+  const nat = 1 + Math.floor(Math.random() * 20);
+  const total = nat + mod;
+  const pass = total >= dc;
+  const who = players().filter((r) => r.id === id).map(nameOf)[0] || "A player";
+  if (pass) await give([id], 1, 0);
+  const line = who + " forages: d20 " + nat + (mod >= 0 ? "+" : "") + mod + " = " + total + " vs DC " + dc + (pass ? ". Success: +1 ration (assumed yield)." : ". The wilds give nothing.");
+  await DM.pushLedger({ who: "DM", playerId: id, type: "supplies", what: line, oldVal: null, newVal: pass ? "+1 ration" : "miss", flag: false });
+  DM.toast(line);
+  const out = document.getElementById("supForageOut");
+  if (out) out.textContent = line;
+}
 async function setMode(mode) {
   cfg.mode = mode;
   save();
@@ -213,6 +237,14 @@ function paint() {
     '<label class="toggle"><input type="checkbox" id="supHalfParty"' + (list.length && list.every((r) => cfg.half[r.id]) ? " checked" : "") + "> Half rations (all)</label>" +
     '<button type="button" class="btn sm" id="btnSupClearExh" title="Clear exhaustion for everyone.">Clear exhaustion (all)</button>' +
     "</div>" +
+    '<div class="sup-bar">' +
+    "<span>Forage / hunt</span>" +
+    '<label>Player <select id="supForageWho">' + (list.length ? list.map((r) => '<option value="' + esc(r.id) + '">' + esc(nameOf(r)) + "</option>").join("") : '<option value="">No players</option>') + "</select></label>" +
+    '<label>DC <input type="number" id="supForageDc" value="15" style="width:4.5em"></label>' +
+    '<label>Survival <input type="number" id="supForageMod" value="' + (list.length ? survivalOf(list[0]) : 0) + '" style="width:4.5em" title="d20 + this bonus. Filled from the player\'s Survival skill when you pick them."></label>' +
+    '<button type="button" class="btn sm" id="btnSupForage"' + (cfg.mode === "off" || !list.length ? " disabled" : "") + ">Roll</button>" +
+    '<span class="fine" id="supForageOut">ASSUMED: a success grants 1 ration. No spoilage. Horse feed is not in this pass.</span>' +
+    "</div>" +
     (cfg.summary ? '<p class="sup-summary" id="supSummary"><b>Day ' + esc(cfg.summary.day) + ":</b> " +
       esc(cfg.summary.shared && cfg.summary.shared.length ? cfg.summary.shared.join("; ") + ". " : "No one needed covering. ") +
       "Not sharing: " + esc(cfg.summary.notSharing && cfg.summary.notSharing.length ? cfg.summary.notSharing.join(", ") : "nobody") + ".</p>" : "") +
@@ -230,6 +262,11 @@ function wire() {
     else if (t.id === "supDayEnd") { cfg.dayEnd = t.value; save(); paint(); }
     else if (t.id === "supHot") { cfg.hot = t.checked; save(); }
     else if (t.id === "supHalfParty") { players().forEach((r) => { cfg.half[r.id] = t.checked; }); save(); paint(); }
+    else if (t.id === "supForageWho") {
+      const r = players().filter((x) => x.id === t.value)[0];
+      const mod = document.getElementById("supForageMod");
+      if (r && mod) mod.value = String(survivalOf(r));
+    }
     else if (t.hasAttribute("data-sup-half")) { cfg.half[t.getAttribute("data-sup-half")] = t.checked; save(); }
     else if (t.hasAttribute("data-sup-exh")) {
       const r = players().filter((x) => x.id === t.getAttribute("data-sup-exh"))[0];
@@ -239,7 +276,9 @@ function wire() {
   box.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b) return;
-    if (b.id === "btnSupEndDay") endDay({});
+    if (b.id === "btnSupForage") {
+      forage(document.getElementById("supForageWho").value, document.getElementById("supForageDc").value, document.getElementById("supForageMod").value);
+    } else if (b.id === "btnSupEndDay") endDay({});
     else if (b.id === "btnSupSkip") skipDay();
     else if (b.id === "btnSupGiveParty" || b.id === "btnSupTakeParty") {
       const sign = b.id === "btnSupTakeParty" ? -1 : 1;
@@ -271,4 +310,4 @@ function boot() {
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
 else boot();
 
-window.SSDNSSuppliesDm = { paint: paint, endDay: endDay, skipDay: skipDay, give: give, setMode: setMode, setExhaustion: setExhaustion, onLongRest: onLongRest, config: () => JSON.parse(JSON.stringify(cfg)), _demo: demoChars };
+window.SSDNSSuppliesDm = { paint: paint, endDay: endDay, skipDay: skipDay, give: give, forage: forage, setMode: setMode, setExhaustion: setExhaustion, onLongRest: onLongRest, config: () => JSON.parse(JSON.stringify(cfg)), _demo: demoChars };

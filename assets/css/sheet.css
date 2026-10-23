@@ -1262,6 +1262,12 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .cond-toast-card .ct-what { font-size: .95rem; }
 @keyframes ctIn { from { transform: translateY(-8px); opacity: 0; } to { transform: none; opacity: 1; } }
 .supplies-box .sup-share { display: inline-flex; align-items: center; gap: .3rem; margin-top: .35rem; font-weight: 700; font-size: .85rem; }
+.supplies-box .sup-meters { display: grid; gap: .25rem; margin-top: .4rem; }
+.supplies-box .sup-meter { display: grid; grid-template-columns: 3.2rem 1fr auto; gap: .35rem; align-items: center; font-size: .78rem; }
+.supplies-box .sup-track { display: block; height: .55rem; background: #efe2cc; border-radius: 99px; overflow: hidden; border: 1px solid #d9c6a3; }
+.supplies-box .sup-fill { display: block; height: 100%; background: #2f7d32; }
+.supplies-box .sup-fill.water { background: #2a6f97; }
+.supplies-box .sup-eat { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .4rem; }
 
 /* 0.3.84 default UI by type: kind picker, kind fields, the "lives in" badge, Special UI hook slots */
 .item-form .item-kind-home { margin: 0 0 6px; }

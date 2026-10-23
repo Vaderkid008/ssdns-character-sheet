@@ -22,7 +22,7 @@
   function half(n) { return Math.round(num(n) * 2) / 2; }
 
   function defaults() {
-    return { mode: "off", water: 0, daysHungry: 0, halfOpen: false, pendingSave: null, last: null, day: 0, share: true };
+    return { mode: "off", water: 0, daysHungry: 0, halfOpen: false, pendingSave: null, last: null, day: 0, share: true, prepaid: { food: 0, water: 0 } };
   }
   /** Fill missing fields; never throws on old saves. */
   function ensure(c) {
@@ -35,6 +35,9 @@
     s.daysHungry = Math.max(0, half(s.daysHungry));
     s.halfOpen = !!s.halfOpen;
     s.share = s.share !== false; /* Jessey 2026-10-20: sharing is on unless the player turns it off */
+    if (!s.prepaid || typeof s.prepaid !== "object") s.prepaid = { food: 0, water: 0 };
+    s.prepaid.food = Math.max(0, half(s.prepaid.food));
+    s.prepaid.water = Math.max(0, Math.round(num(s.prepaid.water) * 1000) / 1000);
     c.supplies = s;
     return s;
   }
@@ -192,6 +195,22 @@
   /** Days a creature can go without food before exhaustion: 3 + Con mod, at least 1. */
   function foodLimit(conMod) { return Math.max(1, 3 + Math.floor(num(conMod))); }
   function waterNeed(hot) { return hot ? 2 : 1; }
+  /**
+   * Eat and drink now (ASSUMED: 1 meal and up to 1 gal). Counts as prepaid so the end-of-day
+   * tick does not spend that food and water a second time. Mode off does nothing.
+   */
+  function eatNow(c) {
+    var s = ensure(c);
+    if (s.mode === "off") return { ok: false, reason: "Food and water tracking is off." };
+    var ate = eatMeals(c, 1);
+    var drank = 0;
+    if (waterTotal(c) > 0) drank = spendWater(c, Math.min(1, waterTotal(c)));
+    if (ate <= 0 && drank <= 0) return { ok: false, reason: "Nothing to eat or drink." };
+    s.prepaid.food = half(s.prepaid.food + ate);
+    s.prepaid.water = Math.round((s.prepaid.water + drank) * 1000) / 1000;
+    if (ate >= 1) s.daysHungry = 0;
+    return { ok: true, ate: ate, drank: drank };
+  }
 
   /**
    * One day passes for one character. Spends food and water and says what 5e does about it.
@@ -207,24 +226,32 @@
     var exhaustedBefore = lv > 0;
     var limit = foodLimit(opts.conMod);
     var want = opts.half ? 0.5 : 1;
+    var fromPre = Math.min(want, s.prepaid.food);
+    var still = half(want - fromPre);
     var have = rations(c);
-    var eat = Math.min(want, have);
+    var eat = Math.min(still, have);
     if (eat > 0) giveRations(c, -eat);
-    var food = eat >= 1 ? "full" : (eat > 0 ? "half" : "none");
+    var ateToday = half(fromPre + eat);
+    s.prepaid.food = 0;
+    var food = ateToday >= 1 ? "full" : (ateToday > 0 ? "half" : "none");
     if (food === "full") s.daysHungry = 0;
     else s.daysHungry = half(s.daysHungry + (food === "half" ? 0.5 : 1));
     var foodGain = s.daysHungry > limit ? 1 : 0;
 
     var need = waterNeed(opts.hot);
-    var drank = Math.min(need, waterTotal(c));
-    spendWater(c, drank);
+    var fromPreW = Math.min(need, s.prepaid.water);
+    var stillW = Math.round((need - fromPreW) * 1000) / 1000;
+    var drankNow = Math.min(stillW, waterTotal(c));
+    if (drankNow > 0) spendWater(c, drankNow);
+    var drank = Math.round((fromPreW + drankNow) * 1000) / 1000;
+    s.prepaid.water = 0;
     var water = drank >= need ? "ok" : (drank >= need / 2 ? "save" : "short");
     var stepGain = exhaustedBefore ? 2 : 1;
     var waterGain = water === "short" ? stepGain : 0;
     var save = water === "save" ? { dc: SAVE_DC, gain: stepGain } : null;
 
     /* 5e: a long rest takes off one level if you ate and drank something. */
-    var restDrop = opts.longRest && eat > 0 && drank > 0 ? 1 : 0;
+    var restDrop = opts.longRest && ateToday > 0 && drank > 0 ? 1 : 0;
     var gain = foodGain + waterGain;
 
     var lines = [];
@@ -238,7 +265,7 @@
 
     s.day = num(s.day) + 1;
     s.last = { day: s.day, food: food, drank: drank, need: need, hot: !!opts.hot, gain: gain, restDrop: restDrop, save: save ? "pending" : "", at: new Date().toISOString() };
-    return { food: food, ate: eat, daysHungry: s.daysHungry, limit: limit, foodGain: foodGain, need: need, drank: drank,
+    return { food: food, ate: ateToday, daysHungry: s.daysHungry, limit: limit, foodGain: foodGain, need: need, drank: drank,
       water: water, waterGain: waterGain, save: save, restDrop: restDrop, gain: gain, exhaustedBefore: exhaustedBefore, lines: lines };
   }
   /** New exhaustion level after a gain and a rest drop, kept to 0..6. */
@@ -255,7 +282,7 @@
   /** Small read-only view for the DM card and the sheet. */
   function view(c) {
     var s = ensure(c);
-    return { mode: s.mode, rations: rations(c), water: waterTotal(c), daysHungry: s.daysHungry, pendingSave: !!s.pendingSave, last: s.last, day: s.day, share: s.share };
+    return { mode: s.mode, rations: rations(c), water: waterTotal(c), daysHungry: s.daysHungry, pendingSave: !!s.pendingSave, last: s.last, day: s.day, share: s.share, prepaid: { food: s.prepaid.food, water: s.prepaid.water } };
   }
 
   /**
@@ -310,6 +337,7 @@
     spendWater: spendWater,
     giveRations: giveRations,
     eatMeals: eatMeals,
+    eatNow: eatNow,
     giveWater: giveWater,
     foodLimit: foodLimit,
     waterNeed: waterNeed,
