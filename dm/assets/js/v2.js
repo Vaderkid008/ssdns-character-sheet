@@ -56,7 +56,10 @@ const fight = {
      table/initiative too; held { rollId: meta } is out-of-turn damage / healing waiting for the DM's OK (DM-only, local) */
   unlock: {},
   oa: {},
-  held: {}
+  held: {},
+  /* Dirty-gun tracker: room campaign day and the day each gun was last cleaned. Not combat Dirty. */
+  campaignDay: 1,
+  gunClean: {}
 };
 function turnFields(src) {
   const T = window.SSDNSTurn;
@@ -77,6 +80,9 @@ function turnFields(src) {
   if (src.markers && typeof src.markers === "object") fight.markers = Object.assign({}, src.markers);
   if (src.unlock && typeof src.unlock === "object") fight.unlock = Object.assign({}, src.unlock);
   if (src.oa && typeof src.oa === "object") fight.oa = Object.assign({}, src.oa);
+  const day = parseInt(src.campaignDay, 10);
+  if (isFinite(day) && day > 0) fight.campaignDay = day;
+  if (src.gunClean && typeof src.gunClean === "object") fight.gunClean = Object.assign({}, src.gunClean);
 }
 function turnState() {
   return { round: fight.round, turn: fight.turn, started: !!fight.started, order: fight.order, seq: fight.seq || 0, turnStarts: fight.turnStarts || {},
@@ -130,7 +136,8 @@ function saveLocalTable() {
       round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: fight.order, inspiration: fight.inspiration,
       stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, removed: fight.removed || {}, departed: fight.departed || {}, undos: fight.undos || {}, damageMode: fight.damageMode === "approve" ? "approve" : "auto", updatedAt: fight.updatedAt,
       seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
-      unlock: fight.unlock || {}, oa: fight.oa || {}, held: fight.held || {}
+      unlock: fight.unlock || {}, oa: fight.oa || {}, held: fight.held || {},
+      campaignDay: fight.campaignDay || 1, gunClean: fight.gunClean || {}
     }));
     localStorage.setItem(PACK_KEY, JSON.stringify(fight.packs));
   } catch (e) {}
@@ -473,7 +480,8 @@ async function writeRemoteTableOnce() {
     await fb.update(DM.roomRef("table"), {
       initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: first.order,
         seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
-        unlock: fight.unlock || {}, oa: fight.oa || {} },
+        unlock: fight.unlock || {}, oa: fight.oa || {},
+        campaignDay: fight.campaignDay || 1, gunClean: fight.gunClean || {} },
       store: fight.stock,
       packs: fight.packs,
       storeOpen: !!fight.storeOpen,
@@ -1292,7 +1300,7 @@ function renderFight() {
         return `<div class="turn-chip${current}${ondeck}${later}${side}" role="listitem">${face}${guns}</div>`;
       }).join("");
       /* T1 (turn order PR 1): one Next per surface. The Fight tab's Next is the DMCC's; this Table-tab strip shows the order only.
-         0.2.128: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
+         0.2.129: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
       const badge = cur ? `<b class="dm-turn-now">${esc(cur.name || "Their turn")}</b>` : "";
       strip.innerHTML = `<b class="turn-round">Round ${esc(fight.round || 1)}</b>${badge}` +
         `<button type="button" class="turn-scroll" data-dm-scroll="-1" aria-label="Scroll the turn order left" hidden>\u2039</button>` +
@@ -1305,6 +1313,7 @@ function renderFight() {
     pushMapInitiative();
     const sheet = $("#enemySheet");
     if (sheet && !sheet.hidden) renderEnemySheet();
+    syncGunClock();
   };
   if (DM.guardFocus) DM.guardFocus(run);
   else run();
@@ -1865,7 +1874,7 @@ function markerExtrasHtml(row, m, opts) {
   const flags = ["dash", "disengage", "dodge"].filter((k) => m[k]).map((k) => `<span class="badge eld">${k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge")}</span>`).join("");
   return move + flags;
 }
-/* DM strip (0.2.128): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
+/* DM strip (0.2.129): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
    Dash / Disengage / Dodge are a read-out of flags the sheet already stores. Nothing new is spent from here. */
 function stripActsHtml(row) {
   const got = turnMarkersFor(row);
@@ -3432,8 +3441,10 @@ function decorateDetail(pid) {
     const list = s.guns || [];
     const index = gun.index != null && gun.index !== "" ? Number(gun.index) : list.indexOf(gun);
     const payload = { op: "misfire", index: index, dirty: !gun.dirty };
+    if (payload.dirty) payload.quiet = true;
     await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
     if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+    if (!payload.dirty) stampGunClean(playerGunKey(pid, index));
     DM.toast(payload.dirty ? "TEST Jammer is dirty" : "TEST Jammer is clean");
   });
   $("#btnSaveConds").addEventListener("click", async () => {
@@ -5853,23 +5864,30 @@ function wireClicks() {
       const atk = row && row.card && row.card.attacks && row.card.attacks[parseInt(t.getAttribute("data-atk-n"), 10)];
       if (!atk || !window.SSDNSMisfire) return;
       const op = t.getAttribute("data-mf-op");
+      const atkN = parseInt(t.getAttribute("data-atk-n"), 10);
       const override = {};
       if (op === "reset") override.resetStreak = true;
       else if (op === "cancel") override.cancelD4 = true;
       else override[op] = t.getAttribute("data-mf-on") === "1";
+      /* Set Dirty is silent to the player: DM toast only, same as enemy Add rounds. Clear Dirty stays visible. */
+      const settingDirty = op === "dirty" && t.getAttribute("data-mf-on") === "1";
       const applied = window.SSDNSMisfire.applyOverride(atk, override);
       Object.assign(atk, applied.gun);
       /* 0.3.61: on a PC row the sheet owns the gun; send the override or the next snapshot undoes it. */
       if (row.kind === "player") {
         const pidO = row.playerId || row.id;
-        const payloadO = Object.assign({ op: "misfire", index: sheetSlot(atk, parseInt(t.getAttribute("data-atk-n"), 10)) }, override);
+        const payloadO = Object.assign({ op: "misfire", index: sheetSlot(atk, atkN) }, override);
+        if (settingDirty) payloadO.quiet = true;
         DM.pushCommand({ type: "gun", to: pidO, payload: payloadO, from: DM.state.uid });
         if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pidO, payloadO);
       }
+      if (op === "dirty" && !settingDirty) stampGunClean(row.kind === "player" ? playerGunKey(row.playerId || row.id, sheetSlot(atk, atkN)) : enemyGunKey(row, atkN));
       const line = "DM override on " + (row.name || "combatant") + " · " + (atk.name || "gun") + ": " + (applied.notes || []).join(", ") + ".";
       saveRemoteTable();
-      if (DM.postDmAction) DM.postDmAction(line, row.id || "all");
-      else DM.pushLedger({ who: "DM", playerId: row.id || "all", type: "dm", what: line, oldVal: null, newVal: line, flag: false, characterName: row.name || "" });
+      if (!settingDirty) {
+        if (DM.postDmAction) DM.postDmAction(line, row.id || "all");
+        else DM.pushLedger({ who: "DM", playerId: row.id || "all", type: "dm", what: line, oldVal: null, newVal: line, flag: false, characterName: row.name || "" });
+      }
       renderFight();
       DM.toast(line);
       return;
@@ -6646,14 +6664,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.128-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.129-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.128-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.129-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -6753,6 +6771,7 @@ async function bootV2() {
   $("#catalogCat") && $("#catalogCat").addEventListener("change", renderCatalog);
   $("#btnInspGrant") && $("#btnInspGrant").addEventListener("click", () => changeInspiration(1));
   $("#btnInspSpend") && $("#btnInspSpend").addEventListener("click", () => changeInspiration(-1));
+  $("#btnCampaignDay") && $("#btnCampaignDay").addEventListener("click", () => advanceCampaignDay());
   $("#btnInspGrantTable") && $("#btnInspGrantTable").addEventListener("click", () => changeInspiration(1));
   $("#btnInspSpendTable") && $("#btnInspSpendTable").addEventListener("click", () => changeInspiration(-1));
   renderCatalog();
@@ -7612,8 +7631,10 @@ async function enemyGunClean(row, atk) {
   const shown = opts.map((o) => o.id === "unjam" ? Object.assign({}, o, { label: "Unjam (free · DM)" }) : o);
   const pick = M.pickClean ? await M.pickClean(name, shown) : shown[0];
   if (!pick) return false;
+  const wasDirty = !!atk.dirty;
   const done = M.commitClean(atk, pick.id);
   if (!done || !done.ok) { DM.toast((done && done.reason) || "That clean isn't available."); return false; }
+  if (wasDirty && !atk.dirty) stampGunClean(enemyGunKey(row, (row.card.attacks || []).indexOf(atk)));
   rememberWeapon(row, atk);
   const line = (row.name || "Enemy") + " cleaned " + name + (pick.id === "unjam" ? " (jam cleared)" : " (Dirty gone, streak reset)");
   await DM.pushLedger({ who: "DM", playerId: row.id || "all", type: "jam", what: line, oldVal: pick.id === "unjam" ? "jammed" : "dirty", newVal: "clean", flag: false, characterName: row.name || "" });
@@ -8545,6 +8566,110 @@ window.SSDNSMapFight = {
   placeBeast(detail) { return mapPlaceBeast(detail); },
   onTokenRemoved(detail) { unlinkMapToken(detail); },
   syncMap() { syncMapTokens(); }
+};
+
+/* Dirty-gun tracker (sheet 0.3.116 / DMCC 0.2.129). The DM advances a room campaign day.
+   A gun not cleaned in 2 campaign days is listed here. Nothing auto-dirties the gun, and the list is DM-only. */
+function campaignDayNow() {
+  const n = parseInt(fight.campaignDay, 10);
+  return isFinite(n) && n > 0 ? n : 1;
+}
+function playerGunKey(pid, index) { return "p:" + pid + ":" + index; }
+function enemyGunKey(row, n) { return "e:" + ((row && row.id) || "row") + ":" + n; }
+function trackedGuns() {
+  const out = [];
+  Object.keys(DM.state.players || {}).forEach((pid) => {
+    const snap = playerSnapshot(pid) || {};
+    const who = snap.name || pid;
+    (snap.guns || []).forEach((g, i) => {
+      if (!g || !(Number(g.capacity) > 0)) return;
+      const index = g.index != null && g.index !== "" ? g.index : i;
+      out.push({ key: playerGunKey(pid, index), who: who, gun: g.name || g.weapon || "Gun", dirty: !!g.dirty });
+    });
+  });
+  (fight.order || []).forEach((row) => {
+    if (!row || row.kind === "player") return;
+    ((row.card && row.card.attacks) || []).forEach((atk, n) => {
+      if (!atk || !(Number(atk.capacity) > 0)) return;
+      out.push({ key: enemyGunKey(row, n), who: row.name || "Enemy", gun: atk.name || "Gun", dirty: !!atk.dirty });
+    });
+  });
+  return out;
+}
+function stampGunClean(key) {
+  if (!key) return;
+  fight.gunClean = fight.gunClean || {};
+  fight.gunClean[key] = campaignDayNow();
+  if (fight._gunDirty) fight._gunDirty[key] = false;
+}
+function noteGunCleans() {
+  fight.gunClean = fight.gunClean || {};
+  fight._gunDirty = fight._gunDirty || {};
+  const day = campaignDayNow();
+  let changed = false;
+  trackedGuns().forEach((g) => {
+    if (fight.gunClean[g.key] == null || fight.gunClean[g.key] === "") {
+      fight.gunClean[g.key] = day;
+      changed = true;
+    } else if (fight._gunDirty[g.key] === true && !g.dirty) {
+      fight.gunClean[g.key] = day;
+      changed = true;
+    }
+    fight._gunDirty[g.key] = !!g.dirty;
+  });
+  return changed;
+}
+function gunOverdueList() {
+  const day = campaignDayNow();
+  return trackedGuns().filter((g) => {
+    const cleaned = parseInt(fight.gunClean && fight.gunClean[g.key], 10);
+    if (!isFinite(cleaned)) return false;
+    g.days = day - cleaned;
+    return g.days >= 2;
+  });
+}
+function paintGunClock(list) {
+  const dayEl = $("#gunClockDay");
+  const ul = $("#gunClockList");
+  if (dayEl) dayEl.textContent = "Campaign day " + campaignDayNow();
+  if (!ul) return;
+  const rows = list || gunOverdueList();
+  ul.innerHTML = rows.length
+    ? rows.map((r) => `<li><b>${esc(r.who)}</b> · ${esc(r.gun)} · ${r.days} campaign days</li>`).join("")
+    : '<li class="fine">None overdue.</li>';
+}
+let gunClockBusy = false;
+function syncGunClock() {
+  if (gunClockBusy) { paintGunClock(); return; }
+  gunClockBusy = true;
+  try {
+    const changed = noteGunCleans();
+    paintGunClock();
+    if (changed) saveRemoteTable();
+  } finally { gunClockBusy = false; }
+}
+function advanceCampaignDay() {
+  const before = {};
+  gunOverdueList().forEach((g) => { before[g.key] = true; });
+  fight.campaignDay = campaignDayNow() + 1;
+  noteGunCleans();
+  const now = gunOverdueList();
+  const fresh = now.filter((g) => !before[g.key]);
+  saveRemoteTable();
+  paintGunClock(now);
+  if (fresh.length === 1) DM.toast(fresh[0].who + " · " + fresh[0].gun + " has not been cleaned in " + fresh[0].days + " campaign days");
+  else if (fresh.length) DM.toast(fresh.length + " guns have not been cleaned in 2 campaign days");
+  else DM.toast("Campaign day " + fight.campaignDay);
+}
+window.SSDNSGunClock = {
+  day: campaignDayNow,
+  advance: advanceCampaignDay,
+  overdue: gunOverdueList,
+  note: noteGunCleans,
+  stamp: stampGunClean,
+  playerKey: playerGunKey,
+  enemyKey: enemyGunKey,
+  sync: syncGunClock
 };
 
 wireLookupNow();

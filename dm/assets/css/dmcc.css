@@ -593,6 +593,11 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
 .who-name { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; }
 .who-name .badge { flex: none; width: auto; }
 .init-who b { color: var(--parch); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.gun-clock { margin: 8px 0 12px; padding: 8px 10px; border: 1px solid var(--eld-dim); background: var(--bg-2); border-radius: 10px; }
+.gun-clock-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.gun-clock-row b { font-family: var(--label); letter-spacing: .04em; color: var(--eld); }
+.gun-clock ul { margin: 6px 0 0; padding-left: 18px; }
+.gun-clock li { margin: 2px 0; }
 .insp-pool { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--eld-dim); background: var(--bg-2); }
 .insp-pool b { font-family: var(--head); font-size: 32px; color: var(--eld); line-height: 1; }
 .turn-strip { display: flex; flex-wrap: nowrap; gap: 8px; align-items: stretch; margin: 0 0 12px; overflow-x: auto; }
@@ -1116,7 +1121,7 @@ select:-webkit-autofill {
 .ssm-markers .pip-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
 @media (max-width: 600px) { .turn-rules .tr-name { min-width: 0; flex: 1 0 100%; } }
 
-/* 0.2.128: Table turn strip matches the player strip (teal frame, pill chips, oval markers, heavy type).
+/* 0.2.129: Table turn strip matches the player strip (teal frame, pill chips, oval markers, heavy type).
    Fight-tab cards and the other pages keep their own layout. */
 #turnStrip.turn-strip {
   display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
