@@ -1276,6 +1276,7 @@ function renderFight() {
     paintTurnRules();
     if (strip) {
       const len = fight.order.length;
+      const cur = fight.started ? fight.order[fight.turn] : null;
       const chips = fight.order.map((row, i) => {
         const dist = fight.started ? (i - fight.turn + len) % len : 99;
         const current = fight.started && i === fight.turn ? " current" : "";
@@ -1285,13 +1286,20 @@ function renderFight() {
         const side = row.kind === "player" ? " side-pc player" : (friendly ? " side-ally" : " side-enemy enemy");
         const letters = String(row.name || "?").replace(/[^A-Za-z]/g, "");
         const initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
-        const face = `${faceHtml(row, "chip-face", initials)}<b>${esc(row.init == null || row.init === "" ? "—" : row.init)}</b> <span class="chip-name">${esc(row.name || "")}</span>${statusChipsHtml(row)}`;
+        const face = `${faceHtml(row, "chip-face", initials)}<span class="chip-name">${esc(row.name || "")}</span>${statusChipsHtml(row)}`;
         const guns = stripGuns(row, i);
-        if (row.kind === "enemy") return `<div class="turn-chip${current}${ondeck}${later}${side}"><button type="button" class="chip-open" data-open-enemy="${esc(row.id || "")}">${face}</button>${guns}</div>`;
-        return `<div class="turn-chip${current}${ondeck}${later}${side}">${face}${guns}</div>`;
+        if (row.kind === "enemy") return `<div class="turn-chip${current}${ondeck}${later}${side}" role="listitem"><button type="button" class="chip-open" data-open-enemy="${esc(row.id || "")}">${face}</button>${guns}</div>`;
+        return `<div class="turn-chip${current}${ondeck}${later}${side}" role="listitem">${face}${guns}</div>`;
       }).join("");
-      /* T1 (turn order PR 1): one Next per surface. The Fight tab's Next is the DMCC's; this Table-tab strip shows the order only. */
-      strip.innerHTML = chips;
+      /* T1 (turn order PR 1): one Next per surface. The Fight tab's Next is the DMCC's; this Table-tab strip shows the order only.
+         0.2.128: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
+      const badge = cur ? `<b class="dm-turn-now">${esc(cur.name || "Their turn")}</b>` : "";
+      strip.innerHTML = `<b class="turn-round">Round ${esc(fight.round || 1)}</b>${badge}` +
+        `<button type="button" class="turn-scroll" data-dm-scroll="-1" aria-label="Scroll the turn order left" hidden>\u2039</button>` +
+        `<div class="turn-order-strip" id="dmTurnNames" role="list">${chips}</div>` +
+        `<button type="button" class="turn-scroll" data-dm-scroll="1" aria-label="Scroll the turn order right" hidden>\u203a</button>` +
+        `<span class="dm-strip-acts">${cur ? stripActsHtml(cur) : ""}</span>`;
+      fitDmStripScroll();
     }
     syncTurnState();
     pushMapInitiative();
@@ -1841,12 +1849,41 @@ function playerSpeed(pid) {
   const n = parseInt(snap.speed, 10);
   return isFinite(n) && n >= 0 ? n : 30;
 }
-function markerExtrasHtml(row, m) {
+function markerExtrasHtml(row, m, opts) {
   const T = window.SSDNSTurn;
   if (!T || !row || row.kind !== "player") return "";
   const mv = T.moveLeft(m, playerSpeed(row.playerId || row.id));
+  /* Keep "Move N/N ft" as one text run. Tests match that string. */
+  const move = `<span class="fine tr-move tl-move" title="Movement left this turn">Move ${mv.left}/${mv.max} ft</span>`;
+  if (opts && opts.pills) {
+    const pills = ["dash", "disengage", "dodge"].map((k) => {
+      const label = k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge");
+      return `<span class="tl-act${m[k] ? " on" : ""}">${label}</span>`;
+    }).join("");
+    return move + pills;
+  }
   const flags = ["dash", "disengage", "dodge"].filter((k) => m[k]).map((k) => `<span class="badge eld">${k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge")}</span>`).join("");
-  return `<span class="fine tr-move" title="Movement left this turn">Move ${mv.left}/${mv.max} ft</span>${flags}`;
+  return move + flags;
+}
+/* DM strip (0.2.128): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
+   Dash / Disengage / Dodge are a read-out of flags the sheet already stores. Nothing new is spent from here. */
+function stripActsHtml(row) {
+  const got = turnMarkersFor(row);
+  if (!got || !fight.started) return "";
+  const m = got.m;
+  const pid = row.kind === "player" ? (row.playerId || row.id || "") : "";
+  const pip = (k, label) => {
+    const who = got.mine ? "" : ` data-pip-pid="${esc(pid)}"`;
+    return `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}"${who} aria-pressed="${!!m[k]}" title="${label} ${m[k] ? "used" : "ready"}">${label}</button>`;
+  };
+  return `<span class="tl-box dm-strip-acts-inner">${pip("action", "Action")}${pip("bonus", "Bonus")}${pip("reaction", "R")}${markerExtrasHtml(row, m, { pills: true })}</span>`;
+}
+function fitDmStripScroll() {
+  const strip = $("#turnStrip");
+  if (!strip) return;
+  const lane = strip.querySelector(".turn-order-strip");
+  const over = !!(lane && lane.scrollWidth > lane.clientWidth + 4);
+  strip.querySelectorAll("[data-dm-scroll]").forEach((b) => { b.hidden = !over; });
 }
 function playerRowFor(pid) {
   return (fight.order || []).find((r) => r && r.kind === "player" && (r.playerId === pid || (!r.playerId && r.id === pid))) || null;
@@ -2009,9 +2046,9 @@ function mapMarkersHtml(combatantId) {
   if (!row || row.kind !== "player" || !fight.started || !window.SSDNSTurn) return "";
   const pid = row.playerId || row.id || "";
   const m = playerMarkers(pid) || window.SSDNSTurn.fresh("");
-  return `<div class="ssm-markers act-pips" data-turn-markers="${esc(row.id || "")}" data-tr-pid="${esc(pid)}"><span class="pip-label">Markers</span>` +
+  return `<div class="ssm-markers act-pips tl-box" data-turn-markers="${esc(row.id || "")}" data-tr-pid="${esc(pid)}">` +
     ["action", "bonus", "reaction"].map((k) => `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}" data-pip-pid="${esc(pid)}" aria-pressed="${!!m[k]}" title="${PIP_NAME[k]} ${m[k] ? "used" : "ready"} (click to mark ${m[k] ? "ready" : "used"})">${k === "action" ? "Action" : (k === "bonus" ? "Bonus" : "R")}</button>`).join("") +
-    markerExtrasHtml(row, m) +
+    markerExtrasHtml(row, m, { pills: true }) +
     `<button type="button" class="btn xs" data-pip-reset="${esc(pid)}" title="Give back this player's action, bonus action, reaction and movement">Reset</button></div>`;
 }
 function toggleEnemyMarker(kind) {
@@ -5675,8 +5712,14 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-strip-next],[data-dm-pip],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
+    const t = e.target.closest && e.target.closest("[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
     if (!t) return;
+    if (t.hasAttribute("data-dm-scroll")) {
+      const lane = document.getElementById("dmTurnNames");
+      const by = Math.round((lane ? lane.clientWidth : 160) * 0.6) * Number(t.getAttribute("data-dm-scroll"));
+      if (lane) { if (lane.scrollBy) lane.scrollBy({ left: by, behavior: "smooth" }); else lane.scrollLeft += by; }
+      return;
+    }
     if (t.hasAttribute("data-strip-next")) { nextTurn(); return; }
     if (t.hasAttribute("data-dm-pip")) {
       if (t.hasAttribute("data-pip-pid")) { editPlayerMarker(t.getAttribute("data-pip-pid"), t.getAttribute("data-dm-pip")); return; }
@@ -6603,14 +6646,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.127-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.128-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.127-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.128-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

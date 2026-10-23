@@ -13,11 +13,11 @@ function check(cond, msg) { if (!cond) failures.push(msg); }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.114" && version.sheetBuild === "sheet-playtest-v03114", "sheet 0.3.55");
-check(version.dmcc === "0.2.127" && version.dmccBuild === "dmcc-playtest-v02127", "dmcc 0.2.68");
-check(read("assets/js/app.js").includes('APP_VERSION = "0.3.114"'), "sheet banner");
-check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.127"'), "dmcc banner");
-check(!read("assets/data/rules.js").includes("0.3.114"), "rules.js was not regenerated for this bump");
+check(version.sheet === "0.3.115" && version.sheetBuild === "sheet-playtest-v03115", "sheet 0.3.55");
+check(version.dmcc === "0.2.128" && version.dmccBuild === "dmcc-playtest-v02128", "dmcc 0.2.68");
+check(read("assets/js/app.js").includes('APP_VERSION = "0.3.115"'), "sheet banner");
+check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.128"'), "dmcc banner");
+check(!read("assets/data/rules.js").includes("0.3.115"), "rules.js was not regenerated for this bump");
 
 const sheetCss = read("assets/css/sheet.css");
 const dmCss = read("dm/assets/css/dmcc.css");
@@ -41,7 +41,7 @@ check(!/showTurn[\s\S]{0,2500}Next</.test(play), "the player strip does not grow
 
 const v2 = read("dm/assets/js/v2.js");
 const dmHtml = read("dm/index.html");
-check(!v2.includes('data-strip-next="1">Next</button>') && v2.includes("strip.innerHTML = chips;"), "DMCC Table strip shows the order only; the Fight tab's Next is the one Next (turn order PR 1)");
+check(!v2.includes('data-strip-next="1">Next</button>') && v2.includes('id="dmTurnNames"') && !/>Next<\/button>/.test(v2.slice(v2.indexOf("function renderFight"), v2.indexOf("function rewriteAnnounce"))), "DMCC Table strip shows the order only; the Fight tab's Next is the one Next (turn order PR 1)");
 check(v2.includes("rollAllBtn.hidden = !!fight.started"), "Roll Init hides once combat starts");
 check(dmHtml.includes('id="combatantMenu"') && dmHtml.includes('id="btnRollInitAll"') && !dmHtml.includes('id="btnRollAll"') && dmHtml.includes('id="btnNextTurn"'), "Fight keeps one Roll Initiative, one Next, and one combatant menu");
 check(v2.includes("side-pc") && v2.includes("ondeck") && v2.includes("chip-face") && v2.includes("statusChipsHtml"), "table strip matches the fight portraits");
