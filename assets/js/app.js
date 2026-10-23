@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.115"; // sheet-playtest-v03115
+  var APP_VERSION = "0.3.116"; // sheet-playtest-v03116
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1384,7 +1384,7 @@
               " LOCKED UP ×",
               el("span", { "data-lockup-n": i, text: "0" })
             ]),
-            el("button", { type: "button", class: "btn xs", "data-clean": i, title: "Pick a clean before anything changes. Dirty: 10 minutes with gunsmith's tools or a gun cleaning kit. That removes Dirty and resets the streak. Jammed: Unjam, no check. Fouled stays until a gunsmith: pay a gunsmith 500 ES and a day (gunsmith repair, 500 ES and a day). The sheet does not clear Fouled." }, ["Clean"]),
+            el("button", { type: "button", class: "btn xs", "data-clean": i, title: "Clean 10 min + kit/tools → Clear Dirty when the gun is Dirty. 10 minutes with gunsmith's tools or a gun cleaning kit. That removes Dirty, clears jams, and resets the streak. Fouled is separate and stays until a gunsmith: pay a gunsmith 500 ES and a day (gunsmith repair, 500 ES and a day). The sheet does not clear Fouled. Quicksand, a river dunk, a dust storm, or a DM call makes a gun Dirty. The day clock does not." }, ["Clean 10 min"]),
             el("button", { type: "button", class: "btn xs", "data-unjam": i, hidden: "hidden", title: "Clear a jam. Bonus action, or a free action with Rugged, Smoothed, or the Muzzleloader feat." }, ["Unjam"]),
             el("button", { type: "button", class: "btn xs", "data-reopen": i, hidden: "hidden", title: "Muzzleloader feat. An action. Clears one locked chamber. Once per short rest." }, ["Reopen chamber"])
           ])

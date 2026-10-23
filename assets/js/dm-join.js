@@ -2086,7 +2086,7 @@
         if (dlg && dlg.parentNode) dlg.parentNode.removeChild(dlg);
         if (root.document.body) root.document.body.classList.remove("ask-open");
       }
-      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM override: " + (notes.join(", ") || "gun") + "." });
+      if (root.SSDNSSheet && !payload.quiet) root.SSDNSSheet.addLog({ id: "gun:" + (id || ""), kind: "alert", text: "DM override: " + (notes.join(", ") || "gun") + "." });
       return;
     } else if (payload.op === "clear-locks" && app.clearLockedChambers) {
       app.clearLockedChambers(payload.index, payload.mode, payload.chamber);

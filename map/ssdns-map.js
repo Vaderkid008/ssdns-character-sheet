@@ -5881,7 +5881,11 @@ async function loadSceneImage(sceneId, opts) {
       misStreak: Number(a.misStreak || ammo.misStreak || 0),
       pendingD4: !!(a.pendingD4 || ammo.pendingD4)
     };
-    if (!M.cleanOptions(gun).length) return '';
+    const opts = M.cleanOptions(gun);
+    if (!opts.length) return '';
+    const dirtyKit = opts.some((o) => o.id === 'dirty-kit');
+    const label = dirtyKit ? 'Clean 10 min' : 'Clean';
+    const title = dirtyKit ? ' title="Clean 10 min + kit/tools → Clear Dirty when the gun is Dirty. Fouled is separate."' : '';
     let idAttr = '';
     if (act === 'playerClean') {
       const cid = cleanActId(a);
@@ -5890,7 +5894,7 @@ async function loadSceneImage(sceneId, opts) {
     } else {
       idAttr = ' data-wid="' + esc(a.id || '') + '"';
     }
-    return '<button type="button" data-act="' + act + '"' + idAttr + (gun.pendingD4 ? ' disabled' : '') + '>Clean</button>';
+    return '<button type="button" data-act="' + act + '"' + idAttr + title + (gun.pendingD4 ? ' disabled' : '') + '>' + label + '</button>';
   }
   function gunFlags(a) {
     const ammo = (a && a.ammo) || {};

@@ -1,4 +1,4 @@
-/* Item-driven light (sheet 0.3.115). Bright and dim rings, lineage darkvision, DM douse.
+/* Item-driven light (sheet 0.3.116). Bright and dim rings, lineage darkvision, DM douse.
    No burn-time clock: a light stays on until someone stows it or the DM puts it out.
    rules.js is not touched. database.rules.json is not touched.
    Belt lantern price/weight are placeholders until Encounter Bot locks them. */
