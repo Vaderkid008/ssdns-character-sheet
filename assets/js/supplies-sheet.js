@@ -209,6 +209,15 @@
         log(on ? "You share your leftover food and water with the party." : "You keep your food and water to yourself.");
       });
       box.addEventListener("click", function (e) {
+        var feedBtn = e.target.closest ? e.target.closest("[data-feed-mount]") : null;
+        if (feedBtn) {
+          var key = feedBtn.getAttribute("data-feed-mount");
+          var fed = null;
+          patch(function (ch2) { fed = root.SSDNSSupplies.feedMount(ch2, key); });
+          if (!fed) return;
+          log(fed.ok ? ("You feed " + fed.name + " one portion of horse feed.") : fed.reason);
+          return;
+        }
         var b = e.target.closest ? e.target.closest("#btnEat") : null;
         if (!b) return;
         var res = null;
@@ -254,9 +263,27 @@
       '<div class="sup-meter"><span>Water</span><span class="sup-track"><span class="sup-fill water" style="width:' + waterPct + '%"></span></span><small>' + esc(v.water) + " gal (1 gal covers today)</small></div>" +
       "</div>" +
       '<div class="sup-eat"><button type="button" class="btn sm" id="btnEat">Eat</button><span class="fine">1 meal and up to 1 gal now. Counts toward today so the end of the day does not spend it twice.' + esc(prepaidTxt) + "</span></div>" +
+      mountBlock(c, v) +
       '<label class="toggle sup-share" title="On: at the end of a day, your leftover food and water can cover party members who are short. Off: yours stays yours (others who share can still cover you)."><input type="checkbox" id="supShare"' + (v.share !== false ? " checked" : "") + "> Share with party</label>" +
       (lastTxt ? '<p class="fine sup-last">' + esc(lastTxt) + "</p>" : "");
     if (v.pendingSave && v.mode === "strict" && !saveOpen) openSave();
+  }
+  function mountBlock(c, v) {
+    var rows = (v && v.mounts) || [];
+    if (!rows.length) return "";
+    var feed = v.feed || 0;
+    var html = rows.map(function (m) {
+      var state = m.hungry ? "Hungry" : (m.grazing ? "Grazing" : "Fed");
+      return '<div class="sup-mount' + (m.hungry ? " bad" : "") + '" data-mount="' + esc(m.key) + '">' +
+        '<span class="sup-mount-name">' + esc(m.name) + "</span>" +
+        '<span class="sup-mount-flag">' + state + "</span>" +
+        "<span>Speed " + esc(m.speed) + " ft" + (m.hungry ? " (−10)" : "") + "</span>" +
+        '<button type="button" class="btn xs" data-feed-mount="' + esc(m.key) + '"' + (feed > 0 ? "" : " disabled") + ">Feed</button>" +
+        "</div>";
+    }).join("");
+    return '<div class="sup-mounts" aria-label="Horse feed">' +
+      '<div class="sup-meter"><span>Feed</span><span class="sup-track"><span class="sup-fill" style="width:' + (feed > 0 ? 100 : 0) + '%"></span></span><small>' + esc(feed) + " horse feed · 5 ES, 10 lb · one portion, one horse or mule, one day. No spoilage.</small></div>" +
+      html + "</div>";
   }
 
   /* ------------------------------------------------------------ exhaustion writes (existing condition path) */
@@ -301,13 +328,33 @@
       return null;
     }
     if (op === "give") {
-      var r = num(payload.rations), w = num(payload.water);
-      patch(function (ch2) { if (r) S.giveRations(ch2, r); if (w) S.giveWater(ch2, w); });
+      var r = num(payload.rations), w = num(payload.water), f = num(payload.feed);
+      patch(function (ch2) { if (r) S.giveRations(ch2, r); if (w) S.giveWater(ch2, w); if (f) S.giveFeed(ch2, f); });
       var bits = [];
       if (r) bits.push((r > 0 ? "+" : "") + r + " ration" + (Math.abs(r) === 1 ? "" : "s"));
       if (w) bits.push((w > 0 ? "+" : "") + w + " gal water");
+      if (f) bits.push((f > 0 ? "+" : "") + f + " horse feed");
       if (bits.length) { toast("DM: " + bits.join(", ") + "."); log("DM supplies: " + bits.join(", ") + "."); }
       return null;
+    }
+    if (op === "feed") {
+      var fed = null;
+      patch(function (ch2) { fed = S.feedMount(ch2, payload.mount); });
+      if (fed && fed.ok) log("DM feeds " + fed.name + " one portion of horse feed.");
+      else if (fed) log(fed.reason);
+      return fed;
+    }
+    if (op === "clear_hungry") {
+      var cleared = null;
+      patch(function (ch2) { cleared = S.clearHungry(ch2, payload.mount); });
+      if (cleared && cleared.ok) log("DM clears Hungry on " + cleared.name + ".");
+      return cleared;
+    }
+    if (op === "grazing") {
+      var grazed = null;
+      patch(function (ch2) { grazed = S.setGrazing(ch2, payload.mount, payload.on); });
+      if (grazed && grazed.ok) log(grazed.name + (grazed.grazing ? " is grazing (DM)." : " is not grazing."));
+      return grazed;
     }
     if (op === "set_hungry") {
       patch(function (ch2) { S.ensure(ch2).daysHungry = Math.max(0, num(payload.days)); });

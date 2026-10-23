@@ -1026,6 +1026,12 @@ select:-webkit-autofill {
 .supplies-panel .sup-table th, .supplies-panel .sup-table td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; vertical-align: middle; }
 .supplies-panel .sup-table td.num { white-space: nowrap; }
 .supplies-panel .sup-table td.bad { color: #e06666; font-weight: 700; }
+.supplies-panel .sup-mount-wrap { margin-top: 10px; }
+.supplies-panel .sup-mount-wrap h3 { margin: 0 0 4px; font-size: 15px; }
+.supplies-panel .sup-mounts { margin: 6px 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; }
+.supplies-panel .sup-mount { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+.supplies-panel .sup-mount.bad { color: #e06666; }
+.supplies-panel .sup-mount-flag { font-weight: 700; }
 .supplies-panel .btn.xs { padding: 0 6px; min-height: 24px; font-size: 12px; }
 .supplies-panel .sup-noshare { color: #e06666; font-weight: 700; }
 .supplies-panel .sup-summary { margin: 6px 0; padding: 6px 8px; border-left: 3px solid var(--eld); background: rgba(212, 175, 55, .08); }
@@ -1121,7 +1127,7 @@ select:-webkit-autofill {
 .ssm-markers .pip-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
 @media (max-width: 600px) { .turn-rules .tr-name { min-width: 0; flex: 1 0 100%; } }
 
-/* 0.2.130: Table turn strip matches the player strip (teal frame, pill chips, oval markers, heavy type).
+/* 0.2.131: Table turn strip matches the player strip (teal frame, pill chips, oval markers, heavy type).
    Fight-tab cards and the other pages keep their own layout. */
 #turnStrip.turn-strip {
   display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;

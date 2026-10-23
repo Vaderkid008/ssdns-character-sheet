@@ -591,6 +591,8 @@
       return Promise.resolve(false);
     }
     var note = peeked && peeked.apply && peeked.disadvantage ? (peeked.note || "disadvantage: range") : "";
+    var mountNote = root.SSDNSSupplies && root.SSDNSSupplies.mountedAttackNote ? (root.SSDNSSupplies.mountedAttackNote(ch()) || "") : "";
+    if (mountNote) note = note ? (note + " · " + mountNote) : mountNote;
     var chosen = rangeMode((document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "", peeked);
     var conds = (ch() && ch().activeConditions) || [];
     var willDis = root.SSDNSConditions && root.SSDNSConditions.attackMode

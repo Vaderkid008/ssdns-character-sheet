@@ -68,6 +68,13 @@ function applyDemo(pid, payload) {
   if (payload.op === "give") {
     if (payload.rations) S.giveRations(c, Number(payload.rations));
     if (payload.water) S.giveWater(c, Number(payload.water));
+    if (payload.feed) S.giveFeed(c, Number(payload.feed));
+  } else if (payload.op === "feed") {
+    S.feedMount(c, payload.mount);
+  } else if (payload.op === "clear_hungry") {
+    S.clearHungry(c, payload.mount);
+  } else if (payload.op === "grazing") {
+    S.setGrazing(c, payload.mount, payload.on);
   } else if (payload.op === "set_hungry") {
     S.ensure(c).daysHungry = Math.max(0, Number(payload.days) || 0);
   } else if (payload.op === "tick") {
@@ -140,15 +147,17 @@ async function skipDay() {
   DM.toast("Day " + cfg.day + " skipped. Nobody ate or drank from their counts.");
   paint();
 }
-async function give(ids, rations, water) {
+async function give(ids, rations, water, feed) {
   rations = Number(rations) || 0;
   water = Number(water) || 0;
-  if (!rations && !water) return;
-  for (const id of ids) await send(id, { op: "give", rations: rations, water: water });
+  feed = Number(feed) || 0;
+  if (!rations && !water && !feed) return;
+  for (const id of ids) await send(id, { op: "give", rations: rations, water: water, feed: feed });
   const names = ids.length > 1 ? "the party" : (players().filter((r) => r.id === ids[0]).map(nameOf)[0] || "a player");
   const bits = [];
   if (rations) bits.push((rations > 0 ? "+" : "") + rations + " rations");
   if (water) bits.push((water > 0 ? "+" : "") + water + " gal water");
+  if (feed) bits.push((feed > 0 ? "+" : "") + feed + " horse feed");
   await DM.pushLedger({ who: "DM", playerId: ids.length > 1 ? "all" : ids[0], type: "supplies", what: "Supplies " + bits.join(", ") + " → " + names, oldVal: null, newVal: bits.join(", "), flag: false });
   paint();
 }
@@ -234,6 +243,8 @@ function paint() {
     '<label>Water (gal) <input type="number" id="supPartyW" step="0.5" value="1" style="width:4.5em"></label>' +
     '<button type="button" class="btn sm" id="btnSupGiveParty">Give</button>' +
     '<button type="button" class="btn sm" id="btnSupTakeParty">Take</button>' +
+    '<label>Horse feed <input type="number" id="supPartyF" step="1" value="1" style="width:4.5em" title="One portion feeds one horse or pack mule for one campaign day. 5 ES, 10 lb. No spoilage."></label>' +
+    '<button type="button" class="btn sm" id="btnSupGiveFeed">Give feed</button>' +
     '<label class="toggle"><input type="checkbox" id="supHalfParty"' + (list.length && list.every((r) => cfg.half[r.id]) ? " checked" : "") + "> Half rations (all)</label>" +
     '<button type="button" class="btn sm" id="btnSupClearExh" title="Clear exhaustion for everyone.">Clear exhaustion (all)</button>' +
     "</div>" +
@@ -243,13 +254,37 @@ function paint() {
     '<label>DC <input type="number" id="supForageDc" value="15" style="width:4.5em"></label>' +
     '<label>Survival <input type="number" id="supForageMod" value="' + (list.length ? survivalOf(list[0]) : 0) + '" style="width:4.5em" title="d20 + this bonus. Filled from the player\'s Survival skill when you pick them."></label>' +
     '<button type="button" class="btn sm" id="btnSupForage"' + (cfg.mode === "off" || !list.length ? " disabled" : "") + ">Roll</button>" +
-    '<span class="fine" id="supForageOut">ASSUMED: a success grants 1 ration. No spoilage. Horse feed is not in this pass.</span>' +
+    '<span class="fine" id="supForageOut">ASSUMED: a success grants 1 ration. No spoilage. Horse feed does not spoil either.</span>' +
     "</div>" +
     (cfg.summary ? '<p class="sup-summary" id="supSummary"><b>Day ' + esc(cfg.summary.day) + ":</b> " +
       esc(cfg.summary.shared && cfg.summary.shared.length ? cfg.summary.shared.join("; ") + ". " : "No one needed covering. ") +
       "Not sharing: " + esc(cfg.summary.notSharing && cfg.summary.notSharing.length ? cfg.summary.notSharing.join(", ") : "nobody") + ".</p>" : "") +
     (list.length ? '<table class="sup-table"><thead><tr><th>Player</th><th>Rations</th><th>Water</th><th title="Days without food / safe days (3 + Con mod)">Hungry</th><th title="Set by the player on their sheet">Shares</th><th>Half</th><th>Exhaustion</th><th>Last day</th></tr></thead><tbody>' + rows + "</tbody></table>" : '<p class="fine">No players at the table yet.</p>') +
-    '<p class="fine">Rations are the meals in every item tagged food (Hardtack and Jerky, packs, DM-made food). Water is every item tagged water: canteens and waterskins, drink items, and loose gallons (8 lb a gallon, counted in carried weight). Give fills canteens first. Players see these counts but can\'t change them; each player picks "Share with party" on their sheet (on unless they turn it off).</p>';
+    mountBlocks(list) +
+    '<p class="fine">Rations are the meals in every item tagged food (Hardtack and Jerky, packs, DM-made food). Water is every item tagged water: canteens and waterskins, drink items, and loose gallons (8 lb a gallon, counted in carried weight). Give fills canteens first. Horse feed is oats, hay, or grain (5 ES, 10 lb): one portion for one horse or pack mule for the day. It never counts as player food, and it does not spoil. Loose can skip a day by marking Grazing. Strict needs a portion unless Grazing is marked. Hungry does not add exhaustion. Hot meals and campfires are still not in this pass. Players see these counts but can\'t change them; each player picks "Share with party" on their sheet (on unless they turn it off).</p>';
+}
+function mountBlocks(list) {
+  const blocks = list.map((r) => {
+    const v = viewOf(r);
+    const mounts = v.mounts || [];
+    if (!mounts.length && !(Number(v.feed) > 0)) return "";
+    const rows = mounts.map((m) => {
+      const flag = m.hungry ? "Hungry" : (m.grazing ? "Grazing" : "Fed");
+      return '<div class="sup-mount' + (m.hungry ? " bad" : "") + '">' +
+        "<b>" + esc(m.name) + "</b> " +
+        '<span class="sup-mount-flag">' + flag + "</span> " +
+        "Speed " + esc(m.speed) + " ft" + (m.hungry ? " (−10)" : "") + " " +
+        '<label class="toggle"><input type="checkbox" data-sup-graze="' + esc(r.id) + '" data-mount="' + esc(m.key) + '"' + (m.grazing ? " checked" : "") + "> Grazing</label> " +
+        '<button type="button" class="btn xs" data-sup-feed="' + esc(r.id) + '" data-mount="' + esc(m.key) + '">Feed</button> ' +
+        '<button type="button" class="btn xs" data-sup-clear="' + esc(r.id) + '" data-mount="' + esc(m.key) + '">Clear Hungry</button>' +
+        "</div>";
+    }).join("");
+    return '<div class="sup-mounts"><b>' + esc(nameOf(r)) + "</b> · " + esc(v.feed || 0) + " horse feed " +
+      '<button type="button" class="btn xs" data-sup-givefeed="' + esc(r.id) + '">Give feed</button>' +
+      rows + "</div>";
+  }).join("");
+  if (!blocks) return "";
+  return '<div class="sup-mount-wrap"><h3>Mounts</h3><p class="fine">Same Off / Loose / Strict dial and the same End of day. One portion per mount. Loose can skip a day with no feed. Strict sets Hungry unless you mark Grazing. Hungry: Animal Handling disadvantage, and while mounted your attacks are at disadvantage and the mount is −10 ft. No exhaustion.</p>' + blocks + "</div>";
 }
 
 function wire() {
@@ -266,6 +301,9 @@ function wire() {
       const r = players().filter((x) => x.id === t.value)[0];
       const mod = document.getElementById("supForageMod");
       if (r && mod) mod.value = String(survivalOf(r));
+    }
+    else if (t.hasAttribute("data-sup-graze")) {
+      send(t.getAttribute("data-sup-graze"), { op: "grazing", mount: t.getAttribute("data-mount"), on: t.checked }).then(() => paint());
     }
     else if (t.hasAttribute("data-sup-half")) { cfg.half[t.getAttribute("data-sup-half")] = t.checked; save(); }
     else if (t.hasAttribute("data-sup-exh")) {
@@ -285,6 +323,16 @@ function wire() {
       give(players().map((r) => r.id), sign * (Number(document.getElementById("supPartyR").value) || 0), sign * (Number(document.getElementById("supPartyW").value) || 0));
     } else if (b.id === "btnSupClearExh") {
       (async () => { for (const r of players()) if (exhOf(r)) await setExhaustion(r, 0); paint(); })();
+    } else if (b.id === "btnSupGiveFeed") {
+      const n = Number(document.getElementById("supPartyF").value) || 0;
+      give(players().map((r) => r.id), 0, 0, n);
+    } else if (b.hasAttribute("data-sup-givefeed")) {
+      const n = Number((document.getElementById("supPartyF") || {}).value) || 1;
+      give([b.getAttribute("data-sup-givefeed")], 0, 0, n);
+    } else if (b.hasAttribute("data-sup-feed")) {
+      send(b.getAttribute("data-sup-feed"), { op: "feed", mount: b.getAttribute("data-mount") }).then(() => paint());
+    } else if (b.hasAttribute("data-sup-clear")) {
+      send(b.getAttribute("data-sup-clear"), { op: "clear_hungry", mount: b.getAttribute("data-mount") }).then(() => paint());
     } else if (b.hasAttribute("data-sup-give")) {
       give([b.getAttribute("data-sup-give")], Number(b.getAttribute("data-r")) || 0, Number(b.getAttribute("data-w")) || 0);
     } else if (b.hasAttribute("data-sup-apply")) {
