@@ -48,7 +48,7 @@ const lawWeapon = kits.slice(kits.indexOf('} else if (calling === "lawman")'), k
 check(lawman.indexOf("javelin") < 0 && lawman.indexOf("cavalry-saber") < 0 && lawman.indexOf("c.shield = true") >= 0, "lawman gear keeps the shield, no javelins, no second saber");
 check((lawWeapon.match(/putMelee\(c, "cavalry-saber-longsword"\)/g) || []).length === 1, "lawman weapon block seeds one Cavalry Saber");
 check(kits.indexOf('calling === "lawman"') >= 0 && kits.indexOf("ballCap(c)") >= 0, "lawman default weapon is one Ball n Cap");
-check(read("version.json").indexOf("0.3.116") >= 0 && read("version.json").indexOf("0.2.129") >= 0, "versions bumped");
+check(read("version.json").indexOf("0.3.117") >= 0 && read("version.json").indexOf("0.2.130") >= 0, "versions bumped");
 check(!/database\.rules\.json/.test("") , "placeholder");
 const rulesDiff = read("database.rules.json");
 check(rulesDiff.indexOf("requests") >= 0, "rules file still present");

@@ -155,7 +155,8 @@
 
   function muzzle(ctx, p, dir, lt, scale) {
     scale = scale || 1;
-    var k = 1 - clamp(lt / 110); if (lt < 0 || k <= 0) return;
+    /* hold the flash through the tracer's arrival so a hit reads as flash + line, not flash then line */
+    var k = 1 - clamp(lt / 200); if (lt < 0 || k <= 0) return;
     var R = 16 * scale * (0.7 + 0.3 * k);
     ctx.save(); ctx.globalCompositeOperation = "lighter";
     ctx.fillStyle = stops(grad(ctx, "r", p.x, p.y, 0, p.x, p.y, R), [[0, "rgba(255,250,220," + 0.95 * k + ")"], [0.35, "rgba(255,190,80," + 0.75 * k + ")"], [1, "rgba(255,120,30,0)"]]) || "rgba(255,200,100," + 0.6 * k + ")";
