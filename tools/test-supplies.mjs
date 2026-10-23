@@ -35,6 +35,22 @@ check("tick.full.uses1ration1gal", S.rations(c) === 2 && c.supplies.water === 2 
 check("tick.rations.areRealItems", c.items.length === 1 && c.items[0].catalogId === "hardtack-jerky-1-day" && c.items[0].count === 2, J(c.items));
 check("tick.dayCounter", c.supplies.day === 1 && c.supplies.last && c.supplies.last.day === 1);
 
+/* Eat now prepays the day so the end-of-day tick does not spend it again. ASSUMED: 1 meal and up to 1 gal. */
+c = fresh(2, 2);
+c.supplies.mode = "strict";
+let ateNow = S.eatNow(c);
+check("eat.spendsNow", ateNow.ok === true && ateNow.ate === 1 && ateNow.drank === 1 && S.rations(c) === 1 && c.supplies.water === 1 && c.supplies.prepaid.food === 1 && c.supplies.daysHungry === 0, J(ateNow));
+t = S.tick(c, { conMod: 0 });
+check("eat.tickDoesNotDouble", t.food === "full" && t.ate === 1 && t.drank === 1 && S.rations(c) === 1 && c.supplies.water === 1 && c.supplies.prepaid.food === 0 && c.supplies.prepaid.water === 0, J([t.food, t.ate, t.drank, S.rations(c), c.supplies.water]));
+c = fresh(0, 0);
+c.supplies.mode = "loose";
+check("eat.empty", S.eatNow(c).ok === false);
+c = fresh(1, 1);
+c.supplies.mode = "off";
+check("eat.off", S.eatNow(c).ok === false && S.rations(c) === 1);
+check("ui.eatButton", read("assets/js/supplies-sheet.js").includes('id="btnEat"') && read("assets/js/supplies-sheet.js").includes("sup-meters"));
+check("ui.forage", read("dm/assets/js/supplies-dm.js").includes("btnSupForage") && read("dm/assets/js/supplies-dm.js").includes("ASSUMED: a success grants 1 ration"));
+
 /* Con mod days */
 check("limit.con0=3", S.foodLimit(0) === 3);
 check("limit.con+2=5", S.foodLimit(2) === 5);
@@ -289,7 +305,7 @@ try {
     /* loose: counts + summary, no auto exhaustion, no popup */
     SS.command({ op: "mode", mode: "loose" });
     out.looseShown = !!document.querySelector("#suppliesBox:not([hidden])");
-    out.readOnly = !document.querySelector("#suppliesBox button") && [...document.querySelectorAll("#suppliesBox input")].every((i) => i.id === "supShare");
+    out.readOnly = [...document.querySelectorAll("#suppliesBox button")].every((b) => b.id === "btnEat") && !!document.querySelector("#suppliesBox #btnEat") && [...document.querySelectorAll("#suppliesBox input")].every((i) => i.id === "supShare");
     const shareBox = document.querySelector("#supShare");
     out.shareDefault = !!shareBox && shareBox.checked && c().supplies.share === true;
     shareBox.checked = false; shareBox.dispatchEvent(new Event("change", { bubbles: true }));

@@ -208,6 +208,18 @@
         patch(function (ch2) { root.SSDNSSupplies.ensure(ch2).share = on; });
         log(on ? "You share your leftover food and water with the party." : "You keep your food and water to yourself.");
       });
+      box.addEventListener("click", function (e) {
+        var b = e.target.closest ? e.target.closest("#btnEat") : null;
+        if (!b) return;
+        var res = null;
+        patch(function (ch2) { res = root.SSDNSSupplies.eatNow(ch2); });
+        if (!res) return;
+        if (!res.ok) { log(res.reason); return; }
+        var bits = [];
+        if (res.ate) bits.push(res.ate + " meal" + (res.ate === 1 ? "" : "s"));
+        if (res.drank) bits.push(res.drank + " gal");
+        log("You eat and drink now (" + bits.join(", ") + "). The end of the day won't spend that again.");
+      });
     }
     if (!c) { box.hidden = true; return; }
     var v = S.view(c);
@@ -215,6 +227,11 @@
     var conMod = 0;
     try { var cv = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : null; conMod = num(cv && cv.mods && cv.mods.CON); } catch (e) {}
     var limit = S.foodLimit(conMod);
+    var fedPct = Math.max(0, Math.min(100, Math.round((1 - Math.min(v.daysHungry, limit) / limit) * 100)));
+    var waterPct = Math.max(0, Math.min(100, Math.round(Math.min(1, v.water) * 100)));
+    var prepaidTxt = (v.prepaid && (v.prepaid.food || v.prepaid.water))
+      ? " Already eaten today: " + (v.prepaid.food || 0) + " meal, " + (v.prepaid.water || 0) + " gal."
+      : "";
     var last = v.last;
     var lastTxt = "";
     if (last) {
@@ -232,6 +249,11 @@
       '<div class="sup-cell" data-sup="water"><b>' + esc(v.water) + ' gal</b><span>Water</span><small>1 gal a day (2 if hot), 8 lb a gal' + waterWhere(c) + '</small></div>' +
       '<div class="sup-cell' + (v.daysHungry > limit ? " bad" : "") + '" data-sup="hungry"><b>' + esc(v.daysHungry) + " / " + limit + '</b><span>Days without food</span><small>Safe for 3 + Con mod days</small></div>' +
       "</div>" +
+      '<div class="sup-meters" aria-label="Hunger and thirst">' +
+      '<div class="sup-meter"><span>Fed</span><span class="sup-track"><span class="sup-fill" style="width:' + fedPct + '%"></span></span><small>' + esc(v.daysHungry) + " / " + limit + " days without</small></div>" +
+      '<div class="sup-meter"><span>Water</span><span class="sup-track"><span class="sup-fill water" style="width:' + waterPct + '%"></span></span><small>' + esc(v.water) + " gal (1 gal covers today)</small></div>" +
+      "</div>" +
+      '<div class="sup-eat"><button type="button" class="btn sm" id="btnEat">Eat</button><span class="fine">1 meal and up to 1 gal now. Counts toward today so the end of the day does not spend it twice.' + esc(prepaidTxt) + "</span></div>" +
       '<label class="toggle sup-share" title="On: at the end of a day, your leftover food and water can cover party members who are short. Off: yours stays yours (others who share can still cover you)."><input type="checkbox" id="supShare"' + (v.share !== false ? " checked" : "") + "> Share with party</label>" +
       (lastTxt ? '<p class="fine sup-last">' + esc(lastTxt) + "</p>" : "");
     if (v.pendingSave && v.mode === "strict" && !saveOpen) openSave();
