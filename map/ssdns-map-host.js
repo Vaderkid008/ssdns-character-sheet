@@ -999,6 +999,16 @@
     syncInitiative: syncInitiative,
     destroy: destroyMap,
     placeToken: placeToken,
+    pinLootChest: function (box) {
+      if (!map || typeof map.pinLootChest !== "function") return null;
+      try { return map.pinLootChest(box); }
+      catch (e) { return null; }
+    },
+    focusLootChest: function (boxId) {
+      if (!map || typeof map.focusLootChest !== "function") return "";
+      try { return map.focusLootChest(boxId); }
+      catch (e) { return ""; }
+    },
     removeToken: removeToken,
     tokenForPlayer: tokenForPlayer,
     hasToken: hasToken,

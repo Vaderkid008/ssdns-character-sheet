@@ -219,7 +219,7 @@
           <p class="fine" id="giveKitLine">Gives the Full kit for their calling (armor, pack, kit gear, background gear and pouch ES). Anything they already have isn't given twice.</p>
         </div>
         <div class="span-2 give-loot" id="giveLootWrap" data-give-show="loot" hidden>
-          <p><b>Act I loot tables are DRAFT v1.2.</b> Locked: each of the five guns is 20%, and an Outlaw Stash turns up Black shards on a 1 (1-in-6). Glowing Letters are 5% of Uncommon. These percentages are the balance floor. The chapter meter warns only. A hand-pick still lands.</p>
+          <p><b>Act I loot tables are DRAFT v1.3.</b> Locked: each of the five guns is 20%, and an Outlaw Stash turns up Black shards on a 1 (1-in-6). Glowing Letters are a scroll-chance after the picks (Saddlebag 70%, Supply Crate 65%, Outlaw Stash 85% then 35%, Strongbox 95% then 50%). These percentages are the balance floor. The chapter meter warns only. A hand-pick still lands. Select the chest for Lockpick? Yes / No, Force, or Use key.</p>
           <div class="form-grid">
             <div>
               <label for="lootBoxType">Box</label>
@@ -252,6 +252,7 @@
             </div>
           </div>
           <label class="chk"><input type="checkbox" id="lootRareOverride"> Rare-limit override (logged, does not block mundane poison)</label>
+          <label for="lootLetterForce">Letters <select id="lootLetterForce"><option value="table">Table chance</option><option value="0">Force 0</option><option value="1">Force 1</option><option value="2">Force 2</option></select></label>
           <p>
             <button type="button" class="btn sm" id="btnLootPlace">Place box</button>
             <button type="button" class="btn sm" id="btnLootOpen">Open</button>

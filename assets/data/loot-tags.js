@@ -1,7 +1,8 @@
-/* Act I loot overlay (DRAFT v1.2). Loaded after the catalogs. Does not rewrite a catalog row.
+/* Act I loot overlay (DRAFT v1.3). Loaded after the catalogs. Does not rewrite a catalog row.
    Locked: gun mix 20% each, Outlaw Stash Black 1-in-6. Other percentages are the balance floor (DRAFT).
-   Glowing Letters are the only Story Finds the roller may select. ChaosMaker weapons stay actMin 2.
-   There is no ChaosMaker-ammo row: those guns fire the same Light / Medium / Heavy cartridges. */
+   Glowing Letters are the only Story Finds the roller may select, and only via the scroll-chance layer.
+   strongbox-key can be hand-placed and used as a lock key. It is not a band row.
+   ChaosMaker weapons stay actMin 2. There is no ChaosMaker-ammo row. */
 (function (root) {
   "use strict";
   var story = [
@@ -47,5 +48,7 @@
   letters.forEach(function (id) {
     tags[id] = { rarity: "uncommon", lootable: true, storyOnly: false, maxPerBox: 1, tags: ["scroll"] };
   });
+  /* DM hand-place and keyItem. noBand keeps it off the roller even if a row is pasted in. */
+  tags["strongbox-key"] = { lootable: true, storyOnly: false, noTrade: true, noBand: true, rarity: "quest" };
   root.SSDNS_LOOT_TAGS = tags;
 })(typeof window !== "undefined" ? window : globalThis);

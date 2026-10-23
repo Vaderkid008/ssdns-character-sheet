@@ -5,8 +5,8 @@
   "act": 1,
   "picks": "2",
   "bands": {
-    "common": 80,
-    "uncommon": 17,
+    "common": 75,
+    "uncommon": 22,
     "rare": 3
   },
   "rows": {
@@ -157,39 +157,33 @@
     "uncommon": [
       {
         "id": "greater-healing-libation",
-        "w": 10,
+        "w": 12,
         "qty": "1"
       },
       {
         "id": "snakebite-antivenin-antitoxin",
-        "w": 23,
+        "w": 26,
         "qty": "1"
       },
       {
         "id": "blessed-water-saint-s-wash",
-        "w": 23,
+        "w": 26,
         "qty": "1"
       },
       {
         "id": "field-glass-spyglass",
-        "w": 15,
+        "w": 16,
         "qty": "1"
       },
       {
         "id": "good-silk-rope-50-ft",
-        "w": 19,
+        "w": 15,
         "qty": "1"
       },
       {
         "id": "blasting-keg",
         "w": 5,
         "qty": "1"
-      },
-      {
-        "id": "#glowing-letter-act1",
-        "w": 5,
-        "qty": "1",
-        "maxPerBox": 1
       }
     ],
     "rare": [
@@ -214,19 +208,19 @@
           "id": "glowing-letter"
         },
         {
-          "w": 25,
+          "w": 28,
           "id": "glowing-letter-cure-wounds"
         },
         {
-          "w": 25,
+          "w": 27,
           "id": "glowing-letter-shield"
         },
         {
-          "w": 7,
+          "w": 4,
           "id": "glowing-letter-fireball"
         },
         {
-          "w": 3,
+          "w": 1,
           "id": "glowing-letter-revivify"
         }
       ]
@@ -268,11 +262,30 @@
   "caps": {
     "gun": 1,
     "explosive": 1,
-    "glowingLetter": 1,
+    "glowingLetter": 2,
     "noDupePermanent": true
   },
   "rareLimit": "room",
   "fallback": "dropBand",
   "draft": true,
-  "budgetEs": 1125
+  "budgetEs": 1125,
+  "letterChance": {
+    "first": 85,
+    "second": 35,
+    "max": 2
+  },
+  "defaults": {
+    "hidden": true,
+    "hideDc": 13,
+    "lockRate": 0.7,
+    "lockDc": [
+      12,
+      14
+    ],
+    "lockMethod": [
+      "tools",
+      "force"
+    ],
+    "jamOnFail": false
+  }
 }
