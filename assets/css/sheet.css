@@ -1268,6 +1268,11 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
 .supplies-box .sup-fill { display: block; height: 100%; background: #2f7d32; }
 .supplies-box .sup-fill.water { background: #2a6f97; }
 .supplies-box .sup-eat { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .4rem; }
+.supplies-box .sup-mounts { margin-top: .45rem; display: grid; gap: .3rem; }
+.supplies-box .sup-mount { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; padding: .25rem .35rem; border: 1px solid #d9c6a3; border-radius: 4px; background: #fff; font-size: .8rem; }
+.supplies-box .sup-mount.bad { border-color: #8b1a1a; background: #fbeee6; }
+.supplies-box .sup-mount-name { font-weight: 700; }
+.supplies-box .sup-mount-flag { font-weight: 700; letter-spacing: .02em; }
 
 /* 0.3.84 default UI by type: kind picker, kind fields, the "lives in" badge, Special UI hook slots */
 .item-form .item-kind-home { margin: 0 0 6px; }
@@ -1431,7 +1436,7 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
    (swipe, or the arrows on a mouse), one header line, and the current gun's chambers as mini dots in the current chip.
    Tapping a chip opens one fold-down line with the full list (and, on your turn, the clickable chambers).
    Scoped to #turnPanel: the map and DMCC strips keep their own .turn-chip look. */
-/* 0.3.117: the frame Jessey likes on the player strip (teal edge, dark bar, pill chips). The map docks this same #turnPanel. */
+/* 0.3.118: the frame Jessey likes on the player strip (teal edge, dark bar, pill chips). The map docks this same #turnPanel. */
 #turnPanel.turn-panel { flex-wrap: nowrap; gap: 6px; padding: 4px 8px; align-items: center; border: 2px solid #3fbf9a; border-radius: 10px; background: #16130f; }
 #turnPanel .turn-round { flex: none; font-size: 12px; letter-spacing: .02em; white-space: nowrap; color: var(--eld, #e2c56a); }
 #turnPanel .turn-who, #turnPanel .tc-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

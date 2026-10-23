@@ -740,8 +740,12 @@
     }
     if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
     var cm = condRollMode(kind === "save" ? "save" : "check");
+    var handling = "";
+    if (/animal handling/i.test(label) && root.SSDNSSupplies && root.SSDNSSupplies.handlingNote) handling = root.SSDNSSupplies.handlingNote(ch()) || "";
+    if (handling && cm !== "dis") cm = "dis";
     var rolled = rollAdv(mod, cm);
-    if (cm) rolled.detail += " · Exhaustion " + exhLevel();
+    if (handling) rolled.detail += " · " + handling;
+    else if (cm) rolled.detail += " · Exhaustion " + exhLevel();
     postCheck(label, rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false);
   }
   function attackReport(opts) {
@@ -897,7 +901,13 @@
     var R = root.SSDNSRangeRings;
     return R && R.modeWith ? R.modeWith(chosen, verdict) : (chosen || "");
   }
+  function mountAttackExtra(extraDis) {
+    var note = root.SSDNSSupplies && root.SSDNSSupplies.mountedAttackNote ? (root.SSDNSSupplies.mountedAttackNote(ch()) || "") : "";
+    if (!note) return extraDis || "";
+    return extraDis ? (extraDis + " · " + note) : note;
+  }
   function attackRoll(mod, conditions, chosen, extraDis) {
+    extraDis = mountAttackExtra(extraDis);
     var mode = root.SSDNSConditions && root.SSDNSConditions.attackMode
       ? root.SSDNSConditions.attackMode(conditions || [], chosen || "", extraDis)
       : ((chosen === "adv" || chosen === "dis") ? chosen : (extraDis ? "dis" : ""));
@@ -1449,8 +1459,8 @@
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     chosenMode = rangeMode(chosenMode, rangeShot);
     var atkMode = root.SSDNSConditions && root.SSDNSConditions.attackMode
-      ? root.SSDNSConditions.attackMode(conds, chosenMode, rangeNote)
-      : (chosenMode === "adv" && rangeNote ? "" : (rangeNote ? "dis" : chosenMode));
+      ? root.SSDNSConditions.attackMode(conds, chosenMode, mountAttackExtra(rangeNote))
+      : (chosenMode === "adv" && rangeNote ? "" : (mountAttackExtra(rangeNote) ? "dis" : chosenMode));
     var rolled = Cast.rollCast({
       spellName: spellName,
       slotLevel: slot,
@@ -1833,6 +1843,7 @@
     return !!(box && box.checked);
   }
   function attackWouldDis(conditions, chosen, extraDis) {
+    extraDis = mountAttackExtra(extraDis);
     if (root.SSDNSConditions && root.SSDNSConditions.attackMode) {
       return root.SSDNSConditions.attackMode(conditions || [], chosen || "", extraDis || "") === "dis";
     }

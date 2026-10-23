@@ -53,7 +53,7 @@ End of day finds **anything** tagged food or water in the inventory, whether it 
 | Jug / Bucket / Barrel / Cook pot | water, container | 1 / 3 / 40 / 1 gal, start empty |
 | Bottle, empty / Flask / tin cup | water, container | 0.1875 gal (1½ pt) / 0.125 gal (1 pt), start empty |
 | Whiskey (bottle) | drink, alcohol | 0 meals, 0 gal: never counted |
-| Feed (1 day) | feed | 1 animal-day (`feedDays`), never counted as player food |
+| Horse feed (oats/hay/grain) | feed | 1 animal-day (`feedDays`), 5 ES, 10 lb. One portion feeds one horse or pack mule for one campaign day. Never counted as player food. No spoilage. |
 | Packs (Trail kit, Claim pack, Alley kit, Saloon kit, Preacher's kit, ...) | none | no tag of their own; the meals and water still inside come from what they unpack into (10 / 10 / 5 / 5 / 2 hardtack + one full waterskin) |
 
   Not tagged: healing libations, antivenin, blessed water, lamp oil.

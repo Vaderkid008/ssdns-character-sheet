@@ -8,21 +8,37 @@
  *              into) and a half left open (supplies.halfOpen).
  *   water    = container fill (capacity at 5e full) + drink items tagged water + loose
  *              supplies.water gallons. 8 lb a gallon in carried weight.
- *   supplies = { mode, water, daysHungry, halfOpen, pendingSave, last, day }
+ *   supplies = { mode, water, daysHungry, halfOpen, pendingSave, last, day, mounts }
  * The DM owns the counts. The sheet shows them read-only.
+ *
+ * L0216 horse feed uses this same Off / Loose / Strict dial and the same end-of-day tick.
+ * One Horse feed portion feeds one horse or pack mule for one campaign day. No spoilage.
+ * Grazing (a DM mark) skips that portion. Loose can skip a day with no portion (not Hungry).
+ * Strict needs a portion unless Grazing is marked, and a miss sets Hungry. Hungry never
+ * happens while the dial is Off.
+ * Hungry is disadvantage on Wisdom (Animal Handling) for that mount, and, while mounted,
+ * disadvantage on attack rolls and −10 ft of mount speed. It does not add exhaustion.
  */
 (function (root) {
   "use strict";
 
   var RATION_ID = "hardtack-jerky-1-day";
+  var FEED_ID = "feed-1-day";
   var MODES = { off: 1, loose: 1, strict: 1 };
   var SAVE_DC = 15;
+  /* Living horses and pack mules only. Carts, wagons, boats, and tack do not eat. */
+  var MOUNTS = {
+    "riding-horse-cow-pony": { name: "Riding horse", speed: 60 },
+    "draft-freight-horse": { name: "Draft horse", speed: 40 },
+    "cavalry-horse": { name: "Cavalry horse", speed: 60 },
+    "mule": { name: "Mule", speed: 40 }
+  };
 
   function num(v, d) { var n = Number(v); return isFinite(n) ? n : (d == null ? 0 : d); }
   function half(n) { return Math.round(num(n) * 2) / 2; }
 
   function defaults() {
-    return { mode: "off", water: 0, daysHungry: 0, halfOpen: false, pendingSave: null, last: null, day: 0, share: true, prepaid: { food: 0, water: 0 } };
+    return { mode: "off", water: 0, daysHungry: 0, halfOpen: false, pendingSave: null, last: null, day: 0, share: true, prepaid: { food: 0, water: 0 }, mounts: {} };
   }
   /** Fill missing fields; never throws on old saves. */
   function ensure(c) {
@@ -38,6 +54,7 @@
     if (!s.prepaid || typeof s.prepaid !== "object") s.prepaid = { food: 0, water: 0 };
     s.prepaid.food = Math.max(0, half(s.prepaid.food));
     s.prepaid.water = Math.max(0, Math.round(num(s.prepaid.water) * 1000) / 1000);
+    if (!s.mounts || typeof s.mounts !== "object" || Array.isArray(s.mounts)) s.mounts = {};
     c.supplies = s;
     return s;
   }
@@ -262,6 +279,7 @@
     if (save) lines.push("Half the water: DC " + SAVE_DC + " Con save or +" + stepGain + " exhaustion.");
     if (waterGain) lines.push("Less than half the water: +" + waterGain + " exhaustion.");
     if (restDrop) lines.push("Long rest with food and water: -1 exhaustion.");
+    tickMounts(c).forEach(function (row) { lines.push(row.line); });
 
     s.day = num(s.day) + 1;
     s.last = { day: s.day, food: food, drank: drank, need: need, hot: !!opts.hot, gain: gain, restDrop: restDrop, save: save ? "pending" : "", at: new Date().toISOString() };
@@ -282,7 +300,177 @@
   /** Small read-only view for the DM card and the sheet. */
   function view(c) {
     var s = ensure(c);
-    return { mode: s.mode, rations: rations(c), water: waterTotal(c), daysHungry: s.daysHungry, pendingSave: !!s.pendingSave, last: s.last, day: s.day, share: s.share, prepaid: { food: s.prepaid.food, water: s.prepaid.water } };
+    return { mode: s.mode, rations: rations(c), water: waterTotal(c), daysHungry: s.daysHungry, pendingSave: !!s.pendingSave, last: s.last, day: s.day, share: s.share, prepaid: { food: s.prepaid.food, water: s.prepaid.water }, feed: feedPortions(c), mounts: mountView(c) };
+  }
+
+  /* ---- L0216 horse feed: oats / hay / grain, one portion per horse or pack mule ---- */
+  function isMountItem(it) {
+    return !!(it && MOUNTS[it.catalogId || it.id || ""]);
+  }
+  function mountKey(it, i) {
+    return (it && it.uid) || ((it && (it.catalogId || it.id)) + "#" + i);
+  }
+  function mountState(c, key) {
+    var bag = ensure(c).mounts;
+    var st = bag[key];
+    if (!st || typeof st !== "object") st = { hungry: false, grazing: false, prepaid: false };
+    st.hungry = !!st.hungry;
+    st.grazing = !!st.grazing;
+    st.prepaid = !!st.prepaid;
+    bag[key] = st;
+    return st;
+  }
+  function mountView(c) {
+    var s = ensure(c);
+    return itemsOf(c).map(function (it, i) {
+      if (!isMountItem(it)) return null;
+      var id = it.catalogId || it.id;
+      var spec = MOUNTS[id];
+      var key = mountKey(it, i);
+      var st = mountState(c, key);
+      var hungry = s.mode !== "off" && !!st.hungry;
+      return {
+        key: key,
+        name: it.name || spec.name,
+        catalogId: id,
+        baseSpeed: spec.speed,
+        speed: hungry ? spec.speed - 10 : spec.speed,
+        hungry: hungry,
+        grazing: !!st.grazing
+      };
+    }).filter(Boolean);
+  }
+  function feedLeft(it) {
+    if (!it || isFood(it)) return 0;
+    var days = num(it.feedDays, 0);
+    if (!(days > 0) && tagged(it, "feed")) days = 1;
+    if (!(days > 0)) return 0;
+    return Math.max(0, days * Math.max(1, num(it.count, 1)) - num(it.feedUsed, 0));
+  }
+  function feedPortions(c) {
+    var n = 0;
+    itemsOf(c).forEach(function (it) { n += feedLeft(it); });
+    return n;
+  }
+  function feedRow(count) {
+    var Items = root.SSDNSItems;
+    var base = Items && Items.byId ? Items.byId(FEED_ID) : null;
+    if (Items && Items.instanceFrom && base) return Items.instanceFrom(Object.assign({}, base, { count: count }), {});
+    return { uid: "it_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), catalogId: FEED_ID, name: "Horse feed (oats/hay/grain)",
+      type: "gear", description: "Oats, hay, or grain. One portion feeds one horse or pack mule for one campaign day.", weight: 10, price: 5, count: count,
+      stack: true, tags: ["feed"], feedDays: 1, approved: true };
+  }
+  function giveFeed(c, n) {
+    if (!c) return 0;
+    ensure(c);
+    if (!Array.isArray(c.items)) c.items = [];
+    n = Math.trunc(num(n));
+    if (n > 0) {
+      var same = itemsOf(c).filter(function (it) { return (it.catalogId || it.id) === FEED_ID && !it.addressedTo; })[0];
+      if (same) same.count = Math.max(1, num(same.count, 1)) + n;
+      else c.items.push(feedRow(n));
+    } else if (n < 0) spendFeed(c, -n);
+    return feedPortions(c);
+  }
+  function spendFeed(c, n) {
+    var left = Math.trunc(num(n));
+    var spent = 0;
+    if (left <= 0 || !c) return 0;
+    itemsOf(c).filter(function (it) { return feedLeft(it) > 0; }).forEach(function (it) {
+      while (left > 0 && c.items.indexOf(it) >= 0 && feedLeft(it) > 0) {
+        var each = num(it.feedDays, 1) || 1;
+        var count = Math.max(1, num(it.count, 1));
+        if (each <= 1) {
+          if (count > 1) it.count = count - 1;
+          else c.items.splice(c.items.indexOf(it), 1);
+        } else {
+          it.feedUsed = num(it.feedUsed, 0) + 1;
+          if (feedLeft(it) <= 0) c.items.splice(c.items.indexOf(it), 1);
+        }
+        left -= 1;
+        spent += 1;
+      }
+    });
+    return spent;
+  }
+  function mountByKey(c, key) {
+    return mountView(c).filter(function (m) { return m.key === key; })[0] || null;
+  }
+  /** Spend one portion on a mount the player owns. Clears Hungry. Mode off does nothing. */
+  function feedMount(c, key) {
+    var s = ensure(c);
+    if (s.mode === "off") return { ok: false, reason: "Food and water tracking is off." };
+    var row = mountByKey(c, key);
+    if (!row) return { ok: false, reason: "That mount isn't yours." };
+    if (spendFeed(c, 1) < 1) return { ok: false, reason: "No horse feed." };
+    var st = mountState(c, key);
+    st.hungry = false;
+    st.prepaid = true;
+    return { ok: true, name: row.name };
+  }
+  function clearHungry(c, key) {
+    var row = mountByKey(c, key);
+    if (!row) return { ok: false, reason: "That mount isn't yours." };
+    mountState(c, key).hungry = false;
+    return { ok: true, name: row.name };
+  }
+  function setGrazing(c, key, on) {
+    var row = mountByKey(c, key);
+    if (!row) return { ok: false, reason: "That mount isn't yours." };
+    mountState(c, key).grazing = !!on;
+    return { ok: true, name: row.name, grazing: !!on };
+  }
+  /**
+   * End of the campaign day for each horse and pack mule.
+   * Off: nothing. Grazing, or a portion already fed today: not a miss.
+   * Otherwise spend one portion. No portion: Loose skips (not Hungry). Strict sets Hungry
+   * unless Grazing is marked. Never adds exhaustion.
+   */
+  function tickMounts(c) {
+    var s = ensure(c);
+    var out = [];
+    if (s.mode === "off") return out;
+    mountView(c).forEach(function (m) {
+      var st = mountState(c, m.key);
+      if (st.grazing) {
+        st.prepaid = false;
+        out.push({ key: m.key, name: m.name, result: "grazing", hungry: !!st.hungry, line: m.name + " grazes (DM). No portion spent." });
+        return;
+      }
+      if (st.prepaid) {
+        st.prepaid = false;
+        st.hungry = false;
+        out.push({ key: m.key, name: m.name, result: "fed", hungry: false, line: m.name + " already ate a portion today." });
+        return;
+      }
+      if (spendFeed(c, 1) >= 1) {
+        st.hungry = false;
+        out.push({ key: m.key, name: m.name, result: "fed", hungry: false, line: m.name + " ate one portion of horse feed." });
+        return;
+      }
+      if (s.mode === "loose") {
+        out.push({ key: m.key, name: m.name, result: "skip", hungry: !!st.hungry, line: m.name + " has no feed. Loose: skipped, not Hungry." });
+        return;
+      }
+      st.hungry = true;
+      out.push({ key: m.key, name: m.name, result: "hungry", hungry: true, line: m.name + " missed feed. Hungry (no exhaustion)." });
+    });
+    return out;
+  }
+  function hungryMounts(c) {
+    if (ensure(c).mode === "off") return [];
+    return mountView(c).filter(function (m) { return m.hungry; });
+  }
+  /** Wisdom (Animal Handling) involving a hungry mount. Names the hungry mounts. */
+  function handlingNote(c) {
+    var rows = hungryMounts(c);
+    if (!rows.length) return "";
+    return "disadvantage: hungry " + rows.map(function (m) { return m.name; }).join(", ");
+  }
+  /** While mounted on a hungry horse or mule: attack rolls, and the mount's speed is already −10 on the card. */
+  function mountedAttackNote(c) {
+    if (!c || !c.mounted) return "";
+    return hungryMounts(c).length ? "disadvantage: hungry mount" : "";
   }
 
   /**
@@ -330,9 +518,22 @@
     SAVE_DC: SAVE_DC,
     defaults: defaults,
     ensure: ensure,
+    FEED_ID: FEED_ID,
+    MOUNTS: MOUNTS,
     rations: rations,
     isRation: isRation,
     isFood: isFood,
+    isMountItem: isMountItem,
+    feedPortions: feedPortions,
+    giveFeed: giveFeed,
+    spendFeed: spendFeed,
+    mounts: mountView,
+    feedMount: feedMount,
+    clearHungry: clearHungry,
+    setGrazing: setGrazing,
+    tickMounts: tickMounts,
+    handlingNote: handlingNote,
+    mountedAttackNote: mountedAttackNote,
     waterTotal: waterTotal,
     spendWater: spendWater,
     giveRations: giveRations,
