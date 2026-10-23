@@ -461,7 +461,7 @@ try {
     const card = () => { const b = document.querySelector("#pactFocus"); return { btns: [...b.querySelectorAll("button")].map((x) => ({ t: x.textContent.trim(), cast: x.getAttribute("data-spell-cast") || (x.id === "btnPactShot" ? "pact" : ""), melee: x.getAttribute("data-melee-roll"), dis: x.disabled })) }; };
     let v = await pg.evaluate(card);
     const casts = v.btns.filter((b) => b.cast);
-    check("card.spellsPactFirst", casts.length === 3 && casts[0].t === "Pact Shot" && /Cold Hand/.test(casts[1].t) && /Wire Lash · L1/.test(casts[2].t), J(v.btns));
+    check("card.spellsPactFirst", casts.length === 3 && /^Churn Shot/.test(casts[0].t) && /psychic beams/.test(casts[0].t) && /Cold Hand/.test(casts[1].t) && /Wire Lash · L1/.test(casts[2].t), J(v.btns));
     check("card.noWeaponAttack", !v.btns.some((b) => b.melee != null || /^(Roll|Attack|Fire)$/i.test(b.t)), J(v.btns));
     await pg.evaluate(() => document.querySelector("#pactFocus").scrollIntoView());
     await shot(pg, "#pactFocus", "iron-patron-iron-card-spell-buttons.png");

@@ -103,10 +103,18 @@
       var doubled = !!(attackSpell && spec.longRangeHex && !touchSpell);
       if (doubled) ftSpell *= 2;
       var spellLabel = "Spell · " + ftSpell + " ft" + (doubled ? " · x2 Long-Range Hex" : "");
+      /* Belly Shot (L0209): no disadvantage for a hostile within 5 feet. */
+      var pointBlank = false;
+      if (root.SSDNSPactShot && root.SSDNSPactShot.isPactShot && root.SSDNSPactShot.isPactShot(name) && root.SSDNSPactShot.variant) {
+        try {
+          var pbShot = root.SSDNSPactShot.variant();
+          pointBlank = !!(pbShot && pbShot.pointBlank);
+        } catch (ePb) {}
+      }
       return {
         close: 0, normal: ftSpell, long: ftSpell, melee: 0, meleeRed: 0,
         clearLong: false, cone: false, spell: true, thrown: false,
-        purple: true, touch: !!touchSpell, doubled: doubled, self: false,
+        purple: true, touch: !!touchSpell, doubled: doubled, self: false, pointBlank: pointBlank,
         label: spellLabel
       };
     }
@@ -294,7 +302,7 @@
     var hostile = opts.hostileFeet;
     var hostileN = hostile != null && hostile !== "" && isFinite(Number(hostile)) ? Number(hostile) : null;
     var closeBand = !spell && b.close > 0 && hostileN != null && hostileN <= b.close;
-    var spellWarn = spell && hostileN != null && hostileN <= 5 && !b.self;
+    var spellWarn = spell && hostileN != null && hostileN <= 5 && !b.self && !b.pointBlank;
     var disadvantage = !blocked && (longBand || closeBand || spellWarn || override === "force");
     if (override === "ignore" || override === "adv") disadvantage = false;
     var advantage = !blocked && override === "adv";

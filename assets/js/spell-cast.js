@@ -27,9 +27,16 @@
   function lookup(name) {
     var map = build();
     var raw = stripAlias(name);
-    if (norm(raw) === "pact shot") {
+    if (norm(raw) === "pact shot" || /pact shot/i.test(String(name || ""))) {
       var pact = map["eldritch blast"];
-      if (pact) return Object.assign({}, pact, { name: "Pact Shot" });
+      if (pact) {
+        var shot = root.SSDNSPactShot && root.SSDNSPactShot.variant ? root.SSDNSPactShot.variant() : null;
+        if (shot && shot.cone) {
+          return Object.assign({}, pact, { name: shot.name, kind: "save", scale: "", dice: shot.dice || "1d6", type: shot.damage, note: shot.rider, range: shot.range });
+        }
+        if (shot) return Object.assign({}, pact, { name: shot.name, dice: shot.dice || pact.dice, type: shot.damage || pact.type, note: shot.rider || "", range: shot.range });
+        return Object.assign({}, pact, { name: "Pact Shot" });
+      }
     }
     var exact = map[norm(raw)] || null;
     var bareKey = norm(raw.replace(/\s+shell$/i, ""));
@@ -227,6 +234,7 @@
       }
       var spark = sparkFor(anyMiss);
       var text = name + gun + " · spell attack " + sign(atkBonus) + " · " + bits.join("; ");
+      if (row.note) text += " " + row.note;
       var beamDie = (opts.mode === "adv" || opts.mode === "dis") ? "2d20" : "1d20";
       var packedBeams = pack(text, true, anyCrit ? 20 : shown, anyCrit, beams + "x " + beamDie + sign(atkBonus), (shown || 0) + atkBonus, text, spark);
       packedBeams.multi = beams > 1;
@@ -595,9 +603,13 @@
     return sentences.join(" ");
   }
   function rangeOf(name) {
+    if (root.SSDNSPactShot && root.SSDNSPactShot.isPactShot && root.SSDNSPactShot.isPactShot(name) && root.SSDNSPactShot.variant) {
+      var shotRange = root.SSDNSPactShot.variant();
+      if (shotRange && shotRange.range) return shotRange.range;
+    }
     var row = lookup(name);
     var key = norm((row && row.name) || name);
-    if (key === "pact shot") key = "eldritch blast";
+    if (key === "pact shot" || (root.SSDNSPactShot && root.SSDNSPactShot.isPactShot && root.SSDNSPactShot.isPactShot(key))) key = "eldritch blast";
     var meta = SPELL_META[key] || SPELL_META[norm(name)] || {};
     return meta.range || "";
   }

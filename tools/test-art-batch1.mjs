@@ -279,8 +279,8 @@ try {
     });
     check(tag + ".ironRowTile", ir.row === "assets/img/items/borrowed-iron/butter-repeater.webp" && !ir.rowWide, J(ir));
     check(tag + ".ironDollAndCardEngraving", ir.doll === "assets/img/weapons/borrowed-iron/butter-repeater.webp" && ir.card === "assets/img/weapons/borrowed-iron/butter-repeater.webp", J(ir));
-    check(tag + ".art", b.shown && b.src === "assets/img/spells/pact-shot.webp" && b.nw === 256 && b.text === "Pact Shot" && b.iw >= 18 && b.iw <= 22, J(b));
-    check(tag + ".layout", b.inside && b.h > 0 && b.h <= 40 && (!b.oh || Math.abs(b.h - b.oh) <= 4) && !b.overflow, J(b));
+    check(tag + ".art", b.shown && b.src === "assets/img/spells/pact-shot.webp" && b.nw === 256 && /^Churn Shot/.test(b.text) && /psychic beams/.test(b.text) && b.iw >= 18 && b.iw <= 22, J(b));
+    check(tag + ".layout", b.inside && b.h > 0 && b.h <= 72 && !b.overflow, J(b));
     await shot(pg, "#pactFocus", mobile ? "art-batch1-mobile-iron-card.png" : "art-batch1-iron-card-pact-shot.png");
     check(tag + ".noPageErrors", errs.length === 0, errs.join(" | "));
     await ctx.close();

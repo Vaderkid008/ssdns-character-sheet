@@ -363,7 +363,14 @@
       list.push({ id: "spell:" + raw, label: "Cast " + name, group: "spell", enabled: usable(btn), title: btn.title || "" });
     });
     var pact = $("btnPactShot");
-    if (pact && !pact.hidden) list.push({ id: "pact", label: "Pact Shot", group: "spell", enabled: usable(pact), title: pact.title || "" });
+    if (pact && !pact.hidden) {
+      var pactLabel = "Pact Shot";
+      try {
+        var shot = root.SSDNSPactShot && root.SSDNSPactShot.variant && root.SSDNSPactShot.variant();
+        if (shot && shot.name) pactLabel = shot.name + (shot.subtitle ? " · " + shot.subtitle : "");
+      } catch (e) {}
+      list.push({ id: "pact", label: pactLabel, group: "spell", enabled: usable(pact), title: pact.title || "" });
+    }
     document.querySelectorAll("[data-reload]").forEach(function (btn) {
       if (btn.hidden) return;
       var i = btn.getAttribute("data-reload");
@@ -543,7 +550,16 @@
       });
     });
     var pact = $("btnPactShot");
-    if (pact && !pact.hidden) spells.push({ id: "pact", name: "Pact Shot", kind: "attack" });
+    if (pact && !pact.hidden) {
+      var pactName = "Pact Shot";
+      var pactKind = "attack";
+      try {
+        var pactShot = root.SSDNSPactShot && root.SSDNSPactShot.variant && root.SSDNSPactShot.variant(c);
+        if (pactShot && pactShot.name) pactName = pactShot.name;
+        if (pactShot && pactShot.cone) pactKind = "save";
+      } catch (ePact) {}
+      spells.push({ id: "pact", name: pactName, kind: pactKind });
+    }
     var nameInput = $("charName");
     return {
       name: (nameInput && nameInput.value) || c.name || "",
