@@ -863,6 +863,17 @@
             var E = root.DMCCEnhance;
             if (!isDmPage() || !E || typeof E.mapMarkersHtml !== "function") return "";
             try { return E.mapMarkersHtml(cid) || ""; } catch (e) { return ""; }
+          },
+          /* Same path/reach module on the DM map: budget and spend for the combatant whose turn it is. */
+          movementBudget: function (token) {
+            var E = root.DMCCEnhance;
+            if (!isDmPage() || !E || typeof E.movementBudget !== "function") return null;
+            try { return E.movementBudget(token); } catch (e) { return null; }
+          },
+          spendMove: function (token, feet) {
+            var E = root.DMCCEnhance;
+            if (!isDmPage() || !E || typeof E.spendMove !== "function") return false;
+            try { return E.spendMove(token, feet) === true; } catch (e) { return false; }
           }
         },
         options: {
@@ -1027,6 +1038,9 @@
       if (map && map.refreshCard) map.refreshCard(tokenId || "");
     },
     /* Turn UX on the map: the DM page repaints the strip's markers when a player's markers change */
+    refreshMove: function () {
+      if (map && typeof map.refreshMove === "function") map.refreshMove();
+    },
     refreshStrip: function () {
       if (map && map.refreshStrip) map.refreshStrip();
     },

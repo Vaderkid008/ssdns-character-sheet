@@ -325,7 +325,13 @@ const state = {
   showPlayerFov: true,
   undoStack: [],
   redoStack: [],
+  /* Ghost Plan retired (BG3 movement). The flag stays so old drag branches cannot come back on. */
   offline: false,
+  ghostPlan: false,
+  moveHover: null,
+  moveConfirm: { mode: "click", pending: null },
+  moveReachKey: "",
+  moveReach: null,
   snap: true,
   showWalls: true,
   pendingMoves: [],
@@ -371,8 +377,6 @@ toolbar.innerHTML = `
   ${role === 'dm' ? `
     <button data-act="fogBtn" class="active">Fog: ON</button>
     <button data-act="showFovBtn" class="active">Show Player FOV: ON</button>
-    <button data-act="offlineBtn">Ghost Plan: OFF</button>
-    <button data-act="cancelGhostBtn">Cancel plan</button>
     <button data-act="mapsBtn" class="ssm-maps-btn" title="Maps: built-in, my maps, world">Maps ▾</button>
     <select data-act="sceneSelect" hidden aria-hidden="true"></select>
     <button data-act="myViewBtn">My view</button>
@@ -432,8 +436,15 @@ on(document, 'keydown', e => {
       return;
     }
   }
-  if (e.key === 'Shift' && state.drag && state.drag.token) { dropPin(); return; }
-  if (e.key === 'Backspace' && state.drag && state.drag.pins) { e.preventDefault(); popPin(); return; }
+  if (e.key === 'Escape') {
+    if (state.moveHover || (state.moveConfirm && state.moveConfirm.pending)) {
+      e.preventDefault();
+      clearMovePreview();
+      return;
+    }
+  }
+  if (e.key === 'Shift' && state.drag && state.drag.token && state.ghostPlan) { dropPin(); return; }
+  if (e.key === 'Backspace' && state.drag && state.drag.pins && state.ghostPlan) { e.preventDefault(); popPin(); return; }
   if (e.key.toLowerCase() === 'x' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); recallPath(); }
 });
 const chatdock = document.createElement('div');
@@ -844,8 +855,6 @@ if (role === 'dm') {
       <div class="ssm-tools">
         <button type="button" data-act="playerPingBtn">Ping</button>
         <button type="button" data-act="playerRulerBtn">Ruler</button>
-        <button type="button" data-act="playerGhostBtn">Ghost Plan: OFF</button>
-        <button type="button" data-act="playerCancelBtn">Cancel plan</button>
         <div class="ssm-lights" data-act="playerLights">No light in hand</div>
       </div>
       <label class="ssm-range"><input type="checkbox" data-act="showRange"> Show my range</label>
@@ -2137,6 +2146,7 @@ function draw() {
 
   paintRangeControls();
   paintRangeRings();
+  paintMoveReach();
 
   // tokens
   for (const t of state.tokens) {
@@ -2406,6 +2416,8 @@ function draw() {
     ctx.stroke();
     ctx.restore();
   }
+  paintMoveHover();
+  paintMoveReadout();
   paintPendingTargets(px);
   paintPendingBanner();
   refreshSelectedPanel();
@@ -3397,6 +3409,343 @@ function ensureDefaultScene() {
   saveScene(sid);
 }
 
+/* ---- BG3 click-to-move (map/ssdns-map-move.js). Sheet Map and DMCC Map share this. ---- */
+function moveApi() { return window.SSDNSMapMove || null; }
+function clearMovePreview() {
+  state.moveHover = null;
+  if (state.moveConfirm) state.moveConfirm.pending = null;
+  requestDraw();
+}
+function fightOn() {
+  const T = window.SSDNSTurn;
+  return !!(T && T.inFight && T.inFight(state.initiative));
+}
+function rowForToken(token) {
+  const T = window.SSDNSTurn;
+  const order = (state.initiative && state.initiative.order) || [];
+  if (!token) return null;
+  return order.find(row => row && (
+    (token.combatantId && token.combatantId === row.id) ||
+    token.id === row.id ||
+    (row.mapTokenId && token.id === row.mapTokenId) ||
+    (row.playerId && token.ownerUid === row.playerId) ||
+    (row.kind === 'player' && row.id && token.ownerUid === row.id)
+  )) || (T && T.current ? null : null);
+}
+function tokenForRow(row) {
+  if (!row) return null;
+  return state.tokens.find(t => t && t.pos && (
+    (t.combatantId && t.combatantId === row.id) ||
+    t.id === row.id ||
+    (row.mapTokenId && t.id === row.mapTokenId) ||
+    (row.playerId && t.ownerUid === row.playerId) ||
+    (row.kind === 'player' && row.id && t.ownerUid === row.id)
+  )) || null;
+}
+function allyOf(mover, other) {
+  if (!mover || !other) return false;
+  const side = (tok) => {
+    const k = String(tok.kind || tok.side || '').toLowerCase();
+    if (k === 'enemy') return 'enemy';
+    if (k === 'friendly' || k === 'ally') return 'ally';
+    if (k === 'player' || tok.ownerUid) return 'player';
+    return 'other';
+  };
+  const a = side(mover), b = side(other);
+  if (a === 'enemy') return b === 'enemy';
+  return (a === 'player' || a === 'ally') && (b === 'player' || b === 'ally');
+}
+function activeMover() {
+  if (fightOn()) {
+    const T = window.SSDNSTurn;
+    const row = T && T.current ? T.current(state.initiative) : null;
+    const token = tokenForRow(row);
+    if (!token || token.locked) return null;
+    if (role === 'dm') return canControl(token) ? token : null;
+    if (!canControl(token) || turnBlocksMove()) return null;
+    if (token.ownerUid && token.ownerUid !== uid && !(row && row.playerId === uid)) return null;
+    return token;
+  }
+  if (role === 'player') {
+    if (state.selected && canDrag(state.selected)) return state.selected;
+    return state.tokens.find(t => t && t.ownerUid === uid && canDrag(t)) || null;
+  }
+  return state.selected && canDrag(state.selected) ? state.selected : null;
+}
+function budgetFor(token) {
+  const free = { free: true, active: false, left: 100000, max: 100000, speed: 0, dash: false, disengage: false };
+  if (!fightOn()) return free;
+  if (host.movementBudget) {
+    try {
+      const b = host.movementBudget(token);
+      if (b && typeof b === 'object') return b;
+    } catch (e) {}
+  }
+  const T = window.SSDNSTurn;
+  if (role === 'player' && T && window.SSDNSActionPips && window.SSDNSActionPips.state) {
+    const m = window.SSDNSActionPips.state() || {};
+    const sp = window.SSDNSTurnLock && window.SSDNSTurnLock.speed ? window.SSDNSTurnLock.speed() : 30;
+    const mv = T.moveLeft(m, sp);
+    return { free: false, active: true, left: mv.left, max: mv.max, speed: sp, dash: !!m.dash, disengage: !!m.disengage };
+  }
+  const row = rowForToken(token) || (T && T.current && T.current(state.initiative));
+  const sp = Math.max(0, parseInt(row && (row.speed != null ? row.speed : (row.card && row.card.speed)), 10) || 30);
+  const stored = (state.initiative && state.initiative.markers && row && state.initiative.markers[row.id]) || {};
+  const mv = T ? T.moveLeft(stored, sp) : { left: sp, max: sp };
+  return { free: false, active: true, left: mv.left, max: mv.max, speed: sp, dash: !!stored.dash, disengage: !!stored.disengage, local: true };
+}
+function spendFeet(token, feet) {
+  const n = parseInt(feet, 10) || 0;
+  if (!n) return;
+  /* The sheet and the DMCC both pass spendMove. It returns true only when that host
+     wrote the feet (DMCC). The player sheet's copy is a no-op so the sheet's own
+     Move store (action pips) still records the walk. */
+  if (typeof host.spendMove === 'function') {
+    let handled = false;
+    try { handled = host.spendMove(token, n) === true; } catch (e) { handled = false; }
+    if (handled) {
+      state.moveReachKey = '';
+      return;
+    }
+  }
+  if (role === 'player' && window.SSDNSActionPips && window.SSDNSActionPips.move) {
+    window.SSDNSActionPips.move(n);
+    if (window.SSDNSTurnLock && window.SSDNSTurnLock.apply) window.SSDNSTurnLock.apply();
+  } else if (fightOn()) {
+    const T = window.SSDNSTurn;
+    const row = rowForToken(token);
+    if (T && row && state.initiative) {
+      state.initiative.markers = Object.assign({}, state.initiative.markers || {});
+      const m = T.markersFor(state.initiative.markers[row.id], state.initiative, row).markers;
+      m.moveUsed = Math.max(0, (parseInt(m.moveUsed, 10) || 0) + n);
+      state.initiative.markers[row.id] = m;
+    }
+  }
+  state.moveReachKey = '';
+}
+function moveContext(mover, budget) {
+  const grid = (state.scene && state.scene.grid) || { cols: 30, rows: 20 };
+  const sceneId = (mover && mover.sceneId) || activeSceneId() || 'scn_dustyspur01';
+  const list = blockingTokens(mover ? { [mover.id]: true } : {}).filter(t => (t.sceneId || 'scn_dustyspur01') === sceneId && t.pos);
+  const occupants = list.map(t => ({
+    id: t.id,
+    x: t.pos.x,
+    y: t.pos.y,
+    size: tokSquares(t.size),
+    kind: t.kind,
+    ally: allyOf(mover, t),
+    name: t.label || t.name || 'a creature',
+    reachFt: 5
+  }));
+  return {
+    grid: { cols: grid.cols || 30, rows: grid.rows || 20 },
+    occupants: occupants,
+    ignoreId: mover ? mover.id : '',
+    moverSize: mover ? tokSquares(mover.size) : 1,
+    crosses: (a, b) => crossesWall(a.x, a.y, b.x, b.y),
+    disengage: !!(budget && budget.disengage),
+    enemies: occupants.filter(o => !o.ally)
+  };
+}
+function cellUnderEvent(e) {
+  const w = pointerWorld(e);
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  return { x: Math.floor(w.x / px), y: Math.floor(w.y / px) };
+}
+function tokenSliding(id) {
+  return (state.slides || []).some(s => s && s.id === id);
+}
+function reachFor(mover, budget) {
+  const M = moveApi();
+  if (!M || !mover) return null;
+  const feet = budget.free ? 100000 : Math.max(0, budget.left || 0);
+  const ctxm = moveContext(mover, budget);
+  let wallSig = 0;
+  try {
+    (sceneData().walls || []).forEach(w => { wallSig += (w.x1 || 0) + (w.y1 || 0) + (w.x2 || 0) + (w.y2 || 0) + (w.open ? 1 : 0); });
+  } catch (e) { wallSig = 0; }
+  const posSig = state.tokens.map(t => t && t.pos ? t.id + ':' + t.pos.x + ',' + t.pos.y : '').join(';');
+  const key = [mover.id, mover.pos.x, mover.pos.y, feet, budget.free ? 1 : 0, wallSig, posSig].join('|');
+  if (state.moveReachKey === key && state.moveReach) return { reach: state.moveReach, ctx: ctxm, budget: budget };
+  const reach = M.computeReach({ x: mover.pos.x, y: mover.pos.y }, feet, ctxm);
+  state.moveReachKey = key;
+  state.moveReach = reach;
+  return { reach: reach, ctx: ctxm, budget: budget };
+}
+function hoverAt(cell, screen) {
+  const M = moveApi();
+  const mover = activeMover();
+  if (!M || !mover || !cell || tokenSliding(mover.id)) { state.moveHover = null; return; }
+  const budget = budgetFor(mover);
+  const pack = reachFor(mover, budget);
+  if (!pack) { state.moveHover = null; return; }
+  const origin = { x: mover.pos.x, y: mover.pos.y };
+  const same = cell.x === origin.x && cell.y === origin.y;
+  const built = same ? null : M.computePath(origin, cell, budget.free ? 100000 : budget.left, Object.assign({}, pack.ctx, { reach: pack.reach }));
+  const endOk = !same && M.canEndOn(cell.x, cell.y, pack.ctx);
+  state.moveHover = {
+    x: cell.x,
+    y: cell.y,
+    sx: screen ? screen.x : 0,
+    sy: screen ? screen.y : 0,
+    ok: !!built,
+    blocked: !same && !endOk,
+    path: built ? built.path : null,
+    costFt: built ? built.costFt : 0,
+    left: budget.left,
+    free: !!budget.free,
+    showReach: !budget.free && fightOn()
+  };
+}
+function noteMoveHover(e) {
+  if (!moveApi() || !state.scene || state.tool) return;
+  if (state.drag && !state.drag.moveAim) return;
+  const local = localXY(e);
+  hoverAt(cellUnderEvent(e), local);
+  requestDraw();
+}
+function flashLeaveReach() {
+  el.classList.add('ssm-oa-flash');
+  setTimeout(() => { if (!dead) el.classList.remove('ssm-oa-flash'); }, 700);
+}
+function commitWalk(mover, built, budget) {
+  if (!mover || !built || !built.path || built.path.length < 2) return;
+  const origin = { x: mover.pos.x, y: mover.pos.y };
+  const dest = built.path[built.path.length - 1];
+  state.undoStack.push({ type: 'move', ids: [mover.id], from: { [mover.id]: origin }, to: { [mover.id]: { x: dest.x, y: dest.y } }, feet: budget.free ? 0 : built.costFt });
+  state.redoStack = [];
+  markRangeMoved(mover.id, origin, dest);
+  startSlide(mover.id, built.path);
+  postSlide(mover.id, built.path);
+  if (!budget.free) spendFeet(mover, built.costFt);
+  const M = moveApi();
+  const cue = M ? M.leaveReachCue(built.path, moveContext(mover, budget)) : { left: false };
+  if (cue.left) {
+    toast('Left ' + (cue.name || 'an enemy') + "'s reach. Opportunity attacks still wait on the DM.");
+    flashLeaveReach();
+  }
+  state.moveHover = null;
+  if (state.moveConfirm) state.moveConfirm.pending = null;
+  state.moveReachKey = '';
+  requestDraw();
+}
+function tryClickMove(cell) {
+  const M = moveApi();
+  if (!M || !cell || !state.scene) return false;
+  if (state.tool) return false;
+  const mover = activeMover();
+  if (!mover) {
+    if (fightOn() && role === 'player') toast("It isn't your turn. Your token moves on your turn.");
+    return false;
+  }
+  if (tokenSliding(mover.id)) return true;
+  const budget = budgetFor(mover);
+  if (!budget.free && budget.left <= 0) {
+    toast('No movement left this turn' + (budget.dash ? '.' : '. Dash uses your Action to double it.'));
+    return true;
+  }
+  const origin = { x: mover.pos.x, y: mover.pos.y };
+  if (cell.x === origin.x && cell.y === origin.y) return false;
+  const pack = reachFor(mover, budget);
+  const feet = budget.free ? 100000 : budget.left;
+  const built = M.computePath(origin, cell, feet, Object.assign({}, pack.ctx, { reach: pack.reach }));
+  const slot = M.previewSlot(state.moveConfirm, cell, built);
+  if (state.moveConfirm) state.moveConfirm.pending = slot.pending;
+  if (!built) {
+    const why = pack && !M.canEndOn(cell.x, cell.y, pack.ctx) ? 'That square is taken' : (budget.free ? "Can't move there" : 'Out of reach');
+    toast(why);
+    requestDraw();
+    return true;
+  }
+  if (!slot.commit) {
+    hoverAt(cell, state.moveHover);
+    requestDraw();
+    return true;
+  }
+  commitWalk(mover, built, budget);
+  return true;
+}
+function paintMoveReach() {
+  const hover = state.moveHover;
+  const mover = activeMover();
+  if (!mover || !fightOn()) return;
+  const budget = budgetFor(mover);
+  if (budget.free || budget.left <= 0) return;
+  const pack = reachFor(mover, budget);
+  const M = moveApi();
+  if (!pack || !M) return;
+  const px = state.scene.grid.px;
+  ctx.save();
+  pack.reach.forEach(node => {
+    if (!node || node.costFt <= 0) return;
+    if (!M.canEndOn(node.x, node.y, pack.ctx)) return;
+    const a = worldToScreen(node.x * px, node.y * px);
+    const b = worldToScreen((node.x + 1) * px, (node.y + 1) * px);
+    ctx.fillStyle = 'rgba(64, 168, 96, 0.34)';
+    ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
+  });
+  ctx.restore();
+  if (hover && hover.showReach === false) return;
+}
+function paintMoveHover() {
+  const hover = state.moveHover;
+  if (!hover || !state.scene) return;
+  const px = state.scene.grid.px;
+  const a = worldToScreen(hover.x * px, hover.y * px);
+  const b = worldToScreen((hover.x + 1) * px, (hover.y + 1) * px);
+  ctx.save();
+  ctx.fillStyle = hover.ok ? 'rgba(210, 184, 90, 0.35)' : 'rgba(176, 48, 48, 0.38)';
+  ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
+  if (hover.path && hover.path.length > 1) {
+    ctx.strokeStyle = hover.ok ? '#e2c56a' : '#e07070';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    hover.path.forEach((pt, i) => {
+      const s = worldToScreen((pt.x + 0.5) * px, (pt.y + 0.5) * px);
+      if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
+    });
+    ctx.stroke();
+  }
+  const label = hover.ok
+    ? (hover.free ? (hover.costFt + ' ft') : (hover.costFt + ' ft / ' + hover.left))
+    : (hover.blocked ? "can't stop" : 'out of reach');
+  ctx.setLineDash([]);
+  ctx.font = '12px system-ui';
+  ctx.textBaseline = 'bottom';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(12, 9, 6, 0.85)';
+  ctx.fillStyle = hover.ok ? '#f6e7b2' : '#ffd0c8';
+  const lx = (hover.sx || b.x) + 14;
+  const ly = (hover.sy || a.y) - 6;
+  ctx.strokeText(label, lx, ly);
+  ctx.fillText(label, lx, ly);
+  ctx.restore();
+}
+function showTurnPop(text) {
+  let pop = q('turnPop');
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.setAttribute('data-act', 'turnPop');
+    pop.className = 'ssm-turnpop';
+    el.appendChild(pop);
+  }
+  pop.textContent = text;
+  pop.classList.remove('is-on');
+  void pop.offsetWidth;
+  pop.classList.add('is-on');
+}
+function paintMoveReadout() {
+  const slot = q('moveReadout');
+  if (!slot) return;
+  const mover = activeMover();
+  if (!mover || !fightOn()) { slot.hidden = true; return; }
+  const b = budgetFor(mover);
+  if (b.free) { slot.hidden = true; return; }
+  slot.hidden = false;
+  const text = 'Move ' + b.left + '/' + b.max + ' ft';
+  if (slot.textContent !== text) slot.textContent = text;
+}
 function pathFeet(points) {
   let d = 0;
   for (let i = 1; i < points.length; i++) d += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
@@ -3456,43 +3805,10 @@ function popPin() {
   toast('Pin removed');
   draw();
 }
-function commitGhost() {
-  state.pendingMoves.forEach(m => {
-    const t = state.tokens.find(tok => tok.id === m.id);
-    if (!t) return;
-    const pts = m.path && m.path.length > 1 ? m.path : [{ x: m.fromX, y: m.fromY }, { x: m.x, y: m.y }];
-    startSlide(t.id, pts);
-    postSlide(t.id, pts);
-  });
-  state.pendingMoves = [];
-  toast('Moves committed');
-}
-function cancelGhost() {
-  state.pendingMoves = [];
-  if (state.drag) state.drag.pins = null;
-  toast('Plan cleared');
-  draw();
-}
-function toggleGhost(btn) {
-  state.offline = !state.offline;
-  if (btn) {
-    btn.textContent = state.offline ? 'Ghost Plan: ON' : 'Ghost Plan: OFF';
-    btn.classList.toggle('active', state.offline);
-  }
-  applyCursor();
-  if (!state.offline && state.pendingMoves.length) {
-    state.pendingMoves.forEach(m => {
-      const t = state.tokens.find(tok => tok.id === m.id);
-      if (!t) return;
-      const pts = m.path && m.path.length > 1 ? m.path : [{ x: m.fromX, y: m.fromY }, { x: m.x, y: m.y }];
-      startSlide(t.id, pts);
-      postSlide(t.id, pts);
-    });
-    state.pendingMoves = [];
-    toast('Moves committed');
-  }
-  draw();
-}
+/* Ghost Plan is retired. Names stay as no-ops so nothing dual-maintains a second move UI. */
+function commitGhost() { state.pendingMoves = []; state.offline = false; state.ghostPlan = false; }
+function cancelGhost() { state.pendingMoves = []; state.offline = false; state.ghostPlan = false; clearMovePreview(); }
+function toggleGhost() { state.offline = false; state.ghostPlan = false; state.pendingMoves = []; }
 
 function setLabel(token, value) {
   if (!token) return;
@@ -3793,6 +4109,7 @@ function onPointerDown(e) {
       return;
     }
     if (hit && (canDrag(hit) || (role === 'dm' && hit.locked))) {
+      if (e.button === 2 && !state.tool) { clearMovePreview(); return; }
       if (hit.locked && role === 'dm') {
         // select locked token so DM can unlock it, but don't start a drag
         state.selectedIds = [hit.id];
@@ -3815,6 +4132,15 @@ function onPointerDown(e) {
         state.selectedIds = [hit.id];
         state.selected = hit;
       }
+      /* During a fight the current combatant walks by click (or by releasing a drag on a square), spending Move. */
+      if (fightOn() && activeMover() && activeMover().id === hit.id && moveApi()) {
+        state.selectedIds = [hit.id];
+        state.selected = hit;
+        state.drag = { moveAim: true, token: hit, sx: e.clientX, sy: e.clientY };
+        if (role === 'dm') openDrawer(hit.id);
+        draw();
+        return;
+      }
       /* token size: ox/oy is the grabbed square, so a 4x4 token grabbed by a corner does not jump */
       const gpx = state.scene.grid.px;
       state.drag = { token: hit, ox: Math.round(w.x / gpx - 0.5), oy: Math.round(w.y / gpx - 0.5), sx: e.clientX, sy: e.clientY, starts: {} };
@@ -3830,17 +4156,25 @@ function onPointerDown(e) {
     } else {
       if (e.button === 1 || e.altKey) {
         state.drag = { pan: true, sx: e.clientX, sy: e.clientY, vx: state.view.x, vy: state.view.y };
+      } else if (e.button === 2 && !state.tool) {
+        clearMovePreview();
+        return;
       } else if (role === 'dm' && !state.tool) {
         const selPt = localXY(e);
-        state.drag = { select: true, sx: selPt.x, sy: selPt.y };
+        state.drag = { select: true, sx: selPt.x, sy: selPt.y, cx: e.clientX, cy: e.clientY };
       } else {
-        state.drag = { pan: true, sx: e.clientX, sy: e.clientY, vx: state.view.x, vy: state.view.y };
+        state.drag = { pan: true, sx: e.clientX, sy: e.clientY, vx: state.view.x, vy: state.view.y, clickMove: !state.tool && e.button === 0 };
       }
     }
   }
   e.preventDefault();
 }
 function onPointerMove(e) {
+  if (state.drag && state.drag.moveAim) {
+    noteMoveHover(e);
+    return;
+  }
+  if (!(e.buttons & 1) && !state.drag) noteMoveHover(e);
   const polyLive = role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly' && state.polyPoints && state.polyPoints.length;
   if (state.drag && (state.drag.brush || state.drag.square) && state.brushCells) {
     const w = pointerWorld(e);
@@ -3928,7 +4262,26 @@ function onPointerMove(e) {
   } else if (polyLive) draw();
 }
 function onPointerUp(e) {
-  const wasTokenDrag = !!(state.drag && state.drag.token);
+  /* A real click wobbles. 8px treated those as pans, so the path preview stuck and the token never walked.
+     Half a square still counts as a click. A longer drag still pans (or marquees, for the DM). */
+  const CLICK_SLOP = 40;
+  if (state.drag && state.drag.moveAim && e.button === 0) {
+    tryClickMove(cellUnderEvent(e));
+    state.drag = { moveAimDone: true };
+  } else if (state.drag && state.drag.clickMove && e.button === 0 && !state.tool) {
+    const dx = e.clientX - state.drag.sx, dy = e.clientY - state.drag.sy;
+    if (Math.hypot(dx, dy) < CLICK_SLOP) {
+      if (state.drag.vx != null) { state.view.x = state.drag.vx; state.view.y = state.drag.vy; }
+      tryClickMove(cellUnderEvent(e));
+    }
+  } else if (state.drag && state.drag.select && state.drag.cx != null && e.button === 0 && !state.tool) {
+    const dx = e.clientX - state.drag.cx, dy = e.clientY - state.drag.cy;
+    if (Math.hypot(dx, dy) < CLICK_SLOP) {
+      tryClickMove(cellUnderEvent(e));
+      state.drag.select = false;
+    }
+  }
+  const wasTokenDrag = !!(state.drag && state.drag.token && !state.drag.moveAimDone);
   if (wasTokenDrag) clearStreamTimer();
   if (state.drag && state.drag.token && state.drag.blocked && !(role === 'dm' && e.shiftKey)) {
     const starts = state.drag.starts || {};
@@ -4541,11 +4894,9 @@ q('helpBtn').addEventListener('click', () => {
   box.style.cssText = 'position:absolute;top:48px;right:16px;width:320px;max-height:70vh;overflow:auto;background:#1c1814;color:#e8dcc8;border:1px solid #5a4e40;border-radius:8px;padding:12px;z-index:20;font:13px system-ui;';
   const dm = role === 'dm';
   box.innerHTML = `<b>How to use the map</b><br><br>
-<b>Move</b> Drag your token. Walls block the path. Two tokens cannot share a square. The DM holds Shift to stack them.<br>
+<b>Move</b> Click a square. In a fight the green squares are the feet you have left (every square is 5 ft, diagonals too). Hover shows the path and the cost. Esc or right-click clears the preview. Outside a fight, click-to-move has no green cage. Drag still slides a token when you are not spending combat movement. Walls block the path. You can walk through an ally, and you cannot stop on an occupied square.<br>
 <b>Middle mouse</b> Pans the map. It does not zoom.<br>
-<b>Shift</b> While dragging, drop a pin to turn a corner. Up, Shift, left, Shift, down. Release to slide. Backspace removes the last pin.<br>
 <b>X</b> Show the last path for the selected token.<br>
-<b>Ghost Plan</b> Plot in private. Turn it off to slide for everyone. Cancel plan drops it.<br>
 <b>Ping</b> Click the map. Color matches your token.<br>
 <b>Ruler</b> Drag to measure. 1 square = 5 ft.<br>
 <b>Torch</b> 40 ft of light. Does not pass walls.<br><br>
@@ -4561,7 +4912,7 @@ Show Player FOV greys the rest and brightens their light.<br>
 Set floor, then Show to players, to move someone to another map.` : `<b>Player</b><br>
 You move your own token, and any the DM has granted you.<br>
 My color changes your ring. Ping uses that color. The button stays lit while the tool is on.<br>
-Ghost Plan plots in private. Turn it off to slide for everyone.<br>
+On your turn, click a green square to walk. Dash on the turn strip adds feet.<br>
 Fog hides what you cannot see. A torch or your vision opens a circle.`}
 <br><br>Click ? again to close.`;
   el.appendChild(box);
@@ -4807,6 +5158,11 @@ if (role === 'dm') {
     if (!action) return;
     state.redoStack.push(action);
     if (action.type === 'move' && action.from) {
+      state.slides = (state.slides || []).filter(s => !action.from[s.id]);
+      if (action.feet) {
+        const back = state.tokens.find(tok => tok && action.from[tok.id]);
+        if (back) spendFeet(back, -action.feet);
+      }
       Object.keys(action.from).forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
         if (t) {
@@ -4825,6 +5181,11 @@ if (role === 'dm') {
     if (!action) return;
     state.undoStack.push(action);
     if (action.type === 'move' && action.to) {
+      state.slides = (state.slides || []).filter(s => !action.to[s.id]);
+      if (action.feet) {
+        const again = state.tokens.find(tok => tok && action.to[tok.id]);
+        if (again) spendFeet(again, action.feet);
+      }
       Object.keys(action.to).forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
         if (t) {
@@ -4843,8 +5204,7 @@ if (role === 'dm') {
     setLabel(state.selected, q('dmLabel').value.trim());
     toast('Label set');
   });
-  q('offlineBtn').addEventListener('click', () => toggleGhost(q('offlineBtn')));
-  q('cancelGhostBtn').addEventListener('click', cancelGhost);
+  /* Ghost Plan buttons are gone. toggleGhost / cancelGhost stay as no-ops. */
   q('revealAllBtn').addEventListener('click', () => {
     sceneData().fogRevealed = true;
     sceneData().fogRects = [];
@@ -5124,8 +5484,6 @@ if (role === 'dm') {
     setLabel(me, q('playerLabel').value.trim());
     toast('Label set');
   });
-  q('playerGhostBtn').addEventListener('click', () => toggleGhost(q('playerGhostBtn')));
-  q('playerCancelBtn').addEventListener('click', () => { cancelGhost(); flashBtn('playerCancelBtn'); });
   renderActions();
   bindRangeUi();
 }
@@ -5392,10 +5750,23 @@ async function loadSceneImage(sceneId, opts) {
   }
   function syncCombatants(initiative) {
     const prevId = state.currentTurnId;
+    const prevStarted = !!(state.initiative && state.initiative.started);
     state.initiative = initiative || { order: [], turn: 0 };
     const order = state.initiative.order || [];
     const turn = state.initiative.turn || 0;
     state.currentTurnId = order[turn] ? order[turn].id : null;
+    if (state.currentTurnId !== prevId || !!state.initiative.started !== prevStarted) {
+      state.moveHover = null;
+      if (state.moveConfirm) state.moveConfirm.pending = null;
+      state.moveReachKey = '';
+      if (fightOn() && state.currentTurnId && state.currentTurnId !== prevId) {
+        const T = window.SSDNSTurn;
+        const cur = T && T.current ? T.current(state.initiative) : order[turn];
+        const name = (cur && (cur.name || cur.id)) || 'Someone';
+        const mine = role === 'player' && cur && cur.kind === 'player' && (cur.playerId === uid || cur.id === uid || cur.ownerUid === uid);
+        showTurnPop(mine ? 'YOUR TURN' : (name + "'s turn"));
+      }
+    }
     if (state.currentTurnId !== prevId && state.rangeMoved) {
       const fresh = state.tokens.find(tok => tok && (tok.combatantId === state.currentTurnId || tok.id === state.currentTurnId || tok.ownerUid === state.currentTurnId));
       if (fresh) delete state.rangeMoved[fresh.id];
@@ -5497,6 +5868,13 @@ async function loadSceneImage(sceneId, opts) {
       chips.appendChild(b);
     });
     strip.appendChild(chips);
+    if (role === 'player') {
+      const read = document.createElement('b');
+      read.className = 'ssm-move-readout';
+      read.setAttribute('data-act', 'moveReadout');
+      read.hidden = true;
+      strip.appendChild(read);
+    }
     if (role === 'dm') appendStripMarkers(strip); /* Turn UX on the map: the current player's markers, before Next */
     if (role === 'dm') {
       const next = document.createElement('button');
@@ -7237,9 +7615,13 @@ async function boot() {
       state.showPlayerFov = true;
     }
 
-    const order = data.room.table?.initiative?.order || [];
-    const turnIdx = data.room.table?.initiative?.turn ?? 0;
-    state.currentTurnId = order[turnIdx]?.id || null;
+    /* A live initiative subscribe can land before the scene image finishes. Do not
+       wipe that turn id with the empty seed the host passes before the fight syncs. */
+    if (!state.initiative || !((state.initiative.order || []).length)) {
+      const order = data.room.table?.initiative?.order || [];
+      const turnIdx = data.room.table?.initiative?.turn ?? 0;
+      state.currentTurnId = order[turnIdx]?.id || null;
+    }
 
     const img = new Image();
     img.src = asset('dusty-spur-saloon_30x20_70px.webp');
@@ -7286,6 +7668,8 @@ async function boot() {
       renderActions();
     }
   }
+  on(window, 'ssdns:pips-change', () => { state.moveReachKey = ''; requestDraw(); });
+  on(window, 'ssdns:pips-reset', () => { state.moveHover = null; state.moveReachKey = ''; requestDraw(); });
   if (typeof options.onReady === 'function') {
     try { options.onReady(); } catch (e) {}
   }
@@ -7301,6 +7685,7 @@ return {
   requestDraw,
   refreshCard,
   refreshStrip: fillStripMarkers,
+  refreshMove: function () { state.moveHover = null; state.moveReachKey = ''; requestDraw(); },
   feetBetween: function (idA, idB) {
     return feetBetween(tokenByRef(idA), tokenByRef(idB));
   },

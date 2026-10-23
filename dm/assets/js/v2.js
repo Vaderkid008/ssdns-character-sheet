@@ -1300,7 +1300,7 @@ function renderFight() {
         return `<div class="turn-chip${current}${ondeck}${later}${side}" role="listitem">${face}${guns}</div>`;
       }).join("");
       /* T1 (turn order PR 1): one Next per surface. The Fight tab's Next is the DMCC's; this Table-tab strip shows the order only.
-         0.2.131: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
+         0.2.132: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
       const badge = cur ? `<b class="dm-turn-now">${esc(cur.name || "Their turn")}</b>` : "";
       strip.innerHTML = `<b class="turn-round">Round ${esc(fight.round || 1)}</b>${badge}` +
         `<button type="button" class="turn-scroll" data-dm-scroll="-1" aria-label="Scroll the turn order left" hidden>\u2039</button>` +
@@ -1858,9 +1858,36 @@ function playerSpeed(pid) {
   const n = parseInt(snap.speed, 10);
   return isFinite(n) && n >= 0 ? n : 30;
 }
+function combatantSpeed(row) {
+  if (!row) return 30;
+  if (row.kind === "player") return playerSpeed(row.playerId || row.id);
+  const raw = row.speed != null && row.speed !== "" ? row.speed : (row.card && row.card.speed);
+  const n = parseInt(raw, 10);
+  return isFinite(n) && n >= 0 ? n : 30;
+}
+function tokenIsRow(token, row) {
+  if (!token || !row) return false;
+  if (token.combatantId && token.combatantId === row.id) return true;
+  if (token.id && (token.id === row.id || token.id === row.mapTokenId)) return true;
+  if (row.playerId && token.ownerUid === row.playerId) return true;
+  if (row.kind === "player" && row.id && token.ownerUid === row.id) return true;
+  return false;
+}
 function markerExtrasHtml(row, m, opts) {
   const T = window.SSDNSTurn;
-  if (!T || !row || row.kind !== "player") return "";
+  if (!T || !row) return "";
+  if (row.kind !== "player") {
+    /* Enemy turn on the DM strip: the same Move feet and Dash the player strip uses, stored on fight.markers. */
+    if (!(opts && opts.pills)) return "";
+    const mvE = T.moveLeft(m, combatantSpeed(row));
+    const moveE = `<span class="fine tr-move tl-move" data-tl-left="${mvE.left}" title="Movement left this turn">Move ${mvE.left}/${mvE.max} ft</span>`;
+    const steps = `<button type="button" class="btn xs tl-step" data-dm-move="5" title="This enemy moved 5 ft">−</button><button type="button" class="btn xs tl-step" data-dm-move="-5" title="Give back 5 ft">+</button>`;
+    const acts = ["dash", "disengage", "dodge"].map((k) => {
+      const label = k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge");
+      return `<button type="button" class="btn xs tl-act${m[k] ? " on" : ""}" data-dm-act="${k}" aria-pressed="${!!m[k]}">${label}</button>`;
+    }).join("");
+    return moveE + steps + acts;
+  }
   const mv = T.moveLeft(m, playerSpeed(row.playerId || row.id));
   /* Keep "Move N/N ft" as one text run. Tests match that string. */
   const move = `<span class="fine tr-move tl-move" title="Movement left this turn">Move ${mv.left}/${mv.max} ft</span>`;
@@ -1874,7 +1901,7 @@ function markerExtrasHtml(row, m, opts) {
   const flags = ["dash", "disengage", "dodge"].filter((k) => m[k]).map((k) => `<span class="badge eld">${k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge")}</span>`).join("");
   return move + flags;
 }
-/* DM strip (0.2.131): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
+/* DM strip (0.2.132): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
    Dash / Disengage / Dodge are a read-out of flags the sheet already stores. Nothing new is spent from here. */
 function stripActsHtml(row) {
   const got = turnMarkersFor(row);
@@ -2051,8 +2078,14 @@ function paintTurnRules() {
 }
 /** Map DM drawer (item 8/9): the same markers + Reset for a player's token, by combatant id. */
 function mapMarkersHtml(combatantId) {
-  const row = (fight.order || []).find((r) => r && (r.id === combatantId || r.playerId === combatantId));
-  if (!row || row.kind !== "player" || !fight.started || !window.SSDNSTurn) return "";
+  const row = (fight.order || []).find((r) => r && (r.id === combatantId || r.playerId === combatantId || r.mapTokenId === combatantId));
+  if (!row || !fight.started || !window.SSDNSTurn) return "";
+  /* Enemy turn on the DM map: the same Move feet and Dash / Disengage / Dodge as the fight strip. */
+  if (row.kind !== "player") {
+    const m = enemyMarkersNow(row) || window.SSDNSTurn.fresh("");
+    return `<div class="ssm-markers act-pips tl-box" data-turn-markers="${esc(row.id || "")}">` +
+      markerExtrasHtml(row, m, { pills: true }) + `</div>`;
+  }
   const pid = row.playerId || row.id || "";
   const m = playerMarkers(pid) || window.SSDNSTurn.fresh("");
   return `<div class="ssm-markers act-pips tl-box" data-turn-markers="${esc(row.id || "")}" data-tr-pid="${esc(pid)}">` +
@@ -2069,6 +2102,91 @@ function toggleEnemyMarker(kind) {
   fight.markers = Object.assign({}, fight.markers || {}, { [cur.id]: m });
   saveRemoteTable();
   renderFight();
+  if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
+}
+function enemyMarkersNow(cur) {
+  const T = window.SSDNSTurn;
+  if (!T || !cur) return null;
+  return T.markersFor((fight.markers || {})[cur.id], turnState(), cur).markers;
+}
+function adjustEnemyMove(delta) {
+  const T = window.SSDNSTurn;
+  const cur = fight.started ? fight.order[fight.turn] : null;
+  if (!T || !cur || cur.kind === "player") return;
+  const m = enemyMarkersNow(cur);
+  const mv = T.moveLeft(m, combatantSpeed(cur));
+  let d = parseInt(delta, 10) || 0;
+  if (d > 0) d = Math.min(d, mv.left);
+  if (d < 0) d = -Math.min(-d, mv.used);
+  if (!d) { DM.toast(d === 0 && mv.left <= 0 && (parseInt(delta, 10) || 0) > 0 ? "No movement left this turn" : "Movement unchanged"); return; }
+  m.moveUsed = Math.max(0, (parseInt(m.moveUsed, 10) || 0) + d);
+  fight.markers = Object.assign({}, fight.markers || {}, { [cur.id]: m });
+  saveRemoteTable();
+  renderFight();
+  if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
+}
+function toggleEnemyAct(kind) {
+  const T = window.SSDNSTurn;
+  const cur = fight.started ? fight.order[fight.turn] : null;
+  if (!T || !cur || cur.kind === "player" || ["dash", "disengage", "dodge"].indexOf(kind) < 0) return;
+  const m = enemyMarkersNow(cur);
+  const label = kind === "dash" ? "Dash" : (kind === "disengage" ? "Disengage" : "Dodge");
+  if (m[kind]) {
+    const sp = combatantSpeed(cur);
+    if (kind === "dash" && (parseInt(m.moveUsed, 10) || 0) > sp) {
+      DM.toast(cur.name + " has moved past " + sp + " ft, so Dash stays on until those feet are given back.");
+      return;
+    }
+    m[kind] = false;
+    if (m.actionBy === kind) { m.action = false; m.actionBy = ""; }
+    DM.toast("Cancelled " + label + " for " + (cur.name || "the enemy"));
+  } else if (m.action) {
+    DM.toast(label + " needs the Action, and " + (cur.name || "this enemy") + " has already used it.");
+    return;
+  } else {
+    m.action = true;
+    m.actionBy = kind;
+    m[kind] = true;
+    const mv = T.moveLeft(m, combatantSpeed(cur));
+    DM.toast(kind === "dash" ? (label + ": movement is " + mv.max + " ft this turn.") : (label + " for " + (cur.name || "the enemy") + "."));
+  }
+  fight.markers = Object.assign({}, fight.markers || {}, { [cur.id]: m });
+  saveRemoteTable();
+  renderFight();
+  if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
+}
+function movementBudgetForToken(token) {
+  const T = window.SSDNSTurn;
+  if (!T || !fight.started) return { free: true, active: false, left: 100000, max: 100000, speed: 0, dash: false, disengage: false };
+  const cur = fight.order[fight.turn] || null;
+  if (!cur || (token && !tokenIsRow(token, cur))) return { free: false, active: false, left: 0, max: 0, speed: 0, dash: false, disengage: false };
+  const got = turnMarkersFor(cur);
+  const sp = combatantSpeed(cur);
+  const mv = T.moveLeft(got && got.m, sp);
+  return { free: false, active: true, left: mv.left, max: mv.max, speed: sp, dash: !!(got && got.m && got.m.dash), disengage: !!(got && got.m && got.m.disengage), combatantId: cur.id, kind: cur.kind };
+}
+function spendMoveForToken(token, feet) {
+  const T = window.SSDNSTurn;
+  const n = parseInt(feet, 10) || 0;
+  if (!T || !n || !fight.started) return false;
+  const cur = fight.order[fight.turn] || null;
+  if (!cur || (token && !tokenIsRow(token, cur))) return false;
+  if (cur.kind === "player") {
+    const pid = cur.playerId || cur.id;
+    const m = playerMarkers(pid);
+    if (!m) return false;
+    m.moveUsed = Math.max(0, (parseInt(m.moveUsed, 10) || 0) + n);
+    writePlayerMarkers(pid, m, "Moved " + n + " ft on the map.");
+    if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
+    return true;
+  }
+  const m = enemyMarkersNow(cur);
+  m.moveUsed = Math.max(0, (parseInt(m.moveUsed, 10) || 0) + n);
+  fight.markers = Object.assign({}, fight.markers || {}, { [cur.id]: m });
+  saveRemoteTable();
+  renderFight();
+  if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
+  return true;
 }
 
 async function pushHp(kind) {
@@ -5723,7 +5841,7 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
-    const t = e.target.closest && e.target.closest("[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
+    const t = e.target.closest && e.target.closest("[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-dm-move],[data-dm-act],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
     if (!t) return;
     if (t.hasAttribute("data-dm-scroll")) {
       const lane = document.getElementById("dmTurnNames");
@@ -5732,6 +5850,8 @@ function wireClicks() {
       return;
     }
     if (t.hasAttribute("data-strip-next")) { nextTurn(); return; }
+    if (t.hasAttribute("data-dm-move")) { adjustEnemyMove(t.getAttribute("data-dm-move")); return; }
+    if (t.hasAttribute("data-dm-act")) { toggleEnemyAct(t.getAttribute("data-dm-act")); return; }
     if (t.hasAttribute("data-dm-pip")) {
       if (t.hasAttribute("data-pip-pid")) { editPlayerMarker(t.getAttribute("data-pip-pid"), t.getAttribute("data-dm-pip")); return; }
       toggleEnemyMarker(t.getAttribute("data-dm-pip")); return;
@@ -6664,14 +6784,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.131-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.132-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.131-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.132-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -6827,6 +6947,8 @@ async function bootV2() {
     heldOutOfTurn: heldOutOfTurn,
     heldHits: function () { return Object.assign({}, fight.held || {}); },
     mapMarkersHtml: mapMarkersHtml,
+    movementBudget: movementBudgetForToken,
+    spendMove: spendMoveForToken,
     paintTurnRules: paintTurnRules,
     syncPlayers: syncPlayerVitals,
     onPlayerInit: onPlayerInit,
@@ -8568,7 +8690,7 @@ window.SSDNSMapFight = {
   syncMap() { syncMapTokens(); }
 };
 
-/* Dirty-gun tracker (sheet 0.3.118 / DMCC 0.2.131). The DM advances a room campaign day.
+/* Dirty-gun tracker (sheet 0.3.119 / DMCC 0.2.132). The DM advances a room campaign day.
    A gun not cleaned in 2 campaign days is listed here. Nothing auto-dirties the gun, and the list is DM-only. */
 function campaignDayNow() {
   const n = parseInt(fight.campaignDay, 10);
