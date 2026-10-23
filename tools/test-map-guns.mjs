@@ -24,7 +24,7 @@ const extraSrc = read("assets/js/sheet-extras.js");
 const joinSrc = read("assets/js/dm-join.js");
 const v2 = read("dm/assets/js/v2.js");
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.112" && version.dmcc === "0.2.125");
+check("ver.sheet", version.sheet === "0.3.113" && version.dmcc === "0.2.126");
 check("src.pool", mapSrc.includes('data-act="playerPool"') && mapSrc.includes('data-act="rowPool"') && appSrc.includes("function poolsForGun") && appSrc.includes("setGunAmmoPool"));
 check("src.unload", mapSrc.includes('data-act="playerUnload"') && hostSrc.includes("unloadGunIndex"));
 check("src.tr", mapSrc.includes('data-act="rowTr"') && hostSrc.includes('"drawer:tr": "tr"') && joinSrc.includes('payload.op === "tr"'));

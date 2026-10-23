@@ -1421,9 +1421,10 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
 /* 0.3.108 (4:35 PM): a hidden long iron's card shows the plain long-gun outline at the engraving's 3:1 shape */
 .pact-iron-art.pact-iron-generic.pact-iron-outline { aspect-ratio: 3 / 1; height: auto; }
 
-/* 0.3.108 (art batch 1): Pact Shot tile on the Borrowed Iron card's Pact Shot button (icon + label, same button height) */
-#btnPactShot { display: inline-flex; align-items: center; gap: 5px; }
+/* L0209: shot name + subtitle on the Pact Shot button. The tile stays; the subtitle can wrap on a phone. */
+#btnPactShot { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 5px; max-width: 100%; }
 #btnPactShot .iron-spell-art { width: 20px; height: 20px; margin: -3px 0 -3px -3px; border-radius: 3px; object-fit: cover; flex: 0 0 20px; display: block; }
+#btnPactShot .iron-spell-sub { font-size: .72rem; font-weight: 600; opacity: .8; }
 
 /* UI fixes 1 / U10 (Jessey 2026-10-21 8:53 PM, specs/turn-strip-2026-10-21.png): the sheet's turn order is one slim row.
    Small chips (initials + short name), conditions as small icons (+N past two), the status as a dot, no scrollbar

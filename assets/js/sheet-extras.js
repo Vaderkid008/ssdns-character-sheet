@@ -1370,6 +1370,11 @@
   function focusBlocked() { return !!(root.SSDNSFocus && root.SSDNSFocus.gate && root.SSDNSFocus.gate()); }
   function castSpellAttack(i, spellName, slot, fromChamber) {
     if (focusBlocked()) return;
+    /* Pallbearer Load is a Dexterity save, not a spell attack. The iron still has to be in hand. */
+    if (root.SSDNSPactShot && root.SSDNSPactShot.isPactShot(spellName)) {
+      var coneShot = root.SSDNSPactShot.variant(ch());
+      if (coneShot && coneShot.cone) { root.SSDNSPactShot.rollCone(ch()); return; }
+    }
     var Cast = root.SSDNSSpellCast;
     var looked = Cast && Cast.lookup && Cast.lookup(spellName);
     var start = castChoice ? Promise.resolve(castChoice) : chooseCastTarget(spellName, looked, slot);

@@ -46,13 +46,73 @@
   }
   var SWAP_NOTE = "Pact Shot is now free for every Pact Seeker, so the cantrip pick you spent on it is open again. Pick a replacement cantrip.";
   var FREE_TAG = "Free · always known";
+  /* L0209 locked per-patron Pact Shot. Keyed by iron slug (SSDNSIronArt), never by the patron's DM-only name. */
+  var DEFAULT_VARIANT = { name: "Pact Shot", subtitle: "force beams", damage: "force", range: "120 ft", shape: "attack", dice: "1d10", cone: false, rider: "" };
+  var VARIANTS = {
+    "hell-maker": { name: "Hellshot", subtitle: "fire beams", damage: "fire", range: "120 ft", shape: "attack", dice: "1d10", cone: false, rider: "Hit by 2 or more beams in one turn: the target takes 1d4 fire at the start of its next turn." },
+    "lightslinger": { name: "Lightshot", subtitle: "radiant beams", damage: "radiant", range: "120 ft", shape: "attack", dice: "1d10", cone: false, rider: "A hit target can't be invisible and sheds dim light in a 5-foot radius until the start of your next turn." },
+    "butter-repeater": { name: "Churn Shot", subtitle: "psychic beams", damage: "psychic", range: "120 ft", shape: "attack", dice: "1d10", cone: false, rider: "On a critical hit, the target is charmed by you until the end of its next turn." },
+    "virgil": { name: "Belly Shot", subtitle: "point-blank force", damage: "force", range: "60 ft", shape: "attack", dice: "1d10", cone: false, pointBlank: true, rider: "You don't have disadvantage for firing at a creature within 5 feet." },
+    "sirocco-long-rifle": { name: "Sirocco Shot", subtitle: "long force beams", damage: "force", range: "240 ft", shape: "attack", dice: "1d10", cone: false, rider: "" },
+    "pallbearer": { name: "Pallbearer Load", subtitle: "necrotic cone", damage: "necrotic", range: "15-ft cone", shape: "cone", dice: "1d6", cone: true, rider: "15-ft cone, Dexterity save. No attack roll. Damage on a failed save only. Agonizing Blast adds Charisma to one creature only. Repelling Blast pushes each creature that fails." },
+    "revenge-of-the-sea": { name: "Undertow Shot", subtitle: "cold beams", damage: "cold", range: "120 ft", shape: "attack", dice: "1d10", cone: false, rider: "Once per turn, a creature hit by this shot has its speed reduced by 10 feet until the start of your next turn." }
+  };
+  function characterOf(c) {
+    if (c) return c;
+    try {
+      var d = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc();
+      return d && d.character;
+    } catch (e) { return null; }
+  }
+  function variant(c) {
+    var ch = characterOf(c);
+    var Art = root.SSDNSIronArt;
+    var slug = Art && Art.slugFor ? Art.slugFor(ch) : "";
+    var row = (slug && VARIANTS[slug]) || DEFAULT_VARIANT;
+    return Object.assign({ slug: slug || "" }, DEFAULT_VARIANT, row);
+  }
+  /* Pallbearer Load: Dexterity save, no attack roll. Nd6 necrotic by cantrip tier. */
+  function rollCone(c) {
+    var ch = characterOf(c);
+    var v = variant(ch);
+    var tier = 1;
+    try { tier = root.SSDNSSpellCast && root.SSDNSSpellCast.cantripTier ? root.SSDNSSpellCast.cantripTier((ch && ch.level) || 1) : 1; } catch (e) {}
+    var faces = [];
+    var total = 0;
+    var i;
+    for (i = 0; i < tier; i++) {
+      var n = 1 + Math.floor(Math.random() * 6);
+      faces.push(n);
+      total += n;
+    }
+    var dc = "";
+    var cha = 0;
+    try {
+      var comp = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : null;
+      if (comp) {
+        dc = comp.spellDC;
+        cha = Number(comp.mods && comp.mods.CHA) || 0;
+      }
+    } catch (e2) {}
+    var inv = (ch && (ch.invocations || ch.invocation)) || [];
+    var bag = Array.isArray(inv) ? inv.join(" ") : String(inv || "");
+    var ago = /agonizing/i.test(bag);
+    var rep = /repelling/i.test(bag);
+    var text = v.name + " · 15-ft cone · Dexterity save" + (dc !== "" && dc != null ? " DC " + dc : "") +
+      " · " + tier + "d6 necrotic (" + faces.join("+") + " = " + total + ") on a failed save, nothing on a success. No attack roll." +
+      (ago ? " Agonizing Blast adds " + (cha >= 0 ? "+" : "") + cha + " Charisma to one creature only." : " Agonizing Blast, if you have it, adds Charisma to one creature only.") +
+      (rep ? " Repelling Blast pushes each creature that fails the save." : " Repelling Blast, if you have it, pushes each creature that fails.");
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "spell", text: text, name: v.name });
+    return { ok: true, cone: true, attack: false, name: v.name, tier: tier, dice: tier + "d6", total: total, dc: dc, text: text };
+  }
 
   /* Borrowed Iron card: quick spell buttons. Attack cantrips / spells the character knows (spell attack or a damaging
      save), Pact Shot first. Leveled spells cast at their own level, same as the spell list's Cast button. */
   function quickSpells(c) {
     if (!applies(c)) return [];
     var Cast = root.SSDNSSpellCast;
-    var out = [{ name: "Pact Shot", value: "0:" + NAME, level: 0, pact: true }];
+    var shot = variant(c);
+    var out = [{ name: shot.name, subtitle: shot.subtitle, value: "0:" + NAME, level: 0, pact: true, cone: !!shot.cone }];
     var seen = { "eldritch blast": 1 };
     function kindOk(name) {
       var row = Cast && Cast.lookup ? Cast.lookup(name) : null;
@@ -106,6 +166,7 @@
   root.SSDNSPactShot = {
     NAME: NAME, isPactShot: isPactShot, applies: applies, has: has, countable: countable, ensure: ensure, migrate: migrate,
     swapPending: swapPending, SWAP_NOTE: SWAP_NOTE, FREE_TAG: FREE_TAG, quickSpells: quickSpells,
+    VARIANTS: VARIANTS, variant: variant, rollCone: rollCone,
     BOONS: BOONS, boonOpen: boonOpen, bayonet: bayonet, bayonetIndex: bayonetIndex, setBayonetForm: setBayonetForm
   };
 })(typeof window !== "undefined" ? window : globalThis);

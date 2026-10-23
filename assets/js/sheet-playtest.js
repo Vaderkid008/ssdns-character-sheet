@@ -1258,10 +1258,16 @@
     }
     wrap.hidden = false;
     var pact = $("#btnPactShot");
-    /* 0.3.108 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT): the Pact Shot tile (assets/img/spells/pact-shot.webp)
-       sits as a small icon at the start of the button; the label stays "Pact Shot". */
+    /* L0209: the button shows the shot name and its subtitle. The tile stays the Pact Shot icon. */
+    var shot = PS.variant(c);
     if (pact) {
-      if (!pact.querySelector(".iron-spell-art")) pact.innerHTML = '<img class="iron-spell-art" src="' + PACT_SHOT_ART + '" alt="" width="20" height="20" decoding="async"><span class="iron-spell-label">Pact Shot</span>';
+      if (!pact.querySelector(".iron-spell-art")) pact.innerHTML = '<img class="iron-spell-art" src="' + PACT_SHOT_ART + '" alt="" width="20" height="20" decoding="async"><span class="iron-spell-label"></span><span class="iron-spell-sub"></span>';
+      var lab = pact.querySelector(".iron-spell-label");
+      var subEl = pact.querySelector(".iron-spell-sub");
+      if (lab) lab.textContent = shot.name;
+      if (subEl) subEl.textContent = shot.subtitle ? (" · " + shot.subtitle) : "";
+      pact.title = shot.cone ? "Dexterity save, 15-ft cone. Not an attack roll." : (shot.name + " · " + shot.range + (shot.rider ? ". " + shot.rider : ""));
+      pact.setAttribute("data-cone", shot.cone ? "1" : "0");
       pact.setAttribute("data-iron-spell", "pact");
     }
     var list = PS.quickSpells(c).filter(function (q) { return !q.pact; });
@@ -1832,9 +1838,12 @@
       if (!t) return;
       if (t.id === "btnApplyKit") applyKit(true);
       if (t.id === "btnEndTurn") endTurn();
-      if (t.id === "btnPactShot" && t.disabled) return;
-      if (t.id === "btnPactShot") {
-        if (root.SSDNSSheet && root.SSDNSSheet.castNamed) root.SSDNSSheet.castNamed("Pact Shot");
+      var pactBtn = t.closest ? t.closest("#btnPactShot") : (t.id === "btnPactShot" ? t : null);
+      if (pactBtn && pactBtn.disabled) return;
+      if (pactBtn) {
+        var shot = root.SSDNSPactShot && root.SSDNSPactShot.variant ? root.SSDNSPactShot.variant(ch()) : null;
+        if (shot && shot.cone && root.SSDNSPactShot.rollCone) root.SSDNSPactShot.rollCone(ch());
+        else if (root.SSDNSSheet && root.SSDNSSheet.castNamed) root.SSDNSSheet.castNamed("Pact Shot");
         else toast("Pact Shot isn't ready.");
       }
       if (t.id === "btnPointBuy") pointBuy();
