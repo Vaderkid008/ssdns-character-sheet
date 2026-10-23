@@ -2115,6 +2115,36 @@
     "ref_price_es": 500
   },
   {
+    "id": "lamp",
+    "name": "Lamp",
+    "category": "gear",
+    "price_es": 50,
+    "weight_lb": 1,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100. PHB item: Lamp. Bright 15 ft, dim 30 ft. Reference only: PHB price x100 = 50 ES.",
+    "ref_price_es": 50
+  },
+  {
+    "id": "bullseye-lantern",
+    "name": "Bullseye lantern",
+    "category": "gear",
+    "price_es": 1000,
+    "weight_lb": 2,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "Priced 5E PHB x100. PHB item: Bullseye lantern. 60-ft bright cone, 60 ft dim beyond. Reference only: PHB price x100 = 1000 ES.",
+    "ref_price_es": 1000
+  },
+  {
     "id": "lamp-oil",
     "name": "Lamp oil",
     "category": "gear",

@@ -763,6 +763,8 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
 .ssm-range input[type="checkbox"] { width: auto; }
 .ssdns-playercard input, .ssdns-playercard select, .ssdns-playercard button { width: 100%; }
 .ssdns-playercard .ssm-tools { display: flex; flex-wrap: wrap; gap: 4px; }
+.ssdns-playercard .ssm-lights { flex: 1 1 100%; font-size: 12px; font-weight: 700; color: #e8c36a; }
+.ssm-ambient { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #e8dcc8; }
 .ssdns-playercard .ssm-tools button {
   width: auto;
   flex: 1 1 calc(50% - 4px);

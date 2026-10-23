@@ -1542,9 +1542,19 @@
     if (sup.length) subBits.push(sup[0]);
     if (item.playerAdded && !item.approved) subBits.push("player-added");
     var desc = view.description || (view.effect && view.effect.text) || "";
+    var Lgt = root.SSDNSLighting;
+    var lightBtns = "";
+    if (Lgt && Lgt.specFor && Lgt.specFor(item) && !view.blank) {
+      var lsp = Lgt.specFor(item);
+      var lr = Lgt.radii(item);
+      if (lsp.slot === "hand") lightBtns += '<button type="button" class="btn xs' + (item.lightHeld ? " btn-primary" : "") + '" data-light-hold="' + esc(item.uid) + '" title="A torch, lamp, or candle takes one hand. A two-handed gun, or a shield plus a weapon, can fill both hands.">' + (item.lightHeld ? "In hand ✓" : "Hold (uses a hand)") + "</button> ";
+      if (lsp.hood) lightBtns += '<button type="button" class="btn xs' + (item.hoodDown ? " btn-primary" : "") + '" data-light-hood="' + esc(item.uid) + '">' + (item.hoodDown ? "Hood down · 5 ft dim" : "Hood up · 30/30") + "</button> ";
+      if (item.lightOut) lightBtns += '<span class="item-tag">Out</span> ';
+      if (lr) lightBtns += '<span class="item-tag item-light" data-item-light>' + (lr.bright ? lr.bright + " ft bright / " + lr.dim + " ft dim" : lr.dim + " ft dim only") + (lr.cone ? " · cone" : "") + (lsp.placeholder ? " · PENDING Encounter Bot" : "") + "</span> ";
+    }
     var detail = (desc ? '<p class="eq-desc">' + esc(desc) + "</p>" : "") +
       '<div class="eq-facts">' + homeTag + supTag + " " + tag + pips + (w != null ? ' <span class="item-tag item-wt" title="' + (off ? "Rides on your mount; not counted in what you carry" : "Weight each") + '">' + esc(w) + " lb each</span>" : "") + "</div>" +
-      '<div class="eq-acts">' + lock + " " + useBtn + " " + steedBtn + unpackBtn + dropBtn + park + "</div>";
+      '<div class="eq-acts">' + lock + " " + lightBtns + useBtn + " " + steedBtn + unpackBtn + dropBtn + park + "</div>";
     return { key: "it:" + item.uid, itemRow: true, held: held || /give-held/.test(give), cat: cat, name: rowName, sub: subBits.filter(Boolean).join(" · "),
       qty: n, wt: wt, give: give, detail: detail, src: view.blank ? "" : (badgeTile(item, c) || ironTile(item, c) || realArt(item)), fallback: badgeTile(item, c) ? withPrefix(BADGE_TILE_FALLBACK) : "", ironClass: ironRow && IAr.classFor ? IAr.classFor(c) : "",
       /* UI fixes 1 / U5 (Jessey 2026-10-21 7:58 PM): the Borrowed Iron is the Pact Seeker's weapon and their focus, so its
@@ -2257,6 +2267,7 @@
     if (slot) slot.querySelectorAll("[data-add-item-search], [data-add-item-pick], [data-add-item-custom], [data-add-item-formwrap] button, [data-add-item-formwrap] input, [data-add-item-formwrap] select").forEach(function (el) { el.disabled = locked; });
     if (locked && slot) setAddForm(slot, false);
     paintWeight();
+    if (root.SSDNSLighting && root.SSDNSLighting.paintBox) { try { root.SSDNSLighting.paintBox(); } catch (e) {} }
   }
 
   /* 0.3.76: the player's free-add item area is one compact "Add item ▾" menu.
@@ -2408,6 +2419,24 @@
     if (useId) { useOnSheet(useId); return; }
     var summonId = t.getAttribute("data-item-summon");
     if (summonId) { setSummoned(summonId, null); return; }
+    var holdId = t.getAttribute("data-light-hold");
+    if (holdId && root.SSDNSLighting) {
+      var hr;
+      var flip = !(((character() && character().items) || []).filter(function (it) { return it && it.uid === holdId; })[0] || {}).lightHeld;
+      if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function (d) { hr = root.SSDNSLighting.hold(d.character, holdId, flip); });
+      else hr = root.SSDNSLighting.hold(character(), holdId, flip);
+      if (hr && !hr.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(hr.reason);
+      paintSheet();
+      return;
+    }
+    var hoodId = t.getAttribute("data-light-hood");
+    if (hoodId && root.SSDNSLighting) {
+      var down = !(((character() && character().items) || []).filter(function (it) { return it && it.uid === hoodId; })[0] || {}).hoodDown;
+      if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function (d) { root.SSDNSLighting.setHood(d.character, hoodId, down); });
+      else root.SSDNSLighting.setHood(character(), hoodId, down);
+      paintSheet();
+      return;
+    }
     var wearId = t.getAttribute("data-item-wear-toggle");
     if (wearId && root.SSDNSDoll && root.SSDNSDoll.toggleWear) {
       var wr;

@@ -117,6 +117,9 @@ window.SSDNSMap = { create(opts) {
       id: t.id,
       pos: t.pos ? { x: t.pos.x, y: t.pos.y } : { x: 0, y: 0 },
       color: t.color || '', torch: !!t.torch, status: t.status || '',
+      lights: Array.isArray(t.lights) ? t.lights.map(l => Object.assign({}, l)) : [],
+      darkvision: Number(t.darkvision) || 0, skulker: !!t.skulker,
+      facing: Number(t.facing) || 0, dmDoused: !!t.dmDoused,
       conditions: t.conditions ? [...t.conditions] : [],
       sceneId: t.sceneId || 'scn_dustyspur01', image: t.image || '',
       veil: !!t.veil,
@@ -162,6 +165,10 @@ window.SSDNSMap = { create(opts) {
     if (patch && patch.color != null) safe.color = String(patch.color);
     if (patch && patch.label != null) safe.label = String(patch.label);
     if (patch && patch.veil != null) safe.veil = !!patch.veil;
+    if (patch && patch.lights) safe.lights = patch.lights;
+    if (patch && patch.darkvision != null) safe.darkvision = Number(patch.darkvision) || 0;
+    if (patch && patch.skulker != null) safe.skulker = !!patch.skulker;
+    if (patch && patch.facing != null) safe.facing = Number(patch.facing) || 0;
     write('map/public/tokens/' + token.id + '/patch', safe);
   }
   // About 6 Hz. Inside the 5–8 Hz cap, and only when the cell changed.
@@ -268,6 +275,11 @@ function applySharedToTokens() {
       t.color = s.color || t.color;
       if (s.label) t.label = s.label;
       t.torch = !!s.torch;
+      if (Array.isArray(s.lights)) t.lights = s.lights.map(l => Object.assign({}, l));
+      if (s.darkvision != null) t.darkvision = Number(s.darkvision) || 0;
+      if (s.skulker != null) t.skulker = !!s.skulker;
+      if (s.facing != null) t.facing = Number(s.facing) || 0;
+      if (s.dmDoused != null) t.dmDoused = !!s.dmDoused;
       t.status = s.status || '';
       t.conditions = s.conditions ? [...s.conditions] : [];
       t.sceneId = s.sceneId || 'scn_dustyspur01';
@@ -782,7 +794,21 @@ if (role === 'dm') {
     <div class="panel-title">Actions</div>
     <div data-act="actionList" class="panel-list">Select a token</div>
     <div style="height:8px"></div>
-    <button data-act="dmTorchBtn">Torch</button>
+    <label class="ssm-ambient">Ambient
+      <select data-act="ambientSel" aria-label="Ambient light">
+        <option value="dark">Dark</option>
+        <option value="dim">Dim</option>
+        <option value="bright">Bright</option>
+      </select>
+    </label>
+    <label class="ssm-ambient">Sight
+      <select data-act="visionSel" aria-label="Player sight">
+        <option value="party">Party sight</option>
+        <option value="own">Own token</option>
+      </select>
+    </label>
+    <button type="button" data-act="dmDouseBtn">Douse lights</button>
+    <button type="button" data-act="dmRelightBtn">Relight</button>
     <select data-act="condSelect">
       <option value="">Condition…</option>
       <option value="unconscious">Unconscious</option>
@@ -810,7 +836,7 @@ if (role === 'dm') {
         <button type="button" data-act="playerRulerBtn">Ruler</button>
         <button type="button" data-act="playerGhostBtn">Ghost Plan: OFF</button>
         <button type="button" data-act="playerCancelBtn">Cancel plan</button>
-        <button type="button" data-act="playerTorchBtn">Torch: OFF</button>
+        <div class="ssm-lights" data-act="playerLights">No light in hand</div>
       </div>
       <label class="ssm-range"><input type="checkbox" data-act="showRange"> Show my range</label>
       <select data-act="rangeWeapon" aria-label="Equipped weapon" hidden></select>
@@ -855,21 +881,7 @@ function playerSees(gx, gy) {
   if (role !== 'player') return true;
   let sd = null;
   try { sd = sceneData(); } catch (e) { return false; }
-  let visible = sd.fogRevealed === true;
-  if (!visible) {
-    const me = state.tokens.find(t => t && t.ownerUid === uid && t.pos);
-    if (me) {
-      const c = fxCenter(me), r = me.torch ? 8 : 2;
-      if (Math.hypot(gx - c.x, gy - c.y) <= r) visible = true;
-    }
-  }
-  if (!visible) {
-    for (const t of state.tokens) {
-      if (!t || !t.torch || !t.pos) continue;
-      const c = fxCenter(t);
-      if (Math.hypot(gx - c.x, gy - c.y) <= 8) { visible = true; break; }
-    }
-  }
+  let visible = pointInSight(gx, gy, sightFor(uid));
   (sd.fogShapes || []).forEach(shape => { if (shapeContains(shape, gx, gy)) visible = shape.op !== 'hide'; });
   return visible;
 }
@@ -881,21 +893,12 @@ function tokenSeen(t) {
   const c = fxCenter(t);
   return playerSees(c.x, c.y);
 }
-/* DM: could any player see this grid point? Same rules as the player map: fog off, a player token's own sight
-   (2 sq, torch 8), a torch-bearer's light (8), then Reveal/Hide shapes (last match wins). Hidden tokens never light. */
+/* DM: could any player see this grid point? Union of party sight (each player's bubble and every light),
+   then Reveal/Hide shapes (last match wins). Hidden tokens never light. */
 function fxPublicSees(gx, gy, sid) {
   let sd = null;
   try { sd = sceneData(sid); } catch (e) { return false; }
-  let visible = sd.fogRevealed === true;
-  if (!visible) {
-    for (const t of state.tokens || []) {
-      if (!t || !t.pos || t.hidden || (t.sceneId || 'scn_dustyspur01') !== sid) continue;
-      const r = t.torch ? 8 : (t.ownerUid ? 2 : 0);
-      if (!r) continue;
-      const c = fxCenter(t);
-      if (Math.hypot(gx - c.x, gy - c.y) <= r) { visible = true; break; }
-    }
-  }
+  let visible = pointInSight(gx, gy, buildSight(null, sid, 'party'));
   (sd.fogShapes || []).forEach(shape => { if (shapeContains(shape, gx, gy)) visible = shape.op !== 'hide'; });
   return visible;
 }
@@ -1362,30 +1365,82 @@ function fogCovers(x, y) {
   });
   return hidden;
 }
-/* fog-aware targeting (Jessey 2026-10-20 9:52 PM): one sight test for drawing and for targeting.
-   A player sees their own token's circle (2 squares, 8 with a torch) and every torch's 8 squares, when the scene's fog
-   is on; DM reveal / hide shapes then win, last one on top. Hidden tokens and other players' veiled tokens are never
-   seen. Party members' sight does not count. Walls do not block sight yet. Grid units (squares). */
+/* Fog sight. Option A (default): shared party sight — each player sees the union of party bubbles
+   (darkvision, or a 2-square bubble with none) plus every light. Option B: scene.visionMode "own"
+   keeps sight to the viewer's own token. The DM always sees the map. Ambient bright/dim opens the
+   scene (hide shapes still hide). A legacy torch is bright 20 ft / dim 20 ft (outer 8 squares).
+   Walls do not block sight yet. Grid units (squares). */
 function playerSceneOf(viewerUid) {
   if (role === 'player' && viewerUid === uid) return getPlayerScene();
   const own = state.tokens.find(t => t && t.ownerUid === viewerUid);
   return (own && own.sceneId) || (shared.playerScenes && shared.playerScenes[viewerUid]) || 'scn_dustyspur01';
 }
-function sightFor(viewerUid, sceneId) {
-  const sid = sceneId || playerSceneOf(viewerUid);
-  const sd = sceneData(sid);
-  const out = { uid: viewerUid, sceneId: sid, open: sd.fogRevealed === true, fogOn: sd.fogRevealed === false, center: null, radius: 2, lights: [], shapes: sd.fogShapes || [] };
-  for (const t of state.tokens) {
-    if (t && t.torch && t.pos) out.lights.push({ x: t.pos.x + (t.size || 1) / 2, y: t.pos.y + (t.size || 1) / 2, radius: 8 });
+function visionModeOf(sd) { return sd && sd.visionMode === 'own' ? 'own' : 'party'; }
+function ambientOf(sd) {
+  const a = sd && sd.ambient;
+  return a === 'bright' || a === 'dim' ? a : 'dark';
+}
+function tokenLightList(t) {
+  if (!t || !t.pos || t.hidden || t.dmDoused) return [];
+  const c = fxCenter(t);
+  const face = (Number(t.facing) || 0) * Math.PI / 180;
+  const rows = Array.isArray(t.lights) ? t.lights.filter(l => l && !l.out) : [];
+  if (rows.length) {
+    return rows.map(l => {
+      const bright = Number(l.bright) || 0, dim = Number(l.dim) || 0;
+      return { x: c.x, y: c.y, bright: bright, dim: dim, radius: (bright + dim) / 5, cone: !!l.cone, facing: face, name: l.name || '' };
+    });
   }
-  if (out.fogOn) {
-    const mine = state.tokens.find(t => t && t.ownerUid === viewerUid);
-    if (mine && mine.pos) {
-      out.center = { x: mine.pos.x + (mine.size || 1) / 2, y: mine.pos.y + (mine.size || 1) / 2 };
-      if (mine.torch) out.radius = 8;
-    }
+  if (t.torch) return [{ x: c.x, y: c.y, bright: 20, dim: 20, radius: 8, cone: false, facing: face, name: 'Torch' }];
+  return [];
+}
+function inLight(ls, gx, gy) {
+  if (!ls) return false;
+  const d = Math.hypot(gx - ls.x, gy - ls.y);
+  if (d > ls.radius) return false;
+  if (!ls.cone) return true;
+  let diff = Math.abs(Math.atan2(gy - ls.y, gx - ls.x) - (ls.facing || 0));
+  if (diff > Math.PI) diff = Math.abs(diff - Math.PI * 2);
+  return diff <= Math.atan(0.5) + 0.001;
+}
+function buildSight(viewerUid, sceneId, forceMode) {
+  const sid = sceneId || playerSceneOf(viewerUid || '');
+  const sd = sceneData(sid);
+  const amb = ambientOf(sd);
+  const mode = forceMode || visionModeOf(sd);
+  const open = sd.fogRevealed === true || amb === 'bright' || amb === 'dim';
+  const out = {
+    uid: viewerUid || '', sceneId: sid, open: open, fogOn: !open, ambient: amb, mode: mode,
+    center: null, radius: 2, bubbles: [], lights: [], shapes: sd.fogShapes || []
+  };
+  for (const t of state.tokens) {
+    if (!t || !t.pos || t.hidden) continue;
+    if ((t.sceneId || 'scn_dustyspur01') !== sid) continue;
+    tokenLightList(t).forEach(ls => out.lights.push(ls));
+    const party = !!(t.ownerUid || t.kind === 'player');
+    if (!party) continue;
+    const mine = viewerUid && t.ownerUid === viewerUid;
+    if (mode === 'own' && viewerUid && !mine) continue;
+    const dv = Number(t.darkvision) || 0;
+    const radius = dv > 0 ? dv / 5 : 2;
+    const bubble = { x: t.pos.x + (t.size || 1) / 2, y: t.pos.y + (t.size || 1) / 2, radius: radius, darkvision: dv, uid: t.ownerUid || '' };
+    out.bubbles.push(bubble);
+    if (mine) { out.center = { x: bubble.x, y: bubble.y }; out.radius = radius; }
   }
   return out;
+}
+function sightFor(viewerUid, sceneId) { return buildSight(viewerUid, sceneId, ''); }
+function pointInSight(gx, gy, sight) {
+  if (!sight) return false;
+  if (sight.open) return true;
+  for (const b of sight.bubbles || []) {
+    if (Math.hypot(gx - b.x, gy - b.y) <= b.radius) return true;
+  }
+  if (sight.center && Math.hypot(gx - sight.center.x, gy - sight.center.y) <= sight.radius) return true;
+  for (const ls of sight.lights || []) {
+    if (inLight(ls, gx, gy)) return true;
+  }
+  return false;
 }
 function tokenSeenBy(t, sight) {
   if (!t || !t.pos || !sight) return false;
@@ -1393,13 +1448,7 @@ function tokenSeenBy(t, sight) {
   if ((t.sceneId || 'scn_dustyspur01') !== sight.sceneId) return false;
   const gx = t.pos.x + (t.size || 1) / 2;
   const gy = t.pos.y + (t.size || 1) / 2;
-  let visible = sight.open;
-  if (!visible && sight.center && Math.hypot(gx - sight.center.x, gy - sight.center.y) <= sight.radius) visible = true;
-  if (!visible) {
-    for (const ls of sight.lights) {
-      if (Math.hypot(gx - ls.x, gy - ls.y) <= ls.radius) { visible = true; break; }
-    }
-  }
+  let visible = pointInSight(gx, gy, sight);
   sight.shapes.forEach(shape => {
     if (shapeContains(shape, gx, gy)) visible = shape.op !== 'hide';
   });
@@ -1894,31 +1943,11 @@ function draw() {
   const box = viewBox();
   ctx.clearRect(0, 0, box.w, box.h);
 
-  // collect light sources (tokens with torch)
-  const lightSources = [];
-  for (const t of state.tokens) {
-    if (t.torch) {
-      lightSources.push({
-        x: (t.pos.x + (t.size || 1) / 2) * px,
-        y: (t.pos.y + (t.size || 1) / 2) * px,
-        radius: 8 // 40 ft
-      });
-    }
-  }
-
-  // player vision: own token + any light sources that reach them
-  let visionCenter = null;
-  let visionRadiusSq = 2;
-  if (role === 'player' && sceneData().fogRevealed === false) {
-    const myToken = state.tokens.find(t => t.ownerUid === uid);
-    if (myToken) {
-      visionCenter = {
-        x: (myToken.pos.x + (myToken.size || 1) / 2) * px,
-        y: (myToken.pos.y + (myToken.size || 1) / 2) * px
-      };
-      if (myToken.torch) visionRadiusSq = 8;
-    }
-  }
+  syncOwnerLights();
+  const viewSight = role === 'player' ? sightFor(uid) : buildSight(null, (state.scene && state.scene.id) || '', 'party');
+  const lightSources = (viewSight.lights || []).map(ls => ({
+    x: ls.x * px, y: ls.y * px, radius: ls.radius, bright: (Number(ls.bright) || 0) / 5, cone: !!ls.cone, facing: ls.facing || 0
+  }));
 
   const sight = role === 'player' ? sightFor(uid, getPlayerScene()) : null;
   const sightGun = role === 'player' ? playerSightWeapon() : null;
@@ -1926,44 +1955,45 @@ function draw() {
   if (role === 'player') noteSightChange();
   // map image — for players with fog on, only draw inside vision/revealed areas
   if (img) {
-    if (role === 'player' && sceneData().fogRevealed === false) {
-      // dark base for players
+    if (role === 'player' && viewSight.fogOn) {
       ctx.fillStyle = '#0a0806';
       ctx.fillRect(0, 0, box.w, box.h);
-
-      if (visionCenter) {
-        drawVisible(visionCenter.x, visionCenter.y, visionRadiusSq * px);
-      }
-      for (const ls of lightSources) {
-        drawVisible(ls.x, ls.y, ls.radius * px);
-      }
-
+      (viewSight.bubbles || []).forEach(b => drawVisible(b.x * px, b.y * px, b.radius * px));
+      for (const ls of lightSources) drawVisible(ls.x, ls.y, ls.radius * px, ls);
       paintPlayerFog(img, cols, rows, px, box);
     } else if (role === 'player') {
       const topLeft = worldToScreen(0, 0);
       ctx.drawImage(img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
+      if (viewSight.ambient === 'dim') {
+        ctx.fillStyle = 'rgba(18, 24, 48, 0.42)';
+        ctx.fillRect(0, 0, box.w, box.h);
+        for (const ls of lightSources) if (ls.bright > 0) drawVisible(ls.x, ls.y, ls.bright * px, ls);
+        (viewSight.bubbles || []).forEach(b => { if (b.darkvision) drawVisible(b.x * px, b.y * px, b.radius * px); });
+      }
       paintPlayerFog(img, cols, rows, px, box);
     } else {
       // DM always sees the full map
       const topLeft = worldToScreen(0, 0);
       ctx.drawImage(img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
 
-      // DM: grey everywhere, then redraw bright map inside each FOV circle
-      if (role === 'dm' && state.showPlayerFov && img) {
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fillRect(0, 0, box.w, box.h);
-
-        for (const ls of lightSources) {
-          drawVisible(ls.x, ls.y, ls.radius * px);
-        }
-        for (const t of state.tokens) {
-          if (t.kind === 'player' && !t.torch) {
-            drawVisible((t.pos.x + 0.5) * px, (t.pos.y + 0.5) * px, 2 * px);
-          }
+      /* Show Player FOV follows the ambient the players are under. Bright: no wash.
+         Dim: blue wash, bright light and darkvision punched back. Dark: black fog. */
+      if (role === 'dm' && state.showPlayerFov && img && viewSight.ambient !== 'bright') {
+        if (viewSight.ambient === 'dim') {
+          ctx.fillStyle = 'rgba(18, 24, 48, 0.42)';
+          ctx.fillRect(0, 0, box.w, box.h);
+          for (const ls of lightSources) if (ls.bright > 0) drawVisible(ls.x, ls.y, ls.bright * px, ls);
+          (viewSight.bubbles || []).forEach(b => { if (b.darkvision) drawVisible(b.x * px, b.y * px, b.radius * px); });
+        } else {
+          ctx.fillStyle = 'rgba(0,0,0,0.55)';
+          ctx.fillRect(0, 0, box.w, box.h);
+          for (const ls of lightSources) drawVisible(ls.x, ls.y, ls.radius * px, ls);
+          (viewSight.bubbles || []).forEach(b => drawVisible(b.x * px, b.y * px, b.radius * px));
         }
       }
     }
   }
+  paintLightRings(viewSight, px);
 
   // walls
   if (sceneData().walls.length && role === 'dm' && state.showWalls) {
@@ -3917,7 +3947,83 @@ function raycastVisible(cx, cy, radius) {
   }
   return points;
 }
-function drawVisible(cx, cy, radius) {
+function syncOwnerLights() {
+  if (role !== 'player' || typeof host.lightsProfile !== 'function') return;
+  let profile = null;
+  try { profile = host.lightsProfile(); } catch (e) { return; }
+  if (!profile) return;
+  const me = state.tokens.find(t => t && t.ownerUid === uid);
+  if (!me) return;
+  const lights = (profile.lights || []).map(l => Object.assign({}, l, { out: !!(me.dmDoused || l.out) }));
+  const sig = JSON.stringify({ lights: lights, darkvision: Number(profile.darkvision) || 0, skulker: !!profile.skulker });
+  if (me._lightSig === sig) return;
+  me._lightSig = sig;
+  me.lights = lights;
+  me.darkvision = Number(profile.darkvision) || 0;
+  me.skulker = !!profile.skulker;
+  const copy = shared.tokens[me.id];
+  if (copy) { copy.lights = lights.map(l => Object.assign({}, l)); copy.darkvision = me.darkvision; copy.skulker = me.skulker; }
+  publishPlayerPatch(me, { lights: lights, darkvision: me.darkvision, skulker: me.skulker });
+}
+function strokeRing(wx, wy, radiusWorld, stroke, fill) {
+  const c = worldToScreen(wx, wy);
+  const z = state.view.zoom || 1;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, Math.max(1, radiusWorld * z), 0, Math.PI * 2);
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 2;
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+function strokeCone(wx, wy, radiusWorld, facing, stroke) {
+  const c = worldToScreen(wx, wy);
+  const z = state.view.zoom || 1;
+  const spread = Math.atan(0.5);
+  const r = Math.max(1, radiusWorld * z);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(c.x, c.y);
+  ctx.arc(c.x, c.y, r, facing - spread, facing + spread);
+  ctx.closePath();
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = stroke;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+}
+function paintLightRings(sight, px) {
+  const lights = (sight && sight.lights) || [];
+  lights.forEach(ls => {
+    const wx = ls.x * px, wy = ls.y * px;
+    const dimR = ls.radius * px;
+    const brightR = (Number(ls.bright) || 0) / 5 * px;
+    if (ls.cone) {
+      strokeCone(wx, wy, dimR, ls.facing || 0, 'rgba(160,190,255,0.95)');
+      if (brightR > 0) strokeCone(wx, wy, brightR, ls.facing || 0, 'rgba(255,206,80,0.98)');
+      return;
+    }
+    if (dimR > 0) strokeRing(wx, wy, dimR, 'rgba(150,180,255,0.9)', 'rgba(120,150,220,0.10)');
+    if (brightR > 0) strokeRing(wx, wy, brightR, 'rgba(255,206,80,0.98)', 'rgba(255,196,60,0.16)');
+  });
+  (sight && sight.bubbles || []).forEach(b => {
+    if (!b.darkvision) return;
+    strokeRing(b.x * px, b.y * px, b.radius * px, 'rgba(190,190,200,0.8)', 'rgba(40,40,48,0.05)');
+  });
+  const readout = q('playerLights');
+  if (readout && role === 'player') {
+    const mine = state.tokens.find(t => t && t.ownerUid === uid);
+    const rows = mine ? tokenLightList(mine) : [];
+    const dv = mine && Number(mine.darkvision) || 0;
+    readout.textContent = (rows.length ? rows.map(l => (l.name || 'Light') + ' ' + (l.bright || 0) + '/' + (l.dim || 0)).join(' · ') : 'No light in hand') + (dv ? ' · darkvision ' + dv + ' ft' : '');
+  }
+}
+function drawVisible(cx, cy, radius, cone) {
   const pts = raycastVisible(cx, cy, radius);
   if (!pts.length) return;
   ctx.save();
@@ -3926,6 +4032,18 @@ function drawVisible(cx, cy, radius) {
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.closePath();
   ctx.clip();
+  /* A bullseye lantern is a cone. The circle punch would light behind the holder. */
+  if (cone && cone.cone) {
+    const c = worldToScreen(cx, cy);
+    const z = state.view.zoom || 1;
+    const spread = Math.atan(0.5);
+    const face = Number(cone.facing) || 0;
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y);
+    ctx.arc(c.x, c.y, Math.max(1, radius * z), face - spread, face + spread);
+    ctx.closePath();
+    ctx.clip();
+  }
   const topLeft = worldToScreen(0, 0);
   const { cols, rows, px } = state.scene.grid;
   ctx.drawImage(state.scene._img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
@@ -4631,18 +4749,37 @@ if (role === 'dm') {
     renderFogHistory();
     draw();
   });
-  q('dmTorchBtn').addEventListener('click', () => {
+  if (q('ambientSel')) q('ambientSel').addEventListener('change', () => {
+    sceneData().ambient = q('ambientSel').value === 'bright' || q('ambientSel').value === 'dim' ? q('ambientSel').value : 'dark';
+    saveScene();
+    draw();
+  });
+  if (q('visionSel')) q('visionSel').addEventListener('change', () => {
+    sceneData().visionMode = q('visionSel').value === 'own' ? 'own' : 'party';
+    saveScene();
+    draw();
+  });
+  function douseSelected(out) {
     const targets = state.selectedIds.length ? state.tokens.filter(t => state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
     if (!targets.length) { toast('Select a token first'); return; }
     targets.forEach(t => {
-      t.torch = !t.torch;
-      if (shared.tokens[t.id]) shared.tokens[t.id].torch = t.torch;
+      t.dmDoused = !!out;
+      if (out) t.torch = false;
+      if (Array.isArray(t.lights)) t.lights.forEach(l => { l.out = !!out; });
+      const copy = shared.tokens[t.id];
+      if (copy) {
+        copy.dmDoused = !!out;
+        if (out) copy.torch = false;
+        if (Array.isArray(copy.lights)) copy.lights.forEach(l => { l.out = !!out; });
+        else if (Array.isArray(t.lights)) copy.lights = t.lights.map(l => Object.assign({}, l));
+      }
       saveToken(t.id);
     });
-    flashBtn('dmTorchBtn');
+    toast(out ? 'Lights out' : 'Lights relit');
     draw();
-  });
-  q('dmTorchBtn').textContent = 'Torch: OFF';
+  }
+  if (q('dmDouseBtn')) q('dmDouseBtn').addEventListener('click', () => douseSelected(true));
+  if (q('dmRelightBtn')) q('dmRelightBtn').addEventListener('click', () => douseSelected(false));
   q('showFovBtn').addEventListener('click', () => {
     state.showPlayerFov = !state.showPlayerFov;
     q('showFovBtn').textContent = state.showPlayerFov ? 'Show Player FOV: ON' : 'Show Player FOV: OFF';
@@ -4854,18 +4991,7 @@ if (role === 'dm') {
     b.classList.toggle('active', state.tool === 'ruler');
     applyCursor();
   });
-  q('playerTorchBtn').addEventListener('click', () => {
-    const myToken = state.tokens.find(t => t.ownerUid === uid);
-    if (!myToken) { toast('No token found'); return; }
-    myToken.torch = !myToken.torch;
-    if (shared.tokens[myToken.id]) {
-      shared.tokens[myToken.id].torch = myToken.torch;
-    }
-    const b = q('playerTorchBtn');
-    b.textContent = myToken.torch ? 'Torch: ON' : 'Torch: OFF';
-    b.classList.toggle('active', !!myToken.torch);
-    draw();
-  });
+  /* The test torch toggle is gone. Light comes from held items, trinket lanterns, and light spells. */
   q('playerLabel').addEventListener('change', () => {
     const me = state.tokens.find(tok => tok.ownerUid === uid);
     if (!me) return;
@@ -4874,7 +5000,6 @@ if (role === 'dm') {
   });
   q('playerGhostBtn').addEventListener('click', () => toggleGhost(q('playerGhostBtn')));
   q('playerCancelBtn').addEventListener('click', () => { cancelGhost(); flashBtn('playerCancelBtn'); });
-  q('playerTorchBtn').textContent = 'Torch: OFF';
   renderActions();
   bindRangeUi();
 }
@@ -5030,6 +5155,10 @@ function swapScene(id) {
   if (fogBtn) {
     fogBtn.textContent = sd.fogRevealed ? 'Fog: OFF' : 'Fog: ON';
     fogBtn.classList.toggle('active', !sd.fogRevealed);
+    const ambSel = q('ambientSel');
+    if (ambSel) ambSel.value = sd.ambient === 'bright' || sd.ambient === 'dim' ? sd.ambient : 'dark';
+    const visSel = q('visionSel');
+    if (visSel) visSel.value = sd.visionMode === 'own' ? 'own' : 'party';
   }
   if (window.SSDNSMapLibrary && window.SSDNSMapLibrary.refresh) window.SSDNSMapLibrary.refresh();
   return true;
@@ -6813,6 +6942,10 @@ async function loadSceneImage(sceneId, opts) {
       if (value.color != null) cosmetic.color = value.color;
       if (value.label != null) cosmetic.label = value.label;
       if (value.veil != null) cosmetic.veil = !!value.veil;
+      if (value.lights) cosmetic.lights = value.lights;
+      if (value.darkvision != null) cosmetic.darkvision = Number(value.darkvision) || 0;
+      if (value.skulker != null) cosmetic.skulker = !!value.skulker;
+      if (value.facing != null) cosmetic.facing = Number(value.facing) || 0;
       Object.assign(t, cosmetic);
       if (role === 'dm') saveToken(id);
     } else if (value && (value.id || id)) {
