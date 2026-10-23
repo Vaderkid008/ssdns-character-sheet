@@ -10,12 +10,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Smokum&display=swap">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.121-maps">
-<link rel="stylesheet" href="../assets/css/vol-slider.css?v=0.2.121-vol">
-<link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.108-modal">
-<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.108-rounds">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.121-turn2">
-<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.121-polish">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.122-maps">
+<link rel="stylesheet" href="../assets/css/vol-slider.css?v=0.2.122-vol">
+<link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.109-modal">
+<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.109-rounds">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.122-turn2">
+<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.122-polish">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -153,46 +153,90 @@
     <!-- REWARDS -->
     <section class="panel" id="panel-rewards" role="tabpanel" aria-labelledby="tab-rewards" hidden>
       <h2>Give</h2>
-      <p class="lede">One place to give: Eldorite shards, an item, a note, an image handout, or a weapon. Pick who first.</p>
-      <div class="give-types" role="group" aria-label="What to give">
-        <button type="button" class="btn sm give-chip" data-give="es">Shards</button>
-        <button type="button" class="btn sm give-chip" data-give="item">Item</button>
-        <button type="button" class="btn sm give-chip" data-give="note">Note</button>
-        <button type="button" class="btn sm give-chip" data-give="handout">Image handout</button>
-        <button type="button" class="btn sm give-chip" data-give="weapon">Weapon</button>
+      <p class="lede">1 Who · 2 What · 3 How many · 4 Check the line, then Give.</p>
+      <!-- Give tab rework (DMCC 0.2.121, Jessey 2026-10-22): one Who picker for every give, one What row, a real
+           Ammo mode, a preview line, a button that says what it does, and a list of recent gives with undo. -->
+      <div class="give-card" id="giveWhoBox">
+        <h3 class="give-step">1 · Who gets it</h3>
+        <div class="give-who" id="giveWho" role="radiogroup" aria-label="Who gets it"></div>
+        <p class="fine give-carry" id="giveWhoCarry" aria-live="polite">Pick who gets it. Nobody is picked until you tap one.</p>
+        <select id="rewTarget" hidden aria-hidden="true" tabindex="-1"></select>
       </div>
       <div class="rew-split">
+      <div class="give-main">
+      <div class="give-card" id="giveWhatBox">
+        <h3 class="give-step">2 · What</h3>
+        <div class="give-types" role="radiogroup" aria-label="What to give">
+          <button type="button" class="btn sm give-chip" data-give-mode="es" role="radio" aria-checked="false">Money (ES)</button>
+          <button type="button" class="btn sm give-chip" data-give-mode="ammo" role="radio" aria-checked="false">Ammo</button>
+          <button type="button" class="btn sm give-chip" data-give-mode="item" role="radio" aria-checked="false">Item</button>
+          <button type="button" class="btn sm give-chip" data-give-mode="weapon" role="radio" aria-checked="false">Weapon</button>
+          <button type="button" class="btn sm give-chip" data-give-mode="kit" role="radio" aria-checked="false">Starting kit</button>
+          <button type="button" class="btn sm give-chip" data-give-mode="note" role="radio" aria-checked="false">Note</button>
+          <button type="button" class="btn sm give-chip" data-give-mode="loot" role="radio" aria-checked="false">Loot</button>
+        </div>
+        <select id="rewType" hidden aria-hidden="true" tabindex="-1">
+          <option value="">Pick what…</option>
+          <option value="es">Money (ES)</option>
+          <option value="ammo">Ammo</option>
+          <option value="item">Item</option>
+          <option value="weapon">Weapon</option>
+          <option value="kit">Starting kit</option>
+          <option value="note">Note</option>
+          <option value="loot">Loot</option>
+        </select>
       <div class="form-grid">
-        <div>
-          <label for="rewTarget">Target</label>
-          <select id="rewTarget"></select>
-        </div>
-        <div>
-          <label for="rewType">Type</label>
-          <select id="rewType">
-            <option value="es">ES (+/−)</option>
-            <option value="item">Item</option>
-            <option value="note">Reward note</option>
-          </select>
-        </div>
-        <div id="rewEsWrap">
+        <div id="rewEsWrap" data-give-show="es">
           <label for="rewEs">ES amount (negative to take)</label>
-          <input type="number" id="rewEs" value="50" step="1">
+          <input type="number" id="rewEs" step="1" placeholder="25">
         </div>
-        <div class="span-2">
-          <label for="rewReason">Reason</label>
-          <input type="text" id="rewReason" placeholder="Bounty, found pouch, DM reward">
+        <div class="span-2" id="giveAmmoWrap" data-give-show="ammo" hidden>
+          <label for="giveAmmo">Ammo</label>
+          <select id="giveAmmo"></select>
+          <label class="chk"><input type="checkbox" id="giveAmmoAll"> Show all ammo</label>
         </div>
-        <div class="span-2" id="rewTextWrap" hidden>
-          <label for="rewText">Item or note</label>
-          <input type="text" id="rewText" placeholder="Silvered Bowie · or free-text note">
+        <div id="giveAmmoQtyWrap" data-give-show="ammo" hidden>
+          <label for="giveAmmoQty">How many</label>
+          <input type="number" id="giveAmmoQty" min="1" step="1" value="20">
         </div>
-        <div id="rewQtyWrap" hidden>
-          <label for="rewQty">Quantity</label>
+        <div class="span-2" id="rewTextWrap" data-give-show="item note" hidden>
+          <label for="rewText" id="rewTextLabel">Item</label>
+          <input type="text" id="rewText" placeholder="Gun cleaning kit, Bowie knife, Hardtack…">
+        </div>
+        <div id="rewQtyWrap" data-give-show="item" hidden>
+          <label for="rewQty">How many</label>
           <input type="number" id="rewQty" min="1" value="1">
         </div>
+        <div class="span-2" id="giveWeaponWrap" data-give-show="weapon" hidden>
+          <label for="giveWeapon">Weapon</label>
+          <input type="text" id="giveWeapon" list="giveWeaponList" placeholder="Bowie, Henrietta Repeating Rifle, Cavalry Saber…" autocomplete="off">
+          <datalist id="giveWeaponList"></datalist>
+          <p class="fine" id="giveWeaponMatch" aria-live="polite"></p>
+          <label class="chk"><input type="checkbox" id="giveWeaponDirty"> Arrives Dirty (loot gun)</label>
+          <button type="button" class="btn sm" id="btnCustomWeapon">Custom weapon…</button>
+        </div>
+        <div class="span-2" id="giveKitWrap" data-give-show="kit" hidden>
+          <p class="fine" id="giveKitLine">Gives the Full kit for their calling (armor, pack, kit gear, background gear and pouch ES). Anything they already have isn't given twice.</p>
+        </div>
+        <div class="span-2 give-loot" id="giveLootWrap" data-give-show="loot" hidden>
+          <p><b>Loot is coming.</b> This is where a random item roller and chest containers will live, for the moments Act 1 says to roll for loot.</p>
+          <p class="fine">Nothing to roll yet. For now, give found items with Item, Ammo or Money.</p>
+        </div>
+        <div class="span-2" id="rewReasonWrap" data-give-show="es ammo item weapon">
+          <label for="rewReason">Reason (shows on their sheet)</label>
+          <input type="text" id="rewReason" placeholder="Bounty, found in the saddlebag, DM reward">
+        </div>
+        <div class="span-2 rew-typed" id="rewItemWrap" data-give-show="item" hidden>
+          <p class="fine" id="rewMatch" aria-live="polite"></p>
+          <label class="chk" id="rewDirtyWrap" hidden><input type="checkbox" id="rewDirty"> Arrives Dirty (loot gun)</label>
+          <div id="rewItemBuilder" hidden></div>
+        </div>
+        <div class="span-2 give-item-more" id="giveItemMore" data-give-show="item" hidden>
+          <label class="chk"><input type="checkbox" id="giveSupplyOn"> It's food or water</label>
+          <button type="button" class="btn sm" id="btnCustomItem" aria-expanded="false" aria-controls="dmItemFormWrap">Custom item…</button>
+        </div>
         <div class="span-2 rew-supply" id="rewSupplyWrap" hidden>
-          <label>Food &amp; water (optional; makes it a real item the day's food and water can use)</label>
+          <label>Food &amp; water (makes it a real item the day's food and water can use)</label>
           <div class="field-inline">
             <input type="text" id="rewTags" placeholder="tags: food, water, container" style="width:200px" aria-label="Tags">
             <input type="number" id="rewMeals" min="0" step="0.5" placeholder="meals each" style="width:100px" aria-label="Meals each">
@@ -202,35 +246,39 @@
           </div>
           <p class="fine">Big game is yours to set: a deer is about 6 meals (item "Deer", meals 6). Bread, cheese and meat chunks are ½ meal; liquor is 0 meals and 0 gal.</p>
         </div>
-        <div class="span-2 rew-typed" id="rewItemWrap" hidden>
-          <p class="fine" id="rewMatch" aria-live="polite"></p>
-          <label class="chk" id="rewDirtyWrap" hidden><input type="checkbox" id="rewDirty"> Arrives Dirty (loot gun)</label>
-          <div id="rewItemBuilder" hidden></div>
+      </div>
+        <p class="give-preview" id="givePreview" aria-live="polite" hidden></p>
+      </div>
+      <div id="dmItemTools" class="item-tools">
+        <div class="give-card" id="dmItemFormWrap" hidden>
+          <h3 class="give-step">Custom item</h3>
+          <p class="fine">The full Add Item form, same as the sheet. Quest items are DM-only. "Save to room catalog" keeps the row in this room. It gives to the player picked in Who.</p>
+          <div id="dmItemForm"></div>
         </div>
+        <select id="itemGiveTarget" hidden aria-hidden="true" tabindex="-1"></select>
+        <details class="fold" id="dmItemReview">
+          <summary>Player-added items and attunement</summary>
+          <div id="dmPendingItems"></div>
+        </details>
+      </div>
+      <div class="toolbar give-go">
+        <button type="button" class="btn btn-primary" id="btnPushReward" disabled>Pick who gets it</button>
+        <button type="button" class="btn sm" id="btnUndo" disabled title="Undoes the last give or hit">Undo last</button>
+      </div>
+      <div class="give-recent" id="giveRecent" aria-live="polite"></div>
       </div>
       <!-- 0.2.100: the Target player's current inventory, read-only, live (give-dm.js) -->
       <details class="rew-inv" id="rewInvPanel" open hidden>
         <summary id="rewInvHead">Inventory</summary>
         <div id="rewInvBody"></div>
+        <div class="toolbar"><button type="button" class="btn sm" id="btnLockInventory">Lock inventory</button></div>
       </details>
-      </div>
-      <div id="dmItemTools" class="item-tools">
-        <h2 style="font-size:18px;margin:16px 0 6px">Items</h2>
-        <p class="lede">Same Add Item form as the sheet. Quest items are DM-only. Custom catalog rows stay in this room.</p>
-        <div id="dmItemForm"></div>
-        <div class="toolbar">
-          <label for="itemGiveTarget">Player</label>
-          <select id="itemGiveTarget"></select>
-          <button type="button" class="btn sm" id="btnLockInventory">Lock inventory</button>
-        </div>
-        <div id="dmPendingItems"></div>
-      </div>
-      <div class="toolbar">
-        <button type="button" class="btn btn-primary" id="btnPushReward">Push reward</button>
-        <button type="button" class="btn sm" id="btnUndo" disabled>Undo last push</button>
       </div>
       <!-- 0.2.99 Player Give: transfers between players that are still open (the DM can cancel) -->
       <div class="xfer-pending" id="xferPending" hidden></div>
+    <details class="give-more" id="giveMore">
+      <summary>Handouts, handout packs and private messages</summary>
+      <p class="fine give-more-to" id="giveMoreTo">They go to the player picked in Who at the top.</p>
     <div class="give-section" id="giveHandout">
       <h2 style="font-size:18px;margin:16px 0 6px">Image handout</h2>
       <p class="lede">Paste an image URL, name it, send to the table or one player.</p>
@@ -298,6 +346,7 @@
         <button type="button" class="btn btn-ochre" id="btnSendMsg">Send private message</button>
       </div>
       <div class="feed" id="msgFeed" style="margin-top:12px"></div>
+    </details>
     </section>
 
     <!-- LEDGER -->
@@ -743,54 +792,55 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/turn-rules.js?v=0.2.121-turn2"></script>
-<script src="../assets/js/apply-guard.js?v=0.2.121-fire"></script>
-<script src="../assets/js/conditions.js?v=0.2.121-supplies"></script>
+<script src="../assets/js/turn-rules.js?v=0.2.122-turn2"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.122-fire"></script>
+<script src="../assets/js/conditions.js?v=0.2.122-supplies"></script>
 <script src="assets/js/ui-tab.js?v=0.2.35"></script>
-<script src="../assets/js/sfx.js?v=0.2.121-fire"></script>
-<script src="../assets/js/vol-slider.js?v=0.2.121-vol"></script>
-<script src="../assets/js/music-deck.js?v=0.2.121-maps"></script>
-<script src="../assets/js/media-upload.js?v=0.2.121-music"></script>
-<script src="assets/js/music-dm.js?v=0.2.121-music"></script>
-<script src="../assets/data/rules.js?v=0.2.121-preacher"></script>
-<script src="../assets/js/renames.js?v=0.2.121-preacher"></script>
-<script src="../assets/js/trackers.js?v=0.2.121-trackers"></script>
-<script src="../assets/js/equip.js?v=0.2.121-equip"></script>
+<script src="../assets/js/sfx.js?v=0.2.122-fire"></script>
+<script src="../assets/js/vol-slider.js?v=0.2.122-vol"></script>
+<script src="../assets/js/music-deck.js?v=0.2.122-maps"></script>
+<script src="../assets/js/media-upload.js?v=0.2.122-music"></script>
+<script src="assets/js/music-dm.js?v=0.2.122-music"></script>
+<script src="../assets/data/rules.js?v=0.2.122-preacher"></script>
+<script src="../assets/js/renames.js?v=0.2.122-preacher"></script>
+<script src="../assets/js/trackers.js?v=0.2.122-trackers"></script>
+<script src="../assets/js/equip.js?v=0.2.122-equip"></script>
 <script src="../assets/js/spell-fx.js?v=0.2.35"></script>
 <script src="../assets/js/spell-cast.js?v=0.2.39-range"></script>
-<script src="../assets/js/misfire.js?v=0.2.121-fire"></script>
+<script src="../assets/js/misfire.js?v=0.2.122-fire"></script>
 <script src="../assets/js/firebase-config.js?v=0.2.35"></script>
-<script src="assets/js/store-stock.js?v=0.2.121-act1"></script>
+<script src="assets/js/store-stock.js?v=0.2.122-act1"></script>
 <script src="assets/js/demo-data.js?v=0.2.35-guns"></script>
-<script src="../assets/js/test-jammer.js?v=0.2.121-fire"></script>
-<script src="../assets/js/weapon-art.js?v=0.2.121-polish"></script>
-<script src="../assets/js/iron-art.js?v=0.2.121-iron"></script>
-<script src="../assets/js/instrument-art.js?v=0.2.121-art"></script>
-<script src="../assets/js/item-ui.js?v=0.2.121-typeui"></script>
-<script src="../assets/js/give.js?v=0.3.108-give"></script>
-<script src="assets/js/give-dm.js?v=0.2.121-give"></script>
-<script src="../assets/data/item-catalog.js?v=0.2.121-items"></script>
-<script src="../assets/data/item-catalog-gear.js?v=0.2.121-steed"></script>
-<script src="../assets/js/custom-weapons.js?v=0.3.108-items"></script>
-<script src="../assets/js/items.js?v=0.2.121-steed"></script>
-<script src="../assets/js/item-art.js?v=0.2.121-art"></script>
-<script src="../assets/js/peace-maker.js?v=0.2.121-art"></script>
-<script src="../assets/js/dice-art.js?v=0.2.121-polish"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.121-turn2"></script>
-<script src="../assets/js/ammo-display.js?v=0.3.108-rounds"></script>
-<script src="../assets/js/grab.js?v=0.2.121-grab"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.121-turn2"></script>
-<script src="../assets/js/supplies.js?v=0.2.121-supplies"></script>
-<script type="module" src="assets/js/supplies-dm.js?v=0.2.121-supplies"></script>
+<script src="../assets/js/test-jammer.js?v=0.2.122-fire"></script>
+<script src="../assets/js/weapon-art.js?v=0.2.122-polish"></script>
+<script src="../assets/js/iron-art.js?v=0.2.122-iron"></script>
+<script src="../assets/js/instrument-art.js?v=0.2.122-art"></script>
+<script src="../assets/js/item-ui.js?v=0.2.122-typeui"></script>
+<script src="../assets/js/give.js?v=0.3.109-give"></script>
+<script src="assets/js/give-dm.js?v=0.2.122-give"></script>
+<script src="assets/js/give-tab.js?v=0.2.122-give"></script>
+<script src="../assets/data/item-catalog.js?v=0.2.122-items"></script>
+<script src="../assets/data/item-catalog-gear.js?v=0.2.122-steed"></script>
+<script src="../assets/js/custom-weapons.js?v=0.3.109-items"></script>
+<script src="../assets/js/items.js?v=0.2.122-steed"></script>
+<script src="../assets/js/item-art.js?v=0.2.122-art"></script>
+<script src="../assets/js/peace-maker.js?v=0.2.122-art"></script>
+<script src="../assets/js/dice-art.js?v=0.2.122-polish"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.122-turn2"></script>
+<script src="../assets/js/ammo-display.js?v=0.3.109-rounds"></script>
+<script src="../assets/js/grab.js?v=0.2.122-grab"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.122-turn2"></script>
+<script src="../assets/js/supplies.js?v=0.2.122-supplies"></script>
+<script type="module" src="assets/js/supplies-dm.js?v=0.2.122-supplies"></script>
 <script src="../map/token-crop.js?v=0.2.38-card"></script>
-<script src="../assets/js/range-rings.js?v=0.2.121-adv"></script>
-<script src="../map/ssdns-map-chat.js?v=0.2.121-float"></script>
-<script src="../map/map-packs.js?v=0.2.121-maps"></script>
-<script src="../map/map-library.js?v=0.2.121-maps"></script>
-<script src="../map/token-size.js?v=0.2.121-size"></script>
-<script src="../map/ssdns-map-fx.js?v=0.2.121-fx"></script>
-<script src="../map/ssdns-map.js?v=0.2.121-turn2"></script>
+<script src="../assets/js/range-rings.js?v=0.2.122-adv"></script>
+<script src="../map/ssdns-map-chat.js?v=0.2.122-float"></script>
+<script src="../map/map-packs.js?v=0.2.122-maps"></script>
+<script src="../map/map-library.js?v=0.2.122-maps"></script>
+<script src="../map/token-size.js?v=0.2.122-size"></script>
+<script src="../map/ssdns-map-fx.js?v=0.2.122-fx"></script>
+<script src="../map/ssdns-map.js?v=0.2.122-turn2"></script>
 <script src="../map/ssdns-map-firebase.js?v=0.2.36-sync"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.121-turn2"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.122-turn2"></script>
 </body>
 </html>

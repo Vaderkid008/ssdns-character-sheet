@@ -637,6 +637,14 @@ function undoRecord(rollId) {
 
 async function undoEntry(u) {
   if (!u) { DM.toast("Nothing to undo"); return false; }
+  /* Give tab rework (0.2.121): a give's undo is the recent-gives row's own Undo (give-tab.js), so the two never
+     undo the same give twice */
+  if (u.type === "give" && window.SSDNSGiveTab) {
+    if (fight.undo === u) fight.undo = null;
+    const ub = $("#btnUndo");
+    if (ub) ub.disabled = !fight.undo;
+    return window.SSDNSGiveTab.undo(u.give);
+  }
   const rollId = u.rollId || "";
   if (rollId && window.SSDNSApplied) {
     const marks = window.SSDNSApplied.load(DM.state.roomCode) || {};
@@ -5101,7 +5109,8 @@ function wireGiveTab() {
   if (who) who.addEventListener("change", mirror);
   panel.addEventListener("click", (e) => {
     const chip = e.target && e.target.closest ? e.target.closest("[data-give]") : null;
-    if (!chip) return;
+    /* 0.2.121: the What row is give-tab.js (data-give-mode); the panel's own data-give marker is not a chip */
+    if (!chip || chip === panel) return;
     const kind = chip.getAttribute("data-give");
     panel.querySelectorAll("[data-give]").forEach((b) => b.classList.toggle("btn-primary", b === chip));
     mirror();
@@ -6594,14 +6603,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.121-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.122-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.121-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.122-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -6710,6 +6719,7 @@ async function bootV2() {
   wireClicks();
   document.addEventListener("keydown", shortcuts);
   window.DMCCEnhance = {
+    rememberGiveUndo(id, label) { rememberUndo({ type: "give", give: id, label: label || "give" }); },
     /* L0188 food & water: the Supplies panel sets exhaustion through the same condition path */
     writeSubjectConditions: writeSubjectConditions,
     decorateDetail: decorateDetail,
@@ -6875,6 +6885,7 @@ async function bootV2() {
   if (origReward && !origReward.dataset.undoHook) {
     origReward.dataset.undoHook = "1";
     origReward.addEventListener("click", () => {
+      if (window.SSDNSGiveTab) return; /* 0.2.121: give-tab.js records each give with its own undo */
       const target = $("#rewTarget") && $("#rewTarget").value;
       const type = $("#rewType") && $("#rewType").value;
       if (type === "es") {

@@ -402,7 +402,7 @@ async function main() {
     /* ---- DMCC Give tab: Dolan's inventory, read-only and live ---- */
     await C(dm, (uid) => { document.querySelector("#tab-rewards").click(); const s = document.querySelector("#rewTarget"); s.value = uid; s.dispatchEvent(new Event("change", { bubbles: true })); }, uids.Dolan);
     const inv = await waitFor(() => C(dm, () => { const p = document.querySelector("#rewInvPanel"); return p && !p.hidden && /Hardtack/.test(p.textContent) ? p.textContent : ""; }), 10000, "inv panel");
-    check("dmInv.panel", /Hardtack and Jerky ×2/.test(inv) && /arrows 20/.test(inv) && /ES/.test(inv) && /\d+ lb \/ \d+ lb/.test(inv) && /Saddle/.test(inv), inv);
+    check("dmInv.panel", /Hardtack and Jerky ×2/.test(inv) && /arrows\s*20/i.test(inv) && /ES/.test(inv) && /\d+ lb \/ \d+ lb/.test(inv) && /Saddle/.test(inv), inv);
     check("dmInv.collapsible", await C(dm, () => document.querySelector("#rewInvPanel").tagName === "DETAILS"));
     await C(B2, () => window.SSDNSApp.applyPatch((d) => { window.SSDNSItems.add(d.character, { id: "hardtack-jerky-1-day", count: 1 }, { dm: true }); }));
     const live = await waitFor(() => C(dm, () => /Hardtack and Jerky ×3/.test(document.querySelector("#rewInvPanel").textContent)), 10000, "inv live").catch(() => false);

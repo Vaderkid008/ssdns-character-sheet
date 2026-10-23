@@ -42,6 +42,8 @@
         equipment: "Trail pack · Bedroll · Tinderbox · Canteen, 10 days of jerky · Bowie knife",
         features: "Hexslinger: spells channel through iron.\nChaos: sparks fly when the hex goes wrong.",
         personality: "Talks to her guns like old friends.",
+        /* Give tab (0.2.121): Ammo pools, as a real sheet snapshot sends them */
+        ammo: [{ type: "cartridge", caliber: "Medium", count: 18 }, { type: "cartridge", caliber: "Light", count: 20 }, { type: "bigfifty", caliber: ".50-90", count: 4 }, { type: "buck", caliber: "12 ga", count: 6 }],
         guns: [
           { name: "Blacksnake", loaded: 6, capacity: 6, atk: "+5", damage: "1d8 +3 piercing", misfire: "1", plain: 5, hex: 1, caster: true, condition: "ok", load: "cartridge", jammed: false, cracked: false, fouled: false, dirty: false, note: "Caster gun",
             chambers: ["k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:cartridge::medium", "k:hex:1:spent", "k:cartridge::medium"] },
@@ -85,6 +87,8 @@
         equipment: "Duster · Badge · Manacles · Spyglass · 40 cartridges",
         features: "Deadeye: bonus to ranged attacks after Aim.\nExtra Attack.",
         personality: "Quiet until the shooting starts.",
+        /* Give tab (0.2.121): Ammo pools, as a real sheet snapshot sends them */
+        ammo: [{ type: "cartridge", caliber: "Heavy", count: 24 }, { type: "cartridge", caliber: "Medium", count: 12 }],
         guns: [
           { name: "Pony Arms ChaosMaker (Heavy)", loaded: 6, capacity: 6, condition: "ok", load: "cartridge", jammed: false,
             chambers: ["k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy", "k:cartridge::heavy"] },
@@ -124,6 +128,8 @@
         equipment: "Travel fiddle (Played in) · Fancy hat · Ink & journal · Rope 50ft",
         features: "Balladeer: inspire allies with a verse.\nInstrument as focus.",
         personality: "Never met a stage she didn't like.",
+        /* Give tab (0.2.121): Ammo pools, as a real sheet snapshot sends them */
+        ammo: [{ type: "cartridge", caliber: "Light", count: 10 }],
         guns: [
           { name: "Herringer Light Double Derringer", loaded: 2, capacity: 2, condition: "ok", load: "cartridge", jammed: false,
             chambers: ["k:cartridge::light", "k:cartridge::light"] }

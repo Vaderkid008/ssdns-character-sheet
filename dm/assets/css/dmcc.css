@@ -1044,7 +1044,8 @@ select:-webkit-autofill {
 .rew-inv-items { width: 100%; border-collapse: collapse; }
 .rew-inv-items td { padding: 2px 4px; border-bottom: 1px solid rgba(255,255,255,.06); vertical-align: top; }
 .rew-inv-items td.num { text-align: right; white-space: nowrap; }
-.rew-inv-ammo { margin: 2px 0 6px 16px; padding: 0; }
+.rew-inv-ammo { margin: 2px 0 6px; }
+.rew-inv-h { margin: 8px 0 2px; text-transform: uppercase; letter-spacing: .08em; }
 .xfer-pending { margin: 10px 0; padding: 6px 10px; border: 1px dashed rgba(255,255,255,.2); border-radius: 8px; }
 .xfer-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
 
@@ -1114,3 +1115,42 @@ select:-webkit-autofill {
 .ssm-markers { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: 4px 0; }
 .ssm-markers .pip-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
 @media (max-width: 600px) { .turn-rules .tr-name { min-width: 0; flex: 1 0 100%; } }
+
+/* Give tab rework (0.2.121): Who cards, What row, preview line, recent gives, Loot placeholder */
+#panel-rewards .give-card { background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 0 0 12px; }
+#panel-rewards .give-card.give-need { border-color: var(--warn); box-shadow: 0 0 0 2px rgba(224,160,64,.35); }
+#panel-rewards .give-step { font-family: var(--label); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--eld); margin: 0 0 8px; font-weight: 600; }
+.give-who { display: flex; flex-wrap: wrap; gap: 8px; }
+.give-who-card { appearance: none; text-align: left; min-height: var(--tap); min-width: 150px; flex: 0 1 200px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); cursor: pointer; display: flex; flex-direction: column; gap: 2px; font: inherit; }
+.give-who-card b { font-family: var(--body); font-size: 15px; }
+.give-who-card span { font-size: 12px; color: var(--muted); }
+.give-who-card.off b { color: var(--muted); }
+.give-who-card.on { border-color: var(--eld); background: rgba(63,191,154,.12); box-shadow: 0 0 0 1px var(--eld); }
+.give-who-card:focus-visible { outline: 2px solid var(--eld); outline-offset: 2px; }
+.give-carry { margin: 8px 0 0; }
+.give-main { flex: 1 1 520px; min-width: 0; }
+#panel-rewards .give-types .give-chip { border-radius: 16px; min-height: 36px; }
+.give-preview { margin: 10px 0 0; padding: 8px 10px; border-left: 3px solid var(--eld); background: rgba(63,191,154,.10); color: var(--ink); font-size: 15px; }
+.give-preview.warn { border-left-color: var(--warn); background: rgba(224,160,64,.08); color: var(--parch); }
+.give-go { margin-top: 4px; }
+.give-recent { margin: 6px 0 12px; }
+.give-recent-list { list-style: none; margin: 0; padding: 0; }
+.give-row { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 14px; }
+.give-row .give-txt { flex: 1 1 260px; min-width: 0; }
+.give-row .give-tick { color: var(--eld); font-weight: 700; }
+.give-row.undone .give-what { text-decoration: line-through; opacity: .7; }
+.give-row .give-state { color: var(--muted); }
+.give-row.ok .give-state { color: var(--eld); }
+.give-row .btn.xs { margin-left: auto; }
+.give-loot { border: 1px dashed var(--ochre); border-radius: 6px; padding: 8px 10px; background: rgba(184,134,47,.08); }
+.give-loot p { margin: 4px 0; }
+.give-item-more { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.give-more { margin: 18px 0 0; border-top: 1px solid var(--line); padding-top: 10px; }
+.give-more > summary { cursor: pointer; font-family: var(--label); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ochre); min-height: var(--tap); display: flex; align-items: center; }
+#dmItemFormWrap .item-form { margin-top: 6px; }
+@media (max-width: 640px) {
+  .give-who-card { flex: 1 1 calc(50% - 8px); min-width: 0; }
+  .give-row .btn.xs { margin-left: 0; }
+}
+#panel-rewards label.chk input[type=checkbox] { width: 20px; height: 20px; min-height: 0; flex: 0 0 auto; margin: 0; padding: 0; }
+#panel-rewards label.chk, #panel-rewards .form-grid label.chk { display: inline-flex; gap: 6px; align-items: center; text-transform: none; letter-spacing: 0; font-family: var(--body); font-size: 14px; color: var(--ink); margin: 6px 12px 0 0; }

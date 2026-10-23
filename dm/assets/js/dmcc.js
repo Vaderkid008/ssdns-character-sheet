@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.121"; // dmcc-playtest-v02121
+const VERSION = "0.2.122"; // dmcc-playtest-v02122
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1515,13 +1515,15 @@ function fillTargetSelects() {
       (sel === "#selForcePlayer" ? '<option value="all">Everyone</option>' : "") +
       playerOptions(sel === "#rewTarget" || sel === "#hoTarget" || sel === "#selForcePlayer");
     if (sel === "#rewTarget" || sel === "#hoTarget") {
-      el.innerHTML = playerOptions(true);
+      /* Give tab fix 1 (0.2.121): nobody is picked until the DM taps a Who card */
+      el.innerHTML = (sel === "#rewTarget" ? '<option value="">Pick who…</option>' : "") + playerOptions(true);
     }
     el.dataset.sig = sig;
     const next = keep || remembered || "";
     if (next && [...el.options].some((o) => o.value === next)) el.value = next;
   });
   if (window.SSDNSItems && window.SSDNSItems.paintDm) window.SSDNSItems.paintDm();
+  if (window.SSDNSGiveTab && window.SSDNSGiveTab.paint) { try { window.SSDNSGiveTab.paint(); } catch (e) { console.warn("[Give]", e); } }
 }
 
 /* ---------- render tabs ---------- */
@@ -2244,7 +2246,8 @@ function kitSectionHtml(s) {
     <p class="fine">Gives the Full kit for their calling (armor, pack, kit gear, background gear and pouch ES). Anything they already have isn't given twice.</p>
   </div>`;
 }
-async function grantFullKit(pid) {
+async function grantFullKit(pid, opts) {
+  opts = opts || {};
   const p = state.players && state.players[pid];
   if (!p) return false;
   const s = p.snapshot || {};
@@ -2252,14 +2255,15 @@ async function grantFullKit(pid) {
   const full = s.kitMode === "full" || s.kitFull;
   const msg = "Gives " + who + " the Full kit for " + (s.calling || "their calling") + ". Their Module start gear stays, and nothing they already have is given twice." +
     (full ? " Their sheet says they already have the Full kit, so this may add nothing." : "");
-  const ask = await askText("Grant the Full kit to " + who + "?", msg);
+  /* opts.asked: the Give tab's Starting kit already confirmed (Everyone asks once) */
+  const ask = opts.asked ? { ok: true } : await askText("Grant the Full kit to " + who + "?", msg);
   if (!ask) return false;
   const grantId = "kit-" + pid + "-" + Date.now().toString(36);
   await pushCommand({ type: "kit_grant", to: pid, payload: { mode: "full", grantId: grantId }, from: state.uid });
   postDmAction("DM granted the Full kit to " + who + ".", pid);
   if (state.demo && s) { s.kitMode = "full"; s.kitFull = true; renderPlayers(); }
   toast("Full kit sent to " + who + ".");
-  return true;
+  return grantId;
 }
 /* 0.3.96: DMCC player card, Pact Seekers only: the pact's Borrowed Iron. 0.3.108: no Reveal toggle (the player sees it too). */
 function ironSectionHtml(s) {
@@ -2640,21 +2644,40 @@ function rewardSupply() {
 }
 if (typeof window !== "undefined") window.__ssdnsRewardPayload = rewardPayload;
 
+/* Give tab rework (DMCC 0.2.121, Jessey 2026-10-22, fixes 1-13). One Give button for every What; give-tab.js
+   builds the plan (who, what, how many, the preview line), this sends it and hands each give back to the
+   recent-gives list with its grant ids (the sheet's check mark) and its undo. */
+function giveNames(pid) {
+  const s = (state.players[pid] && state.players[pid].snapshot) || {};
+  return { name: s.name || pid, player: s.player || "" };
+}
 async function doPushReward() {
   if (rewardBusy) return;
+  const GT = window.SSDNSGiveTab;
+  const target = $("#rewTarget").value;
+  const type = $("#rewType").value;
+  if (!target) { toast("Pick who gets it first"); if (GT && GT.flashWho) GT.flashWho(); return; }
+  if (!type) { toast("Pick what to give"); return; }
+  if (type === "loot") { toast("Loot is coming later. Give found items with Item, Ammo or Money for now."); return; }
+  const ids = target === "all" ? Object.keys(state.players) : targetsFor(target);
+  if (!ids.length) { toast(target === "all" ? "Nobody is at the table yet" : "Pick who gets it first"); return; }
+  const plan = GT && GT.plan ? GT.plan() : null;
+  if (plan && plan.error) { toast(plan.error); return; }
+  /* fix 1: giving to Everyone always asks first */
+  if (target === "all") {
+    const ok = await askText("Give to everyone?", (plan && plan.confirm) || ("This goes to all " + ids.length + " players."));
+    if (!ok) return;
+  }
   rewardBusy = true;
   const btn = $("#btnPushReward");
   if (btn) btn.disabled = true;
+  const rec = { mode: type, to: target, pids: ids.slice(), label: plan ? plan.what : "", line: plan ? plan.done : "", grants: [], undo: null };
   try {
-  const target = $("#rewTarget").value;
-  const type = $("#rewType").value;
-  const ids = targetsFor(target);
-  if (!ids.length && target !== "all") { toast("Pick a target"); return; }
   if (type === "es") {
     const delta = parseInt($("#rewEs").value, 10) || 0;
     if (!delta) { toast("Enter a non-zero ES amount"); return; }
     const reason = (($("#rewReason") && $("#rewReason").value) || "DM reward").trim() || "DM reward";
-    for (const pid of (target === "all" ? Object.keys(state.players) : ids)) {
+    for (const pid of ids) {
       const p = state.players[pid];
       const snap = (p && p.snapshot) || {};
       const name = snap.name || pid;
@@ -2674,16 +2697,53 @@ async function doPushReward() {
         type: "reward_es", to: pid, payload: { delta, reason: reason, grantId: id },
         from: state.uid
       });
+      rec.grants.push({ pid: pid, gid: id, before: old, after: neu });
     }
+    rec.undo = { kind: "es", delta: delta, reason: reason };
     if (state.demo) renderPlayers();
     if (window.SSDNSAudio) window.SSDNSAudio.play("reward");
-    toast("ES reward pushed");
+    toast("ES " + (delta >= 0 ? "given" : "taken"));
+  } else if (type === "ammo") {
+    /* fix 4: a real Ammo mode. One command per player, so each sheet's check mark and undo are its own. */
+    const am = plan && plan.ammo;
+    if (!am || !am.type || !(am.qty > 0)) { toast("Pick the ammo and how many"); return; }
+    const reason = (($("#rewReason") && $("#rewReason").value) || "").trim();
+    for (const pid of ids) {
+      const snap = (state.players[pid] && state.players[pid].snapshot) || {};
+      const id = uid("rew");
+      const before = GT.poolCount(snap, am);
+      await pushLedger({
+        id: id, who: "DM", playerId: pid, playerName: snap.player || "", characterName: snap.name || pid, type: "dm_push",
+        what: "Ammo: " + am.qty + " " + am.label + (reason ? " (" + reason + ")" : "") + " → " + (snap.name || pid),
+        oldVal: before, newVal: before + am.qty, flag: false
+      });
+      await pushCommand({
+        id: id, type: "reward_item", to: pid,
+        payload: { text: am.qty + "x " + am.label, grantId: id, qty: am.qty, ammo: { type: am.type, caliber: am.caliber || "", qty: am.qty }, reason: reason },
+        from: state.uid, quiet: !!state.demo
+      });
+      if (state.demo) GT.demoAmmo(snap, am, am.qty);
+      rec.grants.push({ pid: pid, gid: id, before: before, after: before + am.qty });
+    }
+    rec.undo = { kind: "ammo", ammo: { type: am.type, caliber: am.caliber || "", qty: am.qty, label: am.label } };
+    if (state.demo) renderPlayers();
+    toast(state.demo ? "Ammo given (Demo: not sent to players)" : "Ammo given");
+  } else if (type === "kit") {
+    /* fix 9: the same Grant full kit as the player card (#127): the sheet unpacks it, nothing doubles */
+    for (const pid of ids) {
+      /* one player: #127's own confirm; Everyone already said yes once above */
+      const gid = await grantFullKit(pid, { asked: target === "all" });
+      if (gid) rec.grants.push({ pid: pid, gid: gid });
+    }
+    rec.undo = null;
   } else {
-    const text = ($("#rewText").value || "").trim();
-    if (!text) { toast("Enter item or note text"); return; }
-    const qty = Math.max(1, parseInt(($("#rewQty") && $("#rewQty").value) || "1", 10) || 1);
+    const isWeapon = type === "weapon";
+    const text = ((isWeapon ? $("#giveWeapon") : $("#rewText")).value || "").trim();
+    if (!text) { toast(isWeapon ? "Name the weapon" : (type === "note" ? "Write the note" : "Name the item")); return; }
+    const qty = type === "item" ? Math.max(1, parseInt(($("#rewQty") && $("#rewQty").value) || "1", 10) || 1) : 1;
     /* 0.3.86: typed builder / ammo pool / Dirty gun (default UI by type, C11), checked before anything is logged */
     let more = type === "item" && rewTyped ? rewTyped.extra(text, qty) : {};
+    if (isWeapon) more = plan && plan.weapon ? { id: plan.weapon.id, dirty: !!plan.weapon.dirty } : {};
     /* #105 + #107: a Food & water reward with no catalog match lands through the supplies path when its weight is
        set; with the typed builder filled too, the supplies numbers fold into that item. */
     const supNow = type === "item" ? rewardSupply() : {};
@@ -2702,25 +2762,33 @@ async function doPushReward() {
     const labeled = type === "item" && qty > 1 && !/^\d+\s*x\b/i.test(text) ? (qty + "x " + text) : text;
     const to = target === "all" ? "all" : target;
     const id = uid("rew");
+    const reason = (($("#rewReason") && $("#rewReason").value) || "").trim();
     await pushLedger({
       id: id,
       who: "DM", playerId: to, type: "dm_push",
-      what: (type === "item" ? "Item: " : "Note: ") + labeled + (to === "all" ? " (everyone)" : ""),
+      what: (type === "note" ? "Note: " : (isWeapon ? "Weapon: " : "Item: ")) + labeled + (reason && type !== "note" ? " (" + reason + ")" : "") + (to === "all" ? " (everyone)" : ""),
       oldVal: null, newVal: labeled, flag: false
     });
-    const payload = rewardPayload(type, labeled, id, qty);
+    const payload = rewardPayload(isWeapon ? "item" : type, labeled, id, qty);
+    if (isWeapon) { delete payload.supply; delete payload.itemId; }
     Object.assign(payload, more);
+    if (reason && type !== "note") payload.reason = reason;
+    if (state.demo && more.ammo) ids.forEach((pid) => { const snap = state.players[pid] && state.players[pid].snapshot; if (snap) GT && GT.demoAmmo(snap, more.ammo, more.ammo.qty); });
     await pushCommand({
       id: id,
-      type: type === "item" ? "reward_item" : "reward_note",
+      type: type === "note" ? "reward_note" : "reward_item",
       to, payload: payload, from: state.uid
     });
-    const what = payload.kind === "instrument" ? "Instrument pushed" : (type === "item" ? "Item pushed" : "Note pushed");
+    ids.forEach((pid) => rec.grants.push({ pid: pid, gid: id }));
+    rec.undo = type === "note" ? null : { kind: more.ammo ? "ammo" : (isWeapon ? "weapon" : "item"), text: labeled, ammo: more.ammo || null, weaponId: more.id || "" };
+    const what = payload.kind === "instrument" ? "Instrument given" : (type === "note" ? "Note sent" : (isWeapon ? "Weapon given" : "Item given"));
     toast(state.demo ? what + " (Demo: not sent to players)" : what);
   }
+  if (GT && GT.record && rec.grants.length) GT.record(rec);
   } finally {
     rewardBusy = false;
     if (btn) btn.disabled = false;
+    if (GT && GT.paintButton) GT.paintButton();
   }
 }
 
@@ -3120,14 +3188,12 @@ function wire() {
   });
   $("#rewType").addEventListener("change", () => {
     const t = $("#rewType").value;
-    $("#rewEsWrap").hidden = t !== "es";
-    $("#rewTextWrap").hidden = t === "es";
-    const qty = $("#rewQtyWrap");
-    if (qty) qty.hidden = t !== "item";
-    const sup = $("#rewSupplyWrap");
-    if (sup) sup.hidden = t !== "item";
-    const typed = $("#rewItemWrap");
-    if (typed) typed.hidden = t !== "item";
+    /* 0.2.121: give-tab.js shows the fields for the picked What (Money / Ammo / Item / Weapon / Starting kit / Note / Loot) */
+    if (window.SSDNSGiveTab) window.SSDNSGiveTab.setMode(t, true);
+    else {
+      $("#rewEsWrap").hidden = t !== "es";
+      $("#rewTextWrap").hidden = t === "es";
+    }
     if (t === "item" && rewTyped) rewTyped.refresh();
   });
   if (window.SSDNSItems && window.SSDNSItems.typedGive && $("#rewItemWrap")) {
@@ -3415,7 +3481,12 @@ window.DMCC = {
   writeFailed: writeFailed,
   setCreateBusy: setCreateBusy,
   playerOnline: playerOnline,
-  markRollApplied: markRollApplied
+  markRollApplied: markRollApplied,
+  /* 0.2.121 Give tab (give-tab.js) */
+  askText: askText,
+  grantFullKit: grantFullKit,
+  applyEsToDemoPlayer: applyEsToDemoPlayer,
+  doPushReward: doPushReward
 };
 
 async function boot() {
