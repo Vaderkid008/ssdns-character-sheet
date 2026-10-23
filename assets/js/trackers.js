@@ -596,7 +596,7 @@
       }
       if (r.kind === "smite") {
         var rows = opts.slots || slotRows();
-        var badgeDull = c.badgeState === "dull";
+        var badgeWhy = badgeWhyOf(c, "smite");
         var avail = rows.filter(function (s) { return s.left > 0; });
         var armedM = num(c.res && c.res.smiteArmed);
         var ord = function (n) { return n + (n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"); };
@@ -608,7 +608,7 @@
         var pick = opts.ro || avail.length < 2 ? "" : '<select class="trk-smite-lv" data-trk-smite-lv="1" aria-label="Smite slot level">' + avail.map(function (s) {
           return '<option value="' + s.level + '"' + (s.level === curLv ? " selected" : "") + ">" + ord(s.level) + " · " + Math.min(5, s.level + 1) + "d8</option>";
         }).join("") + "</select>";
-        var why = badgeDull ? "Badge is Dull: no Smite Lead" : (!avail.length ? "No spell slot left" : "");
+        var why = badgeWhy || (!avail.length ? "No spell slot left" : "");
         var arm = opts.ro ? "" : '<label class="tiny" title="+1d8 vs undead or fiends (set before the attack)"><input type="checkbox" data-trk-smite-undead="1"' + (c.res && c.res.smiteUndead ? " checked" : "") + "> unquiet / fiend</label>" +
           '<button type="button" class="trk-arm' + (armedM ? " on" : "") + '" data-trk-arm="smite"' + (why && !armedM ? ' disabled title="' + esc(why) + '"' : ' title="Arm BEFORE you attack. On a weapon hit the ' + ord(curLv) + '-level slot is spent and ' + Math.min(5, curLv + 1) + 'd8 radiant rides in that attack\'s damage (crit doubles the dice). On a miss nothing is spent. Clears after one attack either way."') + ' aria-pressed="' + !!armedM + '">' +
           (armedM ? "Armed: smite next attack (" + ord(armedM) + ")" : "Smite next attack" + (avail.length === 1 ? " (" + ord(curLv) + ")" : "")) + "</button>";
@@ -618,6 +618,12 @@
         return '<div class="trk-res">' + head + '<span class="trk-unl">Unlimited</span>' + (r.id === "rage" && !opts.ro ? rageBtn(c) : "") + '<span class="trk-rest">' + restTag(r) + "</span></div>";
       }
       var have = opts.ro ? Math.max(0, r.max - num(((c.res || {})[r.id]), 0)) : left(c, r);
+      /* 0.3.108 Badge Bound (PHB L1577): no Channel Creed while the badge is Dull or Tarnished (pips locked, uses kept) */
+      var creedWhy = r.id === "oathCreed" ? badgeWhyOf(c, "creed") : "";
+      if (creedWhy) {
+        return '<div class="trk-res trk-badge-off" title="' + esc(creedWhy) + '">' + head + '<span class="trk-pips">' + pipRow(r.id, r.max, have, { ro: true, label: r.name }) + "</span>" +
+          '<span class="trk-count">' + have + "/" + r.max + '</span><span class="fine trk-why">' + esc(creedWhy) + '</span><span class="trk-rest">' + restTag(r) + "</span></div>";
+      }
       var roll = r.roll && !opts.ro ? '<button type="button" class="btn xs" data-trk-spend-roll="' + esc(r.id) + '"' + (have ? "" : " disabled") + ' title="Spend one and roll it">Use ' + esc(r.roll) + "</button>" : "";
       return '<div class="trk-res">' + head + '<span class="trk-pips">' + pipRow(r.id, r.max, have, { ro: opts.ro, label: r.name }) + "</span>" +
         '<span class="trk-count">' + have + "/" + r.max + "</span>" + roll + (r.id === "rage" && !opts.ro ? rageBtn(c) : "") + '<span class="trk-rest">' + restTag(r) + "</span></div>";
@@ -915,6 +921,7 @@
     if (res && !/^(q\d|slot)/.test(res)) {
       var r = resourcesFor(c).filter(function (x) { return x.id === res; })[0];
       if (!r) return;
+      if (res === "oathCreed" && badgeWhyOf(c, "creed")) return;
       var on = t.getAttribute("data-trk-on") === "1";
       setUsed(res, used(c, res) + (on ? 1 : -1));
       if (root.SSDNSAudio) root.SSDNSAudio.play("ui-tick");
@@ -1043,6 +1050,12 @@
   function refreshMap() { var H = root.SSDNSMapHost; if (H && H.refreshCard) { try { H.refreshCard(""); } catch (e) {} } }
   function ordinal(n) { return n + (n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"); }
   function slotLevelsLeft() { return slotRows().filter(function (s) { return s.left > 0; }).map(function (s) { return s.level; }); }
+  /* 0.3.108 Badge Bound: the reason a Lawman's badge blocks a feature (focus-slot.js badgeBlock), "" when it doesn't */
+  function badgeWhyOf(c, what) {
+    var F = root.SSDNSFocus;
+    if (F && F.badgeBlock) return F.badgeBlock(c, what);
+    return c && c.calling === "lawman" && c.badgeState === "dull" ? "Your badge is Dull: no " + ({ smite: "Smite Lead", creed: "Channel Creed", mercy: "Mercy Hands" }[what] || "spells") + "." : "";
+  }
   function canArm(c, kind) {
     if (kind === "sneak") {
       if (!c || c.calling !== "gambler") return "Sneak Attack is a Gambler feature.";
@@ -1050,7 +1063,8 @@
       return "";
     }
     if (!c || c.calling !== "lawman" || lv(c) < 2) return "Smite Lead is a Lawman feature (2nd level).";
-    if (c.badgeState === "dull") return "Your badge is Dull: no Smite Lead.";
+    var bw = badgeWhyOf(c, "smite");
+    if (bw) return bw;
     if (!slotLevelsLeft().length) return "No spell slot left.";
     return "";
   }
@@ -1117,7 +1131,7 @@
     }
     if (armM) {
       var A = app(), L = armM;
-      var okBadge = dm || c.badgeState !== "dull";
+      var okBadge = dm || !badgeWhyOf(c, "smite");
       if (hit && c.calling === "lawman" && okBadge) {
         var paid = A && A.spendHexSlot ? A.spendHexSlot(L) : false;
         if (!paid && A && A.spendHexSlot) { for (var up = L + 1; up <= 5 && !paid; up++) if (A.spendHexSlot(up)) { paid = true; L = up; } }

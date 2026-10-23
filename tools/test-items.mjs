@@ -33,10 +33,10 @@ const Grab = sandbox.SSDNSGrab;
 
 const KINDS = ["heal", "castSpell", "attack", "save+condition", "buff", "text"];
 const seeds = Items.seeds();
-check("schema.count", seeds.length === 47, "got " + seeds.length); /* 0.3.85: + bread, cheese, meat chunk (L0191); 0.3.108: + borrowed-iron (L0197) */
+check("schema.count", seeds.length === 53, "got " + seeds.length); /* 0.3.108 focus fix: + 6 focus items (Ledger, keepsake, walking stick, medicine pouch, soil pouch, tin star badge); 0.3.85: + bread, cheese, meat chunk (L0191); 0.3.108: + borrowed-iron (L0197) */
 check("schema.effects", Items.SCHEMA.effects.join(",") === KINDS.join(","));
 const ids = seeds.map((row) => row.id);
-check("schema.unique", new Set(ids).size === 47);
+check("schema.unique", new Set(ids).size === 53);
 check("schema.valid", seeds.every((row) => Items.valid(Items.normalize(row))));
 const seen = {};
 seeds.forEach((row) => { seen[row.effect.kind] = true; });

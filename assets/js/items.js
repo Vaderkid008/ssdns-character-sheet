@@ -1436,9 +1436,18 @@
       return IA.itemTile ? IA.itemTile(item, c) || "" : "";
     } catch (e) { return ""; }
   }
+  /* 0.3.108 Badge Bound (Jessey 2026-10-22 3:57 PM CT, Art Bot tiles): the Tin star badge's Equipment tile follows the
+     DM's badge state (items/lawman-badge-<state>.webp, straight src swap); a missing file falls back to the tin-star art. */
+  var BADGE_TILE_FALLBACK = "assets/img/items/tin-star-board.webp";
+  function badgeTile(item, c) {
+    if (!item || item.catalogId !== "tin-star-badge") return "";
+    var F = root.SSDNSFocus, st = F && F.badge ? F.badge(c || {}) : String((c && c.badgeState) || "bright");
+    if (!/^(bright|dull|tarnished)$/.test(st)) st = "bright";
+    return withPrefix("assets/img/items/lawman-badge-" + st + ".webp");
+  }
   function isWideArt(src) { return /assets\/img\/(weapons\/|dm-only\/(?!items\/))|borrowed-iron-long-outline\.svg$/.test(String(src || "")); }
-  function eqThumb(src, cat) {
-    var ph = placeholderFor(cat);
+  function eqThumb(src, cat, fallback) {
+    var ph = fallback || placeholderFor(cat);
     return '<span class="eq-thumb' + (src ? "" : " eq-ph") + (isWideArt(src) ? " eq-wide" : "") + '"><img loading="lazy" decoding="async" width="32" height="32" alt="" src="' + esc(src || ph) + '"' +
       (src ? ' data-eq-ph="' + esc(ph) + '"' : "") + "></span>";
   }
@@ -1449,7 +1458,7 @@
   function eqRowHtml(r) {
     var open = !!eq.open[r.key];
     return '<li class="eq-row' + (r.itemRow ? " item-row" : "") + (open ? " open" : "") + '" data-eq-key="' + esc(r.key) + '" data-eq-cat="' + esc(r.cat) + '"' + (r.ironClass ? ' data-iron-class="' + esc(r.ironClass) + '"' : "") + (r.held ? ' data-item-held="1"' : "") + ">" +
-      '<div class="eq-main" data-eq-toggle="' + esc(r.key) + '">' + eqThumb(r.src, r.cat) +
+      '<div class="eq-main" data-eq-toggle="' + esc(r.key) + '">' + eqThumb(r.src, r.cat, r.fallback) +
         '<span class="eq-name"><b>' + esc(r.name) + '</b><span class="eq-sub">' + esc(r.sub || "") + "</span></span>" +
         '<span class="eq-qty">' + (r.qty != null ? "×" + esc(r.qty) : "") + "</span>" +
         '<span class="eq-wt' + (r.itemRow ? " item-wt" : "") + '">' + esc(r.wt == null ? "" : r.wt) + "</span>" +
@@ -1537,7 +1546,7 @@
       '<div class="eq-facts">' + homeTag + supTag + " " + tag + pips + (w != null ? ' <span class="item-tag item-wt" title="' + (off ? "Rides on your mount; not counted in what you carry" : "Weight each") + '">' + esc(w) + " lb each</span>" : "") + "</div>" +
       '<div class="eq-acts">' + lock + " " + useBtn + " " + steedBtn + unpackBtn + dropBtn + park + "</div>";
     return { key: "it:" + item.uid, itemRow: true, held: held || /give-held/.test(give), cat: cat, name: rowName, sub: subBits.filter(Boolean).join(" · "),
-      qty: n, wt: wt, give: give, detail: detail, src: view.blank ? "" : (ironTile(item, c) || realArt(item)), ironClass: ironRow && IAr.classFor ? IAr.classFor(c) : "",
+      qty: n, wt: wt, give: give, detail: detail, src: view.blank ? "" : (badgeTile(item, c) || ironTile(item, c) || realArt(item)), fallback: badgeTile(item, c) ? withPrefix(BADGE_TILE_FALLBACK) : "", ironClass: ironRow && IAr.classFor ? IAr.classFor(c) : "",
       /* UI fixes 1 / U5 (Jessey 2026-10-21 7:58 PM): the Borrowed Iron is the Pact Seeker's weapon and their focus, so its
          row also counts under the Focus chip and shows in the Focus filter. All stays a row count (counted once), the
          All list shows it once under Weapons, and the paper doll is unchanged (the patron keeps the Focus slot). */
@@ -1571,6 +1580,11 @@
     if (!c) return rows;
     var G = root.SSDNSGive, GS = root.SSDNSGiveSheet;
     var backing = {};
+    var Dm = root.SSDNSDoll, focusMirror = null;
+    try {
+      var fsm = Dm && Dm.focusState ? Dm.focusState(c) : null;
+      if (fsm && fsm.mirror && fsm.gunIndex != null) focusMirror = { gunIndex: Number(fsm.gunIndex), melee: fsm.side === "Melee" };
+    } catch (e) { focusMirror = null; }
     ["guns", "melee"].forEach(function (key) {
       (Array.isArray(c[key]) ? c[key] : []).forEach(function (g, i) {
         if (!g || !g.weapon) return;
@@ -1603,8 +1617,12 @@
         var detail = (desc ? '<p class="eq-desc">' + esc(desc) + "</p>" : "") + '<div class="eq-facts">' + facts + ' <span class="item-tag">' + esc(lbText(wt)) + "</span></div>" +
           '<div class="eq-acts"><button type="button" class="btn xs" data-eq-goto="' + kind + ":" + i + '">Open ' + (kind === "gun" ? "gun" : "melee") + " card</button></div>";
         var give = GS && GS.slotGive ? GS.slotGive(c, kind, i) : "";
+        /* 0.3.108 (focus fix 7): the weapon the paper-doll Focus slot mirrors (a Hexslinger's Caster Gun) also counts under
+           the Focus chip, so the chip agrees with the slot. Still one row (Weapons in All), like the Borrowed Iron. */
+        var alsoF = focusMirror && focusMirror.gunIndex === i && (focusMirror.melee ? kind === "melee" : kind === "gun") ? ["focus"] : [];
+        if (alsoF.length) sub.push("your focus");
         rows.push({ key: "slot:" + kind + ":" + i, cat: "weapons", name: name, sub: sub.join(" · "), qty: 1, wt: lbText(wt), give: give, detail: detail, src: withPrefix(src),
-          held: /give-held/.test(give) });
+          held: /give-held/.test(give), also: alsoF });
       });
     });
     rows.backing = backing;
@@ -2780,7 +2798,7 @@
     paintDm: paintDm,
     artSrc: artSrc,
     showUse: showUse,
-    eqCat: eqCat, eqRows: eqRows, setEqFilter: setFilter, realArt: realArt, ITEM_PLACEHOLDER: ITEM_PLACEHOLDER, ITEM_CAT_ART: ITEM_CAT_ART, EQ_CATS: EQ_CATS
+    eqCat: eqCat, eqRows: eqRows, badgeTile: badgeTile, setEqFilter: setFilter, realArt: realArt, ITEM_PLACEHOLDER: ITEM_PLACEHOLDER, ITEM_CAT_ART: ITEM_CAT_ART, EQ_CATS: EQ_CATS
   };
 
   /* 0.3.87: a short or long rest finishes any Attune the player started */

@@ -5,6 +5,7 @@
    Hexslinger: hex casting and shells only work with a Caster Gun (Blacksnake / Hognose) equipped in Pistol L or R
      (BOOK1 L1884). None -> "No Caster Gun equipped, can't cast."
    Only the cast buttons are blocked (with the reason); nothing on the sheet is changed or wiped. Other Callings: no change.
+   0.3.108: Lawman badge (Badge Bound) and the Frontier Scout's lost keepsake block casting too (see below).
    The Focus slot view itself lives in paper-doll.js (focusState). */
 (function (root) {
   "use strict";
@@ -37,9 +38,81 @@
     var ownsCaster = guns.some(function (g) { return casterIds[g.weapon]; });
     return !ownsCaster && guns.some(function (g) { return PLINKERS[g.weapon]; });
   }
+  /* 0.3.108 Badge Bound (BOOK1 L1561-1567; Jessey 2026-10-22 2:48 PM CT). character.badgeState is the one field (set by the
+     DM's DMCC Badge toggle, the "badge" inbox command in dm-join.js). Missing = Bright (as the Gear chip always read it).
+       Bright    -> full power.
+       Dull      -> no spells, Smite Lead, Mercy Hands or Channel Creed (PHB L1577).
+       Tarnished -> Smite Lead, Mercy Hands and Channel Creed blocked as Dull, but the spell list swaps to the Lawless list
+                    (assets/data/lawless-spells.js, L0214; app.js callingCatalog) and the sheet shows "Lawless".
+                    HOOK (Oath of the Lawless feature swap, not specified yet): lawlessOathHook() below is where the oath's
+                    features will be swapped in. Today it changes nothing, so the oath features stay as they are. */
+  var BADGE_STATES = { bright: 1, dull: 1, tarnished: 1 };
+  function badge(c) {
+    var st = String((c && c.badgeState) || "bright").toLowerCase();
+    return BADGE_STATES[st] ? st : "bright";
+  }
+  var BADGE_WHY = {
+    dull: { spells: "Your badge is Dull: no spells until you're sworn in again.", smite: "Your badge is Dull: no Smite Lead.", mercy: "Your badge is Dull: no Mercy Hands.", creed: "Your badge is Dull: no Channel Creed." },
+    tarnished: { spells: "", smite: "Your badge is Tarnished: no Smite Lead.", mercy: "Your badge is Tarnished: no Mercy Hands.", creed: "Your badge is Tarnished: no Channel Creed." }
+  };
+  /* "" = allowed; else why. what: spells | smite | mercy | creed. Only a Lawman's badge blocks anything. */
+  function badgeBlock(c, what) {
+    if (!c || c.calling !== "lawman") return "";
+    var b = badge(c);
+    return (BADGE_WHY[b] && BADGE_WHY[b][what]) || "";
+  }
+  function lawless(c) { return !!c && c.calling === "lawman" && badge(c) === "tarnished"; }
+  /* HOOK: Oath of the Lawless features (DND Bot sends the spec later). Return the oath features to use while Tarnished,
+     or null to keep the character's own oath features (today: always null). */
+  function lawlessOathHook(c) { return lawless(c) && root.SSDNS_LAWLESS && root.SSDNS_LAWLESS.oathFeatures ? root.SSDNS_LAWLESS.oathFeatures(c) : null; }
+
+  /* 0.3.108 Frontier Scout keepsake (BOOK1 L1697): lost -> no casting until a new one is made at a long rest. The item
+     row leaves Equipment (it's gone); character.focusLost keeps a copy, so "Make a new one" puts the same keepsake back. */
+  var KEEPSAKE = "frontier-keepsake";
+  var LOST_WHY = "Your keepsake is lost, so you can't cast. Make a new one at a long rest.";
+  function markFocusLost(c, opts) {
+    opts = opts || {};
+    if (!c || c.calling !== "frontier-scout") return { ok: false, reason: "Only a Frontier Scout's keepsake works this way." };
+    if (c.focusLost) return { ok: false, reason: "Your keepsake is already lost." };
+    var list = Array.isArray(c.items) ? c.items : [];
+    var idx = -1;
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].catalogId === KEEPSAKE) { idx = i; break; }
+    if (idx < 0) return { ok: false, reason: "You don't carry a keepsake." };
+    var it = list.splice(idx, 1)[0];
+    if (c.focusItemUid === it.uid) delete c.focusItemUid;
+    c.focusLost = { at: opts.at || new Date().toISOString(), catalogId: KEEPSAKE, item: JSON.parse(JSON.stringify(it)) };
+    return { ok: true, text: "Your keepsake is lost. No casting until you make a new one at a long rest." };
+  }
+  function remakeFocus(c) {
+    if (!c || !c.focusLost) return { ok: false, reason: "Your keepsake isn't lost." };
+    var saved = c.focusLost.item, I = root.SSDNSItems;
+    c.items = Array.isArray(c.items) ? c.items : [];
+    if (saved && saved.uid) c.items.push(saved);
+    else if (I && I.add) { var r = I.add(c, { catalogId: KEEPSAKE, count: 1 }, { dm: true }); if (!r || !r.ok) return { ok: false, reason: (r && r.reason) || "Couldn't make the keepsake." }; }
+    else return { ok: false, reason: "Item tools aren't loaded." };
+    delete c.focusLost;
+    return { ok: true, text: "You made a new keepsake. You can cast again." };
+  }
+  function focusLostAct(opts) {
+    var res;
+    commit(function () { res = markFocusLost(ch(), {}); });
+    if (res && res.ok && opts && opts.toast) { toast(res.text); log(res.text); }
+    repaint();
+    return res || { ok: false, reason: "No sheet." };
+  }
+  function focusRemakeAct(opts) {
+    var res;
+    commit(function () { res = remakeFocus(ch()); });
+    if (res && res.ok && opts && opts.toast) { toast(res.text); log(res.text); }
+    repaint();
+    return res || { ok: false, reason: "No sheet." };
+  }
+
   /* "" = can cast; else the reason the cast buttons are blocked. */
   function castBlock(c) {
     if (!c) return "";
+    if (c.calling === "frontier-scout" && c.focusLost) return LOST_WHY;
+    if (c.calling === "lawman") return badgeBlock(c, "spells");
     if (c.calling === "pact-seeker") return c.borrowedIronAway ? NO_IRON : "";
     if (c.calling === "hexslinger") {
       var cgW = casterGun(c);
@@ -138,6 +211,13 @@
     });
     note(document.querySelector(".hex-roll"), "focusCastNote", why);
     note(document.getElementById("pactFocus"), "pactFocusNote", why);
+    /* 0.3.108: the Spells tab says why too (Dull badge, lost keepsake), and a Tarnished Lawman sees "Lawless" there */
+    var c0 = ch(), lim = document.getElementById("spellLimits");
+    var spellWhy = c0 && (c0.calling === "lawman" || c0.calling === "frontier-scout") ? why : "";
+    note(lim && lim.parentNode, "focusSpellNote", spellWhy);
+    note(lim && lim.parentNode, "lawlessSpellNote", lawless(c0) ? "Lawless: your badge is Tarnished, so your spells come from the Lawless list (your Lawman list returns when the badge is Bright or Dull again)." : "");
+    var ln = document.getElementById("lawlessSpellNote");
+    if (ln) ln.className = "fine focus-cast-note lawless-note";
     swapNote(hexPlinkerSwap(ch()) ? SWAP_NOTE : "");
   }
   /* L0198: Gear-tab note above the weapon cards for a Hexslinger save that took the Plinker swap */
@@ -181,6 +261,8 @@
     castBlock: castBlock, casterGun: casterGun, castGunIndex: castGunIndex,
     markAway: markAway, markBack: markBack, turnStart: turnStart,
     ironAway: ironAway, ironBack: ironBack, onTurn: onTurn,
-    paintCastBlock: paintCastBlock, gate: gate
+    paintCastBlock: paintCastBlock, gate: gate,
+    badge: badge, badgeBlock: badgeBlock, lawless: lawless, lawlessOathHook: lawlessOathHook, BADGE_WHY: BADGE_WHY,
+    markFocusLost: markFocusLost, remakeFocus: remakeFocus, focusLostAct: focusLostAct, focusRemakeAct: focusRemakeAct, LOST_WHY: LOST_WHY
   };
 })(typeof window !== "undefined" ? window : globalThis);

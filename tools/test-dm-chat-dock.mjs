@@ -27,7 +27,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("wire.playerSheetUntouched", !/btnDockStrip|dock-strip/.test(read("index.html")));
   check("wire.mapChatHiddenDmOnly", /#mapMount \.ssdns-chatdock,\s*\.ssdns-chat-float,\s*\.ssdns-chat-overlay \{ display: none !important; \}/.test(css));
   check("wire.mapChatCodeKept", /ssdns-map-chat\.js\?v=/.test(html) && /SSDNSMapChat\.attach/.test(read("map/ssdns-map.js")) && /className = 'ssdns-chatdock'|ssdns-chatdock/.test(read("map/ssdns-map.js")));
-  check("wire.mapCssUntouched", !/0\.2\.122|liveDock|dock-w/.test(read("map/ssdns-map.css")));
+  check("wire.mapCssUntouched", !/0\.2\.123|liveDock|dock-w/.test(read("map/ssdns-map.css")));
 }
 
 const puppeteer = (await import("/tmp/pup/node_modules/puppeteer-core/lib/esm/puppeteer/puppeteer-core.js")).default;

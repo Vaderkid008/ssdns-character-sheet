@@ -1395,12 +1395,19 @@
         grantFullKit(payload);
         break;
       case "badge":
+        /* 0.3.108 Badge Bound: the DM's Bright / Dull / Tarnished toggle. The sheet repaints live (doll Focus slot, chips,
+           cast blocks, the spell list: Tarnished swaps to the Lawless list, Bright / Dull bring the Lawman list back). */
+        var bState = { bright: 1, dull: 1, tarnished: 1 }[payload.state] ? payload.state : "bright";
         if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
           root.SSDNSApp.applyPatch(function (doc) {
-            if (doc.character) doc.character.badgeState = payload.state || "bright";
+            if (!doc.character) return;
+            doc.character.badgeState = bState;
+            if (bState === "tarnished" && root.SSDNSApp.ensureLawlessBook) root.SSDNSApp.ensureLawlessBook(doc.character);
           });
         }
-        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "Badge set to " + (payload.state || "bright") + "." });
+        if (root.SSDNSTableUx && root.SSDNSTableUx.paintCallingChips) root.SSDNSTableUx.paintCallingChips();
+        if (root.SSDNSFocus && root.SSDNSFocus.paintCastBlock) { try { root.SSDNSFocus.paintCastBlock(); } catch (e) {} }
+        if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "alert", text: "Badge set to " + ({ bright: "Bright", dull: "Dull", tarnished: "Tarnished (Lawless)" }[bState]) + "." });
         break;
       case "iron_reveal": /* 0.3.96 reveal toggle; 0.3.108: no effect on what the sheet shows */
         if (root.SSDNSApp && root.SSDNSApp.applyPatch) {

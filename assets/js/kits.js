@@ -113,10 +113,17 @@
   var STRINGS = "plain-strings-set";
   var KIT_LINES = {
     "Holy symbol (focus)": { items: [HOLY] },
-    "Badge (tin star, focus)": { items: [HOLY] },
-    "Focus: Carved walking stick": { items: [DRUID] },
-    "Focus: Medicine pouch": { items: [DRUID] },
-    "Focus: Pouch of home-spring soil": { items: [DRUID] },
+    /* 0.3.108 focus fix (Jessey 2026-10-22 2:41 PM CT): each Calling's focus is its own real item (paper-doll.js
+       CALLING_FOCUS shows it in the Focus slot). The badge is a Tin star badge now, not a generic Holy symbol. */
+    "Badge (tin star, focus)": { items: ["tin-star-badge"] },
+    "Focus: Carved walking stick": { items: ["carved-walking-stick"] },
+    "Focus: Medicine pouch": { items: ["medicine-pouch"] },
+    "Focus: Pouch of home-spring soil": { items: ["home-spring-soil-pouch"] },
+    "Keepsake (focus)": { items: ["frontier-keepsake"] },
+    "Chemical Field Ledger (focus)": { items: ["chemical-field-ledger"] },
+    "Chemical Field Ledger": { items: ["chemical-field-ledger"] },
+    /* the old Module start note for a Nature Guide's default / walking-stick pick (it gave no item) */
+    "Focus worn on a cord, if the DM agrees": { items: ["carved-walking-stick"] },
     "Prism (focus)": { items: [ARCANE] },
     "Galvanic reagents (component pouch)": { items: ["hex-pouch-dust-pouch"] },
     "Harmonica (kit instrument)": { items: ["harmonica-cheap"] },
@@ -141,6 +148,8 @@
   /* Lines added to KIT_LINES after a sheet already ran the 0.3.108 step (equipMigrated 1). Only these are converted
      the second time, so nothing else in the notes moves. */
   var MIGRATE_V2 = ["Borrowed Iron (pact focus)"];
+  /* 0.3.108: the focus lines a sheet past equipMigrated 2 still has as notes (character.focusMigrated, see migrateFocus) */
+  var FOCUS_LINES = ["Keepsake (focus)", "Chemical Field Ledger (focus)", "Chemical Field Ledger", "Focus worn on a cord, if the DM agrees"];
   function lineSpec(text) {
     if (Object.prototype.hasOwnProperty.call(KIT_LINES, text)) return KIT_LINES[text];
     var map = root.SSDNS_KIT_LINE_ITEMS;
@@ -206,6 +215,7 @@
     if (!c) return 0;
     stripBedtime(c);
     var n = c.equipMigrated >= 2 ? 0 : migrateNotes(c);
+    n += migrateFocus(c);
     /* 0.3.100: one Borrowed Iron, never in a worn slot, and a non-Crossroads Pact Seeker's iron never keeps Hell Maker
        art or name (paper-doll.js syncIron, iron-art.js fixStaleIron) */
     if (!preview && root.SSDNSDoll && root.SSDNSDoll.syncIron) { try { root.SSDNSDoll.syncIron(c); } catch (e) {} }
@@ -258,6 +268,54 @@
     }
     ensureBorrowedIron(c);
     c.equipMigrated = 2;
+    return moved;
+  }
+  /* 0.3.108 focus fix: a saved sheet's focus becomes its real item, once (character.focusMigrated 1), never doubled.
+       - the focus note lines above (Ledger, Keepsake, the Nature Guide's "worn on a cord" note) become their items;
+         the notes before this step are kept in character.equipmentBefore0408
+       - a Lawman's kit Holy symbol (the old Badge line) becomes the Tin star badge (same row uid, so nothing doubles)
+       - a Nature Guide's kit Druidic focus becomes their pick (medicine pouch, soil pouch or walking stick) when the save
+         says which (character.kitPicks.focus or the old notes); otherwise it stays a Druidic focus (still their focus)
+     A bought Holy symbol / Druidic focus (not in character.kitGrants) is never touched. Returns how many changed. */
+  var LAND_PICK = { stick: "carved-walking-stick", pouch: "medicine-pouch", soil: "home-spring-soil-pouch" };
+  function focusDue(c) {
+    if (!c || c.focusMigrated || preview) return false;
+    if (["scholar", "frontier-scout", "nature-guide", "lawman"].indexOf(c.calling) < 0) return false;
+    return true;
+  }
+  function swapKitItem(c, fromId, toId) {
+    /* a save from before the kitGrants record can't say where its item came from: its kit item is taken to be the one */
+    var noRecord = !(c.kitGrants && c.kitGrants.v);
+    var I = itemsApi(), g = grants(c);
+    if (!I || !I.byId(toId) || hasItem(c, toId) || (g.items.indexOf(fromId) < 0 && !noRecord)) return 0;
+    var list = Array.isArray(c.items) ? c.items : [];
+    var row = list.filter(function (it) { return it && it.catalogId === fromId; })[0];
+    if (!row) return 0;
+    var fresh = I.instanceFrom ? I.instanceFrom({ catalogId: toId, count: 1, uid: row.uid }) : null;
+    if (!fresh) return 0;
+    if (row.equipSlot) fresh.equipSlot = row.equipSlot;
+    list[list.indexOf(row)] = fresh;
+    if (g.items.indexOf(fromId) >= 0) g.items[g.items.indexOf(fromId)] = toId; else g.items.push(toId);
+    return 1;
+  }
+  function migrateFocus(c) {
+    if (!focusDue(c) || !itemsApi()) return 0;
+    var text = String(c.equipment || ""), moved = 0;
+    var keep = text.split("\n").filter(function (raw) {
+      var line = raw.replace(/^\s*•\s*/, "").trim();
+      if (FOCUS_LINES.indexOf(line) < 0) return true;
+      if (landLine(c, line, { migrate: true })) { moved++; return false; }
+      return true;
+    });
+    if (moved) { if (c.equipmentBefore0408 == null) c.equipmentBefore0408 = text; c.equipment = keep.join("\n"); }
+    if (c.calling === "lawman") moved += swapKitItem(c, HOLY, "tin-star-badge");
+    if (c.calling === "nature-guide") {
+      var pick = c.kitPicks && c.kitPicks.focus;
+      var old = String(c.equipmentBefore0392 || "") + "\n" + text;
+      if (!pick) pick = /Focus: Medicine pouch/.test(old) ? "pouch" : (/Focus: Pouch of home-spring soil/.test(old) ? "soil" : (/Focus: Carved walking stick/.test(old) ? "stick" : ""));
+      if (LAND_PICK[pick]) moved += swapKitItem(c, DRUID, LAND_PICK[pick]);
+    }
+    c.focusMigrated = 1;
     return moved;
   }
   /* L0197: every Pact Seeker owns exactly one Borrowed Iron item (soul-bound, 0 lb). Adds it when missing; never removes. */
@@ -651,9 +709,9 @@
     } else if (calling === "frontier-preacher") {
       addLine(c, "Holy symbol (focus)");
     } else if (calling === "nature-guide") {
-      var worn = { pouch: "Medicine pouch", soil: "Pouch of home-spring soil" };
-      if (worn[p.focus]) addLine(c, "Focus: " + worn[p.focus]);
-      else addLine(c, "Focus worn on a cord, if the DM agrees");
+      /* 0.3.108: every pick lands its focus item, the default and the walking stick included (they gave none before) */
+      var worn = { stick: "Carved walking stick", pouch: "Medicine pouch", soil: "Pouch of home-spring soil" };
+      addLine(c, "Focus: " + (worn[p.focus] || worn.stick));
     } else if (calling === "gunslinger") {
       c.holster = "mexican-loop";
       c.gunBelt = true;
@@ -674,7 +732,7 @@
       addLine(c, "Chemical Field Ledger (focus)");
     }
     if (CALLINGS.indexOf(calling) >= 0) c.kitStamp = calling;
-    if (!preview) grants(c).v = 1;
+    if (!preview) { grants(c).v = 1; c.focusMigrated = 1; }
     c.kitMode = "module";
     quiet = false;
     return c;
@@ -763,7 +821,7 @@
       addLine(c, "Duster (traveler's clothes)");
     }
     if (CALLINGS.indexOf(calling) >= 0) c.kitStamp = calling;
-    if (!preview) grants(c).v = 1;
+    if (!preview) { grants(c).v = 1; c.focusMigrated = 1; }
     c.kitMode = "full";
     quiet = false;
     preview = false;
@@ -964,7 +1022,7 @@
     branches: branches,
     describe: describe,
     kitLines: KIT_LINES,
-    migrateEquipment: migrateEquipment, migrateIronSlot: migrateIronSlot, stripBedtime: stripBedtime,
+    migrateEquipment: migrateEquipment, migrateIronSlot: migrateIronSlot, stripBedtime: stripBedtime, migrateFocus: migrateFocus,
     ensureBorrowedIron: ensureBorrowedIron,
     grantFull: grantFull, fullKitPicks: fullKitPicks
   };
@@ -983,6 +1041,12 @@
     if (c && c.equipMigrated >= 2 && c.calling === "pact-seeker" && root.SSDNSDoll && root.SSDNSDoll.ironNeedsFix && root.SSDNSDoll.ironNeedsFix(c) && A.applyPatch) {
       A.applyPatch(function (dd) { if (dd && dd.character && root.SSDNSDoll.syncIron) root.SSDNSDoll.syncIron(dd.character); });
       c = A.doc().character;
+    }
+    /* 0.3.108: the focus item step, for saves already past the kit-line step (migrateEquipment runs it for the others) */
+    if (c && c.equipMigrated >= 2 && focusDue(c) && itemsApi() && A.applyPatch) {
+      A.applyPatch(function (dd) { if (dd && dd.character) migrateFocus(dd.character); });
+      c = A.doc().character;
+      if (root.SSDNSItems && root.SSDNSItems.paintSheet) root.SSDNSItems.paintSheet();
     }
     /* 0.3.96: the Borrowed Iron's weapon slot, for saves already past the kit-line step */
     if (c && c.equipMigrated >= 2 && c.calling === "pact-seeker" && !c.ironSlotMigrated && A.applyPatch) {
