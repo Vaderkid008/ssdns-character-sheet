@@ -121,6 +121,8 @@
     paintCard();
     toast(box.rolled ? "Placed " + box.name : "Placed " + box.name + " (rolls on open)");
   }
+  /* TODO v1.3: map-placed locked chest — player select, Lockpick Yes/No, Strength force, Strongbox Key.
+     Hold that click path until the v1.3 brief. Give-tab Open stays the DM place/open/take path. */
   async function openCurrent() {
     var Loot = L();
     var box = current();
