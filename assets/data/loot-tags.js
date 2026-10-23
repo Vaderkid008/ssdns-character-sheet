@@ -1,4 +1,4 @@
-/* Act I loot overlay (DRAFT v1.3). Loaded after the catalogs. Does not rewrite a catalog row.
+/* Act I loot overlay (DRAFT v1.4). Loaded after the catalogs. Does not rewrite a catalog row.
    Locked: gun mix 20% each, Outlaw Stash Black 1-in-6. Other percentages are the balance floor (DRAFT).
    Glowing Letters are the only Story Finds the roller may select, and only via the scroll-chance layer.
    strongbox-key can be hand-placed and used as a lock key. It is not a band row.

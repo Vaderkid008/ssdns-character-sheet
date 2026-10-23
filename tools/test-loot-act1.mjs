@@ -1,5 +1,6 @@
 /**
- * Act I Give-tab loot (DRAFT v1.3). Locked: gun mix 20% each, Outlaw Stash Black on d6 = 1 only.
+ * Act I Give-tab loot (DRAFT v1.4). Locked: gun mix 20% each, Outlaw Stash Black on d6 = 1 only.
+ * Letter sub-table is locked Friendlier: 35/24/24/12/5.
  * Letters are a post-pick scroll-chance. Map chest select offers Lockpick / Force / Key.
  *   node tools/test-loot-act1.mjs
  */
@@ -62,7 +63,7 @@ check("supply.silk", tables["act1-saddlebag"].rows.uncommon.find((r) => r.id ===
 check("stash.keg", tables["act1-outlaw-stash"].rows.uncommon.some((r) => r.id === "blasting-keg" && r.w === 5));
 check("v13.bands", tables["act1-outlaw-stash"].bands.common === 75 && tables["act1-outlaw-stash"].bands.uncommon === 22 && tables["act1-outlaw-stash"].bands.rare === 3 && tables["act1-strongbox"].bands.common === 55 && tables["act1-strongbox"].bands.uncommon === 38 && tables["act1-strongbox"].bands.rare === 7);
 check("v13.unc", [12, 26, 26, 16, 15, 5].join() === tables["act1-strongbox"].rows.uncommon.map((r) => r.w).join() && !tables["act1-strongbox"].rows.uncommon.some((r) => r.id === "#glowing-letter-act1"));
-check("v13.letters", tables["act1-saddlebag"].letterChance.first === 70 && tables["act1-saddlebag"].letterChance.max === 1 && tables["act1-supply-crate"].letterChance.first === 65 && tables["act1-outlaw-stash"].letterChance.first === 85 && tables["act1-outlaw-stash"].letterChance.second === 35 && tables["act1-outlaw-stash"].letterChance.max === 2 && tables["act1-strongbox"].letterChance.first === 95 && tables["act1-strongbox"].letterChance.second === 50 && tables["act1-saddlebag"].subTables["#glowing-letter-act1"].rows.map((r) => r.w).join() === "40,28,27,4,1");
+check("v14.letters", ["act1-saddlebag", "act1-supply-crate", "act1-outlaw-stash", "act1-strongbox"].every((id) => tables[id].subTables["#glowing-letter-act1"].rows.map((r) => r.w).join() === "35,24,24,12,5") && tables["act1-saddlebag"].letterChance.first === 70 && tables["act1-saddlebag"].letterChance.max === 1 && tables["act1-supply-crate"].letterChance.first === 65 && tables["act1-outlaw-stash"].letterChance.first === 85 && tables["act1-outlaw-stash"].letterChance.second === 35 && tables["act1-outlaw-stash"].letterChance.max === 2 && tables["act1-strongbox"].letterChance.first === 95 && tables["act1-strongbox"].letterChance.second === 50);
 check("v13.chapter", L.CHAPTER[1] === 465 && L.CHAPTER[2] === 2490 && L.CHAPTER[3] === 2490 && L.CHAPTER[4] === 4140 && L.CHAPTER[5] === 0);
 check("v13.noKeyRow", !JSON.stringify(tables).includes('"id": "strongbox-key"') && tables["act1-strongbox"].defaults.keyItem === "strongbox-key" && tables["act1-strongbox"].defaults.lockDc === 15);
 check("v12.slugs", tables["act1-saddlebag"].rows.common.find((r) => r.id === "slugs-12-ga-10").w === 3 && tables["act1-saddlebag"].rows.common.find((r) => r.id === "slugs-410-10").w === 1);
@@ -264,7 +265,7 @@ for (let i = 0; i < letterN; i++) {
   const p = L.rollBox(letterTable, { act: 1, partyLevel: 1 }, mulberry32(20000 + i)).picks.find((row) => row.band === "letter");
   if (p) letterCounts[p.id] = (letterCounts[p.id] || 0) + 1;
 }
-[["glowing-letter", 0.40], ["glowing-letter-cure-wounds", 0.28], ["glowing-letter-shield", 0.27], ["glowing-letter-fireball", 0.04], ["glowing-letter-revivify", 0.01]].forEach(([id, pct]) => {
+[["glowing-letter", 0.35], ["glowing-letter-cure-wounds", 0.24], ["glowing-letter-shield", 0.24], ["glowing-letter-fireball", 0.12], ["glowing-letter-revivify", 0.05]].forEach(([id, pct]) => {
   const got = (letterCounts[id] || 0) / letterN;
   check("letter." + id, Math.abs(got - pct) <= 0.03, (got * 100).toFixed(1) + "% vs " + (pct * 100));
 });

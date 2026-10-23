@@ -1,7 +1,8 @@
-/* Act I chest roller (DRAFT v1.3 tables).
+/* Act I chest roller (DRAFT v1.4 tables).
    Order: gate lock/nails/hide → picks → band % → row % → qty → caps → band fallback → ES/Black → Letter scroll-chance.
    Locked: #gun-act1 is 20% each of five guns. Outlaw Stash Black is blackOn [1] on 1d6×50 → 1d4 black-shard-junk.
    Glowing Letters are a d100 scroll-chance after the picks (they do not take a loot pick or a Rare-magic slot).
+   Letter mix is locked Friendlier: sealed 35, Cure 24, Shield 24, Fireball 12, Revivify 5.
    Other Story Finds stay never-roll. RNG percentages are the balance floor.
    The chapter budget warns only. DM hand-pick and Rare override always win.
    d100 is 1–100 (die). A chance of 70 hits on 1–70. */

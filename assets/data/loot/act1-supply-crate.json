@@ -181,23 +181,23 @@
       "die": "pct",
       "rows": [
         {
-          "w": 40,
+          "w": 35,
           "id": "glowing-letter"
         },
         {
-          "w": 28,
+          "w": 24,
           "id": "glowing-letter-cure-wounds"
         },
         {
-          "w": 27,
+          "w": 24,
           "id": "glowing-letter-shield"
         },
         {
-          "w": 4,
+          "w": 12,
           "id": "glowing-letter-fireball"
         },
         {
-          "w": 1,
+          "w": 5,
           "id": "glowing-letter-revivify"
         }
       ]

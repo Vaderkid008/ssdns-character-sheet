@@ -1,4 +1,4 @@
-/* Give-tab Loot section (Act I DRAFT v1.3). Not a top-level tab.
+/* Give-tab Loot section (Act I DRAFT v1.4). Not a top-level tab.
    Place a box on the map, select it, then Lockpick / Force / Key / Pry / Search.
    Yes, Force, and Search use the sheet check (SSDNSSheet.rollAdv + postCheck) when the sheet is open.
    DM can pre-unlock, clear a jam, or open without a check. Weight over cap warns and still sends. */
