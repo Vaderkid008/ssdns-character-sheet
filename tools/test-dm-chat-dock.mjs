@@ -1,5 +1,5 @@
 /**
- * 0.3.107 / DMCC 0.2.120: DMCC table feed docks on the LEFT beside the map's left tool bar,
+ * 0.3.108 / DMCC 0.2.121: DMCC table feed docks on the LEFT beside the map's left tool bar,
  * starts open, collapses to a slim strip (remembered per browser in localStorage "ssdns.dm.dock"),
  * and the page / map reflow into the freed space. Phones keep the bottom-sheet + Feed button.
  * Needs the static server on 127.0.0.1:8765 and Chrome (ssdns-test-all starts the server).
@@ -8,6 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { dmccUrl, dmccOffline } from "./dmcc-offline.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ORIGIN = process.env.SSDNS_ORIGIN || "http://127.0.0.1:8765";
 const failures = [];
@@ -26,7 +27,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("wire.playerSheetUntouched", !/btnDockStrip|dock-strip/.test(read("index.html")));
   check("wire.mapChatHiddenDmOnly", /#mapMount \.ssdns-chatdock,\s*\.ssdns-chat-float,\s*\.ssdns-chat-overlay \{ display: none !important; \}/.test(css));
   check("wire.mapChatCodeKept", /ssdns-map-chat\.js\?v=/.test(html) && /SSDNSMapChat\.attach/.test(read("map/ssdns-map.js")) && /className = 'ssdns-chatdock'|ssdns-chatdock/.test(read("map/ssdns-map.js")));
-  check("wire.mapCssUntouched", !/0\.2\.120|liveDock|dock-w/.test(read("map/ssdns-map.css")));
+  check("wire.mapCssUntouched", !/0\.2\.121|liveDock|dock-w/.test(read("map/ssdns-map.css")));
 }
 
 const puppeteer = (await import("/tmp/pup/node_modules/puppeteer-core/lib/esm/puppeteer/puppeteer-core.js")).default;
@@ -34,7 +35,8 @@ const browser = await puppeteer.launch({ executablePath: "/opt/google/chrome/chr
 const box = (page, sel) => page.evaluate((s) => { const e = document.querySelector(s); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, r: r.right, b: r.bottom }; }, sel);
 const overlapX = (a, b) => a && b && a.x < b.r - 0.5 && b.x < a.r - 0.5;
 async function openDemo(page, clear) {
-  await page.goto(ORIGIN + "/dm/index.html?demo=1", { waitUntil: "domcontentloaded" });
+  await page.goto(ORIGIN + dmccUrl("/dm/index.html"), { waitUntil: "domcontentloaded" });
+  await dmccOffline(page);
   if (clear) { await page.evaluate(() => { localStorage.removeItem("ssdns.dm.dock"); localStorage.removeItem("ssdns.dmcc.dock"); }); await page.reload({ waitUntil: "domcontentloaded" }); }
   await page.waitForFunction(() => window.DMCC && document.querySelector("#btnLoadDemo"), { timeout: 20000 });
   await page.evaluate(() => document.querySelector("#btnLoadDemo").click());
@@ -75,7 +77,7 @@ try {
     return {
       inDom: !!dockEl, shown: !!(dockEl && getComputedStyle(dockEl).display !== "none"),
       popShown: !!(pop && pop.offsetParent), floatShown: [...document.querySelectorAll(".ssdns-chat-float, .ssdns-chat-overlay")].some((e) => getComputedStyle(e).display !== "none"),
-      api: !!(window.SSDNSMapChat && window.SSDNSMapChat.publish), gapBelow: sb ? Math.round(m.bottom - sb.bottom) : -1, canvasH: Math.round(cv.height)
+      api: !!(window.SSDNSMapChat && window.SSDNSMapChat.publish), gapBelow: Math.round(m.bottom - cv.bottom), stripOnTop: !!(sb && sb.bottom <= cv.top), /* Turn UX on the map: the strip is the top row now, so the board is the bottom row */ canvasH: Math.round(cv.height)
     };
   });
   const mc = await mapChat();

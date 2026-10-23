@@ -36,7 +36,7 @@
   byName[norm("Fuse cord")] = "fuse-cord-50-ft";
   byName[norm("Lariat")] = "lariat-50-ft";
 
-  /* 0.3.107 (Jessey 2026-10-20 11:10 PM, Art Bot): relic Caster Gun art (L0199 / L0202). DM Guide only: there are no
+  /* 0.3.108 (Jessey 2026-10-20 11:10 PM, Art Bot): relic Caster Gun art (L0199 / L0202). DM Guide only: there are no
      relic catalog items, store rows or Add item entries, and these slugs are kept out of list() / matchesIn(), so
      nothing player-facing offers them. The files live under assets/img/dm-only/. When a relic item or gun with one of
      these ids exists later (DM-placed), relicTile / relicEngraving (and so the doll, item rows, Weapons rows and gun
@@ -172,7 +172,7 @@
     });
     return out;
   }
-  /* 0.3.107 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT, Art Bot): 256x256 square tiles for the catalog items whose
+  /* 0.3.108 (art batch 1, Jessey approved 2026-10-21 6:40 PM CT, Art Bot): 256x256 square tiles for the catalog items whose
      only art was a 1200x400 banner. The ROWS items above keep their banner at assets/img/items/<slug>.webp because the
      Store tab rows, the DMCC gear table and the Equipment-notes art strip draw it in a 3:1 box; their square tile is
      added at assets/img/items/square/<slug>.webp for item slots (Equipment rows, paper doll, list squares). The other

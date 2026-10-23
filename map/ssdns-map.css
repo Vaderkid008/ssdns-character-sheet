@@ -12,12 +12,12 @@
   font-family: system-ui, sans-serif;
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr) max-content;
-  grid-template-rows: auto auto minmax(120px, 1fr) auto auto;
+  grid-template-rows: auto auto auto minmax(120px, 1fr) auto;
   grid-template-areas:
+    "strip strip strip"
     "bar bar bar"
     "dice dice dice"
     "left stage right"
-    "strip strip strip"
     "dock dock dock";
   gap: 8px;
   padding: 8px;
@@ -26,19 +26,19 @@
 .ssdns-map:not(:has(.ssdns-leftbar)) {
   grid-template-columns: minmax(0, 1fr) max-content;
   grid-template-areas:
+    "strip strip"
     "bar bar"
     "dice dice"
     "stage right"
-    "strip strip"
     "dock dock";
 }
 .ssdns-map:not(:has(.ssdns-leftbar)):not(:has(.ssdns-rightbar)) {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
+    "strip"
     "bar"
     "dice"
     "stage"
-    "strip"
     "dock";
 }
 .ssdns-map.hidden { visibility: hidden; }
@@ -443,14 +443,14 @@ body.map-fullscreen #btnMapFull {
   body:not(.map-fullscreen) .ssdns-map,
   body:not(.map-fullscreen) .ssdns-map:not(:has(.ssdns-leftbar)) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto minmax(220px, 1fr) auto auto auto;
+    grid-template-rows: auto auto auto auto minmax(220px, 1fr) auto auto;
     grid-template-areas:
+      "strip"
       "bar"
       "dice"
       "left"
       "stage"
       "right"
-      "strip"
       "dock";
     height: auto;
     min-height: calc(100vh - 180px);
@@ -459,35 +459,35 @@ body.map-fullscreen #btnMapFull {
   body.map-fullscreen #mapMount,
   body.map-fullscreen #mapMount:not(:has(.ssdns-leftbar)) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto minmax(120px, 1fr) auto auto auto;
+    grid-template-rows: auto auto auto auto minmax(120px, 1fr) auto auto;
     grid-template-areas:
+      "strip"
       "bar"
       "dice"
       "left"
       "stage"
       "right"
-      "dock"
-      "strip";
+      "dock";
   }
   body:not(.map-fullscreen) .ssdns-map:not(:has(.ssdns-leftbar)) {
-    grid-template-rows: auto auto minmax(220px, 1fr) auto auto auto;
+    grid-template-rows: auto auto auto minmax(220px, 1fr) auto auto;
     grid-template-areas:
+      "strip"
       "bar"
       "dice"
       "stage"
       "right"
-      "strip"
       "dock";
   }
   body.map-fullscreen #mapMount:not(:has(.ssdns-leftbar)) {
-    grid-template-rows: auto auto minmax(120px, 1fr) auto auto auto;
+    grid-template-rows: auto auto auto minmax(120px, 1fr) auto auto;
     grid-template-areas:
+      "strip"
       "bar"
       "dice"
       "stage"
       "right"
-      "dock"
-      "strip";
+      "dock";
   }
   body:not(.map-fullscreen) .ssdns-map .ssdns-leftbar,
   body.map-fullscreen #mapMount .ssdns-leftbar {
@@ -502,12 +502,12 @@ body.map-fullscreen #btnMapFull {
   body:not(.map-fullscreen) .ssdns-map .ssdns-rightbar,
   body.map-fullscreen #mapMount .ssdns-rightbar { width: auto; max-height: 160px; }
   body:not(.map-fullscreen) .ssdns-map:not(:has(.ssdns-rightbar)) {
-    grid-template-rows: auto auto minmax(220px, 1fr) auto auto;
+    grid-template-rows: auto auto auto minmax(220px, 1fr) auto;
     grid-template-areas:
+      "strip"
       "bar"
       "dice"
       "stage"
-      "strip"
       "dock";
   }
 }
@@ -516,20 +516,20 @@ body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right
 /* Player map keeps chat on the left. The DM map stays on the bottom row. */
 .ssdns-map.ssdns-role-player {
   grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) max-content;
-  grid-template-rows: auto auto minmax(120px, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(120px, 1fr);
   grid-template-areas:
+    "strip strip strip"
     "bar bar bar"
     "dice dice dice"
-    "dock stage right"
-    "strip strip strip";
+    "dock stage right";
 }
 .ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)) {
   grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
   grid-template-areas:
+    "strip strip"
     "bar bar"
     "dice dice"
-    "dock stage"
-    "strip strip";
+    "dock stage";
 }
 .ssdns-map.ssdns-role-player:has(.ssdns-chatdock.ssm-chat-shut) {
   grid-template-columns: 148px minmax(0, 1fr) max-content;
@@ -576,12 +576,12 @@ body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock.ssm-chat-shut {
   body:not(.map-fullscreen) .ssdns-map.ssdns-role-player:has(.ssdns-chatdock.ssm-chat-shut),
   body:not(.map-fullscreen) .ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)):has(.ssdns-chatdock.ssm-chat-shut) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(220px, 1fr) auto auto;
+    grid-template-rows: auto auto auto minmax(220px, 1fr) auto;
     grid-template-areas:
+      "strip"
       "bar"
       "dice"
       "stage"
-      "strip"
       "dock";
   }
   body.map-fullscreen #mapMount.ssdns-role-player,
@@ -589,13 +589,13 @@ body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock.ssm-chat-shut {
   body.map-fullscreen #mapMount.ssdns-role-player:has(.ssdns-chatdock.ssm-chat-shut),
   body.map-fullscreen #mapMount.ssdns-role-player:not(:has(.ssdns-rightbar)):has(.ssdns-chatdock.ssm-chat-shut) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(160px, 1fr) auto auto;
+    grid-template-rows: auto auto auto minmax(160px, 1fr) auto;
     grid-template-areas:
+      "strip"
       "bar"
       "dice"
       "stage"
-      "dock"
-      "strip";
+      "dock";
   }
   body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock,
   body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock.ssm-chat-shut {
@@ -1023,7 +1023,7 @@ body.map-fullscreen #mapMount > .ssm-drawer {
   flex-wrap: nowrap;
   gap: 6px;
   align-items: center;
-  overflow-x: auto;
+  overflow: hidden; /* the chip lane scrolls; Next / Undo / End combat stay in view */
   max-width: 100%;
   background: #16130f;
   border-radius: 6px;
@@ -1046,7 +1046,27 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
 /* 0.2.77: idle strip for the DM, and End combat pushed to the far end */
 .ssm-turnstrip .ssm-strip-idle { color: #b9a888; font-size: 13px; padding: 0 6px; flex: 0 0 auto; }
 .ssm-turnstrip .btn-roll-init { flex: 0 0 auto; min-height: 40px; }
-.ssm-turnstrip .ssm-strip-gap { flex: 1 1 auto; min-width: 12px; }
+.ssm-turnstrip .ssm-strip-gap { flex: 0 0 12px; min-width: 12px; }
+/* Many combatants: chips scroll in their own lane. Markers, Next, Undo last Next and End combat are siblings
+   after the lane, so they stay pinned on the right. Past about 6, chips shrink to initials + a short name. */
+.ssm-turnstrip .ssm-strip-chips {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+.ssm-turnstrip .btn-next,
+.ssm-turnstrip [data-act="stripUndoNext"],
+.ssm-turnstrip .btn-end-combat,
+.ssm-turnstrip .ssm-strip-markers { flex: 0 0 auto; }
+.ssm-turnstrip.is-crowded .ssm-strip-chips { gap: 4px; }
+.ssm-turnstrip.is-crowded .turn-chip { gap: 4px; padding: 2px 6px 2px 2px; font-size: 12px; }
+.ssm-turnstrip.is-crowded .turn-chip .chip-face { width: 22px; height: 22px; font-size: 10px; }
+.ssm-turnstrip.is-crowded .turn-chip .chip-name { max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ssm-turnstrip .btn-end-combat { flex: 0 0 auto; border: 2px solid #c0392b; color: #ffd7cf; background: #3a1714; }
 .token-chip { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
 .name-mode { display: inline-flex; gap: 4px; flex-wrap: wrap; }
@@ -1075,6 +1095,21 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
     min-width: 40px;
   }
   .turn-chip .chip-face { width: 40px; height: 40px; }
+  /* Phone: the chip lane takes the full width and wraps, so a chip is never sliced off the edge.
+     Markers / Next / Undo / End combat sit on the next row, still pinned to the right. */
+  .ssm-turnstrip:not(.is-idle) { flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; }
+  .ssm-turnstrip .ssm-strip-chips {
+    flex: 1 0 100%;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 3px;
+    justify-content: flex-start;
+  }
+  .ssm-turnstrip .ssm-strip-chips .turn-chip { max-width: 100%; padding: 2px 4px 2px 2px; gap: 3px; }
+  .ssm-turnstrip.is-crowded .turn-chip .chip-face { width: 22px; height: 22px; }
+  .ssm-turnstrip .ssm-strip-markers { max-width: 100%; }
+  .ssm-turnstrip .ssm-strip-markers .ssm-markers { flex-wrap: wrap; white-space: normal; }
   .ssdns-playercard, .ssm-drawer {
     width: min(100% - 16px, 360px);
     max-width: calc(100% - 16px);
@@ -1202,3 +1237,34 @@ body.map-fullscreen #mapMount > canvas.ssm-fx {
 }
 /* turn order PR 1: "Undo last Next" stays on one line in the DM strip */
 .ssm-turnstrip [data-act="stripUndoNext"] { white-space: nowrap; flex: none; }
+
+/* Turn UX on the map (Jessey 2026-10-22 2:28 PM): the turn strip sits at the TOP of the map, in normal and full-screen
+   mode, for the player and the DM (grid row "strip" moved to the first row above). On the sheet the map shows the
+   sheet's own turn strip (#turnPanel: round, turn order, Action / Bonus / R, movement, Dash / Disengage / Dodge,
+   End turn), moved here by ssdns-map-host.js while the Map tab is open, so the two can never differ. */
+.ssdns-map > .ssm-turnhost { grid-area: strip; position: relative; z-index: 4; min-width: 0; }
+.ssdns-map > .ssm-turnhost:empty,
+.ssdns-map > .ssm-turnhost:has(> #turnPanel[hidden]) { display: none; }
+.ssdns-map > .ssm-turnhost #turnPanel.turn-panel { margin: 0; max-width: 100%; box-sizing: border-box; background: #16130f; border-radius: 6px; }
+.ssdns-map.has-sheet-turn > .ssm-turnstrip { display: none !important; }
+/* the DM's strip: the current player's markers (the same markers as the DM card) between the chips and Next */
+.ssm-turnstrip .ssm-strip-markers { display: inline-flex; flex: none; align-items: center; }
+.ssm-turnstrip .ssm-strip-markers:empty { display: none; }
+.ssm-turnstrip .ssm-strip-markers .ssm-markers { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 4px; margin: 0; padding: 2px 6px; border: 1px solid rgba(201,162,39,.45); border-radius: 999px; white-space: nowrap; }
+.ssm-turnstrip .ssm-strip-markers .pip-label { color: #c9a227; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+.ssm-turnstrip .ssm-strip-markers .tr-move { color: #efe6d4; font-size: 11px; }
+/* full screen: the fixed Exit full screen button sits at the top right, over the first row */
+body.map-fullscreen #mapMount > .ssm-turnstrip:not([hidden]),
+body.map-fullscreen #mapMount > .ssm-turnhost { margin-right: 150px; }
+body.map-fullscreen #mapMount:has(> .ssm-turnhost #turnPanel:not([hidden])) .ssdns-toolbar,
+body.map-fullscreen #mapMount:has(> .ssm-turnstrip:not([hidden])) .ssdns-toolbar { padding-right: 12px; }
+/* the player card floats over the board: with the strip on top it starts just below it (host sets --ssm-strip-h) */
+.ssdns-map.has-sheet-turn > .ssdns-playercard:not([style*="top"]) { top: calc(var(--ssm-strip-h, 0px) + 44px); max-height: calc(100% - 62px - var(--ssm-strip-h, 0px)); }
+@media (max-width: 520px) {
+  .ssdns-map.has-sheet-turn > .ssdns-playercard:not([style*="top"]) { top: calc(var(--ssm-strip-h, 0px) + 8px); max-height: calc(100% - 16px - var(--ssm-strip-h, 0px)); }
+}
+@media (max-width: 700px) {
+  /* phones: the strip keeps the full width and starts under the Exit full screen button instead of beside it */
+  body.map-fullscreen #mapMount > .ssm-turnstrip:not([hidden]),
+  body.map-fullscreen #mapMount > .ssm-turnhost { margin-right: 0; margin-top: 46px; }
+}

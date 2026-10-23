@@ -54,7 +54,7 @@
      the turn a death save was rolled ride on the same markers, so they also come back only on your own turn */
   function fresh(key) {
     return { action: false, bonus: false, reaction: false, attacks: 0, actionBy: "", turnKey: key || "",
-      moveUsed: 0, dash: false, disengage: false, dodge: false, oaReq: "", oaArmed: "", oaUsed: "", deathKey: "" };
+      moveUsed: 0, dash: false, disengage: false, dodge: false, oaReq: "", oaArmed: "", oaUsed: "", deathKey: "", actUndo: "" };
   }
   /**
    * Markers for a combatant right now. A stored set is kept unless the combatant has started a newer own turn.

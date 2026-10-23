@@ -124,19 +124,34 @@
   function soon() { if (queued) return; queued = true; (root.requestAnimationFrame || setTimeout)(function () { queued = false; apply(); }); }
 
   /* ---- tracker in the turn strip (#turnSlot) ---- */
+  var ACT_LABEL = { dash: "Dash", disengage: "Disengage", dodge: "Dodge" };
+  /* Turn UX on the map: one strip for the sheet and the map. The sheet's #turnPanel (round, turn order, this slot,
+     End turn) is the only copy; ssdns-map-host.js moves that same element to the top of the map while the Map tab is
+     open. The slot now also carries the Action / Bonus / R markers (the same buttons as the Weapons box). */
   function trackerHtml() {
     var m = marks();
     var mv = T().moveLeft(m, speed());
     var mine = myTurn();
-    var h = '<span class="tl-box" data-turn-tracker>' +
+    var p = P();
+    var open = !locked();
+    var pips = p && p.html ? p.html().replace('<span class="pip-label">This turn</span>', "") : "";
+    var h = '<span class="tl-box" data-turn-tracker>' + pips.replace('class="act-pips"', 'class="act-pips tl-pips"') +
       '<span class="tl-move" data-tl-left="' + mv.left + '" title="Feet of movement left this turn (Speed ' + speed() + ' ft' + (m.dash ? ", doubled by Dash" : "") + '). It refills at the start of your own turn.">Move <b>' + mv.left + '</b>/' + mv.max + ' ft</span>' +
       '<button type="button" class="btn xs tl-step" data-tl-move="5" title="I moved 5 ft">−</button>' +
       '<button type="button" class="btn xs tl-step" data-tl-move="-5" title="Give back 5 ft">+</button>' +
-      ['dash', 'disengage', 'dodge'].map(function (k) {
-        var label = k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge");
+      '<span class="tl-acts">' + ['dash', 'disengage', 'dodge'].map(function (k) {
+        var label = ACT_LABEL[k];
         var tip = k === "dash" ? "Uses your Action: doubles your movement this turn." : (k === "disengage" ? "Uses your Action: your movement doesn't provoke opportunity attacks this turn." : "Uses your Action: attacks against you have disadvantage and you have advantage on Dex saves until your next turn.");
+        /* a Dash / Disengage / Dodge taken this turn turns into its own Cancel button until the Action goes elsewhere */
+        var undo = !!m[k] && open && p && p.canCancelAct && p.canCancelAct(k);
+        if (undo) {
+          var back = m.actionBy === k ? "your Action comes back" : "it's turned off (your Action was already used)";
+          tip = "Tap to cancel " + label + ": " + back + (k === "dash" ? " and your movement goes back to " + speed() + " ft" : "") + ".";
+          return '<button type="button" class="btn xs tl-act on tl-undo" data-tl-act="' + k + '" data-tl-undo="1" aria-pressed="true" title="' + tip + '"><span class="tl-x" aria-hidden="true">✕</span> Cancel ' + label + "</button>";
+        }
+        if (m[k]) tip = label + " is on this turn. It can't be cancelled now (your Action went to something else); the DM can change your markers.";
         return '<button type="button" class="btn xs tl-act' + (m[k] ? " on" : "") + '" data-tl-act="' + k + '" aria-pressed="' + !!m[k] + '" title="' + tip + '">' + label + "</button>";
-      }).join("");
+      }).join("") + "</span>";
     if (!mine) {
       var t = T(), i = init();
       var ask = m.oaReq ? t.oaEntry(i, m.oaReq) : null;
@@ -178,13 +193,38 @@
   function doAct(k) {
     var p = P(); if (!p) return;
     var m = marks();
-    var label = k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge");
-    if (m[k]) { toast("You already took " + label + " this turn."); return; }
-    p.spend("action", label);
-    p.setFlag(k, true);
+    var label = ACT_LABEL[k] || k;
+    if (m[k]) {
+      /* Turn UX on the map: tapping it again cancels it while the Action hasn't gone to anything else */
+      if (p.canCancelAct && p.canCancelAct(k)) { cancelAct(k); return; }
+      toast("You already took " + label + " this turn. It can't be cancelled now because your Action went to something else; the DM can change your markers.");
+      return;
+    }
+    if (p.takeAct) p.takeAct(k, label); else { p.spend("action", label); p.setFlag(k, true); }
     var line = k === "dash" ? "Dash: movement doubled this turn (" + T().moveLeft(marks(), speed()).max + " ft)." : (k === "disengage" ? "Disengage: my movement doesn't provoke opportunity attacks this turn." : "Dodge: attacks against me have disadvantage until my next turn (if I can see the attacker), and I have advantage on Dex saves.");
     log(line, "alert");
-    toast(line); /* the DM sees Dash / Disengage / Dodge on the player's marker row (DMCC Fight tab and map card) */
+    toast(line + " Tap Cancel " + label + " to take it back."); /* the DM sees Dash / Disengage / Dodge on the player's marker row (DMCC Fight tab and map card) */
+  }
+  /** Cancel a Dash / Disengage / Dodge taken this turn: the Action comes back (if it paid for it) and Dash's extra
+      feet go away. Feet already walked stay walked, so a Dash whose extra feet were used can't be cancelled. */
+  function cancelAct(k) {
+    var p = P(); if (!p || !p.cancelAct) return false;
+    var m = marks();
+    var label = ACT_LABEL[k] || k;
+    if (k === "dash") {
+      var sp = speed(), used = Math.max(0, num(m.moveUsed, 0));
+      if (used > sp) {
+        toast("You've moved " + used + " ft, past your " + sp + " ft speed, so Dash can't be cancelled. Give back the extra feet with + first, or ask the DM.");
+        return false;
+      }
+    }
+    var r = p.cancelAct(k);
+    if (!r) return false;
+    var line = "Cancelled " + label + (r.refunded ? ": my Action is back" : "") + (k === "dash" ? (r.refunded ? " and" : ":") + " movement is back to " + speed() + " ft (" + T().moveLeft(marks(), speed()).left + " ft left)" : "") + ".";
+    log(line, "note");
+    toast(line);
+    if (root.SSDNSAudio) root.SSDNSAudio.play("ui-tick");
+    return true;
   }
   function askOa() {
     var J = root.SSDNSDmJoin, p = P();
@@ -270,7 +310,7 @@
   }
   root.SSDNSTurnLock = {
     apply: apply, locked: locked, myTurn: myTurn, inFight: inFight, reason: reason, blockedAction: blockedAction,
-    checkOa: checkOa, askOa: askOa, move: doMove, act: doAct, speed: speed,
+    checkOa: checkOa, askOa: askOa, move: doMove, act: doAct, cancelAct: cancelAct, speed: speed,
     onTurn: function () { checkOa(); apply(); }
   };
 })(typeof window !== "undefined" ? window : this);

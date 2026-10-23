@@ -1,5 +1,5 @@
 /**
- * 0.3.107 (Jessey approved Art Bot's per-weapon art 2026-10-20 9:17 PM CT): Borrowed Iron + Caster Gun art.
+ * 0.3.108 (Jessey approved Art Bot's per-weapon art 2026-10-20 9:17 PM CT): Borrowed Iron + Caster Gun art.
  *  - Pact name (character.subclass) -> iron slug -> 256 item tile (Equipment row, Focus slot) + 1200x400 engraving (Gear card).
  *  - BOOK1 L2060: the DM reveals what the Borrowed Iron really is, so the player's sheet keeps the generic art until
  *    character.ironRevealed (DMCC "Reveal to player", command iron_reveal). The DM page always sees it.
@@ -59,7 +59,7 @@ check("file.hellMakerReused", IA.engravingSrc({ calling: "pact-seeker", subclass
   !fs.existsSync(path.join(root, "assets/img/weapons/borrowed-iron/hell-maker.webp")));
 ["blacksnake", "hognose"].forEach((g) => check("file.casterTile." + g, J(webpSize("assets/img/items/caster/" + g + ".webp")) === "[256,256]"));
 
-/* 0.3.107 (Jessey 5:47 PM): no reveal gate; the Pact pick shows the real iron (sheet-only choice) */
+/* 0.3.108 (Jessey 5:47 PM): no reveal gate; the Pact pick shows the real iron (sheet-only choice) */
 const ps = { calling: "pact-seeker", subclass: "the-crossroads-note" };
 check("gate.shownFromPick", IA.slugFor(ps) === "hell-maker" && IA.tileSrc(ps) === "assets/img/items/borrowed-iron/hell-maker.webp" && IA.engravingSrc(ps) === "assets/img/dm-only/hell-maker.webp" && IA.nameFor(ps) === "Hell Maker");
 check("gate.dmSees", IA.slugFor(ps, { dm: true }) === "hell-maker" && IA.nameFor(ps, { dm: true }) === "Hell Maker");
@@ -80,7 +80,7 @@ ir = D.ironState(pact("the-crossroads-note", true));
 check("iron.hellMaker", ir.key === "revolver_2" && /items\/borrowed-iron\/hell-maker\.webp$/.test(ir.art) && ir.note === "In hand · Hell Maker", J(ir));
 ir = D.ironState(pact("lass-o-lakes", true));
 check("iron.butterRepeaterLongGun", ir.key === "long_gun" && /items\/borrowed-iron\/butter-repeater\.webp$/.test(ir.art), J(ir));
-/* 0.3.107 (Jessey 2026-10-21 12:12 PM): the iron's type (and so its slot) shows from the Pact pick; only its name and art wait for the reveal */
+/* 0.3.108 (Jessey 2026-10-21 12:12 PM): the iron's type (and so its slot) shows from the Pact pick; only its name and art wait for the reveal */
 check("iron.lassFromPick", D.ironState(pact("lass-o-lakes")).key === "long_gun" && D.ironState(pact("lass-o-lakes")).ironName === "Butter Repeater" && /items\/borrowed-iron\/butter-repeater\.webp$/.test(D.ironState(pact("lass-o-lakes")).art));
 f = D.focusState(pact("", true));
 check("focus.noPactFallback", f.kind === "patron" && f.name === "Patron" && /items\/default\/focus\.webp$/.test(f.art), J(f));
@@ -88,7 +88,7 @@ check("patron.slugs", ["the-crossroads-note", "the-sealed-orders", "lass-o-lakes
   "crossroads-note,sealed-orders,lass-o-lakes,last-round,sand-oath,pine-box-contract,drowned-breath");
 const hx = K.apply(K.blankCharacter(), "hexslinger", {}); hx.calling = "hexslinger";
 f = D.focusState(hx);
-/* 0.3.107 (Jessey 2026-10-21 7:47 PM CT): engravings on the doll and cards, colour tiles in the Equipment list */
+/* 0.3.108 (Jessey 2026-10-21 7:47 PM CT): engravings on the doll and cards, colour tiles in the Equipment list */
 check("focus.hexEngraving", f && f.kind === "caster" && /assets\/img\/weapons\/blacksnake\.webp$/.test(f.art), J(f));
 check("hex.bothSlots", D.weaponName(hx, "revolver_1") === "Blacksnake" && /assets\/img\/weapons\/blacksnake\.webp$/.test(D.weaponArt(hx, "revolver_1")) && /doll-focus-weapon-src/.test(D.html(hx, {})));
 /* the general rule: any weapon flagged weaponFocus fills its slot and the Focus slot (no instrument Calling) */
@@ -101,7 +101,7 @@ gs.guns[g0].weaponFocus = false;
 check("rule.unflaggedNoFocus", D.focusState(gs) === null);
 /* migration of an old save (Focus slot era): the iron moves to a free weapon slot, nothing else changes */
 const old = pact("the-sealed-orders"); delete old.ironSlot; old.equipMigrated = 2; old.guns = [{ weapon: "navy-army-ball-n-cap-revolver", proficient: true, chambers: [], equipped: true }];
-/* 0.3.107 (4:51 PM): the only item change allowed is the iron's new weapon class field */
+/* 0.3.108 (4:51 PM): the only item change allowed is the iron's new weapon class field */
 const noCls = (items) => J((items || []).map((x) => { const y = Object.assign({}, x); delete y.ironClass; return y; }));
 const oldItems = noCls(old.items), oldGuns = J(old.guns);
 K.migrateEquipment(old);
@@ -115,7 +115,7 @@ K.migrateEquipment(crowded);
 check("migrate.noFreeSlotNote", crowded.ironSlot === "" && /No free weapon slot/.test(crowded.ironSlotNote || "") && crowded.items.some((x) => x.catalogId === "borrowed-iron"), J({ s: crowded.ironSlot, n: crowded.ironSlotNote }));
 const hexOld = J(hx); K.migrateEquipment(hx);
 check("migrate.othersUntouched", J(hx) === hexOld || !("ironSlotMigrated" in hx));
-/* 0.3.107 (art batch 1): every player weapon now has a square tile; casters keep their own items/caster/ tiles */
+/* 0.3.108 (art batch 1): every player weapon now has a square tile; casters keep their own items/caster/ tiles */
 check("weaponTile.casters", /items\/caster\/blacksnake\.webp$/.test(IA.weaponTile("blacksnake")) && /items\/caster\/hognose\.webp$/.test(IA.weaponTile({ id: "hognose" })) &&
   IA.weaponTile("dullards-plinker-revolver") === "assets/img/items/weapons/dullards-plinker-revolver.webp" && IA.weaponTile("the-peace-maker") === "");
 
@@ -288,7 +288,7 @@ try {
     check("ui.hex.noPageErrors", errs.length === 0, errs.join(" | "));
     await pg.browserContext().close();
   }
-  /* DMCC player card (demo): the DM sees the iron; 0.3.107: no Reveal toggle (the player sees it from the Pact pick) */
+  /* DMCC player card (demo): the DM sees the iron; 0.3.108: no Reveal toggle (the player sees it from the Pact pick) */
   {
     const ctx = await browser.createBrowserContext();
     const pg = await ctx.newPage();

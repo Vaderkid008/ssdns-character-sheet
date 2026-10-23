@@ -3203,7 +3203,11 @@ function addPlayerToken() {
   if (canonicalPlayerToken(who) || tokenForOwner(who)) { toast('That player already has a token'); return; }
   const p = partyList().find(x => (x.uid || x.id) === who) || {};
   const name = p.name || p.label || who;
-  const cell = viewCenterCell();
+  /* Same next-free square a linked enemy uses (placeLinkedToken → nextFreeSpot), so a second
+     player does not land on the square the first one already occupies. */
+  const label = String(name).slice(0, 16);
+  const spot = nextFreeSpot(1, label);
+  if (!spot) { toast('No open square'); return; }
   const token = makeToken({
     id: playerTokenId(who),
     kind: 'player',
@@ -3214,7 +3218,7 @@ function addPlayerToken() {
     combatantId: who,
     sheetId: who,
     color: '#4a90d9',
-    pos: cell
+    pos: spot
   });
   if (!token) return;
   emit('party:sync', { playerId: who, tokenId: token.id });
@@ -5150,6 +5154,19 @@ async function loadSceneImage(sceneId, opts) {
     }
     requestDraw();
   }
+  /* Crowded DM strip: the face keeps the initials; the name shrinks to a short label (first word, or the
+     first letters of a long single word). A trailing number stays, so Outlaw 1 and Outlaw 2 still differ. */
+  function shortStripName(raw) {
+    const text = String(raw || '').trim();
+    if (text.length <= 10) return text;
+    const m = text.match(/^(.*?)(\s+\d+)$/);
+    const suffix = m ? m[2] : '';
+    const base = (m ? m[1] : text).trim();
+    const word = base.split(/\s+/)[0] || base;
+    const short = word.length > 8 ? word.slice(0, 7) + '\u2026' : word;
+    const out = (short + suffix).trim();
+    return out.length < text.length ? out : (text.slice(0, 9) + '\u2026');
+  }
   function renderTurnStrip() {
     let strip = q('turnStrip');
     if (!strip) {
@@ -5166,6 +5183,7 @@ async function loadSceneImage(sceneId, opts) {
     strip.hidden = !order.length && role !== 'dm';
     strip.innerHTML = '';
     strip.classList.toggle('is-idle', !order.length);
+    strip.classList.remove('is-crowded');
     if (!order.length) {
       if (role === 'dm') {
         const idle = document.createElement('span');
@@ -5182,6 +5200,14 @@ async function loadSceneImage(sceneId, opts) {
       }
       return;
     }
+    /* Many combatants: only the chips scroll. Markers, Next, Undo last Next and End combat stay pinned
+       on the right (they are siblings after the scroller, not inside it). Past about 6, DM chips shrink. */
+    const chipCount = order.filter(c => role === 'dm' || !(c && c.mapHidden)).length;
+    const crowded = role === 'dm' && chipCount > 6;
+    strip.classList.toggle('is-crowded', crowded);
+    const chips = document.createElement('div');
+    chips.className = 'ssm-strip-chips';
+    chips.setAttribute('data-act', 'stripChips');
     order.forEach((c, i) => {
       if (role !== 'dm' && c && c.mapHidden) return;
       const b = document.createElement('span');
@@ -5193,15 +5219,19 @@ async function loadSceneImage(sceneId, opts) {
       const raw = String((c && (c.name || c.id)) || '');
       const letters = raw.replace(/[^A-Za-z]/g, '');
       const initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : '')).toUpperCase() || '?';
-      b.innerHTML = '<span class="chip-face">' + esc(initials) + '</span><span class="chip-name">' + esc(raw) + '</span>';
+      const shownName = crowded ? shortStripName(raw) : raw;
+      if (shownName !== raw) b.title = raw;
+      b.innerHTML = '<span class="chip-face">' + esc(initials) + '</span><span class="chip-name">' + esc(shownName) + '</span>';
       if (role === 'dm') {
         b.addEventListener('click', () => {
           const t = state.tokens.find(tok => tok.combatantId === c.id || tok.id === c.id);
           if (t) selectToken(t);
         });
       }
-      strip.appendChild(b);
+      chips.appendChild(b);
     });
+    strip.appendChild(chips);
+    if (role === 'dm') appendStripMarkers(strip); /* Turn UX on the map: the current player's markers, before Next */
     if (role === 'dm') {
       const next = document.createElement('button');
       next.type = 'button';
@@ -5231,6 +5261,24 @@ async function loadSceneImage(sceneId, opts) {
       end.addEventListener('click', () => emit('initiative:end', {}));
       strip.appendChild(end);
     }
+  }
+  /* Turn UX on the map: markers for the combatant whose turn it is (DM page only; the host returns the same HTML as the
+     DM card's marker row, and the DM page's own click handler edits them) */
+  function appendStripMarkers(strip) {
+    const marks = document.createElement('span');
+    marks.className = 'ssm-strip-markers';
+    marks.setAttribute('data-act', 'stripMarkers');
+    strip.appendChild(marks);
+    fillStripMarkers();
+  }
+  function fillStripMarkers() {
+    const slot = q('stripMarkers');
+    if (!slot) return;
+    let html = '';
+    if (role === 'dm' && state.currentTurnId && host.turnMarkers) {
+      try { html = host.turnMarkers(state.currentTurnId) || ''; } catch (e) { html = ''; }
+    }
+    if (slot.innerHTML !== html) slot.innerHTML = html;
   }
   function renderActions() {
     if (role === 'player') { paintPlayerFight(); return; }
@@ -6652,6 +6700,7 @@ async function loadSceneImage(sceneId, opts) {
     requestDraw();
     if (role === 'player') { paintPlayerFight(); return; }
     if (role !== 'dm') return;
+    fillStripMarkers();
     if (state.drawerOpen && (!tokenId || tokenId === state.drawerTokenId)) renderDrawer();
   }
 
@@ -6973,6 +7022,7 @@ return {
   pushFeed,
   requestDraw,
   refreshCard,
+  refreshStrip: fillStripMarkers,
   feetBetween: function (idA, idB) {
     return feetBetween(tokenByRef(idA), tokenByRef(idB));
   },

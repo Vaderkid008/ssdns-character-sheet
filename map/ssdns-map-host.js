@@ -24,7 +24,92 @@
     }
     if (el && text) el.hidden = true;
   }
+  /* ---- Turn UX on the map (Jessey 2026-10-22 2:28 PM): the sheet's turn strip on the map ----
+     The sheet's #turnPanel (round, turn order, Action / Bonus / R, movement, Dash / Disengage / Dodge, End turn) is
+     moved, as the same element, into a slot at the top of the map while the Map tab is open, and put back in its
+     place under the table bar when another tab opens or the map closes. One element, so the two can't differ. */
+  var turnHome = null;
+  function turnPanelEl() { return $("turnPanel"); }
+  /* While the strip is docked, a break before #turnSlot puts the turn order on its own row and the
+     tracker (Action / Bonus / R, Move, Dash / Disengage / Dodge, End turn) on the next. Off the map the
+     break is display:none, and undock removes it so the main-page strip stays one row. */
+  function clearTurnBreak() {
+    var panel = turnPanelEl();
+    if (!panel) return;
+    var br = panel.querySelector(":scope > .ssm-turn-break");
+    if (br && br.parentNode) br.parentNode.removeChild(br);
+  }
+  function ensureTurnBreak() {
+    var panel = turnPanelEl();
+    if (!panel) return;
+    var slot = panel.querySelector(":scope > #turnSlot");
+    if (!slot) return;
+    var br = panel.querySelector(":scope > .ssm-turn-break");
+    if (!br) {
+      br = document.createElement("span");
+      br.className = "ssm-turn-break";
+      br.setAttribute("aria-hidden", "true");
+    }
+    if (br.nextSibling !== slot) slot.parentNode.insertBefore(br, slot);
+  }
+  function mapTabOpen() {
+    var pageEl = $("page-map");
+    return !!(pageEl && !pageEl.hidden && !document.body.classList.contains("printing"));
+  }
+  function undockTurnPanel() {
+    var panel = turnPanelEl();
+    var el = mountEl();
+    if (el) { el.classList.remove("has-sheet-turn"); el.style.removeProperty("--ssm-strip-h"); }
+    if (document.body) document.body.classList.remove("map-turn-docked");
+    clearTurnBreak();
+    if (!panel || !turnHome || !turnHome.parentNode) return;
+    if (panel.parentNode && panel.parentNode.classList && panel.parentNode.classList.contains("ssm-turnhost")) {
+      turnHome.parentNode.insertBefore(panel, turnHome);
+    }
+  }
+  function dockTurnPanel() {
+    if (isDmPage()) return;
+    var el = mountEl();
+    var panel = turnPanelEl();
+    if (!el || !panel) return;
+    if (!map || el.hidden || !mapTabOpen()) { undockTurnPanel(); return; }
+    var slot = el.querySelector(":scope > .ssm-turnhost");
+    if (!slot) {
+      slot = document.createElement("div");
+      slot.className = "ssm-turnhost";
+      slot.setAttribute("data-act", "turnHost");
+      el.insertBefore(slot, el.firstChild);
+    }
+    if (panel.parentNode !== slot) {
+      if (!turnHome) turnHome = document.createComment("turnPanel home");
+      if (!turnHome.parentNode) panel.parentNode.insertBefore(turnHome, panel);
+      slot.appendChild(panel);
+    }
+    el.classList.add("has-sheet-turn");
+    document.body.classList.add("map-turn-docked");
+    ensureTurnBreak();
+    watchStripHeight(slot);
+    setTimeout(stripHeight, 60); /* after a full-screen switch settles */
+    if (map.requestDraw) map.requestDraw();
+  }
+  /* the player card floats over the board; it starts below the strip (CSS var --ssm-strip-h on the mount) */
+  var stripRo = null, stripRoFor = null;
+  function stripHeight() {
+    var el = mountEl();
+    var slot = el && el.querySelector(":scope > .ssm-turnhost");
+    if (!el || !slot) return;
+    var h = slot.offsetHeight || 0;
+    el.style.setProperty("--ssm-strip-h", (h ? slot.offsetTop + h : 0) + "px"); /* bottom edge of the strip in the map */
+  }
+  function watchStripHeight(slot) {
+    stripHeight();
+    if (stripRoFor === slot || typeof ResizeObserver !== "function") return;
+    if (stripRo) { try { stripRo.disconnect(); } catch (e) {} }
+    stripRoFor = slot;
+    try { stripRo = new ResizeObserver(function () { stripHeight(); }); stripRo.observe(slot); } catch (e) { stripRo = null; }
+  }
   function destroyMap() {
+    undockTurnPanel(); /* map.destroy() empties the mount; the strip goes home first */
     generation += 1;
     mountedKey = "";
     if (map && map.destroy) {
@@ -756,7 +841,13 @@
             if (!isDmPage() || !api || typeof api.choices !== "function") return null;
             try { return api.choices(); } catch (e) { return null; }
           },
-          rangeWeapons: rangeWeapons
+          rangeWeapons: rangeWeapons,
+          /* Turn UX on the map: the DM strip shows the current player's markers, the same HTML as the DM card */
+          turnMarkers: function (cid) {
+            var E = root.DMCCEnhance;
+            if (!isDmPage() || !E || typeof E.mapMarkersHtml !== "function") return "";
+            try { return E.mapMarkersHtml(cid) || ""; } catch (e) { return ""; }
+          }
         },
         options: {
           scene: pair[0],
@@ -772,6 +863,7 @@
         }
       });
       mountedKey = key;
+      dockTurnPanel();
       if (map.refreshPlayers) map.refreshPlayers();
       syncInitiative();
       if (!ctx.demo && ctx.fb && ctx.fb.get && ctx.db) {
@@ -832,6 +924,7 @@
         var on = document.body.classList.contains("map-fullscreen");
         full.textContent = on ? "Exit full screen" : "Full screen";
         if (map && map.requestDraw) map.requestDraw();
+        setTimeout(stripHeight, 60); /* Turn UX on the map: the strip moves; the player card follows */
       });
     }
     document.querySelectorAll(".tab").forEach(function (tab) {
@@ -839,6 +932,12 @@
         if (tab.id === "tab-map" && map && map.requestDraw) setTimeout(function () { map.requestDraw(); }, 30);
       });
     });
+    /* Turn UX on the map: follow the Map tab (the sheet shows / hides #page-map) */
+    var pageMap = $("page-map");
+    if (pageMap && !isDmPage() && typeof MutationObserver === "function" && !pageMap.dataset.turnDock) {
+      pageMap.dataset.turnDock = "1";
+      try { new MutationObserver(function () { dockTurnPanel(); }).observe(pageMap, { attributes: true, attributeFilter: ["hidden"] }); } catch (e) {}
+    }
     syncRoom();
   }
   function placeToken(spec) {
@@ -901,6 +1000,11 @@
     refreshCard: function (tokenId) {
       if (map && map.refreshCard) map.refreshCard(tokenId || "");
     },
+    /* Turn UX on the map: the DM page repaints the strip's markers when a player's markers change */
+    refreshStrip: function () {
+      if (map && map.refreshStrip) map.refreshStrip();
+    },
+    dockTurnPanel: dockTurnPanel,
     feetBetween: function (idA, idB) {
       if (!map || typeof map.feetBetween !== "function") return null;
       try { return map.feetBetween(idA, idB); }

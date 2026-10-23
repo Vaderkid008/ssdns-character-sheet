@@ -1,5 +1,5 @@
 /**
- * Turn order PR 2 (Jessey's rulings 2026-10-22, sheet 0.3.107 / DMCC 0.2.120). Builds on PR 1's turn state.
+ * Turn order PR 2 (Jessey's rulings 2026-10-22, sheet 0.3.108 / DMCC 0.2.121). Builds on PR 1's turn state.
  *   1 off-turn lock: during initiative a player's attack / spell / action buttons are greyed out when it isn't their
  *     turn; the DM's "Unlock this turn" (table/initiative/unlock {uid: seq}) opens them until the next Next
  *   2 movement tracker: feet left this turn (− / +), refilled from Speed at the start of your own turn
