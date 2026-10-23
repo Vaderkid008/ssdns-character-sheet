@@ -1035,7 +1035,8 @@ body.map-fullscreen #mapMount > .ssm-drawer {
   overflow: hidden; /* the chip lane scrolls; Next / Undo / End combat stay in view */
   max-width: 100%;
   background: #16130f;
-  border-radius: 6px;
+  border: 2px solid #3fbf9a;
+  border-radius: 10px;
   padding: 4px 8px;
   -webkit-overflow-scrolling: touch;
 }
@@ -1050,8 +1051,16 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
   max-width: none;
   background: #16130f;
 }
-.ssm-turnstrip .turn-chip { cursor: pointer; flex: 0 0 auto; }
-.ssm-turnstrip .btn-next { flex: 0 0 auto; min-height: 40px; }
+.ssm-turnstrip .turn-chip { cursor: pointer; flex: 0 0 auto; height: 26px; gap: 4px; padding: 0 7px 0 2px; font-size: 12px; line-height: 1; border-radius: 999px; }
+.ssm-turnstrip .turn-chip .chip-face { width: 20px; height: 20px; font-size: 9px; }
+.ssm-turnstrip .turn-chip .chip-name { max-width: 8.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ssm-turnstrip .turn-chip.current { box-shadow: 0 0 0 2px #e2c56a; opacity: 1; }
+/* End-turn weight: solid, heavy, still labelled Next (the DM advances the order). */
+.ssm-turnstrip .btn-next { flex: 0 0 auto; min-height: 32px; padding: 0 14px; border-radius: 6px; background: #8b2f1f; color: #fff; border: 2px solid #5e1e13; font-weight: 800; letter-spacing: .08em; }
+.ssm-turnstrip .btn-next:hover { background: #a33b28; border-color: #5e1e13; color: #fff; }
+.ssm-turnstrip .turn-round { flex: none; color: #e2c56a; font-size: 12px; letter-spacing: .04em; white-space: nowrap; font-family: "Oswald", "Arial Narrow", sans-serif; }
+.ssm-turnstrip .dm-turn-now { flex: none; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #b42318; color: #fff; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; font-size: 10px; border-radius: 4px; padding: 2px 6px; font-family: "Oswald", "Arial Narrow", sans-serif; }
+.ssm-turnstrip .btn.sm { border-radius: 999px; min-height: 28px; padding: 0 10px; font-size: 11px; letter-spacing: .06em; }
 /* 0.2.77: idle strip for the DM, and End combat pushed to the far end */
 .ssm-turnstrip .ssm-strip-idle { color: #b9a888; font-size: 13px; padding: 0 6px; flex: 0 0 auto; }
 .ssm-turnstrip .btn-roll-init { flex: 0 0 auto; min-height: 40px; }
@@ -1254,14 +1263,20 @@ body.map-fullscreen #mapMount > canvas.ssm-fx {
 .ssdns-map > .ssm-turnhost { grid-area: strip; position: relative; z-index: 4; min-width: 0; }
 .ssdns-map > .ssm-turnhost:empty,
 .ssdns-map > .ssm-turnhost:has(> #turnPanel[hidden]) { display: none; }
-.ssdns-map > .ssm-turnhost #turnPanel.turn-panel { margin: 0; max-width: 100%; box-sizing: border-box; background: #16130f; border-radius: 6px; }
+.ssdns-map > .ssm-turnhost #turnPanel.turn-panel { margin: 0; max-width: 100%; box-sizing: border-box; background: #16130f; border-radius: 10px; border: 2px solid #3fbf9a; }
 .ssdns-map.has-sheet-turn > .ssm-turnstrip { display: none !important; }
 /* the DM's strip: the current player's markers (the same markers as the DM card) between the chips and Next */
 .ssm-turnstrip .ssm-strip-markers { display: inline-flex; flex: none; align-items: center; }
 .ssm-turnstrip .ssm-strip-markers:empty { display: none; }
-.ssm-turnstrip .ssm-strip-markers .ssm-markers { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 4px; margin: 0; padding: 2px 6px; border: 1px solid rgba(201,162,39,.45); border-radius: 999px; white-space: nowrap; }
+.ssm-turnstrip .ssm-strip-markers .ssm-markers { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 4px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; white-space: nowrap; }
 .ssm-turnstrip .ssm-strip-markers .pip-label { color: #c9a227; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
-.ssm-turnstrip .ssm-strip-markers .tr-move { color: #efe6d4; font-size: 11px; }
+.ssm-turnstrip .ssm-strip-markers .tr-move,
+.ssm-turnstrip .tl-move { color: #efe6d4; font-size: 12px; white-space: nowrap; padding: 3px 7px; border-radius: 999px; background: rgba(0,0,0,.28); border: 1px solid rgba(201,162,39,.5); }
+.ssm-turnstrip .tl-act { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 999px; border: 1px solid rgba(201,162,39,.55); color: #efe6d4; font: 700 11px/1 "Oswald", "Arial Narrow", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.ssm-turnstrip .tl-act.on { background: #e2c56a; color: #2c2a24; border-color: #8a6a12; }
+.ssm-turnstrip .pip-action:not(.used) { background: #6fbf4f; border-color: #3d6b2e; color: #fff; }
+.ssm-turnstrip .pip-bonus:not(.used) { background: #e2b33a; border-color: #8a6a12; color: #2c2a24; }
+.ssm-turnstrip .pip-reaction:not(.used) { background: #5c9bd1; border-color: #2f5f86; color: #fff; }
 /* full screen: the fixed Exit full screen button sits at the top right, over the first row */
 body.map-fullscreen #mapMount > .ssm-turnstrip:not([hidden]),
 body.map-fullscreen #mapMount > .ssm-turnhost { margin-right: 150px; }

@@ -82,7 +82,7 @@ const pact = (sub) => { const c = K.apply(K.blankCharacter(), "pact-seeker", {})
   const f = D.focusState(pact(s.id));
   check("patron." + s.id, f.kind === "patron" && exists(f.art), J(f && f.art));
 });
-check("rules.untouched", !/viper|twin-puff/.test(read("database.rules.json")) && !read("assets/data/rules.js").includes("0.3.114"));
+check("rules.untouched", !/viper|twin-puff/.test(read("database.rules.json")) && !read("assets/data/rules.js").includes("0.3.115"));
 
 /* ---------- browser part ---------- */
 const ORIGIN = process.env.SSDNS_ORIGIN || "http://127.0.0.1:8765";

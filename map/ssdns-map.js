@@ -5460,6 +5460,17 @@ async function loadSceneImage(sceneId, opts) {
     const chipCount = order.filter(c => role === 'dm' || !(c && c.mapHidden)).length;
     const crowded = role === 'dm' && chipCount > 6;
     strip.classList.toggle('is-crowded', crowded);
+    const roundEl = document.createElement('b');
+    roundEl.className = 'turn-round';
+    roundEl.textContent = 'Round ' + (Number(state.initiative && state.initiative.round) || 1);
+    strip.appendChild(roundEl);
+    if (role === 'dm') {
+      const cur = order[turn];
+      const badge = document.createElement('b');
+      badge.className = 'dm-turn-now';
+      badge.textContent = (cur && (cur.name || cur.id)) || 'Turn';
+      strip.appendChild(badge);
+    }
     const chips = document.createElement('div');
     chips.className = 'ssm-strip-chips';
     chips.setAttribute('data-act', 'stripChips');
