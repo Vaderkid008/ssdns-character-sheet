@@ -1,6 +1,7 @@
 /**
  * Fog-aware player targeting (Jessey 2026-10-20 9:52 PM): with fog on, a player's Target list only holds tokens that
- * player can see (own circle, torches, DM reveal/hide shapes; hidden / veiled out; party sight doesn't count), using
+ * player can see (party sight by default: every party bubble plus lights; scene.visionMode "own" keeps
+ * the viewer's token only; DM reveal/hide shapes; hidden / veiled out), using
  * the same test the token draw loop uses. Past the picked weapon's long range: listed, disabled, "out of range, N ft",
  * token greyed. The DM's map refuses a shot at a token the shooter can't see.
  *   node tools/test-map-fogtarget.mjs
@@ -112,12 +113,12 @@ await flush(60);
 const drawn = new Set(w.__calls.filter((c) => c[0] === "fillText").map((c) => String(c[1][0])));
 const seen = (id) => player.targetSight(id);
 check("sight.near", seen("en_near") && seen("en_near").visible === true);
-check("sight.dark", seen("en_dark") && seen("en_dark").visible === false, "party sight must not count");
+check("sight.dark", seen("en_dark") && seen("en_dark").visible === true, "party sight includes the token beside Pal");
 check("sight.lit", seen("en_lit") && seen("en_lit").visible === true, "a torch lights its own 8 squares");
 check("sight.fog", seen("en_rev") && seen("en_rev").visible === false);
 check("sight.revealBox", seen("en_box") && seen("en_box").visible === true);
 check("sight.hidden", !seen("en_hid") || seen("en_hid").visible === false, "players never get a hidden token");
-check("draw.sameTest", drawn.has("Near") && drawn.has("Lit") && drawn.has("Boxed") && !drawn.has("Dark") && !drawn.has("Rev") && !drawn.has("Hid"), [...drawn].join(","));
+check("draw.sameTest", drawn.has("Near") && drawn.has("Lit") && drawn.has("Boxed") && drawn.has("Dark") && drawn.has("Pal") && !drawn.has("Rev") && !drawn.has("Hid"), [...drawn].join(","));
 check("range.lit", seen("en_lit").outOfRange === true && seen("en_lit").feet === 100, JSON.stringify(seen("en_lit")));
 check("range.near", seen("en_near").outOfRange === false);
 check("range.long", seen("en_box").outOfRange === false && seen("en_box").band === "long", JSON.stringify(seen("en_box")));
@@ -125,11 +126,11 @@ check("range.long", seen("en_box").outOfRange === false && seen("en_box").band =
 const sel = el.querySelector('[data-act="actionSlot"] select');
 const opts = sel ? [...sel.options].map((o) => ({ v: o.value, t: o.textContent, off: o.disabled })) : [];
 const ids = opts.map((o) => o.v);
-check("list.onlySeen", sel && ids.includes("en_near") && ids.includes("en_box") && ids.includes("en_lit") && !ids.includes("en_dark") && !ids.includes("en_rev"), JSON.stringify(ids));
+check("list.onlySeen", sel && ids.includes("en_near") && ids.includes("en_box") && ids.includes("en_lit") && ids.includes("en_dark") && !ids.includes("en_rev"), JSON.stringify(ids));
 check("list.freeShot", ids[0] === "__free");
 const lit = opts.find((o) => o.v === "en_lit");
 check("list.outOfRange", lit && lit.off === true && /out of range, 100 ft/.test(lit.t), JSON.stringify(lit));
-check("list.pal", !ids.includes("u_pal"), "Pal is 7 squares off in the fog");
+check("list.pal", ids.includes("u_pal"), "Pal is inside the shared party sight");
 check("draw.greyWash", w.__calls.some((c) => c[0] === "fillStyle" && c[1][0] === "rgba(110,110,110,0.45)"));
 
 /* weapon switch: a longer gun brings Lit into reach and the list follows */
@@ -163,11 +164,28 @@ const dm = w.SSDNSMap.create({ el: dmEl, role: "dm", uid: "dm", adapter: dad, ho
   options: { scene, tokens: { tokens: {} }, assetBase: "", players: () => [], room: { table: { initiative: { order: [], turn: 0 } } } } });
 await flush(120);
 check("dm.sees", dm.canPlayerSee("u_me", "en_near") === true && dm.canPlayerSee("u_me", "en_box") === true);
-check("dm.refuses", dm.canPlayerSee("u_me", "en_dark") === false && dm.canPlayerSee("u_me", "en_hid") === false);
+check("dm.partySeesDark", dm.canPlayerSee("u_me", "en_dark") === true, "Me sees Dark through Pal");
+check("dm.refuses", dm.canPlayerSee("u_me", "en_hid") === false);
 check("dm.palSees", dm.canPlayerSee("u_pal", "en_dark") === true, "Pal stands next to Dark");
 check("dm.unknown", dm.canPlayerSee("u_me", "en_nowhere") === null && dm.canPlayerSee("u_me", "__free") === null);
 check("dm.viewUnchanged", typeof dm.targetSight === "function" && dm.targetSight("en_dark") === null);
 dm.destroy && dm.destroy();
+
+/* Option B: scene.visionMode "own" drops Pal's bubble, so Me no longer sees Dark */
+store.pub["map/public/scenes/" + SC].value.visionMode = "own";
+const ownEl = w.document.createElement("div");
+w.document.body.appendChild(ownEl);
+const ownPad = w.SSDNSMapFirebase.memory({ role: "player", store, bus });
+const own = w.SSDNSMap.create({ el: ownEl, role: "player", uid: "u_me", adapter: ownPad, host, options: { scene, assetBase: "", room: { table: { initiative: { order: [], turn: 0 } } } } });
+await flush(120);
+own.requestDraw && own.requestDraw();
+await flush(60);
+const ownDark = own.targetSight("en_dark");
+const ownNear = own.targetSight("en_near");
+check("own.darkHidden", ownDark && ownDark.visible === false, JSON.stringify(ownDark));
+check("own.nearStill", ownNear && ownNear.visible === true, JSON.stringify(ownNear));
+own.destroy && own.destroy();
+delete store.pub["map/public/scenes/" + SC].value.visionMode;
 
 /* DMCC: a player attack request at a token the shooter can't see is refused before any damage */
 {

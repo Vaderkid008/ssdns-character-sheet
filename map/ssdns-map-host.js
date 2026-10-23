@@ -1032,6 +1032,13 @@
       try { return map.targetSight(targetId); }
       catch (e) { return null; }
     },
+    lightsProfile: function () {
+      var L = root.SSDNSLighting;
+      var doc = null;
+      try { doc = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc(); } catch (e) { doc = null; }
+      if (!L || !L.tokenProfile || !doc || !doc.character) return null;
+      try { return L.tokenProfile(doc.character); } catch (e) { return null; }
+    },
     armAttack: function (attack, targetId, shooterId) {
       if (!map || typeof map.armAttack !== "function") return null;
       try { return map.armAttack(attack, targetId, shooterId); }
