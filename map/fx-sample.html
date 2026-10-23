@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map attack FX sample</title>
+<style>
+  body { margin: 0; background: #1a140e; color: #f0e4cf; font: 14px/1.4 Georgia, serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 2px solid #3fbf9a; }
+  h1 { font-size: 18px; margin: 0; letter-spacing: .04em; }
+  p.note { margin: 0; flex: 1 1 280px; color: #b9a888; font-size: 13px; }
+  button { min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #c9a227; background: #2a241c; color: #f0e4cf; font-weight: 700; letter-spacing: .06em; cursor: pointer; }
+  button[aria-pressed="true"] { background: #e2c56a; color: #2c2a24; border-color: #8a6a12; }
+  main { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; padding: 12px; }
+  figure { margin: 0; background: #120e0a; border: 1px solid #5a4630; border-radius: 10px; overflow: hidden; }
+  figcaption { padding: 6px 10px; font-size: 13px; letter-spacing: .04em; }
+  canvas { display: block; width: 100%; height: auto; background: #3a2a1c; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Map attack FX sample</h1>
+  <p class="note">Frozen frames of the live map painters. The toggle is the same Effects pref the map uses. No new audio.</p>
+  <button type="button" id="fxBtn" data-act="fxBtn" aria-pressed="true">Effects: ON</button>
+</header>
+<main id="boards"></main>
+<script src="ssdns-map-fx.js?v=0.3.117"></script>
+<script>
+(function () {
+  var FX = window.SSDNSMapFx;
+  var panels = [
+    { id: "gun", title: "Revolver hit — tracer, muzzle flash, impact sparks", type: "gun", result: "hit", lt: 90 },
+    { id: "buck", title: "Buckshot — cone and pellets", type: "buck", result: "hit", lt: 80 },
+    { id: "hidden", title: "Hidden shooter — line starts at the fog edge, no muzzle flash", type: "gun", result: "hit", lt: 90, hidden: true },
+    { id: "arrow", title: "Arrow in flight", type: "arrow", result: "hit", lt: 160 },
+    { id: "blade", title: "Melee slash", type: "blade", result: "hit", lt: 70 }
+  ];
+  var root = document.getElementById("boards");
+  panels.forEach(function (p) {
+    var fig = document.createElement("figure");
+    fig.innerHTML = '<figcaption></figcaption><canvas width="640" height="360"></canvas>';
+    fig.querySelector("figcaption").textContent = p.title;
+    fig.setAttribute("data-fx", p.id);
+    root.appendChild(fig);
+    p.canvas = fig.querySelector("canvas");
+  });
+  function wood(ctx, w, h) {
+    ctx.fillStyle = "#4a3424";
+    ctx.fillRect(0, 0, w, h);
+    for (var y = 0; y < h; y += 28) {
+      ctx.fillStyle = y % 56 ? "rgba(0,0,0,.12)" : "rgba(255,220,170,.05)";
+      ctx.fillRect(0, y, w, 28);
+    }
+    ctx.strokeStyle = "rgba(0,0,0,.28)";
+    ctx.lineWidth = 1;
+    for (var x = 0; x <= w; x += 64) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+    for (y = 0; y <= h; y += 64) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  }
+  function token(ctx, p, r, fill, label) {
+    ctx.save();
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = "#e2c56a"; ctx.stroke();
+    ctx.fillStyle = "#f6ecd6"; ctx.font = "700 14px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(label, p.x, p.y);
+    ctx.restore();
+  }
+  function geom(w, h, hidden) {
+    var S = { x: 130, y: h / 2 }, T = { x: w - 150, y: h / 2 };
+    var dir = FX.dirOf(S, T);
+    var A = hidden ? { x: S.x + 168, y: S.y } : { x: S.x + dir.x * 30, y: S.y + dir.y * 30 };
+    var B = { x: T.x - dir.x * 30, y: T.y - dir.y * 30 };
+    return { A: A, B: B, S: hidden ? null : S, T: T, rS: 28, rT: 28, cell: 64, dir: dir, srcHidden: !!hidden, _S: S };
+  }
+  function drawOne(p) {
+    var c = p.canvas, ctx = c.getContext("2d");
+    var w = c.width, h = c.height, g = geom(w, h, p.hidden);
+    wood(ctx, w, h);
+    if (!p.hidden) token(ctx, g._S, 28, "#6e2430", "B2");
+    token(ctx, g.T, 28, "#2f5f73", "JP");
+    if (p.hidden) {
+      var fogR = Math.hypot(g.A.x - g.T.x, g.A.y - g.T.y) + 8;
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,.82)";
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.beginPath(); ctx.arc(g.T.x, g.T.y, fogR, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(g.T.x, g.T.y, fogR, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    if (FX.enabled()) {
+      FX.paint(ctx, { type: p.type, result: p.result, seed: 7, weapon: p.title }, p.lt, g);
+    }
+  }
+  function drawAll() { panels.forEach(drawOne); }
+  var btn = document.getElementById("fxBtn");
+  function paintBtn() {
+    var on = FX.enabled();
+    btn.textContent = "Effects: " + (on ? "ON" : "OFF");
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+  btn.addEventListener("click", function () {
+    FX.setEnabled(!FX.enabled());
+    paintBtn();
+    drawAll();
+  });
+  FX.setEnabled(true);
+  paintBtn();
+  drawAll();
+  window.__fxSample = { drawAll: drawAll, panels: panels.map(function (p) { return p.id; }) };
+})();
+</script>
+</body>
+</html>
