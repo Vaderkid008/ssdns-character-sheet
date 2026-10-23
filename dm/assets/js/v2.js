@@ -8635,8 +8635,8 @@ function paintGunClock(list) {
   if (!ul) return;
   const rows = list || gunOverdueList();
   ul.innerHTML = rows.length
-    ? rows.map((r) => `<li><b>${esc(r.who)}</b> · ${esc(r.gun)} · ${r.days} campaign days</li>`).join("")
-    : '<li class="fine">None overdue.</li>';
+    ? rows.map((r) => `<li><b>${esc(r.who)}</b> · ${esc(r.gun)} · ${r.days} days since last clean — still not Dirty unless you Set Dirty</li>`).join("")
+    : '<li class="fine">None overdue. The clock does not set Dirty.</li>';
 }
 let gunClockBusy = false;
 function syncGunClock() {
@@ -8657,8 +8657,8 @@ function advanceCampaignDay() {
   const fresh = now.filter((g) => !before[g.key]);
   saveRemoteTable();
   paintGunClock(now);
-  if (fresh.length === 1) DM.toast(fresh[0].who + " · " + fresh[0].gun + " has not been cleaned in " + fresh[0].days + " campaign days");
-  else if (fresh.length) DM.toast(fresh.length + " guns have not been cleaned in 2 campaign days");
+  if (fresh.length === 1) DM.toast(fresh[0].who + " · " + fresh[0].gun + " · " + fresh[0].days + " days since last clean — still not Dirty unless you Set Dirty");
+  else if (fresh.length) DM.toast(fresh.length + " guns are 2 days since last clean — still not Dirty unless you Set Dirty");
   else DM.toast("Campaign day " + fight.campaignDay);
 }
 window.SSDNSGunClock = {

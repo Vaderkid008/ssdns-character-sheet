@@ -280,6 +280,7 @@
       return [{
         id: "dirty-kit",
         label: "Clean (removes Dirty, resets streak, clears jam)",
+        face: "Clean 10 min + kit/tools → Clear Dirty",
         cost: 0,
         clears: ["dirty", "jammed"],
         resetStreak: true
@@ -326,7 +327,7 @@
       var dlg = doc.createElement("dialog");
       dlg.className = "dlg clean-modal";
       var buttons = options.map(function (opt, n) {
-        return "<button type='button' class='btn' data-clean-opt='" + n + "'>" + String(opt.label || "").replace(/</g, "") + "</button>";
+        return "<button type='button' class='btn' data-clean-opt='" + n + "'>" + String(opt.face || opt.label || "").replace(/</g, "") + "</button>";
       }).join("");
       dlg.innerHTML = "<form method='dialog'><h2>Clean " + String(gunName || "gun").replace(/</g, "") + "</h2><p>Pick a method. Nothing changes until you do.</p><div class='clean-opts'>" + buttons + "</div><button type='button' class='btn' value='no'>Cancel</button></form>";
       var settled = false;

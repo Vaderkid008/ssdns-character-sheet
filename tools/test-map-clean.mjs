@@ -129,7 +129,7 @@ window.SSDNSMapHost.syncRoom();
 await flush(80);
 const mount = window.document.getElementById("mapMount");
 const mapBtn = mount.querySelector('[data-act="playerClean"]');
-check("map.shown", !!mapBtn && mapBtn.textContent === "Clean" && !mapBtn.disabled);
+check("map.shown", !!mapBtn && mapBtn.textContent === "Clean 10 min" && !mapBtn.disabled);
 check("map.first", mount.querySelector("[data-act=actionSlot] button").getAttribute("data-act") === "playerAttack");
 const cleanGun = c.guns[1];
 cleanGun.weapon = "henrietta-repeating-rifle";

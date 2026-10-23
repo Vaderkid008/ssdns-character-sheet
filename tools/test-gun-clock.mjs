@@ -23,7 +23,8 @@ const rules = read("database.rules.json");
 const rulesJs = read("assets/data/rules.js");
 const html = read("dm/index.html");
 
-check("src.clock", html.includes('id="gunClock"') && html.includes('id="btnCampaignDay"') && v2.includes("function advanceCampaignDay"));
+check("src.clock", html.includes('id="gunClock"') && html.includes("Gun care") && html.includes('id="btnCampaignDay"') && v2.includes("function advanceCampaignDay"));
+check("src.labels", html.includes("quicksand") && html.includes("does not set Dirty") && html.includes("Fouled is separate") && v2.includes("days since last clean — still not Dirty unless you Set Dirty"));
 check("src.noAutoDirty", !/advanceCampaignDay[\s\S]{0,500}\.dirty\s*=\s*true/.test(v2));
 check("src.silentSet", v2.includes("const settingDirty = op === \"dirty\"") && v2.includes("if (settingDirty) payloadO.quiet = true") && v2.includes("if (!settingDirty)"));
 check("src.playerQuiet", join.includes("if (root.SSDNSSheet && !payload.quiet)"));
@@ -108,9 +109,9 @@ check("advance.one", clock.day() === 2 && clock.overdue().length === 0 && !gun.d
 clock.advance();
 const late = clock.overdue();
 check("advance.two", clock.day() === 3 && late.length === 2 && late.every((g) => g.days === 2) && !gun.dirty && !atk.dirty, JSON.stringify(late));
-check("advance.toast", toasts.some((t) => /not been cleaned in 2 campaign days|has not been cleaned/.test(t)) && ledgers.length === 0, JSON.stringify({ toasts, ledgers }));
+check("advance.toast", toasts.some((t) => /days since last clean — still not Dirty unless you Set Dirty/.test(t)) && ledgers.length === 0, JSON.stringify({ toasts, ledgers }));
 const list = bag.gunClockList.innerHTML;
-check("paint.names", list.includes("Caleb") && list.includes("Peacemaker") && list.includes("Bandit") && list.includes("Revolver"), list);
+check("paint.names", list.includes("Caleb") && list.includes("Peacemaker") && list.includes("Bandit") && list.includes("Revolver") && list.includes("2 days since last clean — still not Dirty unless you Set Dirty"), list);
 
 clock.stamp(clock.playerKey("pc1", 0));
 sandbox.__fight.renderFight();
