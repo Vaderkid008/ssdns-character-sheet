@@ -1029,7 +1029,7 @@ body.map-fullscreen #mapMount > .ssm-drawer {
   bottom: auto;
   z-index: 3;
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: center;
   overflow: hidden; /* the chip lane scrolls; Next / Undo / End combat stay in view */
@@ -1037,7 +1037,7 @@ body.map-fullscreen #mapMount > .ssm-drawer {
   background: #16130f;
   border: 2px solid #3fbf9a;
   border-radius: 10px;
-  padding: 4px 8px;
+  padding: 8px 8px;
   -webkit-overflow-scrolling: touch;
 }
 .ssm-turnstrip[hidden] { display: none !important; }
@@ -1051,7 +1051,7 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
   max-width: none;
   background: #16130f;
 }
-.ssm-turnstrip .turn-chip { cursor: pointer; flex: 0 0 auto; height: 26px; gap: 4px; padding: 0 7px 0 2px; font-size: 12px; line-height: 1; border-radius: 999px; }
+.ssm-turnstrip .turn-chip { cursor: pointer; flex: 0 0 auto; height: 26px; min-height: 0; gap: 4px; padding: 0 7px 0 2px; font-size: 12px; line-height: 1; border-radius: 999px; }
 .ssm-turnstrip .turn-chip .chip-face { width: 20px; height: 20px; font-size: 9px; }
 .ssm-turnstrip .turn-chip .chip-name { max-width: 8.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ssm-turnstrip .turn-chip.current { box-shadow: 0 0 0 2px #e2c56a; opacity: 1; }
@@ -1069,12 +1069,15 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
    after the lane, so they stay pinned on the right. Past about 6, chips shrink to initials + a short name. */
 .ssm-turnstrip .ssm-strip-chips {
   display: flex;
-  flex: 1 1 auto;
-  min-width: 0;
+  /* Keep enough width for the current chip plus its 2px gold ring. Otherwise Next / Undo / End
+     squeeze this lane to its padding and overflow:auto clips the ring (and the chips). */
+  flex: 1 1 180px;
+  min-width: 180px;
   align-items: center;
   gap: 6px;
   overflow-x: auto;
   flex-wrap: nowrap;
+  padding: 3px 2px;
   -webkit-overflow-scrolling: touch;
 }
 .ssm-turnstrip .btn-next,

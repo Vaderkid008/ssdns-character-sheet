@@ -1120,7 +1120,7 @@ select:-webkit-autofill {
    Fight-tab cards and the other pages keep their own layout. */
 #turnStrip.turn-strip {
   display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
-  margin: 0 0 12px; padding: 4px 8px; overflow: hidden;
+  margin: 0 0 12px; padding: 8px 8px; overflow: hidden;
   background: #16130f; color: #efe6d4; border: 2px solid #3fbf9a; border-radius: 10px;
 }
 #turnStrip .turn-round { flex: none; font-family: var(--label); font-size: 12px; letter-spacing: .04em; color: #e2c56a; white-space: nowrap; font-weight: 600; }
@@ -1136,11 +1136,11 @@ select:-webkit-autofill {
 #turnStrip .turn-scroll[hidden] { display: none; }
 #turnStrip .turn-order-strip {
   flex: 1 1 auto; min-width: 0; display: flex; gap: 4px; align-items: center; overflow-x: auto;
-  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  padding: 3px 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch;
 }
 #turnStrip .turn-order-strip::-webkit-scrollbar { display: none; }
 #turnStrip .turn-chip {
-  flex: none; height: 26px; gap: 4px; padding: 0 7px 0 2px; border-width: 1px; border-radius: 999px;
+  flex: none; height: 26px; min-height: 0; gap: 4px; padding: 0 7px 0 2px; border-width: 1px; border-radius: 999px;
   font-size: 12px; line-height: 1; flex-wrap: nowrap; overflow: hidden;
 }
 #turnStrip .turn-chip.current { box-shadow: 0 0 0 2px #e2c56a; border-radius: 999px; flex-wrap: nowrap; opacity: 1; }
