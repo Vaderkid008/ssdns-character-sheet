@@ -3476,24 +3476,32 @@ function setDmEdit(on) {
   paintDmEdit();
   requestDraw();
 }
+function linkedIdForRow(row) {
+  if (!row || row.kind === 'player' || !row.id) return '';
+  if (row.mapTokenId) return row.mapTokenId;
+  if (typeof host.linkedTokenId !== 'function') return '';
+  try { return host.linkedTokenId(row.id) || ''; } catch (e) { return ''; }
+}
 function rowForToken(token) {
-  const T = window.SSDNSTurn;
   const order = (state.initiative && state.initiative.order) || [];
   if (!token) return null;
   return order.find(row => row && (
     (token.combatantId && token.combatantId === row.id) ||
     token.id === row.id ||
     (row.mapTokenId && token.id === row.mapTokenId) ||
+    (linkedIdForRow(row) && token.id === linkedIdForRow(row)) ||
     (row.playerId && token.ownerUid === row.playerId) ||
     (row.kind === 'player' && row.id && token.ownerUid === row.id)
-  )) || (T && T.current ? null : null);
+  )) || null;
 }
 function tokenForRow(row) {
   if (!row) return null;
+  const linked = linkedIdForRow(row);
   return state.tokens.find(t => t && t.pos && (
     (t.combatantId && t.combatantId === row.id) ||
     t.id === row.id ||
     (row.mapTokenId && t.id === row.mapTokenId) ||
+    (linked && t.id === linked) ||
     (row.playerId && t.ownerUid === row.playerId) ||
     (row.kind === 'player' && row.id && t.ownerUid === row.id)
   )) || null;
@@ -3690,6 +3698,38 @@ function commitWalk(mover, built, budget) {
   state.moveReachKey = '';
   requestDraw();
 }
+function currentFightRow() {
+  const T = window.SSDNSTurn;
+  if (T && T.current && state.initiative) {
+    const row = T.current(state.initiative);
+    if (row) return row;
+  }
+  const order = (state.initiative && state.initiative.order) || [];
+  const turn = (state.initiative && state.initiative.turn) || 0;
+  return order[turn] || null;
+}
+function drawerIsCurrentEnemy(tokenId) {
+  if (role !== 'dm' || !fightOn() || !tokenId) return false;
+  const row = currentFightRow();
+  if (!row || row.kind === 'player') return false;
+  const token = tokenForRow(row);
+  if (token && token.id === tokenId) return true;
+  const cid = tokenCombatant(tokenId);
+  return cid === row.id || tokenId === row.id || (!!row.mapTokenId && tokenId === row.mapTokenId);
+}
+/* B3: say why the walk stopped. Players keep the older sentence. */
+function dmFeetToast(budget, mover) {
+  const row = currentFightRow();
+  const name = (budget && budget.name) || (row && (row.name || row.id)) || 'this combatant';
+  if (!mover || (budget && budget.unlinked) || (budget && budget.active === false)) {
+    return "This token isn't linked to " + name + " in the turn order. Link it, or turn on Edit tokens.";
+  }
+  const speed = Number(budget && budget.speed);
+  if (!(speed > 0)) return 'Speed 0 ft. Set a speed on the token.';
+  const max = budget.max != null ? budget.max : speed;
+  const used = budget.used != null ? budget.used : Math.max(0, max - (budget.left || 0));
+  return 'No movement left (' + used + '/' + max + ' used). Dash, or the DM can give feet back.';
+}
 function tryClickMove(cell) {
   const M = moveApi();
   if (!M || !cell || !state.scene) return false;
@@ -3699,12 +3739,16 @@ function tryClickMove(cell) {
   const mover = activeMover();
   if (!mover) {
     if (fightOn() && role === 'player') toast("It isn't your turn. Your token moves on your turn.");
+    else if (fightOn() && role === 'dm') {
+      const row = currentFightRow();
+      if (row && row.kind !== 'player' && !tokenForRow(row)) toast(dmFeetToast({ unlinked: true, name: row.name || row.id || '' }, null));
+    }
     return false;
   }
   if (tokenSliding(mover.id)) return true;
   const budget = budgetFor(mover);
   if (!budget.free && budget.left <= 0) {
-    if (role === 'dm') toastDmEditHint();
+    if (role === 'dm') toast(dmFeetToast(budget, mover));
     else toast('No movement left this turn' + (budget.dash ? '.' : '. Dash uses your Action to double it.'));
     return true;
   }
@@ -6886,7 +6930,7 @@ async function loadSceneImage(sceneId, opts) {
     on(d, 'pointercancel', endDrag);
     on(d, 'click', (e) => {
       /* turn order PR 2 (items 8, 9): the DM page's own handler changes the player's markers; repaint after it */
-      const pip = e.target.closest && e.target.closest('[data-dm-pip], [data-pip-reset]');
+      const pip = e.target.closest && e.target.closest('[data-dm-pip], [data-pip-reset], [data-dm-move], [data-dm-act]');
       if (pip && d.contains(pip)) { setTimeout(() => renderDrawer(), 30); return; }
       const btn = e.target.closest && e.target.closest('[data-act="drawerReset"]');
       if (!btn || !d.contains(btn)) return;
@@ -7091,10 +7135,22 @@ async function loadSceneImage(sceneId, opts) {
     const actToggle = isPc
       ? '<label class="ssm-act"><input type="checkbox" data-act="actFor"' + (card.dmActsAs ? ' checked' : '') + '> Act for player</label>'
       : '';
-    /* turn order PR 2 (items 8, 9): a player's Action / Bonus / R (tap to change) and Reset, from the DM page */
-    const markerRow = isPc && window.DMCCEnhance && typeof window.DMCCEnhance.mapMarkersHtml === 'function'
-      ? (window.DMCCEnhance.mapMarkersHtml(tokenCombatant(tokenId)) || '')
-      : '';
+    /* turn order PR 2 (items 8, 9) plus B3: the current enemy's Action / Bonus / R and Move, same store as the DM strip */
+    let markerRow = '';
+    if ((isPc || drawerIsCurrentEnemy(tokenId)) && window.DMCCEnhance && typeof window.DMCCEnhance.mapMarkersHtml === 'function') {
+      markerRow = window.DMCCEnhance.mapMarkersHtml(tokenCombatant(tokenId)) || '';
+      if (!markerRow && !isPc) {
+        const row = currentFightRow();
+        if (row && row.id) markerRow = window.DMCCEnhance.mapMarkersHtml(row.id) || '';
+      }
+    }
+    const speedNum = (() => {
+      const n = parseInt(card.speed, 10);
+      return isFinite(n) && n >= 0 ? n : 30;
+    })();
+    const speedBit = isPc
+      ? esc(speedLabel(card.speed))
+      : '<label class="ssm-act ssm-speed">Speed <input data-act="enemySpeed" type="number" min="0" step="5" value="' + speedNum + '" aria-label="Speed in feet"> ft</label>';
     const coverKey = (window.SSDNSApplied && window.SSDNSApplied.coverKey)
       ? window.SSDNSApplied.coverKey(card.cover)
       : (card.cover || '');
@@ -7111,7 +7167,7 @@ async function loadSceneImage(sceneId, opts) {
       '<div class="ssm-drawer-body">' +
       pendingBannerHtml(tokenId) +
       '<div>AC ' + esc(card.ac != null ? card.ac : '—') + (noHpPool ? ' · No HP pool' : ' · HP ' + esc(hp.cur != null ? hp.cur : '—') + '/' + esc(hp.max != null ? hp.max : '—')) +
-      (hp.temp ? ' (+' + esc(hp.temp) + ')' : '') + ' · ' + esc(speedLabel(card.speed)) + '</div>' +
+      (hp.temp ? ' (+' + esc(hp.temp) + ')' : '') + ' · ' + speedBit + '</div>' +
       hpBar +
       deathLine +
       markerRow +
@@ -7271,6 +7327,12 @@ async function loadSceneImage(sceneId, opts) {
     });
     const actBox = d.querySelector('[data-act="actFor"]');
     if (actBox) actBox.addEventListener('change', () => emit('drawer:act', detail({ on: !!actBox.checked })));
+    const speedBox = d.querySelector('[data-act="enemySpeed"]');
+    if (speedBox) speedBox.addEventListener('change', () => {
+      const n = parseInt(speedBox.value, 10);
+      if (!isFinite(n) || n < 0) { speedBox.value = String(speedNum); return; }
+      emit('drawer:speed', detail({ speed: n }));
+    });
     const coverPick = d.querySelector('[data-act="coverPick"]');
     const coverLock = d.querySelector('[data-act="coverLock"]');
     const emitCover = () => emit('drawer:cover', detail({
@@ -7784,7 +7846,15 @@ return {
   requestDraw,
   refreshCard,
   refreshStrip: fillStripMarkers,
-  refreshMove: function () { state.moveHover = null; state.moveReachKey = ''; requestDraw(); },
+  refreshMove: function () {
+    state.moveHover = null;
+    state.moveReachKey = '';
+    if (role === 'dm') {
+      try { fillStripMarkers(); } catch (e) {}
+      if (state.drawerOpen) { try { renderDrawer(); } catch (e2) {} }
+    }
+    requestDraw();
+  },
   feetBetween: function (idA, idB) {
     return feetBetween(tokenByRef(idA), tokenByRef(idB));
   },

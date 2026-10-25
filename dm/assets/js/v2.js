@@ -200,6 +200,8 @@ function captureSecrets() {
       ? window.SSDNSApplied.secretEnemy(Object.assign({}, row, { dcs: window.SSDNSApplied.dcLines ? window.SSDNSApplied.dcLines(row.card) : null }))
       : { name: row.name, ac: row.ac, hp: row.hp, maxHp: row.maxHp, reveal: revealOf(row) };
     if (row.mapTokenId) secret.mapTokenId = String(row.mapTokenId);
+    /* B3: a DM speed edit lives on the fight row. The public turn order does not carry it, so the DM secret keeps it. */
+    if (row.speed != null && row.speed !== "") secret.speed = row.speed;
     secret.mapHidden = !!row.mapHidden;
     /* map token guns: the token's last-used weapon rides in the DM-only encounter/dm copy (players never read it) */
     if (row.lastWeaponId) secret.lastWeaponId = String(row.lastWeaponId);
@@ -212,6 +214,7 @@ function restoreSecrets() {
     if (!secret || row.kind === "player") return;
     if (secret.name) row.name = secret.name;
     if (secret.mapTokenId) row.mapTokenId = secret.mapTokenId;
+    if (secret.speed != null && secret.speed !== "") row.speed = secret.speed;
     ["ac", "hp", "maxHp", "dex", "atkBonus"].forEach((key) => {
       if (secret[key] != null && secret[key] !== "") row[key] = secret[key];
     });
@@ -1300,7 +1303,7 @@ function renderFight() {
         return `<div class="turn-chip${current}${ondeck}${later}${side}" role="listitem">${face}${guns}</div>`;
       }).join("");
       /* T1 (turn order PR 1): one Next per surface. The Fight tab's Next is the DMCC's; this Table-tab strip shows the order only.
-         0.2.135: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
+         0.2.136: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
       const badge = cur ? `<b class="dm-turn-now">${esc(cur.name || "Their turn")}</b>` : "";
       strip.innerHTML = `<b class="turn-round">Round ${esc(fight.round || 1)}</b>${badge}` +
         `<button type="button" class="turn-scroll" data-dm-scroll="-1" aria-label="Scroll the turn order left" hidden>\u2039</button>` +
@@ -1901,7 +1904,7 @@ function markerExtrasHtml(row, m, opts) {
   const flags = ["dash", "disengage", "dodge"].filter((k) => m[k]).map((k) => `<span class="badge eld">${k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge")}</span>`).join("");
   return move + flags;
 }
-/* DM strip (0.2.135): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
+/* DM strip (0.2.136): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
    Dash / Disengage / Dodge are a read-out of flags the sheet already stores. Nothing new is spent from here. */
 function stripActsHtml(row) {
   const got = turnMarkersFor(row);
@@ -2260,11 +2263,13 @@ function adjustEnemyMove(delta) {
   const cur = fight.started ? fight.order[fight.turn] : null;
   if (!T || !cur || cur.kind === "player") return;
   const m = enemyMarkersNow(cur);
-  const mv = T.moveLeft(m, combatantSpeed(cur));
+  const sp = combatantSpeed(cur);
+  const mv = T.moveLeft(m, sp);
   let d = parseInt(delta, 10) || 0;
+  if ((parseInt(delta, 10) || 0) > 0 && sp <= 0) { DM.toast("Speed 0 ft. Set a speed on the token."); return; }
   if (d > 0) d = Math.min(d, mv.left);
   if (d < 0) d = -Math.min(-d, mv.used);
-  if (!d) { DM.toast(d === 0 && mv.left <= 0 && (parseInt(delta, 10) || 0) > 0 ? "No movement left this turn" : "Movement unchanged"); return; }
+  if (!d) { DM.toast(d === 0 && mv.left <= 0 && (parseInt(delta, 10) || 0) > 0 ? ("No movement left (" + mv.used + "/" + mv.max + " used). Dash, or the DM can give feet back.") : "Movement unchanged"); return; }
   m.moveUsed = Math.max(0, (parseInt(m.moveUsed, 10) || 0) + d);
   fight.markers = Object.assign({}, fight.markers || {}, { [cur.id]: m });
   saveRemoteTable();
@@ -2301,22 +2306,69 @@ function toggleEnemyAct(kind) {
   renderFight();
   if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
 }
+/* B3: the map already picked this token as the active mover (tokenForRow). If the fight row
+   does not match yet, use that row's speed anyway. Link an enemy token on the spot.
+   Never relink a player token (kind === "player", or a token that already has an owner). */
+function moverRowForToken(token) {
+  if (!fight.started) return null;
+  const cur = fight.order[fight.turn] || null;
+  if (!cur) return null;
+  if (!token || tokenIsRow(token, cur)) return cur;
+  if (cur.kind === "player" || token.kind === "player" || token.ownerUid) return null;
+  const stolen = (fight.order || []).some((r) => r && r !== cur && tokenIsRow(token, r));
+  if (stolen) return null;
+  if (!cur.id || !token.id) return cur;
+  let taken = !!(cur.mapTokenId && cur.mapTokenId !== token.id && tokenStillThere(cur.mapTokenId));
+  const host = window.SSDNSMapHost;
+  if (!taken && host && typeof host.tokenForCombatant === "function") {
+    let had = null;
+    try { had = host.tokenForCombatant(cur.id); } catch (e) { had = null; }
+    if (had && had.id && had.id !== token.id) taken = true;
+  }
+  if (taken) return cur;
+  let changed = false;
+  if (token.combatantId !== cur.id) { token.combatantId = cur.id; changed = true; }
+  if (cur.mapTokenId !== token.id) { cur.mapTokenId = token.id; changed = true; }
+  if (changed && host && typeof host.patchToken === "function") {
+    try { host.patchToken(token.id, { combatantId: cur.id }); } catch (e) {}
+  }
+  if (changed) saveRemoteTable();
+  return cur;
+}
 function movementBudgetForToken(token) {
   const T = window.SSDNSTurn;
-  if (!T || !fight.started) return { free: true, active: false, left: 100000, max: 100000, speed: 0, dash: false, disengage: false };
-  const cur = fight.order[fight.turn] || null;
-  if (!cur || (token && !tokenIsRow(token, cur))) return { free: false, active: false, left: 0, max: 0, speed: 0, dash: false, disengage: false };
+  if (!T || !fight.started) return { free: true, active: false, left: 100000, max: 100000, speed: 0, dash: false, disengage: false, unlinked: false };
+  const cur = moverRowForToken(token);
+  if (!cur) {
+    const shown = fight.order[fight.turn] || null;
+    return { free: false, active: false, left: 0, max: 0, speed: 0, dash: false, disengage: false, unlinked: true, name: (shown && shown.name) || "" };
+  }
   const got = turnMarkersFor(cur);
   const sp = combatantSpeed(cur);
   const mv = T.moveLeft(got && got.m, sp);
-  return { free: false, active: true, left: mv.left, max: mv.max, speed: sp, dash: !!(got && got.m && got.m.dash), disengage: !!(got && got.m && got.m.disengage), combatantId: cur.id, kind: cur.kind };
+  return { free: false, active: true, left: mv.left, max: mv.max, speed: sp, used: mv.used, dash: !!(got && got.m && got.m.dash), disengage: !!(got && got.m && got.m.disengage), unlinked: false, combatantId: cur.id, kind: cur.kind, name: cur.name || "" };
+}
+function setEnemySpeed(detail) {
+  detail = detail || {};
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No card linked"); return false; }
+  const row = fight.order[i];
+  if (!row || row.kind === "player") return false;
+  const n = parseInt(detail.speed, 10);
+  if (!isFinite(n) || n < 0) { DM.toast("Speed needs a number of feet"); return false; }
+  row.speed = n;
+  saveRemoteTable();
+  renderFight();
+  if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
+  DM.toast((row.name || "Enemy") + " speed is " + n + " ft");
+  return true;
 }
 function spendMoveForToken(token, feet) {
   const T = window.SSDNSTurn;
   const n = parseInt(feet, 10) || 0;
   if (!T || !n || !fight.started) return false;
-  const cur = fight.order[fight.turn] || null;
-  if (!cur || (token && !tokenIsRow(token, cur))) return false;
+  const cur = moverRowForToken(token);
+  if (!cur) return false;
   if (cur.kind === "player") {
     const pid = cur.playerId || cur.id;
     const m = playerMarkers(pid);
@@ -6955,14 +7007,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.135-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.136-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.135-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.136-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -7118,6 +7170,12 @@ async function bootV2() {
     heldOutOfTurn: heldOutOfTurn,
     heldHits: function () { return Object.assign({}, fight.held || {}); },
     mapMarkersHtml: mapMarkersHtml,
+    linkedTokenId: function (id) {
+      const row = (fight.order || []).find((r) => r && r.id === id && r.kind !== "player");
+      return (row && row.mapTokenId) || "";
+    },
+    setEnemySpeed: setEnemySpeed,
+    moverRowForToken: moverRowForToken,
     spendEnemyPip: spendEnemyPip,
     resetEnemyMarkers: resetEnemyMarkers,
     enemyAttackLimit: enemyAttackLimit,
@@ -8881,12 +8939,13 @@ window.SSDNSMapFight = {
     return true;
   },
   link(detail) { return linkMapToken(detail); },
+  speed(detail) { return setEnemySpeed(detail); },
   placeBeast(detail) { return mapPlaceBeast(detail); },
   onTokenRemoved(detail) { unlinkMapToken(detail); },
   syncMap() { syncMapTokens(); }
 };
 
-/* Dirty-gun tracker (sheet 0.3.122 / DMCC 0.2.135). The DM advances a room campaign day.
+/* Dirty-gun tracker (sheet 0.3.123 / DMCC 0.2.136). The DM advances a room campaign day.
    A gun not cleaned in 2 campaign days is listed here. Nothing auto-dirties the gun, and the list is DM-only. */
 function campaignDayNow() {
   const n = parseInt(fight.campaignDay, 10);

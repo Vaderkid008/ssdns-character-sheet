@@ -1,5 +1,5 @@
 /**
- * Map attack FX sample page (sheet 0.3.122 / DMCC 0.2.135).
+ * Map attack FX sample page (sheet 0.3.123 / DMCC 0.2.136).
  * A frozen review of the live painters: revolver, buckshot, hidden shooter, arrow, melee, and the Effects toggle.
  *   node tools/test-fx-sample.mjs
  */
@@ -26,7 +26,7 @@ const rulesJs = read("assets/data/rules.js");
 check("page.paint", page.includes("FX.paint(") && page.includes("srcHidden") && page.includes('data-act="fxBtn"'));
 check("page.toggle", page.includes("FX.setEnabled(!FX.enabled())") && page.includes("FX.enabled()"));
 check("page.hiddenNoMuzzle", page.includes("hidden: true") && fx.includes("if (g.srcHidden) edgeGlow"));
-check("src.rulesUntouched", !rules.includes("fx-sample") && !rulesJs.includes("0.3.122") && !rules.includes('"fx"'));
+check("src.rulesUntouched", !rules.includes("fx-sample") && !rulesJs.includes("0.3.123") && !rules.includes('"fx"'));
 check("src.muzzleHolds", /clamp\(lt \/ 200\)/.test(fx));
 
 if (failures.length) {
