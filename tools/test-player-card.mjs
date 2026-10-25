@@ -105,7 +105,7 @@ const pl = w.SSDNSMap.create({
 });
 await flush(40);
 const text = plEl.textContent;
-check("card.tools", !!act(plEl, "playerPingBtn") && !act(plEl, "playerGhostBtn") && !act(plEl, "playerCancelBtn") && !!act(plEl, "showRange") && !!act(plEl, "showMoveReach") && act(plEl, "showMoveReach").checked);
+check("card.tools", !!act(plEl, "playerPingBtn") && !act(plEl, "playerGhostBtn") && !act(plEl, "playerCancelBtn") && !!act(plEl, "showRange") && !act(plEl, "showMoveReach"));
 check("card.settings", !!act(plEl, "playerSettings") && !act(plEl, "playerSettings").open && !!act(plEl, "playerLabel") && !!act(plEl, "playerColorBtn") && !!act(plEl, "playerHiddenBtn"));
 check("card.clean", text.includes("Blacksnake +6 1d6 +3 piercing [3/6]") && text.includes("Lancaster Heavy Saddle Carbine +4 1d6 +1 piercing [0/8]") && text.includes("Bowie knife +5 1d4 +3 slashing") && !text.includes("Not sold") && !text.includes("6,000") && !text.includes("Melee 1") && !/· Cast/.test(text), text.replace(/\s+/g, " ").slice(0, 400));
 const first = act(plEl, "actionSlot").querySelector("button");

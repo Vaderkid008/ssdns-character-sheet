@@ -17,7 +17,7 @@
   var EXTRA_ATTACK = "button[data-fan], #btnOffhand";
   var SPELL = "button[data-cast], button[data-spell-cast], #btnHexRoll, #btnPactShot";
   var GEAR = "button[data-reload], button[data-unload], button[data-tr], button[data-clean], button[data-unjam], button[data-reopen], button[data-item-use]";
-  var OTHER = "#btnTakeCover, #btnMercy, #btnDeathSave, #btnRage, button[data-tl-move], button[data-tl-act]";
+  var OTHER = "#btnTakeCover, #btnMercy, #btnDeathSave, #btnRage, button[data-tl-move], button[data-tl-movemode], button[data-tl-act]";
   var ALL = [ATTACK, EXTRA_ATTACK, SPELL, GEAR, OTHER].join(", ");
   var NOT_TURN = "It isn't your turn. This unlocks on your turn (or when the DM unlocks it).";
 
@@ -135,8 +135,9 @@
     var p = P();
     var open = !locked();
     var pips = p && p.html ? p.html().replace('<span class="pip-label">This turn</span>', "") : "";
+    var moveOn = !!(root.SSDNSMoveMode && root.SSDNSMoveMode.isOn && root.SSDNSMoveMode.isOn());
     var h = '<span class="tl-box" data-turn-tracker>' + pips.replace('class="act-pips"', 'class="act-pips tl-pips"') +
-      '<span class="tl-move" data-tl-left="' + mv.left + '" title="Feet of movement left this turn (Speed ' + speed() + ' ft' + (m.dash ? ", doubled by Dash" : "") + '). It refills at the start of your own turn.">Move <b>' + mv.left + '</b>/' + mv.max + ' ft</span>' +
+      '<button type="button" class="tl-move' + (moveOn ? " is-on" : "") + '" data-tl-movemode data-tl-left="' + mv.left + '" aria-pressed="' + (moveOn ? "true" : "false") + '" title="Move mode. Click to show your reach and walk. Click again, Esc, or right-click to leave. Feet left this turn (Speed ' + speed() + ' ft' + (m.dash ? ", doubled by Dash" : "") + '). It refills at the start of your own turn.">Move <b>' + mv.left + '</b>/' + mv.max + ' ft</button>' +
       '<button type="button" class="btn xs tl-step" data-tl-move="5" title="I moved 5 ft">−</button>' +
       '<button type="button" class="btn xs tl-step" data-tl-move="-5" title="Give back 5 ft">+</button>' +
       '<span class="tl-acts">' + ['dash', 'disengage', 'dodge'].map(function (k) {

@@ -104,9 +104,10 @@ const dmSrc = fs.readFileSync(path.join(root, "dm/assets/js/v2.js"), "utf8");
 check("dm.enemyMapStrip", dmSrc.indexOf("Enemy turn on the DM map") >= 0 && dmSrc.indexOf("function spendMoveForToken") >= 0 && dmSrc.indexOf("return true;") >= 0);
 const paintReach = mapSrc.slice(mapSrc.indexOf("function paintMoveReach"), mapSrc.indexOf("function paintMoveHover"));
 const clickMove = mapSrc.slice(mapSrc.indexOf("function tryClickMove"), mapSrc.indexOf("function paintMoveReach"));
-check("reach.toggle", mapSrc.includes('data-act="showMoveReach"') && mapSrc.includes("Show move reach") && mapSrc.includes("showMoveReach: true"));
-check("reach.hidesFill", paintReach.includes("showMoveReach === false"));
-check("reach.rulesStay", clickMove.indexOf("showMoveReach") < 0);
+check("reach.retired", !mapSrc.includes("showMoveReach") && !mapSrc.includes("Show move reach") && !mapSrc.includes("drawerMoveReach"));
+check("move.defaultOff", mapSrc.includes("moveMode: false"));
+check("move.gateClick", /if \(dmEditing\(\)\) return false;\n  \/\* B13:[\s\S]{0,160}if \(fightOn\(\) && !state\.moveMode\) return false;/.test(clickMove));
+check("move.greenOnly", paintReach.includes("if (!state.moveMode) return;"));
 check("rules.untouched", !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("ssdns-map-move"));
 
 const moveSrc = fs.readFileSync(path.join(root, "map/ssdns-map-move.js"), "utf8");

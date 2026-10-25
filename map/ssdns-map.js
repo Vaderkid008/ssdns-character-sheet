@@ -58,6 +58,48 @@ window.SSDNSTokenBorder = (function () {
   }
   return { side: side, paint: paint };
 })();
+/* B13: Move mode is page-wide so the strip can toggle it before the map finishes booting.
+   Default off. In a fight, green reach and click-to-walk follow this flag. Outside a fight
+   the map still click-walks and this flag does not gate it. */
+window.SSDNSMoveMode = (function () {
+  var on = false;
+  function paint() {
+    if (typeof document === "undefined") return;
+    var nodes = document.querySelectorAll("[data-tl-movemode]");
+    var i;
+    for (i = 0; i < nodes.length; i++) {
+      nodes[i].classList.toggle("is-on", on);
+      nodes[i].setAttribute("aria-pressed", on ? "true" : "false");
+    }
+  }
+  function emit(why) {
+    paint();
+    try {
+      window.dispatchEvent(new CustomEvent("ssdns:move-mode", { detail: { on: on, why: why || "" } }));
+    } catch (e) {}
+  }
+  function set(next, why) {
+    next = !!next;
+    if (next === on) return on;
+    on = next;
+    emit(why || "set");
+    return on;
+  }
+  if (typeof document !== "undefined") {
+    document.addEventListener("click", function (e) {
+      var t = e.target && e.target.closest && e.target.closest("[data-tl-movemode]");
+      if (!t) return;
+      if (t.getAttribute("aria-disabled") === "true" || t.classList.contains("turn-locked")) return;
+      e.preventDefault();
+      set(!on, "toggle");
+    }, true);
+  }
+  return {
+    isOn: function () { return on; },
+    set: set,
+    toggle: function () { return set(!on, "toggle"); }
+  };
+})();
 window.SSDNSMap = { create(opts) {
   const el = opts.el;
   if (!el) throw new Error('SSDNSMap: el required');
@@ -345,8 +387,9 @@ const state = {
   showRange: false,
   /* Yellow bright / blue dim / gray darkvision measurement strokes. Off: lighting wash and FOV stay, the rings do not. DM only. */
   showLightRings: false,
-  /* Green movement wash. On by default in a fight. The checkbox only hides the fill; Move feet still limit the walk. */
-  showMoveReach: true,
+  /* B13: in a fight, green reach and click-to-walk are off until the strip Move chip is on.
+     Outside a fight this flag is ignored and click-to-move stays free. Edit tokens bypasses it. */
+  moveMode: false,
   /* DM "Edit tokens". Off by default. Persisted only for the DM role (ssdns.map.dmEdit). */
   dmEdit: false,
   rangeWeaponId: "",
@@ -363,6 +406,7 @@ const state = {
   chat: [],
   initiative: null
 };
+if (window.SSDNSMoveMode && window.SSDNSMoveMode.isOn()) state.moveMode = true;
 /* DM-only. A player map never reads this key, even if the same browser stored it. */
 if (role === 'dm') {
   try { state.dmEdit = localStorage.getItem('ssdns.map.dmEdit') === '1'; } catch (e) {}
@@ -427,6 +471,18 @@ on(document, 'keydown', e => {
     e.preventDefault();
     cancelPendingTarget();
     return;
+  }
+  /* B13: Esc leaves Move mode even when the strip, not the canvas, has focus. A fog polygon
+     in progress and a text field keep Esc for themselves. */
+  if (e.key === 'Escape' && state.moveMode && fightOn()) {
+    const tag = e.target && e.target.tagName;
+    const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+    const poly = role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly' && state.polyPoints && state.polyPoints.length;
+    if (!typing && !poly) {
+      e.preventDefault();
+      if (window.SSDNSMoveMode) window.SSDNSMoveMode.set(false, 'esc');
+      return;
+    }
   }
   if (!el.matches(':hover') && !el.contains(e.target)) return;
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
@@ -847,7 +903,6 @@ if (role === 'dm') {
     <div class="panel-title">Selected</div>
     <div data-act="targetList" class="panel-list">None</div>
     <label class="ssm-range"><input type="checkbox" data-act="showRange"> Show range</label>
-    <label class="ssm-range"><input type="checkbox" data-act="showMoveReach" checked> Show move reach</label>
     <select data-act="rangeWeapon" aria-label="Token weapon" hidden></select>
     <input data-act="dmLabel" placeholder="Label" style="width:100%;background:#3a3228;color:#e8dcc8;border:1px solid #5a4e40;border-radius:4px;padding:4px;">
     <div class="panel-title">Actions</div>
@@ -898,7 +953,6 @@ if (role === 'dm') {
         <button type="button" data-act="addMineBtn" hidden>Add my token</button>
       </div>
       <label class="ssm-range"><input type="checkbox" data-act="showRange"> Show my range</label>
-      <label class="ssm-range"><input type="checkbox" data-act="showMoveReach" checked> Show move reach</label>
       <select data-act="rangeWeapon" aria-label="Equipped weapon" hidden></select>
       <div class="ssm-stat" data-act="playerStats"></div>
       <div data-act="actionSlot"></div>
@@ -1807,24 +1861,6 @@ function onRangeToggle(on) {
   const choices = state.rangeChoices || [];
   if (state.showRange && !choices.length) toast(role === 'player' ? 'No equipped weapon' : 'No equipped weapon on this token');
   requestDraw();
-}
-function paintMoveReachToggle() {
-  const on = state.showMoveReach !== false;
-  [q('showMoveReach'), q('drawerMoveReach')].forEach(box => {
-    if (box && box.checked !== on) box.checked = on;
-  });
-}
-function onMoveReachToggle(on) {
-  state.showMoveReach = !!on;
-  paintMoveReachToggle();
-  requestDraw();
-}
-function bindMoveReachUi() {
-  const box = q('showMoveReach');
-  if (!box || box.dataset.bound) return;
-  box.dataset.bound = '1';
-  box.checked = state.showMoveReach !== false;
-  box.addEventListener('change', () => onMoveReachToggle(box.checked));
 }
 function bindRangeUi() {
   const box = q('showRange');
@@ -3591,6 +3627,55 @@ function clearMovePreview() {
   if (state.moveConfirm) state.moveConfirm.pending = null;
   requestDraw();
 }
+/* Right-click leaves Move mode during a fight. Outside a fight it only clears the path preview. */
+function cancelMoveGesture() {
+  if (fightOn() && state.moveMode && window.SSDNSMoveMode) window.SSDNSMoveMode.set(false, 'cancel');
+  else clearMovePreview();
+}
+let suppressFeetToast = false;
+function exitMoveMode(why) {
+  if (!window.SSDNSMoveMode || !window.SSDNSMoveMode.isOn()) return;
+  window.SSDNSMoveMode.set(false, why || 'set');
+}
+/* Feet at 0 drops Move mode. The walk that spent the last feet toasts once itself. */
+function checkFeet() {
+  if (!state.moveMode || !fightOn() || dmEditing()) return;
+  const mover = activeMover();
+  if (!mover) return;
+  const b = budgetFor(mover);
+  if (!b || b.free || b.left > 0) return;
+  exitMoveMode('feet');
+}
+function onMoveModeEvent(e) {
+  if (dead) return;
+  const why = (e && e.detail && e.detail.why) || '';
+  const on = !!(window.SSDNSMoveMode && window.SSDNSMoveMode.isOn());
+  if (on && fightOn() && !dmEditing() && why !== 'blocked' && why !== 'feet') {
+    const mover = activeMover();
+    const b = mover ? budgetFor(mover) : null;
+    if (b && !b.free && b.left <= 0) {
+      toast(role === 'dm' ? dmFeetToast(b, mover) : ('No movement left this turn' + (b.dash ? '.' : '. Dash uses your Action to double it.')));
+      exitMoveMode('blocked');
+      return;
+    }
+  }
+  const was = !!state.moveMode;
+  state.moveMode = on;
+  if (!on) {
+    state.moveHover = null;
+    if (state.moveConfirm) state.moveConfirm.pending = null;
+  }
+  state.moveReachKey = '';
+  if (was && !on && why === 'feet' && !suppressFeetToast) toast('No movement left');
+  requestDraw();
+}
+on(window, 'ssdns:move-mode', onMoveModeEvent);
+on(document, 'click', (e) => {
+  if (!state.moveMode) return;
+  const t = e.target && e.target.closest && e.target.closest('#btnEndTurn, #btnNextTurn, [data-act="stripNext"]');
+  if (!t) return;
+  exitMoveMode('turn');
+});
 function fightOn() {
   const T = window.SSDNSTurn;
   return !!(T && T.inFight && T.inFight(state.initiative));
@@ -3620,6 +3705,7 @@ function setDmEdit(on) {
   if (state.moveConfirm) state.moveConfirm.pending = null;
   state.moveReachKey = '';
   paintDmEdit();
+  if (!on) checkFeet();
   requestDraw();
 }
 function linkedIdForRow(row) {
@@ -3809,7 +3895,8 @@ function hoverAt(cell, screen) {
   };
 }
 function noteMoveHover(e) {
-  if (dmEditing()) {
+  /* Edit tokens and a fight with Move mode off show no path. Outside a fight the path stays. */
+  if (dmEditing() || (fightOn() && !state.moveMode)) {
     if (state.moveHover) { state.moveHover = null; requestDraw(); }
     return;
   }
@@ -3832,13 +3919,22 @@ function commitWalk(mover, built, budget) {
   markRangeMoved(mover.id, origin, dest);
   startSlide(mover.id, built.path);
   postSlide(mover.id, built.path);
-  if (!budget.free) spendFeet(mover, built.costFt);
+  let spentOut = false;
+  if (!budget.free) {
+    suppressFeetToast = true;
+    try {
+      spendFeet(mover, built.costFt);
+      const after = budgetFor(mover);
+      spentOut = !!(fightOn() && after && !after.free && after.left <= 0);
+      if (spentOut) exitMoveMode('feet');
+    } finally { suppressFeetToast = false; }
+  }
   const M = moveApi();
   const cue = M ? M.leaveReachCue(built.path, moveContext(mover, budget)) : { left: false };
-  if (cue.left) {
-    toast('Left ' + (cue.name || 'an enemy') + "'s reach. Opportunity attacks still wait on the DM.");
-    flashLeaveReach();
-  }
+  if (cue.left) flashLeaveReach();
+  const leftReach = cue.left ? ('Left ' + (cue.name || 'an enemy') + "'s reach. Opportunity attacks still wait on the DM.") : '';
+  if (spentOut) toast(leftReach ? (leftReach + ' No movement left.') : 'No movement left.');
+  else if (leftReach) toast(leftReach);
   state.moveHover = null;
   if (state.moveConfirm) state.moveConfirm.pending = null;
   state.moveReachKey = '';
@@ -3882,6 +3978,8 @@ function tryClickMove(cell) {
   if (state.tool) return false;
   /* Edit ON: empty-square clicks do not click-walk and do not spend feet. */
   if (dmEditing()) return false;
+  /* B13: in a fight, clicks walk only while Move mode is on. Outside a fight they still walk. */
+  if (fightOn() && !state.moveMode) return false;
   const mover = activeMover();
   if (mover && role === 'dm' && !onViewedScene(mover)) return true;
   if (!mover) {
@@ -3925,8 +4023,8 @@ function paintMoveReach() {
   if (dmEditing()) return;
   const hover = state.moveHover;
   const mover = activeMover();
-  /* Show move reach is visual only. Off hides the green fill. The walk still stops at the feet you have left. */
-  if (state.showMoveReach === false) return;
+  /* Green fill exists only while Move mode is on. The walk is gated the same way. */
+  if (!state.moveMode) return;
   if (!mover || !fightOn()) return;
   if (role === 'dm' && !onViewedScene(mover)) return;
   const budget = budgetFor(mover);
@@ -4005,6 +4103,9 @@ function paintMoveReadout() {
   slot.hidden = false;
   const text = 'Move ' + b.left + '/' + b.max + ' ft';
   if (slot.textContent !== text) slot.textContent = text;
+  const modeOn = !!(window.SSDNSMoveMode && window.SSDNSMoveMode.isOn());
+  slot.classList.toggle('is-on', modeOn);
+  slot.setAttribute('aria-pressed', modeOn ? 'true' : 'false');
 }
 function pathFeet(points) {
   let d = 0;
@@ -4369,7 +4470,7 @@ function onPointerDown(e) {
       return;
     }
     if (hit && (canDrag(hit) || (role === 'dm' && hit.locked))) {
-      if (e.button === 2 && !state.tool) { clearMovePreview(); return; }
+      if (e.button === 2 && !state.tool) { cancelMoveGesture(); return; }
       if (hit.locked && role === 'dm') {
         // select locked token so DM can unlock it, but don't start a drag
         state.selectedIds = [hit.id];
@@ -4392,11 +4493,17 @@ function onPointerDown(e) {
         state.selectedIds = [hit.id];
         state.selected = hit;
       }
-      /* During a fight the current combatant walks by click (or by releasing a drag on a square), spending Move.
-         Edit tokens (DM only) skips that and falls through to a plain drag: no feet, no click-walk. */
+      /* During a fight the current combatant walks by click only while Move mode is on.
+         Move mode off selects the token and does not drag it (a drag would skip the foot cost).
+         Edit tokens (DM only) skips this and falls through to a plain drag: no feet, no click-walk. */
       if (!dmEditing() && fightOn() && activeMover() && activeMover().id === hit.id && moveApi()) {
         state.selectedIds = [hit.id];
         state.selected = hit;
+        if (!state.moveMode) {
+          if (role === 'dm') openDrawer(hit.id);
+          draw();
+          return;
+        }
         state.drag = { moveAim: true, token: hit, sx: e.clientX, sy: e.clientY };
         if (role === 'dm') openDrawer(hit.id);
         draw();
@@ -4418,7 +4525,7 @@ function onPointerDown(e) {
       if (e.button === 1 || e.altKey) {
         state.drag = { pan: true, sx: e.clientX, sy: e.clientY, vx: state.view.x, vy: state.view.y };
       } else if (e.button === 2 && !state.tool) {
-        clearMovePreview();
+        cancelMoveGesture();
         return;
       } else if (role === 'dm' && !state.tool) {
         const selPt = localXY(e);
@@ -5369,7 +5476,7 @@ q('helpBtn').addEventListener('click', () => {
   box.style.cssText = 'position:absolute;top:48px;right:16px;width:320px;max-height:70vh;overflow:auto;background:#1c1814;color:#e8dcc8;border:1px solid #5a4e40;border-radius:8px;padding:12px;z-index:20;font:13px system-ui;';
   const dm = role === 'dm';
   box.innerHTML = `<b>How to use the map</b><br><br>
-<b>Move</b> Click a square. In a fight the green squares are the feet you have left (every square is 5 ft, diagonals too). Show move reach hides that green fill. The path, the cost, and the foot limit stay. Hover shows the path and the cost. Esc or right-click clears the preview. Outside a fight, click-to-move has no green cage. Drag still slides a token when you are not spending combat movement. Walls block the path. You can walk through an ally, and you cannot stop on an occupied square.<br>
+<b>Move</b> Outside a fight, click a square to walk. There is no green cage. In a fight, click the Move feet chip to enter Move mode. The green squares are the feet you have left (every square is 5 ft, diagonals too). Hover shows the path and the cost, and a click on a green square walks. Move mode stays on for another step. It turns off when your feet hit 0, when you click Move again, press Esc, right-click, or the turn ends.${dm ? ' Edit tokens still drags any token and ignores Move mode.' : ''} Drag still slides a token when you are not spending combat movement. Walls block the path. You can walk through an ally, and you cannot stop on an occupied square.<br>
 <b>Middle mouse</b> Pans the map. It does not zoom.<br>
 <b>X</b> Show the last path for the selected token.<br>
 <b>Ping</b> Click the map. Color matches your token.<br>
@@ -5849,7 +5956,6 @@ if (role === 'dm') {
   });
   renderActions();
   bindRangeUi();
-  bindMoveReachUi();
 } else {
   fillColorSelect(q('playerColorBtn'));
   (function placePlayerCard() {
@@ -5981,7 +6087,6 @@ if (role === 'dm') {
   paintAddMine();
   renderActions();
   bindRangeUi();
-  bindMoveReachUi();
 }
 
 // --- scene images ---
@@ -6267,6 +6372,9 @@ async function loadSceneImage(sceneId, opts) {
       state.moveHover = null;
       if (state.moveConfirm) state.moveConfirm.pending = null;
       state.moveReachKey = '';
+      /* First sync (map just opened) keeps a Move the player already turned on. A later turn change or the fight ending leaves Move mode. */
+      const hadTurn = prevId != null || prevStarted;
+      if (hadTurn) exitMoveMode('turn');
       if (fightOn() && state.currentTurnId && state.currentTurnId !== prevId) {
         const T = window.SSDNSTurn;
         const cur = T && T.current ? T.current(state.initiative) : order[turn];
@@ -6385,9 +6493,13 @@ async function loadSceneImage(sceneId, opts) {
     });
     strip.appendChild(chips);
     if (role === 'player') {
-      const read = document.createElement('b');
-      read.className = 'ssm-move-readout';
+      const read = document.createElement('button');
+      read.type = 'button';
+      read.className = 'ssm-move-readout tl-move';
       read.setAttribute('data-act', 'moveReadout');
+      read.setAttribute('data-tl-movemode', '');
+      read.setAttribute('aria-pressed', 'false');
+      read.title = 'Move mode. Click to walk. Click again, Esc, or right-click to leave.';
       read.hidden = true;
       strip.appendChild(read);
     }
@@ -7619,7 +7731,6 @@ async function loadSceneImage(sceneId, opts) {
       actToggle +
       coverRow +
       '<label class="ssm-act ssm-range"><input type="checkbox" data-act="drawerRange"' + (state.showRange ? ' checked' : '') + '> Show range</label>' +
-      '<label class="ssm-act ssm-range"><input type="checkbox" data-act="drawerMoveReach"' + (state.showMoveReach !== false ? ' checked' : '') + '> Show move reach</label>' +
       '<label class="ssm-act">Range: <select data-act="rangeOverride" aria-label="Range: Auto">' +
         '<option value="auto"' + (rangeOverrideNow() === 'auto' ? ' selected' : '') + '>Auto</option>' +
         '<option value="ignore"' + (rangeOverrideNow() === 'ignore' ? ' selected' : '') + '>Ignore range</option>' +
@@ -7815,8 +7926,6 @@ async function loadSceneImage(sceneId, opts) {
     if (coverLock) coverLock.addEventListener('change', emitCover);
     const rangeBox = d.querySelector('[data-act="drawerRange"]');
     if (rangeBox) rangeBox.addEventListener('change', () => onRangeToggle(rangeBox.checked));
-    const moveReachBox = d.querySelector('[data-act="drawerMoveReach"]');
-    if (moveReachBox) moveReachBox.addEventListener('change', () => onMoveReachToggle(moveReachBox.checked));
     const rangeSel = d.querySelector('[data-act="drawerRangeWeapon"]');
     if (rangeSel) rangeSel.addEventListener('change', () => {
       state.rangeWeaponId = rangeSel.value;
@@ -8322,6 +8431,7 @@ async function boot() {
   }
   on(window, 'ssdns:pips-change', () => {
     state.moveReachKey = '';
+    checkFeet();
     /* B4: the sheet already spent. Repaint the map Fight card and the DM strip so the pip doesn't look free. */
     try {
       if (role === 'player') paintPlayerFight();
@@ -8329,7 +8439,12 @@ async function boot() {
     } catch (e) {}
     requestDraw();
   });
-  on(window, 'ssdns:pips-reset', () => { state.moveHover = null; state.moveReachKey = ''; requestDraw(); });
+  on(window, 'ssdns:pips-reset', () => {
+    state.moveHover = null;
+    state.moveReachKey = '';
+    exitMoveMode('turn');
+    requestDraw();
+  });
   if (typeof options.onReady === 'function') {
     try { options.onReady(); } catch (e) {}
   }
@@ -8348,6 +8463,7 @@ return {
   refreshMove: function () {
     state.moveHover = null;
     state.moveReachKey = '';
+    checkFeet();
     if (role === 'dm') {
       try { fillStripMarkers(); } catch (e) {}
       if (state.drawerOpen) { try { renderDrawer(); } catch (e2) {} }
