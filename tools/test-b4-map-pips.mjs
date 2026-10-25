@@ -4,7 +4,8 @@
  *   Multiattack is free up to the stat block; past that the DM is warned and the roll still happens.
  *   An off-turn opportunity attack spends Reaction. Players are not spent on the enemy path.
  *   Players: a map attack / spell / item / Reload hard-blocks when its pip is already spent, and a spent
- *   Reaction blocks the opportunity-attack ask and any reaction roll. The DM is notified.
+ *   Reaction blocks the opportunity-attack ask and any reaction roll. The player sees a fading toast only.
+ *   No table-log row, no chat line, and no DM ledger pipBlock.
  *   A player click that marks Action or Bonus used confirms first. Drawer Reload spends the sheet's cost.
  *   A DM move writes only moveUsed (dmFields), so a live adopt cannot clear a pip the sheet just spent.
  *   node tools/test-b4-map-pips.mjs   (browser part needs a static server on 127.0.0.1:8765)
@@ -67,6 +68,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("node.bareAdoptReplaces", P.state().action === false && P.state().reaction === true, J(P.state()));
   sb.SSDNS_RULES = { callings: [{ id: "gunslinger", features: [{ name: "Extra Attack (5th level)", text: "You can attack twice per Attack action (3 times at 11th, 4 times at 20th)." }] }] };
   const notes = [];
+  const toasts = [];
+  const logs = [];
+  sb.SSDNSToast = (msg) => { toasts.push(String(msg || "")); };
+  sb.SSDNSSheet = { addLog: (e) => { logs.push(e); } };
   sb.SSDNSDmJoin.postLedger = (e) => { notes.push(e); };
   sb.SSDNSDmJoin.postChat = (e) => { notes.push({ chat: true, text: e && e.text }); };
   P.reset(true);
@@ -75,7 +80,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   P.attack("Peacemaker");
   const third = P.blockMap("attack", "Peacemaker");
   check("node.thirdAttackBlocks", third === "Action already used." && P.state().attacks === 2, third + " " + J(P.state()));
-  check("node.blockNotifiesDm", notes.some((n) => n && n.pipBlock && /Caleb: Action already used\./.test(n.what) && /Peacemaker was not rolled/.test(n.what)) && notes.some((n) => n && n.chat && /Action already used/.test(n.text)), J(notes));
+  check("node.blockToastOnly", toasts.indexOf("Action already used.") >= 0 && notes.length === 0 && logs.length === 0, J({ toasts: toasts, notes: notes, logs: logs }));
   P.reset(true);
   P.spend("action", "Dash");
   check("node.actionBlocks", P.blockMap("action", "Dash") === "Action already used." && P.blockMap("bonus", "Healing Word") === "", J(P.state()));
@@ -165,13 +170,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("src.pushRereads", /if \(Pnow && Pnow\.state\) v = Pnow\.state\(\)/.test(join));
   check("src.mapRepaint", /ssdns:pips-change/.test(mapJs) && /paintPlayerFight\(\)/.test(mapJs.slice(mapJs.indexOf("ssdns:pips-change"))));
   check("src.rulesUntouched", !read("assets/data/rules.js").includes(ver.sheet) && !/actUndo|dmFields/.test(read("database.rules.json")));
-  check("src.versions", ver.sheet === "0.3.134" && ver.dmcc === "0.2.147" && ver.sheetBuild === "sheet-playtest-v03134" && ver.dmccBuild === "dmcc-playtest-v02147");
+  check("src.versions", ver.sheet === "0.3.135" && ver.dmcc === "0.2.148" && ver.sheetBuild === "sheet-playtest-v03135" && ver.dmccBuild === "dmcc-playtest-v02148");
   check("src.noDoubleSpendHelper", /row\.kind === "player" \|\| !row\.id/.test(v2.slice(v2.indexOf("async function spendEnemyPip"), v2.indexOf("function commitEnemyAttack"))));
   const runP = mapJs.slice(mapJs.indexOf("function runPlayer"), mapJs.indexOf("function cleanActId"));
   check("src.playerMapBlocks", /playerMapGate\(/.test(runP) && runP.indexOf("playerMapGate") < runP.indexOf("actions.run") && /blockMap\(/.test(pips));
   check("src.playerItemBlocks", /function playerUseItem\(/.test(mapJs) && /blockMap\(cost, label\)/.test(mapJs));
   check("src.reactionHardBlock", /blockMap\("reaction", "Opportunity attack"\)/.test(lock) && /spellCost\(spellName\) === "reaction"/.test(read("assets/js/sheet-extras.js")));
-  check("src.dmPipBlockToast", /function notePipBlocks\(/.test(dmcc) && /e\.pipBlock/.test(dmcc) && dmcc.indexOf("notePipBlocks(next)") > dmcc.indexOf('bind("ledger"'));
+  const blockFn = pips.slice(pips.indexOf("function blockMap"), pips.indexOf("function featureCost"));
+  check("src.pipBlockNoChat", !/function notePipBlocks\(/.test(dmcc) && !/pipBlock/.test(pips) && !/postChat/.test(blockFn) && !/postLedger/.test(blockFn) && !/addLog/.test(blockFn) && /toast\(reason\)/.test(blockFn));
   const appSrc = read("assets/js/app.js");
   const toggleSrc = pips.slice(pips.indexOf("function toggle(kind)"), pips.indexOf("function reset(quiet)"));
   check("src.pipConfirm", /Are you sure you want to use your Action\?/.test(pips) && /Are you sure you want to use your Bonus action\?/.test(pips) && !/Are you sure/.test(toggleSrc));
