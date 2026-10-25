@@ -121,7 +121,7 @@ window.SSDNSMap = { create(opts) {
       darkvision: Number(t.darkvision) || 0, skulker: !!t.skulker,
       facing: Number(t.facing) || 0, dmDoused: !!t.dmDoused,
       conditions: t.conditions ? [...t.conditions] : [],
-      sceneId: t.sceneId || 'scn_dustyspur01', image: t.image || '',
+      sceneId: t.sceneId || activeSceneId() || 'scn_dustyspur01', image: t.image || '',
       veil: !!t.veil,
       ownerUid: t.ownerUid || '', controlledBy: t.controlledBy || [],
       ownerCanMove: t.ownerCanMove !== false, locked: !!t.locked,
@@ -291,7 +291,7 @@ function applySharedToTokens() {
       if (s.dmTorch != null) t.dmTorch = !!s.dmTorch;
       t.status = s.status || '';
       t.conditions = s.conditions ? [...s.conditions] : [];
-      t.sceneId = s.sceneId || 'scn_dustyspur01';
+      stampScene(t, s);
       t.image = s.image || t.image || '';
       t.veil = !!s.veil;
       t.sheetId = s.sheetId || t.sheetId || '';
@@ -909,10 +909,9 @@ function fxPx() { return (state.scene && state.scene.grid && state.scene.grid.px
 function fxCenter(t) { const s = t.size || 1; return { x: t.pos.x + s / 2, y: t.pos.y + s / 2 }; }
 function fxRadius(t) { return (t.size || 1) / 2 * 0.85; }
 function fxSceneOk(t) {
-  if (!t || role !== 'player') return true;
-  return (t.sceneId || 'scn_dustyspur01') === getPlayerScene();
+  return onViewedScene(t);
 }
-/* Same test the token pass in draw() uses, for any grid point. The DM sees everything. */
+/* Same test the token pass in draw() uses, for any grid point. The DM sees the whole viewed floor. */
 function playerSees(gx, gy) {
   if (role !== 'player') return true;
   let sd = null;
@@ -923,8 +922,9 @@ function playerSees(gx, gy) {
 }
 function tokenSeen(t) {
   if (!t || !t.pos) return false;
+  if (!fxSceneOk(t)) return false;
   if (role !== 'player') return true;
-  if (t.hidden || !fxSceneOk(t)) return false;
+  if (t.hidden) return false;
   if (t.veil && t.ownerUid !== uid) return false;
   const c = fxCenter(t);
   return playerSees(c.x, c.y);
@@ -961,8 +961,10 @@ function fxFacing(S, spec) {
   if (spec && spec.dir && isFinite(spec.dir.x) && isFinite(spec.dir.y) && (spec.dir.x || spec.dir.y)) return spec.dir;
   const c = fxCenter(S);
   let best = null, bestD = Infinity;
+  const faceScene = sceneKey(S);
   (state.tokens || []).forEach(t => {
     if (!t || t === S || !t.pos || t.hidden || t.kind === 'marker') return;
+    if (sceneKey(t) !== faceScene) return;
     if (!!t.ownerUid === !!S.ownerUid && t.kind === S.kind) return;
     const o = fxCenter(t), d = Math.hypot(o.x - c.x, o.y - c.y);
     if (d < bestD) { bestD = d; best = o; }
@@ -2185,14 +2187,11 @@ function draw() {
   paintRangeRings();
   paintMoveReach();
 
-  // tokens
+  // tokens — this floor only. Players already skipped other scenes; the DM does too.
   for (const t of state.tokens) {
     const isHidden = t.hidden;
     if (isHidden && role !== 'dm') continue;
-    if (role === 'player') {
-      const myScene = getPlayerScene();
-      if ((t.sceneId || 'scn_dustyspur01') !== myScene) continue;
-    }
+    if (!onViewedScene(t)) continue;
 
     if (role === 'player') {
       /* same test the Target lists use (tokenSeenBy) */
@@ -3148,13 +3147,40 @@ function playerTokenId(pid) {
 let tokensReady = false;
 let viewReady = false;
 let partySynced = false;
+/* Untagged tokens used to be forced onto Dusty Spur, so on any other pack they vanished
+   once the DM view filtered by floor. Keep a tag that is already set. Otherwise stamp the
+   floor that is open now (Dusty Spur at boot, before a swap) and remember it on the token. */
+let sceneTagging = false;
+function stampScene(t, s) {
+  if (!t) return;
+  if (s && s.sceneId) { t.sceneId = s.sceneId; return; }
+  if (t.sceneId) {
+    if (s && !s.sceneId) s.sceneId = t.sceneId;
+    return;
+  }
+  const sid = activeSceneId() || 'scn_dustyspur01';
+  t.sceneId = sid;
+  if (s) s.sceneId = sid;
+  if (sceneTagging || role !== 'dm') return;
+  sceneTagging = true;
+  try { saveToken(t.id); } catch (e) {}
+  sceneTagging = false;
+}
 function adoptSharedTokens() {
+  const stamped = [];
   Object.keys(shared.tokens || {}).forEach(id => {
     const src = shared.tokens[id];
     if (!src || state.tokens.some(t => t && t.id === id)) return;
+    /* A token with no sceneId belongs on the floor that is open when it first shows up.
+       Boot has not swapped yet, so that floor is Dusty Spur and old single-map tokens stay put. */
+    if (!src.sceneId) {
+      src.sceneId = activeSceneId() || 'scn_dustyspur01';
+      stamped.push(id);
+    }
     state.tokens.push(JSON.parse(JSON.stringify(src)));
   });
   applySharedToTokens();
+  stamped.forEach(saveToken);
 }
 function noteTokensReady() {
   tokensReady = true;
@@ -3817,6 +3843,7 @@ function tryClickMove(cell) {
   /* Edit ON: empty-square clicks do not click-walk and do not spend feet. */
   if (dmEditing()) return false;
   const mover = activeMover();
+  if (mover && role === 'dm' && !onViewedScene(mover)) return true;
   if (!mover) {
     if (fightOn() && role === 'player') toast("It isn't your turn. Your token moves on your turn.");
     else if (fightOn() && role === 'dm') {
@@ -3861,6 +3888,7 @@ function paintMoveReach() {
   /* Show move reach is visual only. Off hides the green fill. The walk still stops at the feet you have left. */
   if (state.showMoveReach === false) return;
   if (!mover || !fightOn()) return;
+  if (role === 'dm' && !onViewedScene(mover)) return;
   const budget = budgetFor(mover);
   if (budget.free || budget.left <= 0) return;
   const pack = reachFor(mover, budget);
@@ -4409,7 +4437,7 @@ function onPointerMove(e) {
       state.drag.walled = false;
       ids.forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
-        if (!t) return;
+        if (!t || !onViewedScene(t)) return;
         const start = state.drag.starts ? state.drag.starts[id] : { x: t.pos.x, y: t.pos.y };
         if (!state.drag.starts) state.drag.starts = {};
         if (!state.drag.starts[id]) state.drag.starts[id] = { x: t.pos.x - dx, y: t.pos.y - dy };
@@ -4557,6 +4585,7 @@ function onPointerUp(e) {
       const b = screenToWorld(x2, y2);
       const px = state.scene.grid.px;
       state.selectedIds = state.tokens.filter(t => {
+        if (!t || !t.pos || !onViewedScene(t)) return false;
         const cx = (t.pos.x + 0.5) * px;
         const cy = (t.pos.y + 0.5) * px;
         return cx >= Math.min(a.x, b.x) && cx <= Math.max(a.x, b.x) &&
@@ -4760,6 +4789,7 @@ function lightDrawerHtml(token) {
     '<div class="ssm-lighthand">' +
     '<label class="ssm-act">Darkvision <input data-act="dmDarkvision" type="number" min="0" step="5" value="' + esc(dvShown) + '" aria-label="Darkvision feet"> ft</label>' +
     '<label class="ssm-act"><input type="checkbox" data-act="dmTorch"' + (token.dmTorch ? ' checked' : '') + '> Give torch</label>' +
+    '<button type="button" data-act="nudgeOpen" class="ssm-nudge" title="Move this token to the nearest open square on this floor">Nudge to open square</button>' +
     '</div>';
 }
 function bindLightHands(rootEl, tokenId) {
@@ -4777,6 +4807,11 @@ function bindLightHands(rootEl, tokenId) {
     toast('Darkvision set');
     renderDrawer();
     draw();
+  });
+  const nudge = rootEl.querySelector('[data-act="nudgeOpen"]');
+  if (nudge) nudge.addEventListener('click', () => {
+    const t = tok();
+    if (t) nudgeToOpen(t);
   });
   const torch = rootEl.querySelector('[data-act="dmTorch"]');
   if (torch) torch.addEventListener('change', () => {
@@ -4906,8 +4941,9 @@ function tokenCombatant(tokenId) {
 function cellTaken(x, y, ignore) {
   const skip = ignore || {};
   return state.tokens.some(t => {
-    if (!t || skip[t.id]) return false;
+    if (!t || !t.pos || skip[t.id]) return false;
     if (role !== 'dm' && t.hidden) return false;
+    if (!onViewedScene(t)) return false;
     const size = t.size || 1;
     return x >= t.pos.x && x < t.pos.x + size && y >= t.pos.y && y < t.pos.y + size;
   });
@@ -4936,7 +4972,7 @@ function areaTaken(x, y, size, ignore) {
   const s = tokSquares(size);
   if (s === 1) return cellTaken(x, y, ignore);
   const T = window.SSDNSTokenSize;
-  if (T) return T.areaTaken(x, y, s, blockingTokens(ignore));
+  if (T) return T.areaTaken(x, y, s, blockingTokens(ignore).filter(onViewedScene));
   for (let yy = y; yy < y + s; yy++) for (let xx = x; xx < x + s; xx++) if (cellTaken(xx, yy, ignore)) return true;
   return false;
 }
@@ -4949,8 +4985,7 @@ function nextFreeSpot(size, label, preferred) {
   const s = tokSquares(size);
   if (!T) return s === 1 ? nextFreeCell() : null;
   const grid = state.scene.grid || { cols: 30, rows: 20 };
-  const sceneId = activeSceneId() || 'scn_dustyspur01';
-  const others = blockingTokens().filter(t => (t.sceneId || 'scn_dustyspur01') === sceneId);
+  const others = blockingTokens().filter(onViewedScene);
   /* labels are judged at the DM's current zoom (or zoom 1 if closer): names never draw under 11px */
   const cellPx = (grid.px || 70) * Math.min(1, (state.view && state.view.zoom) || 1);
   return T.findSpot(viewCenterCell(), s, label, others, grid, cellPx);
@@ -4960,8 +4995,7 @@ function spotNear(cell, size, label) {
   const T = window.SSDNSTokenSize;
   const grid = state.scene.grid || { cols: 30, rows: 20 };
   const s = tokSquares(size);
-  const sceneId = activeSceneId() || 'scn_dustyspur01';
-  const others = blockingTokens().filter(t => (t.sceneId || 'scn_dustyspur01') === sceneId);
+  const others = blockingTokens().filter(onViewedScene);
   const cx = Math.max(0, Math.min((grid.cols || 30) - s, cell.x));
   const cy = Math.max(0, Math.min((grid.rows || 20) - s, cell.y));
   if (T && T.findSpot) {
@@ -4969,6 +5003,29 @@ function spotNear(cell, size, label) {
     return T.findSpot({ x: cx, y: cy }, s, label, others, grid, cellPx);
   }
   return s === 1 && !cellTaken(cx, cy) ? { x: cx, y: cy } : nextFreeCell();
+}
+/* DM drawer: slide a token off a wall or a crowded square onto the nearest open cell on this floor.
+   spotNear already treats this token as occupying its own cell, so the result is a different square. */
+function nudgeToOpen(token) {
+  if (role !== 'dm' || !token || !token.pos || !state.scene) return;
+  if (!onViewedScene(token)) {
+    toast('That token is on ' + floorName(token.sceneId));
+    return;
+  }
+  const from = { x: token.pos.x, y: token.pos.y };
+  const spot = spotNear(from, token.size || 1, token.label || token.name || '');
+  if (!spot) { toast('No open square'); return; }
+  if (spot.x === from.x && spot.y === from.y) { toast('Already on an open square'); return; }
+  const to = { x: spot.x, y: spot.y };
+  state.undoStack.push({ type: 'move', ids: [token.id], from: { [token.id]: from }, to: { [token.id]: to } });
+  state.redoStack = [];
+  token.pos.x = to.x;
+  token.pos.y = to.y;
+  if (shared.tokens[token.id]) shared.tokens[token.id].pos = { x: to.x, y: to.y, by: uid, ts: Date.now() };
+  saveToken(token.id);
+  state.moveReachKey = '';
+  toast('Nudged to an open square');
+  draw();
 }
 function nextFreeCell() {
   if (!state.scene) return null;
@@ -5219,7 +5276,9 @@ function hitTest(wx, wy) {
   const px = state.scene.grid.px;
   for (let i = state.tokens.length - 1; i >= 0; i--) {
     const t = state.tokens[i];
+    if (!t || !t.pos) continue;
     if (t.hidden && role !== 'dm') continue;
+    if (!onViewedScene(t)) continue;
     const size = t.size || 1;
     const left = t.pos.x * px, top = t.pos.y * px;
     if (wx >= left && wx <= left + size * px && wy >= top && wy <= top + size * px) return t;
@@ -5682,6 +5741,7 @@ if (role === 'dm') {
     flashBtn('setFloorBtn');
     toast('Floor set to ' + sel.options[sel.selectedIndex].text);
     draw();
+    renderTurnStrip();
   });
   q('showSceneBtn').addEventListener('click', () => {
     postScenes();
@@ -6041,7 +6101,19 @@ function swapScene(id) {
     if (visSel) visSel.value = sd.visionMode === 'own' ? 'own' : 'party';
   }
   if (window.SSDNSMapLibrary && window.SSDNSMapLibrary.refresh) window.SSDNSMapLibrary.refresh();
+  renderTurnStrip();
   return true;
+}
+function sceneKey(t) {
+  return (t && t.sceneId) || 'scn_dustyspur01';
+}
+function onViewedScene(t) {
+  return !!t && sceneKey(t) === activeSceneId();
+}
+function floorName(sceneId) {
+  const sid = sceneId || 'scn_dustyspur01';
+  const sc = allScenes().find(s => s && s.id === sid);
+  return (sc && sc.name) || 'another floor';
 }
 function activeSceneId() {
   if (role === 'dm') return state.dmView || 'scn_dustyspur01';
@@ -6237,6 +6309,14 @@ async function loadSceneImage(sceneId, opts) {
       badge.className = 'dm-turn-now';
       badge.textContent = (cur && (cur.name || cur.id)) || 'Turn';
       strip.appendChild(badge);
+      const away = cur && tokenForRow(cur);
+      if (away && !onViewedScene(away)) {
+        const note = document.createElement('span');
+        note.className = 'ssm-floor-note';
+        note.setAttribute('data-act', 'floorNote');
+        note.textContent = 'on ' + floorName(away.sceneId);
+        strip.appendChild(note);
+      }
     }
     const chips = document.createElement('div');
     chips.className = 'ssm-strip-chips';
@@ -8177,9 +8257,20 @@ return {
   fxAnimating: function () { return !!fxRaf; },
   tokensLoaded: function () { return !!(tokensReady && state.scene); },
   /* token size: read-only footprints for tests/tools. Same visibility as drawing: players never get hidden tokens. */
+  /* B6: the floor this client is drawing, plus occupancy and hit-test on that floor only. */
+  viewedScene: function () { return activeSceneId(); },
+  squareTaken: function (x, y, ignoreId) {
+    const skip = {};
+    if (ignoreId) skip[ignoreId] = 1;
+    return cellTaken(x, y, skip);
+  },
+  hitToken: function (wx, wy) {
+    const t = hitTest(wx, wy);
+    return t ? t.id : '';
+  },
   tokenBoxes: function () {
     const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
-    return state.tokens.filter(t => t && t.pos && !(t.hidden && role !== 'dm')).map(t => {
+    return state.tokens.filter(t => t && t.pos && !(t.hidden && role !== 'dm') && onViewedScene(t)).map(t => {
       const sz = t.size || 1;
       const a = worldToScreen(t.pos.x * px, t.pos.y * px);
       const b = worldToScreen((t.pos.x + sz) * px, (t.pos.y + sz) * px);
