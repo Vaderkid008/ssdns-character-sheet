@@ -1758,6 +1758,8 @@
       var v = markerPending;
       markerPending = null;
       if (!v || !state.joined || state.left || !state.db) return;
+      var Pnow = root.SSDNSActionPips;
+      if (Pnow && Pnow.state) v = Pnow.state();
       var fb = state._fb;
       fb.update(fb.ref(state.db, roomPath("players/" + state.uid)), {
         turnMarkers: Object.assign({}, v, { updatedAt: new Date().toISOString() })
@@ -2333,7 +2335,8 @@
       var at = val && val.by === "dm" ? String(val.dmAt || "") : "";
       if (at && at !== state._dmMarkAt && P && P.adopt) {
         state._dmMarkAt = at;
-        P.adopt(val);
+        /* B4: apply only the fields the DM named, so a feet write cannot clear a spent Action. */
+        P.adopt(val, { live: true });
         if (markPrimed) toast(val.dmNote || "The DM changed your action markers.");
       }
       markPrimed = true;

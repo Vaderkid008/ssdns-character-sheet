@@ -1300,7 +1300,7 @@ function renderFight() {
         return `<div class="turn-chip${current}${ondeck}${later}${side}" role="listitem">${face}${guns}</div>`;
       }).join("");
       /* T1 (turn order PR 1): one Next per surface. The Fight tab's Next is the DMCC's; this Table-tab strip shows the order only.
-         0.2.134: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
+         0.2.135: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
       const badge = cur ? `<b class="dm-turn-now">${esc(cur.name || "Their turn")}</b>` : "";
       strip.innerHTML = `<b class="turn-round">Round ${esc(fight.round || 1)}</b>${badge}` +
         `<button type="button" class="turn-scroll" data-dm-scroll="-1" aria-label="Scroll the turn order left" hidden>\u2039</button>` +
@@ -1901,7 +1901,7 @@ function markerExtrasHtml(row, m, opts) {
   const flags = ["dash", "disengage", "dodge"].filter((k) => m[k]).map((k) => `<span class="badge eld">${k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge")}</span>`).join("");
   return move + flags;
 }
-/* DM strip (0.2.134): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
+/* DM strip (0.2.135): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
    Dash / Disengage / Dodge are a read-out of flags the sheet already stores. Nothing new is spent from here. */
 function stripActsHtml(row) {
   const got = turnMarkersFor(row);
@@ -1931,12 +1931,30 @@ function playerMarkers(pid) {
   const p = DM.state.players && DM.state.players[pid];
   return T.markersFor(p && p.turnMarkers, turnState(), row).markers;
 }
-function writePlayerMarkers(pid, m, note) {
-  const out = Object.assign({}, m, { by: "dm", dmAt: new Date().toISOString(), dmNote: note || "", updatedAt: new Date().toISOString() });
+/* B4: a DM write names the fields it changed (dmFields). A move spend is only moveUsed, so a
+   stale copy of action/bonus/reaction cannot flip the sheet's pip back off. */
+const PIP_FIELDS = ["action", "bonus", "reaction", "attacks", "actionBy", "turnKey", "moveUsed", "dash", "disengage", "dodge", "oaReq", "oaArmed", "oaUsed", "oaUsedAt", "deathKey", "actUndo"];
+function writePlayerMarkers(pid, m, note, fields) {
+  const keys = Array.isArray(fields) && fields.length ? fields.slice() : PIP_FIELDS.slice();
+  const dmFields = {};
+  keys.forEach((k) => { dmFields[k] = true; });
+  const meta = { by: "dm", dmAt: new Date().toISOString(), dmNote: note || "", dmFields: dmFields, updatedAt: new Date().toISOString() };
+  const prev = (DM.state.players && DM.state.players[pid] && DM.state.players[pid].turnMarkers) || {};
+  /* markersFor drops a stored set whose turnKey isn't this turn. Keep the resolved key locally, and on a
+     new turn start from that resolved set, or a bonus toggle never sticks. dmFields stays the named fields,
+     so the sheet still ignores a stale action that rode along on the DM's copy. */
+  const resolvedKey = m && m.turnKey ? String(m.turnKey) : "";
+  const turnChanged = !!(resolvedKey && String(prev.turnKey || "") !== resolvedKey);
+  const out = Object.assign({}, turnChanged ? m : prev, meta);
+  keys.forEach((k) => { if (m && Object.prototype.hasOwnProperty.call(m, k)) out[k] = m[k]; });
+  if (resolvedKey) out.turnKey = resolvedKey;
   DM.state.players = DM.state.players || {};
   if (DM.state.players[pid]) DM.state.players[pid].turnMarkers = out;
   if (!DM.state.demo && DM.state.db && DM.state._fb) {
-    DM.state._fb.set(DM.roomRef("players/" + pid + "/turnMarkers"), out).catch((err) => { if (DM.writeFailed) DM.writeFailed(err, "Couldn't change the player's markers"); });
+    const patch = Object.assign({}, meta);
+    keys.forEach((k) => { if (m && Object.prototype.hasOwnProperty.call(m, k)) patch[k] = m[k]; });
+    if (turnChanged) patch.turnKey = resolvedKey;
+    DM.state._fb.update(DM.roomRef("players/" + pid + "/turnMarkers"), patch).catch((err) => { if (DM.writeFailed) DM.writeFailed(err, "Couldn't change the player's markers"); });
   }
   renderFight();
   /* the map's DM card shows the same markers: redraw it if it is open */
@@ -1948,11 +1966,12 @@ function editPlayerMarker(pid, kind) {
   const m = playerMarkers(pid);
   if (!m || !PIP_NAME[kind]) return null;
   m[kind] = !m[kind];
-  if (kind === "action") { m.attacks = 0; m.actionBy = m.action ? "manual" : ""; }
+  if (kind === "action") { m.attacks = 0; m.actionBy = m.action ? "manual" : ""; m.actUndo = ""; }
   const who = (playerRowFor(pid) || {}).name || "the player";
   const note = "The DM marked your " + PIP_NAME[kind].toLowerCase() + " " + (m[kind] ? "used" : "ready") + ".";
   DM.toast(PIP_NAME[kind] + " marked " + (m[kind] ? "used" : "ready") + " for " + who);
-  return writePlayerMarkers(pid, m, note);
+  const fields = kind === "action" ? ["action", "actionBy", "attacks", "actUndo"] : [kind];
+  return writePlayerMarkers(pid, m, note, fields);
 }
 function resetPlayerMarkers(pid) {
   const T = window.SSDNSTurn;
@@ -1961,7 +1980,7 @@ function resetPlayerMarkers(pid) {
   const m = T.fresh(T.keyFor(turnState(), row) || ((playerMarkers(pid) || {}).turnKey || ""));
   DM.toast("Markers reset for " + (row.name || "the player"));
   DM.pushLedger({ who: "DM", playerId: pid, type: "combat", what: "DM reset " + (row.name || "a player") + "'s action, bonus action, reaction and movement", oldVal: null, newVal: "reset", flag: false });
-  return writePlayerMarkers(pid, m, "The DM gave back your action, bonus action, reaction and movement.");
+  return writePlayerMarkers(pid, m, "The DM gave back your action, bonus action, reaction and movement.", PIP_FIELDS);
 }
 function toggleUnlock(pid) {
   const T = window.SSDNSTurn;
@@ -2083,8 +2102,11 @@ function mapMarkersHtml(combatantId) {
   /* Enemy turn on the DM map: the same Move feet and Dash / Disengage / Dodge as the fight strip. */
   if (row.kind !== "player") {
     const m = enemyMarkersNow(row) || window.SSDNSTurn.fresh("");
+    const pip = (k, label) => `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}" aria-pressed="${!!m[k]}" title="${label} ${m[k] ? "used" : "ready"} (click to mark ${m[k] ? "ready" : "used"})">${label}</button>`;
     return `<div class="ssm-markers act-pips tl-box" data-turn-markers="${esc(row.id || "")}">` +
-      markerExtrasHtml(row, m, { pills: true }) + `</div>`;
+      pip("action", "Action") + pip("bonus", "Bonus") + pip("reaction", "R") +
+      markerExtrasHtml(row, m, { pills: true }) +
+      `<button type="button" class="btn xs" data-pip-reset="enemy" title="Give back this enemy's action, bonus action, reaction and movement">Reset</button></div>`;
   }
   const pid = row.playerId || row.id || "";
   const m = playerMarkers(pid) || window.SSDNSTurn.fresh("");
@@ -2108,6 +2130,130 @@ function enemyMarkersNow(cur) {
   const T = window.SSDNSTurn;
   if (!T || !cur) return null;
   return T.markersFor((fight.markers || {})[cur.id], turnState(), cur).markers;
+}
+function enemyIsCurrent(row) {
+  if (!fight.started || !row) return false;
+  const cur = fight.order[fight.turn];
+  if (!cur) return false;
+  if (cur === row) return true;
+  return !!(cur.id && row.id && cur.id === row.id);
+}
+/* Multiattack on the stat block (card.actions or the attacks line). No Multiattack means one attack per Action. */
+function enemyAttackLimit(row) {
+  const bits = [];
+  ((row && row.card && row.card.actions) || []).forEach((a) => {
+    if (!a) return;
+    bits.push(String(a.name || "") + " " + String(a.text || ""));
+  });
+  if (row && row.attacks) bits.push(String(row.attacks));
+  const words = { one: 1, two: 2, twice: 2, three: 3, four: 4, five: 5, six: 6 };
+  let best = 1;
+  bits.forEach((text) => {
+    if (!/multiattack/i.test(text)) return;
+    let n = 0;
+    const made = text.match(/makes?\s+(one|two|twice|three|four|five|six|\d+)\s+attacks?/i);
+    if (made) n = words[made[1].toLowerCase()] || parseInt(made[1], 10) || 0;
+    const listed = text.match(/multiattack\s*:\s*(\d+)/i);
+    if (listed) n = Math.max(n, parseInt(listed[1], 10) || 0);
+    const per = text.match(/\b(one|two|twice|three|four|five|six|\d+)\b[^.]{0,48}\bper turn\b/i);
+    if (per) n = Math.max(n, words[per[1].toLowerCase()] || parseInt(per[1], 10) || 0);
+    if (n > best) best = n;
+  });
+  return best;
+}
+/* Mirrors SSDNSActionPips.spellCost. rules.js has no casting-time field; spell-fx text, then the same name lists. */
+const ENEMY_BONUS_SPELLS = ["healing word", "mass healing word", "misty step", "shield of faith", "hex", "hunter's mark", "spiritual weapon", "sanctuary", "expeditious retreat", "divine favor", "magic weapon", "compelled duel", "searing smite", "thunderous smite", "wrathful smite", "branding smite", "blinding smite", "staggering smite", "ensnaring strike", "hail of thorns", "shillelagh", "flame blade", "swift quiver", "spirit shroud"];
+const ENEMY_REACTION_SPELLS = ["shield", "absorb elements", "feather fall", "hellish rebuke", "counterspell"];
+function enemySpellBase(name) {
+  let n = String(name || "").toLowerCase().replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+shell$/, "").trim();
+  const A = window.SSDNS_RULES && window.SSDNS_RULES.spellAliases;
+  if (A && typeof A === "object" && !Array.isArray(A)) {
+    Object.keys(A).forEach((k) => { if (k.toLowerCase() === n && typeof A[k] === "string") n = A[k].toLowerCase(); });
+  }
+  return n.replace(/\s+/g, " ");
+}
+function enemySpellCost(name) {
+  const n = enemySpellBase(name);
+  const fx = window.SSDNS_SPELL_FX && window.SSDNS_SPELL_FX[n];
+  const does = String((fx && fx.does) || "");
+  if (/cast (?:this|it) as a reaction|as a reaction when/i.test(does)) return "reaction";
+  if (/cast (?:this|it) as a bonus action/i.test(does)) return "bonus";
+  if (ENEMY_REACTION_SPELLS.indexOf(n) >= 0) return "reaction";
+  if (ENEMY_BONUS_SPELLS.indexOf(n) >= 0) return "bonus";
+  return "action";
+}
+function repaintEnemyPips() {
+  renderFight();
+  if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
+}
+/**
+ * B4: enemy/NPC map attacks, casts, and item uses spend Action / Bonus / Reaction the way
+ * SSDNSActionPips.attack/spend does. Multiattack is free up to the stat-block limit.
+ * Past the limit we warn and still record the attack. Nothing here blocks a roll.
+ * Only the current turn spends Action/Bonus. An off-turn opportunity attack, or a reaction
+ * spell, spends the Reaction. Players are never written here (their sheet spends once).
+ */
+async function spendEnemyPip(row, cost, what, opts) {
+  opts = opts || {};
+  if (!row || row.kind === "player" || !row.id || !fight.started) return null;
+  const T = window.SSDNSTurn;
+  if (!T) return null;
+  const current = enemyIsCurrent(row);
+  const oa = !!(opts.oa || opts.opportunity);
+  let use = cost || "action";
+  if (!current) {
+    if (oa) use = "reaction";
+    else if (use !== "reaction") return null;
+  }
+  if (use === "free") return { over: false, cost: "free" };
+  const m = enemyMarkersNow(row);
+  if (!m) return null;
+  const label = what || (use === "attack" ? "Attack" : "That");
+  const who = row.name || "This enemy";
+  let over = false;
+  if (use === "attack") {
+    const limit = enemyAttackLimit(row);
+    m.actUndo = "";
+    if (!m.action) { m.action = true; m.actionBy = "attack"; m.attacks = 1; }
+    else if (m.actionBy === "attack" && (parseInt(m.attacks, 10) || 0) < limit) m.attacks = (parseInt(m.attacks, 10) || 0) + 1;
+    else {
+      over = true;
+      if (m.actionBy === "attack") m.attacks = (parseInt(m.attacks, 10) || 0) + 1;
+      const msg = m.actionBy === "attack"
+        ? label + ": that's attack " + m.attacks + ", and this Attack action allows " + limit + ". Done anyway; you can allow it."
+        : label + " costs an action, and " + who + " already used an action this turn. Done anyway; you can allow it.";
+      DM.toast(msg);
+    }
+  } else {
+    const list = use === "full" ? ["action", "bonus"] : (use === "action" || use === "bonus" || use === "reaction" ? [use] : []);
+    const used = list.filter((k) => m[k]);
+    list.forEach((k) => { m[k] = true; });
+    if (list.indexOf("action") >= 0) { m.actUndo = ""; if (!used.length) m.actionBy = "other"; }
+    if (used.length) {
+      const costWord = use === "full" ? "an action and a bonus action" : (use === "bonus" ? "a bonus action" : (use === "reaction" ? "a reaction" : "an action"));
+      DM.toast((what || "That") + " costs " + costWord + ", and " + who + " already used it this turn. Done anyway; you can allow it.");
+    }
+  }
+  fight.markers = Object.assign({}, fight.markers || {}, { [row.id]: m });
+  await saveRemoteTable();
+  repaintEnemyPips();
+  return { over: over, attacks: m.attacks || 0, action: !!m.action, bonus: !!m.bonus, reaction: !!m.reaction, cost: use };
+}
+function resetEnemyMarkers() {
+  const T = window.SSDNSTurn;
+  const cur = fight.started ? fight.order[fight.turn] : null;
+  if (!T || !cur || cur.kind === "player") return null;
+  const m = T.fresh(T.keyFor(turnState(), cur) || ((enemyMarkersNow(cur) || {}).turnKey || ""));
+  fight.markers = Object.assign({}, fight.markers || {}, { [cur.id]: m });
+  saveRemoteTable();
+  repaintEnemyPips();
+  DM.toast("Markers reset for " + (cur.name || "the enemy"));
+  return m;
+}
+function enemyItemById(row, uid) {
+  if (!row || !uid) return null;
+  const lists = [].concat(row.inventory || [], (row.card && row.card.items) || []);
+  return lists.filter((it) => it && (String(it.uid || "") === String(uid) || String(it.id || "") === String(uid)))[0] || null;
 }
 function adjustEnemyMove(delta) {
   const T = window.SSDNSTurn;
@@ -2176,7 +2322,8 @@ function spendMoveForToken(token, feet) {
     const m = playerMarkers(pid);
     if (!m) return false;
     m.moveUsed = Math.max(0, (parseInt(m.moveUsed, 10) || 0) + n);
-    writePlayerMarkers(pid, m, "Moved " + n + " ft on the map.");
+    /* B4: only the feet. A full marker write here used to put a stale action:false back on the sheet. */
+    writePlayerMarkers(pid, m, "Moved " + n + " ft on the map.", ["moveUsed"]);
     if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
     return true;
   }
@@ -4605,6 +4752,7 @@ async function cardFreeShot(row, atk, bonusIn) {
   await saveRemoteTable();
   renderFight();
   DM.toast(detail + (atk.capacity != null ? " · " + atk.loaded + " left" : ""));
+  return true;
 }
 async function cardStrike(i, n, opts) {
   const row = fight.order[i];
@@ -4743,7 +4891,7 @@ async function cardStrike(i, n, opts) {
     await saveRemoteTable();
     renderFight();
     DM.toast(detail + (atk.capacity != null ? " · " + atk.loaded + " left" : ""));
-    return;
+    return true;
   }
   const total = nat + bonus;
   const miss = nat === 1 || total < ac;
@@ -4832,6 +4980,7 @@ async function cardStrike(i, n, opts) {
   await saveRemoteTable();
   renderFight();
   DM.toast(detail + (atk.capacity != null && !atk.rider ? " · " + atk.loaded + " left" : ""));
+  return true;
 }
 function sheetDiceMode() {
   const el = document.querySelector("#enemySheet [data-dice-mode]");
@@ -4970,7 +5119,7 @@ async function cardCast(i, n, opts) {
     await saveRemoteTable();
     renderFight();
     DM.toast(detail);
-    return;
+    return true;
   }
   if (kind === "heal") {
     const dice = diceOf() || "1d8";
@@ -4997,7 +5146,7 @@ async function cardCast(i, n, opts) {
     await saveRemoteTable();
     renderFight();
     DM.toast(detail);
-    return;
+    return true;
   }
   if (kind === "save" || kind === "auto") {
     let asked = null;
@@ -5073,7 +5222,7 @@ async function cardCast(i, n, opts) {
     await saveRemoteTable();
     renderFight();
     DM.toast(detail);
-    return;
+    return true;
   }
   let targetId = direct;
   if (!targetId) {
@@ -5140,6 +5289,7 @@ async function cardCast(i, n, opts) {
   await saveRemoteTable();
   renderFight();
   DM.toast(detail);
+  return true;
 }
 async function attackRow(i) {
   const row = fight.order[i];
@@ -5856,7 +6006,12 @@ function wireClicks() {
       if (t.hasAttribute("data-pip-pid")) { editPlayerMarker(t.getAttribute("data-pip-pid"), t.getAttribute("data-dm-pip")); return; }
       toggleEnemyMarker(t.getAttribute("data-dm-pip")); return;
     }
-    if (t.hasAttribute("data-pip-reset")) { resetPlayerMarkers(t.getAttribute("data-pip-reset")); return; }
+    if (t.hasAttribute("data-pip-reset")) {
+      const pid = t.getAttribute("data-pip-reset");
+      if (!pid || pid === "enemy") resetEnemyMarkers();
+      else resetPlayerMarkers(pid);
+      return;
+    }
     if (t.hasAttribute("data-turn-unlock")) { toggleUnlock(t.getAttribute("data-turn-unlock")); return; }
     if (t.hasAttribute("data-oa-ok")) { answerOa(t.getAttribute("data-oa-ok"), true); return; }
     if (t.hasAttribute("data-oa-no")) { answerOa(t.getAttribute("data-oa-no"), false); return; }
@@ -6525,6 +6680,19 @@ function refreshOpenCard() {
     try { window.SSDNSMapHost.refreshCard(); } catch (e) {}
   }
 }
+let playerMarkerSig = "";
+function playerMarkerSigNow() {
+  return (fight.order || []).map((row) => {
+    if (!row) return "";
+    if (row.kind === "player") {
+      const pid = row.playerId || row.id;
+      const m = (DM.state.players && DM.state.players[pid] && DM.state.players[pid].turnMarkers) || {};
+      return pid + ":" + [m.action, m.bonus, m.reaction, m.attacks, m.moveUsed, m.actionBy, m.dash].join(",");
+    }
+    const m = (fight.markers || {})[row.id] || {};
+    return (row.id || "") + ":" + [m.action, m.bonus, m.reaction, m.attacks, m.moveUsed].join(",");
+  }).join("|");
+}
 function syncPlayerVitals() {
   let tableChanged = false;
   let gunsChanged = false;
@@ -6577,8 +6745,11 @@ function syncPlayerVitals() {
   const nextCard = snapshotCardSig();
   const cardChanged = nextCard !== playerCardSig;
   playerCardSig = nextCard;
-  if (gunsChanged || cardChanged) refreshOpenCard();
-  if (gunsChanged) renderFight();
+  const nextMark = playerMarkerSigNow();
+  const marksChanged = nextMark !== playerMarkerSig;
+  playerMarkerSig = nextMark;
+  if (gunsChanged || cardChanged || marksChanged) refreshOpenCard();
+  if (gunsChanged || marksChanged) renderFight();
   if (!tableChanged) return;
   saveRemoteTable();
   renderFight();
@@ -6784,14 +6955,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.134-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.135-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.134-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.135-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -6947,6 +7118,10 @@ async function bootV2() {
     heldOutOfTurn: heldOutOfTurn,
     heldHits: function () { return Object.assign({}, fight.held || {}); },
     mapMarkersHtml: mapMarkersHtml,
+    spendEnemyPip: spendEnemyPip,
+    resetEnemyMarkers: resetEnemyMarkers,
+    enemyAttackLimit: enemyAttackLimit,
+    enemySpellCost: enemySpellCost,
     movementBudget: movementBudgetForToken,
     spendMove: spendMoveForToken,
     paintTurnRules: paintTurnRules,
@@ -8432,8 +8607,12 @@ async function mapFreeShot(i, row, detail) {
   ensureCombatantCard(row);
   const n = mapAttackIndex(row, detail.weaponId);
   if (n < 0) { DM.toast("No attack"); return false; }
-  await cardStrike(i, n, { free: true });
-  return true;
+  const rolled = await cardStrike(i, n, { free: true });
+  if (rolled) {
+    const atk = row.card && row.card.attacks && row.card.attacks[n];
+    await spendEnemyPip(row, "attack", (atk && atk.name) || "Attack", { oa: !!(detail && (detail.oa || detail.reaction)) });
+  }
+  return !!rolled;
 }
 window.SSDNSMapFight = {
   linkedTokenIds() { return linkedTokenIds(); },
@@ -8482,8 +8661,13 @@ window.SSDNSMapFight = {
     ensureCombatantCard(row);
     const n = mapAttackIndex(row, detail.weaponId);
     if (n < 0) { DM.toast("No attack"); return false; }
-    await cardStrike(i, n, { targetId: targetId });
-    return true;
+    const rolled = await cardStrike(i, n, { targetId: targetId });
+    if (rolled) {
+      const atk = row.card && row.card.attacks && row.card.attacks[n];
+      /* Player sheets spend on their own gun command. This branch is enemies only. */
+      await spendEnemyPip(row, "attack", (atk && atk.name) || "Attack", { oa: !!(detail.oa || detail.reaction) });
+    }
+    return !!rolled;
   },
   async cast(detail) {
     detail = detail || {};
@@ -8508,8 +8692,13 @@ window.SSDNSMapFight = {
     const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(typeof spell === "string" ? spell : spell.name) : null;
     const self = targetId === String(row.id || "") || targetId === combatantKey(row);
     if (self && listedKind(typeof spell === "string" ? {} : spell, known) !== "heal") { DM.toast("Pick a different token"); return false; }
-    await cardCast(i, n, { targetId: targetId });
-    return true;
+    const rolled = await cardCast(i, n, { targetId: targetId });
+    if (rolled) {
+      const raw = typeof spell === "string" ? spell : (spell.name || "Spell");
+      const cost = enemySpellCost(raw);
+      await spendEnemyPip(row, cost, "Casting " + raw, { oa: !!(detail.oa || detail.reaction) || cost === "reaction" });
+    }
+    return !!rolled;
   },
   chamber(detail) { return mapGunChamber(detail); },
   targets(detail) {
@@ -8596,6 +8785,13 @@ window.SSDNSMapFight = {
     detail = detail || {};
     const i = mapFightIndex(detail);
     const row = i >= 0 ? fight.order[i] : null;
+    if (row && row.kind !== "player") {
+      const item = enemyItemById(row, detail.itemUid || detail.itemId);
+      if (!item) { DM.toast("No item"); return Promise.resolve(false); }
+      const cost = detail.cost || item.actionCost || item.cost || "action";
+      return spendEnemyPip(row, cost, "Use " + (item.name || "item"), { oa: !!(detail.oa || detail.reaction) }).then(() => true);
+    }
+    /* The player's own sheet spends once when the item_use command lands. Do not spend here. */
     const pid = row && row.kind === "player" ? (row.playerId || row.id) : "";
     if (!pid || !detail.itemUid) { DM.toast("No item"); return Promise.resolve(false); }
     return DM.pushCommand({ type: "item_use", to: pid, payload: { uid: detail.itemUid }, from: DM.state.uid });
@@ -8690,7 +8886,7 @@ window.SSDNSMapFight = {
   syncMap() { syncMapTokens(); }
 };
 
-/* Dirty-gun tracker (sheet 0.3.121 / DMCC 0.2.134). The DM advances a room campaign day.
+/* Dirty-gun tracker (sheet 0.3.122 / DMCC 0.2.135). The DM advances a room campaign day.
    A gun not cleaned in 2 campaign days is listed here. Nothing auto-dirties the gun, and the list is DM-only. */
 function campaignDayNow() {
   const n = parseInt(fight.campaignDay, 10);
