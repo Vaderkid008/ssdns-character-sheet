@@ -1529,7 +1529,9 @@ button.turn-locked:hover, .btn.turn-locked:hover { filter: grayscale(.85); outli
    nowrap group so Dodge cannot drop onto a line of its own. */
 #turnPanel .tl-acts { display: contents; }
 #turnPanel .tl-move { white-space: nowrap; padding: 3px 7px; border-radius: 999px; background: rgba(0,0,0,.28); border: 1px solid rgba(201,162,39,.5); color: var(--parch, #efe6d4); }
+#turnPanel button.tl-move { font: inherit; cursor: pointer; width: auto; line-height: 1.2; appearance: none; }
 #turnPanel .tl-move b { color: #e2c56a; font-size: 13px; }
+#turnPanel button.tl-move.is-on { background: rgba(64, 168, 96, 0.42); border-color: #8fd4a8; box-shadow: 0 0 0 1px rgba(111, 191, 79, 0.75); }
 #turnPanel .tl-box .btn.xs { height: 24px; padding: 0 8px; font-size: 11px; }
 #turnPanel .tl-step { min-width: 24px; padding: 0 6px; font-weight: 800; }
 #turnPanel .tl-act.on { background: #e2c56a; color: #2c2a24; border-color: #8a6a12; }

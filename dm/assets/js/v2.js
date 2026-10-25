@@ -1884,6 +1884,12 @@ function tokenIsRow(token, row) {
   if (row.kind === "player" && row.id && token.ownerUid === row.id) return true;
   return false;
 }
+/* Strip Move chip. pills = the live strip (toggle). The all-players marker list stays a readout. */
+function moveFeetHtml(left, max, interactive) {
+  if (!interactive) return `<span class="fine tr-move tl-move" data-tl-left="${left}" title="Movement left this turn">Move ${left}/${max} ft</span>`;
+  const on = !!(window.SSDNSMoveMode && window.SSDNSMoveMode.isOn && window.SSDNSMoveMode.isOn());
+  return `<button type="button" class="fine tr-move tl-move${on ? " is-on" : ""}" data-tl-movemode data-tl-left="${left}" aria-pressed="${on ? "true" : "false"}" title="Move mode. Click to walk the active token. Click again, Esc, or right-click to leave. Movement left this turn.">Move ${left}/${max} ft</button>`;
+}
 function markerExtrasHtml(row, m, opts) {
   const T = window.SSDNSTurn;
   if (!T || !row) return "";
@@ -1891,7 +1897,7 @@ function markerExtrasHtml(row, m, opts) {
     /* Enemy turn on the DM strip: the same Move feet and Dash the player strip uses, stored on fight.markers. */
     if (!(opts && opts.pills)) return "";
     const mvE = T.moveLeft(m, combatantSpeed(row));
-    const moveE = `<span class="fine tr-move tl-move" data-tl-left="${mvE.left}" title="Movement left this turn">Move ${mvE.left}/${mvE.max} ft</span>`;
+    const moveE = moveFeetHtml(mvE.left, mvE.max, true);
     const steps = `<button type="button" class="btn xs tl-step" data-dm-move="5" title="This enemy moved 5 ft">−</button><button type="button" class="btn xs tl-step" data-dm-move="-5" title="Give back 5 ft">+</button>`;
     const acts = ["dash", "disengage", "dodge"].map((k) => {
       const label = k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge");
@@ -1901,7 +1907,7 @@ function markerExtrasHtml(row, m, opts) {
   }
   const mv = T.moveLeft(m, playerSpeed(row.playerId || row.id));
   /* Keep "Move N/N ft" as one text run. Tests match that string. */
-  const move = `<span class="fine tr-move tl-move" title="Movement left this turn">Move ${mv.left}/${mv.max} ft</span>`;
+  const move = moveFeetHtml(mv.left, mv.max, !!(opts && opts.pills));
   if (opts && opts.pills) {
     const pills = ["dash", "disengage", "dodge"].map((k) => {
       const label = k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge");
@@ -7054,14 +7060,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.145-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.146-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.145-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.146-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

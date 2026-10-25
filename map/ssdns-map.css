@@ -1297,6 +1297,10 @@ body.map-fullscreen #mapMount > canvas.ssm-fx {
 .ssm-turnstrip .ssm-strip-markers .pip-label { color: #c9a227; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
 .ssm-turnstrip .ssm-strip-markers .tr-move,
 .ssm-turnstrip .tl-move { color: #efe6d4; font-size: 12px; white-space: nowrap; padding: 3px 7px; border-radius: 999px; background: rgba(0,0,0,.28); border: 1px solid rgba(201,162,39,.5); }
+.ssm-turnstrip button.tl-move,
+.ssm-turnstrip button.ssm-move-readout { font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; width: auto; line-height: 1.2; appearance: none; }
+.ssm-turnstrip button.tl-move.is-on,
+.ssm-turnstrip button.ssm-move-readout.is-on { background: rgba(64, 168, 96, 0.42); border-color: #8fd4a8; box-shadow: 0 0 0 1px rgba(111, 191, 79, 0.75); }
 .ssm-turnstrip .tl-act { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 999px; border: 1px solid rgba(201,162,39,.55); color: #efe6d4; font: 700 11px/1 "Oswald", "Arial Narrow", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
 .ssm-turnstrip .tl-act.on { background: #e2c56a; color: #2c2a24; border-color: #8a6a12; }
 .ssm-turnstrip .pip-action:not(.used) { background: #6fbf4f; border-color: #3d6b2e; color: #fff; }
