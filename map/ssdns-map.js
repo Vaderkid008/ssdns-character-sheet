@@ -6832,6 +6832,78 @@ async function loadSceneImage(sceneId, opts) {
     const built = cardFromActions(list);
     return { name: '', attacks: built.attacks, spells: built.spells };
   }
+  function spellNameFromAct(id) {
+    const rest = String(id || '').slice(6);
+    const parts = rest.split(':');
+    if (parts.length >= 2 && /^\d+$/.test(parts[0])) return parts.slice(1).join(':');
+    return rest;
+  }
+  function mapActLabel(id) {
+    id = String(id || '');
+    if (id.indexOf('spell:') === 0) return spellNameFromAct(id) || 'Spell';
+    if (id === 'pact') return 'Pact Shot';
+    if (id.indexOf('offhand:') === 0) return 'Off-hand attack';
+    if (id.indexOf('fan:') === 0) return 'Fan the Hammer';
+    return 'Attack';
+  }
+  function mapActionCost(id) {
+    id = String(id || '');
+    if (id.indexOf('offhand:') === 0 || id.indexOf('fan:') === 0) return 'bonus';
+    if (id.indexOf('gunroll:') === 0 || id.indexOf('melee:') === 0 || id === 'pact') return 'attack';
+    if (id.indexOf('spell:') === 0) {
+      const P = window.SSDNSActionPips;
+      const name = spellNameFromAct(id);
+      return (P && P.spellCost && P.spellCost(name)) || 'action';
+    }
+    return '';
+  }
+  /* Player map only. On your turn a spent Action, Bonus, or Reaction stops the roll.
+     Off your turn, Turn Lock still says it isn't your turn; a spent Reaction stops an
+     approved opportunity attack and a reaction spell. Enemies are not gated here. */
+  function playerMapGate(id, label) {
+    if (role !== 'player') return '';
+    const cost = mapActionCost(id);
+    if (!cost) return '';
+    const P = window.SSDNSActionPips;
+    if (!P || !P.blockMap) return '';
+    const st = P.state ? P.state() : {};
+    const Lock = window.SSDNSTurnLock;
+    const inFight = !!(Lock && Lock.inFight && Lock.inFight());
+    const mine = !!(Lock && Lock.myTurn && Lock.myTurn());
+    if (inFight && !mine) {
+      if (st.oaArmed && (cost === 'attack' || cost === 'action')) return P.blockMap('reaction', label || 'Opportunity attack');
+      if (cost === 'reaction') return P.blockMap('reaction', label || 'Reaction');
+      return '';
+    }
+    return P.blockMap(cost, label || '');
+  }
+  function itemByUid(itemUid) {
+    const want = String(itemUid || '');
+    let card = null;
+    try { card = playerFightModel(); } catch (e) { card = null; }
+    return ((card && card.items) || []).find(it => it && (String(it.uid || '') === want || String(it.id || '') === want)) || null;
+  }
+  function itemMapCost(item) {
+    const raw = item && (item.actionCost || item.cost);
+    const cost = raw == null || raw === '' ? 'action' : String(raw).toLowerCase();
+    if (cost === 'free' || cost === 'none') return '';
+    return cost;
+  }
+  function playerUseItem(itemUid) {
+    const Items = window.SSDNSItems;
+    if (!Items || !Items.useOnSheet) return;
+    const item = itemByUid(itemUid);
+    const label = (item && item.name) || 'Item';
+    const cost = role === 'player' ? itemMapCost(item) : '';
+    if (cost && window.SSDNSActionPips && window.SSDNSActionPips.blockMap && window.SSDNSActionPips.blockMap(cost, label)) return;
+    const plan = Items.useOnSheet(itemUid);
+    const finish = (res) => {
+      if (!res || res.ok === false) return;
+      if (role === 'player' && cost && window.SSDNSActionPips && window.SSDNSActionPips.spend) window.SSDNSActionPips.spend(cost, label);
+    };
+    if (plan && typeof plan.then === 'function') plan.then(finish);
+    else finish(plan);
+  }
   function runPlayer(id, extra) {
     if (!id) return;
     extra = extra || {};
@@ -6857,6 +6929,7 @@ async function loadSceneImage(sceneId, opts) {
         return;
       }
     }
+    if (playerMapGate(id, mapActLabel(id))) return;
     state.playerTarget = targetId;
     const ctx = { id: id, tokenId: tokenId, targetId: targetId };
     if (extra.chamber != null && extra.chamber !== '') ctx.chamber = extra.chamber;
@@ -7252,9 +7325,7 @@ async function loadSceneImage(sceneId, opts) {
       itemRows;
     bindSpellFold(slot);
     slot.querySelectorAll('[data-act="useItem"]').forEach(b => {
-      b.addEventListener('click', () => {
-        if (window.SSDNSItems && window.SSDNSItems.useOnSheet) window.SSDNSItems.useOnSheet(b.getAttribute('data-uid'));
-      });
+      b.addEventListener('click', () => playerUseItem(b.getAttribute('data-uid')));
     });
     slot.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"], [data-act="playerClean"], [data-act="playerUnjam"], [data-act="playerReopen"], [data-act="playerUnload"]').forEach(b => {
       b.addEventListener('click', () => runPlayer(b.getAttribute('data-id') || b.getAttribute('data-wid')));
@@ -8084,7 +8155,7 @@ async function loadSceneImage(sceneId, opts) {
     d.querySelectorAll('[data-act="useItem"]').forEach(b => {
       b.addEventListener('click', () => {
         const uid = b.getAttribute('data-uid');
-        if (role === 'player' && window.SSDNSItems && window.SSDNSItems.useOnSheet) window.SSDNSItems.useOnSheet(uid);
+        if (role === 'player') playerUseItem(uid);
         else emit('drawer:useitem', detail({ itemUid: uid }));
       });
     });

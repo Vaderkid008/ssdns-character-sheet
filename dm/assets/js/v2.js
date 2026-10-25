@@ -2228,6 +2228,7 @@ async function spendEnemyPip(row, cost, what, opts) {
   const label = what || (use === "attack" ? "Attack" : "That");
   const who = row.name || "This enemy";
   let over = false;
+  let warn = "";
   if (use === "attack") {
     const limit = enemyAttackLimit(row);
     m.actUndo = "";
@@ -2236,10 +2237,10 @@ async function spendEnemyPip(row, cost, what, opts) {
     else {
       over = true;
       if (m.actionBy === "attack") m.attacks = (parseInt(m.attacks, 10) || 0) + 1;
-      const msg = m.actionBy === "attack"
+      warn = m.actionBy === "attack"
         ? label + ": that's attack " + m.attacks + ", and this Attack action allows " + limit + ". Done anyway; you can allow it."
         : label + " costs an action, and " + who + " already used an action this turn. Done anyway; you can allow it.";
-      DM.toast(msg);
+      DM.toast(warn);
     }
   } else {
     const list = use === "full" ? ["action", "bonus"] : (use === "action" || use === "bonus" || use === "reaction" ? [use] : []);
@@ -2248,13 +2249,26 @@ async function spendEnemyPip(row, cost, what, opts) {
     if (list.indexOf("action") >= 0) { m.actUndo = ""; if (!used.length) m.actionBy = "other"; }
     if (used.length) {
       const costWord = use === "full" ? "an action and a bonus action" : (use === "bonus" ? "a bonus action" : (use === "reaction" ? "a reaction" : "an action"));
-      DM.toast((what || "That") + " costs " + costWord + ", and " + who + " already used it this turn. Done anyway; you can allow it.");
+      warn = (what || "That") + " costs " + costWord + ", and " + who + " already used it this turn. Done anyway; you can allow it.";
+      DM.toast(warn);
     }
   }
   fight.markers = Object.assign({}, fight.markers || {}, { [row.id]: m });
   await saveRemoteTable();
   repaintEnemyPips();
-  return { over: over, attacks: m.attacks || 0, action: !!m.action, bonus: !!m.bonus, reaction: !!m.reaction, cost: use };
+  return { over: over, warn: warn, attacks: m.attacks || 0, action: !!m.action, bonus: !!m.bonus, reaction: !!m.reaction, cost: use };
+}
+/* The attack line is toasted after the roll. Repeat a past-limit warning so it stays on screen. */
+function repeatEnemyWarn(spent) {
+  if (spent && spent.warn) DM.toast(spent.warn);
+}
+/* Mark Action (or Reaction, for an opportunity attack) the moment the attack roll is published.
+   Bite and other riders wait on a player save after the roll; spending only after cardStrike
+   returns left Action unmarked for that whole wait, so a second Bite could start. Past the
+   Multiattack limit this still warns and allows — the DM is not hard-blocked on an NPC. */
+async function commitEnemyAttack(row, atk, opts) {
+  if (!row || row.kind === "player") return null;
+  return spendEnemyPip(row, "attack", (atk && atk.name) || "Attack", { oa: !!(opts && (opts.oa || opts.reaction || opts.opportunity)) });
 }
 function resetEnemyMarkers() {
   const T = window.SSDNSTurn;
@@ -4630,6 +4644,7 @@ async function enemyStrike(i, preset) {
     result: total, detail: detail, private: false, attack: true, nat: nat, crit: nat === 20 && hit,
     targetId: target.id, targetName: target.name, damage: dmg ? dmg.total : null, ac: ac, weapon: weapon
   });
+  const spentStrike = await commitEnemyAttack(row, preset || { name: attackName }, null);
   if (hit && dmg && fight.damageMode !== "approve") {
     applyPlayerHit({
       rollId: id, targetId: target.id, targetName: target.name, amount: dmg.total,
@@ -4637,6 +4652,7 @@ async function enemyStrike(i, preset) {
     });
   }
   DM.toast(detail);
+  repeatEnemyWarn(spentStrike);
 }
 const pendingSaves = {};
 function requestPlayerSave(opts) {
@@ -4828,9 +4844,11 @@ async function cardFreeShot(row, atk, bonusIn, opts) {
     mapFx({ type: "free", shooter: row.id, weapon: atk.name || "", weaponId: atk.weapon || atk.id || "", sfx: strikeCue(atk), nat: nat, heard: [] });
   }
   await publishCardRoll(row, detail, total, { formula: "1d20" + signed(bonus), nat: nat, attack: false, freeShot: true, weapon: atk.name });
+  const spentFree = await commitEnemyAttack(row, atk, opts);
   await saveRemoteTable();
   renderFight();
   DM.toast(detail + (atk.capacity != null ? " · " + atk.loaded + " left" : ""));
+  repeatEnemyWarn(spentFree);
   return true;
 }
 async function cardStrike(i, n, opts) {
@@ -4974,9 +4992,11 @@ async function cardStrike(i, n, opts) {
     const detail = row.name + " fires " + atk.name + ": natural " + nat + " misfire. The round is spent.";
     if (!resolved || resolved.jammed) playTableSfx("misfire");
     await publishCardRoll(row, detail, nat, { attack: true, nat: nat });
+    const spentMisfire = await commitEnemyAttack(row, atk, opts);
     await saveRemoteTable();
     renderFight();
     DM.toast(detail + (atk.capacity != null ? " · " + atk.loaded + " left" : ""));
+    repeatEnemyWarn(spentMisfire);
     return true;
   }
   const total = nat + bonus;
@@ -5029,6 +5049,7 @@ async function cardStrike(i, n, opts) {
     id: id, formula: "1d20" + bonusTxt, attack: true, nat: nat, crit: nat === 20 && hit,
     targetId: target.id, targetName: target.name, damage: dmg ? dmg.total : null, weapon: atk.name
   });
+  const spentAttack = await commitEnemyAttack(row, atk, opts);
   if (hit && dmg && fight.damageMode !== "approve") {
     applyPlayerHit({
       rollId: id, targetId: target.id, targetName: target.name, amount: dmg.total,
@@ -5066,6 +5087,7 @@ async function cardStrike(i, n, opts) {
   await saveRemoteTable();
   renderFight();
   DM.toast(detail + (atk.capacity != null && !atk.rider ? " · " + atk.loaded + " left" : ""));
+  repeatEnemyWarn(spentAttack);
   return true;
 }
 function sheetDiceMode() {
@@ -7060,14 +7082,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.146-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.147-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.146-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.147-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -8850,11 +8872,8 @@ async function mapFreeShot(i, row, detail) {
   if (n < 0) { DM.toast("No attack"); return false; }
   const freeOpts = { free: true };
   if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) freeOpts.chamber = Number(detail.chamber);
+  if (detail && (detail.oa || detail.reaction)) freeOpts.oa = true;
   const rolled = await cardStrike(i, n, freeOpts);
-  if (rolled) {
-    const atk = row.card && row.card.attacks && row.card.attacks[n];
-    await spendEnemyPip(row, "attack", (atk && atk.name) || "Attack", { oa: !!(detail && (detail.oa || detail.reaction)) });
-  }
   return !!rolled;
 }
 function enemyReadyToLoot(row) {
@@ -8979,12 +8998,10 @@ window.SSDNSMapFight = {
     if (n < 0) { DM.toast("No attack"); return false; }
     const strikeOpts = { targetId: targetId };
     if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) strikeOpts.chamber = Number(detail.chamber);
+    if (detail.oa || detail.reaction) strikeOpts.oa = true;
+    /* Action is marked inside cardStrike, as soon as the attack roll is published, including a Bite
+       that then waits on the target's save. Spending again here would count one Bite as two attacks. */
     const rolled = await cardStrike(i, n, strikeOpts);
-    if (rolled) {
-      const atk = row.card && row.card.attacks && row.card.attacks[n];
-      /* Player sheets spend on their own gun command. This branch is enemies only. */
-      await spendEnemyPip(row, "attack", (atk && atk.name) || "Attack", { oa: !!(detail.oa || detail.reaction) });
-    }
     return !!rolled;
   },
   async cast(detail) {

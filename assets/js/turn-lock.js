@@ -69,7 +69,7 @@
       var cost = p && p.spellCost ? p.spellCost(spellNameOf(btn)) : "action";
       if (cost === "reaction") return m.reaction ? "Your reaction is used. It comes back at the start of your own turn." : "";
     }
-    if (btn.matches(ATTACK) && m.oaArmed) return "";
+    if (btn.matches(ATTACK) && m.oaArmed) return m.reaction ? "Reaction already used." : "";
     if (btn.matches(ATTACK) && !btn.matches("#btnPactShot")) return NOT_TURN + (m.reaction ? "" : " For an opportunity attack, ask the DM with the Opportunity attack button.");
     return NOT_TURN;
   }
@@ -158,7 +158,7 @@
       var ask = m.oaReq ? t.oaEntry(i, m.oaReq) : null;
       if (m.oaArmed) h += '<span class="tl-oa ok" data-tl-oa-state="armed">Opportunity attack approved: make one attack</span>';
       else if (m.oaReq) h += '<span class="tl-oa wait" data-tl-oa-state="' + (ask ? ask.status : "sent") + '">Opportunity attack: waiting for the DM</span>';
-      else h += '<button type="button" class="btn xs tl-oa-btn" data-tl-oa' + (m.reaction ? " disabled" : "") + ' title="' + (m.reaction ? "Your reaction is used until your next turn." : "Ask the DM for an opportunity attack on your target. If approved, one attack uses your reaction.") + '">Opportunity attack</button>';
+      else h += '<button type="button" class="btn xs tl-oa-btn" data-tl-oa title="' + (m.reaction ? "Reaction already used." : "Ask the DM for an opportunity attack on your target. If approved, one attack uses your reaction.") + '">Opportunity attack</button>';
       h += unlockedByDm() ? '<span class="tl-lock open">DM unlocked this turn</span>' : '<span class="tl-lock">Not your turn</span>';
     }
     return h + "</span>";
@@ -230,7 +230,11 @@
   function askOa() {
     var J = root.SSDNSDmJoin, p = P();
     var m = marks();
-    if (m.reaction) { toast("Your reaction is used. It comes back at the start of your own turn."); return; }
+    if (m.reaction) {
+      if (p && p.blockMap) p.blockMap("reaction", "Opportunity attack");
+      else toast("Reaction already used.");
+      return;
+    }
     if (!J || !J.postOaRequest || !(J.isJoined && J.isJoined())) { toast("Join the DM's table to ask for an opportunity attack."); return; }
     var sel = document.getElementById("atkTarget");
     var tid = sel && sel.value && sel.value !== "__free" ? sel.value : "";
@@ -287,11 +291,16 @@
     root.addEventListener("click", function (e) {
       var t = e.target && e.target.closest && e.target.closest(ALL + ", [data-tl-oa]");
       if (!t) return;
-      if (t.hasAttribute("data-tl-oa")) { e.preventDefault(); e.stopImmediatePropagation(); if (!t.disabled) askOa(); return; }
+      if (t.hasAttribute("data-tl-oa")) { e.preventDefault(); e.stopImmediatePropagation(); askOa(); return; }
       var why = reason(t);
       if (why) {
         e.preventDefault(); e.stopImmediatePropagation();
-        toast(why);
+        var pips = P();
+        var mNow = marks();
+        var spellReaction = t.matches && t.matches(SPELL) && pips && pips.spellCost && pips.spellCost(spellNameOf(t)) === "reaction" && mNow.reaction;
+        var oaRoll = t.matches && t.matches(ATTACK) && mNow.oaArmed && mNow.reaction;
+        if ((spellReaction || oaRoll) && pips && pips.blockMap) pips.blockMap("reaction", oaRoll ? "Opportunity attack" : ("Casting " + (spellNameOf(t) || "a spell")));
+        else toast(why);
         return;
       }
       if (t.hasAttribute("data-tl-move")) { e.preventDefault(); e.stopImmediatePropagation(); doMove(t.getAttribute("data-tl-move")); return; }
