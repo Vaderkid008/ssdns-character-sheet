@@ -124,7 +124,14 @@
     if (isDmPage() && root.DMCC && root.DMCC.state && root.DMCC.state.players) {
       return Object.keys(root.DMCC.state.players).map(function (id) {
         var snap = (root.DMCC.state.players[id] && root.DMCC.state.players[id].snapshot) || {};
-        return { uid: id, id: id, name: snap.name || snap.player || id, portrait: snap.portrait || "" };
+        return {
+          uid: id,
+          id: id,
+          name: snap.name || snap.player || id,
+          portrait: snap.portrait || "",
+          /* B2: the sheet snapshot, so the DM map can stamp lights while the player's Map tab is closed. */
+          lightProfile: snap.lightProfile || null
+        };
       });
     }
     return players.slice();
@@ -1080,6 +1087,12 @@
     patchToken: function (id, fields) {
       if (!isDmPage() || !map || typeof map.patchToken !== "function") return null;
       return map.patchToken(id, fields || {});
+    },
+    /* B2: a player's Add-my-token request. The DM client places it. replace drops the old one. */
+    addPlayerToken: function (uid, opts) {
+      if (!isDmPage() || !map || typeof map.addPlayerTokenFor !== "function") return null;
+      try { return map.addPlayerTokenFor(uid, opts || {}); }
+      catch (e) { return null; }
     },
     refreshCard: function (tokenId) {
       if (map && map.refreshCard) map.refreshCard(tokenId || "");

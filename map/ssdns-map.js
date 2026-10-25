@@ -287,6 +287,8 @@ function applySharedToTokens() {
       if (s.skulker != null) t.skulker = !!s.skulker;
       if (s.facing != null) t.facing = Number(s.facing) || 0;
       if (s.dmDoused != null) t.dmDoused = !!s.dmDoused;
+      if (s.dmDarkvision != null && s.dmDarkvision !== '') t.dmDarkvision = Number(s.dmDarkvision) || 0;
+      if (s.dmTorch != null) t.dmTorch = !!s.dmTorch;
       t.status = s.status || '';
       t.conditions = s.conditions ? [...s.conditions] : [];
       t.sceneId = s.sceneId || 'scn_dustyspur01';
@@ -866,6 +868,7 @@ if (role === 'dm') {
         <button type="button" data-act="playerPingBtn">Ping</button>
         <button type="button" data-act="playerRulerBtn">Ruler</button>
         <div class="ssm-lights" data-act="playerLights">No light in hand</div>
+        <button type="button" data-act="addMineBtn" hidden>Add my token</button>
       </div>
       <label class="ssm-range"><input type="checkbox" data-act="showRange"> Show my range</label>
       <label class="ssm-range"><input type="checkbox" data-act="showMoveReach" checked> Show move reach</label>
@@ -1992,6 +1995,8 @@ function draw() {
   ctx.clearRect(0, 0, box.w, box.h);
 
   syncOwnerLights();
+  if (role === 'dm') syncSnapshotLights();
+  else paintAddMine();
   const viewSight = role === 'player' ? sightFor(uid) : buildSight(null, (state.scene && state.scene.id) || '', 'party');
   const lightSources = (viewSight.lights || []).map(ls => ({
     x: ls.x * px, y: ls.y * px, radius: ls.radius, bright: (Number(ls.bright) || 0) / 5, cone: !!ls.cone, facing: ls.facing || 0
@@ -2345,6 +2350,25 @@ function draw() {
     ctx.textBaseline = 'top';
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
+    /* B2: DM-only link badge. Players never reach a hidden token, and this mark is role-gated too. */
+    if (role === 'dm') {
+      const linkedSheet = !!(t.ownerUid && partyList().some(p => p && (p.uid || p.id) === t.ownerUid));
+      const mark = linkedSheet ? '⛓' : '⚠';
+      ctx.font = 'bold ' + Math.max(11, Math.round(r * 0.42)) + 'px system-ui, "Noto Color Emoji", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const bx = s.x + r * 0.72;
+      const by = s.y - r * 0.72;
+      ctx.beginPath();
+      ctx.arc(bx, by, Math.max(7, r * 0.28), 0, Math.PI * 2);
+      ctx.fillStyle = linkedSheet ? 'rgba(40, 90, 48, 0.95)' : 'rgba(120, 72, 16, 0.95)';
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = linkedSheet ? '#b7e0b2' : '#e2c56a';
+      ctx.stroke();
+      ctx.fillStyle = '#fff8e8';
+      ctx.fillText(mark, bx, by + 0.5);
+    }
     if (state.selected && state.selected.id === t.id && host.rounds) {
       let rows = [];
       try {
@@ -3388,19 +3412,59 @@ function addEnemyToken() {
   selectToken(token);
   toast('Enemy token added. Grant it to a player, or leave it for the DM.');
 }
-function addPlayerToken() {
-  const who = q('grantUid') && q('grantUid').value;
-  if (!who) { toast('No player to add'); return; }
+function ownedTokenIds(uid, exceptId) {
+  const ids = [];
+  const want = playerTokenId(uid);
+  state.tokens.forEach(tok => {
+    if (!tok || tok.id === exceptId) return;
+    if (tok.id === want || tok.ownerUid === uid) ids.push(tok.id);
+  });
+  Object.keys(shared.tokens || {}).forEach(id => {
+    if (id === exceptId || ids.indexOf(id) >= 0) return;
+    const s = shared.tokens[id];
+    if (id === want || (s && s.ownerUid === uid)) ids.push(id);
+  });
+  return ids;
+}
+/* Move one token onto the stable player id, keeping the position it has now. */
+function retargetTokenId(t, want) {
+  if (!t || t.id === want) return t;
+  const oldId = t.id;
+  const next = JSON.parse(JSON.stringify(t, (k, v) => (k === '_img' || k === '_lightSig') ? undefined : v));
+  next.id = want;
+  if (t._img) next._img = t._img;
+  state.tokens = state.tokens.filter(tok => tok && tok.id !== oldId);
+  delete shared.tokens[oldId];
+  if (adapter && adapter.remove) {
+    adapter.remove('map/public/tokens/' + oldId);
+    adapter.remove('map/dm/tokens/' + oldId);
+  }
+  state.tokens.push(next);
+  shared.tokens[want] = JSON.parse(JSON.stringify(next, (k, v) => k === '_img' ? undefined : v));
+  saveToken(want);
+  return next;
+}
+/* DM button and the player's Add-my-token request. replace removes the old token instead of duplicating. */
+function addPlayerTokenFor(who, opts) {
+  opts = opts || {};
+  if (role !== 'dm') return null;
+  if (!who) { if (!opts.quiet) toast('No player to add'); return null; }
   delete dismissedMap()[who];
   if (adapter && adapter.remove) adapter.remove('map/dm/dismissed/' + who);
-  if (canonicalPlayerToken(who) || tokenForOwner(who)) { toast('That player already has a token'); return; }
+  const existing = canonicalPlayerToken(who) || tokenForOwner(who);
+  if (existing && !opts.replace) { if (!opts.quiet) toast('That player already has a token'); return existing; }
+  const had = !!existing;
+  if (existing && opts.replace) {
+    const ids = ownedTokenIds(who, '');
+    if (ids.length) removeMapTokens(ids, { keepOwner: true, silent: true });
+  }
   const p = partyList().find(x => (x.uid || x.id) === who) || {};
-  const name = p.name || p.label || who;
+  const name = opts.name || p.name || p.label || who;
   /* Same next-free square a linked enemy uses (placeLinkedToken → nextFreeSpot), so a second
      player does not land on the square the first one already occupies. */
   const label = String(name).slice(0, 16);
   const spot = nextFreeSpot(1, label);
-  if (!spot) { toast('No open square'); return; }
+  if (!spot) { if (!opts.quiet) toast('No open square'); return null; }
   const token = makeToken({
     id: playerTokenId(who),
     kind: 'player',
@@ -3410,13 +3474,26 @@ function addPlayerToken() {
     ownerCanMove: true,
     combatantId: who,
     sheetId: who,
-    color: '#4a90d9',
+    color: opts.color || '#4a90d9',
     pos: spot
   });
-  if (!token) return;
+  if (!token) return null;
+  if (opts.sceneId) {
+    token.sceneId = opts.sceneId;
+    if (shared.tokens[token.id]) shared.tokens[token.id].sceneId = opts.sceneId;
+    saveToken(token.id);
+  }
+  const profile = p.lightProfile || null;
+  if (profile) applyLightsToToken(token, profile, 'snap');
   emit('party:sync', { playerId: who, tokenId: token.id });
-  selectToken(token);
-  toast('Player token added');
+  if (!opts.quiet) selectToken(token);
+  if (had && opts.replace) toast("Replaced " + name + "'s old token.");
+  else if (!opts.quiet) toast('Player token added');
+  return token;
+}
+function addPlayerToken() {
+  const who = q('grantUid') && q('grantUid').value;
+  return addPlayerTokenFor(who, {});
 }
 let defaultSceneDone = false;
 let sawRemoteScene = false;
@@ -4544,12 +4621,104 @@ function raycastVisible(cx, cy, radius) {
   }
   return points;
 }
+function cleanLightRows(list, doused) {
+  return (Array.isArray(list) ? list : []).filter(l => l && (l.name || l.bright || l.dim)).map(l => ({
+    id: l.id || '',
+    name: l.name || 'Light',
+    bright: Number(l.bright) || 0,
+    dim: Number(l.dim) || 0,
+    cone: !!l.cone,
+    out: !!(doused || l.out)
+  }));
+}
+function profileForOwner(ownerUid) {
+  if (!ownerUid) return null;
+  const p = partyList().find(x => x && (x.uid || x.id) === ownerUid);
+  return p && p.lightProfile ? p.lightProfile : null;
+}
+/* Stamp lights onto a token. dmDoused forces every light out. A DM hand darkvision or Give torch
+   wins over the sheet profile for that field. source 'snap' is the DM write from the player snapshot. */
+function applyLightsToToken(token, profile, source) {
+  if (!token || role !== 'dm') return false;
+  const doused = !!token.dmDoused;
+  const fromSheet = profile && Array.isArray(profile.lights);
+  const base = fromSheet ? profile.lights : (source === 'hand' || source === 'patch' ? (token.lights || []) : []);
+  let lights = cleanLightRows(base, doused).filter(l => l.id !== 'dm-torch');
+  if (token.dmTorch) lights.push({ id: 'dm-torch', name: 'Torch', bright: 20, dim: 20, cone: false, out: !!doused });
+  let dv;
+  if (token.dmDarkvision != null && token.dmDarkvision !== '') dv = Number(token.dmDarkvision) || 0;
+  else if (profile && profile.darkvision != null) dv = Number(profile.darkvision) || 0;
+  else dv = Number(token.darkvision) || 0;
+  const sk = profile && profile.skulker != null ? !!profile.skulker : !!token.skulker;
+  const sig = JSON.stringify({ lights: lights, dv: dv, sk: sk, doused: doused, torch: !!token.dmTorch, hand: token.dmDarkvision != null ? token.dmDarkvision : null });
+  if (token._lightSig === sig) return false;
+  token._lightSig = sig;
+  token.lights = lights;
+  token.darkvision = dv;
+  token.skulker = sk;
+  if (doused) token.torch = false;
+  else if (token.dmTorch) token.torch = true;
+  if (source === 'snap') token._lightFromSnap = true;
+  const copy = shared.tokens[token.id] || (shared.tokens[token.id] = { id: token.id });
+  copy.lights = lights.map(l => Object.assign({}, l));
+  copy.darkvision = dv;
+  copy.skulker = sk;
+  copy.dmDoused = doused;
+  copy.dmTorch = !!token.dmTorch;
+  if (token.dmDarkvision != null && token.dmDarkvision !== '') copy.dmDarkvision = Number(token.dmDarkvision) || 0;
+  else delete copy.dmDarkvision;
+  if (doused) copy.torch = false;
+  const live = state.tokens.find(tok => tok && tok.id === token.id);
+  if (live && live !== token) {
+    live.lights = lights.map(l => Object.assign({}, l));
+    live.darkvision = dv;
+    live.skulker = sk;
+    live.dmDoused = doused;
+    live.dmTorch = !!token.dmTorch;
+    live._lightSig = sig;
+    live._lightFromSnap = token._lightFromSnap;
+    if (token.dmDarkvision != null && token.dmDarkvision !== '') live.dmDarkvision = Number(token.dmDarkvision) || 0;
+    else delete live.dmDarkvision;
+  }
+  saveToken(token.id);
+  return true;
+}
+/* DM map: each party snapshot's lightProfile lands on that player's canonical token.
+   Does not dedupe and does not move tokens. The player's own Map client stays a second path. */
+function syncSnapshotLights() {
+  if (role !== 'dm') return false;
+  let changed = false;
+  partyList().forEach(p => {
+    const who = p && (p.uid || p.id);
+    if (!who || !p.lightProfile) return;
+    const want = playerTokenId(who);
+    const token = state.tokens.find(t => t && t.id === want) || state.tokens.find(t => t && t.ownerUid === who);
+    if (!token) return;
+    if (applyLightsToToken(token, p.lightProfile, 'snap')) changed = true;
+  });
+  if (changed && state.drawerOpen) {
+    try { renderDrawer(); } catch (e) {}
+  }
+  return changed;
+}
+function mySceneToken() {
+  if (role !== 'player' || !uid) return null;
+  const scene = (typeof getPlayerScene === 'function' && getPlayerScene()) || 'scn_dustyspur01';
+  return state.tokens.find(t => t && t.ownerUid === uid && !t.hidden && (t.sceneId || 'scn_dustyspur01') === scene) || null;
+}
+function paintAddMine() {
+  const btn = q('addMineBtn');
+  if (!btn || role !== 'player') return;
+  btn.hidden = !!mySceneToken();
+}
 function syncOwnerLights() {
   if (role !== 'player' || typeof host.lightsProfile !== 'function') return;
   let profile = null;
   try { profile = host.lightsProfile(); } catch (e) { return; }
   if (!profile) return;
-  const me = state.tokens.find(t => t && t.ownerUid === uid);
+  /* Prefer the canonical id so a link swap doesn't keep patching a removed token. */
+  const want = playerTokenId(uid);
+  const me = state.tokens.find(t => t && t.id === want) || state.tokens.find(t => t && t.ownerUid === uid);
   if (!me) return;
   const lights = (profile.lights || []).map(l => Object.assign({}, l, { out: !!(me.dmDoused || l.out) }));
   const sig = JSON.stringify({ lights: lights, darkvision: Number(profile.darkvision) || 0, skulker: !!profile.skulker });
@@ -4561,6 +4730,62 @@ function syncOwnerLights() {
   const copy = shared.tokens[me.id];
   if (copy) { copy.lights = lights.map(l => Object.assign({}, l)); copy.darkvision = me.darkvision; copy.skulker = me.skulker; }
   publishPlayerPatch(me, { lights: lights, darkvision: me.darkvision, skulker: me.skulker });
+}
+function lightStatusText(token) {
+  const owner = token && token.ownerUid;
+  const party = owner ? partyList().find(p => p && (p.uid || p.id) === owner) : null;
+  if (!owner || !party) return { warn: true, text: '⚠ Not linked to a sheet' };
+  const name = party.name || party.label || 'sheet';
+  const bits = [];
+  if (token.dmDoused) bits.push('doused');
+  else (token.lights || []).forEach(l => {
+    if (!l || l.out) return;
+    bits.push(String(l.name || 'light').toLowerCase() + ' ' + (Number(l.bright) || 0) + '/' + (Number(l.dim) || 0));
+  });
+  const dv = Number(token.darkvision) || 0;
+  if (dv) bits.push('darkvision ' + dv);
+  const detail = bits.length ? ' (' + bits.join(', ') + ')' : '';
+  return { warn: false, text: 'Linked: ' + name + ' · lights synced ✓' + detail };
+}
+function lightDrawerHtml(token) {
+  if (role !== 'dm' || !token) return '';
+  const status = lightStatusText(token);
+  const dvShown = token.dmDarkvision != null && token.dmDarkvision !== ''
+    ? (Number(token.dmDarkvision) || 0)
+    : (Number(token.darkvision) || 0);
+  return '<p class="ssm-linkstatus' + (status.warn ? ' is-warn' : '') + '" data-act="linkStatus">' + esc(status.text) + '</p>' +
+    '<div class="ssm-lighthand">' +
+    '<label class="ssm-act">Darkvision <input data-act="dmDarkvision" type="number" min="0" step="5" value="' + esc(dvShown) + '" aria-label="Darkvision feet"> ft</label>' +
+    '<label class="ssm-act"><input type="checkbox" data-act="dmTorch"' + (token.dmTorch ? ' checked' : '') + '> Give torch</label>' +
+    '</div>';
+}
+function bindLightHands(rootEl, tokenId) {
+  if (!rootEl || role !== 'dm') return;
+  const tok = () => state.tokens.find(t => t && t.id === tokenId) || null;
+  const dv = rootEl.querySelector('[data-act="dmDarkvision"]');
+  if (dv) dv.addEventListener('change', () => {
+    const t = tok();
+    if (!t) return;
+    const raw = String(dv.value == null ? '' : dv.value).trim();
+    if (raw === '') delete t.dmDarkvision;
+    else t.dmDarkvision = Math.max(0, parseInt(raw, 10) || 0);
+    t._lightSig = '';
+    applyLightsToToken(t, profileForOwner(t.ownerUid), 'hand');
+    toast('Darkvision set');
+    renderDrawer();
+    draw();
+  });
+  const torch = rootEl.querySelector('[data-act="dmTorch"]');
+  if (torch) torch.addEventListener('change', () => {
+    const t = tok();
+    if (!t) return;
+    t.dmTorch = !!torch.checked;
+    t._lightSig = '';
+    applyLightsToToken(t, profileForOwner(t.ownerUid), 'hand');
+    toast(t.dmTorch ? 'Torch given' : 'Torch taken back');
+    renderDrawer();
+    draw();
+  });
 }
 function strokeRing(wx, wy, radiusWorld, stroke, fill) {
   const c = worldToScreen(wx, wy);
@@ -4919,16 +5144,35 @@ function removeMapTokens(ids, opts) {
   if (!t) return null;
   const reopen = state.drawerOpen && state.drawerTokenId === tokenId;
   if (patch.ownerUid) {
-    t.ownerUid = patch.ownerUid;
-    const pre = shared.tokens[t.id];
-    if (pre) pre.ownerUid = patch.ownerUid;
-    const canon = canonicalPlayerToken(patch.ownerUid);
-    if (canon) {
-      t = canon;
-      tokenId = canon.id;
+    const linkUid = patch.ownerUid;
+    const want = playerTokenId(linkUid);
+    const linkName = patch.name || ((partyList().find(p => p && (p.uid || p.id) === linkUid) || {}).name) || 'them';
+    const others = ownedTokenIds(linkUid, t.id);
+    /* Explicit DM link only: a new token becomes canonical at its own square and the old one goes.
+       dedupePlayerTokens / canonicalPlayerToken still keep the old id on every other pass. */
+    if (t.id !== want && others.length) {
+      const pos = t.pos ? { x: t.pos.x, y: t.pos.y } : null;
+      const sceneId = t.sceneId;
+      removeMapTokens(others, { keepOwner: true, silent: true });
+      t = retargetTokenId(t, want);
+      if (pos) t.pos = { x: pos.x, y: pos.y };
+      if (sceneId) t.sceneId = sceneId;
+      t.kind = patch.kind || 'player';
+      t.ownerUid = linkUid;
+      tokenId = t.id;
+      toast("Replaced " + linkName + "'s old token.");
+    } else {
+      t.ownerUid = linkUid;
+      const pre = shared.tokens[t.id];
+      if (pre) pre.ownerUid = linkUid;
+      const canon = canonicalPlayerToken(linkUid);
+      if (canon) {
+        t = canon;
+        tokenId = canon.id;
+      }
     }
-    delete dismissedMap()[patch.ownerUid];
-    if (adapter && adapter.remove) adapter.remove('map/dm/dismissed/' + patch.ownerUid);
+    delete dismissedMap()[linkUid];
+    if (adapter && adapter.remove) adapter.remove('map/dm/dismissed/' + linkUid);
   }
   if (patch.kind) t.kind = patch.kind;
   if (patch.size != null && patch.size !== '') {
@@ -5615,6 +5859,16 @@ if (role === 'dm') {
     setLabel(me, q('playerLabel').value.trim());
     toast('Label set');
   });
+  if (q('addMineBtn')) q('addMineBtn').addEventListener('click', () => {
+    if (mySceneToken()) { paintAddMine(); return; }
+    const Join = window.SSDNSDmJoin;
+    if (!Join || typeof Join.postAddToken !== 'function') { toast('Join the table first'); return; }
+    const sceneId = (typeof getPlayerScene === 'function' && getPlayerScene()) || '';
+    Promise.resolve(Join.postAddToken({ sceneId: sceneId })).then(res => {
+      toast(res && res.ok ? 'Asked the DM to add your token' : "Couldn't ask for a token");
+    }).catch(() => toast("Couldn't ask for a token"));
+  });
+  paintAddMine();
   renderActions();
   bindRangeUi();
   bindMoveReachUi();
@@ -6665,6 +6919,7 @@ async function loadSceneImage(sceneId, opts) {
     const card = playerFightModel();
     const nameEl = q('playerName');
     if (nameEl && card.name) nameEl.textContent = card.name;
+    paintAddMine();
     paintRoleBadge();
     const stats = q('playerStats');
     if (stats) {
@@ -6968,8 +7223,10 @@ async function loadSceneImage(sceneId, opts) {
       const enemies = (choices.enemies || []).map(row => option('enemy:' + (row.id || ''), row.label || row.name || row.id)).join('');
       const beasts = (choices.bestiary || []).map(g => group(g.label || 'Bestiary', (g.options || []).map(b => option('beast:' + (b.id || ''), b.name || b.id)).join(''))).join('');
       const custom = choices.customLabel || 'New custom enemy (Bandit)';
+      const bare = state.tokens.find(t => t && t.id === tokenId);
       d.innerHTML = '<div class="ssm-drawer-head"><b>No card linked</b><button type="button" data-act="drawerReset" title="Reset card position" aria-label="Reset card position">Reset</button><button type="button" data-act="drawerClose">×</button></div>' +
         '<div class="ssm-drawer-body">' +
+        lightDrawerHtml(bare) +
         '<label class="ssm-section" for="ssm-link-pick">Link to…</label>' +
         '<select data-act="linkPick" id="ssm-link-pick" aria-label="Link to…">' +
         '<option value="">Link to…</option>' +
@@ -6989,6 +7246,7 @@ async function loadSceneImage(sceneId, opts) {
         emit('drawer:link', { tokenId: tokenId, link: link });
         pick.value = '';
       });
+      bindLightHands(d, tokenId);
       return;
     }
     const isPc = card.kind === 'pc';
@@ -7166,6 +7424,7 @@ async function loadSceneImage(sceneId, opts) {
       '<button type="button" data-act="drawerReset" title="Reset card position" aria-label="Reset card position">Reset</button>' +
       '<button type="button" data-act="drawerClose">×</button></div>' +
       '<div class="ssm-drawer-body">' +
+      lightDrawerHtml(state.tokens.find(t => t && t.id === tokenId)) +
       pendingBannerHtml(tokenId) +
       '<div>AC ' + esc(card.ac != null ? card.ac : '—') + (noHpPool ? ' · No HP pool' : ' · HP ' + esc(hp.cur != null ? hp.cur : '—') + '/' + esc(hp.max != null ? hp.max : '—')) +
       (hp.temp ? ' (+' + esc(hp.temp) + ')' : '') + ' · ' + speedBit + '</div>' +
@@ -7221,6 +7480,7 @@ async function loadSceneImage(sceneId, opts) {
       return sel && sel.value ? sel.value : null;
     };
     d.querySelector('[data-act="drawerClose"]').addEventListener('click', closeDrawer);
+    bindLightHands(d, tokenId);
     const chosenTarget = () => {
       if (state.rangeTargetId === NO_TARGET) return '';
       if (state.rangeTargetId) return state.rangeTargetId;
@@ -7615,12 +7875,24 @@ async function loadSceneImage(sceneId, opts) {
       if (value.color != null) cosmetic.color = value.color;
       if (value.label != null) cosmetic.label = value.label;
       if (value.veil != null) cosmetic.veil = !!value.veil;
-      if (value.lights) cosmetic.lights = value.lights;
-      if (value.darkvision != null) cosmetic.darkvision = Number(value.darkvision) || 0;
-      if (value.skulker != null) cosmetic.skulker = !!value.skulker;
       if (value.facing != null) cosmetic.facing = Number(value.facing) || 0;
+      /* Non-DM clients paint the patch as sent. The DM re-merges so dmDoused and a hand torch/darkvision win. */
+      if (role !== 'dm') {
+        if (value.lights) cosmetic.lights = value.lights;
+        if (value.darkvision != null) cosmetic.darkvision = Number(value.darkvision) || 0;
+        if (value.skulker != null) cosmetic.skulker = !!value.skulker;
+      }
       Object.assign(t, cosmetic);
-      if (role === 'dm') saveToken(id);
+      /* ownerCanMove:false never reaches here (canControlBy). The snapshot write covers that case. */
+      if (role === 'dm' && (value.lights || value.darkvision != null || value.skulker != null)) {
+        const live = state.tokens.find(tok => tok && tok.id === id) || t;
+        live._lightSig = '';
+        applyLightsToToken(live, {
+          lights: value.lights || live.lights || [],
+          darkvision: value.darkvision != null ? value.darkvision : live.darkvision,
+          skulker: value.skulker != null ? value.skulker : live.skulker
+        }, 'patch');
+      } else if (role === 'dm') saveToken(id);
     } else if (value && (value.id || id)) {
       const tid = value.id || id;
       const next = Object.assign({}, value);
@@ -7862,7 +8134,10 @@ return {
   refreshPlayers: function () {
     fillGrant();
     ensurePartyTokens();
+    syncSnapshotLights();
+    if (role === 'player') paintAddMine();
   },
+  addPlayerTokenFor,
   ensureDefaultScene: ensureDefaultScene,
   maps: function () { return libraryApi(); },
   placeLinkedToken,

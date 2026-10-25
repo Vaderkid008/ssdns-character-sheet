@@ -1,7 +1,8 @@
 /**
  * Two clients share one fake RTDB (deliverTree, not the memory adapter).
  * DM move reaches the player, a player move reaches the DM, join, reload,
- * Link reuses ply_<id>, and a legacy duplicate is removed.
+ * An explicit link keeps the new token's square on ply_<id>.
+ * A legacy duplicate is still removed in favour of the old canonical id.
  *
  *   node tools/test-token-sync.mjs
  */
@@ -294,7 +295,8 @@ addBtn.click();
 await flush(20);
 const withEnemy = publicBag(live, "DUST");
 const enemyId = Object.keys(withEnemy).find((id) => id !== "ply_wade");
-check("link.extra", !!enemyId && enemyId.indexOf("tok_") === 0, Object.keys(withEnemy).join(","));
+const enemyPos = enemyId && withEnemy[enemyId] && withEnemy[enemyId].pos;
+check("link.extra", !!enemyId && enemyId.indexOf("tok_") === 0 && !!(enemyPos && (enemyPos.x !== 14 || enemyPos.y !== 11)), Object.keys(withEnemy).join(","));
 dm2.api.applyLink(enemyId, {
   ownerUid: "wade",
   kind: "player",
@@ -307,7 +309,8 @@ await flush(20);
 const linked = publicBag(live, "DUST");
 const linkedIds = Object.keys(linked);
 const linkFrame = lastFrame(player2.el.querySelector("canvas")).filter((row) => row.text === "Wade");
-check("link.reuses", linkedIds.length === 1 && linkedIds[0] === "ply_wade" && linked.ply_wade.pos.x === 14 && linked.ply_wade.pos.y === 11 && linkFrame.length === 1, JSON.stringify({ ids: linkedIds, pos: linked.ply_wade && linked.ply_wade.pos, labels: linkFrame.length }));
+/* B2: an explicit link keeps the new token's square. dedupe.one below still keeps the old id. */
+check("link.reuses", linkedIds.length === 1 && linkedIds[0] === "ply_wade" && enemyPos && linked.ply_wade.pos.x === enemyPos.x && linked.ply_wade.pos.y === enemyPos.y && linkFrame.length === 1, JSON.stringify({ ids: linkedIds, pos: linked.ply_wade && linked.ply_wade.pos, enemyPos, labels: linkFrame.length }));
 
 const dupe = fakeFirebase();
 const ada = "ada.b";

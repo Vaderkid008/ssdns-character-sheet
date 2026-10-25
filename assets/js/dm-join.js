@@ -342,6 +342,13 @@
       castSpells: (c.calling === "hexslinger" && root.SSDNSApp && root.SSDNSApp.castList) ? root.SSDNSApp.castList() : [],
       /* SAMPLE trackers: class resources + non-gun weapon rows for the DMCC card and the DM map token badge */
       trackers: root.SSDNSTrackers && root.SSDNSTrackers.snapshot ? root.SSDNSTrackers.snapshot(c) : null,
+      /* B2: lights/darkvision ride the snapshot so the DM map can write them onto the token
+         even when this player's Map tab is closed. Snapshot validate only requires name + updatedAt. */
+      lightProfile: (function () {
+        try {
+          return root.SSDNSLighting && root.SSDNSLighting.tokenProfile ? root.SSDNSLighting.tokenProfile(c) : null;
+        } catch (e) { return null; }
+      })(),
       updatedAt: new Date().toISOString()
     };
   }
@@ -2576,6 +2583,33 @@
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row);
   }
   /**
+   * B2: a player with no token on the sheet Map can't create map/public/tokens (DM-only write).
+   * Same one-shot request row as End turn. encounter/requests validate requires ts, from, targetId,
+   * and amount, and does not constrain type, so addToken needs no database rule change.
+   * The DM map places the token (and a second press replaces instead of duplicating).
+   */
+  function postAddToken(info) {
+    info = info || {};
+    if (!state.joined || !state._fb || !state.db) return Promise.resolve({ ok: false });
+    var id = "addtok_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var c = doc() && doc().character;
+    var row = {
+      ts: new Date().toISOString(),
+      from: state.uid,
+      targetId: state.uid,
+      amount: 0,
+      type: "addToken",
+      characterName: (c && c.name) || "",
+      sceneId: info.sceneId ? String(info.sceneId) : ""
+    };
+    return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
+      return { ok: true, id: id };
+    }).catch(function (e) {
+      console.warn("[DM Join] add token", e);
+      return { ok: false };
+    });
+  }
+  /**
    * Turn order PR 2 (item 4): ask the DM for an opportunity attack. Same one-shot request row as End turn
    * (encounter/requests, players create their own rows); the DM's Approve / Deny lands on table/initiative/oa.
    */
@@ -2947,6 +2981,7 @@
       buildSnapshot: buildSnapshot,
       _handle: handleCommandAcked, /* test hook: run one DM command as if it arrived */
       postEndTurn: postEndTurn,
+      postAddToken: postAddToken,
       postOaRequest: postOaRequest,
       pushTurnMarkers: pushTurnMarkers,
       pullTurnMarkers: pullTurnMarkers,
