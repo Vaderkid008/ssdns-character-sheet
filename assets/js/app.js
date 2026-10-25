@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.131"; // sheet-playtest-v03131
+  var APP_VERSION = "0.3.132"; // sheet-playtest-v03132
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1530,7 +1530,16 @@
         // sync checkbox prepared state
         if (l > 0 && mode === "prepared") {
           var cb = line.querySelector('input[type=checkbox]');
-          if (cb) cb.checked = !!row.prepared;
+          if (cb) {
+            cb.checked = !!row.prepared;
+            var prepWhy = window.SSDNSFocus && window.SSDNSFocus.prepBlock ? window.SSDNSFocus.prepBlock(C()) : "";
+            if (prepWhy && !row.prepared) {
+              cb.disabled = true;
+              cb.title = prepWhy;
+              var prepLab = cb.closest("label");
+              if (prepLab) prepLab.title = prepWhy;
+            }
+          }
         }
       });
       if (!shown) {
@@ -1621,6 +1630,8 @@
   }
   function openSpellPicker() {
     if (!casterInfo()) { toast("Pick a casting Calling first."); return; }
+    var prepWhy = window.SSDNSFocus && window.SSDNSFocus.prepBlock ? window.SSDNSFocus.prepBlock(C()) : "";
+    if (prepWhy) { toast(prepWhy); return; }
     if (!callingSpellList()) { toast("No spell list in the rules data for this Calling."); return; }
     pickerLevel = "all";
     $("#spellPicker").hidden = false;
@@ -2164,6 +2175,11 @@
     } else if (showCast && pageCopy && pageCopy.blurb) {
       gnote = pageCopy.blurb;
     }
+    if (c.calling === "scholar" && window.SSDNSFocus && window.SSDNSFocus.ledgerMissing && window.SSDNSFocus.ledgerMissing(c)) {
+      var lostWhy = window.SSDNSFocus.PREP_WHY || "Lost Ledger. Recover your focus before you prepare or copy spells.";
+      var lostLine = lostWhy + " Prepared spells still cast. Spell attacks have disadvantage, and creatures have advantage on saves against them.";
+      gnote = gnote ? (lostLine + " " + gnote) : lostLine;
+    }
     $("#gunNote").textContent = gnote;
     if (art) art.hidden = !(pageCopy && pageCopy.art);
     for (var l = 1; l <= 9; l++) {
@@ -2463,6 +2479,14 @@
     if (t.type === "checkbox") v = t.checked;
     else if (t.type === "number") v = t.value === "" ? "" : Number(t.value);
     else v = t.value;
+    if (t.type === "checkbox" && /\.prepared$/.test(path) && path.indexOf("spells") >= 0 && t.checked) {
+      var prepGate = window.SSDNSFocus && window.SSDNSFocus.prepBlock ? window.SSDNSFocus.prepBlock(C()) : "";
+      if (prepGate) {
+        t.checked = !!old;
+        toast(prepGate);
+        return;
+      }
+    }
     if (path.indexOf("shards.") === 0) v = Math.max(0, Math.floor(num(v, 0)));
     if (e.type === "input" && t.tagName === "SELECT") return; // handled on change
     setPath(S.doc, path, v);
@@ -4009,6 +4033,8 @@
         spell = callingCatalog().concat(bonusCatalog()).filter(function (sp) { return sp.key === key; })[0] || null;
       }
       if (spell) {
+        var copyWhy = window.SSDNSFocus && window.SSDNSFocus.prepBlock ? window.SSDNSFocus.prepBlock(C()) : "";
+        if (copyWhy) { toast(copyWhy); return; }
         if (spellAlreadyHave(spell.phb)) toast(spell.phb + " is already on your list.");
         else {
           addKnownSpell(spell);

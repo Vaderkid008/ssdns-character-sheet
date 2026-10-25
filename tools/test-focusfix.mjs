@@ -282,7 +282,8 @@ try {
     check("ui.tarnished.chipLawless", /Lawless/.test(b.chip), b.chip);
     check("ui.tarnished.listSwapped", !b.choices.includes("Bless") && b.choices.includes("Hellish Rebuke (Hell's Answer)") && b.choices.includes("Darkness (Lights Out)") && !b.choices.some((n) => /Animate Dead/.test(n)) &&
       b.catalog.includes("Animate Dead") && !b.catalog.includes("Bless"), J([b.choices, b.catalog]));
-    check("ui.tarnished.spellsCastable", b.cast.length === 9 && b.cast.every((x) => !x.disabled) && /Lawless/.test(b.lawlessNote) && !b.spellNote, J(b.cast) + b.lawlessNote);
+    /* B10 signature cards repeat the same data-spell-cast buttons, so the count is the spellbook plus the card. */
+    check("ui.tarnished.spellsCastable", b.cast.length >= 9 && b.cast.every((x) => !x.disabled) && /Lawless/.test(b.lawlessNote) && !b.spellNote, J(b.cast) + b.lawlessNote);
     check("ui.tarnished.mercySmiteCreedOff", b.mercy.disabled && b.arm.disabled && /Tarnished/.test(b.arm.title) && b.creed && b.creed.off, J([b.mercy, b.arm, b.creed]));
     const names = await pg.evaluate(() => [...document.querySelectorAll('[data-spell-lines="1"] .sp-alias')].map((e) => e.textContent));
     check("ui.tarnished.westernNames", names.includes("Hell's Answer") && names.includes("Gut Shot") && !names.includes("Trail Medicine"), J(names));

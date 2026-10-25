@@ -638,6 +638,11 @@
     if (!it) return null;
     var st = { kind: "item", name: it.name, art: focusItemArt(it), uid: it.uid, itemId: it.catalogId, readOnly: true, canCast: true,
       note: it.catalogId === "chemical-field-ledger" ? "Your focus · your spellbook" : "Your focus" };
+    /* L0223: a Prism (or any other focus) is not the spellbook. Cast stays open; the note is the gate. */
+    if (calling === "scholar" && it.catalogId !== "chemical-field-ledger") {
+      st.note = "Lost Ledger";
+      st.ledgerAway = true;
+    }
     if (it.catalogId === "tin-star-badge") {
       var b = badgeOf(c), ba = badgeArt(b);
       st.badge = b; st.badgeLabel = BADGE_LABEL[b]; st.art = ba.art; st.fallback = ba.fallback;
@@ -812,9 +817,13 @@
             cls += " doll-focus-" + fst.kind + (fst.away ? " doll-away" : "");
             src = fst.kind === "caster" || fst.kind === "weapon" ? "mirrors " + fst.side + ", read-only" : (fst.kind === "patron" ? "your patron, always your focus" : (fst.kind === "item" ? "your focus item" : ""));
             if (fst.lost) cls += " doll-focus-lost";
+            if (fst.ledgerAway) cls += " doll-ledger-away";
             if (fst.badge) cls += " doll-badge doll-badge-" + fst.badge + (fst.art && fst.art === fst.fallback ? " doll-badge-fb" : "");
             if (fst.fallback) fallback = fst.fallback;
             if (fst.badge) fstBadge = fst.badge;
+          } else if (c && c.calling === "scholar") {
+            focusNote = "Lost Ledger";
+            cls += " doll-ledger-away";
           }
         } else {
           var irs = ironSlot(c) === key ? ironState(c) : null;
@@ -918,9 +927,13 @@
         }).join(" ");
         if (c.calling === "frontier-scout") rows += " " + btn('data-doll-focuslost="1"', "Lost it", false);
         hint = fpk.itemId === "chemical-field-ledger" ? "Your Ledger is your focus and your spellbook. It stays in Equipment (read-only here, no extra weight)." :
-          fpk.badge ? "Your badge is your focus (Badge Bound). Your DM sets it Bright, Dull or Tarnished. Now: " + fpk.badgeLabel + (fpk.lawless ? " (Lawless)." : ".") :
-          "Your focus item. It stays in Equipment (read-only here, no extra weight).";
+          (c.calling === "scholar" ? "Lost Ledger. This is not your spellbook. Prepared spells still cast: spell attacks at disadvantage, and creatures have advantage on saves against them. You can't prepare or copy until the Ledger is back." :
+          (fpk.badge ? "Your badge is your focus (Badge Bound). Your DM sets it Bright, Dull or Tarnished. Now: " + fpk.badgeLabel + (fpk.lawless ? " (Lawless)." : ".") :
+          "Your focus item. It stays in Equipment (read-only here, no extra weight)."));
       }
+    } else if (key === "focus_borrowed_iron" && c && c.calling === "scholar") {
+      rows = '<span class="fine doll-ledger-away-msg">Lost Ledger. Recover your focus before you prepare or copy spells.</span>';
+      hint = "Prepared spells still cast. Spell attacks roll at disadvantage, and creatures have advantage on saves against them.";
     } else if (key === "focus_borrowed_iron") {
       var ins = instruments(c);
       rows = ins.map(function (x) {
