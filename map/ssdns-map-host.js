@@ -338,32 +338,67 @@
   }
   /* turn order PR 2 (item 1): a sheet button greyed out off-turn (turn-lock.js) is greyed out on the map card too */
   function usable(btn) { return !!btn && !btn.disabled && !(btn.classList && btn.classList.contains("turn-locked")); }
+  /* B7: btn.hidden misses a hidden parent (#pactFocus, #pactIronSpells). Tab panels are
+     <section class="page" hidden>. With the Map tab open, #page-main is hidden, so a page
+     ancestor must not count or a real Pact Seeker loses Pact Shot and every other button. */
+  function shown(b) {
+    var h = b && b.closest && b.closest("[hidden]");
+    return !!b && !b.hidden && (!h || !!(h.classList && h.classList.contains("page")));
+  }
+  function firstShown(sel) {
+    var nodes = document.querySelectorAll(sel);
+    var i;
+    for (i = 0; i < nodes.length; i++) if (shown(nodes[i])) return nodes[i];
+    return null;
+  }
+  function sheetCharacter() {
+    try {
+      var doc = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc();
+      return (doc && doc.character) || null;
+    } catch (e) { return null; }
+  }
+  /* Pact Shot reaches the map only for a Pact Seeker whose Borrowed Iron card is open.
+     #btnPactShot itself is never hidden; #pactFocus is. applies() still drops it if the
+     calling changed and the card has not repainted yet. */
+  function pactShotOnMap(c) {
+    var PS = root.SSDNSPactShot;
+    var box = $("pactFocus");
+    if (!c) c = sheetCharacter();
+    if (!PS || typeof PS.applies !== "function" || !PS.applies(c)) return false;
+    if (!box || box.hidden) return false;
+    return shown($("btnPactShot"));
+  }
   function sheetActions() {
     if (isDmPage()) return [];
     var list = [];
     document.querySelectorAll("[data-gunroll]").forEach(function (btn) {
-      if (btn.hasAttribute("data-k") || btn.hidden) return;
+      if (btn.hasAttribute("data-k") || !shown(btn)) return;
       var i = btn.getAttribute("data-gunroll");
       list.push({ id: "gunroll:" + i, label: gunName(i) + " · Attack", group: "attack", enabled: usable(btn), title: btn.title || "", cylinder: gunCylinder(i) });
     });
     document.querySelectorAll("[data-melee-roll]").forEach(function (btn) {
-      if (btn.hidden) return;
+      if (!shown(btn)) return;
       var i = btn.getAttribute("data-melee-roll");
       list.push({ id: "melee:" + i, label: meleeName(i) + " · Attack", group: "attack", enabled: usable(btn), title: btn.title || "" });
     });
     document.querySelectorAll("[data-cast]").forEach(function (btn) {
-      if (btn.hidden) return;
+      if (!shown(btn)) return;
       var i = btn.getAttribute("data-cast");
       list.push({ id: "cast:" + i, label: gunName(i) + " · Cast", group: "spell", enabled: usable(btn), title: btn.title || "" });
     });
+    var seenSpell = {};
     document.querySelectorAll("[data-spell-cast]").forEach(function (btn) {
-      if (btn.hidden) return;
+      if (!shown(btn)) return;
       var raw = btn.getAttribute("data-spell-cast") || "";
+      if (!raw || seenSpell[raw]) return;
+      seenSpell[raw] = 1;
       var name = raw.slice(raw.indexOf(":") + 1) || "Spell";
+      var PS = root.SSDNSPactShot;
+      if (PS && PS.isPactShot && PS.isPactShot(name) && !(PS.applies && PS.applies(sheetCharacter()))) return;
       list.push({ id: "spell:" + raw, label: "Cast " + name, group: "spell", enabled: usable(btn), title: btn.title || "" });
     });
-    var pact = $("btnPactShot");
-    if (pact && !pact.hidden) {
+    if (pactShotOnMap(sheetCharacter())) {
+      var pact = $("btnPactShot");
       var pactLabel = "Pact Shot";
       try {
         var shot = root.SSDNSPactShot && root.SSDNSPactShot.variant && root.SSDNSPactShot.variant();
@@ -372,12 +407,12 @@
       list.push({ id: "pact", label: pactLabel, group: "spell", enabled: usable(pact), title: pact.title || "" });
     }
     document.querySelectorAll("[data-reload]").forEach(function (btn) {
-      if (btn.hidden) return;
+      if (!shown(btn)) return;
       var i = btn.getAttribute("data-reload");
       list.push({ id: "reload:" + i, label: gunName(i) + " · Reload", group: "gear", enabled: usable(btn), title: btn.title || "" });
     });
     document.querySelectorAll("[data-tr]").forEach(function (btn) {
-      if (btn.hidden) return;
+      if (!shown(btn)) return;
       var i = btn.getAttribute("data-tr");
       list.push({ id: "tr:" + i, label: gunName(i) + " · TR +1", group: "gear", enabled: usable(btn), title: btn.title || "" });
     });
@@ -388,7 +423,7 @@
       list.push({ id: "turn:" + k, label: btn.textContent.trim(), group: "gear", enabled: usable(btn), title: btn.title || "" });
     });
     var endBtn = $("btnEndTurn");
-    if (endBtn && !endBtn.hidden) list.push({ id: "endturn", label: "End turn", group: "gear", enabled: !endBtn.disabled, title: endBtn.title || "" });
+    if (shown(endBtn)) list.push({ id: "endturn", label: "End turn", group: "gear", enabled: !endBtn.disabled, title: endBtn.title || "" });
     return list;
   }
   function tidyName(text) {
@@ -534,6 +569,8 @@
     var spells = [];
     function pushSpell(level, name) {
       if (!name) return;
+      var PS = root.SSDNSPactShot;
+      if (PS && PS.isPactShot && PS.isPactShot(name) && !(PS.applies && PS.applies(c))) return;
       var known = root.SSDNSSpellCast && typeof root.SSDNSSpellCast.lookup === "function" ? root.SSDNSSpellCast.lookup(name) : null;
       spells.push({
         id: "spell:" + level + ":" + name,
@@ -549,8 +586,8 @@
         if (sp && sp.prepared && sp.name) pushSpell(lvl, sp.name);
       });
     });
-    var pact = $("btnPactShot");
-    if (pact && !pact.hidden) {
+    if (pactShotOnMap(c)) {
+      var pact = $("btnPactShot");
       var pactName = "Pact Shot";
       var pactKind = "attack";
       try {
@@ -558,7 +595,7 @@
         if (pactShot && pactShot.name) pactName = pactShot.name;
         if (pactShot && pactShot.cone) pactKind = "save";
       } catch (ePact) {}
-      spells.push({ id: "pact", name: pactName, kind: pactKind });
+      spells.push({ id: "pact", name: pactName, kind: pactKind, enabled: usable(pact) });
     }
     var nameInput = $("charName");
     return {
@@ -592,9 +629,9 @@
     if (id.indexOf("gunroll:") === 0 && ctx.chamber != null && ctx.chamber !== "") {
       var gi = id.slice(8);
       var k = String(ctx.chamber);
-      var chamber = document.querySelector('[data-fire="' + cssEscape(gi) + '"][data-k="' + cssEscape(k) + '"]')
-        || document.querySelector('[data-gunroll="' + cssEscape(gi) + '"][data-k="' + cssEscape(k) + '"]');
-      if (chamber && !chamber.hidden) { chamber.click(); return; }
+      var chamber = firstShown('[data-fire="' + cssEscape(gi) + '"][data-k="' + cssEscape(k) + '"]')
+        || firstShown('[data-gunroll="' + cssEscape(gi) + '"][data-k="' + cssEscape(k) + '"]');
+      if (chamber) { chamber.click(); return; }
     }
     if (id.indexOf("fan:") === 0 && root.SSDNSFan) {
       var fanI = root.SSDNSFan.parseId(id);
@@ -605,35 +642,35 @@
       if (ohId) return root.SSDNSOffhand.fire(ohId.kind, ohId.index, { chamber: ctx.chamber });
     }
     var btn = null;
-    if (id.indexOf("gunroll:") === 0) btn = document.querySelector('[data-gunroll="' + cssEscape(id.slice(8)) + '"]:not([data-k])');
-    else if (id.indexOf("melee:") === 0) btn = document.querySelector('[data-melee-roll="' + cssEscape(id.slice(6)) + '"]');
-    else if (id.indexOf("cast:") === 0) btn = document.querySelector('[data-cast="' + cssEscape(id.slice(5)) + '"]');
-    else if (id.indexOf("spell:") === 0) btn = document.querySelector('[data-spell-cast="' + cssEscape(id.slice(6)) + '"]');
-    else if (id === "pact") btn = $("btnPactShot");
-    else if (id === "endturn") btn = $("btnEndTurn");
+    if (id.indexOf("gunroll:") === 0) btn = firstShown('[data-gunroll="' + cssEscape(id.slice(8)) + '"]:not([data-k])');
+    else if (id.indexOf("melee:") === 0) btn = firstShown('[data-melee-roll="' + cssEscape(id.slice(6)) + '"]');
+    else if (id.indexOf("cast:") === 0) btn = firstShown('[data-cast="' + cssEscape(id.slice(5)) + '"]');
+    else if (id.indexOf("spell:") === 0) btn = firstShown('[data-spell-cast="' + cssEscape(id.slice(6)) + '"]');
+    else if (id === "pact") btn = pactShotOnMap() ? $("btnPactShot") : null;
+    else if (id === "endturn") btn = firstShown("#btnEndTurn");
     else if (id.indexOf("clean:") === 0) {
       var cleaner = root.SSDNSApp && root.SSDNSApp.cleanGun;
       if (typeof cleaner === "function") return cleaner(Number(id.slice(6)));
-      btn = document.querySelector('[data-clean="' + cssEscape(id.slice(6)) + '"]');
+      btn = firstShown('[data-clean="' + cssEscape(id.slice(6)) + '"]');
     }
     else if (id.indexOf("unjam:") === 0) {
       var unjam = root.SSDNSApp && root.SSDNSApp.unjamGun;
       if (typeof unjam === "function") return unjam(Number(id.slice(6)));
-      btn = document.querySelector('[data-unjam="' + cssEscape(id.slice(6)) + '"]');
+      btn = firstShown('[data-unjam="' + cssEscape(id.slice(6)) + '"]');
     }
     else if (id.indexOf("reopen:") === 0) {
       var reopen = root.SSDNSApp && root.SSDNSApp.reopenChamber;
       if (typeof reopen === "function") return reopen(Number(id.slice(7)));
-      btn = document.querySelector('[data-reopen="' + cssEscape(id.slice(7)) + '"]');
+      btn = firstShown('[data-reopen="' + cssEscape(id.slice(7)) + '"]');
     }
-    else if (id.indexOf("reload:") === 0) btn = document.querySelector('[data-reload="' + cssEscape(id.slice(7)) + '"]');
+    else if (id.indexOf("reload:") === 0) btn = firstShown('[data-reload="' + cssEscape(id.slice(7)) + '"]');
     else if (id.indexOf("unload:") === 0) {
       var unloader = root.SSDNSApp && root.SSDNSApp.unloadGunIndex;
       if (typeof unloader === "function") return unloader(Number(id.slice(7)));
-      btn = document.querySelector('[data-unload="' + cssEscape(id.slice(7)) + '"]');
+      btn = firstShown('[data-unload="' + cssEscape(id.slice(7)) + '"]');
     }
-    else if (id.indexOf("tr:") === 0) btn = document.querySelector('[data-tr="' + cssEscape(id.slice(3)) + '"]');
-    if (btn && !btn.hidden) btn.click();
+    else if (id.indexOf("tr:") === 0) btn = firstShown('[data-tr="' + cssEscape(id.slice(3)) + '"]');
+    if (shown(btn)) btn.click();
   }
   function sendChat(text) {
     var input, form;
@@ -963,7 +1000,10 @@
     }
     document.querySelectorAll(".tab").forEach(function (tab) {
       tab.addEventListener("click", function () {
-        if (tab.id === "tab-map" && map && map.requestDraw) setTimeout(function () { map.requestDraw(); }, 30);
+        if (tab.id === "tab-map" && map) setTimeout(function () {
+          if (map.refreshCard) map.refreshCard();
+          else if (map.requestDraw) map.requestDraw();
+        }, 30);
       });
     });
     /* Turn UX on the map: follow the Map tab (the sheet shows / hides #page-map) */
@@ -1060,6 +1100,7 @@
     rounds: roundsLabel,
     sheetCylinder: gunCylinder,
     ownCard: ownCard,
+    sheetActions: sheetActions,
     runAction: runAction,
     /* attack-fx: DMCC hands every resolved attack here; the DM's map draws it and publishes the cleaned row */
     fx: function (spec) {

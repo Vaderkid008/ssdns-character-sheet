@@ -1,5 +1,5 @@
 /**
- * BG3-style map movement (sheet 0.3.123 / DMCC 0.2.136). One module for the player sheet Map and the DMCC Map.
+ * BG3-style map movement (sheet 0.3.124 / DMCC 0.2.137). One module for the player sheet Map and the DMCC Map.
  *
  * Chebyshev: every square costs 5 ft, including diagonals (not 5e 5/10).
  * Allies can be walked through. A square that is occupied (ally or enemy) is not a legal end.

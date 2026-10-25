@@ -1241,6 +1241,15 @@
     box.hidden = !(c && c.calling === "pact-seeker");
     paintIronArt(box, c);
     paintIronSpells(box, c);
+    /* B7: a calling change hides the card here. Repaint the map when that card's
+       visibility or shot name changes, so Pact Shot leaves without a reload. */
+    var pactBtn = $("#btnPactShot");
+    var sig = (box.hidden ? "0" : "1") + "|" + (pactBtn ? (pactBtn.textContent || "") : "");
+    if (sig === paintPact._mapSig) return;
+    paintPact._mapSig = sig;
+    if (root.SSDNSMapHost && root.SSDNSMapHost.refreshCard) {
+      try { root.SSDNSMapHost.refreshCard(); } catch (eMap) {}
+    }
   }
   /* 0.3.108 (Jessey approved 2026-10-21 12:22 PM CT): the Borrowed Iron fires only spells, so its card has no weapon
      attack: quick spell buttons for the attack cantrips / spells this Pact Seeker knows, Pact Shot first (#btnPactShot).
