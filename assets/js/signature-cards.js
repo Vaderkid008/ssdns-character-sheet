@@ -222,6 +222,9 @@
       return { title: "Caster Gun", note: msg };
     }
     if (c.calling === "storyteller") return { title: instrumentName(c) || "Instrument", note: "Your focus · performance and spells" };
+    if (c.calling === "scholar" && root.SSDNSFocus && root.SSDNSFocus.ledgerMissing && root.SSDNSFocus.ledgerMissing(c)) {
+      return { title: (fs && fs.name) || "Chemical Field Ledger", note: root.SSDNSFocus.PREP_WHY || "Lost Ledger. Recover your focus." };
+    }
     if (fs && fs.lost) return { title: "Keepsake", note: fs.note || "Lost · make a new one at a long rest" };
     if (fs && fs.name) return { title: fs.name, note: fs.note || "Your focus" };
     var spec = CARDS[c.calling] || { title: "Focus" };

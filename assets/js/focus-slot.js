@@ -6,10 +6,18 @@
      (BOOK1 L1884). None -> "No Caster Gun equipped, can't cast."
    Only the cast buttons are blocked (with the reason); nothing on the sheet is changed or wiped. Other Callings: no change.
    0.3.108: Lawman badge (Badge Bound) and the Frontier Scout's lost keepsake block casting too (see below).
+   L0223 / B11 (Scholar only): a missing Chemical Field Ledger does NOT block the cast button. Prepared spells
+   still cast. Spell attacks roll at disadvantage and creatures have advantage on saves against those spells.
+   Cantrips and spells with no attack and no save stay normal. Prepare and copy stay gated until the Ledger is back.
    The Focus slot view itself lives in paper-doll.js (focusState). */
 (function (root) {
   "use strict";
   var NO_IRON = "Borrowed Iron isn't in your hand, so you can't cast. It returns at the start of your next turn.";
+  /* L0223. The Ledger is the Scholar's spellbook and focus. Missing it never disables Cast. */
+  var LEDGER_ID = "chemical-field-ledger";
+  var PREP_WHY = "Lost Ledger. Recover your focus before you prepare or copy spells.";
+  var ATTACK_NOTE = "Lost Ledger: disadvantage";
+  var SAVE_NOTE = "Lost Ledger: advantage on the save";
 
   function Doll() { return root.SSDNSDoll || null; }
   function doc() { return root.SSDNSApp && root.SSDNSApp.doc ? root.SSDNSApp.doc() : null; }
@@ -130,6 +138,128 @@
     return cg && !cg.wrecked ? cg.i : -1;
   }
 
+  /* L0223: the Ledger fills the Focus slot when the Scholar still carries it (paper-doll focusState).
+     A Prism or other focus left in the slot is not the Ledger. */
+  function ledgerItem(c) {
+    var list = (c && c.items) || [];
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i];
+      if (it && it.catalogId === LEDGER_ID && Number(it.count == null ? 1 : it.count) > 0) return it;
+    }
+    return null;
+  }
+  function ledgerEquipped(c) {
+    if (!c || c.calling !== "scholar") return false;
+    var D = Doll();
+    if (D && D.focusState) {
+      var fs = D.focusState(c);
+      return !!(fs && fs.itemId === LEDGER_ID);
+    }
+    var led = ledgerItem(c);
+    if (!led) return false;
+    if (c.focusItemUid && c.focusItemUid !== led.uid) {
+      var picked = (c.items || []).filter(function (it) { return it && it.uid === c.focusItemUid && Number(it.count == null ? 1 : it.count) > 0; })[0];
+      if (picked && picked.catalogId && picked.catalogId !== LEDGER_ID) return false;
+    }
+    return true;
+  }
+  function ledgerMissing(c) {
+    return !!(c && c.calling === "scholar" && !ledgerEquipped(c));
+  }
+  function normSpell(name) {
+    return String(name || "").toLowerCase().replace(/\s*\([^)]*\)\s*/g, " ").replace(/\./g, "").replace(/\s+/g, " ").trim();
+  }
+  function spellKeys(name) {
+    var raw = String(name || ""), keys = [];
+    function add(k) { k = normSpell(k); if (k && keys.indexOf(k) < 0) keys.push(k); }
+    add(raw);
+    var found = raw.match(/\(([^)]+)\)/g);
+    if (found) found.forEach(function (p) { add(String(p).replace(/[()]/g, "")); });
+    return keys;
+  }
+  function sameSpell(a, b) {
+    var A = spellKeys(a), B = spellKeys(b), i;
+    for (i = 0; i < A.length; i++) if (B.indexOf(A[i]) >= 0) return true;
+    return false;
+  }
+  /* Leveled spells the Scholar has marked prepared. Cantrips live on character.cantrips and are not this list. */
+  function isPreparedSpell(c, name) {
+    var book = (c && c.spells) || {};
+    var lv, i;
+    for (lv = 1; lv <= 9; lv++) {
+      var rows = book[lv] || book[String(lv)] || [];
+      for (i = 0; i < rows.length; i++) {
+        var s = rows[i];
+        if (s && s.name && s.prepared && sameSpell(s.name, name)) return true;
+      }
+    }
+    return false;
+  }
+  /* Flags for one cast. slotLevel 0 is a cantrip (no flag). Unknown / utility kinds get neither flag. */
+  function ledgerCast(c, spellName, row, slotLevel) {
+    var empty = { attackDis: false, saveAdv: false, attackNote: "", saveNote: "" };
+    if (!ledgerMissing(c)) return empty;
+    if (parseInt(slotLevel, 10) === 0) return empty;
+    if (!isPreparedSpell(c, spellName)) return empty;
+    var kind = row && row.kind ? row.kind : "none";
+    var attack = kind === "attack" || kind === "weapon";
+    var save = kind === "save" || (!!(row && row.save) && attack);
+    return {
+      attackDis: attack,
+      saveAdv: save,
+      attackNote: attack ? ATTACK_NOTE : "",
+      saveNote: save ? SAVE_NOTE : ""
+    };
+  }
+  function prepBlock(c) { return ledgerMissing(c) ? PREP_WHY : ""; }
+  function stickLedgerBit(text, bit, onD20) {
+    text = String(text || "");
+    if (!bit || text.indexOf(bit) >= 0) return text;
+    if (onD20) {
+      var lines = text.split("\n");
+      var i;
+      for (i = 0; i < lines.length; i++) {
+        if (/\bd20\b/.test(lines[i])) {
+          lines[i] = lines[i] + " · " + bit;
+          return lines.join("\n");
+        }
+      }
+    }
+    return text + ((/\n/.test(text) ? "\n" : " · ") + bit);
+  }
+  function appendLedgerBit(rolled, bit, onD20) {
+    if (!bit) return;
+    rolled.text = stickLedgerBit(rolled.text, bit, onD20);
+    rolled.detail = stickLedgerBit(rolled.detail == null ? rolled.text : rolled.detail, bit, onD20);
+  }
+  /* Same adv/disadv words the chat already draws. Attack note sits on the d20 line so a tie ring stays red. */
+  function applyLedgerNotes(rolled, flags, mode) {
+    rolled = rolled || {};
+    flags = flags || {};
+    if (flags.attackDis && mode === "dis") appendLedgerBit(rolled, flags.attackNote || ATTACK_NOTE, true);
+    if (flags.saveAdv) appendLedgerBit(rolled, flags.saveNote || SAVE_NOTE, false);
+    rolled.ledgerAttack = !!(flags.attackDis && mode === "dis");
+    rolled.ledgerSave = !!flags.saveAdv;
+    return rolled;
+  }
+  function paintLedgerNote() {
+    if (typeof document === "undefined" || !document.getElementById) return;
+    var why = prepBlock(ch());
+    var lim = document.getElementById("spellLimits");
+    note(lim && lim.parentNode, "ledgerPrepNote", why);
+    var addBtn = document.getElementById("btnAddSpell");
+    if (!addBtn) return;
+    if (why) {
+      addBtn.disabled = true;
+      addBtn.title = why;
+      addBtn.setAttribute("data-ledger-lock", "1");
+    } else if (addBtn.getAttribute("data-ledger-lock")) {
+      addBtn.disabled = false;
+      addBtn.title = "Add a spell from your Calling list";
+      addBtn.removeAttribute("data-ledger-lock");
+    }
+  }
+
   /* Lost / disarmed. opts.combat overrides the live combat check (tests); opts.turn = the current turn key. */
   function markAway(c, opts) {
     opts = opts || {};
@@ -220,6 +350,7 @@
     var ln = document.getElementById("lawlessSpellNote");
     if (ln) ln.className = "fine focus-cast-note lawless-note";
     swapNote(hexPlinkerSwap(ch()) ? SWAP_NOTE : "");
+    paintLedgerNote();
   }
   /* L0198: Gear-tab note above the weapon cards for a Hexslinger save that took the Plinker swap */
   function swapNote(text) {
@@ -264,6 +395,9 @@
     ironAway: ironAway, ironBack: ironBack, onTurn: onTurn,
     paintCastBlock: paintCastBlock, gate: gate,
     badge: badge, badgeBlock: badgeBlock, lawless: lawless, lawlessOathHook: lawlessOathHook, BADGE_WHY: BADGE_WHY,
-    markFocusLost: markFocusLost, remakeFocus: remakeFocus, focusLostAct: focusLostAct, focusRemakeAct: focusRemakeAct, LOST_WHY: LOST_WHY
+    markFocusLost: markFocusLost, remakeFocus: remakeFocus, focusLostAct: focusLostAct, focusRemakeAct: focusRemakeAct, LOST_WHY: LOST_WHY,
+    LEDGER_ID: LEDGER_ID, PREP_WHY: PREP_WHY, ATTACK_NOTE: ATTACK_NOTE, SAVE_NOTE: SAVE_NOTE,
+    ledgerEquipped: ledgerEquipped, ledgerMissing: ledgerMissing, ledgerCast: ledgerCast, prepBlock: prepBlock,
+    isPreparedSpell: isPreparedSpell, applyLedgerNotes: applyLedgerNotes
   };
 })(typeof window !== "undefined" ? window : globalThis);

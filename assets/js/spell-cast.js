@@ -62,7 +62,7 @@
     /* 0.3.63: "d20 5 / «14»" (kept face in « ») so chat draws both dice with the kept one ringed */
     var shown = String(n1);
     if (n2 != null) shown = root.SSDNSDice && root.SSDNSDice.advRun ? root.SSDNSDice.advRun([n1, n2], nat) : "d20 " + (n1 === nat ? "«" + n1 + "» / " + n2 : n1 + " / «" + n2 + "»");
-    return { nat: nat, shown: shown };
+    return { nat: nat, shown: shown, n1: n1, n2: n2, mode: mode || "" };
   }
   function sign(n) {
     n = Number(n) || 0;
@@ -302,7 +302,8 @@
       var crit = nat === 20;
       var miss = nat === 1;
       var total = nat + bonus;
-      var head = name + gun + " · " + (kind === "weapon" ? "weapon attack " : "spell attack ") + sign(bonus) + ": " + nat + sign(bonus) + " = " + total;
+      var face = pair.n2 != null ? pair.shown : String(nat);
+      var head = name + gun + " · " + (kind === "weapon" ? "weapon attack " : "spell attack ") + sign(bonus) + ": " + face + sign(bonus) + " = " + total;
       if (kind === "weapon" && row.save) head += " · " + row.save + " save";
       var shapedDice = shaped();
       var hasDamage = (shapedDice.parts && shapedDice.parts.length) || shapedDice.flat;
@@ -311,6 +312,9 @@
         var bare = head + " · " + plain;
         var barePack = pack(bare, true, nat, crit, (pair.shown.indexOf("/") >= 0 ? "2d20" : "1d20") + sign(bonus), total, pair.shown + sign(bonus) + " = " + total + " · " + plain, sparkFor(miss));
         barePack.diceShown = pair.shown;
+        barePack.n1 = pair.n1;
+        barePack.n2 = pair.n2;
+        barePack.mode = opts.mode || "";
         barePack.damageTotal = 0;
         barePack.damageDetail = "";
         return barePack;
@@ -331,6 +335,9 @@
       var spark = sparkFor(miss);
       var packed = pack(text, true, nat, crit, (pair.shown.indexOf("/") >= 0 ? "2d20" : "1d20") + sign(bonus), total, pair.shown + sign(bonus) + " = " + total + " · " + dmgText, spark);
       packed.diceShown = pair.shown;
+      packed.n1 = pair.n1;
+      packed.n2 = pair.n2;
+      packed.mode = opts.mode || "";
       packed.damageTotal = miss ? 0 : dmgTotal;
       packed.damageDetail = miss ? "" : (dmgBits + " = " + dmgTotal);
       return packed;

@@ -819,6 +819,13 @@
   function sendPendingAttack(info) {
     info = info || {};
     var line = pendingBreakdown(info) || waitingText(info.who, info.targetName);
+    if (info.tail) {
+      if (/\bd20\b/.test(line) && line.indexOf(info.tail) < 0) {
+        line = line.replace(/([^\n]*\bd20\b[^\n]*)/, function (row) { return row + " · " + info.tail; });
+      } else if (line.indexOf(info.tail) < 0) {
+        line += ((/\n/.test(line) ? "\n" : " · ") + info.tail);
+      }
+    }
     toast(line);
     addLog({
       id: "roll:" + info.rollId,
@@ -1427,6 +1434,13 @@
     if (!isFinite(gunAtk)) gunAtk = 0;
     var hexslinger = !!(c && c.calling === "hexslinger");
     var row = Cast.lookup(spellName);
+    /* L0223: a Scholar without the Chemical Field Ledger still casts. Prepared spell attacks take disadvantage. */
+    var ledger = root.SSDNSFocus && root.SSDNSFocus.ledgerCast ? root.SSDNSFocus.ledgerCast(c, spellName, row, slot) : null;
+    var ledgerAtk = ledger && ledger.attackDis ? (ledger.attackNote || "Lost Ledger: disadvantage") : "";
+    function withLedger(extra) {
+      if (!ledgerAtk) return extra || "";
+      return extra ? (extra + " · " + ledgerAtk) : ledgerAtk;
+    }
     var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var throughGun = !!((hexslinger && fromChamber) || (row && row.weapon));
     var conds = (c && c.activeConditions) || [];
@@ -1446,7 +1460,7 @@
         return;
       }
       var peekNote = peekedSpell && peekedSpell.apply && peekedSpell.disadvantage ? (peekedSpell.note || "disadvantage: range") : "";
-      if (attackWouldDis(conds, rangeMode(chosenMode, peekedSpell), peekNote)) {
+      if (attackWouldDis(conds, rangeMode(chosenMode, peekedSpell), withLedger(peekNote))) {
         confirmIfDis(true).then(function (ok) {
           if (!ok) { if (rings0 && rings0.clear) rings0.clear(); return; }
           castSpellAttackNow._ready = true;
@@ -1465,8 +1479,12 @@
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     chosenMode = rangeMode(chosenMode, rangeShot);
     var atkMode = root.SSDNSConditions && root.SSDNSConditions.attackMode
-      ? root.SSDNSConditions.attackMode(conds, chosenMode, mountAttackExtra(rangeNote))
-      : (chosenMode === "adv" && rangeNote ? "" : (mountAttackExtra(rangeNote) ? "dis" : chosenMode));
+      ? root.SSDNSConditions.attackMode(conds, chosenMode, mountAttackExtra(withLedger(rangeNote)))
+      : (chosenMode === "adv" && withLedger(rangeNote) ? "" : (mountAttackExtra(withLedger(rangeNote)) ? "dis" : chosenMode));
+    var ledgerBits = [];
+    if (ledger && ledger.attackDis && atkMode === "dis") ledgerBits.push(ledger.attackNote || "Lost Ledger: disadvantage");
+    if (ledger && ledger.saveAdv) ledgerBits.push(ledger.saveNote || "Lost Ledger: advantage on the save");
+    var ledgerTail = ledgerBits.join(" · ");
     var rolled = Cast.rollCast({
       spellName: spellName,
       slotLevel: slot,
@@ -1505,6 +1523,9 @@
         formula: rolled.formula,
         rollId: rollId,
         label: rolled.label,
+        n1: rolled.n1,
+        n2: rolled.n2,
+        tail: ledgerTail,
         weapon: throughGun && i >= 0 ? gunName(i) : "",
         spellName: spellName || "",
         sfx: spellCueName(),
@@ -1594,6 +1615,7 @@
       rolled.text += " · " + condNote;
       rolled.detail = rolled.text;
     }
+    if (ledger && root.SSDNSFocus && root.SSDNSFocus.applyLedgerNotes) root.SSDNSFocus.applyLedgerNotes(rolled, ledger, atkMode);
     if (root.SSDNSActionPips && root.SSDNSActionPips.spell) root.SSDNSActionPips.spell(spellName);
     toast(rolled.text);
     var spellDmg = null;

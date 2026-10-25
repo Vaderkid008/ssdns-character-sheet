@@ -1379,7 +1379,14 @@ body.exh-on .sq-box input[data-f="character.speed"] { text-decoration: line-thro
    lost keepsake (red note); the Lawman's badge state pill (Bright / Dull / Tarnished + Lawless). */
 .doll-slot.doll-focus-item { box-shadow: 0 0 0 .35cqw rgba(176,138,74,.55); }
 .doll-slot.doll-focus-item:not(.doll-focus-lost) .doll-focus-note { display: none; }
+.doll-slot.doll-focus-item.doll-ledger-away .doll-focus-note,
+.doll-slot.doll-ledger-away .doll-focus-note {
+  display: block; top: 50%; transform: translate(-50%, -50%); max-width: 84%;
+  font-size: max(8px, 1.5cqw); line-height: 1.25; padding: .35em .6em;
+  color: #fff; background: rgba(141,28,20,.92); border-color: #e2b33a;
+}
 .doll-slot.doll-focus-lost .doll-focus-note { top: 50%; transform: translate(-50%, -50%); max-width: 84%; font-size: max(8px, 1.5cqw); line-height: 1.25; padding: .35em .6em; color: #fff; background: rgba(141,28,20,.92); border-color: #e2b33a; }
+#btnAddSpell:disabled { opacity: .55; cursor: not-allowed; }
 .doll-slot.doll-focus-lost .doll-glyph { opacity: .12; }
 .doll-slot .doll-badge-state { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 2; width: max-content; max-width: 92%; padding: .12em .5em; border-radius: 3px;
   font: 700 max(8px, 1.35cqw)/1.2 Georgia, "Times New Roman", serif; text-align: center; letter-spacing: .02em; pointer-events: none; border: 1px solid #b08a4a; }
