@@ -359,10 +359,11 @@ try {
     /* a player's Dash shows on the strip (as on the Fight tab) */
     await pg.evaluate((pid) => { const p = window.DMCC.state.players[pid]; const m = window.DMCCEnhance.playerMarkers(pid); p.turnMarkers = Object.assign({}, m, { action: true, dash: true, actionBy: "dash", actUndo: "dash" }); window.DMCCEnhance.syncPlayers(); }, curPid); await sleep(300);
     check("dm." + sfx + ".stripShowsDash", /Dash/.test((await geo()).marks) && /Move \d+\/60 ft/.test((await geo()).marks), (await geo()).marks);
-    /* enemy turn: no markers on the strip */
+    /* B4: an enemy's turn fills the map strip with Action / Bonus / R and Reset (Move was already there). */
     await pg.evaluate(() => document.querySelector("#btnNextTurn").click()); await sleep(400);
     for (let i = 0; i < 3 && (await pg.evaluate(() => window.DMCCEnhance.currentTurn().kind)) === "player"; i++) { await pg.evaluate(() => document.querySelector("#btnNextTurn").click()); await sleep(400); }
-    check("dm." + sfx + ".enemyTurnNoMarkers", (await geo()).marks === "");
+    const enemyMarks = (await geo()).marks;
+    check("dm." + sfx + ".enemyTurnReset", /Action/.test(enemyMarks) && /Bonus/.test(enemyMarks) && /Reset/.test(enemyMarks), enemyMarks);
     await pg.evaluate(() => document.querySelector("#btnMapFull").click()); await sleep(500);
     g = await geo();
     check("dm." + sfx + ".fullStripOnTop", g.strip && g.bar && g.strip.top >= 0 && g.strip.bottom <= g.bar.top + 1 && g.strip.top < 80, J(g));

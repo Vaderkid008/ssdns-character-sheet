@@ -229,9 +229,31 @@
     st.turnKey = k;
     reset(true);
   }
-  /** Room copy (rooms/{code}/players/{uid}/turnMarkers) wins when it belongs to a newer or the same turn. */
-  function adopt(v) {
+  function applyMarkerField(k, v) {
+    if (k === "action" || k === "bonus" || k === "reaction" || k === "dash" || k === "disengage" || k === "dodge") st[k] = !!v[k];
+    else if (k === "attacks" || k === "moveUsed") st[k] = Math.max(0, parseInt(v[k], 10) || 0);
+    else if (k === "oaUsedAt") st.oaUsedAt = Number(v[k]) || 0;
+    else if (k === "actionBy" || k === "turnKey" || k === "oaReq" || k === "oaArmed" || k === "oaUsed" || k === "deathKey") st[k] = String(v[k] || "");
+    else if (k === "actUndo") st.actUndo = ACTS.indexOf(String(v[k] || "")) >= 0 ? String(v[k]) : "";
+  }
+  function dmFieldNames(v) {
+    var raw = v && v.dmFields;
+    if (!raw || typeof raw !== "object") return null;
+    return Object.keys(raw).filter(function (k) { return !!raw[k]; });
+  }
+  /** Room copy (rooms/{code}/players/{uid}/turnMarkers) wins when it belongs to a newer or the same turn.
+   *  A live DM edit (opts.live) applies only dmFields, so a move-feet write cannot clear Action/Bonus/Reaction. */
+  function adopt(v, opts) {
     if (!v || typeof v !== "object") return false;
+    opts = opts || {};
+    var live = opts.live && v.by === "dm" ? dmFieldNames(v) : null;
+    if (live && live.length) {
+      live.forEach(function (k) { applyMarkerField(k, v); });
+      try { root.localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+      paint();
+      changed();
+      return true;
+    }
     var keep = blank();
     ["action", "bonus", "reaction"].forEach(function (k) { keep[k] = !!v[k]; });
     keep.attacks = Math.max(0, parseInt(v.attacks, 10) || 0);

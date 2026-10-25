@@ -7759,7 +7759,15 @@ async function boot() {
       renderActions();
     }
   }
-  on(window, 'ssdns:pips-change', () => { state.moveReachKey = ''; requestDraw(); });
+  on(window, 'ssdns:pips-change', () => {
+    state.moveReachKey = '';
+    /* B4: the sheet already spent. Repaint the map Fight card and the DM strip so the pip doesn't look free. */
+    try {
+      if (role === 'player') paintPlayerFight();
+      else fillStripMarkers();
+    } catch (e) {}
+    requestDraw();
+  });
   on(window, 'ssdns:pips-reset', () => { state.moveHover = null; state.moveReachKey = ''; requestDraw(); });
   if (typeof options.onReady === 'function') {
     try { options.onReady(); } catch (e) {}
