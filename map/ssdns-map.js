@@ -341,6 +341,8 @@ const state = {
   showRange: false,
   /* Green movement wash. On by default in a fight. The checkbox only hides the fill; Move feet still limit the walk. */
   showMoveReach: true,
+  /* DM "Edit tokens". Off by default. Persisted only for the DM role (ssdns.map.dmEdit). */
+  dmEdit: false,
   rangeWeaponId: "",
   rangeChoices: [],
   rangeMoved: {},
@@ -355,6 +357,10 @@ const state = {
   chat: [],
   initiative: null
 };
+/* DM-only. A player map never reads this key, even if the same browser stored it. */
+if (role === 'dm') {
+  try { state.dmEdit = localStorage.getItem('ssdns.map.dmEdit') === '1'; } catch (e) {}
+}
 
 const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d');
@@ -383,6 +389,7 @@ toolbar.innerHTML = `
     <select data-act="sceneSelect" hidden aria-hidden="true"></select>
     <button data-act="myViewBtn">My view</button>
     <button data-act="setFloorBtn">Set floor</button>
+    <button data-act="dmEditBtn" type="button" aria-pressed="false" title="Free-move any token. Walls, reach, and Move feet are ignored. Off keeps click-to-walk.">Edit tokens</button>
     <button data-act="showSceneBtn">Show to players</button>
     <button data-act="importWallsBtn">Import Walls</button>
   ` : ``}
@@ -3442,6 +3449,33 @@ function fightOn() {
   const T = window.SSDNSTurn;
   return !!(T && T.inFight && T.inFight(state.initiative));
 }
+/* Edit tokens is DM-only. Player maps have no toggle and this stays false for role !== 'dm'. */
+function dmEditing() {
+  return role === 'dm' && !!state.dmEdit;
+}
+const DM_EDIT_KEY = 'ssdns.map.dmEdit';
+const DM_EDIT_HINT = 'Swap to Edit map tokens to freely move';
+function toastDmEditHint() {
+  if (!dmEditing() && role === 'dm' && fightOn()) toast(DM_EDIT_HINT);
+}
+function paintDmEdit() {
+  const b = q('dmEditBtn');
+  if (!b || role !== 'dm') return;
+  const on = dmEditing();
+  b.classList.toggle('active', on);
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  b.textContent = on ? 'Edit tokens: ON' : 'Edit tokens';
+}
+function setDmEdit(on) {
+  if (role !== 'dm') return;
+  state.dmEdit = !!on;
+  try { localStorage.setItem(DM_EDIT_KEY, state.dmEdit ? '1' : '0'); } catch (e) {}
+  state.moveHover = null;
+  if (state.moveConfirm) state.moveConfirm.pending = null;
+  state.moveReachKey = '';
+  paintDmEdit();
+  requestDraw();
+}
 function rowForToken(token) {
   const T = window.SSDNSTurn;
   const order = (state.initiative && state.initiative.order) || [];
@@ -3564,6 +3598,7 @@ function moveContext(mover, budget) {
     occupants: occupants,
     ignoreId: mover ? mover.id : '',
     moverSize: mover ? tokSquares(mover.size) : 1,
+    /* Same start-on-wall rule as plain drags: crossesWall ignores t < 1e-6. */
     crosses: (a, b) => crossesWall(a.x, a.y, b.x, b.y),
     disengage: !!(budget && budget.disengage),
     enemies: occupants.filter(o => !o.ally)
@@ -3620,6 +3655,10 @@ function hoverAt(cell, screen) {
   };
 }
 function noteMoveHover(e) {
+  if (dmEditing()) {
+    if (state.moveHover) { state.moveHover = null; requestDraw(); }
+    return;
+  }
   if (!moveApi() || !state.scene || state.tool) return;
   if (state.drag && !state.drag.moveAim) return;
   const local = localXY(e);
@@ -3655,6 +3694,8 @@ function tryClickMove(cell) {
   const M = moveApi();
   if (!M || !cell || !state.scene) return false;
   if (state.tool) return false;
+  /* Edit ON: empty-square clicks do not click-walk and do not spend feet. */
+  if (dmEditing()) return false;
   const mover = activeMover();
   if (!mover) {
     if (fightOn() && role === 'player') toast("It isn't your turn. Your token moves on your turn.");
@@ -3663,7 +3704,8 @@ function tryClickMove(cell) {
   if (tokenSliding(mover.id)) return true;
   const budget = budgetFor(mover);
   if (!budget.free && budget.left <= 0) {
-    toast('No movement left this turn' + (budget.dash ? '.' : '. Dash uses your Action to double it.'));
+    if (role === 'dm') toastDmEditHint();
+    else toast('No movement left this turn' + (budget.dash ? '.' : '. Dash uses your Action to double it.'));
     return true;
   }
   const origin = { x: mover.pos.x, y: mover.pos.y };
@@ -3675,7 +3717,8 @@ function tryClickMove(cell) {
   if (state.moveConfirm) state.moveConfirm.pending = slot.pending;
   if (!built) {
     const why = pack && !M.canEndOn(cell.x, cell.y, pack.ctx) ? 'That square is taken' : (budget.free ? "Can't move there" : 'Out of reach');
-    toast(why);
+    if (role === 'dm' && !budget.free && why !== 'That square is taken') toastDmEditHint();
+    else toast(why);
     requestDraw();
     return true;
   }
@@ -3688,6 +3731,7 @@ function tryClickMove(cell) {
   return true;
 }
 function paintMoveReach() {
+  if (dmEditing()) return;
   const hover = state.moveHover;
   const mover = activeMover();
   /* Show move reach is visual only. Off hides the green fill. The walk still stops at the feet you have left. */
@@ -4156,8 +4200,9 @@ function onPointerDown(e) {
         state.selectedIds = [hit.id];
         state.selected = hit;
       }
-      /* During a fight the current combatant walks by click (or by releasing a drag on a square), spending Move. */
-      if (fightOn() && activeMover() && activeMover().id === hit.id && moveApi()) {
+      /* During a fight the current combatant walks by click (or by releasing a drag on a square), spending Move.
+         Edit tokens (DM only) skips that and falls through to a plain drag: no feet, no click-walk. */
+      if (!dmEditing() && fightOn() && activeMover() && activeMover().id === hit.id && moveApi()) {
         state.selectedIds = [hit.id];
         state.selected = hit;
         state.drag = { moveAim: true, token: hit, sx: e.clientX, sy: e.clientY };
@@ -4237,6 +4282,7 @@ function onPointerMove(e) {
       const dy = ny - state.drag.oy;
       const ids = state.selectedIds.length ? state.selectedIds : [state.drag.token.id];
       state.drag.blocked = false;
+      state.drag.walled = false;
       ids.forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
         if (!t) return;
@@ -4247,11 +4293,12 @@ function onPointerMove(e) {
         const snap = clampFootprint(state.drag.starts[id].x + dx, state.drag.starts[id].y + dy, tsz);
         const newX = snap.x;
         const newY = snap.y;
-        const allowStack = role === 'dm' && e.shiftKey;
+        const allowStack = dmEditing() || (role === 'dm' && e.shiftKey);
         const half = tsz / 2;
+        const wallBlocked = !dmEditing() && crossesWall(t.pos.x + half, t.pos.y + half, newX + half, newY + half);
         if (!allowStack && areaTaken(newX, newY, tsz, state.drag.starts)) {
           state.drag.blocked = true;
-        } else if (!crossesWall(t.pos.x + half, t.pos.y + half, newX + half, newY + half)) {
+        } else if (!wallBlocked) {
           if (state.offline) {
             state.drag.ghost = { x: newX, y: newY };
             const existing = state.pendingMoves.find(m => m.id === t.id);
@@ -4269,6 +4316,8 @@ function onPointerMove(e) {
             if (shared.tokens[t.id]) shared.tokens[t.id].pos = { ...t.pos, by: uid, ts: Date.now() };
             if (prevX !== newX || prevY !== newY) state.drag.rangeMoved = true;
           }
+        } else if (newX !== t.pos.x || newY !== t.pos.y) {
+          state.drag.walled = true;
         }
       });
       if (!state.drag.recorded) {
@@ -4307,7 +4356,8 @@ function onPointerUp(e) {
   }
   const wasTokenDrag = !!(state.drag && state.drag.token && !state.drag.moveAimDone);
   if (wasTokenDrag) clearStreamTimer();
-  if (state.drag && state.drag.token && state.drag.blocked && !(role === 'dm' && e.shiftKey)) {
+  if (state.drag && state.drag.walled) toastDmEditHint();
+  if (state.drag && state.drag.token && state.drag.blocked && !(role === 'dm' && e.shiftKey) && !dmEditing()) {
     const starts = state.drag.starts || {};
     Object.keys(starts).forEach(id => {
       const t = state.tokens.find(tok => tok.id === id);
@@ -4552,17 +4602,25 @@ function drawVisible(cx, cy, radius, cone) {
   ctx.drawImage(state.scene._img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
   ctx.restore();
 }
+/* Local copy of SSDNSMapMove.segmentBlocks so a map that loads without that file still unsticks.
+   Ignore a hit at the start (t < 1e-6): a token whose centre sits on the wall can step off.
+   Open doors (w.open) are not walls. Wall records are unchanged. */
+function segmentBlocks(x1, y1, x2, y2, w) {
+  const M = moveApi();
+  if (M && M.segmentBlocks) return M.segmentBlocks(x1, y1, x2, y2, w);
+  if (!w || w.open) return false;
+  const d = (x2 - x1) * (w.y2 - w.y1) - (y2 - y1) * (w.x2 - w.x1);
+  if (Math.abs(d) < 0.0001) return false;
+  const t = ((w.x1 - x1) * (w.y2 - w.y1) - (w.y1 - y1) * (w.x2 - w.x1)) / d;
+  const u = ((w.x1 - x1) * (y2 - y1) - (w.y1 - y1) * (x2 - x1)) / d;
+  return t >= 1e-6 && t <= 1 && u >= 0 && u <= 1;
+}
 function crossesWall(x1, y1, x2, y2) {
   const walls = sceneData().walls;
   if (!walls.length) return false;
   for (const w of walls) {
     if (w.open) continue;
-    // simple segment intersection
-    const d = (x2 - x1) * (w.y2 - w.y1) - (y2 - y1) * (w.x2 - w.x1);
-    if (Math.abs(d) < 0.0001) continue;
-    const t = ((w.x1 - x1) * (w.y2 - w.y1) - (w.y1 - y1) * (w.x2 - w.x1)) / d;
-    const u = ((w.x1 - x1) * (y2 - y1) - (w.y1 - y1) * (x2 - x1)) / d;
-    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) return true;
+    if (segmentBlocks(x1, y1, x2, y2, w)) return true;
   }
   return false;
 }
@@ -5306,6 +5364,10 @@ if (role === 'dm') {
     flashBtn('myViewBtn');
     toast('My view: ' + sel.options[sel.selectedIndex].text);
   });
+  if (q('dmEditBtn')) {
+    paintDmEdit();
+    q('dmEditBtn').addEventListener('click', () => setDmEdit(!state.dmEdit));
+  }
   q('setFloorBtn').addEventListener('click', () => {
     const targets = state.selectedIds.length ? state.tokens.filter(t => state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
     if (!targets.length) { toast('Select a token first'); return; }

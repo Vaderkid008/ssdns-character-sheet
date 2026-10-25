@@ -1,5 +1,5 @@
 /**
- * BG3-style map movement (sheet 0.3.120 / DMCC 0.2.133). One module for the player sheet Map and the DMCC Map.
+ * BG3-style map movement (sheet 0.3.121 / DMCC 0.2.134). One module for the player sheet Map and the DMCC Map.
  *
  * Chebyshev: every square costs 5 ft, including diagonals (not 5e 5/10).
  * Allies can be walked through. A square that is occupied (ally or enemy) is not a legal end.
@@ -84,6 +84,20 @@
       if (occ) return occ;
     }
     return null;
+  }
+  /**
+   * Segment a→b crosses wall segment w.
+   * A hit at the start (t < 1e-6, mover's side) is not a crossing: a token whose
+   * centre already sits on the wall can step off. Open doors are not walls.
+   * Wall fields stay {x1,y1,x2,y2,open}. This does not add a collision format.
+   */
+  function segmentBlocks(x1, y1, x2, y2, wall) {
+    if (!wall || wall.open) return false;
+    var d = (x2 - x1) * (wall.y2 - wall.y1) - (y2 - y1) * (wall.x2 - wall.x1);
+    if (Math.abs(d) < 0.0001) return false;
+    var t = ((wall.x1 - x1) * (wall.y2 - wall.y1) - (wall.y1 - y1) * (wall.x2 - wall.x1)) / d;
+    var u = ((wall.x1 - x1) * (y2 - y1) - (wall.y1 - y1) * (x2 - x1)) / d;
+    return t >= 1e-6 && t <= 1 && u >= 0 && u <= 1;
   }
   function stepBlocked(from, to, ctx) {
     if (footprintBlocked(to.x, to.y, ctx)) return true;
@@ -231,6 +245,7 @@
     computePath: computePath,
     leaveReachCue: leaveReachCue,
     previewSlot: previewSlot,
-    chebyshev: chebyshev
+    chebyshev: chebyshev,
+    segmentBlocks: segmentBlocks
   };
 })(typeof window !== "undefined" ? window : globalThis);
