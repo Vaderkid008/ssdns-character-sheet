@@ -366,12 +366,14 @@ function stripGuns(row, i) {
     }
     return html;
   }
-  if (row.kind === "enemy") {
+  /* B9: NPC allies and creatures with guns, not only kind enemy. */
+  if (row.kind !== "player") {
     const list = (row.card && row.card.attacks && row.card.attacks.length) ? row.card.attacks : (row.attackList || []);
     const target = cylinderTargetHtml(row);
     return list.map((atk, n) => {
       if (!atk || atk.capacity == null || atk.dropped === true || atk.equipped === false) return "";
-      return `<span class="cylinder-row">${esc(atk.name || "Gun")} ${dots(atk.capacity, atk.loaded, `data-cyl-fire="${esc(row.id)}" data-atk-n="${n}"`, null, atk)} ${target}</span>`;
+      const pic = Array.isArray(atk.chambers) && atk.chambers.length ? chamberPicture(atk.chambers) : null;
+      return `<span class="cylinder-row">${esc(atk.name || "Gun")} ${dots(atk.capacity, atk.loaded, `data-cyl-fire="${esc(row.id)}" data-atk-n="${n}"`, pic, atk)} ${target}</span>`;
     }).join("");
   }
   return publicGuns(row).map((g, gi) => {
@@ -1309,7 +1311,7 @@ function renderFight() {
         return `<div class="turn-chip${current}${ondeck}${later}${side}" role="listitem">${face}${guns}</div>`;
       }).join("");
       /* T1 (turn order PR 1): one Next per surface. The Fight tab's Next is the DMCC's; this Table-tab strip shows the order only.
-         0.2.142: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
+         0.2.143: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
       const badge = cur ? `<b class="dm-turn-now">${esc(cur.name || "Their turn")}</b>` : "";
       strip.innerHTML = `<b class="turn-round">Round ${esc(fight.round || 1)}</b>${badge}` +
         `<button type="button" class="turn-scroll" data-dm-scroll="-1" aria-label="Scroll the turn order left" hidden>\u2039</button>` +
@@ -1910,7 +1912,7 @@ function markerExtrasHtml(row, m, opts) {
   const flags = ["dash", "disengage", "dodge"].filter((k) => m[k]).map((k) => `<span class="badge eld">${k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge")}</span>`).join("");
   return move + flags;
 }
-/* DM strip (0.2.142): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
+/* DM strip (0.2.143): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
    Dash / Disengage / Dodge are a read-out of flags the sheet already stores. Nothing new is spent from here. */
 function stripActsHtml(row) {
   const got = turnMarkersFor(row);
@@ -3026,7 +3028,9 @@ function gunMemory(attacks) {
     lastRoll: atk.lastRoll || null,
     /* Mech PR A: a rebuilt card keeps the DM's added spare rounds and the chambers a 3rd misfire locked */
     spare: atk.spare,
-    lockedChambers: Array.isArray(atk.lockedChambers) ? atk.lockedChambers.slice() : null
+    lockedChambers: Array.isArray(atk.lockedChambers) ? atk.lockedChambers.slice() : null,
+    /* B9: a picked chamber stays empty across a card rebuild */
+    chambers: Array.isArray(atk.chambers) ? atk.chambers.slice() : null
   })).filter(Boolean);
 }
 function restoreGuns(attacks, prev) {
@@ -3044,6 +3048,7 @@ function restoreGuns(attacks, prev) {
     if (old.lastRoll) atk.lastRoll = old.lastRoll;
     if (atk.capacity != null && old.spare != null && old.spare !== "" && isFinite(Number(old.spare))) atk.spare = Number(old.spare);
     if (atk.capacity != null && Array.isArray(old.lockedChambers) && old.lockedChambers.length) atk.lockedChambers = old.lockedChambers.slice();
+    if (atk.capacity != null && Array.isArray(old.chambers) && old.chambers.length === (Number(atk.capacity) || 0)) atk.chambers = old.chambers.slice();
   });
 }
 function normalizeAttackMisfires(attacks) {
@@ -4781,15 +4786,18 @@ const FREE_SHOT_ID = "__free";
 function freeShotGun(atk) {
   return !!(atk && (atk.capacity != null || /\d+\s*\/\s*\d+/.test(String(atk.range || "")) || /pistol|rifle|shotgun|carbine|bow/i.test(String(atk.group || ""))));
 }
-async function cardFreeShot(row, atk, bonusIn) {
+async function cardFreeShot(row, atk, bonusIn, opts) {
   if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
   const bonus = bonusIn != null && isFinite(Number(bonusIn)) ? Number(bonusIn) : (isFinite(Number(atk.toHit)) ? Number(atk.toHit) : 0);
   const nat = d20();
   const ceiling = window.SSDNSApplied && window.SSDNSApplied.misfireNumber
     ? window.SSDNSApplied.misfireNumber(atk.misfire)
     : null;
+  const chamberPick = opts && opts.chamber != null && opts.chamber !== "" && isFinite(Number(opts.chamber)) ? Number(opts.chamber) : null;
+  const shotArg = { n1: nat, nat: nat, ceiling: ceiling || 1, spark: false };
+  if (chamberPick != null) shotArg.chamber = chamberPick;
   const resolved = (atk.misfire != null && atk.misfire !== "" && window.SSDNSMisfire)
-    ? window.SSDNSMisfire.resolveShot(atk, { n1: nat, nat: nat, ceiling: ceiling || 1, spark: false })
+    ? window.SSDNSMisfire.resolveShot(atk, shotArg)
     : null;
   const misfire = resolved ? resolved.misfire : (window.SSDNSApplied && window.SSDNSApplied.isMisfire
     ? window.SSDNSApplied.isMisfire(nat, atk.misfire)
@@ -4802,7 +4810,7 @@ async function cardFreeShot(row, atk, bonusIn) {
     if (resolved.armD4) atk.pendingD4 = true;
     enemyKeepLocks(atk, resolved);
   }
-  if (atk.capacity != null) atk.loaded = Math.max(0, Math.min(Number(atk.loaded) - 1, enemyOpenChambers(atk)));
+  if (atk.capacity != null) enemySpendRound(atk, chamberPick);
   const total = nat + bonus;
   let detail = (row.name || "Someone") + " shoots freely · 1d20" + signed(bonus) + " = " + total;
   if (misfire) {
@@ -4830,6 +4838,11 @@ async function cardStrike(i, n, opts) {
   if (atk.fouled) { DM.toast(atk.name + " is fouled"); return; }
   if (atk.ruined) { DM.toast(atk.name + " is ruined"); return; }
   if (atk.pendingD4) { DM.toast("Roll the d4 first."); return; }
+  const chamberPick = opts && opts.chamber != null && opts.chamber !== "" && isFinite(Number(opts.chamber)) ? Number(opts.chamber) : null;
+  if (chamberPick != null && atk.capacity != null) {
+    const ready = enemyChamberReady(atk, chamberPick);
+    if (!ready.ok) { DM.toast(ready.reason || "Click."); return false; }
+  }
   if (atk.capacity != null && Number(atk.loaded) <= 0) {
     const emptyText = window.SSDNSApplied && window.SSDNSApplied.emptyShotText
       ? window.SSDNSApplied.emptyShotText(row.name, atk)
@@ -4837,7 +4850,7 @@ async function cardStrike(i, n, opts) {
     logTableAlert(emptyText);
     return;
   }
-  if (opts && opts.free) return cardFreeShot(row, atk);
+  if (opts && opts.free) return cardFreeShot(row, atk, null, opts);
   let picked;
   if (opts && opts.targetId) {
     const want = String(opts.targetId);
@@ -4851,7 +4864,7 @@ async function cardStrike(i, n, opts) {
   } else {
     picked = await askEnemyStrike(row, atk);
   }
-  if (picked && picked.targetId === FREE_SHOT_ID) return cardFreeShot(row, atk, picked.bonus);
+  if (picked && picked.targetId === FREE_SHOT_ID) return cardFreeShot(row, atk, picked.bonus, opts);
   if (!picked || !picked.targetId) { DM.toast("No targets"); return; }
   const bonus = picked.bonus != null && isFinite(Number(picked.bonus)) ? Number(picked.bonus) : Number(atk.toHit);
   const dice = String((picked.dice || atk.damage || "")).trim();
@@ -4933,8 +4946,10 @@ async function cardStrike(i, n, opts) {
   const ceiling = window.SSDNSApplied && window.SSDNSApplied.misfireNumber
     ? window.SSDNSApplied.misfireNumber(atk.misfire)
     : null;
+  const shotArg = { n1: nat, nat: nat, ceiling: ceiling || 1, spark: false };
+  if (chamberPick != null) shotArg.chamber = chamberPick;
   const resolved = (atk.misfire != null && atk.misfire !== "" && window.SSDNSMisfire)
-    ? window.SSDNSMisfire.resolveShot(atk, { n1: nat, nat: nat, ceiling: ceiling || 1, spark: false })
+    ? window.SSDNSMisfire.resolveShot(atk, shotArg)
     : null;
   const misfire = resolved ? resolved.misfire : (window.SSDNSApplied && window.SSDNSApplied.isMisfire
     ? window.SSDNSApplied.isMisfire(nat, atk.misfire)
@@ -4947,7 +4962,7 @@ async function cardStrike(i, n, opts) {
     if (resolved.armD4) atk.pendingD4 = true;
     enemyKeepLocks(atk, resolved);
   }
-  if (atk.capacity != null) atk.loaded = Math.max(0, Math.min(Number(atk.loaded) - 1, enemyOpenChambers(atk)));
+  if (atk.capacity != null) enemySpendRound(atk, chamberPick);
   if (misfire) {
     if (!resolved) atk.jammed = true;
     const detail = row.name + " fires " + atk.name + ": natural " + nat + " misfire. The round is spent.";
@@ -6181,12 +6196,15 @@ function wireClicks() {
       const wrap = t.closest(".cylinder-row");
       const sel = wrap && wrap.querySelector("[data-cyl-target]");
       const targetId = (sel && sel.value) || (row.lastAttackerId || "");
-      SSDNSMapFight.attack({
+      const rawK = t.hasAttribute("data-gun-k") ? t.getAttribute("data-gun-k") : (t.hasAttribute("data-k") ? t.getAttribute("data-k") : "");
+      const shot = {
         combatantId: row.id,
         tokenId: row.mapTokenId || "",
         weaponId: atk && (atk.id || atk.name),
         targetCombatantId: targetId
-      });
+      };
+      if (rawK !== "") shot.chamber = Number(rawK);
+      SSDNSMapFight.attack(shot);
       return;
     }
     if (t.hasAttribute("data-strip-fire")) {
@@ -7036,14 +7054,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.142-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.143-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.142-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.143-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -7479,6 +7497,7 @@ function mapDrawerCard(row) {
   const speed = row.speed != null && row.speed !== "" ? row.speed : (row.card && row.card.speed);
   return {
     tokenId: row.id,
+    /* B9: a player card is "pc". Allies and creatures stay off that path so the drawer gun controls show. */
     kind: row.kind === "player" ? "pc" : "enemy",
     name: row.name || "Combatant",
     owner: row.playerId || "",
@@ -7820,12 +7839,15 @@ async function mapGunLoad(detail, unload) {
     const held = Number(atk.loaded) || 0;
     atk.spare = (Number(atk.spare) || 0) + held;
     atk.loaded = 0;
+    if (Array.isArray(atk.chambers)) atk.chambers = atk.chambers.map(() => "");
   } else {
     const cap = enemyOpenChambers(atk); /* M2: a locked chamber can't be loaded (same rule as the sheet) */
     const need = Math.max(0, cap - (Number(atk.loaded) || 0));
     const spare = Number(atk.spare);
     const take = isFinite(spare) ? Math.min(need, Math.max(0, spare)) : need;
-    atk.loaded = (Number(atk.loaded) || 0) + take;
+    const tracked = Array.isArray(atk.chambers) && atk.chambers.length === (Number(atk.capacity) || 0);
+    if (tracked) enemyFill(atk, take);
+    else atk.loaded = (Number(atk.loaded) || 0) + take;
     if (isFinite(spare)) atk.spare = spare - take;
   }
   await saveRemoteTable();
@@ -7993,6 +8015,64 @@ function enemyOpenChambers(atk) {
   const cap = Number(atk && atk.capacity) || 0;
   return Math.max(0, cap - enemyLocks(atk).length);
 }
+/* The picture the drawer already paints: a stored chamber list, or the first `loaded` open holes. */
+function enemyVisualFlags(atk) {
+  const cap = Number(atk && atk.capacity) || 0;
+  const locks = enemyLocks(atk);
+  if (Array.isArray(atk.chambers) && atk.chambers.length === cap) {
+    const flags = atk.chambers.slice();
+    locks.forEach((k) => { if (k >= 0 && k < cap) flags[k] = ""; });
+    return flags;
+  }
+  const loaded = Math.max(0, Number(atk && atk.loaded) || 0);
+  const flags = [];
+  for (let k = 0; k < cap; k++) flags.push(locks.indexOf(k) < 0 && k < loaded ? "round" : "");
+  return flags;
+}
+function enemyChamberReady(atk, chamber) {
+  const cap = Number(atk && atk.capacity) || 0;
+  const idx = Math.floor(Number(chamber));
+  if (!isFinite(idx) || idx < 0 || idx >= cap) return { ok: false, reason: "That chamber isn't on this gun." };
+  if (enemyLocks(atk).indexOf(idx) >= 0) return { ok: false, reason: "That chamber is locked." };
+  if (!enemyVisualFlags(atk)[idx]) return { ok: false, reason: "Click." };
+  return { ok: true, index: idx };
+}
+/* Spend one round. A picked chamber empties that hole. A plain shot keeps the old count when no chamber list is stored. */
+function enemySpendRound(atk, chamber) {
+  if (!atk || atk.capacity == null) return;
+  const cap = Number(atk.capacity) || 0;
+  const specific = chamber != null && chamber !== "" && isFinite(Number(chamber));
+  const haveFlags = Array.isArray(atk.chambers) && atk.chambers.length === cap;
+  if (!specific && !haveFlags) {
+    atk.loaded = Math.max(0, Math.min(Number(atk.loaded) - 1, enemyOpenChambers(atk)));
+    return;
+  }
+  const flags = enemyVisualFlags(atk);
+  const idx = specific ? Math.floor(Number(chamber)) : flags.findIndex(Boolean);
+  if (idx >= 0 && idx < flags.length && enemyLocks(atk).indexOf(idx) < 0) flags[idx] = "";
+  atk.chambers = flags;
+  atk.loaded = flags.filter(Boolean).length;
+}
+function enemyFill(atk, take) {
+  const cap = Number(atk && atk.capacity) || 0;
+  const n = Math.max(0, Math.floor(Number(take) || 0));
+  if (!atk || !(Array.isArray(atk.chambers) && atk.chambers.length === cap)) {
+    if (atk) atk.loaded = (Number(atk.loaded) || 0) + n;
+    return;
+  }
+  const locks = enemyLocks(atk);
+  const flags = atk.chambers.slice();
+  let left = n;
+  for (let k = 0; k < cap && left > 0; k++) {
+    if (locks.indexOf(k) >= 0) { flags[k] = ""; continue; }
+    if (flags[k]) continue;
+    flags[k] = "round";
+    left--;
+  }
+  locks.forEach((k) => { if (k >= 0 && k < cap) flags[k] = ""; });
+  atk.chambers = flags;
+  atk.loaded = flags.filter(Boolean).length;
+}
 function enemyKeepLocks(atk, resolved) {
   if (!atk || !resolved || !Array.isArray(resolved.lockedChambers)) return;
   if (!resolved.lockedChambers.length && !(Array.isArray(atk.lockedChambers) && atk.lockedChambers.length)) return;
@@ -8105,13 +8185,54 @@ async function enemyAddRounds(row, atk, pick) {
     toSpare = counted ? n - toGun : 0;
   } else if (counted) toSpare = n;
   if (!toGun && !toSpare) { DM.toast(counted ? "Nothing added." : (atk.name || "Gun") + ": the gun is full and its spare is unlimited."); return null; }
-  atk.loaded = loaded + toGun;
+  const tracked = Array.isArray(atk.chambers) && atk.chambers.length === (Number(atk.capacity) || 0);
+  if (toGun && tracked) enemyFill(atk, toGun);
+  else atk.loaded = loaded + toGun;
   if (counted) atk.spare = spareN + toSpare;
   rememberWeapon(row, atk);
   await saveRemoteTable();
   renderFight();
   DM.toast((row.name || "Enemy") + " · " + (atk.name || "Gun") + ": +" + (toGun + toSpare) + " rounds (loaded " + atk.loaded + "/" + atk.capacity + (counted ? ", spare " + atk.spare : "") + ")");
   return { loaded: atk.loaded, spare: counted ? atk.spare : null };
+}
+/* B9: DM Jam on an enemy / ally / creature gun. Free. Does not set Dirty (Dirty stays on player guns). */
+async function enemyGunJam(row, atk) {
+  const name = atk.name || "Gun";
+  if (atk.fouled || atk.ruined || atk.broken) { DM.toast(name + " is Fouled. It needs a gunsmith or a DM Repair."); return false; }
+  if (atk.jammed) { DM.toast(name + " is already jammed."); return false; }
+  atk.jammed = true;
+  rememberWeapon(row, atk);
+  const line = (row.name || "Enemy") + " jammed " + name;
+  await DM.pushLedger({ who: "DM", playerId: row.id || "all", type: "jam", what: line, oldVal: "clear", newVal: "jammed", flag: false, characterName: row.name || "" });
+  await saveRemoteTable();
+  renderFight();
+  DM.toast(line);
+  return true;
+}
+/* B9: DM Lock chamber. The hole shows X and cannot be fired. Reopen clears the lock. No Dirty. */
+async function enemyGunLock(row, atk, chamber) {
+  const name = atk.name || "Gun";
+  const cap = Number(atk.capacity) || 0;
+  if (!cap) { DM.toast(name + " has no chambers to lock."); return false; }
+  const locks = enemyLocks(atk);
+  let idx = chamber != null && chamber !== "" && isFinite(Number(chamber)) ? Math.floor(Number(chamber)) : -1;
+  if (!(idx >= 0 && idx < cap && locks.indexOf(idx) < 0)) {
+    idx = -1;
+    for (let k = 0; k < cap; k++) if (locks.indexOf(k) < 0) { idx = k; break; }
+  }
+  if (idx < 0) { DM.toast(name + ": every chamber is locked."); return false; }
+  const flags = enemyVisualFlags(atk);
+  flags[idx] = "";
+  atk.chambers = flags;
+  atk.lockedChambers = locks.concat([idx]);
+  atk.loaded = flags.filter(Boolean).length;
+  rememberWeapon(row, atk);
+  const line = (row.name || "Enemy") + " locked chamber " + (idx + 1) + " on " + name;
+  await DM.pushLedger({ who: "DM", playerId: row.id || "all", type: "jam", what: line, oldVal: "open", newVal: "locked", flag: false, characterName: row.name || "" });
+  await saveRemoteTable();
+  renderFight();
+  DM.toast(line);
+  return true;
 }
 async function mapEnemyGunTool(detail, op) {
   const i = mapFightIndex(detail);
@@ -8124,6 +8245,8 @@ async function mapEnemyGunTool(detail, op) {
   if (!atk) { DM.toast("No weapon"); return false; }
   if (op === "clean") return enemyGunClean(row, atk);
   if (op === "reopen") return enemyGunReopen(row, atk);
+  if (op === "jam") return enemyGunJam(row, atk);
+  if (op === "lock") return enemyGunLock(row, atk, detail && detail.chamber);
   if (op === "addrounds") {
     if (atk.capacity == null) { DM.toast("That weapon doesn't load"); return false; }
     const pick = detail && detail.rounds != null ? { n: detail.rounds, into: detail.into === "spare" ? "spare" : "gun" } : await askEnemyRounds(row, atk);
@@ -8217,6 +8340,27 @@ async function mapGunChamber(detail) {
   if (!atk || atk.capacity == null) { DM.toast("That weapon doesn't load"); return false; }
   const cap = Number(atk.capacity) || 0;
   const loaded = Number(atk.loaded) || 0;
+  if (Array.isArray(atk.chambers) && atk.chambers.length === cap) {
+    if (enemyLocks(atk).indexOf(k) >= 0) { DM.toast("That chamber is locked."); return false; }
+    const flags = atk.chambers.slice();
+    if (flags[k]) {
+      flags[k] = "";
+      atk.chambers = flags;
+      atk.loaded = flags.filter(Boolean).length;
+      if (isFinite(Number(atk.spare))) atk.spare = Number(atk.spare) + 1;
+    } else if (k < cap) {
+      const spare = Number(atk.spare);
+      if (isFinite(spare) && spare <= 0) { DM.toast("No ammo left"); return false; }
+      flags[k] = "round";
+      atk.chambers = flags;
+      atk.loaded = flags.filter(Boolean).length;
+      if (isFinite(spare)) atk.spare = spare - 1;
+    }
+    await saveRemoteTable();
+    renderFight();
+    DM.toast((atk.name || "Gun") + " · " + atk.loaded + "/" + cap);
+    return true;
+  }
   if (k < loaded) {
     atk.loaded = loaded - 1;
     if (isFinite(Number(atk.spare))) atk.spare = Number(atk.spare) + 1;
@@ -8698,7 +8842,9 @@ async function mapFreeShot(i, row, detail) {
   ensureCombatantCard(row);
   const n = mapAttackIndex(row, detail.weaponId);
   if (n < 0) { DM.toast("No attack"); return false; }
-  const rolled = await cardStrike(i, n, { free: true });
+  const freeOpts = { free: true };
+  if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) freeOpts.chamber = Number(detail.chamber);
+  const rolled = await cardStrike(i, n, freeOpts);
   if (rolled) {
     const atk = row.card && row.card.attacks && row.card.attacks[n];
     await spendEnemyPip(row, "attack", (atk && atk.name) || "Attack", { oa: !!(detail && (detail.oa || detail.reaction)) });
@@ -8825,7 +8971,9 @@ window.SSDNSMapFight = {
     ensureCombatantCard(row);
     const n = mapAttackIndex(row, detail.weaponId);
     if (n < 0) { DM.toast("No attack"); return false; }
-    const rolled = await cardStrike(i, n, { targetId: targetId });
+    const strikeOpts = { targetId: targetId };
+    if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) strikeOpts.chamber = Number(detail.chamber);
+    const rolled = await cardStrike(i, n, strikeOpts);
     if (rolled) {
       const atk = row.card && row.card.attacks && row.card.attacks[n];
       /* Player sheets spend on their own gun command. This branch is enemies only. */
@@ -8865,6 +9013,8 @@ window.SSDNSMapFight = {
     return !!rolled;
   },
   chamber(detail) { return mapGunChamber(detail); },
+  jam(detail) { return mapEnemyGunTool(detail, "jam"); },
+  lock(detail) { return mapEnemyGunTool(detail, "lock"); },
   targets(detail) {
     detail = detail || {};
     const i = mapFightIndex(detail);
@@ -9054,7 +9204,7 @@ window.SSDNSMapFight = {
   syncMap() { syncMapTokens(); }
 };
 
-/* Dirty-gun tracker (sheet 0.3.129 / DMCC 0.2.142). The DM advances a room campaign day.
+/* Dirty-gun tracker (sheet 0.3.130 / DMCC 0.2.143). The DM advances a room campaign day.
    A gun not cleaned in 2 campaign days is listed here. Nothing auto-dirties the gun, and the list is DM-only. */
 function campaignDayNow() {
   const n = parseInt(fight.campaignDay, 10);
