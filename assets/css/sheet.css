@@ -1083,6 +1083,14 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .act-pips .pip-reaction { border-color: #2f5f86; background: #5c9bd1; }
 .act-pips .pip.used.partial { background: linear-gradient(90deg, #d8d0c2 50%, #6fbf4f 50%); color: #2c2a24; text-decoration: none; }
 .act-pips .pip.used { background: #d8d0c2; border-color: #a99d8a; color: #8a7f6c; text-decoration: line-through; box-shadow: none; }
+/* B16: the R pip opens this picker (sheet turn strip, map player strip, Weapons box). */
+.pip-react-menu { position: fixed; z-index: 120; min-width: 232px; max-width: min(320px, calc(100vw - 16px)); max-height: min(360px, calc(100vh - 16px)); overflow: auto; padding: 4px; background: #fbf5e8; color: #2a1e12; border: 2px solid #2f5f86; border-radius: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.45); font: 600 13px/1.3 system-ui, sans-serif; }
+.pip-react-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left; padding: 7px 8px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+.pip-react-item:hover, .pip-react-item:focus-visible { background: #e4eef6; outline: none; }
+.pip-react-item b { font-weight: 800; }
+.pip-react-item span { font-weight: 500; font-size: 11px; color: #5c4a32; }
+.pip-react-mark { border-top: 1px solid #d6c6a6; border-radius: 0; margin-top: 2px; }
+.pip-react-empty { margin: 4px 8px 6px; font-size: 12px; font-weight: 600; color: #6b5a42; }
 .gun button[data-cost]::after { content: attr(data-cost); display: inline-block; margin-left: 5px; padding: 1px 4px; border-radius: 3px; background: #efe4cc; color: #6b4f22; font: 700 9px/1.2 system-ui, sans-serif; text-transform: uppercase; letter-spacing: .03em; vertical-align: middle; }
 .gun button[data-cost="Bonus"]::after { background: #f6e2a8; }
 .gun button[data-cost="Full turn"]::after { background: #f2c9b8; color: #7a2a14; }
