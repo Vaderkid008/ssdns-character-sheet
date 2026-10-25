@@ -77,6 +77,24 @@ const second = M.previewSlot(slot, { x: 1, y: 0 }, built);
 check("mobile.confirm", second.commit === true);
 check("desktop.click", M.previewSlot({ mode: "click", pending: null }, { x: 1, y: 0 }, built).commit === true);
 
+/* B1: a token whose centre sits on a wall can step off. A real wall still blocks. */
+const diag = { x1: 5, y1: 5, x2: 6, y2: 6 };
+check("unstick.onDiagonal", M.segmentBlocks(5.5, 5.5, 5.5, 4.5, diag) === false);
+check("unstick.crossDiagonal", M.segmentBlocks(4.5, 5.5, 6.5, 5.5, diag) === true);
+const vert = { x1: 6, y1: 0, x2: 6, y2: 20 };
+check("corridor.blocks", M.segmentBlocks(5.5, 5.5, 6.5, 5.5, vert) === true);
+check("corridor.otherSide", M.segmentBlocks(6.5, 5.5, 5.5, 5.5, vert) === true);
+check("corridor.openDoor", M.segmentBlocks(5.5, 5.5, 6.5, 5.5, { x1: 6, y1: 0, x2: 6, y2: 20, open: true }) === false);
+check("unstick.centreOnLine", M.segmentBlocks(6, 5.5, 7, 5.5, vert) === false);
+check("unstick.arriveStillBlocks", M.segmentBlocks(7, 5.5, 6, 5.5, vert) === true);
+check("unstick.thenBlocked", M.segmentBlocks(7, 5.5, 5, 5.5, vert) === true);
+check("eps.nearMissStillBlocks", M.segmentBlocks(5.999, 5.5, 6.5, 5.5, vert) === true);
+const onWall = ctx({ crosses: (a, b) => M.segmentBlocks(a.x, a.y, b.x, b.y, diag) });
+check("unstick.reachStepsOff", M.computeReach({ x: 5, y: 5 }, 30, onWall).has("5,4"));
+const aroundWall = ctx({ crosses: (a, b) => M.segmentBlocks(a.x, a.y, b.x, b.y, vert) });
+check("corridor.reachBlocks", !M.computeReach({ x: 5, y: 5 }, 30, aroundWall).has("6,5"));
+check("corridor.reachOpenSide", M.computeReach({ x: 5, y: 5 }, 30, aroundWall).has("4,5"));
+
 const mapSrc = fs.readFileSync(path.join(root, "map/ssdns-map.js"), "utf8");
 check("ghost.gone", mapSrc.indexOf('data-act="playerGhostBtn"') < 0 && mapSrc.indexOf('data-act="offlineBtn"') < 0);
 check("both.wired", mapSrc.indexOf("host.movementBudget") >= 0 && mapSrc.indexOf("host.spendMove(token, n) === true") >= 0);
@@ -90,6 +108,24 @@ check("reach.toggle", mapSrc.includes('data-act="showMoveReach"') && mapSrc.incl
 check("reach.hidesFill", paintReach.includes("showMoveReach === false"));
 check("reach.rulesStay", clickMove.indexOf("showMoveReach") < 0);
 check("rules.untouched", !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("ssdns-map-move"));
+
+const moveSrc = fs.readFileSync(path.join(root, "map/ssdns-map-move.js"), "utf8");
+const dmToolbar = mapSrc.slice(mapSrc.indexOf("role === 'dm' ? `"), mapSrc.indexOf(": ``}"));
+const playerCard = mapSrc.slice(mapSrc.indexOf("ssdns-playercard"), mapSrc.indexOf("attack effects"));
+check("edit.button", dmToolbar.includes('data-act="dmEditBtn"') && dmToolbar.includes(">Edit tokens</button>"));
+check("edit.playerClean", !playerCard.includes("dmEdit") && !playerCard.includes("Edit tokens"));
+check("edit.defaultOff", mapSrc.includes("dmEdit: false") && mapSrc.includes("localStorage.getItem('ssdns.map.dmEdit') === '1'"));
+check("edit.roleGuard", /function dmEditing\(\) \{\n  return role === 'dm' && !!state\.dmEdit;\n\}/.test(mapSrc));
+check("edit.skipAim", mapSrc.includes("if (!dmEditing() && fightOn() && activeMover() && activeMover().id === hit.id && moveApi())"));
+check("edit.noClickWalk", /function tryClickMove\(cell\) \{[\s\S]{0,280}if \(dmEditing\(\)\) return false;/.test(mapSrc));
+check("edit.plainDrag", mapSrc.includes("const allowStack = dmEditing() || (role === 'dm' && e.shiftKey)") && mapSrc.includes("const wallBlocked = !dmEditing() && crossesWall(t.pos.x + half, t.pos.y + half, newX + half, newY + half)"));
+check("edit.hint", mapSrc.includes("Swap to Edit map tokens to freely move") && /function toastDmEditHint\(\) \{\n  if \(!dmEditing\(\) && role === 'dm' && fightOn\(\)\) toast\(DM_EDIT_HINT\);/.test(mapSrc));
+check("edit.playerFeetToast", mapSrc.includes("else toast('No movement left this turn'"));
+check("edit.ctxCrosses", mapSrc.includes("crosses: (a, b) => crossesWall(a.x, a.y, b.x, b.y)"));
+check("edit.eps", mapSrc.includes("return t >= 1e-6 && t <= 1 && u >= 0 && u <= 1;") && moveSrc.includes("return t >= 1e-6 && t <= 1 && u >= 0 && u <= 1;"));
+check("edit.openSkipped", /function crossesWall\(x1, y1, x2, y2\) \{\n  const walls = sceneData\(\)\.walls;\n  if \(!walls\.length\) return false;\n  for \(const w of walls\) \{\n    if \(w\.open\) continue;/.test(mapSrc));
+check("edit.streamStill", mapSrc.includes("function streamDrag()") && mapSrc.includes("STREAM_MS = 160"));
+check("edit.undoStill", /state\.undoStack\.push\(\{ type: 'move', ids: ids\.slice\(\), from: \{ \.\.\.state\.drag\.starts \} \}\)/.test(mapSrc));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

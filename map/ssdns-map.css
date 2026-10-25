@@ -361,6 +361,14 @@ body.ssdns-chat-pop .ssm-who,
   font: 12px/1.3 system-ui, sans-serif;
 }
 .ssdns-map button.active { background: #8a7040; border-color: #e8c36a; color: #fff; }
+/* DM Edit tokens: on-state is green so it cannot be missed next to the gold tool buttons. */
+.ssdns-map button[data-act="dmEditBtn"].active {
+  background: #1f6b38;
+  border-color: #9ee7b2;
+  color: #f4fff7;
+  box-shadow: 0 0 0 2px rgba(120, 210, 150, 0.55);
+  font-weight: 700;
+}
 /* Full screen fills the viewport and keeps the embedded grid, so the toolbar,
    dice lane, chat, and initiative strip each occupy their own row. */
 body.map-fullscreen #mapMount {
