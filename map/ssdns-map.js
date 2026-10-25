@@ -6863,6 +6863,27 @@ async function loadSceneImage(sceneId, opts) {
     if (!a || !a.ammo || !a.ammo.cap) return '';
     return '<button type="button" data-act="rowAddRounds" data-wid="' + esc(a.id || '') + '">Add rounds</button>';
   }
+  /* B9: DM Jam. Hidden once the gun is already jammed (Unjam shows instead). Never a Dirty control. */
+  function npcJam(a) {
+    const gun = gunFlags(a);
+    if (!a || gun.jammed || gun.fouled || gun.ruined) return '';
+    if (!(a.ammo && a.ammo.cap) && (a.misfire == null || a.misfire === '')) return '';
+    return sideButton(a, 'rowJam', 'jam', 'Jam');
+  }
+  /* B9: DM Lock chamber. The picked hole shows X and will not fire. Reopen clears it. */
+  function npcLock(a) {
+    const cap = a && a.ammo ? (Number(a.ammo.cap) || 0) : 0;
+    if (!cap) return '';
+    const locks = lockList(a);
+    if (locks.length >= cap) return '';
+    let opts = '';
+    for (let k = 0; k < cap; k++) {
+      if (locks.some(n => Number(n) === k)) continue;
+      opts += '<option value="' + k + '">Chamber ' + (k + 1) + '</option>';
+    }
+    return '<label class="ssm-lockpick">Lock <select data-act="lockPick" data-wid="' + esc(a.id || '') + '" aria-label="Chamber to lock">' + opts + '</select></label>' +
+      sideButton(a, 'rowLock', 'lock', 'Lock chamber');
+  }
   /* map token guns (Jessey 2026-10-20 9:21 PM): Misfire badge, same box as the player gun card's "MISFIRE 1–4". */
   function misfireBadge(a) {
     const raw = a && a.misfire != null && a.misfire !== '' ? String(a.misfire) : '';
@@ -7433,6 +7454,7 @@ async function loadSceneImage(sceneId, opts) {
         return '<option value="' + esc(id) + '"' + on + '>' + esc((o && (o.label || o.name)) || id) + '</option>';
       }).join('');
     const activeWid = activeWeaponId(card, tokenId);
+    /* B9: DM-run guns — enemies, NPC allies, and creatures — not only kind enemy. */
     const npc = !isPc;
     const attacks = (card.attacks || []).map(a => {
       const ammo = a.ammo ? ' [' + (a.ammo.loaded != null ? a.ammo.loaded : '—') + '/' + (a.ammo.cap != null ? a.ammo.cap : '—') + ']' : '';
@@ -7456,6 +7478,7 @@ async function loadSceneImage(sceneId, opts) {
       /* map token guns: the DM unjams an NPC's gun free, same as DM unjam for players */
       const rowUnjam = (isPc && canAct) ? unjamControl(a, 'rowUnjam') : (npc ? npcUnjam(a) : '');
       const rowReopen = (isPc && canAct) ? reopenControl(a, 'rowReopen') : (npc ? npcReopen(a) + npcAddRounds(a) : '');
+      const rowJamLock = npc ? (npcJam(a) + npcLock(a)) : '';
       const badges = misfireBadge(a) + jamBadge(a);
       const lit = String(a.id) === activeWid ? ' is-active' : '';
       const graphic = window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled();
@@ -7481,7 +7504,7 @@ async function loadSceneImage(sceneId, opts) {
         const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
         const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
         const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : (npc ? gunExtras(a, 'npc') : '');
-        return '<div class="cylinder-row cylinder-graphic' + crossClass(a) + lit + '" data-gun-wid="' + esc(a.id) + '"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + badges + '<select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + lockupMark(a) + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
+        return '<div class="cylinder-row cylinder-graphic' + crossClass(a) + lit + '" data-gun-wid="' + esc(a.id) + '"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + picture + '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + badges + '<select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + lockupMark(a) + rowReload + rowClean + rowUnjam + rowReopen + rowJamLock + rowExtras + '</div>';
       }
       let dots = '';
       const locks = lockList(a);
@@ -7493,7 +7516,7 @@ async function loadSceneImage(sceneId, opts) {
       const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
       const rowReload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
       const rowExtras = (isPc && canAct) ? gunExtras(a, 'row') : (npc ? gunExtras(a, 'npc') : '');
-      return '<div class="cylinder-row' + crossClass(a) + lit + '" data-gun-wid="' + esc(a.id) + '"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + badges + '<select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + lockupMark(a) + rowReload + rowClean + rowUnjam + rowReopen + rowExtras + '</div>';
+      return '<div class="cylinder-row' + crossClass(a) + lit + '" data-gun-wid="' + esc(a.id) + '"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span><span class="chamber-dots">' + dots + '</span><span class="ssm-rounds">' + loaded + '/' + cap + '</span>' + badges + '<select data-act="cylTarget" aria-label="Target">' + targetOptions + '</select>' + lockupMark(a) + rowReload + rowClean + rowUnjam + rowReopen + rowJamLock + rowExtras + '</div>';
     }).join('');
     const spellButtons = groupedSpells(card.spells || [], s => {
       const meta = [
@@ -7709,6 +7732,16 @@ async function loadSceneImage(sceneId, opts) {
       b.addEventListener('click', (ev) => {
         ev.stopPropagation();
         if (!canAct) { toast('The player acts for themselves'); return; }
+        const wid0 = b.getAttribute('data-wid');
+        const k0 = Number(b.getAttribute('data-k'));
+        if (!isPc && isFinite(k0)) {
+          const attack0 = (card.attacks || []).find(a => a && (String(a.id) === String(wid0) || String(a.name) === String(wid0)));
+          if (lockList(attack0).some(n => Number(n) === k0)) { toast('That chamber is locked.'); return; }
+          const flags0 = attack0 && attack0.ammo && Array.isArray(attack0.ammo.chambers) ? attack0.ammo.chambers : null;
+          const loaded0 = attack0 && attack0.ammo ? (Number(attack0.ammo.loaded) || 0) : 0;
+          const full0 = flags0 ? !!flags0[k0] : k0 < loaded0;
+          if (!full0) { toast('Click.'); return; }
+        }
         const row = b.closest('.cylinder-row');
         const sel = row && row.querySelector('[data-act="cylTarget"]');
         const targetId = sel && sel.value;
@@ -7850,6 +7883,21 @@ async function loadSceneImage(sceneId, opts) {
       b.addEventListener('click', () => {
         if (!canAct) { toast('The player acts for themselves'); return; }
         emit('drawer:reopen', detail({ weaponId: b.getAttribute('data-wid'), gunIndex: b.getAttribute('data-gun') }));
+      });
+    });
+    d.querySelectorAll('[data-act="rowJam"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (isPc) return;
+        emit('drawer:jam', detail({ weaponId: b.getAttribute('data-wid') }));
+      });
+    });
+    d.querySelectorAll('[data-act="rowLock"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (isPc) return;
+        const row = b.closest('.cylinder-row');
+        const sel = row && row.querySelector('[data-act="lockPick"]');
+        const raw = sel && sel.value !== '' ? sel.value : b.getAttribute('data-k');
+        emit('drawer:lock', detail({ weaponId: b.getAttribute('data-wid'), chamber: raw === '' || raw == null ? '' : Number(raw) }));
       });
     });
     const actGate = () => {

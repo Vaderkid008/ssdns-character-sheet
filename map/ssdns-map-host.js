@@ -775,6 +775,8 @@
       "drawer:clean": "clean",
       "drawer:unjam": "unjam",
       "drawer:reopen": "reopen",
+      "drawer:jam": "jam",
+      "drawer:lock": "lock",
       "drawer:addrounds": "addrounds",
       "drawer:pool": "pool",
       "drawer:tr": "tr",
