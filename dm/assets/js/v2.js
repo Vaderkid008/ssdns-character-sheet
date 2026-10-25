@@ -1303,7 +1303,7 @@ function renderFight() {
         return `<div class="turn-chip${current}${ondeck}${later}${side}" role="listitem">${face}${guns}</div>`;
       }).join("");
       /* T1 (turn order PR 1): one Next per surface. The Fight tab's Next is the DMCC's; this Table-tab strip shows the order only.
-         0.2.137: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
+         0.2.138: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
       const badge = cur ? `<b class="dm-turn-now">${esc(cur.name || "Their turn")}</b>` : "";
       strip.innerHTML = `<b class="turn-round">Round ${esc(fight.round || 1)}</b>${badge}` +
         `<button type="button" class="turn-scroll" data-dm-scroll="-1" aria-label="Scroll the turn order left" hidden>\u2039</button>` +
@@ -1904,7 +1904,7 @@ function markerExtrasHtml(row, m, opts) {
   const flags = ["dash", "disengage", "dodge"].filter((k) => m[k]).map((k) => `<span class="badge eld">${k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge")}</span>`).join("");
   return move + flags;
 }
-/* DM strip (0.2.137): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
+/* DM strip (0.2.138): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
    Dash / Disengage / Dodge are a read-out of flags the sheet already stores. Nothing new is spent from here. */
 function stripActsHtml(row) {
   const got = turnMarkersFor(row);
@@ -5992,6 +5992,18 @@ function endTurnRequest(req, id) {
   nextTurn();
   DM.toast((req.characterName || "A player") + " ended their turn");
 }
+/* B2: player "Add my token". The map write is DM-only, so this client places the token.
+   A second request replaces the old token instead of stacking another. */
+function addTokenRequest(req, id) {
+  const uid = (req && (req.from || req.targetId)) || "";
+  const host = window.SSDNSMapHost;
+  if (!uid || !host || typeof host.addPlayerToken !== "function") return false;
+  const made = host.addPlayerToken(uid, { replace: true, name: (req && req.characterName) || "", sceneId: (req && req.sceneId) || "" });
+  if (!made) return false;
+  if (DM.state._fb && DM.state.db) DM.state._fb.update(DM.roomRef("encounter/requests/" + id), { resolved: true }).catch(() => {});
+  DM.toast((req.characterName || "A player") + " — token on the map");
+  return true;
+}
 function watchRequests() {
   if (fight._req || DM.state.demo || !DM.state.db || !DM.state.roomCode) return;
   fight._req = true;
@@ -6009,6 +6021,10 @@ function watchRequests() {
       if (req && req.resolved) return;
       if (req && req.type === "bank") return;
       if (req && req.type === "endTurn") { if (fresh) endTurnRequest(req, id); return; }
+      if (req && req.type === "addToken") {
+        if (fresh && !addTokenRequest(req, id)) delete fight.seenReq[id];
+        return;
+      }
       if (req && req.type === "oa") { if (fresh) noteOaRequest(req, id); return; }
       if (!fight.reqPrimed && !fresh && !attack) return;
       applyRequest(req, id);
@@ -7007,14 +7023,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.137-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.138-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.137-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.138-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -8945,7 +8961,7 @@ window.SSDNSMapFight = {
   syncMap() { syncMapTokens(); }
 };
 
-/* Dirty-gun tracker (sheet 0.3.124 / DMCC 0.2.137). The DM advances a room campaign day.
+/* Dirty-gun tracker (sheet 0.3.125 / DMCC 0.2.138). The DM advances a room campaign day.
    A gun not cleaned in 2 campaign days is listed here. Nothing auto-dirties the gun, and the list is DM-only. */
 function campaignDayNow() {
   const n = parseInt(fight.campaignDay, 10);
