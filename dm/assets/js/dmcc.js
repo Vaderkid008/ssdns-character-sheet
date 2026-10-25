@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.147"; // dmcc-playtest-v02147
+const VERSION = "0.2.149"; // dmcc-playtest-v02149
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1311,6 +1311,7 @@ function showRoom() {
   syncSessionButtons();
   renderRoomHero();
   if (window.SSDNSMapHost && window.SSDNSMapHost.syncRoom) window.SSDNSMapHost.syncRoom();
+  if (window.SSDNSJoinCode && window.SSDNSJoinCode.sync) window.SSDNSJoinCode.sync();
 }
 
 function hideRoom() {
@@ -1327,6 +1328,7 @@ function hideRoom() {
   state.roomCode = null;
   syncSessionButtons();
   if (window.SSDNSMapHost && window.SSDNSMapHost.syncRoom) window.SSDNSMapHost.syncRoom();
+  if (window.SSDNSJoinCode && window.SSDNSJoinCode.sync) window.SSDNSJoinCode.sync();
 }
 function leaveRoom(reason) {
   permitLobby(reason || "leave");
@@ -1429,6 +1431,7 @@ function renderRoomHero() {
   $("#roomMeta").textContent = (state.meta.name ? state.meta.name + " · " : "") +
     (state.demo ? "Demo" : "Live") + " · " + online + "/" + total + " online · DMCC " + VERSION;
   renderPresence();
+  if (window.SSDNSJoinCode && window.SSDNSJoinCode.sync) window.SSDNSJoinCode.sync();
 }
 
 function prettyCalling(raw) {
@@ -3536,7 +3539,9 @@ window.DMCC = {
   askText: askText,
   grantFullKit: grantFullKit,
   applyEsToDemoPlayer: applyEsToDemoPlayer,
-  doPushReward: doPushReward
+  doPushReward: doPushReward,
+  copyRoomCode: copyRoomCode,
+  roomCodeString: roomCodeString
 };
 
 async function boot() {

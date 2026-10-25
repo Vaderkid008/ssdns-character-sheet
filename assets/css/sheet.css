@@ -675,7 +675,25 @@ html, body { overflow-x: hidden; }
 }
 .sheet-dock .dock-head, .sheet-dock .dock-filters, .sheet-dock .dock-compose { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 8px; }
 .sheet-dock .dock-head { justify-content: space-between; border-bottom: 1px solid #3a454c; }
+.sheet-dock .dock-head-actions { display: inline-flex; gap: 6px; align-items: center; }
 .sheet-dock .dock-head b { font-family: var(--head); color: #3fbf9a; font-weight: 400; }
+.sheet-dock .join-code-chip {
+  flex: none;
+  font-family: var(--label);
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border: 1px solid #3fbf9a;
+  color: #efe2c2;
+  background: #1f5c4b;
+  border-radius: 99px;
+  padding: 4px 10px;
+  min-height: 32px;
+  cursor: pointer;
+  user-select: none;
+}
+.sheet-dock .join-code-chip:hover,
+.sheet-dock .join-code-chip:focus-visible { text-decoration: underline; }
 .sheet-dock .dock-feed { flex: 1; overflow: auto; padding: 8px; }
 .sheet-dock .dock-item { border-bottom: 1px solid #3a454c; padding: 6px 2px; font-size: 14px; white-space: pre-line; }
 .sheet-dock .dock-meta { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; opacity: .7; }
@@ -701,7 +719,8 @@ html, body { overflow-x: hidden; }
   body.sheet-dock-collapsed .dock-filters,
   body.sheet-dock-collapsed .dock-feed,
   body.sheet-dock-collapsed .dock-compose,
-  body.sheet-dock-collapsed .dock-head b { display: none; }
+  body.sheet-dock-collapsed .dock-head b,
+  body.sheet-dock-collapsed .sheet-dock .join-code-chip { display: none; }
 }
 .store-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
 .store-tabs .btn { min-height: 44px; }

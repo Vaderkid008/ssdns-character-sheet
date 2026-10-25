@@ -443,7 +443,10 @@
       mapItems: [],
       dockItems: lastDock != null ? lastDock : (root.SSDNSChatDockItems || null),
       send: opts.send,
-      onMode: opts.onMode,
+      onMode: function (open, mode, extra) {
+        if (typeof opts.onMode === "function") opts.onMode(open, mode, extra);
+        if (root.SSDNSJoinCode) root.SSDNSJoinCode.sync();
+      },
       onFilter: opts.onFilter,
       filter: readFilter(),
       open: false,
@@ -455,6 +458,7 @@
       feed: null
     };
     instances.push(inst);
+    if (root.SSDNSJoinCode) root.SSDNSJoinCode.mountMap(inst.root);
     return {
       setMapItems: function (items) {
         inst.mapItems = items || [];
@@ -562,6 +566,169 @@
   root.addEventListener("ssdns-name-mode", function () {
     if (lastDock) publish(lastDock);
   });
+
+  /* B15: clickable join-code chip. Tap copies the room code only (never the invite URL).
+     DM clicks go through DMCC.copyRoomCode, the same helper as #roomCodeDisplay. */
+  function normalizeCode(raw) {
+    var match = String(raw == null ? "" : raw).toUpperCase().match(/[A-Z]+-\d+/);
+    return match ? match[0] : "";
+  }
+  function dmCode() {
+    var DM = root.DMCC;
+    var st = DM && DM.state;
+    var body = root.document && root.document.body;
+    if (!st || !body || !body.classList.contains("in-room")) return "";
+    return normalizeCode(st.roomCode || (st.meta && st.meta.code) || "");
+  }
+  function playerCode() {
+    var Join = root.SSDNSDmJoin;
+    if (!Join || typeof Join.isJoined !== "function" || !Join.isJoined()) return "";
+    var live = typeof Join.live === "function" ? Join.live() : null;
+    if (live && live.joined === false) return "";
+    var raw = typeof Join.roomCode === "function" ? Join.roomCode() : (live && live.roomCode);
+    return normalizeCode(raw);
+  }
+  function currentCode() {
+    return dmCode() || playerCode();
+  }
+  function toastCode(msg) {
+    if (typeof root.SSDNSToast === "function") { root.SSDNSToast(msg); return; }
+    if (root.DMCC && typeof root.DMCC.toast === "function") { root.DMCC.toast(msg); return; }
+    var doc = root.document;
+    if (!doc) return;
+    var el = doc.getElementById("toast");
+    if (!el) return;
+    var text = doc.getElementById("toastText");
+    if (text) text.textContent = msg;
+    else el.textContent = msg;
+    el.hidden = false;
+  }
+  function writePlain(text) {
+    var value = String(text == null ? "" : text);
+    var clip = root.navigator && root.navigator.clipboard;
+    var first = Promise.resolve(false);
+    if (clip && typeof root.ClipboardItem === "function" && clip.write) {
+      try {
+        var pending = clip.write([new root.ClipboardItem({
+          "text/plain": new root.Blob([value], { type: "text/plain" })
+        })]);
+        first = pending && pending.then
+          ? pending.then(function () { return true; }, function () { return false; })
+          : Promise.resolve(false);
+      } catch (e) {
+        first = Promise.resolve(false);
+      }
+    }
+    return first.then(function (ok) {
+      if (ok) return true;
+      if (clip && clip.writeText) {
+        try {
+          var wrote = clip.writeText(value);
+          return wrote && wrote.then ? wrote.then(function () { return true; }, function () { return false; }) : Promise.resolve(true);
+        } catch (e2) {}
+      }
+      return false;
+    }).then(function (ok) {
+      if (ok) return true;
+      try {
+        var doc = root.document;
+        var sel = root.getSelection && root.getSelection();
+        if (sel && sel.removeAllRanges) sel.removeAllRanges();
+        var ta = doc.createElement("textarea");
+        ta.value = value;
+        ta.setAttribute("readonly", "");
+        ta.setAttribute("aria-hidden", "true");
+        ta.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;user-select:text;";
+        doc.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        var copied = doc.execCommand("copy");
+        ta.remove();
+        if (sel && sel.removeAllRanges) sel.removeAllRanges();
+        return !!copied;
+      } catch (err) {
+        return false;
+      }
+    });
+  }
+  function copyCode(ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    var DM = root.DMCC;
+    var body = root.document && root.document.body;
+    if (DM && typeof DM.copyRoomCode === "function" && body && body.classList.contains("in-room")) {
+      return DM.copyRoomCode(ev);
+    }
+    var code = currentCode();
+    if (!code) { toastCode("Open a room first"); return; }
+    return writePlain(code).then(function (ok) {
+      toastCode(ok ? ("Copied " + code) : code);
+    });
+  }
+  function chipNode(node) {
+    var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
+    if (!el || !el.closest) return null;
+    return el.closest(".join-code-chip");
+  }
+  function ensureChip(mapEl) {
+    if (!mapEl || !mapEl.querySelector) return;
+    var head = mapEl.querySelector(".ssdns-chatdock > .ssdns-chathead") || mapEl.querySelector(".ssdns-chathead");
+    if (!head || head.querySelector(".join-code-chip")) return;
+    var btn = root.document.createElement("button");
+    btn.type = "button";
+    btn.className = "join-code-chip";
+    btn.setAttribute("data-act", "joinCode");
+    btn.title = "Copy room code";
+    btn.setAttribute("aria-label", "Copy room code");
+    btn.hidden = true;
+    var toggle = head.querySelector("[data-act='chatToggle']");
+    if (toggle && toggle.nextSibling) head.insertBefore(btn, toggle.nextSibling);
+    else if (toggle) head.appendChild(btn);
+    else head.appendChild(btn);
+  }
+  function syncCodes() {
+    var doc = root.document;
+    if (!doc) return;
+    var code = currentCode();
+    var chips = doc.querySelectorAll(".join-code-chip");
+    for (var i = 0; i < chips.length; i++) {
+      var btn = chips[i];
+      var map = btn.closest && btn.closest(".ssdns-map");
+      var popped = !!(map && map.classList.contains("ssdns-chat-popped"));
+      var show = !!code && !popped;
+      btn.hidden = !show;
+      btn.textContent = code || "";
+      btn.setAttribute("aria-label", code ? ("Copy room code " + code) : "Copy room code");
+    }
+  }
+  function mountMap(mapEl) {
+    ensureChip(mapEl);
+    syncCodes();
+  }
+  if (root.document && root.document.addEventListener) {
+    root.document.addEventListener("click", function (e) {
+      if (!chipNode(e.target)) return;
+      copyCode(e);
+    });
+    root.document.addEventListener("copy", function (e) {
+      var sel = root.getSelection && root.getSelection();
+      var anchor = sel && sel.anchorNode;
+      if (!chipNode(e.target) && !chipNode(anchor)) return;
+      var code = currentCode();
+      if (!code || !e.clipboardData) return;
+      e.preventDefault();
+      e.clipboardData.setData("text/plain", code);
+    });
+  }
+  root.SSDNSJoinCode = {
+    normalize: normalizeCode,
+    current: currentCode,
+    writePlain: writePlain,
+    copy: copyCode,
+    sync: syncCodes,
+    mountMap: mountMap
+  };
+
   root.SSDNSMapChat = {
     attach: attach,
     publish: publish,

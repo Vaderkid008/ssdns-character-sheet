@@ -508,6 +508,24 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
 .dock-head { border-bottom: 1px solid var(--line); justify-content: space-between; }
 .dock-head-actions { display: inline-flex; gap: 6px; align-items: center; }
 #btnDockPop { width: auto; }
+.live-dock .join-code-chip {
+  flex: none;
+  width: auto;
+  font-family: var(--label);
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border: 1px solid var(--eld);
+  color: var(--parch);
+  background: var(--eld-dim);
+  border-radius: 99px;
+  padding: 4px 10px;
+  min-height: 32px;
+  cursor: pointer;
+  user-select: none;
+}
+.live-dock .join-code-chip:hover,
+.live-dock .join-code-chip:focus-visible { text-decoration: underline; }
 .dock-head b { font-family: var(--head); color: var(--eld); font-weight: 400; }
 .dock-chevron { min-width: 36px; font-size: 20px; line-height: 1; padding: 2px 8px; }
 .dock-strip { display: none; }
@@ -541,6 +559,7 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
   body.dock-collapsed .dock-feed,
   body.dock-collapsed .dock-compose,
   body.dock-collapsed .dock-head b,
+  body.dock-collapsed .live-dock .join-code-chip,
   body.dock-collapsed #btnDockPop { display: none; }
   body.dock-collapsed .dock-head { justify-content: center; padding: 8px 4px; }
   body.dock-collapsed .dock-strip {

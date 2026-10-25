@@ -161,6 +161,25 @@
 .ssdns-map .ssdns-chathead [data-act="chatFilters"] button,
 .ssdns-map .ssdns-chathead [data-act="chatPop"],
 .ssdns-map .ssdns-chathead [data-act="chatDock"] { padding: 2px 6px; font-size: 11px; width: auto; }
+/* B15: join-code chip sits in the docked chat header. Tap copies the code only. */
+.ssdns-map .ssdns-chathead .join-code-chip {
+  flex: none;
+  width: auto;
+  margin: 0 2px;
+  padding: 2px 8px;
+  min-height: 22px;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border: 1px solid #3fbf9a;
+  border-radius: 99px;
+  background: #1f5c4b;
+  color: #efe2c2;
+  cursor: pointer;
+  user-select: none;
+}
+.ssdns-map .ssdns-chathead .join-code-chip:hover,
+.ssdns-map .ssdns-chathead .join-code-chip:focus-visible { text-decoration: underline; }
 .ssdns-map .ssm-chatbadge { background: #8b3a3a; color: #fff; border-radius: 8px; padding: 0 5px; font-size: 10px; margin-left: 4px; }
 .ssdns-map .ssm-who { font-weight: 700; }
 .ssdns-map .ssdns-chatdock.ssm-chat-shut [data-act="chatlog"],

@@ -2717,6 +2717,7 @@
     var bar = $("#dmJoinBar");
     if (bar) bar.classList.toggle("joined", !!on);
     if (!on && root.SSDNSSheet && root.SSDNSSheet.showInspiration) root.SSDNSSheet.showInspiration(0, false);
+    if (root.SSDNSJoinCode && root.SSDNSJoinCode.sync) root.SSDNSJoinCode.sync();
   }
 
   function dropPrejoinRolls() {
