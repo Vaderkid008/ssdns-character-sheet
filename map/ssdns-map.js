@@ -6252,7 +6252,7 @@ async function loadSceneImage(sceneId, opts) {
       if (a.id === 'pact' || String(a.id).indexOf('spell:') === 0 || a.group === 'spell') {
         const name = cleanWeaponName(String(a.label || a.name || '').replace(/^Cast\s+/i, ''));
         if (!name || /^Melee \d+$/i.test(name)) return;
-        spells.push({ id: a.id, name: name, level: a.level, kind: a.kind || '', damage: a.damage || '', toHit: a.toHit, dc: a.dc });
+        spells.push({ id: a.id, name: name, level: a.level, kind: a.kind || '', damage: a.damage || '', toHit: a.toHit, dc: a.dc, enabled: a.enabled });
         return;
       }
       if (String(a.id).indexOf('gunroll:') === 0 || String(a.id).indexOf('melee:') === 0 || a.group === 'attack') {
@@ -6719,6 +6719,7 @@ async function loadSceneImage(sceneId, opts) {
       let extra = '';
       if (verdict && verdict.blocked) { extra = ' · ' + (verdict.button || 'out of range'); off = ' disabled'; }
       else if (verdict && verdict.button) extra = ' · ' + verdict.button;
+      if (s.enabled === false) off = ' disabled'; /* B7: iron not in hand keeps Pact Shot visible but disabled */
       return '<button type="button" class="ssm-atk" data-act="playerSpell" data-id="' + esc(s.id) + '"' + off + '>' +
         esc(s.name || s.id) + (s.level != null && s.level !== '' ? ' (L' + esc(s.level) + ')' : '') + (meta ? ' · ' + esc(meta) : '') + esc(extra) + disMark(verdict) + '</button>';
     });
