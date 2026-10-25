@@ -86,7 +86,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("src.pushRereads", /if \(Pnow && Pnow\.state\) v = Pnow\.state\(\)/.test(join));
   check("src.mapRepaint", /ssdns:pips-change/.test(mapJs) && /paintPlayerFight\(\)/.test(mapJs.slice(mapJs.indexOf("ssdns:pips-change"))));
   check("src.rulesUntouched", !read("assets/data/rules.js").includes(ver.sheet) && !/actUndo|dmFields/.test(read("database.rules.json")));
-  check("src.versions", ver.sheet === "0.3.126" && ver.dmcc === "0.2.139" && ver.sheetBuild === "sheet-playtest-v03126" && ver.dmccBuild === "dmcc-playtest-v02139");
+  check("src.versions", ver.sheet === "0.3.127" && ver.dmcc === "0.2.140" && ver.sheetBuild === "sheet-playtest-v03127" && ver.dmccBuild === "dmcc-playtest-v02140");
   check("src.noDoubleSpendHelper", /row\.kind === "player" \|\| !row\.id/.test(v2.slice(v2.indexOf("async function spendEnemyPip"), v2.indexOf("function resetEnemyMarkers"))));
 }
 

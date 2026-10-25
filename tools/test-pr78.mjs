@@ -120,6 +120,6 @@ r = run(() => { A.play("revolver"); A.playOutcome({ gun: true, name: "Navy" }, "
 check("shot.error.resultAnyway", r === "ricochet@755", r);
 latency = {};
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.126" && ver.dmcc === "0.2.139");
+check("ver", ver.sheet === "0.3.127" && ver.dmcc === "0.2.140");
 console.log(failures.length ? "\n" + failures.length + " FAILED: " + failures.join(", ") : "\nAll PR78 checks passed.");
 process.exit(failures.length ? 1 : 0);
