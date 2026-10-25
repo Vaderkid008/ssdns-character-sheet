@@ -518,7 +518,6 @@ function attachLiveListeners() {
   bind("ledger", (v) => {
     const next = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
     noteAddiction(next);
-    notePipBlocks(next);
     state.ledger = dedupeById(next);
     renderLedger();
   });
@@ -597,7 +596,6 @@ async function catchUpFeeds() {
     state.rolls = allRolls.filter((r) => !isConsumeRoll(r));
     const nextLedger = objToArr(ledger).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
     noteAddiction(nextLedger);
-    notePipBlocks(nextLedger);
     state.ledger = dedupeById(nextLedger);
     state.players = players || {};
     state.handouts = objToArr(handouts).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
@@ -615,21 +613,6 @@ function noteAddiction(entries) {
   });
   ledgerReady = true;
 }
-/* A player hard-blocked on a spent Action / Bonus / Reaction posts a ledger row with pipBlock.
-   The first snapshot is the table already in progress; later rows toast the DM. The row itself
-   stays in the ledger and chat either way, and Reset still gives the pip back. */
-const seenPipBlock = {};
-let pipBlockLive = false;
-function notePipBlocks(entries) {
-  (entries || []).forEach((e) => {
-    if (!e || !e.pipBlock || !e.id || seenPipBlock[e.id]) return;
-    seenPipBlock[e.id] = 1;
-    if (!pipBlockLive || !e.what) return;
-    toast(e.what);
-  });
-  pipBlockLive = true;
-}
-
 function isConsumeRoll(r) {
   return !!(r && (r.consume || r.formula === "consume"));
 }
