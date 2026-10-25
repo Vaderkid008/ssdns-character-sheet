@@ -128,6 +128,7 @@ window.SSDNSMap = { create(opts) {
       ownerCanMove: t.ownerCanMove !== false, locked: !!t.locked,
       label: t.label || t.name || '', size: t.size || 1, name: t.name || '',
       kind: t.kind || '', lootBoxId: t.lootBoxId || '',
+      /* Fight-row gear is not a token field. */
       lootLock: t.kind === 'chest' && t.loot ? {
         name: t.loot.name || '', boxType: t.loot.boxType || '',
         lock: t.loot.lock || null, barrier: t.loot.barrier || null,
@@ -3049,6 +3050,13 @@ function showChestMenu(token) {
       ev.stopPropagation();
       const boxId = menu.getAttribute('data-box') || '';
       const Give = window.SSDNSLootGive;
+      if (act === 'take-all' && !(Give && Give.chestAct)) {
+        if (adapter && adapter.write) adapter.write('map/public/events/loot', {
+          boxId: boxId, action: 'take-all', from: uid, seq: Date.now()
+        }, { seq: Date.now(), by: uid });
+        toast('Take sent');
+        return;
+      }
       if (Give && Give.chestAct) {
         Promise.resolve(Give.chestAct(boxId, act)).then(() => {
           if (Give.menuHtml) menu.innerHTML = Give.menuHtml(boxId);
@@ -3084,18 +3092,27 @@ function chestMenuHtml(box) {
   let sheet = {};
   try { sheet = (window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character) || {}; } catch (e) { sheet = {}; }
   const opts = Loot.menu(box, sheet);
-  return '<p><b>' + (box.name || 'Chest') + '</b></p>' + opts.map(o => {
+  const open = box.boxType === 'enemy-drop' && Loot.blocked && !Loot.blocked(box);
+  const take = open ? '<button type="button" data-chest="take-all">Take all</button> ' : '';
+  return '<p><b>' + (box.name || 'Chest') + '</b></p>' + take + opts.map(o => {
     if (o.disabled) return '<p>' + o.label + '</p>';
     return '<button type="button" data-chest="' + o.id + '">' + o.label + '</button> ';
   }).join('');
 }
-function pinLootChest(box) {
+function tokenPos(id) {
+  if (!id) return null;
+  const t = (state.tokens || []).find(tok => tok && (tok.id === id || tok.combatantId === id));
+  if (!t || !t.pos || !isFinite(Number(t.pos.x)) || !isFinite(Number(t.pos.y))) return null;
+  return { x: Number(t.pos.x), y: Number(t.pos.y) };
+}
+function pinLootChest(box, at) {
   if (role !== 'dm' || !box || !state.scene) return null;
-  const spot = nextFreeSpot(1, box.name || 'Chest');
+  const given = at && isFinite(Number(at.x)) && isFinite(Number(at.y)) ? { x: Number(at.x), y: Number(at.y) } : null;
+  const spot = given || nextFreeSpot(1, box.name || 'Chest');
   const token = makeToken({
     kind: 'chest',
     name: box.name || 'Chest',
-    label: String(box.boxType || 'chest').replace('supply-crate', 'Crate').replace('outlaw-stash', 'Stash').replace('saddlebag', 'Saddlebag').replace('strongbox', 'Strongbox').replace('sealed-crate', 'Sealed').slice(0, 16),
+    label: String(box.boxType || 'chest').replace('supply-crate', 'Crate').replace('outlaw-stash', 'Stash').replace('saddlebag', 'Saddlebag').replace('strongbox', 'Strongbox').replace('sealed-crate', 'Sealed').replace('enemy-drop', 'Loot').slice(0, 16),
     color: '#8a5a2b',
     ownerCanMove: false,
     pos: spot || undefined
@@ -7314,6 +7331,38 @@ async function loadSceneImage(sceneId, opts) {
       });
     }
   }
+  function gearDrawerHtml(card) {
+    if (!card || card.kind === 'pc') return '';
+    const EL = window.SSDNSEnemyLoot;
+    if (!EL) return '';
+    const rows = Array.isArray(card.inventory) ? card.inventory : [];
+    const list = rows.map(item => {
+      const id = item && item.id || '';
+      const tags = EL.tagLine ? EL.tagLine(item) : '';
+      return '<li><span>' + esc((item.qty > 1 ? item.qty + ' × ' : '') + (item.name || id)) +
+        (tags ? ' <span class="ssm-gear-tag">' + esc(tags) + '</span>' : '') + '</span>' +
+        '<button type="button" data-act="gearRemove" data-item="' + esc(id) + '">Remove</button></li>';
+    }).join('');
+    const groups = (EL.choices ? EL.choices() : []).map(g => {
+      const opts = (g.options || []).map(o => '<option value="' + esc(o.id) + '">' + esc(o.name || o.id) + '</option>').join('');
+      return '<optgroup label="' + esc(g.label || 'Items') + '">' + opts + '</optgroup>';
+    }).join('');
+    const hp = card.hp || {};
+    const cur = Number(hp.cur);
+    const down = /down|dead/i.test(String(card.status || '')) || (hp.cur !== '' && hp.cur != null && isFinite(cur) && cur <= 0 && card.noHpPool !== true);
+    const dropped = !!card.lootDropped;
+    const dropBtn = down
+      ? '<button type="button" data-act="dropLoot"' + (dropped ? ' disabled' : '') + '>' + (dropped ? 'Loot dropped' : 'Drop loot') + '</button>'
+      : '';
+    return '<div class="ssm-section">Gear</div>' +
+      (list ? '<ul class="ssm-gear">' + list + '</ul>' : '<p class="ssm-tactics">Nothing in their pockets yet.</p>') +
+      '<div class="ssm-row">' +
+        '<select data-act="gearPick" aria-label="Add gear">' + groups + '</select>' +
+        '<input data-act="gearQty" type="number" min="1" value="1" aria-label="Quantity">' +
+        '<button type="button" data-act="gearAdd">Add</button>' +
+        dropBtn +
+      '</div>';
+  }
   function renderDrawer() {
     if (role !== 'dm' || !state.drawerOpen) return;
     let d = q('drawer');
@@ -7391,7 +7440,7 @@ async function loadSceneImage(sceneId, opts) {
       const verdict = rangeButtonNote(a, aimId, tokenId);
       let text = base;
       let off = canAct ? '' : 'disabled';
-      if (verdict && verdict.blocked) { text = verdict.button || 'Out of range'; off = 'disabled'; }
+      if (verdict && verdict.blocked) { text = (a.name || a.id || 'Attack') + ' · ' + (verdict.button || 'Out of range'); off = 'disabled'; }
       else if (verdict && verdict.button) text = base + ' · ' + verdict.button;
       const lit = String(a.id) === activeWid ? ' is-active' : '';
       return '<button type="button" class="ssm-atk' + lit + '" data-wid="' + esc(a.id) + '" ' + off + '>' + esc(text) + disMark(verdict) + '</button>';
@@ -7560,6 +7609,7 @@ async function loadSceneImage(sceneId, opts) {
       '<div class="ssm-section">Attacks</div>' + weaponBar + targetBar + offhandToggle(isPc && canAct && (card.attacks || []).length) + fanToggle(isPc && canAct && card.pistolero === true && (card.attacks || []).length) + attacks +
       (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       spells +
+      gearDrawerHtml(card) +
       '<div class="ssm-row">' +
         '<input data-act="hpAmt" type="number" value="1" min="0" aria-label="HP amount">' +
         '<button type="button" data-act="hpMinus">− HP</button><button type="button" data-act="hpPlus">+ HP</button>' +
@@ -7692,6 +7742,21 @@ async function loadSceneImage(sceneId, opts) {
     d.querySelector('[data-act="hpPlus"]').addEventListener('click', () => emit('drawer:hp', detail({ delta: readHp() })));
     d.querySelector('[data-act="hpSet"]').addEventListener('click', () => emit('drawer:hp', detail({ set: readHp() })));
     d.querySelector('[data-act="downCard"]').addEventListener('click', () => emit('drawer:down', detail()));
+    const gearAdd = d.querySelector('[data-act="gearAdd"]');
+    if (gearAdd) gearAdd.addEventListener('click', () => {
+      const pick = d.querySelector('[data-act="gearPick"]');
+      const qtyEl = d.querySelector('[data-act="gearQty"]');
+      const qty = parseInt(qtyEl && qtyEl.value, 10);
+      emit('drawer:gearAdd', detail({ itemId: pick && pick.value || '', qty: isFinite(qty) && qty > 0 ? qty : 1 }));
+    });
+    d.querySelectorAll('[data-act="gearRemove"]').forEach(b => {
+      b.addEventListener('click', () => emit('drawer:gearRemove', detail({ itemId: b.getAttribute('data-item') || '' })));
+    });
+    const dropBtn = d.querySelector('[data-act="dropLoot"]');
+    if (dropBtn) dropBtn.addEventListener('click', () => {
+      if (dropBtn.disabled) return;
+      emit('drawer:dropLoot', detail());
+    });
     d.querySelectorAll('[data-act="condX"]').forEach(b => {
       b.addEventListener('click', () => {
         const name = b.getAttribute('data-cond') || '';
@@ -8255,6 +8320,7 @@ return {
   maps: function () { return libraryApi(); },
   placeLinkedToken,
   pinLootChest,
+  tokenPos,
   focusLootChest,
   setTool,
   removeToken: function (id) { removeMapTokens([id], { silent: true }); },

@@ -340,9 +340,11 @@
     }
     if (flags.block) {
       var card = row.card || {};
+      var blockAttacks = card.attacks || row.attackList || null;
+      if (Array.isArray(blockAttacks)) blockAttacks = blockAttacks.filter(function (a) { return a && !a.gear; });
       revealed.block = {
         saves: card.saves || row.saves || null,
-        attacks: card.attacks || row.attackList || null,
+        attacks: blockAttacks,
         traits: card.traits || row.traits || null,
         tactics: row.tactics || card.tactics || "",
         dcs: row.dcs || null
@@ -374,6 +376,9 @@
       side: combatantSide(row)
     };
     try { secret.card = JSON.parse(JSON.stringify(card)); } catch (e) { secret.card = null; }
+    /* B8: per-enemy gear. DM-only encounter/dm. Public nodes never receive this list. */
+    secret.inventory = Array.isArray(row.inventory) ? row.inventory.map(function (item) { return Object.assign({}, item); }) : [];
+    secret.lootDropped = row.lootDropped || "";
     return secret;
   }
   /** HIT, MISS, or CRIT from the player's d20 total. AC stays on the DM side. */

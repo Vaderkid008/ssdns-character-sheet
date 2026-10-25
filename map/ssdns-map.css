@@ -660,6 +660,10 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
 .ssm-lighthand { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ssm-lighthand label.ssm-act { font-size: 12px; }
 .ssm-section { font-size: 10px; color: #c9a227; text-transform: uppercase; margin-top: 4px; }
+.ssm-gear { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ssm-gear li { display: flex; gap: 6px; align-items: center; justify-content: space-between; font-size: 12px; }
+.ssm-gear-tag { color: #c9a227; font-size: 10px; text-transform: uppercase; }
+.ssm-drawer select[data-act="gearPick"] { flex: 1 1 160px; max-width: 100%; }
 .ssm-atk { width: 100%; text-align: left; }
 /* SAMPLE trackers: Sneak Attack / Smite arm-before-attack toggles */
 .ssdns-map button.ssm-atk.ssm-arm, button.ssm-atk.ssm-arm { border: 2px dashed #c0583a; color: #f3d9a4; font-weight: 700; }

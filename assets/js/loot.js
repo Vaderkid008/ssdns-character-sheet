@@ -91,6 +91,16 @@
     return o;
   }
   function isGun(id) { return !!GUNS[id] || /^pony-arms-chaosmaker|^lancaster-|^bison-big-fifty/.test(id); }
+  /* A rules firearm or caster gun (when SSDNS_RULES is loaded) lands as a Dirty gun.
+     Loot v1.4 tests do not load rules.js, so the five Act I guns stay on isGun alone. */
+  function rulesGun(id) {
+    var R = root.SSDNS_RULES;
+    if (!R || !id) return false;
+    var lists = [].concat(R.firearms || [], R.casterGuns || []);
+    var i;
+    for (i = 0; i < lists.length; i++) if (lists[i] && lists[i].id === id) return true;
+    return false;
+  }
   function isLetter(id) { return /^glowing-letter/.test(id); }
   function isExplosive(id) {
     var t = tagOf(id);
@@ -632,6 +642,7 @@
   }
   function legFor(row) {
     var id = row.id, qty = row.qty || 1;
+    var label = row.name || nameOf(id);
     if (AMMO[id]) {
       var spec = AMMO[id];
       var rounds = spec.each * qty;
@@ -647,17 +658,22 @@
         }
       };
     }
-    if (isGun(id) || GUNS[id]) {
+    if (isGun(id) || GUNS[id] || rulesGun(id)) {
       return {
         kind: "reward_item",
         sort: "weapon",
-        payload: { id: id, text: nameOf(id), dirty: true, qty: 1, reason: "Loot" }
+        payload: { id: id, text: label, dirty: true, qty: 1, reason: "Loot" }
       };
     }
+    var tags = tagOf(id);
+    var payload = { text: label, itemId: id, qty: qty, kind: "item", reason: "Loot" };
+    if (tags.storyOnly) payload.storyOnly = true;
+    if (tags.noTrade) payload.noTrade = true;
+    if (tags.actMin != null) payload.actMin = tags.actMin;
     return {
       kind: "reward_item",
       sort: "item",
-      payload: { text: nameOf(id), itemId: id, qty: qty, kind: "item", reason: "Loot" }
+      payload: payload
     };
   }
   function takeRows(box, uid, rows, character) {
@@ -748,7 +764,11 @@
       } else if (p.dirty || (p.id && GUNS[p.id])) {
         character.guns.push({ weapon: p.id, name: p.text || nameOf(p.id), dirty: true });
       } else if (p.itemId) {
-        character.items.push({ catalogId: p.itemId, name: p.text || nameOf(p.itemId), count: p.qty || 1, weight: 0 });
+        var landed = { catalogId: p.itemId, name: p.text || nameOf(p.itemId), count: p.qty || 1, weight: 0 };
+        if (p.storyOnly) { landed.storyOnly = true; landed.story = true; }
+        if (p.noTrade) landed.noTrade = true;
+        if (p.actMin != null && p.actMin !== "") landed.actMin = p.actMin;
+        character.items.push(landed);
       }
     });
     return character;

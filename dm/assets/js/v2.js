@@ -205,6 +205,9 @@ function captureSecrets() {
     secret.mapHidden = !!row.mapHidden;
     /* map token guns: the token's last-used weapon rides in the DM-only encounter/dm copy (players never read it) */
     if (row.lastWeaponId) secret.lastWeaponId = String(row.lastWeaponId);
+    /* B8: gear stays on the DM secret. The public turn order built below does not copy it. */
+    secret.inventory = Array.isArray(row.inventory) ? row.inventory.map((item) => Object.assign({}, item)) : [];
+    secret.lootDropped = row.lootDropped || "";
     fight.secrets[row.id] = secret;
   });
 }
@@ -224,6 +227,8 @@ function restoreSecrets() {
     if (secret.card && typeof secret.card === "object") row.card = Object.assign({}, row.card || {}, secret.card);
     row.mapHidden = !!secret.mapHidden;
     if (secret.lastWeaponId && !row.lastWeaponId) row.lastWeaponId = String(secret.lastWeaponId);
+    if (Array.isArray(secret.inventory)) row.inventory = secret.inventory.map((item) => Object.assign({}, item));
+    if (secret.lootDropped != null) row.lootDropped = secret.lootDropped || "";
   });
 }
 function playersSeeLine(row, i) {
@@ -410,7 +415,8 @@ function publicGuns(row) {
       };
     }).filter(Boolean);
   }
-  const attacks = (row.attackList || row.card && row.card.attacks || []).filter((a) => a && a.capacity);
+  /* Gear guns stay off the public turn order until Drop loot puts them in a chest. */
+  const attacks = (row.attackList || row.card && row.card.attacks || []).filter((a) => a && a.capacity && !a.gear);
   return attacks.map((a) => ({
     name: a.name || "Gun",
     weapon: a.weapon || "",
@@ -1303,7 +1309,7 @@ function renderFight() {
         return `<div class="turn-chip${current}${ondeck}${later}${side}" role="listitem">${face}${guns}</div>`;
       }).join("");
       /* T1 (turn order PR 1): one Next per surface. The Fight tab's Next is the DMCC's; this Table-tab strip shows the order only.
-         0.2.141: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
+         0.2.142: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
       const badge = cur ? `<b class="dm-turn-now">${esc(cur.name || "Their turn")}</b>` : "";
       strip.innerHTML = `<b class="turn-round">Round ${esc(fight.round || 1)}</b>${badge}` +
         `<button type="button" class="turn-scroll" data-dm-scroll="-1" aria-label="Scroll the turn order left" hidden>\u2039</button>` +
@@ -1904,7 +1910,7 @@ function markerExtrasHtml(row, m, opts) {
   const flags = ["dash", "disengage", "dodge"].filter((k) => m[k]).map((k) => `<span class="badge eld">${k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge")}</span>`).join("");
   return move + flags;
 }
-/* DM strip (0.2.141): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
+/* DM strip (0.2.142): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
    Dash / Disengage / Dodge are a read-out of flags the sheet already stores. Nothing new is spent from here. */
 function stripActsHtml(row) {
   const got = turnMarkersFor(row);
@@ -3049,6 +3055,11 @@ function normalizeAttackMisfires(attacks) {
     if (n != null) atk.misfire = n;
   });
 }
+function syncGearAttacks(row) {
+  const EL = window.SSDNSEnemyLoot;
+  if (!row || !EL || typeof EL.syncAttacks !== "function") return;
+  try { EL.syncAttacks(row); } catch (e) {}
+}
 function ensureCombatantCard(row) {
   if (!row || row.kind === "player" || !window.SSDNSApplied || !window.SSDNSApplied.enemyCardModel) return;
   normalizeAttackMisfires(row.card && row.card.attacks);
@@ -3056,16 +3067,17 @@ function ensureCombatantCard(row) {
   const beast = beastRecord(row.beastId);
   if (!beast) {
     const listed = row.attackList || [];
-    if (!listed.length) return;
-    if (row.card && row.card.attacks && row.card.attacks.length) return;
+    if (!listed.length) { syncGearAttacks(row); return; }
+    if (row.card && row.card.attacks && row.card.attacks.length) { syncGearAttacks(row); return; }
     const prev = gunMemory((row.card && row.card.attacks) || listed);
     const next = window.SSDNSApplied.enemyCardModel(row);
     restoreGuns(next.attacks, prev);
     row.card = next;
+    syncGearAttacks(row);
     return;
   }
   const stamp = (beast.id || "") + "|" + (beast.attacks || "");
-  if (row._cardStamp === stamp && row.card && row.card.attacks && row.card.attacks.length) return;
+  if (row._cardStamp === stamp && row.card && row.card.attacks && row.card.attacks.length) { syncGearAttacks(row); return; }
   const prev = gunMemory((row.card && row.card.attacks) || row.attackList);
   const prevSlots = row.card && row.card.slots;
   const pub = !!(row.card && row.card.public);
@@ -3081,6 +3093,7 @@ function ensureCombatantCard(row) {
   row.attackList = beast.attackList || [];
   row.attacks = beast.attacks || row.attacks || "";
   row._cardStamp = stamp;
+  syncGearAttacks(row);
 }
 function refreshFightCards() {
   (fight.order || []).forEach(ensureCombatantCard);
@@ -7023,14 +7036,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.141-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.142-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.141-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.142-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -7486,7 +7499,11 @@ function mapDrawerCard(row) {
       deathSaves: row.deathSaves || null,
       dmActsAs: row.kind === "player" ? !!row.dmActsAs : false,
       lastWeaponId: row.lastWeaponId || "",
-      calling: snapFeats.calling || snapFeats.callingId || ""
+      calling: snapFeats.calling || snapFeats.callingId || "",
+      /* B8: DM drawer only. SSDNSMapCards.get is not called for a player. */
+      inventory: row.kind === "player" ? [] : (Array.isArray(row.inventory) ? row.inventory.map((item) => Object.assign({}, item)) : []),
+      lootDropped: row.kind === "player" ? "" : (row.lootDropped || ""),
+      status: row.kind === "player" ? (row.status || "") : enemyStatus(row)
     };
 }
 function findFightRow(tokenId) {
@@ -8688,6 +8705,79 @@ async function mapFreeShot(i, row, detail) {
   }
   return !!rolled;
 }
+function enemyReadyToLoot(row) {
+  if (!row || row.kind === "player" || noHpPoolRow(row)) return false;
+  if (/down|dead/i.test(String(row.status || ""))) return true;
+  const hp = knownNumber(row.hp);
+  return hp != null && hp <= 0;
+}
+function gearRow(detail) {
+  const i = mapFightIndex(detail || {});
+  if (i < 0) return null;
+  const row = fight.order[i];
+  if (!row || row.kind === "player") return null;
+  ensureCombatantCard(row);
+  return row;
+}
+async function mapGearAdd(detail) {
+  detail = detail || {};
+  const EL = window.SSDNSEnemyLoot;
+  const row = gearRow(detail);
+  if (!EL || !row) { DM.toast("No enemy card"); return false; }
+  const res = EL.addGear(row, detail.itemId, detail.qty);
+  if (!res || !res.ok) { DM.toast((res && res.reason) || "Can't add that"); return false; }
+  await saveRemoteTable();
+  renderFight();
+  const item = res.item;
+  DM.toast((row.name || "Enemy") + " carries " + (item.qty > 1 ? item.qty + " × " : "") + (item.name || item.id));
+  return true;
+}
+async function mapGearRemove(detail) {
+  detail = detail || {};
+  const EL = window.SSDNSEnemyLoot;
+  const row = gearRow(detail);
+  if (!EL || !row) { DM.toast("No enemy card"); return false; }
+  EL.removeGear(row, detail.itemId);
+  await saveRemoteTable();
+  renderFight();
+  DM.toast("Removed from " + (row.name || "the enemy"));
+  return true;
+}
+/* Drop loot is a button. Going Down does not place a chest. */
+async function mapDropLoot(detail) {
+  detail = detail || {};
+  const EL = window.SSDNSEnemyLoot;
+  const Loot = window.SSDNSLoot;
+  const row = gearRow(detail);
+  if (!EL || !Loot || !row) { DM.toast("No enemy card"); return false; }
+  if (!enemyReadyToLoot(row)) { DM.toast("Drop loot when they're Down or Dead"); return false; }
+  if (row.lootDropped) {
+    const host = window.SSDNSMapHost;
+    if (host && host.focusLootChest) { try { host.focusLootChest(row.lootDropped); } catch (e) {} }
+    DM.toast("Loot is already on the ground");
+    return false;
+  }
+  const plan = EL.planDrop(row);
+  const box = Loot.place(plan.table, { rollMode: "onOpen", reveal: "everyone", opener: "" });
+  EL.fillBox(box, plan);
+  box.opened = true;
+  const host = window.SSDNSMapHost;
+  let at = null;
+  if (host && host.tokenPos) {
+    try { at = host.tokenPos(row.mapTokenId || detail.tokenId || row.id); } catch (e) { at = null; }
+  }
+  if (host && host.pinLootChest) {
+    try { host.pinLootChest(box, at); } catch (e) {}
+  }
+  if (window.SSDNSLootGive && window.SSDNSLootGive.adopt) window.SSDNSLootGive.adopt(box);
+  row.lootDropped = box.id;
+  await saveRemoteTable();
+  renderFight();
+  const bits = (plan.places || []).map((p) => (p.qty > 1 ? p.qty + " × " : "") + (p.name || p.id));
+  if (plan.cash && plan.cash.es) bits.push(plan.cash.es + " ES");
+  DM.toast("Dropped " + (row.name || "enemy") + " loot" + (bits.length ? ": " + bits.join(", ") : ""));
+  return box.id;
+}
 window.SSDNSMapFight = {
   linkedTokenIds() { return linkedTokenIds(); },
   clearStale() { return clearStaleTokens(); },
@@ -8841,6 +8931,9 @@ window.SSDNSMapFight = {
   unjam(detail) { return mapGunFix(detail, "unjam"); },
   reopen(detail) { return mapGunFix(detail, "reopen"); },
   addrounds(detail) { return mapEnemyGunTool(detail, "addrounds"); }, /* M4 */
+  gearAdd(detail) { return mapGearAdd(detail); },
+  gearRemove(detail) { return mapGearRemove(detail); },
+  dropLoot(detail) { return mapDropLoot(detail); },
   pool(detail) { return mapGunChoice(detail, "pool", { pool: detail && detail.pool != null ? detail.pool : "" }); },
   tr(detail) { return mapGunChoice(detail, "tr", {}); },
   hex(detail) { return mapGunChoice(detail, "hex", { level: detail && detail.level }); },
@@ -8961,7 +9054,7 @@ window.SSDNSMapFight = {
   syncMap() { syncMapTokens(); }
 };
 
-/* Dirty-gun tracker (sheet 0.3.128 / DMCC 0.2.141). The DM advances a room campaign day.
+/* Dirty-gun tracker (sheet 0.3.129 / DMCC 0.2.142). The DM advances a room campaign day.
    A gun not cleaned in 2 campaign days is listed here. Nothing auto-dirties the gun, and the list is DM-only. */
 function campaignDayNow() {
   const n = parseInt(fight.campaignDay, 10);

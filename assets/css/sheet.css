@@ -1436,7 +1436,7 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
    (swipe, or the arrows on a mouse), one header line, and the current gun's chambers as mini dots in the current chip.
    Tapping a chip opens one fold-down line with the full list (and, on your turn, the clickable chambers).
    Scoped to #turnPanel: the map and DMCC strips keep their own .turn-chip look. */
-/* 0.3.128: the frame Jessey likes on the player strip (teal edge, dark bar, pill chips). The map docks this same #turnPanel. */
+/* 0.3.129: the frame Jessey likes on the player strip (teal edge, dark bar, pill chips). The map docks this same #turnPanel. */
 #turnPanel.turn-panel { flex-wrap: nowrap; gap: 6px; padding: 4px 8px; align-items: center; border: 2px solid #3fbf9a; border-radius: 10px; background: #16130f; }
 #turnPanel .turn-round { flex: none; font-size: 12px; letter-spacing: .02em; white-space: nowrap; color: var(--eld, #e2c56a); }
 #turnPanel .turn-who, #turnPanel .tc-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
