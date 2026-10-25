@@ -3,7 +3,7 @@
  * Pips: Action, Bonus, Reaction. Sheet buttons still warn and roll when a pip is already spent (the DM can allow it).
  * The player's map attack, spell, item, or gun action (Reload, Tactical Reload, Unload, Reopen), and a reaction
  * that is already spent (opportunity-attack ask or a reaction roll), hard-block instead: blockMap toasts the player
- * and tells the DM. Enemies stay warn-and-allow in the DMCC.
+ * ("Action already used.") and does not post a table-log or chat line. Enemies stay warn-and-allow in the DMCC.
  * A player click that marks Action or Bonus used asks first. Clearing a pip, Reaction, and the DM's own pip buttons do not.
  * Pips reset when your own turn starts in the DM's turn order (turn order PR 1). Turn order PR 2: the
  * player's Reset is gone (the DM resets from the DMCC and the map), and in a fight only the DM marks a used pip ready.
@@ -154,7 +154,8 @@
   /* Player map hard-block, and a spent Reaction (opportunity-attack ask / reaction roll).
      Returns "" when the roll may go ahead. A reason string means do not roll.
      Extra Attack stays free up to the limit. An approved opportunity attack spends Reaction, not Action,
-     and is allowed while Reaction is still ready. Sheet attack() / spend() stay warn-and-roll. */
+     and is allowed while Reaction is still ready. Sheet attack() / spend() stay warn-and-roll.
+     The fading toast is the only notice. Nothing is written to the table log, chat, or the DM ledger. */
   var BLOCK_WORD = { action: "Action already used.", bonus: "Bonus action already used.", reaction: "Reaction already used." };
   function blockReason(cost) {
     if (!cost || cost === "free") return "";
@@ -169,25 +170,10 @@
     if (cost === "action" || cost === "bonus" || cost === "reaction") return st[cost] ? BLOCK_WORD[cost] : "";
     return "";
   }
-  function tellDmBlocked(reason, what) {
-    var c = character();
-    var name = (c && c.name) || "";
-    var line = (name ? name + ": " : "") + reason + (what ? " " + what + " was not rolled." : "");
-    var Join = root.SSDNSDmJoin;
-    if (Join && Join.postLedger) {
-      try { Join.postLedger({ type: "alert", what: line, flag: true, pipBlock: true }); } catch (e) {}
-    }
-    if (Join && Join.postChat) {
-      try { Join.postChat({ text: line }); } catch (e2) {}
-    }
-    return line;
-  }
   function blockMap(cost, what) {
     var reason = blockReason(cost);
     if (!reason) return "";
     toast(reason);
-    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: reason });
-    tellDmBlocked(reason, what);
     return reason;
   }
 
@@ -407,7 +393,7 @@
   }
   root.SSDNSActionPips = {
     spend: spend, toggle: toggle, attack: attack, spell: spell, feature: feature, reset: reset, onTurn: onTurn, paint: paint,
-    blockMap: blockMap, blockReason: blockReason, tellDmBlocked: tellDmBlocked,
+    blockMap: blockMap, blockReason: blockReason,
     attacksPerAction: attacksPerAction, spellCost: spellCost, featureCost: featureCost, rulesCost: rulesCost,
     state: function () { return extras(st, { action: st.action, bonus: st.bonus, reaction: st.reaction, attacks: st.attacks, actionBy: st.actionBy, turnKey: st.turnKey }); },
     adopt: adopt,
