@@ -6844,8 +6844,14 @@ async function loadSceneImage(sceneId, opts) {
     if (id === 'pact') return 'Pact Shot';
     if (id.indexOf('offhand:') === 0) return 'Off-hand attack';
     if (id.indexOf('fan:') === 0) return 'Fan the Hammer';
+    if (id.indexOf('reload:') === 0) return 'Reload';
+    if (id.indexOf('tr:') === 0) return 'Tactical Reload';
+    if (id.indexOf('unload:') === 0) return 'Unload';
+    if (id.indexOf('reopen:') === 0) return 'Reopen chamber';
     return 'Attack';
   }
+  /* Same costs as the sheet buttons. Reload uses SSDNSApp.reloadCost (action, Quick Reload bonus, or slow full turn).
+     Tactical Reload is a bonus action. Unload and Reopen chamber are actions. */
   function mapActionCost(id) {
     id = String(id || '');
     if (id.indexOf('offhand:') === 0 || id.indexOf('fan:') === 0) return 'bonus';
@@ -6855,11 +6861,18 @@ async function loadSceneImage(sceneId, opts) {
       const name = spellNameFromAct(id);
       return (P && P.spellCost && P.spellCost(name)) || 'action';
     }
-    return '';
+    const gun = id.match(/^(reload|tr|unload|reopen):(\d+)/);
+    if (!gun) return '';
+    if (gun[1] === 'tr') return 'bonus';
+    if (gun[1] === 'unload' || gun[1] === 'reopen') return 'action';
+    const App = window.SSDNSApp;
+    const cost = App && App.reloadCost ? App.reloadCost(Number(gun[2])) : '';
+    return cost || 'action';
   }
   /* Player map only. On your turn a spent Action, Bonus, or Reaction stops the roll.
      Off your turn, Turn Lock still says it isn't your turn; a spent Reaction stops an
-     approved opportunity attack and a reaction spell. Enemies are not gated here. */
+     approved opportunity attack and a reaction spell. Reload is not an opportunity attack.
+     Enemies are not gated here. */
   function playerMapGate(id, label) {
     if (role !== 'player') return '';
     const cost = mapActionCost(id);
@@ -6870,8 +6883,9 @@ async function loadSceneImage(sceneId, opts) {
     const Lock = window.SSDNSTurnLock;
     const inFight = !!(Lock && Lock.inFight && Lock.inFight());
     const mine = !!(Lock && Lock.myTurn && Lock.myTurn());
+    const gear = /^(reload|tr|unload|reopen):/.test(String(id || ''));
     if (inFight && !mine) {
-      if (st.oaArmed && (cost === 'attack' || cost === 'action')) return P.blockMap('reaction', label || 'Opportunity attack');
+      if (!gear && st.oaArmed && (cost === 'attack' || cost === 'action')) return P.blockMap('reaction', label || 'Opportunity attack');
       if (cost === 'reaction') return P.blockMap('reaction', label || 'Reaction');
       return '';
     }

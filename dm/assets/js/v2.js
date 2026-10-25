@@ -7715,6 +7715,7 @@ function ensurePlayerAttacks(row) {
       sheetIndex: g.index != null && g.index !== "" ? g.index : n,
       weapon: g.weapon || "",
       tr: !!g.tr,
+      slow: !!g.slow,
       caster: !!g.caster,
       calling: (snap && (snap.calling || snap.callingId)) || "",
       ammoPool: g.ammoPool == null ? "" : String(g.ammoPool),
@@ -7825,6 +7826,44 @@ async function mapDeltaHp(row, delta) {
   renderFight();
   DM.toast(line);
 }
+/* Player token drawer: same pip as the sheet. Quick Reload and a slow gun come from the snapshot.
+   Enemies are not checked here (the DM is not hard-blocked running an NPC). */
+function drawerPipCost(snap, atk, op, max) {
+  if (op === "unload") return { cost: "action", what: "Unload" };
+  if (op === "reopen") return { cost: "action", what: "Reopen chamber" };
+  if (op === "tr" || (op === "reload" && max)) return { cost: "bonus", what: "Tactical Reload" };
+  if (op !== "reload") return null;
+  const guns = (snap && snap.guns) || [];
+  const slot = atk && atk.sheetIndex != null && atk.sheetIndex !== "" ? Number(atk.sheetIndex) : (atk && atk.gunIndex);
+  const gun = (guns.filter((g) => g && Number(g.index) === Number(slot))[0]) || atk || {};
+  const props = String(gun.properties || (atk && atk.properties) || "");
+  const slow = !!(gun.slow || (atk && atk.slow)) || /slow load/i.test(props);
+  if (slow) return { cost: "full", what: "Reload" };
+  const calling = String((snap && (snap.calling || snap.callingId)) || (atk && atk.calling) || "");
+  const level = Number(snap && snap.level) || 1;
+  const weapon = gun.weapon || (atk && atk.weapon) || "";
+  const tier = gun.tier || (atk && atk.tier) || "";
+  const chamber = String(gun.chamber || (atk && atk.chamber) || "");
+  const heavyRb = weapon === "dulls-rolling-block-rifle" && (tier === "heavy" || /heavy/i.test(chamber));
+  if (calling === "gunslinger" && level >= 3 && !heavyRb) return { cost: "bonus", what: "Reload" };
+  return { cost: "action", what: "Reload" };
+}
+function drawerPipBlock(row, atk, op, max) {
+  if (!row || row.kind !== "player") return "";
+  const pid = row.playerId || row.id;
+  const spec = drawerPipCost(playerSnapshot(pid), atk, op, max);
+  if (!spec) return "";
+  const m = playerMarkers(pid);
+  if (!m) return "";
+  let reason = "";
+  if (spec.cost === "full") reason = (m.action || m.bonus) ? "Action already used." : "";
+  else if (spec.cost === "bonus") reason = m.bonus ? "Bonus action already used." : "";
+  else if (spec.cost === "action") reason = m.action ? "Action already used." : "";
+  if (!reason) return "";
+  const line = (row.name || "Player") + ": " + reason + " " + spec.what + " was not rolled.";
+  DM.toast(line);
+  return line;
+}
 async function mapGunLoad(detail, unload) {
   const i = mapFightIndex(detail);
   if (i < 0) { DM.toast("No card linked"); return false; }
@@ -7852,7 +7891,10 @@ async function mapGunLoad(detail, unload) {
         logTableAlert(fail);
         return false;
       }
-    }
+    } else if (!((Number(atk.loaded) || 0) > 0)) {
+      /* already empty: the sheet toasts and does not spend */
+    } else if (drawerPipBlock(row, atk, "unload", 0)) return false;
+    if (!unload && drawerPipBlock(row, atk, "reload", 0)) return false;
     const payload = { op: unload ? "unload" : "reload", index: sheetSlot(atk, n) };
     await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
     if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
@@ -7947,6 +7989,7 @@ async function mapGunChoice(detail, op, extra) {
     return false;
   }
   if (op === "tr" && !atk.tr) { DM.toast("This gun can't Tactical Reload (TR —)."); return false; }
+  if (op === "tr" && drawerPipBlock(row, atk, "tr", 1)) return false;
   if (op === "pool" && extra && extra.pool !== "" && extra.pool != null) {
     const piles = atk.pools || [];
     if (piles.length && !piles.some((p) => String(p.idx) === String(extra.pool))) {
@@ -8020,6 +8063,7 @@ async function mapGunFix(detail, op) {
   } else if (!(Array.isArray(g.lockedChambers) && g.lockedChambers.length)) {
     DM.toast(name + " has no locked chamber."); return false;
   }
+  if (op === "reopen" && drawerPipBlock(row, atk, "reopen", 0)) return false;
   const payload = op === "unjam" ? { op: "clean", index: sheetSlot(atk, n), optionId: "unjam" } : { op: "reopen", index: sheetSlot(atk, n) };
   await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
   if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);

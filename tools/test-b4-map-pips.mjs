@@ -3,8 +3,9 @@
  *   Enemies: cardStrike marks Action when the attack roll is published (before a Bite save).
  *   Multiattack is free up to the stat block; past that the DM is warned and the roll still happens.
  *   An off-turn opportunity attack spends Reaction. Players are not spent on the enemy path.
- *   Players: a map attack / spell / item hard-blocks when its pip is already spent, and a spent
+ *   Players: a map attack / spell / item / Reload hard-blocks when its pip is already spent, and a spent
  *   Reaction blocks the opportunity-attack ask and any reaction roll. The DM is notified.
+ *   A player click that marks Action or Bonus used confirms first. Drawer Reload spends the sheet's cost.
  *   A DM move writes only moveUsed (dmFields), so a live adopt cannot clear a pip the sheet just spent.
  *   node tools/test-b4-map-pips.mjs   (browser part needs a static server on 127.0.0.1:8765)
  * DMCC pages open through tools/dmcc-offline.mjs so they never hit the live database.
@@ -87,6 +88,53 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("node.oaRollBlockedWhenSpent", P.blockMap("attack", "Opportunity attack") === "Reaction already used." && P.state().oaArmed === "oa_x", J(P.state()));
 }
 
+/* ---------- node: player Action / Bonus confirm, only when marking used ---------- */
+{
+  const store = {};
+  const listeners = [];
+  const sb = { console, setTimeout, clearTimeout, Date, Promise };
+  sb.window = sb; sb.globalThis = sb;
+  sb.localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
+  sb.document = {
+    readyState: "complete",
+    addEventListener: (ev, fn) => { listeners.push({ ev: ev, fn: fn }); },
+    querySelector: () => null,
+    createElement: () => ({ innerHTML: "" })
+  };
+  sb.SSDNSApp = { doc: () => ({ character: { name: "Caleb" } }) };
+  sb.SSDNSToast = () => {};
+  sb.SSDNSDmJoin = { uid: () => "u1", pushTurnMarkers: () => {} };
+  const asked = [];
+  let answer = null;
+  sb.SSDNSAsk = { confirm: (msg) => new Promise((res) => { asked.push(msg); answer = res; }) };
+  vm.createContext(sb);
+  vm.runInContext(read("assets/js/action-pips.js"), sb, { filename: "action-pips.js" });
+  const P = sb.SSDNSActionPips;
+  P.reset(true);
+  const click = listeners.filter((l) => l.ev === "click").pop();
+  const fire = (kind) => {
+    const pip = { getAttribute: () => kind };
+    click.fn({ target: { closest: (sel) => (sel === "[data-pip]" ? pip : null) } });
+  };
+  fire("action");
+  check("node.confirmActionAsked", asked[0] === "Are you sure you want to use your Action?" && P.state().action === false, asked.join(" | ") + " " + J(P.state()));
+  answer(false);
+  await Promise.resolve();
+  check("node.confirmCancel", P.state().action === false, J(P.state()));
+  fire("bonus");
+  check("node.confirmBonusAsked", asked[1] === "Are you sure you want to use your Bonus action?" && P.state().bonus === false, asked.join(" | "));
+  answer(true);
+  await Promise.resolve();
+  check("node.confirmBonusOk", P.state().bonus === true && P.state().action === false, J(P.state()));
+  const n = asked.length;
+  fire("bonus");
+  check("node.confirmSkipClear", asked.length === n && P.state().bonus === false, J(P.state()));
+  fire("reaction");
+  check("node.confirmSkipReaction", asked.length === n && P.state().reaction === true, J(P.state()));
+  P.toggle("action");
+  check("node.toggleSkipsConfirm", asked.length === n && P.state().action === true && P.state().actionBy === "manual", J(P.state()));
+}
+
 /* ---------- source wiring ---------- */
 {
   const v2 = read("dm/assets/js/v2.js");
@@ -124,6 +172,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("src.playerItemBlocks", /function playerUseItem\(/.test(mapJs) && /blockMap\(cost, label\)/.test(mapJs));
   check("src.reactionHardBlock", /blockMap\("reaction", "Opportunity attack"\)/.test(lock) && /spellCost\(spellName\) === "reaction"/.test(read("assets/js/sheet-extras.js")));
   check("src.dmPipBlockToast", /function notePipBlocks\(/.test(dmcc) && /e\.pipBlock/.test(dmcc) && dmcc.indexOf("notePipBlocks(next)") > dmcc.indexOf('bind("ledger"'));
+  const appSrc = read("assets/js/app.js");
+  const toggleSrc = pips.slice(pips.indexOf("function toggle(kind)"), pips.indexOf("function reset(quiet)"));
+  check("src.pipConfirm", /Are you sure you want to use your Action\?/.test(pips) && /Are you sure you want to use your Bonus action\?/.test(pips) && !/Are you sure/.test(toggleSrc));
+  check("src.confirmOnlyWhenMarking", /kind === "action" \|\| kind === "bonus"/.test(pips) && /!st\[kind\]/.test(pips) && /Ask\.confirm\(msg\)/.test(pips));
+  const costSrc = mapJs.slice(mapJs.indexOf("function mapActionCost"), mapJs.indexOf("function playerMapGate"));
+  check("src.reloadMapCost", /reloadCost/.test(costSrc) && /gun\[1\] === 'tr'\) return 'bonus'/.test(costSrc) && /gun\[1\] === 'unload' \|\| gun\[1\] === 'reopen'/.test(costSrc));
+  check("src.reloadNotOpportunity", /!gear && st\.oaArmed/.test(mapJs));
+  check("src.reloadGunSpends", /reloadGun: function \(i, max\)/.test(appSrc) && /withCost\(i, reloadCost/.test(appSrc) && /unloadGunIndex: function \(i\) \{ return withCost/.test(appSrc) && /tacticalReload: function \(i\) \{ return withCost/.test(appSrc));
+  check("src.gunCommandBlocks", /function gunCommandPip/.test(join) && /blockMap\(pip\.cost, pip\.what\)/.test(join));
+  const drawerBlock = v2.slice(v2.indexOf("function drawerPipBlock"), v2.indexOf("async function mapGunLoad"));
+  check("src.drawerReloadBlocks", /drawerPipBlock\(row, atk, "reload"/.test(v2) && /row\.kind !== "player"\) return ""/.test(drawerBlock) && /op === "tr" && drawerPipBlock/.test(v2) && /op === "reopen" && drawerPipBlock/.test(v2));
 }
 
 /* ---------- browser: demo DMCC, never the live database ---------- */

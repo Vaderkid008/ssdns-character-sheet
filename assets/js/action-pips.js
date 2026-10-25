@@ -1,8 +1,10 @@
 /**
  * Per-turn action economy (0.3.54 guns, 0.3.55 attacks, spells, features).
  * Pips: Action, Bonus, Reaction. Sheet buttons still warn and roll when a pip is already spent (the DM can allow it).
- * The player's map attack, spell, or item, and a reaction that is already spent (opportunity-attack ask or a reaction
- * roll), hard-block instead: blockMap toasts the player and tells the DM. Enemies stay warn-and-allow in the DMCC.
+ * The player's map attack, spell, item, or gun action (Reload, Tactical Reload, Unload, Reopen), and a reaction
+ * that is already spent (opportunity-attack ask or a reaction roll), hard-block instead: blockMap toasts the player
+ * and tells the DM. Enemies stay warn-and-allow in the DMCC.
+ * A player click that marks Action or Bonus used asks first. Clearing a pip, Reaction, and the DM's own pip buttons do not.
  * Pips reset when your own turn starts in the DM's turn order (turn order PR 1). Turn order PR 2: the
  * player's Reset is gone (the DM resets from the DMCC and the map), and in a fight only the DM marks a used pip ready.
  * Costs: "action", "bonus", "reaction", "full" (slow load = action + bonus), "free" (no pip).
@@ -384,7 +386,22 @@
   if (typeof document !== "undefined") {
     document.addEventListener("click", function (e) {
       var pip = e.target && e.target.closest && e.target.closest("[data-pip]");
-      if (pip) toggle(pip.getAttribute("data-pip"));
+      if (!pip) return;
+      var kind = pip.getAttribute("data-pip");
+      /* A player marking Action or Bonus used (the DM called for it, no roll) confirms first.
+         Clearing is unchanged: in a fight only the DM gives it back, and outside a fight it just flips ready.
+         Reaction is not asked. DM pip buttons are data-dm-pip and do not reach this listener. */
+      if ((kind === "action" || kind === "bonus") && !st[kind]) {
+        var Ask = root.SSDNSAsk;
+        if (Ask && typeof Ask.confirm === "function") {
+          var msg = kind === "bonus"
+            ? "Are you sure you want to use your Bonus action?"
+            : "Are you sure you want to use your Action?";
+          Ask.confirm(msg).then(function (ok) { if (ok) toggle(kind); });
+          return;
+        }
+      }
+      toggle(kind);
     });
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", paint); else paint();
   }
