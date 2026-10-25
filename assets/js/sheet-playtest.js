@@ -405,6 +405,8 @@
     var box = $("#meleeBox");
     var c = ch();
     if (!box || !c) return;
+    if (root.SSDNSSignature && root.SSDNSSignature.prepare) root.SSDNSSignature.prepare();
+    c = ch() || c;
     if (root.SSDNSCustomWeapons) root.SSDNSCustomWeapons.syncCharacter(c);
     var list = rules().melee || [];
     c.melee = c.melee || [{}, {}, {}, {}];
@@ -425,6 +427,7 @@
     }
     box.innerHTML = html;
     paintMelee();
+    if (root.SSDNSSignature && root.SSDNSSignature.paint) root.SSDNSSignature.paint();
     if (root.SSDNSEquip && root.SSDNSEquip.combatLocked && root.SSDNSEquip.combatLocked()) paintEquipLock(true);
     if (root.SSDNSTrackers && root.SSDNSTrackers.paint) root.SSDNSTrackers.paint(); /* SAMPLE trackers: thrown / charge pips */
   }
@@ -460,6 +463,11 @@
   /* 0.3.69: a melee slot can hold a catalog weapon (Cutlass of the Sun's Fury) that isn't in rules.js melee */
   function meleeRecord(list, id) {
     if (!id) return null;
+    /* L0224: Martial Artist Fists live on the melee card so Roll stays the one attack path. */
+    if (id === "unarmed" && root.SSDNSSignature && root.SSDNSSignature.fistsWeapon) {
+      var fists = root.SSDNSSignature.fistsWeapon(ch());
+      if (fists) return fists;
+    }
     var w = (list || []).filter(function (x) { return x.id === id; })[0];
     if (w) return w;
     var rec = root.SSDNSItems && root.SSDNSItems.weaponRecord ? root.SSDNSItems.weaponRecord(id) : null;
@@ -555,6 +563,7 @@
     var meleeW = null;
     var meleeLists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.melee) || [], (root.SSDNS_RULES && root.SSDNS_RULES.otherRanged) || []);
     meleeLists.forEach(function (w) { if (w && meleeRow && w.id === meleeRow.weapon) meleeW = w; });
+    if (!meleeW) meleeW = meleeRecord(meleeLists, meleeRow && meleeRow.weapon);
     var meleeCue = root.SSDNSAudio && root.SSDNSAudio.weaponCue
       ? root.SSDNSAudio.weaponCue(Object.assign({}, meleeW || {}, { id: meleeRow.weapon, sfx: (meleeRow && meleeRow.sfx) || (meleeW && meleeW.sfx) || "" }))
       : "whoosh";
@@ -608,6 +617,10 @@
     });
   }
   function meleeRecordFor(id) {
+    if (id === "unarmed" && root.SSDNSSignature && root.SSDNSSignature.fistsWeapon) {
+      var fists = root.SSDNSSignature.fistsWeapon(ch());
+      if (fists) return fists;
+    }
     var hit = null;
     [].concat((root.SSDNS_RULES && root.SSDNS_RULES.melee) || [], (root.SSDNS_RULES && root.SSDNS_RULES.otherRanged) || []).forEach(function (w) { if (w && w.id === id) hit = w; });
     return hit;
@@ -1520,7 +1533,17 @@
     renderMelee: renderMelee, /* 0.3.86: a melee / thrown weapon that lands from an item (Give, reward, Add Item) repaints its card */
     rollMelee: rollMelee,
     syncSheet: syncSheet,
-    paintMath: function () { paintPowerToggle(); paintMelee(); paintPact(); }, /* 0.3.96: paintPact keeps the iron art in step with Pact name / reveal */
+    paintMath: function () {
+      paintPowerToggle();
+      var sig = root.SSDNSSignature;
+      var rebuilt = sig && sig.prepare && sig.prepare();
+      if (rebuilt) renderMelee();
+      else {
+        paintMelee();
+        if (sig && sig.paint) sig.paint();
+      }
+      paintPact();
+    }, /* 0.3.96: paintPact keeps the iron art in step with Pact name / reveal. L0224: signature cards follow the same paint. */
     paintPact: paintPact,
     versatileDie: versatileDie,
     meleeGwf: meleeGwf,

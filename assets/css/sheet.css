@@ -209,6 +209,13 @@ body.sheet-readonly .tab-warn button { pointer-events: auto; }
 .pact-iron-name { font-weight: 600; }
 /* 0.3.100: before the DM reveals the iron, the card shows the plain square Borrowed Iron tile, centred */
 .pact-iron-art.pact-iron-generic { aspect-ratio: auto; height: 120px; }
+/* L0224: Calling signature cards share the Borrowed Iron card. Square focus art stays contained; gun engravings stay 3:1. */
+.calling-sig .pact-iron-art { max-width: 100%; }
+.calling-sig .pact-iron-art.calling-sig-wide { aspect-ratio: 3 / 1; height: auto; }
+.calling-sig.calling-sig-lost .pact-iron-art img { filter: grayscale(.85) sepia(.25); }
+@media (max-width: 560px) {
+  .calling-sig .calling-sig-btn { min-height: 44px; }
+}
 
 /* ---------------- page 1 grid */
 .main-grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; grid-template-areas: "c1 c2 c3" "c1 feat feat"; gap: 12px; align-items: start; }
@@ -1436,7 +1443,7 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
    (swipe, or the arrows on a mouse), one header line, and the current gun's chambers as mini dots in the current chip.
    Tapping a chip opens one fold-down line with the full list (and, on your turn, the clickable chambers).
    Scoped to #turnPanel: the map and DMCC strips keep their own .turn-chip look. */
-/* 0.3.130: the frame Jessey likes on the player strip (teal edge, dark bar, pill chips). The map docks this same #turnPanel. */
+/* 0.3.131: the frame Jessey likes on the player strip (teal edge, dark bar, pill chips). The map docks this same #turnPanel. */
 #turnPanel.turn-panel { flex-wrap: nowrap; gap: 6px; padding: 4px 8px; align-items: center; border: 2px solid #3fbf9a; border-radius: 10px; background: #16130f; }
 #turnPanel .turn-round { flex: none; font-size: 12px; letter-spacing: .02em; white-space: nowrap; color: var(--eld, #e2c56a); }
 #turnPanel .turn-who, #turnPanel .tc-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

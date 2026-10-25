@@ -211,6 +211,7 @@
     });
     note(document.querySelector(".hex-roll"), "focusCastNote", why);
     note(document.getElementById("pactFocus"), "pactFocusNote", why);
+    note(document.getElementById("callingSig"), "callingSigNoteBlock", why);
     /* 0.3.108: the Spells tab says why too (Dull badge, lost keepsake), and a Tarnished Lawman sees "Lawless" there */
     var c0 = ch(), lim = document.getElementById("spellLimits");
     var spellWhy = c0 && (c0.calling === "lawman" || c0.calling === "frontier-scout") ? why : "";

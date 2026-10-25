@@ -925,7 +925,8 @@
       var on = t.getAttribute("data-trk-on") === "1";
       setUsed(res, used(c, res) + (on ? 1 : -1));
       if (root.SSDNSAudio) root.SSDNSAudio.play("ui-tick");
-      log((c.name || "You") + (on ? " spends " : " gets back ") + "1 " + r.name.replace(/ \(.*\)$/, "") + " (" + left(ch(), r) + "/" + r.max + " left).");
+      var feat = t.getAttribute("data-sig-feat");
+      log((c.name || "You") + (on ? " spends " : " gets back ") + "1 " + r.name.replace(/ \(.*\)$/, "") + (feat ? " · " + feat : "") + " (" + left(ch(), r) + "/" + r.max + " left).");
       return;
     }
     var sr = t.getAttribute("data-trk-spend-roll");
