@@ -22,9 +22,9 @@ const app = read("assets/js/app.js");
 const mapSrc = read("map/ssdns-map.js");
 const css = read("map/ssdns-map.css");
 const sheetCss = read("assets/css/sheet.css");
-check("ver.sheet", version.sheet === "0.3.127" && version.sheetBuild === "sheet-playtest-v03127");
-check("ver.dmcc", version.dmcc === "0.2.140" && version.dmccBuild === "dmcc-playtest-v02140");
-check("ver.app", app.includes('APP_VERSION = "0.3.127"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.140"'));
+check("ver.sheet", version.sheet === "0.3.128" && version.sheetBuild === "sheet-playtest-v03128");
+check("ver.dmcc", version.dmcc === "0.2.141" && version.dmccBuild === "dmcc-playtest-v02141");
+check("ver.app", app.includes('APP_VERSION = "0.3.128"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.141"'));
 check("rules.untouched", !read("database.rules.json").includes("ssdns.dmCard") && !read("assets/data/rules.js").includes("g-gunmelee"));
 
 const toolbar = mapSrc.slice(mapSrc.indexOf("toolbar.innerHTML"), mapSrc.indexOf("el.appendChild(toolbar)"));
@@ -35,6 +35,7 @@ check("toolbar.notLeft", !leftbar.includes('data-act="lockBtn"') && !leftbar.inc
 check("chat.toggle", mapSrc.includes('data-act="chatToggle"') && mapSrc.includes("ssdns.map.chatOpen") && mapSrc.includes('data-act="chatPop">Pop out') && mapSrc.includes('data-act="chatWindow"'));
 check("card.drag", mapSrc.includes("ssdns.dmCard") && mapSrc.includes('data-act="drawerReset"') && css.includes(".ssm-drawer.placed"));
 check("chat.tuck", css.includes(".ssdns-chatdock.ssm-chat-shut") && css.includes("148px") && css.includes(".ssm-move-tools"));
+check("chat.side", mapSrc.includes("ssdns.map.chatDock") && css.includes("ssdns-chat-side") && css.includes("minmax(0, 1fr) 320px") && css.includes("minmax(0, 1fr) 48px"));
 
 const gun = app.slice(app.indexOf('data-gunroll'), app.indexOf('data-gunroll') + 700);
 check("melee.order", gun.indexOf("data-gunroll") >= 0 && gun.indexOf("data-gunroll") < gun.indexOf("data-gunmelee") && gun.indexOf("data-gunmelee") < gun.indexOf('data-out": "gmelee.'));

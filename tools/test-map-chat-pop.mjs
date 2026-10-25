@@ -23,10 +23,10 @@ function flush(ms) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.127" && version.sheetBuild === "sheet-playtest-v03127");
-check("ver.dmcc", version.dmcc === "0.2.140" && version.dmccBuild === "dmcc-playtest-v02140");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.127"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.140"'));
+check("ver.sheet", version.sheet === "0.3.128" && version.sheetBuild === "sheet-playtest-v03128");
+check("ver.dmcc", version.dmcc === "0.2.141" && version.dmccBuild === "dmcc-playtest-v02141");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.128"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.141"'));
 
 const mapSrc = read("map/ssdns-map.js");
 const chatSrc = read("map/ssdns-map-chat.js");
@@ -41,8 +41,10 @@ check("src.window", chatSrc.includes("root.open(") && chatSrc.includes("chat-pop
 check("src.float", chatSrc.includes("ssdns-chat-float") && chatSrc.includes("ssdns.map.chatFloat") && mapSrc.includes('data-act="chatWindow"'));
 check("src.color", chatSrc.includes("tokenColorFor") && chatSrc.includes("leadNameHtml"));
 check("src.rules", !read("map/ssdns-map-chat.js").includes("database.rules") && !mapSrc.includes("database.rules"));
-check("html.player", read("index.html").includes("map/ssdns-map-chat.js?v=0.3.127-float"));
-check("html.dm", read("dm/index.html").includes("ssdns-map-chat.js?v=0.2.140-float"));
+check("src.sideDock", mapSrc.includes("ssdns.map.chatDock") && mapSrc.includes("ssdns-chat-side") && mapSrc.includes("reflowAfterChat") && mapSrc.includes("audienceOk"));
+check("src.private", sheetSrc.includes("e.dockTo") && sheetSrc.includes('to !== "all"'));
+check("html.player", read("index.html").includes("map/ssdns-map-chat.js?v=0.3.128-float"));
+check("html.dm", read("dm/index.html").includes("ssdns-map-chat.js?v=0.2.141-float"));
 check("html.pop", read("map/chat-pop.html").includes('id="popDock"') && read("map/chat-pop.html").includes("bootPopup") && read("map/chat-pop.html").includes("data-chat-filter") && read("map/chat-pop.html").includes("apply-guard.js"));
 
 function makeWindow() {
@@ -145,7 +147,9 @@ check("btn.pop", popBtn && popBtn.textContent === "Pop out");
 check("btn.dockHidden", dockBtn && dockBtn.hidden === true);
 api.setChat([{ id: "c1", from: "p_mira", fromName: "Mira", text: "Ready", ts: "2026-10-14T00:00:00.000Z" }]);
 api.pushFeed({ id: "f1", from: "dm", text: "Initiative = 14", ts: "2026-10-14T00:00:01.000Z" });
+api.pushFeed({ id: "priv", from: "dm", fromName: "DM", text: "secret plan", to: "someone_else", dockTo: "someone_else", ts: "2026-10-14T00:00:01.500Z" });
 check("dock.chatlog", el.querySelector("[data-act=chatlog]").textContent.indexOf("Mira: Ready") >= 0);
+check("private.hidden", el.querySelector("[data-act=chatlog]").textContent.indexOf("secret plan") < 0);
 
 popBtn.click();
 check("phone.noWindow", opened.length === 0, String(opened.length));

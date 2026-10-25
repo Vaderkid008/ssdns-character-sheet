@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.140"; // dmcc-playtest-v02140
+const VERSION = "0.2.141"; // dmcc-playtest-v02141
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -2310,6 +2310,7 @@ function renderLedger() {
 const MONEY_TYPES = /es|store|reward|shard/i;
 const ALERT_TYPES = /jam|explode|death|condition|alert|undo/i;
 let dockSeen = 0;
+let dmChatPop = null;
 
 function dockItems() {
   const rows = [];
@@ -3244,6 +3245,32 @@ function wire() {
     if (!text) return;
     $("#dockText").value = "";
     sendDockChat(text, $("#dockTo") && $("#dockTo").value);
+  });
+  /* B5: the left dock replaced the map chat, so Pop out lives on this header.
+     The new tab is the shared map chat window. Sends always go to the whole table. */
+  function ensureDmChatPop() {
+    if (dmChatPop || !window.SSDNSMapChat) return dmChatPop;
+    dmChatPop = window.SSDNSMapChat.attach({
+      send: function (text) {
+        const to = $("#dockTo");
+        if (to) to.value = "all";
+        const input = $("#dockText");
+        if (input) input.value = text;
+        const form = $("#dockChat");
+        if (form && form.requestSubmit) form.requestSubmit();
+        else if (form) form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      },
+      onMode: function (_open, _mode, extra) {
+        if (extra === "blocked") toast("Allow pop-ups for this site");
+      }
+    });
+    return dmChatPop;
+  }
+  const popBtn = $("#btnDockPop");
+  if (popBtn) popBtn.addEventListener("click", () => {
+    const ui = ensureDmChatPop();
+    if (!ui || !ui.openTab) { toast("Allow pop-ups for this site"); return; }
+    ui.openTab();
   });
   const collapse = $("#btnDockCollapse");
   /* Desktop: the feed docks on the left and collapses to a slim strip.
