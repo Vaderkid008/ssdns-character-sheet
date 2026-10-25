@@ -735,6 +735,8 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
 .ssm-hpbar > span { display: block; height: 100%; background: #4caf50; }
 .ssm-deaths { color: #e2c56a; font-size: 11px; }
 .ssm-act { display: flex; align-items: center; gap: 6px; }
+.ssm-drawer .ssm-speed { display: inline-flex; margin-left: 4px; }
+.ssm-drawer .ssm-speed input { width: 64px; }
 .ssm-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #e8dcc8; display: inline-block; flex: 0 0 auto; }
 .ssm-colorpick { display: flex; align-items: center; gap: 6px; }
 .ssm-colorpick select { flex: 1; min-width: 0; }

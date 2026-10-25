@@ -744,6 +744,7 @@
       "drawer:down": "down",
       "drawer:act": "act",
       "drawer:cover": "cover",
+      "drawer:speed": "speed",
       "drawer:disarm": "disarm",
       "drawer:rob": "rob",
       "drawer:useitem": "useitem"
@@ -874,6 +875,12 @@
             var E = root.DMCCEnhance;
             if (!isDmPage() || !E || typeof E.spendMove !== "function") return false;
             try { return E.spendMove(token, feet) === true; } catch (e) { return false; }
+          },
+          /* B3: the fight row's map token, when the map's initiative copy does not carry mapTokenId. */
+          linkedTokenId: function (combatantId) {
+            var E = root.DMCCEnhance;
+            if (!isDmPage() || !E || typeof E.linkedTokenId !== "function") return "";
+            try { return E.linkedTokenId(combatantId) || ""; } catch (e) { return ""; }
           }
         },
         options: {
