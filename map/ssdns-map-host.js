@@ -791,7 +791,10 @@
       "drawer:speed": "speed",
       "drawer:disarm": "disarm",
       "drawer:rob": "rob",
-      "drawer:useitem": "useitem"
+      "drawer:useitem": "useitem",
+      "drawer:gearAdd": "gearAdd",
+      "drawer:gearRemove": "gearRemove",
+      "drawer:dropLoot": "dropLoot"
     }[name];
     if (name === "drawer:target") fightCall = detail.spellId ? "cast" : "attack";
     if (!fightCall) return;
@@ -1064,9 +1067,14 @@
     syncInitiative: syncInitiative,
     destroy: destroyMap,
     placeToken: placeToken,
-    pinLootChest: function (box) {
+    pinLootChest: function (box, at) {
       if (!map || typeof map.pinLootChest !== "function") return null;
-      try { return map.pinLootChest(box); }
+      try { return map.pinLootChest(box, at); }
+      catch (e) { return null; }
+    },
+    tokenPos: function (id) {
+      if (!map || typeof map.tokenPos !== "function") return null;
+      try { return map.tokenPos(id); }
       catch (e) { return null; }
     },
     focusLootChest: function (boxId) {

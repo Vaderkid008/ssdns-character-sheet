@@ -187,7 +187,10 @@
     var box = findBox(boxId) || current();
     if (!box || !L()) return "";
     var opts = L().menu(box, sheetOf(box));
-    return "<p><b>" + esc(box.name) + "</b></p>" + opts.map(function (o) {
+    var take = box.boxType === "enemy-drop" && !L().blocked(box)
+      ? "<button type=\"button\" data-chest=\"take-all\">Take all</button> "
+      : "";
+    return "<p><b>" + esc(box.name) + "</b></p>" + take + opts.map(function (o) {
       if (o.disabled) return "<p>" + esc(o.label) + "</p>";
       return "<button type=\"button\" data-chest=\"" + esc(o.id) + "\">" + esc(o.label) + "</button> ";
     }).join("");
@@ -212,6 +215,17 @@
       return null;
     }
     if (action === "dm-open") return finishOpen(box, true);
+    if (action === "take-all") {
+      if (box.boxType === "enemy-drop") {
+        var who = openerId();
+        if (who && who !== "all") box.opener = who;
+        box.shared = true;
+        box.reveal = "everyone";
+      }
+      await takeAll();
+      refreshMapMenu(box);
+      return null;
+    }
     if (action === "open") {
       if (Loot.blocked(box)) { paintCard(); toast(Loot.blocked(box) === "locked" ? "Still locked." : "Still shut."); return null; }
       return finishOpen(box, false);
@@ -235,6 +249,14 @@
     if (msg.seq) ui.lastLootSeq = msg.seq;
     var box = findBox(msg.boxId);
     if (!box || !L()) return;
+    if (msg.action === "take-all") {
+      if (msg.from) box.opener = msg.from;
+      box.shared = true;
+      box.reveal = "everyone";
+      ui.current = box.id;
+      takeAll();
+      return;
+    }
     L().resolve(box, msg.action, sheetOf(box), Math.random, { nat: msg.nat, total: msg.total });
     if (msg.success && !L().blocked(box)) finishOpen(box, false);
     else { paintCard(); refreshMapMenu(box); }
@@ -374,8 +396,17 @@
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
     else wire();
   }
+  function adopt(box) {
+    if (!box || !box.id) return null;
+    if (!findBox(box.id)) ui.boxes.unshift(box);
+    ui.current = box.id;
+    ui.view = "dm";
+    paintCard();
+    return box;
+  }
   root.SSDNSLootGive = {
     paint: paintCard,
+    adopt: adopt,
     boxes: function () { return ui.boxes.slice(); },
     box: findBox,
     current: current,

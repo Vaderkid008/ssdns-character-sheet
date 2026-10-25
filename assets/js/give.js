@@ -112,6 +112,19 @@
   }
   /* L0197: the Borrowed Iron (soul-bound) never changes hands */
   function soulBoundItem(it) { return !!(it && (it.soulBound || it.catalogId === "borrowed-iron")); }
+  /* B8: story-only and no-trade loot tags stay on the item. Rob is unchanged. */
+  function untradable(it) {
+    if (!it) return "";
+    var name = it.name || "That item";
+    if (it.noTrade || it.storyOnly) return name + " can't be traded.";
+    var id = it.catalogId || it.id || "";
+    var Loot = root.SSDNSLoot;
+    if (id && Loot && Loot.tagOf) {
+      var tags = Loot.tagOf(id);
+      if (tags && (tags.noTrade || tags.storyOnly)) return name + " can't be traded.";
+    }
+    return "";
+  }
   function slotDmOnly(slot, rec) { return !!((slot && slot.dmOnly) || (rec && rec.dmOnly) || (slot && slot.record && slot.record.dmOnly)); }
   /* what the receiver gets: the whole slot minus the giver's hand state, plus the created weapon's record */
   function snapshotSlot(c, kind, i) {
@@ -187,6 +200,7 @@
       var it = findItem(c, spec.uid);
       if (!it) return { ok: false, reason: "That item is gone." };
       if (it.dmOnly) return { ok: false, reason: it.name + " is DM-only. Only the DM can move it." };
+      if (untradable(it)) return { ok: false, reason: untradable(it) };
       if (soulBoundItem(it)) return { ok: false, reason: it.name + " is soul-bound. It can't be given or traded." };
       if (it.cursed) return { ok: false, reason: it.name + " is cursed. It won't let go." };
       if (it.equipSlot) return { ok: false, worn: true, reason: "Take " + it.name + " off first (it's worn on your paper doll)." };
@@ -243,6 +257,7 @@
       var it = (g.items || []).filter(function (x) { return x && x.uid === r.uid; })[0];
       if (!it) return "The item is gone from " + (g.name || "the giver") + "'s sheet.";
       if (it.dmOnly) return it.name + " is DM-only.";
+      if (untradable(it)) return untradable(it);
       if (soulBoundItem(it)) return it.name + " is soul-bound.";
       if (it.equipSlot) return it.name + " is still worn.";
       if (num(it.count == null ? 1 : it.count, 1) < qty) return "Not enough " + it.name + " left.";
