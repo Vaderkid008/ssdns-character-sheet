@@ -4,8 +4,8 @@
  *   Multiattack is free up to the stat block; past that the DM is warned and the roll still happens.
  *   An off-turn opportunity attack spends Reaction. Players are not spent on the enemy path.
  *   Players: a map attack / spell / item / Reload hard-blocks when its pip is already spent, and a spent
- *   Reaction blocks the opportunity-attack ask and any reaction roll. The player sees a fading toast only.
- *   No table-log row, no chat line, and no DM ledger pipBlock.
+ *   Action, Bonus, or Reaction blocks the roll. The player sees a fading toast only.
+ *   No table-log row, no chat line, and no DM ledger pipBlock. A ready R opens the reaction menu.
  *   A player click that marks Action or Bonus used confirms first. Drawer Reload spends the sheet's cost.
  *   A DM move writes only moveUsed (dmFields), so a live adopt cannot clear a pip the sheet just spent.
  *   node tools/test-b4-map-pips.mjs   (browser part needs a static server on 127.0.0.1:8765)
@@ -84,13 +84,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   P.reset(true);
   P.spend("action", "Dash");
   check("node.actionBlocks", P.blockMap("action", "Dash") === "Action already used." && P.blockMap("bonus", "Healing Word") === "", J(P.state()));
+  P.reset(true);
+  P.spend("bonus", "Healing Word");
+  const nBonus = notes.length;
+  const logsBonus = logs.length;
+  check("node.bonusToastOnly", P.blockMap("bonus", "Healing Word") === "Bonus action already used." && notes.length === nBonus && logs.length === logsBonus && toasts.at(-1) === "Bonus action already used.", J({ toasts: toasts, notes: notes, logs: logs }));
+  P.reset(true);
   P.spend("reaction", "Shield");
-  check("node.reactionBlocks", P.blockMap("reaction", "Shield") === "Reaction already used.", J(P.state()));
+  const nReact = notes.length;
+  const logsReact = logs.length;
+  check("node.reactionBlocks", P.blockMap("reaction", "Shield") === "Reaction already used." && notes.length === nReact && logs.length === logsReact && toasts.at(-1) === "Reaction already used.", J({ state: P.state(), notes: notes.length, toasts: toasts }));
   P.reset(true);
   P.setOa("oaArmed", "oa_x");
   check("node.oaRollAllowed", P.blockMap("attack", "Opportunity attack") === "" && P.state().reaction === false, J(P.state()));
   P.spend("reaction", "Shield");
-  check("node.oaRollBlockedWhenSpent", P.blockMap("attack", "Opportunity attack") === "Reaction already used." && P.state().oaArmed === "oa_x", J(P.state()));
+  const nOa = notes.length;
+  check("node.oaRollBlockedWhenSpent", P.blockMap("attack", "Opportunity attack") === "Reaction already used." && P.state().oaArmed === "oa_x" && notes.length === nOa, J(P.state()));
 }
 
 /* ---------- node: player Action / Bonus confirm, only when marking used ---------- */
@@ -135,7 +144,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   fire("bonus");
   check("node.confirmSkipClear", asked.length === n && P.state().bonus === false, J(P.state()));
   fire("reaction");
-  check("node.confirmSkipReaction", asked.length === n && P.state().reaction === true, J(P.state()));
+  check("node.confirmSkipReaction", asked.length === n && P.state().reaction === false, J(P.state()));
   P.toggle("action");
   check("node.toggleSkipsConfirm", asked.length === n && P.state().action === true && P.state().actionBy === "manual", J(P.state()));
 }
@@ -178,6 +187,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("src.reactionHardBlock", /blockMap\("reaction", "Opportunity attack"\)/.test(lock) && /spellCost\(spellName\) === "reaction"/.test(read("assets/js/sheet-extras.js")));
   const blockFn = pips.slice(pips.indexOf("function blockMap"), pips.indexOf("function featureCost"));
   check("src.pipBlockNoChat", !/function notePipBlocks\(/.test(dmcc) && !/pipBlock/.test(pips) && !/postChat/.test(blockFn) && !/postLedger/.test(blockFn) && !/addLog/.test(blockFn) && /toast\(reason\)/.test(blockFn));
+  check("src.reactionMenu", /data-pip-react-menu/.test(pips) && /Opportunity attack/.test(pips) && /function reactionChoices\(/.test(pips) && /Are you sure you want to use your Reaction\?/.test(pips));
   const appSrc = read("assets/js/app.js");
   const toggleSrc = pips.slice(pips.indexOf("function toggle(kind)"), pips.indexOf("function reset(quiet)"));
   check("src.pipConfirm", /Are you sure you want to use your Action\?/.test(pips) && /Are you sure you want to use your Bonus action\?/.test(pips) && !/Are you sure/.test(toggleSrc));

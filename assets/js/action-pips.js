@@ -1,10 +1,12 @@
 /**
  * Per-turn action economy (0.3.54 guns, 0.3.55 attacks, spells, features).
  * Pips: Action, Bonus, Reaction. Sheet buttons still warn and roll when a pip is already spent (the DM can allow it).
- * The player's map attack, spell, item, or gun action (Reload, Tactical Reload, Unload, Reopen), and a reaction
- * that is already spent (opportunity-attack ask or a reaction roll), hard-block instead: blockMap toasts the player
- * ("Action already used.") and does not post a table-log or chat line. Enemies stay warn-and-allow in the DMCC.
- * A player click that marks Action or Bonus used asks first. Clearing a pip, Reaction, and the DM's own pip buttons do not.
+ * The player's map attack, spell, item, or gun action (Reload, Tactical Reload, Unload, Reopen), and a spent
+ * Action, Bonus, or Reaction, hard-block instead: blockMap shows a fading player toast and does not post a
+ * table-log row, a chat line, or a DM ledger note. Enemies stay warn-and-allow in the DMCC.
+ * A ready R opens the reaction menu: opportunity attack (the existing DM ask), reaction spells this character
+ * can cast, and Mark used (the same confirm as Action / Bonus). Auto-prompts on a hit or leaving reach are not here.
+ * A player click that marks Action or Bonus used asks first. Clearing a pip, and the DM's own pip buttons, do not.
  * Pips reset when your own turn starts in the DM's turn order (turn order PR 1). Turn order PR 2: the
  * player's Reset is gone (the DM resets from the DMCC and the map), and in a fight only the DM marks a used pip ready.
  * Costs: "action", "bonus", "reaction", "full" (slow load = action + bonus), "free" (no pip).
@@ -136,11 +138,18 @@
     }
     return n.replace(/\s+/g, " ");
   }
+  /** True when spell text says the spell itself is cast as a reaction (not "can't take reactions"). */
+  function reactionCastingText(text) {
+    var t = String(text || "");
+    if (/casting time\s*:\s*(?:1\s+)?reaction\b/i.test(t)) return true;
+    if (/\bas a reaction\b/i.test(t)) return true;
+    return false;
+  }
   function spellCost(name) {
     var n = baseName(name);
     var fx = root.SSDNS_SPELL_FX && root.SSDNS_SPELL_FX[n];
-    var does = String((fx && fx.does) || "");
-    if (/cast (?:this|it) as a reaction|as a reaction when/i.test(does)) return "reaction";
+    var does = String((fx && (fx.does || fx.text)) || "");
+    if (reactionCastingText(does)) return "reaction";
     if (/cast (?:this|it) as a bonus action/i.test(does)) return "bonus";
     if (REACTION_SPELLS.indexOf(n) >= 0) return "reaction";
     if (BONUS_SPELLS.indexOf(n) >= 0) return "bonus";
@@ -175,6 +184,43 @@
     if (!reason) return "";
     toast(reason);
     return reason;
+  }
+  /* Prepared / known spells this character can cast as a reaction. castChoices() is the sheet's own list
+     (prepared casters omit unprepared spells). Without it, read the character the same way. */
+  var PREPARED_CASTERS = { "frontier-preacher": 1, "nature-guide": 1, "lawman": 1, "scholar": 1 };
+  function spellsOnSheet() {
+    var App = root.SSDNSApp;
+    if (App && typeof App.castChoices === "function") return App.castChoices() || [];
+    var c = character();
+    if (!c) return [];
+    var out = [];
+    (c.cantrips || []).forEach(function (n) { if (n) out.push({ level: 0, name: n }); });
+    var book = c.spells;
+    if (c.calling === "lawman" && c.lawlessSpells && c.lawlessSpells.seeded) book = c.lawlessSpells;
+    var prepared = !!PREPARED_CASTERS[c.calling];
+    var lv;
+    for (lv = 1; lv <= 9; lv++) {
+      ((book && book[lv]) || []).forEach(function (s) {
+        if (!s || !s.name) return;
+        if (prepared && !s.prepared) return;
+        out.push({ level: lv, name: s.name });
+      });
+    }
+    return out;
+  }
+  function reactionChoices() {
+    var seen = {};
+    var out = [];
+    spellsOnSheet().forEach(function (row) {
+      if (!row || !row.name || spellCost(row.name) !== "reaction") return;
+      var key = baseName(row.name);
+      if (seen[key]) return;
+      seen[key] = 1;
+      var level = parseInt(row.level, 10) || 0;
+      out.push({ level: level, name: String(row.name), value: row.value || (level + ":" + row.name) });
+    });
+    out.sort(function (a, b) { return a.level - b.level || a.name.localeCompare(b.name); });
+    return out;
   }
 
   /* ---- Feature costs from rules.js feature text ---- */
@@ -348,17 +394,104 @@
       : "Action ready. Attacks, spells, Reload, Unload, and Reopen spend it." + (limit > 1 ? " Extra Attack: " + limit + " attacks per Attack action." : "");
     aTip += " Click to mark it " + (st.action ? "ready" : "used") + ".";
     var bTip = st.bonus ? "Bonus action used this turn." : "Bonus action ready. Tactical Reload, Quick Reload, Unjam, Take Cover, bonus-action spells and features spend it.";
-    var rTip = st.reaction ? "Reaction used. It comes back at the start of your own turn." : "Reaction ready. Reaction spells and an approved opportunity attack spend it.";
+    var rTip = st.reaction ? "Reaction used. It comes back at the start of your own turn." : "Reaction ready. Click for an opportunity attack, a reaction spell, or to mark it used.";
     bTip += " Click to mark it " + (st.bonus ? "ready" : "used") + ".";
-    rTip += " Click to mark it " + (st.reaction ? "ready" : "used") + ".";
-    if (inFight()) { aTip += " In a fight only the DM marks it ready."; bTip += " In a fight only the DM marks it ready."; rTip += " In a fight only the DM marks it ready."; }
+    if (inFight()) { aTip += " In a fight only the DM marks it ready."; bTip += " In a fight only the DM marks it ready."; if (st.reaction) rTip += " In a fight only the DM marks it ready."; }
     var partial = st.actionBy === "attack" && st.attacks < limit ? " partial" : "";
     return '<span class="act-pips" data-act-pips>' +
       '<span class="pip-label">This turn</span>' +
       '<button type="button" data-pip="action" aria-pressed="' + st.action + '" class="pip pip-action' + (st.action ? " used" : "") + partial + '" title="' + aTip + '">' + actionText() + '</button>' +
       '<button type="button" data-pip="bonus" aria-pressed="' + st.bonus + '" class="pip pip-bonus' + (st.bonus ? " used" : "") + '" title="' + bTip + '">Bonus</button>' +
-      '<button type="button" data-pip="reaction" aria-pressed="' + st.reaction + '" class="pip pip-reaction' + (st.reaction ? " used" : "") + '" title="' + rTip + '">R</button>' +
+      '<button type="button" data-pip="reaction" aria-haspopup="menu" aria-pressed="' + st.reaction + '" class="pip pip-reaction' + (st.reaction ? " used" : "") + '" title="' + rTip + '">R</button>' +
       '</span>'; /* turn order PR 2 (item 9): no player Reset; the DM resets from the DMCC and the map */
+  }
+  function escAttr(s) {
+    return String(s || "").replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  var menuEl = null;
+  var menuAnchor = null;
+  function closeReactionMenu() {
+    if (menuEl && menuEl.parentNode) menuEl.parentNode.removeChild(menuEl);
+    menuEl = null;
+    menuAnchor = null;
+  }
+  function placeReactionMenu(anchor) {
+    if (!menuEl || !anchor || !anchor.getBoundingClientRect) return;
+    var r = anchor.getBoundingClientRect();
+    var left = r.left;
+    var top = r.bottom + 4;
+    menuEl.style.top = top + "px";
+    menuEl.style.left = left + "px";
+    var w = menuEl.offsetWidth || 240;
+    var h = menuEl.offsetHeight || 40;
+    var vw = (root.innerWidth || 800);
+    var vh = (root.innerHeight || 600);
+    if (left + w > vw - 8) left = Math.max(8, vw - w - 8);
+    if (top + h > vh - 8) top = Math.max(8, r.top - h - 4);
+    menuEl.style.top = top + "px";
+    menuEl.style.left = left + "px";
+  }
+  function openReactionMenu(anchor) {
+    if (menuEl && menuAnchor === anchor) { closeReactionMenu(); return; }
+    closeReactionMenu();
+    if (typeof document === "undefined" || !document.body) return;
+    var spells = reactionChoices();
+    var oaSub = "Ask the DM. If approved, one attack spends your reaction, not your action.";
+    if (st.oaArmed) oaSub = "Approved. Make one attack. It spends your reaction, not your action.";
+    else if (st.oaReq) oaSub = "Waiting for the DM to approve or deny.";
+    var html = '<div class="pip-react-menu" data-pip-react-menu role="menu" aria-label="Reaction">' +
+      '<button type="button" class="pip-react-item" role="menuitem" data-pip-react="oa"><b>Opportunity attack</b><span>' + escAttr(oaSub) + "</span></button>";
+    if (!spells.length) html += '<p class="pip-react-empty">No reaction spells prepared.</p>';
+    spells.forEach(function (sp) {
+      var tag = sp.level ? ("Level " + sp.level) : "Cantrip";
+      html += '<button type="button" class="pip-react-item" role="menuitem" data-pip-react="spell" data-pip-spell="' + escAttr(sp.name) + '" data-pip-level="' + sp.level + '"><b>' + escAttr(sp.name) + "</b><span>" + tag + " · reaction</span></button>";
+    });
+    html += '<button type="button" class="pip-react-item pip-react-mark" role="menuitem" data-pip-react="mark"><b>Mark used</b><span>For when the DM calls it, with no roll.</span></button></div>';
+    var wrap = document.createElement("div");
+    wrap.innerHTML = html;
+    menuEl = wrap.firstChild;
+    menuAnchor = anchor || null;
+    document.body.appendChild(menuEl);
+    placeReactionMenu(anchor);
+  }
+  function askOpportunity() {
+    if (st.reaction) { toast("Reaction already used."); return; }
+    if (st.oaArmed) { toast("Opportunity attack approved. Make one attack; it uses your reaction."); return; }
+    if (st.oaReq) { toast("Opportunity attack: waiting for the DM."); return; }
+    var Lock = root.SSDNSTurnLock;
+    if (Lock && typeof Lock.askOa === "function") { Lock.askOa(); return; }
+    toast("Join the DM's table to ask for an opportunity attack.");
+  }
+  function markReactionUsed() {
+    if (st.reaction) { toast("Reaction already used."); return; }
+    var Ask = root.SSDNSAsk;
+    var go = function () { toggle("reaction"); };
+    if (Ask && typeof Ask.confirm === "function") {
+      Ask.confirm("Are you sure you want to use your Reaction?").then(function (ok) { if (ok) go(); });
+      return;
+    }
+    go();
+  }
+  /** The sheet's Cast button (data-spell-cast). That path spends the reaction when the spell resolves. */
+  function openReactionSpell(name, level) {
+    if (st.reaction) { toast("Reaction already used."); return; }
+    if (typeof document === "undefined" || !document.body) return;
+    var key = String(parseInt(level, 10) || 0) + ":" + name;
+    var live = document.querySelectorAll ? document.querySelectorAll("[data-spell-cast]") : [];
+    var i;
+    for (i = 0; i < live.length; i++) {
+      if ((live[i].getAttribute("data-spell-cast") || "") === key) { live[i].click(); return; }
+    }
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.hidden = true;
+    btn.setAttribute("data-spell-cast", key);
+    btn.setAttribute("aria-hidden", "true");
+    document.body.appendChild(btn);
+    btn.click();
+    if (btn.parentNode) btn.parentNode.removeChild(btn);
   }
   function paint() {
     if (typeof document === "undefined") return;
@@ -371,29 +504,54 @@
   }
   if (typeof document !== "undefined") {
     document.addEventListener("click", function (e) {
+      var item = e.target && e.target.closest && e.target.closest("[data-pip-react]");
+      if (item) {
+        if (e.preventDefault) e.preventDefault();
+        var act = item.getAttribute("data-pip-react");
+        var spellName = item.getAttribute("data-pip-spell");
+        var spellLevel = item.getAttribute("data-pip-level");
+        closeReactionMenu();
+        if (act === "oa") askOpportunity();
+        else if (act === "mark") markReactionUsed();
+        else if (act === "spell") openReactionSpell(spellName, spellLevel);
+        return;
+      }
       var pip = e.target && e.target.closest && e.target.closest("[data-pip]");
-      if (!pip) return;
-      var kind = pip.getAttribute("data-pip");
-      /* A player marking Action or Bonus used (the DM called for it, no roll) confirms first.
-         Clearing is unchanged: in a fight only the DM gives it back, and outside a fight it just flips ready.
-         Reaction is not asked. DM pip buttons are data-dm-pip and do not reach this listener. */
-      if ((kind === "action" || kind === "bonus") && !st[kind]) {
-        var Ask = root.SSDNSAsk;
-        if (Ask && typeof Ask.confirm === "function") {
-          var msg = kind === "bonus"
-            ? "Are you sure you want to use your Bonus action?"
-            : "Are you sure you want to use your Action?";
-          Ask.confirm(msg).then(function (ok) { if (ok) toggle(kind); });
+      if (pip) {
+        var kind = pip.getAttribute("data-pip");
+        /* Ready R opens the picker on the sheet strip, the map strip, and the Weapons box (same button).
+           Spent R is a fading toast only. DM pip buttons are data-dm-pip and do not reach this listener. */
+        if (kind === "reaction") {
+          if (e.preventDefault) e.preventDefault();
+          if (st.reaction) { closeReactionMenu(); toast("Reaction already used."); return; }
+          openReactionMenu(pip);
           return;
         }
+        closeReactionMenu();
+        /* A player marking Action or Bonus used (the DM called for it, no roll) confirms first.
+           Clearing is unchanged: in a fight only the DM gives it back, and outside a fight it just flips ready. */
+        if ((kind === "action" || kind === "bonus") && !st[kind]) {
+          var Ask = root.SSDNSAsk;
+          if (Ask && typeof Ask.confirm === "function") {
+            var msg = kind === "bonus"
+              ? "Are you sure you want to use your Bonus action?"
+              : "Are you sure you want to use your Action?";
+            Ask.confirm(msg).then(function (ok) { if (ok) toggle(kind); });
+            return;
+          }
+        }
+        toggle(kind);
+        return;
       }
-      toggle(kind);
+      if (menuEl && !(e.target && e.target.closest && e.target.closest("[data-pip-react-menu]"))) closeReactionMenu();
     });
+    document.addEventListener("keydown", function (e) { if (e && e.key === "Escape") closeReactionMenu(); });
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", paint); else paint();
   }
   root.SSDNSActionPips = {
     spend: spend, toggle: toggle, attack: attack, spell: spell, feature: feature, reset: reset, onTurn: onTurn, paint: paint,
     blockMap: blockMap, blockReason: blockReason,
+    reactionChoices: reactionChoices, closeReactionMenu: closeReactionMenu,
     attacksPerAction: attacksPerAction, spellCost: spellCost, featureCost: featureCost, rulesCost: rulesCost,
     state: function () { return extras(st, { action: st.action, bonus: st.bonus, reaction: st.reaction, attacks: st.attacks, actionBy: st.actionBy, turnKey: st.turnKey }); },
     adopt: adopt,
