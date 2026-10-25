@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.133"; // sheet-playtest-v03133
+  var APP_VERSION = "0.3.134"; // sheet-playtest-v03134
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -4983,13 +4983,17 @@
       armDirtyD4: function (i) {
         if (window.SSDNSD4 && window.SSDNSD4.arm) return window.SSDNSD4.arm(i);
       },
-      reloadGun: function (i, max) { reload(i, max); },
-      reloadCost: function (i) { var g = C().guns[i]; return reloadCost(g, g && WPN[g.weapon], 0); },
+      reloadGun: function (i, max) {
+        var g = C().guns[i];
+        var tactical = !!max;
+        return withCost(i, reloadCost(g, g && WPN[g.weapon], tactical ? max : 0), tactical ? "Tactical Reload" : "Reload", function () { return reload(i, max); });
+      },
+      reloadCost: function (i, max) { var g = C().guns[i]; return reloadCost(g, g && WPN[g.weapon], max); },
       rechamberOptions: function (i) { return rechamberOptions(i); },
       rechamberGun: function (i, value, opts) { return rechamberGun(i, value, opts); },
       openRechamber: function (i) { return openRechamber(i); },
-      unloadGunIndex: function (i) { unloadLoaded(i); },
-      tacticalReload: function (i) { tacticalReload(i); },
+      unloadGunIndex: function (i) { return withCost(i, UNLOAD_COST, "Unload", function () { return unloadLoaded(i); }); },
+      tacticalReload: function (i) { return withCost(i, "bonus", "Tactical Reload", function () { return tacticalReload(i); }); },
       loadHexShell: function (i) { loadHexShell(i); },
       loadHexAt: function (i, level) { return loadHexAt(i, level); },
       ammoChoices: function (i) { return ammoChoices(i); },

@@ -1,8 +1,11 @@
 /**
  * B4: map attacks, spells, and items spend Action / Bonus / Reaction.
- *   Enemies: SSDNSMapFight.attack / cast / useitem call spendEnemyPip after a published roll.
- *   Multiattack is free up to the stat block; past that we warn and still roll. Reset gives it back.
- *   An off-turn opportunity attack spends Reaction. Players are not spent here (their sheet spends once).
+ *   Enemies: cardStrike marks Action when the attack roll is published (before a Bite save).
+ *   Multiattack is free up to the stat block; past that the DM is warned and the roll still happens.
+ *   An off-turn opportunity attack spends Reaction. Players are not spent on the enemy path.
+ *   Players: a map attack / spell / item / Reload hard-blocks when its pip is already spent, and a spent
+ *   Reaction blocks the opportunity-attack ask and any reaction roll. The DM is notified.
+ *   A player click that marks Action or Bonus used confirms first. Drawer Reload spends the sheet's cost.
  *   A DM move writes only moveUsed (dmFields), so a live adopt cannot clear a pip the sheet just spent.
  *   node tools/test-b4-map-pips.mjs   (browser part needs a static server on 127.0.0.1:8765)
  * DMCC pages open through tools/dmcc-offline.mjs so they never hit the live database.
@@ -62,6 +65,74 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   P.attack("Peacemaker");
   P.adopt({ action: false, bonus: false, reaction: true, attacks: 0, actionBy: "", turnKey: key });
   check("node.bareAdoptReplaces", P.state().action === false && P.state().reaction === true, J(P.state()));
+  sb.SSDNS_RULES = { callings: [{ id: "gunslinger", features: [{ name: "Extra Attack (5th level)", text: "You can attack twice per Attack action (3 times at 11th, 4 times at 20th)." }] }] };
+  const notes = [];
+  sb.SSDNSDmJoin.postLedger = (e) => { notes.push(e); };
+  sb.SSDNSDmJoin.postChat = (e) => { notes.push({ chat: true, text: e && e.text }); };
+  P.reset(true);
+  P.attack("Peacemaker");
+  check("node.extraAllowsSecond", P.blockMap("attack", "Peacemaker") === "" && P.state().attacks === 1, J(P.state()));
+  P.attack("Peacemaker");
+  const third = P.blockMap("attack", "Peacemaker");
+  check("node.thirdAttackBlocks", third === "Action already used." && P.state().attacks === 2, third + " " + J(P.state()));
+  check("node.blockNotifiesDm", notes.some((n) => n && n.pipBlock && /Caleb: Action already used\./.test(n.what) && /Peacemaker was not rolled/.test(n.what)) && notes.some((n) => n && n.chat && /Action already used/.test(n.text)), J(notes));
+  P.reset(true);
+  P.spend("action", "Dash");
+  check("node.actionBlocks", P.blockMap("action", "Dash") === "Action already used." && P.blockMap("bonus", "Healing Word") === "", J(P.state()));
+  P.spend("reaction", "Shield");
+  check("node.reactionBlocks", P.blockMap("reaction", "Shield") === "Reaction already used.", J(P.state()));
+  P.reset(true);
+  P.setOa("oaArmed", "oa_x");
+  check("node.oaRollAllowed", P.blockMap("attack", "Opportunity attack") === "" && P.state().reaction === false, J(P.state()));
+  P.spend("reaction", "Shield");
+  check("node.oaRollBlockedWhenSpent", P.blockMap("attack", "Opportunity attack") === "Reaction already used." && P.state().oaArmed === "oa_x", J(P.state()));
+}
+
+/* ---------- node: player Action / Bonus confirm, only when marking used ---------- */
+{
+  const store = {};
+  const listeners = [];
+  const sb = { console, setTimeout, clearTimeout, Date, Promise };
+  sb.window = sb; sb.globalThis = sb;
+  sb.localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
+  sb.document = {
+    readyState: "complete",
+    addEventListener: (ev, fn) => { listeners.push({ ev: ev, fn: fn }); },
+    querySelector: () => null,
+    createElement: () => ({ innerHTML: "" })
+  };
+  sb.SSDNSApp = { doc: () => ({ character: { name: "Caleb" } }) };
+  sb.SSDNSToast = () => {};
+  sb.SSDNSDmJoin = { uid: () => "u1", pushTurnMarkers: () => {} };
+  const asked = [];
+  let answer = null;
+  sb.SSDNSAsk = { confirm: (msg) => new Promise((res) => { asked.push(msg); answer = res; }) };
+  vm.createContext(sb);
+  vm.runInContext(read("assets/js/action-pips.js"), sb, { filename: "action-pips.js" });
+  const P = sb.SSDNSActionPips;
+  P.reset(true);
+  const click = listeners.filter((l) => l.ev === "click").pop();
+  const fire = (kind) => {
+    const pip = { getAttribute: () => kind };
+    click.fn({ target: { closest: (sel) => (sel === "[data-pip]" ? pip : null) } });
+  };
+  fire("action");
+  check("node.confirmActionAsked", asked[0] === "Are you sure you want to use your Action?" && P.state().action === false, asked.join(" | ") + " " + J(P.state()));
+  answer(false);
+  await Promise.resolve();
+  check("node.confirmCancel", P.state().action === false, J(P.state()));
+  fire("bonus");
+  check("node.confirmBonusAsked", asked[1] === "Are you sure you want to use your Bonus action?" && P.state().bonus === false, asked.join(" | "));
+  answer(true);
+  await Promise.resolve();
+  check("node.confirmBonusOk", P.state().bonus === true && P.state().action === false, J(P.state()));
+  const n = asked.length;
+  fire("bonus");
+  check("node.confirmSkipClear", asked.length === n && P.state().bonus === false, J(P.state()));
+  fire("reaction");
+  check("node.confirmSkipReaction", asked.length === n && P.state().reaction === true, J(P.state()));
+  P.toggle("action");
+  check("node.toggleSkipsConfirm", asked.length === n && P.state().action === true && P.state().actionBy === "manual", J(P.state()));
 }
 
 /* ---------- source wiring ---------- */
@@ -70,12 +141,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const pips = read("assets/js/action-pips.js");
   const join = read("assets/js/dm-join.js");
   const mapJs = read("map/ssdns-map.js");
+  const lock = read("assets/js/turn-lock.js");
+  const dmcc = read("dm/assets/js/dmcc.js");
   const ver = JSON.parse(read("version.json"));
   const attackFn = v2.slice(v2.indexOf("async attack(detail)"), v2.indexOf("async cast(detail)"));
   const castFn = v2.slice(v2.indexOf("async cast(detail)"), v2.indexOf("chamber(detail)"));
   const useFn = v2.slice(v2.indexOf("useitem(detail)"), v2.indexOf("async deathsave(detail)"));
   const playerAttack = attackFn.slice(0, attackFn.indexOf("ensureCombatantCard(row)"));
-  check("src.enemyAttackSpends", /spendEnemyPip\(row, "attack"/.test(attackFn) && !/spendEnemyPip/.test(playerAttack));
+  const strikeFn = v2.slice(v2.indexOf("async function cardStrike"), v2.indexOf("function sheetDiceMode"));
+  const published = strikeFn.lastIndexOf("await publishCardRoll(row, detail, total");
+  const committed = strikeFn.indexOf("await commitEnemyAttack(row, atk, opts)", published);
+  const rider = strikeFn.indexOf("askAttackSave", committed);
+  check("src.enemyAttackSpends", /await commitEnemyAttack\(row, atk, opts\)/.test(strikeFn) && !/spendEnemyPip\(row, "attack"/.test(attackFn) && !/spendEnemyPip/.test(playerAttack));
+  check("src.biteSpendsBeforeSave", published >= 0 && committed > published && rider > committed, "pub " + published + " commit " + committed + " rider " + rider);
+  check("src.rowAtkUsesCardStrike", /data-row-atk/.test(v2) && /cardStrike\(parseInt\(t\.getAttribute\("data-row-atk"\)/.test(v2));
   check("src.enemyCastSpends", /enemySpellCost\(raw\)/.test(castFn) && /spendEnemyPip\(row, cost/.test(castFn) && castFn.indexOf('kind === "player"') < castFn.indexOf("spendEnemyPip"));
   check("src.enemyItemSpends", /enemyItemById\(/.test(useFn) && /spendEnemyPip\(row, cost/.test(useFn) && /kind !== "player"/.test(useFn));
   check("src.playerItemDoesNotSpend", useFn.indexOf("item_use") > useFn.indexOf("spendEnemyPip"));
@@ -86,8 +165,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("src.pushRereads", /if \(Pnow && Pnow\.state\) v = Pnow\.state\(\)/.test(join));
   check("src.mapRepaint", /ssdns:pips-change/.test(mapJs) && /paintPlayerFight\(\)/.test(mapJs.slice(mapJs.indexOf("ssdns:pips-change"))));
   check("src.rulesUntouched", !read("assets/data/rules.js").includes(ver.sheet) && !/actUndo|dmFields/.test(read("database.rules.json")));
-  check("src.versions", ver.sheet === "0.3.133" && ver.dmcc === "0.2.146" && ver.sheetBuild === "sheet-playtest-v03133" && ver.dmccBuild === "dmcc-playtest-v02146");
-  check("src.noDoubleSpendHelper", /row\.kind === "player" \|\| !row\.id/.test(v2.slice(v2.indexOf("async function spendEnemyPip"), v2.indexOf("function resetEnemyMarkers"))));
+  check("src.versions", ver.sheet === "0.3.134" && ver.dmcc === "0.2.147" && ver.sheetBuild === "sheet-playtest-v03134" && ver.dmccBuild === "dmcc-playtest-v02147");
+  check("src.noDoubleSpendHelper", /row\.kind === "player" \|\| !row\.id/.test(v2.slice(v2.indexOf("async function spendEnemyPip"), v2.indexOf("function commitEnemyAttack"))));
+  const runP = mapJs.slice(mapJs.indexOf("function runPlayer"), mapJs.indexOf("function cleanActId"));
+  check("src.playerMapBlocks", /playerMapGate\(/.test(runP) && runP.indexOf("playerMapGate") < runP.indexOf("actions.run") && /blockMap\(/.test(pips));
+  check("src.playerItemBlocks", /function playerUseItem\(/.test(mapJs) && /blockMap\(cost, label\)/.test(mapJs));
+  check("src.reactionHardBlock", /blockMap\("reaction", "Opportunity attack"\)/.test(lock) && /spellCost\(spellName\) === "reaction"/.test(read("assets/js/sheet-extras.js")));
+  check("src.dmPipBlockToast", /function notePipBlocks\(/.test(dmcc) && /e\.pipBlock/.test(dmcc) && dmcc.indexOf("notePipBlocks(next)") > dmcc.indexOf('bind("ledger"'));
+  const appSrc = read("assets/js/app.js");
+  const toggleSrc = pips.slice(pips.indexOf("function toggle(kind)"), pips.indexOf("function reset(quiet)"));
+  check("src.pipConfirm", /Are you sure you want to use your Action\?/.test(pips) && /Are you sure you want to use your Bonus action\?/.test(pips) && !/Are you sure/.test(toggleSrc));
+  check("src.confirmOnlyWhenMarking", /kind === "action" \|\| kind === "bonus"/.test(pips) && /!st\[kind\]/.test(pips) && /Ask\.confirm\(msg\)/.test(pips));
+  const costSrc = mapJs.slice(mapJs.indexOf("function mapActionCost"), mapJs.indexOf("function playerMapGate"));
+  check("src.reloadMapCost", /reloadCost/.test(costSrc) && /gun\[1\] === 'tr'\) return 'bonus'/.test(costSrc) && /gun\[1\] === 'unload' \|\| gun\[1\] === 'reopen'/.test(costSrc));
+  check("src.reloadNotOpportunity", /!gear && st\.oaArmed/.test(mapJs));
+  check("src.reloadGunSpends", /reloadGun: function \(i, max\)/.test(appSrc) && /withCost\(i, reloadCost/.test(appSrc) && /unloadGunIndex: function \(i\) \{ return withCost/.test(appSrc) && /tacticalReload: function \(i\) \{ return withCost/.test(appSrc));
+  check("src.gunCommandBlocks", /function gunCommandPip/.test(join) && /blockMap\(pip\.cost, pip\.what\)/.test(join));
+  const drawerBlock = v2.slice(v2.indexOf("function drawerPipBlock"), v2.indexOf("async function mapGunLoad"));
+  check("src.drawerReloadBlocks", /drawerPipBlock\(row, atk, "reload"/.test(v2) && /row\.kind !== "player"\) return ""/.test(drawerBlock) && /op === "tr" && drawerPipBlock/.test(v2) && /op === "reopen" && drawerPipBlock/.test(v2));
 }
 
 /* ---------- browser: demo DMCC, never the live database ---------- */
@@ -350,6 +445,62 @@ const strip = await pg.evaluate(() => {
   return { text: slot ? slot.textContent : "", used: !!(action && action.classList.contains("used")), reset: !!reset };
 });
 check("dm.stripShowsSpent", strip.used && strip.reset && /Action/.test(strip.text) && /Reset/.test(strip.text), J(strip));
+
+/* Dust Devil Bite waits on the target's Strength save after the roll. Action has to be marked
+   while that save is still pending, or a second Bite can start with the pip still ready. */
+const bite = await pg.evaluate(async () => {
+  const DM = window.DMCC;
+  const wasDemo = DM.state.demo;
+  const wasDb = DM.state.db;
+  const origPush = DM.pushRoll.bind(DM);
+  DM.pushRoll = (row) => {
+    DM.state.rolls = DM.state.rolls || [];
+    DM.state.rolls.unshift(row);
+    return Promise.resolve(row);
+  };
+  DM.state.demo = false;
+  DM.state.db = { fake: 1 };
+  const E = window.DMCCEnhance;
+  const cur = E.currentTurn();
+  if (!cur || cur.kind === "player") {
+    DM.state.demo = wasDemo;
+    DM.state.db = wasDb;
+    DM.pushRoll = origPush;
+    return { skip: true, kind: cur && cur.kind };
+  }
+  cur.card = cur.card || {};
+  cur.card.attacks = (cur.card.attacks || []).concat([{
+    id: "bite", name: "Bite", toHit: 8, damage: "1d4+2",
+    rider: { save: "STR", dc: 11, condition: "Prone", onSave: "none" }
+  }]);
+  document.querySelectorAll("[data-ac-val]").forEach((el) => {
+    el.value = "1";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  const code = (DM.state && DM.state.roomCode) || "demo";
+  const foe = (JSON.parse(localStorage.getItem("ssdns.dm.table." + code) || "{}").order || []).find((r) => r && r.kind === "player");
+  let hit = null;
+  for (let n = 0; n < 12 && !hit; n++) {
+    E.resetEnemyMarkers();
+    let settled = false;
+    const pending = window.SSDNSMapFight.attack({ combatantId: cur.id, weaponId: "bite", targetCombatantId: foe && foe.id });
+    Promise.resolve(pending).then(() => { settled = true; }, () => { settled = true; });
+    await new Promise((r) => setTimeout(r, 280));
+    const again = JSON.parse(localStorage.getItem("ssdns.dm.table." + code) || "{}");
+    const m = (again.markers || {})[cur.id] || {};
+    const detail = String((DM.state.rolls && DM.state.rolls[0] && DM.state.rolls[0].detail) || "");
+    if (/→ (?:HIT|CRIT)/.test(detail) && !/→ MISS/.test(detail)) {
+      hit = { action: !!m.action, attacks: m.attacks || 0, settled: settled, detail: detail.slice(0, 240), n: n };
+      break;
+    }
+    try { await pending; } catch (e) {}
+  }
+  DM.state.demo = wasDemo;
+  DM.state.db = wasDb;
+  DM.pushRoll = origPush;
+  return hit || { action: false, attacks: 0, settled: true, detail: "no hit" };
+});
+check("dm.biteSpendsBeforeSave", bite.action === true && bite.attacks === 1 && bite.settled === false, J(bite));
 
 try {
   const shotDir = "/opt/cursor/artifacts/screenshots";

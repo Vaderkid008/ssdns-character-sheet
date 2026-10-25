@@ -1393,6 +1393,10 @@
   function focusBlocked() { return !!(root.SSDNSFocus && root.SSDNSFocus.gate && root.SSDNSFocus.gate()); }
   function castSpellAttack(i, spellName, slot, fromChamber) {
     if (focusBlocked()) return;
+    /* A spent Reaction does not roll. Action and bonus spells still warn and roll from the sheet. */
+    if (root.SSDNSActionPips && root.SSDNSActionPips.spellCost && root.SSDNSActionPips.blockMap && root.SSDNSActionPips.spellCost(spellName) === "reaction") {
+      if (root.SSDNSActionPips.blockMap("reaction", "Casting " + (spellName || "a spell"))) return;
+    }
     /* Pallbearer Load is a Dexterity save, not a spell attack. The iron still has to be in hand. */
     if (root.SSDNSPactShot && root.SSDNSPactShot.isPactShot(spellName)) {
       var coneShot = root.SSDNSPactShot.variant(ch());

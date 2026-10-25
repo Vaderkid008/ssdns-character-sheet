@@ -1,7 +1,11 @@
 /**
  * Per-turn action economy (0.3.54 guns, 0.3.55 attacks, spells, features).
- * Pips: Action, Bonus, Reaction. Spending a used pip only warns (the DM can allow it); nothing is
- * ever blocked. Pips reset when your own turn starts in the DM's turn order (turn order PR 1). Turn order PR 2: the
+ * Pips: Action, Bonus, Reaction. Sheet buttons still warn and roll when a pip is already spent (the DM can allow it).
+ * The player's map attack, spell, item, or gun action (Reload, Tactical Reload, Unload, Reopen), and a reaction
+ * that is already spent (opportunity-attack ask or a reaction roll), hard-block instead: blockMap toasts the player
+ * and tells the DM. Enemies stay warn-and-allow in the DMCC.
+ * A player click that marks Action or Bonus used asks first. Clearing a pip, Reaction, and the DM's own pip buttons do not.
+ * Pips reset when your own turn starts in the DM's turn order (turn order PR 1). Turn order PR 2: the
  * player's Reset is gone (the DM resets from the DMCC and the map), and in a fight only the DM marks a used pip ready.
  * Costs: "action", "bonus", "reaction", "full" (slow load = action + bonus), "free" (no pip).
  * Attacks: the first attack spends the Action; Extra Attack (from the Calling's feature text in
@@ -145,6 +149,46 @@
   function spell(name) {
     var cost = spellCost(name);
     return spend(cost, "Casting " + (name || "a spell"));
+  }
+
+  /* Player map hard-block, and a spent Reaction (opportunity-attack ask / reaction roll).
+     Returns "" when the roll may go ahead. A reason string means do not roll.
+     Extra Attack stays free up to the limit. An approved opportunity attack spends Reaction, not Action,
+     and is allowed while Reaction is still ready. Sheet attack() / spend() stay warn-and-roll. */
+  var BLOCK_WORD = { action: "Action already used.", bonus: "Bonus action already used.", reaction: "Reaction already used." };
+  function blockReason(cost) {
+    if (!cost || cost === "free") return "";
+    if (cost === "attack") {
+      if (st.oaArmed) return st.reaction ? "Reaction already used." : "";
+      var limit = attacksPerAction();
+      if (!st.action) return "";
+      if (st.actionBy === "attack" && (parseInt(st.attacks, 10) || 0) < limit) return "";
+      return "Action already used.";
+    }
+    if (cost === "full") return (st.action || st.bonus) ? "Action already used." : "";
+    if (cost === "action" || cost === "bonus" || cost === "reaction") return st[cost] ? BLOCK_WORD[cost] : "";
+    return "";
+  }
+  function tellDmBlocked(reason, what) {
+    var c = character();
+    var name = (c && c.name) || "";
+    var line = (name ? name + ": " : "") + reason + (what ? " " + what + " was not rolled." : "");
+    var Join = root.SSDNSDmJoin;
+    if (Join && Join.postLedger) {
+      try { Join.postLedger({ type: "alert", what: line, flag: true, pipBlock: true }); } catch (e) {}
+    }
+    if (Join && Join.postChat) {
+      try { Join.postChat({ text: line }); } catch (e2) {}
+    }
+    return line;
+  }
+  function blockMap(cost, what) {
+    var reason = blockReason(cost);
+    if (!reason) return "";
+    toast(reason);
+    if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: reason });
+    tellDmBlocked(reason, what);
+    return reason;
   }
 
   /* ---- Feature costs from rules.js feature text ---- */
@@ -342,12 +386,28 @@
   if (typeof document !== "undefined") {
     document.addEventListener("click", function (e) {
       var pip = e.target && e.target.closest && e.target.closest("[data-pip]");
-      if (pip) toggle(pip.getAttribute("data-pip"));
+      if (!pip) return;
+      var kind = pip.getAttribute("data-pip");
+      /* A player marking Action or Bonus used (the DM called for it, no roll) confirms first.
+         Clearing is unchanged: in a fight only the DM gives it back, and outside a fight it just flips ready.
+         Reaction is not asked. DM pip buttons are data-dm-pip and do not reach this listener. */
+      if ((kind === "action" || kind === "bonus") && !st[kind]) {
+        var Ask = root.SSDNSAsk;
+        if (Ask && typeof Ask.confirm === "function") {
+          var msg = kind === "bonus"
+            ? "Are you sure you want to use your Bonus action?"
+            : "Are you sure you want to use your Action?";
+          Ask.confirm(msg).then(function (ok) { if (ok) toggle(kind); });
+          return;
+        }
+      }
+      toggle(kind);
     });
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", paint); else paint();
   }
   root.SSDNSActionPips = {
     spend: spend, toggle: toggle, attack: attack, spell: spell, feature: feature, reset: reset, onTurn: onTurn, paint: paint,
+    blockMap: blockMap, blockReason: blockReason, tellDmBlocked: tellDmBlocked,
     attacksPerAction: attacksPerAction, spellCost: spellCost, featureCost: featureCost, rulesCost: rulesCost,
     state: function () { return extras(st, { action: st.action, bonus: st.bonus, reaction: st.reaction, attacks: st.attacks, actionBy: st.actionBy, turnKey: st.turnKey }); },
     adopt: adopt,

@@ -195,6 +195,7 @@
         index: i,
         equipped: g.equipped !== false,
         tr: !!(st && st.w && (root.SSDNSApp && root.SSDNSApp.canTacticalReload ? root.SSDNSApp.canTacticalReload(st.w, c) : st.w.tr)),
+        slow: !!(st && st.w && st.w.slow),
         ammoPool: g.ammoPool == null ? "" : String(g.ammoPool),
         attackMode: g.attackMode === "adv" || g.attackMode === "dis" ? g.attackMode : "",
         pools: (root.SSDNSApp && root.SSDNSApp.ammoChoices) ? root.SSDNSApp.ammoChoices(i) : [],
@@ -1981,12 +1982,29 @@
     root.SSDNSSheet.applyDelta(delta, text);
     root.SSDNSSheet.addLog({ id: id ? "hp:" + id : "", kind: "hp", text: text });
   }
+  /* Sheet cost for a DM gun command. Reload matches reloadCost (Quick Reload bonus, slow full turn). */
+  function gunCommandPip(payload) {
+    payload = payload || {};
+    var app = root.SSDNSApp;
+    var op = payload.op;
+    if (op === "reload") {
+      var max = Number(payload.max) || 0;
+      var cost = max ? "bonus" : ((app && app.reloadCost && app.reloadCost(payload.index, max)) || "action");
+      return { cost: cost, what: max ? "Tactical Reload" : "Reload" };
+    }
+    if (op === "tr") return { cost: "bonus", what: "Tactical Reload" };
+    if (op === "unload") return { cost: "action", what: "Unload" };
+    if (op === "reopen") return { cost: "action", what: "Reopen chamber" };
+    return null;
+  }
   function applyGunCommand(payload, id) {
     payload = payload || {};
     var grant = "gun:" + (payload.grantId || id || "");
     if (!grant || !claimGrant(grant)) return;
     var app = root.SSDNSApp;
     if (!app) return;
+    var pip = gunCommandPip(payload);
+    if (pip && root.SSDNSActionPips && root.SSDNSActionPips.blockMap && root.SSDNSActionPips.blockMap(pip.cost, pip.what)) return;
     if (payload.op === "rechamber" && app.rechamberGun) {
       var rc = app.rechamberGun(payload.index, String(payload.chamber || ""), { free: true });
       if (rc && !rc.ok && root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "DM rechamber failed: " + rc.reason });

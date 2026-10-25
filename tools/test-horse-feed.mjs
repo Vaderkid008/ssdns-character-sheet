@@ -19,7 +19,7 @@ const rulesJs = read("assets/data/rules.js");
 const sheet = read("assets/js/supplies-sheet.js");
 const dm = read("dm/assets/js/supplies-dm.js");
 const extras = read("assets/js/sheet-extras.js");
-check("rules.untouched", !rules.includes("tickMounts") && !rules.includes("horseFeed") && !rulesJs.includes("tickMounts") && !rulesJs.includes("0.3.133"));
+check("rules.untouched", !rules.includes("tickMounts") && !rules.includes("horseFeed") && !rulesJs.includes("tickMounts") && !rulesJs.includes("0.3.134"));
 check("ui.player", sheet.includes('data-feed-mount') && sheet.includes(">Feed</button>") && sheet.includes("horse feed"));
 check("ui.dm", dm.includes("Give feed") && dm.includes("Clear Hungry") && dm.includes("data-sup-graze") && dm.includes("Horse feed does not spoil"));
 check("ui.noCampfire", !dm.includes("hot meal") && !dm.includes("campfire cook") && dm.includes("Hot meals and campfires are still not"));
