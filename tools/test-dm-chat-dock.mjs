@@ -28,6 +28,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("wire.mapChatHiddenDmOnly", /#mapMount \.ssdns-chatdock,\s*\.ssdns-chat-float,\s*\.ssdns-chat-overlay \{ display: none !important; \}/.test(css));
   check("wire.mapChatCodeKept", /ssdns-map-chat\.js\?v=/.test(html) && /SSDNSMapChat\.attach/.test(read("map/ssdns-map.js")) && /className = 'ssdns-chatdock'|ssdns-chatdock/.test(read("map/ssdns-map.js")));
   check("wire.mapCssUntouched", !/0\.2\.123|liveDock|dock-w/.test(read("map/ssdns-map.css")));
+  check("wire.dmPopOut", /id="btnDockPop"/.test(html) && /ensureDmChatPop/.test(js) && /SSDNSMapChat\.attach/.test(js) && /openTab\(/.test(js) && /Allow pop-ups for this site/.test(js) && /\$\("#dockChat"\)/.test(js) && /to\.value = "all"/.test(js));
 }
 
 const puppeteer = (await import("/tmp/pup/node_modules/puppeteer-core/lib/esm/puppeteer/puppeteer-core.js")).default;
@@ -57,6 +58,53 @@ try {
   const shell = await box(dm, "#roomShell"), dice = await box(dm, "#diceBar"), app = await box(dm, "#appbar");
   check("reflow.open", shell.x >= 320 && dice.x >= 320 && app.x >= 320, JSON.stringify({ shell, dice, app }));
   check("feed.hasRolls", await dm.evaluate(() => document.querySelectorAll("#dockFeed .dock-item").length > 0 && !!document.querySelector("#dockFeed .roll-crit, #dockFeed .roll-attack")));
+
+  /* Pop out opens the shared table-chat tab and feeds it the dock publish. A blocked popup toasts. */
+  await dm.evaluate(() => {
+    window.__pop = null;
+    window.__opened = [];
+    window.open = (url, name, features) => {
+      const fake = {
+        closed: false,
+        messages: [],
+        postMessage(data) { this.messages.push(data); },
+        close() { this.closed = true; },
+        focus() {}
+      };
+      window.__pop = fake;
+      window.__opened.push({ url: String(url), name: name, features: String(features || "") });
+      return fake;
+    };
+  });
+  await dm.click("#btnDockPop");
+  await sleep(200);
+  const popped = await dm.evaluate(() => {
+    const opened = window.__opened || [];
+    const pop = window.__pop;
+    const items = pop && pop.messages ? pop.messages.filter((m) => m && m.op === "items") : [];
+    const last = items[items.length - 1];
+    return {
+      n: opened.length,
+      url: opened[0] && opened[0].url,
+      name: opened[0] && opened[0].name,
+      features: opened[0] && opened[0].features,
+      itemOps: items.length,
+      hasText: !!(last && (last.items || []).some((row) => row && row.text)),
+      mapFloat: [...document.querySelectorAll(".ssdns-chat-float, .ssdns-chat-overlay")].some((e) => getComputedStyle(e).display !== "none")
+    };
+  });
+  check("pop.tab", popped.n === 1 && /chat-pop\.html/.test(popped.url || "") && popped.name === "ssdns-map-chat" && /resizable/.test(popped.features || ""), JSON.stringify(popped));
+  check("pop.items", popped.itemOps > 0 && popped.hasText && !popped.mapFloat, JSON.stringify(popped));
+  await dm.evaluate(() => {
+    if (window.__pop) window.__pop.closed = true;
+    window.open = () => null;
+  });
+  await dm.click("#btnDockPop");
+  await sleep(250);
+  check("pop.blocked", await dm.evaluate(() => {
+    const toast = document.querySelector("#toast");
+    return !!(toast && /Allow pop-ups for this site/.test(toast.textContent || "") && !toast.hidden);
+  }));
 
   /* Map tab: the dock sits right next to the map's left tool bar without covering it */
   await dm.evaluate(() => document.querySelector("#tab-map").click());

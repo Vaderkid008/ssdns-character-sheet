@@ -335,8 +335,14 @@
     return { cls: "", tag: "" };
   }
   function chatPopItems() {
+    var me = "";
+    try { me = (root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid()) || ""; } catch (err) {}
     return log.filter(function (e) {
-      return e && (e.kind === "chat" || e.kind === "roll");
+      if (!e || (e.kind !== "chat" && e.kind !== "roll")) return false;
+      /* Private DM lines (dockTo / to other than the whole table, and not this player) stay out of the popup. */
+      var to = e.to || e.dockTo;
+      if (to && to !== "all" && to !== me) return false;
+      return true;
     }).map(function (e) {
       var face = rollFace(e);
       var text = String(e.text || "");

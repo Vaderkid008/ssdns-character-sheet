@@ -521,24 +521,8 @@ body.map-fullscreen #btnMapFull {
 }
 body.map-fullscreen #mapMount:not(:has(.ssdns-rightbar)) .ssdns-chatdock { right: auto; }
 
-/* Player map keeps chat on the left. The DM map stays on the bottom row. */
-.ssdns-map.ssdns-role-player {
-  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) max-content;
-  grid-template-rows: auto auto auto minmax(120px, 1fr);
-  grid-template-areas:
-    "strip strip strip"
-    "bar bar bar"
-    "dice dice dice"
-    "dock stage right";
-}
-.ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)) {
-  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
-  grid-template-areas:
-    "strip strip"
-    "bar bar"
-    "dice dice"
-    "dock stage";
-}
+/* Player map chat. Phones keep the bottom row (below). Desktop docks it on the right
+   in the min-width 600px block at the end of this file. The DM map stays on the bottom row. */
 .ssdns-map.ssdns-role-player:has(.ssdns-chatdock.ssm-chat-shut) {
   grid-template-columns: 148px minmax(0, 1fr) max-content;
 }
@@ -578,7 +562,7 @@ body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock.ssm-chat-shut {
   max-width: 148px;
   height: auto;
 }
-@media (max-width: 700px) {
+@media (max-width: 599px) {
   body:not(.map-fullscreen) .ssdns-map.ssdns-role-player,
   body:not(.map-fullscreen) .ssdns-map.ssdns-role-player:not(:has(.ssdns-rightbar)),
   body:not(.map-fullscreen) .ssdns-map.ssdns-role-player:has(.ssdns-chatdock.ssm-chat-shut),
@@ -1326,4 +1310,139 @@ body.map-fullscreen #mapMount:has(> .ssm-turnstrip:not([hidden])) .ssdns-toolbar
   /* phones: the strip keeps the full width and starts under the Exit full screen button instead of beside it */
   body.map-fullscreen #mapMount > .ssm-turnstrip:not([hidden]),
   body.map-fullscreen #mapMount > .ssm-turnhost { margin-right: 0; margin-top: 46px; }
+}
+
+/* B5: player Map tab, desktop at or above the phone breakpoint (600px).
+   Chat docks on the right edge, the full height of the map, and collapses to a
+   48px strip (vertical Chat label + unread badge). The canvas column reflows.
+   Phones stay on the bottom row from the max-width 599px rules above. */
+@media (min-width: 600px) {
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssdns-chat-side {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-rows: auto auto auto minmax(120px, 1fr);
+    grid-template-areas:
+      "strip dock"
+      "bar dock"
+      "dice dock"
+      "stage dock";
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side:has(.ssdns-rightbar),
+  body.map-fullscreen #mapMount.ssdns-role-player.ssdns-chat-side:has(.ssdns-rightbar) {
+    grid-template-columns: minmax(0, 1fr) max-content 320px;
+    grid-template-areas:
+      "strip strip dock"
+      "bar bar dock"
+      "dice dice dock"
+      "stage right dock";
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side:has(.ssdns-chatdock.ssm-chat-shut),
+  body.map-fullscreen #mapMount.ssdns-role-player.ssdns-chat-side:has(.ssdns-chatdock.ssm-chat-shut) {
+    grid-template-columns: minmax(0, 1fr) 48px;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side:has(.ssdns-rightbar):has(.ssdns-chatdock.ssm-chat-shut),
+  body.map-fullscreen #mapMount.ssdns-role-player.ssdns-chat-side:has(.ssdns-rightbar):has(.ssdns-chatdock.ssm-chat-shut) {
+    grid-template-columns: minmax(0, 1fr) max-content 48px;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side.ssdns-chat-popped,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssdns-chat-side.ssdns-chat-popped {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "strip"
+      "bar"
+      "dice"
+      "stage";
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chatdock,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssdns-chat-side .ssdns-chatdock {
+    width: auto;
+    max-width: none;
+    max-height: none;
+    align-self: stretch;
+    justify-self: stretch;
+    overflow: hidden;
+    border-radius: 6px;
+    border-left: 1px solid #3a4a42;
+    background: #171c1f;
+    box-sizing: border-box;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chathead,
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chatdock [data-act="chatrow"] {
+    flex: none;
+    padding: 8px;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chathead {
+    border-bottom: 1px solid #3a4a42;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chatdock [data-act="chatrow"] {
+    border-top: 1px solid #3a4a42;
+    margin: 0;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chatdock.ssm-chat-shut,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssdns-chat-side .ssdns-chatdock.ssm-chat-shut {
+    align-self: stretch;
+    width: auto;
+    max-width: none;
+    height: auto;
+    padding: 0;
+    overflow: hidden;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chatdock.ssm-chat-shut .ssdns-chathead {
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    border: 0;
+    padding: 0;
+    height: 100%;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chatdock.ssm-chat-shut .ssdns-chathead > :not([data-act="chatToggle"]) {
+    display: none;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chatdock.ssm-chat-shut [data-act="chatToggle"] {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    width: 100%;
+    margin: 0;
+    padding: 14px 0;
+    background: transparent;
+    border: 0;
+    color: #e2c56a;
+    cursor: pointer;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chatdock.ssm-chat-shut .ssm-chat-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 13px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chatdock.ssm-chat-shut [data-act="chatCaret"] {
+    display: none;
+  }
+  body .ssdns-map.ssdns-role-player.ssdns-chat-side .ssdns-chatdock.ssm-chat-shut .ssm-chatbadge {
+    writing-mode: horizontal-tb;
+    transform: none;
+    min-width: 22px;
+    padding: 2px 6px;
+    border-radius: 99px;
+    background: #6b5420;
+    color: #f6ecd6;
+  }
+  body.map-fullscreen #mapMount.ssdns-role-player.ssdns-chat-side > .ssm-turnstrip:not([hidden]),
+  body.map-fullscreen #mapMount.ssdns-role-player.ssdns-chat-side > .ssm-turnhost {
+    margin-right: 0;
+  }
+  body.map-fullscreen:has(#mapMount.ssdns-role-player.ssdns-chat-side) #btnMapFull {
+    right: 328px;
+  }
+  body.map-fullscreen:has(#mapMount.ssdns-role-player.ssdns-chat-side .ssdns-chatdock.ssm-chat-shut) #btnMapFull {
+    right: 56px;
+  }
+  body.map-fullscreen:has(#mapMount.ssdns-role-player.ssdns-chat-side.ssdns-chat-popped) #btnMapFull {
+    right: 8px;
+  }
 }

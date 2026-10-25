@@ -31,8 +31,8 @@ check("src.noBarePactHidden", !/!pact\.hidden/.test(hostSrc) && !/pact\.closest\
 check("src.dedupe", /seenSpell\[raw\]/.test(hostSrc) && /firstShown\(/.test(hostSrc));
 check("src.repaint", /paintPact\._mapSig/.test(playSrc) && /refreshCard\(\)/.test(playSrc));
 check("src.stillFires", /castNamed\("Pact Shot"\)/.test(playSrc) && /rollCone\(ch\(\)\)/.test(playSrc));
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("pactShotOnMap") && !read("database.rules.json").includes("pactShotOnMap") && !read("assets/data/rules.js").includes("0.3.127") && !read("assets/data/rules.js").includes("Hellshot"));
-check("src.versions", ver.sheet === "0.3.127" && ver.dmcc === "0.2.140" && ver.sheetBuild === "sheet-playtest-v03127" && ver.dmccBuild === "dmcc-playtest-v02140");
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("pactShotOnMap") && !read("database.rules.json").includes("pactShotOnMap") && !read("assets/data/rules.js").includes("0.3.128") && !read("assets/data/rules.js").includes("Hellshot"));
+check("src.versions", ver.sheet === "0.3.128" && ver.dmcc === "0.2.141" && ver.sheetBuild === "sheet-playtest-v03128" && ver.dmccBuild === "dmcc-playtest-v02141");
 
 function boot() {
   const html = `<!doctype html><html><body>

@@ -63,6 +63,7 @@ window.SSDNSMap = { create(opts) {
   if (!el) throw new Error('SSDNSMap: el required');
   const role = opts.role === 'dm' ? 'dm' : 'player';
   el.classList.add(role === 'player' ? 'ssdns-role-player' : 'ssdns-role-dm');
+  if (role === 'player') el.classList.add('ssdns-chat-side');
   const uid = opts.uid;
   if (!uid) throw new Error('SSDNSMap: uid required');
   const adapter = opts.adapter;
@@ -462,7 +463,7 @@ on(document, 'keydown', e => {
 });
 const chatdock = document.createElement('div');
 chatdock.className = 'ssdns-chatdock';
-chatdock.innerHTML = `<div class="ssdns-chathead"><button type="button" data-act="chatToggle" aria-expanded="true" title="Minimize chat">Chat <span data-act="chatCaret" aria-hidden="true">▾</span> <span data-act="chatBadge" class="ssm-chatbadge" hidden>0</span></button><span data-act="chatFilters"><button type="button" data-chat-filter="all" class="on">All</button><button type="button" data-chat-filter="rolls">Rolls</button><button type="button" data-chat-filter="talk">Talk</button></span><span class="name-mode" role="group" aria-label="Show names as"><button type="button" data-name-mode="character">Character</button><button type="button" data-name-mode="player">Player</button></span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatWindow" class="ssm-chat-tab">Open in new tab</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden></p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
+chatdock.innerHTML = `<div class="ssdns-chathead"><button type="button" data-act="chatToggle" aria-expanded="true" title="Minimize chat"><span class="ssm-chat-label">Chat</span> <span data-act="chatCaret" aria-hidden="true">▾</span> <span data-act="chatBadge" class="ssm-chatbadge" hidden>0</span></button><span data-act="chatFilters"><button type="button" data-chat-filter="all" class="on">All</button><button type="button" data-chat-filter="rolls">Rolls</button><button type="button" data-chat-filter="talk">Talk</button></span><span class="name-mode" role="group" aria-label="Show names as"><button type="button" data-name-mode="character">Character</button><button type="button" data-name-mode="player">Player</button></span><button type="button" data-act="chatPop">Pop out</button><button type="button" data-act="chatWindow" class="ssm-chat-tab">Open in new tab</button><button type="button" data-act="chatDock" hidden>Dock</button></div><p class="ssdns-chatnote" data-act="chatPopNote" hidden></p><div data-act="chatlog"></div><div data-act="chatrow"><input data-act="chatInput" placeholder="Chat or /roll"><button type="button" data-act="chatSend">Send</button></div>`;
 el.appendChild(chatdock);
 /* DM bottom chat: drag the top edge to resize (saved per device). */
 const CHAT_H_KEY = 'ssdns.map.chatHeight.' + (role === 'dm' ? 'dm' : 'player');
@@ -527,7 +528,18 @@ try {
       localStorage.setItem(chatKey, state.chatOpen ? '1' : '0');
     }
   }
+  /* Player desktop dock remembers open/closed on its own key. Older chatOpen keys still apply when it is unset. */
+  if (role === 'player') {
+    const dockState = localStorage.getItem('ssdns.map.chatDock');
+    if (dockState === 'open' || dockState === 'closed') state.chatOpen = dockState === 'open';
+  }
 } catch (e) {}
+/* A private line (dockTo / to other than the whole table) stays off a player's map and popup. */
+function audienceOk(row) {
+  if (role === 'dm' || !row) return true;
+  const to = row.to || row.dockTo;
+  return !to || to === 'all' || to === uid;
+}
 function chatBucket(row) {
   if (!row || row.kind === 'sfx') return '';
   if (row.kind === 'roll' || row.kind === 'rolls' || row.attack) return 'rolls';
@@ -641,6 +653,7 @@ paintRoleBadge();
 function pushFeed(row) {
   if (row && (row.fx || row.fxReq)) { try { fxFromFeed(row); } catch (e) {} }
   if (!row || row.kind === 'sfx') { if (row && host.sfx) host.sfx(row); return; }
+  if (!audienceOk(row)) return;
   state.chat = state.chat || [];
   state.chat.push(row);
   if (state.chat.length > 100) {
@@ -652,7 +665,7 @@ function pushFeed(row) {
   renderChat();
 }
 function setChat(rows) {
-  state.chat = (rows || []).filter(row => row && row.kind !== 'sfx');
+  state.chat = (rows || []).filter(row => row && row.kind !== 'sfx' && audienceOk(row));
   state.chatSeen = state.chat.filter(chatBucket).length;
   renderChat();
 }
@@ -665,6 +678,13 @@ function setChatFilter(next) {
   renderChat();
   if (changed && chatUi && chatUi.setFilter) chatUi.setFilter(next);
 }
+function reflowAfterChat() {
+  if (role !== 'player') return;
+  requestAnimationFrame(() => {
+    resize();
+    requestDraw();
+  });
+}
 function setChatOpen(open) {
   state.chatOpen = !!open;
   if (state.chatOpen) state.chatSeen = (state.chat || []).filter(chatBucket).length;
@@ -672,8 +692,10 @@ function setChatOpen(open) {
     const Equip = window.SSDNSEquip;
     if (Equip && Equip.writeChatOpen) Equip.writeChatOpen(localStorage, role, state.chatOpen);
     else localStorage.setItem(role === 'dm' ? 'ssdns.map.chatOpen.dm' : 'ssdns.map.chatOpen.player', state.chatOpen ? '1' : '0');
+    if (role === 'player') localStorage.setItem('ssdns.map.chatDock', state.chatOpen ? 'open' : 'closed');
   } catch (e) {}
   renderChat();
+  reflowAfterChat();
 }
 
 function refreshSelectedPanel() {
@@ -702,7 +724,7 @@ function sendChat() {
   emit('chat:send', { text });
 }
 function mapChatItems() {
-  return (state.chat || []).filter(row => row && row.kind !== 'sfx').map(row => {
+  return (state.chat || []).filter(row => row && row.kind !== 'sfx' && audienceOk(row)).map(row => {
     const crit = !!row.crit || Number(row.nat) === 20;
     const attack = row.kind === 'roll' || !!row.attack;
     return {
@@ -732,6 +754,7 @@ if (window.SSDNSMapChat) {
     },
     onMode: function (open, mode, extra) {
       el.classList.toggle('ssdns-chat-popped', !!open);
+      reflowAfterChat();
       const popBtn = q('chatPop');
       const dockBtn = q('chatDock');
       const note = q('chatPopNote');
