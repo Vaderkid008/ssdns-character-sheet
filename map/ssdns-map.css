@@ -1074,6 +1074,8 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
 .ssm-turnstrip .btn-next:hover { background: #a33b28; border-color: #5e1e13; color: #fff; }
 .ssm-turnstrip .turn-round { flex: none; color: #e2c56a; font-size: 12px; letter-spacing: .04em; white-space: nowrap; font-family: "Oswald", "Arial Narrow", sans-serif; }
 .ssm-turnstrip .dm-turn-now { flex: none; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #b42318; color: #fff; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; font-size: 10px; border-radius: 4px; padding: 2px 6px; font-family: "Oswald", "Arial Narrow", sans-serif; }
+.ssm-turnstrip .ssm-floor-note { flex: none; color: #e2c56a; font-size: 12px; letter-spacing: .02em; white-space: nowrap; }
+.ssm-nudge { font-size: 12px; }
 .ssm-turnstrip .btn.sm { border-radius: 999px; min-height: 28px; padding: 0 10px; font-size: 11px; letter-spacing: .06em; }
 /* 0.2.77: idle strip for the DM, and End combat pushed to the far end */
 .ssm-turnstrip .ssm-strip-idle { color: #b9a888; font-size: 13px; padding: 0 6px; flex: 0 0 auto; }
