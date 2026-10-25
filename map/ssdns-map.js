@@ -942,8 +942,9 @@ if (role === 'dm') {
   card.setAttribute('data-act', 'playerCard');
   card.innerHTML = `
     <div class="ssm-card-head" data-act="playerCardHead">
+      <button type="button" data-act="playerCardMin" aria-expanded="true" title="Collapse card"><span class="ssm-dock-label" data-act="playerDockLabel">My token</span> <span data-act="playerCaret" aria-hidden="true">◂</span></button>
       <b data-act="playerName">My token</b>
-      <button type="button" data-act="playerCardMin" aria-label="Minimize">–</button>
+      <button type="button" data-act="playerDock" title="Dock to the side" hidden>Dock</button>
     </div>
     <div class="ssm-card-body">
       <div class="ssm-tools">
@@ -5961,56 +5962,14 @@ if (role === 'dm') {
   (function placePlayerCard() {
     const card = q('playerCard');
     if (!card) return;
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem('ssdns.playerCard') || 'null'); } catch (e) { saved = null; }
-    if (saved && isFinite(saved.x) && isFinite(saved.y)) {
-      card.style.left = saved.x + 'px';
-      card.style.top = saved.y + 'px';
-      card.style.right = 'auto';
-    }
-    if (saved && saved.min) {
-      card.classList.add('min');
-      const minBtn = q('playerCardMin');
-      if (minBtn) minBtn.textContent = '+';
-    }
-    function persist() {
-      const rect = card.getBoundingClientRect();
-      const host = el.getBoundingClientRect();
-      try {
-        localStorage.setItem('ssdns.playerCard', JSON.stringify({
-          x: rect.left - host.left,
-          y: rect.top - host.top,
-          min: card.classList.contains('min')
-        }));
-      } catch (e) {}
-    }
-    const head = q('playerCardHead');
-    let drag = null;
-    if (head) {
-      head.addEventListener('pointerdown', (e) => {
-        if (e.target && e.target.closest && e.target.closest('button')) return;
-        const rect = card.getBoundingClientRect();
-        const hostBox = el.getBoundingClientRect();
-        drag = { dx: e.clientX - rect.left, dy: e.clientY - rect.top, host: hostBox };
-        card.style.left = (rect.left - hostBox.left) + 'px';
-        card.style.top = (rect.top - hostBox.top) + 'px';
-        card.style.right = 'auto';
-        if (head.setPointerCapture) head.setPointerCapture(e.pointerId);
-      });
-      head.addEventListener('pointermove', (e) => {
-        if (!drag) return;
-        card.style.left = Math.max(0, e.clientX - drag.dx - drag.host.left) + 'px';
-        card.style.top = Math.max(0, e.clientY - drag.dy - drag.host.top) + 'px';
-      });
-      const endDrag = () => { if (!drag) return; drag = null; persist(); };
-      head.addEventListener('pointerup', endDrag);
-      head.addEventListener('pointercancel', endDrag);
-    }
+    applyTokenDock(card);
+    bindTokenDrag(card);
     const minBtn = q('playerCardMin');
-    if (minBtn) minBtn.addEventListener('click', () => {
-      card.classList.toggle('min');
-      minBtn.textContent = card.classList.contains('min') ? '+' : '–';
-      persist();
+    if (minBtn) minBtn.addEventListener('click', () => toggleTokenShut(card));
+    const dockBtn = q('playerDock');
+    if (dockBtn) dockBtn.addEventListener('click', () => {
+      const st = tokenDockState();
+      dockToken(card, (st && st.side) || 'left');
     });
   })();
   function myToken() {
@@ -6650,6 +6609,8 @@ async function loadSceneImage(sceneId, opts) {
     state.pendingTarget = null;
     const d = q('drawer');
     if (d) d.remove();
+    el.classList.remove('ssm-token-dock', 'ssm-token-left', 'ssm-token-right', 'ssm-token-shut');
+    reflowTokenDock();
     emit('drawer:close', { tokenId: id });
   }
   function spellFoldOpen(which) {
@@ -7269,6 +7230,8 @@ async function loadSceneImage(sceneId, opts) {
     const card = playerFightModel();
     const nameEl = q('playerName');
     if (nameEl && card.name) nameEl.textContent = card.name;
+    const dockLabel = q('playerDockLabel');
+    if (dockLabel && card.name) dockLabel.textContent = card.name;
     paintAddMine();
     paintRoleBadge();
     const stats = q('playerStats');
@@ -7420,8 +7383,198 @@ async function loadSceneImage(sceneId, opts) {
       });
     });
   }
-  const DM_CARD_KEY = 'ssdns.dmCard';
+  /* B14: the token card docks like map chat (player left, DM right). Drag the head to float it,
+     drop the pointer on a side edge to dock there again. Open/collapsed, side, and float spot
+     stay on this device. DM keeps ssdns.dmCard; the player card keeps ssdns.playerCard. */
+  const TOKEN_DOCK_KEY = role === 'dm' ? 'ssdns.dmCard' : 'ssdns.playerCard';
   let dmCardResize = false;
+  function defaultDockSide() { return role === 'player' ? 'left' : 'right'; }
+  function readTokenDock() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(TOKEN_DOCK_KEY) || 'null');
+      if (saved && typeof saved === 'object') return saved;
+    } catch (e) {}
+    return null;
+  }
+  function tokenDockState() {
+    const saved = readTokenDock();
+    const fallback = defaultDockSide();
+    if (!saved) return { mode: 'dock', side: fallback, open: true, min: false };
+    if (saved.mode === 'dock') {
+      const side = saved.side === 'left' || saved.side === 'right' ? saved.side : fallback;
+      const shut = saved.open === false || saved.min === true;
+      return { mode: 'dock', side: side, open: !shut, min: shut };
+    }
+    if (saved.mode === 'float' || (isFinite(saved.x) && isFinite(saved.y))) {
+      const side = saved.side === 'left' || saved.side === 'right' ? saved.side : fallback;
+      return { mode: 'float', x: Number(saved.x), y: Number(saved.y), side: side, open: saved.min !== true, min: !!saved.min };
+    }
+    return { mode: 'dock', side: fallback, open: true, min: false };
+  }
+  function writeTokenDock(obj) {
+    try {
+      if (!obj) localStorage.removeItem(TOKEN_DOCK_KEY);
+      else localStorage.setItem(TOKEN_DOCK_KEY, JSON.stringify(obj));
+    } catch (e) {}
+  }
+  function reflowTokenDock() {
+    try {
+      requestAnimationFrame(() => { try { resize(); } catch (e) {} });
+    } catch (e) {}
+  }
+  function syncDockChrome(panel) {
+    if (!panel) return;
+    const floating = panel.classList.contains('placed') || panel.classList.contains('ssm-float');
+    const shut = !floating && el.classList.contains('ssm-token-shut');
+    const collapse = panel.querySelector('[data-act="drawerCollapse"], [data-act="playerCardMin"]');
+    if (collapse) {
+      const closed = shut || (floating && panel.classList.contains('min'));
+      collapse.setAttribute('aria-expanded', closed ? 'false' : 'true');
+      collapse.title = closed ? 'Expand card' : 'Collapse card';
+    }
+    const caret = panel.querySelector('[data-act="drawerCaret"], [data-act="playerCaret"]');
+    if (caret) {
+      const side = el.classList.contains('ssm-token-left') ? 'left' : (el.classList.contains('ssm-token-right') ? 'right' : defaultDockSide());
+      caret.textContent = side === 'left' ? '◂' : '▸';
+    }
+    const dockBtn = panel.querySelector('[data-act="drawerDock"], [data-act="playerDock"]');
+    if (dockBtn) dockBtn.hidden = !floating;
+    const label = panel.querySelector('.ssm-dock-label');
+    if (label) {
+      const nameEl = panel.querySelector('.ssm-drawer-head b, [data-act="playerName"]');
+      const name = nameEl && String(nameEl.textContent || '').trim();
+      if (name) label.textContent = name;
+    }
+  }
+  function applyTokenDock(panel) {
+    if (!panel) return;
+    const st = tokenDockState();
+    const playerCard = panel.classList.contains('ssdns-playercard');
+    if (st.mode === 'float' && isFinite(st.x) && isFinite(st.y)) {
+      panel.classList.add('placed', 'ssm-float');
+      el.classList.remove('ssm-token-dock', 'ssm-token-left', 'ssm-token-right', 'ssm-token-shut');
+      panel.style.right = 'auto';
+      panel.style.bottom = 'auto';
+      panel.style.left = st.x + 'px';
+      panel.style.top = st.y + 'px';
+      if (!playerCard) clampDmCard(panel);
+      panel.classList.toggle('min', !!st.min);
+      syncDockChrome(panel);
+      reflowTokenDock();
+      return;
+    }
+    panel.classList.remove('placed', 'ssm-float');
+    panel.style.left = '';
+    panel.style.top = '';
+    panel.style.right = '';
+    panel.style.bottom = '';
+    const shut = !!st.min || st.open === false;
+    el.classList.add('ssm-token-dock');
+    el.classList.toggle('ssm-token-left', st.side === 'left');
+    el.classList.toggle('ssm-token-right', st.side !== 'left');
+    el.classList.toggle('ssm-token-shut', shut);
+    panel.classList.toggle('min', shut);
+    syncDockChrome(panel);
+    reflowTokenDock();
+  }
+  function dockToken(panel, side) {
+    const prev = tokenDockState();
+    const shut = !!(prev && (prev.min || prev.open === false) && (panel.classList.contains('min') || el.classList.contains('ssm-token-shut')));
+    writeTokenDock({ mode: 'dock', side: side === 'left' ? 'left' : 'right', open: !shut, min: shut });
+    applyTokenDock(panel);
+  }
+  function saveFloat(panel) {
+    const prev = readTokenDock() || {};
+    const x = parseFloat(panel.style.left);
+    const y = parseFloat(panel.style.top);
+    if (!isFinite(x) || !isFinite(y)) return;
+    const min = panel.classList.contains('min');
+    const side = prev.side === 'left' || prev.side === 'right' ? prev.side : defaultDockSide();
+    writeTokenDock({ mode: 'float', x: Math.round(x), y: Math.round(y), side: side, open: !min, min: min });
+  }
+  function resetTokenDock(panel) {
+    writeTokenDock(null);
+    if (panel) panel.classList.remove('min');
+    applyTokenDock(panel);
+  }
+  function toggleTokenShut(panel) {
+    if (!panel) return;
+    const floating = panel.classList.contains('placed') || panel.classList.contains('ssm-float');
+    if (floating) {
+      panel.classList.toggle('min');
+      saveFloat(panel);
+      syncDockChrome(panel);
+      return;
+    }
+    const st = tokenDockState();
+    const shut = !el.classList.contains('ssm-token-shut');
+    writeTokenDock({ mode: 'dock', side: st.side || defaultDockSide(), open: !shut, min: shut });
+    applyTokenDock(panel);
+  }
+  function edgeSide(clientX, host) {
+    if (!host || !isFinite(clientX)) return '';
+    const edge = 28;
+    if (clientX <= host.left + edge) return 'left';
+    if (clientX >= host.right - edge) return 'right';
+    return '';
+  }
+  function bindTokenDrag(panel) {
+    let drag = null;
+    on(panel, 'pointerdown', (e) => {
+      const head = e.target.closest && (e.target.closest('.ssm-drawer-head') || e.target.closest('.ssm-card-head'));
+      if (!head || !panel.contains(head)) return;
+      if (e.target.closest && e.target.closest('button, a, input, select, textarea, label')) return;
+      const rect = panel.getBoundingClientRect();
+      const host = el.getBoundingClientRect();
+      const pad = mapPad();
+      drag = {
+        x0: e.clientX,
+        y0: e.clientY,
+        left: rect.left - host.left - pad.x,
+        top: rect.top - host.top - pad.y,
+        host: host,
+        pad: pad,
+        moved: false
+      };
+      if (head.setPointerCapture && e.pointerId != null) {
+        try { head.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+      e.preventDefault();
+    });
+    on(panel, 'pointermove', (e) => {
+      if (!drag) return;
+      if (!drag.moved) {
+        if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 4) return;
+        drag.moved = true;
+        panel.classList.add('placed', 'ssm-float');
+        el.classList.remove('ssm-token-dock', 'ssm-token-left', 'ssm-token-right', 'ssm-token-shut');
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        panel.style.left = Math.round(drag.left) + 'px';
+        panel.style.top = Math.round(drag.top) + 'px';
+      }
+      const limits = cardLimits(panel, drag.host, drag.pad);
+      const x = Math.min(Math.max(0, drag.left + (e.clientX - drag.x0)), limits.maxX);
+      const y = Math.min(Math.max(0, drag.top + (e.clientY - drag.y0)), limits.maxY);
+      panel.style.left = Math.round(x) + 'px';
+      panel.style.top = Math.round(y) + 'px';
+    });
+    const endDrag = (e, allowSnap) => {
+      if (!drag) return;
+      const moved = drag.moved;
+      const host = drag.host;
+      drag = null;
+      if (!moved) return;
+      if (panel.classList.contains('ssm-drawer')) clampDmCard(panel);
+      const side = allowSnap ? edgeSide(e && e.clientX, host) : '';
+      if (side) dockToken(panel, side);
+      else saveFloat(panel);
+      syncDockChrome(panel);
+      reflowTokenDock();
+    };
+    on(panel, 'pointerup', (e) => endDrag(e, true));
+    on(panel, 'pointercancel', (e) => endDrag(e, false));
+  }
   function mapPad() {
     const n = (v) => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
     let cs = null;
@@ -7433,13 +7586,6 @@ async function loadSceneImage(sceneId, opts) {
       r: n(cs.borderRightWidth) + n(cs.paddingRight),
       b: n(cs.borderBottomWidth) + n(cs.paddingBottom)
     };
-  }
-  function readDmCard() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(DM_CARD_KEY) || 'null');
-      if (saved && isFinite(saved.x) && isFinite(saved.y)) return saved;
-    } catch (e) {}
-    return null;
   }
   function cardLimits(d, host, pad) {
     const rect = d.getBoundingClientRect();
@@ -7466,80 +7612,30 @@ async function loadSceneImage(sceneId, opts) {
     d.style.right = 'auto';
     d.style.bottom = 'auto';
   }
-  function saveDmCard(d) {
-    const x = parseFloat(d.style.left);
-    const y = parseFloat(d.style.top);
-    if (!isFinite(x) || !isFinite(y)) return;
-    try { localStorage.setItem(DM_CARD_KEY, JSON.stringify({ x: Math.round(x), y: Math.round(y) })); } catch (e) {}
-  }
-  function placeDmCard(d, pos) {
-    if (!d || !pos) return;
-    d.classList.add('placed');
-    d.style.right = 'auto';
-    d.style.bottom = 'auto';
-    d.style.left = pos.x + 'px';
-    d.style.top = pos.y + 'px';
-    clampDmCard(d);
-  }
-  function resetDmCard(d) {
-    if (!d) return;
-    d.classList.remove('placed');
-    d.style.left = '';
-    d.style.top = '';
-    d.style.right = '';
-    d.style.bottom = '';
-    try { localStorage.removeItem(DM_CARD_KEY); } catch (e) {}
-  }
   function bindDmCard(d) {
-    placeDmCard(d, readDmCard());
-    let drag = null;
-    on(d, 'pointerdown', (e) => {
-      const head = e.target.closest && e.target.closest('.ssm-drawer-head');
-      if (!head || !d.contains(head)) return;
-      if (e.target.closest && e.target.closest('button, a, input, select, textarea')) return;
-      const rect = d.getBoundingClientRect();
-      const host = el.getBoundingClientRect();
-      const pad = mapPad();
-      drag = {
-        x0: e.clientX,
-        y0: e.clientY,
-        left: rect.left - host.left - pad.x,
-        top: rect.top - host.top - pad.y,
-        host: host,
-        pad: pad
-      };
-      d.classList.add('placed');
-      d.style.right = 'auto';
-      d.style.bottom = 'auto';
-      d.style.left = Math.round(drag.left) + 'px';
-      d.style.top = Math.round(drag.top) + 'px';
-      if (head.setPointerCapture) head.setPointerCapture(e.pointerId);
-      e.preventDefault();
-    });
-    on(d, 'pointermove', (e) => {
-      if (!drag) return;
-      const limits = cardLimits(d, drag.host, drag.pad);
-      const x = Math.min(Math.max(0, drag.left + (e.clientX - drag.x0)), limits.maxX);
-      const y = Math.min(Math.max(0, drag.top + (e.clientY - drag.y0)), limits.maxY);
-      d.style.left = Math.round(x) + 'px';
-      d.style.top = Math.round(y) + 'px';
-    });
-    const endDrag = () => {
-      if (!drag) return;
-      drag = null;
-      clampDmCard(d);
-      saveDmCard(d);
-    };
-    on(d, 'pointerup', endDrag);
-    on(d, 'pointercancel', endDrag);
+    applyTokenDock(d);
+    bindTokenDrag(d);
     on(d, 'click', (e) => {
       /* turn order PR 2 (items 8, 9): the DM page's own handler changes the player's markers; repaint after it */
       const pip = e.target.closest && e.target.closest('[data-dm-pip], [data-pip-reset], [data-dm-move], [data-dm-act]');
       if (pip && d.contains(pip)) { setTimeout(() => renderDrawer(), 30); return; }
+      const collapse = e.target.closest && e.target.closest('[data-act="drawerCollapse"]');
+      if (collapse && d.contains(collapse)) {
+        e.preventDefault();
+        toggleTokenShut(d);
+        return;
+      }
+      const dockBtn = e.target.closest && e.target.closest('[data-act="drawerDock"]');
+      if (dockBtn && d.contains(dockBtn)) {
+        e.preventDefault();
+        const st = tokenDockState();
+        dockToken(d, (st && st.side) || 'right');
+        return;
+      }
       const btn = e.target.closest && e.target.closest('[data-act="drawerReset"]');
       if (!btn || !d.contains(btn)) return;
       e.preventDefault();
-      resetDmCard(d);
+      resetTokenDock(d);
     });
     if (!dmCardResize) {
       dmCardResize = true;
@@ -7548,6 +7644,15 @@ async function loadSceneImage(sceneId, opts) {
         if (live && live.classList.contains('placed')) clampDmCard(live);
       });
     }
+  }
+  function drawerHeadHtml(title, kind) {
+    const kindHtml = kind ? ' <span class="ssm-kind">' + esc(kind) + '</span>' : '';
+    return '<div class="ssm-drawer-head">' +
+      '<button type="button" data-act="drawerCollapse" aria-expanded="true" title="Collapse card"><span class="ssm-dock-label">' + esc(title || 'Card') + '</span> <span data-act="drawerCaret" aria-hidden="true">▸</span></button>' +
+      '<b>' + esc(title || 'Card') + '</b>' + kindHtml +
+      '<button type="button" data-act="drawerDock" title="Dock to the side" hidden>Dock</button>' +
+      '<button type="button" data-act="drawerReset" title="Reset card position" aria-label="Reset card position">Reset</button>' +
+      '<button type="button" data-act="drawerClose">×</button></div>';
   }
   function gearDrawerHtml(card) {
     if (!card || card.kind === 'pc') return '';
@@ -7604,7 +7709,7 @@ async function loadSceneImage(sceneId, opts) {
       const beasts = (choices.bestiary || []).map(g => group(g.label || 'Bestiary', (g.options || []).map(b => option('beast:' + (b.id || ''), b.name || b.id)).join(''))).join('');
       const custom = choices.customLabel || 'New custom enemy (Bandit)';
       const bare = state.tokens.find(t => t && t.id === tokenId);
-      d.innerHTML = '<div class="ssm-drawer-head"><b>No card linked</b><button type="button" data-act="drawerReset" title="Reset card position" aria-label="Reset card position">Reset</button><button type="button" data-act="drawerClose">×</button></div>' +
+      d.innerHTML = drawerHeadHtml('No card linked') +
         '<div class="ssm-drawer-body">' +
         lightDrawerHtml(bare) +
         '<label class="ssm-section" for="ssm-link-pick">Link to…</label>' +
@@ -7627,6 +7732,7 @@ async function loadSceneImage(sceneId, opts) {
         pick.value = '';
       });
       bindLightHands(d, tokenId);
+      syncDockChrome(d);
       return;
     }
     const isPc = card.kind === 'pc';
@@ -7802,9 +7908,7 @@ async function loadSceneImage(sceneId, opts) {
       '</select></label>' +
       '<label class="ssm-act" title="Lock cover so the player can\'t change it."><input type="checkbox" data-act="coverLock"' + (card.coverLock ? ' checked' : '') + '> Lock cover</label>';
     d.innerHTML =
-      '<div class="ssm-drawer-head"><b>' + esc(card.name || tokenId) + '</b> <span class="ssm-kind">' + esc(card.kind || '') + '</span>' +
-      '<button type="button" data-act="drawerReset" title="Reset card position" aria-label="Reset card position">Reset</button>' +
-      '<button type="button" data-act="drawerClose">×</button></div>' +
+      drawerHeadHtml(card.name || tokenId, card.kind || '') +
       '<div class="ssm-drawer-body">' +
       lightDrawerHtml(state.tokens.find(t => t && t.id === tokenId)) +
       pendingBannerHtml(tokenId) +
@@ -8175,6 +8279,7 @@ async function loadSceneImage(sceneId, opts) {
     });
     d.querySelector('[data-act="deathBtn"]').addEventListener('click', () => emit('drawer:deathsave', detail()));
     d.querySelector('[data-act="undoBtnD"]').addEventListener('click', () => emit('drawer:undo', detail()));
+    syncDockChrome(d);
   }
   function refreshCard(tokenId) {
     /* 0.3.64: the token ammo badge is drawn on the canvas from host.rounds(); the sheet's publishGunCard and the

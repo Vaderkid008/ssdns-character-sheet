@@ -602,7 +602,8 @@ body.map-fullscreen #mapMount.ssdns-role-player .ssdns-chatdock.ssm-chat-shut {
 }
 body.ssdns-chat-pop.ssdns-chat-collapsed .ssdns-chat-overlay-feed { display: none; }
 
-/* DM combatant drawer. Sits in the stage cell so it does not cover the toolbars, turn strip, or chat. */
+/* DM combatant drawer. Docked, it is a side column (B14). Floating, it sits in the stage cell
+   so it does not cover the toolbars, turn strip, or chat. */
 .ssdns-map > .ssm-drawer {
   grid-area: stage;
   position: absolute;
@@ -992,6 +993,7 @@ body.map-fullscreen #mapMount .ssm-cropper canvas {
   border: 1px solid rgba(255,255,255,.75);
 }
 .ssm-drawer .chamber-dots .chamber-dot.full { background: #e2c56a; }
+.ssm-drawer.min .ssm-drawer-body { display: none; }
 .ssm-cyl-btn .chamber-dot { width: 10px; height: 10px; pointer-events: none; }
 .chamber-dot.full { background: #e2c56a; }
 .ssm-rounds { font-size: 11px; color: #e2c56a; }
@@ -1454,5 +1456,281 @@ body.map-fullscreen #mapMount:has(> .ssm-turnstrip:not([hidden])) .ssdns-toolbar
   }
   body.map-fullscreen:has(#mapMount.ssdns-role-player.ssdns-chat-side.ssdns-chat-popped) #btnMapFull {
     right: 8px;
+  }
+}
+
+/* B14: token / player card docks as a side column (same idea as map chat and the sheet log).
+   Player default is the left edge, DM default is the right edge. A placed / ssm-float card
+   leaves the column and sits on the map. Phones keep the overlay and the bottom sheet. */
+.ssdns-map.ssm-token-dock > .ssm-drawer:not(.placed) .ssm-drawer-head,
+.ssdns-map.ssm-token-dock > .ssdns-playercard:not(.ssm-float) .ssm-card-head { flex: none; }
+.ssdns-map.ssm-token-dock:not(.ssm-token-shut) .ssm-dock-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.ssm-drawer:not(.placed) [data-act="drawerDock"],
+.ssdns-playercard:not(.ssm-float) [data-act="playerDock"] { display: none; }
+.ssdns-map [data-act="drawerCollapse"],
+.ssdns-map [data-act="playerCardMin"] {
+  width: auto;
+  min-width: 28px;
+  padding: 2px 6px;
+  background: transparent;
+  border: 0;
+  color: #e2c56a;
+}
+@media (min-width: 600px) {
+  body .ssdns-map.ssdns-role-player.ssm-token-dock > .ssdns-playercard:not(.ssm-float),
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock > .ssdns-playercard:not(.ssm-float) {
+    grid-area: token;
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: auto;
+    max-width: none;
+    height: auto;
+    max-height: none;
+    align-self: stretch;
+    justify-self: stretch;
+    min-height: 0;
+    overflow: auto;
+    z-index: 2;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock > .ssdns-playercard:not(.ssm-float) .ssm-card-body,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock > .ssdns-playercard:not(.ssm-float) .ssm-card-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-left.ssdns-chat-side,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-left.ssdns-chat-side {
+    grid-template-columns: 320px minmax(0, 1fr) 320px;
+    grid-template-rows: auto auto auto minmax(120px, 1fr);
+    grid-template-areas:
+      "token strip dock"
+      "token bar dock"
+      "token dice dock"
+      "token stage dock";
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-left.ssdns-chat-side:has(.ssdns-chatdock.ssm-chat-shut),
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-left.ssdns-chat-side:has(.ssdns-chatdock.ssm-chat-shut) {
+    grid-template-columns: 320px minmax(0, 1fr) 48px;
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-left.ssm-token-shut.ssdns-chat-side,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-left.ssm-token-shut.ssdns-chat-side {
+    grid-template-columns: 48px minmax(0, 1fr) 320px;
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-left.ssm-token-shut.ssdns-chat-side:has(.ssdns-chatdock.ssm-chat-shut),
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-left.ssm-token-shut.ssdns-chat-side:has(.ssdns-chatdock.ssm-chat-shut) {
+    grid-template-columns: 48px minmax(0, 1fr) 48px;
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-left.ssdns-chat-popped,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-left.ssdns-chat-popped {
+    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(120px, 1fr);
+    grid-template-areas:
+      "token strip"
+      "token bar"
+      "token dice"
+      "token stage";
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-left.ssm-token-shut.ssdns-chat-popped,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-left.ssm-token-shut.ssdns-chat-popped {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-right.ssdns-chat-side,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right.ssdns-chat-side {
+    grid-template-columns: minmax(0, 1fr) 320px 320px;
+    grid-template-rows: auto auto auto minmax(120px, 1fr);
+    grid-template-areas:
+      "strip dock token"
+      "bar dock token"
+      "dice dock token"
+      "stage dock token";
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-right.ssdns-chat-side:has(.ssdns-chatdock.ssm-chat-shut),
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right.ssdns-chat-side:has(.ssdns-chatdock.ssm-chat-shut) {
+    grid-template-columns: minmax(0, 1fr) 48px 320px;
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-right.ssm-token-shut.ssdns-chat-side,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right.ssm-token-shut.ssdns-chat-side {
+    grid-template-columns: minmax(0, 1fr) 320px 48px;
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-right.ssm-token-shut.ssdns-chat-side:has(.ssdns-chatdock.ssm-chat-shut),
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right.ssm-token-shut.ssdns-chat-side:has(.ssdns-chatdock.ssm-chat-shut) {
+    grid-template-columns: minmax(0, 1fr) 48px 48px;
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-right.ssdns-chat-popped,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right.ssdns-chat-popped {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-rows: auto auto auto minmax(120px, 1fr);
+    grid-template-areas:
+      "strip token"
+      "bar token"
+      "dice token"
+      "stage token";
+  }
+  body .ssdns-map.ssdns-role-player.ssm-token-dock.ssm-token-right.ssm-token-shut.ssdns-chat-popped,
+  body.map-fullscreen #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right.ssm-token-shut.ssdns-chat-popped {
+    grid-template-columns: minmax(0, 1fr) 48px;
+  }
+  body.map-fullscreen:has(#mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right) #btnMapFull {
+    right: 656px;
+  }
+  body.map-fullscreen:has(#mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right.ssdns-chat-popped) #btnMapFull,
+  body.map-fullscreen:has(#mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right:has(.ssdns-chatdock.ssm-chat-shut)) #btnMapFull {
+    right: 336px;
+  }
+  body.map-fullscreen:has(#mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right.ssm-token-shut) #btnMapFull {
+    right: 384px;
+  }
+  body.map-fullscreen:has(#mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right.ssm-token-shut.ssdns-chat-popped) #btnMapFull,
+  body.map-fullscreen:has(#mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right.ssm-token-shut:has(.ssdns-chatdock.ssm-chat-shut)) #btnMapFull {
+    right: 64px;
+  }
+}
+@media (min-width: 721px) {
+  body .ssdns-map.ssdns-role-dm.ssm-token-dock > .ssm-drawer:not(.placed),
+  body.map-fullscreen #mapMount.ssdns-role-dm.ssm-token-dock > .ssm-drawer:not(.placed) {
+    grid-area: token;
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: auto;
+    max-width: none;
+    height: auto;
+    max-height: none;
+    align-self: stretch;
+    justify-self: stretch;
+    min-height: 0;
+    overflow: auto;
+    z-index: 2;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+  }
+  body .ssdns-map.ssdns-role-dm.ssm-token-dock > .ssm-drawer:not(.placed) .ssm-drawer-body,
+  body.map-fullscreen #mapMount.ssdns-role-dm.ssm-token-dock > .ssm-drawer:not(.placed) .ssm-drawer-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+  body .ssdns-map.ssdns-role-dm.ssm-token-dock.ssm-token-right,
+  body.map-fullscreen #mapMount.ssdns-role-dm.ssm-token-dock.ssm-token-right {
+    grid-template-columns: max-content minmax(0, 1fr) max-content 320px;
+    grid-template-rows: auto auto auto minmax(120px, 1fr) auto;
+    grid-template-areas:
+      "strip strip strip token"
+      "bar bar bar token"
+      "dice dice dice token"
+      "left stage right token"
+      "dock dock dock token";
+  }
+  body .ssdns-map.ssdns-role-dm.ssm-token-dock.ssm-token-right.ssm-token-shut,
+  body.map-fullscreen #mapMount.ssdns-role-dm.ssm-token-dock.ssm-token-right.ssm-token-shut {
+    grid-template-columns: max-content minmax(0, 1fr) max-content 48px;
+  }
+  body .ssdns-map.ssdns-role-dm.ssm-token-dock.ssm-token-left,
+  body.map-fullscreen #mapMount.ssdns-role-dm.ssm-token-dock.ssm-token-left {
+    grid-template-columns: 320px max-content minmax(0, 1fr) max-content;
+    grid-template-rows: auto auto auto minmax(120px, 1fr) auto;
+    grid-template-areas:
+      "token strip strip strip"
+      "token bar bar bar"
+      "token dice dice dice"
+      "token left stage right"
+      "token dock dock dock";
+  }
+  body .ssdns-map.ssdns-role-dm.ssm-token-dock.ssm-token-left.ssm-token-shut,
+  body.map-fullscreen #mapMount.ssdns-role-dm.ssm-token-dock.ssm-token-left.ssm-token-shut {
+    grid-template-columns: 48px max-content minmax(0, 1fr) max-content;
+  }
+  body.map-fullscreen:has(#mapMount.ssdns-role-dm.ssm-token-dock.ssm-token-right:not(.ssm-token-shut)) #btnMapFull {
+    right: 336px;
+  }
+  body.map-fullscreen:has(#mapMount.ssdns-role-dm.ssm-token-dock.ssm-token-right.ssm-token-shut) #btnMapFull {
+    right: 64px;
+  }
+}
+@media (min-width: 600px) {
+  body .ssdns-map.ssm-token-dock.ssm-token-shut > .ssm-drawer:not(.placed),
+  body .ssdns-map.ssm-token-dock.ssm-token-shut > .ssdns-playercard:not(.ssm-float),
+  body.map-fullscreen #mapMount.ssm-token-dock.ssm-token-shut > .ssm-drawer:not(.placed),
+  body.map-fullscreen #mapMount.ssm-token-dock.ssm-token-shut > .ssdns-playercard:not(.ssm-float) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+  }
+  body .ssdns-map.ssm-token-dock.ssm-token-shut .ssm-drawer-head,
+  body .ssdns-map.ssm-token-dock.ssm-token-shut .ssm-card-head,
+  body.map-fullscreen #mapMount.ssm-token-dock.ssm-token-shut .ssm-drawer-head,
+  body.map-fullscreen #mapMount.ssm-token-dock.ssm-token-shut .ssm-card-head {
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    height: 100%;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  body .ssdns-map.ssm-token-dock.ssm-token-shut .ssm-drawer-head > :not([data-act="drawerCollapse"]),
+  body .ssdns-map.ssm-token-dock.ssm-token-shut .ssm-card-head > :not([data-act="playerCardMin"]),
+  body.map-fullscreen #mapMount.ssm-token-dock.ssm-token-shut .ssm-drawer-head > :not([data-act="drawerCollapse"]),
+  body.map-fullscreen #mapMount.ssm-token-dock.ssm-token-shut .ssm-card-head > :not([data-act="playerCardMin"]) {
+    display: none;
+  }
+  body .ssdns-map.ssm-token-dock.ssm-token-shut [data-act="drawerCollapse"],
+  body .ssdns-map.ssm-token-dock.ssm-token-shut [data-act="playerCardMin"],
+  body.map-fullscreen #mapMount.ssm-token-dock.ssm-token-shut [data-act="drawerCollapse"],
+  body.map-fullscreen #mapMount.ssm-token-dock.ssm-token-shut [data-act="playerCardMin"] {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 14px 0;
+    background: transparent;
+    border: 0;
+    color: #e2c56a;
+    cursor: pointer;
+  }
+  body .ssdns-map.ssm-token-dock.ssm-token-shut .ssm-dock-label,
+  body.map-fullscreen #mapMount.ssm-token-dock.ssm-token-shut .ssm-dock-label {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 13px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  body .ssdns-map.ssm-token-dock.ssm-token-shut [data-act="drawerCaret"],
+  body .ssdns-map.ssm-token-dock.ssm-token-shut [data-act="playerCaret"],
+  body.map-fullscreen #mapMount.ssm-token-dock.ssm-token-shut [data-act="drawerCaret"],
+  body.map-fullscreen #mapMount.ssm-token-dock.ssm-token-shut [data-act="playerCaret"] {
+    display: none;
   }
 }
