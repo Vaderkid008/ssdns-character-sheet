@@ -150,8 +150,8 @@ const pips = read("assets/js/action-pips.js");
 const css = read("assets/css/sheet.css");
 check("src.menuCss", /\.pip-react-menu/.test(css) && /data-pip-react-menu/.test(pips));
 check("src.noAutoPrompt", !/leaveReach|onHit/.test(pips.slice(pips.indexOf("function openReactionMenu"))));
-check("src.versions", ver.sheet === "0.3.136" && ver.dmcc === "0.2.149" && ver.sheetBuild === "sheet-playtest-v03136" && ver.dmccBuild === "dmcc-playtest-v02149");
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.136") && !read("database.rules.json").includes("0.3.136") && !read("assets/data/rules.js").includes("pip-react-menu"));
+check("src.versions", ver.sheet === "0.3.138" && ver.dmcc === "0.2.151" && ver.sheetBuild === "sheet-playtest-v03138" && ver.dmccBuild === "dmcc-playtest-v02151");
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.138") && !read("database.rules.json").includes("0.3.138") && !read("assets/data/rules.js").includes("pip-react-menu"));
 
 /* ---------- browser: the real sheet, screenshots of the R menu ---------- */
 const ORIGIN = process.env.SSDNS_ORIGIN || "http://127.0.0.1:8771";
@@ -275,6 +275,14 @@ await page.evaluate(() => {
   J.postChat = (body) => { window.__chats.push(body); return origChat ? origChat(body) : { ok: true }; };
   const origLog = window.SSDNSSheet.addLog;
   window.SSDNSSheet.addLog = (e) => { window.__logs.push(e); return origLog(e); };
+});
+await page.evaluate(() => {
+  for (let i = 0; i < 8; i++) {
+    const box = document.getElementById("toast");
+    const el = document.getElementById("toastText");
+    if (!box || box.hidden || !el || !window.SSDNSToast || !window.SSDNSToast.dismissSticky) break;
+    window.SSDNSToast.dismissSticky(el.textContent || "");
+  }
 });
 await page.click("#turnSlot [data-pip=reaction]");
 await page.waitForFunction(() => {
