@@ -341,6 +341,8 @@ const state = {
   minStrength: 1.0,
   currentTurnId: null,
   showRange: false,
+  /* Yellow bright / blue dim / gray darkvision measurement strokes. Off: lighting wash and FOV stay, the rings do not. DM only. */
+  showLightRings: false,
   /* Green movement wash. On by default in a fight. The checkbox only hides the fill; Move feet still limit the walk. */
   showMoveReach: true,
   /* DM "Edit tokens". Off by default. Persisted only for the DM role (ssdns.map.dmEdit). */
@@ -834,6 +836,7 @@ if (role === 'dm') {
         <option value="bright">Bright</option>
       </select>
     </label>
+    <label class="ssm-range" title="Test overlay. Players never see these rings."><input type="checkbox" data-act="showLightRings"> Light rings</label>
     <label class="ssm-ambient">Sight
       <select data-act="visionSel" aria-label="Player sight">
         <option value="party">Party sight</option>
@@ -4820,6 +4823,16 @@ function strokeCone(wx, wy, radiusWorld, facing, stroke) {
   ctx.restore();
 }
 function paintLightRings(sight, px) {
+  const readout = q('playerLights');
+  if (readout && role === 'player') {
+    const mine = state.tokens.find(t => t && t.ownerUid === uid);
+    const rows = mine ? tokenLightList(mine) : [];
+    const dv = mine && Number(mine.darkvision) || 0;
+    readout.textContent = (rows.length ? rows.map(l => (l.name || 'Light') + ' ' + (l.bright || 0) + '/' + (l.dim || 0)).join(' · ') : 'No light in hand') + (dv ? ' · darkvision ' + dv + ' ft' : '');
+  }
+  /* Measurement strokes are a DM test overlay. Players never see them, even if the flag is on.
+     Lighting wash, fog punches, torch and darkvision sight, and the player lights readout stay. */
+  if (role !== 'dm' || !state.showLightRings) return;
   const lights = (sight && sight.lights) || [];
   lights.forEach(ls => {
     const wx = ls.x * px, wy = ls.y * px;
@@ -4837,13 +4850,6 @@ function paintLightRings(sight, px) {
     if (!b.darkvision) return;
     strokeRing(b.x * px, b.y * px, b.radius * px, 'rgba(190,190,200,0.8)', 'rgba(40,40,48,0.05)');
   });
-  const readout = q('playerLights');
-  if (readout && role === 'player') {
-    const mine = state.tokens.find(t => t && t.ownerUid === uid);
-    const rows = mine ? tokenLightList(mine) : [];
-    const dv = mine && Number(mine.darkvision) || 0;
-    readout.textContent = (rows.length ? rows.map(l => (l.name || 'Light') + ' ' + (l.bright || 0) + '/' + (l.dim || 0)).join(' · ') : 'No light in hand') + (dv ? ' · darkvision ' + dv + ' ft' : '');
-  }
 }
 function drawVisible(cx, cy, radius, cone) {
   const pts = raycastVisible(cx, cy, radius);
@@ -5608,6 +5614,10 @@ if (role === 'dm') {
   if (q('ambientSel')) q('ambientSel').addEventListener('change', () => {
     sceneData().ambient = q('ambientSel').value === 'bright' || q('ambientSel').value === 'dim' ? q('ambientSel').value : 'dark';
     saveScene();
+    draw();
+  });
+  if (q('showLightRings')) q('showLightRings').addEventListener('change', () => {
+    state.showLightRings = !!q('showLightRings').checked;
     draw();
   });
   if (q('visionSel')) q('visionSel').addEventListener('change', () => {
