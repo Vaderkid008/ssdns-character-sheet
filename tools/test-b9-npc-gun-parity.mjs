@@ -1,5 +1,5 @@
 /**
- * B9: DM gun parity on NPC rows (sheet 0.3.130 / DMCC 0.2.143).
+ * B9: DM gun parity on NPC rows (sheet 0.3.131 / DMCC 0.2.144).
  * Chamber-pick fire, Jam, Lock chamber, Unload, and the same controls on allies and creatures.
  * Dirty stays off NPC guns. Player guns and rules.js stay put.
  *   node tools/test-b9-npc-gun-parity.mjs
@@ -24,11 +24,11 @@ const host = read("map/ssdns-map-host.js");
 const rules = read("database.rules.json");
 const rulesJs = read("assets/data/rules.js");
 
-check("ver.sheet", version.sheet === "0.3.130" && version.sheetBuild === "sheet-playtest-v03130");
-check("ver.dmcc", version.dmcc === "0.2.143" && version.dmccBuild === "dmcc-playtest-v02143");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.130"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.143"'));
-check("src.rulesUntouched", !rulesJs.includes("0.3.130") && !rulesJs.includes("enemyGunJam") && !rules.includes("0.3.130") && !rules.includes("drawer:jam"));
+check("ver.sheet", version.sheet === "0.3.131" && version.sheetBuild === "sheet-playtest-v03131");
+check("ver.dmcc", version.dmcc === "0.2.144" && version.dmccBuild === "dmcc-playtest-v02144");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.131"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.144"'));
+check("src.rulesUntouched", !rulesJs.includes("0.3.131") && !rulesJs.includes("enemyGunJam") && !rules.includes("0.3.131") && !rules.includes("drawer:jam"));
 
 check("src.strip", v2.includes('if (row.kind !== "player")') && !v2.includes('if (row.kind === "enemy") {\n    const list = (row.card && row.card.attacks'));
 check("src.chamberForward", v2.includes("strikeOpts.chamber") && v2.includes("freeOpts.chamber") && v2.includes("shot.chamber = Number(rawK)"));

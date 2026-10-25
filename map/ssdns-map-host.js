@@ -375,6 +375,29 @@
     if (!box || box.hidden) return false;
     return shown($("btnPactShot"));
   }
+  /* L0224: the Gear signature card's feature buttons, and only while that Calling's card is open.
+     Attack proxies stay on the real gun / melee buttons so the drawer does not list them twice. */
+  function signatureActions() {
+    var Sig = root.SSDNSSignature;
+    var c = sheetCharacter();
+    var box = $("callingSig");
+    if (!Sig || typeof Sig.applies !== "function" || !Sig.applies(c)) return [];
+    if (!box || box.hidden || !shown(box)) return [];
+    var list = [];
+    document.querySelectorAll("#callingSig [data-sig-map]").forEach(function (btn) {
+      if (!shown(btn)) return;
+      var key = btn.getAttribute("data-sig-map") || "";
+      if (!key) return;
+      list.push({
+        id: "sig:" + key,
+        label: btn.getAttribute("data-sig-label") || (btn.textContent || "").trim(),
+        group: btn.getAttribute("data-sig-group") || "gear",
+        enabled: usable(btn),
+        title: btn.title || ""
+      });
+    });
+    return list;
+  }
   function sheetActions() {
     if (isDmPage()) return [];
     var list = [];
@@ -413,6 +436,7 @@
       } catch (e) {}
       list.push({ id: "pact", label: pactLabel, group: "spell", enabled: usable(pact), title: pact.title || "" });
     }
+    signatureActions().forEach(function (a) { list.push(a); });
     document.querySelectorAll("[data-reload]").forEach(function (btn) {
       if (!shown(btn)) return;
       var i = btn.getAttribute("data-reload");
@@ -518,6 +542,7 @@
     (c.melee || []).forEach(function (m, i) {
       if (!m || !m.weapon || m.equipped === false) return;
       var w = meleeList.filter(function (x) { return x.id === m.weapon; })[0];
+      if (!w && m.weapon === "unarmed" && root.SSDNSSignature && root.SSDNSSignature.fistsWeapon) w = root.SSDNSSignature.fistsWeapon(c);
       var name = tidyName((w && w.name) || "");
       if (!name || /^Melee \d+$/i.test(name)) return;
       var atkEl = document.querySelector("[data-melee-atk='" + i + "']");
@@ -604,6 +629,10 @@
       } catch (ePact) {}
       spells.push({ id: "pact", name: pactName, kind: pactKind, enabled: usable(pact) });
     }
+    signatureActions().forEach(function (t) {
+      if (t.group === "spell") spells.push({ id: t.id, name: t.label, enabled: t.enabled !== false, kind: "" });
+      else attacks.push({ id: t.id, name: t.label, arm: true, enabled: t.enabled !== false, title: t.title || "" });
+    });
     var nameInput = $("charName");
     return {
       name: (nameInput && nameInput.value) || c.name || "",
@@ -630,6 +659,11 @@
     /* SAMPLE trackers: "trk:sneak" / "trk:smite" flip the arm on the sheet; no target, no roll */
     if (String(id).indexOf("trk:") === 0) {
       if (root.SSDNSTrackers && root.SSDNSTrackers.toggle) root.SSDNSTrackers.toggle(String(id).slice(4));
+      return;
+    }
+    if (String(id).indexOf("sig:") === 0) {
+      var sigBtn = firstShown('#callingSig [data-sig-map="' + cssEscape(String(id).slice(4)) + '"]');
+      if (sigBtn && !sigBtn.disabled) sigBtn.click();
       return;
     }
     if (ctx.targetId) setSheetTarget(ctx.targetId);
