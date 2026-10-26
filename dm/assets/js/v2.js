@@ -2346,6 +2346,233 @@ function armDmOpportunity(row) {
   DM.toast("Opportunity attack ready for " + who + ". One attack uses their reaction, not their action.");
   if (over) DM.toast(overLine);
 }
+function armReactOa(reactorId, oaId) {
+  const row = fightRowById(reactorId);
+  if (!row) return false;
+  const m = markersOfRow(row);
+  if (!m || m.reaction) {
+    DM.toast((row.name || "They") + " already used their reaction.");
+    return false;
+  }
+  m.oaReq = "";
+  m.oaArmed = oaId || ("dm_oa_" + Date.now().toString(36));
+  if (row.kind === "player") writePlayerMarkers(row.playerId || row.id, m, "", ["oaReq", "oaArmed"]);
+  else {
+    fight.markers = Object.assign({}, fight.markers || {}, { [row.id]: m });
+    saveRemoteTable();
+    renderFight();
+  }
+  DM.toast("Opportunity attack ready for " + (row.name || "them") + ". One attack uses their reaction, not their action.");
+  return true;
+}
+function clearReactOa(oaId) {
+  (fight.order || []).forEach((row) => {
+    const m = markersOfRow(row);
+    if (!m || !m.oaArmed) return;
+    if (oaId && m.oaArmed !== oaId) return;
+    m.oaArmed = "";
+    if (row.kind === "player") writePlayerMarkers(row.playerId || row.id, m, "", ["oaArmed"]);
+    else fight.markers = Object.assign({}, fight.markers || {}, { [row.id]: m });
+  });
+}
+function reactChoiceLocal(view) {
+  return !!(view && (view.dmRuns || view.self || view.reactorKind !== "player"));
+}
+/* oaId → the mover who is waiting. noteSpent on this client resolves a local hold.
+   A remote mover hears "attacked" only when nothing here was watching that id. */
+const armedReactByOa = {};
+function rememberReactArm(view, oaId) {
+  if (!view || !oaId) return;
+  armedReactByOa[oaId] = {
+    promptId: view.promptId || "",
+    moverPlayerId: view.moverPlayerId || "",
+    casterId: view.casterId || ""
+  };
+}
+function notifyReactSpent(oaId) {
+  const R = window.SSDNSReact;
+  const local = !!(oaId && R && typeof R.noteSpent === "function" && R.noteSpent(oaId));
+  const remembered = oaId && armedReactByOa[oaId];
+  if (oaId) delete armedReactByOa[oaId];
+  if (!local && remembered) pushReactAnswer(remembered, "attacked", { oaId: oaId });
+}
+function pushReactPrompt(view) {
+  const pid = view && view.reactorPlayerId;
+  if (!pid || !DM.pushCommand) return;
+  DM.pushCommand({
+    type: "reactPrompt",
+    to: pid,
+    payload: Object.assign({}, view),
+    from: DM.state.uid
+  });
+}
+function pushReactAnswer(view, choice, meta) {
+  const pid = view && (view.moverPlayerId || view.casterId);
+  if (!pid || !DM.pushCommand) return;
+  DM.pushCommand({
+    type: "reactAnswer",
+    to: pid,
+    payload: Object.assign({}, meta || {}, { promptId: view.promptId, choice: choice || "pass" }),
+    from: DM.state.uid
+  });
+}
+function presentReact(view, handler) {
+  const R = window.SSDNSReact;
+  if (!R || !view) return false;
+  const choose = function (choice, meta) {
+    meta = meta || {};
+    if (choice === "attack" && view.dmRuns) {
+      meta.oaId = meta.oaId || view.oaId || ("oa_" + Date.now().toString(36));
+      if (!armReactOa(view.reactorId, meta.oaId)) choice = "pass";
+      else rememberReactArm(view, meta.oaId);
+    }
+    if (choice === "pass" && view.hideAttack && (meta.oaId || view.oaId)) {
+      const drop = meta.oaId || view.oaId;
+      clearReactOa(drop);
+      delete armedReactByOa[drop];
+    }
+    if (choice === "cast" && view.dmRuns) castReactOffer(view);
+    if (handler) handler(choice, meta);
+    else if (!(R.deliver && R.deliver(view.promptId, choice, meta))) pushReactAnswer(view, choice, meta);
+  };
+  const alreadyThere = !!(view.reactorPlayerId && view.from && view.from === view.reactorPlayerId);
+  if (!alreadyThere && reactChoiceLocal(view)) R.openModal(view, choose);
+  else if (!alreadyThere && view.reactorPlayerId) pushReactPrompt(view);
+  R.openMirror(view, choose);
+  return true;
+}
+function castReactOffer(view) {
+  const row = fightRowById(view && view.reactorId);
+  if (!row || !view || !view.spellName) return;
+  window.SSDNSReact.castingReaction = true;
+  Promise.resolve(castDmReactionSpell(row, view.spellName, view.spellLevel || 0)).then(function () {
+    window.SSDNSReact.castingReaction = false;
+  }, function () { window.SSDNSReact.castingReaction = false; });
+}
+function feetBetweenCombatants(aId, bRow) {
+  const host = window.SSDNSMapHost;
+  if (!host || typeof host.feetBetween !== "function" || !aId || !bRow) return null;
+  const b = bRow.playerId || bRow.id;
+  try { return host.feetBetween(aId, b); } catch (e) { return null; }
+}
+function noteReactRequest(req) {
+  const R = window.SSDNSReact;
+  if (!req || !R) return;
+  if (req.phase === "answer" || req.choice) {
+    if (R.deliver(req.promptId, req.choice || "pass", req)) return;
+    pushReactAnswer(req, req.choice || "pass", req);
+    if (req.choice === "attack" && req.kind !== "spell" && req.kind !== "damage") {
+      const held = Object.assign({}, req, {
+        hideAttack: true,
+        dmRuns: false,
+        kicker: "Opportunity attack",
+        text: "Make the opportunity attack against " + (req.moverName || "them") + ". It spends your reaction, not your action.",
+        mirrorText: (req.reactorName || "Someone") + " is making an opportunity attack as " + (req.moverName || "someone") + " leaves reach. Pass cancels it."
+      });
+      R.openMirror(held, function (choice) {
+        if (choice !== "pass") return;
+        if (req.oaId) clearReactOa(req.oaId);
+        pushReactAnswer(req, "pass", { oaId: req.oaId || "" });
+        R.close();
+      });
+      return;
+    }
+    if (req.choice === "pass" || req.choice === "attacked" || req.choice === "go" || req.choice === "cast") R.close();
+    return;
+  }
+  if (req.kind === "spell") {
+    const offers = counterspellOffers(req);
+    if (!offers.length) { pushReactAnswer(req, "go", req); return; }
+    runReactOffers(offers, function () { pushReactAnswer(req, "go", req); });
+    return;
+  }
+  presentReact(Object.assign({ dmRuns: req.reactorKind !== "player" }, req), null);
+}
+function counterspellOffers(req) {
+  const R = window.SSDNSReact;
+  if (!R) return [];
+  const casterId = req.casterId || req.from || "";
+  const spellName = req.spellName || "a spell";
+  const casterName = req.casterName || req.moverName || "Someone";
+  const out = [];
+  (fight.order || []).forEach((row) => {
+    if (!row) return;
+    if (row.id === casterId || row.playerId === casterId) return;
+    const spells = tokenReactionSpells(row).filter((sp) => R.triggerOf(sp.name) === "spell");
+    if (!spells.length) return;
+    const marks = markersOfRow(row);
+    if (marks && marks.reaction) {
+      DM.toast((row.name || "They") + " already used their reaction.");
+      return;
+    }
+    const feet = feetBetweenCombatants(casterId, row);
+    spells.forEach((sp) => {
+      if (!R.inRange(feet, sp.name)) return;
+      out.push({
+        kind: "spell",
+        promptId: req.promptId,
+        spellName: sp.name,
+        spellLevel: sp.level || 0,
+        reactorId: row.id,
+        reactorName: row.name || "Someone",
+        reactorKind: row.kind || "",
+        reactorPlayerId: row.kind === "player" ? (row.playerId || row.id) : "",
+        dmRuns: dmRunsToken(row),
+        casterId: casterId,
+        casterName: casterName,
+        moverPlayerId: req.moverPlayerId || req.from || "",
+        text: casterName + " is casting " + spellName + " — Cast " + sp.name + "?"
+      });
+    });
+  });
+  return out;
+}
+function damageReactOffers(meta, row) {
+  const R = window.SSDNSReact;
+  if (!R || !row || !meta) return [];
+  const spells = tokenReactionSpells(row).filter((sp) => R.triggerOf(sp.name) === "damage");
+  if (!spells.length) return [];
+  const marks = markersOfRow(row);
+  if (marks && marks.reaction) {
+    DM.toast((row.name || "They") + " already used their reaction.");
+    return [];
+  }
+  const from = meta.from || meta.playerId || "";
+  const feet = feetBetweenCombatants(from, row);
+  const who = meta.characterName || "Someone";
+  return spells.filter((sp) => R.inRange(feet, sp.name)).map((sp) => ({
+    kind: "damage",
+    spellName: sp.name,
+    spellLevel: sp.level || 0,
+    reactorId: row.id,
+    reactorName: row.name || "Someone",
+    reactorKind: row.kind || "",
+    reactorPlayerId: row.kind === "player" ? (row.playerId || row.id) : "",
+    dmRuns: dmRunsToken(row),
+    damagerId: from,
+    damagerName: who,
+    text: who + " damaged you — Cast " + sp.name + "?"
+  }));
+}
+function runReactOffers(offers, onDone) {
+  const R = window.SSDNSReact;
+  if (!R || !offers || !offers.length) { if (onDone) onDone(); return; }
+  const session = R.freshOffers(offers);
+  const step = function () {
+    const view = R.offerView(session);
+    if (!view) { R.close(); if (onDone) onDone(); return; }
+    view.promptId = session.promptId;
+    const chosen = function (choice) {
+      const result = R.answerOffer(session, choice);
+      if (result.toast) DM.toast(result.toast);
+      if (result.done) { R.close(); if (onDone) onDone(); return; }
+      step();
+    };
+    R.bind(session.promptId, chosen);
+    presentReact(view, chosen);
+  };
+  step();
+}
 async function markDmReaction(row) {
   const m = markersOfRow(row);
   if (!m) return;
@@ -2423,11 +2650,13 @@ function takeDmPlayerOpportunity(row, payload) {
   const m = markersOfRow(row);
   if (!m || !m.oaArmed) return payload;
   payload.oa = m.oaArmed;
+  const spentId = m.oaArmed;
   m.reaction = true;
   m.oaUsed = m.oaArmed;
   m.oaArmed = "";
   m.oaUsedAt = Date.now();
   writePlayerMarkers(row.playerId || row.id, m, "", ["reaction", "oaReq", "oaArmed", "oaUsed", "oaUsedAt"]);
+  if (spentId) notifyReactSpent(spentId);
   return payload;
 }
 function enemySpellIndex(row, name) {
@@ -2523,9 +2752,11 @@ async function spendEnemyPip(row, cost, what, opts) {
     }
   }
   if (cost === "attack" && m.oaArmed && (oa || armed) && !opts.free) {
+    const spentId = m.oaArmed;
     m.oaUsed = m.oaArmed;
     m.oaArmed = "";
     m.oaUsedAt = Date.now();
+    if (spentId) notifyReactSpent(spentId);
   }
   fight.markers = Object.assign({}, fight.markers || {}, { [row.id]: m });
   await saveRemoteTable();
@@ -5602,6 +5833,23 @@ async function cardCast(i, n, opts) {
   const Cast = window.SSDNSSpellCast;
   const known = Cast && Cast.lookup ? Cast.lookup(raw) : null;
   const name = (known && known.name) || raw;
+  if (!(opts && opts.reactGo) && !(window.SSDNSReact && window.SSDNSReact.castingReaction)) {
+    const offers = counterspellOffers({
+      casterId: row.playerId || row.id,
+      casterName: row.name || "Someone",
+      spellName: name,
+      from: DM.state.uid || "dm",
+      moverPlayerId: row.kind === "player" ? (row.playerId || "") : "",
+      promptId: "card_" + (row.id || "spell")
+    });
+    if (offers.length) {
+      return new Promise(function (resolve) {
+        runReactOffers(offers, function () {
+          Promise.resolve(cardCast(i, n, Object.assign({}, opts || {}, { reactGo: true }))).then(resolve, function () { resolve(false); });
+        });
+      });
+    }
+  }
   const kind = listedKind(spell, known);
   const casting = card.spellcasting || {};
   const direct = opts && opts.targetId ? String(opts.targetId) : "";
@@ -6085,10 +6333,21 @@ function askApplyTarget(preferId) {
 }
 function applyPlayerHit(meta) {
   if (!meta) return;
+  const heal = meta.kind === "heal" || meta.type === "heal" || meta.heal;
+  if (!meta._reactGo && !heal) {
+    const row = findCombatant(meta);
+    const offers = row ? damageReactOffers(meta, row) : [];
+    if (offers.length) {
+      runReactOffers(offers, function () {
+        meta._reactGo = true;
+        applyPlayerHit(meta);
+      });
+      return;
+    }
+  }
   const amt = Number(meta.amount != null ? meta.amount : meta.damage) || 0;
   const rollId = meta.rollId || "";
   if (amt <= 0) return;
-  const heal = meta.kind === "heal" || meta.type === "heal" || meta.heal;
   const who = meta.characterName || "Someone";
   const row = findCombatant(meta);
   const playerRow = !!(row && row.kind === "player");
@@ -6483,6 +6742,7 @@ function watchRequests() {
         return;
       }
       if (req && req.type === "oa") { if (fresh) noteOaRequest(req, id); return; }
+      if (req && req.type === "react") { if (fresh) noteReactRequest(req, id); return; }
       if (!fight.reqPrimed && !fresh && !attack) return;
       applyRequest(req, id);
     });
@@ -7508,14 +7768,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.156-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.157-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.156-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.157-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -7666,6 +7926,9 @@ async function bootV2() {
     playerMarkers: playerMarkers,
     toggleUnlock: toggleUnlock,
     noteOaRequest: noteOaRequest,
+    presentReact: presentReact,
+    armReactOa: armReactOa,
+    clearReactOa: clearReactOa,
     answerOa: answerOa,
     holdHit: holdHit,
     releaseHeld: releaseHeld,

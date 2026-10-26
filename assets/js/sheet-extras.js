@@ -1424,6 +1424,18 @@
     });
   }
   function castSpellAttackNow(i, spellName, slot, fromChamber, damageType) {
+    if (!castSpellAttackNow._reactGo && !(root.SSDNSReact && root.SSDNSReact.castingReaction) && root.SSDNSReact && root.SSDNSReact.gateSpell) {
+      var held = root.SSDNSReact.gateSpell({
+        spellName: spellName,
+        casterName: (ch() && ch().name) || "",
+        casterId: (root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid()) || ""
+      }, function () {
+        castSpellAttackNow._reactGo = true;
+        try { castSpellAttackNow(i, spellName, slot, fromChamber, damageType); }
+        finally { castSpellAttackNow._reactGo = false; }
+      });
+      if (held) return;
+    }
     var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var c = ch();
     var Cast = root.SSDNSSpellCast;
