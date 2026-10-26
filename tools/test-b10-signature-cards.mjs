@@ -31,10 +31,10 @@ const ver = JSON.parse(read("version.json"));
 const rulesJs = read("assets/data/rules.js");
 const rulesDb = read("database.rules.json");
 
-check("src.wired", html.indexOf("assets/js/signature-cards.js?v=0.3.146-sig") >= 0 && html.indexOf("signature-cards.js") < html.indexOf("sheet-playtest.js"));
-check("src.versions", ver.sheet === "0.3.146" && ver.dmcc === "0.2.159" && ver.sheetBuild === "sheet-playtest-v03146" && ver.dmccBuild === "dmcc-playtest-v02159");
-check("src.banners", read("assets/js/app.js").includes('APP_VERSION = "0.3.146"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.159"'));
-check("src.rulesUntouched", !rulesJs.includes("0.3.146") && !rulesJs.includes("callingSig") && !rulesDb.includes("0.3.146") && !rulesDb.includes("callingSig") && !rulesDb.includes("0.2.159"));
+check("src.wired", html.indexOf("assets/js/signature-cards.js?v=0.3.147-sig") >= 0 && html.indexOf("signature-cards.js") < html.indexOf("sheet-playtest.js"));
+check("src.versions", ver.sheet === "0.3.147" && ver.dmcc === "0.2.160" && ver.sheetBuild === "sheet-playtest-v03147" && ver.dmccBuild === "dmcc-playtest-v02160");
+check("src.banners", read("assets/js/app.js").includes('APP_VERSION = "0.3.147"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.160"'));
+check("src.rulesUntouched", !rulesJs.includes("0.3.147") && !rulesJs.includes("callingSig") && !rulesDb.includes("0.3.147") && !rulesDb.includes("callingSig") && !rulesDb.includes("0.2.160"));
 check("src.noLostLedger", !/lostLedger|attackDisadv|saveAdv/.test(sigSrc) && /not in this file/.test(sigSrc));
 check("src.noSecondRoller", !/function rollSig|SSDNSSignature\.roll/.test(sigSrc) && /data-sig-proxy/.test(sigSrc) && /data-spell-cast/.test(sigSrc) && /data-d20/.test(sigSrc) && /data-trk-res/.test(sigSrc));
 check("src.meleeHook", /fistsWeapon/.test(playSrc) && /SSDNSSignature\.prepare/.test(playSrc) && /SSDNSSignature\.paint/.test(playSrc));

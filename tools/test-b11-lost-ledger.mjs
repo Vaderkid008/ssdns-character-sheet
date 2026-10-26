@@ -139,8 +139,8 @@ check("src.castPath", /ledgerCast/.test(extraSrc) && /applyLedgerNotes/.test(ext
 check("src.noCastBlock", F.castBlock(gone) === "" && !/calling === "scholar"[\s\S]{0,80}PREP_WHY/.test(focusSrc.slice(focusSrc.indexOf("function castBlock"), focusSrc.indexOf("function castGunIndex"))));
 check("src.prepGate", /prepBlock/.test(appSrc) && /btnAddSpell/.test(focusSrc));
 check("src.noLostLedger", !/lostLedger|attackDisadv|saveAdv/.test(sigSrc) && /not in this file/.test(sigSrc));
-check("src.versions", ver.sheet === "0.3.146" && ver.dmcc === "0.2.159" && ver.sheetBuild === "sheet-playtest-v03146" && ver.dmccBuild === "dmcc-playtest-v02159");
-check("src.rulesUntouched", !rulesJs.includes("0.3.146") && !rulesJs.includes("ledgerMissing") && !rulesDb.includes("0.3.146") && !rulesDb.includes("0.2.159") && !rulesDb.includes("ledgerMissing"));
+check("src.versions", ver.sheet === "0.3.147" && ver.dmcc === "0.2.160" && ver.sheetBuild === "sheet-playtest-v03147" && ver.dmccBuild === "dmcc-playtest-v02160");
+check("src.rulesUntouched", !rulesJs.includes("0.3.147") && !rulesJs.includes("ledgerMissing") && !rulesDb.includes("0.3.147") && !rulesDb.includes("0.2.160") && !rulesDb.includes("ledgerMissing"));
 
 function focusSlice(html) {
   const m = /data-doll-slot="focus_borrowed_iron"[\s\S]{0,900}/.exec(html);

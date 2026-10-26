@@ -417,6 +417,8 @@ const state = {
   moveReach: null,
   snap: true,
   showWalls: true,
+  /* N59: Door tool modifier. On, a click hides that door from players until it is revealed. */
+  secretDoor: false,
   pendingMoves: [],
   gridStrength: 1.0,
   minStrength: 1.0,
@@ -904,6 +906,7 @@ if (role === 'dm') {
     <button data-act="wallBtn">Wall</button>
     <button data-act="roomBtn">Room</button>
     <button data-act="doorBtn">Door</button>
+    <button data-act="secretDoorBtn" type="button" aria-pressed="false" title="Hide a door from players. Click the door again to reveal it. Shift-click does the same.">Secret: OFF</button>
     <button data-act="windowBtn">Window</button>
     <button data-act="delWallBtn">Del Wall</button>
     <button data-act="undoWallBtn">Undo Wall</button>
@@ -2090,6 +2093,174 @@ function paintWeaponIcon(ctx, kind, x, y, size) {
   }
   ctx.restore();
 }
+/* N59 closed-door glyph. Players (and the DM's player-FOV preview) get a gap, a door slab,
+   and an arch on a Door-tool segment they can see. The DM dashed editor line is separate.
+   A secret/hidden door draws no glyph until the DM reveals it. Closed doors still stop
+   light and movement; nothing here opens a gap under the door. */
+const DOOR_GLYPH_GAP = '#140e0a';
+const DOOR_GLYPH_JAMB = '#e6d2ae';
+const DOOR_GLYPH_SLAB = '#8d5a32';
+const DOOR_GLYPH_ARCH = '#f3e6c8';
+function doorIsSecret(w) {
+  return !!(w && (w.secret || w.hidden));
+}
+function winningFog(shapes, x, y) {
+  let op = '';
+  (shapes || []).forEach(sh => {
+    if (sh && shapeContains(sh, x, y)) op = sh.op === 'hide' ? 'hide' : 'reveal';
+  });
+  return op;
+}
+function glyphRayBlocked(x1, y1, x2, y2, w) {
+  if (!w || w.open || (w.window && !w.shut)) return false;
+  const d = (x2 - x1) * (w.y2 - w.y1) - (y2 - y1) * (w.x2 - w.x1);
+  if (Math.abs(d) < 1e-4) return false;
+  const t = ((w.x1 - x1) * (w.y2 - w.y1) - (w.y1 - y1) * (w.x2 - w.x1)) / d;
+  const u = ((w.x1 - x1) * (y2 - y1) - (w.y1 - y1) * (x2 - x1)) / d;
+  return t > 0.02 && t < 0.98 && u > 0.02 && u < 0.98;
+}
+function doorGlyphSide(wall, sight, walls) {
+  if (!wall || !wall.door || wall.open || doorIsSecret(wall) || !sight) return null;
+  const mx = (Number(wall.x1) + Number(wall.x2)) / 2;
+  const my = (Number(wall.y1) + Number(wall.y2)) / 2;
+  const dx = Number(wall.x2) - Number(wall.x1);
+  const dy = Number(wall.y2) - Number(wall.y1);
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  const shapes = sight.shapes || [];
+  const dark = sight.ambient !== 'bright' && sight.ambient !== 'dim';
+  const sources = [];
+  (sight.bubbles || []).forEach(b => {
+    if (!b) return;
+    sources.push({ x: b.x, y: b.y, radius: dark ? (Number(b.radius) || 0) : Infinity, cone: false });
+  });
+  if (dark) {
+    (sight.lights || []).forEach(ls => {
+      if (!ls) return;
+      sources.push({
+        x: ls.x, y: ls.y, radius: Number(ls.radius) || 0,
+        cone: !!ls.cone, facing: ls.facing || 0, light: true
+      });
+    });
+  }
+  let best = null;
+  sources.forEach(s => {
+    const side = (s.x - mx) * nx + (s.y - my) * ny;
+    if (Math.abs(side) < 0.04) return;
+    const sign = side > 0 ? 1 : -1;
+    const dist = Math.hypot(s.x - mx, s.y - my);
+    if (dist > s.radius + 0.05) return;
+    const gap = Math.min(0.2, Math.max(0.06, dist * 0.45));
+    const px = mx + nx * sign * gap;
+    const py = my + ny * sign * gap;
+    if (s.light && !inLight({ x: s.x, y: s.y, radius: s.radius, cone: s.cone, facing: s.facing }, px, py)) return;
+    if (winningFog(shapes, px, py) === 'hide') return;
+    const list = walls || [];
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] === wall) continue;
+      if (glyphRayBlocked(s.x, s.y, px, py, list[i])) return;
+    }
+    if (!best || dist < best.dist) best = { nx: nx * sign, ny: ny * sign, dist: dist };
+  });
+  if (best) return best;
+  if (winningFog(shapes, mx, my) === 'reveal') return { nx: nx, ny: ny, dist: Infinity };
+  return null;
+}
+function paintOneDoorGlyph(wall, side, px, withGap) {
+  const a = worldToScreen(wall.x1 * px, wall.y1 * px);
+  const b = worldToScreen(wall.x2 * px, wall.y2 * px);
+  const mx = (a.x + b.x) / 2;
+  const my = (a.y + b.y) / 2;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const n0 = worldToScreen(0, 0);
+  const n1 = worldToScreen(side.nx * px, side.ny * px);
+  let snx = n1.x - n0.x;
+  let sny = n1.y - n0.y;
+  const sl = Math.hypot(snx, sny) || 1;
+  snx /= sl;
+  sny /= sl;
+  const inset = Math.min(len * 0.14, 12);
+  const ax = a.x + ux * inset;
+  const ay = a.y + uy * inset;
+  const bx = b.x - ux * inset;
+  const by = b.y - uy * inset;
+  const slab = Math.max(8, Math.min(len * 0.42, px * (state.view.zoom || 1) * 0.34));
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.lineCap = 'butt';
+  ctx.lineJoin = 'miter';
+  if (withGap) {
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.strokeStyle = DOOR_GLYPH_GAP;
+    ctx.lineWidth = Math.max(7, slab * 0.55);
+    ctx.stroke();
+  }
+  const tick = Math.max(5, slab * 0.35);
+  ctx.beginPath();
+  ctx.moveTo(ax - snx * tick, ay - sny * tick);
+  ctx.lineTo(ax + snx * tick, ay + sny * tick);
+  ctx.moveTo(bx - snx * tick, by - sny * tick);
+  ctx.lineTo(bx + snx * tick, by + sny * tick);
+  ctx.strokeStyle = DOOR_GLYPH_JAMB;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(bx, by);
+  ctx.lineTo(bx + snx * slab, by + sny * slab);
+  ctx.lineTo(ax + snx * slab, ay + sny * slab);
+  ctx.closePath();
+  ctx.fillStyle = DOOR_GLYPH_SLAB;
+  ctx.fill();
+  ctx.strokeStyle = '#c4a574';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.quadraticCurveTo(mx + snx * slab * 1.15, my + sny * slab * 1.15, bx, by);
+  ctx.strokeStyle = DOOR_GLYPH_ARCH;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+}
+function doorGlyphSight() {
+  if (role === 'player') return sightFor(uid, getPlayerScene());
+  return buildSight(null, activeSceneId(), 'party');
+}
+function paintClosedDoorGlyphs() {
+  if (!state.scene) return;
+  if (role !== 'player' && !(role === 'dm' && state.showPlayerFov)) return;
+  const walls = sceneData().walls || [];
+  if (!walls.length) return;
+  const sight = doorGlyphSight();
+  const cell = state.scene.grid.px || 70;
+  walls.forEach(w => {
+    const side = doorGlyphSide(w, sight, walls);
+    if (side) paintOneDoorGlyph(w, side, cell, role === 'player');
+  });
+}
+function doorGlyphReport() {
+  const sight = doorGlyphSight();
+  const walls = sceneData().walls || [];
+  return walls.filter(w => w && w.door).map(w => {
+    const side = w.open ? null : doorGlyphSide(w, sight, walls);
+    return {
+      x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2,
+      open: !!w.open,
+      secret: doorIsSecret(w),
+      shown: !!side,
+      nx: side ? side.nx : 0,
+      ny: side ? side.ny : 0
+    };
+  });
+}
 function draw() {
   publishTokenColors();
   if (!state.scene) return;
@@ -2183,10 +2354,21 @@ function draw() {
         ctx.setLineDash([6, 4]);
         ctx.stroke();
       } else if (isDoor) {
-        ctx.strokeStyle = 'rgba(220,60,60,0.95)';
+        const secret = doorIsSecret(w);
+        ctx.strokeStyle = secret ? 'rgba(230,180,70,0.95)' : 'rgba(220,60,60,0.95)';
         ctx.lineWidth = 5;
-        ctx.setLineDash([6, 4]);
+        ctx.setLineDash(secret ? [2, 5] : [6, 4]);
         ctx.stroke();
+        if (secret) {
+          ctx.save();
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(230,180,70,0.95)';
+          ctx.font = '11px system-ui';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText('secret', (a.x + b.x) / 2, (a.y + b.y) / 2 - 6);
+          ctx.restore();
+        }
       } else {
         ctx.strokeStyle = 'rgba(200,160,80,0.85)';
         ctx.lineWidth = 3;
@@ -2287,6 +2469,7 @@ function draw() {
   paintRangeControls();
   paintRangeRings();
   paintMoveReach();
+  paintClosedDoorGlyphs();
 
   // tokens — this floor only. Players already skipped other scenes; the DM does too.
   for (const t of state.tokens) {
@@ -2613,6 +2796,21 @@ function clearToolButtons() {
     b.classList.remove('active');
   });
 }
+function paintSecretBtn() {
+  const b = q('secretDoorBtn');
+  if (!b) return;
+  const on = !!state.secretDoor;
+  b.textContent = on ? 'Secret: ON' : 'Secret: OFF';
+  b.classList.toggle('active', on);
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+function markDoorTool() {
+  ['rulerBtn','pingBtn','wallBtn','delWallBtn','roomBtn','doorBtn','windowBtn'].forEach(id => {
+    const b = q(id);
+    const toolMap = { rulerBtn: 'ruler', pingBtn: 'ping', wallBtn: 'wall', delWallBtn: 'delwall', roomBtn: 'room', doorBtn: 'door', windowBtn: 'window' };
+    if (b && state.tool === toolMap[id]) b.classList.add('active');
+  });
+}
 function armFog(op) {
   const sel = q(op === 'hide' ? 'hideShape' : 'revealShape');
   const kind = (sel && sel.value) || 'box';
@@ -2624,8 +2822,10 @@ function armFog(op) {
     state.fogKind = kind;
   }
   state.fogMode = state.tool;
+  state.secretDoor = false;
   if (state.fogKind !== 'poly') { state.polyPoints = []; state.polyHover = null; }
   clearToolButtons();
+  paintSecretBtn();
   paintFogTools();
   applyCursor();
   draw();
@@ -2637,13 +2837,28 @@ function setTool(tool) {
   state.fogKind = null;
   state.polyPoints = [];
   state.polyHover = null;
+  state.secretDoor = false;
   if (wallTool) revealWallLines();
   clearToolButtons();
-  ['rulerBtn','pingBtn','wallBtn','delWallBtn','roomBtn','doorBtn','windowBtn'].forEach(id => {
-    const b = q(id);
-    const toolMap = { rulerBtn: 'ruler', pingBtn: 'ping', wallBtn: 'wall', delWallBtn: 'delwall', roomBtn: 'room', doorBtn: 'door', windowBtn: 'window' };
-    if (b && state.tool === toolMap[id]) b.classList.add('active');
-  });
+  markDoorTool();
+  paintSecretBtn();
+  paintFogTools();
+  applyCursor();
+  draw();
+}
+function armSecretDoor() {
+  state.secretDoor = !state.secretDoor;
+  if (state.secretDoor) {
+    state.tool = 'door';
+    state.fogMode = null;
+    state.fogKind = null;
+    state.polyPoints = [];
+    state.polyHover = null;
+    revealWallLines();
+  }
+  clearToolButtons();
+  markDoorTool();
+  paintSecretBtn();
   paintFogTools();
   applyCursor();
   draw();
@@ -2688,7 +2903,7 @@ function cutFeature(wall, clickX, clickY, extra) {
   if (t1 < 0.98) segs.push({ x1: c.x, y1: c.y, x2: d.x, y2: d.y });
   return segs;
 }
-function isPlain(w) { return !w.open && !w.window && !w.door && !w.shut; }
+function isPlain(w) { return !w.open && !w.window && !w.door && !w.shut && !w.secret && !w.hidden; }
 function collapsePlainWalls() {
   const walls = sceneData().walls;
   const keep = walls.filter(w => !isPlain(w));
@@ -4618,12 +4833,30 @@ function onPointerDown(e) {
       });
       const wall = sceneData().walls[best];
       const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1);
+      const markSecret = !!(state.secretDoor || e.shiftKey);
       if (e.button === 2) {
         if (wall.door || wall.window || len <= 1.5) {
           wall.open = false; wall.window = false; wall.shut = false; wall.door = false;
+          wall.secret = false;
+          delete wall.hidden;
           mergePlainWalls();
           toast('Door removed, wall restored');
         }
+      } else if (markSecret && wall.window && !wall.door) {
+        toast('That is a window');
+      } else if (markSecret && (wall.door || doorIsSecret(wall) || len <= 1.5)) {
+        const next = !doorIsSecret(wall);
+        wall.door = true;
+        wall.open = false;
+        wall.window = false;
+        wall.shut = false;
+        wall.secret = next;
+        if (!next) delete wall.hidden;
+        toast(next ? 'Secret door — hidden from players' : 'Door revealed');
+      } else if (markSecret && len > 1.5) {
+        const segs = cutFeature(wall, w.x / px, w.y / px, { open: false, door: true, secret: true });
+        sceneData().walls.splice(best, 1, ...segs);
+        toast('Secret door cut (1 square)');
       } else if (wall.door || (len <= 1.5 && wall.open)) {
         wall.open = !wall.open;
         wall.door = true;
@@ -5831,7 +6064,7 @@ q('helpBtn').addEventListener('click', () => {
 ${dm ? `<b>DM</b><br>
 Ctrl-click or drag a box to select many.<br>
 Copy Ctrl+C, Paste Ctrl+V, Delete removes from the turn order.<br>
-Door / Window: click a wall. Click again to open or shut. Right-click removes it.<br>
+Door / Window: click a wall. Click again to open or shut. Right-click removes it. Secret: ON hides that door from players (no door mark) until you click it again to reveal. Shift-click does the same. Opening a door still opens sight. A secret door stays a wall on the player map until it is revealed.<br>
 Wall and Room: drag, release to commit.<br>
 Walls: OFF hides the lines so you can see the raw map. Walls still block.<br>
 Grant / Revoke: pick a player, then a token. Revoke on their own token locks them out. Grant gives it back.<br>
@@ -6024,6 +6257,7 @@ if (role === 'dm') {
   q('wallBtn').addEventListener('click', () => setTool('wall'));
   q('roomBtn').addEventListener('click', () => setTool('room'));
   q('doorBtn').addEventListener('click', () => setTool('door'));
+  q('secretDoorBtn').addEventListener('click', () => armSecretDoor());
   q('windowBtn').addEventListener('click', () => setTool('window'));
   q('snapBtn').addEventListener('click', () => {
     state.snap = !state.snap;
@@ -9108,6 +9342,8 @@ return {
   armAttack,
   /* fog-aware targeting */
   canPlayerSee: function (viewerUid, targetId) { return canPlayerSee(viewerUid, targetId); },
+  /* N59: which closed doors this client paints a glyph for. Secret doors stay shown:false. */
+  doorGlyphs: function () { return doorGlyphReport(); },
   targetSight: function (targetId) { return targetSight(targetId); },
   /* attack-fx: DM -> draw + publish the cleaned row; player -> draw locally only. */
   fx: function (spec) {
