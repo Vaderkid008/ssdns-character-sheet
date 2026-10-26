@@ -2416,11 +2416,36 @@ function pushReactAnswer(view, choice, meta) {
     from: DM.state.uid
   });
 }
-function presentReact(view, handler) {
+/** Tell the reactor's sheet to drop a card that is already up. A Pass on the DM mirror never reaches that client otherwise. */
+function pushReactClose(view) {
+  const pid = view && view.reactorPlayerId;
+  if (!pid || !DM.pushCommand) return;
+  DM.pushCommand({
+    type: "reactClose",
+    to: pid,
+    payload: { promptId: (view && view.promptId) || "" },
+    from: DM.state.uid
+  });
+}
+/** The ask payload often has no HP (players cannot see it). The live fight row is the source of truth. */
+function viewCannotReact(view) {
   const R = window.SSDNSReact;
-  if (!R || !view) return false;
-  const choose = function (choice, meta) {
-    meta = meta || {};
+  if (!R || typeof R.cannotReact !== "function" || !view) return false;
+  if (R.cannotReact(view)) return true;
+  const row = fightRowById(view.reactorId);
+  if (!row) return false;
+  return R.cannotReact({
+    status: row.status,
+    hp: row.hp,
+    noHpPool: noHpPoolRow(row),
+    conditions: row.conditions || []
+  });
+}
+function settleReactChoice(view, choice, meta, handler) {
+  const R = window.SSDNSReact;
+  meta = meta || {};
+  if (choice === "cancel") choice = "pass";
+  try {
     if (choice === "attack" && view.dmRuns) {
       meta.oaId = meta.oaId || view.oaId || ("oa_" + Date.now().toString(36));
       if (!armReactOa(view.reactorId, meta.oaId)) choice = "pass";
@@ -2433,7 +2458,27 @@ function presentReact(view, handler) {
     }
     if (choice === "cast" && view.dmRuns) castReactOffer(view);
     if (handler) handler(choice, meta);
-    else if (!(R.deliver && R.deliver(view.promptId, choice, meta))) pushReactAnswer(view, choice, meta);
+    else if (!(R && R.deliver && R.deliver(view.promptId, choice, meta))) pushReactAnswer(view, choice, meta);
+  } catch (e) {
+    if (R && R.close) R.close();
+    if (choice === "pass") pushReactClose(view);
+    return;
+  }
+  /* A local handler may have just opened the next reactor's card. Closing here would wipe it.
+     With no handler, Pass used to return after pushReactAnswer and leave the full-screen card up. */
+  const terminal = choice === "pass" || choice === "attacked" || choice === "cast" || choice === "go";
+  if (!handler && terminal && R && R.close) R.close();
+  if (choice === "pass") pushReactClose(view);
+}
+function presentReact(view, handler) {
+  const R = window.SSDNSReact;
+  if (!R || !view) return false;
+  if (viewCannotReact(view)) {
+    settleReactChoice(view, "pass", { down: true }, handler);
+    return true;
+  }
+  const choose = function (choice, meta) {
+    settleReactChoice(view, choice, meta, handler);
   };
   const alreadyThere = !!(view.reactorPlayerId && view.from && view.from === view.reactorPlayerId);
   if (!alreadyThere && reactChoiceLocal(view)) R.openModal(view, choose);
@@ -2474,10 +2519,12 @@ function noteReactRequest(req) {
         if (req.oaId) clearReactOa(req.oaId);
         pushReactAnswer(req, "pass", { oaId: req.oaId || "" });
         R.close();
+        pushReactClose(req);
       });
       return;
     }
-    if (req.choice === "pass" || req.choice === "attacked" || req.choice === "go" || req.choice === "cast") R.close();
+    if (req.choice === "pass" || req.choice === "attacked" || req.choice === "go" || req.choice === "cast" || req.choice === "cancel") R.close();
+    if (req.choice === "pass" || req.choice === "cancel") pushReactClose(req);
     return;
   }
   if (req.kind === "spell") {
@@ -2498,6 +2545,7 @@ function counterspellOffers(req) {
   (fight.order || []).forEach((row) => {
     if (!row) return;
     if (row.id === casterId || row.playerId === casterId) return;
+    if (viewCannotReact({ reactorId: row.id, status: row.status, hp: row.hp, noHpPool: noHpPoolRow(row), conditions: row.conditions || [] })) return;
     const spells = tokenReactionSpells(row).filter((sp) => R.triggerOf(sp.name) === "spell");
     if (!spells.length) return;
     const marks = markersOfRow(row);
@@ -2530,6 +2578,7 @@ function counterspellOffers(req) {
 function damageReactOffers(meta, row) {
   const R = window.SSDNSReact;
   if (!R || !row || !meta) return [];
+  if (viewCannotReact({ reactorId: row.id, status: row.status, hp: row.hp, noHpPool: noHpPoolRow(row), conditions: row.conditions || [] })) return [];
   const spells = tokenReactionSpells(row).filter((sp) => R.triggerOf(sp.name) === "damage");
   if (!spells.length) return [];
   const marks = markersOfRow(row);
@@ -7768,14 +7817,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.157-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.158-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.157-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.158-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

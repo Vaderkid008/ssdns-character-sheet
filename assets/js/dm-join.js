@@ -1269,6 +1269,9 @@
       case "reactAnswer":
         if (root.SSDNSReact && root.SSDNSReact.deliver) root.SSDNSReact.deliver(payload.promptId, payload.choice || "pass", payload);
         break;
+      case "reactClose":
+        if (root.SSDNSReact && root.SSDNSReact.close) root.SSDNSReact.close();
+        break;
       case "reward_es":
         var bankId = String(payload.grantId || "").indexOf("bank:") === 0 ? String(payload.grantId).slice(5) : "";
         var bankOk = applyEsReward(payload.delta || 0, payload.reason || "DM reward", payload.grantId || cmd.id);
@@ -2736,6 +2739,11 @@
   function onReactPrompt(view) {
     var R = root.SSDNSReact;
     if (!R || !view) return;
+    if (R.cannotReact && R.cannotReact(view)) {
+      postReactAnswer(view, "pass", { down: true });
+      R.close();
+      return;
+    }
     R.openModal(view, function (choice) {
       var meta = {};
       if (choice === "attack") {

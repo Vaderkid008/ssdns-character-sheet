@@ -3852,7 +3852,15 @@ function moveContext(mover, budget) {
     reaction: reactionSpentOf(t),
     playerId: t.ownerUid || '',
     self: !!(uid && t.ownerUid === uid),
-    dmRuns: role === 'dm' && !t.ownerUid
+    dmRuns: role === 'dm' && !t.ownerUid,
+    status: (rowForToken(t) && rowForToken(t).status) || t.status || '',
+    hp: (function () {
+      const row = rowForToken(t);
+      if (row && row.hp != null && row.hp !== '') return row.hp;
+      return t.hp != null ? t.hp : '';
+    })(),
+    noHpPool: !!((rowForToken(t) && rowForToken(t).noHpPool) || t.noHpPool),
+    conditions: tokenConditions(t)
   }));
   return {
     grid: { cols: grid.cols || 30, rows: grid.rows || 20 },
@@ -4028,6 +4036,8 @@ function presentLeave(view) {
   if (typeof host.presentReact === 'function') {
     try { shown = host.presentReact(view, handler) === true; } catch (e) { shown = false; }
   }
+  /* Auto-pass of the last reactor clears the hold inside presentReact. Do not reopen a card. */
+  if (!reactHold) return;
   reactHold.remote = !!shown;
   if (!shown) {
     R.openModal(view, handler);
@@ -4055,6 +4065,11 @@ function showLeaveCard() {
   if (!view) { clearReactHold(); return; }
   view.moverId = reactHold.moverId;
   view.moverPlayerId = reactHold.moverPlayerId;
+  /* A corpse queued before it dropped still has a view. Pass it without opening a card. */
+  if (view.down && !view.hideAttack) {
+    onLeaveChoice('pass', { down: true });
+    return;
+  }
   presentLeave(view);
 }
 function clearArmedOa(oaId) {
@@ -4071,6 +4086,7 @@ function onLeaveChoice(choice, meta) {
   const R = window.SSDNSReact;
   if (!reactHold || !R) return;
   meta = meta || {};
+  if (choice === 'cancel') choice = 'pass';
   const session = reactHold.session;
   const stamp = session.pi + ':' + session.qi + ':' + session.phase + ':' + choice;
   if (reactHold.stamp === stamp) return;
@@ -4082,16 +4098,27 @@ function onLeaveChoice(choice, meta) {
     const view = R.leaveView(session, reactHold.moverName);
     armLeaveReactor(view, meta.oaId);
   }
-  const result = R.answerLeave(session, choice, meta);
+  let result;
+  try {
+    result = R.answerLeave(session, choice, meta);
+  } catch (e) {
+    clearReactHold();
+    return;
+  }
+  if (!result) { clearReactHold(); return; }
   if (result.toast) toast(result.toast);
   if (result.armed) {
     R.watchSpent(result.oaId, function () { onLeaveChoice('attacked', { oaId: result.oaId }); });
-    refreshArmedCard();
+    try { refreshArmedCard(); } catch (e) { clearReactHold(); }
     return;
   }
-  if (result.commit) slideSegment(reactHold.mover, reactHold.built, result.commit.from, result.commit.to, reactHold.budget);
+  if (result.commit && reactHold) {
+    try { slideSegment(reactHold.mover, reactHold.built, result.commit.from, result.commit.to, reactHold.budget); }
+    catch (e) {}
+  }
+  if (!reactHold) return;
   if (result.done) { clearReactHold(); return; }
-  showLeaveCard();
+  try { showLeaveCard(); } catch (e) { clearReactHold(); }
 }
 function commitWalk(mover, built, budget) {
   if (!mover || !built || !built.path || built.path.length < 2) return;

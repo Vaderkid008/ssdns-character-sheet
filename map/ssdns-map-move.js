@@ -297,6 +297,24 @@
     var n = num(raw, 5);
     return n > 0 ? n : 5;
   }
+  /** A dead or unconscious creature does not get an opportunity attack. HP 0 counts, except a creature with no HP pool. */
+  function reactorDown(enemy) {
+    if (!enemy) return false;
+    if (enemy.down === true || enemy.cannotReact === true) return true;
+    var st = String(enemy.status || "").toLowerCase();
+    if (/^(down|dead|unconscious|dying)$/.test(st)) return true;
+    var list = enemy.conditions || [];
+    var i, raw, name;
+    for (i = 0; i < list.length; i++) {
+      raw = list[i];
+      name = String((raw && (raw.name || raw.label)) || raw || "").toLowerCase();
+      if (/^(unconscious|dead|dying)$/.test(name)) return true;
+    }
+    if (enemy.noHpPool) return false;
+    var hp = enemy.hp;
+    if (hp != null && hp !== "" && isFinite(Number(hp)) && Number(hp) <= 0) return true;
+    return false;
+  }
   function inMeleeBoxes(mover, enemy) {
     return feetBetweenBoxes(mover, enemy) <= reachFeet(enemy);
   }
@@ -318,7 +336,7 @@
       after = { x: path[i].x, y: path[i].y, size: size };
       for (e = 0; e < enemies.length; e++) {
         foe = enemies[e];
-        if (!foe || foe.ally) continue;
+        if (!foe || foe.ally || reactorDown(foe)) continue;
         if (inMeleeBoxes(before, foe) && !inMeleeBoxes(after, foe)) who.push(foe);
       }
       if (who.length) pauses.push({ index: i, reactors: who });
@@ -364,6 +382,7 @@
     slideBlocked: slideBlocked,
     axisGap: axisGap,
     feetBetweenBoxes: feetBetweenBoxes,
+    reactorDown: reactorDown,
     leaveReachPlan: leaveReachPlan,
     leaveReachCue: leaveReachCue,
     previewSlot: previewSlot,

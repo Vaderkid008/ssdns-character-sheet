@@ -74,6 +74,24 @@
     });
     return out;
   }
+  /** Dead, unconscious, or at 0 HP. A creature with no HP pool is not down from the number alone. */
+  function cannotReact(ent) {
+    if (!ent) return false;
+    if (ent.down === true || ent.cannotReact === true) return true;
+    var st = String(ent.status || "").toLowerCase();
+    if (/^(down|dead|unconscious|dying)$/.test(st)) return true;
+    var list = ent.conditions || [];
+    var i, raw, name;
+    for (i = 0; i < list.length; i++) {
+      raw = list[i];
+      name = String((raw && (raw.name || raw.label)) || raw || "").toLowerCase();
+      if (/^(unconscious|dead|dying)$/.test(name)) return true;
+    }
+    if (ent.noHpPool) return false;
+    var hp = ent.hp;
+    if (hp != null && hp !== "" && isFinite(Number(hp)) && Number(hp) <= 0) return true;
+    return false;
+  }
   function withoutSpent(pauses) {
     var out = [];
     var toasts = [];
@@ -81,6 +99,7 @@
       var live = [];
       (p.reactors || []).forEach(function (r) {
         if (!r) return;
+        if (cannotReact(r)) return;
         if (r.reaction) toasts.push((r.name || r.label || "They") + " already used their reaction.");
         else live.push(r);
       });
@@ -132,6 +151,11 @@
       reactorPlayerId: reactor.playerId || "",
       dmRuns: dmRuns,
       self: !!reactor.self,
+      status: reactor.status || "",
+      hp: reactor.hp != null ? reactor.hp : "",
+      noHpPool: !!reactor.noHpPool,
+      conditions: reactor.conditions || [],
+      down: cannotReact(reactor),
       moverName: who,
       moverId: session.moverId || "",
       moverPlayerId: session.moverPlayerId || "",
@@ -151,6 +175,8 @@
     var pause = session.pauses[session.pi];
     var reactor = currentReactor(session);
     if (!pause || !reactor) return { done: true, commit: null, toast: "" };
+    if (choice === "cancel") choice = "pass";
+    if ((choice === "attack" || choice === "pass") && cannotReact(reactor) && session.phase !== "attacking") choice = "pass";
     if (choice === "attack") {
       if (reactor.reaction) {
         choice = "pass";
@@ -210,6 +236,11 @@
       reactorPlayerId: o.reactorPlayerId || "",
       dmRuns: dmRuns,
       self: !!o.self,
+      status: o.status || "",
+      hp: o.hp != null ? o.hp : "",
+      noHpPool: !!o.noHpPool,
+      conditions: o.conditions || [],
+      down: cannotReact(o),
       spellName: o.spellName || "",
       spellLevel: o.spellLevel || 0,
       damagerId: o.damagerId || "",
@@ -224,6 +255,8 @@
   function answerOffer(session, choice) {
     var cur = session.offers[session.i];
     if (!cur) return { done: true, choice: "pass", offer: null, toast: "" };
+    if (choice === "cancel") choice = "pass";
+    if (cannotReact(cur)) choice = "pass";
     var made = choice === "cast" ? "cast" : "pass";
     var toast = "";
     if (made === "cast" && (cur.reaction || session.spent)) {
@@ -285,7 +318,7 @@
   }
   function actionsHtml(model) {
     var attack = "";
-    if (!model.hideAttack) {
+    if (!model.hideAttack && !model.down) {
       var dis = model.disabled ? " disabled" : "";
       attack = '<button type="button" class="btn btn-primary" data-react-choice="' + esc(model.choice || "attack") + '"' + dis + ">" + esc(model.attackLabel || "Attack") + "</button>";
     }
@@ -306,7 +339,7 @@
   function paintMirror(model) {
     closeMirror();
     if (!model || typeof document === "undefined" || !document.body) return;
-    var showChoice = !!model.dmRuns && !model.hideAttack;
+    var showChoice = !!model.dmRuns && !model.hideAttack && !model.down;
     var choiceBtn = showChoice
       ? '<button type="button" class="btn btn-primary" data-react-choice="' + esc(model.choice || "attack") + '"' + (model.disabled ? " disabled" : "") + ">" + esc(model.attackLabel || "Attack") + "</button>"
       : "";
@@ -339,7 +372,20 @@
       var btn = e.target && e.target.closest && e.target.closest("[data-react-choice]");
       if (!btn || btn.disabled) return;
       if (e.preventDefault) e.preventDefault();
-      choose(btn.getAttribute("data-react-choice") || "pass");
+      if (e.stopPropagation) e.stopPropagation();
+      var picked = btn.getAttribute("data-react-choice") || "pass";
+      try { choose(picked); }
+      catch (err) {
+        if (picked === "pass" || picked === "cancel") close();
+      }
+    });
+    document.addEventListener("keydown", function (e) {
+      if (!e || e.key !== "Escape" || (!modalEl && !mirrorEl)) return;
+      if (e.preventDefault) e.preventDefault();
+      try {
+        if (onChoice) choose("cancel");
+        else close();
+      } catch (err) { close(); }
     });
   }
 
@@ -357,6 +403,7 @@
     rangeFt: rangeFt,
     inRange: inRange,
     eligible: eligible,
+    cannotReact: cannotReact,
     withoutSpent: withoutSpent,
     freshLeave: freshLeave,
     leaveView: leaveView,
