@@ -1,11 +1,13 @@
-/* Act I chest roller (DRAFT v1.4 tables).
-   Order: gate lock/nails/hide → picks → band % → row % → qty → caps → band fallback → ES/Black → Letter scroll-chance.
+/* Act I chest roller (DRAFT v1.5 tables).
+   Order: gate lock/nails/hide → picks → band % → row % → qty → caps → band fallback → ES/Black → Letter scroll-chance → Strongbox Key nest.
    Locked: #gun-act1 is 20% each of five guns. Outlaw Stash Black is blackOn [1] on 1d6×50 → 1d4 black-shard-junk.
    Glowing Letters are a d100 scroll-chance after the picks (they do not take a loot pick or a Rare-magic slot).
+   Letter chance: Saddlebag 100, Supply Crate 95, Outlaw Stash 100 then 75, Strongbox 100 then 90.
    Letter mix is locked Friendlier: sealed 35, Cure 24, Shield 24, Fireball 12, Revivify 5.
+   Strongbox Key nests after Letters: Saddlebag 5, Supply Crate 10, Outlaw Stash 15. Never inside a Strongbox.
    Other Story Finds stay never-roll. RNG percentages are the balance floor.
    The chapter budget warns only. DM hand-pick and Rare override always win.
-   d100 is 1–100 (die). A chance of 70 hits on 1–70. */
+   d100 is 1–100 (die). A chance of 70 hits on 1–70. A chance of 100 hits on 1–100. */
 (function (root) {
   "use strict";
   var BANDS = ["rare", "uncommon", "common"];
@@ -92,7 +94,7 @@
   }
   function isGun(id) { return !!GUNS[id] || /^pony-arms-chaosmaker|^lancaster-|^bison-big-fifty/.test(id); }
   /* A rules firearm or caster gun (when SSDNS_RULES is loaded) lands as a Dirty gun.
-     Loot v1.4 tests do not load rules.js, so the five Act I guns stay on isGun alone. */
+     Loot tests do not load rules.js, so the five Act I guns stay on isGun alone. */
   function rulesGun(id) {
     var R = root.SSDNS_RULES;
     if (!R || !id) return false;
@@ -161,7 +163,8 @@
     var src = (table && table.caps) || {};
     Object.keys(src).forEach(function (k) { caps[k] = src[k]; });
     if (table && table.letterChance && table.letterChance.max) caps.glowingLetter = table.letterChance.max;
-    return { guns: 0, explosives: 0, letters: 0, magicRare: 0, seen: {}, counts: {}, caps: caps, picks: [] };
+    if (table && table.keyChance && table.keyChance.max != null) caps.strongboxKey = Number(table.keyChance.max);
+    return { guns: 0, explosives: 0, letters: 0, keys: 0, magicRare: 0, seen: {}, counts: {}, caps: caps, picks: [] };
   }
   function notePick(state, id) {
     state.counts[id] = (state.counts[id] || 0) + 1;
@@ -220,6 +223,7 @@
     if (AMMO[id]) return AMMO[id].each > 1 ? AMMO[id].name + " (" + AMMO[id].each + ")" : AMMO[id].name;
     if (LETTERS[id]) return LETTERS[id];
     if (id === "black-shard-junk") return "Black shard (drained)";
+    if (id === "strongbox-key") return "Strongbox Key";
     if (id === "assay-tonic-trail-draught") return "Healing Libation";
     try {
       var row = root.SSDNSItems && root.SSDNSItems.byId && root.SSDNSItems.byId(id);
@@ -261,6 +265,36 @@
       if (second <= Number(chance.second)) addOne();
     }
   }
+  function rollKey(table, state, ctx, rng, log) {
+    if ((table.boxType || "") === "strongbox") {
+      log.push("key: none (strongbox)");
+      return;
+    }
+    var chance = table.keyChance || null;
+    var max = chance && chance.max != null ? Number(chance.max) : ((state.caps && state.caps.strongboxKey) || 0);
+    var id = (chance && chance.id) || "strongbox-key";
+    function addOne() {
+      if (!(max > 0) || state.keys >= max) return false;
+      var pick = { id: id, qty: 1, dirty: false, band: "key", hand: false, name: nameOf(id) };
+      state.keys += 1;
+      if (!isConsumable(id)) state.seen[id] = 1;
+      state.counts[id] = (state.counts[id] || 0) + 1;
+      state.picks.push(pick);
+      log.push("key: 1 × " + pick.name);
+      return true;
+    }
+    if (ctx.keyForce === 0 || ctx.keyForce === "0" || ctx.keyForce === "clear") {
+      log.push("DM key 0");
+      return;
+    }
+    if (ctx.keyForce != null && ctx.keyForce !== "" && isFinite(Number(ctx.keyForce)) && Number(ctx.keyForce) > 0) {
+      var forced = addOne();
+      log.push(forced ? "DM key 1" : "DM key 0");
+      return;
+    }
+    if (!chance || !(Number(chance.pct) > 0) || !(max > 0)) return;
+    if (die(100, rng) <= Number(chance.pct)) addOne();
+  }
   function rollBox(table, ctx, rng) {
     ctx = ctx || {};
     rng = rngOf(rng);
@@ -279,6 +313,7 @@
     if (cash.branch === "black") log.push("Black: " + cash.black + " × " + nameOf(cash.blackId) + " (d6 " + cash.faces.join(",") + ")");
     else if (cash.branch === "es") log.push("ES " + cash.es);
     rollLetters(table, state, ctx, rng, log);
+    rollKey(table, state, ctx, rng, log);
     return {
       tableId: table.id, name: table.name, boxType: table.boxType, draft: table.draft !== false,
       picks: state.picks, cash: cash, log: log, actMin: table.actMin || null
@@ -598,7 +633,8 @@
       hideDc: access.hideDc,
       found: access.found,
       trap: access.trap,
-      letterForce: ctx.letterForce
+      letterForce: ctx.letterForce,
+      keyForce: ctx.keyForce
     };
     var gate = blocked(box);
     if (gate) box.log.push("Held until the " + gate + " check clears");
@@ -619,6 +655,7 @@
       var rollCtx = {};
       Object.keys(ctx).forEach(function (k) { rollCtx[k] = ctx[k]; });
       if (box.letterForce != null && box.letterForce !== "") rollCtx.letterForce = box.letterForce;
+      if (box.keyForce != null && box.keyForce !== "") rollCtx.keyForce = box.keyForce;
       applyRoll(box, rollBox(table, rollCtx, rng));
     }
     box.opened = true;
