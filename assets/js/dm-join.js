@@ -2053,6 +2053,11 @@
       }
       if (payload.dm) root.SSDNSGunRoll._dm = { mode: payload.mode === "adv" || payload.mode === "dis" ? payload.mode : "" };
       if (payload.free) root.SSDNSGunRoll._free = true;
+      /* DM-run opportunity attack: arm it here so this shot spends Reaction, not Action, even if the marker write has not landed yet. */
+      if (payload.oa && !payload.offhand && !payload.fan && root.SSDNSActionPips && root.SSDNSActionPips.setOa) {
+        var oaNow = root.SSDNSActionPips.state ? root.SSDNSActionPips.state() : {};
+        if (!oaNow.oaArmed) root.SSDNSActionPips.setOa("oaArmed", String(payload.oa));
+      }
       /* 0.3.72: DM-sent off-hand shot: Bonus pip, no positive ability mod to damage, chat tagged off-hand */
       if (payload.offhand) root.SSDNSGunRoll._offhand = true;
       else if (payload.fan) root.SSDNSGunRoll._fan = true;

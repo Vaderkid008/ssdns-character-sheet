@@ -1918,8 +1918,22 @@ function markerExtrasHtml(row, m, opts) {
   const flags = ["dash", "disengage", "dodge"].filter((k) => m[k]).map((k) => `<span class="badge eld">${k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge")}</span>`).join("");
   return move + flags;
 }
-/* DM strip (0.2.144): the same pills as the player strip. Action / Bonus / R stay the existing marker buttons.
-   Dash / Disengage / Dodge are a read-out of flags the sheet already stores. Nothing new is spent from here. */
+/* A token the DM is running: an enemy, or a PC with Act for player. Their ready R opens the reaction menu.
+   A player acting for themselves keeps the marker toggle (the DM marking their sheet). */
+function dmRunsToken(row) {
+  return !!(row && (row.kind !== "player" || row.dmActsAs));
+}
+function dmReactionAttrs(row) {
+  if (!dmRunsToken(row)) return "";
+  return ` data-dm-react="1" aria-haspopup="menu"`;
+}
+function dmReactionTitle(m) {
+  return m && m.reaction
+    ? "Reaction used"
+    : "Reaction ready. Click for an opportunity attack, a reaction spell, or to mark it used.";
+}
+/* DM strip (0.2.144): the same pills as the player strip. Action / Bonus stay marker buttons.
+   Ready R for a token the DM is running opens the reaction menu (map strip and this strip). */
 function stripActsHtml(row) {
   const got = turnMarkersFor(row);
   if (!got || !fight.started) return "";
@@ -1927,7 +1941,9 @@ function stripActsHtml(row) {
   const pid = row.kind === "player" ? (row.playerId || row.id || "") : "";
   const pip = (k, label) => {
     const who = got.mine ? "" : ` data-pip-pid="${esc(pid)}"`;
-    return `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}"${who} aria-pressed="${!!m[k]}" title="${label} ${m[k] ? "used" : "ready"}">${label}</button>`;
+    const menu = k === "reaction" && dmRunsToken(row);
+    const title = menu ? dmReactionTitle(m) : `${label} ${m[k] ? "used" : "ready"}`;
+    return `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}"${who}${menu ? dmReactionAttrs(row) : ""} aria-pressed="${!!m[k]}" title="${esc(title)}">${label}</button>`;
   };
   return `<span class="tl-box dm-strip-acts-inner">${pip("action", "Action")}${pip("bonus", "Bonus")}${pip("reaction", "R")}${markerExtrasHtml(row, m, { pills: true })}</span>`;
 }
@@ -2119,7 +2135,11 @@ function mapMarkersHtml(combatantId) {
   /* Enemy turn on the DM map: the same Move feet and Dash / Disengage / Dodge as the fight strip. */
   if (row.kind !== "player") {
     const m = enemyMarkersNow(row) || window.SSDNSTurn.fresh("");
-    const pip = (k, label) => `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}" aria-pressed="${!!m[k]}" title="${label} ${m[k] ? "used" : "ready"} (click to mark ${m[k] ? "ready" : "used"})">${label}</button>`;
+    const pip = (k, label) => {
+      const menu = k === "reaction" && dmRunsToken(row);
+      const title = menu ? dmReactionTitle(m) : `${label} ${m[k] ? "used" : "ready"} (click to mark ${m[k] ? "ready" : "used"})`;
+      return `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}"${menu ? dmReactionAttrs(row) : ""} aria-pressed="${!!m[k]}" title="${esc(title)}">${label}</button>`;
+    };
     return `<div class="ssm-markers act-pips tl-box" data-turn-markers="${esc(row.id || "")}">` +
       pip("action", "Action") + pip("bonus", "Bonus") + pip("reaction", "R") +
       markerExtrasHtml(row, m, { pills: true }) +
@@ -2128,7 +2148,11 @@ function mapMarkersHtml(combatantId) {
   const pid = row.playerId || row.id || "";
   const m = playerMarkers(pid) || window.SSDNSTurn.fresh("");
   return `<div class="ssm-markers act-pips tl-box" data-turn-markers="${esc(row.id || "")}" data-tr-pid="${esc(pid)}">` +
-    ["action", "bonus", "reaction"].map((k) => `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}" data-pip-pid="${esc(pid)}" aria-pressed="${!!m[k]}" title="${PIP_NAME[k]} ${m[k] ? "used" : "ready"} (click to mark ${m[k] ? "ready" : "used"})">${k === "action" ? "Action" : (k === "bonus" ? "Bonus" : "R")}</button>`).join("") +
+    ["action", "bonus", "reaction"].map((k) => {
+      const menu = k === "reaction" && dmRunsToken(row);
+      const title = menu ? dmReactionTitle(m) : `${PIP_NAME[k]} ${m[k] ? "used" : "ready"} (click to mark ${m[k] ? "ready" : "used"})`;
+      return `<button type="button" class="pip pip-${k}${m[k] ? " used" : ""}" data-dm-pip="${k}" data-pip-pid="${esc(pid)}"${menu ? dmReactionAttrs(row) : ""} aria-pressed="${!!m[k]}" title="${esc(title)}">${k === "action" ? "Action" : (k === "bonus" ? "Bonus" : "R")}</button>`;
+    }).join("") +
     markerExtrasHtml(row, m, { pills: true }) +
     `<button type="button" class="btn xs" data-pip-reset="${esc(pid)}" title="Give back this player's action, bonus action, reaction and movement">Reset</button></div>`;
 }
@@ -2199,6 +2223,242 @@ function enemySpellCost(name) {
   if (ENEMY_BONUS_SPELLS.indexOf(n) >= 0) return "bonus";
   return "action";
 }
+function tokenSpellCost(name) {
+  const P = window.SSDNSActionPips;
+  if (P && typeof P.spellCost === "function") return P.spellCost(name);
+  return enemySpellCost(name);
+}
+/* Reaction spells on this token: prepared/known for a DM-run PC, the card list for an enemy. */
+function tokenReactionSpells(row) {
+  const list = mapDrawerSpells(row);
+  const seen = {};
+  const out = [];
+  list.forEach((sp) => {
+    if (!sp || !sp.name || tokenSpellCost(sp.name) !== "reaction") return;
+    const key = enemySpellBase(sp.name);
+    if (seen[key]) return;
+    seen[key] = 1;
+    out.push({ name: String(sp.name), level: parseInt(sp.level, 10) || 0, id: sp.id || sp.name });
+  });
+  out.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+  return out;
+}
+function fightRowById(id) {
+  const want = String(id || "");
+  if (!want) return null;
+  return (fight.order || []).find((r) => r && (r.id === want || r.playerId === want || r.mapTokenId === want)) || null;
+}
+function markersOfRow(row) {
+  if (!row) return null;
+  if (row.kind === "player") return playerMarkers(row.playerId || row.id);
+  return enemyMarkersNow(row);
+}
+let dmReactMenu = null;
+let dmReactAnchor = null;
+function closeDmReactionMenu() {
+  if (dmReactMenu && dmReactMenu.parentNode) dmReactMenu.parentNode.removeChild(dmReactMenu);
+  dmReactMenu = null;
+  dmReactAnchor = null;
+}
+function placeDmReactionMenu(anchor) {
+  if (!dmReactMenu || !anchor || !anchor.getBoundingClientRect) return;
+  const r = anchor.getBoundingClientRect();
+  let left = r.left;
+  let top = r.bottom + 4;
+  dmReactMenu.style.top = top + "px";
+  dmReactMenu.style.left = left + "px";
+  const w = dmReactMenu.offsetWidth || 240;
+  const h = dmReactMenu.offsetHeight || 40;
+  const vw = window.innerWidth || 800;
+  const vh = window.innerHeight || 600;
+  if (left + w > vw - 8) left = Math.max(8, vw - w - 8);
+  if (top + h > vh - 8) top = Math.max(8, r.top - h - 4);
+  dmReactMenu.style.top = top + "px";
+  dmReactMenu.style.left = left + "px";
+}
+function rowForReactPip(btn) {
+  if (!btn) return null;
+  if (btn.hasAttribute("data-pip-pid")) return playerRowFor(btn.getAttribute("data-pip-pid"));
+  const cur = fight.started ? fight.order[fight.turn] : null;
+  return cur && cur.kind !== "player" ? cur : null;
+}
+/* Spent R: the DM toast fades on its own. Nothing is written to chat or the ledger. */
+function dmReactionSpentToast() {
+  closeDmReactionMenu();
+  DM.toast("Reaction already used.");
+}
+function openDmReactionMenu(anchor, row) {
+  if (!row || !dmRunsToken(row)) return;
+  if (dmReactMenu && dmReactAnchor === anchor) { closeDmReactionMenu(); return; }
+  closeDmReactionMenu();
+  const m = markersOfRow(row);
+  if (m && m.reaction) { dmReactionSpentToast(); return; }
+  const spells = tokenReactionSpells(row);
+  const armed = !!(m && m.oaArmed);
+  const oaSub = armed
+    ? "Ready. The next attack uses this reaction, not the action."
+    : "One attack uses this reaction, not the action.";
+  let html = `<div class="pip-react-menu" data-dm-react-menu role="menu" aria-label="Reaction" data-dm-row="${esc(row.id || "")}">` +
+    `<button type="button" class="pip-react-item" role="menuitem" data-dm-react-item="oa" data-dm-row="${esc(row.id || "")}"><b>Opportunity attack</b><span>${esc(oaSub)}</span></button>`;
+  if (!spells.length) html += `<p class="pip-react-empty">No reaction spells prepared.</p>`;
+  spells.forEach((sp) => {
+    const tag = sp.level ? ("Level " + sp.level) : "Cantrip";
+    html += `<button type="button" class="pip-react-item" role="menuitem" data-dm-react-item="spell" data-dm-row="${esc(row.id || "")}" data-dm-spell="${esc(sp.name)}" data-dm-level="${sp.level}"><b>${esc(sp.name)}</b><span>${tag} · reaction</span></button>`;
+  });
+  html += `<button type="button" class="pip-react-item pip-react-mark" role="menuitem" data-dm-react-item="mark" data-dm-row="${esc(row.id || "")}"><b>Mark used</b><span>For when you call it, with no roll.</span></button></div>`;
+  const wrap = document.createElement("div");
+  wrap.innerHTML = html;
+  dmReactMenu = wrap.firstChild;
+  dmReactAnchor = anchor || null;
+  document.body.appendChild(dmReactMenu);
+  placeDmReactionMenu(anchor);
+}
+function onDmReactionPip(btn) {
+  const row = rowForReactPip(btn);
+  if (!row || !dmRunsToken(row)) return false;
+  const m = markersOfRow(row);
+  if (m && m.reaction) { dmReactionSpentToast(); return true; }
+  openDmReactionMenu(btn, row);
+  return true;
+}
+function armDmOpportunity(row) {
+  const m = markersOfRow(row);
+  if (!m) return;
+  if (m.reaction) { dmReactionSpentToast(); return; }
+  const who = row.name || (row.kind === "player" ? "them" : "this enemy");
+  if (m.oaArmed) {
+    DM.toast("Opportunity attack ready for " + who + ". The next attack uses their reaction, not their action.");
+    return;
+  }
+  const id = "dm_oa_" + Date.now().toString(36);
+  m.oaReq = "";
+  m.oaArmed = id;
+  if (row.kind === "player") {
+    writePlayerMarkers(row.playerId || row.id, m, "", ["oaReq", "oaArmed"]);
+  } else {
+    fight.markers = Object.assign({}, fight.markers || {}, { [row.id]: m });
+    saveRemoteTable();
+    renderFight();
+  }
+  DM.toast("Opportunity attack ready for " + who + ". One attack uses their reaction, not their action.");
+}
+async function markDmReaction(row) {
+  const m = markersOfRow(row);
+  if (!m) return;
+  if (m.reaction) { dmReactionSpentToast(); return; }
+  const who = row.name || "this token";
+  const msg = "Are you sure you want to use " + who + "'s Reaction?";
+  const Ask = window.SSDNSAsk;
+  const ok = Ask && typeof Ask.confirm === "function"
+    ? await Ask.confirm(msg)
+    : (typeof window.confirm === "function" ? window.confirm(msg) : true);
+  if (!ok) return;
+  const fresh = markersOfRow(row);
+  if (!fresh || fresh.reaction) { dmReactionSpentToast(); return; }
+  fresh.reaction = true;
+  if (row.kind === "player") writePlayerMarkers(row.playerId || row.id, fresh, "", ["reaction"]);
+  else {
+    fight.markers = Object.assign({}, fight.markers || {}, { [row.id]: fresh });
+    saveRemoteTable();
+    renderFight();
+  }
+  DM.toast("Reaction marked used for " + who + ".");
+}
+async function castDmRunSpell(row, name, level) {
+  const pid = row.playerId || row.id;
+  const p = DM.state.players && DM.state.players[pid];
+  const s = (p && p.snapshot) || {};
+  level = parseInt(level, 10) || 0;
+  if (level) {
+    s.spells = s.spells || {};
+    s.spells.slots = s.spells.slots || {};
+    s.spells.spent = s.spells.spent || {};
+    const totalSlots = Number(s.spells.slots[level] || 0);
+    const used = Number(s.spells.spent[level] || 0);
+    if (!totalSlots || used >= totalSlots) { DM.toast("No level-" + level + " slot left"); return false; }
+    s.spells.spent[level] = used + 1;
+    await DM.pushCommand({ type: "hex_spend", to: pid, payload: { level: level }, from: DM.state.uid });
+  }
+  const Cast = window.SSDNSSpellCast;
+  if (!Cast || !Cast.rollCast) { DM.toast("Spell roller isn't loaded"); return false; }
+  const rolled = Cast.rollCast({
+    spellName: name,
+    slotLevel: level,
+    characterLevel: s.level,
+    attackBonus: atkNumber(s.spellAtk),
+    spellMod: s.spellMod,
+    dc: s.spellDC
+  });
+  const castCue = window.SSDNSAudio && window.SSDNSAudio.spellCue
+    ? window.SSDNSAudio.spellCue({ name: name, kind: rolled && rolled.kind, attack: !!(rolled && rolled.attack), calling: s.callingId || s.calling })
+    : "spellcast";
+  if (rolled && rolled.attack) playTableSfx(castCue);
+  else if (window.SSDNSAudio) window.SSDNSAudio.play(castCue);
+  await DM.pushRoll({
+    who: "DM", playerId: pid, uid: DM.state.uid,
+    label: rolled.label, formula: rolled.formula, result: rolled.result, detail: (row.name || "PC") + " casts " + (rolled.text || name),
+    nat1: false, isFirearm: !!level, attack: rolled.attack, nat: rolled.nat, crit: rolled.crit, private: false
+  });
+  DM.renderPlayers();
+  DM.toast(rolled.text || ((row.name || "PC") + " casts " + name));
+  return true;
+}
+function spendPlayerReaction(row) {
+  const m = markersOfRow(row);
+  if (!m) return false;
+  m.reaction = true;
+  writePlayerMarkers(row.playerId || row.id, m, "", ["reaction"]);
+  return true;
+}
+/* The DM's next attack for this PC carries the armed OA so the sheet spends Reaction, not Action.
+   The strip updates here too (demo has no player sheet to push the pip back). */
+function takeDmPlayerOpportunity(row, payload) {
+  if (!payload || payload.op !== "fire" || payload.offhand || payload.fan || !row || row.kind !== "player" || !row.dmActsAs) return payload;
+  const m = markersOfRow(row);
+  if (!m || !m.oaArmed) return payload;
+  payload.oa = m.oaArmed;
+  m.reaction = true;
+  m.oaUsed = m.oaArmed;
+  m.oaArmed = "";
+  m.oaUsedAt = Date.now();
+  writePlayerMarkers(row.playerId || row.id, m, "", ["reaction", "oaReq", "oaArmed", "oaUsed", "oaUsedAt"]);
+  return payload;
+}
+function enemySpellIndex(row, name) {
+  const list = (row && row.card && row.card.spellcasting && row.card.spellcasting.spells) || [];
+  const want = enemySpellBase(name);
+  return list.findIndex((s) => enemySpellBase(typeof s === "string" ? s : (s && (s.name || s.id))) === want);
+}
+async function castDmReactionSpell(row, name, level) {
+  const m = markersOfRow(row);
+  if (m && m.reaction) { dmReactionSpentToast(); return; }
+  if (!name) { DM.toast("No spell"); return; }
+  if (row.kind !== "player") {
+    /* Load the stat block only when this spell is not already on the card.
+       ensureCombatantCard rebuilds from the bestiary and would drop a list the menu just showed. */
+    let n = enemySpellIndex(row, name);
+    if (n < 0) {
+      ensureCombatantCard(row);
+      n = enemySpellIndex(row, name);
+    }
+    if (n < 0) { DM.toast("No spell"); return; }
+    const i = fight.order.indexOf(row);
+    const ok = await cardCast(i < 0 ? fight.order.indexOf(fightRowById(row.id)) : i, n);
+    if (!ok) return;
+    await spendEnemyPip(row, "reaction", "Casting " + name);
+    return;
+  }
+  const ok = await castDmRunSpell(row, name, level);
+  if (!ok) return;
+  spendPlayerReaction(row);
+}
+async function handleDmReaction(rowId, act, spellName, spellLevel) {
+  const row = fightRowById(rowId);
+  if (!row || !dmRunsToken(row)) return;
+  if (act === "oa") { armDmOpportunity(row); return; }
+  if (act === "mark") { await markDmReaction(row); return; }
+  if (act === "spell") await castDmReactionSpell(row, spellName, spellLevel);
+}
 function repaintEnemyPips() {
   renderFight();
   if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
@@ -2218,13 +2478,18 @@ async function spendEnemyPip(row, cost, what, opts) {
   const current = enemyIsCurrent(row);
   const oa = !!(opts.oa || opts.opportunity);
   let use = cost || "action";
-  if (!current) {
-    if (oa) use = "reaction";
-    else if (use !== "reaction") return null;
-  }
-  if (use === "free") return { over: false, cost: "free" };
   const m = enemyMarkersNow(row);
   if (!m) return null;
+  /* Armed opportunity attack (DM reaction menu: no approve step) spends Reaction, not Action,
+     on this turn or off it. Same end state as an approved player OA. A free shot does not take it. */
+  const armed = !!(m.oaArmed) && !opts.free;
+  if (use === "attack" && (oa || armed)) use = "reaction";
+  if (!current) {
+    if (oa || use === "reaction") {
+      if (use !== "reaction") use = "reaction";
+    } else return null;
+  }
+  if (use === "free") return { over: false, cost: "free" };
   const label = what || (use === "attack" ? "Attack" : "That");
   const who = row.name || "This enemy";
   let over = false;
@@ -2253,6 +2518,11 @@ async function spendEnemyPip(row, cost, what, opts) {
       DM.toast(warn);
     }
   }
+  if (cost === "attack" && m.oaArmed && (oa || armed) && !opts.free) {
+    m.oaUsed = m.oaArmed;
+    m.oaArmed = "";
+    m.oaUsedAt = Date.now();
+  }
   fight.markers = Object.assign({}, fight.markers || {}, { [row.id]: m });
   await saveRemoteTable();
   repaintEnemyPips();
@@ -2268,7 +2538,10 @@ function repeatEnemyWarn(spent) {
    Multiattack limit this still warns and allows — the DM is not hard-blocked on an NPC. */
 async function commitEnemyAttack(row, atk, opts) {
   if (!row || row.kind === "player") return null;
-  return spendEnemyPip(row, "attack", (atk && atk.name) || "Attack", { oa: !!(opts && (opts.oa || opts.reaction || opts.opportunity)) });
+  return spendEnemyPip(row, "attack", (atk && atk.name) || "Attack", {
+    oa: !!(opts && (opts.oa || opts.reaction || opts.opportunity)),
+    free: !!(opts && opts.free)
+  });
 }
 function resetEnemyMarkers() {
   const T = window.SSDNSTurn;
@@ -4047,6 +4320,7 @@ async function rollGunAttack(pid) {
   if (sneakBox && sneakBox.checked) { payload.sneak = true; sneakBox.checked = false; }
   const smiteBox = $("#detailSmite");
   if (smiteBox && smiteBox.checked) { payload.smite = true; smiteBox.checked = false; }
+  takeDmPlayerOpportunity(playerRowFor(pid), payload);
   await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
   if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
   const whoName = namesFor(pid).characterName || s.name || "them";
@@ -6147,8 +6421,22 @@ function wireClicks() {
     }
   });
   document.addEventListener("click", (e) => {
+    const reactItem = e.target.closest && e.target.closest("[data-dm-react-item]");
+    if (reactItem) {
+      e.preventDefault();
+      const act = reactItem.getAttribute("data-dm-react-item");
+      const rowId = reactItem.getAttribute("data-dm-row");
+      const spellName = reactItem.getAttribute("data-dm-spell") || "";
+      const spellLevel = reactItem.getAttribute("data-dm-level") || "";
+      closeDmReactionMenu();
+      handleDmReaction(rowId, act, spellName, spellLevel);
+      return;
+    }
     const t = e.target.closest && e.target.closest("[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-dm-move],[data-dm-act],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
-    if (!t) return;
+    if (!t) {
+      if (dmReactMenu && !(e.target && e.target.closest && e.target.closest("[data-dm-react-menu]"))) closeDmReactionMenu();
+      return;
+    }
     if (t.hasAttribute("data-dm-scroll")) {
       const lane = document.getElementById("dmTurnNames");
       const by = Math.round((lane ? lane.clientWidth : 160) * 0.6) * Number(t.getAttribute("data-dm-scroll"));
@@ -6159,6 +6447,11 @@ function wireClicks() {
     if (t.hasAttribute("data-dm-move")) { adjustEnemyMove(t.getAttribute("data-dm-move")); return; }
     if (t.hasAttribute("data-dm-act")) { toggleEnemyAct(t.getAttribute("data-dm-act")); return; }
     if (t.hasAttribute("data-dm-pip")) {
+      if (t.getAttribute("data-dm-pip") === "reaction" && t.hasAttribute("data-dm-react")) {
+        onDmReactionPip(t);
+        return;
+      }
+      closeDmReactionMenu();
       if (t.hasAttribute("data-pip-pid")) { editPlayerMarker(t.getAttribute("data-pip-pid"), t.getAttribute("data-dm-pip")); return; }
       toggleEnemyMarker(t.getAttribute("data-dm-pip")); return;
     }
@@ -6274,6 +6567,7 @@ function wireClicks() {
       dmFireMode(pid, snapG).then((picked) => {
         if (picked == null) return;
         if (picked) payload.mode = picked;
+        takeDmPlayerOpportunity(playerRowFor(pid), payload);
         DM.pushCommand({ type: "gun", to: pid, payload: payload });
         if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
       });
@@ -7229,6 +7523,7 @@ async function bootV2() {
   $("#btnMusicPlay") && $("#btnMusicPlay").addEventListener("click", playTrack);
   $("#btnMusicStop") && $("#btnMusicStop").addEventListener("click", stopTrack);
   wireClicks();
+  document.addEventListener("keydown", (e) => { if (e && e.key === "Escape") closeDmReactionMenu(); });
   document.addEventListener("keydown", shortcuts);
   window.DMCCEnhance = {
     rememberGiveUndo(id, label) { rememberUndo({ type: "give", give: id, label: label || "give" }); },
@@ -8942,6 +9237,7 @@ async function mapFreeShot(i, row, detail) {
     if (detail.offhand) payload.offhand = true; /* 0.2.85: off-hand (bonus action) shot */
     else if (detail.fan) payload.fan = true; /* 0.2.86: Pistolero Fan the Hammer (bonus action) */
     if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
+    takeDmPlayerOpportunity(row, payload);
     await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
     if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
     ensurePlayerAttacks(row);
@@ -9067,6 +9363,7 @@ window.SSDNSMapFight = {
       if (picked) payload.mode = picked;
       if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
       if (targetId) payload.targetId = targetId;
+      takeDmPlayerOpportunity(row, payload);
       await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
       if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
       if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
