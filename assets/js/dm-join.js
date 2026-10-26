@@ -2787,10 +2787,12 @@
    * The live spell list is the sheet's, not the mover's copy of the card.
    */
   function enrichLeave(view) {
-    if (!view || view.dmRuns) return view;
+    if (!view) return view;
     if (view.kind && view.kind !== "leave") return view;
+    if (view.dmRuns && !view.playerOwns) return view;
     if (view.reactorPlayerId && state.uid && view.reactorPlayerId !== state.uid && !view.self) return view;
     view.playerOwns = true;
+    view.dmRuns = false;
     var c = doc() && doc().character;
     var R = root.SSDNSReact;
     var gunsmoke = !!(c && R && R.hasGunsmoke && R.hasGunsmoke(c.feats));
@@ -2936,7 +2938,7 @@
       R.close();
       return;
     }
-    if ((view.kind || "leave") === "leave" && !view.dmRuns) {
+    if ((view.kind || "leave") === "leave" && (view.playerOwns || !view.dmRuns)) {
       onLeavePrompt(view);
       return;
     }
