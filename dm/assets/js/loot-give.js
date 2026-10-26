@@ -1,7 +1,8 @@
-/* Give-tab Loot section (Act I DRAFT v1.4). Not a top-level tab.
+/* Give-tab Loot section (Act I DRAFT v1.5). Not a top-level tab.
    Place a box on the map, select it, then Lockpick / Force / Key / Pry / Search.
    Yes, Force, and Search use the sheet check (SSDNSSheet.rollAdv + postCheck) when the sheet is open.
-   DM can pre-unlock, clear a jam, or open without a check. Weight over cap warns and still sends. */
+   DM can pre-unlock, clear a jam, force Letters 0–2, force or clear a Strongbox Key nest, or open without a check.
+   A Strongbox never nests a key. Weight over cap warns and still sends. */
 (function (root) {
   "use strict";
   var ui = { boxes: [], current: "", view: "opener", ready: null };
@@ -39,6 +40,15 @@
       opener: openerId(),
       openerName: shortName(openerId())
     };
+  }
+  function applyForces(c) {
+    var lf = $("lootLetterForce");
+    if (lf && lf.value !== "" && lf.value !== "table") c.letterForce = Number(lf.value);
+    else delete c.letterForce;
+    var kf = $("lootKeyForce");
+    if (kf && kf.value !== "" && kf.value !== "table") c.keyForce = Number(kf.value);
+    else delete c.keyForce;
+    return c;
   }
   function current() {
     var i;
@@ -133,8 +143,7 @@
     var table = Loot.tableFor(type);
     if (!table) { toast("That box table isn't loaded"); return; }
     var c = ctx();
-    var lf = $("lootLetterForce");
-    if (lf && lf.value !== "" && lf.value !== "table") c.letterForce = Number(lf.value);
+    applyForces(c);
     var box = Loot.place(table, c);
     ui.boxes.unshift(box);
     if (root.SSDNSMapHost && root.SSDNSMapHost.pinLootChest) {
@@ -168,6 +177,7 @@
     var table = Loot.tableFor(box.boxType) || Loot.tableFor(box.tableId);
     var c = ctx();
     if (box.letterForce != null && box.letterForce !== "") c.letterForce = box.letterForce;
+    if (box.keyForce != null && box.keyForce !== "") c.keyForce = box.keyForce;
     if (bypass) c.bypass = true;
     var res = Loot.openBox(box, table, c);
     paintCard();
@@ -278,7 +288,11 @@
     if (box.actMin) { toast("A sealed crate has no roll"); return; }
     await ensureTables();
     var table = Loot.tableFor(box.boxType);
-    var rolled = Loot.rollBox(table, ctx());
+    var roll = ctx();
+    applyForces(roll);
+    box.letterForce = roll.letterForce;
+    box.keyForce = roll.keyForce;
+    var rolled = Loot.rollBox(table, roll);
     box.contents = rolled.picks;
     box.cash = rolled.cash;
     box.log = ["DM reroll"].concat(rolled.log);

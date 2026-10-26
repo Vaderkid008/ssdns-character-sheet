@@ -1,7 +1,8 @@
-/* Act I loot overlay (DRAFT v1.4). Loaded after the catalogs. Does not rewrite a catalog row.
+/* Act I loot overlay (DRAFT v1.5). Loaded after the catalogs. Does not rewrite a catalog row.
    Locked: gun mix 20% each, Outlaw Stash Black 1-in-6. Other percentages are the balance floor (DRAFT).
    Glowing Letters are the only Story Finds the roller may select, and only via the scroll-chance layer.
-   strongbox-key can be hand-placed and used as a lock key. It is not a band row.
+   strongbox-key is lootable via the keyChance nest on Saddlebag, Supply Crate, and Outlaw Stash.
+   It is not a band row, and a Strongbox never nests one. Hand-place still works. It is the Strongbox keyItem.
    ChaosMaker weapons stay actMin 2. There is no ChaosMaker-ammo row. */
 (function (root) {
   "use strict";

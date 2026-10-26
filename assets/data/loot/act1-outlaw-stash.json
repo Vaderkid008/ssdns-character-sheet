@@ -263,6 +263,7 @@
     "gun": 1,
     "explosive": 1,
     "glowingLetter": 2,
+    "strongboxKey": 1,
     "noDupePermanent": true
   },
   "rareLimit": "room",
@@ -270,9 +271,14 @@
   "draft": false,
   "budgetEs": 1125,
   "letterChance": {
-    "first": 85,
-    "second": 35,
+    "first": 100,
+    "second": 75,
     "max": 2
+  },
+  "keyChance": {
+    "pct": 15,
+    "id": "strongbox-key",
+    "max": 1
   },
   "defaults": {
     "hidden": true,

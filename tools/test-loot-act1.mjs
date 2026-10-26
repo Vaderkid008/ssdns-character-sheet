@@ -1,7 +1,9 @@
 /**
- * Act I Give-tab loot (DRAFT v1.4). Locked: gun mix 20% each, Outlaw Stash Black on d6 = 1 only.
+ * Act I Give-tab loot (DRAFT v1.5). Locked: gun mix 20% each, Outlaw Stash Black on d6 = 1 only.
  * Letter sub-table is locked Friendlier: 35/24/24/12/5.
- * Letters are a post-pick scroll-chance. Map chest select offers Lockpick / Force / Key.
+ * Letters are a post-pick scroll-chance (SB 100 / SC 95 / OS 100+75 / SX 100+90).
+ * Strongbox Key nests after Letters (SB 5 / SC 10 / OS 15 / SX 0). Never inside a Strongbox.
+ * Map chest select offers Lockpick / Force / Key / Pry / Search.
  *   node tools/test-loot-act1.mjs
  */
 import fs from "node:fs";
@@ -63,9 +65,10 @@ check("supply.silk", tables["act1-saddlebag"].rows.uncommon.find((r) => r.id ===
 check("stash.keg", tables["act1-outlaw-stash"].rows.uncommon.some((r) => r.id === "blasting-keg" && r.w === 5));
 check("v13.bands", tables["act1-outlaw-stash"].bands.common === 75 && tables["act1-outlaw-stash"].bands.uncommon === 22 && tables["act1-outlaw-stash"].bands.rare === 3 && tables["act1-strongbox"].bands.common === 55 && tables["act1-strongbox"].bands.uncommon === 38 && tables["act1-strongbox"].bands.rare === 7);
 check("v13.unc", [12, 26, 26, 16, 15, 5].join() === tables["act1-strongbox"].rows.uncommon.map((r) => r.w).join() && !tables["act1-strongbox"].rows.uncommon.some((r) => r.id === "#glowing-letter-act1"));
-check("v14.letters", ["act1-saddlebag", "act1-supply-crate", "act1-outlaw-stash", "act1-strongbox"].every((id) => tables[id].subTables["#glowing-letter-act1"].rows.map((r) => r.w).join() === "35,24,24,12,5") && tables["act1-saddlebag"].letterChance.first === 70 && tables["act1-saddlebag"].letterChance.max === 1 && tables["act1-supply-crate"].letterChance.first === 65 && tables["act1-outlaw-stash"].letterChance.first === 85 && tables["act1-outlaw-stash"].letterChance.second === 35 && tables["act1-outlaw-stash"].letterChance.max === 2 && tables["act1-strongbox"].letterChance.first === 95 && tables["act1-strongbox"].letterChance.second === 50);
+check("v15.letters", ["act1-saddlebag", "act1-supply-crate", "act1-outlaw-stash", "act1-strongbox"].every((id) => tables[id].subTables["#glowing-letter-act1"].rows.map((r) => r.w).join() === "35,24,24,12,5") && tables["act1-saddlebag"].letterChance.first === 100 && tables["act1-saddlebag"].letterChance.second === 0 && tables["act1-saddlebag"].letterChance.max === 1 && tables["act1-supply-crate"].letterChance.first === 95 && tables["act1-supply-crate"].letterChance.second === 0 && tables["act1-outlaw-stash"].letterChance.first === 100 && tables["act1-outlaw-stash"].letterChance.second === 75 && tables["act1-outlaw-stash"].letterChance.max === 2 && tables["act1-strongbox"].letterChance.first === 100 && tables["act1-strongbox"].letterChance.second === 90);
+check("v15.keys", tables["act1-saddlebag"].keyChance.pct === 5 && tables["act1-saddlebag"].keyChance.id === "strongbox-key" && tables["act1-saddlebag"].keyChance.max === 1 && tables["act1-supply-crate"].keyChance.pct === 10 && tables["act1-outlaw-stash"].keyChance.pct === 15 && tables["act1-outlaw-stash"].caps.strongboxKey === 1 && tables["act1-strongbox"].keyChance.pct === 0 && tables["act1-strongbox"].keyChance.max === 0 && tables["act1-strongbox"].caps.strongboxKey === 0 && tables["act1-strongbox"].keyChance.id == null);
 check("v13.chapter", L.CHAPTER[1] === 465 && L.CHAPTER[2] === 2490 && L.CHAPTER[3] === 2490 && L.CHAPTER[4] === 4140 && L.CHAPTER[5] === 0);
-check("v13.noKeyRow", !JSON.stringify(tables).includes('"id": "strongbox-key"') && tables["act1-strongbox"].defaults.keyItem === "strongbox-key" && tables["act1-strongbox"].defaults.lockDc === 15);
+check("v13.noKeyRow", !Object.values(tables).some((t) => JSON.stringify(t.rows).includes("strongbox-key") || JSON.stringify(t.subTables).includes("strongbox-key")) && tables["act1-strongbox"].defaults.keyItem === "strongbox-key" && tables["act1-strongbox"].defaults.lockDc === 15);
 check("v12.slugs", tables["act1-saddlebag"].rows.common.find((r) => r.id === "slugs-12-ga-10").w === 3 && tables["act1-saddlebag"].rows.common.find((r) => r.id === "slugs-410-10").w === 1);
 check("v12.dynamiteArrow", tables["act1-saddlebag"].rows.common.find((r) => r.id === "arrows-dynamite-1").w === 2);
 check("v12.buckOnly", tables["act1-saddlebag"].rows.common.some((r) => r.id === "shells-12-ga-10" && r.w === 5) && !JSON.stringify(tables).includes("slugs-10-ga-10") && !JSON.stringify(tables).includes("slug-shells"));
@@ -85,12 +88,14 @@ const picks = saddles.flatMap((b) => b.picks);
 const uncommon = picks.filter((p) => p.band === "uncommon").length / picks.length;
 check("saddle.uncommon", uncommon > 0.02 && uncommon < 0.1, uncommon.toFixed(3) + " of " + picks.length);
 check("saddle.noChaos", !picks.some((p) => /chaosmaker/i.test(p.id)));
-check("saddle.noStory", !picks.some((p) => STORY.includes(p.id)));
+check("saddle.noStory", !picks.some((p) => STORY.includes(p.id) && p.id !== "strongbox-key"));
+check("saddle.noKeyOnBand", !picks.some((p) => p.id === "strongbox-key" && p.band !== "key"));
+check("saddle.oneKey", saddles.every((b) => b.picks.filter((p) => p.id === "strongbox-key").length <= 1));
 check("saddle.oneGun", saddles.every((b) => b.picks.filter((p) => L.GUNS[p.id]).length <= 1));
 check("saddle.oneExplosive", saddles.every((b) => b.picks.filter((p) => /dynamite|blasting-keg|arrows-dynamite/.test(p.id)).length <= 1));
 check("saddle.oneLetter", saddles.every((b) => b.picks.filter((p) => /^glowing-letter/.test(p.id)).length <= 1));
 check("saddle.letterBand", saddles.every((b) => b.picks.filter((p) => /^glowing-letter/.test(p.id)).every((p) => p.band === "letter")));
-check("saddle.picks", saddles.every((b) => b.picks.filter((p) => p.band !== "letter").length === 2));
+check("saddle.picks", saddles.every((b) => b.picks.filter((p) => p.band !== "letter" && p.band !== "key").length === 2));
 check("saddle.noOtherStory", !picks.some((p) => p.id === "hat-of-the-sharpshooter" || p.id === "legloss-revolver"));
 check("saddle.dirty", picks.filter((p) => L.GUNS[p.id]).every((p) => p.dirty === true));
 check("saddle.es", saddles.every((b) => b.cash.branch === "es" && b.cash.es > 0));
@@ -223,6 +228,15 @@ const holder = { es: 0, ammo: [], items: [], guns: [] };
 const btake = L.takeAll(blackHaul, "p_a", holder);
 L.applyTake(holder, btake);
 check("take.junk", holder.items[0] && holder.items[0].catalogId === "black-shard-junk" && holder.items[0].count === 3 && !holder.items.some((it) => it.catalogId === "black-shard"));
+const keyHaul = {
+  id: "box_key", name: "Saddlebag", opener: "p_a", reveal: "opener", taken: false,
+  contents: [{ id: "strongbox-key", qty: 1, band: "key", name: "Strongbox Key" }],
+  cash: { es: 0, black: 0, branch: "none" }, log: []
+};
+const keyWho = { es: 0, ammo: [], items: [], guns: [] };
+const ktake = L.takeAll(keyHaul, "p_a", keyWho);
+L.applyTake(keyWho, ktake);
+check("take.key", keyWho.items[0] && keyWho.items[0].catalogId === "strongbox-key" && keyWho.items[0].count === 1 && /^xfer_/.test(ktake.ledger.id), JSON.stringify(keyWho.items));
 
 /* 7. Sealed crate */
 const sealed = L.place(L.SEALED, { act: 1, opener: "p_a", rollMode: "onOpen" });
@@ -269,11 +283,14 @@ for (let i = 0; i < letterN; i++) {
   const got = (letterCounts[id] || 0) / letterN;
   check("letter." + id, Math.abs(got - pct) <= 0.03, (got * 100).toFixed(1) + "% vs " + (pct * 100));
 });
-const miss = L.rollBox(Object.assign({}, tables["act1-saddlebag"], { picks: "0", cash: null }), { act: 1 }, faceRng([[71, 100]]));
-const hit = L.rollBox(Object.assign({}, tables["act1-saddlebag"], { picks: "0", cash: null }), { act: 1 }, faceRng([[70, 100], [10, 100]]));
-check("letter.d100", miss.picks.length === 0 && hit.picks.length === 1 && hit.picks[0].band === "letter", JSON.stringify(hit.picks));
-const two = L.rollBox(Object.assign({}, tables["act1-outlaw-stash"], { picks: "0", cash: null }), { act: 1 }, faceRng([[1, 100], [40, 100], [1, 100], [80, 100]]));
-const oneOnly = L.rollBox(Object.assign({}, tables["act1-outlaw-stash"], { picks: "0", cash: null }), { act: 1 }, faceRng([[1, 100], [40, 100], [36, 100]]));
+const boundary = Object.assign({}, tables["act1-saddlebag"], { picks: "0", cash: null, letterChance: { first: 70, second: 0, max: 1 }, keyChance: { pct: 0, max: 0 } });
+const miss = L.rollBox(boundary, { act: 1 }, faceRng([[71, 100]]));
+const hit = L.rollBox(boundary, { act: 1 }, faceRng([[70, 100], [10, 100]]));
+const always = L.rollBox(Object.assign({}, tables["act1-saddlebag"], { picks: "0", cash: null, keyChance: { pct: 0, max: 0 } }), { act: 1 }, faceRng([[100, 100], [10, 100]]));
+check("letter.d100", miss.picks.length === 0 && hit.picks.length === 1 && hit.picks[0].band === "letter" && always.picks.length === 1, JSON.stringify(hit.picks));
+const letterOnly = { picks: "0", cash: null, keyChance: { pct: 0, max: 0 } };
+const two = L.rollBox(Object.assign({}, tables["act1-outlaw-stash"], letterOnly), { act: 1 }, faceRng([[1, 100], [40, 100], [1, 100], [80, 100]]));
+const oneOnly = L.rollBox(Object.assign({}, tables["act1-outlaw-stash"], letterOnly), { act: 1 }, faceRng([[1, 100], [40, 100], [76, 100]]));
 check("letter.second", two.picks.filter((p) => p.band === "letter").length === 2 && oneOnly.picks.filter((p) => p.band === "letter").length === 1, two.picks.map((p) => p.id).join(",") + " / " + oneOnly.picks.length);
 function letterRate(table, n, seed) {
   let any = 0, pair = 0;
@@ -289,10 +306,66 @@ const bagLetters = letterRate(tables["act1-saddlebag"], lrN, 40000);
 const crateLetters = letterRate(tables["act1-supply-crate"], lrN, 50000);
 const stashLetters = letterRate(tables["act1-outlaw-stash"], lrN, 60000);
 const boxLetters = letterRate(tables["act1-strongbox"], lrN, 70000);
-check("letter.saddle70", Math.abs(bagLetters.any - 0.70) <= 0.04, bagLetters.any.toFixed(3));
-check("letter.crate65", Math.abs(crateLetters.any - 0.65) <= 0.04, crateLetters.any.toFixed(3));
-check("letter.stash85", Math.abs(stashLetters.any - 0.85) <= 0.04 && Math.abs(stashLetters.pair - 0.2975) <= 0.04, stashLetters.any.toFixed(3) + " pair " + stashLetters.pair.toFixed(3));
-check("letter.strong95", Math.abs(boxLetters.any - 0.95) <= 0.04 && Math.abs(boxLetters.pair - 0.475) <= 0.04, boxLetters.any.toFixed(3) + " pair " + boxLetters.pair.toFixed(3));
+check("letter.saddle100", bagLetters.any === 1, bagLetters.any.toFixed(3));
+check("letter.crate95", Math.abs(crateLetters.any - 0.95) <= 0.04, crateLetters.any.toFixed(3));
+check("letter.stash100", stashLetters.any === 1 && Math.abs(stashLetters.pair - 0.75) <= 0.04, stashLetters.any.toFixed(3) + " pair " + stashLetters.pair.toFixed(3));
+check("letter.strong100", boxLetters.any === 1 && Math.abs(boxLetters.pair - 0.90) <= 0.04, boxLetters.any.toFixed(3) + " pair " + boxLetters.pair.toFixed(3));
+function keyRate(table, n, seed) {
+  let keys = 0, inside = 0;
+  for (let i = 0; i < n; i++) {
+    const box = L.rollBox(table, { act: 1, partyLevel: 1 }, mulberry32(seed + i));
+    const got = box.picks.filter((p) => p.id === "strongbox-key");
+    if (got.length) keys++;
+    if (got.some((p) => p.band !== "key")) inside++;
+    if (table.boxType === "strongbox" && got.length) inside++;
+  }
+  return { any: keys / n, bad: inside };
+}
+const keyN = 4000;
+const bagKeys = keyRate(tables["act1-saddlebag"], keyN, 140000);
+const crateKeys = keyRate(tables["act1-supply-crate"], keyN, 150000);
+const stashKeys = keyRate(tables["act1-outlaw-stash"], keyN, 160000);
+const boxKeys = keyRate(tables["act1-strongbox"], keyN, 170000);
+check("key.saddle5", Math.abs(bagKeys.any - 0.05) <= 0.02 && bagKeys.bad === 0, bagKeys.any.toFixed(3));
+check("key.crate10", Math.abs(crateKeys.any - 0.10) <= 0.02 && crateKeys.bad === 0, crateKeys.any.toFixed(3));
+check("key.stash15", Math.abs(stashKeys.any - 0.15) <= 0.025 && stashKeys.bad === 0, stashKeys.any.toFixed(3));
+check("key.strong0", boxKeys.any === 0 && boxKeys.bad === 0, String(boxKeys.any));
+const keyEdge = Object.assign({}, tables["act1-saddlebag"], { picks: "0", cash: null, letterChance: { first: 0, second: 0, max: 0 }, keyChance: { pct: 5, id: "strongbox-key", max: 1 } });
+const keyMiss = L.rollBox(keyEdge, { act: 1 }, faceRng([[6, 100]]));
+const keyHit = L.rollBox(keyEdge, { act: 1 }, faceRng([[5, 100]]));
+check("key.d100", keyMiss.picks.length === 0 && keyHit.picks.length === 1 && keyHit.picks[0].id === "strongbox-key" && keyHit.picks[0].band === "key" && keyHit.picks[0].name === "Strongbox Key", JSON.stringify(keyHit.picks));
+const planted = Object.assign({}, tables["act1-strongbox"], { picks: "0", cash: null, letterChance: { first: 0, second: 0, max: 0 }, keyChance: { pct: 100, id: "strongbox-key", max: 1 } });
+const plantedRoll = L.rollBox(planted, { act: 1, keyForce: 1 }, () => 0);
+check("key.neverStrongbox", !plantedRoll.picks.some((p) => p.id === "strongbox-key") && plantedRoll.log.some((line) => /none \(strongbox\)/.test(line)), plantedRoll.log.join(" | "));
+const forcedKey = L.rollBox(Object.assign({}, tables["act1-saddlebag"], { picks: "0", cash: null, letterChance: { first: 0, max: 0 }, keyChance: { pct: 0, id: "strongbox-key", max: 1 } }), { act: 1, keyForce: 1 }, () => 0);
+const clearedKey = L.rollBox(Object.assign({}, tables["act1-outlaw-stash"], { picks: "0", cash: null, letterChance: { first: 0, max: 0 }, keyChance: { pct: 100, id: "strongbox-key", max: 1 } }), { act: 1, keyForce: 0 }, () => 0);
+check("key.force", forcedKey.picks.some((p) => p.id === "strongbox-key" && p.band === "key") && forcedKey.log.some((line) => line === "DM key 1") && !clearedKey.picks.some((p) => p.id === "strongbox-key") && clearedKey.log.some((line) => line === "DM key 0"));
+const bandKey = {
+  id: "band-key", name: "Band key", boxType: "saddlebag", picks: "1",
+  bands: { common: 100 },
+  rows: { common: [{ id: "strongbox-key", w: 90, qty: "1" }, { id: "hardtack-jerky-1-day", w: 10, qty: "1" }] },
+  letterChance: { first: 0, max: 0 }, keyChance: { pct: 0, max: 0 },
+  caps: { gun: 1, explosive: 1, glowingLetter: 0, strongboxKey: 0, noDupePermanent: true }, cash: null
+};
+const bandKeyRolls = [];
+for (let i = 0; i < 40; i++) bandKeyRolls.push(L.rollBox(bandKey, { act: 1 }, mulberry32(180000 + i)).picks[0]);
+check("key.notOnBand", bandKeyRolls.every((p) => p && p.id === "hardtack-jerky-1-day"), bandKeyRolls.map((p) => p && p.id).slice(0, 6).join(","));
+const mix = ["act1-saddlebag", "act1-saddlebag", "act1-saddlebag", "act1-saddlebag", "act1-saddlebag", "act1-saddlebag", "act1-supply-crate", "act1-supply-crate", "act1-supply-crate", "act1-outlaw-stash", "act1-outlaw-stash", "act1-outlaw-stash", "act1-strongbox"];
+const mixN = 400;
+let mixLetters = 0, mixKeys = 0, mixSxKeys = 0;
+for (let i = 0; i < mixN; i++) {
+  mix.forEach((id, n) => {
+    const box = L.rollBox(tables[id], { act: 1, partyLevel: 1 }, mulberry32(200000 + i * 20 + n));
+    mixLetters += box.picks.filter((p) => p.band === "letter").length;
+    const keys = box.picks.filter((p) => p.id === "strongbox-key");
+    if (id === "act1-strongbox") mixSxKeys += keys.length;
+    else mixKeys += keys.length;
+  });
+}
+const meanLetters = mixLetters / mixN;
+const meanKeys = mixKeys / mixN;
+check("mix.letters16", Math.abs(meanLetters - 16) <= 1.5, meanLetters.toFixed(2));
+check("mix.keys105", Math.abs(meanKeys - 1.05) <= 0.5 && mixSxKeys === 0, meanKeys.toFixed(2) + " sxKeys " + mixSxKeys);
 check("overlay.letters", ["glowing-letter", "glowing-letter-cure-wounds", "glowing-letter-shield", "glowing-letter-fireball", "glowing-letter-revivify"].every((id) => {
   const t = L.tagOf(id);
   return t.lootable === true && t.storyOnly === false && t.rarity === "uncommon";
@@ -397,7 +470,8 @@ const dmBox = L.place(tables["act1-strongbox"], { rollMode: "onOpen", opener: "p
 const dmOpen = L.openBox(dmBox, tables["act1-strongbox"], { act: 1, partyLevel: 1, bypass: true }, mulberry32(13));
 check("menu.dmOpen", dmOpen.ok === true && dmBox.rolled === true && L.blocked(dmBox) === "");
 const give = read("dm/assets/js/loot-give.js");
-check("ui.lockMenu", /Lockpick\? Yes/.test(give) && /Force it \(Strength\)/.test(read("assets/js/loot.js")) && /Use key \(Strongbox Key\)/.test(read("assets/js/loot.js")) && /rollAdv/.test(give) && /postCheck/.test(give) && !/Hold that click path/.test(give));
+check("ui.lockMenu", /Lockpick\? Yes/.test(give) && /Force it \(Strength\)/.test(read("assets/js/loot.js")) && /Use key \(Strongbox Key\)/.test(read("assets/js/loot.js")) && /Pry nails/.test(read("assets/js/loot.js")) && /Search \/ reveal/.test(read("assets/js/loot.js")) && /rollAdv/.test(give) && /postCheck/.test(give) && !/Hold that click path/.test(give));
+check("ui.keyForce", /id="lootKeyForce"/.test(read("dm/index.html")) && /Clear nest/.test(read("dm/index.html")) && /function applyForces/.test(give) && /keyChance/.test(read("assets/js/loot.js")) && /Strongbox never nests/.test(read("assets/data/loot-tags.js")) && /Never inside a Strongbox/.test(read("assets/js/loot.js")));
 check("ui.mapPin", /function pinLootChest/.test(read("map/ssdns-map.js")) && /pinLootChest:/.test(read("map/ssdns-map-host.js")));
 check("shells.buckPlan", /"shells-12-ga-10": \{ kind: "ammo", type: "buck"/.test(read("dm/assets/js/store-stock.js")) && /"slugs-12-ga-10": \{ kind: "ammo", type: "slug"/.test(read("dm/assets/js/store-stock.js")));
 

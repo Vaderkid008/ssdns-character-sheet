@@ -10,12 +10,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Smokum&display=swap">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.164-maps">
-<link rel="stylesheet" href="../assets/css/vol-slider.css?v=0.2.164-vol">
-<link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.151-modal">
-<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.151-rounds">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.164-turn2">
-<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.164-polish">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.165-maps">
+<link rel="stylesheet" href="../assets/css/vol-slider.css?v=0.2.165-vol">
+<link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.152-modal">
+<link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.152-rounds">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.165-turn2">
+<link rel="stylesheet" href="../assets/css/dice.css?v=0.2.165-polish">
 </head>
 <body>
 <noscript><p style="color:#fff;padding:2rem;text-align:center">DM Command Center needs JavaScript.</p></noscript>
@@ -228,7 +228,7 @@
           <p class="fine" id="giveKitLine">Gives the Full kit for their calling (armor, pack, kit gear, background gear and pouch ES). Anything they already have isn't given twice.</p>
         </div>
         <div class="span-2 give-loot" id="giveLootWrap" data-give-show="loot" hidden>
-          <p><b>Act I loot tables are v1.4.</b> Locked: each of the five guns is 20%, and an Outlaw Stash turns up Black shards on a 1 (1-in-6). Glowing Letters are a scroll-chance after the picks (Saddlebag 70%, Supply Crate 65%, Outlaw Stash 85% then 35%, Strongbox 95% then 50%). Letter mix is locked Friendlier: sealed 35%, Cure 24%, Shield 24%, Fireball 12%, Revivify 5%. These percentages are the balance floor. The chapter meter warns only. A hand-pick still lands. Select the chest for Lockpick? Yes / No, Force, or Use key.</p>
+          <p><b>Act I loot tables are v1.5.</b> Locked: each of the five guns is 20%, and an Outlaw Stash turns up Black shards on a 1 (1-in-6). Glowing Letters are a scroll-chance after the picks (Saddlebag 100%, Supply Crate 95%, Outlaw Stash 100% then 75%, Strongbox 100% then 90%). Letter mix is locked Friendlier: sealed 35%, Cure 24%, Shield 24%, Fireball 12%, Revivify 5%. A Strongbox Key nests on a Saddlebag (5%), Supply Crate (10%), or Outlaw Stash (15%). A Strongbox never contains a key. These percentages are the balance floor. The chapter meter warns only. A hand-pick still lands. Select the chest for Lockpick? Yes / No, Force, Use key, Pry nails, or Search.</p>
           <div class="form-grid">
             <div>
               <label for="lootBoxType">Box</label>
@@ -262,6 +262,7 @@
           </div>
           <label class="chk"><input type="checkbox" id="lootRareOverride"> Rare-limit override (logged, does not block mundane poison)</label>
           <label for="lootLetterForce">Letters <select id="lootLetterForce"><option value="table">Table chance</option><option value="0">Force 0</option><option value="1">Force 1</option><option value="2">Force 2</option></select></label>
+          <label for="lootKeyForce">Strongbox Key <select id="lootKeyForce"><option value="table">Table chance</option><option value="0">Clear nest</option><option value="1">Force 1</option></select></label>
           <p>
             <button type="button" class="btn sm" id="btnLootPlace">Place box</button>
             <button type="button" class="btn sm" id="btnLootOpen">Open</button>
@@ -849,63 +850,63 @@
 </aside>
 <button type="button" class="dock-fab" id="btnDockFab">Feed <span id="dockBadge" hidden>0</span></button>
 
-<script src="../assets/js/turn-rules.js?v=0.2.164-turn2"></script>
-<script src="../assets/js/apply-guard.js?v=0.2.164-fire"></script>
-<script src="../assets/js/conditions.js?v=0.2.164-supplies"></script>
+<script src="../assets/js/turn-rules.js?v=0.2.165-turn2"></script>
+<script src="../assets/js/apply-guard.js?v=0.2.165-fire"></script>
+<script src="../assets/js/conditions.js?v=0.2.165-supplies"></script>
 <script src="assets/js/ui-tab.js?v=0.2.35"></script>
-<script src="../assets/js/sfx.js?v=0.2.164-fire"></script>
-<script src="../assets/js/vol-slider.js?v=0.2.164-vol"></script>
-<script src="../assets/js/music-deck.js?v=0.2.164-maps"></script>
-<script src="../assets/js/media-upload.js?v=0.2.164-music"></script>
-<script src="assets/js/music-dm.js?v=0.2.164-music"></script>
-<script src="../assets/data/rules.js?v=0.2.164-preacher"></script>
-<script src="../assets/data/lawless-spells.js?v=0.2.164-badge"></script>
-<script src="../assets/js/renames.js?v=0.2.164-preacher"></script>
-<script src="../assets/js/trackers.js?v=0.2.164-trackers"></script>
-<script src="../assets/js/equip.js?v=0.2.164-equip"></script>
+<script src="../assets/js/sfx.js?v=0.2.165-fire"></script>
+<script src="../assets/js/vol-slider.js?v=0.2.165-vol"></script>
+<script src="../assets/js/music-deck.js?v=0.2.165-maps"></script>
+<script src="../assets/js/media-upload.js?v=0.2.165-music"></script>
+<script src="assets/js/music-dm.js?v=0.2.165-music"></script>
+<script src="../assets/data/rules.js?v=0.2.165-preacher"></script>
+<script src="../assets/data/lawless-spells.js?v=0.2.165-badge"></script>
+<script src="../assets/js/renames.js?v=0.2.165-preacher"></script>
+<script src="../assets/js/trackers.js?v=0.2.165-trackers"></script>
+<script src="../assets/js/equip.js?v=0.2.165-equip"></script>
 <script src="../assets/js/spell-fx.js?v=0.2.35"></script>
-<script src="../assets/js/spell-cast.js?v=0.2.164-ledger"></script>
-<script src="../assets/js/misfire.js?v=0.2.164-fire"></script>
+<script src="../assets/js/spell-cast.js?v=0.2.165-ledger"></script>
+<script src="../assets/js/misfire.js?v=0.2.165-fire"></script>
 <script src="../assets/js/firebase-config.js?v=0.2.35"></script>
-<script src="assets/js/store-stock.js?v=0.2.164-act1"></script>
+<script src="assets/js/store-stock.js?v=0.2.165-act1"></script>
 <script src="assets/js/demo-data.js?v=0.2.35-guns"></script>
-<script src="../assets/js/test-jammer.js?v=0.2.164-fire"></script>
-<script src="../assets/js/weapon-art.js?v=0.2.164-polish"></script>
-<script src="../assets/js/iron-art.js?v=0.2.164-iron"></script>
-<script src="../assets/js/instrument-art.js?v=0.2.164-art"></script>
-<script src="../assets/js/item-ui.js?v=0.2.164-typeui"></script>
-<script src="../assets/js/give.js?v=0.3.151-give"></script>
-<script src="assets/js/give-dm.js?v=0.2.164-give"></script>
-<script src="assets/js/give-tab.js?v=0.2.164-give"></script>
-<script src="../assets/data/item-catalog.js?v=0.2.164-items"></script>
-<script src="../assets/data/item-catalog-gear.js?v=0.2.164-steed"></script>
-<script src="../assets/data/loot-tags.js?v=0.2.164-loot"></script>
-<script src="../assets/js/loot.js?v=0.2.164-loot"></script>
-<script src="assets/js/loot-give.js?v=0.2.164-loot"></script>
-<script src="../assets/js/custom-weapons.js?v=0.3.151-items"></script>
-<script src="../assets/js/lighting.js?v=0.3.151-light"></script>
-<script src="../assets/js/items.js?v=0.2.164-steed"></script>
-<script src="../assets/js/item-art.js?v=0.2.164-art"></script>
-<script src="../assets/js/enemy-loot.js?v=0.2.164-b8"></script>
-<script src="../assets/js/peace-maker.js?v=0.2.164-art"></script>
-<script src="../assets/js/dice-art.js?v=0.2.164-polish"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.164-turn2"></script>
-<script src="../assets/js/ammo-display.js?v=0.3.151-rounds"></script>
-<script src="../assets/js/grab.js?v=0.2.164-grab"></script>
-<script src="../assets/js/react-prompt.js?v=0.2.164-n67"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.164-turn2"></script>
-<script src="../assets/js/supplies.js?v=0.2.164-supplies"></script>
-<script type="module" src="assets/js/supplies-dm.js?v=0.2.164-supplies"></script>
+<script src="../assets/js/test-jammer.js?v=0.2.165-fire"></script>
+<script src="../assets/js/weapon-art.js?v=0.2.165-polish"></script>
+<script src="../assets/js/iron-art.js?v=0.2.165-iron"></script>
+<script src="../assets/js/instrument-art.js?v=0.2.165-art"></script>
+<script src="../assets/js/item-ui.js?v=0.2.165-typeui"></script>
+<script src="../assets/js/give.js?v=0.3.152-give"></script>
+<script src="assets/js/give-dm.js?v=0.2.165-give"></script>
+<script src="assets/js/give-tab.js?v=0.2.165-give"></script>
+<script src="../assets/data/item-catalog.js?v=0.2.165-items"></script>
+<script src="../assets/data/item-catalog-gear.js?v=0.2.165-steed"></script>
+<script src="../assets/data/loot-tags.js?v=0.2.165-loot"></script>
+<script src="../assets/js/loot.js?v=0.2.165-loot"></script>
+<script src="assets/js/loot-give.js?v=0.2.165-loot"></script>
+<script src="../assets/js/custom-weapons.js?v=0.3.152-items"></script>
+<script src="../assets/js/lighting.js?v=0.3.152-light"></script>
+<script src="../assets/js/items.js?v=0.2.165-steed"></script>
+<script src="../assets/js/item-art.js?v=0.2.165-art"></script>
+<script src="../assets/js/enemy-loot.js?v=0.2.165-b8"></script>
+<script src="../assets/js/peace-maker.js?v=0.2.165-art"></script>
+<script src="../assets/js/dice-art.js?v=0.2.165-polish"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.165-turn2"></script>
+<script src="../assets/js/ammo-display.js?v=0.3.152-rounds"></script>
+<script src="../assets/js/grab.js?v=0.2.165-grab"></script>
+<script src="../assets/js/react-prompt.js?v=0.2.165-n67"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.165-turn2"></script>
+<script src="../assets/js/supplies.js?v=0.2.165-supplies"></script>
+<script type="module" src="assets/js/supplies-dm.js?v=0.2.165-supplies"></script>
 <script src="../map/token-crop.js?v=0.2.38-card"></script>
-<script src="../assets/js/range-rings.js?v=0.2.164-adv"></script>
-<script src="../map/ssdns-map-chat.js?v=0.2.164-float"></script>
-<script src="../map/map-packs.js?v=0.2.164-maps"></script>
-<script src="../map/map-library.js?v=0.2.164-maps"></script>
-<script src="../map/token-size.js?v=0.2.164-size"></script>
-<script src="../map/ssdns-map-fx.js?v=0.2.164-fx"></script>
-<script src="../map/ssdns-map-move.js?v=0.2.164-move"></script>
-<script src="../map/ssdns-map.js?v=0.2.164-turn2"></script>
+<script src="../assets/js/range-rings.js?v=0.2.165-adv"></script>
+<script src="../map/ssdns-map-chat.js?v=0.2.165-float"></script>
+<script src="../map/map-packs.js?v=0.2.165-maps"></script>
+<script src="../map/map-library.js?v=0.2.165-maps"></script>
+<script src="../map/token-size.js?v=0.2.165-size"></script>
+<script src="../map/ssdns-map-fx.js?v=0.2.165-fx"></script>
+<script src="../map/ssdns-map-move.js?v=0.2.165-move"></script>
+<script src="../map/ssdns-map.js?v=0.2.165-turn2"></script>
 <script src="../map/ssdns-map-firebase.js?v=0.2.36-sync"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.164-turn2"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.165-turn2"></script>
 </body>
 </html>
