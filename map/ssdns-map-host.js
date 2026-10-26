@@ -809,6 +809,7 @@
     }
     var fightCall = {
       "drawer:hp": "hp",
+      "drawer:revealHp": "revealHp",
       "drawer:condition": "condition",
       "drawer:reload": "reload",
       "drawer:unload": "unload",

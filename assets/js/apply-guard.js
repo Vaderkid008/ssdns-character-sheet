@@ -353,6 +353,15 @@
     if (Object.keys(revealed).length) out.revealed = revealed;
     return out;
   }
+  /* N68: the map's under-token bar reads only the HP publicEnemy already published.
+     Name, AC, and the stat block stay out of this object. */
+  function publicBarHp(shown) {
+    var rev = shown && shown.revealed;
+    if (!rev || rev.hp == null || rev.hp === "") return null;
+    var out = { hp: rev.hp };
+    if (rev.maxHp != null && rev.maxHp !== "") out.maxHp = rev.maxHp;
+    return out;
+  }
   function secretEnemy(row) {
     row = row || {};
     var card = row.card || {};
@@ -1366,6 +1375,7 @@
     sessionStrip: sessionStrip,
     liveStripAllowed: liveStripAllowed,
     revealFlags: revealFlags,
+    publicBarHp: publicBarHp,
     coarseStatus: coarseStatus,
     noHpPool: noHpPool,
     combatantSide: combatantSide,

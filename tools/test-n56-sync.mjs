@@ -1,5 +1,5 @@
 /**
- * N56 (sheet 0.3.145 / DMCC 0.2.158): player-visible fight state was never written.
+ * N56 (sheet 0.3.146 / DMCC 0.2.159): player-visible fight state was never written.
  * Dropping an enemy to 0 HP marked the DM row Down and skipped the public token,
  * so player maps never drew the X. A hidden-AC gun or spell returned before the
  * Action / spell pip, so turnMarkers stayed unspent.
@@ -17,11 +17,11 @@ function check(cond, msg) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.145" && version.sheetBuild === "sheet-playtest-v03145", "sheet bumped");
-check(version.dmcc === "0.2.158" && version.dmccBuild === "dmcc-playtest-v02158", "dmcc bumped");
-check(read("assets/js/app.js").includes('APP_VERSION = "0.3.145"'), "sheet banner");
-check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.158"'), "dmcc banner");
-check(!read("assets/data/rules.js").includes("0.3.145") && !read("database.rules.json").includes("0.2.158"), "rules were not regenerated");
+check(version.sheet === "0.3.146" && version.sheetBuild === "sheet-playtest-v03146", "sheet bumped");
+check(version.dmcc === "0.2.159" && version.dmccBuild === "dmcc-playtest-v02159", "dmcc bumped");
+check(read("assets/js/app.js").includes('APP_VERSION = "0.3.146"'), "sheet banner");
+check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.159"'), "dmcc banner");
+check(!read("assets/data/rules.js").includes("0.3.146") && !read("database.rules.json").includes("0.2.159"), "rules were not regenerated");
 
 const ex = read("assets/js/sheet-extras.js");
 const gunPend = ex.split("Hidden AC returns before the resolved attack")[1].split("consumeRollMode()")[0];

@@ -443,7 +443,11 @@ function buildPublish() {
         ? window.SSDNSApplied.publicEnemy(row, index, conditionsForRow(row))
         : { name: row.name || "", status: enemyStatus(row) };
       const masked = (window.SSDNSApplied && window.SSDNSApplied.HIDDEN_ENEMY_NAME) || "Unknown gunman";
-      return {
+      const bar = !hidden && window.SSDNSApplied && window.SSDNSApplied.publicBarHp
+        ? window.SSDNSApplied.publicBarHp(shown)
+        : null;
+      const tokenLink = !hidden && row.kind !== "player" && row.mapTokenId ? String(row.mapTokenId) : "";
+      const entry = {
         id: row.id || "",
         name: hidden ? masked : (shown.name || ""),
         kind: row.kind || "",
@@ -460,6 +464,10 @@ function buildPublish() {
         conditions: hidden ? [] : (shown.conditions || []),
         guns: hidden ? [] : publicGuns(row)
       };
+      /* N68: token id joins this row to the map. revealed is HP only (name, AC, and the stat block stay put). */
+      if (tokenLink) entry.mapTokenId = String(tokenLink);
+      if (bar) entry.revealed = bar;
+      return entry;
     });
     const hp = {};
     const pub = {};
@@ -554,13 +562,16 @@ function applyRemoteTable(v) {
         fight.order.forEach((row) => { if (row && row.id) prev[row.id] = row; });
         fight.order = init.order.map((row) => {
           const old = prev[row.id] || {};
-          return Object.assign({}, old, row, {
+          const merged = Object.assign({}, old, row, {
             hp: keepVital(row.hp, old.hp),
             maxHp: keepVital(row.maxHp, old.maxHp),
             ac: keepVital(row.ac, old.ac),
             dex: keepVital(row.dex, old.dex),
             initBonus: keepVital(row.initBonus, old.initBonus)
           });
+          /* Public revealed.hp is for the player map. The DM row keeps its own hp and reveal flags. */
+          delete merged.revealed;
+          return merged;
         }).filter((row) => !isRemoved(row));
         restoreSecrets();
       }
@@ -6905,6 +6916,9 @@ function paintReveal() {
   saveRemoteTable();
   renderFight();
   if (enemySheetId) renderEnemySheet();
+  if (window.SSDNSMapHost && window.SSDNSMapHost.refreshCard) {
+    try { window.SSDNSMapHost.refreshCard(); } catch (e) {}
+  }
 }
 function wireClicks() {
   document.addEventListener("change", (e) => {
@@ -7919,14 +7933,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.158-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.159-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.158-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.159-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -8379,6 +8393,7 @@ function mapDrawerCard(row) {
     conditions: conds,
     portrait: row.portrait || null,
     noHpPool: noHpPoolRow(row), /* 0.2.101: no HP pool (Spectral Horse): the map draws no down X / HP bar */
+    revealHp: !!(row.reveal && row.reveal.hp), /* N68: map drawer checkbox. Does not copy name/AC/block. */
     attacks: attacks,
     spells: spells,
     longRangeHex: !!snapFeats.longRangeHex,
@@ -10081,6 +10096,19 @@ window.SSDNSMapFight = {
         label: (p.name || "Target") + " · AC " + (p.ac == null || p.ac === "" ? "?" : p.ac)
       }))
     };
+  },
+  async revealHp(detail) {
+    detail = detail || {};
+    const i = mapFightIndex(detail);
+    if (i < 0) { DM.toast("No fight card linked"); return false; }
+    const row = fight.order[i];
+    if (!row || row.kind === "player") return false;
+    const flags = revealOf(row);
+    flags.hp = !!detail.on;
+    row.reveal = flags;
+    await saveRemoteTable();
+    renderFight();
+    return true;
   },
   async hp(detail) {
     detail = detail || {};

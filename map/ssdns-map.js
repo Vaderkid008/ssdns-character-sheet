@@ -100,6 +100,43 @@ window.SSDNSMoveMode = (function () {
     toggle: function () { return set(!on, "toggle"); }
   };
 })();
+/* N68: who sees the under-token HP bar. DM always (card, else the token's own numbers).
+   A player sees their own PC when canControl is true. Everyone else sees a bar only
+   from public revealed HP (reveal.hp). No HP pool never draws one. */
+window.SSDNSMapBar = (function () {
+  function num(v) {
+    if (v == null || v === "") return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+  function hp(info) {
+    info = info || {};
+    if (info.noHpPool === true) return null;
+    var role = info.role === "dm" ? "dm" : "player";
+    var cur = null;
+    var max = null;
+    if (role === "dm") {
+      var haveCard = info.dmMax != null && info.dmMax !== "" && info.dmCur != null;
+      if (haveCard) {
+        cur = info.dmCur === "" ? 0 : num(info.dmCur);
+        max = num(info.dmMax);
+      } else {
+        cur = num(info.tokenHp);
+        max = num(info.tokenMax);
+      }
+    } else if (info.canControl) {
+      cur = num(info.ownCur);
+      max = num(info.ownMax);
+    } else {
+      var revealed = info.revealed || {};
+      cur = num(revealed.hp);
+      max = num(revealed.maxHp);
+    }
+    if (cur == null || max == null || !(max > 0)) return null;
+    return { cur: cur, max: max };
+  }
+  return { hp: hp };
+})();
 window.SSDNSMap = { create(opts) {
   const el = opts.el;
   if (!el) throw new Error('SSDNSMap: el required');
@@ -2346,22 +2383,13 @@ function draw() {
       ctx.stroke();
     }
 
+    const barHp = underTokenHp(t);
+    /* Down X for the DM still comes from the real pool. Players only get it from public status. */
     let hpCur = null;
     let hpMax = null;
-    if (role === 'dm') {
-      let card = null;
-      try {
-        if (host.getCard) card = host.getCard(t.id) || (t.combatantId && host.getCard(t.combatantId)) || (t.ownerUid && host.getCard(t.ownerUid)) || null;
-      } catch (e) { card = null; }
-      if (card && card.noHpPool === true) {
-        /* 0.3.88: no HP pool (Spectral Horse, hp 0 by design): never Down, no HP bar */
-      } else if (card && card.hp && card.hp.max != null && card.hp.cur != null && card.hp.max !== '') {
-        hpCur = Number(card.hp.cur);
-        hpMax = Number(card.hp.max);
-      } else if (t.maxHp) {
-        hpCur = Number(t.hp);
-        hpMax = Number(t.maxHp);
-      }
+    if (role === 'dm' && barHp) {
+      hpCur = barHp.cur;
+      hpMax = barHp.max;
     }
     // condition badges stay inside the token's alpha, so a hidden token stays dim
     /* condition symbols (Jessey 2026-10-20 9:22 PM): the lit condition chips the sheet / DMCC track now reach the
@@ -2452,9 +2480,10 @@ function draw() {
     }
     ctx.restore();
 
-    // HP bar under the name. DM only — the public token has no HP, and players never see an enemy bar.
-    if (role === 'dm' && hpMax) {
-      const pct = Math.max(0, Math.min(1, (Number(hpCur) || 0) / hpMax));
+    /* HP bar under the name. DM always. A player sees their own PC via canControl,
+       and an enemy or NPC only when that combatant's reveal.hp is public. */
+    if (barHp && barHp.max) {
+      const pct = Math.max(0, Math.min(1, (Number(barHp.cur) || 0) / barHp.max));
       const bw = r * 1.8, bh = 5;
       const barY = nameY + Math.max(14, nameFont + 2);
       ctx.fillStyle = '#333';
@@ -3730,6 +3759,52 @@ function linkedIdForRow(row) {
   if (row.mapTokenId) return row.mapTokenId;
   if (typeof host.linkedTokenId !== 'function') return '';
   try { return host.linkedTokenId(row.id) || ''; } catch (e) { return ''; }
+}
+function sheetHpNow() {
+  let c = null;
+  try { c = window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character; } catch (e) { c = null; }
+  if (!c) return { cur: null, max: null };
+  const max = (window.SSDNSSheet && window.SSDNSSheet.effHpMax && c.hpMax !== '' && c.hpMax != null)
+    ? window.SSDNSSheet.effHpMax(Number(c.hpMax))
+    : c.hpMax;
+  return { cur: c.hpCurrent, max: max };
+}
+/* N68: numbers for the under-token bar. Own PCs use the sheet when canControl is true.
+   Linked enemies use public revealed.hp only — never the DM card, never name/AC/block. */
+function underTokenHp(t) {
+  const Bar = window.SSDNSMapBar;
+  if (!Bar || !t) return null;
+  if (role === 'dm') {
+    let card = null;
+    try {
+      if (host.getCard) card = host.getCard(t.id) || (t.combatantId && host.getCard(t.combatantId)) || (t.ownerUid && host.getCard(t.ownerUid)) || null;
+    } catch (e) { card = null; }
+    const hp = card && card.hp;
+    return Bar.hp({
+      role: 'dm',
+      noHpPool: !!(card && card.noHpPool === true),
+      dmCur: hp && hp.cur,
+      dmMax: hp && hp.max,
+      tokenHp: t.hp,
+      tokenMax: t.maxHp
+    });
+  }
+  const own = !!(t.ownerUid && t.ownerUid === uid) && canControl(t);
+  const sheet = own ? sheetHpNow() : { cur: null, max: null };
+  const row = rowForToken(t);
+  let revealed = null;
+  if (!own) {
+    if (window.SSDNSApplied && window.SSDNSApplied.publicBarHp) revealed = window.SSDNSApplied.publicBarHp(row);
+    else if (row && row.revealed && row.revealed.hp != null && row.revealed.hp !== '') revealed = { hp: row.revealed.hp, maxHp: row.revealed.maxHp };
+  }
+  return Bar.hp({
+    role: 'player',
+    canControl: own,
+    noHpPool: !!(row && row.noHpPool === true),
+    ownCur: sheet.cur,
+    ownMax: sheet.max,
+    revealed: revealed
+  });
 }
 function rowForToken(token) {
   const order = (state.initiative && state.initiative.order) || [];
@@ -8242,6 +8317,10 @@ async function loadSceneImage(sceneId, opts) {
       coverOpt('', 'None') + coverOpt('half', 'Half +2') + coverOpt('three', '3/4 +5') + coverOpt('full', 'Total') +
       '</select></label>' +
       '<label class="ssm-act" title="Lock cover so the player can\'t change it."><input type="checkbox" data-act="coverLock"' + (card.coverLock ? ' checked' : '') + '> Lock cover</label>';
+    /* N68: enemy/NPC only. Ticks the linked combatant's reveal.hp. Does not reveal name, AC, or the stat block. */
+    const revealHpRow = (!isPc && !noHpPool)
+      ? '<label class="ssm-act" title="Players see this token\'s HP bar on the map. Name, AC, and the stat block stay as they are."><input type="checkbox" data-act="revealHp"' + (card.revealHp ? ' checked' : '') + '> Reveal HP</label>'
+      : '';
     d.innerHTML =
       drawerHeadHtml(card.name || tokenId, card.kind || '') +
       '<div class="ssm-drawer-body">' +
@@ -8254,6 +8333,7 @@ async function loadSceneImage(sceneId, opts) {
       markerRow +
       actToggle +
       coverRow +
+      revealHpRow +
       '<label class="ssm-act ssm-range"><input type="checkbox" data-act="drawerRange"' + (state.showRange ? ' checked' : '') + '> Show range</label>' +
       '<label class="ssm-act">Range: <select data-act="rangeOverride" aria-label="Range: Auto">' +
         '<option value="auto"' + (rangeOverrideNow() === 'auto' ? ' selected' : '') + '>Auto</option>' +
@@ -8434,6 +8514,8 @@ async function loadSceneImage(sceneId, opts) {
     });
     const actBox = d.querySelector('[data-act="actFor"]');
     if (actBox) actBox.addEventListener('change', () => emit('drawer:act', detail({ on: !!actBox.checked })));
+    const revealHpBox = d.querySelector('[data-act="revealHp"]');
+    if (revealHpBox) revealHpBox.addEventListener('change', () => emit('drawer:revealHp', detail({ on: !!revealHpBox.checked })));
     const speedBox = d.querySelector('[data-act="enemySpeed"]');
     if (speedBox) speedBox.addEventListener('change', () => {
       const n = parseInt(speedBox.value, 10);
