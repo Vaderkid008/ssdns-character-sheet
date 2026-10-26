@@ -68,6 +68,10 @@
       var p = P();
       var cost = p && p.spellCost ? p.spellCost(spellNameOf(btn)) : "action";
       if (cost === "reaction") return m.reaction ? "Your reaction is used. It comes back at the start of your own turn." : "";
+      /* N72: Gunsmoke Caster — the allowed cast-as-OA stays clickable off turn. */
+      var oaCast = root.SSDNSReact && root.SSDNSReact.oaCast;
+      var spellNow = spellNameOf(btn);
+      if (oaCast && m.oaArmed && !m.reaction && spellNow && String(oaCast.name || "").toLowerCase() === String(spellNow).toLowerCase()) return "";
     }
     if (btn.matches(ATTACK) && m.oaArmed) return m.reaction ? "Reaction already used." : "";
     if (btn.matches(ATTACK) && !btn.matches("#btnPactShot")) return NOT_TURN + (m.reaction ? "" : " For an opportunity attack, ask the DM with the Opportunity attack button.");
@@ -101,6 +105,8 @@
     if (!inFight() || myTurn() || !locked()) return "";
     var m = marks();
     if ((kind === "attack" || kind === "action") && m.oaArmed && !m.reaction) return "";
+    var oaCast = root.SSDNSReact && root.SSDNSReact.oaCast;
+    if (oaCast && (kind === "action" || kind === "attack") && !m.reaction) return "";
     if (kind === "reaction") return "";
     var msg = "It isn't your turn";
     toast(msg);

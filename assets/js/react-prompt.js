@@ -181,29 +181,96 @@
     var pause = session && session.pauses && session.pauses[session.pi];
     return pause && pause.reactors ? pause.reactors[session.qi] : null;
   }
+  /** Gunsmoke Caster (rules.js id gunsmoke-caster, PHB War Caster). */
+  function hasGunsmoke(feats) {
+    if (feats === true) return true;
+    var list = Array.isArray(feats) ? feats : (feats ? [feats] : []);
+    var i, raw, id;
+    for (i = 0; i < list.length; i++) {
+      raw = list[i];
+      id = String(raw && typeof raw === "object" ? (raw.id || raw.name || "") : (raw || "")).toLowerCase().replace(/[_]+/g, " ").trim();
+      if (id === "gunsmoke-caster" || id === "gunsmoke caster" || id === "war caster" || id === "war-caster") return true;
+    }
+    return false;
+  }
+  /**
+   * War Caster / Gunsmoke Caster: 1 action, and the spell can target only the provoking creature.
+   * Reaction spells stay on their own triggers. Areas and multi-target spells do not qualify.
+   */
+  function oaCastEligible(name) {
+    if (!name || isReaction(name)) return false;
+    var P = root.SSDNSActionPips;
+    if (P && typeof P.spellCost === "function" && P.spellCost(name) !== "action") return false;
+    var n = baseName(name);
+    if (n === "magic missile" || n === "eldritch blast" || n === "pact shot" || n === "scorching ray" || n === "acid splash") return false;
+    var fx = (root.SSDNS_SPELL_FX && root.SSDNS_SPELL_FX[n]) || {};
+    var does = String(fx.does || fx.text || "");
+    var area = String(fx.area || "");
+    var range = String(fx.range || "");
+    var blob = (does + " " + area).toLowerCase();
+    if (area && area.toLowerCase() !== "one creature") return false;
+    if (/\b(cone|cube|sphere|radius|square|line|wall)\b/.test(blob)) return false;
+    if (/up to \d+|one or two|two or more|each creature|every creature|creatures of your choice|each beam|each dart|additional creature|creatures within|one or more creatures|any number of/.test(blob)) return false;
+    if (/^self\b/i.test(range)) return false;
+    return /\b(?:one|a|the)(?:\s+[a-z]+){0,2}\s+(?:creature|target|humanoid)\b/.test(does.toLowerCase());
+  }
+  function oaCastChoices(spells) {
+    var out = [];
+    var seen = {};
+    (spells || []).forEach(function (sp) {
+      if (!sp || !sp.name || !oaCastEligible(sp.name)) return;
+      var key = baseName(sp.name);
+      if (seen[key]) return;
+      seen[key] = 1;
+      out.push({ name: String(sp.name), level: parseInt(sp.level, 10) || 0 });
+    });
+    out.sort(function (a, b) { return a.level - b.level || a.name.localeCompare(b.name); });
+    return out;
+  }
+  /** A player who is acting for themselves owns Attack / Pass. DM-run tokens do not. */
+  function playerOwnsReactor(reactor) {
+    if (!reactor || reactor.dmRuns) return false;
+    var kind = reactor.kind || reactor.reactorKind || "";
+    return kind === "player" || !!(reactor.playerId || reactor.reactorPlayerId);
+  }
+  function playerOwns(view) {
+    if (!view || view.dmRuns) return false;
+    if (view.kind === "damage" || view.kind === "spell") return false;
+    if (view.playerOwns === true) return true;
+    if (view.playerOwns === false) return false;
+    return view.reactorKind === "player" || !!view.reactorPlayerId;
+  }
   function leaveView(session, moverName) {
     var reactor = currentReactor(session);
     if (!session || !reactor || session.phase === "done") return null;
-    var attacking = session.phase === "attacking";
+    var striking = session.phase === "attacking" || session.phase === "casting";
+    var approving = session.phase === "approving";
     var who = moverName || session.moverName || "Someone";
     var dmRuns = reactor.dmRuns != null ? !!reactor.dmRuns : reactor.kind !== "player";
+    var owns = !dmRuns && playerOwnsReactor(reactor);
+    var name = reactor.name || reactor.label || "Someone";
+    var castName = session.castSpell || session.pendingSpell || "";
+    var spellLine = castName ? ("Cast " + castName + " at " + who + ". It spends your reaction, not your action.") : "";
     return {
       promptId: session.promptId,
       kind: "leave",
       kicker: "Opportunity attack",
-      text: attacking
-        ? ("Make the opportunity attack against " + who + ". It spends your reaction, not your action.")
+      text: striking
+        ? (session.phase === "casting" && spellLine ? spellLine : ("Make the opportunity attack against " + who + ". It spends your reaction, not your action."))
         : (who + " is leaving your reach — Opportunity attack?"),
       choice: "attack",
       attackLabel: "Attack",
       passLabel: "Pass",
-      hideAttack: attacking,
+      hideAttack: striking,
+      approving: approving,
       disabled: !!reactor.reaction,
       reactorId: reactor.id || "",
-      reactorName: reactor.name || reactor.label || "Someone",
+      reactorName: name,
       reactorKind: reactor.kind || (dmRuns ? "enemy" : "player"),
       reactorPlayerId: reactor.playerId || "",
       dmRuns: dmRuns,
+      playerOwns: owns,
+      gunsmoke: !!(reactor.gunsmoke || hasGunsmoke(reactor.feats)),
       self: !!reactor.self,
       status: reactor.status || "",
       hp: reactor.noHpPool ? null : reactor.hp,
@@ -213,10 +280,14 @@
       moverId: session.moverId || "",
       moverPlayerId: session.moverPlayerId || "",
       oaId: session.oaId || "",
+      spellName: castName,
+      spellLevel: session.castLevel || session.pendingLevel || 0,
       waiting: WAIT,
-      mirrorText: attacking
-        ? ((reactor.name || reactor.label || "Someone") + " is making an opportunity attack as " + who + " leaves reach. Pass cancels it.")
-        : ((reactor.name || reactor.label || "Someone") + " can take an opportunity attack as " + who + " leaves reach.")
+      mirrorText: owns && !striking
+        ? (name + " is deciding on an opportunity attack…")
+        : (striking
+          ? (name + " is making an opportunity attack as " + who + " leaves reach.")
+          : (name + " can take an opportunity attack as " + who + " leaves reach."))
     };
   }
   /**
@@ -237,18 +308,87 @@
     var pause = session.pauses[session.pi];
     var reactor = currentReactor(session);
     if (!pause || !reactor) return { done: true, commit: null, toast: "" };
-    if (choice === "attack") {
+    if (choice === "allow") {
+      if (session.phase !== "ask" && session.phase !== "approving") return { done: false, commit: null, toast: "" };
+      var allowedCast = session.pendingChoice === "cast" || !!(meta.spellName && (meta.gunsmoke || reactor.gunsmoke || hasGunsmoke(reactor.feats)));
+      var allowedName = meta.spellName || session.pendingSpell || "";
+      if (allowedCast && allowedName && !oaCastEligible(allowedName)) allowedCast = false;
+      session.phase = allowedCast ? "casting" : "attacking";
+      session.oaId = meta.oaId || session.oaId || freshId("oa");
+      session.castSpell = allowedCast ? allowedName : "";
+      session.castLevel = allowedCast ? (parseInt(meta.spellLevel, 10) || session.pendingLevel || 0) : 0;
+      session.pendingChoice = "";
+      session.waiting = WAIT;
+      return {
+        armed: true,
+        cast: allowedCast,
+        oaId: session.oaId,
+        spellName: session.castSpell,
+        spellLevel: session.castLevel,
+        reactor: reactor,
+        commit: null,
+        done: false,
+        toast: "",
+        waiting: WAIT
+      };
+    }
+    if (choice === "deny") {
+      choice = "pass";
+      if (!meta.toast) meta.toast = (reactor.name || reactor.label || "They") + " — the DM denied the opportunity attack.";
+    }
+    if (choice === "attack" || choice === "cast") {
       if (reactor.reaction) {
         choice = "pass";
         meta.toast = (reactor.name || "They") + " already used their reaction.";
-      } else {
-        session.phase = "attacking";
-        session.oaId = meta.oaId || session.oaId || freshId("oa");
+      } else if (choice === "cast" && (!meta.spellName || !oaCastEligible(meta.spellName) || !(meta.gunsmoke || reactor.gunsmoke || hasGunsmoke(reactor.feats)))) {
+        choice = "pass";
+        meta.toast = meta.toast || "That spell can't be cast as an opportunity attack.";
+      } else if (playerOwnsReactor(reactor) && !meta.allowed) {
+        session.phase = "approving";
+        session.pendingChoice = choice;
+        session.pendingSpell = choice === "cast" ? (meta.spellName || "") : "";
+        session.pendingLevel = choice === "cast" ? (parseInt(meta.spellLevel, 10) || 0) : 0;
         session.waiting = WAIT;
-        return { armed: true, oaId: session.oaId, reactor: reactor, commit: null, done: false, toast: "", waiting: WAIT };
+        return {
+          pending: true,
+          armed: false,
+          hold: true,
+          choice: choice,
+          spellName: session.pendingSpell,
+          spellLevel: session.pendingLevel,
+          reactor: reactor,
+          commit: null,
+          done: false,
+          toast: meta.toast || "",
+          waiting: WAIT
+        };
+      } else {
+        var casting = choice === "cast";
+        session.phase = casting ? "casting" : "attacking";
+        session.oaId = meta.oaId || session.oaId || freshId("oa");
+        session.castSpell = casting ? (meta.spellName || "") : "";
+        session.castLevel = casting ? (parseInt(meta.spellLevel, 10) || 0) : 0;
+        session.waiting = WAIT;
+        return {
+          armed: true,
+          cast: casting,
+          oaId: session.oaId,
+          spellName: session.castSpell,
+          spellLevel: session.castLevel,
+          reactor: reactor,
+          commit: null,
+          done: false,
+          toast: "",
+          waiting: WAIT
+        };
       }
     }
     if (choice !== "pass" && choice !== "attacked") return { done: false, commit: null, toast: "" };
+    session.pendingChoice = "";
+    session.pendingSpell = "";
+    session.pendingLevel = 0;
+    session.castSpell = "";
+    session.castLevel = 0;
     session.qi += 1;
     if (session.qi < pause.reactors.length) {
       session.phase = "ask";
@@ -334,13 +474,20 @@
     fn(choice, meta || {});
     return true;
   }
-  function watchSpent(id, fn) { if (id) spentWatch[id] = fn; }
+  function watchSpent(id, fn) {
+    if (!id || !fn) return;
+    var cur = spentWatch[id];
+    if (!cur) spentWatch[id] = [fn];
+    else if (typeof cur === "function") spentWatch[id] = [cur, fn];
+    else cur.push(fn);
+  }
   function forgetSpent(id) { if (id) delete spentWatch[id]; }
   function noteSpent(id) {
-    var fn = id && spentWatch[id];
-    if (!fn) return false;
+    var cur = id && spentWatch[id];
+    if (!cur) return false;
     delete spentWatch[id];
-    fn(id);
+    var list = typeof cur === "function" ? [cur] : cur;
+    list.forEach(function (fn) { try { fn(id); } catch (e) {} });
     return true;
   }
 
@@ -372,13 +519,22 @@
     closeWait();
     onChoice = null;
   }
+  function spellButtons(model) {
+    if (!model || model.hideAttack || !model.spells || !model.spells.length) return "";
+    var dis = model.disabled ? " disabled" : "";
+    return '<div class="react-spells">' + model.spells.map(function (sp) {
+      var lv = parseInt(sp.level, 10) || 0;
+      var tag = lv ? (" · " + lv) : "";
+      return '<button type="button" class="btn" data-react-choice="cast" data-spell="' + esc(sp.name) + '" data-level="' + lv + '"' + dis + ">Cast " + esc(sp.name) + esc(tag) + "</button>";
+    }).join("") + "</div>";
+  }
   function actionsHtml(model) {
     var attack = "";
     if (!model.hideAttack) {
       var dis = model.disabled ? " disabled" : "";
       attack = '<button type="button" class="btn btn-primary" data-react-choice="' + esc(model.choice || "attack") + '"' + dis + ">" + esc(model.attackLabel || "Attack") + "</button>";
     }
-    return attack + '<button type="button" class="btn" data-react-choice="pass">' + esc(model.passLabel || "Pass") + "</button>" +
+    return attack + spellButtons(model) + '<button type="button" class="btn" data-react-choice="pass">' + esc(model.passLabel || "Pass") + "</button>" +
       '<button type="button" class="btn" data-react-choice="cancel">Cancel</button>';
   }
   function paintModal(model) {
@@ -396,15 +552,28 @@
   function paintMirror(model) {
     closeMirror();
     if (suppressed || !model || typeof document === "undefined" || !document.body) return;
-    var showChoice = !!model.dmRuns && !model.hideAttack;
-    var choiceBtn = showChoice
-      ? '<button type="button" class="btn btn-primary" data-react-choice="' + esc(model.choice || "attack") + '"' + (model.disabled ? " disabled" : "") + ">" + esc(model.attackLabel || "Attack") + "</button>"
-      : "";
+    var owns = !!(model.playerOwns && !model.dmRuns);
+    var buttons;
+    if (model.approving && owns) {
+      buttons = '<button type="button" class="btn btn-primary" data-react-choice="allow">Allow</button>' +
+        '<button type="button" class="btn" data-react-choice="deny">Deny</button>';
+    } else if (owns && !model.hideAttack) {
+      /* N72: the player owns Attack / Pass. The DM waits. */
+      buttons = '<button type="button" class="btn" data-react-choice="cancel">Cancel</button>';
+    } else if (owns && model.hideAttack) {
+      buttons = '<button type="button" class="btn" data-react-choice="cancel">Cancel</button>';
+    } else {
+      var showChoice = !!model.dmRuns && !model.hideAttack;
+      var choiceBtn = showChoice
+        ? '<button type="button" class="btn btn-primary" data-react-choice="' + esc(model.choice || "attack") + '"' + (model.disabled ? " disabled" : "") + ">" + esc(model.attackLabel || "Attack") + "</button>"
+        : "";
+      buttons = choiceBtn + (showChoice ? spellButtons(model) : "") + '<button type="button" class="btn" data-react-choice="pass">Pass</button><button type="button" class="btn" data-react-choice="cancel">Cancel</button>';
+    }
     var wrap = document.createElement("div");
     wrap.className = "react-mirror";
     wrap.setAttribute("data-react-mirror", model.kind || "leave");
     wrap.setAttribute("role", "dialog");
-    wrap.innerHTML = '<p class="react-kicker">DM · ' + esc(model.kicker) + "</p><p class=\"react-text\">" + esc(model.mirrorText || model.text) + '</p><div class="react-actions">' + choiceBtn + '<button type="button" class="btn" data-react-choice="pass">Pass</button><button type="button" class="btn" data-react-choice="cancel">Cancel</button></div>';
+    wrap.innerHTML = '<p class="react-kicker">DM · ' + esc(model.kicker) + "</p><p class=\"react-text\">" + esc(model.mirrorText || model.text) + '</p><div class="react-actions">' + buttons + "</div>";
     document.body.appendChild(wrap);
     mirrorEl = wrap;
   }
@@ -421,9 +590,9 @@
     document.body.appendChild(bar);
     waitEl = bar;
   }
-  function choose(choice) {
+  function choose(choice, meta) {
     var fn = onChoice;
-    if (fn) fn(choice, {});
+    if (fn) fn(choice, meta || {});
   }
   /** Escape / Cancel: drop the card first so the lobby is usable even if the handler throws. */
   function dismiss() {
@@ -438,7 +607,14 @@
       if (e.preventDefault) e.preventDefault();
       var picked = btn.getAttribute("data-react-choice") || "pass";
       if (picked === "cancel") { dismiss(); return; }
-      choose(picked);
+      var pickedMeta = {};
+      if (picked === "cast") {
+        pickedMeta.spellName = btn.getAttribute("data-spell") || "";
+        pickedMeta.spellLevel = parseInt(btn.getAttribute("data-level"), 10) || 0;
+        pickedMeta.gunsmoke = true;
+        if (!pickedMeta.spellName) return;
+      }
+      choose(picked, pickedMeta);
     });
     document.addEventListener("keydown", function (e) {
       if (!e || e.key !== "Escape" || e.isComposing) return;
@@ -475,6 +651,10 @@
     dismiss: dismiss,
     freshLeave: freshLeave,
     leaveView: leaveView,
+    hasGunsmoke: hasGunsmoke,
+    oaCastEligible: oaCastEligible,
+    oaCastChoices: oaCastChoices,
+    playerOwns: playerOwns,
     attackDecision: attackDecision,
     answerLeave: answerLeave,
     freshOffers: freshOffers,
@@ -492,6 +672,7 @@
     close: close,
     closeWait: closeWait,
     gateSpell: gateSpell,
-    castingReaction: false
+    castingReaction: false,
+    oaCast: null
   };
 })(typeof window !== "undefined" ? window : globalThis);

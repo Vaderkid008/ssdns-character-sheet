@@ -2059,6 +2059,7 @@ function answerOa(id, yes) {
   const e = fight.oa && fight.oa[id];
   if (!e || e.status !== "ask") return false;
   fight.oa = Object.assign({}, fight.oa, { [id]: Object.assign({}, e, { status: yes ? "approved" : "denied", at: new Date().toISOString() }) });
+  if (e.react) resolvePlayerOa(id, e, yes);
   const line = "DM " + (yes ? "approved" : "denied") + " " + (e.name || "a player") + "'s opportunity attack" + (e.target ? " on " + e.target : "");
   DM.toast(line);
   DM.pushLedger({ who: "DM", playerId: e.from || "all", type: "combat", what: line, oldVal: null, newVal: yes ? "approved" : "denied", flag: false });
@@ -2545,9 +2546,213 @@ function dismissReactUi(choice) {
     try { host.releaseReactHold("cancel"); } catch (e) {}
   }
 }
+function spellRowsFromSnap(snap) {
+  const list = [];
+  const book = (snap && snap.spells) || {};
+  (book.cantrips || []).forEach((name) => { if (name) list.push({ name: name, level: 0 }); });
+  (snap && snap.castList || []).forEach((sp) => {
+    if (!sp) return;
+    if (typeof sp === "string") list.push({ name: sp, level: 0 });
+    else if (sp.name) list.push({ name: sp.name, level: parseInt(sp.level, 10) || 0 });
+  });
+  (book.prepared || []).forEach((name) => {
+    if (!name) return;
+    const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(name) : null;
+    list.push({ name: name, level: known && known.level != null ? known.level : 1 });
+  });
+  return list;
+}
+function reactorHasGunsmoke(view) {
+  const R = window.SSDNSReact;
+  const row = fightRowForReactor(view && view.reactorId, view && view.reactorName);
+  const pid = (view && view.reactorPlayerId) || (row && row.kind === "player" ? (row.playerId || row.id) : "");
+  const snap = pid ? (playerSnapshot(pid) || {}) : {};
+  if (snap.gunsmokeCaster) return true;
+  return !!(R && R.hasGunsmoke && R.hasGunsmoke(snap.feats));
+}
+function decorateLeaveView(view) {
+  if (!view || view.kind === "damage" || view.kind === "spell") return view;
+  const R = window.SSDNSReact;
+  const row = fightRowForReactor(view.reactorId, view.reactorName);
+  const pid = view.reactorPlayerId || (row && row.kind === "player" ? (row.playerId || row.id) : "");
+  const snap = pid ? (playerSnapshot(pid) || {}) : {};
+  const feat = !!(snap.gunsmokeCaster || (R && R.hasGunsmoke && R.hasGunsmoke(snap.feats)));
+  const spells = feat && R && R.oaCastChoices ? R.oaCastChoices(spellRowsFromSnap(snap)) : [];
+  const owns = !!(R && R.playerOwns ? R.playerOwns(view) : (!view.dmRuns && (view.playerOwns || view.reactorKind === "player" || view.reactorPlayerId)));
+  return Object.assign({}, view, { playerOwns: owns, gunsmoke: feat, spells: spells });
+}
+function leavePlayerOwns(view) {
+  const R = window.SSDNSReact;
+  if (!view || view.kind === "damage" || view.kind === "spell") return false;
+  if (view.dmRuns) return false;
+  if (R && R.playerOwns) return R.playerOwns(view);
+  return !!(view.playerOwns || view.reactorKind === "player" || view.reactorPlayerId);
+}
+function cancelPendingOa(req) {
+  const pid = req && req.promptId;
+  if (!pid || !fight.oa) return;
+  const next = Object.assign({}, fight.oa);
+  Object.keys(next).forEach((id) => {
+    const e = next[id];
+    if (e && e.react && e.promptId === pid && e.status === "ask") {
+      next[id] = Object.assign({}, e, { status: "denied", at: new Date().toISOString() });
+    }
+  });
+  fight.oa = next;
+}
+function queuePlayerOaApproval(req) {
+  const id = "oa_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const cast = req && req.choice === "cast";
+  const who = (req && req.reactorName) || "A player";
+  const target = cast
+    ? ((req.spellName || "a spell") + " at " + (req.moverName || "them"))
+    : (req.moverName || "");
+  fight.oa = Object.assign({}, fight.oa || {});
+  fight.oa[id] = {
+    from: (req && req.reactorPlayerId) || "",
+    name: who,
+    target: target,
+    targetId: (req && req.moverId) || "",
+    status: "ask",
+    seq: fight.seq || 0,
+    ts: new Date().toISOString(),
+    react: true,
+    promptId: (req && req.promptId) || "",
+    choice: cast ? "cast" : "attack",
+    spellName: (req && req.spellName) || "",
+    spellLevel: (req && req.spellLevel) || 0,
+    moverPlayerId: (req && (req.moverPlayerId || req.from)) || "",
+    moverName: (req && req.moverName) || "",
+    reactorId: (req && req.reactorId) || "",
+    reactorName: who,
+    reactorPlayerId: (req && req.reactorPlayerId) || ""
+  };
+  saveRemoteTable();
+  renderFight();
+  const R = window.SSDNSReact;
+  if (R && R.openMirror) {
+    R.openMirror({
+      kind: "leave",
+      kicker: "Opportunity attack",
+      playerOwns: true,
+      approving: true,
+      dmRuns: false,
+      promptId: req.promptId || "",
+      mirrorText: who + (cast ? (" wants to cast " + (req.spellName || "a spell") + " at ") : " wants to attack ") + (req.moverName || "them") + " as they leave reach."
+    }, function (choice) {
+      if (choice === "allow") answerOa(id, true);
+      else if (choice === "deny" || choice === "pass" || choice === "cancel") answerOa(id, false);
+    });
+  }
+  DM.toast(who + (cast ? " wants to cast as an opportunity attack." : " wants an opportunity attack."));
+}
+function resolvePlayerOa(id, entry, yes) {
+  const R = window.SSDNSReact;
+  const e = entry || {};
+  const oaId = id;
+  const packet = {
+    promptId: e.promptId || "",
+    oaId: yes ? oaId : "",
+    allowed: !!yes,
+    gunsmoke: !!e.spellName,
+    spellName: e.spellName || "",
+    spellLevel: e.spellLevel || 0,
+    moverName: e.moverName || "",
+    moverId: e.targetId || "",
+    moverPlayerId: e.moverPlayerId || "",
+    reactorPlayerId: e.reactorPlayerId || e.from || "",
+    reactorId: e.reactorId || "",
+    reactorName: e.reactorName || e.name || ""
+  };
+  if (yes) {
+    armReactOa(e.reactorId, oaId, e.reactorName || e.name);
+    if (!(R && R.deliver && R.deliver(e.promptId, "allow", packet))) {
+      pushReactAnswer({ moverPlayerId: e.moverPlayerId, promptId: e.promptId, casterId: "" }, "allow", packet);
+    }
+    if (e.reactorPlayerId && DM.pushCommand) {
+      DM.pushCommand({ type: "reactArm", to: e.reactorPlayerId, payload: packet, from: DM.state.uid });
+    }
+    if (R && R.openMirror) {
+      R.openMirror({
+        kind: "leave",
+        kicker: "Opportunity attack",
+        playerOwns: true,
+        hideAttack: true,
+        dmRuns: false,
+        mirrorText: (e.name || "Someone") + " is making an opportunity attack" + (e.spellName ? (" — " + e.spellName) : "") + "."
+      }, function (c) {
+        if (c !== "cancel" && c !== "pass") return;
+        clearReactOa(oaId);
+        const drop = Object.assign({}, packet, { allowed: false, oaId: oaId });
+        if (!(R.deliver && R.deliver(e.promptId, "pass", drop))) pushReactAnswer(drop, "pass", drop);
+      });
+    }
+    return;
+  }
+  if (!(R && R.deliver && R.deliver(e.promptId, "deny", packet))) {
+    pushReactAnswer({ moverPlayerId: e.moverPlayerId, promptId: e.promptId }, "deny", packet);
+  }
+  if (R && R.close) R.close();
+}
+async function castLeaveAsOa(view, meta) {
+  const row = fightRowForReactor(view && view.reactorId, view && view.reactorName);
+  if (!row || !meta || !meta.spellName) return false;
+  if (row.kind !== "player") return false;
+  const ok = await castDmRunSpell(row, meta.spellName, meta.spellLevel || 0);
+  if (!ok) return false;
+  const m = markersOfRow(row);
+  if (m) {
+    const spentId = meta.oaId || m.oaArmed || "";
+    m.reaction = true;
+    m.oaUsed = spentId;
+    m.oaArmed = "";
+    m.oaUsedAt = Date.now();
+    writePlayerMarkers(row.playerId || row.id, m, "", ["reaction", "oaReq", "oaArmed", "oaUsed", "oaUsedAt"]);
+  }
+  return true;
+}
+function beginDmLeaveCast(view, meta, handler) {
+  const R = window.SSDNSReact;
+  meta = meta || {};
+  if (!R) return;
+  if (!meta.spellName || (R.oaCastEligible && !R.oaCastEligible(meta.spellName)) || !(view.gunsmoke || reactorHasGunsmoke(view))) {
+    DM.toast("That spell can't be cast as an opportunity attack.");
+    if (handler) handler("pass", meta);
+    else releaseMoverFrom(view, "pass");
+    R.close();
+    return;
+  }
+  meta.oaId = meta.oaId || ("oa_" + Date.now().toString(36));
+  meta.gunsmoke = true;
+  meta.allowed = true;
+  const armedOk = armReactOa(view.reactorId, meta.oaId, view.reactorName);
+  const decided = (R.attackDecision && R.attackDecision(armedOk)) || { hold: !!armedOk };
+  if (!decided.hold) {
+    DM.toast((view.reactorName || "They") + " can't cast that. Passing.");
+    if (handler) handler("pass", meta);
+    else releaseMoverFrom(view, "pass");
+    return;
+  }
+  rememberReactArm(view, meta.oaId);
+  const tell = function (made, extra) {
+    const packet = Object.assign({}, meta, extra || {}, { oaId: meta.oaId, allowed: true, gunsmoke: true });
+    if (made !== "cast" && made !== "attack") packet.armed = false;
+    if (handler) handler(made, packet);
+    else if (!(R.deliver && R.deliver(view.promptId, made, packet))) pushReactAnswer(view, made, packet);
+  };
+  tell("cast", {});
+  castLeaveAsOa(view, meta).then(function (ok) {
+    if (ok) notifyReactSpent(meta.oaId);
+    else {
+      clearReactOa(meta.oaId);
+      tell("pass", { oaId: meta.oaId });
+    }
+  });
+}
 function presentReact(view, handler) {
   const R = window.SSDNSReact;
   if (!R || !view) return false;
+  view = decorateLeaveView(view);
   const downed = requestIneligible(view) || reactorRowIneligible(fightRowForReactor(view.reactorId, view.reactorName));
   if (downed || !fightUsable()) {
     R.close();
@@ -2555,6 +2760,24 @@ function presentReact(view, handler) {
     const toast = downed ? ((view.reactorName || "They") + " can't react.") : "";
     if (handler) handler("pass", toast ? { toast: toast } : {});
     else releaseMoverFrom(view, "pass");
+    return true;
+  }
+  /* N72: a player reactor decides on their own sheet. The DM waits, then Allow / Deny. */
+  if (leavePlayerOwns(view) && !view.hideAttack && !view.approving) {
+    const alreadyThere = !!(view.reactorPlayerId && view.from && view.from === view.reactorPlayerId);
+    if (!alreadyThere && view.reactorPlayerId) pushReactPrompt(Object.assign({}, view, { playerOwns: true, kind: view.kind || "leave" }));
+    R.openMirror(Object.assign({}, view, {
+      playerOwns: true,
+      dmRuns: false,
+      approving: false,
+      hideAttack: false,
+      mirrorText: (view.reactorName || "Someone") + " is deciding on an opportunity attack…"
+    }), function (choice, meta) {
+      if (choice !== "cancel") return;
+      if (handler) handler("cancel", meta || {});
+      else releaseMoverFrom(view, "pass");
+      R.close();
+    });
     return true;
   }
   const choose = function (choice, meta) {
@@ -2596,6 +2819,10 @@ function presentReact(view, handler) {
       const drop = meta.oaId || view.oaId;
       clearReactOa(drop);
       delete armedReactByOa[drop];
+    }
+    if (choice === "cast" && view.dmRuns && view.kind !== "damage" && view.kind !== "spell" && meta.spellName) {
+      beginDmLeaveCast(view, meta, handler);
+      return;
     }
     if (choice === "cast" && view.dmRuns) castReactOffer(view);
     if (choice === "pass" || choice === "attacked" || choice === "go" || choice === "cast") {
@@ -2640,6 +2867,23 @@ function noteReactRequest(req, id) {
     return;
   }
   if (req.phase === "answer" || req.choice) {
+    const owns = leavePlayerOwns(req);
+    if ((req.choice === "attack" || req.choice === "cast") && owns && !req.allowed) {
+      if (req.choice === "cast" && ((R.oaCastEligible && !R.oaCastEligible(req.spellName)) || !reactorHasGunsmoke(req))) {
+        DM.toast((req.reactorName || "They") + " can't cast that as an opportunity attack.");
+        if (!(R.deliver && R.deliver(req.promptId, "pass", req))) pushReactAnswer(req, "pass", req);
+        if (id) clearReactRequest(id, "pass");
+        return;
+      }
+      queuePlayerOaApproval(req);
+      if (id) clearReactRequest(id, req.choice);
+      return;
+    }
+    if (req.choice === "pass" && owns) {
+      cancelPendingOa(req);
+      DM.toast((req.reactorName || "Someone") + " passes on the opportunity attack.");
+      if (R.close) R.close();
+    }
     if (R.deliver(req.promptId, req.choice || "pass", req)) return;
     pushReactAnswer(req, req.choice || "pass", req);
     if (req.choice === "attack" && req.kind !== "spell" && req.kind !== "damage") {
@@ -7978,14 +8222,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.162-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.163-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.162-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.163-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

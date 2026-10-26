@@ -159,6 +159,21 @@
     return "action";
   }
   function spell(name) {
+    /* N72: an allowed Gunsmoke Caster cast uses the armed opportunity attack. Reaction, not Action. */
+    var oa = root.SSDNSReact && root.SSDNSReact.oaCast;
+    if (oa && st.oaArmed && !st.reaction && (!oa.id || oa.id === st.oaArmed) && (!oa.name || baseName(oa.name) === baseName(name))) {
+      var id = st.oaArmed;
+      st.reaction = true;
+      st.oaUsed = id;
+      st.oaUsedAt = Date.now();
+      st.oaArmed = "";
+      save();
+      paint();
+      root.SSDNSReact.oaCast = null;
+      if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "note", text: "Casting " + (name || "a spell") + " · opportunity attack (reaction)." });
+      if (root.SSDNSReact.noteSpent) root.SSDNSReact.noteSpent(id);
+      return { over: false, cost: "reaction", oa: id };
+    }
     var cost = spellCost(name);
     return spend(cost, "Casting " + (name || "a spell"));
   }
@@ -556,6 +571,7 @@
     blockMap: blockMap, blockReason: blockReason,
     reactionChoices: reactionChoices, closeReactionMenu: closeReactionMenu, openSpell: openReactionSpell,
     attacksPerAction: attacksPerAction, spellCost: spellCost, featureCost: featureCost, rulesCost: rulesCost,
+    spellsOnSheet: spellsOnSheet,
     state: function () { return extras(st, { action: st.action, bonus: st.bonus, reaction: st.reaction, attacks: st.attacks, actionBy: st.actionBy, turnKey: st.turnKey }); },
     adopt: adopt,
     move: move, setFlag: setFlag, takeAct: takeAct, cancelAct: cancelAct, canCancelAct: canCancelAct, html: html, setOa: setOa, oaTag: oaTag, markDeath: markDeath, inFight: inFight, lastInit: function () { return lastInit; },

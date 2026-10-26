@@ -1106,6 +1106,9 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .react-actions .btn { background: #fff; color: #2a1e12; border: 1px solid #8a6a3a; border-radius: 6px; padding: 6px 12px; font: 700 14px/1.2 system-ui, sans-serif; cursor: pointer; }
 .react-actions .btn-primary { background: #6b4f22; color: #fff8e6; border-color: #4a3414; }
 .react-actions .btn:disabled { opacity: .45; cursor: not-allowed; }
+.react-modal-card { max-height: min(70vh, 520px); overflow: auto; }
+.react-spells { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin-top: 8px; }
+.react-actions { flex-wrap: wrap; }
 .react-wait { position: fixed; left: 50%; top: 72px; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 10px; background: #2a1e12; color: #f6e7b2; border: 2px solid #e2c56a; border-radius: 8px; padding: 8px 14px; font: 700 14px/1.3 system-ui, sans-serif; pointer-events: auto; }
 .react-wait .btn { background: #fff; color: #2a1e12; border: 1px solid #e2c56a; border-radius: 6px; padding: 4px 10px; font: 700 13px/1.2 system-ui, sans-serif; cursor: pointer; }
 .gun button[data-cost]::after { content: attr(data-cost); display: inline-block; margin-left: 5px; padding: 1px 4px; border-radius: 3px; background: #efe4cc; color: #6b4f22; font: 700 9px/1.2 system-ui, sans-serif; text-transform: uppercase; letter-spacing: .03em; vertical-align: middle; }

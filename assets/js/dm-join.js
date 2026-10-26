@@ -314,6 +314,25 @@
       } : null,
       longRangeHex: (c.feats || []).indexOf("long-range-hex") >= 0,
       sharpshooter: (c.feats || []).indexOf("sharpshooter") >= 0,
+      /* N72: Gunsmoke Caster (War Caster). The DM reads this for a DM-run leave-reach Cast. */
+      gunsmokeCaster: (c.feats || []).indexOf("gunsmoke-caster") >= 0,
+      castList: (function () {
+        var preparedIds = { "frontier-preacher": 1, "nature-guide": 1, "lawman": 1, "scholar": 1 };
+        var prep = !!preparedIds[c.calling];
+        var book = c.spells;
+        if (c.calling === "lawman" && c.lawlessSpells && c.lawlessSpells.seeded) book = c.lawlessSpells;
+        var rows = [];
+        (c.cantrips || []).forEach(function (n) { if (n) rows.push({ name: n, level: 0 }); });
+        var sl;
+        for (sl = 1; sl <= 9; sl++) {
+          ((book && book[sl]) || []).forEach(function (sp) {
+            if (!sp || !sp.name) return;
+            if (prep && !sp.prepared) return;
+            rows.push({ name: sp.name, level: sl });
+          });
+        }
+        return rows;
+      })(),
       conditions: c.tableConditions || "",
       takingCover: !!c.takingCover,
       surpriseDraw: !!c.surpriseDraw,
@@ -1277,6 +1296,9 @@
         break;
       case "reactPrompt":
         onReactPrompt(payload);
+        break;
+      case "reactArm":
+        onReactArm(payload);
         break;
       case "reactAnswer":
         if (root.SSDNSReact && root.SSDNSReact.deliver) root.SSDNSReact.deliver(payload.promptId, payload.choice || "pass", payload);
@@ -2707,7 +2729,8 @@
       damagerName: String(card.damagerName || ""),
       casterId: String(card.casterId || ""),
       casterName: String(card.casterName || ""),
-      oaId: String(meta.oaId || card.oaId || "")
+      oaId: String(meta.oaId || card.oaId || ""),
+      gunsmoke: !!(card.gunsmoke || meta.gunsmoke)
     };
   }
   function postReact(card) {
@@ -2759,6 +2782,152 @@
       root.SSDNSReact.castingReaction = false;
     }
   }
+  /**
+   * N72: this sheet is the reactor. Gunsmoke Caster adds Cast for 1-action single-target spells.
+   * The live spell list is the sheet's, not the mover's copy of the card.
+   */
+  function enrichLeave(view) {
+    if (!view || view.dmRuns) return view;
+    if (view.kind && view.kind !== "leave") return view;
+    if (view.reactorPlayerId && state.uid && view.reactorPlayerId !== state.uid && !view.self) return view;
+    view.playerOwns = true;
+    var c = doc() && doc().character;
+    var R = root.SSDNSReact;
+    var gunsmoke = !!(c && R && R.hasGunsmoke && R.hasGunsmoke(c.feats));
+    view.gunsmoke = gunsmoke;
+    if (!gunsmoke || !R || !R.oaCastChoices) {
+      view.spells = [];
+      return view;
+    }
+    var list = root.SSDNSActionPips && root.SSDNSActionPips.spellsOnSheet ? root.SSDNSActionPips.spellsOnSheet() : [];
+    view.spells = R.oaCastChoices(list);
+    return view;
+  }
+  function waitOnDm(view) {
+    var R = root.SSDNSReact;
+    if (!R) return;
+    R.openModal({
+      kind: "leave",
+      kicker: "Opportunity attack",
+      text: "Waiting on the DM…",
+      hideAttack: true,
+      passLabel: "Pass"
+    }, function (c2) {
+      if (c2 !== "pass" && c2 !== "cancel") return;
+      postReactAnswer(view, "pass", {});
+      R.close();
+    });
+  }
+  /** The player's leave-reach card. Attack and Cast ask the DM. They do not arm the reaction yet. */
+  function onLeavePrompt(view) {
+    var R = root.SSDNSReact;
+    view = enrichLeave(Object.assign({}, view || {}));
+    var mine = root.SSDNSActionPips && root.SSDNSActionPips.state ? root.SSDNSActionPips.state() : null;
+    if (mine && mine.reaction) view.disabled = true;
+    R.openModal(view, function (choice, meta) {
+      meta = meta || {};
+      if (choice === "cancel") choice = "pass";
+      if (choice === "attack" || choice === "cast") {
+        if (view.disabled) {
+          postReactAnswer(view, "pass", { toast: "Reaction already used." });
+          R.close();
+          return;
+        }
+        postReactAnswer(view, choice, meta);
+        waitOnDm(view);
+        return;
+      }
+      postReactAnswer(view, "pass", meta);
+      R.close();
+    });
+  }
+  function aimCastTarget(id, name) {
+    if (!id || !root.document) return;
+    var sel = root.document.querySelector("#atkTarget");
+    if (!sel) return;
+    var found = false;
+    Array.prototype.forEach.call(sel.options || [], function (o) { if (o && o.value === String(id)) found = true; });
+    if (!found) {
+      var opt = root.document.createElement("option");
+      opt.value = String(id);
+      opt.textContent = name || "Target";
+      opt.setAttribute("data-name", name || "");
+      sel.appendChild(opt);
+    }
+    sel.value = String(id);
+    try { sel.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {}
+  }
+  function beginOaCast(payload) {
+    payload = payload || {};
+    var name = payload.spellName || (root.SSDNSReact && root.SSDNSReact.oaCast && root.SSDNSReact.oaCast.name) || "";
+    var level = parseInt(payload.spellLevel, 10) || 0;
+    if (!name) return;
+    aimCastTarget(payload.moverId || "", payload.moverName || "");
+    if (level > 0 && root.SSDNSApp && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(level)) {
+      toast("No level-" + level + " slot left.");
+      return;
+    }
+    if (root.SSDNSSheet && root.SSDNSSheet.castAt) root.SSDNSSheet.castAt(name, level);
+    else if (root.SSDNSSheet && root.SSDNSSheet.castNamed) root.SSDNSSheet.castNamed(name);
+  }
+  /** DM Allow landed. Arm the reaction, then open the strike or the cast at the mover. */
+  function onReactArm(payload) {
+    payload = payload || {};
+    var R = root.SSDNSReact;
+    var oaId = payload.oaId || "";
+    if (!oaId) return;
+    if (root.SSDNSActionPips && root.SSDNSActionPips.setOa) root.SSDNSActionPips.setOa("oaArmed", oaId);
+    if (payload.spellName && R) {
+      R.oaCast = { id: oaId, name: payload.spellName, level: parseInt(payload.spellLevel, 10) || 0 };
+    }
+    var local = root.SSDNSLeaveHold && root.SSDNSLeaveHold.promptId && root.SSDNSLeaveHold.promptId() === payload.promptId;
+    if (local) {
+      if (payload.spellName) beginOaCast(payload);
+      return;
+    }
+    if (R) {
+      R.watchSpent(oaId, function () {
+        postReactAnswer(payload, "attacked", { oaId: oaId });
+        if (root.SSDNSReact) root.SSDNSReact.oaCast = null;
+        R.close();
+      });
+    }
+    if (payload.spellName) {
+      beginOaCast(payload);
+      if (!R) return;
+      R.openModal({
+        kind: "leave",
+        kicker: "Opportunity attack",
+        text: "Cast " + payload.spellName + " at " + (payload.moverName || "them") + ". It spends your reaction, not your action.",
+        hideAttack: true,
+        passLabel: "Pass",
+        oaId: oaId
+      }, function (c2) {
+        if (c2 !== "pass" && c2 !== "cancel") return;
+        if (root.SSDNSActionPips && root.SSDNSActionPips.setOa) root.SSDNSActionPips.setOa("oaArmed", "");
+        if (R) R.oaCast = null;
+        if (R && R.forgetSpent) R.forgetSpent(oaId);
+        postReactAnswer(payload, "pass", { oaId: oaId });
+        R.close();
+      });
+      return;
+    }
+    if (!R) return;
+    R.openModal({
+      kind: "leave",
+      kicker: "Opportunity attack",
+      text: "Make the opportunity attack against " + (payload.moverName || "them") + ". It spends your reaction, not your action.",
+      hideAttack: true,
+      passLabel: "Pass",
+      oaId: oaId
+    }, function (c2) {
+      if (c2 !== "pass" && c2 !== "cancel") return;
+      if (root.SSDNSActionPips && root.SSDNSActionPips.setOa) root.SSDNSActionPips.setOa("oaArmed", "");
+      if (R.forgetSpent) R.forgetSpent(oaId);
+      postReactAnswer(payload, "pass", { oaId: oaId });
+      R.close();
+    });
+  }
   function onReactPrompt(view) {
     var R = root.SSDNSReact;
     if (!R || !view) return;
@@ -2767,15 +2936,19 @@
       R.close();
       return;
     }
+    if ((view.kind || "leave") === "leave" && !view.dmRuns) {
+      onLeavePrompt(view);
+      return;
+    }
     R.bind(view.promptId, function (choice, meta) {
       if (choice === "cancel") {
         postReactAnswer(view, "pass", meta || {});
         R.close();
       }
     });
-    R.openModal(view, function (choice) {
+    R.openModal(view, function (choice, meta) {
+      meta = meta || {};
       if (choice === "cancel") choice = "pass";
-      var meta = {};
       if (choice === "attack") {
         meta.oaId = "oa_" + Date.now().toString(36);
         if (root.SSDNSActionPips && root.SSDNSActionPips.setOa) root.SSDNSActionPips.setOa("oaArmed", meta.oaId);
@@ -3182,6 +3355,8 @@
       postAddToken: postAddToken,
       postOaRequest: postOaRequest,
       postReact: postReact,
+      postReactAnswer: postReactAnswer,
+      enrichLeave: enrichLeave,
       presentReact: presentReact,
       pushTurnMarkers: pushTurnMarkers,
       pullTurnMarkers: pullTurnMarkers,

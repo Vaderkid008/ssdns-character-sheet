@@ -4154,12 +4154,22 @@ function reactorFacts(t) {
   }
   return { status: status || '', hp: hp, noHpPool: noHpPool, conditions: tokenConditions(t) };
 }
+function reactorPlayerId(t) {
+  if (!t) return '';
+  if (t.ownerUid) return t.ownerUid;
+  const row = rowForToken(t);
+  if (row && row.kind === 'player') return row.playerId || row.id || '';
+  return '';
+}
 function reactorDmRuns(t) {
   if (!t) return false;
-  if (!t.ownerUid || t.dmActsAs) return true;
+  const row = rowForToken(t);
+  const playerId = reactorPlayerId(t);
+  if (!playerId) return true;
+  if (t.dmActsAs || (row && row.dmActsAs)) return true;
   if (role !== 'dm' || typeof host.getCard !== 'function') return false;
   try {
-    const card = host.getCard(t.id) || (t.combatantId && host.getCard(t.combatantId)) || (t.ownerUid && host.getCard(t.ownerUid));
+    const card = host.getCard(t.id) || (t.combatantId && host.getCard(t.combatantId)) || (playerId && host.getCard(playerId));
     return !!(card && card.dmActsAs);
   } catch (e) { return false; }
 }
@@ -4169,19 +4179,25 @@ function moveContext(mover, budget) {
   const list = blockingTokens(mover ? { [mover.id]: true } : {}).filter(t => (t.sceneId || 'scn_dustyspur01') === sceneId && t.pos);
   const occupants = list.map(t => {
     const facts = reactorFacts(t);
+    const playerId = reactorPlayerId(t);
+    let gunsmoke = false;
+    if (playerId && uid && playerId === uid && window.SSDNSReact && window.SSDNSReact.hasGunsmoke && window.SSDNSApp && window.SSDNSApp.doc) {
+      try { gunsmoke = window.SSDNSReact.hasGunsmoke((window.SSDNSApp.doc().character || {}).feats); } catch (e) { gunsmoke = false; }
+    }
     return {
       id: t.id,
       x: t.pos.x,
       y: t.pos.y,
       size: tokSquares(t.size),
-      kind: t.ownerUid ? 'player' : (t.kind || 'enemy'),
+      kind: playerId ? 'player' : (t.kind || 'enemy'),
       ally: allyOf(mover, t),
       name: t.label || t.name || 'a creature',
       reachFt: reachFeetOf(t),
       reaction: reactionSpentOf(t),
-      playerId: t.ownerUid || '',
-      self: !!(uid && t.ownerUid === uid),
+      playerId: playerId,
+      self: !!(uid && playerId && playerId === uid),
       dmRuns: reactorDmRuns(t),
+      gunsmoke: gunsmoke,
       status: facts.status,
       hp: facts.hp,
       noHpPool: facts.noHpPool,
@@ -4283,6 +4299,9 @@ function flashLeaveReach() {
   setTimeout(() => { if (!dead) el.classList.remove('ssm-oa-flash'); }, 700);
 }
 let reactHold = null;
+window.SSDNSLeaveHold = {
+  promptId: function () { return reactHold && reactHold.session ? reactHold.session.promptId : ""; }
+};
 function pathCost(built, fromIdx, toIdx) {
   const path = built && built.path;
   if (!path || toIdx <= fromIdx) return 0;
@@ -4407,13 +4426,16 @@ function showLeaveCard() {
       return;
     }
   }
-  const view = R.leaveView(reactHold.session, reactHold.moverName);
+  let view = R.leaveView(reactHold.session, reactHold.moverName);
   if (!view || (typeof R.isIneligibleReactor === 'function' && R.isIneligibleReactor(view))) {
     onLeaveChoice('pass', {});
     return;
   }
   view.moverId = reactHold.moverId;
   view.moverPlayerId = reactHold.moverPlayerId;
+  if (window.SSDNSDmJoin && typeof window.SSDNSDmJoin.enrichLeave === 'function') {
+    try { view = window.SSDNSDmJoin.enrichLeave(view) || view; } catch (e) {}
+  }
   presentLeave(view);
 }
 function clearArmedOa(oaId) {
@@ -4425,6 +4447,7 @@ function clearArmedOa(oaId) {
   if (window.DMCCEnhance && typeof window.DMCCEnhance.clearReactOa === 'function') {
     try { window.DMCCEnhance.clearReactOa(oaId); } catch (e) {}
   }
+  if (window.SSDNSReact) window.SSDNSReact.oaCast = null;
 }
 function onLeaveChoice(choice, meta) {
   const R = window.SSDNSReact;
@@ -4441,25 +4464,56 @@ function onLeaveChoice(choice, meta) {
     clearReactHold();
     return;
   }
-  if (choice === 'attacked' && session.phase !== 'attacking') return;
+  const striking = session.phase === 'attacking' || session.phase === 'casting';
+  if (choice === 'attacked' && !striking) return;
   if (choice === 'attacked' && meta.oaId && session.oaId && meta.oaId !== session.oaId) return;
   const stamp = session.pi + ':' + session.qi + ':' + session.phase + ':' + choice;
   if (reactHold.stamp === stamp) return;
   reactHold.stamp = stamp;
-  if (choice === 'attacked' || (choice === 'pass' && session.phase === 'attacking')) {
+  if (choice === 'attacked' || (choice === 'pass' && striking)) {
     if (typeof R.forgetSpent === 'function') R.forgetSpent(meta.oaId || session.oaId);
   }
-  if (choice === 'pass' && session.phase === 'attacking') clearArmedOa(session.oaId || meta.oaId);
-  if (choice === 'attack' && !meta.oaId) {
+  if (choice === 'pass' && striking) clearArmedOa(session.oaId || meta.oaId);
+  const preview = R.leaveView(session, reactHold.moverName);
+  const owns = !!(preview && preview.playerOwns);
+  if (choice === 'allow') {
+    meta.allowed = true;
+    meta.oaId = meta.oaId || ('oa_' + Date.now().toString(36));
+    if (preview && preview.self) armLeaveReactor(preview, meta.oaId);
+  } else if ((choice === 'attack' || choice === 'cast') && !meta.oaId && !(owns && !meta.allowed)) {
     meta.oaId = 'oa_' + Date.now().toString(36);
-    const view = R.leaveView(session, reactHold.moverName);
-    armLeaveReactor(view, meta.oaId);
+    armLeaveReactor(preview, meta.oaId);
   }
   const result = R.answerLeave(session, choice, meta);
   if (result.toast) toast(result.toast);
+  if (result.pending) {
+    if (owns && window.SSDNSDmJoin && typeof window.SSDNSDmJoin.postReactAnswer === 'function') {
+      try {
+        window.SSDNSDmJoin.postReactAnswer(Object.assign({}, preview, {
+          spellName: meta.spellName || '',
+          spellLevel: meta.spellLevel || 0,
+          gunsmoke: true
+        }), choice, meta);
+      } catch (e) {}
+    }
+    R.openModal({
+      kind: 'leave',
+      kicker: 'Opportunity attack',
+      text: 'Waiting on the DM…',
+      hideAttack: true,
+      passLabel: 'Pass'
+    }, function (c2) {
+      if (c2 === 'pass' || c2 === 'cancel') onLeaveChoice('pass', {});
+    });
+    return;
+  }
   if (result.armed) {
-    R.watchSpent(result.oaId, function () { onLeaveChoice('attacked', { oaId: result.oaId }); });
-    refreshArmedCard();
+    const armedView = R.leaveView(session, reactHold.moverName);
+    const localStrike = !!(armedView && (armedView.self || !reactHold.remote || (armedView.dmRuns && role === 'dm')));
+    if (localStrike) {
+      R.watchSpent(result.oaId, function () { onLeaveChoice('attacked', { oaId: result.oaId }); });
+      refreshArmedCard();
+    }
     return;
   }
   if (result.commit) slideSegment(reactHold.mover, reactHold.built, result.commit.from, result.commit.to, reactHold.budget);
