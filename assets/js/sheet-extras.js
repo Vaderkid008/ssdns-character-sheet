@@ -114,6 +114,7 @@
       if (root.SSDNSConditions.listText) c.tableConditions = root.SSDNSConditions.listText(c.activeConditions);
     }
     if (typeof renderConds === "function") renderConds();
+    if (root.SSDNSReact && typeof root.SSDNSReact.releaseIfDown === "function") root.SSDNSReact.releaseIfDown();
   }
   function clearDowned(force) {
     var c = ch();

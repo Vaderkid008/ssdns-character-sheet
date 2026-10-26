@@ -2711,8 +2711,22 @@
   /** The mover's map calls this. A joined player posts the ask. This client shows the card only when it is the reactor. */
   function presentReact(view) {
     if (!state.joined || !state._fb || !state.db || !view) return false;
+    if (root.SSDNSReact && root.SSDNSReact.downed && root.SSDNSReact.downed(view)) return false;
     postReact(view);
     return !(view.self || (view.reactorPlayerId && view.reactorPlayerId === state.uid));
+  }
+  function characterDown() {
+    var R = root.SSDNSReact;
+    var c = doc() && doc().character;
+    if (!R || !c || typeof R.downed !== "function") return false;
+    return !!R.downed({
+      hp: c.hpCurrent,
+      conditions: c.activeConditions,
+      status: c.status,
+      dead: c.dead,
+      unconscious: c.unconscious,
+      defeated: c.defeated
+    });
   }
   function castPromptSpell(view) {
     var P = root.SSDNSActionPips;
@@ -2736,8 +2750,20 @@
   function onReactPrompt(view) {
     var R = root.SSDNSReact;
     if (!R || !view) return;
-    R.openModal(view, function (choice) {
-      var meta = {};
+    if ((R.downed && R.downed(view)) || characterDown()) {
+      postReactAnswer(view, "pass", { down: true });
+      R.close();
+      return;
+    }
+    R.openModal(view, function (choice, meta) {
+      meta = meta || {};
+      var down = !!(meta.down || (R.downed && R.downed(view)) || characterDown());
+      if (down) {
+        if (root.SSDNSActionPips && root.SSDNSActionPips.setOa) root.SSDNSActionPips.setOa("oaArmed", "");
+        postReactAnswer(view, "pass", { down: true, oaId: meta.oaId || view.oaId || "" });
+        R.close();
+        return;
+      }
       if (choice === "attack") {
         meta.oaId = "oa_" + Date.now().toString(36);
         if (root.SSDNSActionPips && root.SSDNSActionPips.setOa) root.SSDNSActionPips.setOa("oaArmed", meta.oaId);
@@ -2751,17 +2777,21 @@
           oaId: meta.oaId,
           text: "Make the opportunity attack against " + (view.moverName || "them") + ". It spends your reaction, not your action."
         });
-        R.openModal(held, function (c2) {
-          if (c2 !== "pass") return;
+        R.openModal(held, function (c2, meta2) {
+          meta2 = meta2 || {};
+          if (c2 !== "pass" && !meta2.down && !(R.downed && R.downed(view)) && !characterDown()) return;
           if (root.SSDNSActionPips && root.SSDNSActionPips.setOa) root.SSDNSActionPips.setOa("oaArmed", "");
-          postReactAnswer(view, "pass", { oaId: meta.oaId });
+          postReactAnswer(view, "pass", { oaId: meta.oaId, down: !!(meta2.down || characterDown()) });
           R.close();
         });
         return;
       }
-      if (choice === "cast") castPromptSpell(view);
-      postReactAnswer(view, choice, meta);
-      R.close();
+      try {
+        if (choice === "cast") castPromptSpell(view);
+        postReactAnswer(view, choice || "pass", meta);
+      } finally {
+        R.close();
+      }
     });
   }
   var spellGates = {};
@@ -3144,6 +3174,7 @@
       postAddToken: postAddToken,
       postOaRequest: postOaRequest,
       postReact: postReact,
+      postReactAnswer: postReactAnswer,
       presentReact: presentReact,
       pushTurnMarkers: pushTurnMarkers,
       pullTurnMarkers: pullTurnMarkers,

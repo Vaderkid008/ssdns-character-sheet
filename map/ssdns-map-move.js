@@ -300,6 +300,24 @@
   function inMeleeBoxes(mover, enemy) {
     return feetBetweenBoxes(mover, enemy) <= reachFeet(enemy);
   }
+  /** Same downed set as SSDNSReact.downed. A corpse, an unconscious creature, and a defeated one do not provoke. */
+  function foeDown(foe) {
+    if (!foe) return false;
+    if (foe.down || foe.dead || foe.unconscious || foe.defeated || foe.fled || foe.left || foe.gone || foe.departed) return true;
+    var status = String(foe.status || "").trim().toLowerCase();
+    if (/^(down|dead|unconscious|dying|defeated|fled|left|gone)$/.test(status)) return true;
+    var list = foe.conditions || foe.activeConditions || [];
+    var i, raw, name;
+    for (i = 0; i < list.length; i++) {
+      raw = list[i];
+      name = typeof raw === "string" ? raw : (raw && (raw.name || raw.label)) || "";
+      if (/unconscious|dead|dying|defeated/i.test(String(name))) return true;
+    }
+    if (foe.noHpPool) return false;
+    var hp = foe.hp != null && foe.hp !== "" ? foe.hp : foe.hpCurrent;
+    if (hp != null && hp !== "" && isFinite(Number(hp)) && Number(hp) <= 0) return true;
+    return false;
+  }
   /**
    * Steps that leave a hostile's melee reach. index is the path square that would leave.
    * Pause before committing that square. Disengage, teleport, and forced movement do not provoke.
@@ -318,7 +336,7 @@
       after = { x: path[i].x, y: path[i].y, size: size };
       for (e = 0; e < enemies.length; e++) {
         foe = enemies[e];
-        if (!foe || foe.ally) continue;
+        if (!foe || foe.ally || foeDown(foe)) continue;
         if (inMeleeBoxes(before, foe) && !inMeleeBoxes(after, foe)) who.push(foe);
       }
       if (who.length) pauses.push({ index: i, reactors: who });

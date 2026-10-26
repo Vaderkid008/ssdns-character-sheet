@@ -2416,25 +2416,83 @@ function pushReactAnswer(view, choice, meta) {
     from: DM.state.uid
   });
 }
+function rowIsDown(rowOrId) {
+  const R = window.SSDNSReact;
+  if (!R || typeof R.downed !== "function") return false;
+  const row = rowOrId && typeof rowOrId === "object" ? rowOrId : fightRowById(rowOrId);
+  if (!row) return false;
+  const player = row.kind === "player";
+  const pid = player ? (row.playerId || row.id) : "";
+  const snap = pid ? playerSnapshot(pid) : null;
+  const hp = player
+    ? (snap && snap.hpCurrent != null && snap.hpCurrent !== "" ? snap.hpCurrent : row.hp)
+    : row.hp;
+  const conditions = (row.conditions && row.conditions.length) ? row.conditions : ((snap && (snap.activeConditions || snap.conditions)) || []);
+  return !!R.downed({
+    status: player ? (row.status || (snap && snap.status) || "") : enemyStatus(row),
+    hp: hp,
+    noHpPool: noHpPoolRow(row),
+    conditions: conditions,
+    fled: player ? !!(row.fled || /^fled$/i.test(String(row.status || ""))) : enemyFled(row),
+    left: row.left,
+    dead: row.dead,
+    unconscious: row.unconscious,
+    defeated: row.defeated,
+    down: row.down
+  });
+}
+function viewIsDown(view) {
+  const R = window.SSDNSReact;
+  if (!view) return false;
+  if (R && typeof R.downed === "function" && R.downed(view)) return true;
+  return rowIsDown(view.reactorId);
+}
+function downReactToast(view) {
+  return ((view && (view.reactorName || view.name)) || "They") + " can't take a reaction.";
+}
+function closeReactPrompt(promptId) {
+  const R = window.SSDNSReact;
+  if (!R || !R.close) return;
+  if (typeof document === "undefined") { R.close(); return; }
+  const open = document.querySelector("[data-react-modal], [data-react-mirror], [data-react-wait]");
+  if (!open) return;
+  const id = open.getAttribute("data-react-prompt") || "";
+  if (promptId && id && id !== String(promptId)) return;
+  R.close();
+}
+function settleReact(view, handler, choice, meta) {
+  const R = window.SSDNSReact;
+  meta = meta || {};
+  if (viewIsDown(view)) {
+    choice = "pass";
+    meta.down = true;
+    meta.toast = meta.toast || downReactToast(view);
+  }
+  if (choice === "attack" && view && view.dmRuns && !meta.down) {
+    meta.oaId = meta.oaId || view.oaId || ("oa_" + Date.now().toString(36));
+    if (!armReactOa(view.reactorId, meta.oaId)) {
+      choice = "pass";
+      meta.toast = meta.toast || ((view.reactorName || "They") + " already used their reaction.");
+    } else rememberReactArm(view, meta.oaId);
+  }
+  if (choice === "pass" && view && view.hideAttack && (meta.oaId || view.oaId)) {
+    const drop = meta.oaId || view.oaId;
+    clearReactOa(drop);
+    delete armedReactByOa[drop];
+  }
+  if (choice === "cast" && view && view.dmRuns && !meta.down) castReactOffer(view);
+  if (choice !== "attack" && R && R.close) R.close();
+  if (handler) handler(choice, meta);
+  else if (!(R && R.deliver && R.deliver(view.promptId, choice, meta))) pushReactAnswer(view, choice, meta);
+}
 function presentReact(view, handler) {
   const R = window.SSDNSReact;
   if (!R || !view) return false;
-  const choose = function (choice, meta) {
-    meta = meta || {};
-    if (choice === "attack" && view.dmRuns) {
-      meta.oaId = meta.oaId || view.oaId || ("oa_" + Date.now().toString(36));
-      if (!armReactOa(view.reactorId, meta.oaId)) choice = "pass";
-      else rememberReactArm(view, meta.oaId);
-    }
-    if (choice === "pass" && view.hideAttack && (meta.oaId || view.oaId)) {
-      const drop = meta.oaId || view.oaId;
-      clearReactOa(drop);
-      delete armedReactByOa[drop];
-    }
-    if (choice === "cast" && view.dmRuns) castReactOffer(view);
-    if (handler) handler(choice, meta);
-    else if (!(R.deliver && R.deliver(view.promptId, choice, meta))) pushReactAnswer(view, choice, meta);
-  };
+  if (viewIsDown(view)) {
+    settleReact(view, handler, "pass", { down: true });
+    return true;
+  }
+  const choose = function (choice, meta) { settleReact(view, handler, choice, meta || {}); };
   const alreadyThere = !!(view.reactorPlayerId && view.from && view.from === view.reactorPlayerId);
   if (!alreadyThere && reactChoiceLocal(view)) R.openModal(view, choose);
   else if (!alreadyThere && view.reactorPlayerId) pushReactPrompt(view);
@@ -2459,9 +2517,17 @@ function noteReactRequest(req) {
   const R = window.SSDNSReact;
   if (!req || !R) return;
   if (req.phase === "answer" || req.choice) {
-    if (R.deliver(req.promptId, req.choice || "pass", req)) return;
-    pushReactAnswer(req, req.choice || "pass", req);
-    if (req.choice === "attack" && req.kind !== "spell" && req.kind !== "damage") {
+    const fromMover = !!(req.from && req.moverPlayerId && req.from === req.moverPlayerId);
+    let choice = req.choice || "pass";
+    const down = !!(req.down || viewIsDown(req));
+    if (down && choice !== "attacked" && choice !== "go") choice = "pass";
+    if (fromMover) {
+      closeReactPrompt(req.promptId);
+      return;
+    }
+    if (R.deliver && R.deliver(req.promptId, choice, req)) return;
+    pushReactAnswer(req, choice, req);
+    if (!down && choice === "attack" && req.kind !== "spell" && req.kind !== "damage") {
       const held = Object.assign({}, req, {
         hideAttack: true,
         dmRuns: false,
@@ -2469,15 +2535,16 @@ function noteReactRequest(req) {
         text: "Make the opportunity attack against " + (req.moverName || "them") + ". It spends your reaction, not your action.",
         mirrorText: (req.reactorName || "Someone") + " is making an opportunity attack as " + (req.moverName || "someone") + " leaves reach. Pass cancels it."
       });
-      R.openMirror(held, function (choice) {
-        if (choice !== "pass") return;
+      if (R.close) R.close();
+      R.openMirror(held, function (answer) {
+        if (answer !== "pass" && !viewIsDown(req)) return;
         if (req.oaId) clearReactOa(req.oaId);
-        pushReactAnswer(req, "pass", { oaId: req.oaId || "" });
+        pushReactAnswer(req, "pass", { oaId: req.oaId || "", down: viewIsDown(req) });
         R.close();
       });
       return;
     }
-    if (req.choice === "pass" || req.choice === "attacked" || req.choice === "go" || req.choice === "cast") R.close();
+    if (R.close) R.close();
     return;
   }
   if (req.kind === "spell") {
@@ -2498,6 +2565,7 @@ function counterspellOffers(req) {
   (fight.order || []).forEach((row) => {
     if (!row) return;
     if (row.id === casterId || row.playerId === casterId) return;
+    if (rowIsDown(row)) return;
     const spells = tokenReactionSpells(row).filter((sp) => R.triggerOf(sp.name) === "spell");
     if (!spells.length) return;
     const marks = markersOfRow(row);
@@ -2530,6 +2598,7 @@ function counterspellOffers(req) {
 function damageReactOffers(meta, row) {
   const R = window.SSDNSReact;
   if (!R || !row || !meta) return [];
+  if (rowIsDown(row)) return [];
   const spells = tokenReactionSpells(row).filter((sp) => R.triggerOf(sp.name) === "damage");
   if (!spells.length) return [];
   const marks = markersOfRow(row);
@@ -2559,7 +2628,13 @@ function runReactOffers(offers, onDone) {
   if (!R || !offers || !offers.length) { if (onDone) onDone(); return; }
   const session = R.freshOffers(offers);
   const step = function () {
-    const view = R.offerView(session);
+    let view = R.offerView(session);
+    while (view && (R.downed(view) || rowIsDown(view.reactorId))) {
+      const skipped = R.answerOffer(session, "pass");
+      if (skipped.toast) DM.toast(skipped.toast);
+      if (skipped.done) { R.close(); if (onDone) onDone(); return; }
+      view = R.offerView(session);
+    }
     if (!view) { R.close(); if (onDone) onDone(); return; }
     view.promptId = session.promptId;
     const chosen = function (choice) {
@@ -5411,6 +5486,10 @@ function mirrorMapStatus(row, status) {
   const id = liveMapTokenId(row);
   if (!id) return;
   try { host.patchToken(id, { status: status || "" }); } catch (e) {}
+  if (/^down$/i.test(String(status || "")) && window.SSDNSReact && typeof window.SSDNSReact.releaseIfDown === "function") {
+    const ids = [id, row.id, row.playerId, row.mapTokenId].filter(Boolean);
+    try { window.SSDNSReact.releaseIfDown(ids); } catch (e2) {}
+  }
 }
 async function publishCardRoll(row, detail, result, extra) {
   detail = withDmActing(row, detail);
@@ -7768,14 +7847,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.157-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.158-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.157-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.158-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

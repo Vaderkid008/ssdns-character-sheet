@@ -335,6 +335,8 @@ function applySharedToTokens() {
       if (s.dmTorch != null) t.dmTorch = !!s.dmTorch;
       t.status = s.status || '';
       t.conditions = s.conditions ? [...s.conditions] : [];
+      if (s.hp != null && s.hp !== '') t.hp = s.hp;
+      if (s.noHpPool != null) t.noHpPool = !!s.noHpPool;
       stampScene(t, s);
       t.image = s.image || t.image || '';
       t.veil = !!s.veil;
@@ -349,6 +351,7 @@ function applySharedToTokens() {
       if (t.image && !t._img) loadTokenImage(t);
     }
   }
+  recheckReactHold();
 }
 
 // --- map state ---
@@ -3836,24 +3839,103 @@ function spendFeet(token, feet) {
   }
   state.moveReachKey = '';
 }
+function occupantReactState(t) {
+  const row = rowForToken(t);
+  const conditions = tokenConditions(t);
+  let status = String((t && t.status) || '');
+  if (!status && row && row.status) status = String(row.status);
+  let hp = '';
+  let noHpPool = !!(row && (row.noHpPool === true || (row.card && row.card.noHpPool === true)));
+  let fled = !!(row && (row.fled || /^fled$/i.test(String(row.status || ''))));
+  if (role === 'dm') {
+    let card = null;
+    try { card = lookupCard(t && t.id); } catch (e) { card = null; }
+    if (card && card.noHpPool === true) noHpPool = true;
+    if (!noHpPool && card && card.hp && card.hp.cur != null && card.hp.cur !== '') hp = card.hp.cur;
+    else if (!noHpPool && t && t.hp != null && t.hp !== '') hp = t.hp;
+    else if (!noHpPool && row && row.hp != null && row.hp !== '') hp = row.hp;
+  } else if (t && t.ownerUid && t.ownerUid === uid && window.SSDNSApp && window.SSDNSApp.doc) {
+    try {
+      const c = window.SSDNSApp.doc().character;
+      if (c && c.hpCurrent != null && c.hpCurrent !== '') hp = c.hpCurrent;
+    } catch (e) {}
+  }
+  const snap = {
+    status: status,
+    hp: hp,
+    noHpPool: noHpPool,
+    conditions: conditions,
+    fled: fled,
+    left: !!(row && (row.left || row.departed)),
+    dead: !!(row && row.dead),
+    unconscious: !!(row && row.unconscious),
+    defeated: !!(row && row.defeated)
+  };
+  const R = window.SSDNSReact;
+  snap.down = R && typeof R.downed === 'function'
+    ? !!R.downed(snap)
+    : /^(down|dead|unconscious|dying|defeated|fled|left|gone)$/i.test(status);
+  return snap;
+}
+function tokenForReactor(reactor) {
+  if (!reactor) return null;
+  const id = reactor.id || reactor.reactorId || '';
+  const pid = reactor.playerId || reactor.reactorPlayerId || '';
+  return state.tokens.find(t => t && (
+    (id && (t.id === id || t.combatantId === id)) ||
+    (pid && (t.ownerUid === pid || t.combatantId === pid))
+  )) || null;
+}
+function refreshReactorDown(reactor) {
+  if (!reactor) return;
+  const token = tokenForReactor(reactor);
+  if (!token) {
+    if (window.SSDNSReact && typeof window.SSDNSReact.downed === 'function') reactor.down = !!window.SSDNSReact.downed(reactor);
+    return;
+  }
+  const snap = occupantReactState(token);
+  reactor.status = snap.status;
+  reactor.hp = snap.hp;
+  reactor.noHpPool = snap.noHpPool;
+  reactor.conditions = snap.conditions;
+  reactor.fled = snap.fled;
+  reactor.left = snap.left;
+  reactor.dead = snap.dead;
+  reactor.unconscious = snap.unconscious;
+  reactor.defeated = snap.defeated;
+  reactor.down = snap.down;
+}
 function moveContext(mover, budget) {
   const grid = (state.scene && state.scene.grid) || { cols: 30, rows: 20 };
   const sceneId = (mover && mover.sceneId) || activeSceneId() || 'scn_dustyspur01';
   const list = blockingTokens(mover ? { [mover.id]: true } : {}).filter(t => (t.sceneId || 'scn_dustyspur01') === sceneId && t.pos);
-  const occupants = list.map(t => ({
-    id: t.id,
-    x: t.pos.x,
-    y: t.pos.y,
-    size: tokSquares(t.size),
-    kind: t.ownerUid ? 'player' : (t.kind || 'enemy'),
-    ally: allyOf(mover, t),
-    name: t.label || t.name || 'a creature',
-    reachFt: reachFeetOf(t),
-    reaction: reactionSpentOf(t),
-    playerId: t.ownerUid || '',
-    self: !!(uid && t.ownerUid === uid),
-    dmRuns: role === 'dm' && !t.ownerUid
-  }));
+  const occupants = list.map(t => {
+    const life = occupantReactState(t);
+    return {
+      id: t.id,
+      x: t.pos.x,
+      y: t.pos.y,
+      size: tokSquares(t.size),
+      kind: t.ownerUid ? 'player' : (t.kind || 'enemy'),
+      ally: allyOf(mover, t),
+      name: t.label || t.name || 'a creature',
+      reachFt: reachFeetOf(t),
+      reaction: reactionSpentOf(t),
+      playerId: t.ownerUid || '',
+      self: !!(uid && t.ownerUid === uid),
+      dmRuns: role === 'dm' && !t.ownerUid,
+      down: life.down,
+      status: life.status,
+      hp: life.hp,
+      noHpPool: life.noHpPool,
+      conditions: life.conditions,
+      fled: life.fled,
+      left: life.left,
+      dead: life.dead,
+      unconscious: life.unconscious,
+      defeated: life.defeated
+    };
+  });
   return {
     grid: { cols: grid.cols || 30, rows: grid.rows || 20 },
     occupants: occupants,
@@ -4051,7 +4133,15 @@ function refreshArmedCard() {
 function showLeaveCard() {
   const R = window.SSDNSReact;
   if (!reactHold || !R) return;
-  const view = R.leaveView(reactHold.session, reactHold.moverName);
+  const session = reactHold.session;
+  const pause = session && session.pauses && session.pauses[session.pi];
+  const reactor = pause && pause.reactors ? pause.reactors[session.qi] : null;
+  if (reactor) refreshReactorDown(reactor);
+  if (reactor && R.downed && R.downed(reactor)) {
+    onLeaveChoice('pass', { down: true, toast: (reactor.name || reactor.label || 'They') + " can't take a reaction." });
+    return;
+  }
+  const view = R.leaveView(session, reactHold.moverName);
   if (!view) { clearReactHold(); return; }
   view.moverId = reactHold.moverId;
   view.moverPlayerId = reactHold.moverPlayerId;
@@ -4067,31 +4157,76 @@ function clearArmedOa(oaId) {
     try { window.DMCCEnhance.clearReactOa(oaId); } catch (e) {}
   }
 }
+let reactRechecking = false;
+function recheckReactHold() {
+  if (reactRechecking || !reactHold || !window.SSDNSReact || typeof window.SSDNSReact.downed !== 'function') return;
+  const session = reactHold.session;
+  const pause = session && session.pauses && session.pauses[session.pi];
+  const reactor = pause && pause.reactors && pause.reactors[session.qi];
+  if (!reactor) return;
+  refreshReactorDown(reactor);
+  if (!window.SSDNSReact.downed(reactor)) return;
+  reactRechecking = true;
+  try {
+    onLeaveChoice('pass', { down: true, toast: (reactor.name || reactor.label || 'They') + " can't take a reaction." });
+  } finally { reactRechecking = false; }
+}
 function onLeaveChoice(choice, meta) {
   const R = window.SSDNSReact;
   if (!reactHold || !R) return;
+  const outer = !reactRechecking;
+  reactRechecking = true;
+  try {
   meta = meta || {};
   const session = reactHold.session;
+  const pause = session.pauses && session.pauses[session.pi];
+  const reactor = pause && pause.reactors ? pause.reactors[session.qi] : null;
+  if (reactor) refreshReactorDown(reactor);
+  if (reactor && R.downed && R.downed(reactor)) {
+    choice = 'pass';
+    meta.down = true;
+    if (!meta.toast) meta.toast = (reactor.name || reactor.label || 'They') + " can't take a reaction.";
+  }
   const stamp = session.pi + ':' + session.qi + ':' + session.phase + ':' + choice;
   if (reactHold.stamp === stamp) return;
   reactHold.stamp = stamp;
   if (choice === 'attacked' && session.phase !== 'attacking') return;
   if (choice === 'pass' && session.phase === 'attacking') clearArmedOa(session.oaId || meta.oaId);
+  const view = R.leaveView(session, reactHold.moverName);
+  if (view) {
+    view.moverId = reactHold.moverId;
+    view.moverPlayerId = reactHold.moverPlayerId;
+  }
   if (choice === 'attack' && !meta.oaId) {
     meta.oaId = 'oa_' + Date.now().toString(36);
-    const view = R.leaveView(session, reactHold.moverName);
-    armLeaveReactor(view, meta.oaId);
+    try { armLeaveReactor(view, meta.oaId); }
+    catch (e) { choice = 'pass'; meta.down = true; }
   }
-  const result = R.answerLeave(session, choice, meta);
+  let result;
+  try { result = R.answerLeave(session, choice, meta); }
+  catch (e) {
+    reactHold.stamp = '';
+    clearReactHold();
+    return;
+  }
+  if (meta.down && role === 'player' && reactHold.remote && view && window.SSDNSDmJoin && typeof window.SSDNSDmJoin.postReactAnswer === 'function') {
+    try { window.SSDNSDmJoin.postReactAnswer(view, 'pass', { down: true }); } catch (e2) {}
+  }
   if (result.toast) toast(result.toast);
   if (result.armed) {
     R.watchSpent(result.oaId, function () { onLeaveChoice('attacked', { oaId: result.oaId }); });
     refreshArmedCard();
     return;
   }
-  if (result.commit) slideSegment(reactHold.mover, reactHold.built, result.commit.from, result.commit.to, reactHold.budget);
-  if (result.done) { clearReactHold(); return; }
+  if (result.commit) {
+    try { slideSegment(reactHold.mover, reactHold.built, result.commit.from, result.commit.to, reactHold.budget); }
+    catch (e3) { toast("Couldn't finish that step."); }
+  }
+  if (result.done || !reactHold) { clearReactHold(); return; }
   showLeaveCard();
+  } finally {
+    if (outer) reactRechecking = false;
+  }
 }
 function commitWalk(mover, built, budget) {
   if (!mover || !built || !built.path || built.path.length < 2) return;
@@ -5543,6 +5678,7 @@ function removeMapTokens(ids, opts) {
     }
     saveToken(t.id);
     draw();
+    recheckReactHold();
     return t;
   }
   function applyLink(tokenId, patch) {

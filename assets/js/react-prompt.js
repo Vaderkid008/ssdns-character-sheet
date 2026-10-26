@@ -4,6 +4,8 @@
  * counterspell-on-cast share one queue: one card at a time, Cast/Attack or Pass,
  * plus a DM mirror. The reaction spell list is the B16 set, filtered by trigger.
  * rules.js is not a casting-time table; names and spell-fx text decide the trigger.
+ * N69: a dead, unconscious, or defeated reactor is skipped (auto-Pass, no card).
+ * A card that is already up still answers, then the pause, banner, and modal clear.
  */
 (function (root) {
   "use strict";
@@ -74,6 +76,33 @@
     });
     return out;
   }
+  function conditionNames(list) {
+    var out = [];
+    (list || []).forEach(function (raw) {
+      var name = typeof raw === "string" ? raw : (raw && (raw.name || raw.label)) || "";
+      name = String(name || "").trim();
+      if (name) out.push(name);
+    });
+    return out;
+  }
+  /** Dead, unconscious, dying, defeated, fled, or at 0 HP. A no-HP-pool creature is not down from the number 0. Stunned and prone still have a reaction. */
+  function downed(reactor) {
+    if (!reactor) return false;
+    if (reactor.down === true || reactor.dead === true || reactor.unconscious === true || reactor.defeated === true) return true;
+    if (reactor.fled || reactor.left || reactor.gone || reactor.departed) return true;
+    var status = String(reactor.status || "").trim().toLowerCase();
+    if (/^(down|dead|unconscious|dying|defeated|fled|left|gone)$/.test(status)) return true;
+    if (conditionNames(reactor.conditions || reactor.activeConditions).some(function (name) {
+      return /unconscious|dead|dying|defeated/i.test(name);
+    })) return true;
+    if (reactor.noHpPool) return false;
+    var hp = reactor.hp != null && reactor.hp !== "" ? reactor.hp : reactor.hpCurrent;
+    if (hp != null && hp !== "" && isFinite(Number(hp)) && Number(hp) <= 0) return true;
+    return false;
+  }
+  function downToast(reactor) {
+    return (reactor && (reactor.name || reactor.label || reactor.reactorName) || "They") + " can't take a reaction.";
+  }
   function withoutSpent(pauses) {
     var out = [];
     var toasts = [];
@@ -81,7 +110,8 @@
       var live = [];
       (p.reactors || []).forEach(function (r) {
         if (!r) return;
-        if (r.reaction) toasts.push((r.name || r.label || "They") + " already used their reaction.");
+        if (downed(r)) toasts.push(downToast(r));
+        else if (r.reaction) toasts.push((r.name || r.label || "They") + " already used their reaction.");
         else live.push(r);
       });
       if (live.length) out.push({ index: p.index, reactors: live });
@@ -136,6 +166,12 @@
       moverId: session.moverId || "",
       moverPlayerId: session.moverPlayerId || "",
       oaId: session.oaId || "",
+      down: downed(reactor),
+      status: reactor.status || "",
+      hp: reactor.hp != null ? reactor.hp : reactor.hpCurrent,
+      noHpPool: !!reactor.noHpPool,
+      conditions: reactor.conditions || reactor.activeConditions || [],
+      fled: !!reactor.fled,
       waiting: WAIT,
       mirrorText: attacking
         ? ((reactor.name || reactor.label || "Someone") + " is making an opportunity attack as " + who + " leaves reach. Pass cancels it.")
@@ -151,6 +187,10 @@
     var pause = session.pauses[session.pi];
     var reactor = currentReactor(session);
     if (!pause || !reactor) return { done: true, commit: null, toast: "" };
+    if (downed(reactor)) {
+      choice = "pass";
+      if (!meta.toast) meta.toast = downToast(reactor);
+    }
     if (choice === "attack") {
       if (reactor.reaction) {
         choice = "pass";
@@ -217,6 +257,12 @@
       casterId: o.casterId || "",
       casterName: o.casterName || "",
       moverPlayerId: o.moverPlayerId || session.moverPlayerId || "",
+      down: downed(o),
+      status: o.status || "",
+      hp: o.hp != null ? o.hp : o.hpCurrent,
+      noHpPool: !!o.noHpPool,
+      conditions: o.conditions || o.activeConditions || [],
+      fled: !!o.fled,
       waiting: o.kind === "spell" ? "Waiting on reactions…" : WAIT,
       mirrorText: (o.reactorName || "Someone") + " — " + (o.text || "Reaction")
     };
@@ -226,7 +272,10 @@
     if (!cur) return { done: true, choice: "pass", offer: null, toast: "" };
     var made = choice === "cast" ? "cast" : "pass";
     var toast = "";
-    if (made === "cast" && (cur.reaction || session.spent)) {
+    if (downed(cur)) {
+      made = "pass";
+      toast = downToast(cur);
+    } else if (made === "cast" && (cur.reaction || session.spent)) {
       toast = (cur.reactorName || "They") + " already used their reaction.";
       made = "pass";
     }
@@ -297,6 +346,8 @@
     var wrap = document.createElement("div");
     wrap.className = "react-modal";
     wrap.setAttribute("data-react-modal", model.kind || "leave");
+    wrap.setAttribute("data-react-reactor", model.reactorId || "");
+    wrap.setAttribute("data-react-prompt", model.promptId || "");
     wrap.setAttribute("role", "dialog");
     wrap.setAttribute("aria-modal", "true");
     wrap.innerHTML = '<div class="react-modal-card" role="document"><p class="react-kicker">' + esc(model.kicker) + "</p><p class=\"react-text\">" + esc(model.text) + '</p><div class="react-actions">' + actionsHtml(model) + "</div></div>";
@@ -313,13 +364,47 @@
     var wrap = document.createElement("div");
     wrap.className = "react-mirror";
     wrap.setAttribute("data-react-mirror", model.kind || "leave");
+    wrap.setAttribute("data-react-reactor", model.reactorId || "");
+    wrap.setAttribute("data-react-prompt", model.promptId || "");
     wrap.setAttribute("role", "dialog");
     wrap.innerHTML = '<p class="react-kicker">DM · ' + esc(model.kicker) + "</p><p class=\"react-text\">" + esc(model.mirrorText || model.text) + '</p><div class="react-actions">' + choiceBtn + '<button type="button" class="btn" data-react-choice="pass">Pass</button></div>';
     document.body.appendChild(wrap);
     mirrorEl = wrap;
   }
-  function openModal(model, cb) { onChoice = cb || onChoice; paintModal(model); }
-  function openMirror(model, cb) { onChoice = cb || onChoice; paintMirror(model); }
+  function openModal(model, cb) {
+    if (cb) onChoice = cb;
+    if (model && downed(model)) {
+      var fn = onChoice;
+      if (fn) fn("pass", { down: true, toast: downToast(model) });
+      return;
+    }
+    paintModal(model);
+  }
+  function openMirror(model, cb) {
+    if (cb) onChoice = cb;
+    if (model && downed(model)) return;
+    paintMirror(model);
+  }
+  /** A card already on screen for this reactor (or any card, when ids is omitted) answers Pass and clears. */
+  function releaseIfDown(ids) {
+    if (!modalEl && !mirrorEl && !waitEl && !onChoice) return false;
+    if (ids != null) {
+      var list = (Array.isArray(ids) ? ids : [ids]).map(function (id) { return String(id || ""); }).filter(Boolean);
+      var el = modalEl || mirrorEl;
+      var openId = el ? (el.getAttribute("data-react-reactor") || "") : "";
+      if (!openId || list.indexOf(openId) < 0) return false;
+    }
+    var fn = onChoice;
+    onChoice = null;
+    closeModal();
+    closeMirror();
+    closeWait();
+    if (fn) {
+      try { fn("pass", { down: true }); }
+      catch (e) { close(); }
+    }
+    return true;
+  }
   function openWait(text) {
     closeWait();
     if (typeof document === "undefined" || !document.body) return;
@@ -339,8 +424,9 @@
       var btn = e.target && e.target.closest && e.target.closest("[data-react-choice]");
       if (!btn || btn.disabled) return;
       if (e.preventDefault) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
       choose(btn.getAttribute("data-react-choice") || "pass");
-    });
+    }, true);
   }
 
   function gateSpell(info, proceed) {
@@ -357,6 +443,7 @@
     rangeFt: rangeFt,
     inRange: inRange,
     eligible: eligible,
+    downed: downed,
     withoutSpent: withoutSpent,
     freshLeave: freshLeave,
     leaveView: leaveView,
@@ -374,6 +461,7 @@
     openWait: openWait,
     close: close,
     closeWait: closeWait,
+    releaseIfDown: releaseIfDown,
     gateSpell: gateSpell,
     castingReaction: false
   };
