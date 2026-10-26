@@ -461,6 +461,16 @@ body.map-fullscreen #btnMapFull {
   right: 8px;
   z-index: 90;
 }
+/* N71: #mapMount is z-index 80, so the sticky app bar (320) and the teal
+   join/audio bar (310) paint over the board, this Exit button, and the turn
+   strip (z-index 4, inside the board). Hide sheet chrome on the player sheet
+   and the DM command center. Do not change .ssm-turnstrip or #btnMapFull. */
+body.map-fullscreen .appbar,
+body.map-fullscreen .savebar,
+body.map-fullscreen .dm-join-bar,
+body.map-fullscreen .tabs {
+  display: none;
+}
 @media (max-width: 800px) {
   body:not(.map-fullscreen) .ssdns-map { height: calc(100vh - 180px); min-height: 360px; }
   body:not(.map-fullscreen) .ssdns-map .ssdns-rightbar { width: 132px; }

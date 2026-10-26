@@ -90,9 +90,9 @@ function glyph(list, x1, y1, x2, y2) {
 
 const src = read("map/ssdns-map.js");
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.148" && ver.dmcc === "0.2.161" && ver.sheetBuild === "sheet-playtest-v03148" && ver.dmccBuild === "dmcc-playtest-v02161", JSON.stringify(ver));
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.148"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.161"'));
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.148") && !read("database.rules.json").includes("0.2.161") && !read("assets/data/rules.js").includes("doorGlyph"));
+check("ver", ver.sheet === "0.3.149" && ver.dmcc === "0.2.162" && ver.sheetBuild === "sheet-playtest-v03149" && ver.dmccBuild === "dmcc-playtest-v02162", JSON.stringify(ver));
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.149"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.162"'));
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.149") && !read("database.rules.json").includes("0.2.162") && !read("assets/data/rules.js").includes("doorGlyph"));
 check("src.dmWalls", src.includes("sceneData().walls.length && role === 'dm' && state.showWalls"));
 check("src.noBleed", src.includes("if (w.open || (w.window && !w.shut)) continue;") && src.includes("if (!w || w.open) return false"));
 check("src.raycastIgnoresSecret", !/function raycastVisible[\s\S]{0,900}secret/.test(src) && !/function segmentBlocks[\s\S]{0,500}secret/.test(src));
