@@ -525,6 +525,9 @@ function attachLiveListeners() {
     const all = objToArr(v).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
     noteConsumeRolls(all);
     state.rolls = all.filter((r) => !isConsumeRoll(r));
+    if (window.SSDNSMapFight && window.SSDNSMapFight.noteAttackRolls) {
+      try { window.SSDNSMapFight.noteAttackRolls(state.rolls); } catch (e) {}
+    }
     renderRolls();
   });
   bind("archives/addiction", (v) => {

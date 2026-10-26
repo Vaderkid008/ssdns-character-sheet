@@ -326,8 +326,10 @@ function syncDamageMode() {
   if (el && el.value !== fight.damageMode) el.value = fight.damageMode;
 }
 function cylinderTargetHtml(row) {
-  const list = combatTargets(row);
-  const hinted = row && row.lastAttackerId;
+  let list = combatTargets(row);
+  const remembered = rememberedTarget(row);
+  if (remembered && !list.some((p) => p.id === remembered.id)) list = list.concat([remembered]);
+  const hinted = row && (row.lastTargetId || row.lastAttackerId);
   const selected = hinted && list.some((p) => p.id === hinted) ? hinted : defaultCombatTarget(row, list);
   return `<select class="cyl-target" data-cyl-target="${esc(row && row.id || "")}" aria-label="Target">${targetMenu(list, selected)}</select>`;
 }
@@ -450,6 +452,7 @@ function buildPublish() {
         status: hidden ? "" : (shown.status || ""),
         slot: index,
         lastAttackerId: row.lastAttackerId || "",
+        lastTargetId: row.lastTargetId || "",
         initFrom: row.initFrom || "",
         mapHidden: hidden,
         side: row.kind === "player" ? "" : (window.SSDNSApplied && window.SSDNSApplied.combatantSide ? window.SSDNSApplied.combatantSide(row) : (isFriendly(row) ? "friendly" : "enemy")),
@@ -4710,6 +4713,70 @@ function combatantKey(row) {
   if (!row) return "";
   return row.kind === "player" ? (row.playerId || row.id || "") : (row.id || "");
 }
+/* N65: last creature this combatant attacked. Shared on the fight row (published with the turn order)
+   so the sheet, the player map, and the DM acting as that combatant aim the same place.
+   Selection only. Cleared on End Combat and when that token is removed or unlinked.
+   A downed target that is still on the map stays. */
+function rememberLastTarget(row, targetId) {
+  if (!row || targetId == null || targetId === "") return;
+  const id = String(targetId);
+  if (!id || id === FREE_SHOT_ID) return;
+  const self = String(combatantKey(row) || row.id || "");
+  if (self && id === self) return;
+  if (row.playerId && id === String(row.playerId)) return;
+  row.lastTargetId = id;
+}
+function forgetAimsAt(ids) {
+  const drop = {};
+  (ids || []).forEach((id) => { if (id != null && id !== "") drop[String(id)] = 1; });
+  if (!Object.keys(drop).length) return;
+  (fight.order || []).forEach((row) => {
+    if (row && row.lastTargetId && drop[String(row.lastTargetId)]) delete row.lastTargetId;
+  });
+}
+function aimRow(id) {
+  if (!id) return null;
+  const want = String(id);
+  return (fight.order || []).find((r) => r && (combatantKey(r) === want || r.id === want || r.playerId === want || r.mapTokenId === want)) || null;
+}
+function rememberedTarget(row) {
+  const found = aimRow(row && row.lastTargetId);
+  if (!found) return null;
+  const id = combatantKey(found) || found.id;
+  if (!id) return null;
+  return {
+    id: id,
+    name: found.name || "Target",
+    ac: found.ac,
+    hp: found.hp,
+    status: found.status || "",
+    kind: found.kind || "enemy",
+    group: targetGroup(found)
+  };
+}
+const seenAimRolls = {};
+let aimRollsPrimed = false;
+function noteAttackRolls(rolls) {
+  const list = Array.isArray(rolls) ? rolls : [];
+  /* The first snapshot is history. Last-target already lives on the fight row.
+     Only attacks that arrive after that are remembered, so End Combat is not undone by old rolls. */
+  if (!aimRollsPrimed) {
+    aimRollsPrimed = true;
+    list.forEach((roll) => { if (roll && roll.id) seenAimRolls[roll.id] = 1; });
+    return;
+  }
+  list.slice().reverse().forEach((roll) => {
+    if (!roll || !roll.id || seenAimRolls[roll.id]) return;
+    seenAimRolls[roll.id] = 1;
+    if (!roll.attack || roll.heal || roll.freeShot) return;
+    const targetId = roll.targetId;
+    if (!targetId || targetId === FREE_SHOT_ID) return;
+    const pid = roll.playerId || roll.uid || "";
+    const actor = (fight.order || []).find((r) => r && (r.playerId === pid || r.id === pid || (roll.uid && (r.playerId === roll.uid || r.id === roll.uid))));
+    if (!actor) return;
+    rememberLastTarget(actor, targetId);
+  });
+}
 function targetGroup(row) {
   if (!row) return "Enemies";
   if (row.kind === "player") return "Party";
@@ -4770,7 +4837,7 @@ function combatTargets(attacker) {
   return rows;
 }
 function defaultCombatTarget(attacker, list) {
-  const last = attacker && attacker.lastAttackerId;
+  const last = attacker && (attacker.lastTargetId || attacker.lastAttackerId);
   if (last && (list || []).some((p) => p.id === last)) return last;
   const strikesHostiles = !attacker || attacker.kind === "player" || isFriendly(attacker);
   const want = strikesHostiles ? "Enemies" : "Party";
@@ -4912,6 +4979,7 @@ async function enemyStrike(i, preset) {
   row.atkBonus = picked.bonus;
   row.damage = picked.dice;
   row.lastAttackerId = picked.targetId;
+  rememberLastTarget(row, picked.targetId);
   const target = resolveStrikeTarget(picked.targetId);
   if (!target) { DM.toast("No targets"); return; }
   const rangedPreset = !!(preset && preset.range && /\d+\s*\/\s*\d+/.test(String(preset.range)));
@@ -5218,6 +5286,7 @@ async function cardStrike(i, n, opts) {
   const dice = String((picked.dice || atk.damage || "")).trim();
   if (!isFinite(bonus) || !dice) { DM.toast("That attack has no bonus or damage"); return; }
   row.lastAttackerId = picked.targetId;
+  rememberLastTarget(row, picked.targetId);
   const target = resolveStrikeTarget(picked.targetId);
   if (!target) { DM.toast("No targets"); return; }
   const rangedGun = !!(atk && (/\d+\s*\/\s*\d+/.test(String(atk.range || "")) || /pistol|rifle|shotgun|carbine|bow/i.test(String(atk.group || ""))));
@@ -5672,6 +5741,7 @@ async function cardCast(i, n, opts) {
   if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
   spendSpellSlot(card, level);
   row.lastAttackerId = targetId;
+  rememberLastTarget(row, targetId);
   const nat = d20();
   const total = nat + bonus;
   const hit = nat !== 1 && total >= ac;
@@ -5938,6 +6008,8 @@ async function endCombat() {
   fight.recruit = false;
   if (choice.clear) await clearCombatConditions();
   /* N63: the roster and every mapTokenId stay. Ending combat must not unlink tokens. */
+  /* N65: End Combat forgets last attack targets. Downed tokens stay aimed only while the fight is on. */
+  (fight.order || []).forEach((row) => { if (row) delete row.lastTargetId; });
   fight.started = false;
   fight.turnCmd = null;
   fight.round = 1;
@@ -7342,9 +7414,14 @@ function removeCombatant(id) {
   if (!id) return;
   fight.removed = fight.removed || {};
   fight.removed[id] = true;
+  const goneIds = [id];
   (fight.order || []).forEach((row) => {
-    if (row && (row.id === id || row.playerId === id)) releaseFightToken(row);
+    if (row && (row.id === id || row.playerId === id)) {
+      releaseFightToken(row);
+      goneIds.push(row.id, row.playerId, row.mapTokenId, combatantKey(row));
+    }
   });
+  forgetAimsAt(goneIds);
   fight.order = (fight.order || []).filter((row) => !(row && (row.id === id || row.playerId === id)));
   Object.keys(fight.condMap || {}).forEach((cid) => {
     const row = fight.condMap[cid];
@@ -8951,6 +9028,7 @@ function unlinkMapToken(detail) {
   const row = (fight.order || []).find((r) => r && r.mapTokenId === tokenId)
     || (cid ? (fight.order || []).find((r) => r && r.id === cid && (!r.mapTokenId || !tokenStillThere(r.mapTokenId))) : null);
   if (!row) return;
+  forgetAimsAt([tokenId, row.id, row.playerId, row.mapTokenId, combatantKey(row)]);
   delete row.mapTokenId;
   if (row.kind === "player") {
     saveRemoteTable();
@@ -9471,6 +9549,7 @@ window.SSDNSMapFight = {
       if (picked) payload.mode = picked;
       if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
       if (targetId) payload.targetId = targetId;
+      rememberLastTarget(row, targetId);
       takeDmPlayerOpportunity(row, payload);
       notePlayerPip(row, detail.offhand || detail.fan ? "bonus" : (payload.oa ? "reaction" : "attack"), atk.name || "Attack");
       await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
@@ -9533,10 +9612,13 @@ window.SSDNSMapFight = {
     detail = detail || {};
     const i = mapFightIndex(detail);
     const row = i >= 0 ? fight.order[i] : null;
-    const list = combatTargets(row);
+    let list = combatTargets(row);
+    const remembered = rememberedTarget(row);
+    if (remembered && !list.some((p) => p.id === remembered.id)) list = list.concat([remembered]);
     let selected = "";
     const hinted = detail.selectedCombatantId || detail.selectedTokenId || "";
     if (hinted && list.some((p) => p.id === hinted)) selected = hinted;
+    if (!selected && row && row.lastTargetId && list.some((p) => p.id === row.lastTargetId)) selected = row.lastTargetId;
     if (!selected && row && row.lastAttackerId && list.some((p) => p.id === row.lastAttackerId)) selected = row.lastAttackerId;
     if (!selected) selected = defaultCombatTarget(row, list);
     return {
@@ -9721,6 +9803,7 @@ window.SSDNSMapFight = {
   speed(detail) { return setEnemySpeed(detail); },
   placeBeast(detail) { return mapPlaceBeast(detail); },
   onTokenRemoved(detail) { unlinkMapToken(detail); },
+  noteAttackRolls(rolls) { noteAttackRolls(rolls); },
   syncMap() { syncMapTokens(); }
 };
 

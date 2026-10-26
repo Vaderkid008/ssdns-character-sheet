@@ -99,13 +99,100 @@
     var u = ((wall.x1 - x1) * (y2 - y1) - (wall.y1 - y1) * (x2 - x1)) / d;
     return t >= 1e-6 && t <= 1 && u >= 0 && u <= 1;
   }
+  /**
+   * Edges a footprint actually crosses when its top-left steps from → to.
+   * Probes the middle of each leading edge, so a wall that only shares a
+   * corner (common for a 2×2, whose centre sits on a grid point) does not
+   * block an empty square. Size 1 keeps the centre ray in stepBlocked.
+   */
+  function leadingEdges(from, to, size) {
+    var dx = to.x - from.x;
+    var dy = to.y - from.y;
+    var edges = [];
+    var i, line;
+    if (dx > 0) {
+      line = from.x + size;
+      for (i = 0; i < size; i++) edges.push({ mx: line, my: to.y + i + 0.5, nx: -1, ny: 0 });
+    } else if (dx < 0) {
+      line = from.x;
+      for (i = 0; i < size; i++) edges.push({ mx: line, my: to.y + i + 0.5, nx: 1, ny: 0 });
+    }
+    if (dy > 0) {
+      line = from.y + size;
+      for (i = 0; i < size; i++) edges.push({ mx: to.x + i + 0.5, my: line, nx: 0, ny: -1 });
+    } else if (dy < 0) {
+      line = from.y;
+      for (i = 0; i < size; i++) edges.push({ mx: to.x + i + 0.5, my: line, nx: 0, ny: 1 });
+    }
+    return edges;
+  }
+  function footprintCrosses(from, to, size, crosses) {
+    if (!from || !to || typeof crosses !== "function") return false;
+    if (from.x === to.x && from.y === to.y) return false;
+    var s = squares(size);
+    var edges = leadingEdges(from, to, s);
+    var i, e, span = 0.25;
+    for (i = 0; i < edges.length; i++) {
+      e = edges[i];
+      if (crosses(
+        { x: e.mx + e.nx * span, y: e.my + e.ny * span },
+        { x: e.mx - e.nx * span, y: e.my - e.ny * span }
+      )) return true;
+    }
+    return false;
+  }
+  /**
+   * A Large (or bigger) body cannot finish on a footprint a wall cuts through.
+   * Probes each internal grid edge. A wall that only touches an outer corner
+   * misses these midpoints, so an empty diagonal step stays open.
+   */
+  function stanceBlocked(x, y, size, crosses) {
+    if (typeof crosses !== "function") return false;
+    var s = squares(size);
+    if (s <= 1) return false;
+    var k, i, span = 0.25, mx, my;
+    for (k = 1; k < s; k++) {
+      for (i = 0; i < s; i++) {
+        mx = x + k;
+        my = y + i + 0.5;
+        if (crosses({ x: mx - span, y: my }, { x: mx + span, y: my })) return true;
+        mx = x + i + 0.5;
+        my = y + k;
+        if (crosses({ x: mx, y: my - span }, { x: mx, y: my + span })) return true;
+      }
+    }
+    return false;
+  }
+  function slideBlocked(from, to, size, crosses) {
+    if (!from || !to || typeof crosses !== "function") return false;
+    var s = squares(size);
+    var x = from.x, y = from.y, guard = 0, sx, sy, nx, ny;
+    while ((x !== to.x || y !== to.y) && guard++ < 80) {
+      sx = to.x === x ? 0 : (to.x > x ? 1 : -1);
+      sy = to.y === y ? 0 : (to.y > y ? 1 : -1);
+      nx = x + sx;
+      ny = y + sy;
+      if (s > 1) {
+        if (stanceBlocked(nx, ny, s, crosses)) return true;
+        if (footprintCrosses({ x: x, y: y }, { x: nx, y: ny }, s, crosses)) return true;
+      } else if (crosses({ x: x + 0.5, y: y + 0.5 }, { x: nx + 0.5, y: ny + 0.5 })) return true;
+      x = nx;
+      y = ny;
+    }
+    return false;
+  }
   function stepBlocked(from, to, ctx) {
     if (footprintBlocked(to.x, to.y, ctx)) return true;
     if (ctx && typeof ctx.crosses === "function") {
       var size = squares(ctx.moverSize);
-      var ax = from.x + size / 2, ay = from.y + size / 2;
-      var bx = to.x + size / 2, by = to.y + size / 2;
-      if (ctx.crosses({ x: ax, y: ay }, { x: bx, y: by })) return true;
+      if (size > 1) {
+        if (stanceBlocked(to.x, to.y, size, ctx.crosses)) return true;
+        if (footprintCrosses(from, to, size, ctx.crosses)) return true;
+      } else {
+        var ax = from.x + size / 2, ay = from.y + size / 2;
+        var bx = to.x + size / 2, by = to.y + size / 2;
+        if (ctx.crosses({ x: ax, y: ay }, { x: bx, y: by })) return true;
+      }
     }
     var occ = footprintOccupant(to.x, to.y, ctx);
     if (!occ) return false;
@@ -243,6 +330,9 @@
     occupiedAt: occupiedAt,
     computeReach: computeReach,
     computePath: computePath,
+    footprintCrosses: footprintCrosses,
+    stanceBlocked: stanceBlocked,
+    slideBlocked: slideBlocked,
     leaveReachCue: leaveReachCue,
     previewSlot: previewSlot,
     chebyshev: chebyshev,

@@ -1911,11 +1911,14 @@ function paintRangeRings() {
   }));
   const highlight = highlightBand(token, picked, pack.rings || []);
   el.dataset.rangeBand = highlight || '';
-  const size = token.size || 1;
-  const center = worldToScreen((token.pos.x + size / 2) * px, (token.pos.y + size / 2) * px);
+  /* N64: rings are measured from the footprint edge. The circle is still
+     drawn around the centre, so the radius grows by half the footprint.
+     A Large 5 ft reach then covers the squares that touch the 2×2. */
+  const squares = tokSquares(token.size);
+  const center = worldToScreen((token.pos.x + squares / 2) * px, (token.pos.y + squares / 2) * px);
   ctx.save();
   (pack.rings || []).forEach(ring => {
-    const radius = (ring.feet / 5) * px * state.view.zoom;
+    const radius = ((ring.feet / 5) + squares / 2) * px * state.view.zoom;
     if (!(radius > 0)) return;
     const hot = ring.role === highlight;
     ctx.beginPath();
@@ -1936,7 +1939,7 @@ function paintRangeRings() {
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(12,8,6,0.8)';
     ctx.fillStyle = '#f4f0e8';
-    const y = center.y - ((token.size || 1) * px * state.view.zoom) / 2 - 8;
+    const y = center.y - (squares * px * state.view.zoom) / 2 - 8;
     ctx.strokeText(pack.label, center.x, y);
     ctx.fillText(pack.label, center.x, y);
   }
@@ -2855,11 +2858,24 @@ function viewCenterCell() {
   y = Math.max(0, Math.min((grid.rows || 20) - 1, y));
   return { x: x, y: y };
 }
+/* Squares between two footprints on one axis. 0 when the spans overlap or touch the same square. */
+function axisGap(origin, span, other, otherSpan) {
+  const a0 = Number(origin) || 0;
+  const b0 = Number(other) || 0;
+  const a1 = a0 + span - 1;
+  const b1 = b0 + otherSpan - 1;
+  if (a1 < b0) return b0 - a1;
+  if (b1 < a0) return a0 - b1;
+  return 0;
+}
+/* N64: 5e distance. Chebyshev between the nearest squares of each footprint, times 5 ft.
+   Overlap is 0. Adjacent Large (2) and Medium (1) is 1 square → 5 ft, not the ~8 ft centre hypot. */
 function feetBetween(a, b) {
   if (!a || !b || !a.pos || !b.pos) return null;
-  const dx = (a.pos.x + (a.size || 1) / 2) - (b.pos.x + (b.size || 1) / 2);
-  const dy = (a.pos.y + (a.size || 1) / 2) - (b.pos.y + (b.size || 1) / 2);
-  return Math.round(Math.hypot(dx, dy) * 5);
+  const sa = tokSquares(a.size);
+  const sb = tokSquares(b.size);
+  const gap = Math.max(axisGap(a.pos.x, sa, b.pos.x, sb), axisGap(a.pos.y, sa, b.pos.y, sb));
+  return gap * 5;
 }
 function tokenByRef(id) {
   if (!id) return null;
@@ -4595,7 +4611,9 @@ function onPointerMove(e) {
         const newY = snap.y;
         const allowStack = dmEditing() || (role === 'dm' && e.shiftKey);
         const half = tsz / 2;
-        const wallBlocked = !dmEditing() && crossesWall(t.pos.x + half, t.pos.y + half, newX + half, newY + half);
+        const centerBlocked = crossesWall(t.pos.x + half, t.pos.y + half, newX + half, newY + half);
+        /* N64: a 2×2 centre sits on a grid point and clips wall corners it does not cross. */
+        const wallBlocked = !dmEditing() && (tsz > 1 ? largeSlideBlocked({ x: t.pos.x, y: t.pos.y }, { x: newX, y: newY }, tsz) : centerBlocked);
         if (!allowStack && areaTaken(newX, newY, tsz, state.drag.starts)) {
           state.drag.blocked = true;
         } else if (!wallBlocked) {
@@ -5082,6 +5100,13 @@ function crossesWall(x1, y1, x2, y2) {
   }
   return false;
 }
+/* N64: drag a Large (or bigger) footprint one square at a time across the edges it actually crosses. */
+function largeSlideBlocked(from, to, size) {
+  const M = moveApi();
+  if (M && M.slideBlocked) return !!M.slideBlocked(from, to, size, (a, b) => crossesWall(a.x, a.y, b.x, b.y));
+  const half = (size || 1) / 2;
+  return crossesWall((from.x || 0) + half, (from.y || 0) + half, (to.x || 0) + half, (to.y || 0) + half);
+}
 function tokenCombatant(tokenId) {
   const token = state.tokens.find(t => t.id === tokenId);
   return (token && (token.combatantId || token.sheetId)) || tokenId;
@@ -5323,6 +5348,7 @@ function removeMapTokens(ids, opts) {
   }
   if (state.drawerOpen && list.includes(state.drawerTokenId)) closeDrawer();
   if (list.includes(state.currentTurnId)) state.currentTurnId = null;
+  dropLocalAim(goneInfo.reduce((ids, info) => ids.concat([info.id, info.combatantId, info.ownerUid]), []));
   if (state.selected && list.includes(state.selected.id)) state.selected = null;
   state.selectedIds = (state.selectedIds || []).filter(id => !list.includes(id));
   draw();
@@ -6334,6 +6360,7 @@ async function loadSceneImage(sceneId, opts) {
       /* First sync (map just opened) keeps a Move the player already turned on. A later turn change or the fight ending leaves Move mode. */
       const hadTurn = prevId != null || prevStarted;
       if (hadTurn) exitMoveMode('turn');
+      if (prevStarted && !state.initiative.started) clearLocalAim();
       if (fightOn() && state.currentTurnId && state.currentTurnId !== prevId) {
         const T = window.SSDNSTurn;
         const cur = T && T.current ? T.current(state.initiative) : order[turn];
@@ -6353,7 +6380,60 @@ async function loadSceneImage(sceneId, opts) {
       const t = state.tokens.find(tok => tok.combatantId === state.currentTurnId || tok.id === state.currentTurnId);
       if (t) { state.selected = t; state.selectedIds = [t.id]; openDrawer(t.id); }
     }
+    /* N65: back on this combatant's turn, aim where they last attacked. Selection only. */
+    if (state.currentTurnId !== prevId) restoreTurnAim();
     requestDraw();
+  }
+  function clearLocalAim() {
+    state.playerTarget = "";
+    state.rangeTargetId = NO_TARGET;
+    state.rowTargets = {};
+    if (role === "player" && host.setSheetTarget) host.setSheetTarget("");
+    if (state.drawerOpen) { try { renderDrawer(); } catch (e) {} }
+    try { renderActions(); } catch (e) {}
+  }
+  function dropLocalAim(ids) {
+    const drop = {};
+    (ids || []).forEach(id => { if (id) drop[String(id)] = 1; });
+    let playerCleared = false;
+    let rangeCleared = false;
+    if (state.playerTarget && drop[String(state.playerTarget)]) { state.playerTarget = ""; playerCleared = true; }
+    if (state.rangeTargetId && state.rangeTargetId !== NO_TARGET && drop[String(state.rangeTargetId)]) {
+      state.rangeTargetId = NO_TARGET;
+      rangeCleared = true;
+    }
+    if (state.rowTargets) {
+      Object.keys(state.rowTargets).forEach(k => {
+        if (drop[String(state.rowTargets[k])]) delete state.rowTargets[k];
+      });
+    }
+    if (playerCleared && role === "player" && host.setSheetTarget) host.setSheetTarget("");
+    if (playerCleared || rangeCleared) {
+      if (state.drawerOpen) { try { renderDrawer(); } catch (e) {} }
+      try { renderActions(); } catch (e) {}
+    }
+  }
+  function myTurnRow(row) {
+    return !!(row && row.kind === "player" && (row.playerId === uid || row.id === uid || row.ownerUid === uid));
+  }
+  function restoreTurnAim() {
+    if (!state.initiative || !state.initiative.started || !state.currentTurnId) return;
+    const order = state.initiative.order || [];
+    const turn = state.initiative.turn || 0;
+    const actor = order[turn];
+    const aim = actor && actor.lastTargetId ? String(actor.lastTargetId) : "";
+    if (!aim) return;
+    const tok = tokenByRef(aim);
+    if (!tok) return;
+    if (role === "player") {
+      if (!myTurnRow(actor)) return;
+      state.playerTarget = aim;
+      if (host.setSheetTarget) host.setSheetTarget(aim);
+      try { renderActions(); } catch (e) {}
+      return;
+    }
+    state.rangeTargetId = aim;
+    if (state.drawerOpen) { try { renderDrawer(); } catch (e) {} }
   }
   /* Crowded DM strip: the face keeps the initials; the name shrinks to a short label (first word, or the
      first letters of a long single word). A trailing number stays, so Outlaw 1 and Outlaw 2 still differ. */
