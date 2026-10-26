@@ -90,7 +90,8 @@ try {
     s2.querySelector('[data-act="stripEndCombat"]').click();
     await until(() => document.querySelector("dialog.ssdns-ask[open]"), 3000);
     const dlg = document.querySelector("dialog.ssdns-ask[open]");
-    out.asks = !!dlg && /End combat/.test(dlg.textContent);
+    out.askText = dlg ? dlg.textContent : "";
+    out.asks = !!dlg && /End combat/.test(out.askText) && /links stay/i.test(out.askText) && !/clear the turn order/i.test(out.askText);
     if (dlg) dlg.querySelector("[value=no]").click();
     await wait(300);
     out.keptAfterNo = document.querySelectorAll('[data-act="turnStrip"] .turn-chip').length;
@@ -115,8 +116,20 @@ try {
     await until(() => document.querySelector("dialog.ssdns-ask[open]"), 3000);
     const d2 = document.querySelector("dialog.ssdns-ask[open]");
     if (d2) d2.querySelector("button[type=submit]").click();
-    await until(() => /No fight running/.test((document.querySelector('[data-act="turnStrip"]') || {}).textContent || ""), 5000);
-    out.ended = { text: document.querySelector('[data-act="turnStrip"]').textContent, headEnd: document.querySelector("#btnEndCombatHead").hidden };
+    await until(() => {
+      const init = window.SSDNSMapCards && window.SSDNSMapCards.initiative && window.SSDNSMapCards.initiative();
+      return !!(init && init.started === false && (init.order || []).length > 0);
+    }, 5000);
+    const endedInit = window.SSDNSMapCards.initiative();
+    const lead = (endedInit.order || [])[0];
+    const card = lead && window.SSDNSMapCards.get(lead.id);
+    out.ended = {
+      started: endedInit.started,
+      order: (endedInit.order || []).length,
+      card: card && card.name,
+      text: document.querySelector('[data-act="turnStrip"]').textContent,
+      headEnd: document.querySelector("#btnEndCombatHead").hidden
+    };
     return out;
   });
   check("strip.idle", !res.idle.hidden && /No fight running/.test(res.idle.text) && res.idle.roll, J(res.idle));
@@ -125,7 +138,7 @@ try {
   check("strip.endAtFarEnd", res.fight.last === "End combat", J(res.fight));
   check("head.endShownInFight", res.fight.headEnd === false, J(res.fight));
   check("strip.endAsks", res.asks && res.keptAfterNo > 0, J(res));
-  check("strip.endYes", /No fight running/.test(res.ended.text) && res.ended.headEnd === true, J(res.ended));
+  check("strip.endYes", res.ended.started === false && res.ended.order > 0 && !!res.ended.card && res.ended.headEnd === false, J(res.ended));
   const coachAt = (list) => (list || []).findIndex((r) => r && r.type === "shell");
   const ci = coachAt(res.before);
   check("ammo.perGun", res.before.length >= 2 && res.before.every((r) => r && r.type), J(res.before));

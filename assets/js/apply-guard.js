@@ -619,6 +619,17 @@
     if (speed) bits.push("Speed " + speed);
     return bits.join(" · ");
   }
+  /** TR✓ guns name Tactical Reload. Slow load without that line is TR—. Melee has no cylinder. */
+  function gunAllowsTactical(a) {
+    a = a || {};
+    if (a.tr === true || a.tr === "true") return true;
+    if (a.tr === false || a.tr === "false") return false;
+    var cap = a.capacity == null || a.capacity === "" ? null : Number(a.capacity);
+    if (!(cap > 0)) return false;
+    var props = Array.isArray(a.properties) ? a.properties.join(" ") : String(a.properties || "");
+    var blob = props + " " + String(a.notes || "");
+    return /tactical reload/i.test(blob);
+  }
   function enemyCardModel(beast) {
     var b = beast || {};
     var attacks = (Array.isArray(b.attackList) ? b.attackList : []).map(function (a, n) {
@@ -627,6 +638,7 @@
       var cap = a.capacity == null || a.capacity === "" ? null : Number(a.capacity);
       var loaded = cap;
       if (cap != null && a.loaded != null && a.loaded !== "" && isFinite(Number(a.loaded))) loaded = Number(a.loaded);
+      if (a.tr == null || a.tr === "") a.tr = gunAllowsTactical(a);
       return {
         id: a.id || ("atk-" + n),
         name: a.name || "Attack",
@@ -642,6 +654,7 @@
         weapon: a.weapon || "",
         properties: a.properties || "",
         notes: a.notes || "",
+        tr: !!gunAllowsTactical(a),
         rider: a.rider || null,
         saveDamage: a.saveDamage || null,
         grapple: a.grapple || null,
@@ -1327,6 +1340,7 @@
     misfireNumber: misfireNumber,
     publicDetail: publicDetail,
     enemyCardModel: enemyCardModel,
+    gunAllowsTactical: gunAllowsTactical,
     sheetHeader: sheetHeader,
     saveMod: saveMod,
     namedCondition: namedCondition,

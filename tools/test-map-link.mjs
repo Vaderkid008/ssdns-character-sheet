@@ -212,7 +212,7 @@ click(act("addTokenBtn"));
 await flush(20);
 const drawer = act("drawer");
 const picker = act("linkPick");
-check("empty.drawer", !!(drawer && drawer.textContent.includes("No card linked") && picker), drawer && drawer.textContent.slice(0, 160));
+check("empty.drawer", !!(drawer && drawer.textContent.includes("No fight card linked") && picker), drawer && drawer.textContent.slice(0, 160));
 check("empty.groups", picker && picker.textContent.includes("Link to…") && picker.textContent.includes("New custom enemy (Bandit)") && picker.textContent.includes("Outlaw") && !picker.textContent.includes("Jolene"));
 check("empty.order", w.__fightTest.order().length === 0);
 

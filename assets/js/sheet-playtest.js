@@ -1194,6 +1194,15 @@
   }
 
   var shownTurn = "";
+  var pendingAim = "";
+  var combatWasOn = false;
+  function clearSheetAim() {
+    pendingAim = "";
+    var sel = $("#atkTarget");
+    if (!sel) return;
+    sel.value = "";
+    sel.removeAttribute("data-last-enemy");
+  }
   var endTurnAt = null;
   function endTurn() {
     var at = endTurnAt;
@@ -1552,6 +1561,9 @@
     showYourTurn: showYourTurn,
     turnKey: function () { return shownTurn; },
     showTurn: function (init) {
+      var fightOn = !!(init && init.started && init.order && init.order.length);
+      if (combatWasOn && !fightOn) clearSheetAim();
+      combatWasOn = fightOn;
       if (root.SSDNSActionPips && root.SSDNSActionPips.onTurn) root.SSDNSActionPips.onTurn(init);
       /* turn order PR 2: off-turn lock, movement tracker, the DM's OA answers (turn-lock.js) */
       if (root.SSDNSTurnLock && root.SSDNSTurnLock.onTurn) { try { root.SSDNSTurnLock.onTurn(init); } catch (e) {} }
@@ -1622,6 +1634,9 @@
       if (sig !== shownTurn && root.SSDNSFocus && root.SSDNSFocus.onTurn) { try { root.SSDNSFocus.onTurn(sig, !!mine, true); } catch (e) {} }
       if (sig !== shownTurn) {
         shownTurn = sig;
+        /* N65: my turn came back. Aim the last enemy I attacked. Selection only. */
+        if (mine) pendingAim = String((cur && cur.lastTargetId) || "");
+        if (mine && pendingAim && root.SSDNSPlaytest && root.SSDNSPlaytest.setTargets) root.SSDNSPlaytest.setTargets(lastTargets);
         if (mine && !loadTurnSeen()[sig]) { markTurnSeen(sig); showYourTurn(); }
         else hideYourTurn();
       }
@@ -1710,12 +1725,18 @@
           (label + (far ? " — out of range, " + (seen.feet != null ? seen.feet : "?") + " ft" : "")).replace(/[&<>]/g, "") + "</option>";
       });
       sel.innerHTML = html;
-      var kept = keep && !blockedIds[keep] && rows.some(function (row) { return String(row.id) === String(keep) && !unusableRow(row); });
-      if (kept) sel.value = keep;
+      var kept = keep && !blockedIds[keep] && rows.some(function (row) { return String(row.id) === String(keep); });
+      var aimNow = pendingAim && rows.some(function (row) { return String(row.id) === String(pendingAim); });
+      if (aimNow) {
+        sel.value = String(pendingAim);
+        sel.setAttribute("data-last-enemy", String(pendingAim));
+        pendingAim = "";
+      } else if (kept) sel.value = keep;
       else if (keep === "__free") sel.value = "__free";
       else sel.value = "";
+      /* Downed but still in the fight stays remembered. Gone from the list does not. */
       var last = sel.getAttribute("data-last-enemy") || "";
-      if (last && rows.some(function (row) { return String(row.id) === String(last) && unusableRow(row); })) sel.removeAttribute("data-last-enemy");
+      if (last && !rows.some(function (row) { return String(row.id) === String(last); })) sel.removeAttribute("data-last-enemy");
       if (!root.__ssdnsSightBound && root.addEventListener) {
         root.__ssdnsSightBound = true;
         root.addEventListener("ssdns-map-sight", function () {

@@ -95,6 +95,23 @@ const aroundWall = ctx({ crosses: (a, b) => M.segmentBlocks(a.x, a.y, b.x, b.y, 
 check("corridor.reachBlocks", !M.computeReach({ x: 5, y: 5 }, 30, aroundWall).has("6,5"));
 check("corridor.reachOpenSide", M.computeReach({ x: 5, y: 5 }, 30, aroundWall).has("4,5"));
 
+/* N64: a Large 2×2 enters empty floor. A wall that only touches a corner does not block the diagonal step. */
+const largeOpen = M.computeReach({ x: 10, y: 10 }, 30, ctx({ moverSize: 2 }));
+check("large.emptyOrtho", largeOpen.has("11,10") && largeOpen.has("10,11"), "2×2 should step onto empty floor");
+check("large.emptyDiag", largeOpen.has("11,11"));
+const cornerWall = { x1: 12, y1: 10, x2: 12, y2: 11 };
+const largeCorner = ctx({
+  moverSize: 2,
+  crosses: (a, b) => M.segmentBlocks(a.x, a.y, b.x, b.y, cornerWall)
+});
+check("large.cornerDoesNotBlock", M.computeReach({ x: 10, y: 10 }, 30, largeCorner).has("11,11"));
+const faceWall = { x1: 12, y1: 11, x2: 12, y2: 12 };
+const largeFace = ctx({
+  moverSize: 2,
+  crosses: (a, b) => M.segmentBlocks(a.x, a.y, b.x, b.y, faceWall)
+});
+check("large.faceStillBlocks", !M.computeReach({ x: 10, y: 10 }, 30, largeFace).has("11,11"));
+
 const mapSrc = fs.readFileSync(path.join(root, "map/ssdns-map.js"), "utf8");
 check("ghost.gone", mapSrc.indexOf('data-act="playerGhostBtn"') < 0 && mapSrc.indexOf('data-act="offlineBtn"') < 0);
 check("both.wired", mapSrc.indexOf("host.movementBudget") >= 0 && mapSrc.indexOf("host.spendMove(token, n) === true") >= 0);
@@ -119,7 +136,7 @@ check("edit.defaultOff", mapSrc.includes("dmEdit: false") && mapSrc.includes("lo
 check("edit.roleGuard", /function dmEditing\(\) \{\n  return role === 'dm' && !!state\.dmEdit;\n\}/.test(mapSrc));
 check("edit.skipAim", mapSrc.includes("if (!dmEditing() && fightOn() && activeMover() && activeMover().id === hit.id && moveApi())"));
 check("edit.noClickWalk", /function tryClickMove\(cell\) \{[\s\S]{0,280}if \(dmEditing\(\)\) return false;/.test(mapSrc));
-check("edit.plainDrag", mapSrc.includes("const allowStack = dmEditing() || (role === 'dm' && e.shiftKey)") && mapSrc.includes("const wallBlocked = !dmEditing() && crossesWall(t.pos.x + half, t.pos.y + half, newX + half, newY + half)"));
+check("edit.plainDrag", mapSrc.includes("const allowStack = dmEditing() || (role === 'dm' && e.shiftKey)") && mapSrc.includes("const centerBlocked = crossesWall(t.pos.x + half, t.pos.y + half, newX + half, newY + half)") && mapSrc.includes("largeSlideBlocked"));
 check("edit.hint", mapSrc.includes("Swap to Edit map tokens to freely move") && /function toastDmEditHint\(\) \{\n  if \(!dmEditing\(\) && role === 'dm' && fightOn\(\)\) toast\(DM_EDIT_HINT\);/.test(mapSrc));
 check("edit.playerFeetToast", mapSrc.includes("else toast('No movement left this turn'"));
 check("edit.ctxCrosses", mapSrc.includes("crosses: (a, b) => crossesWall(a.x, a.y, b.x, b.y)"));

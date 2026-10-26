@@ -4,7 +4,7 @@
  *   OA does not ask the DM to approve themselves. The next attack spends Reaction, not Action.
  *   A reaction spell uses the normal cast and spends Reaction.
  *   Mark used confirms, then spends R.
- *   Spent R is a fading toast only: no chat line and no ledger entry.
+ *   Spent R still opens the menu and toasts (N60 warn-and-allow): no chat line and no ledger entry.
  *   A player acting for themselves still toggles the pip. Player B16 hard-block is unchanged.
  *   Enemies still warn and allow.
  *   node tools/test-b16-dm-reaction.mjs
@@ -42,8 +42,8 @@ const J = (x) => JSON.stringify(x);
   check("src.sheetOaFlag", /payload\.oa && !payload\.offhand/.test(join) && /setOa\("oaArmed"/.test(join));
   check("src.menuCss", /\.pip-react-menu/.test(css));
   check("src.playerMenuIntact", /function openReactionMenu/.test(pips) && /data-pip-react-menu/.test(pips) && /DM pip buttons are data-dm-pip/.test(pips));
-  check("src.versions", ver.sheet === "0.3.141" && ver.dmcc === "0.2.154" && ver.sheetBuild === "sheet-playtest-v03141" && ver.dmccBuild === "dmcc-playtest-v02154");
-  check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.141") && !read("database.rules.json").includes("0.3.141") && !read("assets/data/rules.js").includes("data-dm-react"));
+  check("src.versions", ver.sheet === "0.3.142" && ver.dmcc === "0.2.155" && ver.sheetBuild === "sheet-playtest-v03142" && ver.dmccBuild === "dmcc-playtest-v02155");
+  check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.142") && !read("database.rules.json").includes("0.3.142") && !read("assets/data/rules.js").includes("data-dm-react"));
 
   const store = {};
   const sb = { console, setTimeout, clearTimeout, Date };
@@ -259,7 +259,7 @@ const spent = await pg.evaluate(() => ({
   rolls: (window.DMCC.state.rolls || []).length,
   reaction: !!((window.DMCCEnhance.playerMarkers(window.DMCCEnhance.currentTurn().playerId || window.DMCCEnhance.currentTurn().id) || {}).reaction)
 }));
-check("dm.spentToastOnly", spent.toast === "Reaction already used." && !spent.hidden && !spent.menu && spent.ledger === ledgerBeforeSpent && spent.rolls === rollsBefore && spent.reaction === true, J(spent));
+check("dm.spentToastOnly", spent.toast === "Reaction already used." && !spent.hidden && spent.menu && spent.ledger === ledgerBeforeSpent && spent.rolls === rollsBefore && spent.reaction === true, J(spent));
 
 await pg.evaluate((playerId) => {
   const E = window.DMCCEnhance;
@@ -350,7 +350,7 @@ const enemySpent = await pg.evaluate(() => ({
   ledger: (window.DMCC.state.ledger || []).length,
   rolls: (window.DMCC.state.rolls || []).length
 }));
-check("dm.enemySpentToast", enemySpent.toast === "Reaction already used." && !enemySpent.menu && enemySpent.ledger === ledgerBeforeEnemySpent && enemySpent.rolls === rollsBeforeEnemy, J(enemySpent));
+check("dm.enemySpentToast", enemySpent.toast === "Reaction already used." && enemySpent.menu && enemySpent.ledger === ledgerBeforeEnemySpent && enemySpent.rolls === rollsBeforeEnemy, J(enemySpent));
 
 await pg.evaluate(() => window.DMCCEnhance.resetEnemyMarkers());
 await sleep(200);

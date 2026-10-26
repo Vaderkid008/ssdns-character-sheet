@@ -1,5 +1,5 @@
 /**
- * N57 (sheet 0.3.141 / DMCC 0.2.154): the player Map tab uses the sheet Table log,
+ * N57 (sheet 0.3.142 / DMCC 0.2.155): the player Map tab uses the sheet Table log,
  * the same room feed as Fight / Table. The map's own chat dock stays mounted and
  * hidden, matching the DM page. Sending from the map lands in that log.
  *
@@ -24,11 +24,11 @@ const sheetCss = read("assets/css/sheet.css");
 const host = read("map/ssdns-map-host.js");
 const dmCss = read("dm/assets/css/dmcc.css");
 const dmJs = read("dm/assets/js/dmcc.js");
-check("ver.sheet", ver.sheet === "0.3.141" && ver.sheetBuild === "sheet-playtest-v03141", JSON.stringify(ver));
-check("ver.dmcc", ver.dmcc === "0.2.154" && ver.dmccBuild === "dmcc-playtest-v02154");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.141"'));
-check("ver.dmjs", dmJs.includes('VERSION = "0.2.154"'));
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.141") && !read("database.rules.json").includes("0.2.154") && !read("assets/data/rules.js").includes("sheetDockText"));
+check("ver.sheet", ver.sheet === "0.3.142" && ver.sheetBuild === "sheet-playtest-v03142", JSON.stringify(ver));
+check("ver.dmcc", ver.dmcc === "0.2.155" && ver.dmccBuild === "dmcc-playtest-v02155");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.142"'));
+check("ver.dmjs", dmJs.includes('VERSION = "0.2.155"'));
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.142") && !read("database.rules.json").includes("0.2.155") && !read("assets/data/rules.js").includes("sheetDockText"));
 check("src.playerSend", host.includes('input = $("sheetDockText") || $("logChatText")') && host.includes('form = $("sheetDockChat") || $("logChat")'));
 check("src.dmSend", host.includes('input = $("dockText")') && host.includes('form = $("dockChat")') && !dmJs.includes("sheetDockText"));
 check("src.hidePlayerMapChat", /body:has\(#sheetDock\) #mapMount \.ssdns-chatdock/.test(sheetCss) && /display: none !important/.test(sheetCss));

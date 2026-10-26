@@ -179,7 +179,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("src.pushRereads", /if \(Pnow && Pnow\.state\) v = Pnow\.state\(\)/.test(join));
   check("src.mapRepaint", /ssdns:pips-change/.test(mapJs) && /paintPlayerFight\(\)/.test(mapJs.slice(mapJs.indexOf("ssdns:pips-change"))));
   check("src.rulesUntouched", !read("assets/data/rules.js").includes(ver.sheet) && !/actUndo|dmFields/.test(read("database.rules.json")));
-  check("src.versions", ver.sheet === "0.3.141" && ver.dmcc === "0.2.154" && ver.sheetBuild === "sheet-playtest-v03141" && ver.dmccBuild === "dmcc-playtest-v02154");
+  check("src.versions", ver.sheet === "0.3.142" && ver.dmcc === "0.2.155" && ver.sheetBuild === "sheet-playtest-v03142" && ver.dmccBuild === "dmcc-playtest-v02155");
   check("src.noDoubleSpendHelper", /row\.kind === "player" \|\| !row\.id/.test(v2.slice(v2.indexOf("async function spendEnemyPip"), v2.indexOf("function commitEnemyAttack"))));
   const runP = mapJs.slice(mapJs.indexOf("function runPlayer"), mapJs.indexOf("function cleanActId"));
   check("src.playerMapBlocks", /playerMapGate\(/.test(runP) && runP.indexOf("playerMapGate") < runP.indexOf("actions.run") && /blockMap\(/.test(pips));
@@ -196,7 +196,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("src.reloadMapCost", /reloadCost/.test(costSrc) && /gun\[1\] === 'tr'\) return 'bonus'/.test(costSrc) && /gun\[1\] === 'unload' \|\| gun\[1\] === 'reopen'/.test(costSrc));
   check("src.reloadNotOpportunity", /!gear && st\.oaArmed/.test(mapJs));
   check("src.reloadGunSpends", /reloadGun: function \(i, max\)/.test(appSrc) && /withCost\(i, reloadCost/.test(appSrc) && /unloadGunIndex: function \(i\) \{ return withCost/.test(appSrc) && /tacticalReload: function \(i\) \{ return withCost/.test(appSrc));
-  check("src.gunCommandBlocks", /function gunCommandPip/.test(join) && /blockMap\(pip\.cost, pip\.what\)/.test(join));
+  check("src.gunCommandAllowsDm", /function gunCommandPip/.test(join) && /_dmAllow/.test(join) && !/blockMap\(pip\.cost, pip\.what\)/.test(join));
   const drawerBlock = v2.slice(v2.indexOf("function drawerPipBlock"), v2.indexOf("async function mapGunLoad"));
   check("src.drawerReloadBlocks", /drawerPipBlock\(row, atk, "reload"/.test(v2) && /row\.kind !== "player"\) return ""/.test(drawerBlock) && /op === "tr" && drawerPipBlock/.test(v2) && /op === "reopen" && drawerPipBlock/.test(v2));
 }
