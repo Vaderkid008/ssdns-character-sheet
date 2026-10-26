@@ -26,7 +26,7 @@ const rulesJs = read("assets/data/rules.js");
 check("page.paint", page.includes("FX.paint(") && page.includes("srcHidden") && page.includes('data-act="fxBtn"'));
 check("page.toggle", page.includes("FX.setEnabled(!FX.enabled())") && page.includes("FX.enabled()"));
 check("page.hiddenNoMuzzle", page.includes("hidden: true") && fx.includes("if (g.srcHidden) edgeGlow"));
-check("src.rulesUntouched", !rules.includes("fx-sample") && !rulesJs.includes("0.3.149") && !rules.includes('"fx"'));
+check("src.rulesUntouched", !rules.includes("fx-sample") && !rulesJs.includes("0.3.150") && !rules.includes('"fx"'));
 check("src.muzzleHolds", /clamp\(lt \/ 200\)/.test(fx));
 
 if (failures.length) {

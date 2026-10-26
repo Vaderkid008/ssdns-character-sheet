@@ -3249,6 +3249,7 @@
     renderLog: renderLog,
     showInspiration: showInspiration,
     castNamed: function (name) { castSpellAttack(-1, name, 0, false); },
+    castAt: function (name, slot) { castSpellAttack(-1, name, parseInt(slot, 10) || 0, false); },
     attackRoll: attackRoll,
     attackGate: attackGate,
     coverFor: coverFor,
