@@ -5,7 +5,10 @@
    the three hosts check enabled() first and keep the old dots when it is off.
    Clicks stay on the buttons the hosts already listen for. This file does not
    spend rounds or change a roll. A tube click reports the leftmost loaded
-   chamber so the existing fire path spends that round. */
+   chamber so the existing fire path spends that round.
+   L0217: a revolver or Caster cylinder keeps position 1 (index 0) under the hammer.
+   Chambers 2–N are a free Spin that brings that hole to position 1. Tubes never
+   get that ring. L0220: cycleEject drops the chambered tube round out of the gun. */
 (function (root) {
   "use strict";
 
@@ -241,23 +244,43 @@
     return "cart";
   }
 
+  /* Chambers 2–N spin. They must not keep a fire attribute, or a click shoots that hole. */
+  function spinAttrRewrite(raw) {
+    var s = " " + String(raw || "").trim();
+    var gun = "";
+    s = s.replace(/\sdata-fire="([^"]*)"/, function (_all, v) { gun = v; return ""; });
+    s = s.replace(/\sdata-cyl-fire="([^"]*)"/g, function (_all, v) { return ' data-cyl-spin="' + v + '"'; });
+    s = s.replace(/\sdata-gunroll="[^"]*"/g, "");
+    s = s.replace(/data-act="chamber"/g, 'data-act="spin"');
+    s = s.replace(/data-act="playerChamber"/g, 'data-act="playerSpin"');
+    if (gun !== "" && s.indexOf("data-gun=") < 0) s += ' data-gun="' + gun + '"';
+    if (s.indexOf("data-spin=") < 0) s += ' data-spin="1"';
+    return s.trim();
+  }
+
   function roundButton(spec, chamber, style, indexOverride, extraClass, inner) {
     var k = indexOverride == null ? chamber.index : indexOverride;
     var rt = roundType(spec, chamber);
     extraClass = (extraClass ? extraClass + " " : "") + "rt-" + rt + (rt === "shell" && !/is-gauge-/.test(extraClass || "") ? " is-gauge-" + shellGauge(spec) + (isSlug(spec) ? " is-slug" : "") : "");
     var locked = chamber.state === "locked";
+    var spin = extraClass.indexOf("is-spin") >= 0;
+    var hammer = extraClass.indexOf("is-hammer") >= 0;
     var word = locked ? "Locked" : (chamber.state === "loaded" ? "Loaded" : (chamber.state === "jam" ? "Misfire" : "Spent"));
-    var next = spec.next === chamber.index ? " is-next" : "";
+    var next = !spin && !hammer && spec.next === chamber.index ? " is-next" : "";
     if (locked) {
       extraClass = (extraClass ? extraClass + " " : "") + "is-locked";
       inner = "X";
     }
+    if (hammer) word += ", position 1 under the hammer";
+    if (spin) word = "Spin chamber " + (chamber.index + 1) + " under the hammer, free";
     var text = inner != null ? inner : esc(roundText(spec, chamber));
     var cls = extraClass ? " " + extraClass : "";
+    var attrs = attrString(spec, k);
+    if (spin) attrs = spinAttrRewrite(attrs);
     return '<button type="button" class="ammo-round is-' + chamber.state + next + cls + '"' +
       (style ? ' style="' + style + '"' : "") +
-      " " + attrString(spec, k) +
-      ' aria-label="' + esc(word + " chamber " + (chamber.index + 1)) + '">' + text + "</button>";
+      " " + attrs +
+      ' aria-label="' + esc(word + (spin ? "" : " chamber " + (chamber.index + 1))) + '">' + text + "</button>";
   }
 
   function toneStyle(spec, chamber) {
@@ -377,16 +400,64 @@
     return { R: R, d: r * 2 };
   }
 
+  function rotateLeft(list, steps) {
+    var a = (list || []).slice();
+    var n = a.length;
+    if (!n) return a;
+    steps = ((Number(steps) % n) + n) % n;
+    if (!steps) return a;
+    return a.slice(steps).concat(a.slice(0, steps));
+  }
+
+  function rotateIndexes(indexes, steps, cap) {
+    cap = Number(cap) || 0;
+    var list = (indexes || []).slice();
+    if (!cap) return list;
+    steps = ((Number(steps) % cap) + cap) % cap;
+    return list.map(function (k) {
+      var n = Number(k);
+      if (!isFinite(n)) return k;
+      return (n - steps + cap) % cap;
+    });
+  }
+
+  /* Bring chamber `index` to position 1 (index 0, under the hammer). */
+  function spinTo(list, index) {
+    return rotateLeft(list, index);
+  }
+
+  /* After a shot from position 1: the next chamber rotates under the hammer. */
+  function advance(list) {
+    return rotateLeft(list, 1);
+  }
+
+  /* Lever/tube: the chambered round is the first loaded hole. Eject it. Do not put it back. */
+  function cycleEject(list) {
+    var a = (list || []).slice();
+    var i;
+    for (i = 0; i < a.length; i++) if (a[i]) break;
+    if (i >= a.length || !a[i]) return { ok: false, reason: "Nothing chambered.", chambers: a, index: -1, ejected: "" };
+    var ejected = a[i];
+    a[i] = "";
+    return { ok: true, ejected: ejected, index: i, chambers: a };
+  }
+
+  function spins(spec) { return kind(spec) === "cylinder"; }
+
   function cylinderHtml(spec, model) {
     var n = Math.max(model.cap, 1);
     var lay = chamberLayout(n);
     var diameter = lay.d;
+    var view = {};
+    Object.keys(spec || {}).forEach(function (key) { view[key] = spec[key]; });
+    view.next = null;
     var buttons = model.chambers.map(function (chamber) {
       var ang = -Math.PI / 2 + (chamber.index * 2 * Math.PI / n);
       var cx = 50 + Math.cos(ang) * lay.R;
       var cy = 50 + Math.sin(ang) * lay.R;
-      var style = "left:" + cx.toFixed(2) + "%;top:" + cy.toFixed(2) + "%;width:" + diameter + "%;height:" + diameter + "%;" + toneStyle(spec, chamber);
-      return roundButton(spec, chamber, style, null, "is-primer");
+      var style = "left:" + cx.toFixed(2) + "%;top:" + cy.toFixed(2) + "%;width:" + diameter + "%;height:" + diameter + "%;" + toneStyle(view, chamber);
+      var role = chamber.index === 0 ? "is-primer is-hammer" : "is-primer is-spin";
+      return roundButton(view, chamber, style, null, role);
     }).join("");
     var jammed = model.jammed ? " is-jammed" : "";
     return '<span class="ssdns-ammo ssdns-ammo-cylinder' + sizeClass(spec) + jammed + '" data-ammo-kind="cylinder" data-ammo-cap="' + model.cap + '">' +
@@ -512,6 +583,12 @@
   root.SSDNSAmmoDisplay = {
     enabled: enabled,
     kind: kind,
+    spins: spins,
+    rotateLeft: rotateLeft,
+    rotateIndexes: rotateIndexes,
+    spinTo: spinTo,
+    advance: advance,
+    cycleEject: cycleEject,
     roundType: roundType,
     roundLook: roundLook,
     html: html,

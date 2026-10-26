@@ -2016,7 +2016,20 @@
     if (spent && spent.was && A && A.misfireTextFor) { var t = A.misfireTextFor(i, spent.was); if (t) return t; }
     return misEl && misEl.textContent;
   }
+  function dryFire(i, name, offhand, fan) {
+    if (root.SSDNSAudio) root.SSDNSAudio.play("empty-click");
+    toast("Click.");
+    addLog({ kind: "alert", text: (name || "Gun") + ": Click." });
+    if (offhand && root.SSDNSOffhand && root.SSDNSOffhand.spendPip) root.SSDNSOffhand.spendPip(name);
+    else if (fan && root.SSDNSFan && root.SSDNSFan.spend) root.SSDNSFan.spend(name);
+    else if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack((name || "Gun") + " dry click");
+  }
   function rollGun(i, chamber) {
+    /* L0217: chambers 2–N spin for free, including off your turn. A tube or dots click falls through. */
+    if (chamber != null && Number(chamber) > 0 && root.SSDNSApp && root.SSDNSApp.spinCylinder && root.SSDNSApp.spinCylinder(i, chamber)) {
+      rollGun._chamber = null;
+      return;
+    }
     if (root.SSDNSTurnLock && root.SSDNSTurnLock.offTurnBlock && root.SSDNSTurnLock.offTurnBlock("attack")) return;
     if (chamber != null) rollGun._chamber = chamber;
     /* 0.3.61: a shot the DM sent while acting for this player. The DM already picked the target and the
@@ -2066,7 +2079,23 @@
        answered "Empty: reload" and could never fire. spendRound asks the tracker (quiver / loaded marker / count). */
     var trkW = root.SSDNSTrackers && root.SSDNSTrackers.weapon ? root.SSDNSTrackers.weapon(g.weapon) : null;
     if (trkW && /^(quiver|loaded|thrown)$/.test(root.SSDNSTrackers.kindOf(trkW))) empty = false;
-    if (empty && !rollGun._wild) {
+    var wpnSpin = catalogWeapon(g.weapon);
+    var spins = !!(root.SSDNSAmmoDisplay && root.SSDNSAmmoDisplay.spins && root.SSDNSAmmoDisplay.spins({
+      action: wpnSpin && wpnSpin.action, name: (wpnSpin && wpnSpin.name) || "", weapon: g.weapon,
+      ammoDisplay: g.ammoDisplay, group: wpnSpin && wpnSpin.group, ammo: wpnSpin && wpnSpin.ammo
+    }));
+    /* L0218: an empty hammer spends the Attack and does not offer a cantrip. A hex under the hammer is Cast, not Roll. */
+    if (spins && !rollGun._wild && root.SSDNSApp && root.SSDNSApp.cylinderPlan) {
+      var plan = root.SSDNSApp.cylinderPlan(i, null);
+      if (plan && plan.dry) { dryFire(i, name0, offNow, !!FAN); rollGun._chamber = null; return; }
+      if (plan && plan.hex) {
+        toast(plan.reason);
+        addLog({ kind: "alert", text: name0 + ": " + plan.reason });
+        rollGun._chamber = null;
+        return;
+      }
+    }
+    if (empty && !rollGun._wild && !spins) {
       g.loaded = 0;
       if (root.SSDNSAudio) root.SSDNSAudio.play("empty-click");
       toast("Empty: reload", "Reload", function () {
@@ -2405,6 +2434,7 @@
     if (drawFail) { toast(drawFail); addLog({ kind: "alert", text: drawFail }); return null; }
     var spent = root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i, chamber) : null;
     var name = gunName(i);
+    if (spent && spent.dry) { dryFire(i, name, offhand, fan); return null; }
     if (!spent || !spent.ok) {
       var reason = (spent && spent.reason) || "That gun can't fire.";
       toast(reason);

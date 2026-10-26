@@ -1443,6 +1443,16 @@
     var w = [].concat(R.firearms || [], R.casterGuns || [], R.otherRanged || []).filter(function (x) { return x && x.id === id; })[0];
     return (w && w.name) || id;
   }
+  function gunRow(g) {
+    var R = rules(), id = g && g.weapon;
+    return [].concat(R.firearms || [], R.casterGuns || []).filter(function (x) { return x && x.id === id; })[0] || null;
+  }
+  function gunSpins(g) {
+    var AD = root.SSDNSAmmoDisplay;
+    if (!AD || !AD.spins || !g) return false;
+    var w = gunRow(g);
+    return AD.spins({ action: (w && w.action) || "", name: (w && w.name) || g.name || "", weapon: g.weapon, group: w && w.group, ammo: w && w.ammo, ammoDisplay: g.ammoDisplay });
+  }
   function paintTurnStrip() {
     var st = lastStrip, names = $("#turnNames"), detail = $("#turnDetail");
     if (!st || !names) return;
@@ -1487,7 +1497,8 @@
         if (f.faction) bits.push("<span class='chip faction'>" + escHtml(f.faction) + "</span>");
         var guns = cur ? turnGuns(st).map(function (x) {
           var dots = (x.g.chambers || []).map(function (c0, k) {
-            if (st.mine) return "<button type='button' class='chamber-dot" + (c0 ? " full" : "") + "' data-gunroll='" + x.i + "' data-k='" + k + "' aria-label='Chamber " + (k + 1) + "'></button>";
+            if (st.mine && gunSpins(x.g) && k > 0) return "<button type='button' class='chamber-dot" + (c0 ? " full" : "") + "' data-spin='1' data-gun='" + x.i + "' data-k='" + k + "' aria-label='Spin chamber " + (k + 1) + " under the hammer'></button>";
+            if (st.mine) return "<button type='button' class='chamber-dot" + (c0 ? " full" : "") + (gunSpins(x.g) && k === 0 ? " hammer" : "") + "' data-gunroll='" + x.i + "' data-k='" + k + "' aria-label='Chamber " + (k + 1) + (gunSpins(x.g) && k === 0 ? ", under the hammer" : "") + "'></button>";
             return "<span class='chamber-dot" + (c0 ? " full" : "") + "'></span>";
           }).join("");
           return "<div class='cylinder-row'><span>" + escHtml(gunLabel(x.g)) + "</span> " + dots + "</div>";
@@ -1523,7 +1534,7 @@
         return;
       }
       if (t.closest("[data-turn-fold-close]")) { turnOpen = ""; paintTurnStrip(); return; }
-      if (t.closest("[data-gunroll]")) return;
+      if (t.closest("[data-gunroll]") || t.closest("[data-spin]") || t.closest("[data-cycle]")) return;
       var chip = t.closest("[data-turn-chip]");
       if (!chip || !chip.hasAttribute("aria-expanded")) return;
       var key = chip.getAttribute("data-turn-chip");

@@ -31,7 +31,7 @@ const ids = seeds.map((r) => r.id);
 check("catalog.unique", new Set(ids).size === ids.length, ids.length + " rows");
 check("catalog.grew", seeds.length >= 160, "got " + seeds.length);
 check("catalog.valid", seeds.every((r) => Items.valid(Items.normalize(r))));
-/* Belt lantern is a placeholder (PENDING Encounter Bot). It is not for sale and has no final price or weight. */
+/* L0215: belt lantern is locked at 750 ES, 1 lb, trinket, for sale. */
 const pricedSeeds = seeds.filter((r) => !r.provisional);
 const noWeight = pricedSeeds.filter((r) => r.weight == null || !isFinite(Number(r.weight)));
 check("weights.everything", noWeight.length === 0, noWeight.map((r) => r.id).join(","));
@@ -39,7 +39,7 @@ const gear = seeds.filter((r) => r.shelf && !r.story && r.type !== "quest" && !r
 const unpriced = gear.filter((r) => !(Number(r.price) >= 0) || !r.forSale);
 check("prices.gear", unpriced.length === 0, unpriced.map((r) => r.id).join(","));
 const belt = seeds.find((r) => r.id === "belt-lantern");
-check("belt.pending", !!belt && belt.provisional === true && belt.forSale === false && belt.price == null && belt.weight == null && belt.wear === "trinket");
+check("belt.locked", !!belt && !belt.provisional && belt.forSale === true && belt.price === 750 && belt.weight === 1 && belt.wear === "trinket");
 const SHELVES = ["Adventuring gear", "Frontier gear", "Packs", "Tools", "Clothes", "Foci", "Instruments", "Storyteller gear", "Blasting gear", "Mounts & tack", "Special finds"];
 check("shelves.known", gear.every((r) => SHELVES.includes(r.shelf)), [...new Set(gear.map((r) => r.shelf))].join("|"));
 SHELVES.forEach((s) => check("shelves.has." + s, seeds.some((r) => r.shelf === s)));
@@ -93,7 +93,7 @@ check("store.weights", nw.length === 0, nw.map((s) => s.id).join(","));
 check("store.bolts", sid["crossbow-bolts-20"] && sid["crossbow-bolts-20"].price_es === 100 && sid["crossbow-bolts-20"].weight_lb === 1.5);
 check("store.mounts", ["riding-horse-cow-pony", "mule", "riding-saddle", "saddlebags"].every((id) => sid[id] && sid[id].price_es > 0));
 const gearIds = seeds.filter((r) => r.shelf && !r.story).map((r) => r.id);
-const missingInStore = gearIds.filter((id) => !sid[id] && !["field-medic-kit", "hardtack-jerky-1-day", "whiskey-bottle", "fuse-cord-50-ft", "lariat-50-ft", "iron-cuffs", "caltrops-jack-nails-bag-of-20", "field-glass-spyglass", "gun-cleaning-kit", "belt-lantern"].includes(id));
+const missingInStore = gearIds.filter((id) => !sid[id] && !["field-medic-kit", "hardtack-jerky-1-day", "whiskey-bottle", "fuse-cord-50-ft", "lariat-50-ft", "iron-cuffs", "caltrops-jack-nails-bag-of-20", "field-glass-spyglass", "gun-cleaning-kit"].includes(id));
 check("store.covers-catalog", missingInStore.length === 0, missingInStore.join(","));
 const priceClash = gearIds.filter((id) => sid[id] && Items.byId(id).price !== sid[id].price_es);
 check("store.price-match", priceClash.length === 0, priceClash.join(","));

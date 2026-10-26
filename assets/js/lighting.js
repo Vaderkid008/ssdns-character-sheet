@@ -1,7 +1,7 @@
 /* Item-driven light (sheet 0.3.131). Bright and dim rings, lineage darkvision, DM douse.
    No burn-time clock: a light stays on until someone stows it or the DM puts it out.
    rules.js is not touched. database.rules.json is not touched.
-   Belt lantern price/weight are placeholders until Encounter Bot locks them. */
+   L0215: belt lantern is locked at bright 15 / dim 15, trinket, hands-free. Oil is fictional. */
 (function (root) {
   "use strict";
   var FT = 5; /* one map square */
@@ -12,7 +12,7 @@
     "lamp": { name: "Lamp", bright: 15, dim: 30, slot: "hand" },
     "hooded-lamp": { name: "Hooded lamp", bright: 30, dim: 30, slot: "hand", hood: true, hoodDown: { bright: 0, dim: 5 } },
     "bullseye-lantern": { name: "Bullseye lantern", bright: 60, dim: 60, slot: "hand", cone: true },
-    "belt-lantern": { name: "Belt lantern", bright: 15, dim: 15, slot: "trinket", handsFree: true, placeholder: true },
+    "belt-lantern": { name: "Belt lantern", bright: 15, dim: 15, slot: "trinket", handsFree: true },
     "spell:light": { name: "Light", bright: 20, dim: 20, spell: true },
     "spell:continual-flame": { name: "Gas Lamp", bright: 20, dim: 20, spell: true },
     "spell:dancing-lights": { name: "Dancing Lights", bright: 0, dim: 10, spell: true, each: 4 },

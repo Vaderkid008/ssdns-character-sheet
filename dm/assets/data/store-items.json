@@ -2194,6 +2194,22 @@
     "ref_price_es": 1000
   },
   {
+    "id": "belt-lantern",
+    "name": "Belt lantern",
+    "category": "gear",
+    "price_es": 750,
+    "weight_lb": 1,
+    "stores": [
+      "general",
+      "traveling"
+    ],
+    "rarity": "common",
+    "minTown": "camp",
+    "notes": "L0215 lock: 750 ES, 1 lb, trinket, hands-free. Bright 15 ft, dim 15 ft more. Oil is fictional. No burn timer.",
+    "bookLine": null,
+    "ref_price_es": 750
+  },
+  {
     "id": "lamp-oil",
     "name": "Lamp oil",
     "category": "gear",

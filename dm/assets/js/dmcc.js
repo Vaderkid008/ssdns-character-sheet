@@ -1211,10 +1211,26 @@ function applyDemoGun(playerId, payload) {
       g.condition = "ok";
     }
   } else if (payload.op === "fire") {
-    const chambers = Array.isArray(g.chambers) ? g.chambers : [];
+    const chambers = Array.isArray(g.chambers) ? g.chambers.slice() : [];
     const k = Number(payload.chamber);
-    if (chambers.length && isFinite(k) && k >= 0 && k < chambers.length && chambers[k]) {
+    const AD = window.SSDNSAmmoDisplay;
+    const spins = !!(AD && AD.spins && AD.spins({
+      action: g.action || "", name: g.name || "", weapon: g.weapon || "",
+      ammoDisplay: g.ammoDisplay || "", group: g.group || "", ammo: g.ammo || ""
+    }));
+    if (spins && chambers.length && AD.spinTo && AD.advance) {
+      if (isFinite(k) && k > 0 && k < chambers.length) {
+        g.chambers = AD.spinTo(chambers, k);
+        if (Array.isArray(g.lockedChambers)) g.lockedChambers = AD.rotateIndexes(g.lockedChambers, k, g.chambers.length);
+      } else {
+        if (chambers[0]) chambers[0] = "";
+        g.chambers = AD.advance(chambers);
+        if (Array.isArray(g.lockedChambers)) g.lockedChambers = AD.rotateIndexes(g.lockedChambers, 1, g.chambers.length);
+      }
+      g.loaded = g.chambers.filter(Boolean).length;
+    } else if (chambers.length && isFinite(k) && k >= 0 && k < chambers.length && chambers[k]) {
       chambers[k] = "";
+      g.chambers = chambers;
       g.loaded = Math.max(0, (Number(g.loaded) || 0) - 1);
     } else if ((Number(g.loaded) || 0) > 0) {
       g.loaded = Math.max(0, Number(g.loaded) - 1);

@@ -43,7 +43,8 @@ check("src.drawerNpc", map.includes("const npc = !isPc;") && map.includes("funct
 check("src.jamLabel", map.includes("sideButton(a, 'rowJam', 'jam', 'Jam')") && map.includes("sideButton(a, 'rowLock', 'lock', 'Lock chamber')"));
 check("src.npcUnload", map.includes("side === 'npc'") && map.includes('data-act="rowUnload"') && map.includes("drawer:unload"));
 check("src.chamberClick", map.includes("That chamber is locked.") && map.includes("drawer:target") && map.includes("chamber: Number(b.getAttribute('data-k'))"));
-check("src.noSpin", !map.includes("Spin chamber") && !map.includes("Cycle") && !v2.includes("data-act=\"rowSpin\""));
+/* L0217–L0221: revolvers spin, lever guns cycle. The old rowSpin act is not the control. */
+check("src.spinCycle", map.includes("Spin chamber") && map.includes('data-act="playerCycle"') && map.includes('data-act="rowCycle"') && !v2.includes("data-act=\"rowSpin\"") && v2.includes("data-cyl-spin"));
 
 function makeSandbox() {
   const toasts = [];

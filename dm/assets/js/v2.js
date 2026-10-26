@@ -361,10 +361,17 @@ function stripGuns(row, i) {
     }
     let html = "";
     const locks = (gun && gun.lockedChambers) || [];
+    const spins = !!(window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.spins && gun && window.SSDNSAmmoDisplay.spins({
+      action: gun.action || "", name: gun.name || "", weapon: gun.weapon || "",
+      ammoDisplay: gun.ammoDisplay || "", group: gun.group || "", ammo: gun.ammo || ""
+    }));
     for (let k = 0; k < n; k++) {
       const locked = locks.some((ix) => Number(ix) === k);
       const full = !locked && (flags ? !!flags[k] : k < fullN);
-      html += `<button type="button" class="chamber-dot${locked ? " locked" : (full ? " full" : "")}" ${attrs} data-gun-k="${k}" aria-label="${locked ? "Locked chamber" : "Chamber"} ${k + 1}">${locked ? "X" : ""}</button>`;
+      const spinHole = spins && k > 0;
+      const holeAttrs = spinHole ? String(attrs).replace(/data-cyl-fire=/g, "data-cyl-spin=") : attrs;
+      const label = spinHole ? ("Spin chamber " + (k + 1) + " under the hammer") : ((locked ? "Locked chamber" : "Chamber") + " " + (k + 1) + (spins && k === 0 ? ", under the hammer" : ""));
+      html += `<button type="button" class="chamber-dot${locked ? " locked" : (full ? " full" : "")}${spins && k === 0 ? " hammer" : ""}" ${holeAttrs} data-gun-k="${k}" aria-label="${label}">${locked ? "X" : ""}</button>`;
     }
     return html;
   }
@@ -5911,11 +5918,25 @@ function freeShotGun(atk) {
 async function cardFreeShot(row, atk, bonusIn, opts) {
   if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
   const bonus = bonusIn != null && isFinite(Number(bonusIn)) ? Number(bonusIn) : (isFinite(Number(atk.toHit)) ? Number(atk.toHit) : 0);
+  let chamberPick = opts && opts.chamber != null && opts.chamber !== "" && isFinite(Number(opts.chamber)) ? Number(opts.chamber) : null;
+  if (cylinderGun(atk) && chamberPick != null && chamberPick > 0) {
+    enemySpendRound(atk, chamberPick);
+    rememberWeapon(row, atk);
+    await saveRemoteTable();
+    renderFight();
+    DM.toast("Spun. Chamber " + (chamberPick + 1) + " is under the hammer.");
+    return true;
+  }
+  if (cylinderGun(atk) && chamberPick == null) chamberPick = 0;
+  if (cylinderGun(atk)) {
+    const hammer = enemyVisualFlags(atk)[0];
+    if (enemyLocks(atk).indexOf(0) >= 0) { DM.toast("That chamber is locked."); return false; }
+    if (!hammer) { DM.toast("Click."); return false; }
+  }
   const nat = d20();
   const ceiling = window.SSDNSApplied && window.SSDNSApplied.misfireNumber
     ? window.SSDNSApplied.misfireNumber(atk.misfire)
     : null;
-  const chamberPick = opts && opts.chamber != null && opts.chamber !== "" && isFinite(Number(opts.chamber)) ? Number(opts.chamber) : null;
   const shotArg = { n1: nat, nat: nat, ceiling: ceiling || 1, spark: false };
   if (chamberPick != null) shotArg.chamber = chamberPick;
   const resolved = (atk.misfire != null && atk.misfire !== "" && window.SSDNSMisfire)
@@ -5962,7 +5983,16 @@ async function cardStrike(i, n, opts) {
   if (atk.fouled) { DM.toast(atk.name + " is fouled"); return; }
   if (atk.ruined) { DM.toast(atk.name + " is ruined"); return; }
   if (atk.pendingD4) { DM.toast("Roll the d4 first."); return; }
-  const chamberPick = opts && opts.chamber != null && opts.chamber !== "" && isFinite(Number(opts.chamber)) ? Number(opts.chamber) : null;
+  let chamberPick = opts && opts.chamber != null && opts.chamber !== "" && isFinite(Number(opts.chamber)) ? Number(opts.chamber) : null;
+  if (cylinderGun(atk) && chamberPick != null && chamberPick > 0) {
+    enemySpendRound(atk, chamberPick);
+    rememberWeapon(row, atk);
+    await saveRemoteTable();
+    renderFight();
+    DM.toast("Spun. Chamber " + (chamberPick + 1) + " is under the hammer.");
+    return false;
+  }
+  if (cylinderGun(atk) && chamberPick == null) chamberPick = 0;
   if (chamberPick != null && atk.capacity != null) {
     const ready = enemyChamberReady(atk, chamberPick);
     if (!ready.ok) { DM.toast(ready.reason || "Click."); return false; }
@@ -7276,7 +7306,7 @@ function wireClicks() {
       handleDmReaction(rowId, act, spellName, spellLevel);
       return;
     }
-    const t = e.target.closest && e.target.closest("[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-dm-move],[data-dm-act],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
+    const t = e.target.closest && e.target.closest("[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-dm-move],[data-dm-act],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-cyl-spin],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
     if (!t) {
       if (dmReactMenu && !(e.target && e.target.closest && e.target.closest("[data-dm-react-menu]"))) closeDmReactionMenu();
       return;
@@ -7384,6 +7414,20 @@ function wireClicks() {
       return;
     }
     if (t.hasAttribute("data-init-strike")) { enemyStrike(parseInt(t.getAttribute("data-init-strike"), 10)); return; }
+    if (t.hasAttribute("data-cyl-spin")) {
+      const rowId = t.getAttribute("data-cyl-spin");
+      const row = (fight.order || []).find((r) => r && r.id === rowId);
+      if (!row) return;
+      const n = parseInt(t.getAttribute("data-atk-n"), 10);
+      const atk = row.card && row.card.attacks && row.card.attacks[n];
+      const k = Number(t.hasAttribute("data-gun-k") ? t.getAttribute("data-gun-k") : t.getAttribute("data-k"));
+      if (atk && Array.isArray(atk.chambers) && window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.spinTo && k > 0) {
+        atk.chambers = window.SSDNSAmmoDisplay.spinTo(atk.chambers, k);
+        if (Array.isArray(atk.lockedChambers)) atk.lockedChambers = window.SSDNSAmmoDisplay.rotateIndexes(atk.lockedChambers, k, atk.chambers.length);
+        renderFight();
+      }
+      return;
+    }
     if (t.hasAttribute("data-cyl-fire")) {
       const rowId = t.getAttribute("data-cyl-fire");
       const row = (fight.order || []).find((r) => r && r.id === rowId);
@@ -9409,10 +9453,40 @@ function enemyChamberReady(atk, chamber) {
   if (!enemyVisualFlags(atk)[idx]) return { ok: false, reason: "Click." };
   return { ok: true, index: idx };
 }
-/* Spend one round. A picked chamber empties that hole. A plain shot keeps the old count when no chamber list is stored. */
+function cylinderGun(atk) {
+  const AD = window.SSDNSAmmoDisplay;
+  if (!AD || !AD.spins || !atk) return false;
+  return AD.spins({
+    action: atk.action || "",
+    name: atk.name || "",
+    weapon: atk.weapon || "",
+    ammoDisplay: atk.ammoDisplay || "",
+    group: atk.group || "",
+    ammo: atk.ammo || ""
+  });
+}
+/* Spend one round. A picked chamber empties that hole. A plain shot keeps the old count when no chamber list is stored.
+   L0217: a revolver or Caster cylinder only empties position 1, then indexes. Chambers 2–N spin and do not fire. */
 function enemySpendRound(atk, chamber) {
   if (!atk || atk.capacity == null) return;
   const cap = Number(atk.capacity) || 0;
+  const AD = window.SSDNSAmmoDisplay;
+  if (cylinderGun(atk) && cap >= 1 && AD && AD.advance && AD.spinTo) {
+    const flags = enemyVisualFlags(atk);
+    const idx = chamber != null && chamber !== "" && isFinite(Number(chamber)) ? Math.floor(Number(chamber)) : 0;
+    if (idx > 0 && idx < flags.length) {
+      atk.chambers = AD.spinTo(flags, idx);
+      if (Array.isArray(atk.lockedChambers)) atk.lockedChambers = AD.rotateIndexes(atk.lockedChambers, idx, flags.length);
+      atk.loaded = atk.chambers.filter(Boolean).length;
+      return;
+    }
+    if (flags[0] && enemyLocks(atk).indexOf(0) < 0) flags[0] = "";
+    const next = AD.advance(flags);
+    atk.chambers = next;
+    if (Array.isArray(atk.lockedChambers)) atk.lockedChambers = AD.rotateIndexes(atk.lockedChambers, 1, next.length);
+    atk.loaded = next.filter(Boolean).length;
+    return;
+  }
   const specific = chamber != null && chamber !== "" && isFinite(Number(chamber));
   const haveFlags = Array.isArray(atk.chambers) && atk.chambers.length === cap;
   if (!specific && !haveFlags) {
