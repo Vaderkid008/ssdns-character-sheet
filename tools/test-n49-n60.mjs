@@ -116,6 +116,7 @@ check("src.n63.explicitStill", /function unlinkMapToken/.test(v2) && /delete row
   check("n75.beforeEnd", sb.SSDNSTurnLock.locked() === true && sb.SSDNSTurnLock.offTurnBlock("gear") === "It isn't your turn", sb.SSDNSTurnLock.offTurnBlock("gear"));
   sb.SSDNSActionPips.onTurn({ round: 1, turn: 0, started: false, order: [], seq: 0, turnStarts: {} });
   check("n75.freeAfterEmpty", sb.SSDNSTurnLock.locked() === false && sb.SSDNSTurnLock.offTurnBlock("attack") === "" && sb.SSDNSTurnLock.offTurnBlock("gear") === "" && sb.SSDNSTurnLock.inFight() === false);
+  sb.SSDNSActionPips.setOa("oaArmed", "");
   sb.SSDNSActionPips.onTurn(Object.assign({}, off, { turn: 1 }));
   sb.SSDNSActionPips.attack("Peacemaker");
   check("n76.spentInFight", sb.SSDNSActionPips.state().action === true);
