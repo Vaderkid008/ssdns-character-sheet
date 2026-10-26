@@ -4041,7 +4041,8 @@ function presentLeave(view) {
   reactHold.remote = !!shown;
   if (!shown) {
     R.openModal(view, handler);
-    if (role === 'dm') R.openMirror(view, handler);
+    /* Auto-pass of a downed reactor may already have opened the next card. */
+    if (reactHold && role === 'dm' && !view.down && !(R.cannotReact && R.cannotReact(view))) R.openMirror(view, handler);
   }
 }
 /* After Attack, this client refreshes its own card. A remote reactor already switched on their click, so do not post a second ask. */
@@ -4056,7 +4057,7 @@ function refreshArmedCard() {
   const handler = function (choice, meta) { onLeaveChoice(choice, meta || {}); };
   R.bind(view.promptId, handler);
   R.openModal(view, handler);
-  if (role === 'dm') R.openMirror(view, handler);
+  if (role === 'dm' && !view.down && !(R.cannotReact && R.cannotReact(view))) R.openMirror(view, handler);
 }
 function showLeaveCard() {
   const R = window.SSDNSReact;

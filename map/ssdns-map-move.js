@@ -302,13 +302,13 @@
     if (!enemy) return false;
     if (enemy.down === true || enemy.cannotReact === true) return true;
     var st = String(enemy.status || "").toLowerCase();
-    if (/^(down|dead|unconscious|dying)$/.test(st)) return true;
+    if (/^(down|dead|unconscious|dying|defeated)$/.test(st)) return true;
     var list = enemy.conditions || [];
     var i, raw, name;
     for (i = 0; i < list.length; i++) {
       raw = list[i];
       name = String((raw && (raw.name || raw.label)) || raw || "").toLowerCase();
-      if (/^(unconscious|dead|dying)$/.test(name)) return true;
+      if (/^(unconscious|dead|dying|defeated)$/.test(name)) return true;
     }
     if (enemy.noHpPool) return false;
     var hp = enemy.hp;

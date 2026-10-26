@@ -2445,6 +2445,12 @@ function settleReactChoice(view, choice, meta, handler) {
   const R = window.SSDNSReact;
   meta = meta || {};
   if (choice === "cancel") choice = "pass";
+  /* A corpse's Attack/Cast must not arm. Clear the card before the handler opens the next one. */
+  if (viewCannotReact(view) && choice !== "go" && choice !== "attacked") {
+    choice = "pass";
+    meta.down = true;
+    if (R && R.close) R.close();
+  }
   try {
     if (choice === "attack" && view.dmRuns) {
       meta.oaId = meta.oaId || view.oaId || ("oa_" + Date.now().toString(36));
@@ -2504,6 +2510,14 @@ function noteReactRequest(req) {
   const R = window.SSDNSReact;
   if (!req || !R) return;
   if (req.phase === "answer" || req.choice) {
+    /* Attack or Cast from a reactor who is already down must not open another card. */
+    if ((req.choice === "attack" || req.choice === "cast") && viewCannotReact(req)) {
+      const downMeta = { down: true, oaId: req.oaId || "" };
+      if (!(R.deliver && R.deliver(req.promptId, "pass", downMeta))) pushReactAnswer(req, "pass", downMeta);
+      if (R.close) R.close();
+      pushReactClose(req);
+      return;
+    }
     if (R.deliver(req.promptId, req.choice || "pass", req)) return;
     pushReactAnswer(req, req.choice || "pass", req);
     if (req.choice === "attack" && req.kind !== "spell" && req.kind !== "damage") {
@@ -4882,6 +4896,11 @@ function noteUnconscious(row) {
   row.hp = 0;
   row.status = "Down";
   mirrorMapStatus(row, "down");
+  if (window.SSDNSReact && window.SSDNSReact.releaseIfReactor) {
+    window.SSDNSReact.releaseIfReactor([row.id, row.playerId, row.mapTokenId, subjectId], {
+      status: row.status, hp: row.hp, noHpPool: noHpPoolRow(row), conditions: row.conditions || []
+    });
+  }
   const idEarly = Cond && Cond.idFor(subjectId, "Unconscious");
   if (idEarly && fight.condMap && fight.condMap[idEarly]) return;
   if (window.SSDNSApplied && window.SSDNSApplied.markHpExpect && row.kind === "player") {

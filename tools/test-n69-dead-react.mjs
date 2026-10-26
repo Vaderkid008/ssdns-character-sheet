@@ -38,6 +38,7 @@ check("down.hp", M.reactorDown({ hp: 0 }) && M.reactorDown({ hp: "0" }) && !M.re
 check("down.condition", M.reactorDown({ conditions: ["Unconscious"] }) && M.reactorDown({ conditions: [{ name: "Dead" }] }) && M.reactorDown({ hp: 11, conditions: [{ name: "Dying" }] }));
 check("down.pool", !M.reactorDown({ hp: 0, noHpPool: true }) && M.reactorDown({ hp: 0, noHpPool: true, status: "Down" }));
 check("down.living", !M.reactorDown({ hp: 11, status: "" }) && !M.reactorDown(null));
+check("down.defeated", M.reactorDown({ status: "Defeated" }) && M.reactorDown({ conditions: [{ name: "defeated" }] }));
 
 const corpse = Object.assign({}, bandit, { status: "down" });
 check("plan.skipDown", M.leaveReachPlan(pathOut, { enemies: [corpse], moverSize: 1 }).pauses.length === 0);
@@ -54,7 +55,7 @@ const w = dom.window;
 w.eval(read("assets/js/react-prompt.js"));
 const R = w.SSDNSReact;
 
-check("cannot.same", R.cannotReact({ status: "Down" }) && R.cannotReact({ hp: 0 }) && !R.cannotReact({ hp: 0, noHpPool: true }) && R.cannotReact({ conditions: ["unconscious"] }));
+check("cannot.same", R.cannotReact({ status: "Down" }) && R.cannotReact({ hp: 0 }) && !R.cannotReact({ hp: 0, noHpPool: true }) && R.cannotReact({ conditions: ["unconscious"] }) && R.cannotReact({ status: "defeated" }));
 
 const skipped = R.withoutSpent([{ index: 2, reactors: [
   { id: "foe", name: "Bandit", status: "down" },
@@ -79,18 +80,77 @@ const offerSession = R.freshOffers([
 ]);
 const downOffer = R.offerView(offerSession);
 check("offer.downHidesCast", downOffer && downOffer.down === true);
-R.openModal(downOffer, function () {});
-check("offer.noCastButton", !w.document.querySelector("[data-react-choice=cast]") && !!w.document.querySelector("[data-react-choice=pass]"));
-R.close();
+let offerPasses = 0;
+R.openModal(downOffer, function (choice) { offerPasses += choice === "pass" ? 1 : 0; });
+R.openMirror(downOffer, function () { offerPasses += 1; });
+check("offer.noCard", offerPasses === 1 && !w.document.querySelector("[data-react-modal]") && !w.document.querySelector("[data-react-mirror]"));
 const passedOffer = R.answerOffer(offerSession, "cast");
 check("offer.castBecomesPass", passedOffer.choice === "pass" && offerSession.spent !== true && passedOffer.done === false, JSON.stringify(passedOffer));
 const livingCast = R.answerOffer(offerSession, "cast");
 check("offer.livingCast", livingCast.choice === "cast" && offerSession.spent === true);
 
 const card = R.leaveView(R.freshLeave({ pauses: [{ index: 2, reactors: [Object.assign({}, bandit, { status: "dead" })] }] }, 3), "Caleb");
-R.openModal(card, function () {});
-R.openMirror(card, function () {});
-check("card.passOnly", !w.document.querySelector("[data-react-choice=attack]") && w.document.querySelectorAll("[data-react-choice=pass]").length === 2);
+let cardPasses = 0;
+R.openModal(card, function () { cardPasses += 1; });
+R.openMirror(card, function () { cardPasses += 1; });
+check("card.notShown", cardPasses === 1 && !w.document.querySelector("[data-react-modal]") && !w.document.querySelector("[data-react-mirror]"));
+
+let dropped = null;
+R.openModal({
+  promptId: "already",
+  kind: "leave",
+  kicker: "Opportunity attack",
+  text: "Caleb is leaving your reach — Opportunity attack?",
+  choice: "attack",
+  attackLabel: "Attack",
+  passLabel: "Pass",
+  dmRuns: true,
+  reactorId: "foe",
+  reactorPlayerId: "pc-bandit",
+  hp: 11
+}, function (choice, meta) { dropped = { choice: choice, down: meta && meta.down }; });
+check("shown.buttons", !!w.document.querySelector("[data-react-choice=attack]") && !!w.document.querySelector("[data-react-choice=pass]"));
+const released = R.releaseIfReactor(["foe"], { status: "Down", hp: 0 });
+check("shown.autoClear", released === true && !w.document.querySelector("[data-react-modal]") && dropped && dropped.choice === "pass" && dropped.down === true);
+
+R.openModal({
+  promptId: "stuck",
+  kind: "leave",
+  kicker: "Opportunity attack",
+  text: "Caleb is leaving your reach — Opportunity attack?",
+  choice: "attack",
+  attackLabel: "Attack",
+  passLabel: "Pass",
+  dmRuns: true,
+  reactorId: "foe",
+  status: "dead",
+  down: true
+}, function () {});
+check("stuck.noButton", !w.document.querySelector("[data-react-choice]"));
+
+R.close();
+let corpsePasses = 0;
+R.openModal({
+  promptId: "same", kind: "leave", text: "dead", status: "dead",
+  choice: "attack", attackLabel: "Attack", passLabel: "Pass", dmRuns: true
+}, function () {
+  corpsePasses += 1;
+  R.openModal({
+    promptId: "same", kind: "leave", text: "Wolf is next", hp: 11,
+    choice: "attack", attackLabel: "Attack", passLabel: "Pass", dmRuns: true
+  }, function () {});
+  R.openMirror({
+    promptId: "same", kind: "leave", text: "Wolf is next", hp: 11, dmRuns: true,
+    choice: "attack", attackLabel: "Attack", passLabel: "Pass", mirrorText: "Wolf mirror"
+  }, function () {});
+});
+R.openMirror({
+  promptId: "same", kind: "leave", text: "dead", status: "dead", dmRuns: true,
+  choice: "attack", attackLabel: "Attack", passLabel: "Pass"
+}, function () { corpsePasses += 1; });
+const wolfCard = w.document.querySelector("[data-react-modal]");
+const wolfMirror = w.document.querySelector("[data-react-mirror]");
+check("card.nextStays", corpsePasses === 1 && !!wolfCard && /Wolf is next/.test(wolfCard.textContent) && !!wolfMirror && /Wolf mirror/.test(wolfMirror.textContent), (wolfCard && wolfCard.textContent) || "no card");
 R.close();
 
 let thrownClosed = false;
@@ -128,7 +188,7 @@ const ctx = {
 };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
-vm.runInContext(sliceFn(read("dm/assets/js/v2.js"), "pushReactAnswer", "castReactOffer"), ctx, { filename: "presentReact.js" });
+vm.runInContext(sliceFn(read("dm/assets/js/v2.js"), "pushReactAnswer", "counterspellOffers"), ctx, { filename: "presentReact.js" });
 
 function leaveCard(over) {
   return Object.assign({
@@ -201,6 +261,18 @@ check("dm.attackStays", !!w.document.querySelector("[data-react-modal]") && comm
 R.close();
 
 commands.length = 0;
+fightRows[0] = { id: "foe", status: "Down", hp: 0, conditions: [] };
+R.openWait("Waiting on opportunity attacks…");
+R.openModal(leaveCard({ status: "", hp: 11, down: false }), function () {});
+R.openMirror(leaveCard({ status: "", hp: 11, down: false }), function () {});
+ctx.noteReactRequest({
+  phase: "answer", choice: "attack", promptId: "p1", kind: "leave",
+  reactorId: "foe", reactorPlayerId: "pc-bandit", moverPlayerId: "player1"
+});
+check("dm.downedAttackClears", !w.document.querySelector("[data-react-modal]") && !w.document.querySelector("[data-react-mirror]") && !w.document.querySelector("[data-react-wait]") && commands.some((c) => c.type === "reactAnswer" && c.to === "player1" && c.payload.choice === "pass" && c.payload.down === true) && commands.some((c) => c.type === "reactClose" && c.to === "pc-bandit"), kinds().join(","));
+
+commands.length = 0;
+fightRows[0] = { id: "foe", status: "", hp: 11, conditions: [] };
 ctx._arm = false;
 ctx.presentReact(leaveCard(), null);
 w.document.querySelector("[data-react-choice=attack]").click();
@@ -219,7 +291,10 @@ const mapSrc = read("map/ssdns-map.js");
 check("src.map", mapSrc.includes("view.down && !view.hideAttack") && mapSrc.includes("conditions: tokenConditions(t)") && mapSrc.includes("catch (e) {\n    clearReactHold();"));
 check("src.move", read("map/ssdns-map-move.js").includes("if (!foe || foe.ally || reactorDown(foe)) continue;"));
 const join = read("assets/js/dm-join.js");
-check("src.join", join.includes('case "reactClose"') && join.includes("R.cannotReact(view)") && join.includes('postReactAnswer(view, "pass", { down: true })'));
+check("src.join", join.includes('case "reactClose"') && join.includes("R.cannotReact(view)") && join.includes('postReactAnswer(view, "pass", { down: true })') && join.includes("function releaseOwnReact"));
+const sheetCss = read("assets/css/sheet.css");
+check("src.clickable", sheetCss.includes(".react-modal { position: fixed; inset: 0; z-index: 12000;") && sheetCss.includes("body.sheet-readonly .react-modal button") && read("dm/assets/css/dmcc.css").includes("z-index: 12000"));
+check("src.release", v2.includes("SSDNSReact.releaseIfReactor"));
 check("src.rulesUntouched", !read("assets/data/rules.js").includes("reactClose") && !read("database.rules.json").includes("reactClose") && !read("assets/data/rules.js").includes("0.3.145") && !read("database.rules.json").includes("0.3.145"));
 const ver = JSON.parse(read("version.json"));
 check("src.versions", ver.sheet === "0.3.145" && ver.dmcc === "0.2.158" && ver.sheetBuild === "sheet-playtest-v03145" && ver.dmccBuild === "dmcc-playtest-v02158", JSON.stringify(ver));

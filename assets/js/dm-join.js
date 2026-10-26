@@ -1376,6 +1376,7 @@
         break;
       case "hp":
         applyHpCommand(payload, payload.grantId || cmd.id);
+        releaseOwnReact();
         break;
       case "gun":
         applyGunCommand(payload, payload.grantId || cmd.id);
@@ -1441,6 +1442,7 @@
         break;
       case "set_conditions":
         if (root.SSDNSSheet && root.SSDNSSheet.setConditions) root.SSDNSSheet.setConditions(payload.list || [], payload);
+        releaseOwnReact();
         break;
       case "rest":
         if (root.SSDNSSheet) root.SSDNSSheet.applyRest(payload.kind || "short");
@@ -2735,6 +2737,16 @@
     } finally {
       root.SSDNSReact.castingReaction = false;
     }
+  }
+  function releaseOwnReact() {
+    var R = root.SSDNSReact;
+    if (!R || !R.releaseIfReactor) return;
+    var c = doc() && doc().character;
+    var hp = c ? c.hpCurrent : "";
+    var conds = (c && c.activeConditions) || [];
+    var down = (hp != null && hp !== "" && isFinite(Number(hp)) && Number(hp) <= 0) || (R.cannotReact && R.cannotReact({ hp: hp, conditions: conds }));
+    if (!down) return;
+    R.releaseIfReactor([state.uid], { hp: hp, status: "down", conditions: conds });
   }
   function onReactPrompt(view) {
     var R = root.SSDNSReact;

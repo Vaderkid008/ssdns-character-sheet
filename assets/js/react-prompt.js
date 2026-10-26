@@ -79,13 +79,13 @@
     if (!ent) return false;
     if (ent.down === true || ent.cannotReact === true) return true;
     var st = String(ent.status || "").toLowerCase();
-    if (/^(down|dead|unconscious|dying)$/.test(st)) return true;
+    if (/^(down|dead|unconscious|dying|defeated)$/.test(st)) return true;
     var list = ent.conditions || [];
     var i, raw, name;
     for (i = 0; i < list.length; i++) {
       raw = list[i];
       name = String((raw && (raw.name || raw.label)) || raw || "").toLowerCase();
-      if (/^(unconscious|dead|dying)$/.test(name)) return true;
+      if (/^(unconscious|dead|dying|defeated)$/.test(name)) return true;
     }
     if (ent.noHpPool) return false;
     var hp = ent.hp;
@@ -298,6 +298,30 @@
   var mirrorEl = null;
   var waitEl = null;
   var onChoice = null;
+  var currentModel = null;
+  var releasedPrompt = "";
+  function remember(model, cb) {
+    if (cb) onChoice = cb;
+    if (model) currentModel = model;
+  }
+  /** Drop a card that is already up for this reactor and tell the mover to continue. No click required. */
+  function releaseIfReactor(ids, live) {
+    if (!currentModel && !modalEl && !mirrorEl) return false;
+    var promptId = (currentModel && currentModel.promptId) || (live && live.promptId) || "";
+    if (promptId && releasedPrompt === promptId) return false;
+    var list = [].concat(ids || []);
+    var id = (currentModel && currentModel.reactorId) || "";
+    var pid = (currentModel && currentModel.reactorPlayerId) || "";
+    var mine = !list.length || list.some(function (x) { return x && (x === id || x === pid); });
+    if (!mine) return false;
+    if (live && !cannotReact(live) && !(currentModel && cannotReact(currentModel))) return false;
+    if (!live && currentModel && !cannotReact(currentModel)) return false;
+    releasedPrompt = promptId || "down";
+    var fn = onChoice;
+    close();
+    try { if (fn) fn("pass", { down: true }); } catch (err) {}
+    return true;
+  }
   function closeModal() {
     if (modalEl && modalEl.parentNode) modalEl.parentNode.removeChild(modalEl);
     modalEl = null;
@@ -315,6 +339,7 @@
     closeMirror();
     closeWait();
     onChoice = null;
+    currentModel = null;
   }
   function actionsHtml(model) {
     var attack = "";
@@ -351,8 +376,29 @@
     document.body.appendChild(wrap);
     mirrorEl = wrap;
   }
-  function openModal(model, cb) { onChoice = cb || onChoice; paintModal(model); }
-  function openMirror(model, cb) { onChoice = cb || onChoice; paintMirror(model); }
+  function openModal(model, cb) {
+    if (cannotReact(model)) {
+      remember(model, cb);
+      releaseIfReactor([], model);
+      return;
+    }
+    releasedPrompt = "";
+    remember(model, cb);
+    paintModal(model);
+  }
+  function openMirror(model, cb) {
+    if (cannotReact(model)) {
+      var promptId = (model && model.promptId) || "";
+      if (promptId && releasedPrompt === promptId) return;
+      /* A pass from this corpse may have just opened the next reactor. Leave that card up. */
+      if (currentModel && !cannotReact(currentModel)) return;
+      remember(model, cb);
+      releaseIfReactor([], model);
+      return;
+    }
+    remember(model, cb);
+    paintMirror(model);
+  }
   function openWait(text) {
     closeWait();
     if (typeof document === "undefined" || !document.body) return;
@@ -368,17 +414,23 @@
     if (fn) fn(choice, {});
   }
   if (typeof document !== "undefined") {
+    /* Capture: a later bubble listener, or a dead token's overlay, must not eat Attack or Pass. */
     document.addEventListener("click", function (e) {
       var btn = e.target && e.target.closest && e.target.closest("[data-react-choice]");
       if (!btn || btn.disabled) return;
       if (e.preventDefault) e.preventDefault();
       if (e.stopPropagation) e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
       var picked = btn.getAttribute("data-react-choice") || "pass";
-      try { choose(picked); }
-      catch (err) {
-        if (picked === "pass" || picked === "cancel") close();
+      if (currentModel && cannotReact(currentModel)) {
+        var fn = onChoice;
+        close();
+        try { if (fn) fn("pass", { down: true }); } catch (err) {}
+        return;
       }
-    });
+      try { choose(picked); }
+      catch (err) { close(); }
+    }, true);
     document.addEventListener("keydown", function (e) {
       if (!e || e.key !== "Escape" || (!modalEl && !mirrorEl)) return;
       if (e.preventDefault) e.preventDefault();
@@ -421,6 +473,7 @@
     openWait: openWait,
     close: close,
     closeWait: closeWait,
+    releaseIfReactor: releaseIfReactor,
     gateSpell: gateSpell,
     castingReaction: false
   };
