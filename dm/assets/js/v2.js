@@ -26,6 +26,8 @@ const fight = {
   round: 1,
   turn: 0,
   started: false,
+  /* N75: End combat keeps the roster (and every mapTokenId) but the strip publishes nothing, so free-action does not look like a live fight. */
+  idle: false,
   order: [],
   inspiration: 0,
   updatedAt: "",
@@ -101,6 +103,7 @@ function loadLocalTable() {
     fight.round = raw.round || 1;
     fight.turn = raw.turn || 0;
     fight.started = !!raw.started;
+    if (raw.idle != null) fight.idle = !!raw.idle;
     if (raw.recruit != null) fight.recruit = !!raw.recruit;
     fight.order = raw.order || [];
     fight.inspiration = Number(raw.inspiration) || 0;
@@ -133,7 +136,7 @@ function loadLocalTable() {
 function saveLocalTable() {
   try {
     localStorage.setItem(tableKey(), JSON.stringify({
-      round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: fight.order, inspiration: fight.inspiration,
+      round: fight.round, turn: fight.turn, started: !!fight.started, idle: !!fight.idle, recruit: fight.recruit !== false, order: fight.order, inspiration: fight.inspiration,
       stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, removed: fight.removed || {}, departed: fight.departed || {}, undos: fight.undos || {}, damageMode: fight.damageMode === "approve" ? "approve" : "auto", updatedAt: fight.updatedAt,
       seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
       unlock: fight.unlock || {}, oa: fight.oa || {}, held: fight.held || {},
@@ -506,8 +509,10 @@ async function writeRemoteTableOnce() {
   const fb = DM.state._fb;
   try {
     const first = buildPublish();
+    /* N75: players and the map strip read this order. While idle it is empty; the DM roster (mapTokenId and all) stays local. */
+    const visibleOrder = fight.idle ? [] : first.order;
     await fb.update(DM.roomRef("table"), {
-      initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: first.order,
+      initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: visibleOrder,
         seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
         unlock: fight.unlock || {}, oa: fight.oa || {},
         campaignDay: fight.campaignDay || 1, gunClean: fight.gunClean || {} },
@@ -564,7 +569,9 @@ function applyRemoteTable(v) {
   const stale = remoteAt && localAt && remoteAt + 1500 < localAt;
   if (!stale) {
     if (Array.isArray(init.order)) {
-      if (!(init.order.length === 0 && fight.order.length && !v.updatedAt)) {
+      /* N75: our own save publishes an empty strip while the roster stays here. Do not adopt that empty order. */
+      const keepRoster = !!(fight.idle && init.order.length === 0 && fight.order.length);
+      if (!keepRoster && !(init.order.length === 0 && fight.order.length && !v.updatedAt)) {
         const prev = {};
         fight.order.forEach((row) => { if (row && row.id) prev[row.id] = row; });
         fight.order = init.order.map((row) => {
@@ -1275,12 +1282,13 @@ function renderFight() {
     const portraits = $("#fightPortraits");
     const focus = $("#fightFocus");
     const label = $("#initRound");
+    const visible = !fight.idle && !!(fight.order && fight.order.length);
     if (label) {
       const deck = onDeck();
       const cur = fight.started ? fight.order[fight.turn] : null;
-      label.textContent = fight.started && fight.order.length
+      label.textContent = fight.started && visible
         ? ("Round " + fight.round + (cur && cur.name ? " · " + cur.name : "") + (deck && deck.name ? " · On deck: " + deck.name : ""))
-        : (fight.order.length ? "Round " + fight.round : "");
+        : (visible ? "Round " + fight.round : "");
     }
     renderInspiration();
     const rollAllBtn = $("#btnRollAll");
@@ -1288,13 +1296,17 @@ function renderFight() {
     const rollInitBig = $("#btnRollInitAll");
     if (rollInitBig) rollInitBig.hidden = !!fight.started;
     const endHead = $("#btnEndCombatHead");
-    if (endHead) endHead.hidden = !(fight.started || (fight.order && fight.order.length));
-    if (!fight.order.length) {
-      const empty = '<div class="empty"><b>No turn order</b>Add a player or an example creature. Initiative rolls from joined sheets land here.</div>';
+    if (endHead) endHead.hidden = !!fight.idle || !(fight.started || (fight.order && fight.order.length));
+    if (!visible) {
+      const empty = fight.idle
+        ? '<div class="empty"><b>No fight running</b>Free-action. Tokens stay linked. Roll Initiative for the next fight.</div>'
+        : '<div class="empty"><b>No turn order</b>Add a player or an example creature. Initiative rolls from joined sheets land here.</div>';
       if (list && !(document.activeElement && list.contains(document.activeElement))) list.innerHTML = empty;
       if (strip) strip.innerHTML = "";
       if (portraits) portraits.innerHTML = "";
-      if (focus) focus.innerHTML = '<p class="fight-focus-wait">Add a combatant, roll initiative, then Next.</p>';
+      if (focus) focus.innerHTML = fight.idle
+        ? '<p class="fight-focus-wait">Free-action. Roll Initiative when the next fight starts.</p>'
+        : '<p class="fight-focus-wait">Add a combatant, roll initiative, then Next.</p>';
       fightLogCards();
       paintTurnRules();
       syncTurnState();
@@ -1789,6 +1801,7 @@ function nextTurn() {
   const now = Date.now();
   if (now - turnGate < 600) return;
   syncDamageMode();
+  if (fight.idle) fight.idle = false;
   if (!fight.order.length) { DM.toast("Add someone to the turn order first"); return; }
   turnGate = now;
   const before = window.SSDNSTurn ? window.SSDNSTurn.snapshot(fight) : null;
@@ -6576,6 +6589,7 @@ async function attackRow(i) {
   DM.toast(text);
 }
 function rollAllEnemies() {
+  fight.idle = false;
   const cur = fight.order[fight.turn];
   const curId = cur && cur.id;
   fight.recruit = true;
@@ -6621,6 +6635,8 @@ function rollInitiativeForAll(opts) {
   opts = opts || {};
   const wait = opts.wait != null ? opts.wait : INIT_WAIT_MS;
   const since = Date.now();
+  /* N75: the parked roster is already in fight.order. Showing it again does not ask the DM to re-link. */
+  fight.idle = false;
   fight.recruit = true;
   ensurePlayers();
   const status = $("#rollInitStatus");
@@ -6719,7 +6735,7 @@ function askEndCombat() {
   return new Promise((resolve) => {
     const dlg = document.createElement("dialog");
     dlg.className = "dlg ssdns-ask";
-    dlg.innerHTML = `<form method="dialog"><p>End combat? Tokens and their links stay.</p><label class="toggle">Clear combat conditions <input type="checkbox" id="clearCombatConds" checked></label><p class="fine">Exhaustion stays.</p><div class="dlg-foot"><button class="btn" value="no" type="button">No</button><button class="btn btn-primary" value="yes" type="submit">Yes</button></div></form>`;
+    dlg.innerHTML = `<form method="dialog"><p>End combat? Free-action resumes. Tokens and their links stay.</p><label class="toggle">Clear combat conditions <input type="checkbox" id="clearCombatConds" checked></label><p class="fine">Exhaustion stays.</p><div class="dlg-foot"><button class="btn" value="no" type="button">No</button><button class="btn btn-primary" value="yes" type="submit">Yes</button></div></form>`;
     const finish = (ok) => {
       const box = dlg.querySelector("#clearCombatConds");
       const clear = !!(box && box.checked);
@@ -6762,9 +6778,11 @@ async function endCombat() {
   fight.held = {};
   fight.recruit = false;
   if (choice.clear) await clearCombatConditions();
-  /* N63: the roster and every mapTokenId stay. Ending combat must not unlink tokens. */
+  /* N63: the roster and every mapTokenId stay. Ending combat must not unlink tokens.
+     N75: fight.idle hides that roster from the strip and from table/initiative. Roll Initiative shows the same rows again. */
   /* N65: End Combat forgets last attack targets. Downed tokens stay aimed only while the fight is on. */
   (fight.order || []).forEach((row) => { if (row) delete row.lastTargetId; });
+  fight.idle = true;
   fight.started = false;
   fight.turnCmd = null;
   fight.round = 1;
@@ -8123,6 +8141,7 @@ function clearFight() {
   if (window.SSDNSTurn) window.SSDNSTurn.clearTurnState(fight);
   fight.held = {};
   fight.order = [];
+  fight.idle = false;
   fight.departed = {};
   fight.started = false;
   fight.round = 1;
@@ -8236,6 +8255,7 @@ function enterRoom() {
   fight.round = 1;
   fight.turn = 0;
   fight.started = false;
+  fight.idle = false;
   fight.removed = {};
   fight.departed = {};
   fight.undo = null;
@@ -8301,14 +8321,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.166-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.167-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.166-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.167-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -8833,11 +8853,12 @@ window.SSDNSMapCards = {
     return linkChoiceList();
   },
   initiative() {
+    const rows = fight.idle ? [] : (fight.order || []).filter(Boolean);
     return {
       round: fight.round || 1,
       turn: fight.started ? (fight.turn || 0) : -1,
       started: !!fight.started,
-      order: (fight.order || []).filter(Boolean).map((row) => ({
+      order: rows.map((row) => ({
         id: row.id || "",
         name: row.name || "",
         kind: row.kind || "",
