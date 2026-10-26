@@ -1537,6 +1537,8 @@
         spell: true,
         quiet: false
       });
+      /* Hidden AC returns before the resolved cast. Spend here or the pip never reaches turnMarkers. */
+      if (root.SSDNSActionPips && root.SSDNSActionPips.spell) root.SSDNSActionPips.spell(spellName);
       consumeRollMode();
       pendingDarts = null;
       pendingBlind = false;
@@ -2278,10 +2280,13 @@
         sfx: cue,
         quiet: false
       });
-      /* 0.3.73: a pending (hidden-AC) shot still spends the bonus action for off-hand / Fan, and counts as a pistol attack */
+      /* Hidden AC returns before the resolved attack. Spend the same way that path does, or Action never hits turnMarkers. Off-hand and Fan still take the bonus instead. */
       if (OH && OH.spendPip) OH.spendPip(name);
       else if (FAN && FAN.spend) FAN.spend(name);
-      else if (wpn && wpn.group === "pistol" && root.SSDNSFan && root.SSDNSFan.notePistolAttack) root.SSDNSFan.notePistolAttack();
+      else if (root.SSDNSActionPips && root.SSDNSActionPips.attack) {
+        root.SSDNSActionPips.attack(name + " attack");
+        if (wpn && wpn.group === "pistol" && root.SSDNSFan && root.SSDNSFan.notePistolAttack) root.SSDNSFan.notePistolAttack();
+      } else if (wpn && wpn.group === "pistol" && root.SSDNSFan && root.SSDNSFan.notePistolAttack) root.SSDNSFan.notePistolAttack();
       consumeRollMode();
       return;
     }
