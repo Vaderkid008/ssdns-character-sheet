@@ -103,7 +103,7 @@ act(el, "addTokenBtn").click();
 await flush(20);
 const drawer = act(el, "drawer");
 check("dm.defaultRight", el.classList.contains("ssm-token-dock") && el.classList.contains("ssm-token-right") && !el.classList.contains("ssm-token-left") && drawer && !drawer.classList.contains("placed") && drawer.style.left === "", drawer && drawer.className + " " + el.className);
-check("dm.body", drawer && drawer.textContent.includes("No card linked") && !!act(el, "drawerCollapse") && !!act(el, "drawerReset"));
+check("dm.body", drawer && drawer.textContent.includes("No fight card linked") && !!act(el, "drawerCollapse") && !!act(el, "drawerReset"));
 act(el, "drawerCollapse").click();
 const shut = JSON.parse(w.localStorage.getItem("ssdns.dmCard") || "null");
 check("dm.collapsed", el.classList.contains("ssm-token-shut") && drawer.classList.contains("min") && shut && shut.mode === "dock" && shut.side === "right" && shut.open === false, JSON.stringify(shut));

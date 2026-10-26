@@ -6837,19 +6837,23 @@ async function loadSceneImage(sceneId, opts) {
   function playerMapGate(id, label) {
     if (role !== 'player') return '';
     const cost = mapActionCost(id);
-    if (!cost) return '';
     const P = window.SSDNSActionPips;
-    if (!P || !P.blockMap) return '';
-    const st = P.state ? P.state() : {};
+    const st = P && P.state ? P.state() : {};
     const Lock = window.SSDNSTurnLock;
     const inFight = !!(Lock && Lock.inFight && Lock.inFight());
     const mine = !!(Lock && Lock.myTurn && Lock.myTurn());
-    const gear = /^(reload|tr|unload|reopen):/.test(String(id || ''));
-    if (inFight && !mine) {
-      if (!gear && st.oaArmed && (cost === 'attack' || cost === 'action')) return P.blockMap('reaction', label || 'Opportunity attack');
-      if (cost === 'reaction') return P.blockMap('reaction', label || 'Reaction');
-      return '';
+    const gear = /^(reload|tr|unload|reopen|clean|unjam):/.test(String(id || ''));
+    /* N52: off your turn, during initiative, while the DM has not unlocked it.
+       Gear and every other attack path stop here. Opportunity attacks and reaction spells stay open. */
+    if (inFight && !mine && Lock && Lock.locked && Lock.locked()) {
+      if (!gear && st.oaArmed && (cost === 'attack' || cost === 'action')) return P && P.blockMap ? P.blockMap('reaction', label || 'Opportunity attack') : '';
+      if (cost === 'reaction') return P && P.blockMap ? P.blockMap('reaction', label || 'Reaction') : '';
+      if (Lock.offTurnBlock) return Lock.offTurnBlock(cost === 'attack' ? 'attack' : 'gear');
+      const msg = "It isn't your turn";
+      toast(msg);
+      return msg;
     }
+    if (!cost || !P || !P.blockMap) return '';
     return P.blockMap(cost, label || '');
   }
   function itemByUid(itemUid) {
@@ -6869,6 +6873,8 @@ async function loadSceneImage(sceneId, opts) {
     if (!Items || !Items.useOnSheet) return;
     const item = itemByUid(itemUid);
     const label = (item && item.name) || 'Item';
+    const Lock = window.SSDNSTurnLock;
+    if (role === 'player' && Lock && Lock.offTurnBlock && Lock.offTurnBlock('gear')) return;
     const cost = role === 'player' ? itemMapCost(item) : '';
     if (cost && window.SSDNSActionPips && window.SSDNSActionPips.blockMap && window.SSDNSActionPips.blockMap(cost, label)) return;
     const plan = Items.useOnSheet(itemUid);
@@ -7167,7 +7173,12 @@ async function loadSceneImage(sceneId, opts) {
     const npcUnload = side === 'npc' && a && a.ammo && a.ammo.cap
       ? '<button type="button" data-act="rowUnload" data-wid="' + esc(a.id || '') + '">Unload</button>'
       : '';
-    if (side === 'npc') return npcUnload + modeChecks(a, 'rowAdv', 'rowDis');
+    if (side === 'npc') {
+      const npcTr = a && a.tr
+        ? '<button type="button" data-act="rowTr" data-wid="' + esc(a.id || '') + '" data-gun="' + esc(gi) + '">TR</button>'
+        : '';
+      return npcUnload + npcTr + modeChecks(a, 'rowAdv', 'rowDis');
+    }
     const tr = side === 'row' && a && a.tr
       ? '<button type="button" data-act="rowTr" data-wid="' + esc(a.id || '') + '" data-gun="' + esc(gi) + '">TR</button>'
       : '';
@@ -7709,7 +7720,7 @@ async function loadSceneImage(sceneId, opts) {
       const beasts = (choices.bestiary || []).map(g => group(g.label || 'Bestiary', (g.options || []).map(b => option('beast:' + (b.id || ''), b.name || b.id)).join(''))).join('');
       const custom = choices.customLabel || 'New custom enemy (Bandit)';
       const bare = state.tokens.find(t => t && t.id === tokenId);
-      d.innerHTML = drawerHeadHtml('No card linked') +
+      d.innerHTML = drawerHeadHtml('No fight card linked') +
         '<div class="ssm-drawer-body">' +
         lightDrawerHtml(bare) +
         '<label class="ssm-section" for="ssm-link-pick">Link to…</label>' +
@@ -8699,6 +8710,12 @@ return {
   fxLog: function () { return (state.fxLog || []).slice(); },
   fxAnimating: function () { return !!fxRaf; },
   tokensLoaded: function () { return !!(tokensReady && state.scene); },
+  focusToken: function (id) {
+    const t = state.tokens.find(tok => tok && tok.id === id);
+    if (!t) return '';
+    selectToken(t);
+    return t.id;
+  },
   /* token size: read-only footprints for tests/tools. Same visibility as drawing: players never get hidden tokens. */
   /* B6: the floor this client is drawing, plus occupancy and hit-test on that floor only. */
   viewedScene: function () { return activeSceneId(); },

@@ -22,9 +22,9 @@ const app = read("assets/js/app.js");
 const mapSrc = read("map/ssdns-map.js");
 const css = read("map/ssdns-map.css");
 const sheetCss = read("assets/css/sheet.css");
-check("ver.sheet", version.sheet === "0.3.141" && version.sheetBuild === "sheet-playtest-v03141");
-check("ver.dmcc", version.dmcc === "0.2.154" && version.dmccBuild === "dmcc-playtest-v02154");
-check("ver.app", app.includes('APP_VERSION = "0.3.141"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.154"'));
+check("ver.sheet", version.sheet === "0.3.142" && version.sheetBuild === "sheet-playtest-v03142");
+check("ver.dmcc", version.dmcc === "0.2.155" && version.dmccBuild === "dmcc-playtest-v02155");
+check("ver.app", app.includes('APP_VERSION = "0.3.142"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.155"'));
 check("rules.untouched", !read("database.rules.json").includes("ssdns.dmCard") && !read("assets/data/rules.js").includes("g-gunmelee"));
 
 const toolbar = mapSrc.slice(mapSrc.indexOf("toolbar.innerHTML"), mapSrc.indexOf("el.appendChild(toolbar)"));
@@ -146,7 +146,7 @@ act(el, "chatToggle").click();
 check("chat.restored", !dock.classList.contains("ssm-chat-shut") && act(el, "chatToggle").title === "Minimize chat" && w.localStorage.getItem("ssdns.map.chatOpen.dm") === "1");
 
 const head = el.querySelector(".ssm-drawer-head");
-check("card.reset", !!act(el, "drawerReset") && head && head.textContent.includes("No card linked"));
+check("card.reset", !!act(el, "drawerReset") && head && head.textContent.includes("No fight card linked"));
 pointer(w, head.querySelector("b"), "pointerdown", 40, 40);
 pointer(w, head, "pointermove", 160, 90);
 pointer(w, head, "pointerup", 160, 90);
@@ -166,7 +166,7 @@ const clamped = act(el, "drawer");
 check("card.onscreen", clamped && parseFloat(clamped.style.left) === 540 && parseFloat(clamped.style.top) === 280, clamped && clamped.style.left + "," + clamped.style.top);
 act(el, "drawerReset").click();
 check("card.resetClears", !clamped.classList.contains("placed") && clamped.style.left === "" && clamped.style.top === "" && w.localStorage.getItem("ssdns.dmCard") == null);
-check("card.staysOpen", !!act(el, "drawer") && act(el, "drawer").textContent.includes("No card linked"));
+check("card.staysOpen", !!act(el, "drawer") && act(el, "drawer").textContent.includes("No fight card linked"));
 api.destroy();
 
 const pw = makeWindow();

@@ -91,6 +91,21 @@
     if (why) toast(why);
     return why;
   }
+  /** N52: Gear and other sheet calls that never hit a locked button.
+      "" means the action may go ahead. Players only — a DM command sets SSDNSApp._dmCmd
+      (or SSDNSGunRoll._dm). Outside initiative, on your turn, and while the DM has unlocked
+      this turn, this stays "". An approved opportunity attack and a reaction stay open. */
+  function offTurnBlock(kind) {
+    if (root.SSDNSApp && root.SSDNSApp._dmCmd) return "";
+    if (root.SSDNSGunRoll && root.SSDNSGunRoll._dm) return "";
+    if (!inFight() || myTurn() || !locked()) return "";
+    var m = marks();
+    if ((kind === "attack" || kind === "action") && m.oaArmed && !m.reaction) return "";
+    if (kind === "reaction") return "";
+    var msg = "It isn't your turn";
+    toast(msg);
+    return msg;
+  }
 
   /* ---- grey out, and stop the click even if a repaint lost the class ---- */
   var painting = false;
@@ -319,7 +334,7 @@
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
   }
   root.SSDNSTurnLock = {
-    apply: apply, locked: locked, myTurn: myTurn, inFight: inFight, reason: reason, blockedAction: blockedAction,
+    apply: apply, locked: locked, myTurn: myTurn, inFight: inFight, reason: reason, blockedAction: blockedAction, offTurnBlock: offTurnBlock,
     checkOa: checkOa, askOa: askOa, move: doMove, act: doAct, cancelAct: cancelAct, speed: speed,
     onTurn: function () { checkOa(); apply(); }
   };

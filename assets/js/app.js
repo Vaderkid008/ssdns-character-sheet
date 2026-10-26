@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.141"; // sheet-playtest-v03141
+  var APP_VERSION = "0.3.142"; // sheet-playtest-v03142
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -2854,6 +2854,7 @@
     if (bits.length) toast("Unloaded " + bits.join(", ") + ".");
   }
   function unloadLoaded(i) {
+    if (offTurnStop("gear")) return;
     var g = C().guns[i], w = g && WPN[g.weapon];
     if (!w || !w.capacity) { toast("Pick a gun first."); return; }
     var a = normChambers(g, w);
@@ -3238,7 +3239,12 @@
     spend(out === true || gunKey(i) !== before);
     return out;
   }
+  function offTurnStop(kind) {
+    var Lock = window.SSDNSTurnLock;
+    return !!(Lock && Lock.offTurnBlock && Lock.offTurnBlock(kind || "gear"));
+  }
   function reload(i, max) {
+    if (offTurnStop("gear")) return;
     var g = C().guns[i], w = WPN[g.weapon];
     if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
     if (d4Pending(g)) { toast("Roll the d4 first."); return; }
@@ -3255,7 +3261,6 @@
       var CRr = window.SSDNSCasterRules;
       if (CRr && (C().ammo || []).some(function (a) { return num(a.count) > 0 && CRr.shellBlock(w, g, a); })) msg += ". " + CRr.SHELL_NOTE;
       toast(msg);
-      if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: (w.name || "Gun") + ": " + msg });
       return;
     }
     var picked = chosenAmmoPool(i, g, w);
@@ -3276,6 +3281,7 @@
     return true;
   }
   function tacticalReload(i) {
+    if (offTurnStop("gear")) return;
     if (fanTrLocked()) return;
     var g = C().guns[i], w = WPN[g.weapon];
     if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
@@ -3308,6 +3314,7 @@
     toast("Loaded a level-" + lvl + " hex shell. The slot is spent. Cast through gun fires it as a spell attack.");
   }
   function loadHexShell(i) {
+    if (offTurnStop("gear")) return;
     var g = C().guns[i], w = WPN[g.weapon];
     if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
     if (!w || !w.hexShells) return;
@@ -3619,12 +3626,14 @@
     });
   }
   function unjamGun(i) {
+    if (offTurnStop("gear")) return Promise.resolve(false);
     var g = C().guns[i];
     if (!g || !g.weapon) { toast("Pick a gun first."); return Promise.resolve(false); }
     if (!g.jammed) { toast("This gun isn't jammed."); return Promise.resolve(false); }
     return applyCleanOption(i, "unjam");
   }
   function reopenChamber(i) {
+    if (offTurnStop("gear")) return Promise.resolve(false);
     var g = C().guns[i];
     if (!g || !g.weapon) { toast("Pick a gun first."); return false; }
     if ((C().feats || []).indexOf("muzzleloader") < 0) { toast("Reopen chamber needs the Muzzleloader feat."); return false; }
@@ -3722,6 +3731,7 @@
     });
   }
   function cleanGun(i) {
+    if (offTurnStop("gear")) return Promise.resolve(false);
     var g = C().guns[i];
     if (!g || !g.weapon) { toast("Pick a gun first."); return Promise.resolve(false); }
     if (d4Pending(g)) { toast("Roll the d4 first."); return Promise.resolve(false); }

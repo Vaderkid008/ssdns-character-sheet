@@ -145,7 +145,7 @@ check("empty.tools", !!(act(dm.el, "pingBtn") && act(dm.el, "rulerBtn") && act(d
 act(dm.el, "pingBtn").click();
 act(dm.el, "addTokenBtn").click();
 await flush(20);
-check("empty.drawer", !!act(dm.el, "drawer") && act(dm.el, "drawer").textContent.includes("No card linked"), act(dm.el, "drawer") && act(dm.el, "drawer").textContent);
+check("empty.drawer", !!act(dm.el, "drawer") && act(dm.el, "drawer").textContent.includes("No fight card linked"), act(dm.el, "drawer") && act(dm.el, "drawer").textContent);
 check("empty.openEvent", events.some((e) => e.name === "drawer:open"));
 act(dm.el, "drawerClose").click();
 check("empty.close", !act(dm.el, "drawer") && events.some((e) => e.name === "drawer:close"));
@@ -327,7 +327,7 @@ if (actionBtn) actionBtn.click();
 check("action.run", events.some((e) => e.name === "action:run"));
 
 check("leak.noDrawer", !player.el.querySelector(".ssm-drawer") && playerCardCalls === 0, "calls " + playerCardCalls);
-check("leak.noCardText", !player.el.innerHTML.includes("Ball n Cap") && !player.el.innerHTML.includes("No card linked"));
+check("leak.noCardText", !player.el.innerHTML.includes("Ball n Cap") && !player.el.innerHTML.includes("No fight card linked"));
 check("leak.noHiddenName", !player.el.textContent.includes("Bandit 1"));
 
 table.api.refreshCard("tok_jolene");

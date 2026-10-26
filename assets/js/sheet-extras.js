@@ -1393,6 +1393,8 @@
   function focusBlocked() { return !!(root.SSDNSFocus && root.SSDNSFocus.gate && root.SSDNSFocus.gate()); }
   function castSpellAttack(i, spellName, slot, fromChamber) {
     if (focusBlocked()) return;
+    var spellKind = root.SSDNSActionPips && root.SSDNSActionPips.spellCost && root.SSDNSActionPips.spellCost(spellName) === "reaction" ? "reaction" : "action";
+    if (root.SSDNSTurnLock && root.SSDNSTurnLock.offTurnBlock && root.SSDNSTurnLock.offTurnBlock(spellKind)) return;
     /* A spent Reaction does not roll. Action and bonus spells still warn and roll from the sheet. */
     if (root.SSDNSActionPips && root.SSDNSActionPips.spellCost && root.SSDNSActionPips.blockMap && root.SSDNSActionPips.spellCost(spellName) === "reaction") {
       if (root.SSDNSActionPips.blockMap("reaction", "Casting " + (spellName || "a spell"))) return;
@@ -1735,6 +1737,7 @@
     return { level: level, name: name, slot: slot };
   }
   function castThroughGun(i) {
+    if (root.SSDNSTurnLock && root.SSDNSTurnLock.offTurnBlock && root.SSDNSTurnLock.offTurnBlock("gear")) return;
     if (focusBlocked()) return;
     var c = ch();
     if (!c || !c.guns || !c.guns[i] || !c.guns[i].weapon) { toast("Pick a gun first"); return; }
@@ -2002,6 +2005,7 @@
     return misEl && misEl.textContent;
   }
   function rollGun(i, chamber) {
+    if (root.SSDNSTurnLock && root.SSDNSTurnLock.offTurnBlock && root.SSDNSTurnLock.offTurnBlock("attack")) return;
     if (chamber != null) rollGun._chamber = chamber;
     /* 0.3.61: a shot the DM sent while acting for this player. The DM already picked the target and the
        Adv/Dis mode and answered the disadvantage confirm, so this sheet never prompts for it. */
@@ -3112,6 +3116,7 @@
     return null;
   }
   function rollGunMelee(i) {
+    if (root.SSDNSTurnLock && root.SSDNSTurnLock.offTurnBlock && root.SSDNSTurnLock.offTurnBlock("attack")) return;
     var c = ch();
     var g = c && c.guns && c.guns[i];
     if (!g || !g.weapon) { toast("Pick a gun first"); return; }

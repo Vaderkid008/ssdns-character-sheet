@@ -2004,7 +2004,17 @@
     var app = root.SSDNSApp;
     if (!app) return;
     var pip = gunCommandPip(payload);
-    if (pip && root.SSDNSActionPips && root.SSDNSActionPips.blockMap && root.SSDNSActionPips.blockMap(pip.cost, pip.what)) return;
+    /* N60: a DM command still runs when the pip is spent. The DM toasts. This sheet does not hard-block or write a chat line. */
+    if (root.SSDNSActionPips) root.SSDNSActionPips._dmAllow = true;
+    if (app) app._dmCmd = true;
+    try { applyGunCommandNow(payload, id, pip); }
+    finally {
+      if (root.SSDNSActionPips) root.SSDNSActionPips._dmAllow = false;
+      if (app) app._dmCmd = false;
+    }
+  }
+  function applyGunCommandNow(payload, id, pip) {
+    var app = root.SSDNSApp;
     if (payload.op === "rechamber" && app.rechamberGun) {
       var rc = app.rechamberGun(payload.index, String(payload.chamber || ""), { free: true });
       if (rc && !rc.ok && root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "DM rechamber failed: " + rc.reason });
@@ -2012,19 +2022,8 @@
     }
     if (payload.op === "unload" && app.unloadGunIndex) app.unloadGunIndex(payload.index);
     else if (payload.op === "reload" && app.reloadGun) {
-      var docNow = app.doc && app.doc();
-      var gunsNow = docNow && docNow.character && docNow.character.guns;
-      var beforeGun = gunsNow && gunsNow[payload.index];
-      var beforeKey = beforeGun ? String(beforeGun.loaded) + ":" + (beforeGun.chambers || []).join("|") : "";
+      /* N51: an empty reload toasts on the sheet. No chat line and no table-log alert. */
       app.reloadGun(payload.index, payload.max);
-      var afterGun = gunsNow && gunsNow[payload.index];
-      var afterKey = afterGun ? String(afterGun.loaded) + ":" + (afterGun.chambers || []).join("|") : "";
-      if (beforeKey === afterKey && root.SSDNSApplied && root.SSDNSApplied.ammoFailText) {
-        var whoName = (docNow.character && docNow.character.name) || "Player";
-        var failText = root.SSDNSApplied.ammoFailText(whoName, afterGun || beforeGun || {});
-        postChat({ text: failText });
-        if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: failText });
-      }
     }
     else if (payload.op === "set" && app.applyPatch) {
       app.applyPatch(function (doc) {

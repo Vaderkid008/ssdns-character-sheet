@@ -791,7 +791,12 @@
     if (name === "bestiary:place") {
       var placer = root.SSDNSMapFight;
       if (placer && typeof placer.placeBeast === "function") {
-        try { Promise.resolve(placer.placeBeast(detail)); } catch (e4) {}
+        try {
+          Promise.resolve(placer.placeBeast(detail)).then(function (tokenId) {
+            if (tokenId && map && typeof map.focusToken === "function") map.focusToken(tokenId);
+            else if (tokenId && map && map.refreshCard) map.refreshCard(tokenId);
+          }, function () {});
+        } catch (e4) {}
       }
       return;
     }

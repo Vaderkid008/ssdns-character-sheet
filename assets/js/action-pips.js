@@ -69,7 +69,7 @@
     if (list.indexOf("action") >= 0 && !used.length) st.actionBy = "other";
     if (list.indexOf("action") >= 0) st.actUndo = ""; /* Turn UX on the map: the Action went to something else, so no cancel */
     save(); paint();
-    if (used.length) warn(what, cost, used);
+    if (used.length && !(root.SSDNSActionPips && root.SSDNSActionPips._dmAllow)) warn(what, cost, used);
     return { over: used.length > 0, cost: cost };
   }
 
@@ -120,8 +120,10 @@
       var msg = st.actionBy === "attack"
         ? label + ": that's attack " + st.attacks + ", and your Attack action allows " + limit + ". Done anyway; the DM can allow it."
         : label + " costs your action, and you already used your action this turn. Done anyway; the DM can allow it.";
-      toast(msg);
-      if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: msg });
+      if (!(root.SSDNSActionPips && root.SSDNSActionPips._dmAllow)) {
+        toast(msg);
+        if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: msg });
+      }
     }
     save(); paint();
     return { over: over, attacks: st.attacks, limit: limit };

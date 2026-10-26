@@ -2292,7 +2292,7 @@ function openDmReactionMenu(anchor, row) {
   if (dmReactMenu && dmReactAnchor === anchor) { closeDmReactionMenu(); return; }
   closeDmReactionMenu();
   const m = markersOfRow(row);
-  if (m && m.reaction) { dmReactionSpentToast(); return; }
+  if (m && m.reaction) DM.toast("Reaction already used.");
   const spells = tokenReactionSpells(row);
   const armed = !!(m && m.oaArmed);
   const oaSub = armed
@@ -2316,18 +2316,18 @@ function openDmReactionMenu(anchor, row) {
 function onDmReactionPip(btn) {
   const row = rowForReactPip(btn);
   if (!row || !dmRunsToken(row)) return false;
-  const m = markersOfRow(row);
-  if (m && m.reaction) { dmReactionSpentToast(); return true; }
   openDmReactionMenu(btn, row);
   return true;
 }
 function armDmOpportunity(row) {
   const m = markersOfRow(row);
   if (!m) return;
-  if (m.reaction) { dmReactionSpentToast(); return; }
   const who = row.name || (row.kind === "player" ? "them" : "this enemy");
+  const over = !!m.reaction;
+  const overLine = who + " already used a reaction this turn. Done anyway; you can allow it.";
   if (m.oaArmed) {
     DM.toast("Opportunity attack ready for " + who + ". The next attack uses their reaction, not their action.");
+    if (over) DM.toast(overLine);
     return;
   }
   const id = "dm_oa_" + Date.now().toString(36);
@@ -2341,6 +2341,7 @@ function armDmOpportunity(row) {
     renderFight();
   }
   DM.toast("Opportunity attack ready for " + who + ". One attack uses their reaction, not their action.");
+  if (over) DM.toast(overLine);
 }
 async function markDmReaction(row) {
   const m = markersOfRow(row);
@@ -2406,8 +2407,10 @@ async function castDmRunSpell(row, name, level) {
 function spendPlayerReaction(row) {
   const m = markersOfRow(row);
   if (!m) return false;
+  const over = !!m.reaction;
   m.reaction = true;
   writePlayerMarkers(row.playerId || row.id, m, "", ["reaction"]);
+  if (over) DM.toast((row.name || "They") + " already used a reaction this turn. Done anyway; you can allow it.");
   return true;
 }
 /* The DM's next attack for this PC carries the armed OA so the sheet spends Reaction, not Action.
@@ -2430,8 +2433,6 @@ function enemySpellIndex(row, name) {
   return list.findIndex((s) => enemySpellBase(typeof s === "string" ? s : (s && (s.name || s.id))) === want);
 }
 async function castDmReactionSpell(row, name, level) {
-  const m = markersOfRow(row);
-  if (m && m.reaction) { dmReactionSpentToast(); return; }
   if (!name) { DM.toast("No spell"); return; }
   if (row.kind !== "player") {
     /* Load the stat block only when this spell is not already on the card.
@@ -2593,8 +2594,10 @@ function toggleEnemyAct(kind) {
     if (m.actionBy === kind) { m.action = false; m.actionBy = ""; }
     DM.toast("Cancelled " + label + " for " + (cur.name || "the enemy"));
   } else if (m.action) {
-    DM.toast(label + " needs the Action, and " + (cur.name || "this enemy") + " has already used it.");
-    return;
+    m.action = true;
+    m.actionBy = kind;
+    m[kind] = true;
+    DM.toast(label + " needs the Action, and " + (cur.name || "this enemy") + " already used it this turn. Done anyway; you can allow it.");
   } else {
     m.action = true;
     m.actionBy = kind;
@@ -2652,7 +2655,7 @@ function movementBudgetForToken(token) {
 function setEnemySpeed(detail) {
   detail = detail || {};
   const i = mapFightIndex(detail);
-  if (i < 0) { DM.toast("No card linked"); return false; }
+  if (i < 0) { DM.toast("No fight card linked"); return false; }
   const row = fight.order[i];
   if (!row || row.kind === "player") return false;
   const n = parseInt(detail.speed, 10);
@@ -3358,8 +3361,17 @@ function syncGearAttacks(row) {
   if (!row || !EL || typeof EL.syncAttacks !== "function") return;
   try { EL.syncAttacks(row); } catch (e) {}
 }
+function stampAttackTr(list) {
+  const allows = window.SSDNSApplied && window.SSDNSApplied.gunAllowsTactical;
+  (list || []).forEach((a) => {
+    if (!a || a.tr === true || a.tr === false) return;
+    a.tr = allows ? !!allows(a) : false;
+  });
+}
 function ensureCombatantCard(row) {
   if (!row || row.kind === "player" || !window.SSDNSApplied || !window.SSDNSApplied.enemyCardModel) return;
+  stampAttackTr(row.attackList);
+  stampAttackTr(row.card && row.card.attacks);
   normalizeAttackMisfires(row.card && row.card.attacks);
   normalizeAttackMisfires(row.attackList);
   const beast = beastRecord(row.beastId);
@@ -3413,7 +3425,15 @@ function beastRow(b) {
     atkBonus: stats.atkBonus,
     damage: stats.damage,
     attacks: stats.attacks || b.attacks || "",
-    attackList: b.attackList || [],
+    attackList: (b.attackList || []).map((a) => {
+      if (!a) return a;
+      const copy = Object.assign({}, a);
+      if (copy.tr == null || copy.tr === "") {
+        const allows = window.SSDNSApplied && window.SSDNSApplied.gunAllowsTactical;
+        copy.tr = allows ? !!allows(copy) : false;
+      }
+      return copy;
+    }),
     speed: b.speed,
     cr: b.cr,
     size: b.size || "Medium", /* token size: Large 2x2, Huge 3x3, Gargantuan 4x4 on the map */
@@ -7408,14 +7428,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.154-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.155-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.154-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.155-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -8175,6 +8195,14 @@ function drawerPipCost(snap, atk, op, max) {
   if (calling === "gunslinger" && level >= 3 && !heavyRb) return { cost: "bonus", what: "Reload" };
   return { cost: "action", what: "Reload" };
 }
+function echoPipWarn(row) {
+  if (!row || !row._pipWarn) return;
+  const line = row._pipWarn;
+  row._pipWarn = "";
+  DM.toast(line);
+}
+/* N60: the DM still runs the action. The fading toast is the only notice — no chat, no ledger.
+   Players' own map clicks stay on SSDNSActionPips.blockMap. */
 function drawerPipBlock(row, atk, op, max) {
   if (!row || row.kind !== "player") return "";
   const pid = row.playerId || row.id;
@@ -8187,13 +8215,59 @@ function drawerPipBlock(row, atk, op, max) {
   else if (spec.cost === "bonus") reason = m.bonus ? "Bonus action already used." : "";
   else if (spec.cost === "action") reason = m.action ? "Action already used." : "";
   if (!reason) return "";
-  const line = (row.name || "Player") + ": " + reason + " " + spec.what + " was not rolled.";
+  const line = (row.name || "Player") + ": " + reason + " " + spec.what + " still goes through. Done anyway; you can allow it.";
+  row._pipWarn = line;
+  DM.toast(line);
+  return "";
+}
+function playerAttackLimit(pid) {
+  const snap = playerSnapshot(pid) || {};
+  const R = window.SSDNS_RULES;
+  const calling = snap.calling || snap.callingId || "";
+  const lv = Math.max(1, parseInt(snap.level, 10) || 1);
+  if (!R || !Array.isArray(R.callings)) return 1;
+  const cal = R.callings.filter((x) => x && x.id === calling)[0];
+  const words = { twice: 2, two: 2, three: 3, four: 4 };
+  let best = 1;
+  ((cal && cal.features) || []).forEach((f) => {
+    const text = String((f && f.text) || "");
+    const hit = text.match(/attack (twice|two times|three times|four times) per attack action/i);
+    if (!hit || !/extra attack/i.test(String(f.name || ""))) return;
+    const startM = String(f.name || "").match(/(\d+)(?:st|nd|rd|th)/);
+    const start = startM ? parseInt(startM[1], 10) : 5;
+    if (lv < start) return;
+    let n = words[hit[1].split(" ")[0].toLowerCase()] || 2;
+    const re = /(\d) times at (\d+)(?:st|nd|rd|th)/gi;
+    let k;
+    while ((k = re.exec(text))) if (lv >= parseInt(k[2], 10)) n = Math.max(n, parseInt(k[1], 10));
+    best = Math.max(best, n);
+  });
+  return best;
+}
+function notePlayerPip(row, cost, what) {
+  if (!row || row.kind !== "player") return "";
+  const pid = row.playerId || row.id;
+  const m = playerMarkers(pid);
+  if (!m) return "";
+  let spent = false;
+  if (cost === "bonus") spent = !!m.bonus;
+  else if (cost === "reaction") spent = !!m.reaction;
+  else if (cost === "full") spent = !!(m.action || m.bonus);
+  else if (cost === "attack") {
+    const n = parseInt(m.attacks, 10) || 0;
+    const limit = playerAttackLimit(pid);
+    spent = !!m.action && !(m.actionBy === "attack" && n < limit);
+  } else spent = !!m.action;
+  if (!spent) return "";
+  const costWord = cost === "bonus" ? "a bonus action" : (cost === "reaction" ? "a reaction" : (cost === "full" ? "an action and a bonus action" : "an action"));
+  const line = (what || "That") + " costs " + costWord + ", and " + (row.name || "they") + " already used it this turn. Done anyway; you can allow it.";
+  row._pipWarn = line;
   DM.toast(line);
   return line;
 }
 async function mapGunLoad(detail, unload) {
   const i = mapFightIndex(detail);
-  if (i < 0) { DM.toast("No card linked"); return false; }
+  if (i < 0) { DM.toast("No fight card linked"); return false; }
   const row = fight.order[i];
   if (row.kind === "player") ensurePlayerAttacks(row);
   else ensureCombatantCard(row);
@@ -8215,7 +8289,7 @@ async function mapGunLoad(detail, unload) {
         const fail = window.SSDNSApplied && window.SSDNSApplied.ammoFailText
           ? window.SSDNSApplied.ammoFailText(row.name, atk)
           : (row.name || "Player") + ": no rounds left to reload";
-        logTableAlert(fail);
+        DM.toast(fail);
         return false;
       }
     } else if (!((Number(atk.loaded) || 0) > 0)) {
@@ -8229,6 +8303,7 @@ async function mapGunLoad(detail, unload) {
     await saveRemoteTable();
     renderFight();
     DM.toast((unload ? "Unloaded " : "Reloaded ") + (atk.name || "weapon"));
+    echoPipWarn(row);
     return true;
   }
   if (atk.capacity == null) { DM.toast("That weapon doesn't load"); return false; }
@@ -8240,7 +8315,9 @@ async function mapGunLoad(detail, unload) {
   } else {
     const cap = enemyOpenChambers(atk); /* M2: a locked chamber can't be loaded (same rule as the sheet) */
     const need = Math.max(0, cap - (Number(atk.loaded) || 0));
+    if (!need) { DM.toast((atk.name || "Gun") + " is already full."); return false; }
     const spare = Number(atk.spare);
+    if (isFinite(spare) && spare <= 0) { DM.toast("No ammo for this caliber"); return false; }
     const take = isFinite(spare) ? Math.min(need, Math.max(0, spare)) : need;
     const tracked = Array.isArray(atk.chambers) && atk.chambers.length === (Number(atk.capacity) || 0);
     if (tracked) enemyFill(atk, take);
@@ -8250,6 +8327,7 @@ async function mapGunLoad(detail, unload) {
   await saveRemoteTable();
   renderFight();
   DM.toast((unload ? "Unloaded " : "Reloaded ") + (atk.name || "weapon"));
+  echoPipWarn(row);
   return true;
 }
 /* 0.3.61: the sheet slot a DM gun command must hit. gunIndex is only the position among named guns. */
@@ -8299,10 +8377,38 @@ async function dmFireMode(pid, atk) {
   }
   return mode;
 }
+async function mapEnemyTr(row, detail) {
+  ensureCombatantCard(row);
+  const n = mapAttackIndex(row, detail && detail.weaponId);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk) { DM.toast("No weapon"); return false; }
+  if (!atk.tr) { DM.toast("This gun can't Tactical Reload (TR —)."); return false; }
+  const open = enemyOpenChambers(atk);
+  const loaded = Number(atk.loaded) || 0;
+  const need = Math.max(0, Math.min(1, open - loaded));
+  if (!need) { DM.toast((atk.name || "Gun") + " is already full."); return false; }
+  const spare = Number(atk.spare);
+  if (isFinite(spare) && spare <= 0) { DM.toast("No ammo for this caliber"); return false; }
+  const spent = await spendEnemyPip(row, "bonus", "Tactical Reload");
+  const got = isFinite(spare) ? Math.min(need, Math.max(0, spare)) : need;
+  const cap = Number(atk.capacity) || 0;
+  const tracked = Array.isArray(atk.chambers) && atk.chambers.length === cap;
+  if (tracked) enemyFill(atk, got);
+  else atk.loaded = loaded + got;
+  if (isFinite(spare)) atk.spare = spare - got;
+  const listed = (row.attackList || []).find((a) => a && (a.id === atk.id || a.name === atk.name));
+  if (listed) { listed.tr = true; listed.loaded = atk.loaded; if (isFinite(spare)) listed.spare = atk.spare; }
+  await saveRemoteTable();
+  renderFight();
+  DM.toast("Tactical Reload " + (atk.name || "weapon") + " +" + got);
+  if (spent && spent.warn) DM.toast(spent.warn);
+  return true;
+}
 async function mapGunChoice(detail, op, extra) {
   const i = mapFightIndex(detail);
-  if (i < 0) { DM.toast("No card linked"); return false; }
+  if (i < 0) { DM.toast("No fight card linked"); return false; }
   const row = fight.order[i];
+  if (row && row.kind !== "player" && op === "tr") return mapEnemyTr(row, detail);
   if (!row || row.kind !== "player" || !row.dmActsAs) { DM.toast("The player acts for themselves"); return false; }
   ensurePlayerAttacks(row);
   const n = mapAttackIndex(row, detail && detail.weaponId);
@@ -8331,11 +8437,12 @@ async function mapGunChoice(detail, op, extra) {
   ensurePlayerAttacks(row);
   await saveRemoteTable();
   renderFight();
+  echoPipWarn(row);
   return true;
 }
 async function mapGunClean(detail) {
   const i = mapFightIndex(detail);
-  if (i < 0) { DM.toast("No card linked"); return false; }
+  if (i < 0) { DM.toast("No fight card linked"); return false; }
   const row = fight.order[i];
   if (row && row.kind !== "player") return mapEnemyGunTool(detail, "clean"); /* M2 */
   if (!row || row.kind !== "player" || !row.dmActsAs) { DM.toast("The player acts for themselves"); return false; }
@@ -8369,7 +8476,7 @@ async function mapGunClean(detail) {
 /* 0.3.61: map drawer Unjam / Reopen chamber while the DM acts for a player (they were never routed). */
 async function mapGunFix(detail, op) {
   const i = mapFightIndex(detail);
-  if (i < 0) { DM.toast("No card linked"); return false; }
+  if (i < 0) { DM.toast("No fight card linked"); return false; }
   const row = fight.order[i];
   if (row && row.kind !== "player" && op === "unjam") return mapEnemyUnjam(row, detail);
   if (row && row.kind !== "player" && op === "reopen") return mapEnemyGunTool(detail, "reopen"); /* M2 */
@@ -8399,6 +8506,7 @@ async function mapGunFix(detail, op) {
   await saveRemoteTable();
   renderFight();
   DM.toast(op === "unjam" ? name + ": unjammed." : name + ": reopen chamber sent.");
+  echoPipWarn(row);
   return true;
 }
 /* ---- Mech PR A (M2 / M4): DM gun tools on enemy and NPC-ally guns ----
@@ -8635,7 +8743,7 @@ async function enemyGunLock(row, atk, chamber) {
 }
 async function mapEnemyGunTool(detail, op) {
   const i = mapFightIndex(detail);
-  if (i < 0) { DM.toast("No card linked"); return false; }
+  if (i < 0) { DM.toast("No fight card linked"); return false; }
   const row = fight.order[i];
   if (!row || row.kind === "player") { DM.toast("Only for enemy and NPC guns"); return false; }
   ensureCombatantCard(row);
@@ -8696,7 +8804,7 @@ function mapSpellIndex(row, spellId) {
 }
 async function mapGunChamber(detail) {
   const i = mapFightIndex(detail);
-  if (i < 0) { DM.toast("No card linked"); return false; }
+  if (i < 0) { DM.toast("No fight card linked"); return false; }
   const row = fight.order[i];
   const k = Number(detail && detail.chamber);
   if (!isFinite(k) || k < 0) return false;
@@ -9214,7 +9322,7 @@ async function runGrab(actor, mode, preset) {
 function runGrabFromMap(detail, mode) {
   detail = detail || {};
   const i = mapFightIndex(detail);
-  if (i < 0) { DM.toast("No card linked"); return Promise.resolve(false); }
+  if (i < 0) { DM.toast("No fight card linked"); return Promise.resolve(false); }
   const actor = fight.order[i];
   const targetIndex = mapFightIndex({ combatantId: detail.targetCombatantId, tokenId: detail.targetTokenId });
   const target = targetIndex >= 0 ? fight.order[targetIndex] : null;
@@ -9333,7 +9441,7 @@ window.SSDNSMapFight = {
   async attack(detail) {
     detail = detail || {};
     const i = mapFightIndex(detail);
-    if (i < 0) { DM.toast("No card linked"); return false; }
+    if (i < 0) { DM.toast("No fight card linked"); return false; }
     const row = fight.order[i];
     if (detail.free || detail.targetCombatantId === FREE_SHOT_ID) return mapFreeShot(i, row, detail);
     const targetIndex = mapFightIndex({ combatantId: detail.targetCombatantId, tokenId: detail.targetTokenId });
@@ -9364,10 +9472,12 @@ window.SSDNSMapFight = {
       if (detail.chamber != null && detail.chamber !== "" && isFinite(Number(detail.chamber))) payload.chamber = Number(detail.chamber);
       if (targetId) payload.targetId = targetId;
       takeDmPlayerOpportunity(row, payload);
+      notePlayerPip(row, detail.offhand || detail.fan ? "bonus" : (payload.oa ? "reaction" : "attack"), atk.name || "Attack");
       await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
       if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
       if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
       ensurePlayerAttacks(row);
+      echoPipWarn(row);
       return true;
     }
     ensureCombatantCard(row);
@@ -9384,7 +9494,7 @@ window.SSDNSMapFight = {
   async cast(detail) {
     detail = detail || {};
     const i = mapFightIndex(detail);
-    if (i < 0) { DM.toast("No card linked"); return false; }
+    if (i < 0) { DM.toast("No fight card linked"); return false; }
     const row = fight.order[i];
     const targetIndex = mapFightIndex({ combatantId: detail.targetCombatantId, tokenId: detail.targetTokenId });
     const target = targetIndex >= 0 ? fight.order[targetIndex] : null;
@@ -9395,7 +9505,11 @@ window.SSDNSMapFight = {
       const self = targetId === combatantKey(row) || targetId === String(row.id || "") || (row.playerId && targetId === String(row.playerId));
       const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(detail.spellId) : null;
       if (self && listedKind({ kind: known && known.kind }, known) !== "heal") { DM.toast("Pick a different token"); return false; }
-      return rollSpellAt(row, detail.spellId, targetId);
+      const spellCost = window.SSDNSActionPips && window.SSDNSActionPips.spellCost ? window.SSDNSActionPips.spellCost(detail.spellId) : "action";
+      notePlayerPip(row, spellCost, "Casting " + (detail.spellId || "a spell"));
+      const casted = await rollSpellAt(row, detail.spellId, targetId);
+      echoPipWarn(row);
+      return casted;
     }
     ensureCombatantCard(row);
     const n = mapSpellIndex(row, detail.spellId);
@@ -9438,7 +9552,7 @@ window.SSDNSMapFight = {
   async hp(detail) {
     detail = detail || {};
     const i = mapFightIndex(detail);
-    if (i < 0) { DM.toast("No card linked"); return false; }
+    if (i < 0) { DM.toast("No fight card linked"); return false; }
     const row = fight.order[i];
     if (detail.set != null && detail.set !== "" && isFinite(Number(detail.set))) {
       await mapAssignHp(row, Number(detail.set));
@@ -9452,7 +9566,7 @@ window.SSDNSMapFight = {
   async condition(detail) {
     detail = detail || {};
     const i = mapFightIndex(detail);
-    if (i < 0) { DM.toast("No card linked"); return false; }
+    if (i < 0) { DM.toast("No fight card linked"); return false; }
     const row = fight.order[i];
     if (!detail.condition) {
       askRowConditions(i);
@@ -9508,14 +9622,20 @@ window.SSDNSMapFight = {
       const cost = detail.cost || item.actionCost || item.cost || "action";
       return spendEnemyPip(row, cost, "Use " + (item.name || "item"), { oa: !!(detail.oa || detail.reaction) }).then(() => true);
     }
-    /* The player's own sheet spends once when the item_use command lands. Do not spend here. */
+    /* The player's own sheet spends once when the item_use command lands. Do not spend here.
+       N60: if that pip is already gone, the DM still sends it and only sees a fading toast. */
     const pid = row && row.kind === "player" ? (row.playerId || row.id) : "";
     if (!pid || !detail.itemUid) { DM.toast("No item"); return Promise.resolve(false); }
-    return DM.pushCommand({ type: "item_use", to: pid, payload: { uid: detail.itemUid }, from: DM.state.uid });
+    const itemCost = String(detail.cost || "action").toLowerCase();
+    notePlayerPip(row, itemCost === "bonus" || itemCost === "reaction" || itemCost === "full" ? itemCost : "action", "Use item");
+    return DM.pushCommand({ type: "item_use", to: pid, payload: { uid: detail.itemUid }, from: DM.state.uid }).then(() => {
+      echoPipWarn(row);
+      return true;
+    });
   },
   async deathsave(detail) {
     const i = mapFightIndex(detail || {});
-    if (i < 0) { DM.toast("No card linked"); return false; }
+    if (i < 0) { DM.toast("No fight card linked"); return false; }
     const row = fight.order[i];
     const hp = knownNumber(row.hp);
     if (hp != null && hp > 0) { DM.toast("They're on their feet."); return false; }
@@ -9557,7 +9677,7 @@ window.SSDNSMapFight = {
   undo() { return undoLast(); },
   async down(detail) {
     const i = mapFightIndex(detail || {});
-    if (i < 0) { DM.toast("No card linked"); return false; }
+    if (i < 0) { DM.toast("No fight card linked"); return false; }
     await markDown(i);
     return true;
   },
@@ -9575,7 +9695,7 @@ window.SSDNSMapFight = {
     }
     const pid = detail.combatantId || detail.tokenId || "";
     const snap = pid && DM.state.players[pid] && DM.state.players[pid].snapshot;
-    if (!snap) { DM.toast("No card linked"); return false; }
+    if (!snap) { DM.toast("No fight card linked"); return false; }
     snap.cover = detail.cover != null ? keyOf(detail.cover) : keyOf(snap.cover);
     snap.coverLock = detail.lock != null ? !!detail.lock : !!snap.coverLock;
     DM.pushCommand({ type: "cover", to: pid, payload: { cover: snap.cover || "", lock: !!snap.coverLock }, from: DM.state.uid });
@@ -9584,7 +9704,7 @@ window.SSDNSMapFight = {
   async act(detail) {
     detail = detail || {};
     const i = mapFightIndex(detail);
-    if (i < 0) { DM.toast("No card linked"); return false; }
+    if (i < 0) { DM.toast("No fight card linked"); return false; }
     const row = fight.order[i];
     if (!row || row.kind !== "player") return false;
     row.dmActsAs = !!detail.on;
