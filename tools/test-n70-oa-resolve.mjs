@@ -113,10 +113,10 @@ check("src.dmRunPc", v2.includes("dmRunsToken(reactorRow)") && mapSrc.includes("
 check("src.moverWaits", mapSrc.includes("makesStrike") && mapSrc.includes("Waiting on opportunity attacks") && mapSrc.includes("reactHold.remote") && mapSrc.includes("forgetSpent"));
 check("src.passStill", v2.includes('choice === "pass"') && mapSrc.includes("function onLeaveChoice") && /if \(choice === "attack"/.test(read("assets/js/react-prompt.js")));
 check("src.reactionSpend", /use === "attack" && \(oa \|\| armed\)\) use = "reaction"/.test(v2) && v2.includes("m.reaction = true") && v2.includes("payload.oa = m.oaArmed"));
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("attackDecision") && !read("assets/data/rules.js").includes("0.3.154") && !read("database.rules.json").includes("0.3.154") && !read("database.rules.json").includes("react-prompt"));
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("attackDecision") && !read("assets/data/rules.js").includes("0.3.155") && !read("database.rules.json").includes("0.3.155") && !read("database.rules.json").includes("react-prompt"));
 const ver = JSON.parse(read("version.json"));
-check("src.versions", ver.sheet === "0.3.154" && ver.dmcc === "0.2.167" && ver.sheetBuild === "sheet-playtest-v03154" && ver.dmccBuild === "dmcc-playtest-v02167", JSON.stringify(ver));
-check("src.banners", read("assets/js/app.js").includes('APP_VERSION = "0.3.154"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.167"'));
+check("src.versions", ver.sheet === "0.3.155" && ver.dmcc === "0.2.168" && ver.sheetBuild === "sheet-playtest-v03155" && ver.dmccBuild === "dmcc-playtest-v02168", JSON.stringify(ver));
+check("src.banners", read("assets/js/app.js").includes('APP_VERSION = "0.3.155"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.168"'));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

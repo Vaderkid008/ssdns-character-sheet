@@ -509,8 +509,10 @@ async function writeRemoteTableOnce() {
   const fb = DM.state._fb;
   try {
     const first = buildPublish();
-    /* N75: players and the map strip read this order. While idle it is empty; the DM roster (mapTokenId and all) stays local. */
-    const visibleOrder = fight.idle ? [] : first.order;
+    /* N76: while idle, publish null so Firebase deletes initiative/order.
+       An empty array is dropped by update() and the previous children stay, so the strip never clears.
+       The DM roster (mapTokenId and all) stays local. A missing order on the echo is not an array, so it is not adopted. */
+    const visibleOrder = fight.idle ? null : first.order;
     await fb.update(DM.roomRef("table"), {
       initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: visibleOrder,
         seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
@@ -8321,14 +8323,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.167-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.168-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.167-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.168-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

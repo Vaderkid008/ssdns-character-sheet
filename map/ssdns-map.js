@@ -7012,6 +7012,12 @@ async function loadSceneImage(sceneId, opts) {
     const prevId = state.currentTurnId;
     const prevStarted = !!(state.initiative && state.initiative.started);
     state.initiative = initiative || { order: [], turn: 0 };
+    /* N76: an ended map initiative heals a stale sheet lock before the next Attack click.
+       A live fight stays with showTurn. A null payload is only the local placeholder and must not clear a real fight. */
+    if (initiative && window.SSDNSTurn && typeof window.SSDNSTurn.inFight === 'function' && !window.SSDNSTurn.inFight(initiative)) {
+      if (window.SSDNSActionPips && window.SSDNSActionPips.onTurn) window.SSDNSActionPips.onTurn(initiative);
+      if (window.SSDNSTurnLock && window.SSDNSTurnLock.onTurn) window.SSDNSTurnLock.onTurn();
+    }
     const order = state.initiative.order || [];
     const turn = state.initiative.turn || 0;
     state.currentTurnId = order[turn] ? order[turn].id : null;
@@ -7572,17 +7578,32 @@ async function loadSceneImage(sceneId, opts) {
     const cost = App && App.reloadCost ? App.reloadCost(Number(gun[2])) : '';
     return cost || 'action';
   }
+  /* N76: free-action (no live fight) fires Attack, Reload, and Unjam.
+     A pip spent last fight must not hard-block, and a stale sheet inFight must not beat an ended map initiative.
+     A placeholder {order:[], turn:0} with no started flag is not an end.
+     A map initiative that has started still counts, even if the sheet has not caught up. */
+  function fightLive() {
+    const T = window.SSDNSTurn;
+    const Lock = window.SSDNSTurnLock;
+    const sheet = !!(Lock && Lock.inFight && Lock.inFight());
+    const init = state.initiative;
+    const hasStarted = !!(init && typeof init === 'object' && Object.prototype.hasOwnProperty.call(init, 'started'));
+    if (hasStarted && init.started === false) return false;
+    if (hasStarted && init.started === true && T && typeof T.inFight === 'function' && !T.inFight(init)) return false;
+    if (hasStarted && T && typeof T.inFight === 'function' && T.inFight(init)) return true;
+    return sheet;
+  }
   /* Player map only. On your turn a spent Action, Bonus, or Reaction stops the roll.
      Off your turn, Turn Lock still says it isn't your turn; a spent Reaction stops an
      approved opportunity attack and a reaction spell. Reload is not an opportunity attack.
-     Enemies are not gated here. */
+     Enemies are not gated here. Outside initiative, spent pips do not hard-block. */
   function playerMapGate(id, label) {
     if (role !== 'player') return '';
     const cost = mapActionCost(id);
     const P = window.SSDNSActionPips;
     const st = P && P.state ? P.state() : {};
     const Lock = window.SSDNSTurnLock;
-    const inFight = !!(Lock && Lock.inFight && Lock.inFight());
+    const inFight = fightLive();
     const mine = !!(Lock && Lock.myTurn && Lock.myTurn());
     const gear = /^(reload|tr|unload|reopen|clean|unjam):/.test(String(id || ''));
     /* N52: off your turn, during initiative, while the DM has not unlocked it.
@@ -7595,6 +7616,8 @@ async function loadSceneImage(sceneId, opts) {
       toast(msg);
       return msg;
     }
+    /* N76: free-action. Spent pips from the last fight must not hard-block Attack, Reload, or Unjam. */
+    if (!inFight) return '';
     if (!cost || !P || !P.blockMap) return '';
     return P.blockMap(cost, label || '');
   }
