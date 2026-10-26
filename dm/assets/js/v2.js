@@ -5894,7 +5894,7 @@ function askEndCombat() {
   return new Promise((resolve) => {
     const dlg = document.createElement("dialog");
     dlg.className = "dlg ssdns-ask";
-    dlg.innerHTML = `<form method="dialog"><p>End combat and clear the turn order?</p><label class="toggle">Clear combat conditions <input type="checkbox" id="clearCombatConds" checked></label><p class="fine">Exhaustion stays.</p><div class="dlg-foot"><button class="btn" value="no" type="button">No</button><button class="btn btn-primary" value="yes" type="submit">Yes</button></div></form>`;
+    dlg.innerHTML = `<form method="dialog"><p>End combat? Tokens and their links stay.</p><label class="toggle">Clear combat conditions <input type="checkbox" id="clearCombatConds" checked></label><p class="fine">Exhaustion stays.</p><div class="dlg-foot"><button class="btn" value="no" type="button">No</button><button class="btn btn-primary" value="yes" type="submit">Yes</button></div></form>`;
     const finish = (ok) => {
       const box = dlg.querySelector("#clearCombatConds");
       const clear = !!(box && box.checked);
@@ -5937,7 +5937,7 @@ async function endCombat() {
   fight.held = {};
   fight.recruit = false;
   if (choice.clear) await clearCombatConditions();
-  fight.order = [];
+  /* N63: the roster and every mapTokenId stay. Ending combat must not unlink tokens. */
   fight.started = false;
   fight.turnCmd = null;
   fight.round = 1;

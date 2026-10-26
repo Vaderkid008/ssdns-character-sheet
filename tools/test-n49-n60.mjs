@@ -1,5 +1,5 @@
 /**
- * N49 / N51 / N52 / N54 / N60 (sheet 0.3.142 / DMCC 0.2.155).
+ * N49 / N51 / N52 / N54 / N60 / N63 (sheet 0.3.142 / DMCC 0.2.155).
  *   node tools/test-n49-n60.mjs
  */
 import fs from "node:fs";
@@ -49,6 +49,12 @@ check("src.n54.stamp", /function gunAllowsTactical\(/.test(read("assets/js/apply
 
 check("src.n60.allow", /still goes through/.test(v2) && /_dmAllow/.test(join) && !/blockMap\(pip\.cost, pip\.what\)/.test(join) && /echoPipWarn\(/.test(v2));
 check("src.n49.copy", mapJs.includes("drawerHeadHtml('No fight card linked')") && host.includes("map.focusToken") && v2.includes('DM.toast("No fight card linked")') && !v2.includes('DM.toast("No card linked")'));
+const endFn = v2.slice(v2.indexOf("async function endCombat"), v2.indexOf("function findCombatant"));
+const askFn = v2.slice(v2.indexOf("function askEndCombat"), v2.indexOf("async function clearCombatConditions"));
+const clearFn = v2.slice(v2.indexOf("function clearFight"), v2.indexOf("function acForRoll"));
+check("src.n63.keepsOrder", !/fight\.order\s*=\s*\[\]/.test(endFn) && /fight\.started = false/.test(endFn) && /clearTurnState\(fight\)/.test(endFn) && /fight\.held = \{\}/.test(endFn) && /fight\.recruit = false/.test(endFn) && /Combat ended/.test(endFn));
+check("src.n63.dialog", /Tokens and their links stay/.test(askFn) && !/clear the turn order/.test(askFn) && /Exhaustion stays/.test(askFn));
+check("src.n63.explicitStill", /function unlinkMapToken/.test(v2) && /delete row\.mapTokenId/.test(v2.slice(v2.indexOf("function unlinkMapToken"), v2.indexOf("function linkedTokenIds"))) && /releaseFightToken\(row\)/.test(v2.slice(v2.indexOf("function removeCombatant"), v2.indexOf("function enterRoom"))) && /fight\.order = \[\]/.test(clearFn));
 
 /* ---------- N52: off-turn hard-block, on-turn and outside initiative stay open ---------- */
 {
@@ -102,7 +108,8 @@ check("src.n49.copy", mapJs.includes("drawerHeadHtml('No fight card linked')") &
 }
 
 /* ---------- N51 / N54 / N60 against the DM fight ---------- */
-function makeFight() {
+function makeFight(opts) {
+  opts = opts || {};
   const toasts = [];
   const ledger = [];
   const commands = [];
@@ -123,7 +130,26 @@ function makeFight() {
     addEventListener() {},
     querySelector() { return null; },
     querySelectorAll() { return []; },
-    createElement() { return { innerHTML: "", className: "", dataset: {}, style: {}, addEventListener() {}, appendChild() {}, setAttribute() {}, querySelector() { return null; }, querySelectorAll() { return []; } }; },
+    createElement(tag) {
+      if (opts.autoEnd && tag === "dialog") {
+        return {
+          className: "",
+          innerHTML: "",
+          parentNode: null,
+          close() {},
+          setAttribute() {},
+          showModal() {},
+          addEventListener() {},
+          querySelector(sel) {
+            if (sel === "#clearCombatConds") return { checked: opts.clearConds !== false };
+            if (sel === "[value=no]") return { addEventListener() {} };
+            if (sel === "form") return { addEventListener(ev, fn) { if (ev === "submit") setTimeout(() => fn({ preventDefault() {} }), 0); } };
+            return null;
+          }
+        };
+      }
+      return { innerHTML: "", className: "", dataset: {}, style: {}, addEventListener() {}, appendChild() {}, setAttribute() {}, querySelector() { return null; }, querySelectorAll() { return []; } };
+    },
     body: { appendChild() {}, classList: { contains() { return false; } } },
     activeElement: null
   };
@@ -149,7 +175,7 @@ function makeFight() {
   vm.runInContext(read("assets/js/conditions.js"), sb, { filename: "conditions.js" });
   const src = v2.replace(
     /\nwireLookupNow\(\);\s*\nbootV2\(\);\s*$/,
-    "\nglobalThis.__fight = { fight: fight };\n"
+    "\nglobalThis.__fight = { fight: fight, endCombat: endCombat, clearStaleTokens: clearStaleTokens };\n"
   );
   vm.runInContext(src, sb, { filename: "v2.js" });
   return { sb, toasts, ledger, commands, chat };
@@ -231,6 +257,47 @@ function makeFight() {
   fight.order = [pc, other];
   const fired = await sb.SSDNSMapFight.attack({ combatantId: "pc1", weaponId: "navy", targetCombatantId: "en9" });
   check("n60.attackAllows", fired === true && commands.some((c) => c.payload && c.payload.op === "fire") && toasts.some((t) => /done anyway/i.test(t)), JSON.stringify({ fired, toasts, ops: commands.map((c) => c.payload && c.payload.op) }));
+}
+
+/* ---------- N63: End Combat keeps the roster and every token link ---------- */
+{
+  const seen = [];
+  const { sb, toasts, ledger } = makeFight({ autoEnd: true });
+  sb.SSDNSMapHost = {
+    staleTokenIds(live, keep) { seen.push({ live: live.slice(), keep: Object.assign({}, keep) }); return []; },
+    clearStaleTokens() { return 0; },
+    tokensLoaded() { return true; },
+    hasToken() { return true; }
+  };
+  const fight = sb.__fight.fight;
+  const pc = { id: "pc1", name: "Ada", kind: "player", playerId: "pc1", mapTokenId: "tok_pc", beastId: "" };
+  const foe = { id: "en1", name: "Outlaw", kind: "enemy", mapTokenId: "tok_en", beastId: "outlaw", card: { attacks: [{ id: "henrietta", name: "Henrietta" }] } };
+  fight.order = [pc, foe];
+  fight.started = true;
+  fight.round = 3;
+  fight.turn = 1;
+  fight.seq = 4;
+  fight.turnStarts = { pc1: 4, en1: 3 };
+  fight.unlock = { pc1: 4 };
+  fight.oa = { req: { status: "ask" } };
+  fight.held = { roll1: { amount: 2 } };
+  fight.recruit = true;
+  fight.condMap = {
+    poison: { name: "Poisoned", subjectId: "en1" },
+    tired: { name: "Exhaustion", subjectId: "en1", level: 2 }
+  };
+  const during = await sb.__fight.clearStaleTokens();
+  const ended = await sb.__fight.endCombat();
+  const card = sb.SSDNSMapCards.get("tok_en");
+  const pcCard = sb.SSDNSMapCards.get("tok_pc");
+  const after = await sb.__fight.clearStaleTokens();
+  const keep = seen[seen.length - 1] && seen[seen.length - 1].keep;
+  const live = seen[seen.length - 1] && seen[seen.length - 1].live;
+  check("n63.ended", ended !== false && fight.started === false && fight.round === 1 && fight.turn === 0 && fight.recruit === false && !Object.keys(fight.held).length && fight.seq === 0 && !Object.keys(fight.unlock).length && !Object.keys(fight.oa).length, JSON.stringify({ started: fight.started, round: fight.round, seq: fight.seq }));
+  check("n63.links", fight.order.length === 2 && pc.mapTokenId === "tok_pc" && foe.mapTokenId === "tok_en" && foe.beastId === "outlaw" && card && card.name === "Outlaw" && pcCard && pcCard.name === "Ada" && !String(card && card.name).includes("No fight"), JSON.stringify({ order: fight.order.map((r) => r.mapTokenId), card: card && card.name, pc: pcCard && pcCard.name }));
+  check("n63.conditions", fight.condMap.tired && fight.condMap.tired.name === "Exhaustion" && !fight.condMap.poison, JSON.stringify(fight.condMap));
+  check("n63.notice", toasts.includes("Combat ended") && ledger.some((row) => row && row.what === "Combat ended") && !ledger.some((row) => row && /unlink|turn order/i.test(String(row.what || ""))), JSON.stringify({ toasts, ledger }));
+  check("n63.staleKeeps", during === 0 && after === 0 && live && live.indexOf("en1") >= 0 && keep && keep.en1 === "tok_en" && seen[0].live.indexOf("en1") >= 0, JSON.stringify(seen));
 }
 
 /* ---------- N49: bestiary place and Add token → beast link the fight card ---------- */
@@ -365,4 +432,4 @@ if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("\nN49–N60 ok");
+console.log("\nN49–N63 ok");
