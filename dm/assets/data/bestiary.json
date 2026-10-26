@@ -111,6 +111,7 @@
  },
  {
   "id": "switch-boss",
+  "feedsTR": true,
   "name": "Switch Boss",
   "token": "02-switch-boss.webp",
   "size": "Medium",
@@ -2875,6 +2876,7 @@
  },
  {
   "id": "company-rider",
+  "feedsTR": true,
   "name": "Company Rider",
   "token": "31-company-rider.webp",
   "size": "Medium",
@@ -3151,6 +3153,7 @@
  },
  {
   "id": "rival-adventurer",
+  "feedsTR": true,
   "name": "Rival Adventurer",
   "token": "34-rival-adventurer.webp",
   "size": "Medium",
@@ -3349,6 +3352,7 @@
  },
  {
   "id": "scorps-enforcer",
+  "feedsTR": true,
   "name": "Scorps Enforcer",
   "token": "36-scorps-enforcer.webp",
   "size": "Medium",
@@ -3564,6 +3568,7 @@
  },
  {
   "id": "abigail-ellen",
+  "feedsTR": true,
   "name": "Abigail Ellen",
   "token": "38-abigail-ellen.webp",
   "size": "Medium",
@@ -3777,6 +3782,7 @@
  },
  {
   "id": "buddy-kidd",
+  "feedsTR": true,
   "name": "Buddy Kidd",
   "token": "40-buddy-kidd.webp",
   "size": "Medium",
@@ -3903,6 +3909,7 @@
  },
  {
   "id": "captain-rhee-calder",
+  "feedsTR": true,
   "name": "Captain Rhee Calder",
   "token": "41-captain-rhee-calder.webp",
   "size": "Medium",
@@ -4112,6 +4119,7 @@
  },
  {
   "id": "dolan-murphy",
+  "feedsTR": true,
   "name": "Dolan Murphy",
   "token": "43-dolan-murphy.webp",
   "size": "Medium",
@@ -4238,6 +4246,7 @@
  },
  {
   "id": "jasper-hargrove",
+  "feedsTR": true,
   "name": "Jasper “Iron Fist” Hargrove",
   "token": "44-jasper-iron-fist.webp",
   "size": "Medium",
@@ -4355,6 +4364,7 @@
  },
  {
   "id": "nina-vasquez",
+  "feedsTR": true,
   "name": "Nina “Black Widow” Vasquez",
   "token": "45-nina-black-widow.webp",
   "size": "Medium",

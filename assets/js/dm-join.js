@@ -320,6 +320,8 @@
       holster: c.holster || "",
       holsterR: c.holsterR || "",
       belt: c.belt || "",
+      /* N66: the checkbox feeds TR even when no belt row is picked. The DM map reads this. */
+      gunBelt: !!c.gunBelt,
       cover: c.cover || "",
       coverLock: !!c.coverLock,
       badgeState: c.badgeState || "",

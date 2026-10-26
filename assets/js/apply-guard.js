@@ -688,6 +688,9 @@
       spellcasting: casting,
       slots: slots,
       attacks: attacks,
+      /* N66: a bestiary stamp (feedsTR / gunBelt) lets that NPC's Tactical Reload proceed. */
+      feedsTR: !!(b.feedsTR || b.gunBelt),
+      gunBelt: !!(b.gunBelt || b.feedsTR),
       loot: b.loot || "",
       esDrop: b.esDrop == null || b.esDrop === "" ? null : b.esDrop,
       tactics: tacticsNote(b)
