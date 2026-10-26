@@ -102,8 +102,8 @@ check(sheet.indexOf("SSDNSTestRoll") >= 0, "testroll still feeds the d20");
 check(v2.indexOf("buildPublish()") >= 0 && v2.indexOf("if (DM.state.demo || !DM.state.db) return;") >= 0, "demo still builds the public view before it returns");
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.145" && version.sheetBuild === "sheet-playtest-v03145", "sheet 0.3.55");
-check(version.dmcc === "0.2.158" && version.dmccBuild === "dmcc-playtest-v02158", "dmcc 0.2.68");
+check(version.sheet === "0.3.146" && version.sheetBuild === "sheet-playtest-v03146", "sheet 0.3.55");
+check(version.dmcc === "0.2.159" && version.dmccBuild === "dmcc-playtest-v02159", "dmcc 0.2.68");
 
 if (failures.length) {
   console.error(failures.join("\n"));

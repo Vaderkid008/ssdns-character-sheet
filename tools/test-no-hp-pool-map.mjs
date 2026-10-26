@@ -35,7 +35,7 @@ check("rules.custom.noHpSet", !G.noHpPool({ kind: "enemy", hp: "", maxHp: "" }))
 const v2 = read("dm/assets/js/v2.js"), map = read("map/ssdns-map.js");
 check("code.card", /noHpPool: noHpPoolRow\(row\),/.test(v2));
 check("code.fightRow", /const downed = !fled && !noHpPoolRow\(row\) && knownNumber\(row\.hp\) === 0;/.test(v2));
-check("code.mapX", /if \(card && card\.noHpPool === true\) \{/.test(map));
+check("code.mapX", /noHpPool: !!\(card && card\.noHpPool === true\)/.test(map) && /if \(info\.noHpPool === true\) return null/.test(map));
 check("code.drawer", /const noHpPool = card\.noHpPool === true;/.test(map) && /noHpPool \? ' · No HP pool'/.test(map));
 check("code.playerX.statusOnly", /const downMark = String\(t\.status \|\| ''\)\.toLowerCase\(\) === 'down' \|\| \(role === 'dm' && hpCur != null && hpCur <= 0\);/.test(map));
 

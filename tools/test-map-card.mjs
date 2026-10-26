@@ -1,5 +1,6 @@
 /**
- * Map card: DM-only HP bars, player card, Hide/Reveal, color menu, image patch.
+ * Map card: DM HP bars, player card, Hide/Reveal, color menu, image patch.
+ * An enemy bar reaches players only through reveal.hp (N68). A raw hp field on the public token does not.
  *   node tools/test-map-card.mjs
  */
 import fs from "node:fs";
@@ -67,7 +68,7 @@ check("src.playerCard", src.includes("playerCard") && src.includes("ssdns.player
 check("src.hideReveal", src.includes("Hide/Reveal"));
 check("src.noFogList", !src.includes('data-act="fogHistory"'));
 check("src.colors", src.includes("Dust Blue") && src.includes("Custom"));
-check("src.dmHp", src.includes("players never see an enemy bar"));
+check("src.dmHp", src.includes("an enemy or NPC only when that combatant's reveal.hp is public"));
 check("rules.untouched", !read("database.rules.json").includes("tokenImages"));
 
 const w = makeWindow();
