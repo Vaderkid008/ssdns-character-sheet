@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.148"; // sheet-playtest-v03148
+  var APP_VERSION = "0.3.149"; // sheet-playtest-v03149
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
@@ -4948,7 +4948,13 @@
     setTimeout(function () { if (window.SSDNSCreator) window.SSDNSCreator.maybeOpen(S.doc); }, 0);
     // dev/test hook: read-only helpers, no rules
     // v0.2.1: keep the sticky tabs just under the (possibly wrapped) app bar on phones
-    function syncBarH() { var ab = $("#appbar"); if (ab) document.documentElement.style.setProperty("--appbar-h", ab.offsetHeight + "px"); }
+    function syncBarH() {
+      /* Full screen hides the app bar (display:none). A resize then would
+         pin the phone tabs to top:0 and leave them under the bar after exit. */
+      if (document.body.classList.contains("map-fullscreen")) return;
+      var ab = $("#appbar");
+      if (ab && ab.offsetHeight) document.documentElement.style.setProperty("--appbar-h", ab.offsetHeight + "px");
+    }
     window.addEventListener("resize", syncBarH); syncBarH(); setTimeout(syncBarH, 300);
     if (window.matchMedia("(max-width: 414px)").matches) {
       $$("details.phone-fold").forEach(function (d) { d.open = false; });

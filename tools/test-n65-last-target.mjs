@@ -1,5 +1,5 @@
 /**
- * N65 — last attack target comes back on your turn (sheet 0.3.148 / DMCC 0.2.161).
+ * N65 — last attack target comes back on your turn (sheet 0.3.149 / DMCC 0.2.162).
  *   node tools/test-n65-last-target.mjs
  */
 import fs from "node:fs";

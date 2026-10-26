@@ -1059,6 +1059,10 @@
         full.textContent = on ? "Exit full screen" : "Full screen";
         if (map && map.requestDraw) map.requestDraw();
         setTimeout(stripHeight, 60); /* Turn UX on the map: the strip moves; the player card follows */
+        if (!on) {
+          var ab = document.getElementById("appbar");
+          if (ab && ab.offsetHeight) document.documentElement.style.setProperty("--appbar-h", ab.offsetHeight + "px");
+        }
       });
     }
     document.querySelectorAll(".tab").forEach(function (tab) {
