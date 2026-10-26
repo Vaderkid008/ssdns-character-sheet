@@ -721,8 +721,9 @@
       var to = $("dockTo");
       if (to) to.value = "all";
     } else {
-      input = $("logChatText");
-      form = $("logChat");
+      /* N57: a send from the player map lands in the sheet Table log (same room log as Fight / Table). */
+      input = $("sheetDockText") || $("logChatText");
+      form = $("sheetDockChat") || $("logChat");
     }
     if (!input || !form) return;
     input.value = text;
