@@ -762,6 +762,14 @@
     var t = Date.parse(cmd && cmd.ts);
     return isFinite(t) ? t : 0;
   }
+  function reactPromptSettled(val, cmd) {
+    var pid = cmd && cmd.payload && cmd.payload.promptId;
+    if (!pid) return false;
+    return Object.keys(val || {}).some(function (id) {
+      var other = val[id];
+      return other && other.type === "reactAnswer" && other.payload && other.payload.promptId === pid;
+    });
+  }
   function listenCommands() {
     var fb = state._fb;
     var stored = loadMarker();
@@ -787,6 +795,10 @@
         if (cmd.type === "give_offer") {
           state.lastCmdSeen[id] = 1;
           if (root.SSDNSGiveSheet && cmd.payload && cmd.payload.xferId) root.SSDNSGiveSheet.onOffer(cmd.payload.xferId);
+          return;
+        }
+        if (cmd.type === "reactPrompt" && reactPromptSettled(val, cmd)) {
+          state.lastCmdSeen[id] = 1;
           return;
         }
         if (state.lastCmdSeen[id]) { noteReplayHp(id, cmd); return; }
@@ -2687,6 +2699,10 @@
       reactorPlayerId: String(card.reactorPlayerId || ""),
       spellName: String(card.spellName || meta.spellName || ""),
       spellLevel: parseInt(card.spellLevel, 10) || 0,
+      reactorStatus: String(card.status || card.reactorStatus || ""),
+      reactorHp: card.hp != null && card.hp !== "" && isFinite(Number(card.hp)) ? Number(card.hp) : (card.reactorHp != null && card.reactorHp !== "" ? Number(card.reactorHp) : ""),
+      reactorDown: !!(card.reactorDown || (root.SSDNSReact && root.SSDNSReact.isIneligibleReactor && root.SSDNSReact.isIneligibleReactor(card))),
+      noHpPool: !!(card.noHpPool || card.noHp),
       damagerId: String(card.damagerId || ""),
       damagerName: String(card.damagerName || ""),
       casterId: String(card.casterId || ""),
@@ -2709,8 +2725,18 @@
     }).catch(function () { return { ok: false }; });
   }
   /** The mover's map calls this. A joined player posts the ask. This client shows the card only when it is the reactor. */
+  function sheetIneligible() {
+    var d = doc();
+    var c = d && d.character;
+    var R = root.SSDNSReact;
+    if (!c || !R || typeof R.isIneligibleReactor !== "function") return false;
+    return R.isIneligibleReactor({ hp: c.hpCurrent, conditions: c.activeConditions, status: c.status || "" });
+  }
   function presentReact(view) {
-    if (!state.joined || !state._fb || !state.db || !view) return false;
+    if (!view) return false;
+    var R = root.SSDNSReact;
+    if (R && R.isIneligibleReactor && R.isIneligibleReactor(view)) return false;
+    if (!state.joined || !state._fb || !state.db) return false;
     postReact(view);
     return !(view.self || (view.reactorPlayerId && view.reactorPlayerId === state.uid));
   }
@@ -2736,7 +2762,19 @@
   function onReactPrompt(view) {
     var R = root.SSDNSReact;
     if (!R || !view) return;
+    if ((R.suppressed && R.suppressed()) || sheetIneligible() || (R.isIneligibleReactor && R.isIneligibleReactor(view))) {
+      postReactAnswer(view, "pass", {});
+      R.close();
+      return;
+    }
+    R.bind(view.promptId, function (choice, meta) {
+      if (choice === "cancel") {
+        postReactAnswer(view, "pass", meta || {});
+        R.close();
+      }
+    });
     R.openModal(view, function (choice) {
+      if (choice === "cancel") choice = "pass";
       var meta = {};
       if (choice === "attack") {
         meta.oaId = "oa_" + Date.now().toString(36);
@@ -2752,7 +2790,7 @@
           text: "Make the opportunity attack against " + (view.moverName || "them") + ". It spends your reaction, not your action."
         });
         R.openModal(held, function (c2) {
-          if (c2 !== "pass") return;
+          if (c2 !== "pass" && c2 !== "cancel") return;
           if (root.SSDNSActionPips && root.SSDNSActionPips.setOa) root.SSDNSActionPips.setOa("oaArmed", "");
           postReactAnswer(view, "pass", { oaId: meta.oaId });
           R.close();

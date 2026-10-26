@@ -88,6 +88,79 @@
     });
     return { pauses: out, toasts: toasts };
   }
+  /** N69: unconscious, dead, defeated, dying, or at 0 HP. A creature with no HP pool is not down from the number alone. */
+  function isIneligibleReactor(row) {
+    if (!row || typeof row !== "object") return false;
+    if (row.reactorDown === true || row.unconscious === true || row.dead === true || row.defeated === true || row.down === true) return true;
+    var status = String(row.status || row.reactorStatus || "");
+    if (/^(down|dead|unconscious|dying|defeated)$/i.test(status)) return true;
+    var lists = [row.conditions, row.activeConditions, row.reactorConditions];
+    var i, j, list, arr, raw, name;
+    for (i = 0; i < lists.length; i++) {
+      list = lists[i];
+      if (!list) continue;
+      arr = Array.isArray(list) ? list : [list];
+      for (j = 0; j < arr.length; j++) {
+        raw = arr[j];
+        name = raw && typeof raw === "object" ? (raw.name || raw.label || "") : raw;
+        if (/\b(?:unconscious|dead|dying|defeated)\b/i.test(String(name || ""))) return true;
+      }
+    }
+    if (row.noHpPool || row.noHp) return false;
+    var hp = row.hp;
+    if ((hp == null || hp === "") && row.hpCurrent != null && row.hpCurrent !== "") hp = row.hpCurrent;
+    if ((hp == null || hp === "") && row.reactorHp != null && row.reactorHp !== "") hp = row.reactorHp;
+    if (hp && typeof hp === "object") hp = hp.cur != null ? hp.cur : (hp.current != null ? hp.current : null);
+    if (hp != null && hp !== "" && isFinite(Number(hp)) && Number(hp) <= 0) return true;
+    return false;
+  }
+  function withoutIneligible(pauses) {
+    var out = [];
+    (pauses || []).forEach(function (p) {
+      var live = (p.reactors || []).filter(function (r) { return r && !isIneligibleReactor(r); });
+      if (live.length) out.push({ index: p.index, reactors: live });
+    });
+    return out;
+  }
+  /** Auto-pass every ineligible reactor already on a session so the mover is not held. */
+  function skipIneligible(session) {
+    var commits = [];
+    if (!session || !session.pauses) return { done: true, commits: commits, waiting: "" };
+    var guard = 0;
+    var step;
+    while (session.phase !== "done" && guard++ < 40) {
+      var reactor = currentReactor(session);
+      if (!reactor || !isIneligibleReactor(reactor)) break;
+      step = answerLeave(session, "pass", {});
+      if (step.commit) commits.push(step.commit);
+      if (step.done || (!step.next && !step.commit)) break;
+    }
+    return { done: session.phase === "done", commits: commits, waiting: session.waiting || "" };
+  }
+  function livingOffers(offers) {
+    return (offers || []).filter(function (o) { return o && !isIneligibleReactor(o); });
+  }
+  /** Unresolved type:"react" rows. DM load wipes these before any card is painted. */
+  function orphanSweep(rows) {
+    var wipe = [];
+    var bag = rows || {};
+    Object.keys(bag).forEach(function (id) {
+      var req = bag[id];
+      if (!req || req.type !== "react" || req.resolved) return;
+      wipe.push({
+        id: id,
+        choice: "pass",
+        promptId: req.promptId || "",
+        moverPlayerId: req.moverPlayerId || req.from || "",
+        from: req.from || "",
+        oaId: req.oaId || ""
+      });
+    });
+    return wipe;
+  }
+  function bootReactRoom(rows) {
+    return { wipe: orphanSweep(rows), closeUi: true, paint: false };
+  }
   function freshId(prefix) {
     return prefix + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   }
@@ -132,6 +205,10 @@
       reactorPlayerId: reactor.playerId || "",
       dmRuns: dmRuns,
       self: !!reactor.self,
+      status: reactor.status || "",
+      hp: reactor.noHpPool ? null : reactor.hp,
+      noHpPool: !!reactor.noHpPool,
+      conditions: reactor.conditions || [],
       moverName: who,
       moverId: session.moverId || "",
       moverPlayerId: session.moverPlayerId || "",
@@ -148,6 +225,7 @@
    */
   function answerLeave(session, choice, meta) {
     meta = meta || {};
+    if (choice === "cancel") choice = "pass";
     var pause = session.pauses[session.pi];
     var reactor = currentReactor(session);
     if (!pause || !reactor) return { done: true, commit: null, toast: "" };
@@ -224,6 +302,7 @@
   function answerOffer(session, choice) {
     var cur = session.offers[session.i];
     if (!cur) return { done: true, choice: "pass", offer: null, toast: "" };
+    if (choice === "cancel") choice = "pass";
     var made = choice === "cast" ? "cast" : "pass";
     var toast = "";
     if (made === "cast" && (cur.reaction || session.spent)) {
@@ -265,6 +344,7 @@
   var mirrorEl = null;
   var waitEl = null;
   var onChoice = null;
+  var suppressed = false;
   function closeModal() {
     if (modalEl && modalEl.parentNode) modalEl.parentNode.removeChild(modalEl);
     modalEl = null;
@@ -289,11 +369,12 @@
       var dis = model.disabled ? " disabled" : "";
       attack = '<button type="button" class="btn btn-primary" data-react-choice="' + esc(model.choice || "attack") + '"' + dis + ">" + esc(model.attackLabel || "Attack") + "</button>";
     }
-    return attack + '<button type="button" class="btn" data-react-choice="pass">' + esc(model.passLabel || "Pass") + "</button>";
+    return attack + '<button type="button" class="btn" data-react-choice="pass">' + esc(model.passLabel || "Pass") + "</button>" +
+      '<button type="button" class="btn" data-react-choice="cancel">Cancel</button>';
   }
   function paintModal(model) {
     closeModal();
-    if (!model || typeof document === "undefined" || !document.body) return;
+    if (suppressed || !model || typeof document === "undefined" || !document.body) return;
     var wrap = document.createElement("div");
     wrap.className = "react-modal";
     wrap.setAttribute("data-react-modal", model.kind || "leave");
@@ -305,7 +386,7 @@
   }
   function paintMirror(model) {
     closeMirror();
-    if (!model || typeof document === "undefined" || !document.body) return;
+    if (suppressed || !model || typeof document === "undefined" || !document.body) return;
     var showChoice = !!model.dmRuns && !model.hideAttack;
     var choiceBtn = showChoice
       ? '<button type="button" class="btn btn-primary" data-react-choice="' + esc(model.choice || "attack") + '"' + (model.disabled ? " disabled" : "") + ">" + esc(model.attackLabel || "Attack") + "</button>"
@@ -314,7 +395,7 @@
     wrap.className = "react-mirror";
     wrap.setAttribute("data-react-mirror", model.kind || "leave");
     wrap.setAttribute("role", "dialog");
-    wrap.innerHTML = '<p class="react-kicker">DM · ' + esc(model.kicker) + "</p><p class=\"react-text\">" + esc(model.mirrorText || model.text) + '</p><div class="react-actions">' + choiceBtn + '<button type="button" class="btn" data-react-choice="pass">Pass</button></div>';
+    wrap.innerHTML = '<p class="react-kicker">DM · ' + esc(model.kicker) + "</p><p class=\"react-text\">" + esc(model.mirrorText || model.text) + '</p><div class="react-actions">' + choiceBtn + '<button type="button" class="btn" data-react-choice="pass">Pass</button><button type="button" class="btn" data-react-choice="cancel">Cancel</button></div>';
     document.body.appendChild(wrap);
     mirrorEl = wrap;
   }
@@ -322,11 +403,12 @@
   function openMirror(model, cb) { onChoice = cb || onChoice; paintMirror(model); }
   function openWait(text) {
     closeWait();
-    if (typeof document === "undefined" || !document.body) return;
+    if (suppressed || typeof document === "undefined" || !document.body) return;
     var bar = document.createElement("div");
     bar.className = "react-wait";
     bar.setAttribute("data-react-wait", "1");
-    bar.textContent = text || "Waiting on reactions…";
+    bar.innerHTML = "<span></span>" + '<button type="button" class="btn" data-react-choice="cancel">Cancel</button>';
+    bar.querySelector("span").textContent = text || "Waiting on reactions…";
     document.body.appendChild(bar);
     waitEl = bar;
   }
@@ -334,12 +416,27 @@
     var fn = onChoice;
     if (fn) fn(choice, {});
   }
+  /** Escape / Cancel: drop the card first so the lobby is usable even if the handler throws. */
+  function dismiss() {
+    var fn = onChoice;
+    close();
+    try { if (fn) fn("cancel", { escape: true }); } catch (e) {}
+  }
   if (typeof document !== "undefined") {
     document.addEventListener("click", function (e) {
       var btn = e.target && e.target.closest && e.target.closest("[data-react-choice]");
       if (!btn || btn.disabled) return;
       if (e.preventDefault) e.preventDefault();
-      choose(btn.getAttribute("data-react-choice") || "pass");
+      var picked = btn.getAttribute("data-react-choice") || "pass";
+      if (picked === "cancel") { dismiss(); return; }
+      choose(picked);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (!e || e.key !== "Escape" || e.isComposing) return;
+      if (!modalEl && !mirrorEl && !waitEl) return;
+      if (e.preventDefault) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+      dismiss();
     });
   }
 
@@ -358,6 +455,15 @@
     inRange: inRange,
     eligible: eligible,
     withoutSpent: withoutSpent,
+    isIneligibleReactor: isIneligibleReactor,
+    withoutIneligible: withoutIneligible,
+    skipIneligible: skipIneligible,
+    livingOffers: livingOffers,
+    orphanSweep: orphanSweep,
+    bootReactRoom: bootReactRoom,
+    setSuppress: function (on) { suppressed = !!on; if (suppressed) close(); },
+    suppressed: function () { return suppressed; },
+    dismiss: dismiss,
     freshLeave: freshLeave,
     leaveView: leaveView,
     answerLeave: answerLeave,

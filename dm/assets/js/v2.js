@@ -2346,8 +2346,37 @@ function armDmOpportunity(row) {
   DM.toast("Opportunity attack ready for " + who + ". One attack uses their reaction, not their action.");
   if (over) DM.toast(overLine);
 }
-function armReactOa(reactorId, oaId) {
-  const row = fightRowById(reactorId);
+function fightRowForReactor(id, name) {
+  const direct = fightRowById(id);
+  if (direct) return direct;
+  const host = window.SSDNSMapHost;
+  if (id && host && typeof host.combatantForToken === "function") {
+    try {
+      const cid = host.combatantForToken(id);
+      const byCid = cid && fightRowById(cid);
+      if (byCid) return byCid;
+    } catch (e) {}
+  }
+  const want = String(name || "").trim().toLowerCase();
+  if (!want) return null;
+  const named = (fight.order || []).filter((r) => r && String(r.name || "").trim().toLowerCase() === want);
+  return named.length === 1 ? named[0] : null;
+}
+function reactorRowIneligible(row) {
+  const R = window.SSDNSReact;
+  return !!(R && typeof R.isIneligibleReactor === "function" && row && R.isIneligibleReactor(row));
+}
+function requestIneligible(req) {
+  const R = window.SSDNSReact;
+  if (!req || !R || typeof R.isIneligibleReactor !== "function") return false;
+  if (R.isIneligibleReactor(req)) return true;
+  return reactorRowIneligible(fightRowForReactor(req.reactorId, req.reactorName));
+}
+function fightUsable() {
+  return !!(fight.started && fight.order && fight.order.length);
+}
+function armReactOa(reactorId, oaId, reactorName) {
+  const row = fightRowForReactor(reactorId, reactorName);
   if (!row) return false;
   const m = markersOfRow(row);
   if (!m || m.reaction) {
@@ -2381,6 +2410,8 @@ function reactChoiceLocal(view) {
 /* oaId → the mover who is waiting. noteSpent on this client resolves a local hold.
    A remote mover hears "attacked" only when nothing here was watching that id. */
 const armedReactByOa = {};
+let reactSnap = {};
+let openReactId = "";
 function rememberReactArm(view, oaId) {
   if (!view || !oaId) return;
   armedReactByOa[oaId] = {
@@ -2416,22 +2447,107 @@ function pushReactAnswer(view, choice, meta) {
     from: DM.state.uid
   });
 }
+function clearReactRequest(id, choice) {
+  if (!id) return;
+  fight.seenReq = fight.seenReq || {};
+  fight.seenReq[id] = 1;
+  if (openReactId === id) openReactId = "";
+  if (!DM.state._fb || !DM.state.db || DM.state.demo) return;
+  DM.state._fb.update(DM.roomRef("encounter/requests/" + id), {
+    resolved: true,
+    phase: "cleared",
+    choice: choice || "pass"
+  }).catch(() => {});
+}
+function releaseMoverFrom(req, choice) {
+  const R = window.SSDNSReact;
+  const made = choice || "pass";
+  if (req && req.promptId && R && typeof R.deliver === "function" && R.deliver(req.promptId, made, req || {})) return;
+  const pid = req && (req.moverPlayerId || req.from || "");
+  if (!pid || !DM.pushCommand) return;
+  DM.pushCommand({
+    type: "reactAnswer",
+    to: pid,
+    quiet: true,
+    payload: { promptId: (req && req.promptId) || "", choice: made, oaId: (req && req.oaId) || "" },
+    from: DM.state.uid
+  });
+}
+function bootClearReacts(val) {
+  const R = window.SSDNSReact;
+  reactSnap = val || {};
+  if (R && R.setSuppress) R.setSuppress(true);
+  if (R && R.close) R.close();
+  const host = window.SSDNSMapHost;
+  if (host && typeof host.releaseReactHold === "function") {
+    try { host.releaseReactHold("cancel"); } catch (e) {}
+  }
+  const plan = R && R.bootReactRoom ? R.bootReactRoom(reactSnap) : { wipe: [], closeUi: true, paint: false };
+  (plan.wipe || []).forEach((item) => {
+    const req = reactSnap[item.id] || {};
+    clearReactRequest(item.id, "pass");
+    releaseMoverFrom(req, "pass");
+  });
+  if (R && R.setSuppress) R.setSuppress(false);
+  if (R && R.close) R.close();
+}
+function dismissReactUi(choice) {
+  const R = window.SSDNSReact;
+  if (R && R.close) R.close();
+  const plan = R && R.bootReactRoom ? R.bootReactRoom(reactSnap) : { wipe: [] };
+  (plan.wipe || []).forEach((item) => {
+    clearReactRequest(item.id, choice || "pass");
+    releaseMoverFrom(reactSnap[item.id] || {}, "pass");
+  });
+  if (openReactId) clearReactRequest(openReactId, choice || "pass");
+  const host = window.SSDNSMapHost;
+  if (host && typeof host.releaseReactHold === "function") {
+    try { host.releaseReactHold("cancel"); } catch (e) {}
+  }
+}
 function presentReact(view, handler) {
   const R = window.SSDNSReact;
   if (!R || !view) return false;
+  const downed = requestIneligible(view) || reactorRowIneligible(fightRowForReactor(view.reactorId, view.reactorName));
+  if (downed || !fightUsable()) {
+    R.close();
+    if (openReactId) clearReactRequest(openReactId, "pass");
+    const toast = downed ? ((view.reactorName || "They") + " can't react.") : "";
+    if (handler) handler("pass", toast ? { toast: toast } : {});
+    else releaseMoverFrom(view, "pass");
+    return true;
+  }
   const choose = function (choice, meta) {
     meta = meta || {};
+    if (choice === "cancel") {
+      dismissReactUi("pass");
+      if (handler) handler("cancel", meta);
+      else releaseMoverFrom(view, "pass");
+      return;
+    }
     if (choice === "attack" && view.dmRuns) {
       meta.oaId = meta.oaId || view.oaId || ("oa_" + Date.now().toString(36));
-      if (!armReactOa(view.reactorId, meta.oaId)) choice = "pass";
-      else rememberReactArm(view, meta.oaId);
+      if (!armReactOa(view.reactorId, meta.oaId, view.reactorName)) {
+        DM.toast((view.reactorName || "They") + " can't take that attack. Passing.");
+        choice = "pass";
+      } else {
+        rememberReactArm(view, meta.oaId);
+        DM.toast("Opportunity attack ready for " + (view.reactorName || "them") + ". Make the attack — it uses their reaction, not their action.");
+        /* Arm, then release the mover. The full-screen card must not stay up. */
+        choice = "pass";
+        meta.armed = true;
+      }
     }
-    if (choice === "pass" && view.hideAttack && (meta.oaId || view.oaId)) {
+    if (choice === "pass" && view.hideAttack && (meta.oaId || view.oaId) && !meta.armed) {
       const drop = meta.oaId || view.oaId;
       clearReactOa(drop);
       delete armedReactByOa[drop];
     }
     if (choice === "cast" && view.dmRuns) castReactOffer(view);
+    if (choice === "pass" || choice === "attacked" || choice === "go" || choice === "cast") {
+      R.close();
+      if (openReactId) clearReactRequest(openReactId, choice === "cast" ? "cast" : "pass");
+    }
     if (handler) handler(choice, meta);
     else if (!(R.deliver && R.deliver(view.promptId, choice, meta))) pushReactAnswer(view, choice, meta);
   };
@@ -2455,9 +2571,20 @@ function feetBetweenCombatants(aId, bRow) {
   const b = bRow.playerId || bRow.id;
   try { return host.feetBetween(aId, b); } catch (e) { return null; }
 }
-function noteReactRequest(req) {
+function noteReactRequest(req, id) {
   const R = window.SSDNSReact;
   if (!req || !R) return;
+  if (id) openReactId = id;
+  if (req.resolved || req.phase === "cleared") {
+    R.close();
+    return;
+  }
+  if (!fightUsable() || requestIneligible(req)) {
+    if (id) clearReactRequest(id, "pass");
+    releaseMoverFrom(req, "pass");
+    R.close();
+    return;
+  }
   if (req.phase === "answer" || req.choice) {
     if (R.deliver(req.promptId, req.choice || "pass", req)) return;
     pushReactAnswer(req, req.choice || "pass", req);
@@ -2470,8 +2597,9 @@ function noteReactRequest(req) {
         mirrorText: (req.reactorName || "Someone") + " is making an opportunity attack as " + (req.moverName || "someone") + " leaves reach. Pass cancels it."
       });
       R.openMirror(held, function (choice) {
-        if (choice !== "pass") return;
+        if (choice !== "pass" && choice !== "cancel") return;
         if (req.oaId) clearReactOa(req.oaId);
+        if (id) clearReactRequest(id, "pass");
         pushReactAnswer(req, "pass", { oaId: req.oaId || "" });
         R.close();
       });
@@ -2482,7 +2610,12 @@ function noteReactRequest(req) {
   }
   if (req.kind === "spell") {
     const offers = counterspellOffers(req);
-    if (!offers.length) { pushReactAnswer(req, "go", req); return; }
+    if (!offers.length) {
+      if (id) clearReactRequest(id, "go");
+      pushReactAnswer(req, "go", req);
+      R.close();
+      return;
+    }
     runReactOffers(offers, function () { pushReactAnswer(req, "go", req); });
     return;
   }
@@ -2497,6 +2630,7 @@ function counterspellOffers(req) {
   const out = [];
   (fight.order || []).forEach((row) => {
     if (!row) return;
+    if (reactorRowIneligible(row)) return;
     if (row.id === casterId || row.playerId === casterId) return;
     const spells = tokenReactionSpells(row).filter((sp) => R.triggerOf(sp.name) === "spell");
     if (!spells.length) return;
@@ -2529,7 +2663,7 @@ function counterspellOffers(req) {
 }
 function damageReactOffers(meta, row) {
   const R = window.SSDNSReact;
-  if (!R || !row || !meta) return [];
+  if (!R || !row || !meta || reactorRowIneligible(row)) return [];
   const spells = tokenReactionSpells(row).filter((sp) => R.triggerOf(sp.name) === "damage");
   if (!spells.length) return [];
   const marks = markersOfRow(row);
@@ -2556,7 +2690,12 @@ function damageReactOffers(meta, row) {
 }
 function runReactOffers(offers, onDone) {
   const R = window.SSDNSReact;
-  if (!R || !offers || !offers.length) { if (onDone) onDone(); return; }
+  offers = R && R.livingOffers ? R.livingOffers(offers) : (offers || []);
+  if (!R || !offers.length || !fightUsable()) {
+    if (R && R.close) R.close();
+    if (onDone) onDone();
+    return;
+  }
   const session = R.freshOffers(offers);
   const step = function () {
     const view = R.offerView(session);
@@ -6728,6 +6867,8 @@ function watchRequests() {
   const r = DM.roomRef("encounter/requests");
   const cb = fb.onValue(r, (snap) => {
     const val = snap.val() || {};
+    reactSnap = val;
+    if (!fight.reqPrimed) bootClearReacts(val);
     Object.keys(val).forEach((id) => {
       if (fight.seenReq[id]) return;
       fight.seenReq[id] = 1;
@@ -6742,7 +6883,17 @@ function watchRequests() {
         return;
       }
       if (req && req.type === "oa") { if (fresh) noteOaRequest(req, id); return; }
-      if (req && req.type === "react") { if (fresh) noteReactRequest(req, id); return; }
+      if (req && req.type === "react") {
+        if (req.resolved || !fightUsable() || requestIneligible(req)) {
+          clearReactRequest(id, "pass");
+          releaseMoverFrom(req, "pass");
+          if (window.SSDNSReact && window.SSDNSReact.close) window.SSDNSReact.close();
+          return;
+        }
+        if (fresh) noteReactRequest(req, id);
+        else clearReactRequest(id, "pass");
+        return;
+      }
       if (!fight.reqPrimed && !fresh && !attack) return;
       applyRequest(req, id);
     });
@@ -7768,14 +7919,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.157-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.158-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.157-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.158-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

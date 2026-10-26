@@ -1,5 +1,5 @@
 /**
- * N49 / N51 / N52 / N54 / N60 / N63 (sheet 0.3.144 / DMCC 0.2.157).
+ * N49 / N51 / N52 / N54 / N60 / N63 (sheet 0.3.145 / DMCC 0.2.158).
  *   node tools/test-n49-n60.mjs
  */
 import fs from "node:fs";
@@ -27,11 +27,11 @@ const join = read("assets/js/dm-join.js");
 const rulesJs = read("assets/data/rules.js");
 const rules = read("database.rules.json");
 
-check("ver.sheet", version.sheet === "0.3.144" && version.sheetBuild === "sheet-playtest-v03144");
-check("ver.dmcc", version.dmcc === "0.2.157" && version.dmccBuild === "dmcc-playtest-v02157");
-check("ver.app", app.includes('APP_VERSION = "0.3.144"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.157"'));
-check("src.rulesUntouched", !rulesJs.includes("0.3.144") && !rulesJs.includes("0.2.157") && !rules.includes("0.3.144") && !rules.includes("gunAllowsTactical") && !rulesJs.includes("No fight card linked"));
+check("ver.sheet", version.sheet === "0.3.145" && version.sheetBuild === "sheet-playtest-v03145");
+check("ver.dmcc", version.dmcc === "0.2.158" && version.dmccBuild === "dmcc-playtest-v02158");
+check("ver.app", app.includes('APP_VERSION = "0.3.145"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.158"'));
+check("src.rulesUntouched", !rulesJs.includes("0.3.145") && !rulesJs.includes("0.2.158") && !rules.includes("0.3.145") && !rules.includes("gunAllowsTactical") && !rulesJs.includes("No fight card linked"));
 
 const noAmmo = app.slice(app.indexOf('var msg = "No ammo for this caliber"'), app.indexOf('var msg = "No ammo for this caliber"') + 500);
 check("src.n51.sheetToastOnly", noAmmo.includes("toast(msg)") && !noAmmo.includes("addLog") && !noAmmo.includes("postChat"));
