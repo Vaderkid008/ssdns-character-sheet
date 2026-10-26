@@ -4024,14 +4024,22 @@ function underTokenHp(t) {
 function rowForToken(token) {
   const order = (state.initiative && state.initiative.order) || [];
   if (!token) return null;
-  return order.find(row => row && (
+  const hit = order.find(row => row && (
     (token.combatantId && token.combatantId === row.id) ||
     token.id === row.id ||
     (row.mapTokenId && token.id === row.mapTokenId) ||
     (linkedIdForRow(row) && token.id === linkedIdForRow(row)) ||
     (row.playerId && token.ownerUid === row.playerId) ||
-    (row.kind === 'player' && row.id && token.ownerUid === row.id)
-  )) || null;
+    (row.kind === 'player' && row.id && token.ownerUid === row.id) ||
+    (row.kind === 'player' && token.sheetId && (token.sheetId === row.playerId || token.sheetId === row.id)) ||
+    (row.kind === 'player' && token.combatantId && (token.combatantId === row.playerId || token.combatantId === row.id)) ||
+    (row.kind === 'player' && token.id && playerTokenId(row.playerId || row.id) === token.id)
+  ));
+  if (hit) return hit;
+  const R = window.SSDNSReact;
+  const pid = R && R.linkedPlayerId ? R.linkedPlayerId(token, order) : '';
+  if (!pid) return null;
+  return order.find(row => row && row.kind === 'player' && (row.playerId === pid || row.id === pid)) || null;
 }
 function tokenForRow(row) {
   if (!row) return null;
@@ -4157,8 +4165,24 @@ function reactorFacts(t) {
 function reactorPlayerId(t) {
   if (!t) return '';
   if (t.ownerUid) return t.ownerUid;
+  if (t.sheetId) return t.sheetId;
+  const order = (state.initiative && state.initiative.order) || [];
+  const R = window.SSDNSReact;
+  if (R && R.linkedPlayerId) {
+    const linked = R.linkedPlayerId(t, order);
+    if (linked) return linked;
+  }
   const row = rowForToken(t);
   if (row && row.kind === 'player') return row.playerId || row.id || '';
+  /* Fight row mapTokenId is DM-only. The map's initiative copy does not carry it.
+     The DM card still knows which token is this PC. */
+  if (role === 'dm' && typeof host.getCard === 'function') {
+    try {
+      const card = host.getCard(t.id) || (t.combatantId && host.getCard(t.combatantId)) || null;
+      const owner = card && (card.owner || '');
+      if (owner && (card.kind === 'pc' || card.kind === 'player') && !card.dmActsAs) return owner;
+    } catch (e) {}
+  }
   return '';
 }
 function reactorDmRuns(t) {
@@ -4191,7 +4215,7 @@ function moveContext(mover, budget) {
       size: tokSquares(t.size),
       kind: playerId ? 'player' : (t.kind || 'enemy'),
       ally: allyOf(mover, t),
-      name: t.label || t.name || 'a creature',
+      name: t.name || t.label || 'a creature',
       reachFt: reachFeetOf(t),
       reaction: reactionSpentOf(t),
       playerId: playerId,
@@ -4382,10 +4406,25 @@ function presentLeave(view) {
     try { shown = host.presentReact(view, handler) === true; } catch (e) { shown = false; }
   }
   reactHold.remote = !!shown;
-  if (!shown) {
-    R.openModal(view, handler);
-    if (role === 'dm') R.openMirror(view, handler);
+  if (shown) return;
+  /* N73: a linked PC never gets both an Attack modal and an Attack mirror.
+     If the host did not take the prompt, the DM still only waits. */
+  const owns = !!(view && !view.dmRuns && (view.playerOwns || view.reactorKind === 'player' || view.reactorPlayerId));
+  if (owns && role === 'dm') {
+    R.openMirror(Object.assign({}, view, {
+      playerOwns: true,
+      dmRuns: false,
+      hideAttack: true,
+      spells: [],
+      mirrorText: (view.reactorName || 'Someone') + ' is deciding on an opportunity attack…'
+    }), function (choice, meta) {
+      if (choice !== 'cancel') return;
+      handler('cancel', meta || {});
+    });
+    return;
   }
+  R.openModal(view, handler);
+  if (role === 'dm') R.openMirror(view, handler);
 }
 /* After Attack, this client refreshes its own card. A remote reactor already switched on their click, so do not post a second ask. */
 function refreshArmedCard() {
@@ -9149,7 +9188,14 @@ async function loadSceneImage(sceneId, opts) {
         delete next.notes;
         delete next.hidden;
       }
-      shared.tokens[tid] = Object.assign(shared.tokens[tid] || {}, next);
+      /* A public snapshot omits combatantId and can arrive with a blank ownerUid.
+         Do not wipe the DM token's player link. */
+      const prevTok = shared.tokens[tid] || {};
+      if (!next.ownerUid && prevTok.ownerUid) next.ownerUid = prevTok.ownerUid;
+      if (!next.combatantId && prevTok.combatantId) next.combatantId = prevTok.combatantId;
+      if (!next.sheetId && prevTok.sheetId) next.sheetId = prevTok.sheetId;
+      if (!next.kind && prevTok.kind) next.kind = prevTok.kind;
+      shared.tokens[tid] = Object.assign({}, prevTok, next);
       if (role === 'dm' && !state.tokens.some(tok => tok && tok.id === tid)) {
         state.tokens.push(JSON.parse(JSON.stringify(shared.tokens[tid])));
       }

@@ -227,6 +227,80 @@
     out.sort(function (a, b) { return a.level - b.level || a.name.localeCompare(b.name); });
     return out;
   }
+  function canonPlayerTokenId(pid) {
+    return "ply_" + String(pid || "").replace(/[^A-Za-z0-9_-]/g, "_");
+  }
+  /**
+   * The player uid for a map token. ownerUid is the normal link. A linked PC can
+   * also be known by sheet id, combatant id, the ply_ token id, the fight row's
+   * map token, or a unique character name on a player-kind token.
+   */
+  function linkedPlayerId(token, order) {
+    token = token || {};
+    order = order || [];
+    if (token.ownerUid) return String(token.ownerUid);
+    if (token.sheetId) return String(token.sheetId);
+    var id = String(token.id || "");
+    var i, row, pid, shown, hits;
+    for (i = 0; i < order.length; i++) {
+      row = order[i];
+      if (!row || (row.kind !== "player" && row.kind !== "pc")) continue;
+      pid = row.playerId || row.owner || row.id || "";
+      if (!pid) continue;
+      if (token.ownerUid && (token.ownerUid === row.playerId || token.ownerUid === row.id || token.ownerUid === row.owner)) return pid;
+      if (token.sheetId && (token.sheetId === row.playerId || token.sheetId === row.id || token.sheetId === row.owner)) return pid;
+      if (token.combatantId && (token.combatantId === row.playerId || token.combatantId === row.id || token.combatantId === row.owner)) return pid;
+      if (row.mapTokenId && id && String(row.mapTokenId) === id) return pid;
+      if (id && id === canonPlayerTokenId(pid)) return pid;
+    }
+    if (token.kind !== "player" && token.kind !== "pc" && id.indexOf("ply_") !== 0) return "";
+    if (/\*$/.test(String(token.label || ""))) return "";
+    shown = String(token.label || token.name || "").trim().toLowerCase();
+    if (!shown) return "";
+    hits = [];
+    for (i = 0; i < order.length; i++) {
+      row = order[i];
+      if (!row || (row.kind !== "player" && row.kind !== "pc")) continue;
+      if (String(row.name || "").trim().toLowerCase() === shown) hits.push(row);
+    }
+    if (hits.length !== 1) return "";
+    return hits[0].playerId || hits[0].owner || hits[0].id || "";
+  }
+  /**
+   * N73: the fight row wins over a leave view that lost its player link.
+   * A self-run PC owns the card. Act-for-player and enemies stay with the DM.
+   */
+  function stampLeaveOwner(view, row) {
+    view = view || {};
+    if (view.kind === "damage" || view.kind === "spell") {
+      return {
+        reactorPlayerId: view.reactorPlayerId || "",
+        reactorKind: view.reactorKind || "",
+        dmRuns: !!view.dmRuns,
+        playerOwns: false
+      };
+    }
+    var playerRow = !!(row && (row.kind === "player" || row.kind === "pc"));
+    var pid = view.reactorPlayerId || "";
+    var dmRuns = !!view.dmRuns;
+    var owns = !dmRuns && (!!view.playerOwns || view.reactorKind === "player" || !!pid);
+    if (playerRow) {
+      pid = row.playerId || row.owner || row.id || pid;
+      dmRuns = !!(row.dmActsAs || row.dmRuns);
+      owns = !dmRuns;
+    } else if (row) {
+      dmRuns = true;
+      owns = false;
+    } else if (!dmRuns && (view.reactorKind === "player" || pid)) {
+      owns = true;
+    }
+    return {
+      reactorPlayerId: pid,
+      reactorKind: playerRow ? "player" : (view.reactorKind || ""),
+      dmRuns: dmRuns,
+      playerOwns: !!owns
+    };
+  }
   /** A player who is acting for themselves owns Attack / Pass. DM-run tokens do not. */
   function playerOwnsReactor(reactor) {
     if (!reactor || reactor.dmRuns) return false;
@@ -236,9 +310,8 @@
   function playerOwns(view) {
     if (!view || view.dmRuns) return false;
     if (view.kind === "damage" || view.kind === "spell") return false;
-    if (view.playerOwns === true) return true;
-    if (view.playerOwns === false) return false;
-    return view.reactorKind === "player" || !!view.reactorPlayerId;
+    if (view.reactorKind === "player" || view.reactorPlayerId) return true;
+    return view.playerOwns === true;
   }
   function leaveView(session, moverName) {
     var reactor = currentReactor(session);
@@ -553,14 +626,13 @@
     closeMirror();
     if (suppressed || !model || typeof document === "undefined" || !document.body) return;
     var owns = !!(model.playerOwns && !model.dmRuns);
+    var deciding = /is deciding on an opportunity attack/i.test(String(model.mirrorText || ""));
     var buttons;
     if (model.approving && owns) {
       buttons = '<button type="button" class="btn btn-primary" data-react-choice="allow">Allow</button>' +
         '<button type="button" class="btn" data-react-choice="deny">Deny</button>';
-    } else if (owns && !model.hideAttack) {
-      /* N72: the player owns Attack / Pass. The DM waits. */
-      buttons = '<button type="button" class="btn" data-react-choice="cancel">Cancel</button>';
-    } else if (owns && model.hideAttack) {
+    } else if (deciding || owns) {
+      /* N72/N73: the player owns Attack / Pass / Cast. The DM waits. No Attack buttons. */
       buttons = '<button type="button" class="btn" data-react-choice="cancel">Cancel</button>';
     } else {
       var showChoice = !!model.dmRuns && !model.hideAttack;
@@ -654,6 +726,9 @@
     hasGunsmoke: hasGunsmoke,
     oaCastEligible: oaCastEligible,
     oaCastChoices: oaCastChoices,
+    canonPlayerTokenId: canonPlayerTokenId,
+    linkedPlayerId: linkedPlayerId,
+    stampLeaveOwner: stampLeaveOwner,
     playerOwns: playerOwns,
     attackDecision: attackDecision,
     answerLeave: answerLeave,

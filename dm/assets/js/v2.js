@@ -2574,19 +2574,48 @@ function decorateLeaveView(view) {
   if (!view || view.kind === "damage" || view.kind === "spell") return view;
   const R = window.SSDNSReact;
   const row = fightRowForReactor(view.reactorId, view.reactorName);
-  const pid = view.reactorPlayerId || (row && row.kind === "player" ? (row.playerId || row.id) : "");
+  const stamped = R && R.stampLeaveOwner ? R.stampLeaveOwner(view, row) : null;
+  const next = stamped ? Object.assign({}, view, stamped) : Object.assign({}, view);
+  const pid = next.reactorPlayerId || (row && row.kind === "player" ? (row.playerId || row.id) : "");
+  if (pid && !next.reactorPlayerId) next.reactorPlayerId = pid;
   const snap = pid ? (playerSnapshot(pid) || {}) : {};
   const feat = !!(snap.gunsmokeCaster || (R && R.hasGunsmoke && R.hasGunsmoke(snap.feats)));
   const spells = feat && R && R.oaCastChoices ? R.oaCastChoices(spellRowsFromSnap(snap)) : [];
-  const owns = !!(R && R.playerOwns ? R.playerOwns(view) : (!view.dmRuns && (view.playerOwns || view.reactorKind === "player" || view.reactorPlayerId)));
-  return Object.assign({}, view, { playerOwns: owns, gunsmoke: feat, spells: spells });
+  return Object.assign({}, next, { gunsmoke: feat, spells: spells });
 }
 function leavePlayerOwns(view) {
   const R = window.SSDNSReact;
   if (!view || view.kind === "damage" || view.kind === "spell") return false;
   if (view.dmRuns) return false;
+  if (view.playerOwns === true || view.reactorKind === "player" || view.reactorPlayerId) return true;
   if (R && R.playerOwns) return R.playerOwns(view);
-  return !!(view.playerOwns || view.reactorKind === "player" || view.reactorPlayerId);
+  return false;
+}
+/* One leave for a linked PC: the player gets the card. The DM gets a wait mirror, never Attack. */
+function openPlayerWait(view, handler) {
+  const R = window.SSDNSReact;
+  if (!R) return;
+  const who = (view && view.reactorName) || "Someone";
+  const prompt = Object.assign({}, view, {
+    playerOwns: true,
+    dmRuns: false,
+    kind: (view && view.kind) || "leave",
+    approving: false,
+    reactorKind: "player"
+  });
+  const alreadyThere = !!(prompt.reactorPlayerId && view.from && view.from === prompt.reactorPlayerId);
+  if (!alreadyThere && prompt.reactorPlayerId) pushReactPrompt(prompt);
+  R.close();
+  R.openMirror(Object.assign({}, prompt, {
+    hideAttack: true,
+    spells: [],
+    mirrorText: who + " is deciding on an opportunity attack…"
+  }), function (choice, meta) {
+    if (choice !== "cancel") return;
+    if (handler) handler("cancel", meta || {});
+    else releaseMoverFrom(view, "pass");
+    R.close();
+  });
 }
 function cancelPendingOa(req) {
   const pid = req && req.promptId;
@@ -2762,22 +2791,10 @@ function presentReact(view, handler) {
     else releaseMoverFrom(view, "pass");
     return true;
   }
-  /* N72: a player reactor decides on their own sheet. The DM waits, then Allow / Deny. */
+  /* N72/N73: a player reactor decides on their own sheet. The DM waits, then Allow / Deny.
+     Never open the Attack modal and the Attack mirror for the same PC leave. */
   if (leavePlayerOwns(view) && !view.hideAttack && !view.approving) {
-    const alreadyThere = !!(view.reactorPlayerId && view.from && view.from === view.reactorPlayerId);
-    if (!alreadyThere && view.reactorPlayerId) pushReactPrompt(Object.assign({}, view, { playerOwns: true, kind: view.kind || "leave" }));
-    R.openMirror(Object.assign({}, view, {
-      playerOwns: true,
-      dmRuns: false,
-      approving: false,
-      hideAttack: false,
-      mirrorText: (view.reactorName || "Someone") + " is deciding on an opportunity attack…"
-    }), function (choice, meta) {
-      if (choice !== "cancel") return;
-      if (handler) handler("cancel", meta || {});
-      else releaseMoverFrom(view, "pass");
-      R.close();
-    });
+    openPlayerWait(view, handler);
     return true;
   }
   const choose = function (choice, meta) {
@@ -2832,6 +2849,17 @@ function presentReact(view, handler) {
     if (handler) handler(choice, meta);
     else if (!(R.deliver && R.deliver(view.promptId, choice, meta))) pushReactAnswer(view, choice, meta);
   };
+  /* A linked PC's strike stays a wait mirror. Allow / Deny has its own mirror. */
+  if (leavePlayerOwns(view) && !view.approving) {
+    R.openMirror(Object.assign({}, view, {
+      playerOwns: true,
+      dmRuns: false,
+      hideAttack: true,
+      spells: [],
+      mirrorText: view.mirrorText || ((view.reactorName || "Someone") + " is deciding on an opportunity attack…")
+    }), choose);
+    return true;
+  }
   const alreadyThere = !!(view.reactorPlayerId && view.from && view.from === view.reactorPlayerId);
   if (!alreadyThere && reactChoiceLocal(view)) R.openModal(view, choose);
   else if (!alreadyThere && view.reactorPlayerId) pushReactPrompt(view);
@@ -2918,8 +2946,15 @@ function noteReactRequest(req, id) {
     return;
   }
   const reactorRow = fightRowForReactor(req.reactorId, req.reactorName);
-  const dmRuns = !!(req.dmRuns || (req.reactorKind && req.reactorKind !== "player") || dmRunsToken(reactorRow));
-  presentReact(Object.assign({}, req, { dmRuns: dmRuns }), null);
+  const dmRuns = reactorRow
+    ? dmRunsToken(reactorRow)
+    : !!(req.dmRuns || ((req.reactorKind && req.reactorKind !== "player") && !req.reactorPlayerId));
+  const pid = (reactorRow && reactorRow.kind === "player" ? (reactorRow.playerId || reactorRow.id) : "") || req.reactorPlayerId || "";
+  presentReact(Object.assign({}, req, {
+    dmRuns: dmRuns,
+    reactorPlayerId: pid,
+    reactorKind: reactorRow && reactorRow.kind === "player" ? "player" : (req.reactorKind || "")
+  }), null);
 }
 function counterspellOffers(req) {
   const R = window.SSDNSReact;
@@ -8222,14 +8257,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.163-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.164-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.163-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.164-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
