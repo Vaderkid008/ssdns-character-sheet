@@ -24,11 +24,11 @@ const host = read("map/ssdns-map-host.js");
 const rules = read("database.rules.json");
 const rulesJs = read("assets/data/rules.js");
 
-check("ver.sheet", version.sheet === "0.3.152" && version.sheetBuild === "sheet-playtest-v03152");
-check("ver.dmcc", version.dmcc === "0.2.165" && version.dmccBuild === "dmcc-playtest-v02165");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.152"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.165"'));
-check("src.rulesUntouched", !rulesJs.includes("0.3.152") && !rulesJs.includes("enemyGunJam") && !rules.includes("0.3.152") && !rules.includes("drawer:jam"));
+check("ver.sheet", version.sheet === "0.3.153" && version.sheetBuild === "sheet-playtest-v03153");
+check("ver.dmcc", version.dmcc === "0.2.166" && version.dmccBuild === "dmcc-playtest-v02166");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.153"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.166"'));
+check("src.rulesUntouched", !rulesJs.includes("0.3.153") && !rulesJs.includes("enemyGunJam") && !rules.includes("0.3.153") && !rules.includes("drawer:jam"));
 
 check("src.strip", v2.includes('if (row.kind !== "player")') && !v2.includes('if (row.kind === "enemy") {\n    const list = (row.card && row.card.attacks'));
 check("src.chamberForward", v2.includes("strikeOpts.chamber") && v2.includes("freeOpts.chamber") && v2.includes("shot.chamber = Number(rawK)"));
@@ -43,7 +43,8 @@ check("src.drawerNpc", map.includes("const npc = !isPc;") && map.includes("funct
 check("src.jamLabel", map.includes("sideButton(a, 'rowJam', 'jam', 'Jam')") && map.includes("sideButton(a, 'rowLock', 'lock', 'Lock chamber')"));
 check("src.npcUnload", map.includes("side === 'npc'") && map.includes('data-act="rowUnload"') && map.includes("drawer:unload"));
 check("src.chamberClick", map.includes("That chamber is locked.") && map.includes("drawer:target") && map.includes("chamber: Number(b.getAttribute('data-k'))"));
-check("src.noSpin", !map.includes("Spin chamber") && !map.includes("Cycle") && !v2.includes("data-act=\"rowSpin\""));
+/* L0217–L0221: revolvers spin, lever guns cycle. The old rowSpin act is not the control. */
+check("src.spinCycle", map.includes("Spin chamber") && map.includes('data-act="playerCycle"') && map.includes('data-act="rowCycle"') && !v2.includes("data-act=\"rowSpin\"") && v2.includes("data-cyl-spin"));
 
 function makeSandbox() {
   const toasts = [];

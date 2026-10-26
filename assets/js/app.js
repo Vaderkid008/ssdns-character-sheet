@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.152"; // sheet-playtest-v03152
+  var APP_VERSION = "0.3.153"; // sheet-playtest-v03153
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
@@ -1356,6 +1356,7 @@
           el("span", { class: "g-count", "data-out": "left." + i }),
           el("button", { type: "button", class: "btn sm reload", "data-reload": i, title: "Reload: an action, fills the gun (slow guns: a full turn). Uses the ammo selected on this card." }, ["Reload"]),
           el("button", { type: "button", class: "btn sm", "data-unload": i, title: "Unload: put the chambered rounds back in your ammo, by type" }, ["Unload"]),
+          el("button", { type: "button", class: "btn sm", "data-cycle": i, hidden: "hidden", title: "Cycle (free, any time): eject the chambered round onto the ground and chamber the next from the tube. It does not go back in the belt. An empty gun does not cycle." }, ["Cycle"]),
           ammoSel,
           /* 0.3.75: Roll / Melee share the cylinder row (wraps on narrow cards) */
           el("span", { class: "g-rollbtns" }, [
@@ -1391,7 +1392,8 @@
           ])
         ]),
         el("div", { class: "load-picks", "data-loadpick": i }),
-        el("div", { class: "g-note fine", "data-out": "note." + i })
+        el("div", { class: "g-note fine", "data-out": "note." + i }),
+        el("div", { class: "g-ground fine", "data-ground": i, hidden: "hidden" })
       ]));
     }
   }
@@ -1928,13 +1930,19 @@
         var lockedDot = chamberLocked(g, k);
         var color = chamberColor(st, g, w);
         var label = lockedDot ? "Locked" : chamberLabel(st, g, w);
-        var btn = el("button", {
+        var spinHole = spinGun(g, w) && k > 0;
+        var btnAttrs = {
           type: "button",
-          class: "chamber" + (lockedDot ? " locked" : (st ? " loaded" : "")) + (hex ? " hex" : "") + (k === nextK ? " next" : ""),
-          "data-fire": i, "data-k": k, text: lockedDot ? "X" : (hex ? parsed.level : ""),
-          "aria-label": (lockedDot ? "Locked" : (label || "Empty")) + " · chamber " + (k + 1) + (k === nextK ? " · next under the hammer" : ""),
-          title: lockedDot ? "Locked chamber" : (label ? (label + (k === nextK ? " · next" : "") + (hex ? " · Cast through gun" : " · tap to fire")) : "Empty")
-        });
+          class: "chamber" + (lockedDot ? " locked" : (st ? " loaded" : "")) + (hex ? " hex" : "") + (spinGun(g, w) && k === 0 ? " hammer" : "") + (!spinHole && k === nextK ? " next" : ""),
+          "data-k": k, text: lockedDot ? "X" : (hex ? parsed.level : ""),
+          "aria-label": spinHole
+            ? ("Spin chamber " + (k + 1) + " under the hammer. Free.")
+            : ((lockedDot ? "Locked" : (label || "Empty")) + " · chamber " + (k + 1) + (spinGun(g, w) && k === 0 ? " · under the hammer" : (k === nextK ? " · next under the hammer" : ""))),
+          title: spinHole ? "Spin (free). Brings this chamber under the hammer." : (lockedDot ? "Locked chamber" : (label ? (label + (k === nextK ? " · next" : "") + (hex ? " · Cast through gun" : " · tap to fire")) : "Empty"))
+        };
+        if (spinHole) { btnAttrs["data-spin"] = "1"; btnAttrs["data-gun"] = i; }
+        else btnAttrs["data-fire"] = i;
+        var btn = el("button", btnAttrs);
         if (st && hex) {
           btn.classList.add("tinted");
           if (color) btn.style.setProperty("--case", color);
@@ -1947,6 +1955,22 @@
       var left = shells ? shells.filter(Boolean).length : num(g.loaded);
       out("left." + i, cap ? left + "/" + cap : "");
       var packed = !!(g && g.weapon && g.equipped === false);
+      var cycleBtn = $('[data-cycle="' + i + '"]');
+      if (cycleBtn) {
+        var tubeNow = tubeGun(g, w);
+        cycleBtn.hidden = !tubeNow || !cap || packed;
+        var chamberedNow = !!(shells && shells.some(Boolean));
+        cycleBtn.disabled = !chamberedNow;
+        cycleBtn.title = chamberedNow
+          ? "Cycle (free, any time): eject the chambered round onto the ground and chamber the next from the tube. It does not go back in the belt."
+          : "Nothing chambered. Cycle does nothing.";
+      }
+      var groundEl = $('[data-ground="' + i + '"]');
+      if (groundEl) {
+        var dropped = (g && g.grounded) || [];
+        groundEl.hidden = !dropped.length;
+        groundEl.textContent = dropped.length ? ("On the ground: " + dropped.join(", ") + ". Not in the belt.") : "";
+      }
       var reloadBtn0 = $('[data-reload="' + i + '"]');
       if (reloadBtn0) {
         reloadBtn0.hidden = !cap || packed;
@@ -2073,7 +2097,11 @@
         }
         var clv = spellLv ? num(slotSel && slotSel.value, spellLv) : 0;
         var held = false;
-        if (clv > 0) (g.chambers || []).forEach(function (st2) {
+        var spinCast = spinGun(g, w);
+        if (clv > 0 && spinCast) {
+          var under = parseChamber((g.chambers || [])[0]);
+          held = !!(under && under.kind === "hex" && String(under.level) === String(clv));
+        } else if (clv > 0) (g.chambers || []).forEach(function (st2) {
           var p2 = parseChamber(st2);
           if (p2 && p2.kind === "hex" && String(p2.level) === String(clv)) held = true;
         });
@@ -2083,7 +2111,9 @@
             ? "Cantrip: no slot and no chamber. Rolls " + picked.name + "."
             : (held
               ? "Fire the loaded level-" + clv + " shell as " + picked.name + ". No misfire. A natural 1 is a wild spark."
-              : "Load a level-" + clv + " shell first. Loading spends the slot."));
+              : (spinCast
+                ? "Spin a level-" + clv + " shell under the hammer (position 1). Leveled shells fire from there only. Cantrips stay separate."
+                : "Load a level-" + clv + " shell first. Loading spends the slot.")));
       }
     });
     renderAmmo();
@@ -2918,6 +2948,93 @@
       }
     }
   }
+  function ammoSpec(g, w) {
+    return {
+      name: (w && w.name) || "",
+      action: (w && w.action) || "",
+      weapon: g && g.weapon,
+      ammoDisplay: g && g.ammoDisplay,
+      group: w && w.group,
+      ammo: w && w.ammo
+    };
+  }
+  function spinGun(g, w) {
+    var AD = window.SSDNSAmmoDisplay;
+    return !!(w && w.capacity && AD && AD.spins && AD.spins(ammoSpec(g, w)));
+  }
+  function tubeGun(g, w) {
+    var AD = window.SSDNSAmmoDisplay;
+    return !!(w && w.capacity && AD && AD.kind && AD.kind(ammoSpec(g, w)) === "tube");
+  }
+  /* After the round in position 1 is emptied, rotate that hole off the hammer. */
+  function rotateCylinder(g, steps) {
+    var AD = window.SSDNSAmmoDisplay;
+    if (!AD || !g || !Array.isArray(g.chambers)) return;
+    var cap = g.chambers.length;
+    if (cap >= 2) {
+      g.chambers = AD.rotateLeft(g.chambers, steps);
+      g.lockedChambers = AD.rotateIndexes(g.lockedChambers || [], steps, cap);
+    }
+    g.loaded = g.chambers.filter(Boolean).length;
+  }
+  function cylinderPlan(i, k) {
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    if (!g || !w || !spinGun(g, w)) return null;
+    if (k != null && k !== "" && Number(k) > 0) return { spin: true, index: Number(k) };
+    if (g.equipped === false) return { blocked: true, reason: "Equip this weapon first." };
+    if (g.wrecked && window.SSDNSCasterRules) return { blocked: true, reason: window.SSDNSCasterRules.CANT_FIRE };
+    if (g.ruined || g.broken) return { blocked: true, reason: "Ruined. A gunsmith repairs it for 500 ES and a day. It comes back clean." };
+    if (g.pendingD4) return { blocked: true, reason: "Roll the d4 first." };
+    if (g.jammed) return { blocked: true, reason: "Jammed: clear it first" };
+    if (g.fouled) return { blocked: true, reason: "Fouled. It can't fire until it's cleaned." };
+    var a = normChambers(g, w);
+    if (chamberLocked(g, 0)) return { blocked: true, reason: "That chamber is locked." };
+    if (!a[0]) return { dry: true };
+    if (isHexChamber(a[0])) return { hex: true, reason: "That's a hex shell. Use Cast through gun — Roll never spends a slot." };
+    return { fire: true };
+  }
+  /* L0217: click 2–N. Free, any time, including off your turn. Returns true when this gun spun. */
+  function spinCylinder(i, index) {
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    if (!g || !w || !spinGun(g, w)) return false;
+    index = num(index);
+    if (!(index > 0)) return false;
+    var a = normChambers(g, w);
+    if (index >= a.length) return false;
+    rotateCylinder(g, index);
+    changed();
+    publishGunCard();
+    if (window.SSDNSAudio && window.SSDNSAudio.play) window.SSDNSAudio.play("ui-tick");
+    toast("Spun. Chamber " + (index + 1) + " is under the hammer.");
+    return true;
+  }
+  /* L0220: lever/tube only. Free. The chambered round hits the ground, not the belt. */
+  function cycleTube(i) {
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    if (!g || !w || !tubeGun(g, w)) return false;
+    var AD = window.SSDNSAmmoDisplay;
+    var a = normChambers(g, w);
+    var ejected = AD.cycleEject(a);
+    if (!ejected.ok) { toast("Nothing chambered. Cycle does nothing."); return false; }
+    var parsed = parseChamber(ejected.ejected);
+    var label = chamberLabel(ejected.ejected, g, w) || "round";
+    var note;
+    if (parsed && parsed.kind === "hex") {
+      if (!parsed.spent) spendHexSlot(parsed.level);
+      note = "Hex shell " + parsed.level + " hit the ground. That slot stays spent for the fight unless the DM restores it.";
+    } else note = "Ejected " + label + " onto the ground. It is not back in the belt.";
+    g.chambers = ejected.chambers;
+    g.loaded = ejected.chambers.filter(Boolean).length;
+    if (!Array.isArray(g.grounded)) g.grounded = [];
+    g.grounded.push(label);
+    if (g.grounded.length > 8) g.grounded = g.grounded.slice(-8);
+    changed();
+    publishGunCard();
+    if (window.SSDNSAudio && window.SSDNSAudio.play) window.SSDNSAudio.play("rechamber");
+    toast(note);
+    if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "note", text: (w.name || "Repeater") + ": " + note });
+    return true;
+  }
   function spendRound(i, k) {
     var g = C().guns[i], w = g && WPN[g.weapon];
     if (!g || !g.weapon) return { ok: false, reason: "Pick a gun first." };
@@ -2929,6 +3046,22 @@
     if (g.fouled) return { ok: false, reason: "Fouled. It can't fire until it's cleaned." };
     if (w && w.capacity) {
       var a = normChambers(g, w);
+      /* L0217–L0219: revolvers and Caster cylinders fire only position 1, then index.
+         An empty hammer is a dry click (the caller spends the Attack). Not a misfire.
+         Lever, break, breech, muzzle, and tube guns stay on the path below. */
+      if (spinGun(g, w)) {
+        if (chamberLocked(g, 0)) return { ok: false, reason: "That chamber is locked." };
+        if (!a[0]) return { ok: false, dry: true, empty: true, reason: "Click." };
+        if (isHexChamber(a[0])) return { ok: false, reason: "That's a hex shell. Use Cast through gun — Roll never spends a slot." };
+        if (!isPlainChamber(a[0])) return { ok: false, reason: "Out of rounds, Reload" };
+        var wasCyl = a[0];
+        a[0] = "";
+        g.chambers = a;
+        rotateCylinder(g, 1);
+        changed({ quiet: true });
+        publishGunCard();
+        return { ok: true, left: g.loaded, hex: "", chamber: g.chambers.length - 1, was: wasCyl, advanced: true };
+      }
       /* 0.3.72: null (no chamber picked; rollGun resets its chamber to null after each shot) is not a click.
          Before this, every Roll after the first one answered "Click." and didn't fire. */
       var clicked = k !== undefined && k !== null;
@@ -2975,7 +3108,12 @@
     var g = C().guns[i], w = g && WPN[g.weapon];
     if (!w || !w.hexShells) return { ok: false, reason: "Not a Caster Gun." };
     var a = normChambers(g, w), k = -1, parsed = null;
-    for (var n = 0; n < a.length; n++) {
+    /* L0218: a leveled shell leaves a cylinder only from position 1. Cantrips never reach here. */
+    if (spinGun(g, w)) {
+      var p0 = parseChamber(a[0]);
+      if (p0 && p0.kind === "hex" && String(p0.level) === String(level)) { k = 0; parsed = p0; }
+      else return { ok: false, reason: "Leveled shells fire from position 1 only. Spin that shell under the hammer. A cantrip doesn't use a chamber." };
+    } else for (var n = 0; n < a.length; n++) {
       var p = parseChamber(a[n]);
       if (p && p.kind === "hex" && String(p.level) === String(level)) { k = n; parsed = p; break; }
     }
@@ -2983,7 +3121,9 @@
     if (!(parsed && parsed.spent) && slotsLeft(level) <= 0) return { ok: false, reason: "No level-" + level + " slot left." };
     var was = a[k];
     a[k] = "";
-    g.loaded = a.filter(Boolean).length;
+    g.chambers = a;
+    if (k === 0 && spinGun(g, w)) rotateCylinder(g, 1);
+    else g.loaded = a.filter(Boolean).length;
     changed();
     return { ok: true, chamber: k, was: was, alreadySpent: !!(parsed && parsed.spent), left: g.loaded };
   }
@@ -2991,9 +3131,10 @@
     var before = C().guns[i] && C().guns[i].chambers ? C().guns[i].chambers.slice() : null;
     var beforeN = C().guns[i] && C().guns[i].loaded;
     var spent = spendRound(i, k);
-    if (spent && spent.empty) {
+    if (spent && (spent.dry || spent.empty)) {
       if (window.SSDNSAudio) window.SSDNSAudio.play("empty-click");
       toast("Click.");
+      if (spent.dry && window.SSDNSActionPips && window.SSDNSActionPips.attack) window.SSDNSActionPips.attack("dry click");
       return;
     }
     if (!spent.ok) { toast(spent.reason); return; }
@@ -3994,6 +4135,8 @@
     var t = e.target.closest && e.target.closest("button, [data-img]");
     if (!t) return;
     var d = t.dataset;
+    if (d.spin !== undefined) { spinCylinder(d.gun !== undefined ? num(d.gun) : num(d.spin), d.k !== undefined ? num(d.k) : 0); return; }
+    if (d.cycle !== undefined) return cycleTube(num(d.cycle));
     if (d.gunroll !== undefined) { if (window.SSDNSGunRoll) window.SSDNSGunRoll(num(d.gunroll), d.k !== undefined ? num(d.k) : undefined); return; }
     if (d.gunmelee !== undefined) { if (window.SSDNSGunMelee) window.SSDNSGunMelee(num(d.gunmelee)); return; }
     if (d.clean !== undefined) return cleanGun(num(d.clean));
@@ -4966,6 +5109,9 @@
       critMin: critMin, powerAttack: powerAttack, autoSpeed: autoSpeed, hasFeat: hasFeat,
       doc: function () { return S.doc; },
       spendRound: spendRound,
+      spinCylinder: spinCylinder,
+      cycleTube: cycleTube,
+      cylinderPlan: cylinderPlan,
       spendHexSlot: spendHexSlot,
       spendHexChamber: spendHexChamber,
       fireHexShell: fireHexShell,

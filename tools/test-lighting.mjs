@@ -1,5 +1,5 @@
 /**
- * Item lights, hood, hands, darkvision, belt lantern placeholder.
+ * Item lights, hood, hands, darkvision, belt lantern lock (L0215).
  *   node tools/test-lighting.mjs
  */
 import fs from "node:fs";
@@ -46,9 +46,10 @@ check("hood.heldDim", L.litItem(hood).bright === 0 && L.litItem(hood).dim === 5)
 check("belt.stowed", !L.litItem(belt));
 belt.equipSlot = "accessory_1";
 check("belt.worn", L.litItem(belt).bright === 15 && L.litItem(belt).dim === 15 && L.litItem(belt).handsFree);
-check("belt.placeholder", L.TABLE["belt-lantern"].placeholder === true && L.TABLE["belt-lantern"].slot === "trinket");
+check("belt.locked", L.TABLE["belt-lantern"].placeholder !== true && L.TABLE["belt-lantern"].slot === "trinket" && L.TABLE["belt-lantern"].handsFree === true && L.TABLE["belt-lantern"].bright === 15 && L.TABLE["belt-lantern"].dim === 15);
 const gear = read("assets/data/item-catalog-gear.js");
-check("belt.noPrice", /"id": "belt-lantern"[\s\S]*?"price": null/.test(gear) && /PENDING Encounter Bot/.test(gear));
+const beltBlock = gear.slice(gear.indexOf('"id": "belt-lantern"'), gear.indexOf('"id": "tinderbox-lucifers"'));
+check("belt.price", /"price": 750/.test(beltBlock) && /"weight": 1/.test(beltBlock) && /"forSale": true/.test(beltBlock) && /"wear": "trinket"/.test(beltBlock) && !/PENDING Encounter Bot/.test(beltBlock) && !/provisional/.test(beltBlock));
 
 const busy = { items: [], guns: [{ weapon: "long-gun", equipped: true }], melee: [], shield: "tin" };
 check("hands.full", L.handsUsed(busy) >= 2 && !L.hold(Object.assign(busy, { items: [Object.assign({}, torch)] }), "t1", true).ok);

@@ -46,7 +46,8 @@ check("musket.bigBall", A.roundType({ weapon: "dull-co-rifle-musket" }) === "bal
 check("hex.serpent", /rt-hex \{[^}]*data:image\/svg\+xml/.test(css) && css.includes(encodeURIComponent("a12 12 0 0 1 12 -12 M22 8")) && /is-strip \.ammo-round\.is-primer\.is-loaded\.rt-hex/.test(css));
 const bnc = el({ weapon: "navy-army-ball-n-cap-revolver", name: "B", action: "Percussion revolver (slow)", ammo: "percussion", cap: 6, next: 0, chambers: [1, "jam", 1, 1, 1, 1] });
 check("misfire.ball", bnc[1].className.includes("is-jam") && bnc[1].className.includes("rt-ball") && /\.is-jam\.rt-ball \{[^}]*#e23b32[^}]*#7c8288/.test(css));
-check("next.outline", bnc[0].className.includes("is-next"));
+const dotsNext = el({ action: "Pepperbox", cap: 4, next: 1, chambers: [1, 1, "", ""] });
+check("next.outline", bnc[0].className.includes("is-hammer") && !bnc.some((b) => b.className.includes("is-next")) && dotsNext[1].className.includes("is-next") && css.includes(".ammo-round.is-next"));
 check("misfire.othersUnchanged", /\.ammo-round\.is-jam \{\s*background: radial-gradient\(circle at 38% 32%, #ffb0a8/.test(css));
 check("noSamplePage", !fs.existsSync(path.join(root, "sample-rounds.html")));
 if (failures.length) { console.error("pr73 FAIL: " + failures.join(", ")); process.exit(1); }

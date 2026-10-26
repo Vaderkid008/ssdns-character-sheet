@@ -70,6 +70,13 @@
   border-color: #e23b32;
 }
 .ssdns-ammo .ammo-round.is-next { outline: 2px solid #e23b32; outline-offset: 1px; }
+/* L0217: position 1 stays under the hammer. The ring is the hammer, not the next loaded hole. */
+.ssdns-ammo-cylinder .ammo-round.is-hammer,
+.chamber.hammer,
+.chamber-dot.hammer {
+  box-shadow: 0 0 0 2px #c81e1e, 0 0 0 4px rgba(200, 30, 30, 0.45);
+  z-index: 3;
+}
 .ssdns-ammo.is-jammed .ammo-round.is-loaded { filter: grayscale(0.45); }
 
 .ssdns-ammo-tube { width: 220px; max-width: 100%; }
