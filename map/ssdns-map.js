@@ -3845,10 +3845,14 @@ function moveContext(mover, budget) {
     x: t.pos.x,
     y: t.pos.y,
     size: tokSquares(t.size),
-    kind: t.kind,
+    kind: t.ownerUid ? 'player' : (t.kind || 'enemy'),
     ally: allyOf(mover, t),
     name: t.label || t.name || 'a creature',
-    reachFt: 5
+    reachFt: reachFeetOf(t),
+    reaction: reactionSpentOf(t),
+    playerId: t.ownerUid || '',
+    self: !!(uid && t.ownerUid === uid),
+    dmRuns: role === 'dm' && !t.ownerUid
   }));
   return {
     grid: { cols: grid.cols || 30, rows: grid.rows || 20 },
@@ -3858,8 +3862,25 @@ function moveContext(mover, budget) {
     /* Same start-on-wall rule as plain drags: crossesWall ignores t < 1e-6. */
     crosses: (a, b) => crossesWall(a.x, a.y, b.x, b.y),
     disengage: !!(budget && budget.disengage),
+    teleport: !!(budget && budget.teleport),
+    forced: !!(budget && budget.forced),
     enemies: occupants.filter(o => !o.ally)
   };
+}
+function reachFeetOf(token) {
+  const raw = token && (token.reachFt != null ? token.reachFt : token.reach);
+  const n = parseInt(raw, 10);
+  return isFinite(n) && n > 0 ? n : 5;
+}
+function reactionSpentOf(token) {
+  const row = rowForToken(token);
+  if (role === 'player' && window.SSDNSActionPips && token && token.ownerUid === uid) {
+    const st = window.SSDNSActionPips.state ? window.SSDNSActionPips.state() : null;
+    if (st) return !!st.reaction;
+  }
+  if (!row || !state.initiative) return false;
+  const stored = (state.initiative.markers && state.initiative.markers[row.id]) || {};
+  return !!stored.reaction;
 }
 function cellUnderEvent(e) {
   const w = pointerWorld(e);
@@ -3927,35 +3948,183 @@ function flashLeaveReach() {
   el.classList.add('ssm-oa-flash');
   setTimeout(() => { if (!dead) el.classList.remove('ssm-oa-flash'); }, 700);
 }
-function commitWalk(mover, built, budget) {
-  if (!mover || !built || !built.path || built.path.length < 2) return;
-  const origin = { x: mover.pos.x, y: mover.pos.y };
-  const dest = built.path[built.path.length - 1];
-  state.undoStack.push({ type: 'move', ids: [mover.id], from: { [mover.id]: origin }, to: { [mover.id]: { x: dest.x, y: dest.y } }, feet: budget.free ? 0 : built.costFt });
+let reactHold = null;
+function pathCost(built, fromIdx, toIdx) {
+  const path = built && built.path;
+  if (!path || toIdx <= fromIdx) return 0;
+  const reach = built.reach;
+  if (reach && typeof reach.get === 'function') {
+    const a = reach.get(path[fromIdx].x + ',' + path[fromIdx].y);
+    const b = reach.get(path[toIdx].x + ',' + path[toIdx].y);
+    if (a && b) return Math.max(0, (b.costFt || 0) - (a.costFt || 0));
+  }
+  return (toIdx - fromIdx) * 5;
+}
+function paintReactWait(on) {
+  let bar = q('reactWait');
+  if (!on) {
+    if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.setAttribute('data-act', 'reactWait');
+    bar.className = 'ssm-react-wait';
+    el.appendChild(bar);
+  }
+  bar.textContent = 'Waiting on opportunity attacks…';
+}
+function slideSegment(mover, built, fromIdx, toIdx, budget) {
+  const path = built && built.path;
+  if (!mover || !path || toIdx <= fromIdx) return false;
+  const points = path.slice(fromIdx, toIdx + 1);
+  if (points.length < 2) return false;
+  const origin = { x: points[0].x, y: points[0].y };
+  const dest = points[points.length - 1];
+  const costFt = pathCost(built, fromIdx, toIdx);
+  mover.pos.x = origin.x;
+  mover.pos.y = origin.y;
+  state.undoStack.push({ type: 'move', ids: [mover.id], from: { [mover.id]: origin }, to: { [mover.id]: { x: dest.x, y: dest.y } }, feet: budget && budget.free ? 0 : costFt });
   state.redoStack = [];
   markRangeMoved(mover.id, origin, dest);
-  startSlide(mover.id, built.path);
-  postSlide(mover.id, built.path);
-  let spentOut = false;
-  if (!budget.free) {
+  startSlide(mover.id, points);
+  postSlide(mover.id, points);
+  if (budget && !budget.free) {
     suppressFeetToast = true;
     try {
-      spendFeet(mover, built.costFt);
+      spendFeet(mover, costFt);
       const after = budgetFor(mover);
-      spentOut = !!(fightOn() && after && !after.free && after.left <= 0);
-      if (spentOut) exitMoveMode('feet');
+      if (fightOn() && after && !after.free && after.left <= 0) exitMoveMode('feet');
     } finally { suppressFeetToast = false; }
   }
-  const M = moveApi();
-  const cue = M ? M.leaveReachCue(built.path, moveContext(mover, budget)) : { left: false };
-  if (cue.left) flashLeaveReach();
-  const leftReach = cue.left ? ('Left ' + (cue.name || 'an enemy') + "'s reach. Opportunity attacks still wait on the DM.") : '';
-  if (spentOut) toast(leftReach ? (leftReach + ' No movement left.') : 'No movement left.');
-  else if (leftReach) toast(leftReach);
   state.moveHover = null;
   if (state.moveConfirm) state.moveConfirm.pending = null;
   state.moveReachKey = '';
   requestDraw();
+  return true;
+}
+function clearReactHold() {
+  const R = window.SSDNSReact;
+  if (reactHold && R && reactHold.session) R.unbind(reactHold.session.promptId);
+  reactHold = null;
+  paintReactWait(false);
+  if (R && R.close) R.close();
+}
+function armLeaveReactor(view, oaId) {
+  const reactorId = view && view.reactorId;
+  if (role === 'dm' && window.DMCCEnhance && typeof window.DMCCEnhance.armReactOa === 'function') {
+    try { window.DMCCEnhance.armReactOa(reactorId, oaId); return; } catch (e) {}
+  }
+  if (view && view.self && window.SSDNSActionPips && window.SSDNSActionPips.setOa) {
+    window.SSDNSActionPips.setOa('oaArmed', oaId);
+  }
+}
+function presentLeave(view) {
+  const R = window.SSDNSReact;
+  if (!R || !reactHold) return;
+  const handler = function (choice, meta) { onLeaveChoice(choice, meta || {}); };
+  R.bind(view.promptId, handler);
+  let shown = false;
+  if (typeof host.presentReact === 'function') {
+    try { shown = host.presentReact(view, handler) === true; } catch (e) { shown = false; }
+  }
+  reactHold.remote = !!shown;
+  if (!shown) {
+    R.openModal(view, handler);
+    if (role === 'dm') R.openMirror(view, handler);
+  }
+}
+/* After Attack, this client refreshes its own card. A remote reactor already switched on their click, so do not post a second ask. */
+function refreshArmedCard() {
+  const R = window.SSDNSReact;
+  if (!reactHold || !R) return;
+  const view = R.leaveView(reactHold.session, reactHold.moverName);
+  if (!view) return;
+  view.moverId = reactHold.moverId;
+  view.moverPlayerId = reactHold.moverPlayerId;
+  if (!(view.self || view.dmRuns || !reactHold.remote)) return;
+  const handler = function (choice, meta) { onLeaveChoice(choice, meta || {}); };
+  R.bind(view.promptId, handler);
+  R.openModal(view, handler);
+  if (role === 'dm') R.openMirror(view, handler);
+}
+function showLeaveCard() {
+  const R = window.SSDNSReact;
+  if (!reactHold || !R) return;
+  const view = R.leaveView(reactHold.session, reactHold.moverName);
+  if (!view) { clearReactHold(); return; }
+  view.moverId = reactHold.moverId;
+  view.moverPlayerId = reactHold.moverPlayerId;
+  presentLeave(view);
+}
+function clearArmedOa(oaId) {
+  const P = window.SSDNSActionPips;
+  if (P && P.state && P.setOa) {
+    const st = P.state();
+    if (st && st.oaArmed && (!oaId || st.oaArmed === oaId)) P.setOa('oaArmed', '');
+  }
+  if (window.DMCCEnhance && typeof window.DMCCEnhance.clearReactOa === 'function') {
+    try { window.DMCCEnhance.clearReactOa(oaId); } catch (e) {}
+  }
+}
+function onLeaveChoice(choice, meta) {
+  const R = window.SSDNSReact;
+  if (!reactHold || !R) return;
+  meta = meta || {};
+  const session = reactHold.session;
+  const stamp = session.pi + ':' + session.qi + ':' + session.phase + ':' + choice;
+  if (reactHold.stamp === stamp) return;
+  reactHold.stamp = stamp;
+  if (choice === 'attacked' && session.phase !== 'attacking') return;
+  if (choice === 'pass' && session.phase === 'attacking') clearArmedOa(session.oaId || meta.oaId);
+  if (choice === 'attack' && !meta.oaId) {
+    meta.oaId = 'oa_' + Date.now().toString(36);
+    const view = R.leaveView(session, reactHold.moverName);
+    armLeaveReactor(view, meta.oaId);
+  }
+  const result = R.answerLeave(session, choice, meta);
+  if (result.toast) toast(result.toast);
+  if (result.armed) {
+    R.watchSpent(result.oaId, function () { onLeaveChoice('attacked', { oaId: result.oaId }); });
+    refreshArmedCard();
+    return;
+  }
+  if (result.commit) slideSegment(reactHold.mover, reactHold.built, result.commit.from, result.commit.to, reactHold.budget);
+  if (result.done) { clearReactHold(); return; }
+  showLeaveCard();
+}
+function commitWalk(mover, built, budget) {
+  if (!mover || !built || !built.path || built.path.length < 2) return;
+  if (reactHold) { toast('Waiting on opportunity attacks…'); return; }
+  const M = moveApi();
+  const ctx = moveContext(mover, budget);
+  const plan = M && M.leaveReachPlan ? M.leaveReachPlan(built.path, ctx) : { pauses: [] };
+  const filtered = window.SSDNSReact && window.SSDNSReact.withoutSpent
+    ? window.SSDNSReact.withoutSpent(plan.pauses)
+    : { pauses: plan.pauses || [], toasts: [] };
+  (filtered.toasts || []).forEach(function (line) { toast(line); });
+  if (!filtered.pauses.length) {
+    slideSegment(mover, built, 0, built.path.length - 1, budget);
+    return;
+  }
+  const session = window.SSDNSReact.freshLeave({ pauses: filtered.pauses }, built.path.length);
+  session.moverId = mover.id;
+  session.moverName = mover.label || mover.name || 'Someone';
+  session.moverPlayerId = role === 'player' ? uid : '';
+  const pre = filtered.pauses[0].index - 1;
+  if (pre >= 1) slideSegment(mover, built, 0, pre, budget);
+  reactHold = {
+    mover: mover,
+    moverId: mover.id,
+    moverName: session.moverName,
+    moverPlayerId: session.moverPlayerId,
+    built: built,
+    budget: budget,
+    session: session
+  };
+  paintReactWait(true);
+  flashLeaveReach();
+  showLeaveCard();
 }
 function currentFightRow() {
   const T = window.SSDNSTurn;
@@ -3997,6 +4166,7 @@ function tryClickMove(cell) {
   if (dmEditing()) return false;
   /* B13: in a fight, clicks walk only while Move mode is on. Outside a fight they still walk. */
   if (fightOn() && !state.moveMode) return false;
+  if (reactHold) { toast('Waiting on opportunity attacks…'); return true; }
   const mover = activeMover();
   if (mover && role === 'dm' && !onViewedScene(mover)) return true;
   if (!mover) {
@@ -8723,8 +8893,13 @@ async function boot() {
   on(window, 'ssdns:pips-reset', () => {
     state.moveHover = null;
     state.moveReachKey = '';
+    clearReactHold();
     exitMoveMode('turn');
     requestDraw();
+  });
+  on(window, 'ssdns:oa-spent', (ev) => {
+    const id = ev && ev.detail;
+    if (id && window.SSDNSReact && window.SSDNSReact.noteSpent) window.SSDNSReact.noteSpent(id);
   });
   if (typeof options.onReady === 'function') {
     try { options.onReady(); } catch (e) {}

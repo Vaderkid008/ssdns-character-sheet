@@ -10,7 +10,8 @@
  *   terrainCost(square, ctx)  default 1. Difficult terrain later returns 2 (2× feet) without a path rewrite.
  *   isBlocked(x, y, ctx)      out of bounds, or ctx.isBlocked / ctx.wallCells when a map marks squares.
  *   canEndOn(x, y, ctx)       false when the mover's footprint would overlap any token.
- *   leaveReachCue(path, ctx)  soft cue only. Opportunity attacks stay on the DM-approve path. Disengage skips the cue.
+ *   leaveReachCue(path, ctx)  true when a step leaves hostile melee reach. Disengage, teleport, and forced moves skip it.
+ *   leaveReachPlan(path, ctx) the pause points. Footprint Chebyshev, same gap as N64 feetBetween.
  *   previewSlot(state, dest)  desktop mode "click" commits immediately.
  *     Mobile two-tap is NOT in this PR (own patch before alpha). Set state.mode = "confirm":
  *     the first tap stores state.pending, the same square again commits. Do not rewrite computeReach / computePath.
@@ -269,40 +270,68 @@
   function chebyshev(ax, ay, bx, by) {
     return Math.max(Math.abs(ax - bx), Math.abs(ay - by));
   }
-  function inMelee(enemy, px, py) {
-    var s = squares(enemy.size);
-    var ex = enemy.x != null ? enemy.x : enemy.pos.x;
-    var ey = enemy.y != null ? enemy.y : enemy.pos.y;
-    var best = Infinity;
-    var x, y, d;
-    for (y = ey; y < ey + s; y++) {
-      for (x = ex; x < ex + s; x++) {
-        d = chebyshev(x, y, px, py);
-        if (d < best) best = d;
-      }
-    }
-    var reach = num(enemy.reachFt != null ? enemy.reachFt : enemy.reach, 5);
-    return best > 0 && best * FEET <= reach;
+  /** Squares between two footprints on one axis. 0 when the spans overlap or touch. Same rule as N64 axisGap. */
+  function axisGap(origin, span, other, otherSpan) {
+    var a0 = num(origin, 0);
+    var b0 = num(other, 0);
+    var a1 = a0 + squares(span) - 1;
+    var b1 = b0 + squares(otherSpan) - 1;
+    if (a1 < b0) return b0 - a1;
+    if (b1 < a0) return a0 - b1;
+    return 0;
   }
-  /** Soft cue when the path steps out of an enemy's melee reach. No attack is rolled here. */
-  function leaveReachCue(path, ctx) {
+  function boxOf(ent, sizeOverride) {
+    var x = ent && ent.x != null ? ent.x : (ent && ent.pos && ent.pos.x);
+    var y = ent && ent.y != null ? ent.y : (ent && ent.pos && ent.pos.y);
+    var size = sizeOverride != null ? sizeOverride : (ent && ent.size);
+    return { x: num(x, 0), y: num(y, 0), size: squares(size) };
+  }
+  /** N64 feet: Chebyshev between the nearest squares of each footprint, times 5. Overlap is 0. */
+  function feetBetweenBoxes(a, b) {
+    var A = boxOf(a);
+    var B = boxOf(b);
+    return Math.max(axisGap(A.x, A.size, B.x, B.size), axisGap(A.y, A.size, B.y, B.size)) * FEET;
+  }
+  function reachFeet(enemy) {
+    var raw = enemy && (enemy.reachFt != null ? enemy.reachFt : enemy.reach);
+    var n = num(raw, 5);
+    return n > 0 ? n : 5;
+  }
+  function inMeleeBoxes(mover, enemy) {
+    return feetBetweenBoxes(mover, enemy) <= reachFeet(enemy);
+  }
+  /**
+   * Steps that leave a hostile's melee reach. index is the path square that would leave.
+   * Pause before committing that square. Disengage, teleport, and forced movement do not provoke.
+   */
+  function leaveReachPlan(path, ctx) {
     ctx = ctx || {};
-    if (ctx.disengage) return { left: false };
+    if (ctx.disengage || ctx.teleport || ctx.forced) return { pauses: [] };
     var enemies = ctx.enemies || [];
-    if (!path || path.length < 2 || !enemies.length) return { left: false };
-    var i, e, s, t;
-    for (i = 0; i < enemies.length; i++) {
-      e = enemies[i];
-      for (s = 0; s < path.length; s++) {
-        if (!inMelee(e, path[s].x, path[s].y)) continue;
-        for (t = s + 1; t < path.length; t++) {
-          if (!inMelee(e, path[t].x, path[t].y)) {
-            return { left: true, name: e.name || e.label || "an enemy" };
-          }
-        }
+    if (!path || path.length < 2 || !enemies.length) return { pauses: [] };
+    var size = squares(ctx.moverSize);
+    var pauses = [];
+    var i, e, before, after, who, foe;
+    for (i = 1; i < path.length; i++) {
+      who = [];
+      before = { x: path[i - 1].x, y: path[i - 1].y, size: size };
+      after = { x: path[i].x, y: path[i].y, size: size };
+      for (e = 0; e < enemies.length; e++) {
+        foe = enemies[e];
+        if (!foe || foe.ally) continue;
+        if (inMeleeBoxes(before, foe) && !inMeleeBoxes(after, foe)) who.push(foe);
       }
+      if (who.length) pauses.push({ index: i, reactors: who });
     }
-    return { left: false };
+    return { pauses: pauses };
+  }
+  /** True when any step of the path leaves melee reach. The map pauses on leaveReachPlan, not on a toast. */
+  function leaveReachCue(path, ctx) {
+    var plan = leaveReachPlan(path, ctx);
+    var first = plan.pauses[0];
+    if (!first || !first.reactors.length) return { left: false };
+    var foe = first.reactors[0];
+    return { left: true, name: foe.name || foe.label || "an enemy", at: first.index };
   }
   /**
    * Tap-preview slot for the pre-alpha mobile patch.
@@ -333,6 +362,9 @@
     footprintCrosses: footprintCrosses,
     stanceBlocked: stanceBlocked,
     slideBlocked: slideBlocked,
+    axisGap: axisGap,
+    feetBetweenBoxes: feetBetweenBoxes,
+    leaveReachPlan: leaveReachPlan,
     leaveReachCue: leaveReachCue,
     previewSlot: previewSlot,
     chebyshev: chebyshev,

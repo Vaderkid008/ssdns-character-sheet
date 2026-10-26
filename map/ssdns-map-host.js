@@ -970,6 +970,16 @@
             var E = root.DMCCEnhance;
             if (!isDmPage() || !E || typeof E.linkedTokenId !== "function") return "";
             try { return E.linkedTokenId(combatantId) || ""; } catch (e) { return ""; }
+          },
+          /* N67: the mover's map asks the host to show the reactor card and the DM mirror. */
+          presentReact: function (view, handler) {
+            if (isDmPage() && root.DMCCEnhance && typeof root.DMCCEnhance.presentReact === "function") {
+              try { return root.DMCCEnhance.presentReact(view, handler) === true; } catch (e) { return false; }
+            }
+            if (root.SSDNSDmJoin && typeof root.SSDNSDmJoin.presentReact === "function") {
+              try { return root.SSDNSDmJoin.presentReact(view, handler) === true; } catch (e2) { return false; }
+            }
+            return false;
           }
         },
         options: {

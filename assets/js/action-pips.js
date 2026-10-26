@@ -109,6 +109,7 @@
       st.reaction = true; st.oaUsed = st.oaArmed; st.oaUsedAt = Date.now(); st.oaArmed = "";
       save(); paint();
       if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "note", text: label + " · opportunity attack (reaction)." });
+      if (root.SSDNSReact && root.SSDNSReact.noteSpent) root.SSDNSReact.noteSpent(st.oaUsed);
       return { over: false, attacks: st.attacks, limit: limit, oa: st.oaUsed };
     }
     st.actUndo = ""; /* Turn UX on the map: an attack after Dash / Disengage / Dodge ends its cancel */
@@ -553,7 +554,7 @@
   root.SSDNSActionPips = {
     spend: spend, toggle: toggle, attack: attack, spell: spell, feature: feature, reset: reset, onTurn: onTurn, paint: paint,
     blockMap: blockMap, blockReason: blockReason,
-    reactionChoices: reactionChoices, closeReactionMenu: closeReactionMenu,
+    reactionChoices: reactionChoices, closeReactionMenu: closeReactionMenu, openSpell: openReactionSpell,
     attacksPerAction: attacksPerAction, spellCost: spellCost, featureCost: featureCost, rulesCost: rulesCost,
     state: function () { return extras(st, { action: st.action, bonus: st.bonus, reaction: st.reaction, attacks: st.attacks, actionBy: st.actionBy, turnKey: st.turnKey }); },
     adopt: adopt,

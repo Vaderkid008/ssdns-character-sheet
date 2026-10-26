@@ -1263,6 +1263,12 @@
         fadeToast("Initiative: " + (payload.init != null ? payload.init : "?") + (payload.auto ? " (auto-rolled)" : ""), 5000);
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({ id: "init:" + (cmd.id || ""), kind: "alert", text: "Initiative: " + payload.init + (payload.auto ? " (auto-rolled by the DM)" : "") });
         break;
+      case "reactPrompt":
+        onReactPrompt(payload);
+        break;
+      case "reactAnswer":
+        if (root.SSDNSReact && root.SSDNSReact.deliver) root.SSDNSReact.deliver(payload.promptId, payload.choice || "pass", payload);
+        break;
       case "reward_es":
         var bankId = String(payload.grantId || "").indexOf("bank:") === 0 ? String(payload.grantId).slice(5) : "";
         var bankOk = applyEsReward(payload.delta || 0, payload.reason || "DM reward", payload.grantId || cmd.id);
@@ -2654,6 +2660,135 @@
     };
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () { return { ok: true, id: id }; });
   }
+  /**
+   * N67: one-shot reaction window. Same create-only request row as an opportunity attack.
+   * phase "ask" is the prompt. phase "answer" is Attack, Cast, Pass, or go.
+   */
+  function reactRow(card, phase, choice, meta) {
+    card = card || {};
+    meta = meta || {};
+    return {
+      ts: new Date().toISOString(),
+      from: state.uid,
+      targetId: String(card.reactorId || card.reactorPlayerId || card.targetId || ""),
+      amount: 0,
+      type: "react",
+      phase: phase || "ask",
+      choice: choice || "",
+      promptId: String(card.promptId || ""),
+      kind: String(card.kind || ""),
+      text: String(card.text || ""),
+      moverName: String(card.moverName || ""),
+      moverId: String(card.moverId || ""),
+      moverPlayerId: String(card.moverPlayerId || state.uid || ""),
+      reactorId: String(card.reactorId || ""),
+      reactorName: String(card.reactorName || ""),
+      reactorKind: String(card.reactorKind || ""),
+      reactorPlayerId: String(card.reactorPlayerId || ""),
+      spellName: String(card.spellName || meta.spellName || ""),
+      spellLevel: parseInt(card.spellLevel, 10) || 0,
+      damagerId: String(card.damagerId || ""),
+      damagerName: String(card.damagerName || ""),
+      casterId: String(card.casterId || ""),
+      casterName: String(card.casterName || ""),
+      oaId: String(meta.oaId || card.oaId || "")
+    };
+  }
+  function postReact(card) {
+    if (!state.joined || !state._fb || !state.db) return Promise.resolve({ ok: false });
+    var id = "react_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), reactRow(card, "ask", "", {})).then(function () {
+      return { ok: true, id: id };
+    }).catch(function () { return { ok: false }; });
+  }
+  function postReactAnswer(card, choice, meta) {
+    if (!state.joined || !state._fb || !state.db) return Promise.resolve({ ok: false });
+    var id = "reacta_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), reactRow(card, "answer", choice || "pass", meta)).then(function () {
+      return { ok: true, id: id };
+    }).catch(function () { return { ok: false }; });
+  }
+  /** The mover's map calls this. A joined player posts the ask. This client shows the card only when it is the reactor. */
+  function presentReact(view) {
+    if (!state.joined || !state._fb || !state.db || !view) return false;
+    postReact(view);
+    return !(view.self || (view.reactorPlayerId && view.reactorPlayerId === state.uid));
+  }
+  function castPromptSpell(view) {
+    var P = root.SSDNSActionPips;
+    if (!P || !view || !view.spellName) return;
+    var target = view.damagerId || view.casterId || "";
+    if (target) {
+      var sel = document.querySelector("#atkTarget");
+      if (sel && sel.querySelector('option[value="' + String(target).replace(/"/g, "") + '"]')) {
+        sel.value = String(target);
+        try { sel.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {}
+      }
+    }
+    root.SSDNSReact.castingReaction = true;
+    try {
+      if (P.spell) P.spell(view.spellName);
+      if (P.openSpell) P.openSpell(view.spellName, view.spellLevel || 0);
+    } finally {
+      root.SSDNSReact.castingReaction = false;
+    }
+  }
+  function onReactPrompt(view) {
+    var R = root.SSDNSReact;
+    if (!R || !view) return;
+    R.openModal(view, function (choice) {
+      var meta = {};
+      if (choice === "attack") {
+        meta.oaId = "oa_" + Date.now().toString(36);
+        if (root.SSDNSActionPips && root.SSDNSActionPips.setOa) root.SSDNSActionPips.setOa("oaArmed", meta.oaId);
+        R.watchSpent(meta.oaId, function () {
+          postReactAnswer(view, "attacked", { oaId: meta.oaId });
+          R.close();
+        });
+        postReactAnswer(view, "attack", meta);
+        var held = Object.assign({}, view, {
+          hideAttack: true,
+          oaId: meta.oaId,
+          text: "Make the opportunity attack against " + (view.moverName || "them") + ". It spends your reaction, not your action."
+        });
+        R.openModal(held, function (c2) {
+          if (c2 !== "pass") return;
+          if (root.SSDNSActionPips && root.SSDNSActionPips.setOa) root.SSDNSActionPips.setOa("oaArmed", "");
+          postReactAnswer(view, "pass", { oaId: meta.oaId });
+          R.close();
+        });
+        return;
+      }
+      if (choice === "cast") castPromptSpell(view);
+      postReactAnswer(view, choice, meta);
+      R.close();
+    });
+  }
+  var spellGates = {};
+  root.SSDNSReactHost = root.SSDNSReactHost || {};
+  root.SSDNSReactHost.askSpell = function (info, proceed) {
+    if (!state.joined || !state._fb || !state.db) return false;
+    var promptId = "spell_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var R = root.SSDNSReact;
+    if (R) R.bind(promptId, function (choice) {
+      if (choice !== "go") return;
+      if (R.closeWait) R.closeWait();
+      if (proceed) proceed();
+    });
+    spellGates[promptId] = 1;
+    postReact({
+      promptId: promptId,
+      kind: "spell",
+      text: ((info && info.casterName) || "Someone") + " is casting " + ((info && info.spellName) || "a spell"),
+      casterName: (info && info.casterName) || "",
+      casterId: (info && info.casterId) || state.uid || "",
+      spellName: (info && info.spellName) || "",
+      moverPlayerId: state.uid,
+      moverName: (info && info.casterName) || ""
+    });
+    if (R && R.openWait) R.openWait("Waiting on reactions…");
+    return true;
+  };
   function watchEs() {
     if (state._esTimer) return;
     state._esTimer = setInterval(function () {
@@ -3008,6 +3143,8 @@
       postEndTurn: postEndTurn,
       postAddToken: postAddToken,
       postOaRequest: postOaRequest,
+      postReact: postReact,
+      presentReact: presentReact,
       pushTurnMarkers: pushTurnMarkers,
       pullTurnMarkers: pullTurnMarkers,
       postLedger: postLedger,
