@@ -2414,6 +2414,7 @@ function clearReactOa(oaId) {
     if (row.kind === "player") writePlayerMarkers(row.playerId || row.id, m, "", ["oaArmed"]);
     else fight.markers = Object.assign({}, fight.markers || {}, { [row.id]: m });
   });
+  if (oaId) delete armedReactByOa[oaId];
 }
 function reactChoiceLocal(view) {
   return !!(view && (view.dmRuns || view.self || view.reactorKind !== "player"));
@@ -2433,10 +2434,38 @@ function rememberReactArm(view, oaId) {
 }
 function notifyReactSpent(oaId) {
   const R = window.SSDNSReact;
-  const local = !!(oaId && R && typeof R.noteSpent === "function" && R.noteSpent(oaId));
   const remembered = oaId && armedReactByOa[oaId];
   if (oaId) delete armedReactByOa[oaId];
-  if (!local && remembered) pushReactAnswer(remembered, "attacked", { oaId: oaId });
+  const local = !!(oaId && R && typeof R.noteSpent === "function" && R.noteSpent(oaId));
+  /* A local watch commits the leave itself. A remote mover hears "attacked" only after the strike. */
+  if (local || !remembered) return;
+  pushReactAnswer(remembered, "attacked", { oaId: oaId });
+  if (R && R.close) R.close();
+  if (openReactId) clearReactRequest(openReactId, "attacked");
+}
+/* The strike card. Pass or Cancel drops the arm and lets the leave commit. Attack is already spent by the weapon roll. */
+function openArmedLeaveCard(view, oaId, tell) {
+  const R = window.SSDNSReact;
+  if (!R || !view) return;
+  const who = view.moverName || "them";
+  const reactor = view.reactorName || "Someone";
+  const held = Object.assign({}, view, {
+    hideAttack: true,
+    oaId: oaId,
+    kicker: "Opportunity attack",
+    text: "Make the opportunity attack against " + who + ". It spends your reaction, not your action.",
+    mirrorText: reactor + " is making an opportunity attack as " + who + " leaves reach. Pass cancels it."
+  });
+  const cancelArmed = function (c2) {
+    if (c2 !== "pass" && c2 !== "cancel") return;
+    clearReactOa(oaId);
+    delete armedReactByOa[oaId];
+    tell("pass", { oaId: oaId });
+    R.close();
+    if (openReactId) clearReactRequest(openReactId, "pass");
+  };
+  R.openModal(held, cancelArmed);
+  R.openMirror(held, cancelArmed);
 }
 function pushReactPrompt(view) {
   const pid = view && view.reactorPlayerId;
@@ -2538,15 +2567,29 @@ function presentReact(view, handler) {
     }
     if (choice === "attack" && view.dmRuns) {
       meta.oaId = meta.oaId || view.oaId || ("oa_" + Date.now().toString(36));
-      if (!armReactOa(view.reactorId, meta.oaId, view.reactorName)) {
+      const armedOk = armReactOa(view.reactorId, meta.oaId, view.reactorName);
+      const decided = (R.attackDecision && R.attackDecision(armedOk)) || {
+        choice: armedOk ? "attack" : "pass",
+        armed: !!armedOk,
+        hold: !!armedOk
+      };
+      if (!decided.hold) {
         DM.toast((view.reactorName || "They") + " can't take that attack. Passing.");
         choice = "pass";
       } else {
         rememberReactArm(view, meta.oaId);
-        DM.toast("Opportunity attack ready for " + (view.reactorName || "them") + ". Make the attack — it uses their reaction, not their action.");
-        /* Arm, then release the mover. The full-screen card must not stay up. */
-        choice = "pass";
         meta.armed = true;
+        DM.toast("Opportunity attack ready for " + (view.reactorName || "them") + ". Make the attack — it uses their reaction, not their action.");
+        /* N70: hold the leave until this opportunity attack is spent. Do not pass the mover out of reach. */
+        const tell = function (made, extra) {
+          const packet = Object.assign({}, meta, extra || {}, { oaId: meta.oaId });
+          if (made !== "attack") packet.armed = false;
+          if (handler) handler(made, packet);
+          else if (!(R.deliver && R.deliver(view.promptId, made, packet))) pushReactAnswer(view, made, packet);
+        };
+        tell("attack", {});
+        if (!handler) openArmedLeaveCard(view, meta.oaId, tell);
+        return;
       }
     }
     if (choice === "pass" && view.hideAttack && (meta.oaId || view.oaId) && !meta.armed) {
@@ -2630,7 +2673,9 @@ function noteReactRequest(req, id) {
     runReactOffers(offers, function () { pushReactAnswer(req, "go", req); });
     return;
   }
-  presentReact(Object.assign({ dmRuns: req.reactorKind !== "player" }, req), null);
+  const reactorRow = fightRowForReactor(req.reactorId, req.reactorName);
+  const dmRuns = !!(req.dmRuns || (req.reactorKind && req.reactorKind !== "player") || dmRunsToken(reactorRow));
+  presentReact(Object.assign({}, req, { dmRuns: dmRuns }), null);
 }
 function counterspellOffers(req) {
   const R = window.SSDNSReact;
@@ -7933,14 +7978,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.160-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.161-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.160-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.161-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

@@ -4154,6 +4154,15 @@ function reactorFacts(t) {
   }
   return { status: status || '', hp: hp, noHpPool: noHpPool, conditions: tokenConditions(t) };
 }
+function reactorDmRuns(t) {
+  if (!t) return false;
+  if (!t.ownerUid || t.dmActsAs) return true;
+  if (role !== 'dm' || typeof host.getCard !== 'function') return false;
+  try {
+    const card = host.getCard(t.id) || (t.combatantId && host.getCard(t.combatantId)) || (t.ownerUid && host.getCard(t.ownerUid));
+    return !!(card && card.dmActsAs);
+  } catch (e) { return false; }
+}
 function moveContext(mover, budget) {
   const grid = (state.scene && state.scene.grid) || { cols: 30, rows: 20 };
   const sceneId = (mover && mover.sceneId) || activeSceneId() || 'scn_dustyspur01';
@@ -4172,7 +4181,7 @@ function moveContext(mover, budget) {
       reaction: reactionSpentOf(t),
       playerId: t.ownerUid || '',
       self: !!(uid && t.ownerUid === uid),
-      dmRuns: !t.ownerUid,
+      dmRuns: reactorDmRuns(t),
       status: facts.status,
       hp: facts.hp,
       noHpPool: facts.noHpPool,
@@ -4367,7 +4376,10 @@ function refreshArmedCard() {
   if (!view) return;
   view.moverId = reactHold.moverId;
   view.moverPlayerId = reactHold.moverPlayerId;
-  if (!(view.self || view.dmRuns || !reactHold.remote)) return;
+  /* N70: only the client that makes the strike shows "Make the opportunity attack".
+     A remote mover keeps the wait bar until the strike or Pass/Cancel. */
+  const makesStrike = !!(view.self || !reactHold.remote || (view.dmRuns && role === 'dm'));
+  if (!makesStrike) return;
   const handler = function (choice, meta) { onLeaveChoice(choice, meta || {}); };
   R.bind(view.promptId, handler);
   R.openModal(view, handler);
@@ -4429,10 +4441,14 @@ function onLeaveChoice(choice, meta) {
     clearReactHold();
     return;
   }
+  if (choice === 'attacked' && session.phase !== 'attacking') return;
+  if (choice === 'attacked' && meta.oaId && session.oaId && meta.oaId !== session.oaId) return;
   const stamp = session.pi + ':' + session.qi + ':' + session.phase + ':' + choice;
   if (reactHold.stamp === stamp) return;
   reactHold.stamp = stamp;
-  if (choice === 'attacked' && session.phase !== 'attacking') return;
+  if (choice === 'attacked' || (choice === 'pass' && session.phase === 'attacking')) {
+    if (typeof R.forgetSpent === 'function') R.forgetSpent(meta.oaId || session.oaId);
+  }
   if (choice === 'pass' && session.phase === 'attacking') clearArmedOa(session.oaId || meta.oaId);
   if (choice === 'attack' && !meta.oaId) {
     meta.oaId = 'oa_' + Date.now().toString(36);
