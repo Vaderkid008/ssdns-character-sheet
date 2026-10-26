@@ -1,5 +1,5 @@
 /**
- * N49 / N51 / N52 / N54 / N60 / N63 (sheet 0.3.142 / DMCC 0.2.155).
+ * N49 / N51 / N52 / N54 / N60 / N63 (sheet 0.3.143 / DMCC 0.2.156).
  *   node tools/test-n49-n60.mjs
  */
 import fs from "node:fs";
@@ -27,11 +27,11 @@ const join = read("assets/js/dm-join.js");
 const rulesJs = read("assets/data/rules.js");
 const rules = read("database.rules.json");
 
-check("ver.sheet", version.sheet === "0.3.142" && version.sheetBuild === "sheet-playtest-v03142");
-check("ver.dmcc", version.dmcc === "0.2.155" && version.dmccBuild === "dmcc-playtest-v02155");
-check("ver.app", app.includes('APP_VERSION = "0.3.142"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.155"'));
-check("src.rulesUntouched", !rulesJs.includes("0.3.142") && !rulesJs.includes("0.2.155") && !rules.includes("0.3.142") && !rules.includes("gunAllowsTactical") && !rulesJs.includes("No fight card linked"));
+check("ver.sheet", version.sheet === "0.3.143" && version.sheetBuild === "sheet-playtest-v03143");
+check("ver.dmcc", version.dmcc === "0.2.156" && version.dmccBuild === "dmcc-playtest-v02156");
+check("ver.app", app.includes('APP_VERSION = "0.3.143"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.156"'));
+check("src.rulesUntouched", !rulesJs.includes("0.3.143") && !rulesJs.includes("0.2.156") && !rules.includes("0.3.143") && !rules.includes("gunAllowsTactical") && !rulesJs.includes("No fight card linked"));
 
 const noAmmo = app.slice(app.indexOf('var msg = "No ammo for this caliber"'), app.indexOf('var msg = "No ammo for this caliber"') + 500);
 check("src.n51.sheetToastOnly", noAmmo.includes("toast(msg)") && !noAmmo.includes("addLog") && !noAmmo.includes("postChat"));
@@ -202,7 +202,8 @@ function makeFight(opts) {
   const fight = sb.__fight.fight;
   const gun = { id: "henrietta", name: "Henrietta", capacity: 6, loaded: 4, spare: 3, tr: true, properties: "Tactical Reload" };
   const slow = { id: "ball", name: "Ball n Cap", capacity: 6, loaded: 2, spare: 0, tr: false, properties: "slow load (a full turn)" };
-  const foe = { id: "en1", name: "Deputy", kind: "enemy", ac: 13, hp: 20, maxHp: 20, mapTokenId: "tok_en1", card: { attacks: [gun, slow] }, attackList: [gun, slow] };
+  /* N66: a fight row that is meant to Tactical Reload carries feedsTR. An unstamped row toasts and does not load. */
+  const foe = { id: "en1", name: "Deputy", kind: "enemy", ac: 13, hp: 20, maxHp: 20, mapTokenId: "tok_en1", feedsTR: true, card: { attacks: [gun, slow], feedsTR: true }, attackList: [gun, slow] };
   fight.order = [foe];
   fight.started = true;
   fight.turn = 0;

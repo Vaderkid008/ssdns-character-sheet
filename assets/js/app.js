@@ -4,7 +4,8 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.142"; // sheet-playtest-v03142
+  var APP_VERSION = "0.3.143"; // sheet-playtest-v03143
+  var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
   var R = window.SSDNS_RULES;
@@ -1864,7 +1865,6 @@
       if (Number(g.misStreak)) statusBits.push("misfires " + g.misStreak);
       if (g.pendingD4) statusBits.push("d4 pending");
       out("gst." + i, statusBits.join(" · "));
-      if (hasGunBelt() || !canTacticalReload(w)) row.classList.remove("tr-warn");
       var cs = row.querySelector(".chamber-sel");
       if (cs.getAttribute("data-for") !== (g.weapon || "")) {
         cs.setAttribute("data-for", g.weapon || "");
@@ -2113,7 +2113,7 @@
     $$('[data-tr]').forEach(function (btn) {
       btn.title = hasGunBelt()
         ? "Tactical Reload: bonus action, load one round from a gun belt or bandolier"
-        : "Tactical Reload needs a gun belt or bandolier (tick the box, or pick Gun Belt / Bandolier). Tap to see the warning.";
+        : TR_BELT_MSG;
     });
     var cp = v.cp;
     out("cpTotal", "Worth " + cp.toLocaleString() + " " + UNIT);
@@ -3189,9 +3189,11 @@
     });
   }
   function reloadFromPool(i, pool, max) {
-    var g = C().guns[i], w = WPN[g.weapon];
+    var g = C().guns[i], w = g && WPN[g.weapon];
     if (d4Pending(g)) { toast("Roll the d4 first."); return; }
     if (!w || !w.capacity || !pool) return;
+    /* N66: a one-round load is Tactical Reload. No belt: toast and stop. */
+    if (max && !hasGunBelt()) { toast(TR_BELT_MSG); return; }
     var CRb = window.SSDNSCasterRules, shellNo = CRb ? CRb.shellBlock(w, g, pool) : "";
     if (shellNo) { toast(shellNo); if (window.SSDNSSheet && window.SSDNSSheet.addLog) window.SSDNSSheet.addLog({ kind: "alert", text: (w.name || "Gun") + ": " + shellNo }); return; }
     var a = normChambers(g, w);
@@ -3245,10 +3247,12 @@
   }
   function reload(i, max) {
     if (offTurnStop("gear")) return;
-    var g = C().guns[i], w = WPN[g.weapon];
+    var g = C().guns[i], w = g && WPN[g.weapon];
     if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
     if (d4Pending(g)) { toast("Roll the d4 first."); return; }
     if (!w || !w.capacity) return;
+    /* N66: max is Tactical Reload (one round, bonus). No belt: toast and stop. */
+    if (max && !hasGunBelt()) { toast(TR_BELT_MSG); return; }
     var a = normChambers(g, w);
     var need = openChamberCount(g, a);
     if (max) need = Math.min(need, max);
@@ -3283,19 +3287,13 @@
   function tacticalReload(i) {
     if (offTurnStop("gear")) return;
     if (fanTrLocked()) return;
-    var g = C().guns[i], w = WPN[g.weapon];
+    var g = C().guns[i], w = g && WPN[g.weapon];
     if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
     if (d4Pending(g)) { toast("Roll the d4 first."); return; }
     if (!canTacticalReload(w)) { toast("This gun can't Tactical Reload (TR —)."); return; }
-    if (!hasGunBelt()) {
-      // v0.2.1: soft requirement (PHB Reloading: TR loads from a gun belt or bandolier). Warn; the player can override.
-      $('.gun[data-row="' + i + '"]').classList.add("tr-warn");
-      toast("No gun belt or bandolier (tick the box under Holster, or pick Gun Belt / Bandolier). The PHB says Tactical Reload loads from one; rounds in a box, pouch or saddlebag need a full reload.", "Load anyway", function () {
-        $('.gun[data-row="' + i + '"]').classList.remove("tr-warn"); reload(i, 1);
-      }, 10000);
-      return;
-    }
-    reload(i, 1);
+    /* N66: a belt or bandolier is required. Toast only. Do not reload and do not spend Bonus. */
+    if (!hasGunBelt()) { toast(TR_BELT_MSG); return; }
+    return reload(i, 1);
   }
   function finishHexLoad(i, g, w, lvl, a, k) {
     if (slotsLeft(lvl) <= 0) { toast("No level-" + lvl + " slot left."); return; }

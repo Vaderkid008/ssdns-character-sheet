@@ -3441,6 +3441,9 @@ function beastRow(b) {
     cr: b.cr,
     size: b.size || "Medium", /* token size: Large 2x2, Huge 3x3, Gargantuan 4x4 on the map */
     beastId: b.id || "",
+    /* N66: the stat block's belt stamp travels with the fight row. */
+    feedsTR: !!(b.feedsTR || b.gunBelt),
+    gunBelt: !!(b.gunBelt || b.feedsTR),
     card: window.SSDNSApplied && window.SSDNSApplied.enemyCardModel ? window.SSDNSApplied.enemyCardModel(b) : null
   };
 }
@@ -7505,14 +7508,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.155-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.156-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.155-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.156-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -8272,6 +8275,35 @@ function drawerPipCost(snap, atk, op, max) {
   if (calling === "gunslinger" && level >= 3 && !heavyRb) return { cost: "bonus", what: "Reload" };
   return { cost: "action", what: "Reload" };
 }
+const TR_BELT_TOAST = "Need a gun belt or bandolier for Tactical Reload.";
+function holsterFeedsTr(id) {
+  if (!id) return false;
+  const list = (window.SSDNS_RULES && window.SSDNS_RULES.holsters) || [];
+  const row = list.filter((h) => h && h.id === id)[0];
+  if (row) return !!row.feedsTR;
+  return /gun-belt|bandolier/i.test(String(id));
+}
+/* null when the snapshot never said. false only when gunBelt is explicitly off and nothing feeds TR. */
+function playerHasBelt(snap) {
+  if (!snap) return null;
+  if (snap.gunBelt || snap.feedsTR) return true;
+  if (holsterFeedsTr(snap.belt) || holsterFeedsTr(snap.holster)) return true;
+  if (snap.gunBelt === false) return false;
+  return null;
+}
+function playerBeltBlock(snap) {
+  if (playerHasBelt(snap) !== false) return false;
+  DM.toast(TR_BELT_TOAST);
+  return true;
+}
+function enemyBelted(row) {
+  if (!row) return false;
+  if (row.gunBelt || row.feedsTR) return true;
+  const card = row.card || {};
+  if (card.gunBelt || card.feedsTR) return true;
+  const beast = beastRecord(row.beastId);
+  return !!(beast && (beast.gunBelt || beast.feedsTR));
+}
 function echoPipWarn(row) {
   if (!row || !row._pipWarn) return;
   const line = row._pipWarn;
@@ -8460,6 +8492,8 @@ async function mapEnemyTr(row, detail) {
   const atk = row.card && row.card.attacks && row.card.attacks[n];
   if (!atk) { DM.toast("No weapon"); return false; }
   if (!atk.tr) { DM.toast("This gun can't Tactical Reload (TR —)."); return false; }
+  /* N66: no belt and no feedsTR stamp. Toast only. Do not load and do not spend Bonus. */
+  if (!enemyBelted(row)) { DM.toast(TR_BELT_TOAST); return false; }
   const open = enemyOpenChambers(atk);
   const loaded = Number(atk.loaded) || 0;
   const need = Math.max(0, Math.min(1, open - loaded));
@@ -8499,6 +8533,7 @@ async function mapGunChoice(detail, op, extra) {
     return false;
   }
   if (op === "tr" && !atk.tr) { DM.toast("This gun can't Tactical Reload (TR —)."); return false; }
+  if (op === "tr" && playerBeltBlock(snap)) return false;
   if (op === "tr" && drawerPipBlock(row, atk, "tr", 1)) return false;
   if (op === "pool" && extra && extra.pool !== "" && extra.pool != null) {
     const piles = atk.pools || [];
@@ -8909,6 +8944,8 @@ async function mapGunChamber(detail) {
       DM.toast("Unloaded a chamber · " + payload.loaded + "/" + cap);
       return true;
     }
+    /* N66: filling one empty chamber is a bonus Tactical Reload. */
+    if (playerBeltBlock(snap)) return false;
     const payload = { op: "reload", index: atk.sheetIndex != null ? atk.sheetIndex : (atk.gunIndex != null ? atk.gunIndex : n), max: 1 };
     await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
     if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
