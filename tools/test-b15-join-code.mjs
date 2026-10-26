@@ -23,10 +23,10 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const ver = JSON.parse(read("version.json"));
-check("ver.sheet", ver.sheet === "0.3.140" && ver.sheetBuild === "sheet-playtest-v03140", JSON.stringify(ver));
-check("ver.dmcc", ver.dmcc === "0.2.153" && ver.dmccBuild === "dmcc-playtest-v02153");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.140"'));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.153"'));
+check("ver.sheet", ver.sheet === "0.3.141" && ver.sheetBuild === "sheet-playtest-v03141", JSON.stringify(ver));
+check("ver.dmcc", ver.dmcc === "0.2.154" && ver.dmccBuild === "dmcc-playtest-v02154");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.141"'));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.154"'));
 
 const sheetHtml = read("index.html");
 const dmHtml = read("dm/index.html");
@@ -253,32 +253,46 @@ try {
     const el = document.querySelector("#mapMount .join-code-chip");
     return el && !el.hidden && el.textContent === "RUST-77";
   }, { timeout: 20000 });
-  await player.evaluate(() => document.body.classList.add("sheet-dock-collapsed"));
-  await sleep(200);
+  /* N57: the map chat dock stays mounted (B15 chip included) but is not the feed.
+     The visible room code on the Map tab is the Table log chip. */
+  const mapState = await player.evaluate(() => {
+    const dock = document.querySelector("#mapMount .ssdns-chatdock");
+    const chip = document.querySelector("#mapMount .join-code-chip");
+    const sheet = document.querySelector("#sheetJoinCode");
+    const sheetCs = sheet ? getComputedStyle(sheet) : null;
+    return {
+      dockDisplay: dock ? getComputedStyle(dock).display : "",
+      chipText: chip ? chip.textContent : "",
+      chipHidden: !!(chip && chip.hidden),
+      sheetText: sheet ? sheet.textContent : "",
+      sheetShown: !!(sheet && !sheet.hidden && sheetCs && sheetCs.display !== "none")
+    };
+  });
+  check("player.mapChatHidden", mapState.dockDisplay === "none", JSON.stringify(mapState));
+  check("player.mapChipMounted", mapState.chipText === "RUST-77" && mapState.chipHidden === false, JSON.stringify(mapState));
+  check("player.tableLogChipOnMap", mapState.sheetShown && mapState.sheetText === "RUST-77", JSON.stringify(mapState));
   const mapBox = await player.$("#mapMount");
   if (mapBox) await mapBox.screenshot({ path: path.join(shots, "b15-player-map-dock.png") });
-  const mapHead = await player.$("#mapMount .ssdns-chathead");
-  if (mapHead) await mapHead.screenshot({ path: path.join(shots, "b15-player-map-chip.png") });
-  await player.click("#mapMount .join-code-chip");
+  const logHeadMap = await player.$("#sheetDock .dock-head");
+  if (logHeadMap) await logHeadMap.screenshot({ path: path.join(shots, "b15-player-map-chip.png") });
+  await player.click("#sheetJoinCode");
   await sleep(200);
   const mapClip = await clip(player);
   check("player.mapCopy", mapClip === "RUST-77", mapClip);
 
   const popped = await player.evaluate(() => {
     const btn = document.querySelector("#mapMount [data-act=chatPop]");
-    const r = btn.getBoundingClientRect();
-    const top = document.elementFromPoint(r.left + Math.min(8, r.width / 2), r.top + r.height / 2);
     btn.click();
     const map = document.querySelector("#mapMount");
     const chip = map.querySelector(".join-code-chip");
+    const sheet = document.querySelector("#sheetJoinCode");
     return {
       popped: map.classList.contains("ssdns-chat-popped"),
       hidden: !!(chip && chip.hidden),
-      top: top ? (top.getAttribute("data-act") || top.id || top.className) : "",
-      box: { x: r.x, y: r.y, w: r.width, h: r.height }
+      sheetShown: !!(sheet && !sheet.hidden)
     };
   });
-  check("player.mapHiddenWhenPopped", popped.popped === true && popped.hidden === true, JSON.stringify(popped));
+  check("player.mapHiddenWhenPopped", popped.popped === true && popped.hidden === true && popped.sheetShown === true, JSON.stringify(popped));
   await player.evaluate(() => {
     const dock = document.querySelector("[data-act=floatDock]");
     if (dock) dock.click();
@@ -287,10 +301,16 @@ try {
   const docked = await player.evaluate(() => {
     const map = document.querySelector("#mapMount");
     const chip = map.querySelector(".join-code-chip");
-    const r = chip.getBoundingClientRect();
-    return { popped: map.classList.contains("ssdns-chat-popped"), hidden: chip.hidden, text: chip.textContent, w: r.width, h: r.height };
+    const sheet = document.querySelector("#sheetJoinCode");
+    return {
+      popped: map.classList.contains("ssdns-chat-popped"),
+      hidden: chip.hidden,
+      text: chip.textContent,
+      sheetText: sheet ? sheet.textContent : "",
+      sheetShown: !!(sheet && !sheet.hidden && getComputedStyle(sheet).display !== "none")
+    };
   });
-  check("player.mapChipDocked", docked.popped === false && docked.hidden === false && docked.text === "RUST-77" && docked.w > 20 && docked.h > 10, JSON.stringify(docked));
+  check("player.mapChipDocked", docked.popped === false && docked.hidden === false && docked.text === "RUST-77" && docked.sheetShown && docked.sheetText === "RUST-77", JSON.stringify(docked));
   check("player.noPageError", plErrs.filter((e) => !/Firebase|firestore|net::/i.test(e)).length === 0, plErrs.join(" | "));
 } finally {
   await browser.close();

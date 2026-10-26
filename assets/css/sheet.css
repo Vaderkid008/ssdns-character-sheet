@@ -1614,3 +1614,85 @@ body.map-turn-docked .your-turn-box { display: none !important; }
   .ssm-turnhost #turnPanel .tl-box { flex-wrap: wrap; }
   .ssm-turnhost #turnPanel .tl-acts { flex-wrap: nowrap; }
 }
+
+/* N57: the player Map tab uses the sheet Table log (#sheetDock), the same way the DM
+   page hides #mapMount .ssdns-chatdock and keeps #liveDock as the one feed.
+   The map chat node stays in the DOM for shared sync and the B15 chip mount.
+   Standalone map pages (no #sheetDock) and the DM page are unchanged. */
+body:has(#sheetDock) #mapMount .ssdns-chatdock,
+body:has(#sheetDock) #mapMount .ssdns-chat-float,
+body:has(#sheetDock) .ssdns-chat-overlay {
+  display: none !important;
+}
+body:has(#sheetDock) #mapMount.ssdns-role-player {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(120px, 1fr);
+  grid-template-areas:
+    "strip"
+    "bar"
+    "dice"
+    "stage";
+}
+body:has(#sheetDock) #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-left {
+  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-areas:
+    "token strip"
+    "token bar"
+    "token dice"
+    "token stage";
+}
+body:has(#sheetDock) #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-left.ssm-token-shut {
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+body:has(#sheetDock) #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas:
+    "strip token"
+    "bar token"
+    "dice token"
+    "stage token";
+}
+body:has(#sheetDock) #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right.ssm-token-shut {
+  grid-template-columns: minmax(0, 1fr) 48px;
+}
+@media (max-width: 599px) {
+  body:has(#sheetDock) #mapMount.ssdns-role-player,
+  body:has(#sheetDock) #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-left,
+  body:has(#sheetDock) #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(220px, 1fr);
+    grid-template-areas:
+      "strip"
+      "bar"
+      "dice"
+      "stage";
+  }
+  body.map-fullscreen:has(#sheetDock) #mapMount.ssdns-role-player,
+  body.map-fullscreen:has(#sheetDock) #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-left,
+  body.map-fullscreen:has(#sheetDock) #mapMount.ssdns-role-player.ssm-token-dock.ssm-token-right {
+    grid-template-rows: auto auto auto minmax(160px, 1fr);
+  }
+}
+/* Full screen used to cover the Table log. Keep the log beside the map on desktop,
+   and above the map on a phone (the Log button opens the same bottom sheet). */
+body.map-fullscreen:has(#sheetDock) #sheetDock { z-index: 96; }
+body.map-fullscreen:has(#sheetDock) #btnSheetDockFab { z-index: 97; }
+body.map-fullscreen:has(#sheetDock) #btnMapFull { z-index: 98; }
+@media (min-width: 801px) {
+  body.map-fullscreen:has(#sheetDock):not(.sheet-dock-collapsed) #mapMount {
+    left: 0;
+    right: 300px;
+    width: auto;
+  }
+  body.map-fullscreen.sheet-dock-collapsed:has(#sheetDock) #mapMount {
+    left: 0;
+    right: 48px;
+    width: auto;
+  }
+  body.map-fullscreen:has(#sheetDock):not(.sheet-dock-collapsed) #btnMapFull { right: 308px; }
+  body.map-fullscreen.sheet-dock-collapsed:has(#sheetDock) #btnMapFull { right: 56px; }
+  body.map-fullscreen:has(#sheetDock):not(.sheet-dock-collapsed):has(#mapMount.ssm-token-right:not(.ssm-token-shut)) #btnMapFull { right: 628px; }
+  body.map-fullscreen.sheet-dock-collapsed:has(#sheetDock):has(#mapMount.ssm-token-right:not(.ssm-token-shut)) #btnMapFull { right: 376px; }
+  body.map-fullscreen:has(#sheetDock):not(.sheet-dock-collapsed):has(#mapMount.ssm-token-right.ssm-token-shut) #btnMapFull { right: 356px; }
+  body.map-fullscreen.sheet-dock-collapsed:has(#sheetDock):has(#mapMount.ssm-token-right.ssm-token-shut) #btnMapFull { right: 104px; }
+}
