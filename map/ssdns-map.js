@@ -3836,24 +3836,59 @@ function spendFeet(token, feet) {
   }
   state.moveReachKey = '';
 }
+function reactorFacts(t) {
+  const row = rowForToken(t);
+  let status = (t && t.status) || '';
+  let hp = t && t.hp != null && t.hp !== '' ? t.hp : null;
+  let noHpPool = !!(t && t.noHpPool);
+  if (row) {
+    if (row.status) status = row.status;
+    if (row.noHpPool) noHpPool = true;
+    if (row.hp != null && row.hp !== '') hp = row.hp;
+  }
+  if (role === 'dm' && t && typeof host.getCard === 'function') {
+    try {
+      const card = host.getCard(t.id) || (t.combatantId && host.getCard(t.combatantId)) || (t.ownerUid && host.getCard(t.ownerUid)) || null;
+      if (card) {
+        if (card.noHpPool) noHpPool = true;
+        if (card.status) status = card.status;
+        if (card.hp && card.hp.cur != null && card.hp.cur !== '') hp = card.hp.cur;
+      }
+    } catch (e) {}
+  }
+  if (role === 'player' && t && t.ownerUid && t.ownerUid === uid && window.SSDNSApp && window.SSDNSApp.doc) {
+    try {
+      const c = window.SSDNSApp.doc().character;
+      if (c && c.hpCurrent != null && c.hpCurrent !== '') hp = c.hpCurrent;
+    } catch (e) {}
+  }
+  return { status: status || '', hp: hp, noHpPool: noHpPool, conditions: tokenConditions(t) };
+}
 function moveContext(mover, budget) {
   const grid = (state.scene && state.scene.grid) || { cols: 30, rows: 20 };
   const sceneId = (mover && mover.sceneId) || activeSceneId() || 'scn_dustyspur01';
   const list = blockingTokens(mover ? { [mover.id]: true } : {}).filter(t => (t.sceneId || 'scn_dustyspur01') === sceneId && t.pos);
-  const occupants = list.map(t => ({
-    id: t.id,
-    x: t.pos.x,
-    y: t.pos.y,
-    size: tokSquares(t.size),
-    kind: t.ownerUid ? 'player' : (t.kind || 'enemy'),
-    ally: allyOf(mover, t),
-    name: t.label || t.name || 'a creature',
-    reachFt: reachFeetOf(t),
-    reaction: reactionSpentOf(t),
-    playerId: t.ownerUid || '',
-    self: !!(uid && t.ownerUid === uid),
-    dmRuns: role === 'dm' && !t.ownerUid
-  }));
+  const occupants = list.map(t => {
+    const facts = reactorFacts(t);
+    return {
+      id: t.id,
+      x: t.pos.x,
+      y: t.pos.y,
+      size: tokSquares(t.size),
+      kind: t.ownerUid ? 'player' : (t.kind || 'enemy'),
+      ally: allyOf(mover, t),
+      name: t.label || t.name || 'a creature',
+      reachFt: reachFeetOf(t),
+      reaction: reactionSpentOf(t),
+      playerId: t.ownerUid || '',
+      self: !!(uid && t.ownerUid === uid),
+      dmRuns: !t.ownerUid,
+      status: facts.status,
+      hp: facts.hp,
+      noHpPool: facts.noHpPool,
+      conditions: facts.conditions
+    };
+  });
   return {
     grid: { cols: grid.cols || 30, rows: grid.rows || 20 },
     occupants: occupants,
@@ -4048,11 +4083,33 @@ function refreshArmedCard() {
   R.openModal(view, handler);
   if (role === 'dm') R.openMirror(view, handler);
 }
+function releaseReactHold(choice) {
+  const R = window.SSDNSReact;
+  if (!reactHold) {
+    paintReactWait(false);
+    if (R && R.close) R.close();
+    return;
+  }
+  onLeaveChoice(choice || 'cancel', { escape: true });
+}
 function showLeaveCard() {
   const R = window.SSDNSReact;
   if (!reactHold || !R) return;
+  if (typeof R.skipIneligible === 'function') {
+    const skipped = R.skipIneligible(reactHold.session);
+    (skipped.commits || []).forEach(function (c) {
+      slideSegment(reactHold.mover, reactHold.built, c.from, c.to, reactHold.budget);
+    });
+    if (!reactHold.session || reactHold.session.phase === 'done' || skipped.done) {
+      clearReactHold();
+      return;
+    }
+  }
   const view = R.leaveView(reactHold.session, reactHold.moverName);
-  if (!view) { clearReactHold(); return; }
+  if (!view || (typeof R.isIneligibleReactor === 'function' && R.isIneligibleReactor(view))) {
+    onLeaveChoice('pass', {});
+    return;
+  }
   view.moverId = reactHold.moverId;
   view.moverPlayerId = reactHold.moverPlayerId;
   presentLeave(view);
@@ -4072,6 +4129,16 @@ function onLeaveChoice(choice, meta) {
   if (!reactHold || !R) return;
   meta = meta || {};
   const session = reactHold.session;
+  if (choice === 'cancel') {
+    let guard = 0;
+    while (reactHold && session.phase !== 'done' && guard++ < 40) {
+      const step = R.answerLeave(session, 'pass', {});
+      if (step.commit) slideSegment(reactHold.mover, reactHold.built, step.commit.from, step.commit.to, reactHold.budget);
+      if (step.done || (!step.next && !step.commit)) break;
+    }
+    clearReactHold();
+    return;
+  }
   const stamp = session.pi + ':' + session.qi + ':' + session.phase + ':' + choice;
   if (reactHold.stamp === stamp) return;
   reactHold.stamp = stamp;
@@ -4098,10 +4165,17 @@ function commitWalk(mover, built, budget) {
   if (reactHold) { toast('Waiting on opportunity attacks…'); return; }
   const M = moveApi();
   const ctx = moveContext(mover, budget);
+  /* Outside a fight there is no reaction window. A card must not cover the lobby. */
+  if (!fightOn()) {
+    slideSegment(mover, built, 0, built.path.length - 1, budget);
+    return;
+  }
   const plan = M && M.leaveReachPlan ? M.leaveReachPlan(built.path, ctx) : { pauses: [] };
+  let pauses = plan.pauses || [];
+  if (window.SSDNSReact && window.SSDNSReact.withoutIneligible) pauses = window.SSDNSReact.withoutIneligible(pauses);
   const filtered = window.SSDNSReact && window.SSDNSReact.withoutSpent
-    ? window.SSDNSReact.withoutSpent(plan.pauses)
-    : { pauses: plan.pauses || [], toasts: [] };
+    ? window.SSDNSReact.withoutSpent(pauses)
+    : { pauses: pauses, toasts: [] };
   (filtered.toasts || []).forEach(function (line) { toast(line); });
   if (!filtered.pauses.length) {
     slideSegment(mover, built, 0, built.path.length - 1, budget);
@@ -8995,6 +9069,8 @@ return {
   },
   drawerTokenId: function () { return state.drawerOpen ? (state.drawerTokenId || '') : ''; },
   tokenForCombatant: function (cid) { const t = tokenForCombatant(cid); return t ? t.id : ''; },
+  combatantForToken: function (id) { return tokenCombatant(id) || ''; },
+  releaseReactHold: releaseReactHold,
   dedupeLinkedTokens,
   staleTokenIds,
   clearStaleTokens

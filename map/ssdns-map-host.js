@@ -1142,6 +1142,14 @@
     tokenBoxes: function () { return map && typeof map.tokenBoxes === "function" ? map.tokenBoxes() : []; },
     drawerTokenId: function () { return map && typeof map.drawerTokenId === "function" ? map.drawerTokenId() : ""; },
     tokenForCombatant: tokenForCombatant,
+    combatantForToken: function (id) {
+      if (!map || typeof map.combatantForToken !== "function") return "";
+      try { return map.combatantForToken(id) || ""; } catch (e) { return ""; }
+    },
+    releaseReactHold: function (choice) {
+      if (!map || typeof map.releaseReactHold !== "function") return;
+      try { map.releaseReactHold(choice); } catch (e) {}
+    },
     staleTokenIds: staleTokenIds,
     clearStaleTokens: clearStaleTokens,
     patchToken: function (id, fields) {

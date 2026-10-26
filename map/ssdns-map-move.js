@@ -300,6 +300,25 @@
   function inMeleeBoxes(mover, enemy) {
     return feetBetweenBoxes(mover, enemy) <= reachFeet(enemy);
   }
+  /** N69: unconscious, dead, defeated, dying, or 0 HP. No HP pool is not down from the number alone. */
+  function reactorIneligible(enemy) {
+    if (!enemy) return false;
+    if (enemy.reactorDown === true || enemy.unconscious === true || enemy.dead === true || enemy.defeated === true || enemy.down === true) return true;
+    var status = String(enemy.status || "");
+    if (/^(down|dead|unconscious|dying|defeated)$/i.test(status)) return true;
+    var conds = enemy.conditions || [];
+    var i, raw, name;
+    for (i = 0; i < conds.length; i++) {
+      raw = conds[i];
+      name = raw && typeof raw === "object" ? (raw.name || raw.label || "") : raw;
+      if (/\b(?:unconscious|dead|dying|defeated)\b/i.test(String(name || ""))) return true;
+    }
+    if (enemy.noHpPool || enemy.noHp) return false;
+    var hp = enemy.hp;
+    if (hp && typeof hp === "object") hp = hp.cur != null ? hp.cur : (hp.current != null ? hp.current : null);
+    if (hp != null && hp !== "" && isFinite(Number(hp)) && Number(hp) <= 0) return true;
+    return false;
+  }
   /**
    * Steps that leave a hostile's melee reach. index is the path square that would leave.
    * Pause before committing that square. Disengage, teleport, and forced movement do not provoke.
@@ -318,7 +337,7 @@
       after = { x: path[i].x, y: path[i].y, size: size };
       for (e = 0; e < enemies.length; e++) {
         foe = enemies[e];
-        if (!foe || foe.ally) continue;
+        if (!foe || foe.ally || reactorIneligible(foe)) continue;
         if (inMeleeBoxes(before, foe) && !inMeleeBoxes(after, foe)) who.push(foe);
       }
       if (who.length) pauses.push({ index: i, reactors: who });
@@ -366,6 +385,7 @@
     feetBetweenBoxes: feetBetweenBoxes,
     leaveReachPlan: leaveReachPlan,
     leaveReachCue: leaveReachCue,
+    reactorIneligible: reactorIneligible,
     previewSlot: previewSlot,
     chebyshev: chebyshev,
     segmentBlocks: segmentBlocks
