@@ -1,5 +1,5 @@
 /**
- * N49 / N51 / N52 / N54 / N60 / N63 / N75 (sheet 0.3.154 / DMCC 0.2.167).
+ * N49 / N51 / N52 / N54 / N60 / N63 / N75 / N76 (sheet 0.3.155 / DMCC 0.2.168).
  *   node tools/test-n49-n60.mjs
  */
 import fs from "node:fs";
@@ -27,11 +27,11 @@ const join = read("assets/js/dm-join.js");
 const rulesJs = read("assets/data/rules.js");
 const rules = read("database.rules.json");
 
-check("ver.sheet", version.sheet === "0.3.154" && version.sheetBuild === "sheet-playtest-v03154");
-check("ver.dmcc", version.dmcc === "0.2.167" && version.dmccBuild === "dmcc-playtest-v02167");
-check("ver.app", app.includes('APP_VERSION = "0.3.154"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.167"'));
-check("src.rulesUntouched", !rulesJs.includes("0.3.154") && !rulesJs.includes("0.2.167") && !rules.includes("0.3.154") && !rules.includes("gunAllowsTactical") && !rulesJs.includes("No fight card linked"));
+check("ver.sheet", version.sheet === "0.3.155" && version.sheetBuild === "sheet-playtest-v03155");
+check("ver.dmcc", version.dmcc === "0.2.168" && version.dmccBuild === "dmcc-playtest-v02168");
+check("ver.app", app.includes('APP_VERSION = "0.3.155"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.168"'));
+check("src.rulesUntouched", !rulesJs.includes("0.3.155") && !rulesJs.includes("0.2.168") && !rules.includes("0.3.155") && !rules.includes("gunAllowsTactical") && !rulesJs.includes("No fight card linked"));
 
 const noAmmo = app.slice(app.indexOf('var msg = "No ammo for this caliber"'), app.indexOf('var msg = "No ammo for this caliber"') + 500);
 check("src.n51.sheetToastOnly", noAmmo.includes("toast(msg)") && !noAmmo.includes("addLog") && !noAmmo.includes("postChat"));
@@ -54,8 +54,13 @@ const askFn = v2.slice(v2.indexOf("function askEndCombat"), v2.indexOf("async fu
 const clearFn = v2.slice(v2.indexOf("function clearFight"), v2.indexOf("function acForRoll"));
 check("src.n63.keepsOrder", !/fight\.order\s*=\s*\[\]/.test(endFn) && /fight\.started = false/.test(endFn) && /clearTurnState\(fight\)/.test(endFn) && /fight\.held = \{\}/.test(endFn) && /fight\.recruit = false/.test(endFn) && /Combat ended/.test(endFn));
 check("src.n63.dialog", /Tokens and their links stay/.test(askFn) && /Free-action resumes/.test(askFn) && !/clear the turn order/.test(askFn) && /Exhaustion stays/.test(askFn));
-check("src.n75.idle", /fight\.idle = true/.test(endFn) && /const visibleOrder = fight\.idle \? \[\] : first\.order/.test(v2) && /const keepRoster = !!\(fight\.idle && init\.order\.length === 0 && fight\.order\.length\)/.test(v2));
+check("src.n75.idle", /fight\.idle = true/.test(endFn) && /const visibleOrder = fight\.idle \? null : first\.order/.test(v2) && /const keepRoster = !!\(fight\.idle && init\.order\.length === 0 && fight\.order\.length\)/.test(v2));
 check("src.n75.pips", /lastInit = init \|\| null/.test(read("assets/js/action-pips.js")));
+const gateFn = mapJs.slice(mapJs.indexOf("function playerMapGate"), mapJs.indexOf("function itemByUid"));
+const syncFn = mapJs.slice(mapJs.indexOf("function syncCombatants"), mapJs.indexOf("function clearLocalAim"));
+check("src.n76.fightLive", /function fightLive\(/.test(mapJs) && /init\.started === false/.test(mapJs) && /hasOwnProperty\.call\(init, 'started'\)/.test(mapJs));
+check("src.n76.freeGate", /const inFight = fightLive\(\)/.test(gateFn) && /if \(!inFight\) return ''/.test(gateFn) && gateFn.indexOf("if (!inFight) return ''") < gateFn.indexOf("return P.blockMap(cost, label"));
+check("src.n76.sync", /SSDNSActionPips\.onTurn\(initiative\)/.test(syncFn) && /SSDNSTurnLock\.onTurn\(\)/.test(syncFn));
 check("src.n63.explicitStill", /function unlinkMapToken/.test(v2) && /delete row\.mapTokenId/.test(v2.slice(v2.indexOf("function unlinkMapToken"), v2.indexOf("function linkedTokenIds"))) && /releaseFightToken\(row\)/.test(v2.slice(v2.indexOf("function removeCombatant"), v2.indexOf("function enterRoom"))) && /fight\.order = \[\]/.test(clearFn));
 
 /* ---------- N52: off-turn hard-block, on-turn and outside initiative stay open ---------- */
@@ -111,6 +116,81 @@ check("src.n63.explicitStill", /function unlinkMapToken/.test(v2) && /delete row
   check("n75.beforeEnd", sb.SSDNSTurnLock.locked() === true && sb.SSDNSTurnLock.offTurnBlock("gear") === "It isn't your turn", sb.SSDNSTurnLock.offTurnBlock("gear"));
   sb.SSDNSActionPips.onTurn({ round: 1, turn: 0, started: false, order: [], seq: 0, turnStarts: {} });
   check("n75.freeAfterEmpty", sb.SSDNSTurnLock.locked() === false && sb.SSDNSTurnLock.offTurnBlock("attack") === "" && sb.SSDNSTurnLock.offTurnBlock("gear") === "" && sb.SSDNSTurnLock.inFight() === false);
+  sb.SSDNSActionPips.onTurn(Object.assign({}, off, { turn: 1 }));
+  sb.SSDNSActionPips.attack("Peacemaker");
+  check("n76.spentInFight", sb.SSDNSActionPips.state().action === true);
+  sb.SSDNSActionPips.onTurn({ round: 1, turn: 0, started: false, order: [], seq: 0, turnStarts: {} });
+  check("n76.freeAfterSpent", sb.SSDNSTurnLock.locked() === false && sb.SSDNSTurnLock.inFight() === false && sb.SSDNSTurnLock.offTurnBlock("attack") === "" && sb.SSDNSTurnLock.offTurnBlock("gear") === "" && sb.SSDNSActionPips.state().action === true);
+  sb.SSDNSActionPips.onTurn({ round: 1, turn: 0, started: false, order, seq: 0, turnStarts: {} });
+  check("n76.rosterStillFree", sb.SSDNSTurnLock.inFight() === false && sb.SSDNSTurnLock.offTurnBlock("attack") === "" && sb.SSDNSActionPips.state().action === true);
+  sb.SSDNSActionPips.onTurn(off);
+  check("n76.offTurnReturns", sb.SSDNSTurnLock.offTurnBlock("attack") === "It isn't your turn" && sb.SSDNSTurnLock.locked() === true);
+}
+
+/* ---------- N76: map free shot outside initiative; off-turn and spent-on-turn stay blocked ---------- */
+{
+  const toasts = [];
+  const sb = { console, setTimeout, clearTimeout, Date, JSON, parseInt, isFinite, Number, String, Object, Array };
+  sb.window = sb; sb.globalThis = sb;
+  const store = {};
+  sb.localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
+  sb.SSDNSDmJoin = { uid: () => "u1" };
+  sb.SSDNSApp = { doc: () => ({ character: { name: "Caleb", calling: "gunslinger", level: 5 } }) };
+  sb.SSDNSToast = (msg) => { toasts.push(String(msg || "")); };
+  sb.toast = (msg) => { toasts.push(String(msg || "")); };
+  sb.spellNameFromAct = () => "";
+  sb.role = "player";
+  sb.state = { initiative: null };
+  sb.document = {
+    readyState: "complete",
+    body: { classList: { toggle() {}, contains() { return false; } } },
+    addEventListener() {},
+    getElementById() { return null; },
+    querySelector() { return null; },
+    querySelectorAll() { return []; }
+  };
+  sb.MutationObserver = class { observe() {} disconnect() {} };
+  sb.addEventListener = () => {};
+  vm.createContext(sb);
+  vm.runInContext(read("assets/js/turn-rules.js"), sb, { filename: "turn-rules.js" });
+  vm.runInContext(read("assets/js/action-pips.js"), sb, { filename: "action-pips.js" });
+  vm.runInContext(read("assets/js/turn-lock.js"), sb, { filename: "turn-lock.js" });
+  const chunk = mapJs.slice(mapJs.indexOf("function mapActionCost(id)"), mapJs.indexOf("function itemByUid(itemUid)"));
+  vm.runInContext(chunk, sb, { filename: "playerMapGate.js" });
+  const order = [
+    { id: "e1", name: "Outlaw", kind: "enemy" },
+    { id: "p1", name: "Caleb", kind: "player", playerId: "u1" }
+  ];
+  const off = { round: 1, turn: 0, started: true, order, seq: 2, turnStarts: { e1: 2, p1: 1 } };
+  const mine = Object.assign({}, off, { turn: 1 });
+  const ended = { round: 1, turn: 0, started: false, order: [], seq: 0, turnStarts: {} };
+  sb.SSDNSActionPips.onTurn(mine);
+  sb.SSDNSActionPips.attack("Peacemaker");
+  sb.state.initiative = ended;
+  const quiet = toasts.length;
+  check("n76.mapFreeDespiteStale", sb.playerMapGate("gunroll:0", "Attack") === "" && toasts.length === quiet);
+  check("n76.mapReloadFree", sb.playerMapGate("reload:0", "Reload") === "" && toasts.length === quiet);
+  check("n76.mapUnjamFree", sb.playerMapGate("unjam:0", "Unjam") === "" && toasts.length === quiet);
+  check("n76.sheetStillStale", sb.SSDNSTurnLock.inFight() === true && sb.SSDNSActionPips.state().action === true);
+  sb.SSDNSActionPips.onTurn(ended);
+  sb.SSDNSTurnLock.onTurn();
+  check("n76.healed", sb.SSDNSTurnLock.inFight() === false && sb.SSDNSTurnLock.offTurnBlock("attack") === "" && sb.SSDNSActionPips.state().action === true);
+  sb.state.initiative = off;
+  sb.SSDNSActionPips.onTurn(off);
+  const offN = toasts.length;
+  const offMsg = sb.playerMapGate("gunroll:0", "Attack");
+  check("n76.offTurnStill", offMsg === "It isn't your turn" && toasts.length === offN + 1, offMsg);
+  check("n76.offTurnUnjam", sb.playerMapGate("unjam:0", "Unjam") === "It isn't your turn");
+  sb.SSDNSActionPips.onTurn(mine);
+  sb.state.initiative = mine;
+  const spentMsg = sb.playerMapGate("gunroll:0", "Attack");
+  check("n76.ownTurnSpent", spentMsg === "Action already used.", spentMsg);
+  sb.SSDNSActionPips.onTurn(off);
+  sb.state.initiative = { order: [], turn: 0 };
+  check("n76.placeholderKeepsLock", sb.playerMapGate("gunroll:0", "Attack") === "It isn't your turn");
+  sb.SSDNSActionPips.onTurn(ended);
+  sb.state.initiative = off;
+  check("n76.mapFightStillPips", sb.playerMapGate("gunroll:0", "Attack") === "Action already used.");
 }
 
 /* ---------- N51 / N54 / N60 against the DM fight ---------- */
