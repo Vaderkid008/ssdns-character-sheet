@@ -220,6 +220,14 @@
     };
   }
   /**
+   * N70: a DM-run Attack that successfully armed holds the leave.
+   * A failed arm is a pass. A held attack is never rewritten to pass.
+   */
+  function attackDecision(armedOk) {
+    if (!armedOk) return { choice: "pass", armed: false, hold: false };
+    return { choice: "attack", armed: true, hold: true };
+  }
+  /**
    * choice "attack" arms and holds the leave step.
    * "pass" or "attacked" advances the queue. The leave step commits when that step's queue is empty.
    */
@@ -327,6 +335,7 @@
     return true;
   }
   function watchSpent(id, fn) { if (id) spentWatch[id] = fn; }
+  function forgetSpent(id) { if (id) delete spentWatch[id]; }
   function noteSpent(id) {
     var fn = id && spentWatch[id];
     if (!fn) return false;
@@ -466,6 +475,7 @@
     dismiss: dismiss,
     freshLeave: freshLeave,
     leaveView: leaveView,
+    attackDecision: attackDecision,
     answerLeave: answerLeave,
     freshOffers: freshOffers,
     offerView: offerView,
@@ -474,6 +484,7 @@
     unbind: unbind,
     deliver: deliver,
     watchSpent: watchSpent,
+    forgetSpent: forgetSpent,
     noteSpent: noteSpent,
     openModal: openModal,
     openMirror: openMirror,

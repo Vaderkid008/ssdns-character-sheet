@@ -23,10 +23,10 @@ function flush(ms) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.147" && version.sheetBuild === "sheet-playtest-v03147");
-check("ver.dmcc", version.dmcc === "0.2.160" && version.dmccBuild === "dmcc-playtest-v02160");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.147"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.160"'));
+check("ver.sheet", version.sheet === "0.3.148" && version.sheetBuild === "sheet-playtest-v03148");
+check("ver.dmcc", version.dmcc === "0.2.161" && version.dmccBuild === "dmcc-playtest-v02161");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.148"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.161"'));
 
 const mapSrc = read("map/ssdns-map.js");
 const chatSrc = read("map/ssdns-map-chat.js");
@@ -43,8 +43,8 @@ check("src.color", chatSrc.includes("tokenColorFor") && chatSrc.includes("leadNa
 check("src.rules", !read("map/ssdns-map-chat.js").includes("database.rules") && !mapSrc.includes("database.rules"));
 check("src.sideDock", mapSrc.includes("ssdns.map.chatDock") && mapSrc.includes("ssdns-chat-side") && mapSrc.includes("reflowAfterChat") && mapSrc.includes("audienceOk"));
 check("src.private", sheetSrc.includes("e.dockTo") && sheetSrc.includes('to !== "all"'));
-check("html.player", read("index.html").includes("map/ssdns-map-chat.js?v=0.3.147-float"));
-check("html.dm", read("dm/index.html").includes("ssdns-map-chat.js?v=0.2.160-float"));
+check("html.player", read("index.html").includes("map/ssdns-map-chat.js?v=0.3.148-float"));
+check("html.dm", read("dm/index.html").includes("ssdns-map-chat.js?v=0.2.161-float"));
 check("html.pop", read("map/chat-pop.html").includes('id="popDock"') && read("map/chat-pop.html").includes("bootPopup") && read("map/chat-pop.html").includes("data-chat-filter") && read("map/chat-pop.html").includes("apply-guard.js"));
 
 function makeWindow() {

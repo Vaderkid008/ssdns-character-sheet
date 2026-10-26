@@ -2,7 +2,7 @@
  * N69 — an unconscious, dead, or defeated reactor never enqueues a leave-reach
  * or reaction prompt, and a stuck type:"react" row is cleared on DM load
  * before any card is painted. Attack on a living reactor arms the OA and
- * releases the pause. Escape / Cancel dismiss the card without covering
+ * holds the pause until that attack is spent. Escape / Cancel dismiss the card without covering
  * lobby, Leave, or New code.
  *   node tools/test-n69-downed-react.mjs
  */
@@ -169,9 +169,9 @@ const dmcc = read("dm/assets/css/dmcc.css");
 check("src.css", dmcc.includes("pointer-events: none") && dmcc.includes("z-index: 320") && dmcc.includes("z-index: 300") && read("assets/css/sheet.css").includes("z-index: 320"));
 check("src.leaveCloses", read("dm/assets/js/dmcc.js").includes("SSDNSReact.close"));
 check("src.sheet", read("assets/js/dm-join.js").includes("sheetIneligible") && read("assets/js/dm-join.js").includes("reactorDown") && read("assets/js/dm-join.js").includes("reactPromptSettled"));
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("react-prompt") && !read("assets/data/rules.js").includes("0.3.147") && !read("database.rules.json").includes("0.3.147") && !read("assets/data/rules.js").includes("isIneligibleReactor"));
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("react-prompt") && !read("assets/data/rules.js").includes("0.3.148") && !read("database.rules.json").includes("0.3.148") && !read("assets/data/rules.js").includes("isIneligibleReactor"));
 const ver = JSON.parse(read("version.json"));
-check("src.versions", ver.sheet === "0.3.147" && ver.dmcc === "0.2.160" && ver.sheetBuild === "sheet-playtest-v03147" && ver.dmccBuild === "dmcc-playtest-v02160", JSON.stringify(ver));
+check("src.versions", ver.sheet === "0.3.148" && ver.dmcc === "0.2.161" && ver.sheetBuild === "sheet-playtest-v03148" && ver.dmccBuild === "dmcc-playtest-v02161", JSON.stringify(ver));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

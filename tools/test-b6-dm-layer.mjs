@@ -31,8 +31,8 @@ const areaFn = mapSrc.slice(mapSrc.indexOf("function areaTaken"), mapSrc.indexOf
 const marque = mapSrc.slice(mapSrc.indexOf("state.selectedIds = state.tokens.filter"), mapSrc.indexOf("}).map(t => t.id);"));
 const fxFn = mapSrc.slice(mapSrc.indexOf("function fxSceneOk"), mapSrc.indexOf("function playerSees"));
 
-check("src.versions", version.sheet === "0.3.147" && version.dmcc === "0.2.160" && version.sheetBuild === "sheet-playtest-v03147" && version.dmccBuild === "dmcc-playtest-v02160");
-check("src.rulesUntouched", !rulesJs.includes("0.3.147") && !rulesJs.includes("onViewedScene") && !rules.includes("onViewedScene") && !rules.includes("nudgeOpen"));
+check("src.versions", version.sheet === "0.3.148" && version.dmcc === "0.2.161" && version.sheetBuild === "sheet-playtest-v03148" && version.dmccBuild === "dmcc-playtest-v02161");
+check("src.rulesUntouched", !rulesJs.includes("0.3.148") && !rulesJs.includes("onViewedScene") && !rules.includes("onViewedScene") && !rules.includes("nudgeOpen"));
 check("src.helper", /function onViewedScene\(t\) \{\n  return !!t && sceneKey\(t\) === activeSceneId\(\);\n\}/.test(mapSrc));
 check("src.sceneKey", mapSrc.includes("return (t && t.sceneId) || 'scn_dustyspur01';"));
 check("src.draw", drawLoop.includes("if (!onViewedScene(t)) continue;") && drawLoop.indexOf("if (!onViewedScene(t)) continue;") < drawLoop.indexOf("if (role === 'player')"));
