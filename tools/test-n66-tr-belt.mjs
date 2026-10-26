@@ -1,5 +1,5 @@
 /**
- * N66 (sheet 0.3.153 / DMCC 0.2.166): Tactical Reload needs a gun belt or bandolier.
+ * N66 (sheet 0.3.154 / DMCC 0.2.167): Tactical Reload needs a gun belt or bandolier.
  * No belt: fading toast, no reload, no Bonus. Belt, checkbox, or feedsTR: one round and Bonus.
  *   node tools/test-n66-tr-belt.mjs
  */
@@ -25,11 +25,11 @@ const joinSrc = read("assets/js/dm-join.js");
 const guardSrc = read("assets/js/apply-guard.js");
 const BELT = "Need a gun belt or bandolier for Tactical Reload.";
 
-check("ver.sheet", version.sheet === "0.3.153" && version.sheetBuild === "sheet-playtest-v03153");
-check("ver.dmcc", version.dmcc === "0.2.166" && version.dmccBuild === "dmcc-playtest-v02166");
-check("ver.app", appSrc.includes('APP_VERSION = "0.3.153"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.166"'));
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.153") && !read("database.rules.json").includes("0.2.166") && !read("assets/data/rules.js").includes("0.3.153"));
+check("ver.sheet", version.sheet === "0.3.154" && version.sheetBuild === "sheet-playtest-v03154");
+check("ver.dmcc", version.dmcc === "0.2.167" && version.dmccBuild === "dmcc-playtest-v02167");
+check("ver.app", appSrc.includes('APP_VERSION = "0.3.154"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.167"'));
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.154") && !read("database.rules.json").includes("0.2.167") && !read("assets/data/rules.js").includes("0.3.154"));
 check("src.noOverride", !appSrc.includes("Load anyway") && !appSrc.includes("tr-warn") && appSrc.includes(BELT));
 check("src.dmCallsSheet", joinSrc.includes('payload.op === "tr"') && joinSrc.includes("app.tacticalReload") && joinSrc.includes("gunBelt: !!c.gunBelt"));
 check("src.cardStamp", guardSrc.includes("feedsTR: !!(b.feedsTR || b.gunBelt)"));

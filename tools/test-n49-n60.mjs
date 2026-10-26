@@ -1,5 +1,5 @@
 /**
- * N49 / N51 / N52 / N54 / N60 / N63 (sheet 0.3.153 / DMCC 0.2.166).
+ * N49 / N51 / N52 / N54 / N60 / N63 / N75 (sheet 0.3.154 / DMCC 0.2.167).
  *   node tools/test-n49-n60.mjs
  */
 import fs from "node:fs";
@@ -27,11 +27,11 @@ const join = read("assets/js/dm-join.js");
 const rulesJs = read("assets/data/rules.js");
 const rules = read("database.rules.json");
 
-check("ver.sheet", version.sheet === "0.3.153" && version.sheetBuild === "sheet-playtest-v03153");
-check("ver.dmcc", version.dmcc === "0.2.166" && version.dmccBuild === "dmcc-playtest-v02166");
-check("ver.app", app.includes('APP_VERSION = "0.3.153"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.166"'));
-check("src.rulesUntouched", !rulesJs.includes("0.3.153") && !rulesJs.includes("0.2.166") && !rules.includes("0.3.153") && !rules.includes("gunAllowsTactical") && !rulesJs.includes("No fight card linked"));
+check("ver.sheet", version.sheet === "0.3.154" && version.sheetBuild === "sheet-playtest-v03154");
+check("ver.dmcc", version.dmcc === "0.2.167" && version.dmccBuild === "dmcc-playtest-v02167");
+check("ver.app", app.includes('APP_VERSION = "0.3.154"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.167"'));
+check("src.rulesUntouched", !rulesJs.includes("0.3.154") && !rulesJs.includes("0.2.167") && !rules.includes("0.3.154") && !rules.includes("gunAllowsTactical") && !rulesJs.includes("No fight card linked"));
 
 const noAmmo = app.slice(app.indexOf('var msg = "No ammo for this caliber"'), app.indexOf('var msg = "No ammo for this caliber"') + 500);
 check("src.n51.sheetToastOnly", noAmmo.includes("toast(msg)") && !noAmmo.includes("addLog") && !noAmmo.includes("postChat"));
@@ -53,7 +53,9 @@ const endFn = v2.slice(v2.indexOf("async function endCombat"), v2.indexOf("funct
 const askFn = v2.slice(v2.indexOf("function askEndCombat"), v2.indexOf("async function clearCombatConditions"));
 const clearFn = v2.slice(v2.indexOf("function clearFight"), v2.indexOf("function acForRoll"));
 check("src.n63.keepsOrder", !/fight\.order\s*=\s*\[\]/.test(endFn) && /fight\.started = false/.test(endFn) && /clearTurnState\(fight\)/.test(endFn) && /fight\.held = \{\}/.test(endFn) && /fight\.recruit = false/.test(endFn) && /Combat ended/.test(endFn));
-check("src.n63.dialog", /Tokens and their links stay/.test(askFn) && !/clear the turn order/.test(askFn) && /Exhaustion stays/.test(askFn));
+check("src.n63.dialog", /Tokens and their links stay/.test(askFn) && /Free-action resumes/.test(askFn) && !/clear the turn order/.test(askFn) && /Exhaustion stays/.test(askFn));
+check("src.n75.idle", /fight\.idle = true/.test(endFn) && /const visibleOrder = fight\.idle \? \[\] : first\.order/.test(v2) && /const keepRoster = !!\(fight\.idle && init\.order\.length === 0 && fight\.order\.length\)/.test(v2));
+check("src.n75.pips", /lastInit = init \|\| null/.test(read("assets/js/action-pips.js")));
 check("src.n63.explicitStill", /function unlinkMapToken/.test(v2) && /delete row\.mapTokenId/.test(v2.slice(v2.indexOf("function unlinkMapToken"), v2.indexOf("function linkedTokenIds"))) && /releaseFightToken\(row\)/.test(v2.slice(v2.indexOf("function removeCombatant"), v2.indexOf("function enterRoom"))) && /fight\.order = \[\]/.test(clearFn));
 
 /* ---------- N52: off-turn hard-block, on-turn and outside initiative stay open ---------- */
@@ -105,6 +107,10 @@ check("src.n63.explicitStill", /function unlinkMapToken/.test(v2) && /delete row
   check("n52.onTurnSpends", sb.SSDNSActionPips.state().bonus === true && before === false);
   const n = toasts.length;
   check("n52.playerStillBlocks", sb.SSDNSActionPips.blockMap("bonus", "Tactical Reload") === "Bonus action already used." && toasts.length === n + 1);
+  sb.SSDNSActionPips.onTurn(off);
+  check("n75.beforeEnd", sb.SSDNSTurnLock.locked() === true && sb.SSDNSTurnLock.offTurnBlock("gear") === "It isn't your turn", sb.SSDNSTurnLock.offTurnBlock("gear"));
+  sb.SSDNSActionPips.onTurn({ round: 1, turn: 0, started: false, order: [], seq: 0, turnStarts: {} });
+  check("n75.freeAfterEmpty", sb.SSDNSTurnLock.locked() === false && sb.SSDNSTurnLock.offTurnBlock("attack") === "" && sb.SSDNSTurnLock.offTurnBlock("gear") === "" && sb.SSDNSTurnLock.inFight() === false);
 }
 
 /* ---------- N51 / N54 / N60 against the DM fight ---------- */
@@ -175,7 +181,7 @@ function makeFight(opts) {
   vm.runInContext(read("assets/js/conditions.js"), sb, { filename: "conditions.js" });
   const src = v2.replace(
     /\nwireLookupNow\(\);\s*\nbootV2\(\);\s*$/,
-    "\nglobalThis.__fight = { fight: fight, endCombat: endCombat, clearStaleTokens: clearStaleTokens };\n"
+    "\nglobalThis.__fight = { fight: fight, endCombat: endCombat, clearStaleTokens: clearStaleTokens, rollInitiativeForAll: rollInitiativeForAll, applyRemoteTable: applyRemoteTable };\n"
   );
   vm.runInContext(src, sb, { filename: "v2.js" });
   return { sb, toasts, ledger, commands, chat };
@@ -295,7 +301,16 @@ function makeFight(opts) {
   const keep = seen[seen.length - 1] && seen[seen.length - 1].keep;
   const live = seen[seen.length - 1] && seen[seen.length - 1].live;
   check("n63.ended", ended !== false && fight.started === false && fight.round === 1 && fight.turn === 0 && fight.recruit === false && !Object.keys(fight.held).length && fight.seq === 0 && !Object.keys(fight.unlock).length && !Object.keys(fight.oa).length, JSON.stringify({ started: fight.started, round: fight.round, seq: fight.seq }));
+  const shown = sb.SSDNSMapCards.initiative();
   check("n63.links", fight.order.length === 2 && pc.mapTokenId === "tok_pc" && foe.mapTokenId === "tok_en" && foe.beastId === "outlaw" && card && card.name === "Outlaw" && pcCard && pcCard.name === "Ada" && !String(card && card.name).includes("No fight"), JSON.stringify({ order: fight.order.map((r) => r.mapTokenId), card: card && card.name, pc: pcCard && pcCard.name }));
+  check("n75.strip", fight.idle === true && shown.started === false && shown.order.length === 0 && shown.turn === -1, JSON.stringify(shown));
+  await sb.__fight.applyRemoteTable({
+    updatedAt: new Date(Date.now() + 5000).toISOString(),
+    initiative: { order: [], started: false, round: 1, turn: 0, recruit: false }
+  });
+  check("n75.echoKeepsRoster", fight.order.length === 2 && pc.mapTokenId === "tok_pc" && foe.mapTokenId === "tok_en" && fight.idle === true && sb.SSDNSMapCards.initiative().order.length === 0);
+  await sb.__fight.rollInitiativeForAll({ wait: 0 });
+  check("n75.rollReusesLinks", fight.idle === false && fight.started === false && fight.order.length === 2 && pc.mapTokenId === "tok_pc" && foe.mapTokenId === "tok_en" && foe.beastId === "outlaw" && sb.SSDNSMapCards.get("tok_en").name === "Outlaw" && sb.SSDNSMapCards.initiative().order.length === 2, JSON.stringify({ idle: fight.idle, ids: fight.order.map((r) => r.mapTokenId) }));
   check("n63.conditions", fight.condMap.tired && fight.condMap.tired.name === "Exhaustion" && !fight.condMap.poison, JSON.stringify(fight.condMap));
   check("n63.notice", toasts.includes("Combat ended") && ledger.some((row) => row && row.what === "Combat ended") && !ledger.some((row) => row && /unlink|turn order/i.test(String(row.what || ""))), JSON.stringify({ toasts, ledger }));
   check("n63.staleKeeps", during === 0 && after === 0 && live && live.indexOf("en1") >= 0 && keep && keep.en1 === "tok_en" && seen[0].live.indexOf("en1") >= 0, JSON.stringify(seen));

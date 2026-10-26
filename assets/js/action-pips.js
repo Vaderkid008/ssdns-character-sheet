@@ -305,7 +305,13 @@
     return T.rowFor(init, uid || "", (c && c.name) || "");
   }
   function onTurn(init) {
-    if (!init || !Array.isArray(init.order) || !init.order.length) return;
+    /* N75: an empty order is End combat (free-action). Record it. Leaving the previous
+       in-fight snapshot here kept Attack / Reload / Unjam greyed after the strip cleared. */
+    if (!init || !Array.isArray(init.order) || !init.order.length) {
+      lastInit = init || null;
+      changed();
+      return;
+    }
     lastInit = init;
     var T = root.SSDNSTurn;
     var row = myRow(init);
