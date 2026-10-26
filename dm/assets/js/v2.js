@@ -4295,17 +4295,18 @@ function noteUnconscious(row) {
   const Cond = window.SSDNSConditions;
   const subjectId = row.kind === "player" ? (row.playerId || row.id) : row.id;
   if (!subjectId) return;
-  const idEarly = Cond && Cond.idFor(subjectId, "Unconscious");
-  if (String(row.status || "") === "Down" && knownNumber(row.hp) === 0 && idEarly && fight.condMap && fight.condMap[idEarly]) return;
-  const alreadyDown = String(row.status || "") === "Down" && knownNumber(row.hp) === 0;
+  /* refreshCombatantStatus sets status "Down" from the DM's HP before this runs.
+     That used to count as alreadyDown and skip the public-token write, so the DM
+     drew an X from the card HP and player maps (which only read token.status) never did.
+     Publish every time HP is 0, including a second call that only refreshes the condition. */
   row.hp = 0;
+  row.status = "Down";
+  mirrorMapStatus(row, "down");
+  const idEarly = Cond && Cond.idFor(subjectId, "Unconscious");
+  if (idEarly && fight.condMap && fight.condMap[idEarly]) return;
   if (window.SSDNSApplied && window.SSDNSApplied.markHpExpect && row.kind === "player") {
     window.SSDNSApplied.markHpExpect(row, 0);
   }
-  if (!alreadyDown) {
-    row.status = "Down";
-    mirrorMapStatus(row, "down");
-  } else row.status = "Down";
   if (!row.deathSaves) row.deathSaves = { success: [false, false, false], fail: [false, false, false] };
   if (!Cond) return;
   const id = Cond.idFor(subjectId, "Unconscious");
@@ -4781,10 +4782,39 @@ function withDmActing(row, detail) {
   if (String(detail || "").indexOf(line) === 0) return detail;
   return detail ? line + " — " + detail : line;
 }
+/* The fight row's mapTokenId can be stale after a relink. Players read map/public/tokens,
+   so the patch has to land on the token that is actually on the map. */
+function liveMapTokenId(row) {
+  const host = window.SSDNSMapHost;
+  if (!row) return "";
+  const stored = row.mapTokenId || "";
+  if (!host) return stored;
+  const canCheck = typeof host.hasToken === "function";
+  if (stored && (!canCheck || host.hasToken(stored))) return stored;
+  const cid = row.kind === "player" ? (row.playerId || row.id) : row.id;
+  let found = "";
+  if (cid && typeof host.tokenForCombatant === "function") found = host.tokenForCombatant(cid) || "";
+  if (!found && row.kind === "player" && typeof host.tokenForPlayer === "function") {
+    found = host.tokenForPlayer(row.playerId || row.id) || "";
+  }
+  if (found) {
+    if (found !== stored) row.mapTokenId = found;
+    return found;
+  }
+  return stored;
+}
+function rowNeedsDownMark(row) {
+  if (!row || noHpPoolRow(row)) return false;
+  if (row.fled || /^fled$/i.test(String(row.status || ""))) return false;
+  if (/^down$/i.test(String(row.status || ""))) return true;
+  return knownNumber(row.hp) === 0;
+}
 function mirrorMapStatus(row, status) {
   const host = window.SSDNSMapHost;
-  if (!host || typeof host.patchToken !== "function" || !row || !row.mapTokenId) return;
-  try { host.patchToken(row.mapTokenId, { status: status || "" }); } catch (e) {}
+  if (!host || typeof host.patchToken !== "function" || !row) return;
+  const id = liveMapTokenId(row);
+  if (!id) return;
+  try { host.patchToken(id, { status: status || "" }); } catch (e) {}
 }
 async function publishCardRoll(row, detail, result, extra) {
   detail = withDmActing(row, detail);
@@ -5418,7 +5448,9 @@ async function attackRow(i) {
     result: out.total, detail: text, private: false, attack: true
   });
   if (hit && dmg && (fight.damageMode || "auto") !== "approve" && row.kind !== "player") {
-    applyEnemyHp(row, -dmg.total);
+    const beforeHp = applyEnemyHp(row, -dmg.total);
+    /* applyEnemyHp marks the row Down from private HP and used to stop there, so the public token never got an X */
+    if (beforeHp != null && knownNumber(row.hp) === 0) noteUnconscious(row);
     await saveRemoteTable();
     renderFight();
   }
@@ -7082,14 +7114,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.151-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.152-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.151-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.152-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -8553,12 +8585,16 @@ function syncMapTokens() {
   (fight.order || []).slice().forEach((row) => {
     if (!row) return;
     if (row.kind === "player") {
-      if (row.mapTokenId) return;
-      rememberPlayerToken(row);
-      if (row.mapTokenId) dirty = true;
+      if (!row.mapTokenId) {
+        rememberPlayerToken(row);
+        if (row.mapTokenId) dirty = true;
+      }
+      /* A map that mounts after the drop still has to push the X. Players never see card HP. */
+      if (rowNeedsDownMark(row)) mirrorMapStatus(row, "down");
       return;
     }
     bindNewToken(row);
+    if (rowNeedsDownMark(row)) mirrorMapStatus(row, "down");
   });
   if (dirty) {
     saveRemoteTable();

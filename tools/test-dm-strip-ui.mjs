@@ -33,7 +33,7 @@ check("pips.colors", dm.includes(".pip-action:not(.used)") && dm.includes("#6fbf
 check("src.noTableNext", !/strip\.innerHTML = [^;]*Next/.test(v2) && v2.includes("data-dm-scroll") && v2.includes("stripActsHtml"));
 check("src.mapRound", mapJs.includes("roundEl.className = 'turn-round'") && mapJs.includes("textContent = 'Next'"));
 check("src.playerDock", mapCss.includes(".ssdns-map.has-sheet-turn > .ssm-turnstrip { display: none !important; }"));
-check("src.rulesUntouched", !rules.includes("dm-strip") && !rulesJs.includes("0.3.138") && !rulesJs.includes("stripActsHtml"));
+check("src.rulesUntouched", !rules.includes("dm-strip") && !rulesJs.includes("0.3.139") && !rulesJs.includes("stripActsHtml"));
 check("src.namesUncut", /min-width: 701px\) \{\s*\n\s*\.ssm-turnhost #turnPanel \.turn-chip \.chip-name \{ max-width: none/.test(sheet));
 
 const bag = {};

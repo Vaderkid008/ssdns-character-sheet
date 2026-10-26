@@ -47,7 +47,7 @@ check("saves.matchText", saves >= 12 && !bad.length, bad.join() + " / " + saves)
 check("saves.notOnAttacks", TB.every(([id]) => (by(id).attackList || []).every((a) => !a.saveDamage && !a.rider)));
 const v2 = read("dm/assets/js/v2.js");
 check("code.draftHidden", /function isParkedBeast\(b\) \{ return !!\(b && \(b\.parked \|\| b\.draft\)\); \}/.test(v2) && (v2.match(/isParkedBeast\(b\)/g) || []).length >= 4);
-check("code.cacheKey", v2.indexOf('bestiary.json?v=0.2.151-thunderbirds') >= 0);
+check("code.cacheKey", v2.indexOf('bestiary.json?v=0.2.152-thunderbirds') >= 0);
 check("rules.js untouched", !/thunderbird/i.test(read("assets/data/rules.js")));
 
 /* ---- browser: DMCC demo table, Fight tab picking, stat block, map placement */
