@@ -942,7 +942,23 @@
     if (!note) return extraDis || "";
     return extraDis ? (extraDis + " · " + note) : note;
   }
+  function zoneAttackSight(tgt) {
+    var host = root.SSDNSMapHost;
+    var Z = root.SSDNSSpellZones;
+    if (!tgt || !tgt.id || !host || !Z || typeof host.tokenSnapshot !== "function" || !Z.attackSight) return "";
+    var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    var mineId = "";
+    try { mineId = host.tokenForPlayer ? host.tokenForPlayer(uidNow) : ""; } catch (err) { mineId = ""; }
+    var me = host.tokenSnapshot(mineId || uidNow);
+    var them = host.tokenSnapshot(tgt.id);
+    if (!me || !them) return "";
+    var zones = typeof host.spellZones === "function" ? host.spellZones() : [];
+    return Z.attackSight(me, them, zones) || "";
+  }
   function attackRoll(mod, conditions, chosen, extraDis) {
+    var zoneSight = zoneAttackSight(currentTarget());
+    if (!chosen && zoneSight === "dis") extraDis = extraDis ? (extraDis + " · heavily obscured") : "heavily obscured";
+    else if (!chosen && zoneSight === "adv") chosen = "adv";
     extraDis = mountAttackExtra(extraDis);
     var mode = root.SSDNSConditions && root.SSDNSConditions.attackMode
       ? root.SSDNSConditions.attackMode(conditions || [], chosen || "", extraDis)
@@ -1119,13 +1135,38 @@
     if (fn) { try { fn(); } catch (err) {} }
     if (msg) toast(msg);
   }
-  function spellAreaFor(spellName, row) {
-    var Area = root.SSDNSSpellArea;
-    if (!Area || !Area.areaOf || !row) return null;
+  function spellAreaFor(spellName, row, slot) {
+    if (!row) return null;
     var kind = row.kind || "none";
     if (kind === "attack" || kind === "weapon") return null;
     if (kind === "auto" && row.rays) return null;
-    return Area.areaOf(spellName);
+    var Area = root.SSDNSSpellArea;
+    var area = Area && Area.areaOf ? Area.areaOf(spellName) : null;
+    var Z = root.SSDNSSpellZones;
+    if (Z && Z.dressArea) area = Z.dressArea(spellName, area, slot);
+    return area;
+  }
+  function syncSpellZones() {
+    var host = root.SSDNSMapHost;
+    var c = ch();
+    if (!host || typeof host.setSpellZones !== "function" || !c) return;
+    var SR = root.SSDNSSpellRiders;
+    var bag = SR && SR.emptyBag ? SR.emptyBag(c.spellMarks) : (c.spellMarks || {});
+    var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    try { host.setSpellZones(bag.zones || [], { casterId: uidNow || "" }); } catch (err) {}
+  }
+  function rememberZone(spellName, slot, placed, dc) {
+    var Z = root.SSDNSSpellZones;
+    var SR = root.SSDNSSpellRiders;
+    var c = ch();
+    if (!Z || !SR || !c || !placed || !Z.isZone || !Z.isZone(spellName)) return "";
+    var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    var zone = Z.buildZone(spellName, placed, { slot: slot, casterId: uidNow || "", dc: dc });
+    if (!zone) return "";
+    var put = Z.place(c.spellMarks, zone);
+    c.spellMarks = put.bag;
+    syncSpellZones();
+    return put.log || "";
   }
   function blastTargetId(tok) {
     var Area = root.SSDNSSpellArea;
@@ -1239,6 +1280,7 @@
     publishChips(ended.removed, true);
     dropLocalChipRows(ended.removed);
     if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
+    syncSpellZones();
   }
   function endConcIfNeeded(reason) {
     var c = ch();
@@ -2043,7 +2085,7 @@
         return;
       }
     }
-    var areaEarly = spellAreaFor(spellName, row);
+    var areaEarly = spellAreaFor(spellName, row, slot);
     var rangeShot = null;
     if (areaEarly) {
       if (root.SSDNSRangeRings && root.SSDNSRangeRings.clear) root.SSDNSRangeRings.clear();
@@ -2287,6 +2329,7 @@
         dropLocalChipRows(concEnded.removed);
         addLog({ kind: "alert", text: "Concentration ends " + concBag.conc + "." });
         if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
+        syncSpellZones();
       }
       ch().spellMarks = root.SSDNSSpellRiders.emptyBag(ch().spellMarks);
       ch().spellMarks.conc = spellName;
@@ -2296,6 +2339,8 @@
       var crowd0 = placedBlast.tokens || [];
       var where0 = crowd0.length ? crowd0.map(function (t) { return t.name || "token"; }).join(", ") : "nobody in the area";
       rolled.text += " · " + ((placedBlast.area && placedBlast.area.label) || "area") + ": " + where0;
+      var zoneLine = rememberZone(spellName, slot, placedBlast, v.spellDC);
+      if (zoneLine) rolled.text += " · " + zoneLine;
       rolled.detail = rolled.text;
     } else if (row && (row.kind === "none" || row.kind === "rider" || row.kind === "utility")) {
       var buffLine = applySpellBuff(spellName, slot);
@@ -2393,6 +2438,7 @@
               weapon: throughGun && i >= 0 ? gunName(i) : ""
             };
             if (rolled.applyNow === false) hitRow.amount = 0;
+            if (rolled.applyNow === false && !condP) return;
             if (row && row.damageAuto) hitRow.autoDamage = true;
             if (kindNow === "save") {
               hitRow.save = (row && row.save) || rolled.save || "DEX";
@@ -2537,7 +2583,7 @@
             targetId: tgt.id, targetName: tgt.name, rollId: rollId
           });
         }
-        if (rolled.tickEnd && rolled.tickEnd.dice && root.SSDNSSpellRiders && root.SSDNSSpellRiders.rollExpr) {
+        if (rolled.tickEnd && rolled.tickEnd.dice && !(root.SSDNSSpellZones && root.SSDNSSpellZones.isZone && root.SSDNSSpellZones.isZone(spellName)) && root.SSDNSSpellRiders && root.SSDNSSpellRiders.rollExpr) {
           var acidRoll = root.SSDNSSpellRiders.rollExpr(rolled.tickEnd.dice, false);
           addLog({ kind: "roll", text: "SAVE " + spellName + " end of turn " + (rolled.tickEnd.save || "DEX") + " or " + acidRoll.formula + " [" + acidRoll.faces.join(",") + "] = " + acidRoll.total + " " + (rolled.tickEnd.type || "acid") });
           root.SSDNSDmJoin.postDamage({
@@ -4100,7 +4146,7 @@
     if (!rolled) return Promise.resolve(false);
     var Cast = root.SSDNSSpellCast;
     var row = (Cast && Cast.lookup && Cast.lookup(spellName)) || { kind: rolled.kind || "none", name: spellName };
-    var area = spellAreaFor(spellName, row);
+    var area = spellAreaFor(spellName, row, opts.slot);
     function settle(placed) {
       var c = ch();
       var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
@@ -4275,6 +4321,35 @@
       }
     };
   }
+
+  window.addEventListener("ssdns-zone-tick", function (ev) {
+    var detail = ev && ev.detail;
+    var ticks = detail && detail.ticks;
+    if (!ticks || !ticks.length) return;
+    ticks.forEach(function (tick) {
+      var line = (tick.spell || "Zone") + (tick.save ? " SAVE " + tick.save + " or " : " ") + (tick.formula || tick.dice || "") + (tick.amount != null ? " = " + tick.amount : "") + " " + (tick.type || "");
+      addLog({ kind: "roll", text: line });
+      toast(line);
+      if (!joined() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postDamage) return;
+      var targetId = tick.targetId || detail.tokenId || "";
+      if (tick.save) {
+        root.SSDNSDmJoin.postDamage({
+          amount: 0, label: tick.spell || "Zone", type: "spell", save: tick.save,
+          dc: tick.dc, dice: (tick.dice || "") + " " + (tick.type || ""), half: !!tick.half,
+          targetId: targetId, targetName: tick.targetName || "",
+          rollId: "zone_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
+        });
+        return;
+      }
+      if (!(tick.amount > 0)) return;
+      root.SSDNSDmJoin.postDamage({
+        amount: tick.amount, label: tick.spell || "Zone", type: "spell",
+        dice: (tick.formula || tick.dice || "") + " " + (tick.type || ""),
+        targetId: targetId, targetName: tick.targetName || "",
+        rollId: "zone_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
+      });
+    });
+  });
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
   else wire();

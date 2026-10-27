@@ -123,8 +123,8 @@ const askFn = ask.slice(ask.indexOf("askSpell = function"), ask.indexOf("functio
 check("handoff.passContinues", askFn.indexOf('choice === "go" || choice === "pass"') >= 0 && askFn.indexOf('choice === "cancel"') >= 0);
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.160");
-check("ver.dmcc", version.dmcc === "0.2.173");
+check("ver.sheet", version.sheet === "0.3.161");
+check("ver.dmcc", version.dmcc === "0.2.174");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

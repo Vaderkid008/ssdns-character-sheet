@@ -48,10 +48,10 @@ Object.keys(weapons).forEach((id) => {
 });
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.160" && version.sheetBuild === "sheet-playtest-v03160", "sheet 0.3.55");
-check(version.dmcc === "0.2.173" && version.dmccBuild === "dmcc-playtest-v02173", "dmcc 0.2.68");
-check(read("assets/js/sfx.js").indexOf('sfx.json?v=0.3.160') >= 0, "the sound map cache query matches the sheet version");
-check(read("assets/js/app.js").indexOf('APP_VERSION = "0.3.160"') >= 0, "the sheet banner is 0.3.55");
+check(version.sheet === "0.3.161" && version.sheetBuild === "sheet-playtest-v03161", "sheet 0.3.55");
+check(version.dmcc === "0.2.174" && version.dmccBuild === "dmcc-playtest-v02174", "dmcc 0.2.68");
+check(read("assets/js/sfx.js").indexOf('sfx.json?v=0.3.161') >= 0, "the sound map cache query matches the sheet version");
+check(read("assets/js/app.js").indexOf('APP_VERSION = "0.3.161"') >= 0, "the sheet banner is 0.3.55");
 
 let fetched = "";
 const sandbox = {
@@ -73,7 +73,7 @@ sandbox.window.dispatchEvent = () => {};
 vm.runInNewContext(read("assets/js/sfx.js"), sandbox, { filename: "assets/js/sfx.js" });
 await new Promise((resolve) => setTimeout(resolve, 30));
 const audio = sandbox.SSDNSAudio;
-check(fetched.indexOf("sfx.json?v=0.3.160") >= 0, "load fetches the bumped map");
+check(fetched.indexOf("sfx.json?v=0.3.161") >= 0, "load fetches the bumped map");
 
 check(audio.weaponCue({ gun: true, name: "Dullards Plinker" }) === "attack", "a Plinker without an id stays the rifle gunshot");
 check(audio.weaponCue({ gun: true, id: "dullards-plinker-revolver", name: "Dullards Plinker" }) === "plinker", "the Plinker id plays plinker");
