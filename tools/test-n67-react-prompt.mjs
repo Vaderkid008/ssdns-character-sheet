@@ -192,9 +192,9 @@ check("src.dmTriggers", v2.includes("function damageReactOffers") && v2.includes
 check("src.join", read("assets/js/dm-join.js").includes('type: "react"') && read("assets/js/dm-join.js").includes("reactPrompt") && read("assets/js/dm-join.js").includes("askSpell"));
 check("src.castGate", read("assets/js/sheet-extras.js").includes("gateSpell"));
 check("src.scripts", read("index.html").includes("assets/js/react-prompt.js") && read("dm/index.html").includes("../assets/js/react-prompt.js"));
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("react-prompt") && !read("database.rules.json").includes("react-prompt") && !read("assets/data/rules.js").includes("0.3.157") && !read("database.rules.json").includes("0.3.157"));
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("react-prompt") && !read("database.rules.json").includes("react-prompt") && !read("assets/data/rules.js").includes("0.3.158") && !read("database.rules.json").includes("0.3.158"));
 const ver = JSON.parse(read("version.json"));
-check("src.versions", ver.sheet === "0.3.157" && ver.dmcc === "0.2.170" && ver.sheetBuild === "sheet-playtest-v03157" && ver.dmccBuild === "dmcc-playtest-v02170", JSON.stringify(ver));
+check("src.versions", ver.sheet === "0.3.158" && ver.dmcc === "0.2.171" && ver.sheetBuild === "sheet-playtest-v03158" && ver.dmccBuild === "dmcc-playtest-v02171", JSON.stringify(ver));
 
 const art = "/opt/cursor/artifacts";
 fs.mkdirSync(art, { recursive: true });

@@ -266,6 +266,7 @@
 
   function savedAmount(full, half, save) {
     var n = Number(full) || 0;
+    if (save && save.auto) return save.blocked ? 0 : n;
     if (!save) return n;
     if (save.blocked) return 0;
     if (save.failed) return n;
@@ -281,17 +282,22 @@
     "hold monster": "Paralyzed",
     "grease": "Prone",
     "blindness/deafness": "Blinded",
-    "color spray": "Blinded",
     "fear": "Frightened",
     "cause fear": "Frightened",
     "charm person": "Charmed",
-    "hypnotic pattern": "Incapacitated",
-    "sleep": "Unconscious",
-    "hideous laughter": "Prone"
+    "hypnotic pattern": "Charmed + Incapacitated",
+    "hideous laughter": "Prone + Incapacitated"
   };
 
   function onFail(name) {
+    var riders = root.SSDNSSpellRiders;
+    if (riders && riders.poolSpell && riders.poolSpell(name)) return "";
+    if (riders && riders.failList) {
+      var list = riders.failList(name);
+      if (list.length) return list.join(" + ");
+    }
     var key = norm(name);
+    if (key === "sleep" || key === "color spray") return "";
     if (FAIL[key]) return FAIL[key];
     var hit = "";
     Object.keys(FAIL).forEach(function (k) {
@@ -308,7 +314,7 @@
     "barkskin": { acFloor: 16, ms: 60 * 60000, label: "Barkskin: AC can't be below 16" },
     "haste": { ac: 2, ms: 60000, label: "Haste: +2 AC" },
     "false life": { temp: "1d4+4", label: "False Life: temporary hit points" },
-    "armor of agathys": { temp: "5", label: "Armor of Agathys: 5 temporary hit points" },
+    "armor of agathys": { tempPerSlot: 5, retaliatePerSlot: 5, retaliateType: "cold", label: "Armor of Agathys: temporary hit points; cold damage to a melee attacker" },
     "aid": { heal: 5, maxHp: 5, label: "Aid: +5 current and maximum hit points" },
     "heroism": { tempFromMod: true, ms: 60000, label: "Heroism: temporary hit points equal to your spellcasting modifier" },
     "goodberry": { heal: 1, label: "Goodberry: 1 hit point" },
@@ -320,10 +326,19 @@
     "resistance": { label: "Resistance: +1d4 on one saving throw" }
   };
 
-  function buffOf(name) {
+  function buffOf(name, slot) {
     var key = norm(name);
-    if (BUFFS[key]) return Object.assign({ name: key }, BUFFS[key]);
-    return null;
+    if (!BUFFS[key]) return null;
+    var buff = Object.assign({ name: key }, BUFFS[key]);
+    if (buff.tempPerSlot) {
+      var lv = Math.max(1, Number(slot) || 1);
+      var n = buff.tempPerSlot * lv;
+      buff.temp = String(n);
+      buff.retaliate = (buff.retaliatePerSlot || 5) * lv;
+      buff.retaliateType = buff.retaliateType || "cold";
+      buff.label = "Armor of Agathys: " + n + " temporary hit points; " + buff.retaliate + " cold back to a melee attacker";
+    }
+    return buff;
   }
 
   /* Fight-row id the damage request should name. A public map token has no combatantId, only its map id. */

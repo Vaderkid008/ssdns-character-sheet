@@ -1,5 +1,5 @@
 /**
- * N71 (sheet 0.3.157 / DMCC 0.2.170): full-screen map hides sheet chrome.
+ * N71 (sheet 0.3.158 / DMCC 0.2.171): full-screen map hides sheet chrome.
  * The sticky app bar (z-index 320) and teal join/audio bar (310) painted over
  * the board (z-index 80), Exit full screen, and the turn strip. Hide
  * .appbar / .savebar / .dm-join-bar / .tabs only. The strip stays at z-index 4
@@ -27,12 +27,12 @@ const app = read("assets/js/app.js");
 const host = read("map/ssdns-map-host.js");
 const rules = read("assets/data/rules.js");
 const rulesDb = read("database.rules.json");
-check("ver.sheet", ver.sheet === "0.3.157" && ver.sheetBuild === "sheet-playtest-v03157", JSON.stringify(ver));
-check("ver.dmcc", ver.dmcc === "0.2.170" && ver.dmccBuild === "dmcc-playtest-v02170");
-check("ver.app", app.includes('APP_VERSION = "0.3.157"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.170"'));
-check("src.rulesUntouched", !rules.includes("0.3.157") && !rules.includes("0.2.170") && !rulesDb.includes("0.3.157") && !rulesDb.includes("0.2.170"));
-check("src.playerCss", read("index.html").includes("map/ssdns-map.css?v=0.3.157-maps"));
-check("src.dmCss", read("dm/index.html").includes("../map/ssdns-map.css?v=0.2.170-maps"));
+check("ver.sheet", ver.sheet === "0.3.158" && ver.sheetBuild === "sheet-playtest-v03158", JSON.stringify(ver));
+check("ver.dmcc", ver.dmcc === "0.2.171" && ver.dmccBuild === "dmcc-playtest-v02171");
+check("ver.app", app.includes('APP_VERSION = "0.3.158"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.171"'));
+check("src.rulesUntouched", !rules.includes("0.3.158") && !rules.includes("0.2.171") && !rulesDb.includes("0.3.158") && !rulesDb.includes("0.2.171"));
+check("src.playerCss", read("index.html").includes("map/ssdns-map.css?v=0.3.158-maps"));
+check("src.dmCss", read("dm/index.html").includes("../map/ssdns-map.css?v=0.2.171-maps"));
 check("src.hideChrome", /body\.map-fullscreen \.appbar,\s*body\.map-fullscreen \.savebar,\s*body\.map-fullscreen \.dm-join-bar,\s*body\.map-fullscreen \.tabs \{\s*display: none;\s*\}/.test(css));
 check("src.stripZ", /body\.map-fullscreen #mapMount \.ssm-turnstrip \{\s*z-index: 4;/.test(css));
 check("src.exitZ", /body\.map-fullscreen #btnMapFull \{[^}]*z-index:\s*90;/.test(css));

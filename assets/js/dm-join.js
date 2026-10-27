@@ -671,9 +671,18 @@
       row.save = entry.save;
       row.dc = entry.dc;
       row.half = !!entry.half;
-      if (entry.condition) row.condition = entry.condition;
       if (entry.onSave) row.onSave = entry.onSave;
     }
+    if (entry.condition) row.condition = entry.condition;
+    if (entry.onHit) row.onHit = true;
+    if (entry.removeCondition) row.removeCondition = entry.removeCondition;
+    if (entry.spell) row.spell = entry.spell;
+    if (entry.conc) row.conc = true;
+    if (entry.autoDamage) row.autoDamage = true;
+    if (entry.noDamage) row.noDamage = true;
+    if (entry.melee) row.melee = true;
+    if (entry.damageType) row.damageType = entry.damageType;
+    if (entry.delayed) row.delayed = entry.delayed;
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
       return { ok: true };
     }).catch(function (e) {
@@ -715,6 +724,7 @@
       weaponId: entry.weaponId || "",
       arrow: String(entry.arrow || "").slice(0, 160)
     };
+    if (entry.melee) row.melee = true;
     if (Number(entry.critMin) >= 2 && Number(entry.critMin) < 20) row.critMin = Number(entry.critMin); /* Champion / Dead Eye crit range */
     if (entry.shots && typeof entry.shots === "object") row.shots = entry.shots;
     /* 0.3.60: carry the card breakdown so the DM's card shows the d20 and damage die faces */

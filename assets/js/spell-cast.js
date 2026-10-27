@@ -24,6 +24,11 @@
     });
     return index;
   }
+  function finish(row) {
+    if (!row) return null;
+    var R = root.SSDNSSpellRiders;
+    return R && R.patchRow ? R.patchRow(row) : row;
+  }
   function lookup(name) {
     var map = build();
     var raw = stripAlias(name);
@@ -32,19 +37,19 @@
       if (pact) {
         var shot = root.SSDNSPactShot && root.SSDNSPactShot.variant ? root.SSDNSPactShot.variant() : null;
         if (shot && shot.cone) {
-          return Object.assign({}, pact, { name: shot.name, kind: "save", scale: "", dice: shot.dice || "1d6", type: shot.damage, note: shot.rider, range: shot.range });
+          return finish(Object.assign({}, pact, { name: shot.name, kind: "save", scale: "", dice: shot.dice || "1d6", type: shot.damage, note: shot.rider, range: shot.range }));
         }
-        if (shot) return Object.assign({}, pact, { name: shot.name, dice: shot.dice || pact.dice, type: shot.damage || pact.type, note: shot.rider || "", range: shot.range });
-        return Object.assign({}, pact, { name: "Pact Shot" });
+        if (shot) return finish(Object.assign({}, pact, { name: shot.name, dice: shot.dice || pact.dice, type: shot.damage || pact.type, note: shot.rider || "", range: shot.range }));
+        return finish(Object.assign({}, pact, { name: "Pact Shot" }));
       }
     }
     var exact = map[norm(raw)] || null;
     var bareKey = norm(raw.replace(/\s+shell$/i, ""));
     var bare = bareKey && bareKey !== norm(raw) ? (map[bareKey] || null) : null;
     if (bare && (!exact || exact.kind === "none" || /\s+shell$/i.test(exact.name || ""))) {
-      if (!exact || exact.kind === "none" || (bare.kind && bare.kind !== "none") || !/\s+shell$/i.test(bare.name || "")) return bare;
+      if (!exact || exact.kind === "none" || (bare.kind && bare.kind !== "none") || !/\s+shell$/i.test(bare.name || "")) return finish(bare);
     }
-    return exact || bare;
+    return finish(exact || bare);
   }
   function die(sides) {
     if (sides === 20 && root.SSDNSTestRoll) {
@@ -181,7 +186,7 @@
     function shaped() {
       var parsed = parseDice(row.dice || "");
       if (row.scale === "cantrip" && slot === 0) parsed = scaleDice(parsed, cantripTier(charLv));
-      if (row.up && upSteps > 0 && row.scale !== "beam" && !row.rays) parsed = addDice(parsed, row.up, upSteps);
+      if (row.up && upSteps > 0 && row.scale !== "beam" && !row.rays && row.diceOn !== "start") parsed = addDice(parsed, row.up, upSteps);
       if (row.healMod && spellMod) parsed.flat = (parsed.flat || 0) + spellMod;
       return parsed;
     }
@@ -312,24 +317,42 @@
       var face = pair.n2 != null ? pair.shown : String(nat);
       var head = name + gun + " · " + (kind === "weapon" ? "weapon attack " : "spell attack ") + sign(bonus) + ": " + face + sign(bonus) + " = " + total;
       if (kind === "weapon" && row.save) head += " · " + row.save + " save";
-      var shapedDice = shaped();
-      var hasDamage = (shapedDice.parts && shapedDice.parts.length) || shapedDice.flat;
+      var shapedDice = row.diceOn === "start" ? { parts: [], flat: 0 } : shaped();
+      var hasDamage = (shapedDice.parts && shapedDice.parts.length) || shapedDice.flat || (row.weapon && opts.weaponDamage);
       if (!hasDamage) {
         var plain = miss ? "MISS" : (crit ? "CRIT" : "HIT");
-        var bare = head + " · " + plain;
-        var barePack = pack(bare, true, nat, crit, (pair.shown.indexOf("/") >= 0 ? "2d20" : "1d20") + sign(bonus), total, pair.shown + sign(bonus) + " = " + total + " · " + plain, sparkFor(miss));
+        var effect = "";
+        if (!miss && row.noDamage && row.onHit) effect = " · no damage — " + row.onHit;
+        else if (!miss && row.diceOn === "start") effect = " · " + (row.startDice || row.dice) + " " + (row.startType || "") + " at the start of each of its turns, not on the hit";
+        var bare = head + " · " + plain + effect;
+        var barePack = pack(bare, true, nat, crit, (pair.shown.indexOf("/") >= 0 ? "2d20" : "1d20") + sign(bonus), total, pair.shown + sign(bonus) + " = " + total + " · " + plain + effect, sparkFor(miss));
         barePack.diceShown = pair.shown;
         barePack.n1 = pair.n1;
         barePack.n2 = pair.n2;
         barePack.mode = opts.mode || "";
         barePack.damageTotal = 0;
         barePack.damageDetail = "";
+        if (!miss && row.diceOn === "start" && row.dice) {
+          var startRoll = rollParts(parseDice(row.startDice || row.dice), false);
+          barePack.damageTotal = startRoll.total;
+          barePack.damageDetail = startRoll.detail + " " + (row.startType || "");
+          barePack.startOnTurn = true;
+          barePack.applyNow = false;
+        }
+        barePack.noDamage = !!row.noDamage;
+        barePack.condition = miss ? "" : (row.onHit || row.onFail || "");
+        barePack.kind = kind;
+        if (row.hitSave) barePack.hitSave = row.hitSave;
+        if (row.save && !miss) barePack.save = row.save;
+        if (row.endSave) barePack.endSave = row.endSave;
         return barePack;
       }
       var spellRoll = rollParts(shapedDice, crit && !miss);
-      var dmgTotal = spellRoll.total;
+      var gross = spellRoll.total;
+      var dmgTotal = miss && row.missHalf ? Math.floor(gross / 2) : (miss ? 0 : gross);
       var dmgBits = spellRoll.detail + typeBit(row);
-      if (row.weapon && opts.weaponDamage) {
+      if (miss && row.missHalf) dmgBits += " (half on miss)";
+      if (!miss && row.weapon && opts.weaponDamage && !row.replacesWeapon) {
         var wp = weaponParts(opts.weaponDamage);
         if (wp) {
           var wr = rollParts(wp, crit && !miss);
@@ -337,7 +360,7 @@
           dmgTotal += wr.total;
         }
       }
-      var dmgText = miss ? "MISS" : ((crit ? "CRIT · on hit " : "on hit ") + dmgBits + " = " + dmgTotal);
+      var dmgText = (miss && row.missHalf) ? ("MISS · half " + dmgBits + " = " + dmgTotal) : (miss ? "MISS" : ((crit ? "CRIT · on hit " : "on hit ") + dmgBits + " = " + dmgTotal));
       var text = head + " · " + dmgText;
       var spark = sparkFor(miss);
       var packed = pack(text, true, nat, crit, (pair.shown.indexOf("/") >= 0 ? "2d20" : "1d20") + sign(bonus), total, pair.shown + sign(bonus) + " = " + total + " · " + dmgText, spark);
@@ -345,23 +368,58 @@
       packed.n1 = pair.n1;
       packed.n2 = pair.n2;
       packed.mode = opts.mode || "";
-      packed.damageTotal = miss ? 0 : dmgTotal;
-      packed.damageDetail = miss ? "" : (dmgBits + " = " + dmgTotal);
+      packed.damageTotal = dmgTotal;
+      packed.gross = gross;
+      packed.missHalf = !!row.missHalf;
+      packed.alreadyHalf = !!(miss && row.missHalf);
+      packed.damageDetail = dmgTotal ? (dmgBits + " = " + dmgTotal) : "";
       packed.kind = kind;
+      if (row.save) packed.save = row.save;
+      if (row.onFail) packed.condition = miss ? "" : row.onFail;
+      if (row.hitSave) packed.hitSave = row.hitSave;
+      if (row.half) packed.half = true;
+      if (row.push) packed.push = row.push;
+      if (row.banishAt) packed.banishAt = row.banishAt;
+      if (row.endSave) packed.endSave = row.endSave;
+      if (row.splash) packed.splash = row.splash;
+      if (row.delayed) {
+        var Rdelay = root.SSDNSSpellRiders;
+        packed.delayed = Rdelay && Rdelay.delayedRoll ? Rdelay.delayedRoll(row, slot, crit && !miss) : { formula: row.delayed, total: 0 };
+        if (miss) packed.delayed = null;
+      }
+      if (row.diceOn === "start") {
+        packed.startDice = row.startDice || row.dice;
+        packed.text += " · " + packed.startDice + " " + (row.startType || "") + " at the start of each of its turns";
+        packed.detail = packed.text;
+      }
       return packed;
     }
 
     if (kind === "save") {
       var saveRoll = bundle(shaped(), false);
       var half = row.half ? " (half on a successful save)" : "";
+      if (row.damageAuto) half = " (automatic; " + (row.save || "CON") + " save only to drop)";
+      var laterNote = "";
+      if (row.castDamage === false) laterNote = " · failed save: " + (row.onFail || "a condition") + " only; " + ((row.later && row.later.dice) || row.dice || "") + " on a failed end-of-turn save";
       var dcText = "DC " + (opts.dc != null && opts.dc !== "" ? opts.dc : "?") + " " + (row.save || "save") + " save";
-      var stext = name + gun + " · " + dcText + " · " + saveRoll.text + half;
-      var savePack = pack(stext, false, null, false, saveRoll.rolled.formula, saveRoll.rolled.total, dcText + " · " + saveRoll.text + half, "");
-      savePack.damageTotal = saveRoll.rolled.total;
+      var stext = name + gun + " · " + dcText + " · " + (row.castDamage === false ? "no damage now" : saveRoll.text) + half + laterNote;
+      var savePack = pack(stext, false, null, false, saveRoll.rolled.formula, row.castDamage === false ? 0 : saveRoll.rolled.total, dcText + " · " + saveRoll.text + half + laterNote, "");
+      savePack.damageTotal = row.castDamage === false ? saveRoll.rolled.total : saveRoll.rolled.total;
       savePack.damageDetail = saveRoll.text;
       savePack.kind = "save";
-      savePack.half = !!row.half;
+      savePack.half = !!row.half && !row.damageAuto;
       savePack.save = row.save || "";
+      savePack.autoDamage = !!row.damageAuto;
+      savePack.applyNow = row.applyNow !== false && row.castDamage !== false;
+      savePack.condition = row.onFail || "";
+      if (row.targetUp) {
+        var Rt = root.SSDNSSpellRiders;
+        savePack.targets = Rt && Rt.chainTargets ? Rt.chainTargets(slot) : (4 + Math.max(0, slot - (row.level || 6)));
+        savePack.text += " · " + savePack.targets + " targets";
+        savePack.detail = savePack.text;
+      }
+      if (row.later) savePack.later = row.later;
+      if (row.tickEnd) savePack.tickEnd = row.tickEnd;
       return savePack;
     }
 
@@ -379,18 +437,31 @@
     if (kind === "auto") {
       var autoRoll = bundle(shaped(), false);
       var atext = name + gun + " · " + autoRoll.text;
+      if (row.tickEnd) atext += " · end of turn " + (row.tickEnd.save || "DEX") + " or " + row.tickEnd.dice + " " + (row.tickEnd.type || "");
+      if (row.budget) atext += " · budget " + row.budget;
+      if (row.applyNow === false) atext += " · not dealt on cast";
       var autoPack = pack(atext, false, null, false, autoRoll.rolled.formula, autoRoll.rolled.total, atext, "");
       autoPack.damageTotal = autoRoll.rolled.total;
       autoPack.damageDetail = autoRoll.text;
       autoPack.kind = "auto";
+      autoPack.applyNow = row.applyNow !== false;
+      autoPack.budget = row.budget || 0;
+      if (row.half) autoPack.half = true;
+      if (row.save) autoPack.save = row.save;
+      if (row.tickEnd) autoPack.tickEnd = row.tickEnd;
       return autoPack;
     }
 
     if (kind === "rider") {
       var rider = name + gun + " · " + (row.dice || "extra dice") + typeBit(row) + " on a later hit";
+      if (row.chip) rider += " · chip " + row.chip;
+      if (row.dur) rider += " · " + row.dur;
+      if (row.conc === false) rider += " · not concentration";
       var riderPack = pack(rider, false, null, false, row.dice || "—", 0, rider, "");
       riderPack.kind = "rider";
       riderPack.damageTotal = 0;
+      riderPack.trigger = row.trigger || "";
+      riderPack.chip = row.chip || "";
       return riderPack;
     }
 

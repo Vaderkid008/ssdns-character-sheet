@@ -741,6 +741,7 @@
         label: name + " attack" + ohTag,
         offhand: !!OH,
         weapon: name,
+        melee: !(tk && tk.thrown),
         sfx: rollMelee._cue || "whoosh"
       });
       if (root.SSDNSSheet.consumeRollMode) root.SSDNSSheet.consumeRollMode();
@@ -807,7 +808,7 @@
         } : null
       });
       if (!miss && total && tgt && tgt.id && !quiet && root.SSDNSDmJoin.postDamage) {
-        root.SSDNSDmJoin.postDamage({ amount: total, label: name, type: "weapon", targetId: tgt.id, targetName: tgt.name, rollId: rollId });
+        root.SSDNSDmJoin.postDamage({ amount: total, label: name, type: "weapon", melee: !(tk && tk.thrown), targetId: tgt.id, targetName: tgt.name, rollId: rollId });
       }
     }
   }

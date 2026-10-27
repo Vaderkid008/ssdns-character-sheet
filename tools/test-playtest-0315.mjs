@@ -70,10 +70,10 @@ check(A.presenceShownOnline(false, "online") === true, "a connection blip stays 
 check(A.presenceShownOnline(false, "offline") === false, "a finished leave shows offline");
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.157" && version.sheetBuild === "sheet-playtest-v03157", "sheet 0.3.55");
-check(version.dmcc === "0.2.170" && version.dmccBuild === "dmcc-playtest-v02170", "dmcc 0.2.68");
-check(read("assets/js/app.js").indexOf('APP_VERSION = "0.3.157"') >= 0, "sheet banner");
-check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.170"') >= 0, "dmcc banner");
+check(version.sheet === "0.3.158" && version.sheetBuild === "sheet-playtest-v03158", "sheet 0.3.55");
+check(version.dmcc === "0.2.171" && version.dmccBuild === "dmcc-playtest-v02171", "dmcc 0.2.68");
+check(read("assets/js/app.js").indexOf('APP_VERSION = "0.3.158"') >= 0, "sheet banner");
+check(read("dm/assets/js/dmcc.js").indexOf('VERSION = "0.2.171"') >= 0, "dmcc banner");
 check(read("assets/js/sheet-extras.js").indexOf("ensureAttackTarget") >= 0, "attacks can ask for a target");
 check(read("assets/js/app.js").indexOf("empty: true") >= 0, "an empty chamber returns a click");
 check(read("dm/assets/js/v2.js").indexOf("clearFight") >= 0, "end session can clear the fight strip");
