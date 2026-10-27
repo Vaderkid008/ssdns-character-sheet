@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.159"; // sheet-playtest-v03159
+  var APP_VERSION = "0.3.160"; // sheet-playtest-v03160
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
@@ -891,6 +891,13 @@
     else if (demonHide(c)) v.ac = 13 + v.mods.DEX;
     else v.ac = 10 + v.mods.DEX;
     var spellAc = spellAcMods(c);
+    if (wearing && spellAc.mage && window.SSDNSSpellBuffs && window.SSDNSSpellBuffs.stripMageArmor) {
+      var stripped = window.SSDNSSpellBuffs.stripMageArmor(c);
+      if (stripped.ended) {
+        spellAc = spellAcMods(c);
+        if (window.SSDNSSheet && window.SSDNSSheet.noteMageArmorEnded) window.SSDNSSheet.noteMageArmorEnded();
+      }
+    }
     if (spellAc.mage && !wearing) v.ac = 13 + (v.mods.DEX || 0);
     if (c.shield && !(c.calling === "martial-artist" && !wearing) && !(DB && DB.shieldOff)) v.ac += 2;
     if (DB) { v.ac += DB.ac; v.initiative += DB.init; }

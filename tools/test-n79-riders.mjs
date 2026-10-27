@@ -196,10 +196,10 @@ check("src.melee", sheet.includes("melee: !(tk && tk.thrown)") && join.includes(
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 const rules = read("assets/data/rules.js");
-check("rules.nover", !rules.includes("0.3.159") && !rules.includes("spell-riders"));
+check("rules.nover", !rules.includes("0.3.160") && !rules.includes("spell-riders"));
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.159" && version.sheetBuild === "sheet-playtest-v03159");
-check("ver.dmcc", version.dmcc === "0.2.172" && version.dmccBuild === "dmcc-playtest-v02172");
+check("ver.sheet", version.sheet === "0.3.160" && version.sheetBuild === "sheet-playtest-v03160");
+check("ver.dmcc", version.dmcc === "0.2.173" && version.dmccBuild === "dmcc-playtest-v02173");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

@@ -77,9 +77,9 @@ check("src.publicTokenNoHp", !pubTok.includes("hp:") && !pubTok.includes("maxHp"
 check("src.rulesUntouched", !read("assets/data/rules.js").includes("publicBarHp") && !read("database.rules.json").includes("revealHp") && read("database.rules.json").includes("!newData.hasChild('hp')"));
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.159" && ver.dmcc === "0.2.172" && ver.sheetBuild === "sheet-playtest-v03159" && ver.dmccBuild === "dmcc-playtest-v02172", JSON.stringify(ver));
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.159"'));
-check("ver.dmcc", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.172"'));
+check("ver", ver.sheet === "0.3.160" && ver.dmcc === "0.2.173" && ver.sheetBuild === "sheet-playtest-v03160" && ver.dmccBuild === "dmcc-playtest-v02173", JSON.stringify(ver));
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.160"'));
+check("ver.dmcc", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.173"'));
 
 if (failures.length) {
   console.log("\n" + failures.length + " FAILED");

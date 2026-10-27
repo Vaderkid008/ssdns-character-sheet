@@ -202,6 +202,38 @@
       out.half = false;
       out.note = "";
     }
+    if (key === "bless") {
+      out.conc = true;
+      out.bless = true;
+      out.targets = 3;
+      out.targetUp = 1;
+      out.die = "1d4";
+      out.sign = 1;
+      out.chip = "Blessed";
+    }
+    if (key === "bane") {
+      out.conc = true;
+      out.bane = true;
+      out.save = "CHA";
+      out.targets = 3;
+      out.targetUp = 1;
+      out.die = "1d4";
+      out.sign = -1;
+      out.chip = "Baned";
+      out.onFail = "Baned";
+    }
+    if (key === "mage armor") {
+      out.conc = false;
+      out.mageArmor = true;
+      out.dur = "8 h";
+      out.chip = "Mage Armor";
+    }
+    if (key === "shield") {
+      out.conc = false;
+      out.ac = 5;
+      out.untilTurn = true;
+      out.chip = "Shield +5";
+    }
     return out;
   }
 
@@ -339,6 +371,39 @@
         type: mode === "warm" ? "fire" : "cold", light: { bright: 10, dim: 10 }
       });
       logs.push(shieldChip(mode) + " · 10 min · bright 10, dim 10 · not concentration");
+    } else if (key === "bless" || key === "bane") {
+      var Buffs = root.SSDNSSpellBuffs;
+      var cap = Buffs && Buffs.targetCap ? Buffs.targetCap(slot) : (3 + Math.max(0, slot - 1));
+      var list = (opts.targets && opts.targets.length) ? opts.targets.slice(0, cap) : [{ id: targetId, name: targetName }];
+      var signN = key === "bane" ? -1 : 1;
+      var chipLabel = key === "bane" ? "Baned" : "Blessed";
+      list.forEach(function (t) {
+        if (!t || t.narrative) return;
+        if (key === "bane" && opts.pendingSave) return;
+        if (key === "bane" && opts.failedIds && opts.failedIds.indexOf(String(t.id || "")) < 0) return;
+        var mark = {
+          spell: name, conc: true, kind: key, targetId: t.id || "", targetName: t.name || "",
+          chip: chipLabel, sign: signN, die: "1d4"
+        };
+        next.marks.push(mark);
+        if (mark.chip && !(key === "bane" && opts.holdChips)) {
+          chips.push(chip(mark.chip, mark.targetId, name, true, opts.casterId || ""));
+          tickSound();
+        }
+      });
+      logs.push((key === "bane" ? "Bane" : "Bless") + " · up to " + cap + " · (C) · " + (signN < 0 ? "−1d4" : "+1d4") + (key === "bane" ? " · CHA save" : "") + (list.length ? " · " + list.map(function (t) { return (t && t.name) || "creature"; }).join(", ") : ""));
+    } else if (key === "mage armor") {
+      addMark({
+        spell: name, conc: false, kind: "mageArmor", targetId: targetId || opts.casterId || "self",
+        chip: "Mage Armor"
+      });
+      logs.push("Mage Armor · AC 13 + DEX · 8 h · not concentration");
+    } else if (key === "shield") {
+      addMark({
+        spell: name, conc: false, kind: "ward", targetId: opts.casterId || targetId || "self",
+        chip: "Shield +5", untilTurn: true
+      });
+      logs.push("Shield · +5 AC until the start of your next turn · not concentration");
     } else if (opts.armPending && row && (row.meleeOnly || key.indexOf("smite") >= 0 || key === "ensnaring strike" || key === "hail of thorns" || key === "lightning arrow")) {
       addMark({
         spell: name, conc: conc, kind: "smite", pending: true, chip: "",

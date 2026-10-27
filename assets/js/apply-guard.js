@@ -424,7 +424,7 @@
     shots.forEach(function (shot, i) {
       shot = shot || {};
       var v = attackVerdict({ nat: shot.nat, total: shot.total, ac: info.ac, misfire: shot.misfire, sfx: info.sfx });
-      var bit = (shot.label || ("ray " + (i + 1))) + " " + attackRollCore({ nat: shot.nat, total: shot.total, atk: shot.atk }) + " → " + v.verdict;
+      var bit = (shot.label || ("ray " + (i + 1))) + " " + attackRollCore({ nat: shot.nat, total: shot.total, atk: shot.atk, dieText: shot.dieText || "", dieDelta: shot.dieDelta }) + " → " + v.verdict;
       if (!v.miss) {
         anyHit = true;
         if (v.crit) anyCrit = true;
@@ -920,7 +920,7 @@
     if (!isFinite(bonus) && info.nat != null && info.nat !== "" && info.total != null && info.total !== "") {
       var nat = Number(info.nat);
       var total = Number(info.total);
-      if (isFinite(nat) && isFinite(total)) bonus = total - nat;
+      if (isFinite(nat) && isFinite(total)) bonus = total - nat - (Number(info.dieDelta) || 0);
     }
     if (!isFinite(bonus)) return "";
     return (bonus >= 0 ? "+" : "") + bonus;
@@ -932,7 +932,7 @@
     var modTxt = attackMod(info);
     if (nat === "") return total;
     if (!modTxt) modTxt = "+0";
-    return nat + modTxt + (total !== "" ? " = " + total : "");
+    return nat + modTxt + (info.dieText ? (" " + info.dieText) : "") + (total !== "" ? " = " + total : "");
   }
   function speakerName(character, player) {
     var who = String(character || "").trim();
@@ -1201,7 +1201,11 @@
     var named = attackTool(info);
     /* 0.3.72: info.tag, e.g. "off-hand", rides right after the weapon name */
     var head = who + (named ? " · " + named : "") + (info.tag ? " (" + info.tag + ")" : "") + (info.target ? " → " + info.target : "");
-    var math = diceLine + (bonusLine ? " · " + bonusLine : "") + " = " + total;
+    var dieLine = "";
+    if (Array.isArray(info.dieMods)) {
+      dieLine = info.dieMods.map(function (p) { return p && p.text; }).filter(Boolean).join(" · ");
+    }
+    var math = diceLine + (bonusLine ? " · " + bonusLine : "") + (dieLine ? " · " + dieLine : "") + " = " + total;
     var dmg = info.damage;
     var dmgLine = "";
     if (!miss && dmg && typeof dmg === "object") {

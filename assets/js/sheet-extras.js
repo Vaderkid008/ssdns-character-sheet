@@ -109,6 +109,7 @@
       clearDowned(true);
       return;
     }
+    endConcIfNeeded("death");
     if (root.SSDNSConditions && root.SSDNSConditions.ensureUnconscious) {
       c.activeConditions = root.SSDNSConditions.ensureUnconscious(c.activeConditions || [], n, "self");
       if (root.SSDNSConditions.listText) c.tableConditions = root.SSDNSConditions.listText(c.activeConditions);
@@ -141,7 +142,7 @@
     });
   }
 
-  function applyDelta(delta, notice) {
+  function applyDelta(delta, notice, extra) {
     var curEl = $("#inHPCur"), tmpEl = $("#inHPTemp"), maxEl = $("#inHPMax");
     if (!curEl) return;
     var cur = num(curEl.value), temp = num(tmpEl && tmpEl.value), max = num(maxEl && maxEl.value);
@@ -157,6 +158,10 @@
       cur = max > 0 ? Math.min(max, cur + delta) : cur + delta;
     }
     setHp(cur, temp);
+    if (delta < 0 && !(extra && extra.skipConc)) {
+      if (cur <= 0) endConcIfNeeded("death");
+      else settleConcSave(-delta, extra);
+    }
     if (notice) showNotice(notice);
     var box = $(".hp");
     if (box) box.classList.toggle("hp-down", cur <= 0);
@@ -252,6 +257,10 @@
     if (el) { el.value = text; dispatch(el); }
     renderConds();
     if (root.SSDNSConditionsUi && root.SSDNSConditionsUi.paint) root.SSDNSConditionsUi.paint();
+    if (c && root.SSDNSSpellBuffs && root.SSDNSSpellBuffs.concEndReason) {
+      var down = root.SSDNSSpellBuffs.concEndReason({ hp: num($("#inHPCur") && $("#inHPCur").value), conditions: c.activeConditions });
+      if (down === "incapacitated") endConcIfNeeded("incapacitated");
+    }
     if (extra.quiet) return;
     if (list && list.length) showNotice("Conditions: " + text);
     else showNotice("Conditions cleared");
@@ -750,6 +759,13 @@
     if (/animal handling/i.test(label) && root.SSDNSSupplies && root.SSDNSSupplies.handlingNote) handling = root.SSDNSSupplies.handlingNote(ch()) || "";
     if (handling && cm !== "dis") cm = "dis";
     var rolled = rollAdv(mod, cm);
+    if (kind === "save") {
+      var saveDie = dieModsOf(ch());
+      if (saveDie && saveDie.delta) {
+        rolled.total += saveDie.delta;
+        rolled.detail += (saveDie.text ? (" " + saveDie.text) : "");
+      }
+    }
     if (handling) rolled.detail += " · " + handling;
     else if (cm) rolled.detail += " · Exhaustion " + exhLevel();
     postCheck(label, rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false);
@@ -761,8 +777,9 @@
     var nat = Number(opts.nat) || 0;
     var atk = Number(opts.atk);
     if (!isFinite(atk)) atk = 0;
+    var dieDelta = Number(opts.dieDelta) || 0;
     var bonus = (atk >= 0 ? "+" : "") + atk;
-    var total = nat + atk;
+    var total = nat + atk + dieDelta;
     var miss = !!opts.miss || !!opts.misfire;
     var ac = opts.ac;
     var haveAc = ac != null && ac !== "" && isFinite(Number(ac));
@@ -771,7 +788,7 @@
     var dmg = (!miss && opts.dmg) ? (" · " + opts.dmg.formula + (opts.dmg.riderText ? " " + opts.dmg.riderText : "") + " = " + opts.dmg.total) : "";
     var face = opts.dice || String(nat);
     var weapon = opts.weapon ? (opts.weapon + (opts.caliber ? " (" + opts.caliber + ")" : "") + " · ") : "";
-    var head = (target ? (who + " → " + target) : who) + ": " + weapon + face + bonus + " = " + total;
+    var head = (target ? (who + " → " + target) : who) + ": " + weapon + face + bonus + (opts.dieText ? (" " + opts.dieText) : "") + " = " + total;
     return {
       player: head + (verdict ? (" → " + verdict) : "") + dmg,
       ac: haveAc ? Number(ac) : null,
@@ -790,7 +807,9 @@
     if (!Applied || !Applied.attackBreakdown) return "";
     var parts = info.parts;
     if ((!parts || !parts.length) && info.nat != null && info.hitTotal != null && isFinite(Number(info.hitTotal))) {
-      parts = [{ label: "bonus", value: Number(info.hitTotal) - (Number(info.nat) || 0) }];
+      var dieSum = 0;
+      (info.dieMods || []).forEach(function (p) { dieSum += Number(p && p.delta) || 0; });
+      parts = [{ label: "bonus", value: Number(info.hitTotal) - (Number(info.nat) || 0) - dieSum }];
     }
     var hasDmg = (info.dice && String(info.dice).trim()) || (info.dmgFaces && info.dmgFaces.length) || (isFinite(Number(info.damage)) && Number(info.damage) > 0);
     var card = Applied.attackBreakdown({
@@ -803,6 +822,7 @@
       n2: info.n2,
       parts: parts,
       total: info.hitTotal,
+      dieMods: info.dieMods || null,
       revealAc: false,
       hideVerdict: true,
       damage: hasDmg ? {
@@ -891,6 +911,7 @@
         formula: info.formula || "",
         sfx: info.sfx || "attack",
         shots: info.shots || null,
+        dieMods: info.dieMods || null,
         arrow: info.arrow || "" /* attack-fx: the map draws the arrow type (Whistler trail) */
       });
     }
@@ -1086,11 +1107,13 @@
     castRefund = null;
     castSpellAttackNow._reactGo = false;
     castSpellAttackNow._paid = false;
+    castSpellAttackNow._targets = null;
   }
   function abortCast(msg) {
     castSpellAttackNow._reactGo = false;
     castSpellAttackNow._paid = false;
     castSpellAttackNow._blasted = null;
+    castSpellAttackNow._targets = null;
     var fn = castRefund;
     castRefund = null;
     if (fn) { try { fn(); } catch (err) {} }
@@ -1141,6 +1164,212 @@
     });
     return msg;
   }
+  function buffsApi() { return root.SSDNSSpellBuffs || null; }
+  function phbKey(name) {
+    var s = String(name || "").toLowerCase().replace(/\s*\([^)]*\)/g, " ").replace(/\s+shell$/i, "").replace(/\s+/g, " ").trim();
+    if (s === "dust skin") return "mage armor";
+    if (s === "magnesium flash") return "shield";
+    return s;
+  }
+  function dieModsOf(c) {
+    var B = buffsApi();
+    if (!B || !c || !B.rollMods) return { delta: 0, parts: [], text: "" };
+    return B.rollMods(c.activeConditions || []);
+  }
+  function armorRows() {
+    var R = root.SSDNS_RULES;
+    return (R && R.armor) || [];
+  }
+  function isSelfTarget(tgt) {
+    if (!tgt || tgt.narrative || tgt.skip) return true;
+    if (!tgt.id || tgt.id === "self") return true;
+    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    return !!(uid && tgt.id === uid);
+  }
+  function adoptChip(name, spell, conc) {
+    var c = ch();
+    if (!c || !name || !root.SSDNSConditions || !root.SSDNSConditions.normalize) return;
+    var entry = root.SSDNSConditions.normalize({
+      name: name, subjectId: "self", subjectKind: "player", spell: spell || "", conc: !!conc, by: "self"
+    });
+    if (!entry) return;
+    c.activeConditions = root.SSDNSConditions.mergeById(c.activeConditions || [], [entry], []);
+    c.tableConditions = root.SSDNSConditions.listText(c.activeConditions);
+    var el = $("#inTableConditions");
+    if (el) { el.value = c.tableConditions; dispatch(el); }
+    renderConds();
+    if (root.SSDNSConditionsUi && root.SSDNSConditionsUi.paint) root.SSDNSConditionsUi.paint();
+  }
+  function dropChipName(name) {
+    var c = ch();
+    if (!c || !name || !root.SSDNSConditions || !root.SSDNSConditions.mergeById) return;
+    var want = String(name).toLowerCase();
+    var ids = (c.activeConditions || []).filter(function (row) {
+      return row && String(row.name || "").toLowerCase() === want;
+    }).map(function (row) { return row.id; });
+    if (!ids.length) return;
+    c.activeConditions = root.SSDNSConditions.mergeById(c.activeConditions || [], [], ids);
+    c.tableConditions = root.SSDNSConditions.listText(c.activeConditions);
+    var el = $("#inTableConditions");
+    if (el) { el.value = c.tableConditions; dispatch(el); }
+    renderConds();
+    if (root.SSDNSConditionsUi && root.SSDNSConditionsUi.paint) root.SSDNSConditionsUi.paint();
+  }
+  function adoptOwnChips(armed) {
+    ((armed && armed.chips) || []).forEach(function (chp) {
+      if (!chp || !chp.name) return;
+      if (isSelfTarget({ id: chp.targetId })) adoptChip(chp.name, chp.spell, chp.conc);
+    });
+  }
+  function dropLocalChipRows(list) {
+    (list || []).forEach(function (chp) {
+      if (!chp || !chp.name) return;
+      if (isSelfTarget({ id: chp.targetId })) dropChipName(chp.name);
+    });
+  }
+  function breakLocalConc(spell) {
+    var c = ch();
+    var SR = root.SSDNSSpellRiders;
+    if (!c || !SR || !SR.breakConc) return;
+    var bag = SR.emptyBag ? SR.emptyBag(c.spellMarks) : (c.spellMarks || {});
+    if (spell && !bag.conc) bag.conc = spell;
+    if (!bag.conc && !spell) return;
+    var ended = SR.breakConc(bag, spell || bag.conc);
+    c.spellMarks = ended.bag;
+    publishChips(ended.removed, true);
+    dropLocalChipRows(ended.removed);
+    if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
+  }
+  function endConcIfNeeded(reason) {
+    var c = ch();
+    var SR = root.SSDNSSpellRiders;
+    if (!c || !SR || !reason) return;
+    var bag = SR.emptyBag ? SR.emptyBag(c.spellMarks) : (c.spellMarks || {});
+    if (!bag.conc) return;
+    var spell = bag.conc;
+    breakLocalConc(spell);
+    var line = "CONC " + ((c.name) || "You") + " — BROKEN (" + reason + ") → " + spell + " ends";
+    addLog({ kind: "alert", text: line });
+    toast(line);
+  }
+  function settleConcSave(damage, extra) {
+    var c = ch();
+    var B = buffsApi();
+    var SR = root.SSDNSSpellRiders;
+    if (!c || !B || !SR || !(damage > 0)) return;
+    var bag = SR.emptyBag ? SR.emptyBag(c.spellMarks) : (c.spellMarks || {});
+    if (!bag.conc) return;
+    var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : { mods: {}, saves: {} };
+    var mod = (c.saveProf && c.saveProf.CON && v.saves && v.saves.CON != null) ? Number(v.saves.CON) : ((v.mods && v.mods.CON) || 0);
+    var resolved = B.resolveConc({
+      damage: damage,
+      mod: mod,
+      who: c.name || "You",
+      spell: bag.conc,
+      gunsmoke: (c.feats || []).indexOf("gunsmoke-caster") >= 0,
+      hexBreaker: !!(extra && extra.hexBreaker),
+      outOfTune: c.instrumentWear === "out-of-tune",
+      fingerpicks: B.fingerpicksActive(c)
+    });
+    addLog({ kind: "roll", text: resolved.line });
+    toast(resolved.line);
+    if (resolved.broken) {
+      breakLocalConc(bag.conc);
+      toast("Concentration broken — " + bag.conc + " ends");
+    }
+  }
+  function noteMageArmorEnded() {
+    dropChipName("Mage Armor");
+    var line = "Mage Armor ends — armor equipped.";
+    addLog({ kind: "alert", text: line });
+    toast(line);
+    if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
+  }
+  function noteInstrumentCast() {
+    var B = buffsApi();
+    var c = ch();
+    if (!B || !c) return;
+    var key = "";
+    try {
+      var st = root.SSDNSActionPips && root.SSDNSActionPips.state && root.SSDNSActionPips.state();
+      key = (st && st.turnKey) || "";
+    } catch (err) {}
+    B.notePlayed(c, key);
+  }
+  function onOwnTurn(ev) {
+    var c = ch();
+    var B = buffsApi();
+    if (!c || !B) return;
+    var key = ev && ev.detail && ev.detail.turnKey;
+    B.expireFingerpicks(c, key);
+    var exp = B.expireTurnBuffs(c.buffs || []);
+    if (!exp.removed.length) return;
+    c.buffs = exp.buffs;
+    dropChipName("Shield +5");
+    addLog({ kind: "alert", text: "Shield ends (your turn starts)." });
+    toast("Shield ends.");
+    if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
+    if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
+  }
+  function applyRemoteBuff(payload) {
+    payload = payload || {};
+    var name = payload.name || "";
+    if (!name) return;
+    var note = applySpellBuff(name, payload.slot || 1);
+    var c = ch();
+    var SR = root.SSDNSSpellRiders;
+    var Cast = root.SSDNSSpellCast;
+    if (SR && c && SR.arm) {
+      var armed = SR.arm(c.spellMarks, {
+        name: name,
+        row: Cast && Cast.lookup ? Cast.lookup(name) : null,
+        slot: payload.slot || 1,
+        casterId: "self",
+        targetId: "self"
+      });
+      c.spellMarks = armed.bag;
+      adoptOwnChips(armed);
+      publishChips(armed.chips, false);
+      (armed.logs || []).forEach(function (line) { addLog({ kind: "alert", text: line }); });
+    }
+    if (note) toast(note);
+    if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
+  }
+  function settleBane(spellName, v) {
+    var B = buffsApi();
+    var targets = castSpellAttackNow._targets || [];
+    if (!B || !targets.length) return;
+    var dc = v && v.spellDC;
+    targets.forEach(function (t) {
+      if (!t || !t.id) return;
+      if (!isSelfTarget(t) && joined()) {
+        if (root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {
+          root.SSDNSDmJoin.postDamage({
+            amount: 0, label: spellName, type: "spell", save: "CHA", dc: dc,
+            condition: "Baned", conc: true, spell: spellName, onSave: "none",
+            targetId: t.id, targetName: t.name || "",
+            rollId: "bane_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
+          });
+        }
+        return;
+      }
+      var nat = 1 + Math.floor(Math.random() * 20);
+      if (root.SSDNSTestRoll) {
+        var forced = root.SSDNSTestRoll();
+        if (forced) nat = forced;
+      }
+      var vv = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+      var mod = (vv.saves && vv.saves.CHA != null) ? Number(vv.saves.CHA) : ((vv.mods && vv.mods.CHA) || 0);
+      var chk = B.saveCheck({ nat: nat, mod: mod, dc: dc, ability: "CHA", spell: "Bane", who: t.name || ((ch() && ch().name) || "You") });
+      addLog({ kind: "roll", text: chk.line });
+      toast(chk.line);
+      if (chk.failed && isSelfTarget(t)) {
+        adoptChip("Baned", spellName, true);
+        addLog({ kind: "alert", text: "COND +Baned (Bane)" });
+        if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
+      }
+    });
+  }
   function applySpellBuff(spellName, slot) {
     var Area = root.SSDNSSpellArea;
     var buff = Area && Area.buffOf ? Area.buffOf(spellName, slot) : null;
@@ -1153,7 +1382,10 @@
       return (fx && fx.does) || "";
     }
     var note = buff.label || "";
-    if (buff.ac || buff.acFloor || buff.mageArmor) {
+    var selfBuff = !buff.mageArmor || isSelfTarget(currentTarget());
+    if (buff.mageArmor && !selfBuff) note = "Mage Armor · AC 13 + their DEX · 8 h";
+    if ((buff.ac || buff.acFloor || buff.mageArmor || buff.untilTurn) && selfBuff) {
+      var beforeAc = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute().ac : null;
       c.buffs = (Array.isArray(c.buffs) ? c.buffs : []).filter(function (b) {
         return b && b.id !== "spell:" + keyOf(spellName);
       });
@@ -1163,9 +1395,15 @@
         ac: buff.ac || 0,
         acFloor: buff.acFloor || 0,
         mageArmor: !!buff.mageArmor,
-        until: buff.ms ? Date.now() + buff.ms : 0
+        untilTurn: !!buff.untilTurn,
+        until: buff.untilTurn ? 0 : (buff.ms ? Date.now() + buff.ms : 0)
       });
       if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
+      if (buff.mageArmor && root.SSDNSApp && root.SSDNSApp.compute) {
+        var after = root.SSDNSApp.compute();
+        var dex = (after.mods && after.mods.DEX) || 0;
+        note = "AC " + beforeAc + " → " + after.ac + " (13 + DEX " + dex + "), 8 h";
+      }
     }
     if (buff.temp && Area.rollFormula) {
       var temp = Area.rollFormula(buff.temp);
@@ -1265,11 +1503,14 @@
       ability: castSpellAttackNow._ability || "",
       mode: castSpellAttackNow._mode || "",
       disease: castSpellAttackNow._disease || "",
-      casterId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : ""
+      casterId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : "",
+      targets: castSpellAttackNow._targets || null,
+      holdChips: !!(row && (row.bane || phbKey(spellName) === "bane"))
     });
     c.spellMarks = armed.bag;
     publishChips(armed.removed, true);
     publishChips(armed.chips, false);
+    adoptOwnChips(armed);
     var lines = (armed.logs || []).slice();
     if (hit && row && (row.kind === "attack" || row.noDamage || row.onHit)) {
       var landed = SR.onHitSpell(c.spellMarks, {
@@ -1601,7 +1842,9 @@
       h.textContent = "Pick a target";
       var note = document.createElement("p");
       note.className = "fine";
-      note.textContent = (name || "Spell") + " · one target per " + lower;
+      note.textContent = noun === "Creature"
+        ? ((name || "Spell") + " · up to " + count + " creatures. Leave the rest as None.")
+        : ((name || "Spell") + " · one target per " + lower);
       form.appendChild(h);
       form.appendChild(note);
       var picks = [];
@@ -1612,7 +1855,7 @@
         var sel = document.createElement("select");
         var blank = document.createElement("option");
         blank.value = "";
-        blank.textContent = "Pick a target";
+        blank.textContent = noun === "Creature" ? "None" : "Pick a target";
         sel.appendChild(blank);
         optionList(sel, true);
         if (preset && preset !== "narrative") sel.value = preset;
@@ -1649,7 +1892,10 @@
         var i;
         for (i = 0; i < picks.length; i++) {
           var val = picks[i].value;
-          if (!val) { toast("Pick a target"); return; }
+          if (!val) {
+            if (noun === "Creature") continue;
+            toast("Pick a target"); return;
+          }
           if (val === "narrative") darts.push({ narrative: true });
           else darts.push(targetById(val) || { id: val, name: val });
         }
@@ -1848,7 +2094,33 @@
       });
       return;
     }
+    var buffKey = phbKey(spellName);
+    var Buffs = buffsApi();
+    if (Buffs && (buffKey === "mage armor" || (row && row.mageArmor))) {
+      var tgtMA = currentTarget();
+      if (!tgtMA || tgtMA.narrative || isSelfTarget(tgtMA)) {
+        var blockMA = Buffs.mageArmorBlock(c, armorRows());
+        if (blockMA) { abortCast(blockMA); return; }
+      }
+    }
+    if (Buffs && buffKey === "shield") {
+      var gateSh = Buffs.shieldGate(c);
+      if (gateSh) { abortCast(gateSh); return; }
+    }
+    if (Buffs && Buffs.needsTargets(row) && !castSpellAttackNow._targets) {
+      var capN = Buffs.targetCap(slot);
+      askDartTargets(spellName, capN, "", "Creature").then(function (choice) {
+        if (!choice || !choice.darts) { abortCast("Cast cancelled."); return; }
+        var picked = choice.darts.filter(function (d) { return d && d.id && !d.narrative; });
+        if (!picked.length) { abortCast("Pick at least one creature."); return; }
+        castSpellAttackNow._targets = picked;
+        try { castSpellAttackNow(i, spellName, slot, fromChamber, damageType); }
+        finally { castSpellAttackNow._targets = null; }
+      });
+      return;
+    }
     if (!spendForCast(i, slot, fromChamber)) { abortCast(); return; }
+    noteInstrumentCast();
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     chosenMode = rangeMode(chosenMode, rangeShot);
     var atkMode = root.SSDNSConditions && root.SSDNSConditions.attackMode
@@ -1876,7 +2148,8 @@
       mode: atkMode,
       agonizing: !!(blast && blast.agonizing),
       repelling: !!(blast && blast.repelling),
-      chaMod: blast ? blast.cha : 0
+      chaMod: blast ? blast.cha : 0,
+      conditions: (c && c.activeConditions) || []
     });
     } catch (err) {
       abortCast("That spell didn't resolve.");
@@ -1902,6 +2175,7 @@
         targetId: tgt.id,
         nat: rolled.nat,
         hitTotal: rolled.result,
+        dieMods: rolled.dieMods || null,
         damage: spellDmgNow,
         dice: rolled.damageDetail || "",
         formula: rolled.formula,
@@ -1945,7 +2219,8 @@
           n1: rolled.n1,
           n2: rolled.n2,
           parts: spellParts,
-          total: Number(rolled.nat) + atk,
+          total: rolled.result,
+          dieMods: rolled.dieMods || null,
           ac: spellCover.have ? spellCover.ac : tgt.ac,
           revealAc: !acHidden(tgt),
           coverNote: spellCover.note,
@@ -1960,7 +2235,7 @@
       rolled.detail = rolled.text;
       acForRoll = spellCover.have ? spellCover.ac : null;
       if (root.SSDNSAudio && root.SSDNSAudio.playOutcome) {
-        var spellMiss = rolled.nat === 1 || (acForRoll != null && (Number(rolled.nat) + atk) < acForRoll);
+        var spellMiss = rolled.nat === 1 || (acForRoll != null && Number(rolled.nat) !== 20 && Number(rolled.result) < acForRoll);
         root.SSDNSAudio.playOutcome({ spell: true, name: spellName, kind: "spell", nat: Number(rolled.nat) }, spellMiss ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"));
       }
     } else if (row && row.kind === "auto" && rolled.darts && pendingDarts && pendingDarts.length) {
@@ -2009,6 +2284,7 @@
         var concEnded = root.SSDNSSpellRiders.breakConc(concBag, concBag.conc);
         ch().spellMarks = concEnded.bag;
         publishChips(concEnded.removed, true);
+        dropLocalChipRows(concEnded.removed);
         addLog({ kind: "alert", text: "Concentration ends " + concBag.conc + "." });
         if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
       }
@@ -2024,6 +2300,7 @@
     } else if (row && (row.kind === "none" || row.kind === "rider" || row.kind === "utility")) {
       var buffLine = applySpellBuff(spellName, slot);
       var rideLine = rideCast(spellName, row, slot, tgt, false);
+      if (row.bane || buffKey === "bane") settleBane(spellName, v);
       if (buffLine) rolled.text += " · " + buffLine;
       if (rideLine) rolled.text += " · " + rideLine;
       rolled.detail = rolled.text;
@@ -2040,8 +2317,8 @@
         spellDmg = Number(rolled.damageTotal) || 0;
         spellMissed = !rolled.shots.some(function (shot) { return shot && shot.amount > 0; });
       } else {
-        var atkTotal = Number(rolled.nat) + atk;
-        spellMissed = rolled.nat === 1 || (acForRoll != null && atkTotal < acForRoll);
+        var atkTotal = Number(rolled.result);
+        spellMissed = rolled.nat === 1 || (acForRoll != null && Number(rolled.nat) !== 20 && atkTotal < acForRoll);
         if (rolled.applyNow === false || rolled.startOnTurn) spellDmg = null;
         else if (!spellMissed && rolled.nat != null) {
           spellDmg = Number(rolled.damageTotal);
@@ -2091,7 +2368,7 @@
         /* attack-fx: spell line on the map when the sheet resolved the attack itself */
         fxReq: (rolled.attack && !rolled.multi && tgt && tgt.id && !blankTarget(tgt) && rolled.nat != null) ? {
           type: "spell", target: tgt.id, weapon: spellName || "", sfx: spellCueName(), nat: rolled.nat,
-          result: (rolled.nat === 1 || (acForRoll != null && (Number(rolled.nat) + atk) < acForRoll)) ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"),
+          result: (rolled.nat === 1 || (acForRoll != null && Number(rolled.nat) !== 20 && Number(rolled.result) < acForRoll)) ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"),
           crit: Number(rolled.nat) === 20
         } : null
       });
@@ -2791,7 +3068,8 @@
       bonus = 0;
       parts.forEach(function (p) { bonus += Number(p.value) || 0; });
     }
-    var total = nat + bonus;
+    var gunDie = dieModsOf(ch());
+    var total = nat + bonus + (gunDie.delta || 0);
     // Crit range (Champion 19-20 / 18-20, Pistolero Dead Eye inside normal range).
     var critAt = root.SSDNSApp && root.SSDNSApp.critMin
       ? root.SSDNSApp.critMin({ weapon: wpn, band: rangeShot && rangeShot.band, rangeApply: !!(rangeShot && rangeShot.apply) })
@@ -2878,6 +3156,7 @@
         n1: n1,
         n2: n2,
         parts: parts,
+        dieMods: gunDie.parts,
         hitTotal: total,
         critMin: critAt,
         damage: pendingDmg ? pendingDmg.total : 0,
@@ -2927,7 +3206,7 @@
     var caliber = (g.chamber && String(g.chamber).split("|")[1]) || (wpn && wpn.ammo) || "";
     var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
       ? root.SSDNSApplied.attackBreakdown({
-        who: who, target: tgt && tgt.name, weapon: name, tag: OH ? OH.TAG : "", nat: nat, n1: n1, n2: n2, parts: parts, total: total,
+        who: who, target: tgt && tgt.name, weapon: name, tag: OH ? OH.TAG : "", nat: nat, n1: n1, n2: n2, parts: parts, dieMods: gunDie.parts, total: total,
         ac: haveAc ? gunCover.ac : (tgt && tgt.ac), revealAc: !acHidden(tgt), misfire: misfired, miss: miss, coverNote: gunCover.note,
         crit: isCrit && !miss, critMin: critAt,
         damage: dmg ? { faces: dmg.faces, formula: dmg.formula, parts: dmgParts, riders: gunRide && gunRide.riders, total: dmg.total + (gunRide ? gunRide.total : 0), type: (arrowNow && arrowNow.type) || (gunStat && gunStat.dmgType) || "piercing" } : null
@@ -3041,7 +3320,8 @@
     /* L0200: a Big Fifty .50-90 round fired from a Caster Gun misfires on 1-5 */
     if (ceiling > 0 && root.SSDNSCasterRules) ceiling = root.SSDNSCasterRules.misfireCeiling(mfW || catalogWeapon(g.weapon), g, spent && spent.was, ceiling);
     var nat = d20();
-    var total = nat + bonus;
+    var freeDie = dieModsOf(c);
+    var total = nat + bonus + (freeDie.delta || 0);
     var wpn = catalogWeapon(g.weapon);
     var rugged = !!(wpn && /rugged/i.test(wpn.properties || ""));
     var capNow = (gunStat && gunStat.capacity) || (wpn && wpn.capacity) || (g.chambers && g.chambers.length) || 0;
@@ -3099,7 +3379,7 @@
     if (resolved.armD4 && window.SSDNSD4 && window.SSDNSD4.arm) window.SSDNSD4.arm(i);
     var who = (c && c.name) || name;
     var formula = "1d20" + signMod(bonus);
-    var line = who + (FANF ? " fans the hammer and" : "") + " shoots freely" + (OHF ? " (" + OHF.TAG + ")" : "") + " · " + formula + " = " + total;
+    var line = who + (FANF ? " fans the hammer and" : "") + " shoots freely" + (OHF ? " (" + OHF.TAG + ")" : "") + " · " + formula + (freeDie.text ? (" " + freeDie.text) : "") + " = " + total;
     if (misfired) line += " · natural " + nat + " misfire, the round is spent";
     var ammoTxt = spent.left == null ? "" : (spent.unit /* SAMPLE trackers: bows, crossbows, thrown */ ? (" · " + (/^empty/.test(spent.unit) ? "" : spent.left + " ") + spent.unit + ".") : (spent.left === 0 ? " · ammo" : (" · " + spent.left + " rounds left.")));
     line += ammoTxt;
@@ -3690,7 +3970,13 @@
       toast(line);
       return;
     }
-    if (nat >= 10) {
+    var deathFace = nat;
+    if (nat !== 1) {
+      var deathDie = dieModsOf(c);
+      deathFace = nat + (deathDie.delta || 0);
+      if (deathDie.text) line += " " + deathDie.text;
+    }
+    if (deathFace >= 10) {
       var si = (c.deathSaves.success || []).indexOf(false);
       if (si >= 0) setDeath("success", si, true);
       line += " — success";
@@ -3783,7 +4069,8 @@
     if (tgt) rememberEnemy(tgt);
     var cover = coverFor(tgt, coverOptsFor("melee"));
     var haveAc = !!(cover && cover.have);
-    var total = nat + atk;
+    var meleeDie = dieModsOf(c);
+    var total = nat + atk + (meleeDie.delta || 0);
     var miss = nat === 1 || (haveAc && total < Number(cover.ac));
     var dmg = null;
     if (!miss) {
@@ -3799,7 +4086,8 @@
     var report = attackReport({
       who: who, target: tgt && tgt.name, nat: nat, atk: atk,
       ac: haveAc ? cover.ac : (tgt && tgt.ac), miss: miss, dmg: dmg,
-      dice: faced.shown || String(nat), weapon: profile.name
+      dice: faced.shown || String(nat), weapon: profile.name,
+      dieText: meleeDie.text, dieDelta: meleeDie.delta
     });
     addLog({ kind: "roll", text: report.player, nat: nat });
     toast(report.player);
@@ -3895,6 +4183,7 @@
       return settle(placed);
     });
   }
+  if (root.addEventListener) root.addEventListener("ssdns:own-turn", onOwnTurn);
   root.SSDNSGunMelee = rollGunMelee;
   root.SSDNSSheet = {
     grantBought: grantBought,
@@ -3933,6 +4222,8 @@
     showInspiration: showInspiration,
     castNamed: function (name) { castSpellAttack(-1, name, 0, false); },
     applyRolledSpell: applyRolledSpell,
+    applyRemoteBuff: applyRemoteBuff,
+    noteMageArmorEnded: noteMageArmorEnded,
     abortCast: abortCast,
     castAt: function (name, slot) { castSpellAttack(-1, name, parseInt(slot, 10) || 0, false); },
     attackRoll: attackRoll,

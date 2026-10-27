@@ -714,6 +714,9 @@
       if (sel) sel.setAttribute("data-last-enemy", tgt.id);
     }
     var who = (c && c.name) || "You";
+    var meleeDie = root.SSDNSSpellBuffs && root.SSDNSSpellBuffs.rollMods
+      ? root.SSDNSSpellBuffs.rollMods((c && c.activeConditions) || [])
+      : { delta: 0, parts: [], text: "" };
     var joined = root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined();
     var quiet = $("#chkWhisper") && $("#chkWhisper").checked;
     if (joined && !quiet && root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt) && root.SSDNSSheet.sendPendingAttack) {
@@ -731,7 +734,8 @@
         targetName: tgt.name,
         targetId: tgt.id,
         nat: nat,
-        hitTotal: nat + atk,
+        hitTotal: nat + atk + (meleeDie.delta || 0),
+        dieMods: meleeDie.parts,
         critMin: critAt,
         damage: nat === 1 ? 0 : pendingTotal,
         dice: nat === 1 ? "" : pendingDetail,
@@ -749,7 +753,7 @@
     }
     var bonusTxt = (atk >= 0 ? "+" : "") + atk;
     var face = faced.shown || String(nat);
-    var hitTotal = nat + atk;
+    var hitTotal = nat + atk + (meleeDie.delta || 0);
     var meleeRange = "";
     var meleeListsNow = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.melee) || [], (root.SSDNS_RULES && root.SSDNS_RULES.otherRanged) || []);
     meleeListsNow.forEach(function (w) { if (w && c.melee[i] && w.id === c.melee[i].weapon) meleeRange = String(w.range || ""); });
@@ -767,7 +771,7 @@
     var card = root.SSDNSApplied && root.SSDNSApplied.attackBreakdown
       ? root.SSDNSApplied.attackBreakdown({
         who: who, target: tgt && tgt.name, weapon: name, tag: OH ? OH.TAG : "", nat: nat, n1: faced.n1, n2: faced.n2,
-        parts: [{ label: "bonus", value: atk }], total: hitTotal, ac: haveAc ? meleeCover.ac : null, coverNote: meleeCover.note,
+        parts: [{ label: "bonus", value: atk }], dieMods: meleeDie.parts, total: hitTotal, ac: haveAc ? meleeCover.ac : null, coverNote: meleeCover.note,
         revealAc: !(root.SSDNSSheet && root.SSDNSSheet.acHidden && root.SSDNSSheet.acHidden(tgt)),
         miss: miss, crit: crit && !miss,
         damage: !miss ? { faces: rolls, formula: formula, parts: flat ? [{ label: "mod", value: flat }] : [], riders: ride && ride.riders, total: total, type: "" } : null

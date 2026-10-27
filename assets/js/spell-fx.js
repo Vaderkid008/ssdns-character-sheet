@@ -32,7 +32,7 @@ window.SSDNS_SPELL_FX = {
 "armor of agathys": { does: "A protective magical force surrounds you and grants temporary hit points. While they last, a creature that hits you with a melee attack takes cold damage equal to the spell's power.", dur: "1 hour", range: "self" },
 "arms of hadar": { does: "Tendrils of dark energy erupt from you. Each creature within 10 feet must succeed on a Strength save or take necrotic damage and be unable to take reactions until its next turn.", dur: "instantaneous", range: "self", area: "10-foot radius" },
 "bane": { does: "Up to three creatures of your choice must succeed on a Charisma save or subtract 1d4 from attack rolls and saving throws while the spell lasts.", dur: "concentration, up to 1 minute", range: "30 feet", conc: true },
-"bless": { does: "You bless up to three creatures. Whenever a target makes an attack roll or a saving throw, it may add 1d4.", dur: "concentration, up to 1 minute", range: "30 feet", conc: true },
+"bless": { does: "You bless up to three creatures. Whenever a target makes an attack roll or a saving throw, it adds 1d4.", dur: "concentration, up to 1 minute", range: "30 feet", conc: true },
 "burning hands": { does: "A thin sheet of flames shoots from your fingertips in a 15-foot cone. A successful save halves the damage.", dur: "instantaneous", range: "self", area: "15-foot cone" },
 "charm person": { does: "You charm a humanoid you can see. It regards you as a friendly acquaintance. When the spell ends it knows it was charmed.", dur: "1 hour", range: "30 feet" },
 "chromatic orb": { does: "You hurl a 4-inch sphere of energy at one creature. You choose acid, cold, fire, lightning, poison, or thunder when you cast it.", dur: "instantaneous", range: "90 feet" },
