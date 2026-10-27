@@ -2899,8 +2899,88 @@ function castReactOffer(view) {
 function feetBetweenCombatants(aId, bRow) {
   const host = window.SSDNSMapHost;
   if (!host || typeof host.feetBetween !== "function" || !aId || !bRow) return null;
-  const b = bRow.playerId || bRow.id;
+  const b = bRow.mapTokenId || bRow.playerId || bRow.id;
   try { return host.feetBetween(aId, b); } catch (e) { return null; }
+}
+function feetBetweenRows(aRow, bRow) {
+  if (!aRow || !bRow) return null;
+  const a = aRow.mapTokenId || aRow.playerId || aRow.id;
+  return feetBetweenCombatants(a, bRow);
+}
+function spellRangeText(name, known) {
+  const Cast = window.SSDNSSpellCast;
+  return (known && known.range) || (Cast && Cast.rangeOf && Cast.rangeOf(name)) || "";
+}
+function reachBlock(name, known, fromRow, targetId, opts) {
+  const Area = window.SSDNSSpellArea;
+  if (!Area || !Area.rangeBlock) return "";
+  const range = spellRangeText(name, known);
+  const kind = (known && known.kind) || "";
+  const allow = !!(opts && opts.allowUnmeasured) || kind === "heal" || kind === "none" || kind === "utility" || kind === "rider";
+  if (!targetId && /touch/i.test(range) && !allow) return Area.touchBlock(null, range, { allowUnmeasured: false });
+  const target = targetId ? (aimRow(targetId) || findCombatant({ targetId: targetId })) : null;
+  const feet = target ? feetBetweenRows(fromRow, target) : null;
+  return Area.rangeBlock(feet, range, { allowUnmeasured: allow, area: !!(opts && opts.area) });
+}
+function askSpellDarts(row, name, count, presetId, known) {
+  const n = Math.max(1, Number(count) || 1);
+  const players = combatTargets(row);
+  return new Promise((resolve) => {
+    const dlg = document.createElement("dialog");
+    dlg.className = "dlg";
+    const options = players.map((p) => `<option value="${esc(p.id)}">${esc(p.name || "Target")}</option>`).join("");
+    let picks = "";
+    for (let i = 0; i < n; i++) {
+      picks += `<label>Dart ${i + 1} <select class="dart-pick"><option value="">Pick a target</option>${options}<option value="narrative">No target / narrative</option></select></label>`;
+    }
+    dlg.innerHTML = `<form method="dialog"><h2>${esc(name || "Spell")}</h2><p class="fine">Assign each dart. The same creature can take more than one. Each dart hits and deals its own force damage.</p>${picks}<div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Cast</button></div></form>`;
+    dlg.querySelectorAll(".dart-pick").forEach((sel) => {
+      if (presetId && Array.prototype.some.call(sel.options, (o) => o.value === String(presetId))) sel.value = String(presetId);
+    });
+    const finish = (ok) => {
+      if (!ok) {
+        if (dlg.close) dlg.close();
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(null);
+        return;
+      }
+      const chosen = [];
+      const sels = dlg.querySelectorAll(".dart-pick");
+      for (const sel of sels) {
+        const val = sel.value || "";
+        if (!val) { DM.toast("Pick a target"); return; }
+        if (val === "narrative") { chosen.push({ narrative: true }); continue; }
+        const msg = reachBlock(name, known, row, val, {});
+        if (msg) { DM.toast(msg); return; }
+        const hit = players.filter((p) => p.id === val)[0] || { id: val, name: val };
+        chosen.push({ id: hit.id, name: hit.name || val });
+      }
+      if (dlg.close) dlg.close();
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      resolve(chosen);
+    };
+    dlg.querySelector("[value=no]").addEventListener("click", () => finish(false));
+    dlg.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); finish(true); });
+    dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(false); });
+    document.body.appendChild(dlg);
+    openDialog(dlg);
+  });
+}
+function applyDartGroups(row, name, rolled, picks, rollId) {
+  const Area = window.SSDNSSpellArea;
+  const groups = Area && Area.assignDarts ? Area.assignDarts((rolled && rolled.darts) || [], picks || []) : [];
+  const notes = [];
+  groups.forEach((g, idx) => {
+    if (!(g.total > 0)) return;
+    notes.push((g.name || "target") + " " + g.total);
+    if (fight.damageMode === "approve") return;
+    applyPlayerHit({
+      rollId: (rollId || DM.uid("spell")) + ":dart:" + idx,
+      targetId: g.id, targetName: g.name, amount: g.total,
+      from: row && row.id, characterName: (row && row.name) || "", label: name, weapon: name, type: "damage"
+    });
+  });
+  return notes;
 }
 function noteReactRequest(req, id) {
   const R = window.SSDNSReact;
@@ -5205,6 +5285,18 @@ async function rollSpellAt(row, spellId, targetId) {
     DM.toast(areaDetail);
     return true;
   }
+  const kindPre = listedKind({ name: name, kind: known && known.kind }, known);
+  let dartPicks = null;
+  if (kindPre === "auto" && known && known.rays) {
+    const nDarts = window.SSDNSSpellArea && window.SSDNSSpellArea.dartCount
+      ? window.SSDNSSpellArea.dartCount(known, level)
+      : (known.rays || 1);
+    dartPicks = await askSpellDarts(row, name, nDarts, targetId, known);
+    if (!dartPicks) return false;
+  } else {
+    const reachMsg = reachBlock(name, known, row, (earlyTarget && earlyTarget.id) || targetId || "", {});
+    if (reachMsg) { DM.toast(reachMsg); return false; }
+  }
   s.spells = s.spells || {};
   s.spells.slots = s.spells.slots || {};
   s.spells.spent = s.spells.spent || {};
@@ -5228,7 +5320,7 @@ async function rollSpellAt(row, spellId, targetId) {
   let detail = (row.name || "PC") + " casts " + rolled.text;
   const kind = listedKind({ name: name, kind: known && known.kind }, known);
   if (rolled.attack && target) {
-    const spellRange = (known && known.range) || (Cast.rangeOf && Cast.rangeOf(name)) || "";
+    const spellRange = spellRangeText(name, known);
     const adj = acWithCover(target, attackerCoverOpts(row, { spell: true, ranged: !/touch/i.test(String(spellRange)) }));
     const ac = adj.ac;
     const total = Number(rolled.result);
@@ -5260,6 +5352,9 @@ async function rollSpellAt(row, spellId, targetId) {
       rollId: id, targetId: target.id, targetName: target.name, amount: rolled.result,
       from: row.id, characterName: row.name, label: name, weapon: name, type: "heal"
     });
+  } else if (kind === "auto" && dartPicks && rolled.darts) {
+    const dartNotes = applyDartGroups(row, name, rolled, dartPicks, id);
+    if (dartNotes.length) detail += " · " + dartNotes.join(", ");
   } else if (kind === "auto" && target && rolled.result && fight.damageMode !== "approve") {
     applyPlayerHit({
       rollId: id, targetId: target.id, targetName: target.name, amount: rolled.result,
@@ -6534,6 +6629,32 @@ async function cardCast(i, n, opts) {
     return true;
   }
   const diceOf = () => (known && known.dice) || (spell && spell.damage) || "";
+  if (kind === "auto" && known && known.rays && Cast && Cast.rollCast) {
+    const nDarts = window.SSDNSSpellArea && window.SSDNSSpellArea.dartCount
+      ? window.SSDNSSpellArea.dartCount(known, level)
+      : (known.rays || 1);
+    const dartPicks = await askSpellDarts(row, name, nDarts, direct, known);
+    if (!dartPicks) { DM.toast("Cast cancelled"); return; }
+    const rolled = Cast.rollCast({
+      spellName: name,
+      slotLevel: level,
+      characterLevel: (row.card && row.card.level) || 1,
+      attackBonus: Number(casting.attack) || 0,
+      spellMod: casting.mod || 0,
+      dc: casting.dc
+    });
+    spendSpellSlot(card, level);
+    let detail = row.name + " casts " + (rolled.text || name);
+    const dartNotes = applyDartGroups(row, name, rolled, dartPicks, DM.uid("spell"));
+    if (dartNotes.length) detail += " · " + dartNotes.join(", ");
+    if (spellConcentrates(spell, known)) detail += noteConcentration(row, name);
+    await publishCardRoll(row, detail, rolled.result || 0, { formula: rolled.formula || "—", spell: true });
+    playCue();
+    await saveRemoteTable();
+    renderFight();
+    DM.toast(detail);
+    return true;
+  }
   if (kind === "utility" || kind === "reaction" || kind === "none" || kind === "rider") {
     spendSpellSlot(card, level);
     let detail = row.name + " casts " + name;
@@ -6547,11 +6668,15 @@ async function cardCast(i, n, opts) {
   }
   if (kind === "heal") {
     const dice = diceOf() || "1d8";
+    const target = direct ? resolveStrikeTarget(direct) : null;
+    if (target) {
+      const reachHeal = reachBlock(name, known, row, target.id, {});
+      if (reachHeal) { DM.toast(reachHeal); return; }
+    }
     const out = DM.parseDice(dice);
     spendSpellSlot(card, level);
     let detail = row.name + " casts " + name + " and heals " + out.total;
     if (spellConcentrates(spell, known)) detail += noteConcentration(row, name);
-    const target = direct ? resolveStrikeTarget(direct) : null;
     if (target && out && fight.damageMode !== "approve") {
       applyPlayerHit({
         rollId: DM.uid("spell"),
@@ -6592,6 +6717,8 @@ async function cardCast(i, n, opts) {
     const target = resolveStrikeTarget(asked.targetId);
     if (!target) { DM.toast("No targets"); return; }
     if (coverBlocked(target)) { DM.toast("Total cover. You can't target " + (target.name || "them") + "."); return; }
+    const reachSave = reachBlock(name, known, row, target.id, {});
+    if (reachSave) { DM.toast(reachSave); return; }
     spendSpellSlot(card, level);
     let detail = row.name + " casts " + name;
     let save = null;
@@ -6656,7 +6783,9 @@ async function cardCast(i, n, opts) {
   if (!targetId) { DM.toast("No targets"); return; }
   const target = resolveStrikeTarget(targetId);
   if (!target) { DM.toast("No targets"); return; }
-  const spellRange = (known && known.range) || "";
+  const spellRange = spellRangeText(name, known);
+  const reachAtk = reachBlock(name, known, row, target.id, {});
+  if (reachAtk) { DM.toast(reachAtk); return; }
   const adj = acWithCover(target, attackerCoverOpts(row, { spell: true, ranged: !/touch/i.test(spellRange) }));
   if (adj.blocked) { DM.toast("Total cover. You can't target " + (target.name || "them") + "."); return; }
   const bonus = Number(casting.attack) || 0;
@@ -6954,7 +7083,10 @@ function findCombatant(meta) {
   const id = meta && (meta.targetId || meta.id);
   const name = String((meta && (meta.targetName || meta.name)) || "").trim().toLowerCase();
   let row = null;
-  if (id) row = fight.order.find((r) => r && (r.id === id || r.playerId === id));
+  if (id) {
+    const want = String(id);
+    row = fight.order.find((r) => r && (r.id === id || r.playerId === id || r.mapTokenId === want || combatantKey(r) === want));
+  }
   if (!row && name) row = fight.order.find((r) => String(r.name || "").trim().toLowerCase() === name);
   return row || null;
 }
@@ -8511,14 +8643,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.169-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.170-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.169-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.170-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

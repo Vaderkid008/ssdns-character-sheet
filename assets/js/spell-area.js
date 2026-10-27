@@ -161,6 +161,33 @@
     return Math.abs(delta) <= HALF_CONE + 0.001;
   }
 
+  /* Sample the wedge, not only the token's corners, so a square the cone clips still takes the damage. */
+  function coneHits(ox, oy, facing, length, rect) {
+    var ok = false;
+    samples(rect).forEach(function (p) {
+      if (!ok && inCone(ox, oy, facing, length, p.x, p.y)) ok = true;
+    });
+    if (ok) return true;
+    var fx = Math.cos(facing);
+    var fy = Math.sin(facing);
+    var lx = -fy;
+    var ly = fx;
+    var steps = Math.max(1, Math.ceil((Number(length) || 0) / 5));
+    var i, j;
+    for (i = 1; i <= steps; i++) {
+      var dist = (Number(length) || 0) * (i / steps);
+      var half = dist * 0.5;
+      var latSteps = Math.max(1, Math.ceil(Math.max(1, half * 2) / 5));
+      for (j = 0; j <= latSteps; j++) {
+        var lat = -half + (half * 2) * (j / latSteps);
+        var px = ox + fx * dist + lx * lat;
+        var py = oy + fy * dist + ly * lat;
+        if (px >= rect.x0 - 0.05 && px <= rect.x1 + 0.05 && py >= rect.y0 - 0.05 && py <= rect.y1 + 0.05) return true;
+      }
+    }
+    return false;
+  }
+
   function bandHits(ox, oy, facing, f0, f1, halfW, rect) {
     var fx = Math.cos(facing);
     var fy = Math.sin(facing);
@@ -211,14 +238,7 @@
       var half = side / 2;
       return rectsOverlap({ x0: ox - half, y0: oy - half, x1: ox + half, y1: oy + half }, rect);
     }
-    if (area.shape === "cone") {
-      var len = Number(area.length) || 0;
-      var ok = false;
-      samples(rect).forEach(function (p) {
-        if (!ok && inCone(ox, oy, face, len, p.x, p.y)) ok = true;
-      });
-      return ok;
-    }
+    if (area.shape === "cone") return coneHits(ox, oy, face, Number(area.length) || 0, rect);
     if (area.shape === "line") {
       return bandHits(ox, oy, face, 0, Number(area.length) || 0, (Number(area.width) || 5) / 2, rect);
     }
@@ -306,6 +326,92 @@
     return null;
   }
 
+  /* Fight-row id the damage request should name. A public map token has no combatantId, only its map id. */
+  function strikeTargetId(token, rows) {
+    if (!token) return "";
+    var ids = [token.combatantId, token.ownerUid, token.id, token.strikeId].filter(Boolean).map(String);
+    var row = null;
+    (rows || []).forEach(function (r) {
+      if (row || !r) return;
+      var keys = [r.id, r.playerId, r.mapTokenId].filter(Boolean).map(String);
+      if (ids.some(function (id) { return keys.indexOf(id) >= 0; })) row = r;
+    });
+    if (row) {
+      if (row.kind === "player") return String(row.playerId || row.id || "");
+      return String(row.id || "");
+    }
+    return String(token.combatantId || token.ownerUid || token.id || "");
+  }
+
+  /* One HP line per creature. origins are in feet, the same frame hits() uses. */
+  function applyArea(spec) {
+    spec = spec || {};
+    var crowd = tokensIn(spec.tokens, spec.area, spec.origins, spec.facing || 0, spec.excludeId);
+    var full = Number(spec.full) || 0;
+    return crowd.map(function (t) {
+      var id = strikeTargetId(t, spec.rows);
+      var save = spec.saves ? (spec.saves[id] || spec.saves[t.id] || null) : null;
+      var amount = spec.kind === "heal" ? full : savedAmount(full, !!spec.half, save);
+      return { targetId: id, name: t.name || "", amount: amount, tokenId: t.id || "" };
+    });
+  }
+
+  function dartCount(row, slot) {
+    if (!row || !row.rays) return 0;
+    var base = Number(row.level) || 0;
+    var sl = slot == null || slot === "" ? base : Number(slot);
+    if (!isFinite(sl)) sl = base;
+    var up = Math.max(0, sl - base);
+    if (row.upEvery) up = Math.floor(up / row.upEvery);
+    return Math.max(1, (Number(row.rays) || 1) + (row.rayUp ? up * Number(row.rayUp) : 0));
+  }
+
+  /* picks line up with darts. Narrative picks deal nothing. Same target sums. */
+  function assignDarts(darts, picks) {
+    var groups = [];
+    var byId = {};
+    (darts || []).forEach(function (d, i) {
+      var pick = (picks || [])[i] || {};
+      if (!pick || !pick.id || pick.narrative) return;
+      var id = String(pick.id);
+      if (!byId[id]) {
+        byId[id] = { id: id, name: pick.name || "", total: 0, bits: [] };
+        groups.push(byId[id]);
+      }
+      var n = Number(d && (d.total != null ? d.total : d.amount)) || 0;
+      byId[id].total += n;
+      if (d && d.text) byId[id].bits.push(d.text);
+    });
+    return groups;
+  }
+
+  function touchBlock(feet, rangeText, opts) {
+    opts = opts || {};
+    if (opts.area) return "";
+    if (!/touch/i.test(String(rangeText || ""))) return "";
+    var known = feet != null && feet !== "" && isFinite(Number(feet));
+    if (!known) {
+      if (opts.allowUnmeasured) return "";
+      return "Out of reach. Put a token next to you on the map.";
+    }
+    if (Number(feet) > 5) return "Out of reach.";
+    return "";
+  }
+
+  function rangeBlock(feet, rangeText, opts) {
+    opts = opts || {};
+    if (opts.area) return "";
+    var text = String(rangeText || "");
+    if (/touch/i.test(text)) return touchBlock(feet, text, opts);
+    if (/^\s*self\b/i.test(text)) return "";
+    var limit = rangeFeetOf(text);
+    if (!limit) return "";
+    var known = feet != null && feet !== "" && isFinite(Number(feet));
+    if (!known) return "";
+    if (Number(feet) > limit) return "Out of range.";
+    return "";
+  }
+
   function rollFormula(expr) {
     var m = String(expr || "").match(/(\d*)d(\d+)([+-]\d+)?/i);
     if (!m) return 0;
@@ -328,6 +434,12 @@
     buffOf: buffOf,
     rollFormula: rollFormula,
     isSelfOrigin: isSelfOrigin,
+    strikeTargetId: strikeTargetId,
+    applyArea: applyArea,
+    dartCount: dartCount,
+    assignDarts: assignDarts,
+    touchBlock: touchBlock,
+    rangeBlock: rangeBlock,
     shapes: ["sphere", "cylinder", "cone", "cube", "square", "line", "wall"]
   };
 })(typeof window !== "undefined" ? window : globalThis);
