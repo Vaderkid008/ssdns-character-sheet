@@ -1102,7 +1102,41 @@
     return Area.areaOf(spellName);
   }
   function blastTargetId(tok) {
+    var Area = root.SSDNSSpellArea;
+    if (Area && Area.strikeTargetId) return Area.strikeTargetId(tok, []) || "";
     return (tok && (tok.combatantId || tok.ownerUid || tok.id)) || "";
+  }
+  function feetTo(targetId) {
+    var host = root.SSDNSMapHost;
+    if (!host || typeof host.feetBetween !== "function" || !targetId) return null;
+    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    var mine = "";
+    try { mine = host.tokenForPlayer && uid ? host.tokenForPlayer(uid) : ""; } catch (e) { mine = ""; }
+    var a = (mine && mine.id) || mine || uid || "";
+    if (!a) return null;
+    try { return host.feetBetween(a, targetId); } catch (e2) { return null; }
+  }
+  function spellRangeText(spellName, row) {
+    var Cast = root.SSDNSSpellCast;
+    return (row && row.range) || (Cast && Cast.rangeOf && Cast.rangeOf(spellName)) || "";
+  }
+  function spellReachMessage(spellName, row) {
+    var Area = root.SSDNSSpellArea;
+    if (!Area || !Area.rangeBlock) return "";
+    var range = spellRangeText(spellName, row);
+    var kind = (row && row.kind) || "";
+    var allow = kind === "heal" || kind === "none" || kind === "utility" || kind === "rider";
+    var picks = pendingDarts && pendingDarts.length ? pendingDarts : [currentTarget()];
+    var msg = "";
+    picks.forEach(function (p) {
+      if (msg) return;
+      if (!p || !p.id) {
+        if (/touch/i.test(range) && !allow) msg = Area.touchBlock(null, range, { allowUnmeasured: false });
+        return;
+      }
+      msg = Area.rangeBlock(feetTo(p.id), range, { allowUnmeasured: allow });
+    });
+    return msg;
   }
   function applySpellBuff(spellName) {
     var Area = root.SSDNSSpellArea;
@@ -1604,6 +1638,14 @@
       return;
     }
     var placedBlast = castSpellAttackNow._blasted || null;
+    if (!areaNow) {
+      var reachMsg = spellReachMessage(spellName, row);
+      if (reachMsg) {
+        addLog({ kind: "alert", text: (spellName || "Spell") + ": " + reachMsg });
+        abortCast(reachMsg);
+        return;
+      }
+    }
     if (!spendForCast(i, slot, fromChamber)) { abortCast(); return; }
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     chosenMode = rangeMode(chosenMode, rangeShot);
@@ -1636,7 +1678,7 @@
     }
     var tgt = currentTarget();
     if (tgt) rememberEnemy(tgt);
-    var spellTouch = !!(row && /touch/i.test(String(row.range || "")));
+    var spellTouch = /touch/i.test(spellRangeText(spellName, row));
     var spellCover = coverFor(tgt, coverOptsFor("spell", { ranged: !spellTouch, noCover: /sacred flame/i.test(spellName || "") }));
     var acForRoll = null;
     var hiddenSpell = rolled.attack && acHidden(tgt) && joined() && !whisperOn();
@@ -1865,26 +1907,13 @@
           applyDelta(Number(rolled.result) || 0, rolled.text);
           releaseHealTarget();
         }
-      } else if (rolled.autoDarts && pendingDarts) {
-        var dartGroups = {};
-        var dartOrder = [];
-        rolled.darts.forEach(function (d, idx) {
-          var pick = pendingDarts[idx];
-          if (!pick || !pick.id) return;
-          if (!dartGroups[pick.id]) {
-            dartGroups[pick.id] = { tgt: pick, total: 0, bits: [] };
-            dartOrder.push(pick.id);
-          }
-          dartGroups[pick.id].total += Number(d.total) || 0;
-          dartGroups[pick.id].bits.push(d.text || String(d.total));
-        });
-        dartOrder.forEach(function (gid) {
-          var g = dartGroups[gid];
-          var partId = rollId + "_" + gid;
+      } else if (rolled.autoDarts && pendingDarts && root.SSDNSSpellArea && root.SSDNSSpellArea.assignDarts) {
+        root.SSDNSSpellArea.assignDarts(rolled.darts, pendingDarts).forEach(function (g) {
+          if (!(g.total > 0) || !g.id) return;
           if (!whisperOn() && root.SSDNSDmJoin.postDamage) {
             root.SSDNSDmJoin.postDamage({
               amount: g.total, label: spellName, type: "spell",
-              targetId: g.tgt.id, targetName: g.tgt.name, rollId: partId
+              targetId: g.id, targetName: g.name, rollId: rollId + "_" + g.id
             });
           }
         });
@@ -3489,6 +3518,11 @@
       } else if (!placed && (row.kind === "none" || row.kind === "rider")) {
         var note = applySpellBuff(spellName);
         if (note) addLog({ kind: "roll", text: note });
+      } else if (!placed && row.kind === "auto" && rolled.darts && rolled.darts.length && tgt && tgt.id && joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && root.SSDNSSpellArea && root.SSDNSSpellArea.assignDarts) {
+        root.SSDNSSpellArea.assignDarts(rolled.darts, rolled.darts.map(function () { return tgt; })).forEach(function (g) {
+          if (!(g.total > 0)) return;
+          root.SSDNSDmJoin.postDamage({ amount: g.total, label: spellName, type: "spell", dice: (g.bits || []).join("; "), targetId: g.id, targetName: g.name, rollId: rollId + "_" + g.id });
+        });
       } else if (!placed && row.kind === "auto" && !rolled.darts && tgt && tgt.id && joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {
         var autoAmt = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
         if (autoAmt > 0) root.SSDNSDmJoin.postDamage({ amount: autoAmt, label: spellName, type: "spell", dice: rolled.damageDetail || "", targetId: tgt.id, targetName: tgt.name, rollId: rollId });

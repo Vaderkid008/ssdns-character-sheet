@@ -3131,7 +3131,19 @@ function feetBetween(a, b) {
 }
 function tokenByRef(id) {
   if (!id) return null;
-  return (state.tokens || []).find(t => t && (t.id === id || t.combatantId === id || t.ownerUid === id)) || null;
+  const direct = (state.tokens || []).find(t => t && (t.id === id || t.combatantId === id || t.ownerUid === id));
+  if (direct) return direct;
+  /* Public tokens omit combatantId. The fight row's mapTokenId is how a sheet target id finds the square. */
+  const order = (state.initiative && state.initiative.order) || [];
+  const row = order.find(r => r && (r.id === id || r.playerId === id || r.mapTokenId === id));
+  if (!row) return null;
+  return (state.tokens || []).find(t => t && (
+    t.id === row.id ||
+    (row.mapTokenId && t.id === row.mapTokenId) ||
+    (t.combatantId && (t.combatantId === row.id || t.combatantId === row.playerId)) ||
+    (row.playerId && t.ownerUid === row.playerId) ||
+    (row.kind === "player" && row.id && t.ownerUid === row.id)
+  )) || null;
 }
 function nearestHostileFeet(shooter) {
   if (!shooter) return null;
@@ -3232,6 +3244,17 @@ function disMark(verdict) {
   if (verdict && !verdict.blocked && verdict.advantage) return ' <span class="ssm-adv">Advantage</span>';
   if (!verdict || verdict.blocked || !verdict.disadvantage) return '';
   return ' <span class="ssm-dis">Disadvantage</span>';
+}
+function touchGate(attack, shooterId, targetToken) {
+  const Area = window.SSDNSSpellArea;
+  if (!Area || !Area.touchBlock || !attack) return "";
+  const Cast = window.SSDNSSpellCast;
+  const label = attack.name || attack.id || "";
+  const range = attack.range || (Cast && Cast.rangeOf && Cast.rangeOf(label)) || "";
+  if (!/touch/i.test(String(range))) return "";
+  const kind = attack.kind || attack.spellKind || "";
+  const feet = targetToken ? feetBetween(tokenByRef(shooterId), targetToken) : null;
+  return Area.touchBlock(feet, range, { allowUnmeasured: kind === "heal" });
 }
 function armAttack(attack, targetId, shooterId) {
   const sid = shooterId || (role === 'player' ? uid : '');
@@ -3348,9 +3371,15 @@ function tokensInBlast(area, origins, facing, excludeId) {
     const tok = { x: t.pos.x, y: t.pos.y, size: t.size || 1 };
     const hit = (origins || []).some(o => Area.hits(area, { x: o.x * 5, y: o.y * 5, casterSize: o.casterSize || 1 }, facing || 0, tok));
     if (!hit) return;
+    const row = rowForToken(t);
+    const strike = window.SSDNSSpellArea && window.SSDNSSpellArea.strikeTargetId
+      ? window.SSDNSSpellArea.strikeTargetId({
+        id: t.id, combatantId: t.combatantId || "", ownerUid: t.ownerUid || "", name: t.name || t.label || ""
+      }, row ? [row] : [])
+      : ((row && (row.kind === "player" ? (row.playerId || row.id) : row.id)) || t.combatantId || t.ownerUid || t.id);
     out.push({
-      id: t.id, combatantId: t.combatantId || "", ownerUid: t.ownerUid || "",
-      name: t.name || t.label || "Token", x: t.pos.x, y: t.pos.y, size: t.size || 1, kind: t.kind || ""
+      id: t.id, combatantId: strike || t.combatantId || "", ownerUid: t.ownerUid || (row && row.playerId) || "",
+      name: (row && row.name) || t.name || t.label || "Token", x: t.pos.x, y: t.pos.y, size: t.size || 1, kind: t.kind || ""
     });
   });
   return out;
@@ -3514,7 +3543,11 @@ function blastPointer(e, kind) {
     draw();
     return;
   }
-  if (b.needsAim && b.origin) { confirmBlast(); return; }
+  if (b.needsAim && b.origin) {
+    b.facing = Math.atan2(feet.y - b.origin.y * 5, feet.x - b.origin.x * 5);
+    confirmBlast();
+    return;
+  }
   if (b.placed && b.origin) confirmBlast();
 }
 function hideChestMenu() {
@@ -3651,6 +3684,11 @@ function selectToken(token) {
     const wid = state.pendingTarget.weaponId || state.pendingTarget.spellId || '';
     const attack = card && ((card.attacks || []).find(a => a && (a.id === wid || a.name === wid)) || (card.spells || []).find(s => s && (s.id === wid || s.name === wid)));
     const verdict = armRange(attack || { id: wid }, token.id, state.pendingTarget.tokenId);
+    const reach = touchGate(attack || { id: wid, name: (attack && attack.name) || wid }, state.pendingTarget.tokenId, token);
+    if (reach) {
+      toast(reach);
+      return;
+    }
     if (verdict && verdict.blocked) {
       noteOverride(verdict);
       if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
@@ -9043,6 +9081,11 @@ async function loadSceneImage(sceneId, opts) {
             ? ((card.spells || []).find(s => s && (s.id === sid || s.name === sid)) || { id: sid })
             : ((card.attacks || []).find(a => a && (a.id === wid || a.name === wid)) || { id: wid });
           const verdict = armRange(attack, aimTok.id, tokenId);
+          const reach = sid ? touchGate(attack, tokenId, aimTok) : "";
+          if (reach) {
+            toast(reach);
+            return;
+          }
           if (verdict && verdict.blocked) {
             noteOverride(verdict);
             if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();

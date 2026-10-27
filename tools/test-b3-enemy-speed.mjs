@@ -44,7 +44,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("src.reuseMarkers", /function toggleEnemyMarker/.test(v2) && /function adjustEnemyMove/.test(v2) && /function spendEnemyPip/.test(v2));
   check("src.noFoodOnEnemy", !/enemySpeed[\s\S]{0,200}Food/.test(map) && !/function setEnemySpeed[\s\S]{0,500}dirty/i.test(v2));
   check("src.rulesUntouched", !read("assets/data/rules.js").includes(ver.sheet) && !read("database.rules.json").includes("enemySpeed"));
-  check("src.versions", ver.sheet === "0.3.156" && ver.dmcc === "0.2.169" && ver.sheetBuild === "sheet-playtest-v03156" && ver.dmccBuild === "dmcc-playtest-v02169");
+  check("src.versions", ver.sheet === "0.3.157" && ver.dmcc === "0.2.170" && ver.sheetBuild === "sheet-playtest-v03157" && ver.dmccBuild === "dmcc-playtest-v02170");
   check("src.editStill", click.includes("if (dmEditing()) return false;") && map.includes("Swap to Edit map tokens to freely move"));
 }
 
