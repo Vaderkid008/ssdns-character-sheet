@@ -24,11 +24,11 @@ const host = read("map/ssdns-map-host.js");
 const rules = read("database.rules.json");
 const rulesJs = read("assets/data/rules.js");
 
-check("ver.sheet", version.sheet === "0.3.155" && version.sheetBuild === "sheet-playtest-v03155");
-check("ver.dmcc", version.dmcc === "0.2.168" && version.dmccBuild === "dmcc-playtest-v02168");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.155"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.168"'));
-check("src.rulesUntouched", !rulesJs.includes("0.3.155") && !rulesJs.includes("enemyGunJam") && !rules.includes("0.3.155") && !rules.includes("drawer:jam"));
+check("ver.sheet", version.sheet === "0.3.156" && version.sheetBuild === "sheet-playtest-v03156");
+check("ver.dmcc", version.dmcc === "0.2.169" && version.dmccBuild === "dmcc-playtest-v02169");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.156"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.169"'));
+check("src.rulesUntouched", !rulesJs.includes("0.3.156") && !rulesJs.includes("enemyGunJam") && !rules.includes("0.3.156") && !rules.includes("drawer:jam"));
 
 check("src.strip", v2.includes('if (row.kind !== "player")') && !v2.includes('if (row.kind === "enemy") {\n    const list = (row.card && row.card.attacks'));
 check("src.chamberForward", v2.includes("strikeOpts.chamber") && v2.includes("freeOpts.chamber") && v2.includes("shot.chamber = Number(rawK)"));

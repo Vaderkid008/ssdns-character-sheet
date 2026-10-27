@@ -242,6 +242,7 @@
       packedBeams.shots = beamShots;
       packedBeams.damageTotal = beamHit;
       packedBeams.damageDetail = beamShots.map(function (shot) { return shot.amount ? shot.dice : ""; }).filter(Boolean).join("; ");
+      packedBeams.kind = "attack";
       return packedBeams;
     }
 
@@ -286,11 +287,17 @@
       var rayDie = (opts.mode === "adv" || opts.mode === "dis") ? "2d20" : "1d20";
       var packedRays = pack(rtext, kind === "attack", kind === "attack" ? (rCrit ? 20 : rNat) : null, rCrit, (kind === "attack" ? rays + "x " + rayDie + sign(atkBonus) : rays + "x " + formulaOf(rayDice, false)), kind === "attack" ? ((rNat || 0) + atkBonus) : rSum, rtext, rspark);
       packedRays.multi = rays > 1 && kind === "attack";
-      if (kind === "auto") packedRays.darts = dartRows;
+      if (kind === "auto") {
+        packedRays.darts = dartRows;
+        packedRays.damageTotal = rSum;
+        packedRays.damageDetail = dartRows.map(function (d) { return d.text || String(d.total); }).join("; ");
+        packedRays.kind = "auto";
+      }
       if (kind === "attack") {
         packedRays.shots = rayShots;
         packedRays.damageTotal = rayHit;
         packedRays.damageDetail = rayShots.map(function (shot) { return shot.amount ? shot.dice : ""; }).filter(Boolean).join("; ");
+        packedRays.kind = "attack";
       }
       return packedRays;
     }
@@ -340,6 +347,7 @@
       packed.mode = opts.mode || "";
       packed.damageTotal = miss ? 0 : dmgTotal;
       packed.damageDetail = miss ? "" : (dmgBits + " = " + dmgTotal);
+      packed.kind = kind;
       return packed;
     }
 
@@ -348,28 +356,49 @@
       var half = row.half ? " (half on a successful save)" : "";
       var dcText = "DC " + (opts.dc != null && opts.dc !== "" ? opts.dc : "?") + " " + (row.save || "save") + " save";
       var stext = name + gun + " · " + dcText + " · " + saveRoll.text + half;
-      return pack(stext, false, null, false, saveRoll.rolled.formula, saveRoll.rolled.total, dcText + " · " + saveRoll.text + half, "");
+      var savePack = pack(stext, false, null, false, saveRoll.rolled.formula, saveRoll.rolled.total, dcText + " · " + saveRoll.text + half, "");
+      savePack.damageTotal = saveRoll.rolled.total;
+      savePack.damageDetail = saveRoll.text;
+      savePack.kind = "save";
+      savePack.half = !!row.half;
+      savePack.save = row.save || "";
+      return savePack;
     }
 
     if (kind === "heal") {
       var heal = bundle(shaped(), false);
       var htext = name + gun + " · heals " + heal.text;
-      return pack(htext, false, null, false, heal.rolled.formula, heal.rolled.total, htext, "");
+      var healPack = pack(htext, false, null, false, heal.rolled.formula, heal.rolled.total, htext, "");
+      healPack.damageTotal = heal.rolled.total;
+      healPack.damageDetail = heal.text;
+      healPack.kind = "heal";
+      healPack.heal = true;
+      return healPack;
     }
 
     if (kind === "auto") {
       var autoRoll = bundle(shaped(), false);
       var atext = name + gun + " · " + autoRoll.text;
-      return pack(atext, false, null, false, autoRoll.rolled.formula, autoRoll.rolled.total, atext, "");
+      var autoPack = pack(atext, false, null, false, autoRoll.rolled.formula, autoRoll.rolled.total, atext, "");
+      autoPack.damageTotal = autoRoll.rolled.total;
+      autoPack.damageDetail = autoRoll.text;
+      autoPack.kind = "auto";
+      return autoPack;
     }
 
     if (kind === "rider") {
       var rider = name + gun + " · " + (row.dice || "extra dice") + typeBit(row) + " on a later hit";
-      return pack(rider, false, null, false, row.dice || "—", 0, rider, "");
+      var riderPack = pack(rider, false, null, false, row.dice || "—", 0, rider, "");
+      riderPack.kind = "rider";
+      riderPack.damageTotal = 0;
+      return riderPack;
     }
 
     var none = name + gun + " · no attack roll and no damage dice";
-    return pack(none, false, null, false, "—", 0, none, "");
+    var nonePack = pack(none, false, null, false, "—", 0, none, "");
+    nonePack.kind = kind || "none";
+    nonePack.damageTotal = 0;
+    return nonePack;
   }
 
   function needsType(name) {

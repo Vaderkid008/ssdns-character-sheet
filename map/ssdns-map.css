@@ -961,6 +961,20 @@ body.map-fullscreen #mapMount .ssm-cropper canvas {
   pointer-events: auto;
 }
 .ssm-pending-map[hidden] { display: none; }
+.ssm-blast-map {
+  position: absolute; top: 72px; left: 50%; transform: translateX(-50%); z-index: 41;
+  display: flex; align-items: center; gap: 10px; max-width: min(640px, 92vw);
+  padding: 8px 14px; border-radius: 8px;
+  background: rgba(48, 16, 6, 0.94); border: 2px solid #ff8a3d;
+  color: #ffe0cc; font-weight: 700; font-size: 15px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+  pointer-events: auto;
+}
+.ssm-blast-map[hidden] { display: none; }
+.ssm-blast-map button {
+  background: #1d1408; color: #ffe0cc; border: 1px solid #ff8a3d; border-radius: 4px;
+  padding: 3px 10px; font-weight: 700; cursor: pointer;
+}
 .ssm-chest-menu {
   position: absolute; z-index: 24; left: 12px; bottom: 12px; max-width: 280px;
   padding: 8px 10px; border: 1px solid #c4a35a; border-radius: 6px;

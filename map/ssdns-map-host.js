@@ -1217,6 +1217,16 @@
       if (!map || typeof map.armAttack !== "function") return null;
       try { return map.armAttack(attack, targetId, shooterId); }
       catch (e) { return null; }
+    },
+    placeBlast: function (spec) {
+      if (!map || typeof map.placeBlast !== "function") return Promise.resolve(null);
+      try { return map.placeBlast(spec); }
+      catch (e) { return Promise.resolve(null); }
+    },
+    tokensInBlast: function (area, origins, facing, excludeId) {
+      if (!map || typeof map.tokensInBlast !== "function") return [];
+      try { return map.tokensInBlast(area, origins, facing, excludeId) || []; }
+      catch (e) { return []; }
     }
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);

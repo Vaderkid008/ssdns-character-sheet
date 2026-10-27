@@ -506,6 +506,11 @@ if (role === 'dm' && window.SSDNSRangeRings && window.SSDNSRangeRings.onOverride
   });
 }
 on(document, 'keydown', e => {
+  if (e.key === 'Escape' && state.blast) {
+    e.preventDefault();
+    cancelBlast();
+    return;
+  }
   if (role === 'dm' && e.key === 'Escape' && state.pendingTarget) {
     e.preventDefault();
     cancelPendingTarget();
@@ -2751,6 +2756,8 @@ function draw() {
   paintMoveReadout();
   paintPendingTargets(px);
   paintPendingBanner();
+  paintBlast();
+  paintBlastBanner();
   refreshSelectedPanel();
 }
 
@@ -2767,6 +2774,7 @@ function iconCursor(emoji) {
   return `url("data:image/svg+xml;utf8,${svg}") 6 28, crosshair`;
 }
 function applyCursor() {
+  if (state.blast) { canvas.style.cursor = 'crosshair'; return; }
   if (state.tool === 'reveal' || state.tool === 'hide' || state.tool === 'erase' || state.tool === 'wall' || state.tool === 'room' || state.tool === 'door' || state.tool === 'window') canvas.style.cursor = 'crosshair';
   else if (state.tool === 'ruler') canvas.style.cursor = iconCursor('📏');
   else if (state.tool === 'ping') canvas.style.cursor = iconCursor('📡');
@@ -3310,6 +3318,204 @@ function cancelPendingTarget() {
   paintPendingBanner();
   renderDrawer();
   draw();
+}
+/* N77: place a spell's area on the grid. Sphere, cylinder, cone, cube, square, line, and wall. */
+function blastCaster(spec) {
+  const id = spec && spec.casterId || "";
+  if (id) return tokenByRef(id);
+  return (state.tokens || []).find(t => t && t.ownerUid && t.ownerUid === uid) || null;
+}
+function casterOrigin(caster) {
+  const sz = (caster && caster.size) || 1;
+  return { x: caster.pos.x + sz / 2, y: caster.pos.y + sz / 2, casterSize: sz };
+}
+function blastInRange(area, originSq, caster) {
+  if (!area || area.rangeFeet == null || !area.rangeFeet) return true;
+  if (!caster || !caster.pos) return true;
+  const sz = caster.size || 1;
+  const dist = Math.max(Math.abs(originSq.x * 5 - (caster.pos.x + sz / 2) * 5), Math.abs(originSq.y * 5 - (caster.pos.y + sz / 2) * 5));
+  return dist <= area.rangeFeet + 2.5;
+}
+function tokensInBlast(area, origins, facing, excludeId) {
+  const Area = window.SSDNSSpellArea;
+  if (!Area || !area || !Area.hits) return [];
+  const out = [];
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.pos) return;
+    if (t.hidden && role !== "dm") return;
+    if (!onViewedScene(t)) return;
+    if (excludeId && area.self && (t.id === excludeId || t.ownerUid === excludeId || t.combatantId === excludeId)) return;
+    const tok = { x: t.pos.x, y: t.pos.y, size: t.size || 1 };
+    const hit = (origins || []).some(o => Area.hits(area, { x: o.x * 5, y: o.y * 5, casterSize: o.casterSize || 1 }, facing || 0, tok));
+    if (!hit) return;
+    out.push({
+      id: t.id, combatantId: t.combatantId || "", ownerUid: t.ownerUid || "",
+      name: t.name || t.label || "Token", x: t.pos.x, y: t.pos.y, size: t.size || 1, kind: t.kind || ""
+    });
+  });
+  return out;
+}
+function strokeBlastBox(wx, wy, area, facing, casterSize, px) {
+  const ft = px / 5;
+  let f0 = 0, f1 = 0, l0 = 0, l1 = 0;
+  if (area.shape === "cube" || area.shape === "square") {
+    const side = area.side || 0;
+    if (area.self) {
+      const start = (Math.max(1, casterSize) * 5) / 2;
+      f0 = start; f1 = start + side; l0 = -side / 2; l1 = side / 2;
+    } else {
+      f0 = -side / 2; f1 = side / 2; l0 = -side / 2; l1 = side / 2;
+    }
+  } else if (area.shape === "line") {
+    f0 = 0; f1 = area.length || 0; l0 = -(area.width || 5) / 2; l1 = (area.width || 5) / 2;
+  } else if (area.shape === "wall") {
+    const len = area.length || 0;
+    const w = area.width || 5;
+    f0 = -len / 2; f1 = len / 2; l0 = -w / 2; l1 = w / 2;
+  } else return;
+  const fx = Math.cos(facing), fy = Math.sin(facing), lx = -fy, ly = fx;
+  const corners = [[f0, l0], [f1, l0], [f1, l1], [f0, l1]];
+  ctx.save();
+  ctx.beginPath();
+  corners.forEach((c, i) => {
+    const s = worldToScreen(wx + (fx * c[0] + lx * c[1]) * ft, wy + (fy * c[0] + ly * c[1]) * ft);
+    if (i === 0) ctx.moveTo(s.x, s.y);
+    else ctx.lineTo(s.x, s.y);
+  });
+  ctx.closePath();
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = "rgba(255,120,40,0.95)";
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = "rgba(255,160,60,0.98)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+}
+function paintBlast() {
+  const b = state.blast;
+  if (!b || !b.area || !state.scene) return;
+  const px = (state.scene.grid && state.scene.grid.px) || 70;
+  const area = b.area;
+  const spots = [];
+  (b.points || []).forEach(p => spots.push(p));
+  if (b.origin) spots.push(b.origin);
+  else if (b.hover && b.needsPoint) spots.push(b.hover);
+  const facing = b.facing || 0;
+  spots.forEach(o => {
+    const wx = o.x * px, wy = o.y * px;
+    if (area.shape === "sphere" || area.shape === "cylinder") strokeRing(wx, wy, ((area.radius || 0) / 5) * px, "rgba(255,140,50,0.98)", "rgba(255,90,20,0.16)");
+    else if (area.shape === "cone") strokeCone(wx, wy, ((area.length || 0) / 5) * px, facing, "rgba(255,140,50,0.98)");
+    else strokeBlastBox(wx, wy, area, facing, o.casterSize || b.casterSize || 1, px);
+  });
+}
+function paintBlastBanner() {
+  let bar = el.querySelector(".ssm-blast-map");
+  if (!state.blast) {
+    if (bar) bar.hidden = true;
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.className = "ssm-blast-map";
+    bar.setAttribute("role", "status");
+    bar.innerHTML = '<span class="ssm-pending-text"></span><button type="button" data-act="blastCast">Cast</button><button type="button" data-act="blastCancel">Cancel</button>';
+    bar.addEventListener("pointerdown", ev => ev.stopPropagation());
+    bar.querySelector("[data-act=blastCast]").addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); confirmBlast(); });
+    bar.querySelector("[data-act=blastCancel]").addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); cancelBlast(); });
+    el.appendChild(bar);
+  }
+  const b = state.blast;
+  const name = (b.spec && b.spec.name) || "Spell";
+  const label = (b.area && b.area.label) || "";
+  let txt = "Click where " + name + " goes off";
+  if (b.area && b.area.self && b.needsAim) txt = "Aim " + name + ", then click to cast";
+  else if (b.area && b.area.self) txt = name + " is centered on you. Cast to confirm";
+  else if (b.area && b.area.count > 1) txt = name + ": point " + ((b.points && b.points.length) || 0) + " of " + b.area.count;
+  else if (b.placed) txt = name + " is set. Click again or Cast";
+  if (label) txt += " (" + label + ")";
+  txt += ". Esc cancels.";
+  const span = bar.querySelector(".ssm-pending-text");
+  if (span && span.textContent !== txt) span.textContent = txt;
+  bar.hidden = false;
+}
+function confirmBlast() {
+  const b = state.blast;
+  if (!b) return;
+  if (!b.origin) { toast("Pick a point on the map"); return; }
+  const origins = (b.points && b.points.length) ? b.points.slice() : [b.origin];
+  origins.forEach(o => { if (!o.casterSize && b.casterSize) o.casterSize = b.casterSize; });
+  const tokens = tokensInBlast(b.area, origins, b.facing || 0, b.casterId);
+  const payload = { origin: b.origin, origins: origins, facing: b.facing || 0, tokens: tokens, area: b.area };
+  const resolve = b.resolve;
+  state.blast = null;
+  paintBlastBanner();
+  draw();
+  if (resolve) resolve(payload);
+}
+function cancelBlast() {
+  const b = state.blast;
+  if (!b) return;
+  const resolve = b.resolve;
+  state.blast = null;
+  paintBlastBanner();
+  draw();
+  if (resolve) resolve(null);
+}
+function placeBlast(spec) {
+  spec = spec || {};
+  const area = spec.area;
+  if (!area) return Promise.resolve(null);
+  if (state.blast) cancelBlast();
+  return new Promise(resolve => {
+    const caster = blastCaster(spec);
+    const origin = area.self && caster && caster.pos ? casterOrigin(caster) : null;
+    const needsAim = area.shape === "cone" || area.shape === "line" || area.shape === "wall" || (area.self && (area.shape === "cube" || area.shape === "square"));
+    state.blast = {
+      spec: spec, area: area, origin: origin, facing: 0, needsAim: needsAim, needsPoint: !area.self,
+      casterId: (caster && caster.id) || spec.casterId || "", casterSize: origin ? origin.casterSize : 1,
+      points: [], hover: null, placed: !!(origin && !needsAim), resolve: resolve
+    };
+    if (area.self && !origin) toast("Put your token on the map first");
+    paintBlastBanner();
+    applyCursor();
+    draw();
+  });
+}
+function blastPointer(e, kind) {
+  const b = state.blast;
+  if (!b || !state.scene) return;
+  const cell = cellUnderEvent(e);
+  const hover = { x: cell.x + 0.5, y: cell.y + 0.5 };
+  const px = (state.scene.grid && state.scene.grid.px) || 70;
+  const w = pointerWorld(e);
+  const feet = { x: (w.x / px) * 5, y: (w.y / px) * 5 };
+  if (kind === "move") {
+    b.hover = hover;
+    if (b.origin && b.needsAim) b.facing = Math.atan2(feet.y - b.origin.y * 5, feet.x - b.origin.x * 5);
+    draw();
+    return;
+  }
+  if (b.needsPoint && !b.origin) {
+    if (!blastInRange(b.area, hover, blastCaster(b.spec))) { toast("Out of range"); return; }
+    const count = (b.area && b.area.count) || 1;
+    if (count > 1) {
+      b.points.push(hover);
+      if (b.points.length < count) {
+        toast("Point " + b.points.length + " of " + count);
+        paintBlastBanner();
+        draw();
+        return;
+      }
+      b.origin = b.points[0];
+    } else b.origin = hover;
+    b.placed = !b.needsAim;
+    paintBlastBanner();
+    draw();
+    return;
+  }
+  if (b.needsAim && b.origin) { confirmBlast(); return; }
+  if (b.placed && b.origin) confirmBlast();
 }
 function hideChestMenu() {
   const menu = el.querySelector('[data-act="chestMenu"]');
@@ -4901,6 +5107,11 @@ function onPointerDown(e) {
   if (pointers.size === 1) {
     /* 0.3.67: a pending Attacks target pick wins over the active tool (ruler, ping, walls, fog...),
        so the click on the target is never swallowed and the prompt never goes stale. */
+    if (state.blast && e.button === 0) {
+      e.preventDefault();
+      blastPointer(e, 'down');
+      return;
+    }
     if (role === 'dm' && state.pendingTarget && e.button === 0) {
       const pw = pointerWorld(e);
       const pickHit = hitTest(pw.x, pw.y);
@@ -5216,6 +5427,10 @@ function onPointerDown(e) {
   e.preventDefault();
 }
 function onPointerMove(e) {
+  if (state.blast) {
+    blastPointer(e, 'move');
+    return;
+  }
   if (state.drag && state.drag.moveAim) {
     noteMoveHover(e);
     return;
@@ -8813,6 +9028,15 @@ async function loadSceneImage(sceneId, opts) {
           clearOffhand();
           return;
         }
+        if (sid && window.SSDNSSpellArea && window.SSDNSSpellArea.areaOf && skind !== 'attack' && skind !== 'weapon') {
+          const blast = window.SSDNSSpellArea.areaOf(b.textContent || sid) || window.SSDNSSpellArea.areaOf(sid);
+          if (blast) {
+            state.pendingTarget = null;
+            paintPendingBanner();
+            emit('drawer:target', detail({ spellId: sid, targetTokenId: '', targetCombatantId: '' }));
+            return;
+          }
+        }
         const aimTok = aim && aim !== FREE_SHOT ? (state.tokens || []).find(tok => tok && (tokenCombatant(tok.id) === aim || tok.id === aim)) : null;
         if (aimTok && (aimTok.id !== tokenId || skind === 'heal')) {
           const attack = sid
@@ -9565,6 +9789,9 @@ return {
   hasToken,
   releaseToken,
   armAttack,
+  placeBlast,
+  cancelBlast,
+  tokensInBlast,
   /* fog-aware targeting */
   canPlayerSee: function (viewerUid, targetId) { return canPlayerSee(viewerUid, targetId); },
   /* N59: which closed doors this client paints a glyph for. Secret doors stay shown:false. */
