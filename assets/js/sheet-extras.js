@@ -1078,6 +1078,7 @@
   var castSource = null;
   var castChoice = null;
   var pendingDarts = null;
+  var pendingBeams = null;
   var pendingBlind = false;
   var castRefund = null;
   function armCastRefund(fn) { castRefund = fn; }
@@ -1309,6 +1310,52 @@
     }
     return total;
   }
+  function stampAssigned(rolled, picks, spellName) {
+    var Area = root.SSDNSSpellArea;
+    if (!Area || !Area.assignBeams || !picks || !picks.length || !rolled || !rolled.shots) return null;
+    var resolved = Area.assignBeams(rolled.shots, picks);
+    var SR = root.SSDNSSpellRiders;
+    var c = ch();
+    if (SR && c && c.spellMarks) {
+      resolved.beams.forEach(function (b) {
+        if (b.narrative || Number(b.nat) === 1 || !b.targetId) return;
+        if (!b.hit && !b.pending) return;
+        var extra = SR.attackRiders(c.spellMarks, {
+          hit: true, crit: !!b.crit, spellAttack: true, weaponAttack: false,
+          targetId: b.targetId, attack: true, magicMissile: false, saveSpell: false
+        });
+        c.spellMarks = extra.bag;
+        var add = extra.total || 0;
+        if (!add) return;
+        resolved.groups.forEach(function (g) {
+          if (g.id !== b.targetId) return;
+          (g.shots || []).forEach(function (shot) {
+            if (shot.label !== b.label) return;
+            shot.amount = (Number(shot.amount) || 0) + add;
+            if (extra.logs && extra.logs.length) shot.dice = (shot.dice ? shot.dice + " · " : "") + extra.logs.join(" · ");
+          });
+          if (b.hit) g.total += add;
+        });
+        if (b.hit) {
+          b.amount += add;
+          (extra.logs || []).forEach(function (line) { addLog({ kind: "roll", text: line }); });
+        }
+      });
+    }
+    resolved.totalLine = resolved.groups.map(function (g) { return (g.name || g.id) + " " + g.total; }).join(", ");
+    var bits = resolved.beams.map(function (b) {
+      var verdict = b.narrative ? "narrative" : (b.pending ? "pending" : (b.hit ? (b.crit ? "CRIT" : "HIT") : "MISS"));
+      var acBit = b.ac != null ? (" vs AC " + b.ac) : "";
+      var dmgBit = (b.hit && b.dice) ? (" · " + b.dice) : "";
+      var pushBit = b.push ? (" · push " + b.push + " ft") : "";
+      return "ATK " + (b.label || "beam") + " → " + (b.targetName || "narrative") + acBit + " — " + verdict + dmgBit + pushBit;
+    });
+    if (bits.length) rolled.text += " · " + bits.join("; ");
+    if (resolved.totalLine) rolled.text += " · " + (rolled.label || spellName || "Spell") + " total: " + resolved.totalLine;
+    rolled.detail = rolled.text;
+    rolled.assigned = resolved;
+    return resolved;
+  }
   function autoDartCount(row, slot) {
     if (!row || row.kind !== "auto") return 0;
     var base = row.level || 0;
@@ -1485,6 +1532,7 @@
   }
   function applyCastChoice(choice) {
     pendingDarts = (choice && choice.darts) || null;
+    pendingBeams = (choice && (choice.assign === "beam" || choice.assign === "ray")) ? (choice.darts || null) : null;
     pendingBlind = !!(choice && choice.narrative && !(choice.darts && choice.darts.some(function (d) { return d && d.id; })));
     var id = choice && choice.id;
     if (!id) return;
@@ -1541,7 +1589,9 @@
       catch (err) { dlg.setAttribute("open", ""); }
     });
   }
-  function askDartTargets(name, count, preset) {
+  function askDartTargets(name, count, preset, noun) {
+    noun = noun || "Dart";
+    var lower = noun.toLowerCase();
     return new Promise(function (resolve) {
       var dlg = document.createElement("dialog");
       dlg.className = "dlg";
@@ -1551,14 +1601,14 @@
       h.textContent = "Pick a target";
       var note = document.createElement("p");
       note.className = "fine";
-      note.textContent = (name || "Spell") + " · one target per dart";
+      note.textContent = (name || "Spell") + " · one target per " + lower;
       form.appendChild(h);
       form.appendChild(note);
       var picks = [];
       var n;
       for (n = 0; n < count; n++) {
         var label = document.createElement("label");
-        label.appendChild(document.createTextNode("Dart " + (n + 1) + " "));
+        label.appendChild(document.createTextNode(noun + " " + (n + 1) + " "));
         var sel = document.createElement("select");
         var blank = document.createElement("option");
         blank.value = "";
@@ -1613,11 +1663,36 @@
       catch (err) { dlg.setAttribute("open", ""); }
     });
   }
+  function beamAssignCount(row) {
+    if (!row || row.scale !== "beam") return 0;
+    var lv = (ch() && ch().level) || 1;
+    var Cast = root.SSDNSSpellCast;
+    if (Cast && Cast.cantripTier) return Cast.cantripTier(lv);
+    var Area = root.SSDNSSpellArea;
+    return Area && Area.beamCount ? Area.beamCount(lv) : 1;
+  }
+  function attackRayCount(row, slot) {
+    if (!row || row.kind !== "attack" || !row.rays) return 0;
+    var Area = root.SSDNSSpellArea;
+    if (Area && Area.dartCount) return Area.dartCount(row, slot);
+    return autoDartCount(row, slot) || (row.rays || 0);
+  }
   function chooseCastTarget(name, row, slot) {
     if (!spellNeedsTarget(row)) return Promise.resolve({ skip: true });
+    var beams = beamAssignCount(row);
+    var rays = attackRayCount(row, slot);
     var darts = autoDartCount(row, slot);
     var current = chosenTargetValue();
-    if (darts > 1 || (darts === 1 && row && row.rays)) return askDartTargets(name, darts, current && current !== "narrative" ? current : "");
+    var preset = current && current !== "narrative" ? current : "";
+    if (beams > 1) return askDartTargets(name, beams, preset, "Beam").then(function (choice) {
+      if (choice) choice.assign = "beam";
+      return choice;
+    });
+    if (rays > 1) return askDartTargets(name, rays, preset, "Ray").then(function (choice) {
+      if (choice) choice.assign = "ray";
+      return choice;
+    });
+    if (darts > 1 || (darts === 1 && row && row.rays)) return askDartTargets(name, darts, preset, "Dart");
     if (current === "narrative") return Promise.resolve({ narrative: true });
     if (current) return Promise.resolve({ id: current });
     return askOneTarget(name);
@@ -1646,10 +1721,10 @@
       if (!choice) { abortCast(); return; }
       if (!choice.skip) applyCastChoice(choice);
       var blocked = attackGate(pendingBlind ? null : currentTarget(), { heal: looked && looked.kind === "heal", area: !!areaPick });
-      if (blocked) { toast(blocked); addLog({ kind: "alert", text: blocked }); pendingDarts = null; pendingBlind = false; abortCast(); return; }
+      if (blocked) { toast(blocked); addLog({ kind: "alert", text: blocked }); pendingDarts = null; pendingBeams = null; pendingBlind = false; abortCast(); return; }
       if (Cast && Cast.needsType && Cast.needsType(spellName)) {
         Cast.pickType(spellName).then(function (type) {
-          if (!type) { pendingDarts = null; pendingBlind = false; abortCast(); return; }
+          if (!type) { pendingDarts = null; pendingBeams = null; pendingBlind = false; abortCast(); return; }
           castSpellAttackNow(i, spellName, slot, fromChamber, type);
         });
         return;
@@ -1785,6 +1860,7 @@
     var ledgerTail = ledgerBits.join(" · ");
     var rolled;
     try {
+      var blast = (row && row.scale === "beam" && root.SSDNSPactShot && root.SSDNSPactShot.blastMods) ? root.SSDNSPactShot.blastMods(c) : null;
       rolled = Cast.rollCast({
       spellName: spellName,
       slotLevel: slot,
@@ -1797,7 +1873,10 @@
       gunName: throughGun && i >= 0 ? gunName(i) : "",
       wildSpark: hexslinger && slot > 0,
       damageType: damageType || "",
-      mode: atkMode
+      mode: atkMode,
+      agonizing: !!(blast && blast.agonizing),
+      repelling: !!(blast && blast.repelling),
+      chaMod: blast ? blast.cha : 0
     });
     } catch (err) {
       abortCast("That spell didn't resolve.");
@@ -1805,10 +1884,11 @@
     }
     var tgt = currentTarget();
     if (tgt) rememberEnemy(tgt);
+    if (pendingBeams && pendingBeams.length && rolled.shots && rolled.shots.length) stampAssigned(rolled, pendingBeams, spellName);
     var spellTouch = /touch/i.test(spellRangeText(spellName, row));
     var spellCover = coverFor(tgt, coverOptsFor("spell", { ranged: !spellTouch, noCover: /sacred flame/i.test(spellName || "") }));
     var acForRoll = null;
-    var hiddenSpell = rolled.attack && acHidden(tgt) && joined() && !whisperOn();
+    var hiddenSpell = !rolled.assigned && rolled.attack && acHidden(tgt) && joined() && !whisperOn();
     spellCueRow = row;
     spellCueAttack = !!rolled.attack;
     if (rolled.attack) attackCue(spellCueName());
@@ -1841,6 +1921,7 @@
       if (root.SSDNSActionPips && root.SSDNSActionPips.spell) root.SSDNSActionPips.spell(spellName);
       consumeRollMode();
       pendingDarts = null;
+      pendingBeams = null;
       pendingBlind = false;
       commitCast();
       return;
@@ -1952,7 +2033,10 @@
     var spellDmg = null;
     var spellMissed = false;
     if (rolled.attack) {
-      if (rolled.multi || (rolled.shots && rolled.shots.length)) {
+      if (rolled.assigned) {
+        spellDmg = null;
+        spellMissed = !rolled.assigned.beams.some(function (b) { return b.hit || b.pending; });
+      } else if (rolled.multi || (rolled.shots && rolled.shots.length)) {
         spellDmg = Number(rolled.damageTotal) || 0;
         spellMissed = !rolled.shots.some(function (shot) { return shot && shot.amount > 0; });
       } else {
@@ -1966,7 +2050,7 @@
           spellDmg = rolled.alreadyHalf ? Number(rolled.damageTotal) || 0 : Math.floor((Number(rolled.gross != null ? rolled.gross : rolled.damageTotal) || 0) / 2);
         }
       }
-      if (!(rolled.applyNow === false || rolled.startOnTurn)) {
+      if (!(rolled.applyNow === false || rolled.startOnTurn) && !rolled.assigned) {
         var hexMore = hexOnSpell(rolled, tgt, spellMissed && !(rolled.shots && rolled.shots.some(function (shot) { return shot && shot.amount > 0; })), spellName);
         if (hexMore && spellDmg != null) spellDmg += hexMore;
       }
@@ -2070,6 +2154,43 @@
           applyDelta(Number(rolled.result) || 0, rolled.text);
           releaseHealTarget();
         }
+      } else if (rolled.assigned && joined() && !whisperOn() && root.SSDNSDmJoin) {
+        rolled.assigned.groups.forEach(function (g, idx) {
+          if (!g || !g.id) return;
+          if (g.pending) {
+            var pendAmt = (g.shots || []).reduce(function (sum, shot) { return sum + (Number(shot && shot.amount) || 0); }, 0);
+            var first = (g.shots || [])[0] || {};
+            sendPendingAttack({
+              who: (c && c.name) || "You",
+              targetName: g.name,
+              targetId: g.id,
+              nat: first.nat,
+              hitTotal: first.total,
+              damage: pendAmt,
+              dice: (g.shots || []).map(function (shot) { return shot && shot.dice; }).filter(Boolean).join("; "),
+              formula: rolled.formula,
+              rollId: rollId + "_b" + idx,
+              label: rolled.label,
+              spellName: spellName || "",
+              spell: true,
+              shots: g.shots,
+              cover: g.cover || "",
+              quiet: false
+            });
+            return;
+          }
+          if (!(g.total > 0) || !root.SSDNSDmJoin.postDamage) return;
+          root.SSDNSDmJoin.postDamage({
+            amount: g.total,
+            label: spellName,
+            type: "spell",
+            weapon: throughGun && i >= 0 ? gunName(i) : "",
+            dice: (g.bits || []).join("; "),
+            targetId: g.id,
+            targetName: g.name,
+            rollId: rollId + "_b" + idx
+          });
+        });
       } else if (rolled.autoDarts && pendingDarts && root.SSDNSSpellArea && root.SSDNSSpellArea.assignDarts) {
         root.SSDNSSpellArea.assignDarts(rolled.darts, pendingDarts).forEach(function (g) {
           if (!(g.total > 0) || !g.id) return;
@@ -2112,12 +2233,15 @@
         if (rolled.applyNow === false) saveAmt = 0;
         var condS = (row.onFail || "") || (root.SSDNSSpellArea && root.SSDNSSpellArea.onFail ? root.SSDNSSpellArea.onFail(spellName) : "");
         var poolS = root.SSDNSSpellRiders && root.SSDNSSpellRiders.poolSpell ? root.SSDNSSpellRiders.poolSpell(spellName) : "";
-        if (saveAmt > 0 || condS || poolS || row.damageAuto) {
+        var saveNone = (row.onSave || rolled.onSave) === "none";
+        if (saveAmt > 0 || condS || poolS || row.damageAuto || saveNone) {
           root.SSDNSDmJoin.postDamage({
             amount: saveAmt, label: spellName, type: "spell",
             save: poolS ? "" : (row.save || rolled.save || "DEX"),
             dc: v.spellDC,
-            half: !!row.half && !row.damageAuto,
+            half: !!row.half && !row.damageAuto && !saveNone,
+            onSave: saveNone ? "none" : (row.onSave || rolled.onSave || ""),
+            zeroHp: row.zeroHp || rolled.zeroHp || "",
             autoDamage: !!row.damageAuto,
             condition: poolS || condS,
             onHit: !poolS && !!row.onFail,
@@ -2156,6 +2280,7 @@
     commitCast();
     consumeRollMode();
     pendingDarts = null;
+    pendingBeams = null;
     pendingBlind = false;
   }
   function selectedCast(i) {
@@ -3546,6 +3671,10 @@
     if (!c) return;
     var hp = num($("#inHPCur") && $("#inHPCur").value);
     if (hp > 0) { toast("You're on your feet."); return; }
+    if (c.disintegrated || (c.activeConditions || []).some(function (row) {
+      var name = typeof row === "string" ? row : (row && row.name);
+      return /disintegrat/i.test(String(name || ""));
+    })) { toast("Disintegrated. No death saves."); return; }
     if (root.SSDNSAudio) root.SSDNSAudio.play("roll");
     var nat = 1 + Math.floor(Math.random() * 20);
     if (root.SSDNSTestRoll) {

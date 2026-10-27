@@ -381,6 +381,75 @@
     return Math.max(1, (Number(row.rays) || 1) + (row.rayUp ? up * Number(row.rayUp) : 0));
   }
 
+  /* Eldritch Blast / Pact Shot: beams by character level, not slot level. */
+  function beamCount(level) {
+    var lv = parseInt(level, 10) || 1;
+    if (lv >= 17) return 4;
+    if (lv >= 11) return 3;
+    if (lv >= 5) return 2;
+    return 1;
+  }
+
+  /* Pair each attack ray or beam with a pick. AC known: nat 1 misses, nat 20 hits, else total vs AC.
+     AC unknown: leave the rolled amount for the DM (pending). Narrative picks deal nothing. */
+  function assignBeams(shots, picks) {
+    var beams = [];
+    var groups = [];
+    var byId = {};
+    (shots || []).forEach(function (shot, i) {
+      shot = shot || {};
+      var pick = (picks || [])[i] || {};
+      var narrative = !pick || !pick.id || pick.narrative;
+      var ac = pick.ac;
+      var haveAc = !narrative && ac != null && ac !== "" && isFinite(Number(ac));
+      var nat = Number(shot.nat);
+      var total = Number(shot.total);
+      var miss = narrative || nat === 1;
+      if (!miss && haveAc && nat !== 20 && total < Number(ac)) miss = true;
+      var pending = !narrative && !miss && !haveAc;
+      var amount = miss ? 0 : (Number(shot.amount) || 0);
+      var row = {
+        index: i,
+        label: shot.label || ("beam " + (i + 1)),
+        targetId: narrative ? "" : String(pick.id),
+        targetName: narrative ? "narrative" : (pick.name || ""),
+        nat: nat,
+        total: total,
+        ac: haveAc ? Number(ac) : null,
+        hit: !miss && !pending,
+        pending: pending,
+        crit: nat === 20 && !miss,
+        amount: amount,
+        dice: miss ? "" : (shot.dice || ""),
+        push: (!miss && shot.push) ? Number(shot.push) || 0 : 0
+      };
+      beams.push(row);
+      if (narrative || !row.targetId) return;
+      var id = row.targetId;
+      if (!byId[id]) {
+        byId[id] = { id: id, name: row.targetName, total: 0, bits: [], pushes: 0, shots: [], pending: false, cover: pick.cover || "" };
+        groups.push(byId[id]);
+      }
+      var g = byId[id];
+      g.shots.push({
+        nat: shot.nat,
+        total: shot.total,
+        amount: Number(shot.amount) || 0,
+        dice: shot.dice || "",
+        label: shot.label || row.label,
+        push: shot.push || 0
+      });
+      if (pending) g.pending = true;
+      if (!miss && !pending) {
+        g.total += amount;
+        if (row.dice) g.bits.push(row.dice);
+        if (row.push) g.pushes += row.push;
+      }
+    });
+    var totalLine = groups.map(function (g) { return (g.name || g.id) + " " + g.total; }).join(", ");
+    return { beams: beams, groups: groups, totalLine: totalLine };
+  }
+
   /* picks line up with darts. Narrative picks deal nothing. Same target sums. */
   function assignDarts(darts, picks) {
     var groups = [];
@@ -452,7 +521,9 @@
     strikeTargetId: strikeTargetId,
     applyArea: applyArea,
     dartCount: dartCount,
+    beamCount: beamCount,
     assignDarts: assignDarts,
+    assignBeams: assignBeams,
     touchBlock: touchBlock,
     rangeBlock: rangeBlock,
     shapes: ["sphere", "cylinder", "cone", "cube", "square", "line", "wall"]

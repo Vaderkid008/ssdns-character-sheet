@@ -1,6 +1,6 @@
 /**
  * Phase 2 Sat batch: belt lantern L0215, cylinder spin L0217–L0219, repeater cycle L0220–L0221.
- * Sheet 0.3.158 / DMCC 0.2.171. rules.js stays untouched.
+ * Sheet 0.3.159 / DMCC 0.2.172. rules.js stays untouched.
  *   node tools/test-sat-phase2.mjs
  */
 import fs from "node:fs";
@@ -23,9 +23,9 @@ function sliceFn(src, name, next) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.158" && version.sheetBuild === "sheet-playtest-v03158");
-check("ver.dmcc", version.dmcc === "0.2.171" && version.dmccBuild === "dmcc-playtest-v02171");
-check("ver.rulesUntouched", !read("assets/data/rules.js").includes("0.3.158") && !read("database.rules.json").includes("0.3.158") && !read("assets/data/rules.js").includes("spinCylinder") && !read("assets/data/rules.js").includes("cycleTube"));
+check("ver.sheet", version.sheet === "0.3.159" && version.sheetBuild === "sheet-playtest-v03159");
+check("ver.dmcc", version.dmcc === "0.2.172" && version.dmccBuild === "dmcc-playtest-v02172");
+check("ver.rulesUntouched", !read("assets/data/rules.js").includes("0.3.159") && !read("database.rules.json").includes("0.3.159") && !read("assets/data/rules.js").includes("spinCylinder") && !read("assets/data/rules.js").includes("cycleTube"));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true, runScripts: "dangerously" });
 vm.runInContext(read("assets/data/rules.js"), dom.getInternalVMContext());

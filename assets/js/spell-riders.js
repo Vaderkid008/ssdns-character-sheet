@@ -196,6 +196,12 @@
     if (key === "destructive wave") { out.onFail = "Prone"; }
     if (key === "dissonant whispers") { out.onFail = "uses reaction: moves away"; }
     if (key === "arms of hadar") { out.onFail = "No reactions"; }
+    if (key === "disintegrate") {
+      out.onSave = "none";
+      out.zeroHp = "disintegrated";
+      out.half = false;
+      out.note = "";
+    }
     return out;
   }
 
@@ -596,6 +602,18 @@
     return { bag: next, due: due };
   }
 
+  function zeroState(row) {
+    if (!row) return null;
+    var spec = patchRow(row);
+    if (spec.zeroHp !== "disintegrated" && row.zeroHp !== "disintegrated") return null;
+    return {
+      status: "Disintegrated",
+      chip: "Disintegrated",
+      deathSaves: false,
+      log: "disintegrated (dust)"
+    };
+  }
+
   function dealt(row, full, save) {
     var n = Number(full) || 0;
     var spec = row ? patchRow(row) : {};
@@ -701,6 +719,7 @@
     transfer: transfer,
     phaseTicks: phaseTicks,
     dealt: dealt,
+    zeroState: zeroState,
     missDamage: missDamage,
     delayedRoll: delayedRoll,
     failList: failList,

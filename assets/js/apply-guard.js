@@ -247,7 +247,7 @@
       if (/^(Unhurt|Hurt|Bloodied|Down|Fled)$/.test(status)) return status;
       return "";
     }
-    if (hp <= 0) return "Down";
+    if (hp <= 0) return row.disintegrated ? "Disintegrated" : "Down";
     if (!isFinite(max) || max <= 0) return "Hurt";
     if (hp >= max) return "Unhurt";
     if (hp * 2 <= max) return "Bloodied";
@@ -828,6 +828,10 @@
     var known = hp != null && hp !== "" && isFinite(Number(hp));
     var n = known ? Number(hp) : null;
     if (known && n <= 0) {
+      if (row.disintegrated) {
+        row.status = "Disintegrated";
+        return "Disintegrated";
+      }
       row.status = "Down";
       return "Down";
     }
