@@ -2991,9 +2991,15 @@
     var promptId = "spell_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var R = root.SSDNSReact;
     if (R) R.bind(promptId, function (choice) {
-      if (choice !== "go") return;
       if (R.closeWait) R.closeWait();
-      if (proceed) proceed();
+      /* "pass" is the window closing with nobody stopping the spell. Only the caster's Cancel drops it. */
+      if (choice === "cancel") {
+        if (root.SSDNSSheet && root.SSDNSSheet.abortCast) root.SSDNSSheet.abortCast("Cast cancelled.");
+        return;
+      }
+      if (choice === "go" || choice === "pass") {
+        if (proceed) proceed();
+      }
     });
     spellGates[promptId] = 1;
     postReact({

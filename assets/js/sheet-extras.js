@@ -1079,8 +1079,15 @@
   var pendingBlind = false;
   var castRefund = null;
   function armCastRefund(fn) { castRefund = fn; }
-  function commitCast() { castRefund = null; }
+  function commitCast() {
+    castRefund = null;
+    castSpellAttackNow._reactGo = false;
+    castSpellAttackNow._paid = false;
+  }
   function abortCast(msg) {
+    castSpellAttackNow._reactGo = false;
+    castSpellAttackNow._paid = false;
+    castSpellAttackNow._blasted = null;
     var fn = castRefund;
     castRefund = null;
     if (fn) { try { fn(); } catch (err) {} }
@@ -1509,9 +1516,9 @@
         casterName: (ch() && ch().name) || "",
         casterId: (root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid()) || ""
       }, function () {
+        /* Stay set through the map click. Clearing it here made the confirm re-enter the gate and drop the blast. */
         castSpellAttackNow._reactGo = true;
-        try { castSpellAttackNow(i, spellName, slot, fromChamber, damageType); }
-        finally { castSpellAttackNow._reactGo = false; }
+        castSpellAttackNow(i, spellName, slot, fromChamber, damageType);
       });
       if (held) return;
     }
@@ -1597,6 +1604,7 @@
       return;
     }
     var placedBlast = castSpellAttackNow._blasted || null;
+    if (!spendForCast(i, slot, fromChamber)) { abortCast(); return; }
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     chosenMode = rangeMode(chosenMode, rangeShot);
     var atkMode = root.SSDNSConditions && root.SSDNSConditions.attackMode
@@ -1606,7 +1614,9 @@
     if (ledger && ledger.attackDis && atkMode === "dis") ledgerBits.push(ledger.attackNote || "Lost Ledger: disadvantage");
     if (ledger && ledger.saveAdv) ledgerBits.push(ledger.saveNote || "Lost Ledger: advantage on the save");
     var ledgerTail = ledgerBits.join(" · ");
-    var rolled = Cast.rollCast({
+    var rolled;
+    try {
+      rolled = Cast.rollCast({
       spellName: spellName,
       slotLevel: slot,
       characterLevel: c && c.level,
@@ -1620,6 +1630,10 @@
       damageType: damageType || "",
       mode: atkMode
     });
+    } catch (err) {
+      abortCast("That spell didn't resolve.");
+      return;
+    }
     var tgt = currentTarget();
     if (tgt) rememberEnemy(tgt);
     var spellTouch = !!(row && /touch/i.test(String(row.range || "")));
@@ -1940,41 +1954,46 @@
       castThroughGunNow(i, pick);
     });
   }
-  function cartridgeSnapshot() {
+  /* The shell and the slot wait until the blast is placed (or the attack is about to roll). Cancel gives them back. */
+  function spendForCast(i, slot, fromChamber) {
+    if (castSpellAttackNow._paid) return true;
+    if (!(slot > 0)) { castSpellAttackNow._paid = true; return true; }
+    var app = root.SSDNSApp;
     var c = ch();
-    return ((c && c.ammo) || []).map(function (a) { return a && a.type === "cartridge" ? num(a.count) : null; });
-  }
-  function restoreCartridges(before) {
-    var c = ch();
-    if (!c || !c.ammo || !before) return;
-    c.ammo.forEach(function (a, i) {
-      if (!a || a.type !== "cartridge" || before[i] == null || num(a.count) === before[i]) return;
-      a.count = before[i];
-    });
+    var useChamber = !!(fromChamber && c && c.calling === "hexslinger" && i >= 0 && app && app.spendHexChamber);
+    if (useChamber) {
+      var held = app.spendHexChamber(i, slot);
+      if (!held || !held.ok) {
+        if (!app.spendHexSlot || !app.spendHexSlot(slot)) {
+          toast((held && held.reason) || ("No level-" + slot + " hex lead left."));
+          return false;
+        }
+        armCastRefund(function () { if (app.refundHexSlot) app.refundHexSlot(slot); });
+        castSpellAttackNow._paid = true;
+        return true;
+      }
+      if (!held.alreadySpent && app.spendHexSlot && !app.spendHexSlot(slot)) {
+        if (app.restoreHexChamber) app.restoreHexChamber(i, held);
+        toast("No level-" + slot + " slot left.");
+        return false;
+      }
+      armCastRefund(function () {
+        if (!held.alreadySpent && app.refundHexSlot) app.refundHexSlot(slot);
+        if (app.restoreHexChamber) app.restoreHexChamber(i, held);
+      });
+      castSpellAttackNow._paid = true;
+      return true;
+    }
+    if (app && app.spendHexSlot && !app.spendHexSlot(slot)) {
+      toast("No level-" + slot + " slot left.");
+      return false;
+    }
+    armCastRefund(function () { if (app && app.refundHexSlot) app.refundHexSlot(slot); });
+    castSpellAttackNow._paid = true;
+    return true;
   }
   function castThroughGunNow(i, pick) {
-    var cartridges = cartridgeSnapshot();
-    try {
-      if (pick.slot > 0) {
-        if (!root.SSDNSApp.spendHexChamber) { toast("Cast through gun isn't ready."); return; }
-        var held = root.SSDNSApp.spendHexChamber(i, pick.slot);
-        if (!held.ok) { toast(held.reason); return; }
-        if (!held.alreadySpent && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(pick.slot)) {
-          if (root.SSDNSApp.restoreHexChamber) root.SSDNSApp.restoreHexChamber(i, held);
-          toast("No level-" + pick.slot + " slot left.");
-          return;
-        }
-        armCastRefund(function () {
-          if (!held.alreadySpent && root.SSDNSApp.refundHexSlot) root.SSDNSApp.refundHexSlot(pick.slot);
-          if (root.SSDNSApp.restoreHexChamber) root.SSDNSApp.restoreHexChamber(i, held);
-        });
-        castSpellAttack(i, pick.name, pick.slot, true);
-        return;
-      }
-      castSpellAttack(i, pick.name, 0, false);
-    } finally {
-      restoreCartridges(cartridges);
-    }
+    castSpellAttack(i, pick.name, pick.slot, pick.slot > 0);
   }
   function castLoadedHex(i, k) {
     var c = ch();
@@ -2969,39 +2988,7 @@
   function castPickedNow(i, sp) {
     var c = ch();
     var slot = sp.slot || 0;
-    var cartridges = cartridgeSnapshot();
-    try {
-      if (slot > 0 && c && c.calling === "hexslinger") {
-        var held = root.SSDNSApp && root.SSDNSApp.spendHexChamber ? root.SSDNSApp.spendHexChamber(i, slot) : { ok: false };
-        if (!held.ok) {
-          if (!root.SSDNSApp || !root.SSDNSApp.spendHexSlot || !root.SSDNSApp.spendHexSlot(slot)) {
-            toast(held.reason || "No level-" + slot + " hex lead left.");
-            return;
-          }
-          armCastRefund(function () { if (root.SSDNSApp.refundHexSlot) root.SSDNSApp.refundHexSlot(slot); });
-        } else {
-          if (!held.alreadySpent && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(slot)) {
-            if (root.SSDNSApp.restoreHexChamber) root.SSDNSApp.restoreHexChamber(i, held);
-            toast("No level-" + slot + " slot left.");
-            return;
-          }
-          armCastRefund(function () {
-            if (!held.alreadySpent && root.SSDNSApp.refundHexSlot) root.SSDNSApp.refundHexSlot(slot);
-            if (root.SSDNSApp.restoreHexChamber) root.SSDNSApp.restoreHexChamber(i, held);
-          });
-        }
-        castSpellAttack(i, sp.name, slot, true);
-        return;
-      }
-      if (slot > 0 && root.SSDNSApp && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(slot)) {
-        toast("No level-" + slot + " slot left.");
-        return;
-      }
-      if (slot > 0) armCastRefund(function () { if (root.SSDNSApp && root.SSDNSApp.refundHexSlot) root.SSDNSApp.refundHexSlot(slot); });
-      castSpellAttack(i, sp.name, slot, !!(c && c.calling === "hexslinger" && slot > 0));
-    } finally {
-      restoreCartridges(cartridges);
-    }
+    castSpellAttack(i, sp.name, slot, !!(slot > 0 && c && c.calling === "hexslinger"));
   }
   function openCastPrompt(level, onPick) {
     if (focusBlocked()) return;
@@ -3561,6 +3548,7 @@
     showInspiration: showInspiration,
     castNamed: function (name) { castSpellAttack(-1, name, 0, false); },
     applyRolledSpell: applyRolledSpell,
+    abortCast: abortCast,
     castAt: function (name, slot) { castSpellAttack(-1, name, parseInt(slot, 10) || 0, false); },
     attackRoll: attackRoll,
     attackGate: attackGate,

@@ -1808,7 +1808,8 @@
       b.className = "prof3 p" + p; b.setAttribute("aria-pressed", p ? "true" : "false");
     });
     var callKey = c.calling || "";
-    $$("[data-gun]").forEach(function (sel) {
+    /* Map ammo / cast selects also carry data-gun. Only the sheet weapon picker is the shop list. */
+    $$("#guns select[data-gun]").forEach(function (sel) {
       var i = num(sel.getAttribute("data-gun"));
       var cur = (c.guns[i] || {}).weapon || "";
       if (sel.getAttribute("data-built-for") !== callKey) {
@@ -2020,7 +2021,7 @@
         reopenBtn.disabled = !!C().muzzleReopenUsed || !!g.pendingD4;
         reopenBtn.title = C().muzzleReopenUsed ? "Used this rest" : "Action. Clears one locked chamber. Once per short rest.";
       }
-      var gunSel = $('[data-gun="' + i + '"]');
+      var gunSel = $('[data-f="character.guns.' + i + '.weapon"]');
       if (gunSel) gunSel.disabled = !!g.pendingD4;
       if (cs) cs.disabled = !!g.pendingD4;
       var unloadBtn = $('[data-unload="' + i + '"]');
@@ -3151,6 +3152,7 @@
     if (k === 0 && spinGun(g, w)) rotateCylinder(g, 1);
     else g.loaded = a.filter(Boolean).length;
     changed();
+    publishGunCard();
     return { ok: true, chamber: k, was: was, alreadySpent: !!(parsed && parsed.spent), left: g.loaded };
   }
   function fire(i, k) {

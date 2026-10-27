@@ -29,6 +29,9 @@ function shape(name) {
 }
 
 check("fireball.sphere", shape("Fireball") === "sphere" && A.areaOf("Fireball").radius === 20);
+check("fireball.shell", shape("Fireball Shell") === "sphere" && A.areaOf("Fireball Shell").radius === 20);
+check("fireball.alias", shape("Fireball (Brand)") === "sphere" && A.areaOf("Fireball (Brand)").radius === 20);
+check("bolt.noarea", A.areaOf("Fire Bolt") == null);
 check("shatter.sphere", shape("Shatter") === "sphere" && A.areaOf("Shatter").radius === 10);
 check("burning.cone", shape("Burning Hands") === "cone" && A.areaOf("Burning Hands").self && A.areaOf("Burning Hands").length === 15);
 check("cold.cone", shape("Cone of Cold") === "cone" && A.areaOf("Cone of Cold").length === 60);
@@ -105,6 +108,19 @@ check("click.gun", castClick.indexOf("castThroughGun(gi)") >= 0 && castClick.ind
 check("dmg.total", sheet.indexOf("rolled.damageTotal") >= 0 && sheet.indexOf('split("→ HIT")') < 0);
 check("post.save", sheet.indexOf("hitRow.save") >= 0 || sheet.indexOf("save: row.save") >= 0);
 check("rules.untouched", !/spell-area/.test(read("assets/data/rules.js")));
+
+const nowFn = sheet.slice(sheet.indexOf("function castSpellAttackNow"), sheet.indexOf("function selectedCast"));
+check("handoff.placeThenSpend", nowFn.indexOf("placeBlast") >= 0 && nowFn.indexOf("spendForCast") > nowFn.indexOf("placeBlast"));
+check("handoff.gateStays", nowFn.indexOf("castSpellAttackNow._reactGo = true") >= 0 && nowFn.indexOf("finally { castSpellAttackNow._reactGo = false") < 0);
+const gunNow = sheet.slice(sheet.indexOf("function castThroughGunNow"), sheet.indexOf("function castLoadedHex"));
+check("handoff.gunDefers", gunNow.indexOf("spendHexChamber") < 0 && gunNow.indexOf("castSpellAttack") >= 0);
+const pickedNow = sheet.slice(sheet.indexOf("function castPickedNow"), sheet.indexOf("function openCastPrompt"));
+check("handoff.tabDefers", pickedNow.indexOf("spendHexChamber") < 0 && pickedNow.indexOf("castSpellAttack") >= 0);
+const appJs = read("assets/js/app.js");
+check("panel.gunScope", appJs.indexOf('$$("#guns select[data-gun]")') >= 0 && appJs.indexOf('$$("[data-gun]")') < 0);
+const ask = read("assets/js/dm-join.js");
+const askFn = ask.slice(ask.indexOf("askSpell = function"), ask.indexOf("function watchEs"));
+check("handoff.passContinues", askFn.indexOf('choice === "go" || choice === "pass"') >= 0 && askFn.indexOf('choice === "cancel"') >= 0);
 
 const version = JSON.parse(read("version.json"));
 check("ver.sheet", version.sheet === "0.3.156");

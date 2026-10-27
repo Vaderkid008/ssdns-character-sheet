@@ -78,13 +78,19 @@
     return spec;
   }
 
+  /* Sheet lists say "Fireball Shell" or "Fireball (alias)". The fx book is the PHB name. */
+  function bareKey(name) {
+    return norm(String(name || "").replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+shell$/i, ""));
+  }
   function fxOf(name) {
     var book = root.SSDNS_SPELL_FX || {};
     var key = norm(name);
+    var bare = bareKey(name);
     if (book[key]) return book[key];
+    if (bare && book[bare]) return book[bare];
     var found = null;
     Object.keys(book).forEach(function (k) {
-      if (!found && norm(k) === key) found = book[k];
+      if (!found && (norm(k) === key || norm(k) === bare)) found = book[k];
     });
     return found;
   }
