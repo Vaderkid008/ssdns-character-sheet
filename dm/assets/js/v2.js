@@ -5161,6 +5161,50 @@ async function rollSpellAt(row, spellId, targetId) {
     return false;
   }
   const level = known && typeof known.level === "number" ? known.level : 0;
+  const kindEarly = listedKind({ name: name, kind: known && known.kind }, known);
+  const areaEarly = areaSpellOf(name, known, kindEarly);
+  if (areaEarly) {
+    const outcome = await castAreaSpell({
+      name: name, known: known, kind: kindEarly, row: row, area: areaEarly,
+      dc: s.spellDC, attackBonus: atkNumber(s.spellAtk), slotLevel: level,
+      characterLevel: s.level, spellMod: s.spellMod, fromId: row.id, who: row.name || "PC",
+      casterTokenId: row.playerId || row.id,
+      canSpend: async () => {
+        if (!level) return true;
+        s.spells = s.spells || {};
+        s.spells.slots = s.spells.slots || {};
+        s.spells.spent = s.spells.spent || {};
+        const totalSlots = Number(s.spells.slots[level] || 0);
+        const used = Number(s.spells.spent[level] || 0);
+        if (!totalSlots || used >= totalSlots) { DM.toast("No level-" + level + " slot left"); return false; }
+        return true;
+      },
+      spend: async () => {
+        if (!level) return true;
+        s.spells.spent[level] = Number(s.spells.spent[level] || 0) + 1;
+        await DM.pushCommand({ type: "hex_spend", to: pid, payload: { level: level }, from: DM.state.uid });
+        return true;
+      }
+    });
+    if (!outcome || outcome.cancelled) return false;
+    let areaDetail = withDmActing(row, outcome.detail || ((row.name || "PC") + " casts " + name));
+    if (spellConcentrates({ name: name }, known)) areaDetail += noteConcentration(row, name);
+    const castCue = window.SSDNSAudio && window.SSDNSAudio.spellCue
+      ? window.SSDNSAudio.spellCue({ name: name, kind: kindEarly, attack: false, calling: s.callingId || s.calling })
+      : "spellcast";
+    if (window.SSDNSAudio) window.SSDNSAudio.play(castCue);
+    await DM.pushRoll({
+      id: DM.uid("spell"), who: "DM", playerId: pid, uid: DM.state.uid,
+      label: (outcome.rolled && outcome.rolled.label) || name, formula: (outcome.rolled && outcome.rolled.formula) || "—",
+      result: outcome.rolled ? outcome.rolled.result : 0, detail: areaDetail,
+      nat1: false, isFirearm: !!level, attack: false, private: false
+    });
+    await saveRemoteTable();
+    DM.renderPlayers();
+    renderFight();
+    DM.toast(areaDetail);
+    return true;
+  }
   s.spells = s.spells || {};
   s.spells.slots = s.spells.slots || {};
   s.spells.spent = s.spells.spent || {};
@@ -6304,6 +6348,89 @@ function noteConcentration(row, name) {
 function spendSpellSlot(card, level) {
   if (level && card && card.slots && card.slots[level]) card.slots[level].left -= 1;
 }
+function areaSpellOf(name, known, kind) {
+  const Area = window.SSDNSSpellArea;
+  if (!Area || !Area.areaOf) return null;
+  if (kind === "attack" || kind === "weapon") return null;
+  if (kind === "auto" && known && known.rays) return null;
+  return Area.areaOf(name);
+}
+async function castAreaSpell(opts) {
+  opts = opts || {};
+  const area = opts.area || areaSpellOf(opts.name, opts.known, opts.kind);
+  if (!area) return null;
+  if (opts.canSpend) {
+    const ready = await opts.canSpend();
+    if (ready === false) return { cancelled: true };
+  }
+  const host = window.SSDNSMapHost;
+  if (!host || typeof host.placeBlast !== "function") {
+    DM.toast("Open the map to place " + (opts.name || "that spell"));
+    return { cancelled: true };
+  }
+  const placed = await host.placeBlast({ name: opts.name, area: area, casterId: opts.casterTokenId || "" });
+  if (!placed) return { cancelled: true };
+  if (opts.spend) {
+    const spent = await opts.spend();
+    if (spent === false) return { cancelled: true };
+  }
+  const Cast = window.SSDNSSpellCast;
+  const rolled = Cast && Cast.rollCast ? Cast.rollCast({
+    spellName: opts.name,
+    slotLevel: opts.slotLevel || (opts.known && opts.known.level) || 0,
+    characterLevel: opts.characterLevel || 1,
+    attackBonus: opts.attackBonus || 0,
+    spellMod: opts.spellMod || 0,
+    dc: opts.dc
+  }) : null;
+  const tokens = placed.tokens || [];
+  const names = tokens.map((t) => t.name).filter(Boolean);
+  let detail = (opts.who || "Someone") + " casts " + opts.name;
+  if (rolled && rolled.text) detail += " · " + rolled.text;
+  detail += names.length ? (" · " + names.join(", ")) : " · nobody in the area";
+  const kind = opts.kind || (opts.known && opts.known.kind) || "none";
+  const full = rolled ? (Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0) : 0;
+  const half = !!(opts.known && opts.known.half) || !!(rolled && rolled.half);
+  const cond = window.SSDNSSpellArea && window.SSDNSSpellArea.onFail ? window.SSDNSSpellArea.onFail(opts.name) : "";
+  if (kind === "heal" && full > 0 && fight.damageMode !== "approve") {
+    tokens.forEach((t) => {
+      applyPlayerHit({
+        rollId: DM.uid("spell"), targetId: t.combatantId || t.ownerUid || t.id, targetName: t.name, amount: full,
+        from: opts.fromId, characterName: opts.who, label: opts.name, weapon: opts.name, type: "heal"
+      });
+    });
+  } else if ((kind === "save" || kind === "auto") && (full > 0 || cond)) {
+    for (const t of tokens) {
+      const tid = t.combatantId || t.ownerUid || t.id;
+      let amount = full;
+      let save = null;
+      if (kind === "save") {
+        save = await requestPlayerSave({
+          targetId: tid, targetName: t.name, ability: (opts.known && opts.known.save) || (rolled && rolled.save) || "DEX",
+          dc: opts.dc, label: opts.name, damage: (rolled && rolled.damageDetail) || "", rider: cond, fromName: opts.who || ""
+        });
+        if (save && save.line) detail += ". " + save.line;
+        amount = window.SSDNSSpellArea && window.SSDNSSpellArea.savedAmount
+          ? window.SSDNSSpellArea.savedAmount(full, half, save)
+          : (save && save.failed ? full : (half ? Math.floor(full / 2) : 0));
+      }
+      if (amount > 0 && fight.damageMode !== "approve") {
+        applyPlayerHit({
+          rollId: DM.uid("spell"), targetId: tid, targetName: t.name, amount: amount,
+          from: opts.fromId, characterName: opts.who, label: opts.name, weapon: opts.name, type: "damage"
+        });
+      }
+      if (save && save.failed && cond) {
+        try { await rememberCondition(opts.row || { id: opts.fromId, name: opts.who }, { id: tid, name: t.name }, cond, null); } catch (err) {}
+      }
+    }
+  } else if (kind === "none" || kind === "rider" || kind === "utility") {
+    const buff = window.SSDNSSpellArea && window.SSDNSSpellArea.buffOf && window.SSDNSSpellArea.buffOf(opts.name);
+    if (buff && buff.label) detail += " · " + buff.label;
+    else if (area.does) detail += " · " + area.does;
+  }
+  return { ok: true, detail: detail, rolled: rolled, names: names };
+}
 function askSaveSpell(row, name, known) {
   const players = combatTargets(row);
   const casting = (row.card && row.card.spellcasting) || {};
@@ -6380,6 +6507,32 @@ async function cardCast(i, n, opts) {
     else if (window.SSDNSAudio) window.SSDNSAudio.play(castCue);
     else playTableSfx("spellcast");
   };
+  const area = areaSpellOf(name, known, kind);
+  if (area) {
+    const outcome = await castAreaSpell({
+      name: name, known: known, kind: kind, row: row, area: area,
+      dc: casting.dc, attackBonus: casting.attack, slotLevel: level,
+      characterLevel: (row.card && row.card.level) || 1, spellMod: casting.mod || 0,
+      fromId: row.id, who: row.name, casterTokenId: row.mapTokenId || row.id,
+      canSpend: async () => {
+        if (level && card.slots && card.slots[level] && card.slots[level].left <= 0) {
+          DM.toast("No level-" + level + " slot left");
+          return false;
+        }
+        return true;
+      },
+      spend: async () => { spendSpellSlot(card, level); return true; }
+    });
+    if (!outcome || outcome.cancelled) return false;
+    let areaDetail = outcome.detail || (row.name + " casts " + name);
+    if (spellConcentrates(spell, known)) areaDetail += noteConcentration(row, name);
+    await publishCardRoll(row, areaDetail, outcome.rolled ? outcome.rolled.result : 0, { formula: (outcome.rolled && outcome.rolled.formula) || "—", spell: true });
+    playCue();
+    await saveRemoteTable();
+    renderFight();
+    DM.toast(areaDetail);
+    return true;
+  }
   const diceOf = () => (known && known.dice) || (spell && spell.damage) || "";
   if (kind === "utility" || kind === "reaction" || kind === "none" || kind === "rider") {
     spendSpellSlot(card, level);
@@ -7160,6 +7313,41 @@ function applyRequest(req, reqId) {
   const name = (row && row.name) || (blankLabel(req.targetName) ? "" : req.targetName) || who;
   const amt = Number(req.amount) || 0;
   const heal = req.type === "heal" || req.kind === "heal";
+  if (req.save && !heal) {
+    const half = !!req.half || req.onSave === "half";
+    requestPlayerSave({
+      targetId: req.targetId,
+      targetName: name,
+      ability: req.save,
+      dc: req.dc,
+      label: req.label || req.weapon || "Spell",
+      damage: req.dice || "",
+      rider: req.condition || "",
+      fromName: who
+    }).then(async (save) => {
+      const Area = window.SSDNSSpellArea;
+      let dealt = amt;
+      if (Area && Area.savedAmount) dealt = Area.savedAmount(amt, half, save);
+      else if (!save || save.blocked || !save.failed) dealt = half && save && !save.blocked && !save.failed ? Math.floor(amt / 2) : 0;
+      if (save && save.line) DM.toast(save.line);
+      if (dealt > 0) {
+        const hit = {
+          rollId: rollId, targetId: req.targetId, targetName: req.targetName || name, amount: dealt,
+          from: req.from, characterName: who, label: req.label, weapon: req.weapon || req.label, dice: req.dice || "", type: req.type || "damage"
+        };
+        const lineAfter = who + " → " + name + " " + dealt + (save && save.failed ? " (failed save)" : " (saved)");
+        if (fight.damageMode === "approve" || heldOutOfTurn(req)) holdHit(hit, lineAfter);
+        else applyPlayerHit(hit);
+      }
+      if (save && save.failed && req.condition) {
+        const caster = { id: req.from || "", name: who, kind: "player" };
+        const tgt = row || { id: req.targetId, name: name };
+        try { await rememberCondition(caster, tgt, req.condition, null); } catch (err) {}
+      }
+      if (DM.state._fb && DM.state.db && reqId) DM.state._fb.update(DM.roomRef("encounter/requests/" + reqId), { resolved: true }).catch(() => {});
+    });
+    return;
+  }
   const line = heal
     ? (window.SSDNSApplied ? window.SSDNSApplied.healLine(who, name, amt, req.dice || "") : (who + " heals " + name + " " + amt))
     : (window.SSDNSApplied ? window.SSDNSApplied.hitLine(who, name, req.weapon || req.label, amt) : (who + " hits " + name + " for " + amt));
@@ -8323,14 +8511,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.168-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.169-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.168-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.169-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -10465,15 +10653,18 @@ window.SSDNSMapFight = {
     const targetIndex = mapFightIndex({ combatantId: detail.targetCombatantId, tokenId: detail.targetTokenId });
     const target = targetIndex >= 0 ? fight.order[targetIndex] : null;
     const targetId = target ? combatantKey(target) : (detail.targetCombatantId || detail.targetTokenId || "");
-    if (!targetId) { DM.toast("No targets"); return false; }
+    const knownPeek = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(detail.spellId) : null;
+    const kindPeek = listedKind({ kind: knownPeek && knownPeek.kind }, knownPeek);
+    const areaPeek = areaSpellOf(detail.spellId || "", knownPeek, kindPeek);
+    if (!targetId && !areaPeek) { DM.toast("No targets"); return false; }
     if (row.kind === "player") {
       if (!row.dmActsAs) { DM.toast("The player casts their own spells"); return false; }
       const self = targetId === combatantKey(row) || targetId === String(row.id || "") || (row.playerId && targetId === String(row.playerId));
-      const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(detail.spellId) : null;
-      if (self && listedKind({ kind: known && known.kind }, known) !== "heal") { DM.toast("Pick a different token"); return false; }
+      if (!areaPeek && self && kindPeek !== "heal") { DM.toast("Pick a different token"); return false; }
       const spellCost = window.SSDNSActionPips && window.SSDNSActionPips.spellCost ? window.SSDNSActionPips.spellCost(detail.spellId) : "action";
-      notePlayerPip(row, spellCost, "Casting " + (detail.spellId || "a spell"));
-      const casted = await rollSpellAt(row, detail.spellId, targetId);
+      if (!areaPeek) notePlayerPip(row, spellCost, "Casting " + (detail.spellId || "a spell"));
+      const casted = await rollSpellAt(row, detail.spellId, areaPeek ? "" : targetId);
+      if (areaPeek && casted) notePlayerPip(row, spellCost, "Casting " + (detail.spellId || "a spell"));
       echoPipWarn(row);
       return casted;
     }
@@ -10483,8 +10674,9 @@ window.SSDNSMapFight = {
     const spell = row.card.spellcasting.spells[n];
     const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(typeof spell === "string" ? spell : spell.name) : null;
     const self = targetId === String(row.id || "") || targetId === combatantKey(row);
-    if (self && listedKind(typeof spell === "string" ? {} : spell, known) !== "heal") { DM.toast("Pick a different token"); return false; }
-    const rolled = await cardCast(i, n, { targetId: targetId });
+    const enemyArea = areaSpellOf(typeof spell === "string" ? spell : (spell && spell.name), known, listedKind(typeof spell === "string" ? {} : spell, known));
+    if (!enemyArea && self && listedKind(typeof spell === "string" ? {} : spell, known) !== "heal") { DM.toast("Pick a different token"); return false; }
+    const rolled = await cardCast(i, n, { targetId: enemyArea ? "" : targetId });
     if (rolled) {
       const raw = typeof spell === "string" ? spell : (spell.name || "Spell");
       const cost = enemySpellCost(raw);

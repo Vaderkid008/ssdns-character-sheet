@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.155"; // sheet-playtest-v03155
+  var APP_VERSION = "0.3.156"; // sheet-playtest-v03156
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
@@ -773,6 +773,17 @@
       return b && (!b.until || Number(b.until) > now) && (!key || !b.weapon || b.weapon === key);
     });
   }
+  /* N77: Shield, Mage Armor, Barkskin, and the other numeric spell buffs live on c.buffs. */
+  function spellAcMods(c) {
+    var bonus = 0, floor = 0, mage = false;
+    activeBuffs(c).forEach(function (b) {
+      if (!b || b.weapon) return;
+      if (b.ac) bonus += Number(b.ac) || 0;
+      if (b.acFloor) floor = Math.max(floor, Number(b.acFloor) || 0);
+      if (b.mageArmor) mage = true;
+    });
+    return { bonus: bonus, floor: floor, mage: mage };
+  }
   // ---- PR "small math gaps": feats and callings that change numbers on the sheet.
   function hasFeat(c, id) { return ((c && c.feats) || []).indexOf(id) >= 0; }
   function levelOf(c) { return Math.max(1, Math.min(20, num(c && c.level, 1))); }
@@ -879,6 +890,8 @@
     else if (c.calling === "martial-artist" && !wearing) v.ac = 10 + v.mods.DEX + v.mods.WIS;
     else if (demonHide(c)) v.ac = 13 + v.mods.DEX;
     else v.ac = 10 + v.mods.DEX;
+    var spellAc = spellAcMods(c);
+    if (spellAc.mage && !wearing) v.ac = 13 + (v.mods.DEX || 0);
     if (c.shield && !(c.calling === "martial-artist" && !wearing) && !(DB && DB.shieldOff)) v.ac += 2;
     if (DB) { v.ac += DB.ac; v.initiative += DB.init; }
     if (c.fightingStyle === "point-blank" || (stylesOf(c).indexOf("point-blank") >= 0)) v.ac += 1;
@@ -886,6 +899,8 @@
     /* 0.3.80 (Jessey): Dual Wielder +1 AC while holding a qualifying weapon in each hand */
     v.dualWielderAc = window.SSDNSOffhand && window.SSDNSOffhand.dualWielderAc ? window.SSDNSOffhand.dualWielderAc(c) : 0;
     v.ac += v.dualWielderAc;
+    v.ac += spellAc.bonus;
+    if (spellAc.floor && v.ac < spellAc.floor) v.ac = spellAc.floor;
     var cal = currentCalling();
     v.hitDiceTotal = cal ? num(c.level, 1) + cal.hitDie : "";
     var ci = casterInfo();
@@ -2056,7 +2071,7 @@
       if (castBtn && spellSel && w && w.hexShells) {
         var choices = castChoices();
         var sig = choices.map(function (ch) { return ch.value; }).join("|");
-        var keepSpell = spellSel.value;
+        var keepSpell = spellSel.value || (g && g.castSpell) || "";
         if (spellSel.getAttribute("data-sig") !== sig) {
           spellSel.setAttribute("data-sig", sig);
           spellSel.innerHTML = "";
@@ -2066,7 +2081,9 @@
             spellSel.appendChild(opt(ch.value, (ch.level ? ordinal(ch.level) + " · " : "") + ch.name + (note ? " · " + note : "")));
           });
           if (keepSpell && choices.some(function (ch) { return ch.value === keepSpell; })) spellSel.value = keepSpell;
+          else if (g && g.castSpell && choices.some(function (ch) { return ch.value === g.castSpell; })) spellSel.value = g.castSpell;
         }
+        if ((!spellSel.value || !choices.some(function (ch) { return ch.value === spellSel.value; })) && g && g.castSpell && choices.some(function (ch) { return ch.value === g.castSpell; })) spellSel.value = g.castSpell;
         var picked = choices.filter(function (ch) { return ch.value === spellSel.value; })[0] || choices[0];
         var castAbout = $('[data-castabout="' + i + '"]');
         if (castAbout) {
@@ -2090,7 +2107,8 @@
                 if (sl !== spellLv && hexBoxes(sl) <= 0) continue;
                 slotSel.appendChild(opt(String(sl), ordinal(sl) + " shell"));
               }
-              if (keepSlot && num(keepSlot) >= spellLv && slotSel.querySelector('option[value="' + keepSlot + '"]')) slotSel.value = keepSlot;
+              var rememberedSlot = keepSlot || (g && g.castSlot) || "";
+            if (rememberedSlot && num(rememberedSlot) >= spellLv && slotSel.querySelector('option[value="' + rememberedSlot + '"]')) slotSel.value = String(rememberedSlot);
               else slotSel.value = String(spellLv);
             }
           }
@@ -2452,7 +2470,15 @@
     var t = e.target;
     if (window.SSDNSDmJoin && window.SSDNSDmJoin.isReadOnly && window.SSDNSDmJoin.isReadOnly()) return;
     if (suppress || !t.getAttribute) return;
-    if (t.hasAttribute("data-castspell") || t.hasAttribute("data-castslot")) { renderCalc(); return; }
+    if (t.hasAttribute("data-castspell") || t.hasAttribute("data-castslot")) {
+      var castGun = num(t.getAttribute("data-castspell") || t.getAttribute("data-castslot"));
+      var castG = C().guns && C().guns[castGun];
+      if (castG && t.hasAttribute("data-castspell")) castG.castSpell = t.value || "";
+      if (castG && t.hasAttribute("data-castslot")) castG.castSlot = t.value || "";
+      if (castG) changed({ noRender: true });
+      renderCalc();
+      return;
+    }
     if (t.hasAttribute("data-advtick")) {
       if (e.type !== "change") return;
       setGunAttackMode(num(t.getAttribute("data-advtick")), t.checked ? t.value : "");
@@ -3151,6 +3177,43 @@
       publishGunCard();
     });
   }
+  function refundHexSlot(level) {
+    var l = num(level, 1);
+    var a = C().hexLead[l];
+    if (!a) return false;
+    var n = hexBoxes(l);
+    var k;
+    for (k = Math.min(a.length, n) - 1; k >= 0; k--) {
+      if (!a[k]) continue;
+      a[k] = false;
+      suppress = true;
+      $$('[data-f="character.hexLead.' + l + '.' + k + '"]').forEach(function (box) { box.checked = false; });
+      suppress = false;
+      changed();
+      return true;
+    }
+    return false;
+  }
+  /* Put a hex shell back when a cast is cancelled after the chamber was emptied. A spun cylinder is rotated back first. */
+  function restoreHexChamber(i, held) {
+    if (!held || held.was == null || held.chamber == null) return false;
+    var g = C().guns[i], w = g && WPN[g.weapon];
+    if (!g) return false;
+    var a = normChambers(g, w);
+    if (held.chamber === 0 && spinGun(g, w) && a.length >= 2) {
+      g.chambers = a;
+      rotateCylinder(g, a.length - 1);
+      a = g.chambers;
+      a[0] = held.was;
+    } else if (held.chamber >= 0 && held.chamber < a.length) {
+      a[held.chamber] = held.was;
+    } else return false;
+    g.chambers = a;
+    g.loaded = a.filter(Boolean).length;
+    changed();
+    publishGunCard();
+    return true;
+  }
   function spendHexSlot(level) {
     var l = num(level, 1);
     var a = C().hexLead[l];
@@ -3572,6 +3635,9 @@
     sel.value = val;
   }
   function prepareGunCast(i, spell, slot) {
+    var g = C().guns[i];
+    if (g && spell) g.castSpell = spell;
+    if (g && slot != null && slot !== "") g.castSlot = String(slot);
     ensureSelectValue($('[data-castspell="' + i + '"]'), spell);
     var slotSel = $('[data-castslot="' + i + '"]');
     if (slotSel && slot != null && slot !== "") {
@@ -5113,7 +5179,9 @@
       cycleTube: cycleTube,
       cylinderPlan: cylinderPlan,
       spendHexSlot: spendHexSlot,
+      refundHexSlot: refundHexSlot,
       spendHexChamber: spendHexChamber,
+      restoreHexChamber: restoreHexChamber,
       fireHexShell: fireHexShell,
       casterInfo: casterInfo,
       callingProficient: callingProficient,

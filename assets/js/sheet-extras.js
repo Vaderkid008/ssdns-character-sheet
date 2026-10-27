@@ -990,6 +990,10 @@
   function attackGate(tgt, opts) {
     opts = opts || {};
     if (opts.heal || opts.death) return "";
+    if (opts.area) {
+      if (downed()) return "You're at 0 HP. Death saves only.";
+      return "";
+    }
     if (downed()) return "You're at 0 HP. Death saves only.";
     if (tgt && tgt.cover && root.SSDNSApplied && root.SSDNSApplied.coverAdjust && root.SSDNSApplied.coverAdjust(null, tgt.cover, {}).blocked) {
       return "Total cover. You can't target " + (tgt.name || "them") + ".";
@@ -1073,6 +1077,80 @@
   var castChoice = null;
   var pendingDarts = null;
   var pendingBlind = false;
+  var castRefund = null;
+  function armCastRefund(fn) { castRefund = fn; }
+  function commitCast() { castRefund = null; }
+  function abortCast(msg) {
+    var fn = castRefund;
+    castRefund = null;
+    if (fn) { try { fn(); } catch (err) {} }
+    if (msg) toast(msg);
+  }
+  function spellAreaFor(spellName, row) {
+    var Area = root.SSDNSSpellArea;
+    if (!Area || !Area.areaOf || !row) return null;
+    var kind = row.kind || "none";
+    if (kind === "attack" || kind === "weapon") return null;
+    if (kind === "auto" && row.rays) return null;
+    return Area.areaOf(spellName);
+  }
+  function blastTargetId(tok) {
+    return (tok && (tok.combatantId || tok.ownerUid || tok.id)) || "";
+  }
+  function applySpellBuff(spellName) {
+    var Area = root.SSDNSSpellArea;
+    var buff = Area && Area.buffOf ? Area.buffOf(spellName) : null;
+    var c = ch();
+    if (!buff || !c) {
+      var fx = null;
+      var book = root.SSDNS_SPELL_FX || {};
+      var key = String(spellName || "").toLowerCase();
+      if (book[key]) fx = book[key];
+      return (fx && fx.does) || "";
+    }
+    var note = buff.label || "";
+    if (buff.ac || buff.acFloor || buff.mageArmor) {
+      c.buffs = (Array.isArray(c.buffs) ? c.buffs : []).filter(function (b) {
+        return b && b.id !== "spell:" + keyOf(spellName);
+      });
+      c.buffs.push({
+        id: "spell:" + keyOf(spellName),
+        name: spellName,
+        ac: buff.ac || 0,
+        acFloor: buff.acFloor || 0,
+        mageArmor: !!buff.mageArmor,
+        until: buff.ms ? Date.now() + buff.ms : 0
+      });
+      if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
+    }
+    if (buff.temp && Area.rollFormula) {
+      var temp = Area.rollFormula(buff.temp);
+      c.hpTemp = Math.max(Number(c.hpTemp) || 0, temp);
+      note += " (" + temp + " temporary)";
+      var tmp = document.querySelector('[data-f="character.hpTemp"]');
+      if (tmp) tmp.value = String(c.hpTemp);
+      if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
+    }
+    if (buff.tempFromMod) {
+      var vv = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+      var modN = Math.max(0, Number(vv.spellMod) || 0);
+      c.hpTemp = Math.max(Number(c.hpTemp) || 0, modN);
+      note += " (" + modN + " temporary)";
+    }
+    if (buff.maxHp) {
+      var maxN = Number(c.hpMax);
+      var curN = Number(c.hpCurrent);
+      if (isFinite(maxN)) c.hpMax = maxN + buff.maxHp;
+      if (isFinite(curN)) c.hpCurrent = curN + (buff.heal || buff.maxHp);
+      if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
+    } else if (buff.heal) {
+      applyDelta(buff.heal, note || spellName);
+    }
+    return note;
+  }
+  function keyOf(spellName) {
+    return String(spellName || "").toLowerCase();
+  }
   function spellNeedsTarget(row) {
     return !!(row && (row.kind === "attack" || row.kind === "weapon" || row.kind === "auto" || row.kind === "save"));
   }
@@ -1392,30 +1470,31 @@
   /* L0197: a Pact Seeker casts only with the Borrowed Iron in hand; a Hexslinger only through an equipped Caster Gun */
   function focusBlocked() { return !!(root.SSDNSFocus && root.SSDNSFocus.gate && root.SSDNSFocus.gate()); }
   function castSpellAttack(i, spellName, slot, fromChamber) {
-    if (focusBlocked()) return;
+    if (focusBlocked()) { abortCast(); return; }
     var spellKind = root.SSDNSActionPips && root.SSDNSActionPips.spellCost && root.SSDNSActionPips.spellCost(spellName) === "reaction" ? "reaction" : "action";
-    if (root.SSDNSTurnLock && root.SSDNSTurnLock.offTurnBlock && root.SSDNSTurnLock.offTurnBlock(spellKind)) return;
+    if (root.SSDNSTurnLock && root.SSDNSTurnLock.offTurnBlock && root.SSDNSTurnLock.offTurnBlock(spellKind)) { abortCast(); return; }
     /* A spent Reaction does not roll. Action and bonus spells still warn and roll from the sheet. */
     if (root.SSDNSActionPips && root.SSDNSActionPips.spellCost && root.SSDNSActionPips.blockMap && root.SSDNSActionPips.spellCost(spellName) === "reaction") {
-      if (root.SSDNSActionPips.blockMap("reaction", "Casting " + (spellName || "a spell"))) return;
+      if (root.SSDNSActionPips.blockMap("reaction", "Casting " + (spellName || "a spell"))) { abortCast(); return; }
     }
     /* Pallbearer Load is a Dexterity save, not a spell attack. The iron still has to be in hand. */
     if (root.SSDNSPactShot && root.SSDNSPactShot.isPactShot(spellName)) {
       var coneShot = root.SSDNSPactShot.variant(ch());
-      if (coneShot && coneShot.cone) { root.SSDNSPactShot.rollCone(ch()); return; }
+      if (coneShot && coneShot.cone) { commitCast(); root.SSDNSPactShot.rollCone(ch()); return; }
     }
     var Cast = root.SSDNSSpellCast;
     var looked = Cast && Cast.lookup && Cast.lookup(spellName);
-    var start = castChoice ? Promise.resolve(castChoice) : chooseCastTarget(spellName, looked, slot);
+    var areaPick = spellAreaFor(spellName, looked);
+    var start = castChoice ? Promise.resolve(castChoice) : (areaPick ? Promise.resolve({ skip: true }) : chooseCastTarget(spellName, looked, slot));
     castChoice = null;
     start.then(function (choice) {
-      if (!choice) return;
+      if (!choice) { abortCast(); return; }
       if (!choice.skip) applyCastChoice(choice);
-      var blocked = attackGate(pendingBlind ? null : currentTarget(), { heal: looked && looked.kind === "heal" });
-      if (blocked) { toast(blocked); addLog({ kind: "alert", text: blocked }); pendingDarts = null; pendingBlind = false; return; }
+      var blocked = attackGate(pendingBlind ? null : currentTarget(), { heal: looked && looked.kind === "heal", area: !!areaPick });
+      if (blocked) { toast(blocked); addLog({ kind: "alert", text: blocked }); pendingDarts = null; pendingBlind = false; abortCast(); return; }
       if (Cast && Cast.needsType && Cast.needsType(spellName)) {
         Cast.pickType(spellName).then(function (type) {
-          if (!type) { pendingDarts = null; pendingBlind = false; return; }
+          if (!type) { pendingDarts = null; pendingBlind = false; abortCast(); return; }
           castSpellAttackNow(i, spellName, slot, fromChamber, type);
         });
         return;
@@ -1439,9 +1518,9 @@
     var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var c = ch();
     var Cast = root.SSDNSSpellCast;
-    if (!Cast || !Cast.rollCast) { toast("Spell roller isn't loaded."); return; }
+    if (!Cast || !Cast.rollCast) { abortCast("Spell roller isn't loaded."); return; }
     if ((v.spellAtk == null || v.spellAtk === "") && (v.spellDC == null || v.spellDC === "")) {
-      toast("This Calling has no spell attack.");
+      abortCast("This Calling has no spell attack.");
       return;
     }
     var atk = parseInt(String(v.spellAtk == null ? "" : v.spellAtk).replace(/[^\d-]/g, ""), 10);
@@ -1463,7 +1542,7 @@
     var throughGun = !!((hexslinger && fromChamber) || (row && row.weapon));
     var conds = (c && c.activeConditions) || [];
     var chosenMode = (document.querySelector("#globalAdv") && document.querySelector("#globalAdv").value) || "";
-    if (!castSpellAttackNow._ready) {
+    if (!castSpellAttackNow._ready && !spellAreaFor(spellName, row)) {
       var rings0 = root.SSDNSRangeRings;
       var host0 = root.SSDNSMapHost;
       var tgt0 = currentTarget();
@@ -1473,14 +1552,14 @@
       var peekedSpell = rings0 && rings0.peek ? rings0.peek() : null;
       if (peekedSpell && peekedSpell.apply && peekedSpell.blocked) {
         if (rings0.take) rings0.take();
-        toast(peekedSpell.button || "out of range");
         addLog({ kind: "alert", text: (spellName || "Spell") + ": " + (peekedSpell.button || "out of range") });
+        abortCast(peekedSpell.button || "out of range");
         return;
       }
       var peekNote = peekedSpell && peekedSpell.apply && peekedSpell.disadvantage ? (peekedSpell.note || "disadvantage: range") : "";
       if (attackWouldDis(conds, rangeMode(chosenMode, peekedSpell), withLedger(peekNote))) {
         confirmIfDis(true).then(function (ok) {
-          if (!ok) { if (rings0 && rings0.clear) rings0.clear(); return; }
+          if (!ok) { if (rings0 && rings0.clear) rings0.clear(); abortCast("Cast cancelled."); return; }
           castSpellAttackNow._ready = true;
           try { castSpellAttackNow(i, spellName, slot, fromChamber, damageType); }
           finally { castSpellAttackNow._ready = false; }
@@ -1488,12 +1567,36 @@
         return;
       }
     }
-    var rangeShot = root.SSDNSRangeRings && root.SSDNSRangeRings.take ? root.SSDNSRangeRings.take() : null;
-    if (rangeShot && rangeShot.apply && rangeShot.blocked) {
-      toast(rangeShot.button || "out of range");
-      addLog({ kind: "alert", text: (spellName || "Spell") + ": " + (rangeShot.button || "out of range") });
+    var areaEarly = spellAreaFor(spellName, row);
+    var rangeShot = null;
+    if (areaEarly) {
+      if (root.SSDNSRangeRings && root.SSDNSRangeRings.clear) root.SSDNSRangeRings.clear();
+    } else {
+      rangeShot = root.SSDNSRangeRings && root.SSDNSRangeRings.take ? root.SSDNSRangeRings.take() : null;
+      if (rangeShot && rangeShot.apply && rangeShot.blocked) {
+        addLog({ kind: "alert", text: (spellName || "Spell") + ": " + (rangeShot.button || "out of range") });
+        abortCast(rangeShot.button || "out of range");
+        return;
+      }
+    }
+    var areaNow = areaEarly;
+    if (areaNow && !castSpellAttackNow._blasted) {
+      var hostB = root.SSDNSMapHost;
+      if (!hostB || typeof hostB.placeBlast !== "function") {
+        abortCast("Open the map to place " + (spellName || "that spell") + ".");
+        return;
+      }
+      var uidB = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      var tokB = hostB.tokenForPlayer && uidB ? (hostB.tokenForPlayer(uidB) || "") : "";
+      hostB.placeBlast({ name: spellName, area: areaNow, casterId: tokB || uidB || "" }).then(function (placed) {
+        if (!placed) { abortCast("Cast cancelled."); return; }
+        castSpellAttackNow._blasted = placed;
+        try { castSpellAttackNow(i, spellName, slot, fromChamber, damageType); }
+        finally { castSpellAttackNow._blasted = null; }
+      });
       return;
     }
+    var placedBlast = castSpellAttackNow._blasted || null;
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     chosenMode = rangeMode(chosenMode, rangeShot);
     var atkMode = root.SSDNSConditions && root.SSDNSConditions.attackMode
@@ -1556,6 +1659,7 @@
       consumeRollMode();
       pendingDarts = null;
       pendingBlind = false;
+      commitCast();
       return;
     }
     if (rolled.attack && rolled.multi && tgt && tgt.name) {
@@ -1604,7 +1708,7 @@
       rolled.text += " · " + dartNotes.join("; ");
       rolled.detail = rolled.text;
       rolled.autoDarts = true;
-    } else if (row && row.kind === "heal") {
+    } else if (row && row.kind === "heal" && !placedBlast) {
       var whoHeal = (c && c.name) || "You";
       var selfHeal = blankTarget(tgt) || (root.SSDNSDmJoin && root.SSDNSDmJoin.uid && tgt && tgt.id === root.SSDNSDmJoin.uid());
       var tgtHeal = selfHeal ? whoHeal : (tgt && tgt.name);
@@ -1636,12 +1740,32 @@
       rolled.detail = rolled.text;
     }
     if (ledger && root.SSDNSFocus && root.SSDNSFocus.applyLedgerNotes) root.SSDNSFocus.applyLedgerNotes(rolled, ledger, atkMode);
+    if (placedBlast) {
+      var crowd0 = placedBlast.tokens || [];
+      var where0 = crowd0.length ? crowd0.map(function (t) { return t.name || "token"; }).join(", ") : "nobody in the area";
+      rolled.text += " · " + ((placedBlast.area && placedBlast.area.label) || "area") + ": " + where0;
+      rolled.detail = rolled.text;
+    } else if (row && (row.kind === "none" || row.kind === "rider" || row.kind === "utility")) {
+      var buffLine = applySpellBuff(spellName);
+      if (buffLine) {
+        rolled.text += " · " + buffLine;
+        rolled.detail = rolled.text;
+      }
+    }
     if (root.SSDNSActionPips && root.SSDNSActionPips.spell) root.SSDNSActionPips.spell(spellName);
     toast(rolled.text);
     var spellDmg = null;
-    var hitTail = String(rolled.text || "").split("→ HIT")[1] || "";
-    var dmgMatch = hitTail.match(/=\s*(\d+)\s*$/);
-    if (rolled.attack && dmgMatch) spellDmg = Number(dmgMatch[1]);
+    if (rolled.attack) {
+      if (rolled.multi || (rolled.shots && rolled.shots.length)) spellDmg = Number(rolled.damageTotal) || 0;
+      else {
+        var atkTotal = Number(rolled.nat) + atk;
+        var missed = rolled.nat === 1 || (acForRoll != null && atkTotal < acForRoll);
+        if (!missed && rolled.nat != null) {
+          spellDmg = Number(rolled.damageTotal);
+          if (!isFinite(spellDmg)) spellDmg = 0;
+        }
+      }
+    }
     addLog({
       id: "roll:" + rollId,
       kind: "roll", text: rolled.text, label: rolled.label, formula: rolled.formula,
@@ -1675,7 +1799,36 @@
           crit: Number(rolled.nat) === 20
         } : null
       });
-      if (rolled.heal && rolled.selfHeal) {
+      if (placedBlast && !whisperOn() && root.SSDNSDmJoin.postDamage) {
+        var AreaP = root.SSDNSSpellArea;
+        var crowd = placedBlast.tokens || [];
+        var full = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
+        var kindNow = (row && row.kind) || rolled.kind || "";
+        var condP = AreaP && AreaP.onFail ? AreaP.onFail(spellName) : "";
+        if (kindNow === "heal" || kindNow === "save" || kindNow === "auto") {
+          crowd.forEach(function (t, idx) {
+            if (kindNow === "heal" && !(full > 0)) return;
+            if (kindNow !== "heal" && !(full > 0 || condP)) return;
+            var hitRow = {
+              amount: full,
+              label: spellName,
+              type: kindNow === "heal" ? "heal" : "spell",
+              dice: rolled.damageDetail || "",
+              targetId: blastTargetId(t),
+              targetName: t.name || "",
+              rollId: rollId + "_" + idx,
+              weapon: throughGun && i >= 0 ? gunName(i) : ""
+            };
+            if (kindNow === "save") {
+              hitRow.save = (row && row.save) || rolled.save || "DEX";
+              hitRow.dc = v.spellDC;
+              hitRow.half = !!(row && row.half);
+              if (condP) hitRow.condition = condP;
+            }
+            if (hitRow.targetId) root.SSDNSDmJoin.postDamage(hitRow);
+          });
+        }
+      } else if (rolled.heal && rolled.selfHeal) {
         if (root.SSDNSDmJoin.claimGrant) root.SSDNSDmJoin.claimGrant("hp:" + rollId);
         applyDelta(Number(rolled.result) || 0, rolled.text);
         releaseHealTarget();
@@ -1726,12 +1879,33 @@
           amount: spellDmg, label: spellName, type: "spell", weapon: throughGun && i >= 0 ? gunName(i) : "",
           targetId: tgt.id, targetName: tgt.name, rollId: rollId
         });
+      } else if (!rolled.heal && row && row.kind === "save" && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
+        var saveAmt = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
+        var condS = root.SSDNSSpellArea && root.SSDNSSpellArea.onFail ? root.SSDNSSpellArea.onFail(spellName) : "";
+        if (saveAmt > 0 || condS) {
+          root.SSDNSDmJoin.postDamage({
+            amount: saveAmt, label: spellName, type: "spell",
+            save: row.save || rolled.save || "DEX", dc: v.spellDC, half: !!row.half,
+            condition: condS, dice: rolled.damageDetail || "",
+            targetId: tgt.id, targetName: tgt.name, rollId: rollId
+          });
+        }
+      } else if (!rolled.heal && row && row.kind === "auto" && !rolled.autoDarts && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
+        var autoAmt = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
+        if (autoAmt > 0) {
+          root.SSDNSDmJoin.postDamage({
+            amount: autoAmt, label: spellName, type: "spell", dice: rolled.damageDetail || "",
+            targetId: tgt.id, targetName: tgt.name, rollId: rollId
+          });
+        }
       } else if (rolled.heal && !joined()) {
         applyDelta(Number(rolled.result) || 0, rolled.text);
       }
     } else if (rolled.heal) {
       applyDelta(Number(rolled.result) || 0, rolled.text);
     }
+    if (placedBlast && !joined()) addLog({ kind: "alert", text: (spellName || "Spell") + " is placed. Join a table to mark hit points." });
+    commitCast();
     consumeRollMode();
     pendingDarts = null;
     pendingBlind = false;
@@ -1758,7 +1932,9 @@
     var pick = selectedCast(i);
     if (!pick) { toast("Pick a spell from your list."); return; }
     var looked = root.SSDNSSpellCast && root.SSDNSSpellCast.lookup && root.SSDNSSpellCast.lookup(pick.name);
-    chooseCastTarget(pick.name, looked, pick.slot).then(function (choice) {
+    var areaPick = spellAreaFor(pick.name, looked);
+    var start = areaPick ? Promise.resolve({ skip: true }) : chooseCastTarget(pick.name, looked, pick.slot);
+    start.then(function (choice) {
       if (!choice) return;
       castChoice = choice;
       castThroughGunNow(i, pick);
@@ -1784,9 +1960,14 @@
         var held = root.SSDNSApp.spendHexChamber(i, pick.slot);
         if (!held.ok) { toast(held.reason); return; }
         if (!held.alreadySpent && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(pick.slot)) {
+          if (root.SSDNSApp.restoreHexChamber) root.SSDNSApp.restoreHexChamber(i, held);
           toast("No level-" + pick.slot + " slot left.");
           return;
         }
+        armCastRefund(function () {
+          if (!held.alreadySpent && root.SSDNSApp.refundHexSlot) root.SSDNSApp.refundHexSlot(pick.slot);
+          if (root.SSDNSApp.restoreHexChamber) root.SSDNSApp.restoreHexChamber(i, held);
+        });
         castSpellAttack(i, pick.name, pick.slot, true);
         return;
       }
@@ -2777,7 +2958,9 @@
     var held = c && c.guns && c.guns[i];
     if (held && held.weapon && held.equipped === false) { toast("Equip this weapon first."); return; }
     var looked = root.SSDNSSpellCast && root.SSDNSSpellCast.lookup && root.SSDNSSpellCast.lookup(sp.name);
-    chooseCastTarget(sp.name, looked, sp.slot || 0).then(function (choice) {
+    var areaPick = spellAreaFor(sp.name, looked);
+    var start = areaPick ? Promise.resolve({ skip: true }) : chooseCastTarget(sp.name, looked, sp.slot || 0);
+    start.then(function (choice) {
       if (!choice) return;
       castChoice = choice;
       castPickedNow(i, sp);
@@ -2795,6 +2978,17 @@
             toast(held.reason || "No level-" + slot + " hex lead left.");
             return;
           }
+          armCastRefund(function () { if (root.SSDNSApp.refundHexSlot) root.SSDNSApp.refundHexSlot(slot); });
+        } else {
+          if (!held.alreadySpent && root.SSDNSApp.spendHexSlot && !root.SSDNSApp.spendHexSlot(slot)) {
+            if (root.SSDNSApp.restoreHexChamber) root.SSDNSApp.restoreHexChamber(i, held);
+            toast("No level-" + slot + " slot left.");
+            return;
+          }
+          armCastRefund(function () {
+            if (!held.alreadySpent && root.SSDNSApp.refundHexSlot) root.SSDNSApp.refundHexSlot(slot);
+            if (root.SSDNSApp.restoreHexChamber) root.SSDNSApp.restoreHexChamber(i, held);
+          });
         }
         castSpellAttack(i, sp.name, slot, true);
         return;
@@ -2803,6 +2997,7 @@
         toast("No level-" + slot + " slot left.");
         return;
       }
+      if (slot > 0) armCastRefund(function () { if (root.SSDNSApp && root.SSDNSApp.refundHexSlot) root.SSDNSApp.refundHexSlot(slot); });
       castSpellAttack(i, sp.name, slot, !!(c && c.calling === "hexslinger" && slot > 0));
     } finally {
       restoreCartridges(cartridges);
@@ -2970,6 +3165,7 @@
       var cast = e.target.closest && e.target.closest("[data-cast]");
       if (cast) {
         var gi = num(cast.getAttribute("data-cast"));
+        if (selectedCast(gi)) { castThroughGun(gi); return; }
         var slotSel = document.querySelector('[data-castslot="' + gi + '"]');
         var lvl = slotSel && !slotSel.hidden ? num(slotSel.value, 0) : num($("#hexRollLevel") && $("#hexRollLevel").value, 0);
         openCastPrompt(lvl, function (sp) { castPicked(gi, sp); });
@@ -3242,6 +3438,91 @@
     toast(report.player);
     if (root.SSDNSSheet && root.SSDNSSheet.consumeRollMode) consumeRollMode();
   }
+  function applyRolledSpell(opts) {
+    opts = opts || {};
+    var spellName = opts.spellName || "";
+    var rolled = opts.rolled;
+    if (!rolled) return Promise.resolve(false);
+    var Cast = root.SSDNSSpellCast;
+    var row = (Cast && Cast.lookup && Cast.lookup(spellName)) || { kind: rolled.kind || "none", name: spellName };
+    var area = spellAreaFor(spellName, row);
+    function settle(placed) {
+      var c = ch();
+      var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+      var tgt = currentTarget();
+      var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      var text = rolled.text || (spellName + " cast");
+      if (placed) {
+        var crowd = placed.tokens || [];
+        text += " · " + ((placed.area && placed.area.label) || "area") + ": " + (crowd.length ? crowd.map(function (t) { return t.name || "token"; }).join(", ") : "nobody in the area");
+      }
+      addLog({ id: "roll:" + rollId, kind: "roll", text: text, label: rolled.label || spellName, formula: rolled.formula, attack: !!rolled.attack, nat: rolled.nat, crit: !!rolled.crit });
+      toast(text);
+      if (placed && joined() && !whisperOn() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {
+        var full = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
+        var kindNow = row.kind || rolled.kind || "";
+        var condP = root.SSDNSSpellArea && root.SSDNSSpellArea.onFail ? root.SSDNSSpellArea.onFail(spellName) : "";
+        (placed.tokens || []).forEach(function (t, idx) {
+          if (kindNow === "heal" && !(full > 0)) return;
+          if (kindNow !== "heal" && kindNow !== "save" && kindNow !== "auto") return;
+          if (kindNow !== "heal" && !(full > 0 || condP)) return;
+          var hitRow = {
+            amount: full, label: spellName, type: kindNow === "heal" ? "heal" : "spell",
+            dice: rolled.damageDetail || "", targetId: blastTargetId(t), targetName: t.name || "", rollId: rollId + "_" + idx
+          };
+          if (kindNow === "save") {
+            hitRow.save = row.save || rolled.save || "DEX";
+            hitRow.dc = opts.dc != null ? opts.dc : v.spellDC;
+            hitRow.half = !!(row.half || rolled.half);
+            if (condP) hitRow.condition = condP;
+          }
+          if (hitRow.targetId) root.SSDNSDmJoin.postDamage(hitRow);
+        });
+      } else if (!placed && rolled.attack && tgt && tgt.id && joined() && !whisperOn()) {
+        var dmg = Number(rolled.damageTotal);
+        if (!isFinite(dmg)) dmg = 0;
+        if (rolled.nat !== 1) {
+          sendPendingAttack({
+            who: (c && c.name) || "You", targetName: tgt.name, targetId: tgt.id,
+            nat: rolled.nat, hitTotal: rolled.result, damage: dmg, dice: rolled.damageDetail || "",
+            formula: rolled.formula, rollId: rollId, label: rolled.label || spellName,
+            spellName: spellName, spell: true, quiet: false
+          });
+        }
+      } else if (!placed && row.kind === "save" && tgt && tgt.id && joined() && !whisperOn() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {
+        var saveAmt = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
+        var condS = root.SSDNSSpellArea && root.SSDNSSpellArea.onFail ? root.SSDNSSpellArea.onFail(spellName) : "";
+        if (saveAmt > 0 || condS) {
+          root.SSDNSDmJoin.postDamage({
+            amount: saveAmt, label: spellName, type: "spell",
+            save: row.save || rolled.save || "DEX", dc: opts.dc != null ? opts.dc : v.spellDC, half: !!(row.half || rolled.half),
+            condition: condS, dice: rolled.damageDetail || "", targetId: tgt.id, targetName: tgt.name, rollId: rollId
+          });
+        }
+      } else if (!placed && (row.kind === "none" || row.kind === "rider")) {
+        var note = applySpellBuff(spellName);
+        if (note) addLog({ kind: "roll", text: note });
+      } else if (!placed && row.kind === "auto" && !rolled.darts && tgt && tgt.id && joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {
+        var autoAmt = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
+        if (autoAmt > 0) root.SSDNSDmJoin.postDamage({ amount: autoAmt, label: spellName, type: "spell", dice: rolled.damageDetail || "", targetId: tgt.id, targetName: tgt.name, rollId: rollId });
+      }
+      if (placed && !joined()) addLog({ kind: "alert", text: spellName + " is placed. Join a table to mark hit points." });
+      return true;
+    }
+    if (opts.placed) return Promise.resolve(settle(opts.placed));
+    if (!area) return Promise.resolve(settle(null));
+    var host = root.SSDNSMapHost;
+    if (!host || typeof host.placeBlast !== "function") {
+      toast("Open the map to place " + spellName + ".");
+      return Promise.resolve(false);
+    }
+    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    var tok = host.tokenForPlayer && uid ? (host.tokenForPlayer(uid) || "") : "";
+    return host.placeBlast({ name: spellName, area: area, casterId: tok || uid || "" }).then(function (placed) {
+      if (!placed) { toast("Cast cancelled."); return false; }
+      return settle(placed);
+    });
+  }
   root.SSDNSGunMelee = rollGunMelee;
   root.SSDNSSheet = {
     grantBought: grantBought,
@@ -3279,6 +3560,7 @@
     renderLog: renderLog,
     showInspiration: showInspiration,
     castNamed: function (name) { castSpellAttack(-1, name, 0, false); },
+    applyRolledSpell: applyRolledSpell,
     castAt: function (name, slot) { castSpellAttack(-1, name, parseInt(slot, 10) || 0, false); },
     attackRoll: attackRoll,
     attackGate: attackGate,

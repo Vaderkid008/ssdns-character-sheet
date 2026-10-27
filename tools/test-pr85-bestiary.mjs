@@ -97,6 +97,6 @@ check((by("outlaw").attackList || [])[0].name === "Ball n Cap Revolver", "Act I 
 check(JSON.stringify(beasts).indexOf("Thieves’ cant") < 0, "no Thieves' cant (lingo swap kept)");
 check(/tribal tongue/.test(by("sandie").languages || ""), "Sandie keeps its shipped languages line");
 check(live.filter((b) => b.parked).map((b) => b.id).join(",") === "captain-rhee-calder", "only Calder is parked");
-check(read("dm/assets/js/v2.js").indexOf('bestiary.json?v=0.2.168-thunderbirds') >= 0, "bestiary cache key bumped so tables load the new data");
+check(read("dm/assets/js/v2.js").indexOf('bestiary.json?v=0.2.169-thunderbirds') >= 0, "bestiary cache key bumped so tables load the new data");
 console.log(failures.length ? failures.length + " FAILED:\n" + failures.join("\n") : "All PR85 bestiary checks passed (" + live.length + " entries).");
 if (failures.length) process.exitCode = 1;

@@ -635,8 +635,10 @@
         });
       }
       var chat = (cast && cast.text) || (who + " reads " + item.name + " and casts " + effect.spell + ".");
+      var areaSpell = root.SSDNSSpellArea && root.SSDNSSpellArea.areaOf && root.SSDNSSpellArea.areaOf(effect.spell);
       var hp = 0;
-      if (cast && /heal/i.test(String(cast.text || "")) && cast.result != null && isFinite(Number(cast.result))) hp = Number(cast.result);
+      if (!areaSpell && cast && (cast.heal || cast.kind === "heal") && cast.damageTotal != null && isFinite(Number(cast.damageTotal))) hp = Number(cast.damageTotal);
+      else if (!areaSpell && cast && /heal/i.test(String(cast.text || "")) && cast.result != null && isFinite(Number(cast.result))) hp = Number(cast.result);
       return {
         ok: true, kind: "castSpell", spell: effect.spell, level: level, dc: dc, attack: attack,
         cast: cast, consume: true, hp: hp, chat: who + " — " + chat, rings: ringSpec(item)
@@ -1299,6 +1301,23 @@
         return useOnSheet(id, { aimed: true });
       });
     }
+    var letterSpell = item.effect && item.effect.kind === "castSpell" ? item.effect.spell : "";
+    var letterArea = letterSpell && root.SSDNSSpellArea && root.SSDNSSpellArea.areaOf ? root.SSDNSSpellArea.areaOf(letterSpell) : null;
+    var letterRow = letterSpell && root.SSDNSSpellCast && root.SSDNSSpellCast.lookup ? root.SSDNSSpellCast.lookup(letterSpell) : null;
+    var letterAoe = letterArea && letterRow && letterRow.kind !== "attack" && letterRow.kind !== "weapon" && !(letterRow.kind === "auto" && letterRow.rays);
+    if (letterAoe && !opts.placed) {
+      var host = root.SSDNSMapHost;
+      if (!host || typeof host.placeBlast !== "function") {
+        post("Open the map to place " + letterSpell + ".");
+        return { ok: false, reason: "Open the map to place " + letterSpell + "." };
+      }
+      var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      var tok = host.tokenForPlayer && uid ? (host.tokenForPlayer(uid) || "") : "";
+      return host.placeBlast({ name: letterSpell, area: letterArea, casterId: tok || uid || "" }).then(function (placed) {
+        if (!placed) return { ok: false, reason: "Cast cancelled." };
+        return useOnSheet(id, { placed: placed, aimed: opts.aimed, distance: opts.distance });
+      });
+    }
     var tgt = item.type === "explosive" && root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo ? root.SSDNSPlaytest.targetInfo() : null;
     var computed = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
     var distSel = typeof document !== "undefined" ? document.getElementById("explosiveDist") : null;
@@ -1332,6 +1351,9 @@
       });
     }
     if (plan.hp) applyHp(plan);
+    if (plan.kind === "castSpell" && plan.cast && root.SSDNSSheet && root.SSDNSSheet.applyRolledSpell) {
+      root.SSDNSSheet.applyRolledSpell({ spellName: plan.spell, rolled: plan.cast, dc: plan.dc, placed: opts.placed || null });
+    }
     if (plan.tempHp) applyTemp(plan);
     if (plan.buff) plan.chat += applyBuff(c, plan.buff);
     if (plan.rings) showRings(plan.rings);

@@ -667,6 +667,13 @@
       rollId: entry.rollId || "",
       targetName: entry.targetName || ""
     };
+    if (entry.save) {
+      row.save = entry.save;
+      row.dc = entry.dc;
+      row.half = !!entry.half;
+      if (entry.condition) row.condition = entry.condition;
+      if (entry.onSave) row.onSave = entry.onSave;
+    }
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
       return { ok: true };
     }).catch(function (e) {
