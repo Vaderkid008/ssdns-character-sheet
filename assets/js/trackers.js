@@ -1108,11 +1108,41 @@
     var c = ch();
     if (!c) return null;
     var arw = arrowRiders(ctx); /* Arrow types DRAFT: the nocked arrow's own dice (broadhead, fire) */
+    function withSpellRiders(base) {
+      var SR = root.SSDNSSpellRiders;
+      if (!SR || !c.spellMarks) return base;
+      var extra = SR.attackRiders(c.spellMarks, {
+        hit: !!(ctx.hit || ctx.pending),
+        crit: !!ctx.crit && !ctx.pending,
+        miss: !(ctx.hit || ctx.pending),
+        weaponAttack: !ctx.spellAttack,
+        spellAttack: !!ctx.spellAttack,
+        melee: !!ctx.melee,
+        targetId: ctx.targetId || "",
+        weaponType: ctx.weaponType || "",
+        magicMissile: !!ctx.magicMissile,
+        saveSpell: !!ctx.saveSpell,
+        attack: true
+      });
+      c.spellMarks = extra.bag;
+      if (!extra.riders.length && !extra.logs.length) return base;
+      var riders = ((base && base.riders) || []).concat(extra.riders || []);
+      var total = 0;
+      riders.forEach(function (r) { total += r.total || 0; });
+      var notes = ((base && base.notes) || []).concat(extra.logs || []);
+      return {
+        riders: riders,
+        total: total,
+        text: riders.map(function (r) { return "+" + r.formula + " " + (r.label || ""); }).join(" "),
+        notes: notes,
+        spent: (base && base.spent) || {}
+      };
+    }
     var armS = !!(c.res && c.res.sneakArmed), armM = num(c.res && c.res.smiteArmed);
     if (!armS && !armM) {
-      if (!arw.length) return null;
+      if (!arw.length) return withSpellRiders(null);
       var at0 = 0; arw.forEach(function (r) { at0 += r.total; });
-      return { riders: arw, total: at0, text: arw.map(function (r) { return "+" + r.formula + " " + r.label; }).join(" "), notes: [], spent: {} };
+      return withSpellRiders({ riders: arw, total: at0, text: arw.map(function (r) { return "+" + r.formula + " " + r.label; }).join(" "), notes: [], spent: {} });
     }
     var dm = !!(ctx.dm || c.res.armDm);
     var hit = !!(ctx.hit || ctx.pending), crit = !!ctx.crit && !ctx.pending;
@@ -1159,7 +1189,7 @@
       }, 50);
     }
     setTimeout(function () { var A2 = app(); if (A2 && A2.applyPatch) A2.applyPatch(function () {}); paint(); refreshMap(); }, 0);
-    return { riders: out, total: total, text: text, notes: notes, spent: spent };
+    return withSpellRiders({ riders: out, total: total, text: text, notes: notes, spent: spent });
   }
   /** Hidden-AC attacks only: the DM called a miss after the dice were sent. Gives back what rider() spent. */
   function refundPending() {

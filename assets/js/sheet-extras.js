@@ -854,6 +854,7 @@
       targetName: info.targetName,
         weapon: info.weapon || "",
         spellName: info.spellName || "",
+        melee: !!info.melee,
         private: !!info.quiet,
       whisper: !!info.quiet
     });
@@ -882,6 +883,7 @@
         weaponId: info.weaponId || "",
         gun: !!info.gun,
         spell: !!info.spell,
+        melee: !!info.melee,
         cover: coverRaw || "",
         coverSet: true,
         type: "attack",
@@ -1138,9 +1140,9 @@
     });
     return msg;
   }
-  function applySpellBuff(spellName) {
+  function applySpellBuff(spellName, slot) {
     var Area = root.SSDNSSpellArea;
-    var buff = Area && Area.buffOf ? Area.buffOf(spellName) : null;
+    var buff = Area && Area.buffOf ? Area.buffOf(spellName, slot) : null;
     var c = ch();
     if (!buff || !c) {
       var fx = null;
@@ -1193,7 +1195,119 @@
     return String(spellName || "").toLowerCase();
   }
   function spellNeedsTarget(row) {
+    if (row && row.kind === "rider" && row.trigger && row.trigger !== "meleeHitOnCaster") return true;
     return !!(row && (row.kind === "attack" || row.kind === "weapon" || row.kind === "auto" || row.kind === "save"));
+  }
+  function askSpellOption(name, spec) {
+    return new Promise(function (resolve) {
+      if (!spec || !document || !document.body) { resolve(spec && spec.options && spec.options[0]); return; }
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      var title = spec.kind === "ability" ? "Hex — disadvantage on checks" : (spec.kind === "disease" ? "Contagion — disease" : "Choose");
+      dlg.innerHTML = "<form method='dialog'><h2></h2><div class='type-picks'></div><div class='dlg-foot'><button class='btn' value=''>Cancel</button></div></form>";
+      dlg.querySelector("h2").textContent = title + (name ? " · " + name : "");
+      var box = dlg.querySelector(".type-picks");
+      (spec.options || []).forEach(function (t) {
+        var b = document.createElement("button");
+        b.type = "submit";
+        b.className = "btn sm";
+        b.value = t;
+        b.textContent = t;
+        b.style.margin = "0 6px 6px 0";
+        box.appendChild(b);
+      });
+      var done = false;
+      dlg.addEventListener("close", function () {
+        if (done) return;
+        done = true;
+        var value = dlg.returnValue || "";
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(value);
+      });
+      document.body.appendChild(dlg);
+      if (dlg.showModal) dlg.showModal();
+      else dlg.setAttribute("open", "");
+    });
+  }
+  function publishChips(list, removing) {
+    (list || []).forEach(function (chp) {
+      if (!chp || !chp.name) return;
+      if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
+      addLog({ kind: "alert", text: (removing ? "COND -" : "COND +") + chp.name + (chp.spell ? " (" + chp.spell + ")" : "") });
+      if (!chp.targetId || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postDamage) return;
+      root.SSDNSDmJoin.postDamage({
+        amount: 0,
+        label: chp.spell || chp.name,
+        type: "spell",
+        targetId: chp.targetId,
+        targetName: "",
+        condition: removing ? "" : chp.name,
+        onHit: !removing,
+        removeCondition: removing ? chp.name : "",
+        spell: chp.spell || "",
+        conc: !!chp.conc,
+        rollId: "cond_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
+      });
+    });
+  }
+  function rideCast(spellName, row, slot, tgt, hit) {
+    var SR = root.SSDNSSpellRiders;
+    var c = ch();
+    if (!SR || !c) return "";
+    c.spellMarks = SR.emptyBag(c.spellMarks);
+    var armed = SR.arm(c.spellMarks, {
+      name: spellName,
+      row: row,
+      slot: slot,
+      targetId: tgt && tgt.id,
+      targetName: tgt && tgt.name,
+      ability: castSpellAttackNow._ability || "",
+      mode: castSpellAttackNow._mode || "",
+      disease: castSpellAttackNow._disease || "",
+      casterId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : ""
+    });
+    c.spellMarks = armed.bag;
+    publishChips(armed.removed, true);
+    publishChips(armed.chips, false);
+    var lines = (armed.logs || []).slice();
+    if (hit && row && (row.kind === "attack" || row.noDamage || row.onHit)) {
+      var landed = SR.onHitSpell(c.spellMarks, {
+        name: spellName, row: row, miss: false,
+        targetId: tgt && tgt.id, targetName: tgt && tgt.name,
+        disease: castSpellAttackNow._disease || "",
+        casterId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : ""
+      });
+      c.spellMarks = landed.bag;
+      publishChips(landed.chips, false);
+      lines = lines.concat(landed.logs || []);
+    }
+    return lines.filter(Boolean).join(" · ");
+  }
+  function hexOnSpell(rolled, tgt, missed, spellName) {
+    var SR = root.SSDNSSpellRiders;
+    var c = ch();
+    if (!SR || !c || !c.spellMarks || missed || !tgt || !tgt.id) return 0;
+    if (/magic missile/i.test(spellName || "")) return 0;
+    var total = 0;
+    var logs = [];
+    function once(crit) {
+      var extra = SR.attackRiders(c.spellMarks, {
+        hit: true, crit: !!crit, spellAttack: true, weaponAttack: false,
+        targetId: tgt.id, attack: true, magicMissile: false, saveSpell: false
+      });
+      c.spellMarks = extra.bag;
+      total += extra.total || 0;
+      logs = logs.concat(extra.logs || []);
+    }
+    if (rolled.shots && rolled.shots.length) {
+      rolled.shots.forEach(function (shot) { if (shot && shot.amount > 0) once(shot.nat === 20); });
+    } else once(Number(rolled.nat) === 20);
+    if (logs.length) {
+      rolled.text += " · " + logs.join(" · ");
+      rolled.detail = rolled.text;
+      logs.forEach(function (line) { addLog({ kind: "roll", text: line }); });
+    }
+    return total;
   }
   function autoDartCount(row, slot) {
     if (!row || row.kind !== "auto") return 0;
@@ -1646,6 +1760,19 @@
         return;
       }
     }
+    var optSpec = root.SSDNSSpellRiders && root.SSDNSSpellRiders.needsOptions ? root.SSDNSSpellRiders.needsOptions(row) : null;
+    if (optSpec && !castSpellAttackNow._picked) {
+      askSpellOption(spellName, optSpec).then(function (value) {
+        if (!value) { abortCast("Cast cancelled."); return; }
+        if (optSpec.kind === "ability") castSpellAttackNow._ability = value;
+        else if (optSpec.kind === "disease") castSpellAttackNow._disease = value;
+        else castSpellAttackNow._mode = value;
+        castSpellAttackNow._picked = true;
+        try { castSpellAttackNow(i, spellName, slot, fromChamber, damageType); }
+        finally { castSpellAttackNow._picked = false; }
+      });
+      return;
+    }
     if (!spendForCast(i, slot, fromChamber)) { abortCast(); return; }
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     chosenMode = rangeMode(chosenMode, rangeShot);
@@ -1795,6 +1922,18 @@
       rolled.text += " · " + condNote;
       rolled.detail = rolled.text;
     }
+    if (root.SSDNSSpellRiders && root.SSDNSSpellRiders.concentrates && root.SSDNSSpellRiders.concentrates(spellName, row) && ch()) {
+      var concBag = root.SSDNSSpellRiders.emptyBag(ch().spellMarks);
+      if (concBag.conc && String(concBag.conc).toLowerCase() !== String(spellName || "").toLowerCase()) {
+        var concEnded = root.SSDNSSpellRiders.breakConc(concBag, concBag.conc);
+        ch().spellMarks = concEnded.bag;
+        publishChips(concEnded.removed, true);
+        addLog({ kind: "alert", text: "Concentration ends " + concBag.conc + "." });
+        if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
+      }
+      ch().spellMarks = root.SSDNSSpellRiders.emptyBag(ch().spellMarks);
+      ch().spellMarks.conc = spellName;
+    }
     if (ledger && root.SSDNSFocus && root.SSDNSFocus.applyLedgerNotes) root.SSDNSFocus.applyLedgerNotes(rolled, ledger, atkMode);
     if (placedBlast) {
       var crowd0 = placedBlast.tokens || [];
@@ -1802,23 +1941,40 @@
       rolled.text += " · " + ((placedBlast.area && placedBlast.area.label) || "area") + ": " + where0;
       rolled.detail = rolled.text;
     } else if (row && (row.kind === "none" || row.kind === "rider" || row.kind === "utility")) {
-      var buffLine = applySpellBuff(spellName);
-      if (buffLine) {
-        rolled.text += " · " + buffLine;
-        rolled.detail = rolled.text;
-      }
+      var buffLine = applySpellBuff(spellName, slot);
+      var rideLine = rideCast(spellName, row, slot, tgt, false);
+      if (buffLine) rolled.text += " · " + buffLine;
+      if (rideLine) rolled.text += " · " + rideLine;
+      rolled.detail = rolled.text;
     }
     if (root.SSDNSActionPips && root.SSDNSActionPips.spell) root.SSDNSActionPips.spell(spellName);
     toast(rolled.text);
     var spellDmg = null;
+    var spellMissed = false;
     if (rolled.attack) {
-      if (rolled.multi || (rolled.shots && rolled.shots.length)) spellDmg = Number(rolled.damageTotal) || 0;
-      else {
+      if (rolled.multi || (rolled.shots && rolled.shots.length)) {
+        spellDmg = Number(rolled.damageTotal) || 0;
+        spellMissed = !rolled.shots.some(function (shot) { return shot && shot.amount > 0; });
+      } else {
         var atkTotal = Number(rolled.nat) + atk;
-        var missed = rolled.nat === 1 || (acForRoll != null && atkTotal < acForRoll);
-        if (!missed && rolled.nat != null) {
+        spellMissed = rolled.nat === 1 || (acForRoll != null && atkTotal < acForRoll);
+        if (rolled.applyNow === false || rolled.startOnTurn) spellDmg = null;
+        else if (!spellMissed && rolled.nat != null) {
           spellDmg = Number(rolled.damageTotal);
           if (!isFinite(spellDmg)) spellDmg = 0;
+        } else if (spellMissed && rolled.missHalf) {
+          spellDmg = rolled.alreadyHalf ? Number(rolled.damageTotal) || 0 : Math.floor((Number(rolled.gross != null ? rolled.gross : rolled.damageTotal) || 0) / 2);
+        }
+      }
+      if (!(rolled.applyNow === false || rolled.startOnTurn)) {
+        var hexMore = hexOnSpell(rolled, tgt, spellMissed && !(rolled.shots && rolled.shots.some(function (shot) { return shot && shot.amount > 0; })), spellName);
+        if (hexMore && spellDmg != null) spellDmg += hexMore;
+      }
+      if (!spellMissed && (row.noDamage || row.onHit || row.hitSave)) {
+        var hitLine = rideCast(spellName, row, slot, tgt, true);
+        if (hitLine) {
+          rolled.text += " · " + hitLine;
+          rolled.detail = rolled.text;
         }
       }
     }
@@ -1875,11 +2031,18 @@
               rollId: rollId + "_" + idx,
               weapon: throughGun && i >= 0 ? gunName(i) : ""
             };
+            if (rolled.applyNow === false) hitRow.amount = 0;
+            if (row && row.damageAuto) hitRow.autoDamage = true;
             if (kindNow === "save") {
               hitRow.save = (row && row.save) || rolled.save || "DEX";
               hitRow.dc = v.spellDC;
-              hitRow.half = !!(row && row.half);
+              hitRow.half = !!(row && row.half) && !(row && row.damageAuto);
               if (condP) hitRow.condition = condP;
+              if (row && row.onFail && !condP) hitRow.condition = row.onFail;
+            }
+            if (row && row.pool || (root.SSDNSSpellRiders && root.SSDNSSpellRiders.poolSpell && root.SSDNSSpellRiders.poolSpell(spellName))) {
+              hitRow.save = "";
+              hitRow.condition = root.SSDNSSpellRiders.poolSpell(spellName);
             }
             if (hitRow.targetId) root.SSDNSDmJoin.postDamage(hitRow);
           });
@@ -1917,28 +2080,70 @@
             });
           }
         });
-      } else if (!rolled.heal && rolled.attack && spellDmg && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
-        root.SSDNSDmJoin.postDamage({
-          amount: spellDmg, label: spellName, type: "spell", weapon: throughGun && i >= 0 ? gunName(i) : "",
+      } else if (!rolled.heal && rolled.attack && (spellDmg || (row && (row.noDamage || row.hitSave || row.onFail))) && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
+        var atkPost = {
+          amount: spellDmg || 0, label: spellName, type: "spell", weapon: throughGun && i >= 0 ? gunName(i) : "",
           targetId: tgt.id, targetName: tgt.name, rollId: rollId
-        });
+        };
+        if (row && row.hitSave) {
+          atkPost.save = row.hitSave;
+          atkPost.dc = v.spellDC;
+          atkPost.condition = row.onFail || "";
+          atkPost.onHit = true;
+          atkPost.spell = spellName;
+        } else if (!spellMissed && row && row.onFail && row.save && !row.hitSave) {
+          atkPost.save = row.save;
+          atkPost.dc = v.spellDC;
+          atkPost.condition = row.onFail;
+          atkPost.half = !!row.half;
+          atkPost.spell = spellName;
+          atkPost.conc = !!row.conc;
+        }
+        var touchRange = root.SSDNSSpellCast && root.SSDNSSpellCast.rangeOf && /^touch$/i.test(String(root.SSDNSSpellCast.rangeOf(spellName) || "").trim());
+        if ((row && row.meleeOnly) || touchRange) atkPost.melee = true;
+        if (rolled.noDamage) atkPost.noDamage = true;
+        if (rolled.delayed && rolled.delayed.total) {
+          atkPost.delayed = rolled.delayed.total;
+          atkPost.delayedDice = rolled.delayed.formula;
+        }
+        root.SSDNSDmJoin.postDamage(atkPost);
       } else if (!rolled.heal && row && row.kind === "save" && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         var saveAmt = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
-        var condS = root.SSDNSSpellArea && root.SSDNSSpellArea.onFail ? root.SSDNSSpellArea.onFail(spellName) : "";
-        if (saveAmt > 0 || condS) {
+        if (rolled.applyNow === false) saveAmt = 0;
+        var condS = (row.onFail || "") || (root.SSDNSSpellArea && root.SSDNSSpellArea.onFail ? root.SSDNSSpellArea.onFail(spellName) : "");
+        var poolS = root.SSDNSSpellRiders && root.SSDNSSpellRiders.poolSpell ? root.SSDNSSpellRiders.poolSpell(spellName) : "";
+        if (saveAmt > 0 || condS || poolS || row.damageAuto) {
           root.SSDNSDmJoin.postDamage({
             amount: saveAmt, label: spellName, type: "spell",
-            save: row.save || rolled.save || "DEX", dc: v.spellDC, half: !!row.half,
-            condition: condS, dice: rolled.damageDetail || "",
-            targetId: tgt.id, targetName: tgt.name, rollId: rollId
+            save: poolS ? "" : (row.save || rolled.save || "DEX"),
+            dc: v.spellDC,
+            half: !!row.half && !row.damageAuto,
+            autoDamage: !!row.damageAuto,
+            condition: poolS || condS,
+            onHit: !poolS && !!row.onFail,
+            dice: rolled.damageDetail || "",
+            targetId: tgt.id, targetName: tgt.name, rollId: rollId,
+            spell: spellName,
+            conc: !!(row.conc)
           });
         }
       } else if (!rolled.heal && row && row.kind === "auto" && !rolled.autoDarts && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         var autoAmt = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
+        if (rolled.applyNow === false) autoAmt = 0;
         if (autoAmt > 0) {
           root.SSDNSDmJoin.postDamage({
             amount: autoAmt, label: spellName, type: "spell", dice: rolled.damageDetail || "",
             targetId: tgt.id, targetName: tgt.name, rollId: rollId
+          });
+        }
+        if (rolled.tickEnd && rolled.tickEnd.dice && root.SSDNSSpellRiders && root.SSDNSSpellRiders.rollExpr) {
+          var acidRoll = root.SSDNSSpellRiders.rollExpr(rolled.tickEnd.dice, false);
+          addLog({ kind: "roll", text: "SAVE " + spellName + " end of turn " + (rolled.tickEnd.save || "DEX") + " or " + acidRoll.formula + " [" + acidRoll.faces.join(",") + "] = " + acidRoll.total + " " + (rolled.tickEnd.type || "acid") });
+          root.SSDNSDmJoin.postDamage({
+            amount: acidRoll.total, label: spellName + " (end of turn)", type: "spell",
+            save: rolled.tickEnd.save || "DEX", dc: v.spellDC, half: false,
+            dice: acidRoll.formula + " " + (rolled.tickEnd.type || "acid"),
+            targetId: tgt.id, targetName: tgt.name, rollId: rollId + "_acid"
           });
         }
       } else if (rolled.heal && !joined()) {
@@ -2083,7 +2288,22 @@
   /* SAMPLE trackers: Sneak Attack / Smite Lead are armed BEFORE the attack; SSDNSTrackers.rider() resolves them once per attack. */
   function takeRiders(ctx) {
     var T = root.SSDNSTrackers;
+    ctx = ctx || {};
+    if (!ctx.targetId) {
+      var tgtNow = currentTarget();
+      if (tgtNow && tgtNow.id) ctx.targetId = tgtNow.id;
+    }
     return T && T.rider ? T.rider(ctx) : null;
+  }
+  function halveStrWeapon(dmg, ctx) {
+    var SR = root.SSDNSSpellRiders;
+    var c = ch();
+    if (!SR || !dmg || !c) return dmg;
+    var out = SR.enfeebleAmount(c.activeConditions || [], dmg.total, ctx || {});
+    if (!out.halved) return dmg;
+    dmg.total = out.amount;
+    dmg.riderText = ((dmg.riderText || "") + " (Enfeebled: half)").trim();
+    return dmg;
   }
   function addRiders(dmg, r) {
     if (!dmg || !r || !r.riders || !r.riders.length) return dmg;
@@ -2569,7 +2789,8 @@
     if (!miss) dmg = rollDamageExpr(dmgExpr, isCrit);
     var arrowNow = miss ? null : arrowFx(dmg, spent); /* L0186 special arrows */
     if (arrowNow && arrowNow.none) dmg = null;
-    var gunRide = takeRiders({ hit: !miss && !!dmg, crit: isCrit && !miss, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon, arrow: spent && spent.arrow });
+    var gunRide = takeRiders({ hit: !miss && !!dmg, crit: isCrit && !miss, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon, arrow: spent && spent.arrow, weaponType: (spentStat && spentStat.dmgType) || (gunStat && gunStat.dmgType) || "piercing" });
+    if (dmg) halveStrWeapon(dmg, { melee: false, dex: true });
     var dmgParts = [];
     if (dmg && gunStat && gunStat.dmgParts) {
       var partSum = 0;
@@ -3440,7 +3661,8 @@
       if (profile.expr === "1") dmg = { total: Math.max(0, flat), detail: String(flat), faces: [], flat: flat, formula: String(flat) };
       else dmg = rollDamageExpr(profile.expr + (flat ? ((flat >= 0 ? "+" : "") + flat) : ""), nat === 20);
     }
-    addRiders(dmg, takeRiders({ hit: !miss && !!dmg, crit: !miss && nat === 20, melee: true, finesse: false }));
+    if (dmg) halveStrWeapon(dmg, { melee: true, str: true, finesse: false });
+    addRiders(dmg, takeRiders({ hit: !miss && !!dmg, crit: !miss && nat === 20, melee: true, finesse: false, weaponType: "bludgeoning" }));
     if (c) c.takingCover = false;
     if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack(profile.name);
     attackCue("whoosh");
@@ -3516,7 +3738,7 @@
           });
         }
       } else if (!placed && (row.kind === "none" || row.kind === "rider")) {
-        var note = applySpellBuff(spellName);
+        var note = applySpellBuff(spellName, opts.slotLevel || opts.slot);
         if (note) addLog({ kind: "roll", text: note });
       } else if (!placed && row.kind === "auto" && rolled.darts && rolled.darts.length && tgt && tgt.id && joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && root.SSDNSSpellArea && root.SSDNSSpellArea.assignDarts) {
         root.SSDNSSpellArea.assignDarts(rolled.darts, rolled.darts.map(function () { return tgt; })).forEach(function (g) {

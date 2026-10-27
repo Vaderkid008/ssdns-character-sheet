@@ -71,7 +71,10 @@
       by: entry.by || "",
       byName: entry.byName || "",
       updatedAt: entry.updatedAt || "",
-      active: entry.active !== false
+      active: entry.active !== false,
+      spell: entry.spell || "",
+      caster: entry.caster || "",
+      conc: entry.conc === true
     };
   }
   function label(entry) {
@@ -97,6 +100,16 @@
     var want = String(name || "").toLowerCase();
     return (list || []).map(normalize).filter(function (row) {
       return row && row.name.toLowerCase() !== want;
+    });
+  }
+  /** Drop every chip a concentration spell owns. Match the spell tag, then the chip name. */
+  function removeBySpell(list, spellName) {
+    var want = String(spellName || "").toLowerCase();
+    if (!want) return (list || []).map(normalize).filter(Boolean);
+    return (list || []).map(normalize).filter(function (row) {
+      if (!row) return false;
+      if (row.spell && String(row.spell).toLowerCase() === want) return false;
+      return true;
     });
   }
   /** Decrement round timers for one combatant. Returns { list, ended }. */
@@ -281,6 +294,7 @@
     listText: listText,
     upsert: upsert,
     removeName: removeName,
+    removeBySpell: removeBySpell,
     tick: tick,
     disadvantageNote: disadvantageNote,
     advantageNote: advantageNote,

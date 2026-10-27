@@ -1670,7 +1670,10 @@ async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, r
       subjectId: subjectId, subjectKind: kind,
       by: prior && prior.by ? prior.by : (DM.state.uid || "dm"),
       byName: prior && prior.byName ? prior.byName : "DM",
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      spell: entry.spell || (prior && prior.spell) || "",
+      caster: entry.caster || (prior && prior.caster) || "",
+      conc: entry.conc === true || !!(prior && prior.conc)
     });
     wanted[id] = row;
     if (prior) changed[id] = true;
@@ -1824,6 +1827,27 @@ function nextTurn() {
     const step = nextLivingIndex(fight.turn);
     fight.turn = step.index;
     if (step.wrapped) fight.round += 1;
+  }
+  const phaseWho = fight.order[fight.turn];
+  if (phaseWho && window.SSDNSSpellRiders) {
+    const whoId = phaseWho.playerId || phaseWho.id;
+    (fight.order || []).forEach((caster) => {
+      if (!caster || !caster.spellMarks) return;
+      const started = window.SSDNSSpellRiders.phaseTicks(caster.spellMarks, whoId, "start");
+      (started.due || []).forEach((tick) => {
+        if (tick.save && !tick.auto) {
+          DM.toast("SAVE " + (tick.spell || "Spell") + " start of turn " + tick.save + (tick.dice ? " or " + tick.dice + " " + (tick.type || "") : ""));
+          return;
+        }
+        if (!(tick.amount > 0) || fight.damageMode === "approve") return;
+        applyPlayerHit({
+          rollId: DM.uid("tick"), targetId: whoId, targetName: phaseWho.name,
+          amount: tick.amount, from: caster.playerId || caster.id, characterName: caster.name,
+          label: tick.spell || "Spell", weapon: tick.spell || "", type: "damage", dice: tick.formula || ""
+        });
+        DM.toast((tick.spell || "Spell") + " start of turn " + tick.formula + " = " + tick.amount + " " + (tick.type || ""));
+      });
+    });
   }
   fight.flash = fight.turn;
   /* T2: stamp the new current combatant's own turn start; Undo last Next can put this back */
@@ -4419,12 +4443,16 @@ function subjectKindOf(target) {
   const kind = (target && target.kind) || (row && row.kind) || "player";
   return kind === "player" ? "player" : kind;
 }
-async function rememberCondition(row, target, name, rounds) {
+async function rememberCondition(row, target, name, rounds, meta) {
   if (!name || !target) return;
+  meta = meta || {};
   row.pendingRider = { condition: name, rounds: rounds, targetId: target.id, targetName: target.name };
   try {
-    await writeSubjectConditions(target.id, subjectKindOf(target), [{ name: name, rounds: rounds }], target.name || "", 1, {}, []);
+    await writeSubjectConditions(target.id, subjectKindOf(target), [{
+      name: name, rounds: rounds, spell: meta.spell || "", caster: (row && (row.playerId || row.id)) || "", conc: !!meta.conc
+    }], target.name || "", 1, {}, []);
   } catch (err) {}
+  if (window.SSDNSAudio) window.SSDNSAudio.play("ui-tick");
 }
 async function askAttackSave(row, atk, target, spec, mode) {
   const save = await requestPlayerSave({
@@ -5340,8 +5368,8 @@ async function rollSpellAt(row, spellId, targetId) {
     });
     detail += ". " + save.line;
     let amount = save.blocked ? 0 : (Number(rolled.result) || 0);
-    if (!save.blocked && !save.failed && known && known.half) amount = Math.floor(amount / 2);
-    if (!save.blocked && amount > 0 && (save.failed || (known && known.half)) && fight.damageMode !== "approve") {
+    if (!save.blocked && !save.failed && known && known.half && !(known && known.damageAuto)) amount = Math.floor(amount / 2);
+    if (!save.blocked && amount > 0 && (save.failed || (known && known.half) || (known && known.damageAuto)) && fight.damageMode !== "approve") {
       applyPlayerHit({
         rollId: id + ":dmg", targetId: target.id, targetName: target.name, amount: amount,
         from: row.id, characterName: row.name, label: name, weapon: name, type: "damage"
@@ -6434,10 +6462,36 @@ function spellConditionName(spell) {
   const hit = CONDITIONS.filter((name) => new RegExp("\\b" + name + "\\b", "i").test(summary));
   return hit.length === 1 ? hit[0] : "";
 }
+function dropOwnedConditions(spellName) {
+  if (!spellName || !window.SSDNSConditions || !window.SSDNSConditions.removeBySpell) return;
+  const Cond = window.SSDNSConditions;
+  (fight.order || []).forEach((target) => {
+    if (!target) return;
+    const subjectId = target.kind === "player" ? (target.playerId || target.id) : target.id;
+    const current = conditionsForRow(target);
+    const next = Cond.removeBySpell(current, spellName);
+    if (next.length === current.length) return;
+    const removed = current.filter((row) => !next.some((kept) => kept && row && kept.id === row.id)).map((row) => row.id);
+    writeSubjectConditions(subjectId, target.kind === "player" ? "player" : "enemy", [], target.name || "", 1, {}, removed).catch(() => {});
+  });
+  if (window.SSDNSAudio) window.SSDNSAudio.play("ui-tick");
+  DM.toast("Concentration ends " + spellName + ".");
+}
 function noteConcentration(row, name) {
   const prev = row && row.concentration ? String(row.concentration) : "";
-  if (row) row.concentration = name;
-  if (prev && prev !== name) return " Concentration moves from " + prev + " to " + name + ".";
+  if (prev && prev !== name) {
+    if (row && row.spellMarks && window.SSDNSSpellRiders) {
+      const ended = window.SSDNSSpellRiders.breakConc(row.spellMarks, prev);
+      row.spellMarks = ended.bag;
+    }
+    dropOwnedConditions(prev);
+  }
+  if (row) {
+    row.concentration = name;
+    if (window.SSDNSSpellRiders) row.spellMarks = window.SSDNSSpellRiders.emptyBag(row.spellMarks);
+    if (name) row.spellMarks.conc = name;
+  }
+  if (prev && prev !== name) return " Concentration ends " + prev + ".";
   return " (concentration)";
 }
 function spendSpellSlot(card, level) {
@@ -6505,9 +6559,11 @@ async function castAreaSpell(opts) {
           dc: opts.dc, label: opts.name, damage: (rolled && rolled.damageDetail) || "", rider: cond, fromName: opts.who || ""
         });
         if (save && save.line) detail += ". " + save.line;
+        if (save && opts.known && opts.known.damageAuto) save.auto = true;
         amount = window.SSDNSSpellArea && window.SSDNSSpellArea.savedAmount
-          ? window.SSDNSSpellArea.savedAmount(full, half, save)
+          ? window.SSDNSSpellArea.savedAmount(full, half && !(opts.known && opts.known.damageAuto), save)
           : (save && save.failed ? full : (half ? Math.floor(full / 2) : 0));
+        if (opts.known && opts.known.applyNow === false) amount = 0;
       }
       if (amount > 0 && fight.damageMode !== "approve") {
         applyPlayerHit({
@@ -6659,6 +6715,18 @@ async function cardCast(i, n, opts) {
     spendSpellSlot(card, level);
     let detail = row.name + " casts " + name;
     if (spellConcentrates(spell, known)) detail += noteConcentration(row, name);
+    if (window.SSDNSSpellRiders && known) {
+      row.spellMarks = window.SSDNSSpellRiders.emptyBag(row.spellMarks);
+      const armed = window.SSDNSSpellRiders.arm(row.spellMarks, {
+        name: name, row: known, slot: level, targetId: direct, targetName: "", casterId: row.id
+      });
+      row.spellMarks = armed.bag;
+      if (armed.logs && armed.logs.length) detail += " · " + armed.logs.join(" · ");
+      for (const ch of armed.chips || []) {
+        if (!ch || !ch.targetId || !ch.name) continue;
+        try { await rememberCondition(row, { id: ch.targetId, name: ch.targetId }, ch.name, null, { spell: name, conc: !!ch.conc }); } catch (err) {}
+      }
+    }
     await publishCardRoll(row, detail, 0, { formula: "—", spell: true });
     playCue();
     await saveRemoteTable();
@@ -6705,7 +6773,7 @@ async function cardCast(i, n, opts) {
         ability: (spell && spell.save) || (known && known.save) || "WIS",
         dc: casting.dc,
         damage: diceOf(),
-        rider: spellConditionName(spell) || spellRider(name)
+        rider: (known && (known.onFail || known.onHit)) || spellConditionName(spell) || spellRider(name)
       };
     } else if (kind === "save") {
       asked = await askSaveSpell(row, name, known);
@@ -6742,8 +6810,9 @@ async function cardCast(i, n, opts) {
     const blockedSave = !!(save && save.blocked);
     const failed = !blockedSave && (!save || save.failed);
     let amount = blockedSave ? 0 : (rolled ? rolled.total : 0);
-    if (!blockedSave && save && !save.failed && known && known.half) amount = Math.floor(amount / 2);
-    if (!blockedSave && rolled && amount > 0 && (failed || (known && known.half)) && fight.damageMode !== "approve") {
+    if (known && (known.castDamage === false || known.applyNow === false)) amount = 0;
+    if (!blockedSave && save && !save.failed && known && known.half && !(known && known.damageAuto)) amount = Math.floor(amount / 2);
+    if (!blockedSave && rolled && amount > 0 && (failed || (known && known.half) || (known && known.damageAuto)) && fight.damageMode !== "approve") {
       detail += " · " + amount + " " + String(asked.damage).replace(expr[0], "").trim();
       applyPlayerHit({
         rollId: DM.uid("spell"),
@@ -6798,8 +6867,14 @@ async function cardCast(i, n, opts) {
   const total = nat + bonus;
   const hit = nat !== 1 && total >= ac;
   let dmg = null;
-  if (hit && diceOf()) dmg = DM.parseDice(diceOf());
-  let detail = row.name + " casts " + name + " at " + (target.name || "someone") + ": " + nat + signed(bonus) + " = " + total + " vs AC " + ac + (adj.note ? " (" + adj.note + ")" : "") + (hit ? " → HIT" : " → MISS") + (dmg ? " · " + dmg.total : "");
+  const noDice = known && (known.noDamage || known.diceOn === "start");
+  if (hit && diceOf() && !noDice) dmg = DM.parseDice(diceOf());
+  else if (!hit && known && known.missHalf && diceOf()) {
+    const full = DM.parseDice(diceOf());
+    dmg = full ? { total: Math.floor(full.total / 2), detail: full.detail } : null;
+  }
+  let detail = row.name + " casts " + name + " at " + (target.name || "someone") + ": " + nat + signed(bonus) + " = " + total + " vs AC " + ac + (adj.note ? " (" + adj.note + ")" : "") + (hit ? " → HIT" : " → MISS") + (dmg ? " · " + dmg.total + (known && known.missHalf && !hit ? " (half on miss)" : "") : "");
+  if (hit && known && known.noDamage) detail += " · no damage — " + (known.onHit || "a condition");
   const rollId = DM.uid("spell");
   if (hit && dmg && fight.damageMode !== "approve") {
     applyPlayerHit({
@@ -6814,14 +6889,15 @@ async function cardCast(i, n, opts) {
       type: "damage"
     });
   }
-  const cond = spellConditionName(spell);
+  const cond = (known && known.onFail) || (known && known.onHit) || spellConditionName(spell);
   if (hit && cond) {
     let apply = true;
-    if (spell && spell.save) {
+    const saveAb = (known && (known.hitSave || (known.onHit ? "" : known.save))) || (spell && spell.save) || "";
+    if (saveAb) {
       const riderSave = await requestPlayerSave({
         targetId: target.id,
         targetName: target.name,
-        ability: spell.save,
+        ability: saveAb,
         dc: casting.dc,
         label: name,
         rider: cond,
@@ -6831,7 +6907,7 @@ async function cardCast(i, n, opts) {
       apply = !!riderSave.failed;
     }
     if (apply) {
-      await rememberCondition(row, target, cond, null);
+      await rememberCondition(row, target, cond, null, { spell: name, conc: spellConcentrates(spell, known) });
       detail += " · " + cond;
     }
   }
@@ -7220,6 +7296,32 @@ function applyPlayerHit(meta) {
   if (!heal && meta.from && row && row.kind === "enemy") row.lastAttackerId = meta.from;
   if (after <= 0) noteUnconscious(row || { kind: snap ? "player" : "enemy", playerId: meta.targetId, id: (row && row.id) || meta.targetId, name: name, hp: 0 });
   else if (row && after > 0) clearDown(row);
+  if (!heal && after <= 0 && window.SSDNSSpellRiders && meta.from) {
+    const attacker = findCombatant({ id: meta.from, playerId: meta.from });
+    if (attacker && attacker.spellMarks) attacker.spellMarks = window.SSDNSSpellRiders.noteDown(attacker.spellMarks, (row && (row.playerId || row.id)) || meta.targetId);
+  }
+  if (!heal && meta.melee && !meta._shield && window.SSDNSSpellRiders && window.SSDNSSpellRiders.fireShieldHit) {
+    const chipBag = window.SSDNSSpellRiders.shieldBagFromChips
+      ? window.SSDNSSpellRiders.shieldBagFromChips(conditionsForRow(row || { id: meta.targetId, playerId: meta.targetId }))
+      : null;
+    const shield = chipBag && window.SSDNSSpellRiders.fireShieldHit(chipBag, { melee: true, attackerName: who });
+    if (shield && meta.from) {
+      DM.toast(shield.log);
+      applyPlayerHit({
+        rollId: (rollId || DM.uid("shield")) + ":shield",
+        targetId: meta.from,
+        targetName: who,
+        amount: shield.amount,
+        from: (row && (row.playerId || row.id)) || meta.targetId,
+        characterName: name,
+        label: "Fire Shield",
+        weapon: "Fire Shield",
+        type: "damage",
+        dice: shield.formula,
+        _shield: true
+      });
+    }
+  }
   saveRemoteTable();
   renderFight();
   DM.renderPlayers();
@@ -7402,7 +7504,7 @@ function resolveIncomingAttack(req, reqId) {
   DM.toast((verdict.dmText || line) + (verdict.dmText ? "" : (ac == null ? "" : " · AC " + ac)));
   if (!verdict.miss && applyAmount > 0 && heldOutOfTurn(req)) {
     holdHit({ rollId: rollId, targetId: req.targetId, targetName: (row && row.name) || req.targetName, amount: applyAmount, from: req.from,
-      characterName: req.characterName || "Someone", label: req.label, weapon: req.weapon || req.label, dice: req.dice || "", type: "attack", heal: false },
+      characterName: req.characterName || "Someone", label: req.label, weapon: req.weapon || req.label, dice: req.dice || "", type: "attack", heal: false, melee: !!req.melee },
       (req.characterName || "Someone") + " → " + ((row && row.name) || req.targetName || "target") + " for " + applyAmount);
   } else if (!verdict.miss && applyAmount > 0) {
     applyPlayerHit({
@@ -7416,7 +7518,8 @@ function resolveIncomingAttack(req, reqId) {
       weapon: req.weapon || req.label,
       dice: req.dice || "",
       type: "attack",
-      heal: false
+      heal: false,
+      melee: !!req.melee
     });
   } else if (rollId) {
     fight.appliedHits[rollId] = 1;
@@ -7461,7 +7564,9 @@ function applyRequest(req, reqId) {
       let dealt = amt;
       if (Area && Area.savedAmount) dealt = Area.savedAmount(amt, half, save);
       else if (!save || save.blocked || !save.failed) dealt = half && save && !save.blocked && !save.failed ? Math.floor(amt / 2) : 0;
+      if (req.autoDamage && save) save.auto = true;
       if (save && save.line) DM.toast(save.line);
+      if (req.autoDamage && save) dealt = save.blocked ? 0 : amt;
       if (dealt > 0) {
         const hit = {
           rollId: rollId, targetId: req.targetId, targetName: req.targetName || name, amount: dealt,
@@ -7474,11 +7579,28 @@ function applyRequest(req, reqId) {
       if (save && save.failed && req.condition) {
         const caster = { id: req.from || "", name: who, kind: "player" };
         const tgt = row || { id: req.targetId, name: name };
-        try { await rememberCondition(caster, tgt, req.condition, null); } catch (err) {}
+        try { await rememberCondition(caster, tgt, req.condition, null, { spell: req.spell || req.label || "", conc: !!req.conc }); } catch (err) {}
       }
       if (DM.state._fb && DM.state.db && reqId) DM.state._fb.update(DM.roomRef("encounter/requests/" + reqId), { resolved: true }).catch(() => {});
     });
     return;
+  }
+  if (req.removeCondition) {
+    const Cond = window.SSDNSConditions;
+    const subjectId = (row && row.kind === "player") ? (row.playerId || row.id) : (req.targetId || "");
+    if (Cond && subjectId) {
+      const current = conditionsForRow(row || { id: subjectId });
+      const removed = current.filter((c) => c && (String(c.name || "").toLowerCase() === String(req.removeCondition).toLowerCase() || (req.spell && String(c.spell || "").toLowerCase() === String(req.spell).toLowerCase()))).map((c) => c.id);
+      if (removed.length) writeSubjectConditions(subjectId, (row && row.kind) || "enemy", [], name, 1, {}, removed).catch(() => {});
+    }
+    if (!(amt > 0)) { markRequestResolved(reqId); return; }
+  }
+  if (!heal && req.onHit && req.condition && !req.save) {
+    const caster = { id: req.from || "", name: who, kind: "player" };
+    const tgt = row || { id: req.targetId, name: name };
+    rememberCondition(caster, tgt, req.condition, null, { spell: req.spell || req.label || "", conc: !!req.conc }).catch(() => {});
+    if (req.noDamage) DM.toast((req.label || "Spell") + ": no damage — " + req.condition);
+    if (!(amt > 0)) { markRequestResolved(reqId); return; }
   }
   const line = heal
     ? (window.SSDNSApplied ? window.SSDNSApplied.healLine(who, name, amt, req.dice || "") : (who + " heals " + name + " " + amt))
@@ -7489,7 +7611,7 @@ function applyRequest(req, reqId) {
   }
   if (heldOutOfTurn(req)) {
     holdHit({ rollId: rollId, targetId: req.targetId, targetName: req.targetName || name, amount: amt, from: req.from, characterName: who, label: req.label,
-      weapon: req.weapon || req.label, dice: req.dice || "", type: req.type || "", heal: heal }, line);
+      weapon: req.weapon || req.label, dice: req.dice || "", type: req.type || "", heal: heal, melee: !!req.melee }, line);
     return;
   }
   if (fight.damageMode === "approve") {
@@ -7507,7 +7629,8 @@ function applyRequest(req, reqId) {
     weapon: req.weapon || req.label,
     dice: req.dice || "",
     type: req.type || "",
-    heal: heal
+    heal: heal,
+    melee: !!req.melee
   });
 }
 function watchSecrets() {
@@ -8643,14 +8766,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.170-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.171-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.170-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.171-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
