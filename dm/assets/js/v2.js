@@ -1829,6 +1829,12 @@ function nextTurn() {
     if (step.wrapped) fight.round += 1;
   }
   const phaseWho = fight.order[fight.turn];
+  if (phaseWho && phaseWho.shieldUntilTurn && phaseWho.kind !== "player") {
+    phaseWho.shieldUntilTurn = false;
+    if (phaseWho.ac != null && isFinite(Number(phaseWho.ac))) phaseWho.ac = Number(phaseWho.ac) - 5;
+  } else if (phaseWho && phaseWho.shieldUntilTurn) {
+    phaseWho.shieldUntilTurn = false;
+  }
   if (phaseWho && window.SSDNSSpellRiders) {
     const whoId = phaseWho.playerId || phaseWho.id;
     (fight.order || []).forEach((caster) => {
@@ -3053,8 +3059,30 @@ function applyDartGroups(row, name, rolled, picks, rollId) {
   const Area = window.SSDNSSpellArea;
   const groups = Area && Area.assignDarts ? Area.assignDarts((rolled && rolled.darts) || [], picks || []) : [];
   const notes = [];
+  const missile = /magic missile|hex needles/i.test(name || "");
   groups.forEach((g, idx) => {
     if (!(g.total > 0)) return;
+    const tgt = findCombatant({ id: g.id, targetId: g.id });
+    if (missile && tgt && rowShieldUp(tgt)) {
+      notes.push((g.name || "target") + " 0 (Shield)");
+      return;
+    }
+    if (missile && tgt && rowCanShield(tgt)) {
+      offerShieldDialog(tgt, (took) => {
+        if (took) {
+          DM.toast("Magic Missile does 0 (Shield).");
+          return;
+        }
+        if (fight.damageMode === "approve") return;
+        applyPlayerHit({
+          rollId: (rollId || DM.uid("spell")) + ":dart:" + idx,
+          targetId: g.id, targetName: g.name, amount: g.total,
+          from: row && row.id, characterName: (row && row.name) || "", label: name, weapon: name, type: "damage"
+        });
+      });
+      notes.push((g.name || "target") + " (Shield?)");
+      return;
+    }
     notes.push((g.name || "target") + " " + g.total);
     if (fight.damageMode === "approve") return;
     applyPlayerHit({
@@ -3277,7 +3305,8 @@ async function castDmRunSpell(row, name, level) {
     characterLevel: s.level,
     attackBonus: atkNumber(s.spellAtk),
     spellMod: s.spellMod,
-    dc: s.spellDC
+    dc: s.spellDC,
+    conditions: s.activeConditions || []
   });
   const castCue = window.SSDNSAudio && window.SSDNSAudio.spellCue
     ? window.SSDNSAudio.spellCue({ name: name, kind: rolled && rolled.kind, attack: !!(rolled && rolled.attack), calling: s.callingId || s.calling })
@@ -4512,6 +4541,10 @@ async function rememberCondition(row, target, name, rounds, meta) {
     }], target.name || "", 1, {}, []);
   } catch (err) {}
   if (window.SSDNSAudio) window.SSDNSAudio.play("ui-tick");
+  if (window.SSDNSSpellBuffs && window.SSDNSSpellBuffs.incapName && window.SSDNSSpellBuffs.incapName(name)) {
+    const tgtRow = findCombatant(target);
+    if (tgtRow) breakEnemyConc(tgtRow, "incapacitated");
+  }
 }
 async function askAttackSave(row, atk, target, spec, mode) {
   const save = await requestPlayerSave({
@@ -5975,7 +6008,10 @@ async function enemyStrike(i, preset) {
   const adj = acWithCover(target, attackerCoverOpts(row, { ranged: rangedPreset }));
   if (adj.blocked) { DM.toast("Total cover. You can't target " + (target.name || "them") + "."); return; }
   const nat = d20();
-  const total = nat + picked.bonus;
+  const strikeDie = window.SSDNSSpellBuffs && window.SSDNSSpellBuffs.rollMods
+    ? window.SSDNSSpellBuffs.rollMods(conditionsForRow(row))
+    : { delta: 0, text: "" };
+  const total = nat + picked.bonus + (strikeDie.delta || 0);
   const ac = adj.ac;
   if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
   const miss = nat === 1 || total < ac;
@@ -5985,7 +6021,7 @@ async function enemyStrike(i, preset) {
   const bonusTxt = (picked.bonus >= 0 ? "+" : "") + picked.bonus;
   const attackName = (preset && preset.name) || String(row.attacks || "").trim();
   const weapon = attackName && attackName.toLowerCase() !== String(row.name || "").toLowerCase() ? attackName : "";
-  const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + " = " + total + " vs AC " + ac + (adj.note ? " (" + adj.note + ")" : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
+  const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + (strikeDie.text ? (" " + strikeDie.text) : "") + " = " + total + " vs AC " + ac + (adj.note ? " (" + adj.note + ")" : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   const id = DM.uid("enatk");
   playTableSfx(strikeCue(preset || { name: attackName }));
   mapFx({ id: id, shooter: row.id, target: target.id, result: miss ? "miss" : (nat === 20 ? "crit" : "hit"), nat: nat, crit: nat === 20 && hit,
@@ -6032,10 +6068,13 @@ function requestPlayerSave(opts) {
   const localRoll = (auto) => {
     const mod = (Number(modFor()) || 0) + (cov.bonus || 0);
     const nat = d20();
-    const total = nat + mod;
+    const saveDie = window.SSDNSSpellBuffs && window.SSDNSSpellBuffs.rollMods
+      ? window.SSDNSSpellBuffs.rollMods(conditionsForRow(target))
+      : { delta: 0, text: "" };
+    const total = nat + mod + (saveDie.delta || 0);
     const failed = isFinite(dc) ? total < dc : true;
     const who = target.name || "Target";
-    const line = who + " " + ability + " save" + (auto ? " (no answer, DM rolled)" : "") + " " + nat + signed(mod) + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (cov.note ? " · " + cov.note : "") + (failed ? " FAIL" : " OK");
+    const line = who + " " + ability + " save" + (auto ? " (no answer, DM rolled)" : "") + " " + nat + signed(mod) + (saveDie.text ? (" " + saveDie.text) : "") + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (cov.note ? " · " + cov.note : "") + (failed ? " FAIL" : " OK");
     return { id: id, nat: nat, total: total, failed: failed, auto: !!auto, line: line, mod: mod, target: target };
   };
   if (npc) {
@@ -7417,6 +7456,8 @@ function applyPlayerHit(meta) {
     : ((window.SSDNSApplied ? window.SSDNSApplied.hitLine(who, name, weapon, amt) : (who + " hits " + name + " for " + amt)) + " · " + applied + " applied");
   const pid = playerRow ? (row.playerId || row.id) : (!row && snap ? (meta.targetId || "") : "");
   if (pid && (playerRow || (!row && snap))) {
+    const atkRow = findCombatant({ id: meta.from, playerId: meta.from });
+    const atkSnap = atkRow && atkRow.kind === "player" ? playerSnapshot(atkRow.playerId || atkRow.id) : null;
     DM.pushCommand({
       type: "hp", to: pid, quiet: true,
       payload: {
@@ -7425,7 +7466,8 @@ function applyPlayerHit(meta) {
         amount: amt,
         text: line,
         grantId: rollId || DM.uid("hit"),
-        dust: !heal && after <= 0 && meta.zeroHp === "disintegrated"
+        dust: !heal && after <= 0 && meta.zeroHp === "disintegrated",
+        hexBreaker: !!(!heal && atkSnap && atkSnap.hexBreaker)
       },
       from: DM.state.uid
     });
@@ -7437,6 +7479,25 @@ function applyPlayerHit(meta) {
     noteDust(row || { kind: snap ? "player" : "enemy", playerId: meta.targetId, id: (row && row.id) || meta.targetId, name: name, hp: 0 }, meta.label || meta.weapon || "Disintegrate");
   } else if (after <= 0) noteUnconscious(row || { kind: snap ? "player" : "enemy", playerId: meta.targetId, id: (row && row.id) || meta.targetId, name: name, hp: 0 });
   else if (row && after > 0) clearDown(row);
+  if (!heal && row && row.kind !== "player") {
+    const concName = (row.spellMarks && row.spellMarks.conc) || row.concentration || "";
+    if (concName && window.SSDNSSpellBuffs) {
+      if (after <= 0) breakEnemyConc(row, "death", concName);
+      else {
+        const atk = findCombatant({ id: meta.from, playerId: meta.from });
+        const atkSnap = atk && atk.kind === "player" ? playerSnapshot(atk.playerId || atk.id) : null;
+        const resolved = window.SSDNSSpellBuffs.resolveConc({
+          damage: amt,
+          mod: Number(row.conMod || row.conSave) || 0,
+          who: row.name || "Enemy",
+          spell: concName,
+          hexBreaker: !!(atkSnap && atkSnap.hexBreaker)
+        });
+        DM.toast(resolved.line);
+        if (resolved.broken) breakEnemyConc(row, "failed save", concName);
+      }
+    }
+  }
   if (!heal && after <= 0 && window.SSDNSSpellRiders && meta.from) {
     const attacker = findCombatant({ id: meta.from, playerId: meta.from });
     if (attacker && attacker.spellMarks) attacker.spellMarks = window.SSDNSSpellRiders.noteDown(attacker.spellMarks, (row && (row.playerId || row.id)) || meta.targetId);
@@ -7497,6 +7558,159 @@ function verdictFeed(id, text, who) {
     if (DM.writeFailed) DM.writeFailed(err, "Couldn't post the attack");
   });
 }
+function isShieldSpellName(name) {
+  const s = String(name || "").toLowerCase().replace(/\s*\([^)]*\)/g, " ").replace(/\s+shell$/i, "").replace(/\s+/g, " ").trim();
+  return s === "shield" || s === "magnesium flash";
+}
+function rowKnowsShield(row) {
+  if (!row) return false;
+  const snap = row.kind === "player" ? (playerSnapshot(row.playerId || row.id) || {}) : {};
+  const list = row.kind === "player" ? (snap.castList || []) : ((row.card && row.card.spellcasting && row.card.spellcasting.spells) || []);
+  return list.some((sp) => isShieldSpellName(typeof sp === "string" ? sp : (sp && sp.name)));
+}
+function rowShieldUp(row) {
+  const B = window.SSDNSSpellBuffs;
+  if (!row || !B) return false;
+  if (row.shieldUntilTurn) return true;
+  if (row.kind !== "player") return false;
+  const snap = playerSnapshot(row.playerId || row.id) || {};
+  if (B.shieldBonus && B.shieldBonus(snap.buffs || [])) return true;
+  return (snap.activeConditions || []).some((c) => /shield \+5/i.test(String((c && c.name) || c || "")));
+}
+function rowCanShield(row) {
+  if (!row || !rowKnowsShield(row) || rowShieldUp(row)) return false;
+  const marks = markersOfRow(row);
+  if (marks && marks.reaction) return false;
+  if (row.kind !== "player") return true;
+  const snap = playerSnapshot(row.playerId || row.id) || {};
+  const B = window.SSDNSSpellBuffs;
+  const hexslinger = snap.calling === "hexslinger" || snap.callingId === "hexslinger";
+  if (hexslinger) return !!(B && B.loadedShell && B.loadedShell(snap.guns, 1));
+  const slots = snap.spells && snap.spells.slots;
+  if (!slots) return true;
+  const spent = (snap.spells && snap.spells.spent) || {};
+  let lv;
+  let any = false;
+  for (lv = 1; lv <= 9; lv++) {
+    if (Number(slots[lv]) || 0) any = true;
+    if ((Number(slots[lv]) || 0) > (Number(spent[lv]) || 0)) return true;
+  }
+  return !any;
+}
+function markShieldLocal(row) {
+  if (!row) return;
+  row.shieldUntilTurn = true;
+  const snap = row.kind === "player" ? playerSnapshot(row.playerId || row.id) : null;
+  if (snap) {
+    snap.buffs = (snap.buffs || []).filter((b) => b && !b.untilTurn && !isShieldSpellName(b.name));
+    snap.buffs.push({ id: "spell:shield", name: "Shield", ac: 5, untilTurn: true, until: 0 });
+    if (snap.ac != null && snap.ac !== "" && isFinite(Number(snap.ac))) snap.ac = Number(snap.ac) + 5;
+  }
+  if (row.ac != null && row.ac !== "" && isFinite(Number(row.ac))) row.ac = Number(row.ac) + 5;
+}
+async function castShieldNow(row) {
+  const snap = row && row.kind === "player" ? (playerSnapshot(row.playerId || row.id) || {}) : {};
+  const hexslinger = snap.calling === "hexslinger" || snap.callingId === "hexslinger";
+  const base = Number(row && row.ac) || Number(snap.ac) || 0;
+  if (row && row.kind === "player") {
+    spendPlayerReaction(row);
+    const pid = row.playerId || row.id;
+    if (hexslinger) {
+      await DM.pushCommand({ type: "hex_fire", to: pid, payload: { level: 1 }, from: DM.state.uid });
+    } else {
+      const slots = (snap.spells && snap.spells.slots) || {};
+      const spent = (snap.spells && snap.spells.spent) || {};
+      let lv = 1;
+      for (lv = 1; lv <= 9; lv++) {
+        if ((Number(slots[lv]) || 0) > (Number(spent[lv]) || 0)) break;
+      }
+      await DM.pushCommand({ type: "hex_spend", to: pid, payload: { level: lv }, from: DM.state.uid });
+    }
+    await DM.pushCommand({ type: "spell_buff", to: pid, payload: { name: "Shield", slot: 1 }, from: DM.state.uid });
+  } else if (row) {
+    await spendEnemyPip(row, "reaction", "Casting Shield");
+  }
+  markShieldLocal(row);
+  const line = "REACT " + ((row && row.name) || "They") + " casts Shield: AC " + base + " → " + (base + 5) + " (until their next turn)";
+  DM.toast(line);
+  DM.pushLedger({ who: (row && row.name) || "DM", playerId: (row && (row.playerId || row.id)) || "all", type: "spell", what: line, oldVal: base, newVal: base + 5, flag: false });
+  if (window.SSDNSAudio && window.SSDNSAudio.play) window.SSDNSAudio.play("ui-tick");
+}
+const shieldWait = {};
+function offerShieldDialog(row, done) {
+  const id = (row && (row.playerId || row.id)) || "x";
+  if (!rowCanShield(row)) { done(false); return; }
+  if (shieldWait[id]) { shieldWait[id].push(done); return; }
+  shieldWait[id] = [done];
+  const finishAll = (took) => {
+    const list = shieldWait[id] || [];
+    delete shieldWait[id];
+    list.forEach((fn) => { try { fn(took); } catch (err) {} });
+  };
+  if (typeof document === "undefined" || !document.body) { finishAll(false); return; }
+  const dlg = document.createElement("dialog");
+  dlg.className = "dlg";
+  const form = document.createElement("form");
+  form.method = "dialog";
+  const title = document.createElement("h2");
+  title.textContent = "Shield";
+  const note = document.createElement("p");
+  note.className = "fine";
+  note.textContent = ((row && row.name) || "They") + " can cast Shield. +5 AC until the start of their next turn, including against this attack. Magic Missile does 0.";
+  const foot = document.createElement("div");
+  foot.className = "dlg-foot";
+  const pass = document.createElement("button");
+  pass.className = "btn";
+  pass.type = "button";
+  pass.textContent = "Pass";
+  const cast = document.createElement("button");
+  cast.className = "btn btn-primary";
+  cast.type = "button";
+  cast.textContent = "Cast Shield";
+  foot.appendChild(pass);
+  foot.appendChild(cast);
+  form.appendChild(title);
+  form.appendChild(note);
+  form.appendChild(foot);
+  dlg.appendChild(form);
+  document.body.appendChild(dlg);
+  let closed = false;
+  function finish(took) {
+    if (closed) return;
+    closed = true;
+    if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+    if (!took) { finishAll(false); return; }
+    Promise.resolve(castShieldNow(row)).then(() => finishAll(true), () => finishAll(true));
+  }
+  pass.addEventListener("click", () => finish(false));
+  cast.addEventListener("click", () => finish(true));
+  dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(false); });
+  try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+  catch (err) { dlg.setAttribute("open", ""); }
+}
+function attackWouldHit(req, ac) {
+  if (!req || req.misfire) return false;
+  const shots = req.shots;
+  const list = shots ? (Array.isArray(shots) ? shots : Object.keys(shots).map((k) => shots[k])) : null;
+  if (list && list.length) {
+    return list.some((s) => s && Number(s.nat) !== 1 && (Number(s.nat) === 20 || (ac != null && Number(s.total) >= Number(ac))));
+  }
+  const nat = Number(req.nat);
+  if (nat === 1) return false;
+  if (nat === 20) return true;
+  return ac != null && Number(req.hitTotal) >= Number(ac);
+}
+function breakEnemyConc(row, reason, spell) {
+  if (!row || row.kind === "player") return;
+  const name = spell || (row.spellMarks && row.spellMarks.conc) || row.concentration || "";
+  if (!name) return;
+  if (window.SSDNSSpellRiders && window.SSDNSSpellRiders.breakConc) {
+    const ended = window.SSDNSSpellRiders.breakConc(row.spellMarks || { conc: name }, name);
+    row.spellMarks = ended.bag;
+  }
+  row.concentration = "";
+  if (reason !== "failed save") DM.toast("CONC " + (row.name || "Enemy") + " — BROKEN (" + reason + ") → " + name + " ends");
+}
 function resolveIncomingAttack(req, reqId) {
   const rollId = req.rollId || reqId || "";
   const settled = rollId && window.SSDNSApplied && (window.SSDNSApplied.settled
@@ -7541,7 +7755,16 @@ function resolveIncomingAttack(req, reqId) {
     DM.pushLedger({ who: who, playerId: fromId, type: "alert", what: line, oldVal: null, newVal: "refused", flag: true, characterName: who });
     return;
   }
-  const ac = coverAdj.ac != null ? coverAdj.ac : knownNumber(row && row.ac);
+  let ac = coverAdj.ac != null ? coverAdj.ac : knownNumber(row && row.ac);
+  if (req._forcedAc != null && req._forcedAc !== "" && isFinite(Number(req._forcedAc))) ac = Number(req._forcedAc);
+  if (!req._shieldGo && attackWouldHit(req, ac) && rowCanShield(row)) {
+    req._shieldGo = true;
+    offerShieldDialog(row, (took) => {
+      if (took) req._forcedAc = (Number(ac) || 0) + 5;
+      resolveIncomingAttack(req, reqId);
+    });
+    return;
+  }
   const shown = window.SSDNSApplied && window.SSDNSApplied.publicEnemy
     ? window.SSDNSApplied.publicEnemy(row || { name: req.targetName, kind: "enemy" }, "", [])
     : { name: (row && row.name) || req.targetName || "enemy" };
@@ -7577,6 +7800,7 @@ function resolveIncomingAttack(req, reqId) {
         n1: req.n1,
         n2: req.n2,
         parts: req.parts,
+        dieMods: req.dieMods,
         total: req.hitTotal,
         ac: ac,
         revealAc: true,
@@ -7607,6 +7831,7 @@ function resolveIncomingAttack(req, reqId) {
     if (card) verdict.dmText = card.dmText;
     applyAmount = verdict.miss ? 0 : (Number(req.amount) || 0);
   }
+  if (req._forcedAc != null && verdict.miss) line += "\nMISS (Shield)";
   const feedId = rollId || reqId || DM.uid("hit");
   verdictFeed(feedId, line, req.characterName || shown.name || "");
   if (req.from) {
@@ -7738,6 +7963,25 @@ function applyRequest(req, reqId) {
       if (removed.length) writeSubjectConditions(subjectId, (row && row.kind) || "enemy", [], name, 1, {}, removed).catch(() => {});
     }
     if (!(amt > 0)) { markRequestResolved(reqId); return; }
+  }
+  if (!heal && req.magicMissile && !req._shieldGo && row) {
+    if (rowShieldUp(row)) {
+      DM.toast("Magic Missile does 0 (Shield).");
+      markRequestResolved(reqId);
+      return;
+    }
+    if (rowCanShield(row)) {
+      req._shieldGo = true;
+      offerShieldDialog(row, (took) => {
+        if (took) {
+          DM.toast("Magic Missile does 0 (Shield).");
+          markRequestResolved(reqId);
+          return;
+        }
+        applyRequest(req, reqId);
+      });
+      return;
+    }
   }
   if (!heal && req.onHit && req.condition && !req.save) {
     const caster = { id: req.from || "", name: who, kind: "player" };
@@ -8910,14 +9154,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.172-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.173-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.172-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.173-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

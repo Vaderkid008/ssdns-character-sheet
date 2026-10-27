@@ -308,9 +308,9 @@
 
   /* Numeric effects the sheet can apply. Everything else still logs its text and does not post 0 damage. */
   var BUFFS = {
-    "shield": { ac: 5, ms: 60000, label: "Shield: +5 AC for this round" },
+    "shield": { ac: 5, untilTurn: true, label: "Shield: +5 AC until the start of your next turn" },
     "shield of faith": { ac: 2, ms: 10 * 60000, label: "Shield of Faith: +2 AC" },
-    "mage armor": { mageArmor: true, ms: 8 * 3600000, label: "Mage Armor: AC 13 + Dex while you wear no armor" },
+    "mage armor": { mageArmor: true, ms: 8 * 3600000, conc: false, chip: "Mage Armor", label: "Mage Armor: AC 13 + Dex while you wear no armor" },
     "barkskin": { acFloor: 16, ms: 60 * 60000, label: "Barkskin: AC can't be below 16" },
     "haste": { ac: 2, ms: 60000, label: "Haste: +2 AC" },
     "false life": { temp: "1d4+4", label: "False Life: temporary hit points" },
@@ -320,16 +320,23 @@
     "goodberry": { heal: 1, label: "Goodberry: 1 hit point" },
     "healing word": { heal: 0 },
     "blade ward": { label: "Blade Ward: resistance to bludgeoning, piercing, and slashing from weapons until your next turn" },
-    "bless": { label: "Bless: +1d4 on attack rolls and saving throws" },
-    "bane": { label: "Bane: −1d4 on attack rolls and saving throws" },
+    "bless": { bless: true, conc: true, targets: 3, targetUp: 1, chip: "Blessed", die: "1d4", sign: 1, label: "Bless: +1d4 on attack rolls and saving throws" },
+    "bane": { bane: true, conc: true, save: "CHA", targets: 3, targetUp: 1, chip: "Baned", die: "1d4", sign: -1, label: "Bane: −1d4 on attack rolls and saving throws" },
     "guidance": { label: "Guidance: +1d4 on one ability check" },
     "resistance": { label: "Resistance: +1d4 on one saving throw" }
   };
 
   function buffOf(name, slot) {
-    var key = norm(name);
+    var key = norm(name).replace(/\s*\([^)]*\)/g, " ").replace(/\s+shell$/, "").replace(/\s+/g, " ").trim();
+    if (key === "dust skin") key = "mage armor";
+    if (key === "magnesium flash") key = "shield";
     if (!BUFFS[key]) return null;
     var buff = Object.assign({ name: key }, BUFFS[key]);
+    if (buff.targets) {
+      var base = 1;
+      var lv = Math.max(base, Number(slot) || base);
+      buff.targetCap = buff.targets + (buff.targetUp ? Math.max(0, lv - base) : 0);
+    }
     if (buff.tempPerSlot) {
       var lv = Math.max(1, Number(slot) || 1);
       var n = buff.tempPerSlot * lv;

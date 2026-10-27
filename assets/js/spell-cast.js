@@ -194,6 +194,14 @@
       if (opts.wildSpark && slot > 0 && nat1) return wildSparkLine();
       return "";
     }
+    /* Bless / Bane: one d4 on every attack roll. The caller passes active conditions. */
+    function takeAttackDie() {
+      var B = root.SSDNSSpellBuffs;
+      if (!B || !B.rollMods) return { delta: 0, text: "", parts: [] };
+      var pack = B.rollMods(opts.conditions || []);
+      return { delta: pack.delta || 0, text: pack.text || "", parts: pack.parts || [] };
+    }
+    function dieBit(die) { return die && die.text ? (" " + die.text) : ""; }
     function pack(text, attack, nat, crit, formula, result, detail, spark) {
       if (spark) text += " " + spark;
       if (row.note) text += " " + row.note;
@@ -228,7 +236,8 @@
       for (b = 0; b < beams; b++) {
         var beamPair = d20roll(opts.mode);
         var natb = beamPair.nat;
-        var tot = natb + atkBonus;
+        var dieb = takeAttackDie();
+        var tot = natb + atkBonus + dieb.delta;
         var critb = natb === 20;
         var missb = natb === 1;
         if (critb) anyCrit = true;
@@ -241,10 +250,10 @@
         if (!missb && ago) one.text = one.text.replace(/ = (-?\d+)$/, " (Agonizing) = $1");
         var push = (!missb && opts.repelling) ? 10 : 0;
         var face = missb ? " MISS" : ((critb ? " CRIT · on hit " : " on hit ") + one.text + (push ? " · push " + push + " ft" : ""));
-        bits.push("beam " + (b + 1) + " " + beamPair.shown + sign(atkBonus) + " = " + tot + face);
+        bits.push("beam " + (b + 1) + " " + beamPair.shown + sign(atkBonus) + dieBit(dieb) + " = " + tot + face);
         var beamAmt = missb ? 0 : Math.max(0, one.rolled.total);
         if (!missb) beamHit += beamAmt;
-        beamShots.push({ nat: natb, total: tot, amount: beamAmt, dice: missb ? "" : one.text, label: "beam " + (b + 1) + "/" + beams, push: push });
+        beamShots.push({ nat: natb, total: tot, amount: beamAmt, dice: missb ? "" : one.text, label: "beam " + (b + 1) + "/" + beams, push: push, dieText: dieb.text, dieDelta: dieb.delta });
       }
       var spark = sparkFor(anyMiss);
       var text = name + gun + " · spell attack " + sign(atkBonus) + " · " + bits.join("; ");
@@ -284,7 +293,8 @@
         } else {
           var rayPair = d20roll(opts.mode);
           var rn = rayPair.nat;
-          var rtot = rn + atkBonus;
+          var dier = takeAttackDie();
+          var rtot = rn + atkBonus + dier.delta;
           var rc = rn === 20;
           var rm = rn === 1;
           if (rc) rCrit = true;
@@ -292,10 +302,10 @@
           if (rNat == null || rc) rNat = rn;
           var rd = bundle(rayDice, rc && !rm);
           var rface = rm ? " MISS" : ((rc ? " CRIT · on hit " : " on hit ") + rd.text);
-          rbits.push("ray " + (r + 1) + " " + rayPair.shown + sign(atkBonus) + " = " + rtot + rface);
+          rbits.push("ray " + (r + 1) + " " + rayPair.shown + sign(atkBonus) + dieBit(dier) + " = " + rtot + rface);
           var rayAmt = rm ? 0 : rd.rolled.total;
           if (!rm) rayHit += rayAmt;
-          rayShots.push({ nat: rn, total: rtot, amount: rayAmt, dice: rm ? "" : rd.text, label: "ray " + (r + 1) + "/" + rays });
+          rayShots.push({ nat: rn, total: rtot, amount: rayAmt, dice: rm ? "" : rd.text, label: "ray " + (r + 1) + "/" + rays, dieText: dier.text, dieDelta: dier.delta });
         }
       }
       var rspark = sparkFor(rMiss);
@@ -326,9 +336,10 @@
       var nat = pair.nat;
       var crit = nat === 20;
       var miss = nat === 1;
-      var total = nat + bonus;
+      var dieA = takeAttackDie();
+      var total = nat + bonus + dieA.delta;
       var face = pair.n2 != null ? pair.shown : String(nat);
-      var head = name + gun + " · " + (kind === "weapon" ? "weapon attack " : "spell attack ") + sign(bonus) + ": " + face + sign(bonus) + " = " + total;
+      var head = name + gun + " · " + (kind === "weapon" ? "weapon attack " : "spell attack ") + sign(bonus) + ": " + face + sign(bonus) + dieBit(dieA) + " = " + total;
       if (kind === "weapon" && row.save) head += " · " + row.save + " save";
       var shapedDice = row.diceOn === "start" ? { parts: [], flat: 0 } : shaped();
       var hasDamage = (shapedDice.parts && shapedDice.parts.length) || shapedDice.flat || (row.weapon && opts.weaponDamage);
@@ -355,6 +366,7 @@
         barePack.noDamage = !!row.noDamage;
         barePack.condition = miss ? "" : (row.onHit || row.onFail || "");
         barePack.kind = kind;
+        barePack.dieMods = dieA.parts;
         if (row.hitSave) barePack.hitSave = row.hitSave;
         if (row.save && !miss) barePack.save = row.save;
         if (row.endSave) barePack.endSave = row.endSave;
@@ -387,6 +399,7 @@
       packed.alreadyHalf = !!(miss && row.missHalf);
       packed.damageDetail = dmgTotal ? (dmgBits + " = " + dmgTotal) : "";
       packed.kind = kind;
+      packed.dieMods = dieA.parts;
       if (row.save) packed.save = row.save;
       if (row.onFail) packed.condition = miss ? "" : row.onFail;
       if (row.hitSave) packed.hitSave = row.hitSave;

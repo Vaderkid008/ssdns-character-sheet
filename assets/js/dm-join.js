@@ -318,6 +318,14 @@
       sharpshooter: (c.feats || []).indexOf("sharpshooter") >= 0,
       /* N72: Gunsmoke Caster (War Caster). The DM reads this for a DM-run leave-reach Cast. */
       gunsmokeCaster: (c.feats || []).indexOf("gunsmoke-caster") >= 0,
+      hexBreaker: (c.feats || []).indexOf("hex-breaker") >= 0,
+      outOfTune: c.instrumentWear === "out-of-tune",
+      fingerpicksOn: !!c.fingerpicksOn,
+      concSpell: (c.spellMarks && c.spellMarks.conc) || "",
+      buffs: (c.buffs || []).map(function (b) {
+        if (!b) return null;
+        return { id: b.id || "", name: b.name || "", ac: b.ac || 0, mageArmor: !!b.mageArmor, untilTurn: !!b.untilTurn, until: b.until || 0 };
+      }).filter(Boolean),
       castList: (function () {
         var preparedIds = { "frontier-preacher": 1, "nature-guide": 1, "lawman": 1, "scholar": 1 };
         var prep = !!preparedIds[c.calling];
@@ -684,6 +692,7 @@
     if (entry.autoDamage) row.autoDamage = true;
     if (entry.noDamage) row.noDamage = true;
     if (entry.melee) row.melee = true;
+    if (entry.magicMissile || /magic missile|hex needles/i.test(entry.label || "") || /magic missile|hex needles/i.test(entry.spell || "")) row.magicMissile = true;
     if (entry.damageType) row.damageType = entry.damageType;
     if (entry.delayed) row.delayed = entry.delayed;
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
@@ -734,6 +743,7 @@
     if (entry.n1 != null && isFinite(Number(entry.n1))) row.n1 = Number(entry.n1);
     if (entry.n2 != null && isFinite(Number(entry.n2))) row.n2 = Number(entry.n2);
     if (Array.isArray(entry.parts) && entry.parts.length) row.parts = entry.parts.map(function (p) { return { label: String((p && p.label) || ""), value: Number(p && p.value) || 0 }; });
+    if (Array.isArray(entry.dieMods) && entry.dieMods.length) row.dieMods = entry.dieMods.map(function (p) { return { text: String((p && p.text) || ""), delta: Number(p && p.delta) || 0, label: String((p && p.label) || "") }; });
     if (Array.isArray(entry.dmgFaces) && entry.dmgFaces.length) row.dmgFaces = entry.dmgFaces.map(function (n) { return Number(n) || 0; });
     if (Array.isArray(entry.dmgParts) && entry.dmgParts.length) row.dmgParts = entry.dmgParts.map(function (p) { return { label: String((p && p.label) || ""), value: Number(p && p.value) || 0 }; });
     if (entry.dmgFormula) row.dmgFormula = String(entry.dmgFormula);
@@ -1493,6 +1503,9 @@
       case "set_conditions":
         if (root.SSDNSSheet && root.SSDNSSheet.setConditions) root.SSDNSSheet.setConditions(payload.list || [], payload);
         break;
+      case "spell_buff":
+        if (root.SSDNSSheet && root.SSDNSSheet.applyRemoteBuff) root.SSDNSSheet.applyRemoteBuff(payload);
+        break;
       case "rest":
         if (root.SSDNSSheet) root.SSDNSSheet.applyRest(payload.kind || "short");
         break;
@@ -1971,10 +1984,13 @@
       var exDis = root.SSDNSSheet && root.SSDNSSheet.condRollMode && root.SSDNSSheet.condRollMode("save") === "dis";
       var nat2 = null;
       if (exDis) { nat2 = 1 + Math.floor(Math.random() * 20); nat = Math.min(nat, nat2); }
-      var total = nat + mod;
+      var saveDie = root.SSDNSSpellBuffs && root.SSDNSSpellBuffs.rollMods
+        ? root.SSDNSSpellBuffs.rollMods((doc() && doc().character && doc().character.activeConditions) || [])
+        : { delta: 0, text: "" };
+      var total = nat + mod + (saveDie.delta || 0);
       var dc = Number(payload.dc);
       var failed = isFinite(dc) ? total < dc : false;
-      var line = ability + " save " + nat + sign + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (failed ? " FAIL" : " OK") + (nat === 20 ? " · natural 20" : "");
+      var line = ability + " save " + nat + sign + (saveDie.text ? (" " + saveDie.text) : "") + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (failed ? " FAIL" : " OK") + (nat === 20 ? " · natural 20" : "");
       if (exDis) line += " · disadvantage (Exhaustion " + root.SSDNSSheet.exhaustionLevel() + ")";
       postRoll({
         id: "save_" + payload.id,
@@ -2041,7 +2057,7 @@
       if (replay && root.SSDNSSheet.flashHp) root.SSDNSSheet.flashHp(text);
       return;
     }
-    root.SSDNSSheet.applyDelta(delta, text);
+    root.SSDNSSheet.applyDelta(delta, text, { hexBreaker: !!payload.hexBreaker, fromName: payload.fromName || "" });
     root.SSDNSSheet.addLog({ id: id ? "hp:" + id : "", kind: "hp", text: text });
     if (payload.dust && root.SSDNSApp && root.SSDNSApp.applyPatch) {
       root.SSDNSApp.applyPatch(function (doc) {
