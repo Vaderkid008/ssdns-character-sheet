@@ -198,7 +198,7 @@ window.SSDNSMap = { create(opts) {
       pos: t.pos ? { x: t.pos.x, y: t.pos.y } : { x: 0, y: 0 },
       color: t.color || '', torch: !!t.torch, status: t.status || '',
       lights: Array.isArray(t.lights) ? t.lights.map(l => Object.assign({}, l)) : [],
-      darkvision: Number(t.darkvision) || 0, skulker: !!t.skulker,
+      darkvision: Number(t.darkvision) || 0, skulker: !!t.skulker, devilsSight: !!t.devilsSight,
       facing: Number(t.facing) || 0, dmDoused: !!t.dmDoused,
       conditions: t.conditions ? [...t.conditions] : [],
       sceneId: t.sceneId || activeSceneId() || 'scn_dustyspur01', image: t.image || '',
@@ -256,6 +256,7 @@ window.SSDNSMap = { create(opts) {
     if (patch && patch.lights) safe.lights = patch.lights;
     if (patch && patch.darkvision != null) safe.darkvision = Number(patch.darkvision) || 0;
     if (patch && patch.skulker != null) safe.skulker = !!patch.skulker;
+    if (patch && patch.devilsSight != null) safe.devilsSight = !!patch.devilsSight;
     if (patch && patch.facing != null) safe.facing = Number(patch.facing) || 0;
     write('map/public/tokens/' + token.id + '/patch', safe);
   }
@@ -440,6 +441,9 @@ const state = {
   drawerOffhand: false,
   drawerFan: false,
   pendingTarget: null,
+  spellZones: [],
+  spellZonesLive: false,
+  zoneSeq: 0,
   role,
   uid,
   chat: [],
@@ -752,6 +756,7 @@ if (!el._nameMode) {
 }
 paintRoleBadge();
 function pushFeed(row) {
+  if (row && row.event === 'zone') { applyZoneFeed(row); return; }
   if (row && (row.fx || row.fxReq)) { try { fxFromFeed(row); } catch (e) {} }
   if (!row || row.kind === 'sfx') { if (row && host.sfx) host.sfx(row); return; }
   if (!audienceOk(row)) return;
@@ -1550,7 +1555,13 @@ function tokenLightList(t) {
   if (rows.length) {
     return rows.map(l => {
       const bright = Number(l.bright) || 0, dim = Number(l.dim) || 0;
-      return { x: c.x, y: c.y, bright: bright, dim: dim, radius: (bright + dim) / 5, cone: !!l.cone, facing: face, name: l.name || '' };
+      const ZL = window.SSDNSSpellZones;
+      const spellLevel = ZL && ZL.spellLightLevel ? ZL.spellLightLevel(l) : null;
+      return {
+        x: c.x, y: c.y, bright: bright, dim: dim, radius: (bright + dim) / 5, cone: !!l.cone, facing: face, name: l.name || '',
+        id: l.id || '', magical: !!(l.magical || l.spell || l.feature || spellLevel != null), spell: !!l.spell,
+        spellLevel: spellLevel, feature: !!l.feature
+      };
     });
   }
   if (t.torch) return [{ x: c.x, y: c.y, bright: 20, dim: 20, radius: 8, cone: false, facing: face, name: 'Torch' }];
@@ -1585,7 +1596,7 @@ function buildSight(viewerUid, sceneId, forceMode) {
     if (mode === 'own' && viewerUid && !mine) continue;
     const dv = Number(t.darkvision) || 0;
     const radius = dv > 0 ? dv / 5 : 2;
-    const bubble = { x: t.pos.x + (t.size || 1) / 2, y: t.pos.y + (t.size || 1) / 2, radius: radius, darkvision: dv, uid: t.ownerUid || '' };
+    const bubble = { x: t.pos.x + (t.size || 1) / 2, y: t.pos.y + (t.size || 1) / 2, radius: radius, darkvision: dv, devilsSight: !!t.devilsSight, uid: t.ownerUid || '' };
     out.bubbles.push(bubble);
     if (mine) { out.center = { x: bubble.x, y: bubble.y }; out.radius = radius; }
   }
@@ -1615,8 +1626,235 @@ function tokenSeenBy(t, sight) {
     if (shapeContains(shape, gx, gy)) visible = shape.op !== 'hide';
   });
   if (!visible) return false;
+  if (zoneHidesToken(t, sight)) return false;
   if (t.veil && t.ownerUid !== sight.uid) return false;
   return true;
+}
+function spellZoneList() {
+  if (state.spellZonesLive) return state.spellZones || [];
+  try {
+    const sd = sceneData();
+    if (sd && Array.isArray(sd.spellZones)) return sd.spellZones;
+  } catch (e) {}
+  return state.spellZones || [];
+}
+function zoneViewer(sight) {
+  const bubbles = (sight && sight.bubbles) || [];
+  const mine = sight && sight.uid ? bubbles.filter(b => b && b.uid === sight.uid) : [];
+  const pick = (mine.length ? mine : bubbles).filter(Boolean);
+  if (pick.length) return pick;
+  if (role === 'player') {
+    const t = (state.tokens || []).find(tok => tok && tok.ownerUid === uid && tok.pos);
+    if (!t) return [];
+    return [{ x: t.pos.x + (t.size || 1) / 2, y: t.pos.y + (t.size || 1) / 2, devilsSight: !!t.devilsSight, uid: uid }];
+  }
+  return [];
+}
+function zoneHidesPoint(gx, gy, sight) {
+  const Z = window.SSDNSSpellZones;
+  const zones = spellZoneList();
+  if (!Z || !Z.hides || !zones.length) return false;
+  const viewers = zoneViewer(sight);
+  if (!viewers.length) return Z.hides(gx, gy, zones, null);
+  return viewers.every(v => Z.hides(gx, gy, zones, v) || (Z.viewerBlinded && Z.viewerBlinded(v, zones) && Z.pointIn && zones.some(z => z.blindedInside && Z.pointIn(z, v.x, v.y))));
+}
+function zoneHidesToken(t, sight) {
+  if (!t || !t.pos) return false;
+  const gx = t.pos.x + (t.size || 1) / 2;
+  const gy = t.pos.y + (t.size || 1) / 2;
+  return zoneHidesPoint(gx, gy, sight);
+}
+function zoneStyle(key) {
+  const styles = {
+    darkness: ["rgba(0,0,0,0.88)", "rgba(90,90,120,0.95)"],
+    "fog cloud": ["rgba(186,186,196,0.62)", "rgba(230,230,236,0.95)"],
+    "hunger of hadar": ["rgba(18,0,28,0.84)", "rgba(150,60,190,0.95)"],
+    light: ["rgba(255,214,90,0.16)", "rgba(255,206,80,0.98)"],
+    daylight: ["rgba(255,236,160,0.2)", "rgba(255,230,120,0.98)"],
+    "wall of fire": ["rgba(255,90,16,0.5)", "rgba(255,150,40,0.98)"],
+    "wall of ice": ["rgba(150,220,255,0.42)", "rgba(190,240,255,0.98)"],
+    "wall of thorns": ["rgba(30,110,40,0.5)", "rgba(90,190,70,0.98)"],
+    "blade barrier": ["rgba(210,210,220,0.42)", "rgba(240,240,248,0.98)"],
+    "wind wall": ["rgba(214,184,120,0.34)", "rgba(230,200,140,0.95)"]
+  };
+  return styles[key] || ["rgba(200,180,80,0.28)", "rgba(230,210,120,0.95)"];
+}
+function zonePaintViewer() {
+  if (role !== "player") return null;
+  const t = (state.tokens || []).find(tok => tok && tok.ownerUid === uid && tok.pos);
+  if (!t) return { x: 0, y: 0, devilsSight: false };
+  return { x: t.pos.x + (t.size || 1) / 2, y: t.pos.y + (t.size || 1) / 2, devilsSight: !!t.devilsSight };
+}
+function traceZone(zone, px) {
+  if (!zone || !zone.origin || !state.scene) return false;
+  const wx = zone.origin.x * px;
+  const wy = zone.origin.y * px;
+  if (zone.shape !== "wall") {
+    const c = worldToScreen(wx, wy);
+    const r = Math.max(2, ((Number(zone.radius) || 0) / 5) * px * (state.view.zoom || 1));
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    return true;
+  }
+  const len = Number(zone.length) || 0;
+  const w = Number(zone.width) || 5;
+  const facing = Number(zone.facing) || 0;
+  const ft = px / 5;
+  const fx = Math.cos(facing), fy = Math.sin(facing), lx = -fy, ly = fx;
+  const corners = [[-len / 2, -w / 2], [len / 2, -w / 2], [len / 2, w / 2], [-len / 2, w / 2]];
+  ctx.beginPath();
+  corners.forEach((c, i) => {
+    const s = worldToScreen(wx + (fx * c[0] + lx * c[1]) * ft, wy + (fy * c[0] + ly * c[1]) * ft);
+    if (i === 0) ctx.moveTo(s.x, s.y);
+    else ctx.lineTo(s.x, s.y);
+  });
+  ctx.closePath();
+  return true;
+}
+function paintSpellZones() {
+  if (!state.scene) return;
+  const zones = spellZoneList();
+  if (!zones.length) return;
+  const px = state.scene.grid.px || 70;
+  const Z = window.SSDNSSpellZones;
+  const viewer = zonePaintViewer();
+  zones.forEach(zone => {
+    const style = zoneStyle(zone.key);
+    const obscures = !!(zone.heavilyObscured || zone.magicalDark || zone.noLight || zone.blindedInside);
+    let solid = role === "dm";
+    if (role === "player" && obscures && Z && Z.hides) {
+      solid = !viewer || Z.hides(zone.origin.x, zone.origin.y, [zone], viewer);
+    }
+    if (!traceZone(zone, px)) return;
+    ctx.save();
+    ctx.fillStyle = style[0];
+    ctx.globalAlpha = solid ? 1 : 0.4;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = style[1];
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+    if (zone.light) {
+      const brightFt = Number(zone.light.bright) || 0;
+      const dimFt = Number(zone.light.dim) || 0;
+      const wx = zone.origin.x * px;
+      const wy = zone.origin.y * px;
+      if (dimFt > 0) strokeRing(wx, wy, ((brightFt + dimFt) / 5) * px, "rgba(160,190,255,0.9)", "rgba(120,160,220,0.08)");
+      if (brightFt > 0) strokeRing(wx, wy, (brightFt / 5) * px, "rgba(255,206,80,0.98)", "rgba(255,196,60,0.16)");
+    }
+  });
+}
+function paintZoneBlind() {
+  if (role !== "player" || !state.scene) return;
+  const Z = window.SSDNSSpellZones;
+  const viewer = zonePaintViewer();
+  if (!Z || !viewer || !Z.viewerBlinded || !Z.viewerBlinded(viewer, spellZoneList())) return;
+  const box = viewBox();
+  ctx.save();
+  ctx.fillStyle = "rgba(6,0,10,0.92)";
+  ctx.fillRect(0, 0, box.w, box.h);
+  ctx.restore();
+}
+function stampDispelledLights() {
+  const Z = window.SSDNSSpellZones;
+  if (!Z || !Z.dispelledCarried) return;
+  const zones = spellZoneList();
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.pos || !Array.isArray(t.lights)) return;
+    const c = fxCenter(t);
+    if (!t._dispelledLights) t._dispelledLights = {};
+    Z.dispelledCarried(zones, t.lights.map(l => Object.assign({ x: c.x, y: c.y }, l))).forEach(l => {
+      const id = l.id || l.name;
+      if (id) t._dispelledLights[id] = true;
+    });
+    t.lights.forEach(l => {
+      if (l && t._dispelledLights[l.id || l.name]) { l.out = true; l._zoneOut = true; }
+    });
+  });
+}
+function adoptSpellZones(list, seq) {
+  state.spellZones = (Array.isArray(list) ? list : []).map(z => Object.assign({}, z));
+  state.spellZonesLive = true;
+  if (seq) state.zoneSeq = Number(seq) || state.zoneSeq;
+  stampDispelledLights();
+  requestDraw();
+}
+function persistSpellZones() {
+  if (role !== "dm") return;
+  try {
+    const sd = sceneData();
+    sd.spellZones = (state.spellZones || []).map(z => Object.assign({}, z));
+    sd.zoneSeq = state.zoneSeq;
+    saveScene();
+  } catch (e) {}
+}
+function publishZoneFeed(zones) {
+  if (!adapter || !adapter.write || !uid) return;
+  const id = "zone_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const row = {
+    id: id, ts: new Date().toISOString(), from: uid,
+    fromName: role === "dm" ? "DM" : "Player",
+    text: "zone", kind: "sfx", event: "zone",
+    zones: zones, zoneSeq: state.zoneSeq
+  };
+  try {
+    const p = adapter.write("tableFeed/" + id, row, { by: uid });
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+function applyZoneFeed(row) {
+  if (!row || row.event !== "zone" || !Array.isArray(row.zones)) return;
+  if (row.from && row.from === uid) return;
+  const seq = Number(row.zoneSeq) || 0;
+  if (state.spellZonesLive && seq && state.zoneSeq && seq < state.zoneSeq) return;
+  adoptSpellZones(row.zones, seq || Date.now());
+  persistSpellZones();
+}
+function setSpellZones(zones, opts) {
+  opts = opts || {};
+  const casterId = opts.casterId || "";
+  const incoming = Array.isArray(zones) ? zones : [];
+  const keep = (spellZoneList() || []).filter(z => casterId && z && z.casterId && z.casterId !== casterId);
+  const merged = keep.concat(incoming.map(z => Object.assign({}, z, { casterId: z.casterId || casterId })));
+  const Z = window.SSDNSSpellZones;
+  const settled = Z && Z.settle ? Z.settle(merged) : { zones: merged };
+  state.zoneSeq = Date.now();
+  adoptSpellZones(settled.zones, state.zoneSeq);
+  publishZoneFeed(state.spellZones);
+  persistSpellZones();
+}
+function tokenSnapshot(id) {
+  const t = tokenByRef(id);
+  if (!t || !t.pos) return null;
+  return {
+    id: t.id, x: Number(t.pos.x), y: Number(t.pos.y), size: t.size || 1,
+    devilsSight: !!t.devilsSight, darkvision: Number(t.darkvision) || 0,
+    name: t.name || t.label || ""
+  };
+}
+function noteZoneCross(mover, from, to) {
+  const Z = window.SSDNSSpellZones;
+  if (!Z || !Z.moveDue || !mover || !from || !to) return;
+  if (from.x === to.x && from.y === to.y) return;
+  const token = {
+    id: mover.combatantId || mover.ownerUid || mover.id,
+    name: mover.name || mover.label || "",
+    x: to.x, y: to.y, size: mover.size || 1
+  };
+  const ticks = Z.moveDue(spellZoneList(), from, to, token);
+  if (!ticks.length) return;
+  try { window.dispatchEvent(new CustomEvent("ssdns-zone-tick", { detail: { ticks: ticks, tokenId: mover.id, from: from, to: to } })); } catch (e) {}
+}
+function rangedWeaponShot(attack) {
+  if (!attack) return false;
+  const id = String(attack.id || "");
+  if (attack.spell || attack.kind === "spell" || id.indexOf("spell:") === 0) return false;
+  const blob = (String(attack.kind || "") + " " + String(attack.group || "") + " " + String(attack.type || "") + " " + String(attack.name || "")).toLowerCase();
+  if (/\bmelee\b/.test(blob) && !/\b(ranged|gun|firearm|bow|thrown|rifle|pistol)\b/.test(blob)) return false;
+  if (/\b(ranged|gun|firearm|bow|thrown|rifle|pistol)\b/.test(blob)) return true;
+  const n = parseInt(String(attack.range || attack.normal || ""), 10);
+  return n > 5;
 }
 /* the token a target id names (combatant id, token id, player uid, sheet id) */
 function targetToken(id) {
@@ -2475,6 +2713,8 @@ function draw() {
   paintRangeRings();
   paintMoveReach();
   paintClosedDoorGlyphs();
+  stampDispelledLights();
+  paintSpellZones();
 
   // tokens — this floor only. Players already skipped other scenes; the DM does too.
   for (const t of state.tokens) {
@@ -2758,6 +2998,7 @@ function draw() {
   paintPendingBanner();
   paintBlast();
   paintBlastBanner();
+  paintZoneBlind();
   refreshSelectedPanel();
 }
 
@@ -3198,11 +3439,24 @@ function rangeButtonNote(attack, targetId, shooterId) {
   if (!shooter || !tgt || !shooter.pos || !tgt.pos) return null;
   const id = String(attack.id || '');
   const spell = !!(attack.spell || attack.kind === 'spell' || id.indexOf('spell:') === 0);
-  return window.SSDNSRangeRings.resolve(Object.assign({}, attack, { spell: spell, kind: spell ? 'spell' : (attack.kind || '') }), feetBetween(shooter, tgt), {
+  const verdict = window.SSDNSRangeRings.resolve(Object.assign({}, attack, { spell: spell, kind: spell ? 'spell' : (attack.kind || '') }), feetBetween(shooter, tgt), {
     hasTarget: true,
     hostileFeet: nearestHostileFeet(shooter),
     override: role === 'dm' ? rangeOverrideNow() : 'auto'
   });
+  const Z = window.SSDNSSpellZones;
+  if (verdict && Z && Z.crossesWall && rangedWeaponShot(attack)) {
+    const walls = Z.crossesWall(spellZoneList(), fxCenter(shooter), fxCenter(tgt));
+    const ov = role === 'dm' ? rangeOverrideNow() : 'auto';
+    if (walls.length && ov !== 'ignore' && ov !== 'adv') {
+      verdict.disadvantage = true;
+      verdict.advantage = false;
+      const note = 'DIS: wind wall';
+      verdict.note = verdict.note ? (verdict.note + ' · ' + note) : note;
+      if (!verdict.button) verdict.button = 'DIS · wind wall';
+    }
+  }
+  return verdict;
 }
 /* 0.3.68: the DM range override is shared with the DMCC Fight tab picker (SSDNSRangeRings keeps it). */
 function rangeOverrideNow() {
@@ -4608,6 +4862,7 @@ function slideSegment(mover, built, fromIdx, toIdx, budget) {
   state.undoStack.push({ type: 'move', ids: [mover.id], from: { [mover.id]: origin }, to: { [mover.id]: { x: dest.x, y: dest.y } }, feet: budget && budget.free ? 0 : costFt });
   state.redoStack = [];
   markRangeMoved(mover.id, origin, dest);
+  noteZoneCross(mover, origin, { x: dest.x, y: dest.y });
   startSlide(mover.id, points);
   postSlide(mover.id, points);
   if (budget && !budget.free) {
@@ -5698,6 +5953,14 @@ function onPointerUp(e) {
     addFogShape({ op: fogOp(), kind: 'brush', cells: state.brushCells.map(c => ({ x: c.x, y: c.y })) });
     state.brushCells = null;
   }
+  if (wasTokenDrag && state.drag && state.drag.starts) {
+    Object.keys(state.drag.starts).forEach(id => {
+      const t = state.tokens.find(tok => tok && tok.id === id);
+      const origin = state.drag.starts[id];
+      if (!t || !origin || !t.pos) return;
+      noteZoneCross(t, origin, { x: t.pos.x, y: t.pos.y });
+    });
+  }
   pointers.delete(e.pointerId);
   if (pointers.size === 0) state.drag = null;
   state.fogStart = null;
@@ -5762,12 +6025,14 @@ function applyLightsToToken(token, profile, source) {
   else if (profile && profile.darkvision != null) dv = Number(profile.darkvision) || 0;
   else dv = Number(token.darkvision) || 0;
   const sk = profile && profile.skulker != null ? !!profile.skulker : !!token.skulker;
-  const sig = JSON.stringify({ lights: lights, dv: dv, sk: sk, doused: doused, torch: !!token.dmTorch, hand: token.dmDarkvision != null ? token.dmDarkvision : null });
+  const devil = profile && profile.devilsSight != null ? !!profile.devilsSight : !!token.devilsSight;
+  const sig = JSON.stringify({ lights: lights, dv: dv, sk: sk, devil: devil, doused: doused, torch: !!token.dmTorch, hand: token.dmDarkvision != null ? token.dmDarkvision : null });
   if (token._lightSig === sig) return false;
   token._lightSig = sig;
   token.lights = lights;
   token.darkvision = dv;
   token.skulker = sk;
+  token.devilsSight = devil;
   if (doused) token.torch = false;
   else if (token.dmTorch) token.torch = true;
   if (source === 'snap') token._lightFromSnap = true;
@@ -5775,6 +6040,7 @@ function applyLightsToToken(token, profile, source) {
   copy.lights = lights.map(l => Object.assign({}, l));
   copy.darkvision = dv;
   copy.skulker = sk;
+  copy.devilsSight = devil;
   copy.dmDoused = doused;
   copy.dmTorch = !!token.dmTorch;
   if (token.dmDarkvision != null && token.dmDarkvision !== '') copy.dmDarkvision = Number(token.dmDarkvision) || 0;
@@ -5785,6 +6051,7 @@ function applyLightsToToken(token, profile, source) {
     live.lights = lights.map(l => Object.assign({}, l));
     live.darkvision = dv;
     live.skulker = sk;
+    live.devilsSight = devil;
     live.dmDoused = doused;
     live.dmTorch = !!token.dmTorch;
     live._lightSig = sig;
@@ -5833,15 +6100,19 @@ function syncOwnerLights() {
   const me = state.tokens.find(t => t && t.id === want) || state.tokens.find(t => t && t.ownerUid === uid);
   if (!me) return;
   const lights = (profile.lights || []).map(l => Object.assign({}, l, { out: !!(me.dmDoused || l.out) }));
-  const sig = JSON.stringify({ lights: lights, darkvision: Number(profile.darkvision) || 0, skulker: !!profile.skulker });
-  if (me._lightSig === sig) return;
-  me._lightSig = sig;
-  me.lights = lights;
-  me.darkvision = Number(profile.darkvision) || 0;
-  me.skulker = !!profile.skulker;
-  const copy = shared.tokens[me.id];
-  if (copy) { copy.lights = lights.map(l => Object.assign({}, l)); copy.darkvision = me.darkvision; copy.skulker = me.skulker; }
-  publishPlayerPatch(me, { lights: lights, darkvision: me.darkvision, skulker: me.skulker });
+  const devil = !!profile.devilsSight;
+  const sig = JSON.stringify({ lights: lights, darkvision: Number(profile.darkvision) || 0, skulker: !!profile.skulker, devil: devil });
+  if (me._lightSig !== sig) {
+    me._lightSig = sig;
+    me.lights = lights;
+    me.darkvision = Number(profile.darkvision) || 0;
+    me.skulker = !!profile.skulker;
+    me.devilsSight = devil;
+    const copy = shared.tokens[me.id];
+    if (copy) { copy.lights = lights.map(l => Object.assign({}, l)); copy.darkvision = me.darkvision; copy.skulker = me.skulker; copy.devilsSight = devil; }
+    publishPlayerPatch(me, { lights: lights, darkvision: me.darkvision, skulker: me.skulker, devilsSight: devil });
+  }
+  stampDispelledLights();
 }
 function lightStatusText(token) {
   const owner = token && token.ownerUid;
@@ -9542,6 +9813,7 @@ async function loadSceneImage(sceneId, opts) {
         if (value.lights) cosmetic.lights = value.lights;
         if (value.darkvision != null) cosmetic.darkvision = Number(value.darkvision) || 0;
         if (value.skulker != null) cosmetic.skulker = !!value.skulker;
+        if (value.devilsSight != null) cosmetic.devilsSight = !!value.devilsSight;
       }
       Object.assign(t, cosmetic);
       /* ownerCanMove:false never reaches here (canControlBy). The snapshot write covers that case. */
@@ -9551,7 +9823,8 @@ async function loadSceneImage(sceneId, opts) {
         applyLightsToToken(live, {
           lights: value.lights || live.lights || [],
           darkvision: value.darkvision != null ? value.darkvision : live.darkvision,
-          skulker: value.skulker != null ? value.skulker : live.skulker
+          skulker: value.skulker != null ? value.skulker : live.skulker,
+          devilsSight: value.devilsSight != null ? value.devilsSight : live.devilsSight
         }, 'patch');
       } else if (role === 'dm') saveToken(id);
     } else if (value && (value.id || id)) {
@@ -9599,6 +9872,9 @@ async function loadSceneImage(sceneId, opts) {
         if (!Array.isArray(next.fogPolys)) next.fogPolys = [];
         const hadMeta = JSON.stringify((shared.scenes[sid] || {}).meta || null);
         shared.scenes[sid] = next;
+        if (Array.isArray(next.spellZones) && sid === activeSceneId() && (!state.spellZonesLive || (Number(next.zoneSeq) || 0) >= (state.zoneSeq || 0))) {
+          adoptSpellZones(next.spellZones, Number(next.zoneSeq) || 0);
+        }
         if (role === 'player' && state.scene && sid === getPlayerScene() && JSON.stringify(next.meta || null) !== hadMeta) loadSceneImage(sid);
         requestDraw();
       }
@@ -9835,6 +10111,9 @@ return {
   placeBlast,
   cancelBlast,
   tokensInBlast,
+  setSpellZones: setSpellZones,
+  spellZones: function () { return spellZoneList(); },
+  tokenSnapshot: function (id) { return tokenSnapshot(id); },
   /* fog-aware targeting */
   canPlayerSee: function (viewerUid, targetId) { return canPlayerSee(viewerUid, targetId); },
   /* N59: which closed doors this client paints a glyph for. Secret doors stay shown:false. */

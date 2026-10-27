@@ -10,6 +10,7 @@
   {"name": "Shocking Grasp", "level": 0, "kind": "attack", "dice": "1d8", "type": "lightning", "scale": "cantrip"},
   {"name": "Thorn Whip", "level": 0, "kind": "attack", "dice": "1d6", "type": "piercing", "scale": "cantrip"},
   {"name": "Vicious Mockery", "level": 0, "kind": "save", "save": "WIS", "dice": "1d4", "type": "psychic", "scale": "cantrip"},
+  {"name": "Light", "level": 0, "kind": "none"},
 
   {"name": "Arms of Hadar", "level": 1, "kind": "save", "save": "STR", "dice": "2d6", "type": "necrotic", "up": "1d6", "half": true, "onFail": "No reactions"},
   {"name": "Burning Hands", "level": 1, "kind": "save", "save": "DEX", "dice": "3d6", "type": "fire", "up": "1d6", "half": true},
@@ -35,6 +36,7 @@
   {"name": "Thunderwave", "level": 1, "kind": "save", "save": "CON", "dice": "2d8", "type": "thunder", "up": "1d8", "half": true},
   {"name": "Witch Bolt", "level": 1, "kind": "attack", "dice": "1d12", "type": "lightning", "up": "1d12"},
   {"name": "Wrathful Smite", "level": 1, "kind": "weapon", "dice": "1d6", "type": "psychic", "weapon": true, "save": "WIS", "onFail": "Frightened", "meleeOnly": true},
+  {"name": "Fog Cloud", "level": 1, "kind": "none", "conc": true},
 
   {"name": "Acid Arrow", "level": 2, "kind": "attack", "dice": "4d4", "type": "acid", "up": "1d4", "note": "2d4 acid at the end of the target's next turn", "missHalf": true, "delayed": "2d4", "delayedUp": true},
   {"name": "Branding Smite", "level": 2, "kind": "weapon", "dice": "2d6", "type": "radiant", "up": "1d6", "weapon": true},
@@ -47,17 +49,20 @@
   {"name": "Scorching Ray", "level": 2, "kind": "attack", "dice": "2d6", "type": "fire", "rays": 3, "rayUp": 1},
   {"name": "Shatter", "level": 2, "kind": "save", "save": "CON", "dice": "3d8", "type": "thunder", "up": "1d8", "half": true},
   {"name": "Spiritual Weapon", "level": 2, "kind": "attack", "dice": "1d8", "type": "force", "up": "1d8", "upEvery": 2, "healMod": true},
+  {"name": "Darkness", "level": 2, "kind": "none", "conc": true},
 
   {"name": "Blinding Smite", "level": 3, "kind": "weapon", "dice": "3d8", "type": "radiant", "weapon": true, "save": "CON", "onFail": "Blinded", "endSave": "CON", "meleeOnly": true},
   {"name": "Call Lightning", "level": 3, "kind": "save", "save": "DEX", "dice": "3d10", "type": "lightning", "up": "1d10", "half": true},
   {"name": "Conjure Barrage", "level": 3, "kind": "save", "save": "DEX", "dice": "3d8", "type": "the ammunition's type", "half": true},
   {"name": "Fireball", "level": 3, "kind": "save", "save": "DEX", "dice": "8d6", "type": "fire", "up": "1d6", "half": true},
-  {"name": "Hunger of Hadar", "level": 3, "kind": "auto", "dice": "2d6", "type": "cold", "note": "plus 2d6 acid, DEX save for none of the acid", "tickEnd": {"save": "DEX", "dice": "2d6", "type": "acid", "half": false}},
+  {"name": "Hunger of Hadar", "level": 3, "kind": "auto", "dice": "2d6", "type": "cold", "applyNow": false, "note": "2d6 cold at the start of each turn inside; DEX save or 2d6 acid at the end", "tickEnd": {"save": "DEX", "dice": "2d6", "type": "acid", "half": false}},
   {"name": "Lightning Arrow", "level": 3, "kind": "weapon", "dice": "4d8", "type": "lightning", "up": "1d8", "note": "the weapon's normal damage is replaced by this lightning", "missHalf": true, "replacesWeapon": true, "splash": {"radius": 10, "save": "DEX", "dice": "2d8", "type": "lightning", "half": true, "up": "1d8"}},
   {"name": "Lightning Bolt", "level": 3, "kind": "save", "save": "DEX", "dice": "8d6", "type": "lightning", "up": "1d6", "half": true},
   {"name": "Mass Healing Word", "level": 3, "kind": "heal", "dice": "1d4", "up": "1d4", "healMod": true},
   {"name": "Spirit Guardians", "level": 3, "kind": "save", "save": "WIS", "dice": "3d8", "type": "radiant", "up": "1d8", "half": true, "speed": "half"},
   {"name": "Vampiric Touch", "level": 3, "kind": "attack", "dice": "3d6", "type": "necrotic", "up": "1d6"},
+  {"name": "Daylight", "level": 3, "kind": "none"},
+  {"name": "Wind Wall", "level": 3, "kind": "save", "save": "STR", "dice": "3d8", "type": "bludgeoning", "half": true, "conc": true},
 
   {"name": "Blight", "level": 4, "kind": "save", "save": "CON", "dice": "8d8", "type": "necrotic", "up": "1d8", "half": true},
   {"name": "Fire Shield", "level": 4, "kind": "rider", "dice": "2d8", "type": "fire or cold", "conc": false, "dur": "10 min", "modes": ["warm", "chill"], "trigger": "meleeHitOnCaster", "light": {"bright": 10, "dim": 10}},
@@ -85,7 +90,7 @@
   {"name": "Harm", "level": 6, "kind": "save", "save": "CON", "dice": "14d6", "type": "necrotic", "half": true},
   {"name": "Heal", "level": 6, "kind": "heal", "dice": "70", "up": "10"},
   {"name": "Sunbeam", "level": 6, "kind": "save", "save": "CON", "dice": "6d8", "type": "radiant", "half": true},
-  {"name": "Wall of Ice", "level": 6, "kind": "save", "save": "DEX", "dice": "10d6", "type": "cold", "up": "2d6", "half": true},
+  {"name": "Wall of Ice", "level": 6, "kind": "save", "save": "DEX", "dice": "10d6", "type": "cold", "up": "2d6", "half": true, "tick": {"dice": "5d6", "type": "cold", "save": "CON", "half": true, "up": "1d6"}},
   {"name": "Wall of Thorns", "level": 6, "kind": "save", "save": "DEX", "dice": "7d8", "type": "piercing", "up": "1d8", "half": true, "through": "slashing"},
 
   {"name": "Delayed Blast Fireball", "level": 7, "kind": "save", "save": "DEX", "dice": "12d6", "type": "fire", "up": "1d6", "half": true, "note": "grows by 1d6 at the end of each of your turns before it goes off"},

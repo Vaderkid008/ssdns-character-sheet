@@ -176,10 +176,10 @@ check("src.allowPath", v2.includes("function resolvePlayerOa") && v2.includes("a
 check("src.join", join.includes("function onLeavePrompt") && join.includes('case "reactArm"') && join.includes("gunsmokeCaster") && join.includes('indexOf("gunsmoke-caster")') && join.includes("function enrichLeave"));
 check("src.map", map.includes("function reactorDmRuns") && map.includes("SSDNSLeaveHold") && map.includes("enrichLeave") && map.includes("playerOwns"));
 check("src.castSpend", pips.includes('cost: "reaction"') && pips.includes("oaCast") && lock.includes("oaCast") && prompt.includes("function oaCastEligible"));
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("oaCastEligible") && !read("assets/data/rules.js").includes("0.3.160") && !read("database.rules.json").includes("0.3.160") && read("assets/data/rules.js").includes('"id": "gunsmoke-caster"'));
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("oaCastEligible") && !read("assets/data/rules.js").includes("0.3.161") && !read("database.rules.json").includes("0.3.161") && read("assets/data/rules.js").includes('"id": "gunsmoke-caster"'));
 const ver = JSON.parse(read("version.json"));
-check("src.versions", ver.sheet === "0.3.160" && ver.dmcc === "0.2.173" && ver.sheetBuild === "sheet-playtest-v03160" && ver.dmccBuild === "dmcc-playtest-v02173", JSON.stringify(ver));
-check("src.banners", read("assets/js/app.js").includes('APP_VERSION = "0.3.160"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.173"'));
+check("src.versions", ver.sheet === "0.3.161" && ver.dmcc === "0.2.174" && ver.sheetBuild === "sheet-playtest-v03161" && ver.dmccBuild === "dmcc-playtest-v02174", JSON.stringify(ver));
+check("src.banners", read("assets/js/app.js").includes('APP_VERSION = "0.3.161"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.174"'));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

@@ -189,8 +189,20 @@
     }
     if (key === "hunger of hadar") {
       out.tickEnd = { save: "DEX", dice: "2d6", type: "acid", half: false };
+      out.applyNow = false;
+      out.conc = true;
     }
     if (key === "wall of thorns") { out.type = "piercing"; out.through = "slashing"; out.half = true; }
+    if (key === "wind wall") {
+      out.kind = "save";
+      out.save = "STR";
+      out.dice = "3d8";
+      out.type = "bludgeoning";
+      out.half = true;
+      out.conc = true;
+    }
+    if (key === "darkness") { out.level = out.level || 2; out.conc = true; }
+    if (key === "fog cloud" || key === "wall of fire" || key === "wall of ice" || key === "blade barrier") out.conc = true;
     if (key === "spirit guardians") { out.speed = "half"; out.half = true; }
     if (key === "armor of agathys") { out.tempPer = 5; out.retaliate = 5; out.retaliateType = "cold"; }
     if (key === "destructive wave") { out.onFail = "Prone"; }

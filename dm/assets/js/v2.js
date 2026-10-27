@@ -1802,6 +1802,110 @@ function nextLivingIndex(from) {
   return { index: next, wrapped: next <= from };
 }
 let turnGate = 0;
+function zoneTokenOf(row) {
+  const host = window.SSDNSMapHost;
+  if (!row || !host) return null;
+  const id = row.mapTokenId || row.playerId || row.id;
+  let snap = null;
+  if (typeof host.tokenSnapshot === "function") snap = host.tokenSnapshot(id) || host.tokenSnapshot(row.id) || host.tokenSnapshot(row.playerId);
+  if (!snap && typeof host.tokenPos === "function") {
+    const p = host.tokenPos(row.mapTokenId || row.id);
+    if (p) snap = { x: p.x, y: p.y, size: 1 };
+  }
+  if (!snap || snap.x == null) return null;
+  return { id: row.playerId || row.id, name: row.name || "", x: snap.x, y: snap.y, size: snap.size || 1 };
+}
+function zoneRoll(expr) {
+  const R = window.SSDNSSpellRiders;
+  if (R && R.rollExpr) return R.rollExpr(expr, false);
+  return { formula: String(expr || ""), faces: [], total: 0 };
+}
+function zoneApplyAmount(tick, who, caster, amount) {
+  if (!(amount > 0) || fight.damageMode === "approve") {
+    if (amount > 0) DM.toast((tick.spell || "Zone") + " " + (tick.formula || tick.dice || "") + " = " + amount + " " + (tick.type || "") + " (held)");
+    return;
+  }
+  applyPlayerHit({
+    rollId: DM.uid("zone"), targetId: who.playerId || who.id, targetName: who.name,
+    amount: amount, from: (caster && (caster.playerId || caster.id)) || "", characterName: (caster && caster.name) || "",
+    label: tick.spell || "Zone", weapon: tick.spell || "", type: "damage", dice: tick.formula || tick.dice || ""
+  });
+}
+function zonePhase(who, when) {
+  const Z = window.SSDNSSpellZones;
+  if (!Z || !Z.phaseDue || !who) return;
+  const token = zoneTokenOf(who);
+  if (!token) return;
+  (fight.order || []).forEach((caster) => {
+    if (!caster || !caster.spellMarks) return;
+    Z.phaseDue(caster.spellMarks, token, when).forEach((tick) => {
+      if (tick.save) {
+        const dc = tick.dc != null ? tick.dc : (caster.card && caster.card.spellcasting ? caster.card.spellcasting.dc : "");
+        DM.toast("SAVE " + (tick.spell || "Zone") + " " + when + " " + tick.save + (tick.dice ? " or " + tick.dice + " " + (tick.type || "") : ""));
+        if (dc === "" || dc == null || !isFinite(Number(dc))) return;
+        requestPlayerSave({
+          targetId: who.playerId || who.id, targetName: who.name, ability: tick.save, dc: dc,
+          label: tick.spell || "Zone", damage: (tick.dice || "") + " " + (tick.type || ""), fromName: caster.name || ""
+        }).then((save) => {
+          if (!save) return;
+          const rolled = zoneRoll(tick.dice);
+          let amount = rolled.total;
+          if (!save.failed) amount = tick.half ? Math.floor(amount / 2) : 0;
+          zoneApplyAmount(Object.assign({}, tick, { formula: rolled.formula }), who, caster, amount);
+        }).catch(() => {});
+        return;
+      }
+      zoneApplyAmount(tick, who, caster, tick.amount);
+    });
+  });
+}
+function adoptCastZone(row, name, placed, slot, dc) {
+  const Z = window.SSDNSSpellZones;
+  if (!Z || !Z.isZone || !Z.isZone(name) || !placed) return "";
+  const casterId = (row && (row.playerId || row.id)) || "";
+  if (row && window.SSDNSSpellRiders && window.SSDNSSpellRiders.breakConc) {
+    const bag = window.SSDNSSpellRiders.emptyBag(row.spellMarks);
+    if (bag.conc && String(bag.conc).toLowerCase() !== String(name || "").toLowerCase()) {
+      const ended = window.SSDNSSpellRiders.breakConc(bag, bag.conc);
+      row.spellMarks = ended.bag;
+    }
+  }
+  const zone = Z.buildZone(name, placed, { slot: slot, casterId: casterId, dc: dc });
+  if (!zone) return "";
+  const put = Z.place(row && row.spellMarks, zone);
+  if (row) row.spellMarks = put.bag;
+  const host = window.SSDNSMapHost;
+  if (host && typeof host.setSpellZones === "function") {
+    try { host.setSpellZones((put.bag && put.bag.zones) || [], { casterId: casterId }); } catch (e) {}
+  }
+  return put.log || "";
+}
+window.addEventListener("ssdns-zone-tick", (ev) => {
+  const ticks = ev && ev.detail && ev.detail.ticks;
+  if (!ticks || !ticks.length || typeof fight === "undefined" || !fight) return;
+  const tokenId = ev.detail.tokenId;
+  const who = (fight.order || []).find((r) => r && (r.mapTokenId === tokenId || r.id === tokenId || r.playerId === tokenId)) || { id: tokenId, name: (ticks[0] && ticks[0].targetName) || "Someone" };
+  ticks.forEach((tick) => {
+    const caster = (fight.order || []).find((r) => r && r.spellMarks && (r.spellMarks.zones || []).some((z) => z && z.id === tick.zoneId)) || null;
+    if (tick.auto || !tick.save) {
+      zoneApplyAmount(tick, who, caster, tick.amount);
+      return;
+    }
+    const dc = tick.dc != null ? tick.dc : (caster && caster.card && caster.card.spellcasting ? caster.card.spellcasting.dc : "");
+    DM.toast("SAVE " + (tick.spell || "Zone") + " " + tick.save + (tick.dice ? " or " + tick.dice + " " + (tick.type || "") : ""));
+    if (dc === "" || dc == null || !isFinite(Number(dc))) return;
+    requestPlayerSave({
+      targetId: who.playerId || who.id, targetName: who.name, ability: tick.save, dc: dc,
+      label: tick.spell || "Zone", damage: (tick.dice || "") + " " + (tick.type || ""), fromName: (caster && caster.name) || ""
+    }).then((save) => {
+      if (!save) return;
+      const rolled = zoneRoll(tick.dice);
+      let amount = rolled.total;
+      if (!save.failed) amount = tick.half ? Math.floor(amount / 2) : 0;
+      zoneApplyAmount(Object.assign({}, tick, { formula: rolled.formula }), who, caster, amount);
+    }).catch(() => {});
+  });
+});
 function nextTurn() {
   const now = Date.now();
   if (now - turnGate < 600) return;
@@ -1814,6 +1918,7 @@ function nextTurn() {
   ensurePlayers();
   fight.turn = parseInt(fight.turn, 10);
   if (!isFinite(fight.turn) || fight.turn < 0) fight.turn = 0;
+  if (fight.started) zonePhase(fight.order[fight.turn], "end");
   if (!fight.started) {
     sortInitiative();
     fight.started = true;
@@ -1855,6 +1960,7 @@ function nextTurn() {
       });
     });
   }
+  if (phaseWho) zonePhase(phaseWho, "start");
   fight.flash = fight.turn;
   /* T2: stamp the new current combatant's own turn start; Undo last Next can put this back */
   if (window.SSDNSTurn) window.SSDNSTurn.beginTurn(fight, before);
@@ -6628,12 +6734,16 @@ function noteConcentration(row, name) {
 function spendSpellSlot(card, level) {
   if (level && card && card.slots && card.slots[level]) card.slots[level].left -= 1;
 }
-function areaSpellOf(name, known, kind) {
+function areaSpellOf(name, known, kind, slot) {
   const Area = window.SSDNSSpellArea;
   if (!Area || !Area.areaOf) return null;
   if (kind === "attack" || kind === "weapon") return null;
   if (kind === "auto" && known && known.rays) return null;
-  return Area.areaOf(name);
+  let area = Area.areaOf(name);
+  const Z = window.SSDNSSpellZones;
+  const sl = slot || (known && known.level) || 0;
+  if (Z && Z.dressArea) area = Z.dressArea(name, area, sl);
+  return area;
 }
 async function castAreaSpell(opts) {
   opts = opts || {};
@@ -6668,6 +6778,9 @@ async function castAreaSpell(opts) {
   let detail = (opts.who || "Someone") + " casts " + opts.name;
   if (rolled && rolled.text) detail += " · " + rolled.text;
   detail += names.length ? (" · " + names.join(", ")) : " · nobody in the area";
+  const zoneLine = adoptCastZone(opts.row, opts.name, placed, opts.slotLevel, opts.dc);
+  if (zoneLine) detail += " · " + zoneLine;
+  const defer = window.SSDNSSpellZones && window.SSDNSSpellZones.defersCast && window.SSDNSSpellZones.defersCast(opts.name);
   const kind = opts.kind || (opts.known && opts.known.kind) || "none";
   const full = rolled ? (Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0) : 0;
   const half = !!(opts.known && opts.known.half) || !!(rolled && rolled.half);
@@ -6679,7 +6792,7 @@ async function castAreaSpell(opts) {
         from: opts.fromId, characterName: opts.who, label: opts.name, weapon: opts.name, type: "heal"
       });
     });
-  } else if ((kind === "save" || kind === "auto") && (full > 0 || cond)) {
+  } else if (!defer && (kind === "save" || kind === "auto") && (full > 0 || cond)) {
     for (const t of tokens) {
       const tid = t.combatantId || t.ownerUid || t.id;
       let amount = full;
@@ -6789,7 +6902,7 @@ async function cardCast(i, n, opts) {
     else if (window.SSDNSAudio) window.SSDNSAudio.play(castCue);
     else playTableSfx("spellcast");
   };
-  const area = areaSpellOf(name, known, kind);
+  const area = areaSpellOf(name, known, kind, level);
   if (area) {
     const outcome = await castAreaSpell({
       name: name, known: known, kind: kind, row: row, area: area,
@@ -9154,14 +9267,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.173-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.174-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.173-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.174-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

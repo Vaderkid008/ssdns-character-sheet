@@ -189,6 +189,15 @@
   function knowsOwlEyes(c) {
     return knownNames(c).some(function (n) { return spellKey(n) === "spell:darkvision"; });
   }
+  function hasDevilsSight(c) {
+    var inv = [].concat((c && c.invocations) || [], (c && c.invocation) || []);
+    var hit = false;
+    inv.forEach(function (row) {
+      var name = typeof row === "string" ? row : ((row && (row.name || row.id)) || "");
+      if (/devil/i.test(name) && /sight/i.test(name)) hit = true;
+    });
+    return hit;
+  }
   /* What the map token should carry. DM douse is applied by the map, not here. */
   function tokenProfile(c) {
     return {
@@ -196,7 +205,8 @@
         return { id: l.id, name: l.name, bright: l.bright, dim: l.dim, cone: !!l.cone, out: false };
       }),
       darkvision: darkvisionFeet(c),
-      skulker: hasSkulker(c)
+      skulker: hasSkulker(c),
+      devilsSight: hasDevilsSight(c)
     };
   }
   function squares(feet) { return num(feet) / FT; }
@@ -335,7 +345,7 @@
     FT: FT, TABLE: TABLE, specFor: specFor, radii: radii, handsUsed: handsUsed, hold: hold, setHood: setHood,
     setSpell: setSpell, douseItem: douseItem, litItem: litItem, activeLights: activeLights, spellLights: spellLights,
     knownNames: knownNames, spellKey: spellKey, knowsOwlEyes: knowsOwlEyes, darkvisionFeet: darkvisionFeet,
-    hasSkulker: hasSkulker, tokenProfile: tokenProfile, squares: squares, rawLevel: rawLevel, seenLevel: seenLevel,
+    hasSkulker: hasSkulker, hasDevilsSight: hasDevilsSight, tokenProfile: tokenProfile, squares: squares, rawLevel: rawLevel, seenLevel: seenLevel,
     applyDarkvision: applyDarkvision, perceptionNote: perceptionNote, paintBox: paintBox
   };
 })(typeof window !== "undefined" ? window : globalThis);
