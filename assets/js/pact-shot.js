@@ -163,10 +163,28 @@
     return { ok: true, index: bayonetIndex(c) };
   }
 
+  /* Agonizing adds CHA to every beam. Repelling pushes 10 ft on each hit. CHA comes from the sheet, then a passed mod. */
+  function blastMods(c) {
+    var ch = c || characterOf(null);
+    var inv = (ch && (ch.invocations || ch.invocation)) || [];
+    var bag = Array.isArray(inv) ? inv.join(" ") : String(inv || "");
+    var cha = NaN;
+    if (ch && ch.chaMod != null && ch.chaMod !== "") cha = Number(ch.chaMod);
+    if (!isFinite(cha)) {
+      try {
+        var comp = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : null;
+        if (comp && comp.mods && comp.mods.CHA != null && comp.mods.CHA !== "") cha = Number(comp.mods.CHA);
+      } catch (e) {}
+    }
+    if (!isFinite(cha) && ch && ch.spellMod != null && ch.spellMod !== "") cha = Number(ch.spellMod);
+    if (!isFinite(cha)) cha = 0;
+    return { agonizing: /agonizing/i.test(bag), repelling: /repelling/i.test(bag), cha: cha };
+  }
+
   root.SSDNSPactShot = {
     NAME: NAME, isPactShot: isPactShot, applies: applies, has: has, countable: countable, ensure: ensure, migrate: migrate,
     swapPending: swapPending, SWAP_NOTE: SWAP_NOTE, FREE_TAG: FREE_TAG, quickSpells: quickSpells,
-    VARIANTS: VARIANTS, variant: variant, rollCone: rollCone,
+    VARIANTS: VARIANTS, variant: variant, rollCone: rollCone, blastMods: blastMods,
     BOONS: BOONS, boonOpen: boonOpen, bayonet: bayonet, bayonetIndex: bayonetIndex, setBayonetForm: setBayonetForm
   };
 })(typeof window !== "undefined" ? window : globalThis);

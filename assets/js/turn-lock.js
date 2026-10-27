@@ -295,6 +295,12 @@
     var hpEl = document.getElementById("inHPCur");
     var hp = num(hpEl && hpEl.value !== "" ? hpEl.value : c.hpCurrent, NaN);
     if (!isFinite(hp) || hp > 0) return;
+    if (c.disintegrated) return;
+    var dusted = (c.activeConditions || []).some(function (row) {
+      var name = typeof row === "string" ? row : (row && row.name);
+      return /disintegrat/i.test(String(name || ""));
+    });
+    if (dusted) return;
     var ds = c.deathSaves || {};
     var s = (ds.success || []).filter(Boolean).length, f = (ds.fail || []).filter(Boolean).length;
     if (s >= 3 || f >= 3) return;

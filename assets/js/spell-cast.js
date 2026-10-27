@@ -220,6 +220,11 @@
       var beamShown = [];
       var beamShots = [];
       var beamHit = 0;
+      var ago = 0;
+      if (opts.agonizing) {
+        ago = Number(opts.chaMod);
+        if (!isFinite(ago)) ago = 0;
+      }
       for (b = 0; b < beams; b++) {
         var beamPair = d20roll(opts.mode);
         var natb = beamPair.nat;
@@ -230,12 +235,16 @@
         if (missb) anyMiss = true;
         if (shown == null || critb) shown = natb;
         beamShown.push(beamPair.shown);
-        var one = bundle(parseDice(row.dice || "1d10"), critb && !missb);
-        var face = missb ? " MISS" : ((critb ? " CRIT · on hit " : " on hit ") + one.text);
+        var beamDice = parseDice(row.dice || "1d10");
+        if (!missb && ago) beamDice.flat = (beamDice.flat || 0) + ago;
+        var one = bundle(beamDice, critb && !missb);
+        if (!missb && ago) one.text = one.text.replace(/ = (-?\d+)$/, " (Agonizing) = $1");
+        var push = (!missb && opts.repelling) ? 10 : 0;
+        var face = missb ? " MISS" : ((critb ? " CRIT · on hit " : " on hit ") + one.text + (push ? " · push " + push + " ft" : ""));
         bits.push("beam " + (b + 1) + " " + beamPair.shown + sign(atkBonus) + " = " + tot + face);
-        var beamAmt = missb ? 0 : one.rolled.total;
+        var beamAmt = missb ? 0 : Math.max(0, one.rolled.total);
         if (!missb) beamHit += beamAmt;
-        beamShots.push({ nat: natb, total: tot, amount: beamAmt, dice: missb ? "" : one.text, label: "beam " + (b + 1) });
+        beamShots.push({ nat: natb, total: tot, amount: beamAmt, dice: missb ? "" : one.text, label: "beam " + (b + 1) + "/" + beams, push: push });
       }
       var spark = sparkFor(anyMiss);
       var text = name + gun + " · spell attack " + sign(atkBonus) + " · " + bits.join("; ");
@@ -248,6 +257,8 @@
       packedBeams.damageTotal = beamHit;
       packedBeams.damageDetail = beamShots.map(function (shot) { return shot.amount ? shot.dice : ""; }).filter(Boolean).join("; ");
       packedBeams.kind = "attack";
+      packedBeams.assign = "beam";
+      packedBeams.beamCount = beams;
       return packedBeams;
     }
 
@@ -284,7 +295,7 @@
           rbits.push("ray " + (r + 1) + " " + rayPair.shown + sign(atkBonus) + " = " + rtot + rface);
           var rayAmt = rm ? 0 : rd.rolled.total;
           if (!rm) rayHit += rayAmt;
-          rayShots.push({ nat: rn, total: rtot, amount: rayAmt, dice: rm ? "" : rd.text, label: "ray " + (r + 1) });
+          rayShots.push({ nat: rn, total: rtot, amount: rayAmt, dice: rm ? "" : rd.text, label: "ray " + (r + 1) + "/" + rays });
         }
       }
       var rspark = sparkFor(rMiss);
@@ -303,6 +314,8 @@
         packedRays.damageTotal = rayHit;
         packedRays.damageDetail = rayShots.map(function (shot) { return shot.amount ? shot.dice : ""; }).filter(Boolean).join("; ");
         packedRays.kind = "attack";
+        packedRays.assign = "ray";
+        packedRays.rayCount = rays;
       }
       return packedRays;
     }
@@ -398,6 +411,7 @@
     if (kind === "save") {
       var saveRoll = bundle(shaped(), false);
       var half = row.half ? " (half on a successful save)" : "";
+      if (row.onSave === "none") half = " (none on a successful save)";
       if (row.damageAuto) half = " (automatic; " + (row.save || "CON") + " save only to drop)";
       var laterNote = "";
       if (row.castDamage === false) laterNote = " · failed save: " + (row.onFail || "a condition") + " only; " + ((row.later && row.later.dice) || row.dice || "") + " on a failed end-of-turn save";
@@ -407,8 +421,10 @@
       savePack.damageTotal = row.castDamage === false ? saveRoll.rolled.total : saveRoll.rolled.total;
       savePack.damageDetail = saveRoll.text;
       savePack.kind = "save";
-      savePack.half = !!row.half && !row.damageAuto;
+      savePack.half = !!row.half && !row.damageAuto && row.onSave !== "none";
       savePack.save = row.save || "";
+      if (row.onSave) savePack.onSave = row.onSave;
+      if (row.zeroHp) savePack.zeroHp = row.zeroHp;
       savePack.autoDamage = !!row.damageAuto;
       savePack.applyNow = row.applyNow !== false && row.castDamage !== false;
       savePack.condition = row.onFail || "";

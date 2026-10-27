@@ -236,6 +236,8 @@
       calling: c.calling || "",
       callingId: c.calling || "",
       level: c.level || 1,
+      invocations: c.invocations || c.invocation || [],
+      borrowedIronAway: !!c.borrowedIronAway,
       subclass: c.subclass || "",
       ironRevealed: !!c.ironRevealed, /* 0.3.96: Pact Seeker's Borrowed Iron shown to the player (DMCC Reveal button) */
       background: c.background || "",
@@ -672,6 +674,7 @@
       row.dc = entry.dc;
       row.half = !!entry.half;
       if (entry.onSave) row.onSave = entry.onSave;
+      if (entry.zeroHp) row.zeroHp = entry.zeroHp;
     }
     if (entry.condition) row.condition = entry.condition;
     if (entry.onHit) row.onHit = true;
@@ -2040,6 +2043,14 @@
     }
     root.SSDNSSheet.applyDelta(delta, text);
     root.SSDNSSheet.addLog({ id: id ? "hp:" + id : "", kind: "hp", text: text });
+    if (payload.dust && root.SSDNSApp && root.SSDNSApp.applyPatch) {
+      root.SSDNSApp.applyPatch(function (doc) {
+        if (!doc.character) return;
+        doc.character.disintegrated = true;
+        doc.character.deathSaves = { success: [false, false, false], fail: [false, false, false] };
+      });
+      if (root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "Disintegrated (dust). No death saves." });
+    }
   }
   /* Sheet cost for a DM gun command. Reload matches reloadCost (Quick Reload bonus, slow full turn). */
   function gunCommandPip(payload) {

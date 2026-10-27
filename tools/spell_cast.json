@@ -76,7 +76,7 @@
   {"name": "Blade Barrier", "level": 6, "kind": "save", "save": "DEX", "dice": "6d10", "type": "slashing", "half": true},
   {"name": "Chain Lightning", "level": 6, "kind": "save", "save": "DEX", "dice": "10d8", "type": "lightning", "up": null, "half": true, "targets": 4, "targetUp": 1},
   {"name": "Circle of Death", "level": 6, "kind": "save", "save": "CON", "dice": "8d6", "type": "necrotic", "up": "2d6", "half": true},
-  {"name": "Disintegrate", "level": 6, "kind": "save", "save": "DEX", "dice": "10d6+40", "type": "force", "up": "3d6", "note": "no damage on a successful save"},
+  {"name": "Disintegrate", "level": 6, "kind": "save", "save": "DEX", "dice": "10d6+40", "type": "force", "up": "3d6", "onSave": "none", "zeroHp": "disintegrated"},
   {"name": "Freezing Sphere", "level": 6, "kind": "save", "save": "CON", "dice": "10d6", "type": "cold", "up": "1d6", "half": true},
   {"name": "Harm", "level": 6, "kind": "save", "save": "CON", "dice": "14d6", "type": "necrotic", "half": true},
   {"name": "Heal", "level": 6, "kind": "heal", "dice": "70", "up": "10"},
