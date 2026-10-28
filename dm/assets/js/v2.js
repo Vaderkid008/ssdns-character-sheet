@@ -1906,6 +1906,174 @@ window.addEventListener("ssdns-zone-tick", (ev) => {
     }).catch(() => {});
   });
 });
+function riderDc(caster) {
+  if (!caster) return null;
+  const cardDc = caster.card && caster.card.spellcasting ? caster.card.spellcasting.dc : null;
+  if (cardDc != null && cardDc !== "" && isFinite(Number(cardDc))) return Number(cardDc);
+  const pid = caster.playerId || (caster.kind === "player" ? caster.id : "");
+  const snap = pid && DM.state.players && DM.state.players[pid] && DM.state.players[pid].snapshot;
+  if (snap && snap.spellDC != null && snap.spellDC !== "" && isFinite(Number(snap.spellDC))) return Number(snap.spellDC);
+  return null;
+}
+function dropChipNames(who, names) {
+  if (!who || !names || !names.length || !window.SSDNSConditions) return;
+  const subjectId = who.kind === "player" ? (who.playerId || who.id) : (who.id || who.playerId);
+  if (!subjectId) return;
+  const kind = who.kind === "player" ? "player" : "enemy";
+  const current = conditionsForRow(who);
+  const want = {};
+  names.forEach((n) => { if (n) want[String(n).toLowerCase()] = 1; });
+  const removeIds = current.filter((c) => c && want[String(c.name || "").toLowerCase()]).map((c) => c.id).filter(Boolean);
+  if (!removeIds.length) return;
+  writeSubjectConditions(subjectId, kind, [], who.name || "", 1, {}, removeIds).catch(() => {});
+}
+function commitRider(caster, known, opts) {
+  const R = window.SSDNSSpellRiders;
+  if (!R || !R.landResolved || !caster || !known) return null;
+  opts = opts || {};
+  const landed = R.landResolved(caster.spellMarks, {
+    row: known,
+    name: known.name || opts.name || "",
+    slot: opts.slot,
+    targetId: opts.targetId || "",
+    targetName: opts.targetName || "",
+    casterId: caster.playerId || caster.id || "",
+    hit: opts.hit !== false && !opts.miss,
+    miss: !!opts.miss || opts.hit === false,
+    crit: !!opts.crit,
+    failed: opts.failed,
+    disease: opts.disease || "",
+    rolledDelayed: opts.rolledDelayed || null
+  });
+  if (!landed || !landed.changed) return landed;
+  caster.spellMarks = landed.bag;
+  (landed.chips || []).forEach((ch) => {
+    if (!ch || !ch.name || !ch.targetId) return;
+    rememberCondition(caster, { id: ch.targetId, name: opts.targetName || ch.targetId }, ch.name, null, { spell: ch.spell || known.name || "", conc: !!ch.conc }).catch(() => {});
+  });
+  (landed.logs || []).forEach((line) => { if (line) DM.toast(line); });
+  return landed;
+}
+function absorbRider(req, outcome) {
+  const Cast = window.SSDNSSpellCast;
+  if (!window.SSDNSSpellRiders || !window.SSDNSSpellRiders.landResolved || !Cast || !Cast.lookup || !req) return;
+  const rollId = String(req.rollId || "");
+  if (rollId.indexOf("cond_") === 0 || req.removeCondition) return;
+  const name = (typeof req.spell === "string" && req.spell) || req.spellName || req.label || "";
+  const known = Cast.lookup(name);
+  if (!known) return;
+  fight.landedRiders = fight.landedRiders || {};
+  const key = rollId || (name + ":" + (req.targetId || "") + ":" + (req.ts || ""));
+  if (fight.landedRiders[key]) return;
+  ensurePlayers();
+  const caster = findCombatant({ id: req.from, playerId: req.from });
+  if (!caster) return;
+  outcome = outcome || {};
+  const miss = outcome.miss != null ? !!outcome.miss : req.hit === false;
+  const hit = outcome.hit != null ? !!outcome.hit : !miss;
+  const failed = outcome.failed != null ? !!outcome.failed : (req.save ? false : hit);
+  fight.landedRiders[key] = 1;
+  const delayed = (req.delayed != null && req.delayed !== "") ? {
+    formula: req.delayedDice || "",
+    total: Number(req.delayed) || 0,
+    faces: []
+  } : null;
+  commitRider(caster, known, {
+    slot: req.slot != null && req.slot !== "" ? req.slot : known.level,
+    targetId: req.targetId,
+    targetName: req.targetName || "",
+    hit: hit && !miss,
+    miss: miss,
+    crit: !!(outcome.crit || req.crit),
+    failed: failed,
+    disease: req.disease || "",
+    rolledDelayed: delayed && (delayed.total || delayed.formula) ? delayed : null
+  });
+  saveRemoteTable();
+}
+const riderChains = new WeakMap();
+function chainRider(caster, work) {
+  const prev = riderChains.get(caster) || Promise.resolve();
+  const next = prev.then(work, work);
+  riderChains.set(caster, next.catch(() => {}));
+}
+function applyRiderOutcome(caster, who, tick, settled) {
+  const names = (settled.removed || []).map((c) => c && c.name).filter(Boolean);
+  if (names.length) dropChipNames(who, names);
+  (settled.chips || []).forEach((ch) => {
+    if (!ch || !ch.name) return;
+    rememberCondition(caster, { id: who.playerId || who.id, name: who.name }, ch.name, null, { spell: ch.spell || (tick && tick.spell) || "", conc: !!ch.conc }).catch(() => {});
+  });
+  const amount = Number(settled.amount) || 0;
+  if (amount > 0) {
+    const formula = ((settled.formula || (tick && (tick.formula || tick.dice)) || "") + " " + (settled.type || (tick && tick.type) || "")).trim();
+    if (fight.damageMode === "approve") DM.toast(((tick && tick.spell) || "Spell") + " " + formula + " = " + amount + " (held)");
+    else {
+      applyPlayerHit({
+        rollId: DM.uid("tick"),
+        targetId: who.playerId || who.id,
+        targetName: who.name,
+        amount: amount,
+        from: caster.playerId || caster.id,
+        characterName: caster.name || "",
+        label: (tick && tick.spell) || "Spell",
+        weapon: (tick && tick.spell) || "",
+        type: "damage",
+        dice: formula
+      });
+    }
+  }
+  (settled.logs || []).forEach((line) => { if (line) DM.toast(line); });
+  if (settled.ended && tick && tick.conc) {
+    dropOwnedConditions(tick.spell);
+    if (String(caster.concentration || "").toLowerCase() === String(tick.spell || "").toLowerCase()) caster.concentration = "";
+    const pid = caster.kind === "player" ? (caster.playerId || caster.id) : "";
+    if (pid) DM.pushCommand({ type: "spell_end", to: pid, quiet: true, payload: { spell: tick.spell || "" }, from: DM.state.uid });
+  }
+}
+function deliverRiderTick(caster, who, tick, when) {
+  const R = window.SSDNSSpellRiders;
+  const finish = (save) => {
+    const settled = R.settleTick(caster.spellMarks, tick, save || {});
+    caster.spellMarks = settled.bag;
+    applyRiderOutcome(caster, who, tick, settled);
+    saveRemoteTable();
+  };
+  if (!tick.save || tick.auto) {
+    finish({ failed: false, auto: true });
+    return;
+  }
+  const dc = riderDc(caster);
+  const diceBit = tick.dice ? (String(tick.dice) + (tick.type ? " " + tick.type : "")) : "";
+  DM.toast("SAVE " + (tick.spell || "Spell") + " " + when + " of turn " + tick.save + (diceBit ? " or " + diceBit : ""));
+  if (dc == null || !isFinite(Number(dc))) return;
+  requestPlayerSave({
+    targetId: who.playerId || who.id,
+    targetName: who.name,
+    ability: tick.save,
+    dc: dc,
+    label: tick.spell || "Spell",
+    damage: diceBit,
+    rider: tick.contagion ? "Contagion" : (tick.spell || ""),
+    fromName: caster.name || ""
+  }).then((save) => {
+    if (!save) return;
+    if (save.line) DM.toast(save.line);
+    finish(save);
+  }).catch(() => {});
+}
+function riderPhase(who, when) {
+  const R = window.SSDNSSpellRiders;
+  if (!R || !R.phaseTicks || !R.settleTick || !who) return;
+  const ids = [who.playerId, who.id, who.mapTokenId].filter(Boolean);
+  (fight.order || []).forEach((caster) => {
+    if (!caster || !caster.spellMarks) return;
+    const phased = R.phaseTicks(caster.spellMarks, ids, when);
+    (phased.due || []).forEach((tick) => {
+      chainRider(caster, () => deliverRiderTick(caster, who, tick, when));
+    });
+  });
+}
 function nextTurn() {
   const now = Date.now();
   if (now - turnGate < 600) return;
@@ -1918,7 +2086,11 @@ function nextTurn() {
   ensurePlayers();
   fight.turn = parseInt(fight.turn, 10);
   if (!isFinite(fight.turn) || fight.turn < 0) fight.turn = 0;
-  if (fight.started) zonePhase(fight.order[fight.turn], "end");
+  if (fight.started) {
+    const ending = fight.order[fight.turn];
+    zonePhase(ending, "end");
+    riderPhase(ending, "end");
+  }
   if (!fight.started) {
     sortInitiative();
     fight.started = true;
@@ -1940,26 +2112,7 @@ function nextTurn() {
   } else if (phaseWho && phaseWho.shieldUntilTurn) {
     phaseWho.shieldUntilTurn = false;
   }
-  if (phaseWho && window.SSDNSSpellRiders) {
-    const whoId = phaseWho.playerId || phaseWho.id;
-    (fight.order || []).forEach((caster) => {
-      if (!caster || !caster.spellMarks) return;
-      const started = window.SSDNSSpellRiders.phaseTicks(caster.spellMarks, whoId, "start");
-      (started.due || []).forEach((tick) => {
-        if (tick.save && !tick.auto) {
-          DM.toast("SAVE " + (tick.spell || "Spell") + " start of turn " + tick.save + (tick.dice ? " or " + tick.dice + " " + (tick.type || "") : ""));
-          return;
-        }
-        if (!(tick.amount > 0) || fight.damageMode === "approve") return;
-        applyPlayerHit({
-          rollId: DM.uid("tick"), targetId: whoId, targetName: phaseWho.name,
-          amount: tick.amount, from: caster.playerId || caster.id, characterName: caster.name,
-          label: tick.spell || "Spell", weapon: tick.spell || "", type: "damage", dice: tick.formula || ""
-        });
-        DM.toast((tick.spell || "Spell") + " start of turn " + tick.formula + " = " + tick.amount + " " + (tick.type || ""));
-      });
-    });
-  }
+  if (phaseWho) riderPhase(phaseWho, "start");
   if (phaseWho) zonePhase(phaseWho, "start");
   fight.flash = fight.turn;
   /* T2: stamp the new current combatant's own turn start; Undo last Next can put this back */
@@ -7114,6 +7267,13 @@ async function cardCast(i, n, opts) {
         detail += " · " + named;
       }
     }
+    if (known) {
+      const landedSave = commitRider(row, known, {
+        slot: level, targetId: target.id, targetName: target.name,
+        hit: true, miss: false, failed: !!(failed && !blockedSave)
+      });
+      if (landedSave && landedSave.logs && landedSave.logs.length) detail += " · " + landedSave.logs.join(" · ");
+    }
     if (spellConcentrates(spell, known)) detail += noteConcentration(row, name);
     await publishCardRoll(row, detail, save ? save.total : (rolled ? rolled.total : 0), {
       nat: save && save.nat, save: kind === "save", spell: true, targetId: target.id, damage: amount || null
@@ -7209,6 +7369,7 @@ async function cardCast(i, n, opts) {
     });
   }
   const cond = (known && known.onFail) || (known && known.onHit) || spellConditionName(spell);
+  let riderFailed = null;
   if (hit && cond) {
     let apply = true;
     const saveAb = (known && (known.hitSave || (known.onHit ? "" : known.save))) || (spell && spell.save) || "";
@@ -7223,12 +7384,20 @@ async function cardCast(i, n, opts) {
         fromName: row.name || ""
       });
       detail += ". " + riderSave.line;
-      apply = !!riderSave.failed;
-    }
+      apply = !!riderSave.failed && !riderSave.blocked;
+      riderFailed = apply;
+    } else riderFailed = true;
     if (apply) {
       await rememberCondition(row, target, cond, null, { spell: name, conc: spellConcentrates(spell, known) });
       detail += " · " + cond;
     }
+  }
+  if (known) {
+    const landedHit = commitRider(row, known, {
+      slot: level, targetId: target.id, targetName: target.name,
+      hit: hit, miss: !hit, crit: nat === 20 && hit, failed: riderFailed
+    });
+    if (landedHit && landedHit.logs && landedHit.logs.length) detail += " · " + landedHit.logs.join(" · ");
   }
   if (spellConcentrates(spell, known)) detail += noteConcentration(row, name);
   playCue();
@@ -8012,6 +8181,9 @@ function resolveIncomingAttack(req, reqId) {
     });
   }
   DM.toast((verdict.dmText || line) + (verdict.dmText ? "" : (ac == null ? "" : " · AC " + ac)));
+  if (req.spellName || (typeof req.spell === "string" && req.spell)) {
+    absorbRider(req, { hit: !verdict.miss, miss: !!verdict.miss, crit: !!verdict.crit });
+  }
   if (!verdict.miss && applyAmount > 0 && heldOutOfTurn(req)) {
     holdHit({ rollId: rollId, targetId: req.targetId, targetName: (row && row.name) || req.targetName, amount: applyAmount, from: req.from,
       characterName: req.characterName || "Someone", label: req.label, weapon: req.weapon || req.label, dice: req.dice || "", type: "attack", heal: false, melee: !!req.melee },
@@ -8094,6 +8266,7 @@ function applyRequest(req, reqId) {
         const tgt = row || { id: req.targetId, name: name };
         try { await rememberCondition(caster, tgt, req.condition, null, { spell: req.spell || req.label || "", conc: !!req.conc }); } catch (err) {}
       }
+      absorbRider(req, { hit: req.hit !== false, miss: req.hit === false, failed: !!(save && save.failed && !save.blocked), crit: !!req.crit });
       if (DM.state._fb && DM.state.db && reqId) DM.state._fb.update(DM.roomRef("encounter/requests/" + reqId), { resolved: true }).catch(() => {});
     });
     return;
@@ -8108,6 +8281,7 @@ function applyRequest(req, reqId) {
     }
     if (!(amt > 0)) { markRequestResolved(reqId); return; }
   }
+  if (!heal && !req.removeCondition) absorbRider(req, { hit: req.hit !== false, miss: req.hit === false, crit: !!req.crit });
   if (!heal && req.magicMissile && !req._shieldGo && row) {
     if (rowShieldUp(row)) {
       DM.toast("Magic Missile does 0 (Shield).");
@@ -9063,6 +9237,19 @@ function syncPlayerVitals() {
     const dex = dexFromSnapshot(snap);
     if (row.dex !== dex) { row.dex = dex; tableChanged = true; }
     if (snap.hpMax != null && row.maxHp !== snap.hpMax) row.maxHp = snap.hpMax;
+    const concNow = String(snap.concSpell || "");
+    if (row._concSeen == null) row._concSeen = concNow;
+    else if (row._concSeen !== concNow) {
+      const prevConc = row._concSeen;
+      row._concSeen = concNow;
+      if (prevConc && window.SSDNSSpellRiders && window.SSDNSSpellRiders.breakConc) {
+        const endedConc = window.SSDNSSpellRiders.breakConc(row.spellMarks, prevConc);
+        row.spellMarks = endedConc.bag;
+        if (String(row.concentration || "") === prevConc) row.concentration = concNow;
+        dropOwnedConditions(prevConc);
+        tableChanged = true;
+      }
+    }
     row.card = row.card || {};
     row.card.items = Array.isArray(snap.items) ? snap.items : [];
     row.inventoryLocked = !!snap.inventoryLocked;
@@ -9298,14 +9485,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.175-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.176-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.175-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.176-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

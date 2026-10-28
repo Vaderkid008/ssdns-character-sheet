@@ -1,6 +1,6 @@
 /**
  * N80 — a Hexslinger chamber stores the spell that was picked.
- * Sheet 0.3.162 / DMCC 0.2.175. rules.js stays untouched.
+ * Sheet 0.3.163 / DMCC 0.2.176. rules.js stays untouched.
  *   node tools/test-n80-hex-load.mjs
  */
 import fs from "node:fs";
@@ -18,9 +18,9 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.162" && version.sheetBuild === "sheet-playtest-v03162");
-check("ver.dmcc", version.dmcc === "0.2.175" && version.dmccBuild === "dmcc-playtest-v02175");
-check("ver.rules", !read("assets/data/rules.js").includes("0.3.162") && !read("assets/data/rules.js").includes("0.2.175") && !read("database.rules.json").includes("0.3.162"));
+check("ver.sheet", version.sheet === "0.3.163" && version.sheetBuild === "sheet-playtest-v03163");
+check("ver.dmcc", version.dmcc === "0.2.176" && version.dmccBuild === "dmcc-playtest-v02176");
+check("ver.rules", !read("assets/data/rules.js").includes("0.3.163") && !read("assets/data/rules.js").includes("0.2.176") && !read("database.rules.json").includes("0.3.163"));
 
 const html = read("index.html").replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
 const dom = new JSDOM(html, { url: "http://127.0.0.1:8765/index.html", pretendToBeVisual: true, runScripts: "dangerously" });

@@ -695,6 +695,11 @@
     if (entry.magicMissile || /magic missile|hex needles/i.test(entry.label || "") || /magic missile|hex needles/i.test(entry.spell || "")) row.magicMissile = true;
     if (entry.damageType) row.damageType = entry.damageType;
     if (entry.delayed) row.delayed = entry.delayed;
+    if (entry.delayedDice) row.delayedDice = entry.delayedDice;
+    if (entry.slot != null && entry.slot !== "") row.slot = Number(entry.slot) || 0;
+    if (entry.disease) row.disease = entry.disease;
+    if (entry.hit === true || entry.hit === false) row.hit = !!entry.hit;
+    if (entry.crit) row.crit = true;
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
       return { ok: true };
     }).catch(function (e) {
@@ -737,6 +742,10 @@
       arrow: String(entry.arrow || "").slice(0, 160)
     };
     if (entry.melee) row.melee = true;
+    if (entry.slot != null && entry.slot !== "") row.slot = Number(entry.slot) || 0;
+    if (entry.disease) row.disease = entry.disease;
+    if (entry.delayed) row.delayed = entry.delayed;
+    if (entry.delayedDice) row.delayedDice = entry.delayedDice;
     if (Number(entry.critMin) >= 2 && Number(entry.critMin) < 20) row.critMin = Number(entry.critMin); /* Champion / Dead Eye crit range */
     if (entry.shots && typeof entry.shots === "object") row.shots = entry.shots;
     /* 0.3.60: carry the card breakdown so the DM's card shows the d20 and damage die faces */
@@ -1505,6 +1514,9 @@
         break;
       case "spell_buff":
         if (root.SSDNSSheet && root.SSDNSSheet.applyRemoteBuff) root.SSDNSSheet.applyRemoteBuff(payload);
+        break;
+      case "spell_end":
+        if (root.SSDNSSheet && root.SSDNSSheet.endSpell) root.SSDNSSheet.endSpell(payload.spell || "");
         break;
       case "rest":
         if (root.SSDNSSheet) root.SSDNSSheet.applyRest(payload.kind || "short");

@@ -133,10 +133,10 @@ check("src.present", present.includes("openPlayerWait(view, handler)") && presen
 check("src.map", map.includes("R.linkedPlayerId") && map.includes("card.kind === 'pc'") && map.includes("prevTok.ownerUid") && map.includes("playerTokenId(row.playerId || row.id)"));
 check("src.join", join.includes("view.playerOwns || !view.dmRuns") && join.includes("view.dmRuns = false"));
 check("src.manualChip", lock.includes("function askOa") && lock.includes("data-tl-oa"));
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("stampLeaveOwner") && !read("assets/data/rules.js").includes("0.3.162") && !read("database.rules.json").includes("0.3.162") && prompt.includes("function stampLeaveOwner") && prompt.includes("function linkedPlayerId"));
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("stampLeaveOwner") && !read("assets/data/rules.js").includes("0.3.163") && !read("database.rules.json").includes("0.3.163") && prompt.includes("function stampLeaveOwner") && prompt.includes("function linkedPlayerId"));
 const ver = JSON.parse(read("version.json"));
-check("src.versions", ver.sheet === "0.3.162" && ver.dmcc === "0.2.175" && ver.sheetBuild === "sheet-playtest-v03162" && ver.dmccBuild === "dmcc-playtest-v02175", JSON.stringify(ver));
-check("src.banners", read("assets/js/app.js").includes('APP_VERSION = "0.3.162"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.175"'));
+check("src.versions", ver.sheet === "0.3.163" && ver.dmcc === "0.2.176" && ver.sheetBuild === "sheet-playtest-v03163" && ver.dmccBuild === "dmcc-playtest-v02176", JSON.stringify(ver));
+check("src.banners", read("assets/js/app.js").includes('APP_VERSION = "0.3.163"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.176"'));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
