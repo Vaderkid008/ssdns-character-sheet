@@ -5166,7 +5166,11 @@ function decorateDetail(pid) {
     if (isHex) {
       const gunsNow = (s.guns || []).filter((g) => g && g.name);
       const gi = parseInt($("#detailGun") && $("#detailGun").value, 10);
-      spellBtn.disabled = !hexHeld(gunsNow[gi], lv);
+      const rawNow = spellSel.value || "";
+      const cutNow = rawNow.indexOf(":");
+      const nameNow = cutNow >= 0 ? rawNow.slice(cutNow + 1) : "";
+      const shieldNow = /^(shield|magnesium flash)$/i.test(String(nameNow).replace(/\s*\([^)]*\)/g, " ").replace(/\s+shell$/i, "").trim());
+      spellBtn.disabled = !hexHeld(gunsNow[gi], lv, shieldNow ? "" : nameNow);
       return;
     }
     const text = slotSel.selectedOptions && slotSel.selectedOptions[0] ? slotSel.selectedOptions[0].textContent : "";
@@ -5195,17 +5199,42 @@ function spellOptions(s) {
   });
   return out.join("") || '<option value="">No spells on the sheet</option>';
 }
-function hexHeld(g, level) {
+function hexSpellOf(st) {
+  const s = String(st || "");
+  if (s.indexOf("k:hex:") !== 0) return "";
+  const p = s.split(":");
+  if (p.length < 6 || !p[5]) return "";
+  try { return decodeURIComponent(p.slice(5).join(":")); } catch (e) { return p.slice(5).join(":"); }
+}
+function hexNameMatch(a, b) {
+  const norm = (s) => String(s || "").toLowerCase().replace(/\s*\([^)]*\)/g, " ").replace(/\s+shell$/i, "").replace(/\s+/g, " ").trim();
+  return !!norm(a) && norm(a) === norm(b);
+}
+function hexHeld(g, level, spellName) {
   if (!g) return false;
   const ch = g.chambers;
   if (Array.isArray(ch) && ch.length) {
     return ch.some((st) => {
       const s = String(st || "");
-      if (s === String(level)) return true;
-      return s.indexOf("k:hex:" + level + ":") === 0;
+      const levelHit = s === String(level) || s.indexOf("k:hex:" + level + ":") === 0;
+      if (!levelHit) return false;
+      if (!spellName) return true;
+      return hexNameMatch(hexSpellOf(st), spellName);
     });
   }
-  return Number(g.hex) > 0;
+  return !spellName && Number(g.hex) > 0;
+}
+function hexChamberIndex(g, level, spellName) {
+  const ch = (g && g.chambers) || [];
+  let exact = -1;
+  for (let i = 0; i < ch.length; i++) {
+    const s = String(ch[i] || "");
+    const levelHit = s === String(level) || s.indexOf("k:hex:" + level + ":") === 0;
+    if (!levelHit) continue;
+    if (!spellName) { if (exact < 0) exact = i; continue; }
+    if (hexNameMatch(hexSpellOf(ch[i]), spellName)) return i;
+  }
+  return spellName ? -1 : exact;
 }
 
 function slotOptions(s, minLevel) {
@@ -5402,17 +5431,19 @@ async function rollSpell(pid) {
   const g = guns[gi];
   const isHex = s.callingId === "hexslinger" || /hexslinger/i.test(s.calling || "");
   if (level && isHex) {
-    if (!hexHeld(g, level)) {
-      DM.toast("Load a level-" + level + " hex shell first. Loading spends the slot. Cast through gun only fires it.");
+    const shieldCast = /^(shield|magnesium flash)$/i.test(String(spellName).replace(/\s*\([^)]*\)/g, " ").replace(/\s+shell$/i, "").trim());
+    const wantSpell = shieldCast ? "" : spellName;
+    if (!hexHeld(g, level, wantSpell)) {
+      DM.toast(wantSpell ? ("Load " + wantSpell + " into the cylinder first.") : ("Load a level-" + level + " hex shell first. Loading spends the slot. Cast through gun only fires it."));
       return;
     }
     if (Array.isArray(g.chambers)) {
-      const idx = g.chambers.findIndex((st) => String(st) === String(level) || String(st || "").indexOf("k:hex:" + level + ":") === 0);
+      const idx = hexChamberIndex(g, level, wantSpell);
       if (idx >= 0) g.chambers[idx] = "";
     }
     if (Number(g.hex) > 0) g.hex = Number(g.hex) - 1;
     if (Number(g.loaded) > 0) g.loaded = Number(g.loaded) - 1;
-    await DM.pushCommand({ type: "hex_fire", to: pid, payload: { level: level }, from: DM.state.uid });
+    await DM.pushCommand({ type: "hex_fire", to: pid, payload: { level: level, spell: shieldCast ? "" : spellName }, from: DM.state.uid });
   } else if (level) {
     const totalSlots = Number(s.spells.slots[level] || 0);
     const used = Number(s.spells.spent[level] || 0);
@@ -9267,14 +9298,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.174-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.175-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.174-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.175-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
@@ -11530,7 +11561,7 @@ window.SSDNSMapFight = {
   dropLoot(detail) { return mapDropLoot(detail); },
   pool(detail) { return mapGunChoice(detail, "pool", { pool: detail && detail.pool != null ? detail.pool : "" }); },
   tr(detail) { return mapGunChoice(detail, "tr", {}); },
-  hex(detail) { return mapGunChoice(detail, "hex", { level: detail && detail.level }); },
+  hex(detail) { return mapGunChoice(detail, "hex", { level: detail && detail.level, spell: detail && detail.spell }); },
   castgun(detail) { return mapGunChoice(detail, "cast", { spell: detail && detail.spell, slot: detail && detail.slot }); },
   mode(detail) {
     const mode = detail && (detail.mode === "adv" || detail.mode === "dis") ? detail.mode : "";

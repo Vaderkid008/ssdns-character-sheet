@@ -150,8 +150,8 @@ const pips = read("assets/js/action-pips.js");
 const css = read("assets/css/sheet.css");
 check("src.menuCss", /\.pip-react-menu/.test(css) && /data-pip-react-menu/.test(pips));
 check("src.noAutoPrompt", !/leaveReach|onHit/.test(pips.slice(pips.indexOf("function openReactionMenu"))));
-check("src.versions", ver.sheet === "0.3.161" && ver.dmcc === "0.2.174" && ver.sheetBuild === "sheet-playtest-v03161" && ver.dmccBuild === "dmcc-playtest-v02174");
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.161") && !read("database.rules.json").includes("0.3.161") && !read("assets/data/rules.js").includes("pip-react-menu"));
+check("src.versions", ver.sheet === "0.3.162" && ver.dmcc === "0.2.175" && ver.sheetBuild === "sheet-playtest-v03162" && ver.dmccBuild === "dmcc-playtest-v02175");
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.162") && !read("database.rules.json").includes("0.3.162") && !read("assets/data/rules.js").includes("pip-react-menu"));
 
 /* ---------- browser: the real sheet, screenshots of the R menu ---------- */
 const ORIGIN = process.env.SSDNS_ORIGIN || "http://127.0.0.1:8771";

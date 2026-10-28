@@ -8409,10 +8409,25 @@ async function loadSceneImage(sceneId, opts) {
     return '<label class="ssm-mode"><input type="checkbox" data-act="' + advAct + '" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '"' + (mode === 'adv' ? ' checked' : '') + '> Adv</label>' +
       '<label class="ssm-mode"><input type="checkbox" data-act="' + disAct + '" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '"' + (mode === 'dis' ? ' checked' : '') + '> Dis</label>';
   }
+  function loadedHexNames(a) {
+    const flags = a && a.ammo && Array.isArray(a.ammo.chambers) ? a.ammo.chambers : [];
+    const names = [];
+    flags.forEach(raw => {
+      const s = String(raw || '');
+      if (s.indexOf('k:hex:') !== 0) return;
+      const p = s.split(':');
+      if (p.length < 6 || !p[5]) return;
+      let name = p.slice(5).join(':');
+      try { name = decodeURIComponent(name); } catch (e) { /* keep the raw name */ }
+      if (name) names.push(name);
+    });
+    return names;
+  }
   function hexCastControl(a, prefix) {
     if (!a || a.calling !== 'hexslinger' || !a.caster) return '';
     const gi = gunIndexOf(a);
     const spells = a.castSpells || [];
+    const loadedNames = loadedHexNames(a);
     let picked = recalled(a, 'spell', '');
     if (!picked && prefix === 'player') {
       const gear = document.querySelector('[data-castspell="' + gi + '"]');
@@ -8446,7 +8461,8 @@ async function loadSceneImage(sceneId, opts) {
       lvl += '<option value="' + n + '"' + (String(hexLv) === String(n) ? ' selected' : '') + '>' + n + suf + '</option>';
     }
     const slotHidden = slots.length ? '' : ' hidden';
-    return '<span class="ssm-hex" data-gun="' + esc(gi) + '">' +
+    const nameLine = loadedNames.length ? '<span class="ssm-hexnames">Loaded: ' + esc(loadedNames.join(', ')) + '</span>' : '';
+    return nameLine + '<span class="ssm-hex" data-gun="' + esc(gi) + '">' +
       '<select data-act="' + prefix + 'HexLvl" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '" aria-label="Hex lead shell level">' + lvl + '</select>' +
       '<button type="button" data-act="' + prefix + 'Hex" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '">+ Hex shell</button>' +
       '<select data-act="' + prefix + 'CastSpell" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '" aria-label="Spell to cast through this gun">' + spellOpts + '</select>' +
@@ -8641,8 +8657,15 @@ async function loadSceneImage(sceneId, opts) {
       b.addEventListener('click', () => {
         const gi = b.getAttribute('data-gun');
         const lvl = slot.querySelector('[data-act="playerHexLvl"][data-gun="' + gi + '"]');
+        const spell = slot.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
+        const slotSel = slot.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
+        const spellVal = spell && spell.value || '';
+        const spellLv = parseInt(String(spellVal).split(':')[0], 10) || 0;
+        const hexLv = parseInt(lvl && lvl.value, 10) || 1;
+        const castLv = parseInt(slotSel && slotSel.value, 10) || 0;
+        const use = spellLv > 0 ? Math.max(spellLv, hexLv >= spellLv ? hexLv : 0, castLv >= spellLv ? castLv : 0) : hexLv;
         const app = appGun();
-        if (app && app.loadHexAt) app.loadHexAt(Number(gi), lvl ? lvl.value : 1);
+        if (app && app.loadHexAt) app.loadHexAt(Number(gi), use, spellVal);
         paintPlayerFight();
       });
     });
@@ -9634,7 +9657,14 @@ async function loadSceneImage(sceneId, opts) {
         if (!actGate()) return;
         const gi = b.getAttribute('data-gun');
         const lvl = d.querySelector('[data-act="rowHexLvl"][data-gun="' + gi + '"]');
-        emit('drawer:hex', detail({ weaponId: b.getAttribute('data-wid'), level: lvl ? lvl.value : 1 }));
+        const spell = d.querySelector('[data-act="rowCastSpell"][data-gun="' + gi + '"]');
+        const slotSel = d.querySelector('[data-act="rowCastSlot"][data-gun="' + gi + '"]');
+        const spellVal = spell && spell.value || '';
+        const spellLv = parseInt(String(spellVal).split(':')[0], 10) || 0;
+        const hexLv = parseInt(lvl && lvl.value, 10) || 1;
+        const castLv = parseInt(slotSel && slotSel.value, 10) || 0;
+        const use = spellLv > 0 ? Math.max(spellLv, hexLv >= spellLv ? hexLv : 0, castLv >= spellLv ? castLv : 0) : hexLv;
+        emit('drawer:hex', detail({ weaponId: b.getAttribute('data-wid'), level: use, spell: spellVal }));
       });
     });
     d.querySelectorAll('[data-act="rowCast"]').forEach(b => {

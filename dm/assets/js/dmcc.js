@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.174"; // dmcc-playtest-v02174
+const VERSION = "0.2.175"; // dmcc-playtest-v02175
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1604,12 +1604,17 @@ function cylinderHtml(g) {
     let text = "";
     let label = "Empty";
     if (/^[1-9]$/.test(s) || s.indexOf("k:hex:") === 0) {
-      const lv = s.indexOf("k:hex:") === 0 ? (s.split(":")[2] || "1") : s;
+      const parts = s.split(":");
+      const lv = s.indexOf("k:hex:") === 0 ? (parts[2] || "1") : s;
+      let spell = "";
+      if (parts.length > 5 && parts[5]) {
+        try { spell = decodeURIComponent(parts.slice(5).join(":")); } catch (e) { spell = parts.slice(5).join(":"); }
+      }
       const color = HEX_CASE[Math.max(0, (parseInt(lv, 10) || 1) - 1)] || "#9b6fd6";
       cls += " loaded tinted hex";
       style = `--case:${color}`;
       text = esc(lv);
-      label = "Hex shell " + lv;
+      label = (spell ? spell + " · " : "") + "Hex shell " + lv;
     } else if (s) {
       const kind = (s.split(":")[1] || "");
       if (SPECIAL_CASE[kind]) {

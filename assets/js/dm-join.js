@@ -1526,7 +1526,7 @@
         break;
       case "hex_fire":
         if (root.SSDNSApp && root.SSDNSApp.fireHexShell) {
-          var fired = root.SSDNSApp.fireHexShell(payload.level);
+          var fired = root.SSDNSApp.fireHexShell(payload.level, payload.spell);
           if (!fired.ok) toast(fired.reason || "No shell loaded");
           else if (root.SSDNSSheet) root.SSDNSSheet.showNotice("Fired a level-" + payload.level + " hex shell");
         }
@@ -2168,7 +2168,7 @@
       app.tacticalReload(payload.index);
       return;
     } else if (payload.op === "hex" && app.loadHexAt) {
-      app.loadHexAt(payload.index, payload.level);
+      app.loadHexAt(payload.index, payload.level, payload.spell);
       return;
     } else if (payload.op === "cast") {
       if (app.prepareGunCast) app.prepareGunCast(payload.index, payload.spell, payload.slot);
