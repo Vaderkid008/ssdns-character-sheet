@@ -179,7 +179,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("src.pushRereads", /if \(Pnow && Pnow\.state\) v = Pnow\.state\(\)/.test(join));
   check("src.mapRepaint", /ssdns:pips-change/.test(mapJs) && /paintPlayerFight\(\)/.test(mapJs.slice(mapJs.indexOf("ssdns:pips-change"))));
   check("src.rulesUntouched", !read("assets/data/rules.js").includes(ver.sheet) && !/actUndo|dmFields/.test(read("database.rules.json")));
-  check("src.versions", ver.sheet === "0.3.162" && ver.dmcc === "0.2.175" && ver.sheetBuild === "sheet-playtest-v03162" && ver.dmccBuild === "dmcc-playtest-v02175");
+  check("src.versions", ver.sheet === "0.3.163" && ver.dmcc === "0.2.176" && ver.sheetBuild === "sheet-playtest-v03163" && ver.dmccBuild === "dmcc-playtest-v02176");
   check("src.noDoubleSpendHelper", /row\.kind === "player" \|\| !row\.id/.test(v2.slice(v2.indexOf("async function spendEnemyPip"), v2.indexOf("function commitEnemyAttack"))));
   const runP = mapJs.slice(mapJs.indexOf("function runPlayer"), mapJs.indexOf("function cleanActId"));
   check("src.playerMapBlocks", /playerMapGate\(/.test(runP) && runP.indexOf("playerMapGate") < runP.indexOf("actions.run") && /blockMap\(/.test(pips));

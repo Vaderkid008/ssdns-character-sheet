@@ -131,10 +131,10 @@ check("src.shieldmenu", /var DAMAGE = \{ "hellish rebuke": 60, "absorb elements"
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 const rules = read("assets/data/rules.js");
-check("rules.nover", !rules.includes("0.3.162") && !rules.includes("spell-buffs"));
+check("rules.nover", !rules.includes("0.3.163") && !rules.includes("spell-buffs"));
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.162" && version.sheetBuild === "sheet-playtest-v03162");
-check("ver.dmcc", version.dmcc === "0.2.175" && version.dmccBuild === "dmcc-playtest-v02175");
+check("ver.sheet", version.sheet === "0.3.163" && version.sheetBuild === "sheet-playtest-v03163");
+check("ver.dmcc", version.dmcc === "0.2.176" && version.dmccBuild === "dmcc-playtest-v02176");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

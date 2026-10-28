@@ -82,6 +82,53 @@
       casterId: casterId || ""
     };
   }
+  var tickSerial = 0;
+  function addTick(next, tick) {
+    if (!tick.id) {
+      tickSerial += 1;
+      tick.id = "tk" + tickSerial;
+    }
+    next.ticks.push(tick);
+    return tick;
+  }
+  function tickMatches(t, spec) {
+    if (!t || !spec) return false;
+    if (spec.spell && norm(t.spell) !== norm(spec.spell)) return false;
+    if (spec.when && t.when !== spec.when) return false;
+    if (spec.targetId && t.targetId && String(t.targetId) !== String(spec.targetId)) return false;
+    if (!!spec.contagion !== !!t.contagion) return false;
+    if (spec.once != null && !!spec.once !== !!t.once) return false;
+    if (spec.auto != null && !!spec.auto !== !!t.auto) return false;
+    if (spec.save && String(t.save || "") !== String(spec.save)) return false;
+    return true;
+  }
+  function hasTick(bag, spec) {
+    return emptyBag(bag).ticks.some(function (t) { return tickMatches(t, spec); });
+  }
+  function upDice(base, up, slot, level) {
+    var expr = String(base || "");
+    var steps = Math.max(0, (Number(slot) || Number(level) || 0) - (Number(level) || 0));
+    var i;
+    if (!up || steps <= 0) return expr;
+    for (i = 0; i < steps; i++) expr += (expr ? "+" : "") + up;
+    return expr;
+  }
+  function sameTick(a, b) {
+    if (!a || !b) return false;
+    if (a.id && b.id) return a.id === b.id;
+    return tickMatches(a, b);
+  }
+  function endSpellInBag(next, spell, removed) {
+    var key = norm(spell);
+    if (!key) return;
+    next.marks = next.marks.filter(function (m) {
+      if (norm(m.spell) !== key) return true;
+      if (m.chip) removed.push(chip(m.chip, m.targetId, m.spell, !!m.conc, m.casterId));
+      return false;
+    });
+    next.ticks = next.ticks.filter(function (t) { return norm(t.spell) !== key; });
+    if (norm(next.conc) === key) next.conc = "";
+  }
   function durHours(slot) {
     var lv = Number(slot) || 1;
     if (lv >= 5) return 24;
@@ -510,14 +557,14 @@
       if (mark.push) logs.push("pushed " + mark.push + " ft");
       if (mark.banishAt) logs.push("banished if this hit leaves the target at " + mark.banishAt + " HP or fewer (no save)");
       if (mark.burn) {
-        next.ticks.push({ spell: mark.spell, targetId: ctx.targetId, when: "start", save: "CON", dice: mark.burn.dice, type: "fire", conc: true, endOnSuccess: true });
+        addTick(next, { spell: mark.spell, targetId: ctx.targetId, when: "start", save: "CON", dice: mark.burn.dice, type: "fire", conc: true, endOnSuccess: true });
         chips.push(chip("Burning", ctx.targetId, mark.spell, true, ctx.casterId || ""));
       }
       if (mark.startDice) {
-        next.ticks.push({ spell: mark.spell, targetId: ctx.targetId, when: "start", dice: mark.startDice, type: mark.startType || "piercing", conc: !!mark.conc, auto: true });
+        addTick(next, { spell: mark.spell, targetId: ctx.targetId, when: "start", dice: upDice(mark.startDice, mark.up, mark.slot, 1), type: mark.startType || "piercing", conc: !!mark.conc, auto: true });
       }
       if (mark.endSave) {
-        next.ticks.push({ spell: mark.spell, targetId: ctx.targetId, when: "end", save: mark.endSave, endOnSuccess: true, conc: !!mark.conc });
+        addTick(next, { spell: mark.spell, targetId: ctx.targetId, when: "end", save: mark.endSave, endOnSuccess: true, conc: !!mark.conc });
       }
       kept.push(mark);
     });
@@ -537,29 +584,35 @@
     var chips = [];
     if (opts.miss) return { bag: next, logs: ["MISS"], chips: chips, noDamage: !!(row && row.noDamage) };
     if (key === "contagion") {
+      if (hasTick(next, { spell: name, targetId: opts.targetId || "", when: "end", contagion: true })) {
+        return { bag: next, logs: [], chips: [], removed: [], noDamage: true, changed: false };
+      }
       var disease = opts.disease || DISEASES[2];
       next.marks.push({
         spell: name, conc: false, kind: "contagion", targetId: opts.targetId || "", targetName: opts.targetName || "",
         chip: "Poisoned", disease: disease, success: 0, fail: 0
       });
-      next.ticks.push({ spell: name, targetId: opts.targetId || "", when: "end", save: "CON", contagion: true, disease: disease });
+      addTick(next, { spell: name, targetId: opts.targetId || "", when: "end", save: "CON", contagion: true, disease: disease });
       chips.push(chip("Poisoned", opts.targetId, name, false, opts.casterId || ""));
       chips.push(chip(contagionChip(0, 0), opts.targetId, name, false, opts.casterId || ""));
       tickSound();
       logs.push("no damage — Poisoned");
       logs.push("COND +Poisoned (Contagion; CON save end of each turn, 3F = " + disease + ")");
-      return { bag: next, logs: logs, chips: chips, noDamage: true };
+      return { bag: next, logs: logs, chips: chips, removed: [], noDamage: true, changed: true };
     }
     if (key === "ray of enfeeblement") {
+      if (hasTick(next, { spell: name, targetId: opts.targetId || "", when: "end", save: "CON" })) {
+        return { bag: next, logs: [], chips: [], removed: [], noDamage: true, changed: false };
+      }
       next.marks.push({
         spell: name, conc: true, kind: "enfeeble", targetId: opts.targetId || "", chip: "Enfeebled (½ STR weapon dmg)"
       });
-      next.ticks.push({ spell: name, targetId: opts.targetId || "", when: "end", save: "CON", endOnSuccess: true, conc: true });
+      addTick(next, { spell: name, targetId: opts.targetId || "", when: "end", save: "CON", endOnSuccess: true, conc: true });
       if (!next.conc) next.conc = name;
       chips.push(chip("Enfeebled (½ STR weapon dmg)", opts.targetId, name, true, opts.casterId || ""));
       tickSound();
       logs.push("no damage — Enfeebled (½ STR weapon dmg)");
-      return { bag: next, logs: logs, chips: chips, noDamage: true };
+      return { bag: next, logs: logs, chips: chips, removed: [], noDamage: true, changed: true };
     }
     if (row && row.hitSave && row.onFail) logs.push(row.hitSave + " save or " + row.onFail);
     return { bag: next, logs: logs, chips: chips, noDamage: !!(row && row.noDamage) };
@@ -661,18 +714,193 @@
     return { bag: next, moved: moved };
   }
 
+  function plain(result) {
+    result.removed = result.removed || [];
+    if (result.changed == null) result.changed = !!((result.logs && result.logs.length) || (result.chips && result.chips.length));
+    return result;
+  }
+
+  /* A cast that resolves on this action (the spell's own attack or save), not a pending arm-for-later mark. */
+  function landResolved(bag, opts) {
+    opts = opts || {};
+    var row = opts.row ? patchRow(opts.row) : (opts.name ? patchRow({ name: opts.name }) : null);
+    var name = (row && row.name) || opts.name || "";
+    var key = norm(name);
+    var next = copyBag(bag);
+    var logs = [];
+    var chips = [];
+    var hit = opts.hit !== false && !opts.miss;
+    var failed = !!opts.failed;
+    var slot = opts.slot;
+    var unchanged = { bag: next, logs: logs, chips: chips, removed: [], changed: false };
+    if (!name) return unchanged;
+
+    if (hit && (key === "contagion" || key === "ray of enfeeblement")) {
+      return plain(onHitSpell(next, {
+        row: row, name: name, miss: false, targetId: opts.targetId || "", targetName: opts.targetName || "",
+        disease: opts.disease || "", casterId: opts.casterId || ""
+      }));
+    }
+
+    if (key === "phantasmal killer") {
+      if (!failed) return unchanged;
+      var later = (row && row.later) || {};
+      var saveAb = later.save || "WIS";
+      if (hasTick(next, { spell: name, targetId: opts.targetId || "", when: "end", save: saveAb })) return unchanged;
+      var dice = upDice(later.dice || (row && row.dice) || "4d10", later.up || (row && row.up) || "1d10", slot, (row && row.level) || 4);
+      addTick(next, {
+        spell: name, targetId: opts.targetId || "", when: "end", save: saveAb, dice: dice,
+        type: later.type || (row && row.type) || "psychic", endOnSuccess: true, conc: true
+      });
+      if (!next.conc) next.conc = name;
+      chips.push(chip("Frightened", opts.targetId, name, true, opts.casterId || ""));
+      logs.push("end of each turn: " + saveAb + " save or " + dice + " psychic; a success ends it");
+      return { bag: next, logs: logs, chips: chips, removed: [], changed: true };
+    }
+
+    /* 2014 PHB: a miss is half the initial acid only. No damage at the end of the next turn. */
+    if (key === "acid arrow") {
+      if (!hit) return unchanged;
+      var rolled = opts.rolledDelayed && (opts.rolledDelayed.formula || opts.rolledDelayed.total)
+        ? opts.rolledDelayed
+        : delayedRoll(row || { name: name }, slot, !!opts.crit, opts.rng);
+      if (!rolled) return unchanged;
+      var formula = rolled.formula || (row && row.delayed) || "2d4";
+      addTick(next, {
+        spell: name, targetId: opts.targetId || "", when: "end", auto: true, once: true,
+        dice: formula, amount: Number(rolled.total) || 0, formula: formula, faces: rolled.faces || [],
+        type: (row && row.type) || "acid"
+      });
+      logs.push("end of its next turn: " + formula + " = " + (Number(rolled.total) || 0) + " acid");
+      return { bag: next, logs: logs, chips: chips, removed: [], changed: true };
+    }
+
+    if (!hit || !row) return unchanged;
+    var needsFail = key === "ensnaring strike" || key === "blinding smite" || key === "wrathful smite" || key === "thunderous smite" || key === "staggering smite";
+    if (!needsFail && row.save && row.onFail && !row.burn) needsFail = true;
+    if (needsFail && !failed) return unchanged;
+
+    var before = next.ticks.length;
+    if (row.burn && !hasTick(next, { spell: name, targetId: opts.targetId || "", when: "start", save: row.burn.save || "CON" })) {
+      addTick(next, {
+        spell: name, targetId: opts.targetId || "", when: "start", save: row.burn.save || "CON",
+        dice: row.burn.dice || "1d6", type: "fire", conc: true, endOnSuccess: true
+      });
+      chips.push(chip("Burning", opts.targetId, name, true, opts.casterId || ""));
+      logs.push("start of each turn: " + (row.burn.save || "CON") + " save or " + (row.burn.dice || "1d6") + " fire; a success ends it");
+    }
+    if ((row.diceOn === "start" || row.startDice) && !hasTick(next, { spell: name, targetId: opts.targetId || "", when: "start", auto: true })) {
+      var startExpr = upDice(row.startDice || row.dice || "1d6", row.up, slot, row.level || 1);
+      addTick(next, {
+        spell: name, targetId: opts.targetId || "", when: "start", dice: startExpr,
+        type: row.startType || "piercing", conc: concentrates(name, row), auto: true
+      });
+      logs.push("start of each turn: " + startExpr + " " + (row.startType || "piercing"));
+    }
+    if (row.endSave && !hasTick(next, { spell: name, targetId: opts.targetId || "", when: "end", save: row.endSave })) {
+      addTick(next, {
+        spell: name, targetId: opts.targetId || "", when: "end", save: row.endSave,
+        endOnSuccess: true, conc: concentrates(name, row)
+      });
+      logs.push("end of each turn: " + row.endSave + " save or the spell continues");
+    }
+    if (next.ticks.length > before && concentrates(name, row) && !next.conc) next.conc = name;
+    if (row.onFail && failed) chips.push(chip(row.onFail, opts.targetId, name, concentrates(name, row), opts.casterId || ""));
+    var changed = next.ticks.length > before || chips.length > 0;
+    return { bag: next, logs: logs, chips: chips, removed: [], changed: changed };
+  }
+
+  var END_CHIPS = {
+    "searing smite": ["Burning"],
+    "ray of enfeeblement": ["Enfeebled (½ STR weapon dmg)"],
+    "blinding smite": ["Blinded"],
+    "phantasmal killer": ["Frightened"],
+    "ensnaring strike": ["Restrained"]
+  };
+
+  /* Apply one due rider tick. A successful end save drops the chip and the tick. Contagion advances S/F. */
+  function settleTick(bag, tick, save) {
+    var next = copyBag(bag);
+    var logs = [];
+    var chips = [];
+    var removed = [];
+    var amount = 0;
+    var formula = "";
+    var type = (tick && tick.type) || "";
+    save = save || {};
+    var failed = !!save.failed;
+    var empty = { bag: next, logs: logs, chips: chips, removed: removed, amount: 0, formula: "", type: type, ended: false };
+    if (!tick) return empty;
+
+    if (tick.contagion) {
+      var stepped = contagionSave(next, tick.targetId, failed);
+      next = stepped.bag;
+      logs = logs.concat(stepped.logs || []);
+      chips = chips.concat(stepped.chips || []);
+      removed = removed.concat(stepped.removed || []);
+      var still = next.marks.some(function (m) {
+        return m.kind === "contagion" && !m.done && (!tick.targetId || !m.targetId || String(m.targetId) === String(tick.targetId));
+      });
+      var finished = next.marks.some(function (m) {
+        return m.kind === "contagion" && m.done && (!tick.targetId || !m.targetId || String(m.targetId) === String(tick.targetId));
+      });
+      if (!still || finished) next.ticks = next.ticks.filter(function (t) { return !sameTick(t, tick); });
+      return { bag: next, logs: logs, chips: chips, removed: removed, amount: 0, formula: "", type: "", ended: !still || finished };
+    }
+
+    if (tick.auto || !tick.save) {
+      formula = tick.formula || (typeof tick.dice === "string" ? tick.dice : "");
+      if (isFinite(Number(tick.amount)) && Number(tick.amount) > 0) amount = Number(tick.amount);
+      else if (tick.dice) {
+        var expr = typeof tick.dice === "string" ? tick.dice : (tick.dice.formula || "");
+        var rolled = rollExpr(expr, false, save.rng);
+        amount = rolled.total;
+        formula = rolled.formula;
+      }
+      var endedAuto = false;
+      if (tick.once) {
+        next.ticks = next.ticks.filter(function (t) { return !sameTick(t, tick); });
+        endedAuto = true;
+      }
+      if (amount > 0) logs.push((tick.spell || "Spell") + " " + (tick.when || "") + " " + formula + " = " + amount + (type ? " " + type : ""));
+      return { bag: next, logs: logs, chips: chips, removed: removed, amount: amount, formula: formula, type: type, ended: endedAuto };
+    }
+
+    if (!failed && tick.endOnSuccess) {
+      var spellKey = norm(tick.spell);
+      (END_CHIPS[spellKey] || []).forEach(function (name) {
+        removed.push(chip(name, tick.targetId, tick.spell, !!tick.conc, ""));
+      });
+      endSpellInBag(next, tick.spell, removed);
+      logs.push("SAVE — " + (tick.spell || "Spell") + " ends");
+      return { bag: next, logs: logs, chips: chips, removed: removed, amount: 0, formula: "", type: type, ended: true };
+    }
+
+    if (failed && tick.dice) {
+      var exprFail = typeof tick.dice === "string" ? tick.dice : (tick.dice.formula || "");
+      var rolledFail = rollExpr(exprFail, false, save.rng);
+      amount = rolledFail.total;
+      formula = rolledFail.formula;
+      if (amount > 0) logs.push("FAIL — " + (tick.spell || "Spell") + " " + formula + " = " + amount + (type ? " " + type : ""));
+    } else if (failed) logs.push("FAIL — " + (tick.spell || "Spell") + " continues");
+    return { bag: next, logs: logs, chips: chips, removed: removed, amount: amount, formula: formula, type: type, ended: false };
+  }
+
   function phaseTicks(bag, targetId, when, rng) {
     var next = copyBag(bag);
     var due = [];
+    var ids = Array.isArray(targetId) ? targetId.filter(Boolean).map(function (id) { return String(id); }) : (targetId ? [String(targetId)] : []);
     next.ticks.forEach(function (t) {
       if (t.when !== when) return;
-      if (targetId && t.targetId && String(t.targetId) !== String(targetId)) return;
+      if (ids.length && t.targetId && ids.indexOf(String(t.targetId)) < 0) return;
       var row = Object.assign({}, t);
-      if (t.dice && t.auto) {
-        var rolled = rollExpr(t.dice, false, rng);
+      var dice = typeof t.dice === "string" ? t.dice : ((t.dice && t.dice.formula) || "");
+      if (t.auto && dice && !(Number(t.amount) > 0 && t.formula)) {
+        var rolled = rollExpr(dice, false, rng);
         row.amount = rolled.total;
         row.formula = rolled.formula;
         row.faces = rolled.faces;
+        row.dice = dice;
       }
       due.push(row);
     });
@@ -795,6 +1023,8 @@
     noteDown: noteDown,
     transfer: transfer,
     phaseTicks: phaseTicks,
+    landResolved: landResolved,
+    settleTick: settleTick,
     dealt: dealt,
     zeroState: zeroState,
     missDamage: missDamage,

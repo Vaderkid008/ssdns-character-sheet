@@ -903,6 +903,11 @@
         weaponId: info.weaponId || "",
         gun: !!info.gun,
         spell: !!info.spell,
+        spellName: info.spellName || "",
+        slot: info.slot,
+        disease: info.disease || "",
+        delayed: info.delayed,
+        delayedDice: info.delayedDice || "",
         melee: !!info.melee,
         cover: coverRaw || "",
         coverSet: true,
@@ -1267,6 +1272,13 @@
       if (!chp || !chp.name) return;
       if (isSelfTarget({ id: chp.targetId })) dropChipName(chp.name);
     });
+  }
+  function endSpell(name) {
+    breakLocalConc(name || "");
+    var line = (name || "Spell") + " ends.";
+    addLog({ kind: "alert", text: line });
+    toast(line);
+    if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
   }
   function breakLocalConc(spell) {
     var c = ch();
@@ -2228,6 +2240,10 @@
         tail: ledgerTail,
         weapon: throughGun && i >= 0 ? gunName(i) : "",
         spellName: spellName || "",
+        slot: slot,
+        disease: castSpellAttackNow._disease || "",
+        delayed: rolled.delayed && rolled.delayed.total,
+        delayedDice: rolled.delayed && rolled.delayed.formula,
         sfx: spellCueName(),
         shots: rolled.shots || null,
         spell: true,
@@ -2383,6 +2399,25 @@
           rolled.detail = rolled.text;
         }
       }
+      if (!spellMissed && c && root.SSDNSSpellRiders && root.SSDNSSpellRiders.landResolved) {
+        var landedNow = root.SSDNSSpellRiders.landResolved(c.spellMarks, {
+          row: row, name: spellName, slot: slot,
+          targetId: tgt && tgt.id, targetName: tgt && tgt.name,
+          hit: true, miss: false, crit: Number(rolled.nat) === 20,
+          failed: false,
+          disease: castSpellAttackNow._disease || "",
+          rolledDelayed: rolled.delayed || null,
+          casterId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : ""
+        });
+        if (landedNow && landedNow.changed) {
+          c.spellMarks = landedNow.bag;
+          if (landedNow.logs && landedNow.logs.length) {
+            rolled.text += " · " + landedNow.logs.join(" · ");
+            rolled.detail = rolled.text;
+          }
+          publishChips(landedNow.chips, false);
+        }
+      }
     }
     addLog({
       id: "roll:" + rollId,
@@ -2527,7 +2562,9 @@
       } else if (!rolled.heal && rolled.attack && (spellDmg || (row && (row.noDamage || row.hitSave || row.onFail))) && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         var atkPost = {
           amount: spellDmg || 0, label: spellName, type: "spell", weapon: throughGun && i >= 0 ? gunName(i) : "",
-          targetId: tgt.id, targetName: tgt.name, rollId: rollId
+          targetId: tgt.id, targetName: tgt.name, rollId: rollId,
+          hit: !spellMissed, slot: slot, crit: !spellMissed && Number(rolled.nat) === 20,
+          disease: castSpellAttackNow._disease || ""
         };
         if (row && row.hitSave) {
           atkPost.save = row.hitSave;
@@ -2571,7 +2608,10 @@
             dice: rolled.damageDetail || "",
             targetId: tgt.id, targetName: tgt.name, rollId: rollId,
             spell: spellName,
-            conc: !!(row.conc)
+            conc: !!(row.conc),
+            slot: slot,
+            hit: true,
+            disease: castSpellAttackNow._disease || ""
           });
         }
       } else if (!rolled.heal && row && row.kind === "auto" && !rolled.autoDarts && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
@@ -4293,6 +4333,7 @@
     castNamed: function (name) { castSpellAttack(-1, name, 0, false); },
     applyRolledSpell: applyRolledSpell,
     applyRemoteBuff: applyRemoteBuff,
+    endSpell: endSpell,
     noteMageArmorEnded: noteMageArmorEnded,
     abortCast: abortCast,
     castAt: function (name, slot) { castSpellAttack(-1, name, parseInt(slot, 10) || 0, false); },
