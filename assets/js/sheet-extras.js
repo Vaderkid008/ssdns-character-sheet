@@ -2161,7 +2161,7 @@
       });
       return;
     }
-    if (!spendForCast(i, slot, fromChamber)) { abortCast(); return; }
+    if (!spendForCast(i, slot, fromChamber, spellName)) { abortCast(); return; }
     noteInstrumentCast();
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     chosenMode = rangeMode(chosenMode, rangeShot);
@@ -2627,6 +2627,8 @@
     if (c.guns[i].wrecked && root.SSDNSCasterRules) { toast(root.SSDNSCasterRules.CANT_CAST); addLog({ kind: "alert", text: root.SSDNSCasterRules.CANT_CAST }); return; }
     var pick = selectedCast(i);
     if (!pick) { toast("Pick a spell from your list."); return; }
+    var needShell = root.SSDNSApp && root.SSDNSApp.hexListBlock ? root.SSDNSApp.hexListBlock(i, pick) : "";
+    if (needShell) { toast(needShell); addLog({ kind: "alert", text: needShell }); return; }
     var looked = root.SSDNSSpellCast && root.SSDNSSpellCast.lookup && root.SSDNSSpellCast.lookup(pick.name);
     var areaPick = spellAreaFor(pick.name, looked);
     var start = areaPick ? Promise.resolve({ skip: true }) : chooseCastTarget(pick.name, looked, pick.slot);
@@ -2637,22 +2639,24 @@
     });
   }
   /* The shell and the slot wait until the blast is placed (or the attack is about to roll). Cancel gives them back. */
-  function spendForCast(i, slot, fromChamber) {
+  function spendForCast(i, slot, fromChamber, spellName) {
     if (castSpellAttackNow._paid) return true;
     if (!(slot > 0)) { castSpellAttackNow._paid = true; return true; }
     var app = root.SSDNSApp;
     var c = ch();
     var useChamber = !!(fromChamber && c && c.calling === "hexslinger" && i >= 0 && app && app.spendHexChamber);
+    var shield = phbKey(spellName) === "shield";
     if (useChamber) {
-      var held = app.spendHexChamber(i, slot);
+      var held = app.spendHexChamber(i, slot, shield ? "" : spellName);
       if (!held || !held.ok) {
-        if (!app.spendHexSlot || !app.spendHexSlot(slot)) {
-          toast((held && held.reason) || ("No level-" + slot + " hex lead left."));
-          return false;
+        /* Shield already requires some loaded shell (spell-buffs shieldGate). It may spend a level match or, as before, the slot when the shell level differs. Other Hexslinger spells do not. */
+        if (shield && app.spendHexSlot && app.spendHexSlot(slot)) {
+          armCastRefund(function () { if (app.refundHexSlot) app.refundHexSlot(slot); });
+          castSpellAttackNow._paid = true;
+          return true;
         }
-        armCastRefund(function () { if (app.refundHexSlot) app.refundHexSlot(slot); });
-        castSpellAttackNow._paid = true;
-        return true;
+        toast((held && held.reason) || ("Load " + (spellName || "that spell") + " into the cylinder first."));
+        return false;
       }
       if (!held.alreadySpent && app.spendHexSlot && !app.spendHexSlot(slot)) {
         if (app.restoreHexChamber) app.restoreHexChamber(i, held);
@@ -2681,26 +2685,44 @@
     var c = ch();
     var g = c && c.guns && c.guns[i];
     var token = g && g.chambers ? g.chambers[k] : "";
-    var m = String(token || "").match(/^k:hex:(\d+):/);
+    var parsed = root.SSDNSApp && root.SSDNSApp.parseChamber ? root.SSDNSApp.parseChamber(token) : null;
     var legacy = /^[1-9]$/.test(String(token || ""));
-    var level = m ? num(m[1]) : (legacy ? num(token) : 0);
+    var m = String(token || "").match(/^k:hex:(\d+):/);
+    var level = parsed && parsed.kind === "hex" ? num(parsed.level) : (m ? num(m[1]) : (legacy ? num(token) : 0));
     if (!level) { toast("That chamber isn't a hex shell."); return; }
+    var spellName = parsed && parsed.spell;
+    if (!spellName) {
+      toast("That shell has no spell on it. Pick the spell, then load it into the chamber.");
+      return;
+    }
     var spellSel = document.querySelector('[data-castspell="' + i + '"]');
     var slotSel = document.querySelector('[data-castslot="' + i + '"]');
-    if (!spellSel) { toast("Pick a level-" + level + " spell, then Cast through gun."); return; }
-    var cur = spellSel.value || "";
-    var curLv = num(String(cur).split(":")[0], -1);
-    if (curLv !== level) {
-      var found = "";
-      Array.prototype.forEach.call(spellSel.options, function (op) {
-        if (found) return;
-        if (num(String(op.value).split(":")[0], -1) === level && op.value.indexOf(":") > 0) found = op.value;
-      });
-      if (!found) { toast("That shell is level " + level + ". Add that spell on your list, then cast it."); return; }
-      spellSel.value = found;
-      spellSel.dispatchEvent(new Event("change", { bubbles: true }));
+    if (!spellSel) { toast("Pick " + spellName + ", then Cast through gun."); return; }
+    var base = parsed.spellLevel ? num(parsed.spellLevel) : level;
+    var value = base + ":" + spellName;
+    var found = false;
+    Array.prototype.forEach.call(spellSel.options || [], function (op) { if (op.value === value) found = true; });
+    if (!found) {
+      var op = document.createElement("option");
+      op.value = value;
+      op.textContent = spellName;
+      spellSel.appendChild(op);
     }
-    if (slotSel) slotSel.value = String(level);
+    if (g) { g.castSpell = value; g.castSlot = String(level); }
+    spellSel.value = value;
+    spellSel.dispatchEvent(new Event("change", { bubbles: true }));
+    if (slotSel) {
+      slotSel.hidden = false;
+      var slotFound = false;
+      Array.prototype.forEach.call(slotSel.options || [], function (op2) { if (op2.value === String(level)) slotFound = true; });
+      if (!slotFound) {
+        var sop = document.createElement("option");
+        sop.value = String(level);
+        sop.textContent = String(level);
+        slotSel.appendChild(sop);
+      }
+      slotSel.value = String(level);
+    }
     castThroughGun(i);
   }
   function showInspiration(count, on) {
@@ -3677,6 +3699,8 @@
     if (focusBlocked()) return;
     var held = c && c.guns && c.guns[i];
     if (held && held.weapon && held.equipped === false) { toast("Equip this weapon first."); return; }
+    var needShell = root.SSDNSApp && root.SSDNSApp.hexListBlock ? root.SSDNSApp.hexListBlock(i, sp) : "";
+    if (needShell) { toast(needShell); addLog({ kind: "alert", text: needShell }); return; }
     var looked = root.SSDNSSpellCast && root.SSDNSSpellCast.lookup && root.SSDNSSpellCast.lookup(sp.name);
     var areaPick = spellAreaFor(sp.name, looked);
     var start = areaPick ? Promise.resolve({ skip: true }) : chooseCastTarget(sp.name, looked, sp.slot || 0);

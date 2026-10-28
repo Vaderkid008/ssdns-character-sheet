@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.161"; // sheet-playtest-v03161
+  var APP_VERSION = "0.3.162"; // sheet-playtest-v03162
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
@@ -1375,6 +1375,7 @@
         ]),
         el("div", { class: "g-chamber-row" }, [
           el("div", { class: "chambers", "data-chambers": i }),
+          el("span", { class: "fine hex-loaded", "data-hexnames": i, hidden: true }),
           el("span", { class: "g-count", "data-out": "left." + i }),
           el("button", { type: "button", class: "btn sm reload", "data-reload": i, title: "Reload: an action, fills the gun (slow guns: a full turn). Uses the ammo selected on this card." }, ["Reload"]),
           el("button", { type: "button", class: "btn sm", "data-unload": i, title: "Unload: put the chambered rounds back in your ammo, by type" }, ["Unload"]),
@@ -1390,7 +1391,7 @@
         el("div", { class: "g-smith" }, [el("button", { type: "button", class: "btn xs", "data-rechamber": i, hidden: "hidden", title: "Pay a gunsmith to change the chambered round: 500 ES per tier step" }, ["Rechamber (gunsmith)"])]),
         el("div", { class: "g-actions" }, [
           el("button", { type: "button", class: "btn sm tr", "data-tr": i, title: "Tactical Reload: bonus action, load one round from a gun belt or bandolier (TR ✓ guns only)" }, ["TR +1"]),
-          el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Load one hex shell of this level. Loading spends the slot. Fire it later as a spell attack." }, ["+ Hex shell"])]),
+          el("span", { class: "hexload", "data-hexwrap": i }, [hexSel, el("button", { type: "button", class: "btn sm hexbtn", "data-hexload": i, title: "Load the spell picked in the spell menu into one chamber. The shell keeps that spell. Loading spends the slot." }, ["+ Hex shell"])]),
           el("span", { class: "cast-through", "data-castwrap": i }, [
             el("select", { class: "cast-spell", "data-castspell": i, "aria-label": "Spell to cast through this gun" }),
             el("select", { class: "cast-slot", "data-castslot": i, "aria-label": "Shell or slot level", hidden: true }),
@@ -1944,6 +1945,10 @@
             var parsed = parseChamber(shells ? shells[k] : "");
             return parsed && parsed.kind === "hex" ? String(parsed.level) : "";
           },
+          tip: function (k) {
+            var parsed = parseChamber(shells ? shells[k] : "");
+            return parsed && parsed.kind === "hex" ? chamberLabel(shells[k], g, w) : "";
+          },
           attrs: function (k) { return { "data-fire": String(i), "data-k": String(k) }; }
         });
       } else for (var k = 0; k < cap; k++) {
@@ -1977,6 +1982,16 @@
       }
       var left = shells ? shells.filter(Boolean).length : num(g.loaded);
       out("left." + i, cap ? left + "/" + cap : "");
+      var hexNameEl = $('[data-hexnames="' + i + '"]');
+      if (hexNameEl) {
+        var hexNames = [];
+        (shells || []).forEach(function (st) {
+          var hp = parseChamber(st);
+          if (hp && hp.kind === "hex" && hp.spell) hexNames.push(hp.spell);
+        });
+        hexNameEl.hidden = !hexNames.length;
+        hexNameEl.textContent = hexNames.length ? ("Loaded: " + hexNames.join(", ")) : "";
+      }
       var packed = !!(g && g.weapon && g.equipped === false);
       var cycleBtn = $('[data-cycle="' + i + '"]');
       if (cycleBtn) {
@@ -2124,22 +2139,24 @@
         var clv = spellLv ? num(slotSel && slotSel.value, spellLv) : 0;
         var held = false;
         var spinCast = spinGun(g, w);
-        if (clv > 0 && spinCast) {
-          var under = parseChamber((g.chambers || [])[0]);
-          held = !!(under && under.kind === "hex" && String(under.level) === String(clv));
-        } else if (clv > 0) (g.chambers || []).forEach(function (st2) {
-          var p2 = parseChamber(st2);
-          if (p2 && p2.kind === "hex" && String(p2.level) === String(clv)) held = true;
-        });
+        var spinAway = false;
+        if (clv > 0 && picked) {
+          var readyAt = pickHexIndex(g.chambers || [], clv, picked.name);
+          if (spinCast) {
+            var under = parseChamber((g.chambers || [])[0]);
+            held = hexFits(under, clv, picked.name);
+            spinAway = !held && readyAt >= 0;
+          } else held = readyAt >= 0;
+        }
         castBtn.disabled = !picked || (clv > 0 && !held);
         castBtn.title = !picked ? "Add a cantrip or a prepared spell on the Spells page."
           : (clv === 0
             ? "Cantrip: no slot and no chamber. Rolls " + picked.name + "."
             : (held
-              ? "Fire the loaded level-" + clv + " shell as " + picked.name + ". No misfire. A natural 1 is a wild spark."
-              : (spinCast
-                ? "Spin a level-" + clv + " shell under the hammer (position 1). Leveled shells fire from there only. Cantrips stay separate."
-                : "Load a level-" + clv + " shell first. Loading spends the slot.")));
+              ? "Fire the loaded " + picked.name + " shell (level " + clv + "). No misfire. A natural 1 is a wild spark."
+              : (spinAway
+                ? "Spin " + picked.name + " under the hammer (position 1). Leveled shells fire from there only."
+                : "Load " + picked.name + " into the cylinder first. Loading spends the slot.")));
       }
     });
     renderAmmo();
@@ -2817,16 +2834,73 @@
     g.chambers = a; g.loaded = a.filter(Boolean).length;
     return a;
   }
-  /** Chamber token: "" | "c" (legacy plain) | "1"–"9" (legacy hex, slot already marked) | "k:type:caliber:tier" | "k:hex:level:ready". */
+  /** Chamber token: "" | "c" (legacy plain) | "1"–"9" (legacy hex, slot already marked) | "k:type:caliber:tier" | "k:hex:level:ready" | "k:hex:slot:spent:spellLevel:encodedName". */
+  function decodeSpellName(raw) {
+    if (!raw) return "";
+    try { return decodeURIComponent(String(raw)); } catch (e) { return String(raw); }
+  }
+  function sameSpellName(a, b) {
+    function norm(s) {
+      return String(s || "").toLowerCase().replace(/\s*\([^)]*\)/g, " ").replace(/\s+shell$/i, "").replace(/\s+/g, " ").trim();
+    }
+    return !!norm(a) && norm(a) === norm(b);
+  }
+  function spellFromValue(raw) {
+    var s = String(raw || "");
+    var cut = s.indexOf(":");
+    if (cut < 0) return null;
+    var level = num(s.slice(0, cut), 0);
+    var name = s.slice(cut + 1);
+    if (!name) return null;
+    return { level: level, name: name, value: level + ":" + name };
+  }
+  function hexToken(slot, spent, spell) {
+    var base = "k:hex:" + slot + ":" + (spent ? "spent" : "");
+    if (!spell || !spell.name) return base;
+    return base + ":" + num(spell.level, slot) + ":" + encodeURIComponent(spell.name);
+  }
   function parseChamber(st) {
     if (!st) return null;
     var s = String(st);
-    if (s === "c") return { kind: "plain", caliber: "", tier: "", level: "", spent: false };
-    if (/^[1-9]$/.test(s)) return { kind: "hex", caliber: "", tier: "", level: s, spent: true };
+    if (s === "c") return { kind: "plain", caliber: "", tier: "", level: "", spent: false, spell: "", spellLevel: "" };
+    if (/^[1-9]$/.test(s)) return { kind: "hex", caliber: "", tier: "", level: s, spent: true, spell: "", spellLevel: s };
     var p = s.split(":");
-    if (p[0] === "k" && p[1] === "hex") return { kind: "hex", level: p[2] || "", caliber: "", tier: "", spent: p[3] === "spent" };
-    if (p[0] === "k") return { kind: p[1] || "plain", caliber: p[2] || "", tier: p[3] || "", level: "", spent: false };
-    return { kind: "plain", caliber: "", tier: "", level: "", spent: false };
+    if (p[0] === "k" && p[1] === "hex") {
+      var spellLevel = /^[0-9]+$/.test(p[4] || "") ? p[4] : "";
+      var spell = p.length > 5 ? decodeSpellName(p.slice(5).join(":")) : "";
+      return { kind: "hex", level: p[2] || "", caliber: "", tier: "", spent: p[3] === "spent", spell: spell, spellLevel: spellLevel || "" };
+    }
+    if (p[0] === "k") return { kind: p[1] || "plain", caliber: p[2] || "", tier: p[3] || "", level: "", spent: false, spell: "", spellLevel: "" };
+    return { kind: "plain", caliber: "", tier: "", level: "", spent: false, spell: "", spellLevel: "" };
+  }
+  /* A named shell matches that spell. An unnamed legacy shell matches a level only, never a stand-in for Magic Missile. */
+  function hexFits(p, level, spellName) {
+    if (!p || p.kind !== "hex") return false;
+    if (spellName) {
+      if (!p.spell || !sameSpellName(p.spell, spellName)) return false;
+      if (String(p.level) === String(level)) return true;
+      var own = num(p.spellLevel, 0);
+      return !!(own && String(level) === String(own) && num(p.level, 0) >= own);
+    }
+    return String(p.level) === String(level);
+  }
+  function pickHexIndex(a, level, spellName) {
+    var exact = -1, up = -1, bare = -1;
+    for (var n = 0; n < a.length; n++) {
+      var p = parseChamber(a[n]);
+      if (!p || p.kind !== "hex") continue;
+      if (spellName) {
+        if (!hexFits(p, level, spellName)) continue;
+        if (String(p.level) === String(level)) { exact = n; break; }
+        if (up < 0) up = n;
+      } else if (String(p.level) === String(level) && bare < 0) bare = n;
+    }
+    if (spellName) return exact >= 0 ? exact : up;
+    return bare;
+  }
+  function shieldSpellName(name) {
+    var s = String(name || "").toLowerCase().replace(/\s*\([^)]*\)/g, " ").replace(/\s+shell$/i, "").replace(/\s+/g, " ").trim();
+    return s === "shield" || s === "magnesium flash";
   }
   function isHexChamber(st) { var p = parseChamber(st); return !!(p && p.kind === "hex"); }
   function isPlainChamber(st) { return !!st && !isHexChamber(st); }
@@ -2852,7 +2926,10 @@
   function chamberLabel(st, g, w) {
     var p = parseChamber(st);
     if (!p) return "";
-    if (p.kind === "hex") return "Hex shell " + p.level + (p.spent ? " (slot spent)" : " (slot not spent yet)");
+    if (p.kind === "hex") {
+      var who = p.spell ? (p.spell + " · ") : "";
+      return who + "Hex shell " + p.level + (p.spent ? " (slot spent)" : " (slot not spent yet)");
+    }
     if (p.kind === "plain" || p.kind === "cartridge") {
       var tier = p.tier || (w && w.tiers ? chamberOf(g, w).tier : "");
       var cal = p.caliber || (w ? gunRound(g, w) : "");
@@ -3138,20 +3215,24 @@
     publishGunCard();
     return { ok: true, left: g.loaded };
   }
-  function spendHexChamber(i, level) {
+  function spendHexChamber(i, level, spellName) {
     var g = C().guns[i], w = g && WPN[g.weapon];
     if (!w || !w.hexShells) return { ok: false, reason: "Not a Caster Gun." };
     var a = normChambers(g, w), k = -1, parsed = null;
+    var want = spellName || "";
+    var found = pickHexIndex(a, level, want);
     /* L0218: a leveled shell leaves a cylinder only from position 1. Cantrips never reach here. */
     if (spinGun(g, w)) {
       var p0 = parseChamber(a[0]);
-      if (p0 && p0.kind === "hex" && String(p0.level) === String(level)) { k = 0; parsed = p0; }
-      else return { ok: false, reason: "Leveled shells fire from position 1 only. Spin that shell under the hammer. A cantrip doesn't use a chamber." };
-    } else for (var n = 0; n < a.length; n++) {
-      var p = parseChamber(a[n]);
-      if (p && p.kind === "hex" && String(p.level) === String(level)) { k = n; parsed = p; break; }
-    }
-    if (k < 0) return { ok: false, reason: "Load a level-" + level + " hex shell first. Loading spends the slot. Then fire it from the chamber." };
+      if (hexFits(p0, level, want)) { k = 0; parsed = p0; }
+      else if (found >= 0) {
+        var away = parseChamber(a[found]);
+        var awayName = away && away.spell ? away.spell : "that shell";
+        return { ok: false, reason: "Spin " + awayName + " under the hammer. Leveled shells fire from position 1 only." };
+      }
+      else return { ok: false, reason: want ? ("Load " + want + " into the cylinder first.") : "Leveled shells fire from position 1 only. Spin that shell under the hammer. A cantrip doesn't use a chamber." };
+    } else if (found >= 0) { k = found; parsed = parseChamber(a[k]); }
+    if (k < 0) return { ok: false, reason: want ? ("Load " + want + " into the cylinder first.") : ("Load a level-" + level + " hex shell first. Loading spends the slot. Then fire it from the chamber.") };
     if (!(parsed && parsed.spent) && slotsLeft(level) <= 0) return { ok: false, reason: "No level-" + level + " slot left." };
     var was = a[k];
     a[k] = "";
@@ -3508,9 +3589,9 @@
     if (!hasGunBelt()) { toast(TR_BELT_MSG); return; }
     return reload(i, 1);
   }
-  function finishHexLoad(i, g, w, lvl, a, k) {
+  function finishHexLoad(i, g, w, lvl, a, k, spell) {
     if (slotsLeft(lvl) <= 0) { toast("No level-" + lvl + " slot left."); return; }
-    a[k] = "k:hex:" + lvl + ":spent";
+    a[k] = hexToken(lvl, true, spell);
     g.chambers = a;
     g.loaded = a.filter(Boolean).length;
     if (!spendHexSlot(lvl)) {
@@ -3519,17 +3600,43 @@
       toast("No level-" + lvl + " slot left.");
       return;
     }
+    if (spell && spell.name) {
+      g.castSpell = spell.level + ":" + spell.name;
+      g.castSlot = String(lvl);
+    }
     changed();
     publishGunCard();
     if (window.SSDNSAudio) window.SSDNSAudio.play(window.SSDNSAudio.reloadCue ? window.SSDNSAudio.reloadCue(w) : "reload");
-    toast("Loaded a level-" + lvl + " hex shell. The slot is spent. Cast through gun fires it as a spell attack.");
+    toast(spell && spell.name
+      ? ("Loaded " + spell.name + " (level-" + lvl + " shell). The slot is spent.")
+      : ("Loaded a level-" + lvl + " hex shell. The slot is spent. Cast through gun fires it as a spell attack."));
   }
-  function loadHexShell(i) {
+  function chosenHexLoad(i, spellOverride, levelOverride) {
+    var raw = spellOverride;
+    if (raw == null) {
+      var sel = $('[data-castspell="' + i + '"]');
+      raw = sel && sel.value || "";
+    }
+    var spell = spellFromValue(raw);
+    if (!spell || !(spell.level > 0)) {
+      var bare = levelOverride != null && levelOverride !== "" ? num(levelOverride, 1) : num($('[data-hexlvl="' + i + '"]') && $('[data-hexlvl="' + i + '"]').value, 1);
+      return { spell: null, slot: bare };
+    }
+    /* The level next to + Hex shell is the slot. A lower number cannot turn the spell into a different one. */
+    var requested = levelOverride != null && levelOverride !== ""
+      ? num(levelOverride, spell.level)
+      : num($('[data-hexlvl="' + i + '"]') && $('[data-hexlvl="' + i + '"]').value, spell.level);
+    var slot = requested >= spell.level ? requested : spell.level;
+    return { spell: spell, slot: slot };
+  }
+  function loadHexShell(i, spellOverride, levelOverride) {
     if (offTurnStop("gear")) return;
     var g = C().guns[i], w = WPN[g.weapon];
     if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
     if (!w || !w.hexShells) return;
-    var lvl = num($('[data-hexlvl="' + i + '"]').value, 1), a = normChambers(g, w), k = firstOpenChamber(g, a);
+    var pick = chosenHexLoad(i, spellOverride, levelOverride);
+    var lvl = pick.slot;
+    var a = normChambers(g, w), k = firstOpenChamber(g, a);
     if (k < 0) {
       var plain = -1;
       for (var p = 0; p < a.length; p++) if (isPlainChamber(a[p])) { plain = p; break; }
@@ -3545,11 +3652,11 @@
         returnChamber(a[plain], g, w);
         a[plain] = "";
         g.chambers = a;
-        finishHexLoad(i, g, w, lvl, a, plain);
+        finishHexLoad(i, g, w, lvl, a, plain, pick.spell);
       });
       return;
     }
-    finishHexLoad(i, g, w, lvl, a, k);
+    finishHexLoad(i, g, w, lvl, a, k, pick.spell);
   }
   function publishGunCard() {
     if (window.SSDNSDmJoin && window.SSDNSDmJoin.publishSnapshot) {
@@ -3612,10 +3719,40 @@
     var globalAdv = $("#globalAdv");
     return (sel && sel.value) || (globalAdv && globalAdv.value) || "";
   }
-  function loadHexAt(i, level) {
+  function loadHexAt(i, level, spellValue) {
     var sel = $('[data-hexlvl="' + i + '"]');
-    if (sel && level != null && level !== "") sel.value = String(level);
-    return loadHexShell(i);
+    var spell = spellFromValue(spellValue);
+    if (!spell || !(spell.level > 0)) {
+      if (sel && level != null && level !== "") sel.value = String(level);
+      return loadHexShell(i, "", level);
+    }
+    var slot = num(level, 0);
+    if (slot < spell.level) {
+      var slotSel = $('[data-castslot="' + i + '"]');
+      var castSlot = num(slotSel && slotSel.value, spell.level);
+      slot = castSlot >= spell.level ? castSlot : spell.level;
+    }
+    if (sel) sel.value = String(slot);
+    return loadHexShell(i, spell.value, slot);
+  }
+  function hexSpellLoaded(i, name, slot) {
+    var g = C().guns[i];
+    if (!g) return false;
+    return pickHexIndex(g.chambers || [], slot, name) >= 0;
+  }
+  function hexListBlock(i, sp) {
+    var c = C();
+    if (!c || c.calling !== "hexslinger") return "";
+    var slot = num(sp && (sp.slot || sp.level), 0);
+    if (!(slot > 0) || !sp || !sp.name) return "";
+    if (shieldSpellName(sp.name)) return "";
+    var gi = i >= 0 ? i : -1;
+    if (gi < 0 && window.SSDNSFocus && window.SSDNSFocus.castGunIndex) gi = window.SSDNSFocus.castGunIndex(c);
+    if (gi < 0) {
+      (c.guns || []).forEach(function (g, n) { if (g && g.weapon && gi < 0) gi = n; });
+    }
+    if (hexSpellLoaded(gi, sp.name, slot)) return "";
+    return "Load " + sp.name + " into the cylinder first.";
   }
   function castList() {
     return castChoices().map(function (ch) {
@@ -4187,15 +4324,17 @@
     var hi = misfireCeiling(text, dirty);
     return (hi > 1 ? "1–" + hi : "1") + (dirty && hi > misfireCeiling(text, false) ? " (dirty)" : (dirty ? " (dirty)" : ""));
   }
-  function fireHexShell(level) {
+  function fireHexShell(level, spellName) {
     var guns = C().guns || [];
+    var miss = "";
     for (var i = 0; i < guns.length; i++) {
       var w = WPN[guns[i].weapon];
       if (!w || !w.hexShells) continue;
-      var held = spendHexChamber(i, level);
+      var held = spendHexChamber(i, level, spellName || "");
       if (held.ok) return held;
+      miss = held.reason || miss;
     }
-    return { ok: false, reason: "No level-" + level + " shell is loaded." };
+    return { ok: false, reason: miss || (spellName ? ("Load " + spellName + " into the cylinder first.") : ("No level-" + level + " shell is loaded.")) };
   }
   function rollTrait(kind) {
     var b = BG[C().background];
@@ -5231,8 +5370,11 @@
       openRechamber: function (i) { return openRechamber(i); },
       unloadGunIndex: function (i) { return withCost(i, UNLOAD_COST, "Unload", function () { return unloadLoaded(i); }); },
       tacticalReload: function (i) { return withCost(i, "bonus", "Tactical Reload", function () { return tacticalReload(i); }); },
-      loadHexShell: function (i) { loadHexShell(i); },
-      loadHexAt: function (i, level) { return loadHexAt(i, level); },
+      loadHexShell: function (i, spell, level) { loadHexShell(i, spell, level); },
+      loadHexAt: function (i, level, spell) { return loadHexAt(i, level, spell); },
+      parseChamber: function (st) { return parseChamber(st); },
+      hexSpellLoaded: function (i, name, slot) { return hexSpellLoaded(i, name, slot); },
+      hexListBlock: function (i, sp) { return hexListBlock(i, sp); },
       ammoChoices: function (i) { return ammoChoices(i); },
       setAmmoPool: function (i, idx) { return setGunAmmoPool(i, idx); },
       setAttackMode: function (i, mode) { return setGunAttackMode(i, mode); },

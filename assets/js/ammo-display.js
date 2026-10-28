@@ -277,10 +277,13 @@
     var cls = extraClass ? " " + extraClass : "";
     var attrs = attrString(spec, k);
     if (spin) attrs = spinAttrRewrite(attrs);
+    var tip = typeof spec.tip === "function" ? (spec.tip(k, chamber) || "") : "";
+    var aria = tip || (word + (spin ? "" : " chamber " + (chamber.index + 1)));
     return '<button type="button" class="ammo-round is-' + chamber.state + next + cls + '"' +
       (style ? ' style="' + style + '"' : "") +
       " " + attrs +
-      ' aria-label="' + esc(word + (spin ? "" : " chamber " + (chamber.index + 1))) + '">' + text + "</button>";
+      (tip ? ' title="' + esc(tip) + '"' : "") +
+      ' aria-label="' + esc(aria) + '">' + text + "</button>";
   }
 
   function toneStyle(spec, chamber) {
