@@ -700,6 +700,8 @@
     if (entry.disease) row.disease = entry.disease;
     if (entry.hit === true || entry.hit === false) row.hit = !!entry.hit;
     if (entry.crit) row.crit = true;
+    if (entry.zoneId) row.zoneId = entry.zoneId;
+    if (entry.zoneBudget) row.zoneBudget = Number(entry.zoneBudget) || 0;
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
       return { ok: true };
     }).catch(function (e) {
@@ -1993,7 +1995,7 @@
         if (forced) nat = forced;
       }
       /* L0188: exhaustion 3+ gives disadvantage on saves */
-      var exDis = root.SSDNSSheet && root.SSDNSSheet.condRollMode && root.SSDNSSheet.condRollMode("save") === "dis";
+      var exDis = !!(payload.disadvantage) || (root.SSDNSSheet && root.SSDNSSheet.condRollMode && root.SSDNSSheet.condRollMode("save") === "dis");
       var nat2 = null;
       if (exDis) { nat2 = 1 + Math.floor(Math.random() * 20); nat = Math.min(nat, nat2); }
       var saveDie = root.SSDNSSpellBuffs && root.SSDNSSpellBuffs.rollMods
@@ -2003,7 +2005,8 @@
       var dc = Number(payload.dc);
       var failed = isFinite(dc) ? total < dc : false;
       var line = ability + " save " + nat + sign + (saveDie.text ? (" " + saveDie.text) : "") + " = " + total + (isFinite(dc) ? " vs DC " + dc : "") + (failed ? " FAIL" : " OK") + (nat === 20 ? " · natural 20" : "");
-      if (exDis) line += " · disadvantage (Exhaustion " + root.SSDNSSheet.exhaustionLevel() + ")";
+      if (payload.disadvantage) line += " · disadvantage";
+      else if (exDis) line += " · disadvantage (Exhaustion " + root.SSDNSSheet.exhaustionLevel() + ")";
       postRoll({
         id: "save_" + payload.id,
         saveRequestId: payload.id,

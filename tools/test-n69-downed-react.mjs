@@ -169,9 +169,9 @@ const dmcc = read("dm/assets/css/dmcc.css");
 check("src.css", dmcc.includes("pointer-events: none") && dmcc.includes("z-index: 320") && dmcc.includes("z-index: 300") && read("assets/css/sheet.css").includes("z-index: 320"));
 check("src.leaveCloses", read("dm/assets/js/dmcc.js").includes("SSDNSReact.close"));
 check("src.sheet", read("assets/js/dm-join.js").includes("sheetIneligible") && read("assets/js/dm-join.js").includes("reactorDown") && read("assets/js/dm-join.js").includes("reactPromptSettled"));
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("react-prompt") && !read("assets/data/rules.js").includes("0.3.163") && !read("database.rules.json").includes("0.3.163") && !read("assets/data/rules.js").includes("isIneligibleReactor"));
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("react-prompt") && !read("assets/data/rules.js").includes("0.3.164") && !read("database.rules.json").includes("0.3.164") && !read("assets/data/rules.js").includes("isIneligibleReactor"));
 const ver = JSON.parse(read("version.json"));
-check("src.versions", ver.sheet === "0.3.163" && ver.dmcc === "0.2.176" && ver.sheetBuild === "sheet-playtest-v03163" && ver.dmccBuild === "dmcc-playtest-v02176", JSON.stringify(ver));
+check("src.versions", ver.sheet === "0.3.164" && ver.dmcc === "0.2.177" && ver.sheetBuild === "sheet-playtest-v03164" && ver.dmccBuild === "dmcc-playtest-v02177", JSON.stringify(ver));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

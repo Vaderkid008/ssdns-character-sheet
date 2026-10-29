@@ -28,7 +28,7 @@ check("src.labels", html.includes("quicksand") && html.includes("does not set Di
 check("src.noAutoDirty", !/advanceCampaignDay[\s\S]{0,500}\.dirty\s*=\s*true/.test(v2));
 check("src.silentSet", v2.includes("const settingDirty = op === \"dirty\"") && v2.includes("if (settingDirty) payloadO.quiet = true") && v2.includes("if (!settingDirty)"));
 check("src.playerQuiet", join.includes("if (root.SSDNSSheet && !payload.quiet)"));
-check("src.rulesUntouched", !rules.includes("campaignDay") && !rulesJs.includes("campaignDay") && !rulesJs.includes("0.3.163"));
+check("src.rulesUntouched", !rules.includes("campaignDay") && !rulesJs.includes("campaignDay") && !rulesJs.includes("0.3.164"));
 check("src.persisted", v2.includes("campaignDay: fight.campaignDay || 1") && v2.includes("gunClean: fight.gunClean || {}"));
 
 const bag = {};
