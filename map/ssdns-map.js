@@ -1638,6 +1638,16 @@ function spellZoneList() {
   } catch (e) {}
   return state.spellZones || [];
 }
+function liveSpellZones() {
+  const list = spellZoneList();
+  return list.map(z => {
+    if (!z || !z.follow) return z;
+    const t = tokenByRef(z.casterId) || tokenByRef(z.followId);
+    if (!t || !t.pos) return z;
+    const s = t.size || 1;
+    return Object.assign({}, z, { origin: { x: t.pos.x + s / 2, y: t.pos.y + s / 2 } });
+  });
+}
 function zoneViewer(sight) {
   const bubbles = (sight && sight.bubbles) || [];
   const mine = sight && sight.uid ? bubbles.filter(b => b && b.uid === sight.uid) : [];
@@ -1675,7 +1685,18 @@ function zoneStyle(key) {
     "wall of ice": ["rgba(150,220,255,0.42)", "rgba(190,240,255,0.98)"],
     "wall of thorns": ["rgba(30,110,40,0.5)", "rgba(90,190,70,0.98)"],
     "blade barrier": ["rgba(210,210,220,0.42)", "rgba(240,240,248,0.98)"],
-    "wind wall": ["rgba(214,184,120,0.34)", "rgba(230,200,140,0.95)"]
+    "wind wall": ["rgba(214,184,120,0.34)", "rgba(230,200,140,0.95)"],
+    "cloud of daggers": ["rgba(180,180,190,0.35)", "rgba(220,220,230,0.95)"],
+    "flaming sphere": ["rgba(255,90,16,0.45)", "rgba(255,160,40,0.98)"],
+    moonbeam: ["rgba(210,220,255,0.28)", "rgba(230,236,255,0.98)"],
+    "call lightning": ["rgba(120,170,255,0.28)", "rgba(180,210,255,0.95)"],
+    "spiritual weapon": ["rgba(200,180,255,0.3)", "rgba(220,200,255,0.95)"],
+    "spirit guardians": ["rgba(255,220,120,0.22)", "rgba(255,210,80,0.95)"],
+    cloudkill: ["rgba(90,140,40,0.4)", "rgba(140,180,60,0.95)"],
+    "insect plague": ["rgba(120,90,40,0.35)", "rgba(160,120,50,0.95)"],
+    "incendiary cloud": ["rgba(255,70,20,0.4)", "rgba(255,120,40,0.98)"],
+    "guardian of faith": ["rgba(255,230,160,0.28)", "rgba(255,220,120,0.98)"],
+    "delayed blast fireball": ["rgba(255,60,20,0.45)", "rgba(255,140,40,0.98)"]
   };
   return styles[key] || ["rgba(200,180,80,0.28)", "rgba(230,210,120,0.95)"];
 }
@@ -1713,7 +1734,7 @@ function traceZone(zone, px) {
 }
 function paintSpellZones() {
   if (!state.scene) return;
-  const zones = spellZoneList();
+  const zones = liveSpellZones();
   if (!zones.length) return;
   const px = state.scene.grid.px || 70;
   const Z = window.SSDNSSpellZones;
@@ -1833,18 +1854,63 @@ function tokenSnapshot(id) {
     name: t.name || t.label || ""
   };
 }
+function zoneTurnKey() {
+  const init = state.initiative || {};
+  if (!init.started && init.round == null) return "";
+  return (init.round || 1) + ":" + (init.turn || 0);
+}
+function dispatchZoneTicks(ticks, mover, from, to) {
+  if (!ticks || !ticks.length) return;
+  const Z = window.SSDNSSpellZones;
+  state.zoneSeen = state.zoneSeen || {};
+  const turnKey = zoneTurnKey();
+  const tokenId = (mover && (mover.combatantId || mover.ownerUid || mover.id)) || "";
+  const fresh = !turnKey || !Z || !Z.once ? ticks : ticks.filter(t => Z.once(state.zoneSeen, t, (t && t.targetId) || tokenId, turnKey));
+  if (!fresh.length) return;
+  try {
+    window.dispatchEvent(new CustomEvent("ssdns-zone-tick", {
+      detail: { ticks: fresh, tokenId: mover && mover.id, ownerUid: mover && mover.ownerUid, from: from, to: to }
+    }));
+  } catch (e) {}
+}
+function sweepFollow(mover, from, to) {
+  const Z = window.SSDNSSpellZones;
+  if (!Z || !mover || !from || !to) return;
+  const ids = [mover.id, mover.ownerUid, mover.combatantId].filter(Boolean);
+  const owned = spellZoneList().filter(z => z && z.follow && ids.some(id => id === z.casterId || id === z.followId));
+  if (!owned.length) return;
+  const s = mover.size || 1;
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.pos || t.id === mover.id) return;
+    const ticks = [];
+    owned.forEach(z => {
+      const oldZ = Object.assign({}, z, { origin: { x: from.x + s / 2, y: from.y + s / 2 } });
+      const newZ = Object.assign({}, z, { origin: { x: to.x + s / 2, y: to.y + s / 2 } });
+      const tok = {
+        x: t.pos.x, y: t.pos.y, size: t.size || 1,
+        id: t.combatantId || t.ownerUid || t.id,
+        ownerUid: t.ownerUid || "",
+        name: t.name || t.label || ""
+      };
+      if (Z.tokenIn(oldZ, tok, 0) || !Z.tokenIn(newZ, tok, 0)) return;
+      Z.phaseDue({ zones: [newZ] }, tok, "enter").forEach(tick => ticks.push(tick));
+    });
+    if (ticks.length) dispatchZoneTicks(ticks, t, from, to);
+  });
+}
 function noteZoneCross(mover, from, to) {
   const Z = window.SSDNSSpellZones;
   if (!Z || !Z.moveDue || !mover || !from || !to) return;
   if (from.x === to.x && from.y === to.y) return;
   const token = {
     id: mover.combatantId || mover.ownerUid || mover.id,
+    ownerUid: mover.ownerUid || "",
     name: mover.name || mover.label || "",
     x: to.x, y: to.y, size: mover.size || 1
   };
-  const ticks = Z.moveDue(spellZoneList(), from, to, token);
-  if (!ticks.length) return;
-  try { window.dispatchEvent(new CustomEvent("ssdns-zone-tick", { detail: { ticks: ticks, tokenId: mover.id, from: from, to: to } })); } catch (e) {}
+  const ticks = Z.moveDue(liveSpellZones(), from, to, token);
+  dispatchZoneTicks(ticks, mover, from, to);
+  sweepFollow(mover, from, to);
 }
 function rangedWeaponShot(attack) {
   if (!attack) return false;
@@ -4736,7 +4802,16 @@ function moveContext(mover, budget) {
     disengage: !!(budget && budget.disengage),
     teleport: !!(budget && budget.teleport),
     forced: !!(budget && budget.forced),
-    enemies: occupants.filter(o => !o.ally)
+    enemies: occupants.filter(o => !o.ally),
+    terrainCost: (square) => {
+      const Z = window.SSDNSSpellZones;
+      if (!Z || !Z.terrainMult || !square) return 1;
+      return Z.terrainMult(liveSpellZones(), {
+        x: square.x, y: square.y, size: 1,
+        id: mover ? (mover.combatantId || mover.ownerUid || mover.id) : "",
+        ownerUid: (mover && mover.ownerUid) || ""
+      });
+    }
   };
 }
 function reachFeetOf(token) {
@@ -4772,7 +4847,8 @@ function reachFor(mover, budget) {
     (sceneData().walls || []).forEach(w => { wallSig += (w.x1 || 0) + (w.y1 || 0) + (w.x2 || 0) + (w.y2 || 0) + (w.open ? 1 : 0); });
   } catch (e) { wallSig = 0; }
   const posSig = state.tokens.map(t => t && t.pos ? t.id + ':' + t.pos.x + ',' + t.pos.y : '').join(';');
-  const key = [mover.id, mover.pos.x, mover.pos.y, feet, budget.free ? 1 : 0, wallSig, posSig].join('|');
+  const zoneSig = spellZoneList().map(z => z && (z.id + "@" + (z.origin && z.origin.x) + "," + (z.origin && z.origin.y) + (z.halfSpeed ? "h" : "") + (z.difficult ? "d" : ""))).join(";");
+  const key = [mover.id, mover.pos.x, mover.pos.y, feet, budget.free ? 1 : 0, wallSig, posSig, zoneSig].join('|');
   if (state.moveReachKey === key && state.moveReach) return { reach: state.moveReach, ctx: ctxm, budget: budget };
   const reach = M.computeReach({ x: mover.pos.x, y: mover.pos.y }, feet, ctxm);
   state.moveReachKey = key;
@@ -10143,6 +10219,7 @@ return {
   tokensInBlast,
   setSpellZones: setSpellZones,
   spellZones: function () { return spellZoneList(); },
+  turnKey: function () { return zoneTurnKey(); },
   tokenSnapshot: function (id) { return tokenSnapshot(id); },
   /* fog-aware targeting */
   canPlayerSee: function (viewerUid, targetId) { return canPlayerSee(viewerUid, targetId); },

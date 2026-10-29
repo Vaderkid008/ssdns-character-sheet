@@ -1129,11 +1129,17 @@
     castSpellAttackNow._reactGo = false;
     castSpellAttackNow._paid = false;
     castSpellAttackNow._targets = null;
+    castSpellAttackNow._blastKeep = null;
+    castSpellAttackNow._allies = null;
+    castSpellAttackNow._alliesSet = false;
   }
   function abortCast(msg) {
     castSpellAttackNow._reactGo = false;
     castSpellAttackNow._paid = false;
     castSpellAttackNow._blasted = null;
+    castSpellAttackNow._blastKeep = null;
+    castSpellAttackNow._allies = null;
+    castSpellAttackNow._alliesSet = false;
     castSpellAttackNow._targets = null;
     var fn = castRefund;
     castRefund = null;
@@ -1143,11 +1149,11 @@
   function spellAreaFor(spellName, row, slot) {
     if (!row) return null;
     var kind = row.kind || "none";
-    if (kind === "attack" || kind === "weapon") return null;
+    var Z = root.SSDNSSpellZones;
+    if ((kind === "attack" || kind === "weapon") && !(Z && Z.isZone && Z.isZone(spellName))) return null;
     if (kind === "auto" && row.rays) return null;
     var Area = root.SSDNSSpellArea;
     var area = Area && Area.areaOf ? Area.areaOf(spellName) : null;
-    var Z = root.SSDNSSpellZones;
     if (Z && Z.dressArea) area = Z.dressArea(spellName, area, slot);
     return area;
   }
@@ -1166,9 +1172,14 @@
     var c = ch();
     if (!Z || !SR || !c || !placed || !Z.isZone || !Z.isZone(spellName)) return "";
     var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
-    var zone = Z.buildZone(spellName, placed, { slot: slot, casterId: uidNow || "", dc: dc });
+    var zone = Z.buildZone(spellName, placed, {
+      slot: slot, casterId: uidNow || "", dc: dc,
+      exemptIds: castSpellAttackNow._allies || [],
+      damageType: castSpellAttackNow._mode || ""
+    });
     if (!zone) return "";
     var put = Z.place(c.spellMarks, zone);
+    detonateBeads(put.replaced);
     c.spellMarks = put.bag;
     syncSpellZones();
     return put.log || "";
@@ -1273,6 +1284,43 @@
       if (isSelfTarget({ id: chp.targetId })) dropChipName(chp.name);
     });
   }
+  function detonateBeads(zones) {
+    var host = root.SSDNSMapHost;
+    (zones || []).forEach(function (zone) {
+      if (!zone || !zone.blast) return;
+      var live = null;
+      if (host && typeof host.spellZones === "function") {
+        (host.spellZones() || []).forEach(function (z) { if (z && z.id === zone.id) live = z; });
+      }
+      var bead = live || zone;
+      var blast = bead.blast;
+      if (!blast) return;
+      var line = (bead.spell || "Bead") + " detonates " + (blast.dice || "") + " " + (blast.type || "fire");
+      addLog({ kind: "alert", text: line });
+      toast(line);
+      if (!host || typeof host.tokensInBlast !== "function" || !bead.origin) return;
+      var area = { shape: "sphere", radius: blast.radius || 20, feet: blast.radius || 20 };
+      var tokens = [];
+      try { tokens = host.tokensInBlast(area, [bead.origin], 0, "") || []; } catch (err) { tokens = []; }
+      var R = root.SSDNSSpellRiders;
+      tokens.forEach(function (t, idx) {
+        if (!joined() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postDamage) return;
+        var rolled = R && R.rollExpr ? R.rollExpr(blast.dice, false) : { total: 0, formula: blast.dice || "" };
+        root.SSDNSDmJoin.postDamage({
+          amount: rolled.total,
+          label: bead.spell || "Delayed Blast Fireball",
+          type: "spell",
+          save: blast.save || "DEX",
+          dc: bead.dc,
+          half: blast.half !== false,
+          dice: (rolled.formula || blast.dice || "") + " " + (blast.type || "fire"),
+          targetId: t.combatantId || t.ownerUid || t.id,
+          targetName: t.name || "",
+          rollId: "bead_" + Date.now().toString(36) + idx
+        });
+      });
+    });
+  }
   function endSpell(name) {
     breakLocalConc(name || "");
     var line = (name || "Spell") + " ends.";
@@ -1289,6 +1337,7 @@
     if (!bag.conc && !spell) return;
     var ended = SR.breakConc(bag, spell || bag.conc);
     c.spellMarks = ended.bag;
+    detonateBeads(ended && ended.zones);
     publishChips(ended.removed, true);
     dropLocalChipRows(ended.removed);
     if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
@@ -2110,6 +2159,7 @@
       }
     }
     var areaNow = areaEarly;
+    if (castSpellAttackNow._blastKeep && !castSpellAttackNow._blasted) castSpellAttackNow._blasted = castSpellAttackNow._blastKeep;
     if (areaNow && !castSpellAttackNow._blasted) {
       var hostB = root.SSDNSMapHost;
       if (!hostB || typeof hostB.placeBlast !== "function") {
@@ -2121,6 +2171,7 @@
       hostB.placeBlast({ name: spellName, area: areaNow, casterId: tokB || uidB || "" }).then(function (placed) {
         if (!placed) { abortCast("Cast cancelled."); return; }
         castSpellAttackNow._blasted = placed;
+        castSpellAttackNow._blastKeep = placed;
         try { castSpellAttackNow(i, spellName, slot, fromChamber, damageType); }
         finally { castSpellAttackNow._blasted = null; }
       });
@@ -2145,6 +2196,31 @@
         castSpellAttackNow._picked = true;
         try { castSpellAttackNow(i, spellName, slot, fromChamber, damageType); }
         finally { castSpellAttackNow._picked = false; }
+      });
+      return;
+    }
+    var zoneApi = root.SSDNSSpellZones;
+    if (placedBlast && zoneApi && zoneApi.needsAllies && zoneApi.needsAllies(spellName) && !castSpellAttackNow._alliesSet) {
+      var allySel = document.querySelector("#atkTarget");
+      var allyRows = [];
+      if (allySel) {
+        Array.prototype.forEach.call(allySel.options || [], function (op) {
+          if (!op.value || op.value === "__free") return;
+          var kind = op.getAttribute("data-kind") || "";
+          allyRows.push({
+            id: op.value,
+            name: op.getAttribute("data-name") || op.textContent || op.value,
+            defaultOn: kind === "player" || kind === "friendly"
+          });
+        });
+      }
+      zoneApi.chooseExempt(spellName, allyRows).then(function (ids) {
+        castSpellAttackNow._allies = ids || [];
+        castSpellAttackNow._alliesSet = true;
+        castSpellAttackNow._picked = true;
+        castSpellAttackNow._blasted = castSpellAttackNow._blastKeep || placedBlast;
+        try { castSpellAttackNow(i, spellName, slot, fromChamber, damageType); }
+        finally { castSpellAttackNow._alliesSet = false; }
       });
       return;
     }
@@ -2341,6 +2417,7 @@
       if (concBag.conc && String(concBag.conc).toLowerCase() !== String(spellName || "").toLowerCase()) {
         var concEnded = root.SSDNSSpellRiders.breakConc(concBag, concBag.conc);
         ch().spellMarks = concEnded.bag;
+        detonateBeads(concEnded.zones);
         publishChips(concEnded.removed, true);
         dropLocalChipRows(concEnded.removed);
         addLog({ kind: "alert", text: "Concentration ends " + concBag.conc + "." });
@@ -4391,17 +4468,29 @@
     var detail = ev && ev.detail;
     var ticks = detail && detail.ticks;
     if (!ticks || !ticks.length) return;
+    var seen = root.__ssdnsZoneSeen || (root.__ssdnsZoneSeen = {});
+    var Zonce = root.SSDNSSpellZones;
+    var turnKey = "";
+    try {
+      if (root.SSDNSMapHost && typeof root.SSDNSMapHost.turnKey === "function") turnKey = root.SSDNSMapHost.turnKey() || "";
+    } catch (errTurn) { turnKey = ""; }
     ticks.forEach(function (tick) {
+      var targetId = tick.targetId || detail.tokenId || "";
+      if (turnKey && Zonce && Zonce.once && !Zonce.once(seen, tick, targetId, turnKey)) return;
+      var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      if (tick.hostile && tick.casterId && (tick.casterId === targetId || (tick.casterId === uidNow && detail && detail.ownerUid === uidNow))) return;
       var line = (tick.spell || "Zone") + (tick.save ? " SAVE " + tick.save + " or " : " ") + (tick.formula || tick.dice || "") + (tick.amount != null ? " = " + tick.amount : "") + " " + (tick.type || "");
       addLog({ kind: "roll", text: line });
       toast(line);
       if (!joined() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postDamage) return;
-      var targetId = tick.targetId || detail.tokenId || "";
       if (tick.save) {
+        var Rsave = root.SSDNSSpellRiders;
+        var rolledSave = Rsave && Rsave.rollExpr ? Rsave.rollExpr(tick.dice, false) : { total: 0, formula: tick.dice || "" };
         root.SSDNSDmJoin.postDamage({
-          amount: 0, label: tick.spell || "Zone", type: "spell", save: tick.save,
-          dc: tick.dc, dice: (tick.dice || "") + " " + (tick.type || ""), half: !!tick.half,
+          amount: rolledSave.total, label: tick.spell || "Zone", type: "spell", save: tick.save,
+          dc: tick.dc, dice: (rolledSave.formula || tick.dice || "") + " " + (tick.type || ""), half: !!tick.half,
           targetId: targetId, targetName: tick.targetName || "",
+          zoneId: tick.zoneId || "", zoneBudget: tick.budget || 0,
           rollId: "zone_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
         });
         return;

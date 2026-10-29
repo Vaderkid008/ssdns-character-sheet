@@ -1,7 +1,9 @@
 /**
  * N79 Phase 1c D — PHB 2014 zones on the N78 aim-then-cast placer.
- * Lighting, darkness, fog, Hunger of Hadar, and walls. rules.js is not edited.
- * Placement stays the existing blast: click a point (or aim a wall), then confirm.
+ * N81 P0-4 adds the lasting PHB areas (clouds, beams, guardians, beads).
+ * rules.js is not edited. Placement stays aim-then-cast.
+ * Duration timers and DM Clear are a later slice. Repeat bolts, rams, and
+ * bonus-action swings stay on the sustain slice.
  */
 (function (root) {
   "use strict";
@@ -69,6 +71,84 @@
       name: "Wind Wall", level: 3, conc: true, dur: "1 min", range: 120, shape: "wall", length: 50, thickness: 1,
       rangedDisadvantage: true,
       appear: { dice: "3d8", type: "bludgeoning", save: "STR", half: true }
+    },
+    /* N81 P0-4 — placed once, then the enter/start/end engine keeps them. */
+    "cloud of daggers": {
+      name: "Cloud of Daggers", level: 2, conc: true, dur: "1 min", range: 60, shape: "cube", side: 5,
+      deferCast: true,
+      ticks: [
+        { when: "enter", dice: "4d4", type: "slashing", up: "2d4" },
+        { when: "start", dice: "4d4", type: "slashing", up: "2d4" }
+      ]
+    },
+    "flaming sphere": {
+      name: "Flaming Sphere", level: 2, conc: true, dur: "1 min", range: 60, shape: "sphere", radius: 5,
+      deferCast: true,
+      ticks: [
+        { when: "end", dice: "2d6", type: "fire", save: "DEX", half: true, up: "1d6", near: 5 }
+      ]
+    },
+    "moonbeam": {
+      name: "Moonbeam", level: 2, conc: true, dur: "1 min", range: 120, shape: "cylinder", radius: 5,
+      deferCast: true,
+      ticks: [
+        { when: "enter", dice: "2d10", type: "radiant", save: "CON", half: true, up: "1d10", shapechanger: true },
+        { when: "start", dice: "2d10", type: "radiant", save: "CON", half: true, up: "1d10", shapechanger: true }
+      ]
+    },
+    "call lightning": {
+      name: "Call Lightning", level: 3, conc: true, dur: "10 min", range: 120, shape: "cylinder", radius: 5
+      /* The first bolt still resolves on cast. Later bolts are the sustain slice. */
+    },
+    "spiritual weapon": {
+      name: "Spiritual Weapon", level: 2, conc: false, dur: "1 min", range: 60, shape: "sphere", radius: 5
+      /* The cast still makes the melee spell attack. Later swings are the sustain slice. */
+    },
+    "spirit guardians": {
+      name: "Spirit Guardians", level: 3, conc: true, dur: "10 min", range: 15, shape: "sphere", radius: 15,
+      anchor: true, follow: true, halfSpeed: true, exemptCaster: true, chooseAllies: true, chooseType: ["radiant", "necrotic"],
+      deferCast: true,
+      ticks: [
+        { when: "enter", dice: "3d8", type: "radiant", save: "WIS", half: true, up: "1d8" },
+        { when: "start", dice: "3d8", type: "radiant", save: "WIS", half: true, up: "1d8" }
+      ]
+    },
+    "cloudkill": {
+      name: "Cloudkill", level: 5, conc: true, dur: "10 min", range: 120, shape: "sphere", radius: 20,
+      heavilyObscured: true, deferCast: true,
+      ticks: [
+        { when: "enter", dice: "5d8", type: "poison", save: "CON", half: true, up: "1d8" },
+        { when: "start", dice: "5d8", type: "poison", save: "CON", half: true, up: "1d8" }
+      ]
+    },
+    "insect plague": {
+      name: "Insect Plague", level: 5, conc: true, dur: "10 min", range: 300, shape: "sphere", radius: 20,
+      difficult: true, lightlyObscured: true, deferCast: true,
+      ticks: [
+        { when: "enter", dice: "4d10", type: "piercing", save: "CON", half: true, up: "1d10" },
+        { when: "start", dice: "4d10", type: "piercing", save: "CON", half: true, up: "1d10" }
+      ]
+    },
+    "incendiary cloud": {
+      name: "Incendiary Cloud", level: 8, conc: true, dur: "1 min", range: 150, shape: "sphere", radius: 20,
+      heavilyObscured: true, deferCast: true,
+      ticks: [
+        { when: "enter", dice: "10d8", type: "fire", save: "DEX", half: true, up: "1d8" },
+        { when: "start", dice: "10d8", type: "fire", save: "DEX", half: true, up: "1d8" }
+      ]
+    },
+    "guardian of faith": {
+      name: "Guardian of Faith", level: 4, conc: false, dur: "8 hours", range: 30, shape: "sphere", radius: 5,
+      budget: 60, deferCast: true,
+      ticks: [
+        { when: "approach", dice: "20", type: "radiant", save: "DEX", half: true, reach: 10, hostile: true }
+      ]
+    },
+    "delayed blast fireball": {
+      name: "Delayed Blast Fireball", level: 7, conc: true, dur: "1 min", range: 150, shape: "sphere", radius: 5,
+      deferCast: true,
+      blast: { radius: 20, dice: "12d6", type: "fire", save: "DEX", half: true, up: "1d6" },
+      grow: { dice: "1d6" }
     }
   };
 
@@ -108,13 +188,17 @@
   }
   function blankArea(spec, slot) {
     var grown = stepsOf(spec, slot);
-    var area = { shape: spec.shape, self: false, rangeFeet: spec.range, range: (spec.range || 0) + " feet" };
+    var area = { shape: spec.shape, self: !!spec.anchor, rangeFeet: spec.range, range: (spec.range || 0) + " feet" };
     if (spec.shape === "wall") {
       area.length = spec.length;
       area.feet = spec.length;
       area.thickness = spec.thickness || 1;
       area.width = Math.max(5, spec.thickness || 1);
       area.label = spec.length + "-foot wall";
+    } else if (spec.shape === "cube" || spec.shape === "square") {
+      area.side = spec.side || 5;
+      area.feet = area.side;
+      area.label = area.side + "-foot " + spec.shape;
     } else {
       var radius = spec.radius + (spec.radiusUp || 0) * grown.steps;
       area.radius = radius;
@@ -129,6 +213,7 @@
     var grown = stepsOf(spec, slot);
     var next = area ? Object.assign({}, area) : blankArea(spec, grown.slot);
     if (!next) return null;
+    if (spec.anchor) next.self = true;
     if (spec.shape === "wall") {
       next.shape = "wall";
       next.length = spec.length;
@@ -137,9 +222,14 @@
       next.width = Math.max(5, spec.thickness || next.width || 5);
       next.label = spec.length + "-foot wall";
       next.self = false;
+    } else if (spec.shape === "cube" || spec.shape === "square") {
+      next.shape = spec.shape;
+      next.side = spec.side || next.side || 5;
+      next.feet = next.side;
+      next.label = next.side + "-foot " + spec.shape;
     } else if (spec.radius != null) {
       var radius = spec.radius + (spec.radiusUp || 0) * grown.steps;
-      next.shape = next.shape || "sphere";
+      next.shape = spec.shape || next.shape || "sphere";
       next.radius = radius;
       next.feet = radius;
       next.label = radius + "-foot radius";
@@ -150,6 +240,10 @@
   function rollExpr(expr, rng) {
     var R = root.SSDNSSpellRiders;
     if (R && R.rollExpr) return R.rollExpr(expr, false, rng);
+    if (/^[+-]?\d+$/.test(String(expr || "").trim())) {
+      var flat = parseInt(expr, 10) || 0;
+      return { formula: String(flat), faces: [], total: flat };
+    }
     var m = String(expr || "").match(/(\d*)d(\d+)/i);
     if (!m) return { formula: "0", faces: [], total: 0 };
     var n = Math.max(1, parseInt(m[1] || "1", 10));
@@ -218,12 +312,26 @@
       rangedDisadvantage: !!spec.rangedDisadvantage,
       hotSide: spec.hotSide || 0,
       deferCast: !!spec.deferCast,
+      follow: !!spec.follow,
+      halfSpeed: !!spec.halfSpeed,
+      exemptCaster: !!spec.exemptCaster,
+      chooseAllies: !!spec.chooseAllies,
+      lightlyObscured: !!spec.lightlyObscured,
+      side: area.side || spec.side || 0,
+      budget: spec.budget || 0,
+      spent: 0,
       label: area.label || "",
-      dc: opts.dc != null && opts.dc !== "" ? Number(opts.dc) : null
+      dc: opts.dc != null && opts.dc !== "" ? Number(opts.dc) : null,
+      exemptIds: (opts.exemptIds || []).filter(Boolean).slice()
     };
     if (spec.appear) zone.appear = Object.assign({}, spec.appear, { dice: scaledDice(spec.appear.dice, spec.appear.up, grown.steps) });
+    if (spec.blast) zone.blast = Object.assign({}, spec.blast, { dice: scaledDice(spec.blast.dice, spec.blast.up, grown.steps) });
+    if (spec.grow) zone.grow = Object.assign({}, spec.grow);
+    var typePick = String(opts.damageType || "").toLowerCase();
     zone.ticks = (spec.ticks || []).map(function (t) {
-      return Object.assign({}, t, { dice: scaledDice(t.dice, t.up, grown.steps) });
+      var tick = Object.assign({}, t, { dice: scaledDice(t.dice, t.up, grown.steps) });
+      if (typePick === "radiant" || typePick === "necrotic") tick.type = typePick;
+      return tick;
     });
     return zone;
   }
@@ -274,10 +382,12 @@
   }
   function place(bag, zone) {
     var next = cloneBag(bag);
-    if (!zone) return { bag: next, zone: null, dispelled: [], log: "" };
+    var replaced = [];
+    if (!zone) return { bag: next, zone: null, dispelled: [], replaced: replaced, log: "" };
     next.zones = next.zones.filter(function (z) {
       if (norm(z.spell) !== norm(zone.spell)) return true;
       if (zone.casterId && z.casterId && z.casterId !== zone.casterId) return true;
+      replaced.push(z);
       return false;
     });
     if (zone.light && zone.level <= 2) {
@@ -296,21 +406,30 @@
     if (zone.magicalDark) logs[0] += "; magical darkness";
     if (zone.heavilyObscured && !zone.magicalDark) logs[0] += "; heavily obscured";
     if (zone.blindedInside) logs[0] += "; blinded inside";
+    if (zone.halfSpeed) logs[0] += "; speed halved inside";
+    if (zone.budget) logs[0] += "; budget " + zone.budget;
+    if (zone.blast) logs[0] += "; bead " + zone.blast.dice + " " + (zone.blast.type || "");
     if (zone.appear) logs.push("appear " + zone.appear.dice + " " + zone.appear.type + (zone.appear.save ? " " + zone.appear.save + (zone.appear.half ? " half" : "") : ""));
     settled.logs.forEach(function (line) { logs.push(line); });
     if (!kept) logs.push(zone.spell + " does not stay.");
     tickSound();
-    return { bag: next, zone: kept ? zone : null, dispelled: settled.dispelled, log: logs.join(" · ") };
+    return { bag: next, zone: kept ? zone : null, dispelled: settled.dispelled, replaced: replaced, log: logs.join(" · ") };
   }
   function areaSpec(zone, extraFeet) {
     var extra = Number(extraFeet) || 0;
-    var width = (Number(zone.width) || 5) + extra;
+    var wall = zone.shape === "wall";
+    var round = zone.shape === "sphere" || zone.shape === "cylinder";
+    var box = zone.shape === "cube" || zone.shape === "square";
+    var width = (Number(zone.width) || 5) + (wall ? extra : 0);
+    var radius = (Number(zone.radius) || 0) + (round ? extra : 0);
+    var side = (Number(zone.side) || 0) + (box ? extra : 0);
+    if (!side && !box) side = zone.radius;
     var spec = {
       shape: zone.shape,
-      radius: zone.radius,
+      radius: radius,
       length: zone.length,
       width: width,
-      side: zone.radius
+      side: side
     };
     var origin = { x: zone.origin.x * 5, y: zone.origin.y * 5, casterSize: 1 };
     if (extra && zone.shape === "wall") {
@@ -427,11 +546,36 @@
     });
     return out;
   }
+  function sameId(a, b) {
+    if (!a || !b) return false;
+    return String(a) === String(b);
+  }
+  function isExempt(zone, token) {
+    if (!zone || !token) return false;
+    var id = token.id || token.targetId || "";
+    var owner = token.ownerUid || "";
+    if (zone.exemptCaster && zone.casterId && (sameId(zone.casterId, id) || sameId(zone.casterId, owner))) return true;
+    var list = zone.exemptIds || [];
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (sameId(list[i], id) || sameId(list[i], owner)) return true;
+    }
+    return false;
+  }
+  function tickExtra(zone, tick) {
+    if (!tick) return 0;
+    if (tick.reach) return Math.max(0, Number(tick.reach) - (Number(zone.radius) || 0));
+    if (tick.near) return Number(tick.near) || 0;
+    if (tick.hot) return zone.hotSide || 0;
+    return 0;
+  }
   function fillTick(tick, zone, token, rng) {
     var row = Object.assign({}, tick, {
       spell: zone.spell,
       zoneId: zone.id,
+      casterId: zone.casterId || "",
       dc: zone.dc,
+      budget: zone.budget || 0,
       targetId: (token && (token.id || token.targetId)) || "",
       targetName: (token && token.name) || ""
     });
@@ -447,10 +591,11 @@
   function phaseDue(bag, token, when, rng) {
     var due = [];
     ((bag && bag.zones) || []).forEach(function (zone) {
+      if (isExempt(zone, token)) return;
       (zone.ticks || []).forEach(function (tick) {
         if (tick.when !== when) return;
-        var extra = tick.hot ? (zone.hotSide || 0) : 0;
-        if (!tokenIn(zone, token, extra)) return;
+        if (tick.hostile && token && token.hostile === false) return;
+        if (!tokenIn(zone, token, tickExtra(zone, tick))) return;
         due.push(fillTick(tick, zone, token, rng));
       });
     });
@@ -474,14 +619,182 @@
   function moveDue(zones, from, to, token, rng) {
     var due = [];
     var size = (token && token.size) || 1;
+    var moved = !!(from && to && (from.x !== to.x || from.y !== to.y));
     (zones || []).forEach(function (zone) {
-      if (!entered(zone, from, to, size)) return;
+      if (isExempt(zone, token)) return;
+      var crossed = entered(zone, from, to, size);
       (zone.ticks || []).forEach(function (tick) {
+        if (tick.when === "approach") {
+          if (!moved) return;
+          var now = tokenIn(zone, { x: to.x, y: to.y, size: size, id: token && token.id }, tickExtra(zone, tick));
+          if (!now) return;
+          due.push(fillTick(tick, zone, token, rng));
+          return;
+        }
+        if (!crossed) return;
         if (tick.when !== "through" && tick.when !== "enter") return;
         due.push(fillTick(tick, zone, token, rng));
       });
     });
     return due;
+  }
+  function once(seen, tick, tokenId, turnKey) {
+    if (!tick || (tick.when !== "enter" && tick.when !== "approach")) return true;
+    var book = seen || {};
+    var key = (tick.zoneId || "") + ":" + (tokenId || "") + ":" + tick.when + ":" + (turnKey || "");
+    if (book[key]) return false;
+    book[key] = 1;
+    return true;
+  }
+  function terrainMult(zones, token) {
+    var mult = 1;
+    (zones || []).forEach(function (z) {
+      if (!z || !tokenIn(z, token, 0)) return;
+      if (z.difficult) mult = Math.max(mult, 2);
+      if (z.halfSpeed && !isExempt(z, token)) mult = Math.max(mult, 2);
+    });
+    return mult;
+  }
+  function charge(zones, zoneId, amount) {
+    var ended = null;
+    var spent = 0;
+    var next = (zones || []).map(function (z) {
+      if (!z || z.id !== zoneId || !(z.budget > 0)) return z;
+      spent = (Number(z.spent) || 0) + (Number(amount) || 0);
+      var copy = Object.assign({}, z, { spent: spent });
+      if (spent >= z.budget) ended = copy;
+      return copy;
+    }).filter(function (z) { return !(ended && z && z.id === ended.id); });
+    return { zones: next, ended: ended, spent: ended ? ended.spent : spent };
+  }
+  function growList(zones, casterId, turnKey) {
+    var changed = false;
+    var logs = [];
+    var next = (zones || []).map(function (z) {
+      if (!z || !z.grow || !z.blast) return z;
+      if (casterId && z.casterId && z.casterId !== casterId) return z;
+      if (turnKey && z.grownTurn === turnKey) return z;
+      var dice = scaledDice(z.blast.dice, z.grow.dice || "1d6", 1);
+      changed = true;
+      logs.push(z.spell + " grows to " + dice + ".");
+      return Object.assign({}, z, {
+        grownTurn: turnKey || "",
+        grown: (Number(z.grown) || 0) + 1,
+        blast: Object.assign({}, z.blast, { dice: dice })
+      });
+    });
+    return { zones: next, changed: changed, logs: logs };
+  }
+  function needsAllies(name) {
+    var spec = specOf(name);
+    return !!(spec && spec.chooseAllies);
+  }
+  function typeOptions(name) {
+    var spec = specOf(name);
+    return spec && spec.chooseType ? spec.chooseType.slice() : null;
+  }
+  function chooseOne(title, options) {
+    options = options || [];
+    if (typeof document === "undefined" || !document.body || !options.length) {
+      return Promise.resolve(options[0] || "");
+    }
+    return new Promise(function (resolve) {
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      var form = document.createElement("form");
+      form.method = "dialog";
+      var h = document.createElement("h2");
+      h.textContent = title || "Choose";
+      var note = document.createElement("p");
+      note.className = "fine";
+      note.textContent = "Pick one. Cancel keeps the first.";
+      form.appendChild(h);
+      form.appendChild(note);
+      options.forEach(function (opt) {
+        var b = document.createElement("button");
+        b.type = "submit";
+        b.className = "btn";
+        b.value = opt;
+        b.textContent = opt;
+        b.style.margin = "0 6px 6px 0";
+        form.appendChild(b);
+      });
+      dlg.appendChild(form);
+      var done = false;
+      dlg.addEventListener("close", function () {
+        if (done) return;
+        done = true;
+        var value = dlg.returnValue || options[0] || "";
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(value);
+      });
+      document.body.appendChild(dlg);
+      try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+      catch (e) { dlg.setAttribute("open", ""); }
+    });
+  }
+  function chooseExempt(title, creatures) {
+    creatures = (creatures || []).filter(function (c) { return c && c.id; });
+    var preset = creatures.filter(function (c) { return c.defaultOn; }).map(function (c) { return c.id; });
+    if (typeof document === "undefined" || !document.body || !creatures.length) return Promise.resolve(preset);
+    return new Promise(function (resolve) {
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      var form = document.createElement("form");
+      form.method = "dialog";
+      var h = document.createElement("h2");
+      h.textContent = (title || "Spell") + " — unaffected";
+      var note = document.createElement("p");
+      note.className = "fine";
+      note.textContent = "Checked creatures are untouched by the aura, including the speed cut. You are always untouched.";
+      form.appendChild(h);
+      form.appendChild(note);
+      creatures.forEach(function (c) {
+        var label = document.createElement("label");
+        label.className = "fine";
+        label.style.display = "block";
+        var box = document.createElement("input");
+        box.type = "checkbox";
+        box.value = c.id;
+        box.checked = !!c.defaultOn;
+        label.appendChild(box);
+        label.appendChild(document.createTextNode(" " + (c.name || c.id)));
+        form.appendChild(label);
+      });
+      var foot = document.createElement("div");
+      foot.className = "dlg-foot";
+      var only = document.createElement("button");
+      only.type = "submit";
+      only.className = "btn";
+      only.value = "only";
+      only.textContent = "Only me";
+      var ok = document.createElement("button");
+      ok.type = "submit";
+      ok.className = "btn btn-primary";
+      ok.value = "yes";
+      ok.textContent = "Those creatures";
+      foot.appendChild(only);
+      foot.appendChild(ok);
+      form.appendChild(foot);
+      dlg.appendChild(form);
+      var done = false;
+      form.addEventListener("submit", function (ev) {
+        if (ev.preventDefault) ev.preventDefault();
+        if (done) return;
+        done = true;
+        var picked = [];
+        if ((ev.submitter && ev.submitter.value) !== "only") {
+          var boxes = form.querySelectorAll("input[type=checkbox]");
+          Array.prototype.forEach.call(boxes, function (box) { if (box.checked) picked.push(box.value); });
+        }
+        if (dlg.close) dlg.close();
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(picked);
+      });
+      document.body.appendChild(dlg);
+      try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+      catch (e) { dlg.setAttribute("open", ""); }
+    });
   }
   function crossesWall(zones, from, to) {
     var names = [];
@@ -533,6 +846,15 @@
     moveDue: moveDue,
     crossesWall: crossesWall,
     appearOf: appearOf,
-    scaledDice: scaledDice
+    scaledDice: scaledDice,
+    isExempt: isExempt,
+    once: once,
+    terrainMult: terrainMult,
+    charge: charge,
+    growList: growList,
+    needsAllies: needsAllies,
+    typeOptions: typeOptions,
+    chooseOne: chooseOne,
+    chooseExempt: chooseExempt
   };
 })(typeof window !== "undefined" ? window : globalThis);

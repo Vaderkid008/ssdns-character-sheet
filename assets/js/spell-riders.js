@@ -293,6 +293,11 @@
       out.untilTurn = true;
       out.chip = "Shield +5";
     }
+    var Zones = root.SSDNSSpellZones;
+    if (Zones && Zones.defersCast && Zones.defersCast(key)) {
+      out.applyNow = false;
+      out.castDamage = false;
+    }
     return out;
   }
 
@@ -315,6 +320,7 @@
     if (key === "fire shield") return { kind: "mode", options: ["warm", "chill"] };
     if (key === "contagion") return { kind: "disease", options: DISEASES.slice() };
     if (key === "destructive wave") return { kind: "mode", options: ["radiant", "necrotic"] };
+    if (key === "spirit guardians") return { kind: "mode", options: ["radiant", "necrotic"] };
     return null;
   }
 
@@ -338,7 +344,8 @@
     var next = copyBag(bag);
     var key = norm(spellName);
     var removed = [];
-    if (!key) return { bag: next, removed: removed };
+    var zones = [];
+    if (!key) return { bag: next, removed: removed, zones: zones };
     next.marks = next.marks.filter(function (m) {
       if (norm(m.spell) !== key) return true;
       removed.push(chip(m.chip, m.targetId, m.spell, m.conc, m.casterId));
@@ -346,13 +353,14 @@
     });
     next.zones = next.zones.filter(function (z) {
       if (norm(z.spell) !== key) return true;
-      removed.push(chip(z.chip || z.spell, z.targetId || "", z.spell, true, z.casterId));
+      zones.push(z);
+      removed.push(chip(z.chip || z.spell, z.targetId || "", z.spell, !!(z && z.conc), z.casterId));
       return false;
     });
     next.ticks = next.ticks.filter(function (t) { return norm(t.spell) !== key; });
     if (norm(next.conc) === key) next.conc = "";
     if (removed.length) tickSound();
-    return { bag: next, removed: removed };
+    return { bag: next, removed: removed, zones: zones };
   }
 
   function breakConc(bag, spellName) {
@@ -361,13 +369,19 @@
     if (spellName) return dropSpell(next, spellName);
     var name = next.conc;
     if (!name) {
+      var dropped = [];
       next.marks.forEach(function (m) { if (m.conc) removed.push(chip(m.chip, m.targetId, m.spell, true, m.casterId)); });
-      next.zones.forEach(function (z) { removed.push(chip(z.chip || z.spell, "", z.spell, true, z.casterId)); });
+      next.zones.forEach(function (z) {
+        if (z && z.conc) {
+          dropped.push(z);
+          removed.push(chip(z.chip || z.spell, "", z.spell, true, z.casterId));
+        }
+      });
       next.marks = next.marks.filter(function (m) { return !m.conc; });
-      next.zones = [];
+      next.zones = next.zones.filter(function (z) { return !(z && z.conc); });
       next.ticks = next.ticks.filter(function (t) { return !t.conc; });
       if (removed.length) tickSound();
-      return { bag: next, removed: removed };
+      return { bag: next, removed: removed, zones: dropped };
     }
     return dropSpell(next, name);
   }
