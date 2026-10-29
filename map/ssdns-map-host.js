@@ -1227,6 +1227,16 @@
       if (!map || typeof map.tokensInBlast !== "function") return [];
       try { return map.tokensInBlast(area, origins, facing, excludeId) || []; }
       catch (e) { return []; }
+    },
+    shoveToken: function (id, spec) {
+      if (!map || typeof map.shoveToken !== "function") return null;
+      try { return map.shoveToken(id, spec); }
+      catch (e) { return null; }
+    },
+    setTokenHidden: function (id, hidden) {
+      if (!map || typeof map.setTokenHidden !== "function") return null;
+      try { return map.setTokenHidden(id, hidden); }
+      catch (e) { return null; }
     }
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);

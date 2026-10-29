@@ -287,7 +287,19 @@
     if (key === "fog cloud" || key === "wall of fire" || key === "wall of ice" || key === "blade barrier") out.conc = true;
     if (key === "spirit guardians") { out.speed = "half"; out.half = true; }
     if (key === "armor of agathys") { out.tempPer = 5; out.retaliate = 5; out.retaliateType = "cold"; }
-    if (key === "destructive wave") { out.onFail = "Prone"; }
+    if (key === "destructive wave") { out.onFail = "Prone"; out.choose = true; }
+    if (key === "acid splash") out.pick = { count: 2, optional: true, within: 5 };
+    if (key === "mass healing word") out.pick = { count: 6, optional: true, heal: true };
+    if (key === "mass cure wounds") out.pick = { count: 6, optional: true, heal: true, inArea: true };
+    if (key === "harm") { out.floorHp = 1; out.maxDrop = "fail"; }
+    if (key === "prismatic spray") out.prismatic = true;
+    if (key === "vampiric touch") out.healHalf = true;
+    if (key === "thorn whip") out.pull = 10;
+    if (key === "scorching ray") out.cancelOnSpark = true;
+    if (key === "conjure barrage" || key === "conjure volley") out.ammoType = true;
+    if (key === "witch bolt" || key === "vampiric touch" || key === "heat metal" || key === "flame blade" || key === "call lightning" || key === "sunbeam" || key === "moonbeam" || key === "spiritual weapon") {
+      out.sustain = sustainSpec(key);
+    }
     if (key === "dissonant whispers") { out.onFail = "uses reaction: moves away"; }
     if (key === "arms of hadar") { out.onFail = "No reactions"; }
     /* N81 P0-6: missing FAIL / on-hit chips. Lighting stays Phase 4. */
@@ -567,7 +579,7 @@
     var chips = [];
     var removed = [];
     var hit = !!ctx.hit && !ctx.miss;
-    if (!hit) return { bag: next, riders: riders, logs: logs, chips: chips, removed: removed, total: 0 };
+    if (!hit) return missRiders(next, ctx, rng);
     var spellAttack = !!ctx.spellAttack;
     var weaponAttack = ctx.weaponAttack !== false && !spellAttack;
     var saveSpell = !!ctx.saveSpell;
@@ -589,10 +601,13 @@
       }
     });
     var kept = [];
+    var splashHit = null;
+    var banishHit = 0;
     next.marks.forEach(function (mark) {
       if (mark.kind !== "smite" || !mark.pending) { kept.push(mark); return; }
       if (!weaponAttack || !weaponOk(mark, ctx)) { kept.push(mark); return; }
-      if (mark.dice) {
+      var splashOut = null;
+      if (mark.dice && !(mark.splash && mark.splash.includeTarget)) {
         var sm = rollExpr(mark.dice, !!ctx.crit, rng);
         var steps = mark.up ? Math.max(0, (Number(mark.slot) || 0) - 1) : 0;
         if (mark.up && steps > 0 && norm(mark.spell) !== "thunderous smite") {
@@ -633,12 +648,18 @@
         logs.push("clears " + mark.clears.join(", "));
         if (mark.light && mark.light.dim) logs.push("dim " + mark.light.dim + " ft (lighting waits)");
       }
+      if (mark.splash) splashOut = scaleSplash(mark);
+      if (splashOut) {
+        logs.push("splash " + splashOut.radius + " ft " + (splashOut.save || "DEX") + " " + splashOut.dice);
+        if (!splashHit) splashHit = splashOut;
+      }
+      if (mark.banishAt) banishHit = mark.banishAt;
       kept.push(mark);
     });
     next.marks = kept;
     var total = 0;
     riders.forEach(function (r) { total += r.total; });
-    return { bag: next, riders: riders, logs: logs, chips: chips, removed: removed, total: total };
+    return { bag: next, riders: riders, logs: logs, chips: chips, removed: removed, total: total, splash: splashHit, banishAt: banishHit };
   }
 
   function onHitSpell(bag, opts) {
@@ -919,6 +940,35 @@
     var empty = { bag: next, logs: logs, chips: chips, removed: removed, amount: 0, formula: "", type: type, ended: false };
     if (!tick) return empty;
 
+    if (tick.prismatic) {
+      var pMark = null;
+      next.marks.forEach(function (m) {
+        if (m.kind === "prism" && (!tick.targetId || !m.targetId || String(m.targetId) === String(tick.targetId))) pMark = m;
+      });
+      if (!pMark) {
+        next.ticks = next.ticks.filter(function (t) { return !sameTick(t, tick); });
+        return { bag: next, logs: logs, chips: chips, removed: removed, amount: 0, formula: "", type: "", ended: true };
+      }
+      if (failed) pMark.fail = (pMark.fail || 0) + 1;
+      else pMark.success = (pMark.success || 0) + 1;
+      logs.push((failed ? "FAIL" : "SAVE") + " (S " + pMark.success + "/3 F " + pMark.fail + "/3)");
+      if (pMark.fail >= 3) {
+        removed.push(chip("Restrained", pMark.targetId, "Prismatic Spray", false, ""));
+        chips.push(chip("Petrified", pMark.targetId, "Prismatic Spray", false, ""));
+        pMark.done = true;
+        logs.push("Petrified");
+      } else if (pMark.success >= 3) {
+        removed.push(chip("Restrained", pMark.targetId, "Prismatic Spray", false, ""));
+        pMark.done = true;
+        logs.push("the indigo ray ends");
+      }
+      if (pMark.done) {
+        next.marks = next.marks.filter(function (m) { return m !== pMark; });
+        next.ticks = next.ticks.filter(function (t) { return !sameTick(t, tick); });
+      }
+      return { bag: next, logs: logs, chips: chips, removed: removed, amount: 0, formula: "", type: "", ended: !!pMark.done };
+    }
+
     if (tick.contagion) {
       var stepped = contagionSave(next, tick.targetId, failed);
       next = stepped.bag;
@@ -1112,6 +1162,244 @@
     return Number(score) <= 4;
   }
 
+  function sustainSpec(name) {
+    var key = norm(name);
+    var table = {
+      "witch bolt": { action: "action", auto: true, type: "lightning" },
+      "vampiric touch": { action: "action", attack: true, healHalf: true },
+      "heat metal": { action: "bonus", auto: true, type: "fire", dropSave: "CON" },
+      "flame blade": { action: "action", attack: true },
+      "call lightning": { action: "action", bolt: true },
+      "sunbeam": { action: "action", line: true },
+      "moonbeam": { action: "action", move: true },
+      "spiritual weapon": { action: "bonus", attack: true, conc: false }
+    };
+    return table[key] ? Object.assign({ name: key }, table[key]) : null;
+  }
+  function scaleSplash(mark) {
+    if (!mark || !mark.splash) return null;
+    var sp = Object.assign({}, mark.splash);
+    var level = 1;
+    if (norm(mark.spell) === "lightning arrow") level = 3;
+    sp.dice = upDice(sp.dice, sp.up, mark.slot, level);
+    sp.originId = mark.targetId || "";
+    return sp;
+  }
+  function missRiders(next, ctx, rng) {
+    var riders = [];
+    var logs = [];
+    var kept = [];
+    var splashHit = null;
+    var total = 0;
+    next.marks.forEach(function (mark) {
+      if (mark.kind !== "smite" || !mark.pending) { kept.push(mark); return; }
+      if (!weaponOk(mark, ctx)) { kept.push(mark); return; }
+      if (!mark.missHalf && !mark.splash) { kept.push(mark); return; }
+      mark.pending = false;
+      mark.targetId = ctx.targetId || "";
+      if (mark.missHalf && mark.dice && !(mark.splash && mark.splash.includeTarget)) {
+        var sm = rollExpr(mark.dice, false, rng);
+        var baseLv = norm(mark.spell) === "lightning arrow" ? 3 : 1;
+        var steps = mark.up ? Math.max(0, (Number(mark.slot) || baseLv) - baseLv) : 0;
+        if (mark.up && steps > 0) {
+          var i;
+          for (i = 0; i < steps; i++) {
+            var extra = rollExpr(mark.up, false, rng);
+            sm.total += extra.total;
+            sm.faces = sm.faces.concat(extra.faces);
+            sm.formula += "+" + extra.formula;
+          }
+        }
+        var half = Math.floor(sm.total / 2);
+        riders.push({ label: mark.spell, spell: mark.spell, formula: sm.formula, faces: sm.faces, total: half, type: mark.type || "", half: true });
+        logs.push("MISS half " + mark.spell + ": " + half + (mark.type ? " " + mark.type : ""));
+        total += half;
+      }
+      if (mark.splash) {
+        splashHit = scaleSplash(mark);
+        if (splashHit) logs.push("splash " + splashHit.radius + " ft " + (splashHit.save || "DEX") + " " + splashHit.dice);
+      }
+      kept.push(mark);
+    });
+    next.marks = kept;
+    return { bag: next, riders: riders, logs: logs, chips: [], removed: [], total: total, splash: splashHit, banishAt: 0 };
+  }
+  function pickPlan(name, slot) {
+    var key = norm(name);
+    var sl = Number(slot);
+    if (!isFinite(sl)) sl = 0;
+    if (key === "chain lightning") return { mode: "targets", count: chainTargets(sl || 6), noun: "Target", min: 1, optional: true, each: "save" };
+    if (key === "acid splash") return { mode: "targets", count: 2, noun: "Target", min: 1, optional: true, within: 5, each: "save" };
+    if (key === "mass healing word") return { mode: "targets", count: 6, noun: "Creature", min: 1, optional: true, each: "heal" };
+    if (key === "mass cure wounds") return { mode: "targets", count: 6, noun: "Creature", min: 1, optional: true, each: "heal", inArea: true };
+    if (key === "destructive wave") return { mode: "choose", each: "save" };
+    return null;
+  }
+  function keepChosen(tokens, picks) {
+    if (!picks) return tokens || [];
+    var ids = {};
+    var any = false;
+    (picks || []).forEach(function (p) {
+      if (!p || p.narrative || !p.id) return;
+      ids[String(p.id)] = 1;
+      any = true;
+    });
+    if (!any) return [];
+    return (tokens || []).filter(function (t) {
+      if (!t) return false;
+      var keys = [t.id, t.combatantId, t.ownerUid, t.targetId].filter(Boolean).map(String);
+      var i;
+      for (i = 0; i < keys.length; i++) if (ids[keys[i]]) return true;
+      return false;
+    });
+  }
+  function harmAdjust(before, maxHp, amount, failed) {
+    var dealt = Math.max(0, Number(amount) || 0);
+    var hp = Number(before);
+    if (!isFinite(hp)) hp = 0;
+    var max = Number(maxHp);
+    if (!isFinite(max)) max = hp;
+    var next = Math.max(1, hp - dealt);
+    var died = false;
+    if (failed) {
+      max = Math.max(0, max - dealt);
+      if (max <= 0) { died = true; next = 0; max = 0; }
+      else if (next > max) next = max;
+    }
+    return { hp: next, max: max, died: died, taken: dealt, floored: next === 1 && hp - dealt < 1 && !died };
+  }
+  var PRISMATIC = [
+    { n: 1, type: "fire", dice: "10d6", half: true },
+    { n: 2, type: "acid", dice: "10d6", half: true },
+    { n: 3, type: "lightning", dice: "10d6", half: true },
+    { n: 4, type: "poison", dice: "10d6", half: true },
+    { n: 5, type: "cold", dice: "10d6", half: true },
+    { n: 6, condition: "Restrained", tracker: "petrified", save: "CON" },
+    { n: 7, condition: "Blinded" }
+  ];
+  function prismaticRay(rng, depth) {
+    var n = die(8, rng);
+    if (n === 8) {
+      if ((depth || 0) >= 6) return Object.assign({ n: 1 }, PRISMATIC[0]);
+      return { n: 8, rays: [prismaticRay(rng, (depth || 0) + 1), prismaticRay(rng, (depth || 0) + 1)] };
+    }
+    return Object.assign({ n: n }, PRISMATIC[n - 1]);
+  }
+  function prismaticLeaves(node, out) {
+    out = out || [];
+    if (!node) return out;
+    if (node.rays && node.rays.length) {
+      node.rays.forEach(function (r) { prismaticLeaves(r, out); });
+      return out;
+    }
+    out.push(node);
+    return out;
+  }
+  function prismaticHit(ray, save, rng) {
+    var leaves = prismaticLeaves(ray, []);
+    var parts = [];
+    leaves.forEach(function (leaf) {
+      if (leaf.dice) {
+        var rolled = rollExpr(leaf.dice, false, rng);
+        var amount = rolled.total;
+        if (save && save.blocked) amount = 0;
+        else if (save && !save.failed) amount = leaf.half ? Math.floor(amount / 2) : 0;
+        parts.push({ n: leaf.n, amount: amount, type: leaf.type || "", formula: rolled.formula, condition: "", half: !!leaf.half });
+      } else if (leaf.condition && save && save.failed && !save.blocked) {
+        parts.push({ n: leaf.n, amount: 0, type: "", formula: "", condition: leaf.condition, tracker: leaf.tracker || "" });
+      } else {
+        parts.push({ n: leaf.n, amount: 0, type: leaf.type || "", formula: "", condition: "" });
+      }
+    });
+    return { parts: parts, ray: ray };
+  }
+  function armPrismatic(bag, opts) {
+    opts = opts || {};
+    var next = copyBag(bag);
+    var chips = [];
+    var logs = [];
+    var part = opts.part || {};
+    if (!opts.failed || !part.condition) return { bag: next, chips: chips, logs: logs, changed: false };
+    if (part.tracker === "petrified") {
+      next.marks.push({
+        spell: "Prismatic Spray", kind: "prism", targetId: opts.targetId || "", chip: "Restrained",
+        success: 0, fail: 0
+      });
+      addTick(next, { spell: "Prismatic Spray", targetId: opts.targetId || "", when: "end", save: "CON", prismatic: true });
+      chips.push(chip("Restrained", opts.targetId, "Prismatic Spray", false, opts.casterId || ""));
+      logs.push("Restrained — CON save at end of each turn, 3 fails petrifies");
+    } else {
+      chips.push(chip(part.condition, opts.targetId, "Prismatic Spray", false, opts.casterId || ""));
+      logs.push(part.condition);
+    }
+    return { bag: next, chips: chips, logs: logs, changed: true };
+  }
+  function noteSustain(bag, opts) {
+    opts = opts || {};
+    var spec = sustainSpec(opts.name);
+    var next = copyBag(bag);
+    if (!spec) return next;
+    var key = norm(opts.name);
+    next.marks = next.marks.filter(function (m) { return !(m.kind === "sustain" && norm(m.spell) === key); });
+    next.marks.push({
+      kind: "sustain", spell: opts.name || spec.name, slot: Number(opts.slot) || 0,
+      targetId: opts.targetId || "", action: spec.action, conc: spec.conc !== false
+    });
+    if (spec.conc !== false) next.conc = opts.name || next.conc;
+    return next;
+  }
+  function sustainReady(bag) {
+    var next = emptyBag(bag);
+    var out = [];
+    var seen = {};
+    function add(name, slot) {
+      var spec = sustainSpec(name);
+      if (!spec) return;
+      var key = norm(spec.name || name);
+      if (seen[key]) return;
+      seen[key] = 1;
+      out.push({ name: name, slot: slot || 0, spec: spec });
+    }
+    (next.marks || []).forEach(function (m) {
+      if (m && m.kind === "sustain") add(m.spell, m.slot);
+    });
+    if (next.conc) add(next.conc, 0);
+    (next.zones || []).forEach(function (z) {
+      if (z && norm(z.spell) === "spiritual weapon") add(z.spell, z.slot);
+    });
+    return out;
+  }
+  function healBlocked(row) {
+    if (!row) return false;
+    if (row.disintegrated) return true;
+    var list = row.conditions || row.activeConditions || [];
+    return (list || []).some(function (c) {
+      var name = typeof c === "string" ? c : (c && c.name);
+      return /disintegrat/i.test(String(name || ""));
+    });
+  }
+  function ammoType(gun) {
+    if (!gun) return "";
+    var t = String(gun.dmgType || gun.damageType || "").replace(/\(cone\)/ig, "").trim();
+    if (/ammunition/i.test(t)) t = "";
+    if (t) return t.split(/[,/]/)[0].trim();
+    var load = String(gun.load || "").toLowerCase();
+    if (load === "slug" || load === "buck" || load === "shell" || load === "ball" || load === "cart") return "piercing";
+    if (Number(gun.loaded) > 0) return "piercing";
+    if (Array.isArray(gun.chambers) && gun.chambers.some(Boolean)) return "piercing";
+    return "";
+  }
+  function slideOf(name) {
+    var key = norm(name);
+    var row = patchRow({ name: name || "" });
+    if (key === "thorn whip" || row.pull) return { feet: row.pull || 10, dir: "pull" };
+    if (row.push) return { feet: row.push, dir: "push", on: "fail" };
+    return null;
+  }
+  function vampiricHalf(amount) {
+    return Math.floor((Number(amount) || 0) / 2);
+  }
+
   root.SSDNSSpellRiders = {
     patchRow: patchRow,
     emptyBag: emptyBag,
@@ -1147,6 +1435,21 @@
     shieldChip: shieldChip,
     hexChip: hexChip,
     rollExpr: rollExpr,
-    diseases: DISEASES.slice()
+    diseases: DISEASES.slice(),
+    sustainSpec: sustainSpec,
+    noteSustain: noteSustain,
+    sustainReady: sustainReady,
+    pickPlan: pickPlan,
+    keepChosen: keepChosen,
+    harmAdjust: harmAdjust,
+    prismaticRay: prismaticRay,
+    prismaticLeaves: prismaticLeaves,
+    prismaticHit: prismaticHit,
+    armPrismatic: armPrismatic,
+    healBlocked: healBlocked,
+    ammoType: ammoType,
+    slideOf: slideOf,
+    vampiricHalf: vampiricHalf,
+    scaleSplash: scaleSplash
   };
 })(typeof window !== "undefined" ? window : globalThis);

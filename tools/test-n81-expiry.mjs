@@ -1,5 +1,5 @@
 /**
- * N81 P0-5 — zone expiry from dur, and one DM Clear (sheet 0.3.166 / DMCC 0.2.179).
+ * N81 P0-5 — zone expiry from dur, and one DM Clear (sheet 0.3.167 / DMCC 0.2.180).
  *   node tools/test-n81-expiry.mjs
  * rules.js is not regenerated. Aim-then-cast and zonePhase stay in place.
  */
@@ -102,9 +102,9 @@ check("wire.sheet", sheet.includes("noteLiveZones") && sheet.includes("noBlast")
 check("aim.still", map.includes("function placeBlast") || map.includes("placeBlast("));
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.166" && ver.dmcc === "0.2.179" && ver.sheetBuild === "sheet-playtest-v03166" && ver.dmccBuild === "dmcc-playtest-v02179");
+check("ver", ver.sheet === "0.3.167" && ver.dmcc === "0.2.180" && ver.sheetBuild === "sheet-playtest-v03167" && ver.dmccBuild === "dmcc-playtest-v02180");
 const rules = read("assets/data/rules.js");
-check("rules.clean", !rules.includes("0.3.166") && !rules.includes("0.2.179") && !rules.includes("roundsFromDur") && !rules.includes("spell-zones") && !read("database.rules.json").includes("0.3.166"));
+check("rules.clean", !rules.includes("0.3.167") && !rules.includes("0.2.180") && !rules.includes("roundsFromDur") && !rules.includes("spell-zones") && !read("database.rules.json").includes("0.3.167"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

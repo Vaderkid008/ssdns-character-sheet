@@ -150,6 +150,30 @@
       deferCast: true,
       blast: { radius: 20, dice: "12d6", type: "fire", save: "DEX", half: true, up: "1d6" },
       grow: { dice: "1d6" }
+    },
+    /* SSDNS extension: burning tiles after the blast. The 8d6 still resolves on cast.
+       The round clock expires a zone on the wrap, so 2 rounds covers the following starts. */
+    "fireball": {
+      name: "Fireball", level: 3, conc: false, dur: "2 rounds", range: 150, shape: "sphere", radius: 20,
+      tag: "burn-scar",
+      ticks: [
+        { when: "start", dice: "1d6", type: "fire" }
+      ]
+    },
+    /* PHB Grease is in the cast list (kind none). Prone on appear, enter, and end of turn. */
+    "grease": {
+      name: "Grease", level: 1, conc: false, dur: "1 minute", range: 60, shape: "square", side: 10,
+      difficult: true, tag: "grease",
+      appear: { save: "DEX", onFail: "Prone" },
+      ticks: [
+        { when: "enter", save: "DEX", onFail: "Prone" },
+        { when: "end", save: "DEX", onFail: "Prone" }
+      ]
+    },
+    /* SSDNS extension stand-in: Ice Storm is in the 85; Grease is castable but not in that damage list. */
+    "ice storm": {
+      name: "Ice Storm", level: 4, conc: false, dur: "2 rounds", range: 300, shape: "cylinder", radius: 20,
+      difficult: true, tag: "slick-ice"
     }
   };
 
@@ -341,6 +365,7 @@
     zone.rounds = roundsFromDur(zone.dur);
     zone.roundsLeft = zone.rounds;
     if (spec.appear) zone.appear = Object.assign({}, spec.appear, { dice: scaledDice(spec.appear.dice, spec.appear.up, grown.steps) });
+    if (spec.tag) zone.tag = spec.tag;
     if (spec.blast) zone.blast = Object.assign({}, spec.blast, { dice: scaledDice(spec.blast.dice, spec.blast.up, grown.steps) });
     if (spec.grow) zone.grow = Object.assign({}, spec.grow);
     var typePick = String(opts.damageType || "").toLowerCase();
@@ -883,6 +908,88 @@
     return Object.assign({}, spec.appear, { dice: scaledDice(spec.appear.dice, spec.appear.up, grown.steps) });
   }
 
+  function chooseAffected(title, creatures) {
+    creatures = (creatures || []).filter(function (c) { return c && c.id; });
+    if (typeof document === "undefined" || !document.body) return Promise.resolve(creatures.map(function (c) { return c.id; }));
+    if (!creatures.length) return Promise.resolve([]);
+    return new Promise(function (resolve) {
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      var form = document.createElement("form");
+      form.method = "dialog";
+      var h = document.createElement("h2");
+      h.textContent = (title || "Spell") + " — creatures you choose";
+      var note = document.createElement("p");
+      note.className = "fine";
+      note.textContent = "Checked creatures are affected. Leave a friend unchecked.";
+      form.appendChild(h);
+      form.appendChild(note);
+      creatures.forEach(function (c) {
+        var label = document.createElement("label");
+        label.className = "fine";
+        label.style.display = "block";
+        var box = document.createElement("input");
+        box.type = "checkbox";
+        box.value = c.id;
+        box.checked = false;
+        label.appendChild(box);
+        label.appendChild(document.createTextNode(" " + (c.name || c.id)));
+        form.appendChild(label);
+      });
+      var foot = document.createElement("div");
+      foot.className = "dlg-foot";
+      var cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "btn";
+      cancel.textContent = "Cancel";
+      var ok = document.createElement("button");
+      ok.type = "submit";
+      ok.className = "btn btn-primary";
+      ok.textContent = "Those creatures";
+      foot.appendChild(cancel);
+      foot.appendChild(ok);
+      form.appendChild(foot);
+      dlg.appendChild(form);
+      var done = false;
+      function finish(ids) {
+        if (done) return;
+        done = true;
+        if (dlg.close) dlg.close();
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(ids);
+      }
+      cancel.addEventListener("click", function () { finish(null); });
+      form.addEventListener("submit", function (ev) {
+        if (ev.preventDefault) ev.preventDefault();
+        var picked = [];
+        Array.prototype.forEach.call(form.querySelectorAll("input[type=checkbox]"), function (box) {
+          if (box.checked) picked.push(box.value);
+        });
+        finish(picked);
+      });
+      dlg.addEventListener("cancel", function (ev) { if (ev.preventDefault) ev.preventDefault(); finish(null); });
+      document.body.appendChild(dlg);
+      try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+      catch (e) { dlg.setAttribute("open", ""); }
+    });
+  }
+  function appearPosts(zone, tokens) {
+    if (!zone || !zone.appear || !zone.appear.onFail) return [];
+    return (tokens || []).map(function (t) {
+      return {
+        amount: zone.appear.dice ? null : 0,
+        save: zone.appear.save || "DEX",
+        condition: zone.appear.onFail || "",
+        label: zone.spell,
+        spell: zone.spell,
+        dice: zone.appear.dice || "",
+        half: !!zone.appear.half,
+        targetId: (t && (t.combatantId || t.ownerUid || t.id)) || "",
+        targetName: (t && t.name) || ""
+      };
+    }).filter(function (row) { return row.targetId; });
+  }
+
   root.SSDNSSpellZones = {
     book: BOOK,
     norm: norm,
@@ -920,6 +1027,8 @@
     needsAllies: needsAllies,
     typeOptions: typeOptions,
     chooseOne: chooseOne,
-    chooseExempt: chooseExempt
+    chooseExempt: chooseExempt,
+    chooseAffected: chooseAffected,
+    appearPosts: appearPosts
   };
 })(typeof window !== "undefined" ? window : globalThis);

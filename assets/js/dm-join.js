@@ -1451,6 +1451,10 @@
       case "hp":
         applyHpCommand(payload, payload.grantId || cmd.id);
         break;
+      case "mark_down":
+        if (root.SSDNSSheet && root.SSDNSSheet.markDown) root.SSDNSSheet.markDown(payload.targetId || "");
+        if (root.SSDNSSheet && root.SSDNSSheet.addLog) root.SSDNSSheet.addLog({ kind: "alert", text: "A marked target dropped. Move Hex or Hunter's Mark as a bonus action." });
+        break;
       case "gun":
         applyGunCommand(payload, payload.grantId || cmd.id);
         break;
@@ -2074,7 +2078,7 @@
       if (replay && root.SSDNSSheet.flashHp) root.SSDNSSheet.flashHp(text);
       return;
     }
-    root.SSDNSSheet.applyDelta(delta, text, { hexBreaker: !!payload.hexBreaker, fromName: payload.fromName || "" });
+    root.SSDNSSheet.applyDelta(delta, text, { hexBreaker: !!payload.hexBreaker, fromName: payload.fromName || "", maxHp: payload.maxHp });
     root.SSDNSSheet.addLog({ id: id ? "hp:" + id : "", kind: "hp", text: text });
     if (payload.dust && root.SSDNSApp && root.SSDNSApp.applyPatch) {
       root.SSDNSApp.applyPatch(function (doc) {

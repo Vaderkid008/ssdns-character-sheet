@@ -156,10 +156,10 @@ check("src.strike", map.includes("strikeTargetId") && map.includes("b.facing = M
 check("src.touch", sheet.includes("spellReachMessage") && v2.includes("function reachBlock") && map.includes("function touchGate"));
 check("src.darts", sheet.includes("assignDarts") && v2.includes("askSpellDarts") && v2.includes("applyDartGroups"));
 check("src.find", v2.includes("r.mapTokenId === want"));
-check("src.rules", !rules.includes("spell-area") && !rules.includes("0.3.166") && !read("database.rules.json").includes("0.3.166"));
+check("src.rules", !rules.includes("spell-area") && !rules.includes("0.3.167") && !read("database.rules.json").includes("0.3.167"));
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.166" && version.sheetBuild === "sheet-playtest-v03166");
-check("ver.dmcc", version.dmcc === "0.2.179" && version.dmccBuild === "dmcc-playtest-v02179");
+check("ver.sheet", version.sheet === "0.3.167" && version.sheetBuild === "sheet-playtest-v03167");
+check("ver.dmcc", version.dmcc === "0.2.180" && version.dmccBuild === "dmcc-playtest-v02180");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

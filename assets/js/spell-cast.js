@@ -158,6 +158,7 @@
     function typeBit(row) {
       var t = row && row.type ? String(row.type) : "";
       if (/you chose|you choose/i.test(t)) t = opts.damageType || "";
+      if (row && row.ammoType && opts.ammoType) t = opts.ammoType;
       return t ? " " + t : "";
     }
     var found = lookup(opts.spellName);
@@ -216,6 +217,18 @@
         detail: detail || text,
         spark: spark || ""
       };
+    }
+
+    if (opts.sustainAuto) {
+      var autoS = bundle(shaped(), false);
+      var sustainText = name + " · sustain " + autoS.text;
+      var sustainPack = pack(sustainText, false, null, false, autoS.rolled.formula, autoS.rolled.total, sustainText, "");
+      sustainPack.damageTotal = autoS.rolled.total;
+      sustainPack.damageDetail = autoS.text;
+      sustainPack.kind = "auto";
+      sustainPack.sustain = true;
+      sustainPack.autoDamage = true;
+      return sustainPack;
     }
 
     if (kind === "attack" && row.scale === "beam") {
@@ -283,8 +296,14 @@
       var dartRows = [];
       var rayShots = [];
       var rayHit = 0;
+      var sparked = false;
       var r;
       for (r = 0; r < rays; r++) {
+        if (sparked && row.cancelOnSpark) {
+          rbits.push("ray " + (r + 1) + " cancelled");
+          if (kind === "attack") rayShots.push({ nat: 0, total: 0, amount: 0, dice: "", label: "ray " + (r + 1) + "/" + rays + " cancelled", cancelled: true });
+          continue;
+        }
         if (kind === "auto") {
           var auto = bundle(rayDice, false);
           rSum += auto.rolled.total;
@@ -306,6 +325,7 @@
           var rayAmt = rm ? 0 : rd.rolled.total;
           if (!rm) rayHit += rayAmt;
           rayShots.push({ nat: rn, total: rtot, amount: rayAmt, dice: rm ? "" : rd.text, label: "ray " + (r + 1) + "/" + rays, dieText: dier.text, dieDelta: dier.delta });
+          if (rm && opts.wildSpark && slot > 0 && row.cancelOnSpark) sparked = true;
         }
       }
       var rspark = sparkFor(rMiss);
@@ -415,6 +435,8 @@
       if (row.banishAt) packed.banishAt = row.banishAt;
       if (row.endSave) packed.endSave = row.endSave;
       if (row.splash) packed.splash = row.splash;
+      if (row.pull) packed.pull = row.pull;
+      if (row.healHalf) packed.healHalf = true;
       if (row.delayed) {
         var Rdelay = root.SSDNSSpellRiders;
         packed.delayed = Rdelay && Rdelay.delayedRoll ? Rdelay.delayedRoll(row, slot, crit && !miss) : { formula: row.delayed, total: 0 };
@@ -464,6 +486,19 @@
       }
       if (row.until === "caster" && row.onFail) {
         savePack.text += " · until your next turn";
+        savePack.detail = savePack.text;
+      }
+      if (row.prismatic) {
+        savePack.prismatic = true;
+        savePack.applyNow = false;
+        savePack.text += " · d8 color per target";
+        savePack.detail = savePack.text;
+      }
+      if (row.floorHp) {
+        savePack.floorHp = row.floorHp;
+        savePack.maxDrop = row.maxDrop || "";
+        savePack.text += " · never below " + row.floorHp + " HP";
+        if (row.maxDrop) savePack.text += "; on a fail, HP max drops by the necrotic taken";
         savePack.detail = savePack.text;
       }
       if (row.targetUp) {
