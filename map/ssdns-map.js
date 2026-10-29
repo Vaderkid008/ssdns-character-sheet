@@ -1131,9 +1131,15 @@ function fxGeometry(spec) {
     if (!edge) return null;
     geo.src = { x: edge.x, y: edge.y }; geo.srcHidden = true;
   } else return null;
+  var spellSelf = type === 'spell' && (spec.self || (FXA.lookSelf && FXA.lookSelf(spec)));
   if (type === 'free') {
     if (!geo.S) return null;
     geo.dir = fxFacing(S, spec);
+  } else if (!geo.T && spellSelf && (geo.S || geo.src)) {
+    geo.T = geo.S || geo.src;
+    geo.rT = geo.rS || 0.42;
+    geo.self = true;
+    geo.tokT = geo.tokS || null;
   } else if (!geo.T) return null;
   if (melee && !geo.S && !geo.src) return null;
   return geo;
@@ -1258,6 +1264,7 @@ function fxPublic(spec) {
   if (T && T.hidden) return null;
   const pub = {
     type, result: spec.result, arrow: spec.arrow, sfx: spec.sfx, weapon: spec.weapon, weaponId: spec.weaponId,
+    spell: spec.spell || "", dmg: spec.dmg || "", self: !!spec.self,
     nat: spec.nat, crit: spec.crit, critMin: spec.critMin, heard: spec.heard, scene: S.sceneId || ''
   };
   if (T) pub.target = T.id;
@@ -1305,8 +1312,9 @@ function fxFromFeed(row) {
   if (row.fxReq && typeof row.fxReq === 'object' && role === 'dm' && row.from && row.from !== uid) {
     const req = row.fxReq;
     dmFx({
-      id: row.id, type: req.type, result: req.result, target: req.target, shooter: row.from, sfx: req.sfx,
+      id: row.id, type: req.type, result: req.result, target: req.target || (req.self ? row.from : ""), shooter: row.from, sfx: req.sfx,
       weapon: req.weapon, weaponId: req.weaponId, arrow: req.arrow, nat: req.nat, crit: req.crit,
+      spell: req.spell || "", dmg: req.dmg || "", self: !!req.self || req.target === row.from,
       heard: req.heard === false ? [] : [row.from]
     }, row.id);
   }

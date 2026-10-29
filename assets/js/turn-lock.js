@@ -78,14 +78,36 @@
       var spellNow = spellNameOf(btn);
       if (oaCast && m.oaArmed && !m.reaction && spellNow && String(oaCast.name || "").toLowerCase() === String(spellNow).toLowerCase()) return "";
     }
-    if (btn.matches(ATTACK) && m.oaArmed) return m.reaction ? "Reaction already used." : "";
+    if (btn.matches(ATTACK) && m.oaArmed) {
+      if (pactGunOa(btn)) return "Opportunity attack uses a held melee weapon. The Borrowed Iron is not a gun attack.";
+      return m.reaction ? "Reaction already used." : "";
+    }
     if (btn.matches(ATTACK) && !btn.matches("#btnPactShot")) return NOT_TURN + (m.reaction ? "" : " For an opportunity attack, ask the DM with the Opportunity attack button.");
     return NOT_TURN;
   }
   /** For the map player card (ssdns-map-host.js runAction), by action id. */
+  function pactSeeker() {
+    var c = ch();
+    return !!(c && (c.calling === "pact-seeker" || c.callingId === "pact-seeker"));
+  }
+  /* W7/N74: a Pact Seeker's iron is not a firearm opportunity attack. Melee, including Fixed Bayonet, stays. */
+  function pactGunOa(btn) {
+    if (!pactSeeker()) return false;
+    var m = marks();
+    if (!m.oaArmed || m.reaction) return false;
+    return !!(btn && btn.matches && btn.matches("button[data-gunroll], button[data-fire], button[data-trk-shoot]"));
+  }
   function blockedAction(id) {
     id = String(id || "");
     if (id === "turn:oa") return ""; /* asking for an opportunity attack is the off-turn action */
+    if (/^gunroll:/.test(id) && pactSeeker()) {
+      var armed = marks();
+      if (armed.oaArmed && !armed.reaction) {
+        var msg = "Opportunity attack uses a held melee weapon. The Borrowed Iron is not a gun attack.";
+        toast(msg);
+        return msg;
+      }
+    }
     var sel = null;
     var pick = function (s) { return document.querySelector(s); };
     if (/^(gunroll|melee):/.test(id)) sel = pick(ATTACK);

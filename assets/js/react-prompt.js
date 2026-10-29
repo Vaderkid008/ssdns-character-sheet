@@ -608,6 +608,9 @@
       var dis = model.disabled ? " disabled" : "";
       attack = '<button type="button" class="btn btn-primary" data-react-choice="' + esc(model.choice || "attack") + '"' + dis + ">" + esc(model.attackLabel || "Attack") + "</button>";
     }
+    if (model.strikeLabel) {
+      attack += '<button type="button" class="btn btn-primary" data-react-choice="strike">' + esc(model.strikeLabel) + "</button>";
+    }
     return attack + spellButtons(model) + '<button type="button" class="btn" data-react-choice="pass">' + esc(model.passLabel || "Pass") + "</button>" +
       '<button type="button" class="btn" data-react-choice="cancel">Cancel</button>';
   }

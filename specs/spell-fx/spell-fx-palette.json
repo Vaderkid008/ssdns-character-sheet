@@ -1,0 +1,990 @@
+{
+  "_meta": {
+    "version": "named-v1",
+    "status": "full-palette-locked",
+    "changes": {
+      "v2": "fire: beam -> ball of flame + trail + burst; force: rod -> curved wave fronts + triple ring",
+      "v3": "cold: frost shard; default experiments A-D",
+      "v4": "locked default=A ribbon + cold; B/C/D kept as unassigned named-override candidates; old default kept as default_retired_v1",
+      "v5": "designed the six remaining damage types (draft): acid glob, poison cloud, necrotic tendril, radiant mote+shaft, psychic mind-rings, thunder dust cone+boom",
+      "named-v1": "Shield -> ghostly heater shield; Pact Shot -> ethereal bullet; Mage Armor proposal ghost-armor shell (haze tube fallback); smoke + self_smoke drafts; utility_concepts sketches. Eleven damage types untouched."
+    },
+    "locked": [
+      "default",
+      "fire",
+      "cold",
+      "force",
+      "lightning",
+      "acid",
+      "poison",
+      "necrotic",
+      "radiant",
+      "psychic",
+      "thunder"
+    ],
+    "keys": "5e damage type; 'default' = fallback for any unmapped type",
+    "sample_only": [
+      "default",
+      "fire",
+      "cold",
+      "lightning",
+      "force",
+      "acid",
+      "poison",
+      "necrotic",
+      "radiant",
+      "psychic",
+      "thunder"
+    ],
+    "timing": "ms. grow = head/projectile travels A->B, hold = full line, fade. Bloom (and fire burst) start at t=grow; suggest impactDelay = type.grow (today spell = 180). Force: last front arrives at grow + frontGap*(fronts-1).",
+    "colors": "'r,g,b' strings used as rgba(${c},alpha) like the demo",
+    "owner": "Effects toggle, fog/hidden-caster rules and sync stay with Coder (map/ssdns-map-fx.js)",
+    "shapes": {
+      "wave": "demo spell() sine polyline",
+      "straight": "amp 0/tiny",
+      "jag": "seeded random lateral offsets * amp * sin(PI*u), flicker, one fork",
+      "ball": "radial-gradient ball + trail of trailN radial-gradient discs (no polyline)",
+      "front": "N arc() strokes (glow/core/hot) travelling A->B + faint wake line",
+      "shard": "filled diamond polygon + radial glow, mist-disc trail, falling flakes, impact spoke lines",
+      "ribbon": "two antiphase sine polylines",
+      "tube": "wide breathing glow stroke on a bow + thin core + 4-point sparkles",
+      "beads": "N radial-gradient discs on a bowed path, staggered",
+      "scurve": "one-period sine polyline, thick",
+      "glob": "lumpy polygon blob (dark source-over body + green sheen) on a slight lob; drip lines + droplet discs; tiny bubble rings; impact = puddle ellipse + ballistic droplets + bloom rings",
+      "cloud": "staggered clusters of soft radial discs (flat falloff) with a faint source-over murk; two curling thin wisps; impact = lingering billow of discs (no hard rings)",
+      "tendril": "curling polyline: wide plum glow, then a dark source-over core, then a thin bone line; two short curling offshoots; ash flakes (grey additive + dark source-over); impact = dark disc + CONTRACTING wobbly rings",
+      "mote": "gold radial-disc mote on an upward lob with a rotating 4-point glint, thin gold trail, twinkling glints left behind; impact = vertical light shaft dropping onto the target + glint + bloom rings",
+      "mindring": "chain of slightly oval, pulsing ring polylines travelling A->B on a fine wavy thread; impact = 3 gently wavy expanding rings",
+      "cone": "filled wedge polygon from caster (source-over dust + faint additive glow), soft leading-edge arc, grit specks; impact = 3 thick dusty rings (source-over) with gold edges + flung debris specks"
+    },
+    "showAt": "review-sheet only: fraction of grow used for the hero frame",
+    "named_overrides_locked": true,
+    "waiting": [],
+    "draft_pending_jessey": [
+      "acid",
+      "poison",
+      "necrotic",
+      "radiant",
+      "psychic",
+      "thunder"
+    ],
+    "blend_note": "Additive = globalCompositeOperation 'lighter'. Fields named under/dust/dark are drawn with 'source-over' (normal) BEFORE or between additive passes to get smoke, dust and murk that can darken the map.",
+    "jessey_locked_v5": "2026-10-25 ~12:09 AM CT \u2014 all six damage types locked",
+    "named_v1_locked_at": "2026-10-25 ~12:26 AM CT",
+    "named_v1_locked_by": "Jessey \u2014 lock all these are wonderful"
+  },
+  "default": {
+    "vibe": "Standard magic: two smooth strands, violet and Eldorite teal, twist around each other like a ribbon. No forks, no flicker.",
+    "glow": "150,50,230",
+    "glowA": 0.38,
+    "glowW": 10,
+    "core": "185,120,255",
+    "coreA": 0.9,
+    "coreW": 2.6,
+    "hot": "20,200,170",
+    "hotA": 0.95,
+    "hotW": 2.6,
+    "glow2": "20,150,140",
+    "glow2A": 0.38,
+    "turns": 2.5,
+    "motes": [
+      "180,120,255",
+      "110,240,225"
+    ],
+    "moteN": 8,
+    "moteDrift": -12,
+    "bloom": [
+      "170,110,255",
+      "80,230,215"
+    ],
+    "bloomMs": 520,
+    "bloomDelay": 90,
+    "bloomGrow": 0.6,
+    "rings": 2,
+    "charge": [
+      "200,150,255",
+      "80,220,210"
+    ],
+    "shape": "ribbon",
+    "amp": 7,
+    "freq": 0,
+    "grow": 220,
+    "hold": 140,
+    "fade": 450
+  },
+  "fire": {
+    "vibe": "Fire Bolt: a white-hot ball of flame flies the path, a tongue of fire and embers streaming behind it, then a fire burst on impact.",
+    "glow": "200,60,15",
+    "glowA": 0.5,
+    "glowW": 16,
+    "core": "255,125,35",
+    "coreA": 0.95,
+    "coreW": 3.8,
+    "hot": "255,225,160",
+    "hotA": 0.9,
+    "hotW": 1.2,
+    "ball": "255,242,205",
+    "ballR": 8,
+    "ballGlowR": 30,
+    "trailPx": 200,
+    "trailN": 44,
+    "burst": "255,140,45",
+    "burstMs": 320,
+    "burstR": 1.25,
+    "motes": [
+      "255,110,30",
+      "255,190,90"
+    ],
+    "moteN": 22,
+    "moteDrift": -26,
+    "bloom": [
+      "255,150,55",
+      "180,45,15"
+    ],
+    "bloomMs": 560,
+    "bloomDelay": 80,
+    "bloomGrow": 0.7,
+    "rings": 2,
+    "charge": [
+      "255,160,70",
+      "170,45,10"
+    ],
+    "shape": "ball",
+    "amp": 4,
+    "freq": 0.9,
+    "grow": 300,
+    "hold": 0,
+    "fade": 280,
+    "showAt": 0.72
+  },
+  "cold": {
+    "vibe": "Frost shard: a slow white-ice spear tip leaves a pale cold-mist trail and falling frost, then cracks into a rime star on impact.",
+    "glow": "80,125,185",
+    "glowA": 0.55,
+    "glowW": 14,
+    "core": "200,225,250",
+    "coreA": 1.0,
+    "coreW": 3,
+    "hot": "250,252,255",
+    "hotA": 1.0,
+    "hotW": 1,
+    "shardLen": 40,
+    "shardW": 11,
+    "mist": "150,185,225",
+    "mistA": 0.24,
+    "mistPx": 240,
+    "mistN": 34,
+    "mistR0": 10,
+    "mistR1": 26,
+    "spokes": 6,
+    "spokeMs": 520,
+    "spokeLen": 0.75,
+    "motes": [
+      "235,245,255",
+      "150,185,225"
+    ],
+    "moteN": 20,
+    "moteDrift": 26,
+    "bloom": [
+      "225,240,255",
+      "90,135,195"
+    ],
+    "bloomMs": 620,
+    "bloomDelay": 110,
+    "bloomGrow": 0.5,
+    "rings": 2,
+    "charge": [
+      "220,235,255",
+      "80,125,185"
+    ],
+    "shape": "shard",
+    "amp": 0,
+    "freq": 0,
+    "grow": 360,
+    "hold": 0,
+    "fade": 600,
+    "showAt": 0.78
+  },
+  "lightning": {
+    "vibe": "Storm on the prairie: jagged blue-violet bolt, white-hot core, fast in and fast out with a flicker.",
+    "glow": "85,120,240",
+    "glowA": 0.48,
+    "glowW": 12,
+    "core": "232,236,255",
+    "coreA": 1.0,
+    "coreW": 2.6,
+    "hot": "255,255,255",
+    "hotA": 0.9,
+    "hotW": 1,
+    "motes": [
+      "190,200,255",
+      "255,245,210"
+    ],
+    "moteN": 10,
+    "moteDrift": 0,
+    "bloom": [
+      "240,242,255",
+      "90,125,240"
+    ],
+    "bloomMs": 380,
+    "bloomDelay": 50,
+    "bloomGrow": 0.5,
+    "rings": 2,
+    "charge": [
+      "225,232,255",
+      "85,120,240"
+    ],
+    "shape": "jag",
+    "amp": 12,
+    "freq": 12,
+    "grow": 70,
+    "hold": 90,
+    "fade": 260
+  },
+  "force": {
+    "vibe": "Raw Eldorite push: three curved teal wave fronts roll from caster to target and slam into a triple ring.",
+    "glow": "25,135,135",
+    "glowA": 0.6,
+    "glowW": 18,
+    "core": "95,220,205",
+    "coreA": 0.95,
+    "coreW": 3.4,
+    "hot": "215,255,248",
+    "hotA": 0.75,
+    "hotW": 1.2,
+    "fronts": 3,
+    "frontGap": 50,
+    "frontR": 26,
+    "frontSpan": 64,
+    "frontSpread": 0.9,
+    "wakeA": 0.28,
+    "motes": [
+      "120,230,215",
+      "40,150,150"
+    ],
+    "moteN": 0,
+    "moteDrift": 0,
+    "bloom": [
+      "150,245,230",
+      "30,140,140"
+    ],
+    "bloomMs": 460,
+    "bloomDelay": 70,
+    "bloomGrow": 0.9,
+    "rings": 3,
+    "charge": [
+      "150,240,225",
+      "20,120,120"
+    ],
+    "shape": "front",
+    "amp": 0,
+    "freq": 0,
+    "grow": 240,
+    "hold": 0,
+    "fade": 260,
+    "showAt": 0.8
+  },
+  "acid": {
+    "vibe": "Lye glob: a lumpy green-yellow glob lobs over, hissing and dripping, then splashes and leaves a smoking puddle.",
+    "glow": "80,135,25",
+    "glowA": 0.42,
+    "glowW": 0,
+    "core": "125,180,40",
+    "coreA": 0.65,
+    "coreW": 0,
+    "hot": "225,235,150",
+    "hotA": 0.8,
+    "hotW": 0,
+    "dark": "30,40,10",
+    "globR": 15,
+    "lob": 14,
+    "dripN": 26,
+    "dripLen": 16,
+    "splashN": 12,
+    "splashMs": 820,
+    "motes": [
+      "200,225,90",
+      "120,160,40"
+    ],
+    "moteN": 14,
+    "moteDrift": 0,
+    "bloom": [
+      "175,210,55",
+      "95,140,20"
+    ],
+    "bloomMs": 520,
+    "bloomDelay": 90,
+    "bloomGrow": 0.6,
+    "rings": 2,
+    "rings_also": true,
+    "charge": [
+      "190,215,80",
+      "80,110,15"
+    ],
+    "shape": "glob",
+    "amp": 0,
+    "freq": 0,
+    "grow": 330,
+    "hold": 0,
+    "fade": 420,
+    "showAt": 0.8,
+    "status": "locked"
+  },
+  "poison": {
+    "vibe": "Bad-water miasma: slow, murky yellow-olive cloud puffs and curling wisps drift over and billow around the target.",
+    "glow": "150,140,70",
+    "glowA": 0.32,
+    "glowW": 0,
+    "core": "195,185,110",
+    "coreA": 0.6,
+    "coreW": 0,
+    "hot": "225,220,140",
+    "hotA": 0.4,
+    "hotW": 0,
+    "dark": "40,42,18",
+    "puffN": 6,
+    "puffGap": 60,
+    "puffR0": 18,
+    "puffR1": 40,
+    "wispAmp": 12,
+    "billowMs": 950,
+    "motes": [
+      "205,200,100",
+      "130,125,50"
+    ],
+    "moteN": 14,
+    "moteDrift": -10,
+    "bloom": [
+      "190,185,80",
+      "110,105,40"
+    ],
+    "bloomMs": 700,
+    "bloomDelay": 120,
+    "bloomGrow": 0.5,
+    "rings": 2,
+    "charge": [
+      "190,185,90",
+      "90,90,30"
+    ],
+    "shape": "cloud",
+    "amp": 0,
+    "freq": 0,
+    "grow": 430,
+    "hold": 0,
+    "fade": 520,
+    "showAt": 0.85,
+    "status": "locked"
+  },
+  "necrotic": {
+    "vibe": "Grave smoke: a black-plum tendril curls to the target, shedding ash, and the light collapses inward on impact.",
+    "under": "6,3,8",
+    "underA": 0.85,
+    "underW": 16,
+    "glow": "95,45,100",
+    "glowA": 0.62,
+    "glowW": 30,
+    "core": "185,170,180",
+    "coreA": 0.7,
+    "coreW": 2,
+    "hot": "215,200,210",
+    "hotA": 0.4,
+    "hotW": 1,
+    "motes": [
+      "150,140,140",
+      "95,85,95"
+    ],
+    "moteN": 22,
+    "moteDrift": 18,
+    "bloom": [
+      "170,140,175",
+      "90,40,100"
+    ],
+    "bloomMs": 640,
+    "bloomDelay": 120,
+    "bloomGrow": -0.5,
+    "rings": 2,
+    "charge": [
+      "150,110,160",
+      "20,10,25"
+    ],
+    "shape": "tendril",
+    "amp": 7,
+    "freq": 0,
+    "grow": 260,
+    "hold": 160,
+    "fade": 560,
+    "status": "locked"
+  },
+  "radiant": {
+    "vibe": "Sunday sun: a bright gold mote arcs over shedding holy glints, then a shaft of light drops onto the target.",
+    "glow": "230,175,70",
+    "glowA": 0.5,
+    "glowW": 0,
+    "core": "255,232,170",
+    "coreA": 1.0,
+    "coreW": 0,
+    "hot": "255,250,230",
+    "hotA": 1.0,
+    "hotW": 0,
+    "moteR": 7,
+    "lob": 26,
+    "glintN": 10,
+    "shaftMs": 650,
+    "shaftH": 170,
+    "shaftW": 34,
+    "motes": [
+      "255,240,190",
+      "230,190,100"
+    ],
+    "moteN": 0,
+    "moteDrift": 0,
+    "bloom": [
+      "255,235,170",
+      "225,170,70"
+    ],
+    "bloomMs": 560,
+    "bloomDelay": 90,
+    "bloomGrow": 0.7,
+    "rings": 2,
+    "rings_also": true,
+    "charge": [
+      "255,240,190",
+      "220,165,60"
+    ],
+    "shape": "mote",
+    "amp": 0,
+    "freq": 0,
+    "grow": 280,
+    "hold": 0,
+    "fade": 260,
+    "showMs": 400,
+    "status": "locked"
+  },
+  "psychic": {
+    "vibe": "A migraine you can see: a chain of wobbly dusty-magenta mind-rings pulses to the target, then wavy rings ripple out.",
+    "glow": "150,45,105",
+    "glowA": 0.45,
+    "glowW": 9,
+    "core": "215,125,170",
+    "coreA": 0.85,
+    "coreW": 2.2,
+    "hot": "245,200,220",
+    "hotA": 0.6,
+    "hotW": 1,
+    "ringN": 4,
+    "ringGap": 60,
+    "ringR": 11,
+    "motes": [
+      "240,160,205",
+      "150,60,120"
+    ],
+    "moteN": 0,
+    "moteDrift": 0,
+    "bloom": [
+      "235,140,195",
+      "160,50,120"
+    ],
+    "bloomMs": 640,
+    "bloomDelay": 80,
+    "bloomGrow": 0.9,
+    "rings": 3,
+    "charge": [
+      "240,170,210",
+      "140,40,110"
+    ],
+    "shape": "mindring",
+    "amp": 0,
+    "freq": 0,
+    "grow": 300,
+    "hold": 0,
+    "fade": 300,
+    "showAt": 0.85,
+    "status": "locked"
+  },
+  "thunder": {
+    "vibe": "Canyon thunderclap: a dusty grey-gold shock cone punches out, then a big dirt-brown boom ring and flung grit.",
+    "dust": "95,80,60",
+    "dustA": 0.6,
+    "coneDeg": 16,
+    "glow": "200,170,110",
+    "glowA": 0.3,
+    "glowW": 16,
+    "core": "235,215,170",
+    "coreA": 0.35,
+    "coreW": 3,
+    "hot": "250,240,215",
+    "hotA": 0.5,
+    "hotW": 1,
+    "motes": [
+      "225,205,160",
+      "120,100,75"
+    ],
+    "moteN": 40,
+    "moteDrift": 0,
+    "bloom": [
+      "215,185,125",
+      "150,120,80"
+    ],
+    "bloomMs": 560,
+    "bloomDelay": 80,
+    "bloomGrow": 1.5,
+    "rings": 3,
+    "charge": [
+      "235,215,170",
+      "120,100,75"
+    ],
+    "shape": "cone",
+    "amp": 0,
+    "freq": 0,
+    "grow": 110,
+    "hold": 60,
+    "fade": 320,
+    "showMs": 200,
+    "status": "locked"
+  },
+  "named_overrides": {
+    "_note": "Placeholders are not designed. Candidates are the default options Jessey did not pick; unassigned until he ties them to a spell.",
+    "placeholders": {
+      "fireball": null,
+      "witch-bolt": null
+    },
+    "candidates": {
+      "override_b_haze_tube": {
+        "label": "haze tube",
+        "vibe": "A soft, slowly pulsing violet haze tube on a gentle bow with a thin teal thread and Eldorite sparkles.",
+        "glow": "145,55,225",
+        "glowA": 0.55,
+        "glowW": 32,
+        "core": "30,190,165",
+        "coreA": 0.7,
+        "coreW": 2.6,
+        "hot": "160,255,235",
+        "hotA": 0.3,
+        "hotW": 1,
+        "sparkle": "120,245,225",
+        "sparkleN": 18,
+        "bow": 10,
+        "motes": [
+          "180,120,255",
+          "110,240,225"
+        ],
+        "moteN": 0,
+        "moteDrift": -10,
+        "bloom": [
+          "170,110,255",
+          "80,230,215"
+        ],
+        "bloomMs": 560,
+        "bloomDelay": 90,
+        "bloomGrow": 0.6,
+        "rings": 2,
+        "charge": [
+          "200,150,255",
+          "80,220,210"
+        ],
+        "shape": "tube",
+        "amp": 0,
+        "freq": 0,
+        "grow": 220,
+        "hold": 160,
+        "fade": 480,
+        "from_option": "default_b",
+        "assigned_to": [
+          "mage armor (fallback until Jessey picks shell vs tube)"
+        ],
+        "status": "locked"
+      },
+      "override_c_arcane_beads": {
+        "label": "arcane beads",
+        "vibe": "A string of soft violet beads with teal hearts glides along a curved path and pops into the target, one by one.",
+        "glow": "155,65,240",
+        "glowA": 0.85,
+        "glowW": 0,
+        "core": "60,215,195",
+        "coreA": 1.0,
+        "coreW": 0,
+        "hot": "200,255,245",
+        "hotA": 0.7,
+        "hotW": 0,
+        "beadN": 8,
+        "beadGap": 32,
+        "beadR": 15,
+        "beadCoreR": 5,
+        "bow": 22,
+        "threadA": 0.16,
+        "motes": [
+          "180,120,255",
+          "110,240,225"
+        ],
+        "moteN": 0,
+        "moteDrift": 0,
+        "bloom": [
+          "170,110,255",
+          "80,230,215"
+        ],
+        "bloomMs": 520,
+        "bloomDelay": 90,
+        "bloomGrow": 0.6,
+        "rings": 2,
+        "charge": [
+          "200,150,255",
+          "80,220,210"
+        ],
+        "shape": "beads",
+        "amp": 0,
+        "freq": 0,
+        "grow": 260,
+        "hold": 0,
+        "fade": 260,
+        "showAt": 0.92,
+        "from_option": "default_c",
+        "assigned_to": [
+          "magic missile"
+        ],
+        "status": "locked"
+      },
+      "override_d_s_curve": {
+        "label": "smooth S-curve",
+        "vibe": "One slow, thick S-curve of violet haze with a soft teal core that sways gently. Thicker and softer than lightning.",
+        "glow": "150,50,230",
+        "glowA": 0.42,
+        "glowW": 20,
+        "core": "25,200,175",
+        "coreA": 0.95,
+        "coreW": 4.4,
+        "hot": "160,255,235",
+        "hotA": 0.45,
+        "hotW": 1.2,
+        "motes": [
+          "180,120,255",
+          "110,240,225"
+        ],
+        "moteN": 10,
+        "moteDrift": -12,
+        "bloom": [
+          "170,110,255",
+          "80,230,215"
+        ],
+        "bloomMs": 520,
+        "bloomDelay": 90,
+        "bloomGrow": 0.6,
+        "rings": 2,
+        "charge": [
+          "200,150,255",
+          "80,220,210"
+        ],
+        "shape": "scurve",
+        "amp": 16,
+        "freq": 0,
+        "grow": 200,
+        "hold": 140,
+        "fade": 450,
+        "from_option": "default_d",
+        "assigned_to": [
+          "eldritch blast"
+        ],
+        "status": "locked"
+      }
+    },
+    "assignments_locked": {
+      "locked_at": "2026-10-25 ~12:26 AM CT",
+      "by": "Jessey",
+      "map": {
+        "shield": {
+          "uses": "ghostly_shield",
+          "note": "ghostly heater + tin-star hint on caster"
+        },
+        "pact shot": {
+          "uses": "ethereal_bullet",
+          "note": "spectral bullet + smoke rings; EB stays S-curve"
+        },
+        "mage armor": {
+          "uses": "ghost_armor_shell",
+          "note": "six plates + vapor wreath; haze tube fallback kept"
+        },
+        "eldritch blast": {
+          "uses": "override_d_s_curve",
+          "note": "locked earlier"
+        },
+        "magic missile": {
+          "uses": "override_c_arcane_beads",
+          "note": "locked earlier"
+        }
+      }
+    },
+    "looks_v1": {
+      "ghostly_shield": {
+        "label": "Shield \u2014 ghostly heater shield",
+        "spells": [
+          "shield"
+        ],
+        "target": "self",
+        "vibe": "A translucent heater shield with a faint tin star snaps up in front of the caster, glows Eldorite teal with a violet rim, then fades.",
+        "fill": "40,170,160",
+        "fillA": 0.16,
+        "glow": "150,60,230",
+        "glowA": 0.5,
+        "glowW": 10,
+        "core": "95,220,205",
+        "coreA": 0.95,
+        "coreW": 2.6,
+        "hot": "215,255,248",
+        "hotA": 0.6,
+        "hotW": 1,
+        "star": "160,240,225",
+        "starA": 0.55,
+        "heightR": 2.9,
+        "widthR": 2.1,
+        "offsetR": 1.0,
+        "flash": "170,110,255",
+        "popMs": 110,
+        "hold": 420,
+        "fade": 420,
+        "smoke": "shield_pop_curl",
+        "status": "locked"
+      },
+      "ethereal_bullet": {
+        "label": "Pact Shot \u2014 ethereal bullet",
+        "spells": [
+          "pact shot"
+        ],
+        "target": "ranged",
+        "vibe": "A spectral violet cartridge with a teal halo streaks out like a gunshot on a hairline trail, shedding ghost smoke-rings, then a soft arcane bloom.",
+        "bullet": "205,175,255",
+        "bulletLen": 18,
+        "bulletW": 7,
+        "glow": "40,175,165",
+        "glowA": 0.55,
+        "glowW": 7,
+        "core": "200,170,255",
+        "coreA": 0.9,
+        "coreW": 1.6,
+        "hot": "245,240,255",
+        "hotA": 0.9,
+        "trailPx": 260,
+        "ringN": 3,
+        "ring": "150,110,240",
+        "muzzle": "190,150,255",
+        "bloom": [
+          "170,110,255",
+          "80,230,215"
+        ],
+        "bloomMs": 480,
+        "bloomDelay": 80,
+        "bloomGrow": 0.5,
+        "rings": 2,
+        "grow": 150,
+        "hold": 0,
+        "fade": 320,
+        "status": "locked"
+      },
+      "ghost_armor_shell": {
+        "label": "Mage Armor \u2014 ghost-armor shell",
+        "spells": [
+          "mage armor"
+        ],
+        "target": "self",
+        "vibe": "Six translucent armor plates close in around the caster into a slowly turning second-skin shell, shimmer once, then settle out.",
+        "plates": 6,
+        "plateDeg": 48,
+        "startR": 1.7,
+        "endR": 1.22,
+        "fill": "40,150,145",
+        "fillA": 0.1,
+        "glow": "140,60,220",
+        "glowA": 0.42,
+        "glowW": 9,
+        "core": "90,215,200",
+        "coreA": 0.85,
+        "coreW": 2.4,
+        "settleMs": 320,
+        "hold": 520,
+        "fade": 480,
+        "spinRadPerMs": 0.0011111111111111111,
+        "smoke": "mage_armor_wreath",
+        "status": "locked"
+      }
+    }
+  },
+  "default_retired_v1": {
+    "vibe": "Today's generic spell line: violet haze, Eldorite-teal core. Fallback for any unmapped type.",
+    "glow": "150,50,230",
+    "glowA": 0.42,
+    "glowW": 14,
+    "core": "20,200,170",
+    "coreA": 0.95,
+    "coreW": 3.5,
+    "hot": "160,255,235",
+    "hotA": 0.6,
+    "hotW": 1,
+    "motes": [
+      "180,120,255",
+      "110,240,225"
+    ],
+    "moteN": 14,
+    "moteDrift": -14,
+    "bloom": [
+      "170,110,255",
+      "80,230,215"
+    ],
+    "bloomMs": 520,
+    "bloomDelay": 90,
+    "bloomGrow": 0.6,
+    "rings": 2,
+    "charge": [
+      "200,150,255",
+      "80,220,210"
+    ],
+    "shape": "wave",
+    "amp": 4,
+    "freq": 18,
+    "grow": 180,
+    "hold": 120,
+    "fade": 450
+  },
+  "smoke": {
+    "_status": "draft (not locked until Jessey OKs)",
+    "_note": "Black-powder puff at the shooter's muzzle (origin = token centre + dir * muzzleOffsetR * tokenRadius). Source-over soft discs, light then shade. Obeys Effects on/off and fog (Coder).",
+    "black_powder_revolver": {
+      "label": "Gun smoke \u2014 revolver",
+      "vibe": "Light grey-brown black-powder puff at the muzzle, drifts forward and up, gone in under a second.",
+      "light": "178,168,150",
+      "shade": "118,104,88",
+      "alpha": 0.36,
+      "n": 7,
+      "R0": 6,
+      "R1": 18,
+      "spreadDeg": 28,
+      "driftFwd": 22,
+      "driftUp": 12,
+      "life": 900,
+      "muzzleOffsetR": 1.05,
+      "status": "locked"
+    },
+    "black_powder_buck": {
+      "label": "Gun smoke \u2014 shotgun / buck",
+      "vibe": "A wider, slightly bigger powder cloud for buck: still light and short so tokens stay readable.",
+      "light": "178,168,150",
+      "shade": "118,104,88",
+      "alpha": 0.36,
+      "n": 12,
+      "R0": 8,
+      "R1": 32,
+      "spreadDeg": 40,
+      "driftFwd": 30,
+      "driftUp": 14,
+      "life": 1150,
+      "muzzleOffsetR": 1.1,
+      "status": "locked"
+    },
+    "status": "locked"
+  },
+  "self_smoke": {
+    "_status": "draft (not locked until Jessey OKs)",
+    "_note": "Self-cast vapors, drawn on the caster only. Source-over soft discs (+ a faint additive edge for the Shield curl).",
+    "mage_armor_wreath": {
+      "label": "Self smoke \u2014 Mage Armor wreath",
+      "pairs": [
+        "mage armor"
+      ],
+      "vibe": "A soft pale-grey wreath of vapor circles the caster once and thins outward.",
+      "light": "190,190,186",
+      "alpha": 0.22,
+      "n": 12,
+      "ringR": 1.35,
+      "R0": 8,
+      "R1": 15,
+      "spin": 0.0014285714285714286,
+      "spread": 0.35,
+      "life": 1300,
+      "status": "locked"
+    },
+    "shield_pop_curl": {
+      "label": "Self smoke \u2014 Shield pop curl",
+      "pairs": [
+        "shield"
+      ],
+      "vibe": "A brief charcoal smoke curl with a violet edge twists up off the shield as it pops.",
+      "body": "128,120,130",
+      "bodyA": 0.55,
+      "edge": "150,60,230",
+      "edgeA": 0.14,
+      "n": 16,
+      "rise": 60,
+      "curl": 14,
+      "R0": 6,
+      "R1": 17,
+      "life": 850,
+      "status": "locked"
+    },
+    "pwt_ground_veil": {
+      "label": "Self smoke \u2014 Pass without Trace veil",
+      "pairs": [
+        "pass without trace"
+      ],
+      "vibe": "A low, flat dust-brown haze rolls out at boot height around the party and settles.",
+      "dust": "122,106,84",
+      "alpha": 0.3,
+      "n": 18,
+      "spreadR": 3.2,
+      "flat": 0.38,
+      "R0": 10,
+      "R1": 24,
+      "life": 1600,
+      "status": "locked"
+    },
+    "status": "locked"
+  },
+  "utility_concepts": {
+    "_status": "concept sketches only; not designed in full, not locked",
+    "pass_without_trace": {
+      "label": "Pass without Trace",
+      "vibe": "A muted dust veil dims the party, and their bootprints fade behind them.",
+      "veil": "58,50,40",
+      "veilA": 0.34,
+      "print": "150,134,108",
+      "printA": 0.55,
+      "pair": "pwt_ground_veil",
+      "status": "locked"
+    },
+    "invisibility": {
+      "label": "Invisibility",
+      "vibe": "The token dissolves into a cool heat-shimmer: vertical ripples, rising specks, then gone.",
+      "shimmer": "190,215,225",
+      "fadeTo": 0.18,
+      "status": "locked"
+    },
+    "healing_word": {
+      "label": "Healing Word / Cure Wounds",
+      "vibe": "A soft green-gold pulse on the target with rising warm motes. Gentle, not a radiant shaft.",
+      "glow": "140,195,95",
+      "ring1": "210,220,120",
+      "ring2": "120,175,85",
+      "motes": "230,215,130",
+      "status": "locked"
+    },
+    "bless": {
+      "label": "Bless",
+      "vibe": "Small gold sun-marks flicker over each blessed ally's head with a faint gold ring at their feet.",
+      "mark": "240,205,120",
+      "ring": "200,160,80",
+      "status": "locked"
+    },
+    "fog_cloud": {
+      "label": "Fog Cloud",
+      "vibe": "A grey mist bank rolls in over a 20-ft circle; soft lumpy edge, mostly opaque.",
+      "mist": "150,150,148",
+      "mistA": 0.3,
+      "radiusCells": 2,
+      "status": "locked"
+    },
+    "mage_hand": {
+      "label": "Mage Hand",
+      "vibe": "A faint spectral glove drifts out from the caster on a trail of teal motes.",
+      "glow": "40,170,160",
+      "core": "120,230,215",
+      "status": "locked"
+    },
+    "status": "locked"
+  }
+}

@@ -1,5 +1,5 @@
 /**
- * N81 P0-4 — lasting PHB areas in the spell-zones BOOK (sheet 0.3.167 / DMCC 0.2.180).
+ * N81 P0-4 — lasting PHB areas in the spell-zones BOOK (sheet 0.3.168 / DMCC 0.2.181).
  *   node tools/test-n81-areas.mjs
  * rules.js is not regenerated. Expiry and DM Clear ship in the P0-5 slice.
  */
@@ -129,8 +129,8 @@ check("wire.map", map.includes("liveSpellZones") && map.includes("terrainCost") 
 check("wire.ice", map.includes("paintSpellZones") && v2.includes("zonePhase"));
 check("clear.hook", v2.includes("expireSpellZones") && map.includes("clearAllZonesBtn") && map.includes("clearSpellGrid"));
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.167" && ver.dmcc === "0.2.180" && ver.sheetBuild === "sheet-playtest-v03167" && ver.dmccBuild === "dmcc-playtest-v02180");
-check("rules.clean", !rules.includes("0.3.167") && !rules.includes("spell-zones") && !read("database.rules.json").includes("0.3.167"));
+check("ver", ver.sheet === "0.3.168" && ver.dmcc === "0.2.181" && ver.sheetBuild === "sheet-playtest-v03168" && ver.dmccBuild === "dmcc-playtest-v02181");
+check("rules.clean", !rules.includes("0.3.168") && !rules.includes("spell-zones") && !read("database.rules.json").includes("0.3.168"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
