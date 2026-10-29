@@ -104,10 +104,10 @@ const focus = read("assets/js/focus-slot.js");
 check("src.assign", sheet.includes("assignBeams") && sheet.includes('assign = "beam"') && sheet.includes('assign = "ray"') && v2.includes("applyAssignedBeams") && v2.includes('askSpellDarts(row, name, nBeams'));
 check("src.dust", v2.includes("function noteDust") && v2.includes('onSave === "none"') && v2.includes("is dust. No death saves") && sheet.includes("Disintegrated. No death saves."));
 check("src.iron", focus.includes("Borrowed Iron isn't in your hand") && v2.includes("borrowedIronAway"));
-check("src.rules", !rules.includes("0.3.164") && !rules.includes("0.2.177") && !read("database.rules.json").includes("0.3.164"));
+check("src.rules", !rules.includes("0.3.165") && !rules.includes("0.2.178") && !read("database.rules.json").includes("0.3.165"));
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.164" && version.sheetBuild === "sheet-playtest-v03164");
-check("ver.dmcc", version.dmcc === "0.2.177" && version.dmccBuild === "dmcc-playtest-v02177");
+check("ver.sheet", version.sheet === "0.3.165" && version.sheetBuild === "sheet-playtest-v03165");
+check("ver.dmcc", version.dmcc === "0.2.178" && version.dmccBuild === "dmcc-playtest-v02178");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

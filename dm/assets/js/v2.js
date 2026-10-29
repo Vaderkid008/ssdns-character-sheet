@@ -1972,6 +1972,64 @@ function deliverZoneTick(tick, who, caster) {
   }
   finish(tick.amount, tick.formula);
 }
+function endRemovedZones(removed) {
+  if (!removed || !removed.length || typeof fight === "undefined" || !fight) return;
+  const R = window.SSDNSSpellRiders;
+  const ids = {};
+  removed.forEach((z) => { if (z && z.id) ids[z.id] = 1; });
+  const spells = {};
+  removed.forEach((z) => {
+    if (!z) return;
+    const spell = z.spell || "";
+    const cid = z.casterId || "";
+    const key = cid + "\n" + spell;
+    if (spells[key]) {
+      if (z.blast) spells[key].beads.push(z);
+      return;
+    }
+    spells[key] = { zone: z, spell: spell, cid: cid, beads: z.blast ? [z] : [] };
+  });
+  Object.keys(spells).forEach((key) => {
+    const item = spells[key];
+    const z = item.zone;
+    const caster = casterForZone(z);
+    if (caster && R && R.breakConc) {
+      const ended = R.breakConc(caster.spellMarks || {}, item.spell);
+      caster.spellMarks = ended.bag;
+      if (z.conc && String(caster.concentration || "").toLowerCase() === String(item.spell).toLowerCase()) {
+        caster.concentration = (ended.bag && ended.bag.conc) || "";
+      }
+    }
+    (item.beads || []).forEach((bead) => releaseBeads(caster || { name: item.spell || "Bead" }, { zones: [bead] }));
+    if (z.conc) dropOwnedConditions(item.spell);
+    const pid = (caster && caster.kind === "player" && (caster.playerId || caster.id)) || ((DM.state.players && DM.state.players[item.cid]) ? item.cid : "");
+    if (pid && DM.pushCommand) {
+      DM.pushCommand({ type: "spell_end", to: pid, quiet: true, payload: { spell: item.spell, noBlast: true }, from: DM.state.uid });
+    }
+  });
+  (fight.order || []).forEach((row) => {
+    if (!row || !row.spellMarks || !Array.isArray(row.spellMarks.zones)) return;
+    row.spellMarks.zones = row.spellMarks.zones.filter((z) => !(z && ids[z.id]));
+  });
+}
+function expireSpellZones() {
+  const Z = window.SSDNSSpellZones;
+  if (!Z || !Z.tickRounds) return;
+  const before = zoneListNow();
+  const ticked = Z.tickRounds(before, 1);
+  const changed = ticked.removed.length > 0 || ticked.zones.some((z) => {
+    const prev = before.find((b) => b && z && b.id === z.id);
+    return prev && Number(prev.roundsLeft) !== Number(z.roundsLeft);
+  });
+  if (!changed) return;
+  writeZoneList(ticked.zones);
+  if (ticked.removed.length) endRemovedZones(ticked.removed);
+  (ticked.logs || []).forEach((line) => {
+    if (!line) return;
+    DM.toast(line);
+    DM.pushLedger({ who: "DM", playerId: "all", type: "combat", what: line, oldVal: null, newVal: "expired", flag: false });
+  });
+}
 function zonePhase(who, when) {
   const Z = window.SSDNSSpellZones;
   if (!Z || !Z.phaseDue || !who) return;
@@ -2011,6 +2069,18 @@ function adoptCastZone(row, name, placed, slot, dc, extra) {
   }
   return put.log || "";
 }
+window.addEventListener("ssdns-zone-clear", (ev) => {
+  const detail = ev && ev.detail;
+  const removed = (detail && detail.removed) || [];
+  if (!removed.length || typeof fight === "undefined" || !fight) return;
+  endRemovedZones(removed);
+  (detail.logs || []).forEach((line) => {
+    if (!line) return;
+    DM.pushLedger({ who: "DM", playerId: "all", type: "combat", what: line, oldVal: null, newVal: "cleared", flag: false });
+  });
+  saveRemoteTable();
+  renderFight();
+});
 window.addEventListener("ssdns-zone-tick", (ev) => {
   const ticks = ev && ev.detail && ev.detail.ticks;
   if (!ticks || !ticks.length || typeof fight === "undefined" || !fight) return;
@@ -2222,7 +2292,10 @@ function nextTurn() {
   } else {
     const step = nextLivingIndex(fight.turn);
     fight.turn = step.index;
-    if (step.wrapped) fight.round += 1;
+    if (step.wrapped) {
+      fight.round += 1;
+      expireSpellZones();
+    }
   }
   const phaseWho = fight.order[fight.turn];
   if (phaseWho && phaseWho.shieldUntilTurn && phaseWho.kind !== "player") {
@@ -9632,14 +9705,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.177-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.178-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.177-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.178-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);
