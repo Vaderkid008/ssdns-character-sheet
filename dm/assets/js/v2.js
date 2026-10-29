@@ -2104,6 +2104,21 @@ function riderDc(caster) {
   if (snap && snap.spellDC != null && snap.spellDC !== "" && isFinite(Number(snap.spellDC))) return Number(snap.spellDC);
   return null;
 }
+function openRiderDie(attacker, target) {
+  const Cond = window.SSDNSConditions;
+  const mode = Cond && Cond.riderMode ? Cond.riderMode(conditionsForRow(attacker), conditionsForRow(target)) : "";
+  if (mode !== "adv" && mode !== "dis") return { nat: d20(), mode: "" };
+  const a = d20();
+  const b = d20();
+  return { nat: mode === "adv" ? Math.max(a, b) : Math.min(a, b), mode: mode };
+}
+function spendRiderChips(attacker, target) {
+  const Cond = window.SSDNSConditions;
+  if (!Cond || !Cond.strikeSpend) return;
+  const spend = Cond.strikeSpend(conditionsForRow(attacker), conditionsForRow(target));
+  if (spend.attacker && spend.attacker.length) dropChipNames(attacker, spend.attacker);
+  if (spend.target && spend.target.length) dropChipNames(target, spend.target);
+}
 function dropChipNames(who, names) {
   if (!who || !names || !names.length || !window.SSDNSConditions) return;
   const subjectId = who.kind === "player" ? (who.playerId || who.id) : (who.id || who.playerId);
@@ -2136,9 +2151,14 @@ function commitRider(caster, known, opts) {
   });
   if (!landed || !landed.changed) return landed;
   caster.spellMarks = landed.bag;
+  (landed.removed || []).forEach((ch) => {
+    if (!ch || !ch.name) return;
+    const who = findCombatant({ id: ch.targetId, playerId: ch.targetId }) || { id: ch.targetId, kind: "enemy", name: opts.targetName || "" };
+    dropChipNames(who, [ch.name]);
+  });
   (landed.chips || []).forEach((ch) => {
     if (!ch || !ch.name || !ch.targetId) return;
-    rememberCondition(caster, { id: ch.targetId, name: opts.targetName || ch.targetId }, ch.name, null, { spell: ch.spell || known.name || "", conc: !!ch.conc }).catch(() => {});
+    rememberCondition(caster, { id: ch.targetId, name: opts.targetName || ch.targetId }, ch.name, ch.rounds != null ? ch.rounds : null, { spell: ch.spell || known.name || "", conc: !!ch.conc }).catch(() => {});
   });
   (landed.logs || []).forEach((line) => { if (line) DM.toast(line); });
   return landed;
@@ -2188,7 +2208,11 @@ function chainRider(caster, work) {
 }
 function applyRiderOutcome(caster, who, tick, settled) {
   const names = (settled.removed || []).map((c) => c && c.name).filter(Boolean);
-  if (names.length) dropChipNames(who, names);
+  let dropWho = who;
+  if (tick && tick.victimId && String(tick.victimId) !== String((who && (who.playerId || who.id)) || "")) {
+    dropWho = findCombatant({ id: tick.victimId, playerId: tick.victimId }) || { id: tick.victimId, kind: "enemy", name: tick.victimId };
+  }
+  if (names.length) dropChipNames(dropWho, names);
   (settled.chips || []).forEach((ch) => {
     if (!ch || !ch.name) return;
     rememberCondition(caster, { id: who.playerId || who.id, name: who.name }, ch.name, null, { spell: ch.spell || (tick && tick.spell) || "", conc: !!ch.conc }).catch(() => {});
@@ -2391,7 +2415,10 @@ function combatantSpeed(row) {
   if (row.kind === "player") return playerSpeed(row.playerId || row.id);
   const raw = row.speed != null && row.speed !== "" ? row.speed : (row.card && row.card.speed);
   const n = parseInt(raw, 10);
-  return isFinite(n) && n >= 0 ? n : 30;
+  const base = isFinite(n) && n >= 0 ? n : 30;
+  return window.SSDNSConditions && window.SSDNSConditions.withSpeedChips
+    ? window.SSDNSConditions.withSpeedChips(base, conditionsForRow(row))
+    : base;
 }
 function tokenIsRow(token, row) {
   if (!token || !row) return false;
@@ -6489,7 +6516,9 @@ async function enemyStrike(i, preset) {
   const rangedPreset = !!(preset && preset.range && /\d+\s*\/\s*\d+/.test(String(preset.range)));
   const adj = acWithCover(target, attackerCoverOpts(row, { ranged: rangedPreset }));
   if (adj.blocked) { DM.toast("Total cover. You can't target " + (target.name || "them") + "."); return; }
-  const nat = d20();
+  const opened = openRiderDie(row, target);
+  const nat = opened.nat;
+  if (opened.mode) spendRiderChips(row, target);
   const strikeDie = window.SSDNSSpellBuffs && window.SSDNSSpellBuffs.rollMods
     ? window.SSDNSSpellBuffs.rollMods(conditionsForRow(row))
     : { delta: 0, text: "" };
@@ -6885,7 +6914,12 @@ async function cardStrike(i, n, opts) {
   /* map token guns: the card's ADV / DIS tick (same ticks as the player gun card). No tick = the old rule exactly. */
   const tickAdv = atk.attackMode === "adv";
   const tickDis = atk.attackMode === "dis";
-  if (!tickAdv && !tickDis) {
+  const rider = window.SSDNSConditions && window.SSDNSConditions.riderMode
+    ? window.SSDNSConditions.riderMode(conditionsForRow(row), conditionsForRow(target))
+    : "";
+  const riderAdv = rider === "adv";
+  const riderDis = rider === "dis";
+  if (!tickAdv && !tickDis && !riderAdv && !riderDis) {
     if (rangeAdv && !coverDis) {
       n2 = d20();
       nat = Math.max(n1, n2);
@@ -6894,11 +6928,12 @@ async function cardStrike(i, n, opts) {
       nat = Math.min(n1, n2);
     }
   } else {
-    const anyAdv = rangeAdv || tickAdv;
-    const anyDis = (!rangeAdv && rangeDis) || coverDis || tickDis;
+    const anyAdv = rangeAdv || tickAdv || riderAdv;
+    const anyDis = (!rangeAdv && rangeDis) || coverDis || tickDis || riderDis;
     if (anyAdv && !anyDis) { n2 = d20(); nat = Math.max(n1, n2); }
     else if (anyDis && !anyAdv) { n2 = d20(); nat = Math.min(n1, n2); }
   }
+  if (rider) spendRiderChips(row, target);
   const ceiling = window.SSDNSApplied && window.SSDNSApplied.misfireNumber
     ? window.SSDNSApplied.misfireNumber(atk.misfire)
     : null;
@@ -7217,7 +7252,12 @@ async function castAreaSpell(opts) {
         });
       }
       if (save && save.failed && cond) {
-        try { await rememberCondition(opts.row || { id: opts.fromId, name: opts.who }, { id: tid, name: t.name }, cond, null); } catch (err) {}
+        const chipRounds = opts.known && opts.known.until === "target" ? 1 : (opts.known && opts.known.rounds) || null;
+        try { await rememberCondition(opts.row || { id: opts.fromId, name: opts.who }, { id: tid, name: t.name }, cond, chipRounds, { spell: opts.name || "", conc: false }); } catch (err) {}
+        commitRider(opts.row, opts.known, {
+          slot: opts.slotLevel, targetId: tid, targetName: t.name,
+          hit: true, miss: false, failed: !!(save.failed && !save.blocked)
+        });
       }
     }
   } else if (kind === "none" || kind === "rider" || kind === "utility") {
@@ -7402,6 +7442,10 @@ async function cardCast(i, n, opts) {
         weapon: name,
         type: "heal"
       });
+      if (known && known.clears && known.clears.length) {
+        dropChipNames(target, known.clears);
+        detail += " · ends " + known.clears.join(", ");
+      }
     }
     await publishCardRoll(row, detail, out.total, { formula: dice, heal: true, spell: true, targetId: target && target.id });
     playCue();
@@ -7478,9 +7522,10 @@ async function cardCast(i, n, opts) {
     }
     const cond = asked.rider || spellConditionName(spell);
     if (failed && cond) {
-      const named = /prone/i.test(cond) ? "Prone" : (/disadvantage/i.test(cond) ? "Disadvantage" : cond);
-      if (CONDITIONS.indexOf(named) >= 0 || named === "Disadvantage") {
-        await rememberCondition(row, target, named, null);
+      const named = /prone/i.test(cond) ? "Prone" : (/^disadvantage$/i.test(cond) ? "Disadvantage" : cond);
+      const knownChip = !!(known && (known.onFail || known.onHit));
+      if (CONDITIONS.indexOf(named) >= 0 || named === "Disadvantage" || knownChip) {
+        await rememberCondition(row, target, named, known && known.until === "target" ? 1 : null, { spell: name, conc: spellConcentrates(spell, known) });
         detail += " · " + named;
       }
     }
@@ -7559,7 +7604,9 @@ async function cardCast(i, n, opts) {
   spendSpellSlot(card, level);
   row.lastAttackerId = targetId;
   rememberLastTarget(row, targetId);
-  const nat = d20();
+  const openedSpell = openRiderDie(row, target);
+  const nat = openedSpell.nat;
+  if (openedSpell.mode) spendRiderChips(row, target);
   const total = nat + bonus;
   const hit = nat !== 1 && total >= ac;
   let dmg = null;
@@ -7954,6 +8001,10 @@ function applyPlayerHit(meta) {
     return;
   }
   if (rollId && !claimApply(rollId)) return;
+  if (heal && window.SSDNSConditions && window.SSDNSConditions.hasName && window.SSDNSConditions.hasName(conditionsForRow(row), "No healing")) {
+    DM.toast((name || "They") + " can't regain hit points.");
+    return;
+  }
   const weapon = (window.SSDNSApplied && window.SSDNSApplied.weaponName(meta.weapon || meta.label)) || "";
   let before = row ? knownNumber(row.hp) : knownNumber(snap && snap.hpCurrent);
   if (before == null) before = 0;
@@ -8523,7 +8574,7 @@ function applyRequest(req, reqId) {
   if (!heal && req.onHit && req.condition && !req.save) {
     const caster = { id: req.from || "", name: who, kind: "player" };
     const tgt = row || { id: req.targetId, name: name };
-    rememberCondition(caster, tgt, req.condition, null, { spell: req.spell || req.label || "", conc: !!req.conc }).catch(() => {});
+    rememberCondition(caster, tgt, req.condition, req.rounds != null && req.rounds !== "" ? req.rounds : null, { spell: req.spell || req.label || "", conc: !!req.conc }).catch(() => {});
     if (req.noDamage) DM.toast((req.label || "Spell") + ": no damage — " + req.condition);
     if (!(amt > 0)) { markRequestResolved(reqId); return; }
   }
@@ -8557,6 +8608,10 @@ function applyRequest(req, reqId) {
     heal: heal,
     melee: !!req.melee
   });
+  if (heal && req.clears && req.clears.length) {
+    dropChipNames(row || { id: req.targetId, kind: "enemy", name: name }, req.clears);
+    DM.toast("ends " + req.clears.join(", "));
+  }
 }
 function watchSecrets() {
   if (fight._sec || DM.state.demo || !DM.state.db || !DM.state.roomCode) return;
@@ -9705,14 +9760,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.178-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.179-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.178-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.179-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

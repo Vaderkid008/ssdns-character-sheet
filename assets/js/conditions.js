@@ -184,6 +184,35 @@
     return out;
   }
   /** Effective speed with exhaustion (2 halves it, 5 makes it 0). Base value is never changed. */
+  function speedDelta(list) {
+    var n = 0;
+    (list || []).forEach(function (raw) {
+      if (/^speed\s*[−-]\s*10$/i.test(chipLabel(raw))) n -= 10;
+    });
+    return n;
+  }
+  function withSpeedChips(speed, list) {
+    var n = Number(speed);
+    if (speed === "" || speed == null || !isFinite(n)) return speed;
+    var d = speedDelta(list);
+    if (!d) return n;
+    return Math.max(0, n + d);
+  }
+  /* The next attack spends these chips. Disadv is the attacker's. Guided is the target's. */
+  function strikeSpend(attackerList, targetList) {
+    return {
+      attacker: hasName(attackerList, "Disadv next attack") ? ["Disadv next attack"] : [],
+      target: hasName(targetList, "Guided") ? ["Guided"] : []
+    };
+  }
+  function riderMode(attackerList, targetList) {
+    return attackMode(
+      hasName(attackerList, "Disadv next attack") ? [{ name: "Disadv next attack" }] : [],
+      "",
+      "",
+      hasName(targetList, "Guided") ? [{ name: "Guided" }] : []
+    );
+  }
   function exhaustedSpeed(speed, level) {
     var n = Number(speed);
     if (speed === "" || speed == null || !isFinite(n)) return speed;
@@ -215,8 +244,18 @@
     if (pick === "adv") return "";
     return "dis";
   }
+  function chipLabel(raw) {
+    if (!raw) return "";
+    return String(typeof raw === "string" ? raw : (raw.name || raw.label || "")).trim();
+  }
+  function hasName(list, name) {
+    var want = String(name || "").toLowerCase();
+    if (!want) return false;
+    return (list || []).some(function (raw) { return chipLabel(raw).toLowerCase() === want; });
+  }
   function disadvantageNote(list) {
     var names = namesFrom(list, ATTACK_DISADV);
+    if (hasName(list, "Disadv next attack") && names.indexOf("Disadv next attack") < 0) names.push("Disadv next attack");
     var lv = exhaustionLevel(list);
     if (lv >= 3) names.push("Exhaustion " + lv);
     return names.length ? ("disadvantage: " + names.join(", ")) : "";
@@ -227,9 +266,10 @@
   }
   /** Blank chosen mode plus conditions. Advantage and disadvantage cancel.
    * extraDis is a range (or other) disadvantage source. It cancels with any advantage. */
-  function attackMode(list, chosen, extraDis) {
+  function attackMode(list, chosen, extraDis, targetList) {
     var dis = !!disadvantageNote(list) || !!extraDis;
     var adv = !!advantageNote(list);
+    if (hasName(targetList, "Guided")) adv = true;
     var pick = chosen === "adv" || chosen === "dis" ? chosen : "";
     if (pick === "adv" && dis) return "";
     if (pick === "dis" && adv && !dis) return "";
@@ -299,6 +339,10 @@
     disadvantageNote: disadvantageNote,
     advantageNote: advantageNote,
     attackMode: attackMode,
+    hasName: hasName,
+    withSpeedChips: withSpeedChips,
+    strikeSpend: strikeSpend,
+    riderMode: riderMode,
     mergeById: mergeById,
     ensureUnconscious: ensureUnconscious,
     exhaustionLevel: exhaustionLevel,

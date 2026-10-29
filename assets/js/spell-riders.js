@@ -82,6 +82,41 @@
       casterId: casterId || ""
     };
   }
+  /* Instant riders (No healing, Blinded until your next turn) are not concentration marks. */
+  function effectChip(name, opts, row) {
+    opts = opts || {};
+    var c = chip(name, opts.targetId, (row && row.name) || "", false, opts.casterId || "");
+    if (row && row.rounds) c.rounds = row.rounds;
+    if (row && row.until === "target") c.rounds = 1;
+    if (row && row.consume) c.consume = row.consume;
+    if (row && row.until) c.until = row.until;
+    return c;
+  }
+  function armUntil(next, row, opts, names) {
+    if (!row || !opts || !names || !names.length) return;
+    var when = "";
+    var owner = "";
+    var hold = 0;
+    if (row.until === "caster") { when = "start"; owner = opts.casterId || ""; }
+    else if (row.until === "casterEnd") { when = "end"; owner = opts.casterId || ""; hold = 1; }
+    else if (row.until === "targetEnd") { when = "end"; owner = opts.targetId || ""; hold = 1; }
+    if (!when || !owner) return;
+    var victim = opts.targetId || "";
+    var exists = next.ticks.some(function (t) {
+      return t && t.drop && t.when === when && norm(t.spell) === norm(row.name) && String(t.victimId || "") === String(victim);
+    });
+    if (exists) return;
+    addTick(next, {
+      spell: row.name,
+      targetId: owner,
+      victimId: victim,
+      when: when,
+      auto: true,
+      once: true,
+      hold: hold,
+      drop: names.slice()
+    });
+  }
   var tickSerial = 0;
   function addTick(next, tick) {
     if (!tick.id) {
@@ -255,6 +290,17 @@
     if (key === "destructive wave") { out.onFail = "Prone"; }
     if (key === "dissonant whispers") { out.onFail = "uses reaction: moves away"; }
     if (key === "arms of hadar") { out.onFail = "No reactions"; }
+    /* N81 P0-6: missing FAIL / on-hit chips. Lighting stays Phase 4. */
+    if (key === "sunbeam") { out.onFail = "Blinded"; out.until = "caster"; }
+    if (key === "sunburst") { out.onFail = "Blinded"; out.endSave = "CON"; out.rounds = 10; }
+    if (key === "thunderwave") { out.onFail = "Pushed 10 ft"; out.push = 10; }
+    if (key === "chill touch") { out.onHit = "No healing"; out.until = "caster"; }
+    if (key === "ray of frost") { out.onHit = "Speed −10"; out.speed = -10; out.until = "caster"; }
+    if (key === "shocking grasp") { out.onHit = "No reactions"; out.until = "target"; }
+    if (key === "vicious mockery") { out.onFail = "Disadv next attack"; out.consume = "attacker"; out.until = "targetEnd"; }
+    if (key === "guiding bolt") { out.onHit = "Guided"; out.consume = "target"; out.until = "casterEnd"; }
+    if (key === "branding smite") { out.clears = ["Invisible"]; out.light = { dim: 5 }; out.conc = true; }
+    if (key === "heal") { out.clears = ["Blinded", "Deafened"]; }
     if (key === "disintegrate") {
       out.onSave = "none";
       out.zeroHp = "disintegrated";
@@ -490,6 +536,8 @@
         startType: row.startType || "",
         escape: row.escape || "",
         endSave: row.endSave || "",
+        clears: row.clears || null,
+        light: row.light || null,
         banishAt: row.banishAt || 0,
         missHalf: !!row.missHalf,
         splash: row.splash || null,
@@ -579,6 +627,11 @@
       }
       if (mark.endSave) {
         addTick(next, { spell: mark.spell, targetId: ctx.targetId, when: "end", save: mark.endSave, endOnSuccess: true, conc: !!mark.conc });
+      }
+      if (mark.clears && mark.clears.length) {
+        mark.clears.forEach(function (n) { removed.push(chip(n, ctx.targetId, mark.spell, false, ctx.casterId || "")); });
+        logs.push("clears " + mark.clears.join(", "));
+        if (mark.light && mark.light.dim) logs.push("dim " + mark.light.dim + " ft (lighting waits)");
       }
       kept.push(mark);
     });
@@ -743,6 +796,7 @@
     var next = copyBag(bag);
     var logs = [];
     var chips = [];
+    var removed = [];
     var hit = opts.hit !== false && !opts.miss;
     var failed = !!opts.failed;
     var slot = opts.slot;
@@ -819,9 +873,27 @@
       logs.push("end of each turn: " + row.endSave + " save or the spell continues");
     }
     if (next.ticks.length > before && concentrates(name, row) && !next.conc) next.conc = name;
-    if (row.onFail && failed) chips.push(chip(row.onFail, opts.targetId, name, concentrates(name, row), opts.casterId || ""));
-    var changed = next.ticks.length > before || chips.length > 0;
-    return { bag: next, logs: logs, chips: chips, removed: [], changed: changed };
+    if (row.onFail && failed) {
+      var failChip = (row.until || row.consume)
+        ? effectChip(row.onFail, opts, row)
+        : chip(row.onFail, opts.targetId, name, concentrates(name, row), opts.casterId || "");
+      if (row.rounds && failChip.rounds == null) failChip.rounds = row.rounds;
+      chips.push(failChip);
+      if (row.until) armUntil(next, row, opts, [row.onFail]);
+    }
+    if (hit && row.onHit && !row.hitSave) {
+      chips.push(effectChip(row.onHit, opts, row));
+      armUntil(next, row, opts, [row.onHit]);
+      logs.push(row.onHit + (row.until === "caster" ? " until your next turn" : (row.until === "target" ? " until its next turn" : "")));
+    }
+    if (failed && row.push) logs.push("pushed " + row.push + " ft");
+    if (hit && row.clears && row.clears.length) {
+      row.clears.forEach(function (n) { removed.push(chip(n, opts.targetId, name, false, opts.casterId || "")); });
+      logs.push("clears " + row.clears.join(", "));
+      if (row.light && row.light.dim) logs.push("dim " + row.light.dim + " ft (lighting waits)");
+    }
+    var changed = next.ticks.length > before || chips.length > 0 || removed.length > 0;
+    return { bag: next, logs: logs, chips: chips, removed: removed, changed: changed };
   }
 
   var END_CHIPS = {
@@ -829,7 +901,8 @@
     "ray of enfeeblement": ["Enfeebled (½ STR weapon dmg)"],
     "blinding smite": ["Blinded"],
     "phantasmal killer": ["Frightened"],
-    "ensnaring strike": ["Restrained"]
+    "ensnaring strike": ["Restrained"],
+    "sunburst": ["Blinded"]
   };
 
   /* Apply one due rider tick. A successful end save drops the chip and the tick. Contagion advances S/F. */
@@ -860,6 +933,22 @@
       });
       if (!still || finished) next.ticks = next.ticks.filter(function (t) { return !sameTick(t, tick); });
       return { bag: next, logs: logs, chips: chips, removed: removed, amount: 0, formula: "", type: "", ended: !still || finished };
+    }
+
+    if (tick.hold > 0) {
+      next.ticks.forEach(function (t) {
+        if (sameTick(t, tick)) t.hold = Math.max(0, (Number(t.hold) || 0) - 1);
+      });
+      logs.push((tick.spell || "Spell") + " still up");
+      return { bag: next, logs: logs, chips: chips, removed: removed, amount: 0, formula: "", type: type, ended: false };
+    }
+
+    if (tick.drop && tick.drop.length) {
+      var dropId = tick.victimId || tick.targetId;
+      tick.drop.forEach(function (n) { removed.push(chip(n, dropId, tick.spell, !!tick.conc, "")); });
+      if (tick.once) next.ticks = next.ticks.filter(function (t) { return !sameTick(t, tick); });
+      logs.push((tick.spell || "Spell") + " ends");
+      return { bag: next, logs: logs, chips: chips, removed: removed, amount: 0, formula: "", type: type, ended: true };
     }
 
     if (tick.auto || !tick.save) {
@@ -987,7 +1076,11 @@
     "hideous laughter": ["Prone", "Incapacitated"],
     "dissonant whispers": ["uses reaction: moves away"],
     "arms of hadar": ["No reactions"],
-    "destructive wave": ["Prone"]
+    "destructive wave": ["Prone"],
+    "sunbeam": ["Blinded"],
+    "sunburst": ["Blinded"],
+    "thunderwave": ["Pushed 10 ft"],
+    "vicious mockery": ["Disadv next attack"]
   };
   var POOLS = {
     "sleep": "Unconscious",
@@ -1006,6 +1099,10 @@
   function poolSpell(name) {
     var key = norm(name);
     return POOLS[key] || "";
+  }
+  function clearsOf(name) {
+    var spec = patchRow({ name: name || "" });
+    return spec && spec.clears ? spec.clears.slice() : [];
   }
   function immune(name, creature) {
     if (norm(name) !== "hideous laughter" || !creature) return false;
@@ -1044,6 +1141,7 @@
     missDamage: missDamage,
     delayedRoll: delayedRoll,
     failList: failList,
+    clearsOf: clearsOf,
     poolSpell: poolSpell,
     immune: immune,
     shieldChip: shieldChip,

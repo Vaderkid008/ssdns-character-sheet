@@ -687,6 +687,8 @@
     if (entry.condition) row.condition = entry.condition;
     if (entry.onHit) row.onHit = true;
     if (entry.removeCondition) row.removeCondition = entry.removeCondition;
+    if (entry.rounds != null && entry.rounds !== "") row.rounds = entry.rounds;
+    if (entry.clears && entry.clears.length) row.clears = entry.clears.slice();
     if (entry.spell) row.spell = entry.spell;
     if (entry.conc) row.conc = true;
     if (entry.autoDamage) row.autoDamage = true;

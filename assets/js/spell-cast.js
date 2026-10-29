@@ -402,6 +402,13 @@
       packed.dieMods = dieA.parts;
       if (row.save) packed.save = row.save;
       if (row.onFail) packed.condition = miss ? "" : row.onFail;
+      if (!miss && row.onHit) {
+        packed.condition = packed.condition || row.onHit;
+        if (packed.text.indexOf(row.onHit) < 0) {
+          packed.text += " · " + row.onHit;
+          packed.detail = packed.text;
+        }
+      }
       if (row.hitSave) packed.hitSave = row.hitSave;
       if (row.half) packed.half = true;
       if (row.push) packed.push = row.push;
@@ -441,6 +448,24 @@
       savePack.autoDamage = !!row.damageAuto;
       savePack.applyNow = row.applyNow !== false && row.castDamage !== false;
       savePack.condition = row.onFail || "";
+      if (row.onFail) {
+        savePack.text += " · fail: " + row.onFail;
+        savePack.detail = savePack.text;
+      }
+      if (row.push) {
+        savePack.push = row.push;
+        savePack.text += " · push " + row.push + " ft on a fail";
+        savePack.detail = savePack.text;
+      }
+      if (row.endSave) {
+        savePack.endSave = row.endSave;
+        savePack.text += " · end of turn " + row.endSave + " save";
+        savePack.detail = savePack.text;
+      }
+      if (row.until === "caster" && row.onFail) {
+        savePack.text += " · until your next turn";
+        savePack.detail = savePack.text;
+      }
       if (row.targetUp) {
         var Rt = root.SSDNSSpellRiders;
         savePack.targets = Rt && Rt.chainTargets ? Rt.chainTargets(slot) : (4 + Math.max(0, slot - (row.level || 6)));
@@ -460,6 +485,11 @@
       healPack.damageDetail = heal.text;
       healPack.kind = "heal";
       healPack.heal = true;
+      if (row.clears && row.clears.length) {
+        healPack.clears = row.clears.slice();
+        healPack.text += " · ends " + row.clears.join(" and ");
+        healPack.detail = healPack.text;
+      }
       return healPack;
     }
 

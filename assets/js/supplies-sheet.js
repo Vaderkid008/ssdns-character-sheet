@@ -122,7 +122,9 @@
   function effSpeed(c) {
     var Cond = root.SSDNSConditions;
     if (!c) return "";
-    return Cond && Cond.exhaustedSpeed ? Cond.exhaustedSpeed(c.speed, level(c)) : c.speed;
+    var base = Cond && Cond.exhaustedSpeed ? Cond.exhaustedSpeed(c.speed, level(c)) : c.speed;
+    if (Cond && Cond.withSpeedChips) return Cond.withSpeedChips(base, c.activeConditions);
+    return base;
   }
   function badge(host, id, text) {
     if (!host) return;
