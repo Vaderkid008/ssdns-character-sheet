@@ -1,7 +1,7 @@
 /**
- * N81 P0-4 — lasting PHB areas in the spell-zones BOOK (sheet 0.3.164 / DMCC 0.2.177).
+ * N81 P0-4 — lasting PHB areas in the spell-zones BOOK (sheet 0.3.165 / DMCC 0.2.178).
  *   node tools/test-n81-areas.mjs
- * rules.js is not regenerated. Expiry and DM Clear are not this slice.
+ * rules.js is not regenerated. Expiry and DM Clear ship in the P0-5 slice.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -127,10 +127,10 @@ check("wire.sheet", sheet.includes("detonateBeads") && sheet.includes("needsAlli
 check("wire.dm", v2.includes("deliverZoneTick") && v2.includes("growBeads") && v2.includes("chargeZone") && v2.includes("zoneListNow") && v2.includes("requestPlayerSave"));
 check("wire.map", map.includes("liveSpellZones") && map.includes("terrainCost") && map.includes("sweepFollow"));
 check("wire.ice", map.includes("paintSpellZones") && v2.includes("zonePhase"));
-check("no.clear", !v2.includes("DM Clear") && !sheet.includes("clear all spell grids"));
+check("clear.hook", v2.includes("expireSpellZones") && map.includes("clearAllZonesBtn") && map.includes("clearSpellGrid"));
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.164" && ver.dmcc === "0.2.177" && ver.sheetBuild === "sheet-playtest-v03164" && ver.dmccBuild === "dmcc-playtest-v02177");
-check("rules.clean", !rules.includes("0.3.164") && !rules.includes("spell-zones") && !read("database.rules.json").includes("0.3.164"));
+check("ver", ver.sheet === "0.3.165" && ver.dmcc === "0.2.178" && ver.sheetBuild === "sheet-playtest-v03165" && ver.dmccBuild === "dmcc-playtest-v02178");
+check("rules.clean", !rules.includes("0.3.165") && !rules.includes("spell-zones") && !read("database.rules.json").includes("0.3.165"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

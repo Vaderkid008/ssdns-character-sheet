@@ -1,9 +1,10 @@
 /**
  * N79 Phase 1c D — PHB 2014 zones on the N78 aim-then-cast placer.
  * N81 P0-4 adds the lasting PHB areas (clouds, beams, guardians, beads).
+ * N81 P0-5: a round counter from `dur` expires a zone, and one DM Clear
+ * removes a single instance or every grid in the scene.
  * rules.js is not edited. Placement stays aim-then-cast.
- * Duration timers and DM Clear are a later slice. Repeat bolts, rams, and
- * bonus-action swings stay on the sustain slice.
+ * Repeat bolts, rams, and bonus-action swings stay on the sustain slice.
  */
 (function (root) {
   "use strict";
@@ -181,6 +182,19 @@
     for (i = 0; i < steps; i++) out += (out ? "+" : "") + up;
     return out;
   }
+  /* 1 round is 6 seconds: 1 minute = 10 rounds, 1 hour = 600, 1 day = 14400. */
+  function roundsFromDur(dur) {
+    var s = String(dur || "").toLowerCase();
+    var m = s.match(/(\d+)\s*(rounds?|minutes?|mins?|hours?|hrs?|days?)/);
+    if (!m) return 0;
+    var n = parseInt(m[1], 10);
+    if (!isFinite(n) || n <= 0) return 0;
+    var unit = m[2].charAt(0);
+    if (unit === "r") return n;
+    if (unit === "d") return n * 14400;
+    if (unit === "h") return n * 600;
+    return n * 10;
+  }
   function hypot(ax, ay, bx, by) {
     var dx = ax - bx;
     var dy = ay - by;
@@ -324,6 +338,8 @@
       dc: opts.dc != null && opts.dc !== "" ? Number(opts.dc) : null,
       exemptIds: (opts.exemptIds || []).filter(Boolean).slice()
     };
+    zone.rounds = roundsFromDur(zone.dur);
+    zone.roundsLeft = zone.rounds;
     if (spec.appear) zone.appear = Object.assign({}, spec.appear, { dice: scaledDice(spec.appear.dice, spec.appear.up, grown.steps) });
     if (spec.blast) zone.blast = Object.assign({}, spec.blast, { dice: scaledDice(spec.blast.dice, spec.blast.up, grown.steps) });
     if (spec.grow) zone.grow = Object.assign({}, spec.grow);
@@ -401,7 +417,7 @@
     var settled = settle(next.zones);
     next.zones = settled.zones;
     var kept = next.zones.some(function (z) { return z.id === zone.id; });
-    var logs = ["ZONE " + zone.spell + " placed: " + (zone.label || zone.shape) + " at " + zone.origin.x + "," + zone.origin.y + (zone.dur ? "; lasts " + zone.dur : "")];
+    var logs = ["ZONE " + zone.spell + " placed: " + (zone.label || zone.shape) + " at " + zone.origin.x + "," + zone.origin.y + (zone.dur ? "; lasts " + zone.dur : "") + (zone.rounds > 0 ? " (" + zone.rounds + " rounds)" : "")];
     if (zone.light) logs[0] += "; bright " + zone.light.bright + " + dim " + zone.light.dim;
     if (zone.magicalDark) logs[0] += "; magical darkness";
     if (zone.heavilyObscured && !zone.magicalDark) logs[0] += "; heavily obscured";
@@ -655,6 +671,52 @@
     });
     return mult;
   }
+  function tickRounds(zones, steps) {
+    var n = steps == null ? 1 : Number(steps);
+    if (!isFinite(n)) n = 0;
+    var kept = [];
+    var removed = [];
+    var logs = [];
+    (zones || []).forEach(function (z) {
+      if (!z) return;
+      var copy = Object.assign({}, z);
+      var total = copy.rounds != null && isFinite(Number(copy.rounds)) ? Number(copy.rounds) : roundsFromDur(copy.dur);
+      var left = copy.roundsLeft != null && isFinite(Number(copy.roundsLeft)) ? Number(copy.roundsLeft) : total;
+      if (!(total > 0)) {
+        kept.push(copy);
+        return;
+      }
+      copy.rounds = total;
+      copy.roundsLeft = left;
+      if (!(n > 0)) {
+        kept.push(copy);
+        return;
+      }
+      copy.roundsLeft = left - n;
+      if (copy.roundsLeft <= 0) {
+        copy.roundsLeft = 0;
+        removed.push(copy);
+        logs.push((copy.spell || "Zone") + " expires (" + (copy.dur || (total + " rounds")) + ").");
+      } else kept.push(copy);
+    });
+    return { zones: kept, removed: removed, logs: logs };
+  }
+  function clearZones(zones, opts) {
+    opts = opts || {};
+    var all = !!opts.all;
+    var id = opts.id != null && opts.id !== "" ? String(opts.id) : "";
+    var kept = [];
+    var removed = [];
+    var logs = [];
+    (zones || []).forEach(function (z) {
+      if (!z) return;
+      if (all || (id && String(z.id) === id)) {
+        removed.push(z);
+        logs.push("DM cleared " + (z.spell || "spell") + " grid");
+      } else kept.push(z);
+    });
+    return { zones: kept, removed: removed, logs: logs };
+  }
   function charge(zones, zoneId, amount) {
     var ended = null;
     var spent = 0;
@@ -847,6 +909,9 @@
     crossesWall: crossesWall,
     appearOf: appearOf,
     scaledDice: scaledDice,
+    roundsFromDur: roundsFromDur,
+    tickRounds: tickRounds,
+    clearZones: clearZones,
     isExempt: isExempt,
     once: once,
     terrainMult: terrainMult,

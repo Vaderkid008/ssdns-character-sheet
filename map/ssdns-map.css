@@ -363,6 +363,8 @@ body.ssdns-chat-pop .ssm-who,
 .ssdns-map [data-act="fogHistory"] button { font-size: 11px; text-align: left; }
 .ssdns-map [data-act="fogHistory"] button:disabled { opacity: 0.45; cursor: default; }
 .ssdns-map .panel-list { color: #e8dcc8; font-size: 11px; padding: 4px 0; }
+.ssdns-map [data-act="zoneList"] { max-height: 140px; overflow: auto; }
+.ssdns-map [data-act="zoneList"] button { margin: 0 0 4px; font-size: 11px; }
 .ssdns-map .ssdns-leftbar button,
 .ssdns-map .ssdns-leftbar select,
 .ssdns-map .ssdns-rightbar button,

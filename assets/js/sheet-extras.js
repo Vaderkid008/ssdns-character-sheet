@@ -1321,14 +1321,17 @@
       });
     });
   }
-  function endSpell(name) {
-    breakLocalConc(name || "");
+  function endSpell(name, opts) {
+    opts = opts || {};
+    breakLocalConc(name || "", opts);
+    if (opts.quiet) return;
     var line = (name || "Spell") + " ends.";
     addLog({ kind: "alert", text: line });
     toast(line);
     if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
   }
-  function breakLocalConc(spell) {
+  function breakLocalConc(spell, opts) {
+    opts = opts || {};
     var c = ch();
     var SR = root.SSDNSSpellRiders;
     if (!c || !SR || !SR.breakConc) return;
@@ -1337,11 +1340,55 @@
     if (!bag.conc && !spell) return;
     var ended = SR.breakConc(bag, spell || bag.conc);
     c.spellMarks = ended.bag;
-    detonateBeads(ended && ended.zones);
+    if (!opts.noBlast) detonateBeads(ended && ended.zones);
     publishChips(ended.removed, true);
     dropLocalChipRows(ended.removed);
     if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
     syncSpellZones();
+  }
+  var liveZoneLock = false;
+  function noteLiveZones(list) {
+    if (liveZoneLock) return;
+    var c = ch();
+    var SR = root.SSDNSSpellRiders;
+    if (!c || !SR || !SR.breakConc) return;
+    var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    var live = {};
+    (list || []).forEach(function (z) { if (z && z.id) live[String(z.id)] = z; });
+    var bag = SR.emptyBag(c.spellMarks);
+    var gone = {};
+    (bag.zones || []).forEach(function (z) {
+      if (!z || !z.id) return;
+      if (uidNow && z.casterId && String(z.casterId) !== String(uidNow)) return;
+      if (!live[String(z.id)]) gone[z.spell] = 1;
+    });
+    var names = Object.keys(gone);
+    liveZoneLock = true;
+    try {
+      if (names.length) {
+        names.forEach(function (name) {
+          var ended = SR.breakConc(bag, name);
+          bag = ended.bag;
+          publishChips(ended.removed, true);
+          dropLocalChipRows(ended.removed);
+          addLog({ kind: "alert", text: name + " ends." });
+        });
+        c.spellMarks = bag;
+        syncSpellZones();
+        if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
+        return;
+      }
+      var changed = false;
+      bag.zones = (bag.zones || []).map(function (z) {
+        var n = z && live[String(z.id)];
+        if (!n || n.roundsLeft == null || Number(n.roundsLeft) === Number(z.roundsLeft)) return z;
+        changed = true;
+        return Object.assign({}, z, { rounds: n.rounds, roundsLeft: n.roundsLeft });
+      });
+      if (changed) c.spellMarks = bag;
+    } finally {
+      liveZoneLock = false;
+    }
   }
   function endConcIfNeeded(reason) {
     var c = ch();
@@ -4464,6 +4511,10 @@
     };
   }
 
+  window.addEventListener("ssdns-zones-live", function (ev) {
+    var detail = ev && ev.detail;
+    noteLiveZones((detail && detail.zones) || []);
+  });
   window.addEventListener("ssdns-zone-tick", function (ev) {
     var detail = ev && ev.detail;
     var ticks = detail && detail.ticks;

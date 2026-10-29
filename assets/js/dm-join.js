@@ -1518,7 +1518,7 @@
         if (root.SSDNSSheet && root.SSDNSSheet.applyRemoteBuff) root.SSDNSSheet.applyRemoteBuff(payload);
         break;
       case "spell_end":
-        if (root.SSDNSSheet && root.SSDNSSheet.endSpell) root.SSDNSSheet.endSpell(payload.spell || "");
+        if (root.SSDNSSheet && root.SSDNSSheet.endSpell) root.SSDNSSheet.endSpell(payload.spell || "", payload || {});
         break;
       case "rest":
         if (root.SSDNSSheet) root.SSDNSSheet.applyRest(payload.kind || "short");

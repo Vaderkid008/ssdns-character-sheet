@@ -1,5 +1,5 @@
 /**
- * N79 Phase 1c D — zones on the aim-then-cast placer (sheet 0.3.164 / DMCC 0.2.177).
+ * N79 Phase 1c D — zones on the aim-then-cast placer (sheet 0.3.165 / DMCC 0.2.178).
  *   node tools/test-n79-zones.mjs
  */
 import fs from "node:fs";
@@ -115,8 +115,8 @@ check("wire.dm", v2.includes("adoptCastZone") && v2.includes("zonePhase") && v2.
 check("wire.html", read("index.html").includes("spell-zones.js") && read("dm/index.html").includes("spell-zones.js"));
 check("aim.family", map.includes("needsAim") && /area\.shape === \"wall\"/.test(map));
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.164" && ver.dmcc === "0.2.177" && ver.sheetBuild === "sheet-playtest-v03164" && ver.dmccBuild === "dmcc-playtest-v02177");
-check("rules.clean", !rules.includes("0.3.164") && !rules.includes("spell-zones") && !rulesDb.includes("0.3.164") && !rulesDb.includes("0.2.177"));
+check("ver", ver.sheet === "0.3.165" && ver.dmcc === "0.2.178" && ver.sheetBuild === "sheet-playtest-v03165" && ver.dmccBuild === "dmcc-playtest-v02178");
+check("rules.clean", !rules.includes("0.3.165") && !rules.includes("spell-zones") && !rulesDb.includes("0.3.165") && !rulesDb.includes("0.2.178"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

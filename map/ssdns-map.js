@@ -444,6 +444,8 @@ const state = {
   spellZones: [],
   spellZonesLive: false,
   zoneSeq: 0,
+  /* Ids a DM expiry or Clear already removed. A later sheet sync cannot put that instance back. */
+  zoneGone: {},
   role,
   uid,
   chat: [],
@@ -984,6 +986,9 @@ if (role === 'dm') {
     </select>
     <button data-act="condToggleBtn">Toggle Cond</button>
     <button data-act="downBtn">Down</button>
+    <div class="panel-title">Spell grids</div>
+    <div data-act="zoneList" class="panel-list">None</div>
+    <button type="button" data-act="clearAllZonesBtn" title="Remove every spell grid in this scene">Clear all grids</button>
   `;
   el.appendChild(rightbar);
 } else {
@@ -1756,6 +1761,17 @@ function paintSpellZones() {
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.restore();
+    if (role === "dm" && zone.origin) {
+      const tag = worldToScreen(zone.origin.x * px, zone.origin.y * px);
+      const left = zoneTimeLabel(zone);
+      ctx.save();
+      ctx.font = "12px sans-serif";
+      ctx.fillStyle = "#fff8e8";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText((zone.spell || "Zone") + (left ? " · " + left : ""), tag.x, tag.y);
+      ctx.restore();
+    }
     if (zone.light) {
       const brightFt = Number(zone.light.bright) || 0;
       const dimFt = Number(zone.light.dim) || 0;
@@ -1794,12 +1810,47 @@ function stampDispelledLights() {
     });
   });
 }
+function zoneTimeLabel(zone) {
+  const n = Number(zone && zone.roundsLeft);
+  if (!(n > 0)) return (zone && zone.dur) || "";
+  if (n % 600 === 0) return (n / 600) + (n === 600 ? " hour" : " hours");
+  if (n % 10 === 0) return (n / 10) + " min";
+  return n + " rd";
+}
+function buryZones(list) {
+  (list || []).forEach(z => { if (z && z.id) state.zoneGone[String(z.id)] = 1; });
+}
+function renderZoneClear() {
+  if (role !== "dm") return;
+  const box = q("zoneList");
+  if (!box) return;
+  const zones = spellZoneList();
+  box.textContent = "";
+  if (!zones.length) {
+    box.textContent = "None";
+    return;
+  }
+  zones.forEach(zone => {
+    const b = document.createElement("button");
+    b.type = "button";
+    const left = zoneTimeLabel(zone);
+    b.textContent = "Clear " + (zone.spell || "grid") + (left ? " · " + left : "");
+    b.title = "Remove this " + (zone.spell || "spell") + " grid";
+    b.addEventListener("click", () => clearSpellGrid({ id: zone.id }));
+    box.appendChild(b);
+  });
+}
 function adoptSpellZones(list, seq) {
-  state.spellZones = (Array.isArray(list) ? list : []).map(z => Object.assign({}, z));
+  const next = (Array.isArray(list) ? list : []).map(z => Object.assign({}, z));
+  state.spellZones = next.filter(z => !(z && z.id && state.zoneGone[String(z.id)]));
   state.spellZonesLive = true;
   if (seq) state.zoneSeq = Number(seq) || state.zoneSeq;
   stampDispelledLights();
+  renderZoneClear();
   requestDraw();
+  try {
+    window.dispatchEvent(new CustomEvent("ssdns-zones-live", { detail: { zones: state.spellZones.slice(), seq: state.zoneSeq } }));
+  } catch (e) {}
 }
 function persistSpellZones() {
   if (role !== "dm") return;
@@ -1832,18 +1883,70 @@ function applyZoneFeed(row) {
   adoptSpellZones(row.zones, seq || Date.now());
   persistSpellZones();
 }
+function clampZoneRounds(existing, incoming) {
+  const prev = {};
+  (existing || []).forEach(z => { if (z && z.id && z.roundsLeft != null) prev[String(z.id)] = z; });
+  return (incoming || []).map(z => {
+    const old = z && z.id ? prev[String(z.id)] : null;
+    if (!old) return Object.assign({}, z);
+    const left = Number(old.roundsLeft);
+    const next = Number(z.roundsLeft);
+    if (isFinite(left) && isFinite(next) && left < next) {
+      return Object.assign({}, z, { roundsLeft: left, rounds: old.rounds != null ? old.rounds : z.rounds });
+    }
+    return Object.assign({}, z);
+  });
+}
 function setSpellZones(zones, opts) {
   opts = opts || {};
   const casterId = opts.casterId || "";
-  const incoming = Array.isArray(zones) ? zones : [];
-  const keep = (spellZoneList() || []).filter(z => casterId && z && z.casterId && z.casterId !== casterId);
+  const existing = spellZoneList() || [];
+  const incoming = clampZoneRounds(existing, (Array.isArray(zones) ? zones : []).filter(z => !(z && z.id && state.zoneGone[String(z.id)])));
+  const keep = existing.filter(z => casterId && z && z.casterId && z.casterId !== casterId);
   const merged = keep.concat(incoming.map(z => Object.assign({}, z, { casterId: z.casterId || casterId })));
   const Z = window.SSDNSSpellZones;
   const settled = Z && Z.settle ? Z.settle(merged) : { zones: merged };
+  const still = {};
+  (settled.zones || []).forEach(z => { if (z && z.id) still[String(z.id)] = 1; });
+  existing.forEach(z => { if (z && z.id && !still[String(z.id)]) state.zoneGone[String(z.id)] = 1; });
   state.zoneSeq = Date.now();
   adoptSpellZones(settled.zones, state.zoneSeq);
   publishZoneFeed(state.spellZones);
   persistSpellZones();
+}
+/* One Clear tool. DM only: one grid instance, or every grid in the scene. */
+function clearSpellGrid(opts) {
+  if (role !== "dm") return { zones: spellZoneList(), removed: [], logs: [] };
+  opts = opts || {};
+  const Z = window.SSDNSSpellZones;
+  const current = spellZoneList();
+  if (!Z || !Z.clearZones) {
+    toast("Spell grids are not loaded");
+    return { zones: current, removed: [], logs: [] };
+  }
+  if (opts.all) {
+    if (!current.length) { toast("No spell grid in this scene"); return { zones: current, removed: [], logs: [] }; }
+    const ask = "Clear all " + current.length + " spell grid" + (current.length === 1 ? "" : "s") + " in this scene?";
+    const yes = opts.confirmed ? true : (typeof window.confirm === "function" ? window.confirm(ask) : true);
+    if (!yes) { toast("Kept the spell grids"); return { zones: current, removed: [], logs: [] }; }
+  }
+  const result = Z.clearZones(current, opts);
+  if (!result.removed.length) {
+    toast(opts.id ? "That grid is already gone" : "No spell grid in this scene");
+    return result;
+  }
+  buryZones(result.removed);
+  state.zoneSeq = Date.now();
+  adoptSpellZones(result.zones, state.zoneSeq);
+  publishZoneFeed(state.spellZones);
+  persistSpellZones();
+  result.logs.forEach(line => toast(line));
+  try {
+    window.dispatchEvent(new CustomEvent("ssdns-zone-clear", {
+      detail: { removed: result.removed.slice(), logs: result.logs.slice(), all: !!opts.all }
+    }));
+  } catch (e) {}
+  return result;
 }
 function tokenSnapshot(id) {
   const t = tokenByRef(id);
@@ -6879,6 +6982,8 @@ if (role === 'dm') {
     toast(targets[0].locked ? 'Locked' : 'Unlocked');
     draw();
   });
+  q('clearAllZonesBtn').addEventListener('click', () => clearSpellGrid({ all: true }));
+  renderZoneClear();
   q('downBtn').addEventListener('click', () => {
     const targets = state.selectedIds.length ? state.tokens.filter(t => state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
     if (!targets.length) { toast('Select a token first'); return; }
@@ -10219,6 +10324,7 @@ return {
   tokensInBlast,
   setSpellZones: setSpellZones,
   spellZones: function () { return spellZoneList(); },
+  clearSpellZones: function (opts) { return clearSpellGrid(opts || {}); },
   turnKey: function () { return zoneTurnKey(); },
   tokenSnapshot: function (id) { return tokenSnapshot(id); },
   /* fog-aware targeting */
