@@ -142,7 +142,24 @@
      melee attack. The gun part still fires only spells. */
   var BOONS = [["", "Not picked yet"], ["blade", "The Fixed Bayonet (Blade)"], ["tome", "The Black Ledger (Tome)"], ["chain", "The Familiar Spy (Chain)"]];
   function boonOpen(c) { return applies(c) && Number(c.level || 1) >= 3; }
+  function ironInHand(c) { return applies(c) && !c.borrowedIronAway; }
   function bayonet(c) { return boonOpen(c) && c.pactBoon === "blade"; }
+  function meleeName(c, i) {
+    var id = c && c.melee && c.melee[i] && c.melee[i].weapon;
+    var rules = (root.SSDNS_RULES && root.SSDNS_RULES.melee) || [];
+    var w = null;
+    var k;
+    for (k = 0; k < rules.length; k++) if (rules[k] && rules[k].id === id) w = rules[k];
+    return (w && w.name) || id || "Bayonet";
+  }
+  /* Leave-reach Attack uses the bayonet's melee form. The iron is not a gun opportunity attack. */
+  function oaStrike(c) {
+    if (!bayonet(c) || !ironInHand(c)) return null;
+    var i = bayonetIndex(c);
+    if (i < 0) return null;
+    if (c.melee[i].equipped === false) return null;
+    return { index: i, name: meleeName(c, i), weapon: c.melee[i].weapon, pactBlade: true };
+  }
   function bayonetIndex(c) {
     var list = (c && Array.isArray(c.melee)) ? c.melee : [];
     for (var i = 0; i < list.length; i++) if (list[i] && list[i].pactBlade && list[i].weapon) return i;
@@ -185,6 +202,7 @@
     NAME: NAME, isPactShot: isPactShot, applies: applies, has: has, countable: countable, ensure: ensure, migrate: migrate,
     swapPending: swapPending, SWAP_NOTE: SWAP_NOTE, FREE_TAG: FREE_TAG, quickSpells: quickSpells,
     VARIANTS: VARIANTS, variant: variant, rollCone: rollCone, blastMods: blastMods,
-    BOONS: BOONS, boonOpen: boonOpen, bayonet: bayonet, bayonetIndex: bayonetIndex, setBayonetForm: setBayonetForm
+    BOONS: BOONS, boonOpen: boonOpen, bayonet: bayonet, bayonetIndex: bayonetIndex, setBayonetForm: setBayonetForm,
+    ironInHand: ironInHand, oaStrike: oaStrike
   };
 })(typeof window !== "undefined" ? window : globalThis);

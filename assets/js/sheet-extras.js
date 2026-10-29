@@ -2660,6 +2660,7 @@
       rolled.attack = false;
       rolled.heal = true;
       rolled.selfHeal = !!selfHeal;
+      postSpellLook(spellName, selfHeal ? "" : (tgt && tgt.id), "hit", row);
     } else if (tgt && tgt.name && row && row.kind !== "heal") {
       rolled.text += " · vs " + tgt.name;
       rolled.detail = rolled.text;
@@ -2710,6 +2711,7 @@
       if (buffLine) rolled.text += " · " + buffLine;
       if (rideLine) rolled.text += " · " + rideLine;
       rolled.detail = rolled.text;
+      postSpellLook(spellName, tgt && tgt.id, "hit", row);
     }
     if (root.SSDNSActionPips && root.SSDNSActionPips.spell) root.SSDNSActionPips.spell(spellName);
     toast(rolled.text);
@@ -2794,7 +2796,8 @@
         weapon: throughGun && i >= 0 ? gunName(i) : "",
         /* attack-fx: spell line on the map when the sheet resolved the attack itself */
         fxReq: (rolled.attack && !rolled.multi && tgt && tgt.id && !blankTarget(tgt) && rolled.nat != null) ? {
-          type: "spell", target: tgt.id, weapon: spellName || "", sfx: spellCueName(), nat: rolled.nat,
+          type: "spell", target: tgt.id, weapon: spellName || "", spell: spellName || "",
+          dmg: (row && row.type) || damageType || "", sfx: spellCueName(), nat: rolled.nat,
           result: (rolled.nat === 1 || (acForRoll != null && Number(rolled.nat) !== 20 && Number(rolled.result) < acForRoll)) ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"),
           crit: Number(rolled.nat) === 20
         } : null
@@ -2917,6 +2920,7 @@
             rollId: rollId + "_b" + idx,
             push: g.pushes || 0
           });
+          postSpellLook(spellName, g.id, "hit", row);
         });
       } else if (rolled.autoDarts && pendingDarts && root.SSDNSSpellArea && root.SSDNSSpellArea.assignDarts) {
         root.SSDNSSpellArea.assignDarts(rolled.darts, pendingDarts).forEach(function (g) {
@@ -2927,6 +2931,7 @@
               targetId: g.id, targetName: g.name, rollId: rollId + "_" + g.id
             });
           }
+          postSpellLook(spellName, g.id, "hit", row);
         });
       } else if (!rolled.heal && rolled.attack && (spellDmg || (row && (row.noDamage || row.hitSave || row.onFail))) && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         var atkPost = {
@@ -3902,6 +3907,24 @@
     }
     return { line: line, total: total, nat: nat, misfire: misfired };
   }
+  /* Designed looks only (beads, shield, heal, and the rest). Attack lines already ride fxReq. */
+  function postSpellLook(name, targetId, result, row) {
+    if (!joined() || whisperOn() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postFx) return;
+    var dmg = (row && row.type) || "";
+    var FX = root.SSDNSMapFx;
+    var look = FX && FX.lookOf ? FX.lookOf({ type: "spell", spell: name, dmg: dmg }) : "";
+    if (!look || look === "ribbon") return;
+    var self = !targetId || look === "shield" || look === "magearmor" || look === "pwt" || look === "invis";
+    root.SSDNSDmJoin.postFx({
+      type: "spell",
+      target: self ? "" : targetId,
+      self: self,
+      weapon: name || "",
+      spell: name || "",
+      dmg: dmg,
+      result: result || "hit"
+    });
+  }
   function postGunLedger(what, type) {
     var c = ch();
     addLog({ kind: "dm", text: what });
@@ -4654,10 +4677,12 @@
       } else if (!placed && (row.kind === "none" || row.kind === "rider")) {
         var note = applySpellBuff(spellName, opts.slotLevel || opts.slot);
         if (note) addLog({ kind: "roll", text: note });
+        postSpellLook(spellName, tgt && tgt.id, "hit", row);
       } else if (!placed && row.kind === "auto" && rolled.darts && rolled.darts.length && tgt && tgt.id && joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage && root.SSDNSSpellArea && root.SSDNSSpellArea.assignDarts) {
         root.SSDNSSpellArea.assignDarts(rolled.darts, rolled.darts.map(function () { return tgt; })).forEach(function (g) {
           if (!(g.total > 0)) return;
           root.SSDNSDmJoin.postDamage({ amount: g.total, label: spellName, type: "spell", dice: (g.bits || []).join("; "), targetId: g.id, targetName: g.name, rollId: rollId + "_" + g.id });
+          postSpellLook(spellName, g.id, "hit", row);
         });
       } else if (!placed && row.kind === "auto" && !rolled.darts && tgt && tgt.id && joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {
         var autoAmt = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;

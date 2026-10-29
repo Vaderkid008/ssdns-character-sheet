@@ -42,8 +42,8 @@ const J = (x) => JSON.stringify(x);
   check("src.sheetOaFlag", /payload\.oa && !payload\.offhand/.test(join) && /setOa\("oaArmed"/.test(join));
   check("src.menuCss", /\.pip-react-menu/.test(css));
   check("src.playerMenuIntact", /function openReactionMenu/.test(pips) && /data-pip-react-menu/.test(pips) && /DM pip buttons are data-dm-pip/.test(pips));
-  check("src.versions", ver.sheet === "0.3.167" && ver.dmcc === "0.2.180" && ver.sheetBuild === "sheet-playtest-v03167" && ver.dmccBuild === "dmcc-playtest-v02180");
-  check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.167") && !read("database.rules.json").includes("0.3.167") && !read("assets/data/rules.js").includes("data-dm-react"));
+  check("src.versions", ver.sheet === "0.3.168" && ver.dmcc === "0.2.181" && ver.sheetBuild === "sheet-playtest-v03168" && ver.dmccBuild === "dmcc-playtest-v02181");
+  check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.168") && !read("database.rules.json").includes("0.3.168") && !read("assets/data/rules.js").includes("data-dm-react"));
 
   const store = {};
   const sb = { console, setTimeout, clearTimeout, Date };

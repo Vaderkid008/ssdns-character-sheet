@@ -1,5 +1,5 @@
 /**
- * N81 P0-6 — missing FAIL / on-hit chips (sheet 0.3.167 / DMCC 0.2.180).
+ * N81 P0-6 — missing FAIL / on-hit chips (sheet 0.3.168 / DMCC 0.2.181).
  *   node tools/test-n81-chips.mjs
  */
 import fs from "node:fs";
@@ -133,13 +133,13 @@ const prone = R.landResolved(R.emptyBag(null), { row: row("Thunderous Smite"), n
 check("old.smite", names(prone.chips).indexOf("Prone") >= 0 && prone.chips[0].conc === true && /pushed 10 ft/.test(prone.logs.join(" ")), JSON.stringify(prone.chips));
 
 const rules = read("assets/data/rules.js");
-check("rules.noregen", !rules.includes("Sunbeam") || rules.includes("spellCast") ? !rules.includes("0.3.167") && !rules.includes("spell-riders") : false);
-check("rules.nover", !rules.includes("0.3.167") && !read("database.rules.json").includes("0.3.167"));
+check("rules.noregen", !rules.includes("Sunbeam") || rules.includes("spellCast") ? !rules.includes("0.3.168") && !rules.includes("spell-riders") : false);
+check("rules.nover", !rules.includes("0.3.168") && !read("database.rules.json").includes("0.3.168"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.167" && version.sheetBuild === "sheet-playtest-v03167");
-check("ver.dmcc", version.dmcc === "0.2.180" && version.dmccBuild === "dmcc-playtest-v02180");
+check("ver.sheet", version.sheet === "0.3.168" && version.sheetBuild === "sheet-playtest-v03168");
+check("ver.dmcc", version.dmcc === "0.2.181" && version.dmccBuild === "dmcc-playtest-v02181");
 const v2 = read("dm/assets/js/v2.js");
 check("src.noheal", v2.includes('hasName(conditionsForRow(row), "No healing")') && read("assets/js/sheet-extras.js").includes("No healing"));
 check("src.react", read("assets/js/react-prompt.js").includes("no reactions") && read("assets/js/turn-lock.js").includes("No reactions"));

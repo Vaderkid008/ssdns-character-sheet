@@ -238,6 +238,7 @@
       level: c.level || 1,
       invocations: c.invocations || c.invocation || [],
       borrowedIronAway: !!c.borrowedIronAway,
+      pactBoon: c.pactBoon || "",
       subclass: c.subclass || "",
       ironRevealed: !!c.ironRevealed, /* 0.3.96: Pact Seeker's Borrowed Iron shown to the player (DMCC Reveal button) */
       background: c.background || "",
@@ -307,7 +308,7 @@
         var lists = [].concat((root.SSDNS_RULES && root.SSDNS_RULES.melee) || [], (root.SSDNS_RULES && root.SSDNS_RULES.otherRanged) || []);
         var w = null;
         lists.forEach(function (row) { if (row && row.id === m.weapon) w = row; });
-        return { index: i, weapon: m.weapon, name: (w && w.name) || m.weapon, equipped: m.equipped !== false, dmOnly: !!(m.dmOnly || (w && w.dmOnly) || (m.record && m.record.dmOnly)) };
+        return { index: i, weapon: m.weapon, name: (w && w.name) || m.weapon, equipped: m.equipped !== false, pactBlade: !!m.pactBlade, dmOnly: !!(m.dmOnly || (w && w.dmOnly) || (m.record && m.record.dmOnly)) };
       }).filter(Boolean),
       focus: c.instrument ? {
         id: c.instrument,
@@ -2786,6 +2787,13 @@
       reactorPlayerId: String(card.reactorPlayerId || ""),
       spellName: String(card.spellName || meta.spellName || ""),
       spellLevel: parseInt(card.spellLevel, 10) || 0,
+      oaMelee: (function () {
+        var v = meta.oaMelee != null && meta.oaMelee !== "" ? meta.oaMelee : (card.oaMelee != null && card.oaMelee !== "" ? card.oaMelee : "");
+        if (v === "" || v == null) return "";
+        var n = parseInt(v, 10);
+        return isFinite(n) && n >= 0 ? n : "";
+      })(),
+      oaMeleeName: String(meta.oaMeleeName || card.oaMeleeName || ""),
       reactorStatus: String(card.status || card.reactorStatus || ""),
       reactorHp: card.hp != null && card.hp !== "" && isFinite(Number(card.hp)) ? Number(card.hp) : (card.reactorHp != null && card.reactorHp !== "" ? Number(card.reactorHp) : ""),
       reactorDown: !!(card.reactorDown || (root.SSDNSReact && root.SSDNSReact.isIneligibleReactor && root.SSDNSReact.isIneligibleReactor(card))),
@@ -2862,6 +2870,15 @@
     var R = root.SSDNSReact;
     var gunsmoke = !!(c && R && R.hasGunsmoke && R.hasGunsmoke(c.feats));
     view.gunsmoke = gunsmoke;
+    var strike = c && root.SSDNSPactShot && root.SSDNSPactShot.oaStrike ? root.SSDNSPactShot.oaStrike(c) : null;
+    if (strike) {
+      view.oaMelee = strike.index;
+      view.oaMeleeName = strike.name;
+      view.attackLabel = strike.name;
+    } else {
+      view.oaMelee = "";
+      view.oaMeleeName = "";
+    }
     if (!gunsmoke || !R || !R.oaCastChoices) {
       view.spells = [];
       return view;
@@ -2899,6 +2916,10 @@
           postReactAnswer(view, "pass", { toast: "Reaction already used." });
           R.close();
           return;
+        }
+        if (choice === "attack" && view.oaMelee !== "" && view.oaMelee != null) {
+          meta.oaMelee = view.oaMelee;
+          meta.oaMeleeName = view.oaMeleeName || "";
         }
         postReactAnswer(view, choice, meta);
         waitOnDm(view);
@@ -2980,14 +3001,28 @@
       return;
     }
     if (!R) return;
+    var meleeAt = payload.oaMelee != null && payload.oaMelee !== "" ? parseInt(payload.oaMelee, 10) : NaN;
+    var meleeName = payload.oaMeleeName || "";
+    if (!isFinite(meleeAt) && root.SSDNSPactShot && root.SSDNSPactShot.oaStrike) {
+      var liveStrike = root.SSDNSPactShot.oaStrike(doc() && doc().character);
+      if (liveStrike) { meleeAt = liveStrike.index; meleeName = liveStrike.name; }
+    }
     R.openModal({
       kind: "leave",
       kicker: "Opportunity attack",
-      text: "Make the opportunity attack against " + (payload.moverName || "them") + ". It spends your reaction, not your action.",
+      text: (isFinite(meleeAt) ? ("Strike with " + (meleeName || "the bayonet") + " as ") : "Make the opportunity attack against ") +
+        (payload.moverName || "them") + (isFinite(meleeAt) ? " leaves reach." : ".") + " It spends your reaction, not your action.",
       hideAttack: true,
+      strikeLabel: isFinite(meleeAt) ? (meleeName || "Bayonet") : "",
       passLabel: "Pass",
       oaId: oaId
     }, function (c2) {
+      if (c2 === "strike" && isFinite(meleeAt)) {
+        aimCastTarget(payload.moverId || "", payload.moverName || "");
+        var bay = root.document && root.document.querySelector('[data-melee-roll="' + meleeAt + '"]');
+        if (bay) bay.click();
+        return;
+      }
       if (c2 !== "pass" && c2 !== "cancel") return;
       if (root.SSDNSActionPips && root.SSDNSActionPips.setOa) root.SSDNSActionPips.setOa("oaArmed", "");
       if (R.forgetSpent) R.forgetSpent(oaId);

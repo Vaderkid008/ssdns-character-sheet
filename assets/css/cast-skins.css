@@ -1,0 +1,89 @@
+/* N61 cast skins. Dark card on the parchment sheet, shapes from the locked mock. */
+#castSkin { margin: 0 0 12px; }
+#castSkin[hidden] { display: none !important; }
+.n61-card {
+  position: relative; color: #e7e2d6; background: linear-gradient(180deg, #1e2229, #171a1f);
+  border: 1px solid #2d333c; border-radius: 12px; padding: 12px 14px 10px; overflow: hidden;
+}
+.n61-card.gun { border-color: #5a4a26; box-shadow: 0 0 0 1px #d8a94833; }
+.n61-card::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: .9;
+}
+.n61-card > * { position: relative; z-index: 1; }
+.n61-tag { font: 700 10px/1.2 "Oswald", sans-serif; letter-spacing: 1.2px; text-transform: uppercase; color: #7fe0d2; }
+.n61-card h2 { margin: 2px 0 2px; font-family: "Rye", serif; font-size: 16px; font-weight: 400; color: #f3d27a; }
+.n61-who, .n61-cap, .n61-gunnote { margin: 0 0 8px; color: #cfc8b8; font-size: 13px; }
+.n61-cap { margin: 8px 0 0; padding-top: 8px; border-top: 1px dashed #2d333c; }
+.n61-focus, .n61-slots, .n61-quick { margin-bottom: 8px; }
+.n61-focus {
+  display: flex; justify-content: space-between; gap: 8px; align-items: center;
+  min-height: 52px; padding: 6px 10px; border: 1px dashed #6b5a35; border-radius: 9px; color: #f3d27a;
+}
+.n61-focus small { display: block; color: #8d8a82; font-size: 11px; }
+.n61-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.n61-chip, .n61-card .n61-chip {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 0;
+  border: 1px dashed #3fb8a8; background: #12302c; color: #7fe0d2; border-radius: 8px;
+  padding: 4px 8px; font-size: 11px; line-height: 1.15; cursor: pointer;
+}
+.n61-chip i { font-style: normal; color: #8d8a82; font-size: 10px; }
+.n61-lvl { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin: 6px 0; position: relative; }
+.n61-lvl > b { width: 28px; color: #d8a948; font-size: 12px; padding-top: 8px; }
+.n61-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.n61-tok {
+  width: 36px; height: 40px; border-radius: 8px; display: grid; place-items: center; cursor: pointer;
+  color: #f3d27a; background: #1b1f25; border: 1px solid #8a7347; padding: 0;
+}
+.n61-tok svg { width: 22px; height: 22px; }
+.n61-tok.spent { color: #4a463e; border-color: #2e2c28; background: #15171a; cursor: default; }
+.n61-tok.sel { outline: 2px solid #7fe0d2; outline-offset: 2px; }
+.bg-scholar .n61-tok { width: 26px; height: 36px; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, #f4e7c6, #d9c493); color: #5a3a1e; border-color: #8a7347; }
+.bg-scholar .n61-tok svg { display: none; }
+.bg-scholar .n61-tok.spent { height: 22px; background: #3a342a; color: #5a503f; }
+.bg-pact .n61-tok { width: 18px; height: 18px; border-radius: 2px; transform: rotate(45deg); background: #7fe0d2; color: transparent; border: 0; }
+.bg-pact .n61-tok svg { display: none; }
+.bg-pact .n61-tok.spent { background: #2a3331; }
+.bg-law .n61-tok { color: #f3d27a; }
+.bg-preach .n61-tok { color: #e9d7a6; }
+.bg-nature .n61-tok { color: #8fd68a; }
+.bg-scout .n61-tok { color: #7fe0d2; }
+.bg-story .n61-tok { color: #f3d27a; }
+.bg-martial .n61-tok { color: #e08a5a; }
+.n61-pop {
+  position: relative; z-index: 3; background: #0d1715; border: 1px solid #3fb8a8; border-radius: 9px;
+  padding: 7px 9px; min-width: 180px; box-shadow: 0 10px 24px #000c;
+}
+.n61-pop h4 { margin: 0 0 5px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #7fe0d2; }
+.n61-spell, .n61-go, .n61-qc {
+  display: flex; width: 100%; justify-content: space-between; text-align: left;
+  background: transparent; color: #e7e2d6; border: 0; border-radius: 5px; padding: 4px 6px; cursor: pointer; font-size: 13px;
+}
+.n61-spell.hot { background: #1d4a43; color: #fff; }
+.n61-go { margin-top: 5px; justify-content: center; background: linear-gradient(180deg, #f3d27a, #b8862f); color: #2a1c06; font-weight: 700; }
+.n61-empty { margin: 0; color: #8d8a82; font-size: 12px; }
+.n61-quick { display: flex; flex-direction: column; gap: 6px; }
+.n61-qc { border: 1px solid #2d333c; background: #14181c; }
+.n61-qc.first { border-color: #d8a948; background: linear-gradient(90deg, #3a2c12, #1a1610); color: #f3d27a; }
+.n61-cyl { width: 92px; height: 92px; margin: 4px auto 8px; border-radius: 50%; position: relative;
+  background: radial-gradient(circle, #4a4f57 0 16%, #2a2e34 17% 22%, #5b616a 23%, #3a3f46 60%, #24282d 72%, #16181b 73%);
+  box-shadow: 0 0 0 3px #0b0c0e, 0 0 0 5px #5a4a26; }
+.n61-cyl i { position: absolute; width: 16px; height: 16px; margin: -8px; border-radius: 50%; background: radial-gradient(circle, #2b1b3d 0 20%, #e8bf62 22% 60%, #8a6422 62%); left: 50%; top: 50%; }
+.n61-cyl i:nth-child(1) { transform: rotate(0deg) translate(28px); }
+.n61-cyl i:nth-child(2) { transform: rotate(60deg) translate(28px); }
+.n61-cyl i:nth-child(3) { transform: rotate(120deg) translate(28px); }
+.n61-cyl i:nth-child(4) { transform: rotate(180deg) translate(28px); }
+.n61-cyl i:nth-child(5) { transform: rotate(240deg) translate(28px); }
+.n61-cyl i:nth-child(6) { transform: rotate(300deg) translate(28px); }
+.bg-hex::before { background: radial-gradient(circle at 80% 80%, #d8a94822, transparent 55%); }
+.bg-scholar::before { background: repeating-linear-gradient(180deg, transparent 0 16px, #d9c49314 16px 17px); }
+.bg-pact::before { background: radial-gradient(circle at 50% 100%, #3fb8a822, transparent 60%); }
+.bg-law::before { background: radial-gradient(circle at 100% 80%, #d8a94822, transparent 55%); }
+.bg-preach::before { background: radial-gradient(ellipse at 50% 100%, #e9d7a61f, transparent 70%); }
+.bg-nature::before { background: radial-gradient(ellipse at 0 100%, #3f6b4a33, transparent 60%); }
+.bg-scout::before { background: radial-gradient(circle at 80% 80%, #3fb8a822, transparent 55%); }
+.bg-story::before { background: repeating-linear-gradient(180deg, transparent 0 8px, #f3d27a14 8px 9px); }
+.bg-martial::before { background: radial-gradient(circle at 100% 100%, #a0402a22, transparent 55%); }
+body.n61-picker #page-hex .sp-line > [data-spell-cast] {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;
+}
+.enemy-card .n61 { margin-bottom: 10px; }

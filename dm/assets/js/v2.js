@@ -966,6 +966,19 @@ function enemyCardHtml(row, i) {
       }
       return `<span class="fine">L${esc(lv)} ${dots.join("")}</span>`;
     }).join(" ");
+    const skin = window.SSDNSCastSkins && window.SSDNSCastSkins.enemyHtml
+      ? window.SSDNSCastSkins.enemyHtml({
+        calling: (card && (card.calling || card.classId)) || (row && row.calling) || "",
+        slots: card.slots || {},
+        spells: list.map((spell, n) => {
+          const raw = typeof spell === "string" ? spell : (spell && spell.name) || "Spell";
+          const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(raw) : null;
+          const name = (known && known.name) || raw;
+          const level = spell && spell.level != null ? spell.level : (known && known.level != null ? known.level : 0);
+          return { name: name, level: level, n: n };
+        })
+      })
+      : "";
     const buttons = list.map((spell, n) => {
       const raw = typeof spell === "string" ? spell : (spell && spell.name) || "Spell";
       const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(raw) : null;
@@ -989,7 +1002,7 @@ function enemyCardHtml(row, i) {
         <h3>${esc(name)}</h3>
         <p>${esc(meta)}</p>
         ${medium ? `<details class="spell-more"><summary>About</summary><p class="spell-desc">${esc(medium)}</p></details>` : ""}
-        <button type="button" class="btn" data-sheet-cast="1" data-n="${n}">${esc(castLabel)}</button>
+        ${skin ? "" : `<button type="button" class="btn" data-sheet-cast="1" data-n="${n}">${esc(castLabel)}</button>`}
       </article>`;
     }).join("");
     const dc = casting.dc == null ? "—" : casting.dc;
@@ -1000,6 +1013,7 @@ function enemyCardHtml(row, i) {
     spells = `<div class="detail-section"><h3>Spells</h3>
       <p class="dc-call">Spell save DC ${esc(dc)}${casting.ability ? " (" + esc(casting.ability) + ")" : ""} · attack ${signed(casting.attack)}</p>
       ${pips ? `<p>${pips}</p>` : `<p class="fine">At will</p>`}
+      ${skin || ""}
       ${sustainBtns || moveBtns ? `<p>${sustainBtns} ${moveBtns}</p>` : ""}
       ${buttons}</div>`;
   }
@@ -3122,7 +3136,17 @@ function decorateLeaveView(view) {
   const snap = pid ? (playerSnapshot(pid) || {}) : {};
   const feat = !!(snap.gunsmokeCaster || (R && R.hasGunsmoke && R.hasGunsmoke(snap.feats)));
   const spells = feat && R && R.oaCastChoices ? R.oaCastChoices(spellRowsFromSnap(snap)) : [];
-  return Object.assign({}, next, { gunsmoke: feat, spells: spells });
+  let oaMelee = "";
+  let oaMeleeName = "";
+  if (snap.calling === "pact-seeker" && snap.pactBoon === "blade" && !snap.borrowedIronAway && Number(snap.level || 1) >= 3) {
+    const blade = (snap.melee || []).filter((m) => m && m.pactBlade && m.equipped !== false)[0];
+    if (blade) {
+      oaMelee = blade.index;
+      oaMeleeName = blade.name || "Bayonet";
+      next.attackLabel = oaMeleeName;
+    }
+  }
+  return Object.assign({}, next, { gunsmoke: feat, spells: spells, oaMelee: oaMelee, oaMeleeName: oaMeleeName });
 }
 function leavePlayerOwns(view) {
   const R = window.SSDNSReact;
@@ -3191,6 +3215,8 @@ function queuePlayerOaApproval(req) {
     choice: cast ? "cast" : "attack",
     spellName: (req && req.spellName) || "",
     spellLevel: (req && req.spellLevel) || 0,
+    oaMelee: req && req.oaMelee != null ? req.oaMelee : "",
+    oaMeleeName: (req && req.oaMeleeName) || "",
     moverPlayerId: (req && (req.moverPlayerId || req.from)) || "",
     moverName: (req && req.moverName) || "",
     reactorId: (req && req.reactorId) || "",
@@ -3227,6 +3253,8 @@ function resolvePlayerOa(id, entry, yes) {
     gunsmoke: !!e.spellName,
     spellName: e.spellName || "",
     spellLevel: e.spellLevel || 0,
+    oaMelee: e.oaMelee != null ? e.oaMelee : "",
+    oaMeleeName: e.oaMeleeName || "",
     moverName: e.moverName || "",
     moverId: e.targetId || "",
     moverPlayerId: e.moverPlayerId || "",
@@ -3578,6 +3606,7 @@ function applyDartGroups(row, name, rolled, picks, rollId) {
       return;
     }
     notes.push((g.name || "target") + " " + g.total);
+    spellMapFx(row && row.id, g.id, name, window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(name) : null, "hit");
     if (fight.damageMode === "approve") return;
     applyPlayerHit({
       rollId: (rollId || DM.uid("spell")) + ":dart:" + idx,
@@ -5730,6 +5759,26 @@ function mapFx(spec) {
   if (!host || typeof host.fx !== "function" || !spec) return null;
   try { return host.fx(spec); } catch (e) { return null; }
 }
+/* Locked spell looks. Ribbon stays on the attack line that already calls mapFx.
+   Named and utility looks fire here when a cast did not already draw a line. */
+function spellMapFx(shooter, target, name, known, result) {
+  const FX = window.SSDNSMapFx;
+  const dmg = (known && known.type) || "";
+  const look = FX && FX.lookOf ? FX.lookOf({ type: "spell", spell: name, dmg: dmg }) : "";
+  if (!look || look === "ribbon") return null;
+  const self = !target || target === shooter;
+  return mapFx({
+    type: "spell",
+    shooter: shooter,
+    target: target || shooter,
+    self: self,
+    result: result || "hit",
+    weapon: name || "",
+    spell: name || "",
+    dmg: dmg,
+    heard: []
+  });
+}
 function fxArrowType(note) {
   const m = String(note || "").toLowerCase().match(/whistler|broadhead|blunt|fire|poison|dynamite/);
   return m ? m[0] : "";
@@ -7571,6 +7620,7 @@ async function cardCast(i, n, opts) {
       }
     }
     await publishCardRoll(row, detail, 0, { formula: "—", spell: true });
+    spellMapFx(row.id, direct || row.id, name, known, "hit");
     playCue();
     await saveRemoteTable();
     renderFight();
@@ -7654,6 +7704,7 @@ async function cardCast(i, n, opts) {
       }
     }
     await publishCardRoll(row, detail, out.total, { formula: dice, heal: true, spell: true, targetId: target && target.id });
+    spellMapFx(row.id, target && target.id, name, known, "hit");
     playCue();
     await saveRemoteTable();
     renderFight();
@@ -7872,7 +7923,7 @@ async function cardCast(i, n, opts) {
   if (spellConcentrates(spell, known)) detail += noteConcentration(row, name, level);
   playCue();
   mapFx({ id: rollId, type: "spell", shooter: row.id, target: target.id, result: hit ? (nat === 20 ? "crit" : "hit") : "miss", nat: nat, crit: nat === 20 && hit,
-    weapon: name, spell: true, heard: [] });
+    weapon: name, spell: name, dmg: (known && known.type) || "", heard: [] });
   await publishCardRoll(row, detail, total, { id: rollId, attack: true, nat: nat, damage: dmg ? dmg.total : null, targetId: target.id, spell: true, formula: "1d20" + signed(bonus) });
   await saveRemoteTable();
   renderFight();
@@ -8720,7 +8771,7 @@ function resolveIncomingAttack(req, reqId) {
     mapFx({ id: feedId, shooter: req.from, target: req.targetId, result: verdict.miss ? "miss" : (verdict.crit ? "crit" : "hit"),
       nat: req.nat, crit: !!verdict.crit, critMin: req.critMin, weapon: req.spell ? (req.spellName || req.weapon || "") : (req.weapon || ""),
       weaponId: req.weaponId || "", gun: !!req.gun, spell: !!req.spell, sfx: req.sfx || "", arrow: fxArrowType(req.arrow),
-      dmgType: req.dmgType || "", heard: [DM.state.uid] });
+      dmgType: req.dmgType || "", spell: req.spell ? (req.spellName || req.weapon || "") : "", dmg: req.dmgType || "", heard: [DM.state.uid] });
   }
   if (window.SSDNSAudio && window.SSDNSAudio.playOutcome) {
     const outcome = verdict.miss ? "miss" : (verdict.crit ? "crit" : "hit");
@@ -10096,14 +10147,14 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.180-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.181-thunderbirds");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
     refreshFightCards();
   } catch (e) {}
   try {
-    const res = await fetch("assets/data/store-items.json?v=0.2.180-act1");
+    const res = await fetch("assets/data/store-items.json?v=0.2.181-act1");
     if (res.ok) {
       storeItems = await res.json();
       if (window.SSDNSItems && window.SSDNSItems.setStore) window.SSDNSItems.setStore(storeItems);

@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.167"; // sheet-playtest-v03167
+  var APP_VERSION = "0.3.168"; // sheet-playtest-v03168
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
@@ -1573,6 +1573,9 @@
       }
     }
     if (picker && !picker.hidden) fillSpellPicker();
+    if (window.SSDNSCastSkins && window.SSDNSCastSkins.paintSheet) {
+      try { window.SSDNSCastSkins.paintSheet(); } catch (eSkin) {}
+    }
   }
   function spellDiceNote(name) {
     var Cast = window.SSDNSSpellCast;
