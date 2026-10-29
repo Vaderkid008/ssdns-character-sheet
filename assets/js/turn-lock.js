@@ -67,7 +67,12 @@
     if (btn.matches(SPELL) && !btn.matches("#btnHexRoll, #btnPactShot")) {
       var p = P();
       var cost = p && p.spellCost ? p.spellCost(spellNameOf(btn)) : "action";
-      if (cost === "reaction") return m.reaction ? "Your reaction is used. It comes back at the start of your own turn." : "";
+      if (cost === "reaction") {
+        var mine = ch();
+        var blocked = mine && root.SSDNSConditions && root.SSDNSConditions.hasName && root.SSDNSConditions.hasName(mine.activeConditions, "No reactions");
+        if (blocked) return "You can't take reactions.";
+        return m.reaction ? "Your reaction is used. It comes back at the start of your own turn." : "";
+      }
       /* N72: Gunsmoke Caster — the allowed cast-as-OA stays clickable off turn. */
       var oaCast = root.SSDNSReact && root.SSDNSReact.oaCast;
       var spellNow = spellNameOf(btn);

@@ -1663,7 +1663,7 @@
       var opt = sel.selectedOptions[0];
       var acRaw = opt.getAttribute("data-ac");
       var ac = acRaw == null || acRaw === "" ? null : Number(acRaw);
-      return { id: sel.value, name: opt.getAttribute("data-name") || opt.textContent || "", ac: isFinite(ac) ? ac : null, kind: opt.getAttribute("data-kind") || "", cover: opt.getAttribute("data-cover") || "", coverLock: opt.getAttribute("data-cover-lock") === "1" };
+      return { id: sel.value, name: opt.getAttribute("data-name") || opt.textContent || "", ac: isFinite(ac) ? ac : null, kind: opt.getAttribute("data-kind") || "", cover: opt.getAttribute("data-cover") || "", coverLock: opt.getAttribute("data-cover-lock") === "1", conditions: String(opt.getAttribute("data-conds") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean) };
     },
     paintReveal: function () {
       var note = $("#atkReveal");

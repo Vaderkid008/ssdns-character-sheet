@@ -23,10 +23,10 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const ver = JSON.parse(read("version.json"));
-check("ver.sheet", ver.sheet === "0.3.165" && ver.sheetBuild === "sheet-playtest-v03165", JSON.stringify(ver));
-check("ver.dmcc", ver.dmcc === "0.2.178" && ver.dmccBuild === "dmcc-playtest-v02178");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.165"'));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.178"'));
+check("ver.sheet", ver.sheet === "0.3.166" && ver.sheetBuild === "sheet-playtest-v03166", JSON.stringify(ver));
+check("ver.dmcc", ver.dmcc === "0.2.179" && ver.dmccBuild === "dmcc-playtest-v02179");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.166"'));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.179"'));
 
 const sheetHtml = read("index.html");
 const dmHtml = read("dm/index.html");

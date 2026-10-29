@@ -155,6 +155,10 @@
       dmg -= use;
       cur = Math.max(0, cur - dmg);
     } else {
+      if (root.SSDNSConditions && root.SSDNSConditions.hasName && root.SSDNSConditions.hasName((ch() && ch().activeConditions) || [], "No healing")) {
+        if (notice) showNotice("No healing — hit points stay where they are.");
+        return;
+      }
       cur = max > 0 ? Math.min(max, cur + delta) : cur + delta;
     }
     setHp(cur, temp);
@@ -935,7 +939,7 @@
     if (!sel || !sel.value || sel.value === FREE_SHOT) return null;
     var opt = sel.selectedOptions && sel.selectedOptions[0];
     var coverRaw = opt && opt.getAttribute("data-cover");
-    return { id: sel.value, name: (opt && (opt.getAttribute("data-name") || opt.textContent)) || "", ac: null, cover: coverRaw || "" };
+    return { id: sel.value, name: (opt && (opt.getAttribute("data-name") || opt.textContent)) || "", ac: null, cover: coverRaw || "", conditions: String((opt && opt.getAttribute("data-conds")) || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean) };
   }
   /* 0.3.68: DM "Force ADV" range override turns the roll into advantage (or cancels a DIS pick) */
   function rangeMode(chosen, verdict) {
@@ -960,13 +964,37 @@
     var zones = typeof host.spellZones === "function" ? host.spellZones() : [];
     return Z.attackSight(me, them, zones) || "";
   }
+  function spendStrikeChips(attackerList, tgt) {
+    var Cond = root.SSDNSConditions;
+    if (!Cond || !Cond.strikeSpend) return;
+    var spend = Cond.strikeSpend(attackerList, (tgt && tgt.conditions) || []);
+    function postDrop(targetId, targetName, name) {
+      if (!targetId || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postDamage) return;
+      root.SSDNSDmJoin.postDamage({
+        amount: 0, label: name, type: "spell", targetId: targetId, targetName: targetName || "",
+        removeCondition: name, rollId: "cond_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
+      });
+    }
+    (spend.attacker || []).forEach(function (name) {
+      dropChipName(name);
+      addLog({ kind: "alert", text: "COND -" + name + " (used)" });
+      var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      postDrop(uid, (ch() && ch().name) || "", name);
+    });
+    (spend.target || []).forEach(function (name) {
+      if (!tgt || !tgt.id) return;
+      addLog({ kind: "alert", text: "COND -" + name + " (used)" });
+      postDrop(tgt.id, tgt.name || "", name);
+    });
+  }
   function attackRoll(mod, conditions, chosen, extraDis) {
     var zoneSight = zoneAttackSight(currentTarget());
     if (!chosen && zoneSight === "dis") extraDis = extraDis ? (extraDis + " · heavily obscured") : "heavily obscured";
     else if (!chosen && zoneSight === "adv") chosen = "adv";
     extraDis = mountAttackExtra(extraDis);
+    var strikeTgt = currentTarget();
     var mode = root.SSDNSConditions && root.SSDNSConditions.attackMode
-      ? root.SSDNSConditions.attackMode(conditions || [], chosen || "", extraDis)
+      ? root.SSDNSConditions.attackMode(conditions || [], chosen || "", extraDis, (strikeTgt && strikeTgt.conditions) || [])
       : ((chosen === "adv" || chosen === "dis") ? chosen : (extraDis ? "dis" : ""));
     if (!root.SSDNSConditions && chosen === "adv" && extraDis) mode = "";
     var n1 = d20();
@@ -983,7 +1011,9 @@
       if (dis) notes.push(dis);
       if (adv) notes.push(adv);
     }
+    if (strikeTgt && root.SSDNSConditions && root.SSDNSConditions.hasName && root.SSDNSConditions.hasName(strikeTgt.conditions, "Guided")) notes.push("advantage: Guided");
     if (mode === "dis" && extraDis) notes.push(typeof extraDis === "string" ? extraDis : "disadvantage: range");
+    spendStrikeChips(conditions || [], strikeTgt);
     return {
       nat: nat,
       n1: n1,
@@ -1256,6 +1286,12 @@
     if (el) { el.value = c.tableConditions; dispatch(el); }
     renderConds();
     if (root.SSDNSConditionsUi && root.SSDNSConditionsUi.paint) root.SSDNSConditionsUi.paint();
+  }
+  function clearSpellChips(names) {
+    (names || []).forEach(function (name) {
+      dropChipName(name);
+      if (name) addLog({ kind: "alert", text: "COND -" + name });
+    });
   }
   function dropChipName(name) {
     var c = ch();
@@ -1635,6 +1671,7 @@
         removeCondition: removing ? chp.name : "",
         spell: chp.spell || "",
         conc: !!chp.conc,
+        rounds: chp.rounds != null ? chp.rounds : null,
         rollId: "cond_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
       });
     });
@@ -2300,8 +2337,9 @@
     noteInstrumentCast();
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     chosenMode = rangeMode(chosenMode, rangeShot);
+    var spellTgtEarly = currentTarget();
     var atkMode = root.SSDNSConditions && root.SSDNSConditions.attackMode
-      ? root.SSDNSConditions.attackMode(conds, chosenMode, mountAttackExtra(withLedger(rangeNote)))
+      ? root.SSDNSConditions.attackMode(conds, chosenMode, mountAttackExtra(withLedger(rangeNote)), (spellTgtEarly && spellTgtEarly.conditions) || [])
       : (chosenMode === "adv" && withLedger(rangeNote) ? "" : (mountAttackExtra(withLedger(rangeNote)) ? "dis" : chosenMode));
     var ledgerBits = [];
     if (ledger && ledger.attackDis && atkMode === "dis") ledgerBits.push(ledger.attackNote || "Lost Ledger: disadvantage");
@@ -2539,9 +2577,11 @@
             rolled.text += " · " + landedNow.logs.join(" · ");
             rolled.detail = rolled.text;
           }
+          publishChips(landedNow.removed, true);
           publishChips(landedNow.chips, false);
         }
       }
+      if (rolled.attack) spendStrikeChips((c && c.activeConditions) || [], tgt);
     }
     addLog({
       id: "roll:" + rollId,
@@ -2616,6 +2656,7 @@
       } else if (rolled.heal && rolled.selfHeal) {
         if (root.SSDNSDmJoin.claimGrant) root.SSDNSDmJoin.claimGrant("hp:" + rollId);
         applyDelta(Number(rolled.result) || 0, rolled.text);
+        if (row && row.clears) clearSpellChips(row.clears);
         releaseHealTarget();
       } else if (rolled.heal && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         var healTarget = tgt && tgt.id;
@@ -2628,12 +2669,15 @@
             type: "heal",
             targetId: healTarget,
             targetName: healName,
-            rollId: rollId
+            rollId: rollId,
+            clears: (row && row.clears) || [],
+            spell: spellName
           });
           releaseHealTarget();
         } else {
           if (root.SSDNSDmJoin.claimGrant) root.SSDNSDmJoin.claimGrant("hp:" + rollId);
           applyDelta(Number(rolled.result) || 0, rolled.text);
+          if (row && row.clears) clearSpellChips(row.clears);
           releaseHealTarget();
         }
       } else if (rolled.assigned && joined() && !whisperOn() && root.SSDNSDmJoin) {
@@ -2759,9 +2803,11 @@
         }
       } else if (rolled.heal && !joined()) {
         applyDelta(Number(rolled.result) || 0, rolled.text);
+        if (row && row.clears) clearSpellChips(row.clears);
       }
     } else if (rolled.heal) {
       applyDelta(Number(rolled.result) || 0, rolled.text);
+      if (row && row.clears) clearSpellChips(row.clears);
     }
     if (placedBlast && !joined()) addLog({ kind: "alert", text: (spellName || "Spell") + " is placed. Join a table to mark hit points." });
     commitCast();

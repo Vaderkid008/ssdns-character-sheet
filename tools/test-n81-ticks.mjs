@@ -115,10 +115,10 @@ check("join.fields", read("assets/js/dm-join.js").includes("entry.delayedDice") 
 
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
-check("rules.nover", !read("assets/data/rules.js").includes("0.3.165") && !read("assets/data/rules.js").includes("spell-riders"));
+check("rules.nover", !read("assets/data/rules.js").includes("0.3.166") && !read("assets/data/rules.js").includes("spell-riders"));
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.165" && version.sheetBuild === "sheet-playtest-v03165");
-check("ver.dmcc", version.dmcc === "0.2.178" && version.dmccBuild === "dmcc-playtest-v02178");
+check("ver.sheet", version.sheet === "0.3.166" && version.sheetBuild === "sheet-playtest-v03166");
+check("ver.dmcc", version.dmcc === "0.2.179" && version.dmccBuild === "dmcc-playtest-v02179");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

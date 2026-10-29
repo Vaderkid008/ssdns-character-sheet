@@ -104,6 +104,7 @@
         raw = arr[j];
         name = raw && typeof raw === "object" ? (raw.name || raw.label || "") : raw;
         if (/\b(?:unconscious|dead|dying|defeated)\b/i.test(String(name || ""))) return true;
+        if (/^no reactions$/i.test(String(name || "").trim())) return true;
       }
     }
     if (row.noHpPool || row.noHp) return false;
