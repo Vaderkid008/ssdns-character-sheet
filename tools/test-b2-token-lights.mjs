@@ -166,8 +166,8 @@ const rules = read("database.rules.json");
 const rulesJs = read("assets/data/rules.js");
 const version = JSON.parse(read("version.json"));
 
-check("src.versions", version.sheet === "0.3.166" && version.dmcc === "0.2.179" && version.sheetBuild === "sheet-playtest-v03166" && version.dmccBuild === "dmcc-playtest-v02179");
-check("src.rulesUntouched", !rulesJs.includes("0.3.166") && !rulesJs.includes("lightProfile") && !rules.includes("addToken") && !rules.includes("dmDarkvision"));
+check("src.versions", version.sheet === "0.3.167" && version.dmcc === "0.2.180" && version.sheetBuild === "sheet-playtest-v03167" && version.dmccBuild === "dmcc-playtest-v02180");
+check("src.rulesUntouched", !rulesJs.includes("0.3.167") && !rulesJs.includes("lightProfile") && !rules.includes("addToken") && !rules.includes("dmDarkvision"));
 check("src.requestsOpen", rules.includes("hasChildren(['ts', 'from', 'targetId', 'amount'])") && !/requests[\s\S]{0,500}child\('type'\)/.test(rules));
 check("src.snapshot", joinSrc.includes("lightProfile:") && joinSrc.includes("SSDNSLighting.tokenProfile") && joinSrc.includes('type: "addToken"') && joinSrc.includes("postAddToken: postAddToken"));
 check("src.host", hostSrc.includes("lightProfile: snap.lightProfile") && hostSrc.includes("addPlayerTokenFor"));

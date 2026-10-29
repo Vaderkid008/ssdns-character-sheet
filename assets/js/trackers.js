@@ -1135,7 +1135,9 @@
         total: total,
         text: riders.map(function (r) { return "+" + r.formula + " " + (r.label || ""); }).join(" "),
         notes: notes,
-        spent: (base && base.spent) || {}
+        spent: (base && base.spent) || {},
+        splash: extra.splash || null,
+        banishAt: extra.banishAt || 0
       };
     }
     var armS = !!(c.res && c.res.sneakArmed), armM = num(c.res && c.res.smiteArmed);

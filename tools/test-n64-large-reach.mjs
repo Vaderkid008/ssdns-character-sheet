@@ -1,5 +1,5 @@
 /**
- * N64 — Large melee reach and movement (sheet 0.3.166 / DMCC 0.2.179).
+ * N64 — Large melee reach and movement (sheet 0.3.167 / DMCC 0.2.180).
  *   Large (10,10) size 2 + Medium (9,10) size 1 → 5 ft, Tusk not blocked.
  *   node tools/test-n64-large-reach.mjs
  */

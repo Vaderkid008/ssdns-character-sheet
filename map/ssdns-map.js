@@ -10277,6 +10277,63 @@ async function boot() {
 
 boot().catch(err => { console.error(err); toast('Failed to load map: ' + (err && err.message ? err.message : err)); });
 
+function shoveToken(id, spec) {
+  spec = spec || {};
+  if (role !== "dm") return null;
+  const t = tokenByRef(id);
+  if (!t || !t.pos) return null;
+  const feet = Math.max(0, Number(spec.feet) || 0);
+  if (!feet) return null;
+  const squares = feet / 5;
+  const fromTok = spec.fromId ? tokenByRef(spec.fromId) : null;
+  const size = t.size || 1;
+  const cx = t.pos.x + size / 2;
+  const cy = t.pos.y + size / 2;
+  let fx = cx;
+  let fy = cy;
+  if (fromTok && fromTok.pos) {
+    const fs = fromTok.size || 1;
+    fx = fromTok.pos.x + fs / 2;
+    fy = fromTok.pos.y + fs / 2;
+  } else if (spec.from && spec.from.x != null) {
+    fx = Number(spec.from.x);
+    fy = Number(spec.from.y);
+  } else return null;
+  let dx = cx - fx;
+  let dy = cy - fy;
+  const len = Math.hypot(dx, dy) || 1;
+  dx /= len;
+  dy /= len;
+  if (spec.dir === "pull") { dx = -dx; dy = -dy; }
+  let destX = Math.round(t.pos.x + dx * squares);
+  let destY = Math.round(t.pos.y + dy * squares);
+  if (spec.dir === "pull" && fromTok && fromTok.pos) {
+    const overlap = Math.abs(destX - fromTok.pos.x) < 1 && Math.abs(destY - fromTok.pos.y) < 1;
+    if (overlap) {
+      destX = Math.round(t.pos.x + dx * Math.max(0, squares - 1));
+      destY = Math.round(t.pos.y + dy * Math.max(0, squares - 1));
+    }
+  }
+  const origin = { x: t.pos.x, y: t.pos.y };
+  const dest = { x: destX, y: destY };
+  if (dest.x === origin.x && dest.y === origin.y) return { from: origin, to: dest, moved: false };
+  t.pos = { x: dest.x, y: dest.y };
+  if (shared.tokens[t.id]) shared.tokens[t.id].pos = { x: dest.x, y: dest.y };
+  startSlide(t.id, [origin, dest]);
+  saveToken(t.id);
+  draw();
+  return { from: origin, to: dest, moved: true };
+}
+function setTokenHidden(id, hidden) {
+  if (role !== "dm") return null;
+  const t = tokenByRef(id);
+  if (!t) return null;
+  t.hidden = !!hidden;
+  if (shared.tokens[t.id]) shared.tokens[t.id].hidden = t.hidden;
+  saveToken(t.id);
+  draw();
+  return { id: t.id, hidden: t.hidden };
+}
 return {
   destroy,
   syncCombatants,
@@ -10322,6 +10379,8 @@ return {
   placeBlast,
   cancelBlast,
   tokensInBlast,
+  shoveToken,
+  setTokenHidden,
   setSpellZones: setSpellZones,
   spellZones: function () { return spellZoneList(); },
   clearSpellZones: function (opts) { return clearSpellGrid(opts || {}); },
