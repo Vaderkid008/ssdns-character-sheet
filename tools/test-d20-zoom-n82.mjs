@@ -1,6 +1,6 @@
 /**
  * N82 DM-act Spin/Cycle, crit/fumble d20 zoom, Option B condition tag sizes.
- * Sheet 0.3.169 / DMCC 0.2.182. rules.js stays untouched.
+ * Sheet 0.3.170 / DMCC 0.2.183. rules.js stays untouched.
  *   node tools/test-d20-zoom-n82.mjs
  */
 import fs from "node:fs";
@@ -18,19 +18,19 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.169" && version.sheetBuild === "sheet-playtest-v03169");
-check("ver.dmcc", version.dmcc === "0.2.182" && version.dmccBuild === "dmcc-playtest-v02182");
+check("ver.sheet", version.sheet === "0.3.170" && version.sheetBuild === "sheet-playtest-v03170");
+check("ver.dmcc", version.dmcc === "0.2.183" && version.dmccBuild === "dmcc-playtest-v02183");
 check("ver.rules", !read("assets/data/rules.js").includes("0.3.169") && !read("assets/data/rules.js").includes("d20-zoom") && !read("database.rules.json").includes("0.3.169"));
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.169"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.182"'));
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.170"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.183"'));
 
 const sheet = read("assets/css/sheet.css");
 const dmcc = read("dm/assets/css/dmcc.css");
 check("css.pills", sheet.includes(".status-chips .chip.cond, .status-chips .cond { background: #6e2430; color: #fff; font-size: 17px; padding: 6px 14px; gap: 5px; }"));
 check("css.badge", /width: 42px; height: 42px;/.test(sheet) && /font-size: 24px/.test(sheet.slice(sheet.indexOf(".cond-badge"))));
 check("css.dmChip", dmcc.includes("font-size: 17px; padding: 6px 14px"));
-check("css.sheetLinked", read("index.html").includes("sheet.css?v=0.3.169-cond"));
-check("css.dmLinked", read("dm/index.html").includes("dmcc.css?v=0.2.182-cond"));
+check("css.sheetLinked", read("index.html").includes("sheet.css?v=0.3.170-cond"));
+check("css.dmLinked", read("dm/index.html").includes("dmcc.css?v=0.2.183-cond"));
 
 const map = read("map/ssdns-map.js");
 check("map.token28", map.includes("const size = Math.max(22, r * 0.97);") && map.includes("size * 0.57"));
@@ -61,7 +61,7 @@ const fx = read("map/ssdns-map-fx.js");
 check("fx.critMin", fx.includes("info.critMin") && fx.includes("id: spec.id"));
 
 const zoomSrc = read("assets/js/d20-zoom.js");
-check("zoom.files", zoomSrc.includes("d20-crit.mp3") && zoomSrc.includes("d20-fumble.mp3") && zoomSrc.includes("nat20") && zoomSrc.includes("nat1"));
+check("zoom.files", zoomSrc.includes("d20-crit") && zoomSrc.includes("d20-fumble") && zoomSrc.includes("nat20") && zoomSrc.includes("nat1"));
 check("zoom.hook", zoomSrc.includes("setBeforeEffect") && read("index.html").includes("d20-zoom.js") && read("dm/index.html").includes("d20-zoom.js"));
 check("zoom.skip", zoomSrc.includes("Tap to skip") && zoomSrc.includes("ssdns.map.fx"));
 

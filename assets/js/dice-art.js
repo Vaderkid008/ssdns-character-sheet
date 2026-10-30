@@ -357,6 +357,10 @@
     var unit = typeof rng === "function" ? Number(rng()) : Math.random();
     if (!isFinite(unit)) unit = Math.random();
     var face = 1 + Math.floor(unit * n);
+    if (n === 20 && typeof rng !== "function" && root.SSDNSTestRoll) {
+      var forced = Number(root.SSDNSTestRoll());
+      if (forced >= 1 && forced <= 20) face = forced;
+    }
     if (face < 1) face = 1;
     if (face > n) face = n;
     return { sides: n, face: face, total: face, result: face, formula: "1d" + n };
@@ -481,7 +485,32 @@
     else b.pool.push({ sides: sides, count: b.count });
     paintBuilder(el);
   }
+  function singleD20(rolled) {
+    if (!rolled || Number(rolled.sides) !== 20) return false;
+    if (rolled.pool && rolled.pool.length) return false;
+    if (rolled.dice && rolled.dice.length > 1) return false;
+    if (rolled.faces && rolled.faces.length > 1) return false;
+    var face = Number(rolled.face);
+    return face >= 1 && face <= 20;
+  }
   function fire(rolled, el) {
+    var Zoom = root.SSDNSD20Zoom;
+    if (singleD20(rolled) && Zoom && typeof Zoom.present === "function" && typeof Zoom.pose === "function") {
+      var id = rolled.id || ("d20_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+      rolled.id = id;
+      var pose = Zoom.pose({ nat: rolled.face, id: id, critMin: 20 });
+      rolled.die = pose && pose.kind === "plain" ? pose : null;
+      rolled.nat = rolled.face;
+      rolled.crit = !!(pose && pose.kind === "crit");
+      rolled.dieHold = true;
+      show({ sides: 20, face: "", formula: "1d20", total: "" }, el);
+      if (typeof api.onBarRoll === "function") api.onBarRoll(rolled);
+      var done = Zoom.present(pose);
+      var paint = function () { show(rolled, el); };
+      if (done && typeof done.then === "function") done.then(paint, paint);
+      else paint();
+      return rolled;
+    }
     show(rolled, el);
     if (typeof api.onBarRoll === "function") api.onBarRoll(rolled);
     return rolled;

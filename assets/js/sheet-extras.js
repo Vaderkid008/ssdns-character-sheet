@@ -317,8 +317,11 @@
     log.unshift(entry);
     if (log.length > 200) log.length = 200;
     sortLog();
-    if (entry.kind === "roll" && !entry.replace && root.SSDNSDice && root.SSDNSDice.showRoll) {
-      try { root.SSDNSDice.showRoll(entry); } catch (err) {}
+    if (entry.kind === "roll" && !entry.replace && root.SSDNSDice) {
+      try {
+        if (entry.dieHold && root.SSDNSDice.show) root.SSDNSDice.show({ sides: 20, face: "", formula: entry.formula || "1d20", total: "" });
+        else if (root.SSDNSDice.showRoll) root.SSDNSDice.showRoll(entry);
+      } catch (err) {}
     }
     renderLog();
   }
@@ -726,16 +729,22 @@
       formula: n + "d" + sides + (mod ? signMod(mod) : "")
     };
   }
-  function postCheck(label, formula, total, detail, nat1, firearm) {
-    var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  function postCheck(label, formula, total, detail, nat1, firearm, extra) {
+    extra = extra || {};
+    var rollId = extra.id || ("r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
     var who = sheetSpeaker();
     var text = (who ? who + " · " : "") + label + " · " + formula + " = " + total + " (" + detail + ")";
     toast(label + " " + total + " (" + String(detail).replace(/[«»]/g, "") + ")");
-    addLog({ id: "roll:" + rollId, kind: "roll", text: text, label: label, formula: formula, result: total, detail: detail });
+    addLog({
+      id: "roll:" + rollId, kind: "roll", text: text, label: label, formula: formula, result: total, detail: detail,
+      nat: extra.nat, dieHold: !!extra.dieHold
+    });
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         id: rollId,
         label: label, formula: formula, result: total, detail: detail,
+        nat: extra.nat, crit: !!extra.crit, critMin: extra.critMin,
+        die: extra.die || null,
         nat1: !!nat1, isFirearm: !!firearm, private: whisperOn(), whisper: whisperOn()
       });
     }
@@ -786,7 +795,28 @@
     }
     if (handling) rolled.detail += " · " + handling;
     else if (cm) rolled.detail += " · Exhaustion " + exhLevel();
-    postCheck(label, rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false);
+    var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var Zoom = root.SSDNSD20Zoom;
+    var pose = null;
+    if (Zoom && typeof Zoom.pose === "function" && typeof Zoom.present === "function") {
+      pose = Zoom.pose({
+        nat: rolled.nat,
+        id: rollId,
+        critMin: 20,
+        characterName: (ch() && ch().name) || "",
+        who: sheetSpeaker(),
+        label: label
+      });
+      Zoom.present(pose);
+    }
+    postCheck(label, rolled.formula, rolled.total, rolled.detail, rolled.nat === 1, false, {
+      id: rollId,
+      nat: rolled.nat,
+      crit: !!(pose && pose.kind === "crit"),
+      critMin: 20,
+      die: pose && pose.kind === "plain" ? pose : null,
+      dieHold: !!pose
+    });
   }
   function attackReport(opts) {
     opts = opts || {};
@@ -1125,11 +1155,11 @@
     var mode = (globalAdv && globalAdv.value) || "";
     /* L0188: a condition's disadvantage (exhaustion) cancels a chosen advantage, like attacks do */
     if (condMode === "dis") mode = mode === "adv" ? "" : "dis";
-    var n1 = 1 + Math.floor(Math.random() * 20);
+    var n1 = d20();
     var n2 = null;
     var nat = n1;
     if (mode === "adv" || mode === "dis") {
-      n2 = 1 + Math.floor(Math.random() * 20);
+      n2 = d20();
       nat = mode === "adv" ? Math.max(n1, n2) : Math.min(n1, n2);
     }
     var formula = (n2 == null ? "1d20" : "2d20") + (mod ? signMod(mod) : "");
@@ -4795,10 +4825,14 @@
         rolls: rolled.faces || [rolled.face],
         dice: rolled.dice || undefined,
         detail: many ? rolled.detail : undefined,
-        nat: natOne
+        nat: rolled.nat != null ? rolled.nat : natOne,
+        crit: !!rolled.crit,
+        dieHold: !!rolled.dieHold,
+        id: rolled.id ? ("roll:" + rolled.id) : undefined
       });
       if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
         root.SSDNSDmJoin.postRoll({
+          id: rolled.id,
           label: label,
           formula: rolled.formula,
           result: rolled.result,
@@ -4806,7 +4840,10 @@
           rolls: rolled.faces || [rolled.face],
           dice: rolled.dice || null,
           face: rolled.face,
-          nat: natOne,
+          nat: rolled.nat != null ? rolled.nat : natOne,
+          crit: !!rolled.crit,
+          critMin: rolled.sides === 20 ? 20 : undefined,
+          die: rolled.die || null,
           private: whisperOn(),
           whisper: whisperOn()
         });

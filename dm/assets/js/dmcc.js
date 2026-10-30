@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.182"; // dmcc-playtest-v02182
+const VERSION = "0.2.183"; // dmcc-playtest-v02183
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -788,7 +788,9 @@ async function pushLedger(entry) {
 async function pushRoll(entry) {
   entry.id = entry.id || uid("r");
   entry.ts = entry.ts || new Date().toISOString();
-  if (window.SSDNSDice && window.SSDNSDice.showRoll) {
+  if (entry.dieHold && window.SSDNSDice && window.SSDNSDice.show) {
+    try { window.SSDNSDice.show({ sides: 20, face: "", formula: entry.formula || "1d20", total: "" }); } catch (err) {}
+  } else if (window.SSDNSDice && window.SSDNSDice.showRoll) {
     try { window.SSDNSDice.showRoll(entry); } catch (err) {}
   }
   if (state.demo || !state.db || !state.roomCode) {
@@ -806,7 +808,13 @@ async function pushRoll(entry) {
         text: text, kind: "roll", who: entry.who || "DM",
         formula: entry.formula || "", dice: Array.isArray(entry.dice) ? entry.dice : null
       };
-      if (entry.attack && window.SSDNSD20Zoom && window.SSDNSD20Zoom.pack) {
+      if (entry.die && entry.die.kind === "plain") {
+        feed.die = {
+          id: entry.id, value: entry.die.value, nat: entry.die.nat, D: entry.die.D, land: entry.die.land,
+          dir: entry.die.dir, kind: "plain", motion: "c2", who: entry.die.who || "DM"
+        };
+      }
+      if (window.SSDNSD20Zoom && window.SSDNSD20Zoom.pack) {
         const zoom = window.SSDNSD20Zoom.pack({
           id: entry.id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "",
           characterName: entry.characterName || "", who: entry.who || "", name: entry.name || ""
@@ -2893,11 +2901,24 @@ async function doDmRoll() {
     const priv = pub ? false : ($("#rollPrivate") ? $("#rollPrivate").checked : true);
     const out = rollChecked(formula, mode, extra);
     const face = out.rolls && out.rolls.length === 1 ? out.rolls[0] : null;
+    const oneD20 = /^1d20([+-]\d+)?$/i.test(String(formula || "").replace(/\s/g, ""));
+    const rollId = uid("r");
+    let pose = null;
+    if (oneD20 && face >= 1 && face <= 20 && window.SSDNSD20Zoom && window.SSDNSD20Zoom.pose && window.SSDNSD20Zoom.present) {
+      pose = window.SSDNSD20Zoom.pose({ nat: face, id: rollId, critMin: 20, who: "DM", characterName: "DM" });
+      window.SSDNSD20Zoom.present(pose);
+    }
     await pushRoll({
+      id: rollId,
       who: "DM", playerId: null, uid: state.uid || "demo_dm",
       label, formula, result: out.total, detail: out.detail,
       nat1: out.nat1, isFirearm: false, private: priv,
-      rolls: out.rolls, face: face
+      rolls: out.rolls, face: face,
+      nat: oneD20 ? face : undefined,
+      crit: !!(pose && pose.kind === "crit"),
+      critMin: oneD20 ? 20 : undefined,
+      die: pose && pose.kind === "plain" ? pose : null,
+      dieHold: !!pose
     });
     toast((priv ? "Private " : "Public ") + "roll: " + out.total);
   } finally { rolling = false; }
@@ -3147,6 +3168,7 @@ function wire() {
     window.SSDNSDice.onBarRoll = (rolled) => {
       const many = !!(rolled.pool && rolled.faces && (rolled.faces.length > 1 || rolled.mod));
       pushRoll({
+        id: rolled.id,
         who: "DM",
         playerId: null,
         uid: state.uid || "demo_dm",
@@ -3157,6 +3179,11 @@ function wire() {
         rolls: rolled.faces || [rolled.face],
         dice: rolled.dice || null,
         detail: many ? rolled.detail : String(rolled.face),
+        nat: rolled.nat,
+        crit: !!rolled.crit,
+        critMin: rolled.sides === 20 && !many ? 20 : undefined,
+        die: rolled.die || null,
+        dieHold: !!rolled.dieHold,
         nat1: !many && rolled.sides === 20 && rolled.face === 1,
         isFirearm: false,
         private: false

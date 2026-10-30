@@ -633,7 +633,20 @@
       if (fxReq && !entry.awaitDm && root.SSDNSMapFx && root.SSDNSMapFx.request) {
         try { feed.fxReq = root.SSDNSMapFx.request(fxReq); } catch (e) {}
       }
-      if (entry.attack && root.SSDNSD20Zoom && root.SSDNSD20Zoom.pack) {
+      if (entry.die && entry.die.kind === "plain") {
+        feed.die = {
+          id: id,
+          value: entry.die.value,
+          nat: entry.die.nat,
+          D: entry.die.D,
+          land: entry.die.land,
+          dir: entry.die.dir,
+          kind: "plain",
+          motion: "c2",
+          who: entry.die.who || entry.characterName || ""
+        };
+      }
+      if (root.SSDNSD20Zoom && root.SSDNSD20Zoom.pack) {
         var zoom = root.SSDNSD20Zoom.pack({
           id: id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "",
           characterName: entry.characterName || "", who: entry.who || "", fromName: feed.fromName || ""
@@ -2570,6 +2583,12 @@
         var text = row.text || "";
         if (row.kind === "roll" && root.SSDNSDice && root.SSDNSDice.tidySingle) text = root.SSDNSDice.tidySingle(text);
         if (speaker && !own && text.indexOf(speaker) !== 0 && text.indexOf("→") < 0) text = speaker + ": " + text;
+        if (!own && row.zoom && root.SSDNSD20Zoom && root.SSDNSD20Zoom.play) {
+          try { root.SSDNSD20Zoom.play(row.zoom); } catch (eZoom) {}
+        }
+        if (!own && row.die && root.SSDNSD20Zoom && root.SSDNSD20Zoom.present) {
+          try { root.SSDNSD20Zoom.present(row.die); } catch (eDie) {}
+        }
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({
           id: (row.kind === "roll" ? "roll:" : "feed:") + id,
           kind: row.kind === "roll" ? "roll" : "chat",
@@ -2579,6 +2598,7 @@
           playerName: row.playerName || "",
           who: row.who || row.fromName || "",
           weapon: row.weapon || "",
+          dieHold: !!(row.die || row.zoom),
           replace: row.kind === "roll" && /→\s*(HIT|MISS|CRIT)/.test(text)
         });
       });

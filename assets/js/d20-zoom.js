@@ -1,8 +1,14 @@
-/* Crit / FAIL d20 zoom (sheet 0.3.169).
+/* Crit / FAIL d20 zoom (sheet 0.3.170).
    Nat 20, nat 1, or a crit the resolver already flagged (expanded range from the
    character) pauses, then a big d20 plays one motion from a random pool and lands.
    Crit lands as A3 forge slam (white-hot face cools to gold, ember ring, gunsmoke),
    word CRITICAL. Fail lands as B1 crack + B3 plum-rose smoke, word FAIL.
+   The pool stays fiery roll, C1, C2, C3-approx. Only the C2 draw uses the 4s
+   natural curve (impact at 2.85s, settle through 4.0s). Fail C2 uses that same
+   beat: rose shock rings, crack from 2.89s, plum-rose smoke, FAIL in #e7a0a0,
+   the 1 fades rose to bone-grey and sits above the crack. No forge on a fail.
+   A plain click (not a crit or fail) is SSDNSPlainRoll: the same C2 curve, blank
+   until the number lands, and none of this chrome.
    The die is assets/img/dice/d20.webp through SSDNSDice.faceHtml. The number is
    drawn in code. A flat teal square shows only if that art fails to load.
    Each zoom picks roll, c1, c2, or c3 with equal chance. prefers-reduced-motion
@@ -12,8 +18,8 @@
    The overlay names the roller from characterName, then who, then fromName.
    A short shooter id is used only when none of those is set. The same zoom
    pack goes out on the roll feed, so the whole room sees that name.
-   Tap, Escape, Enter, or Space skips. Map Effects off skips the zoom and the wait.
-   Reduced motion skips tumble, shake, and these cues.
+   Tap, Escape, Enter, or Space mid-spin skips to the landed crit or FAIL card.
+   Map Effects off and reduced motion skip the tumble and show that landed card.
    Tumble cue by motion: fiery roll prefers d20-roll-fire else roll-d20; C1 is
    roll-d20; slam prefers d20-slam else d20-whoosh else roll-d20; C3 prefers
    d20-whoosh else roll-d20. Land sting is d20-crit/nat20 or d20-fumble/nat1,
@@ -26,8 +32,11 @@
   "use strict";
 
   var HOLD_MS = 700;
+  var C2_LAND_MS = 2850;
+  var C2_TOTAL_MS = 4000;
   var MOTIONS = ["roll", "c1", "c2", "c3"];
-  var MOTION_MS = { roll: 1100, c1: 900, c2: 850, c3: 1000 };
+  var MOTION_MS = { roll: 1100, c1: 900, c2: C2_LAND_MS, c3: 1000 };
+  var posed = {};
   var CRACK = [
     "M50 44 L46.5 38 L48 33 L44 27.5 L45 23",
     "M50 44 L54.5 47 L57 52.5 L62 55 L65 61",
@@ -70,23 +79,6 @@
       if (isFinite(min) && min >= 2 && min < 20 && nat >= min) return "crit";
     }
     return "";
-  }
-
-  function pack(ev) {
-    var kind = kindOf(ev);
-    if (!kind) return null;
-    ev = ev || {};
-    var min = Number(ev.critMin);
-    var out = {
-      id: String(ev.id || ev.rollId || ""),
-      nat: Math.round(Number(ev.nat)),
-      crit: kind === "crit",
-      result: kind === "crit" ? "crit" : "miss"
-    };
-    if (isFinite(min) && min >= 2 && min <= 20) out.critMin = Math.round(min);
-    var who = rollerName(ev);
-    if (who) out.who = who;
-    return out;
   }
 
   /* First key that sfx.json actually has. Missing dedicated files fall through.
@@ -203,7 +195,10 @@
       ".d20-zoom-spin img,.d20-zoom-ghost img{width:100%!important;height:100%!important;max-width:none;",
       "filter:drop-shadow(0 18px 26px rgba(0,0,0,.6));}",
       ".d20-zoom-ghost{opacity:0;pointer-events:none;}",
-      ".d20-zoom-face{position:absolute;inset:0;opacity:0;pointer-events:none;}",
+      ".d20-zoom-face{position:absolute;inset:0;opacity:0;pointer-events:none;z-index:4;}",
+      ".d20-zoom-spin{z-index:3;}",
+      ".d20-zoom-read{position:absolute;inset:0;z-index:6;pointer-events:none;display:grid;place-items:center;}",
+      ".d20-zoom-read .die-num,.d20-zoom-read .d20-zoom-rawnum{width:100%;height:100%;}",
       ".d20-zoom.is-land .d20-zoom-face{opacity:1;}",
       ".d20-zoom-heat{position:absolute;inset:0;opacity:0;mix-blend-mode:screen;",
       "clip-path:polygon(50% 18.6%,25.2% 62.8%,74.8% 62.8%);",
@@ -264,12 +259,31 @@
       "@keyframes d20-c1-glow-rose{0%{filter:drop-shadow(0 0 0 transparent)}85%{filter:drop-shadow(0 0 26px rgba(231,160,160,.85))}100%{filter:drop-shadow(0 0 8px rgba(231,160,160,.4))}}",
       ".d20-zoom.is-bump.is-land .d20-zoom-spin{animation:d20-bump .28s ease-out both;}",
       "@keyframes d20-bump{0%{transform:scale(1.12)}100%{transform:scale(1)}}",
-      ".d20-zoom.is-motion-c2 .d20-zoom-spin{animation:d20-c2 .85s cubic-bezier(.35,.1,.3,1) both;}",
-      "@keyframes d20-c2{0%{transform:scale(.45) rotate(0deg);filter:blur(6px);opacity:.3}",
-      "55%{transform:scale(.8) rotate(900deg);filter:blur(5px);opacity:1}",
-      "76%{transform:scale(1.3) rotate(1062deg);filter:blur(0)}",
-      "87%{transform:scale(.9) rotate(1080deg);filter:blur(0)}",
-      "100%{transform:scale(1) rotate(1080deg);filter:blur(0);opacity:1}}",
+      ".d20-zoom.is-motion-c2 .d20-zoom-spin{animation:d20-c2 4s linear both;}",
+      "@keyframes d20-c2{0%{transform:scale(.30) rotate(0deg);filter:blur(9px);opacity:.4}",
+      "20%{transform:scale(.48) rotate(900deg);filter:blur(6px);opacity:1}",
+      "40%{transform:scale(.70) rotate(1440deg);filter:blur(2px)}",
+      "52.5%{transform:scale(.86) rotate(1800deg);filter:blur(0)}",
+      "65.5%{transform:translateY(-16px) scale(1.34) rotate(1800deg);filter:blur(0)}",
+      "71.25%{transform:translateY(0) scale(.88) rotate(1800deg);filter:blur(0)}",
+      "80%{transform:scale(1.03) rotate(1800deg);filter:blur(0)}",
+      "100%{transform:scale(1) rotate(1800deg);filter:none;opacity:1}}",
+      ".d20-zoom.is-c2.is-shake .d20-zoom-stage{animation:d20-shake-c2 .48s linear both;}",
+      "@keyframes d20-shake-c2{0%{transform:translate(16px,-6px)}18%{transform:translate(-14px,8px)}36%{transform:translate(10px,-7px)}54%{transform:translate(-6px,4px)}72%{transform:translate(3px,-2px)}100%{transform:none}}",
+      ".d20-zoom.is-c2.is-ring .d20-zoom-ring.r2{animation-delay:.08s;border-color:#ffb25a;}",
+      ".d20-zoom.is-c2.is-ring .d20-zoom-ring.r3{animation-delay:.16s;border-color:rgba(255,220,160,.75);}",
+      ".d20-zoom.is-fail.is-c2.is-ring .d20-zoom-ring{border-color:#e7a0a0;box-shadow:0 0 22px 4px rgba(180,70,100,.45);}",
+      ".d20-zoom.is-fail.is-c2.is-ring .d20-zoom-ring.r2{border-color:#c45a6e;}",
+      ".d20-zoom.is-fail.is-c2.is-ring .d20-zoom-ring.r3{border-color:rgba(90,40,60,.55);}",
+      ".d20-zoom.is-c2.is-land.is-fail .d20-zoom-mover{animation:none!important;}",
+      ".d20-zoom.is-land.is-fail .die-num text,.d20-zoom.is-land.is-fail .d20-zoom-rawnum{fill:#e7a0a0;color:#e7a0a0;animation:d20-fail-num .7s ease-out both;}",
+      ".d20-zoom.is-c2.is-land.is-fail .die-num text,.d20-zoom.is-c2.is-land.is-fail .d20-zoom-rawnum{animation-duration:.9s;}",
+      "@keyframes d20-fail-num{0%{fill:#e7a0a0;color:#e7a0a0}100%{fill:#d2cbc0;color:#d2cbc0}}",
+      ".d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path,.d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path:nth-child(n){animation-duration:.48s;}",
+      ".d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path{animation-delay:.04s;}",
+      ".d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path:nth-child(2){animation-delay:.1s}",
+      ".d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path:nth-child(3){animation-delay:.16s}",
+      ".d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path:nth-child(6),.d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path:nth-child(7){animation-delay:.22s}",
       ".d20-zoom.is-shake .d20-zoom-stage{animation:d20-shake .28s linear both;}",
       "@keyframes d20-shake{0%,100%{transform:none}20%{transform:translate(-10px,6px)}40%{transform:translate(8px,-7px)}60%{transform:translate(-5px,4px)}80%{transform:translate(3px,-2px)}}",
       ".d20-zoom.is-motion-c3 .d20-zoom-spin{animation:d20-c3 1s cubic-bezier(.25,.6,.25,1) both;transform-style:preserve-3d;}",
@@ -401,11 +415,14 @@
       var layer = null;
       var fx = null;
       var crit = kind === "crit";
-      var reduced = reducedMotion();
-      var motion = reduced ? "still" : pickMotion();
+      var reduced = reducedMotion() || !effectsOn();
+      var motion = reduced ? "still" : ((ev && MOTIONS.indexOf(ev.motion) >= 0) ? ev.motion : pickMotion());
       var motionMs = reduced ? 0 : (MOTION_MS[motion] || 900);
+      var spinDir = ev && ev.dir === -1 ? -1 : 1;
+      var useC2 = motion === "c2" && !reduced && root.SSDNSPlainRoll && typeof root.SSDNSPlainRoll.c2Frame === "function";
       var started = Date.now();
       var zoomId = String((ev && (ev.id || ev.rollId)) || "");
+      var snapped = false;
 
       function later(fn, ms) {
         var t = setTimeout(function () { if (!done) fn(); }, ms);
@@ -430,15 +447,17 @@
         if (!e) return;
         if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          finish();
+          if (landed) finish();
+          else land(true);
         }
       }
-      if (!root.document || !root.document.body || !effectsOn()) { resolve(); return; }
+      if (!root.document || !root.document.body) { resolve(); return; }
       ensureCss();
       var nat = Math.round(Number(ev.nat));
       if (!(nat >= 1 && nat <= 20)) nat = crit ? 20 : 1;
       layer = root.document.createElement("div");
-      layer.className = "d20-zoom " + (crit ? "is-crit" : "is-fail") + (reduced ? " is-reduced" : (" is-motion-" + motion));
+      var motionCls = reduced ? " is-reduced" : (useC2 ? " is-c2" : (" is-motion-" + motion + (motion === "c2" ? " is-c2" : "")));
+      layer.className = "d20-zoom " + (crit ? "is-crit" : "is-fail") + motionCls;
       layer.setAttribute("data-motion", motion);
       layer.setAttribute("role", "dialog");
       layer.setAttribute("aria-label", crit ? "Critical hit" : "Fail");
@@ -446,12 +465,16 @@
       var ghosts = motion === "c3"
         ? '<div class="d20-zoom-ghost g1">' + blank + '</div><div class="d20-zoom-ghost g2">' + blank + "</div>"
         : "";
+      var rings = motion === "c2"
+        ? '<div class="d20-zoom-ring r1"></div><div class="d20-zoom-ring r2"></div><div class="d20-zoom-ring r3"></div>'
+        : '<div class="d20-zoom-ring"></div>';
       layer.innerHTML =
         '<canvas class="d20-zoom-back"></canvas>' +
-        '<div class="d20-zoom-stage"><div class="d20-zoom-ring"></div><div class="d20-zoom-mover">' +
+        '<div class="d20-zoom-stage">' + rings + '<div class="d20-zoom-mover">' +
         ghosts +
         '<div class="d20-zoom-spin" data-zoom-die>' + blank + "</div>" +
         '<div class="d20-zoom-face"><div class="d20-zoom-heat"></div>' + (crit ? "" : crackSvg()) + "</div>" +
+        '<div class="d20-zoom-read" data-zoom-read></div>' +
         "</div></div>" +
         '<canvas class="d20-zoom-front"></canvas>' +
         '<p class="d20-zoom-who" data-zoom-who hidden></p>' +
@@ -465,8 +488,9 @@
       fx = makeFx(layer.querySelector(".d20-zoom-back"), layer.querySelector(".d20-zoom-front"));
       paintWho(layer, ev);
       if (!reduced) cueFirst(tumbleCues(motion));
-      openSkip = finish;
-      layer.addEventListener("click", finish);
+      function skipTo() { if (landed) finish(); else land(true); }
+      openSkip = skipTo;
+      layer.addEventListener("click", skipTo);
       root.document.addEventListener("keydown", onKey, true);
 
       var emit = null;
@@ -548,6 +572,13 @@
         var now = Date.now();
         var dt = Math.min(0.05, (now - last) / 1000);
         last = now;
+        if (useC2 && !snapped && spin) {
+          var elapsed = (Date.now() - started) / 1000;
+          var fr = root.SSDNSPlainRoll.c2Frame(elapsed, { D: C2_TOTAL_MS / 1000, dir: spinDir, value: nat });
+          var glow = crit ? " drop-shadow(0 0 12px rgba(226,197,106,.35))" : " drop-shadow(0 0 10px rgba(180,80,100,.28))";
+          spin.style.transform = "translateY(" + fr.y.toFixed(2) + "px) rotate(" + fr.rot.toFixed(2) + "deg) scale(" + fr.scale.toFixed(4) + ")";
+          spin.style.filter = "blur(" + Math.max(0, fr.blur).toFixed(2) + "px)" + glow;
+        }
         if (emit && !landed) emit(centerOf(layer.querySelector(".d20-zoom-mover")));
         if (landed && !crit) failHaze(centerOf(layer.querySelector(".d20-zoom-mover")));
         if (landed && crit && Math.random() < 0.45) {
@@ -563,14 +594,20 @@
       }
       loop();
 
-      function land() {
+      function land(skip) {
         if (done || landed) return;
         landed = true;
         emit = null;
-        layer.classList.remove("is-motion-roll", "is-motion-c1", "is-motion-c2", "is-motion-c3");
+        if (skip || motion !== "c2") layer.classList.remove("is-motion-roll", "is-motion-c1", "is-motion-c2", "is-motion-c3");
+        if (skip && useC2 && spin && root.SSDNSPlainRoll) {
+          snapped = true;
+          var endFr = root.SSDNSPlainRoll.c2Frame(C2_TOTAL_MS / 1000, { D: C2_TOTAL_MS / 1000, dir: spinDir, value: nat });
+          spin.style.transform = "translateY(0px) rotate(" + endFr.rot.toFixed(2) + "deg) scale(1)";
+          spin.style.filter = "none";
+        }
         layer.classList.add("is-land");
-        if (!reduced && motion === "c1") layer.classList.add("is-bump");
-        if (!reduced && motion === "c2") {
+        if (!reduced && !skip && motion === "c1") layer.classList.add("is-bump");
+        if (!reduced && !skip && motion === "c2") {
           layer.classList.add("is-ring");
           layer.classList.add("is-shake");
         }
@@ -578,6 +615,9 @@
           spin.innerHTML = faceHtml(nat, 260);
           watchArt(spin);
           tintNumber(spin, crit);
+          var slot = layer.querySelector("[data-zoom-read]");
+          var glyph = spin.querySelector(".die-num, .d20-zoom-rawnum");
+          if (slot && glyph) slot.appendChild(glyph);
         }
         var c = centerOf(layer.querySelector(".d20-zoom-mover"));
         if (crit) {
@@ -591,28 +631,80 @@
             });
           }
         }
-        if (!reduced) cueFirst(landCues(motion, crit));
-        later(finish, HOLD_MS);
+        if (!reduced && !skip) cueFirst(landCues(motion, crit));
+        var hold = (!skip && motion === "c2" && !reduced) ? Math.max(HOLD_MS, C2_TOTAL_MS - motionMs) : HOLD_MS;
+        later(finish, hold);
       }
 
-      if (reduced || motionMs <= 0) land();
-      else later(land, motionMs);
+      if (reduced || motionMs <= 0) land(true);
+      else later(function () { land(false); }, motionMs);
     });
   }
 
-  function play(ev) {
-    var kind = kindOf(ev);
-    if (!kind || !effectsOn()) return Promise.resolve();
-    var id = String((ev && (ev.id || ev.rollId)) || "");
+  function ensurePose(ev) {
+    ev = ev || {};
+    var id = String(ev.id || ev.rollId || "");
+    if (id && posed[id]) return posed[id];
+    var nat = Math.round(Number(ev.nat != null ? ev.nat : ev.value));
+    var synced = ev.kind === "plain" || ev.kind === "crit" || ev.kind === "fumble";
+    var kind = synced ? ev.kind : kindOf(Object.assign({}, ev, { nat: nat }));
+    if (!kind) {
+      if (!(nat >= 1 && nat <= 20)) return null;
+      kind = "plain";
+    }
+    if (!(nat >= 1 && nat <= 20)) nat = kind === "fumble" ? 1 : 20;
+    var dir = ev.dir === -1 || ev.dir === 1 ? ev.dir : (Math.random() < 0.5 ? -1 : 1);
+    var motion = "c2";
+    var D = 4;
+    var land = 2.85;
+    if (kind === "plain") {
+      var given = Number(ev.D);
+      D = isFinite(given) && given > 0 ? given : 4;
+      land = Math.round(2.85 * (D / 4) * 1000) / 1000;
+    } else {
+      motion = (ev.motion && MOTIONS.indexOf(ev.motion) >= 0) ? ev.motion : pickMotion();
+      if (motion === "c2") {
+        D = 4;
+        land = 2.85;
+      } else {
+        D = (MOTION_MS[motion] || 900) / 1000;
+        land = D;
+      }
+    }
+    var out = {
+      id: id,
+      value: nat,
+      nat: nat,
+      D: D,
+      land: land,
+      dir: dir,
+      kind: kind,
+      motion: motion
+    };
+    if (kind === "crit") { out.crit = true; out.result = "crit"; }
+    else if (kind === "fumble") { out.crit = false; out.result = "miss"; }
+    var min = Number(ev.critMin);
+    if (isFinite(min) && min >= 2 && min <= 20) out.critMin = Math.round(min);
+    var who = rollerName(ev);
+    if (who) out.who = who;
+    if (id) posed[id] = out;
+    return out;
+  }
+  function startPose(p) {
+    if (!p) return Promise.resolve();
+    var id = p.id || "";
     if (id && seen[id]) {
-      if (openLayer[id]) paintWho(openLayer[id], ev);
+      if (openLayer[id]) paintWho(openLayer[id], p);
       return seen[id];
     }
-    var p = tail.then(function () {
-      if (!effectsOn()) return;
-      return run(ev, kind);
+    var job = tail.then(function () {
+      if (p.kind === "plain") {
+        if (!root.SSDNSPlainRoll || typeof root.SSDNSPlainRoll.play !== "function") return;
+        return root.SSDNSPlainRoll.play(p);
+      }
+      return run(p, p.kind === "fumble" ? "fumble" : "crit");
     });
-    var safe = p.then(function () {}, function () {});
+    var safe = job.then(function () {}, function () {});
     tail = safe;
     if (id) {
       seen[id] = safe;
@@ -620,6 +712,15 @@
       if (wipe && typeof wipe.unref === "function") wipe.unref();
     }
     return safe;
+  }
+  function present(ev) {
+    return startPose(ensurePose(ev));
+  }
+  function play(ev) {
+    ev = ev || {};
+    var kind = (ev.kind === "crit" || ev.kind === "fumble") ? ev.kind : kindOf(ev);
+    if (kind !== "crit" && kind !== "fumble") return Promise.resolve();
+    return present(Object.assign({}, ev, { kind: kind }));
   }
 
   function install() {
@@ -635,14 +736,27 @@
     });
   }
 
+  function pack(ev) {
+    var id = String((ev && (ev.id || ev.rollId)) || "");
+    if (id && posed[id] && posed[id].kind !== "plain") return posed[id];
+    var kind = kindOf(ev);
+    if (!kind) return null;
+    var p = ensurePose(ev);
+    if (!p || p.kind === "plain") return null;
+    return p;
+  }
+
   root.SSDNSD20Zoom = {
     play: play,
+    present: present,
+    pose: ensurePose,
     beforeDamage: play,
     kindOf: kindOf,
     pack: pack,
     effectsOn: effectsOn,
     reducedMotion: reducedMotion,
     motions: MOTIONS.slice(),
+    motionMs: { roll: MOTION_MS.roll, c1: MOTION_MS.c1, c2: MOTION_MS.c2, c3: MOTION_MS.c3, c2Total: C2_TOTAL_MS },
     pickMotion: pickMotion,
     rollerName: rollerName,
     cues: { tumble: tumbleCues, land: landCues },

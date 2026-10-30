@@ -762,6 +762,12 @@ function pushFeed(row) {
   if (row && row.zoom && window.SSDNSD20Zoom && window.SSDNSD20Zoom.play) {
     try { window.SSDNSD20Zoom.play(row.zoom); } catch (eZoom) {}
   }
+  if (row && row.die && window.SSDNSD20Zoom && window.SSDNSD20Zoom.present) {
+    var dieTs = Date.parse(row.ts || "");
+    if (!dieTs || Date.now() - dieTs < 20000) {
+      try { window.SSDNSD20Zoom.present(row.die); } catch (eDie) {}
+    }
+  }
   if (row && (row.fx || row.fxReq)) { try { fxFromFeed(row); } catch (e) {} }
   if (!row || row.kind === 'sfx') { if (row && host.sfx) host.sfx(row); return; }
   if (!audienceOk(row)) return;
