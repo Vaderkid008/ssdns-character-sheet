@@ -17,11 +17,11 @@ function check(cond, msg) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check(version.sheet === "0.3.168" && version.sheetBuild === "sheet-playtest-v03168", "sheet bumped");
-check(version.dmcc === "0.2.181" && version.dmccBuild === "dmcc-playtest-v02181", "dmcc bumped");
-check(read("assets/js/app.js").includes('APP_VERSION = "0.3.168"'), "sheet banner");
-check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.181"'), "dmcc banner");
-check(!read("assets/data/rules.js").includes("0.3.168") && !read("database.rules.json").includes("0.2.181"), "rules were not regenerated");
+check(version.sheet === "0.3.169" && version.sheetBuild === "sheet-playtest-v03169", "sheet bumped");
+check(version.dmcc === "0.2.182" && version.dmccBuild === "dmcc-playtest-v02182", "dmcc bumped");
+check(read("assets/js/app.js").includes('APP_VERSION = "0.3.169"'), "sheet banner");
+check(read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.182"'), "dmcc banner");
+check(!read("assets/data/rules.js").includes("0.3.169") && !read("database.rules.json").includes("0.2.182"), "rules were not regenerated");
 
 const ex = read("assets/js/sheet-extras.js");
 const gunPend = ex.split("Hidden AC returns before the resolved attack")[1].split("consumeRollMode()")[0];

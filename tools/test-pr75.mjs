@@ -206,7 +206,7 @@ check("np.personal", /data-mx-pref="music"/.test(sheetHtml));
 check("sfx.noReplay", /cmd\.type === "music" \|\| cmd\.type === "sfx"/.test(djs));
 check("vol.bigStyle", /data-mx-scene-level/.test(read("assets/js/vol-slider.js")));
 
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.168" && JSON.parse(read("version.json")).dmcc === "0.2.181");
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.169" && JSON.parse(read("version.json")).dmcc === "0.2.182");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED: " + failures.join(", ") : "\nAll PR75 checks passed.");
 process.exit(failures.length ? 1 : 0);

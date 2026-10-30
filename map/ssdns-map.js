@@ -759,6 +759,9 @@ if (!el._nameMode) {
 paintRoleBadge();
 function pushFeed(row) {
   if (row && row.event === 'zone') { applyZoneFeed(row); return; }
+  if (row && row.zoom && window.SSDNSD20Zoom && window.SSDNSD20Zoom.play) {
+    try { window.SSDNSD20Zoom.play(row.zoom); } catch (eZoom) {}
+  }
   if (row && (row.fx || row.fxReq)) { try { fxFromFeed(row); } catch (e) {} }
   if (!row || row.kind === 'sfx') { if (row && host.sfx) host.sfx(row); return; }
   if (!audienceOk(row)) return;
@@ -1306,14 +1309,15 @@ function fxFromFeed(row) {
   if (ts && Date.now() - ts > 60000) return; /* late replay after a reconnect (60 s leaves room for clock skew) */
   if (row.fx && typeof row.fx === 'object') {
     if (row.from === uid) return; /* drew it locally */
-    startFx(Object.assign({}, row.fx, { id: row.id }), { local: false });
+    startFx(Object.assign({}, row.fx, { id: (row.fx && row.fx.zoomId) || row.id }), { local: false });
     return;
   }
   if (row.fxReq && typeof row.fxReq === 'object' && role === 'dm' && row.from && row.from !== uid) {
     const req = row.fxReq;
     dmFx({
-      id: row.id, type: req.type, result: req.result, target: req.target || (req.self ? row.from : ""), shooter: row.from, sfx: req.sfx,
-      weapon: req.weapon, weaponId: req.weaponId, arrow: req.arrow, nat: req.nat, crit: req.crit,
+      id: row.id, who: (row.zoom && row.zoom.who) || row.characterName || row.fromName || row.who || "",
+      type: req.type, result: req.result, target: req.target || (req.self ? row.from : ""), shooter: row.from, sfx: req.sfx,
+      weapon: req.weapon, weaponId: req.weaponId, arrow: req.arrow, nat: req.nat, crit: req.crit, critMin: req.critMin,
       spell: req.spell || "", dmg: req.dmg || "", self: !!req.self || req.target === row.from,
       heard: req.heard === false ? [] : [row.from]
     }, row.id);
@@ -3002,10 +3006,11 @@ function draw() {
        so a hidden enemy never shows them anything. */
     const condList = tokenConditions(t);
     if (condList.length) {
-      const size = Math.max(14, r * 0.62);
+      /* Option B: ~28px on a medium token (was ~18px from r * 0.62). Icon ~16px, 2px ring. */
+      const size = Math.max(22, r * 0.97);
       const shown = condList.slice(0, 4);
       const extra = condList.length - shown.length;
-      ctx.font = `${Math.round(size * 0.78)}px system-ui, "Noto Color Emoji", "Apple Color Emoji", sans-serif`;
+      ctx.font = `${Math.round(size * 0.57)}px system-ui, "Noto Color Emoji", "Apple Color Emoji", sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const step = size * 1.02;
@@ -3018,7 +3023,7 @@ function draw() {
         ctx.arc(badgeX, badgeY, size * 0.5, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = 'rgba(232,220,200,0.85)';
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 2;
         ctx.stroke();
         ctx.fillStyle = '#fff';
         ctx.fillText(txt, badgeX, badgeY + 1);
@@ -9601,48 +9606,20 @@ async function loadSceneImage(sceneId, opts) {
         draw();
       });
     });
+    /* N82: a PC card from the DM is a fresh copy. Spin/Cycle must go to the sheet (free),
+       the same handlers the player already uses. Mutating this copy vanished on the next paint. */
     d.querySelectorAll('[data-act="rowCycle"]').forEach(b => {
       b.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        const wid0 = b.getAttribute('data-wid');
-        const id = String(wid0 || '');
-        const m = id.match(/gunroll:(\d+)/);
-        if (m && window.SSDNSApp && window.SSDNSApp.cycleTube) {
-          window.SSDNSApp.cycleTube(Number(m[1]));
-          renderDrawer();
-          return;
-        }
-        const attack0 = (card.attacks || []).find(a => a && (String(a.id) === String(wid0) || String(a.name) === String(wid0)));
-        const flags = attack0 && attack0.ammo && Array.isArray(attack0.ammo.chambers) ? attack0.ammo.chambers : null;
-        if (!flags || !window.SSDNSAmmoDisplay || !window.SSDNSAmmoDisplay.cycleEject) { toast('Nothing chambered.'); return; }
-        const ejected = window.SSDNSAmmoDisplay.cycleEject(flags);
-        if (!ejected.ok) { toast('Nothing chambered. Cycle does nothing.'); return; }
-        attack0.ammo.chambers = ejected.chambers;
-        attack0.ammo.loaded = ejected.chambers.filter(Boolean).length;
-        toast('Cycled. The chambered round is on the ground, not in a belt.');
-        renderDrawer();
+        if (isPc && !canAct) { toast('The player acts for themselves'); return; }
+        emit('drawer:cycle', detail({ weaponId: b.getAttribute('data-wid') }));
       });
     });
     d.querySelectorAll('[data-act="spin"]').forEach(b => {
       b.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        const k = Number(b.getAttribute('data-k'));
-        const wid0 = b.getAttribute('data-wid');
-        const spun = String(wid0 || '').match(/gunroll:(\d+)/);
-        if (spun && window.SSDNSApp && window.SSDNSApp.spinCylinder) {
-          window.SSDNSApp.spinCylinder(Number(spun[1]), k);
-          renderDrawer();
-          return;
-        }
-        const attack0 = (card.attacks || []).find(a => a && (String(a.id) === String(wid0) || String(a.name) === String(wid0)));
-        const flags = attack0 && attack0.ammo && Array.isArray(attack0.ammo.chambers) ? attack0.ammo.chambers : null;
-        if (flags && window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.spinTo && k > 0) {
-          attack0.ammo.chambers = window.SSDNSAmmoDisplay.spinTo(flags, k);
-          if (Array.isArray(attack0.ammo.locked)) attack0.ammo.locked = window.SSDNSAmmoDisplay.rotateIndexes(attack0.ammo.locked, k, attack0.ammo.chambers.length);
-          if (Array.isArray(attack0.lockedChambers)) attack0.lockedChambers = window.SSDNSAmmoDisplay.rotateIndexes(attack0.lockedChambers, k, attack0.ammo.chambers.length);
-        }
-        toast('Spun chamber ' + (k + 1) + ' under the hammer.');
-        renderDrawer();
+        if (isPc && !canAct) { toast('The player acts for themselves'); return; }
+        emit('drawer:spin', detail({ weaponId: b.getAttribute('data-wid'), chamber: Number(b.getAttribute('data-k')) }));
       });
     });
     d.querySelectorAll('[data-act="chamber"]').forEach(b => {

@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.181"; // dmcc-playtest-v02181
+const VERSION = "0.2.182"; // dmcc-playtest-v02182
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -806,6 +806,13 @@ async function pushRoll(entry) {
         text: text, kind: "roll", who: entry.who || "DM",
         formula: entry.formula || "", dice: Array.isArray(entry.dice) ? entry.dice : null
       };
+      if (entry.attack && window.SSDNSD20Zoom && window.SSDNSD20Zoom.pack) {
+        const zoom = window.SSDNSD20Zoom.pack({
+          id: entry.id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "",
+          characterName: entry.characterName || "", who: entry.who || "", name: entry.name || ""
+        });
+        if (zoom) feed.zoom = zoom;
+      }
       // One public copy. A roll command as well made the player log the same roll twice.
       try { await state._fb.set(roomRef("tableFeed/" + entry.id), feed); } catch (err) { writeFailed(err, "Couldn't sync to players"); }
     }
@@ -1209,6 +1216,23 @@ function applyDemoGun(playerId, payload) {
       g.exploded = false;
       g.cracked = false;
       g.condition = "ok";
+    }
+  } else if (payload.op === "spin") {
+    const AD = window.SSDNSAmmoDisplay;
+    const chambers = Array.isArray(g.chambers) ? g.chambers.slice() : [];
+    const k = Number(payload.chamber);
+    if (AD && AD.spinTo && k > 0 && k < chambers.length) {
+      g.chambers = AD.spinTo(chambers, k);
+      if (Array.isArray(g.lockedChambers)) g.lockedChambers = AD.rotateIndexes(g.lockedChambers, k, g.chambers.length);
+      g.loaded = g.chambers.filter(Boolean).length;
+    }
+  } else if (payload.op === "cycle") {
+    const AD = window.SSDNSAmmoDisplay;
+    const chambers = Array.isArray(g.chambers) ? g.chambers.slice() : [];
+    const ejected = AD && AD.cycleEject ? AD.cycleEject(chambers) : { ok: false };
+    if (ejected.ok) {
+      g.chambers = ejected.chambers;
+      g.loaded = ejected.chambers.filter(Boolean).length;
     }
   } else if (payload.op === "fire") {
     const chambers = Array.isArray(g.chambers) ? g.chambers.slice() : [];
@@ -2122,9 +2146,19 @@ function openDetail(pid) {
         const sheetI = g.index != null && g.index !== "" ? g.index : i;
         const lockN = Array.isArray(g.lockedChambers) ? g.lockedChambers.length : 0;
         const crossed = !!(g.ruined || g.broken || g.exploded || g.wrecked);
+        const gunSpec = { action: g.action || "", name: g.name || "", weapon: g.weapon || "", group: g.group || "", ammo: g.ammo || "", ammoDisplay: g.ammoDisplay || "" };
+        const spinsGun = !!(window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.spins && window.SSDNSAmmoDisplay.spins(gunSpec));
+        const tubeGun = !!(window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.kind && window.SSDNSAmmoDisplay.kind(gunSpec) === "tube");
+        const spinCap = Number(g.capacity) || (Array.isArray(g.chambers) ? g.chambers.length : 0);
+        let spinBtns = "";
+        if (spinsGun && spinCap > 1) {
+          for (let sk = 1; sk < spinCap; sk++) spinBtns += `<button type="button" class="btn sm" data-gun-op="spin" data-gun-k="${sk}" data-gun-i="${sheetI}" title="Spin chamber ${sk + 1} under the hammer. Free, any time.">Spin ${sk + 1}</button>`;
+        }
+        const cycleBtn = tubeGun ? `<button type="button" class="btn sm" data-gun-op="cycle" data-gun-i="${sheetI}" title="Cycle (free): eject the chambered round onto the ground and chamber the next.">Cycle</button>` : "";
         return `<div class="gun-chip ${g.jammed ? "jammed" : ""}${crossed ? " gun-x" : ""}"><div>${esc(g.name)} — ${esc(g.loaded)}/${esc(g.capacity)} ${esc(g.load || "")}</div>${cylinderHtml(g)}
         ${gunStatusHtml(g)}
         <div class="gun-row gun-load-row">
+          ${spinBtns}${cycleBtn}
           <button type="button" class="btn sm" data-gun-op="reload" data-gun-i="${sheetI}">Reload</button>
           <button type="button" class="btn sm" data-gun-op="unload" data-gun-i="${sheetI}">Unload</button>
           <button type="button" class="btn sm" data-gun-op="set" data-gun-i="${sheetI}">Set loaded</button>
@@ -2184,6 +2218,7 @@ function openDetail(pid) {
         else if (key === "clear-foul") { payload.fouled = false; payload.ruined = false; }
         else if (key) payload[key] = btn.getAttribute("data-mf-on") === "1";
       }
+      if (op === "spin") payload.chamber = Number(btn.getAttribute("data-gun-k"));
       if (op === "clear-locks") payload.mode = btn.getAttribute("data-lock-mode") === "one" ? "one" : "all";
       if (op === "clean") payload.optionId = btn.getAttribute("data-clean") || "unjam";
       if (op === "equip") payload.equipped = btn.getAttribute("data-gun-on") === "1";

@@ -250,6 +250,7 @@
     var gun = "";
     s = s.replace(/\sdata-fire="([^"]*)"/, function (_all, v) { gun = v; return ""; });
     s = s.replace(/\sdata-cyl-fire="([^"]*)"/g, function (_all, v) { return ' data-cyl-spin="' + v + '"'; });
+    s = s.replace(/\sdata-strip-fire="([^"]*)"/g, function (_all, v) { return ' data-strip-spin="' + v + '"'; });
     s = s.replace(/\sdata-gunroll="[^"]*"/g, "");
     s = s.replace(/data-act="chamber"/g, 'data-act="spin"');
     s = s.replace(/data-act="playerChamber"/g, 'data-act="playerSpin"');

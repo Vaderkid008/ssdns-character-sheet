@@ -3629,6 +3629,8 @@
     if (spent && spent.arrow && root.SSDNSTrackers && root.SSDNSTrackers.arrowDieExpr) dmgExpr = root.SSDNSTrackers.arrowDieExpr(dmgExpr, spent.arrow);
     var ohTag = OH ? " · " + OH.TAG : (FAN ? " · " + FAN.TAG : "");
     var ohWord = OH ? " (" + OH.TAG + ")" : "";
+    var dmShotNow = rollGun._dmShot;
+    function finishGunAttack() {
     if (!misfired && FAN && FAN.cue) FAN.cue(cue, attackCue);
     else if (!misfired) attackCue(cue);
     else attackCue("misfire"); /* 0.3.56: misfire (jam, foul, lock, dud) has its own sound; no shot, no ricochet */
@@ -3636,7 +3638,7 @@
       var pendingDmg = rollDamageExpr(dmgExpr, isCrit);
       var pendArrow = arrowFx(pendingDmg, spent); /* L0186 special arrows: whistler / blunt / broadhead change the base damage */
       if (pendArrow && pendArrow.none) pendingDmg = null;
-      var pendRide = takeRiders({ pending: true, crit: isCrit, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon, arrow: spent && spent.arrow });
+      var pendRide = takeRiders({ pending: true, crit: isCrit, melee: false, dm: !!dmShotNow, weapon: g.weapon, arrow: spent && spent.arrow });
       var pendParts = gunStat && gunStat.dmgParts && OH ? OH.stripParts(gunStat.dmgParts) : (gunStat && gunStat.dmgParts);
       if (pendRide && pendRide.riders.length && pendingDmg) {
         pendParts = (pendParts && pendParts.length ? pendParts.slice() : (pendingDmg.flat ? [{ label: "mod", value: pendingDmg.flat }] : [])).concat(riderParts(pendRide));
@@ -3687,7 +3689,7 @@
     if (!miss) dmg = rollDamageExpr(dmgExpr, isCrit);
     var arrowNow = miss ? null : arrowFx(dmg, spent); /* L0186 special arrows */
     if (arrowNow && arrowNow.none) dmg = null;
-    var gunRide = takeRiders({ hit: !miss && !!dmg, crit: isCrit && !miss, melee: false, dm: !!rollGun._dmShot, weapon: g.weapon, arrow: spent && spent.arrow, weaponType: (spentStat && spentStat.dmgType) || (gunStat && gunStat.dmgType) || "piercing" });
+    var gunRide = takeRiders({ hit: !miss && !!dmg, crit: isCrit && !miss, melee: false, dm: !!dmShotNow, weapon: g.weapon, arrow: spent && spent.arrow, weaponType: (spentStat && spentStat.dmgType) || (gunStat && gunStat.dmgType) || "piercing" });
     if (dmg) halveStrWeapon(dmg, { melee: false, dex: true });
     var dmgParts = [];
     if (dmg && gunStat && gunStat.dmgParts) {
@@ -3752,6 +3754,7 @@
         attack: true,
         nat: nat,
         crit: isCrit && !report.miss,
+        critMin: critAt,
         private: quiet,
         whisper: quiet,
         damage: (!report.miss && dmg) ? dmg.total : null,
@@ -3761,7 +3764,7 @@
         /* attack-fx: the DM's map turns this into the firing line everyone sees (visual only) */
         fxReq: misfired || !tgt ? null : {
           target: tgt.id, result: report.miss ? "miss" : (isCrit ? "crit" : "hit"), sfx: cue, weapon: name, weaponId: g.weapon,
-          group: wpn && wpn.group, scatter: !!(wpn && wpn.scatter), gun: true, arrow: spent && spent.arrow, nat: nat, crit: isCrit && !report.miss
+          group: wpn && wpn.group, scatter: !!(wpn && wpn.scatter), gun: true, arrow: spent && spent.arrow, nat: nat, crit: isCrit && !report.miss, critMin: critAt
         }
       });
     }
@@ -3774,6 +3777,10 @@
         fromId: root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : ""
       });
     }
+    }
+    var ZoomGun = root.SSDNSD20Zoom;
+    if (ZoomGun && ZoomGun.beforeDamage) ZoomGun.beforeDamage({ nat: nat, crit: !!(isCrit && !misfired), critMin: critAt, id: gunRollId, characterName: (ch() && ch().name) || "" }).then(finishGunAttack, finishGunAttack);
+    else finishGunAttack();
   }
 
   /* 0.3.67: Free shot. The gun fires at nothing in particular: the round is spent, misfire rules apply,

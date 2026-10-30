@@ -697,6 +697,8 @@
       });
       return { faces: faces, total: sum + flat, detail: faces.join("+") + (flat ? ((flat >= 0 ? "+" : "") + flat) : "") };
     }
+    var meleeRollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    function finishMeleeAttack() {
     var rolls = [];
     var total = 0;
     var detail = "";
@@ -741,7 +743,7 @@
         dice: nat === 1 ? "" : pendingDetail,
         riders: pendRide && pendRide.riders,
         formula: (faced.n2 == null ? "1d20" : "2d20") + ((atk >= 0 ? "+" : "") + atk),
-        rollId: "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        rollId: meleeRollId,
         label: name + " attack" + ohTag,
         offhand: !!OH,
         weapon: name,
@@ -785,7 +787,7 @@
     if (root.SSDNSSheet && root.SSDNSSheet.consumeRollMode) root.SSDNSSheet.consumeRollMode();
     toast(line);
     var Sheet = root.SSDNSSheet;
-    var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var rollId = meleeRollId;
     if (Sheet && Sheet.addLog) Sheet.addLog({ id: "roll:" + rollId, kind: "roll", text: line, attack: true, nat: nat, crit: crit && !miss, label: name + " attack" + ohTag, offhand: !!OH });
     if (root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined() && root.SSDNSDmJoin.postRoll) {
       var quiet = $("#chkWhisper") && $("#chkWhisper").checked;
@@ -800,6 +802,7 @@
         attack: true,
         nat: nat,
         crit: crit && !miss,
+        critMin: critAt,
         damage: miss ? 0 : total,
         targetId: tgt && tgt.id,
         targetName: tgt && tgt.name,
@@ -808,13 +811,17 @@
         /* attack-fx: slash / pulse on the map (only when the sheet knows hit or miss) */
         fxReq: (tgt && tgt.id && (haveAc || miss || crit)) ? {
           target: tgt.id, result: miss ? "miss" : (crit ? "crit" : "hit"), weapon: name,
-          weaponId: (c.melee && c.melee[i] && c.melee[i].weapon) || "", nat: nat, crit: crit && !miss
+          weaponId: (c.melee && c.melee[i] && c.melee[i].weapon) || "", nat: nat, crit: crit && !miss, critMin: critAt
         } : null
       });
       if (!miss && total && tgt && tgt.id && !quiet && root.SSDNSDmJoin.postDamage) {
         root.SSDNSDmJoin.postDamage({ amount: total, label: name, type: "weapon", melee: !(tk && tk.thrown), targetId: tgt.id, targetName: tgt.name, rollId: rollId });
       }
     }
+    }
+    var ZoomMelee = root.SSDNSD20Zoom;
+    if (ZoomMelee && ZoomMelee.beforeDamage) ZoomMelee.beforeDamage({ nat: nat, crit: !!crit, critMin: critAt, id: meleeRollId, characterName: (c && c.name) || "" }).then(finishMeleeAttack, finishMeleeAttack);
+    else finishMeleeAttack();
   }
 
   function buildUi() {

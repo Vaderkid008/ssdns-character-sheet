@@ -24,9 +24,9 @@ const play = read("assets/js/sheet-playtest.js");
 const css = read("assets/css/sheet.css");
 const version = JSON.parse(read("version.json"));
 
-check("ver.sheet", version.sheet === "0.3.168" && version.sheetBuild === "sheet-playtest-v03168");
-check("ver.dmcc", version.dmcc === "0.2.181" && version.dmccBuild === "dmcc-playtest-v02181");
-check("ver.app", app.includes('APP_VERSION = "0.3.168"'));
+check("ver.sheet", version.sheet === "0.3.169" && version.sheetBuild === "sheet-playtest-v03169");
+check("ver.dmcc", version.dmcc === "0.2.182" && version.dmccBuild === "dmcc-playtest-v02182");
+check("ver.app", app.includes('APP_VERSION = "0.3.169"'));
 check("target.banner", equip.includes('id="gearTarget"') && equip.includes("gear-bullseye") && equip.includes('id="gearTargetSlot"'));
 check("target.mount", play.includes('id=\'atkTarget\'') && play.includes('$("#gearTargetSlot")'));
 check("columns", equip.includes("gear-weapons") && equip.includes("gear-kit") && css.includes(".gear-columns"));

@@ -165,9 +165,9 @@ check("wire.shove", map.includes("function shoveToken") && map.includes("functio
 check("wire.spark", read("assets/js/spell-cast.js").includes("cancelOnSpark"));
 check("no.lighting", !sheet.includes("Lighting v2") && !read("assets/js/spell-zones.js").includes("wow"));
 const rules = read("assets/data/rules.js");
-check("rules.clean", !rules.includes("burn-scar") && !rules.includes("pickPlan") && !rules.includes("0.3.168"));
+check("rules.clean", !rules.includes("burn-scar") && !rules.includes("pickPlan") && !rules.includes("0.3.169"));
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.168" && ver.dmcc === "0.2.181" && ver.sheetBuild === "sheet-playtest-v03168" && ver.dmccBuild === "dmcc-playtest-v02181");
+check("ver", ver.sheet === "0.3.169" && ver.dmcc === "0.2.182" && ver.sheetBuild === "sheet-playtest-v03169" && ver.dmccBuild === "dmcc-playtest-v02182");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

@@ -27,11 +27,11 @@ const join = read("assets/js/dm-join.js");
 const rulesJs = read("assets/data/rules.js");
 const rules = read("database.rules.json");
 
-check("ver.sheet", version.sheet === "0.3.168" && version.sheetBuild === "sheet-playtest-v03168");
-check("ver.dmcc", version.dmcc === "0.2.181" && version.dmccBuild === "dmcc-playtest-v02181");
-check("ver.app", app.includes('APP_VERSION = "0.3.168"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.181"'));
-check("src.rulesUntouched", !rulesJs.includes("0.3.168") && !rulesJs.includes("0.2.181") && !rules.includes("0.3.168") && !rules.includes("gunAllowsTactical") && !rulesJs.includes("No fight card linked"));
+check("ver.sheet", version.sheet === "0.3.169" && version.sheetBuild === "sheet-playtest-v03169");
+check("ver.dmcc", version.dmcc === "0.2.182" && version.dmccBuild === "dmcc-playtest-v02182");
+check("ver.app", app.includes('APP_VERSION = "0.3.169"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.182"'));
+check("src.rulesUntouched", !rulesJs.includes("0.3.169") && !rulesJs.includes("0.2.182") && !rules.includes("0.3.169") && !rules.includes("gunAllowsTactical") && !rulesJs.includes("No fight card linked"));
 
 const noAmmo = app.slice(app.indexOf('var msg = "No ammo for this caliber"'), app.indexOf('var msg = "No ammo for this caliber"') + 500);
 check("src.n51.sheetToastOnly", noAmmo.includes("toast(msg)") && !noAmmo.includes("addLog") && !noAmmo.includes("postChat"));

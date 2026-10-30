@@ -25,11 +25,11 @@ const joinSrc = read("assets/js/dm-join.js");
 const guardSrc = read("assets/js/apply-guard.js");
 const BELT = "Need a gun belt or bandolier for Tactical Reload.";
 
-check("ver.sheet", version.sheet === "0.3.168" && version.sheetBuild === "sheet-playtest-v03168");
-check("ver.dmcc", version.dmcc === "0.2.181" && version.dmccBuild === "dmcc-playtest-v02181");
-check("ver.app", appSrc.includes('APP_VERSION = "0.3.168"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.181"'));
-check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.168") && !read("database.rules.json").includes("0.2.181") && !read("assets/data/rules.js").includes("0.3.168"));
+check("ver.sheet", version.sheet === "0.3.169" && version.sheetBuild === "sheet-playtest-v03169");
+check("ver.dmcc", version.dmcc === "0.2.182" && version.dmccBuild === "dmcc-playtest-v02182");
+check("ver.app", appSrc.includes('APP_VERSION = "0.3.169"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.182"'));
+check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.169") && !read("database.rules.json").includes("0.2.182") && !read("assets/data/rules.js").includes("0.3.169"));
 check("src.noOverride", !appSrc.includes("Load anyway") && !appSrc.includes("tr-warn") && appSrc.includes(BELT));
 check("src.dmCallsSheet", joinSrc.includes('payload.op === "tr"') && joinSrc.includes("app.tacticalReload") && joinSrc.includes("gunBelt: !!c.gunBelt"));
 check("src.cardStamp", guardSrc.includes("feedsTR: !!(b.feedsTR || b.gunBelt)"));

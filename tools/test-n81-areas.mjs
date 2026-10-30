@@ -129,8 +129,8 @@ check("wire.map", map.includes("liveSpellZones") && map.includes("terrainCost") 
 check("wire.ice", map.includes("paintSpellZones") && v2.includes("zonePhase"));
 check("clear.hook", v2.includes("expireSpellZones") && map.includes("clearAllZonesBtn") && map.includes("clearSpellGrid"));
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.168" && ver.dmcc === "0.2.181" && ver.sheetBuild === "sheet-playtest-v03168" && ver.dmccBuild === "dmcc-playtest-v02181");
-check("rules.clean", !rules.includes("0.3.168") && !rules.includes("spell-zones") && !read("database.rules.json").includes("0.3.168"));
+check("ver", ver.sheet === "0.3.169" && ver.dmcc === "0.2.182" && ver.sheetBuild === "sheet-playtest-v03169" && ver.dmccBuild === "dmcc-playtest-v02182");
+check("rules.clean", !rules.includes("0.3.169") && !rules.includes("spell-zones") && !read("database.rules.json").includes("0.3.169"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
