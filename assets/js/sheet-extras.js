@@ -3779,7 +3779,7 @@
     }
     }
     var ZoomGun = root.SSDNSD20Zoom;
-    if (ZoomGun && ZoomGun.beforeDamage) ZoomGun.beforeDamage({ nat: nat, crit: !!(isCrit && !misfired), critMin: critAt, id: gunRollId }).then(finishGunAttack, finishGunAttack);
+    if (ZoomGun && ZoomGun.beforeDamage) ZoomGun.beforeDamage({ nat: nat, crit: !!(isCrit && !misfired), critMin: critAt, id: gunRollId, characterName: (ch() && ch().name) || "" }).then(finishGunAttack, finishGunAttack);
     else finishGunAttack();
   }
 

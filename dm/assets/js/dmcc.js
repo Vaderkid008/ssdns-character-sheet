@@ -807,7 +807,10 @@ async function pushRoll(entry) {
         formula: entry.formula || "", dice: Array.isArray(entry.dice) ? entry.dice : null
       };
       if (entry.attack && window.SSDNSD20Zoom && window.SSDNSD20Zoom.pack) {
-        const zoom = window.SSDNSD20Zoom.pack({ id: entry.id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "" });
+        const zoom = window.SSDNSD20Zoom.pack({
+          id: entry.id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "",
+          characterName: entry.characterName || "", who: entry.who || "", name: entry.name || ""
+        });
         if (zoom) feed.zoom = zoom;
       }
       // One public copy. A roll command as well made the player log the same roll twice.

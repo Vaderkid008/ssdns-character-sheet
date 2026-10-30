@@ -820,7 +820,7 @@
     }
     }
     var ZoomMelee = root.SSDNSD20Zoom;
-    if (ZoomMelee && ZoomMelee.beforeDamage) ZoomMelee.beforeDamage({ nat: nat, crit: !!crit, critMin: critAt, id: meleeRollId }).then(finishMeleeAttack, finishMeleeAttack);
+    if (ZoomMelee && ZoomMelee.beforeDamage) ZoomMelee.beforeDamage({ nat: nat, crit: !!crit, critMin: critAt, id: meleeRollId, characterName: (c && c.name) || "" }).then(finishMeleeAttack, finishMeleeAttack);
     else finishMeleeAttack();
   }
 

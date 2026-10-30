@@ -130,6 +130,8 @@
     var nat = Number(spec.nat);
     if (spec.nat != null && isFinite(nat) && nat >= 1 && nat <= 20) out.nat = Math.round(nat);
     if (spec.crit) out.crit = true;
+    if (spec.who) out.who = String(spec.who).replace(/\s+/g, " ").trim().slice(0, 48);
+    if (spec.id) out.zoomId = String(spec.id).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
     var cm = Number(spec.critMin);
     if (spec.critMin != null && isFinite(cm) && cm >= 2 && cm < 20) out.critMin = Math.round(cm);
     if (Array.isArray(spec.heard)) out.heard = spec.heard.filter(Boolean).map(String).slice(0, 4);
@@ -829,7 +831,8 @@
       id: spec.id || "",
       type: spec.type || "", result: resultOf(spec.result), nat: isFinite(nat) ? nat : null,
       crit: !!spec.crit || resultOf(spec.result) === "crit", critMin: spec.critMin || 20,
-      natural20: nat === 20, natural1: nat === 1, shooter: spec.shooter || "", target: spec.target || ""
+      natural20: nat === 20, natural1: nat === 1, shooter: spec.shooter || "", target: spec.target || "",
+      who: spec.who || spec.characterName || spec.name || ""
     }, extra || {});
   }
 

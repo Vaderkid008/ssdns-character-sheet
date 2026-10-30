@@ -634,7 +634,10 @@
         try { feed.fxReq = root.SSDNSMapFx.request(fxReq); } catch (e) {}
       }
       if (entry.attack && root.SSDNSD20Zoom && root.SSDNSD20Zoom.pack) {
-        var zoom = root.SSDNSD20Zoom.pack({ id: id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "" });
+        var zoom = root.SSDNSD20Zoom.pack({
+          id: id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "",
+          characterName: entry.characterName || "", who: entry.who || "", fromName: feed.fromName || ""
+        });
         if (zoom) feed.zoom = zoom;
       }
       try { await fb.set(fb.ref(state.db, roomPath("tableFeed/" + id)), feed); }

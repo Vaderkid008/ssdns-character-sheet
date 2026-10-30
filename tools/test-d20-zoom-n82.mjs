@@ -100,12 +100,50 @@ const live = on.window.SSDNSD20Zoom.play({ nat: 20, crit: true, critMin: 20, id:
 await new Promise((r) => setTimeout(r, 40));
 const layer = on.window.document.querySelector(".d20-zoom");
 check("zoom.shows", !!layer && layer.getAttribute("aria-label") === "Critical hit");
+check("zoom.word", layer.querySelector(".d20-zoom-word").textContent === "Critical");
+check("zoom.die", !!layer.querySelector(".die-face") && /d20\.webp/.test(layer.querySelector(".die-face").innerHTML));
+var motion = layer.getAttribute("data-motion");
+check("zoom.motion", Z.motions.indexOf(motion) >= 0, motion);
 layer.click();
 await live;
 check("zoom.skipClears", !on.window.document.querySelector(".d20-zoom"));
 const again = on.window.SSDNSD20Zoom.play({ nat: 20, crit: true, id: "live1" });
 await again;
 check("zoom.dedupe", !on.window.document.querySelector(".d20-zoom"));
+
+check("motion.pool", Z.motions.join(",") === "roll,c1,c2,c3");
+const covered = {};
+for (let n = 0; n < 60; n++) covered[Z.pickMotion()] = 1;
+check("motion.covers", covered.roll && covered.c1 && covered.c2 && covered.c3);
+check("sfx.roll", Z.cues.tumble("roll")[0] === "d20-roll-fire" && Z.cues.tumble("roll")[1] === "roll-d20");
+check("sfx.c1", Z.cues.tumble("c1")[0] === "roll-d20" && Z.cues.land("c1", true)[0] === "d20-crit");
+check("sfx.c2", Z.cues.tumble("c2")[0] === "d20-slam" && Z.cues.land("c2", false)[0] === "d20-impact");
+check("sfx.c3", Z.cues.tumble("c3")[0] === "d20-whoosh" && Z.cues.land("roll", false).indexOf("nat1") >= 0);
+check("who.pack", Z.pack({ nat: 20, id: "n", characterName: "Jolene Pike", fromName: "DM" }).who === "Jolene Pike");
+check("who.enemy", Z.pack({ nat: 1, id: "e", who: "Bandit" }).who === "Bandit");
+check("who.id", Z.rollerName({ shooter: "tok_bandit_01" }) === "tok_bandit_01");
+
+const failP = on.window.SSDNSD20Zoom.play({ nat: 1, id: "fail1" });
+await new Promise((r) => setTimeout(r, 30));
+const failLayer = on.window.document.querySelector(".d20-zoom");
+check("zoom.fail", !!failLayer && failLayer.querySelector(".d20-zoom-word").textContent === "Fail" && failLayer.classList.contains("is-fail") && !!failLayer.querySelector(".d20-zoom-crack"));
+if (failLayer) failLayer.click();
+await failP;
+
+on.window.matchMedia = function (q) { return { matches: String(q).indexOf("reduce") >= 0, media: q }; };
+const stillP = on.window.SSDNSD20Zoom.play({ nat: 19, crit: true, critMin: 19, id: "still1" });
+await new Promise((r) => setTimeout(r, 20));
+const still = on.window.document.querySelector(".d20-zoom");
+check("zoom.reduced", !!still && still.getAttribute("data-motion") === "still" && still.classList.contains("is-land") && still.querySelector(".d20-zoom-word").textContent === "Critical");
+if (still) still.click();
+await stillP;
+
+const namedP = on.window.SSDNSD20Zoom.play({ nat: 20, crit: true, id: "who1", characterName: "Jolene Pike" });
+await new Promise((r) => setTimeout(r, 20));
+const named = on.window.document.querySelector(".d20-zoom");
+check("zoom.who", !!named && named.querySelector("[data-zoom-who]").textContent === "Jolene Pike" && !named.querySelector("[data-zoom-who]").hidden);
+if (named) named.click();
+await namedP;
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

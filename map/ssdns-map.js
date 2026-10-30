@@ -1309,13 +1309,14 @@ function fxFromFeed(row) {
   if (ts && Date.now() - ts > 60000) return; /* late replay after a reconnect (60 s leaves room for clock skew) */
   if (row.fx && typeof row.fx === 'object') {
     if (row.from === uid) return; /* drew it locally */
-    startFx(Object.assign({}, row.fx, { id: row.id }), { local: false });
+    startFx(Object.assign({}, row.fx, { id: (row.fx && row.fx.zoomId) || row.id }), { local: false });
     return;
   }
   if (row.fxReq && typeof row.fxReq === 'object' && role === 'dm' && row.from && row.from !== uid) {
     const req = row.fxReq;
     dmFx({
-      id: row.id, type: req.type, result: req.result, target: req.target || (req.self ? row.from : ""), shooter: row.from, sfx: req.sfx,
+      id: row.id, who: (row.zoom && row.zoom.who) || row.characterName || row.fromName || row.who || "",
+      type: req.type, result: req.result, target: req.target || (req.self ? row.from : ""), shooter: row.from, sfx: req.sfx,
       weapon: req.weapon, weaponId: req.weaponId, arrow: req.arrow, nat: req.nat, crit: req.crit, critMin: req.critMin,
       spell: req.spell || "", dmg: req.dmg || "", self: !!req.self || req.target === row.from,
       heard: req.heard === false ? [] : [row.from]

@@ -6678,7 +6678,7 @@ async function enemyStrike(i, preset) {
   const hit = !miss;
   const id = DM.uid("enatk");
   if (window.SSDNSD20Zoom && window.SSDNSD20Zoom.beforeDamage) {
-    await window.SSDNSD20Zoom.beforeDamage({ id: id, nat: nat, crit: nat === 20 && hit, critMin: 20 });
+    await window.SSDNSD20Zoom.beforeDamage({ id: id, nat: nat, crit: nat === 20 && hit, critMin: 20, characterName: row.name || "" });
   }
   let dmg = null;
   if (hit) dmg = DM.parseDice(picked.dice);
@@ -6687,7 +6687,7 @@ async function enemyStrike(i, preset) {
   const weapon = attackName && attackName.toLowerCase() !== String(row.name || "").toLowerCase() ? attackName : "";
   const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + (strikeDie.text ? (" " + strikeDie.text) : "") + " = " + total + " vs AC " + ac + (adj.note ? " (" + adj.note + ")" : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
   playTableSfx(strikeCue(preset || { name: attackName }));
-  mapFx({ id: id, shooter: row.id, target: target.id, result: miss ? "miss" : (nat === 20 ? "crit" : "hit"), nat: nat, crit: nat === 20 && hit,
+  mapFx({ id: id, who: row.name || "", shooter: row.id, target: target.id, result: miss ? "miss" : (nat === 20 ? "crit" : "hit"), nat: nat, crit: nat === 20 && hit,
     weapon: attackName || row.name || "", sfx: strikeCue(preset || { name: attackName }), group: (preset && preset.group) || "",
     gun: !!(preset && (preset.capacity != null || /\d+\s*\/\s*\d+/.test(String(preset.range || "")))), heard: [] });
   await DM.pushRoll({
@@ -7110,7 +7110,7 @@ async function cardStrike(i, n, opts) {
     if (!resolved) atk.jammed = true;
     const misfireId = DM.uid("enatk");
     if (nat === 1 && window.SSDNSD20Zoom && window.SSDNSD20Zoom.beforeDamage) {
-      await window.SSDNSD20Zoom.beforeDamage({ id: misfireId, nat: nat, crit: false, critMin: 20 });
+      await window.SSDNSD20Zoom.beforeDamage({ id: misfireId, nat: nat, crit: false, critMin: 20, characterName: row.name || "" });
     }
     const detail = row.name + " fires " + atk.name + ": natural " + nat + " misfire. The round is spent.";
     if (!resolved || resolved.jammed) playTableSfx("misfire");
@@ -7127,7 +7127,7 @@ async function cardStrike(i, n, opts) {
   const hit = !miss;
   const id = DM.uid("enatk");
   if (window.SSDNSD20Zoom && window.SSDNSD20Zoom.beforeDamage) {
-    await window.SSDNSD20Zoom.beforeDamage({ id: id, nat: nat, crit: nat === 20 && hit, critMin: 20 });
+    await window.SSDNSD20Zoom.beforeDamage({ id: id, nat: nat, crit: nat === 20 && hit, critMin: 20, characterName: row.name || "" });
   }
   let dmg = null;
   if (hit) dmg = DM.parseDice(dice);
@@ -7157,7 +7157,7 @@ async function cardStrike(i, n, opts) {
   else if (coverDis) detail += "\ndisadvantage: Take Cover";
   atk.lastRoll = { id: id, damage: dmg ? dmg.total : null, targetId: target.id, targetName: target.name, hit: hit };
   playTableSfx(strikeCue(atk));
-  mapFx({ id: id, shooter: row.id, target: target.id, result: miss ? "miss" : (nat === 20 ? "crit" : "hit"), nat: nat, crit: nat === 20 && hit,
+  mapFx({ id: id, who: row.name || "", shooter: row.id, target: target.id, result: miss ? "miss" : (nat === 20 ? "crit" : "hit"), nat: nat, crit: nat === 20 && hit,
     weapon: atk.name || "", weaponId: atk.weapon || atk.id || "", group: atk.group || "", scatter: !!atk.scatter, properties: atk.properties || "",
     gun: atk.capacity != null, kind: atk.kind || "", dmgType: atk.damageType || "", sfx: strikeCue(atk), heard: [DM.state.uid] });
   /* 0.3.58: the strike cue opens the anchor first; the result follows it. */
