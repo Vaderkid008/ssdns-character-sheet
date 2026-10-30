@@ -372,7 +372,7 @@ function stripGuns(row, i) {
       const locked = locks.some((ix) => Number(ix) === k);
       const full = !locked && (flags ? !!flags[k] : k < fullN);
       const spinHole = spins && k > 0;
-      const holeAttrs = spinHole ? String(attrs).replace(/data-cyl-fire=/g, "data-cyl-spin=") : attrs;
+      const holeAttrs = spinHole ? String(attrs).replace(/data-cyl-fire=/g, "data-cyl-spin=").replace(/data-strip-fire=/g, "data-strip-spin=") : attrs;
       const label = spinHole ? ("Spin chamber " + (k + 1) + " under the hammer") : ((locked ? "Locked chamber" : "Chamber") + " " + (k + 1) + (spins && k === 0 ? ", under the hammer" : ""));
       html += `<button type="button" class="chamber-dot${locked ? " locked" : (full ? " full" : "")}${spins && k === 0 ? " hammer" : ""}" ${holeAttrs} data-gun-k="${k}" aria-label="${label}">${locked ? "X" : ""}</button>`;
     }
@@ -394,7 +394,11 @@ function stripGuns(row, i) {
     const loaded = chambers.length ? chambers.filter(Boolean).length : (Number(g.loaded) || 0);
     const pid = esc(row.playerId || row.id || "");
     const sheetI = g.index != null && g.index !== "" ? g.index : gi;
-    return `<span class="cylinder-row">${esc(g.name || "Gun")} ${dots(cap, loaded, `data-strip-fire="${pid}" data-gun-i="${sheetI}"`, chambers.length ? chambers : null, g)}</span>`;
+    const tube = window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.kind && window.SSDNSAmmoDisplay.kind({
+      action: g.action || "", name: g.name || "", weapon: g.weapon || "", ammoDisplay: g.ammoDisplay || "", group: g.group || "", ammo: g.ammo || ""
+    }) === "tube";
+    const cycle = tube ? `<button type="button" data-strip-cycle="${pid}" data-gun-i="${sheetI}" title="Cycle (free): eject the chambered round onto the ground and chamber the next. Not back into the belt.">Cycle</button>` : "";
+    return `<span class="cylinder-row">${esc(g.name || "Gun")} ${dots(cap, loaded, `data-strip-fire="${pid}" data-gun-i="${sheetI}"`, chambers.length ? chambers : null, g)} ${cycle}</span>`;
   }).join("");
 }
 function chamberPicture(list) {
@@ -6672,13 +6676,16 @@ async function enemyStrike(i, preset) {
   if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
   const miss = nat === 1 || total < ac;
   const hit = !miss;
+  const id = DM.uid("enatk");
+  if (window.SSDNSD20Zoom && window.SSDNSD20Zoom.beforeDamage) {
+    await window.SSDNSD20Zoom.beforeDamage({ id: id, nat: nat, crit: nat === 20 && hit, critMin: 20 });
+  }
   let dmg = null;
   if (hit) dmg = DM.parseDice(picked.dice);
   const bonusTxt = (picked.bonus >= 0 ? "+" : "") + picked.bonus;
   const attackName = (preset && preset.name) || String(row.attacks || "").trim();
   const weapon = attackName && attackName.toLowerCase() !== String(row.name || "").toLowerCase() ? attackName : "";
   const detail = row.name + " attacks " + (target.name || "someone") + ": " + nat + bonusTxt + (strikeDie.text ? (" " + strikeDie.text) : "") + " = " + total + " vs AC " + ac + (adj.note ? " (" + adj.note + ")" : "") + (miss ? " → MISS" : " → HIT") + (dmg ? " · " + dmg.detail + " = " + dmg.total : "");
-  const id = DM.uid("enatk");
   playTableSfx(strikeCue(preset || { name: attackName }));
   mapFx({ id: id, shooter: row.id, target: target.id, result: miss ? "miss" : (nat === 20 ? "crit" : "hit"), nat: nat, crit: nat === 20 && hit,
     weapon: attackName || row.name || "", sfx: strikeCue(preset || { name: attackName }), group: (preset && preset.group) || "",
@@ -7101,9 +7108,13 @@ async function cardStrike(i, n, opts) {
   if (atk.capacity != null) enemySpendRound(atk, chamberPick);
   if (misfire) {
     if (!resolved) atk.jammed = true;
+    const misfireId = DM.uid("enatk");
+    if (nat === 1 && window.SSDNSD20Zoom && window.SSDNSD20Zoom.beforeDamage) {
+      await window.SSDNSD20Zoom.beforeDamage({ id: misfireId, nat: nat, crit: false, critMin: 20 });
+    }
     const detail = row.name + " fires " + atk.name + ": natural " + nat + " misfire. The round is spent.";
     if (!resolved || resolved.jammed) playTableSfx("misfire");
-    await publishCardRoll(row, detail, nat, { attack: true, nat: nat });
+    await publishCardRoll(row, detail, nat, { id: misfireId, attack: true, nat: nat });
     const spentMisfire = await commitEnemyAttack(row, atk, opts);
     await saveRemoteTable();
     renderFight();
@@ -7114,6 +7125,10 @@ async function cardStrike(i, n, opts) {
   const total = nat + bonus;
   const miss = nat === 1 || total < ac;
   const hit = !miss;
+  const id = DM.uid("enatk");
+  if (window.SSDNSD20Zoom && window.SSDNSD20Zoom.beforeDamage) {
+    await window.SSDNSD20Zoom.beforeDamage({ id: id, nat: nat, crit: nat === 20 && hit, critMin: 20 });
+  }
   let dmg = null;
   if (hit) dmg = DM.parseDice(dice);
   const bonusTxt = signed(bonus);
@@ -7140,7 +7155,6 @@ async function cardStrike(i, n, opts) {
   if (rangeShot && rangeShot.note && rangeShot.disadvantage) detail += "\n" + rangeShot.note;
   if (rangeAdv) detail += "\n" + (coverDis ? "ADV (DM forced) cancels Take Cover disadvantage" : (rangeShot.note || "ADV: DM forced advantage"));
   else if (coverDis) detail += "\ndisadvantage: Take Cover";
-  const id = DM.uid("enatk");
   atk.lastRoll = { id: id, damage: dmg ? dmg.total : null, targetId: target.id, targetName: target.name, hit: hit };
   playTableSfx(strikeCue(atk));
   mapFx({ id: id, shooter: row.id, target: target.id, result: miss ? "miss" : (nat === 20 ? "crit" : "hit"), nat: nat, crit: nat === 20 && hit,
@@ -9136,7 +9150,7 @@ function wireClicks() {
       handleDmReaction(rowId, act, spellName, spellLevel);
       return;
     }
-    const t = e.target.closest && e.target.closest("[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-dm-move],[data-dm-act],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-cyl-spin],[data-row-atk],[data-strip-fire],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
+    const t = e.target.closest && e.target.closest("[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-dm-move],[data-dm-act],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-cyl-spin],[data-row-atk],[data-strip-fire],[data-strip-spin],[data-strip-cycle],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
     if (!t) {
       if (dmReactMenu && !(e.target && e.target.closest && e.target.closest("[data-dm-react-menu]"))) closeDmReactionMenu();
       return;
@@ -9276,6 +9290,18 @@ function wireClicks() {
       };
       if (rawK !== "") shot.chamber = Number(rawK);
       SSDNSMapFight.attack(shot);
+      return;
+    }
+    if (t.hasAttribute("data-strip-spin") || t.hasAttribute("data-strip-cycle")) {
+      const pid = t.getAttribute("data-strip-spin") || t.getAttribute("data-strip-cycle");
+      const row = (fight.order || []).find((r) => r && (r.playerId === pid || r.id === pid));
+      if (!row || row.kind !== "player" || !row.dmActsAs) { DM.toast("The player acts for themselves"); return; }
+      const index = Number(t.getAttribute("data-gun-i"));
+      const payload = t.hasAttribute("data-strip-cycle")
+        ? { op: "cycle", index: index }
+        : { op: "spin", index: index, chamber: Number(t.getAttribute("data-gun-k") || t.getAttribute("data-k")) };
+      DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+      if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
       return;
     }
     if (t.hasAttribute("data-strip-fire")) {
@@ -11588,6 +11614,87 @@ function mapSpellIndex(row, spellId) {
     return String(s.id || "") === wid || String(s.name || "") === wid;
   });
 }
+/* N82: DM acting for a player. Free, same sheet handlers as the player's own Spin / Cycle.
+   A copy of the card is not the gun. Enemies still spin and cycle on the live attack row. */
+async function mapGunSpin(detail) {
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No fight card linked"); return false; }
+  const row = fight.order[i];
+  const k = Number(detail && detail.chamber);
+  if (!(k > 0)) return false;
+  if (row.kind === "player") {
+    if (!row.dmActsAs) { DM.toast("The player acts for themselves"); return false; }
+    ensurePlayerAttacks(row);
+    const n = mapAttackIndex(row, detail && detail.weaponId);
+    const atk = row.card && row.card.attacks && row.card.attacks[n];
+    if (!atk) { DM.toast("No weapon"); return false; }
+    if (!cylinderGun(atk)) { DM.toast("This gun doesn't spin."); return false; }
+    const pid = row.playerId || row.id;
+    const payload = { op: "spin", index: sheetSlot(atk, n), chamber: k };
+    await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+    if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+    ensurePlayerAttacks(row);
+    renderFight();
+    DM.toast("Spun chamber " + (k + 1) + " under the hammer.");
+    return true;
+  }
+  ensureCombatantCard(row);
+  const n = mapAttackIndex(row, detail && detail.weaponId);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk || !cylinderGun(atk)) { DM.toast("This gun doesn't spin."); return false; }
+  const flags = Array.isArray(atk.chambers) && atk.chambers.length ? atk.chambers.slice() : enemyVisualFlags(atk);
+  const AD = window.SSDNSAmmoDisplay;
+  if (!AD || !AD.spinTo || k >= flags.length) return false;
+  atk.chambers = AD.spinTo(flags, k);
+  if (Array.isArray(atk.lockedChambers)) atk.lockedChambers = AD.rotateIndexes(atk.lockedChambers, k, atk.chambers.length);
+  atk.loaded = atk.chambers.filter(Boolean).length;
+  rememberWeapon(row, atk);
+  await saveRemoteTable();
+  renderFight();
+  DM.toast("Spun chamber " + (k + 1) + " under the hammer.");
+  return true;
+}
+async function mapGunCycle(detail) {
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No fight card linked"); return false; }
+  const row = fight.order[i];
+  if (row.kind === "player") {
+    if (!row.dmActsAs) { DM.toast("The player acts for themselves"); return false; }
+    ensurePlayerAttacks(row);
+    const n = mapAttackIndex(row, detail && detail.weaponId);
+    const atk = row.card && row.card.attacks && row.card.attacks[n];
+    if (!atk) { DM.toast("No weapon"); return false; }
+    const spec = { action: atk.action || "", name: atk.name || "", weapon: atk.weapon || "", group: atk.group || "", ammo: atk.ammoName || atk.ammo || "", ammoDisplay: atk.ammoDisplay || "" };
+    if (!(window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.kind && window.SSDNSAmmoDisplay.kind(spec) === "tube")) {
+      DM.toast("Cycle is for a lever or tube gun.");
+      return false;
+    }
+    const pid = row.playerId || row.id;
+    const payload = { op: "cycle", index: sheetSlot(atk, n) };
+    await DM.pushCommand({ type: "gun", to: pid, payload: payload, from: DM.state.uid });
+    if (DM.state.demo && DM.applyDemoGun) DM.applyDemoGun(pid, payload);
+    ensurePlayerAttacks(row);
+    renderFight();
+    DM.toast("Cycled. The chambered round is on the ground, not in a belt.");
+    return true;
+  }
+  ensureCombatantCard(row);
+  const n = mapAttackIndex(row, detail && detail.weaponId);
+  const atk = row.card && row.card.attacks && row.card.attacks[n];
+  if (!atk) { DM.toast("No weapon"); return false; }
+  const flags = Array.isArray(atk.chambers) ? atk.chambers.slice() : enemyVisualFlags(atk);
+  const AD = window.SSDNSAmmoDisplay;
+  if (!AD || !AD.cycleEject) { DM.toast("Nothing chambered."); return false; }
+  const ejected = AD.cycleEject(flags);
+  if (!ejected.ok) { DM.toast("Nothing chambered. Cycle does nothing."); return false; }
+  atk.chambers = ejected.chambers;
+  atk.loaded = ejected.chambers.filter(Boolean).length;
+  rememberWeapon(row, atk);
+  await saveRemoteTable();
+  renderFight();
+  DM.toast("Cycled. The chambered round is on the ground, not in a belt.");
+  return true;
+}
 async function mapGunChamber(detail) {
   const i = mapFightIndex(detail);
   if (i < 0) { DM.toast("No fight card linked"); return false; }
@@ -12321,6 +12428,8 @@ window.SSDNSMapFight = {
     return !!rolled;
   },
   chamber(detail) { return mapGunChamber(detail); },
+  spin(detail) { return mapGunSpin(detail); },
+  cycle(detail) { return mapGunCycle(detail); },
   jam(detail) { return mapEnemyGunTool(detail, "jam"); },
   lock(detail) { return mapEnemyGunTool(detail, "lock"); },
   targets(detail) {

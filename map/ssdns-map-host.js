@@ -828,6 +828,8 @@
       "drawer:deathsave": "deathsave",
       "drawer:undo": "undo",
       "drawer:chamber": "chamber",
+      "drawer:spin": "spin",
+      "drawer:cycle": "cycle",
       "drawer:down": "down",
       "drawer:act": "act",
       "drawer:cover": "cover",

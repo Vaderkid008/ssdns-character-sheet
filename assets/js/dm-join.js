@@ -633,6 +633,10 @@
       if (fxReq && !entry.awaitDm && root.SSDNSMapFx && root.SSDNSMapFx.request) {
         try { feed.fxReq = root.SSDNSMapFx.request(fxReq); } catch (e) {}
       }
+      if (entry.attack && root.SSDNSD20Zoom && root.SSDNSD20Zoom.pack) {
+        var zoom = root.SSDNSD20Zoom.pack({ id: id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "" });
+        if (zoom) feed.zoom = zoom;
+      }
       try { await fb.set(fb.ref(state.db, roomPath("tableFeed/" + id)), feed); }
       catch (err) { console.warn("[DM Join] table feed", err); }
     }
@@ -2147,7 +2151,13 @@
         if (payload.dirty != null) g.dirty = !!payload.dirty;
         if (payload.misStreak != null) g.misStreak = payload.misStreak;
       });
-    }     else if (payload.op === "fire" && root.SSDNSGunRoll) {
+    } else if (payload.op === "spin" && app.spinCylinder) {
+      app.spinCylinder(payload.index, payload.chamber != null ? payload.chamber : payload.k);
+      return;
+    } else if (payload.op === "cycle" && app.cycleTube) {
+      app.cycleTube(payload.index);
+      return;
+    } else if (payload.op === "fire" && root.SSDNSGunRoll) {
       if (app.setAttackMode && (payload.mode === "adv" || payload.mode === "dis")) app.setAttackMode(payload.index, payload.mode);
       if (payload.targetId != null && payload.targetId !== "" && root.document) {
         var aim = root.document.querySelector("#atkTarget");

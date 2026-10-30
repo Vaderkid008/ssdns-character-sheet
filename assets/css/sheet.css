@@ -660,7 +660,7 @@ code { font-size: 12px; background: rgba(58,38,22,.1); padding: 0 3px; }
 .hp-quick input { width: 88px; min-height: 44px; text-align: center; }
 .hp.hp-down { box-shadow: inset 0 0 0 2px #a3301f; }
 .cond-banner { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.cond-chip { font-family: var(--label); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; border: 1px solid #a3301f; color: #a3301f; border-radius: 99px; padding: 4px 8px; }
+.cond-chip { font-family: var(--label); font-size: 17px; letter-spacing: .06em; text-transform: uppercase; border: 1px solid #a3301f; color: #a3301f; border-radius: 99px; padding: 6px 14px; }
 .hp-notice { margin-top: 6px; padding: 8px 10px; background: #2a2218; color: var(--parch, #efe2c2); border-radius: 4px; }
 .page-title { font-family: var(--head); font-weight: 400; margin: 0 0 8px; }
 .store-row, .log-item { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -909,7 +909,7 @@ details.phone-fold > summary { cursor: pointer; font-family: var(--head); font-s
 .status-chips .faction { background: #2f5f73; color: #fff; }
 .status-chips .rage { background: #8a3b12; color: #fff; }
 .status-chips .cover { background: #3d6b4f; color: #fff; }
-.status-chips .cond { background: #6e2430; color: #fff; }
+.status-chips .chip.cond, .status-chips .cond { background: #6e2430; color: #fff; font-size: 17px; padding: 6px 14px; gap: 5px; }
 .wiz-ref { max-height: 80vh; overflow: auto; width: min(40rem, 92vw); }
 .wiz-chart { width: 100%; border-collapse: collapse; margin: 8px 0 12px; }
 .wiz-chart th, .wiz-chart td { border: 1px solid var(--edge); padding: 4px 8px; text-align: left; vertical-align: top; }
@@ -1463,7 +1463,7 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
 #portraitConds { position: absolute; top: 6px; left: 6px; z-index: 3; display: flex; flex-wrap: wrap; gap: 4px; max-width: calc(100% - 12px); pointer-events: auto; }
 #dollConds { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 0 0 6px; }
 .cond-badges[hidden] { display: none !important; }
-.cond-badge { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(20,12,6,.86); border: 1.5px solid #e8dcc8; font-size: 16px; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,.4); cursor: help; }
+.cond-badge { display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: rgba(20,12,6,.86); border: 2px solid #e8dcc8; font-size: 24px; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,.4); cursor: help; }
 .chip.cond .cond-sym { margin-right: 4px; }
 /* L0200: Wrecked Caster Gun line + the no-shells note on a Caster Gun card */
 .gun-wrecked { display: block; margin: 4px 0 2px; padding: 3px 8px; border: 1px solid #8b1e1e; border-radius: 4px; background: #f6e0d8; color: #7a1414; font-weight: 600; font-size: .85em; }

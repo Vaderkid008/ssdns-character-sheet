@@ -18,9 +18,9 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.168" && version.sheetBuild === "sheet-playtest-v03168");
-check("ver.dmcc", version.dmcc === "0.2.181" && version.dmccBuild === "dmcc-playtest-v02181");
-check("ver.rules", !read("assets/data/rules.js").includes("0.3.168") && !read("assets/data/rules.js").includes("0.2.181") && !read("database.rules.json").includes("0.3.168"));
+check("ver.sheet", version.sheet === "0.3.169" && version.sheetBuild === "sheet-playtest-v03169");
+check("ver.dmcc", version.dmcc === "0.2.182" && version.dmccBuild === "dmcc-playtest-v02182");
+check("ver.rules", !read("assets/data/rules.js").includes("0.3.169") && !read("assets/data/rules.js").includes("0.2.182") && !read("database.rules.json").includes("0.3.169"));
 
 const html = read("index.html").replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
 const dom = new JSDOM(html, { url: "http://127.0.0.1:8765/index.html", pretendToBeVisual: true, runScripts: "dangerously" });

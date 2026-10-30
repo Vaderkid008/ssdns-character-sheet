@@ -24,11 +24,11 @@ const host = read("map/ssdns-map-host.js");
 const rules = read("database.rules.json");
 const rulesJs = read("assets/data/rules.js");
 
-check("ver.sheet", version.sheet === "0.3.168" && version.sheetBuild === "sheet-playtest-v03168");
-check("ver.dmcc", version.dmcc === "0.2.181" && version.dmccBuild === "dmcc-playtest-v02181");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.168"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.181"'));
-check("src.rulesUntouched", !rulesJs.includes("0.3.168") && !rulesJs.includes("enemyGunJam") && !rules.includes("0.3.168") && !rules.includes("drawer:jam"));
+check("ver.sheet", version.sheet === "0.3.169" && version.sheetBuild === "sheet-playtest-v03169");
+check("ver.dmcc", version.dmcc === "0.2.182" && version.dmccBuild === "dmcc-playtest-v02182");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.169"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.182"'));
+check("src.rulesUntouched", !rulesJs.includes("0.3.169") && !rulesJs.includes("enemyGunJam") && !rules.includes("0.3.169") && !rules.includes("drawer:jam"));
 
 check("src.strip", v2.includes('if (row.kind !== "player")') && !v2.includes('if (row.kind === "enemy") {\n    const list = (row.card && row.card.attacks'));
 check("src.chamberForward", v2.includes("strikeOpts.chamber") && v2.includes("freeOpts.chamber") && v2.includes("shot.chamber = Number(rawK)"));
@@ -55,6 +55,8 @@ function makeSandbox() {
   };
   sandbox.globalThis = sandbox;
   sandbox.window = sandbox;
+  sandbox.addEventListener = () => {};
+  sandbox.removeEventListener = () => {};
   const stored = {};
   sandbox.localStorage = {
     getItem(k) { return Object.prototype.hasOwnProperty.call(stored, k) ? stored[k] : null; },

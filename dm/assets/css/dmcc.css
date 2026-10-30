@@ -420,8 +420,8 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .detail-id { display: flex; gap: 12px; align-items: center; }
 .cond-row, .cond-picks { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .cond-chip {
-  font-family: var(--label); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
-  border: 1px solid var(--warn); color: var(--warn); border-radius: 99px; padding: 3px 8px;
+  font-family: var(--label); font-size: 17px; letter-spacing: .06em; text-transform: uppercase;
+  border: 1px solid var(--warn); color: var(--warn); border-radius: 99px; padding: 6px 14px;
 }
 .pcard.downed { animation: downed 1s steps(2, end) infinite; border-color: var(--danger); }
 @keyframes downed {
@@ -650,6 +650,7 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
 .status-chips .chip, .status-chips .status { border-radius: 999px; padding: 2px 8px; font-size: 12px; }
 .status-chips .faction { background: #2f5f73; color: #fff; }
 .status-chips .cond, .status-chips .status-down { background: #6e2430; color: #fff; }
+.status-chips .chip.cond, .status-chips .cond { font-size: 17px; padding: 6px 14px; }
 .status-chips .status-bloodied { background: #8a3b12; color: #fff; }
 .status-chips .status-hurt { background: #a36b2a; color: #fff; }
 .status-chips .status-unhurt { background: #3d6b4f; color: #fff; }
@@ -1111,7 +1112,7 @@ select:-webkit-autofill {
 #panel-fight .turn-line .tl-name { flex: 0 1 auto; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #panel-fight .turn-line .tl-hp { flex: none; font-family: var(--label); font-size: 12px; color: #4a2e12; }
 #panel-fight .turn-line .status-chips { margin-top: 0; flex-wrap: nowrap; }
-#panel-fight .turn-line .tl-conds { display: inline-flex; gap: 2px; font-size: 14px; }
+#panel-fight .turn-line .tl-conds { display: inline-flex; gap: 4px; font-size: 20px; align-items: center; }
 #panel-fight .turn-line .tl-more { font-size: 11px; font-weight: 700; padding: 1px 5px; border-radius: 999px; background: rgba(0,0,0,.12); }
 #panel-fight .turn-line .tl-caret { margin-left: auto; font-size: 12px; transition: transform .15s; }
 #panel-fight .turn-fold[open] > .turn-line { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
@@ -1122,6 +1123,9 @@ select:-webkit-autofill {
   #panel-fight .turn-line .status-chips { flex-wrap: wrap; }
 }
 #panel-fight .turn-line .status-chips .chip { min-height: 0; height: auto; padding: 2px 8px; line-height: 1.2; font-size: 11px; display: inline-block; white-space: nowrap; }
+#panel-fight .turn-line .status-chips .chip.cond,
+#panel-fight .fight-portrait .status-chips .chip.cond,
+#turnStrip .status-chips .chip.cond { font-size: 17px; padding: 6px 14px; height: auto; line-height: 1.2; }
 /* turn order PR 1 (T2 / ruling 10): the current combatant's Action / Bonus / Reaction markers on the focus card */
 .dm-turn-markers { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; flex-wrap: wrap; }
 .dm-turn-markers .pip-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b5438; margin-right: 2px; }

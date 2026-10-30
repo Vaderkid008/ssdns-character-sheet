@@ -115,8 +115,8 @@ check("wire.dm", v2.includes("adoptCastZone") && v2.includes("zonePhase") && v2.
 check("wire.html", read("index.html").includes("spell-zones.js") && read("dm/index.html").includes("spell-zones.js"));
 check("aim.family", map.includes("needsAim") && /area\.shape === \"wall\"/.test(map));
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.168" && ver.dmcc === "0.2.181" && ver.sheetBuild === "sheet-playtest-v03168" && ver.dmccBuild === "dmcc-playtest-v02181");
-check("rules.clean", !rules.includes("0.3.168") && !rules.includes("spell-zones") && !rulesDb.includes("0.3.168") && !rulesDb.includes("0.2.181"));
+check("ver", ver.sheet === "0.3.169" && ver.dmcc === "0.2.182" && ver.sheetBuild === "sheet-playtest-v03169" && ver.dmccBuild === "dmcc-playtest-v02182");
+check("rules.clean", !rules.includes("0.3.169") && !rules.includes("spell-zones") && !rulesDb.includes("0.3.169") && !rulesDb.includes("0.2.182"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

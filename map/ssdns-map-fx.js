@@ -150,6 +150,8 @@
     var n = Number(info.nat);
     if (info.nat != null && isFinite(n) && n >= 1 && n <= 20) r.nat = Math.round(n);
     if (info.crit) r.crit = true;
+    var cm = Number(info.critMin);
+    if (info.critMin != null && isFinite(cm) && cm >= 2 && cm <= 20) r.critMin = Math.round(cm);
     return r;
   }
 
@@ -824,6 +826,7 @@
     spec = spec || {};
     var nat = spec.nat != null ? Number(spec.nat) : null;
     return Object.assign({
+      id: spec.id || "",
       type: spec.type || "", result: resultOf(spec.result), nat: isFinite(nat) ? nat : null,
       crit: !!spec.crit || resultOf(spec.result) === "crit", critMin: spec.critMin || 20,
       natural20: nat === 20, natural1: nat === 1, shooter: spec.shooter || "", target: spec.target || ""
