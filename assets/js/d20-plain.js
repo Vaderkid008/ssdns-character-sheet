@@ -11,9 +11,6 @@
 
   var D_DEFAULT = 4;
   var LAND_AT = 2.85;
-  var SPIN_END = 2.1;
-  var OVER = 2.62;
-  var SETTLE = 3.2;
   var HOLD_AFTER = 0.7;
   var seen = {};
   var openSkip = null;
@@ -35,56 +32,51 @@
     } catch (e) { return false; }
   }
 
-  /* Pose is a pure function of t. Times scale with D (4s is the natural C2 ref).
-     Number text and opacity stay empty until land. */
+  function seg(t, a, b) { return clamp((t - a) / (b - a), 0, 1); }
+  function eio(k) { return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; }
+  function eoc(k) { return 1 - Math.pow(1 - k, 3); }
+  function eiq(k) { return k * k; }
+  function mix(a, b, k) {
+    k = clamp(k, 0, 1);
+    return [0, 1, 2].map(function (i) { return Math.round(lerp(a[i], b[i], k)); });
+  }
+  /* Die curves from the 4s C2 ref (same beat for plain, crit C2, and FAIL C2).
+     Plain keeps the number off until land. FAIL C2's extra look is c2FailLook. */
+  function c2Motion(t, k, dir) {
+    var os = 2.1 * k;
+    var peak = 2.62 * k;
+    var land = LAND_AT * k;
+    var u = clamp((land > 0 ? t / land : 1), 0, 1);
+    var rot = dir * 1800 * (1 - Math.pow(1 - u, 2.5));
+    var scale = 0.3;
+    var y = 0;
+    if (t < os) scale = lerp(0.3, 0.86, eio(seg(t, 0, os)) * 0.85 + seg(t, 0, os) * 0.15);
+    else if (t < peak) scale = lerp(0.86, 1.34, eoc(seg(t, os, peak)));
+    else if (t < land) scale = lerp(1.34, 0.88, eiq(seg(t, peak, land)));
+    else {
+      var d = (t - land) / k;
+      scale = 1 - 0.12 * Math.exp(-7 * d) * Math.cos(17 * d);
+    }
+    if (t < os) y = 0;
+    else if (t < peak) y = -16 * eoc(seg(t, os, peak));
+    else if (t < land) y = lerp(-16, 6, eiq(seg(t, peak, land)));
+    else {
+      var d2 = (t - land) / k;
+      y = 6 * Math.exp(-8 * d2) * Math.cos(15 * d2);
+    }
+    var tb = t / k;
+    var blur = tb < 1.5 ? lerp(9, 4, seg(tb, 0, 1.5)) : lerp(4, 0, eoc(seg(tb, 1.5, 2.45)));
+    return { rot: rot, scale: scale, y: y, blur: Math.max(0, blur), land: land };
+  }
   function c2Frame(t, spec) {
     spec = spec || {};
     var D = Number(spec.D);
     if (!isFinite(D) || D <= 0) D = D_DEFAULT;
     var k = D / D_DEFAULT;
-    var spinEnd = SPIN_END * k;
-    var over = OVER * k;
-    var land = LAND_AT * k;
-    var settle = SETTLE * k;
-    var end = D_DEFAULT * k;
     var dir = spec.dir === -1 ? -1 : 1;
     var value = spec.value != null ? spec.value : spec.nat;
-    var rot = 0;
-    var scale = 0.3;
-    var y = 0;
-    var blur = 9;
-    if (t > 0 && t < spinEnd) {
-      var u = t / spinEnd;
-      var e = 1 - Math.pow(1 - u, 2.6);
-      rot = dir * 1800 * e;
-      scale = lerp(0.3, 0.86, e);
-      blur = lerp(9, 0, e);
-    } else if (t >= spinEnd && t < over) {
-      var u2 = (t - spinEnd) / (over - spinEnd);
-      var e2 = u2 * u2;
-      rot = dir * 1800;
-      scale = lerp(0.86, 1.34, e2);
-      y = lerp(0, -16, e2);
-      blur = 0;
-    } else if (t >= over && t < land) {
-      var u3 = (t - over) / (land - over);
-      var e3 = u3 * u3;
-      rot = dir * 1800;
-      scale = lerp(1.34, 0.88, e3);
-      y = lerp(-16, 0, e3);
-      blur = 0;
-    } else if (t >= land && t < settle) {
-      var u4 = (t - land) / (settle - land);
-      rot = dir * 1800;
-      scale = lerp(0.88, 1, 1 - Math.pow(1 - u4, 2)) + 0.03 * Math.exp(-5 * u4) * Math.sin(u4 * 12);
-      y = 0;
-      blur = 0;
-    } else if (t >= settle) {
-      rot = dir * 1800;
-      scale = 1;
-      y = 0;
-      blur = 0;
-    }
+    var motion = c2Motion(t, k, dir);
+    var land = motion.land;
     var show = t >= land;
     var stampU = show ? clamp((t - land) / (0.34 * k), 0, 1) : 0;
     var stamp = 1 - Math.pow(1 - stampU, 3);
@@ -92,18 +84,103 @@
     if (show && value != null && value !== "") text = String(value);
     return {
       t: t,
-      D: end,
+      D: D_DEFAULT * k,
       land: land,
-      end: end,
-      rot: rot,
-      scale: scale,
-      y: y,
-      blur: blur,
+      end: D_DEFAULT * k,
+      rot: motion.rot,
+      scale: motion.scale,
+      y: motion.y,
+      blur: motion.blur,
       showNum: show,
       text: text,
       numOpacity: show ? stamp : 0,
       numScale: show ? lerp(1.45, 1, stamp) : 1.45,
       spinning: t < land
+    };
+  }
+  /* FAIL C2 twin. Same die curves. Land is B1 crack + B3 plum smoke, not forge.
+     The 1 reads faint rose in the overshoot, then fades rose → bone-grey.
+     Crack starts 0.04s after impact, five branches, 45ms apart, 0.26s each. */
+  function ringAt(t, start, dur, s0, s1, op) {
+    var rk = seg(t, start, start + dur);
+    if (t < start || rk >= 1) return { opacity: 0, scale: s0 };
+    var e = 1 - Math.pow(1 - rk, 2.6);
+    return { opacity: op * (1 - rk), scale: lerp(s0, s1, e) };
+  }
+  function c2FailLook(t, spec) {
+    spec = spec || {};
+    var D = Number(spec.D);
+    if (!isFinite(D) || D <= 0) D = D_DEFAULT;
+    var k = D / D_DEFAULT;
+    var dir = spec.dir === -1 ? -1 : 1;
+    var motion = c2Motion(t, k, dir);
+    var land = motion.land;
+    var fade = 3.75 * k;
+    var total = D_DEFAULT * k;
+    var npre = seg(t, 2.25 * k, 2.7 * k) * 0.5;
+    var numOpacity = npre;
+    var numColor = "#b88a8e";
+    var numScale = 1;
+    if (t >= land) {
+      var ne = eoc(seg(t, land, land + 0.3 * k));
+      var fadeK = seg(t, land + 0.45 * k, fade);
+      numOpacity = lerp(0.55, 1, ne);
+      numColor = "rgb(" + mix([231, 160, 160], [196, 184, 170], fadeK * 0.8).join(",") + ")";
+      numScale = lerp(1.1, 1, ne);
+    }
+    var cracks = [];
+    for (var i = 0; i < 5; i++) {
+      var st = land + (0.04 + i * 0.045) * k;
+      var ck = eoc(seg(t, st, st + 0.26 * k));
+      cracks.push(t < st ? 1 : 1 - ck);
+    }
+    var sagE = 1 - Math.pow(1 - seg(t, land + 0.12 * k, land + 0.82 * k), 2.2);
+    var dull = eoc(seg(t, land, land + 0.5 * k));
+    var shake = [0, 0];
+    var sd = (t - land) / k;
+    if (sd >= 0 && sd <= 0.3) {
+      var mag = 9 * Math.pow(1 - sd / 0.3, 2);
+      shake = [mag * Math.sin(sd * 71 + 1.3) * Math.cos(sd * 33), mag * Math.cos(sd * 61 + 0.4) * Math.sin(sd * 47 + 2)];
+    }
+    var wk = seg(t, land + 0.16 * k, land + 0.72 * k);
+    var wordOpacity = 0;
+    var wordY = -18;
+    var tracking = 0.55;
+    if (wk > 0) {
+      var w1 = wk < 0.7 ? eoc(wk / 0.7) : 1;
+      var w2 = wk < 0.7 ? 0 : eoc((wk - 0.7) / 0.3);
+      wordOpacity = w1;
+      wordY = wk < 0.7 ? lerp(-18, 4, w1) : lerp(4, 0, w2);
+      tracking = wk < 0.7 ? lerp(0.55, 0.3, w1) : 0.3;
+    }
+    return {
+      rot: motion.rot,
+      scale: motion.scale,
+      y: motion.y,
+      blur: motion.blur,
+      land: land,
+      numOpacity: numOpacity,
+      numColor: numColor,
+      numScale: numScale,
+      showNum: numOpacity > 0.001,
+      text: numOpacity > 0.001 ? "1" : "",
+      cracks: cracks,
+      sagR: -4 * sagE,
+      sagY: 8 * sagE,
+      shake: shake,
+      wordOpacity: wordOpacity,
+      wordY: wordY,
+      tracking: tracking,
+      bright: t < land ? 1 : lerp(1, 0.78, dull),
+      sat: t < land ? 1 : lerp(1, 0.7, dull),
+      vig: t < land ? 0.12 * seg(t, 2.1 * k, land) : lerp(0.12, 0.85, eoc(seg(t, land, land + 0.7 * k))),
+      content: 1 - eio(seg(t, fade, total)),
+      rings: [
+        ringAt(t, land, 0.6 * k, 0.35, 2.3, 0.8),
+        ringAt(t, land + 0.08 * k, 0.65 * k, 0.3, 1.8, 0.7),
+        ringAt(t, land, 0.5 * k, 0.5, 1.7, 0.9)
+      ],
+      forge: false
     };
   }
 
@@ -325,6 +402,7 @@
     D: D_DEFAULT,
     LAND: LAND_AT,
     c2Frame: c2Frame,
+    c2FailLook: c2FailLook,
     frame: c2Frame,
     make: make,
     play: play,

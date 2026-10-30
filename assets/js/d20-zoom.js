@@ -279,11 +279,13 @@
       ".d20-zoom.is-land.is-fail .die-num text,.d20-zoom.is-land.is-fail .d20-zoom-rawnum{fill:#e7a0a0;color:#e7a0a0;animation:d20-fail-num .7s ease-out both;}",
       ".d20-zoom.is-c2.is-land.is-fail .die-num text,.d20-zoom.is-c2.is-land.is-fail .d20-zoom-rawnum{animation-duration:.9s;}",
       "@keyframes d20-fail-num{0%{fill:#e7a0a0;color:#e7a0a0}100%{fill:#d2cbc0;color:#d2cbc0}}",
-      ".d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path,.d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path:nth-child(n){animation-duration:.48s;}",
-      ".d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path{animation-delay:.04s;}",
-      ".d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path:nth-child(2){animation-delay:.1s}",
-      ".d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path:nth-child(3){animation-delay:.16s}",
-      ".d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path:nth-child(6),.d20-zoom.is-c2.is-land.is-fail .d20-zoom-crack path:nth-child(7){animation-delay:.22s}",
+      ".d20-zoom.is-fail-c2 .d20-zoom-word,.d20-zoom.is-fail-c2 .d20-zoom-crack path,",
+      ".d20-zoom.is-fail-c2.is-shake .d20-zoom-stage,.d20-zoom.is-fail-c2.is-ring .d20-zoom-ring,",
+      ".d20-zoom.is-fail-c2.is-land.is-fail .d20-zoom-mover{animation:none!important;}",
+      ".d20-zoom-vig{position:absolute;inset:0;pointer-events:none;background:rgba(28,8,14,.82);opacity:0;z-index:3;}",
+      ".d20-zoom-failnum{position:absolute;left:0;right:0;top:46%;text-align:center;z-index:2;",
+      "font:700 22%/1 Georgia,'Times New Roman',serif;color:#e7a0a0;opacity:0;pointer-events:none;",
+      "text-shadow:0 2px 0 #3a1a1e;}",
       ".d20-zoom.is-shake .d20-zoom-stage{animation:d20-shake .28s linear both;}",
       "@keyframes d20-shake{0%,100%{transform:none}20%{transform:translate(-10px,6px)}40%{transform:translate(8px,-7px)}60%{transform:translate(-5px,4px)}80%{transform:translate(3px,-2px)}}",
       ".d20-zoom.is-motion-c3 .d20-zoom-spin{animation:d20-c3 1s cubic-bezier(.25,.6,.25,1) both;transform-style:preserve-3d;}",
@@ -376,7 +378,8 @@
           ctx.arc(q.x, q.y, Math.max(1, rr), 0, 6.283);
           ctx.fill();
         } else if (q.type === "ember" || q.type === "spark") {
-          ctx.fillStyle = "rgba(255," + ((220 - 140 * k) | 0) + "," + ((120 - 100 * k) | 0) + "," + (1 - k) + ")";
+          if (q.c) ctx.fillStyle = "rgba(" + q.c + "," + (1 - k) + ")";
+          else ctx.fillStyle = "rgba(255," + ((220 - 140 * k) | 0) + "," + ((120 - 100 * k) | 0) + "," + (1 - k) + ")";
           ctx.beginPath();
           ctx.arc(q.x, q.y, Math.max(0.6, q.r0 * (1 - k * 0.5)), 0, 6.283);
           ctx.fill();
@@ -456,8 +459,9 @@
       var nat = Math.round(Number(ev.nat));
       if (!(nat >= 1 && nat <= 20)) nat = crit ? 20 : 1;
       layer = root.document.createElement("div");
+      var failC2 = useC2 && !crit;
       var motionCls = reduced ? " is-reduced" : (useC2 ? " is-c2" : (" is-motion-" + motion + (motion === "c2" ? " is-c2" : "")));
-      layer.className = "d20-zoom " + (crit ? "is-crit" : "is-fail") + motionCls;
+      layer.className = "d20-zoom " + (crit ? "is-crit" : "is-fail") + motionCls + (failC2 ? " is-fail-c2" : "");
       layer.setAttribute("data-motion", motion);
       layer.setAttribute("role", "dialog");
       layer.setAttribute("aria-label", crit ? "Critical hit" : "Fail");
@@ -468,13 +472,15 @@
       var rings = motion === "c2"
         ? '<div class="d20-zoom-ring r1"></div><div class="d20-zoom-ring r2"></div><div class="d20-zoom-ring r3"></div>'
         : '<div class="d20-zoom-ring"></div>';
+      var failNum = failC2 ? '<div class="d20-zoom-failnum" data-zoom-failnum></div>' : "";
       layer.innerHTML =
         '<canvas class="d20-zoom-back"></canvas>' +
+        (failC2 ? '<div class="d20-zoom-vig" data-zoom-vig></div>' : "") +
         '<div class="d20-zoom-stage">' + rings + '<div class="d20-zoom-mover">' +
         ghosts +
         '<div class="d20-zoom-spin" data-zoom-die>' + blank + "</div>" +
         '<div class="d20-zoom-face"><div class="d20-zoom-heat"></div>' + (crit ? "" : crackSvg()) + "</div>" +
-        '<div class="d20-zoom-read" data-zoom-read></div>' +
+        '<div class="d20-zoom-read" data-zoom-read>' + failNum + "</div>" +
         "</div></div>" +
         '<canvas class="d20-zoom-front"></canvas>' +
         '<p class="d20-zoom-who" data-zoom-who hidden></p>' +
@@ -552,6 +558,13 @@
           vx: rnd(-180, 180), vy: rnd(-180, 80), g: 200, r0: rnd(1.1, 2.2), t: 0, life: rnd(0.2, 0.45)
         });
       }
+      function roseSpark(c) {
+        fx.add({
+          type: "spark", c: Math.random() < 0.6 ? "200,120,130" : "150,130,124",
+          x: c.x + rnd(-c.s * 0.35, c.s * 0.35), y: c.y + rnd(-c.s * 0.35, c.s * 0.35),
+          vx: rnd(-160, 160), vy: rnd(-160, 40), g: 260, drag: 0.94, r0: rnd(1, 2.2), t: 0, life: rnd(0.25, 0.5)
+        });
+      }
 
       if (!reduced && motion === "roll") {
         emit = function (c) {
@@ -563,7 +576,10 @@
       } else if (!reduced && (motion === "c1" || motion === "c3")) {
         emit = function (c) { spark(c); };
       } else if (!reduced && motion === "c2") {
-        emit = function (c) { if (Math.random() < 0.6) spark(c); };
+        emit = function (c) {
+          if (crit) { if (Math.random() < 0.6) spark(c); return; }
+          roseSpark(c);
+        };
       }
 
       var last = Date.now();
@@ -574,10 +590,12 @@
         last = now;
         if (useC2 && !snapped && spin) {
           var elapsed = (Date.now() - started) / 1000;
-          var fr = root.SSDNSPlainRoll.c2Frame(elapsed, { D: C2_TOTAL_MS / 1000, dir: spinDir, value: nat });
-          var glow = crit ? " drop-shadow(0 0 12px rgba(226,197,106,.35))" : " drop-shadow(0 0 10px rgba(180,80,100,.28))";
-          spin.style.transform = "translateY(" + fr.y.toFixed(2) + "px) rotate(" + fr.rot.toFixed(2) + "deg) scale(" + fr.scale.toFixed(4) + ")";
-          spin.style.filter = "blur(" + Math.max(0, fr.blur).toFixed(2) + "px)" + glow;
+          if (failC2) applyFail(elapsed);
+          else {
+            var fr = root.SSDNSPlainRoll.c2Frame(elapsed, { D: C2_TOTAL_MS / 1000, dir: spinDir, value: nat });
+            spin.style.transform = "translateY(" + fr.y.toFixed(2) + "px) rotate(" + fr.rot.toFixed(2) + "deg) scale(" + fr.scale.toFixed(4) + ")";
+            spin.style.filter = "blur(" + Math.max(0, fr.blur).toFixed(2) + "px) drop-shadow(0 0 12px rgba(226,197,106,.35))";
+          }
         }
         if (emit && !landed) emit(centerOf(layer.querySelector(".d20-zoom-mover")));
         if (landed && !crit) failHaze(centerOf(layer.querySelector(".d20-zoom-mover")));
@@ -594,6 +612,54 @@
       }
       loop();
 
+      function applyFail(t) {
+        var Look = root.SSDNSPlainRoll && root.SSDNSPlainRoll.c2FailLook;
+        if (!Look) return;
+        var look = Look(t, { D: C2_TOTAL_MS / 1000, dir: spinDir });
+        var mover = layer.querySelector(".d20-zoom-mover");
+        var face = layer.querySelector(".d20-zoom-face");
+        var read = layer.querySelector("[data-zoom-read]");
+        var stage = layer.querySelector(".d20-zoom-stage");
+        var numEl = layer.querySelector("[data-zoom-failnum]");
+        var word = layer.querySelector(".d20-zoom-word");
+        var vig = layer.querySelector("[data-zoom-vig]");
+        var spinTf = "rotate(" + look.rot.toFixed(2) + "deg)";
+        if (mover) mover.style.transform = "translateY(" + (look.y + look.sagY).toFixed(2) + "px) scale(" + look.scale.toFixed(4) + ") rotate(" + look.sagR.toFixed(2) + "deg)";
+        if (spin) {
+          spin.style.transform = spinTf;
+          spin.style.filter = "blur(" + look.blur.toFixed(2) + "px) brightness(" + look.bright.toFixed(3) + ") saturate(" + look.sat.toFixed(3) + ")";
+        }
+        if (face) face.style.transform = spinTf;
+        if (read) read.style.transform = spinTf;
+        if (stage) stage.style.transform = "translate(" + look.shake[0].toFixed(2) + "px," + look.shake[1].toFixed(2) + "px)";
+        if (numEl) {
+          if (look.numOpacity <= 0.001) { numEl.textContent = ""; numEl.style.opacity = "0"; }
+          else {
+            numEl.textContent = String(nat);
+            numEl.style.opacity = String(look.numOpacity);
+            numEl.style.color = look.numColor;
+            numEl.style.transform = "translateY(-50%) scale(" + look.numScale.toFixed(3) + ")";
+          }
+        }
+        var paths = layer.querySelectorAll(".d20-zoom-crack path");
+        for (var ci = 0; ci < paths.length; ci++) {
+          paths[ci].setAttribute("pathLength", "1");
+          paths[ci].style.strokeDasharray = "1";
+          paths[ci].style.strokeDashoffset = String(look.cracks[ci % 5]);
+        }
+        if (word) {
+          word.style.opacity = String(look.wordOpacity);
+          word.style.transform = "translateY(" + look.wordY.toFixed(2) + "px)";
+          word.style.letterSpacing = look.tracking.toFixed(3) + "em";
+        }
+        if (vig) vig.style.opacity = String(look.vig);
+        var ringNodes = layer.querySelectorAll(".d20-zoom-ring");
+        for (var ri = 0; ri < ringNodes.length && ri < look.rings.length; ri++) {
+          ringNodes[ri].style.opacity = String(look.rings[ri].opacity);
+          ringNodes[ri].style.transform = "translate(-50%,-50%) scale(" + look.rings[ri].scale.toFixed(3) + ")";
+        }
+        if (layer) layer.style.opacity = String(look.content);
+      }
       function land(skip) {
         if (done || landed) return;
         landed = true;
@@ -601,9 +667,12 @@
         if (skip || motion !== "c2") layer.classList.remove("is-motion-roll", "is-motion-c1", "is-motion-c2", "is-motion-c3");
         if (skip && useC2 && spin && root.SSDNSPlainRoll) {
           snapped = true;
-          var endFr = root.SSDNSPlainRoll.c2Frame(C2_TOTAL_MS / 1000, { D: C2_TOTAL_MS / 1000, dir: spinDir, value: nat });
-          spin.style.transform = "translateY(0px) rotate(" + endFr.rot.toFixed(2) + "deg) scale(1)";
-          spin.style.filter = "none";
+          if (failC2) applyFail(C2_TOTAL_MS / 1000);
+          else {
+            var endFr = root.SSDNSPlainRoll.c2Frame(C2_TOTAL_MS / 1000, { D: C2_TOTAL_MS / 1000, dir: spinDir, value: nat });
+            spin.style.transform = "translateY(0px) rotate(" + endFr.rot.toFixed(2) + "deg) scale(1)";
+            spin.style.filter = "none";
+          }
         }
         layer.classList.add("is-land");
         if (!reduced && !skip && motion === "c1") layer.classList.add("is-bump");
@@ -612,12 +681,14 @@
           layer.classList.add("is-shake");
         }
         if (spin) {
-          spin.innerHTML = faceHtml(nat, 260);
+          spin.innerHTML = faceHtml(failC2 ? "" : nat, 260);
           watchArt(spin);
-          tintNumber(spin, crit);
-          var slot = layer.querySelector("[data-zoom-read]");
-          var glyph = spin.querySelector(".die-num, .d20-zoom-rawnum");
-          if (slot && glyph) slot.appendChild(glyph);
+          if (!failC2) {
+            tintNumber(spin, crit);
+            var slot = layer.querySelector("[data-zoom-read]");
+            var glyph = spin.querySelector(".die-num, .d20-zoom-rawnum");
+            if (slot && glyph) slot.appendChild(glyph);
+          }
         }
         var c = centerOf(layer.querySelector(".d20-zoom-mover"));
         if (crit) {
