@@ -73,7 +73,15 @@ check("sfx.when-missing", Audio.spellCue({ name: "Conjure Barrage" }) === "spell
 check("sfx.hash", Audio.fileUrl("sfx", "magic/reaction_counter_spe_#2-1793411864281.mp3").includes("%23"));
 const present = Object.keys(map.spells).filter((k) => map.spells[k].present);
 check("sfx.shipped", present.length === 6 && present.indexOf("eldritch blast") >= 0 && present.indexOf("mass healing word") >= 0, present.join(","));
-check("sfx.no-invented", !fs.existsSync(path.join(root, "assets/sfx/magic", path.basename(drop))));
+const magicDir = path.join(root, "assets/sfx/magic");
+const onDisk = new Set(fs.existsSync(magicDir) ? fs.readdirSync(magicDir) : []);
+const dropNames = Object.keys(map.spells).map((k) => map.spells[k].file).filter((f) => String(f).indexOf("magic/") === 0).map((f) => path.basename(f));
+const uniqueDrops = [...new Set(dropNames)];
+const shippedDrops = uniqueDrops.filter((f) => onDisk.has(f));
+const absentDrops = uniqueDrops.filter((f) => !onDisk.has(f));
+check("sfx.shipped-drops", shippedDrops.length === 53 && onDisk.size === 53, String(shippedDrops.length) + " on disk " + onDisk.size);
+check("sfx.still-missing", absentDrops.length === 9 && absentDrops.indexOf("booming_acid_splash_#2-1793331961394.mp3") >= 0 && absentDrops.some((f) => f.indexOf("Holy_fire") >= 0), absentDrops.join(" | "));
+check("sfx.barrage-file", onDisk.has("reaction_counter_spe_#2-1793411864281.mp3"));
 
 function look(spell, dmg) { return FX.lookOf({ type: "spell", spell: spell, dmg: dmg || "" }); }
 check("fx.locked-fire", look("Fire Bolt", "fire") === "fire");
