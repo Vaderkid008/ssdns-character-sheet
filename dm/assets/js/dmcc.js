@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.183"; // dmcc-playtest-v02183
+const VERSION = "0.2.184"; // dmcc-playtest-v02184
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -808,16 +808,19 @@ async function pushRoll(entry) {
         text: text, kind: "roll", who: entry.who || "DM",
         formula: entry.formula || "", dice: Array.isArray(entry.dice) ? entry.dice : null
       };
-      if (entry.die && entry.die.kind === "plain") {
+      if (entry.die && entry.die.kind === "plain" && entry.die.fancy) {
         feed.die = {
           id: entry.id, value: entry.die.value, nat: entry.die.nat, D: entry.die.D, land: entry.die.land,
-          dir: entry.die.dir, kind: "plain", motion: entry.die.motion || "fast", mult: entry.die.mult, who: entry.die.who || "DM"
+          dir: entry.die.dir, kind: "plain", motion: entry.die.motion || "fast", mult: entry.die.mult, who: entry.die.who || "DM",
+          fancy: true, challenge: true, label: entry.die.label || entry.label || ""
         };
       }
       if (window.SSDNSD20Zoom && window.SSDNSD20Zoom.pack) {
         const zoom = window.SSDNSD20Zoom.pack({
           id: entry.id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "",
-          characterName: entry.characterName || "", who: entry.who || "", name: entry.name || ""
+          characterName: entry.characterName || "", who: entry.who || "", name: entry.name || "",
+          fancy: !!(entry.fancy || entry.challenge || (entry.die && entry.die.fancy)),
+          challenge: !!(entry.challenge || entry.fancy || (entry.die && entry.die.fancy))
         });
         if (zoom) feed.zoom = zoom;
       }
@@ -1334,6 +1337,8 @@ function syncSessionButtons() {
   if (link) link.hidden = !inRoom;
   if (fresh) fresh.hidden = !inRoom;
   if (end) end.hidden = !inRoom;
+  const challenge = $("#btnChallenge");
+  if (challenge) challenge.hidden = !inRoom;
 }
 function showRoom() {
   rememberOpenSession();
@@ -3418,8 +3423,9 @@ function wire() {
     });
     document.body.appendChild(host);
   }
-  const challengeBtn = $("#btnChallenge");
-  if (challengeBtn) challengeBtn.addEventListener("click", openChallengeMenu);
+  document.querySelectorAll("[data-open-challenge]").forEach((btn) => {
+    btn.addEventListener("click", openChallengeMenu);
+  });
   $("#btnForceSaloon").addEventListener("click", () => doForce("saloon"));
   $("#btnForceStore").addEventListener("click", () => {
     if (window.DMCCEnhance && window.DMCCEnhance.openAllStores) window.DMCCEnhance.openAllStores();

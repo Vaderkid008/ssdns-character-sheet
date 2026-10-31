@@ -88,6 +88,16 @@
   max-width: none;
   white-space: nowrap;
 }
+.ssdns-map button.ssm-challenge,
+.ssm-turnstrip button.ssm-challenge {
+  background: #3d2e18;
+  color: #e2c56a;
+  border: 2px solid #e2c56a;
+  box-shadow: 0 0 0 2px rgba(226, 197, 106, .28);
+  font-weight: 800;
+  letter-spacing: .04em;
+  width: auto;
+}
 .ssdns-map .dice-bar.dice-bar-map {
   grid-area: dice;
   position: relative;

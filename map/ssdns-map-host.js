@@ -747,6 +747,10 @@
       var rollAll = $("btnRollInitAll");
       if (rollAll) rollAll.click();
     }
+    if (name === "challenge:open") {
+      var challenge = document.querySelector("[data-open-challenge]");
+      if (challenge) challenge.click();
+    }
     if (name === "initiative:end") {
       var endBtn = $("btnEndCombatHead") || $("btnEndCombat"); /* turn order PR 1: one End combat, in the Fight header */
       if (endBtn) endBtn.click();

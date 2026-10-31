@@ -145,6 +145,7 @@ button.room-code {
 button.room-code:hover, button.room-code:focus-visible { text-decoration: underline; }
 .room-meta { font-size: 14px; color: var(--muted); }
 .presence { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+.room-hero-actions { display: flex; justify-content: center; margin-top: 14px; }
 .pill {
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--card); border: 1px solid var(--line); border-radius: 20px;
@@ -205,7 +206,7 @@ main { padding: 0 12px 80px; }
 .panel .lede { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
 .btn.challenge { background: #3d2e18; color: #e2c56a; border: 2px solid #e2c56a; box-shadow: 0 0 0 3px rgba(226,197,106,.22); font-weight: 800; letter-spacing: .04em; }
-.challenge-menu { position: fixed; inset: 0; z-index: 80; background: rgba(8,5,3,.72); display: grid; place-items: center; padding: 16px; }
+.challenge-menu { position: fixed; inset: 0; z-index: 400; background: rgba(8,5,3,.72); display: grid; place-items: center; padding: 16px; }
 .challenge-menu .card { width: min(520px, 100%); background: #1a140c; color: #f4e6c4; border: 1px solid #5a4630; border-radius: 14px; padding: 16px; }
 .challenge-menu h3 { margin: 0 0 8px; font: 700 18px/1.2 Georgia, serif; color: #e2c56a; }
 .challenge-menu .checks, .challenge-menu .who { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }

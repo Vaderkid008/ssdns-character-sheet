@@ -1,6 +1,6 @@
 /**
  * N82 DM-act Spin/Cycle, crit/fumble d20 zoom, Option B condition tag sizes.
- * Sheet 0.3.170 / DMCC 0.2.183. rules.js stays untouched.
+ * Sheet 0.3.171 / DMCC 0.2.184. rules.js stays untouched.
  *   node tools/test-d20-zoom-n82.mjs
  */
 import fs from "node:fs";
@@ -18,11 +18,11 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.170" && version.sheetBuild === "sheet-playtest-v03170");
-check("ver.dmcc", version.dmcc === "0.2.183" && version.dmccBuild === "dmcc-playtest-v02183");
+check("ver.sheet", version.sheet === "0.3.171" && version.sheetBuild === "sheet-playtest-v03171");
+check("ver.dmcc", version.dmcc === "0.2.184" && version.dmccBuild === "dmcc-playtest-v02184");
 check("ver.rules", !read("assets/data/rules.js").includes("0.3.169") && !read("assets/data/rules.js").includes("d20-zoom") && !read("database.rules.json").includes("0.3.169"));
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.170"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.183"'));
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.171"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.184"'));
 
 const sheet = read("assets/css/sheet.css");
 const dmcc = read("dm/assets/css/dmcc.css");
@@ -30,7 +30,7 @@ check("css.pills", sheet.includes(".status-chips .chip.cond, .status-chips .cond
 check("css.badge", /width: 42px; height: 42px;/.test(sheet) && /font-size: 24px/.test(sheet.slice(sheet.indexOf(".cond-badge"))));
 check("css.dmChip", dmcc.includes("font-size: 17px; padding: 6px 14px"));
 check("css.sheetLinked", read("index.html").includes("sheet.css?v=0.3.170-cond"));
-check("css.dmLinked", read("dm/index.html").includes("dmcc.css?v=0.2.183-cond"));
+check("css.dmLinked", read("dm/index.html").includes("dmcc.css?v=0.2.184-challenge"));
 
 const map = read("map/ssdns-map.js");
 check("map.token28", map.includes("const size = Math.max(22, r * 0.97);") && map.includes("size * 0.57"));
@@ -77,7 +77,7 @@ check("kind.expanded", Z.kindOf({ nat: 19, crit: true, critMin: 19 }) === "crit"
 check("kind.expandedBare", Z.kindOf({ nat: 18, critMin: 18 }) === "crit");
 check("kind.notCrit", Z.kindOf({ nat: 19, crit: false, critMin: 19 }) === "");
 check("kind.plain", Z.kindOf({ nat: 15, critMin: 20 }) === "");
-check("kind.pack", Z.pack({ nat: 20, id: "r1" }).crit === true && Z.pack({ nat: 12 }) == null);
+check("kind.pack", Z.pack({ nat: 20, id: "r1", fancy: true }).crit === true && Z.pack({ nat: 20, id: "rplain" }) == null && Z.pack({ nat: 12 }) == null);
 check("fx.request", FX.request({ nat: 19, crit: true, critMin: 19, result: "crit" }).critMin === 19);
 check("hook.installed", FX.setBeforeEffect && dom.window.SSDNSMapFx);
 
@@ -96,7 +96,7 @@ const on = new JSDOM("<!doctype html><html><body></body></html>", { url: "http:/
 vm.runInContext(read("assets/js/dice-art.js"), on.getInternalVMContext());
 vm.runInContext(read("map/ssdns-map-fx.js"), on.getInternalVMContext());
 vm.runInContext(read("assets/js/d20-zoom.js"), on.getInternalVMContext());
-const live = on.window.SSDNSD20Zoom.play({ nat: 20, crit: true, critMin: 20, id: "live1" });
+const live = on.window.SSDNSD20Zoom.play({ nat: 20, crit: true, critMin: 20, id: "live1", fancy: true });
 await new Promise((r) => setTimeout(r, 40));
 const layer = on.window.document.querySelector(".d20-zoom");
 check("zoom.shows", !!layer && layer.getAttribute("aria-label") === "Critical hit");
@@ -107,7 +107,7 @@ check("zoom.motion", Z.motions.indexOf(motion) >= 0, motion);
 layer.click();
 await live;
 check("zoom.skipClears", !on.window.document.querySelector(".d20-zoom"));
-const again = on.window.SSDNSD20Zoom.play({ nat: 20, crit: true, id: "live1" });
+const again = on.window.SSDNSD20Zoom.play({ nat: 20, crit: true, id: "live1", fancy: true });
 await again;
 check("zoom.dedupe", !on.window.document.querySelector(".d20-zoom"));
 
@@ -119,11 +119,11 @@ check("sfx.roll", Z.cues.tumble("roll")[0] === "d20-roll-fire" && Z.cues.tumble(
 check("sfx.c1", Z.cues.tumble("c1")[0] === "roll-d20" && Z.cues.land("c1", true)[0] === "d20-crit");
 check("sfx.c2", Z.cues.tumble("c2")[0] === "d20-slam" && Z.cues.land("c2", false)[0] === "d20-impact");
 check("sfx.c3", Z.cues.tumble("c3")[0] === "d20-whoosh" && Z.cues.land("roll", false).indexOf("nat1") >= 0);
-check("who.pack", Z.pack({ nat: 20, id: "n", characterName: "Jolene Pike", fromName: "DM" }).who === "Jolene Pike");
-check("who.enemy", Z.pack({ nat: 1, id: "e", who: "Bandit" }).who === "Bandit");
+check("who.pack", Z.pack({ nat: 20, id: "n", fancy: true, characterName: "Jolene Pike", fromName: "DM" }).who === "Jolene Pike");
+check("who.enemy", Z.pack({ nat: 1, id: "e", fancy: true, who: "Bandit" }).who === "Bandit");
 check("who.id", Z.rollerName({ shooter: "tok_bandit_01" }) === "tok_bandit_01");
 
-const failP = on.window.SSDNSD20Zoom.play({ nat: 1, id: "fail1" });
+const failP = on.window.SSDNSD20Zoom.play({ nat: 1, id: "fail1", fancy: true });
 await new Promise((r) => setTimeout(r, 30));
 const failLayer = on.window.document.querySelector(".d20-zoom");
 check("zoom.fail", !!failLayer && failLayer.querySelector(".d20-zoom-word").textContent === "Fail" && failLayer.classList.contains("is-fail") && !!failLayer.querySelector(".d20-zoom-crack"));
@@ -131,14 +131,14 @@ if (failLayer) failLayer.click();
 await failP;
 
 on.window.matchMedia = function (q) { return { matches: String(q).indexOf("reduce") >= 0, media: q }; };
-const stillP = on.window.SSDNSD20Zoom.play({ nat: 19, crit: true, critMin: 19, id: "still1" });
+const stillP = on.window.SSDNSD20Zoom.play({ nat: 19, crit: true, critMin: 19, id: "still1", fancy: true });
 await new Promise((r) => setTimeout(r, 20));
 const still = on.window.document.querySelector(".d20-zoom");
 check("zoom.reduced", !!still && still.getAttribute("data-motion") === "still" && still.classList.contains("is-land") && still.querySelector(".d20-zoom-word").textContent === "Critical");
 if (still) still.click();
 await stillP;
 
-const namedP = on.window.SSDNSD20Zoom.play({ nat: 20, crit: true, id: "who1", characterName: "Jolene Pike" });
+const namedP = on.window.SSDNSD20Zoom.play({ nat: 20, crit: true, id: "who1", fancy: true, characterName: "Jolene Pike" });
 await new Promise((r) => setTimeout(r, 20));
 const named = on.window.document.querySelector(".d20-zoom");
 check("zoom.who", !!named && named.querySelector("[data-zoom-who]").textContent === "Jolene Pike" && !named.querySelector("[data-zoom-who]").hidden);

@@ -647,7 +647,10 @@
             kind: entry.die.kind,
             motion: entry.die.motion || "fast",
             mult: entry.die.mult,
-            who: entry.die.who || entry.characterName || ""
+            who: entry.die.who || entry.characterName || "",
+            fancy: true,
+            challenge: true,
+            label: entry.die.label || entry.label || ""
           };
         }
         if (root.SSDNSD20Zoom && root.SSDNSD20Zoom.pack) {
@@ -655,7 +658,8 @@
             id: id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "",
             characterName: entry.characterName || "", who: entry.who || "", fromName: feed.fromName || "",
             motion: entry.die && entry.die.motion, D: entry.die && entry.die.D, dir: entry.die && entry.die.dir,
-            mult: entry.die && entry.die.mult
+            mult: entry.die && entry.die.mult,
+            fancy: true, challenge: true
           });
           if (zoom) feed.zoom = zoom;
         }
@@ -1435,7 +1439,8 @@
       var rollId = "ch_" + (payload.id || "x") + "_" + String(state.uid || "me").slice(-8);
       var Zoom = root.SSDNSD20Zoom;
       var pose = Zoom && Zoom.pose ? Zoom.pose({
-        nat: nat, id: rollId, critMin: 20, characterName: who, who: who, label: payload.label || ""
+        nat: nat, id: rollId, critMin: 20, characterName: who, who: who, label: payload.label || "",
+        fancy: true, challenge: true
       }) : null;
       if (Zoom && Zoom.present && pose) Zoom.present(pose);
       if (root.SSDNSSheet && root.SSDNSSheet.addLog) {

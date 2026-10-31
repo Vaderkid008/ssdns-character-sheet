@@ -1,14 +1,18 @@
-/* Crit / FAIL d20 zoom (sheet 0.3.170).
-   Nat 20, nat 1, or a crit the resolver already flagged (expanded range from the
-   character) pauses, then a big d20 plays one motion from a random pool and lands.
+/* Crit / FAIL d20 zoom (sheet 0.3.171).
+   The forge / FAIL show and the blank Love-it suspense play only for a gold
+   Challenge roll (fancy or challenge on the event). Sheet d20 clicks, the DM
+   tray, attacks, and skills take the normal spin in d20-plain.js instead.
+   A Challenge nat 20, nat 1, or expanded crit stays blank, then a big d20
+   plays one motion from a random pool and lands.
    Crit lands as A3 forge slam (white-hot face cools to gold, ember ring, gunsmoke),
    word CRITICAL. Fail lands as B1 crack + B3 plum-rose smoke, word FAIL.
    The pool stays fiery roll, C1, C2, C3-approx. Only the C2 draw uses the 4s
    natural curve (impact at 2.85s, settle through 4.0s). Fail C2 uses that same
    beat: rose shock rings, crack from 2.89s, plum-rose smoke, FAIL in #e7a0a0,
    the 1 fades rose to bone-grey and sits above the crack. No forge on a fail.
-   A normal 2–19 click is the fast blank spin in d20-plain.js (~1.05s), not this
-   pool. Nat 20 / nat 1 spin blank 2–3× longer, then one motion from this pool.
+   A Challenge 2–19 is the fast blank spin in d20-plain.js (~1.05s), not this
+   pool. A Challenge nat 20 / nat 1 spins blank 2–3× longer, then one motion
+   from this pool. Any other d20 is the normal spin (number visible, no forge).
    The die is assets/img/dice/d20.webp through SSDNSDice.faceHtml. The number is
    drawn in code. A flat teal square shows only if that art fails to load.
    Each zoom picks roll, c1, c2, or c3 with equal chance. prefers-reduced-motion
@@ -754,6 +758,8 @@
     if (kind !== "plain") out.mult = mult;
     if (kind === "crit") { out.crit = true; out.result = "crit"; }
     else if (kind === "fumble") { out.crit = false; out.result = "miss"; }
+    if (ev.fancy || ev.challenge) out.fancy = true;
+    if (ev.label) out.label = String(ev.label).slice(0, 60);
     var min = Number(ev.critMin);
     if (isFinite(min) && min >= 2 && min <= 20) out.critMin = Math.round(min);
     var who = rollerName(ev);
@@ -770,13 +776,19 @@
     }
     var job = tail.then(function () {
       var Plain = root.SSDNSPlainRoll;
+      if (!p.fancy) {
+        if (!Plain || typeof Plain.play !== "function") return;
+        return Plain.play(Object.assign({}, p, {
+          suspense: false, fancy: false, challenge: false, kind: "plain", motion: "spin"
+        }));
+      }
       if (p.kind === "plain") {
         if (!Plain || typeof Plain.play !== "function") return;
         return Plain.play(p);
       }
       var prelude = Promise.resolve();
       if (Plain && typeof Plain.play === "function") {
-        prelude = Plain.play(Object.assign({}, p, { suspense: true }));
+        prelude = Plain.play(Object.assign({}, p, { suspense: true, fancy: true }));
       }
       return prelude.then(function () {
         return run(p, p.kind === "fumble" ? "fumble" : "crit");
@@ -796,16 +808,27 @@
   }
   function play(ev) {
     ev = ev || {};
+    if (!(ev.fancy || ev.challenge)) {
+      var nat = Math.round(Number(ev.nat != null ? ev.nat : ev.value));
+      if (!(nat >= 1 && nat <= 20)) return Promise.resolve();
+      return present(Object.assign({}, ev, { nat: nat, fancy: false, challenge: false, kind: "plain" }));
+    }
     var kind = (ev.kind === "crit" || ev.kind === "fumble") ? ev.kind : kindOf(ev);
-    if (kind !== "crit" && kind !== "fumble") return Promise.resolve();
-    return present(Object.assign({}, ev, { kind: kind }));
+    if (kind !== "crit" && kind !== "fumble") {
+      return present(Object.assign({}, ev, { kind: "plain", fancy: true }));
+    }
+    return present(Object.assign({}, ev, { kind: kind, fancy: true }));
   }
 
   function install() {
     var FX = root.SSDNSMapFx;
     if (!FX || typeof FX.setBeforeEffect !== "function" || hooked) return;
     hooked = true;
-    FX.setBeforeEffect(function (ev) { return play(ev); }, { timeoutMs: 15000 });
+    /* Attack tracers do not wait on the reserved show. Only a Challenge zoom does. */
+    FX.setBeforeEffect(function (ev) {
+      if (ev && (ev.fancy || ev.challenge)) return play(ev);
+      return Promise.resolve();
+    }, { timeoutMs: 15000 });
   }
 
   if (root.addEventListener) {
@@ -815,12 +838,17 @@
   }
 
   function pack(ev) {
-    var id = String((ev && (ev.id || ev.rollId)) || "");
-    if (id && posed[id] && posed[id].kind !== "plain") return posed[id];
+    ev = ev || {};
+    var id = String(ev.id || ev.rollId || "");
+    if (id && posed[id]) {
+      if (!posed[id].fancy || posed[id].kind === "plain") return null;
+      return posed[id];
+    }
+    if (!(ev.fancy || ev.challenge)) return null;
     var kind = kindOf(ev);
     if (!kind) return null;
-    var p = ensurePose(ev);
-    if (!p || p.kind === "plain") return null;
+    var p = ensurePose(Object.assign({}, ev, { fancy: true }));
+    if (!p || !p.fancy || p.kind === "plain") return null;
     return p;
   }
 
