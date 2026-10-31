@@ -1114,8 +1114,28 @@ const FXA = window.SSDNSMapFx || null;
 const fxBoot = Date.now();
 const fxLive = [];
 const fxTimers = [];
+const fxDrew = [];
 let fxRaf = 0;
 state.fxLog = [];
+function fxRemember(id) {
+  if (!id) return;
+  const key = String(id);
+  if (fxDrew.indexOf(key) >= 0) return;
+  fxDrew.push(key);
+  if (fxDrew.length > 48) fxDrew.shift();
+}
+function fxRemembered(id) {
+  return !!(id && fxDrew.indexOf(String(id)) >= 0);
+}
+/* A public row id is fx_<rollId>; the caster remembered the roll id when they painted locally. */
+function fxAlready(id) {
+  if (!id) return false;
+  const key = String(id);
+  if (fxRemembered(key)) return true;
+  if (key.indexOf('fx_') === 0 && fxRemembered(key.slice(3))) return true;
+  if (fxRemembered('fx_' + key)) return true;
+  return false;
+}
 function fxOn() { return !!(FXA && FXA.enabled()); }
 function fxPx() { return (state.scene && state.scene.grid && state.scene.grid.px) || 70; }
 function fxCenter(t) { const s = t.size || 1; return { x: t.pos.x + s / 2, y: t.pos.y + s / 2 }; }
@@ -1345,6 +1365,7 @@ function fxPublic(spec) {
     spell: spec.spell || "", dmg: spec.dmg || "", self: !!spec.self,
     nat: spec.nat, crit: spec.crit, critMin: spec.critMin, heard: spec.heard, scene: S.sceneId || ''
   };
+  if (spec.id) pub.id = spec.id;
   if (T) pub.target = T.id;
   const sc = fxCenter(S);
   const sid = S.sceneId || 'scn_dustyspur01';
@@ -1359,6 +1380,17 @@ function fxPublic(spec) {
   } else pub.shooter = S.id;
   if (type === 'free') pub.dir = fxFacing(S, spec);
   return FXA.sanitize(pub);
+}
+function fxSpecFromReq(row) {
+  const req = row.fxReq || {};
+  return {
+    id: row.id,
+    who: (row.zoom && row.zoom.who) || row.characterName || row.fromName || row.who || "",
+    type: req.type, result: req.result, target: req.target || (req.self ? row.from : ""), shooter: row.from, sfx: req.sfx,
+    weapon: req.weapon, weaponId: req.weaponId, arrow: req.arrow, nat: req.nat, crit: req.crit, critMin: req.critMin,
+    spell: req.spell || "", dmg: req.dmg || "", self: !!req.self || req.target === row.from,
+    heard: req.heard === false ? [] : [row.from]
+  };
 }
 /** DM: draw locally with full knowledge, then publish the cleaned row. Returns the public fx (or null). */
 function dmFx(spec, rowId) {
@@ -1376,27 +1408,34 @@ function dmFx(spec, rowId) {
   } catch (e) {}
   return pub;
 }
-/* Feed rows: public fx rows draw here; a player's fxReq is turned into a public row by the DM's map only. */
+/* Feed rows: public fx rows draw here. The caster's own fxReq paints on this map immediately
+   (no initiative gate). Only the DM publishes the cleaned row, including a request from the DM's own sheet. */
 function fxFromFeed(row) {
   if (!FXA || !row) return;
   const ts = Date.parse(row.ts || '');
   if (ts && ts < fxBoot - FXA.TIMING.stale) return; /* history replayed on load */
   if (ts && Date.now() - ts > 60000) return; /* late replay after a reconnect (60 s leaves room for clock skew) */
   if (row.fx && typeof row.fx === 'object') {
-    if (row.from === uid) return; /* drew it locally */
-    startFx(Object.assign({}, row.fx, { id: (row.fx && row.fx.zoomId) || row.id }), { local: false });
+    /* The DM map already drew this when it published. A player map with the same uid (the DM's sheet) has not. */
+    if (row.from === uid && role === 'dm') return;
+    const drawId = (row.fx && row.fx.zoomId) || row.id;
+    if (fxAlready(drawId) || fxAlready(row.id)) return;
+    const started = startFx(Object.assign({}, row.fx, { id: drawId }), { local: false });
+    if (started) fxRemember(drawId);
     return;
   }
-  if (row.fxReq && typeof row.fxReq === 'object' && role === 'dm' && row.from && row.from !== uid) {
-    const req = row.fxReq;
-    dmFx({
-      id: row.id, who: (row.zoom && row.zoom.who) || row.characterName || row.fromName || row.who || "",
-      type: req.type, result: req.result, target: req.target || (req.self ? row.from : ""), shooter: row.from, sfx: req.sfx,
-      weapon: req.weapon, weaponId: req.weaponId, arrow: req.arrow, nat: req.nat, crit: req.crit, critMin: req.critMin,
-      spell: req.spell || "", dmg: req.dmg || "", self: !!req.self || req.target === row.from,
-      heard: req.heard === false ? [] : [row.from]
-    }, row.id);
+  if (!(row.fxReq && typeof row.fxReq === 'object' && row.from)) return;
+  const mine = row.from === uid;
+  if (!mine && role !== 'dm') return;
+  if (mine && fxAlready(row.id)) return;
+  const spec = fxSpecFromReq(row);
+  if (role === 'dm') {
+    dmFx(spec, row.id);
+    if (mine) fxRemember(row.id);
+    return;
   }
+  const started = startFx(spec, { local: true });
+  if (started) fxRemember(row.id);
 }
 
 // --- render ---
@@ -11334,8 +11373,10 @@ return {
   fx: function (spec) {
     if (!spec) return null;
     if (role === 'dm') return dmFx(spec, spec.id || '');
-    startFx(spec, { local: true });
-    return null;
+    if (spec.id && fxAlready(spec.id)) return null;
+    const started = startFx(spec, { local: true });
+    if (started && spec.id) fxRemember(spec.id);
+    return started;
   },
   fxPublic: function (spec) { return fxPublic(spec || {}); },
   fxActive: function () { return fxLive.length; },

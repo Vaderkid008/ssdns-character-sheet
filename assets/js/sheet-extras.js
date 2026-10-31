@@ -2616,6 +2616,19 @@
     if (hiddenSpell) {
       var spellDmgNow = rolled.damageTotal != null ? Number(rolled.damageTotal) : 0;
       if (!isFinite(spellDmgNow)) spellDmgNow = 0;
+      var hidAim = fxAim(tgt && tgt.id);
+      sheetMapFx({
+        id: rollId,
+        type: "spell",
+        target: hidAim.self ? "" : hidAim.target,
+        self: !!hidAim.self,
+        weapon: spellName || "",
+        spell: spellName || "",
+        dmg: (row && row.type) || damageType || "",
+        nat: rolled.nat,
+        crit: Number(rolled.nat) === 20,
+        result: Number(rolled.nat) === 1 ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit")
+      });
       sendPendingAttack({
         who: (c && c.name) || "You",
         targetName: tgt.name,
@@ -2827,6 +2840,23 @@
       kind: "roll", text: rolled.text, label: rolled.label, formula: rolled.formula,
       attack: rolled.attack, nat: rolled.nat, crit: rolled.crit
     });
+    var spellFx = null;
+    if (rolled.attack && !rolled.multi && tgt && tgt.id && !blankTarget(tgt) && rolled.nat != null) {
+      var aim = fxAim(tgt.id);
+      spellFx = {
+        type: "spell",
+        target: aim.self ? "" : aim.target,
+        self: !!aim.self,
+        weapon: spellName || "",
+        spell: spellName || "",
+        dmg: (row && row.type) || damageType || "",
+        sfx: spellCueName(),
+        nat: rolled.nat,
+        result: (rolled.nat === 1 || (acForRoll != null && Number(rolled.nat) !== 20 && Number(rolled.result) < acForRoll)) ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"),
+        crit: Number(rolled.nat) === 20
+      };
+      sheetMapFx(Object.assign({ id: rollId }, spellFx));
+    }
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
         id: rollId,
@@ -2849,12 +2879,7 @@
         selfApplied: !!rolled.selfHeal,
         weapon: throughGun && i >= 0 ? gunName(i) : "",
         /* attack-fx: spell line on the map when the sheet resolved the attack itself */
-        fxReq: (rolled.attack && !rolled.multi && tgt && tgt.id && !blankTarget(tgt) && rolled.nat != null) ? {
-          type: "spell", target: tgt.id, weapon: spellName || "", spell: spellName || "",
-          dmg: (row && row.type) || damageType || "", sfx: spellCueName(), nat: rolled.nat,
-          result: (rolled.nat === 1 || (acForRoll != null && Number(rolled.nat) !== 20 && Number(rolled.result) < acForRoll)) ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"),
-          crit: Number(rolled.nat) === 20
-        } : null
+        fxReq: spellFx
       });
       if (placedBlast && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         var AreaP = root.SSDNSSpellArea;
@@ -3969,23 +3994,81 @@
     }
     return { line: line, total: total, nat: nat, misfire: misfired };
   }
+  function casterUid() {
+    return root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? (root.SSDNSDmJoin.uid() || "") : "";
+  }
+  function targetOption(id) {
+    var sel = document.querySelector("#atkTarget");
+    if (!sel || !sel.options || !id) return null;
+    var want = String(id);
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === want) return sel.options[i];
+    }
+    return null;
+  }
+  /* Prefer a token id the open map can see with no live initiative. Fall back to the fight-row id. */
+  function tokenIdForName(name) {
+    var host = root.SSDNSMapHost;
+    if (!host || typeof host.tokenBoxes !== "function" || !name) return "";
+    var want = String(name).trim().toLowerCase();
+    if (!want) return "";
+    var boxes = [];
+    try { boxes = host.tokenBoxes() || []; } catch (e) { return ""; }
+    var hits = boxes.filter(function (b) {
+      if (!b || !b.id || b.kind === "marker") return false;
+      var label = String(b.label || "").trim().toLowerCase();
+      var nm = String(b.name || "").trim().toLowerCase();
+      return label === want || nm === want;
+    });
+    return hits.length === 1 ? hits[0].id : "";
+  }
+  function fxAim(id) {
+    var uid = casterUid();
+    if (!id) return { target: uid, self: true };
+    if (uid && String(id) === String(uid)) return { target: uid, self: true };
+    var opt = targetOption(id);
+    var player = opt && (opt.getAttribute("data-player") || "");
+    if (player && uid && player === uid) return { target: uid, self: true };
+    if (player) return { target: player, self: false };
+    var named = tokenIdForName(opt && (opt.getAttribute("data-name") || ""));
+    if (named) return { target: named, self: false };
+    return { target: id, self: false };
+  }
+  /* Paint on this client's open map. heard keeps the sheet's cast cue from playing again. Does not publish. */
+  function sheetMapFx(spec) {
+    if (!spec || whisperOn()) return null;
+    var host = root.SSDNSMapHost;
+    if (!host || typeof host.fx !== "function") return null;
+    var uid = casterUid();
+    var body = Object.assign({}, spec);
+    delete body.fxId;
+    if (!body.shooter && uid) body.shooter = uid;
+    if (!body.heard && uid) body.heard = [uid];
+    try { return host.fx(body); } catch (e) { return null; }
+  }
   /* Designed looks only (beads, shield, heal, and the rest). Attack lines already ride fxReq. */
   function postSpellLook(name, targetId, result, row) {
-    if (!joined() || whisperOn() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postFx) return;
+    if (whisperOn()) return;
     var dmg = (row && row.type) || "";
     var FX = root.SSDNSMapFx;
     var look = FX && FX.lookOf ? FX.lookOf({ type: "spell", spell: name, dmg: dmg }) : "";
     if (!look || look === "ribbon") return;
     var self = !targetId || look === "shield" || look === "magearmor" || look === "pwt" || look === "invis" || !!(FX && FX.lookSelf && FX.lookSelf({ type: "spell", spell: name, dmg: dmg }));
-    root.SSDNSDmJoin.postFx({
+    var aim = self ? { target: "", self: true } : fxAim(targetId);
+    var fxId = "fxr_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var req = {
+      fxId: fxId,
       type: "spell",
-      target: self ? "" : targetId,
-      self: self,
+      target: self ? "" : aim.target,
+      self: !!self,
       weapon: name || "",
       spell: name || "",
       dmg: dmg,
       result: result || "hit"
-    });
+    };
+    sheetMapFx(Object.assign({ id: fxId }, req));
+    if (!joined() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postFx) return;
+    root.SSDNSDmJoin.postFx(req);
   }
   function postGunLedger(what, type) {
     var c = ch();

@@ -2546,12 +2546,14 @@
     var FX = root.SSDNSMapFx;
     if (!FX || !FX.request) return Promise.resolve({ ok: false, skipped: true });
     var fb = state._fb;
-    var id = "fxr_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var payload = Object.assign({}, req || {});
+    var id = payload.fxId || ("fxr_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+    delete payload.fxId;
     var c = doc() && doc().character;
     var row = {
       id: id, ts: new Date().toISOString(), from: state.uid,
       fromName: (c && (c.name || c.player)) || "Player",
-      text: "fx", kind: "sfx", event: "fx", fxReq: FX.request(req || {})
+      text: "fx", kind: "sfx", event: "fx", fxReq: FX.request(payload)
     };
     return fb.set(fb.ref(state.db, roomPath("tableFeed/" + id)), row).then(function () { return { ok: true }; })
       .catch(function (e) { console.warn("[DM Join] fx", e); return { ok: false }; });
