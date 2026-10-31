@@ -89,3 +89,19 @@ Public `asset` stays the N86 slice. When the DM marks the countdown visible it m
 
 Pack file: `{format:"ssdns-asset-pack", version:1, assets:[]}`.
 
+## Showcase map (N90, sheet 0.3.178 / DMCC 0.2.191)
+
+Dry Fork Water Stop is built-in scene `scn_dry_fork` in `map/map-packs.js`. My Maps lists it under Built-in. The DM opens it from that menu. The same scene is on the hidden scene list used by Set floor.
+
+| File | Role |
+|------|------|
+| `map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px.png` | 2800×2100 map, 40×30 squares, 70 px, no grid |
+| `map/packs/thumbs/scn_dry_fork.png` | My Maps card |
+| `map/packs/showcase-dry-fork/showcase-dry-fork.walls.json` | 31 wall segments, Import Walls shape |
+| `map/packs/showcase-dry-fork/showcase-dry-fork.map.json` | Draft zones and spawns. Not loaded. |
+| `map/packs/showcase-dry-fork/LAYOUT-KEY.md` | Layout key for the draft |
+
+Opening the scene runs `seedPackWalls`: if that scene has no walls yet, the pack walls are copied in and saved. Import Walls opens with those same walls already filled in, so OK writes them again. No new Firebase path.
+
+`showcase-dry-fork.map.json` is marked schema-unconfirmed. This pack does not place tokens, zones, lights, or encounter rows. Encounter Bot owns that draft.
+
