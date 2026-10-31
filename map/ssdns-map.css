@@ -994,6 +994,14 @@ body.map-fullscreen #mapMount .ssm-cropper canvas {
 }
 .ssm-chest-menu[hidden] { display: none; }
 .ssm-chest-menu button { margin: 0 6px 6px 0; }
+.ssdns-leftbar [data-act="doorEdit"] {
+  display: flex; flex-direction: column; gap: 4px; margin: 6px 0;
+  font: 12px system-ui; color: #f3e6c8;
+}
+.ssdns-leftbar [data-act="doorEdit"][hidden] { display: none; }
+.ssdns-leftbar [data-act="doorEdit"] input[type="number"] { width: 4.5em; }
+.ssm-bomb-fx { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.ssm-bomb-fx input, .ssm-bomb-fx select { max-width: 100%; }
 .ssm-action { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .ssm-cyl-btn {
   display: inline-flex;

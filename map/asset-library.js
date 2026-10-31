@@ -267,7 +267,24 @@
     if (id === "range") return { id: "range", label: "Range effect (coming soon)", stub: true };
     if (id === "links") return { id: "links", label: "Linked switches (coming soon)", stub: true };
     if (id === "immunities") return { id: "immunities", label: "Immunities (coming soon)", stub: true };
+    if (id === "light-fuse") return { id: id, label: "Light fuse", stub: false };
+    if (id === "start-timer") return { id: id, label: "Start timer", stub: false };
+    if (id === "push-plunger") return { id: id, label: "Push plunger", stub: false };
+    if (id === "trigger") return { id: id, label: "Trigger", stub: false };
+    if (id === "defuse" || id === "clear-timer") return { id: id, label: "Defuse", stub: false };
     return null;
+  }
+  function timerMenuIds(asset) {
+    var timer = asset && asset.props && asset.props.timer;
+    var mode = timer && timer.mode;
+    var ids = [];
+    if (mode === "fuse") ids.push("light-fuse");
+    else if (mode === "timer") ids.push("start-timer");
+    else if (mode === "plunger") ids.push("push-plunger");
+    else if (mode === "instant") ids.push("trigger");
+    var st = (asset && asset.state) || {};
+    if (st.firesAtRound != null || st.waiting) ids.push("defuse");
+    return ids;
   }
   function menuActions(asset) {
     if (!asset) return [];
@@ -276,9 +293,15 @@
         return { id: a.id, label: a.label, stub: !!a.stub };
       }).filter(function (a) { return a.id; });
     }
-    return ((asset.interact && asset.interact.actions) || []).map(function (id) {
+    var list = ((asset.interact && asset.interact.actions) || []).map(function (id) {
       return actionSpec(asset, id);
     }).filter(Boolean);
+    timerMenuIds(asset).forEach(function (id) {
+      if (list.some(function (a) { return a.id === id; })) return;
+      var spec = actionSpec(asset, id);
+      if (spec) list.push(spec);
+    });
+    return list;
   }
   function instanceFromDef(def) {
     var d = clone(def || {});
@@ -458,7 +481,10 @@
   var handlers = {};
   function onInteract(tokenId, action, by) {
     if (tokenId && typeof tokenId === "object" && tokenId.door) {
-      return { ok: false, door: true, stub: true, wall: tokenId.wall || null, action: String(tokenId.action || action || "") };
+      var doorAct = String(tokenId.action || action || "");
+      var doorFn = handlers["door:" + doorAct];
+      if (doorFn) return doorFn(tokenId, doorAct, by);
+      return { ok: false, door: true, stub: true, wall: tokenId.wall || null, action: doorAct };
     }
     var id = tokenId, act = action, who = by;
     if (handlers[act]) return handlers[act](id, act, who);

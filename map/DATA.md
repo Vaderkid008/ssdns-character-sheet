@@ -75,7 +75,17 @@ Definition fields: `id, name, size` (1–4 squares), `image`, `images[]` (index 
 
 Public `asset` is only `name, size, image` (the picture for the current state), `on, open, lit`, `actions[{id,label,stub}]`, `hpPct`, plus `blocksMove` and `reachFt` so other clients can enforce the gate and the 5 ft check. It never includes trap DC/attack/damage, `notes`, `immunities`, or hit-point numbers. A hidden asset sets token `hidden` and is omitted from `map/public/tokens`.
 
-A closed gate with `blocksMove` occupies its footprint. An open one does not. Door segments stay N59 walls. `doorInteract(wallRef, action)` only forwards a `{door:true}` target to `SSDNSAssets.onInteract`.
+A closed gate with `blocksMove` occupies its footprint. An open one does not. Door segments stay N59 walls. `doorInteract(wallRef, action)` forwards a `{door:true}` target to `SSDNSAssets.onInteract`.
+
+## Doors and Turn# timers (N87, sheet 0.3.175 / DMCC 0.2.188)
+
+Door walls gain `locked`, `lockDc`, `ajar`, and `trapOnFail` (stub only: a failed lockpick does not spring it). `ajar` passes sight the way `open` does and still blocks movement.
+
+A player within 5 ft of a visible, non-secret door writes `tableFeed/<id>` `{kind:'sfx', event:'asset', assetReq:{door:{x1,y1,x2,y2}, action, by, nat?, total?}}`. The DM map applies it through `SSDNSAssets.onInteract`. Lockpick uses `SSDNSLoot.playCheck`.
+
+Timer actions (`light-fuse`, `start-timer`, `push-plunger`, `trigger`, `defuse`, `clear-timer`) are registered with `SSDNSAssets.registerAction`. Turn# is `table/initiative.round`. A fuse of N fires when `round === armedAtRound + N` (the arming round does not count). Out of combat the fuse waits for initiative, then counts from that round. Instant and plunger fire immediately. `SSDNSAssets.onRound` (already called at the DMCC round wrap) runs the fire.
+
+Public `asset` stays the N86 slice. When the DM marks the countdown visible it may also include `turnsLeft` or `waiting`. It never includes `firesAtRound`, effects, trap numbers, notes, immunities, or raw hp.
 
 Pack file: `{format:"ssdns-asset-pack", version:1, assets:[]}`.
 
