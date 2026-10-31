@@ -91,6 +91,10 @@
           },
           "damageMode": {
             ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid"
+          },
+          "logClearedAt": {
+            ".write": "auth != null && root.child('rooms/'+$roomCode+'/meta/dmUid').val() === auth.uid",
+            ".validate": "newData.isNumber()"
           }
         },
         "tableFeed": {

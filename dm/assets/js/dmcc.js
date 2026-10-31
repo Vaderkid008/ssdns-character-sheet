@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.186"; // dmcc-playtest-v02186
+const VERSION = "0.2.187"; // dmcc-playtest-v02187
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -205,6 +205,7 @@ const state = {
   kicked: {},
   commands: [],
   table: null,
+  logClearedAt: null,
   chat: [],
   addiction: {},
   dockFilter: "all",
@@ -546,6 +547,9 @@ function attachLiveListeners() {
   });
   bind("table", (v) => {
     state.table = v || null;
+    const mark = v && v.logClearedAt != null && v.logClearedAt !== "" ? v.logClearedAt : null;
+    if (window.SSDNSTableLog) window.SSDNSTableLog.setClearedAt(mark);
+    else state.logClearedAt = mark;
     if (window.DMCCEnhance && window.DMCCEnhance.onTable) window.DMCCEnhance.onTable(v || {});
   });
   bind("playerInit", (v) => {
@@ -1916,11 +1920,12 @@ function ledgerAck(e) {
   if (e.type === "handout") return handoutAckLabel({ id: e.handoutId, to: e.playerId });
   return "";
 }
-function askText(title, message, withReason) {
+function askText(title, message, withReason, yesLabel) {
   return new Promise((resolve) => {
     const dlg = document.createElement("dialog");
     dlg.className = "dlg";
-    dlg.innerHTML = `<form method="dialog"><h2></h2><p class="fine"></p>${withReason ? `<label>Reason <input id="askReason" type="text" placeholder="optional"></label>` : ""}<div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Confirm</button></div></form>`;
+    const yes = esc(yesLabel || "Confirm");
+    dlg.innerHTML = `<form method="dialog"><h2></h2><p class="fine"></p>${withReason ? `<label>Reason <input id="askReason" type="text" placeholder="optional"></label>` : ""}<div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">${yes}</button></div></form>`;
     dlg.querySelector("h2").textContent = title;
     dlg.querySelector("p").textContent = message;
     const finish = (ok) => {
@@ -2027,7 +2032,7 @@ async function copyRoomChildren(oldCode, newCode) {
   if (!metaCheck.exists() || (metaCheck.val() || {}).dmUid !== nextMeta.dmUid) {
     throw new Error("New room meta was not saved");
   }
-  const tableKeys = ["initiative", "store", "packs", "updatedAt", "inspiration", "storeOpen", "damageMode"];
+  const tableKeys = ["initiative", "store", "packs", "updatedAt", "inspiration", "storeOpen", "damageMode", "logClearedAt"];
   if (table && typeof table === "object") {
     const tablePatch = {};
     tableKeys.forEach((key) => { if (table[key] != null) tablePatch[key] = table[key]; });
@@ -2385,16 +2390,32 @@ function renderLedger() {
 const MONEY_TYPES = /es|store|reward|shard/i;
 const ALERT_TYPES = /jam|explode|death|condition|alert|undo/i;
 let dockSeen = 0;
+let dockClearKey = "";
 let dmChatPop = null;
+let clearLogBusy = false;
+
+function logHidden(ts) {
+  return !!(window.SSDNSTableLog && window.SSDNSTableLog.hidden && window.SSDNSTableLog.hidden(ts));
+}
+function clearKey() {
+  const v = state.logClearedAt;
+  return v == null || v === "" ? "" : String(v);
+}
+function dockCountable(rows) {
+  if (!window.SSDNSTableLog || !window.SSDNSTableLog.countsAsUnread) return rows || [];
+  return (rows || []).filter((row) => window.SSDNSTableLog.countsAsUnread(row && row.ts));
+}
 
 function dockItems() {
   const rows = [];
   const seenChat = new Set();
   (state.chat || []).forEach((c) => {
-    if (c && c.id) {
+    if (!c) return;
+    if (c.id) {
       if (seenChat.has(c.id)) return;
       seenChat.add(c.id);
     }
+    if (logHidden(c.ts)) return;
     rows.push({
       id: c && c.id,
       ts: c.ts, kind: "chat",
@@ -2405,7 +2426,7 @@ function dockItems() {
     });
   });
   dedupeById(state.ledger || []).forEach((e) => {
-    if (e.type === "addiction") return;
+    if (!e || e.type === "addiction" || logHidden(e.ts)) return;
     /* 0.2.81: a DM table alert (e.g. "DM override: advantage forced") is a chat line plus a ledger
        record; the feed shows it once (the chat line). The Ledger tab keeps the record. */
     if (e.chatId && seenChat.has(e.chatId)) return;
@@ -2427,6 +2448,7 @@ function dockItems() {
     });
   });
   (state.rolls || []).forEach((r) => {
+    if (!r || logHidden(r.ts)) return;
     const face = rollFace(r);
     rows.push({
       ts: r.ts,
@@ -2446,11 +2468,14 @@ function dockItems() {
       applyHtml: hitApplyButton(r)
     });
   });
-  (state.messages || []).forEach((m) => rows.push({
-    ts: m.ts, kind: "alerts",
-    who: "DM → " + (m.toName || m.to || "player"),
-    text: m.text || ""
-  }));
+  (state.messages || []).forEach((m) => {
+    if (!m || logHidden(m.ts)) return;
+    rows.push({
+      ts: m.ts, kind: "alerts",
+      who: "DM → " + (m.toName || m.to || "player"),
+      text: m.text || ""
+    });
+  });
   rows.sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
   return rows;
 }
@@ -2473,11 +2498,17 @@ function fillDockTargets() {
   sel.innerHTML = opts;
   if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
 }
+if (window.SSDNSTableLog && window.SSDNSTableLog.onChange) {
+  window.SSDNSTableLog.onChange((ts) => {
+    state.logClearedAt = ts;
+    renderLiveDockNow();
+  });
+}
 function publishMapChat() {
   const items = [];
   const seen = new Set();
   (state.chat || []).forEach((c) => {
-    if (!c) return;
+    if (!c || logHidden(c.ts)) return;
     const id = c.id || "";
     if (id && seen.has(id)) return;
     if (id) seen.add(id);
@@ -2485,7 +2516,7 @@ function publishMapChat() {
     items.push({ id: id, ts: c.ts, kind: "chat", who: who, characterName: c.characterName || "", playerName: c.playerName || "", text: c.text || "" });
   });
   (state.rolls || []).forEach((r) => {
-    if (!r) return;
+    if (!r || logHidden(r.ts)) return;
     const face = rollFace(r);
     items.push({
       id: r.id ? ("roll:" + r.id) : "",
@@ -2505,6 +2536,7 @@ function publishMapChat() {
     });
   });
   (state.messages || []).forEach((m) => {
+    if (!m || logHidden(m.ts)) return;
     items.push({
       id: m.id || "",
       ts: m.ts,
@@ -2533,8 +2565,13 @@ function renderLiveDockNow() {
   ).join("") || '<p class="lede">Nothing in this filter yet.</p>';
   if (stick) feed.scrollTop = feed.scrollHeight;
   publishMapChat();
-  if (dockIsOpen()) dockSeen = all.length;
-  const unread = Math.max(0, all.length - dockSeen);
+  const countable = dockCountable(all);
+  const key = clearKey();
+  if (key !== dockClearKey) {
+    dockClearKey = key;
+    dockSeen = countable.length;
+  } else if (dockIsOpen()) dockSeen = countable.length;
+  const unread = Math.max(0, countable.length - dockSeen);
   const badge = $("#dockBadge");
   if (badge) { badge.hidden = unread < 1; badge.textContent = String(unread); }
   const stripBadge = $("#dockStripBadge");
@@ -2572,6 +2609,62 @@ async function sendDockChat(text, to) {
     await state._fb.set(roomRef("chat/" + row.id), row);
     toast("Sent to the table");
   } catch (e) { writeFailed(e, "Chat failed"); }
+}
+
+/* N58: hide the shared table log behind a DM-only watermark. Ledger rows, rolls,
+   tokens, initiative, and HP stay in the room. */
+async function clearTableLog() {
+  if (clearLogBusy) return;
+  if (!state.roomCode && !state.demo) { toast("Open a room first"); return; }
+  clearLogBusy = true;
+  try {
+    const ask = await askText(
+      "Clear the table log for everyone in this room?",
+      "Chat history disappears from all screens. Tokens, initiative, HP and money are not touched.",
+      false,
+      "Clear log"
+    );
+    if (!ask) return;
+    const clearedAt = Date.now();
+    const row = {
+      id: uid("chat"),
+      ts: new Date(clearedAt + 1).toISOString(),
+      from: state.uid || "demo_dm",
+      fromName: "DM",
+      text: "DM cleared the table log",
+      to: "all"
+    };
+    const prev = state.logClearedAt;
+    if (state.demo || !state.db || !state._fb) {
+      state.chat = state.chat || [];
+      state.chat.push(row);
+      state.table = Object.assign({}, state.table || {}, { logClearedAt: clearedAt });
+      if (window.SSDNSTableLog) window.SSDNSTableLog.setClearedAt(clearedAt);
+      else { state.logClearedAt = clearedAt; renderLiveDock(); }
+      toast("Table log cleared");
+      return;
+    }
+    if (window.SSDNSTableLog) window.SSDNSTableLog.setClearedAt(clearedAt);
+    else state.logClearedAt = clearedAt;
+    try {
+      await state._fb.set(roomRef("table/logClearedAt"), clearedAt);
+    } catch (e) {
+      if (window.SSDNSTableLog) window.SSDNSTableLog.setClearedAt(prev);
+      else state.logClearedAt = prev;
+      renderLiveDock();
+      writeFailed(e, "Couldn't clear the table log");
+      return;
+    }
+    try {
+      await state._fb.set(roomRef("chat/" + row.id), row);
+    } catch (e) {
+      writeFailed(e, "Log cleared, but the notice didn't post");
+      return;
+    }
+    toast("Table log cleared");
+  } finally {
+    clearLogBusy = false;
+  }
 }
 
 function rollWho(r) {
@@ -3463,6 +3556,8 @@ function wire() {
   function ensureDmChatPop() {
     if (dmChatPop || !window.SSDNSMapChat) return dmChatPop;
     dmChatPop = window.SSDNSMapChat.attach({
+      dm: true,
+      onClear: function () { clearTableLog(); },
       send: function (text) {
         const to = $("#dockTo");
         if (to) to.value = "all";
@@ -3478,6 +3573,8 @@ function wire() {
     });
     return dmChatPop;
   }
+  const clearBtn = $("#btnClearLog");
+  if (clearBtn) clearBtn.addEventListener("click", () => { clearTableLog(); });
   const popBtn = $("#btnDockPop");
   if (popBtn) popBtn.addEventListener("click", () => {
     const ui = ensureDmChatPop();
@@ -3500,7 +3597,7 @@ function wire() {
     document.body.classList.toggle("dock-collapsed", !!shut);
     paintDockToggle();
     try { localStorage.setItem("ssdns.dm.dock", shut ? "closed" : "open"); } catch (err) {}
-    if (!shut) dockSeen = dockItems().length;
+    if (!shut) dockSeen = dockCountable(dockItems()).length;
     renderLiveDock();
     /* the map canvas measures its box, so let it reflow into the new width */
     try { window.dispatchEvent(new Event("resize")); } catch (err) {}
@@ -3518,7 +3615,7 @@ function wire() {
   const fab = $("#btnDockFab");
   if (fab) fab.addEventListener("click", () => {
     document.body.classList.toggle("dock-open");
-    if (document.body.classList.contains("dock-open")) dockSeen = dockItems().length;
+    if (document.body.classList.contains("dock-open")) dockSeen = dockCountable(dockItems()).length;
     renderLiveDock();
   });
   (function watchKeyboard() {
@@ -3734,7 +3831,8 @@ window.DMCC = {
   applyEsToDemoPlayer: applyEsToDemoPlayer,
   doPushReward: doPushReward,
   copyRoomCode: copyRoomCode,
-  roomCodeString: roomCodeString
+  roomCodeString: roomCodeString,
+  clearTableLog: clearTableLog
 };
 
 async function boot() {

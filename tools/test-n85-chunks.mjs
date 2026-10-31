@@ -1,5 +1,5 @@
 /**
- * N85 Chunks 2–6 FX + create-tokens + spell SFX map (sheet 0.3.172 / DMCC 0.2.185).
+ * N85 Chunks 2–6 FX + create-tokens + spell SFX map (sheet 0.3.174 / DMCC 0.2.187).
  *   node tools/test-n85-chunks.mjs
  * rules.js is not edited.
  */
@@ -18,13 +18,13 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.173" && version.sheetBuild === "sheet-playtest-v03173");
-check("ver.dmcc", version.dmcc === "0.2.186" && version.dmccBuild === "dmcc-playtest-v02186");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.173"') && read("assets/js/app.js").includes("sheet-playtest-v03173"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.186"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02186"));
-const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
+check("ver.sheet", version.sheet === "0.3.174" && version.sheetBuild === "sheet-playtest-v03174");
+check("ver.dmcc", version.dmcc === "0.2.187" && version.dmccBuild === "dmcc-playtest-v02187");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.174"') && read("assets/js/app.js").includes("sheet-playtest-v03174"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.187"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02187"));
+const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
-check("rules.no172", !read("assets/data/rules.js").includes("0.3.172") && !read("assets/data/rules.js").includes("0.2.185"));
+check("rules.no172", !read("assets/data/rules.js").includes("0.3.174") && !read("assets/data/rules.js").includes("0.2.187"));
 
 const context = {
   console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array,

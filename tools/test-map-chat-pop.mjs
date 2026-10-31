@@ -23,10 +23,10 @@ function flush(ms) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.169" && version.sheetBuild === "sheet-playtest-v03169");
-check("ver.dmcc", version.dmcc === "0.2.182" && version.dmccBuild === "dmcc-playtest-v02182");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.169"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.182"'));
+check("ver.sheet", version.sheet === "0.3.174" && version.sheetBuild === "sheet-playtest-v03174");
+check("ver.dmcc", version.dmcc === "0.2.187" && version.dmccBuild === "dmcc-playtest-v02187");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.174"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.187"'));
 
 const mapSrc = read("map/ssdns-map.js");
 const chatSrc = read("map/ssdns-map-chat.js");
@@ -43,9 +43,9 @@ check("src.color", chatSrc.includes("tokenColorFor") && chatSrc.includes("leadNa
 check("src.rules", !read("map/ssdns-map-chat.js").includes("database.rules") && !mapSrc.includes("database.rules"));
 check("src.sideDock", mapSrc.includes("ssdns.map.chatDock") && mapSrc.includes("ssdns-chat-side") && mapSrc.includes("reflowAfterChat") && mapSrc.includes("audienceOk"));
 check("src.private", sheetSrc.includes("e.dockTo") && sheetSrc.includes('to !== "all"'));
-check("html.player", read("index.html").includes("map/ssdns-map-chat.js?v=0.3.168-float"));
-check("html.dm", read("dm/index.html").includes("ssdns-map-chat.js?v=0.2.181-float"));
-check("html.pop", read("map/chat-pop.html").includes('id="popDock"') && read("map/chat-pop.html").includes("bootPopup") && read("map/chat-pop.html").includes("data-chat-filter") && read("map/chat-pop.html").includes("apply-guard.js"));
+check("html.player", read("index.html").includes("map/ssdns-map-chat.js?v=0.3.174-n58"));
+check("html.dm", read("dm/index.html").includes("ssdns-map-chat.js?v=0.2.187-n58"));
+check("html.pop", read("map/chat-pop.html").includes('id="popDock"') && read("map/chat-pop.html").includes('id="popClear"') && read("map/chat-pop.html").includes("bootPopup") && read("map/chat-pop.html").includes("data-chat-filter") && read("map/chat-pop.html").includes("apply-guard.js"));
 
 function makeWindow() {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {

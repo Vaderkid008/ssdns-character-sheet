@@ -364,11 +364,26 @@
     if (attack) return { cls: "roll-attack", tag: "ATTACK" };
     return { cls: "", tag: "" };
   }
+  function logHidden(entry) {
+    return !!(root.SSDNSTableLog && root.SSDNSTableLog.hidden && root.SSDNSTableLog.hidden(entry && entry.ts));
+  }
+  function sheetClearKeyNow() {
+    if (!root.SSDNSTableLog || !root.SSDNSTableLog.clearedAt) return "";
+    var v = root.SSDNSTableLog.clearedAt();
+    return v == null || v === "" ? "" : String(v);
+  }
+  function countableLog() {
+    return log.filter(function (e) {
+      if (!e || logHidden(e)) return false;
+      if (!root.SSDNSTableLog || !root.SSDNSTableLog.countsAsUnread) return true;
+      return root.SSDNSTableLog.countsAsUnread(e.ts);
+    });
+  }
   function chatPopItems() {
     var me = "";
     try { me = (root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid()) || ""; } catch (err) {}
     return log.filter(function (e) {
-      if (!e || (e.kind !== "chat" && e.kind !== "roll")) return false;
+      if (!e || logHidden(e) || (e.kind !== "chat" && e.kind !== "roll")) return false;
       /* Private DM lines (dockTo / to other than the whole table, and not this player) stay out of the popup. */
       var to = e.to || e.dockTo;
       if (to && to !== "all" && to !== me) return false;
@@ -388,6 +403,7 @@
     var feed = $("#sheetDockFeed");
     if (!feed) return;
     var rows = log.filter(function (e) {
+      if (logHidden(e)) return false;
       if (dockFilter === "all") return true;
       return dockBucket(e) === dockFilter;
     });
@@ -414,14 +430,20 @@
     if (root.SSDNSMapChat) root.SSDNSMapChat.publish(popped);
     var badge = $("#sheetDockBadge");
     var closed = document.body.classList.contains("sheet-dock-collapsed") || (window.matchMedia("(max-width: 800px)").matches && !document.body.classList.contains("dock-open"));
-    if (!closed) sheetDockSeen = log.length;
-    var unread = Math.max(0, log.length - sheetDockSeen);
+    var countable = countableLog();
+    var key = sheetClearKeyNow();
+    if (key !== sheetClearKey) {
+      sheetClearKey = key;
+      sheetDockSeen = countable.length;
+    } else if (!closed) sheetDockSeen = countable.length;
+    var unread = Math.max(0, countable.length - sheetDockSeen);
     if (badge) {
       badge.hidden = unread < 1;
       badge.textContent = String(unread);
     }
   }
   var sheetDockSeen = 0;
+  var sheetClearKey = "";
 
   function renderLog() {
     renderDock();
@@ -432,6 +454,7 @@
       return;
     }
     var rows = log.filter(function (e) {
+      if (logHidden(e)) return false;
       if (filter === "all") return true;
       return e.kind === filter;
     });
@@ -4426,7 +4449,7 @@
     var fab = $("#btnSheetDockFab");
     if (fab) fab.addEventListener("click", function () {
       document.body.classList.toggle("dock-open");
-      if (document.body.classList.contains("dock-open")) sheetDockSeen = log.length;
+      if (document.body.classList.contains("dock-open")) sheetDockSeen = countableLog().length;
       renderDock();
     });
     watchKeyboard();
@@ -4744,6 +4767,9 @@
   }
   if (root.addEventListener) root.addEventListener("ssdns:own-turn", onOwnTurn);
   root.SSDNSGunMelee = rollGunMelee;
+  if (root.SSDNSTableLog && root.SSDNSTableLog.onChange) {
+    root.SSDNSTableLog.onChange(function () { renderLog(); });
+  }
   root.SSDNSSheet = {
     grantBought: grantBought,
     rollInitiative: rollInitiative,
