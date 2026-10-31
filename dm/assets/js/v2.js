@@ -2338,6 +2338,9 @@ function nextTurn() {
     fight.started = true;
     fight.round = 1;
     fight.turn = 0;
+    if (window.SSDNSInteract && window.SSDNSInteract.onCombatStart) {
+      try { window.SSDNSInteract.onCombatStart(fight.round); } catch (eStart) {}
+    }
     let guard = 0;
     while (enemyFled(fight.order[fight.turn]) && guard++ < fight.order.length) {
       fight.turn = (fight.turn + 1) % fight.order.length;
@@ -2380,6 +2383,67 @@ function nextTurn() {
   sendYourTurn(cur, false);
   tickConditions(cur);
 }
+
+function rollBombDamage(damage) {
+  if (typeof damage === "number") return damage;
+  const text = String(damage || "").trim();
+  if (/^\d+$/.test(text)) return Number(text);
+  if (window.SSDNSSpellRiders && window.SSDNSSpellRiders.rollExpr) {
+    try {
+      const rolled = window.SSDNSSpellRiders.rollExpr(text, false);
+      if (rolled && isFinite(Number(rolled.total))) return Number(rolled.total);
+    } catch (e) {}
+  }
+  const m = text.match(/(\d+)\s*d\s*(\d+)/i);
+  if (!m) return Number(text) || 0;
+  let total = 0;
+  const n = Number(m[1]), sides = Number(m[2]);
+  for (let i = 0; i < n; i++) total += 1 + Math.floor(Math.random() * sides);
+  return total;
+}
+window.addEventListener("ssdns-asset-blast", (ev) => {
+  if (typeof DM === "undefined" || !DM || !DM.pushLedger) return;
+  const d = (ev && ev.detail) || {};
+  const host = window.SSDNSMapHost;
+  let tokens = d.targets || [];
+  if (host && host.tokensInBlast && d.origin) {
+    try {
+      const area = { shape: "sphere", radius: Number(d.radiusFt) || 0 };
+      const found = host.tokensInBlast(area, [d.origin], 0, "") || [];
+      if (found.length) tokens = found;
+    } catch (e) {}
+  }
+  const label = (d.name || "Bomb") + " explodes";
+  const dmgText = (d.damage != null && d.damage !== "" ? d.damage : "") + (d.damageType ? " " + d.damageType : "");
+  DM.toast(label + (dmgText ? " · " + dmgText : ""));
+  DM.pushLedger({ who: "DM", playerId: "all", type: "combat", what: label + (dmgText ? " · " + dmgText : ""), oldVal: null, newVal: "explosion", flag: false });
+  const Audio = window.SSDNSAudio;
+  const boom = d.sfx || "magic/fireball_explosion_#4-1793418958878.mp3";
+  if (Audio && Audio.playUrl && Audio.fileUrl) {
+    try { Audio.playUrl(Audio.fileUrl("sfx", boom)); } catch (e) {}
+  }
+  const amtRoll = rollBombDamage(d.damage);
+  (tokens || []).forEach((t) => {
+    if (!t) return;
+    const tid = t.combatantId || t.ownerUid || t.id;
+    requestPlayerSave({
+      targetId: tid, targetName: t.name, ability: d.save || "DEX", dc: d.dc, label: d.name || "Explosion",
+      damage: dmgText, fromName: "DM"
+    }).then((save) => {
+      let amt = amtRoll;
+      if (!save || save.blocked) amt = 0;
+      else if (!save.failed && d.halfOnSave) amt = Math.floor(amt / 2);
+      else if (!save.failed) amt = 0;
+      if (!(amt > 0) || !tid) return;
+      applyPlayerHit({
+        rollId: DM.uid ? DM.uid("bomb") : ("bomb" + Date.now()),
+        targetId: tid, targetName: t.name, amount: amt,
+        from: "dm", characterName: "DM", label: d.name || "Explosion", type: "damage",
+        dice: String(d.damage || amt)
+      });
+    }).catch(() => {});
+  });
+});
 
 /**
  * Turn order PR 1 (ruling 3): Previous is the DM's "Undo last Next", behind a confirm. It puts back the round, turn

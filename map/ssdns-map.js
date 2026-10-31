@@ -991,6 +991,12 @@ if (role === 'dm') {
     <button data-act="roomBtn">Room</button>
     <button data-act="doorBtn">Door</button>
     <button data-act="secretDoorBtn" type="button" aria-pressed="false" title="Hide a door from players. Click the door again to reveal it. Shift-click does the same.">Secret: OFF</button>
+    <div data-act="doorEdit" hidden>
+      <label><input data-act="doorLocked" type="checkbox"> Locked</label>
+      <label>Lock DC <input data-act="doorLockDc" type="number" min="0" value="15" aria-label="Lock DC"></label>
+      <label><input data-act="doorAjar" type="checkbox"> Ajar</label>
+      <label title="Stub only. A failed lockpick stays locked and does not spring a trap."><input data-act="doorTrapOnFail" type="checkbox"> Trap on fail (stub)</label>
+    </div>
     <button data-act="windowBtn">Window</button>
     <button data-act="delWallBtn">Del Wall</button>
     <button data-act="undoWallBtn">Undo Wall</button>
@@ -2714,7 +2720,7 @@ function winningFog(shapes, x, y) {
   return op;
 }
 function glyphRayBlocked(x1, y1, x2, y2, w) {
-  if (!w || w.open || (w.window && !w.shut)) return false;
+  if (!w || w.open || w.ajar || (w.window && !w.shut)) return false;
   const d = (x2 - x1) * (w.y2 - w.y1) - (y2 - y1) * (w.x2 - w.x1);
   if (Math.abs(d) < 1e-4) return false;
   const t = ((w.x1 - x1) * (w.y2 - w.y1) - (w.y1 - y1) * (w.x2 - w.x1)) / d;
@@ -2830,6 +2836,15 @@ function paintOneDoorGlyph(wall, side, px, withGap) {
   ctx.strokeStyle = DOOR_GLYPH_ARCH;
   ctx.lineWidth = 2;
   ctx.stroke();
+  if (wall.ajar) {
+    ctx.beginPath();
+    ctx.moveTo(ax + ux * (len * 0.18), ay + sny * slab * 0.15);
+    ctx.lineTo(mx + snx * slab * 0.55, my + sny * slab * 0.72);
+    ctx.lineTo(bx - ux * (len * 0.12), by + sny * slab * 0.2);
+    ctx.strokeStyle = '#f6e2b0';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
   ctx.restore();
 }
 function doorGlyphSight() {
@@ -2856,6 +2871,7 @@ function doorGlyphReport() {
     return {
       x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2,
       open: !!w.open,
+      ajar: !!w.ajar,
       secret: doorIsSecret(w),
       shown: !!side,
       nx: side ? side.nx : 0,
@@ -3233,6 +3249,7 @@ function draw() {
     ctx.textBaseline = 'top';
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
+    paintAssetChip(ctx, t, s, r);
     /* B2: DM-only link badge. Players never reach a hidden token, and this mark is role-gated too. */
     if (role === 'dm' && !t.spellPiece && t.kind !== 'asset') {
       const linkedSheet = !!(t.ownerUid && partyList().some(p => p && (p.uid || p.id) === t.ownerUid));
@@ -4355,14 +4372,367 @@ function finishAsset(token, res) {
   const menu = el.querySelector('[data-act="assetMenu"]');
   if (menu && !menu.hidden && menu.getAttribute("data-token") === token.id) showAssetMenu(token);
 }
+function interactApi() { return window.SSDNSInteract || null; }
+function syncTokenRecord(token) {
+  if (!token) return;
+  const copy = token.asset ? JSON.parse(JSON.stringify(token.asset)) : null;
+  const live = state.tokens.find(t => t && t.id === token.id);
+  if (live && live !== token && copy) live.asset = JSON.parse(JSON.stringify(copy));
+  if (shared.tokens && shared.tokens[token.id]) {
+    if (copy) shared.tokens[token.id].asset = copy;
+    else delete shared.tokens[token.id].asset;
+  }
+  if (role === "dm") saveToken(token.id);
+}
+function playInteractSfx(ref) {
+  const Audio = window.SSDNSAudio;
+  if (!Audio || !ref) return;
+  try {
+    if (Audio.playUrl && Audio.fileUrl) Audio.playUrl(Audio.fileUrl("sfx", ref));
+    else if (Audio.playUrl) Audio.playUrl(ref);
+  } catch (e) {}
+}
+function blastFromPlan(ex, token) {
+  const effect = (ex && ex.effect) || {};
+  const I = interactApi();
+  try {
+    window.dispatchEvent(new CustomEvent("ssdns-asset-blast", { detail: {
+      tokenId: token && token.id,
+      name: (token && token.asset && token.asset.name) || (token && token.name) || "Bomb",
+      origin: ex && ex.origin, radiusFt: effect.radiusFt, damage: effect.damage,
+      damageType: effect.damageType || "", save: effect.save || "DEX", dc: effect.dc,
+      halfOnSave: !!effect.halfOnSave, targets: (ex && ex.targets) || [],
+      sfx: (I && I.BOOM_SFX) || ""
+    }}));
+  } catch (e) {}
+}
+function postDoorReq(assetReq, text) {
+  if (!adapter || !adapter.write) return;
+  const id = "asset_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const row = {
+    id: id, ts: new Date().toISOString(), from: uid,
+    fromName: role === "dm" ? "DM" : "Player",
+    text: text || "asset", kind: "sfx", event: "asset", assetReq: assetReq
+  };
+  try {
+    const p = adapter.write("tableFeed/" + id, row, { by: uid });
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+function playerSheet() {
+  try { return (window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character) || {}; } catch (e) { return {}; }
+}
+function performDoor(target, action, by) {
+  const I = interactApi();
+  if (!I) return { ok: false, handled: true, reason: "no interact" };
+  const ref = target && target.wall ? target.wall : target;
+  const wall = I.findWall(sceneData().walls || [], ref);
+  if (!wall || !wall.door) return { ok: false, handled: true, reason: "Not a door" };
+  const fromPlayer = !!(by && by !== uid);
+  if (fromPlayer && doorIsSecret(wall)) return { ok: false, handled: true, reason: "hidden", silent: true };
+  const actor = (state.tokens || []).find(t => t && (t.ownerUid === by || t.id === by)) || null;
+  if (fromPlayer) {
+    const gate = I.inReach(actor, wall, false, 5);
+    if (!gate.ok) {
+      const msg = I.reachToast(gate.feet);
+      toast(msg);
+      return { ok: false, handled: true, reason: "reach", toast: msg, feet: gate.feet };
+    }
+  }
+  if (action === "lockpick") {
+    const dc = Number(wall.lockDc) || 0;
+    let ok = false;
+    if (target && target.total != null && target.total !== "") ok = Number(target.total) >= dc;
+    else if (target && target.success != null) ok = !!target.success;
+    else {
+      const rolled = I.lockpick(wall, playerSheet());
+      ok = !!rolled.success;
+    }
+    if (ok) wall.locked = false;
+    const line = ok ? "Lockpick succeeds. Door unlocked." : "Lockpick fails. Door stays locked.";
+    toast(ok ? "Door unlocked" : "Still locked");
+    postAssetLog(line);
+    saveScene();
+    draw();
+    return { ok: true, handled: true, success: ok, log: line, toast: ok ? "Door unlocked" : "Still locked" };
+  }
+  const res = I.applyDoor(wall, action, { dm: !fromPlayer, token: actor, by: by || uid, ignoreReach: !fromPlayer });
+  if (res && res.toast) toast(res.toast);
+  else if (res && (res.logLine || res.log)) toast(res.logLine || res.log);
+  if (res && (res.logLine || res.log)) postAssetLog(res.logLine || res.log);
+  if (res && res.ok !== false) saveScene();
+  draw();
+  if (res) res.handled = true;
+  return res || { ok: false, handled: true };
+}
+function rememberDoorAt(gx, gy) {
+  const I = interactApi();
+  if (!I || role !== "dm") return;
+  const wall = I.nearestDoor(sceneData().walls || [], gx, gy, 1.2);
+  state.doorPick = wall && wall.door ? wall : null;
+  paintDoorEdit();
+}
+function paintDoorEdit() {
+  const box = q("doorEdit");
+  if (!box || role !== "dm") return;
+  const wall = state.doorPick;
+  const live = wall && (sceneData().walls || []).indexOf(wall) >= 0;
+  box.hidden = !live;
+  if (!live) return;
+  const locked = box.querySelector('[data-act="doorLocked"]');
+  const dc = box.querySelector('[data-act="doorLockDc"]');
+  const ajar = box.querySelector('[data-act="doorAjar"]');
+  const trap = box.querySelector('[data-act="doorTrapOnFail"]');
+  if (locked) locked.checked = !!wall.locked;
+  if (dc && document.activeElement !== dc) dc.value = wall.lockDc != null ? wall.lockDc : 15;
+  if (ajar) ajar.checked = !!wall.ajar;
+  if (trap) trap.checked = !!wall.trapOnFail;
+}
+function commitDoorEdit() {
+  const wall = state.doorPick;
+  if (!wall || role !== "dm" || (sceneData().walls || []).indexOf(wall) < 0) return;
+  const box = q("doorEdit");
+  if (!box) return;
+  wall.locked = !!box.querySelector('[data-act="doorLocked"]').checked;
+  wall.lockDc = Math.max(0, parseInt(box.querySelector('[data-act="doorLockDc"]').value, 10) || 0);
+  wall.trapOnFail = !!box.querySelector('[data-act="doorTrapOnFail"]').checked;
+  if (box.querySelector('[data-act="doorAjar"]').checked) { wall.ajar = true; wall.open = false; }
+  else wall.ajar = false;
+  saveScene();
+  draw();
+}
+function hideDoorMenu() {
+  const menu = el.querySelector('[data-act="doorMenu"]');
+  if (menu) menu.hidden = true;
+}
+function tryDoorClick(e, world) {
+  if (!e || e.button !== 0 || state.tool) return false;
+  const I = interactApi();
+  if (!I || !state.scene) return false;
+  const px = state.scene.grid.px || 70;
+  const wall = I.nearestDoor(sceneData().walls || [], world.x / px, world.y / px, 0.7);
+  if (!wall) return false;
+  if (role !== "dm" && doorIsSecret(wall)) return false;
+  showDoorMenu(wall);
+  return true;
+}
+function showDoorMenu(wall) {
+  const I = interactApi();
+  if (!I || !wall) return;
+  hideChestMenu();
+  hideAssetMenu();
+  let menu = el.querySelector('[data-act="doorMenu"]');
+  if (!menu) {
+    menu = document.createElement("div");
+    menu.className = "ssm-chest-menu";
+    menu.setAttribute("data-act", "doorMenu");
+    menu.addEventListener("pointerdown", ev => ev.stopPropagation());
+    menu.addEventListener("click", ev => {
+      const act = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-door");
+      if (!act) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const live = I.findWall(sceneData().walls || [], menu._wallRef);
+      if (!live) { toast("That door is gone"); return; }
+      runDoorAction(live, act);
+    });
+    el.appendChild(menu);
+  }
+  menu._wallRef = I.wallRef(wall);
+  const mine = role === "dm" ? null : myMapToken();
+  const pack = I.doorMenu(wall, { token: mine, dm: role === "dm" });
+  if (!pack.reach) {
+    menu.hidden = true;
+    if (pack.toast && !pack.hidden) toast(pack.toast);
+    return;
+  }
+  menu.hidden = false;
+  const lockNote = wall.locked ? " <span>Locked" + (role === "dm" && wall.lockDc ? " DC " + wall.lockDc : "") + "</span>" : "";
+  menu.innerHTML = "<p><b>Door</b>" + lockNote + "</p>" + (pack.actions || []).map(o => {
+    return '<button type="button" data-door="' + o.id + '">' + o.label + "</button> ";
+  }).join("");
+}
+function runDoorAction(wall, action) {
+  const I = interactApi();
+  const Assets = window.SSDNSAssets;
+  if (!I || !Assets || !Assets.onInteract) return;
+  const mine = role === "dm" ? null : myMapToken();
+  if (role !== "dm") {
+    const pack = I.doorMenu(wall, { token: mine, dm: false });
+    if (!pack.reach) { if (pack.toast) toast(pack.toast); return; }
+    let nat = null, total = null, success = null;
+    if (action === "lockpick") {
+      const Loot = window.SSDNSLoot;
+      const box = I.doorLockBox(wall);
+      const sheet = playerSheet();
+      const res = Loot && Loot.playCheck ? Loot.playCheck(box, "lockpick-yes", sheet) : I.lockpick(wall, sheet);
+      nat = res && res.nat; total = res && res.total; success = !!(res && res.success);
+      toast(success ? "Lockpick sent" : "Still locked");
+    } else if (action === "open" && wall.locked) toast("Locked");
+    else toast(action === "peek" ? "Peek sent" : "Sent");
+    postDoorReq({ door: I.wallRef(wall), action: action, by: uid, nat: nat, total: total, success: success }, action);
+    return;
+  }
+  const target = { door: true, wall: I.wallRef(wall), action: action };
+  if (action === "lockpick") {
+    const Loot = window.SSDNSLoot;
+    const box = I.doorLockBox(wall);
+    const res = Loot && Loot.playCheck ? Loot.playCheck(box, "lockpick-yes", playerSheet()) : I.lockpick(wall, playerSheet());
+    target.nat = res && res.nat;
+    target.total = res && res.total;
+    target.success = !!(res && res.success);
+  }
+  Assets.onInteract(target, action, uid);
+  showDoorMenu(wall);
+}
+function readBombEffects(rootEl) {
+  const I = interactApi();
+  if (!I || !rootEl) return [];
+  return Array.prototype.map.call(rootEl.querySelectorAll('[data-act="bombFx"]'), row => {
+    const val = (name) => {
+      const node = row.querySelector('[data-fx="' + name + '"]');
+      if (!node) return "";
+      if (node.type === "checkbox") return !!node.checked;
+      return node.value;
+    };
+    const targets = String(val("targets") || "").split(/[\s,]+/).filter(Boolean);
+    return I.normalizeEffect({
+      type: val("type"), radiusFt: val("radiusFt"), damage: val("damage"), damageType: val("damageType"),
+      save: val("save"), dc: val("dc"), halfOnSave: val("half"), targets: targets,
+      condition: val("condition"), ref: val("ref")
+    });
+  }).filter(Boolean);
+}
+function bindBomb(d, token) {
+  const I = interactApi();
+  if (!d || !token || !I) return;
+  const panel = d.querySelector('[data-act="bombPanel"]');
+  if (!panel || panel._bound) return;
+  panel._bound = true;
+  const add = panel.querySelector('[data-act="bombAddFx"]');
+  if (add) add.addEventListener("click", ev => {
+    ev.preventDefault();
+    const box = panel.querySelector('[data-act="bombEffects"]');
+    if (box) box.insertAdjacentHTML("beforeend", I.effectRowHtml());
+  });
+  const stamp = () => {
+    const mode = (panel.querySelector('[data-act="bombMode"]') || {}).value || "fuse";
+    const n = parseInt((panel.querySelector('[data-act="bombN"]') || {}).value, 10);
+    const show = !!((panel.querySelector('[data-act="bombShow"]') || {}).checked);
+    token.asset = token.asset || { state: {}, props: { timer: {} }, effects: [], interact: { actions: [] } };
+    token.asset.props = token.asset.props || {};
+    token.asset.props.timer = { mode: mode, fuseRounds: isFinite(n) ? n : 1 };
+    token.asset.state = token.asset.state || {};
+    token.asset.state.countdownVisible = show;
+    token.asset.effects = readBombEffects(panel);
+    token.asset.name = token.asset.name || token.name || "Bomb";
+    if (token.kind !== "player") token.kind = token.kind || "asset";
+    return token.asset;
+  };
+  const armBtn = panel.querySelector('[data-act="bombArm"]');
+  if (armBtn) armBtn.addEventListener("click", ev => {
+    ev.preventDefault();
+    const asset = stamp();
+    const mode = asset.props.timer.mode;
+    const started = !!(state.initiative && state.initiative.started);
+    const round = (state.initiative && state.initiative.round) || 1;
+    if (mode === "instant" || mode === "plunger") {
+      const Assets = window.SSDNSAssets;
+      if (Assets && Assets.onInteract) Assets.onInteract(token.id, mode === "plunger" ? "push-plunger" : "trigger", uid);
+      return;
+    }
+    const armed = I.arm(asset, { round: round, started: started, mode: mode === "timer" ? "timer" : "fuse", fuseRounds: asset.props.timer.fuseRounds });
+    syncTokenRecord(token);
+    const line = (token.name || "Bomb") + ": " + (armed.log || "Armed");
+    toast(line);
+    postAssetLog(line);
+    draw();
+  });
+  const def = panel.querySelector('[data-act="bombDefuse"]');
+  if (def) def.addEventListener("click", ev => {
+    ev.preventDefault();
+    stamp();
+    const Assets = window.SSDNSAssets;
+    if (Assets && Assets.onInteract) Assets.onInteract(token.id, "defuse", uid);
+    else { I.defuse(token.asset); syncTokenRecord(token); toast("Defused"); }
+    draw();
+  });
+  const now = panel.querySelector('[data-act="bombNow"]');
+  if (now) now.addEventListener("click", ev => {
+    ev.preventDefault();
+    stamp();
+    const Assets = window.SSDNSAssets;
+    if (Assets && Assets.onInteract) Assets.onInteract(token.id, "trigger", uid);
+  });
+}
+function paintAssetChip(ctx, token, s, r) {
+  const I = interactApi();
+  if (!I) return;
+  const text = I.chipText(token, (state.initiative && state.initiative.round) || 1, role === "dm" ? "dm" : "player");
+  if (!text) return;
+  ctx.save();
+  ctx.font = "bold 11px system-ui";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const tw = (ctx.measureText && ctx.measureText(text).width) || 16;
+  const w = Math.max(18, tw + 10);
+  const x = s.x - w / 2;
+  const y = s.y - r - 16;
+  ctx.fillStyle = "rgba(90, 28, 16, 0.92)";
+  ctx.fillRect(x, y, w, 14);
+  ctx.strokeStyle = "#e2c56a";
+  ctx.strokeRect(x, y, w, 14);
+  ctx.fillStyle = "#f6e2b0";
+  ctx.fillText(text, s.x, y + 7);
+  ctx.restore();
+}
+function attachInteract() {
+  const I = interactApi();
+  if (!I || !I.attach) return;
+  I.attach({
+    tokens: function () { return state.tokens || []; },
+    walls: function () { return sceneData().walls || []; },
+    round: function () { return (state.initiative && state.initiative.round) || 1; },
+    started: function () { return !!(state.initiative && state.initiative.started); },
+    tokenById: function (id) {
+      return (state.tokens || []).find(t => t && (t.id === id || t.ownerUid === id)) || null;
+    },
+    feetBetween: function (a, b) { return feetBetween(a, b); },
+    isDm: function (by) { return !by || by === uid; },
+    sync: function (token) { syncTokenRecord(token); draw(); },
+    saveScene: function () { saveScene(); },
+    log: function (line) { if (role === "dm") postAssetLog(line); },
+    playSfx: playInteractSfx,
+    blast: blastFromPlan,
+    performDoor: performDoor
+  });
+}
 function applyAssetRequest(row) {
   if (role !== "dm" || !row || row.event !== "asset") return;
   if (row.id && seenAssetReq[row.id]) return;
   if (row.id) seenAssetReq[row.id] = 1;
-  const A = assetLib();
   const req = row.assetReq || {};
+  const Assets = window.SSDNSAssets;
+  if (req.door && Assets && Assets.onInteract) {
+    Assets.onInteract({
+      door: true, wall: req.door, action: req.action,
+      nat: req.nat, total: req.total, success: req.success
+    }, req.action, req.by || row.from);
+    return;
+  }
+  const A = assetLib();
   const token = (state.tokens || []).find(t => t && t.id === req.tokenId);
-  if (!A || !token) return;
+  if (!token) return;
+  if (Assets && Assets.onInteract) {
+    const via = Assets.onInteract(token.id, req.action, req.by || row.from);
+    if (via && (via.handled || via.ok || via.stub)) {
+      if (via.stub && !via.ok) toast("Coming soon");
+      else if (!via.ok && via.toast) toast(via.toast);
+      return;
+    }
+    if (via && via.toast) { toast(via.toast); return; }
+  }
+  if (!A) return;
   const res = A.applyFeed(token, row);
   if (!res || !res.ok) return;
   finishAsset(token, res);
@@ -4515,12 +4885,14 @@ function selectToken(token) {
   state.selectedIds = [token.id];
   refreshSelectedPanel();
   if (token && (token.kind === 'chest' || token.lootBoxId)) {
+    hideDoorMenu();
     showChestMenu(token);
     hideAssetMenu();
     const Give = window.SSDNSLootGive;
     if (Give && Give.selectBox && token.lootBoxId) Give.selectBox(token.lootBoxId);
   } else if (token && token.kind === 'asset') {
     hideChestMenu();
+    hideDoorMenu();
     showAssetMenu(token);
   } else {
     hideChestMenu();
@@ -6066,6 +6438,7 @@ function onPointerDown(e) {
         sceneData().walls.splice(best, 1, ...segs);
         toast('Door cut (1 square)');
       }
+      rememberDoorAt(w.x / px, w.y / px);
       saveScene();
       draw();
       return;
@@ -6313,6 +6686,8 @@ function onPointerDown(e) {
       if (hit.locked) toast('That token is locked');
       else if (canControl(hit) && turnBlocksMove()) toast("It isn't your turn. Your token moves on your turn.");
       else toast('No permission to move that token');
+    } else if (tryDoorClick(e, w)) {
+      /* N87 door menu. A secret door is not a click target for a player. */
     } else {
       if (e.button === 1 || e.altKey) {
         state.drag = { pan: true, sx: e.clientX, sy: e.clientY, vx: state.view.x, vy: state.view.y };
@@ -6606,6 +6981,7 @@ function raycastVisible(cx, cy, radius) {
         const wx1 = w.x1 * px, wy1 = w.y1 * px;
         const wx2 = w.x2 * px, wy2 = w.y2 * px;
         if (w.open || (w.window && !w.shut)) continue;
+        if (w.ajar) continue; /* N87 peek: sight passes. Movement still requires open. */
         const d = (ex - cx) * (wy2 - wy1) - (ey - cy) * (wx2 - wx1);
         if (Math.abs(d) < 0.0001) continue;
         const t = ((wx1 - cx) * (wy2 - wy1) - (wy1 - cy) * (wx2 - wx1)) / d;
@@ -7323,7 +7699,7 @@ q('helpBtn').addEventListener('click', () => {
 ${dm ? `<b>DM</b><br>
 Ctrl-click or drag a box to select many.<br>
 Copy Ctrl+C, Paste Ctrl+V, Delete removes from the turn order.<br>
-Door / Window: click a wall. Click again to open or shut. Right-click removes it. Secret: ON hides that door from players (no door mark) until you click it again to reveal. Shift-click does the same. Opening a door still opens sight. A secret door stays a wall on the player map until it is revealed.<br>
+Door / Window: click a wall. Click again to open or shut. Right-click removes it. Secret: ON hides that door from players (no door mark) until you click it again to reveal. Shift-click does the same. Opening a door still opens sight. A secret door stays a wall on the player map until it is revealed. With the select tool, click a door for Open, Lockpick, or Peek. Locked, Lock DC, and Ajar sit under the Door tool. Peek (ajar) lets sight through and still blocks movement.<br>
 <b>Assets</b> The library for this room. Add, edit, duplicate, delete, export, and import. Place, then click a square. Players within 5 ft can turn an asset on or off, open or close a gate, and light it. Health, traps, range, links, and immunities are saved and marked coming soon.<br>
 Wall and Room: drag, release to commit.<br>
 Walls: OFF hides the lines so you can see the raw map. Walls still block.<br>
@@ -7334,7 +7710,7 @@ Set floor, then Show to players, to move someone to another map.` : `<b>Player</
 You move your own token, and any the DM has granted you.<br>
 My color changes your ring. Ping uses that color. The button stays lit while the tool is on.<br>
 On your turn, click a green square to walk. Dash on the turn strip adds feet.<br>
-Fog hides what you cannot see. A torch or your vision opens a circle.`}
+Fog hides what you cannot see. A torch or your vision opens a circle. Within 5 ft, click a door you can see: Open, Lockpick, or Peek. Peek leaves it ajar (you can see through; you still can't walk through).`}
 <br><br>Click ? again to close.`;
   el.appendChild(box);
 });
@@ -7523,6 +7899,11 @@ if (role === 'dm') {
   q('roomBtn').addEventListener('click', () => setTool('room'));
   q('doorBtn').addEventListener('click', () => setTool('door'));
   q('secretDoorBtn').addEventListener('click', () => armSecretDoor());
+  ['doorLocked', 'doorLockDc', 'doorAjar', 'doorTrapOnFail'].forEach(name => {
+    const node = q(name);
+    if (!node) return;
+    node.addEventListener('change', () => commitDoorEdit());
+  });
   q('windowBtn').addEventListener('click', () => setTool('window'));
   q('snapBtn').addEventListener('click', () => {
     state.snap = !state.snap;
@@ -9808,6 +10189,7 @@ async function loadSceneImage(sceneId, opts) {
       d.innerHTML = drawerHeadHtml('No fight card linked') +
         '<div class="ssm-drawer-body">' +
         lightDrawerHtml(bare) +
+        (window.SSDNSInteract ? window.SSDNSInteract.bombPanelHtml(bare) : '') +
         '<label class="ssm-section" for="ssm-link-pick">Link to…</label>' +
         '<select data-act="linkPick" id="ssm-link-pick" aria-label="Link to…">' +
         '<option value="">Link to…</option>' +
@@ -9828,6 +10210,7 @@ async function loadSceneImage(sceneId, opts) {
         pick.value = '';
       });
       bindLightHands(d, tokenId);
+      bindBomb(d, bare);
       syncDockChrome(d);
       return;
     }
@@ -10023,6 +10406,7 @@ async function loadSceneImage(sceneId, opts) {
       drawerHeadHtml(card.name || tokenId, card.kind || '') +
       '<div class="ssm-drawer-body">' +
       lightDrawerHtml(state.tokens.find(t => t && t.id === tokenId)) +
+      (window.SSDNSInteract ? window.SSDNSInteract.bombPanelHtml(state.tokens.find(t => t && t.id === tokenId)) : '') +
       pendingBannerHtml(tokenId) +
       '<div>AC ' + esc(card.ac != null ? card.ac : '—') + (noHpPool ? ' · No HP pool' : ' · HP ' + esc(hp.cur != null ? hp.cur : '—') + '/' + esc(hp.max != null ? hp.max : '—')) +
       (hp.temp ? ' (+' + esc(hp.temp) + ')' : '') + ' · ' + speedBit + '</div>' +
@@ -10068,6 +10452,7 @@ async function loadSceneImage(sceneId, opts) {
       '<button type="button" data-act="imageBtn">Replace image</button>' +
       '</div>';
     bindSpellFold(d);
+    bindBomb(d, state.tokens.find(t => t && t.id === tokenId));
     const readHp = () => {
       const elAmt = d.querySelector('[data-act="hpAmt"]');
       const n = parseInt(elAmt && elAmt.value, 10);
@@ -10870,6 +11255,7 @@ function setTokenHidden(id, hidden) {
   draw();
   return { id: t.id, hidden: t.hidden };
 }
+attachInteract();
 return {
   destroy,
   syncCombatants,
@@ -10926,10 +11312,12 @@ return {
   canPlayerSee: function (viewerUid, targetId) { return canPlayerSee(viewerUid, targetId); },
   /* N59: which closed doors this client paints a glyph for. Secret doors stay shown:false. */
   doorGlyphs: function () { return doorGlyphReport(); },
-  /* N86: door Interact UI is N87. This only routes a door target at the asset hook. */
+  /* N87: Open / Lockpick / Peek go through SSDNSAssets.onInteract ({door:true}). */
   doorInteract: function (wallRef, action) {
     const Assets = window.SSDNSAssets;
-    if (Assets && Assets.doorInteract) return Assets.doorInteract(wallRef, action);
+    if (Assets && Assets.onInteract) {
+      return Assets.onInteract({ door: true, wall: wallRef, action: action || "" }, action || "", uid);
+    }
     return { ok: false, door: true, stub: true };
   },
   targetSight: function (targetId) { return targetSight(targetId); },
