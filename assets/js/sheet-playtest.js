@@ -1424,7 +1424,7 @@
       if (wrap) wrap.title = box.title;
     });
   }
-  /* N89 (sheet 0.3.177): one condensed strip on the sheet and on the map (the same #turnPanel docks there).
+  /* N89 (sheet 0.3.179): one condensed strip on the sheet and on the map (the same #turnPanel docks there).
      Slim chips while idle. A PC or enemy turn opens it. Your chamber uses the sheet fire path; anyone else's opens the cylinder. */
   var lastStrip = null;
   var turnOpen = "";
