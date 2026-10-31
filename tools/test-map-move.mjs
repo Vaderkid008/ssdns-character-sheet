@@ -128,7 +128,8 @@ check("move.greenOnly", paintReach.includes("if (!state.moveMode) return;"));
 check("rules.untouched", !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("ssdns-map-move"));
 
 const moveSrc = fs.readFileSync(path.join(root, "map/ssdns-map-move.js"), "utf8");
-const dmToolbar = mapSrc.slice(mapSrc.indexOf("role === 'dm' ? `"), mapSrc.indexOf(": ``}"));
+const dmStart = mapSrc.indexOf('data-act="fogBtn"');
+const dmToolbar = mapSrc.slice(dmStart, mapSrc.indexOf(": ``}", dmStart));
 const playerCard = mapSrc.slice(mapSrc.indexOf("ssdns-playercard"), mapSrc.indexOf("attack effects"));
 check("edit.button", dmToolbar.includes('data-act="dmEditBtn"') && dmToolbar.includes(">Edit tokens</button>"));
 check("edit.playerClean", !playerCard.includes("dmEdit") && !playerCard.includes("Edit tokens"));
