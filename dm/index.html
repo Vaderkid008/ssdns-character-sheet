@@ -10,12 +10,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Smokum&display=swap">
-<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.181-maps">
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.2.184-challenge">
 <link rel="stylesheet" href="../assets/css/vol-slider.css?v=0.2.181-vol">
 <link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.168-modal">
 <link rel="stylesheet" href="../assets/css/cast-skins.css?v=0.2.181-n61">
 <link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.168-rounds">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.183-cond">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.184-challenge">
 <link rel="stylesheet" href="../assets/css/dice.css?v=0.2.181-polish">
 </head>
 <body>
@@ -30,6 +30,7 @@
     </div>
   </div>
   <div class="bar-actions">
+    <button type="button" class="btn sm challenge" id="btnChallenge" data-open-challenge hidden title="Ask the players you pick to roll a check. Stays on this bar, on every tab.">Challenge</button>
     <form class="header-roll" id="headerRoll">
       <input type="text" id="headerFormula" value="1d20" aria-label="Dice formula" placeholder="1d20">
       <button type="submit" class="btn sm">Roll</button>
@@ -101,6 +102,9 @@
       <button type="button" class="room-code" id="roomCodeDisplay" title="Copy room code">————</button>
       <div class="room-meta" id="roomMeta"></div>
       <div class="presence" id="presenceList"></div>
+      <div class="room-hero-actions">
+        <button type="button" class="btn challenge" data-open-challenge title="Ask the players you pick to roll a check.">Challenge</button>
+      </div>
     </div>
   </div>
 
@@ -134,7 +138,6 @@
         <button type="button" class="btn sm" id="btnInspSpendTable">Spend −1</button>
       </div>
       <div class="toolbar">
-        <button type="button" class="btn sm challenge" id="btnChallenge">Challenge</button>
         <button type="button" class="btn sm" id="btnForceSaloon">Open Saloon (all)</button>
         <button type="button" class="btn sm" id="btnForceStore">Open Store (all)</button>
         <div class="field-inline">
@@ -895,8 +898,8 @@
 <script src="../assets/js/item-art.js?v=0.2.181-art"></script>
 <script src="../assets/js/enemy-loot.js?v=0.2.181-b8"></script>
 <script src="../assets/js/peace-maker.js?v=0.2.181-art"></script>
-<script src="../assets/js/dice-art.js?v=0.2.183-plain"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.183-ch"></script>
+<script src="../assets/js/dice-art.js?v=0.2.184-spin"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.184-ch"></script>
 <script src="../assets/js/ammo-display.js?v=0.3.169-spin"></script>
 <script src="../assets/js/grab.js?v=0.2.181-grab"></script>
 <script src="../assets/js/react-prompt.js?v=0.2.181-n67"></script>
@@ -912,11 +915,11 @@
 <script src="../map/map-library.js?v=0.2.181-maps"></script>
 <script src="../map/token-size.js?v=0.2.181-size"></script>
 <script src="../map/ssdns-map-fx.js?v=0.2.182-zoom"></script>
-<script src="../assets/js/d20-plain.js?v=0.2.183-fast"></script>
-<script src="../assets/js/d20-zoom.js?v=0.2.183-fast"></script>
+<script src="../assets/js/d20-plain.js?v=0.2.184-spin"></script>
+<script src="../assets/js/d20-zoom.js?v=0.2.184-spin"></script>
 <script src="../map/ssdns-map-move.js?v=0.2.181-move"></script>
-<script src="../map/ssdns-map.js?v=0.2.183-plain"></script>
+<script src="../map/ssdns-map.js?v=0.2.184-challenge"></script>
 <script src="../map/ssdns-map-firebase.js?v=0.2.36-sync"></script>
-<script src="../map/ssdns-map-host.js?v=0.2.182-spin"></script>
+<script src="../map/ssdns-map-host.js?v=0.2.184-challenge"></script>
 </body>
 </html>

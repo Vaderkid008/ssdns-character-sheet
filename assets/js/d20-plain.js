@@ -1,13 +1,17 @@
-/* Plain click-to-roll d20 (sheet 0.3.170).
-   Normal 2–19: fast blank spin, about 1.05s, then the number stamps with a soft gold ring.
-   Nat 20 / nat 1: the same blank spin, 2.0–3.0× longer, still blank, then the crit/FAIL
-   pool in d20-zoom.js (fiery, C1, C2, C3). This file does not draw CRITICAL, FAIL, forge,
-   or crack. Map Effects off and reduced motion skip to the landed number. Tap, Esc,
-   Space, or Enter mid-spin does the same. A player click does not broadcast this overlay. */
+/* d20 spin (sheet 0.3.171).
+   Ordinary rolls (sheet d20, DM tray, attacks, skills): a normal spin. The face
+   number is on the die while it tumbles (~0.9s) and locks at the end. No blank
+   hold, no long suspense, no gold Love-it ring, no CRITICAL / FAIL.
+   The reserved show is only for a gold Challenge roll (fancy / suspense):
+   blank until the number stamps (~1.05s), and nat 20 / nat 1 stay blank 2–3×
+   longer before d20-zoom.js plays forge / FAIL. This file does not draw
+   CRITICAL, FAIL, forge, or crack. Map Effects off and reduced motion skip to
+   the landed number. Tap, Esc, Space, or Enter mid-spin does the same. */
 (function (root) {
   "use strict";
 
   var FAST = 1.05;
+  var NORMAL = 0.9;
   var D_DEFAULT = 4;
   var LAND_AT = 2.85;
   var HOLD_AFTER = 0.7;
@@ -183,7 +187,47 @@
     };
   }
 
-  /* Fast blank spin from the Love-it click roll. Suspense (nat 1 / 20) stays blank. */
+  /* Ordinary tumble. The number stays on the die (it cycles, then locks).
+     Not the reserved blank→number Love-it show. */
+  function normalFrame(t, spec) {
+    spec = spec || {};
+    var D = Number(spec.D);
+    if (!isFinite(D) || D <= 0) D = NORMAL;
+    var dir = spec.dir === -1 ? -1 : 1;
+    var value = Math.round(Number(spec.value != null ? spec.value : spec.nat));
+    if (!(value >= 1 && value <= 20)) value = 1;
+    var u = clamp(D > 0 ? t / D : 1, 0, 1);
+    var rot = dir * 720 * (1 - Math.pow(1 - u, 2.2));
+    var s = Number(spec.size) > 0 ? Number(spec.size) : 280;
+    var y = 0;
+    if (t < D) {
+      var uu = t / D;
+      y = -s * 0.1 * Math.abs(Math.sin(Math.PI * 2 * Math.pow(uu, 0.85))) * Math.pow(1 - uu, 1.2);
+    }
+    var scale = t < D ? lerp(0.94, 1, u) : 1;
+    var blur = (t > 0 && t < D) ? 1.1 * Math.sin(Math.PI * Math.min(u, 1)) : 0;
+    var locked = t >= D;
+    var face = locked ? value : (1 + Math.floor((t * 17) % 20));
+    return {
+      t: t,
+      D: D,
+      land: D,
+      end: D + 0.2,
+      rot: rot,
+      scale: scale,
+      y: y,
+      blur: blur,
+      showNum: true,
+      text: String(face),
+      numOpacity: locked ? 1 : 0.92,
+      numScale: 1,
+      spinning: t < D,
+      suspense: false,
+      normal: true
+    };
+  }
+  /* Fast blank spin from the Love-it click roll. Suspense (nat 1 / 20) stays blank.
+     Challenge only — ordinary rolls use normalFrame. */
   function fastFrame(t, spec) {
     spec = spec || {};
     var D = Number(spec.D);
@@ -298,12 +342,14 @@
     spec = spec || {};
     var value = Math.round(Number(spec.value != null ? spec.value : spec.nat));
     if (!(value >= 1 && value <= 20)) value = 1 + Math.floor(Math.random() * 20);
-    var suspense = !!spec.suspense || spec.kind === "crit" || spec.kind === "fumble";
+    var normal = spec.motion === "spin" && !spec.suspense && !spec.fancy && !spec.challenge && spec.kind !== "crit" && spec.kind !== "fumble";
+    var suspense = !normal && (!!spec.suspense || spec.kind === "crit" || spec.kind === "fumble");
     if (spec.kind === "plain") suspense = false;
     var dir = spec.dir === -1 || spec.dir === 1 ? spec.dir : (Math.random() < 0.5 ? -1 : 1);
     var mult = Number(spec.mult);
     var D = Number(spec.D);
-    if (!(D > 0)) {
+    if (normal) D = NORMAL;
+    else if (!(D > 0)) {
       if (suspense) {
         if (!(mult >= 2 && mult <= 3)) mult = 2 + Math.random();
         D = Math.round(FAST * mult * 1000) / 1000;
@@ -317,8 +363,9 @@
       dir: dir,
       mult: suspense ? (mult >= 2 ? mult : D / FAST) : 1,
       suspense: suspense,
-      kind: suspense ? (spec.kind === "fumble" || value === 1 ? "fumble" : "crit") : "plain",
-      motion: spec.motion || (suspense ? "" : "fast"),
+      normal: normal,
+      kind: normal ? "spin" : (suspense ? (spec.kind === "fumble" || value === 1 ? "fumble" : "crit") : "plain"),
+      motion: normal ? "spin" : (spec.motion || (suspense ? "" : "fast")),
       who: spec.who || "",
       label: spec.label || ""
     };
@@ -361,9 +408,12 @@
         resolve();
       }
       var suspense = !!spec.suspense;
+      var normal = !!spec.normal;
       function draw(t) {
         var wide = spin && spin.offsetWidth ? spin.offsetWidth : 280;
-        var fr = fastFrame(t, { value: spec.value, D: spec.D, dir: spec.dir, suspense: suspense, size: wide });
+        var fr = normal
+          ? normalFrame(t, { value: spec.value, D: spec.D, dir: spec.dir, size: wide })
+          : fastFrame(t, { value: spec.value, D: spec.D, dir: spec.dir, suspense: suspense, size: wide });
         if (spin) {
           spin.style.transform = "translateY(" + fr.y.toFixed(2) + "px) rotate(" + fr.rot.toFixed(2) + "deg) scale(" + fr.scale.toFixed(4) + ")";
           spin.style.filter = "blur(" + Math.max(0, fr.blur).toFixed(2) + "px)";
@@ -378,7 +428,11 @@
             num.style.transform = "translateY(-50%) scale(" + fr.numScale.toFixed(3) + ")";
           }
         }
-        if (!suspense && fr.showNum && layer && !layer.classList.contains("is-land")) {
+        if (normal && !fr.spinning && layer && !layer.classList.contains("is-normal")) {
+          layer.classList.add("is-normal");
+          landed = true;
+          paintStage(spec.value);
+        } else if (!normal && !suspense && fr.showNum && layer && !layer.classList.contains("is-land")) {
           layer.classList.add("is-land");
           landed = true;
           paintStage(spec.value);
@@ -387,15 +441,15 @@
       }
       function holdThenClose() {
         clearTimeout(timer);
-        timer = setTimeout(finish, HOLD_AFTER * 1000);
+        timer = setTimeout(finish, (normal ? 0.35 : HOLD_AFTER) * 1000);
       }
       function skip() {
         if (done) return;
         if (raf && root.cancelAnimationFrame) root.cancelAnimationFrame(raf);
         clearTimeout(raf);
         if (suspense) { finish(); return; }
-        draw(spec.D + 0.45);
-        if (layer) layer.classList.add("is-land");
+        draw(normal ? spec.D + 0.2 : spec.D + 0.45);
+        if (layer) layer.classList.add(normal ? "is-normal" : "is-land");
         landed = true;
         paintStage(spec.value);
         holdThenClose();
@@ -408,7 +462,7 @@
           else skip();
         }
       }
-      function endAt() { return suspense ? spec.D : spec.D + 0.45; }
+      function endAt() { return suspense ? spec.D : (normal ? spec.D + 0.2 : spec.D + 0.45); }
       function tick(now) {
         if (done) return;
         var t = (now - start) / 1000;
@@ -426,8 +480,8 @@
       ensureCss();
       layer = root.document.createElement("div");
       layer.className = "d20-plain" + (reduced ? " is-reduced is-land" : "");
-      layer.setAttribute("data-kind", suspense ? "suspense" : "plain");
-      layer.setAttribute("data-motion", "fast");
+      layer.setAttribute("data-kind", normal ? "spin" : (suspense ? "suspense" : "plain"));
+      layer.setAttribute("data-motion", normal ? "spin" : "fast");
       layer.setAttribute("role", "dialog");
       layer.setAttribute("aria-label", "d20 roll");
       var label = String(spec.label || "");
@@ -449,8 +503,8 @@
       root.document.addEventListener("keydown", onKey, true);
       if (reduced) {
         if (suspense) { finish(); return; }
-        draw(spec.D + 0.45);
-        layer.classList.add("is-land");
+        draw(normal ? spec.D + 0.2 : spec.D + 0.45);
+        layer.classList.add(normal ? "is-normal" : "is-land");
         landed = true;
         paintStage(spec.value);
         holdThenClose();
@@ -476,14 +530,16 @@
   root.SSDNSPlainRoll = {
     D: FAST,
     FAST: FAST,
+    NORMAL: NORMAL,
     LAND: LAND_AT,
     c2Frame: c2Frame,
     c2FailLook: c2FailLook,
     fastFrame: fastFrame,
+    normalFrame: normalFrame,
     frame: fastFrame,
     make: make,
     play: play,
-    roll: function (n) { return play({ value: n, kind: "plain" }); },
+    roll: function (n) { return play({ value: n, kind: "plain", motion: "spin" }); },
     skip: skip,
     effectsOn: effectsOn,
     reducedMotion: reducedMotion

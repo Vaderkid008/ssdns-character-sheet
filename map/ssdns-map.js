@@ -477,6 +477,7 @@ toolbar.innerHTML = `
   <span data-act="zoomLabel">1.00×</span>
   <button data-act="reset">Reset view</button>
   <button data-act="fxBtn" type="button" class="ssm-fx-btn" title="Attack effects on the map (firing lines). Saved for you on this device.">Effects: ON</button>
+  ${role === 'dm' ? `<button data-act="challengeBtn" type="button" class="ssm-challenge" title="Challenge picked players. Same check picker as the DMCC bar.">Challenge</button>` : ``}
   ${role === 'dm' ? `
     <button data-act="fogBtn" class="active">Fog: ON</button>
     <button data-act="showFovBtn" class="active">Show Player FOV: ON</button>
@@ -6930,6 +6931,9 @@ function paintFxBtn() {
   b.setAttribute('aria-pressed', on ? 'true' : 'false');
   b.hidden = !FXA;
 }
+if (q('challengeBtn')) {
+  q('challengeBtn').addEventListener('click', () => emit('challenge:open', {}));
+}
 if (q('fxBtn')) {
   q('fxBtn').addEventListener('click', () => {
     if (!FXA) return;
@@ -7869,6 +7873,7 @@ async function loadSceneImage(sceneId, opts) {
         roll.textContent = 'Roll Initiative';
         roll.addEventListener('click', () => emit('initiative:roll', {}));
         strip.appendChild(roll);
+        appendStripChallenge(strip);
       }
       return;
     }
@@ -7935,6 +7940,7 @@ async function loadSceneImage(sceneId, opts) {
     }
     if (role === 'dm') appendStripMarkers(strip); /* Turn UX on the map: the current player's markers, before Next */
     if (role === 'dm') {
+      appendStripChallenge(strip);
       const next = document.createElement('button');
       next.type = 'button';
       next.className = 'btn btn-primary btn-next';
@@ -7966,6 +7972,17 @@ async function loadSceneImage(sceneId, opts) {
   }
   /* Turn UX on the map: markers for the combatant whose turn it is (DM page only; the host returns the same HTML as the
      DM card's marker row, and the DM page's own click handler edits them) */
+  function appendStripChallenge(strip) {
+    if (role !== 'dm' || !strip) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn sm ssm-challenge';
+    b.setAttribute('data-act', 'stripChallenge');
+    b.textContent = 'Challenge';
+    b.title = 'Challenge picked players';
+    b.addEventListener('click', () => emit('challenge:open', {}));
+    strip.appendChild(b);
+  }
   function appendStripMarkers(strip) {
     const marks = document.createElement('span');
     marks.className = 'ssm-strip-markers';
