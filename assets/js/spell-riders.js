@@ -377,6 +377,20 @@
       out.untilTurn = true;
       out.chip = "Shield +5";
     }
+    /* N91: book-side Chunks 7–9. A kind "none" row in rules.js becomes the admitted cast row. */
+    var admit = root.SSDNS_SPELL_ADMIT && root.SSDNS_SPELL_ADMIT.by;
+    var extra = admit && admit[key];
+    if (extra) {
+      Object.keys(extra).forEach(function (field) {
+        if (field === "name") return;
+        if (field === "kind") {
+          if (!out.kind || out.kind === "none") out.kind = extra.kind;
+          return;
+        }
+        if (field === "level" && out.level) return;
+        if (out[field] == null || out[field] === "") out[field] = extra[field];
+      });
+    }
     var Zones = root.SSDNSSpellZones;
     if (Zones && Zones.defersCast && Zones.defersCast(key)) {
       out.applyNow = false;

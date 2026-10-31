@@ -29,7 +29,7 @@
   {"name": "Mage Armor", "level": 1, "kind": "none", "conc": false},
   {"name": "Shield", "level": 1, "kind": "none", "conc": false},
   {"name": "Bless", "level": 1, "kind": "none", "conc": true},
-  {"name": "Bane", "level": 1, "kind": "none", "conc": true, "save": "CHA"},
+  {"name": "Bane", "level": 1, "kind": "none", "conc": true, "save": "CHA", "onFail": "Baned", "note": "−1d4 on attack rolls and saving throws"},
   {"name": "Ray of Sickness", "level": 1, "kind": "attack", "dice": "2d8", "type": "poison", "up": "1d8", "hitSave": "CON", "onFail": "Poisoned"},
   {"name": "Searing Smite", "level": 1, "kind": "weapon", "dice": "1d6", "type": "fire", "up": "1d6", "weapon": true, "burn": {"dice": "1d6", "save": "CON", "when": "start"}, "meleeOnly": true},
   {"name": "Thunderous Smite", "level": 1, "kind": "weapon", "dice": "2d6", "type": "thunder", "up": null, "weapon": true, "save": "STR", "onFail": "Prone", "push": 10, "meleeOnly": true},
@@ -49,7 +49,7 @@
   {"name": "Scorching Ray", "level": 2, "kind": "attack", "dice": "2d6", "type": "fire", "rays": 3, "rayUp": 1},
   {"name": "Shatter", "level": 2, "kind": "save", "save": "CON", "dice": "3d8", "type": "thunder", "up": "1d8", "half": true},
   {"name": "Spiritual Weapon", "level": 2, "kind": "attack", "dice": "1d8", "type": "force", "up": "1d8", "upEvery": 2, "healMod": true},
-  {"name": "Darkness", "level": 2, "kind": "none", "conc": true},
+  {"name": "Darkness", "level": 2, "kind": "none", "conc": true, "note": "15-foot silhouette zone; real occlusion stays Lighting v2"},
 
   {"name": "Blinding Smite", "level": 3, "kind": "weapon", "dice": "3d8", "type": "radiant", "weapon": true, "save": "CON", "onFail": "Blinded", "endSave": "CON", "meleeOnly": true},
   {"name": "Call Lightning", "level": 3, "kind": "save", "save": "DEX", "dice": "3d10", "type": "lightning", "up": "1d10", "half": true},
@@ -62,7 +62,7 @@
   {"name": "Spirit Guardians", "level": 3, "kind": "save", "save": "WIS", "dice": "3d8", "type": "radiant", "up": "1d8", "half": true, "speed": "half"},
   {"name": "Vampiric Touch", "level": 3, "kind": "attack", "dice": "3d6", "type": "necrotic", "up": "1d6"},
   {"name": "Daylight", "level": 3, "kind": "none"},
-  {"name": "Wind Wall", "level": 3, "kind": "save", "save": "STR", "dice": "3d8", "type": "bludgeoning", "half": true, "conc": true},
+  {"name": "Wind Wall", "level": 3, "kind": "save", "save": "STR", "dice": "3d8", "type": "bludgeoning", "half": true, "conc": true, "note": "50-foot gale; ranged weapon attacks through it have disadvantage"},
 
   {"name": "Blight", "level": 4, "kind": "save", "save": "CON", "dice": "8d8", "type": "necrotic", "up": "1d8", "half": true},
   {"name": "Fire Shield", "level": 4, "kind": "rider", "dice": "2d8", "type": "fire or cold", "conc": false, "dur": "10 min", "modes": ["warm", "chill"], "trigger": "meleeHitOnCaster", "light": {"bright": 10, "dim": 10}},
@@ -101,5 +101,28 @@
   {"name": "Incendiary Cloud", "level": 8, "kind": "save", "save": "DEX", "dice": "10d8", "type": "fire", "half": true},
   {"name": "Sunburst", "level": 8, "kind": "save", "save": "CON", "dice": "12d6", "type": "radiant", "half": true},
 
-  {"name": "Meteor Swarm", "level": 9, "kind": "save", "save": "DEX", "dice": "20d6+20d6", "type": "fire and bludgeoning", "half": true}
+  {"name": "Meteor Swarm", "level": 9, "kind": "save", "save": "DEX", "dice": "20d6+20d6", "type": "fire and bludgeoning", "half": true},
+
+  {"name": "Entangle", "level": 1, "kind": "save", "save": "STR", "castDamage": false, "applyNow": false, "onFail": "Restrained", "conc": true, "note": "20-foot square of difficult terrain"},
+  {"name": "Faerie Fire", "level": 1, "kind": "save", "save": "DEX", "castDamage": false, "applyNow": false, "onFail": "Outlined", "conc": true, "note": "outlined targets are attacked with advantage"},
+  {"name": "Sleep", "level": 1, "kind": "none", "conc": false, "note": "5d8 hit-point budget (+2d8 per slot above 1st); lowest current HP fall Unconscious first"},
+  {"name": "Armor of Agathys", "level": 1, "kind": "none", "conc": false, "note": "5 temporary hit points per slot level; a melee hit takes that much cold while they last"},
+  {"name": "Color Spray", "level": 1, "kind": "none", "conc": false, "note": "6d10 hit-point budget in a 15-foot cone; Blinded, lowest HP first"},
+  {"name": "Hold Person", "level": 2, "kind": "save", "save": "WIS", "castDamage": false, "applyNow": false, "onFail": "Paralyzed", "endSave": "WIS", "conc": true, "note": "one humanoid; repeats the save at the end of each of its turns"},
+  {"name": "Misty Step", "level": 2, "kind": "none", "conc": false, "note": "bonus action; teleport up to 30 feet to a space you can see"},
+  {"name": "Web", "level": 2, "kind": "save", "save": "DEX", "castDamage": false, "applyNow": false, "onFail": "Restrained", "conc": true, "note": "20-foot cube, difficult terrain, lightly obscured"},
+  {"name": "Spike Growth", "level": 2, "kind": "none", "conc": true, "note": "20-foot radius difficult terrain; 2d4 piercing for every 5 feet moved through it"},
+  {"name": "Mirror Image", "level": 2, "kind": "none", "conc": false, "note": "three duplicates orbit you; AC 10 + your Dexterity modifier; a hit may pop one"},
+  {"name": "Blur", "level": 2, "kind": "none", "conc": true, "note": "attackers that rely on sight have disadvantage"},
+  {"name": "Silence", "level": 2, "kind": "none", "conc": true, "note": "20-foot hush sphere; no sound inside, creatures there are deafened and immune to thunder"},
+  {"name": "Counterspell", "level": 3, "kind": "none", "conc": false, "note": "reaction; a spell of 3rd level or lower fails, a higher spell is a spellcasting ability check"},
+  {"name": "Fear", "level": 3, "kind": "save", "save": "WIS", "castDamage": false, "applyNow": false, "onFail": "Frightened", "conc": true, "note": "30-foot cone; a failed save drops held items and must flee"},
+  {"name": "Haste", "level": 3, "kind": "none", "conc": true, "note": "double speed, +2 AC, advantage on Dexterity saves, and one extra action"},
+  {"name": "Slow", "level": 3, "kind": "save", "save": "WIS", "castDamage": false, "applyNow": false, "onFail": "Slowed", "endSave": "WIS", "conc": true, "note": "up to six creatures in a 40-foot cube; speed halved, −2 AC, no reactions"},
+  {"name": "Hypnotic Pattern", "level": 3, "kind": "save", "save": "WIS", "castDamage": false, "applyNow": false, "onFail": "Charmed + Incapacitated", "conc": true, "note": "30-foot weird pattern (v2 tile, no cube frame)"},
+  {"name": "Fly", "level": 3, "kind": "none", "conc": true, "note": "willing creature gains a flying speed of 60 feet"},
+  {"name": "Stinking Cloud", "level": 3, "kind": "save", "save": "CON", "castDamage": false, "applyNow": false, "onFail": "Retching", "conc": true, "note": "20-foot gut fog; a failed save at the start of a turn spends the action retching"},
+  {"name": "Banishment", "level": 4, "kind": "save", "save": "CHA", "castDamage": false, "applyNow": false, "onFail": "Banished", "conc": true, "note": "incapacitated elsewhere; it returns if you drop concentration early"},
+  {"name": "Black Tentacles", "level": 4, "kind": "save", "save": "DEX", "dice": "3d6", "type": "bludgeoning", "up": "1d6", "castDamage": false, "applyNow": false, "onFail": "Restrained", "conc": true, "note": "20-foot square; 3d6 bludgeoning when a creature enters or starts its turn there"},
+  {"name": "Polymorph", "level": 4, "kind": "save", "save": "WIS", "castDamage": false, "applyNow": false, "onFail": "Polymorphed", "conc": true, "note": "beast whose challenge rating is at or under the target's; the map token is not swapped automatically"}
 ]

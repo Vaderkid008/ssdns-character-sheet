@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.179" && version.sheetBuild === "sheet-playtest-v03179");
-check("ver.dmcc", version.dmcc === "0.2.192" && version.dmccBuild === "dmcc-playtest-v02192");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.179"') && read("assets/js/app.js").includes("sheet-playtest-v03179"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.192"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02192"));
+check("ver.sheet", version.sheet === "0.3.180" && version.sheetBuild === "sheet-playtest-v03180");
+check("ver.dmcc", version.dmcc === "0.2.193" && version.dmccBuild === "dmcc-playtest-v02193");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.180"') && read("assets/js/app.js").includes("sheet-playtest-v03180"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.193"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02193"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 check("rules.no172", !read("assets/data/rules.js").includes("0.3.174") && !read("assets/data/rules.js").includes("0.2.187"));
@@ -104,7 +104,8 @@ const uniqueDrops = [...new Set(dropNames)];
 const shippedDrops = uniqueDrops.filter((f) => onDisk.has(f));
 const absentDrops = uniqueDrops.filter((f) => !onDisk.has(f));
 check("sfx.shipped-drops", shippedDrops.length === 61 && onDisk.size === 62, String(shippedDrops.length) + " on disk " + onDisk.size);
-check("sfx.still-missing", absentDrops.length === 1 && absentDrops.some((f) => f.indexOf("Holy_fire") >= 0) && absentDrops.every((f) => f.indexOf("179346") < 0), absentDrops.join(" | "));
+check("sfx.still-missing", absentDrops.length === 0, absentDrops.join(" | "));
+check("sfx.guiding-bolt", Audio.spellFile("Guiding Bolt") === "magic/The_sound_of_superhe-1793461504161.mp3" && map.spells["guiding bolt"].file.indexOf("179333") < 0);
 check("sfx.barrage-file", onDisk.has("reaction_counter_spe_#2-1793411864281.mp3"));
 
 function look(spell, dmg) { return FX.lookOf({ type: "spell", spell: spell, dmg: dmg || "" }); }
