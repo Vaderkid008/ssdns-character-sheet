@@ -633,25 +633,32 @@
       if (fxReq && !entry.awaitDm && root.SSDNSMapFx && root.SSDNSMapFx.request) {
         try { feed.fxReq = root.SSDNSMapFx.request(fxReq); } catch (e) {}
       }
-      if (entry.die && entry.die.kind === "plain") {
-        feed.die = {
-          id: id,
-          value: entry.die.value,
-          nat: entry.die.nat,
-          D: entry.die.D,
-          land: entry.die.land,
-          dir: entry.die.dir,
-          kind: "plain",
-          motion: "c2",
-          who: entry.die.who || entry.characterName || ""
-        };
-      }
-      if (root.SSDNSD20Zoom && root.SSDNSD20Zoom.pack) {
-        var zoom = root.SSDNSD20Zoom.pack({
-          id: id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "",
-          characterName: entry.characterName || "", who: entry.who || "", fromName: feed.fromName || ""
-        });
-        if (zoom) feed.zoom = zoom;
+      /* Fancy zoom is DM-only. A player click keeps the feel locally and does not
+         put it on the table. A DM Challenge completion may. */
+      if (entry.challenge || entry.dmShow) {
+        if (entry.die && entry.die.kind === "plain") {
+          feed.die = {
+            id: id,
+            value: entry.die.value,
+            nat: entry.die.nat,
+            D: entry.die.D,
+            land: entry.die.land,
+            dir: entry.die.dir,
+            kind: entry.die.kind,
+            motion: entry.die.motion || "fast",
+            mult: entry.die.mult,
+            who: entry.die.who || entry.characterName || ""
+          };
+        }
+        if (root.SSDNSD20Zoom && root.SSDNSD20Zoom.pack) {
+          var zoom = root.SSDNSD20Zoom.pack({
+            id: id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "",
+            characterName: entry.characterName || "", who: entry.who || "", fromName: feed.fromName || "",
+            motion: entry.die && entry.die.motion, D: entry.die && entry.die.D, dir: entry.die && entry.die.dir,
+            mult: entry.die && entry.die.mult
+          });
+          if (zoom) feed.zoom = zoom;
+        }
       }
       try { await fb.set(fb.ref(state.db, roomPath("tableFeed/" + id)), feed); }
       catch (err) { console.warn("[DM Join] table feed", err); }
@@ -1345,9 +1352,124 @@
       ackGrant(payload.undoId || ("undo_" + payload.grantId), "undo", true);
     }
   }
+  function signBonus(n) { return n >= 0 ? "+" + n : String(n); }
+  function challengeMods() {
+    var view = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+    return { skills: (view && view.skills) || {}, mods: (view && view.mods) || {} };
+  }
+  function openChallenge(payload) {
+    payload = payload || {};
+    if (!root.document || !root.document.body) return;
+    var old = root.document.getElementById("ssdns-challenge");
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    var mods = challengeMods();
+    var rows = [];
+    if (payload.straight) rows.push({ key: "straight", label: "Straight d20", bonus: 0 });
+    else {
+      if (payload.skill) {
+        var sk = Number(mods.skills[payload.skill]);
+        rows.push({ key: "skill", label: payload.skill, bonus: isFinite(sk) ? sk : 0 });
+      }
+      if (payload.ability) {
+        var ab = Number(mods.mods[payload.ability]);
+        var abName = payload.abilityName || payload.ability;
+        rows.push({ key: "ability", label: abName + " (raw)", bonus: isFinite(ab) ? ab : 0 });
+      }
+      rows.push({ key: "straight", label: "Straight d20", bonus: 0 });
+    }
+    if (!root.document.getElementById("ssdns-challenge-css")) {
+      var style = root.document.createElement("style");
+      style.id = "ssdns-challenge-css";
+      style.textContent = [
+        "#ssdns-challenge{position:fixed;inset:0;z-index:99990;background:rgba(8,5,3,.72);display:grid;place-items:center;padding:16px;}",
+        "#ssdns-challenge .card{width:min(420px,100%);background:#1a140c;color:#f4e6c4;border:1px solid #e2c56a;border-radius:14px;padding:16px 16px 14px;font:15px/1.4 system-ui,sans-serif;}",
+        "#ssdns-challenge h2{margin:0 0 4px;font:700 22px/1.2 Georgia,serif;color:#e2c56a;}",
+        "#ssdns-challenge .fine{margin:0 0 12px;opacity:.75;font-size:13px;}",
+        "#ssdns-challenge button.opt{display:flex;justify-content:space-between;width:100%;margin:0 0 8px;padding:10px 12px;border-radius:10px;border:1px solid #8a7048;background:#24180f;color:#f4e6c4;font:600 15px/1.2 system-ui;cursor:pointer;}",
+        "#ssdns-challenge button.opt.on{border-color:#e2c56a;box-shadow:0 0 0 2px rgba(226,197,106,.35);}",
+        "#ssdns-challenge .roll{width:100%;margin-top:8px;padding:12px;border-radius:12px;border:2px solid #e2c56a;background:#3d2e18;color:#e2c56a;font:800 16px/1 Georgia,serif;letter-spacing:.04em;cursor:pointer;}",
+        "#ssdns-challenge .later{margin:8px 0 0;font-size:12px;opacity:.6;}"
+      ].join("");
+      root.document.head.appendChild(style);
+    }
+    var host = root.document.createElement("div");
+    host.id = "ssdns-challenge";
+    var dcText = payload.dc != null && payload.dc !== "" ? (" · DC " + payload.dc) : "";
+    host.innerHTML = '<div class="card" role="dialog" aria-label="DM challenge"><h2></h2><p class="fine"></p><div class="opts"></div><button type="button" class="roll">ROLL 1d20 + bonus</button><p class="later">Ask for help later. A nearby Storyteller must agree before it stacks.</p></div>';
+    host.querySelector("h2").textContent = payload.label || payload.check || "Challenge";
+    host.querySelector(".fine").textContent = "DM challenge" + dcText + " · you were asked to roll";
+    var box = host.querySelector(".opts");
+    var picked = rows[0];
+    rows.forEach(function (row, i) {
+      var b = root.document.createElement("button");
+      b.type = "button";
+      b.className = "opt" + (i === 0 ? " on" : "");
+      b.innerHTML = "<span></span><b></b>";
+      b.querySelector("span").textContent = row.label;
+      b.querySelector("b").textContent = signBonus(row.bonus);
+      b.addEventListener("click", function () {
+        picked = row;
+        Array.prototype.forEach.call(box.querySelectorAll(".opt"), function (el) { el.classList.remove("on"); });
+        b.classList.add("on");
+      });
+      box.appendChild(b);
+    });
+    host.querySelector(".roll").addEventListener("click", function () {
+      if (host.parentNode) host.parentNode.removeChild(host);
+      var bonus = picked ? picked.bonus : 0;
+      var nat = 1 + Math.floor(Math.random() * 20);
+      if (root.SSDNSTestRoll) {
+        var forced = root.SSDNSTestRoll();
+        if (forced) nat = forced;
+      }
+      var total = nat + bonus;
+      var dc = payload.dc != null && payload.dc !== "" ? Number(payload.dc) : null;
+      var who = "";
+      try {
+        var ch = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc() && root.SSDNSApp.doc().character;
+        who = (ch && ch.name) || "";
+      } catch (e) {}
+      var beat = (dc != null && isFinite(dc)) ? (" vs DC " + dc + " " + ((nat !== 1 && total >= dc) ? "success" : "fail")) : "";
+      var face = nat === 20 ? " · natural 20" : (nat === 1 ? " · natural 1" : "");
+      var line = (who ? who + " · " : "") + (payload.label || "Challenge") + " · 1d20" + signBonus(bonus) + " = " + total + beat + face;
+      var rollId = "ch_" + (payload.id || "x") + "_" + String(state.uid || "me").slice(-8);
+      var Zoom = root.SSDNSD20Zoom;
+      var pose = Zoom && Zoom.pose ? Zoom.pose({
+        nat: nat, id: rollId, critMin: 20, characterName: who, who: who, label: payload.label || ""
+      }) : null;
+      if (Zoom && Zoom.present && pose) Zoom.present(pose);
+      if (root.SSDNSSheet && root.SSDNSSheet.addLog) {
+        root.SSDNSSheet.addLog({
+          id: "roll:" + rollId, kind: "roll", text: line, label: payload.label || "Challenge",
+          formula: "1d20" + signBonus(bonus), result: total, nat: nat, detail: line,
+          dieHold: true
+        });
+      }
+      if (postRoll) {
+        postRoll({
+          id: rollId,
+          challenge: true,
+          label: payload.label || "Challenge",
+          formula: "1d20" + signBonus(bonus),
+          result: total,
+          nat: nat,
+          crit: !!(pose && pose.kind === "crit"),
+          critMin: 20,
+          detail: line,
+          die: pose && pose.kind === "plain" ? pose : null,
+          characterName: who,
+          who: who
+        });
+      }
+    });
+    root.document.body.appendChild(host);
+  }
   function handleCommand(cmd) {
     var payload = cmd.payload || {};
     switch (cmd.type) {
+      case "challenge":
+        openChallenge(payload);
+        break;
       case "init_prompt":
         fadeToast("Roll initiative!", 5000);
         toast("Roll initiative!", "Roll", function () {
@@ -2585,8 +2707,7 @@
         if (speaker && !own && text.indexOf(speaker) !== 0 && text.indexOf("→") < 0) text = speaker + ": " + text;
         if (!own && row.zoom && root.SSDNSD20Zoom && root.SSDNSD20Zoom.play) {
           try { root.SSDNSD20Zoom.play(row.zoom); } catch (eZoom) {}
-        }
-        if (!own && row.die && root.SSDNSD20Zoom && root.SSDNSD20Zoom.present) {
+        } else if (!own && row.die && root.SSDNSD20Zoom && root.SSDNSD20Zoom.present) {
           try { root.SSDNSD20Zoom.present(row.die); } catch (eDie) {}
         }
         if (root.SSDNSSheet) root.SSDNSSheet.addLog({

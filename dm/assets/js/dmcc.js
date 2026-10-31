@@ -811,7 +811,7 @@ async function pushRoll(entry) {
       if (entry.die && entry.die.kind === "plain") {
         feed.die = {
           id: entry.id, value: entry.die.value, nat: entry.die.nat, D: entry.die.D, land: entry.die.land,
-          dir: entry.die.dir, kind: "plain", motion: "c2", who: entry.die.who || "DM"
+          dir: entry.die.dir, kind: "plain", motion: entry.die.motion || "fast", mult: entry.die.mult, who: entry.die.who || "DM"
         };
       }
       if (window.SSDNSD20Zoom && window.SSDNSD20Zoom.pack) {
@@ -3303,6 +3303,123 @@ function wire() {
   $("#btnSaveHandout").addEventListener("click", () => doHandout(false));
   $("#btnExportJson").addEventListener("click", () => exportLedger("json"));
   $("#btnExportCsv").addEventListener("click", () => exportLedger("csv"));
+  function challengeCatalog() {
+    const rules = window.SSDNS_RULES || {};
+    const skills = Array.isArray(rules.skills) ? rules.skills : [];
+    const abilities = Array.isArray(rules.abilities) ? rules.abilities : [
+      { id: "STR", name: "Strength" }, { id: "DEX", name: "Dexterity" }, { id: "CON", name: "Constitution" },
+      { id: "INT", name: "Intelligence" }, { id: "WIS", name: "Wisdom" }, { id: "CHA", name: "Charisma" }
+    ];
+    return { skills, abilities };
+  }
+  function openChallengeMenu() {
+    const old = document.getElementById("challengeMenu");
+    if (old) old.remove();
+    const cat = challengeCatalog();
+    const featured = [
+      { label: "Perception", sub: "Wis · notice / search", skill: "Perception", ability: "WIS", abilityName: "Wisdom" },
+      { label: "Investigation", sub: "Int · clue / puzzle", skill: "Investigation", ability: "INT", abilityName: "Intelligence" },
+      { label: "Athletics", sub: "Str · climb / shove", skill: "Athletics", ability: "STR", abilityName: "Strength" },
+      { label: "Straight d20", sub: "No bonus — raw luck", straight: true }
+    ];
+    const host = document.createElement("div");
+    host.id = "challengeMenu";
+    host.className = "challenge-menu";
+    host.innerHTML = '<div class="card" role="dialog" aria-label="Challenge"><h3>Challenge</h3><p class="fine">Only the players you pick see the roll. Everyone else sees nothing until the result hits the table log.</p><div class="checks"></div><label>Other check <select id="challengeOther"><option value="">Pick a skill or ability…</option></select></label><p class="fine">Who rolls</p><div class="who"></div><label>DC <input id="challengeDc" type="number" min="1" max="40" placeholder="optional" style="width:88px"></label><button type="button" class="send">Send challenge</button></div>';
+    const checks = host.querySelector(".checks");
+    let picked = featured[0];
+    featured.forEach((row, i) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = i === 0 ? "on" : "";
+      b.innerHTML = row.label + '<span class="sub">' + row.sub + "</span>";
+      b.addEventListener("click", () => {
+        picked = row;
+        host.querySelector("#challengeOther").value = "";
+        checks.querySelectorAll("button").forEach((el) => el.classList.remove("on"));
+        b.classList.add("on");
+      });
+      checks.appendChild(b);
+    });
+    const other = host.querySelector("#challengeOther");
+    cat.skills.forEach((s) => {
+      const o = document.createElement("option");
+      o.value = "skill:" + s.name;
+      o.textContent = s.name;
+      other.appendChild(o);
+    });
+    cat.abilities.forEach((a) => {
+      const o = document.createElement("option");
+      o.value = "ability:" + a.id + ":" + a.name;
+      o.textContent = a.name + " check";
+      other.appendChild(o);
+    });
+    other.addEventListener("change", () => {
+      const v = other.value;
+      if (!v) return;
+      checks.querySelectorAll("button").forEach((el) => el.classList.remove("on"));
+      if (v.indexOf("skill:") === 0) {
+        const name = v.slice(6);
+        const sk = cat.skills.filter((s) => s.name === name)[0] || {};
+        const ab = cat.abilities.filter((a) => a.id === sk.ability)[0];
+        picked = { label: name, skill: name, ability: sk.ability || "", abilityName: ab ? ab.name : (sk.ability || "") };
+      } else {
+        const bits = v.split(":");
+        picked = { label: (bits[2] || "Ability") + " check", ability: bits[1] || "", abilityName: bits[2] || "" };
+      }
+    });
+    const who = host.querySelector(".who");
+    const chosen = {};
+    const ids = Object.keys(state.players || {});
+    if (!ids.length) {
+      const empty = document.createElement("p");
+      empty.className = "fine";
+      empty.textContent = "No players at the table yet.";
+      who.appendChild(empty);
+    }
+    ids.forEach((id) => {
+      const snap = (state.players[id] && state.players[id].snapshot) || {};
+      const name = snap.name || snap.player || id.slice(0, 6);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = name;
+      b.addEventListener("click", () => {
+        chosen[id] = !chosen[id];
+        b.classList.toggle("on", chosen[id]);
+      });
+      who.appendChild(b);
+    });
+    host.addEventListener("click", (e) => { if (e.target === host) host.remove(); });
+    host.querySelector(".send").addEventListener("click", async () => {
+      const targets = Object.keys(chosen).filter((id) => chosen[id]);
+      if (!targets.length) { toast("Pick who rolls"); return; }
+      const dcRaw = host.querySelector("#challengeDc").value;
+      const dc = dcRaw === "" ? null : Number(dcRaw);
+      const challengeId = uid("ch");
+      const payload = {
+        id: challengeId,
+        label: picked.label,
+        check: picked.label,
+        skill: picked.skill || "",
+        ability: picked.ability || "",
+        abilityName: picked.abilityName || "",
+        straight: !!picked.straight,
+        dc: dc != null && isFinite(dc) ? dc : null
+      };
+      for (let i = 0; i < targets.length; i++) {
+        await pushCommand({ type: "challenge", to: targets[i], quiet: true, payload: payload });
+      }
+      const names = targets.map((id) => {
+        const snap = (state.players[id] && state.players[id].snapshot) || {};
+        return snap.name || snap.player || "a player";
+      });
+      toast("Challenge sent to " + names.join(", "));
+      host.remove();
+    });
+    document.body.appendChild(host);
+  }
+  const challengeBtn = $("#btnChallenge");
+  if (challengeBtn) challengeBtn.addEventListener("click", openChallengeMenu);
   $("#btnForceSaloon").addEventListener("click", () => doForce("saloon"));
   $("#btnForceStore").addEventListener("click", () => {
     if (window.DMCCEnhance && window.DMCCEnhance.openAllStores) window.DMCCEnhance.openAllStores();

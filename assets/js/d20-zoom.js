@@ -7,8 +7,8 @@
    natural curve (impact at 2.85s, settle through 4.0s). Fail C2 uses that same
    beat: rose shock rings, crack from 2.89s, plum-rose smoke, FAIL in #e7a0a0,
    the 1 fades rose to bone-grey and sits above the crack. No forge on a fail.
-   A plain click (not a crit or fail) is SSDNSPlainRoll: the same C2 curve, blank
-   until the number lands, and none of this chrome.
+   A normal 2–19 click is the fast blank spin in d20-plain.js (~1.05s), not this
+   pool. Nat 20 / nat 1 spin blank 2–3× longer, then one motion from this pool.
    The die is assets/img/dice/d20.webp through SSDNSDice.faceHtml. The number is
    drawn in code. A flat teal square shows only if that art fails to load.
    Each zoom picks roll, c1, c2, or c3 with equal chance. prefers-reduced-motion
@@ -728,19 +728,18 @@
     var motion = "c2";
     var D = 4;
     var land = 2.85;
+    var mult = Number(ev.mult);
     if (kind === "plain") {
+      motion = "fast";
       var given = Number(ev.D);
-      D = isFinite(given) && given > 0 ? given : 4;
-      land = Math.round(2.85 * (D / 4) * 1000) / 1000;
+      D = isFinite(given) && given > 0 ? given : 1.05;
+      land = D;
     } else {
       motion = (ev.motion && MOTIONS.indexOf(ev.motion) >= 0) ? ev.motion : pickMotion();
-      if (motion === "c2") {
-        D = 4;
-        land = 2.85;
-      } else {
-        D = (MOTION_MS[motion] || 900) / 1000;
-        land = D;
-      }
+      if (!(mult >= 2 && mult <= 3)) mult = Math.round((2 + Math.random()) * 100) / 100;
+      var givenSpin = Number(ev.D);
+      D = isFinite(givenSpin) && givenSpin > 0 ? givenSpin : Math.round(1.05 * mult * 1000) / 1000;
+      land = D;
     }
     var out = {
       id: id,
@@ -752,6 +751,7 @@
       kind: kind,
       motion: motion
     };
+    if (kind !== "plain") out.mult = mult;
     if (kind === "crit") { out.crit = true; out.result = "crit"; }
     else if (kind === "fumble") { out.crit = false; out.result = "miss"; }
     var min = Number(ev.critMin);
@@ -769,11 +769,18 @@
       return seen[id];
     }
     var job = tail.then(function () {
+      var Plain = root.SSDNSPlainRoll;
       if (p.kind === "plain") {
-        if (!root.SSDNSPlainRoll || typeof root.SSDNSPlainRoll.play !== "function") return;
-        return root.SSDNSPlainRoll.play(p);
+        if (!Plain || typeof Plain.play !== "function") return;
+        return Plain.play(p);
       }
-      return run(p, p.kind === "fumble" ? "fumble" : "crit");
+      var prelude = Promise.resolve();
+      if (Plain && typeof Plain.play === "function") {
+        prelude = Plain.play(Object.assign({}, p, { suspense: true }));
+      }
+      return prelude.then(function () {
+        return run(p, p.kind === "fumble" ? "fumble" : "crit");
+      });
     });
     var safe = job.then(function () {}, function () {});
     tail = safe;
@@ -798,7 +805,7 @@
     var FX = root.SSDNSMapFx;
     if (!FX || typeof FX.setBeforeEffect !== "function" || hooked) return;
     hooked = true;
-    FX.setBeforeEffect(function (ev) { return play(ev); }, { timeoutMs: 8000 });
+    FX.setBeforeEffect(function (ev) { return play(ev); }, { timeoutMs: 15000 });
   }
 
   if (root.addEventListener) {

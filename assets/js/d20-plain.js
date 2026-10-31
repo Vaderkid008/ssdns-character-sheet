@@ -1,14 +1,13 @@
 /* Plain click-to-roll d20 (sheet 0.3.170).
-   The player click uses the C2 slam as its motion: spin-blur, overshoot, slam, settle.
-   The 4s natural curve is the timing (land at 2.85s, hold through 4.0s). The face stays
-   blank for the whole spin. The rolled number is drawn only at land.
-   No CRITICAL, FAIL, forge, crack, or smoke on this path. Crit and FAIL stay on the
-   random pool in d20-zoom.js. The short hop lengths (Snappy 1.0 / Normal 1.3) are not
-   this click. Room sync is {value, D, dir, kind}. Map Effects off and reduced motion
-   skip to the landed number. Tap, Esc, Space, or Enter mid-spin does the same. */
+   Normal 2–19: fast blank spin, about 1.05s, then the number stamps with a soft gold ring.
+   Nat 20 / nat 1: the same blank spin, 2.0–3.0× longer, still blank, then the crit/FAIL
+   pool in d20-zoom.js (fiery, C1, C2, C3). This file does not draw CRITICAL, FAIL, forge,
+   or crack. Map Effects off and reduced motion skip to the landed number. Tap, Esc,
+   Space, or Enter mid-spin does the same. A player click does not broadcast this overlay. */
 (function (root) {
   "use strict";
 
+  var FAST = 1.05;
   var D_DEFAULT = 4;
   var LAND_AT = 2.85;
   var HOLD_AFTER = 0.7;
@@ -184,6 +183,51 @@
     };
   }
 
+  /* Fast blank spin from the Love-it click roll. Suspense (nat 1 / 20) stays blank. */
+  function fastFrame(t, spec) {
+    spec = spec || {};
+    var D = Number(spec.D);
+    if (!isFinite(D) || D <= 0) D = FAST;
+    var dir = spec.dir === -1 ? -1 : 1;
+    var suspense = !!spec.suspense;
+    var turns = Math.max(2, Math.round(2 * (D / FAST)));
+    var u = clamp(D > 0 ? t / D : 1, 0, 1);
+    var rot = dir * 360 * turns * (1 - Math.pow(1 - u, 2.2));
+    var s = Number(spec.size) > 0 ? Number(spec.size) : 280;
+    var bounces = suspense ? 3 : 2;
+    var y = 0;
+    if (t < D) {
+      var uu = t / D;
+      y = -s * 0.14 * Math.abs(Math.sin(Math.PI * bounces * Math.pow(uu, 0.85))) * Math.pow(1 - uu, 1.4);
+    }
+    var scale = 1;
+    if (t < 0.05) scale = lerp(1, 0.96, t / 0.05);
+    else if (t < D) scale = lerp(0.96, 1, (t - 0.05) / Math.max(0.01, D - 0.05));
+    else {
+      var d = t - D;
+      scale = 1 - 0.05 * Math.exp(-10 * d) * Math.cos(22 * d);
+    }
+    var blur = (t > 0 && t < D) ? 1.6 * Math.sin(Math.PI * (t / D)) : 0;
+    var show = !suspense && t >= D;
+    var stamp = show ? (1 - Math.pow(1 - clamp((t - D) / 0.2, 0, 1), 3)) : 0;
+    var value = spec.value != null ? spec.value : spec.nat;
+    return {
+      t: t,
+      D: D,
+      land: D,
+      end: D + (suspense ? 0 : 0.45),
+      rot: rot,
+      scale: scale,
+      y: y,
+      blur: blur,
+      showNum: show,
+      text: show && value != null && value !== "" ? String(value) : "",
+      numOpacity: show ? stamp : 0,
+      numScale: show ? lerp(1.25, 1, stamp) : 1.25,
+      spinning: t < D,
+      suspense: suspense
+    };
+  }
   function make(spec) {
     spec = spec || {};
     var value = Math.round(Number(spec.value != null ? spec.value : spec.nat));
@@ -250,9 +294,38 @@
     try { root.SSDNSDice.show({ sides: 20, face: value, formula: "1d20", total: value }); } catch (e) {}
   }
 
+  function asPlay(spec) {
+    spec = spec || {};
+    var value = Math.round(Number(spec.value != null ? spec.value : spec.nat));
+    if (!(value >= 1 && value <= 20)) value = 1 + Math.floor(Math.random() * 20);
+    var suspense = !!spec.suspense || spec.kind === "crit" || spec.kind === "fumble";
+    if (spec.kind === "plain") suspense = false;
+    var dir = spec.dir === -1 || spec.dir === 1 ? spec.dir : (Math.random() < 0.5 ? -1 : 1);
+    var mult = Number(spec.mult);
+    var D = Number(spec.D);
+    if (!(D > 0)) {
+      if (suspense) {
+        if (!(mult >= 2 && mult <= 3)) mult = 2 + Math.random();
+        D = Math.round(FAST * mult * 1000) / 1000;
+      } else D = FAST;
+    }
+    return {
+      id: String(spec.id || ""),
+      value: value,
+      nat: value,
+      D: D,
+      dir: dir,
+      mult: suspense ? (mult >= 2 ? mult : D / FAST) : 1,
+      suspense: suspense,
+      kind: suspense ? (spec.kind === "fumble" || value === 1 ? "fumble" : "crit") : "plain",
+      motion: spec.motion || (suspense ? "" : "fast"),
+      who: spec.who || "",
+      label: spec.label || ""
+    };
+  }
   function play(spec) {
-    spec = spec && spec.kind === "plain" ? spec : make(spec);
-    var id = spec.id || "";
+    spec = asPlay(spec);
+    var id = spec.suspense ? "" : (spec.id || "");
     if (id && seen[id]) return seen[id];
     var job = run(spec);
     if (id) {
@@ -287,8 +360,10 @@
         if (root.document) root.document.removeEventListener("keydown", onKey, true);
         resolve();
       }
+      var suspense = !!spec.suspense;
       function draw(t) {
-        var fr = c2Frame(t, spec);
+        var wide = spin && spin.offsetWidth ? spin.offsetWidth : 280;
+        var fr = fastFrame(t, { value: spec.value, D: spec.D, dir: spec.dir, suspense: suspense, size: wide });
         if (spin) {
           spin.style.transform = "translateY(" + fr.y.toFixed(2) + "px) rotate(" + fr.rot.toFixed(2) + "deg) scale(" + fr.scale.toFixed(4) + ")";
           spin.style.filter = "blur(" + Math.max(0, fr.blur).toFixed(2) + "px)";
@@ -303,7 +378,7 @@
             num.style.transform = "translateY(-50%) scale(" + fr.numScale.toFixed(3) + ")";
           }
         }
-        if (fr.showNum && layer && !layer.classList.contains("is-land")) {
+        if (!suspense && fr.showNum && layer && !layer.classList.contains("is-land")) {
           layer.classList.add("is-land");
           landed = true;
           paintStage(spec.value);
@@ -318,7 +393,8 @@
         if (done) return;
         if (raf && root.cancelAnimationFrame) root.cancelAnimationFrame(raf);
         clearTimeout(raf);
-        draw(spec.D);
+        if (suspense) { finish(); return; }
+        draw(spec.D + 0.45);
         if (layer) layer.classList.add("is-land");
         landed = true;
         paintStage(spec.value);
@@ -332,28 +408,26 @@
           else skip();
         }
       }
+      function endAt() { return suspense ? spec.D : spec.D + 0.45; }
       function tick(now) {
         if (done) return;
         var t = (now - start) / 1000;
-        var fr = draw(Math.min(t, spec.D));
-        if (t < spec.D && !fr.showNum) {
+        var limit = endAt();
+        draw(Math.min(t, limit));
+        if (t < limit) {
           if (root.requestAnimationFrame) raf = root.requestAnimationFrame(tick);
           else raf = setTimeout(function () { tick(Date.now()); }, 32);
           return;
         }
-        if (t < spec.D) {
-          if (root.requestAnimationFrame) raf = root.requestAnimationFrame(tick);
-          else raf = setTimeout(function () { tick(Date.now()); }, 32);
-          return;
-        }
+        if (suspense) { finish(); return; }
         holdThenClose();
       }
       if (!root.document || !root.document.body) { resolve(); return; }
       ensureCss();
       layer = root.document.createElement("div");
       layer.className = "d20-plain" + (reduced ? " is-reduced is-land" : "");
-      layer.setAttribute("data-kind", "plain");
-      layer.setAttribute("data-motion", "c2");
+      layer.setAttribute("data-kind", suspense ? "suspense" : "plain");
+      layer.setAttribute("data-motion", "fast");
       layer.setAttribute("role", "dialog");
       layer.setAttribute("aria-label", "d20 roll");
       var label = String(spec.label || "");
@@ -374,7 +448,8 @@
       layer.addEventListener("click", function () { if (landed) finish(); else skip(); });
       root.document.addEventListener("keydown", onKey, true);
       if (reduced) {
-        draw(spec.D);
+        if (suspense) { finish(); return; }
+        draw(spec.D + 0.45);
         layer.classList.add("is-land");
         landed = true;
         paintStage(spec.value);
@@ -399,14 +474,16 @@
   }
 
   root.SSDNSPlainRoll = {
-    D: D_DEFAULT,
+    D: FAST,
+    FAST: FAST,
     LAND: LAND_AT,
     c2Frame: c2Frame,
     c2FailLook: c2FailLook,
-    frame: c2Frame,
+    fastFrame: fastFrame,
+    frame: fastFrame,
     make: make,
     play: play,
-    roll: function (n) { return play({ value: n }); },
+    roll: function (n) { return play({ value: n, kind: "plain" }); },
     skip: skip,
     effectsOn: effectsOn,
     reducedMotion: reducedMotion
