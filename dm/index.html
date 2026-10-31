@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="../assets/css/modal-border.css?v=0.3.168-modal">
 <link rel="stylesheet" href="../assets/css/cast-skins.css?v=0.2.181-n61">
 <link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.168-rounds">
-<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.187-n58">
+<link rel="stylesheet" href="assets/css/dmcc.css?v=0.2.190-n89">
 <link rel="stylesheet" href="../assets/css/dice.css?v=0.2.181-polish">
 </head>
 <body>
@@ -121,6 +121,9 @@
     <button type="button" role="tab" class="tab" id="tab-ledger" aria-controls="panel-ledger" aria-selected="false">Ledger (economy)</button>
   </nav>
 
+  <!-- N89: the Table strip, kept in view on Fight, Map, and the other pages. -->
+  <div id="turnStrip" class="turn-strip is-condensed" hidden></div>
+
   <div id="bankReqs" class="bank-reqs" hidden></div>
 
   <main>
@@ -151,7 +154,6 @@
         <summary>Food &amp; water</summary>
         <div id="suppliesPanel" class="supplies-panel"></div>
       </details>
-      <div id="turnStrip" class="turn-strip"></div>
       <div class="gun-clock" id="gunClock">
         <div class="gun-clock-row">
           <b id="gunClockTitle">Gun care</b>
@@ -902,13 +904,13 @@
 <script src="../assets/js/enemy-loot.js?v=0.2.181-b8"></script>
 <script src="../assets/js/peace-maker.js?v=0.2.181-art"></script>
 <script src="../assets/js/dice-art.js?v=0.2.185-spin"></script>
-<script type="module" src="assets/js/dmcc.js?v=0.2.191-n90"></script>
+<script type="module" src="assets/js/dmcc.js?v=0.2.190-n89"></script>
 <script src="../assets/js/ammo-display.js?v=0.3.169-spin"></script>
 <script src="../assets/js/grab.js?v=0.2.181-grab"></script>
 <script src="../assets/js/react-prompt.js?v=0.2.181-n67"></script>
 <script src="../assets/js/pact-shot.js?v=0.2.181-n61"></script>
 <script src="../assets/js/cast-skins.js?v=0.2.181-n61"></script>
-<script type="module" src="assets/js/v2.js?v=0.2.188-n87"></script>
+<script type="module" src="assets/js/v2.js?v=0.2.190-n89"></script>
 <script src="../assets/js/supplies.js?v=0.2.181-supplies"></script>
 <script type="module" src="assets/js/supplies-dm.js?v=0.2.181-supplies"></script>
 <script src="../map/token-crop.js?v=0.2.38-card"></script>
