@@ -7945,7 +7945,9 @@ if (role === 'dm') {
   });
   const importBtn = q('importWallsBtn');
   if (importBtn) importBtn.addEventListener('click', () => {
-    const raw = prompt('Paste walls JSON (array of {x1,y1,x2,y2}):');
+    const packScene = builtinScenes().find(s => s.id === activeSceneId());
+    const fromPack = packScene && Array.isArray(packScene.walls) && packScene.walls.length ? JSON.stringify(packScene.walls) : '';
+    const raw = prompt('Paste walls JSON (array of {x1,y1,x2,y2}):', fromPack);
     if (!raw) return;
     try {
       const walls = JSON.parse(raw);

@@ -18,11 +18,11 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.176" && version.sheetBuild === "sheet-playtest-v03176");
-check("ver.dmcc", version.dmcc === "0.2.189" && version.dmccBuild === "dmcc-playtest-v02189");
+check("ver.sheet", version.sheet === "0.3.178" && version.sheetBuild === "sheet-playtest-v03178");
+check("ver.dmcc", version.dmcc === "0.2.191" && version.dmccBuild === "dmcc-playtest-v02191");
 check("ver.rules", !read("assets/data/rules.js").includes("0.3.169") && !read("assets/data/rules.js").includes("d20-zoom") && !read("database.rules.json").includes("0.3.169"));
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.176"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.189"'));
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.178"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.191"'));
 
 const sheet = read("assets/css/sheet.css");
 const dmcc = read("dm/assets/css/dmcc.css");

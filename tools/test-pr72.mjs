@@ -29,7 +29,12 @@ const ids = P.scenes.map((s) => s.id);
 check("packs.scenes", ["scn_dustyspur01", "scn_upstairs", "scn_street", "scn_plains_day", "scn_plains_night", "scn_ellen_grounds", "scn_ellen_cellar", "scn_ellen_2f", "scn_ellen_3f"].every((id) => ids.includes(id)), ids.join(","));
 check("packs.keepDustySpur", P.scenes[0].id === "scn_dustyspur01" && exists("map/dusty-spur-saloon_30x20_70px.webp") && exists("map/scene-dusty-spur.json"));
 check("packs.images", P.scenes.every((s) => exists("map/" + s.img) && exists("map/" + s.thumb)), P.scenes.filter((s) => !exists("map/" + s.img)).map((s) => s.img).join(","));
-check("packs.webpSmall", P.scenes.every((s) => s.img === "dusty-spur-saloon_30x20_70px.webp" || (/\.webp$/.test(s.img) && fs.statSync(path.join(root, "map", s.img)).size < 1.5e6)));
+check("packs.webpSmall", P.scenes.every((s) => {
+  if (s.img === "dusty-spur-saloon_30x20_70px.webp") return true;
+  const small = fs.statSync(path.join(root, "map", s.img)).size < 1.5e6;
+  if (s.id === "scn_dry_fork") return /\.png$/.test(s.img) && small;
+  return /\.webp$/.test(s.img) && small;
+}));
 let bad = [];
 P.scenes.forEach((s) => (s.walls || []).forEach((w) => {
   /* railings may sit on a painted balcony edge (Upstairs gallery at y=17.6); everything else is on grid lines */
@@ -104,6 +109,11 @@ api.swap("scn_street");
 await flush(30);
 check("swap.grid", api.gridOf(api.list().find((s) => s.id === "scn_street")).cols === 40 && api.current() === "scn_street");
 check("swap.seedsWalls", api.sceneState("scn_street").walls.length === 71 && writes.includes("map/public/scenes/scn_street"));
+api.swap("scn_dry_fork");
+await flush(30);
+check("swap.dryFork", api.current() === "scn_dry_fork" && api.gridOf(api.list().find((s) => s.id === "scn_dry_fork")).cols === 40 && api.gridOf(api.list().find((s) => s.id === "scn_dry_fork")).rows === 30);
+check("swap.dryForkWalls", api.sceneState("scn_dry_fork").walls.length === 31 && api.sceneState("scn_dry_fork").walls.filter((w) => w.door).length === 6);
+api.swap("scn_street");
 api.sceneState("scn_street").fogShapes.push({ id: "f1", op: "reveal", kind: "box", x: 1, y: 1, w: 3, h: 3 });
 api.swap("scn_dustyspur01"); api.swap("scn_street");
 check("swap.keepsState", api.sceneState("scn_street").fogShapes.length === 1 && api.sceneState("scn_street").walls.length === 71);

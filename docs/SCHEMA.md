@@ -214,3 +214,7 @@ A placed copy is a map token `kind: "asset"` with `assetDefId` and `asset.state`
 N59 door walls add `locked` (bool), `lockDc` (number), `ajar` (bool), and `trapOnFail` (bool, stored only). Peek sets `ajar`: sight passes, movement stays blocked. Peek again or Close shuts it. Open on a locked door is refused. Lockpick is Dex + thieves' tools versus `lockDc`. Failure leaves the door locked and does not spring `trapOnFail`.
 
 `asset.props.timer` is `{mode: ""|"instant"|"fuse"|"plunger"|"timer", fuseRounds}`. `asset.state` adds `waiting` and `countdownVisible`. A fuse of N sets `firesAtRound = armedAtRound + N`. `asset.effects[]` is `explosion` (`radiusFt`, `damage`, `damageType`, `save`, `dc`, `halfOnSave`), `unlock` or `open` (`targets` are asset ids or door refs), `condition`, `sfx`, or `clear`. Explosion damage goes through the existing save and `applyPlayerHit` path. Players see `turnsLeft` only when `countdownVisible` is set.
+
+## Showcase map (N90, sheet 0.3.178 / DMCC 0.2.191)
+
+`scn_dry_fork` (Dry Fork Water Stop) is a built-in scene on `SSDNS_MAP_PACKS`, same switch as the other My Maps built-ins. Grid is 40×30 at 70 px. Walls live on the scene in the pack and in `map/packs/showcase-dry-fork/showcase-dry-fork.walls.json`. The first open copies them onto `map/public/scenes/scn_dry_fork` when that scene has no walls. Import Walls prefills from the pack. The draft `showcase-dry-fork.map.json` is not a runtime scene and places no tokens.

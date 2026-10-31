@@ -1,0 +1,1095 @@
+{
+ "_status": "DRAFT - schema unconfirmed; waiting on Coder",
+ "map": "showcase-dry-fork",
+ "grid": {
+  "cols": 40,
+  "rows": 30,
+  "px_per_square": 70,
+  "feet_per_square": 5,
+  "origin": "0-based squares, x right, y down; edges use square-corner coords"
+ },
+ "edge_rules": {
+  "wall": "blocks movement and sight",
+  "door": "closed blocks movement and sight; open blocks neither",
+  "window": "blocks movement, not sight; shooting through gives half cover",
+  "railing": "blocks movement unless climbed (5 ft extra), not sight; half cover",
+  "fence": "as railing; a gate is a door segment"
+ },
+ "zones": [
+  {
+   "label": "ROCKY RISE (+5 ft, half cover crouched)",
+   "rect": [
+    30,
+    0,
+    8,
+    3
+   ]
+  },
+  {
+   "label": "MAIN LINE (rails)",
+   "rect": [
+    0,
+    6,
+    40,
+    2
+   ]
+  },
+  {
+   "label": "SIDING",
+   "rect": [
+    9,
+    9,
+    23,
+    2
+   ]
+  },
+  {
+   "label": "PLATFORM (+3 ft)",
+   "rect": [
+    10,
+    11,
+    20,
+    2
+   ]
+  },
+  {
+   "label": "WAGON ROAD",
+   "rect": [
+    0,
+    15,
+    12,
+    3
+   ]
+  },
+  {
+   "label": "OFFICE / TELEGRAPH",
+   "rect": [
+    12,
+    13,
+    5,
+    8
+   ]
+  },
+  {
+   "label": "BUNK ROOM",
+   "rect": [
+    17,
+    13,
+    5,
+    8
+   ]
+  },
+  {
+   "label": "TOOL SHED (dark)",
+   "rect": [
+    24,
+    14,
+    5,
+    5
+   ]
+  },
+  {
+   "label": "CORRAL",
+   "rect": [
+    31,
+    14,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "CUT BANK (half cover crouched)",
+   "rect": [
+    0,
+    24,
+    40,
+    1
+   ]
+  },
+  {
+   "label": "DRY WASH (difficult)",
+   "rect": [
+    0,
+    25,
+    40,
+    5
+   ]
+  }
+ ],
+ "objects": [
+  {
+   "id": "water_tower",
+   "type": "water_tower",
+   "rect": [
+    14,
+    2,
+    4,
+    4
+   ],
+   "cover": "half",
+   "note": "legs = half cover underneath; tank top is +20 ft with a rim (three-quarters cover up top)"
+  },
+  {
+   "id": "tower_ladder",
+   "type": "ladder",
+   "rect": [
+    18,
+    4,
+    1,
+    1
+   ],
+   "cover": "none",
+   "note": "climb 20 ft: 40 ft of movement, or Athletics DC 10 to do it as 20 ft"
+  },
+  {
+   "id": "water_spout",
+   "type": "spout",
+   "rect": [
+    16,
+    6,
+    1,
+    1
+   ],
+   "cover": "none",
+   "note": "swings over the main line; action to swing (Str DC 12) = 10-ft line soak, Medium foes in it DC 12 Dex or prone"
+  },
+  {
+   "id": "telegraph_pole",
+   "type": "pole",
+   "rect": [
+    11,
+    4,
+    1,
+    1
+   ],
+   "cover": "half",
+   "note": "wire cut at the top (Perception DC 12 from the platform)"
+  },
+  {
+   "id": "boulder",
+   "type": "boulder",
+   "rect": [
+    24,
+    1,
+    2,
+    2
+   ],
+   "cover": "three-quarters"
+  },
+  {
+   "id": "mesquite_nw",
+   "type": "mesquite",
+   "rect": [
+    3,
+    1,
+    2,
+    2
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "signal_post",
+   "type": "signal_sign",
+   "rect": [
+    33,
+    5,
+    1,
+    1
+   ],
+   "cover": "half",
+   "note": "painted order board (RED/GREEN sign, not a light); set to RED by the gang. Action at the post flips it to GREEN (or Str DC 12 to wrench it if chained). At night a lantern hangs on the post so the board can be read."
+  },
+  {
+   "id": "west_switch",
+   "type": "switch_stand",
+   "rect": [
+    8,
+    8,
+    1,
+    1
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "east_switch",
+   "type": "switch_stand",
+   "rect": [
+    32,
+    8,
+    1,
+    1
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "handcar",
+   "type": "handcar",
+   "rect": [
+    26,
+    9,
+    2,
+    2
+   ],
+   "cover": "three-quarters",
+   "note": "Switch Boss nest; whoever pumps it (action) moves it 30 ft along the siding or main line"
+  },
+  {
+   "id": "coal_bin",
+   "type": "coal_bin",
+   "rect": [
+    5,
+    10,
+    3,
+    2
+   ],
+   "cover": "three-quarters"
+  },
+  {
+   "id": "lantern_post_w",
+   "type": "lantern_post",
+   "rect": [
+    10,
+    11,
+    1,
+    1
+   ],
+   "cover": "half",
+   "note": "lit lantern: bright 15 / dim +15; AC 12, 1 hit puts it out"
+  },
+  {
+   "id": "lantern_post_e",
+   "type": "lantern_post",
+   "rect": [
+    29,
+    11,
+    1,
+    1
+   ],
+   "cover": "half",
+   "note": "as west post"
+  },
+  {
+   "id": "baggage_cart",
+   "type": "cart",
+   "rect": [
+    21,
+    11,
+    2,
+    1
+   ],
+   "cover": "half",
+   "note": "can be shoved 10 ft along the platform (Str DC 10)"
+  },
+  {
+   "id": "rain_barrel",
+   "type": "barrel",
+   "rect": [
+    22,
+    14,
+    1,
+    1
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "desk_telegraph",
+   "type": "desk",
+   "rect": [
+    13,
+    14,
+    2,
+    1
+   ],
+   "cover": "half",
+   "note": "telegraph key, keeper log (stops mid-line)"
+  },
+  {
+   "id": "stove",
+   "type": "stove",
+   "rect": [
+    15,
+    19,
+    1,
+    1
+   ],
+   "cover": "three-quarters"
+  },
+  {
+   "id": "bunk_n",
+   "type": "bunk",
+   "rect": [
+    20,
+    14,
+    1,
+    3
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "bunk_s",
+   "type": "bunk",
+   "rect": [
+    20,
+    18,
+    1,
+    2
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "bunk_table",
+   "type": "table",
+   "rect": [
+    18,
+    17,
+    2,
+    2
+   ],
+   "cover": "half",
+   "note": "tip over: object interaction, still half cover"
+  },
+  {
+   "id": "keeper",
+   "type": "bound_npc",
+   "rect": [
+    25,
+    15,
+    1,
+    1
+   ],
+   "cover": "none",
+   "note": "section keeper, tied and gagged (Common Townsfolk)"
+  },
+  {
+   "id": "toolbox",
+   "type": "toolbox",
+   "rect": [
+    28,
+    15,
+    1,
+    1
+   ],
+   "cover": "none",
+   "note": "Investigation DC 12: crowbar + gun cleaning kit (scene find, not a loot box)"
+  },
+  {
+   "id": "stash_floor",
+   "type": "loot_outlaw_stash",
+   "rect": [
+    27,
+    17,
+    1,
+    1
+   ],
+   "cover": "none",
+   "note": "OUTLAW STASH under loose boards: Perception DC 13 to find; placed LOCKED DC 13"
+  },
+  {
+   "id": "saddlebag",
+   "type": "loot_saddlebag",
+   "rect": [
+    30,
+    15,
+    1,
+    1
+   ],
+   "cover": "none",
+   "note": "SADDLEBAG slung on the corral rail: unlocked"
+  },
+  {
+   "id": "woodpile",
+   "type": "woodpile",
+   "rect": [
+    23,
+    20,
+    2,
+    1
+   ],
+   "cover": "three-quarters"
+  },
+  {
+   "id": "broken_wagon",
+   "type": "wagon",
+   "rect": [
+    3,
+    18,
+    3,
+    2
+   ],
+   "cover": "three-quarters",
+   "note": "bed +4 ft if climbed"
+  },
+  {
+   "id": "road_trough",
+   "type": "water_trough",
+   "rect": [
+    10,
+    18,
+    1,
+    2
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "horse1",
+   "type": "horse",
+   "rect": [
+    33,
+    16,
+    1,
+    2
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "horse2",
+   "type": "horse",
+   "rect": [
+    35,
+    16,
+    1,
+    2
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "horse3",
+   "type": "horse",
+   "rect": [
+    34,
+    19,
+    1,
+    2
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "horse4",
+   "type": "horse",
+   "rect": [
+    36,
+    19,
+    1,
+    2
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "corral_trough",
+   "type": "water_trough",
+   "rect": [
+    37,
+    21,
+    1,
+    2
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "campfire",
+   "type": "campfire",
+   "rect": [
+    29,
+    22,
+    1,
+    1
+   ],
+   "cover": "none",
+   "note": "bright 20 / dim +20"
+  },
+  {
+   "id": "outhouse",
+   "type": "outhouse",
+   "rect": [
+    6,
+    21,
+    2,
+    2
+   ],
+   "cover": "total"
+  },
+  {
+   "id": "wash_mesquite",
+   "type": "mesquite",
+   "rect": [
+    35,
+    26,
+    2,
+    2
+   ],
+   "cover": "half"
+  },
+  {
+   "id": "wash_rocks",
+   "type": "rocks",
+   "rect": [
+    18,
+    27,
+    2,
+    1
+   ],
+   "cover": "half"
+  }
+ ],
+ "edges": [
+  {
+   "type": "wall",
+   "from": [
+    12,
+    13
+   ],
+   "to": [
+    14,
+    13
+   ]
+  },
+  {
+   "type": "door",
+   "from": [
+    14,
+    13
+   ],
+   "to": [
+    15,
+    13
+   ],
+   "state": "closed"
+  },
+  {
+   "type": "wall",
+   "from": [
+    15,
+    13
+   ],
+   "to": [
+    18,
+    13
+   ]
+  },
+  {
+   "type": "window",
+   "from": [
+    18,
+    13
+   ],
+   "to": [
+    19,
+    13
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    19,
+    13
+   ],
+   "to": [
+    22,
+    13
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    12,
+    21
+   ],
+   "to": [
+    13,
+    21
+   ]
+  },
+  {
+   "type": "window",
+   "from": [
+    13,
+    21
+   ],
+   "to": [
+    14,
+    21
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    14,
+    21
+   ],
+   "to": [
+    19,
+    21
+   ]
+  },
+  {
+   "type": "door",
+   "from": [
+    19,
+    21
+   ],
+   "to": [
+    20,
+    21
+   ],
+   "state": "closed"
+  },
+  {
+   "type": "wall",
+   "from": [
+    20,
+    21
+   ],
+   "to": [
+    22,
+    21
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    12,
+    13
+   ],
+   "to": [
+    12,
+    15
+   ]
+  },
+  {
+   "type": "window",
+   "from": [
+    12,
+    15
+   ],
+   "to": [
+    12,
+    16
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    12,
+    16
+   ],
+   "to": [
+    12,
+    21
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    22,
+    13
+   ],
+   "to": [
+    22,
+    17
+   ]
+  },
+  {
+   "type": "window",
+   "from": [
+    22,
+    17
+   ],
+   "to": [
+    22,
+    18
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    22,
+    18
+   ],
+   "to": [
+    22,
+    21
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    17,
+    13
+   ],
+   "to": [
+    17,
+    16
+   ]
+  },
+  {
+   "type": "door",
+   "from": [
+    17,
+    16
+   ],
+   "to": [
+    17,
+    17
+   ],
+   "state": "open"
+  },
+  {
+   "type": "wall",
+   "from": [
+    17,
+    17
+   ],
+   "to": [
+    17,
+    21
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    24,
+    14
+   ],
+   "to": [
+    29,
+    14
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    24,
+    19
+   ],
+   "to": [
+    29,
+    19
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    24,
+    14
+   ],
+   "to": [
+    24,
+    16
+   ]
+  },
+  {
+   "type": "door",
+   "from": [
+    24,
+    16
+   ],
+   "to": [
+    24,
+    17
+   ],
+   "state": "closed"
+  },
+  {
+   "type": "wall",
+   "from": [
+    24,
+    17
+   ],
+   "to": [
+    24,
+    19
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    29,
+    14
+   ],
+   "to": [
+    29,
+    19
+   ]
+  },
+  {
+   "type": "door",
+   "from": [
+    6,
+    21
+   ],
+   "to": [
+    7,
+    21
+   ],
+   "state": "closed"
+  },
+  {
+   "type": "wall",
+   "from": [
+    7,
+    21
+   ],
+   "to": [
+    8,
+    21
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    6,
+    23
+   ],
+   "to": [
+    8,
+    23
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    6,
+    21
+   ],
+   "to": [
+    6,
+    23
+   ]
+  },
+  {
+   "type": "wall",
+   "from": [
+    8,
+    21
+   ],
+   "to": [
+    8,
+    23
+   ]
+  },
+  {
+   "type": "fence",
+   "from": [
+    31,
+    14
+   ],
+   "to": [
+    39,
+    14
+   ]
+  },
+  {
+   "type": "fence",
+   "from": [
+    39,
+    14
+   ],
+   "to": [
+    39,
+    23
+   ]
+  },
+  {
+   "type": "fence",
+   "from": [
+    31,
+    23
+   ],
+   "to": [
+    39,
+    23
+   ]
+  },
+  {
+   "type": "fence",
+   "from": [
+    31,
+    14
+   ],
+   "to": [
+    31,
+    17
+   ]
+  },
+  {
+   "type": "door",
+   "from": [
+    31,
+    17
+   ],
+   "to": [
+    31,
+    19
+   ],
+   "state": "closed",
+   "note": "corral gate (fence; does not block sight)"
+  },
+  {
+   "type": "fence",
+   "from": [
+    31,
+    19
+   ],
+   "to": [
+    31,
+    23
+   ]
+  }
+ ],
+ "lighting": {
+  "dusk": {
+   "ambient": "dim (sun down behind the rise)",
+   "note": "fight usually starts here"
+  },
+  "night": {
+   "ambient": "dark (no moon until late)",
+   "sources": [
+    {
+     "id": "lantern_post_w",
+     "x": 10.5,
+     "y": 11.5,
+     "bright_ft": 15,
+     "dim_ft": 30,
+     "shootable": "AC 12, 1 hit"
+    },
+    {
+     "id": "lantern_post_e",
+     "x": 29.5,
+     "y": 11.5,
+     "bright_ft": 15,
+     "dim_ft": 30,
+     "shootable": "AC 12, 1 hit"
+    },
+    {
+     "id": "office_lamp",
+     "x": 14.5,
+     "y": 16.5,
+     "bright_ft": 15,
+     "dim_ft": 30,
+     "note": "inside office only (walls block)"
+    },
+    {
+     "id": "signal_post",
+     "x": 33.5,
+     "y": 5.5,
+     "bright_ft": 15,
+     "dim_ft": 30,
+     "note": "lantern hung on the signal post; lights the order board for reading only. If shot out the board is still there but hard to read; board state is what matters to the train.",
+     "shootable": "AC 12, 1 hit"
+    },
+    {
+     "id": "campfire",
+     "x": 29.5,
+     "y": 22.5,
+     "bright_ft": 20,
+     "dim_ft": 40
+    }
+   ]
+  },
+  "tool_shed": "dark inside unless someone brings light (torch / belt lantern / Light)"
+ },
+ "spawns": {
+  "pcs": [
+   {
+    "id": "P1",
+    "x": 1,
+    "y": 15
+   },
+   {
+    "id": "P2",
+    "x": 1,
+    "y": 16
+   },
+   {
+    "id": "P3",
+    "x": 2,
+    "y": 15
+   },
+   {
+    "id": "P4",
+    "x": 2,
+    "y": 16
+   },
+   {
+    "id": "P5 (opt)",
+    "x": 1,
+    "y": 17
+   }
+  ],
+  "enemies": [
+   {
+    "id": "E1",
+    "who": "Hired Rifle (rival-adventurer)",
+    "x": 16,
+    "y": 12,
+    "fight_moves_to": "tower top via ladder (18,4)"
+   },
+   {
+    "id": "E2",
+    "who": "Switch Boss (switch-boss)",
+    "x": 26,
+    "y": 9,
+    "note": "on handcar"
+   },
+   {
+    "id": "E3",
+    "who": "Outlaw",
+    "x": 15,
+    "y": 12,
+    "note": "leaning by front door"
+   },
+   {
+    "id": "E4",
+    "who": "Outlaw",
+    "x": 13,
+    "y": 16,
+    "note": "inside office at the west window"
+   },
+   {
+    "id": "E5",
+    "who": "Outlaw",
+    "x": 30,
+    "y": 18,
+    "note": "at the corral gate"
+   },
+   {
+    "id": "E6",
+    "who": "Outlaw",
+    "x": 23,
+    "y": 16,
+    "note": "guarding the shed door"
+   },
+   {
+    "id": "E7",
+    "who": "Outlaw (lookout)",
+    "x": 33,
+    "y": 1,
+    "note": "on the rocky rise"
+   }
+  ],
+  "reinforcement_optional": [
+   {
+    "id": "R1",
+    "who": "Dust Devil",
+    "x": 20,
+    "y": 28
+   },
+   {
+    "id": "R2",
+    "who": "Dust Devil",
+    "x": 22,
+    "y": 28,
+    "note": "enter from the wash, round 3, drawn by gunfire and blood"
+   }
+  ],
+  "bystanders": [
+   {
+    "id": "B1",
+    "who": "section keeper (tied)",
+    "x": 25,
+    "y": 15
+   }
+  ]
+ },
+ "title": "Dry Fork Water Stop (Showcase)"
+}
