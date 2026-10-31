@@ -1,0 +1,116 @@
+{
+  "chunk": 8,
+  "label": "C1 Redo",
+  "exported": "2026-10-31T15:49:24.760Z",
+  "source_list": "Redo of Chunk 1: specs/N81-SPELL-GAP-SCORES-2026-10-28.csv rows 1-2 + 4-10 (the 9 cantrips whose new ElevenLabs drop binaries went missing after the C1 lock; never reached drops-ingest)",
+  "spells": [
+    {
+      "n": 1,
+      "spell": "Acid Splash",
+      "current_cue": "spellcast",
+      "current_file": "final/magic/spellcast.mp3",
+      "current_status": "default",
+      "dropped_file": "booming_acid_splash_#2-1793461200201.mp3",
+      "assigned_file": "booming_acid_splash_#2-1793461200201.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 2,
+      "spell": "Chill Touch",
+      "current_cue": "spellshot",
+      "current_file": "final/magic/spellcast-alt-01.mp3",
+      "current_status": "default",
+      "dropped_file": "Leviathan_Blizzard._-1793461257926.mp3",
+      "assigned_file": "Leviathan_Blizzard._-1793461257926.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 4,
+      "spell": "Fire Bolt",
+      "current_cue": "spellshot",
+      "current_file": "final/magic/spellcast-alt-01.mp3",
+      "current_status": "default",
+      "dropped_file": "Booming_fire_bolt_sp_#3-1793461301842.mp3",
+      "assigned_file": "Booming_fire_bolt_sp_#3-1793461301842.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 5,
+      "spell": "Poison Spray",
+      "current_cue": "spellcast",
+      "current_file": "final/magic/spellcast.mp3",
+      "current_status": "default",
+      "dropped_file": "booming_poison_spray_#4-1793461351034.mp3",
+      "assigned_file": "booming_poison_spray_#4-1793461351034.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 6,
+      "spell": "Produce Flame",
+      "current_cue": "spellshot",
+      "current_file": "final/magic/spellcast-alt-01.mp3",
+      "current_status": "default",
+      "dropped_file": "booming_flame_ignite_#3-1793461375442.mp3",
+      "assigned_file": "booming_flame_ignite_#3-1793461375442.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 7,
+      "spell": "Ray of Frost",
+      "current_cue": "spellshot",
+      "current_file": "final/magic/spellcast-alt-01.mp3",
+      "current_status": "default",
+      "dropped_file": "MAGSpel-Dark_fantasy_spell,_-Elevenlabs.mp3",
+      "assigned_file": "MAGSpel-Dark_fantasy_spell,_-Elevenlabs.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 8,
+      "spell": "Sacred Flame",
+      "current_cue": "spellcast",
+      "current_file": "final/magic/spellcast.mp3",
+      "current_status": "default",
+      "dropped_file": "The_sound_of_superhe-1793461504161.mp3",
+      "assigned_file": "The_sound_of_superhe-1793461504161.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 9,
+      "spell": "Shocking Grasp",
+      "current_cue": "electric",
+      "current_file": "final/magic/electric.mp3",
+      "current_status": "assigned",
+      "dropped_file": "An_empowered_chain_l_#4-1793461651887.mp3",
+      "assigned_file": "An_empowered_chain_l_#4-1793461651887.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 10,
+      "spell": "Thorn Whip",
+      "current_cue": "spellshot",
+      "current_file": "final/magic/spellcast-alt-01.mp3",
+      "current_status": "default",
+      "dropped_file": "booming_sound_of_a_w_#1-1793461724552.mp3",
+      "assigned_file": "booming_sound_of_a_w_#1-1793461724552.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    }
+  ]
+}

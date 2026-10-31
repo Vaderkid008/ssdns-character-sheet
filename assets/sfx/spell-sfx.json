@@ -1,18 +1,18 @@
 {
- "version": "n85-85",
+ "version": "n88-c1",
  "count": 85,
  "spells": {
   "acid splash": {
-   "file": "magic/booming_acid_splash_#2-1793331961394.mp3",
-   "assigned": "booming_acid_splash_#2-1793331961394.mp3",
+   "file": "magic/booming_acid_splash_#2-1793461200201.mp3",
+   "assigned": "booming_acid_splash_#2-1793461200201.mp3",
    "source": "drop",
    "n": 1,
    "present": false,
    "note": ""
   },
   "chill touch": {
-   "file": "magic/Leviathan_Blizzard._-1793332769355.mp3",
-   "assigned": "Leviathan_Blizzard._-1793332769355.mp3",
+   "file": "magic/Leviathan_Blizzard._-1793461257926.mp3",
+   "assigned": "Leviathan_Blizzard._-1793461257926.mp3",
    "source": "drop",
    "n": 2,
    "present": false,
@@ -27,56 +27,56 @@
    "note": ""
   },
   "fire bolt": {
-   "file": "magic/Booming_fire_bolt_sp_#3-1793332098869.mp3",
-   "assigned": "Booming_fire_bolt_sp_#3-1793332098869.mp3",
+   "file": "magic/Booming_fire_bolt_sp_#3-1793461301842.mp3",
+   "assigned": "Booming_fire_bolt_sp_#3-1793461301842.mp3",
    "source": "drop",
    "n": 4,
    "present": false,
    "note": ""
   },
   "poison spray": {
-   "file": "magic/booming_poison_spray_#4-1793332166374.mp3",
-   "assigned": "booming_poison_spray_#4-1793332166374.mp3",
+   "file": "magic/booming_poison_spray_#4-1793461351034.mp3",
+   "assigned": "booming_poison_spray_#4-1793461351034.mp3",
    "source": "drop",
    "n": 5,
    "present": false,
    "note": ""
   },
   "produce flame": {
-   "file": "magic/Booming,_Thunderous_-1793332313087.mp3",
-   "assigned": "Booming,_Thunderous_-1793332313087.mp3",
+   "file": "magic/booming_flame_ignite_#3-1793461375442.mp3",
+   "assigned": "booming_flame_ignite_#3-1793461375442.mp3",
    "source": "drop",
    "n": 6,
    "present": false,
-   "note": "may need to trim it"
+   "note": ""
   },
   "ray of frost": {
-   "file": "magic/Sci-fi_ice_freeze_ra-1793332884098.mp3",
-   "assigned": "Sci-fi_ice_freeze_ra-1793332884098.mp3",
+   "file": "magic/MAGSpel-Dark_fantasy_spell,_-Elevenlabs.mp3",
+   "assigned": "MAGSpel-Dark_fantasy_spell,_-Elevenlabs.mp3",
    "source": "drop",
    "n": 7,
    "present": false,
    "note": ""
   },
   "sacred flame": {
-   "file": "magic/“Holy_fire_spell_imp-1793332463662.mp3",
-   "assigned": "“Holy_fire_spell_imp-1793332463662.mp3",
+   "file": "magic/The_sound_of_superhe-1793461504161.mp3",
+   "assigned": "The_sound_of_superhe-1793461504161.mp3",
    "source": "drop",
    "n": 8,
    "present": false,
    "note": ""
   },
   "shocking grasp": {
-   "file": "magic/Sudden,_sharp_electr_#4-1793332495303.mp3",
-   "assigned": "Sudden,_sharp_electr_#4-1793332495303.mp3",
+   "file": "magic/An_empowered_chain_l_#4-1793461651887.mp3",
+   "assigned": "An_empowered_chain_l_#4-1793461651887.mp3",
    "source": "drop",
    "n": 9,
    "present": false,
    "note": ""
   },
   "thorn whip": {
-   "file": "magic/Generate_an_organic_-1793332521409.mp3",
-   "assigned": "Generate_an_organic_-1793332521409.mp3",
+   "file": "magic/booming_sound_of_a_w_#1-1793461724552.mp3",
+   "assigned": "booming_sound_of_a_w_#1-1793461724552.mp3",
    "source": "drop",
    "n": 10,
    "present": false,
@@ -315,9 +315,9 @@
    "note": ""
   },
   "scorching ray": {
-   "file": "magic/A_Ray_of_scorching_h-1793415626295.mp3",
-   "assigned": "A_Ray_of_scorching_h-1793415626295.mp3",
-   "source": "drop",
+   "file": "magic/Booming_fire_bolt_sp_#3-1793461301842.mp3",
+   "assigned": "Booming_fire_bolt_sp_#3-1793461301842.mp3",
+   "source": "preassigned",
    "n": 40,
    "present": false,
    "note": ""
@@ -483,8 +483,8 @@
    "note": ""
   },
   "cloudkill": {
-   "file": "magic/booming_poison_spray_#4-1793332166374.mp3",
-   "assigned": "booming_poison_spray_#4-1793332166374.mp3",
+   "file": "magic/booming_poison_spray_#4-1793461351034.mp3",
+   "assigned": "booming_poison_spray_#4-1793461351034.mp3",
    "source": "preassigned",
    "n": 61,
    "present": false,
@@ -523,8 +523,8 @@
    "note": ""
   },
   "flame strike": {
-   "file": "magic/“Holy_fire_spell_imp-1793332463662.mp3",
-   "assigned": "“Holy_fire_spell_imp-1793332463662.mp3",
+   "file": "magic/The_sound_of_superhe-1793461504161.mp3",
+   "assigned": "The_sound_of_superhe-1793461504161.mp3",
    "source": "preassigned",
    "n": 66,
    "present": false,
