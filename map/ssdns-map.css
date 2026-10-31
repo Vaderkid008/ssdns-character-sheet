@@ -658,7 +658,7 @@ body.ssdns-chat-pop.ssdns-chat-collapsed .ssdns-chat-overlay-feed { display: non
   background: rgba(20, 16, 12, 0.96);
   border: 1px solid #8a6a3a;
   border-radius: 8px;
-  z-index: 5;
+  z-index: 32;
   color: #f0e4cf;
   font-size: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -1304,6 +1304,35 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
 .al-warn { color: #8d1c14; min-height: 1em; font-size: 12px; }
 .al-form textarea { min-height: 48px; width: 100%; }
 @media (max-width: 700px) { .al-props { grid-template-columns: 1fr; } }
+/* The library is a side panel on the map, not a modal. A modal backdrop ate every
+   map click, so the character drawer could not open. Closed, it takes no hits. */
+.ssdns-map > dialog.al-dialog {
+  position: absolute;
+  inset: auto;
+  top: 48px;
+  left: 8px;
+  right: auto;
+  bottom: auto;
+  margin: 0;
+  transform: none;
+  width: min(440px, calc(100% - 348px));
+  max-width: min(440px, calc(100% - 348px));
+  max-height: calc(100% - 64px);
+  height: auto;
+  z-index: 24;
+  overflow: auto;
+  padding: 0;
+}
+.ssdns-map > dialog.al-dialog:not([open]) {
+  display: none;
+  pointer-events: none;
+}
+@media (max-width: 720px) {
+  .ssdns-map > dialog.al-dialog {
+    width: min(440px, calc(100% - 16px));
+    max-width: min(440px, calc(100% - 16px));
+  }
+}
 
 /* 0.3.72: DM drawer Off-hand toggle (next PC weapon shot is the bonus-action off-hand attack) */
 .ssm-offhand { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; padding: 4px 8px; border: 1px dashed #e2b33a; border-radius: 6px; font-size: 12px; color: #f3d98a; cursor: pointer; }
@@ -1696,7 +1725,7 @@ body.map-fullscreen #mapMount:has(> .ssm-turnstrip:not([hidden])) .ssdns-toolbar
     justify-self: stretch;
     min-height: 0;
     overflow: auto;
-    z-index: 2;
+    z-index: 32;
     box-shadow: none;
     display: flex;
     flex-direction: column;
