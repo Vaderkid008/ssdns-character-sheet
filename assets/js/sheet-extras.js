@@ -2756,6 +2756,7 @@
       var zoneLine = rememberZone(spellName, slot, placedBlast, v.spellDC);
       if (zoneLine) rolled.text += " · " + zoneLine;
       postAppear(spellName, placedBlast, v.spellDC, rollId);
+      if (root.SSDNSMapFx && root.SSDNSMapFx.namedLook && root.SSDNSMapFx.namedLook(spellName)) postSpellLook(spellName, "", "hit", row);
       rolled.detail = rolled.text;
     } else if (row && (row.kind === "none" || row.kind === "rider" || row.kind === "utility")) {
       var buffLine = applySpellBuff(spellName, slot);
@@ -3050,6 +3051,7 @@
             });
           });
         }
+        if (root.SSDNSMapFx && root.SSDNSMapFx.namedLook && root.SSDNSMapFx.namedLook(spellName)) postSpellLook(spellName, tgt && tgt.id, "hit", row);
       } else if (!rolled.heal && row && row.kind === "auto" && !rolled.autoDarts && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         var autoAmt = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
         if (rolled.applyNow === false) autoAmt = 0;
@@ -3974,7 +3976,7 @@
     var FX = root.SSDNSMapFx;
     var look = FX && FX.lookOf ? FX.lookOf({ type: "spell", spell: name, dmg: dmg }) : "";
     if (!look || look === "ribbon") return;
-    var self = !targetId || look === "shield" || look === "magearmor" || look === "pwt" || look === "invis";
+    var self = !targetId || look === "shield" || look === "magearmor" || look === "pwt" || look === "invis" || !!(FX && FX.lookSelf && FX.lookSelf({ type: "spell", spell: name, dmg: dmg }));
     root.SSDNSDmJoin.postFx({
       type: "spell",
       target: self ? "" : targetId,

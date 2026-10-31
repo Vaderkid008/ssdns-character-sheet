@@ -7901,6 +7901,7 @@ async function cardCast(i, n, opts) {
     await publishCardRoll(row, detail, save ? save.total : (rolled ? rolled.total : 0), {
       nat: save && save.nat, save: kind === "save", spell: true, targetId: target.id, damage: amount || null
     });
+    if (window.SSDNSMapFx && window.SSDNSMapFx.namedLook && window.SSDNSMapFx.namedLook(name)) spellMapFx(row.id, target.id, name, known, "hit");
     playCue();
     await saveRemoteTable();
     renderFight();

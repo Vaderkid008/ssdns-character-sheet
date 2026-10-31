@@ -381,7 +381,7 @@
     fog: { grow: 400, hold: 600, fade: 500 },
     hand: { grow: 280, hold: 200, fade: 400 }
   };
-  var SELF_LOOKS = { shield: 1, magearmor: 1, pwt: 1, invis: 1, flameblade: 1, fireshield: 1, produceflame: 1 };
+  var SELF_LOOKS = { shield: 1, magearmor: 1, pwt: 1, invis: 1, flameblade: 1, fireshield: 1, produceflame: 1, agathys: 1, tintype: 1, haze: 1 };
   /* N85 Chunks 2–6 named looks. Damage-type keys already locked by tests stay on lookOf's later pass. */
   var CHUNK_LOOKS = {
     "hex": "hex",
@@ -439,7 +439,76 @@
     "dissonant whispers": "whispers",
     "mass healing word": "massword",
     "mass cure wounds": "masscure",
-    "heal": "healcolumn"
+    "heal": "healcolumn",
+    /* N91 Chunks 7–9. Soft-locked looks. Keys stay off the damage-type pass. */
+    "entangle": "briar",
+    "faerie fire": "foxfire",
+    "sleep": "chloroform",
+    "bane": "jinx",
+    "armor of agathys": "agathys",
+    "color spray": "limelight",
+    "darkness": "darkvoid",
+    "hold person": "lasso",
+    "misty step": "dustpop",
+    "web": "silk",
+    "spike growth": "cholla",
+    "mirror image": "tintype",
+    "blur": "haze",
+    "silence": "hush",
+    "counterspell": "snap",
+    "fear": "terror",
+    "haste": "brass",
+    "slow": "molasses",
+    "hypnotic pattern": "mesmer",
+    "fly": "flight",
+    "stinking cloud": "gutfog",
+    "wind wall": "gale",
+    "banishment": "rift",
+    "black tentacles": "tentacles",
+    "polymorph": "morph"
+  };
+  var CHUNK_KIND = {
+    briar: "zone", foxfire: "wrap", chloroform: "shot", jinx: "wrap", agathys: "held",
+    limelight: "cone", darkvoid: "zone", lasso: "wrap", dustpop: "pop", silk: "zone",
+    cholla: "zone", tintype: "held", haze: "held", hush: "zone", snap: "shot",
+    terror: "cone", brass: "wrap", molasses: "wrap", mesmer: "zone", flight: "held",
+    gutfog: "zone", gale: "wall", rift: "shot", tentacles: "zone", morph: "shot"
+  };
+  var CHUNK_TIME = {
+    zone: { grow: 280, hold: 420, fade: 500 },
+    wrap: { grow: 160, hold: 380, fade: 420 },
+    held: { grow: 200, hold: 480, fade: 400 },
+    shot: { grow: 180, hold: 80, fade: 280 },
+    cone: { grow: 90, hold: 50, fade: 180 },
+    pop: { grow: 140, hold: 80, fade: 280 },
+    wall: { grow: 220, hold: 400, fade: 360 }
+  };
+  var CHUNK_TILES = {
+    "entangle": "map/spell-fx/tiles/01-entangle.jpg",
+    "faerie fire": "map/spell-fx/tiles/02-faerie-fire.jpg",
+    "sleep": "map/spell-fx/tiles/03-sleep.jpg",
+    "bane": "map/spell-fx/tiles/04-bane.jpg",
+    "armor of agathys": "map/spell-fx/tiles/05-armor-of-agathys.jpg",
+    "color spray": "map/spell-fx/tiles/06-color-spray.jpg",
+    "darkness": "map/spell-fx/tiles/07-darkness.jpg",
+    "hold person": "map/spell-fx/tiles/08-hold-person.jpg",
+    "misty step": "map/spell-fx/tiles/09-misty-step.jpg",
+    "web": "map/spell-fx/tiles/10-web.jpg",
+    "spike growth": "map/spell-fx/tiles/01-spike-growth.jpg",
+    "mirror image": "map/spell-fx/tiles/02-mirror-image.jpg",
+    "blur": "map/spell-fx/tiles/03-blur.jpg",
+    "silence": "map/spell-fx/tiles/04-silence.jpg",
+    "counterspell": "map/spell-fx/tiles/05-counterspell.jpg",
+    "fear": "map/spell-fx/tiles/06-fear.jpg",
+    "haste": "map/spell-fx/tiles/07-haste.jpg",
+    "slow": "map/spell-fx/tiles/08-slow.jpg",
+    "hypnotic pattern": "map/spell-fx/tiles/09-hypnotic-pattern.jpg",
+    "fly": "map/spell-fx/tiles/10-fly.jpg",
+    "stinking cloud": "map/spell-fx/tiles/01-stinking-cloud.jpg",
+    "wind wall": "map/spell-fx/tiles/02-wind-wall.jpg",
+    "banishment": "map/spell-fx/tiles/03-banishment.jpg",
+    "black tentacles": "map/spell-fx/tiles/04-black-tentacles.jpg",
+    "polymorph": "map/spell-fx/tiles/05-polymorph.jpg"
   };
   var CHUNK_COLORS = {
     hex: "95,45,100", brand: "230,175,70", thorn: "90,95,45", rebuke: "200,60,15",
@@ -454,9 +523,20 @@
     volley: "90,95,105", charged: "85,120,240", ensnare: "90,95,45", fever: "195,185,110",
     specter: "215,125,170", stomp: "200,170,110", coldcone: "80,125,185", mockery: "215,125,170",
     whispers: "190,170,225", massword: "205,220,140", masscure: "255,232,170", healcolumn: "255,250,230",
-    cage: "85,120,240", token: "230,210,140"
+    cage: "85,120,240", token: "230,210,140",
+    briar: "90,95,45", foxfire: "150,120,170", chloroform: "190,175,210", jinx: "120,30,30",
+    agathys: "200,225,250", limelight: "220,170,90", darkvoid: "6,5,4", lasso: "95,220,205",
+    dustpop: "190,190,185", silk: "220,215,200", cholla: "215,190,130", tintype: "200,205,205",
+    haze: "230,180,110", hush: "190,190,180", snap: "95,220,205", terror: "150,70,170",
+    brass: "220,180,90", molasses: "225,160,60", mesmer: "210,150,170", flight: "200,185,160",
+    gutfog: "120,105,60", gale: "200,185,160", rift: "95,220,205", tentacles: "25,20,28",
+    morph: "170,200,110"
   };
-  function lookTime(look) { return LOOK_TIME[look] || LOOK_TIME.ribbon; }
+  function lookTime(look) {
+    var kind = CHUNK_KIND[look];
+    if (kind && CHUNK_TIME[kind]) return CHUNK_TIME[kind];
+    return LOOK_TIME[look] || LOOK_TIME.ribbon;
+  }
   function spellKey(spec) {
     return low(spec && (spec.spell || spec.weapon || spec.name));
   }
@@ -800,7 +880,150 @@
     if (CHUNK_COLORS[look]) return namedPaint(ctx, look, A, B, T, r, lt);
     return ribbonPaint(ctx, A, B, lt, seed);
   }
+  /* N91 soft-locked kinds. Older Chunk 1–6 looks stay on the ring/shot path below. */
+  function paintChunk(ctx, look, A, B, T, r, lt) {
+    var time = lookTime(look);
+    var life = time.grow + time.hold + time.fade;
+    if (lt < 0 || lt > life) return;
+    var f = lt < time.grow + time.hold ? 1 : 1 - clamp((lt - time.grow - time.hold) / time.fade);
+    var col = CHUNK_COLORS[look] || "185,120,255";
+    var kind = CHUNK_KIND[look];
+    var at = T || B || A;
+    var rad = r || 18;
+    ctx.save();
+    if (look === "darkvoid" || look === "gutfog" || look === "tentacles" || look === "silk" || look === "hush" || look === "cholla" || look === "briar" || look === "mesmer") {
+      ctx.globalCompositeOperation = "source-over";
+    } else {
+      ctx.globalCompositeOperation = "lighter";
+    }
+    if (kind === "zone" && at) {
+      var fillA = look === "darkvoid" ? 0.82 : (look === "hush" ? 0.08 : 0.34);
+      ctx.fillStyle = rgba(col, fillA * f);
+      ctx.beginPath();
+      ctx.arc(at.x, at.y, rad * (look === "darkvoid" ? 2.4 : 2.1), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = rgba(look === "cholla" ? "220,40,30" : (look === "tentacles" ? "95,220,205" : col), 0.85 * f);
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      if (look === "mesmer") {
+        var swirl;
+        ctx.strokeStyle = rgba("110,170,165", 0.75 * f);
+        for (swirl = 0; swirl < 4; swirl++) {
+          ctx.beginPath();
+          ctx.arc(at.x, at.y, rad * (0.45 + swirl * 0.38), swirl * 0.6, swirl * 0.6 + 2.1);
+          ctx.stroke();
+        }
+      }
+      if (look === "silk" || look === "briar" || look === "tentacles") {
+        var arm;
+        ctx.strokeStyle = rgba(col, 0.75 * f);
+        for (arm = 0; arm < 8; arm++) {
+          var ang = (arm / 8) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(at.x, at.y);
+          ctx.lineTo(at.x + Math.cos(ang) * rad * 2, at.y + Math.sin(ang) * rad * 2);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+      return;
+    }
+    if (kind === "wall" && A && B) {
+      ctx.strokeStyle = rgba(col, 0.55 * f);
+      ctx.lineWidth = 10;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(A.x, A.y);
+      ctx.lineTo(B.x, B.y);
+      ctx.stroke();
+      ctx.strokeStyle = rgba("214,160,72", 0.9 * f);
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    if (kind === "cone" && A && B) {
+      var d = dirOf(A, B);
+      var angc = Math.atan2(d.y, d.x);
+      var len = rad * 3.4;
+      ctx.fillStyle = rgba(col, 0.32 * f);
+      ctx.beginPath();
+      ctx.moveTo(A.x, A.y);
+      ctx.lineTo(A.x + Math.cos(angc - 0.42) * len, A.y + Math.sin(angc - 0.42) * len);
+      ctx.lineTo(A.x + Math.cos(angc + 0.42) * len, A.y + Math.sin(angc + 0.42) * len);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+    if (kind === "pop") {
+      [A, B].forEach(function (p) {
+        if (!p) return;
+        ctx.fillStyle = rgba(col, 0.4 * f);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, rad * 0.95, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+      return;
+    }
+    if ((kind === "wrap" || kind === "held") && at) {
+      ctx.strokeStyle = rgba(col, 0.88 * f);
+      ctx.lineWidth = kind === "held" ? 3.2 : 2.4;
+      ctx.beginPath();
+      ctx.arc(at.x, at.y, rad * (kind === "held" ? 1.16 : 1.08), 0, Math.PI * 2);
+      ctx.stroke();
+      if (look === "tintype") {
+        var ghost;
+        for (ghost = 0; ghost < 3; ghost++) {
+          var orbit = lt * 0.002 + ghost * 2.094;
+          ctx.fillStyle = rgba("200,205,205", 0.5 * f);
+          ctx.beginPath();
+          ctx.arc(at.x + Math.cos(orbit) * rad * 1.55, at.y + Math.sin(orbit) * rad * 0.72, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      if (look === "flight") {
+        ctx.fillStyle = rgba("30,24,18", 0.5 * f);
+        ctx.beginPath();
+        if (ctx.ellipse) ctx.ellipse(at.x + rad * 0.85, at.y + rad * 0.95, rad * 0.55, rad * 0.22, 0, 0, Math.PI * 2);
+        else ctx.arc(at.x + rad * 0.85, at.y + rad * 0.95, 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (look === "agathys" && B && A && B !== A) {
+        ctx.fillStyle = rgba("80,125,185", 0.7 * f);
+        ctx.beginPath();
+        ctx.arc(B.x, B.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      return;
+    }
+    if (kind === "shot" && A && B) {
+      var grow = easeOut(Math.min(1, lt / Math.max(1, time.grow)));
+      ctx.fillStyle = rgba(col, 0.9 * f);
+      ctx.beginPath();
+      ctx.arc(lerp(A.x, B.x, grow), lerp(A.y, B.y, grow), look === "snap" ? 4 : 7, 0, Math.PI * 2);
+      ctx.fill();
+      if (look === "rift" && B) {
+        ctx.strokeStyle = rgba("95,220,205", 0.9 * f);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(B.x, B.y, rad * (1.25 - 0.55 * grow), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = rgba("10,12,18", 0.55 * f);
+        ctx.beginPath();
+        ctx.arc(B.x, B.y, rad * 0.45 * grow, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (lt > time.grow && B) bloom(ctx, B, 14, lt - time.grow, col, col, 2);
+      ctx.restore();
+      return;
+    }
+    ctx.restore();
+  }
   function namedPaint(ctx, look, A, B, T, r, lt) {
+    if (CHUNK_KIND[look]) return paintChunk(ctx, look, A, B, T, r, lt);
     var time = lookTime(look);
     var life = time.grow + time.hold + time.fade;
     if (lt < 0 || lt > life) return;
@@ -841,6 +1064,19 @@
   function stickyLook(label) {
     var s = low(label);
     if (!s) return "";
+    if (/^baned\b/.test(s)) return "jinx";
+    if (/outlined|foxfire/.test(s)) return "foxfire";
+    if (/paralyzed/.test(s)) return "lasso";
+    if (/^frightened\b/.test(s)) return "terror";
+    if (/^slowed\b/.test(s)) return "molasses";
+    if (/^hasted\b/.test(s)) return "brass";
+    if (/blurred/.test(s)) return "haze";
+    if (/mirror image/.test(s)) return "tintype";
+    if (/^flying\b/.test(s)) return "flight";
+    if (/retching/.test(s)) return "gutfog";
+    if (/^banished\b/.test(s)) return "rift";
+    if (/polymorphed/.test(s)) return "morph";
+    if (/charmed \+ incapacitated/.test(s)) return "mesmer";
     if (/^hexed\b/.test(s) || s === "hex") return "hex";
     if (/^marked\b/.test(s)) return "brand";
     if (/no reactions/.test(s)) return "cage";
@@ -856,6 +1092,14 @@
     return "";
   }
   function chunkColor(look) { return CHUNK_COLORS[look] || ""; }
+  function namedLook(name) {
+    var key = low(name).replace(/\([^)]*\)/g, " ").replace(/\s+shell\b/g, " ").replace(/\s+/g, " ").trim();
+    return CHUNK_LOOKS[key] || "";
+  }
+  function tileOf(name) {
+    var key = low(name).replace(/\([^)]*\)/g, " ").replace(/\s+shell\b/g, " ").replace(/\s+/g, " ").trim();
+    return CHUNK_TILES[key] || "";
+  }
 
   /** Paint one effect frame. g = screen geometry from the map:
       { A (line start), B (impact point), S (shooter centre or null when hidden), T (target centre or null),
@@ -975,7 +1219,7 @@
     TIMING: TIMING, configure: configure, TYPES: TYPES,
     classify: classify, resultOf: resultOf, plan: plan, sanitize: sanitize, request: request,
     lookOf: lookOf, lookSelf: lookSelf, lookTime: lookTime,
-    stickyLook: stickyLook, chunkColor: chunkColor,
+    stickyLook: stickyLook, chunkColor: chunkColor, tileOf: tileOf, namedLook: namedLook,
     paint: paint, hash: hash, dirOf: dirOf
   };
   root.SSDNSMapFX = root.SSDNSMapFx; /* alias: both spellings work */

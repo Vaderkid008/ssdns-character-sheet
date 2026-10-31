@@ -175,6 +175,45 @@
     "ice storm": {
       name: "Ice Storm", level: 4, conc: false, dur: "2 rounds", range: 300, shape: "cylinder", radius: 20,
       difficult: true, tag: "slick-ice"
+    },
+    /* N91 Chunks 7–9 soft-locked zones. Darkness and Wind Wall already live above. */
+    "entangle": {
+      name: "Entangle", level: 1, conc: true, dur: "1 min", range: 90, shape: "square", side: 20,
+      difficult: true, tag: "briar",
+      appear: { save: "STR", onFail: "Restrained" }
+    },
+    "web": {
+      name: "Web", level: 2, conc: true, dur: "1 hour", range: 60, shape: "cube", side: 20,
+      difficult: true, lightlyObscured: true, tag: "silk",
+      appear: { save: "DEX", onFail: "Restrained" }
+    },
+    "spike growth": {
+      name: "Spike Growth", level: 2, conc: true, dur: "10 min", range: 150, shape: "sphere", radius: 20,
+      difficult: true, tag: "cholla"
+    },
+    "silence": {
+      name: "Silence", level: 2, conc: true, dur: "10 min", range: 120, shape: "sphere", radius: 20,
+      tag: "hush"
+    },
+    "hypnotic pattern": {
+      name: "Hypnotic Pattern", level: 3, conc: true, dur: "1 min", range: 120, shape: "cube", side: 30,
+      tag: "mesmer",
+      appear: { save: "WIS", onFail: "Charmed + Incapacitated" }
+    },
+    "stinking cloud": {
+      name: "Stinking Cloud", level: 3, conc: true, dur: "1 min", range: 90, shape: "sphere", radius: 20,
+      heavilyObscured: true, tag: "gutfog", deferCast: true,
+      ticks: [
+        { when: "start", save: "CON", onFail: "Retching" }
+      ]
+    },
+    "black tentacles": {
+      name: "Black Tentacles", level: 4, conc: true, dur: "1 min", range: 90, shape: "square", side: 20,
+      tag: "tentacles", deferCast: true,
+      ticks: [
+        { when: "enter", dice: "3d6", type: "bludgeoning", save: "DEX", up: "1d6", onFail: "Restrained" },
+        { when: "start", dice: "3d6", type: "bludgeoning", save: "DEX", up: "1d6", onFail: "Restrained" }
+      ]
     }
   };
 
@@ -329,7 +368,7 @@
       conc: !!spec.conc,
       casterId: opts.casterId || "",
       shape: area.shape,
-      radius: area.radius || 0,
+      radius: area.radius || (area.side ? area.side / 2 : 0),
       length: area.length || 0,
       width: area.width || 5,
       thickness: area.thickness || spec.thickness || 1,

@@ -1892,7 +1892,14 @@ function zoneStyle(key) {
     "insect plague": ["rgba(120,90,40,0.35)", "rgba(160,120,50,0.95)"],
     "incendiary cloud": ["rgba(255,70,20,0.4)", "rgba(255,120,40,0.98)"],
     "guardian of faith": ["rgba(255,230,160,0.28)", "rgba(255,220,120,0.98)"],
-    "delayed blast fireball": ["rgba(255,60,20,0.45)", "rgba(255,140,40,0.98)"]
+    "delayed blast fireball": ["rgba(255,60,20,0.45)", "rgba(255,140,40,0.98)"],
+    entangle: ["rgba(90,95,45,0.38)", "rgba(170,210,110,0.95)"],
+    web: ["rgba(220,215,200,0.3)", "rgba(120,110,95,0.95)"],
+    "spike growth": ["rgba(215,190,130,0.32)", "rgba(220,40,30,0.95)"],
+    silence: ["rgba(190,190,180,0.1)", "rgba(214,160,72,0.9)"],
+    "hypnotic pattern": ["rgba(210,150,170,0.24)", "rgba(110,170,165,0.95)"],
+    "stinking cloud": ["rgba(120,105,60,0.48)", "rgba(165,150,70,0.95)"],
+    "black tentacles": ["rgba(25,20,28,0.58)", "rgba(95,220,205,0.95)"]
   };
   return styles[key] || ["rgba(200,180,80,0.28)", "rgba(230,210,120,0.95)"];
 }
