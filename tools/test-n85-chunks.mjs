@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.175" && version.sheetBuild === "sheet-playtest-v03175");
-check("ver.dmcc", version.dmcc === "0.2.188" && version.dmccBuild === "dmcc-playtest-v02188");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.175"') && read("assets/js/app.js").includes("sheet-playtest-v03175"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.188"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02188"));
+check("ver.sheet", version.sheet === "0.3.176" && version.sheetBuild === "sheet-playtest-v03176");
+check("ver.dmcc", version.dmcc === "0.2.189" && version.dmccBuild === "dmcc-playtest-v02189");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.176"') && read("assets/js/app.js").includes("sheet-playtest-v03176"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.189"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02189"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 check("rules.no172", !read("assets/data/rules.js").includes("0.3.174") && !read("assets/data/rules.js").includes("0.2.187"));
@@ -60,6 +60,30 @@ check("sfx.barrage.not-hail", !/a_volley_of_sharp_wo/.test(Audio.spellFile("Conj
 check("sfx.missile", Audio.spellFile("Magic Missile") === Audio.spellFile("Conjure Barrage"));
 check("sfx.volley-keeps-hail", /a_volley_of_sharp_wo/.test(Audio.spellFile("Conjure Volley")));
 check("sfx.missing-fallback", Audio.spellCue({ name: "Shocking Grasp", kind: "attack" }) === "electric");
+const c1 = {
+  "acid splash": "magic/booming_acid_splash_#2-1793461200201.mp3",
+  "chill touch": "magic/Leviathan_Blizzard._-1793461257926.mp3",
+  "fire bolt": "magic/Booming_fire_bolt_sp_#3-1793461301842.mp3",
+  "poison spray": "magic/booming_poison_spray_#4-1793461351034.mp3",
+  "produce flame": "magic/booming_flame_ignite_#3-1793461375442.mp3",
+  "ray of frost": "magic/MAGSpel-Dark_fantasy_spell,_-Elevenlabs.mp3",
+  "sacred flame": "magic/The_sound_of_superhe-1793461504161.mp3",
+  "shocking grasp": "magic/An_empowered_chain_l_#4-1793461651887.mp3",
+  "thorn whip": "magic/booming_sound_of_a_w_#1-1793461724552.mp3"
+};
+Object.keys(c1).forEach((name) => {
+  const base = path.basename(c1[name]);
+  check("sfx.c1." + name, Audio.spellFile(name) === c1[name] && map.spells[name].assigned === base && map.spells[name].file.indexOf("179333") < 0, Audio.spellFile(name));
+  check("sfx.c1.disk." + name, fs.existsSync(path.join(root, "assets/sfx/magic", base)));
+});
+check("sfx.knock.cloudkill", Audio.spellFile("Cloudkill") === c1["poison spray"] && map.spells.cloudkill.source === "preassigned");
+check("sfx.knock.flame", Audio.spellFile("Flame Strike") === c1["sacred flame"] && map.spells["flame strike"].source === "preassigned");
+check("sfx.knock.scorch", Audio.spellFile("Scorching Ray") === c1["fire bolt"] && map.spells["scorching ray"].source === "preassigned" && !/A_Ray_of_scorching_h/.test(Audio.spellFile("Scorching Ray")));
+const graspFile = c1["shocking grasp"];
+Audio.markSpellFile(graspFile, true);
+check("sfx.grasp-when-present", Audio.spellCue({ name: "Shocking Grasp", kind: "attack" }) === "spellfile-shocking-grasp");
+Audio.markSpellFile(graspFile, false);
+check("sfx.grasp-when-missing", Audio.spellCue({ name: "Shocking Grasp", kind: "attack" }) === "electric");
 check("sfx.heal-fallback", Audio.spellCue({ name: "Healing Word", kind: "heal" }) === "heal");
 check("sfx.bolt-fallback", Audio.spellCue({ name: "Lightning Bolt", kind: "attack", calling: "pact-seeker" }) === "lightning-ultimate");
 check("sfx.ice-fallback", Audio.spellCue({ name: "Ice Storm" }) === "ice-storm");
@@ -79,8 +103,8 @@ const dropNames = Object.keys(map.spells).map((k) => map.spells[k].file).filter(
 const uniqueDrops = [...new Set(dropNames)];
 const shippedDrops = uniqueDrops.filter((f) => onDisk.has(f));
 const absentDrops = uniqueDrops.filter((f) => !onDisk.has(f));
-check("sfx.shipped-drops", shippedDrops.length === 53 && onDisk.size === 53, String(shippedDrops.length) + " on disk " + onDisk.size);
-check("sfx.still-missing", absentDrops.length === 9 && absentDrops.indexOf("booming_acid_splash_#2-1793331961394.mp3") >= 0 && absentDrops.some((f) => f.indexOf("Holy_fire") >= 0), absentDrops.join(" | "));
+check("sfx.shipped-drops", shippedDrops.length === 61 && onDisk.size === 62, String(shippedDrops.length) + " on disk " + onDisk.size);
+check("sfx.still-missing", absentDrops.length === 1 && absentDrops.some((f) => f.indexOf("Holy_fire") >= 0) && absentDrops.every((f) => f.indexOf("179346") < 0), absentDrops.join(" | "));
 check("sfx.barrage-file", onDisk.has("reaction_counter_spe_#2-1793411864281.mp3"));
 
 function look(spell, dmg) { return FX.lookOf({ type: "spell", spell: spell, dmg: dmg || "" }); }
