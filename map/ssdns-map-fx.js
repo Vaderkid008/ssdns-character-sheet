@@ -381,7 +381,81 @@
     fog: { grow: 400, hold: 600, fade: 500 },
     hand: { grow: 280, hold: 200, fade: 400 }
   };
-  var SELF_LOOKS = { shield: 1, magearmor: 1, pwt: 1, invis: 1 };
+  var SELF_LOOKS = { shield: 1, magearmor: 1, pwt: 1, invis: 1, flameblade: 1, fireshield: 1, produceflame: 1 };
+  /* N85 Chunks 2–6 named looks. Damage-type keys already locked by tests stay on lookOf's later pass. */
+  var CHUNK_LOOKS = {
+    "hex": "hex",
+    "hunter's mark": "brand",
+    "thorn whip": "thorn",
+    "hellish rebuke": "rebuke",
+    "flame blade": "flameblade",
+    "flaming sphere": "token",
+    "spiritual weapon": "token",
+    "guardian of faith": "token",
+    "heat metal": "heat",
+    "fire shield": "fireshield",
+    "vampiric touch": "siphon",
+    "ray of enfeeblement": "enfeeble",
+    "call lightning": "skybolt",
+    "sunbeam": "sunshaft",
+    "finger of death": "deathray",
+    "prismatic spray": "prism",
+    "meteor swarm": "meteors",
+    "produce flame": "produceflame",
+    "ray of sickness": "sickray",
+    "chromatic orb": "orb",
+    "searing smite": "smitefire",
+    "branding smite": "brand",
+    "thunderous smite": "thunder",
+    "wrathful smite": "fear",
+    "blinding smite": "blind",
+    "banishing smite": "banish",
+    "staggering smite": "stagger",
+    "wall of ice": "wallice",
+    "wall of thorns": "wallthorn",
+    "blade barrier": "wallblade",
+    "hunger of hadar": "void",
+    "arms of hadar": "void",
+    "cloud of daggers": "daggers",
+    "insect plague": "swarm",
+    "incendiary cloud": "furnace",
+    "flame strike": "skypillar",
+    "fire storm": "skypillar",
+    "freezing sphere": "icebomb",
+    "sunburst": "sunburst",
+    "circle of death": "deathring",
+    "delayed blast fireball": "bead",
+    "conjure barrage": "volley",
+    "conjure volley": "volley",
+    "lightning arrow": "charged",
+    "hail of thorns": "thorn",
+    "ensnaring strike": "ensnare",
+    "contagion": "fever",
+    "phantasmal killer": "specter",
+    "harm": "deathray",
+    "destructive wave": "stomp",
+    "cone of cold": "coldcone",
+    "vicious mockery": "mockery",
+    "dissonant whispers": "whispers",
+    "mass healing word": "massword",
+    "mass cure wounds": "masscure",
+    "heal": "healcolumn"
+  };
+  var CHUNK_COLORS = {
+    hex: "95,45,100", brand: "230,175,70", thorn: "90,95,45", rebuke: "200,60,15",
+    flameblade: "255,125,35", heat: "255,140,45", fireshield: "255,90,16", rime: "200,225,250",
+    siphon: "225,70,80", enfeeble: "140,130,140", skybolt: "85,120,240", sunshaft: "255,232,170",
+    deathray: "95,45,100", prism: "190,95,40", meteors: "255,125,35", produceflame: "255,160,40",
+    sickray: "150,140,70", orb: "255,125,35", smitefire: "255,125,35", thunder: "235,215,170",
+    fear: "95,45,100", blind: "255,250,235", banish: "95,220,205", stagger: "215,125,170",
+    wallice: "200,225,250", wallthorn: "110,120,70", wallblade: "220,225,235", void: "6,3,8",
+    daggers: "220,225,235", swarm: "70,50,30", furnace: "40,34,30", skypillar: "255,125,35",
+    icebomb: "200,225,250", sunburst: "255,250,230", deathring: "95,45,100", bead: "255,160,40",
+    volley: "90,95,105", charged: "85,120,240", ensnare: "90,95,45", fever: "195,185,110",
+    specter: "215,125,170", stomp: "200,170,110", coldcone: "80,125,185", mockery: "215,125,170",
+    whispers: "190,170,225", massword: "205,220,140", masscure: "255,232,170", healcolumn: "255,250,230",
+    cage: "85,120,240", token: "230,210,140"
+  };
   function lookTime(look) { return LOOK_TIME[look] || LOOK_TIME.ribbon; }
   function spellKey(spec) {
     return low(spec && (spec.spell || spec.weapon || spec.name));
@@ -394,10 +468,11 @@
     if (/eldritch blast/.test(name)) return "scurve";
     if (/magic missile|hex needles/.test(name)) return "beads";
     if (/mage armor/.test(name)) return "magearmor";
-    if (/\bshield\b/.test(name) && !/shield of faith/.test(name)) return "shield";
+    if (/\bshield\b/.test(name) && !/shield of faith/.test(name) && !/fire shield/.test(name)) return "shield";
     if (/pass without trace/.test(name)) return "pwt";
     if (/invisibility/.test(name)) return "invis";
-    if (/healing word|cure wounds/.test(name)) return "heal";
+    if (/^healing word$|^cure wounds$/.test(name)) return "heal";
+    if (CHUNK_LOOKS[name]) return CHUNK_LOOKS[name];
     if (/^bless$/.test(name)) return "bless";
     if (/fog cloud/.test(name)) return "fog";
     if (/mage hand/.test(name)) return "hand";
@@ -721,8 +796,66 @@
     if (look === "pwt" || look === "invis" || look === "heal" || look === "bless" || look === "fog" || look === "hand") {
       return utilityPaint(ctx, look, A, B, T, r, lt);
     }
+    if (look === "token") return;
+    if (CHUNK_COLORS[look]) return namedPaint(ctx, look, A, B, T, r, lt);
     return ribbonPaint(ctx, A, B, lt, seed);
   }
+  function namedPaint(ctx, look, A, B, T, r, lt) {
+    var time = lookTime(look);
+    var life = time.grow + time.hold + time.fade;
+    if (lt < 0 || lt > life) return;
+    var f = lt < time.grow + time.hold ? 1 : 1 - clamp((lt - time.grow - time.hold) / time.fade);
+    var col = CHUNK_COLORS[look] || "185,120,255";
+    var ring = !!SELF_LOOKS[look] || look === "cage" || look === "ensnare" || look === "enfeeble" || look === "hex" || look === "brand" || look === "heat" || look === "fever" || look === "rime";
+    ctx.save();
+    if (look === "void" || look === "swarm" || look === "furnace" || look === "specter") ctx.globalCompositeOperation = "source-over";
+    else ctx.globalCompositeOperation = "lighter";
+    if (ring) {
+      var at = T || B || A;
+      if (!at) { ctx.restore(); return; }
+      ctx.strokeStyle = rgba(col, (look === "void" ? 0.35 : 0.7) * f);
+      ctx.lineWidth = look === "flameblade" ? 4 : 2.5;
+      ctx.beginPath();
+      ctx.arc(at.x, at.y, (r || 18) * (look === "flameblade" ? 0.72 : 1.08), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    if ((look === "mockery" || look === "whispers") && (T || B) && ctx.fillText) {
+      var note = T || B;
+      ctx.fillStyle = rgba(col, 0.9 * f);
+      ctx.font = "18px serif";
+      ctx.textAlign = "center";
+      ctx.fillText("\u266A", note.x, note.y - 10);
+    }
+    if (A && B) {
+      var g = easeOut(Math.min(1, lt / Math.max(1, time.grow)));
+      ctx.fillStyle = rgba(col, 0.85 * f);
+      ctx.beginPath();
+      ctx.arc(lerp(A.x, B.x, g), lerp(A.y, B.y, g), look === "skybolt" || look === "deathray" || look === "sickray" ? 4 : 7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (lt > time.grow && B) bloom(ctx, B, 16, lt - time.grow, col, col, 2);
+    ctx.restore();
+  }
+  function stickyLook(label) {
+    var s = low(label);
+    if (!s) return "";
+    if (/^hexed\b/.test(s) || s === "hex") return "hex";
+    if (/^marked\b/.test(s)) return "brand";
+    if (/no reactions/.test(s)) return "cage";
+    if (/enfeebled/.test(s)) return "enfeeble";
+    if (/fire shield \(chill|chill shield/.test(s)) return "rime";
+    if (/fire shield/.test(s)) return "fireshield";
+    if (/heated metal|heat metal/.test(s)) return "heat";
+    if (/flame blade/.test(s)) return "flameblade";
+    if (/branding|branded/.test(s)) return "brand";
+    if (/ensnar/.test(s)) return "ensnare";
+    if (/phantasmal/.test(s)) return "specter";
+    if (/contagion|fever brand/.test(s)) return "fever";
+    return "";
+  }
+  function chunkColor(look) { return CHUNK_COLORS[look] || ""; }
 
   /** Paint one effect frame. g = screen geometry from the map:
       { A (line start), B (impact point), S (shooter centre or null when hidden), T (target centre or null),
@@ -842,6 +975,7 @@
     TIMING: TIMING, configure: configure, TYPES: TYPES,
     classify: classify, resultOf: resultOf, plan: plan, sanitize: sanitize, request: request,
     lookOf: lookOf, lookSelf: lookSelf, lookTime: lookTime,
+    stickyLook: stickyLook, chunkColor: chunkColor,
     paint: paint, hash: hash, dirOf: dirOf
   };
   root.SSDNSMapFX = root.SSDNSMapFx; /* alias: both spellings work */

@@ -1,4 +1,4 @@
-/* Crit / FAIL d20 zoom (sheet 0.3.171).
+/* Crit / FAIL d20 zoom (sheet 0.3.172).
    The forge / FAIL show and the blank Love-it suspense play only for a gold
    Challenge roll (fancy or challenge on the event). Sheet d20 clicks, the DM
    tray, attacks, and skills take the normal spin in d20-plain.js instead.

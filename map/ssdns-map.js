@@ -207,6 +207,9 @@ window.SSDNSMap = { create(opts) {
       ownerCanMove: t.ownerCanMove !== false, locked: !!t.locked,
       label: t.label || t.name || '', size: t.size || 1, name: t.name || '',
       kind: t.kind || '', lootBoxId: t.lootBoxId || '',
+      spellPiece: t.spellPiece || '', zoneId: t.zoneId || '',
+      noHpPool: !!t.noHpPool, notTargetable: !!t.notTargetable, noInit: !!t.noInit,
+      moveFeet: t.moveFeet != null && t.moveFeet !== '' ? Number(t.moveFeet) : null,
       /* Fight-row gear is not a token field. */
       lootLock: t.kind === 'chest' && t.loot ? {
         name: t.loot.name || '', boxType: t.loot.boxType || '',
@@ -380,6 +383,13 @@ function applySharedToTokens() {
       if (s.ownerUid) t.ownerUid = s.ownerUid;
       if (s.combatantId) t.combatantId = s.combatantId;
       if (s.kind) t.kind = s.kind;
+      if (s.spellPiece) t.spellPiece = s.spellPiece;
+      if (s.zoneId) t.zoneId = s.zoneId;
+      if (s.noHpPool) t.noHpPool = true;
+      if (s.notTargetable) t.notTargetable = true;
+      if (s.noInit) t.noInit = true;
+      if (s.moveFeet != null && s.moveFeet !== '') t.moveFeet = Number(s.moveFeet) || 0;
+      if (s.spellPiece && s.size) t.size = tokSquares(s.size);
       if (s.name) t.name = s.name;
       if (s.lootBoxId) t.lootBoxId = s.lootBoxId;
       if (s.lootLock && (!t.loot || !t.loot.id)) t.loot = Object.assign({ id: s.lootBoxId || t.lootBoxId || '' }, s.lootLock);
@@ -1697,11 +1707,115 @@ function zoneHidesToken(t, sight) {
   const gy = t.pos.y + (t.size || 1) / 2;
   return zoneHidesPoint(gx, gy, sight);
 }
+function paintStickyMarks(ctx, t, s, r) {
+  const FX = window.SSDNSMapFx;
+  if (!FX || !FX.stickyLook || !t) return;
+  const names = [];
+  (t.conditions || []).forEach(c => names.push(typeof c === "string" ? c : (c && c.name) || ""));
+  try { tokenConditions(t).forEach(c => names.push(typeof c === "string" ? c : (c && c.name) || "")); } catch (e) {}
+  const seen = {};
+  names.forEach(name => {
+    const look = FX.stickyLook(name);
+    if (!look || seen[look]) return;
+    seen[look] = 1;
+    const col = (FX.chunkColor && FX.chunkColor(look)) || "185,170,180";
+    ctx.save();
+    ctx.globalAlpha = 0.42;
+    ctx.strokeStyle = "rgba(" + col + ",0.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r + 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+function syncPieceOrigin(t) {
+  if (role !== "dm" || !t || !t.spellPiece || !t.zoneId || !t.pos) return;
+  const zones = spellZoneList();
+  const z = zones.find(one => one && String(one.id) === String(t.zoneId));
+  if (!z || !z.origin) return;
+  if (z.origin.x === t.pos.x && z.origin.y === t.pos.y) return;
+  z.origin = { x: t.pos.x, y: t.pos.y };
+  state.zoneSeq = Date.now();
+  publishZoneFeed(zones);
+  persistSpellZones();
+}
+function syncSpellPieces() {
+  const Tok = window.SSDNSSpellTokens;
+  if (!Tok || role !== "dm") return;
+  const zones = spellZoneList();
+  const want = {};
+  zones.forEach(z => {
+    if (!z || !z.id) return;
+    const row = Tok.spec(z.key || z.spell);
+    if (!row || row.kind !== "token") return;
+    want[String(z.id)] = { zone: z, row: row };
+  });
+  const drop = (state.tokens || []).filter(t => t && t.spellPiece && t.zoneId && !want[String(t.zoneId)]).map(t => t.id);
+  if (drop.length) removeMapTokens(drop, { silent: true, keepOwner: true });
+  Object.keys(want).forEach(id => {
+    const z = want[id].zone;
+    const row = want[id].row;
+    let existing = (state.tokens || []).find(t => t && String(t.zoneId) === id);
+    const at = { x: Math.floor(Number(z.origin && z.origin.x) || 0), y: Math.floor(Number(z.origin && z.origin.y) || 0) };
+    if (!existing) {
+      existing = makeToken({
+        kind: "spell",
+        name: row.name,
+        label: row.label,
+        size: row.squares,
+        image: row.image,
+        color: row.color,
+        pos: at,
+        spellPiece: row.key,
+        zoneId: id,
+        moveFeet: row.moveFeet,
+        ownerCanMove: row.moveFeet > 0
+      });
+      if (existing && existing.image) loadTokenImage(existing);
+      if (existing) saveToken(existing.id);
+      return;
+    }
+    const dragging = state.drag && state.drag.token && state.drag.token.id === existing.id;
+    if (!dragging && existing.pos && (existing.pos.x !== at.x || existing.pos.y !== at.y)) {
+      existing.pos = { x: at.x, y: at.y };
+      if (shared.tokens[existing.id]) shared.tokens[existing.id].pos = { x: at.x, y: at.y };
+      saveToken(existing.id);
+    }
+  });
+}
+function zoneIsToken(zone) {
+  if (!zone) return false;
+  if (zone.createToken) return true;
+  const Tok = window.SSDNSSpellTokens;
+  return !!(Tok && Tok.isToken && Tok.isToken(zone.key || zone.spell));
+}
+function paintTokenAura(zone, px) {
+  if (!zone || !zone.origin) return;
+  const Tok = window.SSDNSSpellTokens;
+  const row = Tok && Tok.spec ? Tok.spec(zone.key || zone.spell) : null;
+  const aura = row ? Number(row.aura) : 0;
+  const squares = (row && row.squares) || Number(zone.footprint) || 1;
+  const wx = (Number(zone.origin.x) + squares / 2) * px;
+  const wy = (Number(zone.origin.y) + squares / 2) * px;
+  if (aura > 0) strokeRing(wx, wy, (aura / 5) * px, "rgba(255,220,140,0.8)", "rgba(255,220,140,0.06)");
+  if (role === "dm") {
+    const tag = worldToScreen(wx, wy);
+    const left = zoneTimeLabel(zone);
+    ctx.save();
+    ctx.font = "12px sans-serif";
+    ctx.fillStyle = "#fff8e8";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText((zone.spell || "Token") + (left ? " · " + left : ""), tag.x, tag.y);
+    ctx.restore();
+  }
+}
 function zoneStyle(key) {
   const styles = {
     darkness: ["rgba(0,0,0,0.88)", "rgba(90,90,120,0.95)"],
     "fog cloud": ["rgba(186,186,196,0.62)", "rgba(230,230,236,0.95)"],
-    "hunger of hadar": ["rgba(18,0,28,0.84)", "rgba(150,60,190,0.95)"],
+    "hunger of hadar": ["rgba(6,3,8,0.9)", "rgba(80,125,185,0.55)"],
     light: ["rgba(255,214,90,0.16)", "rgba(255,206,80,0.98)"],
     daylight: ["rgba(255,236,160,0.2)", "rgba(255,230,120,0.98)"],
     "wall of fire": ["rgba(255,90,16,0.5)", "rgba(255,150,40,0.98)"],
@@ -1763,6 +1877,10 @@ function paintSpellZones() {
   const Z = window.SSDNSSpellZones;
   const viewer = zonePaintViewer();
   zones.forEach(zone => {
+    if (zoneIsToken(zone)) {
+      paintTokenAura(zone, px);
+      return;
+    }
     const style = zoneStyle(zone.key);
     const obscures = !!(zone.heavilyObscured || zone.magicalDark || zone.noLight || zone.blindedInside);
     let solid = role === "dm";
@@ -1869,6 +1987,7 @@ function adoptSpellZones(list, seq) {
   try {
     window.dispatchEvent(new CustomEvent("ssdns-zones-live", { detail: { zones: state.spellZones.slice(), seq: state.zoneSeq } }));
   } catch (e) {}
+  syncSpellPieces();
 }
 function persistSpellZones() {
   if (role !== "dm") return;
@@ -2954,6 +3073,7 @@ function draw() {
       ctx.drawImage(t._img, s.x - r, s.y - r, r * 2, r * 2);
       ctx.restore();
     }
+    paintStickyMarks(ctx, t, s, r);
     if (window.SSDNSTokenBorder) window.SSDNSTokenBorder.paint(ctx, t, s.x, s.y, r, ring);
     else {
       ctx.beginPath();
@@ -3061,7 +3181,7 @@ function draw() {
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
     /* B2: DM-only link badge. Players never reach a hidden token, and this mark is role-gated too. */
-    if (role === 'dm') {
+    if (role === 'dm' && !t.spellPiece) {
       const linkedSheet = !!(t.ownerUid && partyList().some(p => p && (p.uid || p.id) === t.ownerUid));
       const mark = linkedSheet ? '⛓' : '⚠';
       ctx.font = 'bold ' + Math.max(11, Math.round(r * 0.42)) + 'px system-ui, "Noto Color Emoji", sans-serif';
@@ -3578,7 +3698,7 @@ function nearestHostileFeet(shooter) {
   if (!shooter) return null;
   let hostile = null;
   (state.tokens || []).forEach(t => {
-    if (!t || t.id === shooter.id || !t.pos) return;
+    if (!t || t.id === shooter.id || !t.pos || t.spellPiece || t.notTargetable) return;
     const otherPc = !!t.ownerUid;
     const hostileTok = shooter.ownerUid ? !otherPc : otherPc;
     if (!hostileTok) return;
@@ -3709,7 +3829,7 @@ function pendingValidTokens() {
   if (!pend) return [];
   const ids = Array.isArray(state.pendingValid) ? state.pendingValid : [];
   return (state.tokens || []).filter(t => {
-    if (!t || !t.pos) return false;
+    if (!t || !t.pos || t.spellPiece || t.notTargetable) return false;
     if (t.id === pend.tokenId) return pend.spellKind === 'heal';
     if (!ids.length) return !t.hidden;
     return ids.indexOf(tokenCombatant(t.id)) >= 0 || ids.indexOf(t.id) >= 0 || (t.ownerUid && ids.indexOf(t.ownerUid) >= 0);
@@ -4251,9 +4371,20 @@ function makeToken(spec) {
     sheetId: spec.sheetId || (spec.kind === 'player' ? owner : ''),
     combatantId: spec.combatantId || (spec.kind === 'player' ? owner : '')
   };
+  if (spec.spellPiece) {
+    token.spellPiece = String(spec.spellPiece);
+    token.zoneId = spec.zoneId || '';
+    token.noHpPool = true;
+    token.notTargetable = true;
+    token.noInit = true;
+    token.moveFeet = Number(spec.moveFeet) || 0;
+    token.kind = 'spell';
+    token.combatantId = '';
+    token.ownerCanMove = token.moveFeet > 0;
+  }
   state.tokens.push(token);
   shared.tokens[id] = JSON.parse(JSON.stringify(token));
-  emit('combatant:add', { tokenId: id });
+  if (!token.spellPiece) emit('combatant:add', { tokenId: id });
   saveToken(id);
   return token;
 }
@@ -4683,7 +4814,7 @@ function underTokenHp(t) {
     const hp = card && card.hp;
     return Bar.hp({
       role: 'dm',
-      noHpPool: !!(card && card.noHpPool === true),
+      noHpPool: !!(t && t.noHpPool) || !!(card && card.noHpPool === true),
       dmCur: hp && hp.cur,
       dmMax: hp && hp.max,
       tokenHp: t.hp,
@@ -4701,7 +4832,7 @@ function underTokenHp(t) {
   return Bar.hp({
     role: 'player',
     canControl: own,
-    noHpPool: !!(row && row.noHpPool === true),
+    noHpPool: !!(t && t.noHpPool) || !!(row && row.noHpPool === true),
     ownCur: sheet.cur,
     ownMax: sheet.max,
     revealed: revealed
@@ -5974,8 +6105,19 @@ function onPointerMove(e) {
         if (!state.drag.starts[id]) state.drag.starts[id] = { x: t.pos.x - dx, y: t.pos.y - dy };
         const tsz = tokSquares(t.size);
         const snap = clampFootprint(state.drag.starts[id].x + dx, state.drag.starts[id].y + dy, tsz);
-        const newX = snap.x;
-        const newY = snap.y;
+        let newX = snap.x;
+        let newY = snap.y;
+        if (t.spellPiece && window.SSDNSSpellTokens) {
+          const turn = zoneTurnKey();
+          const home0 = state.drag.starts[id];
+          if (turn) {
+            if (!t.pieceHome || t.pieceHome.turn !== turn) t.pieceHome = { turn: turn, x: home0.x, y: home0.y };
+          }
+          const home = turn && t.pieceHome ? t.pieceHome : home0;
+          const capped = window.SSDNSSpellTokens.clampStep(home, { x: newX, y: newY }, t.moveFeet);
+          newX = capped.x;
+          newY = capped.y;
+        }
         const allowStack = dmEditing() || (role === 'dm' && e.shiftKey);
         const half = tsz / 2;
         const centerBlocked = crossesWall(t.pos.x + half, t.pos.y + half, newX + half, newY + half);
@@ -6064,7 +6206,11 @@ function onPointerUp(e) {
   }
   if (state.drag && state.drag.token && role === 'dm' && !state.offline) {
     const ids = state.selectedIds.length ? state.selectedIds : [state.drag.token.id];
-    ids.forEach(id => saveToken(id));
+    ids.forEach(id => {
+      const piece = state.tokens.find(tok => tok && tok.id === id);
+      if (piece && piece.spellPiece) syncPieceOrigin(piece);
+      saveToken(id);
+    });
   }
   if (state.drag && state.drag.token && state.drag.recorded && state.undoStack.length) {
     const last = state.undoStack[state.undoStack.length - 1];
