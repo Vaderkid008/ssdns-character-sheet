@@ -1201,6 +1201,17 @@ function factionOf(row) {
 function statusClass(label) {
   return "status-" + String(label || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
+/* N89: condition icons on the condensed chips (two, then a count). */
+function stripCondIcons(row) {
+  const conds = conditionsForRow(row).map((c) => String((c && (c.name || c)) || "").trim()).filter(Boolean);
+  if (!conds.length) return "";
+  const Cond = window.SSDNSConditions;
+  const icons = conds.slice(0, 2).map((n) => `<span class="tc-cond" title="${esc(n)}">${esc(Cond && Cond.icon ? Cond.icon(n) : "\u25CF")}</span>`).join("");
+  const more = conds.length > 2 ? `<span class="tc-more" title="${esc(conds.slice(2).join(", "))}">+${conds.length - 2}</span>` : "";
+  return `<span class="tc-icons">${icons}${more}</span>`;
+}
+let stripExpanded = false;
+let stripExpandSig = "";
 function statusChipsHtml(row) {
   const bits = [];
   const faction = factionOf(row);
@@ -1327,7 +1338,7 @@ function renderFight() {
         ? '<div class="empty"><b>No fight running</b>Free-action. Tokens stay linked. Roll Initiative for the next fight.</div>'
         : '<div class="empty"><b>No turn order</b>Add a player or an example creature. Initiative rolls from joined sheets land here.</div>';
       if (list && !(document.activeElement && list.contains(document.activeElement))) list.innerHTML = empty;
-      if (strip) strip.innerHTML = "";
+      if (strip) { strip.innerHTML = ""; strip.hidden = true; strip.classList.add("is-condensed"); strip.classList.remove("is-expanded"); stripExpandSig = ""; stripExpanded = false; }
       if (portraits) portraits.innerHTML = "";
       if (focus) focus.innerHTML = fight.idle
         ? '<p class="fight-focus-wait">Free-action. Roll Initiative when the next fight starts.</p>'
@@ -1363,15 +1374,27 @@ function renderFight() {
         const side = row.kind === "player" ? " side-pc player" : (friendly ? " side-ally" : " side-enemy enemy");
         const letters = String(row.name || "?").replace(/[^A-Za-z]/g, "");
         const initials = (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
-        const face = `${faceHtml(row, "chip-face", initials)}<span class="chip-name">${esc(row.name || "")}</span>${statusChipsHtml(row)}`;
+        const face = `${faceHtml(row, "chip-face", initials)}<span class="chip-name">${esc(row.name || "")}</span>${stripCondIcons(row)}${statusChipsHtml(row)}`;
         const guns = stripGuns(row, i);
         if (row.kind === "enemy") return `<div class="turn-chip${current}${ondeck}${later}${side}" role="listitem"><button type="button" class="chip-open" data-open-enemy="${esc(row.id || "")}">${face}</button>${guns}</div>`;
         return `<div class="turn-chip${current}${ondeck}${later}${side}" role="listitem">${face}${guns}</div>`;
       }).join("");
-      /* T1 (turn order PR 1): one Next per surface. The Fight tab's Next is the DMCC's; this Table-tab strip shows the order only.
-         0.2.144: the row matches the player strip (round, whose turn, pill chips, Action / Bonus / R, Move, Dash / Disengage / Dodge). */
+      /* N89: this strip sits above the tabs, so Fight and Map see the order without opening Table.
+         A PC or enemy turn opens the chambers. Idle stays a slim chip row. */
+      const live = !!fight.started;
+      const sig = live ? (String(fight.round || 1) + ":" + String(fight.turn) + ":" + ((cur && cur.id) || "")) : "";
+      if (!live) {
+        if (stripExpandSig) { stripExpanded = false; stripExpandSig = ""; }
+      } else if (sig !== stripExpandSig) {
+        stripExpanded = true;
+        stripExpandSig = sig;
+      }
+      strip.hidden = false;
+      strip.classList.toggle("is-expanded", !!stripExpanded);
+      strip.classList.toggle("is-condensed", !stripExpanded);
+      const caret = `<button type="button" class="turn-expand" data-strip-expand aria-expanded="${stripExpanded ? "true" : "false"}" title="${stripExpanded ? "Collapse to chips" : "Expand the turn order"}">${stripExpanded ? "\u25BE" : "\u25B8"}</button>`;
       const badge = cur ? `<b class="dm-turn-now">${esc(cur.name || "Their turn")}</b>` : "";
-      strip.innerHTML = `<b class="turn-round">Round ${esc(fight.round || 1)}</b>${badge}` +
+      strip.innerHTML = `<b class="turn-round">Round ${esc(fight.round || 1)}</b>${caret}${badge}` +
         `<button type="button" class="turn-scroll" data-dm-scroll="-1" aria-label="Scroll the turn order left" hidden>\u2039</button>` +
         `<div class="turn-order-strip" id="dmTurnNames" role="list">${chips}</div>` +
         `<button type="button" class="turn-scroll" data-dm-scroll="1" aria-label="Scroll the turn order right" hidden>\u203a</button>` +
@@ -9217,9 +9240,18 @@ function wireClicks() {
       handleDmReaction(rowId, act, spellName, spellLevel);
       return;
     }
-    const t = e.target.closest && e.target.closest("[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-dm-move],[data-dm-act],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-cyl-spin],[data-row-atk],[data-strip-fire],[data-strip-spin],[data-strip-cycle],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
+    const t = e.target.closest && e.target.closest("[data-strip-expand],[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-dm-move],[data-dm-act],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-cyl-spin],[data-row-atk],[data-strip-fire],[data-strip-spin],[data-strip-cycle],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
     if (!t) {
       if (dmReactMenu && !(e.target && e.target.closest && e.target.closest("[data-dm-react-menu]"))) closeDmReactionMenu();
+      return;
+    }
+    if (t.hasAttribute("data-strip-expand")) {
+      stripExpanded = !stripExpanded;
+      if (stripExpanded && fight.started) {
+        const cur = (fight.order || [])[fight.turn];
+        stripExpandSig = String(fight.round || 1) + ":" + String(fight.turn) + ":" + ((cur && cur.id) || "");
+      }
+      renderFight();
       return;
     }
     if (t.hasAttribute("data-dm-scroll")) {

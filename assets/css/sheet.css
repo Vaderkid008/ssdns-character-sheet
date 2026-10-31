@@ -1545,6 +1545,20 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
   #turnPanel .turn-fold .chamber-dot { width: 28px; height: 28px; }
 }
 @media (pointer: coarse) { #turnPanel .turn-scroll { display: none; } }
+/* N89: slim chips until a turn opens the strip. Chambers stay on the active chip; the fold is the cylinder. */
+#turnPanel .turn-expand { flex: none; width: 22px; height: 26px; padding: 0; border: 1px solid rgba(201,162,39,.45); border-radius: 4px; background: rgba(0,0,0,.25); color: var(--parch, #efe6d4); font-size: 14px; line-height: 1; cursor: pointer; }
+#turnPanel .turn-expand[hidden] { display: none; }
+#turnPanel.is-condensed .tc-gun,
+#turnPanel.is-condensed #turnDetail,
+#turnPanel.is-condensed .turn-slot,
+#turnPanel.is-condensed .end-turn { display: none !important; }
+#turnPanel.is-expanded .turn-chip.current { height: auto; min-height: 26px; flex-wrap: wrap; align-content: center; }
+#turnPanel .tc-gun .chamber-dot { width: 14px; height: 14px; min-width: 14px; min-height: 14px; padding: 0; box-sizing: border-box; cursor: pointer; }
+#turnPanel .tc-gun .chamber-dot.full { background: #e2c56a; border-color: #e2c56a; }
+@media (max-width: 600px) {
+  #turnPanel.is-expanded .turn-chip.current { height: auto; min-height: 28px; }
+  #turnPanel.is-expanded .tc-gun .chamber-dot { width: 28px; height: 28px; min-width: 28px; min-height: 28px; }
+}
 #turnPanel .turn-fold .status-chips .chip.status-down, #turnPanel .turn-fold .status-chips .chip.status-unconscious { background: #6e2430; color: #fff; }
 #turnPanel .turn-fold .status-chips .chip.status-bloodied { background: #8a3b12; color: #fff; }
 #turnPanel .turn-fold .status-chips .chip.status-hurt { background: #a36b2a; color: #fff; }

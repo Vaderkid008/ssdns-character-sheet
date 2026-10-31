@@ -1201,6 +1201,19 @@ select:-webkit-autofill {
 #turnStrip .status-chips { flex-wrap: nowrap; }
 #turnStrip .status-chips .chip { min-height: 0; height: 16px; padding: 0 5px; font-size: 9px; line-height: 16px; }
 #turnStrip .cylinder-row { flex-basis: auto; display: inline-flex; align-items: center; gap: 2px; max-width: 92px; overflow: hidden; font-size: 0; }
+/* N89: the strip lives above the tabs. Idle is chips. A turn opens chambers and the marker row. */
+#roomShell > #turnStrip.turn-strip { margin: 8px 12px 0; }
+#turnStrip .turn-expand { flex: none; width: 22px; height: 26px; padding: 0; border: 1px solid rgba(201,162,39,.45); border-radius: 4px; background: rgba(0,0,0,.25); color: #efe6d4; font-size: 14px; line-height: 1; cursor: pointer; }
+#turnStrip .tc-icons { display: inline-flex; align-items: center; gap: 1px; font-size: 12px; line-height: 1; }
+#turnStrip .tc-more { font-size: 10px; font-weight: 700; padding: 0 4px; border-radius: 999px; background: rgba(0,0,0,.35); }
+#turnStrip.is-condensed .cylinder-row,
+#turnStrip.is-condensed .dm-strip-acts { display: none; }
+#turnStrip.is-expanded .turn-chip.current { height: auto; overflow: visible; flex-wrap: wrap; }
+#turnStrip.is-expanded .turn-chip.current .cylinder-row { max-width: none; overflow: visible; font-size: 12px; flex-basis: 100%; display: flex; }
+#turnStrip.is-expanded .chamber-dot { width: 16px; height: 16px; }
+@media (max-width: 600px) {
+  #turnStrip.is-expanded .chamber-dot { width: 28px; height: 28px; min-width: 28px; min-height: 28px; }
+}
 #turnStrip .chamber-dot { width: 8px; height: 8px; font-size: 8px; }
 #turnStrip .dm-strip-acts { flex: none; display: inline-flex; align-items: center; min-width: 0; }
 #turnStrip .tl-box { display: inline-flex; align-items: center; gap: 4px; flex-wrap: nowrap; }

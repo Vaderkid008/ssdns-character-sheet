@@ -857,12 +857,15 @@
         /* UI fixes 1 / U10 (Jessey 2026-10-21 8:53 PM): one slim row. Round, the chip strip (no scrollbar; swipe or the
            arrows), a slot the turn-order PR fills (action tracker), End turn. #turnWho stays for screen readers only;
            #turnDetail is the fold-down line a tapped chip opens (full conditions, and its gun's chambers). */
-        panel.innerHTML = "<b id='turnRound' class='turn-round'>Round 1</b><span id='turnWho' class='turn-who' aria-live='polite'></span>" +
+        panel.innerHTML = "<b id='turnRound' class='turn-round'>Round 1</b>" +
+          "<button type='button' class='turn-expand' data-turn-expand aria-expanded='false' title='Expand the turn order' hidden>\u25B8</button>" +
+          "<span id='turnWho' class='turn-who' aria-live='polite'></span>" +
           "<button type='button' class='turn-scroll' data-turn-scroll='-1' aria-label='Scroll the turn order left' hidden>\u2039</button>" +
           "<div id='turnNames' class='turn-order-strip' role='list' aria-label='Turn order'></div>" +
           "<button type='button' class='turn-scroll' data-turn-scroll='1' aria-label='Scroll the turn order right' hidden>\u203a</button>" +
           "<span id='turnSlot' class='turn-slot'></span>" +
           "<button type='button' class='btn sm end-turn' id='btnEndTurn' hidden title='Pass the turn to the next combatant in the DM\'s turn order'>End turn</button><div id='turnDetail'></div>";
+        panel.classList.add("is-condensed");
         bar.parentNode.insertBefore(panel, bar.nextSibling);
         wireTurnStrip(panel);
       }
@@ -1421,10 +1424,13 @@
       if (wrap) wrap.title = box.title;
     });
   }
-  /* ---- UI fixes 1 / U10: compact sheet turn strip ---- */
+  /* N89 (sheet 0.3.179): one condensed strip on the sheet and on the map (the same #turnPanel docks there).
+     Slim chips while idle. A PC or enemy turn opens it. Your chamber uses the sheet fire path; anyone else's opens the cylinder. */
   var lastStrip = null;
   var turnOpen = "";
   var stripSig = "";
+  var stripExpanded = false;
+  var stripExpandSig = "";
   function chipInitials(raw) {
     var letters = String(raw || "").replace(/[^A-Za-z]/g, "");
     return (letters.slice(0, 1) + (letters.length > 1 ? letters.slice(-1) : "")).toUpperCase() || "?";
@@ -1444,10 +1450,17 @@
     return { faction: faction, status: status, conds: conds };
   }
   function chipKey(row, i) { return String(row.id || ("i" + i)); }
+  /* Live sheet guns when this is your turn and a gun is actually on the sheet. Otherwise the
+     published cylinders (yours, another PC, or an NPC). Only the live sheet guns fire from here. */
   function turnGuns(st) {
     var c = ch();
-    var list = st.mine && c && c.guns ? c.guns : (st.cur.guns || []);
-    return list.map(function (g, i) { return { g: g, i: i }; }).filter(function (x) { return x.g && (x.g.name || x.g.weapon); });
+    var local = st.mine && c && Array.isArray(c.guns) ? c.guns : null;
+    var wired = !!(local && local.some(function (g) { return g && (g.name || g.weapon); }));
+    var list = wired ? local : ((st.cur && st.cur.guns) || []);
+    return {
+      wired: wired,
+      rows: list.map(function (g, i) { return { g: g, i: i }; }).filter(function (x) { return x.g && (x.g.name || x.g.weapon); })
+    };
   }
   function gunLabel(g) {
     if (g.name) return g.name;
@@ -1463,7 +1476,48 @@
     var AD = root.SSDNSAmmoDisplay;
     if (!AD || !AD.spins || !g) return false;
     var w = gunRow(g);
-    return AD.spins({ action: (w && w.action) || "", name: (w && w.name) || g.name || "", weapon: g.weapon, group: w && w.group, ammo: w && w.ammo, ammoDisplay: g.ammoDisplay });
+    return AD.spins({ action: (w && w.action) || g.action || "", name: (w && w.name) || g.name || "", weapon: g.weapon, group: (w && w.group) || g.group, ammo: (w && w.ammo) || g.ammo, ammoDisplay: g.ammoDisplay });
+  }
+  function chamberFlags(g) {
+    if (!g) return [];
+    if (Array.isArray(g.chambers) && g.chambers.length) return g.chambers.slice(0, 12);
+    var cap = Number(g.capacity) || Number(g.cap) || 0;
+    if (!cap) return [];
+    var loaded = Number(g.loaded) || 0;
+    var out = [];
+    var n = Math.min(cap, 12);
+    for (var k = 0; k < n; k++) out.push(k < loaded);
+    return out;
+  }
+  /* Your gun: the same chamber tap as the gear card (data-fire / data-spin). Anyone else: open the cylinder. */
+  function chamberButtons(x, key, mine) {
+    var flags = chamberFlags(x.g);
+    if (!flags.length) return "";
+    var spin = !!(mine && gunSpins(x.g));
+    return flags.map(function (c0, k) {
+      var full = c0 ? " full" : "";
+      var hammer = spin && k === 0 ? " hammer" : "";
+      if (mine && spin && k > 0) {
+        return "<button type='button' class='chamber-dot" + full + "' data-spin='1' data-gun='" + x.i + "' data-k='" + k + "' aria-label='Spin chamber " + (k + 1) + " under the hammer'></button>";
+      }
+      if (mine) {
+        return "<button type='button' class='chamber-dot" + full + hammer + "' data-fire='" + x.i + "' data-k='" + k + "' aria-label='Chamber " + (k + 1) + (hammer ? ", under the hammer. Fires." : ". Fires.") + "'></button>";
+      }
+      return "<button type='button' class='chamber-dot" + full + "' data-cyl-open='" + escHtml(key) + "' data-gun='" + x.i + "' data-k='" + k + "' aria-label='Chamber " + (k + 1) + ". Opens the cylinder.' title='Opens the cylinder'></button>";
+    }).join("");
+  }
+  function syncStripMode() {
+    var panel = $("#turnPanel");
+    if (!panel) return;
+    panel.classList.toggle("is-expanded", !!stripExpanded);
+    panel.classList.toggle("is-condensed", !stripExpanded);
+    var expBtn = panel.querySelector("[data-turn-expand]");
+    if (!expBtn) return;
+    expBtn.hidden = !lastStrip;
+    expBtn.setAttribute("aria-expanded", stripExpanded ? "true" : "false");
+    expBtn.setAttribute("aria-label", stripExpanded ? "Collapse the turn order" : "Expand the turn order");
+    expBtn.title = stripExpanded ? "Collapse to chips" : "Expand the turn order";
+    expBtn.textContent = stripExpanded ? "\u25BE" : "\u25B8";
   }
   function paintTurnStrip() {
     var st = lastStrip, names = $("#turnNames"), detail = $("#turnDetail");
@@ -1487,8 +1541,9 @@
       if (f.conds.length > 2) icons += "<span class='tc-more' title='" + escHtml(f.conds.slice(2).join(", ")) + "'>+" + (f.conds.length - 2) + "</span>";
       var gun = "";
       if (i === turn) {
-        gun = turnGuns(st).map(function (x) {
-          var dots = (x.g.chambers || []).map(function (c0) { return "<i class='tc-dot" + (c0 ? " full" : "") + "'></i>"; }).join("");
+        var pack = turnGuns(st);
+        gun = pack.rows.map(function (x) {
+          var dots = chamberButtons(x, key, pack.wired);
           return dots ? "<span class='tc-gun' title='" + escHtml(gunLabel(x.g)) + "'>" + dots + "</span>" : "";
         }).join("");
       }
@@ -1507,12 +1562,9 @@
         if (f.status) bits.push("<span class='chip status status-" + escHtml(String(f.status).toLowerCase().replace(/[^a-z0-9]+/g, "-")) + "'>" + escHtml(f.status) + "</span>");
         f.conds.forEach(function (n) { bits.push("<span class='chip cond'><span class='cond-sym' aria-hidden='true'>" + escHtml(condIcon(n)) + "</span>" + escHtml(n) + "</span>"); });
         if (f.faction) bits.push("<span class='chip faction'>" + escHtml(f.faction) + "</span>");
-        var guns = cur ? turnGuns(st).map(function (x) {
-          var dots = (x.g.chambers || []).map(function (c0, k) {
-            if (st.mine && gunSpins(x.g) && k > 0) return "<button type='button' class='chamber-dot" + (c0 ? " full" : "") + "' data-spin='1' data-gun='" + x.i + "' data-k='" + k + "' aria-label='Spin chamber " + (k + 1) + " under the hammer'></button>";
-            if (st.mine) return "<button type='button' class='chamber-dot" + (c0 ? " full" : "") + (gunSpins(x.g) && k === 0 ? " hammer" : "") + "' data-gunroll='" + x.i + "' data-k='" + k + "' aria-label='Chamber " + (k + 1) + (gunSpins(x.g) && k === 0 ? ", under the hammer" : "") + "'></button>";
-            return "<span class='chamber-dot" + (c0 ? " full" : "") + "'></span>";
-          }).join("");
+        var pack = cur ? turnGuns(st) : null;
+        var guns = pack ? pack.rows.map(function (x) {
+          var dots = chamberButtons(x, chipKey(r, openRow.i), pack.wired);
           return "<div class='cylinder-row'><span>" + escHtml(gunLabel(x.g)) + "</span> " + dots + "</div>";
         }).join("") : "";
         detail.innerHTML = "<div class='turn-fold'><b>" + escHtml(r.name || "Someone") + "</b>" + (bits.length ? "<span class='status-chips'>" + bits.join("") + "</span>" : "") +
@@ -1532,6 +1584,7 @@
       if (panel) panel.querySelectorAll("[data-turn-scroll]").forEach(function (b) { b.hidden = !over; });
     };
     if (root.requestAnimationFrame) root.requestAnimationFrame(fit); else fit();
+    syncStripMode();
   }
   function wireTurnStrip(panel) {
     if (!panel || panel._turnWired) return;
@@ -1545,8 +1598,26 @@
         if (strip) { var by = Math.round(strip.clientWidth * 0.6) * Number(sc.getAttribute("data-turn-scroll")); if (strip.scrollBy) strip.scrollBy({ left: by, behavior: "smooth" }); else strip.scrollLeft += by; }
         return;
       }
+      if (t.closest("[data-turn-expand]")) {
+        stripExpanded = !stripExpanded;
+        if (!stripExpanded) turnOpen = "";
+        else if (lastStrip) {
+          var row = (lastStrip.order || [])[lastStrip.turn];
+          if (row) turnOpen = chipKey(row, lastStrip.turn);
+        }
+        paintTurnStrip();
+        return;
+      }
       if (t.closest("[data-turn-fold-close]")) { turnOpen = ""; paintTurnStrip(); return; }
-      if (t.closest("[data-gunroll]") || t.closest("[data-spin]") || t.closest("[data-cycle]")) return;
+      /* data-fire / data-spin stay on the button so the sheet's own click path rolls. */
+      if (t.closest("[data-gunroll]") || t.closest("[data-spin]") || t.closest("[data-cycle]") || t.closest("[data-fire]")) return;
+      var cyl = t.closest("[data-cyl-open]");
+      if (cyl) {
+        turnOpen = cyl.getAttribute("data-cyl-open") || "";
+        stripExpanded = true;
+        paintTurnStrip();
+        return;
+      }
       var chip = t.closest("[data-turn-chip]");
       if (!chip || !chip.hasAttribute("aria-expanded")) return;
       var key = chip.getAttribute("data-turn-chip");
@@ -1614,6 +1685,8 @@
           }
         }
         panel.hidden = true;
+        stripExpanded = false;
+        stripExpandSig = "";
         endTurnAt = null;
         /* L0197: out of combat the Borrowed Iron is back a heartbeat later */
         if (root.SSDNSFocus && root.SSDNSFocus.onTurn) { try { root.SSDNSFocus.onTurn("", false, false); } catch (e) {} }
@@ -1625,6 +1698,7 @@
         var detail0 = $("#turnDetail");
         if (detail0) detail0.innerHTML = "";
         lastStrip = null; turnOpen = ""; stripSig = "";
+        syncStripMode();
         shownTurn = "";
         sawOrder = false;
         hideYourTurn();
@@ -1650,6 +1724,16 @@
       if (roundEl) roundEl.textContent = "Round " + round;
       if (whoEl) whoEl.textContent = cur.mapHidden ? "Hidden" : ((cur.name || "Someone") + " · " + (cur.kind === "enemy" ? (stripStatus(cur) || "") : (cur.kind === "player" ? "player" : "")));
       lastStrip = { order: order, turn: turn, mine: !!mine, cur: cur, round: round };
+      var liveTurn = !!(init && init.started);
+      var expandSig = liveTurn ? (String(round) + ":" + String(cur.id || turn)) : "";
+      if (!liveTurn) {
+        if (stripExpandSig) { stripExpanded = false; turnOpen = ""; }
+        stripExpandSig = "";
+      } else if (expandSig !== stripExpandSig) {
+        stripExpanded = true;
+        stripExpandSig = expandSig;
+        turnOpen = chipKey(cur, turn);
+      }
       paintTurnStrip();
       panel.classList.toggle("your-turn", !!mine);
       var sig = "turn:" + String(round) + ":" + String(cur.id || turn);
