@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.182"; // dmcc-playtest-v02182
+const VERSION = "0.2.183"; // dmcc-playtest-v02183
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -788,7 +788,9 @@ async function pushLedger(entry) {
 async function pushRoll(entry) {
   entry.id = entry.id || uid("r");
   entry.ts = entry.ts || new Date().toISOString();
-  if (window.SSDNSDice && window.SSDNSDice.showRoll) {
+  if (entry.dieHold && window.SSDNSDice && window.SSDNSDice.show) {
+    try { window.SSDNSDice.show({ sides: 20, face: "", formula: entry.formula || "1d20", total: "" }); } catch (err) {}
+  } else if (window.SSDNSDice && window.SSDNSDice.showRoll) {
     try { window.SSDNSDice.showRoll(entry); } catch (err) {}
   }
   if (state.demo || !state.db || !state.roomCode) {
@@ -806,7 +808,13 @@ async function pushRoll(entry) {
         text: text, kind: "roll", who: entry.who || "DM",
         formula: entry.formula || "", dice: Array.isArray(entry.dice) ? entry.dice : null
       };
-      if (entry.attack && window.SSDNSD20Zoom && window.SSDNSD20Zoom.pack) {
+      if (entry.die && entry.die.kind === "plain") {
+        feed.die = {
+          id: entry.id, value: entry.die.value, nat: entry.die.nat, D: entry.die.D, land: entry.die.land,
+          dir: entry.die.dir, kind: "plain", motion: entry.die.motion || "fast", mult: entry.die.mult, who: entry.die.who || "DM"
+        };
+      }
+      if (window.SSDNSD20Zoom && window.SSDNSD20Zoom.pack) {
         const zoom = window.SSDNSD20Zoom.pack({
           id: entry.id, nat: entry.nat, crit: entry.crit, critMin: entry.critMin, result: entry.crit ? "crit" : "",
           characterName: entry.characterName || "", who: entry.who || "", name: entry.name || ""
@@ -2893,11 +2901,24 @@ async function doDmRoll() {
     const priv = pub ? false : ($("#rollPrivate") ? $("#rollPrivate").checked : true);
     const out = rollChecked(formula, mode, extra);
     const face = out.rolls && out.rolls.length === 1 ? out.rolls[0] : null;
+    const oneD20 = /^1d20([+-]\d+)?$/i.test(String(formula || "").replace(/\s/g, ""));
+    const rollId = uid("r");
+    let pose = null;
+    if (oneD20 && face >= 1 && face <= 20 && window.SSDNSD20Zoom && window.SSDNSD20Zoom.pose && window.SSDNSD20Zoom.present) {
+      pose = window.SSDNSD20Zoom.pose({ nat: face, id: rollId, critMin: 20, who: "DM", characterName: "DM" });
+      window.SSDNSD20Zoom.present(pose);
+    }
     await pushRoll({
+      id: rollId,
       who: "DM", playerId: null, uid: state.uid || "demo_dm",
       label, formula, result: out.total, detail: out.detail,
       nat1: out.nat1, isFirearm: false, private: priv,
-      rolls: out.rolls, face: face
+      rolls: out.rolls, face: face,
+      nat: oneD20 ? face : undefined,
+      crit: !!(pose && pose.kind === "crit"),
+      critMin: oneD20 ? 20 : undefined,
+      die: pose && pose.kind === "plain" ? pose : null,
+      dieHold: !!pose
     });
     toast((priv ? "Private " : "Public ") + "roll: " + out.total);
   } finally { rolling = false; }
@@ -3147,6 +3168,7 @@ function wire() {
     window.SSDNSDice.onBarRoll = (rolled) => {
       const many = !!(rolled.pool && rolled.faces && (rolled.faces.length > 1 || rolled.mod));
       pushRoll({
+        id: rolled.id,
         who: "DM",
         playerId: null,
         uid: state.uid || "demo_dm",
@@ -3157,6 +3179,11 @@ function wire() {
         rolls: rolled.faces || [rolled.face],
         dice: rolled.dice || null,
         detail: many ? rolled.detail : String(rolled.face),
+        nat: rolled.nat,
+        crit: !!rolled.crit,
+        critMin: rolled.sides === 20 && !many ? 20 : undefined,
+        die: rolled.die || null,
+        dieHold: !!rolled.dieHold,
         nat1: !many && rolled.sides === 20 && rolled.face === 1,
         isFirearm: false,
         private: false
@@ -3276,6 +3303,123 @@ function wire() {
   $("#btnSaveHandout").addEventListener("click", () => doHandout(false));
   $("#btnExportJson").addEventListener("click", () => exportLedger("json"));
   $("#btnExportCsv").addEventListener("click", () => exportLedger("csv"));
+  function challengeCatalog() {
+    const rules = window.SSDNS_RULES || {};
+    const skills = Array.isArray(rules.skills) ? rules.skills : [];
+    const abilities = Array.isArray(rules.abilities) ? rules.abilities : [
+      { id: "STR", name: "Strength" }, { id: "DEX", name: "Dexterity" }, { id: "CON", name: "Constitution" },
+      { id: "INT", name: "Intelligence" }, { id: "WIS", name: "Wisdom" }, { id: "CHA", name: "Charisma" }
+    ];
+    return { skills, abilities };
+  }
+  function openChallengeMenu() {
+    const old = document.getElementById("challengeMenu");
+    if (old) old.remove();
+    const cat = challengeCatalog();
+    const featured = [
+      { label: "Perception", sub: "Wis · notice / search", skill: "Perception", ability: "WIS", abilityName: "Wisdom" },
+      { label: "Investigation", sub: "Int · clue / puzzle", skill: "Investigation", ability: "INT", abilityName: "Intelligence" },
+      { label: "Athletics", sub: "Str · climb / shove", skill: "Athletics", ability: "STR", abilityName: "Strength" },
+      { label: "Straight d20", sub: "No bonus — raw luck", straight: true }
+    ];
+    const host = document.createElement("div");
+    host.id = "challengeMenu";
+    host.className = "challenge-menu";
+    host.innerHTML = '<div class="card" role="dialog" aria-label="Challenge"><h3>Challenge</h3><p class="fine">Only the players you pick see the roll. Everyone else sees nothing until the result hits the table log.</p><div class="checks"></div><label>Other check <select id="challengeOther"><option value="">Pick a skill or ability…</option></select></label><p class="fine">Who rolls</p><div class="who"></div><label>DC <input id="challengeDc" type="number" min="1" max="40" placeholder="optional" style="width:88px"></label><button type="button" class="send">Send challenge</button></div>';
+    const checks = host.querySelector(".checks");
+    let picked = featured[0];
+    featured.forEach((row, i) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = i === 0 ? "on" : "";
+      b.innerHTML = row.label + '<span class="sub">' + row.sub + "</span>";
+      b.addEventListener("click", () => {
+        picked = row;
+        host.querySelector("#challengeOther").value = "";
+        checks.querySelectorAll("button").forEach((el) => el.classList.remove("on"));
+        b.classList.add("on");
+      });
+      checks.appendChild(b);
+    });
+    const other = host.querySelector("#challengeOther");
+    cat.skills.forEach((s) => {
+      const o = document.createElement("option");
+      o.value = "skill:" + s.name;
+      o.textContent = s.name;
+      other.appendChild(o);
+    });
+    cat.abilities.forEach((a) => {
+      const o = document.createElement("option");
+      o.value = "ability:" + a.id + ":" + a.name;
+      o.textContent = a.name + " check";
+      other.appendChild(o);
+    });
+    other.addEventListener("change", () => {
+      const v = other.value;
+      if (!v) return;
+      checks.querySelectorAll("button").forEach((el) => el.classList.remove("on"));
+      if (v.indexOf("skill:") === 0) {
+        const name = v.slice(6);
+        const sk = cat.skills.filter((s) => s.name === name)[0] || {};
+        const ab = cat.abilities.filter((a) => a.id === sk.ability)[0];
+        picked = { label: name, skill: name, ability: sk.ability || "", abilityName: ab ? ab.name : (sk.ability || "") };
+      } else {
+        const bits = v.split(":");
+        picked = { label: (bits[2] || "Ability") + " check", ability: bits[1] || "", abilityName: bits[2] || "" };
+      }
+    });
+    const who = host.querySelector(".who");
+    const chosen = {};
+    const ids = Object.keys(state.players || {});
+    if (!ids.length) {
+      const empty = document.createElement("p");
+      empty.className = "fine";
+      empty.textContent = "No players at the table yet.";
+      who.appendChild(empty);
+    }
+    ids.forEach((id) => {
+      const snap = (state.players[id] && state.players[id].snapshot) || {};
+      const name = snap.name || snap.player || id.slice(0, 6);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = name;
+      b.addEventListener("click", () => {
+        chosen[id] = !chosen[id];
+        b.classList.toggle("on", chosen[id]);
+      });
+      who.appendChild(b);
+    });
+    host.addEventListener("click", (e) => { if (e.target === host) host.remove(); });
+    host.querySelector(".send").addEventListener("click", async () => {
+      const targets = Object.keys(chosen).filter((id) => chosen[id]);
+      if (!targets.length) { toast("Pick who rolls"); return; }
+      const dcRaw = host.querySelector("#challengeDc").value;
+      const dc = dcRaw === "" ? null : Number(dcRaw);
+      const challengeId = uid("ch");
+      const payload = {
+        id: challengeId,
+        label: picked.label,
+        check: picked.label,
+        skill: picked.skill || "",
+        ability: picked.ability || "",
+        abilityName: picked.abilityName || "",
+        straight: !!picked.straight,
+        dc: dc != null && isFinite(dc) ? dc : null
+      };
+      for (let i = 0; i < targets.length; i++) {
+        await pushCommand({ type: "challenge", to: targets[i], quiet: true, payload: payload });
+      }
+      const names = targets.map((id) => {
+        const snap = (state.players[id] && state.players[id].snapshot) || {};
+        return snap.name || snap.player || "a player";
+      });
+      toast("Challenge sent to " + names.join(", "));
+      host.remove();
+    });
+    document.body.appendChild(host);
+  }
+  const challengeBtn = $("#btnChallenge");
+  if (challengeBtn) challengeBtn.addEventListener("click", openChallengeMenu);
   $("#btnForceSaloon").addEventListener("click", () => doForce("saloon"));
   $("#btnForceStore").addEventListener("click", () => {
     if (window.DMCCEnhance && window.DMCCEnhance.openAllStores) window.DMCCEnhance.openAllStores();
