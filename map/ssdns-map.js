@@ -193,6 +193,9 @@ window.SSDNSMap = { create(opts) {
 
   function publicToken(t) {
     if (!t || t.hidden) return null;
+    if (t.kind === 'asset' && t.asset && t.asset.hiddenFromPlayers) return null;
+    const pubAsset = (t.kind === 'asset' && window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.publicAsset)
+      ? window.SSDNSAssetLibrary.publicAsset(t) : null;
     return {
       id: t.id,
       pos: t.pos ? { x: t.pos.x, y: t.pos.y } : { x: 0, y: 0 },
@@ -209,6 +212,7 @@ window.SSDNSMap = { create(opts) {
       kind: t.kind || '', lootBoxId: t.lootBoxId || '',
       spellPiece: t.spellPiece || '', zoneId: t.zoneId || '',
       noHpPool: !!t.noHpPool, notTargetable: !!t.notTargetable, noInit: !!t.noInit,
+      assetDefId: t.assetDefId || '', asset: pubAsset,
       moveFeet: t.moveFeet != null && t.moveFeet !== '' ? Number(t.moveFeet) : null,
       /* Fight-row gear is not a token field. */
       lootLock: t.kind === 'chest' && t.loot ? {
@@ -377,6 +381,7 @@ function applySharedToTokens() {
       t.status = s.status || '';
       t.conditions = s.conditions ? [...s.conditions] : [];
       stampScene(t, s);
+      if ((s.kind === 'asset' || t.kind === 'asset') && s.image && s.image !== t.image) t._img = null;
       t.image = s.image || t.image || '';
       t.veil = !!s.veil;
       t.sheetId = s.sheetId || t.sheetId || '';
@@ -388,6 +393,14 @@ function applySharedToTokens() {
       if (s.noHpPool) t.noHpPool = true;
       if (s.notTargetable) t.notTargetable = true;
       if (s.noInit) t.noInit = true;
+      if (s.kind === 'asset' || s.asset) {
+        t.kind = 'asset';
+        if (s.asset) t.asset = s.asset;
+        if (s.assetDefId) t.assetDefId = s.assetDefId;
+        if (s.size) t.size = tokSquares(s.size);
+        if (s.asset && s.asset.targetable) t.notTargetable = false;
+        else if (s.notTargetable) t.notTargetable = true;
+      }
       if (s.moveFeet != null && s.moveFeet !== '') t.moveFeet = Number(s.moveFeet) || 0;
       if (s.spellPiece && s.size) t.size = tokSquares(s.size);
       if (s.name) t.name = s.name;
@@ -492,6 +505,7 @@ toolbar.innerHTML = `
     <button data-act="fogBtn" class="active">Fog: ON</button>
     <button data-act="showFovBtn" class="active">Show Player FOV: ON</button>
     <button data-act="mapsBtn" class="ssm-maps-btn" title="Maps: built-in, my maps, world">Maps ▾</button>
+    <button data-act="assetsBtn" class="ssm-maps-btn" title="Asset library for this room">Assets</button>
     <select data-act="sceneSelect" hidden aria-hidden="true"></select>
     <button data-act="myViewBtn">My view</button>
     <button data-act="setFloorBtn">Set floor</button>
@@ -569,6 +583,13 @@ on(document, 'keydown', e => {
     }
   }
   if (e.key === 'Escape') {
+    if (state.placeAsset) {
+      e.preventDefault();
+      state.placeAsset = null;
+      toast('Place cancelled');
+      applyCursor();
+      return;
+    }
     if (state.moveHover || (state.moveConfirm && state.moveConfirm.pending)) {
       e.preventDefault();
       clearMovePreview();
@@ -770,6 +791,14 @@ if (!el._nameMode) {
 paintRoleBadge();
 function pushFeed(row) {
   if (row && row.event === 'zone') { applyZoneFeed(row); return; }
+  if (row && row.event === 'asset') {
+    try { applyAssetRequest(row); } catch (eAsset) {}
+    if (!row || row.kind === 'sfx') return;
+  }
+  if (row && row.event === 'asset-sfx') {
+    try { playAssetSfx(row.sfxUrl, row.from); } catch (eSfx) {}
+    return;
+  }
   if (row && row.zoom && window.SSDNSD20Zoom && window.SSDNSD20Zoom.play) {
     try { window.SSDNSD20Zoom.play(row.zoom); } catch (eZoom) {}
   } else if (row && row.die && window.SSDNSD20Zoom && window.SSDNSD20Zoom.present) {
@@ -3181,7 +3210,7 @@ function draw() {
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
     /* B2: DM-only link badge. Players never reach a hidden token, and this mark is role-gated too. */
-    if (role === 'dm' && !t.spellPiece) {
+    if (role === 'dm' && !t.spellPiece && t.kind !== 'asset') {
       const linkedSheet = !!(t.ownerUid && partyList().some(p => p && (p.uid || p.id) === t.ownerUid));
       const mark = linkedSheet ? '⛓' : '⚠';
       ctx.font = 'bold ' + Math.max(11, Math.round(r * 0.42)) + 'px system-ui, "Noto Color Emoji", sans-serif';
@@ -3323,7 +3352,7 @@ function iconCursor(emoji) {
   return `url("data:image/svg+xml;utf8,${svg}") 6 28, crosshair`;
 }
 function applyCursor() {
-  if (state.blast) { canvas.style.cursor = 'crosshair'; return; }
+  if (state.blast || state.placeAsset) { canvas.style.cursor = 'crosshair'; return; }
   if (state.tool === 'reveal' || state.tool === 'hide' || state.tool === 'erase' || state.tool === 'wall' || state.tool === 'room' || state.tool === 'door' || state.tool === 'window') canvas.style.cursor = 'crosshair';
   else if (state.tool === 'ruler') canvas.style.cursor = iconCursor('📏');
   else if (state.tool === 'ping') canvas.style.cursor = iconCursor('📡');
@@ -4235,6 +4264,188 @@ function focusLootChest(boxId) {
   selectToken(token);
   return token.id;
 }
+const seenAssetReq = {};
+function assetLib() { return window.SSDNSAssetLibrary || null; }
+function myMapToken() {
+  return (state.tokens || []).find(t => t && t.ownerUid === uid && onViewedScene(t)) || null;
+}
+function assetReachNeed(token) {
+  const a = token && token.asset;
+  if (!a) return 5;
+  if (a.reachFt != null && a.reachFt !== "") return Number(a.reachFt);
+  if (a.interact && a.interact.reachFt != null) return Number(a.interact.reachFt);
+  return 5;
+}
+function commitAssetToken(token, res) {
+  if (!token || !res || !res.ok) return;
+  token.asset = res.asset;
+  token.image = res.image || token.image || "";
+  token.lights = res.lights || [];
+  token._img = null;
+  if (token.image) loadTokenImage(token);
+  if (shared.tokens[token.id]) {
+    shared.tokens[token.id].asset = JSON.parse(JSON.stringify(token.asset));
+    shared.tokens[token.id].image = token.image;
+    shared.tokens[token.id].lights = JSON.parse(JSON.stringify(token.lights || []));
+    shared.tokens[token.id].kind = "asset";
+    shared.tokens[token.id].assetDefId = token.assetDefId || (token.asset && token.asset.defId) || "";
+  }
+  saveToken(token.id);
+  draw();
+}
+function playAssetSfx(url, from) {
+  if (!url || (from && from === uid)) return;
+  const Audio = window.SSDNSAudio;
+  if (Audio && Audio.playUrl) Audio.playUrl(url);
+}
+function postAssetSfx(ref) {
+  const A = assetLib();
+  const url = A && A.sfxUrl ? A.sfxUrl(ref) : "";
+  if (!url) return;
+  playAssetSfx(url, "");
+  if (!adapter || !adapter.write || !uid) return;
+  const id = "assetsfx_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const row = { id: id, ts: new Date().toISOString(), from: uid, fromName: "DM", text: "sfx", kind: "sfx", event: "asset-sfx", sfxUrl: url };
+  try {
+    const p = adapter.write("tableFeed/" + id, row, { by: uid });
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+function postAssetLog(text) {
+  if (!text || !adapter || !adapter.write || !uid) return;
+  const id = "assetlog_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const row = {
+    id: id, ts: new Date().toISOString(), from: uid,
+    fromName: role === "dm" ? "DM" : "Table", text: String(text), kind: "note"
+  };
+  try {
+    const p = adapter.write("tableFeed/" + id, row, { by: uid });
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+function finishAsset(token, res) {
+  commitAssetToken(token, res);
+  if (res.sfx) postAssetSfx(res.sfx);
+  if (res.log) postAssetLog(res.log);
+  if (res.log) toast(res.log);
+  const menu = el.querySelector('[data-act="assetMenu"]');
+  if (menu && !menu.hidden && menu.getAttribute("data-token") === token.id) showAssetMenu(token);
+}
+function applyAssetRequest(row) {
+  if (role !== "dm" || !row || row.event !== "asset") return;
+  if (row.id && seenAssetReq[row.id]) return;
+  if (row.id) seenAssetReq[row.id] = 1;
+  const A = assetLib();
+  const req = row.assetReq || {};
+  const token = (state.tokens || []).find(t => t && t.id === req.tokenId);
+  if (!A || !token) return;
+  const res = A.applyFeed(token, row);
+  if (!res || !res.ok) return;
+  finishAsset(token, res);
+}
+function dmApplyAsset(token, action) {
+  const A = assetLib();
+  if (!A || !token) return { ok: false, reason: "no-asset" };
+  const res = A.applyAction(token.asset, action);
+  if (!res || !res.ok) return res || { ok: false };
+  finishAsset(token, res);
+  return res;
+}
+if (window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.bind) {
+  window.SSDNSAssetLibrary.bind({
+    tokens: function () { return state.tokens || []; },
+    apply: function (id, action) {
+      const t = (state.tokens || []).find(tok => tok && tok.id === id);
+      if (!t) return { ok: false, reason: "missing" };
+      return dmApplyAsset(t, action);
+    }
+  });
+}
+function requestAssetAction(token, action) {
+  if (!token || token.kind !== "asset") return;
+  const A = assetLib();
+  if (!A) return;
+  const Assets = window.SSDNSAssets;
+  if (role !== "dm") {
+    if (!tokenSeenBy(token, sightFor(uid, getPlayerScene()))) { toast("You can't see that."); return; }
+    const gate = A.reachGate(myMapToken(), token, assetReachNeed(token));
+    if (!gate.ok) { toast(gate.feet == null ? "You need a token on this map." : gate.text); return; }
+    const row = A.feedRow({ tokenId: token.id, action: action, by: uid, fromName: "Player" });
+    if (adapter && adapter.write && uid) {
+      try {
+        const p = adapter.write("tableFeed/" + row.id, row, { by: uid });
+        if (p && p.catch) p.catch(() => {});
+      } catch (e) {}
+    }
+    toast("Sent");
+    return;
+  }
+  const res = Assets && Assets.onInteract ? Assets.onInteract(token.id, action, uid) : dmApplyAsset(token, action);
+  if (res && res.stub) toast("Coming soon");
+  else if (res && res.ok === false && res.reason === "no-host") dmApplyAsset(token, action);
+}
+function placeAssetAt(def, cell) {
+  if (role !== "dm" || !def) return null;
+  const A = assetLib();
+  if (!A || !A.instanceFromDef) return null;
+  const inst = A.instanceFromDef(def);
+  const token = makeToken({
+    kind: "asset",
+    name: def.name || "Asset",
+    label: String(def.name || "Asset").slice(0, 16),
+    size: def.size || 1,
+    image: A.imageFor(inst),
+    color: "#c9a227",
+    ownerCanMove: false,
+    targetable: !!def.targetable,
+    hidden: !!def.hiddenFromPlayers,
+    assetDefId: def.id,
+    asset: inst,
+    lights: A.lightsFor(inst),
+    pos: cell
+  });
+  if (!token) return null;
+  selectToken(token);
+  toast("Placed " + (def.name || "asset"));
+  return token;
+}
+function hideAssetMenu() {
+  const menu = el.querySelector('[data-act="assetMenu"]');
+  if (menu) menu.hidden = true;
+}
+function assetMenuHtml(token) {
+  const A = assetLib();
+  const acts = A && A.menuActions ? A.menuActions(token.asset) : [];
+  const name = (token.asset && token.asset.name) || token.name || "Asset";
+  const rows = acts.map(act => {
+    if (act.stub) return '<button type="button" data-asset="' + act.id + '" disabled>' + act.label + "</button> ";
+    return '<button type="button" data-asset="' + act.id + '">' + act.label + "</button> ";
+  }).join("");
+  return "<p><b>" + name.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])) + "</b></p>" + (rows || "<p>No actions</p>");
+}
+function showAssetMenu(token) {
+  if (!token) return;
+  let menu = el.querySelector('[data-act="assetMenu"]');
+  if (!menu) {
+    menu = document.createElement("div");
+    menu.className = "ssm-chest-menu";
+    menu.setAttribute("data-act", "assetMenu");
+    menu.addEventListener("pointerdown", ev => ev.stopPropagation());
+    menu.addEventListener("click", ev => {
+      const act = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-asset");
+      if (!act || ev.target.disabled) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const id = menu.getAttribute("data-token") || "";
+      const live = state.tokens.find(t => t && t.id === id);
+      if (live) requestAssetAction(live, act);
+    });
+    el.appendChild(menu);
+  }
+  menu.setAttribute("data-token", token.id);
+  menu.hidden = false;
+  menu.innerHTML = assetMenuHtml(token);
+}
 function selectToken(token) {
   if (!token) return;
   if (state.pendingTarget && role === 'dm') {
@@ -4269,6 +4480,9 @@ function selectToken(token) {
     paintPendingBanner();
     renderDrawer();
     draw();
+    if (token.kind === 'asset' && window.SSDNSAssets && window.SSDNSAssets.onTarget) {
+      try { window.SSDNSAssets.onTarget(token.id, attack || { id: wid }); } catch (eAssetTgt) {}
+    }
     emit('drawer:target', Object.assign({ tokenId: shot.tokenId, weaponId: shot.weaponId || '', spellId: shot.spellId || '', targetTokenId: token.id, combatantId: tokenCombatant(shot.tokenId), targetCombatantId: tokenCombatant(token.id) }, shot.offhand && !shot.spellId ? { offhand: true } : (shot.fan && !shot.spellId ? { fan: true } : {})));
     if ((shot.offhand || shot.fan) && !shot.spellId) clearOffhand();
     return;
@@ -4278,9 +4492,16 @@ function selectToken(token) {
   refreshSelectedPanel();
   if (token && (token.kind === 'chest' || token.lootBoxId)) {
     showChestMenu(token);
+    hideAssetMenu();
     const Give = window.SSDNSLootGive;
     if (Give && Give.selectBox && token.lootBoxId) Give.selectBox(token.lootBoxId);
-  } else hideChestMenu();
+  } else if (token && token.kind === 'asset') {
+    hideChestMenu();
+    showAssetMenu(token);
+  } else {
+    hideChestMenu();
+    hideAssetMenu();
+  }
   if (role === 'dm') openDrawer(token.id);
   draw();
 }
@@ -4382,9 +4603,20 @@ function makeToken(spec) {
     token.combatantId = '';
     token.ownerCanMove = token.moveFeet > 0;
   }
+  if (spec.kind === 'asset') {
+    token.kind = 'asset';
+    token.noInit = true;
+    token.noHpPool = true;
+    token.notTargetable = !spec.targetable;
+    token.ownerCanMove = false;
+    token.assetDefId = spec.assetDefId || '';
+    token.asset = spec.asset || null;
+    token.hidden = !!spec.hidden;
+    if (Array.isArray(spec.lights)) token.lights = spec.lights;
+  }
   state.tokens.push(token);
   shared.tokens[id] = JSON.parse(JSON.stringify(token));
-  if (!token.spellPiece) emit('combatant:add', { tokenId: id });
+  if (!token.spellPiece && !token.noInit) emit('combatant:add', { tokenId: id });
   saveToken(id);
   return token;
 }
@@ -5052,6 +5284,8 @@ function moveContext(mover, budget) {
     moverSize: mover ? tokSquares(mover.size) : 1,
     /* Same start-on-wall rule as plain drags: crossesWall ignores t < 1e-6. */
     crosses: (a, b) => crossesWall(a.x, a.y, b.x, b.y),
+    isBlocked: (x, y) => !!(window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.cellBlockedByGate && window.SSDNSAssetLibrary.cellBlockedByGate(
+      (state.tokens || []).filter(t => t && (t.sceneId || 'scn_dustyspur01') === sceneId && !(role !== 'dm' && t.hidden)), x, y)),
     disengage: !!(budget && budget.disengage),
     teleport: !!(budget && budget.teleport),
     forced: !!(budget && budget.forced),
@@ -5970,8 +6204,30 @@ function onPointerDown(e) {
       state.drag = { ruler: true };
       return;
     }
+    if (role === 'dm' && state.placeAsset && !state.tool) {
+      if (e.button === 2) {
+        state.placeAsset = null;
+        toast('Place cancelled');
+        applyCursor();
+        return;
+      }
+      if (e.button === 0) {
+        const wPlace = pointerWorld(e);
+        const placePx = (state.scene.grid && state.scene.grid.px) || 70;
+        placeAssetAt(state.placeAsset, { x: Math.floor(wPlace.x / placePx), y: Math.floor(wPlace.y / placePx) });
+        state.placeAsset = null;
+        applyCursor();
+        e.preventDefault();
+        return;
+      }
+    }
     const w = pointerWorld(e);
     const hit = hitTest(w.x, w.y);
+    if (hit && hit.kind === 'asset' && role === 'player' && !e.shiftKey) {
+      if (!tokenSeenBy(hit, sightFor(uid, getPlayerScene()))) { toast("You can't see that."); return; }
+      selectToken(hit);
+      return;
+    }
     if (hit && (hit.kind === 'chest' || hit.lootBoxId) && !e.shiftKey) {
       selectToken(hit);
       return;
@@ -6028,6 +6284,7 @@ function onPointerDown(e) {
         if (t) state.drag.starts[id] = { x: t.pos.x, y: t.pos.y };
       });
       if (role === 'dm') openDrawer(hit.id);
+      if (hit.kind === 'asset') showAssetMenu(hit);
     } else if (hit && role === 'player') {
       if (hit.locked) toast('That token is locked');
       else if (canControl(hit) && turnBlocksMove()) toast("It isn't your turn. Your token moves on your turn.");
@@ -6646,6 +6903,7 @@ function cellTaken(x, y, ignore) {
     if (!t || !t.pos || skip[t.id]) return false;
     if (role !== 'dm' && t.hidden) return false;
     if (!onViewedScene(t)) return false;
+    if (window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.gatePassable && window.SSDNSAssetLibrary.gatePassable(t)) return false;
     const size = t.size || 1;
     return x >= t.pos.x && x < t.pos.x + size && y >= t.pos.y && y < t.pos.y + size;
   });
@@ -6668,7 +6926,7 @@ function clampFootprint(x, y, size, grid) {
 /** Tokens that block movement / placement for this viewer (players never collide with what they cannot see). */
 function blockingTokens(ignore) {
   const skip = ignore || {};
-  return state.tokens.filter(t => t && t.pos && !skip[t.id] && !(role !== 'dm' && t.hidden));
+  return state.tokens.filter(t => t && t.pos && !skip[t.id] && !(role !== 'dm' && t.hidden) && !(window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.gatePassable && window.SSDNSAssetLibrary.gatePassable(t)));
 }
 function areaTaken(x, y, size, ignore) {
   const s = tokSquares(size);
@@ -7042,6 +7300,7 @@ ${dm ? `<b>DM</b><br>
 Ctrl-click or drag a box to select many.<br>
 Copy Ctrl+C, Paste Ctrl+V, Delete removes from the turn order.<br>
 Door / Window: click a wall. Click again to open or shut. Right-click removes it. Secret: ON hides that door from players (no door mark) until you click it again to reveal. Shift-click does the same. Opening a door still opens sight. A secret door stays a wall on the player map until it is revealed.<br>
+<b>Assets</b> The library for this room. Add, edit, duplicate, delete, export, and import. Place, then click a square. Players within 5 ft can turn an asset on or off, open or close a gate, and light it. Health, traps, range, links, and immunities are saved and marked coming soon.<br>
 Wall and Room: drag, release to commit.<br>
 Walls: OFF hides the lines so you can see the raw map. Walls still block.<br>
 Grant / Revoke: pick a player, then a token. Revoke on their own token locks them out. Grant gives it back.<br>
@@ -7424,6 +7683,10 @@ if (role === 'dm') {
     if (window.SSDNSMapLibrary && window.SSDNSMapLibrary.open) window.SSDNSMapLibrary.open(libraryApi());
     else toast('Map menu not loaded');
   });
+  if (q('assetsBtn')) q('assetsBtn').addEventListener('click', () => {
+    if (window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.open) window.SSDNSAssetLibrary.open(assetApi());
+    else toast('Asset library not loaded');
+  });
   q('myViewBtn').addEventListener('click', () => {
     const sel = q('sceneSelect');
     swapScene(sel.value);
@@ -7707,6 +7970,43 @@ function snapshotScene(sid) {
     fogRevealed: sd.fogRevealed === true,
     tokens: JSON.parse(JSON.stringify(toks, (k, v) => k === '_img' ? undefined : v)),
     savedAt: Date.now()
+  };
+}
+let assetLibrary = {};
+function saveAssetDef(entry) {
+  if (!entry || !entry.id) return;
+  assetLibrary[entry.id] = JSON.parse(JSON.stringify(entry));
+  try { localStorage.setItem('ssdns.assets.v1', JSON.stringify(assetLibrary)); } catch (e) {}
+  if (role === 'dm') write('map/dm/assetLibrary/' + entry.id, assetLibrary[entry.id]);
+}
+function removeAssetDef(id) {
+  if (!assetLibrary[id]) return;
+  delete assetLibrary[id];
+  try { localStorage.setItem('ssdns.assets.v1', JSON.stringify(assetLibrary)); } catch (e) {}
+  if (adapter && adapter.remove) adapter.remove('map/dm/assetLibrary/' + id);
+}
+function absorbAssetLibrary(value) {
+  if (!value || typeof value !== 'object') return;
+  if (value.id && (value.name || value.v)) assetLibrary[value.id] = value;
+  else Object.keys(value).forEach(id => { if (value[id] && value[id].id) assetLibrary[value[id].id] = value[id]; });
+  try { localStorage.setItem('ssdns.assets.v1', JSON.stringify(assetLibrary)); } catch (e) {}
+  if (window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.refresh) window.SSDNSAssetLibrary.refresh();
+}
+if (role === 'dm') {
+  try { assetLibrary = JSON.parse(localStorage.getItem('ssdns.assets.v1') || '{}') || {}; } catch (e) { assetLibrary = {}; }
+}
+function assetApi() {
+  return {
+    role,
+    library: () => assetLibrary,
+    save: saveAssetDef,
+    remove: removeAssetDef,
+    toast,
+    place: (def) => {
+      state.placeAsset = def;
+      applyCursor();
+      toast('Click a square to place ' + (def && def.name ? def.name : 'the asset'));
+    }
   };
 }
 function saveLibraryEntry(entry) {
@@ -9414,6 +9714,63 @@ async function loadSceneImage(sceneId, opts) {
       bindDmCard(d);
     }
     const tokenId = state.drawerTokenId;
+    const assetTok = state.tokens.find(t => t && t.id === tokenId && t.kind === 'asset');
+    if (assetTok) {
+      const A = window.SSDNSAssetLibrary;
+      const acts = A && A.menuActions ? A.menuActions(assetTok.asset) : [];
+      const buttons = acts.map(act => '<button type="button" data-asset-act="' + esc(act.id) + '"' + (act.stub ? ' disabled' : '') + '>' + esc(act.label) + '</button>').join(' ');
+      const notes = (assetTok.asset && assetTok.asset.notes) || '';
+      d.innerHTML = drawerHeadHtml(assetTok.name || 'Asset', 'asset') +
+        '<div class="ssm-drawer-body">' +
+        '<p class="ssm-tactics">This copy on the map. Edit the library card to change art and properties.</p>' +
+        '<div class="ssm-row">' + buttons + '</div>' +
+        '<label class="ssm-section">Notes (DM only)<textarea data-act="assetNotes" rows="3">' + esc(notes) + '</textarea></label>' +
+        '<label><input type="checkbox" data-act="assetTarget"' + (assetTok.notTargetable ? '' : ' checked') + '> Targetable</label>' +
+        '<label><input type="checkbox" data-act="assetHide"' + (assetTok.hidden ? ' checked' : '') + '> Hidden from players</label>' +
+        '<div class="ssm-row"><button type="button" data-act="assetDelete">Delete from map</button></div>' +
+        '</div>';
+      const c = d.querySelector('[data-act="drawerClose"]');
+      if (c) c.addEventListener('click', closeDrawer);
+      d.querySelectorAll('[data-asset-act]').forEach(btn => {
+        btn.addEventListener('click', () => requestAssetAction(assetTok, btn.getAttribute('data-asset-act')));
+      });
+      const noteBox = d.querySelector('[data-act="assetNotes"]');
+      if (noteBox) noteBox.addEventListener('change', () => {
+        if (!assetTok.asset) return;
+        assetTok.asset.notes = String(noteBox.value || '').slice(0, 500);
+        if (shared.tokens[assetTok.id]) shared.tokens[assetTok.id].asset = JSON.parse(JSON.stringify(assetTok.asset));
+        saveToken(assetTok.id);
+      });
+      const tgt = d.querySelector('[data-act="assetTarget"]');
+      if (tgt) tgt.addEventListener('change', () => {
+        assetTok.notTargetable = !tgt.checked;
+        if (assetTok.asset) assetTok.asset.targetable = !!tgt.checked;
+        if (shared.tokens[assetTok.id]) {
+          shared.tokens[assetTok.id].notTargetable = assetTok.notTargetable;
+          shared.tokens[assetTok.id].asset = JSON.parse(JSON.stringify(assetTok.asset));
+        }
+        saveToken(assetTok.id);
+      });
+      const hide = d.querySelector('[data-act="assetHide"]');
+      if (hide) hide.addEventListener('change', () => {
+        assetTok.hidden = !!hide.checked;
+        if (assetTok.asset) assetTok.asset.hiddenFromPlayers = assetTok.hidden;
+        if (shared.tokens[assetTok.id]) {
+          shared.tokens[assetTok.id].hidden = assetTok.hidden;
+          shared.tokens[assetTok.id].asset = JSON.parse(JSON.stringify(assetTok.asset));
+        }
+        saveToken(assetTok.id);
+        draw();
+      });
+      const del = d.querySelector('[data-act="assetDelete"]');
+      if (del) del.addEventListener('click', () => {
+        if (!confirm('Delete this asset from the map?')) return;
+        removeMapTokens([assetTok.id]);
+        hideAssetMenu();
+        closeDrawer();
+      });
+      return;
+    }
     const card = lookupCard(tokenId);
     if (!card) {
       const choices = (typeof host.linkChoices === 'function' && host.linkChoices()) || {};
@@ -10208,6 +10565,7 @@ async function loadSceneImage(sceneId, opts) {
       if (!next.combatantId && prevTok.combatantId) next.combatantId = prevTok.combatantId;
       if (!next.sheetId && prevTok.sheetId) next.sheetId = prevTok.sheetId;
       if (!next.kind && prevTok.kind) next.kind = prevTok.kind;
+      if (role === 'dm' && next.asset && prevTok.asset && prevTok.asset.props && !next.asset.props) next.asset = prevTok.asset;
       shared.tokens[tid] = Object.assign({}, prevTok, next);
       if (role === 'dm' && !state.tokens.some(tok => tok && tok.id === tid)) {
         state.tokens.push(JSON.parse(JSON.stringify(shared.tokens[tid])));
@@ -10281,6 +10639,7 @@ async function loadSceneImage(sceneId, opts) {
         fillSceneSelect();
         if (window.SSDNSMapLibrary && window.SSDNSMapLibrary.refresh) window.SSDNSMapLibrary.refresh();
       }));
+      unsubs.push(adapter.subscribe('map/dm/assetLibrary', (value) => { absorbAssetLibrary(value); }));
       unsubs.push(adapter.subscribe('map/dm/dismissed', (value, meta) => {
         const path = (meta && meta.path) || '';
         const id = path.split('/').pop();
@@ -10543,6 +10902,12 @@ return {
   canPlayerSee: function (viewerUid, targetId) { return canPlayerSee(viewerUid, targetId); },
   /* N59: which closed doors this client paints a glyph for. Secret doors stay shown:false. */
   doorGlyphs: function () { return doorGlyphReport(); },
+  /* N86: door Interact UI is N87. This only routes a door target at the asset hook. */
+  doorInteract: function (wallRef, action) {
+    const Assets = window.SSDNSAssets;
+    if (Assets && Assets.doorInteract) return Assets.doorInteract(wallRef, action);
+    return { ok: false, door: true, stub: true };
+  },
   targetSight: function (targetId) { return targetSight(targetId); },
   /* attack-fx: DM -> draw + publish the cleaned row; player -> draw locally only. */
   fx: function (spec) {

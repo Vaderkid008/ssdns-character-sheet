@@ -57,3 +57,25 @@ Visual only. No new path, no rules change.
 - **Player request** `fxReq` on the player's own `tableFeed/<rollId>` roll row (or a `kind: 'sfx', event: 'fx'` row for no-roll shots such as dynamite arrows). Only the DM's map reads it and turns it into the public row above. Never written to `rolls/`.
 - Every feed reader already skips `kind: 'sfx'` rows whose `event` isn't a shared cue, so chat and sound handlers ignore both.
 
+## Asset library (N86, sheet 0.3.173 / DMCC 0.2.186)
+
+Per room, same idea as My Maps. No new player-writable path. Interact requests use `tableFeed`.
+
+| Path | Shape |
+|------|-------|
+| `map/dm/assetLibrary/<defId>` | Library definition (`v: 1`). DM only. |
+| `map/dm/tokens/<id>` | Placed instance: `kind: "asset"`, `assetDefId`, and `asset` (copy of the definition plus `state`). |
+| `map/public/tokens/<id>` | `publicToken` plus a **sanitized** `asset`. |
+| `tableFeed/<id>` | Player request: `{kind:'sfx', event:'asset', text:'asset', assetReq:{tokenId, action, by}}`. The DM map applies it. |
+| `tableFeed/<id>` | After apply: `{kind:'note', text}` is the table-log line. `{kind:'sfx', event:'asset-sfx', sfxUrl}` plays the sound. |
+
+Definition fields: `id, name, size` (1–4 squares), `image`, `images[]` (index 1 is the on/open picture), `sfx.{interact,on,off,open,close}`, `props` (light, toggle, gate, health, trap, range, links, immunities, timer), `interact.{reachFt, actions, dmApprove}`, `targetable`, `hiddenFromPlayers`, `notes`, `createdAt`, `updatedAt`, `v`.
+
+`asset.state` is `{on, open, lit, hp, armedAtRound, firesAtRound}`. N86 stores `lit` and the round fields. The Turn# fuse control is N87. `interact.dmApprove` is stored and not enforced. Open, on/off, and light apply as soon as the DM map reads the feed.
+
+Public `asset` is only `name, size, image` (the picture for the current state), `on, open, lit`, `actions[{id,label,stub}]`, `hpPct`, plus `blocksMove` and `reachFt` so other clients can enforce the gate and the 5 ft check. It never includes trap DC/attack/damage, `notes`, `immunities`, or hit-point numbers. A hidden asset sets token `hidden` and is omitted from `map/public/tokens`.
+
+A closed gate with `blocksMove` occupies its footprint. An open one does not. Door segments stay N59 walls. `doorInteract(wallRef, action)` only forwards a `{door:true}` target to `SSDNSAssets.onInteract`.
+
+Pack file: `{format:"ssdns-asset-pack", version:1, assets:[]}`.
+

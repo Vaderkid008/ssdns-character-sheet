@@ -2348,6 +2348,9 @@ function nextTurn() {
     if (step.wrapped) {
       fight.round += 1;
       expireSpellZones();
+      if (window.SSDNSAssets && window.SSDNSAssets.onRound) {
+        try { window.SSDNSAssets.onRound(fight.round); } catch (eRound) {}
+      }
     }
   }
   const phaseWho = fight.order[fight.turn];
