@@ -6400,6 +6400,27 @@ function beastClick(e) {
   placeBeastAt(state.beastArmed, pointerWorld(e));
   return true;
 }
+/* Place is one shot, and it runs before fog/wall/ping so a tool cannot swallow
+   the click and leave Place armed (the next token click would drop an asset
+   instead of opening the character drawer). Right-click or Esc cancels. */
+function assetClick(e) {
+  if (role !== 'dm' || !state.placeAsset) return false;
+  if (e.button === 2) {
+    e.preventDefault();
+    state.placeAsset = null;
+    toast('Place cancelled');
+    applyCursor();
+    return true;
+  }
+  if (e.button !== 0) return false;
+  e.preventDefault();
+  const wPlace = pointerWorld(e);
+  const placePx = (state.scene.grid && state.scene.grid.px) || 70;
+  placeAssetAt(state.placeAsset, { x: Math.floor(wPlace.x / placePx), y: Math.floor(wPlace.y / placePx) });
+  state.placeAsset = null;
+  applyCursor();
+  return true;
+}
 function onPointerDown(e) {
   pointers.set(e.pointerId, Object.assign({ t: Date.now() }, localXY(e)));
   if (pointers.size === 1) {
@@ -6646,23 +6667,6 @@ function onPointerDown(e) {
       state.ruler = { x1: w.x, y1: w.y, x2: w.x, y2: w.y };
       state.drag = { ruler: true };
       return;
-    }
-    if (role === 'dm' && state.placeAsset && !state.tool) {
-      if (e.button === 2) {
-        state.placeAsset = null;
-        toast('Place cancelled');
-        applyCursor();
-        return;
-      }
-      if (e.button === 0) {
-        const wPlace = pointerWorld(e);
-        const placePx = (state.scene.grid && state.scene.grid.px) || 70;
-        placeAssetAt(state.placeAsset, { x: Math.floor(wPlace.x / placePx), y: Math.floor(wPlace.y / placePx) });
-        state.placeAsset = null;
-        applyCursor();
-        e.preventDefault();
-        return;
-      }
     }
     const w = pointerWorld(e);
     const hit = hitTest(w.x, w.y);
@@ -7698,8 +7702,12 @@ function swallowMiddle(e) {
   e.preventDefault();
   e.stopPropagation();
 }
-/* bestiary: an armed creature lands on the clicked square before any tool sees the click */
-on(canvas, 'pointerdown', (e) => { if (pointers.size === 0 && beastClick(e)) return; onPointerDown(e); });
+/* bestiary and asset Place land on the clicked square before any tool sees the click */
+on(canvas, 'pointerdown', (e) => {
+  if (pointers.size === 0 && beastClick(e)) return;
+  if (pointers.size === 0 && assetClick(e)) return;
+  onPointerDown(e);
+});
 on(el, 'pointerdown', e => { if (e.button === 1 && e.target !== canvas) swallowMiddle(e); });
 on(canvas, 'mousedown', swallowMiddle);
 on(el, 'mousedown', swallowMiddle);
@@ -7746,7 +7754,7 @@ ${dm ? `<b>DM</b><br>
 Ctrl-click or drag a box to select many.<br>
 Copy Ctrl+C, Paste Ctrl+V, Delete removes from the turn order.<br>
 Door / Window: click a wall. Click again to open or shut. Right-click removes it. Secret: ON hides that door from players (no door mark) until you click it again to reveal. Shift-click does the same. Opening a door still opens sight. A secret door stays a wall on the player map until it is revealed. With the select tool, click a door for Open, Lockpick, or Peek. Locked, Lock DC, and Ajar sit under the Door tool. Peek (ajar) lets sight through and still blocks movement.<br>
-<b>Assets</b> The library for this room. Add, edit, duplicate, delete, export, and import. Place, then click a square. Players within 5 ft can turn an asset on or off, open or close a gate, and light it. Health, traps, range, links, and immunities are saved and marked coming soon.<br>
+<b>Assets</b> The library for this room. Add, edit, duplicate, delete, export, and import. The list stays beside the map, so clicking a player or creature still opens their card. Place, then click a square (Esc or right-click cancels). Players within 5 ft can turn an asset on or off, open or close a gate, and light it. Health, traps, range, links, and immunities are saved and marked coming soon.<br>
 Wall and Room: drag, release to commit.<br>
 Walls: OFF hides the lines so you can see the raw map. Walls still block.<br>
 Grant / Revoke: pick a player, then a token. Revoke on their own token locks them out. Grant gives it back.<br>
@@ -8455,6 +8463,7 @@ function assetApi() {
     save: saveAssetDef,
     remove: removeAssetDef,
     toast,
+    mount: () => el,
     place: (def) => {
       state.placeAsset = def;
       applyCursor();
@@ -8975,6 +8984,8 @@ async function loadSceneImage(sceneId, opts) {
   }
   function openDrawer(tokenId) {
     if (role !== 'dm') return;
+    const tok = state.tokens.find(t => t && t.id === tokenId);
+    if (!tok || tok.kind !== 'asset') hideAssetMenu();
     const same = state.drawerOpen && state.drawerTokenId === tokenId;
     state.drawerOpen = true;
     state.drawerTokenId = tokenId;
@@ -10222,6 +10233,7 @@ async function loadSceneImage(sceneId, opts) {
         hideAssetMenu();
         closeDrawer();
       });
+      syncDockChrome(d);
       return;
     }
     const card = lookupCard(tokenId);

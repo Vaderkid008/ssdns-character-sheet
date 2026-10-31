@@ -879,22 +879,31 @@
       render();
     }
   }
+  /* The library sits on the map. It is not a modal: a modal backdrop covers the
+     battle map and the character drawer, so a token click never arrives. */
+  function hostEl() {
+    var el = ui.api && ui.api.mount && ui.api.mount();
+    if (el && el.appendChild) return el;
+    return root.document.body;
+  }
   function open(api) {
     ui.api = api || ui.api;
     if (!ui.api || !root.document) return;
     if (!ui.dlg) {
       var d = root.document.createElement("dialog");
-      d.className = "dlg ml-dialog al-dialog";
+      d.className = "ml-dialog al-dialog";
+      d.setAttribute("aria-label", "Asset library");
       d.innerHTML = '<div class="ml-body"></div>';
       d.addEventListener("click", onClick);
       d.addEventListener("input", onInput);
       d.addEventListener("change", onChange);
       d.addEventListener("cancel", function () { ui.editing = null; });
-      root.document.body.appendChild(d);
       ui.dlg = d;
     }
+    var parent = hostEl();
+    if (ui.dlg.parentNode !== parent) parent.appendChild(ui.dlg);
     render();
-    if (!ui.dlg.open) { try { ui.dlg.showModal(); } catch (e) { ui.dlg.setAttribute("open", ""); } }
+    if (!ui.dlg.open) { try { ui.dlg.show(); } catch (e) { ui.dlg.setAttribute("open", ""); } }
   }
   function close() {
     if (!ui.dlg) return;
