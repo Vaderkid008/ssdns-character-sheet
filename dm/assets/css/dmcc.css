@@ -520,7 +520,7 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
 .dock-head, .dock-filters, .dock-compose { padding: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .dock-head { border-bottom: 1px solid var(--line); justify-content: space-between; }
 .dock-head-actions { display: inline-flex; gap: 6px; align-items: center; }
-#btnDockPop { width: auto; }
+#btnDockPop, #btnClearLog { width: auto; }
 .live-dock .join-code-chip {
   flex: none;
   width: auto;
@@ -573,7 +573,8 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
   body.dock-collapsed .dock-compose,
   body.dock-collapsed .dock-head b,
   body.dock-collapsed .live-dock .join-code-chip,
-  body.dock-collapsed #btnDockPop { display: none; }
+  body.dock-collapsed #btnDockPop,
+  body.dock-collapsed #btnClearLog { display: none; }
   body.dock-collapsed .dock-head { justify-content: center; padding: 8px 4px; }
   body.dock-collapsed .dock-strip {
     display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 1;

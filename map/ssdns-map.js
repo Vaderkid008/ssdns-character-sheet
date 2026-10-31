@@ -653,6 +653,15 @@ if (role === 'dm') {
 state.chatFilter = 'all';
 state.chatOpen = true;
 state.chatSeen = 0;
+let mapClearKey = "";
+function logRowHidden(row) {
+  return !!(window.SSDNSTableLog && window.SSDNSTableLog.hidden && window.SSDNSTableLog.hidden(row && row.ts));
+}
+function mapClearMark() {
+  if (!window.SSDNSTableLog || !window.SSDNSTableLog.clearedAt) return "";
+  const v = window.SSDNSTableLog.clearedAt();
+  return v == null || v === "" ? "" : String(v);
+}
 try {
   const savedFilter = localStorage.getItem('ssdns.map.chatFilter');
   if (savedFilter === 'rolls' || savedFilter === 'talk' || savedFilter === 'all') state.chatFilter = savedFilter;
@@ -756,6 +765,7 @@ function renderChat() {
   const log = q('chatlog');
   if (!log) return;
   const rows = (state.chat || []).filter(row => {
+    if (logRowHidden(row)) return false;
     const bucket = chatBucket(row);
     if (!bucket) return false;
     if (state.chatFilter === 'rolls') return bucket === 'rolls';
@@ -777,7 +787,14 @@ function renderChat() {
     btn.classList.toggle('on', btn.getAttribute('data-chat-filter') === state.chatFilter);
   });
   const badge = q('chatBadge');
-  const unread = state.chatOpen ? 0 : Math.max(0, (state.chat || []).filter(chatBucket).length - state.chatSeen);
+  const listed = (state.chat || []).filter(row => !logRowHidden(row) && chatBucket(row));
+  const countable = listed.filter(row => !window.SSDNSTableLog || window.SSDNSTableLog.countsAsUnread(row.ts));
+  const clearMark = mapClearMark();
+  if (clearMark !== mapClearKey) {
+    mapClearKey = clearMark;
+    state.chatSeen = countable.length;
+  } else if (state.chatOpen) state.chatSeen = countable.length;
+  const unread = Math.max(0, countable.length - state.chatSeen);
   if (badge) {
     badge.hidden = unread < 1;
     badge.textContent = role === 'dm' && !state.chatOpen ? '(' + unread + ' new)' : String(unread);
@@ -880,7 +897,7 @@ function sendChat() {
   emit('chat:send', { text });
 }
 function mapChatItems() {
-  return (state.chat || []).filter(row => row && row.kind !== 'sfx' && audienceOk(row)).map(row => {
+  return (state.chat || []).filter(row => row && row.kind !== 'sfx' && audienceOk(row) && !logRowHidden(row)).map(row => {
     const crit = !!row.crit || Number(row.nat) === 20;
     const attack = row.kind === 'roll' || !!row.attack;
     return {
@@ -902,6 +919,10 @@ function syncChatPop() {
 if (window.SSDNSMapChat) {
   chatUi = window.SSDNSMapChat.attach({
     root: el,
+    dm: role === "dm",
+    onClear: function () {
+      if (window.DMCC && window.DMCC.clearTableLog) window.DMCC.clearTableLog();
+    },
     send: function (text) {
       const input = q('chatInput');
       if (!input) return;
@@ -927,6 +948,9 @@ if (window.SSDNSMapChat) {
     },
     onFilter: function (next) { setChatFilter(next); }
   });
+  if (window.SSDNSTableLog && window.SSDNSTableLog.onChange) {
+    unsubs.push(window.SSDNSTableLog.onChange(function () { if (!dead) renderChat(); }));
+  }
 }
 
 if (role === 'dm') {

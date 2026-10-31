@@ -2634,6 +2634,10 @@
     var inspPrimed = false;
     var inspSeen = "";
     bind("table", function (val) {
+      if (root.SSDNSTableLog && root.SSDNSTableLog.setClearedAt) {
+        var mark = val && val.logClearedAt != null && val.logClearedAt !== "" ? val.logClearedAt : null;
+        root.SSDNSTableLog.setClearedAt(mark);
+      }
       var stock = val.store || [];
       var list = Array.isArray(stock) ? stock : Object.keys(stock).map(function (k) { return stock[k]; });
       if (root.SSDNSSheet) root.SSDNSSheet.setStock(list, !!val.storeOpen);

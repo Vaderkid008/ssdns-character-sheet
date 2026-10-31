@@ -10,6 +10,48 @@
   var PHONE = "(max-width: 599px)";
   var instances = [];
   var lastDock = null;
+  var clearedAt = null;
+  var clearListeners = [];
+
+  function tsMs(ts) {
+    if (ts == null || ts === "") return NaN;
+    if (typeof ts === "number" && isFinite(ts)) return ts;
+    var text = String(ts).trim();
+    if (/^-?\d+(?:\.\d+)?$/.test(text)) return Number(text);
+    var parsed = Date.parse(text);
+    return isNaN(parsed) ? NaN : parsed;
+  }
+  function graceMs() {
+    var cut = tsMs(clearedAt);
+    return isNaN(cut) ? 0 : cut + 1;
+  }
+  function hidden(ts) {
+    if (clearedAt == null || clearedAt === "") return false;
+    var cut = tsMs(clearedAt);
+    if (isNaN(cut)) return false;
+    var row = tsMs(ts);
+    if (isNaN(row)) return true;
+    return row <= cut;
+  }
+  function countsAsUnread(ts) {
+    if (hidden(ts)) return false;
+    var grace = graceMs();
+    if (!grace) return true;
+    var row = tsMs(ts);
+    if (isNaN(row)) return false;
+    return row > grace;
+  }
+  function setClearedAt(ts) {
+    var next = (ts == null || ts === "") ? null : ts;
+    var prevKey = clearedAt == null || clearedAt === "" ? "" : String(clearedAt);
+    var nextKey = next == null ? "" : String(next);
+    if (prevKey === nextKey) return;
+    clearedAt = next;
+    clearListeners.forEach(function (fn) { try { fn(clearedAt); } catch (e) {} });
+    instances.forEach(function (inst) {
+      if (inst.open || (inst.popup && !inst.popup.closed)) pushItems(inst);
+    });
+  }
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -82,6 +124,7 @@
   }
   function visible(items, mode) {
     return (items || []).filter(function (item) {
+      if (hidden(item && item.ts)) return false;
       var kind = bucket(item);
       if (!kind) return false;
       if (mode === "rolls") return kind === "rolls";
@@ -306,7 +349,8 @@
           op: "items",
           items: items,
           colors: root.SSDNSTokenColors || {},
-          filter: filter
+          filter: filter,
+          dm: !!inst.dm
         }, origin());
       } catch (e) {}
     }
@@ -331,9 +375,10 @@
     try { popup.close(); } catch (e) {}
     if (!inst.open && inst.onMode) inst.onMode(false, "");
   }
-  function panelShell(dockAct) {
+  function panelShell(dockAct, dm) {
     return '<header class="ssdns-chat-float-bar" data-act="chatFloatHead"><strong>Table chat</strong>' + filterBar() +
       '<button type="button" data-act="chatWindow" class="ssm-chat-tab">Open in new tab</button>' +
+      (dm ? '<button type="button" data-act="clearLog">Clear log</button>' : "") +
       '<button type="button" data-act="' + dockAct + '">Dock</button></header>' +
       '<div class="ssdns-chat-float-feed" data-act="popFeed"></div>' +
       '<form class="ssdns-chat-float-form" data-act="popForm"><input data-act="popInput" placeholder="Chat or /roll" autocomplete="off" aria-label="Chat message"><button type="submit" data-act="popSend">Send</button></form>';
@@ -345,6 +390,8 @@
     bindSend(box, inst);
     var tabBtn = box.querySelector("[data-act=chatWindow]");
     if (tabBtn) tabBtn.addEventListener("click", function () { openWindow(inst); });
+    var clearBtn = box.querySelector("[data-act=clearLog]");
+    if (clearBtn) clearBtn.addEventListener("click", function () { if (inst.onClear) inst.onClear(); });
     var head = box.querySelector("[data-act=chatFloatHead]");
     if (head && host) bindDrag(box, head, host);
     var handle = box.querySelector("[data-act=chatResize]");
@@ -359,7 +406,7 @@
     var box = root.document.createElement("aside");
     box.className = "ssdns-chat-float";
     box.setAttribute("data-act", "chatFloat");
-    box.innerHTML = panelShell("floatDock") +
+    box.innerHTML = panelShell("floatDock", inst.dm) +
       '<button type="button" class="ssdns-chat-resize" data-act="chatResize" aria-label="Resize chat"></button>';
     host.appendChild(box);
     placeFloat(box, host);
@@ -377,7 +424,7 @@
     var box = doc.createElement("div");
     box.className = "ssdns-chat-overlay";
     box.setAttribute("data-act", "chatOverlay");
-    box.innerHTML = panelShell("overlayDock");
+    box.innerHTML = panelShell("overlayDock", inst.dm);
     doc.body.appendChild(box);
     inst.overlay = box;
     inst.mode = "overlay";
@@ -431,6 +478,7 @@
     if (!inst) return;
     if (data.op === "hello" || data.op === "ready") pushItems(inst);
     if (data.op === "send" && data.text && inst.send) inst.send(String(data.text));
+    if (data.op === "clear" && inst.dm && inst.onClear) inst.onClear();
     if (data.op === "dock") closeWindow(inst);
     if (data.op === "filter") applyFilter(inst, data.filter, true);
   }
@@ -443,6 +491,8 @@
       mapItems: [],
       dockItems: lastDock != null ? lastDock : (root.SSDNSChatDockItems || null),
       send: opts.send,
+      dm: !!opts.dm,
+      onClear: opts.onClear,
       onMode: function (open, mode, extra) {
         if (typeof opts.onMode === "function") opts.onMode(open, mode, extra);
         if (root.SSDNSJoinCode) root.SSDNSJoinCode.sync();
@@ -493,6 +543,7 @@
   function bootPopup() {
     var doc = root.document;
     var feed = doc.getElementById("popFeed");
+    var clearBtn = doc.getElementById("popClear");
     var form = doc.getElementById("popSend");
     var input = doc.getElementById("popText");
     var dockBtn = doc.getElementById("popDock");
@@ -533,6 +584,7 @@
         lastItems = data.items || [];
         if (data.colors) root.SSDNSTokenColors = data.colors;
         if (data.filter === "all" || data.filter === "rolls" || data.filter === "talk") filter = data.filter;
+        if (clearBtn) clearBtn.hidden = !data.dm;
         paint();
       }
       if (data.op === "filter" && (data.filter === "all" || data.filter === "rolls" || data.filter === "talk")) {
@@ -552,6 +604,7 @@
       });
     }
     if (dockBtn) dockBtn.addEventListener("click", function () { post("dock"); });
+    if (clearBtn) clearBtn.addEventListener("click", function () { post("clear"); });
     if (form) form.addEventListener("submit", function (e) {
       e.preventDefault();
       var text = input ? String(input.value || "").trim() : "";
@@ -729,6 +782,22 @@
     mountMap: mountMap
   };
 
+  root.SSDNSTableLog = {
+    setClearedAt: setClearedAt,
+    clearedAt: function () { return clearedAt; },
+    hidden: hidden,
+    countsAsUnread: countsAsUnread,
+    tsMs: tsMs,
+    graceMs: graceMs,
+    onChange: function (fn) {
+      if (typeof fn !== "function") return function () {};
+      clearListeners.push(fn);
+      return function () {
+        var at = clearListeners.indexOf(fn);
+        if (at >= 0) clearListeners.splice(at, 1);
+      };
+    }
+  };
   root.SSDNSMapChat = {
     attach: attach,
     publish: publish,
