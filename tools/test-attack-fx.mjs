@@ -64,6 +64,8 @@ check("src.dmHooks", (v2.match(/mapFx\(\{/g) || []).length >= 5, String((v2.matc
 check("src.hostFx", read("map/ssdns-map-host.js").includes("fx: function (spec)"));
 check("src.rulesUntouched", !read("database.rules.json").includes("fxReq") && !read("database.rules.json").includes('"fx"'));
 check("src.feedOnly", read("assets/js/dm-join.js").includes("delete entry.fxReq"), "fxReq must never be written to rolls/");
+check("src.sheetFx", read("assets/js/sheet-extras.js").includes("function sheetMapFx") && read("assets/js/sheet-extras.js").includes("host.fx"));
+check("src.ownReq", read("map/ssdns-map.js").includes("fxSpecFromReq"));
 check("src.sfxJson", (() => { try { const j = JSON.parse(read("assets/sfx/sfx.json")); return j.fx && j.fx.boomFlight > 0; } catch (e) { return false; } })());
 
 /* ---------- module: classify / plan / sanitize ---------- */
@@ -112,6 +114,22 @@ check("sanitize.whitelist", dirty && dirty.hp == null && dirty.maxHp == null && 
 check("sanitize.badNat", FX.sanitize({ type: "gun", nat: 44 }).nat == null);
 const req = FX.request({ target: "enemy1", result: "miss", sfx: "revolver", weapon: "LeGloss Revolver", gun: true, nat: 4, ac: 12, hp: 4 });
 check("request.clean", req.type === "gun" && req.result === "miss" && req.nat === 4 && req.ac == null && req.hp == null, JSON.stringify(req));
+
+/* Catalog chunk looks win over the purple ribbon. Ribbon stays the fallback for a spell that is not in the catalog. */
+check("look.holdLabel", FX.lookOf({ type: "spell", spell: "Hold Person (Lasso)" }) === "lasso");
+check("look.holdInside", FX.lookOf({ type: "spell", spell: "Lasso (Hold Person)" }) === "lasso");
+check("look.holdWeapon", FX.lookOf({ type: "spell", weapon: "Hold Person (Lasso)" }) === "lasso" && FX.namedLook("Hold Person (Lasso)") === "lasso");
+check("look.tile", FX.tileOf("Hold Person (Lasso)") === "map/spell-fx/tiles/08-hold-person.jpg");
+check("look.fireBolt", FX.lookOf({ type: "spell", spell: "Fire Bolt", dmg: "fire" }) === "fire");
+check("look.wish", FX.lookOf({ type: "spell", spell: "Wish" }) === "ribbon");
+check("look.blank", FX.lookOf({ type: "spell" }) === "ribbon");
+check("look.boolNotName", FX.lookOf({ type: "spell", spell: true, weapon: "Faerie Fire (Foxfire)" }) === "foxfire");
+const kept = FX.sanitize({ type: "spell", spell: true, weapon: "Hold Person (Lasso)", dmgType: "necrotic" });
+check("sanitize.spellName", kept && kept.spell === "Hold Person (Lasso)" && kept.dmg === "necrotic" && kept.spell !== "true", JSON.stringify(kept));
+const reqSpellName = FX.request({ type: "spell", spell: true, weapon: "Faerie Fire (Foxfire)", dmg: "Fire" });
+check("request.spellName", reqSpellName.spell === "Faerie Fire (Foxfire)" && reqSpellName.dmg === "fire" && reqSpellName.type === "spell", JSON.stringify(reqSpellName));
+w.SSDNS_RULES = { spellAliases: [{ phb: "Faerie Fire", alias: "Foxfire" }, { phb: "Hold Person", alias: "Lasso" }, { phb: "Fire Bolt", alias: "Powder Spark" }] };
+check("look.alias", FX.lookOf({ type: "spell", spell: "Foxfire" }) === "foxfire" && FX.namedLook("Lasso") === "lasso" && FX.lookOf({ type: "spell", spell: "Powder Spark", dmg: "fire" }) === "fire");
 
 /* ---------- live maps: DM publishes, player draws ---------- */
 const scene = JSON.parse(read("map/scene-dusty-spur.json"));
@@ -300,6 +318,35 @@ check("dark.hiddenShooter.playerNoMuzzle", lastLog(pl) && lastLog(pl).srcHidden 
 await flush(900);
 await resendScene((v) => { v.fogRevealed = true; v.fogShapes = []; });
 await flush(40);
+
+/* ---------- spell looks: caster paints locally, catalog look survives the public row, no initiative ---------- */
+const spellBefore = pl.fxLog().length;
+const spellRows = feedRows().length;
+const spellPlays = plays.length;
+pl.fx({ id: "sh_local", type: "spell", shooter: "p1", spell: "Shield", weapon: "Shield", self: true, result: "hit", heard: ["p1"] });
+await flush(30);
+check("spell.localShield", pl.fxLog().length === spellBefore + 1 && lastLog(pl).type === "spell" && lastLog(pl).local === true, JSON.stringify(pl.fxLog().slice(-1)));
+check("spell.playerNoPublish", feedRows().length === spellRows);
+await flush(400);
+check("spell.noExtraCue", plays.length === spellPlays, JSON.stringify(plays.slice(spellPlays)));
+const holdReq = {
+  id: "r_hold", ts: new Date().toISOString(), from: "p1", fromName: "Cole", text: "roll", kind: "roll",
+  fxReq: FX.request({ type: "spell", target: "tok_out", result: "hit", spell: true, weapon: "Hold Person (Lasso)", nat: 14 })
+};
+const holdLog = pl.fxLog().length;
+store.pub["tableFeed/r_hold"] = { value: holdReq };
+bus.forEach((fn) => fn("tableFeed/r_hold", holdReq, {}));
+await flush(40);
+const holdPub = feedRows().find((r) => r.id === "fx_r_hold");
+check("spell.reqPublishes", !!holdPub && holdPub.fx.spell === "Hold Person (Lasso)" && FX.lookOf(holdPub.fx) === "lasso", JSON.stringify(holdPub && holdPub.fx));
+check("spell.casterOnce", pl.fxLog().length === holdLog + 1 && lastLog(pl).type === "spell", JSON.stringify(pl.fxLog().slice(holdLog)));
+FX.setEnabled(false);
+const spellOffLog = pl.fxLog().length;
+pl.fx({ id: "sh_off", type: "spell", shooter: "p1", target: "tok_out", spell: "Hold Person (Lasso)", result: "hit", heard: ["p1"] });
+await flush(20);
+check("spell.offNoDraw", pl.fxLog().length === spellOffLog);
+FX.setEnabled(true);
+await flush(200);
 
 /* ---------- toggle ---------- */
 dm.fx({ id: "tg1", shooter: "c_out", target: "p1", result: "hit", weapon: "LeGloss Revolver", gun: true });

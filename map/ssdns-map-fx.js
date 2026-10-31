@@ -121,9 +121,11 @@
     if (spec.at && num1(spec.at.x) != null && num1(spec.at.y) != null) out.at = { x: num1(spec.at.x), y: num1(spec.at.y) };
     if (spec.arrow) out.arrow = String(spec.arrow).replace(/[^a-z-]/gi, "").slice(0, 20);
     if (spec.sfx) out.sfx = String(spec.sfx).replace(/[^a-z0-9-]/gi, "").slice(0, 40);
-    if (spec.weapon) out.weapon = String(spec.weapon).slice(0, 60);
-    if (spec.spell) out.spell = String(spec.spell).slice(0, 80);
-    if (spec.dmg) out.dmg = String(spec.dmg).toLowerCase().replace(/[^a-z]/g, "").slice(0, 16);
+    if (spec.weapon) out.weapon = String(spec.weapon).slice(0, 80);
+    var spellName = spellText(spec.spell) || (spec.type === "spell" ? spellText(spec.weapon) : "");
+    if (spellName) out.spell = spellName.slice(0, 80);
+    var dmgName = spellText(spec.dmg) || spellText(spec.dmgType);
+    if (dmgName) out.dmg = dmgName.toLowerCase().replace(/[^a-z]/g, "").slice(0, 16);
     if (spec.self) out.self = true;
     if (spec.weaponId) out.weaponId = String(spec.weaponId).replace(/[^a-z0-9-]/gi, "").slice(0, 60);
     if (spec.scene) out.scene = String(spec.scene).slice(0, 60);
@@ -143,9 +145,11 @@
     var r = { type: classify(info), result: resultOf(info.result) };
     if (info.target) r.target = String(info.target).slice(0, 80);
     if (info.sfx) r.sfx = String(info.sfx).replace(/[^a-z0-9-]/gi, "").slice(0, 40);
-    if (info.weapon) r.weapon = String(info.weapon).slice(0, 60);
-    if (info.spell) r.spell = String(info.spell).slice(0, 80);
-    if (info.dmg) r.dmg = String(info.dmg).toLowerCase().replace(/[^a-z]/g, "").slice(0, 16);
+    if (info.weapon) r.weapon = String(info.weapon).slice(0, 80);
+    var spellName = spellText(info.spell) || ((info.type === "spell" || info.kind === "spell" || info.spell === true) ? spellText(info.weapon) : "");
+    if (spellName) r.spell = spellName.slice(0, 80);
+    var dmgName = spellText(info.dmg) || spellText(info.dmgType);
+    if (dmgName) r.dmg = dmgName.toLowerCase().replace(/[^a-z]/g, "").slice(0, 16);
     if (info.self) r.self = true;
     if (info.weaponId) r.weaponId = String(info.weaponId).replace(/[^a-z0-9-]/gi, "").slice(0, 60);
     if (info.arrow) r.arrow = String(info.arrow).replace(/[^a-z-]/gi, "").slice(0, 20);
@@ -537,31 +541,73 @@
     if (kind && CHUNK_TIME[kind]) return CHUNK_TIME[kind];
     return LOOK_TIME[look] || LOOK_TIME.ribbon;
   }
+  /* A boolean spell flag is not a name. "true" must not become the lookup key. */
+  function spellText(v) {
+    if (v == null || v === true || v === false) return "";
+    var s = String(v).replace(/\s+/g, " ").trim();
+    if (!s || s === "true" || s === "false") return "";
+    return s;
+  }
   function spellKey(spec) {
-    return low(spec && (spec.spell || spec.weapon || spec.name));
+    spec = spec || {};
+    return low(spellText(spec.spell) || spellText(spec.weapon) || spellText(spec.name));
+  }
+  /* Sheet labels are "Hold Person (Lasso)" or sometimes the western name alone.
+     Chunk keys are the 5e name. Try the outside, the inside, and the alias table before ribbon. */
+  function spellCandidates(spec) {
+    var raw = spellKey(spec);
+    var out = [];
+    function add(s) {
+      s = low(s).replace(/\s+/g, " ").trim();
+      if (!s || s === "true" || s === "false") return;
+      if (out.indexOf(s) < 0) out.push(s);
+    }
+    add(raw);
+    add(raw.replace(/\s+shell\b/g, " "));
+    var stripped = raw.replace(/\s+shell\b/g, " ");
+    add(stripped.replace(/\([^)]*\)/g, " "));
+    var bits = stripped.match(/\(([^)]+)\)/g) || [];
+    bits.forEach(function (bit) { add(bit.replace(/[()]/g, "")); });
+    var aliases = (root.SSDNS_RULES && root.SSDNS_RULES.spellAliases) || [];
+    var seed = out.slice();
+    seed.forEach(function (n) {
+      aliases.forEach(function (a) {
+        if (!a || !a.phb) return;
+        var phb = low(a.phb);
+        var alias = low(a.alias);
+        if (!phb || !alias || alias === "—" || /prints as 5e/.test(alias)) return;
+        if (n === phb || n === phb.replace(/\s+shell$/, "")) add(alias);
+        if (n === alias) add(phb);
+      });
+    });
+    return out;
   }
   function lookOf(spec) {
     spec = spec || {};
-    var raw = spellKey(spec);
-    var name = raw.replace(/\([^)]*\)/g, " ").replace(/\s+shell\b/g, " ").replace(/\s+/g, " ").trim();
+    var names = spellCandidates(spec);
+    var raw = names.join(" ");
     if (/pact shot|hellshot|lightshot|churn shot|belly shot|sirocco shot|pallbearer load|undertow shot/.test(raw)) return "bullet";
-    if (/eldritch blast/.test(name)) return "scurve";
-    if (/magic missile|hex needles/.test(name)) return "beads";
-    if (/mage armor/.test(name)) return "magearmor";
-    if (/\bshield\b/.test(name) && !/shield of faith/.test(name) && !/fire shield/.test(name)) return "shield";
-    if (/pass without trace/.test(name)) return "pwt";
-    if (/invisibility/.test(name)) return "invis";
-    if (/^healing word$|^cure wounds$/.test(name)) return "heal";
-    if (CHUNK_LOOKS[name]) return CHUNK_LOOKS[name];
-    if (/^bless$/.test(name)) return "bless";
-    if (/fog cloud/.test(name)) return "fog";
-    if (/mage hand/.test(name)) return "hand";
+    var i, name;
+    for (i = 0; i < names.length; i++) {
+      name = names[i];
+      if (/eldritch blast/.test(name)) return "scurve";
+      if (/magic missile|hex needles/.test(name)) return "beads";
+      if (/mage armor/.test(name)) return "magearmor";
+      if (/\bshield\b/.test(name) && !/shield of faith/.test(name) && !/fire shield/.test(name)) return "shield";
+      if (/pass without trace/.test(name)) return "pwt";
+      if (/invisibility/.test(name)) return "invis";
+      if (/^healing word$|^cure wounds$/.test(name)) return "heal";
+      if (CHUNK_LOOKS[name]) return CHUNK_LOOKS[name];
+      if (/^bless$/.test(name)) return "bless";
+      if (/fog cloud/.test(name)) return "fog";
+      if (/mage hand/.test(name)) return "hand";
+    }
     var dmg = low(spec.dmg || spec.dmgType || spec.damageType).replace(/[^a-z]/g, "");
     if (dmg === "fire") return "fire";
     if (dmg === "cold") return "cold";
     if (dmg === "lightning" || dmg === "electric") return "lightning";
     if (dmg === "force") return "force";
-    if (spec.type === "spell" || name) return "ribbon";
+    if (spec.type === "spell" || names.length) return "ribbon";
     return "";
   }
   function lookSelf(spec) { return !!SELF_LOOKS[lookOf(spec)]; }
@@ -1093,12 +1139,14 @@
   }
   function chunkColor(look) { return CHUNK_COLORS[look] || ""; }
   function namedLook(name) {
-    var key = low(name).replace(/\([^)]*\)/g, " ").replace(/\s+shell\b/g, " ").replace(/\s+/g, " ").trim();
-    return CHUNK_LOOKS[key] || "";
+    var names = spellCandidates({ spell: name });
+    for (var i = 0; i < names.length; i++) if (CHUNK_LOOKS[names[i]]) return CHUNK_LOOKS[names[i]];
+    return "";
   }
   function tileOf(name) {
-    var key = low(name).replace(/\([^)]*\)/g, " ").replace(/\s+shell\b/g, " ").replace(/\s+/g, " ").trim();
-    return CHUNK_TILES[key] || "";
+    var names = spellCandidates({ spell: name });
+    for (var i = 0; i < names.length; i++) if (CHUNK_TILES[names[i]]) return CHUNK_TILES[names[i]];
+    return "";
   }
 
   /** Paint one effect frame. g = screen geometry from the map:
