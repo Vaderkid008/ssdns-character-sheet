@@ -36,7 +36,15 @@
     return "";
   }
   function fileUrl(folder, file) {
-    return prefix() + "assets/" + folder + "/" + String(file || "").replace(/^\/+/, "");
+    /* Encode each segment so a locked drop name with # or a comma still loads. */
+    var raw = String(file || "").replace(/^\/+/, "");
+    var q = "";
+    var cut = raw.indexOf("?");
+    if (cut >= 0) { q = raw.slice(cut); raw = raw.slice(0, cut); }
+    var rel = raw.split("/").filter(Boolean).map(function (part) {
+      return encodeURIComponent(part);
+    }).join("/");
+    return prefix() + "assets/" + folder + "/" + rel + q;
   }
   function save() {
     try { root.localStorage.setItem(KEY, JSON.stringify(prefs)); } catch (e) {}
@@ -67,7 +75,7 @@
 
   function loadMap() {
     if (sfxMap) return Promise.resolve(sfxMap);
-    return fetch(fileUrl("sfx", "sfx.json?v=0.3.169"))
+    return fetch(fileUrl("sfx", "sfx.json?v=0.3.172"))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         sfxMap = (j && j.events) || {};
@@ -79,7 +87,9 @@
         if (!outcomeMap.weapons) outcomeMap.weapons = {};
         /* attack-fx: sfx.json "fx" timing overrides for the map's firing lines (one place for delays) */
         try { if (j && j.fx && root.SSDNSMapFx && root.SSDNSMapFx.configure) root.SSDNSMapFx.configure(j.fx); } catch (e) {}
+        try { stampSpellCues(); } catch (e) {}
         try { preloadSfx(); } catch (e) {}
+        try { primeSpellFiles(); } catch (e) {}
         return sfxMap;
       })
       .catch(function () { sfxMap = {}; sfxPools = {}; weaponOverrides = {}; arrowCues = {}; outcomeMap = { categories: {}, weapons: {} }; return sfxMap; });
@@ -292,7 +302,7 @@
     if (group === "pistol" || group === "caster" || /revolver|derringer|pepperbox|plinker|chaosmaker/.test(name)) return "reload-revolver";
     return "reload";
   }
-  function spellCue(info) {
+  function genericSpellCue(info) {
     info = info || {};
     var name = String(info.name || "").toLowerCase();
     var kind = String(info.kind || "").toLowerCase();
@@ -305,6 +315,63 @@
     if (info.calling === "pact-seeker") return "pactshot";
     if (info.attack || kind === "attack") return "spellshot";
     return "spellcast";
+  }
+  /* N85: locked filename per catalog spell. A missing drop keeps the generic cue. */
+  var spellKnown = {};
+  function spellKeyName(name) {
+    return String(name || "").toLowerCase().replace(/\./g, "").replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
+  }
+  function spellSlug(name) {
+    return spellKeyName(name).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
+  }
+  function spellRow(name) {
+    var table = root.SSDNS_SPELL_SFX || {};
+    return table[spellKeyName(name)] || null;
+  }
+  function spellReady(row) {
+    if (!row || !row.file) return false;
+    if (spellKnown[row.file] === "miss" || missingFiles[row.file]) return false;
+    if (spellKnown[row.file] === "have") return true;
+    return !!row.present;
+  }
+  function stampSpellCues() {
+    var table = root.SSDNS_SPELL_SFX || {};
+    if (!sfxMap) return;
+    Object.keys(table).forEach(function (name) {
+      var row = table[name];
+      if (!spellReady(row)) return;
+      sfxMap["spellfile-" + spellSlug(name)] = row.file;
+    });
+  }
+  function primeSpellFiles() {
+    var table = root.SSDNS_SPELL_SFX || {};
+    Object.keys(table).forEach(function (name) {
+      var row = table[name];
+      var file = row && row.file;
+      if (!file) return;
+      var url = fileUrl("sfx", file);
+      if (warm[url]) return;
+      try {
+        var el = new Audio();
+        el.preload = "auto";
+        el.addEventListener("error", function () { missingFiles[file] = 1; spellKnown[file] = "miss"; });
+        el.addEventListener("canplaythrough", function () { if (spellKnown[file] !== "miss") spellKnown[file] = "have"; });
+        el.src = url;
+        if (el.load) el.load();
+        warm[url] = el;
+      } catch (e) {}
+    });
+  }
+  function spellCue(info) {
+    info = info || {};
+    var generic = genericSpellCue(info);
+    var row = spellRow(info.name);
+    if (!spellReady(row)) return generic;
+    var cue = "spellfile-" + spellSlug(info.name);
+    if (!sfxMap) sfxMap = {};
+    sfxMap[cue] = row.file;
+    CUE_FALLBACK[cue] = generic;
+    return cue;
   }
   function outcomeCategory(info) {
     info = info || {};
@@ -500,7 +567,8 @@
     /* attack-fx: the map's effect layer times its own cues to the picture; "now" skips the queue */
     if (kindHint === "now") { startNow(eventName); return 0; }
     if (IMMEDIATE[eventName]) { nextFreeAt = Math.max(nextFreeAt, nowMs() + SFX_GAP_MS); startNow(eventName); return 0; }
-    var kind = kindHint || (RESULT_CUES[eventName] ? "result" : DOWNED_CUES[eventName] ? "downed" : SHOT_CUES[eventName] ? "shot" : "other");
+    var shotCue = !!SHOT_CUES[eventName] || /^spellfile-/.test(eventName);
+    var kind = kindHint || (RESULT_CUES[eventName] ? "result" : DOWNED_CUES[eventName] ? "downed" : shotCue ? "shot" : "other");
     if (kind === "result") return queueResult(eventName, RESULT_AFTER_SHOT_MS);
     if (kind === "crit") return queueResult(eventName, RESULT_AFTER_SHOT_MS - CRIT_LEAD_MS);
     if (kind === "downed") return queueDowned(eventName);
@@ -891,6 +959,12 @@
     playOutcome: playOutcome,
     reloadCue: reloadCue,
     spellCue: spellCue,
+    spellFile: function (name) { var row = spellRow(name); return row && row.file ? String(row.file) : ""; },
+    markSpellFile: function (file, present) {
+      if (!file) return;
+      if (present) { spellKnown[file] = "have"; delete missingFiles[file]; }
+      else { spellKnown[file] = "miss"; missingFiles[file] = 1; }
+    },
     sharedCue: sharedCue,
     playMusic: playMusic,
     stopMusic: stopMusic,
@@ -913,6 +987,7 @@
     setJitterSource: function (fn) { jitterRnd = typeof fn === "function" ? fn : function () { return Math.random(); }; }
   };
 
+  try { primeSpellFiles(); } catch (e) {}
   loadMap();
   if (root.document && root.document.readyState === "loading") {
     root.document.addEventListener("DOMContentLoaded", bind);

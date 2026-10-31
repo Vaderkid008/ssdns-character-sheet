@@ -84,7 +84,7 @@
     },
     "flaming sphere": {
       name: "Flaming Sphere", level: 2, conc: true, dur: "1 min", range: 60, shape: "sphere", radius: 5,
-      deferCast: true,
+      deferCast: true, createToken: true, footprint: 1,
       ticks: [
         { when: "end", dice: "2d6", type: "fire", save: "DEX", half: true, up: "1d6", near: 5 }
       ]
@@ -102,7 +102,8 @@
       /* The first bolt still resolves on cast. Later bolts are the sustain slice. */
     },
     "spiritual weapon": {
-      name: "Spiritual Weapon", level: 2, conc: false, dur: "1 min", range: 60, shape: "sphere", radius: 5
+      name: "Spiritual Weapon", level: 2, conc: false, dur: "1 min", range: 60, shape: "sphere", radius: 5,
+      createToken: true, footprint: 1
       /* The cast still makes the melee spell attack. Later swings are the sustain slice. */
     },
     "spirit guardians": {
@@ -140,7 +141,7 @@
     },
     "guardian of faith": {
       name: "Guardian of Faith", level: 4, conc: false, dur: "8 hours", range: 30, shape: "sphere", radius: 5,
-      budget: 60, deferCast: true,
+      budget: 60, deferCast: true, createToken: true, footprint: 2,
       ticks: [
         { when: "approach", dice: "20", type: "radiant", save: "DEX", half: true, reach: 10, hostile: true }
       ]
@@ -366,6 +367,8 @@
     zone.roundsLeft = zone.rounds;
     if (spec.appear) zone.appear = Object.assign({}, spec.appear, { dice: scaledDice(spec.appear.dice, spec.appear.up, grown.steps) });
     if (spec.tag) zone.tag = spec.tag;
+    if (spec.createToken) zone.createToken = true;
+    if (spec.footprint) zone.footprint = spec.footprint;
     if (spec.blast) zone.blast = Object.assign({}, spec.blast, { dice: scaledDice(spec.blast.dice, spec.blast.up, grown.steps) });
     if (spec.grow) zone.grow = Object.assign({}, spec.grow);
     var typePick = String(opts.damageType || "").toLowerCase();

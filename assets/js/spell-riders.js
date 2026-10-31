@@ -208,7 +208,7 @@
       out.escape = "action STR";
     }
     if (key === "ray of sickness") { out.hitSave = "CON"; out.onFail = "Poisoned"; }
-    if (key === "banishing smite") { out.save = null; out.banishAt = 50; }
+    if (key === "banishing smite" || key === "lead smite") { out.save = null; out.banishAt = key === "banishing smite" ? 50 : out.banishAt; out.meleeOnly = false; out.gunOk = true; }
     if (key === "hex") {
       out.trigger = "attackHit";
       out.abilityPick = true;
@@ -262,6 +262,32 @@
       out.applyNow = false;
       out.defer = true;
       out.note = "DEX save, 20 radiant (half on save), ends after 60 damage";
+      out.createToken = true;
+      out.moveFeet = 0;
+      out.noHp = true;
+      out.notTargetable = true;
+      out.noInit = true;
+      out.squares = 2;
+    }
+    if (key === "spiritual weapon") {
+      out.createToken = true;
+      out.moveFeet = 20;
+      out.noHp = true;
+      out.notTargetable = true;
+      out.noInit = true;
+      out.squares = 1;
+    }
+    if (key === "flaming sphere") {
+      out.createToken = true;
+      out.moveFeet = 30;
+      out.noHp = true;
+      out.notTargetable = true;
+      out.noInit = true;
+      out.squares = 1;
+    }
+    if (key === "flame blade") {
+      out.createToken = false;
+      out.heldFx = true;
     }
     if (key === "acid arrow") { out.missHalf = true; out.delayed = "2d4"; out.delayedUp = true; }
     if (key === "lightning arrow") {
@@ -297,7 +323,7 @@
     if (key === "thorn whip") out.pull = 10;
     if (key === "scorching ray") out.cancelOnSpark = true;
     if (key === "conjure barrage" || key === "conjure volley") out.ammoType = true;
-    if (key === "witch bolt" || key === "vampiric touch" || key === "heat metal" || key === "flame blade" || key === "call lightning" || key === "sunbeam" || key === "moonbeam" || key === "spiritual weapon") {
+    if (key === "witch bolt" || key === "vampiric touch" || key === "heat metal" || key === "flame blade" || key === "call lightning" || key === "sunbeam" || key === "moonbeam" || key === "spiritual weapon" || key === "flaming sphere") {
       out.sustain = sustainSpec(key);
     }
     if (key === "dissonant whispers") { out.onFail = "uses reaction: moves away"; }
@@ -311,7 +337,7 @@
     if (key === "shocking grasp") { out.onHit = "No reactions"; out.until = "target"; }
     if (key === "vicious mockery") { out.onFail = "Disadv next attack"; out.consume = "attacker"; out.until = "targetEnd"; }
     if (key === "guiding bolt") { out.onHit = "Guided"; out.consume = "target"; out.until = "casterEnd"; }
-    if (key === "branding smite") { out.clears = ["Invisible"]; out.light = { dim: 5 }; out.conc = true; }
+    if (key === "branding smite") { out.clears = ["Invisible"]; out.light = { dim: 5 }; out.conc = true; out.meleeOnly = false; out.gunOk = true; }
     if (key === "heal") { out.clears = ["Blinded", "Deafened"]; }
     if (key === "disintegrate") {
       out.onSave = "none";
@@ -502,6 +528,18 @@
         type: mode === "warm" ? "fire" : "cold", light: { bright: 10, dim: 10 }
       });
       logs.push(shieldChip(mode) + " · 10 min · bright 10, dim 10 · not concentration");
+    } else if (key === "heat metal") {
+      addMark({
+        spell: name, conc: true, kind: "heat", targetId: targetId, chip: "Heated metal",
+        dice: "2d8", type: "fire", dropSave: "CON"
+      });
+      logs.push("(C) · Heated metal · auto fire · CON save to drop");
+    } else if (key === "flame blade") {
+      addMark({
+        spell: name, conc: true, kind: "held", targetId: opts.casterId || "self",
+        chip: "Flame blade", heldFx: true, createToken: false
+      });
+      logs.push("(C) · held flame blade on the caster · not a token");
     } else if (key === "bless" || key === "bane") {
       var Buffs = root.SSDNSSpellBuffs;
       var cap = Buffs && Buffs.targetCap ? Buffs.targetCap(slot) : (3 + Math.max(0, slot - 1));
@@ -566,6 +604,9 @@
     return String(mark.targetId) === String(targetId);
   }
   function weaponOk(mark, ctx) {
+    ctx = ctx || {};
+    /* Lead, Branding, and Banishing ride a gun. Classic smites stay melee-only. */
+    if (mark.gunOk && ctx.gun) return true;
     if (mark.meleeOnly && !ctx.melee) return false;
     if (mark.rangedOnly && ctx.melee) return false;
     return true;
@@ -1172,7 +1213,8 @@
       "call lightning": { action: "action", bolt: true },
       "sunbeam": { action: "action", line: true },
       "moonbeam": { action: "action", move: true },
-      "spiritual weapon": { action: "bonus", attack: true, conc: false }
+      "spiritual weapon": { action: "bonus", attack: true, conc: false, move: 20 },
+      "flaming sphere": { action: "bonus", move: 30, ram: true }
     };
     return table[key] ? Object.assign({ name: key }, table[key]) : null;
   }
@@ -1365,7 +1407,7 @@
     });
     if (next.conc) add(next.conc, 0);
     (next.zones || []).forEach(function (z) {
-      if (z && norm(z.spell) === "spiritual weapon") add(z.spell, z.slot);
+      if (z && (norm(z.spell) === "spiritual weapon" || norm(z.spell) === "flaming sphere")) add(z.spell, z.slot);
     });
     return out;
   }

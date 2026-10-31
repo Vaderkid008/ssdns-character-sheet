@@ -1,4 +1,4 @@
-/* d20 spin (sheet 0.3.171).
+/* d20 spin (sheet 0.3.172).
    Ordinary rolls (sheet d20, DM tray, attacks, skills): a normal spin. The face
    number is on the die while it tumbles (~0.9s) and locks at the end. No blank
    hold, no long suspense, no gold Love-it ring, no CRITICAL / FAIL.

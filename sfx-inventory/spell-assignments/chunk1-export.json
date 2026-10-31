@@ -1,0 +1,127 @@
+{
+  "chunk": 1,
+  "exported": "2026-10-30T04:04:58.458Z",
+  "source_list": "specs/N81-SPELL-GAP-SCORES-2026-10-28.csv (85 rows, ordered by spell level then A-Z); rows 1-10",
+  "spells": [
+    {
+      "n": 1,
+      "spell": "Acid Splash",
+      "current_cue": "spellcast",
+      "current_file": "final/magic/spellcast.mp3",
+      "current_status": "default",
+      "dropped_file": "booming_acid_splash_#2-1793331961394.mp3",
+      "assigned_file": "booming_acid_splash_#2-1793331961394.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 2,
+      "spell": "Chill Touch",
+      "current_cue": "spellshot",
+      "current_file": "final/magic/spellcast-alt-01.mp3",
+      "current_status": "default",
+      "dropped_file": "Leviathan_Blizzard._-1793332769355.mp3",
+      "assigned_file": "Leviathan_Blizzard._-1793332769355.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 3,
+      "spell": "Eldritch Blast",
+      "current_cue": "pactshot",
+      "current_file": "final/magic/pactshot.mp3",
+      "current_status": "assigned",
+      "dropped_file": "",
+      "assigned_file": "final/magic/pactshot.mp3",
+      "source": "current",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 4,
+      "spell": "Fire Bolt",
+      "current_cue": "spellshot",
+      "current_file": "final/magic/spellcast-alt-01.mp3",
+      "current_status": "default",
+      "dropped_file": "Booming_fire_bolt_sp_#3-1793332098869.mp3",
+      "assigned_file": "Booming_fire_bolt_sp_#3-1793332098869.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 5,
+      "spell": "Poison Spray",
+      "current_cue": "spellcast",
+      "current_file": "final/magic/spellcast.mp3",
+      "current_status": "default",
+      "dropped_file": "booming_poison_spray_#4-1793332166374.mp3",
+      "assigned_file": "booming_poison_spray_#4-1793332166374.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 6,
+      "spell": "Produce Flame",
+      "current_cue": "spellshot",
+      "current_file": "final/magic/spellcast-alt-01.mp3",
+      "current_status": "default",
+      "dropped_file": "Booming,_Thunderous_-1793332313087.mp3",
+      "assigned_file": "Booming,_Thunderous_-1793332313087.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": "may need to trim it"
+    },
+    {
+      "n": 7,
+      "spell": "Ray of Frost",
+      "current_cue": "spellshot",
+      "current_file": "final/magic/spellcast-alt-01.mp3",
+      "current_status": "default",
+      "dropped_file": "Sci-fi_ice_freeze_ra-1793332884098.mp3",
+      "assigned_file": "Sci-fi_ice_freeze_ra-1793332884098.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 8,
+      "spell": "Sacred Flame",
+      "current_cue": "spellcast",
+      "current_file": "final/magic/spellcast.mp3",
+      "current_status": "default",
+      "dropped_file": "“Holy_fire_spell_imp-1793332463662.mp3",
+      "assigned_file": "“Holy_fire_spell_imp-1793332463662.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 9,
+      "spell": "Shocking Grasp",
+      "current_cue": "electric",
+      "current_file": "final/magic/electric.mp3",
+      "current_status": "assigned",
+      "dropped_file": "Sudden,_sharp_electr_#4-1793332495303.mp3",
+      "assigned_file": "Sudden,_sharp_electr_#4-1793332495303.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 10,
+      "spell": "Thorn Whip",
+      "current_cue": "spellshot",
+      "current_file": "final/magic/spellcast-alt-01.mp3",
+      "current_status": "default",
+      "dropped_file": "Generate_an_organic_-1793332521409.mp3",
+      "assigned_file": "Generate_an_organic_-1793332521409.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    }
+  ]
+}

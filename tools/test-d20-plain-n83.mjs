@@ -1,6 +1,6 @@
 /**
  * N83 plain d20 click uses the C2 slam curve. Crit / FAIL stay on the random pool.
- * Sheet 0.3.171 / DMCC 0.2.184.
+ * Sheet 0.3.172 / DMCC 0.2.185.
  * Ordinary d20s spin with the number showing. Blank→number and crit/FAIL
  * stay on a fancy Challenge pose.
  *   node tools/test-d20-plain-n83.mjs
