@@ -151,6 +151,9 @@
     var dmgName = spellText(info.dmg) || spellText(info.dmgType);
     if (dmgName) r.dmg = dmgName.toLowerCase().replace(/[^a-z]/g, "").slice(0, 16);
     if (info.self) r.self = true;
+    if (info.at && isFinite(Number(info.at.x)) && isFinite(Number(info.at.y))) {
+      r.at = { x: Math.round(Number(info.at.x) * 10) / 10, y: Math.round(Number(info.at.y) * 10) / 10 };
+    }
     if (info.weaponId) r.weaponId = String(info.weaponId).replace(/[^a-z0-9-]/gi, "").slice(0, 60);
     if (info.arrow) r.arrow = String(info.arrow).replace(/[^a-z-]/gi, "").slice(0, 20);
     var n = Number(info.nat);
@@ -602,11 +605,11 @@
       if (/fog cloud/.test(name)) return "fog";
       if (/mage hand/.test(name)) return "hand";
     }
-    var dmg = low(spec.dmg || spec.dmgType || spec.damageType).replace(/[^a-z]/g, "");
-    if (dmg === "fire") return "fire";
-    if (dmg === "cold") return "cold";
-    if (dmg === "lightning" || dmg === "electric") return "lightning";
-    if (dmg === "force") return "force";
+    var dmg = low(spec.dmg || spec.dmgType || spec.damageType);
+    if (/(^|[^a-z])fire([^a-z]|$)/.test(dmg)) return "fire";
+    if (/(^|[^a-z])cold([^a-z]|$)/.test(dmg)) return "cold";
+    if (/(^|[^a-z])(lightning|electric)([^a-z]|$)/.test(dmg)) return "lightning";
+    if (/(^|[^a-z])force([^a-z]|$)/.test(dmg)) return "force";
     if (spec.type === "spell" || names.length) return "ribbon";
     return "";
   }

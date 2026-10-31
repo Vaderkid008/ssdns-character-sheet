@@ -5859,18 +5859,52 @@ function spellMapFx(shooter, target, name, known, result) {
   const FX = window.SSDNSMapFx;
   const dmg = (known && known.type) || "";
   const look = FX && FX.lookOf ? FX.lookOf({ type: "spell", spell: name, dmg: dmg }) : "";
-  if (!look || look === "ribbon") return null;
+  if (!look || look === "token") return null;
   const self = !target || target === shooter;
   return mapFx({
     type: "spell",
     shooter: shooter,
-    target: target || shooter,
+    target: self ? "" : (target || shooter),
     self: self,
     result: result || "hit",
     weapon: name || "",
     spell: name || "",
     dmg: dmg,
     heard: []
+  });
+}
+/* Area, wall, cone, and line casts. The lasting zone is separate. This is the one-shot at the placed point. */
+function areaMapFx(shooter, name, known, placed) {
+  if (!placed) return;
+  const dmg = (known && known.type) || "";
+  const list = (placed.origins && placed.origins.length) ? placed.origins : (placed.origin ? [placed.origin] : []);
+  const area = placed.area || {};
+  const face = Number(placed.facing) || 0;
+  let reach = 0;
+  if (area.shape === "cone" || area.shape === "line") reach = Math.min((Number(area.length) || 15) / 5, 8);
+  const points = [];
+  list.forEach((o) => {
+    if (!o || !isFinite(Number(o.x)) || !isFinite(Number(o.y))) return;
+    let x = Number(o.x), y = Number(o.y);
+    if (reach > 0.2) { x += Math.cos(face) * reach; y += Math.sin(face) * reach; }
+    points.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
+  });
+  if (!points.length) {
+    spellMapFx(shooter, shooter, name, known, "hit");
+    return;
+  }
+  points.slice(0, 4).forEach((p) => {
+    mapFx({
+      type: "spell",
+      shooter: shooter,
+      self: false,
+      at: p,
+      result: "hit",
+      weapon: name || "",
+      spell: name || "",
+      dmg: dmg,
+      heard: []
+    });
   });
 }
 function fxArrowType(note) {
@@ -7466,6 +7500,7 @@ async function castAreaSpell(opts) {
     const spent = await opts.spend();
     if (spent === false) return { cancelled: true };
   }
+  areaMapFx(opts.casterTokenId || opts.fromId, opts.name, opts.known, placed);
   const Cast = window.SSDNSSpellCast;
   const rolled = Cast && Cast.rollCast ? Cast.rollCast({
     spellName: opts.name,
@@ -7901,7 +7936,7 @@ async function cardCast(i, n, opts) {
     await publishCardRoll(row, detail, save ? save.total : (rolled ? rolled.total : 0), {
       nat: save && save.nat, save: kind === "save", spell: true, targetId: target.id, damage: amount || null
     });
-    if (window.SSDNSMapFx && window.SSDNSMapFx.namedLook && window.SSDNSMapFx.namedLook(name)) spellMapFx(row.id, target.id, name, known, "hit");
+    spellMapFx(row.id, target.id, name, known, "hit");
     playCue();
     await saveRemoteTable();
     renderFight();

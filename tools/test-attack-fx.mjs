@@ -130,6 +130,14 @@ const reqSpellName = FX.request({ type: "spell", spell: true, weapon: "Faerie Fi
 check("request.spellName", reqSpellName.spell === "Faerie Fire (Foxfire)" && reqSpellName.dmg === "fire" && reqSpellName.type === "spell", JSON.stringify(reqSpellName));
 w.SSDNS_RULES = { spellAliases: [{ phb: "Faerie Fire", alias: "Foxfire" }, { phb: "Hold Person", alias: "Lasso" }, { phb: "Fire Bolt", alias: "Powder Spark" }] };
 check("look.alias", FX.lookOf({ type: "spell", spell: "Foxfire" }) === "foxfire" && FX.namedLook("Lasso") === "lasso" && FX.lookOf({ type: "spell", spell: "Powder Spark", dmg: "fire" }) === "fire");
+check("look.fireball", FX.lookOf({ type: "spell", spell: "Fireball", dmg: "fire" }) === "fire");
+check("look.wall", FX.lookOf({ type: "spell", spell: "Wall of Fire", dmg: "fire" }) === "fire");
+check("look.bolt", FX.lookOf({ type: "spell", spell: "Lightning Bolt", dmg: "lightning" }) === "lightning");
+check("look.ice", FX.lookOf({ type: "spell", spell: "Ice Storm", dmg: "bludgeoning and cold" }) === "cold");
+check("look.cloud", FX.lookOf({ type: "spell", spell: "Cloudkill", dmg: "poison" }) === "ribbon");
+check("look.token", FX.lookOf({ type: "spell", spell: "Flaming Sphere", dmg: "fire" }) === "token");
+const areaReq = FX.request({ type: "spell", spell: "Fireball", weapon: "Fireball", dmg: "fire", at: { x: 12.5, y: 8.5 } });
+check("request.areaAt", areaReq.at && areaReq.at.x === 12.5 && areaReq.at.y === 8.5 && areaReq.spell === "Fireball", JSON.stringify(areaReq));
 
 /* ---------- live maps: DM publishes, player draws ---------- */
 const scene = JSON.parse(read("map/scene-dusty-spur.json"));
@@ -340,6 +348,17 @@ await flush(40);
 const holdPub = feedRows().find((r) => r.id === "fx_r_hold");
 check("spell.reqPublishes", !!holdPub && holdPub.fx.spell === "Hold Person (Lasso)" && FX.lookOf(holdPub.fx) === "lasso", JSON.stringify(holdPub && holdPub.fx));
 check("spell.casterOnce", pl.fxLog().length === holdLog + 1 && lastLog(pl).type === "spell", JSON.stringify(pl.fxLog().slice(holdLog)));
+const areaLog = pl.fxLog().length;
+const areaRows = feedRows().length;
+pl.fx({ id: "fb_at", type: "spell", shooter: "p1", spell: "Fireball", weapon: "Fireball", dmg: "fire", at: { x: 16.5, y: 8.5 }, result: "hit", heard: ["p1"] });
+await flush(30);
+check("spell.fireballAt", pl.fxLog().length === areaLog + 1 && lastLog(pl).type === "spell" && lastLog(pl).local === true, JSON.stringify(lastLog(pl)));
+check("spell.fireballNoPublish", feedRows().length === areaRows);
+const wallLog = dm.fxLog().length;
+const wallPub = dm.fx({ id: "wall1", type: "spell", shooter: "c_out", spell: "Wall of Fire", weapon: "Wall of Fire", dmg: "fire", at: { x: 14.5, y: 8.5 }, result: "hit", heard: ["dm"] });
+await flush(30);
+check("spell.wallPublishes", !!wallPub && wallPub.spell === "Wall of Fire" && wallPub.at && wallPub.at.x === 14.5 && FX.lookOf(wallPub) === "fire", JSON.stringify(wallPub));
+check("spell.wallDraws", dm.fxLog().length === wallLog + 1 && lastLog(dm).type === "spell");
 FX.setEnabled(false);
 const spellOffLog = pl.fxLog().length;
 pl.fx({ id: "sh_off", type: "spell", shooter: "p1", target: "tok_out", spell: "Hold Person (Lasso)", result: "hit", heard: ["p1"] });
