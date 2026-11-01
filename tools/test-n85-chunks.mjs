@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.184" && version.sheetBuild === "sheet-playtest-v03184");
-check("ver.dmcc", version.dmcc === "0.2.197" && version.dmccBuild === "dmcc-playtest-v02197");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.184"') && read("assets/js/app.js").includes("sheet-playtest-v03184"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.197"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02197"));
+check("ver.sheet", version.sheet === "0.3.185" && version.sheetBuild === "sheet-playtest-v03185");
+check("ver.dmcc", version.dmcc === "0.2.198" && version.dmccBuild === "dmcc-playtest-v02198");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.185"') && read("assets/js/app.js").includes("sheet-playtest-v03185"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.198"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02198"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 check("rules.no172", !read("assets/data/rules.js").includes("0.3.174") && !read("assets/data/rules.js").includes("0.2.187"));
@@ -59,7 +59,9 @@ check("sfx.barrage", Audio.spellFile("Conjure Barrage") === "magic/reaction_coun
 check("sfx.barrage.not-hail", !/a_volley_of_sharp_wo/.test(Audio.spellFile("Conjure Barrage")));
 check("sfx.missile", Audio.spellFile("Magic Missile") === Audio.spellFile("Conjure Barrage"));
 check("sfx.volley-keeps-hail", /a_volley_of_sharp_wo/.test(Audio.spellFile("Conjure Volley")));
-check("sfx.missing-fallback", Audio.spellCue({ name: "Shocking Grasp", kind: "attack" }) === "electric");
+check("sfx.firebolt-shipped", Audio.spellCue({ name: "Fire Bolt", kind: "attack" }) === "spellfile-fire-bolt");
+check("sfx.frost-shipped", Audio.spellCue({ name: "Ray of Frost", kind: "attack" }) === "spellfile-ray-of-frost");
+check("sfx.grasp-shipped", Audio.spellCue({ name: "Shocking Grasp", kind: "attack" }) === "spellfile-shocking-grasp");
 const c1 = {
   "acid splash": "magic/booming_acid_splash_#2-1793461200201.mp3",
   "chill touch": "magic/Leviathan_Blizzard._-1793461257926.mp3",
@@ -96,7 +98,8 @@ Audio.markSpellFile(drop, false);
 check("sfx.when-missing", Audio.spellCue({ name: "Conjure Barrage" }) === "spellcast" || Audio.spellCue({ name: "Conjure Barrage" }) === "spellshot");
 check("sfx.hash", Audio.fileUrl("sfx", "magic/reaction_counter_spe_#2-1793411864281.mp3").includes("%23"));
 const present = Object.keys(map.spells).filter((k) => map.spells[k].present);
-check("sfx.shipped", present.length === 6 && present.indexOf("eldritch blast") >= 0 && present.indexOf("mass healing word") >= 0, present.join(","));
+const shippedNeed = ["eldritch blast", "mass healing word", "fire bolt", "ray of frost", "shocking grasp", "witch bolt", "scorching ray"];
+check("sfx.shipped", present.length === 11 && shippedNeed.every((k) => present.indexOf(k) >= 0), present.join(","));
 const magicDir = path.join(root, "assets/sfx/magic");
 const onDisk = new Set(fs.existsSync(magicDir) ? fs.readdirSync(magicDir) : []);
 const dropNames = Object.keys(map.spells).map((k) => map.spells[k].file).filter((f) => String(f).indexOf("magic/") === 0).map((f) => path.basename(f));

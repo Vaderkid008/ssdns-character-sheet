@@ -2653,6 +2653,7 @@
         sfx: spellCueName(),
         shots: rolled.shots || null,
         spell: true,
+        dmgType: (row && row.type) || damageType || "",
         quiet: false
       });
       /* Hidden AC returns before the resolved cast. Spend here or the pip never reaches turnMarkers. */
@@ -2986,6 +2987,7 @@
               label: rolled.label,
               spellName: spellName || "",
               spell: true,
+              dmgType: (row && row.type) || damageType || "",
               shots: g.shots,
               cover: g.cover || "",
               quiet: false
@@ -4846,7 +4848,7 @@
             who: (c && c.name) || "You", targetName: tgt.name, targetId: tgt.id,
             nat: rolled.nat, hitTotal: rolled.result, damage: dmg, dice: rolled.damageDetail || "",
             formula: rolled.formula, rollId: rollId, label: rolled.label || spellName,
-            spellName: spellName, spell: true, quiet: false
+            spellName: spellName, spell: true, dmgType: (row && row.type) || "", quiet: false
           });
         }
       } else if (!placed && row.kind === "save" && tgt && tgt.id && joined() && !whisperOn() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {

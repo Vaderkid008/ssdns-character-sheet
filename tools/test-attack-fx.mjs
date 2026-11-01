@@ -124,6 +124,22 @@ check("look.holdInside", FX.lookOf({ type: "spell", spell: "Lasso (Hold Person)"
 check("look.holdWeapon", FX.lookOf({ type: "spell", weapon: "Hold Person (Lasso)" }) === "lasso" && FX.namedLook("Hold Person (Lasso)") === "lasso");
 check("look.tile", FX.tileOf("Hold Person (Lasso)") === "map/spell-fx/tiles/08-hold-person.jpg");
 check("look.fireBolt", FX.lookOf({ type: "spell", spell: "Fire Bolt", dmg: "fire" }) === "fire");
+/* Empty damage type used to fall through to the purple ribbon. Name shortcuts must win, including Shell labels. */
+function resolveLook(req) {
+  req = req || {};
+  return FX.lookOf({
+    type: "spell",
+    spell: req.spell ? (req.spellName || req.weapon || "") : "",
+    dmg: req.dmgType || ""
+  });
+}
+check("look.fireBolt.empty", FX.lookOf({ type: "spell", spell: "Fire Bolt" }) === "fire" && FX.plan("spell", "hit", { spell: "Fire Bolt" }).look === "fire");
+check("look.fireBoltShell.empty", FX.lookOf({ type: "spell", spell: "Fire Bolt Shell" }) === "fire" && FX.lookOf({ type: "spell", weapon: "Fire Bolt (Powder Spark)" }) === "fire");
+check("look.frost.empty", FX.lookOf({ type: "spell", spell: "Ray of Frost" }) === "cold" && FX.lookOf({ type: "spell", spell: "Ray of Frost Shell" }) === "cold");
+check("look.lightning.empty", FX.lookOf({ type: "spell", spell: "Shocking Grasp" }) === "lightning" && FX.lookOf({ type: "spell", spell: "Witch Bolt" }) === "lightning" && FX.lookOf({ type: "spell", spell: "Shocking Grasp Shell" }) === "lightning");
+check("look.scorch.empty", FX.lookOf({ type: "spell", spell: "Scorching Ray" }) === "fire" && FX.lookOf({ type: "spell", spell: "Scorching Ray Shell" }) === "fire");
+check("resolve.fireBolt.empty", resolveLook({ spell: true, spellName: "Fire Bolt" }) === "fire" && resolveLook({ spell: true, spellName: "Fire Bolt Shell", dmgType: "" }) === "fire");
+check("resolve.siblings.empty", resolveLook({ spell: true, spellName: "Ray of Frost" }) === "cold" && resolveLook({ spell: true, spellName: "Shocking Grasp" }) === "lightning" && resolveLook({ spell: true, spellName: "Witch Bolt" }) === "lightning" && resolveLook({ spell: true, spellName: "Scorching Ray" }) === "fire");
 check("look.hexShell", FX.lookOf({ type: "spell", spell: "Fire Bolt Shell", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Fireball Shell", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Acid Splash Shell" }) === "acid" && FX.lookOf({ type: "spell", spell: "Wall of Fire Shell", dmg: "fire" }) === "fire");
 check("look.wish", FX.lookOf({ type: "spell", spell: "Wish" }) === "ribbon");
 check("look.blank", FX.lookOf({ type: "spell" }) === "ribbon");
@@ -133,7 +149,8 @@ check("sanitize.spellName", kept && kept.spell === "Hold Person (Lasso)" && kept
 const reqSpellName = FX.request({ type: "spell", spell: true, weapon: "Faerie Fire (Foxfire)", dmg: "Fire" });
 check("request.spellName", reqSpellName.spell === "Faerie Fire (Foxfire)" && reqSpellName.dmg === "fire" && reqSpellName.type === "spell", JSON.stringify(reqSpellName));
 w.SSDNS_RULES = { spellAliases: [{ phb: "Faerie Fire", alias: "Foxfire" }, { phb: "Hold Person", alias: "Lasso" }, { phb: "Fire Bolt", alias: "Powder Spark" }] };
-check("look.alias", FX.lookOf({ type: "spell", spell: "Foxfire" }) === "foxfire" && FX.namedLook("Lasso") === "lasso" && FX.lookOf({ type: "spell", spell: "Powder Spark", dmg: "fire" }) === "fire");
+check("look.alias", FX.lookOf({ type: "spell", spell: "Foxfire" }) === "foxfire" && FX.namedLook("Lasso") === "lasso" && FX.lookOf({ type: "spell", spell: "Powder Spark" }) === "fire" && FX.lookOf({ type: "spell", spell: "Powder Spark", dmg: "fire" }) === "fire");
+check("look.produceStays", FX.lookOf({ type: "spell", spell: "Produce Flame" }) === "produceflame");
 check("look.fireball", FX.lookOf({ type: "spell", spell: "Fireball", dmg: "fire" }) === "fire");
 check("look.wall", FX.lookOf({ type: "spell", spell: "Wall of Fire", dmg: "fire" }) === "fire");
 check("look.bolt", FX.lookOf({ type: "spell", spell: "Lightning Bolt", dmg: "lightning" }) === "lightning");
@@ -145,6 +162,18 @@ check("look.radiant", FX.lookOf({ type: "spell", spell: "Sacred Flame" }) === "r
 check("look.poison", FX.lookOf({ type: "spell", spell: "Poison Spray" }) === "poison");
 check("look.thunder", FX.lookOf({ type: "spell", spell: "Thunderwave" }) === "thunder" && FX.lookOf({ type: "spell", spell: "Shatter" }) === "thunder");
 check("look.zoneOnly", FX.lookOf({ type: "spell", spell: "Grease" }) === "" && FX.lookOf({ type: "spell", spell: "Light" }) === "" && FX.lookOf({ type: "spell", spell: "Daylight" }) === "");
+const extrasSrc = read("assets/js/sheet-extras.js");
+function pendingBlock(start, end) {
+  const a = extrasSrc.indexOf(start);
+  const b = end ? extrasSrc.indexOf(end, a) : extrasSrc.length;
+  return a >= 0 && b > a ? extrasSrc.slice(a, b) : "";
+}
+const hiddenPending = pendingBlock("if (hiddenSpell)", "Hidden AC returns");
+const beamPending = pendingBlock("if (g.pending)", "if (!(g.total > 0)");
+const rolledPending = pendingBlock("else if (!placed && rolled.attack", "else if (!placed && row.kind === \"save\"");
+check("pending.hiddenDmg", /dmgType:\s*\(row && row\.type\) \|\| damageType/.test(hiddenPending), hiddenPending.slice(hiddenPending.indexOf("sendPendingAttack"), hiddenPending.indexOf("sendPendingAttack") + 420));
+check("pending.beamDmg", /dmgType:\s*\(row && row\.type\) \|\| damageType/.test(beamPending));
+check("pending.rolledDmg", /dmgType:\s*\(row && row\.type\)/.test(rolledPending));
 check("look.token", FX.lookOf({ type: "spell", spell: "Flaming Sphere", dmg: "fire" }) === "token");
 const areaReq = FX.request({ type: "spell", spell: "Fireball", weapon: "Fireball", dmg: "fire", at: { x: 12.5, y: 8.5 } });
 check("request.areaAt", areaReq.at && areaReq.at.x === 12.5 && areaReq.at.y === 8.5 && areaReq.spell === "Fireball", JSON.stringify(areaReq));

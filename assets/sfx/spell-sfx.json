@@ -31,7 +31,7 @@
    "assigned": "Booming_fire_bolt_sp_#3-1793461301842.mp3",
    "source": "drop",
    "n": 4,
-   "present": false,
+   "present": true,
    "note": ""
   },
   "poison spray": {
@@ -55,7 +55,7 @@
    "assigned": "MAGSpel-Dark_fantasy_spell,_-Elevenlabs.mp3",
    "source": "drop",
    "n": 7,
-   "present": false,
+   "present": true,
    "note": ""
   },
   "sacred flame": {
@@ -71,7 +71,7 @@
    "assigned": "An_empowered_chain_l_#4-1793461651887.mp3",
    "source": "drop",
    "n": 9,
-   "present": false,
+   "present": true,
    "note": ""
   },
   "thorn whip": {
@@ -239,7 +239,7 @@
    "assigned": "punchy_lightining_bo_#2-1793412829583.mp3",
    "source": "drop",
    "n": 30,
-   "present": false,
+   "present": true,
    "note": ""
   },
   "wrathful smite": {
@@ -319,7 +319,7 @@
    "assigned": "Booming_fire_bolt_sp_#3-1793461301842.mp3",
    "source": "preassigned",
    "n": 40,
-   "present": false,
+   "present": true,
    "note": ""
   },
   "spirit guardians": {
