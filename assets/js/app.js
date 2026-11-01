@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.198"; // sheet-playtest-v03198
+  var APP_VERSION = "0.3.199"; // sheet-playtest-v03199
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
@@ -2969,7 +2969,28 @@
   }
   function hexBoxes(l) { var t = compute().hex[l] || 0, c = C(); if (hasOv(c, "hex." + l)) t = num(c.overrides["hex." + l]); return Math.max(0, Math.min(MAX_BOXES, t)); }
   function spendHex(l) { var a = C().hexLead[l], n = hexBoxes(l); for (var k = 0; k < n; k++) if (!a[k]) { a[k] = true; return true; } return false; }
-  function refundHex(l) { var a = C().hexLead[l]; for (var k = a.length - 1; k >= 0; k--) if (a[k]) { a[k] = false; return true; } return false; }
+  function syncHexBox(level, index, spent) {
+    suppress = true;
+    $$('[data-f="character.hexLead.' + level + '.' + index + '"]').forEach(function (box) { box.checked = !!spent; });
+    suppress = false;
+  }
+  /* 0.3.199: same slot the load marked, in the model and on the checkbox.
+     Does not call changed(). Unload walks every chamber, and changed() repaints the cylinder
+     (normChambers copies the array) before those chambers are emptied. */
+  function refundHex(level) {
+    var l = num(level, 1);
+    var a = C().hexLead[l];
+    if (!a) return false;
+    var n = hexBoxes(l);
+    var k;
+    for (k = Math.min(a.length, n) - 1; k >= 0; k--) {
+      if (!a[k]) continue;
+      a[k] = false;
+      syncHexBox(l, k, false);
+      return true;
+    }
+    return false;
+  }
   function returnChamber(st, g, w) {
     var p = parseChamber(st);
     if (!p) return "";
@@ -3271,21 +3292,9 @@
     });
   }
   function refundHexSlot(level) {
-    var l = num(level, 1);
-    var a = C().hexLead[l];
-    if (!a) return false;
-    var n = hexBoxes(l);
-    var k;
-    for (k = Math.min(a.length, n) - 1; k >= 0; k--) {
-      if (!a[k]) continue;
-      a[k] = false;
-      suppress = true;
-      $$('[data-f="character.hexLead.' + l + '.' + k + '"]').forEach(function (box) { box.checked = false; });
-      suppress = false;
-      changed();
-      return true;
-    }
-    return false;
+    if (!refundHex(level)) return false;
+    changed();
+    return true;
   }
   /* Put a hex shell back when a cast is cancelled after the chamber was emptied. A spun cylinder is rotated back first. */
   function restoreHexChamber(i, held) {
@@ -3315,9 +3324,7 @@
     for (var i = 0; i < n; i++) if (!a[i]) { k = i; break; }
     if (k < 0) return false;
     a[k] = true;
-    suppress = true;
-    $$('[data-f="character.hexLead.' + l + '.' + k + '"]').forEach(function (box) { box.checked = true; });
-    suppress = false;
+    syncHexBox(l, k, true);
     changed();
     return true;
   }
