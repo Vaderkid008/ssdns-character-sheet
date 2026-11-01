@@ -61,8 +61,8 @@ check("layout", exists("map/packs/showcase-dry-fork/LAYOUT-KEY.md") && read("map
 const mapSrc = read("map/ssdns-map.js");
 check("import.prefill", mapSrc.includes("const fromPack = packScene && Array.isArray(packScene.walls)") && mapSrc.includes("prompt('Paste walls JSON (array of {x1,y1,x2,y2}):', fromPack)"));
 check("seed.kept", mapSrc.includes("function seedPackWalls(sc)") && mapSrc.includes("sd.walls = sc.walls.map(w => Object.assign({}, w))"));
-check("html.sheet", read("index.html").includes("map/map-packs.js?v=0.3.178-n90") && read("index.html").includes("map/ssdns-map.js?v=0.3.200-eldorite"));
-check("html.dm", read("dm/index.html").includes("../map/map-packs.js?v=0.2.191-n90") && read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.213-eldorite"));
+check("html.sheet", read("index.html").includes("map/map-packs.js?v=0.3.178-n90") && read("index.html").includes("map/ssdns-map.js?v=0.3.200-snake"));
+check("html.dm", read("dm/index.html").includes("../map/map-packs.js?v=0.2.191-n90") && read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.213-snake"));
 check("docs", read("map/DATA.md").includes("scn_dry_fork") && read("map/DATA.md").includes("seedPackWalls") && read("docs/SCHEMA.md").includes("scn_dry_fork"));
 
 if (failures.length) {

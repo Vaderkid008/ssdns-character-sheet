@@ -2920,7 +2920,7 @@
     buck: "#c4a35a", slug: "#6b4f3a", percussion: "#7d8b99", bigfifty: "#4d6270", arrows: "#5e8a55",
     light: "#f3e7b3", medium: "#e0b84a", heavy: "#a86b32", plain: "#d7c07a"
   };
-  /* Eldorite faces live in ammo-display hexPaint (same hues as .shard-* gems). */
+  /* Eldorite hues for the hex serpent live in ammo-display hexPaint. */
   function hexPaintOf(level) {
     var AD = window.SSDNSAmmoDisplay;
     if (AD && AD.hexPaint) return AD.hexPaint(level);
@@ -2929,7 +2929,7 @@
   function chamberColor(st, g, w) {
     var p = parseChamber(st);
     if (!p) return "";
-    if (p.kind === "hex") return hexPaintOf(p.level).fill;
+    if (p.kind === "hex") return hexPaintOf(p.level).tone;
     if (ROUND_COLORS[p.kind]) return ROUND_COLORS[p.kind];
     var tier = p.tier;
     if (!tier && w && w.tiers) { try { tier = chamberOf(g, w).tier; } catch (e) { tier = ""; } }

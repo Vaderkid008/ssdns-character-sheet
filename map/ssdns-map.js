@@ -3019,7 +3019,7 @@ function paintAmmoColumn(ctx, s, r, rows) {
 }
 /* 0.3.64: token ammo badge round, drawn side-on in the #73 round art colours. look = SSDNSAmmoDisplay.roundLook().
    cart = brass case + copper tip; rf22 = small brass .22; ball = lead ball + percussion cap;
-   shell = brass head + hull in the gauge colour (slug: black band); hex = Eldorite round for that shell level (split when two shards). */
+   shell = brass head + hull in the gauge colour (slug: black band); hex = dark round, Eldorite glow for that shell level. */
 function paintRoundIcon(ctx, look, x, y, w) {
   const type = look.type;
   ctx.save();
@@ -3035,29 +3035,33 @@ function paintRoundIcon(ctx, look, x, y, w) {
     ctx.strokeRect(1.4 + head, -h / 2, w - 1.4 - head, h);
     if (look.slug) { ctx.fillStyle = '#111111'; ctx.fillRect(1.4 + head + (w - head) * 0.3, -h / 2, (w - head) * 0.3, h); }
   } else if (type === 'hex') {
-    const cols = look.hexColors && look.hexColors.length ? look.hexColors : [look.tone || '#d8b3ff'];
+    const cols = look.hexColors && look.hexColors.length ? look.hexColors : [look.tone || '#9ff2d6'];
     const cx = w / 2;
-    const r = 5;
-    ctx.save();
+    ctx.shadowColor = cols[0];
+    ctx.shadowBlur = 3;
+    ctx.fillStyle = '#1c2022';
     ctx.beginPath();
-    ctx.arc(cx, 0, r, 0, Math.PI * 2);
-    ctx.clip();
+    ctx.arc(cx, 0, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
     if (cols.length > 1) {
-      ctx.fillStyle = cols[0];
-      ctx.fillRect(cx - r - 1, -r - 1, r + 1, r * 2 + 2);
-      ctx.fillStyle = cols[1];
-      ctx.fillRect(cx, -r - 1, r + 1, r * 2 + 2);
+      ctx.strokeStyle = cols[0];
+      ctx.beginPath();
+      ctx.arc(cx, 0, 2.5, Math.PI * 0.15, Math.PI * 1.05);
+      ctx.stroke();
+      ctx.strokeStyle = cols[1];
+      ctx.beginPath();
+      ctx.arc(cx, 0, 2.5, Math.PI * 1.15, Math.PI * 2.05);
+      ctx.stroke();
     } else {
-      ctx.fillStyle = cols[0];
-      ctx.fillRect(cx - r - 1, -r - 1, r * 2 + 2, r * 2 + 2);
+      ctx.strokeStyle = cols[0];
+      ctx.beginPath();
+      ctx.arc(cx, 0, 2.5, 0.5, Math.PI * 1.85);
+      ctx.stroke();
     }
-    ctx.restore();
-    ctx.beginPath();
-    ctx.arc(cx, 0, r, 0, Math.PI * 2);
-    ctx.strokeStyle = '#1a120c';
-    ctx.lineWidth = 0.7;
-    ctx.stroke();
-    ctx.fillStyle = look.hexInk || '#1a120c';
+    ctx.fillStyle = '#fff';
     ctx.font = 'bold 7px system-ui';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

@@ -22,8 +22,8 @@ check("ver.sheet", version.sheet === "0.3.200" && version.sheetBuild === "sheet-
 check("ver.dmcc", version.dmcc === "0.2.213" && version.dmccBuild === "dmcc-playtest-v02213");
 check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.200"') && read("assets/js/app.js").includes("sheet-playtest-v03200"));
 check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.213"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02213"));
-check("html.sheet", read("index.html").includes("map/ssdns-map.js?v=0.3.200-eldorite") && read("index.html").includes("assets/js/app.js?v=0.3.200-eldorite"));
-check("html.dm", read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.213-eldorite") && read("dm/index.html").includes("assets/js/v2.js?v=0.2.213-eldorite") && read("dm/index.html").includes("assets/js/dmcc.js?v=0.2.213-eldorite"));
+check("html.sheet", read("index.html").includes("map/ssdns-map.js?v=0.3.200-snake") && read("index.html").includes("assets/js/app.js?v=0.3.200-snake"));
+check("html.dm", read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.213-snake") && read("dm/index.html").includes("assets/js/v2.js?v=0.2.213-snake") && read("dm/index.html").includes("assets/js/dmcc.js?v=0.2.213-snake"));
 
 const mapSrc = read("map/ssdns-map.js");
 const toolbar = mapSrc.slice(mapSrc.indexOf("toolbar.innerHTML"), mapSrc.indexOf("el.appendChild(toolbar)"));

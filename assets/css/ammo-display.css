@@ -223,22 +223,27 @@
     radial-gradient(circle at 50% 50%, transparent 0 62%, #b98b34 64% 92%, #6d4e16 94%),
     radial-gradient(circle at 36% 30%, #ff8a7a, #c4322a 50%, #6d120c 90%);
 }
-/* 0.3.200: hex shell face is the Eldorite shard for that level (--hex-face).
-   L7–L10 are a hard 50% split of two shards. The primer stays so it still reads as a chamber. */
+/* 0.3.200: hex lead stays the dark round. The serpent rune (--hex-snake) takes the Eldorite color for that shell level.
+   L7–L10 split the snake stroke. Strip size keeps the plain spiral. */
 .ssdns-ammo .ammo-round.is-primer.is-loaded.rt-hex {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-color: #1a120c;
-  color: var(--hex-ink, #1a120c);
-  text-shadow: 0 0 2px #fff, 0 1px 1px rgba(0, 0, 0, 0.8);
+  border-color: #1b3d22;
+  color: #fff;
+  text-shadow: 0 1px 1px #000;
+  --hex-glow: rgba(63, 211, 107, 0.22);
+  --hex-edge: rgba(63, 211, 107, 0.55);
   background:
-    radial-gradient(circle at 50% 50%, rgba(20, 12, 8, 0.5) 0 11%, #f4f0e8 13% 24%, rgba(0, 0, 0, 0.4) 26% 31%, transparent 33%),
-    var(--hex-face, linear-gradient(135deg, #d8b3ff, #6b35a8));
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -2px 3px rgba(0, 0, 0, 0.45);
+    var(--hex-snake) center / 78% 78% no-repeat,
+    radial-gradient(circle closest-side at 50% 50%, var(--hex-glow), transparent 70%),
+    radial-gradient(circle at 36% 30%, #4a4f52, #24282a 56%, #0d0f10 90%);
+  box-shadow: 0 0 5px 1px var(--hex-edge), inset 0 0 4px var(--hex-glow);
+}
+.ssdns-ammo-cylinder.is-strip .ammo-round.is-primer.is-loaded.rt-hex,
+.ssdns-ammo-dots.is-strip .ammo-round.is-primer.is-loaded.rt-hex {
+  background:
+    var(--hex-snake-strip, var(--hex-snake)) center / 90% 90% no-repeat,
+    radial-gradient(circle at 36% 30%, #3a3f42, #1c2022 60%, #0d0f10 90%);
 }
 .ssdns-ammo .ammo-round.is-locked.rt-hex {
-  display: inline;
   color: #e23b32;
   text-shadow: none;
   background: #2a2420;

@@ -1657,7 +1657,7 @@ function cylinderHtml(g) {
       }
       const paint = hexPaint(lv);
       cls += " loaded tinted hex";
-      style = `--case:${paint.fill};--hex-ink:${paint.ink || "#1a120c"}`;
+      style = `--case:${paint.tone || paint.fill || "#d8b3ff"};--hex-ink:${paint.ink || "#fff"}`;
       text = esc(lv);
       label = (spell ? spell + " · " : "") + "Hex shell " + lv;
     } else if (s) {

@@ -146,8 +146,8 @@ check("map.door", map.includes("doorInteract: function"));
 check("map.reach", map.includes("reachGate") && map.includes("applyAssetRequest"));
 const wrap = v2.indexOf("expireSpellZones();");
 check("v2.round", wrap > 0 && v2.indexOf("SSDNSAssets.onRound", wrap) > wrap && v2.indexOf("SSDNSAssets.onRound", wrap) < wrap + 220);
-check("html.sheet", sheet.includes("map/asset-library.js?v=0.3.182-asset") && sheet.includes("map/ssdns-map.js?v=0.3.200-eldorite"));
-check("html.dm", dm.includes("../map/asset-library.js?v=0.2.195-asset") && dm.includes("v2.js?v=0.2.213-eldorite") && dm.includes("../map/ssdns-map.js?v=0.2.213-eldorite"));
+check("html.sheet", sheet.includes("map/asset-library.js?v=0.3.182-asset") && sheet.includes("map/ssdns-map.js?v=0.3.200-snake"));
+check("html.dm", dm.includes("../map/asset-library.js?v=0.2.195-asset") && dm.includes("v2.js?v=0.2.213-snake") && dm.includes("../map/ssdns-map.js?v=0.2.213-snake"));
 check("docs", read("map/DATA.md").includes("ssdns-asset-pack") && read("docs/SCHEMA.md").includes("assetLibrary"));
 
 if (failures.length) {

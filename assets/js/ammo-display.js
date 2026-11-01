@@ -44,8 +44,9 @@
     ["yellow", "purple"],
     ["purple", "red"]
   ];
-  /* Dark numeral. The chamber primer is light, and a white halo in CSS keeps it readable on the gem. */
-  var HEX_INK = "#1a120c";
+  /* Original serpent paths (0.3.54). Full rune has the forked tongue; the strip uses the plain spiral. */
+  var SNAKE_PATH = "M20 20 m0 -2 a2 2 0 1 1 -2 2 a4 4 0 0 1 4 -4 a6 6 0 0 1 6 6 a8 8 0 0 1 -8 8 a10 10 0 0 1 -10 -10 a12 12 0 0 1 12 -12 M22 8 L25.5 6.5 M22 8 L24.5 10.5";
+  var SNAKE_STRIP = "M20 20 a3 3 0 0 1 3 -3 a5.5 5.5 0 0 1 5.5 5.5 a8.5 8.5 0 0 1 -8.5 8.5 a11 11 0 0 1 -11 -11 a12 12 0 0 1 12 -12";
 
   function enabled() {
     try {
@@ -200,25 +201,52 @@
     var encoded = p.slice(5).join(":");
     try { return decodeURIComponent(encoded); } catch (e) { return encoded; }
   }
-  /* Face is one Eldorite gem, or a hard half-and-half of two. Not a blend. */
+  function rgba(hex, alpha) {
+    var h = String(hex || "").replace("#", "");
+    var n = parseInt(h, 16);
+    if (!isFinite(n)) return "rgba(63,211,107," + alpha + ")";
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + alpha + ")";
+  }
+  /* Same three-stroke serpent as the old green rune. The glow and the bright stroke take the Eldorite color.
+     L7–L10 hard-split that stroke. The dark lead under the rune is not recolored. */
+  function snakeUrl(stops, strip) {
+    var d = strip ? SNAKE_STRIP : SNAKE_PATH;
+    var glowW = strip ? "6.5" : "4.7";
+    var midW = strip ? "4.8" : "3.0";
+    var hiW = strip ? "4" : "2.2";
+    /* One shard: the rune shades from its light stop to its dark stop.
+       Two shards: the blurred halo is the first color and the sharp stroke is the second, so the snake stays a snake. */
+    var glowStroke = "url(#s)";
+    var hiStroke = "url(#s)";
+    var grad = "<stop offset='0%' stop-color='" + stops[0][0] + "'/><stop offset='100%' stop-color='" + stops[0][1] + "'/>";
+    if (stops.length > 1) {
+      glowStroke = stops[0][0];
+      hiStroke = stops[1][0];
+      grad = "<stop offset='0%' stop-color='" + stops[0][0] + "'/><stop offset='100%' stop-color='" + stops[1][0] + "'/>";
+    }
+    var svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><defs><filter id='g' x='-50%' y='-50%' width='200%' height='200%'><feGaussianBlur stdDeviation='1.6'/></filter><linearGradient id='s' x1='0' y1='1' x2='1' y2='0'>" + grad + "</linearGradient></defs><g fill='none' stroke-linecap='round' stroke-linejoin='round'><path d='" + d + "' stroke='" + glowStroke + "' stroke-width='" + glowW + "' filter='url(#g)' opacity='.9'/><path d='" + d + "' stroke='#0a1a0e' stroke-width='" + midW + "' opacity='.55'/><path d='" + d + "' stroke='" + hiStroke + "' stroke-width='" + hiW + "'/></g></svg>";
+    /* Parentheses and quotes must be percent-encoded or the CSS url() closes early and the snake never paints. */
+    var body = encodeURIComponent(svg).replace(/[!'()*]/g, function (c) {
+      return "%" + c.charCodeAt(0).toString(16);
+    });
+    return "url(data:image/svg+xml," + body + ")";
+  }
   function hexPaint(level) {
     var lv = Math.max(1, Math.min(10, Number(level) || 1));
     var names = HEX_LEVELS[lv - 1];
     var stops = names.map(function (name) { return SHARDS[name]; });
-    var fill;
-    if (stops.length === 1) fill = "linear-gradient(135deg," + stops[0][0] + "," + stops[0][1] + ")";
-    else {
-      var a = stops[0], b = stops[1];
-      fill = "linear-gradient(135deg," + a[0] + " 0%," + a[1] + " 50%," + b[0] + " 50%," + b[1] + " 100%)";
-    }
+    var lightInk = names.indexOf("white") >= 0 || names.indexOf("yellow") >= 0;
     return {
       level: lv,
       names: names.slice(),
       dual: names.length > 1,
-      fill: fill,
       tone: stops[0][0],
       colors: stops.map(function (g) { return g[0]; }),
-      ink: HEX_INK
+      ink: lightInk ? "#1a120c" : "#fff",
+      snake: snakeUrl(stops, false),
+      snakeStrip: snakeUrl(stops, true),
+      glow: rgba(stops[0][0], 0.22),
+      edge: rgba(stops[0][0], 0.55)
     };
   }
   function hexTip(raw) {
@@ -282,7 +310,7 @@
 
   /* 0.3.54: what the round looks like, keyed off the ammo type (never the gun name).
      ball = powder, ball & caps; cart = brass rim + primer; buck = red hull, brass base;
-     rf22 = small brass (.22 / light); hex = Eldorite face by shell level (dual split at 7–10). */
+     rf22 = small brass (.22 / light); hex = dark lead with the serpent rune, colored by shell level. */
   function roundType(spec, chamber) {
     var raw = chamber ? chamber.raw : "";
     if (hexLevelOf(raw)) return "hex";
@@ -364,7 +392,7 @@
     var lv = hexLevelOf(raw);
     if (lv && (String(raw).indexOf("k:hex:") === 0 || /^(?:10|[1-9])$/.test(String(raw)))) {
       var paint = hexPaint(lv);
-      return "--case:" + paint.tone + ";--hex-face:" + paint.fill + ";--hex-ink:" + paint.ink + ";";
+      return "--case:" + paint.tone + ";--hex-snake:" + paint.snake + ";--hex-snake-strip:" + paint.snakeStrip + ";--hex-glow:" + paint.glow + ";--hex-edge:" + paint.edge + ";";
     }
     return "--case:" + toneOf(spec, chamber) + ";";
   }
@@ -654,7 +682,6 @@
       look.hexLevel = paint.level;
       look.tone = paint.tone;
       look.hexColors = paint.colors;
-      look.hexFill = paint.fill;
       look.hexInk = paint.ink;
       look.dual = paint.dual;
       var spell = hexSpellName(raw);

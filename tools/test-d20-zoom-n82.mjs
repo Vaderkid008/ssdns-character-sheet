@@ -29,8 +29,8 @@ const dmcc = read("dm/assets/css/dmcc.css");
 check("css.pills", sheet.includes(".status-chips .chip.cond, .status-chips .cond { background: #6e2430; color: #fff; font-size: 17px; padding: 6px 14px; gap: 5px; }"));
 check("css.badge", /width: 42px; height: 42px;/.test(sheet) && /font-size: 24px/.test(sheet.slice(sheet.indexOf(".cond-badge"))));
 check("css.dmChip", dmcc.includes("font-size: 17px; padding: 6px 14px"));
-check("css.sheetLinked", read("index.html").includes("sheet.css?v=0.3.200-eldorite"));
-check("css.dmLinked", read("dm/index.html").includes("dmcc.css?v=0.2.213-eldorite"));
+check("css.sheetLinked", read("index.html").includes("sheet.css?v=0.3.200-snake"));
+check("css.dmLinked", read("dm/index.html").includes("dmcc.css?v=0.2.213-snake"));
 
 const map = read("map/ssdns-map.js");
 check("map.token28", map.includes("const size = Math.max(22, r * 0.97);") && map.includes("size * 0.57"));
