@@ -2346,6 +2346,15 @@
       app.loadHexAt(payload.index, payload.level, payload.spell);
       return;
     } else if (payload.op === "cast") {
+      if (payload.targetId != null && payload.targetId !== "" && root.document) {
+        var aimCast = root.document.querySelector("#atkTarget");
+        if (aimCast) {
+          var wantCast = String(payload.targetId);
+          var aimedCast = false;
+          Array.prototype.forEach.call(aimCast.options || [], function (o) { if (o && o.value === wantCast) aimedCast = true; });
+          if (aimedCast) aimCast.value = wantCast;
+        }
+      }
       if (app.prepareGunCast) app.prepareGunCast(payload.index, payload.spell, payload.slot);
       if (root.SSDNSGunCast) root.SSDNSGunCast(payload.index);
       return;

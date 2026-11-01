@@ -3519,10 +3519,10 @@
     if (spins && !rollGun._wild && root.SSDNSApp && root.SSDNSApp.cylinderPlan) {
       var plan = root.SSDNSApp.cylinderPlan(i, null);
       if (plan && plan.dry) { dryFire(i, name0, offNow, !!FAN); rollGun._chamber = null; return; }
+      /* A hex under the hammer is a spell, not a cartridge. Roll used to stop here, so the map never painted. */
       if (plan && plan.hex) {
-        toast(plan.reason);
-        addLog({ kind: "alert", text: name0 + ": " + plan.reason });
         rollGun._chamber = null;
+        castLoadedHex(i, 0);
         return;
       }
     }
@@ -3591,6 +3591,14 @@
       ? { ok: true, left: num(g.loaded), chamber: null }
       : (root.SSDNSApp && root.SSDNSApp.spendRound ? root.SSDNSApp.spendRound(i, rollGun._chamber) : null);
     if (!spent || !spent.ok) {
+      var hexAt = rollGun._chamber != null && rollGun._chamber !== "" ? Number(rollGun._chamber) : 0;
+      var hexTok = g.chambers && g.chambers[isFinite(hexAt) ? hexAt : 0];
+      var hexParsed = root.SSDNSApp && root.SSDNSApp.parseChamber ? root.SSDNSApp.parseChamber(hexTok) : null;
+      if (hexParsed && hexParsed.kind === "hex") {
+        rollGun._chamber = null;
+        castLoadedHex(i, isFinite(hexAt) ? hexAt : 0);
+        return;
+      }
       var reason = (spent && spent.reason) || "That gun can't fire.";
       toast(reason);
       addLog({ kind: "alert", text: name0 + ": " + reason });
