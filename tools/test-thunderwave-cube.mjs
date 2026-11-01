@@ -102,7 +102,7 @@ for (const name of ["Thunderwave", "Thunderwave (Porch Boom)", "Thunderwave Shel
   check("cube." + name, labeled.lookOf({ type: "spell", spell: name, dmg: "thunder" }) === "thundercube" && row.kind === "square" && row.side > cell * 2.4, JSON.stringify(row));
 }
 const shatter = biggest(fillsOf(labeled, { spell: "Shatter", weapon: "Shatter" }, palm, stub, 80));
-check("shatter.staysWedge", labeled.lookOf({ type: "spell", spell: "Shatter" }) === "thunder" && shatter.kind === "wedge", JSON.stringify(shatter));
+check("shatter.staysWedge", labeled.lookOf({ type: "spell", spell: "Shatter" }) === "shatter" && shatter.kind === "wedge", JSON.stringify(shatter));
 
 const up = biggest(fillsOf(labeled, { spell: "Thunderwave", facing: -Math.PI / 2 }, palm, palm, 160));
 const midY = up.pts.reduce((s, p) => s + p[1], 0) / (up.pts.length || 1);
