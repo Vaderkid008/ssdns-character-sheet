@@ -11642,6 +11642,9 @@ async function boot() {
 
 boot().catch(err => { console.error(err); toast('Failed to load map: ' + (err && err.message ? err.message : err)); });
 
+/* Forced move (Thunderwave and the same hook later). Slides `feet` away from fromId.
+   Stops short of a wall or the map edge. Does not ask for an opportunity attack:
+   voluntary steps go through leaveReachPlan; this write does not. spec.forced defaults on. */
 function shoveToken(id, spec) {
   spec = spec || {};
   if (role !== "dm") return null;
@@ -11649,7 +11652,7 @@ function shoveToken(id, spec) {
   if (!t || !t.pos) return null;
   const feet = Math.max(0, Number(spec.feet) || 0);
   if (!feet) return null;
-  const squares = feet / 5;
+  const squares = Math.max(1, Math.round(feet / 5));
   const fromTok = spec.fromId ? tokenByRef(spec.fromId) : null;
   const size = t.size || 1;
   const cx = t.pos.x + size / 2;
@@ -11666,28 +11669,53 @@ function shoveToken(id, spec) {
   } else return null;
   let dx = cx - fx;
   let dy = cy - fy;
-  const len = Math.hypot(dx, dy) || 1;
-  dx /= len;
-  dy /= len;
   if (spec.dir === "pull") { dx = -dx; dy = -dy; }
-  let destX = Math.round(t.pos.x + dx * squares);
-  let destY = Math.round(t.pos.y + dy * squares);
-  if (spec.dir === "pull" && fromTok && fromTok.pos) {
-    const overlap = Math.abs(destX - fromTok.pos.x) < 1 && Math.abs(destY - fromTok.pos.y) < 1;
-    if (overlap) {
-      destX = Math.round(t.pos.x + dx * Math.max(0, squares - 1));
-      destY = Math.round(t.pos.y + dy * Math.max(0, squares - 1));
+  const M = moveApi();
+  const step = M && M.pushStep ? M.pushStep(dx, dy) : {
+    x: Math.abs(dx) < 1e-6 ? 0 : (dx > 0 ? 1 : -1),
+    y: Math.abs(dy) < 1e-6 ? 0 : (dy > 0 ? 1 : -1)
+  };
+  const origin = { x: t.pos.x, y: t.pos.y };
+  if (!step.x && !step.y) return { from: origin, to: origin, moved: false, forced: true, squares: 0 };
+  const grid = (state.scene && state.scene.grid) || null;
+  const crosses = (a, b) => crossesWall(a.x, a.y, b.x, b.y);
+  let destX = origin.x;
+  let destY = origin.y;
+  let walked = 0;
+  if (M && M.forcedDest) {
+    const landed = M.forcedDest(origin, step, squares, size, crosses, grid);
+    destX = landed.x;
+    destY = landed.y;
+    walked = landed.squares || 0;
+  } else {
+    for (let i = 0; i < squares; i++) {
+      const nx = destX + (step.x || 0);
+      const ny = destY + (step.y || 0);
+      const blocked = size > 1
+        ? largeSlideBlocked({ x: destX, y: destY }, { x: nx, y: ny }, size)
+        : crossesWall(destX + size / 2, destY + size / 2, nx + size / 2, ny + size / 2);
+      if (blocked) break;
+      destX = nx;
+      destY = ny;
+      walked += 1;
     }
   }
-  const origin = { x: t.pos.x, y: t.pos.y };
+  if (spec.dir === "pull" && fromTok && fromTok.pos && walked > 0) {
+    const overlap = Math.abs(destX - fromTok.pos.x) < 1 && Math.abs(destY - fromTok.pos.y) < 1;
+    if (overlap) {
+      destX -= step.x || 0;
+      destY -= step.y || 0;
+      walked -= 1;
+    }
+  }
   const dest = { x: destX, y: destY };
-  if (dest.x === origin.x && dest.y === origin.y) return { from: origin, to: dest, moved: false };
+  if (dest.x === origin.x && dest.y === origin.y) return { from: origin, to: dest, moved: false, forced: true, squares: 0 };
   t.pos = { x: dest.x, y: dest.y };
   if (shared.tokens[t.id]) shared.tokens[t.id].pos = { x: dest.x, y: dest.y };
   startSlide(t.id, [origin, dest]);
   saveToken(t.id);
   draw();
-  return { from: origin, to: dest, moved: true };
+  return { from: origin, to: dest, moved: true, forced: spec.forced !== false, squares: walked };
 }
 function setTokenHidden(id, hidden) {
   if (role !== "dm") return null;

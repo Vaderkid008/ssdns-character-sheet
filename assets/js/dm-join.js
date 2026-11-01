@@ -726,6 +726,8 @@
     if (entry.autoDamage) row.autoDamage = true;
     if (entry.noDamage) row.noDamage = true;
     if (entry.melee) row.melee = true;
+    if (Number(entry.push) > 0) row.push = Number(entry.push) || 0;
+    if (Number(entry.pull) > 0) row.pull = Number(entry.pull) || 0;
     if (entry.magicMissile || /magic missile|hex needles/i.test(entry.label || "") || /magic missile|hex needles/i.test(entry.spell || "")) row.magicMissile = true;
     if (entry.damageType) row.damageType = entry.damageType;
     if (entry.delayed) row.delayed = entry.delayed;
@@ -778,6 +780,8 @@
       arrow: String(entry.arrow || "").slice(0, 160)
     };
     if (entry.melee) row.melee = true;
+    if (Number(entry.push) > 0) row.push = Number(entry.push) || 0;
+    if (Number(entry.pull) > 0) row.pull = Number(entry.pull) || 0;
     if (entry.slot != null && entry.slot !== "") row.slot = Number(entry.slot) || 0;
     if (entry.disease) row.disease = entry.disease;
     if (entry.delayed) row.delayed = entry.delayed;

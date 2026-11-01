@@ -5183,6 +5183,8 @@ function subjectKindOf(target) {
 }
 async function rememberCondition(row, target, name, rounds, meta) {
   if (!name || !target) return;
+  /* A push is a slide, not a chip. "Pushed 10 ft" must not stay on the token. */
+  if (window.SSDNSSpellRiders && window.SSDNSSpellRiders.pushNote && window.SSDNSSpellRiders.pushNote(name)) return;
   meta = meta || {};
   row.pendingRider = { condition: name, rounds: rounds, targetId: target.id, targetName: target.name };
   try {
@@ -7619,10 +7621,15 @@ async function castAreaSpell(opts) {
           : (save && save.failed ? full : (half ? Math.floor(full / 2) : 0));
         if (opts.known && opts.known.applyNow === false) amount = 0;
       }
-      if (amount > 0 && fight.damageMode !== "approve") {
+      const move = slideMove({ spell: opts.name, label: opts.name, push: (opts.known && opts.known.push) || 0 }, save);
+      if ((amount > 0 || move) && fight.damageMode !== "approve") {
         applyPlayerHit({
           rollId: DM.uid("spell"), targetId: tid, targetName: t.name, amount: amount,
-          from: opts.fromId, characterName: opts.who, label: opts.name, weapon: opts.name, type: "damage"
+          from: opts.fromId, characterName: opts.who, label: opts.name, weapon: opts.name, type: "damage",
+          push: move && move.dir !== "pull" ? move.feet : 0,
+          pull: move && move.dir === "pull" ? move.feet : 0,
+          slideOn: move ? move.on : "",
+          failed: !!(save && save.failed && !save.blocked)
         });
       }
       if (save && save.failed && cond) {
@@ -7931,8 +7938,9 @@ async function cardCast(i, n, opts) {
       amount = 0;
       detail += " · (none)";
     } else if (!blockedSave && save && !save.failed && known && known.half && !(known && known.damageAuto)) amount = Math.floor(amount / 2);
-    if (!blockedSave && rolled && amount > 0 && (failed || (known && known.half) || (known && known.damageAuto)) && fight.damageMode !== "approve") {
-      detail += " · " + amount + " " + String(asked.damage).replace(expr[0], "").trim();
+    const cardMove = kind === "save" ? slideMove({ spell: name, label: name, push: (known && known.push) || 0, pull: (known && known.pull) || 0 }, save) : null;
+    if (!blockedSave && (rolled && amount > 0 || cardMove) && (failed || cardMove || (known && known.half) || (known && known.damageAuto)) && fight.damageMode !== "approve") {
+      if (rolled && amount > 0) detail += " · " + amount + " " + String(asked.damage || "").replace(expr ? expr[0] : "", "").trim();
       applyPlayerHit({
         rollId: DM.uid("spell"),
         targetId: target.id,
@@ -7943,7 +7951,11 @@ async function cardCast(i, n, opts) {
         label: name,
         weapon: name,
         type: "damage",
-        zeroHp: (known && known.zeroHp) || ""
+        zeroHp: (known && known.zeroHp) || "",
+        push: cardMove && cardMove.dir !== "pull" ? cardMove.feet : 0,
+        pull: cardMove && cardMove.dir === "pull" ? cardMove.feet : 0,
+        slideOn: cardMove ? cardMove.on : "",
+        failed: !!(failed && !blockedSave)
       });
     }
     const cond = asked.rider || spellConditionName(spell);
@@ -8395,6 +8407,42 @@ function askApplyTarget(preferId) {
     openDialog(dlg);
   });
 }
+/* Feet from a save or a beam. On a failed save, slideApply returns the shove. A success returns null. */
+function slideMove(req, save) {
+  const R = window.SSDNSSpellRiders;
+  const name = (req && ((typeof req.spell === "string" && req.spell) || req.spellName || req.label || req.weapon)) || "";
+  const posted = { push: Number(req && req.push) || 0, pull: Number(req && req.pull) || 0 };
+  if (R && R.slideApply) return R.slideApply(name, save, posted);
+  if (save && !(save.failed && !save.blocked)) return null;
+  if (posted.pull) return { feet: posted.pull, dir: "pull", on: save ? "fail" : "hit", forced: true };
+  if (posted.push) return { feet: posted.push, dir: "push", on: save ? "fail" : "hit", forced: true };
+  return null;
+}
+/* Forced slide. shoveToken stops short of walls and does not provoke an opportunity attack. */
+function applyForcedSlide(meta) {
+  if (!meta) return null;
+  if (meta.kind === "heal" || meta.type === "heal" || meta.heal) return null;
+  const push = Number(meta.push) || 0;
+  const pull = Number(meta.pull) || 0;
+  if (!push && !pull) return null;
+  if (meta.slideOn === "fail" && meta.failed === false) return null;
+  const hostMap = window.SSDNSMapHost;
+  if (!hostMap || typeof hostMap.shoveToken !== "function") return null;
+  const tokenOf = (id) => {
+    if (!id) return "";
+    const hit = findCombatant({ id: id, targetId: id });
+    return (hit && (hit.mapTokenId || hit.playerId || hit.id)) || id;
+  };
+  const feet = pull || push;
+  const slid = hostMap.shoveToken(tokenOf(meta.targetId), {
+    feet: feet,
+    dir: pull ? "pull" : "push",
+    fromId: tokenOf(meta.from),
+    forced: true
+  });
+  if (slid && slid.moved) DM.toast((meta.targetName || "Target") + (pull ? " pulled " : " pushed ") + feet + " ft");
+  return slid;
+}
 function applyPlayerHit(meta) {
   if (!meta) return;
   const heal = meta.kind === "heal" || meta.type === "heal" || meta.heal;
@@ -8411,7 +8459,10 @@ function applyPlayerHit(meta) {
   }
   const amt = Number(meta.amount != null ? meta.amount : meta.damage) || 0;
   const rollId = meta.rollId || "";
-  if (amt <= 0) return;
+  if (amt <= 0) {
+    applyForcedSlide(meta);
+    return;
+  }
   const who = meta.characterName || "Someone";
   const row = findCombatant(meta);
   const playerRow = !!(row && row.kind === "player");
@@ -8572,13 +8623,7 @@ function applyPlayerHit(meta) {
     const hit = findCombatant({ id: id, targetId: id });
     return (hit && (hit.mapTokenId || hit.playerId || hit.id)) || id;
   };
-  if (!heal && hostMap && hostMap.shoveToken && (meta.push || meta.pull)) {
-    hostMap.shoveToken(tokenOf(meta.targetId), {
-      feet: meta.pull || meta.push,
-      dir: meta.pull ? "pull" : "push",
-      fromId: tokenOf(meta.from)
-    });
-  }
+  if (!heal) applyForcedSlide(meta);
   if (!heal && meta.banishAt && after <= Number(meta.banishAt) && hostMap && hostMap.setTokenHidden) {
     hostMap.setTokenHidden(tokenOf(meta.targetId), true);
     DM.toast((name || "Target") + " is banished (hidden) at " + after + " HP.");
@@ -8975,9 +9020,13 @@ function resolveIncomingAttack(req, reqId) {
   if (req.spellName || (typeof req.spell === "string" && req.spell)) {
     absorbRider(req, { hit: !verdict.miss, miss: !!verdict.miss, crit: !!verdict.crit });
   }
+  const atkMove = !verdict.miss ? slideMove(req, null) : null;
+  const atkPush = atkMove && atkMove.dir !== "pull" ? atkMove.feet : 0;
+  const atkPull = atkMove && atkMove.dir === "pull" ? atkMove.feet : 0;
   if (!verdict.miss && applyAmount > 0 && heldOutOfTurn(req)) {
     holdHit({ rollId: rollId, targetId: req.targetId, targetName: (row && row.name) || req.targetName, amount: applyAmount, from: req.from,
-      characterName: req.characterName || "Someone", label: req.label, weapon: req.weapon || req.label, dice: req.dice || "", type: "attack", heal: false, melee: !!req.melee },
+      characterName: req.characterName || "Someone", label: req.label, weapon: req.weapon || req.label, dice: req.dice || "", type: "attack", heal: false, melee: !!req.melee,
+      push: atkPush, pull: atkPull, slideOn: atkMove ? atkMove.on : "" },
       (req.characterName || "Someone") + " → " + ((row && row.name) || req.targetName || "target") + " for " + applyAmount);
   } else if (!verdict.miss && applyAmount > 0) {
     applyPlayerHit({
@@ -8993,8 +9042,9 @@ function resolveIncomingAttack(req, reqId) {
       type: "attack",
       heal: false,
       melee: !!req.melee,
-      pull: req.pull || 0,
-      push: req.push || 0,
+      pull: atkPull,
+      push: atkPush,
+      slideOn: atkMove ? atkMove.on : "",
       healHalf: !!req.healHalf,
       banishAt: req.banishAt || 0,
       splash: req.splash || null,
@@ -9066,14 +9116,18 @@ function applyRequest(req, reqId) {
       if (req.autoDamage && save) save.auto = true;
       if (save && save.line) DM.toast(save.line + (noneSave && save && !save.failed && !save.blocked ? " · (none)" : ""));
       if (req.autoDamage && save) dealt = save.blocked ? 0 : amt;
-      if (dealt > 0) {
-        if (req.zoneBudget && req.zoneId) chargeZone({ zoneId: req.zoneId, budget: req.zoneBudget, spell: req.label }, dealt);
+      const saveMove = slideMove(req, save);
+      if (dealt > 0 || saveMove) {
+        if (dealt > 0 && req.zoneBudget && req.zoneId) chargeZone({ zoneId: req.zoneId, budget: req.zoneBudget, spell: req.label }, dealt);
         const hit = {
           rollId: rollId, targetId: req.targetId, targetName: req.targetName || name, amount: dealt,
           from: req.from, characterName: who, label: req.label, weapon: req.weapon || req.label, dice: req.dice || "", type: req.type || "damage",
           zeroHp: req.zeroHp || "",
           floorHp: req.floorHp || 0, maxDrop: req.maxDrop || "", failed: !!(save && save.failed && !save.blocked),
-          pull: req.pull || 0, push: req.push || 0, healHalf: !!req.healHalf, banishAt: req.banishAt || 0,
+          pull: saveMove && saveMove.dir === "pull" ? saveMove.feet : 0,
+          push: saveMove && saveMove.dir !== "pull" ? saveMove.feet : 0,
+          slideOn: saveMove ? saveMove.on : "",
+          healHalf: !!req.healHalf, banishAt: req.banishAt || 0,
           splash: req.splash || null, melee: !!req.melee, dc: req.dc
         };
         const lineAfter = who + " → " + name + " " + dealt + (save && save.failed ? " (failed save)" : " (saved)");
@@ -9134,9 +9188,13 @@ function applyRequest(req, reqId) {
     DM.toast("Pick a target");
     return;
   }
+  const plainMove = heal ? null : slideMove(req, null);
   if (heldOutOfTurn(req)) {
     holdHit({ rollId: rollId, targetId: req.targetId, targetName: req.targetName || name, amount: amt, from: req.from, characterName: who, label: req.label,
-      weapon: req.weapon || req.label, dice: req.dice || "", type: req.type || "", heal: heal, melee: !!req.melee }, line);
+      weapon: req.weapon || req.label, dice: req.dice || "", type: req.type || "", heal: heal, melee: !!req.melee,
+      push: plainMove && plainMove.dir !== "pull" ? plainMove.feet : 0,
+      pull: plainMove && plainMove.dir === "pull" ? plainMove.feet : 0,
+      slideOn: plainMove ? plainMove.on : "" }, line);
     return;
   }
   if (fight.damageMode === "approve") {
@@ -9156,8 +9214,9 @@ function applyRequest(req, reqId) {
     type: req.type || "",
     heal: heal,
     melee: !!req.melee,
-    pull: req.pull || 0,
-    push: req.push || 0,
+    pull: plainMove && plainMove.dir === "pull" ? plainMove.feet : 0,
+    push: plainMove && plainMove.dir !== "pull" ? plainMove.feet : 0,
+    slideOn: plainMove ? plainMove.on : "",
     healHalf: !!req.healHalf,
     banishAt: req.banishAt || 0,
     splash: req.splash || null,

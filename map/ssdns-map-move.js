@@ -357,6 +357,52 @@
    * mode "click" (desktop, this PR): commit is true.
    * mode "confirm" (later): first tap only fills pending; the same square again commits.
    */
+  /**
+   * Grid step away from a point. Snaps to the stronger axis inside about 25 degrees
+   * so a nearly-east shove does not also step north.
+   */
+  function pushStep(dx, dy) {
+    var ax = Math.abs(num(dx, 0));
+    var ay = Math.abs(num(dy, 0));
+    if (ax < 1e-6 && ay < 1e-6) return { x: 0, y: 0 };
+    var sx = dx > 0 ? 1 : (dx < 0 ? -1 : 0);
+    var sy = dy > 0 ? 1 : (dy < 0 ? -1 : 0);
+    if (ax > 0 && ay / ax < 0.45) sy = 0;
+    else if (ay > 0 && ax / ay < 0.45) sx = 0;
+    return { x: sx, y: sy };
+  }
+  /**
+   * Forced movement. `count` Chebyshev steps of `step` ({x,y} each -1, 0, or 1).
+   * Stops on the last square that stays inside the grid and does not cross a wall.
+   * Creatures do not stop the slide. Opportunity attacks are not this function's job:
+   * leaveReachPlan already skips ctx.forced, and the map shove never asks for one.
+   * Thunderwave / Porch Boom walks 2 squares (10 ft) away from the caster on a failed save.
+   * Same walker later: Thunderous Smite 10, Repelling Blast 10, Mule Kick 20.
+   */
+  function forcedDest(origin, step, count, size, crosses, grid) {
+    var x = num(origin && origin.x, 0);
+    var y = num(origin && origin.y, 0);
+    var sx = step && step.x > 0 ? 1 : (step && step.x < 0 ? -1 : 0);
+    var sy = step && step.y > 0 ? 1 : (step && step.y < 0 ? -1 : 0);
+    var n = Math.max(0, Math.round(num(count, 0)));
+    var s = squares(size);
+    var walked = 0;
+    var i, nx, ny;
+    if (!sx && !sy) return { x: x, y: y, squares: 0 };
+    for (i = 0; i < n; i++) {
+      nx = x + sx;
+      ny = y + sy;
+      if (grid) {
+        if (nx < 0 || ny < 0) break;
+        if (nx + s > num(grid.cols, 0) || ny + s > num(grid.rows, 0)) break;
+      }
+      if (typeof crosses === "function" && slideBlocked({ x: x, y: y }, { x: nx, y: ny }, s, crosses)) break;
+      x = nx;
+      y = ny;
+      walked += 1;
+    }
+    return { x: x, y: y, squares: walked };
+  }
   function previewSlot(state, dest, built) {
     state = state || { mode: "click", pending: null };
     if (!built) return { commit: false, pending: null, preview: null };
@@ -381,6 +427,8 @@
     footprintCrosses: footprintCrosses,
     stanceBlocked: stanceBlocked,
     slideBlocked: slideBlocked,
+    pushStep: pushStep,
+    forcedDest: forcedDest,
     axisGap: axisGap,
     feetBetweenBoxes: feetBetweenBoxes,
     leaveReachPlan: leaveReachPlan,

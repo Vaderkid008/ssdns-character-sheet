@@ -16,6 +16,25 @@
   function norm(s) {
     return String(s || "").toLowerCase().replace(/\./g, "").replace(/\s+/g, " ").trim();
   }
+  /* Frontier label → book key. Porch Boom is Thunderwave. Other aliases come from the rules table when it is loaded. */
+  function spellKey(name) {
+    var raw = String(name || "").replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+shell$/i, "").replace(/\s+/g, " ").trim();
+    var key = norm(raw);
+    if (key === "porch boom") return "thunderwave";
+    var list = (root.SSDNS_RULES && root.SSDNS_RULES.spellAliases) || [];
+    var i, a, alias;
+    for (i = 0; i < list.length; i++) {
+      a = list[i];
+      alias = a && String(a.alias || "").trim();
+      if (!alias || alias === "—" || /^—/.test(alias) || /prints as 5e/i.test(alias)) continue;
+      if (norm(alias) === key && a.phb) return norm(a.phb);
+    }
+    return key;
+  }
+  /* "Pushed 10 ft" is the cast-log note for an instantaneous shove. It is not a condition chip. */
+  function pushNote(name) {
+    return /^pushed\s+\d+(\s*ft)?$/i.test(String(name || "").trim());
+  }
   function die(sides, rng) {
     var n = Math.max(1, Number(sides) || 6);
     if (rng) return rng(n);
@@ -331,6 +350,10 @@
     /* N81 P0-6: missing FAIL / on-hit chips. Lighting stays Phase 4. */
     if (key === "sunbeam") { out.onFail = "Blinded"; out.until = "caster"; }
     if (key === "sunburst") { out.onFail = "Blinded"; out.endSave = "CON"; out.rounds = 10; }
+    /* Instantaneous. The note stays on the cast log. slideApply + map.shoveToken move the token.
+       Same hook later, not wired here: Thunderous Smite (push 10 + Prone on a failed STR save),
+       Repelling Blast (push 10 on a beam hit; the shot already carries push),
+       Mule Kick (push 20 + Prone on a failed STR save). */
     if (key === "thunderwave") { out.onFail = "Pushed 10 ft"; out.push = 10; }
     if (key === "chill touch") { out.onHit = "No healing"; out.until = "caster"; }
     if (key === "ray of frost") { out.onHit = "Speed −10"; out.speed = -10; out.until = "caster"; }
@@ -688,7 +711,7 @@
       }
       mark.pending = false;
       mark.targetId = ctx.targetId || "";
-      if (mark.onFail) {
+      if (mark.onFail && !pushNote(mark.onFail)) {
         mark.chip = mark.onFail;
         chips.push(chip(mark.onFail, ctx.targetId, mark.spell, !!mark.conc, ctx.casterId || ""));
       }
@@ -955,7 +978,7 @@
       logs.push("end of each turn: " + row.endSave + " save or the spell continues");
     }
     if (next.ticks.length > before && concentrates(name, row) && !next.conc) next.conc = name;
-    if (row.onFail && failed) {
+    if (row.onFail && failed && !pushNote(row.onFail)) {
       var failChip = (row.until || row.consume)
         ? effectChip(row.onFail, opts, row)
         : chip(row.onFail, opts.targetId, name, concentrates(name, row), opts.casterId || "");
@@ -1198,7 +1221,7 @@
     "color spray": "Blinded"
   };
   function failList(name) {
-    var key = norm(name);
+    var key = spellKey(name);
     if (POOLS[key]) return [];
     if (FAIL[key]) return FAIL[key].slice();
     var hit = [];
@@ -1452,11 +1475,33 @@
     return "";
   }
   function slideOf(name) {
-    var key = norm(name);
-    var row = patchRow({ name: name || "" });
-    if (key === "thorn whip" || row.pull) return { feet: row.pull || 10, dir: "pull" };
-    if (row.push) return { feet: row.push, dir: "push", on: "fail" };
+    var key = spellKey(name);
+    var row = patchRow({ name: key });
+    if (!row) return null;
+    if (key === "thorn whip" || row.pull) return { feet: row.pull || 10, dir: "pull", on: "hit" };
+    /* A save, or a push-only note ("Pushed 10 ft"), moves on a failed save.
+       An on-hit push (no save, no push note) moves when the attack hits. */
+    if (row.push) return { feet: row.push, dir: "push", on: (row.save || pushNote(row.onFail)) ? "fail" : "hit" };
     return null;
+  }
+  /* Feet to shove right now. A save spell (on: "fail") moves only when the save fails and is not blocked.
+     posted is the encounter row ({push, pull}) when the sheet already named the feet.
+     Returns null when nothing should move. forced is always true: no opportunity attack. */
+  function slideApply(name, save, posted) {
+    posted = posted || {};
+    var slide = slideOf(typeof name === "string" ? name : "");
+    var feet = slide ? Number(slide.feet) || 0 : 0;
+    var dir = slide ? (slide.dir || "push") : "";
+    var on = slide ? (slide.on || (dir === "pull" ? "hit" : "fail")) : "";
+    if (!feet) {
+      var pull = Number(posted.pull) || 0;
+      var push = Number(posted.push) || 0;
+      if (pull) { feet = pull; dir = "pull"; on = save ? "fail" : "hit"; }
+      else if (push) { feet = push; dir = "push"; on = save ? "fail" : "hit"; }
+    }
+    if (!feet) return null;
+    if (on === "fail" && (!save || save.blocked || !save.failed)) return null;
+    return { feet: feet, dir: dir || "push", on: on || "hit", forced: true };
   }
   function vampiricHalf(amount) {
     return Math.floor((Number(amount) || 0) / 2);
@@ -1511,6 +1556,9 @@
     healBlocked: healBlocked,
     ammoType: ammoType,
     slideOf: slideOf,
+    slideApply: slideApply,
+    pushNote: pushNote,
+    spellKey: spellKey,
     vampiricHalf: vampiricHalf,
     scaleSplash: scaleSplash
   };

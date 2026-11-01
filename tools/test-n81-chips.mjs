@@ -66,7 +66,7 @@ check("wave.fail", Area.onFail("Thunderwave") === "Pushed 10 ft");
 const waveRoll = Cast.rollCast({ spellName: "Thunderwave", slotLevel: 1, dc: 13 });
 check("wave.roll", waveRoll.push === 10 && waveRoll.condition === "Pushed 10 ft" && /push 10 ft/.test(waveRoll.text), waveRoll.text);
 const shoved = R.landResolved(R.emptyBag(null), { row: wave, name: "Thunderwave", targetId: "t1", casterId: "wiz", hit: true, failed: true });
-check("wave.chip", names(shoved.chips).indexOf("Pushed 10 ft") >= 0 && /pushed 10 ft/.test(shoved.logs.join(" ")), shoved.logs.join(" | "));
+check("wave.chip", names(shoved.chips).indexOf("Pushed 10 ft") < 0 && /pushed 10 ft/.test(shoved.logs.join(" ")) && shoved.changed === false, shoved.logs.join(" | ") + " chips " + names(shoved.chips).join(","));
 check("wave.ok", R.landResolved(R.emptyBag(null), { row: wave, targetId: "t1", hit: true, failed: false }).changed === false);
 
 const chill = row("Chill Touch");
