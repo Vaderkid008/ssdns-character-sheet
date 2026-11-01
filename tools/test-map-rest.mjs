@@ -1,5 +1,5 @@
 /**
- * Map toolbar Short / Long rest (sheet 0.3.199 / DMCC 0.2.212).
+ * Map toolbar Short / Long rest (sheet 0.3.200 / DMCC 0.2.213).
  * Player buttons call SSDNSSheet.applyRest. DM buttons call the same rest as the Fight tab.
  *   node tools/test-map-rest.mjs
  */
@@ -18,12 +18,12 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.199" && version.sheetBuild === "sheet-playtest-v03199");
-check("ver.dmcc", version.dmcc === "0.2.212" && version.dmccBuild === "dmcc-playtest-v02212");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.199"') && read("assets/js/app.js").includes("sheet-playtest-v03199"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.212"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02212"));
-check("html.sheet", read("index.html").includes("map/ssdns-map.js?v=0.3.199-hexunload") && read("index.html").includes("assets/js/app.js?v=0.3.199-hexunload"));
-check("html.dm", read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.212-hexunload") && read("dm/index.html").includes("assets/js/v2.js?v=0.2.212-hexunload") && read("dm/index.html").includes("assets/js/dmcc.js?v=0.2.212-hexunload"));
+check("ver.sheet", version.sheet === "0.3.200" && version.sheetBuild === "sheet-playtest-v03200");
+check("ver.dmcc", version.dmcc === "0.2.213" && version.dmccBuild === "dmcc-playtest-v02213");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.200"') && read("assets/js/app.js").includes("sheet-playtest-v03200"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.213"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02213"));
+check("html.sheet", read("index.html").includes("map/ssdns-map.js?v=0.3.200-eldorite") && read("index.html").includes("assets/js/app.js?v=0.3.200-eldorite"));
+check("html.dm", read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.213-eldorite") && read("dm/index.html").includes("assets/js/v2.js?v=0.2.213-eldorite") && read("dm/index.html").includes("assets/js/dmcc.js?v=0.2.213-eldorite"));
 
 const mapSrc = read("map/ssdns-map.js");
 const toolbar = mapSrc.slice(mapSrc.indexOf("toolbar.innerHTML"), mapSrc.indexOf("el.appendChild(toolbar)"));

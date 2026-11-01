@@ -1,7 +1,7 @@
 /**
  * PR73: round art. Shells by gauge (.410 blue slim, 12 ga pre-#71 red, 10 ga green large, brass bases),
  * slugs = gauge hull + black band + white S, repeater follows gauge, concentric end-on shell head
- * with bold gauge ring, copper-tip tube rounds, big rifle-musket ball, hex serpent-spiral rune,
+ * with bold gauge ring, copper-tip tube rounds, big rifle-musket ball, Eldorite hex face (no serpent),
  * powder & ball misfire = lead ball + red ring/X (other misfires unchanged).
  *   node tools/test-pr73.mjs
  */
@@ -43,7 +43,7 @@ check("endon.concentric", /rt-shell \{[^}]*circle closest-side at 50% 50%/.test(
 const tube = el({ weapon: "lancaster-repeating-rifle", name: "R", action: "Lever (tube)", ammo: "cartridge", tier: "medium", cap: 6, loaded: 2 }, ".ammo-tip");
 check("tube.copperTip", tube.length && tube[0].getAttribute("fill") === "url(#ammoTipCu)");
 check("musket.bigBall", A.roundType({ weapon: "dull-co-rifle-musket" }) === "ball" && /ssdns-ammo-dots\.is-demo \.ammo-round\.rt-ball \{ width: 47px/.test(css));
-check("hex.serpent", /rt-hex \{[^}]*data:image\/svg\+xml/.test(css) && css.includes(encodeURIComponent("a12 12 0 0 1 12 -12 M22 8")) && /is-strip \.ammo-round\.is-primer\.is-loaded\.rt-hex/.test(css));
+check("hex.eldorite", /rt-hex \{[^}]*var\(--hex-face/.test(css) && !css.includes("3fd36b") && !/is-strip \.ammo-round\.is-primer\.is-loaded\.rt-hex/.test(css));
 const bnc = el({ weapon: "navy-army-ball-n-cap-revolver", name: "B", action: "Percussion revolver (slow)", ammo: "percussion", cap: 6, next: 0, chambers: [1, "jam", 1, 1, 1, 1] });
 check("misfire.ball", bnc[1].className.includes("is-jam") && bnc[1].className.includes("rt-ball") && /\.is-jam\.rt-ball \{[^}]*#e23b32[^}]*#7c8288/.test(css));
 const dotsNext = el({ action: "Pepperbox", cap: 4, next: 1, chambers: [1, 1, "", ""] });

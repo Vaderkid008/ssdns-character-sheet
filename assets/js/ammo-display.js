@@ -23,7 +23,29 @@
     arrows: "#5e8a55",
     plain: "#d7c07a"
   };
-  var HEX = ["#c4b5fd", "#a78bfa", "#8b5cf6", "#7c3aed", "#6d28d9", "#5b21b6", "#4c1d95", "#3b0764", "#2e1065"];
+  /* 0.3.200: Eldorite shard hues from sheet.css .shard-* gems. L7–L10 are two shards, hard-split. */
+  var SHARDS = {
+    white: ["#fff", "#d9d6cc"],
+    blue: ["#8cc0ff", "#2c62b5"],
+    green: ["#9ff2d6", "#1f8f6d"],
+    yellow: ["#ffe89a", "#c4921c"],
+    purple: ["#d8b3ff", "#6b35a8"],
+    red: ["#ff6a5c", "#b3121a"]
+  };
+  var HEX_LEVELS = [
+    ["white"],
+    ["blue"],
+    ["green"],
+    ["yellow"],
+    ["purple"],
+    ["red"],
+    ["blue", "green"],
+    ["green", "yellow"],
+    ["yellow", "purple"],
+    ["purple", "red"]
+  ];
+  /* Dark numeral. The chamber primer is light, and a white halo in CSS keeps it readable on the gem. */
+  var HEX_INK = "#1a120c";
 
   function enabled() {
     try {
@@ -159,14 +181,57 @@
     return -1;
   }
 
+  function hexLevelOf(raw) {
+    /* Numeric 1 is a plain "loaded" flag. Only string tokens ("1"–"10", k:hex:…) are shells. */
+    if (typeof raw !== "string") return 0;
+    var s = raw;
+    if (/^(?:10|[1-9])$/.test(s)) return Number(s);
+    if (s.indexOf("k:hex:") === 0) {
+      var lv = Number(s.split(":")[2]);
+      return lv >= 1 ? lv : 1;
+    }
+    return 0;
+  }
+  function hexSpellName(raw) {
+    var s = String(raw || "");
+    if (s.indexOf("k:hex:") !== 0) return "";
+    var p = s.split(":");
+    if (p.length < 6 || !p[5]) return "";
+    var encoded = p.slice(5).join(":");
+    try { return decodeURIComponent(encoded); } catch (e) { return encoded; }
+  }
+  /* Face is one Eldorite gem, or a hard half-and-half of two. Not a blend. */
+  function hexPaint(level) {
+    var lv = Math.max(1, Math.min(10, Number(level) || 1));
+    var names = HEX_LEVELS[lv - 1];
+    var stops = names.map(function (name) { return SHARDS[name]; });
+    var fill;
+    if (stops.length === 1) fill = "linear-gradient(135deg," + stops[0][0] + "," + stops[0][1] + ")";
+    else {
+      var a = stops[0], b = stops[1];
+      fill = "linear-gradient(135deg," + a[0] + " 0%," + a[1] + " 50%," + b[0] + " 50%," + b[1] + " 100%)";
+    }
+    return {
+      level: lv,
+      names: names.slice(),
+      dual: names.length > 1,
+      fill: fill,
+      tone: stops[0][0],
+      colors: stops.map(function (g) { return g[0]; }),
+      ink: HEX_INK
+    };
+  }
+  function hexTip(raw) {
+    var lv = hexLevelOf(raw);
+    if (!lv) return "";
+    var name = hexSpellName(raw);
+    return (name ? name + " · " : "") + "Hex shell " + lv;
+  }
   function toneOf(spec, chamber) {
     var raw = chamber ? chamber.raw : "";
     if (typeof raw === "string") {
-      if (/^[1-9]$/.test(raw)) return HEX[Number(raw) - 1] || "#9b6fd6";
-      if (raw.indexOf("k:hex:") === 0) {
-        var lv = Number(raw.split(":")[2] || 1);
-        return HEX[Math.max(0, lv - 1)] || "#9b6fd6";
-      }
+      var hexLv = hexLevelOf(raw);
+      if (hexLv && (raw.indexOf("k:hex:") === 0 || /^(?:10|[1-9])$/.test(raw))) return hexPaint(hexLv).tone;
       if (raw.indexOf("k:") === 0) {
         var kindName = raw.split(":")[1] || "";
         if (TONE[kindName]) return TONE[kindName];
@@ -217,10 +282,10 @@
 
   /* 0.3.54: what the round looks like, keyed off the ammo type (never the gun name).
      ball = powder, ball & caps; cart = brass rim + primer; buck = red hull, brass base;
-     rf22 = small brass (.22 / light); hex = dark lead with a green glow. */
+     rf22 = small brass (.22 / light); hex = Eldorite face by shell level (dual split at 7–10). */
   function roundType(spec, chamber) {
     var raw = chamber ? chamber.raw : "";
-    if (typeof raw === "string" && (/^[1-9]$/.test(raw) || raw.indexOf("k:hex:") === 0)) return "hex";
+    if (hexLevelOf(raw)) return "hex";
     var row = catalogRow(spec);
     var ammo = String(spec.ammo || (row && row.ammo) || "").toLowerCase();
     if (typeof raw === "string" && raw.indexOf("k:") === 0) {
@@ -275,10 +340,17 @@
     if (hammer) word += ", position 1 under the hammer";
     if (spin) word = "Spin chamber " + (chamber.index + 1) + " under the hammer, free";
     var text = inner != null ? inner : esc(roundText(spec, chamber));
+    if (!text && !locked) {
+      var shownLevel = hexLevelOf(chamber && chamber.raw);
+      if (shownLevel) text = String(shownLevel);
+    }
     var cls = extraClass ? " " + extraClass : "";
     var attrs = attrString(spec, k);
     if (spin) attrs = spinAttrRewrite(attrs);
-    var tip = typeof spec.tip === "function" ? (spec.tip(k, chamber) || "") : "";
+    var hostTip = typeof spec.tip === "function" ? (spec.tip(k, chamber) || "") : "";
+    var autoTip = hexTip(chamber && chamber.raw);
+    var tip = hostTip || autoTip;
+    if (!hostTip && spin && autoTip) tip = autoTip + " · Spin (free)";
     var aria = tip || (word + (spin ? "" : " chamber " + (chamber.index + 1)));
     return '<button type="button" class="ammo-round is-' + chamber.state + next + cls + '"' +
       (style ? ' style="' + style + '"' : "") +
@@ -288,6 +360,12 @@
   }
 
   function toneStyle(spec, chamber) {
+    var raw = chamber ? chamber.raw : "";
+    var lv = hexLevelOf(raw);
+    if (lv && (String(raw).indexOf("k:hex:") === 0 || /^(?:10|[1-9])$/.test(String(raw)))) {
+      var paint = hexPaint(lv);
+      return "--case:" + paint.tone + ";--hex-face:" + paint.fill + ";--hex-ink:" + paint.ink + ";";
+    }
     return "--case:" + toneOf(spec, chamber) + ";";
   }
 
@@ -542,7 +620,7 @@
      loaded chamber that isn't locked), so mixed loads show what fires next. The chamber token
      ("k:type:caliber:tier", hex "1".."9" / "k:hex:N") wins over the gun's own fields. An empty gun
      falls back to its caliber/default round and reports empty so the count can go muted red.
-     Colours are the #73 round art: TONE / HEX case colours and the gauge hull colours. */
+     Colours are the #73 round art: TONE case colours, Eldorite hex faces, and the gauge hull colours. */
   var HULL = { "410": ["#3f8fe0", "#1f5a9c"], "12": ["#c4322e", "#8e241f"], "10": ["#2f7a3a", "#1a4a22"] };
   function roundLook(spec) {
     spec = spec || {};
@@ -572,8 +650,15 @@
     var type = roundType(view, chamber);
     var look = { type: type, tone: toneOf(view, chamber), next: at, empty: at < 0 };
     if (type === "hex") {
-      var lv = /^[1-9]$/.test(raw) ? Number(raw) : Number(String(raw).split(":")[2] || 1);
-      look.hexLevel = lv || 1;
+      var paint = hexPaint(hexLevelOf(raw) || 1);
+      look.hexLevel = paint.level;
+      look.tone = paint.tone;
+      look.hexColors = paint.colors;
+      look.hexFill = paint.fill;
+      look.hexInk = paint.ink;
+      look.dual = paint.dual;
+      var spell = hexSpellName(raw);
+      if (spell) look.spell = spell;
     }
     if (type === "shell") {
       look.gauge = shellGauge(view);
@@ -595,6 +680,8 @@
     cycleEject: cycleEject,
     roundType: roundType,
     roundLook: roundLook,
+    hexPaint: hexPaint,
+    hexTip: hexTip,
     html: html,
     mount: mount
   };

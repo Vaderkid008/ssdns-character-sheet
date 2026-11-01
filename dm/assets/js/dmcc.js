@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.212"; // dmcc-playtest-v02212
+const VERSION = "0.2.213"; // dmcc-playtest-v02213
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -1616,8 +1616,12 @@ function slotLine(s) {
   return bits.length ? "Shells " + bits.join(" · ") : "";
 }
 
-const HEX_CASE = ["#c4b5fd", "#a78bfa", "#8b5cf6", "#7c3aed", "#6d28d9", "#5b21b6", "#4c1d95", "#3b0764", "#2e1065"];
 const SPECIAL_CASE = { buck: "#c4a35a", slug: "#6b4f3a", percussion: "#7d8b99", bigfifty: "#4d6270", arrows: "#5e8a55" };
+function hexPaint(level) {
+  const AD = window.SSDNSAmmoDisplay;
+  if (AD && AD.hexPaint) return AD.hexPaint(level);
+  return { fill: "#d8b3ff", ink: "#1a120c" };
+}
 function chamberTokens(g) {
   if (Array.isArray(g.chambers) && g.chambers.length) return g.chambers.slice();
   const cap = Number(g.capacity) || 0;
@@ -1651,9 +1655,9 @@ function cylinderHtml(g) {
       if (parts.length > 5 && parts[5]) {
         try { spell = decodeURIComponent(parts.slice(5).join(":")); } catch (e) { spell = parts.slice(5).join(":"); }
       }
-      const color = HEX_CASE[Math.max(0, (parseInt(lv, 10) || 1) - 1)] || "#9b6fd6";
+      const paint = hexPaint(lv);
       cls += " loaded tinted hex";
-      style = `--case:${color}`;
+      style = `--case:${paint.fill};--hex-ink:${paint.ink || "#1a120c"}`;
       text = esc(lv);
       label = (spell ? spell + " · " : "") + "Hex shell " + lv;
     } else if (s) {
