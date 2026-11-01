@@ -513,7 +513,12 @@ toolbar.innerHTML = `
   <span data-act="zoomLabel">1.00×</span>
   <button data-act="reset">Reset view</button>
   <button data-act="fxBtn" type="button" class="ssm-fx-btn" title="Attack effects on the map (firing lines). Saved for you on this device.">Effects: ON</button>
-  ${role === 'dm' ? `<button data-act="challengeBtn" type="button" class="ssm-challenge" title="Challenge picked players. Same check picker as the DMCC bar.">Challenge</button>` : ``}
+  ${role === 'dm'
+    ? `<button data-act="challengeBtn" type="button" class="ssm-challenge" title="Challenge picked players. Same check picker as the DMCC bar.">Challenge</button>
+    <button data-act="shortRestBtn" type="button" title="Short rest for every seated player. Same command as Fight → Short rest (party).">Short rest (party)</button>
+    <button data-act="longRestBtn" type="button" title="Long rest for every seated player. Same command as Fight → Long rest (party).">Long rest (party)</button>`
+    : `<button data-act="shortRestBtn" type="button" title="Short rest on this character. Same as the sheet Short rest, including the tools prompt.">Short rest</button>
+    <button data-act="longRestBtn" type="button" title="Long rest on this character. Same as the sheet Long rest.">Long rest</button>`}
   ${role === 'dm' ? `
     <button data-act="fogBtn" class="active">Fog: ON</button>
     <button data-act="showFovBtn" class="active">Show Player FOV: ON</button>
@@ -8153,6 +8158,30 @@ function paintFxBtn() {
 if (q('challengeBtn')) {
   q('challengeBtn').addEventListener('click', () => emit('challenge:open', {}));
 }
+/* 0.3.198: toolbar rest. Player uses the sheet. DM uses the same party rest as the Fight tab. */
+function mapRest(kind) {
+  if (role === 'dm') {
+    const party = window.SSDNSPartyRest;
+    if (typeof party !== 'function') {
+      toast('Party rest is not loaded. Use Short rest or Long rest on the Fight tab.');
+      return;
+    }
+    try {
+      Promise.resolve(party(kind)).catch(() => toast('Party rest did not send.'));
+    } catch (e) {
+      toast('Party rest did not send.');
+    }
+    return;
+  }
+  const sheet = window.SSDNSSheet;
+  if (!sheet || typeof sheet.applyRest !== 'function') {
+    toast('Character sheet rest is not loaded. Open the sheet to take a rest.');
+    return;
+  }
+  sheet.applyRest(kind);
+}
+if (q('shortRestBtn')) q('shortRestBtn').addEventListener('click', () => mapRest('short'));
+if (q('longRestBtn')) q('longRestBtn').addEventListener('click', () => mapRest('long'));
 if (q('fxBtn')) {
   q('fxBtn').addEventListener('click', () => {
     if (!FXA) return;
