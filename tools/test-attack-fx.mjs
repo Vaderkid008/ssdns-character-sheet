@@ -167,7 +167,7 @@ check("look.lightning.empty", FX.lookOf({ type: "spell", spell: "Shocking Grasp"
 check("look.scorch.empty", FX.lookOf({ type: "spell", spell: "Scorching Ray" }) === "fire" && FX.lookOf({ type: "spell", spell: "Scorching Ray Shell" }) === "fire");
 check("resolve.fireBolt.empty", resolveLook({ spell: true, spellName: "Fire Bolt" }) === "fire" && resolveLook({ spell: true, spellName: "Fire Bolt Shell", dmgType: "" }) === "fire");
 check("resolve.siblings.empty", resolveLook({ spell: true, spellName: "Ray of Frost" }) === "cold" && resolveLook({ spell: true, spellName: "Shocking Grasp" }) === "lightning" && resolveLook({ spell: true, spellName: "Witch Bolt" }) === "lightning" && resolveLook({ spell: true, spellName: "Scorching Ray" }) === "fire");
-check("look.hexShell", FX.lookOf({ type: "spell", spell: "Fire Bolt Shell", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Fireball Shell", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Acid Splash Shell" }) === "acid" && FX.lookOf({ type: "spell", spell: "Wall of Fire Shell", dmg: "fire" }) === "fire");
+check("look.hexShell", FX.lookOf({ type: "spell", spell: "Fire Bolt Shell", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Fireball Shell", dmg: "fire" }) === "fireball" && FX.lookOf({ type: "spell", spell: "Acid Splash Shell" }) === "acid" && FX.lookOf({ type: "spell", spell: "Wall of Fire Shell", dmg: "fire" }) === "");
 check("look.wish", FX.lookOf({ type: "spell", spell: "Wish" }) === "ribbon");
 check("look.blank", FX.lookOf({ type: "spell" }) === "ribbon");
 check("look.boolNotName", FX.lookOf({ type: "spell", spell: true, weapon: "Faerie Fire (Foxfire)" }) === "foxfire");
@@ -178,8 +178,8 @@ check("request.spellName", reqSpellName.spell === "Faerie Fire (Foxfire)" && req
 w.SSDNS_RULES = { spellAliases: [{ phb: "Faerie Fire", alias: "Foxfire" }, { phb: "Hold Person", alias: "Lasso" }, { phb: "Fire Bolt", alias: "Powder Spark" }] };
 check("look.alias", FX.lookOf({ type: "spell", spell: "Foxfire" }) === "foxfire" && FX.namedLook("Lasso") === "lasso" && FX.lookOf({ type: "spell", spell: "Powder Spark" }) === "fire" && FX.lookOf({ type: "spell", spell: "Powder Spark", dmg: "fire" }) === "fire");
 check("look.produceStays", FX.lookOf({ type: "spell", spell: "Produce Flame" }) === "produceflame");
-check("look.fireball", FX.lookOf({ type: "spell", spell: "Fireball", dmg: "fire" }) === "fire");
-check("look.wall", FX.lookOf({ type: "spell", spell: "Wall of Fire", dmg: "fire" }) === "fire");
+check("look.fireball", FX.lookOf({ type: "spell", spell: "Fireball", dmg: "fire" }) === "fireball" && FX.lookOf({ type: "spell", spell: "Fireball" }) === "fireball");
+check("look.wall", FX.lookOf({ type: "spell", spell: "Wall of Fire", dmg: "fire" }) === "" && FX.lookOf({ type: "spell", spell: "Wall of Fire Shell" }) === "");
 check("look.bolt", FX.lookOf({ type: "spell", spell: "Lightning Bolt", dmg: "lightning" }) === "lightning");
 check("look.ice", FX.lookOf({ type: "spell", spell: "Ice Storm", dmg: "bludgeoning and cold" }) === "cold");
 check("look.cloud", FX.lookOf({ type: "spell", spell: "Cloudkill", dmg: "poison" }) === "poison");
@@ -187,7 +187,7 @@ check("look.acid", FX.lookOf({ type: "spell", spell: "Acid Splash", dmg: "acid" 
 check("look.necro", FX.lookOf({ type: "spell", spell: "Chill Touch" }) === "necrotic" && FX.lookOf({ type: "spell", spell: "Inflict Wounds" }) === "necrotic" && FX.lookOf({ type: "spell", spell: "Blight" }) === "necrotic");
 check("look.radiant", FX.lookOf({ type: "spell", spell: "Sacred Flame" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Guiding Bolt" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Moonbeam" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Spirit Guardians" }) === "radiant");
 check("look.poison", FX.lookOf({ type: "spell", spell: "Poison Spray" }) === "poison");
-check("look.thunder", FX.lookOf({ type: "spell", spell: "Thunderwave" }) === "thunder" && FX.lookOf({ type: "spell", spell: "Shatter" }) === "thunder");
+check("look.thunder", FX.lookOf({ type: "spell", spell: "Thunderwave" }) === "thundercube" && FX.lookOf({ type: "spell", spell: "Thunderwave Shell" }) === "thundercube" && FX.lookOf({ type: "spell", spell: "Shatter" }) === "thunder");
 check("look.hands", FX.lookOf({ type: "spell", spell: "Burning Hands", dmg: "fire" }) === "firecone" && FX.lookOf({ type: "spell", spell: "Fire Bolt", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Burning Hands" }) !== "fire");
 function paintOpsAt(spec, A, B) {
   const ops = [];
@@ -204,6 +204,12 @@ function paintOpsAt(spec, A, B) {
 }
 check("paint.hands", paintOps({ type: "spell", spell: "Burning Hands", dmg: "fire" }) > 0 && paintOps({ type: "spell", spell: "Fire Bolt", dmg: "fire" }) > 0);
 check("paint.thunderSelf", paintOpsAt({ type: "spell", spell: "Thunderwave" }, { x: 40, y: 80 }, { x: 40, y: 80 }) > 0);
+check("paint.fireball", paintOps({ type: "spell", spell: "Fireball", dmg: "fire" }, 120) > 0 && paintOps({ type: "spell", spell: "Fireball", dmg: "fire" }, 480) > 0);
+check("paint.thunderCube", paintOps({ type: "spell", spell: "Thunderwave" }, 160) > 0 && paintOps({ type: "spell", spell: "Shatter" }, 80) > 0);
+check("paint.wallZone", paintOps({ type: "spell", spell: "Wall of Fire", dmg: "fire" }) === 0 && paintOps({ type: "spell", spell: "Light Shell" }) === 0);
+check("plan.fireball", FX.plan("spell", "hit", { spell: "Fireball", dmg: "fire" }).look === "fireball" && FX.plan("spell", "hit", { spell: "Thunderwave" }).look === "thundercube");
+check("src.wallLoop", mapSrc.includes("function paintWallOfFire") && mapSrc.includes("zoneLoopLive"));
+check("src.lightDismiss", read("assets/js/lighting.js").includes("function dropCarriedLightZone") && read("assets/js/sheet-extras.js").includes("ssdns-light-dismiss"));
 check("look.zoneOnly", FX.lookOf({ type: "spell", spell: "Grease" }) === "" && FX.lookOf({ type: "spell", spell: "Light" }) === "" && FX.lookOf({ type: "spell", spell: "Daylight" }) === "");
 const extrasSrc = read("assets/js/sheet-extras.js");
 function pendingBlock(start, end) {
@@ -439,7 +445,7 @@ check("spell.fireballNoPublish", feedRows().length === areaRows);
 const wallLog = dm.fxLog().length;
 const wallPub = dm.fx({ id: "wall1", type: "spell", shooter: "c_out", spell: "Wall of Fire", weapon: "Wall of Fire", dmg: "fire", at: { x: 14.5, y: 8.5 }, result: "hit", heard: ["dm"] });
 await flush(30);
-check("spell.wallPublishes", !!wallPub && wallPub.spell === "Wall of Fire" && wallPub.at && wallPub.at.x === 14.5 && FX.lookOf(wallPub) === "fire", JSON.stringify(wallPub));
+check("spell.wallPublishes", !!wallPub && wallPub.spell === "Wall of Fire" && wallPub.at && wallPub.at.x === 14.5 && FX.lookOf(wallPub) === "", JSON.stringify(wallPub));
 check("spell.wallDraws", dm.fxLog().length === wallLog + 1 && lastLog(dm).type === "spell");
 function fxStrokes() {
   return w.__calls.filter((c) => (c[0] === "fill" || c[0] === "stroke") && c[2] && c[2].className === "ssm-fx").length;
@@ -501,6 +507,18 @@ check("toggle.offNoDraw", pl.fxLog().length === offLog);
 check("toggle.dmStillPublishes", feedRows().length === before + 1, "the DM's own toggle must not hide effects from players");
 dmEl.querySelector('[data-act="fxBtn"]').click();
 check("toggle.backOn", FX.enabled() === true && w.localStorage.getItem(FX.PREF_KEY) !== "0");
+
+const wallZone = { id: "wof_tip", key: "wall of fire", spell: "Wall of Fire", shape: "wall", origin: { x: 14, y: 9 }, facing: 1.2, length: 20, width: 5, hotSide: 10 };
+dm.setSpellZones([wallZone], { casterId: "ada" });
+const loopA = w.__calls.length;
+await flush(50);
+const loopB = w.__calls.length;
+await flush(50);
+const loopC = w.__calls.length;
+check("zone.wallLoops", loopB > loopA && loopC > loopB && (dm.spellZones() || []).some((z) => z && z.key === "wall of fire"), JSON.stringify({ loopA, loopB, loopC }));
+dm.setSpellZones([], { casterId: "ada" });
+await flush(40);
+check("zone.wallCleared", !(dm.spellZones() || []).some((z) => z && z.key === "wall of fire"));
 
 dm.destroy(); pl.destroy();
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall attack-fx checks passed");

@@ -63,6 +63,12 @@ check("skulker", L.hasSkulker(c) && /no disadvantage/.test(L.perceptionNote("dim
 check("dim.dis", /Disadvantage/.test(L.perceptionNote("dim", false)));
 check("dark.blind", /blinded/.test(L.perceptionNote("dark", false)));
 
+check("spell.shellKey", L.spellKey("Light Shell") === "spell:light" && L.spellKey("Light") === "spell:light" && L.spellKey("Dancing Lights Shell") === "spell:dancing-lights");
+const shell = { items: [], guns: [], melee: [], shield: "", lineage: "farmers", feats: [], cantrips: ["Light Shell"], lightOn: {}, spellMarks: { zones: [{ id: "z1", key: "light", spell: "Light" }, { id: "z2", key: "daylight", spell: "Daylight" }] } };
+L.setSpell(shell, "spell:light", true);
+check("spell.shellOn", L.spellLights(shell).some((row) => row.id === "spell:light") && shell.spellMarks.zones.length === 2);
+L.setSpell(shell, "spell:light", false);
+check("spell.shellDismiss", shell.lightOn["spell:light"] === false && shell.spellMarks.zones.length === 1 && shell.spellMarks.zones[0].key === "daylight");
 L.setSpell(c, "spell:light", true);
 const prof = L.tokenProfile(c);
 check("profile.spell", prof.lights.some(l => l.bright === 20 && l.name === "Light"));

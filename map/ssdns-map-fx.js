@@ -371,7 +371,8 @@
   }
 
   /* Locked palette (specs/spell-fx/spell-fx-palette.json). The six v5 types use those locked colours.
-     fireball / witch-bolt stay on the fire / lightning looks. Grease, Light, and Daylight are zones, not beams. */
+     Fireball is its own powder-keg sphere (not the Fire Bolt beam). Thunderwave is a cube off the caster.
+     Witch Bolt stays on lightning. Grease, Light, Daylight, and Wall of Fire are zones, not beams. */
   var LOOK_TIME = {
     ribbon: { grow: 220, hold: 140, fade: 450 },
     fire: { grow: 300, hold: 0, fade: 280 },
@@ -383,6 +384,9 @@
     necrotic: { grow: 260, hold: 160, fade: 560 },
     radiant: { grow: 280, hold: 0, fade: 260 },
     thunder: { grow: 110, hold: 60, fade: 320 },
+    /* Fireball: ember bead, then the bloom. Thunderwave: the square fills in the grow. */
+    fireball: { grow: 240, hold: 320, fade: 700 },
+    thundercube: { grow: 110, hold: 80, fade: 460 },
     psychic: { grow: 300, hold: 0, fade: 300 },
     beads: { grow: 260, hold: 0, fade: 260 },
     scurve: { grow: 200, hold: 140, fade: 450 },
@@ -465,6 +469,8 @@
     "darkness": "darkvoid",
     "hold person": "lasso",
     "burning hands": "firecone",
+    "fireball": "fireball",
+    "thunderwave": "thundercube",
     "misty step": "dustpop",
     "web": "silk",
     "spike growth": "cholla",
@@ -617,12 +623,13 @@
       if (/^poison spray$|^cloudkill$/.test(name)) return "poison";
       if (/^chill touch$|^inflict wounds$|^blight$/.test(name)) return "necrotic";
       if (/^sacred flame$|^guiding bolt$|^moonbeam$|^spirit guardians$/.test(name)) return "radiant";
-      if (/^thunderwave$|^shatter$/.test(name)) return "thunder";
+      if (/^shatter$/.test(name)) return "thunder";
+      /* Zones paint themselves. An empty look must not fall through to a fire beam. */
+      if (/^grease$|^light$|^daylight$|^wall of fire$/.test(name)) return "";
       /* Attack spells whose only look was the damage-type pass. An empty dmg (hidden AC pending resolve) used to paint the purple ribbon. */
       if (/^fire bolt$|^scorching ray$/.test(name)) return "fire";
       if (/^ray of frost$/.test(name)) return "cold";
       if (/^shocking grasp$|^witch bolt$/.test(name)) return "lightning";
-      if (/^grease$|^light$|^daylight$/.test(name)) return "";
     }
     var dmg = low(spec.dmg || spec.dmgType || spec.damageType);
     if (/(^|[^a-z])fire([^a-z]|$)/.test(dmg)) return "fire";
@@ -936,6 +943,187 @@ function thunderPaint(ctx, A, B, lt, seed) {
     ctx.restore();
   }
 }
+/* Powder-keg sphere. Ember bead from the caster, then a bloom that fills the 20-ft radius.
+   Not the Fire Bolt beam. Palette: glow 200,60,15 · core 255,125,35 · hot 255,225,160 · burst 255,140,45. */
+function fireballPaint(ctx, A, B, lt, seed, g) {
+  var time = LOOK_TIME.fireball;
+  var life = time.grow + time.hold + time.fade;
+  if (!B || lt < 0 || lt > life) return;
+  var cell = (g && g.cell) || 70;
+  var radius = cell * 4;
+  var flight = time.grow;
+  var boom = lt - flight;
+  var fadeAt = time.grow + time.hold;
+  var f = lt < fadeAt ? 1 : 1 - clamp((lt - fadeAt) / time.fade);
+  var rand = rng((seed || 3) + 11);
+  if (A && lt < flight + 50) {
+    var travel = easeOut(Math.min(1, lt / Math.max(1, flight)));
+    var beadA = lt < flight ? 1 : 1 - (lt - flight) / 50;
+    var hx = lerp(A.x, B.x, travel), hy = lerp(A.y, B.y, travel);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    var trail;
+    for (trail = 1; trail <= 6; trail++) {
+      var u = Math.max(0, travel - trail * 0.055);
+      ctx.fillStyle = rgba(trail % 2 ? "255,140,45" : "255,225,160", 0.32 * beadA);
+      ctx.beginPath();
+      ctx.arc(lerp(A.x, B.x, u), lerp(A.y, B.y, u), 3.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = rgba("255,125,35", 0.7 * beadA);
+    ctx.beginPath();
+    ctx.arc(hx, hy, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = rgba("255,242,205", 0.95 * beadA);
+    ctx.beginPath();
+    ctx.arc(hx, hy, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  if (boom <= 0) return;
+  var expand = easeOut(Math.min(1, boom / 240));
+  var R = radius * (0.16 + 0.84 * expand);
+  var core = boom < 180 ? 1 : f;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  var coreR = Math.max(8, cell * (0.28 + 0.55 * Math.min(1, boom / 150)));
+  ctx.fillStyle = stops(grad(ctx, "r", B.x, B.y, 0, B.x, B.y, coreR), [
+    [0, "rgba(255,250,230," + 0.95 * core + ")"],
+    [0.4, "rgba(255,225,160," + 0.72 * core + ")"],
+    [1, "rgba(255,125,35,0)"]
+  ]) || rgba("255,225,160", 0.75 * core);
+  ctx.beginPath();
+  ctx.arc(B.x, B.y, coreR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = stops(grad(ctx, "r", B.x, B.y, coreR * 0.15, B.x, B.y, R), [
+    [0, "rgba(255,140,45," + 0.5 * f + ")"],
+    [0.62, "rgba(200,60,15," + 0.36 * f + ")"],
+    [1, "rgba(200,60,15,0)"]
+  ]) || rgba("255,125,35", 0.4 * f);
+  ctx.beginPath();
+  ctx.arc(B.x, B.y, R, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = rgba("255,225,160", 0.88 * f);
+  ctx.lineWidth = 3 + 7 * (1 - expand);
+  ctx.beginPath();
+  ctx.arc(B.x, B.y, R, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = rgba("255,140,45", 0.5 * f);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(B.x, B.y, R * 0.7, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+  var smokeK = clamp(boom / (time.hold + time.fade));
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  var puff;
+  for (puff = 0; puff < 11; puff++) {
+    var ang = rand() * Math.PI * 2;
+    var dist = R * (0.78 + 0.22 * smokeK);
+    ctx.fillStyle = rgba(puff % 2 ? "78,62,48" : "42,34,26", 0.42 * (1 - smokeK * 0.25) * f);
+    ctx.beginPath();
+    ctx.arc(B.x + Math.cos(ang) * dist, B.y + Math.sin(ang) * dist, 7 + smokeK * 18, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  var scorch = clamp((boom - 60) / time.fade);
+  ctx.fillStyle = rgba("62,28,12", 0.32 * scorch * f);
+  ctx.beginPath();
+  ctx.arc(B.x, B.y, radius * 0.92, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  sparks(ctx, B, boom, seed, "255,140,45", 16, radius * 0.9);
+}
+/* Canyon thunderclap in a box. A 15-ft cube off the caster's palm, not a cone.
+   Palette: glow 200,170,110 · core 235,215,170 · dust 95,80,60 · edge 215,185,125 / 150,120,80. */
+function thunderCubePaint(ctx, A, B, lt, seed, g) {
+  var time = LOOK_TIME.thundercube;
+  var life = time.grow + time.hold + time.fade;
+  if (!A || lt < 0 || lt > life) return;
+  var cell = (g && g.cell) || 70;
+  var side = cell * 3;
+  var span = B ? Math.hypot(B.x - A.x, B.y - A.y) : 0;
+  var d = span > 8 ? dirOf(A, B) : { x: 1, y: 0, d: 1 };
+  var nx = -d.y, ny = d.x;
+  var f = lt < time.grow + time.hold ? 1 : 1 - clamp((lt - time.grow - time.hold) / time.fade);
+  var grow = easeOut(Math.min(1, lt / Math.max(1, time.grow)));
+  var reach = side * grow;
+  var half = reach / 2;
+  function corner(fwd, lat) {
+    return { x: A.x + d.x * fwd + nx * lat, y: A.y + d.y * fwd + ny * lat };
+  }
+  function square(fwd, lat) {
+    return [corner(0, -lat), corner(fwd, -lat), corner(fwd, lat), corner(0, lat)];
+  }
+  var box = square(reach, half);
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = rgba("95,80,60", 0.46 * f * Math.max(grow, 0.15));
+  poly(ctx, box);
+  ctx.closePath();
+  ctx.fill();
+  var rip;
+  for (rip = 0; rip < 3; rip++) {
+    var u = clamp(grow - rip * 0.22);
+    if (u <= 0) continue;
+    ctx.strokeStyle = rgba("215,185,125", (0.55 - rip * 0.12) * f);
+    ctx.lineWidth = 2;
+    poly(ctx, square(side * u, (side * u) / 2));
+    ctx.closePath();
+    ctx.stroke();
+  }
+  ctx.restore();
+  var flash = lt < 90 ? 1 - lt / 90 : 0;
+  if (flash > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = rgba("235,215,170", 0.92 * flash);
+    ctx.beginPath();
+    ctx.arc(A.x, A.y, cell * 0.38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  if (lt > time.grow * 0.8) {
+    var edge = lt < time.grow + 100 ? 1 : f * 0.7;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = rgba("150,120,80", 0.85 * edge);
+    ctx.lineWidth = 6;
+    poly(ctx, box);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.strokeStyle = rgba("215,185,125", 0.95 * edge);
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (lt > time.grow) {
+    var k = easeOut(clamp((lt - time.grow) / time.fade));
+    var rand = rng((seed || 5) + 8);
+    var dirs = [{ x: d.x, y: d.y }, { x: -d.x, y: -d.y }, { x: nx, y: ny }, { x: -nx, y: -ny }];
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    var s, p;
+    for (s = 0; s < dirs.length; s++) {
+      for (p = 0; p < 4; p++) {
+        var along = (p / 3 - 0.5) * side * grow;
+        var ox, oy;
+        if (s === 0) { ox = A.x + d.x * reach + nx * along; oy = A.y + d.y * reach + ny * along; }
+        else if (s === 1) { ox = A.x + nx * along; oy = A.y + ny * along; }
+        else {
+          ox = A.x + d.x * (reach * 0.5) + (s === 2 ? nx : -nx) * half;
+          oy = A.y + d.y * (reach * 0.5) + (s === 2 ? ny : -ny) * half;
+        }
+        var blow = (16 + rand() * 26) * k;
+        ctx.fillStyle = rgba(p % 2 ? "120,100,75" : "95,80,60", 0.55 * (1 - k));
+        ctx.beginPath();
+        ctx.arc(ox + dirs[s].x * blow, oy + dirs[s].y * blow, 3 + rand() * 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+}
 function psychicPaint(ctx, A, B, lt) {
   var T = LOOK_TIME.psychic;
   if (!A || !B || lt < 0 || lt > T.grow + T.fade) return;
@@ -1096,7 +1284,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
   }
   function spellPaint(ctx, A, B, lt, seed, spec, g) {
     var look = lookOf(spec);
-    /* Grease, Light, and Daylight return "" on purpose. An empty look must not fall through to the purple ribbon. */
+    /* Grease, Light, Daylight, and Wall of Fire return "" on purpose. An empty look must not fall through to the purple ribbon. */
     if (!look || look === "token") return;
     var T = g && (g.T || g.S);
     var r = (g && (g.rT || g.rS)) || 18;
@@ -1108,6 +1296,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
     if (look === "poison") return poisonPaint(ctx, A, B, lt, seed);
     if (look === "necrotic") return necroticPaint(ctx, A, B, lt, seed);
     if (look === "radiant") return radiantPaint(ctx, A, B, lt);
+    if (look === "fireball") return fireballPaint(ctx, A, (g && g.T) || B, lt, seed, g);
+    if (look === "thundercube") return thunderCubePaint(ctx, A, B, lt, seed, g);
     if (look === "thunder") return thunderPaint(ctx, A, B, lt, seed);
     if (look === "psychic") return psychicPaint(ctx, A, B, lt);
     if (look === "beads") return beadsPaint(ctx, A, B, lt, seed);

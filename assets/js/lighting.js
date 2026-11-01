@@ -119,7 +119,23 @@
     });
     return out;
   }
-  function spellKey(name) { return SPELL_KEYS[String(name || "").toLowerCase().replace(/\s+/g, " ").trim()] || ""; }
+  /* "Light Shell" and "Light (Lantern)" are the cantrip. The shell suffix must not miss the table. */
+  function spellKey(name) {
+    var s = String(name || "").toLowerCase().replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+shell$/i, "").replace(/\s+/g, " ").trim();
+    return SPELL_KEYS[s] || "";
+  }
+  /* Turning Light off drops the placed zone so the bright/dim rings leave with it. */
+  function dropCarriedLightZone(c) {
+    if (!c || !c.spellMarks || !Array.isArray(c.spellMarks.zones)) return false;
+    var before = c.spellMarks.zones.length;
+    c.spellMarks.zones = c.spellMarks.zones.filter(function (z) {
+      if (!z) return false;
+      var key = String(z.key || "").toLowerCase();
+      var spell = String(z.spell || "").toLowerCase().replace(/\s+shell$/i, "").trim();
+      return key !== "light" && spell !== "light";
+    });
+    return c.spellMarks.zones.length !== before;
+  }
   function lightOn(c) {
     if (!c.lightOn || typeof c.lightOn !== "object") c.lightOn = {};
     return c.lightOn;
@@ -279,6 +295,14 @@
     var bag = lightOn(c);
     if (key === "spell:dancing-lights") bag[key] = on ? (num(bag[key + ":n"]) || 4) : 0;
     else bag[key] = !!on;
+    if (key === "spell:light" && !on) {
+      dropCarriedLightZone(c);
+      try {
+        if (typeof root.dispatchEvent === "function" && typeof root.CustomEvent === "function") {
+          root.dispatchEvent(new root.CustomEvent("ssdns-light-dismiss", { detail: { key: key } }));
+        }
+      } catch (e) {}
+    }
     return bag;
   }
   function douseItem(c, uid, out) {
