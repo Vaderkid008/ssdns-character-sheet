@@ -1,6 +1,6 @@
 {
- "version": "n88-c1",
- "count": 85,
+ "version": "chunk9-utility",
+ "count": 88,
  "spells": {
   "acid splash": {
    "file": "magic/booming_acid_splash_#2-1793461200201.mp3",
@@ -680,6 +680,30 @@
    "source": "drop",
    "n": 85,
    "present": false,
+   "note": ""
+  },
+  "grease": {
+   "file": "magic/booming_grease_splat_#4-1793501774973.mp3",
+   "assigned": "booming_grease_splat_#4-1793501774973.mp3",
+   "source": "drop",
+   "n": 86,
+   "present": true,
+   "note": ""
+  },
+  "light": {
+   "file": "magic/Sudden,_intense_ligh_#1-1793501869813.mp3",
+   "assigned": "Sudden,_intense_ligh_#1-1793501869813.mp3",
+   "source": "drop",
+   "n": 87,
+   "present": true,
+   "note": ""
+  },
+  "daylight": {
+   "file": "magic/punchy_Daylight_abru_#4-1793501992403.mp3",
+   "assigned": "punchy_Daylight_abru_#4-1793501992403.mp3",
+   "source": "drop",
+   "n": 88,
+   "present": true,
    "note": ""
   }
  }

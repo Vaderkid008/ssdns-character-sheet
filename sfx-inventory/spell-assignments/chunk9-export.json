@@ -1,0 +1,44 @@
+{
+  "chunk": 9,
+  "label": "Utility",
+  "exported": "2026-11-01T03:00:34.762Z",
+  "source_list": "Coder/Jessey gen request 2026-10-31 ~9:00 PM CT (Map FX draft #202): zone-only utility spells with only the generic cast whoosh. Not present in specs/N81-SPELL-GAP-SCORES-2026-10-28.csv, so numbered 1-3 locally.",
+  "spells": [
+    {
+      "n": 1,
+      "spell": "Grease",
+      "current_cue": "spellcast",
+      "current_file": "final/magic/spellcast.mp3",
+      "current_status": "default",
+      "dropped_file": "booming_grease_splat_#4-1793501774973.mp3",
+      "assigned_file": "booming_grease_splat_#4-1793501774973.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 2,
+      "spell": "Light",
+      "current_cue": "spellcast",
+      "current_file": "final/magic/spellcast.mp3",
+      "current_status": "default",
+      "dropped_file": "Sudden,_intense_ligh_#1-1793501869813.mp3",
+      "assigned_file": "Sudden,_intense_ligh_#1-1793501869813.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    },
+    {
+      "n": 3,
+      "spell": "Daylight",
+      "current_cue": "spellcast",
+      "current_file": "final/magic/spellcast.mp3",
+      "current_status": "default",
+      "dropped_file": "punchy_Daylight_abru_#4-1793501992403.mp3",
+      "assigned_file": "punchy_Daylight_abru_#4-1793501992403.mp3",
+      "source": "drop",
+      "done": true,
+      "notes": ""
+    }
+  ]
+}
