@@ -90,8 +90,8 @@ function glyph(list, x1, y1, x2, y2) {
 
 const src = read("map/ssdns-map.js");
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.188" && ver.dmcc === "0.2.201" && ver.sheetBuild === "sheet-playtest-v03188" && ver.dmccBuild === "dmcc-playtest-v02201", JSON.stringify(ver));
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.188"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.201"'));
+check("ver", ver.sheet === "0.3.189" && ver.dmcc === "0.2.202" && ver.sheetBuild === "sheet-playtest-v03189" && ver.dmccBuild === "dmcc-playtest-v02202", JSON.stringify(ver));
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.189"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.202"'));
 check("src.rulesUntouched", !read("assets/data/rules.js").includes("0.3.169") && !read("database.rules.json").includes("0.2.182") && !read("assets/data/rules.js").includes("doorGlyph"));
 check("src.dmWalls", src.includes("sceneData().walls.length && role === 'dm' && state.showWalls"));
 check("src.noBleed", src.includes("if (w.open || (w.window && !w.shut)) continue;") && src.includes("if (!w || w.open) return false"));

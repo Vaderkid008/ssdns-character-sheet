@@ -1,6 +1,7 @@
 /**
  * N80 — a Hexslinger chamber stores the spell that was picked.
- * Sheet 0.3.168 / DMCC 0.2.181. rules.js stays untouched.
+ * Cantrips refuse + Hex shell and do not write a nameless k:hex token.
+ * Sheet 0.3.189 / DMCC 0.2.202. rules.js stays untouched.
  *   node tools/test-n80-hex-load.mjs
  */
 import fs from "node:fs";
@@ -18,18 +19,51 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.169" && version.sheetBuild === "sheet-playtest-v03169");
-check("ver.dmcc", version.dmcc === "0.2.182" && version.dmccBuild === "dmcc-playtest-v02182");
-check("ver.rules", !read("assets/data/rules.js").includes("0.3.169") && !read("assets/data/rules.js").includes("0.2.182") && !read("database.rules.json").includes("0.3.169"));
+check("ver.sheet", version.sheet === "0.3.189" && version.sheetBuild === "sheet-playtest-v03189");
+check("ver.dmcc", version.dmcc === "0.2.202" && version.dmccBuild === "dmcc-playtest-v02202");
+check("ver.rules", !read("assets/data/rules.js").includes("0.3.189") && !read("assets/data/rules.js").includes("0.2.202") && !read("database.rules.json").includes("0.3.189"));
 
 const html = read("index.html").replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
 const dom = new JSDOM(html, { url: "http://127.0.0.1:8765/index.html", pretendToBeVisual: true, runScripts: "dangerously" });
 const window = dom.window;
 window.matchMedia = function () { return { matches: false, addEventListener() {}, removeEventListener() {} }; };
+const realSetTimeout = window.setTimeout.bind(window);
+const realClearTimeout = window.clearTimeout.bind(window);
+const clock = [];
+window.setTimeout = function (fn, ms, ...args) {
+  const rec = { fn: fn, ms: Number(ms) || 0, args: args, done: false, id: 0 };
+  rec.id = realSetTimeout(function () {
+    if (rec.done) return;
+    rec.done = true;
+    fn.apply(window, args);
+  }, rec.ms);
+  clock.push(rec);
+  return rec.id;
+};
+window.clearTimeout = function (id) {
+  clock.forEach(function (rec) { if (rec.id === id) rec.done = true; });
+  return realClearTimeout(id);
+};
+function flushLongTimers() {
+  clock.slice().forEach(function (rec) {
+    if (rec.done || rec.ms < 1000) return;
+    rec.done = true;
+    realClearTimeout(rec.id);
+    rec.fn.apply(window, rec.args);
+  });
+}
+function drainToasts() {
+  for (let n = 0; n < 8; n++) {
+    const t = window.document.querySelector("#toast");
+    if (!t || t.hidden) return;
+    flushLongTimers();
+  }
+}
 function run(rel) {
   vm.runInContext(read(rel), dom.getInternalVMContext(), { filename: rel });
 }
 run("assets/data/rules.js");
+run("assets/js/spell-cast.js");
 run("assets/js/ssdns-bridge.js");
 run("assets/js/storage.js");
 run("assets/js/misfire.js");
@@ -172,6 +206,98 @@ check("click.slotKept", !(c.hexLead[4] || []).some(Boolean));
 const sheet = read("assets/js/sheet-extras.js");
 check("src.noFirstOption", !sheet.includes('num(String(op.value).split(":")[0], -1) === level'));
 check("src.shieldGate", sheet.includes("shieldGate") && read("assets/js/spell-buffs.js").includes("Shield needs a loaded hex shell."));
+
+const CANTRIP_TOAST = "Cantrips don't use hex shells — cast from the spell list or Cast through gun.";
+const BARE_TOAST = "That shell has no spell on it. Pick the spell, then load it into the chamber.";
+function toastText() {
+  const el = window.document.querySelector("#toastText");
+  return (el && el.textContent) || "";
+}
+function hexTokens() {
+  return (g.chambers || []).filter((st) => /^k:hex:/.test(String(st || "")));
+}
+function slotsMarked() {
+  return [1, 2, 3, 4].some((lv) => (c.hexLead[lv] || []).some(Boolean));
+}
+c.cantrips = ["Light", "True Strike", "Fire Bolt"];
+app.refreshGunFace();
+
+resetGun();
+drainToasts();
+choose("0:Light", 1);
+clickLoad();
+check("cantrip.lightToast", toastText() === CANTRIP_TOAST, toastText());
+check("cantrip.lightEmpty", !(g.chambers || []).some(Boolean) && hexTokens().length === 0, JSON.stringify(g.chambers));
+check("cantrip.lightSlot", !slotsMarked(), JSON.stringify(c.hexLead && c.hexLead[1]));
+
+resetGun();
+drainToasts();
+choose("0:True Strike", 1);
+app.loadHexAt(0, 1, "0:True Strike");
+check("cantrip.strikeToast", toastText() === CANTRIP_TOAST, toastText());
+check("cantrip.strikeEmpty", !(g.chambers || []).some(Boolean) && hexTokens().length === 0, JSON.stringify(g.chambers));
+check("cantrip.strikeSlot", !slotsMarked());
+
+resetGun();
+drainToasts();
+app.loadHexShell(0, "0:Light", 1);
+check("cantrip.shellApi", toastText() === CANTRIP_TOAST && hexTokens().length === 0, JSON.stringify(g.chambers) + " · " + toastText());
+drainToasts();
+app.loadHexAt(0, 4, "0:Light");
+check("cantrip.atApi", toastText() === CANTRIP_TOAST && hexTokens().length === 0 && !slotsMarked(), JSON.stringify(g.chambers) + " · " + toastText());
+
+resetGun();
+choose("4:Wall of Fire", 4);
+clickLoad();
+wall = loadedSpell();
+check("cantrip.thenWall", !!(wall && wall.spell === "Wall of Fire" && String(wall.level) === "4"), JSON.stringify(g.chambers));
+
+resetGun();
+drainToasts();
+g.chambers = ["k:hex:1:spent", "", "", "", "", ""];
+g.loaded = 1;
+app.refreshGunFace();
+const bareDot = window.document.querySelector('[data-fire="0"][data-k="0"]');
+check("legacy.dot", !!bareDot);
+if (bareDot) bareDot.click();
+check("legacy.toast", toastText() === BARE_TOAST, toastText());
+check("legacy.kept", g.chambers[0] === "k:hex:1:spent", JSON.stringify(g.chambers));
+drainToasts();
+g.chambers = ["1", "", "", "", "", ""];
+g.loaded = 1;
+app.refreshGunFace();
+const digitDot = window.document.querySelector('[data-fire="0"][data-k="0"]');
+if (digitDot) digitDot.click();
+check("legacy.digitKept", g.chambers[0] === "1" && toastText() === BARE_TOAST, JSON.stringify(g.chambers) + " · " + toastText());
+
+resetGun();
+drainToasts();
+choose("0:Light", 1);
+const castBtn = window.document.querySelector('[data-cast="0"]');
+check("cast.cantripOn", !!(castBtn && !castBtn.disabled && /no slot and no chamber/i.test(castBtn.title || "")), castBtn && castBtn.title);
+castBtn.click();
+await new Promise((resolve) => setTimeout(resolve, 40));
+drainToasts();
+choose("0:True Strike", 1);
+window.document.querySelector('[data-cast="0"]').click();
+await new Promise((resolve) => setTimeout(resolve, 40));
+/* True Strike asks who is Guided. Narrative still casts, and it still spends no chamber. */
+window.document.querySelectorAll("#spellNarrative").forEach((btn) => btn.click());
+await new Promise((resolve) => setTimeout(resolve, 40));
+const listBtn = window.document.createElement("button");
+listBtn.type = "button";
+listBtn.setAttribute("data-spell-cast", "0:Light");
+window.document.body.appendChild(listBtn);
+listBtn.click();
+await new Promise((resolve) => setTimeout(resolve, 40));
+const castLog = window.SSDNSSheet && window.SSDNSSheet.logRows ? window.SSDNSSheet.logRows() : [];
+check("cast.light", castLog.some((row) => /Light/.test(row.text || "") && /no attack roll/i.test(row.text || "")) && hexTokens().length === 0, JSON.stringify(castLog.slice(-4)));
+check("cast.strike", castLog.some((row) => /True Strike/.test(row.text || "") && /no attack roll/i.test(row.text || "")) && !(g.chambers || []).some(Boolean), JSON.stringify(castLog.slice(-4)));
+check("cast.notHexToast", toastText() !== CANTRIP_TOAST, toastText());
+
+const appSrc = read("assets/js/app.js");
+check("src.cantripMsg", appSrc.includes(CANTRIP_TOAST));
+check("src.cantripFlag", appSrc.includes("cantrip: true") && appSrc.includes("if (pick.cantrip)"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
