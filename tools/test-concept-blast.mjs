@@ -46,6 +46,8 @@ function trace(FX, spec, lt, g) {
         else if (p === "arc") lastArc = { x: args[0], y: args[1], r: args[2] };
         else if (p === "fill") ops.push({ op: "fill", n: cur.length, pts: cur.map((q) => [q[0], q[1]]), arc: lastArc, fillStyle, comp });
         else if (p === "stroke") ops.push({ op: "stroke", pts: cur.map((q) => [q[0], q[1]]), arc: lastArc, strokeStyle, comp });
+        else if (p === "fillRect") ops.push({ op: "fillRect", fillStyle, w: args[2], h: args[3] });
+        else if (p === "strokeRect") ops.push({ op: "strokeRect", strokeStyle });
         return ctx;
       };
     },
@@ -106,27 +108,38 @@ const palm = { x: 180, y: 300 };
 const stub = { x: palm.x + cell * 1.35, y: palm.y };
 const aim = { x: 1, y: 0 };
 const geo = { A: palm, B: stub, S: palm, T: stub, rS: 22, rT: 18, cell, dir: aim };
-const porch = trace(FX, { spell: "Porch Boom", weapon: "Porch Boom", dmg: "thunder", facing: 0 }, 180, geo);
+const porch = trace(FX, { spell: "Porch Boom", weapon: "Porch Boom", dmg: "thunder", facing: 0 }, 420, geo);
 const square = biggestSquare(porch);
 const porchArcs = porch.filter((op) => op.op === "fill" && op.arc && op.arc.r >= 4);
-const porchStreaks = porch.filter((op) => op.op === "stroke" && segLen(op) > 28);
+const porchGrit = porch.filter((op) => op.op === "fillRect");
+const porchStreaks = porch.filter((op) => op.op === "stroke" && segLen(op) > 6);
+const porchFrames = porch.filter((op) => op.op === "strokeRect");
 check("porch.look", FX.lookOf({ type: "spell", spell: "Porch Boom", dmg: "thunder" }) === "thundercube");
 check("porch.square", !!(square && square.side > cell * 2.4 && square.side < cell * 3.3), JSON.stringify(square));
 check("porch.gold", porch.some((op) => op.op === "fill" && /255,\s*206,\s*110/.test(op.fillStyle)));
-check("porch.dust", porchArcs.length >= 12, String(porchArcs.length));
-check("porch.streaks", porchStreaks.length >= 8, String(porchStreaks.length));
-check("porch.ripples", porch.some((op) => op.op === "stroke" && op.arc && op.arc.r > cell));
+check("porch.churn", porchArcs.length >= 40, String(porchArcs.length));
+check("porch.grit", porchGrit.length >= 100, String(porchGrit.length));
+check("porch.blast", porchStreaks.length >= 40, String(porchStreaks.length));
+check("porch.frames", porchFrames.length >= 2, String(porchFrames.length));
 
 const boomAt = { x: 720, y: 160 };
 const from = { x: 40, y: 560 };
 const ballGeo = { A: from, B: boomAt, S: from, T: boomAt, rS: 22, rT: 18, cell, dir: { x: 1, y: 0 } };
-const ball = trace(FX, { spell: "Fireball", dmg: "fire" }, 210, ballGeo);
+const flight = FX.lookTime("fireball").grow;
+const travel = trace(FX, { spell: "Fireball", dmg: "fire" }, flight * 0.5, ballGeo);
+const head = { x: (from.x + boomAt.x) / 2, y: (from.y + boomAt.y) / 2 };
+const tail = travel.filter((op) => op.op === "stroke" && segLen(op) > 40 && segLen(op) < Math.hypot(boomAt.x - from.x, boomAt.y - from.y) * 0.45);
+check("fireball.travel", flight >= 300 && travel.some((op) => op.op === "fill" && op.arc && op.arc.r > 8 && op.arc.r < cell && Math.hypot(op.arc.x - head.x, op.arc.y - head.y) < 36) && tail.length >= 1, JSON.stringify({ flight, tails: tail.length }));
+check("fireball.travelNotSphere", !travel.some((op) => op.op === "fill" && op.arc && op.arc.r > cell * 2) && !spans(travel, from, boomAt));
+const ball = trace(FX, { spell: "Fireball", dmg: "fire" }, flight + 340, ballGeo);
 const disc = ball.filter((op) => op.op === "fill" && op.arc && op.arc.r > cell * 2.5);
-const ballStreaks = ball.filter((op) => op.op === "stroke" && !op.arc && segLen(op) > cell);
+const ballStreaks = ball.filter((op) => op.op === "stroke" && segLen(op) > 4);
+const ballLobes = ball.filter((op) => op.op === "fill" && op.arc && op.arc.r > 8);
 check("fireball.look", FX.lookOf({ type: "spell", spell: "Fireball", dmg: "fire" }) === "fireball");
 check("fireball.disc", disc.length >= 1 && disc.some((op) => Math.hypot(op.arc.x - boomAt.x, op.arc.y - boomAt.y) < 8), JSON.stringify(disc.map((op) => Math.round(op.arc.r))));
 check("fireball.solid", ball.some((op) => op.op === "fill" && /180,\s*48,\s*12/.test(op.fillStyle)));
-check("fireball.streaks", ballStreaks.length >= 10, String(ballStreaks.length));
+check("fireball.embers", ballStreaks.length >= 40, String(ballStreaks.length));
+check("fireball.lobes", ballLobes.length >= 20, String(ballLobes.length));
 check("fireball.notBeam", !spans(ball, from, boomAt) && ballStreaks.every((op) => {
   const a = op.pts[0], b = op.pts[op.pts.length - 1];
   return Math.hypot(a[0] - from.x, a[1] - from.y) > 80 && Math.hypot(b[0] - from.x, b[1] - from.y) > 80;
@@ -149,13 +162,13 @@ function mag(spec, lt) {
   return Math.hypot(s.x || 0, s.y || 0);
 }
 check("shake.porch", mag({ type: "spell", spell: "Porch Boom", dmg: "thunder" }, 90) > 3);
-check("shake.fireball", mag({ type: "spell", spell: "Fireball" }, 140) > 4);
+check("shake.fireball", mag({ type: "spell", spell: "Fireball" }, flight * 0.5) < 0.01 && mag({ type: "spell", spell: "Fireball" }, flight + 120) > 4);
 check("shake.shatter", mag({ type: "spell", spell: "Shatter" }, 80) < 0.01);
 check("shake.wall", mag({ type: "spell", spell: "Wall of Fire", dmg: "fire" }, 80) < 0.01);
 check("shake.done", mag({ type: "spell", spell: "Fireball" }, 4000) < 0.01);
 
 const ver = JSON.parse(read("version.json"));
-check("ver.tip", ver.sheet === "0.3.192" && ver.dmcc === "0.2.205" && ver.sheetBuild === "sheet-playtest-v03192" && ver.dmccBuild === "dmcc-playtest-v02205", JSON.stringify(ver));
+check("ver.tip", ver.sheet === "0.3.194" && ver.dmcc === "0.2.207" && ver.sheetBuild === "sheet-playtest-v03194" && ver.dmccBuild === "dmcc-playtest-v02207", JSON.stringify(ver));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;
@@ -228,7 +241,7 @@ dm.fx({
   spell: "Fireball", weapon: "Fireball",
   dmg: "fire", at: { x: 16, y: 9 }, result: "hit", heard: ["dm"]
 });
-await new Promise((r) => setTimeout(r, 180));
+await new Promise((r) => setTimeout(r, 560));
 check("live.fireballDisc", (w.__arcs || []).some((r) => r > 40), JSON.stringify((w.__arcs || []).slice(0, 8).map((r) => Math.round(r))));
 dm.destroy();
 

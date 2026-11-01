@@ -173,6 +173,7 @@
   /* ---------- painters ---------- */
   function clamp(v, a, b) { a = a == null ? 0 : a; b = b == null ? 1 : b; return Math.max(a, Math.min(b, v)); }
   function easeOut(t) { return 1 - Math.pow(1 - clamp(t), 3); }
+  function easeInOut(t) { t = clamp(t); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
   function lerp(a, b, t) { return a + (b - a) * t; }
   function rng(seed) { var s = (seed >>> 0) || 1; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
   function hash(str) { var h = 2166136261; str = String(str || ""); for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -388,9 +389,9 @@
     necrotic: { grow: 260, hold: 160, fade: 560 },
     radiant: { grow: 280, hold: 0, fade: 260 },
     thunder: { grow: 110, hold: 60, fade: 320 },
-    /* Fireball: the sphere opens on the target. Thunderwave: the square fills in the grow, then dust hangs. */
-    fireball: { grow: 240, hold: 320, fade: 700 },
-    thundercube: { grow: 110, hold: 160, fade: 980 },
+    /* Fireball grow is the bead's flight. The sphere starts when it arrives. Thunderwave dust hangs through the fade. */
+    fireball: { grow: 380, hold: 360, fade: 1500 },
+    thundercube: { grow: 110, hold: 200, fade: 1700 },
     psychic: { grow: 300, hold: 0, fade: 300 },
     beads: { grow: 260, hold: 0, fade: 260 },
     scurve: { grow: 200, hold: 140, fade: 450 },
@@ -951,48 +952,301 @@ function thunderPaint(ctx, A, B, lt, seed) {
     ctx.restore();
   }
 }
-/* Streaks and rings shared by the Porch Boom cube and the Fireball sphere.
-   They sit on top of the locked shapes. Shatter stays on the thunder wedge and does not call these. */
-function radialStreaks(ctx, p, lt, seed, color, n, reach, life) {
-  if (!p || lt < 0 || lt > life) return;
-  var k = easeOut(Math.min(1, lt / Math.max(1, life * 0.42)));
-  var fade = 1 - clamp((lt - life * 0.28) / (life * 0.72));
-  if (fade <= 0) return;
-  var rand = rng((seed || 1) + 41);
+/* Love-it demo overlays (thunderwave-ui-demo / fireball-ui-demo) lived in the page
+   after SSDNSMapFx.paint. These helpers are that spice, in the painter, scaled from
+   the demo's 48px cell. Shatter and Wall of Fire do not call them. */
+function nz(x, s) {
+  s = s || 0;
+  return Math.sin(x + s * 1.7) * 0.5 + Math.sin(x * 2.31 + s * 3.1) * 0.3 + Math.sin(x * 4.77 + s * 0.9) * 0.2;
+}
+function loveScale(cell) { return (cell || 70) / 48; }
+function softDisc(ctx, x, y, r, list, op) {
+  if (!(r > 0.5)) return;
   ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  ctx.lineCap = "round";
+  ctx.globalCompositeOperation = op || "lighter";
+  ctx.fillStyle = stops(grad(ctx, "r", x, y, 0, x, y, r), list) || "rgba(0,0,0,0)";
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+/* Porch Boom page thunderOver: churn inside the cube, concentric gold frames, grit, side blast. */
+function loveThunderSpice(ctx, A, d, reach, lt, cell) {
+  if (!A || !(reach > 4) || lt < 0) return;
+  var sc = loveScale(cell);
+  ctx.save();
+  ctx.translate(A.x, A.y);
+  ctx.rotate(Math.atan2(d.y, d.x));
+  var x = 0, y = -reach / 2, w = reach, h = reach, cx = w / 2, cy = 0;
+  var pf = 1 - clamp(lt / 260);
   var i;
-  for (i = 0; i < n; i++) {
-    var a = rand() * Math.PI * 2;
-    var sp = 0.55 + rand() * 0.5;
-    var far = reach * sp * (0.35 + 0.65 * k);
-    var near = far * (0.08 + rand() * 0.22);
-    ctx.strokeStyle = rgba(i % 3 === 0 ? "255,248,220" : color, (0.65 + rand() * 0.3) * fade);
-    ctx.lineWidth = i % 5 === 0 ? 3.2 : 1.7;
+  if (pf > 0) {
+    softDisc(ctx, 0, 0, 46 * sc, [
+      [0, "rgba(255,250,230," + pf + ")"],
+      [0.3, "rgba(235,215,170," + (0.8 * pf) + ")"],
+      [1, "rgba(200,170,110,0)"]
+    ]);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = rgba("235,215,170", 0.8 * pf);
+    ctx.lineWidth = 3 * sc;
+    ctx.lineCap = "round";
+    for (i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(30 * sc, i * 7 * sc);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  var hold = 1 - clamp((lt - 700) / 1100);
+  if (hold > 0) {
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(p.x + Math.cos(a) * near, p.y + Math.sin(a) * near);
-    ctx.lineTo(p.x + Math.cos(a) * far, p.y + Math.sin(a) * far);
-    ctx.stroke();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    var dr = rng(808);
+    for (i = 0; i < 110; i++) {
+      var px = x + dr() * w + nz(lt * 0.003 + i, i) * 10 * sc + lt * 0.03 * dr() * sc;
+      var py = y + dr() * h + nz(lt * 0.0025 + i * 1.3, i + 3) * 10 * sc;
+      var light = dr() < 0.45;
+      softDisc(ctx, px, py, (14 + dr() * 26) * sc, [
+        [0, light ? "rgba(165,138,98," + (0.6 * hold) + ")" : "rgba(95,80,60," + (0.8 * hold) + ")"],
+        [1, "rgba(95,80,60,0)"]
+      ], "source-over");
+    }
+    var gr = rng(17);
+    ctx.fillStyle = rgba("60,48,34", 0.8 * hold);
+    for (i = 0; i < 160; i++) ctx.fillRect(x + gr() * w + lt * 0.02 * gr() * sc, y + gr() * h, 1.5 * sc, 1.5 * sc);
+    for (i = 0; i < 4; i++) {
+      var rt = (lt - i * 110) / 420;
+      if (rt <= 0 || rt >= 1) continue;
+      var s = lerp(0.1, 1.05, easeOut(rt)), a = (1 - rt) * 0.8;
+      var rw = w * s, rh = h * s;
+      var ox = lerp(x, cx - rw / 2, 0.35 + 0.65 * clamp(rt * 1.5));
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = rgba("235,215,170", a);
+      ctx.lineWidth = 2.5 * sc;
+      ctx.strokeRect(ox, cy - rh / 2, rw, rh);
+      ctx.strokeStyle = rgba("200,170,110", a * 0.5);
+      ctx.lineWidth = 8 * sc;
+      ctx.strokeRect(ox, cy - rh / 2, rw, rh);
+      ctx.globalCompositeOperation = "source-over";
+    }
+    ctx.restore();
+  }
+  var ek = lt - 100;
+  if (ek > 0) {
+    var ea = ek < 90 ? 1 : 1 - clamp((ek - 90) / 900);
+    if (ea > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.shadowColor = "rgba(215,185,125," + ea + ")";
+      ctx.shadowBlur = 16 * sc;
+      ctx.strokeStyle = rgba("215,185,125", 0.7 * ea);
+      ctx.lineWidth = 7 * sc;
+      ctx.strokeRect(x, y, w, h);
+      ctx.strokeStyle = rgba("245,238,215", ea);
+      ctx.lineWidth = 2 * sc;
+      ctx.strokeRect(x, y, w, h);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+    var cf = 1 - clamp(ek / 160);
+    if (cf > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = rgba("235,215,170", 0.35 * cf);
+      ctx.fillRect(x, y, w, h);
+      ctx.restore();
+    }
+  }
+  if (lt > 100) {
+    var pr = rng(2024);
+    ctx.save();
+    ctx.lineCap = "round";
+    for (i = 0; i < 420; i++) {
+      var sideN = Math.floor(pr() * 4), u = pr();
+      var v = 0.15 + pr() * 0.45 * (sideN === 1 ? 1.5 : 1);
+      var life = 700 + pr() * 900, stt = 100 + pr() * 140;
+      var big = pr() < 0.45, spread = (pr() - 0.5) * 0.9;
+      var k = (lt - stt) / life;
+      if (k <= 0 || k >= 1) continue;
+      var sx, sy, vx, vy;
+      if (sideN === 0) { sx = x + u * w; sy = y; vx = spread; vy = -1; }
+      else if (sideN === 1) { sx = x + w; sy = y + u * h; vx = 1; vy = spread; }
+      else if (sideN === 2) { sx = x + u * w; sy = y + h; vx = spread; vy = 1; }
+      else { sx = x; sy = y + u * h; vx = -1; vy = spread; }
+      var nlen = Math.hypot(vx, vy) || 1;
+      vx /= nlen; vy /= nlen;
+      var dist = v * life * (1 - Math.pow(1 - k, 2.2)) * 0.55 * sc;
+      var qx = sx + vx * dist, qy = sy + vy * dist;
+      var al = (1 - k) * (big ? 0.55 : 0.6);
+      var tail = (big ? 26 : 14) * (1 - k * 0.6) * sc;
+      if (big) {
+        softDisc(ctx, qx, qy, (12 + k * 34) * sc, [
+          [0, "rgba(140,115,82," + al + ")"],
+          [1, "rgba(150,125,90,0)"]
+        ], "source-over");
+      } else {
+        ctx.strokeStyle = pr() < 0.5 ? "rgba(200,175,130," + al + ")" : rgba("95,80,60", al);
+        ctx.lineWidth = (1.2 + pr() * 1.8) * sc;
+        ctx.beginPath();
+        ctx.moveTo(qx - vx * tail, qy - vy * tail);
+        ctx.lineTo(qx, qy);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
   ctx.restore();
 }
-function ringRipples(ctx, p, lt, radius, color, n) {
-  if (!p || lt < 0) return;
+/* Fireball page fireballOver: churning lobes, ragged ring, ember field. No caster-to-target beam. */
+function loveFireballSpice(ctx, B, R, lt, cell) {
+  if (!B || !(R > 4) || lt < 0) return;
+  var sc = loveScale(cell);
+  var x = B.x, y = B.y;
+  var sr = rng(311);
+  var i;
+  for (i = 0; i < 34; i++) {
+    var an = sr() * Math.PI * 2, stt = 220 + sr() * 500, life = 2400 + sr() * 1400, sz = R * (0.22 + sr() * 0.2);
+    var k = (lt - stt) / life;
+    if (k <= 0 || k >= 1) { sr(); continue; }
+    var d = R * (0.55 + sr() * 0.4) + easeOut(k) * R * 0.45;
+    var px = x + Math.cos(an) * d + nz(lt * 0.0006 + i, i) * 8 * sc;
+    var py = y + Math.sin(an) * d - k * 18 * sc;
+    var a = Math.sin(Math.PI * Math.min(1, k * 1.6)) * 0.62 * (1 - k * 0.6);
+    softDisc(ctx, px, py, sz * (0.8 + k * 0.9), [
+      [0, "rgba(18,15,12," + (a * 1.2) + ")"],
+      [0.6, "rgba(28,23,18," + (a * 0.75) + ")"],
+      [1, "rgba(30,25,20,0)"]
+    ], "source-over");
+  }
+  var ia = clamp((lt - 800) / 500) * (1 - clamp((lt - 2600) / 1500));
+  if (ia > 0) {
+    for (i = 0; i < 9; i++) {
+      var iaA = i / 9 * Math.PI * 2 + lt * 0.0002;
+      softDisc(ctx, x + Math.cos(iaA) * R * 0.3, y + Math.sin(iaA) * R * 0.3, R * 0.45, [
+        [0, "rgba(18,14,12," + (0.5 * ia) + ")"],
+        [1, "rgba(18,14,12,0)"]
+      ], "source-over");
+    }
+  }
+  var fl = 1 - clamp(lt / 220);
+  if (fl > 0) {
+    softDisc(ctx, x, y, R * 1.6, [
+      [0, "rgba(255,245,220," + (0.4 * fl) + ")"],
+      [0.35, "rgba(255,125,35," + (0.3 * fl) + ")"],
+      [1, "rgba(200,60,15,0)"]
+    ]);
+    softDisc(ctx, x, y, lerp(14 * sc, R * 0.55, easeOut(lt / 180)), [
+      [0, "rgba(255,255,255," + fl + ")"],
+      [0.5, "rgba(255,225,160," + (0.9 * fl) + ")"],
+      [1, "rgba(255,125,35,0)"]
+    ]);
+  }
+  var grow = easeOut(lt / 380), fade = 1 - clamp((lt - 750) / 650);
+  if (fade > 0) {
+    var s = R * 0.88 * grow;
+    softDisc(ctx, x, y, s * 1.15, [
+      [0, "rgba(255,225,160," + (0.3 * fade) + ")"],
+      [0.45, "rgba(255,125,35," + (0.3 * fade) + ")"],
+      [0.8, "rgba(200,60,15," + (0.25 * fade) + ")"],
+      [1, "rgba(200,60,15,0)"]
+    ]);
+    var br = rng(19);
+    for (i = 0; i < 46; i++) {
+      var a0 = br() * Math.PI * 2, d0 = Math.sqrt(br()), rr = 0.22 + br() * 0.28, sp = (br() - 0.5) * 0.004, ph = br() * 10;
+      var ang = a0 + lt * sp, dist = d0 * s * 0.78 + nz(lt * 0.004 + ph, i) * s * 0.06;
+      var bx = x + Math.cos(ang) * dist, by = y + Math.sin(ang) * dist;
+      var rad = rr * s * (0.85 + 0.25 * Math.sin(lt * 0.011 + ph));
+      var hotness = 1 - d0 * 0.7, flick = 0.75 + 0.25 * Math.sin(lt * 0.02 + ph * 3);
+      if (br() < 0.4 && lt > 200) {
+        softDisc(ctx, bx, by, rad * 0.8, [
+          [0, "rgba(45,14,3," + (0.6 * fade) + ")"],
+          [1, "rgba(40,14,4,0)"]
+        ], "source-over");
+        continue;
+      }
+      softDisc(ctx, bx, by, rad, [
+        [0, "rgba(" + (hotness > 0.75 ? "255,225,160" : "255,140,45") + "," + (0.36 * fade * flick) + ")"],
+        [0.5, "rgba(255,125,35," + (0.24 * fade * flick) + ")"],
+        [1, "rgba(200,60,15,0)"]
+      ]);
+    }
+    var coreA = (1 - clamp((lt - 120) / 420)) * fade;
+    softDisc(ctx, x, y, s * 0.38, [
+      [0, "rgba(255,252,235," + (0.9 * coreA) + ")"],
+      [0.5, "rgba(255,225,160," + (0.7 * coreA) + ")"],
+      [1, "rgba(255,125,35,0)"]
+    ]);
+  }
+  var rk = (lt - 60) / 520;
+  if (rk > 0 && rk < 1.8) {
+    var rr = lerp(R * 0.35, R, easeOut(Math.min(1, rk)));
+    var ra = rk < 1 ? 1 : 1 - (rk - 1) / 0.8;
+    var rw = lerp(30, 12, clamp(rk)) * sc;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = stops(grad(ctx, "r", x, y, Math.max(0, rr - rw), x, y, rr + rw * 0.6), [
+      [0, "rgba(255,125,35,0)"],
+      [0.55, "rgba(255,225,160," + (0.6 * ra) + ")"],
+      [0.75, "rgba(255,125,35," + (0.5 * ra) + ")"],
+      [1, "rgba(200,60,15,0)"]
+    ]) || rgba("255,140,45", 0.4 * ra);
+    ctx.beginPath();
+    ctx.arc(x, y, rr + rw, 0, Math.PI * 2);
+    ctx.fill();
+    var lr = rng(91);
+    ctx.lineCap = "round";
+    for (i = 0; i < 70; i++) {
+      var lan = i / 70 * Math.PI * 2 + lr() * 0.08;
+      var len = (6 + lr() * 18) * (0.6 + 0.4 * Math.sin(lt * 0.03 + i)) * sc;
+      ctx.strokeStyle = lr() < 0.3 ? "rgba(255,225,160," + (0.28 * ra) + ")" : "rgba(255,140,45," + (0.28 * ra) + ")";
+      ctx.lineWidth = (2 + lr() * 4) * sc;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(lan) * (rr - 6 * sc), y + Math.sin(lan) * (rr - 6 * sc));
+      ctx.lineTo(x + Math.cos(lan) * (rr + len), y + Math.sin(lan) * (rr + len));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  var er = rng(4242);
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
-  var i;
-  for (i = 0; i < n; i++) {
-    var t = lt - i * 80;
-    if (t < 0 || t > 560) continue;
-    var u = easeOut(t / 560);
-    ctx.strokeStyle = rgba(color, (1 - u) * (0.62 - i * 0.12));
-    ctx.lineWidth = 2 + (1 - u) * 5;
+  ctx.lineCap = "round";
+  for (i = 0; i < 150; i++) {
+    var ean = er() * Math.PI * 2, ev = 0.35 + er() * 0.75, elife = 600 + er() * 1100, est = 40 + er() * 220, ew = 1 + er() * 1.4;
+    var ek = (lt - est) / elife;
+    if (ek <= 0 || ek >= 1) continue;
+    var edist = R * 0.25 + ev * elife * (1 - Math.pow(1 - ek, 2)) * 0.5 * sc;
+    var ex = x + Math.cos(ean) * edist, ey = y + Math.sin(ean) * edist + ek * ek * 10 * sc;
+    var etail = (3 + 11 * (1 - ek)) * sc;
+    ctx.strokeStyle = "rgba(" + (ek < 0.3 ? "255,225,160" : "255,125,35") + "," + (1 - ek) + ")";
+    ctx.lineWidth = ew * sc;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, Math.max(6, radius * (0.18 + 1.05 * u)), 0, Math.PI * 2);
+    ctx.moveTo(ex - Math.cos(ean) * etail, ey - Math.sin(ean) * etail);
+    ctx.lineTo(ex, ey);
     ctx.stroke();
   }
   ctx.restore();
+  var hg = clamp((lt - 300) / 300) * (1 - clamp((lt - 1200) / 1600));
+  if (hg > 0) {
+    softDisc(ctx, x, y, R, [
+      [0, "rgba(200,60,15," + (0.35 * hg) + ")"],
+      [1, "rgba(200,60,15,0)"]
+    ]);
+  }
+  if (lt > 900) {
+    var scorch = clamp((lt - 900) / 400) * (1 - clamp((lt - 2200) / 800));
+    if (scorch > 0) {
+      softDisc(ctx, x, y, R * 1.05, [
+        [0, "rgba(12,7,4," + (0.55 * scorch) + ")"],
+        [0.55, "rgba(22,12,6," + (0.4 * scorch) + ")"],
+        [1, "rgba(30,16,8,0)"]
+      ], "source-over");
+    }
+  }
 }
 function blastShake(lt, amp, dur) {
   if (!(lt >= 0) || lt > dur || !(amp > 0)) return { x: 0, y: 0 };
@@ -1006,10 +1260,54 @@ function blastShake(lt, amp, dur) {
 function shakeOf(spec, lt) {
   var look = lookOf(spec || {});
   if (look === "thundercube") return blastShake(lt, 8, 760);
-  if (look === "fireball") return blastShake(lt, 11, 1000);
+  if (look === "fireball") return blastShake(lt - LOOK_TIME.fireball.grow, 11, 1000);
   return { x: 0, y: 0 };
 }
-/* Powder-keg sphere at the chosen point. Fills a 20-ft radius. Not the Fire Bolt beam.
+/* Comet from the caster. A short bright tail, not a Fire Bolt line across the whole range. */
+function fireballComet(ctx, A, B, lt, travel, cell) {
+  var u = easeInOut(lt / Math.max(1, travel));
+  var sc = loveScale(cell);
+  var i;
+  for (i = 8; i >= 1; i--) {
+    var uu = clamp(u - i * 0.03);
+    softDisc(ctx, lerp(A.x, B.x, uu), lerp(A.y, B.y, uu), Math.max(2.5, (11 - i) * 0.9 * sc), [
+      [0, "rgba(255,225,160," + (0.45 * (1 - i / 9)) + ")"],
+      [0.5, "rgba(255,120,30," + (0.28 * (1 - i / 9)) + ")"],
+      [1, "rgba(200,60,15,0)"]
+    ]);
+  }
+  var hx = lerp(A.x, B.x, u), hy = lerp(A.y, B.y, u);
+  var tx = lerp(A.x, B.x, Math.max(0, u - 0.28)), ty = lerp(A.y, B.y, Math.max(0, u - 0.28));
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(255,140,40,0.95)";
+  ctx.lineWidth = 7 * sc;
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(hx, hy);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255,248,220,0.95)";
+  ctx.lineWidth = 1.8 * sc;
+  ctx.beginPath();
+  ctx.moveTo(lerp(tx, hx, 0.4), lerp(ty, hy, 0.4));
+  ctx.lineTo(hx, hy);
+  ctx.stroke();
+  ctx.restore();
+  softDisc(ctx, hx, hy, 16 * sc, [
+    [0, "rgba(255,252,236,1)"],
+    [0.4, "rgba(255,210,120,0.85)"],
+    [1, "rgba(255,100,20,0)"]
+  ]);
+  var fl = 1 - clamp(lt / 110);
+  if (fl > 0) {
+    softDisc(ctx, A.x, A.y, 22 * sc, [
+      [0, "rgba(255,225,160," + (0.75 * fl) + ")"],
+      [1, "rgba(200,60,15,0)"]
+    ]);
+  }
+}
+/* Powder-keg sphere at the chosen point, after the comet arrives. Not a Fire Bolt beam.
    Palette: glow 200,60,15 · core 255,125,35 · hot 255,225,160 · burst 255,140,45. */
 function fireballPaint(ctx, A, B, lt, seed, g) {
   var time = LOOK_TIME.fireball;
@@ -1017,12 +1315,19 @@ function fireballPaint(ctx, A, B, lt, seed, g) {
   if (!B || lt < 0 || lt > life) return;
   var cell = (g && g.cell) || 70;
   var radius = cell * 4;
+  var flight = time.grow;
+  var span = A ? Math.hypot(B.x - A.x, B.y - A.y) : 0;
+  var travels = !!(A && span > Math.max(28, cell * 0.5));
+  if (travels && lt < flight) {
+    fireballComet(ctx, A, B, lt, flight, cell);
+    return;
+  }
+  var boom = travels ? lt - flight : lt;
   var fadeAt = time.grow + time.hold;
   var f = lt < fadeAt ? 1 : 1 - clamp((lt - fadeAt) / time.fade);
-  var expand = easeOut(Math.min(1, lt / 180));
+  var expand = easeOut(Math.min(1, boom / 180));
   var R = radius * (0.22 + 0.78 * expand);
-  var core = lt < 200 ? 1 : f;
-  var rand = rng((seed || 3) + 11);
+  var core = boom < 200 ? 1 : f;
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
   ctx.fillStyle = rgba("180,48,12", 0.72 * f);
@@ -1032,7 +1337,7 @@ function fireballPaint(ctx, A, B, lt, seed, g) {
   ctx.restore();
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
-  var coreR = Math.max(10, cell * (0.45 + 0.85 * Math.min(1, lt / 140)));
+  var coreR = Math.max(10, cell * (0.45 + 0.85 * Math.min(1, boom / 140)));
   ctx.fillStyle = stops(grad(ctx, "r", B.x, B.y, 0, B.x, B.y, coreR), [
     [0, "rgba(255,252,236," + 0.98 * core + ")"],
     [0.35, "rgba(255,230,170," + 0.85 * core + ")"],
@@ -1054,30 +1359,8 @@ function fireballPaint(ctx, A, B, lt, seed, g) {
   ctx.beginPath();
   ctx.arc(B.x, B.y, R, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.strokeStyle = rgba("255,120,30", 0.55 * f);
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(B.x, B.y, R * 0.62, 0, Math.PI * 2);
-  ctx.stroke();
   ctx.restore();
-  radialStreaks(ctx, B, lt, seed, "255,150,40", 24, radius * 1.55, 680);
-  ringRipples(ctx, B, lt, radius, "255,190,90", 3);
-  var smokeK = clamp((lt - 180) / (time.hold + time.fade));
-  if (smokeK > 0) {
-    ctx.save();
-    ctx.globalCompositeOperation = "source-over";
-    var puff;
-    for (puff = 0; puff < 16; puff++) {
-      var ang = rand() * Math.PI * 2;
-      var dist = R * (0.15 + 0.7 * smokeK) * (0.4 + rand() * 0.6);
-      var ember = puff % 4 === 0 && smokeK < 0.65;
-      ctx.fillStyle = rgba(ember ? "255,120,30" : (puff % 2 ? "70,58,48" : "32,26,22"), (ember ? 0.35 : 0.5) * smokeK * f);
-      ctx.beginPath();
-      ctx.arc(B.x + Math.cos(ang) * dist, B.y + Math.sin(ang) * dist, (ember ? 8 : 12) + smokeK * 22, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
+  loveFireballSpice(ctx, B, radius, boom, cell);
 }
 /* Canyon thunderclap in a box. A 15-ft cube off the caster's palm, not a cone.
    Palette: glow 200,170,110 · core 235,215,170 · dust 95,80,60 · edge 215,185,125 / 150,120,80. */
@@ -1176,8 +1459,7 @@ function thunderCubePaint(ctx, A, B, lt, seed, g, spec) {
     }
     ctx.restore();
   }
-  /* Concept layer on the #211 cube: gold shock fill, white frame, dust and streaks off the center. */
-  var mid = corner(reach * 0.5, 0);
+  /* Gold shock under the Love-it grit, so the cube stays a filled tan square. */
   var hot = lt < 260 ? 1 - lt / 420 : f * 0.2;
   if (hot > 0.04 && grow > 0.05) {
     ctx.save();
@@ -1197,26 +1479,15 @@ function thunderCubePaint(ctx, A, B, lt, seed, g, spec) {
     ctx.stroke();
     ctx.restore();
   }
-  if (lt > 40) {
-    var dustT = lt - 40;
-    radialStreaks(ctx, mid, dustT, (seed || 5) + 3, "255,214,140", 16, side * 0.95, 520);
-    ringRipples(ctx, mid, dustT, side * 0.7, "230,205,150", 3);
-    var dustFade = Math.min(1, dustT / 90) * (lt < time.grow + time.hold + 200 ? 0.95 : f);
-    var dustRand = rng((seed || 5) + 21);
-    var push = easeOut(clamp(dustT / 260));
+  loveThunderSpice(ctx, A, d, reach, lt, cell);
+  /* Lift the cube back toward the Love-it gold after the dirt churn, without erasing the grit. */
+  if (hot > 0.04 && grow > 0.05) {
     ctx.save();
-    ctx.globalCompositeOperation = "source-over";
-    var di;
-    for (di = 0; di < 28; di++) {
-      var ang = dustRand() * Math.PI * 2;
-      var travel = push * (side * 0.42 + dustRand() * side * 0.72);
-      var chip = di % 4 === 0;
-      var rr = chip ? 2 + dustRand() * 2.2 : 8 + dustRand() * 11 + push * 16;
-      ctx.fillStyle = rgba(chip ? "48,36,26" : (di % 2 ? "186,154,112" : "122,96,70"), (chip ? 0.92 : 0.62) * dustFade);
-      ctx.beginPath();
-      ctx.arc(mid.x + Math.cos(ang) * travel, mid.y + Math.sin(ang) * travel, rr, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = rgba("255,214,140", 0.42 * hot);
+    poly(ctx, box);
+    ctx.closePath();
+    ctx.fill();
     ctx.restore();
   }
 }
