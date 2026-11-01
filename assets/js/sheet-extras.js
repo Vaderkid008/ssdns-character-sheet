@@ -1274,6 +1274,12 @@
     var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
     try { host.setSpellZones(bag.zones || [], { casterId: uidNow || "" }); } catch (err) {}
   }
+  /* Light off (the cantrip, including Light Shell) drops the zone. Push that to the map so the rings go. */
+  if (root.addEventListener) {
+    root.addEventListener("ssdns-light-dismiss", function () {
+      try { syncSpellZones(); } catch (e) {}
+    });
+  }
   function rememberZone(spellName, slot, placed, dc) {
     var Z = root.SSDNSSpellZones;
     var SR = root.SSDNSSpellRiders;
@@ -4098,7 +4104,7 @@
     });
     return out.slice(0, 4);
   }
-  /* Turn on a carried spell light (Light) once the cast actually lands. */
+  /* Turn on a carried spell light (Light, including Light Shell) once the cast actually lands. */
   function noteSpellLight(spellName) {
     var L = root.SSDNSLighting;
     var c = ch();

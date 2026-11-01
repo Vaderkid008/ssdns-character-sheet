@@ -2012,6 +2012,96 @@ function traceZone(zone, px) {
   ctx.closePath();
   return true;
 }
+/* Wall of Fire idle loop. Born times stay off the saved zone so a recast reignites. */
+const zoneFxBorn = {};
+function zoneFxId(z) {
+  return String((z && (z.id || z.key)) || "wof");
+}
+function zoneLoopLive() {
+  const zones = spellZoneList() || [];
+  const live = {};
+  let hit = false;
+  zones.forEach(z => {
+    if (!z || z.key !== "wall of fire") return;
+    live[zoneFxId(z)] = 1;
+    hit = true;
+  });
+  Object.keys(zoneFxBorn).forEach(id => { if (!live[id]) delete zoneFxBorn[id]; });
+  return hit;
+}
+function wallScreen(ox, oy, fx, fy, lx, ly, alongFt, latFt, ft) {
+  return worldToScreen(ox + (fx * alongFt + lx * latFt) * ft, oy + (fy * alongFt + ly * latFt) * ft);
+}
+/* Burning fence: one-square flame panels along the wall, heat only on the hot side, low idle flicker. */
+function paintWallOfFire(zone, px) {
+  if (!zone || !zone.origin) return;
+  const id = zoneFxId(zone);
+  const now = Date.now();
+  if (!zoneFxBorn[id]) zoneFxBorn[id] = now;
+  const age = now - zoneFxBorn[id];
+  const lenFt = Number(zone.length) || 60;
+  const n = Math.max(1, Math.round(lenFt / 5));
+  const facing = Number(zone.facing) || 0;
+  const fx = Math.cos(facing), fy = Math.sin(facing);
+  const lx = -fy, ly = fx;
+  const ox = zone.origin.x * px;
+  const oy = zone.origin.y * px;
+  const ft = px / 5;
+  const hotFt = Number(zone.hotSide) > 0 ? Number(zone.hotSide) : 10;
+  ctx.save();
+  for (let i = 0; i < n; i++) {
+    const along = (i + 0.5 - n / 2) * 5;
+    const igniteAt = i * 60;
+    if (age < igniteAt) continue;
+    const lit = Math.min(1, (age - igniteAt) / 160);
+    const flick = 0.58 + 0.42 * (0.5 + 0.5 * Math.sin(now / 140 + i * 1.85));
+    const a = age > igniteAt + 420 ? flick : Math.max(lit, 0.2);
+    const span = [
+      wallScreen(ox, oy, fx, fy, lx, ly, along - 2.5, -2.5, ft),
+      wallScreen(ox, oy, fx, fy, lx, ly, along + 2.5, -2.5, ft),
+      wallScreen(ox, oy, fx, fy, lx, ly, along + 2.5, 2.5, ft),
+      wallScreen(ox, oy, fx, fy, lx, ly, along - 2.5, 2.5, ft)
+    ];
+    const hot = [
+      wallScreen(ox, oy, fx, fy, lx, ly, along - 2.5, 2.5, ft),
+      wallScreen(ox, oy, fx, fy, lx, ly, along + 2.5, 2.5, ft),
+      wallScreen(ox, oy, fx, fy, lx, ly, along + 2.5, 2.5 + hotFt, ft),
+      wallScreen(ox, oy, fx, fy, lx, ly, along - 2.5, 2.5 + hotFt, ft)
+    ];
+    ctx.globalCompositeOperation = "source-over";
+    ctx.beginPath();
+    hot.forEach((p, k) => { if (k) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); });
+    ctx.closePath();
+    ctx.fillStyle = "rgba(200,60,15," + (0.16 * a) + ")";
+    ctx.fill();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.beginPath();
+    span.forEach((p, k) => { if (k) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); });
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,110,28," + (0.34 * a) + ")";
+    ctx.fill();
+    const mid = wallScreen(ox, oy, fx, fy, lx, ly, along, 0, ft);
+    const tongue = 0.55 + 0.45 * Math.sin(now / 90 + i);
+    ctx.fillStyle = "rgba(255,225,160," + (0.45 * a * tongue) + ")";
+    ctx.beginPath();
+    ctx.arc(mid.x, mid.y, Math.max(3, ft * 1.15 * (0.65 + 0.35 * tongue)), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,140,45," + (0.35 * a) + ")";
+    ctx.beginPath();
+    ctx.arc(mid.x + lx * ft * 0.4, mid.y + ly * ft * 0.35, Math.max(2, ft * 0.45), 0, Math.PI * 2);
+    ctx.fill();
+    if (i > 0) {
+      const seam = wallScreen(ox, oy, fx, fy, lx, ly, along - 2.5, 0, ft);
+      ctx.strokeStyle = "rgba(255,200,120," + (0.35 * a) + ")";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(seam.x - lx * ft * 1.2, seam.y - ly * ft * 1.2);
+      ctx.lineTo(seam.x + lx * ft * 1.2, seam.y + ly * ft * 1.2);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
 function paintSpellZones() {
   if (!state.scene) return;
   const zones = liveSpellZones();
@@ -2022,6 +2112,21 @@ function paintSpellZones() {
   zones.forEach(zone => {
     if (zoneIsToken(zone)) {
       paintTokenAura(zone, px);
+      return;
+    }
+    if (zone.key === "wall of fire") {
+      paintWallOfFire(zone, px);
+      if (role === "dm" && zone.origin) {
+        const tag = worldToScreen(zone.origin.x * px, zone.origin.y * px);
+        const left = zoneTimeLabel(zone);
+        ctx.save();
+        ctx.font = "12px sans-serif";
+        ctx.fillStyle = "#fff8e8";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText((zone.spell || "Wall of Fire") + (left ? " · " + left : ""), tag.x, tag.y);
+        ctx.restore();
+      }
       return;
     }
     const style = zoneStyle(zone.key);
@@ -2051,6 +2156,7 @@ function paintSpellZones() {
       ctx.fillText((zone.spell || "Zone") + (left ? " · " + left : ""), tag.x, tag.y);
       ctx.restore();
     }
+    /* Bright/dim rings live only while this zone is in the list. Dismissing Light drops the zone. */
     if (zone.light) {
       const brightFt = Number(zone.light.bright) || 0;
       const dimFt = Number(zone.light.dim) || 0;
@@ -2060,6 +2166,7 @@ function paintSpellZones() {
       if (brightFt > 0) strokeRing(wx, wy, (brightFt / 5) * px, "rgba(255,206,80,0.98)", "rgba(255,196,60,0.16)");
     }
   });
+  if (zoneLoopLive()) ensureAnim();
 }
 function paintZoneBlind() {
   if (role !== "player" || !state.scene) return;
@@ -8683,6 +8790,7 @@ async function loadSceneImage(sceneId, opts) {
       });
       state.pings = (state.pings || []).filter(p => now - p.ts < 2500);
       if (state.currentTurnId) live = true;
+      if (zoneLoopLive()) live = true;
       if (live || (state.slides && state.slides.length) || (state.pings && state.pings.length)) {
         draw();
         animRaf = requestAnimationFrame(step);
