@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.185" && version.sheetBuild === "sheet-playtest-v03185");
-check("ver.dmcc", version.dmcc === "0.2.198" && version.dmccBuild === "dmcc-playtest-v02198");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.185"') && read("assets/js/app.js").includes("sheet-playtest-v03185"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.198"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02198"));
+check("ver.sheet", version.sheet === "0.3.186" && version.sheetBuild === "sheet-playtest-v03186");
+check("ver.dmcc", version.dmcc === "0.2.199" && version.dmccBuild === "dmcc-playtest-v02199");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.186"') && read("assets/js/app.js").includes("sheet-playtest-v03186"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.199"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02199"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -126,7 +126,7 @@ const sfx = JSON.parse(read("assets/sfx/spell-sfx.json"));
 check("sfx.guiding", Audio.spellFile("Guiding Bolt") === "magic/The_sound_of_superhe-1793461504161.mp3");
 check("sfx.guiding-json", sfx.spells["guiding bolt"].file === "magic/The_sound_of_superhe-1793461504161.mp3" && sfx.spells["guiding bolt"].file.indexOf("179333") < 0);
 check("sfx.sacred-same", Audio.spellFile("Guiding Bolt") === Audio.spellFile("Sacred Flame"));
-check("sfx.count", sfx.count === 85);
+check("sfx.count", sfx.count === 88);
 check("html.admit", read("index.html").includes("spell-cast-admit.js") && read("dm/index.html").includes("spell-cast-admit.js"));
 check("docs.locked", read("specs/spell-fx/beam-map-fx-chunk8-v1.md").includes("Soft-lock:") && read("specs/spell-fx/beam-map-fx-chunk8-v1.md").includes("09-hypnotic-pattern.jpg"));
 
