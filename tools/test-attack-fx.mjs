@@ -134,7 +134,13 @@ check("look.fireball", FX.lookOf({ type: "spell", spell: "Fireball", dmg: "fire"
 check("look.wall", FX.lookOf({ type: "spell", spell: "Wall of Fire", dmg: "fire" }) === "fire");
 check("look.bolt", FX.lookOf({ type: "spell", spell: "Lightning Bolt", dmg: "lightning" }) === "lightning");
 check("look.ice", FX.lookOf({ type: "spell", spell: "Ice Storm", dmg: "bludgeoning and cold" }) === "cold");
-check("look.cloud", FX.lookOf({ type: "spell", spell: "Cloudkill", dmg: "poison" }) === "ribbon");
+check("look.cloud", FX.lookOf({ type: "spell", spell: "Cloudkill", dmg: "poison" }) === "poison");
+check("look.acid", FX.lookOf({ type: "spell", spell: "Acid Splash", dmg: "acid" }) === "acid" && FX.lookOf({ type: "spell", spell: "Acid Arrow" }) === "acid");
+check("look.necro", FX.lookOf({ type: "spell", spell: "Chill Touch" }) === "necrotic" && FX.lookOf({ type: "spell", spell: "Inflict Wounds" }) === "necrotic" && FX.lookOf({ type: "spell", spell: "Blight" }) === "necrotic");
+check("look.radiant", FX.lookOf({ type: "spell", spell: "Sacred Flame" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Guiding Bolt" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Moonbeam" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Spirit Guardians" }) === "radiant");
+check("look.poison", FX.lookOf({ type: "spell", spell: "Poison Spray" }) === "poison");
+check("look.thunder", FX.lookOf({ type: "spell", spell: "Thunderwave" }) === "thunder" && FX.lookOf({ type: "spell", spell: "Shatter" }) === "thunder");
+check("look.zoneOnly", FX.lookOf({ type: "spell", spell: "Grease" }) === "" && FX.lookOf({ type: "spell", spell: "Light" }) === "" && FX.lookOf({ type: "spell", spell: "Daylight" }) === "");
 check("look.token", FX.lookOf({ type: "spell", spell: "Flaming Sphere", dmg: "fire" }) === "token");
 const areaReq = FX.request({ type: "spell", spell: "Fireball", weapon: "Fireball", dmg: "fire", at: { x: 12.5, y: 8.5 } });
 check("request.areaAt", areaReq.at && areaReq.at.x === 12.5 && areaReq.at.y === 8.5 && areaReq.spell === "Fireball", JSON.stringify(areaReq));
