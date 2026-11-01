@@ -1,6 +1,6 @@
 /**
  * Porch Boom and Fireball paint the demo's dust and blast, not a bare outline.
- * Shatter stays on the thunder wedge. Wall of Fire is not tipped here.
+ * Shatter keeps the thunder wedge, then bursts at the point. Wall of Fire is not tipped here.
  *   node tools/test-concept-blast.mjs
  */
 import fs from "node:fs";
@@ -154,7 +154,7 @@ check("firebolt.stillBeam", FX.lookOf({ type: "spell", spell: "Fire Bolt", dmg: 
 const shatterGeo = { A: palm, B: { x: palm.x + 160, y: palm.y - 20 }, S: palm, T: { x: palm.x + 160, y: palm.y - 20 }, cell, rS: 18, rT: 18, dir: aim };
 const shatter = trace(FX, { spell: "Shatter", dmg: "thunder" }, 80, shatterGeo);
 const shatterBig = shatter.map((op) => (op.op === "fill" && op.n >= 3 ? classify(op.pts) : null)).filter(Boolean);
-check("shatter.wedge", FX.lookOf({ type: "spell", spell: "Shatter" }) === "thunder" && shatterBig.some((row) => row.kind === "wedge"));
+check("shatter.wedge", FX.lookOf({ type: "spell", spell: "Shatter" }) === "shatter" && shatterBig.some((row) => row.kind === "wedge"));
 check("wall.untouched", FX.lookOf({ type: "spell", spell: "Wall of Fire", dmg: "fire" }) === "" && trace(FX, { spell: "Wall of Fire", dmg: "fire" }, 200, ballGeo).length === 0);
 
 function mag(spec, lt) {
@@ -168,7 +168,7 @@ check("shake.wall", mag({ type: "spell", spell: "Wall of Fire", dmg: "fire" }, 8
 check("shake.done", mag({ type: "spell", spell: "Fireball" }, 4000) < 0.01);
 
 const ver = JSON.parse(read("version.json"));
-check("ver.tip", ver.sheet === "0.3.196" && ver.dmcc === "0.2.209" && ver.sheetBuild === "sheet-playtest-v03196" && ver.dmccBuild === "dmcc-playtest-v02209", JSON.stringify(ver));
+check("ver.tip", ver.sheet === "0.3.197" && ver.dmcc === "0.2.210" && ver.sheetBuild === "sheet-playtest-v03197" && ver.dmccBuild === "dmcc-playtest-v02210", JSON.stringify(ver));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;

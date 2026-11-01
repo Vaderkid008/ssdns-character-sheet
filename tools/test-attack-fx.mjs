@@ -187,7 +187,8 @@ check("look.acid", FX.lookOf({ type: "spell", spell: "Acid Splash", dmg: "acid" 
 check("look.necro", FX.lookOf({ type: "spell", spell: "Chill Touch" }) === "necrotic" && FX.lookOf({ type: "spell", spell: "Inflict Wounds" }) === "necrotic" && FX.lookOf({ type: "spell", spell: "Blight" }) === "necrotic");
 check("look.radiant", FX.lookOf({ type: "spell", spell: "Sacred Flame" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Guiding Bolt" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Moonbeam" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Spirit Guardians" }) === "radiant");
 check("look.poison", FX.lookOf({ type: "spell", spell: "Poison Spray" }) === "poison");
-check("look.thunder", FX.lookOf({ type: "spell", spell: "Thunderwave" }) === "thundercube" && FX.lookOf({ type: "spell", spell: "Thunderwave Shell" }) === "thundercube" && FX.lookOf({ type: "spell", spell: "Shatter" }) === "thunder");
+check("look.thunder", FX.lookOf({ type: "spell", spell: "Thunderwave" }) === "thundercube" && FX.lookOf({ type: "spell", spell: "Thunderwave Shell" }) === "thundercube" && FX.lookOf({ type: "spell", spell: "Thunderous Smite" }) === "thunder" && FX.lookOf({ type: "spell", dmg: "thunder" }) === "thunder");
+check("look.shatter", FX.lookOf({ type: "spell", spell: "Shatter" }) === "shatter" && FX.lookOf({ type: "spell", spell: "Shatter", dmg: "thunder" }) === "shatter" && FX.lookOf({ type: "spell", spell: "Shatter (Resonance)" }) === "shatter");
 check("look.hands", FX.lookOf({ type: "spell", spell: "Burning Hands", dmg: "fire" }) === "firecone" && FX.lookOf({ type: "spell", spell: "Fire Bolt", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Burning Hands" }) !== "fire");
 function paintOpsAt(spec, A, B) {
   const ops = [];

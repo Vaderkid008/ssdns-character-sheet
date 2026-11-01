@@ -377,6 +377,7 @@
 
   /* Locked palette (specs/spell-fx/spell-fx-palette.json). The six v5 types use those locked colours.
      Fireball is its own powder-keg sphere (not the Fire Bolt beam). Thunderwave is a cube off the caster.
+     Burning Hands is a 15-ft blast off the palm, not the chunk cone chip. Shatter is a wedge plus a 10-ft burst.
      Witch Bolt stays on lightning. Grease, Light, Daylight, and Wall of Fire are zones, not beams. */
   var LOOK_TIME = {
     ribbon: { grow: 220, hold: 140, fade: 450 },
@@ -389,9 +390,12 @@
     necrotic: { grow: 260, hold: 160, fade: 560 },
     radiant: { grow: 280, hold: 0, fade: 260 },
     thunder: { grow: 110, hold: 60, fade: 320 },
-    /* Fireball grow is the bead's flight. The sphere starts when it arrives. Thunderwave dust hangs through the fade. */
+    /* Fireball grow is the bead's flight. The sphere starts when it arrives. Thunderwave dust hangs through the fade.
+       Burning Hands fills a 15-ft cone. Shatter travels the wedge, then the 10-ft burst hangs. */
     fireball: { grow: 380, hold: 360, fade: 1500 },
     thundercube: { grow: 110, hold: 200, fade: 1700 },
+    firecone: { grow: 160, hold: 380, fade: 900 },
+    shatter: { grow: 180, hold: 260, fade: 1100 },
     psychic: { grow: 300, hold: 0, fade: 300 },
     beads: { grow: 260, hold: 0, fade: 260 },
     scurve: { grow: 200, hold: 140, fade: 450 },
@@ -560,6 +564,9 @@
     morph: "170,200,110"
   };
   function lookTime(look) {
+    /* Burning Hands stays listed as a chunk cone, but the blast is not that 90 ms chip.
+       Color Spray and Fear still use the chip. Shatter has its own clock. */
+    if (look === "firecone" || look === "shatter") return LOOK_TIME[look];
     var kind = CHUNK_KIND[look];
     if (kind && CHUNK_TIME[kind]) return CHUNK_TIME[kind];
     return LOOK_TIME[look] || LOOK_TIME.ribbon;
@@ -632,7 +639,8 @@
       if (/^poison spray$|^cloudkill$/.test(name)) return "poison";
       if (/^chill touch$|^inflict wounds$|^blight$/.test(name)) return "necrotic";
       if (/^sacred flame$|^guiding bolt$|^moonbeam$|^spirit guardians$/.test(name)) return "radiant";
-      if (/^shatter$/.test(name)) return "thunder";
+      /* Shatter is the wedge-plus-burst. Thunderous Smite and a bare thunder damage type stay on thunderPaint. */
+      if (/^shatter$/.test(name)) return "shatter";
       /* Zones paint themselves. An empty look must not fall through to a fire beam. */
       if (/^grease$|^light$|^daylight$|^wall of fire$/.test(name)) return "";
       /* Attack spells whose only look was the damage-type pass. An empty dmg (hidden AC pending resolve) used to paint the purple ribbon. */
@@ -954,7 +962,7 @@ function thunderPaint(ctx, A, B, lt, seed) {
 }
 /* Love-it demo overlays (thunderwave-ui-demo / fireball-ui-demo) lived in the page
    after SSDNSMapFx.paint. These helpers are that spice, in the painter, scaled from
-   the demo's 48px cell. Shatter and Wall of Fire do not call them. */
+   the demo's 48px cell. Wall of Fire does not call them. */
 function nz(x, s) {
   s = s || 0;
   return Math.sin(x + s * 1.7) * 0.5 + Math.sin(x * 2.31 + s * 3.1) * 0.3 + Math.sin(x * 4.77 + s * 0.9) * 0.2;
@@ -1261,6 +1269,8 @@ function shakeOf(spec, lt) {
   var look = lookOf(spec || {});
   if (look === "thundercube") return blastShake(lt, 8, 760);
   if (look === "fireball") return blastShake(lt - LOOK_TIME.fireball.grow, 11, 1000);
+  if (look === "firecone") return blastShake(lt, 4, 420);
+  if (look === "shatter") return blastShake(lt - LOOK_TIME.shatter.grow, 7, 650);
   return { x: 0, y: 0 };
 }
 /* Comet from the caster. A short bright tail, not a Fire Bolt line across the whole range. */
@@ -1491,6 +1501,324 @@ function thunderCubePaint(ctx, A, B, lt, seed, g, spec) {
     ctx.restore();
   }
 }
+/* Burning Hands and Shatter. Painted here, not as a page overlay.
+   aimDir matches the Porch Boom cube: a real aim point wins, otherwise spec.facing. */
+function aimDir(A, B, spec, cell) {
+  var span = B && A ? Math.hypot(B.x - A.x, B.y - A.y) : 0;
+  var face = spec && isFinite(Number(spec.facing)) ? Number(spec.facing) : null;
+  if (span > Math.max(12, cell * 0.35)) return dirOf(A, B);
+  if (face != null) return { x: Math.cos(face), y: Math.sin(face), d: 1 };
+  return { x: 1, y: 0, d: 1 };
+}
+function sectorPath(ctx, A, ang, half, len) {
+  ctx.beginPath();
+  ctx.moveTo(A.x, A.y);
+  ctx.lineTo(A.x + Math.cos(ang - half) * len, A.y + Math.sin(ang - half) * len);
+  ctx.lineTo(A.x + Math.cos(ang + half) * len, A.y + Math.sin(ang + half) * len);
+  ctx.closePath();
+}
+/* Burning Hands. Palette: hot 255,225,160 · core 255,125,35 · burst 255,140,45 · glow 200,60,15 (locked fire). */
+function fireConePaint(ctx, A, B, lt, seed, g, spec) {
+  var time = LOOK_TIME.firecone;
+  var life = time.grow + time.hold + time.fade;
+  if (!A || lt < 0 || lt > life) return;
+  var cell = (g && g.cell) || 70, sc = loveScale(cell);
+  var d = aimDir(A, B, spec, cell);
+  var ang = Math.atan2(d.y, d.x), half = Math.atan(0.5);   /* 5e cone: width = distance */
+  var L = cell * 3;                                          /* 15 ft */
+  var grow = easeOut(Math.min(1, lt / time.grow));
+  var reach = L * grow;
+  var end = time.grow + time.hold;
+  var f = lt < end ? 1 : 1 - clamp((lt - end) / time.fade);
+  var i, k;
+  /* scorch first, under the flame (source-over) */
+  var sa = clamp((lt - 120) / 260) * (1 - clamp((lt - end - 200) / (time.fade - 200)));
+  if (sa > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = stops(grad(ctx, "r", A.x, A.y, 0, A.x, A.y, L * 1.02), [
+      [0, "rgba(14,8,4," + (0.5 * sa) + ")"], [0.7, "rgba(22,12,6," + (0.34 * sa) + ")"], [1, "rgba(30,16,8,0)"]
+    ]) || rgba("20,10,5", 0.3 * sa);
+    sectorPath(ctx, A, ang, half, L * 1.02);
+    ctx.fill();
+    ctx.restore();
+  }
+  /* palm flash */
+  var pf = 1 - clamp(lt / 200);
+  if (pf > 0) {
+    softDisc(ctx, A.x, A.y, 40 * sc, [[0, "rgba(255,250,230," + pf + ")"], [0.35, "rgba(255,190,90," + (0.8 * pf) + ")"], [1, "rgba(255,125,35,0)"]]);
+  }
+  /* cone body: hot at the palm, deep red at the far edge, advancing front */
+  if (reach > 2 && f > 0) {
+    var flick = 0.85 + 0.15 * Math.sin(lt * 0.031);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = stops(grad(ctx, "r", A.x, A.y, 0, A.x, A.y, reach * 1.04), [
+      [0, "rgba(255,248,220," + (0.7 * f) + ")"],
+      [0.22, "rgba(255,200,110," + (0.5 * f * flick) + ")"],
+      [0.62, "rgba(255,125,35," + (0.48 * f * flick) + ")"],
+      [0.92, "rgba(200,60,15," + (0.34 * f) + ")"],
+      [1, "rgba(200,60,15,0)"]
+    ]) || rgba("255,140,45", 0.5 * f);
+    sectorPath(ctx, A, ang, half, reach * 1.04);
+    ctx.fill();
+    ctx.restore();
+  }
+  /* streaming flame lobes inside the cone, clipped so the shape stays a clean cone */
+  ctx.save();
+  sectorPath(ctx, A, ang, half * 1.12, L * 1.12);
+  ctx.clip();
+  ctx.globalCompositeOperation = "lighter";
+  var fr = rng(1301);
+  for (i = 0; i < 90; i++) {
+    var born = fr() * (time.grow + time.hold * 0.9);
+    var plife = 300 + fr() * 380;
+    var off = (fr() * 2 - 1) * 0.95;
+    var vel = 0.75 + fr() * 0.5;
+    var ph = fr() * 10;
+    k = (lt - born) / plife;
+    if (k <= 0 || k >= 1) continue;
+    var dist = L * clamp(k * vel * 1.05, 0, 1.08);
+    var a = ang + off * half + nz(lt * 0.006 + ph, i) * 0.08;
+    var px = A.x + Math.cos(a) * dist, py = A.y + Math.sin(a) * dist;
+    var u = dist / L;
+    var rad = (7 + 20 * u) * sc * (0.8 + 0.4 * fr());
+    var alpha = Math.sin(Math.PI * k) * 0.55 * f;
+    var col = u < 0.3 ? "255,232,175" : (u < 0.7 ? "255,150,50" : "220,80,20");
+    softDisc(ctx, px, py, rad, [[0, "rgba(" + col + "," + alpha + ")"], [0.55, "rgba(255,110,28," + (alpha * 0.45) + ")"], [1, "rgba(200,60,15,0)"]]);
+  }
+  ctx.restore();
+  /* hot side edges + ragged flame front so the cone reads at a glance */
+  if (reach > 2 && f > 0) {
+    var ea = f * (lt < time.grow ? 1 : 0.75);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
+    ctx.strokeStyle = rgba("255,200,120", 0.75 * ea);
+    ctx.lineWidth = 2 * sc;
+    ctx.beginPath();
+    ctx.moveTo(A.x + Math.cos(ang - half) * reach, A.y + Math.sin(ang - half) * reach);
+    ctx.lineTo(A.x, A.y);
+    ctx.lineTo(A.x + Math.cos(ang + half) * reach, A.y + Math.sin(ang + half) * reach);
+    ctx.stroke();
+    ctx.restore();
+    /* soft flame tongues rolling off the front (bowed, not a comb) */
+    var lr = rng(77 + (seed || 0));
+    var n = 14;
+    for (i = 0; i <= n; i++) {
+      var t = i / n;
+      var la = ang - half * 0.92 + t * half * 1.84;
+      var bow = 1 - 0.1 * Math.pow(2 * t - 1, 2);
+      var lick = (6 + lr() * 12) * sc * (0.6 + 0.4 * Math.sin(lt * 0.03 + i * 1.7));
+      var fd = reach * bow / Math.cos(la - ang) * 0.97 + lick;
+      var tx = A.x + Math.cos(la) * fd, ty = A.y + Math.sin(la) * fd;
+      softDisc(ctx, tx, ty, (12 + lr() * 9) * sc, [[0, rgba("255,190,90", 0.5 * ea)], [0.5, rgba("255,110,28", 0.32 * ea)], [1, "rgba(200,60,15,0)"]]);
+    }
+  }
+  /* sparks thrown past the cone */
+  var er = rng(4711);
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineCap = "round";
+  for (i = 0; i < 45; i++) {
+    var est = 40 + er() * (time.grow + time.hold * 0.8), elife = 380 + er() * 600;
+    var ean = ang + (er() * 2 - 1) * half * 1.05, ev = 0.55 + er() * 0.6;
+    k = (lt - est) / elife;
+    if (k <= 0 || k >= 1) continue;
+    var ed = L * (0.25 + ev * (1 - Math.pow(1 - k, 2)) * 1.05);
+    var ex = A.x + Math.cos(ean) * ed, ey = A.y + Math.sin(ean) * ed - k * k * 8 * sc;
+    var tl = (4 + 10 * (1 - k)) * sc;
+    ctx.strokeStyle = "rgba(" + (k < 0.35 ? "255,225,160" : "255,125,35") + "," + (1 - k) + ")";
+    ctx.lineWidth = (1 + er() * 1.2) * sc;
+    ctx.beginPath();
+    ctx.moveTo(ex - Math.cos(ean) * tl, ey - Math.sin(ean) * tl);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+  }
+  ctx.restore();
+  /* smoke curling off the far end once the blast burns out */
+  var sr = rng(919);
+  for (i = 0; i < 16; i++) {
+    var sst = time.grow + 120 + sr() * 400, slife = 900 + sr() * 600;
+    var su = 0.55 + sr() * 0.5, soff = (sr() * 2 - 1) * 0.85;
+    k = (lt - sst) / slife;
+    if (k <= 0 || k >= 1) { continue; }
+    var sd = L * su, sang = ang + soff * half;
+    var sx = A.x + Math.cos(sang) * sd + nz(lt * 0.001 + i, i) * 6 * sc, sy = A.y + Math.sin(sang) * sd - k * 22 * sc;
+    var smA = Math.sin(Math.PI * k) * 0.42;
+    softDisc(ctx, sx, sy, (12 + k * 22) * sc, [[0, "rgba(24,19,15," + smA + ")"], [1, "rgba(28,22,18,0)"]], "source-over");
+  }
+}
+/* Shatter. Thunder wedge to the point, then a 10-ft burst. Palette: thunder core 235,215,170 · glow 200,170,110 ·
+   dust 95,80,60, plus glass 200,225,250 / 245,250,255 so it never reads as the tan Porch Boom cube. */
+function shatterPaint(ctx, A, B, lt, seed, g) {
+  var time = LOOK_TIME.shatter;
+  var life = time.grow + time.hold + time.fade;
+  if (!A || !B || lt < 0 || lt > life) return;
+  var cell = (g && g.cell) || 70, sc = loveScale(cell);
+  var d = dirOf(A, B);
+  if (d.d < 16) { thunderPaint(ctx, A, B, lt, seed); return; }
+  var ang = Math.atan2(d.y, d.x), half = 0.28, len = d.d;
+  var R = cell * 2;                                    /* 10-ft radius at the point */
+  var grow = easeOut(Math.min(1, lt / time.grow));
+  var end = time.grow + time.hold;
+  var f = lt < end ? 1 : 1 - clamp((lt - end) / time.fade);
+  var bt = lt - time.grow;                             /* time since the wave reached the point */
+  var i, k;
+  /* wedge body: dust-brown fill growing from the caster with a pale rim */
+  var wf = f * (1 - clamp((lt - end) / 500));
+  if (wf > 0) {
+    var reach = len * grow;
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = stops(grad(ctx, "l", A.x, A.y, A.x + d.x * len, A.y + d.y * len), [
+      [0, "rgba(95,80,60," + (0.18 * wf) + ")"], [1, "rgba(95,80,60," + (0.5 * wf) + ")"]
+    ]) || rgba("95,80,60", 0.4 * wf);
+    sectorPath(ctx, A, ang, half, reach);
+    ctx.fill();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = rgba("235,215,170", 0.75 * wf);
+    ctx.lineWidth = 2.2 * sc;
+    ctx.stroke();
+    ctx.restore();
+    /* pressure arcs rolling down the wedge (thunder rhythm: three claps) */
+    ctx.save();
+    sectorPath(ctx, A, ang, half, len * 1.02);
+    ctx.clip();
+    ctx.globalCompositeOperation = "lighter";
+    for (i = 0; i < 5; i++) {
+      var at = (lt - i * 70) / 260;
+      if (at <= 0 || at >= 1.15) continue;
+      var rr = len * easeOut(Math.min(1, at));
+      var aa = (at < 1 ? 1 : 1 - (at - 1) / 0.15) * 0.85 * wf;
+      ctx.strokeStyle = rgba("245,238,215", aa);
+      ctx.lineWidth = 2.5 * sc;
+      ctx.beginPath();
+      ctx.arc(A.x, A.y, rr, ang - half * 1.1, ang + half * 1.1);
+      ctx.stroke();
+      ctx.strokeStyle = rgba("200,170,110", aa * 0.5);
+      ctx.lineWidth = 9 * sc;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  /* caster clap */
+  var pf = 1 - clamp(lt / 220);
+  if (pf > 0) softDisc(ctx, A.x, A.y, 34 * sc, [[0, "rgba(255,250,235," + pf + ")"], [0.35, "rgba(235,215,170," + (0.7 * pf) + ")"], [1, "rgba(200,170,110,0)"]]);
+  if (bt < 0) return;
+  /* ground cracks radiating from the point (source-over, linger) */
+  var ca = clamp(bt / 120) * f;
+  if (ca > 0) {
+    var cr = rng(5150 + (seed || 0));
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (i = 0; i < 9; i++) {
+      var ca0 = (i / 9) * Math.PI * 2 + cr() * 0.5;
+      var clen = R * (0.55 + cr() * 0.5) * easeOut(clamp(bt / 160));
+      var cx = B.x, cy = B.y, seg;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      for (seg = 1; seg <= 4; seg++) {
+        var sa = ca0 + (cr() - 0.5) * 0.7;
+        cx += Math.cos(sa) * clen / 4; cy += Math.sin(sa) * clen / 4;
+        ctx.lineTo(cx, cy);
+      }
+      ctx.strokeStyle = rgba("22,17,12", 0.85 * ca);
+      ctx.lineWidth = 3.4 * sc;
+      ctx.stroke();
+      ctx.strokeStyle = rgba("235,215,170", 0.35 * ca);
+      ctx.lineWidth = 0.9 * sc;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  /* white clap flash + gold core */
+  var fl = 1 - clamp(bt / 240);
+  if (fl > 0) {
+    softDisc(ctx, B.x, B.y, R * 1.25, [[0, "rgba(255,252,240," + (0.55 * fl) + ")"], [0.4, "rgba(235,215,170," + (0.35 * fl) + ")"], [1, "rgba(200,170,110,0)"]]);
+    softDisc(ctx, B.x, B.y, lerp(10 * sc, R * 0.5, easeOut(bt / 160)), [[0, "rgba(255,255,255," + fl + ")"], [0.6, "rgba(220,235,250," + (0.7 * fl) + ")"], [1, "rgba(200,225,250,0)"]]);
+  }
+  /* concussion shade so the pale rings read on a bright floor */
+  var cs = clamp(bt / 100) * f;
+  if (cs > 0) softDisc(ctx, B.x, B.y, R * 1.08, [[0, "rgba(40,32,24," + (0.35 * cs) + ")"], [0.8, "rgba(40,32,24," + (0.22 * cs) + ")"], [1, "rgba(40,32,24,0)"]], "source-over");
+  /* 10-ft burst body: tan dust disc that blows out and settles */
+  var dk = clamp(bt / (time.hold + time.fade));
+  var dA = (1 - dk) * clamp(bt / 80);
+  if (dA > 0) {
+    var dr = rng(808);
+    for (i = 0; i < 56; i++) {
+      var dan = dr() * Math.PI * 2, dd = Math.sqrt(dr()) * R * (0.4 + 0.65 * easeOut(bt / 300));
+      var light = dr() < 0.45;
+      softDisc(ctx, B.x + Math.cos(dan) * dd + nz(lt * 0.002 + i, i) * 6 * sc, B.y + Math.sin(dan) * dd + nz(lt * 0.0025 + i, i + 2) * 6 * sc,
+        (12 + dr() * 20) * sc, [[0, light ? "rgba(165,138,98," + (0.6 * dA) + ")" : "rgba(95,80,60," + (0.75 * dA) + ")"], [1, "rgba(95,80,60,0)"]], "source-over");
+    }
+  }
+  /* concentric shock rings to the 10-ft edge */
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for (i = 0; i < 3; i++) {
+    var rk = (bt - i * 120) / 480;
+    if (rk <= 0 || rk >= 1) continue;
+    var rr2 = R * lerp(0.15, 1.05, easeOut(rk)), ra = (1 - rk);
+    ctx.strokeStyle = rgba("245,238,215", 0.9 * ra);
+    ctx.lineWidth = (3.2 - i * 0.6) * sc;
+    ctx.beginPath(); ctx.arc(B.x, B.y, rr2, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = rgba(i === 1 ? "200,225,250" : "200,170,110", 0.45 * ra);
+    ctx.lineWidth = 10 * sc;
+    ctx.stroke();
+  }
+  /* hard 10-ft edge holds through the hold so the area reads */
+  var edge = bt < 90 ? bt / 90 : f * (1 - clamp((bt - time.hold) / 700));
+  if (edge > 0) {
+    ctx.strokeStyle = rgba("215,185,125", 0.7 * edge);
+    ctx.lineWidth = 5 * sc;
+    ctx.beginPath(); ctx.arc(B.x, B.y, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = rgba("245,250,255", 0.85 * edge);
+    ctx.lineWidth = 1.6 * sc;
+    ctx.stroke();
+  }
+  ctx.restore();
+  /* glass shards: tumbling slivers thrown out of the burst, the "shatter" read */
+  var gr = rng(2718 + (seed || 0));
+  ctx.save();
+  for (i = 0; i < 70; i++) {
+    var gan = gr() * Math.PI * 2, gv = 0.5 + gr() * 0.8, glife = 500 + gr() * 700, gst = gr() * 90, gsz = (2.5 + gr() * 5) * sc, spin = (gr() - 0.5) * 0.03;
+    k = (bt - gst) / glife;
+    if (k <= 0 || k >= 1) continue;
+    var gd = R * (0.1 + gv * (1 - Math.pow(1 - k, 2.4)) * 1.15);
+    var gx = B.x + Math.cos(gan) * gd, gy = B.y + Math.sin(gan) * gd;
+    var rot = gan + bt * spin;
+    var ga = (1 - k) * (0.6 + 0.4 * Math.abs(Math.sin(bt * 0.03 + i)));
+    ctx.save();
+    ctx.translate(gx, gy);
+    ctx.rotate(rot);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = rgba(i % 3 ? "200,225,250" : "245,250,255", ga);
+    ctx.beginPath();
+    ctx.moveTo(gsz * 1.6, 0); ctx.lineTo(-gsz * 0.6, gsz * 0.55); ctx.lineTo(-gsz * 0.9, -gsz * 0.35);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+  /* grit streaks blown out past the edge */
+  var pr = rng(2024);
+  ctx.save();
+  ctx.lineCap = "round";
+  for (i = 0; i < 110; i++) {
+    var pan = pr() * Math.PI * 2, pv = 0.4 + pr() * 0.6, plife = 500 + pr() * 700, pst = 20 + pr() * 120;
+    k = (bt - pst) / plife;
+    if (k <= 0 || k >= 1) continue;
+    var pd = R * (0.6 + pv * (1 - Math.pow(1 - k, 2)) * 0.9);
+    var qx = B.x + Math.cos(pan) * pd, qy = B.y + Math.sin(pan) * pd, tail = (10 + 10 * (1 - k)) * sc;
+    ctx.strokeStyle = pr() < 0.5 ? rgba("200,175,130", (1 - k) * 0.6) : rgba("95,80,60", (1 - k) * 0.6);
+    ctx.lineWidth = (1.2 + pr() * 1.6) * sc;
+    ctx.beginPath(); ctx.moveTo(qx - Math.cos(pan) * tail, qy - Math.sin(pan) * tail); ctx.lineTo(qx, qy); ctx.stroke();
+  }
+  ctx.restore();
+}
 function psychicPaint(ctx, A, B, lt) {
   var T = LOOK_TIME.psychic;
   if (!A || !B || lt < 0 || lt > T.grow + T.fade) return;
@@ -1665,6 +1993,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
     if (look === "radiant") return radiantPaint(ctx, A, B, lt);
     if (look === "fireball") return fireballPaint(ctx, A, (g && g.T) || B, lt, seed, g);
     if (look === "thundercube") return thunderCubePaint(ctx, A, B, lt, seed, g, spec);
+    if (look === "firecone") return fireConePaint(ctx, A, B, lt, seed, g, spec);
+    if (look === "shatter") return shatterPaint(ctx, A, (g && g.T) || B, lt, seed, g);
     if (look === "thunder") return thunderPaint(ctx, A, B, lt, seed);
     if (look === "psychic") return psychicPaint(ctx, A, B, lt);
     if (look === "beads") return beadsPaint(ctx, A, B, lt, seed);
