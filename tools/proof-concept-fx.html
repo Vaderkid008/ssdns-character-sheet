@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Porch Boom and Fireball peak</title>
+<style>
+  html, body { margin: 0; background: #140e0a; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1280" height="640"></canvas>
+<script src="../map/ssdns-map-fx.js"></script>
+<script>
+(function () {
+  var c = document.getElementById("c");
+  var ctx = c.getContext("2d");
+  var late = /(?:\?|&)late\b/.test(location.search);
+  function floor(x, y, w, h) {
+    var row, i;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    for (row = 0; row < 24; row++) {
+      ctx.fillStyle = row % 2 ? "#6a4930" : "#5a3d27";
+      ctx.fillRect(x, y + row * 28, w, 28);
+    }
+    ctx.strokeStyle = "rgba(232,220,200,0.22)";
+    ctx.lineWidth = 1;
+    for (i = 0; i <= 16; i++) {
+      ctx.beginPath();
+      ctx.moveTo(x + i * 70, y);
+      ctx.lineTo(x + i * 70, y + h);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y + i * 70);
+      ctx.lineTo(x + w, y + i * 70);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  floor(0, 0, 640, 640);
+  floor(640, 0, 640, 640);
+  var FX = window.SSDNSMapFx;
+  var cell = 70;
+  var palm = { x: 168, y: 330 };
+  FX.paint(ctx, {
+    type: "spell", spell: "Thunderwave (Porch Boom)", weapon: "Porch Boom",
+    dmg: "thunder", result: "hit", seed: 4, facing: 0
+  }, late ? 520 : 170, {
+    A: palm, B: { x: palm.x + cell * 1.35, y: palm.y }, S: palm,
+    T: { x: palm.x + cell * 1.35, y: palm.y }, cell: cell, rS: 22, rT: 18, dir: { x: 1, y: 0 }
+  });
+  var from = { x: 760, y: 470 };
+  var at = { x: 980, y: 270 };
+  FX.paint(ctx, {
+    type: "spell", spell: "Fireball", dmg: "fire", result: "hit", seed: 7
+  }, late ? 820 : 210, {
+    A: from, B: at, S: from, T: at, cell: cell, rS: 22, rT: 18, dir: { x: 1, y: -1 }
+  });
+  ctx.fillStyle = "#f4e7cb";
+  ctx.font = "22px Georgia, serif";
+  ctx.fillText(late ? "Porch Boom dust" : "Porch Boom", 24, 40);
+  ctx.fillText(late ? "Fireball smoke" : "Fireball", 664, 40);
+  document.title = late ? "late" : "peak";
+})();
+</script>
+</body>
+</html>

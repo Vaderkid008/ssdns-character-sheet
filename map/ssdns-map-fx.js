@@ -388,9 +388,9 @@
     necrotic: { grow: 260, hold: 160, fade: 560 },
     radiant: { grow: 280, hold: 0, fade: 260 },
     thunder: { grow: 110, hold: 60, fade: 320 },
-    /* Fireball: ember bead, then the bloom. Thunderwave: the square fills in the grow. */
+    /* Fireball: the sphere opens on the target. Thunderwave: the square fills in the grow, then dust hangs. */
     fireball: { grow: 240, hold: 320, fade: 700 },
-    thundercube: { grow: 110, hold: 80, fade: 460 },
+    thundercube: { grow: 110, hold: 160, fade: 980 },
     psychic: { grow: 300, hold: 0, fade: 300 },
     beads: { grow: 260, hold: 0, fade: 260 },
     scurve: { grow: 200, hold: 140, fade: 450 },
@@ -951,96 +951,133 @@ function thunderPaint(ctx, A, B, lt, seed) {
     ctx.restore();
   }
 }
-/* Powder-keg sphere. Ember bead from the caster, then a bloom that fills the 20-ft radius.
-   Not the Fire Bolt beam. Palette: glow 200,60,15 · core 255,125,35 · hot 255,225,160 · burst 255,140,45. */
+/* Streaks and rings shared by the Porch Boom cube and the Fireball sphere.
+   They sit on top of the locked shapes. Shatter stays on the thunder wedge and does not call these. */
+function radialStreaks(ctx, p, lt, seed, color, n, reach, life) {
+  if (!p || lt < 0 || lt > life) return;
+  var k = easeOut(Math.min(1, lt / Math.max(1, life * 0.42)));
+  var fade = 1 - clamp((lt - life * 0.28) / (life * 0.72));
+  if (fade <= 0) return;
+  var rand = rng((seed || 1) + 41);
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineCap = "round";
+  var i;
+  for (i = 0; i < n; i++) {
+    var a = rand() * Math.PI * 2;
+    var sp = 0.55 + rand() * 0.5;
+    var far = reach * sp * (0.35 + 0.65 * k);
+    var near = far * (0.08 + rand() * 0.22);
+    ctx.strokeStyle = rgba(i % 3 === 0 ? "255,248,220" : color, (0.65 + rand() * 0.3) * fade);
+    ctx.lineWidth = i % 5 === 0 ? 3.2 : 1.7;
+    ctx.beginPath();
+    ctx.moveTo(p.x + Math.cos(a) * near, p.y + Math.sin(a) * near);
+    ctx.lineTo(p.x + Math.cos(a) * far, p.y + Math.sin(a) * far);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function ringRipples(ctx, p, lt, radius, color, n) {
+  if (!p || lt < 0) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  var i;
+  for (i = 0; i < n; i++) {
+    var t = lt - i * 80;
+    if (t < 0 || t > 560) continue;
+    var u = easeOut(t / 560);
+    ctx.strokeStyle = rgba(color, (1 - u) * (0.62 - i * 0.12));
+    ctx.lineWidth = 2 + (1 - u) * 5;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(6, radius * (0.18 + 1.05 * u)), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function blastShake(lt, amp, dur) {
+  if (!(lt >= 0) || lt > dur || !(amp > 0)) return { x: 0, y: 0 };
+  var k = Math.pow(1 - lt / dur, 1.35);
+  var mag = amp * k;
+  return {
+    x: Math.sin(lt * 0.117) * mag + Math.sin(lt * 0.041) * mag * 0.4,
+    y: Math.cos(lt * 0.139) * mag * 0.86 + Math.sin(lt * 0.057) * mag * 0.28
+  };
+}
+function shakeOf(spec, lt) {
+  var look = lookOf(spec || {});
+  if (look === "thundercube") return blastShake(lt, 8, 760);
+  if (look === "fireball") return blastShake(lt, 11, 1000);
+  return { x: 0, y: 0 };
+}
+/* Powder-keg sphere at the chosen point. Fills a 20-ft radius. Not the Fire Bolt beam.
+   Palette: glow 200,60,15 · core 255,125,35 · hot 255,225,160 · burst 255,140,45. */
 function fireballPaint(ctx, A, B, lt, seed, g) {
   var time = LOOK_TIME.fireball;
   var life = time.grow + time.hold + time.fade;
   if (!B || lt < 0 || lt > life) return;
   var cell = (g && g.cell) || 70;
   var radius = cell * 4;
-  var flight = time.grow;
-  var boom = lt - flight;
   var fadeAt = time.grow + time.hold;
   var f = lt < fadeAt ? 1 : 1 - clamp((lt - fadeAt) / time.fade);
+  var expand = easeOut(Math.min(1, lt / 180));
+  var R = radius * (0.22 + 0.78 * expand);
+  var core = lt < 200 ? 1 : f;
   var rand = rng((seed || 3) + 11);
-  if (A && lt < flight + 50) {
-    var travel = easeOut(Math.min(1, lt / Math.max(1, flight)));
-    var beadA = lt < flight ? 1 : 1 - (lt - flight) / 50;
-    var hx = lerp(A.x, B.x, travel), hy = lerp(A.y, B.y, travel);
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    var trail;
-    for (trail = 1; trail <= 6; trail++) {
-      var u = Math.max(0, travel - trail * 0.055);
-      ctx.fillStyle = rgba(trail % 2 ? "255,140,45" : "255,225,160", 0.32 * beadA);
-      ctx.beginPath();
-      ctx.arc(lerp(A.x, B.x, u), lerp(A.y, B.y, u), 3.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.fillStyle = rgba("255,125,35", 0.7 * beadA);
-    ctx.beginPath();
-    ctx.arc(hx, hy, 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = rgba("255,242,205", 0.95 * beadA);
-    ctx.beginPath();
-    ctx.arc(hx, hy, 2.6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-  if (boom <= 0) return;
-  var expand = easeOut(Math.min(1, boom / 240));
-  var R = radius * (0.16 + 0.84 * expand);
-  var core = boom < 180 ? 1 : f;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = rgba("180,48,12", 0.72 * f);
+  ctx.beginPath();
+  ctx.arc(B.x, B.y, R, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
-  var coreR = Math.max(8, cell * (0.28 + 0.55 * Math.min(1, boom / 150)));
+  var coreR = Math.max(10, cell * (0.45 + 0.85 * Math.min(1, lt / 140)));
   ctx.fillStyle = stops(grad(ctx, "r", B.x, B.y, 0, B.x, B.y, coreR), [
-    [0, "rgba(255,250,230," + 0.95 * core + ")"],
-    [0.4, "rgba(255,225,160," + 0.72 * core + ")"],
-    [1, "rgba(255,125,35,0)"]
-  ]) || rgba("255,225,160", 0.75 * core);
+    [0, "rgba(255,252,236," + 0.98 * core + ")"],
+    [0.35, "rgba(255,230,170," + 0.85 * core + ")"],
+    [1, "rgba(255,140,40,0)"]
+  ]) || rgba("255,236,190", 0.9 * core);
   ctx.beginPath();
   ctx.arc(B.x, B.y, coreR, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = stops(grad(ctx, "r", B.x, B.y, coreR * 0.15, B.x, B.y, R), [
-    [0, "rgba(255,140,45," + 0.5 * f + ")"],
-    [0.62, "rgba(200,60,15," + 0.36 * f + ")"],
-    [1, "rgba(200,60,15,0)"]
-  ]) || rgba("255,125,35", 0.4 * f);
+  ctx.fillStyle = stops(grad(ctx, "r", B.x, B.y, coreR * 0.2, B.x, B.y, R), [
+    [0, "rgba(255,160,50," + 0.72 * f + ")"],
+    [0.55, "rgba(220,70,16," + 0.55 * f + ")"],
+    [1, "rgba(160,30,8,0)"]
+  ]) || rgba("255,125,35", 0.62 * f);
   ctx.beginPath();
   ctx.arc(B.x, B.y, R, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = rgba("255,225,160", 0.88 * f);
-  ctx.lineWidth = 3 + 7 * (1 - expand);
+  ctx.strokeStyle = rgba("255,236,190", 0.95 * f);
+  ctx.lineWidth = 4 + 8 * (1 - expand);
   ctx.beginPath();
   ctx.arc(B.x, B.y, R, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.strokeStyle = rgba("255,140,45", 0.5 * f);
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = rgba("255,120,30", 0.55 * f);
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.arc(B.x, B.y, R * 0.7, 0, Math.PI * 2);
+  ctx.arc(B.x, B.y, R * 0.62, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
-  var smokeK = clamp(boom / (time.hold + time.fade));
-  ctx.save();
-  ctx.globalCompositeOperation = "source-over";
-  var puff;
-  for (puff = 0; puff < 11; puff++) {
-    var ang = rand() * Math.PI * 2;
-    var dist = R * (0.78 + 0.22 * smokeK);
-    ctx.fillStyle = rgba(puff % 2 ? "78,62,48" : "42,34,26", 0.42 * (1 - smokeK * 0.25) * f);
-    ctx.beginPath();
-    ctx.arc(B.x + Math.cos(ang) * dist, B.y + Math.sin(ang) * dist, 7 + smokeK * 18, 0, Math.PI * 2);
-    ctx.fill();
+  radialStreaks(ctx, B, lt, seed, "255,150,40", 24, radius * 1.55, 680);
+  ringRipples(ctx, B, lt, radius, "255,190,90", 3);
+  var smokeK = clamp((lt - 180) / (time.hold + time.fade));
+  if (smokeK > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    var puff;
+    for (puff = 0; puff < 16; puff++) {
+      var ang = rand() * Math.PI * 2;
+      var dist = R * (0.15 + 0.7 * smokeK) * (0.4 + rand() * 0.6);
+      var ember = puff % 4 === 0 && smokeK < 0.65;
+      ctx.fillStyle = rgba(ember ? "255,120,30" : (puff % 2 ? "70,58,48" : "32,26,22"), (ember ? 0.35 : 0.5) * smokeK * f);
+      ctx.beginPath();
+      ctx.arc(B.x + Math.cos(ang) * dist, B.y + Math.sin(ang) * dist, (ember ? 8 : 12) + smokeK * 22, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
-  var scorch = clamp((boom - 60) / time.fade);
-  ctx.fillStyle = rgba("62,28,12", 0.32 * scorch * f);
-  ctx.beginPath();
-  ctx.arc(B.x, B.y, radius * 0.92, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  sparks(ctx, B, boom, seed, "255,140,45", 16, radius * 0.9);
 }
 /* Canyon thunderclap in a box. A 15-ft cube off the caster's palm, not a cone.
    Palette: glow 200,170,110 · core 235,215,170 · dust 95,80,60 · edge 215,185,125 / 150,120,80. */
@@ -1085,13 +1122,17 @@ function thunderCubePaint(ctx, A, B, lt, seed, g, spec) {
     ctx.stroke();
   }
   ctx.restore();
-  var flash = lt < 90 ? 1 - lt / 90 : 0;
+  var flash = lt < 120 ? 1 - lt / 120 : 0;
   if (flash > 0) {
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    ctx.fillStyle = rgba("235,215,170", 0.92 * flash);
+    ctx.fillStyle = rgba("255,220,150", 0.95 * flash);
     ctx.beginPath();
-    ctx.arc(A.x, A.y, cell * 0.38, 0, Math.PI * 2);
+    ctx.arc(A.x, A.y, cell * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = rgba("255,252,240", flash);
+    ctx.beginPath();
+    ctx.arc(A.x, A.y, cell * 0.18, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -1132,6 +1173,49 @@ function thunderCubePaint(ctx, A, B, lt, seed, g, spec) {
         ctx.arc(ox + dirs[s].x * blow, oy + dirs[s].y * blow, 3 + rand() * 4, 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+    ctx.restore();
+  }
+  /* Concept layer on the #211 cube: gold shock fill, white frame, dust and streaks off the center. */
+  var mid = corner(reach * 0.5, 0);
+  var hot = lt < 260 ? 1 - lt / 420 : f * 0.2;
+  if (hot > 0.04 && grow > 0.05) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = rgba("255,206,110", 0.7 * hot);
+    poly(ctx, box);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = rgba("255,246,214", 0.55 * hot);
+    poly(ctx, square(reach * 0.62, half * 0.62));
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = rgba("255,250,236", 0.92 * hot);
+    ctx.lineWidth = 3;
+    poly(ctx, box);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (lt > 40) {
+    var dustT = lt - 40;
+    radialStreaks(ctx, mid, dustT, (seed || 5) + 3, "255,214,140", 16, side * 0.95, 520);
+    ringRipples(ctx, mid, dustT, side * 0.7, "230,205,150", 3);
+    var dustFade = Math.min(1, dustT / 90) * (lt < time.grow + time.hold + 200 ? 0.95 : f);
+    var dustRand = rng((seed || 5) + 21);
+    var push = easeOut(clamp(dustT / 260));
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    var di;
+    for (di = 0; di < 28; di++) {
+      var ang = dustRand() * Math.PI * 2;
+      var travel = push * (side * 0.42 + dustRand() * side * 0.72);
+      var chip = di % 4 === 0;
+      var rr = chip ? 2 + dustRand() * 2.2 : 8 + dustRand() * 11 + push * 16;
+      ctx.fillStyle = rgba(chip ? "48,36,26" : (di % 2 ? "186,154,112" : "122,96,70"), (chip ? 0.92 : 0.62) * dustFade);
+      ctx.beginPath();
+      ctx.arc(mid.x + Math.cos(ang) * travel, mid.y + Math.sin(ang) * travel, rr, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
   }
@@ -1663,7 +1747,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     PREF_KEY: PREF_KEY, enabled: enabled, setEnabled: setEnabled,
     TIMING: TIMING, configure: configure, TYPES: TYPES,
     classify: classify, resultOf: resultOf, plan: plan, sanitize: sanitize, request: request,
-    lookOf: lookOf, lookSelf: lookSelf, lookTime: lookTime,
+    lookOf: lookOf, lookSelf: lookSelf, lookTime: lookTime, shakeOf: shakeOf,
     stickyLook: stickyLook, chunkColor: chunkColor, tileOf: tileOf, namedLook: namedLook,
     paint: paint, hash: hash, dirOf: dirOf
   };
