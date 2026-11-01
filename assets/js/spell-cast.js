@@ -29,9 +29,25 @@
     var R = root.SSDNSSpellRiders;
     return R && R.patchRow ? R.patchRow(row) : row;
   }
+  /* Frontier label (Porch Boom) → the book name. Parentheses are already stripped by the caller. */
+  function aliasPhb(name) {
+    var key = norm(name);
+    if (key === "porch boom") return "Thunderwave";
+    var aliases = rules().spellAliases || [];
+    var i, a, alias;
+    for (i = 0; i < aliases.length; i++) {
+      a = aliases[i];
+      alias = a && String(a.alias || "").trim();
+      if (!alias || alias === "—" || /^—/.test(alias) || /prints as 5e/i.test(alias)) continue;
+      if (norm(alias) === key && a.phb) return a.phb;
+    }
+    return "";
+  }
   function lookup(name) {
     var map = build();
     var raw = stripAlias(name);
+    var aliased = aliasPhb(raw);
+    if (aliased) raw = aliased;
     if (norm(raw) === "pact shot" || /pact shot/i.test(String(name || ""))) {
       var pact = map["eldritch blast"];
       if (pact) {

@@ -10,6 +10,15 @@
   var storeOpen = false;
 
   function $(s, r) { return (r || document).querySelector(s); }
+  /* Save blasts carry the rider's push/pull. The DM slides only after a failed save. */
+  function stampSlide(hitRow, row, rolled) {
+    if (!hitRow) return hitRow;
+    var push = Number((row && row.push) || (rolled && rolled.push)) || 0;
+    var pull = Number((row && row.pull) || (rolled && rolled.pull)) || 0;
+    if (push) hitRow.push = push;
+    if (pull) hitRow.pull = pull;
+    return hitRow;
+  }
   function doc() { return root.SSDNSApp && root.SSDNSApp.doc ? root.SSDNSApp.doc() : null; }
   function ch() { var d = doc(); return d && d.character; }
   function toast(msg, actLabel, actFn, ms, opts) {
@@ -2947,6 +2956,7 @@
               if (condP) hitRow.condition = condP;
               if (row && row.onFail && !condP) hitRow.condition = row.onFail;
               if (row && row.floorHp) { hitRow.floorHp = row.floorHp; hitRow.maxDrop = row.maxDrop || ""; }
+              stampSlide(hitRow, row, rolled);
             }
             if (row && row.pool || (root.SSDNSSpellRiders && root.SSDNSSpellRiders.poolSpell && root.SSDNSSpellRiders.poolSpell(spellName))) {
               hitRow.save = "";
@@ -3097,7 +3107,9 @@
               prismatic: !!(row && row.prismatic),
               floorHp: (row && row.floorHp) || 0,
               maxDrop: (row && row.maxDrop) || "",
-              disease: castSpellAttackNow._disease || ""
+              disease: castSpellAttackNow._disease || "",
+              push: (row && row.push) || (rolled && rolled.push) || 0,
+              pull: (row && row.pull) || (rolled && rolled.pull) || 0
             });
           });
         }
@@ -4869,6 +4881,7 @@
             hitRow.dc = opts.dc != null ? opts.dc : v.spellDC;
             hitRow.half = !!(row.half || rolled.half);
             if (condP) hitRow.condition = condP;
+            stampSlide(hitRow, row, rolled);
           }
           if (hitRow.targetId) root.SSDNSDmJoin.postDamage(hitRow);
         });
@@ -4890,7 +4903,9 @@
           root.SSDNSDmJoin.postDamage({
             amount: saveAmt, label: spellName, type: "spell",
             save: row.save || rolled.save || "DEX", dc: opts.dc != null ? opts.dc : v.spellDC, half: !!(row.half || rolled.half),
-            condition: condS, dice: rolled.damageDetail || "", targetId: tgt.id, targetName: tgt.name, rollId: rollId
+            condition: condS, dice: rolled.damageDetail || "", targetId: tgt.id, targetName: tgt.name, rollId: rollId,
+            push: (row && row.push) || (rolled && rolled.push) || 0,
+            pull: (row && row.pull) || (rolled && rolled.pull) || 0
           });
         }
       } else if (!placed && (row.kind === "none" || row.kind === "rider")) {
