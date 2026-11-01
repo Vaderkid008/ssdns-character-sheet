@@ -8920,6 +8920,7 @@ function resolveIncomingAttack(req, reqId) {
     mapFx({ id: feedId, shooter: req.from, target: req.targetId, result: verdict.miss ? "miss" : (verdict.crit ? "crit" : "hit"),
       nat: req.nat, crit: !!verdict.crit, critMin: req.critMin, weapon: req.spell ? (req.spellName || req.weapon || "") : (req.weapon || ""),
       weaponId: req.weaponId || "", gun: !!req.gun, sfx: req.sfx || "", arrow: fxArrowType(req.arrow),
+      type: req.spell ? "spell" : "",
       spell: req.spell ? (req.spellName || req.weapon || "") : "", dmg: req.dmgType || "", heard: [DM.state.uid] });
   }
   if (window.SSDNSAudio && window.SSDNSAudio.playOutcome) {
