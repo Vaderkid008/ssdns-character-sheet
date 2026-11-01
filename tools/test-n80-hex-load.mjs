@@ -1,7 +1,8 @@
 /**
  * N80 — a Hexslinger chamber stores the spell that was picked.
  * Cantrips refuse + Hex shell and do not write a nameless k:hex token.
- * Sheet 0.3.198 / DMCC 0.2.211. rules.js stays untouched.
+ * Unload (and a weapon change) refunds the slot the load spent. Cycle does not.
+ * Sheet 0.3.199 / DMCC 0.2.212. rules.js stays untouched.
  *   node tools/test-n80-hex-load.mjs
  */
 import fs from "node:fs";
@@ -19,9 +20,9 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.198" && version.sheetBuild === "sheet-playtest-v03198");
-check("ver.dmcc", version.dmcc === "0.2.211" && version.dmccBuild === "dmcc-playtest-v02211");
-check("ver.rules", !read("assets/data/rules.js").includes("0.3.198") && !read("assets/data/rules.js").includes("0.2.211") && !read("database.rules.json").includes("0.3.198"));
+check("ver.sheet", version.sheet === "0.3.199" && version.sheetBuild === "sheet-playtest-v03199");
+check("ver.dmcc", version.dmcc === "0.2.212" && version.dmccBuild === "dmcc-playtest-v02212");
+check("ver.rules", !read("assets/data/rules.js").includes("0.3.199") && !read("assets/data/rules.js").includes("0.2.212") && !read("database.rules.json").includes("0.3.199"));
 
 const html = read("index.html").replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
 const dom = new JSDOM(html, { url: "http://127.0.0.1:8765/index.html", pretendToBeVisual: true, runScripts: "dangerously" });
@@ -295,9 +296,93 @@ check("cast.light", castLog.some((row) => /Light/.test(row.text || "") && /no at
 check("cast.strike", castLog.some((row) => /True Strike/.test(row.text || "") && /no attack roll/i.test(row.text || "")) && !(g.chambers || []).some(Boolean), JSON.stringify(castLog.slice(-4)));
 check("cast.notHexToast", toastText() !== CANTRIP_TOAST, toastText());
 
+function slotBox(level, index) {
+  return window.document.querySelector('[data-f="character.hexLead.' + level + "." + index + '"]');
+}
+function spentCount(level) {
+  return (c.hexLead[level] || []).filter(Boolean).length;
+}
+function clickUnload() {
+  window.document.querySelector('[data-unload="0"]').click();
+}
+
+resetGun();
+drainToasts();
+const slotsBefore = app.slotsLeft(1);
+choose("1:Magic Missile", 1);
+clickLoad();
+check("unload.spentModel", spentCount(1) === 1 && app.slotsLeft(1) === slotsBefore - 1, JSON.stringify(c.hexLead[1]));
+check("unload.spentBox", !!(slotBox(1, 0) && slotBox(1, 0).checked), slotBox(1, 0) && String(slotBox(1, 0).checked));
+clickUnload();
+check("unload.empty", !(g.chambers || []).some(Boolean), JSON.stringify(g.chambers));
+check("unload.model", spentCount(1) === 0 && app.slotsLeft(1) === slotsBefore, JSON.stringify(c.hexLead[1]));
+check("unload.box", !!(slotBox(1, 0) && slotBox(1, 0).checked === false));
+
+resetGun();
+drainToasts();
+const twoBefore = app.slotsLeft(1);
+const twoBefore2 = app.slotsLeft(2);
+choose("1:Magic Missile", 1);
+clickLoad();
+choose("1:Burning Hands", 1);
+clickLoad();
+choose("2:Shatter", 2);
+clickLoad();
+check("unload.multiSpent", spentCount(1) === 2 && spentCount(2) === 1 && slotBox(1, 0).checked && slotBox(1, 1).checked && slotBox(2, 0).checked);
+clickUnload();
+check("unload.multiBack", spentCount(1) === 0 && spentCount(2) === 0 && app.slotsLeft(1) === twoBefore && app.slotsLeft(2) === twoBefore2 && !slotBox(1, 0).checked && !slotBox(1, 1).checked && !slotBox(2, 0).checked && !(g.chambers || []).some(Boolean), JSON.stringify({ l1: c.hexLead[1], l2: c.hexLead[2], chambers: g.chambers }));
+
+resetGun();
+drainToasts();
+choose("1:Magic Missile", 1);
+clickLoad();
+const fired = app.spendHexChamber(0, 1, "Magic Missile");
+check("fire.keepsSlot", !!(fired && fired.ok) && spentCount(1) === 1 && slotBox(1, 0).checked && !(g.chambers || []).some((st) => /Magic Missile|Magic%20Missile/.test(String(st || ""))), JSON.stringify({ fired, lead: c.hexLead[1], chambers: g.chambers }));
+
+resetGun();
+drainToasts();
+c.hexLead[1][0] = true;
+if (slotBox(1, 0)) slotBox(1, 0).checked = true;
+g.chambers = ["k:hex:1:", "", "", "", "", ""];
+g.loaded = 1;
+clickUnload();
+check("unload.unspentKept", spentCount(1) === 1 && slotBox(1, 0).checked && !(g.chambers || []).some(Boolean), JSON.stringify(c.hexLead[1]));
+
+resetGun();
+drainToasts();
+const changeBefore = app.slotsLeft(1);
+choose("1:Burning Hands", 1);
+clickLoad();
+const gunSel = window.document.querySelector('[data-f="character.guns.0.weapon"]');
+check("weapon.option", !!(gunSel && [...gunSel.options].some((op) => op.value === "hognose")));
+if (gunSel) {
+  gunSel.value = "hognose";
+  gunSel.dispatchEvent(new window.Event("change", { bubbles: true }));
+}
+check("weapon.refund", g.weapon === "hognose" && spentCount(1) === 0 && app.slotsLeft(1) === changeBefore && slotBox(1, 0).checked === false && !(g.chambers || []).some(Boolean), JSON.stringify({ weapon: g.weapon, lead: c.hexLead[1], chambers: g.chambers }));
+
+resetGun();
+g.weapon = "blacksnake";
+g.equipped = true;
+if (gunSel) gunSel.value = "blacksnake";
+for (let i = 0; i < 6; i++) g.chambers[i] = "k:hex:1:spent:1:" + encodeURIComponent("Magic Missile");
+g.loaded = 6;
+for (let i = 0; i < 4; i++) {
+  c.hexLead[1][i] = true;
+  if (slotBox(1, i)) slotBox(1, i).checked = true;
+}
+app.refreshGunFace();
+drainToasts();
+choose("1:Magic Missile", 1);
+clickLoad();
+check("swap.fullHexKept", (g.chambers || []).filter(Boolean).length === 6 && spentCount(1) === 4 && /hex shell/i.test(toastText()), toastText() + " · " + JSON.stringify(g.chambers));
+
 const appSrc = read("assets/js/app.js");
 check("src.cantripMsg", appSrc.includes(CANTRIP_TOAST));
 check("src.cantripFlag", appSrc.includes("cantrip: true") && appSrc.includes("if (pick.cantrip)"));
+const cycleAt = appSrc.indexOf("function cycleTube");
+const cycleBody = appSrc.slice(cycleAt, appSrc.indexOf("function spendRound"));
+check("cycle.keepsSpent", cycleAt > 0 && cycleBody.includes("That slot stays spent") && !cycleBody.includes("refundHex") && !cycleBody.includes("returnChamber"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
