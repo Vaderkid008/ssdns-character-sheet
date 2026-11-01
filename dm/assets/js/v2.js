@@ -4374,6 +4374,8 @@ async function rest(kind) {
   }
   DM.toast((kind === "long" ? "Long" : "Short") + " rest sent");
 }
+/* 0.2.211: the map toolbar calls this same rest. Fight tab buttons stay on rest() below. */
+window.SSDNSPartyRest = rest;
 
 const STORE_PREVIEW_KEY = "ssdns.dm.storePreview";
 let storeItems = [];
