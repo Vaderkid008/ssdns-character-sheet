@@ -173,6 +173,7 @@
   /* ---------- painters ---------- */
   function clamp(v, a, b) { a = a == null ? 0 : a; b = b == null ? 1 : b; return Math.max(a, Math.min(b, v)); }
   function easeOut(t) { return 1 - Math.pow(1 - clamp(t), 3); }
+  function easeInOut(t) { t = clamp(t); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
   function lerp(a, b, t) { return a + (b - a) * t; }
   function rng(seed) { var s = (seed >>> 0) || 1; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
   function hash(str) { var h = 2166136261; str = String(str || ""); for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -388,8 +389,8 @@
     necrotic: { grow: 260, hold: 160, fade: 560 },
     radiant: { grow: 280, hold: 0, fade: 260 },
     thunder: { grow: 110, hold: 60, fade: 320 },
-    /* Fireball: the sphere opens on the target. Thunderwave: the square fills in the grow, then the Love-it dust hangs. */
-    fireball: { grow: 240, hold: 360, fade: 1500 },
+    /* Fireball grow is the bead's flight. The sphere starts when it arrives. Thunderwave dust hangs through the fade. */
+    fireball: { grow: 380, hold: 360, fade: 1500 },
     thundercube: { grow: 110, hold: 200, fade: 1700 },
     psychic: { grow: 300, hold: 0, fade: 300 },
     beads: { grow: 260, hold: 0, fade: 260 },
@@ -1259,10 +1260,54 @@ function blastShake(lt, amp, dur) {
 function shakeOf(spec, lt) {
   var look = lookOf(spec || {});
   if (look === "thundercube") return blastShake(lt, 8, 760);
-  if (look === "fireball") return blastShake(lt, 11, 1000);
+  if (look === "fireball") return blastShake(lt - LOOK_TIME.fireball.grow, 11, 1000);
   return { x: 0, y: 0 };
 }
-/* Powder-keg sphere at the chosen point. Fills a 20-ft radius. Not the Fire Bolt beam.
+/* Comet from the caster. A short bright tail, not a Fire Bolt line across the whole range. */
+function fireballComet(ctx, A, B, lt, travel, cell) {
+  var u = easeInOut(lt / Math.max(1, travel));
+  var sc = loveScale(cell);
+  var i;
+  for (i = 8; i >= 1; i--) {
+    var uu = clamp(u - i * 0.03);
+    softDisc(ctx, lerp(A.x, B.x, uu), lerp(A.y, B.y, uu), Math.max(2.5, (11 - i) * 0.9 * sc), [
+      [0, "rgba(255,225,160," + (0.45 * (1 - i / 9)) + ")"],
+      [0.5, "rgba(255,120,30," + (0.28 * (1 - i / 9)) + ")"],
+      [1, "rgba(200,60,15,0)"]
+    ]);
+  }
+  var hx = lerp(A.x, B.x, u), hy = lerp(A.y, B.y, u);
+  var tx = lerp(A.x, B.x, Math.max(0, u - 0.28)), ty = lerp(A.y, B.y, Math.max(0, u - 0.28));
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(255,140,40,0.95)";
+  ctx.lineWidth = 7 * sc;
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(hx, hy);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255,248,220,0.95)";
+  ctx.lineWidth = 1.8 * sc;
+  ctx.beginPath();
+  ctx.moveTo(lerp(tx, hx, 0.4), lerp(ty, hy, 0.4));
+  ctx.lineTo(hx, hy);
+  ctx.stroke();
+  ctx.restore();
+  softDisc(ctx, hx, hy, 16 * sc, [
+    [0, "rgba(255,252,236,1)"],
+    [0.4, "rgba(255,210,120,0.85)"],
+    [1, "rgba(255,100,20,0)"]
+  ]);
+  var fl = 1 - clamp(lt / 110);
+  if (fl > 0) {
+    softDisc(ctx, A.x, A.y, 22 * sc, [
+      [0, "rgba(255,225,160," + (0.75 * fl) + ")"],
+      [1, "rgba(200,60,15,0)"]
+    ]);
+  }
+}
+/* Powder-keg sphere at the chosen point, after the comet arrives. Not a Fire Bolt beam.
    Palette: glow 200,60,15 · core 255,125,35 · hot 255,225,160 · burst 255,140,45. */
 function fireballPaint(ctx, A, B, lt, seed, g) {
   var time = LOOK_TIME.fireball;
@@ -1270,11 +1315,19 @@ function fireballPaint(ctx, A, B, lt, seed, g) {
   if (!B || lt < 0 || lt > life) return;
   var cell = (g && g.cell) || 70;
   var radius = cell * 4;
+  var flight = time.grow;
+  var span = A ? Math.hypot(B.x - A.x, B.y - A.y) : 0;
+  var travels = !!(A && span > Math.max(28, cell * 0.5));
+  if (travels && lt < flight) {
+    fireballComet(ctx, A, B, lt, flight, cell);
+    return;
+  }
+  var boom = travels ? lt - flight : lt;
   var fadeAt = time.grow + time.hold;
   var f = lt < fadeAt ? 1 : 1 - clamp((lt - fadeAt) / time.fade);
-  var expand = easeOut(Math.min(1, lt / 180));
+  var expand = easeOut(Math.min(1, boom / 180));
   var R = radius * (0.22 + 0.78 * expand);
-  var core = lt < 200 ? 1 : f;
+  var core = boom < 200 ? 1 : f;
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
   ctx.fillStyle = rgba("180,48,12", 0.72 * f);
@@ -1284,7 +1337,7 @@ function fireballPaint(ctx, A, B, lt, seed, g) {
   ctx.restore();
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
-  var coreR = Math.max(10, cell * (0.45 + 0.85 * Math.min(1, lt / 140)));
+  var coreR = Math.max(10, cell * (0.45 + 0.85 * Math.min(1, boom / 140)));
   ctx.fillStyle = stops(grad(ctx, "r", B.x, B.y, 0, B.x, B.y, coreR), [
     [0, "rgba(255,252,236," + 0.98 * core + ")"],
     [0.35, "rgba(255,230,170," + 0.85 * core + ")"],
@@ -1307,7 +1360,7 @@ function fireballPaint(ctx, A, B, lt, seed, g) {
   ctx.arc(B.x, B.y, R, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
-  loveFireballSpice(ctx, B, radius, lt, cell);
+  loveFireballSpice(ctx, B, radius, boom, cell);
 }
 /* Canyon thunderclap in a box. A 15-ft cube off the caster's palm, not a cone.
    Palette: glow 200,170,110 · core 235,215,170 · dust 95,80,60 · edge 215,185,125 / 150,120,80. */

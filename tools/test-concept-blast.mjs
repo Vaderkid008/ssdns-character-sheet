@@ -125,7 +125,13 @@ check("porch.frames", porchFrames.length >= 2, String(porchFrames.length));
 const boomAt = { x: 720, y: 160 };
 const from = { x: 40, y: 560 };
 const ballGeo = { A: from, B: boomAt, S: from, T: boomAt, rS: 22, rT: 18, cell, dir: { x: 1, y: 0 } };
-const ball = trace(FX, { spell: "Fireball", dmg: "fire" }, 400, ballGeo);
+const flight = FX.lookTime("fireball").grow;
+const travel = trace(FX, { spell: "Fireball", dmg: "fire" }, flight * 0.5, ballGeo);
+const head = { x: (from.x + boomAt.x) / 2, y: (from.y + boomAt.y) / 2 };
+const tail = travel.filter((op) => op.op === "stroke" && segLen(op) > 40 && segLen(op) < Math.hypot(boomAt.x - from.x, boomAt.y - from.y) * 0.45);
+check("fireball.travel", flight >= 300 && travel.some((op) => op.op === "fill" && op.arc && op.arc.r > 8 && op.arc.r < cell && Math.hypot(op.arc.x - head.x, op.arc.y - head.y) < 36) && tail.length >= 1, JSON.stringify({ flight, tails: tail.length }));
+check("fireball.travelNotSphere", !travel.some((op) => op.op === "fill" && op.arc && op.arc.r > cell * 2) && !spans(travel, from, boomAt));
+const ball = trace(FX, { spell: "Fireball", dmg: "fire" }, flight + 340, ballGeo);
 const disc = ball.filter((op) => op.op === "fill" && op.arc && op.arc.r > cell * 2.5);
 const ballStreaks = ball.filter((op) => op.op === "stroke" && segLen(op) > 4);
 const ballLobes = ball.filter((op) => op.op === "fill" && op.arc && op.arc.r > 8);
@@ -156,13 +162,13 @@ function mag(spec, lt) {
   return Math.hypot(s.x || 0, s.y || 0);
 }
 check("shake.porch", mag({ type: "spell", spell: "Porch Boom", dmg: "thunder" }, 90) > 3);
-check("shake.fireball", mag({ type: "spell", spell: "Fireball" }, 140) > 4);
+check("shake.fireball", mag({ type: "spell", spell: "Fireball" }, flight * 0.5) < 0.01 && mag({ type: "spell", spell: "Fireball" }, flight + 120) > 4);
 check("shake.shatter", mag({ type: "spell", spell: "Shatter" }, 80) < 0.01);
 check("shake.wall", mag({ type: "spell", spell: "Wall of Fire", dmg: "fire" }, 80) < 0.01);
 check("shake.done", mag({ type: "spell", spell: "Fireball" }, 4000) < 0.01);
 
 const ver = JSON.parse(read("version.json"));
-check("ver.tip", ver.sheet === "0.3.193" && ver.dmcc === "0.2.206" && ver.sheetBuild === "sheet-playtest-v03193" && ver.dmccBuild === "dmcc-playtest-v02206", JSON.stringify(ver));
+check("ver.tip", ver.sheet === "0.3.194" && ver.dmcc === "0.2.207" && ver.sheetBuild === "sheet-playtest-v03194" && ver.dmccBuild === "dmcc-playtest-v02207", JSON.stringify(ver));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;
@@ -235,7 +241,7 @@ dm.fx({
   spell: "Fireball", weapon: "Fireball",
   dmg: "fire", at: { x: 16, y: 9 }, result: "hit", heard: ["dm"]
 });
-await new Promise((r) => setTimeout(r, 180));
+await new Promise((r) => setTimeout(r, 560));
 check("live.fireballDisc", (w.__arcs || []).some((r) => r > 40), JSON.stringify((w.__arcs || []).slice(0, 8).map((r) => Math.round(r))));
 dm.destroy();
 

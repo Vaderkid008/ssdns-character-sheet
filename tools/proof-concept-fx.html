@@ -16,8 +16,10 @@
   var c = document.getElementById("c");
   var ctx = c.getContext("2d");
   var late = /(?:\?|&)late\b/.test(location.search);
+  var flight = /(?:\?|&)flight\b/.test(location.search);
   var twT = late ? 1100 : 220;
-  var fbT = late ? 1300 : 340;
+  var fbFlight = 380;
+  var fbT = flight ? fbFlight * 0.5 : (late ? fbFlight + 1300 : fbFlight + 340);
   function floor(x, y, w, h) {
     var row, i;
     ctx.save();
@@ -64,8 +66,8 @@
   ctx.fillStyle = "#f4e7cb";
   ctx.font = "22px Georgia, serif";
   ctx.fillText(late ? "Porch Boom dust" : "Porch Boom", 24, 610);
-  ctx.fillText(late ? "Fireball smoke" : "Fireball", 664, 610);
-  document.title = late ? "late" : "peak";
+  ctx.fillText(flight ? "Fireball in flight" : (late ? "Fireball smoke" : "Fireball"), 664, 610);
+  document.title = flight ? "flight" : (late ? "late" : "peak");
 })();
 </script>
 </body>
