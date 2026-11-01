@@ -1390,6 +1390,7 @@ function fxPublic(spec) {
   const pub = {
     type, result: spec.result, arrow: spec.arrow, sfx: spec.sfx, weapon: spec.weapon, weaponId: spec.weaponId,
     spell: spec.spell || "", dmg: spec.dmg || "", self: !!spec.self,
+    facing: spec.facing,
     nat: spec.nat, crit: spec.crit, critMin: spec.critMin, heard: spec.heard, scene: S.sceneId || ''
   };
   if (spec.id) pub.id = spec.id;
@@ -1421,6 +1422,7 @@ function fxSpecFromReq(row) {
     type: req.type, result: req.result, target: req.target || (req.self ? row.from : ""), shooter: row.from, sfx: req.sfx,
     weapon: req.weapon, weaponId: req.weaponId, arrow: req.arrow, nat: req.nat, crit: req.crit, critMin: req.critMin,
     spell: req.spell || "", dmg: req.dmg || "", self: !!req.self || req.target === row.from,
+    facing: req.facing,
     at: req.at || null,
     heard: req.heard === false ? [] : [row.from]
   };

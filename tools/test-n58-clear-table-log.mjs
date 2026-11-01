@@ -31,10 +31,10 @@ const mapJs = read("map/ssdns-map.js");
 const chatJs = read("map/ssdns-map-chat.js");
 const rulesJs = read("assets/data/rules.js");
 
-check("ver.sheet", ver.sheet === "0.3.190" && ver.sheetBuild === "sheet-playtest-v03190", JSON.stringify(ver));
-check("ver.dmcc", ver.dmcc === "0.2.203" && ver.dmccBuild === "dmcc-playtest-v02203");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.190"') && read("assets/js/app.js").includes("sheet-playtest-v03190"));
-check("ver.dmjs", dmJs.includes('VERSION = "0.2.203"') && dmJs.includes("dmcc-playtest-v02203"));
+check("ver.sheet", ver.sheet === "0.3.191" && ver.sheetBuild === "sheet-playtest-v03191", JSON.stringify(ver));
+check("ver.dmcc", ver.dmcc === "0.2.204" && ver.dmccBuild === "dmcc-playtest-v02204");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.191"') && read("assets/js/app.js").includes("sheet-playtest-v03191"));
+check("ver.dmjs", dmJs.includes('VERSION = "0.2.204"') && dmJs.includes("dmcc-playtest-v02204"));
 check("src.rulesJsUntouched", !rulesJs.includes("logClearedAt") && !rulesJs.includes("0.3.174") && !rulesJs.includes("Clear log"));
 check("src.playerHasNoButton", !playerHtml.includes("btnClearLog") && !playerHtml.includes(">Clear log<"));
 check("src.dmButton", dmHtml.includes('id="btnClearLog"') && dmHtml.includes(">Clear log<") && dmHtml.indexOf("btnClearLog") < dmHtml.indexOf("btnDockPop"));
