@@ -615,6 +615,10 @@
       if (/^chill touch$|^inflict wounds$|^blight$/.test(name)) return "necrotic";
       if (/^sacred flame$|^guiding bolt$|^moonbeam$|^spirit guardians$/.test(name)) return "radiant";
       if (/^thunderwave$|^shatter$/.test(name)) return "thunder";
+      /* Attack spells whose only look was the damage-type pass. An empty dmg (hidden AC pending resolve) used to paint the purple ribbon. */
+      if (/^fire bolt$|^scorching ray$/.test(name)) return "fire";
+      if (/^ray of frost$/.test(name)) return "cold";
+      if (/^shocking grasp$|^witch bolt$/.test(name)) return "lightning";
       if (/^grease$|^light$|^daylight$/.test(name)) return "";
     }
     var dmg = low(spec.dmg || spec.dmgType || spec.damageType);
