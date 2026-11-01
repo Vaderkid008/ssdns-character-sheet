@@ -2122,6 +2122,7 @@ function adoptCastZone(row, name, placed, slot, dc, extra) {
   }
   const zone = Z.buildZone(name, placed, {
     slot: slot, casterId: casterId, dc: dc,
+    casterName: (row && (row.name || row.label)) || "",
     exemptIds: extra.exemptIds || [], damageType: extra.damageType || ""
   });
   if (!zone) return "";
