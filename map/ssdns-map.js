@@ -1189,6 +1189,13 @@ function fxRef(ref) {
   return t;
 }
 /* A free shot has no target: it fires toward the shooter's last target if there is one, else the nearest other side. */
+function fxPoint(spec) {
+  const p = spec && spec.at;
+  if (!p) return null;
+  const x = Number(p.x), y = Number(p.y);
+  if (!isFinite(x) || !isFinite(y)) return null;
+  return { x: x, y: y };
+}
 function fxFacing(S, spec) {
   if (spec && spec.dir && isFinite(spec.dir.x) && isFinite(spec.dir.y) && (spec.dir.x || spec.dir.y)) return spec.dir;
   const c = fxCenter(S);
@@ -1215,14 +1222,20 @@ function fxGeometry(spec) {
   if (T) {
     if (!tokenSeen(T)) return null; /* never draw at something this player can't see */
     geo.T = fxCenter(T); geo.rT = fxRadius(T); geo.tokT = T;
+  } else {
+    const at = fxPoint(spec);
+    if (at) {
+      if (role === 'player' && !playerSees(at.x, at.y)) return null;
+      geo.T = at; geo.rT = 0.55; geo.point = true;
+    }
   }
   if (S && tokenSeen(S)) { geo.S = fxCenter(S); geo.rS = fxRadius(S); geo.tokS = S; }
-  else if (S && role === 'player' && T) {
+  else if (S && role === 'player' && geo.T) {
     /* shooter is in this player's dark: start where the line comes out of it, no muzzle flash */
     const edge = fxWalk(fxCenter(S), geo.T, playerSees);
     if (!edge) return null;
     geo.src = { x: edge.x, y: edge.y }; geo.srcHidden = true;
-  } else if (!S && spec.src && T) {
+  } else if (!S && spec.src && geo.T) {
     const from = { x: Number(spec.src.x), y: Number(spec.src.y) };
     if (!isFinite(from.x) || !isFinite(from.y)) return null;
     const edge = role === 'player' ? fxWalk(from, geo.T, playerSees) : { x: from.x, y: from.y };
@@ -1370,14 +1383,19 @@ function fxPublic(spec) {
   const sc = fxCenter(S);
   const sid = S.sceneId || 'scn_dustyspur01';
   const seen = (x, y) => fxPublicSees(x, y, sid);
+  const point = !T ? fxPoint(spec) : null;
   if (S.hidden || !seen(sc.x, sc.y)) {
-    if (!T || type === 'free') return null;
-    const tc = fxCenter(T);
-    const edge = fxWalk(sc, tc, seen);
+    const aim = T ? fxCenter(T) : point;
+    if (!aim || type === 'free') return null;
+    const edge = fxWalk(sc, aim, seen);
     /* a hidden token standing in the open has no fog edge to fire from: players see nothing */
     if (!edge || edge.at < 1) return null;
     pub.src = { x: edge.x, y: edge.y };
   } else pub.shooter = S.id;
+  if (point) {
+    if (!seen(point.x, point.y)) return null;
+    pub.at = { x: Math.round(point.x * 10) / 10, y: Math.round(point.y * 10) / 10 };
+  }
   if (type === 'free') pub.dir = fxFacing(S, spec);
   return FXA.sanitize(pub);
 }
@@ -1389,6 +1407,7 @@ function fxSpecFromReq(row) {
     type: req.type, result: req.result, target: req.target || (req.self ? row.from : ""), shooter: row.from, sfx: req.sfx,
     weapon: req.weapon, weaponId: req.weaponId, arrow: req.arrow, nat: req.nat, crit: req.crit, critMin: req.critMin,
     spell: req.spell || "", dmg: req.dmg || "", self: !!req.self || req.target === row.from,
+    at: req.at || null,
     heard: req.heard === false ? [] : [row.from]
   };
 }

@@ -2769,7 +2769,12 @@
       var zoneLine = rememberZone(spellName, slot, placedBlast, v.spellDC);
       if (zoneLine) rolled.text += " · " + zoneLine;
       postAppear(spellName, placedBlast, v.spellDC, rollId);
-      if (root.SSDNSMapFx && root.SSDNSMapFx.namedLook && root.SSDNSMapFx.namedLook(spellName)) postSpellLook(spellName, "", "hit", row);
+      var blastPts = blastAimPoints(placedBlast);
+      if (blastPts.length) {
+        blastPts.forEach(function (p, i) { postSpellLook(spellName, "", "hit", row, p, rollId + "_fx" + i); });
+      } else {
+        postSpellLook(spellName, "", "hit", row);
+      }
       rolled.detail = rolled.text;
     } else if (row && (row.kind === "none" || row.kind === "rider" || row.kind === "utility")) {
       var buffLine = applySpellBuff(spellName, slot);
@@ -3076,7 +3081,7 @@
             });
           });
         }
-        if (root.SSDNSMapFx && root.SSDNSMapFx.namedLook && root.SSDNSMapFx.namedLook(spellName)) postSpellLook(spellName, tgt && tgt.id, "hit", row);
+        postSpellLook(spellName, tgt && tgt.id, "hit", row);
       } else if (!rolled.heal && row && row.kind === "auto" && !rolled.autoDarts && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         var autoAmt = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
         if (rolled.applyNow === false) autoAmt = 0;
@@ -3086,6 +3091,7 @@
             targetId: tgt.id, targetName: tgt.name, rollId: rollId
           });
         }
+        postSpellLook(spellName, tgt.id, "hit", row);
         if (rolled.tickEnd && rolled.tickEnd.dice && !(root.SSDNSSpellZones && root.SSDNSSpellZones.isZone && root.SSDNSSpellZones.isZone(spellName)) && root.SSDNSSpellRiders && root.SSDNSSpellRiders.rollExpr) {
           var acidRoll = root.SSDNSSpellRiders.rollExpr(rolled.tickEnd.dice, false);
           addLog({ kind: "roll", text: "SAVE " + spellName + " end of turn " + (rolled.tickEnd.save || "DEX") + " or " + acidRoll.formula + " [" + acidRoll.faces.join(",") + "] = " + acidRoll.total + " " + (rolled.tickEnd.type || "acid") });
@@ -4046,18 +4052,40 @@
     if (!body.heard && uid) body.heard = [uid];
     try { return host.fx(body); } catch (e) { return null; }
   }
-  /* Designed looks only (beads, shield, heal, and the rest). Attack lines already ride fxReq. */
-  function postSpellLook(name, targetId, result, row) {
+  /* Grid point the one-shot should hit. Cones and lines leave the caster along the aim. */
+  function blastAimPoints(placed) {
+    if (!placed) return [];
+    var list = (placed.origins && placed.origins.length) ? placed.origins : (placed.origin ? [placed.origin] : []);
+    var area = placed.area || {};
+    var face = Number(placed.facing) || 0;
+    var reach = 0;
+    if (area.shape === "cone" || area.shape === "line") reach = Math.min((Number(area.length) || 15) / 5, 8);
+    var out = [];
+    list.forEach(function (o) {
+      if (!o || !isFinite(Number(o.x)) || !isFinite(Number(o.y))) return;
+      var x = Number(o.x), y = Number(o.y);
+      if (reach > 0.2) {
+        x += Math.cos(face) * reach;
+        y += Math.sin(face) * reach;
+      }
+      out.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
+    });
+    return out.slice(0, 4);
+  }
+  /* One-shot map paint. Attack rolls already call sheetMapFx. Area and save casts land here.
+     A placed token (look "token") is the visual for that spell, not a beam. */
+  function postSpellLook(name, targetId, result, row, at, fxId) {
     if (whisperOn()) return;
     var dmg = (row && row.type) || "";
     var FX = root.SSDNSMapFx;
     var look = FX && FX.lookOf ? FX.lookOf({ type: "spell", spell: name, dmg: dmg }) : "";
-    if (!look || look === "ribbon") return;
-    var self = !targetId || look === "shield" || look === "magearmor" || look === "pwt" || look === "invis" || !!(FX && FX.lookSelf && FX.lookSelf({ type: "spell", spell: name, dmg: dmg }));
-    var aim = self ? { target: "", self: true } : fxAim(targetId);
-    var fxId = "fxr_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    if (!look || look === "token") return;
+    var pointed = !!(at && isFinite(Number(at.x)) && isFinite(Number(at.y)));
+    var self = !pointed && (!targetId || look === "shield" || look === "magearmor" || look === "pwt" || look === "invis" || !!(FX && FX.lookSelf && FX.lookSelf({ type: "spell", spell: name, dmg: dmg })));
+    var aim = self ? { target: "", self: true } : (pointed ? { target: "", self: false } : fxAim(targetId));
+    var id = fxId || ("fxr_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
     var req = {
-      fxId: fxId,
+      fxId: id,
       type: "spell",
       target: self ? "" : aim.target,
       self: !!self,
@@ -4066,7 +4094,8 @@
       dmg: dmg,
       result: result || "hit"
     };
-    sheetMapFx(Object.assign({ id: fxId }, req));
+    if (pointed) req.at = { x: Math.round(Number(at.x) * 10) / 10, y: Math.round(Number(at.y) * 10) / 10 };
+    sheetMapFx(Object.assign({ id: id }, req));
     if (!joined() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postFx) return;
     root.SSDNSDmJoin.postFx(req);
   }
@@ -4775,6 +4804,9 @@
       if (placed) {
         var crowd = placed.tokens || [];
         text += " · " + ((placed.area && placed.area.label) || "area") + ": " + (crowd.length ? crowd.map(function (t) { return t.name || "token"; }).join(", ") : "nobody in the area");
+        var altPts = blastAimPoints(placed);
+        if (altPts.length) altPts.forEach(function (p, i) { postSpellLook(spellName, "", "hit", row, p, rollId + "_fx" + i); });
+        else postSpellLook(spellName, "", "hit", row);
       }
       addLog({ id: "roll:" + rollId, kind: "roll", text: text, label: rolled.label || spellName, formula: rolled.formula, attack: !!rolled.attack, nat: rolled.nat, crit: !!rolled.crit });
       toast(text);

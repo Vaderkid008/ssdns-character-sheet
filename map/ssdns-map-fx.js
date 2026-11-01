@@ -151,6 +151,9 @@
     var dmgName = spellText(info.dmg) || spellText(info.dmgType);
     if (dmgName) r.dmg = dmgName.toLowerCase().replace(/[^a-z]/g, "").slice(0, 16);
     if (info.self) r.self = true;
+    if (info.at && isFinite(Number(info.at.x)) && isFinite(Number(info.at.y))) {
+      r.at = { x: Math.round(Number(info.at.x) * 10) / 10, y: Math.round(Number(info.at.y) * 10) / 10 };
+    }
     if (info.weaponId) r.weaponId = String(info.weaponId).replace(/[^a-z0-9-]/gi, "").slice(0, 60);
     if (info.arrow) r.arrow = String(info.arrow).replace(/[^a-z-]/gi, "").slice(0, 20);
     var n = Number(info.nat);
@@ -365,14 +368,20 @@
     ctx.restore();
   }
 
-  /* Locked palette (specs/spell-fx/spell-fx-palette.json). Acid/poison/necrotic/radiant/psychic/thunder
-     stay on the default ribbon. fireball / witch-bolt stay unassigned. */
+  /* Locked palette (specs/spell-fx/spell-fx-palette.json). The six v5 types use those locked colours.
+     fireball / witch-bolt stay on the fire / lightning looks. Grease, Light, and Daylight are zones, not beams. */
   var LOOK_TIME = {
     ribbon: { grow: 220, hold: 140, fade: 450 },
     fire: { grow: 300, hold: 0, fade: 280 },
     cold: { grow: 360, hold: 0, fade: 600 },
     lightning: { grow: 70, hold: 90, fade: 260 },
     force: { grow: 240, hold: 0, fade: 260 },
+    acid: { grow: 330, hold: 0, fade: 420 },
+    poison: { grow: 430, hold: 0, fade: 520 },
+    necrotic: { grow: 260, hold: 160, fade: 560 },
+    radiant: { grow: 280, hold: 0, fade: 260 },
+    thunder: { grow: 110, hold: 60, fade: 320 },
+    psychic: { grow: 300, hold: 0, fade: 300 },
     beads: { grow: 260, hold: 0, fade: 260 },
     scurve: { grow: 200, hold: 140, fade: 450 },
     bullet: { grow: 150, hold: 0, fade: 320 },
@@ -601,12 +610,24 @@
       if (/^bless$/.test(name)) return "bless";
       if (/fog cloud/.test(name)) return "fog";
       if (/mage hand/.test(name)) return "hand";
+      if (/^acid splash$|^acid arrow$/.test(name)) return "acid";
+      if (/^poison spray$|^cloudkill$/.test(name)) return "poison";
+      if (/^chill touch$|^inflict wounds$|^blight$/.test(name)) return "necrotic";
+      if (/^sacred flame$|^guiding bolt$|^moonbeam$|^spirit guardians$/.test(name)) return "radiant";
+      if (/^thunderwave$|^shatter$/.test(name)) return "thunder";
+      if (/^grease$|^light$|^daylight$/.test(name)) return "";
     }
-    var dmg = low(spec.dmg || spec.dmgType || spec.damageType).replace(/[^a-z]/g, "");
-    if (dmg === "fire") return "fire";
-    if (dmg === "cold") return "cold";
-    if (dmg === "lightning" || dmg === "electric") return "lightning";
-    if (dmg === "force") return "force";
+    var dmg = low(spec.dmg || spec.dmgType || spec.damageType);
+    if (/(^|[^a-z])fire([^a-z]|$)/.test(dmg)) return "fire";
+    if (/(^|[^a-z])cold([^a-z]|$)/.test(dmg)) return "cold";
+    if (/(^|[^a-z])(lightning|electric)([^a-z]|$)/.test(dmg)) return "lightning";
+    if (/(^|[^a-z])force([^a-z]|$)/.test(dmg)) return "force";
+    if (/(^|[^a-z])acid([^a-z]|$)/.test(dmg)) return "acid";
+    if (/(^|[^a-z])poison([^a-z]|$)/.test(dmg)) return "poison";
+    if (/(^|[^a-z])necrotic([^a-z]|$)/.test(dmg)) return "necrotic";
+    if (/(^|[^a-z])radiant([^a-z]|$)/.test(dmg)) return "radiant";
+    if (/(^|[^a-z])psychic([^a-z]|$)/.test(dmg)) return "psychic";
+    if (/(^|[^a-z])thunder([^a-z]|$)/.test(dmg)) return "thunder";
     if (spec.type === "spell" || names.length) return "ribbon";
     return "";
   }
@@ -766,7 +787,146 @@
     ctx.restore();
     if (lt > T.grow) bloom(ctx, B, 20, lt - T.grow, "150,245,230", "30,140,140", 3);
   }
-  function beadsPaint(ctx, A, B, lt, seed) {
+  /* Locked v5 types. Colours are spell-fx-palette.json. No new image files. */
+function acidPaint(ctx, A, B, lt) {
+  var T = LOOK_TIME.acid;
+  if (!A || !B || lt < 0 || lt > T.grow + T.fade) return;
+  var d = dirOf(A, B), nx = -d.y, ny = d.x;
+  var g = easeOut(Math.min(1, lt / T.grow));
+  var f = lt < T.grow ? 1 : 1 - clamp((lt - T.grow) / T.fade);
+  var lob = Math.sin(Math.PI * g) * 14;
+  var hx = lerp(A.x, B.x, g) + nx * lob, hy = lerp(A.y, B.y, g) + ny * lob;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = rgba("30,40,10", 0.8 * f);
+  ctx.beginPath(); ctx.arc(hx, hy, 15, 0, Math.PI * 2); ctx.fill();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = rgba("125,180,40", 0.7 * f);
+  ctx.beginPath(); ctx.arc(hx - 2, hy - 2, 11, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = rgba("225,235,150", 0.85 * f);
+  ctx.beginPath(); ctx.arc(hx - 4, hy - 5, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  if (lt > T.grow) bloom(ctx, B, 16, lt - T.grow, "175,210,55", "95,140,20", 2);
+}
+function poisonPaint(ctx, A, B, lt, seed) {
+  var T = LOOK_TIME.poison;
+  if (!A || !B || lt < 0 || lt > T.grow + T.fade) return;
+  var g = easeOut(Math.min(1, lt / T.grow));
+  var f = lt < T.grow ? 1 : 1 - clamp((lt - T.grow) / T.fade);
+  var rand = rng(seed || 3);
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  for (var i = 0; i < 6; i++) {
+    var u = Math.min(1, g * (0.45 + rand()));
+    var x = lerp(A.x, B.x, u) + (rand() - 0.5) * 18;
+    var y = lerp(A.y, B.y, u) + (rand() - 0.5) * 18;
+    ctx.fillStyle = rgba(i % 2 ? "40,42,18" : "150,140,70", (i % 2 ? 0.35 : 0.28) * f);
+    ctx.beginPath(); ctx.arc(x, y, 16 + rand() * 18, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  if (lt > T.grow) bloom(ctx, B, 22, lt - T.grow, "190,185,80", "110,105,40", 2);
+}
+function necroticPaint(ctx, A, B, lt, seed) {
+  var T = LOOK_TIME.necrotic;
+  if (!A || !B || lt < 0 || lt > T.grow + T.hold + T.fade) return;
+  var d = dirOf(A, B), nx = -d.y, ny = d.x;
+  var g = easeOut(Math.min(1, lt / T.grow));
+  var f = lt < T.grow + T.hold ? 1 : 1 - clamp((lt - T.grow - T.hold) / T.fade);
+  var rand = rng(seed || 5);
+  var pts = [A];
+  for (var i = 1; i <= 8; i++) {
+    var u = (i / 8) * g;
+    var w = Math.sin(u * Math.PI * 2) * 10 + (rand() - 0.5) * 6;
+    pts.push({ x: lerp(A.x, B.x, u) + nx * w, y: lerp(A.y, B.y, u) + ny * w });
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  strokePath(ctx, pts, "6,3,8", 16, 0.85 * f);
+  ctx.globalCompositeOperation = "lighter";
+  strokePath(ctx, pts, "95,45,100", 8, 0.6 * f);
+  strokePath(ctx, pts, "185,170,180", 2, 0.7 * f);
+  ctx.restore();
+  if (lt > T.grow) bloom(ctx, B, 14, lt - T.grow, "170,140,175", "90,40,100", 2);
+}
+function radiantPaint(ctx, A, B, lt) {
+  var T = LOOK_TIME.radiant;
+  if (!A || !B || lt < 0 || lt > T.grow + T.fade) return;
+  var d = dirOf(A, B), nx = -d.y, ny = d.x;
+  var g = easeOut(Math.min(1, lt / T.grow));
+  var f = lt < T.grow ? 1 : 1 - clamp((lt - T.grow) / T.fade);
+  var lob = Math.sin(Math.PI * g) * 26;
+  var hx = lerp(A.x, B.x, g) + nx * lob, hy = lerp(A.y, B.y, g) + ny * lob;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = rgba("255,232,170", f);
+  ctx.beginPath(); ctx.arc(hx, hy, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = rgba("230,175,70", 0.55 * f);
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(hx, hy); ctx.stroke();
+  if (lt > T.grow * 0.85) {
+    var shaft = clamp((lt - T.grow * 0.85) / 180);
+    ctx.fillStyle = rgba("255,250,230", 0.45 * f * shaft);
+    ctx.fillRect(B.x - 10, B.y - 70 * shaft, 20, 70 * shaft);
+  }
+  ctx.restore();
+  if (lt > T.grow) bloom(ctx, B, 16, lt - T.grow, "255,235,170", "225,170,70", 2);
+}
+function thunderPaint(ctx, A, B, lt, seed) {
+  var T = LOOK_TIME.thunder;
+  if (!A || !B || lt < 0 || lt > T.grow + T.hold + T.fade) return;
+  var d = dirOf(A, B);
+  var ang = Math.atan2(d.y, d.x);
+  var f = lt < T.grow + T.hold ? 1 : 1 - clamp((lt - T.grow - T.hold) / T.fade);
+  var len = d.d * easeOut(Math.min(1, lt / T.grow));
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = rgba("95,80,60", 0.45 * f);
+  ctx.beginPath();
+  ctx.moveTo(A.x, A.y);
+  ctx.lineTo(A.x + Math.cos(ang - 0.28) * len, A.y + Math.sin(ang - 0.28) * len);
+  ctx.lineTo(A.x + Math.cos(ang + 0.28) * len, A.y + Math.sin(ang + 0.28) * len);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.strokeStyle = rgba("235,215,170", 0.7 * f);
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.restore();
+  if (lt > T.grow) {
+    bloom(ctx, B, 18, lt - T.grow, "215,185,125", "150,120,80", 4);
+    var rand = rng((seed || 9) + 1);
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    for (var i = 0; i < 8; i++) {
+      var a = rand() * Math.PI * 2;
+      var k = easeOut(clamp((lt - T.grow) / T.fade));
+      ctx.fillStyle = rgba("120,100,75", 0.5 * (1 - k));
+      ctx.beginPath();
+      ctx.arc(B.x + Math.cos(a) * 28 * k, B.y + Math.sin(a) * 28 * k, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+function psychicPaint(ctx, A, B, lt) {
+  var T = LOOK_TIME.psychic;
+  if (!A || !B || lt < 0 || lt > T.grow + T.fade) return;
+  var g = easeOut(Math.min(1, lt / T.grow));
+  var f = lt < T.grow ? 1 : 1 - clamp((lt - T.grow) / T.fade);
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.strokeStyle = rgba("215,125,170", 0.85 * f);
+  ctx.lineWidth = 2.2;
+  for (var i = 0; i < 4; i++) {
+    var u = Math.max(0, g - i * 0.18);
+    if (u <= 0) continue;
+    var x = lerp(A.x, B.x, u), y = lerp(A.y, B.y, u);
+    ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.restore();
+  if (lt > T.grow) bloom(ctx, B, 14, lt - T.grow, "235,140,195", "160,50,120", 2);
+}
+function beadsPaint(ctx, A, B, lt, seed) {
     var T = LOOK_TIME.beads;
     if (lt < 0 || lt > T.grow + T.fade) return;
     var d = dirOf(A, B), nx = -d.y, ny = d.x;
@@ -914,6 +1074,12 @@
     if (look === "cold") return coldPaint(ctx, A, B, lt);
     if (look === "lightning") return jagPaint(ctx, A, B, lt, seed);
     if (look === "force") return forcePaint(ctx, A, B, lt);
+    if (look === "acid") return acidPaint(ctx, A, B, lt);
+    if (look === "poison") return poisonPaint(ctx, A, B, lt, seed);
+    if (look === "necrotic") return necroticPaint(ctx, A, B, lt, seed);
+    if (look === "radiant") return radiantPaint(ctx, A, B, lt);
+    if (look === "thunder") return thunderPaint(ctx, A, B, lt, seed);
+    if (look === "psychic") return psychicPaint(ctx, A, B, lt);
     if (look === "beads") return beadsPaint(ctx, A, B, lt, seed);
     if (look === "scurve") return scurvePaint(ctx, A, B, lt);
     if (look === "bullet") return bulletPaint(ctx, A, B, lt, seed);
