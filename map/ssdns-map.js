@@ -9830,6 +9830,9 @@ async function loadSceneImage(sceneId, opts) {
         const gi = b.getAttribute('data-gun');
         const spell = slot.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
         const slotSel = slot.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
+        const row = b.closest('.cylinder-row');
+        const cyl = row && row.querySelector('[data-act="cylTarget"]');
+        if (cyl && host.setSheetTarget) host.setSheetTarget(cyl.value);
         const app = appGun();
         if (app && app.prepareGunCast) app.prepareGunCast(Number(gi), spell && spell.value, slotSel && !slotSel.hidden ? slotSel.value : '');
         if (window.SSDNSGunCast) window.SSDNSGunCast(Number(gi));
@@ -9843,7 +9846,22 @@ async function loadSceneImage(sceneId, opts) {
         const row = b.closest('.cylinder-row');
         const sel = row && row.querySelector('[data-act="cylTarget"]');
         const targetId = sel ? sel.value : '';
-        runPlayer(b.getAttribute('data-wid'), { chamber: b.getAttribute('data-k'), targetId: targetId });
+        const wid = b.getAttribute('data-wid') || '';
+        const k = b.getAttribute('data-k');
+        const gunN = String(wid).match(/gunroll:(\d+)/);
+        const atk = (playerFightModel().attacks || []).find(a => a && String(a.id) === String(wid));
+        const flags = atk && atk.ammo && Array.isArray(atk.ammo.chambers) ? atk.ammo.chambers : null;
+        const token = flags && k != null ? flags[Number(k)] : '';
+        const parsed = appGun() && appGun().parseChamber ? appGun().parseChamber(token) : null;
+        if (parsed && parsed.kind === 'hex' && gunN && window.SSDNSGunCastHex) {
+          state.playerTarget = targetId;
+          state.rowTargets = state.rowTargets || {};
+          state.rowTargets[wid] = targetId;
+          if (host.setSheetTarget) host.setSheetTarget(targetId);
+          window.SSDNSGunCastHex(Number(gunN[1]), Number(k));
+          return;
+        }
+        runPlayer(wid, { chamber: k, targetId: targetId });
       });
     });
     slot.querySelectorAll('[data-act="playerSpin"]').forEach(b => {
@@ -10852,10 +10870,14 @@ async function loadSceneImage(sceneId, opts) {
         const gi = b.getAttribute('data-gun');
         const spell = d.querySelector('[data-act="rowCastSpell"][data-gun="' + gi + '"]');
         const slotSel = d.querySelector('[data-act="rowCastSlot"][data-gun="' + gi + '"]');
+        const castRow = b.closest('.cylinder-row');
+        const castCyl = castRow && castRow.querySelector('[data-act="cylTarget"]');
+        const castAim = (castCyl && castCyl.value) || chosenTarget();
         emit('drawer:castgun', detail({
           weaponId: b.getAttribute('data-wid'),
           spell: spell ? spell.value : '',
-          slot: slotSel && !slotSel.hidden ? slotSel.value : ''
+          slot: slotSel && !slotSel.hidden ? slotSel.value : '',
+          targetCombatantId: castAim && castAim !== FREE_SHOT ? castAim : ''
         }));
       });
     });

@@ -3635,6 +3635,11 @@ function applyAssignedBeams(row, name, rolled, picks, rollId) {
     if (b.push) bit += " · push " + b.push + " ft";
     return bit;
   });
+  (resolved.beams || []).forEach((b) => {
+    if (!b || !b.targetId) return;
+    const knownBeam = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(name) : null;
+    spellMapFx(row && row.id, b.targetId, name, knownBeam, b.hit ? (b.crit ? "crit" : "hit") : "miss");
+  });
   (resolved.groups || []).forEach((g, idx) => {
     if (!g || !g.id || !(g.total > 0)) return;
     if (fight.damageMode === "approve") return;
@@ -6239,6 +6244,7 @@ async function rollSpellAt(row, spellId, targetId) {
     const nat = rolled.nat;
     const hit = ac != null && nat !== 1 && total >= ac;
     detail += " vs AC " + (ac == null ? "?" : ac) + (adj.note ? " (" + adj.note + ")" : "") + (hit ? " → HIT" : " → MISS");
+    spellMapFx(row.id, target.id, name, known, nat === 20 && hit ? "crit" : (hit ? "hit" : "miss"));
     if (hit && rolled.damageTotal && fight.damageMode !== "approve") {
       applyPlayerHit({
         rollId: id, targetId: target.id, targetName: target.name, amount: rolled.damageTotal,
@@ -6276,6 +6282,7 @@ async function rollSpellAt(row, spellId, targetId) {
           failed: !!(save.failed && !save.blocked)
         });
       }
+      spellMapFx(row.id, whoT.id, name, known, "hit");
     }
   } else if (kind === "heal" && (target || (multiPicks && multiPicks.length)) && fight.damageMode !== "approve") {
     const healList = multiPicks && multiPicks.length ? multiPicks : [target];
@@ -6285,6 +6292,7 @@ async function rollSpellAt(row, spellId, targetId) {
         rollId: id + ":h" + idx, targetId: whoT.id, targetName: whoT.name, amount: rolled.result,
         from: row.id, characterName: row.name, label: name, weapon: name, type: "heal"
       });
+      spellMapFx(row.id, whoT.id, name, known, "hit");
     });
     detail += " · " + healList.map((one) => one.name || one.id).join(", ");
   } else if (kind === "auto" && dartPicks && rolled.darts) {
@@ -6295,6 +6303,7 @@ async function rollSpellAt(row, spellId, targetId) {
       rollId: id, targetId: target.id, targetName: target.name, amount: rolled.result,
       from: row.id, characterName: row.name, label: name, weapon: name, type: "damage"
     });
+    spellMapFx(row.id, target.id, name, known, "hit");
   }
   if (spellConcentrates({ name: name }, known)) detail += noteConcentration(row, name, level);
   detail = withDmActing(row, detail);
@@ -12655,7 +12664,7 @@ window.SSDNSMapFight = {
   pool(detail) { return mapGunChoice(detail, "pool", { pool: detail && detail.pool != null ? detail.pool : "" }); },
   tr(detail) { return mapGunChoice(detail, "tr", {}); },
   hex(detail) { return mapGunChoice(detail, "hex", { level: detail && detail.level, spell: detail && detail.spell }); },
-  castgun(detail) { return mapGunChoice(detail, "cast", { spell: detail && detail.spell, slot: detail && detail.slot }); },
+  castgun(detail) { return mapGunChoice(detail, "cast", { spell: detail && detail.spell, slot: detail && detail.slot, targetId: detail && (detail.targetCombatantId || detail.targetTokenId) || "" }); },
   mode(detail) {
     const mode = detail && (detail.mode === "adv" || detail.mode === "dis") ? detail.mode : "";
     const i = mapFightIndex(detail || {});

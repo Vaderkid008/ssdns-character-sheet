@@ -65,6 +65,9 @@ check("src.hostFx", read("map/ssdns-map-host.js").includes("fx: function (spec)"
 check("src.rulesUntouched", !read("database.rules.json").includes("fxReq") && !read("database.rules.json").includes('"fx"'));
 check("src.feedOnly", read("assets/js/dm-join.js").includes("delete entry.fxReq"), "fxReq must never be written to rolls/");
 check("src.sheetFx", read("assets/js/sheet-extras.js").includes("function sheetMapFx") && read("assets/js/sheet-extras.js").includes("host.fx"));
+check("src.hexCast", read("assets/js/sheet-extras.js").includes("plan && plan.hex") && read("assets/js/sheet-extras.js").includes("castLoadedHex(i, 0)"));
+check("src.hexMap", read("map/ssdns-map.js").includes("SSDNSGunCastHex") && read("map/ssdns-map.js").includes("parsed.kind === 'hex'"));
+check("src.hexDm", read("dm/assets/js/v2.js").includes("spellMapFx(row.id, target.id, name, known"));
 check("src.ownReq", read("map/ssdns-map.js").includes("fxSpecFromReq"));
 check("src.sfxJson", (() => { try { const j = JSON.parse(read("assets/sfx/sfx.json")); return j.fx && j.fx.boomFlight > 0; } catch (e) { return false; } })());
 
@@ -121,6 +124,7 @@ check("look.holdInside", FX.lookOf({ type: "spell", spell: "Lasso (Hold Person)"
 check("look.holdWeapon", FX.lookOf({ type: "spell", weapon: "Hold Person (Lasso)" }) === "lasso" && FX.namedLook("Hold Person (Lasso)") === "lasso");
 check("look.tile", FX.tileOf("Hold Person (Lasso)") === "map/spell-fx/tiles/08-hold-person.jpg");
 check("look.fireBolt", FX.lookOf({ type: "spell", spell: "Fire Bolt", dmg: "fire" }) === "fire");
+check("look.hexShell", FX.lookOf({ type: "spell", spell: "Fire Bolt Shell", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Fireball Shell", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Acid Splash Shell" }) === "acid" && FX.lookOf({ type: "spell", spell: "Wall of Fire Shell", dmg: "fire" }) === "fire");
 check("look.wish", FX.lookOf({ type: "spell", spell: "Wish" }) === "ribbon");
 check("look.blank", FX.lookOf({ type: "spell" }) === "ribbon");
 check("look.boolNotName", FX.lookOf({ type: "spell", spell: true, weapon: "Faerie Fire (Foxfire)" }) === "foxfire");
