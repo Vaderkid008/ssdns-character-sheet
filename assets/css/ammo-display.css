@@ -223,22 +223,55 @@
     radial-gradient(circle at 50% 50%, transparent 0 62%, #b98b34 64% 92%, #6d4e16 94%),
     radial-gradient(circle at 36% 30%, #ff8a7a, #c4322a 50%, #6d120c 90%);
 }
-/* 0.3.54 sample: hex lead = dark round with a glowing green serpent-spiral rune (forked tongue). Strip size = plain spiral. */
+/* 0.3.200: hex lead stays the dark round. The serpent rune (--hex-snake) takes the Eldorite color for that shell level.
+   L7–L10 split the snake stroke. Strip size keeps the plain spiral. */
 .ssdns-ammo .ammo-round.is-primer.is-loaded.rt-hex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-color: #1b3d22;
+  color: #fffdf8;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1;
+  -webkit-text-stroke: 1px #0c0a08;
+  paint-order: stroke fill;
+  text-shadow:
+    0 0 2px #000,
+    0 1px 0 #000,
+    0 -1px 0 #000,
+    1px 0 0 #000,
+    -1px 0 0 #000,
+    1px 1px 0 #000,
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000;
+  --hex-glow: rgba(63, 211, 107, 0.22);
+  --hex-edge: rgba(63, 211, 107, 0.55);
   background:
-    url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2040%2040%27%3E%3Cdefs%3E%3Cfilter%20id%3D%27g%27%20x%3D%27-50%25%27%20y%3D%27-50%25%27%20width%3D%27200%25%27%20height%3D%27200%25%27%3E%3CfeGaussianBlur%20stdDeviation%3D%271.6%27/%3E%3C/filter%3E%3C/defs%3E%3Cg%20fill%3D%27none%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M20%2020%20m0%20-2%20a2%202%200%201%201%20-2%202%20a4%204%200%200%201%204%20-4%20a6%206%200%200%201%206%206%20a8%208%200%200%201%20-8%208%20a10%2010%200%200%201%20-10%20-10%20a12%2012%200%200%201%2012%20-12%20M22%208%20L25.5%206.5%20M22%208%20L24.5%2010.5%27%20stroke%3D%27%233fd36b%27%20stroke-width%3D%274.7%27%20filter%3D%27url%28%23g%29%27%20opacity%3D%27.9%27/%3E%3Cpath%20d%3D%27M20%2020%20m0%20-2%20a2%202%200%201%201%20-2%202%20a4%204%200%200%201%204%20-4%20a6%206%200%200%201%206%206%20a8%208%200%200%201%20-8%208%20a10%2010%200%200%201%20-10%20-10%20a12%2012%200%200%201%2012%20-12%20M22%208%20L25.5%206.5%20M22%208%20L24.5%2010.5%27%20stroke%3D%27%230a1a0e%27%20stroke-width%3D%273.0%27%20opacity%3D%27.55%27/%3E%3Cpath%20d%3D%27M20%2020%20m0%20-2%20a2%202%200%201%201%20-2%202%20a4%204%200%200%201%204%20-4%20a6%206%200%200%201%206%206%20a8%208%200%200%201%20-8%208%20a10%2010%200%200%201%20-10%20-10%20a12%2012%200%200%201%2012%20-12%20M22%208%20L25.5%206.5%20M22%208%20L24.5%2010.5%27%20stroke%3D%27%23c8ffd0%27%20stroke-width%3D%272.2%27/%3E%3C/g%3E%3C/svg%3E") center / 78% 78% no-repeat,
-    radial-gradient(circle closest-side at 50% 50%, rgba(63, 211, 107, 0.22), transparent 70%),
+    var(--hex-snake) center / 78% 78% no-repeat,
+    radial-gradient(circle closest-side at 50% 50%, var(--hex-glow), transparent 70%),
     radial-gradient(circle at 36% 30%, #4a4f52, #24282a 56%, #0d0f10 90%);
-  box-shadow: 0 0 5px 1px rgba(63, 211, 107, 0.55), inset 0 0 4px rgba(63, 211, 107, 0.4);
+  box-shadow: 0 0 5px 1px var(--hex-edge), inset 0 0 4px var(--hex-glow);
 }
+.ssdns-ammo-cylinder.is-gear .ammo-round.is-primer.is-loaded.rt-hex,
+.ssdns-ammo-cylinder.is-drawer .ammo-round.is-primer.is-loaded.rt-hex { font-size: 11px; }
+.ssdns-ammo-cylinder.is-strip .ammo-round.is-primer.is-loaded.rt-hex,
+.ssdns-ammo-dots.is-strip .ammo-round.is-primer.is-loaded.rt-hex { font-size: 8px; }
+.ssdns-ammo-cylinder.is-demo .ammo-round.is-primer.is-loaded.rt-hex { font-size: 20px; }
 .ssdns-ammo-cylinder.is-strip .ammo-round.is-primer.is-loaded.rt-hex,
 .ssdns-ammo-dots.is-strip .ammo-round.is-primer.is-loaded.rt-hex {
   background:
-    url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2040%2040%27%3E%3Cdefs%3E%3Cfilter%20id%3D%27g%27%20x%3D%27-50%25%27%20y%3D%27-50%25%27%20width%3D%27200%25%27%20height%3D%27200%25%27%3E%3CfeGaussianBlur%20stdDeviation%3D%271.6%27/%3E%3C/filter%3E%3C/defs%3E%3Cg%20fill%3D%27none%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M20%2020%20a3%203%200%200%201%203%20-3%20a5.5%205.5%200%200%201%205.5%205.5%20a8.5%208.5%200%200%201%20-8.5%208.5%20a11%2011%200%200%201%20-11%20-11%20a12%2012%200%200%201%2012%20-12%27%20stroke%3D%27%233fd36b%27%20stroke-width%3D%276.5%27%20filter%3D%27url%28%23g%29%27%20opacity%3D%27.9%27/%3E%3Cpath%20d%3D%27M20%2020%20a3%203%200%200%201%203%20-3%20a5.5%205.5%200%200%201%205.5%205.5%20a8.5%208.5%200%200%201%20-8.5%208.5%20a11%2011%200%200%201%20-11%20-11%20a12%2012%200%200%201%2012%20-12%27%20stroke%3D%27%230a1a0e%27%20stroke-width%3D%274.8%27%20opacity%3D%27.55%27/%3E%3Cpath%20d%3D%27M20%2020%20a3%203%200%200%201%203%20-3%20a5.5%205.5%200%200%201%205.5%205.5%20a8.5%208.5%200%200%201%20-8.5%208.5%20a11%2011%200%200%201%20-11%20-11%20a12%2012%200%200%201%2012%20-12%27%20stroke%3D%27%23c8ffd0%27%20stroke-width%3D%274%27/%3E%3C/g%3E%3C/svg%3E") center / 90% 90% no-repeat,
+    var(--hex-snake-strip, var(--hex-snake)) center / 90% 90% no-repeat,
     radial-gradient(circle at 36% 30%, #3a3f42, #1c2022 60%, #0d0f10 90%);
 }
-
+.ssdns-ammo .ammo-round.is-locked.rt-hex {
+  color: #e23b32;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  background: #2a2420;
+  box-shadow: inset 0 0 0 1px #e23b32;
+}
 /* 0.3.54 sample: shell head seen end-on, all rings concentric (per Jessey's photo):
    steel primer, copper primer ring, brass head, slight rim edge, then a bold gauge-colour ring.
    Slugs add a thin black ring between the brass and the gauge ring. Size scales by gauge. */

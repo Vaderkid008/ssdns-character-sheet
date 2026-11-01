@@ -37,7 +37,7 @@ check("look.slug10", k.type === "shell" && k.gauge === "10" && k.hull === "#2f7a
 k = L({ group: "shotgun", tier: "light", chambers: ["k:buck:.410:light"] });
 check("look.buck410", k.type === "shell" && k.gauge === "410" && k.hull === "#3f8fe0", J(k));
 k = L({ name: "Caster", chambers: ["3", "k:cartridge::medium"] });
-check("look.hex", k.type === "hex" && k.hexLevel === 3 && k.tone === "#8b5cf6", J(k));
+check("look.hex", k.type === "hex" && k.hexLevel === 3 && k.tone === "#9ff2d6" && k.dual === false, J(k));
 k = L({ name: "Caster", chambers: ["3", "k:cartridge::medium"], locked: [0] });
 check("look.mixedSkipsLocked", k.type === "cart" && k.next === 1, J(k));
 k = L({ name: "Caster", chambers: ["", "k:hex:5", "k:cartridge::medium"] });

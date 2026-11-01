@@ -23,7 +23,30 @@
     arrows: "#5e8a55",
     plain: "#d7c07a"
   };
-  var HEX = ["#c4b5fd", "#a78bfa", "#8b5cf6", "#7c3aed", "#6d28d9", "#5b21b6", "#4c1d95", "#3b0764", "#2e1065"];
+  /* 0.3.200: Eldorite shard hues from sheet.css .shard-* gems. L7–L10 are two shards, hard-split. */
+  var SHARDS = {
+    white: ["#fff", "#d9d6cc"],
+    blue: ["#8cc0ff", "#2c62b5"],
+    green: ["#9ff2d6", "#1f8f6d"],
+    yellow: ["#ffe89a", "#c4921c"],
+    purple: ["#d8b3ff", "#6b35a8"],
+    red: ["#ff6a5c", "#b3121a"]
+  };
+  var HEX_LEVELS = [
+    ["white"],
+    ["blue"],
+    ["green"],
+    ["yellow"],
+    ["purple"],
+    ["red"],
+    ["blue", "green"],
+    ["green", "yellow"],
+    ["yellow", "purple"],
+    ["purple", "red"]
+  ];
+  /* Original serpent paths (0.3.54). Full rune has the forked tongue; the strip uses the plain spiral. */
+  var SNAKE_PATH = "M20 20 m0 -2 a2 2 0 1 1 -2 2 a4 4 0 0 1 4 -4 a6 6 0 0 1 6 6 a8 8 0 0 1 -8 8 a10 10 0 0 1 -10 -10 a12 12 0 0 1 12 -12 M22 8 L25.5 6.5 M22 8 L24.5 10.5";
+  var SNAKE_STRIP = "M20 20 a3 3 0 0 1 3 -3 a5.5 5.5 0 0 1 5.5 5.5 a8.5 8.5 0 0 1 -8.5 8.5 a11 11 0 0 1 -11 -11 a12 12 0 0 1 12 -12";
 
   function enabled() {
     try {
@@ -159,14 +182,84 @@
     return -1;
   }
 
+  function hexLevelOf(raw) {
+    /* Numeric 1 is a plain "loaded" flag. Only string tokens ("1"–"10", k:hex:…) are shells. */
+    if (typeof raw !== "string") return 0;
+    var s = raw;
+    if (/^(?:10|[1-9])$/.test(s)) return Number(s);
+    if (s.indexOf("k:hex:") === 0) {
+      var lv = Number(s.split(":")[2]);
+      return lv >= 1 ? lv : 1;
+    }
+    return 0;
+  }
+  function hexSpellName(raw) {
+    var s = String(raw || "");
+    if (s.indexOf("k:hex:") !== 0) return "";
+    var p = s.split(":");
+    if (p.length < 6 || !p[5]) return "";
+    var encoded = p.slice(5).join(":");
+    try { return decodeURIComponent(encoded); } catch (e) { return encoded; }
+  }
+  function rgba(hex, alpha) {
+    var h = String(hex || "").replace("#", "");
+    var n = parseInt(h, 16);
+    if (!isFinite(n)) return "rgba(63,211,107," + alpha + ")";
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + alpha + ")";
+  }
+  /* Same three-stroke serpent as the old green rune. The glow and the bright stroke take the Eldorite color.
+     L7–L10 hard-split that stroke. The dark lead under the rune is not recolored. */
+  function snakeUrl(stops, strip) {
+    var d = strip ? SNAKE_STRIP : SNAKE_PATH;
+    var glowW = strip ? "6.5" : "4.7";
+    var midW = strip ? "4.8" : "3.0";
+    var hiW = strip ? "4" : "2.2";
+    /* One shard: the rune shades from its light stop to its dark stop.
+       Two shards: the blurred halo is the first color and the sharp stroke is the second, so the snake stays a snake. */
+    var glowStroke = "url(#s)";
+    var hiStroke = "url(#s)";
+    var grad = "<stop offset='0%' stop-color='" + stops[0][0] + "'/><stop offset='100%' stop-color='" + stops[0][1] + "'/>";
+    if (stops.length > 1) {
+      glowStroke = stops[0][0];
+      hiStroke = stops[1][0];
+      grad = "<stop offset='0%' stop-color='" + stops[0][0] + "'/><stop offset='100%' stop-color='" + stops[1][0] + "'/>";
+    }
+    var svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><defs><filter id='g' x='-50%' y='-50%' width='200%' height='200%'><feGaussianBlur stdDeviation='1.6'/></filter><linearGradient id='s' x1='0' y1='1' x2='1' y2='0'>" + grad + "</linearGradient></defs><g fill='none' stroke-linecap='round' stroke-linejoin='round'><path d='" + d + "' stroke='" + glowStroke + "' stroke-width='" + glowW + "' filter='url(#g)' opacity='.9'/><path d='" + d + "' stroke='#0a1a0e' stroke-width='" + midW + "' opacity='.55'/><path d='" + d + "' stroke='" + hiStroke + "' stroke-width='" + hiW + "'/></g></svg>";
+    /* Parentheses and quotes must be percent-encoded or the CSS url() closes early and the snake never paints. */
+    var body = encodeURIComponent(svg).replace(/[!'()*]/g, function (c) {
+      return "%" + c.charCodeAt(0).toString(16);
+    });
+    return "url(data:image/svg+xml," + body + ")";
+  }
+  function hexPaint(level) {
+    var lv = Math.max(1, Math.min(10, Number(level) || 1));
+    var names = HEX_LEVELS[lv - 1];
+    var stops = names.map(function (name) { return SHARDS[name]; });
+    var lightInk = names.indexOf("white") >= 0 || names.indexOf("yellow") >= 0;
+    return {
+      level: lv,
+      names: names.slice(),
+      dual: names.length > 1,
+      tone: stops[0][0],
+      colors: stops.map(function (g) { return g[0]; }),
+      ink: lightInk ? "#1a120c" : "#fff",
+      snake: snakeUrl(stops, false),
+      snakeStrip: snakeUrl(stops, true),
+      glow: rgba(stops[0][0], 0.22),
+      edge: rgba(stops[0][0], 0.55)
+    };
+  }
+  function hexTip(raw) {
+    var lv = hexLevelOf(raw);
+    if (!lv) return "";
+    var name = hexSpellName(raw);
+    return (name ? name + " · " : "") + "Hex shell " + lv;
+  }
   function toneOf(spec, chamber) {
     var raw = chamber ? chamber.raw : "";
     if (typeof raw === "string") {
-      if (/^[1-9]$/.test(raw)) return HEX[Number(raw) - 1] || "#9b6fd6";
-      if (raw.indexOf("k:hex:") === 0) {
-        var lv = Number(raw.split(":")[2] || 1);
-        return HEX[Math.max(0, lv - 1)] || "#9b6fd6";
-      }
+      var hexLv = hexLevelOf(raw);
+      if (hexLv && (raw.indexOf("k:hex:") === 0 || /^(?:10|[1-9])$/.test(raw))) return hexPaint(hexLv).tone;
       if (raw.indexOf("k:") === 0) {
         var kindName = raw.split(":")[1] || "";
         if (TONE[kindName]) return TONE[kindName];
@@ -217,10 +310,10 @@
 
   /* 0.3.54: what the round looks like, keyed off the ammo type (never the gun name).
      ball = powder, ball & caps; cart = brass rim + primer; buck = red hull, brass base;
-     rf22 = small brass (.22 / light); hex = dark lead with a green glow. */
+     rf22 = small brass (.22 / light); hex = dark lead with the serpent rune, colored by shell level. */
   function roundType(spec, chamber) {
     var raw = chamber ? chamber.raw : "";
-    if (typeof raw === "string" && (/^[1-9]$/.test(raw) || raw.indexOf("k:hex:") === 0)) return "hex";
+    if (hexLevelOf(raw)) return "hex";
     var row = catalogRow(spec);
     var ammo = String(spec.ammo || (row && row.ammo) || "").toLowerCase();
     if (typeof raw === "string" && raw.indexOf("k:") === 0) {
@@ -275,10 +368,17 @@
     if (hammer) word += ", position 1 under the hammer";
     if (spin) word = "Spin chamber " + (chamber.index + 1) + " under the hammer, free";
     var text = inner != null ? inner : esc(roundText(spec, chamber));
+    if (!text && !locked) {
+      var shownLevel = hexLevelOf(chamber && chamber.raw);
+      if (shownLevel) text = String(shownLevel);
+    }
     var cls = extraClass ? " " + extraClass : "";
     var attrs = attrString(spec, k);
     if (spin) attrs = spinAttrRewrite(attrs);
-    var tip = typeof spec.tip === "function" ? (spec.tip(k, chamber) || "") : "";
+    var hostTip = typeof spec.tip === "function" ? (spec.tip(k, chamber) || "") : "";
+    var autoTip = hexTip(chamber && chamber.raw);
+    var tip = hostTip || autoTip;
+    if (!hostTip && spin && autoTip) tip = autoTip + " · Spin (free)";
     var aria = tip || (word + (spin ? "" : " chamber " + (chamber.index + 1)));
     return '<button type="button" class="ammo-round is-' + chamber.state + next + cls + '"' +
       (style ? ' style="' + style + '"' : "") +
@@ -288,6 +388,12 @@
   }
 
   function toneStyle(spec, chamber) {
+    var raw = chamber ? chamber.raw : "";
+    var lv = hexLevelOf(raw);
+    if (lv && (String(raw).indexOf("k:hex:") === 0 || /^(?:10|[1-9])$/.test(String(raw)))) {
+      var paint = hexPaint(lv);
+      return "--case:" + paint.tone + ";--hex-snake:" + paint.snake + ";--hex-snake-strip:" + paint.snakeStrip + ";--hex-glow:" + paint.glow + ";--hex-edge:" + paint.edge + ";";
+    }
     return "--case:" + toneOf(spec, chamber) + ";";
   }
 
@@ -542,7 +648,7 @@
      loaded chamber that isn't locked), so mixed loads show what fires next. The chamber token
      ("k:type:caliber:tier", hex "1".."9" / "k:hex:N") wins over the gun's own fields. An empty gun
      falls back to its caliber/default round and reports empty so the count can go muted red.
-     Colours are the #73 round art: TONE / HEX case colours and the gauge hull colours. */
+     Colours are the #73 round art: TONE case colours, Eldorite hex faces, and the gauge hull colours. */
   var HULL = { "410": ["#3f8fe0", "#1f5a9c"], "12": ["#c4322e", "#8e241f"], "10": ["#2f7a3a", "#1a4a22"] };
   function roundLook(spec) {
     spec = spec || {};
@@ -572,8 +678,14 @@
     var type = roundType(view, chamber);
     var look = { type: type, tone: toneOf(view, chamber), next: at, empty: at < 0 };
     if (type === "hex") {
-      var lv = /^[1-9]$/.test(raw) ? Number(raw) : Number(String(raw).split(":")[2] || 1);
-      look.hexLevel = lv || 1;
+      var paint = hexPaint(hexLevelOf(raw) || 1);
+      look.hexLevel = paint.level;
+      look.tone = paint.tone;
+      look.hexColors = paint.colors;
+      look.hexInk = paint.ink;
+      look.dual = paint.dual;
+      var spell = hexSpellName(raw);
+      if (spell) look.spell = spell;
     }
     if (type === "shell") {
       look.gauge = shellGauge(view);
@@ -595,6 +707,8 @@
     cycleEject: cycleEject,
     roundType: roundType,
     roundLook: roundLook,
+    hexPaint: hexPaint,
+    hexTip: hexTip,
     html: html,
     mount: mount
   };

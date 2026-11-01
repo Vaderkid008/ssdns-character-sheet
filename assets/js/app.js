@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.199"; // sheet-playtest-v03199
+  var APP_VERSION = "0.3.200"; // sheet-playtest-v03200
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
@@ -1961,15 +1961,18 @@
         var lockedDot = chamberLocked(g, k);
         var color = chamberColor(st, g, w);
         var label = lockedDot ? "Locked" : chamberLabel(st, g, w);
+        var hexInk = hex ? hexPaintOf(parsed.level).ink : "";
         var spinHole = spinGun(g, w) && k > 0;
         var btnAttrs = {
           type: "button",
           class: "chamber" + (lockedDot ? " locked" : (st ? " loaded" : "")) + (hex ? " hex" : "") + (spinGun(g, w) && k === 0 ? " hammer" : "") + (!spinHole && k === nextK ? " next" : ""),
           "data-k": k, text: lockedDot ? "X" : (hex ? parsed.level : ""),
           "aria-label": spinHole
-            ? ("Spin chamber " + (k + 1) + " under the hammer. Free.")
+            ? ((hex && label ? label + ". " : "") + "Spin chamber " + (k + 1) + " under the hammer. Free.")
             : ((lockedDot ? "Locked" : (label || "Empty")) + " · chamber " + (k + 1) + (spinGun(g, w) && k === 0 ? " · under the hammer" : (k === nextK ? " · next under the hammer" : ""))),
-          title: spinHole ? "Spin (free). Brings this chamber under the hammer." : (lockedDot ? "Locked chamber" : (label ? (label + (k === nextK ? " · next" : "") + (hex ? " · Cast through gun" : " · tap to fire")) : "Empty"))
+          title: spinHole
+            ? ((hex && label ? label + " · " : "") + "Spin (free). Brings this chamber under the hammer.")
+            : (lockedDot ? "Locked chamber" : (label ? (label + (k === nextK ? " · next" : "") + (hex ? " · Cast through gun" : " · tap to fire")) : "Empty"))
         };
         if (spinHole) { btnAttrs["data-spin"] = "1"; btnAttrs["data-gun"] = i; }
         else btnAttrs["data-fire"] = i;
@@ -1977,6 +1980,7 @@
         if (st && hex) {
           btn.classList.add("tinted");
           if (color) btn.style.setProperty("--case", color);
+          if (hexInk) btn.style.setProperty("--hex-ink", hexInk);
         } else if (st && isSpecialChamber(st)) {
           btn.classList.add("tinted");
           if (color) btn.style.setProperty("--case", color);
@@ -2914,13 +2918,18 @@
   }
   var ROUND_COLORS = {
     buck: "#c4a35a", slug: "#6b4f3a", percussion: "#7d8b99", bigfifty: "#4d6270", arrows: "#5e8a55",
-    light: "#f3e7b3", medium: "#e0b84a", heavy: "#a86b32", plain: "#d7c07a",
-    hex: ["#c4b5fd", "#a78bfa", "#8b5cf6", "#7c3aed", "#6d28d9", "#5b21b6", "#4c1d95", "#3b0764", "#2e1065"]
+    light: "#f3e7b3", medium: "#e0b84a", heavy: "#a86b32", plain: "#d7c07a"
   };
+  /* Eldorite hues for the hex serpent live in ammo-display hexPaint. */
+  function hexPaintOf(level) {
+    var AD = window.SSDNSAmmoDisplay;
+    if (AD && AD.hexPaint) return AD.hexPaint(level);
+    return { fill: "#d8b3ff", ink: "#fff", tone: "#d8b3ff", colors: ["#d8b3ff"], dual: false, level: 1 };
+  }
   function chamberColor(st, g, w) {
     var p = parseChamber(st);
     if (!p) return "";
-    if (p.kind === "hex") return ROUND_COLORS.hex[Math.max(0, num(p.level, 1) - 1)] || "#9b6fd6";
+    if (p.kind === "hex") return hexPaintOf(p.level).tone;
     if (ROUND_COLORS[p.kind]) return ROUND_COLORS[p.kind];
     var tier = p.tier;
     if (!tier && w && w.tiers) { try { tier = chamberOf(g, w).tier; } catch (e) { tier = ""; } }

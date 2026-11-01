@@ -3019,7 +3019,7 @@ function paintAmmoColumn(ctx, s, r, rows) {
 }
 /* 0.3.64: token ammo badge round, drawn side-on in the #73 round art colours. look = SSDNSAmmoDisplay.roundLook().
    cart = brass case + copper tip; rf22 = small brass .22; ball = lead ball + percussion cap;
-   shell = brass head + hull in the gauge colour (slug: black band); hex = purple round with its level. */
+   shell = brass head + hull in the gauge colour (slug: black band); hex = dark round, Eldorite glow for that shell level. */
 function paintRoundIcon(ctx, look, x, y, w) {
   const type = look.type;
   ctx.save();
@@ -3035,12 +3035,37 @@ function paintRoundIcon(ctx, look, x, y, w) {
     ctx.strokeRect(1.4 + head, -h / 2, w - 1.4 - head, h);
     if (look.slug) { ctx.fillStyle = '#111111'; ctx.fillRect(1.4 + head + (w - head) * 0.3, -h / 2, (w - head) * 0.3, h); }
   } else if (type === 'hex') {
-    ctx.fillStyle = look.tone || '#8b5cf6';
-    ctx.shadowColor = 'rgba(160,120,255,0.8)'; ctx.shadowBlur = 3;
-    ctx.beginPath(); ctx.arc(w / 2, 0, 5, 0, Math.PI * 2); ctx.fill();
+    const cols = look.hexColors && look.hexColors.length ? look.hexColors : [look.tone || '#9ff2d6'];
+    const cx = w / 2;
+    ctx.shadowColor = cols[0];
+    ctx.shadowBlur = 3;
+    ctx.fillStyle = '#1c2022';
+    ctx.beginPath();
+    ctx.arc(cx, 0, 5, 0, Math.PI * 2);
+    ctx.fill();
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 7px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(look.hexLevel || 1), w / 2, 0.5);
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    if (cols.length > 1) {
+      ctx.strokeStyle = cols[0];
+      ctx.beginPath();
+      ctx.arc(cx, 0, 2.5, Math.PI * 0.15, Math.PI * 1.05);
+      ctx.stroke();
+      ctx.strokeStyle = cols[1];
+      ctx.beginPath();
+      ctx.arc(cx, 0, 2.5, Math.PI * 1.15, Math.PI * 2.05);
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = cols[0];
+      ctx.beginPath();
+      ctx.arc(cx, 0, 2.5, 0.5, Math.PI * 1.85);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 7px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(look.hexLevel || 1), cx, 0.5);
   } else if (type === 'ball') {
     ctx.fillStyle = '#b8862f';
     ctx.fillRect(w - 3, -2, 3, 4);

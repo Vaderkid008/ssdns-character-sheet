@@ -18,19 +18,19 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.199" && version.sheetBuild === "sheet-playtest-v03199");
-check("ver.dmcc", version.dmcc === "0.2.212" && version.dmccBuild === "dmcc-playtest-v02212");
+check("ver.sheet", version.sheet === "0.3.200" && version.sheetBuild === "sheet-playtest-v03200");
+check("ver.dmcc", version.dmcc === "0.2.213" && version.dmccBuild === "dmcc-playtest-v02213");
 check("ver.rules", !read("assets/data/rules.js").includes("0.3.169") && !read("assets/data/rules.js").includes("d20-zoom") && !read("database.rules.json").includes("0.3.169"));
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.199"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.212"'));
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.200"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.213"'));
 
 const sheet = read("assets/css/sheet.css");
 const dmcc = read("dm/assets/css/dmcc.css");
 check("css.pills", sheet.includes(".status-chips .chip.cond, .status-chips .cond { background: #6e2430; color: #fff; font-size: 17px; padding: 6px 14px; gap: 5px; }"));
 check("css.badge", /width: 42px; height: 42px;/.test(sheet) && /font-size: 24px/.test(sheet.slice(sheet.indexOf(".cond-badge"))));
 check("css.dmChip", dmcc.includes("font-size: 17px; padding: 6px 14px"));
-check("css.sheetLinked", read("index.html").includes("sheet.css?v=0.3.180-n91"));
-check("css.dmLinked", read("dm/index.html").includes("dmcc.css?v=0.2.193-n91"));
+check("css.sheetLinked", read("index.html").includes("sheet.css?v=0.3.200-snake"));
+check("css.dmLinked", read("dm/index.html").includes("dmcc.css?v=0.2.213-snake"));
 
 const map = read("map/ssdns-map.js");
 check("map.token28", map.includes("const size = Math.max(22, r * 0.97);") && map.includes("size * 0.57"));
