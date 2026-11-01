@@ -22,7 +22,7 @@ check("ver.sheet", version.sheet === "0.3.200" && version.sheetBuild === "sheet-
 check("ver.dmcc", version.dmcc === "0.2.213" && version.dmccBuild === "dmcc-playtest-v02213");
 check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.200"') && read("assets/js/app.js").includes("sheet-playtest-v03200"));
 check("ver.dm", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.213"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02213"));
-check("html.sheet", read("index.html").includes("assets/js/app.js?v=0.3.200-snake") && read("index.html").includes("assets/js/ammo-display.js?v=0.3.200-snake") && read("index.html").includes("assets/css/ammo-display.css?v=0.3.200-snake"));
+check("html.sheet", read("index.html").includes("assets/js/app.js?v=0.3.200-snake") && read("index.html").includes("assets/js/ammo-display.js?v=0.3.200-snake") && read("index.html").includes("assets/css/ammo-display.css?v=0.3.200-digit"));
 check("html.dm", read("dm/index.html").includes("assets/js/dmcc.js?v=0.2.213-snake") && read("dm/index.html").includes("../assets/js/ammo-display.js?v=0.3.200-snake"));
 
 const sb = {};
@@ -106,6 +106,7 @@ const bare = A.roundLook({ chambers: ["6"] });
 check("look.red", bare.hexLevel === 6 && bare.tone === "#ff6a5c" && !bare.spell && bare.dual === false);
 
 check("css.snake", css.includes("var(--hex-snake)") && css.includes("#0d0f10") && css.includes("#4a4f52") && !css.includes("--hex-face") && /is-strip \.ammo-round\.is-primer\.is-loaded\.rt-hex/.test(css));
+check("css.digit", css.includes("font-weight: 800") && css.includes("-webkit-text-stroke: 1px #0c0a08") && !css.includes(".rt-hex::before"));
 check("src.noPurpleScale", !read("assets/js/ammo-display.js").includes("#c4b5fd") && !read("assets/js/app.js").includes("#c4b5fd") && !read("dm/assets/js/dmcc.js").includes("HEX_CASE") && read("dm/assets/js/dmcc.js").includes("paint.tone"));
 check("src.sheetLabel", read("assets/js/app.js").includes('p.spell + " · "') && read("assets/js/app.js").includes("hexPaintOf") && read("assets/js/app.js").includes("hexPaintOf(p.level).tone"));
 check("map.darkRound", read("map/ssdns-map.js").includes("look.hexColors") && read("map/ssdns-map.js").includes("#1c2022"));

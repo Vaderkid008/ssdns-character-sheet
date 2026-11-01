@@ -226,9 +226,26 @@
 /* 0.3.200: hex lead stays the dark round. The serpent rune (--hex-snake) takes the Eldorite color for that shell level.
    L7–L10 split the snake stroke. Strip size keeps the plain spiral. */
 .ssdns-ammo .ammo-round.is-primer.is-loaded.rt-hex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-color: #1b3d22;
-  color: #fff;
-  text-shadow: 0 1px 1px #000;
+  color: #fffdf8;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1;
+  -webkit-text-stroke: 1px #0c0a08;
+  paint-order: stroke fill;
+  text-shadow:
+    0 0 2px #000,
+    0 1px 0 #000,
+    0 -1px 0 #000,
+    1px 0 0 #000,
+    -1px 0 0 #000,
+    1px 1px 0 #000,
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000;
   --hex-glow: rgba(63, 211, 107, 0.22);
   --hex-edge: rgba(63, 211, 107, 0.55);
   background:
@@ -237,6 +254,11 @@
     radial-gradient(circle at 36% 30%, #4a4f52, #24282a 56%, #0d0f10 90%);
   box-shadow: 0 0 5px 1px var(--hex-edge), inset 0 0 4px var(--hex-glow);
 }
+.ssdns-ammo-cylinder.is-gear .ammo-round.is-primer.is-loaded.rt-hex,
+.ssdns-ammo-cylinder.is-drawer .ammo-round.is-primer.is-loaded.rt-hex { font-size: 11px; }
+.ssdns-ammo-cylinder.is-strip .ammo-round.is-primer.is-loaded.rt-hex,
+.ssdns-ammo-dots.is-strip .ammo-round.is-primer.is-loaded.rt-hex { font-size: 8px; }
+.ssdns-ammo-cylinder.is-demo .ammo-round.is-primer.is-loaded.rt-hex { font-size: 20px; }
 .ssdns-ammo-cylinder.is-strip .ammo-round.is-primer.is-loaded.rt-hex,
 .ssdns-ammo-dots.is-strip .ammo-round.is-primer.is-loaded.rt-hex {
   background:
@@ -245,11 +267,11 @@
 }
 .ssdns-ammo .ammo-round.is-locked.rt-hex {
   color: #e23b32;
+  -webkit-text-stroke: 0;
   text-shadow: none;
   background: #2a2420;
   box-shadow: inset 0 0 0 1px #e23b32;
 }
-
 /* 0.3.54 sample: shell head seen end-on, all rings concentric (per Jessey's photo):
    steel primer, copper primer ring, brass head, slight rim edge, then a bold gauge-colour ring.
    Slugs add a thin black ring between the brass and the gauge ring. Size scales by gauge. */
