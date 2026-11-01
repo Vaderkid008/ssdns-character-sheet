@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.188"; // sheet-playtest-v03188
+  var APP_VERSION = "0.3.189"; // sheet-playtest-v03189
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
@@ -3614,6 +3614,7 @@
       ? ("Loaded " + spell.name + " (level-" + lvl + " shell). The slot is spent.")
       : ("Loaded a level-" + lvl + " hex shell. The slot is spent. Cast through gun fires it as a spell attack."));
   }
+  var CANTRIP_HEX_MSG = "Cantrips don't use hex shells — cast from the spell list or Cast through gun.";
   function chosenHexLoad(i, spellOverride, levelOverride) {
     var raw = spellOverride;
     if (raw == null) {
@@ -3621,7 +3622,9 @@
       raw = sel && sel.value || "";
     }
     var spell = spellFromValue(raw);
-    if (!spell || !(spell.level > 0)) {
+    /* A cantrip is a spell. It is not a missing pick, and it must not become a nameless k:hex token. */
+    if (spell && !(spell.level > 0)) return { spell: spell, slot: 0, cantrip: true };
+    if (!spell) {
       var bare = levelOverride != null && levelOverride !== "" ? num(levelOverride, 1) : num($('[data-hexlvl="' + i + '"]') && $('[data-hexlvl="' + i + '"]').value, 1);
       return { spell: null, slot: bare };
     }
@@ -3638,6 +3641,7 @@
     if (g && g.equipped === false) { toast("Equip this weapon first."); return; }
     if (!w || !w.hexShells) return;
     var pick = chosenHexLoad(i, spellOverride, levelOverride);
+    if (pick.cantrip) { toast(CANTRIP_HEX_MSG); return; }
     var lvl = pick.slot;
     var a = normChambers(g, w), k = firstOpenChamber(g, a);
     if (k < 0) {
@@ -3725,7 +3729,9 @@
   function loadHexAt(i, level, spellValue) {
     var sel = $('[data-hexlvl="' + i + '"]');
     var spell = spellFromValue(spellValue);
-    if (!spell || !(spell.level > 0)) {
+    /* Keep the cantrip on the call. An empty override used to drop the name and write k:hex:N:. */
+    if (spell && !(spell.level > 0)) return loadHexShell(i, spell.value, 0);
+    if (!spell) {
       if (sel && level != null && level !== "") sel.value = String(level);
       return loadHexShell(i, "", level);
     }
