@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.200" && version.sheetBuild === "sheet-playtest-v03200");
-check("ver.dmcc", version.dmcc === "0.2.213" && version.dmccBuild === "dmcc-playtest-v02213");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.200"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.213"'));
+check("ver.sheet", version.sheet === "0.3.201" && version.sheetBuild === "sheet-playtest-v03201");
+check("ver.dmcc", version.dmcc === "0.2.214" && version.dmccBuild === "dmcc-playtest-v02214");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.201"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.214"'));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -83,6 +83,48 @@ check("pack.reimport", again.entries.length === 2 && again.entries.every((e) => 
 check("pack.bad", L.importPack("nope", {}).entries.length === 0 && /isn't an SSDNS asset pack/.test(L.importPack({ assets: [] }, {}).warn));
 const dropped = L.importPack({ format: "ssdns-asset-pack", assets: [{ name: "Local", image: "data:image/png;base64,xx" }, { name: "" }] }, {});
 check("pack.skip", dropped.entries.length === 1 && dropped.skipped === 1 && dropped.entries[0].image === "" && dropped.entries[0].images[0] === "");
+
+const packPath = "assets/packs/encounter-pack-v1.ssdns-asset-pack.json";
+const starterRaw = read(packPath);
+const starter = JSON.parse(starterRaw);
+check("starter.file", starter.format === "ssdns-asset-pack" && starter.assets.length === 8 && !/data:|blob:/.test(starterRaw));
+const starterIds = starter.assets.map((a) => a.id);
+check("starter.ids", starterIds.join() === "ast_wall-lantern,ast_campfire,ast_fence-gate,ast_order-board,ast_telegraph-lever,ast_cover-crate,ast_powder-barrel,ast_plunger-box");
+const loaded = L.importPack(starter, {});
+check("starter.import", loaded.entries.length === 8 && loaded.entries.every((e, i) => e.id === starterIds[i]) && loaded.kept === 0);
+const byId = Object.fromEntries(loaded.entries.map((e) => [e.id, e]));
+const lantern = byId["ast_wall-lantern"];
+const camp = byId["ast_campfire"];
+const fence = byId["ast_fence-gate"];
+const barrel = byId["ast_powder-barrel"];
+const plunger = byId["ast_plunger-box"];
+check("starter.light", lantern.props.light.bright === 20 && lantern.props.light.dim === 20 && lantern.sfx.on === "magic-whoosh-soft.mp3" && lantern.sfx.off === "ui-back.mp3" && lantern.interact.actions.join() === "light");
+check("starter.campfire", camp.props.light.bright === 20 && camp.props.light.dim === 20 && camp.sfx.on === "magic-whoosh-soft.mp3" && camp.sfx.off === "ui-back.mp3");
+check("starter.gate", fence.props.gate.blocksMove === true && fence.props.gate.blocksSight === false && fence.interact.actions.join() === "open" && fence.sfx.open === "thud.wav");
+check("starter.blast", barrel.props.timer.mode === "fuse" && barrel.props.timer.fuseRounds === 2 && barrel.images.length === 2 && barrel.interact.actions.join() === "toggle" && barrel.sfx.on === "fuse.mp3" && plunger.props.timer.mode === "plunger" && plunger.images.length === 2 && plunger.sfx.interact === "explode.mp3" && plunger.interact.actions.join() === "toggle");
+const httpsOk = loaded.entries.every((e) => e.images.every((u) => u.startsWith("https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-") && u.endsWith(".webp")));
+check("starter.https", httpsOk && lantern.image.endsWith("asset-wall-lantern-off.webp"));
+const present = {};
+loaded.entries.forEach((e) => { present[e.id] = e; });
+const againStarter = L.importPack(starter, present, { skipExisting: true });
+check("starter.idempotent", againStarter.entries.length === 0 && againStarter.kept === 8);
+const partial = L.importPack(starter, { "ast_wall-lantern": 1, ast_campfire: 1 }, { skipExisting: true });
+check("starter.partial", partial.entries.length === 6 && partial.kept === 2 && partial.entries.every((e) => e.id !== "ast_wall-lantern" && e.id !== "ast_campfire"));
+const webps = [
+  "asset-campfire-off.webp", "asset-campfire-on.webp", "asset-cover-crate.webp",
+  "asset-fence-gate-closed.webp", "asset-fence-gate-open.webp",
+  "asset-order-board-off.webp", "asset-order-board-on.webp",
+  "asset-plunger-box-off.webp", "asset-plunger-box-on.webp",
+  "asset-powder-barrel-off.webp", "asset-powder-barrel-on.webp",
+  "asset-telegraph-lever-off.webp", "asset-telegraph-lever-on.webp",
+  "asset-wall-lantern-off.webp", "asset-wall-lantern-on.webp"
+];
+check("starter.webp", webps.every((name) => {
+  const buf = fs.readFileSync(path.join(root, "assets/map-props", name));
+  return buf.length > 1000 && buf.slice(0, 4).toString() === "RIFF" && buf.slice(8, 12).toString() === "WEBP";
+}));
+const libSrc = read("map/asset-library.js");
+check("starter.button", libSrc.includes('data-al-starter') && libSrc.includes(packPath) && libSrc.includes("skipExisting"));
 
 const inst = L.instanceFromDef(gate);
 inst.state.hp = 13;
@@ -146,8 +188,8 @@ check("map.door", map.includes("doorInteract: function"));
 check("map.reach", map.includes("reachGate") && map.includes("applyAssetRequest"));
 const wrap = v2.indexOf("expireSpellZones();");
 check("v2.round", wrap > 0 && v2.indexOf("SSDNSAssets.onRound", wrap) > wrap && v2.indexOf("SSDNSAssets.onRound", wrap) < wrap + 220);
-check("html.sheet", sheet.includes("map/asset-library.js?v=0.3.182-asset") && sheet.includes("map/ssdns-map.js?v=0.3.200-snake"));
-check("html.dm", dm.includes("../map/asset-library.js?v=0.2.195-asset") && dm.includes("v2.js?v=0.2.213-snake") && dm.includes("../map/ssdns-map.js?v=0.2.213-snake"));
+check("html.sheet", sheet.includes("map/asset-library.js?v=0.3.201-encounter") && sheet.includes("map/ssdns-map.js?v=0.3.201-encounter"));
+check("html.dm", dm.includes("../map/asset-library.js?v=0.2.214-encounter") && dm.includes("v2.js?v=0.2.214-encounter") && dm.includes("../map/ssdns-map.js?v=0.2.214-encounter"));
 check("docs", read("map/DATA.md").includes("ssdns-asset-pack") && read("docs/SCHEMA.md").includes("assetLibrary"));
 
 if (failures.length) {

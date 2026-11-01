@@ -1,0 +1,548 @@
+{
+  "format": "ssdns-asset-pack",
+  "version": 1,
+  "exportedAt": "2026-11-01T23:26:28Z",
+  "assets": [
+    {
+      "id": "ast_wall-lantern",
+      "name": "Wall Lantern",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-wall-lantern-off.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-wall-lantern-off.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-wall-lantern-on.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "magic-whoosh-soft.mp3",
+        "off": "ui-back.mp3",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 20,
+          "dim": 20,
+          "color": "#ffb347"
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "On",
+          "labelOff": "Off"
+        },
+        "gate": {
+          "open": false,
+          "blocksMove": true,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 0,
+          "cover": ""
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "light"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Oil lantern on a post or bracket. Light on = 20 ft bright + 20 ft dim. Shoot it out to darken the area.",
+      "v": 1
+    },
+    {
+      "id": "ast_campfire",
+      "name": "Campfire",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-campfire-off.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-campfire-off.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-campfire-on.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "magic-whoosh-soft.mp3",
+        "off": "ui-back.mp3",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 20,
+          "dim": 20,
+          "color": "#ff8c3a"
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "On",
+          "labelOff": "Off"
+        },
+        "gate": {
+          "open": false,
+          "blocksMove": true,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 0,
+          "cover": ""
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "light"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Stone fire ring. Off = embers, on = roaring. Kick dirt on it to put it out.",
+      "v": 1
+    },
+    {
+      "id": "ast_fence-gate",
+      "name": "Fence Gate",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-fence-gate-closed.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-fence-gate-closed.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-fence-gate-open.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "",
+        "off": "",
+        "open": "thud.wav",
+        "close": "thud.wav"
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "On",
+          "labelOff": "Off"
+        },
+        "gate": {
+          "open": false,
+          "blocksMove": true,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 0,
+          "cover": ""
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "open"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Rail-fence corral gate. Closed blocks movement but not sight.",
+      "v": 1
+    },
+    {
+      "id": "ast_order-board",
+      "name": "Order Board",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-order-board-off.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-order-board-off.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-order-board-on.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "ui-tick.mp3",
+        "off": "ui-back.mp3",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "Flip to GREEN",
+          "labelOff": "Flip to RED"
+        },
+        "gate": {
+          "open": false,
+          "blocksMove": true,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 0,
+          "cover": ""
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "toggle"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Painted railroad board. Off = RED (train stops), on = GREEN (train rolls through). At night, place a Wall Lantern beside it.",
+      "v": 1
+    },
+    {
+      "id": "ast_telegraph-lever",
+      "name": "Telegraph Lever",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-telegraph-lever-off.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-telegraph-lever-off.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-telegraph-lever-on.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "electric.mp3",
+        "off": "ui-back.mp3",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "Throw lever",
+          "labelOff": "Reset lever"
+        },
+        "gate": {
+          "open": false,
+          "blocksMove": true,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 0,
+          "cover": ""
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "toggle"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Brass switchboard lever. On = line live. What it controls is up to the DM until linked switches ship.",
+      "v": 1
+    },
+    {
+      "id": "ast_cover-crate",
+      "name": "Cover Crate",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-cover-crate.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-cover-crate.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "",
+        "off": "",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "On",
+          "labelOff": "Off"
+        },
+        "gate": {
+          "open": false,
+          "blocksMove": true,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 20,
+          "cover": "half"
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Weathered supply crate. Half cover, 20 HP (stub; not yet damageable).",
+      "v": 1
+    },
+    {
+      "id": "ast_powder-barrel",
+      "name": "Powder Barrel",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-powder-barrel-off.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-powder-barrel-off.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-powder-barrel-on.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "fuse.mp3",
+        "off": "ui-back.mp3",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "Show fuse lit",
+          "labelOff": "Snuff fuse"
+        },
+        "gate": {
+          "open": false,
+          "blocksMove": true,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 0,
+          "cover": ""
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "fuse",
+          "fuseRounds": 2
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "toggle"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Powder keg. Light fuse = blows after 2 rounds. Add the blast effect on the placed barrel.",
+      "v": 1
+    },
+    {
+      "id": "ast_plunger-box",
+      "name": "Plunger Box",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-plunger-box-off.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-plunger-box-off.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-plunger-box-on.webp"
+      ],
+      "sfx": {
+        "interact": "explode.mp3",
+        "on": "ui-tick.mp3",
+        "off": "ui-back.mp3",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "Arm",
+          "labelOff": "Disarm"
+        },
+        "gate": {
+          "open": false,
+          "blocksMove": true,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 0,
+          "cover": ""
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "plunger",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "toggle"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Blasting plunger on a crate. Push plunger = instant blast. Add the blast effect on the placed box.",
+      "v": 1
+    }
+  ]
+}

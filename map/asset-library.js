@@ -1,11 +1,15 @@
 /* N86 Asset Library (sheet 0.3.173 / DMCC 0.2.186).
    DM-only definitions at map/dm/assetLibrary/<id>, per room, plus an ssdns-asset-pack.
+   Encounter Pack v1 (sheet 0.3.201 / DMCC 0.2.214) is the Assets button that fetches
+   assets/packs/encounter-pack-v1.ssdns-asset-pack.json and skips ids already in the room.
    Placed instances are map tokens (kind "asset"). Live actions: toggle, open/close, light.
    Health, trap, range, links, and immunities save their fields and stay stubs.
    Door Interact and Turn# fuse UI are N87. interact.dmApprove is stored and not enforced. */
 (function (root) {
   "use strict";
   var PACK_FORMAT = "ssdns-asset-pack";
+  var STARTER_PACK = "assets/packs/encounter-pack-v1.ssdns-asset-pack.json";
+  var STARTER_LABEL = "Encounter Pack v1";
   var ACTION_IDS = ["toggle", "open", "light", "health", "trap", "range", "links", "immunities"];
   var LIVE = { toggle: 1, open: 1, light: 1 };
   var SFX_KEYS = ["interact", "on", "off", "open", "close"];
@@ -184,16 +188,18 @@
     }).map(function (id) { return clone(library[id]); }).filter(function (e) { return e && e.id && e.name; });
     return { format: PACK_FORMAT, version: 1, exportedAt: new Date().toISOString(), assets: assets };
   }
-  function importPack(obj, existing) {
+  function importPack(obj, existing, opts) {
+    opts = opts || {};
     if (typeof obj === "string") {
-      try { obj = JSON.parse(obj); } catch (e) { return { entries: [], skipped: 0, warn: "That file isn't valid JSON." }; }
+      try { obj = JSON.parse(obj); } catch (e) { return { entries: [], skipped: 0, kept: 0, warn: "That file isn't valid JSON." }; }
     }
     if (!obj || obj.format !== PACK_FORMAT || !Array.isArray(obj.assets)) {
-      return { entries: [], skipped: 0, warn: "That isn't an SSDNS asset pack." };
+      return { entries: [], skipped: 0, kept: 0, warn: "That isn't an SSDNS asset pack." };
     }
-    var taken = Object.assign({}, existing || {}), out = [], skipped = 0;
+    var taken = Object.assign({}, existing || {}), out = [], skipped = 0, kept = 0;
     obj.assets.forEach(function (m) {
       if (!m || !m.name) { skipped++; return; }
+      if (opts.skipExisting && m.id && taken[m.id]) { kept++; return; }
       var images = normalizeImages(m.images, m.image).map(function (src) {
         return /^(data:|blob:)/.test(src) ? "" : src;
       });
@@ -202,7 +208,19 @@
       taken[e.id] = 1;
       out.push(e);
     });
-    return { entries: out, skipped: skipped, warn: skipped ? skipped + " asset(s) skipped (each needs a name)." : "" };
+    return { entries: out, skipped: skipped, kept: kept, warn: skipped ? skipped + " asset(s) skipped (each needs a name)." : "" };
+  }
+  function starterPackUrl() {
+    var nodes = root.document && root.document.getElementsByTagName ? root.document.getElementsByTagName("script") : [];
+    var i, src;
+    for (i = 0; i < nodes.length; i++) {
+      src = nodes[i].src || "";
+      if (src.indexOf("asset-library.js") >= 0) {
+        return src.replace(/map\/asset-library\.js(\?.*)?$/, STARTER_PACK);
+      }
+    }
+    var loc = (root.location && root.location.pathname) || "";
+    return (/\/dm(\/|$)/.test(loc) ? "../" : "") + STARTER_PACK;
   }
 
   function axisGap(origin, span, other, otherSpan) {
@@ -527,7 +545,7 @@
   function bind(next) { host = next || null; return assetsApi; }
 
   /* ---------- panel ---------- */
-  var ui = { dlg: null, api: null, query: "", editing: null };
+  var ui = { dlg: null, api: null, query: "", editing: null, starterBusy: false };
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -741,10 +759,10 @@
     var body = ui.dlg.querySelector(".ml-body");
     body.innerHTML =
       '<div class="ml-head"><h2>Assets</h2><input type="search" class="ml-search" placeholder="Search assets" aria-label="Search assets" value="' + esc(ui.query) + '">' +
-      '<div class="ml-tools"><button type="button" class="btn sm btn-primary" data-al-add>Add</button><button type="button" class="btn sm" data-al-export>Export pack</button><label class="btn sm ml-import">Import pack<input type="file" accept="application/json,.json" data-al-import hidden></label><button type="button" class="btn sm" data-al-close>Close</button></div></div>' +
+      '<div class="ml-tools"><button type="button" class="btn sm btn-primary" data-al-add>Add</button><button type="button" class="btn sm" data-al-export>Export pack</button><label class="btn sm ml-import">Import pack<input type="file" accept="application/json,.json" data-al-import hidden></label><button type="button" class="btn sm" data-al-starter title="Load the 8 starter map props. Skips any id already in this library."' + (ui.starterBusy ? " disabled" : "") + ">" + esc(STARTER_LABEL) + '</button><button type="button" class="btn sm" data-al-close>Close</button></div></div>' +
       (ui.editing ? formHtml(ui.editing) : "") +
-      '<div class="ml-grid" role="list">' + (list.map(card).join("") || '<p class="fine">No assets yet. Add one, or import a pack.</p>') + "</div>" +
-      '<p class="fine ml-foot">Assets save in this room. Export a pack to move them to another campaign. Place, then click a square. On/off, Open/close, and Light work now. The other properties are saved for later.</p>';
+      '<div class="ml-grid" role="list">' + (list.map(card).join("") || '<p class="fine">No assets yet. Add one, import a pack, or load ' + esc(STARTER_LABEL) + '.</p>') + "</div>" +
+      '<p class="fine ml-foot">Assets save in this room. ' + esc(STARTER_LABEL) + ' loads the eight starter props (lantern, campfire, gate, and the rest). Export a pack to move them to another campaign. Place, then click a square. On/off, Open/close, and Light work now. The other properties are saved for later.</p>';
     var s = body.querySelector(".ml-search");
     if (s && ui.focusSearch) { s.focus(); var n = s.value.length; if (s.setSelectionRange) s.setSelectionRange(n, n); ui.focusSearch = false; }
   }
@@ -832,6 +850,7 @@
       return;
     }
     if (t.hasAttribute("data-al-preview")) { previewSfx(t.getAttribute("data-al-preview")); return; }
+    if (t.hasAttribute("data-al-starter")) { loadStarterPack(); return; }
     if (t.hasAttribute("data-al-export")) {
       var pack = exportPack(lib);
       var blob = new root.Blob([JSON.stringify(pack, null, 1)], { type: "application/json" });
@@ -843,6 +862,33 @@
       a.remove();
       toast("Exported " + pack.assets.length + " asset(s)");
     }
+  }
+  function loadStarterPack() {
+    if (!ui.api || ui.starterBusy) return;
+    if (!root.fetch) { toast("This browser can't load " + STARTER_LABEL + "."); return; }
+    ui.starterBusy = true;
+    render();
+    toast("Loading " + STARTER_LABEL + "…");
+    root.fetch(starterPackUrl(), { cache: "no-cache" }).then(function (r) {
+      if (!r.ok) throw new Error(STARTER_LABEL + " file missing (" + r.status + ").");
+      return r.json();
+    }).then(function (obj) {
+      var res = importPack(obj, ui.api.library(), { skipExisting: true });
+      res.entries.forEach(function (en) { ui.api.save(en); });
+      if (!res.entries.length && res.kept) toast(STARTER_LABEL + " is already in this library.");
+      else if (!res.entries.length) toast(res.warn || ("Couldn't read " + STARTER_LABEL + "."));
+      else {
+        var msg = "Added " + res.entries.length + " from " + STARTER_LABEL;
+        if (res.kept) msg += " (" + res.kept + " already here)";
+        if (res.warn) msg += ". " + res.warn;
+        toast(msg);
+      }
+    }).catch(function (err) {
+      toast(err && err.message ? err.message : ("Couldn't load " + STARTER_LABEL + "."));
+    }).then(function () {
+      ui.starterBusy = false;
+      render();
+    });
   }
   function onInput(e) {
     var t = e.target;
@@ -924,6 +970,8 @@
     removeDef: removeDef,
     exportPack: exportPack,
     importPack: importPack,
+    starterPackUrl: starterPackUrl,
+    STARTER_PACK: STARTER_PACK,
     feetBetween: feetBetween,
     reachGate: reachGate,
     reachText: reachText,
