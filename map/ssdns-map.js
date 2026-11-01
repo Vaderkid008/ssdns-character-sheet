@@ -159,6 +159,9 @@ window.SSDNSMap = { create(opts) {
   const unsubs = [];
   const seenSeq = {};
   let raf = 0, animRaf = 0, dead = false;
+  let fxShake = { x: 0, y: 0 };
+  let fxShaking = false;
+  let fxFrameOn = false;
 
   function q(name) { return el.querySelector('[data-act="' + name + '"]'); }
   function on(target, ev, fn, opt) { target.addEventListener(ev, fn, opt); listeners.push([target, ev, fn, opt]); }
@@ -1359,25 +1362,69 @@ function fxScreen(entry) {
   const B = T ? { x: T.x - dir.x * rT * 0.55, y: T.y - dir.y * rT * 0.55 } : null;
   return { A, B: B || A, S, T, rS, rT, cell, dir, srcHidden: !!g.srcHidden };
 }
+function fxDpr() {
+  return Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, 2);
+}
+function fxCollectShake(now) {
+  let x = 0, y = 0;
+  if (FXA && FXA.shakeOf) {
+    fxLive.forEach(e => {
+      const s = FXA.shakeOf(e.spec, now - e.t0);
+      if (!s) return;
+      x += Number(s.x) || 0;
+      y += Number(s.y) || 0;
+    });
+  }
+  const cap = 12;
+  const m = Math.hypot(x, y);
+  if (m > cap) { x *= cap / m; y *= cap / m; }
+  return { x: x, y: y };
+}
 function fxFrame() {
   fxRaf = 0;
-  if (dead || !fxCtx) { fxLive.length = 0; return; }
-  const box = viewBox();
-  fxCtx.clearRect(0, 0, box.w, box.h);
-  const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-  for (let i = fxLive.length - 1; i >= 0; i--) {
-    const e = fxLive[i], lt = now - e.t0;
-    if (lt > e.plan.duration) { fxLive.splice(i, 1); continue; }
-    try { FXA.paint(fxCtx, e.spec, lt, fxScreen(e)); } catch (err) { fxLive.splice(i, 1); }
+  if (fxFrameOn) return;
+  fxFrameOn = true;
+  try {
+    if (dead || !fxCtx) { fxLive.length = 0; fxShake = { x: 0, y: 0 }; fxShaking = false; return; }
+    const box = viewBox();
+    const dpr = fxDpr();
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    for (let i = fxLive.length - 1; i >= 0; i--) {
+      if (now - fxLive[i].t0 > fxLive[i].plan.duration) fxLive.splice(i, 1);
+    }
+    const next = fxCollectShake(now);
+    const shook = Math.hypot(next.x, next.y) > 0.4;
+    const was = fxShaking;
+    fxShake = next;
+    fxShaking = shook;
+    if (shook || was) { try { draw(); } catch (e) {} }
+    if (fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fxCtx.clearRect(0, 0, box.w, box.h);
+    if (shook && fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, fxShake.x * dpr, fxShake.y * dpr);
+    for (let i = fxLive.length - 1; i >= 0; i--) {
+      const e = fxLive[i];
+      try { FXA.paint(fxCtx, e.spec, now - e.t0, fxScreen(e)); } catch (err) { fxLive.splice(i, 1); }
+    }
+    if (fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (fxLive.length) fxRaf = requestAnimationFrame(fxFrame);
+    else fxCtx.clearRect(0, 0, box.w, box.h);
+  } finally {
+    fxFrameOn = false;
   }
-  if (fxLive.length) fxRaf = requestAnimationFrame(fxFrame);
-  else fxCtx.clearRect(0, 0, box.w, box.h);
 }
 function fxStopAll() {
   fxLive.length = 0;
   fxTimers.splice(0).forEach(t => { try { clearTimeout(t); } catch (e) {} });
   if (fxRaf) { cancelAnimationFrame(fxRaf); fxRaf = 0; }
-  if (fxCtx) { const box = viewBox(); fxCtx.clearRect(0, 0, box.w, box.h); }
+  const was = fxShaking || fxShake.x || fxShake.y;
+  fxShake = { x: 0, y: 0 };
+  fxShaking = false;
+  if (fxCtx) {
+    const box = viewBox();
+    if (fxCtx.setTransform) fxCtx.setTransform(fxDpr(), 0, 0, fxDpr(), 0, 0);
+    fxCtx.clearRect(0, 0, box.w, box.h);
+  }
+  if (was) { try { draw(); } catch (e) {} }
 }
 /** DM only: what players may receive for this effect. null = players get nothing. Never carries a hidden token. */
 function fxPublic(spec) {
@@ -3076,11 +3123,15 @@ function draw() {
   publishTokenColors();
   if (!state.scene) return;
   try { sceneData(); } catch (e) { console.error(e); return; }
+  const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, 2);
+  if (ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.globalAlpha = 1; // ensure no leaked alpha dims the DM view
   const { cols, rows, px } = state.scene.grid;
   const img = state.scene._img;
   const box = viewBox();
   ctx.clearRect(0, 0, box.w, box.h);
+  const shakeX = fxShake.x || 0, shakeY = fxShake.y || 0;
+  if ((shakeX || shakeY) && ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, shakeX * dpr, shakeY * dpr);
 
   syncOwnerLights();
   if (role === 'dm') syncSnapshotLights();
@@ -3571,6 +3622,10 @@ function draw() {
   paintBlastBanner();
   paintZoneBlind();
   refreshSelectedPanel();
+  if (ctx.setTransform) {
+    const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, 2);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
 }
 
 // --- interaction ---
