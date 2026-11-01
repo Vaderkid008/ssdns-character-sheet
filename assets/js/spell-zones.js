@@ -3,6 +3,8 @@
  * N81 P0-4 adds the lasting PHB areas (clouds, beams, guardians, beads).
  * N81 P0-5: a round counter from `dur` expires a zone, and one DM Clear
  * removes a single instance or every grid in the scene.
+ * Zone timer badges read that same roundsLeft (1 min = 10 rounds). The map
+ * paints the plate for the DM only. Clear stays on the Spell grids list.
  * rules.js is not edited. Placement stays aim-then-cast.
  * Repeat bolts, rams, and bonus-action swings stay on the sustain slice.
  */
@@ -367,6 +369,7 @@
       slot: grown.slot,
       conc: !!spec.conc,
       casterId: opts.casterId || "",
+      casterName: opts.casterName || "",
       shape: area.shape,
       radius: area.radius || (area.side ? area.side / 2 : 0),
       length: area.length || 0,
@@ -784,6 +787,109 @@
     });
     return { zones: kept, removed: removed, logs: logs };
   }
+  /* One pip per round up to 10. Longer clocks use 10 proportional pips so the
+     iron plate stays the width of a 1-minute zone. Ember at 3 rounds or fewer. */
+  var BADGE_PIP_CAP = 10;
+  var BADGE_LOW_AT = 3;
+  function zoneClock(zone) {
+    var total = zone && zone.rounds != null && isFinite(Number(zone.rounds)) ? Number(zone.rounds) : roundsFromDur(zone && zone.dur);
+    var left = zone && zone.roundsLeft != null && isFinite(Number(zone.roundsLeft)) ? Number(zone.roundsLeft) : total;
+    if (!isFinite(total) || total < 0) total = 0;
+    if (!isFinite(left) || left < 0) left = 0;
+    total = Math.round(total);
+    left = Math.round(left);
+    if (total > 0 && left > total) left = total;
+    return { rounds: total, roundsLeft: left };
+  }
+  function badgePips(left, total) {
+    if (!(total > 0)) return [];
+    var slots = Math.min(BADGE_PIP_CAP, total);
+    var filled = total <= BADGE_PIP_CAP ? Math.max(0, Math.min(slots, left)) : Math.round((left / total) * slots);
+    if (left > 0 && filled < 1) filled = 1;
+    if (left <= 0) filled = 0;
+    if (filled > slots) filled = slots;
+    var marks = [];
+    var i;
+    for (i = 0; i < slots; i++) marks.push(i < filled);
+    return marks;
+  }
+  function zoneIconKind(zone) {
+    var k = norm((zone && (zone.key || zone.spell)) || "");
+    var tag = norm((zone && zone.tag) || "");
+    if (/fire|flame|burn|incendiary|heat/.test(k) || tag === "burn-scar") return "fire";
+    if (/grease|oil/.test(k) || tag === "grease") return "grease";
+    if (/ice|cold|sleet|slick/.test(k) || tag === "slick-ice") return "ice";
+    if (/light|daylight|moon|dawn|sun/.test(k)) return "light";
+    if (/fog|cloud|stink|dark|tentacle/.test(k)) return "cloud";
+    return "zone";
+  }
+  function badgeView(zone) {
+    var clock = zoneClock(zone || {});
+    var show = clock.rounds > 0 && clock.roundsLeft > 0;
+    return {
+      show: show,
+      rounds: clock.rounds,
+      roundsLeft: clock.roundsLeft,
+      low: show && clock.roundsLeft <= BADGE_LOW_AT,
+      text: show ? (clock.roundsLeft + " rd") : "",
+      pips: show ? badgePips(clock.roundsLeft, clock.rounds) : []
+    };
+  }
+  function zoneCasterName(zone, names) {
+    names = names || {};
+    var named = "";
+    if (zone && zone.id && names[zone.id]) named = names[zone.id];
+    if (!named && zone && zone.casterId && names[zone.casterId]) named = names[zone.casterId];
+    if (!named && zone && zone.casterName) named = zone.casterName;
+    return String(named || "").trim();
+  }
+  /* Same-spell copies get 1..n in list order, plus the caster, so Clear and the
+     map badge point at the same instance. A lone copy stays unnumbered. */
+  function zoneMarks(zones, names) {
+    var counts = {};
+    (zones || []).forEach(function (z) {
+      if (!z) return;
+      var k = norm(z.key || z.spell || "zone");
+      counts[k] = (counts[k] || 0) + 1;
+    });
+    var seen = {};
+    return (zones || []).filter(Boolean).map(function (z) {
+      var k = norm(z.key || z.spell || "zone");
+      seen[k] = (seen[k] || 0) + 1;
+      var multi = counts[k] > 1;
+      var view = badgeView(z);
+      var caster = zoneCasterName(z, names);
+      var n = multi ? seen[k] : 0;
+      var spell = z.spell || "Zone";
+      var who = multi ? (String(n) + (caster ? " · " + caster : "")) : "";
+      var leftBit = "";
+      if (view.show) leftBit = " · " + view.roundsLeft + (view.roundsLeft === 1 ? " rd left" : " rds left");
+      return {
+        id: z.id,
+        spell: spell,
+        key: k,
+        n: n,
+        multi: multi,
+        caster: caster,
+        who: who,
+        rounds: view.rounds,
+        roundsLeft: view.roundsLeft,
+        low: view.low,
+        show: view.show,
+        text: view.text,
+        pips: view.pips.slice(),
+        icon: zoneIconKind(z),
+        clearLabel: "Clear " + spell + (who ? " · " + who : "") + leftBit
+      };
+    });
+  }
+  /* Hover on a Clear row pulses that zone. A missing id pulses nothing. */
+  function pulseZoneId(zones, id) {
+    if (id == null || id === "") return "";
+    var key = String(id);
+    var hit = (zones || []).some(function (z) { return z && String(z.id) === key; });
+    return hit ? key : "";
+  }
   function charge(zones, zoneId, amount) {
     var ended = null;
     var spent = 0;
@@ -1061,6 +1167,10 @@
     roundsFromDur: roundsFromDur,
     tickRounds: tickRounds,
     clearZones: clearZones,
+    badgeView: badgeView,
+    zoneMarks: zoneMarks,
+    zoneIconKind: zoneIconKind,
+    pulseZoneId: pulseZoneId,
     isExempt: isExempt,
     once: once,
     terrainMult: terrainMult,

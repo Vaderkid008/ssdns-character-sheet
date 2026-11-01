@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Zone timer proof</title>
+<link rel="stylesheet" href="../map/ssdns-map.css?v=0.3.195-zones">
+<style>
+  html, body { margin: 0; background: #1a1612; height: 100%; }
+  #mount.ssdns-map { height: 100vh; min-height: 0; }
+  #proof { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<div id="mount" class="ssdns-map hidden"></div>
+<pre id="proof"></pre>
+<script src="../assets/js/spell-zones.js?v=0.3.195-zones"></script>
+<script src="../map/ssdns-map.js?v=0.3.195-zones"></script>
+<script type="module">
+const params = new URLSearchParams(location.search);
+const role = params.get("role") === "player" ? "player" : "dm";
+const uid = role === "dm" ? "dm_proof" : "p_jolene";
+const scene = await fetch("../map/scene-dusty-spur.json").then((r) => r.json());
+const tokens = {
+  tokens: {
+    tok_jolene: { id: "tok_jolene", name: "Jolene", label: "Jolene", ownerUid: "p_jolene", kind: "player", pos: { x: 6, y: 7 }, size: 1, color: "#c9a227", sceneId: "scn_dustyspur01" },
+    tok_caleb: { id: "tok_caleb", name: "Caleb", label: "Caleb", ownerUid: "p_caleb", kind: "player", pos: { x: 22, y: 9 }, size: 1, color: "#4a90d9", sceneId: "scn_dustyspur01" }
+  }
+};
+const map = window.SSDNSMap.create({
+  el: document.getElementById("mount"),
+  role: role,
+  uid: uid,
+  adapter: { subscribe: function () { return function () {}; }, write: function () { return Promise.resolve(); }, remove: function () {} },
+  host: {},
+  options: {
+    scene: scene,
+    assetBase: "../map/",
+    tokens: role === "dm" ? tokens : { tokens: {} },
+    room: { table: { initiative: { round: 4, turn: 0, started: true, order: [
+      { id: "p_jolene", playerId: "p_jolene", name: "Jolene", kind: "player" },
+      { id: "p_caleb", playerId: "p_caleb", name: "Caleb", kind: "player" }
+    ] } } }
+  }
+});
+function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+const mount = document.getElementById("mount");
+for (let i = 0; i < 80; i++) {
+  const canvas = mount.querySelector("canvas");
+  if (canvas && canvas.clientWidth > 0 && !mount.classList.contains("hidden")) break;
+  await wait(50);
+}
+const Z = window.SSDNSSpellZones;
+const jolene = Z.buildZone("Wall of Fire", { origin: { x: 10, y: 8 }, facing: 0 }, { id: "wof-jolene", casterId: "p_jolene", casterName: "Jolene", slot: 4 });
+const caleb = Z.buildZone("Wall of Fire", { origin: { x: 20, y: 12 }, facing: Math.PI / 2 }, { id: "wof-caleb", casterId: "p_caleb", casterName: "Caleb", slot: 4 });
+jolene.roundsLeft = 7;
+caleb.roundsLeft = 3;
+map.setSpellZones([jolene, caleb]);
+await wait(350);
+if (params.get("pulse") === "1" && role === "dm") {
+  const row = document.querySelector('.ssm-zone-clear[data-zone-id="wof-caleb"]');
+  if (row) row.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+  await wait(450);
+}
+function box(el) {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { top: Math.round(r.top), left: Math.round(r.left), bottom: Math.round(r.bottom), right: Math.round(r.right), width: Math.round(r.width), height: Math.round(r.height) };
+}
+const bar = document.querySelector(".ssdns-rightbar");
+const btn = document.querySelector('[data-act="clearAllZonesBtn"]');
+const list = document.querySelector('[data-act="zoneList"]');
+const badges = Array.prototype.map.call(document.querySelectorAll(".ssm-zb"), function (b) {
+  return {
+    id: b.dataset.zoneId,
+    text: (b.innerText || "").replace(/\s+/g, " ").trim(),
+    low: b.classList.contains("is-low"),
+    pulse: b.classList.contains("is-pulse"),
+    hidden: b.offsetParent === null
+  };
+});
+const bb = box(btn);
+const br = box(bar);
+const inside = !!(bb && br && bb.height >= 16 && bb.width >= 40 && bb.top >= br.top - 1 && bb.bottom <= br.bottom + 2 && bb.bottom <= window.innerHeight + 1 && bb.top >= 0);
+const report = {
+  role: role,
+  badges: badges.length,
+  badgeText: badges,
+  list: list ? (list.innerText || "").replace(/\s+/g, " ").trim() : "",
+  clearAll: btn ? (btn.textContent || "").trim() : "",
+  clearInside: role === "player" ? badges.length === 0 : inside,
+  bar: br,
+  btn: bb
+};
+document.getElementById("proof").textContent = JSON.stringify(report);
+document.body.dataset.proof = report.clearInside && (role === "dm" ? badges.length === 2 : badges.length === 0) ? "ok" : "fail";
+window.__proof = report;
+</script>
+</body>
+</html>

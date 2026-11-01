@@ -138,8 +138,17 @@
   align-self: stretch;
   width: 168px;
   min-height: 0;
-  padding: 8px; border-radius: 6px;
-  display: flex; flex-direction: column; gap: 4px; font-size: 12px; overflow: auto;
+  padding: 8px 8px 0; border-radius: 6px;
+  display: flex; flex-direction: column; flex-wrap: nowrap; gap: 4px; font-size: 12px; overflow: hidden;
+}
+.ssdns-map .ssdns-rightbar .ssm-right-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 8px;
 }
 .ssdns-map .ssdns-chatdock {
   grid-area: dock;
@@ -373,8 +382,158 @@ body.ssdns-chat-pop .ssm-who,
 .ssdns-map [data-act="fogHistory"] button { font-size: 11px; text-align: left; }
 .ssdns-map [data-act="fogHistory"] button:disabled { opacity: 0.45; cursor: default; }
 .ssdns-map .panel-list { color: #e8dcc8; font-size: 11px; padding: 4px 0; }
-.ssdns-map [data-act="zoneList"] { max-height: 140px; overflow: auto; }
-.ssdns-map [data-act="zoneList"] button { margin: 0 0 4px; font-size: 11px; }
+/* Spell grids stays pinned to the bottom of the DM tools. The zone rows scroll.
+   Clear all does not. A short sidebar used to clip that button under the fold. */
+.ssdns-map .ssdns-rightbar .ssm-spell-grids {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
+  max-height: 100%;
+  overflow: hidden;
+  margin: 0 -8px;
+  padding: 6px 8px 8px;
+  background: #16130f;
+  border-top: 1px solid #8a6a3a;
+  box-shadow: 0 -10px 14px rgba(0, 0, 0, 0.45);
+}
+.ssdns-map .ssdns-rightbar .ssm-spell-grids .panel-title { margin-top: 0; flex: 0 0 auto; }
+.ssdns-map .ssdns-rightbar .ssm-spell-grids [data-act="zoneList"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 132px;
+  overflow: auto;
+  padding: 0;
+}
+.ssdns-map .ssdns-rightbar .ssm-spell-grids [data-act="zoneList"] button,
+.ssdns-map .ssdns-rightbar .ssm-spell-grids [data-act="clearAllZonesBtn"] { margin: 0 0 4px; font-size: 11px; }
+.ssdns-map .ssdns-rightbar .ssm-spell-grids [data-act="clearAllZonesBtn"] {
+  flex: 0 0 auto;
+  margin: 0;
+  text-align: center;
+  background: #3a1d16;
+  border-color: #8a3a26;
+  color: #f0c8b0;
+  font-weight: 600;
+}
+.ssdns-map .ssdns-rightbar button.ssm-zone-clear {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  white-space: normal;
+  line-height: 1.25;
+  text-align: left;
+  background: #2b1e17;
+  border-color: #7a4a2e;
+  padding: 4px 5px;
+}
+.ssdns-map .ssdns-rightbar button.ssm-zone-clear.is-low {
+  border-color: #d0602a;
+  box-shadow: 0 0 6px rgba(255, 100, 30, 0.35);
+}
+.ssdns-map .ssm-zico {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  margin-top: 1px;
+  background: center / contain no-repeat;
+}
+.ssdns-map .is-fire .ssm-zico { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23ff8a2a' d='M8 1c1 3 4 4.5 4 8.2A4 4 0 0 1 4 9.2C4 7 5.5 6 6 4c.8 1.2 1 2.2 1 3 .8-.6 1.5-2.6 1-6z'/%3E%3C/svg%3E"); }
+.ssdns-map .is-grease .ssm-zico { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23c9b27a' d='M8 1.5C6 5 4 7.2 4 10a4 4 0 0 0 8 0c0-2.8-2-5-4-8.5z'/%3E%3C/svg%3E"); }
+.ssdns-map .is-ice .ssm-zico { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%239ad8ff' d='M8 1 L14 14 H2 Z'/%3E%3C/svg%3E"); }
+.ssdns-map .is-light .ssm-zico { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='3.2' fill='%23ffd35a'/%3E%3C/svg%3E"); }
+.ssdns-map .is-cloud .ssm-zico { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cellipse cx='8' cy='9' rx='5' ry='3' fill='%23c8c8d0'/%3E%3C/svg%3E"); }
+.ssdns-map .is-zone .ssm-zico { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' fill='none' stroke='%23e6c75a' stroke-width='1.6'/%3E%3C/svg%3E"); }
+/* DM-only zone timer plate. Sits over the map canvas. Players never see it. */
+.ssdns-map > .ssm-zone-badges {
+  position: absolute;
+  z-index: 7;
+  pointer-events: none;
+  overflow: visible;
+}
+.ssdns-role-player .ssm-zone-badges { display: none !important; }
+.ssdns-map .ssm-zb {
+  position: absolute;
+  display: flex;
+  align-items: stretch;
+  min-height: 26px;
+  font-family: system-ui, sans-serif;
+  background: linear-gradient(#2a211a, #16110d);
+  border: 1px solid #8a6a3a;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 230, 180, 0.08);
+  transform: translateY(-100%);
+  margin-top: -6px;
+}
+.ssdns-map .ssm-zb .ico {
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid #5a4630;
+  background: rgba(0, 0, 0, 0.25);
+}
+.ssdns-map .ssm-zb .ico .ssm-zico { width: 14px; height: 14px; margin: 0; }
+.ssdns-map .ssm-zb .v {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2px 7px 2px 6px;
+  min-width: 44px;
+}
+.ssdns-map .ssm-zb .n {
+  font: 700 13px Georgia, "Times New Roman", serif;
+  color: #ffe2b0;
+  line-height: 1;
+  letter-spacing: 0.3px;
+}
+.ssdns-map .ssm-zb .pips { display: flex; gap: 1px; margin-top: 3px; }
+.ssdns-map .ssm-zb .pips b { width: 3px; height: 3px; background: #ff8a2a; }
+.ssdns-map .ssm-zb .pips b.x { background: #3e3228; }
+.ssdns-map .ssm-zb .who {
+  margin-top: 2px;
+  font: 700 8px system-ui, sans-serif;
+  letter-spacing: 0.2px;
+  color: #e6c75a;
+  white-space: nowrap;
+}
+.ssdns-map .ssm-zb .dm {
+  display: flex;
+  align-items: center;
+  padding: 0 5px;
+  font: 700 8px system-ui, sans-serif;
+  letter-spacing: 0.6px;
+  color: #c9a227;
+  border-left: 1px solid #5a4630;
+  background: rgba(201, 162, 39, 0.08);
+}
+.ssdns-map .ssm-zb .dm .eye { display: flex; margin-right: 3px; }
+.ssdns-map .ssm-zb.is-grease .pips b { background: #c9b27a; }
+.ssdns-map .ssm-zb.is-ice .pips b { background: #9ad8ff; }
+.ssdns-map .ssm-zb.is-light .pips b { background: #ffd35a; }
+.ssdns-map .ssm-zb.is-low { border-color: #d0602a; box-shadow: 0 0 8px rgba(255, 100, 30, 0.45), 0 2px 6px rgba(0, 0, 0, 0.7); }
+.ssdns-map .ssm-zb.is-low .n { color: #ffb070; }
+.ssdns-map .ssm-zb.is-low .pips b { background: #e0602a; }
+.ssdns-map .ssm-zb.is-pulse {
+  border-color: #ffb060;
+  animation: ssm-zone-pulse 0.7s ease-in-out infinite;
+}
+.ssdns-map .ssm-zb:after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  bottom: -6px;
+  width: 1px;
+  height: 6px;
+  background: #8a6a3a;
+}
+@keyframes ssm-zone-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 140, 45, 0.4), 0 2px 6px rgba(0, 0, 0, 0.7); }
+  50% { box-shadow: 0 0 14px rgba(255, 160, 50, 0.95), 0 2px 6px rgba(0, 0, 0, 0.7); }
+}
 .ssdns-map .ssdns-leftbar button,
 .ssdns-map .ssdns-leftbar select,
 .ssdns-map .ssdns-rightbar button,
@@ -447,9 +606,10 @@ body.map-fullscreen #mapMount .ssdns-leftbar,
 body.map-fullscreen #mapMount .ssdns-rightbar {
   z-index: 3;
   max-height: 100%;
-  overflow: auto;
   min-height: 0;
 }
+body.map-fullscreen #mapMount .ssdns-leftbar { overflow: auto; }
+body.map-fullscreen #mapMount .ssdns-rightbar { overflow: hidden; }
 body.map-fullscreen #mapMount .ssdns-leftbar { flex-direction: column; }
 body.map-fullscreen #mapMount .ssdns-leftbar button,
 body.map-fullscreen #mapMount .ssdns-leftbar select { width: 100%; }
@@ -549,7 +709,11 @@ body.map-fullscreen .tabs {
   body.map-fullscreen #mapMount .ssdns-leftbar button,
   body.map-fullscreen #mapMount .ssdns-leftbar select { width: auto; }
   body:not(.map-fullscreen) .ssdns-map .ssdns-rightbar,
-  body.map-fullscreen #mapMount .ssdns-rightbar { width: auto; max-height: 160px; }
+  body.map-fullscreen #mapMount .ssdns-rightbar {
+    width: auto;
+    min-height: 210px;
+    max-height: min(320px, 46vh);
+  }
   body:not(.map-fullscreen) .ssdns-map:not(:has(.ssdns-rightbar)) {
     grid-template-rows: auto auto auto minmax(220px, 1fr) auto;
     grid-template-areas:
