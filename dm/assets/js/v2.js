@@ -1784,6 +1784,18 @@ async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, r
       restoreConditions: { subjectId: subjectId, kind: kind, entries: entries }
     });
   }
+  pushTokenConditions(subjectId);
+  saveRemoteTable();
+}
+/* The lasting wrap reads token.conditions. Fight chips alone never reached the map piece. */
+function pushTokenConditions(subjectId) {
+  const host = window.SSDNSMapHost;
+  if (!host || typeof host.patchToken !== "function" || !subjectId) return;
+  const row = (fight.order || []).find((r) => r && ((r.kind === "player" ? (r.playerId || r.id) : r.id) === subjectId));
+  if (!row) return;
+  const tokenId = liveMapTokenId(row);
+  if (!tokenId) return;
+  try { host.patchToken(tokenId, { conditions: conditionNamesForMap(row) }); } catch (e) {}
 }
 function tickConditions(row) {
   const Cond = window.SSDNSConditions;
@@ -1813,6 +1825,7 @@ function tickConditions(row) {
   }
   saveLocalTable();
   renderFight();
+  pushTokenConditions(subject);
 }
 function watchConditions() {
   if (fight._condWatch || DM.state.demo || !DM.state.db || !DM.state._fb) return;
@@ -8920,6 +8933,7 @@ function resolveIncomingAttack(req, reqId) {
     mapFx({ id: feedId, shooter: req.from, target: req.targetId, result: verdict.miss ? "miss" : (verdict.crit ? "crit" : "hit"),
       nat: req.nat, crit: !!verdict.crit, critMin: req.critMin, weapon: req.spell ? (req.spellName || req.weapon || "") : (req.weapon || ""),
       weaponId: req.weaponId || "", gun: !!req.gun, sfx: req.sfx || "", arrow: fxArrowType(req.arrow),
+      type: req.spell ? "spell" : "",
       spell: req.spell ? (req.spellName || req.weapon || "") : "", dmg: req.dmgType || "", heard: [DM.state.uid] });
   }
   if (window.SSDNSAudio && window.SSDNSAudio.playOutcome) {

@@ -54,7 +54,9 @@
     if (info.free) return "free";
     if (/pistol.?whip|gun.?butt|butt.?stroke|rifle.?butt/.test(both)) return "blunt"; /* a gun used as a club */
     if (info.explosive || /dynamite|grenade|bomb\b|molotov|powder keg|explosive/.test(both) || arrow === "dynamite") return "boom";
-    if (info.spell || low(info.kind) === "spell" || SPELL_CUES[cue] || /^spell:/.test(id)) return "spell";
+    /* spellfile- replaced spellshot when a drop is present. "Fire Bolt" also matches the quarrel test below. */
+    if (info.spell || low(info.kind) === "spell" || SPELL_CUES[cue] || /^spellfile-/.test(cue) || /^spell:/.test(id)) return "spell";
+    if (/\b(fire bolt|scorching ray|ray of frost|shocking grasp|witch bolt|guiding bolt|lightning bolt)\b/.test(both)) return "spell";
     if (info.scatter || cue === "shotgun" || group === "shotgun" || /shotgun|coach gun|scattergun|blunderbuss|buckshot/.test(both)) return "buck";
     if (/crossbow|\bbolt\b/.test(both) || group === "crossbow") return "bolt";
     if (group === "bow" || BOW_CUES[cue] || /^arrow-/.test(cue) || /\bbow\b|longbow|shortbow|\barrow/.test(both) || arrow) return "arrow";
@@ -462,6 +464,7 @@
     "color spray": "limelight",
     "darkness": "darkvoid",
     "hold person": "lasso",
+    "burning hands": "firecone",
     "misty step": "dustpop",
     "web": "silk",
     "spike growth": "cholla",
@@ -482,7 +485,7 @@
   };
   var CHUNK_KIND = {
     briar: "zone", foxfire: "wrap", chloroform: "shot", jinx: "wrap", agathys: "held",
-    limelight: "cone", darkvoid: "zone", lasso: "wrap", dustpop: "pop", silk: "zone",
+    limelight: "cone", firecone: "cone", darkvoid: "zone", lasso: "wrap", dustpop: "pop", silk: "zone",
     cholla: "zone", tintype: "held", haze: "held", hush: "zone", snap: "shot",
     terror: "cone", brass: "wrap", molasses: "wrap", mesmer: "zone", flight: "held",
     gutfog: "zone", gale: "wall", rift: "shot", tentacles: "zone", morph: "shot"
@@ -538,7 +541,7 @@
     whispers: "190,170,225", massword: "205,220,140", masscure: "255,232,170", healcolumn: "255,250,230",
     cage: "85,120,240", token: "230,210,140",
     briar: "90,95,45", foxfire: "150,120,170", chloroform: "190,175,210", jinx: "120,30,30",
-    agathys: "200,225,250", limelight: "220,170,90", darkvoid: "6,5,4", lasso: "95,220,205",
+    agathys: "200,225,250", limelight: "220,170,90", firecone: "255,110,28", darkvoid: "6,5,4", lasso: "95,220,205",
     dustpop: "190,190,185", silk: "220,215,200", cholla: "215,190,130", tintype: "200,205,205",
     haze: "230,180,110", hush: "190,190,180", snap: "95,220,205", terror: "150,70,170",
     brass: "220,180,90", molasses: "225,160,60", mesmer: "210,150,170", flight: "200,185,160",
@@ -881,6 +884,27 @@ function thunderPaint(ctx, A, B, lt, seed) {
   var d = dirOf(A, B);
   var ang = Math.atan2(d.y, d.x);
   var f = lt < T.grow + T.hold ? 1 : 1 - clamp((lt - T.grow - T.hold) / T.fade);
+  /* A self cube (Thunderwave) aims at the caster. A zero-length wedge reads as no effect. */
+  var span = Math.hypot(B.x - A.x, B.y - A.y);
+  if (span < 16) {
+    var growR = easeOut(Math.min(1, lt / Math.max(1, T.grow)));
+    var rad = 18 + 46 * growR;
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = rgba("95,80,60", 0.55 * f);
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(A.x, A.y, rad, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = rgba("235,215,170", 0.85 * f);
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(A.x, A.y, rad * 0.72, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
   var len = d.d * easeOut(Math.min(1, lt / T.grow));
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
@@ -1072,6 +1096,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
   }
   function spellPaint(ctx, A, B, lt, seed, spec, g) {
     var look = lookOf(spec);
+    /* Grease, Light, and Daylight return "" on purpose. An empty look must not fall through to the purple ribbon. */
+    if (!look || look === "token") return;
     var T = g && (g.T || g.S);
     var r = (g && (g.rT || g.rS)) || 18;
     if (look === "fire") return firePaint(ctx, A, B, lt, seed);
@@ -1092,7 +1118,6 @@ function beadsPaint(ctx, A, B, lt, seed) {
     if (look === "pwt" || look === "invis" || look === "heal" || look === "bless" || look === "fog" || look === "hand") {
       return utilityPaint(ctx, look, A, B, T, r, lt);
     }
-    if (look === "token") return;
     if (CHUNK_COLORS[look]) return namedPaint(ctx, look, A, B, T, r, lt);
     return ribbonPaint(ctx, A, B, lt, seed);
   }

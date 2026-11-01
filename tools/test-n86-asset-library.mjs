@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.185" && version.sheetBuild === "sheet-playtest-v03185");
-check("ver.dmcc", version.dmcc === "0.2.198" && version.dmccBuild === "dmcc-playtest-v02198");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.185"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.198"'));
+check("ver.sheet", version.sheet === "0.3.188" && version.sheetBuild === "sheet-playtest-v03188");
+check("ver.dmcc", version.dmcc === "0.2.201" && version.dmccBuild === "dmcc-playtest-v02201");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.188"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.201"'));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 

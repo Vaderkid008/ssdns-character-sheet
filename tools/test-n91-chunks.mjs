@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.185" && version.sheetBuild === "sheet-playtest-v03185");
-check("ver.dmcc", version.dmcc === "0.2.198" && version.dmccBuild === "dmcc-playtest-v02198");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.185"') && read("assets/js/app.js").includes("sheet-playtest-v03185"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.198"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02198"));
+check("ver.sheet", version.sheet === "0.3.188" && version.sheetBuild === "sheet-playtest-v03188");
+check("ver.dmcc", version.dmcc === "0.2.201" && version.dmccBuild === "dmcc-playtest-v02201");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.188"') && read("assets/js/app.js").includes("sheet-playtest-v03188"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.201"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02201"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -103,6 +103,11 @@ check("fx.locked-smite", look("Wrathful Smite") === "fear");
 check("fx.wish", look("Wish") === "ribbon" || look("Wish") === "");
 check("fx.held", FX.lookSelf({ type: "spell", spell: "Blur" }) === true && FX.lookSelf({ type: "spell", spell: "Haste" }) === false);
 check("fx.sticky", FX.stickyLook("Baned") === "jinx" && FX.stickyLook("Paralyzed") === "lasso" && FX.stickyLook("Charmed + Incapacitated") === "mesmer");
+const guided = context.SSDNSSpellRiders.arm(context.SSDNSSpellRiders.emptyBag(null), {
+  name: "True Strike", row: { name: "True Strike", kind: "none" }, slot: 0,
+  targetId: "goblin", targetName: "Goblin", casterId: "wiz"
+});
+check("cast.trueStrike", !!(guided && guided.chips.some((c) => c && c.name === "Guided" && c.targetId === "goblin") && guided.bag.conc === "True Strike"), JSON.stringify(guided && guided.chips));
 check("fx.hypnotic-tile", FX.tileOf("Hypnotic Pattern") === "map/spell-fx/tiles/09-hypnotic-pattern.jpg");
 check("fx.dark-not-void", look("Darkness") === "darkvoid" && look("Hunger of Hadar") === "void");
 
@@ -128,6 +133,8 @@ check("sfx.guiding-json", sfx.spells["guiding bolt"].file === "magic/The_sound_o
 check("sfx.sacred-same", Audio.spellFile("Guiding Bolt") === Audio.spellFile("Sacred Flame"));
 check("sfx.count", sfx.count === 85);
 check("html.admit", read("index.html").includes("spell-cast-admit.js") && read("dm/index.html").includes("spell-cast-admit.js"));
+check("cast.lightHost", read("map/ssdns-map-host.js").includes("setSpellZones: function") && read("assets/js/sheet-extras.js").includes("function noteSpellLight"));
+check("cast.holdWrap", read("dm/assets/js/v2.js").includes("function pushTokenConditions") && read("map/ssdns-map.js").includes("Lasting wrap"));
 check("docs.locked", read("specs/spell-fx/beam-map-fx-chunk8-v1.md").includes("Soft-lock:") && read("specs/spell-fx/beam-map-fx-chunk8-v1.md").includes("09-hypnotic-pattern.jpg"));
 
 if (failures.length) {

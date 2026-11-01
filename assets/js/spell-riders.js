@@ -575,6 +575,12 @@
         }
       });
       logs.push((key === "bane" ? "Bane" : "Bless") + " · up to " + cap + " · (C) · " + (signN < 0 ? "−1d4" : "+1d4") + (key === "bane" ? " · CHA save" : "") + (list.length ? " · " + list.map(function (t) { return (t && t.name) || "creature"; }).join(", ") : ""));
+    } else if (key === "true strike") {
+      addMark({
+        spell: name, conc: true, kind: "guide", targetId: targetId, targetName: targetName,
+        chip: "Guided", consume: "target", until: "casterEnd"
+      });
+      logs.push("(C) · Guided · advantage on your next attack against " + (targetName || "them"));
     } else if (key === "mage armor") {
       addMark({
         spell: name, conc: false, kind: "mageArmor", targetId: targetId || opts.casterId || "self",

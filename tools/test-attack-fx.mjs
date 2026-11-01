@@ -65,9 +65,14 @@ check("src.hostFx", read("map/ssdns-map-host.js").includes("fx: function (spec)"
 check("src.rulesUntouched", !read("database.rules.json").includes("fxReq") && !read("database.rules.json").includes('"fx"'));
 check("src.feedOnly", read("assets/js/dm-join.js").includes("delete entry.fxReq"), "fxReq must never be written to rolls/");
 check("src.sheetFx", read("assets/js/sheet-extras.js").includes("function sheetMapFx") && read("assets/js/sheet-extras.js").includes("host.fx"));
+check("src.looseSpell", /rolled\.attack && !rolled\.multi && rolled\.nat != null/.test(read("assets/js/sheet-extras.js")) && read("assets/js/sheet-extras.js").includes('bare === "true strike"'));
+check("src.zoneHost", read("map/ssdns-map-host.js").includes("setSpellZones: function") && read("map/ssdns-map-host.js").includes("spellZones: function"));
+check("src.wrapStick", mapSrc.includes("Lasting wrap") && mapSrc.includes("fields.conditions") && v2.includes("function pushTokenConditions"));
+check("src.lightClick", mapSrc.includes("Touch spells (Light)"));
 check("src.hexCast", read("assets/js/sheet-extras.js").includes("plan && plan.hex") && read("assets/js/sheet-extras.js").includes("castLoadedHex(i, 0)"));
 check("src.hexMap", read("map/ssdns-map.js").includes("SSDNSGunCastHex") && read("map/ssdns-map.js").includes("parsed.kind === 'hex'"));
 check("src.hexDm", read("dm/assets/js/v2.js").includes("spellMapFx(row.id, target.id, name, known"));
+check("src.resolveSpellType", v2.includes('type: req.spell ? "spell" : ""'));
 check("src.ownReq", read("map/ssdns-map.js").includes("fxSpecFromReq"));
 check("src.sfxJson", (() => { try { const j = JSON.parse(read("assets/sfx/sfx.json")); return j.fx && j.fx.boomFlight > 0; } catch (e) { return false; } })());
 
@@ -93,6 +98,11 @@ check("type.rifle", cls({ weapon: "Winchester Rifle", sfx: "rifle" }) === "gun")
 check("type.buckshot", cls({ weapon: "Coach Gun", scatter: true }) === "buck" && cls({ sfx: "shotgun" }) === "buck");
 check("type.arrow", cls({ weapon: "Shortbow", gun: true }) === "arrow" && cls({ weapon: "Longbow", arrow: "whistler" }) === "arrow");
 check("type.bolt", cls({ weapon: "Light Crossbow", gun: true }) === "bolt");
+/* #205 stamped spellfile- cues. Those are not in SPELL_CUES, and "bolt" in the name used to win. */
+check("type.fireBoltNotQuarrel", cls({ weapon: "Fire Bolt" }) === "spell" && cls({ weapon: "Fire Bolt", sfx: "spellfile-fire-bolt" }) === "spell" && cls({ weapon: "Fire Bolt Shell", sfx: "spellfile-fire-bolt" }) === "spell");
+check("type.witchBoltNotQuarrel", cls({ weapon: "Witch Bolt", sfx: "spellfile-witch-bolt" }) === "spell" && cls({ weapon: "Guiding Bolt" }) === "spell" && cls({ weapon: "Lightning Bolt", dmg: "lightning" }) === "spell");
+check("type.frostNotBlade", cls({ weapon: "Ray of Frost", sfx: "spellfile-ray-of-frost" }) === "spell" && cls({ weapon: "Shocking Grasp", sfx: "spellfile-shocking-grasp" }) === "spell" && cls({ weapon: "Scorching Ray", sfx: "spellfile-scorching-ray" }) === "spell");
+check("type.crossbowStill", cls({ weapon: "Crossbow Bolt" }) === "bolt" && cls({ weapon: "Hex Bolt" }) === "bolt" && cls({ weapon: "Saber" }) === "blade");
 check("type.thrown", cls({ weapon: "Javelin" }) === "thrown");
 check("type.spell", cls({ weapon: "Hex Bolt", spell: true }) === "spell" && cls({ type: "spell" }) === "spell");
 check("type.dynamite", cls({ weapon: "Dynamite" }) === "boom" && cls({ arrow: "dynamite", weapon: "Shortbow" }) === "boom");
@@ -134,6 +144,23 @@ function resolveLook(req) {
   });
 }
 check("look.fireBolt.empty", FX.lookOf({ type: "spell", spell: "Fire Bolt" }) === "fire" && FX.plan("spell", "hit", { spell: "Fire Bolt" }).look === "fire");
+function paintOps(spec, lt) {
+  const ops = [];
+  const ctx = new Proxy({}, {
+    get(_t, p) {
+      if (typeof p !== "string") return undefined;
+      return function () { ops.push(p); return ctx; };
+    },
+    set() { return true; }
+  });
+  const g = { A: { x: 40, y: 80 }, B: { x: 320, y: 90 }, S: { x: 30, y: 80 }, T: { x: 340, y: 90 }, rS: 18, rT: 18, cell: 70, dir: { x: 1, y: 0 } };
+  FX.paint(ctx, Object.assign({ result: "hit", seed: 4 }, spec), lt == null ? 140 : lt, g);
+  return ops.filter((n) => n === "fill" || n === "stroke").length;
+}
+check("paint.fireBolt", paintOps({ type: "spell", spell: "Fire Bolt", weapon: "Fire Bolt" }) > 0 && paintOps({ type: "spell", spell: "Ray of Frost" }) > 0 && paintOps({ type: "spell", spell: "Shocking Grasp" }, 40) > 0 && paintOps({ type: "spell", spell: "Witch Bolt" }, 40) > 0 && paintOps({ type: "spell", spell: "Scorching Ray" }) > 0);
+/* The cue-only spec is what a cast paints when the spell flag never arrives. It used to be a quarrel or a slash. */
+check("paint.fireBoltCue", FX.classify({ weapon: "Fire Bolt", sfx: "spellfile-fire-bolt" }) === "spell" && FX.plan("spell", "hit", { weapon: "Fire Bolt", sfx: "spellfile-fire-bolt" }).look === "fire" && paintOps({ type: "spell", weapon: "Fire Bolt", sfx: "spellfile-fire-bolt" }) > 0);
+check("paint.zoneBlank", paintOps({ type: "spell", spell: "Grease" }) === 0 && paintOps({ type: "spell", spell: "Light" }) === 0 && paintOps({ type: "spell", spell: "Daylight" }) === 0);
 check("look.fireBoltShell.empty", FX.lookOf({ type: "spell", spell: "Fire Bolt Shell" }) === "fire" && FX.lookOf({ type: "spell", weapon: "Fire Bolt (Powder Spark)" }) === "fire");
 check("look.frost.empty", FX.lookOf({ type: "spell", spell: "Ray of Frost" }) === "cold" && FX.lookOf({ type: "spell", spell: "Ray of Frost Shell" }) === "cold");
 check("look.lightning.empty", FX.lookOf({ type: "spell", spell: "Shocking Grasp" }) === "lightning" && FX.lookOf({ type: "spell", spell: "Witch Bolt" }) === "lightning" && FX.lookOf({ type: "spell", spell: "Shocking Grasp Shell" }) === "lightning");
@@ -161,6 +188,22 @@ check("look.necro", FX.lookOf({ type: "spell", spell: "Chill Touch" }) === "necr
 check("look.radiant", FX.lookOf({ type: "spell", spell: "Sacred Flame" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Guiding Bolt" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Moonbeam" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Spirit Guardians" }) === "radiant");
 check("look.poison", FX.lookOf({ type: "spell", spell: "Poison Spray" }) === "poison");
 check("look.thunder", FX.lookOf({ type: "spell", spell: "Thunderwave" }) === "thunder" && FX.lookOf({ type: "spell", spell: "Shatter" }) === "thunder");
+check("look.hands", FX.lookOf({ type: "spell", spell: "Burning Hands", dmg: "fire" }) === "firecone" && FX.lookOf({ type: "spell", spell: "Fire Bolt", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Burning Hands" }) !== "fire");
+function paintOpsAt(spec, A, B) {
+  const ops = [];
+  const ctx = new Proxy({}, {
+    get(_t, p) {
+      if (typeof p !== "string") return undefined;
+      return function () { ops.push(p); return ctx; };
+    },
+    set() { return true; }
+  });
+  const g = { A: A, B: B, S: A, T: B, rS: 18, rT: 18, cell: 70, dir: { x: 1, y: 0 } };
+  FX.paint(ctx, Object.assign({ result: "hit", seed: 4 }, spec), 80, g);
+  return ops.filter((n) => n === "fill" || n === "stroke").length;
+}
+check("paint.hands", paintOps({ type: "spell", spell: "Burning Hands", dmg: "fire" }) > 0 && paintOps({ type: "spell", spell: "Fire Bolt", dmg: "fire" }) > 0);
+check("paint.thunderSelf", paintOpsAt({ type: "spell", spell: "Thunderwave" }, { x: 40, y: 80 }, { x: 40, y: 80 }) > 0);
 check("look.zoneOnly", FX.lookOf({ type: "spell", spell: "Grease" }) === "" && FX.lookOf({ type: "spell", spell: "Light" }) === "" && FX.lookOf({ type: "spell", spell: "Daylight" }) === "");
 const extrasSrc = read("assets/js/sheet-extras.js");
 function pendingBlock(start, end) {
@@ -398,6 +441,41 @@ const wallPub = dm.fx({ id: "wall1", type: "spell", shooter: "c_out", spell: "Wa
 await flush(30);
 check("spell.wallPublishes", !!wallPub && wallPub.spell === "Wall of Fire" && wallPub.at && wallPub.at.x === 14.5 && FX.lookOf(wallPub) === "fire", JSON.stringify(wallPub));
 check("spell.wallDraws", dm.fxLog().length === wallLog + 1 && lastLog(dm).type === "spell");
+function fxStrokes() {
+  return w.__calls.filter((c) => (c[0] === "fill" || c[0] === "stroke") && c[2] && c[2].className === "ssm-fx").length;
+}
+const cueBefore = fxStrokes();
+const cueLog = dm.fxLog().length;
+const cuePub = dm.fx({ id: "fb_cue", shooter: "c_out", target: "p1", result: "hit", weapon: "Fire Bolt", sfx: "spellfile-fire-bolt" });
+await flush(40);
+check("spell.fireBoltCuePaints", !!cuePub && cuePub.type === "spell" && cuePub.weapon === "Fire Bolt" && FX.lookOf({ type: "spell", weapon: cuePub.weapon, spell: cuePub.spell || "", dmg: cuePub.dmg || "" }) === "fire" && dm.fxLog().length === cueLog + 1 && lastLog(dm).type === "spell" && fxStrokes() > cueBefore, JSON.stringify(cuePub));
+const sibCases = [
+  ["Ray of Frost", "spellfile-ray-of-frost", "cold"],
+  ["Shocking Grasp", "spellfile-shocking-grasp", "lightning"],
+  ["Witch Bolt", "spellfile-witch-bolt", "lightning"],
+  ["Scorching Ray", "spellfile-scorching-ray", "fire"]
+];
+for (const [name, sfx, wantLook] of sibCases) {
+  const pubSib = dm.fx({ id: "sib_" + wantLook + name.length, shooter: "c_out", target: "p1", result: "hit", weapon: name, sfx: sfx });
+  await flush(15);
+  check("spell.sib." + wantLook + "." + name, !!pubSib && pubSib.type === "spell" && FX.lookOf({ type: "spell", weapon: name }) === wantLook && lastLog(pl).type === "spell", JSON.stringify(pubSib && { type: pubSib.type, weapon: pubSib.weapon }));
+}
+const looseLog = dm.fxLog().length;
+const loosePub = dm.fx({ id: "fb_loose", type: "spell", shooter: "c_out", spell: "Fire Bolt", weapon: "Fire Bolt", dmg: "fire", result: "hit", heard: ["dm"] });
+await flush(20);
+check("spell.fireBoltNoTarget", !!loosePub && loosePub.type === "spell" && dm.fxLog().length === looseLog + 1 && lastLog(dm).type === "spell" && FX.lookOf({ type: "spell", spell: "Fire Bolt" }) === "fire", JSON.stringify(loosePub));
+const missLog = pl.fxLog().length;
+pl.fx({ id: "fb_missing", type: "spell", shooter: "p1", target: "no-such-hp", spell: "Fire Bolt", weapon: "Fire Bolt", dmg: "fire", result: "hit", heard: ["p1"] });
+await flush(20);
+check("spell.fireBoltNoHp", pl.fxLog().length === missLog + 1 && lastLog(pl).type === "spell", JSON.stringify(lastLog(pl)));
+const dmHidLog = dm.fxLog().length;
+dm.fx({ id: "fb_dmhid", type: "spell", shooter: "c_out", target: "tok_hid", spell: "Fire Bolt", weapon: "Fire Bolt", dmg: "fire", result: "hit", heard: ["dm"] });
+await flush(20);
+check("spell.dmHiddenTarget", dm.fxLog().length === dmHidLog + 1 && lastLog(dm).type === "spell", JSON.stringify(lastLog(dm)));
+const stuck = dm.patchToken("tok_out", { conditions: ["Paralyzed"] });
+const stuckPub = store.pub["map/public/tokens/tok_out"];
+check("wrap.stuck", !!(stuck && stuck.conditions && stuck.conditions.indexOf("Paralyzed") >= 0 && stuckPub && stuckPub.value && stuckPub.value.conditions && stuckPub.value.conditions.indexOf("Paralyzed") >= 0), JSON.stringify(stuck && stuck.conditions));
+dm.patchToken("tok_out", { conditions: [] });
 FX.setEnabled(false);
 const spellOffLog = pl.fxLog().length;
 pl.fx({ id: "sh_off", type: "spell", shooter: "p1", target: "tok_out", spell: "Hold Person (Lasso)", result: "hit", heard: ["p1"] });
