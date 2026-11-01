@@ -54,7 +54,9 @@
     if (info.free) return "free";
     if (/pistol.?whip|gun.?butt|butt.?stroke|rifle.?butt/.test(both)) return "blunt"; /* a gun used as a club */
     if (info.explosive || /dynamite|grenade|bomb\b|molotov|powder keg|explosive/.test(both) || arrow === "dynamite") return "boom";
-    if (info.spell || low(info.kind) === "spell" || SPELL_CUES[cue] || /^spell:/.test(id)) return "spell";
+    /* spellfile- replaced spellshot when a drop is present. "Fire Bolt" also matches the quarrel test below. */
+    if (info.spell || low(info.kind) === "spell" || SPELL_CUES[cue] || /^spellfile-/.test(cue) || /^spell:/.test(id)) return "spell";
+    if (/\b(fire bolt|scorching ray|ray of frost|shocking grasp|witch bolt|guiding bolt|lightning bolt)\b/.test(both)) return "spell";
     if (info.scatter || cue === "shotgun" || group === "shotgun" || /shotgun|coach gun|scattergun|blunderbuss|buckshot/.test(both)) return "buck";
     if (/crossbow|\bbolt\b/.test(both) || group === "crossbow") return "bolt";
     if (group === "bow" || BOW_CUES[cue] || /^arrow-/.test(cue) || /\bbow\b|longbow|shortbow|\barrow/.test(both) || arrow) return "arrow";
@@ -1072,6 +1074,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
   }
   function spellPaint(ctx, A, B, lt, seed, spec, g) {
     var look = lookOf(spec);
+    /* Grease, Light, and Daylight return "" on purpose. An empty look must not fall through to the purple ribbon. */
+    if (!look || look === "token") return;
     var T = g && (g.T || g.S);
     var r = (g && (g.rT || g.rS)) || 18;
     if (look === "fire") return firePaint(ctx, A, B, lt, seed);
@@ -1092,7 +1096,6 @@ function beadsPaint(ctx, A, B, lt, seed) {
     if (look === "pwt" || look === "invis" || look === "heal" || look === "bless" || look === "fog" || look === "hand") {
       return utilityPaint(ctx, look, A, B, T, r, lt);
     }
-    if (look === "token") return;
     if (CHUNK_COLORS[look]) return namedPaint(ctx, look, A, B, T, r, lt);
     return ribbonPaint(ctx, A, B, lt, seed);
   }
